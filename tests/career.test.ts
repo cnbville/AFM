@@ -45,8 +45,27 @@ describe('a national class, freshman year to retirement', () => {
     expect(d[4]).toBeLessThan(0.45);
     expect(d.lowOrUnrated).toBeGreaterThan(0.1);
     expect(d.lowOrUnrated).toBeLessThan(0.4);
-    expect(d.fromSmallSchools).toBeGreaterThan(0.05);
-    expect(d.fromSmallSchools).toBeLessThan(0.3);
+  });
+
+  it('rarely drafts D2 players, and never before day 3', () => {
+    const sm = s.smallSchools;
+    expect(s.draftedShareByStars.fromD2).toBeLessThan(0.04);
+    if (sm.d2Drafted > 0) expect(sm.d2EarliestRound).toBeGreaterThanOrEqual(4);
+    expect(sm.d2Udfa).toBeGreaterThan(sm.d2Drafted);
+    expect(s.draftedShareByStars.fromFCS).toBeGreaterThan(0.01);
+    expect(s.draftedShareByStars.fromFCS).toBeLessThan(0.12);
+    // Standouts move up through the transfer portal instead.
+    expect(sm.transfersUp).toBeGreaterThan(100);
+    expect(sm.draftedAfterTransfer).toBeGreaterThan(0);
+  });
+
+  it('keeps a 99 level rating for the very best in the nation', () => {
+    const l = s.levelRatings;
+    // Roughly the No. 1 at each position among high school seniors.
+    expect(l.hsSeniors99).toBeLessThanOrEqual(30);
+    expect(l.hsSeniors90plus).toBeLessThan(250);
+    expect(l.fiveStarSeniorMedian).toBeGreaterThan(80);
+    expect(l.fiveStarSeniorMedian).toBeGreaterThan(l.fourStarSeniorMedian);
   });
 
   it('produces realistic pro careers', () => {

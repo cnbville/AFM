@@ -29,6 +29,8 @@ export interface SeasonRecord {
   potential: number;
   /** On-field level shown that season: overall plus form, slumps and breakouts. */
   performance: number;
+  /** 1-99 against the same position, level and age (filled in by a cohort simulation). */
+  levelRating?: number;
   events: DevelopmentEvent[];
 }
 

@@ -1,6 +1,7 @@
 import { developSeason } from './development.js';
 import { generateProspect, overall, potential, type Level, type Player, type PlayingTime } from './player.js';
 import { Rng, clamp } from './rng.js';
+import { buildLevelScale, levelGroupKey, levelRating, type LevelScale } from './levelRating.js';
 import { scoutPlayer } from './scouting.js';
 
 /**
@@ -19,10 +20,31 @@ export const PIPELINE = {
   udfaRatio: 1.6,
   /** Draft-score cutoff for an underclassman to leave school early. */
   earlyEntryScore: 70,
+  /** How far above the FBS median a lower-level player must be to get an FBS offer in the portal. */
+  transferMargin: { FCS: 0, SmallCollege: 2 } as Record<'FCS' | 'SmallCollege', number>,
+  /**
+   * Chance a player who earns a transfer up takes it. Most standouts stay put:
+   * about 85% of FCS all-conference players with eligibility left return.
+   */
+  transferChance: 0.2,
+  /**
+   * Scholarships open to lower-level transfers each year, by route, as a share
+   * of the class. Real portals move roughly 400 FCS and 150 D2 players up to
+   * FBS a year; D2 to FCS is a smaller, less tracked route.
+   */
+  transferSlots: { 'FCS>FBS': 0.0004, 'SmallCollege>FBS': 0.00015, 'SmallCollege>FCS': 0.0001 } as Record<TransferRoute, number>,
+  /**
+   * Points scouts take off a grade for production against weaker opponents.
+   * Teams can't be sure a D2 star will hold up against pro athletes.
+   */
+  competitionDiscount: { FBS: 0, FCS: 1, SmallCollege: 5, HS: 0 } as Record<CollegeLevel | 'HS', number>,
+  /** First round in which teams will spend a pick on a D2/D3/NAIA player (day 3 = round 4). */
+  smallCollegeEarliestRound: 4,
 } as const;
 
 export type RecruitStars = 0 | 2 | 3 | 4 | 5;
-type CollegeLevel = 'FBS' | 'FCS' | 'SmallCollege';
+export type CollegeLevel = 'FBS' | 'FCS' | 'SmallCollege';
+export type TransferRoute = 'FCS>FBS' | 'SmallCollege>FBS' | 'SmallCollege>FCS';
 
 export interface CareerRecord {
   player: Player;
@@ -30,7 +52,11 @@ export interface CareerRecord {
   initialPotential: number;
   /** Recruiting stars at signing (0 = unranked). */
   stars: RecruitStars;
+  /** College he finished at (after any transfers). */
   college: CollegeLevel | null;
+  /** College that first signed him out of high school. */
+  signedWith: CollegeLevel | null;
+  transfers: { age: number; from: CollegeLevel; to: CollegeLevel }[];
   /** True potential when leaving college (or high school). */
   potentialAtExit: number;
   draftPick: number | null;
@@ -65,6 +91,8 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
       initialPotential: potential(player),
       stars: 0,
       college: null,
+      signedWith: null,
+      transfers: [],
       potentialAtExit: 0,
       draftPick: null,
       udfa: false,
@@ -88,17 +116,22 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
   }
 
   // --- Recruiting: rank the class on what scouts see -------------------------
+  // Recruiting services rank on upside; college staffs offer on film, so what
+  // a senior already is counts for more in who signs where.
+  const starScore = new Map<CareerRecord, number>();
   const recruitScore = new Map<CareerRecord, number>();
   for (const r of records) {
     const rep = scoutPlayer(r.player, { accuracy: 12, level: 'HS' }, rng);
-    recruitScore.set(r, rep.overall + 0.75 * (rep.potential - rep.overall));
+    starScore.set(r, rep.overall + 0.75 * (rep.potential - rep.overall));
+    recruitScore.set(r, rep.overall + 0.6 * (rep.potential - rep.overall));
   }
-  const byRecruitScore = [...records].sort((a, b) => recruitScore.get(b)! - recruitScore.get(a)!);
+  const byStarScore = [...records].sort((a, b) => starScore.get(b)! - starScore.get(a)!);
   let cursor = 0;
   for (const stars of [5, 4, 3, 2] as const) {
     const n = Math.round(PIPELINE.starShares[stars] * size);
-    for (let k = 0; k < n && cursor < byRecruitScore.length; k++) byRecruitScore[cursor++]!.stars = stars;
+    for (let k = 0; k < n && cursor < byStarScore.length; k++) byStarScore[cursor++]!.stars = stars;
   }
+  const byRecruitScore = [...records].sort((a, b) => recruitScore.get(b)! - recruitScore.get(a)!);
   cursor = 0;
   const collegeCoaching = new Map<CareerRecord, number>();
   for (const level of ['FBS', 'FCS', 'SmallCollege'] as const) {
@@ -106,6 +139,7 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
     for (let k = 0; k < n && cursor < byRecruitScore.length; k++) {
       const r = byRecruitScore[cursor++]!;
       r.college = level;
+      r.signedWith = level;
       // Blue-chip recruits land at the programs with the best staffs.
       const prestige = level === 'FBS' ? 1 - k / n : 0.5;
       const base = level === 'FBS' ? 11 + 4 * prestige : level === 'FCS' ? 10 : 8.5;
@@ -145,6 +179,34 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
         entrants.push({ record: r, score });
       }
     }
+    // Transfer portal: standouts at lower levels move up for the exposure,
+    // coaching and competition, while they still have eligibility left.
+    // Each level only has so many open scholarships for transfers.
+    if (year <= 3) {
+      const medians = {
+        FBS: medianOverall([...active].filter((r) => r.college === 'FBS')),
+        FCS: medianOverall([...active].filter((r) => r.college === 'FCS')),
+      };
+      for (const route of Object.keys(PIPELINE.transferSlots) as TransferRoute[]) {
+        const [from, to] = route.split('>') as ['FCS' | 'SmallCollege', 'FBS' | 'FCS'];
+        const candidates = [...active]
+          .filter((r) => r.college === from && (seasonsPlayed.get(r) ?? 0) < 4)
+          .map((r) => ({ r, ovr: overall(r.player) }))
+          .filter(({ ovr }) => ovr >= medians[to] + PIPELINE.transferMargin[from])
+          // Coaches recruit the portal on film, so their order is only roughly by ability.
+          .map((c) => ({ ...c, seen: c.ovr + rng.normal(0, 4) }))
+          .sort((a, b) => b.seen - a.seen);
+        let open = Math.round(PIPELINE.transferSlots[route] * size);
+        for (const { r } of candidates) {
+          if (open <= 0) break;
+          if (!rng.chance(PIPELINE.transferChance)) continue;
+          open--;
+          r.transfers.push({ age: r.player.age, from, to });
+          r.college = to;
+          collegeCoaching.set(r, clamp(rng.normal(to === 'FBS' ? 12 : 10, 2), 1, 20));
+        }
+      }
+    }
   }
 
   // --- Draft and undrafted free agency ---------------------------------------
@@ -161,7 +223,9 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
     const team = order[(pick - 1) % order.length]!;
     let bestIndex = 0;
     let bestValue = -Infinity;
+    const round = Math.ceil((pick / draftSlots) * 7);
     for (let i = 0; i < Math.min(60, pool.length); i++) {
+      if (pool[i]!.record.college === 'SmallCollege' && round < PIPELINE.smallCollegeEarliestRound) continue;
       const value = pool[i]!.score + rng.normal(0, boardNoise(team.draftSkill));
       if (value > bestValue) {
         bestValue = value;
@@ -183,7 +247,28 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
   // --- Pro careers ------------------------------------------------------------
   for (const r of pros) simulateProCareer(r, draftSlots, rng);
 
+  attachLevelRatings(records);
   return { records, draftSlots };
+}
+
+/** Fill in each season's level rating against everyone at the same position, level and age. */
+function attachLevelRatings(records: CareerRecord[]): void {
+  const groups = new Map<string, number[]>();
+  for (const r of records) {
+    for (const s of r.player.history) {
+      const key = levelGroupKey(r.player.position, s.level, s.age);
+      let g = groups.get(key);
+      if (!g) groups.set(key, (g = []));
+      g.push(s.overall);
+    }
+  }
+  const scales = new Map<string, LevelScale>();
+  for (const [key, overalls] of groups) scales.set(key, buildLevelScale(overalls));
+  for (const r of records) {
+    for (const s of r.player.history) {
+      s.levelRating = levelRating(s.overall, s.level, scales.get(levelGroupKey(r.player.position, s.level, s.age)));
+    }
+  }
 }
 
 /**
@@ -246,7 +331,14 @@ function draftScore(r: CareerRecord, rng: Rng): number {
   const rep = scoutPlayer(r.player, { accuracy: 13, level: r.college ?? 'HS' }, rng);
   const youth = clamp((23 - r.player.age) / 3, 0, 1);
   const specialist = r.player.position === 'K' || r.player.position === 'P' ? 8 : 0;
-  return rep.overall + (0.25 + 0.2 * youth) * (rep.potential - rep.overall) - specialist;
+  const competition = PIPELINE.competitionDiscount[r.college ?? 'HS'];
+  return rep.overall + (0.25 + 0.2 * youth) * (rep.potential - rep.overall) - specialist - competition;
+}
+
+function medianOverall(group: CareerRecord[]): number {
+  if (!group.length) return Infinity;
+  const xs = group.map((r) => overall(r.player)).sort((a, b) => a - b);
+  return xs[Math.floor(xs.length / 2)]!;
 }
 
 function rolesByRank(group: CareerRecord[], starterShare: number, rotationShare: number): Map<CareerRecord, PlayingTime> {

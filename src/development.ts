@@ -36,6 +36,18 @@ const PROFILE_LIST = ATTRIBUTE_KEYS.map((k) => ATTRIBUTE_PROFILES[k]);
 const ceilingDeltaBuffer = new Float64Array(ATTRIBUTE_KEYS.length);
 const deltaAttrs = emptyAttributes(0);
 
+/**
+ * Facilities, strength staff and the quality of the man across from you. A D2
+ * star dominates but is rarely pushed, and his weight room is not an SEC one.
+ */
+const LEVEL_GROWTH: Record<Level, number> = {
+  HS: 1,
+  SmallCollege: 0.72,
+  FCS: 0.92,
+  FBS: 1,
+  NFL: 1,
+};
+
 const PLAYING_TIME_GROWTH: Record<PlayingTime, number> = {
   starter: 1.15,
   rotation: 1.0,
@@ -202,7 +214,7 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
   const coachingMult = 0.75 + ctx.coaching * 0.025; // 10 -> 1.0, 20 -> 1.25
   const coachabilityLean = 0.6 + personality.coachability * 0.04; // how much of coaching sticks
   const workMult = 0.75 + personality.workEthic * 0.025;
-  const snapsMult = PLAYING_TIME_GROWTH[ctx.playingTime] * (0.7 + 0.3 * snapsFactor);
+  const snapsMult = PLAYING_TIME_GROWTH[ctx.playingTime] * (0.7 + 0.3 * snapsFactor) * LEVEL_GROWTH[ctx.level];
   const developmentAge = age - player.bloom;
   const coachingBoost = coachingMult * (coachingMult >= 1 ? coachabilityLean : 1 / coachabilityLean);
   for (let i = 0; i < ATTRIBUTE_KEYS.length; i++) {
