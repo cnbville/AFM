@@ -59,12 +59,23 @@ describe('a national class, freshman year to retirement', () => {
     expect(sm.draftedAfterTransfer).toBeGreaterThan(0);
   });
 
-  it('keeps a 99 level rating for the very best in the nation', () => {
+  it('makes a 99 level rating as rare as EA College Football does', () => {
     const l = s.levelRatings;
-    // Roughly the No. 1 at each position among high school seniors.
-    expect(l.hsSeniors99).toBeLessThanOrEqual(30);
-    expect(l.hsSeniors90plus).toBeLessThan(250);
-    expect(l.fiveStarSeniorMedian).toBeGreaterThan(80);
+    // EA rated nobody 99 at launch in College Football 25 or 26 and one player in 27.
+    expect(l.hsSeniors99).toBeLessThanOrEqual(2);
+    expect(l.collegeSeasons99).toBeLessThanOrEqual(2);
+    // About ten players a season at 95+, and about a hundred at 90+.
+    expect(l.hsSeniors95plus).toBeGreaterThan(3);
+    expect(l.hsSeniors95plus).toBeLessThan(25);
+    expect(l.hsSeniors90plus).toBeGreaterThan(50);
+    expect(l.hsSeniors90plus).toBeLessThan(200);
+    expect(l.collegeSeasons95plus).toBeGreaterThan(5);
+    expect(l.collegeSeasons95plus).toBeLessThan(35);
+    expect(l.collegeSeasons90plus).toBeLessThan(300);
+    // A typical FBS player rates in the low 70s, as on an EA roster.
+    expect(l.fbsSeasonMedian).toBeGreaterThan(65);
+    expect(l.fbsSeasonMedian).toBeLessThan(78);
+    expect(l.fiveStarSeniorMedian).toBeGreaterThan(85);
     expect(l.fiveStarSeniorMedian).toBeGreaterThan(l.fourStarSeniorMedian);
   });
 

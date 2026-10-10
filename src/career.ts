@@ -1,7 +1,7 @@
 import { developSeason } from './development.js';
 import { generateProspect, overall, potential, type Level, type Player, type PlayingTime } from './player.js';
 import { Rng, clamp } from './rng.js';
-import { buildLevelScale, levelGroupKey, levelRating, type LevelScale } from './levelRating.js';
+import { buildLevelScale, levelGroupKey, levelRating, setsLevelScale, type LevelScale } from './levelRating.js';
 import { scoutPlayer } from './scouting.js';
 
 /**
@@ -251,22 +251,24 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
   return { records, draftSlots };
 }
 
-/** Fill in each season's level rating against everyone at the same position, level and age. */
+/** Fill in each season's level rating against the national pool for his level and age. */
 function attachLevelRatings(records: CareerRecord[]): void {
   const groups = new Map<string, number[]>();
   for (const r of records) {
     for (const s of r.player.history) {
-      const key = levelGroupKey(r.player.position, s.level, s.age);
+      const key = levelGroupKey(s.level, s.age);
+      if (!key || !setsLevelScale(s.level)) continue;
       let g = groups.get(key);
       if (!g) groups.set(key, (g = []));
       g.push(s.overall);
     }
   }
   const scales = new Map<string, LevelScale>();
-  for (const [key, overalls] of groups) scales.set(key, buildLevelScale(overalls));
+  for (const [key, overalls] of groups) scales.set(key, buildLevelScale(overalls, key === 'College' ? 'College' : 'HS'));
   for (const r of records) {
     for (const s of r.player.history) {
-      s.levelRating = levelRating(s.overall, s.level, scales.get(levelGroupKey(r.player.position, s.level, s.age)));
+      const key = levelGroupKey(s.level, s.age);
+      s.levelRating = levelRating(s.overall, s.level, key ? scales.get(key) : undefined);
     }
   }
 }
