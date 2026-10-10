@@ -28,6 +28,10 @@ const LEVEL_INJURY_RATE: Record<Level, number> = {
   NFL: 0.24,
 };
 
+/** Points per unit of growth rate added on top of proportional growth. */
+const FINISHING_STEP = 1.6;
+const MAX_YEARLY_GAIN = 12;
+
 const PROFILE_LIST = ATTRIBUTE_KEYS.map((k) => ATTRIBUTE_PROFILES[k]);
 const ceilingDeltaBuffer = new Float64Array(ATTRIBUTE_KEYS.length);
 const deltaAttrs = emptyAttributes(0);
@@ -41,7 +45,7 @@ const PLAYING_TIME_GROWTH: Record<PlayingTime, number> = {
 };
 
 const PLAYING_TIME_POTENTIAL: Record<PlayingTime, number> = {
-  starter: 0.35,
+  starter: 0.15,
   rotation: 0.1,
   backup: -0.25,
   redshirt: 0,
@@ -95,23 +99,50 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
     }
   }
 
-  // --- Form for the year: breakouts, stagnation and lost seasons -------------
-  let form = rng.logNormal(0.22);
+  // --- Form for the year: breakouts, slumps and lost seasons ----------------
+  // Development is lumpy: a single season can be worth three normal ones, and a
+  // good year is often followed by a dip as opponents adjust.
+  let form = rng.logNormal(0.38);
   let setback = 0;
-  const breakoutChance = age <= 25 ? 0.035 + (personality.competitiveness - 10) * 0.002 + (personality.workEthic - 10) * 0.002 : 0;
+  let performance = rng.normal(0, 2);
+  let breakoutLift = 0;
+  const last = player.history[player.history.length - 1];
+  const before = player.history[player.history.length - 2];
+  const hotLastYear = !!last && (last.events.includes('breakout') || (!!before && last.overall - before.overall >= 6));
+  const youngStarter = ctx.playingTime === 'starter' && age <= 22;
+  const breakoutChance =
+    (age <= 23 ? 0.035 : age <= 27 ? 0.02 : 0.01) *
+    (1 + (personality.competitiveness - 10) * 0.05 + (personality.workEthic - 10) * 0.05) *
+    (youngStarter ? 1.5 : ctx.playingTime === 'backup' ? 0.6 : 1);
+  const slumpChance = hotLastYear ? 0.16 : 0.06;
   const stagnationChance = 0.05 - (personality.workEthic - 10) * 0.003 - (personality.competitiveness - 10) * 0.0015;
   // Complacency, off-field trouble, a bad scheme fit: the quiet reasons prospects bust.
   const lostSeasonChance =
     age >= 17 && age <= 27
       ? Math.max(0.005, 0.03 + (10 - personality.workEthic) * 0.004 + (10 - personality.competitiveness) * 0.002)
       : 0;
-  if (rng.chance(breakoutChance)) {
+  if (ctx.playingTime !== 'redshirt' && rng.chance(breakoutChance)) {
     events.push('breakout');
-    form *= 1.7;
+    form *= 2.2;
+    performance += rng.range(3, 7);
+    // A proven breakout by a player already pressing against his ceiling shows
+    // the ceiling was wrong: it can rise past the normal yearly limit, by less
+    // as a player gets older. Further from the ceiling, a breakout is growth.
+    const headroom = potentialBefore - overallBefore;
+    if (headroom < 6) breakoutLift = rng.range(2, 8) * (age <= 23 ? 1 : age <= 27 ? 0.6 : 0.35);
   } else if (rng.chance(lostSeasonChance)) {
     events.push('lostSeason');
-    form *= 0.5;
+    form *= 0.4;
     setback = 1.8;
+    performance -= rng.range(3, 7);
+  } else if (ctx.playingTime !== 'redshirt' && rng.chance(slumpChance)) {
+    // Production falls hard; the ratings dip a little as confidence and timing go.
+    events.push('slump');
+    form *= 0.6;
+    performance -= rng.range(4, 9);
+    for (let i = 0; i < ATTRIBUTE_KEYS.length; i++) {
+      if (PROFILE_LIST[i]!.group !== 'physical') player.attributes[ATTRIBUTE_KEYS[i]!] -= rng.range(0.5, 3);
+    }
   } else if (rng.chance(stagnationChance)) {
     events.push('stagnation');
     form *= 0.3;
@@ -130,7 +161,7 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
       PLAYING_TIME_POTENTIAL[ctx.playingTime] * snapsFactor -
       setback +
       rng.normal(0, 0.9);
-    const shared = drive * 2.4 * plasticity;
+    const shared = drive * 1.7 * plasticity;
     const spurt = age <= 17 && rng.chance(0.09);
     if (spurt) events.push('growthSpurt');
     const delta = ceilingDeltaBuffer;
@@ -146,6 +177,25 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
     const shift = overallFor(player.position, deltaAttrs);
     const scale = Math.abs(shift) > MAX_POTENTIAL_SHIFT ? MAX_POTENTIAL_SHIFT / Math.abs(shift) : 1;
     for (let i = 0; i < ATTRIBUTE_KEYS.length; i++) player.ceilings[ATTRIBUTE_KEYS[i]!] += delta[i]! * scale;
+  }
+  // Reading defenses, poise and route timing keep deepening with real snaps
+  // well after the body has stopped growing: veterans earn new ceiling and
+  // most of it shows up on the field straight away.
+  if (age >= 21 && age <= 31) {
+    const snapsShare = ctx.playingTime === 'starter' ? 1 : ctx.playingTime === 'rotation' ? 0.6 : 0.2;
+    for (let i = 0; i < ATTRIBUTE_KEYS.length; i++) {
+      const profile = PROFILE_LIST[i]!;
+      if (profile.experience < 0.6) continue;
+      const learned = rng.range(0, 1.2) * profile.experience * snapsShare * snapsFactor;
+      player.ceilings[ATTRIBUTE_KEYS[i]!] += learned;
+      player.attributes[ATTRIBUTE_KEYS[i]!] += learned * 0.8;
+    }
+  }
+  if (breakoutLift > 0) {
+    const weights = POSITION_PROFILES[player.position].weights;
+    for (const key of ATTRIBUTE_KEYS) {
+      if (weights[key]) player.ceilings[key] = Math.min(MAX_RATING, player.ceilings[key] + breakoutLift * rng.range(0.6, 1.2));
+    }
   }
 
   // --- Growth towards the ceiling --------------------------------------------
@@ -164,8 +214,12 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
     if (ageFactor <= 0.01) continue;
     const coaching = Math.pow(coachingBoost, profile.coachability);
     const snaps = Math.pow(snapsMult, profile.experience);
-    const rate = clamp(profile.growthRate * ageFactor * coaching * snaps * workMult * form * growthMultiplier, 0, 0.75);
-    player.attributes[key] += gap * rate + rng.normal(0, 0.5);
+    const redshirtLift = ctx.playingTime === 'redshirt' && profile.group === 'physical' ? 1.35 : 1;
+    const rate = clamp(profile.growthRate * ageFactor * coaching * snaps * workMult * form * growthMultiplier * redshirtLift, 0, 0.5);
+    // Proportional growth plus a fixed step, so a well-developed player can
+    // actually reach his ceiling instead of creeping towards it forever.
+    // Even a monster year adds at most about a dozen points to one attribute.
+    player.attributes[key] += Math.min(gap, gap * rate + FINISHING_STEP * rate, MAX_YEARLY_GAIN) + rng.normal(0, 0.5);
   }
 
   // --- Ageing ----------------------------------------------------------------
@@ -198,6 +252,7 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
     playingTime: ctx.playingTime,
     overall: overallAfter,
     potential: potentialAfter,
+    performance: overallAfter + performance,
     events,
   });
   player.age += 1;

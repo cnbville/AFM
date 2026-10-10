@@ -27,6 +27,8 @@ export interface SeasonRecord {
   playingTime: PlayingTime;
   overall: number;
   potential: number;
+  /** On-field level shown that season: overall plus form, slumps and breakouts. */
+  performance: number;
   events: DevelopmentEvent[];
 }
 
@@ -37,6 +39,7 @@ export type DevelopmentEvent =
   | 'breakout'
   | 'stagnation'
   | 'lostSeason'
+  | 'slump'
   | 'minorInjury'
   | 'moderateInjury'
   | 'majorInjury';
@@ -49,6 +52,8 @@ export interface Player {
   attributes: Attributes;
   /** Hidden ceiling per attribute. Moves over time; never shown directly. */
   ceilings: Attributes;
+  /** Potential when the player was generated, kept to show how much was gained or lost. */
+  originalPotential: number;
   /** Years the player's growth window is shifted: negative = early bloomer, positive = late bloomer. */
   bloom: number;
   /** Years added to (or removed from) every decline age. */
@@ -80,7 +85,7 @@ export function potential(p: Player): number {
  */
 export function talentFromZ(z: number): number {
   const tail = Math.max(0, z - 1.6);
-  return 43 + 7 * z + 2.2 * tail * tail;
+  return 45 + 6.5 * z + 2.6 * tail * tail;
 }
 
 export interface ProspectOptions {
@@ -108,10 +113,13 @@ export function generateProspect(rng: Rng, opts: ProspectOptions = {}): Player {
     const profile = ATTRIBUTE_PROFILES[key];
     // Early bloomers arrive more physically mature; late bloomers less so.
     const maturity = clamp(profile.maturityAt14 - 0.035 * bloom + 0.03 * (age - 14) + rng.normal(0, 0.05), 0.2, 0.98);
-    attributes[key] = clamp(ceiling * maturity, MIN_RATING, ceiling);
+    // Even the most gifted 14-year-old is still a boy: soften the top end.
+    const raw = ceiling * maturity;
+    attributes[key] = clamp(raw > 40 ? 40 + (raw - 40) * 0.5 : raw, MIN_RATING, ceiling);
   }
 
   return {
+    originalPotential: overallFor(position, ceilings),
     id: opts.id ?? `p${nextId++}`,
     position,
     age,

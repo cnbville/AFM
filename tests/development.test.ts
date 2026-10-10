@@ -116,22 +116,28 @@ describe('development curves', () => {
 });
 
 describe('dynamic potential', () => {
-  it('never moves more than one band per checkpoint while young', () => {
+  it('moves at most one band per checkpoint, unless a proven breakout breaks the ceiling', () => {
     const rng = new Rng('bands');
     let checked = 0;
+    let breakouts = 0;
     for (const p of prospects(1500, 'bands', 1.5)) {
       let prev = potential(p);
       while (p.age < 22) {
         const r = developSeason(p, contextFor(p.age), rng);
-        if (!r.events.includes('majorInjury')) {
-          // Small allowance: a ceiling is nudged up when a player outgrows it.
-          expect(Math.abs(r.potentialAfter - prev)).toBeLessThanOrEqual(MAX_POTENTIAL_SHIFT + 0.6);
+        const shift = Math.abs(r.potentialAfter - prev);
+        if (r.events.includes('breakout')) {
+          expect(shift).toBeLessThanOrEqual(2 * MAX_POTENTIAL_SHIFT + 2);
+          breakouts++;
+        } else if (!r.events.includes('majorInjury')) {
+          // Allowance for snaps-driven ceiling growth and players outgrowing a ceiling.
+          expect(shift).toBeLessThanOrEqual(MAX_POTENTIAL_SHIFT + 1.5);
           checked++;
         }
         prev = r.potentialAfter;
       }
     }
     expect(checked).toBeGreaterThan(8000);
+    expect(breakouts).toBeGreaterThan(100);
   });
 
   it('moves potential both ways and mostly before 24', () => {

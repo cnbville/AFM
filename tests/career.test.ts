@@ -73,7 +73,7 @@ describe('a national class, freshman year to retirement', () => {
     expect(o.mean).toBeGreaterThan(68);
     expect(o.mean).toBeLessThan(80);
     expect(o.share90plus).toBeGreaterThan(0.005);
-    expect(o.share90plus).toBeLessThan(0.06);
+    expect(o.share90plus).toBeLessThan(0.08);
     expect(s.draft.rookieOverall.median).toBeGreaterThan(62);
     expect(s.draft.rookieOverall.median).toBeLessThan(76);
   });

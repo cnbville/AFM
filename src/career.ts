@@ -35,6 +35,8 @@ export interface CareerRecord {
   potentialAtExit: number;
   draftPick: number | null;
   udfa: boolean;
+  /** Team that drafted or signed him. */
+  team: Team | null;
   nflSeasons: number;
   peakOverall: number;
   peakAge: number;
@@ -66,6 +68,7 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
       potentialAtExit: 0,
       draftPick: null,
       udfa: false,
+      team: null,
       nflSeasons: 0,
       peakOverall: overall(player),
       peakAge: player.age,
@@ -145,19 +148,37 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
   }
 
   // --- Draft and undrafted free agency ---------------------------------------
+  // Each team picks from its own board. A team's board is the consensus grade
+  // seen through its front office: good GMs see clearly, bad ones reach.
+  const teams = makeTeams(rng);
+  const order = [...teams].sort(() => rng.next() - 0.5);
   entrants.sort((a, b) => b.score - a.score);
   const draftSlots = Math.max(1, Math.round(PIPELINE.draftPicks * share));
   const udfaSlots = Math.round(draftSlots * PIPELINE.udfaRatio);
   const pros: CareerRecord[] = [];
-  entrants.forEach((e, i) => {
-    if (i < draftSlots) {
-      e.record.draftPick = i + 1;
-      pros.push(e.record);
-    } else if (i < draftSlots + udfaSlots && overall(e.record.player) >= 48) {
-      e.record.udfa = true;
-      pros.push(e.record);
+  const pool = [...entrants];
+  for (let pick = 1; pick <= draftSlots && pool.length > 0; pick++) {
+    const team = order[(pick - 1) % order.length]!;
+    let bestIndex = 0;
+    let bestValue = -Infinity;
+    for (let i = 0; i < Math.min(60, pool.length); i++) {
+      const value = pool[i]!.score + rng.normal(0, boardNoise(team.draftSkill));
+      if (value > bestValue) {
+        bestValue = value;
+        bestIndex = i;
+      }
     }
-  });
+    const [chosen] = pool.splice(bestIndex, 1);
+    chosen!.record.draftPick = pick;
+    chosen!.record.team = team;
+    pros.push(chosen!.record);
+  }
+  for (const e of pool.slice(0, udfaSlots)) {
+    if (overall(e.record.player) < 48) continue;
+    e.record.udfa = true;
+    e.record.team = rng.pick(teams);
+    pros.push(e.record);
+  }
 
   // --- Pro careers ------------------------------------------------------------
   for (const r of pros) simulateProCareer(r, draftSlots, rng);
@@ -165,28 +186,57 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
   return { records, draftSlots };
 }
 
+/**
+ * Rating guidance for the pro game. These are what the user sees as rough
+ * bands; actual roster decisions are made by teams through their own eyes.
+ */
+export const NFL_LEVELS = { roster: 65, starter: 75, proBowl: 85, elite: 92 } as const;
+
+export interface Team {
+  id: number;
+  /** Front office judgment, 1-20. Will come from GM and owner attributes. */
+  draftSkill: number;
+}
+
+function makeTeams(rng: Rng): Team[] {
+  return Array.from({ length: 32 }, (_, id) => ({ id, draftSkill: clamp(Math.round(rng.normal(10.5, 3.5)), 1, 20) }));
+}
+
+/** How far off a front office's read of a player is, in rating points. */
+function boardNoise(skill: number): number {
+  return 1.5 + (20 - skill) * 0.35;
+}
+
 function simulateProCareer(r: CareerRecord, draftSlots: number, rng: Rng): void {
   const p = r.player;
+  const team = r.team!;
   let coaching = clamp(rng.normal(13, 2.5), 1, 20);
   // Draft capital buys patience: early picks get years to develop before being cut.
   const round = r.draftPick === null ? 8 : Math.ceil((r.draftPick / draftSlots) * 7);
-  const protection = [0, 7, 5, 4, 3, 2, 1, 0, 0][round]!;
+  const protection = [0, 6, 4, 3, 2, 1, 0, 0, 0][round]!;
   for (let season = 0; p.age <= 42; season++) {
     const ovr = overall(p);
-    const role: PlayingTime = ovr >= 74 ? 'starter' : ovr >= 66 ? 'rotation' : 'backup';
+    const role: PlayingTime = ovr >= NFL_LEVELS.starter ? 'starter' : ovr >= NFL_LEVELS.roster + 2 ? 'rotation' : 'backup';
     const report = developSeason(p, { level: 'NFL', coaching, playingTime: role }, rng);
     r.nflSeasons++;
     trackPeak(r);
     if (season % 3 === 2) coaching = clamp(rng.normal(13, 2.5), 1, 20);
 
-    const after = overall(p);
     const kicker = p.position === 'K' || p.position === 'P';
     const age = p.age;
-    const cutLine = 69 + Math.max(0, age - (kicker ? 36 : 30)) * 1.2 - (season < 3 ? protection : 0);
-    const keepChance = 1 / (1 + Math.exp(-(after - cutLine) / 2.2));
+    // Teams judge on what they see, including this season's production.
+    const seen = report.overallAfter * 0.7 + p.history[p.history.length - 1]!.performance * 0.3 + rng.normal(0, boardNoise(team.draftSkill) * 0.5);
+    // Roster spots go to whoever beats the next man up, so the real line sits
+    // a little above the roster guidance and rises with age.
+    const cutLine = NFL_LEVELS.roster + 5 + Math.max(0, age - (kicker ? 35 : 29)) * 1.2 - (season < 3 ? protection : 0);
+    const keepChance = 1 / (1 + Math.exp(-(seen - cutLine) / 2));
     if (!rng.chance(keepChance)) return;
+    const major = report.events.includes('majorInjury');
+    const retireAge = kicker ? 35 : 30;
+    // Stars keep playing while they are still stars; fringe veterans walk away.
+    const standing = report.overallAfter >= 85 ? 0.25 : report.overallAfter >= 78 ? 0.5 : 1;
     const retireChance =
-      0.03 + Math.max(0, age - (kicker ? 36 : 30)) * 0.06 + (report.events.includes('majorInjury') ? 0.08 : 0);
+      ((age < retireAge ? 0.004 : 0.02 + (age - retireAge) * 0.045) + (major ? (age >= 27 ? 0.15 : 0.04) : 0)) * standing;
     if (rng.chance(retireChance)) return;
   }
 }

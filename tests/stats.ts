@@ -62,6 +62,15 @@ export function summarize({ records, draftSlots }: CohortResult) {
   const regressions = records.flatMap((r) =>
     r.player.history.filter((s, i) => i > 0 && s.age >= 18 && s.age <= 23 && s.overall < r.player.history[i - 1]!.overall),
   );
+  const longPros = pros.filter((r) => r.nflSeasons >= 4);
+  const reach = longPros.map((r) => {
+    const peak = r.player.history.reduce((b, s) => (s.overall > b.overall ? s : b));
+    return { gap: peak.potential - peak.overall, ratio: peak.overall / peak.potential };
+  });
+  const exitOverall = records
+    .filter((r) => r.college)
+    .map((r) => r.player.history.filter((s) => s.level !== 'NFL').at(-1)!.overall);
+  const draftOverall = drafted.map((r) => r.player.history.filter((s) => s.level !== 'NFL').at(-1)!.overall);
   return {
     players: n,
     draftSlots,
@@ -119,6 +128,21 @@ export function summarize({ records, draftSlots }: CohortResult) {
         QB: median(peakAgesBy(['QB'])),
         KP: median(peakAgesBy(['K', 'P'])),
       },
+    },
+    levels: {
+      collegeExitsRated65Plus: exitOverall.filter((o) => o >= 65).length,
+      collegeExitsRated70Plus: exitOverall.filter((o) => o >= 70).length,
+      draftedBelow65: round(draftOverall.filter((o) => o < 65).length / drafted.length),
+      peakCounts: {
+        '97+': records.filter((r) => r.peakOverall >= 97).length,
+        '92+': records.filter((r) => r.peakOverall >= 92).length,
+        '85+': records.filter((r) => r.peakOverall >= 85).length,
+      },
+    },
+    reachingPotential: {
+      within2: round(reach.filter((x) => x.gap <= 2).length / reach.length),
+      reached90to98pct: round(reach.filter((x) => x.gap > 2 && x.ratio >= 0.9).length / reach.length),
+      below90pct: round(reach.filter((x) => x.ratio < 0.9).length / reach.length),
     },
     potential: {
       initialVsExitCorrelationDrafted: round(correlation(drafted.map((r) => r.initialPotential), drafted.map((r) => r.potentialAtExit))),
