@@ -71,7 +71,8 @@ describe('a national class, freshman year to retirement', () => {
     expect(l.hsSeniors90plus).toBeLessThan(200);
     expect(l.collegeSeasons95plus).toBeGreaterThan(5);
     expect(l.collegeSeasons95plus).toBeLessThan(35);
-    expect(l.collegeSeasons90plus).toBeLessThan(300);
+    expect(l.collegeSeasons90plus).toBeGreaterThan(70);
+    expect(l.collegeSeasons90plus).toBeLessThan(160);
     // A typical FBS player rates in the low 70s, as on an EA roster.
     expect(l.fbsSeasonMedian).toBeGreaterThan(65);
     expect(l.fbsSeasonMedian).toBeLessThan(78);

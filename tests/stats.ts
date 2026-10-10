@@ -1,4 +1,4 @@
-import type { CohortResult, CareerRecord } from '../src/career.js';
+import { draftRound, type CohortResult, type CareerRecord } from '../src/career.js';
 import type { Position } from '../src/positions.js';
 
 export const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN);
@@ -54,8 +54,8 @@ export function summarize({ records, draftSlots }: CohortResult) {
   const senior = records.map((r) => r.player.history[3]!.overall);
   const peakAgesBy = (pos: Position[]) =>
     pros.filter((r) => pos.includes(r.player.position) && r.nflSeasons >= 4).map((r) => nflPeakAge(r)!);
-  const firstRound = drafted.filter((r) => r.draftPick! <= draftSlots / 7);
-  const lateRound = drafted.filter((r) => r.draftPick! > (draftSlots * 6) / 7);
+  const firstRound = drafted.filter((r) => draftRound(r.draftPick!, draftSlots) === 1);
+  const lateRound = drafted.filter((r) => draftRound(r.draftPick!, draftSlots) === 7);
   const youngSeasons = records.flatMap((r) =>
     r.player.history.filter((s, i) => s.age >= 18 && s.age <= 23 && i > 0),
   );
@@ -133,7 +133,7 @@ export function summarize({ records, draftSlots }: CohortResult) {
     },
     smallSchools: {
       d2Drafted: drafted.filter((r) => r.college === 'SmallCollege').length,
-      d2EarliestRound: Math.min(...drafted.filter((r) => r.college === 'SmallCollege').map((r) => Math.ceil((r.draftPick! / draftSlots) * 7))),
+      d2EarliestRound: Math.min(...drafted.filter((r) => r.college === 'SmallCollege').map((r) => draftRound(r.draftPick!, draftSlots))),
       d2Udfa: records.filter((r) => r.udfa && r.college === 'SmallCollege').length,
       fcsDrafted: drafted.filter((r) => r.college === 'FCS').length,
       transfersUp: records.filter((r) => r.transfers.length > 0).length,
@@ -142,7 +142,7 @@ export function summarize({ records, draftSlots }: CohortResult) {
       draftedSignedFCS: drafted.filter((r) => r.signedWith === 'FCS').length,
       draftedSignedD2: drafted.filter((r) => r.signedWith === 'SmallCollege').length,
       draftedAfterTransferFromD2: drafted.filter((r) => r.signedWith === 'SmallCollege' && r.transfers.length > 0).length,
-      draftedAfterTransferDay2: drafted.filter((r) => r.transfers.length > 0 && r.draftPick! <= Math.round(draftSlots * 3 / 7)).length,
+      draftedAfterTransferDay2: drafted.filter((r) => r.transfers.length > 0 && draftRound(r.draftPick!, draftSlots) <= 3).length,
     },
     levelRatings: {
       hsSeniors99: records.filter((r) => r.player.history[3]!.levelRating! >= 99).length,

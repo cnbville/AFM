@@ -225,7 +225,7 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
     const team = order[(pick - 1) % order.length]!;
     let bestIndex = 0;
     let bestValue = -Infinity;
-    const round = Math.ceil((pick / draftSlots) * 7);
+    const round = draftRound(pick, draftSlots);
     for (let i = 0; i < Math.min(60, pool.length); i++) {
       if (pool[i]!.record.college === 'SmallCollege' && round < PIPELINE.smallCollegeEarliestRound) continue;
       const value = pool[i]!.score + rng.normal(0, boardNoise(team.draftSkill));
@@ -249,12 +249,12 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
   // --- Pro careers ------------------------------------------------------------
   for (const r of pros) simulateProCareer(r, draftSlots, rng);
 
-  attachLevelRatings(records);
+  attachLevelRatings(records, share);
   return { records, draftSlots };
 }
 
 /** Fill in each season's level rating against the national pool for his level and age. */
-function attachLevelRatings(records: CareerRecord[]): void {
+function attachLevelRatings(records: CareerRecord[], classShare: number): void {
   const groups = new Map<string, number[]>();
   for (const r of records) {
     for (const s of r.player.history) {
@@ -266,13 +266,27 @@ function attachLevelRatings(records: CareerRecord[]): void {
     }
   }
   const scales = new Map<string, LevelScale>();
-  for (const [key, overalls] of groups) scales.set(key, buildLevelScale(overalls, key === 'College' ? 'College' : 'HS'));
+  for (const [key, overalls] of groups) scales.set(key, buildLevelScale(overalls, key === 'College' ? 'College' : 'HS', classShare));
   for (const r of records) {
     for (const s of r.player.history) {
       const key = levelGroupKey(s.level, s.age);
-      s.levelRating = levelRating(s.overall, s.level, key ? scales.get(key) : undefined);
+      const discount = s.level === 'FCS' || s.level === 'SmallCollege' ? PIPELINE.competitionDiscount[s.level] : 0;
+      s.levelRating = levelRating(s.overall - discount, s.level, key ? scales.get(key) : undefined);
     }
   }
+}
+
+/**
+ * Last pick of each round in a real 257-pick draft (2025). Rounds 1 and 2 have
+ * 32 picks; compensatory picks make rounds 3-7 longer.
+ */
+const ROUND_ENDS = [32, 64, 102, 138, 176, 216, 257] as const;
+
+/** Round of a pick, with the real round sizes scaled to the class's number of picks. */
+export function draftRound(pick: number, draftSlots: number): number {
+  const scale = draftSlots / ROUND_ENDS[ROUND_ENDS.length - 1]!;
+  const i = ROUND_ENDS.findIndex((end) => pick <= Math.round(end * scale));
+  return i === -1 ? ROUND_ENDS.length : i + 1;
 }
 
 /**
@@ -301,7 +315,7 @@ function simulateProCareer(r: CareerRecord, draftSlots: number, rng: Rng): void 
   const team = r.team!;
   let coaching = clamp(rng.normal(13, 2.5), 1, 20);
   // Draft capital buys patience: early picks get years to develop before being cut.
-  const round = r.draftPick === null ? 8 : Math.ceil((r.draftPick / draftSlots) * 7);
+  const round = r.draftPick === null ? 8 : draftRound(r.draftPick, draftSlots);
   const protection = [0, 6, 4, 3, 2, 1, 0, 0, 0][round]!;
   for (let season = 0; p.age <= 42; season++) {
     const ovr = overall(p);

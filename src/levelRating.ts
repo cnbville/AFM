@@ -10,7 +10,7 @@ import type { Level } from './player.js';
  *   positions together, like a national recruiting ranking.
  * - College: compared with every FBS player, all ages and positions together,
  *   like EA Sports College Football. FCS and small-college players are put on
- *   the same FBS scale.
+ *   the same FBS scale after the same discount NFL scouts give their tape.
  *
  * The scale is anchored to national ranks, using how rare top ratings are in
  * EA College Football (about 11,000 players a season): 90+ is roughly the top
@@ -26,10 +26,7 @@ export interface LevelScale {
 /** Rating points per overall point above the No. 2 player in the pool. */
 const ABOVE_TOP_SLOPE = 0.4;
 
-/** Players in one real-world pool: a season of FBS rosters, or a national high school age group. */
-export const LEVEL_REFERENCE_POOL = { College: 11_000, HS: 250_000 } as const;
-
-type Pool = keyof typeof LEVEL_REFERENCE_POOL;
+type Pool = 'College' | 'HS';
 
 /** Anchors: [quantile from the bottom] or [rank from the top in a reference-sized pool], and the rating there. */
 const ANCHORS: Record<Pool, { quantile: [number, number][]; rank: [number, number][] }> = {
@@ -54,18 +51,17 @@ export function setsLevelScale(level: Level): boolean {
 }
 
 /**
- * Build the scale for one group from the overalls that set it. Ranks are
- * scaled by how big this pool is compared with the real-world one, so a
- * smaller simulated class still puts the same share of players at 90+.
+ * Build the scale for one group from the overalls that set it. The top ranks
+ * are national counts (the top 100 is the top 100 however big the pool is),
+ * so they are only scaled when the simulated class is smaller than a real one.
  */
-export function buildLevelScale(overalls: number[], pool: Pool): LevelScale {
+export function buildLevelScale(overalls: number[], pool: Pool, classShare = 1): LevelScale {
   const s = [...overalls].sort((a, b) => b - a);
   const n = s.length;
-  const scale = n / LEVEL_REFERENCE_POOL[pool];
   const anchors = ANCHORS[pool];
   const points: [number, number][] = [];
   for (const [q, rating] of anchors.quantile) points.push([s[Math.min(n - 1, Math.floor(n * (1 - q)))]!, rating]);
-  for (const [rank, rating] of anchors.rank) points.push([s[Math.min(n - 1, Math.max(1, Math.round(rank * scale)) - 1)]!, rating]);
+  for (const [rank, rating] of anchors.rank) points.push([s[Math.min(n - 1, Math.max(1, Math.round(rank * classShare)) - 1)]!, rating]);
   points.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
   // Keep the curve strictly increasing in overall: in a tiny pool two anchors can share a value.
   const clean: [number, number][] = [];
