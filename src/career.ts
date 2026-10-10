@@ -122,7 +122,9 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
   const recruitScore = new Map<CareerRecord, number>();
   for (const r of records) {
     const rep = scoutPlayer(r.player, { accuracy: 12, level: 'HS' }, rng);
-    starScore.set(r, rep.overall + 0.75 * (rep.potential - rep.overall));
+    // Kickers and punters are ranked on their own lists and almost never earn four or five stars.
+    const specialist = r.player.position === 'K' || r.player.position === 'P' ? 8 : 0;
+    starScore.set(r, rep.overall + 0.75 * (rep.potential - rep.overall) - specialist);
     recruitScore.set(r, rep.overall + 0.6 * (rep.potential - rep.overall));
   }
   const byStarScore = [...records].sort((a, b) => starScore.get(b)! - starScore.get(a)!);
