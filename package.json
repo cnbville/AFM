@@ -1,0 +1,27 @@
+{
+  "name": "afm",
+  "version": "0.1.0",
+  "description": "American Football Manager: a deep, realistic American football management sim.",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "calibrate": "tsx scripts/calibrate.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cnbville/AFM.git"
+  },
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/cnbville/AFM/issues"
+  },
+  "homepage": "https://github.com/cnbville/AFM#readme",
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  },
+  "private": true,
+  "type": "module"
+}
