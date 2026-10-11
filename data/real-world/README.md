@@ -1,8 +1,6 @@
-# Real-world data (first pass)
+# Real-world data
 
-Raw research data for section 2 (the world). It came from an outside research run (afm_dataset.zip, 2026-10-11) using the strict data prompt posted in the project chat. It was checked against that prompt but **not re-researched**. Most of it is placeholder text and must not be used as real figures yet.
-
-"Est" in a cell means the research run estimated or skipped it. Treat any cell reading "Est ...", "TBD" or "(est)" as **missing**.
+Raw research data for section 2 (the world). The first pass came from an outside research run (afm_dataset.zip, 2026-10-11) and was mostly placeholders. On 2026-10-11 Claude re-researched every file. Each figure now has a source URL in its row or in this README. "Computed" values are derived from open datasets with the method written below. Every remaining gap is listed by name.
 
 ## Status per file
 
@@ -12,11 +10,21 @@ Raw research data for section 2 (the world). It came from an outside research ru
 | `nfl_rules.json` | full | **Re-researched 2026-10-11.** 2026 cap, minimums, tags, option rules, practice squad, roster limits, calendar. |
 | `rookie_scale_2026.csv` | 257 (257) | **New.** Every 2026 pick's rookie contract. |
 | `rates.json` | most groups | **Re-researched 2026-10-11.** Draft rates by star, recruits per star, NIL, portal. JUCO and prep counts are gaps. |
-| `hs_states.csv` | 51 (51) | Rows complete, data not. Only `governing_body` and `state` are filled; every other column is a copied placeholder. |
+| `hs_states.csv` | 51 (51) | **Re-researched 2026-10-11.** Programs, classes, playoffs and top teams for every state and DC. Transfer rules are a gap for 48. |
 | `talent_by_state.csv` | 51 (50 + DC) | **Re-researched 2026-10-11.** Computed from public recruiting, roster and draft datasets. Method below. |
 | `colleges.csv` | 426 (426) | **Re-researched 2026-10-11.** Real data, a source URL per figure. Gaps listed below. |
 
-## Known gaps
+## Notes and gaps per file
+
+**hs_states.csv** (re-researched 2026-10-11)
+- `approx_programs`: number of teams in MaxPreps' 2026 state rankings (includes 8-man, 9-man and 6-man teams). Florida's count is from page 2 of its rankings because page 1 would not load.
+- `classifications`, `number_of_classes`, `playoff_format`: the 2026 playoff guide for all 50 states (SI). It gives classes, start dates, final dates and sites, but rarely how teams qualify.
+- `top_5_powerhouses`: the top 5 of MaxPreps' 2026 state rankings on the date in `top_5_as_of`. This is current strength, not all-time history. Florida uses the final 2025 ranking (IMG Academy first) because the 2026 page would not load.
+
+Gaps (exact):
+- `transfer_rule_summary` is filled only for Indiana, Michigan and Ohio. The other 48 rows (47 states and DC) need each association's handbook; no single source covers them.
+- DC: `classifications`, `number_of_classes` and `playoff_format` are blank (the SI guide covers the 50 states only).
+- Playoff qualification rules (how many teams make it) are missing for most states.
 
 **colleges.csv** (re-researched 2026-10-11, 2026 season membership)
 - Rows: 138 FBS + 128 FCS + 160 D2 = 426. FCS includes 4 schools moving up from D2 (Mercyhurst, New Haven, West Florida, West Georgia; see `notes`). FBS includes North Dakota State and Sacramento State (new in 2026).
@@ -67,12 +75,8 @@ Gaps (exact):
 - Earlier fixes kept: Browns' Huntington Bank Field and Commanders' Northwest Stadium.
 - Gap: `altitude_ft` still has no per-figure source.
 
-## Sources named in the files
-- NFL team pages: nfl.com/teams/...
-- College team pages: collegefootballdata.com/team/..., ncaa.com/schools/...
-- High school: nfhs.org/associations/...
-- Recruiting: 247sports.com (2023 draft star article, 2025 commits, 2026 rankings)
-- NIL and portal: on3.com
-- NFL rules: nfl.com (2026 cap), overthecap.com (minimums, draft, options, tenders), operations.nfl.com (2026 calendar)
-
-These URLs were not opened or verified.
+## Main sources
+- Wikipedia lists: FBS, FCS and D2 programs; FBS and FCS stadiums; D2 institutions; conference member pages; national championship pages; AAU members; Carnegie R1/R2 list; US TV markets; current NFL stadiums.
+- Open datasets: sportsdataverse `cfb_schedules` and `cfb_recruits` releases, cfbfastR-data `rosters/csv`, nflverse `draft_picks` and `contracts` releases.
+- MaxPreps 2026 state rankings; SI 2026 state playoff guide.
+- On3, 247Sports, Axios, Hudl, NCAA.org, NIL Wire (Opendorse), SI/CBS, NFL.com, Bengals.com, Yahoo Sports, NBC Sports.
