@@ -58,7 +58,9 @@ export const PIPELINE = {
    * the top 150 goes without four stars, the top 800 without three, or the
    * top 3,000 without two. Kickers and punters get at most three stars.
    */
-  starFilmRank: { maxFor5: 100, maxFor4: 1000, minFor4: 150, minFor3: 800, minFor2: 3000 },
+  starFilmRank: { maxFor5: 100, maxFor4: 1000, maxFor3: Infinity, maxFor2: Infinity, minFor4: 150, minFor3: 800, minFor2: 3000 },
+  /** Worst senior film rank an FBS staff will sign below three stars. */
+  fbsOfferMaxFilmRank: Infinity,
 } as const;
 
 export type RecruitStars = 0 | 2 | 3 | 4 | 5;
@@ -72,6 +74,8 @@ export interface CareerRecord {
   initialPotential: number;
   /** Recruiting stars at signing (0 = unranked). */
   stars: RecruitStars;
+  /** Where his senior film ranked nationally (1 = best). */
+  seniorFilmRank: number;
   /** College he finished at (after any transfers). */
   college: CollegeLevel | null;
   /** College that first signed him out of high school. */
@@ -116,6 +120,7 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
       initialOverall: overall(player),
       initialPotential: potential(player),
       stars: 0,
+      seniorFilmRank: 0,
       college: null,
       signedWith: null,
       transfers: [],
@@ -180,10 +185,13 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
     recruitScore.set(r, 0.4 * film + 0.6 * projection.get(r)!);
   }
   const filmRank = new Map<CareerRecord, number>();
-  [...records].sort((a, b) => filmScore.get(b)! - filmScore.get(a)!).forEach((r, i) => filmRank.set(r, i + 1));
+  [...records].sort((a, b) => filmScore.get(b)! - filmScore.get(a)!).forEach((r, i) => {
+    filmRank.set(r, i + 1);
+    r.seniorFilmRank = i + 1;
+  });
   const byStarScore = [...records].sort((a, b) => starScore.get(b)! - starScore.get(a)!);
-  const { maxFor5, maxFor4, minFor4, minFor3, minFor2 } = PIPELINE.starFilmRank;
-  const maxRank: Record<2 | 3 | 4 | 5, number> = { 5: maxFor5, 4: maxFor4, 3: Infinity, 2: Infinity };
+  const { maxFor5, maxFor4, maxFor3, maxFor2, minFor4, minFor3, minFor2 } = PIPELINE.starFilmRank;
+  const maxRank: Record<2 | 3 | 4 | 5, number> = { 5: maxFor5, 4: maxFor4, 3: maxFor3, 2: maxFor2 };
   const mustRank: Record<2 | 3 | 4 | 5, number> = { 5: 0, 4: minFor4, 3: minFor3, 2: minFor2 };
   for (const stars of [5, 4, 3, 2] as const) {
     let n = Math.round(PIPELINE.starShares[stars] * size);
@@ -216,6 +224,11 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
   const collegeCoaching = new Map<CareerRecord, number>();
   for (const level of ['FBS', 'FCS', 'SmallCollege'] as const) {
     const n = Math.round(PIPELINE.collegeShares[level] * size);
+    if (level === 'FBS') {
+      const limit = PIPELINE.fbsOfferMaxFilmRank * share;
+      const onFilm = (r: CareerRecord) => (tier(r) || filmRank.get(r)! <= limit ? 1 : 0);
+      reorderRest((a, b) => onFilm(b) - onFilm(a) || tier(b) - tier(a) || recruitScore.get(b)! - recruitScore.get(a)!);
+    }
     if (level === 'FCS') reorderRest((a, b) => filmScore.get(b)! - filmScore.get(a)!);
     for (let k = 0; k < n && cursor < byRecruitScore.length; k++) {
       const r = byRecruitScore[cursor++]!;
