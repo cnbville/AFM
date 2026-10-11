@@ -26,6 +26,7 @@ Each roadmap section goes: (1) design rounds with Raichel until the details are 
 ## Next job
 - Section 1 (the engine, the player model in Rust) is done. Raichel finds further calls and bugs in gameplay, not in more trials.
 - Section 2 (the world) is in design: topic 1 answered, topic 2 awaiting Raichel's answers, topics 3-8 open. See `docs/design/world.md`.
+- Confirmed by Raichel (2026-10-11): the section order and the section loop above, the scouting-staff design, the college program grade categories, 30 years of hidden history before 2026, and the topic 1 leftovers (personality and the powerhouse flip side).
 
 ## Code
 - Rust (edition 2024), Cargo workspace. Pure logic, no UI yet.

@@ -18,7 +18,7 @@ See `docs/roadmap.md` for the whole plan and the working rules.
 
 So those items take the realistic answer by default (all real programs, real classifications and playoffs, every real college level, realignment, a coaching carousel, rich franchise traits, shifting talent geography). They were never answered one by one, and their details still need design.
 
-One item from that batch is not a realism question and stays **open**: how many years of hidden history to simulate before 2026. Claude suggested 30 years for deeper records and Hall of Fame classes; the earlier league sim used about 15 warm-up seasons.
+One item from that batch was not a realism question: how many years of hidden history to simulate before 2026. **Confirmed (2026-10-11): 30 years**, so records and Hall of Fame classes look real. (The earlier league sim used about 15 warm-up seasons.)
 
 **Influences are noteworthy, never driving (confirmed).** Raichel repeated this on almost every answer below. Background factors shift odds and add texture. None of them should decide a career.
 
@@ -94,7 +94,7 @@ Raichel's answer: "Definitely an aspect, should also impact scholarships to Ivy-
 Confirmed rules:
 - Grades affect eligibility, and also scholarships to Ivy-type schools.
 - **Colleges get program grades like EA Sports College Football** (letter grades per category), and colleges use them too (for example when recruiting and when players choose).
-- Unconfirmed detail: Claude inferred the categories (for example academics and pro pipeline). Raichel has not said which categories EA uses or should be copied. Ask before building.
+- **Categories (confirmed 2026-10-11):** academics, pro pipeline, playing time, tradition, title chances, coach prestige, facilities, NIL and brand exposure, conference strength, stadium atmosphere, and campus life. This was Claude's best guess at EA's list, not checked against EA, and Raichel accepted it.
 
 ### 1.7 Follow-up answers (confirmed)
 - **Backgrounds can change mid-career "a bit more than rarely"**: for example a family crisis, a mentor stepping in, or NIL money changing his family's life.
@@ -102,9 +102,10 @@ Confirmed rules:
 - **Mental health is "a big part"**: a big hidden factor. Claude suggested it affects slumps and holdouts; the exact effects are still to design.
 - **Religion and church community are out.**
 
-### 1.8 Parts of Claude's proposal Raichel didn't address (proposed, not confirmed)
-- **Personality decides what hardship does.** Work ethic and mental toughness decide the effect: a driven kid can turn hardship into fuel (extra toughness and hunger), a fragile one is more likely to stall or quit. Neither is guaranteed. Raichel's grit and "low ambition" answers fit this, but it wasn't confirmed as written.
-- **The powerhouse flip side.** Elite schools polish players early, so less hidden growth is left. Some players get comfortable, and depth charts are crowded. A kid can also transfer to a powerhouse to escape a bad situation.
+### 1.8 Personality and the powerhouse flip side (confirmed 2026-10-11)
+- **Personality decides what hardship does.** Work ethic and mental toughness decide the effect: a driven kid can turn hardship into fuel (extra toughness and hunger), a fragile one is more likely to stall or quit. Neither is guaranteed.
+- **The powerhouse flip side.** Powerhouse kids arrive more polished, so less hidden growth is left, plus some complacency and crowded depth charts.
+- Still part of topic 2, not yet confirmed: a kid can transfer to a powerhouse to escape a bad situation.
 
 ---
 

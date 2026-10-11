@@ -41,7 +41,7 @@ These rules apply to every Claude session and every contributor.
 8. **Push and merge only with Raichel's OK.** Raichel gave that OK for build threads: they merge to `main` so any new session sees the latest work (trial 6, 2026-10-11, answer B: "merge into main").
 9. **Gameplay finds the bugs now.** The player model is done. Raichel finds further calls and bugs while playing, not in more trials.
 
-### The section loop (proposed by Claude 2026-10-11, Raichel has worked this way since)
+### The section loop (confirmed 2026-10-11)
 
 Every section goes through the same four steps:
 1. **Design rounds with Raichel**, as many batches as it takes, until the details are nailed down.
@@ -152,7 +152,7 @@ Answer: "Potential should pretty much be hidden, like the suggestion i gave earl
 **Q31. Scouts assigned to regions, conferences or single players, with reports that improve over time.**
 Answer: yes. Raichel also asked how scouting works today.
 - **How it works today (in the engine):** each high school senior gets three film reports with random error, averaged into his stars. Upside is one shared guess, which misses more often. Each NFL team grades its draft board once, and its accuracy depends on the GM's and owner's drafting skill. The user can't scout yet.
-- **Claude's proposal for the game (not confirmed):** a scouting staff (director, area scouts, cross-checkers). You assign them to regions, conferences or single players. Every report has error that shrinks with the scout's skill and with how much he has seen (film, live games, workouts, interviews). Your draft board is built only from your own reports, never from true ratings, and AI teams build theirs the same way with their own errors. Pro scouting works the same way for free agents and trades. Character reports feed each player's hidden personality.
+- **The design for the game (confirmed 2026-10-11, details in section 7):** a scouting staff (director, area scouts, cross-checkers). You assign them to regions, conferences or single players. Every report has error that shrinks with the scout's skill and with how much he has seen (film, live games, workouts, interviews). Your draft board is built only from your own reports, never from true ratings, and AI teams build theirs the same way with their own errors. Pro scouting works the same way for free agents and trades. Character reports feed each player's hidden personality.
 
 **Q32. Combine, pro days and private workouts with real measurables** (40-yard dash, bench, vertical, shuttle)?
 Answer: "Yes but with insane detail, did the player show up early or late, are his parents loudmouths that yell at every game or are they social media happy? how did he seem to the scouts?" Character detail is part of scouting.
@@ -204,7 +204,7 @@ Answer: "Okay you can rewrite into rust." The player model was ported to Rust an
 
 ## 4. Build sections
 
-The order below was proposed by Claude on 2026-10-11 after the 50 answers. Raichel did not object, asked for a deep training section, and started section 2's design, but has not explicitly signed off the order. **Treat the order as proposed.**
+The order below is **confirmed** (Raichel, 2026-10-11: "ok to all"): world, match engine, calendar, team management, people, training, scouting and draft, first playable, game day, screens.
 
 | # | Section | Status |
 |---|---|---|
