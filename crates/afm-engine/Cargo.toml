@@ -1,0 +1,14 @@
+[package]
+name = "afm-engine"
+description = "AFM simulation engine: players, development, scouting, recruiting, the draft and pro careers."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[features]
+# Debug and trial tooling only: exposes true potential and hidden ceilings.
+# The game itself must never enable this.
+debug = []
+
+[dependencies]
+rayon = "1.12"

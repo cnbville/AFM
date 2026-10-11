@@ -1,7 +1,7 @@
 # Player development model
 
 How AFM players grow from 14-year-old freshmen into pros, and how they decline.
-Code: `src/`. Real-world calibration checks: `tests/career.test.ts`.
+Code: `crates/afm-engine/src/` (Rust). Real-world calibration checks: `crates/afm-tools/tests/national_class.rs`. The original TypeScript is kept in `legacy-ts/` for reference.
 
 ## Ratings
 
@@ -88,4 +88,4 @@ Cards also show a 1–99 level rating. In high school it ranks a player against 
 
 Known gaps waiting on design calls: five-stars and four-stars are drafted too often and low-ranked players too rarely (players arrive at college nearly finished), scouts' film error still leaves about 35 of the top 500 seniors with two stars, too many underclassmen leave early, first-round careers run long, retirement ignores position, and roles don't come from depth charts yet.
 
-Run `npm run calibrate` to print the full table for any class size and seed.
+Run `cargo run --release --bin calibrate -- 250000 seed` to print the full table for any class size and seed.
