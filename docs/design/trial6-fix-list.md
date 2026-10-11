@@ -48,4 +48,11 @@ Nothing here is built. Raichel is still reading the cards; we walk through this 
 - **Film line for stars and FBS offers, option C** (cards 9, 10, 21, 23, 24, 28): three-stars from the top 2,700 on film, two-stars from the top 6,500, FBS offers below three stars from the top 4,500. Good-film seniors (cards 10, 23) get offers and stars before weak-film ones.
 - **Coachability bug** (card 28): already fixed in the code.
 
+## 8. Raichel's own notes on calls 2, 3, 6 and 7 (first round, 2026-10-11)
+- **Call 2, the declare decision also weighs:** a bad final year (stay to rebuild stock); which team would likely draft him (players avoid a bad franchise: Dante Moore reportedly stayed rather than go to the Jets); and NIL money that can make staying worth millions. Fix 5 adds urgency on top.
+- **Landing spot matters after the draft:** a bad organisation can stall a top pick (Sam Darnold and the Jets), and a better situation later can revive him. Today pro coaching is a random roll unrelated to the drafting team.
+- **Call 3, tracked markets:** released players enter a free-agent pool tracked season to season; teams sign by need, rating, age and cost; players can re-sign with their own team; unsigned players can retire from the pool. The NCAA transfer portal works the same way: enter, get offers or not, some end up without a school. Cards show every move.
+- **Call 6, position value with situational reaches:** teams weigh positions by general value (QB, edge, tackle up; running back down) and by their own roster. A team with a great defense missing only a generational CB or OLB reaches for him; a team with a young franchise QB won't take another early.
+- **Call 7, sideways and down transfers:** players can transfer across or down a level, not only up (for playing time, a coaching change, or a dismissal; see fix 3).
+
 These are the final fixes before the game itself; later problems get debugged in the game.
