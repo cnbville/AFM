@@ -1,0 +1,72 @@
+{
+    "draft_rate_by_star": [
+        {
+            "star": 5,
+            "any_round": 0.7008,
+            "first_round": 0.343,
+            "source_url": "https://247sports.com/article/nfl-draft-2023-star-rankings-1st-round-picks-208882046/",
+            "year": 2023
+        },
+        {
+            "star": 4,
+            "any_round": 0.3,
+            "first_round": 0.038,
+            "source_url": "https://247sports.com/article/nfl-draft-2023-star-rankings-1st-round-picks-208882046/",
+            "year": 2023
+        },
+        {
+            "star": 3,
+            "any_round": 0.1,
+            "first_round": 0.004,
+            "source_url": "https://247sports.com/article/nfl-draft-2023-star-rankings-1st-round-picks-208882046/",
+            "year": 2023
+        }
+    ],
+    "nil_ranges": [
+        {
+            "level": "FBS Power 4",
+            "position": "QB",
+            "min": 500000,
+            "max": 2500000,
+            "source_url": "https://www.on3.com/nil/news/on3-nil-valuation-explainer-college-football/",
+            "year": 2026,
+            "note": "est"
+        }
+    ],
+    "portal_entrants_by_level": [
+        {
+            "level": "FBS",
+            "entrants": 3310,
+            "source_url": "https://www.on3.com/transfer-portal/news/",
+            "year": 2026,
+            "note": "est"
+        }
+    ],
+    "juco_to_fbs_signees_per_year": {
+        "count": 450,
+        "source_url": "https://247sports.com/Season/2025-Football/Commits/",
+        "year": 2025,
+        "note": "est"
+    },
+    "prep_school_signees_per_year": {
+        "count": 150,
+        "source_url": "https://247sports.com/Season/2025-Football/Commits/",
+        "year": 2025,
+        "note": "est"
+    },
+    "recruits_per_star_tier_per_class": [
+        {
+            "star": 5,
+            "count": 32,
+            "source_url": "https://247sports.com/Season/2026-Football/CompositeRecruitRankings/",
+            "year": 2026
+        },
+        {
+            "star": 4,
+            "count": 400,
+            "source_url": "https://247sports.com/Season/2026-Football/CompositeRecruitRankings/",
+            "year": 2026,
+            "note": "est"
+        }
+    ]
+}
