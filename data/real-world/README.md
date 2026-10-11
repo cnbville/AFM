@@ -13,16 +13,23 @@ Raw research data for section 2 (the world). It came from an outside research ru
 | `rates.json` | thin | One value per group; most marked "est". |
 | `hs_states.csv` | 51 (51) | Rows complete, data not. Only `governing_body` and `state` are filled; every other column is a copied placeholder. |
 | `talent_by_state.csv` | 50 (50) | Only CA, FL and TX have numbers (rounded, no real source). The other 47 rows repeat "25 (est)" / "3 (est)". |
-| `colleges.csv` | 149 (~427) | Names and divisions only. Every other column is "Est ...". |
+| `colleges.csv` | 426 (426) | **Re-researched 2026-10-11.** Real data, a source URL per figure. Gaps listed below. |
 
 ## Known gaps
 
-**colleges.csv**
-- 131 FBS of ~138. Missing at least: Tulane, Oregon State, Washington State, Delaware (moved up to FBS in 2025), Missouri State (FBS in 2025), Sacramento State (FBS from 2026).
-- Delaware is listed as FCS; it is FBS now.
-- 12 FCS of ~128 and 6 D2 of ~161.
-- No conference, city, state, enrollment, titles, win %, stadium, NIL or academic tier for any school.
-- `source_url` is a team page, not a source for each figure.
+**colleges.csv** (re-researched 2026-10-11, 2026 season membership)
+- Rows: 138 FBS + 128 FCS + 160 D2 = 426. FCS includes 4 schools moving up from D2 (Mercyhurst, New Haven, West Florida, West Georgia; see `notes`). FBS includes North Dakota State and Sacramento State (new in 2026).
+- Conferences are 2026: Pac-12 rebuilt (Boise State, Colorado State, Fresno State, Oregon State, San Diego State, Texas State, Utah State, Washington State); Northern Illinois, UTEP and North Dakota State in the Mountain West; Louisiana Tech in the Sun Belt; Sacramento State in the MAC.
+- `national_titles`: titles at the school's current level. FBS uses the Wikipedia table of titles from NCAA-designated major selectors (through Indiana's 2025 title; totals are disputed by nature). FCS counts NCAA I-AA/FCS titles 1978-2025. D2 counts NCAA D2 titles 1973-2025. `lower_division_titles` lists titles won at a lower level (e.g. North Dakota State "FCS 10; D2 5").
+- `last_5yr_win_pct`: all completed games 2021-2025, postseason included, ties count half, from the CFBD-based `cfb_schedules` dataset (sportsdataverse). Spot checks: Indiana 36-29, Alabama 56-14, Miami (FL) 42-24. For schools that changed level, the record mixes levels. `record_seasons` shows the seasons covered; a few schools have fewer than 5 (they joined the NCAA level recently).
+- `academic_tier`: AAU member, else Carnegie 2025 R1 or R2, else "other".
+- Each figure has its own source column: `enrollment_source_url`, `stadium_source_url`, `titles_source_url`, `record_source_url`, `academic_source_url`. Enrollment figures are as Wikipedia gives them (different years per school); Ivy League figures are undergraduate plus graduate.
+
+Gaps (exact):
+- `nil_estimate_usd` is blank for all 426. No public source gives a dollar NIL figure per school. (The 2025-26 revenue-sharing cap of about $20.5M per school is a cap, not an estimate.)
+- `stadium_capacity` blank for 16 D2 schools (no capacity in any source found): Allen, Ashland, Barton, Chowan, Edward Waters, Erskine, Ferrum, Jamestown, Kentucky Wesleyan, Lake Erie, Northwood, Ohio Dominican, Roosevelt, Shorter, Thomas More, Walsh.
+- `last_5yr_win_pct` blank for Chicago State (no completed games in the data).
+- Ferrum enrollment is undergraduates only (Wikipedia infobox, no year).
 
 **rates.json**
 - Five-star draft rate: 70% here (247Sports article on the 2023 draft). Earlier project figure was about 63%. Both are real numbers from different class windows; which one the engine calibrates to is open.
