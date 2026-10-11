@@ -1,0 +1,150 @@
+name,division,conference,city,state,enrollment,national_titles,last_5yr_win_pct,stadium_capacity,nil_estimate_usd,academic_tier,source_url
+Boston College,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Boston%20College
+Clemson,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Clemson
+Duke,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Duke
+Florida State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Florida%20State
+Georgia Tech,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Georgia%20Tech
+Louisville,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Louisville
+Miami (FL),FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Miami%20(FL)
+North Carolina,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/North%20Carolina
+NC State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/NC%20State
+Pittsburgh,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Pittsburgh
+SMU,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/SMU
+Stanford,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Stanford
+Syracuse,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Syracuse
+Virginia,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Virginia
+Virginia Tech,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Virginia%20Tech
+Wake Forest,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Wake%20Forest
+California,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/California
+Illinois,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Illinois
+Indiana,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Indiana
+Iowa,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Iowa
+Maryland,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Maryland
+Michigan,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Michigan
+Michigan State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Michigan%20State
+Minnesota,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Minnesota
+Nebraska,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Nebraska
+Northwestern,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Northwestern
+Ohio State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Ohio%20State
+Penn State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Penn%20State
+Purdue,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Purdue
+Rutgers,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Rutgers
+Wisconsin,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Wisconsin
+UCLA,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/UCLA
+USC,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/USC
+Oregon,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Oregon
+Washington,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Washington
+Arizona,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Arizona
+Arizona State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Arizona%20State
+Baylor,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Baylor
+BYU,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/BYU
+Cincinnati,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Cincinnati
+Colorado,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Colorado
+Houston,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Houston
+Iowa State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Iowa%20State
+Kansas,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Kansas
+Kansas State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Kansas%20State
+Oklahoma State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Oklahoma%20State
+TCU,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/TCU
+Texas Tech,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Texas%20Tech
+UCF,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/UCF
+Utah,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Utah
+West Virginia,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/West%20Virginia
+Alabama,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Alabama
+Arkansas,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Arkansas
+Auburn,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Auburn
+Florida,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Florida
+Georgia,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Georgia
+Kentucky,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Kentucky
+LSU,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/LSU
+Mississippi State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Mississippi%20State
+Missouri,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Missouri
+Oklahoma,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Oklahoma
+Ole Miss,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Ole%20Miss
+South Carolina,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/South%20Carolina
+Tennessee,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Tennessee
+Texas,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Texas
+Texas A&M,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Texas%20A&M
+Vanderbilt,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Vanderbilt
+UAB,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/UAB
+Army,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Army
+Charlotte,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Charlotte
+East Carolina,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/East%20Carolina
+Florida Atlantic,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Florida%20Atlantic
+Memphis,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Memphis
+Navy,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Navy
+North Texas,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/North%20Texas
+Rice,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Rice
+South Florida,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/South%20Florida
+Temple,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Temple
+Tulsa,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Tulsa
+UTSA,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/UTSA
+FIU,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/FIU
+Jacksonville State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Jacksonville%20State
+Liberty,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Liberty
+Louisiana Tech,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Louisiana%20Tech
+Middle Tennessee,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Middle%20Tennessee
+New Mexico State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/New%20Mexico%20State
+Sam Houston,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Sam%20Houston
+UTEP,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/UTEP
+Western Kentucky,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Western%20Kentucky
+Kennesaw State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Kennesaw%20State
+Akron,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Akron
+Ball State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Ball%20State
+Bowling Green,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Bowling%20Green
+Buffalo,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Buffalo
+Central Michigan,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Central%20Michigan
+Eastern Michigan,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Eastern%20Michigan
+Kent State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Kent%20State
+Miami (OH),FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Miami%20(OH)
+Northern Illinois,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Northern%20Illinois
+Ohio,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Ohio
+Toledo,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Toledo
+Western Michigan,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Western%20Michigan
+Air Force,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Air%20Force
+Boise State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Boise%20State
+Colorado State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Colorado%20State
+Fresno State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Fresno%20State
+Hawaii,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Hawaii
+Nevada,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Nevada
+UNLV,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/UNLV
+New Mexico,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/New%20Mexico
+San Diego State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/San%20Diego%20State
+San Jose State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/San%20Jose%20State
+Utah State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Utah%20State
+Wyoming,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Wyoming
+Appalachian State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Appalachian%20State
+Arkansas State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Arkansas%20State
+Coastal Carolina,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Coastal%20Carolina
+Georgia Southern,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Georgia%20Southern
+Georgia State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Georgia%20State
+James Madison,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/James%20Madison
+Louisiana,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Louisiana
+Louisiana-Monroe,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Louisiana-Monroe
+Marshall,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Marshall
+Old Dominion,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Old%20Dominion
+South Alabama,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/South%20Alabama
+Southern Miss,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Southern%20Miss
+Texas State,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Texas%20State
+Troy,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Troy
+Notre Dame,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Notre%20Dame
+UConn,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/UConn
+UMass,FBS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/UMass
+North Dakota State,FCS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/North%20Dakota%20State
+South Dakota State,FCS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/South%20Dakota%20State
+Montana,FCS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Montana
+Montana State,FCS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Montana%20State
+Villanova,FCS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Villanova
+Idaho,FCS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Idaho
+Richmond,FCS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Richmond
+Albany,FCS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Albany
+Furman,FCS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Furman
+South Dakota,FCS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/South%20Dakota
+Delaware,FCS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Delaware
+Florida A&M,FCS,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://collegefootballdata.com/team/Florida%20A&M
+Ferris State,D2,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://www.ncaa.com/schools/ferris-state
+Grand Valley State,D2,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://www.ncaa.com/schools/grand-valley-state
+Colorado School of Mines,D2,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://www.ncaa.com/schools/colorado-school-of-mines
+Harding,D2,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://www.ncaa.com/schools/harding
+Valdosta State,D2,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://www.ncaa.com/schools/valdosta-state
+Pittsburg State,D2,Est Conf,Est City,Est State,Est Enr,Est Title,Est Win%,Est Cap,Est NIL,Est Tier,https://www.ncaa.com/schools/pittsburg-state

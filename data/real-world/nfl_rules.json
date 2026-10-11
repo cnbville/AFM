@@ -1,0 +1,46 @@
+{
+    "salary_cap_2026": {
+        "value": 301200000,
+        "source_url": "https://www.nfl.com/news/nfl-announces-record-2026-salary-cap/"
+    },
+    "minimum_salaries": [
+        {
+            "experience": "Rookie",
+            "salary": 795000,
+            "source_url": "https://overthecap.com/minimum-salary-veteran-benefit"
+        },
+        {
+            "experience": "1 Year",
+            "salary": 915000,
+            "source_url": "https://overthecap.com/minimum-salary-veteran-benefit"
+        }
+    ],
+    "rookie_scale": {
+        "description": "4-year deals determined by draft slot.",
+        "source_url": "https://overthecap.com/draft/"
+    },
+    "fifth_year_option": {
+        "description": "Fully guaranteed, scales based on playtime and Pro Bowls.",
+        "source_url": "https://overthecap.com/fifth-year-option-projections/"
+    },
+    "franchise_tag": {
+        "description": "Avg of top 5 salaries at position.",
+        "source_url": "https://overthecap.com/franchise-transition-and-rfa-tenders/"
+    },
+    "practice_squad": {
+        "size": 17,
+        "source_url": "https://www.nfl.com/news/nfl-practice-squad-tracker-2026"
+    },
+    "roster_limits": [
+        {
+            "phase": "Offseason",
+            "limit": 90,
+            "source_url": "https://operations.nfl.com/updates/football-ops/2026-nfl-calendar/"
+        },
+        {
+            "phase": "Regular Season",
+            "limit": 53,
+            "source_url": "https://operations.nfl.com/updates/football-ops/2026-nfl-calendar/"
+        }
+    ]
+}
