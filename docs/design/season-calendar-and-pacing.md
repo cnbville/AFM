@@ -1,6 +1,6 @@
 # AFM Design: Season Calendar and Pacing
 
-> DRAFT: the defaults in this doc (player runs one pro team, save starts mid-February, real league structure with fictional names) are NOT confirmed by Raichel.
+> DRAFT for roadmap section 4. The roadmap answers (`docs/roadmap.md`, 2026-10-11) settle this doc's defaults: you are GM and head coach of one NFL team, a save starts mid-February, and names are real (with a fictional toggle at new game, not fictional by default). The week-by-week calendar, tension tiers and climax budget are still unconfirmed.
 
 Status: draft v1 · 2026-10-10
 Scope: the full football year across high school, college and the pro league, what the player decides each week, and how the game builds tension without rushing its big moments.

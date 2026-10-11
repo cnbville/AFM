@@ -16,7 +16,7 @@ The engine is a Rust library with no UI. A desktop app will call it later.
 - `crates/afm-tools`: calibration tooling and the national-class tests
 - `legacy-ts/`: the original TypeScript model, kept for reference
 
-The rules are explained in [docs/development-model.md](docs/development-model.md).
+The plan is in [docs/roadmap.md](docs/roadmap.md). The player model rules are in [docs/development-model.md](docs/development-model.md), and every decision in [docs/decisions.md](docs/decisions.md).
 
 ## Commands
 

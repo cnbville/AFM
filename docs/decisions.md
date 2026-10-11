@@ -24,7 +24,7 @@ An American football management sim modelled on Football Manager. Priorities: re
 - About 20 real depth-chart positions. Every player is rated at every position he could play, with fit derived from the attributes each position needs.
 
 ### Potential and development (2026-10-10)
-- A hidden ceiling per attribute, but not a hard cap (Raichel hated FM strikers scoring 35 goals with finishing stuck at 11). Proven breakout seasons can lift a ceiling by up to ~10 points a year, at any age (less when older). Normal years move it up to ~5. The UI shows original vs boosted potential.
+- A hidden ceiling per attribute, but not a hard cap (Raichel hated FM strikers scoring 35 goals with finishing stuck at 11). Proven breakout seasons can lift a ceiling by up to ~10 points a year, at any age (less when older). Normal years move it up to ~5. Original vs boosted potential is shown on trial and debug pages only, never in the game (2026-10-11, roadmap Q46).
 - Development is volatile, not linear: sophomore slumps, true freshmen jumping, redshirts, single big-jump seasons. Slumps lower production and, slightly, rating.
 - Reaching potential: roughly a third within 1-2 points, most at 90-95%, busts well short.
 
@@ -78,12 +78,16 @@ An American football management sim modelled on Football Manager. Priorities: re
 - Dependencies: rayon (multi-core) in the engine; serde and serde_json only in the tooling.
 - Not ported: the trial 6 card script (`legacy-ts/scripts/trial6-cards.ts` still runs). Port it when the next trial needs it.
 
+### Roadmap (2026-10-11)
+- All 50 roadmap answers, the build order and the sections are in `docs/roadmap.md`. Section 2 design is in `docs/design/world.md`.
+- They settle the season calendar doc's old defaults: you are GM and head coach of one NFL team (college coaching later), a save starts mid-February, and names are real with a fictional toggle at new game.
+
 ## Assumed, not yet confirmed
-- **Season calendar defaults** in `docs/design/season-calendar-and-pacing.md`: player runs one pro team, save starts mid-February, real league structure with fictional names. All unconfirmed. Note the league sim decision above uses real team names.
+- The rest of `docs/design/season-calendar-and-pacing.md` (week-by-week calendar, tension tiers, climax budget) is a draft for section 4.
 
 ## Still open, to talk through with Raichel
-- **Next step: the roadmap and the game itself.** Raichel answered the 50 roadmap questions (role GM+HC, platform Rust desktop app, and the rest; see project memory). Still open: the first playable milestone (question 50). Then write the roadmap into the repo and build section 1.
-- The league structure in detail (how many college programs, conferences, schedules).
+- **Next step: section 2, the world** (`docs/design/world.md`). Question 50 is answered: playable early with plain screens, then depth.
+- The league structure in detail (how many college programs, conferences, schedules): part of section 2.
 - The first-year adjustment drivers (step size, position, polish, football IQ and make-up, physical readiness, fit and luck): proposed, not signed off.
 - How strong the NIL pull back to school is, and whether a player knows roughly which team would draft him.
 - The full attribute list.
