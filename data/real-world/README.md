@@ -8,7 +8,7 @@ Raw research data for section 2 (the world). It came from an outside research ru
 
 | File | Rows (asked) | State |
 |---|---|---|
-| `nfl_teams.csv` | 32 (32) | Usable. All columns filled. Checks below. |
+| `nfl_teams.csv` | 32 (32) | Usable. Market ranks, Bills surface and SoFi roof fixed 2026-10-11 with sources. |
 | `nfl_rules.json` | thin | Only the cap, two minimum salaries, practice squad size and two roster limits are numbers. Rookie scale, 5th-year option and tags are one-line descriptions. |
 | `rates.json` | thin | One value per group; most marked "est". |
 | `hs_states.csv` | 51 (51) | Rows complete, data not. Only `governing_body` and `state` are filled; every other column is a copied placeholder. |
@@ -47,12 +47,12 @@ Gaps (exact):
 - Roster limits: 90 and 53 only; no 2026 cutdown dates or game-day actives.
 - No years attached to most values.
 
-**nfl_teams.csv** (checked by Claude)
-- Fixed: Browns stadium renamed Huntington Bank Field (2024); Commanders stadium renamed Northwest Stadium (2024).
-- `market_size_rank`: Bills and Saints both 50; ranks look rough and unsourced. Needs a single source (Nielsen TV markets).
-- SoFi Stadium is listed as a dome; it has a fixed roof with open sides.
-- Bills move into the new Highmark Stadium in 2026; its surface should be re-checked.
-- `altitude_ft` and `market_size_rank` cite team pages that don't give those numbers.
+**nfl_teams.csv** (checked 2026-10-11)
+- `market_size_rank` is now the Nielsen 2024-25 TV market (DMA) rank for the team's market, one source for all 32 (Wikipedia list of US TV markets). Teams sharing a market share its rank (Giants/Jets 1, Rams/Chargers 2). Arizona = Phoenix, Carolina = Charlotte, New England = Boston, Tennessee = Nashville, Washington = Washington DC.
+- Bills: the new Highmark Stadium (opened 2026) has natural grass (Kentucky bluegrass), so `surface` is now grass.
+- SoFi Stadium `roof` is now "canopy": a fixed translucent roof with open sides.
+- Earlier fixes kept: Browns' Huntington Bank Field and Commanders' Northwest Stadium.
+- Gap: `altitude_ft` still has no per-figure source.
 
 ## Sources named in the files
 - NFL team pages: nfl.com/teams/...
