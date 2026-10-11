@@ -1,33 +1,33 @@
-team,city,state,conference,division,stadium,roof,surface,altitude_ft,market_size_rank,source_url
-Arizona Cardinals,Glendale,AZ,NFC,West,State Farm Stadium,retractable,grass,1152,11,https://www.nfl.com/teams/arizona-cardinals/
-Atlanta Falcons,Atlanta,GA,NFC,South,Mercedes-Benz Stadium,retractable,turf,1050,6,https://www.nfl.com/teams/atlanta-falcons/
-Baltimore Ravens,Baltimore,MD,AFC,North,M&T Bank Stadium,open,grass,9,28,https://www.nfl.com/teams/baltimore-ravens/
-Buffalo Bills,Orchard Park,NY,AFC,East,Highmark Stadium,open,turf,600,50,https://www.nfl.com/teams/buffalo-bills/
-Carolina Panthers,Charlotte,NC,NFC,South,Bank of America Stadium,open,turf,751,21,https://www.nfl.com/teams/carolina-panthers/
-Chicago Bears,Chicago,IL,NFC,North,Soldier Field,open,grass,594,3,https://www.nfl.com/teams/chicago-bears/
-Cincinnati Bengals,Cincinnati,OH,AFC,North,Paycor Stadium,open,turf,482,36,https://www.nfl.com/teams/cincinnati-bengals/
-Cleveland Browns,Cleveland,OH,AFC,North,Huntington Bank Field,open,grass,581,19,https://www.nfl.com/teams/cleveland-browns/
-Dallas Cowboys,Arlington,TX,NFC,East,AT&T Stadium,retractable,turf,604,5,https://www.nfl.com/teams/dallas-cowboys/
-Denver Broncos,Denver,CO,AFC,West,Empower Field at Mile High,open,grass,5280,16,https://www.nfl.com/teams/denver-broncos/
-Detroit Lions,Detroit,MI,NFC,North,Ford Field,dome,turf,594,14,https://www.nfl.com/teams/detroit-lions/
-Green Bay Packers,Green Bay,WI,NFC,North,Lambeau Field,open,grass,600,69,https://www.nfl.com/teams/green-bay-packers/
-Houston Texans,Houston,TX,AFC,South,NRG Stadium,retractable,turf,43,7,https://www.nfl.com/teams/houston-texans/
-Indianapolis Colts,Indianapolis,IN,AFC,South,Lucas Oil Stadium,retractable,turf,715,25,https://www.nfl.com/teams/indianapolis-colts/
-Jacksonville Jaguars,Jacksonville,FL,AFC,South,EverBank Stadium,open,grass,16,41,https://www.nfl.com/teams/jacksonville-jaguars/
-Kansas City Chiefs,Kansas City,MO,AFC,West,GEHA Field at Arrowhead Stadium,open,grass,889,33,https://www.nfl.com/teams/kansas-city-chiefs/
-Las Vegas Raiders,Paradise,NV,AFC,West,Allegiant Stadium,dome,grass,2000,40,https://www.nfl.com/teams/las-vegas-raiders/
-Los Angeles Chargers,Inglewood,CA,AFC,West,SoFi Stadium,dome,turf,118,2,https://www.nfl.com/teams/los-angeles-chargers/
-Los Angeles Rams,Inglewood,CA,NFC,West,SoFi Stadium,dome,turf,118,2,https://www.nfl.com/teams/los-angeles-rams/
-Miami Dolphins,Miami Gardens,FL,AFC,East,Hard Rock Stadium,open,grass,10,18,https://www.nfl.com/teams/miami-dolphins/
-Minnesota Vikings,Minneapolis,MN,NFC,North,U.S. Bank Stadium,dome,turf,830,15,https://www.nfl.com/teams/minnesota-vikings/
-New England Patriots,Foxborough,MA,AFC,East,Gillette Stadium,open,turf,243,9,https://www.nfl.com/teams/new-england-patriots/
-New Orleans Saints,New Orleans,LA,NFC,South,Caesars Superdome,dome,turf,-3,50,https://www.nfl.com/teams/new-orleans-saints/
-New York Giants,East Rutherford,NJ,NFC,East,MetLife Stadium,open,turf,7,1,https://www.nfl.com/teams/new-york-giants/
-New York Jets,East Rutherford,NJ,AFC,East,MetLife Stadium,open,turf,7,1,https://www.nfl.com/teams/new-york-jets/
-Philadelphia Eagles,Philadelphia,PA,NFC,East,Lincoln Financial Field,open,grass,39,4,https://www.nfl.com/teams/philadelphia-eagles/
-Pittsburgh Steelers,Pittsburgh,PA,AFC,North,Acrisure Stadium,open,grass,722,26,https://www.nfl.com/teams/pittsburgh-steelers/
-San Francisco 49ers,Santa Clara,CA,NFC,West,Levi's Stadium,open,grass,33,10,https://www.nfl.com/teams/san-francisco-49ers/
-Seattle Seahawks,Seattle,WA,NFC,West,Lumen Field,open,turf,16,12,https://www.nfl.com/teams/seattle-seahawks/
-Tampa Bay Buccaneers,Tampa,FL,NFC,South,Raymond James Stadium,open,grass,46,13,https://www.nfl.com/teams/tampa-bay-buccaneers/
-Tennessee Titans,Nashville,TN,AFC,South,Nissan Stadium,open,turf,400,27,https://www.nfl.com/teams/tennessee-titans/
-Washington Commanders,Landover,MD,NFC,East,Northwest Stadium,open,grass,213,8,https://www.nfl.com/teams/washington-commanders/
+team,city,state,conference,division,stadium,roof,surface,altitude_ft,market_size_rank,source_url,market_size_source_url,stadium_roof_surface_source_url
+Arizona Cardinals,Glendale,AZ,NFC,West,State Farm Stadium,retractable,grass,1152,12,https://www.nfl.com/teams/arizona-cardinals/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Atlanta Falcons,Atlanta,GA,NFC,South,Mercedes-Benz Stadium,retractable,turf,1050,7,https://www.nfl.com/teams/atlanta-falcons/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Baltimore Ravens,Baltimore,MD,AFC,North,M&T Bank Stadium,open,grass,9,29,https://www.nfl.com/teams/baltimore-ravens/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Buffalo Bills,Orchard Park,NY,AFC,East,Highmark Stadium,open,grass,600,54,https://www.nfl.com/teams/buffalo-bills/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Carolina Panthers,Charlotte,NC,NFC,South,Bank of America Stadium,open,turf,751,21,https://www.nfl.com/teams/carolina-panthers/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Chicago Bears,Chicago,IL,NFC,North,Soldier Field,open,grass,594,3,https://www.nfl.com/teams/chicago-bears/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Cincinnati Bengals,Cincinnati,OH,AFC,North,Paycor Stadium,open,turf,482,37,https://www.nfl.com/teams/cincinnati-bengals/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Cleveland Browns,Cleveland,OH,AFC,North,Huntington Bank Field,open,grass,581,19,https://www.nfl.com/teams/cleveland-browns/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Dallas Cowboys,Arlington,TX,NFC,East,AT&T Stadium,retractable,turf,604,4,https://www.nfl.com/teams/dallas-cowboys/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Denver Broncos,Denver,CO,AFC,West,Empower Field at Mile High,open,grass,5280,17,https://www.nfl.com/teams/denver-broncos/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Detroit Lions,Detroit,MI,NFC,North,Ford Field,dome,turf,594,14,https://www.nfl.com/teams/detroit-lions/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Green Bay Packers,Green Bay,WI,NFC,North,Lambeau Field,open,grass,600,68,https://www.nfl.com/teams/green-bay-packers/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Houston Texans,Houston,TX,AFC,South,NRG Stadium,retractable,turf,43,6,https://www.nfl.com/teams/houston-texans/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Indianapolis Colts,Indianapolis,IN,AFC,South,Lucas Oil Stadium,retractable,turf,715,25,https://www.nfl.com/teams/indianapolis-colts/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Jacksonville Jaguars,Jacksonville,FL,AFC,South,EverBank Stadium,open,grass,16,41,https://www.nfl.com/teams/jacksonville-jaguars/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Kansas City Chiefs,Kansas City,MO,AFC,West,GEHA Field at Arrowhead Stadium,open,grass,889,33,https://www.nfl.com/teams/kansas-city-chiefs/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Las Vegas Raiders,Paradise,NV,AFC,West,Allegiant Stadium,dome,grass,2000,40,https://www.nfl.com/teams/las-vegas-raiders/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Los Angeles Chargers,Inglewood,CA,AFC,West,SoFi Stadium,canopy,turf,118,2,https://www.nfl.com/teams/los-angeles-chargers/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Los Angeles Rams,Inglewood,CA,NFC,West,SoFi Stadium,canopy,turf,118,2,https://www.nfl.com/teams/los-angeles-rams/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Miami Dolphins,Miami Gardens,FL,AFC,East,Hard Rock Stadium,open,grass,10,18,https://www.nfl.com/teams/miami-dolphins/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Minnesota Vikings,Minneapolis,MN,NFC,North,U.S. Bank Stadium,dome,turf,830,16,https://www.nfl.com/teams/minnesota-vikings/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+New England Patriots,Foxborough,MA,AFC,East,Gillette Stadium,open,turf,243,9,https://www.nfl.com/teams/new-england-patriots/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+New Orleans Saints,New Orleans,LA,NFC,South,Caesars Superdome,dome,turf,-3,50,https://www.nfl.com/teams/new-orleans-saints/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+New York Giants,East Rutherford,NJ,NFC,East,MetLife Stadium,open,turf,7,1,https://www.nfl.com/teams/new-york-giants/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+New York Jets,East Rutherford,NJ,AFC,East,MetLife Stadium,open,turf,7,1,https://www.nfl.com/teams/new-york-jets/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Philadelphia Eagles,Philadelphia,PA,NFC,East,Lincoln Financial Field,open,grass,39,5,https://www.nfl.com/teams/philadelphia-eagles/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Pittsburgh Steelers,Pittsburgh,PA,AFC,North,Acrisure Stadium,open,grass,722,27,https://www.nfl.com/teams/pittsburgh-steelers/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+San Francisco 49ers,Santa Clara,CA,NFC,West,Levi's Stadium,open,grass,33,10,https://www.nfl.com/teams/san-francisco-49ers/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Seattle Seahawks,Seattle,WA,NFC,West,Lumen Field,open,turf,16,13,https://www.nfl.com/teams/seattle-seahawks/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Tampa Bay Buccaneers,Tampa,FL,NFC,South,Raymond James Stadium,open,grass,46,11,https://www.nfl.com/teams/tampa-bay-buccaneers/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Tennessee Titans,Nashville,TN,AFC,South,Nissan Stadium,open,turf,400,26,https://www.nfl.com/teams/tennessee-titans/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
+Washington Commanders,Landover,MD,NFC,East,Northwest Stadium,open,grass,213,8,https://www.nfl.com/teams/washington-commanders/,https://en.wikipedia.org/wiki/List_of_United_States_television_markets,https://en.wikipedia.org/wiki/List_of_current_NFL_stadiums
