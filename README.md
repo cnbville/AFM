@@ -2,21 +2,26 @@
 
 A deep, realistic American football management sim in the spirit of Football Manager: realistic ratings, hidden and dynamic potential, and players who develop from high school freshmen to the pros.
 
-This repository currently holds the core player model, written as pure TypeScript logic with no UI or engine coupling.
+The engine is a Rust library with no UI. A desktop app will call it later.
 
-- `src/attributes.ts`, `src/positions.ts`: ratings and position-specific overalls
-- `src/player.ts`: players, hidden ceilings and personality, prospect generation
-- `src/development.ts`: the yearly development checkpoint (growth, dynamic potential, injuries, ageing)
-- `src/scouting.ts`: what staff can see
-- `src/career.ts`: a whole national class from freshman year to retirement
+- `crates/afm-engine`: the engine
+  - `attributes.rs`, `positions.rs`: ratings and position-specific overalls
+  - `player.rs`: players, hidden ceilings and personality, prospect generation
+  - `development.rs`: the yearly development checkpoint (growth, dynamic potential, injuries, ageing)
+  - `scouting.rs`: what staff can see (reports, and the vague potential outlook the game shows)
+  - `level_rating.rs`: level-relative ratings ("89 among seniors")
+  - `league.rs`: the 32 NFL teams, front offices and depth charts
+  - `career.rs`: a whole national class from freshman year to retirement
+  - `debug.rs`: true potential, for tooling only (`debug` feature)
+- `crates/afm-tools`: calibration tooling and the national-class tests
+- `legacy-ts/`: the original TypeScript model, kept for reference
 
 The rules are explained in [docs/development-model.md](docs/development-model.md).
 
 ## Commands
 
 ```sh
-npm install
-npm test            # unit tests plus a full 250,000-player class simulation (~35s)
-npm run typecheck
-npm run calibrate   # print real-world calibration stats (optional args: size seed)
+cargo test --workspace                                # all tests, including a full 250,000-player class
+cargo run --release --bin calibrate -- 250000 seed    # print real-world calibration stats
+cargo clippy --workspace --all-targets && cargo fmt --check
 ```

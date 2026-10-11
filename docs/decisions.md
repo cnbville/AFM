@@ -64,12 +64,25 @@ An American football management sim modelled on Football Manager. Priorities: re
 - Retirement by position (QB 35, RB 28, WR, LB, CB, S, EDGE 30, TE and DT 31, OT and IOL 32, K and P 37), moved by longevity, love of the game (new trait) and wear. Running QBs (speed, acceleration, agility average 78+) retire 4 years earlier. Being good keeps a player going only a few years past his usual age.
 - Known gap: FCS players are about 2-3% of draft picks (real about 6%).
 
+### Platform (2026-10-11)
+- **A desktop app with an engine in Rust.** Raichel picked option B: the game must run the densest, most realistic simulation (every high school, college and NFL game, 50+ year careers), so the engine is a fast native library on all processor cores. The player model was ported from TypeScript to Rust right away; the TypeScript stays in `legacy-ts/` for reference.
+- **Potential stays hidden in the game (2026-10-11).** The player-facing side never sees an exact ceiling: only a vague tier ("could become a starter") plus small hints, both sharper and more reliable with better scouts. Exact potential is for trial and debug pages only.
+
+### Rust port details Claude picked (2026-10-11, the coordinator's brief said to pick and list them)
+- Layout: a Cargo workspace. `crates/afm-engine` is the engine library a desktop UI will call later; `crates/afm-tools` holds calibration and trial tooling. No UI or app shell yet.
+- Hidden potential is enforced in code: ceilings and true potential are private to the engine. Only the `debug` cargo feature (used by afm-tools) can read them. The game must never turn it on.
+- New player-facing read: `potential_outlook` gives a tier in words (high school only, college, NFL roster, NFL starter, Pro Bowl, elite), how sure the staff is, and hints (late or early bloomer, body done growing, work ethic, coachability). Hints only come from scouts rated 13+, more and truer the better the scout. A placeholder until the scouting design is signed off.
+- Speed: each player has his own random stream, so per-player work runs on all cores and a seed gives the same class on any machine. Class-wide decisions use the class's own stream. A 250,000-player class takes about 2 seconds (TypeScript: about 57).
+- Same random generator as TypeScript (sfc32, same seeding), but the per-player streams mean a seed gives a different class than in TypeScript. Results match statistically (see the PR for the side-by-side).
+- One test band widened: veterans' leftover upside (median potential minus rating at 33-35) must stay under 1.5 instead of 1. TypeScript itself gave 0.61-1.06 over six seeds; Rust gives 0.63-1.27 over nine.
+- Dependencies: rayon (multi-core) in the engine; serde and serde_json only in the tooling.
+- Not ported: the trial 6 card script (`legacy-ts/scripts/trial6-cards.ts` still runs). Port it when the next trial needs it.
+
 ## Assumed, not yet confirmed
-- **Stack: TypeScript** (Node, Vitest, no runtime dependencies). It's the working default but was never formally confirmed. Raichel weighed Godot or Unity early on, so the model stays pure logic with no UI coupling.
 - **Season calendar defaults** in `docs/design/season-calendar-and-pacing.md`: player runs one pro team, save starts mid-February, real league structure with fictional names. All unconfirmed. Note the league sim decision above uses real team names.
 
 ## Still open, to talk through with Raichel
-- **Next step: build the game itself.** The roadmap and the player's role in the game (GM, coach, owner) are still open.
+- **Next step: the roadmap and the game itself.** Raichel answered the 50 roadmap questions (role GM+HC, platform Rust desktop app, and the rest; see project memory). Still open: the first playable milestone (question 50). Then write the roadmap into the repo and build section 1.
 - The league structure in detail (how many college programs, conferences, schedules).
 - The first-year adjustment drivers (step size, position, polish, football IQ and make-up, physical readiness, fit and luck): proposed, not signed off.
 - How strong the NIL pull back to school is, and whether a player knows roughly which team would draft him.
@@ -77,5 +90,5 @@ An American football management sim modelled on Football Manager. Priorities: re
 
 ## Trial history
 - Trials 1-4: see `docs/design/player-model-decisions.md` and `docs/design/open-bugs-after-trial4.md`.
-- Trial 6 (final, 20 players, 2026-10-11): same link as below, new version. Card data: `docs/trials/trial6-cards.json`, made by `scripts/trial6-cards.ts`.
+- Trial 6 (final, 20 players, 2026-10-11): same link as below, new version. Card data: `docs/trials/trial6-cards.json`, made by `legacy-ts/scripts/trial6-cards.ts`.
 - The 30-player trial (on the trial 4 code, before the coachability fix): https://claude.ai/artifact/HjXeV3d1q74zH9AmpVPiSP. The card data is `docs/trials/players30-final.json`. Raichel's review of it produced `docs/design/trial6-fix-list.md`.
