@@ -1,46 +1,151 @@
 {
-    "salary_cap_2026": {
-        "value": 301200000,
-        "source_url": "https://www.nfl.com/news/nfl-announces-record-2026-salary-cap/"
-    },
-    "minimum_salaries": [
-        {
-            "experience": "Rookie",
-            "salary": 795000,
-            "source_url": "https://overthecap.com/minimum-salary-veteran-benefit"
-        },
-        {
-            "experience": "1 Year",
-            "salary": 915000,
-            "source_url": "https://overthecap.com/minimum-salary-veteran-benefit"
-        }
-    ],
-    "rookie_scale": {
-        "description": "4-year deals determined by draft slot.",
-        "source_url": "https://overthecap.com/draft/"
-    },
-    "fifth_year_option": {
-        "description": "Fully guaranteed, scales based on playtime and Pro Bowls.",
-        "source_url": "https://overthecap.com/fifth-year-option-projections/"
-    },
-    "franchise_tag": {
-        "description": "Avg of top 5 salaries at position.",
-        "source_url": "https://overthecap.com/franchise-transition-and-rfa-tenders/"
-    },
-    "practice_squad": {
-        "size": 17,
-        "source_url": "https://www.nfl.com/news/nfl-practice-squad-tracker-2026"
-    },
-    "roster_limits": [
-        {
-            "phase": "Offseason",
-            "limit": 90,
-            "source_url": "https://operations.nfl.com/updates/football-ops/2026-nfl-calendar/"
-        },
-        {
-            "phase": "Regular Season",
-            "limit": 53,
-            "source_url": "https://operations.nfl.com/updates/football-ops/2026-nfl-calendar/"
-        }
+  "salary_cap": {
+    "2026": 301200000,
+    "2025": 279200000,
+    "2024": 255400000,
+    "2022": 208200000,
+    "carryover": "Unused room carries over in full (up to 100%).",
+    "source_url": [
+      "https://www.nfl.com/_amp/nfl-announces-2026-salary-cap-set-at-301-2-million-per-team",
+      "https://www.bengals.com/news/2026-nfl-free-agency-essential-information"
     ]
+  },
+  "minimum_salaries_2026": {
+    "by_credited_seasons": {
+      "0": 885000,
+      "1": 1005000,
+      "2": 1075000,
+      "3": 1145000,
+      "4-6": 1215000,
+      "7+": 1300000
+    },
+    "source_url": "https://sports.yahoo.com/articles/nfl-veteran-minimum-salary-2026-070038653.html",
+    "year": 2026
+  },
+  "rookie_scale_2026": {
+    "file": "rookie_scale_2026.csv",
+    "picks": 257,
+    "note": "Signed (or OverTheCap-listed) 2026 rookie contracts for every pick: years, total, average per year, guaranteed.",
+    "source_url": "https://github.com/nflverse/nflverse-data/releases/tag/contracts",
+    "year": 2026
+  },
+  "fifth_year_option": {
+    "eligible": "First-round picks only",
+    "decision": "After the player's third season, deadline early May (May 1 in 2026)",
+    "guarantee": "Fully guaranteed once exercised; any unguaranteed fourth-year base salary also becomes guaranteed",
+    "tiers": [
+      {
+        "tier": "Multiple Pro Bowls (not alternate)",
+        "salary": "Franchise tag amount for the position"
+      },
+      {
+        "tier": "One Pro Bowl",
+        "salary": "Transition tag amount for the position"
+      },
+      {
+        "tier": "Playing time",
+        "criteria": "75%+ snaps in two of three seasons, or 75%+ average over three seasons, or 50%+ in all three seasons",
+        "salary": "Average of the 3rd-20th highest salaries at the position over five years"
+      },
+      {
+        "tier": "Basic",
+        "salary": "Lowest tier"
+      }
+    ],
+    "position_groups": "All offensive linemen are one group",
+    "source_url": [
+      "https://www.si.com/nfl/nfl-fifth-year-option-explained",
+      "https://abc7.com/post/nfl-fifth-year-option-tracker-2023-first-round-draft-class/18835034/"
+    ],
+    "year": 2026
+  },
+  "franchise_and_transition_tags_2026": {
+    "non_exclusive_franchise": {
+      "QB": 43895000,
+      "RB": 14293000,
+      "WR": 27298000,
+      "TE": 15045000,
+      "OL": 25773000,
+      "DE": 24434000,
+      "DT": 27127000,
+      "LB": 26865000,
+      "CB": 21161000,
+      "S": 20149000,
+      "K/P": 6649000
+    },
+    "transition": {
+      "QB": 37833000,
+      "RB": 11323000,
+      "WR": 23852000,
+      "TE": 12687000,
+      "OL": 23392000,
+      "DE": 21512000,
+      "DT": 22521000,
+      "LB": 21925000,
+      "CB": 18119000,
+      "S": 16012000,
+      "K/P": 6005000
+    },
+    "rules": [
+      "One franchise or transition designation per club per year",
+      "Exclusive tag: greater of the top-5 average salary at the position (as of April 17) or the non-exclusive amount",
+      "Non-exclusive tag: two first-round picks as compensation if the player signs elsewhere",
+      "Designation window 2026: Feb 17 to Mar 3"
+    ],
+    "source_url": [
+      "https://www.nbcsportsphiladelphia.com/nfl/nfl-franchise-tag-tracker-list-players-deadline/717180/",
+      "https://www.bengals.com/news/2026-nfl-free-agency-essential-information"
+    ],
+    "year": 2026
+  },
+  "free_agency": {
+    "UFA": "4+ accrued seasons",
+    "RFA": "3 accrued seasons, with a qualifying offer",
+    "ERFA": "Fewer than 3 accrued seasons",
+    "accrued_season": "6+ regular-season games on active/inactive, reserve/injured or reserve/PUP list",
+    "dates_2026": {
+      "negotiating_window": "Mar 9",
+      "league_year_starts": "Mar 11",
+      "rfa_offer_sheet_deadline": "Apr 17",
+      "right_of_first_refusal_deadline": "Apr 22"
+    },
+    "source_url": "https://www.bengals.com/news/2026-nfl-free-agency-essential-information",
+    "year": 2026
+  },
+  "practice_squad": {
+    "size": 16,
+    "international_pathway_extra": 1,
+    "weekly_pay_2026": {
+      "2_or_fewer_credited_seasons": 13750,
+      "veterans_min": 18350,
+      "veterans_max": 22850
+    },
+    "source_url": [
+      "https://www.bengals.com/news/2026-nfl-53-man-roster-cutdown-deadline-essential-information",
+      "https://www.si.com/nfl/how-much-nfl-practice-squad-players-make"
+    ],
+    "year": 2026
+  },
+  "roster_limits": {
+    "offseason": 90,
+    "regular_season": 53,
+    "cutdown_2026": "Aug 30, 6 p.m. ET",
+    "post_cut_ir": "Two players may go to IR by the cutdown and return later",
+    "waivers": "Players with fewer than 4 accrued seasons go on waivers; claims due Aug 31, 1 p.m. ET",
+    "source_url": "https://www.bengals.com/news/2026-nfl-53-man-roster-cutdown-deadline-essential-information",
+    "year": 2026
+  },
+  "calendar_2026": {
+    "draft": "Apr 23-25 (Pittsburgh)",
+    "season_start": "Sep 9",
+    "season_end": "Jan 10, 2027",
+    "super_bowl": "Feb 14, 2027",
+    "source_url": "https://en.wikipedia.org/wiki/2026_NFL_season"
+  },
+  "gaps": [
+    "RFA tender amounts 2026",
+    "Game-day active roster size and emergency third QB rule",
+    "Practice squad veteran-count limits",
+    "2027 fifth-year option amounts by position (only per-player estimates found)"
+  ]
 }
