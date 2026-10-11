@@ -1,72 +1,368 @@
 {
-    "draft_rate_by_star": [
-        {
-            "star": 5,
-            "any_round": 0.7008,
-            "first_round": 0.343,
-            "source_url": "https://247sports.com/article/nfl-draft-2023-star-rankings-1st-round-picks-208882046/",
-            "year": 2023
-        },
-        {
-            "star": 4,
-            "any_round": 0.3,
-            "first_round": 0.038,
-            "source_url": "https://247sports.com/article/nfl-draft-2023-star-rankings-1st-round-picks-208882046/",
-            "year": 2023
-        },
-        {
-            "star": 3,
-            "any_round": 0.1,
-            "first_round": 0.004,
-            "source_url": "https://247sports.com/article/nfl-draft-2023-star-rankings-1st-round-picks-208882046/",
-            "year": 2023
-        }
-    ],
-    "nil_ranges": [
-        {
-            "level": "FBS Power 4",
-            "position": "QB",
-            "min": 500000,
-            "max": 2500000,
-            "source_url": "https://www.on3.com/nil/news/on3-nil-valuation-explainer-college-football/",
-            "year": 2026,
-            "note": "est"
-        }
-    ],
-    "portal_entrants_by_level": [
-        {
-            "level": "FBS",
-            "entrants": 3310,
-            "source_url": "https://www.on3.com/transfer-portal/news/",
-            "year": 2026,
-            "note": "est"
-        }
-    ],
-    "juco_to_fbs_signees_per_year": {
-        "count": 450,
-        "source_url": "https://247sports.com/Season/2025-Football/Commits/",
-        "year": 2025,
-        "note": "est"
+  "_note": "Every value has source_url and year. 'computed' means derived by Claude from the open datasets named in source_url; the method is in README.md.",
+  "draft_rate_by_star": {
+    "primary_target_five_star_any_round": {
+      "value": 0.63,
+      "source_url": "https://www.on3.com/news/on3-data-reveals-5-star-recruits-have-63-draft-rate",
+      "year": "drafts 2017-2021 (published 2022-03-16)",
+      "note": "Project calibration target (On3)."
     },
-    "prep_school_signees_per_year": {
-        "count": 150,
-        "source_url": "https://247sports.com/Season/2025-Football/Commits/",
-        "year": 2025,
-        "note": "est"
-    },
-    "recruits_per_star_tier_per_class": [
+    "on3_2022": [
+      {
+        "star": 5,
+        "any_round": 0.63,
+        "drafted": 117
+      },
+      {
+        "star": 4,
+        "any_round": 0.221,
+        "drafted": 468
+      },
+      {
+        "star": 3,
+        "any_round": 0.053,
+        "drafted": 517
+      }
+    ],
+    "on3_2022_source_url": "https://www.on3.com/news/on3-data-reveals-5-star-recruits-have-63-draft-rate",
+    "computed_espn_ratings": {
+      "classes": "2013-2021",
+      "drafts": "2015-2026 (drafted 2 to 7 years after signing)",
+      "rows": [
         {
-            "star": 5,
-            "count": 32,
-            "source_url": "https://247sports.com/Season/2026-Football/CompositeRecruitRankings/",
-            "year": 2026
+          "star": 2,
+          "recruits": 8241,
+          "any_round": 0.0214,
+          "first_round": 0.0013
         },
         {
-            "star": 4,
-            "count": 400,
-            "source_url": "https://247sports.com/Season/2026-Football/CompositeRecruitRankings/",
-            "year": 2026,
-            "note": "est"
+          "star": 3,
+          "recruits": 17037,
+          "any_round": 0.0596,
+          "first_round": 0.0053
+        },
+        {
+          "star": 4,
+          "recruits": 2555,
+          "any_round": 0.2442,
+          "first_round": 0.0341
+        },
+        {
+          "star": 5,
+          "recruits": 410,
+          "any_round": 0.622,
+          "first_round": 0.2098
         }
-    ]
+      ],
+      "source_url": [
+        "https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/cfb_recruits",
+        "https://github.com/nflverse/nflverse-data/releases/tag/draft_picks"
+      ],
+      "year": "2013-2026",
+      "note": "computed: ESPN star ratings; matched to draft picks by player name. Unrated players are not in the data."
+    },
+    "247_alternate": {
+      "five_star_any_round": 0.7,
+      "source_url": "https://247sports.com/article/nfl-draft-2023-star-rankings-1st-round-picks-208882046/",
+      "year": 2023,
+      "note": "Kept from the first-pass dataset as Raichel's alternate source. The page could not be opened on 2026-10-11 (fetch error), so this figure is unverified."
+    },
+    "247_class_2016_17": {
+      "rows": [
+        {
+          "star": 5,
+          "any_round": 0.623,
+          "first_round": 0.343
+        },
+        {
+          "star": 4,
+          "any_round": 0.235,
+          "first_round": 0.038
+        },
+        {
+          "star": 3,
+          "any_round": 0.06,
+          "first_round": 0.004
+        }
+      ],
+      "source_url": "https://247sports.com/college/arkansas/article/three-star-recruits-and-nfl-draft-233182492/",
+      "year": "2016/17 class, 2020 draft",
+      "note": "From the article's video transcript; the 2-star first-round rate is about 0.005%."
+    },
+    "axios_247_composite": {
+      "five_star_rounds_1_3": 0.58,
+      "five_star_first_round": 0.29,
+      "source_url": "https://www.axios.com/2023/04/29/nfl-draft-college-football-five-star-recruits",
+      "year": "drafts 2015-2022"
+    }
+  },
+  "recruits_per_star_per_class": {
+    "rating_service": "ESPN",
+    "counts": {
+      "2013": {
+        "2": 1075,
+        "3": 1779,
+        "4": 335,
+        "5": 53
+      },
+      "2014": {
+        "2": 1391,
+        "3": 1714,
+        "4": 324,
+        "5": 56
+      },
+      "2015": {
+        "2": 1097,
+        "3": 1893,
+        "4": 315,
+        "5": 58
+      },
+      "2016": {
+        "2": 1307,
+        "3": 1865,
+        "4": 306,
+        "5": 50
+      },
+      "2017": {
+        "2": 1354,
+        "3": 1854,
+        "4": 299,
+        "5": 56
+      },
+      "2018": {
+        "2": 818,
+        "3": 1799,
+        "4": 283,
+        "5": 45
+      },
+      "2019": {
+        "2": 667,
+        "3": 1856,
+        "4": 268,
+        "5": 33
+      },
+      "2020": {
+        "2": 398,
+        "3": 2179,
+        "4": 211,
+        "5": 32
+      },
+      "2021": {
+        "2": 134,
+        "3": 2098,
+        "4": 214,
+        "5": 27
+      },
+      "2022": {
+        "2": 254,
+        "3": 2074,
+        "4": 217,
+        "5": 29
+      },
+      "2023": {
+        "2": 303,
+        "3": 2515,
+        "4": 330,
+        "5": 43
+      },
+      "2024": {
+        "2": 322,
+        "3": 2646,
+        "4": 315,
+        "5": 49
+      },
+      "2025": {
+        "2": 289,
+        "3": 2708,
+        "4": 372,
+        "5": 49
+      },
+      "2026": {
+        "2": 19,
+        "3": 2818,
+        "4": 419,
+        "5": 68
+      }
+    },
+    "source_url": "https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/cfb_recruits",
+    "year": "classes 2013-2026",
+    "note": "computed: rated players who signed with an NCAA team in the dataset, first listing only. 2-star counts fall sharply after 2018 because the service stopped rating many prospects; 2026 is the class that enrolled in 2026."
+  },
+  "nil": {
+    "position_ranges_major_programs": {
+      "rows": [
+        {
+          "position": "QB",
+          "min": 500000,
+          "max": 800000
+        },
+        {
+          "position": "OL",
+          "min": 350000,
+          "max": 500000
+        },
+        {
+          "position": "DL",
+          "min": 250000,
+          "max": 600000
+        },
+        {
+          "position": "RB",
+          "min": 200000,
+          "max": 300000
+        },
+        {
+          "position": "WR",
+          "min": 75000,
+          "max": 300000
+        },
+        {
+          "position": "LB",
+          "min": 100000,
+          "max": 300000
+        },
+        {
+          "position": "DB",
+          "min": 120000,
+          "max": 225000
+        }
+      ],
+      "source_url": "https://www.si.com/college/oregon/football/oregon-ducks-nil-college-football-position-earn-rankings-transfer-portal-quarterback-dillon-gabriel-dan-lanning",
+      "year": 2024,
+      "note": "Market ranges for a starter at a major program, from CBS Sports reporting (agents, collectives, coaches). Level not stated beyond 'major program'."
+    },
+    "power4_earnings_distribution": {
+      "rows": [
+        {
+          "band": "under 10000",
+          "share": 0.665
+        },
+        {
+          "band": "10000-49999",
+          "share": 0.161
+        },
+        {
+          "band": "50000-99999",
+          "share": 0.074
+        },
+        {
+          "band": "100000-499999",
+          "share": 0.091
+        },
+        {
+          "band": "500000-999999",
+          "share": 0.006
+        },
+        {
+          "band": "1000000+",
+          "share": 0.003
+        }
+      ],
+      "power4_total_by_year_usd": {
+        "2021": 393300000,
+        "2022": 666600000,
+        "2023": 839600000,
+        "2024": 1000000000,
+        "2025_projected": 1900000000
+      },
+      "power4_budget_share_by_position": {
+        "Big 12": {
+          "QB": 0.231,
+          "DB": 0.144,
+          "WR": 0.115,
+          "RB": 0.108
+        },
+        "Big Ten": {
+          "WR": 0.168,
+          "OL": 0.155,
+          "QB": 0.144,
+          "DB": 0.131
+        },
+        "ACC": {
+          "QB": 0.194,
+          "OL": 0.17,
+          "WR": 0.163,
+          "DL": 0.155
+        },
+        "SEC": {
+          "WR": 0.159,
+          "DL": 0.155,
+          "QB": 0.151,
+          "OL": 0.144
+        }
+      },
+      "source_url": "https://www.nil-wire.com/p/inside-the-opendorse-report-breaking-down-college-football-earnings-e",
+      "year": "2021-2025 (Opendorse report, Aug 2025)"
+    },
+    "group_of_6_share_of_revenue": {
+      "value": 0.133,
+      "power4_value": 0.131,
+      "source_url": "https://www.nil-wire.com/p/inside-the-opendorse-report-breaking-down-college-football-earnings-e",
+      "year": 2025,
+      "note": "Player earnings as a share of school revenue."
+    },
+    "gaps": "No sourced dollar ranges found for Group of 5 by position, FCS, or D2."
+  },
+  "portal_entrants": {
+    "ncaa_official_2022": {
+      "FBS": 2918,
+      "FCS": 2085,
+      "FBS_2021": 2531,
+      "FBS_found_aid_new_school": 1833,
+      "FCS_found_aid_new_school": 920,
+      "source_url": "https://www.ncaa.org/news/2023/2/21/media-center-2022-transfer-trends-released-for-divisions-i-and-ii.aspx",
+      "year": 2022
+    },
+    "hudl_2025_by_origin": {
+      "Power 2 (SEC, Big Ten)": 928,
+      "Low P4 (ACC, Big 12)": 916,
+      "G6 (incl. Pac-12, independents)": 1837,
+      "FCS": 665,
+      "D2": 112,
+      "D3": 2,
+      "source_url": "https://www.hudl.com/blog/the-2025-college-football-transfer-portal-report",
+      "year": 2025,
+      "note": "Hudl-tracked entrants only; FCS and D2 are far below NCAA totals, so treat them as a floor."
+    },
+    "hudl_2025_by_destination": {
+      "unsigned": 737,
+      "D2": 83,
+      "D3": 3,
+      "FCS": 671,
+      "G6": 1531,
+      "Low P4": 807,
+      "Power 2": 645,
+      "source_url": "https://www.hudl.com/blog/the-2025-college-football-transfer-portal-report",
+      "year": 2025
+    },
+    "movement_2025": {
+      "same_level": 0.26,
+      "one_level_down": 0.25,
+      "one_level_up": 0.22,
+      "source_url": "https://www.hudl.com/blog/the-2025-college-football-transfer-portal-report",
+      "year": 2025
+    },
+    "gaps": "No official count of D2 football portal entrants found (NCAA reports D2 only for all sports: 15,487 entrants in 2024-25)."
+  },
+  "juco_to_fbs_signees_per_year": {
+    "value": null,
+    "note": "Gap: no source gives a yearly count. The first-pass figure (450) had no real source and was removed."
+  },
+  "prep_school_signees_per_year": {
+    "value": null,
+    "note": "Gap: no source gives a yearly count. The first-pass figure (150) had no real source and was removed."
+  },
+  "fbs_signees_per_year": {
+    "value": 2913,
+    "source_url": [
+      "https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/cfb_recruits",
+      "https://github.com/sportsdataverse/cfbfastR-data/tree/main/rosters/csv"
+    ],
+    "year": "classes 2022-2026",
+    "note": "computed: ESPN-rated FBS signees (high school and JUCO combined), average per class."
+  },
+  "college_revenue_sharing_cap_2025_26": {
+    "value": null,
+    "note": "About 20.5M USD per school is widely reported, but no page was verified in this pass."
+  }
 }

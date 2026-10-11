@@ -9,8 +9,9 @@ Raw research data for section 2 (the world). It came from an outside research ru
 | File | Rows (asked) | State |
 |---|---|---|
 | `nfl_teams.csv` | 32 (32) | Usable. Market ranks, Bills surface and SoFi roof fixed 2026-10-11 with sources. |
-| `nfl_rules.json` | thin | Only the cap, two minimum salaries, practice squad size and two roster limits are numbers. Rookie scale, 5th-year option and tags are one-line descriptions. |
-| `rates.json` | thin | One value per group; most marked "est". |
+| `nfl_rules.json` | full | **Re-researched 2026-10-11.** 2026 cap, minimums, tags, option rules, practice squad, roster limits, calendar. |
+| `rookie_scale_2026.csv` | 257 (257) | **New.** Every 2026 pick's rookie contract. |
+| `rates.json` | most groups | **Re-researched 2026-10-11.** Draft rates by star, recruits per star, NIL, portal. JUCO and prep counts are gaps. |
 | `hs_states.csv` | 51 (51) | Rows complete, data not. Only `governing_body` and `state` are filled; every other column is a copied placeholder. |
 | `talent_by_state.csv` | 51 (50 + DC) | **Re-researched 2026-10-11.** Computed from public recruiting, roster and draft datasets. Method below. |
 | `colleges.csv` | 426 (426) | **Re-researched 2026-10-11.** Real data, a source URL per figure. Gaps listed below. |
@@ -40,21 +41,24 @@ Gaps (exact):
 - Limits: name matching can mix up two players with the same name; ESPN star ratings differ a little from 247Sports composite ratings.
 - Sanity check: Texas, Florida, Georgia and California lead both columns, matching NFL.com's 2026 count of NFL players by home state (TX 192, FL 185, CA 159, GA 148): https://www.nfl.com/news/state-of-texas-three-south-florida-high-schools-produce-most-nfl-players-on-kickoff-weekend-rosters
 
-**rates.json**
-- Five-star draft rate: 70% here (247Sports article on the 2023 draft). Earlier project figure was about 63%. Both are real numbers from different class windows; which one the engine calibrates to is open.
-- NIL ranges: only Power 4 QB. Missing every other level and position group.
-- Portal entrants: FBS only (3,310, est). FCS and D2 missing.
-- JUCO-to-FBS (450) and prep-school signees (150) are estimates; the cited page is a commit list, not the count.
-- Recruits per star: five-star 32, four-star 400 (est). Three-star and below missing.
-- Draft rates for 2-star and unrated players missing.
+**rates.json** (re-researched 2026-10-11)
+- Five-star draft rate: the target stays at 63% (On3, drafts 2017-2021). The 247Sports 70% figure is kept as the alternate, but its page would not open, so it is unverified. Other sources agree with 63%: 247Sports' 2016/17 class 62.3%, and Claude's own count from ESPN ratings (classes 2013-2021) 62.2%.
+- Computed draft rates (ESPN ratings, classes 2013-2021, drafted within 2-7 years): 5-star 62.2% any round / 21.0% first round; 4-star 24.4% / 3.4%; 3-star 6.0% / 0.5%; 2-star 2.1% / 0.1%. Matching is by player name, so a few same-name mix-ups are possible.
+- Recruits per star per class: ESPN counts for 2013-2026.
+- NIL: position ranges for starters at major programs (CBS via SI, 2024); the Opendorse Power 4 earnings spread and totals (2025); Power 4 budget share by position per conference.
+- Portal: official NCAA counts for 2022 (FBS 2,918, FCS 2,085); Hudl's 2025 counts by level and destination.
 
-**nfl_rules.json**
-- Minimum salaries only for rookies and 1 year of experience. Missing 2 to 7+ years.
-- Rookie scale by pick: missing (description only).
-- 5th-year option and franchise/transition tags: rules not written out.
-- Practice squad: size only; no veteran or international exemption rules.
-- Roster limits: 90 and 53 only; no 2026 cutdown dates or game-day actives.
-- No years attached to most values.
+Gaps (exact):
+- JUCO-to-FBS and prep-school signees per year: no source found. The first-pass numbers (450 and 150) had no source and were removed.
+- NIL dollar ranges for Group of 5, FCS and D2: none found.
+- D2 football portal entrants: no official football count (NCAA gives D2 all-sport totals only).
+- The college revenue-sharing cap (about $20.5M in 2025-26) was not verified on a page.
+
+**nfl_rules.json** (re-researched 2026-10-11)
+- Fixed: the first pass had 2022-era minimum salaries ($795,000 rookie). 2026 minimums are $885,000 (0 credited seasons) up to $1,300,000 (7+).
+- Added: 2026 franchise and transition tags for every position, fifth-year option tiers, free agency rules and dates, practice squad size and pay, cutdown rules, 2026 calendar.
+- `rookie_scale_2026.csv`: all 257 picks (years, total value, average per year, guaranteed) from the OverTheCap contract data in the nflverse `contracts` release.
+- Gaps: RFA tender amounts, game-day actives and the emergency third QB rule, practice squad veteran limits, 2027 option amounts by position.
 
 **nfl_teams.csv** (checked 2026-10-11)
 - `market_size_rank` is now the Nielsen 2024-25 TV market (DMA) rank for the team's market, one source for all 32 (Wikipedia list of US TV markets). Teams sharing a market share its rank (Giants/Jets 1, Rams/Chargers 2). Arizona = Phoenix, Carolina = Charlotte, New England = Boston, Tennessee = Nashville, Washington = Washington DC.
