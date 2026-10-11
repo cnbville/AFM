@@ -3,21 +3,29 @@
 A deep, realistic American football management sim modelled on Football Manager: high school prospects develop through college to the NFL, with dynamic potential and a patient season flow. Owner: Raichel (GitHub `cnbville`).
 
 ## Read first
-1. `docs/decisions.md`: every decision so far, what's assumed and what's open.
-2. `docs/development-model.md`: how the current player model works.
-3. `docs/design/trial6-fix-list.md`: the last trial's fixes (all built).
+1. `docs/roadmap.md`: the vision, Raichel's working rules, all 50 roadmap answers, the platform and every build section with its status.
+2. `docs/design/world.md`: section 2 (the world), the design in progress.
+3. `docs/decisions.md`: every player-model decision so far, what's assumed and what's open.
+4. `docs/development-model.md`: how the current player model works.
+5. `docs/design/season-calendar-and-pacing.md`: draft calendar for section 4 (older; the roadmap answers override its defaults).
 
 ## Working rules (from Raichel)
-- **Ask before every design decision.** Send a short question with options and your recommendation, then wait for the answer. Never pick defaults yourself.
+- **Ask before every design decision.** Bring a concrete proposal, then wait for the answer. Never pick defaults yourself.
+- **Default to ultra realism.** Never ask "realistic or simplified?": the answer is always the most realistic option. Ask only about deep mechanics (how things work and interact), each with a concrete proposal Raichel can agree with or adjust. Go topic by topic in order and don't skip topics.
+- **Influences are noteworthy, rarely driving.** No single factor (background, family, school) should become overpowered.
 - **Everything realistic and dynamic.** Reason the way real football works, and derive outcomes from attributes, not flat rules.
 - **Every trial result explains why.** Each notable outcome gets a reason, so Raichel can judge it. Sanity-check results for contradictions before showing them.
 - **Keep token use low and write plainly.** Use short sentences and simple structure. One checker pass per trial, no big agent fan-outs.
-- **Don't push or merge without Raichel's OK.**
+- **Don't push or merge without Raichel's OK.** Build threads have that OK: they merge to `main` and send one final reply.
+- **Mark what's unconfirmed.** In docs, label Claude's proposals that Raichel hasn't answered as "proposed, not confirmed". Don't invent decisions.
 - **Potential is hidden in the game.** The player-facing side never sees a true ceiling, only scouted estimates and hints. Exact potential is for trial and debug tooling only.
 
-## Next job: the roadmap and the game itself
-- The player model is done and ported to Rust (2026-10-11). Raichel finds further calls and bugs in gameplay, not in more trials.
-- Raichel answered the 50 roadmap questions (GM+HC role, Rust desktop app, and more; see project memory). Still open: the first playable milestone. Then write the roadmap into the repo, in sections, and build section 1. Ask before deciding.
+## The section loop
+Each roadmap section goes: (1) design rounds with Raichel until the details are nailed down, (2) a spec in `docs/design/` with Raichel's own wording and examples, (3) a fresh thread builds it, merges it and sends one message, (4) a short trial with a "why" on every result.
+
+## Next job
+- Section 1 (the engine, the player model in Rust) is done. Raichel finds further calls and bugs in gameplay, not in more trials.
+- Section 2 (the world) is in design: topic 1 answered, topic 2 awaiting Raichel's answers, topics 3-8 open. See `docs/design/world.md`.
 
 ## Code
 - Rust (edition 2024), Cargo workspace. Pure logic, no UI yet.
