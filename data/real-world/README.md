@@ -12,7 +12,7 @@ Raw research data for section 2 (the world). It came from an outside research ru
 | `nfl_rules.json` | thin | Only the cap, two minimum salaries, practice squad size and two roster limits are numbers. Rookie scale, 5th-year option and tags are one-line descriptions. |
 | `rates.json` | thin | One value per group; most marked "est". |
 | `hs_states.csv` | 51 (51) | Rows complete, data not. Only `governing_body` and `state` are filled; every other column is a copied placeholder. |
-| `talent_by_state.csv` | 50 (50) | Only CA, FL and TX have numbers (rounded, no real source). The other 47 rows repeat "25 (est)" / "3 (est)". |
+| `talent_by_state.csv` | 51 (50 + DC) | **Re-researched 2026-10-11.** Computed from public recruiting, roster and draft datasets. Method below. |
 | `colleges.csv` | 426 (426) | **Re-researched 2026-10-11.** Real data, a source URL per figure. Gaps listed below. |
 
 ## Known gaps
@@ -30,6 +30,15 @@ Gaps (exact):
 - `stadium_capacity` blank for 16 D2 schools (no capacity in any source found): Allen, Ashland, Barton, Chowan, Edward Waters, Erskine, Ferrum, Jamestown, Kentucky Wesleyan, Lake Erie, Northwood, Ohio Dominican, Roosevelt, Shorter, Thomas More, Walsh.
 - `last_5yr_win_pct` blank for Chicago State (no completed games in the data).
 - Ferrum enrollment is undergraduates only (Wikipedia infobox, no year).
+
+**talent_by_state.csv** (computed 2026-10-11; every row is marked "est: computed")
+- No public page lists FBS signees or draftees for all 50 states, so these are computed from three open datasets and the method is given here so anyone can redo it.
+- `avg_fbs_signees_per_year`: rated signees (ESPN ratings, high school and JUCO) who signed with an FBS school, classes 2022-2026, from the sportsdataverse `cfb_recruits` release. Home state comes from matching each signee by name to CFBD rosters (cfbfastR-data `rosters/csv`), which list home state. 86-93% of signees matched per class; each class is scaled up by its match rate. Total about 2,900 per year.
+- `avg_nfl_draftees_per_year`: picks in the 2022-2026 drafts (nflverse `draft_picks`), home state from the same roster match (94% matched; the rest, about 16 picks a year, are unmatched or from outside the US).
+- `top_hometowns`: the three home cities with the most FBS signees in the state, 2022-2026. These are cities, not metro areas.
+- DC is included as a 51st row.
+- Limits: name matching can mix up two players with the same name; ESPN star ratings differ a little from 247Sports composite ratings.
+- Sanity check: Texas, Florida, Georgia and California lead both columns, matching NFL.com's 2026 count of NFL players by home state (TX 192, FL 185, CA 159, GA 148): https://www.nfl.com/news/state-of-texas-three-south-florida-high-schools-produce-most-nfl-players-on-kickoff-weekend-rosters
 
 **rates.json**
 - Five-star draft rate: 70% here (247Sports article on the 2023 draft). Earlier project figure was about 63%. Both are real numbers from different class windows; which one the engine calibrates to is open.
