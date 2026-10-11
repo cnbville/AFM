@@ -15,6 +15,17 @@ export interface SeasonContext {
   playingTime: PlayingTime;
   /** Off-field or academic trouble that costs him this season's games. */
   trouble?: 'suspended' | 'dismissed';
+  /**
+   * First-year dip after a step up, 0-1 (see firstYearAdjustment in career.ts).
+   * He plays below his rating while he adjusts, and grows a little slower.
+   */
+  adjustment?: number;
+  /**
+   * How his surroundings help or hurt him, -1 to 1: the supporting cast, the
+   * scheme and how well run the organisation is. A bad situation drags his
+   * play and his confidence; a good one lifts both.
+   */
+  situation?: number;
 }
 
 /** Potential is reported in bands of this many points (one half-star). */
@@ -55,7 +66,7 @@ const deltaAttrs = emptyAttributes(0);
 const LEVEL_GROWTH: Record<Level, number> = {
   HS: 1,
   SmallCollege: 0.72,
-  FCS: 0.92,
+  FCS: 1,
   FBS: 1,
   NFL: 1,
 };
@@ -66,13 +77,32 @@ const PLAYING_TIME_GROWTH: Record<PlayingTime, number> = {
   backup: 0.8,
   // A redshirt year is a full year of practice and weight room without game snaps.
   redshirt: 0.85,
+  practiceSquad: 0.85,
+  // Training alone while waiting for a call.
+  unsigned: 0.55,
 };
+
+/**
+ * High school practice, weight rooms and strength staffs are a fraction of
+ * college ones, so recruits arrive rawer than their talent: technique and the
+ * mental game lag most, and the strength linemen need comes in college. Speed
+ * and the rest of the athletic gifts grow on nature's schedule.
+ */
+const HS_GROUP_GROWTH = { physical: 1, technical: 0.65, mental: 0.7 } as const;
+const HS_STRENGTH_GROWTH = 0.6;
+/** Extra technical and mental growth in college, where the teaching happens. */
+const COLLEGE_TEACHING = 1.3;
+
+/** Games in a season by level, for games missed to injury. */
+const SEASON_GAMES: Record<Level, number> = { HS: 10, SmallCollege: 11, FCS: 11, FBS: 12, NFL: 17 };
 
 const PLAYING_TIME_POTENTIAL: Record<PlayingTime, number> = {
   starter: 0.15,
   rotation: 0.1,
   backup: -0.25,
   redshirt: 0,
+  practiceSquad: -0.1,
+  unsigned: -0.4,
 };
 
 export interface SeasonReport {
@@ -81,6 +111,7 @@ export interface SeasonReport {
   potentialBefore: number;
   potentialAfter: number;
   events: DevelopmentEvent[];
+  gamesMissed: number;
 }
 
 /** Develop a player through one year and age him by one. Mutates the player. */
@@ -90,6 +121,10 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
   const potentialBefore = potential(player);
   const events: DevelopmentEvent[] = [];
   const age = player.age;
+  const noGames = ctx.playingTime === 'redshirt' || ctx.playingTime === 'practiceSquad' || ctx.playingTime === 'unsigned' || !!ctx.trouble;
+  const dip = ctx.adjustment ?? 0;
+  const situation = ctx.situation ?? 0;
+  let gamesMissed = 0;
 
   // --- Injuries: the main source of setbacks -------------------------------
   let growthMultiplier = 1;
@@ -99,11 +134,15 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
     POSITION_PROFILES[player.position].injuryRisk *
     (0.55 + player.injuryProneness * 0.045) *
     // A suspended or dismissed player is at most at practice, like a redshirt.
-    (ctx.trouble ? 0.5 : ctx.playingTime === 'starter' ? 1.15 : ctx.playingTime === 'redshirt' ? 0.5 : 0.9);
+    (ctx.trouble || noGames ? 0.5 : ctx.playingTime === 'starter' ? 1.15 : 0.9);
   if (rng.chance(injuryChance)) {
     const roll = rng.next();
     const severity: DevelopmentEvent = roll < 0.62 ? 'minorInjury' : roll < 0.89 ? 'moderateInjury' : 'majorInjury';
     events.push(severity);
+    const games = SEASON_GAMES[ctx.level];
+    gamesMissed =
+      severity === 'minorInjury' ? rng.int(0, 2) : severity === 'moderateInjury' ? rng.int(2, 6) : rng.int(Math.round(games * 0.5), games);
+    if (noGames) gamesMissed = 0;
     if (severity === 'minorInjury') {
       growthMultiplier *= 0.95;
       snapsFactor = 0.9;
@@ -121,6 +160,7 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
         player.ceilings[key] -= rng.range(0.5, 4) * ageHit;
       }
       player.injuryProneness = Math.min(20, player.injuryProneness + 1);
+      player.wear += 1.5;
     }
   }
 
@@ -143,9 +183,14 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
   // --- Form for the year: breakouts, slumps and lost seasons ----------------
   // Development is lumpy: a single season can be worth three normal ones, and a
   // good year is often followed by a dip as opponents adjust.
-  let form = rng.logNormal(0.38);
+  // A first year at a new level and the situation around him show on the field
+  // straight away; they touch growth only a little.
+  // Young players feel their surroundings most: a bad team can shake a
+  // young quarterback's confidence for years, and a good one can revive him.
+  const youth = age <= 25 ? 2 : 1;
+  let form = rng.logNormal(0.38) * (1 - 0.15 * dip) * (1 + 0.12 * situation * youth);
   let setback = 0;
-  let performance = rng.normal(0, 2);
+  let performance = rng.normal(0, 2) - 7 * dip + 2.5 * situation * youth;
   let breakoutLift = 0;
   const last = player.history[player.history.length - 1];
   const before = player.history[player.history.length - 2];
@@ -168,7 +213,7 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
     form *= 0.4;
     setback = 1.8;
     performance -= rng.range(3, 7);
-  } else if (ctx.playingTime !== 'redshirt' && snapsFactor >= 0.65 && rng.chance(breakoutChance)) {
+  } else if (!noGames && snapsFactor >= 0.65 && rng.chance(breakoutChance)) {
     // (No breakout in a redshirt year or one mostly lost to injury.)
     events.push('breakout');
     form *= 2.2;
@@ -183,7 +228,7 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
     form *= 0.4;
     setback = 1.8;
     performance -= rng.range(3, 7);
-  } else if (ctx.playingTime !== 'redshirt' && rng.chance(slumpChance)) {
+  } else if (!noGames && rng.chance(slumpChance)) {
     // Production falls hard; the ratings dip a little as confidence and timing go.
     events.push('slump');
     form *= 0.6;
@@ -202,11 +247,15 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
   // luck plays a smaller part.
   const plasticity = potentialPlasticity(age);
   if (plasticity > 0) {
+    // A young pro sitting behind a veteran still practises against NFL players
+    // with an NFL staff: unlike a buried college backup, his ceiling doesn't sag.
+    const youngPro = ctx.level === 'NFL' && age <= 24 && (ctx.playingTime === 'backup' || ctx.playingTime === 'practiceSquad');
     const drive =
       ((personality.workEthic - 10) / 10) * 0.75 +
       ((personality.coachability - 10) / 10) * 0.25 * ((ctx.coaching - 10) / 10 + 0.5) +
       ((ctx.coaching - 10) / 10) * 0.35 +
-      PLAYING_TIME_POTENTIAL[ctx.playingTime] * snapsFactor -
+      0.25 * situation +
+      (youngPro ? 0 : PLAYING_TIME_POTENTIAL[ctx.playingTime]) * snapsFactor -
       setback +
       rng.normal(0, 0.9);
     const shared = drive * 1.7 * plasticity;
@@ -254,6 +303,8 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
   const coachabilityLean = 0.6 + personality.coachability * 0.04; // how much of coaching sticks
   const workMult = 0.75 + personality.workEthic * 0.025;
   const snapsMult = PLAYING_TIME_GROWTH[ctx.playingTime] * (0.7 + 0.3 * snapsFactor) * LEVEL_GROWTH[ctx.level];
+  const hs = ctx.level === 'HS';
+  const college = ctx.level === 'FBS' || ctx.level === 'FCS' || ctx.level === 'SmallCollege';
   const developmentAge = age - player.bloom;
   // Coachability scales how far coaching moves him from average, good or bad.
   const coachingBoost = 1 + (coachingMult - 1) * coachabilityLean;
@@ -267,7 +318,9 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
     const coaching = Math.pow(coachingBoost, profile.coachability);
     const snaps = Math.pow(snapsMult, profile.experience);
     const redshirtLift = ctx.playingTime === 'redshirt' && profile.group === 'physical' ? 1.35 : 1;
-    const rate = clamp(profile.growthRate * ageFactor * coaching * snaps * workMult * form * growthMultiplier * redshirtLift, 0, 0.5);
+    // College staffs teach the technique and the reads high school never did, so the raw catch up there.
+    const hsLag = hs ? (key === 'strength' ? HS_STRENGTH_GROWTH : HS_GROUP_GROWTH[profile.group]) : college && profile.group !== 'physical' ? COLLEGE_TEACHING : 1;
+    const rate = clamp(profile.growthRate * ageFactor * coaching * snaps * workMult * form * growthMultiplier * redshirtLift * hsLag, 0, 0.5);
     // Proportional growth plus a fixed step, so a well-developed player can
     // actually reach his ceiling instead of creeping towards it forever.
     // Even a monster year adds at most about a dozen points to one attribute.
@@ -277,6 +330,8 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
   // --- Ageing ----------------------------------------------------------------
   const declineResistance = 1.15 - personality.workEthic * 0.015; // 10 -> 1.0, 20 -> 0.85
   const posOffset = POSITION_PROFILES[player.position].agingOffset;
+  // Years of heavy hits wear a body down faster; a rare body (high longevity) shrugs off more of it.
+  const wearMult = 1 + 0.06 * Math.max(0, player.wear - 3) * clamp(1 - 0.15 * player.longevity, 0.5, 1.5);
   for (let i = 0; i < ATTRIBUTE_KEYS.length; i++) {
     const key = ATTRIBUTE_KEYS[i]!;
     const profile = PROFILE_LIST[i]!;
@@ -284,7 +339,7 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
     const yearsPast = age + 1 - onset;
     if (yearsPast <= 0) continue;
     settlingBuffer[i] = 1;
-    const loss = profile.declineRate * yearsPast * declineResistance * rng.logNormal(0.3);
+    const loss = profile.declineRate * yearsPast * declineResistance * rng.logNormal(0.3) * (profile.group === 'physical' ? wearMult : 1);
     player.attributes[key] -= loss;
     player.ceilings[key] -= loss;
   }
@@ -308,7 +363,6 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
   // A big year on the field from a player whose rating still fell is a career year, not a breakout.
   if (overallAfter < overallBefore && events.includes('breakout')) events.splice(events.indexOf('breakout'), 1);
   // He improves (or fades) through the year, so he plays the season between his two ratings.
-  const noGames = ctx.playingTime === 'redshirt' || !!ctx.trouble;
   player.history.push({
     age,
     level: ctx.level,
@@ -319,9 +373,11 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
     performance: noGames ? null : clamp((overallBefore + overallAfter) / 2 + performance, MIN_RATING, MAX_RATING),
     coaching: ctx.coaching,
     events,
+    gamesMissed,
+    ...(dip > 0 ? { adjustment: Math.round(dip * 100) / 100 } : {}),
   });
   player.age += 1;
-  return { overallBefore, overallAfter, potentialBefore, potentialAfter, events };
+  return { overallBefore, overallAfter, potentialBefore, potentialAfter, events, gamesMissed };
 }
 
 /** How freely a ceiling can still move at a given age (0 = only falls with age). */

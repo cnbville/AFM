@@ -38,7 +38,7 @@ export const POSITION_PROFILES: Record<Position, PositionProfile> = {
   RB: {
     weights: { speed: 3, acceleration: 3, agility: 3, elusiveness: 3, vision: 3, carrying: 2, strength: 1.5, catching: 1, passBlocking: 0.5, awareness: 1 },
     eliteShape: { speed: 94, acceleration: 95, agility: 95, elusiveness: 95, vision: 94, carrying: 92, strength: 80, catching: 78, passBlocking: 65, awareness: 85, jumping: 80, stamina: 85, routeRunning: 65 },
-    agingOffset: -1.5,
+    agingOffset: -2.5,
     injuryRisk: 1.4,
     share: 0.09,
   },
@@ -101,7 +101,7 @@ export const POSITION_PROFILES: Record<Position, PositionProfile> = {
   S: {
     weights: { zoneCoverage: 4, playRecognition: 3.5, tackling: 2.5, speed: 2.5, manCoverage: 1.5, awareness: 1.5 },
     eliteShape: { zoneCoverage: 95, playRecognition: 95, tackling: 88, speed: 92, manCoverage: 85, awareness: 92, acceleration: 92, agility: 88, jumping: 86, catching: 72, strength: 70, stamina: 88 },
-    agingOffset: 0.5,
+    agingOffset: -0.5,
     injuryRisk: 1.0,
     share: 0.08,
   },

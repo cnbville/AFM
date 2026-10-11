@@ -19,6 +19,8 @@ export interface Personality {
   coachability: number;
   /** Drive to beat the man across from him: helps breakouts and protects against stagnation. */
   competitiveness: number;
+  /** Love of the game and durability of mind: some keep playing through the grind, others walk away early. */
+  loveOfGame: number;
 }
 
 export interface SeasonRecord {
@@ -48,9 +50,23 @@ export interface SeasonRecord {
   /** Quality of the coaching he had that season, 1-20. */
   coaching: number;
   events: DevelopmentEvent[];
+  /** Games missed through injury. */
+  gamesMissed?: number;
+  /** Size of his first-year dip after a step up (0 = ready at once, 1 = a very hard first year). */
+  adjustment?: number;
+  /** Pro team he spent the season with. */
+  team?: string;
+  /** Depth chart spot, e.g. "WR2", "practice squad" or "free agent". */
+  depth?: string;
+  /** How his pro surroundings helped (+) or hurt (-) him that season, -1 to 1. */
+  situation?: number;
 }
 
-export type PlayingTime = 'starter' | 'rotation' | 'backup' | 'redshirt';
+/**
+ * Practice squad players train all year without playing; an unsigned free
+ * agent trains on his own while he waits for a call.
+ */
+export type PlayingTime = 'starter' | 'rotation' | 'backup' | 'redshirt' | 'practiceSquad' | 'unsigned';
 
 export type DevelopmentEvent =
   | 'growthSpurt'
@@ -84,6 +100,8 @@ export interface Player {
   longevity: number;
   /** 1-20, higher means more injuries. */
   injuryProneness: number;
+  /** Wear on his body from heavy workloads and major injuries; speeds physical decline. */
+  wear: number;
   personality: Personality;
   history: SeasonRecord[];
 }
@@ -156,7 +174,9 @@ export function generateProspect(rng: Rng, opts: ProspectOptions = {}): Player {
       workEthic: clamp(Math.round(rng.normal(10, 3.5)), 1, 20),
       coachability: clamp(Math.round(rng.normal(10, 3.5)), 1, 20),
       competitiveness: clamp(Math.round(rng.normal(10, 3.5)), 1, 20),
+      loveOfGame: clamp(Math.round(rng.normal(10, 3.5)), 1, 20),
     },
+    wear: 0,
     history: [],
   };
 }

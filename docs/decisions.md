@@ -46,15 +46,30 @@ An American football management sim modelled on Football Manager. Priorities: re
 - Coachability bug ("Fix both"): fixed and in the code.
 - League sim: generated players with real team names. Rosters are filled by a warm-up of about 15 seasons, so every player has a full sim-grown history.
 - Trial 6 fixes: see `docs/design/trial6-fix-list.md`. Raichel said these are the **final fixes before building the game**; later issues get debugged in the game.
+- **Film line: option C, confirmed by Raichel.** Three-stars need a top 2,700 senior film rank, two-stars top 6,500, FBS offers below three stars top 4,500 (`PIPELINE.starFilmRank`, `PIPELINE.fbsOfferMaxFilmRank`).
+- Trial 6 was built and run (20 random but realistic careers, each with a "why" box). Raichel finds calls and bugs from here on in gameplay, not in more trials.
+
+### Trial 6 details Claude picked (Raichel said: pick the most realistic option)
+- First-year dip (0-1) on every step up, from step size, position, technique polish, football IQ and make-up, physical readiness, scheme fit and luck. A full dip costs about 7 points of on-field play that year.
+- High school growth lags on skills (technique 0.65, mental 0.7, strength 0.6 of full speed); college teaching catches it up (non-physical growth x1.3). Freshmen rarely beat upperclassmen: a blocking penalty of 10 points in year one, 5 in year two, scaled by program prestige.
+- Portal: backups enter about 18% a year, rotation players 7%, more after a coaching change. Outcomes are up, sideways, down or no school.
+- Dismissals: 35% are serious (drop a level or quit, 45% quit). Lesser causes move a good player sideways to a lower-profile FBS school (10% quit).
+- Declaring early: projection plus urgency (NIL at small schools, RB shelf life, fear of falling, age, injury, coaching change, lost starting job) against staying (big NIL money, room to rise, a bad final year, a bad likely drafting team).
+- Draft value by position (QB +3.5, EDGE and OT +1.5, CB +1, WR and DT +0.5, IOL and S -0.8, LB and TE -1, RB -3.5) plus team need; a team with a young franchise QB won't take another early.
+- Kickers and punters: a separate board from round 5 (round 4 at 30%), 15% chance a team takes one, and only if clearly better than its current one.
+- League: the 32 real team names with random GM, owner and coaching (1-20). Other classes are background players with a rating and age (starters about 78, rotation 73, backups 69, better on well-run teams).
+- Camp: real depth chart slots (53 plus a 16-man practice squad), camp bodies from other classes, rookie protection for high picks (round 1 +9 in the first seasons, fading), incumbency, and a lean towards youth (not for kickers and punters). Years of NFL film reduce misjudgment.
+- Practice squad: players with at most two roster seasons, under 27, at most three squad years. Released players under 30 can be claimed on waivers (60%); blocked starters (78+) can be traded; injured teams sign street free agents mid-season (15%).
+- Landing spot: a "situation" score from the roster around him and how well the team is run, doubled for players 25 and under. It moves performance and potential growth.
+- Retirement by position (QB 35, RB 28, WR, LB, CB, S, EDGE 30, TE and DT 31, OT and IOL 32, K and P 37), moved by longevity, love of the game (new trait) and wear. Running QBs (speed, acceleration, agility average 78+) retire 4 years earlier. Being good keeps a player going only a few years past his usual age.
+- Known gap: FCS players are about 2-3% of draft picks (real about 6%).
 
 ## Assumed, not yet confirmed
-- **Film line for stars and FBS offers: option C** (three-stars from the top 2,700 seniors on film, two-stars from the top 6,500, FBS offers below three stars from the top 4,500). Raichel agreed to "all the other calls" and C was the recommendation, but never picked it explicitly. Confirm before building.
-  - Measured on two seeds of 250,000. Two-star or unranked draft picks: today 12%, A 7%, B 8%, C 12% (real ~19%). FCS draft picks: today 7%, options 3-3.5% (real ~8%).
-  - The knobs are in `PIPELINE.starFilmRank.maxFor3/maxFor2` and `PIPELINE.fbsOfferMaxFilmRank` in `src/career.ts`. They default to Infinity (off). Option C is 2700 / 6500 / 4500.
 - **Stack: TypeScript** (Node, Vitest, no runtime dependencies). It's the working default but was never formally confirmed. Raichel weighed Godot or Unity early on, so the model stays pure logic with no UI coupling.
 - **Season calendar defaults** in `docs/design/season-calendar-and-pacing.md`: player runs one pro team, save starts mid-February, real league structure with fictional names. All unconfirmed. Note the league sim decision above uses real team names.
 
 ## Still open, to talk through with Raichel
+- **Next step: build the game itself.** The roadmap and the player's role in the game (GM, coach, owner) are still open.
 - The league structure in detail (how many college programs, conferences, schedules).
 - The first-year adjustment drivers (step size, position, polish, football IQ and make-up, physical readiness, fit and luck): proposed, not signed off.
 - How strong the NIL pull back to school is, and whether a player knows roughly which team would draft him.
@@ -62,4 +77,5 @@ An American football management sim modelled on Football Manager. Priorities: re
 
 ## Trial history
 - Trials 1-4: see `docs/design/player-model-decisions.md` and `docs/design/open-bugs-after-trial4.md`.
+- Trial 6 (final, 20 players, 2026-10-11): same link as below, new version. Card data: `docs/trials/trial6-cards.json`, made by `scripts/trial6-cards.ts`.
 - The 30-player trial (on the trial 4 code, before the coachability fix): https://claude.ai/artifact/HjXeV3d1q74zH9AmpVPiSP. The card data is `docs/trials/players30-final.json`. Raichel's review of it produced `docs/design/trial6-fix-list.md`.

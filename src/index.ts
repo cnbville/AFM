@@ -4,5 +4,6 @@ export * from './player.js';
 export * from './development.js';
 export * from './scouting.js';
 export * from './career.js';
+export * from './league.js';
 export * from './levelRating.js';
 export { Rng, clamp } from './rng.js';

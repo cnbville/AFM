@@ -52,9 +52,10 @@ export function nflPeakAge(r: CareerRecord): number | null {
 function repeatSuspensionsAtOneSchool(r: CareerRecord): boolean {
   let lastLevel: string | null = null;
   let suspensions = 0;
+  const moves = new Set(r.transfers.map((t) => t.age + 1));
   for (const s of r.player.history) {
     if (s.level === 'HS' || s.level === 'NFL') continue;
-    if (s.level !== lastLevel) suspensions = 0;
+    if (s.level !== lastLevel || moves.has(s.age)) suspensions = 0;
     lastLevel = s.level;
     if (s.events.includes('suspended') && ++suspensions >= 2) return true;
   }
@@ -67,7 +68,8 @@ export function summarize({ records, draftSlots }: CohortResult) {
   const pros = records.filter(signedPro);
   const byStars = (s: number) => records.filter((r) => r.stars === s);
   const draftRate = (rs: CareerRecord[]) => (rs.length ? rs.filter(isDrafted).length / rs.length : NaN);
-  const nflSeasons = records.flatMap((r) => r.player.history.filter((s) => s.level === 'NFL'));
+  const onRoster = (s: { level: string; playingTime: string }) => s.level === 'NFL' && s.playingTime !== 'practiceSquad' && s.playingTime !== 'unsigned';
+  const nflSeasons = records.flatMap((r) => r.player.history.filter(onRoster));
   const freshman = records.map((r) => r.initialOverall);
   const senior = records.map((r) => r.player.history[3]!.overall);
   const peakAgesBy = (pos: Position[]) =>
@@ -102,7 +104,7 @@ export function summarize({ records, draftSlots }: CohortResult) {
     .filter((r) => r.draftGrade !== null)
     .sort((a, b) => b.draftGrade! - a.draftGrade!)
     .forEach((r, i) => consensusRank.set(r, i + 1));
-  const veteranRows = records.flatMap((r) => r.player.history.filter((s) => s.level === 'NFL' && s.age >= 33 && s.age <= 35));
+  const veteranRows = records.flatMap((r) => r.player.history.filter((s) => onRoster(s) && s.age >= 33 && s.age <= 35));
   const specialistNflRows = records.filter(isSpecialist).flatMap((r) => r.player.history.filter((s) => s.level === 'NFL'));
   const seniorL = (r: CareerRecord) => r.player.history[3]!.levelRating!;
   return {

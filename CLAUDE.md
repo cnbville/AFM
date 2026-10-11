@@ -14,11 +14,10 @@ A deep, realistic American football management sim modelled on Football Manager:
 - **Keep token use low and write plainly.** Use short sentences and simple structure. One checker pass per trial, no big agent fan-outs.
 - **Don't push or merge without Raichel's OK.**
 
-## Next job: trial 6
-- Build the seven fixes in `docs/design/trial6-fix-list.md`. Raichel says these are the last fixes before building the game itself.
-- **Walk through the list with Raichel before building.** Several items need details agreed first (league structure, first-year adjustment drivers, NIL pull).
-- The film line is assumed to be **option C** (2700 / 6500 / 4500, see `docs/decisions.md`). Raichel hasn't confirmed it explicitly, so confirm before switching it on.
-- The trial needs a league sim with generated players on real team names (decided). Today the sim runs one class on its own, with no teams.
+## Next job: the game itself
+- Trial 6 is done: all 17 fixes in `docs/design/trial6-fix-list.md` are built, and the film line is option C (confirmed).
+- Raichel finds further calls and bugs in gameplay, not in more trials.
+- Still open: the roadmap for building the game and the player's role in it. Ask before deciding either.
 
 ## Code
 - TypeScript, Node 22, Vitest, no runtime dependencies. Pure logic, no UI.
@@ -26,11 +25,12 @@ A deep, realistic American football management sim modelled on Football Manager:
 - `src/development.ts`: the yearly development step (growth, slumps, breakouts, coaching × coachability).
 - `src/scouting.ts`: noisy scouting reports.
 - `src/levelRating.ts`: level-relative ratings ("89 among seniors").
+- `src/league.ts`: the 32 NFL teams, front offices, depth charts and background players.
 - `src/career.ts`: simulates a whole national class (250,000) from age 14 through high school, recruiting, college, the draft and pro careers. The tuning knobs are in `PIPELINE`.
 - `scripts/calibrate.ts`: prints headline stats for one class.
-- `docs/trials/players30-final.json`: the 30-player trial cards.
+- `docs/trials/trial6-cards.json`: the trial 6 cards (`scripts/trial6-cards.ts`). `docs/trials/players30-final.json`: the earlier 30-player trial.
 
 ## Commands
 - `npm install`, then `npm test` (about 1 minute), `npm run typecheck`, `npm run calibrate -- 250000 seed`.
 - Fast one-off sims: `npx esbuild x.ts --bundle --platform=node --format=esm --outfile=x.mjs && node x.mjs`. A class of 250,000 takes about a minute.
-- Known test failure: 30 of 31 tests pass. The five-star draft rate is 0.88 against a bound of 0.85 (real is about 0.63). It's expected until call 1 (rawer arrivals) is built.
+- All 35 tests pass (trial 6). Calibration gap: FCS players are about 3% of draft picks (real about 6%).

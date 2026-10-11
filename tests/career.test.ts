@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { simulateCohort, type CohortResult } from '../src/career.js';
-import { summarize } from './stats.js';
+import { draftRound, simulateCohort, type CohortResult } from '../src/career.js';
+import { median, summarize } from './stats.js';
 
 /**
  * Simulates one full US high school class (250,000 freshmen) from age 14 to
@@ -37,7 +37,8 @@ describe('a national class, freshman year to retirement', () => {
   });
 
   it('still lets staffs sign unranked players they like on film', () => {
-    expect(s.recruiting.unrankedSignedFbsOrFcs).toBeGreaterThan(100);
+    // Film line C gives two stars to most of the top 6,500 seniors, so fewer signees are unranked.
+    expect(s.recruiting.unrankedSignedFbsOrFcs).toBeGreaterThan(40);
     expect(s.recruiting.level80SeniorsWithNoOffer).toBeLessThan(40);
   });
 
@@ -166,6 +167,36 @@ describe('a national class, freshman year to retirement', () => {
     // A falling rating is never labelled a breakout, and by their mid-30s veterans have no upside left.
     expect(p.fallingBreakouts).toBe(0);
     expect(s.nfl.veteranPotentialGap).toBeLessThan(1);
+  });
+
+  it('moves players up, across and down through the portal, and some find no school', () => {
+    const outcomes = new Set(result.records.flatMap((r) => r.portal.map((p) => p.outcome)));
+    for (const o of ['up', 'sideways', 'down', 'none']) expect(outcomes.has(o as never)).toBe(true);
+    // A lesser dismissal can mean a fresh start at a smaller FBS program.
+    expect(result.records.some((r) => r.transfers.some((t) => t.reason === 'dismissedLesser' && t.from === 'FBS' && t.to === 'FBS'))).toBe(true);
+  });
+
+  it('gives early picks time and sends cut players to the practice squad or free agency', () => {
+    const drafted = result.records.filter((r) => r.draftPick !== null);
+    const early = drafted.filter((r) => draftRound(r.draftPick!, result.draftSlots) <= 2);
+    const offEarly = early.filter((r) => r.player.history.filter((h) => h.level === 'NFL').slice(0, 2).some((h) => h.playingTime === 'unsigned'));
+    expect(offEarly.length).toBeLessThanOrEqual(3);
+    expect(result.records.some((r) => r.practiceSquadSeasons > 0 && r.nflSeasons > 0)).toBe(true);
+    // Released players can sign with another team.
+    expect(result.records.filter((r) => r.proTeams.length >= 3).length).toBeGreaterThan(20);
+  });
+
+  it('drafts kickers and punters off their own board, late', () => {
+    const specialists = result.records.filter((r) => r.draftPick !== null && (r.player.position === 'K' || r.player.position === 'P'));
+    expect(specialists.length).toBeGreaterThan(0);
+    expect(specialists.length).toBeLessThan(12);
+    for (const r of specialists) expect(draftRound(r.draftPick!, result.draftSlots)).toBeGreaterThanOrEqual(4);
+  });
+
+  it('ends running back careers sooner than quarterback careers', () => {
+    const lastAge = (pos: string) =>
+      median(result.records.filter((r) => r.player.position === pos && r.proExit === 'retired' && r.nflSeasons >= 3).map((r) => r.player.history.at(-1)!.age));
+    expect(lastAge('RB')).toBeLessThan(lastAge('QB') - 2);
   });
 
   it('is reproducible from a seed', () => {

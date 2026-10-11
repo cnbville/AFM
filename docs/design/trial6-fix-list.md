@@ -55,4 +55,11 @@ Nothing here is built. Raichel is still reading the cards; we walk through this 
 - **Call 6, position value with situational reaches:** teams weigh positions by general value (QB, edge, tackle up; running back down) and by their own roster. A team with a great defense missing only a generational CB or OLB reaches for him; a team with a young franchise QB won't take another early.
 - **Call 7, sideways and down transfers:** players can transfer across or down a level, not only up (for playing time, a coaching change, or a dismissal; see fix 3).
 
+## 9. Last three items (2026-10-11)
+- **15. Veterans start too long.** Staffs expect an ageing veteran to fade and lean towards the younger man; starters past their usual age keep the job only if clearly better.
+- **16. Kickers and punters get their own draft board.** Few are drafted, and only on day 3.
+- **17. Some top-500 seniors still end up two-stars.** Checked in trial 6.
+
 These are the final fixes before the game itself; later problems get debugged in the game.
+
+**Status: all 17 items built in trial 6 (2026-10-11).** Cards: `docs/trials/trial6-cards.json`, page https://claude.ai/artifact/HjXeV3d1q74zH9AmpVPiSP.
