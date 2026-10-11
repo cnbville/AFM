@@ -116,7 +116,7 @@ describe('development curves', () => {
 });
 
 describe('dynamic potential', () => {
-  it('moves at most one band per checkpoint, unless a proven breakout breaks the ceiling', () => {
+  it('moves at most one band per checkpoint, unless a breakout, major injury or stalled body moves it further', () => {
     const rng = new Rng('bands');
     let checked = 0;
     let breakouts = 0;
@@ -128,7 +128,7 @@ describe('dynamic potential', () => {
         if (r.events.includes('breakout')) {
           expect(shift).toBeLessThanOrEqual(2 * MAX_POTENTIAL_SHIFT + 2);
           breakouts++;
-        } else if (!r.events.includes('majorInjury')) {
+        } else if (!r.events.includes('majorInjury') && !r.events.includes('bodyStalled')) {
           // Allowance for snaps-driven ceiling growth and players outgrowing a ceiling.
           expect(shift).toBeLessThanOrEqual(MAX_POTENTIAL_SHIFT + 1.5);
           checked++;

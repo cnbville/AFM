@@ -25,12 +25,28 @@ export interface SeasonRecord {
   age: number;
   level: Level;
   playingTime: PlayingTime;
+  /** Rating going into the season: what he played the season at, and what his role was picked from. */
+  overallStart: number;
+  /** Rating at the end of the year, after the season and the offseason that follows. */
   overall: number;
   potential: number;
-  /** On-field level shown that season: overall plus form, slumps and breakouts. */
-  performance: number;
-  /** 1-99 against the same position, level and age (filled in by a cohort simulation). */
+  /**
+   * On-field level shown that season: his rating during the season plus form,
+   * slumps and breakouts. Null for a season without games (a redshirt year or
+   * one lost to suspension or dismissal).
+   */
+  performance: number | null;
+  /**
+   * 1-99 for the rating he played the season at, placed against his own
+   * position and then ranked nationally: high schoolers against everyone their
+   * age, college players against all FBS players, pros simply their overall
+   * (filled in by a cohort simulation).
+   */
   levelRating?: number;
+  /** Where his rating at the end of the year ranks against everyone else's at the end of theirs. */
+  levelRatingEnd?: number;
+  /** Quality of the coaching he had that season, 1-20. */
+  coaching: number;
   events: DevelopmentEvent[];
 }
 
@@ -38,9 +54,15 @@ export type PlayingTime = 'starter' | 'rotation' | 'backup' | 'redshirt';
 
 export type DevelopmentEvent =
   | 'growthSpurt'
+  /** His body stopped developing: physical ceilings settle where they are and don't rise again. */
+  | 'bodyStalled'
   | 'breakout'
   | 'stagnation'
   | 'lostSeason'
+  /** Suspended or academically ineligible for the season. */
+  | 'suspended'
+  /** Dismissed from his college team. */
+  | 'dismissed'
   | 'slump'
   | 'minorInjury'
   | 'moderateInjury'

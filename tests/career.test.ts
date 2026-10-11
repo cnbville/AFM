@@ -25,6 +25,43 @@ describe('a national class, freshman year to retirement', () => {
     expect(s.hs.fiveStarSeniorOverall).toBeLessThan(s.draft.rookieOverall.median);
   });
 
+  it('gives four and five stars only to players who dominate high school', () => {
+    const r = s.recruiting;
+    expect(r.fiveStarSeniorMin).toBeGreaterThanOrEqual(86);
+    // Almost none of the top 500-odd seniors goes unranked or ends up below FCS,
+    // and few of the national top 100 miss out on four stars.
+    expect(r.topSeniorsUnranked).toBeLessThanOrEqual(2);
+    expect(r.topSeniorsAtD2OrNone).toBeLessThan(r.topSeniors * 0.03);
+    expect(r.top100SeniorsBelowFourStars).toBeLessThan(15);
+    expect(r.blueChipSpecialists).toBe(0);
+  });
+
+  it('still lets staffs sign unranked players they like on film', () => {
+    expect(s.recruiting.unrankedSignedFbsOrFcs).toBeGreaterThan(100);
+    expect(s.recruiting.level80SeniorsWithNoOffer).toBeLessThan(40);
+  });
+
+  it('judges each player against his own position', () => {
+    const r = s.recruiting;
+    // Quarterbacks mature late but are as likely as anyone to be among the best
+    // seniors. Only about seven are expected among the top 120, so the band is wide.
+    expect(r.qbTopSeniorRatio).toBeGreaterThan(0.4);
+    expect(r.qbTopSeniorRatio).toBeLessThan(2.5);
+    expect(r.blueChipQBs).toBeGreaterThan(8);
+    expect(r.fiveStarPositions).toBeGreaterThanOrEqual(6);
+  });
+
+  it('has off-field and academic trouble in college at believable rates', () => {
+    const t = s.trouble;
+    expect(t.perCollegeSeason).toBeGreaterThan(0.015);
+    expect(t.perCollegeSeason).toBeLessThan(0.05);
+    // Some dismissed players leave the game, the rest start over a level down.
+    expect(t.leftFootball).toBeGreaterThan(0);
+    expect(s.smallSchools.transferRoutes['FBS>FCS']).toBeGreaterThan(0);
+    // A second suspension at the same school is a dismissal.
+    expect(t.suspendedTwiceAtOneSchool).toBe(0);
+  });
+
   it('drafts recruits at realistic rates by star rating', () => {
     const r = s.draftRateByStars;
     expect(r[5]).toBeGreaterThan(0.4);
@@ -55,8 +92,13 @@ describe('a national class, freshman year to retirement', () => {
     expect(s.draftedShareByStars.fromFCS).toBeGreaterThan(0.01);
     expect(s.draftedShareByStars.fromFCS).toBeLessThan(0.12);
     // Standouts move up through the transfer portal instead.
-    expect(sm.transfersUp).toBeGreaterThan(100);
-    expect(sm.draftedAfterTransfer).toBeGreaterThan(0);
+    expect(sm.playersMovedUp).toBeGreaterThan(100);
+    expect(sm.draftedAfterMovingUp).toBeGreaterThan(0);
+  });
+
+  it('drafts imperfectly without wild first-round reaches', () => {
+    // Real drafts take 1-3 first-rounders a year from outside the consensus top 50.
+    expect(s.draft.firstRoundersOutsideTop50).toBeLessThanOrEqual(5);
   });
 
   it('makes a 99 level rating as rare as EA College Football does', () => {
@@ -82,18 +124,22 @@ describe('a national class, freshman year to retirement', () => {
 
   it('produces realistic pro careers', () => {
     const c = s.nfl.careerLength;
-    expect(c.allPros).toBeGreaterThan(2.5);
-    expect(c.allPros).toBeLessThan(5.5);
+    expect(c.allSigned).toBeGreaterThan(2.5);
+    expect(c.allSigned).toBeLessThan(5.5);
     expect(c.drafted).toBeGreaterThan(4);
     expect(c.drafted).toBeLessThan(8.5);
-    expect(c.firstRound).toBeGreaterThan(c.lateRound + 3);
+    expect(c.firstRound).toBeGreaterThan(c.round7 + 3);
     expect(c.udfa).toBeLessThan(c.drafted);
+    // Kickers and punters last longer, but they age too.
+    // (George Blanda kicked at 48.)
+    expect(s.nfl.specialists.oldestSeason).toBeLessThanOrEqual(48);
+    expect(s.nfl.specialists.seasonsAt38Plus).toBeLessThan(0.15);
   });
 
   it('peaks at realistic ages by position', () => {
     const p = s.nfl.medianPeakAge;
-    expect(p.all).toBeGreaterThanOrEqual(25);
-    expect(p.all).toBeLessThanOrEqual(28);
+    expect(p.allButKP).toBeGreaterThanOrEqual(25);
+    expect(p.allButKP).toBeLessThanOrEqual(28);
     expect(p.RB).toBeLessThanOrEqual(26);
     expect(p.QB).toBeGreaterThanOrEqual(28);
     expect(p.QB).toBeGreaterThan(p.RB);
@@ -113,10 +159,13 @@ describe('a national class, freshman year to retirement', () => {
     const p = s.potential;
     expect(p.initialVsExitCorrelationDrafted).toBeGreaterThan(0.3);
     expect(p.initialVsExitCorrelationDrafted).toBeLessThan(0.85);
-    expect(p.draftedRoseBy8Plus).toBeGreaterThan(0.3);
-    expect(p.collegeFellBy8Plus).toBeGreaterThan(0.005);
+    expect(p.draftedRoseBy8PlusSince14).toBeGreaterThan(0.3);
+    expect(p.collegiansFellBy8PlusSince14).toBeGreaterThan(0.005);
     expect(p.youngRegressionShare).toBeGreaterThan(0.003);
     expect(p.youngRegressionShare).toBeLessThan(0.15);
+    // A falling rating is never labelled a breakout, and by their mid-30s veterans have no upside left.
+    expect(p.fallingBreakouts).toBe(0);
+    expect(s.nfl.veteranPotentialGap).toBeLessThan(1);
   });
 
   it('is reproducible from a seed', () => {

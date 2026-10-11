@@ -14,7 +14,10 @@ export interface PositionProfile {
    * slow while a great corner is fast and light.
    */
   eliteShape: Partial99;
-  /** Years added to every attribute's decline age (QBs and specialists last longer). */
+  /**
+   * Years added to every attribute's decline age (QBs and specialists last
+   * longer). Physical attributes take at most 1.5 of it.
+   */
   agingOffset: number;
   /** Relative chance of injury per season (1 = league average). */
   injuryRisk: number;
@@ -105,14 +108,15 @@ export const POSITION_PROFILES: Record<Position, PositionProfile> = {
   K: {
     weights: { kickAccuracy: 5, kickPower: 4, poise: 1 },
     eliteShape: { kickAccuracy: 97, kickPower: 96, poise: 90, awareness: 60, speed: 55, strength: 45 },
-    agingOffset: 6,
+    // Kick power and accuracy already decline late (from 36 and 37), so specialists need little extra.
+    agingOffset: 2,
     injuryRisk: 0.25,
     share: 0.02,
   },
   P: {
     weights: { kickPower: 5, kickAccuracy: 3, poise: 1 },
     eliteShape: { kickPower: 97, kickAccuracy: 93, poise: 88, awareness: 60, speed: 55, strength: 45 },
-    agingOffset: 6,
+    agingOffset: 2,
     injuryRisk: 0.25,
     share: 0.02,
   },

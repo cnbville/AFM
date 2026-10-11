@@ -1,4 +1,5 @@
 import type { Level } from './player.js';
+import type { Position } from './positions.js';
 
 /**
  * A level rating says how good a player is against everyone he could line up
@@ -6,11 +7,17 @@ import type { Level } from './player.js';
  * itself; high school and college get this translation so that a 60-rated
  * junior reads as the force he is against high school opponents.
  *
- * - High school: compared with every high schooler of the same age, all
- *   positions together, like a national recruiting ranking.
- * - College: compared with every FBS player, all ages and positions together,
- *   like EA Sports College Football. FCS and small-college players are put on
- *   the same FBS scale after the same discount NFL scouts give their tape.
+ * - High school: compared with every high schooler of the same age, like a
+ *   national recruiting ranking.
+ * - College: compared with every FBS player of any age, like EA Sports College
+ *   Football. FCS and small-college players are put on the same FBS scale
+ *   after the same discount NFL scouts give their tape.
+ *
+ * Positions mature at different ages: at 17 the best quarterbacks and
+ * linemen rate lower than the best running backs and corners, though they are
+ * just as far ahead of their peers. So a player is first placed against his
+ * own position (see positionAligner) and then ranked nationally, the way EA
+ * Sports College Football's top 100 spans every position.
  *
  * The scale is anchored to national ranks, using how rare top ratings are in
  * EA College Football (about 11,000 players a season): 90+ is roughly the top
@@ -71,6 +78,41 @@ export function buildLevelScale(overalls: number[], pool: Pool, classShare = 1):
     else clean.push([p[0], p[1]]);
   }
   return { points: clean };
+}
+
+/**
+ * Maps an overall at one position onto the all-position scale of the same
+ * group, so that the same standing among his position's peers gives the same
+ * value: each position's median and 99th percentile line up with the pool's.
+ * Positions with too few players to measure are left as they are.
+ */
+export function positionAligner(samples: Iterable<[Position, number]>): (position: Position, overall: number) => number {
+  const all: number[] = [];
+  const byPosition = new Map<Position, number[]>();
+  for (const [position, x] of samples) {
+    all.push(x);
+    let g = byPosition.get(position);
+    if (!g) byPosition.set(position, (g = []));
+    g.push(x);
+  }
+  const [allMid, allHigh] = quantiles(all, [0.5, 0.99]);
+  const maps = new Map<Position, [number, number]>();
+  for (const [position, xs] of byPosition) {
+    if (xs.length < 30) continue;
+    const [mid, high] = quantiles(xs, [0.5, 0.99]);
+    if (high - mid < 0.5) continue;
+    maps.set(position, [mid, (allHigh - allMid) / (high - mid)]);
+  }
+  return (position, overall) => {
+    const m = maps.get(position);
+    return m ? allMid + (overall - m[0]) * m[1] : overall;
+  };
+}
+
+function quantiles(xs: number[], qs: [number, number]): [number, number] {
+  const s = [...xs].sort((a, b) => a - b);
+  const at = (q: number) => s[Math.min(s.length - 1, Math.floor(q * (s.length - 1)))] ?? 0;
+  return [at(qs[0]), at(qs[1])];
 }
 
 export function levelRating(overall: number, level: Level, scale: LevelScale | undefined): number {
