@@ -36,7 +36,7 @@ Numbers marked "hidden" are debug-only; the game never shows them.
 ## Players
 
 - **Hidden gem: Micah Rogers**, an unranked EDGE from Los Angeles. He went to a California junior college, moved up to Tulane after a year, and went in round 2. Why: low visibility (a weak exposure network) hid him in high school. JUCO film got him a look. There are 33 such gems in 30 years.
-- **JUCO to number 1 pick: Kendrick Lewis** (a different Kendrick Lewis; the name list is small). A five-star with a 2.6 GPA, he went to a Mississippi JUCO, moved up to Texas after one year, and was drafted first overall. Why: his grades kept him from signing out of high school, not his talent. That's the Cam Newton path.
+- **JUCO to number 1 pick: Kendrick Lewis** (a different Kendrick Lewis; the name list is small). A five-star, he went to a Mississippi JUCO, moved up to Texas after one year, and was drafted first overall. Why: his high school GPA was under the NCAA's 2.3 floor, so no FBS school could sign him. The 2.6 in the report is his GPA after junior college raised it. (Corrected 2026-10-13: an earlier version blamed the 2.6.)
 - **Steered, then free: Austin Ward.** A family handler steered this five-star to a Texas JUCO. He moved up to Ohio State, then transferred to Georgia "free at last to choose for himself" and went 8th overall. Of 700 steered recruits, 251 transferred out once free.
 - **Five-star busts:** Kendrick Henderson walked away from football as a freshman at Miami. Ivan Martin had a 1.8 GPA and never signed anywhere.
 - **Powerhouse transfer: Noah Campbell** moved to King (TX) at 15, sat out part of the season under Texas's transfer rule, then went to Michigan and was picked 2nd.
