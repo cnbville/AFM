@@ -169,6 +169,8 @@ pub struct Alumnus {
     pub steered: bool,
     pub background_summary: String,
     pub notes: Vec<String>,
+    /// The full player as he left, kept for drafted players and blue-chips (trial player pages).
+    pub player: Option<Box<crate::player::Player>>,
 }
 
 impl Alumnus {
@@ -204,6 +206,7 @@ impl Alumnus {
             steered: p.notes.iter().any(|n| n.contains("more than his own")),
             background_summary,
             notes: p.notes.clone(),
+            player: (pick.is_some() || p.stars >= 4).then(|| Box::new(p.player.clone())),
         }
     }
 }

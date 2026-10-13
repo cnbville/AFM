@@ -181,6 +181,69 @@ fn main() {
     let w = World::new(WorldOptions { seed, history_years: years, ..Default::default() });
     println!("# World trial: seed {seed}, {years} years of history, built in {:.0}s\n", t.elapsed().as_secs_f64());
 
+    // AFM_CARDS=path.json: full player pages for featured players, then stop.
+    if let Ok(path) = std::env::var("AFM_CARDS") {
+        let first = w.year - years as i32 + 5;
+        let mut picked: Vec<(&Alumnus, String)> = Vec::new();
+        for a in w.alumni.iter().filter(|a| a.player.is_some() && a.year >= first) {
+            let tag = match a.pick {
+                Some(1) => "Number 1 pick".to_string(),
+                Some(p) if p <= 5 && a.year == w.year => format!("Top 5 of the {} draft", a.year),
+                _ => continue,
+            };
+            picked.push((a, tag));
+        }
+        let gems = w.alumni.iter().filter(|a| {
+            a.player.is_some()
+                && a.year >= first
+                && a.stars <= 2
+                && a.pick.is_some_and(|p| p <= 64)
+                && a.colleges.first().is_some_and(|&c| w.programs[c].division != Division::FBS)
+        });
+        picked.extend(gems.take(3).map(|a| (a, "Hidden gem".to_string())));
+        let busts =
+            w.alumni.iter().filter(|a| a.player.is_some() && a.year >= first && a.stars == 5 && a.left_football);
+        picked.extend(busts.take(3).map(|a| (a, "Five-star who left football".to_string())));
+        let cards: Vec<serde_json::Value> = picked
+            .iter()
+            .map(|(a, tag)| {
+                let p = a.player.as_ref().unwrap();
+                let ceil = debug::ceilings(p);
+                let attrs: Vec<serde_json::Value> = afm_engine::attributes::Attr::ALL
+                    .iter()
+                    .map(|&t| serde_json::json!([format!("{t:?}"), p.attributes[t].round(), ceil[t].round()]))
+                    .collect();
+                let seasons: Vec<serde_json::Value> = p
+                    .history
+                    .iter()
+                    .map(|h| {
+                        serde_json::json!({
+                            "age": h.age, "level": h.level.name(), "role": h.playing_time.name(),
+                            "start": h.overall_start.round(), "end": h.overall.round(),
+                            "perf": h.performance.map(|v| v.round()), "lr": h.level_rating,
+                            "pot": debug::season_potential(h).round()
+                        })
+                    })
+                    .collect();
+                serde_json::json!({
+                    "tag": tag, "name": a.name, "pos": a.position.name(), "stars": a.stars,
+                    "hs": w.school_name(a.high_school), "state": STATE_CENTERS[a.home_state].0,
+                    "path": div_name(&w, a), "pick": a.pick, "year": a.year,
+                    "round": a.pick.map(|pk| afm_engine::career::draft_round(pk, 257)),
+                    "overall": a.overall.round(), "potential": debug::alumnus_potential(a).round(),
+                    "visibility": (debug::alumnus_visibility(a) * 100.0).round() / 100.0,
+                    "background": a.background_summary, "notes": a.notes,
+                    "personality": {"work_ethic": p.personality.work_ethic.round(), "coachability": p.personality.coachability.round(),
+                        "competitiveness": p.personality.competitiveness.round(), "love_of_game": p.personality.love_of_game.round()},
+                    "bloom": (p.bloom * 10.0).round() / 10.0, "injury": p.injury_proneness.round(),
+                    "attributes": attrs, "seasons": seasons
+                })
+            })
+            .collect();
+        std::fs::write(&path, serde_json::to_string(&cards).unwrap()).unwrap();
+        println!("wrote {} cards to {path}", cards.len());
+        return;
+    }
     // AFM_ROOKIES=1: how good drafted players are on draft day, by round, then stop.
     if std::env::var("AFM_ROOKIES").is_ok() {
         let first = w.year - years as i32 + 5;
