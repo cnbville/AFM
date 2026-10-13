@@ -248,7 +248,19 @@ pub(crate) fn carousel(w: &mut World) {
         let last = if n >= 1 { coach.recent[n - 1] } else { 0.0 };
         let before = if n >= 2 { coach.recent[n - 2] } else { 0.0 };
         // Recency bias: one bad stretch outweighs a long good record.
-        let badness = -(1.5 * last + 0.7 * before);
+        let mut badness = -(1.5 * last + 0.7 * before);
+        // Losing is losing: boosters don't grade on the roster he inherited.
+        if let Employer::College(p) = job.employer
+            && tenure >= 3
+        {
+            let s = &w.programs[p].seasons;
+            let recent: Vec<_> = s.iter().rev().take(2).collect();
+            let games: u32 = recent.iter().map(|s| s.wins + s.losses).sum();
+            if games > 0 {
+                let wp = recent.iter().map(|s| s.wins).sum::<u32>() as f64 / games as f64;
+                badness += 0.8 * (0.4 - wp).max(0.0);
+            }
+        }
         let (prestige, hs) = match job.employer {
             Employer::HighSchool(s) => (w.high_schools[s].prestige, true),
             Employer::College(p) => (w.programs[p].prestige, false),
@@ -393,7 +405,12 @@ pub(crate) fn carousel(w: &mut World) {
                     Employer::College(p) => tier_of(w.programs[p].division),
                     Employer::Nfl(_) => CoachTier::Nfl,
                 };
-                let age = w.rng.int(27, 38) as u32;
+                // A head job goes to a long-time assistant; a coordinator job can go younger.
+                let age = if o.role == Role::HeadCoach && !matches!(o.employer, Employer::HighSchool(_)) {
+                    w.rng.int(36, 52)
+                } else {
+                    w.rng.int(28, 40)
+                } as u32;
                 let c = new_coach(w, tier, age);
                 w.coaches[c].reputation = clamp(w.coaches[c].reputation - 2.0, 1.0, 20.0);
                 c
@@ -626,7 +643,8 @@ pub(crate) fn update_programs(w: &mut World, r: &SeasonResults) {
         raw[i][GradeCat::ProPipeline as usize] = picks;
         raw[i][GradeCat::PlayingTime as usize] = leave / starters.max(1.0) - 0.01 * t.strength;
         raw[i][GradeCat::Tradition as usize] = p.tradition;
-        raw[i][GradeCat::TitleChances as usize] = 0.02 * t.strength + 0.6 * titles_recent + win;
+        raw[i][GradeCat::TitleChances as usize] =
+            0.02 * t.strength + (0.6 * titles_recent + win) * conf_strength(&p.conference);
         raw[i][GradeCat::CoachPrestige as usize] = hc_rep;
         raw[i][GradeCat::Facilities as usize] = p.facilities;
         raw[i][GradeCat::Nil as usize] = p.collective.budget;

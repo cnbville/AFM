@@ -235,11 +235,20 @@ fn division_scale(d: Division) -> f64 {
 /// history: titles, 2021-25 record, stadium size, conference and academics.
 pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -> Program {
     let state = geo::state_index(&row.state).unwrap_or(0);
-    let stadium = row.stadium_capacity.unwrap_or(match row.division {
-        Division::FBS => 30000,
-        Division::FCS => 12000,
-        _ => 4000,
-    });
+    // A shared or oversized stadium (Winston-Salem State plays in a 22,000-seat
+    // city stadium) says little about a small program's crowds: cap by level.
+    let stadium = row
+        .stadium_capacity
+        .unwrap_or(match row.division {
+            Division::FBS => 30000,
+            Division::FCS => 12000,
+            _ => 4000,
+        })
+        .min(match row.division {
+            Division::FBS => 110_000,
+            Division::FCS => 25_000,
+            _ => 10_000,
+        });
     let scale = division_scale(row.division);
     let p4 = matches!(row.conference.as_str(), "SEC" | "Big Ten" | "Big 12" | "ACC") || row.name == "Notre Dame";
     let titles = row.national_titles as f64;

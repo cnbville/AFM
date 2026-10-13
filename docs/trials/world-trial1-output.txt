@@ -1,0 +1,203 @@
+# World trial: seed 2026, 30 years of history, built in 99s
+
+## Calibration
+draft picks by final division: {"D2": 32, "FBS": 7201, "FCS": 477} of 7710
+5-star draft rate: 66.3% (512 of 772)
+4-star draft rate: 22.3% (1800 of 8061)
+3-star draft rate: 4.7% (2268 of 48103)
+2-star draft rate: 1.1% (1093 of 96140)
+FBS high school signees by home state, share sim vs real:
+  TX 12.6% vs 14.2%, FL 7.9% vs 10.6%, GA 7.3% vs 9.1%, CA 8.4% vs 8.9%, OH 4.8% vs 4.2%, AL 4.0% vs 4.0%, MS 2.9% vs 3.2%, NC 3.2% vs 3.0%, LA 2.8% vs 2.9%, IL 3.2% vs 2.7%
+  ME 0.1% vs 0.0%, VT 0.1% vs 0.0%, NH 0.2% vs 0.0%, ND 0.1% vs 0.0%, RI 0.1% vs 0.1%
+
+## FBS national champions
+1996 Alabama 14-1; 1997 Georgia 15-1; 1998 Georgia 14-2; 1999 Michigan 14-1; 2000 Georgia 14-1; 2001 Miami (FL) 14-2; 2002 Georgia 14-1; 2003 Georgia 14-1; 2004 USC 14-2; 2005 Alabama 14-1; 2006 Georgia 15-0; 2007 Michigan 15-1; 2008 Alabama 14-1; 2009 Georgia 14-1; 2010 Georgia 14-1; 2011 Michigan 15-1; 2012 Texas 14-1; 2013 Ohio State 15-0; 2014 Michigan 14-2; 2015 Georgia 14-1; 2016 Notre Dame 15-0; 2017 Ohio State 14-1; 2018 Texas 14-1; 2019 Notre Dame 15-1; 2020 Miami (FL) 14-1; 2021 Texas 14-1; 2022 Miami (FL) 14-1; 2023 Texas 14-1; 2024 Texas 14-2; 2025 Notre Dame 15-0
+FCS titles: Eastern Kentucky 5, LIU 3, UTRGV 3, Montana State 2, Tennessee Tech 2, Villanova 2, Bucknell 1, Colgate 1
+D2 titles: Valdosta State 8, Southeastern Oklahoma State 3, North Greenville 2, Ouachita Baptist 2, Angelo State 1, Chadron State 1, Chowan 1, Clark Atlanta 1
+
+## Programs
+top 12 prestige now: Texas 0.95 (was 0.82), Miami (FL) 0.92 (was 0.75), Georgia 0.91 (was 0.90), USC 0.91 (was 0.80), Notre Dame 0.91 (was 0.85), Michigan 0.90 (was 0.87), Penn State 0.88 (was 0.84), Ohio State 0.87 (was 0.86), Pittsburgh 0.84 (was 0.75), Tennessee 0.83 (was 0.79), Alabama 0.83 (was 0.88), Texas A&M 0.83 (was 0.78)
+
+Biggest riser and biggest faller:
+### Bowling Green (FBS, MAC): prestige 0.44 -> 0.61, national titles in history 0, conference titles 6
+seasons: 1996 3-9; 1997 7-5; 1998 6-6; 1999 5-7; 2000 6-6; 2001 3-9; 2002 6-6; 2003 7-5*C; 2004 5-7; 2005 7-5; 2006 5-7; 2007 8-4*C; 2008 9-4*C; 2009 10-3*C; 2010 7-5; 2011 6-6; 2012 4-8; 2013 6-6; 2014 9-3; 2015 5-7; 2016 6-6; 2017 6-6; 2018 3-9; 2019 10-2; 2020 10-2; 2021 8-4*C; 2022 6-6; 2023 7-5; 2024 7-5; 2025 8-4*C; 
+head coaches: 1984-1996 Noah Nelson (3-9, retired); 1996-2000 Blake Williams (24-24, retired); 2000-2009 Kobe Miller (60-50, retired); 2009-2012 Trey Walker (17-19, fired); 2012-2018 Garrett Phillips (35-37, fired); 2018-now Jalen Stewart (56-28, rep 17.5)
+NIL now $2.2M; warning years: [2014]
+pipelines: OH 0.18
+draft picks by round: {1: 2, 3: 4, 4: 3, 5: 7, 6: 4, 7: 5}
+grades now: title chances A-, coach A, pipeline D+, NIL D+, tradition C, facilities D, playing time C-
+### South Carolina (FBS, SEC): prestige 0.68 -> 0.53, national titles in history 0, conference titles 0
+seasons: 1996 4-8; 1997 5-7; 1998 5-7; 1999 4-8; 2000 4-8; 2001 6-6; 2002 7-5; 2003 6-6; 2004 7-5; 2005 2-10; 2006 6-6; 2007 2-10; 2008 5-7; 2009 5-7; 2010 7-5; 2011 7-5; 2012 4-8; 2013 6-6; 2014 5-7; 2015 6-6; 2016 6-6; 2017 5-7; 2018 7-5; 2019 1-11; 2020 0-12; 2021 2-10; 2022 3-9; 2023 3-9; 2024 1-11; 2025 2-10; 
+head coaches: 1988-1996 Travis Edwards (4-8, fired); 1996-1999 Jalen King (14-22, fired); 1999-2003 Omar Campbell (23-25, retired); 2003-2007 Will Morris (17-31, fired); 2007-2013 Tyler Collins (34-38, retired); 2013-2016 Micah Sanders (17-19, left for another job); 2016-2020 Hunter Martin (13-35, fired); 2020-2022 Quinn Clark (5-19, fired); 2022-2025 Finn Howard (6-30, fired); 2025-now DeShawn Hall (0-0, rep 12.4)
+NIL now $6.0M; warning years: []
+pipelines: GA 0.24
+draft picks by round: {1: 2, 2: 7, 3: 8, 4: 6, 5: 12, 6: 7, 7: 9}
+grades now: title chances F, coach D, pipeline C+, NIL C+, tradition C+, facilities B+, playing time B
+### Alabama (FBS, SEC): prestige 0.88 -> 0.83, national titles in history 3, conference titles 5
+seasons: 1996 14-1*N; 1997 8-4; 1998 12-2*C; 1999 3-9; 2000 10-3; 2001 8-4; 2002 10-4; 2003 11-2; 2004 13-1; 2005 14-1*N; 2006 13-2; 2007 11-2*C; 2008 14-1*N; 2009 9-3; 2010 10-3; 2011 8-4; 2012 9-3; 2013 5-7; 2014 10-3; 2015 12-2; 2016 9-3; 2017 10-2; 2018 8-4; 2019 9-3; 2020 9-3; 2021 13-3; 2022 7-5; 2023 11-3; 2024 5-7; 2025 8-4; 
+head coaches: 1989-1999 Sam Davis (37-16, fired); 1999-2011 Micah Adams (131-30, fired); 2011-2014 Elijah Coleman (24-13, fired); 2014-2015 Hunter Jones (12-2, retired); 2015-2019 Cameron Collins (36-12, fired); 2019-2024 Vince Brown (45-21, fired); 2024-now Lamar Peterson (8-4, rep 13.9)
+NIL now $29.8M; warning years: [2009]
+pipelines: FL 1.00, AL 0.99, GA 0.93, TX 0.88, MS 0.80
+draft picks by round: {1: 65, 2: 50, 3: 58, 4: 32, 5: 26, 6: 23, 7: 16}
+grades now: title chances B+, coach C, pipeline A, NIL A, tradition A+, facilities A+, playing time B
+### Nebraska (FBS, Big Ten): prestige 0.77 -> 0.82, national titles in history 0, conference titles 2
+seasons: 1996 5-7; 1997 9-3; 1998 6-6; 1999 8-4; 2000 8-4; 2001 4-8; 2002 8-4; 2003 8-4; 2004 4-8; 2005 8-4; 2006 5-7; 2007 9-3; 2008 8-4; 2009 12-2; 2010 13-2*C; 2011 5-7; 2012 7-5; 2013 11-3; 2014 6-6; 2015 8-4; 2016 9-3; 2017 7-5; 2018 4-8; 2019 7-5; 2020 3-9; 2021 11-2*C; 2022 5-7; 2023 7-5; 2024 9-3; 2025 8-4; 
+head coaches: 1989-1990 Cedric Brown (0-0, retired); 1990-1996 Noah White (5-7, fired); 1996-1998 Devin Parker (15-9, retired); 1998-2004 Jace Scott (40-32, fired); 2004-2011 Michael Campbell (60-29, fired); 2011-2020 Sam Henderson (62-48, fired); 2020-now Wyatt Coleman (40-21, rep 16.5)
+NIL now $35.7M; warning years: []
+pipelines: TX 0.53, CA 0.46, KS 0.36, MO 0.26, AL 0.12
+draft picks by round: {1: 10, 2: 19, 3: 23, 4: 20, 5: 17, 6: 16, 7: 15}
+grades now: title chances B+, coach A, pipeline A, NIL A, tradition A, facilities A, playing time D
+### Indiana (FBS, Big Ten): prestige 0.69 -> 0.58, national titles in history 0, conference titles 0
+seasons: 1996 6-6; 1997 5-7; 1998 7-5; 1999 6-6; 2000 6-6; 2001 9-3; 2002 3-9; 2003 6-6; 2004 2-10; 2005 2-10; 2006 3-9; 2007 5-7; 2008 8-4; 2009 5-7; 2010 5-7; 2011 6-6; 2012 7-5; 2013 8-4; 2014 3-9; 2015 6-6; 2016 8-4; 2017 6-6; 2018 6-6; 2019 3-9; 2020 3-9; 2021 3-9; 2022 5-7; 2023 4-8; 2024 6-6; 2025 2-10; 
+head coaches: 1988-2004 Brandon Walker (50-58, fired); 2004-2013 Blake Green (49-59, retired); 2013-2019 Andre Williams (32-40, fired); 2019-2021 Brandon Young (6-18, retired); 2021-now Blake Martin (17-31, rep 13.5)
+NIL now $6.6M; warning years: []
+pipelines: OH 0.12
+draft picks by round: {1: 5, 2: 6, 3: 8, 4: 10, 5: 7, 6: 9, 7: 8}
+grades now: title chances D, coach C, pipeline B-, NIL C+, tradition B-, facilities B-, playing time B-
+### James Madison (FBS, Sun Belt): prestige 0.48 -> 0.55, national titles in history 0, conference titles 3
+seasons: 1996 6-6; 1997 6-6; 1998 8-4*C; 1999 2-10; 2000 5-7; 2001 6-6; 2002 4-8; 2003 7-5; 2004 5-7; 2005 8-4; 2006 4-8; 2007 10-2; 2008 2-10; 2009 6-6; 2010 5-7; 2011 10-3*C; 2012 5-7; 2013 7-5; 2014 6-6; 2015 2-10; 2016 7-5; 2017 9-3; 2018 4-8; 2019 7-5; 2020 5-7; 2021 5-7; 2022 7-5; 2023 7-5; 2024 10-3*C; 2025 6-6; 
+head coaches: 1987-2004 Yusuf Coleman (49-59, retired); 2004-2015 Peyton Gray (65-68, retired); 2015-now Will Clark (67-54, rep 15.5)
+NIL now $1.8M; warning years: [2008, 2021]
+pipelines: IL 0.12, MI 0.12
+draft picks by round: {2: 2, 3: 1, 4: 2, 5: 2, 6: 5, 7: 3}
+grades now: title chances B+, coach B+, pipeline C+, NIL D-, tradition F, facilities D-, playing time D
+
+Title chances grade after back-to-back conference titles (first five cases):
+- Air Force: D- before, B+ after one title, A after two
+- Alabama: A+ before, A+ after one title, A+ after two
+- Bowling Green: D+ before, B+ after one title, A after two
+- Clemson: A before, A after one title, A+ after two
+- Colorado State: B before, A- after one title, A after two
+
+NIL: 150 programs got warnings in history. Most warned FBS program (2 years):
+### Temple (FBS, American): prestige 0.47 -> 0.50, national titles in history 0, conference titles 2
+seasons: 1996 3-9; 1997 7-5; 1998 4-8; 1999 6-6; 2000 8-4; 2001 9-4*C; 2002 5-7; 2003 3-9; 2004 1-11; 2005 4-8; 2006 8-4; 2007 3-9; 2008 7-5; 2009 4-8; 2010 6-6; 2011 6-6; 2012 9-3; 2013 6-6; 2014 2-10; 2015 7-5; 2016 4-8; 2017 8-4; 2018 6-6; 2019 11-2*C; 2020 2-10; 2021 3-9; 2022 4-8; 2023 3-9; 2024 6-6; 2025 7-5; 
+head coaches: 1989-1996 Cameron Thomas (3-9, fired); 1996-2001 Shane Murphy (34-27, retired); 2001-2005 Andre Cox (13-35, fired); 2005-2006 Nate Edwards (8-4, left for another job); 2006-2011 Brandon Roberts (26-34, left for another job); 2011-2019 Vince Brown (53-44, left for another job); 2019-2022 Cedric Wright (9-27, retired); 2022-now Sam Lewis (16-20, rep 9.0)
+NIL now $2.1M; warning years: [2000, 2014]
+pipelines: FL 0.06
+draft picks by round: {2: 3, 3: 5, 4: 2, 5: 6, 6: 5, 7: 3}
+grades now: title chances C, coach F, pipeline D-, NIL D, tradition D+, facilities C, playing time B+
+sample warnings: ["Our collective is warning that a major booster has stopped giving. NIL offers will be tighter next cycle.", "Temple's NIL collective takes a hit: a major booster has stopped giving.", "NIL grade trending down (↓)"]
+
+## Coaches
+Top 3 FBS head coaches by reputation:
+- Jamal Roberts (age 55), reputation 19.3; hidden: head-coach value 17.9, teaching 18.1, recruiting 19.6, network 18.7, game mgmt 17.8; ex-pro false; mentor none
+  2005-2006 defensive coordinator at North Dakota State (FBS): 0-0, 0 titles, left for another job
+  2006-2015 defensive coordinator at LSU (FBS): 0-0, 0 titles, left for another job
+  2015-now head coach at Texas (FBS): 127-18, 5 titles
+- Kobe Brown (age 61), reputation 19.1; hidden: head-coach value 18.3, teaching 18.7, recruiting 15.7, network 18.2, game mgmt 20.0; ex-pro false; mentor Peyton Gray
+  2005-2007 defensive coordinator at James Madison (FBS): 0-0, 0 titles, left for another job
+  2007-2015 head coach at Kennesaw State (FBS): 54-43, 2 titles, left for another job
+  2015-2023 defensive coordinator at USC (FBS): 0-0, 0 titles, left for another job
+  2023-now head coach at Illinois (FBS): 19-5, 0 titles
+- Vince Gray (age 49), reputation 18.6; hidden: head-coach value 19.2, teaching 18.1, recruiting 19.0, network 16.8, game mgmt 19.5; ex-pro false; mentor Elijah Coleman
+  2016-2017 defensive coordinator at Western Michigan (FBS): 0-0, 0 titles, left for another job
+  2017-2020 head coach at Boston College (FBS): 15-21, 0 titles, left for another job
+  2020-now head coach at Oklahoma State (FBS): 38-22, 0 titles
+Most overrated FBS head coach:
+- Kendrick Lewis (age 38), reputation 16.3; hidden: head-coach value 11.3, teaching 11.4, recruiting 10.8, network 11.2, game mgmt 15.3; ex-pro false; mentor Micah Mitchell
+  2016-2019 offensive coordinator at Valdosta State (D2): 0-0, 0 titles, left for another job
+  2019-2025 head coach at New Hampshire (FCS): 42-33, 2 titles, left for another job
+  2025-now head coach at Eastern Michigan (FBS): 0-0, 0 titles
+Most underrated FBS head coach:
+- Hunter Price (age 53), reputation 5.9; hidden: head-coach value 12.9, teaching 13.1, recruiting 16.8, network 11.5, game mgmt 13.0; ex-pro false; mentor none
+  2025-now head coach at Colorado State (FBS): 0-0, 0 titles
+FCS head coaches with titles who moved up to FBS head jobs:
+- Sam Wood (age 68), reputation 13.0; hidden: head-coach value 10.8, teaching 12.9, recruiting 12.5, network 14.7, game mgmt 11.4; ex-pro false; mentor Cameron Parker
+  1990-1998 offensive coordinator at Minot State (D2): 0-0, 0 titles, let go by the new staff
+  1998-2007 head coach at Prattville Grove HS (AL): 44-49, 0 titles, left for another job
+  2007-2010 head coach at Alabaster South HS (AL): 11-19, 0 titles, fired
+  2010-2015 defensive coordinator at MS Junior College 4 (JUCO): 0-0, 0 titles, left for another job
+  2015-2018 head coach at Ferris State (D2): 19-17, 0 titles, fired
+  2018-2020 defensive coordinator at IA Junior College 3 (JUCO): 0-0, 0 titles, left for another job
+  2020-2023 offensive coordinator at Franklin Pierce (D2): 0-0, 0 titles, left for another job
+  2023-2024 head coach at LIU (FCS): 10-3, 1 titles, left for another job
+  2024-now head coach at Marshall (FBS): 7-5, 0 titles
+- Andre Johnson (age 65), reputation 18.2; hidden: head-coach value 14.8, teaching 15.6, recruiting 14.6, network 16.5, game mgmt 14.6; ex-pro false; mentor Wyatt Walker
+  1990-1990 head coach at Conway Ridge HS (AR): 0-0, 0 titles, left for another job
+  1990-1994 head coach at St. Augustine (Bentonville) HS (AR): 0-0, 0 titles, left for another job
+  1994-1997 head coach at Little Rock South HS (AR): 13-8, 0 titles, left for another job
+  1997-2003 head coach at Springdale Prairie HS (AR): 39-23, 0 titles, left for another job
+  2003-2004 head coach at Western New Mexico (D2): 4-8, 0 titles, left for another job
+  2004-2008 offensive coordinator at Northwestern State (FCS): 0-0, 0 titles, let go by the new staff
+  2008-2012 head coach at Sioux Falls (D2): 30-20, 2 titles, left for another job
+  2012-2014 head coach at Southeast Missouri State (FCS): 17-9, 1 titles, left for another job
+  2014-2022 offensive coordinator at Florida State (FBS): 0-0, 0 titles, left for another job
+  2022-now head coach at Miami (FL) (FBS): 35-6, 3 titles
+(35 in total)
+FBS head coaches fired within two seasons: 53. Example:
+- Vince Johnson (age 42), reputation 9.6; hidden: head-coach value 11.3, teaching 11.5, recruiting 7.3, network 9.5, game mgmt 10.5; ex-pro false; mentor none
+  2023-2025 head coach at Miami (OH) (FBS): 7-17, 0 titles, fired
+Biggest coaching tree: 3 current college head coaches came up under Omar Taylor
+- Omar Taylor (age 65), reputation 10.0; hidden: head-coach value 7.5, teaching 7.8, recruiting 7.3, network 7.9, game mgmt 9.0; ex-pro false; mentor none
+  2005-2021 head coach at Southwestern Oklahoma State (D2): 129-71, 2 titles, retired
+High school head coaches: small programs network 8.5 / teaching 8.2 (n 8011, 831 ex-pros); powerhouses network 14.7 / teaching 12.5 (n 255)
+
+## Players
+Hidden gem (two stars or fewer, started below FBS, drafted in rounds 1-2):
+- Micah Rogers (EDGE, 0-star, Los Angeles Creek CA) | pick 47 in 2005 | true potential 75, overall at exit 69, senior visibility 0.75
+  path: CA Junior College 16 (JUCO) -> Tulane (FBS)
+  background: raised by a single parent; money 0.42, safety 0.41, home stability 0.54, school resources 0.34, GPA 2.7, mental stability 13, grit 15, mentor yes
+  * Signed with CA Junior College 16 (JUCO) at 18 as an unranked recruit out of Los Angeles Creek.
+  * At 19 his JUCO film earned a move up to Tulane (FBS).
+  * Drafted in round 2 (pick 47) out of Tulane at 22.
+  (all such gems: 33)
+JUCO to the draft:
+- Kendrick Lewis (CB, 5-star, North Crowley TX) | pick 1 in 2007 | true potential 96, overall at exit 88, senior visibility 0.83
+  path: MS Junior College 14 (JUCO) -> Texas (FBS)
+  background: grew up in foster care; money 0.86, safety 1.00, home stability 0.35, school resources 0.31, GPA 2.6, mental stability 10, grit 14, mentor yes
+  * At 15 he transferred from Fort Worth Heights to powerhouse North Crowley and had to sit out part of the season under TX's transfer rule.
+  * Signed with MS Junior College 14 (JUCO) at 18 as a 5-star out of North Crowley.
+  * At 19 his JUCO film earned a move up to Texas (FBS).
+  * At 19 he was among his level's top performers at Texas.
+  * At 20 he was among his level's top performers at Texas.
+  * Drafted in round 1 (pick 1) out of Texas at 21.
+Steered to a school by family, then transferred out:
+- Austin Ward (RB, 5-star, Highland Springs VA) | pick 8 in 2004 | true potential 86, overall at exit 82, senior visibility 0.74
+  path: TX Junior College 6 (JUCO) -> Ohio State (FBS) -> Georgia (FBS)
+  background: raised by a single parent; money 0.51, safety 0.26, home stability 0.72, school resources 0.42, GPA 2.8, mental stability 10, grit 11, mentor no
+  * At 17 he transferred from St. Michael's (Roanoke) to powerhouse Highland Springs and had to sit out part of the season under VA's transfer rule.
+  * Signed with TX Junior College 6 (JUCO) at 18 as a 5-star out of Highland Springs.
+  * The choice was a handler close to the family's more than his own.
+  * At 19 his JUCO film earned a move up to Ohio State (FBS).
+  * Entered the portal at 19 free at last to choose for himself and moved from Ohio State to Georgia (FBS).
+  * Drafted in round 1 (pick 8) out of Georgia at 21.
+  (steered recruits on record: 700, of whom transferred out once free: 251)
+Five-star busts (left football):
+- Kendrick Henderson (CB, 5-star, Northwestern FL) | left football by 2002 | true potential 72, overall at exit 59, senior visibility 0.85
+  path: Miami (FL) (FBS)
+  background: raised by a single parent; money 0.34, safety 0.66, home stability 0.62, school resources 0.22, GPA 2.9, mental stability 10, grit 12, mentor no
+  * At 16 he transferred from Bradenton Lake to powerhouse Northwestern and had to sit out part of the season under FL's transfer rule.
+  * Signed with Miami (FL) (FBS) at 18 as a 5-star out of Northwestern.
+  * Walked away from football at 18.
+- Ivan Martin (QB, 5-star, De Pere Hills WI) | left football by 2002 | true potential 80, overall at exit 46, senior visibility 0.94
+  path: 
+  background: raised by both parents; money 0.62, safety 1.00, home stability 0.77, school resources 0.16, GPA 1.8, mental stability 12, grit 12, mentor no
+  * At 18 a highlight clip went viral and got him a first look from recruiters.
+Powerhouse transfer who was drafted:
+- Noah Campbell (CB, 5-star, King TX) | pick 2 in 2004 | true potential 85, overall at exit 83, senior visibility 0.80
+  path: Michigan (FBS)
+  background: raised by a single parent; money 0.55, safety 0.82, home stability 0.49, school resources 0.57, GPA 3.6, mental stability 10, grit 12, mentor no
+  * At 15 he transferred from Allen Park to powerhouse King and had to sit out part of the season under TX's transfer rule.
+  * Signed with Michigan (FBS) at 18 as a 5-star out of King.
+  * Drafted in round 1 (pick 2) out of Michigan at 21.
+Viral clip:
+- Jalen Smith (QB, 4-star, New Rochelle Grove NY) | left football by 2002 | true potential 63, overall at exit 48, senior visibility 0.84
+  path: Michigan State (FBS)
+  background: raised by both parents; money 0.72, safety 0.93, home stability 0.73, school resources 0.43, GPA 3.3, mental stability 12, grit 9, mentor no
+  * At 18 a highlight clip went viral and got him a first look from recruiters.
+  * Signed with Michigan State (FBS) at 18 as a 4-star out of New Rochelle Grove.
+  * Walked away from football at 18.
+Top pick of the last draft:
+- Darius Evans (EDGE, 5-star, Archbishop Moeller OH) | pick 1 in 2026 | true potential 96, overall at exit 87, senior visibility 0.87
+  path: Michigan (FBS)
+  background: raised by both parents; money 0.71, safety 0.67, home stability 0.71, school resources 0.50, GPA 3.4, mental stability 12, grit 8, mentor no
+  * At 15 he transferred from Cleveland Prairie to powerhouse Archbishop Moeller and had to sit out part of the season under OH's transfer rule.
+  * Signed with Michigan (FBS) at 18 as a 5-star out of Archbishop Moeller.
+  * At 20 he was among his level's top performers at Michigan.
+  * Drafted in round 1 (pick 1) out of Michigan at 21.
+
+## What a scout sees (character report on a current five-star)
+- Hunter Harris, scout judging 6: Home: raised by a single parent. Comfortable household. Has a mentor who keeps him on track. At 20, NIL money changed his family's life.
+- Hunter Harris, scout judging 16: Home: raised by a single parent. Comfortable household. A parent is very active on social media about him. Nothing unusual in how he handles pressure. Has a mentor who keeps him on track. At 17, a new baby at home. At 19, NIL money changed his family's life. At 20, NIL money changed his family's life.
+  (truth: money 0.79, safety 0.56, stability 12, decider Parent, parent SocialMedia)

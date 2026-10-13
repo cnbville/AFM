@@ -232,6 +232,8 @@ The player model: attributes, positions, hidden potential, development from age 
 ### Section 2. The world
 
 Real NFL, colleges and conferences; real towns with generated high schools; teams, programs and staff; the real/fictional name toggle; each player's hidden background; the hidden history before 2026. Design finished 2026-10-13: all eight topics are in `docs/design/world.md`, with open questions at the end.
+- Built 2026-10-13: `crates/afm-engine/src/world/`. How it works, and Claude's own picks marked "proposed, not confirmed": `docs/world-model.md`. Trial: `docs/trials/world-trial1.md`.
+- Open: realism questions 2-7 (classifications and playoffs, every college level, realignment, the carousel, franchise traits, talent geography) and the trial's flags (dynasties a bit strong, a generous title-chances grade).
 
 ### Section 3. Match engine and stats database
 

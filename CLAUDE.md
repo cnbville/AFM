@@ -25,7 +25,7 @@ Each roadmap section goes: (1) design rounds with Raichel until the details are 
 
 ## Next job
 - Section 1 (the engine, the player model in Rust) is done. Raichel finds further calls and bugs in gameplay, not in more trials.
-- Section 2 (the world): design finished 2026-10-13, all eight topics answered. Next, a fresh thread builds it from `docs/design/world.md` (check its open questions with Raichel first).
+- Section 2 (the world): built 2026-10-13 (`crates/afm-engine/src/world/`, how it works in `docs/world-model.md`, trial in `docs/trials/world-trial1.md`). Open: realism questions 2-7 (asked one at a time in the build thread) and the trial's flags.
 - Confirmed by Raichel (2026-10-11): the section order and the section loop above, the scouting-staff design, the college program grade categories, 30 years of hidden history before 2026, and the topic 1 leftovers (personality and the powerhouse flip side).
 
 ## Code
@@ -37,15 +37,17 @@ Each roadmap section goes: (1) design rounds with Raichel until the details are 
   - `level_rating.rs`: level-relative ratings ("89 among seniors").
   - `league.rs`: the 32 NFL teams, front offices, depth charts and background players.
   - `career.rs`: simulates a whole national class (250,000) from age 14 through high school, recruiting, college, the draft and pro careers. The tuning knobs are in `PIPELINE`.
+  - `world/`: section 2, the living world (real colleges, generated high schools, coaches, backgrounds, recruiting, portal, NIL, 30-year history). See `docs/world-model.md`.
   - `debug.rs`: true potential and ceilings, only with the `debug` feature. The game must never enable it.
   - Unit tests live in `src/tests/`.
-- `crates/afm-tools`: tooling with the `debug` feature. `stats.rs` (class summary), `bin/calibrate.rs`, and `tests/national_class.rs` (real-world calibration checks).
+- `crates/afm-tools`: tooling with the `debug` feature. `stats.rs` (class summary), `bin/calibrate.rs`, and `tests/national_class.rs` (real-world calibration checks), `bin/world_trial.rs` (the section 2 trial report) and `tests/world.rs`.
 - Speed: each player has his own random stream, so per-player work runs on all cores (rayon) and a seed gives the same class on any machine and core count.
 - `legacy-ts/`: the original TypeScript model and scripts, for reference (`cd legacy-ts && npm install`). The trial 6 card script lives there.
 - `docs/trials/trial6-cards.json`: the trial 6 cards. `docs/trials/players30-final.json`: the earlier 30-player trial.
 
 ## Commands
-- `cargo test --workspace`: all 38 tests, including a full 250,000-player class (a few seconds once built).
+- `cargo test --workspace --release`: all 46 tests, including a full 250,000-player class and a small 3-year world (about 30 seconds once built).
+- `cargo run --release --bin world_trial -- 2026 30`: the full world with 30 years of history and the trial report (about 100 seconds).
 - `cargo run --release --bin calibrate -- 250000 seed`: headline stats for one class (about 2 seconds).
 - `cargo clippy --workspace --all-targets` and `cargo fmt --check`: CI runs both.
-- Calibration gap: FCS players are about 2-5% of draft picks depending on the seed (real about 6%).
+- Calibration: in the world, FCS players are about 6% of draft picks (real about 6%). The standalone class sim in `career.rs` still gives 2-5%.

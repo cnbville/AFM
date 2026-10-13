@@ -408,6 +408,9 @@ struct Recruit {
     viral: bool,
 }
 
+/// Out-of-state offers a junior college makes in a year (proposed, not confirmed).
+const JUCO_OUT_OF_STATE_OFFERS: usize = 15;
+
 /// NCAA initial-eligibility floors and special admissions.
 fn academically_eligible(prog: &Program, gpa: f64) -> bool {
     match prog.division {
@@ -472,6 +475,13 @@ fn utility(p: &Person, wants: &super::background::Wants, prog: &Program, nil_off
         + wants.playing_time * playing
         + wants.academics * academics
         + wants.development * development;
+    // No athletic scholarships: the Pioneer League gives none (the family pays),
+    // the Ivy League only need-based aid. A scholarship offer elsewhere usually wins.
+    match prog.conference.as_str() {
+        "PFL" => u -= 0.8 * (1.0 - 0.6 * p.bg.money),
+        "Ivy" => u -= 0.4,
+        _ => {}
+    }
     if p.family.older_brother_at == Some(prog.id) {
         u += if p.family.follows_brother { 0.15 } else { -0.05 };
     }
@@ -715,6 +725,18 @@ pub(crate) fn signing_day(w: &mut World) {
                 seen.push((c.k, eval));
             }
             seen.sort_by(|a, b| b.1.total_cmp(&a.1));
+            // Junior college leagues cap out-of-state players (Mississippi and
+            // Kansas both do), so one JUCO can't sign every national blue-chip.
+            if prog.division == Division::JUCO {
+                let mut out_of_state = 0;
+                seen.retain(|&(k, _)| {
+                    if w.people[pool[k].person].home_state == prog.state {
+                        return true;
+                    }
+                    out_of_state += 1;
+                    out_of_state <= JUCO_OUT_OF_STATE_OFFERS
+                });
+            }
             seen.truncate(prog.class_size * 40);
             seen
         })

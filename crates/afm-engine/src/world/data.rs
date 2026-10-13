@@ -129,8 +129,11 @@ pub static COLLEGES: LazyLock<Vec<CollegeRow>> = LazyLock::new(|| {
         t.col("stadium_capacity"),
         t.col("academic_tier"),
     );
+    let notes = t.col("notes");
     t.rows
         .iter()
+        // A school in the list that played no games in the data has no team.
+        .filter(|r| !r[notes].contains("no completed games"))
         .map(|r| CollegeRow {
             name: r[name].clone(),
             division: match r[div].as_str() {

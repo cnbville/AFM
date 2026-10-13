@@ -13,7 +13,7 @@ use crate::world::program::{GradeCat, GradeSpeed, letter, move_grade};
 #[test]
 fn real_data_loads() {
     let count = |d: Division| COLLEGES.iter().filter(|c| c.division == d).count();
-    assert_eq!((count(Division::FBS), count(Division::FCS), count(Division::D2)), (138, 128, 160));
+    assert_eq!((count(Division::FBS), count(Division::FCS), count(Division::D2)), (138, 127, 160));
     assert_eq!(STATES.len(), 51);
     // 46 states plus DC allow high school NIL (On3, May 2026).
     assert_eq!(STATES.iter().filter(|s| hs_nil(&s.code)).count(), 47);

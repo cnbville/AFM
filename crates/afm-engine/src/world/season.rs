@@ -342,6 +342,14 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
         if members.is_empty() {
             continue;
         }
+        if std::env::var("AFM_DEBUG").is_ok() {
+            let xs: Vec<f64> = members.iter().map(|&i| college[i].strength).collect();
+            let m = xs.iter().sum::<f64>() / xs.len() as f64;
+            let sd = (xs.iter().map(|x| (x - m).powi(2)).sum::<f64>() / xs.len() as f64).sqrt();
+            let mut v = xs.clone();
+            v.sort_by(|a, b| b.total_cmp(a));
+            eprintln!("STRENGTH {:?} {} mean {m:.1} sd {sd:.2} top5 {:?}", division, w.year, &v[..5.min(v.len())]);
+        }
         let mut confs: std::collections::BTreeMap<String, Vec<usize>> = std::collections::BTreeMap::new();
         for &i in &members {
             confs.entry(w.programs[i].conference.clone()).or_default().push(i);
@@ -351,7 +359,7 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
                 continue;
             }
             let rounds = (teams.len() - 1).min(8);
-            play_rounds(teams, rounds, 2.5, &mut college, &mut w.rng, true);
+            play_rounds(teams, rounds, COLLEGE_SPREAD, &mut college, &mut w.rng, true);
             // Conference champion: best conference record, then strength.
             let champ = *teams
                 .iter()
@@ -370,7 +378,7 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
             if needy.len() < 2 {
                 break;
             }
-            play_rounds(&needy, 1, 2.5, &mut college, &mut w.rng, false);
+            play_rounds(&needy, 1, COLLEGE_SPREAD, &mut college, &mut w.rng, false);
         }
         let field = match division {
             Division::FBS => 12,
@@ -395,12 +403,17 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
                 + 0.01 * college[b].strength;
             kb.total_cmp(&ka)
         });
-        if let Some(c) = playoff(&ranked, field, 2.5, &mut college, &mut w.rng) {
+        if let Some(c) = playoff(&ranked, field, COLLEGE_SPREAD, &mut college, &mut w.rng) {
             college[c].national_title = true;
         }
     }
     SeasonResults { hs, college }
 }
+
+/// How much a gap in starters' average rating decides a college game. At 3.5,
+/// a team 5 points better wins about 4 in 5 (proposed, not confirmed; the
+/// match engine in section 3 replaces this stand-in).
+const COLLEGE_SPREAD: f64 = 3.5;
 
 fn win_chance(a: f64, b: f64, spread: f64, home: f64) -> f64 {
     1.0 / (1.0 + (-(a - b + home) / spread).exp())
