@@ -7,7 +7,8 @@ A deep, realistic American football management sim modelled on Football Manager:
 2. `docs/design/world.md`: section 2 (the world), the finished design spec.
 3. `docs/decisions.md`: every player-model decision so far, what's assumed and what's open.
 4. `docs/development-model.md`: how the current player model works.
-5. `docs/design/season-calendar-and-pacing.md`: draft calendar for section 4 (older; the roadmap answers override its defaults).
+5. `docs/design/match-engine.md`: section 3 (the match engine and stats database), the finished design spec.
+6. `docs/design/season-calendar-and-pacing.md`: draft calendar for section 4 (older; the roadmap answers override its defaults).
 
 ## Working rules (from Raichel)
 - **Ask before every design decision.** Bring a concrete proposal, then wait for the answer. Never pick defaults yourself.
@@ -26,6 +27,7 @@ Each roadmap section goes: (1) design rounds with Raichel until the details are 
 ## Next job
 - Section 1 (the engine, the player model in Rust) is done. Raichel finds further calls and bugs in gameplay, not in more trials.
 - Section 2 (the world): built 2026-10-13 (`crates/afm-engine/src/world/`, how it works in `docs/world-model.md`, trial in `docs/trials/world-trial1.md`). Raichel's trial 1 list (items 1-8: prove-it extensions, ethnicity and hiring bias, names, pipelines, the coaching ladder, academics, draft value, measurables) built 2026-10-13, trial in `docs/trials/world-trial2.md`; item 9 (the hidden-gem stat footprint) waits for section 3. Open: realism questions 2-7 and trial 2's flags.
+- Section 3 (match engine and stats database): design done 2026-10-13, spec in `docs/design/match-engine.md`. Next: a build thread, starting with athlete-first player creation.
 - Confirmed by Raichel (2026-10-11): the section order and the section loop above, the scouting-staff design, the college program grade categories, 30 years of hidden history before 2026, and the topic 1 leftovers (personality and the powerhouse flip side).
 
 ## Code
