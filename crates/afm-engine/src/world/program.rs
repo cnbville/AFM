@@ -1,6 +1,8 @@
 //! College programs: prestige (topic 7), EA-style program grades (1.6, topic 7),
 //! NIL collectives (topic 8), recruiting footprints and pipelines (topic 4).
 
+use std::collections::HashMap;
+
 use super::data::{AcademicTier, CollegeRow, Division};
 use super::geo;
 use crate::rng::{Rng, clamp};
@@ -195,9 +197,15 @@ pub struct Program {
     pub pipeline: [f64; 51],
     /// Last year a signee from each state made an impact.
     pub pipeline_last_impact: [i32; 51],
+    /// Pipelines to single high schools and to recruiting areas (a Detroit
+    /// high school, the Tampa area), 0-1, with the last impact year (note 4).
+    pub hs_pipeline: HashMap<usize, (f64, i32)>,
+    pub area_pipeline: HashMap<usize, (f64, i32)>,
     pub head_coach: Option<usize>,
     pub oc: Option<usize>,
     pub dc: Option<usize>,
+    /// Position coaches by group (note 5).
+    pub position_coaches: [Option<usize>; super::coach::GROUP_COUNT],
     pub roster: Vec<usize>,
     pub seasons: Vec<ProgramSeason>,
     pub titles: u32,
@@ -206,6 +214,54 @@ pub struct Program {
     pub draft_picks: Vec<(i32, u32)>,
     /// Scholarships a year.
     pub class_size: usize,
+    /// The school's own admissions bar, a core GPA, on top of the NCAA floor (note 6).
+    pub admissions_bar: f64,
+    /// Exceptions a strict school can make per class for a player it believes
+    /// will grow out of his grades (note 6).
+    pub special_admits: u32,
+}
+
+/// Admissions bars of academically strict programs (proposed, not confirmed:
+/// schools don't publish football admission floors; these follow their
+/// reputations). Every other school sits at the NCAA floor, or a little above
+/// it for AAU research universities.
+const STRICT_ADMISSIONS: [(&str, f64); 26] = [
+    ("Stanford", 3.6),
+    ("Northwestern", 3.5),
+    ("Duke", 3.4),
+    ("Vanderbilt", 3.4),
+    ("Rice", 3.4),
+    ("Notre Dame", 3.4),
+    ("California", 3.2),
+    ("UCLA", 3.2),
+    ("Tulane", 3.2),
+    ("Virginia", 3.1),
+    ("Wake Forest", 3.1),
+    ("Michigan", 3.0),
+    ("Georgia Tech", 3.0),
+    ("Boston College", 3.0),
+    ("USC", 3.0),
+    ("North Carolina", 2.9),
+    ("SMU", 2.9),
+    ("Air Force", 3.0),
+    ("Army", 3.0),
+    ("Navy", 3.0),
+    ("William & Mary", 3.2),
+    ("Richmond", 3.0),
+    ("Colgate", 3.2),
+    ("Lehigh", 3.2),
+    ("Bucknell", 3.3),
+    ("Georgetown", 3.3),
+];
+
+fn admissions(row: &CollegeRow) -> (f64, u32) {
+    if row.conference == "Ivy" {
+        return (3.5, 2);
+    }
+    if let Some(&(_, bar)) = STRICT_ADMISSIONS.iter().find(|(n, _)| *n == row.name) {
+        return (bar, 3);
+    }
+    (0.0, 0)
 }
 
 impl Program {
@@ -302,15 +358,20 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
         footprint: [0.0; 51],
         pipeline: [0.0; 51],
         pipeline_last_impact: [i32::MIN / 2; 51],
+        hs_pipeline: HashMap::new(),
+        area_pipeline: HashMap::new(),
         head_coach: None,
         oc: None,
         dc: None,
+        position_coaches: [None; super::coach::GROUP_COUNT],
         roster: Vec::new(),
         seasons: Vec::new(),
         titles: row.national_titles,
         conference_titles: 0,
         draft_picks: Vec::new(),
         class_size,
+        admissions_bar: admissions(row).0,
+        special_admits: admissions(row).1,
     };
     p.prestige = prestige_of(&p, 10.0, 0.5);
     p
@@ -344,8 +405,11 @@ pub fn prestige_of(p: &Program, coach_rep: f64, conference: f64) -> f64 {
     )
 }
 
-/// Rebuilds the footprint: the home region plus wider reach for bigger brands, plus pipelines.
-pub fn rebuild_footprint(p: &mut Program) {
+/// Rebuilds the footprint: the home region plus wider reach for bigger
+/// brands, plus pipelines, plus overflow regions: Group of 5 and FCS staffs
+/// recruit talent-rich states where the big schools can't take everyone
+/// (the MAC in Florida and Georgia, note 4).
+pub fn rebuild_footprint(p: &mut Program, overflow: &[f64; 51]) {
     // A national brand recruits everywhere; a small school knows its own area.
     // Reach follows how big a name it is at its own level.
     let level_reach = match p.division {
@@ -354,21 +418,33 @@ pub fn rebuild_footprint(p: &mut Program) {
         Division::D2 => 0.3,
         Division::JUCO => 0.6,
     };
+    let overflow_reach = match p.division {
+        Division::FBS if !p.power_four() => 0.45,
+        Division::FCS => 0.3,
+        _ => 0.0,
+    };
     let rel = p.prestige_rel;
     let reach_miles = 150.0 + 1100.0 * level_reach * rel * rel + 250.0 * p.fans;
     for s in 0..51 {
         let d = geo::miles(p.state, s);
         let local = (1.0 - d / reach_miles).max(0.0);
         let national = 0.35 * level_reach * rel.powi(3);
-        p.footprint[s] = clamp(local.max(national) + 0.6 * p.pipeline[s], 0.0, 1.0);
+        let spill = overflow_reach * overflow[s] * (1.0 - d / 2200.0).max(0.0);
+        p.footprint[s] = clamp(local.max(national).max(spill) + 0.6 * p.pipeline[s], 0.0, 1.0);
     }
 }
 
-/// A signee from `state` made an impact: led in stats, won an award or went in
-/// the first three rounds. Only impact grows a pipeline (topic 4).
-pub fn record_impact(p: &mut Program, state: usize, weight: f64, year: i32) {
+/// A signee made an impact: all-conference or better, or drafted, or signed
+/// by a pro team (note 4). Only impact grows a pipeline: to his state, his
+/// high school and his area.
+pub fn record_impact(p: &mut Program, state: usize, hs: usize, area: usize, weight: f64, year: i32) {
     p.pipeline[state] = clamp(p.pipeline[state] + 0.12 * weight * (1.0 - p.pipeline[state]), 0.0, 1.0);
     p.pipeline_last_impact[state] = year;
+    for (map, key, k) in [(&mut p.hs_pipeline, hs, 0.25), (&mut p.area_pipeline, area, 0.12)] {
+        let e = map.entry(key).or_insert((0.0, year));
+        e.0 = clamp(e.0 + k * weight * (1.0 - e.0), 0.0, 1.0);
+        e.1 = year;
+    }
 }
 
 /// Pipelines fade slowly after several years with no impact.
@@ -377,6 +453,14 @@ pub fn fade_pipelines(p: &mut Program, year: i32) {
         if year - p.pipeline_last_impact[s] > 3 {
             p.pipeline[s] = (p.pipeline[s] - 0.03).max(0.0);
         }
+    }
+    for map in [&mut p.hs_pipeline, &mut p.area_pipeline] {
+        map.retain(|_, (v, last)| {
+            if year - *last > 3 {
+                *v -= 0.03;
+            }
+            *v > 0.005
+        });
     }
 }
 

@@ -29,6 +29,8 @@ pub struct HighSchool {
     pub id: usize,
     pub state: usize,
     pub town: String,
+    /// The recruiting area (state and town) for area pipelines (note 4).
+    pub area: usize,
     pub name: String,
     pub fictional_name: String,
     /// One of the state's real top programs.
@@ -165,6 +167,7 @@ pub fn generate_state_schools(
             id,
             state: state_idx,
             town,
+            area: 0,
             name,
             fictional_name,
             real,

@@ -13,9 +13,15 @@ pub enum Channel {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NewsKind {
-    NilWarning { level: u32 },
+    NilWarning {
+        level: u32,
+    },
     CoachHired,
     CoachFired,
+    /// A loyal, successful coach kept for a "prove it" year (note 1).
+    CoachExtended,
+    /// The yearly diversity report on head coaches (note 2).
+    DiversityReport,
     NationalTitle,
     ConferenceTitle,
     StateTitle,

@@ -220,12 +220,34 @@ fn main() {
                         serde_json::json!({
                             "age": h.age, "level": h.level.name(), "role": h.playing_time.name(),
                             "start": h.overall_start.round(), "end": h.overall.round(),
-                            "perf": h.performance.map(|v| v.round()), "lr": h.level_rating,
+                            "perf": h.performance.map(|v| v.round()), "lr": h.level_rating, "lr_end": h.level_rating_end,
                             "pot": debug::season_potential(h).round()
                         })
                     })
                     .collect();
+                let body = afm_engine::body::body_now(p);
+                let mut rng = afm_engine::rng::Rng::new(p.id ^ 0xC0B1);
+                let cmb = afm_engine::body::combine(p, &mut rng);
+                let staff: Vec<serde_json::Value> = a
+                    .college_staff
+                    .iter()
+                    .map(|&(y, prog, hc, pc)| {
+                        serde_json::json!({
+                            "year": y, "school": w.programs[prog].real_name,
+                            "hc": hc.map(|c| w.coaches[c].name.clone()),
+                            "pc": pc.map(|c| w.coaches[c].name.clone()),
+                            "pc_role": afm_engine::world::coach::Group::of(a.position).coach_title(),
+                        })
+                    })
+                    .collect();
                 serde_json::json!({
+                    "ethnicity": a.ethnicity.name(), "gpa": a.gpa_at_signing.map(|g| (g * 100.0).round() / 100.0),
+                    "team": a.nfl_team, "staff": staff,
+                    "body": {"height": afm_engine::body::height_text(body.height), "weight": body.weight.round(),
+                        "arm": (body.arm * 8.0).round() / 8.0, "hand": (body.hand * 8.0).round() / 8.0,
+                        "wingspan": (body.wingspan * 8.0).round() / 8.0},
+                    "combine": {"forty": cmb.forty, "bench": cmb.bench, "vertical": cmb.vertical,
+                        "broad": cmb.broad, "cone": cmb.cone, "shuttle": cmb.shuttle},
                     "tag": tag, "name": a.name, "pos": a.position.name(), "stars": a.stars,
                     "hs": w.school_name(a.high_school), "state": STATE_CENTERS[a.home_state].0,
                     "path": div_name(&w, a), "pick": a.pick, "year": a.year,
@@ -596,6 +618,8 @@ fn main() {
         show_player(&w, a);
     }
 
+    trial1_notes(&w, years);
+
     // --- Character report: what the game shows instead ---
     println!("\n## What a scout sees (character report on a current five-star)");
     let mut w = w;
@@ -611,4 +635,325 @@ fn main() {
             bg.money, bg.safety, bg.stability, fam.decider, fam.parent_style
         );
     }
+}
+
+/// Checks for the eight trial 1 notes, with the facts behind each.
+fn trial1_notes(w: &World, years: u32) {
+    use afm_engine::world::coach::Group;
+    use afm_engine::world::ethnicity::Ethnicity;
+    let first = w.year - years as i32;
+    println!("\n## Trial 1 notes");
+
+    // 1. Prove-it extensions.
+    println!("\n### 1. Prove-it extensions");
+    let ext: Vec<_> = w.news.iter().filter(|n| n.kind == NewsKind::CoachExtended).collect();
+    let failed =
+        w.coaches.iter().flat_map(|c| c.history.iter()).filter(|s| s.ended == "fired after his prove-it year").count();
+    println!("extensions in history: {} (of those, fired after the prove-it year: {failed})", ext.len());
+    for n in ext.iter().take(3) {
+        println!("- {} {}", n.year, n.text);
+    }
+    if let Some(n) = ext.first() {
+        let p = n.program.unwrap();
+        let name = n.text.split("head coach ").nth(1).and_then(|t| t.split(" a contract").next()).unwrap_or("");
+        if let Some(c) = w.coaches.iter().position(|c| c.name == name) {
+            coach_career(w, c);
+        }
+        let s: Vec<String> = w.programs[p]
+            .seasons
+            .iter()
+            .filter(|s| (n.year - 3..=n.year + 2).contains(&s.year))
+            .map(|s| format!("{} {}-{}", s.year, s.wins, s.losses))
+            .collect();
+        println!("  {} around it: {}", w.programs[p].real_name, s.join(", "));
+    }
+
+    // 2. Ethnicity and the coaching gap.
+    println!("\n### 2. Ethnicity and the coaching gap");
+    for y in [first, 2009, 2016, w.year - 1] {
+        if let Some(n) = w.news.iter().find(|n| n.kind == NewsKind::DiversityReport && n.year == y) {
+            println!("- {y}: {}", n.text);
+        }
+    }
+    let mut roles: BTreeMap<&str, (usize, usize)> = BTreeMap::new();
+    for p in w.programs.iter().filter(|p| p.division == Division::FBS) {
+        let mut add = |k: &'static str, c: Option<usize>| {
+            if let Some(c) = c {
+                let e = roles.entry(k).or_default();
+                e.1 += 1;
+                if w.coaches[c].ethnicity != Ethnicity::White {
+                    e.0 += 1;
+                }
+            }
+        };
+        add("head coaches", p.head_coach);
+        add("coordinators", p.oc);
+        add("coordinators", p.dc);
+        for &pc in &p.position_coaches {
+            add("position coaches", pc);
+        }
+    }
+    for (k, (c, n)) in &roles {
+        println!("FBS {k} of color now: {c} of {n} ({:.0}%)", 100.0 * *c as f64 / (*n).max(1) as f64);
+    }
+    let mut fbs = [0usize; 5];
+    for p in w.people.iter() {
+        if p.stage == afm_engine::world::Stage::College
+            && p.college.is_some_and(|c| w.programs[c].division == Division::FBS)
+        {
+            fbs[p.ethnicity as usize] += 1;
+        }
+    }
+    let tot: usize = fbs.iter().sum();
+    println!(
+        "FBS players now: {}",
+        Ethnicity::ALL
+            .iter()
+            .map(|&e| format!("{} {:.1}%", e.name(), 100.0 * fbs[e as usize] as f64 / tot.max(1) as f64))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    let mut hs = [0usize; 5];
+    for p in w.people.iter().filter(|p| p.stage == afm_engine::world::Stage::HighSchool) {
+        hs[p.ethnicity as usize] += 1;
+    }
+    let th: usize = hs.iter().sum();
+    println!(
+        "High school players now: {}",
+        Ethnicity::ALL
+            .iter()
+            .map(|&e| format!("{} {:.1}%", e.name(), 100.0 * hs[e as usize] as f64 / th.max(1) as f64))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+
+    // 3. Names.
+    println!("\n### 3. Names");
+    for e in Ethnicity::ALL {
+        let names: Vec<&str> = w
+            .people
+            .iter()
+            .filter(|p| p.ethnicity == e && p.stage == afm_engine::world::Stage::College)
+            .take(8)
+            .map(|p| p.name.as_str())
+            .collect();
+        println!("- {}: {}", e.name(), names.join(", "));
+    }
+    let white: Vec<&str> =
+        w.people.iter().filter(|p| p.ethnicity == Ethnicity::White).map(|p| p.name.as_str()).collect();
+    for first_name in ["Jalen", "Jaylen", "Kobe", "Trey", "DeShawn", "Wyatt"] {
+        let n = white.iter().filter(|n| n.split(' ').next() == Some(first_name)).count();
+        let all = w.people.iter().filter(|p| p.name.split(' ').next() == Some(first_name)).count();
+        println!("  {first_name}: {all} players, {n} of them white");
+    }
+    let mut seen: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+    for p in w.people.iter() {
+        *seen.entry(p.name.as_str()).or_default() += 1;
+    }
+    let shared = w.people.iter().filter(|p| seen[p.name.as_str()] > 1).count();
+    println!(
+        "players sharing a full name with another active player: {:.1}% of {}",
+        100.0 * shared as f64 / w.people.len() as f64,
+        w.people.len()
+    );
+
+    // 4. Pipelines.
+    println!("\n### 4. Pipelines");
+    let with_hs = w.programs.iter().filter(|p| p.hs_pipeline.values().any(|v| v.0 >= 0.1)).count();
+    println!("programs with a high school pipeline of 0.10+: {with_hs} of {}", w.programs.len());
+    for name in ["Bowling Green", "Toledo", "Georgia", "North Dakota State"] {
+        let Some(i) = w.programs.iter().position(|p| p.real_name == name) else { continue };
+        let p = &w.programs[i];
+        let mut st: Vec<(f64, &str)> =
+            (0..51).filter(|&s| p.pipeline[s] > 0.05).map(|s| (p.pipeline[s], STATE_CENTERS[s].0)).collect();
+        st.sort_by(|a, b| b.0.total_cmp(&a.0));
+        let mut hsl: Vec<(f64, String)> = p
+            .hs_pipeline
+            .iter()
+            .map(|(&h, v)| (v.0, format!("{} ({})", w.high_schools[h].name, STATE_CENTERS[w.high_schools[h].state].0)))
+            .collect();
+        hsl.sort_by(|a, b| b.0.total_cmp(&a.0));
+        let mut ar: Vec<(f64, String)> = p
+            .area_pipeline
+            .iter()
+            .map(|(&a, v)| (v.0, format!("{} area ({})", w.areas[a].1, STATE_CENTERS[w.areas[a].0].0)))
+            .collect();
+        ar.sort_by(|a, b| b.0.total_cmp(&a.0));
+        println!(
+            "- {name} (prestige {:.2} -> {:.2}): states {} | schools {} | areas {}",
+            p.prestige_start,
+            p.prestige,
+            st.iter().take(4).map(|(v, s)| format!("{s} {v:.2}")).collect::<Vec<_>>().join(", "),
+            hsl.iter().take(3).map(|(v, s)| format!("{s} {v:.2}")).collect::<Vec<_>>().join(", "),
+            ar.iter().take(3).map(|(v, s)| format!("{s} {v:.2}")).collect::<Vec<_>>().join(", ")
+        );
+    }
+    // Where the MAC's impact players came from.
+    let mut mac: BTreeMap<&str, usize> = BTreeMap::new();
+    for a in w.alumni.iter().filter(|a| a.pick.is_some()) {
+        if a.colleges.first().is_some_and(|&c| w.programs[c].conference == "MAC") {
+            *mac.entry(STATE_CENTERS[a.home_state].0).or_default() += 1;
+        }
+    }
+    let mut mv: Vec<_> = mac.into_iter().collect();
+    mv.sort_by_key(|x| std::cmp::Reverse(x.1));
+    println!("MAC draft picks by home state: {mv:?}");
+
+    // 5. The coaching ladder.
+    println!("\n### 5. The coaching ladder");
+    let mut moves: BTreeMap<String, usize> = BTreeMap::new();
+    let rung = |e: Employer, r: Role| -> String {
+        let lvl = match e {
+            Employer::HighSchool(_) => "HS".to_string(),
+            Employer::College(p) => w.programs[p].division.name().to_string(),
+            Employer::Nfl(_) => "NFL".to_string(),
+        };
+        let role = match r {
+            Role::HeadCoach => "head coach",
+            Role::OffensiveCoordinator | Role::DefensiveCoordinator => "coordinator",
+            Role::PositionCoach(_) => "position coach",
+        };
+        format!("{lvl} {role}")
+    };
+    let mut example: Option<usize> = None;
+    for c in &w.coaches {
+        let mut jobs: Vec<(Employer, Role)> = c.history.iter().map(|s| (s.employer, s.role)).collect();
+        if let Some(j) = c.job {
+            jobs.push((j.employer, j.role));
+        }
+        for pair in jobs.windows(2) {
+            let (a, b) = (rung(pair[0].0, pair[0].1), rung(pair[1].0, pair[1].1));
+            if a != b {
+                *moves.entry(format!("{a} -> {b}")).or_default() += 1;
+            }
+        }
+        let from_hs = jobs.first().is_some_and(|j| matches!(j.0, Employer::HighSchool(_)));
+        let to_fbs_hc = c.job.is_some_and(|j| {
+            j.role == Role::HeadCoach
+                && matches!(j.employer, Employer::College(p) if w.programs[p].division == Division::FBS)
+        });
+        if from_hs && to_fbs_hc && example.is_none() {
+            example = Some(c.id);
+        }
+    }
+    let mut mv: Vec<_> = moves.into_iter().filter(|m| !m.0.starts_with("HS head coach -> HS")).collect();
+    mv.sort_by_key(|x| std::cmp::Reverse(x.1));
+    for (m, n) in mv.iter().take(14) {
+        println!("- {m}: {n}");
+    }
+    if let Some(c) = example {
+        println!("From a high school job to an FBS head job:");
+        coach_career(w, c);
+    }
+    let hs_hires: Vec<_> =
+        w.news.iter().filter(|n| n.kind == NewsKind::CoachHired && n.text.contains("High School football")).collect();
+    println!("college hires straight from high school: {}", hs_hires.len());
+    for n in hs_hires.iter().rev().take(3) {
+        println!("- {} {}", n.year, n.text);
+    }
+
+    // 6. Academics.
+    println!("\n### 6. Academics");
+    let recorded: Vec<&Alumnus> = w.alumni.iter().filter(|a| a.class_of > first + 4).collect();
+    let count = |pat: &str| recorded.iter().filter(|a| a.notes.iter().any(|n| n.contains(pat))).count();
+    println!(
+        "on record ({} drafted or blue-chip players): academic redshirts {}, special admissions {}, JUCO for grades {}, lifted by summer school {}, ineligible seasons {}",
+        recorded.len(),
+        count("academic redshirt"),
+        count("special admissions"),
+        count("under the NCAA's 2.0 floor, so four-year"),
+        count("summer school"),
+        count("Academically ineligible")
+    );
+    let five_juco = recorded.iter().filter(|a| a.stars == 5 && a.juco).count();
+    let five = recorded.iter().filter(|a| a.stars == 5).count();
+    println!("five-stars who went through JUCO: {five_juco} of {five}");
+    if let Some(a) = recorded.iter().find(|a| a.notes.iter().any(|n| n.contains("special admissions"))) {
+        show_player(w, a);
+    }
+    if let Some(a) = recorded.iter().find(|a| a.stars >= 4 && a.notes.iter().any(|n| n.contains("academic redshirt"))) {
+        show_player(w, a);
+    }
+
+    // 7. The draft by position.
+    println!("\n### 7. The draft by position (sim vs real 2000-2025)");
+    let drafted: Vec<&Alumnus> = w.alumni.iter().filter(|a| a.pick.is_some() && a.year > first + 4).collect();
+    let real = std::fs::read_to_string("data/real-world/draft_positions_2000_2025.csv").unwrap_or_default();
+    for (band, cut) in [("pick_1", 1u32), ("picks_1_5", 5), ("round_1", 32)] {
+        let sel: Vec<&&Alumnus> = drafted.iter().filter(|a| a.pick.unwrap() <= cut).collect();
+        let mut by: BTreeMap<&str, usize> = BTreeMap::new();
+        for a in &sel {
+            *by.entry(a.position.name()).or_default() += 1;
+        }
+        let mut v: Vec<_> = by.into_iter().collect();
+        v.sort_by_key(|x| std::cmp::Reverse(x.1));
+        println!(
+            "- {band}: sim {}",
+            v.iter()
+                .map(|(p, n)| format!("{p} {:.0}%", 100.0 * *n as f64 / sel.len().max(1) as f64))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        if let Some(line) = real.lines().find(|l| l.starts_with(band)) {
+            let head: Vec<&str> = real.lines().next().unwrap().split(',').collect();
+            let vals: Vec<&str> = line.split(',').collect();
+            let mut r: Vec<(f64, &str)> = (3..head.len())
+                .filter_map(|k| vals[k].parse::<f64>().ok().map(|x| (x, head[k].trim_start_matches("pct_"))))
+                .filter(|x| x.0 > 0.0)
+                .collect();
+            r.sort_by(|a, b| b.0.total_cmp(&a.0));
+            println!("  real {}", r.iter().map(|(x, p)| format!("{p} {x:.0}%")).collect::<Vec<_>>().join(", "));
+        }
+    }
+    if let Some(a) = w.alumni.iter().filter(|a| a.pick == Some(1)).max_by_key(|a| a.year) {
+        println!("last number 1 pick: {} ({}), {}", a.name, a.position.name(), a.notes.last().unwrap());
+    }
+
+    // 8. Measurables and combine.
+    println!("\n### 8. Measurables and combine (drafted players, sim vs real combine averages)");
+    let combine = std::fs::read_to_string("data/real-world/combine_by_position.csv").unwrap_or_default();
+    for pos in afm_engine::positions::Position::ALL {
+        let sel: Vec<&&Alumnus> = drafted.iter().filter(|a| a.position == pos).collect();
+        if sel.is_empty() {
+            continue;
+        }
+        let (mut h, mut wt, mut f, mut v) = (0.0, 0.0, 0.0, 0.0);
+        let (mut be, mut br, mut co, mut sh) = (0.0, 0.0, 0.0, 0.0);
+        for a in &sel {
+            let p = a.player.as_ref().unwrap();
+            let b = afm_engine::body::body_now(p);
+            let mut rng = afm_engine::rng::Rng::new(p.id ^ 0xC0B1);
+            let c = afm_engine::body::combine(p, &mut rng);
+            h += b.height;
+            wt += b.weight;
+            f += c.forty;
+            v += c.vertical;
+            be += c.bench;
+            br += c.broad;
+            co += c.cone;
+            sh += c.shuttle;
+        }
+        let n = sel.len() as f64;
+        let real = combine.lines().find(|l| l.starts_with(&format!("{},", pos.name()))).map(|l| {
+            let x: Vec<&str> = l.split(',').collect();
+            format!(
+                "{}\" {} lb {}s {}\" bench {} broad {} cone {} shuttle {}",
+                x[2], x[4], x[6], x[10], x[8], x[12], x[14], x[16]
+            )
+        });
+        println!(
+            "- {}: sim {:.1}\" {:.0} lb {:.2}s {:.1}\" bench {:.1} broad {:.0} cone {:.2} shuttle {:.2} | real {}",
+            pos.name(),
+            h / n,
+            wt / n,
+            f / n,
+            v / n,
+            be / n,
+            br / n,
+            co / n,
+            sh / n,
+            real.unwrap_or_default()
+        );
+    }
+    let _ = Group::QB;
 }

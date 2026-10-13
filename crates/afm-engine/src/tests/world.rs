@@ -43,7 +43,7 @@ fn two_conference_titles_move_title_chances_far() {
 #[test]
 fn big_results_boost_reputation_massively_and_assistants_move_slower() {
     let mut rng = Rng::new("coach");
-    let base = generate_coach(0, "A".into(), CoachTier::Fcs, 45, &mut rng);
+    let base = generate_coach(0, "A".into(), crate::world::ethnicity::Ethnicity::White, CoachTier::Fcs, 45, &mut rng);
     let mut champ = base.clone();
     let mut plain = base.clone();
     let mut assistant = base.clone();

@@ -201,6 +201,8 @@ pub struct Player {
     /// Wear on his body from heavy workloads and major injuries; speeds physical decline.
     pub wear: f64,
     pub personality: Personality,
+    /// The adult body he grows into: height, weight, arms, hands (note 8).
+    pub body: crate::body::Body,
     pub history: Vec<SeasonRecord>,
 }
 
@@ -281,6 +283,9 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
 
     let original_potential = overall_for(position, &ceilings);
     let id = opts.id.unwrap_or_else(|| NEXT_ID.fetch_add(1, Ordering::Relaxed));
+    // His build: how his strength and speed ceilings sit against his position's norm.
+    let dev = |a: Attr| (ceilings[a] - elite_shape_value(position, a) * scale) / 4.0;
+    let body = crate::body::adult_body(id, position, original_potential, dev(Attr::Strength), dev(Attr::Speed));
     let longevity = clamp(rng.normal(0.0, 1.3), -3.0, 3.5);
     let injury_proneness = trait_1_20(rng);
     let personality = Personality {
@@ -301,6 +306,7 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
         injury_proneness,
         wear: 0.0,
         personality,
+        body,
         history: Vec::new(),
     }
 }
