@@ -2,3 +2,4 @@
 //! through the engine's `debug` feature, so it must never ship with the game.
 
 pub mod stats;
+pub mod world_report;

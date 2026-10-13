@@ -46,3 +46,13 @@ pub fn potential_at_exit(r: &CareerRecord) -> f64 {
 pub fn report_potential(r: &SeasonReport) -> (f64, f64) {
     (r.potential_before, r.potential_after)
 }
+
+/// True potential of a player who left the world for the pros.
+pub fn alumnus_potential(a: &crate::world::Alumnus) -> f64 {
+    a.potential
+}
+
+/// A world player's true potential.
+pub fn person_potential(p: &crate::world::Person) -> f64 {
+    p.player.potential()
+}
