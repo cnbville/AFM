@@ -194,12 +194,15 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
             }
             Stage::College => {
                 let prog = &programs[p.college.unwrap_or(0)];
+                p.college_staff.push((year as i32, prog.id, prog.head_coach, prog.position_coaches[group as usize]));
                 let hc = prog.head_coach.map_or(9.0, |c| coaches[c].teaching(group));
                 let coord = if group.offense() { prog.oc } else { prog.dc };
                 let co = coord.map_or(hc, |c| coaches[c].teaching(group));
+                // His position coach teaches him most days (note 5).
+                let pc = prog.position_coaches[group as usize].map_or(co, |c| coaches[c].teaching(group));
                 (
                     division_level(prog.division),
-                    0.3 * hc + 0.5 * co + 0.2 * (6.0 + 12.0 * prog.facilities),
+                    0.2 * hc + 0.35 * co + 0.3 * pc + 0.15 * (6.0 + 12.0 * prog.facilities),
                     (prog.facilities - 0.5) * 0.15,
                     crate::career::PIPELINE.college_trouble.chance,
                 )
@@ -226,6 +229,28 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
             );
         }
         let role = if trouble.is_some() { PlayingTime::Backup } else { role };
+        // Academics (note 6): an academic redshirt sits his first year; a
+        // borderline student can lose his eligibility, less often with strong
+        // academic support. Neither uses a season of eligibility.
+        let mut academic_sit = false;
+        if p.stage == Stage::College && trouble.is_none() {
+            let prog = &programs[p.college.unwrap_or(0)];
+            let support = clamp(0.3 + 0.7 * prog.facilities, 0.0, 1.0);
+            if p.academic_redshirt {
+                academic_sit = true;
+                p.academic_redshirt = false;
+            } else if prog.division != Division::JUCO {
+                let risk = 0.06 * clamp((2.5 - p.bg.gpa) / 0.5, 0.0, 1.0) * (1.3 - support);
+                if p.rng.chance(risk) {
+                    academic_sit = true;
+                    let age = p.player.age;
+                    p.note(format!("Academically ineligible for the season at {age} (GPA {:.2}).", p.bg.gpa));
+                }
+            }
+            let effort = 0.012 * (p.player.personality.work_ethic - 10.0) + 0.06 * (support - 0.5);
+            p.bg.gpa = clamp(p.bg.gpa + effort + p.rng.normal(0.0, 0.1), 0.0, 4.0);
+        }
+        let role = if academic_sit { PlayingTime::Redshirt } else { role };
         let ctx = SeasonContext {
             trouble,
             adjustment: p.pending_dip.take().unwrap_or(0.0),
@@ -244,7 +269,8 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
             let effort = (p.player.personality.work_ethic - 10.0) * 0.03 + (p.bg.stability - 10.0) * 0.02;
             p.bg.gpa = clamp(p.bg.gpa + p.rng.range(-0.1, 0.45) + effort, 0.0, 4.0);
         }
-        if p.stage == Stage::College {
+        // An academic sit is a year on the clock without a season of competition.
+        if p.stage == Stage::College && !academic_sit {
             if role == PlayingTime::Redshirt {
                 p.redshirt_used = true;
             } else if trouble.is_none() {
@@ -269,6 +295,8 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
             p.stage = Stage::Done;
         }
     });
+
+    attach_level_ratings(w);
 
     // --- Team strength -----------------------------------------------------------
     let team_strength = |roster: &[usize], people: &[super::Person]| -> (f64, f64, u32) {
@@ -496,4 +524,63 @@ fn playoff(
         seeds = next;
     }
     seeds.first().copied()
+}
+
+/// Level ratings for the season just played (note 8): "89 among seniors".
+/// High schoolers are ranked against everyone their age, college players on
+/// the FBS scale (FCS and small-college tape discounted), as in `level_rating`.
+fn attach_level_ratings(w: &mut World) {
+    use crate::level_rating::{
+        LevelGroup, Pool, PositionAligner, build_level_scale, level_group, level_rating, sets_level_scale,
+    };
+    use std::collections::HashMap;
+    type Scales = HashMap<LevelGroup, (crate::level_rating::LevelScale, PositionAligner)>;
+    let build = |at_end: bool| -> Scales {
+        let mut groups: HashMap<LevelGroup, Vec<(Position, f64)>> = HashMap::new();
+        for p in w.people.iter() {
+            let Some(s) = p.player.history.last() else { continue };
+            if s.age + 1 != p.player.age || !sets_level_scale(s.level) {
+                continue;
+            }
+            if let Some(key) = level_group(s.level, s.age) {
+                groups
+                    .entry(key)
+                    .or_default()
+                    .push((p.player.position, if at_end { s.overall } else { s.overall_start }));
+            }
+        }
+        groups
+            .into_par_iter()
+            .map(|(key, samples)| {
+                let align = PositionAligner::new(&samples);
+                let aligned: Vec<f64> = samples.iter().map(|&(pos, x)| align.align(pos, x)).collect();
+                let pool = if key == LevelGroup::College { Pool::College } else { Pool::HS };
+                (key, (build_level_scale(&aligned, pool, w.options.scale), align))
+            })
+            .collect()
+    };
+    let start = build(false);
+    let end = build(true);
+    w.people.par_iter_mut().for_each(|p| {
+        let pos = p.player.position;
+        let age_now = p.player.age;
+        let Some(s) = p.player.history.last_mut() else { return };
+        if s.age + 1 != age_now {
+            return;
+        }
+        let discount = match s.level {
+            Level::FCS => 1.0,
+            Level::SmallCollege => 5.0,
+            _ => 0.0,
+        };
+        let key = level_group(s.level, s.age);
+        let level = s.level;
+        let rate = |scales: &Scales, ovr: f64| {
+            let g = key.and_then(|k| scales.get(&k));
+            let x = g.map_or(ovr, |(_, a)| a.align(pos, ovr - discount));
+            level_rating(x, level, g.map(|g| &g.0))
+        };
+        s.level_rating = Some(rate(&start, s.overall_start));
+        s.level_rating_end = Some(rate(&end, s.overall));
+    });
 }

@@ -12,6 +12,7 @@
 #![allow(clippy::needless_range_loop, clippy::should_implement_trait)]
 
 pub mod attributes;
+pub mod body;
 pub mod career;
 pub mod development;
 pub mod league;

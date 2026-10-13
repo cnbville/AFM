@@ -83,3 +83,8 @@ Gaps (exact):
 - Open datasets: sportsdataverse `cfb_schedules` and `cfb_recruits` releases, cfbfastR-data `rosters/csv`, nflverse `draft_picks` and `contracts` releases.
 - MaxPreps 2026 state rankings; SI 2026 state playoff guide.
 - On3, 247Sports, Axios, Hudl, NCAA.org, NIL Wire (Opendorse), SI/CBS, NFL.com, Bengals.com, Yahoo Sports, NBC Sports.
+
+**combine_by_position.csv** (added 2026-10-13): mean and standard deviation per position for height, weight, 40, bench, vertical, broad jump, 3-cone and shuttle. From the nflverse `combine` release, 2000-2025. Used by `crates/afm-engine/src/body.rs`.
+
+**draft_positions_2000_2025.csv** (added 2026-10-13): each position's share of pick 1, picks 1-5, round 1 and later bands, from the nflverse `draft_picks` release, 2000-2025. Used to calibrate positional draft value. Example: QBs went first overall 73.1% of the time, EDGE 19.2%, OT 7.7%.
+- Gap: no open dataset has arm length and hand size for every player. Their formulas in `body.rs` come from the 2025 combine OL and QB lists (CBS) and are approximate.

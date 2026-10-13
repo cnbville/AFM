@@ -1,6 +1,9 @@
 //! Coaches (topic 3): a hidden ability split into parts, a public reputation
 //! that lags behind it, a personality, a career arc and a coaching tree.
 
+use std::collections::HashMap;
+
+use super::ethnicity::Ethnicity;
 use crate::positions::Position;
 use crate::rng::{Rng, clamp};
 
@@ -39,6 +42,20 @@ impl Group {
 
     pub fn offense(self) -> bool {
         matches!(self, Group::QB | Group::RB | Group::Receivers | Group::OL)
+    }
+
+    /// The title of the position coach for this group.
+    pub fn coach_title(self) -> &'static str {
+        [
+            "quarterbacks coach",
+            "running backs coach",
+            "wide receivers coach",
+            "offensive line coach",
+            "defensive line coach",
+            "linebackers coach",
+            "defensive backs coach",
+            "special teams coordinator",
+        ][self as usize]
     }
 
     pub fn name(self) -> &'static str {
@@ -109,6 +126,8 @@ pub enum Role {
     HeadCoach,
     OffensiveCoordinator,
     DefensiveCoordinator,
+    /// A college position coach (note 5): the first rung for many coaches.
+    PositionCoach(Group),
 }
 
 impl Role {
@@ -117,6 +136,18 @@ impl Role {
             Role::HeadCoach => "head coach",
             Role::OffensiveCoordinator => "offensive coordinator",
             Role::DefensiveCoordinator => "defensive coordinator",
+            Role::PositionCoach(g) => g.coach_title(),
+        }
+    }
+
+    /// Offense, defense, or neither (special teams), for who credits a record.
+    pub fn offense(self) -> Option<bool> {
+        match self {
+            Role::HeadCoach => None,
+            Role::OffensiveCoordinator => Some(true),
+            Role::DefensiveCoordinator => Some(false),
+            Role::PositionCoach(Group::Specialists) => None,
+            Role::PositionCoach(g) => Some(g.offense()),
         }
     }
 }
@@ -154,6 +185,7 @@ pub struct Stint {
 pub struct Coach {
     pub id: usize,
     pub name: String,
+    pub ethnicity: Ethnicity,
     pub age: u32,
     /// Hidden. The game shows reputation, never this.
     pub(crate) ability: Ability,
@@ -176,6 +208,11 @@ pub struct Coach {
     /// State or conference or national titles across his career.
     pub career_titles: u32,
     pub retired: bool,
+    /// The year a school gave him a "prove it" extension instead of firing him (note 1).
+    pub prove_it: Option<i32>,
+    /// Recruiting ties to high schools, 0-1, built from impact players he
+    /// coached. They travel with him from job to job (note 4).
+    pub ties: HashMap<usize, f64>,
 }
 
 /// Typical ability by level: (mean, spread).
@@ -198,7 +235,14 @@ pub enum CoachTier {
     Nfl,
 }
 
-pub fn generate_coach(id: usize, name: String, tier: CoachTier, age: u32, rng: &mut Rng) -> Coach {
+pub fn generate_coach(
+    id: usize,
+    name: String,
+    ethnicity: Ethnicity,
+    tier: CoachTier,
+    age: u32,
+    rng: &mut Rng,
+) -> Coach {
     let (mean, sd) = level_ability(tier);
     let core = rng.normal(mean, sd);
     let part = |rng: &mut Rng, spread: f64| clamp(core + rng.normal(0.0, spread), 1.0, 20.0);
@@ -243,6 +287,7 @@ pub fn generate_coach(id: usize, name: String, tier: CoachTier, age: u32, rng: &
     Coach {
         id,
         name,
+        ethnicity,
         age,
         ability,
         learning_ceiling,
@@ -258,6 +303,8 @@ pub fn generate_coach(id: usize, name: String, tier: CoachTier, age: u32, rng: &
         titles: 0,
         career_titles: 0,
         retired: false,
+        prove_it: None,
+        ties: HashMap::new(),
     }
 }
 

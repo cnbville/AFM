@@ -155,6 +155,8 @@ pub fn generate_background(seed: BackgroundSeed, rng: &mut Rng) -> (Background, 
         (FamilyStructure::Grandparents, 0.09),
         (FamilyStructure::Foster, 0.03),
     ]);
+    // Foster homes are rarely wealthy households (trial 1 flag 3).
+    let money = if structure == FamilyStructure::Foster { clamp(0.55 * money + 0.1, 0.0, 0.7) } else { money };
     let base_stability = match structure {
         FamilyStructure::TwoParents => 0.68,
         FamilyStructure::SingleParent => 0.55,
@@ -163,7 +165,7 @@ pub fn generate_background(seed: BackgroundSeed, rng: &mut Rng) -> (Background, 
     };
     let home_stability = clamp(base_stability + 0.1 * (money - 0.5) + rng.normal(0.0, 0.18), 0.0, 1.0);
     let gpa = clamp(
-        3.05 + 0.5 * (home_stability - 0.5) + 0.35 * (seed.school_resources - 0.5) + rng.normal(0.0, 0.5),
+        3.05 + 0.5 * (home_stability - 0.5) + 0.35 * (seed.school_resources - 0.5) + rng.normal(0.0, 0.44),
         0.8,
         4.0,
     );
@@ -367,7 +369,9 @@ impl LifeEvent {
 /// Rolls this year's life event, if any, and applies it. Returns it so the
 /// world can react (a crisis can pull him toward a school near home).
 pub fn roll_life_event(bg: &mut Background, age: u32, nil_income: f64, rng: &mut Rng) -> Option<LifeEvent> {
-    if nil_income > 150_000.0 && bg.money < 0.6 && rng.chance(0.5) {
+    let nil_line = LifeEvent::NilChangesFamilyLife.phrase();
+    // It changes a family's life once (trial 1 flag 4).
+    if nil_income > 150_000.0 && bg.money < 0.6 && !bg.story.iter().any(|s| s.contains(nil_line)) && rng.chance(0.5) {
         bg.money = clamp(bg.money + 0.3, 0.0, 1.0);
         bg.stability = clamp(bg.stability + 0.5, 1.0, 20.0);
         bg.story.push(format!("At {age}, {}.", LifeEvent::NilChangesFamilyLife.phrase()));

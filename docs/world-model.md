@@ -1,6 +1,6 @@
 # How the world works (section 2)
 
-The build of `docs/design/world.md`. Code: `crates/afm-engine/src/world/`. Trial report: `cargo run --release --bin world_trial -- <seed> <years>` (in `afm-tools`, debug only). The latest trial is `docs/trials/world-trial1.md`.
+The build of `docs/design/world.md`. Code: `crates/afm-engine/src/world/`. Trial report: `cargo run --release --bin world_trial -- <seed> <years>` (in `afm-tools`, debug only). The latest trial is `docs/trials/world-trial2.md`.
 
 Everything below that Raichel has not answered is marked **proposed, not confirmed**.
 
@@ -51,6 +51,21 @@ Everything below that Raichel has not answered is marked **proposed, not confirm
 - The portal: playing time, a coaching change, a handler's steer, moving up, dismissal or money. Tampering is quiet and never punished; it makes moving up more likely at schools with small collectives. NIL can backfire on a player.
 - The draft: 257 picks plus undrafted signings, scored from the scouted rating and projection. Kickers and punters go late.
 
+## Trial 1 additions (built 2026-10-13)
+
+Raichel's running list from the trial 1 walk-through (`/mnt/project-files/design/world-trial1-feedback.md`).
+
+1. **Prove-it extension.** A head coach with 5+ years, loyalty (no job-hopping, or one move with high loyalty) and real success (a title in his last 8 seasons, or 70% wins over 50+ games) who has two bad years in a row usually gets one more year, more often when there's an excuse (many players lost to the draft, a young lineup). The news reports it. Fail the prove-it year (a losing record, or well below expectation without a strong record) and he's fired.
+2. **Ethnicity and hiring bias.** Players and coaches have an ethnicity. It never changes a rating. Players match who really plays at each level (state child population, how often each group plays, and the real FBS mix). AI hiring carries a hidden bias against coaches of color, strongest in the history, bigger at big jobs, fading slowly after 2026, calibrated toward TIDES counts. The player's own hires never carry it. A yearly diversity report appears in the news.
+3. **Names** follow ethnicity, state and birth decade (`data/names/`).
+4. **Pipelines.** Impact is judged inside a player's own conference (all-conference, awards, draft round). Pipelines now exist to a high school and to its area, and staff build personal ties to the schools their impact players came from; ties move with the coach. States with more FBS-level talent than their own big programs can sign spill over to nearby Group of 5 and FCS schools.
+5. **Coach ladder.** Every college has 8 position coaches under the coordinators. Coaches climb from high school to position coach to coordinator to head coach, or skip steps on buzz (a high school coach with recent state titles and a dominant record gets college looks). A new head coach keeps some of the old staff. The stat-record part of buzz waits for section 3.
+6. **Academics.** NCAA tiers decide who can play right away (full qualifier), who must sit year one (academic redshirt) and who must go JUCO. Strict schools have admissions bars and a few special admits a year. A recruit with risky grades is weighed by the school's academic support, and some players grow out of it. College GPA drifts, and a low GPA can cost a season.
+7. **Draft value.** NFL teams draft one by one with their own needs and a position value calibrated to 2000-2025 drafts (QBs go first, kickers late).
+8. **Player pages.** Height, weight, arm, hand and wingspan from the real combine per position, full combine tests, level ratings each season, the coaches he had, his offers and why he was drafted.
+
+Fixes from trial 1's flags: foster homes no longer give money (flag 3), the NIL life event happens once (flag 4), and unsigned 3+ star recruits get a reason (flag 5).
+
 ## Proposed, not confirmed (Claude's own picks in the build)
 
 - Spin-up of 6 extra years before the 30-year history.
@@ -64,6 +79,7 @@ Everything below that Raichel has not answered is marked **proposed, not confirm
 - No athletic scholarships: Pioneer League schools cost the family tuition, the Ivy League gives need-based aid only. Both lower a recruit's interest.
 - After three seasons, a head coach under .400 over two years is much more likely to be fired, whatever the roster he inherited.
 - Game stand-in: a college team 5 rating points better wins about 4 games in 5.
+- Trial 1 list: each state's child population mix (no Census download was reachable); how often each group plays high school football; the hiring-bias size and fade; the strict admissions list (26 schools, 3 special admits each, Ivy 2); position draft values; arm and hand formulas; the Polynesian name lists; the overflow spill; the impact weights; prove-it numbers (60% chance plus excuse); position-coach pay-off weights in coaching (head coach 20%, coordinator 35%, position coach 30%, facilities 15%); staffs skip offering a recruit who already holds a clearly better offer; the hiring bias is flat to 2005, then eases, and also shapes which long-time assistant gets promoted when no candidate says yes.
 
 ## Open
 

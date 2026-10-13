@@ -1162,14 +1162,14 @@ fn decide_to_declare(
 // --- The draft -----------------------------------------------------------------
 
 /// Draft order: the weakest teams pick first. Returns team indices.
-fn draft_order(teams: &[Team], rng: &mut Rng) -> Vec<usize> {
+pub(crate) fn draft_order(teams: &[Team], rng: &mut Rng) -> Vec<usize> {
     let mut v: Vec<(usize, f64)> = teams.iter().map(|t| (t.id, t.strength() + rng.normal(0.0, 0.6))).collect();
     v.sort_by(|a, b| a.1.total_cmp(&b.1));
     v.into_iter().map(|(t, _)| t).collect()
 }
 
 /// How much a team needs a position, in grade points.
-fn need(team: &Team, pos: Position) -> f64 {
+pub(crate) fn need(team: &Team, pos: Position) -> f64 {
     let Some((rating, age)) = team.weakest_starter(pos) else {
         return 0.0;
     };
@@ -2126,7 +2126,7 @@ fn board_noise(skill: f64) -> f64 {
 /// scouted for years and graded by many people, so an average team's board
 /// strays less than its read of a camp body. Real drafts take 1-3 first-
 /// rounders a year from outside the consensus top 50.
-fn draft_board_noise(skill: f64) -> f64 {
+pub(crate) fn draft_board_noise(skill: f64) -> f64 {
     1.0 + (20.0 - skill) * 0.25
 }
 

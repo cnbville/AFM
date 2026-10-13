@@ -14,6 +14,7 @@
 pub mod background;
 pub mod coach;
 pub mod data;
+pub mod ethnicity;
 pub mod geo;
 pub mod high_school;
 pub mod names;
@@ -87,6 +88,7 @@ pub struct StateInfo {
 #[derive(Clone, Debug)]
 pub struct Person {
     pub name: String,
+    pub ethnicity: ethnicity::Ethnicity,
     pub player: Player,
     pub(crate) rng: Rng,
     pub(crate) bg: Background,
@@ -116,6 +118,14 @@ pub struct Person {
     pub path: Vec<usize>,
     /// A dismissal or suspension at his current school.
     pub on_notice: bool,
+    /// How his grades move each high school year (hidden), GPA points.
+    pub(crate) gpa_trend: f64,
+    /// Core GPA when he signed out of high school (note 6).
+    pub gpa_at_signing: Option<f64>,
+    /// Signed as an academic redshirt: practices but can't play his first year (note 6).
+    pub academic_redshirt: bool,
+    /// His college coaches each season: (year, program, head coach, position coach).
+    pub college_staff: Vec<(i32, usize, Option<usize>, Option<usize>)>,
     /// Off-field incidents this season (for the locker room).
     pub incident: bool,
     pub notes: Vec<String>,
@@ -151,6 +161,7 @@ pub fn division_level(d: Division) -> Level {
 #[derive(Clone, Debug)]
 pub struct Alumnus {
     pub name: String,
+    pub ethnicity: ethnicity::Ethnicity,
     pub home_state: usize,
     pub high_school: usize,
     pub colleges: Vec<usize>,
@@ -169,6 +180,13 @@ pub struct Alumnus {
     pub steered: bool,
     pub background_summary: String,
     pub notes: Vec<String>,
+    /// The NFL team that drafted him.
+    pub nfl_team: Option<&'static str>,
+    pub gpa_at_signing: Option<f64>,
+    /// His college coaches each season: (year, program, head coach, position coach).
+    pub college_staff: Vec<(i32, usize, Option<usize>, Option<usize>)>,
+    /// The full player as he left, kept for drafted players and blue-chips (trial player pages).
+    pub player: Option<Box<crate::player::Player>>,
 }
 
 impl Alumnus {
@@ -188,6 +206,7 @@ impl Alumnus {
         );
         Alumnus {
             name: p.name.clone(),
+            ethnicity: p.ethnicity,
             home_state: p.home_state,
             high_school: p.hs,
             colleges: p.path.clone(),
@@ -204,6 +223,10 @@ impl Alumnus {
             steered: p.notes.iter().any(|n| n.contains("more than his own")),
             background_summary,
             notes: p.notes.clone(),
+            nfl_team: None,
+            gpa_at_signing: p.gpa_at_signing,
+            college_staff: p.college_staff.clone(),
+            player: (pick.is_some() || p.stars >= 4).then(|| Box::new(p.player.clone())),
         }
     }
 }
@@ -223,6 +246,13 @@ pub struct World {
     pub signing_classes: Vec<(i32, [u32; 6])>,
     /// High school players signed by FBS programs per home state, over recorded history.
     pub fbs_signees_by_state: [u32; 51],
+    /// Recruiting areas (state, town), indexed by `HighSchool::area`.
+    pub areas: Vec<(usize, String)>,
+    /// How much talent each state has beyond what its own Power 4 schools
+    /// sign, 0-1: where Group of 5 and FCS staffs go recruiting (note 4).
+    pub overflow: [f64; 51],
+    /// The 32 NFL teams: front offices and depth charts, for draft needs (note 7).
+    pub nfl: Vec<crate::league::Team>,
     pub(crate) rng: Rng,
     /// False during the spin-up before recorded history, while rosters fill.
     pub(crate) recording: bool,
@@ -296,6 +326,19 @@ impl World {
             info.schools = ids;
         }
         let year = options.start_year - options.history_years as i32 - SPIN_UP_YEARS as i32;
+        let mut areas: Vec<(usize, String)> = Vec::new();
+        for s in high_schools.iter_mut() {
+            let key = (s.state, s.town.clone());
+            s.area = match areas.iter().position(|a| *a == key) {
+                Some(k) => k,
+                None => {
+                    areas.push(key);
+                    areas.len() - 1
+                }
+            };
+        }
+        let overflow = overflow_by_state(&programs);
+        let nfl = crate::league::make_league(&mut rng);
         let mut w = World {
             options,
             year,
@@ -308,6 +351,9 @@ impl World {
             news: Vec::new(),
             signing_classes: Vec::new(),
             fbs_signees_by_state: [0; 51],
+            areas,
+            overflow,
+            nfl,
             rng,
             recording: false,
             next_person: 1,
@@ -320,7 +366,7 @@ impl World {
             }
         }
         for p in w.programs.iter_mut() {
-            program::rebuild_footprint(p);
+            program::rebuild_footprint(p, &w.overflow);
         }
         w
     }
@@ -434,8 +480,14 @@ impl World {
                 );
                 let family = generate_family(&bg, Some(structure), &mut rng);
                 apply_background(&mut player, &mut bg, &family, &mut rng);
+                let ethnicity = ethnicity::player_ethnicity(s, z, &mut rng);
+                // Grades drift through high school: effort pushes them up.
+                let gpa_trend = rng.normal(0.0, 0.07)
+                    + 0.012 * (player.personality.work_ethic - 10.0)
+                    + 0.04 * (bg.home_stability - 0.5);
                 Person {
-                    name: names::person_name(&mut rng),
+                    name: names::person_name(ethnicity, year - age as i32, &mut rng),
+                    ethnicity,
                     player,
                     rng,
                     bg,
@@ -459,6 +511,10 @@ impl World {
                     juco: false,
                     path: Vec::new(),
                     on_notice: false,
+                    gpa_trend,
+                    gpa_at_signing: None,
+                    academic_redshirt: false,
+                    college_staff: Vec::new(),
                     incident: false,
                     notes: Vec::new(),
                 }
@@ -494,6 +550,9 @@ impl World {
             .filter(|p| matches!(p.stage, Stage::HighSchool | Stage::College | Stage::PrepSchool))
             .for_each(|p| {
                 let age = p.player.age;
+                if p.stage == Stage::HighSchool {
+                    p.bg.gpa = clamp(p.bg.gpa + p.gpa_trend + p.rng.normal(0.0, 0.05), 0.0, 4.0);
+                }
                 let ev = background::roll_life_event(&mut p.bg, age, p.nil_income, &mut p.rng);
                 if let Some(background::LifeEvent::FamilyMove) = ev {
                     // A family move changes his high school's area for good.
@@ -528,6 +587,22 @@ impl World {
     pub(crate) fn adjustment(p: &mut Person, step: Step) -> f64 {
         first_year_adjustment(&p.player, step, &mut p.rng).dip
     }
+}
+
+/// Talent each state produces beyond what its own Power 4 programs sign, 0-1.
+fn overflow_by_state(programs: &[Program]) -> [f64; 51] {
+    let mut out = [0.0; 51];
+    for row in data::STATES.iter() {
+        let Some(s) = geo::state_index(&row.code) else { continue };
+        let p4 = programs.iter().filter(|p| p.state == s && p.power_four()).count() as f64;
+        // A Power 4 program signs about half of its class from its own state.
+        out[s] = (row.fbs_signees_per_year - 14.0 * p4).max(0.0);
+    }
+    let top = out.iter().copied().fold(1.0, f64::max);
+    for v in out.iter_mut() {
+        *v = (*v / top).sqrt();
+    }
+    out
 }
 
 /// The culture shift that makes a state's share of FBS signees match the data,

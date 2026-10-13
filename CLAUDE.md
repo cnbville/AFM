@@ -25,7 +25,7 @@ Each roadmap section goes: (1) design rounds with Raichel until the details are 
 
 ## Next job
 - Section 1 (the engine, the player model in Rust) is done. Raichel finds further calls and bugs in gameplay, not in more trials.
-- Section 2 (the world): built 2026-10-13 (`crates/afm-engine/src/world/`, how it works in `docs/world-model.md`, trial in `docs/trials/world-trial1.md`). Open: realism questions 2-7 (asked one at a time in the build thread) and the trial's flags.
+- Section 2 (the world): built 2026-10-13 (`crates/afm-engine/src/world/`, how it works in `docs/world-model.md`, trial in `docs/trials/world-trial1.md`). Raichel's trial 1 list (items 1-8: prove-it extensions, ethnicity and hiring bias, names, pipelines, the coaching ladder, academics, draft value, measurables) built 2026-10-13, trial in `docs/trials/world-trial2.md`; item 9 (the hidden-gem stat footprint) waits for section 3. Open: realism questions 2-7 and trial 2's flags.
 - Confirmed by Raichel (2026-10-11): the section order and the section loop above, the scouting-staff design, the college program grade categories, 30 years of hidden history before 2026, and the topic 1 leftovers (personality and the powerhouse flip side).
 
 ## Code
@@ -38,10 +38,12 @@ Each roadmap section goes: (1) design rounds with Raichel until the details are 
   - `league.rs`: the 32 NFL teams, front offices, depth charts and background players.
   - `career.rs`: simulates a whole national class (250,000) from age 14 through high school, recruiting, college, the draft and pro careers. The tuning knobs are in `PIPELINE`.
   - `world/`: section 2, the living world (real colleges, generated high schools, coaches, backgrounds, recruiting, portal, NIL, 30-year history). See `docs/world-model.md`.
+  - `body.rs`: height, weight, arms, hands and combine results, from the real combine.
   - `debug.rs`: true potential and ceilings, only with the `debug` feature. The game must never enable it.
   - Unit tests live in `src/tests/`.
-- `crates/afm-tools`: tooling with the `debug` feature. `stats.rs` (class summary), `bin/calibrate.rs`, and `tests/national_class.rs` (real-world calibration checks), `bin/world_trial.rs` (the section 2 trial report) and `tests/world.rs`.
+- `crates/afm-tools`: tooling with the `debug` feature. `stats.rs` (class summary), `bin/calibrate.rs`, and `tests/national_class.rs` (real-world calibration checks), `bin/world_trial.rs` (the section 2 trial report; `AFM_CARDS=path.json` writes full player pages) and `tests/world.rs`.
 - Speed: each player has his own random stream, so per-player work runs on all cores (rayon) and a seed gives the same class on any machine and core count.
+- `data/real-world/` and `data/names/`: researched data with READMEs naming sources and gaps.
 - `legacy-ts/`: the original TypeScript model and scripts, for reference (`cd legacy-ts && npm install`). The trial 6 card script lives there.
 - `docs/trials/trial6-cards.json`: the trial 6 cards. `docs/trials/players30-final.json`: the earlier 30-player trial.
 
