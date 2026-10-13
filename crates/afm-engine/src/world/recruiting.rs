@@ -363,6 +363,11 @@ pub(crate) fn college_exits(w: &mut World, _r: &SeasonResults) {
         }
         let level = division_level(division);
         let p = &mut w.people[i];
+        // Pro scouts list him where they see him playing on Sundays.
+        if let Some(from) = crate::athlete::reconsider(&mut p.player, crate::athlete::Eye::NFL_SCOUTS, 0.005) {
+            let to = p.player.position;
+            p.note(format!("Played {from} in college; pro scouts project him at {to}."));
+        }
         let rep = scout_player(&p.player, ScoutOptions { accuracy: 13.0, level }, &mut p.rng);
         let youth = clamp((23.0 - p.player.age as f64) / 3.0, 0.0, 1.0);
         let flags: f64 = p

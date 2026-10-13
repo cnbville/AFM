@@ -218,7 +218,7 @@ fn main() {
                     .iter()
                     .map(|h| {
                         serde_json::json!({
-                            "age": h.age, "level": h.level.name(), "role": h.playing_time.name(),
+                            "age": h.age, "level": h.level.name(), "pos": h.position.name(), "role": h.playing_time.name(),
                             "start": h.overall_start.round(), "end": h.overall.round(),
                             "perf": h.performance.map(|v| v.round()), "lr": h.level_rating, "lr_end": h.level_rating_end,
                             "pot": debug::season_potential(h).round()
@@ -243,6 +243,7 @@ fn main() {
                 serde_json::json!({
                     "ethnicity": a.ethnicity.name(), "gpa": a.gpa_at_signing.map(|g| (g * 100.0).round() / 100.0),
                     "team": a.nfl_team, "staff": staff,
+                    "positions": p.position_history.iter().map(|(age, pos)| serde_json::json!({"age": age, "pos": pos.name()})).collect::<Vec<_>>(),
                     "body": {"height": afm_engine::body::height_text(body.height), "weight": body.weight.round(),
                         "arm": (body.arm * 8.0).round() / 8.0, "hand": (body.hand * 8.0).round() / 8.0,
                         "wingspan": (body.wingspan * 8.0).round() / 8.0},

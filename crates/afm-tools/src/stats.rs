@@ -449,9 +449,10 @@ pub fn summarize(result: &CohortResult) -> Summary {
         }
     }
     let level90 = |r: &CareerRecord| senior_level(r) >= 90;
-    let qbs_top = records.iter().filter(|r| level90(r) && r.player.position == Position::QB).count();
+    // Recruiting looks at the position he played as a senior.
+    let qbs_top = records.iter().filter(|r| level90(r) && senior(r).position == Position::QB).count();
     let all_top = records.iter().filter(|r| level90(r)).count();
-    let qbs = records.iter().filter(|r| r.player.position == Position::QB).count();
+    let qbs = records.iter().filter(|r| senior(r).position == Position::QB).count();
     let level_of = |s: &SeasonRecord| s.level_rating.unwrap_or(0);
 
     Summary {
@@ -582,8 +583,8 @@ pub fn summarize(result: &CohortResult) -> Summary {
                 .filter(|r| r.signed_with.is_none_or(|c| c == CollegeLevel::SmallCollege))
                 .count(),
             qb_top_senior_ratio: round(share(qbs_top, all_top) / share(qbs, n), 2),
-            blue_chip_qbs: count_where(&|r| r.stars >= 4 && r.player.position == Position::QB),
-            five_star_positions: five.iter().map(|r| r.player.position).collect::<HashSet<_>>().len(),
+            blue_chip_qbs: count_where(&|r| r.stars >= 4 && senior(r).position == Position::QB),
+            five_star_positions: five.iter().map(|r| senior(r).position).collect::<HashSet<_>>().len(),
             top100_seniors_below_four_stars: count_where(&|r| {
                 !is_specialist(r) && senior_level(r) >= 90 && r.stars < 4
             }),
@@ -694,4 +695,19 @@ pub fn median_last_age(records: &[CareerRecord], pos: Position) -> f64 {
             .map(|r| r.player.history.last().unwrap().age as f64)
             .collect::<Vec<_>>(),
     )
+}
+
+/// Real share of draft picks by position, 2000-2025 (nflverse, `data/real-world/draft_positions_2000_2025.csv`).
+pub fn real_draft_shares() -> [f64; afm_engine::positions::POSITION_COUNT] {
+    let csv = include_str!("../../../data/real-world/draft_positions_2000_2025.csv");
+    let header: Vec<&str> = csv.lines().next().unwrap_or_default().split(',').collect();
+    let row: Vec<&str> = csv.lines().find(|l| l.starts_with("all,")).unwrap_or_default().split(',').collect();
+    let mut out = [0.0; afm_engine::positions::POSITION_COUNT];
+    for pos in Position::ALL {
+        let key = format!("pct_{}", pos.name());
+        if let Some(k) = header.iter().position(|h| *h == key) {
+            out[pos.index()] = row.get(k).and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0) / 100.0;
+        }
+    }
+    out
 }

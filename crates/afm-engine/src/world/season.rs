@@ -10,6 +10,7 @@ use super::background;
 use super::coach::{Group, TitleKind};
 use super::data::Division;
 use super::{Stage, World, division_level};
+use crate::athlete::Eye;
 use crate::development::{SeasonContext, Trouble, develop_season};
 use crate::league::depth_slots;
 use crate::player::{Level, PlayingTime};
@@ -123,6 +124,31 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
     let seed = w.options.seed as u64;
     let n = w.people.len();
     let mut roles = vec![PlayingTime::Backup; n];
+
+    // --- Where everyone plays (topic 5.2) ---------------------------------------
+    // Before each season, staffs take a fresh look: a boy who grew, a new
+    // college staff, an athlete signed without a set position.
+    let eyes: Vec<Option<(Eye, f64)>> = w
+        .people
+        .iter()
+        .map(|p| match p.stage {
+            Stage::HighSchool if p.player.age > 14 => Some((w.hs_eye(p.hs), 0.03)),
+            Stage::College => p.college.map(|c| {
+                let prog = &w.programs[c];
+                let skill = prog.head_coach.map_or(10.0, |h| w.coaches[h].ability().head_coach_value());
+                (Eye::coach(skill).staff(0x434F_0000 ^ c as u32), 0.015)
+            }),
+            _ => None,
+        })
+        .collect();
+    w.people.par_iter_mut().zip(eyes.par_iter()).for_each(|(p, eye)| {
+        let Some((eye, margin)) = *eye else { return };
+        if let Some(from) = crate::athlete::reconsider(&mut p.player, eye, margin) {
+            let (age, to) = (p.player.age, p.player.position);
+            let by = if p.stage == Stage::College { "his college staff" } else { "his high school coach" };
+            p.note(format!("Moved from {from} to {to} by {by} at {age}."));
+        }
+    });
 
     // --- Depth charts ---------------------------------------------------------
     let people = &w.people;

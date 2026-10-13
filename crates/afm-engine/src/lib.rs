@@ -11,6 +11,7 @@
 // Index loops over attributes and teams read most clearly as they are.
 #![allow(clippy::needless_range_loop, clippy::should_implement_trait)]
 
+pub mod athlete;
 pub mod attributes;
 pub mod body;
 pub mod career;

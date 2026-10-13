@@ -520,7 +520,42 @@ impl World {
                 }
             })
             .collect();
+        let start = self.people.len();
         self.people.extend(new);
+        self.place_new_class(start);
+    }
+
+    /// Athlete first (topic 5.2): each high school's head coach places the
+    /// boys who just arrived, by what he sees and what his roster needs.
+    fn place_new_class(&mut self, start: usize) {
+        let mut by_school: std::collections::HashMap<usize, Vec<usize>> = std::collections::HashMap::new();
+        for i in start..self.people.len() {
+            by_school.entry(self.people[i].hs).or_default().push(i);
+        }
+        let mut groups: Vec<(usize, Vec<usize>)> = by_school.into_iter().collect();
+        groups.sort_unstable_by_key(|g| g.0);
+        for (hs, members) in groups {
+            let eye = self.hs_eye(hs);
+            let mut players: Vec<&mut Player> = Vec::with_capacity(members.len());
+            // Members are in increasing order, so split the slice one person at a time.
+            let mut rest: &mut [Person] = &mut self.people[start..];
+            let mut offset = start;
+            for &i in &members {
+                let (_, tail) = rest.split_at_mut(i - offset);
+                let (one, after) = tail.split_at_mut(1);
+                players.push(&mut one[0].player);
+                rest = after;
+                offset = i + 1;
+            }
+            crate::athlete::place_class(&mut players, eye);
+        }
+    }
+
+    /// How sharply a high school's head coach reads where a boy fits.
+    pub(crate) fn hs_eye(&self, hs: usize) -> crate::athlete::Eye {
+        let school = &self.high_schools[hs];
+        let skill = school.coach.map_or(7.0, |c| self.coaches[c].ability().head_coach_value());
+        crate::athlete::Eye::coach(skill).staff(0x4853_0000 ^ school.coach.unwrap_or(hs) as u32)
     }
 
     pub(crate) fn rebuild_rosters(&mut self) {

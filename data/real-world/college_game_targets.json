@@ -1,0 +1,132 @@
+{
+ "source": "cfbfastR play-by-play (sportsdataverse), seasons 2022, 2023, 2024",
+ "divisions": {
+  "fbs": {
+   "team_games": 4472,
+   "per_team_game": {
+    "att": 31.025,
+    "carries": 33.548,
+    "cmp": 18.809,
+    "dropbacks": 33.025,
+    "explosive_run": 4.856,
+    "final_score": 26.969,
+    "fourth_conv": 1.032,
+    "fourth_go": 1.926,
+    "int": 0.804,
+    "pass_td": 1.567,
+    "pass_yards": 226.234,
+    "penalties_on_plays_by_either": 5.449,
+    "plays": 66.573,
+    "rush_td": 1.58,
+    "rush_yards": 171.827,
+    "sacks": 1.997,
+    "success": 27.974,
+    "third": 13.592,
+    "third_conv": 5.478
+   },
+   "rates": {
+    "completion_pct": 0.6062,
+    "sack_rate": 0.0605,
+    "yards_per_attempt": 7.292,
+    "int_rate": 0.0259,
+    "yards_per_carry": 5.122,
+    "pass_rate": 0.4961,
+    "third_down_conversion": 0.4031,
+    "fourth_down_conversion": 0.5357,
+    "explosive_run_rate": 0.1447,
+    "success_rate": 0.4202,
+    "punt_gross": 42.25
+   },
+   "field_goal_pct_by_distance": {
+    "30-39": {
+     "attempts": 2182,
+     "pct": 0.8066
+    },
+    "40-49": {
+     "attempts": 2141,
+     "pct": 0.6516
+    },
+    "50+": {
+     "attempts": 747,
+     "pct": 0.506
+    },
+    "under30": {
+     "attempts": 1927,
+     "pct": 0.9211
+    }
+   }
+  },
+  "fcs": {
+   "team_games": 3392,
+   "per_team_game": {
+    "att": 29.231,
+    "carries": 32.082,
+    "cmp": 17.356,
+    "dropbacks": 31.057,
+    "explosive_run": 4.734,
+    "final_score": 26.271,
+    "fourth_conv": 0.945,
+    "fourth_go": 1.812,
+    "int": 0.827,
+    "pass_td": 1.582,
+    "pass_yards": 205.896,
+    "penalties_on_plays_by_either": 5.527,
+    "plays": 63.139,
+    "rush_td": 1.533,
+    "rush_yards": 163.504,
+    "sacks": 1.825,
+    "success": 26.281,
+    "third": 13.055,
+    "third_conv": 5.295
+   },
+   "rates": {
+    "completion_pct": 0.5937,
+    "sack_rate": 0.0588,
+    "yards_per_attempt": 7.044,
+    "int_rate": 0.0283,
+    "yards_per_carry": 5.096,
+    "pass_rate": 0.4919,
+    "third_down_conversion": 0.4056,
+    "fourth_down_conversion": 0.5219,
+    "explosive_run_rate": 0.1476,
+    "success_rate": 0.4162,
+    "punt_gross": 40.03
+   },
+   "field_goal_pct_by_distance": {
+    "30-39": {
+     "attempts": 1557,
+     "pct": 0.7097
+    },
+    "40-49": {
+     "attempts": 1283,
+     "pct": 0.5674
+    },
+    "50+": {
+     "attempts": 278,
+     "pct": 0.4281
+    },
+    "under30": {
+     "attempts": 1357,
+     "pct": 0.8504
+    }
+   }
+  }
+ },
+ "fbs_season_leaders": {
+  "pass_yards": [
+   3932.0,
+   4118.0,
+   4191.0
+  ],
+  "rush_yards": [
+   1479.0,
+   1589.0,
+   2358.0
+  ],
+  "rec_yards": [
+   1308.0,
+   1345.0,
+   1428.0
+  ]
+ }
+}

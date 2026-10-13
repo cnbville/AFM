@@ -482,6 +482,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     }
     // He improves (or fades) through the year, so he plays the season between his two ratings.
     player.history.push(SeasonRecord {
+        position: player.position,
         age: player.age,
         level: ctx.level,
         playing_time: pt,
