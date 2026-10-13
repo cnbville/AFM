@@ -97,8 +97,29 @@ fn main() {
             *m.entry("pressures").or_default() += t.pressures as f64;
             *m.entry("first_downs").or_default() += t.first_downs as f64;
         }
+        // Game clock used from one snap to the next, after a play that kept it running.
+        for w in s.plays.windows(2) {
+            let (a, b) = (&w[0], &w[1]);
+            if a.quarter == b.quarter
+                && matches!(a.kind, PlayType::Run)
+                && !a.first_down
+                && !a.touchdown
+                && !a.turnover
+                && !a.out_of_bounds
+                && a.penalties.is_empty()
+                && matches!(b.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble)
+            {
+                *m.entry("run_gap_n").or_default() += 1.0;
+                *m.entry("run_gap").or_default() += a.clock - b.clock;
+                if a.quarter == 1 || a.quarter == 3 {
+                    *m.entry("run_gap_q13_n").or_default() += 1.0;
+                    *m.entry("run_gap_q13").or_default() += a.clock - b.clock;
+                }
+            }
+        }
         // Drives: a new one starts when the offense changes.
         let mut last: Option<usize> = None;
+        let (mut in_rz, mut rz_td) = (false, false);
         for p in &s.plays {
             if matches!(
                 p.kind,
@@ -110,6 +131,12 @@ fn main() {
                     | PlayType::FieldGoal
             ) {
                 if last != Some(p.offense) {
+                    if in_rz {
+                        *m.entry("rz").or_default() += 1.0;
+                        *m.entry("rz_td").or_default() += rz_td as u8 as f64;
+                    }
+                    in_rz = false;
+                    rz_td = false;
                     *m.entry("drives").or_default() += 1.0;
                     *m.entry("drive_start").or_default() += p.yardline_100;
                     if p.yardline_100 <= 50.0 {
@@ -117,6 +144,21 @@ fn main() {
                     }
                 }
                 last = Some(p.offense);
+                if p.yardline_100 <= 20.0 {
+                    in_rz = true;
+                }
+                if p.touchdown && !p.turnover && in_rz {
+                    rz_td = true;
+                }
+            }
+            let dropback = matches!(p.kind, PlayType::Pass | PlayType::Sack | PlayType::Scramble);
+            if (dropback || p.kind == PlayType::Run)
+                && p.down == 1
+                && p.quarter <= 3
+                && (p.score[0] - p.score[1]).abs() <= 8
+            {
+                *m.entry("neutral_plays").or_default() += 1.0;
+                *m.entry("neutral_pass").or_default() += dropback as u8 as f64;
             }
             if p.kind == PlayType::Run {
                 let b = if p.yards <= 0.0 {
@@ -143,6 +185,16 @@ fn main() {
             if p.touchdown && matches!(p.kind, PlayType::Run | PlayType::Pass | PlayType::Scramble) && p.yards >= 40.0 {
                 *m.entry("long_td").or_default() += 1.0;
                 *m.entry(if p.kind == PlayType::Run { "long_td_run" } else { "long_td_pass" }).or_default() += 1.0;
+            }
+            if p.kind == PlayType::Kickoff && p.returner.is_some() && p.return_yards != 0.0 {
+                *m.entry("kr").or_default() += 1.0;
+                *m.entry("kr_yds").or_default() += p.return_yards;
+                *m.entry("kr40").or_default() += (p.return_yards >= 40.0) as u8 as f64;
+            }
+            if p.kind == PlayType::Punt && p.returner.is_some() && p.return_yards != 0.0 {
+                *m.entry("pr").or_default() += 1.0;
+                *m.entry("pr_yds").or_default() += p.return_yards;
+                *m.entry("pr20").or_default() += (p.return_yards >= 20.0) as u8 as f64;
             }
             if matches!(p.kind, PlayType::Kickoff | PlayType::Punt) && p.touchdown {
                 *m.entry(if p.kind == PlayType::Kickoff { "return_td_ko" } else { "return_td_punt" }).or_default() +=
@@ -261,6 +313,11 @@ fn main() {
     row("scrambles", g("scrambles") / n, None);
     row("punts", g("punts") / n, None);
     // Real drive numbers: NFL 2021-2024 averages (Pro Football Reference drive stats).
+    row("pass rate 1st down neutral", g("neutral_pass") / g("neutral_plays").max(1.0), Some(0.50));
+    row("clock per run play (all)", g("run_gap") / g("run_gap_n").max(1.0), None);
+    row("clock per run play (Q1/Q3)", g("run_gap_q13") / g("run_gap_q13_n").max(1.0), Some(38.0));
+    row("red zone trips", g("rz") / n, Some(3.2));
+    row("red zone TD rate", g("rz_td") / g("rz").max(1.0), Some(0.56));
     row("drives", g("drives") / n, Some(11.0));
     row("drive start (to goal)", g("drive_start") / g("drives").max(1.0), Some(70.5));
     row("drives starting in opp half", g("short_fields") / g("drives").max(1.0), None);
@@ -280,6 +337,12 @@ fn main() {
     ] {
         row(k, g(k) / g("runs_all").max(1.0), Some(real));
     }
+    row("kickoff returns", g("kr") / n, None);
+    row("kickoff return avg", g("kr_yds") / g("kr").max(1.0), Some(26.5));
+    row("kickoff returns 40+", g("kr40") / g("kr").max(1.0), Some(0.05));
+    row("punt returns", g("pr") / n, None);
+    row("punt return avg", g("pr_yds") / g("pr").max(1.0), Some(9.5));
+    row("punt returns 20+", g("pr20") / g("pr").max(1.0), Some(0.08));
     row("kickoff return TDs", g("return_td_ko") / n, Some(0.012));
     row("punt return TDs", g("return_td_punt") / n, Some(0.012));
     row("pick sixes", g("pick_six") / n, Some(0.05));

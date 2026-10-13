@@ -102,7 +102,9 @@ pub fn call_offense(
     // In-game learning (topic 3.2): lean toward what has worked, faster
     // and more accurately for a sharp coordinator.
     if mem.runs + mem.passes >= 8.0 {
-        let diff = mem.pass_epa / mem.passes.max(1.0) - mem.run_epa / mem.runs.max(1.0);
+        // Passing always averages more EPA than running (about +0.12 a play in
+        // the NFL) and coaches still run 42%: only a gap beyond that moves them.
+        let diff = mem.pass_epa / mem.passes.max(1.0) - mem.run_epa / mem.runs.max(1.0) - 0.12;
         let sharp = c.adaptation / 20.0;
         let noise = rng.normal(0.0, 0.25 * (1.0 - sharp));
         p_pass += clamp((diff + noise) * 0.22 * sharp, -0.12, 0.12);
@@ -480,7 +482,9 @@ pub enum FourthDown {
 pub fn fourth_down(staff: &Staff, sit: &Situation, fg_make: f64, rng: &mut Rng) -> FourthDown {
     let y = sit.yardline_100;
     let togo = sit.togo;
-    let conv = clamp(0.73 - 0.045 * (togo - 1.0) + if togo > 10.0 { -0.05 } else { 0.0 }, 0.12, 0.78);
+    // Real NFL fourth-down conversion by distance (about 70% on 4th and 1,
+    // 50% on 4th and 5, 33% on 4th and 10).
+    let conv = clamp(0.70 * (-0.085 * (togo - 1.0)).exp(), 0.12, 0.75);
     let ep = tables::expected_points;
     let after_score = 0.95;
     let go_ok = if togo >= y { 6.95 - after_score } else { ep(1, 10.0_f64.min(y - togo), y - togo) };

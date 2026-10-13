@@ -71,6 +71,7 @@ fn main() {
         println!("mean {:.2} median {:.1}", ys.iter().sum::<f64>() / n as f64, ys[ys.len() / 2]);
         return;
     }
-    let r = trace_snap(&a, &b, Level::NFL, call, dcall, 30.0, seed);
+    let los = std::env::var("AFM_LOS").ok().and_then(|v| v.parse().ok()).unwrap_or(30.0);
+    let r = trace_snap(&a, &b, Level::NFL, call, dcall, los, seed);
     println!("{:?} {:+.1} yds | {}", r.kind, r.yards, r.why);
 }

@@ -444,7 +444,9 @@ fn run_return(
         let lane = 4.0 + (n as f64) * (WIDTH - 8.0) / 10.0;
         let speed = p.top_speed() * 0.9;
         let x = if n == 0 {
-            catch.x + 30.0 + rng.range(0.0, 8.0)
+            // The kicker trails as the safety: under the 2025 NFL rule he
+            // stays at the kick spot until the ball lands.
+            if kickoff && rules.nfl_kickoff { from } else { catch.x + 30.0 + rng.range(0.0, 8.0) }
         } else if let Some(g) = gap {
             // A punt: the gunners are cover_gap away when it comes down,
             // the rest of the unit a few yards behind them in lanes.
@@ -516,8 +518,35 @@ fn run_return(
     ret_agents.extend(agents);
     sim.agents = ret_agents;
     sim.ball = Ball::Held(0);
+    // Each cover man's lane: he stays in it until he is near the returner,
+    // so the coverage doesn't bunch up and open a seam.
+    let lanes: Vec<f64> =
+        sim.agents.iter().map(|a| if a.side == 1 && a.label == "ST" { a.pos.y } else { f64::NAN }).collect();
+    // The widest cover man on each side keeps contain: outside the returner.
+    let mut contain = vec![0.0; lanes.len()];
+    let widest = |f: &dyn Fn(f64, f64) -> bool| {
+        let mut best: Option<usize> = None;
+        for (i, &l) in lanes.iter().enumerate() {
+            if !l.is_nan() && best.is_none_or(|b| f(l, lanes[b])) {
+                best = Some(i);
+            }
+        }
+        best
+    };
+    if let Some(i) = widest(&|a, b| a < b) {
+        contain[i] = -1.0;
+    }
+    if let Some(i) = widest(&|a, b| a > b) {
+        contain[i] = 1.0;
+    }
+    let ktrace = super::sim::TRACE.load(std::sync::atomic::Ordering::Relaxed);
+    let mut buf = String::new();
     while sim.t < 12.0 && !sim.dead {
         sim.t += DT;
+        if ktrace && ((sim.t / DT).round() as i64) % 5 == 0 {
+            buf.push_str(&sim.snapshot());
+            buf.push('\n');
+        }
         sim.update_blocks(None, Some(0));
         for i in 1..sim.agents.len() {
             if !sim.agents[i].up(sim.t) || sim.agents[i].engaged.is_some() {
@@ -525,7 +554,17 @@ fn run_return(
             }
             match sim.agents[i].job {
                 Job::Escort => escort(&mut sim, i),
-                Job::Pursue => sim.pursue(i, 0),
+                Job::Pursue => {
+                    let (me, rp) = (sim.agents[i].pos, sim.agents[0].pos);
+                    let ahead = me.x > rp.x + 1.0;
+                    if contain[i] != 0.0 && ahead && me.dist(rp) > 4.0 {
+                        let aim = v2(rp.x + 3.0, rp.y + contain[i] * 2.5);
+                        let vm = sim.agents[i].vmax;
+                        sim.steer(i, (aim - me).norm().scale(vm));
+                    } else {
+                        sim.pursue(i, 0);
+                    }
+                }
                 _ => {}
             }
         }
@@ -558,6 +597,14 @@ fn run_return(
         res.spot = rules.touchback;
     }
     res.return_yards = end - catch.x;
+    if ktrace && res.return_yards >= 40.0 {
+        eprintln!(
+            "=== {} return {:.0} yds from {:.0}\n{buf}",
+            if kickoff { "kickoff" } else { "punt" },
+            res.return_yards,
+            catch.x
+        );
+    }
     res.out_of_bounds = sim.out_of_bounds;
     res.notes = std::mem::take(&mut sim.notes);
     res.frames = sim.record.take();

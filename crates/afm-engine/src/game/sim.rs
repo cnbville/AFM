@@ -604,8 +604,7 @@ impl<'a> Sim<'a> {
         let (ba, da) = (&self.agents[b], &self.agents[d]);
         let skill = 0.5 * ba.a(Attr::RunBlocking) + 0.5 * ba.a(Attr::Agility);
         let slip = 0.5 * da.a(Attr::Agility) + 0.5 * da.a(Attr::BlockShedding);
-        let p_miss =
-            clamp(tune("AFM_WHIFF", 0.22) + 0.006 * (slip - skill) + 0.03 * (speed - 4.0).max(0.0), 0.05, 0.55);
+        let p_miss = clamp(0.22 + 0.006 * (slip - skill) + 0.03 * (speed - 4.0).max(0.0), 0.05, 0.55);
         if self.rng.chance(p_miss) {
             self.agents[b].last_try = t;
             return false;
@@ -937,7 +936,8 @@ impl<'a> Sim<'a> {
             }
         }
         let dir = best.1;
-        self.steer(c, dir.scale(self.agents[c].vmax));
+        // With the ball in one arm he runs a little under his top speed.
+        self.steer(c, dir.scale(self.agents[c].vmax * 0.95));
         let x = self.agents[c].pos.x;
         if (x - self.progress) * goal > 0.0 {
             self.progress = x;
@@ -1276,6 +1276,11 @@ impl<'a> Sim<'a> {
         if !TRACE.load(std::sync::atomic::Ordering::Relaxed) {
             return;
         }
+        eprintln!("{}", self.snapshot());
+    }
+
+    /// Every player's spot, speed and job (debug traces).
+    pub fn snapshot(&self) -> String {
         let mut line = format!("t={:.1} ball={:?}", self.t, self.ball_pos());
         for (i, a) in self.agents.iter().enumerate() {
             let job = format!("{:?}", a.job);
@@ -1293,7 +1298,7 @@ impl<'a> Sim<'a> {
                 if !a.up(self.t) { " DOWN" } else { "" }
             ));
         }
-        eprintln!("{line}");
+        line
     }
 
     pub fn record_frame(&mut self) {
@@ -1364,9 +1369,4 @@ pub fn injury_weeks(kind: InjuryKind, rng: &mut Rng) -> f64 {
     };
     let u = rng.next();
     lo + (hi - lo) * u * u
-}
-
-/// Debug: a tuning value from the environment (calibration sweeps only).
-pub(crate) fn tune(key: &str, default: f64) -> f64 {
-    std::env::var(key).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
 }

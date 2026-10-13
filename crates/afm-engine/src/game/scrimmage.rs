@@ -2,6 +2,9 @@
 //! (topics 1-3). The offense goes toward +x from `los`.
 
 use super::geom::{DT, MID, V2, WIDTH, v2};
+
+/// The back of the end zone the offense attacks.
+const END_LINE: f64 = 110.0;
 use super::playbook::*;
 use super::roster::GamePlayer;
 use super::rules::Rules;
@@ -605,7 +608,17 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                             let want =
                                 if gap.len() > 1.5 { gap.norm().scale(vm) } else { sim.agents[d].vel + gap.scale(3.0) };
                             sim.steer(i, want);
-                            if (sim.agents[i].pos.dist(dp) < 1.2 || sim.closest(i, d) < 1.2) && sim.lands_block(i, d) {
+                            // At the line the hands are already close: he fires
+                            // out and gets his hands on a lineman at once.
+                            let reach = if (dp.x - los).abs() < 2.0 && matches!(sim.agents[d].label, "DE" | "DT" | "NT")
+                            {
+                                1.6
+                            } else {
+                                1.2
+                            };
+                            if (sim.agents[i].pos.dist(dp) < reach || sim.closest(i, d) < reach)
+                                && sim.lands_block(i, d)
+                            {
                                 sim.engage(i, d, false);
                                 sim.agents[i].job = Job::RunBlock { target: None, pull: false };
                             }
@@ -965,6 +978,14 @@ fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2>
                 }
             }
         })
+        .map(|p: V2| {
+            // Near the goal line the defense tightens: corners and
+            // linebackers come up, safeties sit at the back of the end zone.
+            let room = END_LINE - los;
+            let depth = p.x - los;
+            let cap = if depth < 9.0 { 1.0 + 0.25 * room } else { 0.75 * room };
+            v2(los + depth.min(cap), p.y)
+        })
         .collect()
 }
 
@@ -1046,7 +1067,13 @@ fn assign_defense(
     let dropper =
         if s.dcall.pressure == Pressure::Simulated { Some(if st > 0.0 { DSlot::RE } else { DSlot::LE }) } else { None };
 
-    let zone = |spot: V2, deep: bool, width: f64| Job::Zone { spot, deep, width };
+    // Near the goal the field shrinks: deep zones sit at the back of the end
+    // zone and the underneath ones squeeze down with them.
+    let zone = |spot: V2, deep: bool, width: f64| {
+        let room = 108.0 - los;
+        let x = if deep { spot.x.min(108.0) } else { spot.x.min(los + 0.55 * room) };
+        Job::Zone { spot: v2(x, spot.y), deep, width }
+    };
     let side_y = |side: f64, from_sideline: f64| if side > 0.0 { WIDTH - from_sideline } else { from_sideline };
     let deep_third = |side: f64| zone(v2(los + 16.0, side_y(side, 9.5)), true, 14.0);
     let deep_mid = zone(v2(los + 17.0, by * 0.5 + MID * 0.5), true, 18.0);
@@ -1336,11 +1363,15 @@ fn run_blocking(sim: &mut Sim, off_n: usize, roles: &[Option<ORole>], rc: RunCon
             continue;
         }
         let y = sim.agents[b].pos.y;
+        // The end man of the line also takes a man lined up outside him.
+        let end = b == line[0];
         let gap = |d: usize, sim: &Sim| {
             let dy = (sim.agents[d].pos.y - y) * dir;
             if pulls > 0 {
                 // Down block: the man inside him.
                 (-1.8..0.8).contains(&dy)
+            } else if end {
+                (-0.6..4.0).contains(&dy)
             } else {
                 (-0.6..1.9).contains(&dy)
             }
@@ -1355,6 +1386,15 @@ fn run_blocking(sim: &mut Sim, off_n: usize, roles: &[Option<ORole>], rc: RunCon
         if let Some(d) = t {
             taken[d] = true;
             sim.agents[b].job = Job::RunBlock { target: Some(d), pull: false };
+        }
+        if super::sim::TRACE.load(std::sync::atomic::Ordering::Relaxed) {
+            println!(
+                "ASSIGN {} ({:.1},{:.1}) -> {:?}",
+                sim.agents[b].label,
+                sim.agents[b].pos.x,
+                sim.agents[b].pos.y,
+                t.map(|d| (sim.agents[d].label, sim.agents[d].pos.x, sim.agents[d].pos.y))
+            );
         }
     }
     // Pullers kick out or lead on whoever is left at the point of attack.
@@ -1742,12 +1782,11 @@ fn quarterback(
     let panic = pressure * (1.4 - poise / 100.0);
     let (cand, thresh): (Vec<usize>, f64) = if over {
         // Late: the checkdown, or anyone open.
-        (ps.reads.clone(), tune("AFM_LATE", 1.35) - 0.2 * tired.max(0.0) - 0.4 * panic)
+        (ps.reads.clone(), 1.35 - 0.2 * tired.max(0.0) - 0.4 * panic)
     } else {
         (
             vec![ps.reads[ps.read]],
-            tune("AFM_NEED", 1.6) + caution - 0.18 * tired.max(0.0) - 0.45 * panic
-                + if ps.read == 0 { 0.1 } else { 0.0 },
+            1.6 + caution - 0.18 * tired.max(0.0) - 0.44 * panic + if ps.read == 0 { 0.1 } else { 0.0 },
         )
     };
     let noise = (1.25 - 0.0105 * (0.6 * aw + 0.4 * sim.agents[qb].a(Attr::Vision))).max(0.25) * (1.0 + 0.6 * panic);
@@ -1763,8 +1802,7 @@ fn quarterback(
         }
         let (w, p, flight) = window(sim, qb, r);
         let seen = w + noise * gauss(sim.rng);
-        let deep = p.x - los > 18.0;
-        let need = thresh + if deep { tune("AFM_DEEP", 0.0) } else { 0.0 };
+        let need = thresh;
         if super::sim::TRACE.load(std::sync::atomic::Ordering::Relaxed) {
             eprintln!("READ t={:.1} read {} r {} w {:.2} seen {:.2} need {:.2}", t, ps.read, r, w, seen, need);
         }
@@ -2154,10 +2192,10 @@ fn defend(
                 let cp = sim.agents[c].pos;
                 let behind = (s.los - cp.x) * sim.goal > 0.5;
                 if behind && me.dist(cp) > 1.6 {
-                    let x = s.los - sim.goal * 0.8;
+                    let x = s.los - sim.goal * 0.4;
                     let y = clamp(cp.y + contain * 1.2, lane - 1.6, lane + 1.6);
                     let aim = v2(x, me.y + clamp(y - me.y, -3.0, 3.0));
-                    let vm = sim.agents[i].vmax * 0.6;
+                    let vm = sim.agents[i].vmax * 0.5;
                     let gap = aim - me;
                     sim.steer(i, if gap.len() > 0.6 { gap.norm().scale(vm) } else { gap.scale(2.0) });
                     return;
@@ -2202,7 +2240,11 @@ fn defend(
                     // He comes down under control, taking his angle to the
                     // runner, and runs all out once the runner is through.
                     let pr = sim.agents[i].a(Attr::PlayRecognition);
-                    let through = (cp.x - s.los) * sim.goal > 2.5 - 0.02 * (pr - 50.0);
+                    // A safety with a deep zone is the last line: he fits
+                    // deeper (about nine yards) so nothing gets over him.
+                    let post = matches!(job, Job::Zone { deep: true, .. });
+                    let (wait, fill) = if post { (3.5, 8.5) } else { (2.5, 6.5) };
+                    let through = (cp.x - s.los) * sim.goal > wait - 0.02 * (pr - 50.0);
                     let wide = (me.y - s.ball_y).abs() > 12.0 && (cp.x - s.los) * sim.goal < 3.0;
                     if wide {
                         // A deep corner keeps outside leverage until it breaks.
@@ -2210,7 +2252,7 @@ fn defend(
                         let x = if (me.x - depth) * sim.goal > 0.0 { depth } else { me.x };
                         sim.go_to(i, v2(x, me.y + (cp.y - me.y) * 0.2), 0.6);
                     } else {
-                        let floor = if through { None } else { Some(s.los + sim.goal * (6.5 - 0.02 * (pr - 50.0))) };
+                        let floor = if through { None } else { Some(s.los + sim.goal * (fill - 0.02 * (pr - 50.0))) };
                         sim.pursue_cap(i, c, if through { 1.0 } else { 0.6 }, floor);
                     }
                 } else {
@@ -2247,6 +2289,26 @@ fn defend(
 
 #[allow(clippy::too_many_arguments)]
 fn cover(
+    sim: &mut Sim,
+    i: usize,
+    job: &Job,
+    s: &Snap,
+    qb: usize,
+    pass: &Option<Pass>,
+    trail: &[Vec<V2>],
+    vel_trail: &[Vec<V2>],
+) {
+    cover_inner(sim, i, job, s, qb, pass, trail, vel_trail);
+    // The end line: nobody covers anything behind it.
+    let a = &mut sim.agents[i];
+    let back = END_LINE - 0.7;
+    if (a.pos.x - back) * sim.goal > 0.0 && a.vel.x * sim.goal > 0.0 {
+        a.vel.x = 0.0;
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn cover_inner(
     sim: &mut Sim,
     i: usize,
     job: &Job,

@@ -1778,8 +1778,8 @@ impl<'a> Game<'a> {
             38.0
         } else {
             let tempo = match self.sides[o].team.staff.off_scheme {
-                OffScheme::AirRaid | OffScheme::SpreadOption => 31.0,
-                _ => 35.5,
+                OffScheme::AirRaid | OffScheme::SpreadOption => 33.0,
+                _ => 37.5,
             };
             tempo + self.rng.range(-3.0, 3.0)
         };
