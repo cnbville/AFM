@@ -68,10 +68,18 @@ impl GamePlayer {
             + 0.0033 * (self.weight - 220.0)
     }
 
-    /// Top speed, yards per second. A 4.3 forty gives about 10.5 (21.5 mph),
-    /// a 5.2 lineman about 8.5, in line with Next Gen Stats tracking.
+    /// Top speed, yards per second. A 4.35 forty gives about 10.7 (21.9 mph),
+    /// a 5.2 lineman about 9, in line with Next Gen Stats tracking. With the
+    /// sprint build-up below, a player runs his own forty in the sim.
     pub fn top_speed(&self) -> f64 {
-        40.0 / (self.forty() - 0.5).max(3.4)
+        40.0 / (self.forty() - self.sprint_tau() + 0.06).max(3.4)
+    }
+
+    /// How fast he builds to top speed: the time constant of his sprint, in
+    /// seconds. Fit so the sim gives real 10-yard splits (about 0.345 of the
+    /// forty: 1.5 for a 4.35 runner, 1.8 for a 5.2 lineman).
+    pub fn sprint_tau(&self) -> f64 {
+        clamp(0.78 + 0.003 * (60.0 - self.a(Attr::Acceleration)) + 0.0006 * (self.weight - 220.0), 0.55, 1.0)
     }
 
     /// Acceleration, yards per second squared.
@@ -289,19 +297,28 @@ pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
     let busy: Vec<usize> =
         [Position::QB, Position::K, Position::P].iter().flat_map(|p| d.list(*p).iter().take(1).copied()).collect();
     d.snapper = best(&|p| p.traits.snapping + 0.02 * p.a(Attr::Awareness), &busy);
-    d.holder = d.list(Position::P).first().copied().unwrap_or_else(|| d.list(Position::QB)[1.min(d.list(Position::QB).len() - 1)]);
+    d.holder = d
+        .list(Position::P)
+        .first()
+        .copied()
+        .unwrap_or_else(|| d.list(Position::QB)[1.min(d.list(Position::QB).len() - 1)]);
     let returner = |p: &GamePlayer| 0.5 * p.a(Attr::Speed) + 0.3 * p.a(Attr::Elusiveness) + 0.2 * p.a(Attr::Vision);
-    let mut kr: Vec<usize> = d.list(Position::WR).iter().chain(d.list(Position::RB)).chain(d.list(Position::CB)).copied().collect();
+    let mut kr: Vec<usize> =
+        d.list(Position::WR).iter().chain(d.list(Position::RB)).chain(d.list(Position::CB)).copied().collect();
     kr.sort_by(|&a, &b| returner(&ps[b]).total_cmp(&returner(&ps[a])));
     kr.dedup();
     // Starters at premium spots rarely return kicks.
     let qb1 = d.list(Position::QB).first().copied();
     kr.retain(|&i| Some(i) != qb1);
     d.kick_returners = kr.iter().take(2).copied().collect();
-    d.punt_returner = kr.iter().copied().max_by(|&a, &b| {
-        let f = |p: &GamePlayer| returner(p) + 0.3 * p.a(Attr::Catching);
-        f(&ps[a]).total_cmp(&f(&ps[b]))
-    }).unwrap_or(0);
+    d.punt_returner = kr
+        .iter()
+        .copied()
+        .max_by(|&a, &b| {
+            let f = |p: &GamePlayer| returner(p) + 0.3 * p.a(Attr::Catching);
+            f(&ps[a]).total_cmp(&f(&ps[b]))
+        })
+        .unwrap_or(0);
     d
 }
 

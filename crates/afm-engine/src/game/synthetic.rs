@@ -62,7 +62,10 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
             let base = if k < starters { starter } else { backup - 2.0 * (k - starters) as f64 };
             let target = clamp(base + quality + rng.normal(0.0, 4.5), 20.0, 97.0);
             id += 1;
-            let mut p = generate_prospect(&mut rng, ProspectOptions { id: Some(id), position: Some(pos), age: Some(14), talent_z: Some(z_for(target)) });
+            let mut p = generate_prospect(
+                &mut rng,
+                ProspectOptions { id: Some(id), position: Some(pos), age: Some(14), talent_z: Some(z_for(target)) },
+            );
             // Grown into his body and skills for the level.
             let age = match level {
                 Level::HS => 16 + (k % 2) as u32,
@@ -91,8 +94,16 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
         }
     }
     let staff = Staff {
-        offense: Caller { skill: clamp(rng.normal(10.0, 3.0), 1.0, 20.0), adaptation: clamp(rng.normal(10.0, 3.0), 1.0, 20.0), aggressiveness: clamp(rng.normal(10.0, 3.0), 1.0, 20.0) },
-        defense: Caller { skill: clamp(rng.normal(10.0, 3.0), 1.0, 20.0), adaptation: clamp(rng.normal(10.0, 3.0), 1.0, 20.0), aggressiveness: clamp(rng.normal(10.0, 3.0), 1.0, 20.0) },
+        offense: Caller {
+            skill: clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
+            adaptation: clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
+            aggressiveness: clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
+        },
+        defense: Caller {
+            skill: clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
+            adaptation: clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
+            aggressiveness: clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
+        },
         game_management: clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
         strictness: clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
         off_scheme: scheme,
@@ -107,9 +118,19 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
 pub fn synthetic_league(level: Level, n: usize, seed: u32) -> Vec<GameTeam> {
     let mut rng = Rng::new(seed ^ 0xA5A5);
     let schemes: &[OffScheme] = match level {
-        Level::HS => &[OffScheme::SpreadOption, OffScheme::PowerGap, OffScheme::WingT, OffScheme::AirRaid, OffScheme::WestCoast],
-        Level::NFL => &[OffScheme::WestCoast, OffScheme::WideZone, OffScheme::PowerGap, OffScheme::AirRaid, OffScheme::WestCoast],
-        _ => &[OffScheme::SpreadOption, OffScheme::AirRaid, OffScheme::WestCoast, OffScheme::PowerGap, OffScheme::WideZone],
+        Level::HS => {
+            &[OffScheme::SpreadOption, OffScheme::PowerGap, OffScheme::WingT, OffScheme::AirRaid, OffScheme::WestCoast]
+        }
+        Level::NFL => {
+            &[OffScheme::WestCoast, OffScheme::WideZone, OffScheme::PowerGap, OffScheme::AirRaid, OffScheme::WestCoast]
+        }
+        _ => &[
+            OffScheme::SpreadOption,
+            OffScheme::AirRaid,
+            OffScheme::WestCoast,
+            OffScheme::PowerGap,
+            OffScheme::WideZone,
+        ],
     };
     (0..n)
         .map(|k| {

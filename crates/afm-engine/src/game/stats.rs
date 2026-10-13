@@ -331,17 +331,118 @@ impl StatLine {
             ($($f:ident),*) => { $( self.$f += o.$f; )* };
         }
         add!(
-            games, snaps_off, snaps_def, snaps_st, att, cmp, pass_yds, pass_td, int, sacked, sack_yds, dropbacks,
-            pressured, air_yds_att, ttt, pass_epa, pass_success, x_cmp, big_time, turnover_worthy, pa_att, pa_yds,
-            blitz_att, blitz_yds, deep_att, deep_cmp, throw_aways, rush, rush_yds, rush_td, ybc, yaco, forced_missed,
-            explosive_runs, stuffs, rush_success, rush_first, rush_epa, scrambles, scramble_yds, fumbles, fumbles_lost,
-            targets, rec, rec_yds, rec_td, drops, tgt_air, yac, sep_sum, routes, contested_tgt, contested_rec, rec_first,
-            rec_epa, pb_snaps, pb_wins, pressures_allowed, sacks_allowed, rb_snaps, rb_wins, rush_snaps, rush_wins, sacks,
-            qb_hits, hurries, pressures, speed_wins, power_wins, finesse_wins, ttp_sum, tackles, assists, tfl, stops, missed,
-            forced_fumbles, fumble_rec, cov_snaps, tgt_allowed, cmp_allowed, yds_allowed, td_allowed, ints, pbus,
-            sep_allowed, freelance, freelance_won, clutch_att, clutch_made, xp_att, xp_made, punts, punt_yds, punt_net,
-            punt_in20, punt_tb, hang_sum, kickoffs, ko_tb, kr, kr_yds, kr_td, pr, pr_yds, pr_td, st_tackles, penalties,
-            penalty_yds, busts, grade_sum, graded
+            games,
+            snaps_off,
+            snaps_def,
+            snaps_st,
+            att,
+            cmp,
+            pass_yds,
+            pass_td,
+            int,
+            sacked,
+            sack_yds,
+            dropbacks,
+            pressured,
+            air_yds_att,
+            ttt,
+            pass_epa,
+            pass_success,
+            x_cmp,
+            big_time,
+            turnover_worthy,
+            pa_att,
+            pa_yds,
+            blitz_att,
+            blitz_yds,
+            deep_att,
+            deep_cmp,
+            throw_aways,
+            rush,
+            rush_yds,
+            rush_td,
+            ybc,
+            yaco,
+            forced_missed,
+            explosive_runs,
+            stuffs,
+            rush_success,
+            rush_first,
+            rush_epa,
+            scrambles,
+            scramble_yds,
+            fumbles,
+            fumbles_lost,
+            targets,
+            rec,
+            rec_yds,
+            rec_td,
+            drops,
+            tgt_air,
+            yac,
+            sep_sum,
+            routes,
+            contested_tgt,
+            contested_rec,
+            rec_first,
+            rec_epa,
+            pb_snaps,
+            pb_wins,
+            pressures_allowed,
+            sacks_allowed,
+            rb_snaps,
+            rb_wins,
+            rush_snaps,
+            rush_wins,
+            sacks,
+            qb_hits,
+            hurries,
+            pressures,
+            speed_wins,
+            power_wins,
+            finesse_wins,
+            ttp_sum,
+            tackles,
+            assists,
+            tfl,
+            stops,
+            missed,
+            forced_fumbles,
+            fumble_rec,
+            cov_snaps,
+            tgt_allowed,
+            cmp_allowed,
+            yds_allowed,
+            td_allowed,
+            ints,
+            pbus,
+            sep_allowed,
+            freelance,
+            freelance_won,
+            clutch_att,
+            clutch_made,
+            xp_att,
+            xp_made,
+            punts,
+            punt_yds,
+            punt_net,
+            punt_in20,
+            punt_tb,
+            hang_sum,
+            kickoffs,
+            ko_tb,
+            kr,
+            kr_yds,
+            kr_td,
+            pr,
+            pr_yds,
+            pr_td,
+            st_tackles,
+            penalties,
+            penalty_yds,
+            busts,
+            grade_sum,
+            graded
         );
         for k in 0..4 {
             self.fg_att[k] += o.fg_att[k];
@@ -496,7 +597,7 @@ impl GameStats {
         };
         let scrimmage = matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble);
         for &id in &r.on_field[0] {
-            let l = self.line(if scrimmage || r.kind == PlayType::Kneel || r.kind == PlayType::Spike { o } else { o }, id);
+            let l = self.line(o, id);
             if scrimmage {
                 l.snaps_off += 1;
             } else {
@@ -606,7 +707,17 @@ impl GameStats {
                             } else if r.pbu.is_some() && r.separation < 0.8 {
                                 l.turnover_worthy += 1;
                             }
-                            let g = if r.interception { -1.6 } else if r.complete { 0.25 + (r.epa * 0.3).clamp(-0.5, 1.2) } else if r.drop { 0.3 } else if r.throw_away { 0.0 } else { -0.25 };
+                            let g = if r.interception {
+                                -1.6
+                            } else if r.complete {
+                                0.25 + (r.epa * 0.3).clamp(-0.5, 1.2)
+                            } else if r.drop {
+                                0.3
+                            } else if r.throw_away {
+                                0.0
+                            } else {
+                                -0.25
+                            };
                             grade(l, g);
                         }
                     }
@@ -624,19 +735,19 @@ impl GameStats {
                         ts.pass_yards += r.yards;
                     }
                 }
-                if r.kind == PlayType::Scramble {
-                    if let Some(c) = r.carrier {
-                        let l = self.line(o, c);
-                        l.scrambles += 1;
-                        l.scramble_yds += r.yards;
-                        l.rush += 1;
-                        l.rush_yds += r.yards;
-                        l.rush_td += r.touchdown as u32;
-                        l.rush_long = l.rush_long.max(r.yards);
-                        l.rush_epa += r.epa;
-                        self.team[o].rush_yards += r.yards;
-                        self.team[o].carries += 1;
-                    }
+                if r.kind == PlayType::Scramble
+                    && let Some(c) = r.carrier
+                {
+                    let l = self.line(o, c);
+                    l.scrambles += 1;
+                    l.scramble_yds += r.yards;
+                    l.rush += 1;
+                    l.rush_yds += r.yards;
+                    l.rush_td += r.touchdown as u32;
+                    l.rush_long = l.rush_long.max(r.yards);
+                    l.rush_epa += r.epa;
+                    self.team[o].rush_yards += r.yards;
+                    self.team[o].carries += 1;
                 }
                 // Routes run by everyone in a pattern.
                 for &id in &r.on_field[0] {
@@ -691,7 +802,10 @@ impl GameStats {
                     grade(l, 2.0);
                 }
                 for &id in &r.on_field[1] {
-                    if !r.pressures.contains(&id) && !r.sackers.contains(&id) && !r.blocks.iter().any(|b| b.1 == id && b.2) {
+                    if !r.pressures.contains(&id)
+                        && !r.sackers.contains(&id)
+                        && !r.blocks.iter().any(|b| b.1 == id && b.2)
+                    {
                         self.line(d, id).cov_snaps += 1;
                     }
                 }
@@ -710,7 +824,8 @@ impl GameStats {
                     l.rush_success += r.success() as u32;
                     l.rush_first += r.first_down as u32;
                     l.rush_epa += r.epa;
-                    let g = (r.epa * 0.5).clamp(-0.8, 1.5) + 0.25 * r.missed_tackles.iter().filter(|m| m.1 == c).count() as f64;
+                    let g = (r.epa * 0.5).clamp(-0.8, 1.5)
+                        + 0.25 * r.missed_tackles.iter().filter(|m| m.1 == c).count() as f64;
                     grade(l, g);
                 }
                 let ts = &mut self.team[o];
@@ -764,7 +879,18 @@ impl GameStats {
                     if gave_sack {
                         l.sacks_allowed += 1.0;
                     }
-                    grade(l, if gave_sack { -1.5 } else if gave_pressure { -0.8 } else if w { 0.15 } else { -0.3 });
+                    grade(
+                        l,
+                        if gave_sack {
+                            -1.5
+                        } else if gave_pressure {
+                            -0.8
+                        } else if w {
+                            0.15
+                        } else {
+                            -0.3
+                        },
+                    );
                 } else {
                     l.rb_snaps += 1;
                     l.rb_wins += won as u32;
@@ -890,13 +1016,13 @@ impl GameStats {
                     l.punt_in20 += r.inside20 as u32;
                     l.punt_tb += r.touchback as u32;
                 }
-                if let Some(pr) = r.returner {
-                    if !r.fair_catch {
-                        let l = self.line(d, pr);
-                        l.pr += 1;
-                        l.pr_yds += r.return_yards;
-                        l.pr_td += r.touchdown as u32;
-                    }
+                if let Some(pr) = r.returner
+                    && !r.fair_catch
+                {
+                    let l = self.line(d, pr);
+                    l.pr += 1;
+                    l.pr_yds += r.return_yards;
+                    l.pr_td += r.touchdown as u32;
                 }
                 self.team[o].punts += 1;
             }

@@ -116,7 +116,11 @@ pub fn align(f: &Formation, role: ORole, los: f64, ball_y: f64) -> V2 {
         ORole::FB => at(-4.5, 0.0),
         ORole::TE => at(-0.8, 4.3 * s),
         ORole::TE2 => {
-            if f.personnel == Personnel::P13 { at(-1.5, 5.5 * s) } else { at(-0.8, -4.3 * s) }
+            if f.personnel == Personnel::P13 {
+                at(-1.5, 5.5 * s)
+            } else {
+                at(-0.8, -4.3 * s)
+            }
         }
         ORole::TE3 => at(-0.8, -4.3 * s),
         ORole::Z => v2(los - 1.2, wide_y(s, ball_y, 9.0)),
@@ -199,19 +203,19 @@ impl Route {
             Route::Fade => (&[(3.0, 1.0), (40.0, 4.0)], false),
             Route::Seam => (&[(45.0, -1.0)], false),
             Route::Slant => (&[(2.0, 0.0), (9.0, -7.0), (14.0, -14.0)], false),
-            Route::Out(_) => (&[(0.0, 0.0), (0.0, 12.0)], false),
+            Route::Out(_) => (&[(0.0, 0.0), (0.0, 10.0), (4.0, 11.0)], false),
             Route::In(_) => (&[(0.0, 0.0), (0.0, -20.0)], false),
             Route::Curl(_) => (&[(0.0, 0.0), (-2.0, -1.5)], true),
             Route::Hitch(_) => (&[(0.0, 0.0), (-1.0, 0.0)], true),
             Route::Comeback(_) => (&[(0.0, 0.0), (-3.0, 3.0)], true),
             Route::Post(_) => (&[(0.0, 0.0), (25.0, -12.0)], false),
             Route::Corner(_) => (&[(0.0, 0.0), (14.0, 11.0)], false),
-            Route::Flat => (&[(1.5, 3.0), (3.0, 10.0), (3.5, 16.0)], false),
+            Route::Flat => (&[(1.5, 3.0), (3.0, 9.0), (4.0, 12.5), (14.0, 13.5)], false),
             Route::Wheel => (&[(1.0, 4.0), (4.0, 8.0), (40.0, 9.0)], false),
             Route::Drag => (&[(2.5, 0.0), (3.5, -30.0)], false),
             Route::Sit(_) => (&[(0.0, 0.0)], true),
             Route::Swing => (&[(0.5, 4.0), (2.0, 8.0)], true),
-            Route::Bubble => (&[(-1.0, 3.0), (-1.0, 5.0)], true),
+            Route::Bubble => (&[(-1.0, 3.0), (-0.5, 6.0), (10.0, 7.0)], false),
         }
     }
 
@@ -260,7 +264,10 @@ pub enum Drop {
     Deep,
     /// Boot or rollout away from the run fake.
     Boot,
+    /// Fake a drop, let the rush through, dump it to the back.
     Screen,
+    /// Catch the snap and throw at once to a receiver running wide.
+    Bubble,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -338,7 +345,14 @@ pub const PASS_CONCEPTS: &[PassConcept] = &[
         drop: Drop::Medium,
         protection: Protection::Standard,
         play_action: false,
-        routes: &[(X, Hitch(6.0)), (Z, Hitch(6.0)), (Slot, Corner(11.0)), (Slot2, Corner(11.0)), (TE, Sit(9.0)), (TE2, Flat)],
+        routes: &[
+            (X, Hitch(6.0)),
+            (Z, Hitch(6.0)),
+            (Slot, Corner(11.0)),
+            (Slot2, Corner(11.0)),
+            (TE, Sit(9.0)),
+            (TE2, Flat),
+        ],
         reads: &[Slot, Z, Slot2, X, TE, RB],
         depth: PassDepth::Medium,
     },
@@ -401,7 +415,15 @@ pub const PASS_CONCEPTS: &[PassConcept] = &[
         drop: Drop::Boot,
         protection: Protection::Standard,
         play_action: true,
-        routes: &[(TE, Flat), (X, Comeback(14.0)), (Z, Corner(12.0)), (Slot, Drag), (Slot2, In(12.0)), (TE2, Drag), (FB, Flat)],
+        routes: &[
+            (TE, Flat),
+            (X, Comeback(14.0)),
+            (Z, Corner(12.0)),
+            (Slot, Drag),
+            (Slot2, In(12.0)),
+            (TE2, Drag),
+            (FB, Flat),
+        ],
         reads: &[TE, FB, Z, X, Slot],
         depth: PassDepth::Medium,
     },
@@ -425,7 +447,7 @@ pub const PASS_CONCEPTS: &[PassConcept] = &[
     },
     PassConcept {
         name: "bubble screen",
-        drop: Drop::Screen,
+        drop: Drop::Bubble,
         protection: Protection::Standard,
         play_action: false,
         routes: &[(Slot, Bubble), (Z, Block), (X, Hitch(5.0)), (Slot2, Bubble), (TE, Block)],

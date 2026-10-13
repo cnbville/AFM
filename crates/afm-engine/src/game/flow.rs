@@ -113,7 +113,8 @@ impl<'a> Side<'a> {
     /// The best `n` available at a spot, swapping out tired starters when a
     /// fresh backup isn't much worse.
     fn pick(&self, pos: Position, n: usize, used: &mut Vec<usize>) -> Vec<usize> {
-        let list: Vec<usize> = self.depth.list(pos).iter().copied().filter(|&i| !self.out[i] && !used.contains(&i)).collect();
+        let list: Vec<usize> =
+            self.depth.list(pos).iter().copied().filter(|&i| !self.out[i] && !used.contains(&i)).collect();
         let th = self.threshold(pos);
         let mut out = Vec::new();
         let mut skipped = Vec::new();
@@ -122,7 +123,13 @@ impl<'a> Side<'a> {
                 break;
             }
             if self.energy[i] < th {
-                let next = list.iter().copied().find(|&j| j != i && !out.contains(&j) && !skipped.contains(&j) && self.energy[j] >= th && self.rating(j, pos) >= self.rating(i, pos) - 9.0);
+                let next = list.iter().copied().find(|&j| {
+                    j != i
+                        && !out.contains(&j)
+                        && !skipped.contains(&j)
+                        && self.energy[j] >= th
+                        && self.rating(j, pos) >= self.rating(i, pos) - 9.0
+                });
                 if next.is_some() {
                     skipped.push(i);
                     continue;
@@ -328,7 +335,12 @@ impl<'a> Game<'a> {
         let before = self.clock;
         self.clock -= secs;
         // Two-minute warning (NFL).
-        if self.rules().two_minute_warning && (self.quarter == 2 || self.quarter == 4) && before > 120.0 && self.clock <= 120.0 && !self.two_min_warned {
+        if self.rules().two_minute_warning
+            && (self.quarter == 2 || self.quarter == 4)
+            && before > 120.0
+            && self.clock <= 120.0
+            && !self.two_min_warned
+        {
             self.two_min_warned = true;
             self.clock = 120.0;
             self.running = false;
@@ -432,7 +444,7 @@ impl<'a> Game<'a> {
         self.drive_start_poss = team;
         self.x = if self.rules().overtime == Overtime::HighSchool { 90.0 } else { 75.0 };
         self.down = 1;
-        self.togo = if self.x >= 90.0 { 10.0 } else { 10.0 };
+        self.togo = 10.0;
         self.ball_y = MID;
         self.next = Next::Scrimmage;
         for s in self.sides.iter_mut() {
@@ -487,11 +499,15 @@ impl<'a> Game<'a> {
         }
         used.extend(on.iter().copied());
         // Coverage and return units: fast backups first.
-        let mut pool: Vec<usize> = (0..ps.len()).filter(|&i| !side.out[i] && !used.contains(&i) && !ps[i].position.is_specialist()).collect();
-        let starters: Vec<usize> = [Position::QB].iter().flat_map(|p| side.depth.list(*p).iter().take(1).copied()).collect();
+        let mut pool: Vec<usize> =
+            (0..ps.len()).filter(|&i| !side.out[i] && !used.contains(&i) && !ps[i].position.is_specialist()).collect();
+        let starters: Vec<usize> =
+            [Position::QB].iter().flat_map(|p| side.depth.list(*p).iter().take(1).copied()).collect();
         pool.retain(|i| !starters.contains(i));
         pool.sort_by(|&a, &b| {
-            let f = |p: &GamePlayer| 0.4 * p.a(Attr::Speed) + 0.3 * p.a(Attr::Tackling) + 0.3 * p.a(Attr::RunBlocking) + side.energy[0] * 0.0;
+            let f = |p: &GamePlayer| {
+                0.4 * p.a(Attr::Speed) + 0.3 * p.a(Attr::Tackling) + 0.3 * p.a(Attr::RunBlocking) + side.energy[0] * 0.0
+            };
             f(&ps[b]).total_cmp(&f(&ps[a]))
         });
         on.extend(pool.into_iter().take(11 - on.len()));
@@ -505,7 +521,9 @@ impl<'a> Game<'a> {
         // Onside kicks: trailing late, or a surprise from an aggressive coach.
         let late = self.quarter >= 4 && self.game_left() < 180.0;
         let behind = self.diff(team) < 0 && self.diff(team) >= -16;
-        let onside = onside || (late && behind) || (!self.ot && self.rng.chance(0.002 * self.sides[team].team.staff.offense.aggressiveness / 10.0));
+        let onside = onside
+            || (late && behind)
+            || (!self.ot && self.rng.chance(0.002 * self.sides[team].team.staff.offense.aggressiveness / 10.0));
         let mut r = self.new_record(PlayType::Kickoff);
         r.offense = team;
         let kt = KickTeams {
@@ -520,7 +538,8 @@ impl<'a> Game<'a> {
         let mut rules = self.s.rules;
         rules.kickoff_from = from;
         let along = self.wind_along(team);
-        let kr = kicking::kickoff(&kt, &rules, &self.s.cond, &self.crew, along, onside, 1.0, self.s.record, &mut self.rng);
+        let kr =
+            kicking::kickoff(&kt, &rules, &self.s.cond, &self.crew, along, onside, 1.0, self.s.record, &mut self.rng);
         r.kicker = Some(kt.kick[kick_on[0]].id);
         r.on_field = [kick_on.iter().map(|&i| kt.kick[i].id).collect(), ret_on.iter().map(|&i| kt.ret[i].id).collect()];
         r.kick_distance = kr.distance;
@@ -543,7 +562,11 @@ impl<'a> Game<'a> {
             self.poss = team;
             self.x = if onside { 100.0 - kr.spot } else { kr.spot };
             r.turnover = true;
-            r.why = if onside { "Onside kick recovered by the kicking team.".into() } else { "Muffed return recovered by the kicking team.".into() };
+            r.why = if onside {
+                "Onside kick recovered by the kicking team.".into()
+            } else {
+                "Muffed return recovered by the kicking team.".into()
+            };
         } else if kr.return_td {
             self.poss = rec;
             r.touchdown = true;
@@ -584,10 +607,13 @@ impl<'a> Game<'a> {
         let staff = self.sides[team].team.staff;
         let k = self.sides[team].depth.list(Position::K).first().copied();
         let kicker = k.map(|i| &self.sides[team].team.players[i]);
-        let xp_make = kicker.map_or(0.5, |k| clamp(0.55 + 0.005 * k.a(Attr::KickAccuracy) - 0.002 * (self.rules().xp_from - 3.0), 0.2, 0.99));
+        let xp_make = kicker.map_or(0.5, |k| {
+            clamp(0.55 + 0.005 * k.a(Attr::KickAccuracy) - 0.002 * (self.rules().xp_from - 3.0), 0.2, 0.99)
+        });
         let diff = self.diff(team);
         let forced_two = self.ot && self.rules().overtime == Overtime::College && self.ot_round >= 2;
-        let two = forced_two || calling::go_for_two(&staff, diff, self.quarter, self.game_left(), xp_make, &mut self.rng);
+        let two =
+            forced_two || calling::go_for_two(&staff, diff, self.quarter, self.game_left(), xp_make, &mut self.rng);
         if two {
             self.x = 100.0 - self.rules().two_point_from;
             self.down = 1;
@@ -625,25 +651,55 @@ impl<'a> Game<'a> {
     fn kick(&mut self, team: usize, dist: f64, pressure: f64, r: &mut PlayRecord) -> bool {
         let side = &self.sides[team];
         let ps = &side.team.players;
-        let k = side.depth.list(Position::K).iter().copied().find(|&i| !side.out[i]).unwrap_or(side.depth.list(Position::P).first().copied().unwrap_or(0));
+        let k = side
+            .depth
+            .list(Position::K)
+            .iter()
+            .copied()
+            .find(|&i| !side.out[i])
+            .unwrap_or(side.depth.list(Position::P).first().copied().unwrap_or(0));
         let snapper = &ps[side.depth.snapper];
         let holder = &ps[side.depth.holder];
         let mut used = vec![k];
-        let protect_on: Vec<usize> = side.pick(Position::IOL, 3, &mut used).into_iter().chain(side.pick(Position::OT, 2, &mut used)).chain(side.pick(Position::TE, 2, &mut used)).collect();
+        let protect_on: Vec<usize> = side
+            .pick(Position::IOL, 3, &mut used)
+            .into_iter()
+            .chain(side.pick(Position::OT, 2, &mut used))
+            .chain(side.pick(Position::TE, 2, &mut used))
+            .collect();
         let opp = &self.sides[1 - team];
         let mut used2 = Vec::new();
-        let rush_on: Vec<usize> = opp.pick(Position::DT, 3, &mut used2).into_iter().chain(opp.pick(Position::EDGE, 2, &mut used2)).chain(opp.pick(Position::LB, 2, &mut used2)).collect();
+        let rush_on: Vec<usize> = opp
+            .pick(Position::DT, 3, &mut used2)
+            .into_iter()
+            .chain(opp.pick(Position::EDGE, 2, &mut used2))
+            .chain(opp.pick(Position::LB, 2, &mut used2))
+            .collect();
         let protect = kicking::kick_unit_strength(ps, &protect_on, false);
         let rush = kicking::kick_unit_strength(&opp.team.players, &rush_on, true);
         let along = self.wind_along(team);
-        let fg = kicking::field_goal(&ps[k], snapper, holder, rush, protect, dist, pressure, &self.s.cond, along, &mut self.rng);
+        let fg = kicking::field_goal(
+            &ps[k],
+            snapper,
+            holder,
+            rush,
+            protect,
+            dist,
+            pressure,
+            &self.s.cond,
+            along,
+            &mut self.rng,
+        );
         r.kicker = Some(ps[k].id);
         r.kick_distance = dist;
         r.kick_good = fg.made;
         r.blocked = fg.blocked;
         r.kick_pressure = pressure;
         r.why = fg.why.clone();
-        r.on_field = [protect_on.iter().map(|&i| ps[i].id).chain([ps[k].id]).collect(), rush_on.iter().map(|&i| opp.team.players[i].id).collect()];
+        r.on_field = [
+            protect_on.iter().map(|&i| ps[i].id).chain([ps[k].id]).collect(),
+            rush_on.iter().map(|&i| opp.team.players[i].id).collect(),
+        ];
         r.duration = 3.0;
         fg.made
     }
@@ -665,7 +721,17 @@ impl<'a> Game<'a> {
         }
         // Kneel to run out the clock.
         if !self.ot && self.should_kneel() {
-            let call = OffCall { formation: Formation { personnel: Personnel::P12, backfield: Backfield::UnderCenter, trips: false, strength: 1.0 }, kind: PlayKind::Kneel, dir: 1.0, tempo: false };
+            let call = OffCall {
+                formation: Formation {
+                    personnel: Personnel::P12,
+                    backfield: Backfield::UnderCenter,
+                    trips: false,
+                    strength: 1.0,
+                },
+                kind: PlayKind::Kneel,
+                dir: 1.0,
+                tempo: false,
+            };
             self.run_scrimmage_call(call, None);
             return;
         }
@@ -692,8 +758,24 @@ impl<'a> Game<'a> {
             }
         }
         // Spike to stop the clock.
-        if self.running && sit.hurry() && self.half_left() < 30.0 && self.sides[o].timeouts == 0 && self.down < 4 && self.half_left() > 3.0 {
-            let call = OffCall { formation: Formation { personnel: Personnel::P11, backfield: Backfield::Shotgun, trips: false, strength: 1.0 }, kind: PlayKind::Spike, dir: 1.0, tempo: true };
+        if self.running
+            && sit.hurry()
+            && self.half_left() < 30.0
+            && self.sides[o].timeouts == 0
+            && self.down < 4
+            && self.half_left() > 3.0
+        {
+            let call = OffCall {
+                formation: Formation {
+                    personnel: Personnel::P11,
+                    backfield: Backfield::Shotgun,
+                    trips: false,
+                    strength: 1.0,
+                },
+                kind: PlayKind::Spike,
+                dir: 1.0,
+                tempo: true,
+            };
             self.run_scrimmage_call(call, None);
             return;
         }
@@ -747,7 +829,13 @@ impl<'a> Game<'a> {
         let late = self.quarter >= 4 && self.game_left() < 150.0;
         let d = self.diff(o);
         let decides = late && (-3..=0).contains(&d) || self.ot;
-        let mut pressure: f64 = if decides { 0.8 } else if late && d.abs() <= 8 { 0.4 } else { 0.1 };
+        let mut pressure: f64 = if decides {
+            0.8
+        } else if late && d.abs() <= 8 {
+            0.4
+        } else {
+            0.1
+        };
         if self.s.playoff {
             pressure += 0.15;
         }
@@ -841,7 +929,17 @@ impl<'a> Game<'a> {
             energy: [&side.energy, &opp.energy],
         };
         let along = self.wind_along(o);
-        let kr = kicking::punt(&kt, self.x, &self.s.rules, &self.s.cond, &self.crew, along, 1.0, self.s.record, &mut self.rng);
+        let kr = kicking::punt(
+            &kt,
+            self.x,
+            &self.s.rules,
+            &self.s.cond,
+            &self.crew,
+            along,
+            1.0,
+            self.s.record,
+            &mut self.rng,
+        );
         r.kicker = Some(kt.kick[p].id);
         r.on_field = [kick_on.iter().map(|&i| kt.kick[i].id).collect(), ret_on.iter().map(|&i| kt.ret[i].id).collect()];
         r.kick_distance = kr.distance;
@@ -898,13 +996,14 @@ impl<'a> Game<'a> {
     }
 
     /// Players on the field for a call.
+    #[allow(clippy::type_complexity)]
     fn lineup(&self, call: &OffCall, dcall: &DefCall) -> (Vec<(ORole, usize)>, Vec<(DSlot, usize)>) {
         let o = &self.sides[self.poss];
         let d = &self.sides[1 - self.poss];
         let mut used = Vec::new();
         let mut off = Vec::new();
         let roles = call.formation.personnel.roles();
-        let mut add = |list: Vec<usize>, rs: &[ORole], off: &mut Vec<(ORole, usize)>| {
+        let add = |list: Vec<usize>, rs: &[ORole], off: &mut Vec<(ORole, usize)>| {
             for (k, r) in rs.iter().enumerate() {
                 if let Some(&i) = list.get(k) {
                     off.push((*r, i));
@@ -916,31 +1015,78 @@ impl<'a> Game<'a> {
         add(o.pick(Position::IOL, 3, &mut used), &[ORole::LG, ORole::C, ORole::RG], &mut off);
         let backs: Vec<ORole> = roles.iter().copied().filter(|r| r.is_back()).collect();
         add(o.pick(Position::RB, backs.len(), &mut used), &backs, &mut off);
-        let wrs: Vec<ORole> = roles.iter().copied().filter(|r| matches!(r, ORole::X | ORole::Z | ORole::Slot | ORole::Slot2)).collect();
+        let wrs: Vec<ORole> =
+            roles.iter().copied().filter(|r| matches!(r, ORole::X | ORole::Z | ORole::Slot | ORole::Slot2)).collect();
         add(o.pick(Position::WR, wrs.len(), &mut used), &wrs, &mut off);
-        let tes: Vec<ORole> = roles.iter().copied().filter(|r| matches!(r, ORole::TE | ORole::TE2 | ORole::TE3)).collect();
+        let tes: Vec<ORole> =
+            roles.iter().copied().filter(|r| matches!(r, ORole::TE | ORole::TE2 | ORole::TE3)).collect();
         add(o.pick(Position::TE, tes.len(), &mut used), &tes, &mut off);
         let three_four = d.team.staff.front == Front::ThreeFour;
         let slots: Vec<(DSlot, Position)> = match dcall.personnel {
             DefPersonnel::Base if three_four => vec![
-                (DSlot::LE, Position::EDGE), (DSlot::RE, Position::EDGE), (DSlot::DTL, Position::DT), (DSlot::NT, Position::DT), (DSlot::DTR, Position::DT),
-                (DSlot::Mike, Position::LB), (DSlot::Will, Position::LB), (DSlot::CBL, Position::CB), (DSlot::CBR, Position::CB), (DSlot::FS, Position::S), (DSlot::SS, Position::S),
+                (DSlot::LE, Position::EDGE),
+                (DSlot::RE, Position::EDGE),
+                (DSlot::DTL, Position::DT),
+                (DSlot::NT, Position::DT),
+                (DSlot::DTR, Position::DT),
+                (DSlot::Mike, Position::LB),
+                (DSlot::Will, Position::LB),
+                (DSlot::CBL, Position::CB),
+                (DSlot::CBR, Position::CB),
+                (DSlot::FS, Position::S),
+                (DSlot::SS, Position::S),
             ],
             DefPersonnel::Base => vec![
-                (DSlot::LE, Position::EDGE), (DSlot::RE, Position::EDGE), (DSlot::DTL, Position::DT), (DSlot::DTR, Position::DT),
-                (DSlot::Sam, Position::LB), (DSlot::Mike, Position::LB), (DSlot::Will, Position::LB), (DSlot::CBL, Position::CB), (DSlot::CBR, Position::CB), (DSlot::FS, Position::S), (DSlot::SS, Position::S),
+                (DSlot::LE, Position::EDGE),
+                (DSlot::RE, Position::EDGE),
+                (DSlot::DTL, Position::DT),
+                (DSlot::DTR, Position::DT),
+                (DSlot::Sam, Position::LB),
+                (DSlot::Mike, Position::LB),
+                (DSlot::Will, Position::LB),
+                (DSlot::CBL, Position::CB),
+                (DSlot::CBR, Position::CB),
+                (DSlot::FS, Position::S),
+                (DSlot::SS, Position::S),
             ],
             DefPersonnel::Nickel => vec![
-                (DSlot::LE, Position::EDGE), (DSlot::RE, Position::EDGE), (DSlot::DTL, Position::DT), (DSlot::DTR, Position::DT),
-                (DSlot::Mike, Position::LB), (DSlot::Will, Position::LB), (DSlot::CBL, Position::CB), (DSlot::CBR, Position::CB), (DSlot::NCB, Position::CB), (DSlot::FS, Position::S), (DSlot::SS, Position::S),
+                (DSlot::LE, Position::EDGE),
+                (DSlot::RE, Position::EDGE),
+                (DSlot::DTL, Position::DT),
+                (DSlot::DTR, Position::DT),
+                (DSlot::Mike, Position::LB),
+                (DSlot::Will, Position::LB),
+                (DSlot::CBL, Position::CB),
+                (DSlot::CBR, Position::CB),
+                (DSlot::NCB, Position::CB),
+                (DSlot::FS, Position::S),
+                (DSlot::SS, Position::S),
             ],
             DefPersonnel::Dime => vec![
-                (DSlot::LE, Position::EDGE), (DSlot::RE, Position::EDGE), (DSlot::DTL, Position::DT), (DSlot::DTR, Position::DT),
-                (DSlot::Mike, Position::LB), (DSlot::CBL, Position::CB), (DSlot::CBR, Position::CB), (DSlot::NCB, Position::CB), (DSlot::DCB, Position::CB), (DSlot::FS, Position::S), (DSlot::SS, Position::S),
+                (DSlot::LE, Position::EDGE),
+                (DSlot::RE, Position::EDGE),
+                (DSlot::DTL, Position::DT),
+                (DSlot::DTR, Position::DT),
+                (DSlot::Mike, Position::LB),
+                (DSlot::CBL, Position::CB),
+                (DSlot::CBR, Position::CB),
+                (DSlot::NCB, Position::CB),
+                (DSlot::DCB, Position::CB),
+                (DSlot::FS, Position::S),
+                (DSlot::SS, Position::S),
             ],
             DefPersonnel::GoalLine => vec![
-                (DSlot::LE, Position::EDGE), (DSlot::RE, Position::EDGE), (DSlot::DTL, Position::DT), (DSlot::NT, Position::DT), (DSlot::DTR, Position::DT),
-                (DSlot::Sam, Position::LB), (DSlot::Mike, Position::LB), (DSlot::Will, Position::LB), (DSlot::CBL, Position::CB), (DSlot::CBR, Position::CB), (DSlot::SS, Position::S),
+                (DSlot::LE, Position::EDGE),
+                (DSlot::RE, Position::EDGE),
+                (DSlot::DTL, Position::DT),
+                (DSlot::NT, Position::DT),
+                (DSlot::DTR, Position::DT),
+                (DSlot::Sam, Position::LB),
+                (DSlot::Mike, Position::LB),
+                (DSlot::Will, Position::LB),
+                (DSlot::CBL, Position::CB),
+                (DSlot::CBR, Position::CB),
+                (DSlot::SS, Position::S),
             ],
         };
         let mut dused = Vec::new();
@@ -969,7 +1115,12 @@ impl<'a> Game<'a> {
             }
             let p = &self.sides[o].team.players[i];
             let tired = 1.0 - self.sides[o].energy[i];
-            let chance = 0.0016 * (1.6 - p.traits.discipline / 15.0).max(0.3) * (1.0 + 1.3 * crowd) * crew * (1.0 + tired) * (1.25 - 0.25 * p.knowledge);
+            let chance = 0.0016
+                * (1.6 - p.traits.discipline / 15.0).max(0.3)
+                * (1.0 + 1.3 * crowd)
+                * crew
+                * (1.0 + tired)
+                * (1.25 - 0.25 * p.knowledge);
             if self.rng.chance(chance) {
                 return Some(Foul { kind: FoulKind::FalseStart, side: 0, player: p.id, at: self.x });
             }
@@ -990,7 +1141,8 @@ impl<'a> Game<'a> {
             return Some(Foul { kind: FoulKind::DelayOfGame, side: 0, player: qp.id, at: self.x });
         }
         if self.rng.chance(0.0035 * crew * (1.3 - qp.knowledge * 0.3)) {
-            let id = off.iter().find(|x| x.0.is_receiver()).map(|x| self.sides[o].team.players[x.1].id).unwrap_or(qp.id);
+            let id =
+                off.iter().find(|x| x.0.is_receiver()).map(|x| self.sides[o].team.players[x.1].id).unwrap_or(qp.id);
             return Some(Foul { kind: FoulKind::IllegalFormation, side: 0, player: id, at: self.x });
         }
         None
@@ -1015,14 +1167,22 @@ impl<'a> Game<'a> {
         let o = self.poss;
         let d = 1 - o;
         let sit = self.situation();
-        let dcall = dcall.unwrap_or(DefCall { personnel: DefPersonnel::Base, coverage: Coverage::Cover3, pressure: Pressure::Four, disguise: false });
+        let dcall = dcall.unwrap_or(DefCall {
+            personnel: DefPersonnel::Base,
+            coverage: Coverage::Cover3,
+            pressure: Pressure::Four,
+            disguise: false,
+        });
         let (off, def) = self.lineup(&call, &dcall);
         // Pre-snap check (topic 3): a smart quarterback changes a run into a
         // quick throw against a stacked box, or a pass into a run against a
         // light one, if his coach lets him.
         let qb = off.iter().find(|x| x.0 == ORole::QB).map(|x| x.1).unwrap_or(0);
         let qp = &self.sides[o].team.players[qb];
-        let box_n = def.iter().filter(|(s, _)| s.is_line() || s.is_lb() || *s == DSlot::SS && dcall.coverage.high() < 2).count();
+        let box_n = def
+            .iter()
+            .filter(|(s, _)| s.is_line() || s.is_lb() || *s == DSlot::SS && dcall.coverage.high() < 2)
+            .count();
         let freedom = clamp(0.9 - 0.035 * self.sides[o].team.staff.strictness, 0.15, 0.85);
         let skill = clamp((qp.a(Attr::Awareness) - 50.0) / 50.0 + 0.1 * qp.experience.min(5.0) / 5.0, 0.0, 1.0);
         let mut audible = false;
@@ -1045,20 +1205,34 @@ impl<'a> Game<'a> {
             PlayKind::Kneel => PlayType::Kneel,
             PlayKind::Spike => PlayType::Spike,
         });
-        r.call = format!("{} {} {}{}", call.formation.personnel.name(), match call.formation.backfield { Backfield::Shotgun => "gun", Backfield::Pistol => "pistol", Backfield::UnderCenter => "under center" }, call.describe(), if audible { " (audible)" } else { "" });
+        r.call = format!(
+            "{} {} {}{}",
+            call.formation.personnel.name(),
+            match call.formation.backfield {
+                Backfield::Shotgun => "gun",
+                Backfield::Pistol => "pistol",
+                Backfield::UnderCenter => "under center",
+            },
+            call.describe(),
+            if audible { " (audible)" } else { "" }
+        );
         r.defense_call = dcall.describe();
         r.personnel = call.formation.personnel.name().into();
         r.blitz = dcall.pressure.extra() > 0;
         r.coverage_man = dcall.coverage.is_man();
         // Pre-snap foul: no play.
-        if !matches!(call.kind, PlayKind::Kneel) {
-            if let Some(f) = self.pre_snap_foul(&off, &def) {
-                return self.no_play(r, f);
-            }
+        if !matches!(call.kind, PlayKind::Kneel)
+            && let Some(f) = self.pre_snap_foul(&off, &def)
+        {
+            return self.no_play(r, f);
         }
-        let labels: Vec<(u32, String)> = off.iter().map(|&(rl, i)| (self.sides[o].team.players[i].id, scrimmage::orole_label(rl).to_string()))
-            .chain(def.iter().map(|&(s, i)| (self.sides[d].team.players[i].id, s.label().to_string()))).collect();
-        let label = |id: u32| labels.iter().find(|l| l.0 == id).map(|l| format!("{} #{}", l.1, id)).unwrap_or(format!("#{id}"));
+        let labels: Vec<(u32, String)> = off
+            .iter()
+            .map(|&(rl, i)| (self.sides[o].team.players[i].id, scrimmage::orole_label(rl).to_string()))
+            .chain(def.iter().map(|&(s, i)| (self.sides[d].team.players[i].id, s.label().to_string())))
+            .collect();
+        let label =
+            |id: u32| labels.iter().find(|l| l.0 == id).map(|l| format!("{} #{}", l.1, id)).unwrap_or(format!("#{id}"));
         let mut hurt_edge_o: Vec<f64> = self.sides[o].edge.clone();
         for (i, h) in self.sides[o].hurt.iter().enumerate() {
             if h.is_some() {
@@ -1094,7 +1268,10 @@ impl<'a> Game<'a> {
             hurry: sit.hurry(),
         };
         let res = scrimmage::run_snap(&snap, &mut self.rng);
-        r.on_field = [off.iter().map(|&(_, i)| self.sides[o].team.players[i].id).collect(), def.iter().map(|&(_, i)| self.sides[d].team.players[i].id).collect()];
+        r.on_field = [
+            off.iter().map(|&(_, i)| self.sides[o].team.players[i].id).collect(),
+            def.iter().map(|&(_, i)| self.sides[d].team.players[i].id).collect(),
+        ];
         r.box_count = res.box_count;
         r.play_action = res.play_action;
         // Fatigue (topic 6).
@@ -1104,7 +1281,8 @@ impl<'a> Game<'a> {
             self.sides[team].energy[p] = (self.sides[team].energy[p] - 0.0068 * drain(st, work)).max(0.25);
         }
         for t in [o, d] {
-            let on: Vec<usize> = if t == o { off.iter().map(|x| x.1).collect() } else { def.iter().map(|x| x.1).collect() };
+            let on: Vec<usize> =
+                if t == o { off.iter().map(|x| x.1).collect() } else { def.iter().map(|x| x.1).collect() };
             for i in 0..self.sides[t].energy.len() {
                 let rec = if on.contains(&i) { RECOVER_ON_FIELD } else { RECOVER_ON_BENCH };
                 self.sides[t].energy[i] = (self.sides[t].energy[i] + rec).min(1.0);
@@ -1193,7 +1371,14 @@ impl<'a> Game<'a> {
     }
 
     /// Enforce what happened: fouls, spot, downs, score, clock.
-    fn resolve(&mut self, mut r: PlayRecord, res: SnapResult, label: &dyn Fn(u32) -> String, call: OffCall, dcall: DefCall) -> PlayRecord {
+    fn resolve(
+        &mut self,
+        mut r: PlayRecord,
+        res: SnapResult,
+        label: &dyn Fn(u32) -> String,
+        call: OffCall,
+        dcall: DefCall,
+    ) -> PlayRecord {
         use scrimmage::Result as R;
         let o = self.poss;
         let d = 1 - o;
@@ -1223,7 +1408,14 @@ impl<'a> Game<'a> {
         r.rush_wins = res.notes.rush_wins.clone();
         r.busts = res.notes.busts.clone();
         r.injuries = res.notes.injuries.clone();
-        r.top_speed = res.notes.top_speed.iter().copied().max_by(|a, b| a.1.total_cmp(&b.1)).map(|(id, v)| (id, v * 2.045)).unwrap_or((0, 0.0));
+        r.top_speed = res
+            .notes
+            .top_speed
+            .iter()
+            .copied()
+            .max_by(|a, b| a.1.total_cmp(&b.1))
+            .map(|(id, v)| (id, v * 2.045))
+            .unwrap_or((0, 0.0));
         r.kind = match res.result {
             R::Run => PlayType::Run,
             R::Complete | R::Incomplete | R::Interception => PlayType::Pass,
@@ -1270,13 +1462,13 @@ impl<'a> Game<'a> {
         let mut turnover = res.turnover;
         let mut safety = res.safety;
         let ep = |down: u8, togo: f64, x: f64| tables::expected_points(down, togo, 100.0 - x.clamp(1.0, 99.0));
-        if off_foul.is_some() && def_foul.is_some() {
+        if let (Some(of), Some(df)) = (off_foul.as_ref(), def_foul.as_ref()) {
             replay = true;
             new_x = los;
             scored_td = false;
             turnover = false;
             safety = false;
-            for f in [off_foul.as_ref().unwrap(), def_foul.as_ref().unwrap()] {
+            for f in [of, df] {
                 let team = if f.side == 0 { o } else { d };
                 r.penalties.push((f.kind, team, f.player, 0.0, true));
             }
@@ -1285,15 +1477,25 @@ impl<'a> Game<'a> {
             let pen_x = match f.kind {
                 FoulKind::PassInterference => {
                     let spot_dist = (f.at - los).max(1.0);
-                    let lim = if self.rules().level == Level::NFL { spot_dist } else { 15.0f64.min(spot_dist.max(15.0)) };
+                    let lim = if self.rules().level == Level::NFL { spot_dist } else { spot_dist.min(15.0) };
                     (los + lim).min(99.0)
                 }
-                FoulKind::RoughingPasser | FoulKind::FaceMask | FoulKind::UnnecessaryRoughness if !turnover && gain > 0.0 => res.spot + yds,
+                FoulKind::RoughingPasser | FoulKind::FaceMask | FoulKind::UnnecessaryRoughness
+                    if !turnover && gain > 0.0 =>
+                {
+                    res.spot + yds
+                }
                 _ => los + yds,
             };
             let pen_x = if pen_x >= 100.0 { los + (100.0 - los) / 2.0 } else { pen_x };
             // The offense takes the better of the play and the penalty.
-            let play_val = if scored_td { 7.0 } else if turnover { -ep(1, 10.0, 100.0 - new_x) } else { self.value_after(gain, new_x) };
+            let play_val = if scored_td {
+                7.0
+            } else if turnover {
+                -ep(1, 10.0, 100.0 - new_x)
+            } else {
+                self.value_after(gain, new_x)
+            };
             let pen_val = ep(1, 10.0f64.min(100.0 - pen_x), pen_x);
             let accept = pen_val > play_val;
             r.penalties.push((f.kind, d, f.player, if accept { pen_x - los } else { 0.0 }, accept));
@@ -1309,9 +1511,20 @@ impl<'a> Game<'a> {
         } else if let Some(f) = off_foul {
             let (yds, _) = f.kind.yards();
             let from = if f.kind == FoulKind::IntentionalGrounding { f.at.min(los) } else { los };
-            let pen_x = if f.kind == FoulKind::IntentionalGrounding { (los - yds).min(from) } else { from - yds.min(from / 2.0) };
-            let play_val = if scored_td { 7.0 } else if turnover { -ep(1, 10.0, 100.0 - new_x) } else { self.value_after(gain, new_x) };
-            let pen_val = ep(self.down + (f.kind == FoulKind::IntentionalGrounding) as u8, self.togo + (los - pen_x), pen_x);
+            let pen_x = if f.kind == FoulKind::IntentionalGrounding {
+                (los - yds).min(from)
+            } else {
+                from - yds.min(from / 2.0)
+            };
+            let play_val = if scored_td {
+                7.0
+            } else if turnover {
+                -ep(1, 10.0, 100.0 - new_x)
+            } else {
+                self.value_after(gain, new_x)
+            };
+            let pen_val =
+                ep(self.down + (f.kind == FoulKind::IntentionalGrounding) as u8, self.togo + (los - pen_x), pen_x);
             // The defense takes whichever is worse for the offense.
             let accept = pen_val < play_val;
             r.penalties.push((f.kind, o, f.player, if accept { los - pen_x } else { 0.0 }, accept));
@@ -1348,10 +1561,10 @@ impl<'a> Game<'a> {
                     self.edge_hit(d, i, 1.0);
                 }
             }
-            if r.drop {
-                if let Some(t) = r.target {
-                    self.edge_hit(o, t, -1.0);
-                }
+            if r.drop
+                && let Some(t) = r.target
+            {
+                self.edge_hit(o, t, -1.0);
             }
             for &s in &r.sackers.clone() {
                 self.edge_hit(d, s, 1.0);
@@ -1362,10 +1575,8 @@ impl<'a> Game<'a> {
             if let Some(f) = r.fumbled {
                 self.edge_hit(o, f, -1.0);
             }
-            if scored_td {
-                if let Some(c) = r.carrier {
-                    self.edge_hit(o, c, 1.0);
-                }
+            if scored_td && let Some(c) = r.carrier {
+                self.edge_hit(o, c, 1.0);
             }
         }
         // Clock: the play, then whether it keeps running.
@@ -1373,9 +1584,11 @@ impl<'a> Game<'a> {
         let _ = clock_running_at_snap;
         let dur = res.duration;
         self.tick(dur);
-        let mut stop = matches!(res.result, R::Incomplete | R::Spike) || accepted_pen || turnover || scored_td || safety;
+        let mut stop =
+            matches!(res.result, R::Incomplete | R::Spike) || accepted_pen || turnover || scored_td || safety;
         if res.out_of_bounds && !turnover {
-            let late = (self.quarter == 2 && self.half_left() <= 120.0) || (self.quarter >= 4 && self.half_left() <= 300.0);
+            let late =
+                (self.quarter == 2 && self.half_left() <= 120.0) || (self.quarter >= 4 && self.half_left() <= 300.0);
             if self.rules().level != Level::NFL || late {
                 stop = true;
             }
@@ -1384,10 +1597,8 @@ impl<'a> Game<'a> {
         let mut first_down = false;
         let fumble_lost = turnover && !r.interception;
         r.fumble_lost = fumble_lost;
-        if !turnover && !scored_td && !safety {
-            if auto_first || (!replay && new_x - los >= self.togo) {
-                first_down = true;
-            }
+        if !turnover && !scored_td && !safety && (auto_first || (!replay && new_x - los >= self.togo)) {
+            first_down = true;
         }
         r.first_down = first_down && !accepted_pen || (accepted_pen && auto_first);
         r.touchdown = scored_td;
@@ -1534,9 +1745,15 @@ impl<'a> Game<'a> {
         // Defense trailing late: stop the clock with a timeout.
         if self.running && !self.ot && (self.quarter == 4 || self.quarter == 2) {
             let d = 1 - o;
-            let trailing = self.diff(d) < 0 || (self.quarter == 2 && self.half_left() < 90.0 && self.diff(d) <= 0 && false);
+            let trailing =
+                self.diff(d) < 0 || (self.quarter == 2 && self.half_left() < 90.0 && self.diff(d) <= 0 && false);
             let gm = self.sides[d].team.staff.game_management;
-            if trailing && self.quarter == 4 && self.half_left() < 180.0 && self.sides[d].timeouts > 0 && self.rng.chance(clamp(0.4 + 0.03 * gm, 0.4, 0.98)) {
+            if trailing
+                && self.quarter == 4
+                && self.half_left() < 180.0
+                && self.sides[d].timeouts > 0
+                && self.rng.chance(clamp(0.4 + 0.03 * gm, 0.4, 0.98))
+            {
                 self.sides[d].timeouts -= 1;
                 self.running = false;
                 self.recover(0.02);
@@ -1555,12 +1772,14 @@ impl<'a> Game<'a> {
                 return;
             }
             13.0
-        } else if (self.quarter == 4 && self.diff(o) > 0) || (self.quarter == 2 && self.half_left() < 120.0 && self.x < 50.0 && self.diff(o) >= 0) {
+        } else if (self.quarter == 4 && self.diff(o) > 0)
+            || (self.quarter == 2 && self.half_left() < 120.0 && self.x < 50.0 && self.diff(o) >= 0)
+        {
             38.0
         } else {
             let tempo = match self.sides[o].team.staff.off_scheme {
-                OffScheme::AirRaid | OffScheme::SpreadOption => 27.0,
-                _ => 31.5,
+                OffScheme::AirRaid | OffScheme::SpreadOption => 31.0,
+                _ => 35.5,
             };
             tempo + self.rng.range(-3.0, 3.0)
         };
@@ -1602,9 +1821,17 @@ impl<'a> Game<'a> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn why(&self, r: &PlayRecord, res: &SnapResult, label: &dyn Fn(u32) -> String, call: &OffCall, dcall: &DefCall, pen: bool) -> String {
+    fn why(
+        &self,
+        r: &PlayRecord,
+        res: &SnapResult,
+        label: &dyn Fn(u32) -> String,
+        call: &OffCall,
+        dcall: &DefCall,
+        pen: bool,
+    ) -> String {
         use scrimmage::Result as R;
-        let mut w = String::new();
+        let mut w;
         let yd = |y: f64| format!("{:.0}", y);
         match res.result {
             R::Sack => {
@@ -1613,9 +1840,26 @@ impl<'a> Game<'a> {
                     let beat = res.notes.blocks.iter().find(|b| b.1 == s && !b.3);
                     let mv = res.notes.rush_wins.iter().find(|x| x.0 == s);
                     w = match (beat, mv) {
-                        (Some(b), Some(m)) => format!("Sack by {}: he beat {} with a {} in {:.1}s, and the quarterback held it {:.1}s.", label(s), label(b.0), m.1.name(), m.2, res.time_to_throw),
-                        (Some(b), None) => format!("Sack by {}: he got off {}'s block after {:.1}s while nobody came open.", label(s), label(b.0), b.4),
-                        _ => format!("Sack by {}: he came free ({}), and the quarterback held it {:.1}s.", label(s), dcall.pressure.name(), res.time_to_throw),
+                        (Some(b), Some(m)) => format!(
+                            "Sack by {}: he beat {} with a {} in {:.1}s, and the quarterback held it {:.1}s.",
+                            label(s),
+                            label(b.0),
+                            m.1.name(),
+                            m.2,
+                            res.time_to_throw
+                        ),
+                        (Some(b), None) => format!(
+                            "Sack by {}: he got off {}'s block after {:.1}s while nobody came open.",
+                            label(s),
+                            label(b.0),
+                            b.4
+                        ),
+                        _ => format!(
+                            "Sack by {}: he came free ({}), and the quarterback held it {:.1}s.",
+                            label(s),
+                            dcall.pressure.name(),
+                            res.time_to_throw
+                        ),
                     };
                 } else {
                     w = format!("Sacked after {:.1}s.", res.time_to_throw);
@@ -1623,14 +1867,29 @@ impl<'a> Game<'a> {
             }
             R::Interception => {
                 let i = res.returner.map(label).unwrap_or_default();
-                w = format!("Intercepted by {} on {} against {}: thrown into {:.1} yd of separation{}.", i, call.describe(), dcall.coverage.name(), res.separation, if res.pressured { " under pressure" } else { "" });
+                w = format!(
+                    "Intercepted by {} on {} against {}: thrown into {:.1} yd of separation{}.",
+                    i,
+                    call.describe(),
+                    dcall.coverage.name(),
+                    res.separation,
+                    if res.pressured { " under pressure" } else { "" }
+                );
                 if r.freelance.iter().any(|f| f.1) {
                     w.push_str(" He jumped the route.");
                 }
             }
             R::Complete => {
                 let t = res.target.map(label).unwrap_or_default();
-                w = format!("Complete to {} for {} on {} against {} ({:.1} yd of separation, {} after the catch).", t, yd(r.yards), call.describe(), dcall.coverage.name(), res.separation, yd(res.yac));
+                w = format!(
+                    "Complete to {} for {} on {} against {} ({:.1} yd of separation, {} after the catch).",
+                    t,
+                    yd(r.yards),
+                    call.describe(),
+                    dcall.coverage.name(),
+                    res.separation,
+                    yd(res.yac)
+                );
                 if let Some(&(tk, _)) = res.notes.missed.first() {
                     w.push_str(&format!(" {} missed a tackle.", label(tk)));
                 }
@@ -1674,7 +1933,15 @@ impl<'a> Game<'a> {
             R::Spike => w = "Spiked to stop the clock.".into(),
         }
         if let Some(f) = res.notes.fumbled {
-            w.push_str(&format!(" Fumble by {}{}.", label(f), match res.notes.recovered { Some((s, id)) => format!(", recovered by {} ({})", label(id), if s == 0 { "offense" } else { "defense" }), None => String::new() }));
+            w.push_str(&format!(
+                " Fumble by {}{}.",
+                label(f),
+                match res.notes.recovered {
+                    Some((s, id)) =>
+                        format!(", recovered by {} ({})", label(id), if s == 0 { "offense" } else { "defense" }),
+                    None => String::new(),
+                }
+            ));
         }
         if !res.notes.busts.is_empty() {
             w.push_str(&format!(" Busted assignment: {}.", label(res.notes.busts[0])));
@@ -1709,13 +1976,30 @@ fn unused() -> crate::game::geom::V2 {
 
 /// Debug tooling: run one snap with a given call from a spot, printing the
 /// tracked play as it goes.
-pub fn trace_snap(off: &GameTeam, def: &GameTeam, level: Level, call: OffCall, dcall: DefCall, los: f64, seed: u64) -> PlayRecord {
+pub fn trace_snap(
+    off: &GameTeam,
+    def: &GameTeam,
+    level: Level,
+    call: OffCall,
+    dcall: DefCall,
+    los: f64,
+    seed: u64,
+) -> PlayRecord {
     trace_snap_opt(off, def, level, call, dcall, los, seed, true)
 }
 
 /// Run one snap with or without the agent trace.
 #[allow(clippy::too_many_arguments)]
-pub fn trace_snap_opt(off: &GameTeam, def: &GameTeam, level: Level, call: OffCall, dcall: DefCall, los: f64, seed: u64, trace: bool) -> PlayRecord {
+pub fn trace_snap_opt(
+    off: &GameTeam,
+    def: &GameTeam,
+    level: Level,
+    call: OffCall,
+    dcall: DefCall,
+    los: f64,
+    seed: u64,
+    trace: bool,
+) -> PlayRecord {
     let setup = GameSetup::new(off, def, level, seed);
     let mut g = Game {
         s: &setup,

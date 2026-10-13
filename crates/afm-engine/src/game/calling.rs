@@ -87,7 +87,14 @@ fn weigh<T: Copy>(rng: &mut Rng, items: &[(T, f64)]) -> T {
 }
 
 /// The offensive call.
-pub fn call_offense(staff: &Staff, mem: &Memory, sit: &Situation, has_fb: bool, te_count: usize, rng: &mut Rng) -> OffCall {
+pub fn call_offense(
+    staff: &Staff,
+    mem: &Memory,
+    sit: &Situation,
+    has_fb: bool,
+    te_count: usize,
+    rng: &mut Rng,
+) -> OffCall {
     let c = &staff.offense;
     let scheme = staff.off_scheme;
     let mut p_pass = tables::real_pass_rate(sit.down, sit.togo, sit.score_diff, sit.clock());
@@ -115,20 +122,54 @@ pub fn call_offense(staff: &Staff, mem: &Memory, sit: &Situation, has_fb: bool, 
     let personnel = if hurry {
         if rng.chance(0.7) { Personnel::P11 } else { Personnel::P10 }
     } else if short {
-        weigh(rng, &[(Personnel::P12, 3.0), (Personnel::P22, if has_fb { 2.0 } else { 0.0 }), (Personnel::P13, if te_count >= 3 { 1.5 } else { 0.0 }), (Personnel::P21, if has_fb { 1.5 } else { 0.0 })])
+        weigh(
+            rng,
+            &[
+                (Personnel::P12, 3.0),
+                (Personnel::P22, if has_fb { 2.0 } else { 0.0 }),
+                (Personnel::P13, if te_count >= 3 { 1.5 } else { 0.0 }),
+                (Personnel::P21, if has_fb { 1.5 } else { 0.0 }),
+            ],
+        )
     } else {
         match scheme {
             OffScheme::AirRaid => weigh(rng, &[(Personnel::P10, 4.0), (Personnel::P11, 6.0)]),
-            OffScheme::WestCoast => weigh(rng, &[(Personnel::P11, 6.0), (Personnel::P12, 2.5), (Personnel::P21, if has_fb { 1.5 } else { 0.0 })]),
-            OffScheme::WideZone => weigh(rng, &[(Personnel::P11, 5.0), (Personnel::P12, 2.5), (Personnel::P21, if has_fb { 2.5 } else { 0.0 })]),
-            OffScheme::PowerGap => weigh(rng, &[(Personnel::P11, 4.0), (Personnel::P12, 3.5), (Personnel::P21, if has_fb { 2.0 } else { 0.0 }), (Personnel::P22, if has_fb { 0.8 } else { 0.0 })]),
+            OffScheme::WestCoast => weigh(
+                rng,
+                &[(Personnel::P11, 6.0), (Personnel::P12, 2.5), (Personnel::P21, if has_fb { 1.5 } else { 0.0 })],
+            ),
+            OffScheme::WideZone => weigh(
+                rng,
+                &[(Personnel::P11, 5.0), (Personnel::P12, 2.5), (Personnel::P21, if has_fb { 2.5 } else { 0.0 })],
+            ),
+            OffScheme::PowerGap => weigh(
+                rng,
+                &[
+                    (Personnel::P11, 4.0),
+                    (Personnel::P12, 3.5),
+                    (Personnel::P21, if has_fb { 2.0 } else { 0.0 }),
+                    (Personnel::P22, if has_fb { 0.8 } else { 0.0 }),
+                ],
+            ),
             OffScheme::SpreadOption => weigh(rng, &[(Personnel::P11, 6.0), (Personnel::P10, 3.0)]),
-            OffScheme::WingT => weigh(rng, &[(Personnel::P21, if has_fb { 5.0 } else { 0.0 }), (Personnel::P22, if has_fb { 2.0 } else { 0.0 }), (Personnel::P12, 3.0)]),
+            OffScheme::WingT => weigh(
+                rng,
+                &[
+                    (Personnel::P21, if has_fb { 5.0 } else { 0.0 }),
+                    (Personnel::P22, if has_fb { 2.0 } else { 0.0 }),
+                    (Personnel::P12, 3.0),
+                ],
+            ),
         }
     };
-    let personnel = if te_count < 2 && matches!(personnel, Personnel::P12 | Personnel::P22 | Personnel::P13) { Personnel::P11 } else { personnel };
+    let personnel = if te_count < 2 && matches!(personnel, Personnel::P12 | Personnel::P22 | Personnel::P13) {
+        Personnel::P11
+    } else {
+        personnel
+    };
     let personnel = if te_count < 3 && personnel == Personnel::P13 { Personnel::P12 } else { personnel };
-    let personnel = if !has_fb && matches!(personnel, Personnel::P21 | Personnel::P22) { Personnel::P11 } else { personnel };
+    let personnel =
+        if !has_fb && matches!(personnel, Personnel::P21 | Personnel::P22) { Personnel::P11 } else { personnel };
     let gun_lean = match scheme {
         OffScheme::AirRaid | OffScheme::SpreadOption => 0.92,
         OffScheme::WestCoast => 0.6,
@@ -166,10 +207,14 @@ fn pick_run(scheme: OffScheme, short: bool, backfield: Backfield, fb: bool, rng:
     let w: Vec<(RunConcept, f64)> = match scheme {
         OffScheme::WideZone => vec![(OutsideZone, 5.0), (InsideZone, 3.0), (Counter, 0.8), (Toss, 0.6), (Draw, 0.4)],
         OffScheme::PowerGap => vec![(Power, 4.0), (Counter, 2.5), (InsideZone, 2.5), (Toss, 0.6), (Draw, 0.6)],
-        OffScheme::SpreadOption => vec![(ZoneRead, if gun { 5.0 } else { 0.0 }), (InsideZone, 3.0), (Draw, 1.5), (Counter, 1.0), (Power, 1.0)],
+        OffScheme::SpreadOption => {
+            vec![(ZoneRead, if gun { 5.0 } else { 0.0 }), (InsideZone, 3.0), (Draw, 1.5), (Counter, 1.0), (Power, 1.0)]
+        }
         OffScheme::WingT => vec![(BuckSweep, 4.0), (Counter, 2.5), (Power, 2.0), (Toss, 1.5), (InsideZone, 1.0)],
         OffScheme::WestCoast => vec![(InsideZone, 4.0), (OutsideZone, 2.0), (Draw, 1.2), (Power, 1.0), (Toss, 0.6)],
-        OffScheme::AirRaid => vec![(InsideZone, 4.0), (Draw, 2.0), (ZoneRead, if gun { 1.5 } else { 0.0 }), (Counter, 1.0)],
+        OffScheme::AirRaid => {
+            vec![(InsideZone, 4.0), (Draw, 2.0), (ZoneRead, if gun { 1.5 } else { 0.0 }), (Counter, 1.0)]
+        }
     };
     let mut w = w;
     if fb {
@@ -207,9 +252,25 @@ fn pick_concept(staff: &Staff, mem: &Memory, sit: &Situation, backfield: Backfie
             let mut w = 1.0;
             match pc.depth {
                 PassDepth::Screen => w *= if long { 0.6 } else { 0.9 },
-                PassDepth::Quick => w *= if short { 2.2 } else if long { 0.6 } else { 1.4 },
+                PassDepth::Quick => {
+                    w *= if short {
+                        2.2
+                    } else if long {
+                        0.6
+                    } else {
+                        1.4
+                    }
+                }
                 PassDepth::Medium => w *= if long { 1.6 } else { 1.0 },
-                PassDepth::Deep => w *= if long { 1.3 } else if short { 0.5 } else { 0.8 },
+                PassDepth::Deep => {
+                    w *= if long {
+                        1.3
+                    } else if short {
+                        0.5
+                    } else {
+                        0.8
+                    }
+                }
             }
             if pc.play_action {
                 // Play action needs a run game to sell, and a set back.
@@ -296,10 +357,46 @@ pub fn call_defense(staff: &Staff, mem: &Memory, sit: &Situation, off: &Formatio
     };
     // The coordinator's family of coverages, then the situation.
     let base: [(Coverage, f64); 8] = match staff.shell {
-        Shell::Cover3 => [(Coverage::Cover3, 42.0), (Coverage::Cover1, 20.0), (Coverage::Cover4, 10.0), (Coverage::Cover2, 9.0), (Coverage::Cover6, 6.0), (Coverage::Cover2Man, 4.0), (Coverage::Cover0, 4.0), (Coverage::Tampa2, 5.0)],
-        Shell::Quarters => [(Coverage::Cover3, 18.0), (Coverage::Cover1, 14.0), (Coverage::Cover4, 30.0), (Coverage::Cover2, 12.0), (Coverage::Cover6, 14.0), (Coverage::Cover2Man, 5.0), (Coverage::Cover0, 3.0), (Coverage::Tampa2, 4.0)],
-        Shell::ManPressure => [(Coverage::Cover3, 22.0), (Coverage::Cover1, 38.0), (Coverage::Cover4, 8.0), (Coverage::Cover2, 6.0), (Coverage::Cover6, 4.0), (Coverage::Cover2Man, 10.0), (Coverage::Cover0, 9.0), (Coverage::Tampa2, 3.0)],
-        Shell::Cover2 => [(Coverage::Cover3, 20.0), (Coverage::Cover1, 12.0), (Coverage::Cover4, 10.0), (Coverage::Cover2, 28.0), (Coverage::Cover6, 8.0), (Coverage::Cover2Man, 6.0), (Coverage::Cover0, 2.0), (Coverage::Tampa2, 14.0)],
+        Shell::Cover3 => [
+            (Coverage::Cover3, 42.0),
+            (Coverage::Cover1, 20.0),
+            (Coverage::Cover4, 10.0),
+            (Coverage::Cover2, 9.0),
+            (Coverage::Cover6, 6.0),
+            (Coverage::Cover2Man, 4.0),
+            (Coverage::Cover0, 4.0),
+            (Coverage::Tampa2, 5.0),
+        ],
+        Shell::Quarters => [
+            (Coverage::Cover3, 18.0),
+            (Coverage::Cover1, 14.0),
+            (Coverage::Cover4, 30.0),
+            (Coverage::Cover2, 12.0),
+            (Coverage::Cover6, 14.0),
+            (Coverage::Cover2Man, 5.0),
+            (Coverage::Cover0, 3.0),
+            (Coverage::Tampa2, 4.0),
+        ],
+        Shell::ManPressure => [
+            (Coverage::Cover3, 22.0),
+            (Coverage::Cover1, 38.0),
+            (Coverage::Cover4, 8.0),
+            (Coverage::Cover2, 6.0),
+            (Coverage::Cover6, 4.0),
+            (Coverage::Cover2Man, 10.0),
+            (Coverage::Cover0, 9.0),
+            (Coverage::Tampa2, 3.0),
+        ],
+        Shell::Cover2 => [
+            (Coverage::Cover3, 20.0),
+            (Coverage::Cover1, 12.0),
+            (Coverage::Cover4, 10.0),
+            (Coverage::Cover2, 28.0),
+            (Coverage::Cover6, 8.0),
+            (Coverage::Cover2Man, 6.0),
+            (Coverage::Cover0, 2.0),
+            (Coverage::Tampa2, 14.0),
+        ],
     };
     let sharp = c.adaptation / 20.0;
     let opp_pass = (mem.opp_pass + 2.0) / (mem.opp_plays + 4.0);
@@ -310,14 +407,26 @@ pub fn call_defense(staff: &Staff, mem: &Memory, sit: &Situation, off: &Formatio
         .map(|&(cov, w)| {
             let mut w = w;
             if cov.high() == 2 {
-                w *= if long { 1.5 } else if short { 0.55 } else { 1.0 };
+                w *= if long {
+                    1.5
+                } else if short {
+                    0.55
+                } else {
+                    1.0
+                };
                 w *= 1.0 + sharp * (deep_hurting * 3.0 + (opp_pass - 0.55).max(0.0) * 1.5);
                 w *= 1.0 - (sharp * run_hurting * 2.0).min(0.5);
             } else {
                 w *= 1.0 + sharp * run_hurting * 2.5;
             }
             if cov == Coverage::Cover0 {
-                w *= if short || sit.yardline_100 <= 10.0 { 2.5 } else if long { 0.3 } else { 1.0 };
+                w *= if short || sit.yardline_100 <= 10.0 {
+                    2.5
+                } else if long {
+                    0.3
+                } else {
+                    1.0
+                };
             }
             if sit.hurry() && cov.high() == 2 {
                 w *= 1.6;
@@ -340,11 +449,20 @@ pub fn call_defense(staff: &Staff, mem: &Memory, sit: &Situation, off: &Formatio
     let pressure = if coverage == Coverage::Cover0 {
         Pressure::DoubleA
     } else if rng.chance(clamp(blitz, 0.05, 0.6)) {
-        weigh(rng, &[(Pressure::LbBlitz, 4.0), (Pressure::DbBlitz, 2.0), (Pressure::DoubleA, 1.0), (Pressure::Simulated, if c.skill > 9.0 { 2.0 } else { 0.5 })])
+        weigh(
+            rng,
+            &[
+                (Pressure::LbBlitz, 4.0),
+                (Pressure::DbBlitz, 2.0),
+                (Pressure::DoubleA, 1.0),
+                (Pressure::Simulated, if c.skill > 9.0 { 2.0 } else { 0.5 }),
+            ],
+        )
     } else {
         Pressure::Four
     };
-    let pressure = if personnel == DefPersonnel::Dime && pressure == Pressure::DoubleA { Pressure::DbBlitz } else { pressure };
+    let pressure =
+        if personnel == DefPersonnel::Dime && pressure == Pressure::DoubleA { Pressure::DbBlitz } else { pressure };
     let disguise = rng.chance(clamp(0.05 + 0.025 * c.skill, 0.05, 0.6));
     DefCall { personnel, coverage, pressure, disguise }
 }
@@ -369,10 +487,13 @@ pub fn fourth_down(staff: &Staff, sit: &Situation, fg_make: f64, rng: &mut Rng) 
     let go_fail = -ep(1, 10.0, 100.0 - y);
     let ev_go = conv * go_ok + (1.0 - conv) * go_fail;
     let net = 41.0;
-    let punt_to = if y - net < 0.0 { 20.0 } else { 100.0 - (y - net).max(8.0) };
-    let ev_punt = -ep(1, 10.0, 100.0 - punt_to.min(99.0));
-    let fg_spot = (100.0 - y - 7.0).min(80.0);
-    let ev_fg = fg_make * (3.0 - after_score) + (1.0 - fg_make) * -ep(1, 10.0, 100.0 - fg_spot.max(20.0).min(99.0));
+    // Where the opponent starts, as their distance to the goal.
+    let land = y - net;
+    let opp_punt = if land < 0.0 { 80.0 } else { 100.0 - land.max(8.0) };
+    let ev_punt = -ep(1, 10.0, opp_punt.min(99.0));
+    // A miss gives them the ball at the spot of the kick (or the 20).
+    let opp_miss = (100.0 - y - 7.0).min(80.0);
+    let ev_fg = fg_make * (3.0 - after_score) + (1.0 - fg_make) * -ep(1, 10.0, opp_miss.max(1.0));
     let mut ev_go_adj = ev_go;
     // The scoreboard late: a team that must score goes; a team ahead plays it safe.
     let late = sit.quarter >= 4 && sit.game_left < 300.0;
@@ -390,17 +511,14 @@ pub fn fourth_down(staff: &Staff, sit: &Situation, fg_make: f64, rng: &mut Rng) 
     // Caution: what a coach needs to see before he goes for it.
     let margin = 0.06 * (11.0 - agg) + 0.03 * (11.0 - gm) + 0.35;
     let noise = rng.normal(0.0, 0.5 * (1.3 - gm / 20.0));
-    let best_kick = if ev_fg > ev_punt && fg_make > 0.3 { (FourthDown::FieldGoal, ev_fg) } else { (FourthDown::Punt, ev_punt) };
+    let best_kick =
+        if ev_fg > ev_punt && fg_make > 0.3 { (FourthDown::FieldGoal, ev_fg) } else { (FourthDown::Punt, ev_punt) };
     // Real coaches still mostly kick: the real go rate as a habit.
     let habit = tables::real_fourth_go_rate(togo, y, sit.score_diff);
     let by_numbers = ev_go_adj + noise > best_kick.1 + margin;
-    let follow = clamp(0.1 + 0.015 * gm + 0.012 * (agg - 10.0), 0.05, 0.6);
+    let follow = clamp(0.05 + 0.012 * gm + 0.01 * (agg - 10.0), 0.03, 0.45);
     let go = if rng.chance(follow) { by_numbers } else { rng.chance(habit) };
-    if go || (late && sit.score_diff < -3 && sit.game_left < 150.0) {
-        FourthDown::Go
-    } else {
-        best_kick.0
-    }
+    if go || (late && sit.score_diff < -3 && sit.game_left < 150.0) { FourthDown::Go } else { best_kick.0 }
 }
 
 /// Go for two after a touchdown (the chart, plus the coach's lean and how

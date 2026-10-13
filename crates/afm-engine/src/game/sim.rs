@@ -66,25 +66,56 @@ pub enum Job {
     /// Quarterback with the ball on a pass play.
     Passer,
     /// Pass protection on a rusher, or the next free one.
-    PassBlock { target: Option<usize> },
+    PassBlock {
+        target: Option<usize>,
+    },
     /// Run block a defender, or climb to the second level.
-    RunBlock { target: Option<usize>, pull: bool },
+    RunBlock {
+        target: Option<usize>,
+        pull: bool,
+    },
     /// Running a route: waypoints, next waypoint, whether he settles.
-    Route { pts: Vec<V2>, next: usize, settle: bool, name: &'static str, release_delay: f64 },
+    Route {
+        pts: Vec<V2>,
+        next: usize,
+        settle: bool,
+        name: &'static str,
+        release_delay: f64,
+    },
     /// A back taking a handoff: where he aims.
-    Handoff { aim: V2, mesh: V2, at: f64 },
+    Handoff {
+        aim: V2,
+        mesh: V2,
+        at: f64,
+    },
     /// Quarterback carrying out a run fake.
-    Fake { to: V2 },
+    Fake {
+        to: V2,
+    },
     /// Has the ball.
     Carrier,
     /// Rushing the passer through a lane, keeping contain on his side.
-    Rush { lane: f64, contain: f64, mv: Move },
+    Rush {
+        lane: f64,
+        contain: f64,
+        mv: Move,
+    },
     /// Playing a run gap (y at the line).
-    Gap { y: f64 },
+    Gap {
+        y: f64,
+    },
     /// Man coverage on a receiver.
-    Man { target: usize, cushion: f64, lag: f64 },
+    Man {
+        target: usize,
+        cushion: f64,
+        lag: f64,
+    },
     /// Zone: a landmark and how deep the zone is.
-    Zone { spot: V2, deep: bool, width: f64 },
+    Zone {
+        spot: V2,
+        deep: bool,
+        width: f64,
+    },
     /// Chasing the ball.
     Pursue,
     /// Blocking for a ball carrier (returns, after a catch, after a turnover).
@@ -119,6 +150,8 @@ pub struct Agent {
     pub face: V2,
     pub vmax: f64,
     pub accel: f64,
+    /// Sprint time constant: speed builds as 1 - e^(-t/tau).
+    pub tau: f64,
     pub cut: f64,
     pub mass: f64,
     pub job: Job,
@@ -140,6 +173,8 @@ pub struct Agent {
     pub last_try: f64,
     /// Top speed reached this play, yards per second.
     pub top: f64,
+    /// He has read the screen and is going for the back.
+    pub smell: bool,
     /// Ratings with fatigue, injury and momentum in.
     pub r: [f64; 25],
 }
@@ -169,6 +204,7 @@ impl Agent {
             face: v2(if side == 0 { 1.0 } else { -1.0 }, 0.0),
             vmax,
             accel: gp.accel() * (1.0 - 0.1 * tired),
+            tau: gp.sprint_tau() * (1.0 + 0.1 * tired),
             cut: gp.cut(),
             mass: gp.weight,
             job: Job::Idle,
@@ -181,6 +217,7 @@ impl Agent {
             bust: false,
             last_try: -9.0,
             top: 0.0,
+            smell: false,
             r,
         }
     }
@@ -265,7 +302,9 @@ impl FoulKind {
             FoulKind::DefensiveHolding => (5.0, true),
             FoulKind::PassInterference => (15.0, true),
             FoulKind::RoughingPasser | FoulKind::UnnecessaryRoughness | FoulKind::FaceMask => (15.0, true),
-            FoulKind::FalseStart | FoulKind::Offside | FoulKind::DelayOfGame | FoulKind::IllegalFormation => (5.0, false),
+            FoulKind::FalseStart | FoulKind::Offside | FoulKind::DelayOfGame | FoulKind::IllegalFormation => {
+                (5.0, false)
+            }
             FoulKind::IntentionalGrounding => (10.0, false),
         }
     }
@@ -371,7 +410,14 @@ pub enum Ball {
     /// Held by an agent.
     Held(usize),
     /// In the air from a throw or kick.
-    Air { from: V2, to: V2, release: f64, arrive: f64, target: Option<usize>, height: f64 },
+    Air {
+        from: V2,
+        to: V2,
+        release: f64,
+        arrive: f64,
+        target: Option<usize>,
+        height: f64,
+    },
     Loose(V2),
     Dead(V2),
 }
@@ -402,6 +448,8 @@ pub struct Sim<'a> {
     /// Who tackled in the current fight.
     pub fight: Vec<usize>,
     pub fight_since: f64,
+    /// The back on a screen: linemen who leak out block for him before the catch.
+    pub screen: Option<usize>,
 }
 
 /// Print plays as they run (debug tooling only).
@@ -476,7 +524,8 @@ impl<'a> Sim<'a> {
         let dir = if speed > 0.3 { v.scale(1.0 / speed) } else { dv.norm() };
         let par = dv.dot(dir);
         let perp = dv - dir.scale(par);
-        let up = a.accel * (1.0 - 0.55 * speed / a.vmax).max(0.2) * DT;
+        // Speeding up: the sprint curve (fast early, easing to top speed).
+        let up = ((a.vmax - speed).max(0.0) / a.tau).max(a.accel * 0.2) * DT;
         let down = a.accel * 1.9 * DT;
         let par_c = par.clamp(-down, up);
         let pl = perp.len();
@@ -540,6 +589,30 @@ impl<'a> Sim<'a> {
     // ---------------------------------------------------------------- blocks
 
     /// Start a block.
+    /// A block in space: the defender may slip it (he sees it coming and
+    /// dodges or rips through) and the blocker needs a moment to recover.
+    /// A lineman in the phone booth almost always gets hit.
+    pub fn lands_block(&mut self, b: usize, d: usize) -> bool {
+        let t = self.t;
+        if t - self.agents[b].last_try < 0.6 {
+            return false;
+        }
+        let speed = self.agents[d].vel.len();
+        if matches!(self.agents[d].label, "DE" | "DT" | "NT") && speed < 3.0 {
+            return true;
+        }
+        let (ba, da) = (&self.agents[b], &self.agents[d]);
+        let skill = 0.5 * ba.a(Attr::RunBlocking) + 0.5 * ba.a(Attr::Agility);
+        let slip = 0.5 * da.a(Attr::Agility) + 0.5 * da.a(Attr::BlockShedding);
+        let p_miss =
+            clamp(tune("AFM_WHIFF", 0.22) + 0.006 * (slip - skill) + 0.03 * (speed - 4.0).max(0.0), 0.05, 0.55);
+        if self.rng.chance(p_miss) {
+            self.agents[b].last_try = t;
+            return false;
+        }
+        true
+    }
+
     pub fn engage(&mut self, b: usize, d: usize, pass: bool) {
         if self.agents[d].engaged.is_some() {
             // Help on a block already going: a double team.
@@ -609,7 +682,9 @@ impl<'a> Sim<'a> {
     fn block_power(&self, b: usize, mv: Move, pass: bool) -> f64 {
         let a = &self.agents[b];
         if !pass {
-            return 0.55 * a.a(Attr::RunBlocking) + 0.35 * a.a(Attr::Strength) + 0.1 * a.a(Attr::Acceleration)
+            return 0.55 * a.a(Attr::RunBlocking)
+                + 0.35 * a.a(Attr::Strength)
+                + 0.1 * a.a(Attr::Acceleration)
                 + (a.mass - 300.0) * 0.08;
         }
         let pb = a.a(Attr::PassBlocking);
@@ -622,7 +697,9 @@ impl<'a> Sim<'a> {
 
     fn shed_power(&self, d: usize) -> f64 {
         let a = &self.agents[d];
-        0.45 * a.a(Attr::BlockShedding) + 0.35 * a.a(Attr::Strength) + 0.2 * a.a(Attr::PlayRecognition)
+        0.45 * a.a(Attr::BlockShedding)
+            + 0.35 * a.a(Attr::Strength)
+            + 0.2 * a.a(Attr::PlayRecognition)
             + (a.mass - 280.0) * 0.08
     }
 
@@ -651,19 +728,39 @@ impl<'a> Sim<'a> {
             }
             // Run defenders must first see the run to fight toward it.
             let reading = !e.pass && t < self.agents[d].read_at;
-            let base = if e.pass { 0.0 } else if reading { -0.12 } else { 0.0 };
+            let base = if e.pass {
+                0.0
+            } else if reading {
+                -0.12
+            } else {
+                0.0
+            };
             let mut mu = base + 0.032 * edge;
+            // The runner already past him: he turns and runs after him, and
+            // the blocker can't hang on (that would be holding).
+            if !e.pass
+                && let Some(c) = carrier
+                && (self.agents[c].pos.x - self.agents[d].pos.x) * self.goal > 1.5
+                && self.rng.chance(0.18)
+            {
+                self.release(k);
+                continue;
+            }
             // The runner coming at him: a defender with leverage on the
             // block fights off it to make the play (shed and tackle).
-            if !e.pass && !reading {
-                if let Some(c) = carrier {
-                    if self.agents[c].pos.dist(self.agents[d].pos) < 2.2 && e.w > 0.0 {
-                        mu += 1.0 * (0.5 + e.w);
-                    }
-                }
+            if !e.pass
+                && !reading
+                && let Some(c) = carrier
+                && self.agents[c].pos.dist(self.agents[d].pos) < 2.2
+                && e.w > 0.0
+            {
+                mu += 1.0 * (0.5 + e.w);
             }
             if TRACE.load(std::sync::atomic::Ordering::Relaxed) && (t - e.start) < DT * 1.5 {
-                println!("BLOCK {}->{} pass {} mv {:?} edge {:.1} mu {:.2} w {:.2}", self.agents[b].label, self.agents[d].label, e.pass, e.mv, edge, mu, e.w);
+                println!(
+                    "BLOCK {}->{} pass {} mv {:?} edge {:.1} mu {:.2} w {:.2}",
+                    self.agents[b].label, self.agents[d].label, e.pass, e.mv, edge, mu, e.w
+                );
             }
             let sd = if e.pass { 0.58 } else { 0.75 };
             let w = e.w + mu * DT + sd * DT.sqrt() * gauss(self.rng);
@@ -675,7 +772,8 @@ impl<'a> Sim<'a> {
                 // One moment of decision when he is first beaten.
                 self.eng[k].grab_checked = true;
                 let disc = self.player(b).traits.discipline;
-                let tech = if e.pass { self.agents[b].a(Attr::PassBlocking) } else { self.agents[b].a(Attr::RunBlocking) };
+                let tech =
+                    if e.pass { self.agents[b].a(Attr::PassBlocking) } else { self.agents[b].a(Attr::RunBlocking) };
                 let p = 0.034 * (1.7 - disc / 14.0) * (1.5 - tech / 100.0);
                 if self.rng.chance(p) {
                     self.eng[k].held = true;
@@ -703,13 +801,17 @@ impl<'a> Sim<'a> {
                     Move::Speed => 0.6,
                     _ => 0.3,
                 };
-                let toward = qb.or(carrier).map(|q| (self.agents[q].pos - self.agents[d].pos).norm()).unwrap_or(v2(-1.0, 0.0));
+                let toward =
+                    qb.or(carrier).map(|q| (self.agents[q].pos - self.agents[d].pos).norm()).unwrap_or(v2(-1.0, 0.0));
                 self.agents[d].vel = toward.scale(push * self.agents[d].vmax * 0.4);
                 continue;
             }
             if w <= -1.0 && !e.pass {
-                // Driven off the ball or sealed: out of the play for a moment.
-                self.agents[d].down_until = t + 0.6 + 0.6 * self.rng.next();
+                // Driven off the ball or sealed: out of the play for a moment
+                // (now and then put on the ground).
+                let pancake = self.rng.chance(0.25);
+                self.agents[d].down_until =
+                    t + if pancake { 0.6 + 0.6 * self.rng.next() } else { 0.25 + 0.2 * self.rng.next() };
                 self.release(k);
                 self.notes.blocks.push((self.agents[b].id, self.agents[d].id, false, true, t - e.start, false));
                 continue;
@@ -869,18 +971,23 @@ impl<'a> Sim<'a> {
             f64::INFINITY
         };
         let tt = if meet.is_finite() { meet.min(4.0) } else { dist / s };
-        let lead = clamp(0.8 + 0.006 * (iq - 50.0), 0.6, 1.0);
+        let mut lead = clamp(0.92 + 0.004 * (iq - 60.0), 0.75, 1.05);
+        // The last man in front takes a deeper angle so the runner can't
+        // get outside or past him.
+        if (a.pos.x - cp.x) * self.goal > 3.0 && dist > 4.0 {
+            lead = lead.max(1.1 + 0.003 * (iq - 50.0));
+        }
         let mut target = cp + cv.scale(tt * lead);
         // An alley player keeps his depth: he meets the runner past the line.
-        if let Some(f) = floor {
-            if (target.x - f) * self.goal < 0.0 {
-                target.x = f;
-            }
+        if let Some(f) = floor
+            && (target.x - f) * self.goal < 0.0
+        {
+            target.x = f;
         }
         let motor = self.teams[a.side][a.p].traits.motor;
         // A player out of the play with a low motor stops chasing.
         let behind = (a.pos.x - cp.x) * self.goal < -4.0 && dist > 8.0;
-        let mut effort = if behind && motor < 9.0 { 0.55 + 0.03 * motor } else { 1.0 };
+        let mut effort = if behind && motor < 9.0 { 0.8 + 0.02 * motor } else { 1.0 };
         // Facing the runner up close he breaks down to make the tackle
         // instead of flying past; good tacklers keep more speed.
         let facing = (a.pos.x - cp.x) * self.goal > 0.0;
@@ -921,10 +1028,10 @@ impl<'a> Sim<'a> {
             }
             // A blocked defender can reach out with an arm while engaged.
             let engaged_w = d.engaged.map(|k| self.eng[k].w);
-            if let Some(w) = engaged_w {
-                if w < -0.2 || !self.rng.chance(0.25 + 0.3 * w) {
-                    continue;
-                }
+            if let Some(w) = engaged_w
+                && (w < -0.2 || !self.rng.chance(0.25 + 0.3 * w))
+            {
+                continue;
             }
             if engaged_w.is_some() && dist > reach - 0.55 {
                 continue;
@@ -958,12 +1065,18 @@ impl<'a> Sim<'a> {
         let evade = 0.5 * r.a(Attr::Elusiveness) + 0.3 * r.a(Attr::Agility) + 0.2 * r.a(Attr::Speed);
         let tackle = 0.6 * d.a(Attr::Tackling) + 0.2 * d.a(Attr::Agility) + 0.2 * d.a(Attr::Awareness);
         // Out of control when arriving too fast, behind when chasing.
-        let angle = if head_on > 0.5 { -0.3 } else if head_on < -0.3 { 0.3 } else { 0.0 };
+        let angle = if head_on > 0.5 {
+            -0.3
+        } else if head_on < -0.3 {
+            0.3
+        } else {
+            0.0
+        };
         let fast = if closing > 9.0 { 0.25 } else { 0.0 };
         let space = if r.vel.len() > 5.0 { 0.25 } else { -0.2 };
         let arm = if arm_only { 1.5 } else { 0.0 };
         let dive = 1.0 * lunge;
-        let logit = -2.75 + (evade - tackle) / 22.0 + angle + fast + space + arm + dive;
+        let logit = -3.0 + (evade - tackle) / 30.0 + angle + fast + space + arm + dive;
         let p_miss = 1.0 / (1.0 + (-logit).exp());
         if TRACE.load(std::sync::atomic::Ordering::Relaxed) {
             println!(
@@ -1009,7 +1122,8 @@ impl<'a> Sim<'a> {
         let carry = r.a(Attr::Carrying);
         let hit = d.a(Attr::Strength) * 0.5 + d.a(Attr::Tackling) * 0.5;
         let rain = if self.cond.rain || self.cond.snow { 1.35 } else { 1.0 };
-        let p = 0.0085 * (force / 1700.0).powf(1.5) * (1.0 + (60.0 - carry) * 0.035).max(0.25) * (0.7 + hit / 160.0) * rain;
+        let p =
+            0.0085 * (force / 1700.0).powf(1.5) * (1.0 + (60.0 - carry) * 0.035).max(0.25) * (0.7 + hit / 160.0) * rain;
         if self.notes.fumbled.is_none() && self.rng.chance(p) {
             self.notes.fumbled = Some(r.id);
             self.notes.forced_fumble = Some(d.id);
@@ -1032,7 +1146,10 @@ impl<'a> Sim<'a> {
         let mut hold = 0.0;
         for &i in &self.fight {
             let d = &self.agents[i];
-            let f = 1.0 + 0.03 * (d.a(Attr::Tackling) - 60.0) + 0.012 * (d.a(Attr::Strength) - 60.0) + (d.mass - 215.0) / 300.0;
+            let f = 1.0
+                + 0.03 * (d.a(Attr::Tackling) - 60.0)
+                + 0.012 * (d.a(Attr::Strength) - 60.0)
+                + (d.mass - 215.0) / 300.0;
             hazard += 3.1 * f.max(0.3);
             hold += d.mass * f.max(0.3);
         }
@@ -1044,7 +1161,7 @@ impl<'a> Sim<'a> {
             let d = &self.agents[i];
             let tk = 0.6 * d.a(Attr::Tackling) + 0.4 * d.a(Attr::Strength) + (d.mass - 215.0) * 0.08;
             let rb = 0.5 * r.a(Attr::Strength) + 0.5 * r.a(Attr::Elusiveness) + (r.mass - 215.0) * 0.08;
-            let p_break = 0.042 * (1.0 + (rb - tk) / 25.0).max(0.05);
+            let p_break = 0.026 * (1.0 + (rb - tk) / 35.0).max(0.05);
             if self.rng.chance(p_break) {
                 if TRACE.load(std::sync::atomic::Ordering::Relaxed) {
                     println!("BREAK t={t:.1} from {} p {p_break:.3}", d.label);
@@ -1247,4 +1364,9 @@ pub fn injury_weeks(kind: InjuryKind, rng: &mut Rng) -> f64 {
     };
     let u = rng.next();
     lo + (hi - lo) * u * u
+}
+
+/// Debug: a tuning value from the environment (calibration sweeps only).
+pub(crate) fn tune(key: &str, default: f64) -> f64 {
+    std::env::var(key).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
 }

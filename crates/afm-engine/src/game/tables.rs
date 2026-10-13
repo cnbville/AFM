@@ -98,6 +98,7 @@ pub fn expected_points(down: u8, togo: f64, yardline_100: f64) -> f64 {
     0.0
 }
 
+#[allow(clippy::type_complexity)]
 static PASS: LazyLock<HashMap<(i32, i32, i32, u8), (f64, f64)>> = LazyLock::new(|| {
     let mut m = HashMap::new();
     for r in rows(PASS_CSV) {

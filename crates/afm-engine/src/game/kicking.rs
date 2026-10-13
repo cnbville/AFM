@@ -106,7 +106,8 @@ pub fn field_goal(
     }
     // Protection: a low, long kick is easier to block.
     let traj = (distance - 35.0).max(0.0) * 0.0005;
-    let p_block = (0.008 + traj) * (1.0 + (rush - protect) / 30.0).max(0.3) * if bad_snap || bad_hold { 3.0 } else { 1.0 };
+    let p_block =
+        (0.008 + traj) * (1.0 + (rush - protect) / 30.0).max(0.3) * if bad_snap || bad_hold { 3.0 } else { 1.0 };
     if rng.chance(p_block) {
         fg.blocked = true;
         fg.why = format!("Blocked: the rush got a hand on a {:.0}-yard try.", distance);
@@ -114,8 +115,8 @@ pub fn field_goal(
     }
     let short = distance < 40.0;
     let acc = kicker.a(Attr::KickAccuracy) + if short { kicker.traits.kick_short } else { kicker.traits.kick_long };
-    // Spread in degrees: an average NFL kicker misses by about 3 degrees.
-    let mut sd = (2.95 + 0.012 * (distance - 30.0)) * (1.82 - 0.0105 * acc).max(0.55);
+    // Spread in degrees: an average NFL kicker misses by about 2.5 degrees.
+    let mut sd = (2.4 + 0.014 * (distance - 30.0)) * (1.82 - 0.0105 * acc).max(0.55);
     sd *= 1.18 - 0.018 * kicker.traits.consistency;
     sd *= pressure_factor(kicker, pressure);
     if bad_snap || bad_hold {
@@ -163,7 +164,18 @@ pub fn kick_unit_strength(players: &[GamePlayer], on: &[usize], rush: bool) -> f
 
 /// A kickoff (topic 7), in the receiving team's frame: it goes toward +x
 /// from its own goal line. `onside` is a called onside kick.
-pub fn kickoff(k: &KickTeams, rules: &Rules, cond: &Conditions, crew: &Crew, along: f64, onside: bool, injury_scale: f64, record: bool, rng: &mut Rng) -> KickResult {
+#[allow(clippy::too_many_arguments)]
+pub fn kickoff(
+    k: &KickTeams,
+    rules: &Rules,
+    cond: &Conditions,
+    crew: &Crew,
+    along: f64,
+    onside: bool,
+    injury_scale: f64,
+    record: bool,
+    rng: &mut Rng,
+) -> KickResult {
     let kicker = &k.kick[k.kick_on[0]];
     let from = 100.0 - rules.kickoff_from;
     let mut res = KickResult::default();
@@ -241,14 +253,24 @@ pub fn kickoff(k: &KickTeams, rules: &Rules, cond: &Conditions, crew: &Crew, alo
     // The return: a full tracked play.
     let catch = v2(land_x, land_y);
     let start_cover = if rules.nfl_kickoff { hang } else { 0.0 };
-    run_return(k, catch, hang, start_cover, from, rules, cond, crew, injury_scale, record, rng, &mut res, true);
+    run_return(k, catch, hang, start_cover, from, rules, cond, crew, injury_scale, record, rng, &mut res, true, None);
     res
 }
 
 /// A punt from the kicking team's `los`. Everything in the receiving team's
 /// frame on the way out.
 #[allow(clippy::too_many_arguments)]
-pub fn punt(k: &KickTeams, los: f64, rules: &Rules, cond: &Conditions, crew: &Crew, along: f64, injury_scale: f64, record: bool, rng: &mut Rng) -> KickResult {
+pub fn punt(
+    k: &KickTeams,
+    los: f64,
+    rules: &Rules,
+    cond: &Conditions,
+    crew: &Crew,
+    along: f64,
+    injury_scale: f64,
+    record: bool,
+    rng: &mut Rng,
+) -> KickResult {
     let punter = &k.kick[k.kick_on[0]];
     let snapper = &k.kick[k.snapper];
     let mut res = KickResult::default();
@@ -278,12 +300,17 @@ pub fn punt(k: &KickTeams, los: f64, rules: &Rules, cond: &Conditions, crew: &Cr
     let aim_land = if pin { 8.0 + rng.normal(0.0, 6.0 - 0.04 * acc) } else { from - max };
     let land_x = aim_land.max(from - max);
     let _ = dist_goal;
-    let hang = clamp(3.5 + 0.018 * (punter.a(Attr::KickPower) - 60.0) + 0.006 * (acc - 60.0) + rng.normal(0.0, 0.25) - if pin { 0.2 } else { 0.0 }, 2.9, 5.2);
+    let hang = clamp(
+        3.5 + 0.018 * (punter.a(Attr::KickPower) - 60.0) + 0.006 * (acc - 60.0) + rng.normal(0.0, 0.25)
+            - if pin { 0.2 } else { 0.0 },
+        2.9,
+        5.2,
+    );
     let mut land_y = clamp(MID + rng.normal(0.0, 8.0), -1.0, WIDTH + 1.0);
     res.distance = from - land_x;
     res.hang = hang;
     // Out of bounds (coffin corner or a shank).
-    if land_y < 0.0 || land_y > WIDTH || rng.chance(0.03 * (1.3 - punter.composure() / 20.0)) {
+    if !(0.0..=WIDTH).contains(&land_y) || rng.chance(0.03 * (1.3 - punter.composure() / 20.0)) {
         res.out_of_bounds = true;
         land_y = land_y.clamp(0.0, WIDTH);
         let _ = land_y;
@@ -297,9 +324,23 @@ pub fn punt(k: &KickTeams, los: f64, rules: &Rules, cond: &Conditions, crew: &Cr
         return res;
     }
     // Gunners against the jammers: how close coverage is when it lands.
-    let gunner = k.kick_on.iter().skip(1).take(2).map(|&i| &k.kick[i]).map(|p| 0.5 * p.a(Attr::Speed) + 0.25 * p.a(Attr::Agility) + 0.25 * p.a(Attr::Strength)).fold(0.0, f64::max);
-    let jammer = k.ret_on.iter().skip(1).take(2).map(|&i| &k.ret[i]).map(|p| 0.4 * p.a(Attr::ManCoverage) + 0.3 * p.a(Attr::Strength) + 0.3 * p.a(Attr::Speed)).fold(0.0, f64::max);
-    let cover_gap = clamp(5.5 - 1.6 * (hang - 4.2) - 0.08 * (gunner - jammer) + rng.normal(0.0, 2.0), 0.0, 15.0);
+    let gunner = k
+        .kick_on
+        .iter()
+        .skip(1)
+        .take(2)
+        .map(|&i| &k.kick[i])
+        .map(|p| 0.5 * p.a(Attr::Speed) + 0.25 * p.a(Attr::Agility) + 0.25 * p.a(Attr::Strength))
+        .fold(0.0, f64::max);
+    let jammer = k
+        .ret_on
+        .iter()
+        .skip(1)
+        .take(2)
+        .map(|&i| &k.ret[i])
+        .map(|p| 0.4 * p.a(Attr::ManCoverage) + 0.3 * p.a(Attr::Strength) + 0.3 * p.a(Attr::Speed))
+        .fold(0.0, f64::max);
+    let cover_gap = clamp(4.6 - 1.6 * (hang - 4.2) - 0.08 * (gunner - jammer) + rng.normal(0.0, 2.0), 0.0, 15.0);
     let returner = &k.ret[k.ret_on[0]];
     let judgment = returner.a(Attr::Awareness);
     // Inside his 10, a returner lets it go: it bounces.
@@ -322,7 +363,7 @@ pub fn punt(k: &KickTeams, los: f64, rules: &Rules, cond: &Conditions, crew: &Cr
         }
     }
     // Fair catch when coverage is on him.
-    if cover_gap < 4.0 && rng.chance(clamp(0.95 - 0.004 * (judgment - 50.0), 0.7, 0.98)) || cover_gap < 1.5 {
+    if cover_gap < 5.0 && rng.chance(clamp(0.95 - 0.004 * (judgment - 50.0), 0.7, 0.98)) || cover_gap < 1.5 {
         res.fair_catch = true;
         res.spot = land_x.max(1.0);
         res.inside20 = res.spot <= 20.0;
@@ -346,10 +387,23 @@ pub fn punt(k: &KickTeams, los: f64, rules: &Rules, cond: &Conditions, crew: &Cr
         return res;
     }
     let catch = v2(land_x, land_y.clamp(2.0, WIDTH - 2.0));
-    run_return(k, catch, hang, 0.0, from, rules, cond, crew, injury_scale, record, rng, &mut res, false);
+    run_return(
+        k,
+        catch,
+        hang,
+        0.0,
+        from,
+        rules,
+        cond,
+        crew,
+        injury_scale,
+        record,
+        rng,
+        &mut res,
+        false,
+        Some(cover_gap),
+    );
     res.inside20 = res.spot <= 20.0;
-    // Coverage sits off when the gap was big: set it through cover_gap.
-    let _ = cover_gap;
     res
 }
 
@@ -376,6 +430,7 @@ fn run_return(
     rng: &mut Rng,
     res: &mut KickResult,
     kickoff: bool,
+    gap: Option<f64>,
 ) {
     let mut agents = Vec::with_capacity(22);
     let ret_id = k.ret[k.ret_on[0]].id;
@@ -388,8 +443,22 @@ fn run_return(
         let p = &k.kick[i];
         let lane = 4.0 + (n as f64) * (WIDTH - 8.0) / 10.0;
         let speed = p.top_speed() * 0.9;
-        let x = if n == 0 { catch.x + 30.0 + rng.range(0.0, 8.0) } else { (cover_start - speed * run).max(catch.x + 5.0 + rng.range(0.0, 6.0)) };
-        let y = lane + (catch.y - lane) * (1.0 - (x - catch.x).abs() / 40.0).clamp(0.0, 0.6);
+        let x = if n == 0 {
+            catch.x + 30.0 + rng.range(0.0, 8.0)
+        } else if let Some(g) = gap {
+            // A punt: the gunners are cover_gap away when it comes down,
+            // the rest of the unit a few yards behind them in lanes.
+            let behind = if n <= 2 { rng.range(0.0, 2.0) } else { 5.0 + rng.range(0.0, 8.0) };
+            catch.x + g + behind
+        } else {
+            (cover_start - speed * run).max(catch.x + 5.0 + rng.range(0.0, 6.0))
+        };
+        let y = if gap.is_some() && (n == 1 || n == 2) {
+            // Gunners close on the returner from either side.
+            catch.y + if n == 1 { -4.5 } else { 4.5 } + rng.range(-2.0, 2.0)
+        } else {
+            lane + (catch.y - lane) * (1.0 - (x - catch.x).abs() / 40.0).clamp(0.0, 0.6)
+        };
         let mut a = Agent::new(1, i, p, if n == 0 { "K" } else { "ST" }, v2(x, y), k.energy[0][i], 0.0);
         a.job = Job::Pursue;
         // Under the NFL's 2025 rules nobody moves until the ball lands.
@@ -406,7 +475,11 @@ fn run_return(
             let lane = 6.0 + ((n - 1) as f64) * (WIDTH - 12.0) / 9.0;
             // NFL 2025: nine of the return team line up in the setup zone
             // (their 30 to 35) and may not move until the ball lands.
-            let x = if kickoff && rules.nfl_kickoff { 30.0 + rng.range(0.0, 5.0) } else { catch.x + 8.0 + rng.range(0.0, 8.0) };
+            let x = if kickoff && rules.nfl_kickoff {
+                30.0 + rng.range(0.0, 5.0)
+            } else {
+                catch.x + 8.0 + rng.range(0.0, 8.0)
+            };
             v2(x, lane)
         };
         let mut a = Agent::new(0, i, p, if n == 0 { "KR" } else { "ST" }, pos, k.energy[1][i], 0.0);
@@ -436,6 +509,7 @@ fn run_return(
         down_on_fall: rules.down_on_fall,
         fight: Vec::new(),
         fight_since: 0.0,
+        screen: None,
     };
     // Reorder so the return team (side 0) comes first.
     let mut ret_agents: Vec<Agent> = agents.drain(ret_idx..).collect();

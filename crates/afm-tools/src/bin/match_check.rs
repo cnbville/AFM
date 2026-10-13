@@ -3,9 +3,9 @@
 //! Usage: match_check [nfl|fbs|hs] [games] [seed] [pbp]
 //! With `pbp`, prints the first game's play-by-play with its whys.
 
+use afm_engine::game::quick_game;
 use afm_engine::game::stats::PlayType;
 use afm_engine::game::synthetic::synthetic_league;
-use afm_engine::game::quick_game;
 use afm_engine::player::Level;
 use rayon::prelude::*;
 use serde_json::Value;
@@ -40,7 +40,20 @@ fn main() {
         for p in &results[0].stats.plays {
             println!(
                 "Q{} {:>5.0} {} {}&{:.0} at {:.0} | {:?} {} | {} | {:+.1} yds air {:.0} ttt {:.1} EPA {:+.2} | {}",
-                p.quarter, p.clock, p.offense, p.down, p.togo, p.yardline_100, p.kind, p.call, p.defense_call, p.yards, p.air_yards, p.time_to_throw, p.epa, p.why
+                p.quarter,
+                p.clock,
+                p.offense,
+                p.down,
+                p.togo,
+                p.yardline_100,
+                p.kind,
+                p.call,
+                p.defense_call,
+                p.yards,
+                p.air_yards,
+                p.time_to_throw,
+                p.epa,
+                p.why
             );
         }
         println!("Final {:?}", results[0].stats.score);
@@ -48,7 +61,7 @@ fn main() {
     let n = (games * 2) as f64;
     let mut m = std::collections::BTreeMap::<&str, f64>::new();
     let mut fg = [[0.0f64; 2]; 4];
-    let mut ay = [[0.0f64; 3]; 4];
+    let mut ay = [[0.0f64; 6]; 4];
     let mut by_cov = [[0.0f64; 3]; 2];
     let mut pts = Vec::new();
     let mut close = 0.0;
@@ -66,9 +79,9 @@ fn main() {
             *m.entry("plays").or_default() += t.plays as f64;
             *m.entry("att").or_default() += t.att as f64;
             *m.entry("cmp").or_default() += t.cmp as f64;
-            *m.entry("pass_yards").or_default() += t.pass_yards as f64;
+            *m.entry("pass_yards").or_default() += t.pass_yards;
             *m.entry("carries").or_default() += t.carries as f64;
-            *m.entry("rush_yards").or_default() += t.rush_yards as f64;
+            *m.entry("rush_yards").or_default() += t.rush_yards;
             *m.entry("sacks").or_default() += t.sacks as f64;
             *m.entry("int").or_default() += t.ints as f64;
             *m.entry("fumbles_lost").or_default() += t.fumbles_lost as f64;
@@ -83,6 +96,61 @@ fn main() {
             *m.entry("explosive").or_default() += t.explosive as f64;
             *m.entry("pressures").or_default() += t.pressures as f64;
             *m.entry("first_downs").or_default() += t.first_downs as f64;
+        }
+        // Drives: a new one starts when the offense changes.
+        let mut last: Option<usize> = None;
+        for p in &s.plays {
+            if matches!(
+                p.kind,
+                PlayType::Run
+                    | PlayType::Pass
+                    | PlayType::Sack
+                    | PlayType::Scramble
+                    | PlayType::Punt
+                    | PlayType::FieldGoal
+            ) {
+                if last != Some(p.offense) {
+                    *m.entry("drives").or_default() += 1.0;
+                    *m.entry("drive_start").or_default() += p.yardline_100;
+                    if p.yardline_100 <= 50.0 {
+                        *m.entry("short_fields").or_default() += 1.0;
+                    }
+                }
+                last = Some(p.offense);
+            }
+            if p.kind == PlayType::Run {
+                let b = if p.yards <= 0.0 {
+                    "run<=0"
+                } else if p.yards < 4.0 {
+                    "run1-3"
+                } else if p.yards < 7.0 {
+                    "run4-6"
+                } else if p.yards < 10.0 {
+                    "run7-9"
+                } else if p.yards < 20.0 {
+                    "run10-19"
+                } else if p.yards < 40.0 {
+                    "run20-39"
+                } else {
+                    "run40+"
+                };
+                *m.entry(b).or_default() += 1.0;
+                *m.entry("runs_all").or_default() += 1.0;
+            }
+            if p.kind == PlayType::FieldGoal {
+                *m.entry("fg_att").or_default() += 1.0;
+            }
+            if p.touchdown && matches!(p.kind, PlayType::Run | PlayType::Pass | PlayType::Scramble) && p.yards >= 40.0 {
+                *m.entry("long_td").or_default() += 1.0;
+                *m.entry(if p.kind == PlayType::Run { "long_td_run" } else { "long_td_pass" }).or_default() += 1.0;
+            }
+            if matches!(p.kind, PlayType::Kickoff | PlayType::Punt) && p.touchdown {
+                *m.entry(if p.kind == PlayType::Kickoff { "return_td_ko" } else { "return_td_punt" }).or_default() +=
+                    1.0;
+            }
+            if p.interception && p.touchdown {
+                *m.entry("pick_six").or_default() += 1.0;
+            }
         }
         for p in &s.plays {
             match p.kind {
@@ -99,10 +167,23 @@ fn main() {
                     *m.entry("throw_aways").or_default() += p.throw_away as u8 as f64;
                     if !p.throw_away {
                         // Real completion by air-yards band (nflverse 2021-2024).
-                        let b = if p.air_yards < 0.0 { 0 } else if p.air_yards < 10.0 { 1 } else if p.air_yards < 20.0 { 2 } else { 3 };
+                        let b = if p.air_yards < 0.0 {
+                            0
+                        } else if p.air_yards < 10.0 {
+                            1
+                        } else if p.air_yards < 20.0 {
+                            2
+                        } else {
+                            3
+                        };
                         ay[b][0] += 1.0;
                         ay[b][1] += p.complete as u8 as f64;
                         ay[b][2] += p.interception as u8 as f64;
+                        ay[b][4] += p.separation;
+                        ay[b][5] += (p.separation < 1.0) as u8 as f64;
+                        if p.complete {
+                            ay[b][3] += p.yac;
+                        }
                         if p.complete {
                             *m.entry("yac").or_default() += p.yac;
                         }
@@ -152,11 +233,9 @@ fn main() {
     let real: Value = serde_json::from_str(include_str!("../../../../data/real-world/nfl_game_targets.json")).unwrap();
     let pt = &real["per_team_game"];
     let rr = &real["rates"];
-    let row = |name: &str, ours: f64, theirs: Option<f64>| {
-        match theirs {
-            Some(t) => println!("{:<28} {:>9.3} {:>9.3}  {:+6.1}%", name, ours, t, (ours / t - 1.0) * 100.0),
-            None => println!("{:<28} {:>9.3}", name, ours),
-        }
+    let row = |name: &str, ours: f64, theirs: Option<f64>| match theirs {
+        Some(t) => println!("{:<28} {:>9.3} {:>9.3}  {:+6.1}%", name, ours, t, (ours / t - 1.0) * 100.0),
+        None => println!("{:<28} {:>9.3}", name, ours),
     };
     println!("{} games at {:?} in {:.1}s ({:.1} ms/game)", games, level, secs, secs * 1000.0 / games as f64);
     println!("{:<28} {:>9} {:>9}", "per team game", "engine", "NFL");
@@ -181,6 +260,29 @@ fn main() {
     row("rush TD", g("rush_td") / n, f("rush_td"));
     row("scrambles", g("scrambles") / n, None);
     row("punts", g("punts") / n, None);
+    // Real drive numbers: NFL 2021-2024 averages (Pro Football Reference drive stats).
+    row("drives", g("drives") / n, Some(11.0));
+    row("drive start (to goal)", g("drive_start") / g("drives").max(1.0), Some(70.5));
+    row("drives starting in opp half", g("short_fields") / g("drives").max(1.0), None);
+    row("points per drive", g("points") / g("drives").max(1.0), Some(2.0));
+    row("FG attempts", g("fg_att") / n, Some(1.85));
+    row("TDs of 40+ yards", g("long_td") / n, None);
+    row("  of them runs", g("long_td_run") / n, None);
+    // Real run distribution: nflverse 2021-2024 designed runs (approximate).
+    for (k, real) in [
+        ("run<=0", 0.19),
+        ("run1-3", 0.33),
+        ("run4-6", 0.235),
+        ("run7-9", 0.10),
+        ("run10-19", 0.115),
+        ("run20-39", 0.022),
+        ("run40+", 0.006),
+    ] {
+        row(k, g(k) / g("runs_all").max(1.0), Some(real));
+    }
+    row("kickoff return TDs", g("return_td_ko") / n, Some(0.012));
+    row("punt return TDs", g("return_td_punt") / n, Some(0.012));
+    row("pick sixes", g("pick_six") / n, Some(0.05));
     row("injuries (1+ week)", injuries / n, None);
     println!("{:<28} {:>9} {:>9}", "rates", "engine", "NFL");
     row("completion %", g("cmp") / g("att"), rr["completion_pct"].as_f64());
@@ -213,6 +315,9 @@ fn main() {
         row(&format!("{name} share"), ay[k][0] / tot.max(1.0), Some(real_ay[k].0));
         row(&format!("{name} completion"), ay[k][1] / ay[k][0].max(1.0), Some(real_ay[k].1));
         row(&format!("{name} int rate"), ay[k][2] / ay[k][0].max(1.0), None);
+        row(&format!("{name} YAC"), ay[k][3] / ay[k][1].max(1.0), None);
+        row(&format!("{name} separation"), ay[k][4] / ay[k][0].max(1.0), None);
+        row(&format!("{name} tight window"), ay[k][5] / ay[k][0].max(1.0), None);
     }
     for (k, name) in ["zone", "man"].iter().enumerate() {
         row(&format!("{name}: att share / cmp / ypa"), by_cov[k][0] / (by_cov[0][0] + by_cov[1][0]).max(1.0), None);
