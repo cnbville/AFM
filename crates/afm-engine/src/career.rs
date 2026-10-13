@@ -15,6 +15,7 @@ use std::collections::HashMap;
 
 use rayon::prelude::*;
 
+use crate::athlete::{self, Eye};
 use crate::attributes::{Attr, AttributeGroup};
 use crate::development::{SeasonContext, SeasonReport, Trouble, develop_season};
 use crate::league::{DepthSlots, Member, Team, advance_league, depth_slots, make_league};
@@ -363,6 +364,9 @@ struct College {
     pending_dip: Vec<Option<f64>>,
 }
 
+/// High school freshmen per program, nationally.
+const CLASS_PER_SCHOOL: usize = 18;
+
 pub fn simulate_cohort(opts: CohortOptions) -> CohortResult {
     let size = opts.size;
     let mut rng = Rng::new(opts.seed);
@@ -388,13 +392,38 @@ pub fn simulate_cohort(opts: CohortOptions) -> CohortResult {
         prngs.push(p);
         hs_coaching.push(c);
     }
+    // Athlete first (topic 5.2): each high school's head coach places his
+    // incoming class by what he sees and what his roster needs. A school's
+    // class is about 18 players (about 14,000 programs share 250,000 freshmen),
+    // and they share his coaching.
+    records.par_chunks_mut(CLASS_PER_SCHOOL).zip(hs_coaching.par_chunks_mut(CLASS_PER_SCHOOL)).for_each(
+        |(class, coaching)| {
+            let coach = coaching[0];
+            coaching.fill(coach);
+            let mut players: Vec<&mut Player> = class.iter_mut().map(|r| &mut r.player).collect();
+            athlete::place_class(&mut players, Eye::coach(coach).staff(1));
+            for r in class.iter_mut() {
+                r.initial_overall = r.player.overall();
+                r.initial_potential = r.player.potential();
+            }
+        },
+    );
     // The pro league exists the whole time: it ages and changes staffs while the class grows up.
     let mut teams = make_league(&mut rng);
 
     // --- High school: four seasons, ages 14-17 -------------------------------
     // Varsity starting spots get easier to earn as a class gets older.
     let hs_starter_share = [0.12, 0.3, 0.5, 0.6];
-    for share_this_year in hs_starter_share {
+    for (hs_year, share_this_year) in hs_starter_share.into_iter().enumerate() {
+        // He grows: his coach takes a fresh look before each season.
+        if hs_year > 0 {
+            records.par_iter_mut().zip(hs_coaching.par_iter()).for_each(|(r, &coaching)| {
+                if let Some(from) = athlete::reconsider(&mut r.player, Eye::coach(coaching).staff(1), 0.03) {
+                    let (age, to) = (r.player.age, r.player.position);
+                    r.note(format!("Moved from {from} to {to} by his high school coach at {age}."));
+                }
+            });
+        }
         let seen: Vec<(Position, f64)> = records.par_iter().map(|r| (r.player.position, r.player.overall())).collect();
         let roles = roles_by_rank(&seen, share_this_year, 0.2);
         records.par_iter_mut().zip(prngs.par_iter_mut()).zip(roles.par_iter()).zip(hs_coaching.par_iter()).for_each(
@@ -535,6 +564,11 @@ pub fn simulate_cohort(opts: CohortOptions) -> CohortResult {
                 r.prestige = Some(1.0 - k as f64 / n as f64);
             }
             col.coaching[i] = program_coaching(r, &mut rng);
+            // His new staff decides where he plays: colleges sign athletes and move them.
+            if let Some(from) = athlete::reconsider(&mut r.player, Eye::coach(col.coaching[i]).staff(2), 0.015) {
+                let to = r.player.position;
+                r.note(format!("Signed as a {from}; his college staff moved him to {to}."));
+            }
             let step = match level {
                 CollegeLevel::FBS => Step::HsToFbs,
                 CollegeLevel::FCS => Step::HsToFcs,
@@ -573,6 +607,20 @@ pub fn simulate_cohort(opts: CohortOptions) -> CohortResult {
             break;
         }
         advance_league(&mut teams, &mut rng);
+        // Spring ball: staffs move players whose bodies and skills now fit elsewhere.
+        if year > 0 {
+            for &i in &active_list {
+                let r = &mut records[i];
+                if let Some(from) = athlete::reconsider(
+                    &mut r.player,
+                    Eye::coach(col.coaching[i]).staff(2 + r.transfers.len() as u32),
+                    0.08,
+                ) {
+                    let (age, to) = (r.player.age, r.player.position);
+                    r.note(format!("Moved from {from} to {to} in college at {age}."));
+                }
+            }
+        }
         let mut coaching_changed = vec![false; size];
         for level in [CollegeLevel::FBS, CollegeLevel::FCS, CollegeLevel::SmallCollege] {
             let group: Vec<usize> =
@@ -681,9 +729,17 @@ pub fn simulate_cohort(opts: CohortOptions) -> CohortResult {
                 );
             if declare {
                 active[i] = false;
+                // Pro scouts list him where they see him playing on Sundays.
+                let mut score = g.score;
+                if let Some(from) = athlete::reconsider(&mut records[i].player, Eye::NFL_SCOUTS, 0.005) {
+                    let r = &mut records[i];
+                    let to = r.player.position;
+                    r.note(format!("Played {from} in college; pro scouts project him at {to}."));
+                    score = draft_score(r, &mut rng).score;
+                }
                 let r = &mut records[i];
                 r.potential_at_exit = r.player.potential();
-                r.draft_grade = Some(g.score);
+                r.draft_grade = Some(score);
                 entrants.push(i);
             }
         }
@@ -2054,10 +2110,7 @@ fn attach_level_ratings(records: &mut [CareerRecord], class_share: f64) {
                 if !sets_level_scale(s.level) {
                     continue;
                 }
-                groups
-                    .entry(key)
-                    .or_default()
-                    .push((r.player.position, if at_end { s.overall } else { s.overall_start }));
+                groups.entry(key).or_default().push((s.position, if at_end { s.overall } else { s.overall_start }));
             }
         }
         groups
@@ -2073,8 +2126,8 @@ fn attach_level_ratings(records: &mut [CareerRecord], class_share: f64) {
     let at_start = build_scales(records, false);
     let at_end = build_scales(records, true);
     records.par_iter_mut().for_each(|r| {
-        let pos = r.player.position;
         for s in r.player.history.iter_mut() {
+            let pos = s.position;
             let level = s.level;
             let key = level_group(level, s.age);
             let discount = match level {

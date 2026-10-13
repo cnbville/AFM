@@ -301,7 +301,7 @@ Confirmed rules:
 - **Keep every stat forever, and as much logging as possible.**
 - **Full position tracking (the raw replay data) is kept only for the user's own games and notable plays.** All tracking numbers (separation, speed, time to throw) are still saved for every game.
 
-Proposed, not confirmed (Claude's proposal for washouts; Raichel's "as much logging as possible" came in at the same moment and was read as the rule above it):
+Confirmed 2026-10-13 (Raichel: "yes to both"), Claude's proposal for washouts:
 - Trimming happens only where save size or speed truly needs it (about 250,000 high school players enter each year, and most never play college).
 - **Players who make college or the pros:** everything kept forever.
 - **Players who wash out:** after they leave, a small record stays: season totals, awards and any record they set. Their game-by-game lines and play logs are deleted. A state record from 2031 still shows the kid who set it.
@@ -312,7 +312,7 @@ Proposed, not confirmed (Claude's proposal for washouts; Raichel's "as much logg
 - **Hidden-gem footprints (section 2, world item 9).** Searchable flags for outliers relative to level, such as top 1% in yards after contact, top 1% in separation, or a testing outlier. Stats can lie: a weak schedule or a padding scheme can fake a footprint, and a bad team can hide one.
 - **Scouting, recruiting, awards (all-conference, Heisman, All-Pro, MVP), contracts and agents.** Agents quote stats in talks.
 - **Record books** per state, conference, level and all time, plus streaks. These feed the Hall of Fame.
-- Proposed, not confirmed: the "over expected" stats are what lift a player's ceilings when he keeps beating his ratings (the breakout rule from section 1).
+- Confirmed 2026-10-13 (Raichel: "yes to both"): the "over expected" stats are what lift a player's ceilings when he keeps beating his ratings (the breakout rule from section 1).
 
 ### 8.8 What the data must make possible (screens are section 10)
 - Leaderboards for every stat, filtered by level, state, conference, season, position, age and class.
@@ -375,5 +375,10 @@ Confirmed rules:
 
 ## Open questions
 
-1. **Washout trimming (8.6).** Claude's proposal is written above as proposed, not confirmed. Raichel's rule is "as much logging as possible"; confirm the exact trimming before the build relies on it.
-2. **Over-expected stats lifting ceilings (8.7).** Claude raised it while closing topic 10; not answered on its own.
+None. Both earlier questions (washout trimming in 8.6, over-expected stats lifting ceilings in 8.7) were confirmed by Raichel on 2026-10-13.
+
+## Build status
+
+1. **Athlete-first player creation: built 2026-10-13** (`crates/afm-engine/src/athlete.rs`; how it works in `docs/development-model.md`; Claude's calibration picks in `docs/decisions.md`).
+2. The match engine and the stats database: next.
+3. The development-only checks against real football: with the engine.

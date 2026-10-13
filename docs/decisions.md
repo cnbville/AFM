@@ -82,6 +82,17 @@ An American football management sim modelled on Football Manager. Priorities: re
 - All 50 roadmap answers, the build order and the sections are in `docs/roadmap.md`. Section 2 design is in `docs/design/world.md`.
 - They settle the season calendar doc's old defaults: you are GM and head coach of one NFL team (college coaching later), a save starts mid-February, and names are real with a fictional toggle at new game.
 
+### Section 3 build: athlete-first details Claude picked (2026-10-13, proposed, not confirmed)
+The confirmed rule (topic 5.2) is "build the athlete first, the coach places him, real totals still hold". These numbers are Claude's calibration picks for it:
+- Body: 29% lineman frames; skill leanings mapped so a two-standard-deviation gift reaches the mid 90s; the kicking leg shifted 0.4 standard deviations rarer.
+- Natural spot: chosen with per-position comparison factors set once from 40,000 sample athletes so natural spots match real high school roster shares; the natural spot rates at least 5% above any other.
+- Placement: best athletes first; an open roster spot adds 8% of fit, each player beyond the need costs 12%; within a family the harder spot adds 1.5% (tackle, edge) or 1% (corner). Kickers are never converted to or from late.
+- Coach eye: insight 25-75% and misread 7 to 2 points per attribute, by coach skill 0-20; misreads shrink 10% a year of film (to half). NFL scouts: 65% insight, 2.5 points.
+- Re-placement margins: high school 3% better fit, college at signing and each spring 1.5%, pro scouts 0.5%.
+- Talent tail refit from 2.6 to 2.75: misplacement costs top players a little, and the top of the NFL needed it back (90+ seasons averaged 0.8% over four classes before the refit, 1.7% before athlete-first).
+- Two single-class test bands widened, with the seed spread as evidence: five-star floor 86 to 85 among seniors (the rule is top 100 on film), and the 90+ pro share floor 0.5% to 0.2% (0.3% to 2.6% across eight classes, old and new model).
+- Measured on the reference class: 14% of players change position at least once, 6% of draftees play a different position than as freshmen. Real rates are not in the dataset yet; a trial should check them.
+
 ## Assumed, not yet confirmed
 - The rest of `docs/design/season-calendar-and-pacing.md` (week-by-week calendar, tension tiers, climax budget) is a draft for section 4.
 

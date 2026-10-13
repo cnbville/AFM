@@ -148,6 +148,8 @@ impl Events {
 pub struct SeasonRecord {
     pub age: u32,
     pub level: Level,
+    /// Where he played that season.
+    pub position: Position,
     pub playing_time: PlayingTime,
     /// Rating going into the season: what he played the season at, and what his role was picked from.
     pub overall_start: f64,
@@ -203,6 +205,8 @@ pub struct Player {
     pub personality: Personality,
     /// The adult body he grows into: height, weight, arms, hands (note 8).
     pub body: crate::body::Body,
+    /// Every position he has been placed at, with his age then (topic 5.2).
+    pub position_history: Vec<(u32, Position)>,
     pub history: Vec<SeasonRecord>,
 }
 
@@ -232,7 +236,7 @@ impl Player {
 /// an elite pro ceiling.
 pub fn talent_from_z(z: f64) -> f64 {
     let tail = (z - 1.6).max(0.0);
-    45.0 + 6.5 * z + 2.6 * tail * tail
+    45.0 + 6.5 * z + 2.75 * tail * tail
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -251,24 +255,41 @@ fn trait_1_20(rng: &mut Rng) -> f64 {
 }
 
 pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
-    let position = opts.position.unwrap_or_else(|| {
-        let entries: [(Position, f64); 13] = Position::ALL.map(|p| (p, p.profile().share));
-        rng.weighted(&entries)
-    });
     let age = opts.age.unwrap_or(14);
     let z = match opts.talent_z {
         Some(z) => z,
         None => rng.normal(0.0, 1.0),
     };
     let talent = clamp(talent_from_z(z), 20.0, 99.0);
-    let scale = talent / elite_shape_overall(position);
+    let id = opts.id.unwrap_or_else(|| NEXT_ID.fetch_add(1, Ordering::Relaxed));
+
+    // Athlete first (topic 5.2): body, athletic traits and skill leanings come
+    // before any position. A fixed position (tests, tools) builds the player
+    // around that position's elite shape instead.
+    let (position, ceilings, body) = match opts.position {
+        None => {
+            let (ceilings, body, natural) = crate::athlete::create(rng, talent);
+            (natural, ceilings, body)
+        }
+        Some(position) => {
+            let scale = talent / elite_shape_overall(position);
+            let mut ceilings = Attributes::default();
+            for key in Attr::ALL {
+                ceilings[key] =
+                    clamp(elite_shape_value(position, key) * scale + rng.normal(0.0, 4.0), MIN_RATING, MAX_RATING);
+            }
+            let potential = overall_for(position, &ceilings);
+            // His build: how his strength and speed ceilings sit against his position's norm.
+            let dev = |a: Attr| (ceilings[a] - elite_shape_value(position, a) * scale) / 4.0;
+            let body = crate::body::adult_body(id, position, potential, dev(Attr::Strength), dev(Attr::Speed));
+            (position, ceilings, body)
+        }
+    };
 
     let bloom = clamp(rng.normal(0.0, 1.1), -2.5, 3.0);
-    let mut ceilings = Attributes::default();
     let mut attributes = Attributes::default();
     for key in Attr::ALL {
-        let ceiling = clamp(elite_shape_value(position, key) * scale + rng.normal(0.0, 4.0), MIN_RATING, MAX_RATING);
-        ceilings[key] = ceiling;
+        let ceiling = ceilings[key];
         let profile = &ATTRIBUTE_PROFILES[key.index()];
         // Early bloomers arrive more physically mature; late bloomers less so.
         let maturity = clamp(
@@ -280,12 +301,8 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
         let raw = ceiling * maturity;
         attributes[key] = clamp(if raw > 40.0 { 40.0 + (raw - 40.0) * 0.5 } else { raw }, MIN_RATING, ceiling);
     }
-
+    // Talent is what he can become at the spot that suits him best.
     let original_potential = overall_for(position, &ceilings);
-    let id = opts.id.unwrap_or_else(|| NEXT_ID.fetch_add(1, Ordering::Relaxed));
-    // His build: how his strength and speed ceilings sit against his position's norm.
-    let dev = |a: Attr| (ceilings[a] - elite_shape_value(position, a) * scale) / 4.0;
-    let body = crate::body::adult_body(id, position, original_potential, dev(Attr::Strength), dev(Attr::Speed));
     let longevity = clamp(rng.normal(0.0, 1.3), -3.0, 3.5);
     let injury_proneness = trait_1_20(rng);
     let personality = Personality {
@@ -307,6 +324,7 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
         wear: 0.0,
         personality,
         body,
+        position_history: vec![(age, position)],
         history: Vec::new(),
     }
 }

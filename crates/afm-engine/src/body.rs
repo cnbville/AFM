@@ -46,6 +46,25 @@ pub struct Body {
     pub hand: f64,
     /// Wingspan, inches.
     pub wingspan: f64,
+    /// The weight his frame carries naturally, before a position's weight
+    /// program adds or takes off pounds.
+    pub frame_weight: f64,
+}
+
+/// A position's combine height and weight: (height mean, sd, weight mean, sd).
+pub fn combine_size(pos: Position) -> (f64, f64, f64, f64) {
+    SIZES[pos.index()]
+}
+
+impl Body {
+    /// Arms, hands and wingspan follow height (see the module notes).
+    pub(crate) fn grown(height: f64, weight: f64, rng: &mut Rng) -> Body {
+        let heavy = weight >= 285.0;
+        let arm = 0.425 * height + if heavy { 0.3 } else { 0.0 } + rng.normal(0.0, 0.8);
+        let hand = 9.45 + 0.08 * (height - 74.0) + if heavy { 0.35 } else { 0.0 } + rng.normal(0.0, 0.35);
+        let wingspan = 2.03 * arm + 12.3 + rng.normal(0.0, 1.0);
+        Body { height, weight, arm, hand, wingspan, frame_weight: weight }
+    }
 }
 
 fn lineman(pos: Position) -> bool {
@@ -75,7 +94,7 @@ pub fn adult_body(id: u32, pos: Position, potential: f64, strength_z: f64, speed
     let arm = 0.425 * height + arm_offset + rng.normal(0.0, 0.8);
     let hand = 9.45 + 0.08 * (height - 74.0) + if lineman(pos) { 0.35 } else { 0.0 } + rng.normal(0.0, 0.35);
     let wingspan = 2.03 * arm + 12.3 + rng.normal(0.0, 1.0);
-    Body { height, weight, arm, hand, wingspan }
+    Body { height, weight, arm, hand, wingspan, frame_weight: weight }
 }
 
 /// His body now: boys grow through high school, late bloomers later, and
@@ -89,7 +108,14 @@ pub fn body_now(p: &Player) -> Body {
     let height = a.height - (1.0 - grown) * 4.0;
     let weight = a.weight * (0.7 + 0.25 * filled + 0.05 * clamp(strength, 0.0, 1.0));
     let k = height / a.height;
-    Body { height, weight, arm: a.arm * k, hand: a.hand * (0.9 + 0.1 * grown), wingspan: a.wingspan * k }
+    Body {
+        height,
+        weight,
+        arm: a.arm * k,
+        hand: a.hand * (0.9 + 0.1 * grown),
+        wingspan: a.wingspan * k,
+        frame_weight: a.frame_weight,
+    }
 }
 
 /// One day of testing. None for a drill the position doesn't run
