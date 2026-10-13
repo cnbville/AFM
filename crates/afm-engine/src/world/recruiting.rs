@@ -746,7 +746,7 @@ pub(crate) fn signing_day(w: &mut World) {
         .iter()
         .map(|prog| {
             let room = roster_cap(prog.division).saturating_sub(prog.roster.len());
-            clamp(room as f64, prog.class_size as f64 * 0.5, prog.class_size as f64 * 1.4) as usize
+            (room as f64).min(prog.class_size as f64 * 1.4) as usize
         })
         .collect();
 
@@ -1001,6 +1001,7 @@ pub(crate) fn portal(w: &mut World, _r: &SeasonResults) {
     }
 
     // Each entrant shops among programs that would take him.
+    w.rebuild_rosters();
     let mut adds = vec![0usize; w.programs.len()];
     let pn = w.programs.len();
     for (i, why) in entrants {
@@ -1018,7 +1019,7 @@ pub(crate) fn portal(w: &mut World, _r: &SeasonResults) {
         let mut best: Option<(usize, f64)> = None;
         for _ in 0..40 {
             let j = w.rng.int(0, pn as i32 - 1) as usize;
-            if j == c || adds[j] >= 10 {
+            if j == c || adds[j] >= 10 || w.programs[j].roster.len() + adds[j] >= roster_cap(w.programs[j].division) {
                 continue;
             }
             let d = w.programs[j].division;

@@ -329,7 +329,7 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
     for key in keys {
         let teams = &groups[&key];
         play_rounds(teams, 10, 3.5, &mut hs, &mut w.rng, false);
-        let champ = playoff(teams, 8, 3.5, &hs, &mut w.rng);
+        let champ = playoff(teams, 8, 3.5, &mut hs, &mut w.rng);
         if let Some(c) = champ {
             hs[c].state_title = true;
         }
@@ -363,11 +363,15 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
                 .unwrap();
             college[champ].conference_title = true;
         }
-        let nonconf: Vec<usize> = members.clone();
-        let target: usize = if division == Division::JUCO { 10 } else { 12 };
-        // Fill each team's schedule toward the target with non-conference games.
-        let short = nonconf.iter().map(|&i| target.saturating_sub(college[i].games() as usize)).max().unwrap_or(0);
-        play_rounds(&nonconf, short.min(6), 2.5, &mut college, &mut w.rng, false);
+        // Non-conference games fill every schedule, independents included.
+        let target: u32 = if division == Division::JUCO { 10 } else { 12 };
+        for _ in 0..12 {
+            let needy: Vec<usize> = members.iter().copied().filter(|&i| college[i].games() < target).collect();
+            if needy.len() < 2 {
+                break;
+            }
+            play_rounds(&needy, 1, 2.5, &mut college, &mut w.rng, false);
+        }
         let field = match division {
             Division::FBS => 12,
             Division::FCS | Division::D2 => 16,
@@ -384,7 +388,7 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
                 + 0.01 * college[b].strength;
             kb.total_cmp(&ka)
         });
-        if let Some(c) = playoff(&ranked, field, 2.5, &college, &mut w.rng) {
+        if let Some(c) = playoff(&ranked, field, 2.5, &mut college, &mut w.rng) {
             college[c].national_title = true;
         }
     }
@@ -440,7 +444,7 @@ fn playoff(
     teams: &[usize],
     field: usize,
     spread: f64,
-    results: &[TeamResult],
+    results: &mut [TeamResult],
     rng: &mut crate::rng::Rng,
 ) -> Option<usize> {
     let mut seeds: Vec<usize> = teams.to_vec();
@@ -464,7 +468,10 @@ fn playoff(
         for k in 0..m / 2 {
             let (a, b) = (rest[k], rest[m - 1 - k]);
             let p = win_chance(results[a].strength, results[b].strength, spread, 0.4);
-            next.push(if rng.chance(p) { a } else { b });
+            let (w, l) = if rng.chance(p) { (a, b) } else { (b, a) };
+            results[w].wins += 1;
+            results[l].losses += 1;
+            next.push(w);
         }
         seeds = next;
     }
