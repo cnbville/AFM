@@ -245,15 +245,15 @@ fn draft_position_value(pos: Position, grade: f64) -> f64 {
     let top = clamp((grade - if pos == Position::QB { 74.0 } else { 78.0 }) / 8.0, 0.0, 1.0);
     let (base, premium) = match pos {
         Position::QB => (0.3, 11.0),
-        Position::EDGE => (0.6, 5.5),
-        Position::OT => (0.5, 3.0),
-        Position::WR => (0.3, -0.5),
-        Position::CB => (0.3, 0.0),
-        Position::DT => (0.2, 0.5),
-        Position::RB => (-0.5, -1.0),
-        Position::S => (-0.4, -3.0),
+        Position::EDGE => (1.6, 5.5),
+        Position::OT => (0.6, 3.0),
+        Position::WR => (0.4, 0.0),
+        Position::CB => (1.0, 0.0),
+        Position::DT => (0.6, 0.5),
+        Position::RB => (-0.4, 0.0),
+        Position::S => (-0.5, -3.0),
         Position::LB => (-0.3, -2.5),
-        Position::IOL => (-0.2, -3.0),
+        Position::IOL => (-1.6, -3.0),
         Position::TE => (-0.6, -3.0),
         Position::K | Position::P => (-25.0, 0.0),
     };
@@ -433,12 +433,28 @@ pub(crate) fn college_exits(w: &mut World, _r: &SeasonResults) {
         })
         .collect();
     pool.sort_by(|a, b| b.1.total_cmp(&a.1));
-    let order = crate::career::draft_order(&w.nfl, &mut w.rng);
+    let mut order = crate::career::draft_order(&w.nfl, &mut w.rng);
     let mut boards: Vec<std::collections::HashMap<usize, f64>> = vec![Default::default(); w.nfl.len()];
     let mut picked: Vec<(usize, u32, usize, String)> = Vec::new();
     for pick in 1..=slots as u32 {
         if pool.is_empty() {
             break;
+        }
+        // A team with a young franchise QB holding a top-5 pick in a class with a
+        // first-round QB trades down to a team that needs one (the Rams for Goff
+        // in 2016, the Panthers for Young in 2023).
+        let mut traded_up = false;
+        if pick <= 5 {
+            let slot = pick as usize - 1;
+            let holder = order[slot];
+            let best_qb = pool.iter().take(60).find(|e| w.people[e.0].player.position == Position::QB).map(|e| e.1);
+            if crate::career::need(&w.nfl[holder], Position::QB) <= -8.0 && best_qb.is_some_and(|g| g >= 80.0) {
+                let end = (slot + 11).min(order.len());
+                if let Some(k) = (slot + 1..end).find(|&k| crate::career::need(&w.nfl[order[k]], Position::QB) >= 0.0) {
+                    order.swap(slot, k);
+                    traded_up = true;
+                }
+            }
         }
         let t = order[(pick as usize - 1) % order.len()];
         let round = crate::career::draft_round(pick, slots as u32);
@@ -453,8 +469,22 @@ pub(crate) fn college_exits(w: &mut World, _r: &SeasonResults) {
             let pos = w.people[i].player.position;
             let off = *boards[t].entry(i).or_insert_with(|| noise_sd * w.rng.normal(0.0, 1.0));
             let need = crate::career::need(&w.nfl[t], pos) * if round <= 2 { 0.5 } else { 1.0 };
-            let pv = draft_position_value(pos, g) * rf;
-            let v = g + off + pv + need;
+            // A quarterback's premium is about need: a team happy with its starter
+            // doesn't spend a first-round pick on another.
+            // At the very top any team without a franchise QB takes the best one.
+            let top_qb = clamp(1.0 - (pick as f64 - 1.0) / 8.0, 0.0, 1.0);
+            let qb_gate = if pos == Position::QB {
+                clamp((crate::career::need(&w.nfl[t], pos) + 2.0) / 4.0, 0.2, 1.0).max(top_qb)
+            } else {
+                1.0
+            };
+            let pv = draft_position_value(pos, g) * rf * qb_gate;
+            // At the very top, a great player at a lesser position is worth less than
+            // his grade says: a generational WR or safety rarely goes first.
+            let lesser = !matches!(pos, Position::QB | Position::EDGE | Position::OT);
+            let top = clamp(1.0 - (pick as f64 - 1.0) / 10.0, 0.0, 1.0);
+            let damp = if lesser { 0.35 * (g + off - 85.0).max(0.0) * top } else { 0.0 };
+            let v = g + off + pv + need - damp;
             if best.is_none_or(|b| v > b.1) {
                 best = Some((idx, v, pv, need));
             }
@@ -463,7 +493,9 @@ pub(crate) fn college_exits(w: &mut World, _r: &SeasonResults) {
         let (i, g) = pool.remove(idx);
         let pos = w.people[i].player.position;
         let team = &w.nfl[t];
-        let why = if need >= 1.0 {
+        let why = if traded_up && pos == Position::QB {
+            format!("they traded up to pick {pick} to take their quarterback")
+        } else if need >= 1.0 {
             let weakest = team.weakest_starter(pos).map_or(0.0, |x| x.0);
             format!("they needed a {} (their weakest starter there was rated {weakest:.0})", pos.name())
         } else if pv >= 2.0 {
