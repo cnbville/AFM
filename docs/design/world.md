@@ -1,6 +1,6 @@
 # Section 2: the world (design done)
 
-Status: design finished 2026-10-13. All eight topics are answered. Next, a fresh thread builds it (see the section loop in `docs/roadmap.md`). The grade split in topic 7 and the items under "Open questions" are still proposals.
+Status: design finished 2026-10-13. All eight topics are answered. Next, a fresh thread builds it (see the section loop in `docs/roadmap.md`). Follow-up answers are near the end; two open questions remain.
 
 This spec is written so anyone outside the project chat can follow it. Raichel's own words are in quotes.
 
@@ -30,7 +30,7 @@ One item from that batch was not a realism question: how many years of hidden hi
 4. Exposure: confirmed
 5. Family as actors: confirmed
 6. The JUCO route: confirmed
-7. Prestige and program grades: confirmed (grade split proposed)
+7. Prestige and program grades: confirmed
 8. NIL and tampering: confirmed
 
 ---
@@ -208,7 +208,7 @@ Data: yearly JUCO-to-FBS counts have no public source (see `data/real-world/READ
 
 ---
 
-## Topic 7. Prestige and program grades (confirmed 2026-10-13, grade split proposed)
+## Topic 7. Prestige and program grades (confirmed 2026-10-13)
 
 Prestige is how big a program's name is, for colleges and high schools.
 
@@ -226,7 +226,7 @@ Confirmed rules:
 - **Program grades update every year from what actually happened.** No EA-style sluggishness: two straight conference titles must move a grade far more than C- to C+.
 - **Some grades move steadily (linear), others swing fast (volatile).**
 
-**Proposed, not confirmed** (Claude's split, posted 2026-10-13; Raichel has not objected and can still move any grade):
+**Confirmed 2026-10-13** (Claude's split, Raichel: "yes"):
 - **Steady, a little each year:** tradition, academics, facilities, stadium atmosphere, campus life, brand exposure.
 - **Fast swings:** title chances, playing time, coach prestige, NIL, pro pipeline. Two conference titles in a row should take title chances from C- to B+ or higher. A coach leaving can drop coach prestige overnight.
 - **Conference strength** moves only on realignment, or when several member schools rise or fall.
@@ -255,15 +255,24 @@ Data: no public source gives NIL dollars per school (`nil_estimate_usd` is blank
 
 ---
 
+## Follow-up answers (confirmed 2026-10-13)
+
+Claude listed the open questions with a proposal each, and Raichel answered them in the spec thread.
+
+1. **Mental health (1.7): "Yes".** Each player has a hidden stability level. When it is low, slumps, holdouts, quitting and off-field trouble get more likely. Family, a good coach relationship and team staff lift it. Family events (topic 5) lower it for a while.
+2. **Coach reputation (topic 3).** Claude's proposal was that reputation catches up with true ability over about 3 seasons, faster after a big result, and slower for assistants. Raichel: "Yes, big results like state titles or conference wins should have a maaaaassive boost. Think of Kirk Cignetti with JMU. But then signing bad players, having bad locker room should visibly but slowly chip away at that reputation realisticy. A lot of bad coaches get hired and fired because of recency bias". Confirmed rules:
+   - **Big results (state titles, conference titles) give reputation a massive boost**, like Cignetti at JMU.
+   - **Bad signings and a bad locker room chip away at it visibly but slowly.**
+   - **Hiring runs on recency bias**, so many bad coaches get hired off one hot stretch and fired after one bad one.
+   - Assistants' reputations move slower than head coaches' (Claude's proposal, accepted with the "Yes").
+3. **Influence sizes: "Yes".** They are set in the build trial and shown to Raichel with a why on each result.
+4. **NIL warnings (topic 8): "Yes".** An inbox message from staff, a news story, and a falling arrow on the NIL grade. The warning repeats as things get worse.
+5. **HS NIL rules per state: "Yes".** A short research pass adds each state's HS NIL rule to `data/real-world/hs_states.csv`, the same way the transfer rules were added. Not done yet.
+6. **Pipelines (topic 4): "yes".** A pipeline grows each time a signee from that area leads in stats, wins an award, or is drafted in rounds 1-3 (day 1 or 2). It fades slowly after several years with no impact.
+7. **Realism defaults (section 0): "yes".** The build thread asks Raichel about their details one at a time.
+8. **Grade split (topic 7): "yes".** The steady and fast-swinging grades stay as written, so the split is now confirmed.
+
 ## Open questions
 
-Not decided in the design rounds. Ask Raichel before building any of these.
-1. **Mental health effects (1.7).** Confirmed as "a big part", but the exact effects (slumps, holdouts, quitting) are not designed.
-2. **Coach reputation speed (topic 3).** How fast reputation catches up with true ability.
-3. **How large each influence is.** Every factor is "noteworthy, not a driver"; the actual sizes are set in the build trial and shown to Raichel with a why on each result.
-4. **The NIL warnings (topic 8).** What a "clear warning" looks like (inbox message, news story, grade trend) belongs with the inbox and screens design.
-5. **HS NIL rules per state.** Not yet in `data/real-world/hs_states.csv`; needs a research pass like the transfer rules.
-6. **Pipeline thresholds (topic 4).** How much impact (which stats, which awards) grows a pipeline, and whether pipelines also shrink when impact stops.
-7. **Realism defaults from section 0.** All real programs, classifications and playoffs, every college level, realignment, the coaching carousel, franchise traits and shifting talent geography: their details still need design.
-8. **The grade split (topic 7)** is Claude's proposal until Raichel confirms it.
-9. **Escaping to a powerhouse (1.8).** Can a kid transfer to a powerhouse to get out of a bad home or neighborhood? Raised in topic 1, never answered.
+1. **Escaping to a powerhouse (1.8).** Can a kid transfer to a powerhouse to get out of a bad home or neighborhood? Claude's proposal: yes, as one of the pulls, and a rare one. Proposed, not confirmed.
+2. **Realism defaults from section 0.** All real programs, classifications and playoffs, every college level, realignment, the coaching carousel, franchise traits and shifting talent geography. The build thread asks about each one (follow-up answer 7).
