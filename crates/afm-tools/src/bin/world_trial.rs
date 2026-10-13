@@ -181,6 +181,25 @@ fn main() {
     let w = World::new(WorldOptions { seed, history_years: years, ..Default::default() });
     println!("# World trial: seed {seed}, {years} years of history, built in {:.0}s\n", t.elapsed().as_secs_f64());
 
+    // AFM_SHOW="Georgia": one program's story and every head coach it had, then stop.
+    if let Ok(name) = std::env::var("AFM_SHOW") {
+        if let Some(i) = w.programs.iter().position(|p| p.real_name == name) {
+            program_story(&w, i);
+            println!("\nIts head coaches:");
+            for c in 0..w.coaches.len() {
+                let here = w.coaches[c]
+                    .history
+                    .iter()
+                    .any(|s| s.role == Role::HeadCoach && s.employer == Employer::College(i))
+                    || w.programs[i].head_coach == Some(c);
+                if here {
+                    coach_career(&w, c);
+                }
+            }
+        }
+        return;
+    }
+
     // --- Calibration ---
     println!("## Calibration");
     let picks: Vec<&Alumnus> = w.alumni.iter().filter(|a| a.pick.is_some()).collect();
