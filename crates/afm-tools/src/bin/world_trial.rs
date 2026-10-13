@@ -207,6 +207,13 @@ fn main() {
                 q(1.0)
             );
         }
+        for cut in [1u32, 5, 32] {
+            let mut by: BTreeMap<&str, usize> = BTreeMap::new();
+            for a in drafted.iter().filter(|a| a.pick.unwrap() <= cut) {
+                *by.entry(a.position.name()).or_default() += 1;
+            }
+            println!("picks 1-{cut} by position: {by:?}");
+        }
         for t in [80.0, 85.0, 88.0, 92.0] {
             let n = drafted.iter().filter(|a| a.overall >= t).count();
             println!("rookies at {t}+: {n} ({:.1} per draft)", n as f64 / yrs);
