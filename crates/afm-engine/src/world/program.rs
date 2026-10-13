@@ -176,9 +176,18 @@ pub struct Program {
     pub fans: f64,
     /// Overall prestige 0-1, rebuilt yearly from its parts.
     pub prestige: f64,
+    /// Prestige when recorded history began.
+    pub prestige_start: f64,
+    /// Prestige against the best program in its division, 0-1: how big a name
+    /// it is at its own level (NDSU in FCS, Alabama in FBS).
+    pub prestige_rel: f64,
     pub grades: [f64; GRADE_COUNT],
     /// Last year's grades, for the trend arrows.
     pub last_grades: [f64; GRADE_COUNT],
+    /// Grades at the end of each recorded year.
+    pub grade_history: Vec<(i32, [f64; GRADE_COUNT])>,
+    /// Prestige at the end of each recorded year.
+    pub prestige_history: Vec<(i32, f64)>,
     pub collective: Collective,
     /// How well the staff knows each state, 0-1 (topic 4).
     pub footprint: [f64; 51],
@@ -268,8 +277,12 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
         facilities,
         fans,
         prestige: 0.0,
+        prestige_start: 0.0,
+        prestige_rel: 0.5,
         grades: [70.0; GRADE_COUNT],
         last_grades: [70.0; GRADE_COUNT],
+        grade_history: Vec::new(),
+        prestige_history: Vec::new(),
         collective: Collective {
             budget: base + big_booster.unwrap_or(0.0),
             base,
@@ -325,11 +338,19 @@ pub fn prestige_of(p: &Program, coach_rep: f64, conference: f64) -> f64 {
 /// Rebuilds the footprint: the home region plus wider reach for bigger brands, plus pipelines.
 pub fn rebuild_footprint(p: &mut Program) {
     // A national brand recruits everywhere; a small school knows its own area.
-    let reach_miles = 150.0 + 1100.0 * p.prestige * p.prestige + 250.0 * p.fans;
+    // Reach follows how big a name it is at its own level.
+    let level_reach = match p.division {
+        Division::FBS => 1.0,
+        Division::FCS => 0.55,
+        Division::D2 => 0.3,
+        Division::JUCO => 0.6,
+    };
+    let rel = p.prestige_rel;
+    let reach_miles = 150.0 + 1100.0 * level_reach * rel * rel + 250.0 * p.fans;
     for s in 0..51 {
         let d = geo::miles(p.state, s);
         let local = (1.0 - d / reach_miles).max(0.0);
-        let national = 0.35 * p.prestige.powi(2);
+        let national = 0.35 * level_reach * rel.powi(3);
         p.footprint[s] = clamp(local.max(national) + 0.6 * p.pipeline[s], 0.0, 1.0);
     }
 }

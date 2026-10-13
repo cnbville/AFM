@@ -264,11 +264,11 @@ pub fn generate_coach(id: usize, name: String, tier: CoachTier, age: u32, rng: &
 impl Coach {
     /// Development quality he gives one position group, 1-20, as a head coach
     /// who also teaches it himself (high school) or with coordinators.
-    pub fn teaching(&self, g: Group) -> f64 {
+    pub(crate) fn teaching(&self, g: Group) -> f64 {
         self.ability.teaching[g as usize]
     }
 
-    pub fn ability(&self) -> &Ability {
+    pub(crate) fn ability(&self) -> &Ability {
         &self.ability
     }
 
@@ -324,7 +324,16 @@ impl Coach {
     /// Reputation catches up with what results show over about three seasons;
     /// big results give a massive boost (Cignetti at JMU); a bad locker room
     /// and bad signings chip at it slowly. Assistants move at half speed.
-    pub fn update_reputation(&mut self, vs_expectation: f64, title: TitleKind, locker_room: f64, head: bool) {
+    /// `stage`: how big the program is at its level, 0-1. A title at a big
+    /// program moves a reputation more, and the top of the scale is hard to reach.
+    pub fn update_reputation(
+        &mut self,
+        vs_expectation: f64,
+        title: TitleKind,
+        locker_room: f64,
+        head: bool,
+        stage: f64,
+    ) {
         self.recent.push(vs_expectation);
         if self.recent.len() > 6 {
             self.recent.remove(0);
@@ -333,12 +342,15 @@ impl Coach {
         // What the results say he is.
         let shown = self.ability.head_coach_value() + 12.0 * vs_expectation;
         self.reputation += speed * 0.3 * (shown - self.reputation);
+        let headroom = ((20.0 - self.reputation) / 8.0).min(1.0);
         self.reputation += speed
+            * headroom
+            * (0.5 + 0.5 * stage.clamp(0.0, 1.0))
             * match title {
                 TitleKind::None => 0.0,
-                TitleKind::Conference => 2.5,
-                TitleKind::State => 2.5,
-                TitleKind::National => 4.5,
+                TitleKind::Conference => 3.0,
+                TitleKind::State => 3.0,
+                TitleKind::National => 5.0,
             };
         self.reputation -= speed * 0.6 * locker_room;
         self.reputation = clamp(self.reputation, 1.0, 20.0);

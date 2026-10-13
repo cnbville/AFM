@@ -47,9 +47,9 @@ fn big_results_boost_reputation_massively_and_assistants_move_slower() {
     let mut champ = base.clone();
     let mut plain = base.clone();
     let mut assistant = base.clone();
-    champ.update_reputation(0.2, TitleKind::Conference, 0.0, true);
-    plain.update_reputation(0.2, TitleKind::None, 0.0, true);
-    assistant.update_reputation(0.2, TitleKind::Conference, 0.0, false);
+    champ.update_reputation(0.2, TitleKind::Conference, 0.0, true, 0.5);
+    plain.update_reputation(0.2, TitleKind::None, 0.0, true, 0.5);
+    assistant.update_reputation(0.2, TitleKind::Conference, 0.0, false, 0.5);
     assert!(champ.reputation - plain.reputation >= 2.0);
     assert!(assistant.reputation - base.reputation < champ.reputation - base.reputation);
     // Recency bias: last season outweighs the one before.

@@ -10,7 +10,7 @@ Raw research data for section 2 (the world). The first pass came from an outside
 | `nfl_rules.json` | full | **Re-researched 2026-10-11.** 2026 cap, minimums, tags, option rules, practice squad, roster limits, calendar. |
 | `rookie_scale_2026.csv` | 257 (257) | **New.** Every 2026 pick's rookie contract. |
 | `rates.json` | most groups | **Re-researched 2026-10-11.** Draft rates by star, recruits per star, NIL, portal. JUCO and prep counts are gaps. |
-| `hs_states.csv` | 51 (51) | **Re-researched 2026-10-11.** Programs, classes, playoffs and top teams for every state and DC. Transfer rules for all 51 added 2026-10-13. |
+| `hs_states.csv` | 51 (51) | **Re-researched 2026-10-11.** Programs, classes, playoffs and top teams for every state and DC. Transfer rules for all 51 added 2026-10-13. High school NIL rules for all 51 added 2026-10-13. |
 | `talent_by_state.csv` | 51 (50 + DC) | **Re-researched 2026-10-11.** Computed from public recruiting, roster and draft datasets. Method below. |
 | `colleges.csv` | 426 (426) | **Re-researched 2026-10-11.** Real data, a source URL per figure. Gaps listed below. |
 
@@ -26,6 +26,8 @@ Gaps (exact):
 - Weaker rows (secondary source or exact length not confirmed): AL, IL, HI, ME, MT, NE, OR, PA, VT, and KS (2026 bill status unknown). TN's sit-out length isn't stated.
 - DC: `classifications`, `number_of_classes` and `playoff_format` are blank (the SI guide covers the 50 states only).
 - Playoff qualification rules (how many teams make it) are missing for most states.
+- `hs_nil_allowed`, `hs_nil_note`, `hs_nil_source_url` (added 2026-10-13): whether high school athletes may earn NIL money. Base source: the Business of College Sports tracker (updated 2025-08-27). Changes since then come from On3 (2026-05-04: "46 states plus D.C." allow it once Indiana starts in 2026-27; Alabama, Hawaii, Mississippi and Wyoming don't), WCPO (Ohio, 2025) and KWCH (Kansas, November 2025). 47 rows say yes.
+- Weaker NIL rows: AR, CO, MO and TX are "yes" only because On3's count of 46 states requires it; their exact current scope isn't confirmed (TX was limited to athletes 17+ signing with colleges; AR and MO to athletes committed in-state).
 
 **colleges.csv** (re-researched 2026-10-11, 2026 season membership)
 - Rows: 138 FBS + 128 FCS + 160 D2 = 426. FCS includes 4 schools moving up from D2 (Mercyhurst, New Haven, West Florida, West Georgia; see `notes`). FBS includes North Dakota State and Sacramento State (new in 2026).

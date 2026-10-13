@@ -378,7 +378,14 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
             Division::JUCO => 4,
         };
         // Conference champions get in first, then the best of the rest.
-        let mut ranked = members.clone();
+        // The SWAC and MEAC skip the FCS playoffs (Celebration Bowl instead).
+        let mut ranked: Vec<usize> = members
+            .iter()
+            .copied()
+            .filter(|&i| {
+                !matches!(w.programs[i].conference.as_str(), "SWAC" | "MEAC" | "Mid-Eastern_Athletic_Conference")
+            })
+            .collect();
         ranked.sort_by(|&a, &b| {
             let ka = college[a].win_pct()
                 + if college[a].conference_title { 0.15 } else { 0.0 }

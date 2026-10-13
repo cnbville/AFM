@@ -26,7 +26,8 @@ fn the_draft_comes_mostly_from_fbs() {
     let picks: Vec<_> = w.alumni.iter().filter(|a| a.pick.is_some()).collect();
     assert_eq!(picks.len(), 257 * 3);
     let share = |d: Division| {
-        picks.iter().filter(|a| w.programs[*a.colleges.last().unwrap()].division == d).count() as f64 / picks.len() as f64
+        picks.iter().filter(|a| w.programs[*a.colleges.last().unwrap()].division == d).count() as f64
+            / picks.len() as f64
     };
     assert!(share(Division::FBS) > 0.85, "FBS share {:.2}", share(Division::FBS));
     // Real FCS share is about 6%.

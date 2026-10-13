@@ -56,3 +56,20 @@ pub fn alumnus_potential(a: &crate::world::Alumnus) -> f64 {
 pub fn person_potential(p: &crate::world::Person) -> f64 {
     p.player.potential()
 }
+
+/// How visible a departed player was to recruiters as a senior (hidden in game).
+pub fn alumnus_visibility(a: &crate::world::Alumnus) -> f64 {
+    a.visibility
+}
+
+/// A coach's hidden ability.
+pub fn coach_ability(c: &crate::world::coach::Coach) -> crate::world::coach::Ability {
+    *c.ability()
+}
+
+/// A world player's hidden background and family.
+pub fn person_background(
+    p: &crate::world::Person,
+) -> (&crate::world::background::Background, &crate::world::background::Family) {
+    (&p.bg, &p.family)
+}

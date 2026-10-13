@@ -145,7 +145,8 @@ pub(crate) fn after_season(w: &mut World, r: &SeasonResults) {
                 coach.career_titles += 1;
             }
             let locker = clamp(t.incidents as f64 / t.roster.max(1) as f64 * 8.0, 0.0, 1.0);
-            coach.update_reputation(t.vs_expectation(), t.best_title(), locker, true);
+            let stage = w.high_schools[s].prestige;
+            coach.update_reputation(t.vs_expectation(), t.best_title(), locker, true, stage);
         }
     }
     for p in 0..w.programs.len() {
@@ -180,6 +181,7 @@ pub(crate) fn after_season(w: &mut World, r: &SeasonResults) {
             });
         }
         let locker = clamp(t.incidents as f64 / t.roster.max(1) as f64 * 8.0, 0.0, 1.0);
+        let stage = prog.prestige_rel;
         let staff = [(prog.head_coach, true), (prog.oc, false), (prog.dc, false)];
         for (c, head) in staff {
             let Some(c) = c else { continue };
@@ -192,7 +194,7 @@ pub(crate) fn after_season(w: &mut World, r: &SeasonResults) {
                     coach.career_titles += 1;
                 }
             }
-            coach.update_reputation(t.vs_expectation(), t.best_title(), locker, head);
+            coach.update_reputation(t.vs_expectation(), t.best_title(), locker, head, stage);
         }
     }
 }
@@ -253,9 +255,13 @@ pub(crate) fn carousel(w: &mut World) {
             Employer::Nfl(_) => (0.5, false),
         };
         let mut p_fire = clamp((badness - 0.06) * (2.0 + 4.0 * prestige), 0.0, 0.85);
-        if tenure < 2 {
-            p_fire *= 0.25;
-        }
+        // Most get three or four seasons; a few are gone after one bad stretch.
+        p_fire *= match tenure {
+            0 | 1 => 0.1,
+            2 => 0.4,
+            3 => 0.75,
+            _ => 1.0,
+        };
         if hs {
             p_fire *= 0.5;
         }
@@ -507,11 +513,19 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>) -> Vec<usiz
         }
         Employer::Nfl(_) => {}
     }
-    // Unemployed coaches still looking.
+    // Unemployed coaches still looking. A former college head coach doesn't take a high school job.
+    let hs_job = matches!(o.employer, Employer::HighSchool(_));
     let free: Vec<usize> = w
         .coaches
         .iter()
         .filter(|c| c.job.is_none() && !c.retired && c.age < 66 && !c.history.is_empty())
+        .filter(|c| {
+            !hs_job
+                || !c.history.iter().any(|s| {
+                    s.role == Role::HeadCoach
+                        && matches!(s.employer, Employer::College(p) if matches!(w.programs[p].division, Division::FBS | Division::FCS))
+                })
+        })
         .map(|c| c.id)
         .filter(|c| !moved.contains(c))
         .take(400)
@@ -578,6 +592,18 @@ pub(crate) fn update_programs(w: &mut World, r: &SeasonResults) {
             p.facilities = 0.95 * p.facilities + 0.05 * fac_target;
         }
         p.prestige = program::prestige_of(p, hc_rep, conf_strength(&p.conference));
+    }
+    for division in [Division::FBS, Division::FCS, Division::D2, Division::JUCO] {
+        let top = w.programs.iter().filter(|p| p.division == division).map(|p| p.prestige).fold(0.01, f64::max);
+        for p in w.programs.iter_mut().filter(|p| p.division == division) {
+            p.prestige_rel = p.prestige / top;
+        }
+    }
+    for i in 0..n {
+        let t = &r.college[i];
+        let win = if t.games() > 0 { t.win_pct() } else { 0.5 };
+        let hc_rep = w.programs[i].head_coach.map_or(8.0, |c| w.coaches[c].reputation);
+        let p = &mut w.programs[i];
         let picks: f64 = p
             .draft_picks
             .iter()
@@ -645,5 +671,9 @@ pub(crate) fn update_programs(w: &mut World, r: &SeasonResults) {
     for p in w.programs.iter_mut() {
         program::fade_pipelines(p, year);
         program::rebuild_footprint(p);
+        if w.recording {
+            p.grade_history.push((year, p.grades));
+            p.prestige_history.push((year, p.prestige));
+        }
     }
 }

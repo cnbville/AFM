@@ -137,7 +137,12 @@ pub fn juco_blue_chips(w: &World) {
         {
             n += 1;
             if n <= 6 {
-                println!("JUCO {}-star gpa {:.2}: {}", p.stars, p.background().gpa, p.notes.join(" | "));
+                println!(
+                    "JUCO {}-star gpa {:.2}: {}",
+                    p.stars,
+                    afm_engine::debug::person_background(p).0.gpa,
+                    p.notes.join(" | ")
+                );
             }
         }
     }

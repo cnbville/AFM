@@ -90,7 +90,7 @@ pub struct Person {
     pub player: Player,
     pub(crate) rng: Rng,
     pub(crate) bg: Background,
-    pub family: Family,
+    pub(crate) family: Family,
     pub home_state: usize,
     pub hs: usize,
     pub stage: Stage,
@@ -112,6 +112,8 @@ pub struct Person {
     pub last_performance: Option<f64>,
     pub transfers: u32,
     pub juco: bool,
+    /// Every college he played for, in order.
+    pub path: Vec<usize>,
     /// A dismissal or suspension at his current school.
     pub on_notice: bool,
     /// Off-field incidents this season (for the locker room).
@@ -123,9 +125,10 @@ impl Person {
     pub fn note(&mut self, s: impl Into<String>) {
         self.notes.push(s.into());
     }
-    /// Background, for trial and debug tooling.
-    pub fn background(&self) -> &Background {
-        &self.bg
+    /// What a scout with judging skill `accuracy` (1-20) learns about his
+    /// background and family: the only view of them the game gets (1.7).
+    pub fn character_report(&mut self, accuracy: f64) -> Vec<String> {
+        background::character_report(&self.player, &self.bg, &self.family, accuracy, &mut self.rng)
     }
     pub fn level(&self, programs: &[Program]) -> Level {
         match (self.stage, self.college) {
@@ -143,7 +146,8 @@ pub fn division_level(d: Division) -> Level {
     }
 }
 
-/// A player who left for the pros, kept for history and pipelines.
+/// A player who left the world: drafted, undrafted, or a blue-chip who left
+/// football. Kept for history, pipelines and trials.
 #[derive(Clone, Debug)]
 pub struct Alumnus {
     pub name: String,
@@ -158,8 +162,50 @@ pub struct Alumnus {
     pub overall: f64,
     pub(crate) potential: f64,
     pub juco: bool,
+    pub left_football: bool,
+    /// His high school class (year of his last high school spring).
+    pub class_of: i32,
+    pub(crate) visibility: f64,
+    pub steered: bool,
     pub background_summary: String,
     pub notes: Vec<String>,
+}
+
+impl Alumnus {
+    pub(crate) fn from_person(p: &Person, year: i32, pick: Option<u32>, left_football: bool) -> Alumnus {
+        let bg = &p.bg;
+        let background_summary = format!(
+            "{}; money {:.2}, safety {:.2}, home stability {:.2}, school resources {:.2}, GPA {:.1}, mental stability {:.0}, grit {:.0}, mentor {}",
+            p.family.structure.phrase(),
+            bg.money,
+            bg.safety,
+            bg.home_stability,
+            bg.school_resources,
+            bg.gpa,
+            bg.stability,
+            bg.grit,
+            if bg.mentor { "yes" } else { "no" }
+        );
+        Alumnus {
+            name: p.name.clone(),
+            home_state: p.home_state,
+            high_school: p.hs,
+            colleges: p.path.clone(),
+            stars: p.stars,
+            year,
+            pick,
+            position: p.player.position,
+            overall: p.player.overall(),
+            potential: p.player.potential(),
+            juco: p.juco,
+            left_football,
+            class_of: p.class_of,
+            visibility: p.visibility,
+            steered: p.notes.iter().any(|n| n.contains("more than his own")),
+            background_summary,
+            notes: p.notes.clone(),
+        }
+    }
 }
 
 pub struct World {
@@ -175,6 +221,8 @@ pub struct World {
     pub news: Vec<NewsItem>,
     /// Star counts per signing class (index = stars), for calibration.
     pub signing_classes: Vec<(i32, [u32; 6])>,
+    /// High school players signed by FBS programs per home state, over recorded history.
+    pub fbs_signees_by_state: [u32; 51],
     pub(crate) rng: Rng,
     /// False during the spin-up before recorded history, while rosters fill.
     pub(crate) recording: bool,
@@ -189,8 +237,6 @@ impl World {
     /// `options.start_year`.
     pub fn new(options: WorldOptions) -> World {
         let mut w = World::empty(options);
-        let total = w.options.history_years as i32 + SPIN_UP_YEARS as i32;
-        w.year = w.options.start_year - total;
         // Older high school classes already in school when the clock starts.
         for age in [17, 16, 15] {
             w.add_class_aged(age);
@@ -199,6 +245,9 @@ impl World {
             w.advance_year();
         }
         w.recording = true;
+        for p in w.programs.iter_mut() {
+            p.prestige_start = p.prestige;
+        }
         for _ in 0..w.options.history_years {
             w.advance_year();
         }
@@ -246,9 +295,10 @@ impl World {
             info.culture = culture_shift(row.fbs_signees_per_year / total_signees, info.class_share);
             info.schools = ids;
         }
+        let year = options.start_year - options.history_years as i32 - SPIN_UP_YEARS as i32;
         let mut w = World {
             options,
-            year: 0,
+            year,
             states: infos,
             high_schools,
             programs,
@@ -257,11 +307,18 @@ impl World {
             alumni: Vec::new(),
             news: Vec::new(),
             signing_classes: Vec::new(),
+            fbs_signees_by_state: [0; 51],
             rng,
             recording: false,
             next_person: 1,
         };
         staff::staff_everyone(&mut w);
+        for d in [Division::FBS, Division::FCS, Division::D2, Division::JUCO] {
+            let top = w.programs.iter().filter(|p| p.division == d).map(|p| p.prestige).fold(0.01, f64::max);
+            for p in w.programs.iter_mut().filter(|p| p.division == d) {
+                p.prestige_rel = p.prestige / top;
+            }
+        }
         for p in w.programs.iter_mut() {
             program::rebuild_footprint(p);
         }
@@ -400,6 +457,7 @@ impl World {
                     last_performance: None,
                     transfers: 0,
                     juco: false,
+                    path: Vec::new(),
                     on_notice: false,
                     incident: false,
                     notes: Vec::new(),
@@ -452,6 +510,17 @@ impl World {
 
     /// Drops everyone who left football or turned pro (pros are archived).
     fn compact(&mut self) {
+        // Blue-chips who left football stay on record: busts are part of history.
+        if self.recording {
+            let year = self.year + 1;
+            let gone: Vec<Alumnus> = self
+                .people
+                .iter()
+                .filter(|p| p.stage == Stage::Done && p.stars >= 4)
+                .map(|p| Alumnus::from_person(p, year, None, true))
+                .collect();
+            self.alumni.extend(gone);
+        }
         self.people.retain(|p| matches!(p.stage, Stage::HighSchool | Stage::College | Stage::PrepSchool));
     }
 

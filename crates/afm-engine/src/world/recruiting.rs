@@ -314,7 +314,8 @@ pub(crate) fn college_exits(w: &mut World, _r: &SeasonResults) {
             .sum();
         let score =
             rep.overall + (0.25 + 0.2 * youth) * (rep.potential - rep.overall) - competition_discount(division) - flags
-                + 0.5 * position_value(p.player.position);
+                + 0.5 * position_value(p.player.position)
+                - if matches!(p.player.position, Position::K | Position::P) { 10.0 } else { 0.0 };
         let exhausted = p.college_seasons >= 4 || years >= 5;
         entrants.push((i, if exhausted { score } else { f64::NAN }));
         if !exhausted {
@@ -379,33 +380,8 @@ pub(crate) fn college_exits(w: &mut World, _r: &SeasonResults) {
             _ => p.note(format!("Signed as an undrafted free agent out of {school} at {age}.")),
         }
         if w.recording {
-            let colleges = vec![c];
-            let bg = &p.bg;
-            let summary = format!(
-                "{}; money {:.2}, safety {:.2}, home {:.2}, school resources {:.2}, GPA {:.1}, stability {:.0}",
-                p.family.structure.phrase(),
-                bg.money,
-                bg.safety,
-                bg.home_stability,
-                bg.school_resources,
-                bg.gpa,
-                bg.stability
-            );
-            w.alumni.push(Alumnus {
-                name: p.name.clone(),
-                home_state: p.home_state,
-                high_school: p.hs,
-                colleges,
-                stars: p.stars,
-                year: draft_year,
-                pick,
-                position: p.player.position,
-                overall: p.player.overall(),
-                potential: p.player.potential(),
-                juco: p.juco,
-                background_summary: summary,
-                notes: p.notes.clone(),
-            });
+            let a = Alumnus::from_person(p, draft_year, pick, false);
+            w.alumni.push(a);
         }
     }
     // Exhausted players who didn't make a board leave football.
@@ -485,7 +461,11 @@ fn utility(p: &Person, wants: &super::background::Wants, prog: &Program, nil_off
     let playing = g(GradeCat::PlayingTime) * (0.6 + 0.4 * eval_rank);
     let academics = g(GradeCat::Academics) * (0.5 + 0.5 * clamp((p.bg.gpa - 2.5) / 1.5, 0.0, 1.0));
     let development = (g(GradeCat::ProPipeline) + g(GradeCat::CoachPrestige)) / 2.0;
+    // Every recruit wants the biggest name he can get at a level; how much
+    // more depends on what he (or his decider) wants.
     let mut u = 1.6 * level_value(prog.division) * (0.5 + wants.prestige + wants.development)
+        + (0.25 + wants.prestige) * prog.prestige_rel * (0.4 + 0.6 * level_value(prog.division))
+        + 0.1 * g(GradeCat::Facilities)
         + wants.prestige * prestige
         + wants.money * money * 1.5
         + close_w * close
@@ -819,8 +799,11 @@ pub(crate) fn signing_day(w: &mut World) {
                     let own = p.family.own_wants;
                     let mine = utility(p, &own, &w.programs[j], 1e5, 0.5);
                     // His own favorite among the programs that wanted him.
-                    offers[k].iter().any(|&jj| jj != j && utility(p, &own, &w.programs[jj], 1e5, 0.5) > mine + 0.12)
+                    offers[k].iter().any(|&jj| jj != j && utility(p, &own, &w.programs[jj], 1e5, 0.5) > mine + 0.06)
                 };
+                if w.recording && !r.juco_mover && division == Division::FBS {
+                    w.fbs_signees_by_state[w.people[i].home_state] += 1;
+                }
                 let p = &mut w.people[i];
                 let step = match (r.juco_mover, division) {
                     (true, Division::JUCO) => Step::Sideways,
@@ -858,6 +841,7 @@ pub(crate) fn signing_day(w: &mut World) {
                 }
                 p.stage = Stage::College;
                 p.college = Some(j);
+                p.path.push(j);
                 p.on_notice = false;
             }
             None => {
@@ -940,6 +924,7 @@ pub(crate) fn portal(w: &mut World, _r: &SeasonResults) {
         Money,
     }
     let mut entrants: Vec<(usize, Why)> = Vec::new();
+    let mut steered_stays: Vec<usize> = Vec::new();
     for i in 0..n {
         let p = &w.people[i];
         if p.stage != Stage::College {
@@ -967,15 +952,19 @@ pub(crate) fn portal(w: &mut World, _r: &SeasonResults) {
             && perf >= median(up, pos) + 1.0
         {
             let tampered = w.programs[c].collective.budget < 2.0e6;
-            let chance = PIPELINE.transfer_chance * if tampered { 1.8 } else { 1.0 };
+            let chance = PIPELINE.transfer_chance * if tampered { 1.6 } else { 1.0 };
             if u < chance {
                 entrants.push((i, Why::MoveUp));
                 continue;
             }
         }
-        if p.steered && p.player.age >= 18 && u < 0.45 {
-            entrants.push((i, Why::Steered));
-            continue;
+        // A kid steered to the wrong school decides once, after his first year, whether to leave.
+        if p.steered && p.player.age >= 18 {
+            if u < 0.45 {
+                entrants.push((i, Why::Steered));
+                continue;
+            }
+            steered_stays.push(i);
         }
         let base = match p.last_role {
             Some(PlayingTime::Backup) => PIPELINE.portal_entry.backup,
@@ -1000,6 +989,9 @@ pub(crate) fn portal(w: &mut World, _r: &SeasonResults) {
         }
     }
 
+    for i in steered_stays {
+        w.people[i].steered = false;
+    }
     // Each entrant shops among programs that would take him.
     w.rebuild_rosters();
     let mut adds = vec![0usize; w.programs.len()];
@@ -1067,6 +1059,7 @@ pub(crate) fn portal(w: &mut World, _r: &SeasonResults) {
         let p = &mut w.people[i];
         p.pending_dip = Some(World::adjustment(p, step));
         p.college = Some(j);
+        p.path.push(j);
         p.transfers += 1;
         p.steered = false;
         p.on_notice = false;
