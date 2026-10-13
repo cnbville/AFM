@@ -60,6 +60,10 @@ Everything below that Raichel has not answered is marked **proposed, not confirm
 - Head coaches from FBS or FCS don't drop to high school jobs.
 - 4% of recruits follow an older brother to his school.
 - Placeholder JUCO programs in 12 states.
+- A junior college makes at most 15 out-of-state offers a year (Mississippi and Kansas JUCO leagues cap out-of-state players; the exact number is a guess).
+- No athletic scholarships: Pioneer League schools cost the family tuition, the Ivy League gives need-based aid only. Both lower a recruit's interest.
+- After three seasons, a head coach under .400 over two years is much more likely to be fired, whatever the roster he inherited.
+- Game stand-in: a college team 5 rating points better wins about 4 games in 5.
 
 ## Open
 
