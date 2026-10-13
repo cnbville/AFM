@@ -208,6 +208,50 @@ pub struct Player {
     /// Every position he has been placed at, with his age then (topic 5.2).
     pub position_history: Vec<(u32, Position)>,
     pub history: Vec<SeasonRecord>,
+    /// Hidden game-day traits for the match engine (section 3).
+    pub game: GameTraits,
+}
+
+/// Hidden game-day traits on Football Manager's 1-20 scale (section 3). They
+/// come from the player's own id stream, so adding them changed no other draw.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GameTraits {
+    /// Avoids penalties: holding when beaten, jumping early, late hits.
+    pub discipline: f64,
+    /// Plays through pain, and takes hits without going down early.
+    pub toughness: f64,
+    /// How steady his play is from snap to snap.
+    pub consistency: f64,
+    /// Keeps chasing the play when it seems over (work rate on the field).
+    pub motor: f64,
+    /// Composure under pressure: big moments and short memory after a mistake.
+    /// The biggest gift a kicker or punter has (topic 7).
+    pub composure: f64,
+    /// Long snapping for punts and kicks (topic 7).
+    pub snapping: f64,
+    /// Kicking accuracy split (topic 7): points added to kick accuracy inside
+    /// 40 yards and from 40 and out. One kicker is lethal short, another long.
+    pub kick_short: f64,
+    pub kick_long: f64,
+}
+
+impl GameTraits {
+    pub fn for_id(id: u32) -> GameTraits {
+        let mut r = Rng::new(id ^ 0x6A4D_E5A1);
+        let mut t = || clamp(round_half_up(r.normal(10.0, 3.5)), 1.0, 20.0);
+        let (discipline, toughness, consistency, motor, composure, snapping) = (t(), t(), t(), t(), t(), t());
+        let split = r.normal(0.0, 5.0);
+        GameTraits {
+            discipline,
+            toughness,
+            consistency,
+            motor,
+            composure,
+            snapping,
+            kick_short: split + r.normal(0.0, 2.0),
+            kick_long: -split + r.normal(0.0, 2.0),
+        }
+    }
 }
 
 impl Player {
@@ -326,5 +370,6 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
         body,
         position_history: vec![(age, position)],
         history: Vec::new(),
+        game: GameTraits::for_id(id),
     }
 }

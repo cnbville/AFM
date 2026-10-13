@@ -1,0 +1,1250 @@
+//! The tracked play simulation (topics 1 and 2). Every player is an agent
+//! with a position and velocity updated ten times a second. Movement is
+//! physics (top speed, acceleration, cutting), each player only reacts to
+//! what he can see, blocks are running battles, and tackles are fights
+//! that play out step by step.
+
+use super::geom::{DT, MID, V2, WIDTH, v2};
+use super::roster::GamePlayer;
+use crate::attributes::Attr;
+use crate::rng::{Rng, clamp};
+
+/// Weather and setting for one game (topic 4).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Conditions {
+    /// Degrees Fahrenheit.
+    pub temperature: f64,
+    /// Miles per hour, and the direction it blows toward along the field
+    /// (+1 toward the end zone the home team defends in the first quarter).
+    pub wind: f64,
+    pub wind_along: f64,
+    pub rain: bool,
+    pub snow: bool,
+    /// Feet above sea level.
+    pub altitude: f64,
+    pub turf: bool,
+    /// 0-1: how loud the home crowd is.
+    pub crowd: f64,
+}
+
+impl Default for Conditions {
+    fn default() -> Self {
+        Conditions {
+            temperature: 60.0,
+            wind: 5.0,
+            wind_along: 0.0,
+            rain: false,
+            snow: false,
+            altitude: 500.0,
+            turf: false,
+            crowd: 0.6,
+        }
+    }
+}
+
+/// An officiating crew's tendencies (topic 4): multipliers on how often
+/// each kind of foul is called when it happens.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Crew {
+    pub holding: f64,
+    pub pass_interference: f64,
+    pub pre_snap: f64,
+    pub personal: f64,
+}
+
+impl Crew {
+    pub fn draw(rng: &mut Rng) -> Crew {
+        let mut m = || clamp(rng.normal(1.0, 0.15), 0.6, 1.5);
+        Crew { holding: m(), pass_interference: m(), pre_snap: m(), personal: m() }
+    }
+}
+
+/// What a player is doing on this snap.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Job {
+    Idle,
+    /// Quarterback with the ball on a pass play.
+    Passer,
+    /// Pass protection on a rusher, or the next free one.
+    PassBlock { target: Option<usize> },
+    /// Run block a defender, or climb to the second level.
+    RunBlock { target: Option<usize>, pull: bool },
+    /// Running a route: waypoints, next waypoint, whether he settles.
+    Route { pts: Vec<V2>, next: usize, settle: bool, name: &'static str, release_delay: f64 },
+    /// A back taking a handoff: where he aims.
+    Handoff { aim: V2, mesh: V2, at: f64 },
+    /// Quarterback carrying out a run fake.
+    Fake { to: V2 },
+    /// Has the ball.
+    Carrier,
+    /// Rushing the passer through a lane, keeping contain on his side.
+    Rush { lane: f64, contain: f64, mv: Move },
+    /// Playing a run gap (y at the line).
+    Gap { y: f64 },
+    /// Man coverage on a receiver.
+    Man { target: usize, cushion: f64, lag: f64 },
+    /// Zone: a landmark and how deep the zone is.
+    Zone { spot: V2, deep: bool, width: f64 },
+    /// Chasing the ball.
+    Pursue,
+    /// Blocking for a ball carrier (returns, after a catch, after a turnover).
+    Escort,
+    /// Down and out of the play.
+    Out,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Move {
+    Speed,
+    Power,
+    Finesse,
+}
+
+impl Move {
+    pub fn name(self) -> &'static str {
+        ["speed rush", "bull rush", "spin move"][self as usize]
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Agent {
+    /// 0: the team snapping or kicking, 1: the other team.
+    pub side: usize,
+    /// Index into that team's players.
+    pub p: usize,
+    pub id: u32,
+    pub label: &'static str,
+    pub pos: V2,
+    pub vel: V2,
+    pub face: V2,
+    pub vmax: f64,
+    pub accel: f64,
+    pub cut: f64,
+    pub mass: f64,
+    pub job: Job,
+    /// On the ground until this time.
+    pub down_until: f64,
+    pub engaged: Option<usize>,
+    /// Effort spent this play, for fatigue.
+    pub work: f64,
+    /// When he knows what the play is (run or pass).
+    pub read_at: f64,
+    /// When he reacts to a thrown ball.
+    pub ball_react: f64,
+    /// He keeps his eyes where he chose (a backpedal facing the quarterback)
+    /// until this time, whatever way he moves.
+    pub face_lock: f64,
+    /// A blown assignment this snap (topic 3).
+    pub bust: bool,
+    /// Last tackle attempt time on the current carrier.
+    pub last_try: f64,
+    /// Top speed reached this play, yards per second.
+    pub top: f64,
+    /// Ratings with fatigue, injury and momentum in.
+    pub r: [f64; 25],
+}
+
+impl Agent {
+    pub fn new(side: usize, p: usize, gp: &GamePlayer, label: &'static str, pos: V2, energy: f64, edge: f64) -> Agent {
+        // Fatigue lowers speed, strength and sharpness (topic 2).
+        let tired = 1.0 - energy;
+        let mut r = [0.0; 25];
+        for (i, v) in gp.attrs.0.iter().copied().enumerate() {
+            let fat = match i {
+                0..=2 => 1.0 - 0.10 * tired,
+                3 => 1.0 - 0.12 * tired,
+                21..=24 => 1.0 - 0.08 * tired,
+                _ => 1.0 - 0.06 * tired,
+            };
+            r[i] = clamp(v * fat + edge, 1.0, 99.0);
+        }
+        let vmax = gp.top_speed() * (1.0 - 0.08 * tired);
+        Agent {
+            side,
+            p,
+            id: gp.id,
+            label,
+            pos,
+            vel: V2::default(),
+            face: v2(if side == 0 { 1.0 } else { -1.0 }, 0.0),
+            vmax,
+            accel: gp.accel() * (1.0 - 0.1 * tired),
+            cut: gp.cut(),
+            mass: gp.weight,
+            job: Job::Idle,
+            down_until: -1.0,
+            engaged: None,
+            work: 0.0,
+            read_at: 0.5,
+            ball_react: f64::INFINITY,
+            face_lock: 0.0,
+            bust: false,
+            last_try: -9.0,
+            top: 0.0,
+            r,
+        }
+    }
+    #[inline]
+    pub fn a(&self, a: Attr) -> f64 {
+        self.r[a.index()]
+    }
+    #[inline]
+    pub fn up(&self, t: f64) -> bool {
+        t >= self.down_until && self.job != Job::Out
+    }
+}
+
+/// A block in progress (topic 1): `w` runs from -1 (the blocker has won:
+/// driven, sealed or stoned) to +1 (the defender has shed him).
+#[derive(Clone, Debug)]
+pub struct Engagement {
+    pub blocker: usize,
+    pub defender: usize,
+    pub helper: Option<usize>,
+    pub w: f64,
+    pub start: f64,
+    pub pass: bool,
+    pub mv: Move,
+    pub over: bool,
+    /// The blocker grabbed him when beaten (a hold, called or not).
+    pub held: bool,
+    /// He already had his one moment to grab when first beaten.
+    pub grab_checked: bool,
+    pub shed_at: Option<f64>,
+}
+
+/// A foul during the play.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Foul {
+    pub kind: FoulKind,
+    pub side: usize,
+    pub player: u32,
+    /// Where it happened (x), for spot fouls.
+    pub at: f64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum FoulKind {
+    OffensiveHolding,
+    DefensiveHolding,
+    PassInterference,
+    OffensivePassInterference,
+    RoughingPasser,
+    UnnecessaryRoughness,
+    FaceMask,
+    IllegalBlock,
+    FalseStart,
+    Offside,
+    DelayOfGame,
+    IllegalFormation,
+    IntentionalGrounding,
+}
+
+impl FoulKind {
+    pub fn name(self) -> &'static str {
+        match self {
+            FoulKind::OffensiveHolding => "offensive holding",
+            FoulKind::DefensiveHolding => "defensive holding",
+            FoulKind::PassInterference => "pass interference",
+            FoulKind::OffensivePassInterference => "offensive pass interference",
+            FoulKind::RoughingPasser => "roughing the passer",
+            FoulKind::UnnecessaryRoughness => "unnecessary roughness",
+            FoulKind::FaceMask => "face mask",
+            FoulKind::IllegalBlock => "illegal block in the back",
+            FoulKind::FalseStart => "false start",
+            FoulKind::Offside => "offside",
+            FoulKind::DelayOfGame => "delay of game",
+            FoulKind::IllegalFormation => "illegal formation",
+            FoulKind::IntentionalGrounding => "intentional grounding",
+        }
+    }
+    /// Yards, and whether it is an automatic first down for the offense.
+    pub fn yards(self) -> (f64, bool) {
+        match self {
+            FoulKind::OffensiveHolding | FoulKind::IllegalBlock | FoulKind::OffensivePassInterference => (10.0, false),
+            FoulKind::DefensiveHolding => (5.0, true),
+            FoulKind::PassInterference => (15.0, true),
+            FoulKind::RoughingPasser | FoulKind::UnnecessaryRoughness | FoulKind::FaceMask => (15.0, true),
+            FoulKind::FalseStart | FoulKind::Offside | FoulKind::DelayOfGame | FoulKind::IllegalFormation => (5.0, false),
+            FoulKind::IntentionalGrounding => (10.0, false),
+        }
+    }
+}
+
+/// An injury on a play (topic 6).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Injury {
+    pub side: usize,
+    pub p: usize,
+    pub id: u32,
+    pub kind: InjuryKind,
+    /// Weeks he will miss.
+    pub weeks: f64,
+    /// Whether he plays on hurt (his toughness, the stakes, his coach).
+    pub plays_on: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum InjuryKind {
+    Bruise,
+    AnkleSprain,
+    HighAnkleSprain,
+    Hamstring,
+    Knee,
+    Acl,
+    Shoulder,
+    Concussion,
+    Ribs,
+    Hand,
+    Fracture,
+    Back,
+}
+
+impl InjuryKind {
+    pub fn name(self) -> &'static str {
+        match self {
+            InjuryKind::Bruise => "bruise",
+            InjuryKind::AnkleSprain => "ankle sprain",
+            InjuryKind::HighAnkleSprain => "high ankle sprain",
+            InjuryKind::Hamstring => "hamstring strain",
+            InjuryKind::Knee => "knee sprain",
+            InjuryKind::Acl => "torn ACL",
+            InjuryKind::Shoulder => "shoulder injury",
+            InjuryKind::Concussion => "concussion",
+            InjuryKind::Ribs => "rib injury",
+            InjuryKind::Hand => "hand injury",
+            InjuryKind::Fracture => "broken bone",
+            InjuryKind::Back => "back injury",
+        }
+    }
+    /// The attributes it costs while he plays through it, as a share.
+    pub fn hampers(self) -> &'static [(Attr, f64)] {
+        match self {
+            InjuryKind::AnkleSprain | InjuryKind::HighAnkleSprain => {
+                &[(Attr::Speed, 0.08), (Attr::Agility, 0.12), (Attr::Acceleration, 0.08)]
+            }
+            InjuryKind::Hamstring => &[(Attr::Speed, 0.10), (Attr::Acceleration, 0.10)],
+            InjuryKind::Knee => &[(Attr::Agility, 0.10), (Attr::Speed, 0.06)],
+            InjuryKind::Shoulder => &[(Attr::Tackling, 0.10), (Attr::RunBlocking, 0.08), (Attr::ThrowPower, 0.10)],
+            InjuryKind::Ribs => &[(Attr::Strength, 0.06), (Attr::Carrying, 0.08)],
+            InjuryKind::Hand => &[(Attr::Catching, 0.10), (Attr::Carrying, 0.08), (Attr::ThrowAccuracy, 0.08)],
+            InjuryKind::Back => &[(Attr::Strength, 0.08), (Attr::Agility, 0.06)],
+            _ => &[(Attr::Speed, 0.03)],
+        }
+    }
+}
+
+/// What the sim records on a play, for stats, grades and the why.
+#[derive(Clone, Debug, Default)]
+pub struct Notes {
+    pub pressures: Vec<(u32, f64)>,
+    pub hits: Vec<u32>,
+    pub sackers: Vec<u32>,
+    pub tacklers: Vec<u32>,
+    pub missed: Vec<(u32, u32)>,
+    pub first_contact: Option<f64>,
+    pub forced_fumble: Option<u32>,
+    pub fumbled: Option<u32>,
+    pub recovered: Option<(usize, u32)>,
+    /// Blocks: (blocker, defender, pass, won, time held, gave up pressure).
+    pub blocks: Vec<(u32, u32, bool, bool, f64, bool)>,
+    /// Rush wins inside 2.5 s, with the move.
+    pub rush_wins: Vec<(u32, Move, f64)>,
+    pub busts: Vec<u32>,
+    pub freelance: Vec<(u32, bool)>,
+    pub fouls: Vec<Foul>,
+    pub injuries: Vec<Injury>,
+    pub top_speed: Vec<(u32, f64)>,
+    pub why: Vec<String>,
+}
+
+/// One frame of tracking for the 2D view (topic 9.3): every player and the ball.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Frame {
+    pub t: f64,
+    pub ball: V2,
+    pub players: Vec<(u32, f32, f32)>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Ball {
+    /// Held by an agent.
+    Held(usize),
+    /// In the air from a throw or kick.
+    Air { from: V2, to: V2, release: f64, arrive: f64, target: Option<usize>, height: f64 },
+    Loose(V2),
+    Dead(V2),
+}
+
+/// A play in progress.
+pub struct Sim<'a> {
+    pub teams: [&'a [GamePlayer]; 2],
+    pub agents: Vec<Agent>,
+    pub eng: Vec<Engagement>,
+    pub ball: Ball,
+    pub t: f64,
+    pub los: f64,
+    pub rng: &'a mut Rng,
+    pub notes: Notes,
+    pub record: Option<Vec<Frame>>,
+    pub cond: Conditions,
+    pub crew: Crew,
+    /// Direction the carrier's team is going (+1 the snapping team, -1 after a turnover).
+    pub goal: f64,
+    pub carrier_side: usize,
+    pub dead: bool,
+    pub out_of_bounds: bool,
+    /// Farthest forward spot of the ball carrier (forward progress).
+    pub progress: f64,
+    pub contact_force: f64,
+    pub injury_scale: f64,
+    pub down_on_fall: bool,
+    /// Who tackled in the current fight.
+    pub fight: Vec<usize>,
+    pub fight_since: f64,
+}
+
+/// Print plays as they run (debug tooling only).
+pub static TRACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Normal draw.
+#[inline]
+pub fn gauss(rng: &mut Rng) -> f64 {
+    rng.normal(0.0, 1.0)
+}
+
+impl<'a> Sim<'a> {
+    pub fn player(&self, i: usize) -> &GamePlayer {
+        let a = &self.agents[i];
+        &self.teams[a.side][a.p]
+    }
+
+    pub fn carrier(&self) -> Option<usize> {
+        match self.ball {
+            Ball::Held(i) => Some(i),
+            _ => None,
+        }
+    }
+
+    pub fn ball_pos(&self) -> V2 {
+        match self.ball {
+            Ball::Held(i) => self.agents[i].pos,
+            Ball::Air { from, to, release, arrive, .. } => {
+                let k = clamp((self.t - release) / (arrive - release).max(0.01), 0.0, 1.0);
+                from + (to - from).scale(k)
+            }
+            Ball::Loose(p) | Ball::Dead(p) => p,
+        }
+    }
+
+    /// Can `i` see point `p`? A cone of about 140 degrees in front, with
+    /// peripheral vision widened by play recognition (topic 2.1); anything
+    /// within two yards is felt.
+    pub fn sees(&self, i: usize, p: V2) -> bool {
+        let a = &self.agents[i];
+        let d = p - a.pos;
+        if d.len() < 2.0 {
+            return true;
+        }
+        let ang = a.face.angle_between(d);
+        let half = 1.2 + 0.006 * (a.a(Attr::PlayRecognition) - 50.0);
+        ang < half
+    }
+
+    /// Closest distance between two agents over the last tick, so players
+    /// closing fast can't pass through each other between two samples.
+    pub fn closest(&self, i: usize, j: usize) -> f64 {
+        let rel = self.agents[i].pos - self.agents[j].pos;
+        let rv = (self.agents[i].vel - self.agents[j].vel).scale(DT);
+        let back = if rv.len() > 1e-6 { clamp(rel.dot(rv) / rv.dot(rv), 0.0, 1.0) } else { 0.0 };
+        (rel - rv.scale(back)).len()
+    }
+
+    /// Steer an agent toward a velocity within his physical limits (topic 2):
+    /// speeding up is slower near top speed, braking is quicker, and
+    /// cutting spends acceleration sideways, more for stiff players.
+    pub fn steer(&mut self, i: usize, want: V2) {
+        let a = &mut self.agents[i];
+        let v = a.vel;
+        let speed = v.len();
+        let mut want = want;
+        let wl = want.len();
+        if wl > a.vmax {
+            want = want.scale(a.vmax / wl);
+        }
+        let dv = want - v;
+        let dir = if speed > 0.3 { v.scale(1.0 / speed) } else { dv.norm() };
+        let par = dv.dot(dir);
+        let perp = dv - dir.scale(par);
+        let up = a.accel * (1.0 - 0.55 * speed / a.vmax).max(0.2) * DT;
+        let down = a.accel * 1.9 * DT;
+        let par_c = par.clamp(-down, up);
+        let pl = perp.len();
+        let side = a.accel * a.cut * DT * (1.0 + 0.25 * (1.0 - speed / a.vmax));
+        let perp_c = if pl > side { perp.scale(side / pl) } else { perp };
+        a.vel = v + dir.scale(par_c) + perp_c;
+        let s = a.vel.len();
+        if s > a.vmax {
+            a.vel = a.vel.scale(a.vmax / s);
+        }
+        a.work += DT * (0.2 + 0.8 * s / 9.0);
+        if s > a.top {
+            a.top = s;
+        }
+    }
+
+    /// Head for a point at full speed, easing in to stop on it.
+    pub fn go_to(&mut self, i: usize, target: V2, urgency: f64) {
+        let a = &self.agents[i];
+        let d = target - a.pos;
+        let dist = d.len();
+        let speed = (a.vmax * urgency).min(dist * 2.2);
+        self.steer(i, d.norm().scale(speed));
+    }
+
+    pub fn advance(&mut self) {
+        let t = self.t;
+        for i in 0..self.agents.len() {
+            let a = &mut self.agents[i];
+            if t < a.down_until {
+                a.vel = a.vel.scale(0.5);
+            }
+            a.pos = a.pos + a.vel.scale(DT);
+            if a.vel.len() > 1.0 && t >= a.face_lock {
+                a.face = a.vel.norm();
+            }
+        }
+        // Bodies don't pass through each other: free players slide around
+        // engaged pairs and teammates.
+        let n = self.agents.len();
+        for i in 0..n {
+            if self.agents[i].engaged.is_some() || !self.agents[i].up(t) {
+                continue;
+            }
+            let mut push = V2::default();
+            for j in 0..n {
+                if i == j {
+                    continue;
+                }
+                let d = self.agents[i].pos - self.agents[j].pos;
+                let l = d.len();
+                let obstacle = self.agents[j].engaged.is_some() || self.agents[j].side == self.agents[i].side;
+                if l < 0.8 && l > 1e-6 && obstacle && Some(j) != self.carrier() && Some(i) != self.carrier() {
+                    push = push + d.scale((0.8 - l) / l * 0.5);
+                }
+            }
+            self.agents[i].pos = self.agents[i].pos + push;
+        }
+    }
+
+    // ---------------------------------------------------------------- blocks
+
+    /// Start a block.
+    pub fn engage(&mut self, b: usize, d: usize, pass: bool) {
+        if self.agents[d].engaged.is_some() {
+            // Help on a block already going: a double team.
+            let k = self.agents[d].engaged.unwrap();
+            if self.eng[k].helper.is_none() && self.eng[k].blocker != b {
+                self.eng[k].helper = Some(b);
+                self.agents[b].engaged = Some(k);
+            }
+            return;
+        }
+        let mv = if pass { self.pick_move(b, d) } else { Move::Power };
+        let (bl, de) = (&self.agents[b], &self.agents[d]);
+        // Get-off against the set: the first step decides a lot.
+        let get_off = de.a(Attr::Acceleration) * 0.6 + de.a(Attr::Awareness) * 0.4;
+        let set = if pass {
+            bl.a(Attr::PassBlocking) * 0.5 + bl.a(Attr::Agility) * 0.3 + bl.a(Attr::Awareness) * 0.2
+        } else {
+            bl.a(Attr::RunBlocking) * 0.5 + bl.a(Attr::Acceleration) * 0.3 + bl.a(Attr::Strength) * 0.2
+        };
+        let w0 = if pass { -0.42 } else { -0.05 } + 0.006 * (get_off - set) + 0.18 * gauss(self.rng);
+        let k = self.eng.len();
+        self.eng.push(Engagement {
+            blocker: b,
+            defender: d,
+            helper: None,
+            w: w0,
+            start: self.t,
+            pass,
+            mv,
+            over: false,
+            held: false,
+            grab_checked: false,
+            shed_at: None,
+        });
+        self.agents[b].engaged = Some(k);
+        self.agents[d].engaged = Some(k);
+    }
+
+    fn pick_move(&mut self, b: usize, d: usize) -> Move {
+        let mut best = (Move::Speed, f64::NEG_INFINITY);
+        for mv in [Move::Speed, Move::Power, Move::Finesse] {
+            let edge = self.rush_power(d, mv) - self.block_power(b, mv, true);
+            // Smart rushers pick the right move more often.
+            let noise = (11.0 - 0.09 * self.agents[d].a(Attr::Awareness)).max(2.0) * gauss(self.rng);
+            if edge + noise > best.1 {
+                best = (mv, edge + noise);
+            }
+        }
+        best.0
+    }
+
+    /// Rusher strength for a move, on the rating scale.
+    fn rush_power(&self, d: usize, mv: Move) -> f64 {
+        let a = &self.agents[d];
+        let pr = a.a(Attr::PassRush);
+        match mv {
+            Move::Speed => {
+                0.45 * pr + 0.25 * a.a(Attr::Speed) + 0.15 * a.a(Attr::Acceleration) + 0.15 * a.a(Attr::Agility)
+            }
+            Move::Power => {
+                0.45 * pr + 0.35 * a.a(Attr::Strength) + 0.2 * a.a(Attr::BlockShedding) + (a.mass - 280.0) * 0.08
+            }
+            Move::Finesse => 0.45 * pr + 0.3 * a.a(Attr::Agility) + 0.25 * a.a(Attr::BlockShedding),
+        }
+    }
+
+    fn block_power(&self, b: usize, mv: Move, pass: bool) -> f64 {
+        let a = &self.agents[b];
+        if !pass {
+            return 0.55 * a.a(Attr::RunBlocking) + 0.35 * a.a(Attr::Strength) + 0.1 * a.a(Attr::Acceleration)
+                + (a.mass - 300.0) * 0.08;
+        }
+        let pb = a.a(Attr::PassBlocking);
+        match mv {
+            Move::Speed => 0.55 * pb + 0.25 * a.a(Attr::Agility) + 0.2 * a.a(Attr::Awareness),
+            Move::Power => 0.5 * pb + 0.4 * a.a(Attr::Strength) + 0.1 * a.a(Attr::Awareness) + (a.mass - 300.0) * 0.08,
+            Move::Finesse => 0.5 * pb + 0.3 * a.a(Attr::Agility) + 0.2 * a.a(Attr::Awareness),
+        }
+    }
+
+    fn shed_power(&self, d: usize) -> f64 {
+        let a = &self.agents[d];
+        0.45 * a.a(Attr::BlockShedding) + 0.35 * a.a(Attr::Strength) + 0.2 * a.a(Attr::PlayRecognition)
+            + (a.mass - 280.0) * 0.08
+    }
+
+    /// One tick of every block. Pass blocks drift toward the quarterback as
+    /// the rusher wins ground; run blocks move with whoever is winning.
+    pub fn update_blocks(&mut self, qb: Option<usize>, carrier: Option<usize>) {
+        let t = self.t;
+        for k in 0..self.eng.len() {
+            if self.eng[k].over {
+                continue;
+            }
+            let e = self.eng[k].clone();
+            let (b, d) = (e.blocker, e.defender);
+            if !self.agents[b].up(t) || !self.agents[d].up(t) {
+                self.release(k);
+                continue;
+            }
+            // Edge of the defender in rating points.
+            let mut edge = if e.pass {
+                self.rush_power(d, e.mv) - self.block_power(b, e.mv, true)
+            } else {
+                self.shed_power(d) - self.block_power(b, e.mv, false)
+            };
+            if let Some(h) = e.helper {
+                edge -= 0.6 * self.block_power(h, e.mv, e.pass) - 20.0;
+            }
+            // Run defenders must first see the run to fight toward it.
+            let reading = !e.pass && t < self.agents[d].read_at;
+            let base = if e.pass { 0.0 } else if reading { -0.12 } else { 0.0 };
+            let mut mu = base + 0.032 * edge;
+            // The runner coming at him: a defender with leverage on the
+            // block fights off it to make the play (shed and tackle).
+            if !e.pass && !reading {
+                if let Some(c) = carrier {
+                    if self.agents[c].pos.dist(self.agents[d].pos) < 2.2 && e.w > 0.0 {
+                        mu += 1.0 * (0.5 + e.w);
+                    }
+                }
+            }
+            if TRACE.load(std::sync::atomic::Ordering::Relaxed) && (t - e.start) < DT * 1.5 {
+                println!("BLOCK {}->{} pass {} mv {:?} edge {:.1} mu {:.2} w {:.2}", self.agents[b].label, self.agents[d].label, e.pass, e.mv, edge, mu, e.w);
+            }
+            let sd = if e.pass { 0.58 } else { 0.75 };
+            let w = e.w + mu * DT + sd * DT.sqrt() * gauss(self.rng);
+            self.eng[k].w = w;
+            self.agents[b].work += DT * 0.9;
+            self.agents[d].work += DT * 0.9;
+            // A beaten blocker may grab him (topic 4).
+            if w > 0.75 && !e.grab_checked {
+                // One moment of decision when he is first beaten.
+                self.eng[k].grab_checked = true;
+                let disc = self.player(b).traits.discipline;
+                let tech = if e.pass { self.agents[b].a(Attr::PassBlocking) } else { self.agents[b].a(Attr::RunBlocking) };
+                let p = 0.034 * (1.7 - disc / 14.0) * (1.5 - tech / 100.0);
+                if self.rng.chance(p) {
+                    self.eng[k].held = true;
+                    self.eng[k].w = 0.35;
+                    let called = 0.42 * self.crew.holding;
+                    if self.rng.chance(called) {
+                        let id = self.agents[b].id;
+                        let at = self.agents[b].pos.x;
+                        let side = self.agents[b].side;
+                        self.notes.fouls.push(Foul { kind: FoulKind::OffensiveHolding, side, player: id, at });
+                    }
+                    continue;
+                }
+            }
+            if w >= 1.0 {
+                // Shed.
+                self.eng[k].shed_at = Some(t);
+                if e.pass && t - e.start < 2.5 {
+                    let id = self.agents[d].id;
+                    self.notes.rush_wins.push((id, e.mv, t - e.start));
+                }
+                self.release(k);
+                // He comes off the block where he won it.
+                let push = match e.mv {
+                    Move::Speed => 0.6,
+                    _ => 0.3,
+                };
+                let toward = qb.or(carrier).map(|q| (self.agents[q].pos - self.agents[d].pos).norm()).unwrap_or(v2(-1.0, 0.0));
+                self.agents[d].vel = toward.scale(push * self.agents[d].vmax * 0.4);
+                continue;
+            }
+            if w <= -1.0 && !e.pass {
+                // Driven off the ball or sealed: out of the play for a moment.
+                self.agents[d].down_until = t + 0.6 + 0.6 * self.rng.next();
+                self.release(k);
+                self.notes.blocks.push((self.agents[b].id, self.agents[d].id, false, true, t - e.start, false));
+                continue;
+            }
+            // Where the pair goes.
+            let (bp, dp) = (self.agents[b].pos, self.agents[d].pos);
+            let target = if e.pass {
+                qb.map(|q| self.agents[q].pos).unwrap_or(bp)
+            } else {
+                carrier.map(|c| self.agents[c].pos).unwrap_or(dp + v2(-self.goal, 0.0))
+            };
+            let dir = (target - dp).norm();
+            let drive = if e.pass {
+                // Bull rushes collapse the pocket; speed rushes bend the edge.
+                let power = if e.mv == Move::Power { 1.4 } else { 0.7 };
+                (0.25 + 0.65 * (w + 1.0) / 2.0) * power
+            } else {
+                1.6 * w
+            };
+            let v = dir.scale(drive.max(-2.0));
+            let lateral = if e.pass && e.mv == Move::Speed { dir.perp().scale(0.0) } else { V2::default() };
+            let mid = (bp + dp).scale(0.5);
+            let off = (dp - bp).norm();
+            let mid = mid + (v + lateral).scale(DT);
+            self.agents[b].pos = mid - off.scale(0.45);
+            self.agents[d].pos = mid + off.scale(0.45);
+            self.agents[b].vel = v;
+            self.agents[d].vel = v;
+            if let Some(h) = e.helper {
+                self.agents[h].pos = self.agents[b].pos + v2(0.0, if self.agents[h].pos.y > bp.y { 0.7 } else { -0.7 });
+                self.agents[h].vel = v;
+            }
+        }
+    }
+
+    pub fn release(&mut self, k: usize) {
+        let e = &mut self.eng[k];
+        e.over = true;
+        let (b, d, h) = (e.blocker, e.defender, e.helper);
+        let t = self.t - e.start;
+        let won = e.shed_at.is_none();
+        let pass = e.pass;
+        self.agents[b].engaged = None;
+        self.agents[d].engaged = None;
+        if let Some(h) = h {
+            self.agents[h].engaged = None;
+        }
+        if e.shed_at.is_some() {
+            let (bid, did) = (self.agents[b].id, self.agents[d].id);
+            self.notes.blocks.push((bid, did, pass, won, t, false));
+        }
+    }
+
+    /// End every block still going (play over), crediting the blockers.
+    pub fn close_blocks(&mut self) {
+        for k in 0..self.eng.len() {
+            if !self.eng[k].over {
+                let e = self.eng[k].clone();
+                let (bid, did) = (self.agents[e.blocker].id, self.agents[e.defender].id);
+                self.notes.blocks.push((bid, did, e.pass, e.w < 0.6, self.t - e.start, false));
+                self.release(k);
+            }
+        }
+    }
+
+    // ------------------------------------------------------------ ball carrier
+
+    /// The runner picks his path (topic 2): every tick he weighs a fan of
+    /// headings by how much ground they gain and how soon defenders he can
+    /// see would get there. Vision decides how many he accounts for and how
+    /// well; a designed aim point holds until he reaches the line.
+    pub fn run_carrier(&mut self, c: usize, aim: Option<V2>) {
+        let t = self.t;
+        let me = self.agents[c].clone();
+        let goal = self.goal;
+        let vision = me.a(Attr::Vision);
+        let sight = 7.0 + 0.12 * vision;
+        let speed = me.vmax.max(4.0);
+        let mut best = (f64::NEG_INFINITY, v2(goal, 0.0));
+        let noise = (1.0 - 0.008 * vision).max(0.2);
+        for k in 0..15 {
+            let ang = (k as f64 - 7.0) * 0.19;
+            let dir = v2(goal * ang.cos(), ang.sin());
+            let look = 3.5;
+            let p = me.pos + dir.scale(look);
+            let t_me = look / speed.max(me.vel.len() * 0.5 + speed * 0.5);
+            let mut threat = 0.0;
+            for (j, d) in self.agents.iter().enumerate() {
+                if d.side == me.side || !d.up(t) {
+                    continue;
+                }
+                let dist = d.pos.dist(me.pos);
+                if dist > sight + 6.0 {
+                    continue;
+                }
+                // Defenders behind him or far away count only if he can see them.
+                if dist > 3.0 && !self.sees(c, d.pos) && dist > sight * 0.5 {
+                    continue;
+                }
+                let engaged = d.engaged.map(|k| self.eng[k].w);
+                let reach = match engaged {
+                    Some(w) => 0.15 + 0.35 * ((w + 1.0) / 2.0),
+                    None => 1.0,
+                };
+                let td = (d.pos.dist(p) - 1.0).max(0.0) / d.vmax + 0.15;
+                let lead = t_me - td;
+                threat += reach * (lead / 0.35).exp().min(6.0);
+                let _ = j;
+            }
+            let gain = dir.x * goal;
+            let edge = p.y.min(WIDTH - p.y);
+            let sideline = if edge < 1.0 { 3.0 * (1.0 - edge) } else { 0.0 };
+            // He commits to a path: changing course costs speed, so the
+            // heading he is on gets a bonus once he is moving.
+            let keep = if me.vel.len() > 2.0 { 0.9 * dir.dot(me.vel.norm()) } else { 0.0 };
+            let mut score = 1.5 * gain - 1.1 * threat - sideline + keep + noise * gauss(self.rng) * 0.6;
+            if let Some(a) = aim {
+                let wanted = (a - me.pos).norm();
+                score += 1.2 * dir.dot(wanted);
+            }
+            if score > best.0 {
+                best = (score, dir);
+            }
+        }
+        let dir = best.1;
+        self.steer(c, dir.scale(self.agents[c].vmax));
+        let x = self.agents[c].pos.x;
+        if (x - self.progress) * goal > 0.0 {
+            self.progress = x;
+        }
+    }
+
+    /// Defenders take angles to the ball carrier (topic 2). Smart ones aim
+    /// where he is going, the rest chase where he is; lazy ones ease off.
+    pub fn pursue(&mut self, i: usize, c: usize) {
+        self.pursue_cap(i, c, 1.0, None);
+    }
+
+    /// Pursuit at a share of full speed (a safety coming down under control).
+    pub fn pursue_cap(&mut self, i: usize, c: usize, cap: f64, floor: Option<f64>) {
+        let a = &self.agents[i];
+        let cp = self.agents[c].pos;
+        let cv = self.agents[c].vel;
+        let iq = 0.5 * a.a(Attr::PlayRecognition) + 0.5 * a.a(Attr::Awareness);
+        let dist = a.pos.dist(cp);
+        // The intercept point: where he can meet the runner at full speed.
+        // Smart pursuers take most of that angle, others aim short of it.
+        let rel = cp - a.pos;
+        let s = a.vmax.max(1.0);
+        let (qa, qb, qc) = (cv.dot(cv) - s * s, 2.0 * rel.dot(cv), rel.dot(rel));
+        let disc = qb * qb - 4.0 * qa * qc;
+        let meet = if qa.abs() > 1e-6 && disc >= 0.0 {
+            let r1 = (-qb - disc.sqrt()) / (2.0 * qa);
+            let r2 = (-qb + disc.sqrt()) / (2.0 * qa);
+            [r1, r2].into_iter().filter(|&r| r > 0.0).fold(f64::INFINITY, f64::min)
+        } else {
+            f64::INFINITY
+        };
+        let tt = if meet.is_finite() { meet.min(4.0) } else { dist / s };
+        let lead = clamp(0.8 + 0.006 * (iq - 50.0), 0.6, 1.0);
+        let mut target = cp + cv.scale(tt * lead);
+        // An alley player keeps his depth: he meets the runner past the line.
+        if let Some(f) = floor {
+            if (target.x - f) * self.goal < 0.0 {
+                target.x = f;
+            }
+        }
+        let motor = self.teams[a.side][a.p].traits.motor;
+        // A player out of the play with a low motor stops chasing.
+        let behind = (a.pos.x - cp.x) * self.goal < -4.0 && dist > 8.0;
+        let mut effort = if behind && motor < 9.0 { 0.55 + 0.03 * motor } else { 1.0 };
+        // Facing the runner up close he breaks down to make the tackle
+        // instead of flying past; good tacklers keep more speed.
+        let facing = (a.pos.x - cp.x) * self.goal > 0.0;
+        if facing && dist < 4.0 {
+            effort *= clamp(0.55 + 0.004 * a.a(Attr::Tackling), 0.6, 0.95);
+        }
+        // Full speed at the moving aim point (go_to would ease into it).
+        let me = self.agents[i].pos;
+        let vm = self.agents[i].vmax * effort * cap;
+        let dir = (target - me).norm();
+        let dir = if dir.len() < 0.5 { (cp - me).norm() } else { dir };
+        self.steer(i, dir.scale(vm));
+    }
+
+    /// Tackling (topic 2.2). A free defender in reach tries to tackle: he can
+    /// whiff on a move, or wrap up and start a fight where momentum,
+    /// strength and help decide how far the runner falls forward.
+    pub fn tackles(&mut self, c: usize) {
+        let t = self.t;
+        // Arm's length standing; a free man can lunge or dive a bit farther
+        // at a worse chance (see first_hit).
+        let reach0 = 1.6;
+        let mut new_tacklers = Vec::new();
+        for i in 0..self.agents.len() {
+            let d = &self.agents[i];
+            if d.side == self.agents[c].side || !d.up(t) || self.fight.contains(&i) {
+                continue;
+            }
+            let reach = reach0 + 0.03 * (self.player(i).arm - 32.0);
+            // Closest approach over the last tick, so fast players can't
+            // pass through each other between two samples.
+            let rel = d.pos - self.agents[c].pos;
+            let rv = (d.vel - self.agents[c].vel).scale(DT);
+            let back = if rv.len() > 1e-6 { clamp(rel.dot(rv) / rv.dot(rv), 0.0, 1.0) } else { 0.0 };
+            let dist = (rel - rv.scale(back)).len();
+            if dist > reach || t - d.last_try < 0.7 {
+                continue;
+            }
+            // A blocked defender can reach out with an arm while engaged.
+            let engaged_w = d.engaged.map(|k| self.eng[k].w);
+            if let Some(w) = engaged_w {
+                if w < -0.2 || !self.rng.chance(0.25 + 0.3 * w) {
+                    continue;
+                }
+            }
+            if engaged_w.is_some() && dist > reach - 0.55 {
+                continue;
+            }
+            new_tacklers.push((i, engaged_w.is_some(), (dist - (reach - 0.55)).max(0.0)));
+        }
+        for (i, arm_only, lunge) in new_tacklers {
+            self.agents[i].last_try = t;
+            if self.fight.is_empty() {
+                self.first_hit(c, i, arm_only, lunge);
+            } else {
+                // Help arrives.
+                self.fight.push(i);
+                self.hit_effects(c, i, 0.5);
+            }
+            if self.dead || self.carrier() != Some(c) {
+                return;
+            }
+        }
+        if !self.fight.is_empty() {
+            self.fight_tick(c);
+        }
+    }
+
+    fn first_hit(&mut self, c: usize, i: usize, arm_only: bool, lunge: f64) {
+        let t = self.t;
+        let (r, d) = (self.agents[c].clone(), self.agents[i].clone());
+        let closing = (d.vel - r.vel).len();
+        let head_on = r.vel.norm().dot((d.pos - r.pos).norm());
+        // Whiff: the runner's move against the tackler's technique.
+        let evade = 0.5 * r.a(Attr::Elusiveness) + 0.3 * r.a(Attr::Agility) + 0.2 * r.a(Attr::Speed);
+        let tackle = 0.6 * d.a(Attr::Tackling) + 0.2 * d.a(Attr::Agility) + 0.2 * d.a(Attr::Awareness);
+        // Out of control when arriving too fast, behind when chasing.
+        let angle = if head_on > 0.5 { -0.3 } else if head_on < -0.3 { 0.3 } else { 0.0 };
+        let fast = if closing > 9.0 { 0.25 } else { 0.0 };
+        let space = if r.vel.len() > 5.0 { 0.25 } else { -0.2 };
+        let arm = if arm_only { 1.5 } else { 0.0 };
+        let dive = 1.0 * lunge;
+        let logit = -2.75 + (evade - tackle) / 22.0 + angle + fast + space + arm + dive;
+        let p_miss = 1.0 / (1.0 + (-logit).exp());
+        if TRACE.load(std::sync::atomic::Ordering::Relaxed) {
+            println!(
+                "HIT t={:.1} {} at ({:.1},{:.1}) evade {:.0} tackle {:.0} head_on {:.2} closing {:.1} lunge {:.2} arm {} p_miss {:.2}",
+                t, d.label, r.pos.x, r.pos.y, evade, tackle, head_on, closing, lunge, arm_only, p_miss
+            );
+        }
+        if self.rng.chance(p_miss) {
+            self.notes.missed.push((d.id, r.id));
+            self.agents[i].down_until = t + 0.4 + 0.6 * self.rng.next();
+            // A dive at his legs from the side or behind can still trip
+            // him up or knock him off stride.
+            let trip = if head_on < 0.3 { 0.72 } else { 0.88 };
+            self.agents[c].vel = self.agents[c].vel.scale(trip);
+            return;
+        }
+        if self.notes.first_contact.is_none() {
+            self.notes.first_contact = Some(self.agents[c].pos.x);
+        }
+        // A blocked man's arm usually only grabs at a runner going full
+        // speed: it slows him, but he runs through it.
+        if arm_only && r.vel.len() > 3.0 && self.rng.chance(0.6) {
+            self.agents[c].vel = self.agents[c].vel.scale(0.6);
+            return;
+        }
+        self.fight.push(i);
+        self.fight_since = t;
+        self.hit_effects(c, i, 1.0);
+    }
+
+    /// Contact: momentum exchange, fumble and injury checks.
+    fn hit_effects(&mut self, c: usize, i: usize, share: f64) {
+        let (r, d) = (self.agents[c].clone(), self.agents[i].clone());
+        // Momentum along the runner's line: m*v of both.
+        let along = if r.vel.len() > 0.1 { r.vel.norm() } else { v2(self.goal, 0.0) };
+        let pr = r.mass * r.vel.dot(along);
+        let pd = d.mass * d.vel.dot(along);
+        let v = (pr + pd * share) / (r.mass + d.mass * share);
+        self.agents[c].vel = along.scale(v.max(-1.0));
+        let force = (r.mass * r.vel.len() + d.mass * d.vel.len()) * 0.5;
+        self.contact_force = self.contact_force.max(force);
+        // Ball security against the hit (topic 2).
+        let carry = r.a(Attr::Carrying);
+        let hit = d.a(Attr::Strength) * 0.5 + d.a(Attr::Tackling) * 0.5;
+        let rain = if self.cond.rain || self.cond.snow { 1.35 } else { 1.0 };
+        let p = 0.0085 * (force / 1700.0).powf(1.5) * (1.0 + (60.0 - carry) * 0.035).max(0.25) * (0.7 + hit / 160.0) * rain;
+        if self.notes.fumbled.is_none() && self.rng.chance(p) {
+            self.notes.fumbled = Some(r.id);
+            self.notes.forced_fumble = Some(d.id);
+            self.fumble(c);
+            return;
+        }
+        self.injury_check(c, force, 1.0);
+        self.injury_check(i, force, 0.7);
+    }
+
+    fn fight_tick(&mut self, c: usize) {
+        let t = self.t;
+        let r = self.agents[c].clone();
+        let resist = 1.0
+            + 0.012 * (r.a(Attr::Strength) - 60.0)
+            + 0.008 * (r.a(Attr::Elusiveness) - 60.0)
+            + (r.mass - 215.0) / 300.0
+            + 0.02 * (self.player(c).traits.toughness - 10.0);
+        let mut hazard = 0.0;
+        let mut hold = 0.0;
+        for &i in &self.fight {
+            let d = &self.agents[i];
+            let f = 1.0 + 0.03 * (d.a(Attr::Tackling) - 60.0) + 0.012 * (d.a(Attr::Strength) - 60.0) + (d.mass - 215.0) / 300.0;
+            hazard += 3.1 * f.max(0.3);
+            hold += d.mass * f.max(0.3);
+        }
+        hazard /= resist.max(0.4);
+        let n = self.fight.len();
+        // One man alone may lose his grip: a broken tackle.
+        if n == 1 && t - self.fight_since > 0.15 {
+            let i = self.fight[0];
+            let d = &self.agents[i];
+            let tk = 0.6 * d.a(Attr::Tackling) + 0.4 * d.a(Attr::Strength) + (d.mass - 215.0) * 0.08;
+            let rb = 0.5 * r.a(Attr::Strength) + 0.5 * r.a(Attr::Elusiveness) + (r.mass - 215.0) * 0.08;
+            let p_break = 0.042 * (1.0 + (rb - tk) / 25.0).max(0.05);
+            if self.rng.chance(p_break) {
+                if TRACE.load(std::sync::atomic::Ordering::Relaxed) {
+                    println!("BREAK t={t:.1} from {} p {p_break:.3}", d.label);
+                }
+                let id = d.id;
+                self.notes.missed.push((id, r.id));
+                self.agents[i].down_until = t + 0.5;
+                self.fight.clear();
+                return;
+            }
+        }
+        if self.rng.chance(1.0 - (-hazard * DT).exp()) {
+            self.tackled(c);
+            return;
+        }
+        // The pile moves: legs churning against the weight on him.
+        let drive = (r.mass * (2.2 + 0.03 * (r.a(Attr::Strength) - 60.0)) - 0.35 * hold) / (r.mass + 0.6 * hold);
+        let v = self.agents[c].vel.x * self.goal;
+        let nv = (0.6 * v + 0.4 * drive * 2.0).clamp(-1.5, 4.0);
+        self.agents[c].vel = v2(nv * self.goal, self.agents[c].vel.y * 0.5);
+        for &i in &self.fight.clone() {
+            let p = self.agents[c].pos;
+            self.agents[i].pos = p + (self.agents[i].pos - p).norm().scale(0.7);
+            self.agents[i].vel = self.agents[c].vel;
+        }
+    }
+
+    pub fn tackled(&mut self, c: usize) {
+        self.notes.tacklers = self.fight.iter().map(|&i| self.agents[i].id).collect();
+        let x = self.agents[c].pos.x;
+        if (x - self.progress) * self.goal > 0.0 {
+            self.progress = x;
+        }
+        // Face masks and late hits ride on the tackle.
+        if self.rng.chance(0.0045 * self.crew.personal) {
+            let i = self.fight[0];
+            let disc = self.player(i).traits.discipline;
+            if self.rng.chance((1.6 - disc / 12.0).max(0.2) * 0.6) {
+                let (id, side) = (self.agents[i].id, self.agents[i].side);
+                self.notes.fouls.push(Foul { kind: FoulKind::FaceMask, side, player: id, at: x });
+            }
+        }
+        self.dead = true;
+        self.ball = Ball::Dead(v2(self.progress, self.agents[c].pos.y));
+    }
+
+    /// The ball is out: a scramble for it near where it fell.
+    pub fn fumble(&mut self, c: usize) {
+        let p = self.agents[c].pos;
+        let bounce = v2(self.rng.range(-3.0, 3.0), self.rng.range(-3.0, 3.0));
+        let spot = p + bounce;
+        // Who gets there first: closeness, awareness and luck.
+        let mut wsum = [0.0, 0.0];
+        let mut best = [(0.0, 0usize); 2];
+        for (i, a) in self.agents.iter().enumerate() {
+            if !a.up(self.t) && i != c {
+                continue;
+            }
+            let d = a.pos.dist(spot);
+            let w = (-d / 1.8).exp() * (0.6 + a.a(Attr::Awareness) / 200.0);
+            wsum[a.side] += w;
+            if w > best[a.side].0 {
+                best[a.side] = (w, i);
+            }
+        }
+        let side = if self.rng.chance(wsum[0] / (wsum[0] + wsum[1]).max(1e-9)) { 0 } else { 1 };
+        let who = best[side].1;
+        self.notes.recovered = Some((side, self.agents[who].id));
+        let spot = v2(spot.x.clamp(-9.9, 109.9), spot.y.clamp(0.1, WIDTH - 0.1));
+        self.dead = true;
+        self.ball = Ball::Dead(spot);
+        self.progress = if side == self.agents[c].side { p.x } else { spot.x };
+    }
+
+    /// Injury risk from a hit (topic 6): force, fatigue, his proneness and
+    /// the turf.
+    pub fn injury_check(&mut self, i: usize, force: f64, share: f64) {
+        let gp = self.player(i);
+        let prone = 0.55 + gp.injury_proneness / 18.0;
+        let tough = gp.traits.toughness;
+        let turf = if self.cond.turf { 1.12 } else { 1.0 };
+        let p = self.injury_scale * 0.0042 * share * (force / 1700.0).powf(1.6) * prone * turf;
+        if !self.rng.chance(p) {
+            return;
+        }
+        let kind = self.rng.weighted(&[
+            (InjuryKind::Bruise, 22.0),
+            (InjuryKind::AnkleSprain, 13.0),
+            (InjuryKind::HighAnkleSprain, 5.0),
+            (InjuryKind::Knee, 10.0),
+            (InjuryKind::Acl, 2.2),
+            (InjuryKind::Shoulder, 9.0),
+            (InjuryKind::Concussion, 8.0),
+            (InjuryKind::Ribs, 5.0),
+            (InjuryKind::Hand, 6.0),
+            (InjuryKind::Fracture, 3.0),
+            (InjuryKind::Back, 3.0),
+            (InjuryKind::Hamstring, 6.0),
+        ]);
+        let weeks = injury_weeks(kind, self.rng);
+        // Playing through it is a choice (topic 6): toughness against how bad it is.
+        let plays_on = kind != InjuryKind::Concussion
+            && kind != InjuryKind::Acl
+            && kind != InjuryKind::Fracture
+            && self.rng.chance(clamp(0.15 + 0.035 * tough - 0.12 * weeks, 0.0, 0.95));
+        let (side, p, id) = (self.agents[i].side, self.agents[i].p, self.agents[i].id);
+        self.notes.injuries.push(Injury { side, p, id, kind, weeks, plays_on });
+    }
+
+    /// Debug tooling: print the play as it runs.
+    pub fn trace(&self) {
+        if !TRACE.load(std::sync::atomic::Ordering::Relaxed) {
+            return;
+        }
+        let mut line = format!("t={:.1} ball={:?}", self.t, self.ball_pos());
+        for (i, a) in self.agents.iter().enumerate() {
+            let job = format!("{:?}", a.job);
+            let job: String = job.chars().take(14).collect();
+            line.push_str(&format!(
+                "\n  {:>2} s{} {:<3} ({:5.1},{:5.1}) v{:4.1} {}{}{}",
+                i,
+                a.side,
+                a.label,
+                a.pos.x,
+                a.pos.y,
+                a.vel.len(),
+                job,
+                if let Some(k) = a.engaged { format!(" ENG{}w{:.2}", k, self.eng[k].w) } else { String::new() },
+                if !a.up(self.t) { " DOWN" } else { "" }
+            ));
+        }
+        eprintln!("{line}");
+    }
+
+    pub fn record_frame(&mut self) {
+        let ball = self.ball_pos();
+        if let Some(fr) = &mut self.record {
+            fr.push(Frame {
+                t: self.t,
+                ball,
+                players: self.agents.iter().map(|a| (a.id, a.pos.x as f32, a.pos.y as f32)).collect(),
+            });
+        }
+    }
+
+    /// Ball carrier out of bounds, in the end zone, or down.
+    pub fn check_carrier(&mut self, c: usize) -> bool {
+        let a = &self.agents[c];
+        let p = a.pos;
+        if p.y <= 0.0 || p.y >= WIDTH {
+            self.out_of_bounds = true;
+            self.dead = true;
+            let x = if (p.x - self.progress) * self.goal > 0.0 { p.x } else { self.progress };
+            self.progress = x;
+            self.ball = Ball::Dead(v2(x, p.y.clamp(0.0, WIDTH)));
+            return true;
+        }
+        let goal_line = if self.goal > 0.0 { 100.0 } else { 0.0 };
+        if (p.x - goal_line) * self.goal >= 0.0 {
+            self.progress = goal_line;
+            self.dead = true;
+            self.ball = Ball::Dead(p);
+            return true;
+        }
+        if p.x > 110.0 || p.x < -10.0 {
+            self.dead = true;
+            self.out_of_bounds = true;
+            self.ball = Ball::Dead(p);
+            return true;
+        }
+        if self.down_on_fall && self.t < a.down_until {
+            self.dead = true;
+            self.ball = Ball::Dead(p);
+            return true;
+        }
+        false
+    }
+
+    pub fn mid() -> f64 {
+        MID
+    }
+}
+
+/// Weeks out by injury, from real return-to-play ranges (Claude's picks,
+/// see docs/decisions.md).
+pub fn injury_weeks(kind: InjuryKind, rng: &mut Rng) -> f64 {
+    let (lo, hi) = match kind {
+        InjuryKind::Bruise => (0.0, 1.0),
+        InjuryKind::AnkleSprain => (0.0, 3.0),
+        InjuryKind::HighAnkleSprain => (2.0, 7.0),
+        InjuryKind::Hamstring => (1.0, 5.0),
+        InjuryKind::Knee => (1.0, 6.0),
+        InjuryKind::Acl => (36.0, 56.0),
+        InjuryKind::Shoulder => (0.0, 8.0),
+        InjuryKind::Concussion => (0.5, 3.0),
+        InjuryKind::Ribs => (0.0, 4.0),
+        InjuryKind::Hand => (0.0, 5.0),
+        InjuryKind::Fracture => (4.0, 12.0),
+        InjuryKind::Back => (0.0, 4.0),
+    };
+    let u = rng.next();
+    lo + (hi - lo) * u * u
+}
