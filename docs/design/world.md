@@ -1,6 +1,6 @@
 # Section 2: the world (design done)
 
-Status: design finished 2026-10-13. All eight topics are answered. Next, a fresh thread builds it (see the section loop in `docs/roadmap.md`). Follow-up answers are near the end; two open questions remain.
+Status: design finished 2026-10-13. All eight topics are answered. Next, a fresh thread builds it (see the section loop in `docs/roadmap.md`). Follow-up answers are near the end. The only open item is the realism defaults, which the build thread asks about one at a time.
 
 This spec is written so anyone outside the project chat can follow it. Raichel's own words are in quotes.
 
@@ -105,7 +105,7 @@ Confirmed rules:
 ### 1.8 Personality and the powerhouse flip side (confirmed 2026-10-11)
 - **Personality decides what hardship does.** Work ethic and mental toughness decide the effect: a driven kid can turn hardship into fuel (extra toughness and hunger), a fragile one is more likely to stall or quit. Neither is guaranteed.
 - **The powerhouse flip side.** Powerhouse kids arrive more polished, so less hidden growth is left, plus some complacency and crowded depth charts.
-- Not confirmed: a kid can transfer to a powerhouse to escape a bad situation (see Open questions).
+- Confirmed 2026-10-13: a kid can transfer to a powerhouse to escape a bad situation, as a rare pull (see Follow-up answers).
 
 ---
 
@@ -271,8 +271,8 @@ Claude listed the open questions with a proposal each, and Raichel answered them
 6. **Pipelines (topic 4): "yes".** A pipeline grows each time a signee from that area leads in stats, wins an award, or is drafted in rounds 1-3 (day 1 or 2). It fades slowly after several years with no impact.
 7. **Realism defaults (section 0): "yes".** The build thread asks Raichel about their details one at a time.
 8. **Grade split (topic 7): "yes".** The steady and fast-swinging grades stay as written, so the split is now confirmed.
+9. **Escaping to a powerhouse (1.8): "yes".** A kid can transfer to a powerhouse to get out of a bad home or neighborhood. It is one of the pulls in topic 2, and a rare one.
 
 ## Open questions
 
-1. **Escaping to a powerhouse (1.8).** Can a kid transfer to a powerhouse to get out of a bad home or neighborhood? Claude's proposal: yes, as one of the pulls, and a rare one. Proposed, not confirmed.
-2. **Realism defaults from section 0.** All real programs, classifications and playoffs, every college level, realignment, the coaching carousel, franchise traits and shifting talent geography. The build thread asks about each one (follow-up answer 7).
+1. **Realism defaults from section 0.** All real programs, classifications and playoffs, every college level, realignment, the coaching carousel, franchise traits and shifting talent geography. The build thread asks about each one (follow-up answer 7).
