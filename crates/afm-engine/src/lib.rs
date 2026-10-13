@@ -20,6 +20,7 @@ pub mod player;
 pub mod positions;
 pub mod rng;
 pub mod scouting;
+pub mod world;
 
 #[cfg(feature = "debug")]
 pub mod debug;

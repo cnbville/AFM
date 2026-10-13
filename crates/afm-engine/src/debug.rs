@@ -46,3 +46,30 @@ pub fn potential_at_exit(r: &CareerRecord) -> f64 {
 pub fn report_potential(r: &SeasonReport) -> (f64, f64) {
     (r.potential_before, r.potential_after)
 }
+
+/// True potential of a player who left the world for the pros.
+pub fn alumnus_potential(a: &crate::world::Alumnus) -> f64 {
+    a.potential
+}
+
+/// A world player's true potential.
+pub fn person_potential(p: &crate::world::Person) -> f64 {
+    p.player.potential()
+}
+
+/// How visible a departed player was to recruiters as a senior (hidden in game).
+pub fn alumnus_visibility(a: &crate::world::Alumnus) -> f64 {
+    a.visibility
+}
+
+/// A coach's hidden ability.
+pub fn coach_ability(c: &crate::world::coach::Coach) -> crate::world::coach::Ability {
+    *c.ability()
+}
+
+/// A world player's hidden background and family.
+pub fn person_background(
+    p: &crate::world::Person,
+) -> (&crate::world::background::Background, &crate::world::background::Family) {
+    (&p.bg, &p.family)
+}

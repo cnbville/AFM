@@ -4,6 +4,7 @@
 mod development;
 mod level_rating;
 mod scouting;
+mod world;
 
 use crate::development::{SeasonContext, develop_season};
 use crate::player::{Level, Player, PlayingTime, ProspectOptions, generate_prospect};
