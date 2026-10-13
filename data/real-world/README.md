@@ -10,7 +10,7 @@ Raw research data for section 2 (the world). The first pass came from an outside
 | `nfl_rules.json` | full | **Re-researched 2026-10-11.** 2026 cap, minimums, tags, option rules, practice squad, roster limits, calendar. |
 | `rookie_scale_2026.csv` | 257 (257) | **New.** Every 2026 pick's rookie contract. |
 | `rates.json` | most groups | **Re-researched 2026-10-11.** Draft rates by star, recruits per star, NIL, portal. JUCO and prep counts are gaps. |
-| `hs_states.csv` | 51 (51) | **Re-researched 2026-10-11.** Programs, classes, playoffs and top teams for every state and DC. Transfer rules are a gap for 48. |
+| `hs_states.csv` | 51 (51) | **Re-researched 2026-10-11.** Programs, classes, playoffs and top teams for every state and DC. Transfer rules for all 51 added 2026-10-13. |
 | `talent_by_state.csv` | 51 (50 + DC) | **Re-researched 2026-10-11.** Computed from public recruiting, roster and draft datasets. Method below. |
 | `colleges.csv` | 426 (426) | **Re-researched 2026-10-11.** Real data, a source URL per figure. Gaps listed below. |
 
@@ -22,7 +22,8 @@ Raw research data for section 2 (the world). The first pass came from an outside
 - `top_5_powerhouses`: the top 5 of MaxPreps' 2026 state rankings on the date in `top_5_as_of`. This is current strength, not all-time history. Florida uses the final 2025 ranking (IMG Academy first) because the 2026 page would not load.
 
 Gaps (exact):
-- `transfer_rule_summary` is filled only for Indiana, Michigan and Ohio. The other 48 rows (47 states and DC) need each association's handbook; no single source covers them.
+- `transfer_rule_summary`: all 51 filled (the other 48 added 2026-10-13, one source per state in `transfer_source_url`). Where possible it's the association's own handbook, bylaw or minutes; otherwise news or a school district page. Several states changed rules in 2024-2026 (one-time free transfers in DE, NJ, NM, OK, SC, SD, TN, WA, WV and NV law); each summary names the year where known.
+- Weaker rows (secondary source or exact length not confirmed): AL, IL, HI, ME, MT, NE, OR, PA, VT, and KS (2026 bill status unknown). TN's sit-out length isn't stated.
 - DC: `classifications`, `number_of_classes` and `playoff_format` are blank (the SI guide covers the 50 states only).
 - Playoff qualification rules (how many teams make it) are missing for most states.
 
@@ -36,7 +37,7 @@ Gaps (exact):
 
 Gaps (exact):
 - `nil_estimate_usd` is blank for all 426. No public source gives a dollar NIL figure per school. (The 2025-26 revenue-sharing cap of about $20.5M per school is a cap, not an estimate.)
-- `stadium_capacity` blank for 16 D2 schools (no capacity in any source found): Allen, Ashland, Barton, Chowan, Edward Waters, Erskine, Ferrum, Jamestown, Kentucky Wesleyan, Lake Erie, Northwood, Ohio Dominican, Roosevelt, Shorter, Thomas More, Walsh.
+- `stadium_capacity`: 9 of the 16 missing D2 figures were added 2026-10-13 from team sites, Wikipedia and Stadium Journey (Ashland, Barton, Chowan, Edward Waters, Erskine, Ferrum, Kentucky Wesleyan, Ohio Dominican, Walsh). Still blank for 7, because no page gives a capacity: Allen (plays at Bolden Stadium / Benedict's stadium), Jamestown, Lake Erie, Northwood, Roosevelt, Shorter, Thomas More.
 - `last_5yr_win_pct` blank for Chicago State (no completed games in the data).
 - Ferrum enrollment is undergraduates only (Wikipedia infobox, no year).
 
@@ -57,7 +58,7 @@ Gaps (exact):
 - Portal: official NCAA counts for 2022 (FBS 2,918, FCS 2,085); Hudl's 2025 counts by level and destination.
 
 Gaps (exact):
-- JUCO-to-FBS and prep-school signees per year: no source found. The first-pass numbers (450 and 150) had no source and were removed.
+- JUCO-to-FBS and prep-school signees per year: still no source (checked again 2026-10-13). The open recruit dataset has no recruit-type column, and the CFBD API needs a key. Only clue: of the top 50 JUCO players, 43 went to power programs in 2015 and 33 around 2025 (https://www.outkick.com/sports/juco-no-mo-how-transfer-portal-killed-junior-college-ranks).
 - NIL dollar ranges for Group of 5, FCS and D2: none found.
 - D2 football portal entrants: no official football count (NCAA gives D2 all-sport totals only).
 - The college revenue-sharing cap (about $20.5M in 2025-26) was not verified on a page.
