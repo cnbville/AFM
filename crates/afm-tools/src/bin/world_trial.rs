@@ -181,6 +181,38 @@ fn main() {
     let w = World::new(WorldOptions { seed, history_years: years, ..Default::default() });
     println!("# World trial: seed {seed}, {years} years of history, built in {:.0}s\n", t.elapsed().as_secs_f64());
 
+    // AFM_ROOKIES=1: how good drafted players are on draft day, by round, then stop.
+    if std::env::var("AFM_ROOKIES").is_ok() {
+        let first = w.year - years as i32 + 5;
+        let drafted: Vec<&Alumnus> = w.alumni.iter().filter(|a| a.pick.is_some() && a.year >= first).collect();
+        let yrs = (w.year - first + 1).max(1) as f64;
+        println!("drafted {} over {:.0} drafts", drafted.len(), yrs);
+        for r in 1..=7u32 {
+            let mut v: Vec<f64> = drafted
+                .iter()
+                .filter(|a| afm_engine::career::draft_round(a.pick.unwrap(), 257) == r)
+                .map(|a| a.overall)
+                .collect();
+            v.sort_by(|a, b| a.total_cmp(b));
+            if v.is_empty() {
+                continue;
+            }
+            let q = |f: f64| v[((v.len() - 1) as f64 * f) as usize];
+            println!(
+                "round {r}: n {} | median {:.0} | 10th pct {:.0} | 90th pct {:.0} | max {:.0}",
+                v.len(),
+                q(0.5),
+                q(0.1),
+                q(0.9),
+                q(1.0)
+            );
+        }
+        for t in [80.0, 85.0, 88.0, 92.0] {
+            let n = drafted.iter().filter(|a| a.overall >= t).count();
+            println!("rookies at {t}+: {n} ({:.1} per draft)", n as f64 / yrs);
+        }
+        return;
+    }
     // AFM_SHOW="Georgia": one program's story and every head coach it had, then stop.
     if let Ok(name) = std::env::var("AFM_SHOW") {
         if let Some(i) = w.programs.iter().position(|p| p.real_name == name) {
