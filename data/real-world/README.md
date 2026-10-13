@@ -88,3 +88,9 @@ Gaps (exact):
 
 **draft_positions_2000_2025.csv** (added 2026-10-13): each position's share of pick 1, picks 1-5, round 1 and later bands, from the nflverse `draft_picks` release, 2000-2025. Used to calibrate positional draft value. Example: QBs went first overall 73.1% of the time, EDGE 19.2%, OT 7.7%.
 - Gap: no open dataset has arm length and hand size for every player. Their formulas in `body.rs` come from the 2025 combine OL and QB lists (CBS) and are approximate.
+
+**nfl_game_targets.json** (added 2026-10-13): real NFL game numbers for the match engine checks (section 3, topic 10), from nflverse play-by-play, regular seasons 2021-2025 (2,718 team games). Per team game: plays, passing, rushing, sacks, penalties (accepted, by team), third and fourth downs, EPA. Rates: completion 64.5%, sack rate 6.75%, 4.50 yards per carry, 22.5 points per team game. Field goals by distance (98% under 30 down to 69% from 50+), punts, kickoff touchbacks, season leaders, and an expected-points table by down, distance and field position (nflfastR's EP, averaged per cell) that the engine uses for EPA. Built by `scripts/nfl_game_targets.py`.
+
+**college_game_targets.json** (added 2026-10-13): the same for FBS-vs-FBS and FCS-vs-FCS regular-season games, 2022-2024, from cfbfastR play-by-play (sportsdataverse-data release `cfbfastR_cfb_pbp`). FBS: 27.0 points per team game, completion 60.6%, 5.12 yards per carry. Built by `scripts/college_game_targets.py`.
+- Penalties there count accepted flags on plays by either team, per team game (about 5.5, so about 11 per game).
+- Gap: no open play-by-play for high school. High school checks will use MaxPreps scoring and blowout rates when researched.
