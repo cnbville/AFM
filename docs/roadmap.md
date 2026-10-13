@@ -9,7 +9,7 @@ Labels used in this file:
 Related docs:
 - `docs/decisions.md`: the decision log, mostly about the player model.
 - `docs/development-model.md`: how the player model works today.
-- `docs/design/world.md`: section 2 (the world) design so far.
+- `docs/design/world.md`: section 2 (the world), the full design spec.
 - `docs/design/season-calendar-and-pacing.md`: draft calendar (week by week) and pacing.
 
 ---
@@ -209,7 +209,7 @@ The order below is **confirmed** (Raichel, 2026-10-11: "ok to all"): world, matc
 | # | Section | Status |
 |---|---|---|
 | 1 | Engine: the player model in Rust | **Done** (2026-10-11) |
-| 2 | The world | **Design in progress** (`docs/design/world.md`) |
+| 2 | The world | **Design done**, ready to build (`docs/design/world.md`) |
 | 3 | Match engine and stats database | Not started |
 | 4 | Calendar | Not started (a draft doc exists) |
 | 5 | Team management | Not started |
@@ -231,7 +231,7 @@ The player model: attributes, positions, hidden potential, development from age 
 
 ### Section 2. The world
 
-Real NFL, colleges and conferences; real towns with generated high schools; teams, programs and staff; the real/fictional name toggle; each player's hidden background; the hidden history before 2026. Design rounds are under way: see `docs/design/world.md` for topics 1-8.
+Real NFL, colleges and conferences; real towns with generated high schools; teams, programs and staff; the real/fictional name toggle; each player's hidden background; the hidden history before 2026. Design finished 2026-10-13: all eight topics are in `docs/design/world.md`, with open questions at the end.
 
 ### Section 3. Match engine and stats database
 

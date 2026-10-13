@@ -4,7 +4,7 @@ A deep, realistic American football management sim modelled on Football Manager:
 
 ## Read first
 1. `docs/roadmap.md`: the vision, Raichel's working rules, all 50 roadmap answers, the platform and every build section with its status.
-2. `docs/design/world.md`: section 2 (the world), the design in progress.
+2. `docs/design/world.md`: section 2 (the world), the finished design spec.
 3. `docs/decisions.md`: every player-model decision so far, what's assumed and what's open.
 4. `docs/development-model.md`: how the current player model works.
 5. `docs/design/season-calendar-and-pacing.md`: draft calendar for section 4 (older; the roadmap answers override its defaults).
@@ -25,7 +25,7 @@ Each roadmap section goes: (1) design rounds with Raichel until the details are 
 
 ## Next job
 - Section 1 (the engine, the player model in Rust) is done. Raichel finds further calls and bugs in gameplay, not in more trials.
-- Section 2 (the world) is in design: topic 1 answered, topic 2 awaiting Raichel's answers, topics 3-8 open. See `docs/design/world.md`.
+- Section 2 (the world): design finished 2026-10-13, all eight topics answered. Next, a fresh thread builds it from `docs/design/world.md` (check its open questions with Raichel first).
 - Confirmed by Raichel (2026-10-11): the section order and the section loop above, the scouting-staff design, the college program grade categories, 30 years of hidden history before 2026, and the topic 1 leftovers (personality and the powerhouse flip side).
 
 ## Code
