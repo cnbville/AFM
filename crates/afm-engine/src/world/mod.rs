@@ -433,6 +433,12 @@ fn signing_day_and_rosters(w: &mut World) {
 }
 
 impl World {
+    /// A program as the match engine sees it today (trial tooling only).
+    #[cfg(feature = "debug")]
+    pub fn debug_game_team(&self, prog: usize) -> Option<crate::game::GameTeam> {
+        season::game_team(self, &self.programs[prog])
+    }
+
     pub fn program_name(&self, id: usize) -> &str {
         self.programs[id].name(self.options.names)
     }

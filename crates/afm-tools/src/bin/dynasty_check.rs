@@ -140,12 +140,52 @@ fn values(games: usize, seed: u32, by: f64) {
     println!("\nPlay callers and game management 18 against 4, same players: wins {:.1}%, margin {m:+.2}", 100.0 * w);
 }
 
+/// Scheme check: the same players, only the offensive scheme, coverage shell
+/// or front changed on one side. A scheme should not be worth points by itself.
+fn schemes(games: usize, seed: u32) {
+    use afm_engine::game::{Front, Shell};
+    let base = synthetic_team("A", level(), 0.0, OffScheme::WestCoast, seed);
+    println!(
+        "{:?}, {games} games per line, same players; base: {:?}, {:?}, {:?}\n",
+        level(),
+        base.staff.off_scheme,
+        base.staff.shell,
+        base.staff.front
+    );
+    for s in
+        [OffScheme::WestCoast, OffScheme::AirRaid, OffScheme::WideZone, OffScheme::PowerGap, OffScheme::SpreadOption]
+    {
+        let mut t = base.clone();
+        t.staff.off_scheme = s;
+        let (w, m) = play(&t, &base, games, seed as u64);
+        println!("offense {s:?}: wins {:.1}%, margin {m:+.2}", 100.0 * w);
+    }
+    for sh in [Shell::Cover3, Shell::Quarters, Shell::ManPressure, Shell::Cover2] {
+        let mut t = base.clone();
+        t.staff.shell = sh;
+        let (w, m) = play(&t, &base, games, seed as u64);
+        println!("shell {sh:?}: wins {:.1}%, margin {m:+.2}", 100.0 * w);
+    }
+    for f in [Front::FourThree, Front::ThreeFour] {
+        let mut t = base.clone();
+        t.staff.front = f;
+        let (w, m) = play(&t, &base, games, seed as u64);
+        println!("front {f:?}: wins {:.1}%, margin {m:+.2}", 100.0 * w);
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.get(1).map(String::as_str) == Some("value") {
         let games = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(2000);
         let seed = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
         values(games, seed, 10.0);
+        return;
+    }
+    if args.get(1).map(String::as_str) == Some("schemes") {
+        let games = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(2000);
+        let seed: u32 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
+        schemes(games, seed);
         return;
     }
     let games: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(1000);
