@@ -123,7 +123,10 @@ def real_values():
             "fourth_go": pg["fourth_go"],
             "fourth_pct": 100 * rt["fourth_down_conversion"],
             "success_rate": 100 * rt["success_rate"],
-            "penalties": pg["penalties_on_plays_by_either"] / 2,
+            # Accepted fouls on a team's own snaps, by either side: summed over
+            # both teams that is every foul in the game, so per team it equals
+            # the fouls each team commits on average.
+            "penalties": pg["penalties_on_plays_by_either"],
             "fg_pct": None,
             "punt_gross": rt.get("punt_gross"),
         }
@@ -727,19 +730,31 @@ def team_profiles(run):
 def lifecycle(run):
     first_class, last_class = run.first, run.last - 6
     pool = [a for a in run.alumni if first_class <= a["class_of"] <= last_class]
+    # The world keeps every drafted player and every four- or five-star, so
+    # draft rates divide by the signing-class totals, and the college path
+    # columns exist only for four- and five-stars.
+    signed = Counter()
+    for y, c in run.meta["signing_classes"]:
+        if first_class <= y <= last_class:
+            for s, n in enumerate(c):
+                signed[s] += n
     stars = defaultdict(lambda: Counter())
     for a in pool:
-        s = a["stars"]
-        c = stars[s]
-        c["n"] += 1
+        c = stars[a["stars"]]
+        c["kept"] += 1
         c["drafted"] += a["pick"] is not None
         c["r1"] += a["pick"] is not None and a["pick"] <= 32
-        c["left"] += a["left"]
+        c["undrafted"] += a["pick"] is None
         c["juco"] += a["juco"]
         c["college"] += bool(a["colleges"])
         c["transfer"] += len(a["colleges"]) > 1
-    by_star = [{"stars": s, "n": c["n"], "college": pct(c["college"], c["n"]), "drafted": pct(c["drafted"], c["n"], 2), "r1": pct(c["r1"], c["n"], 2),
-                "left": pct(c["left"], c["n"]), "juco": pct(c["juco"], c["n"]), "transfer": pct(c["transfer"], c["n"])} for s, c in sorted(stars.items())]
+    by_star = []
+    for s in sorted(set(stars) | {k for k, v in signed.items() if v}):
+        c, n = stars[s], signed[s]
+        full = s >= 4
+        by_star.append({"stars": s, "n": n, "drafted": pct(c["drafted"], n, 2), "r1": pct(c["r1"], n, 2),
+                        "college": pct(c["college"], c["kept"]) if full else None, "left": pct(c["undrafted"], c["kept"]) if full else None,
+                        "juco": pct(c["juco"], c["kept"]) if full else None, "transfer": pct(c["transfer"], c["kept"]) if full else None})
     drafted = [a for a in run.alumni if a["pick"] and a["year"] > run.first]
     star_share = Counter(min(a["stars"], 5) if a["stars"] >= 2 else 0 for a in drafted)
     star_share_r1 = Counter(min(a["stars"], 5) if a["stars"] >= 2 else 0 for a in drafted if a["pick"] <= 32)
@@ -844,11 +859,31 @@ def recruiting(run):
         ss = [s for s in p["seasons"] if s["year"] > run.last - 5 and s["g"]]
         if ss:
             nil.append([p["name"], p["conf"], round(p["nil_budget"] / 1e6, 2), r(sum(s["w"] for s in ss) / max(1, sum(s["w"] + s["l"] for s in ss)) * 100), r(p["prestige"], 2)])
+    # The rosters as they stand at the end: who is on them and from where.
+    ros = defaultdict(Counter)
+    for q in run.people:
+        if q["stage"] == "College" and q.get("college") is not None:
+            p = run.prog[q["college"]]
+            c = ros[q["college"]]
+            c["n"] += 1
+            c[q["pos"]] += 1
+            c["home"] += q.get("state") == p["state"]
+    roster_div = {}
+    for div in ("FBS", "FCS", "D2", "JUCO"):
+        ids = [i for i, p in run.prog.items() if p["div"] == div and ros[i]["n"]]
+        if ids:
+            roster_div[div] = {"teams": len(ids), "no_k": pct(sum(1 for i in ids if ros[i]["K"] == 0), len(ids)), "no_p": pct(sum(1 for i in ids if ros[i]["P"] == 0), len(ids)),
+                               "neither": pct(sum(1 for i in ids if ros[i]["K"] + ros[i]["P"] == 0), len(ids)),
+                               "per_team": {pos: r(sum(ros[i][pos] for i in ids) / len(ids), 2) for pos in ("QB", "RB", "WR", "TE", "OT", "IOL", "EDGE", "DT", "LB", "CB", "S", "K", "P")},
+                               "home_share": quant([100 * ros[i]["home"] / ros[i]["n"] for i in ids])}
+    home = sorted(([run.prog[i]["name"], run.prog[i]["state"], run.prog[i]["conf"], ros[i]["n"], pct(ros[i]["home"], ros[i]["n"]), ros[i]["K"], ros[i]["P"], ros[i]["QB"]]
+                   for i in ros if run.prog[i]["div"] == "FBS"), key=lambda x: -x[4])
     return {
         "signing_classes": sc, "fbs_signees_share": {k: pct(v, tot) for k, v in signee.items()},
         "distance": {s: {"n": len(v), "q": quant(v)} for s, v in sorted(dist.items())},
         "in_state": {s: pct(v[0], v[1]) for s, v in sorted(instate.items())},
         "nil": nil, "nil_corr": corr([x[2] for x in nil], [x[3] for x in nil]),
+        "rosters": roster_div, "roster_home": home,
     }
 
 
@@ -1021,10 +1056,17 @@ def anomalies(run, real, recs, coach, life):
                 if v is not None and v > rec[k]:
                     out.append({"kind": "Stat line beyond the real record", "year": y, "title": f"{name} ({pos}, {school}): {v:g} {lab}",
                                 "why": f"The FBS single-season record is {rec[k]:g}. One season past it can happen; several a year means the engine inflates {lab}."})
-            for v, name, pos, school, stars in d.get("sacks", [])[:3]:
-                if pos in ("K", "P", "QB", "WR", "RB", "CB", "S") and v and v >= 5:
-                    out.append({"kind": "Player in the wrong role", "year": y, "title": f"{name} ({pos}, {school}): {v:g} sacks",
-                                "why": "A player listed at a non-rushing position leads in sacks: the depth chart may be using him as a pass rusher."})
+    offense = {"QB", "RB", "WR", "TE", "OT", "IOL", "K", "P"}
+    for s in run.player_seasons():
+        if run.prog[s["program"]]["div"] != "FBS" or s["pos"] is None:
+            continue
+        school = run.prog[s["program"]]["name"]
+        if s["att"] >= 100 and s["pos"] != "QB":
+            out.append({"kind": "Player in the wrong role", "year": s["year"], "title": f"{s['name']} ({s['pos']}, {school}): {s['att']} passes, {s['pass_td']} TDs",
+                        "why": "Listed at another position but played quarterback most of the season. The depth chart moves a player when his rating there beats the listed players by 4 points; his listed position stays the same, and a lineman or back out-throwing the quarterbacks points at a thin quarterback room or a player whose skills don't match his position."})
+        if s["sacks"] >= 5 and s["pos"] in offense:
+            out.append({"kind": "Player in the wrong role", "year": s["year"], "title": f"{s['name']} ({s['pos']}, {school}): {s['sacks']:g} sacks",
+                        "why": "An offensive player with five or more sacks is playing both ways as a pass rusher. FBS two-way starters are very rare in real football."})
     for s in coach["stubborn"]:
         out.append({"kind": "Coach kept while losing", "year": s[3], "title": f"{s[0]} at {s[1]}, {s[2]}-{s[3]}: {s[4]}-{s[5]}",
                     "why": f"About five or more recorded seasons below a .400 win rate; the stint ended as '{s[6]}'. Real FBS schools rarely keep a coach that long at that record."})
@@ -1041,7 +1083,7 @@ def anomalies(run, real, recs, coach, life):
             if s["g"] and s["year"] >= run.first and (s["pf"] - s["pa"]) / s["g"] >= 40:
                 out.append({"kind": "Team-season far beyond real", "year": s["year"], "title": f"{p['name']} {s['year']}: {s['w']}-{s['l']}, {(s['pf'] - s['pa']) / s['g']:.1f} average margin",
                             "why": "The best real FBS team-seasons average about +22 to +39. An average margin of 40 or more has not happened in modern FBS."})
-    for row in life["busts"][:10]:
+    for row in life["busts"]:
         if not row[4]:
             out.append({"kind": "Five-star never drafted", "year": row[0], "title": f"{row[1]} ({row[2]}): {row[3]}",
                         "why": f"Rating {row[5]} against hidden potential {row[6]}. Notes: {row[7] or 'none'}. Real five-stars are drafted about 62% of the time."})
