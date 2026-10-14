@@ -773,7 +773,8 @@ fn engine_games(e: &Engine, games: &[(usize, usize)], seed: u64) -> Vec<Played> 
             let r = quick_game(ta, tb, e.level, seed.wrapping_mul(1_000_003).wrapping_add(k as u64));
             let [ha, hb] = r.stats.score;
             if let Some(log) = e.log {
-                log.lock().unwrap().add(e.year, e.division, [a, b], &r.stats);
+                let part = super::game_log::situations(e.division, [a, b], &r.stats);
+                log.lock().unwrap().add(e.year, e.division, [a, b], &r.stats, part);
             }
             let a_wins = if ha == hb { (seed ^ k as u64) & 1 == 0 } else { ha > hb };
             Some((a_wins, r.stats.team))
