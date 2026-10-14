@@ -9,4 +9,8 @@ Research done on the old Claude account in its last week (from 2026-10-14), so t
 | 3. Real baselines for trial 3 findings, dataset gaps | not yet | Trial 3 findings 2-9, `data/real-world/README.md` gaps | To do |
 | 4. Development and injuries | not yet | Section 6b | To do |
 
+Each figure is labelled **[published]** (someone else's study or official source, linked), **[computed]** (Claude's arithmetic on raw real data, dataset named, script in `data/real-world/scripts/`) or **[estimated]** (Claude's judgment or model, such as an upper limit). Engine targets and proposals are Claude's reading, not data.
+
+A plain-words summary of each area's findings is in [findings-summary.md](findings-summary.md).
+
 Data files and the scripts that make them live in `data/real-world/` (see its README).
