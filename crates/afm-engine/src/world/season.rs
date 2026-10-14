@@ -447,6 +447,8 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
     let on_engine = w.options.engine_from.is_none_or(|from| w.year >= from);
     let game_teams: Vec<Option<GameTeam>> =
         if on_engine { w.programs.par_iter().map(|p| game_team(w, p)).collect() } else { Vec::new() };
+    #[cfg(feature = "debug")]
+    crate::debug::capture_teams(w.year, &game_teams, &college.iter().map(|r| r.strength).collect::<Vec<_>>());
     let game_log = std::sync::Mutex::new(std::mem::take(&mut w.game_log));
     for division in [Division::FBS, Division::FCS, Division::D2, Division::JUCO] {
         let engine = Engine {
