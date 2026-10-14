@@ -63,6 +63,9 @@ fn main() {
     let mut fg = [[0.0f64; 2]; 4];
     let mut ay = [[0.0f64; 6]; 4];
     let mut by_cov = [[0.0f64; 3]; 2];
+    let mut run_b = [0.0f64; 6];
+    let mut cov_runs = std::collections::BTreeMap::<String, [f64; 3]>::new();
+    let mut by_box = [[0.0f64; 2]; 3];
     let mut pts = Vec::new();
     let mut close = 0.0;
     let mut injuries = 0.0;
@@ -251,6 +254,22 @@ fn main() {
                         *m.entry("explosive_run").or_default() += 1.0;
                     }
                     *m.entry("ybc").or_default() += p.before_contact;
+                    if !p.call.contains("kneel") {
+                        let y = p.yards;
+                        let k = [0.5, 3.5, 9.5, 19.5, 39.5].iter().filter(|&&b| y >= b).count();
+                        run_b[k] += 1.0;
+                        let cv = p.defense_call.split(',').next().unwrap_or("").to_string();
+                        let e = cov_runs.entry(cv).or_insert([0.0; 3]);
+                        e[0] += 1.0;
+                        e[1] += y;
+                        e[2] += (k == 5) as u8 as f64;
+                        if k == 5 && std::env::var("AFM_LONG").is_ok() {
+                            println!("LONG {:.0} | {} | {} | box {} | {}", y, p.call, p.defense_call, p.box_count, p.why);
+                        }
+                        let bx = if p.box_count <= 6 { 0 } else if p.box_count == 7 { 1 } else { 2 };
+                        by_box[bx][0] += 1.0;
+                        by_box[bx][1] += y;
+                    }
                     *m.entry("missed_tackles").or_default() += p.missed_tackles.len() as f64;
                 }
                 PlayType::Scramble => *m.entry("scrambles").or_default() += 1.0,
@@ -386,6 +405,22 @@ fn main() {
         row(&format!("{name}: att share / cmp / ypa"), by_cov[k][0] / (by_cov[0][0] + by_cov[1][0]).max(1.0), None);
         row("", by_cov[k][1] / by_cov[k][0].max(1.0), None);
         row("", by_cov[k][2] / by_cov[k][0].max(1.0), None);
+    }
+    // Designed runs against nflverse 2021-25 (data/real-world/position_value.json).
+    let pv: Value = serde_json::from_str(include_str!("../../../../data/real-world/position_value.json")).unwrap();
+    let runs = &pv["designed_runs"];
+    let rn: f64 = run_b.iter().sum();
+    for (k, name) in ["<=0", "1-3", "4-9", "10-19", "20-39", "40+"].iter().enumerate() {
+        row(&format!("runs {name} yards"), run_b[k] / rn.max(1.0), runs["share"][name].as_f64());
+    }
+    for (k, name) in ["<=6", "7", ">=8"].iter().enumerate() {
+        row(&format!("ypc, {name} in the box"), by_box[k][1] / by_box[k][0].max(1.0), runs["by_box"][name]["ypc"].as_f64());
+        row(&format!("share of runs, {name} in box"), by_box[k][0] / rn.max(1.0), None);
+    }
+    if std::env::var("AFM_LONG").is_ok() {
+        for (k, v) in &cov_runs {
+            println!("runs vs {k:<12} share {:.3} ypc {:.2} 40+ {:.3}", v[0] / rn, v[1] / v[0], v[2] / v[0]);
+        }
     }
     let fgr = &real["field_goal_pct_by_distance"];
     for (k, name) in ["under30", "30-39", "40-49", "50+"].iter().enumerate() {

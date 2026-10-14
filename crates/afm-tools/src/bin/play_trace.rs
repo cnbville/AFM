@@ -16,7 +16,22 @@ fn main() {
         Ok("hs") => Level::HS,
         _ => Level::NFL,
     };
-    let a = synthetic_team("A", level, 0.0, OffScheme::WestCoast, 11);
+    let mut a = synthetic_team("A", level, 0.0, OffScheme::WestCoast, 11);
+    // AFM_BOOST=POS:points raises every attribute of that position's starter.
+    if let Ok(v) = std::env::var("AFM_BOOST") {
+        let parts: Vec<&str> = v.split(':').collect();
+        let pos = parts[0];
+        let by: f64 = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(10.0);
+        let only: Vec<String> = parts.get(2).map(|s| s.split(',').map(String::from).collect()).unwrap_or_default();
+        if let Some(p) = a.players.iter_mut().find(|p| format!("{:?}", p.position) == pos) {
+            for at in afm_engine::attributes::Attr::ALL {
+                if !only.is_empty() && !only.contains(&format!("{at:?}")) {
+                    continue;
+                }
+                p.attrs[at] = (p.attrs[at] + by).min(99.0);
+            }
+        }
+    }
     let b = synthetic_team("B", level, 0.0, OffScheme::WestCoast, 22);
     let kind = match what.as_str() {
         "run" => PlayKind::Run(RunConcept::InsideZone),
@@ -74,6 +89,16 @@ fn main() {
             ys.push(r.yards);
         }
         ys.sort_by(|a, b| a.total_cmp(b));
+        let share = |lo: f64, hi: f64| 100.0 * ys.iter().filter(|&&y| y >= lo && y < hi).count() as f64 / n as f64;
+        println!(
+            "<=0 {:.0}% 1-3 {:.0}% 4-9 {:.0}% 10-19 {:.0}% 20+ {:.1}% 40+ {:.1}%",
+            share(-99.0, 0.5),
+            share(0.5, 3.5),
+            share(3.5, 9.5),
+            share(9.5, 19.5),
+            share(19.5, 200.0),
+            share(39.5, 200.0)
+        );
         println!("mean {:.2} median {:.1}", ys.iter().sum::<f64>() / n as f64, ys[ys.len() / 2]);
         return;
     }

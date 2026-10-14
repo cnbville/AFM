@@ -3,7 +3,8 @@
 //! side gets the same total rating boost spread in different ways (all
 //! starters, QB only, the lines, receivers, the secondary), or a better
 //! play caller. Prints win share and average margin for each.
-//! Usage: dynasty_check [games] [seed]
+//! Usage: dynasty_check [games] [seed], or dynasty_check value [games] [seed]
+//! for points per rating point at every position.
 
 use afm_engine::attributes::Attr;
 use afm_engine::game::synthetic::synthetic_team;
@@ -74,8 +75,71 @@ fn play(a: &GameTeam, b: &GameTeam, games: usize, seed: u64) -> (f64, f64) {
     (r.iter().map(|x| x.0).sum::<f64>() / n, r.iter().map(|x| x.1).sum::<f64>() / n)
 }
 
+/// Position values: the same team plays itself, one side with every starter
+/// at one position raised by `by` on every attribute. Prints points of
+/// margin per rating point per player, against the real-world band.
+fn values(games: usize, seed: u32, by: f64) {
+    let base = synthetic_team("A", Level::FBS, 0.0, OffScheme::WestCoast, seed);
+    // Real value per player per rating point, relative to the QB (see
+    // data/real-world/position_value.md).
+    let groups: [(&str, Vec<Position>, &str); 11] = [
+        ("QB", vec![Position::QB], "1.00"),
+        ("OT", vec![Position::OT], "0.15-0.30"),
+        ("IOL", vec![Position::IOL], "0.08-0.18"),
+        ("WR", vec![Position::WR], "0.15-0.30"),
+        ("TE", vec![Position::TE], "0.07-0.18"),
+        ("RB", vec![Position::RB], "0.05-0.15"),
+        ("EDGE", vec![Position::EDGE], "0.15-0.30"),
+        ("DT", vec![Position::DT], "0.10-0.25"),
+        ("LB", vec![Position::LB], "0.05-0.15"),
+        ("CB", vec![Position::CB], "0.12-0.25"),
+        ("S", vec![Position::S], "0.08-0.18"),
+    ];
+    println!("FBS, {games} games per line: a team against itself, one side's starters raised {by:+}\n");
+    println!("| Position | starters | margin | points per rating point per player | share of QB | real share |");
+    println!("|---|---|---|---|---|---|");
+    let mut qb = f64::NAN;
+    let only: Vec<String> =
+        std::env::var("AFM_ONLY").map(|v| v.split(',').map(String::from).collect()).unwrap_or_default();
+    for (label, ps, real) in groups {
+        if !only.is_empty() && !only.iter().any(|o| o == label) && label != "QB" {
+            continue;
+        }
+        let n = starters(&ps);
+        let (_, m) = play(&boost(&base, &ps, by), &base, games, seed as u64);
+        let per = m / (by * n);
+        if label == "QB" {
+            qb = per;
+        }
+        println!("| {label} | {n} | {m:+.2} | {per:+.3} | {:.2} | {real} |", per / qb);
+    }
+    if !only.is_empty() && !only.iter().any(|o| o == "coach") {
+        return;
+    }
+    let mut t = base.clone();
+    for c in [&mut t.staff.offense, &mut t.staff.defense] {
+        c.skill = 18.0;
+        c.adaptation = 18.0;
+    }
+    t.staff.game_management = 18.0;
+    let mut u = base.clone();
+    for c in [&mut u.staff.offense, &mut u.staff.defense] {
+        c.skill = 4.0;
+        c.adaptation = 4.0;
+    }
+    u.staff.game_management = 4.0;
+    let (w, m) = play(&t, &u, games, seed as u64);
+    println!("\nPlay callers and game management 18 against 4, same players: wins {:.1}%, margin {m:+.2}", 100.0 * w);
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if args.get(1).map(String::as_str) == Some("value") {
+        let games = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(2000);
+        let seed = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
+        values(games, seed, 10.0);
+        return;
+    }
     let games: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(1000);
     let seed: u32 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(1);
     // Same scheme on both sides so the only difference is the boost.

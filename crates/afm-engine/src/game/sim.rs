@@ -637,7 +637,7 @@ impl<'a> Sim<'a> {
         } else {
             bl.a(Attr::RunBlocking) * 0.5 + bl.a(Attr::Acceleration) * 0.3 + bl.a(Attr::Strength) * 0.2
         };
-        let w0 = if pass { -0.42 } else { -0.05 } + 0.006 * (get_off - set) + 0.18 * gauss(self.rng);
+        let w0 = if pass { knob(14, -0.42) } else { knob(10, -0.05) } + 0.006 * (get_off - set) + 0.18 * gauss(self.rng);
         let k = self.eng.len();
         self.eng.push(Engagement {
             blocker: b,
@@ -740,7 +740,7 @@ impl<'a> Sim<'a> {
             } else {
                 0.0
             };
-            let mut mu = base + 0.032 * edge;
+            let mut mu = base + if e.pass { knob(15, 0.032) } else { knob(11, 0.032) } * edge;
             // The runner already past him: he turns and runs after him, and
             // the blocker can't hang on (that would be holding).
             if !e.pass
@@ -757,7 +757,7 @@ impl<'a> Sim<'a> {
                 && !reading
                 && let Some(c) = carrier
                 && self.agents[c].pos.dist(self.agents[d].pos) < 2.2
-                && e.w > 0.0
+                && e.w > knob(13, 0.0)
             {
                 mu += 1.0 * (0.5 + e.w);
             }
@@ -767,7 +767,7 @@ impl<'a> Sim<'a> {
                     self.agents[b].label, self.agents[d].label, e.pass, e.mv, edge, mu, e.w
                 );
             }
-            let sd = if e.pass { 0.58 } else { 0.75 };
+            let sd = if e.pass { knob(16, 0.58) } else { knob(12, 0.75) };
             let w = e.w + mu * DT + sd * DT.sqrt() * gauss(self.rng);
             self.eng[k].w = w;
             self.agents[b].work += DT * 0.9;
@@ -812,14 +812,18 @@ impl<'a> Sim<'a> {
                 continue;
             }
             if w <= -1.0 && !e.pass {
-                // Driven off the ball or sealed: out of the play for a moment
-                // (now and then put on the ground).
-                let pancake = self.rng.chance(0.25);
-                self.agents[d].down_until =
-                    t + if pancake { 0.6 + 0.6 * self.rng.next() } else { 0.25 + 0.2 * self.rng.next() };
-                self.release(k);
-                self.notes.blocks.push((self.agents[b].id, self.agents[d].id, false, true, t - e.start, false));
-                continue;
+                // Driven off the ball or sealed. Now and then he is put on the
+                // ground; otherwise the blocker stays on him and keeps him
+                // sealed (a won block is sustained, not let go).
+                if knob(17, 1.0) < 0.5 || self.rng.chance(0.25 * DT / 0.5) {
+                    let pancake = knob(17, 1.0) < 0.5 && self.rng.chance(0.25) || knob(17, 1.0) >= 0.5;
+                    self.agents[d].down_until =
+                        t + if pancake { 0.6 + 0.6 * self.rng.next() } else { 0.25 + 0.2 * self.rng.next() };
+                    self.release(k);
+                    self.notes.blocks.push((self.agents[b].id, self.agents[d].id, false, true, t - e.start, false));
+                    continue;
+                }
+                self.eng[k].w = -1.0;
             }
             // Where the pair goes.
             let (bp, dp) = (self.agents[b].pos, self.agents[d].pos);
@@ -977,7 +981,7 @@ impl<'a> Sim<'a> {
             f64::INFINITY
         };
         let tt = if meet.is_finite() { meet.min(4.0) } else { dist / s };
-        let mut lead = clamp(0.92 + 0.004 * (iq - 60.0), 0.75, 1.05);
+        let mut lead = clamp(knob(4, 0.92) + 0.004 * (iq - 60.0), 0.75, 1.05);
         // The last man in front takes a deeper angle so the runner can't
         // get outside or past him.
         if (a.pos.x - cp.x) * self.goal > 3.0 && dist > 4.0 {
@@ -989,6 +993,23 @@ impl<'a> Sim<'a> {
             && (target.x - f) * self.goal < 0.0
         {
             target.x = f;
+        }
+        // In front of the runner and close, he breaks down and squares up:
+        // he shuffles to where the runner will cross his spot and comes
+        // forward under control, so the runner has to beat him with a move
+        // (topic 2.2). Good tacklers keep more speed doing it.
+        let ahead = (a.pos.x - cp.x) * self.goal;
+        if knob(9, 1.0) > 0.5 && ahead > 0.4 && ahead < 5.0 && dist < 6.0 && cap >= 1.0 {
+            let tk = a.a(Attr::Tackling);
+            let fwd = clamp(1.5 + 0.04 * (tk - 50.0), 0.8, 3.5);
+            let run_x = (cv.x * self.goal).max(0.5);
+            let t_meet = ahead / (run_x + fwd);
+            let y_aim = clamp(cp.y + cv.y * t_meet, 0.5, WIDTH - 0.5);
+            let me = a.pos;
+            let lateral = clamp((y_aim - me.y) * 4.0, -a.vmax, a.vmax);
+            let want = v2(-self.goal * fwd, lateral);
+            self.steer(i, want);
+            return;
         }
         let motor = self.teams[a.side][a.p].traits.motor;
         // A player out of the play with a low motor stops chasing.
@@ -1015,14 +1036,17 @@ impl<'a> Sim<'a> {
         let t = self.t;
         // Arm's length standing; a free man can lunge or dive a bit farther
         // at a worse chance (see first_hit).
-        let reach0 = 1.6;
+        
         let mut new_tacklers = Vec::new();
         for i in 0..self.agents.len() {
             let d = &self.agents[i];
             if d.side == self.agents[c].side || !d.up(t) || self.fight.contains(&i) {
                 continue;
             }
-            let reach = reach0 + 0.03 * (self.player(i).arm - 32.0);
+            // In space (past the line, no bodies around) a free man can dive.
+            let in_space = (self.agents[c].pos.x - self.los) * self.goal > knob(5, 3.0);
+            let free_reach = if d.engaged.is_none() && in_space { knob(0, 1.6) } else { 1.6 };
+            let reach = free_reach + 0.03 * (self.player(i).arm - 32.0);
             // Closest approach over the last tick, so fast players can't
             // pass through each other between two samples.
             let rel = d.pos - self.agents[c].pos;
@@ -1081,8 +1105,8 @@ impl<'a> Sim<'a> {
         let fast = if closing > 9.0 { 0.25 } else { 0.0 };
         let space = if r.vel.len() > 5.0 { 0.25 } else { -0.2 };
         let arm = if arm_only { 1.5 } else { 0.0 };
-        let dive = 1.0 * lunge;
-        let logit = -3.0 + (evade - tackle) / 30.0 + angle + fast + space + arm + dive;
+        let dive = knob(7, 1.0) * lunge;
+        let logit = knob(6, -3.0) + (evade - tackle) / knob(8, 30.0) + angle + fast + space + arm + dive;
         let p_miss = 1.0 / (1.0 + (-logit).exp());
         if TRACE.load(std::sync::atomic::Ordering::Relaxed) {
             println!(
@@ -1144,8 +1168,8 @@ impl<'a> Sim<'a> {
         let t = self.t;
         let r = self.agents[c].clone();
         let resist = 1.0
-            + 0.012 * (r.a(Attr::Strength) - 60.0)
-            + 0.008 * (r.a(Attr::Elusiveness) - 60.0)
+            + knob(19, 1.0) * 0.012 * (r.a(Attr::Strength) - 60.0)
+            + knob(19, 1.0) * 0.008 * (r.a(Attr::Elusiveness) - 60.0)
             + (r.mass - 215.0) / 300.0
             + 0.02 * (self.player(c).traits.toughness - 10.0);
         let mut hazard = 0.0;
@@ -1167,7 +1191,7 @@ impl<'a> Sim<'a> {
             let d = &self.agents[i];
             let tk = 0.6 * d.a(Attr::Tackling) + 0.4 * d.a(Attr::Strength) + (d.mass - 215.0) * 0.08;
             let rb = 0.5 * r.a(Attr::Strength) + 0.5 * r.a(Attr::Elusiveness) + (r.mass - 215.0) * 0.08;
-            let p_break = 0.026 * (1.0 + (rb - tk) / 35.0).max(0.05);
+            let p_break = 0.026 * (1.0 + (rb - tk) / knob(18, 35.0)).max(0.05);
             if self.rng.chance(p_break) {
                 if TRACE.load(std::sync::atomic::Ordering::Relaxed) {
                     println!("BREAK t={t:.1} from {} p {p_break:.3}", d.label);
@@ -1375,4 +1399,11 @@ pub fn injury_weeks(kind: InjuryKind, rng: &mut Rng) -> f64 {
     };
     let u = rng.next();
     lo + (hi - lo) * u * u
+}
+
+/// TEMPORARY tuning knobs (AFM_K0..AFM_K9); removed before merge.
+pub fn knob(i: usize, default: f64) -> f64 {
+    static K: std::sync::OnceLock<[Option<f64>; 40]> = std::sync::OnceLock::new();
+    K.get_or_init(|| std::array::from_fn(|k| std::env::var(format!("AFM_K{k}")).ok().and_then(|v| v.parse().ok())))[i]
+        .unwrap_or(default)
 }
