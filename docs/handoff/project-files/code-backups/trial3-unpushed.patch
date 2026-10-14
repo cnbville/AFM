@@ -1,0 +1,1190 @@
+From 362a2f55e26fdf52dc83ff9804946b7977a91d78 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 10 Oct 2026 21:18:57 +0000
+Subject: [PATCH 1/4] Trial 2: volatility, reachable potential, team draft
+ skill, 99 scale
+
+Not pushed: waiting for Raichel's review of the trial projection.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01JQgqp7rz4kKMexyFjLRnjv
+---
+ src/career.ts             | 78 ++++++++++++++++++++++++++++++++-------
+ src/development.ts        | 75 ++++++++++++++++++++++++++++++++-----
+ src/player.ts             | 12 +++++-
+ tests/career.test.ts      |  2 +-
+ tests/development.test.ts | 14 +++++--
+ tests/stats.ts            | 24 ++++++++++++
+ 6 files changed, 174 insertions(+), 31 deletions(-)
+
+diff --git a/src/career.ts b/src/career.ts
+index d0011ff..8663d8f 100644
+--- a/src/career.ts
++++ b/src/career.ts
+@@ -35,6 +35,8 @@ export interface CareerRecord {
+   potentialAtExit: number;
+   draftPick: number | null;
+   udfa: boolean;
++  /** Team that drafted or signed him. */
++  team: Team | null;
+   nflSeasons: number;
+   peakOverall: number;
+   peakAge: number;
+@@ -66,6 +68,7 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
+       potentialAtExit: 0,
+       draftPick: null,
+       udfa: false,
++      team: null,
+       nflSeasons: 0,
+       peakOverall: overall(player),
+       peakAge: player.age,
+@@ -145,19 +148,37 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
+   }
+ 
+   // --- Draft and undrafted free agency ---------------------------------------
++  // Each team picks from its own board. A team's board is the consensus grade
++  // seen through its front office: good GMs see clearly, bad ones reach.
++  const teams = makeTeams(rng);
++  const order = [...teams].sort(() => rng.next() - 0.5);
+   entrants.sort((a, b) => b.score - a.score);
+   const draftSlots = Math.max(1, Math.round(PIPELINE.draftPicks * share));
+   const udfaSlots = Math.round(draftSlots * PIPELINE.udfaRatio);
+   const pros: CareerRecord[] = [];
+-  entrants.forEach((e, i) => {
+-    if (i < draftSlots) {
+-      e.record.draftPick = i + 1;
+-      pros.push(e.record);
+-    } else if (i < draftSlots + udfaSlots && overall(e.record.player) >= 48) {
+-      e.record.udfa = true;
+-      pros.push(e.record);
++  const pool = [...entrants];
++  for (let pick = 1; pick <= draftSlots && pool.length > 0; pick++) {
++    const team = order[(pick - 1) % order.length]!;
++    let bestIndex = 0;
++    let bestValue = -Infinity;
++    for (let i = 0; i < Math.min(60, pool.length); i++) {
++      const value = pool[i]!.score + rng.normal(0, boardNoise(team.draftSkill));
++      if (value > bestValue) {
++        bestValue = value;
++        bestIndex = i;
++      }
+     }
+-  });
++    const [chosen] = pool.splice(bestIndex, 1);
++    chosen!.record.draftPick = pick;
++    chosen!.record.team = team;
++    pros.push(chosen!.record);
++  }
++  for (const e of pool.slice(0, udfaSlots)) {
++    if (overall(e.record.player) < 48) continue;
++    e.record.udfa = true;
++    e.record.team = rng.pick(teams);
++    pros.push(e.record);
++  }
+ 
+   // --- Pro careers ------------------------------------------------------------
+   for (const r of pros) simulateProCareer(r, draftSlots, rng);
+@@ -165,28 +186,57 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
+   return { records, draftSlots };
+ }
+ 
++/**
++ * Rating guidance for the pro game. These are what the user sees as rough
++ * bands; actual roster decisions are made by teams through their own eyes.
++ */
++export const NFL_LEVELS = { roster: 65, starter: 75, proBowl: 85, elite: 92 } as const;
++
++export interface Team {
++  id: number;
++  /** Front office judgment, 1-20. Will come from GM and owner attributes. */
++  draftSkill: number;
++}
++
++function makeTeams(rng: Rng): Team[] {
++  return Array.from({ length: 32 }, (_, id) => ({ id, draftSkill: clamp(Math.round(rng.normal(10.5, 3.5)), 1, 20) }));
++}
++
++/** How far off a front office's read of a player is, in rating points. */
++function boardNoise(skill: number): number {
++  return 1.5 + (20 - skill) * 0.35;
++}
++
+ function simulateProCareer(r: CareerRecord, draftSlots: number, rng: Rng): void {
+   const p = r.player;
++  const team = r.team!;
+   let coaching = clamp(rng.normal(13, 2.5), 1, 20);
+   // Draft capital buys patience: early picks get years to develop before being cut.
+   const round = r.draftPick === null ? 8 : Math.ceil((r.draftPick / draftSlots) * 7);
+-  const protection = [0, 7, 5, 4, 3, 2, 1, 0, 0][round]!;
++  const protection = [0, 6, 4, 3, 2, 1, 0, 0, 0][round]!;
+   for (let season = 0; p.age <= 42; season++) {
+     const ovr = overall(p);
+-    const role: PlayingTime = ovr >= 74 ? 'starter' : ovr >= 66 ? 'rotation' : 'backup';
++    const role: PlayingTime = ovr >= NFL_LEVELS.starter ? 'starter' : ovr >= NFL_LEVELS.roster + 2 ? 'rotation' : 'backup';
+     const report = developSeason(p, { level: 'NFL', coaching, playingTime: role }, rng);
+     r.nflSeasons++;
+     trackPeak(r);
+     if (season % 3 === 2) coaching = clamp(rng.normal(13, 2.5), 1, 20);
+ 
+-    const after = overall(p);
+     const kicker = p.position === 'K' || p.position === 'P';
+     const age = p.age;
+-    const cutLine = 69 + Math.max(0, age - (kicker ? 36 : 30)) * 1.2 - (season < 3 ? protection : 0);
+-    const keepChance = 1 / (1 + Math.exp(-(after - cutLine) / 2.2));
++    // Teams judge on what they see, including this season's production.
++    const seen = report.overallAfter * 0.7 + p.history[p.history.length - 1]!.performance * 0.3 + rng.normal(0, boardNoise(team.draftSkill) * 0.5);
++    // Roster spots go to whoever beats the next man up, so the real line sits
++    // a little above the roster guidance and rises with age.
++    const cutLine = NFL_LEVELS.roster + 5 + Math.max(0, age - (kicker ? 35 : 29)) * 1.2 - (season < 3 ? protection : 0);
++    const keepChance = 1 / (1 + Math.exp(-(seen - cutLine) / 2));
+     if (!rng.chance(keepChance)) return;
++    const major = report.events.includes('majorInjury');
++    const retireAge = kicker ? 35 : 30;
++    // Stars keep playing while they are still stars; fringe veterans walk away.
++    const standing = report.overallAfter >= 85 ? 0.25 : report.overallAfter >= 78 ? 0.5 : 1;
+     const retireChance =
+-      0.03 + Math.max(0, age - (kicker ? 36 : 30)) * 0.06 + (report.events.includes('majorInjury') ? 0.08 : 0);
++      ((age < retireAge ? 0.004 : 0.02 + (age - retireAge) * 0.045) + (major ? (age >= 27 ? 0.15 : 0.04) : 0)) * standing;
+     if (rng.chance(retireChance)) return;
+   }
+ }
+diff --git a/src/development.ts b/src/development.ts
+index 4987a93..3b90afd 100644
+--- a/src/development.ts
++++ b/src/development.ts
+@@ -28,6 +28,10 @@ const LEVEL_INJURY_RATE: Record<Level, number> = {
+   NFL: 0.24,
+ };
+ 
++/** Points per unit of growth rate added on top of proportional growth. */
++const FINISHING_STEP = 1.6;
++const MAX_YEARLY_GAIN = 12;
++
+ const PROFILE_LIST = ATTRIBUTE_KEYS.map((k) => ATTRIBUTE_PROFILES[k]);
+ const ceilingDeltaBuffer = new Float64Array(ATTRIBUTE_KEYS.length);
+ const deltaAttrs = emptyAttributes(0);
+@@ -41,7 +45,7 @@ const PLAYING_TIME_GROWTH: Record<PlayingTime, number> = {
+ };
+ 
+ const PLAYING_TIME_POTENTIAL: Record<PlayingTime, number> = {
+-  starter: 0.35,
++  starter: 0.15,
+   rotation: 0.1,
+   backup: -0.25,
+   redshirt: 0,
+@@ -95,23 +99,50 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
+     }
+   }
+ 
+-  // --- Form for the year: breakouts, stagnation and lost seasons -------------
+-  let form = rng.logNormal(0.22);
++  // --- Form for the year: breakouts, slumps and lost seasons ----------------
++  // Development is lumpy: a single season can be worth three normal ones, and a
++  // good year is often followed by a dip as opponents adjust.
++  let form = rng.logNormal(0.38);
+   let setback = 0;
+-  const breakoutChance = age <= 25 ? 0.035 + (personality.competitiveness - 10) * 0.002 + (personality.workEthic - 10) * 0.002 : 0;
++  let performance = rng.normal(0, 2);
++  let breakoutLift = 0;
++  const last = player.history[player.history.length - 1];
++  const before = player.history[player.history.length - 2];
++  const hotLastYear = !!last && (last.events.includes('breakout') || (!!before && last.overall - before.overall >= 6));
++  const youngStarter = ctx.playingTime === 'starter' && age <= 22;
++  const breakoutChance =
++    (age <= 23 ? 0.035 : age <= 27 ? 0.02 : 0.01) *
++    (1 + (personality.competitiveness - 10) * 0.05 + (personality.workEthic - 10) * 0.05) *
++    (youngStarter ? 1.5 : ctx.playingTime === 'backup' ? 0.6 : 1);
++  const slumpChance = hotLastYear ? 0.16 : 0.06;
+   const stagnationChance = 0.05 - (personality.workEthic - 10) * 0.003 - (personality.competitiveness - 10) * 0.0015;
+   // Complacency, off-field trouble, a bad scheme fit: the quiet reasons prospects bust.
+   const lostSeasonChance =
+     age >= 17 && age <= 27
+       ? Math.max(0.005, 0.03 + (10 - personality.workEthic) * 0.004 + (10 - personality.competitiveness) * 0.002)
+       : 0;
+-  if (rng.chance(breakoutChance)) {
++  if (ctx.playingTime !== 'redshirt' && rng.chance(breakoutChance)) {
+     events.push('breakout');
+-    form *= 1.7;
++    form *= 2.2;
++    performance += rng.range(3, 7);
++    // A proven breakout by a player already pressing against his ceiling shows
++    // the ceiling was wrong: it can rise past the normal yearly limit, by less
++    // as a player gets older. Further from the ceiling, a breakout is growth.
++    const headroom = potentialBefore - overallBefore;
++    if (headroom < 6) breakoutLift = rng.range(2, 8) * (age <= 23 ? 1 : age <= 27 ? 0.6 : 0.35);
+   } else if (rng.chance(lostSeasonChance)) {
+     events.push('lostSeason');
+-    form *= 0.5;
++    form *= 0.4;
+     setback = 1.8;
++    performance -= rng.range(3, 7);
++  } else if (ctx.playingTime !== 'redshirt' && rng.chance(slumpChance)) {
++    // Production falls hard; the ratings dip a little as confidence and timing go.
++    events.push('slump');
++    form *= 0.6;
++    performance -= rng.range(4, 9);
++    for (let i = 0; i < ATTRIBUTE_KEYS.length; i++) {
++      if (PROFILE_LIST[i]!.group !== 'physical') player.attributes[ATTRIBUTE_KEYS[i]!] -= rng.range(0.5, 3);
++    }
+   } else if (rng.chance(stagnationChance)) {
+     events.push('stagnation');
+     form *= 0.3;
+@@ -130,7 +161,7 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
+       PLAYING_TIME_POTENTIAL[ctx.playingTime] * snapsFactor -
+       setback +
+       rng.normal(0, 0.9);
+-    const shared = drive * 2.4 * plasticity;
++    const shared = drive * 1.7 * plasticity;
+     const spurt = age <= 17 && rng.chance(0.09);
+     if (spurt) events.push('growthSpurt');
+     const delta = ceilingDeltaBuffer;
+@@ -147,6 +178,25 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
+     const scale = Math.abs(shift) > MAX_POTENTIAL_SHIFT ? MAX_POTENTIAL_SHIFT / Math.abs(shift) : 1;
+     for (let i = 0; i < ATTRIBUTE_KEYS.length; i++) player.ceilings[ATTRIBUTE_KEYS[i]!] += delta[i]! * scale;
+   }
++  // Reading defenses, poise and route timing keep deepening with real snaps
++  // well after the body has stopped growing: veterans earn new ceiling and
++  // most of it shows up on the field straight away.
++  if (age >= 21 && age <= 31) {
++    const snapsShare = ctx.playingTime === 'starter' ? 1 : ctx.playingTime === 'rotation' ? 0.6 : 0.2;
++    for (let i = 0; i < ATTRIBUTE_KEYS.length; i++) {
++      const profile = PROFILE_LIST[i]!;
++      if (profile.experience < 0.6) continue;
++      const learned = rng.range(0, 1.2) * profile.experience * snapsShare * snapsFactor;
++      player.ceilings[ATTRIBUTE_KEYS[i]!] += learned;
++      player.attributes[ATTRIBUTE_KEYS[i]!] += learned * 0.8;
++    }
++  }
++  if (breakoutLift > 0) {
++    const weights = POSITION_PROFILES[player.position].weights;
++    for (const key of ATTRIBUTE_KEYS) {
++      if (weights[key]) player.ceilings[key] = Math.min(MAX_RATING, player.ceilings[key] + breakoutLift * rng.range(0.6, 1.2));
++    }
++  }
+ 
+   // --- Growth towards the ceiling --------------------------------------------
+   const coachingMult = 0.75 + ctx.coaching * 0.025; // 10 -> 1.0, 20 -> 1.25
+@@ -164,8 +214,12 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
+     if (ageFactor <= 0.01) continue;
+     const coaching = Math.pow(coachingBoost, profile.coachability);
+     const snaps = Math.pow(snapsMult, profile.experience);
+-    const rate = clamp(profile.growthRate * ageFactor * coaching * snaps * workMult * form * growthMultiplier, 0, 0.75);
+-    player.attributes[key] += gap * rate + rng.normal(0, 0.5);
++    const redshirtLift = ctx.playingTime === 'redshirt' && profile.group === 'physical' ? 1.35 : 1;
++    const rate = clamp(profile.growthRate * ageFactor * coaching * snaps * workMult * form * growthMultiplier * redshirtLift, 0, 0.5);
++    // Proportional growth plus a fixed step, so a well-developed player can
++    // actually reach his ceiling instead of creeping towards it forever.
++    // Even a monster year adds at most about a dozen points to one attribute.
++    player.attributes[key] += Math.min(gap, gap * rate + FINISHING_STEP * rate, MAX_YEARLY_GAIN) + rng.normal(0, 0.5);
+   }
+ 
+   // --- Ageing ----------------------------------------------------------------
+@@ -198,6 +252,7 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
+     playingTime: ctx.playingTime,
+     overall: overallAfter,
+     potential: potentialAfter,
++    performance: overallAfter + performance,
+     events,
+   });
+   player.age += 1;
+diff --git a/src/player.ts b/src/player.ts
+index db6abb4..f165791 100644
+--- a/src/player.ts
++++ b/src/player.ts
+@@ -27,6 +27,8 @@ export interface SeasonRecord {
+   playingTime: PlayingTime;
+   overall: number;
+   potential: number;
++  /** On-field level shown that season: overall plus form, slumps and breakouts. */
++  performance: number;
+   events: DevelopmentEvent[];
+ }
+ 
+@@ -37,6 +39,7 @@ export type DevelopmentEvent =
+   | 'breakout'
+   | 'stagnation'
+   | 'lostSeason'
++  | 'slump'
+   | 'minorInjury'
+   | 'moderateInjury'
+   | 'majorInjury';
+@@ -49,6 +52,8 @@ export interface Player {
+   attributes: Attributes;
+   /** Hidden ceiling per attribute. Moves over time; never shown directly. */
+   ceilings: Attributes;
++  /** Potential when the player was generated, kept to show how much was gained or lost. */
++  originalPotential: number;
+   /** Years the player's growth window is shifted: negative = early bloomer, positive = late bloomer. */
+   bloom: number;
+   /** Years added to (or removed from) every decline age. */
+@@ -80,7 +85,7 @@ export function potential(p: Player): number {
+  */
+ export function talentFromZ(z: number): number {
+   const tail = Math.max(0, z - 1.6);
+-  return 43 + 7 * z + 2.2 * tail * tail;
++  return 45 + 6.5 * z + 2.6 * tail * tail;
+ }
+ 
+ export interface ProspectOptions {
+@@ -108,10 +113,13 @@ export function generateProspect(rng: Rng, opts: ProspectOptions = {}): Player {
+     const profile = ATTRIBUTE_PROFILES[key];
+     // Early bloomers arrive more physically mature; late bloomers less so.
+     const maturity = clamp(profile.maturityAt14 - 0.035 * bloom + 0.03 * (age - 14) + rng.normal(0, 0.05), 0.2, 0.98);
+-    attributes[key] = clamp(ceiling * maturity, MIN_RATING, ceiling);
++    // Even the most gifted 14-year-old is still a boy: soften the top end.
++    const raw = ceiling * maturity;
++    attributes[key] = clamp(raw > 40 ? 40 + (raw - 40) * 0.5 : raw, MIN_RATING, ceiling);
+   }
+ 
+   return {
++    originalPotential: overallFor(position, ceilings),
+     id: opts.id ?? `p${nextId++}`,
+     position,
+     age,
+diff --git a/tests/career.test.ts b/tests/career.test.ts
+index 9cdc2a1..ed55f7c 100644
+--- a/tests/career.test.ts
++++ b/tests/career.test.ts
+@@ -73,7 +73,7 @@ describe('a national class, freshman year to retirement', () => {
+     expect(o.mean).toBeGreaterThan(68);
+     expect(o.mean).toBeLessThan(80);
+     expect(o.share90plus).toBeGreaterThan(0.005);
+-    expect(o.share90plus).toBeLessThan(0.06);
++    expect(o.share90plus).toBeLessThan(0.08);
+     expect(s.draft.rookieOverall.median).toBeGreaterThan(62);
+     expect(s.draft.rookieOverall.median).toBeLessThan(76);
+   });
+diff --git a/tests/development.test.ts b/tests/development.test.ts
+index 89a0b0b..148b5d8 100644
+--- a/tests/development.test.ts
++++ b/tests/development.test.ts
+@@ -116,22 +116,28 @@ describe('development curves', () => {
+ });
+ 
+ describe('dynamic potential', () => {
+-  it('never moves more than one band per checkpoint while young', () => {
++  it('moves at most one band per checkpoint, unless a proven breakout breaks the ceiling', () => {
+     const rng = new Rng('bands');
+     let checked = 0;
++    let breakouts = 0;
+     for (const p of prospects(1500, 'bands', 1.5)) {
+       let prev = potential(p);
+       while (p.age < 22) {
+         const r = developSeason(p, contextFor(p.age), rng);
+-        if (!r.events.includes('majorInjury')) {
+-          // Small allowance: a ceiling is nudged up when a player outgrows it.
+-          expect(Math.abs(r.potentialAfter - prev)).toBeLessThanOrEqual(MAX_POTENTIAL_SHIFT + 0.6);
++        const shift = Math.abs(r.potentialAfter - prev);
++        if (r.events.includes('breakout')) {
++          expect(shift).toBeLessThanOrEqual(2 * MAX_POTENTIAL_SHIFT + 2);
++          breakouts++;
++        } else if (!r.events.includes('majorInjury')) {
++          // Allowance for snaps-driven ceiling growth and players outgrowing a ceiling.
++          expect(shift).toBeLessThanOrEqual(MAX_POTENTIAL_SHIFT + 1.5);
+           checked++;
+         }
+         prev = r.potentialAfter;
+       }
+     }
+     expect(checked).toBeGreaterThan(8000);
++    expect(breakouts).toBeGreaterThan(100);
+   });
+ 
+   it('moves potential both ways and mostly before 24', () => {
+diff --git a/tests/stats.ts b/tests/stats.ts
+index 1c428aa..1530f25 100644
+--- a/tests/stats.ts
++++ b/tests/stats.ts
+@@ -62,6 +62,15 @@ export function summarize({ records, draftSlots }: CohortResult) {
+   const regressions = records.flatMap((r) =>
+     r.player.history.filter((s, i) => i > 0 && s.age >= 18 && s.age <= 23 && s.overall < r.player.history[i - 1]!.overall),
+   );
++  const longPros = pros.filter((r) => r.nflSeasons >= 4);
++  const reach = longPros.map((r) => {
++    const peak = r.player.history.reduce((b, s) => (s.overall > b.overall ? s : b));
++    return { gap: peak.potential - peak.overall, ratio: peak.overall / peak.potential };
++  });
++  const exitOverall = records
++    .filter((r) => r.college)
++    .map((r) => r.player.history.filter((s) => s.level !== 'NFL').at(-1)!.overall);
++  const draftOverall = drafted.map((r) => r.player.history.filter((s) => s.level !== 'NFL').at(-1)!.overall);
+   return {
+     players: n,
+     draftSlots,
+@@ -120,6 +129,21 @@ export function summarize({ records, draftSlots }: CohortResult) {
+         KP: median(peakAgesBy(['K', 'P'])),
+       },
+     },
++    levels: {
++      collegeExitsRated65Plus: exitOverall.filter((o) => o >= 65).length,
++      collegeExitsRated70Plus: exitOverall.filter((o) => o >= 70).length,
++      draftedBelow65: round(draftOverall.filter((o) => o < 65).length / drafted.length),
++      peakCounts: {
++        '97+': records.filter((r) => r.peakOverall >= 97).length,
++        '92+': records.filter((r) => r.peakOverall >= 92).length,
++        '85+': records.filter((r) => r.peakOverall >= 85).length,
++      },
++    },
++    reachingPotential: {
++      within2: round(reach.filter((x) => x.gap <= 2).length / reach.length),
++      reached90to98pct: round(reach.filter((x) => x.gap > 2 && x.ratio >= 0.9).length / reach.length),
++      below90pct: round(reach.filter((x) => x.ratio < 0.9).length / reach.length),
++    },
+     potential: {
+       initialVsExitCorrelationDrafted: round(correlation(drafted.map((r) => r.initialPotential), drafted.map((r) => r.potentialAtExit))),
+       initialVsExitCorrelationAll: round(correlation(records.map((r) => r.initialPotential), records.map((r) => r.potentialAtExit))),
+-- 
+2.43.0
+
+
+From e666911321d6905e5aced33c3ca8fd4a0e0630d1 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 10 Oct 2026 22:00:52 +0000
+Subject: [PATCH 2/4] Trial 3: transfer portal routes, rare D2 draft picks,
+ level ratings
+
+D2 players are now rarely drafted and never before round 4; standouts move
+up through the transfer portal instead (FCS>FBS, D2>FBS, D2>FCS, with
+real-world volumes). Recruiting services rank on upside while college
+staffs offer on film. Level ratings compare high schoolers and college
+players with the best in the nation at their position and age.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01JQgqp7rz4kKMexyFjLRnjv
+---
+ src/career.ts        | 102 ++++++++++++++++++++++++++++++++++++++++---
+ src/development.ts   |  14 +++++-
+ src/index.ts         |   1 +
+ src/levelRating.ts   |  61 ++++++++++++++++++++++++++
+ src/player.ts        |   2 +
+ tests/career.test.ts |  23 +++++++++-
+ tests/stats.ts       |  25 +++++++++++
+ 7 files changed, 220 insertions(+), 8 deletions(-)
+ create mode 100644 src/levelRating.ts
+
+diff --git a/src/career.ts b/src/career.ts
+index 8663d8f..fdc9f1f 100644
+--- a/src/career.ts
++++ b/src/career.ts
+@@ -1,6 +1,7 @@
+ import { developSeason } from './development.js';
+ import { generateProspect, overall, potential, type Level, type Player, type PlayingTime } from './player.js';
+ import { Rng, clamp } from './rng.js';
++import { buildLevelScale, levelGroupKey, levelRating, type LevelScale } from './levelRating.js';
+ import { scoutPlayer } from './scouting.js';
+ 
+ /**
+@@ -19,10 +20,31 @@ export const PIPELINE = {
+   udfaRatio: 1.6,
+   /** Draft-score cutoff for an underclassman to leave school early. */
+   earlyEntryScore: 70,
++  /** How far above the FBS median a lower-level player must be to get an FBS offer in the portal. */
++  transferMargin: { FCS: 0, SmallCollege: 2 } as Record<'FCS' | 'SmallCollege', number>,
++  /**
++   * Chance a player who earns a transfer up takes it. Most standouts stay put:
++   * about 85% of FCS all-conference players with eligibility left return.
++   */
++  transferChance: 0.2,
++  /**
++   * Scholarships open to lower-level transfers each year, by route, as a share
++   * of the class. Real portals move roughly 400 FCS and 150 D2 players up to
++   * FBS a year; D2 to FCS is a smaller, less tracked route.
++   */
++  transferSlots: { 'FCS>FBS': 0.0004, 'SmallCollege>FBS': 0.00015, 'SmallCollege>FCS': 0.0001 } as Record<TransferRoute, number>,
++  /**
++   * Points scouts take off a grade for production against weaker opponents.
++   * Teams can't be sure a D2 star will hold up against pro athletes.
++   */
++  competitionDiscount: { FBS: 0, FCS: 1, SmallCollege: 5, HS: 0 } as Record<CollegeLevel | 'HS', number>,
++  /** First round in which teams will spend a pick on a D2/D3/NAIA player (day 3 = round 4). */
++  smallCollegeEarliestRound: 4,
+ } as const;
+ 
+ export type RecruitStars = 0 | 2 | 3 | 4 | 5;
+-type CollegeLevel = 'FBS' | 'FCS' | 'SmallCollege';
++export type CollegeLevel = 'FBS' | 'FCS' | 'SmallCollege';
++export type TransferRoute = 'FCS>FBS' | 'SmallCollege>FBS' | 'SmallCollege>FCS';
+ 
+ export interface CareerRecord {
+   player: Player;
+@@ -30,7 +52,11 @@ export interface CareerRecord {
+   initialPotential: number;
+   /** Recruiting stars at signing (0 = unranked). */
+   stars: RecruitStars;
++  /** College he finished at (after any transfers). */
+   college: CollegeLevel | null;
++  /** College that first signed him out of high school. */
++  signedWith: CollegeLevel | null;
++  transfers: { age: number; from: CollegeLevel; to: CollegeLevel }[];
+   /** True potential when leaving college (or high school). */
+   potentialAtExit: number;
+   draftPick: number | null;
+@@ -65,6 +91,8 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
+       initialPotential: potential(player),
+       stars: 0,
+       college: null,
++      signedWith: null,
++      transfers: [],
+       potentialAtExit: 0,
+       draftPick: null,
+       udfa: false,
+@@ -88,17 +116,22 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
+   }
+ 
+   // --- Recruiting: rank the class on what scouts see -------------------------
++  // Recruiting services rank on upside; college staffs offer on film, so what
++  // a senior already is counts for more in who signs where.
++  const starScore = new Map<CareerRecord, number>();
+   const recruitScore = new Map<CareerRecord, number>();
+   for (const r of records) {
+     const rep = scoutPlayer(r.player, { accuracy: 12, level: 'HS' }, rng);
+-    recruitScore.set(r, rep.overall + 0.75 * (rep.potential - rep.overall));
++    starScore.set(r, rep.overall + 0.75 * (rep.potential - rep.overall));
++    recruitScore.set(r, rep.overall + 0.6 * (rep.potential - rep.overall));
+   }
+-  const byRecruitScore = [...records].sort((a, b) => recruitScore.get(b)! - recruitScore.get(a)!);
++  const byStarScore = [...records].sort((a, b) => starScore.get(b)! - starScore.get(a)!);
+   let cursor = 0;
+   for (const stars of [5, 4, 3, 2] as const) {
+     const n = Math.round(PIPELINE.starShares[stars] * size);
+-    for (let k = 0; k < n && cursor < byRecruitScore.length; k++) byRecruitScore[cursor++]!.stars = stars;
++    for (let k = 0; k < n && cursor < byStarScore.length; k++) byStarScore[cursor++]!.stars = stars;
+   }
++  const byRecruitScore = [...records].sort((a, b) => recruitScore.get(b)! - recruitScore.get(a)!);
+   cursor = 0;
+   const collegeCoaching = new Map<CareerRecord, number>();
+   for (const level of ['FBS', 'FCS', 'SmallCollege'] as const) {
+@@ -106,6 +139,7 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
+     for (let k = 0; k < n && cursor < byRecruitScore.length; k++) {
+       const r = byRecruitScore[cursor++]!;
+       r.college = level;
++      r.signedWith = level;
+       // Blue-chip recruits land at the programs with the best staffs.
+       const prestige = level === 'FBS' ? 1 - k / n : 0.5;
+       const base = level === 'FBS' ? 11 + 4 * prestige : level === 'FCS' ? 10 : 8.5;
+@@ -145,6 +179,34 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
+         entrants.push({ record: r, score });
+       }
+     }
++    // Transfer portal: standouts at lower levels move up for the exposure,
++    // coaching and competition, while they still have eligibility left.
++    // Each level only has so many open scholarships for transfers.
++    if (year <= 3) {
++      const medians = {
++        FBS: medianOverall([...active].filter((r) => r.college === 'FBS')),
++        FCS: medianOverall([...active].filter((r) => r.college === 'FCS')),
++      };
++      for (const route of Object.keys(PIPELINE.transferSlots) as TransferRoute[]) {
++        const [from, to] = route.split('>') as ['FCS' | 'SmallCollege', 'FBS' | 'FCS'];
++        const candidates = [...active]
++          .filter((r) => r.college === from && (seasonsPlayed.get(r) ?? 0) < 4)
++          .map((r) => ({ r, ovr: overall(r.player) }))
++          .filter(({ ovr }) => ovr >= medians[to] + PIPELINE.transferMargin[from])
++          // Coaches recruit the portal on film, so their order is only roughly by ability.
++          .map((c) => ({ ...c, seen: c.ovr + rng.normal(0, 4) }))
++          .sort((a, b) => b.seen - a.seen);
++        let open = Math.round(PIPELINE.transferSlots[route] * size);
++        for (const { r } of candidates) {
++          if (open <= 0) break;
++          if (!rng.chance(PIPELINE.transferChance)) continue;
++          open--;
++          r.transfers.push({ age: r.player.age, from, to });
++          r.college = to;
++          collegeCoaching.set(r, clamp(rng.normal(to === 'FBS' ? 12 : 10, 2), 1, 20));
++        }
++      }
++    }
+   }
+ 
+   // --- Draft and undrafted free agency ---------------------------------------
+@@ -161,7 +223,9 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
+     const team = order[(pick - 1) % order.length]!;
+     let bestIndex = 0;
+     let bestValue = -Infinity;
++    const round = Math.ceil((pick / draftSlots) * 7);
+     for (let i = 0; i < Math.min(60, pool.length); i++) {
++      if (pool[i]!.record.college === 'SmallCollege' && round < PIPELINE.smallCollegeEarliestRound) continue;
+       const value = pool[i]!.score + rng.normal(0, boardNoise(team.draftSkill));
+       if (value > bestValue) {
+         bestValue = value;
+@@ -183,9 +247,30 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
+   // --- Pro careers ------------------------------------------------------------
+   for (const r of pros) simulateProCareer(r, draftSlots, rng);
+ 
++  attachLevelRatings(records);
+   return { records, draftSlots };
+ }
+ 
++/** Fill in each season's level rating against everyone at the same position, level and age. */
++function attachLevelRatings(records: CareerRecord[]): void {
++  const groups = new Map<string, number[]>();
++  for (const r of records) {
++    for (const s of r.player.history) {
++      const key = levelGroupKey(r.player.position, s.level, s.age);
++      let g = groups.get(key);
++      if (!g) groups.set(key, (g = []));
++      g.push(s.overall);
++    }
++  }
++  const scales = new Map<string, LevelScale>();
++  for (const [key, overalls] of groups) scales.set(key, buildLevelScale(overalls));
++  for (const r of records) {
++    for (const s of r.player.history) {
++      s.levelRating = levelRating(s.overall, s.level, scales.get(levelGroupKey(r.player.position, s.level, s.age)));
++    }
++  }
++}
++
+ /**
+  * Rating guidance for the pro game. These are what the user sees as rough
+  * bands; actual roster decisions are made by teams through their own eyes.
+@@ -246,7 +331,14 @@ function draftScore(r: CareerRecord, rng: Rng): number {
+   const rep = scoutPlayer(r.player, { accuracy: 13, level: r.college ?? 'HS' }, rng);
+   const youth = clamp((23 - r.player.age) / 3, 0, 1);
+   const specialist = r.player.position === 'K' || r.player.position === 'P' ? 8 : 0;
+-  return rep.overall + (0.25 + 0.2 * youth) * (rep.potential - rep.overall) - specialist;
++  const competition = PIPELINE.competitionDiscount[r.college ?? 'HS'];
++  return rep.overall + (0.25 + 0.2 * youth) * (rep.potential - rep.overall) - specialist - competition;
++}
++
++function medianOverall(group: CareerRecord[]): number {
++  if (!group.length) return Infinity;
++  const xs = group.map((r) => overall(r.player)).sort((a, b) => a - b);
++  return xs[Math.floor(xs.length / 2)]!;
+ }
+ 
+ function rolesByRank(group: CareerRecord[], starterShare: number, rotationShare: number): Map<CareerRecord, PlayingTime> {
+diff --git a/src/development.ts b/src/development.ts
+index 3b90afd..53c9089 100644
+--- a/src/development.ts
++++ b/src/development.ts
+@@ -36,6 +36,18 @@ const PROFILE_LIST = ATTRIBUTE_KEYS.map((k) => ATTRIBUTE_PROFILES[k]);
+ const ceilingDeltaBuffer = new Float64Array(ATTRIBUTE_KEYS.length);
+ const deltaAttrs = emptyAttributes(0);
+ 
++/**
++ * Facilities, strength staff and the quality of the man across from you. A D2
++ * star dominates but is rarely pushed, and his weight room is not an SEC one.
++ */
++const LEVEL_GROWTH: Record<Level, number> = {
++  HS: 1,
++  SmallCollege: 0.72,
++  FCS: 0.92,
++  FBS: 1,
++  NFL: 1,
++};
++
+ const PLAYING_TIME_GROWTH: Record<PlayingTime, number> = {
+   starter: 1.15,
+   rotation: 1.0,
+@@ -202,7 +214,7 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
+   const coachingMult = 0.75 + ctx.coaching * 0.025; // 10 -> 1.0, 20 -> 1.25
+   const coachabilityLean = 0.6 + personality.coachability * 0.04; // how much of coaching sticks
+   const workMult = 0.75 + personality.workEthic * 0.025;
+-  const snapsMult = PLAYING_TIME_GROWTH[ctx.playingTime] * (0.7 + 0.3 * snapsFactor);
++  const snapsMult = PLAYING_TIME_GROWTH[ctx.playingTime] * (0.7 + 0.3 * snapsFactor) * LEVEL_GROWTH[ctx.level];
+   const developmentAge = age - player.bloom;
+   const coachingBoost = coachingMult * (coachingMult >= 1 ? coachabilityLean : 1 / coachabilityLean);
+   for (let i = 0; i < ATTRIBUTE_KEYS.length; i++) {
+diff --git a/src/index.ts b/src/index.ts
+index 21a10d5..2cd7a87 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -4,4 +4,5 @@ export * from './player.js';
+ export * from './development.js';
+ export * from './scouting.js';
+ export * from './career.js';
++export * from './levelRating.js';
+ export { Rng, clamp } from './rng.js';
+diff --git a/src/levelRating.ts b/src/levelRating.ts
+new file mode 100644
+index 0000000..63e394d
+--- /dev/null
++++ b/src/levelRating.ts
+@@ -0,0 +1,61 @@
++import type { Level } from './player.js';
++import type { Position } from './positions.js';
++
++/**
++ * A level rating says how good a player is compared with players at the same
++ * position, level and age, on a 1-99 scale. The pro game uses the absolute
++ * rating itself; high school and college get this translation so that a
++ * 60-rated junior reads as the force he is against high school opponents.
++ *
++ * 99 is reserved for the best in the nation at that position and age, among
++ * high schoolers or among all college players.
++ * The scale is anchored to how close a player is to the No. 1, not to his
++ * percentile, so being in the top 1% of 250,000 high schoolers is not enough.
++ */
++export interface LevelScale {
++  /** Overall of the single best player in the group. */
++  best: number;
++  median: number;
++  /** Overall at the 1st percentile. */
++  floor: number;
++}
++
++/**
++ * High school players are compared with high schoolers; every college player
++ * is compared with all college players nationally, so a D2 star is measured
++ * against the FBS stars he would face on draft day.
++ */
++const TOP_CURVE = 1.4;
++
++export function levelGroupKey(position: Position, level: Level, age: number): string {
++  if (level === 'NFL') return 'NFL';
++  const pool = level === 'HS' ? 'HS' : 'College';
++  return `${pool}:${position}:${age}`;
++}
++
++export function buildLevelScale(overalls: number[]): LevelScale {
++  const s = [...overalls].sort((a, b) => a - b);
++  const n = s.length;
++  return {
++    best: s[n - 1]!,
++    median: s[Math.floor(n / 2)]!,
++    floor: s[Math.floor(n * 0.01)]!,
++  };
++}
++
++export function levelRating(overall: number, level: Level, scale: LevelScale | undefined): number {
++  if (level === 'NFL' || !scale) return clampRating(overall);
++  if (overall >= scale.median) {
++    // Convex above the median: the last few points before the very best are
++    // the hardest to earn, so 90+ means genuinely close to No. 1.
++    const span = Math.max(1, scale.best - scale.median);
++    const closeness = Math.min(1, (overall - scale.median) / span);
++    return clampRating(50 + 49 * Math.pow(closeness, TOP_CURVE));
++  }
++  const span = Math.max(1, scale.median - scale.floor);
++  return clampRating((50 * (overall - scale.floor)) / span);
++}
++
++function clampRating(x: number): number {
++  return Math.max(1, Math.min(99, Math.round(x)));
++}
+diff --git a/src/player.ts b/src/player.ts
+index f165791..1428467 100644
+--- a/src/player.ts
++++ b/src/player.ts
+@@ -29,6 +29,8 @@ export interface SeasonRecord {
+   potential: number;
+   /** On-field level shown that season: overall plus form, slumps and breakouts. */
+   performance: number;
++  /** 1-99 against the same position, level and age (filled in by a cohort simulation). */
++  levelRating?: number;
+   events: DevelopmentEvent[];
+ }
+ 
+diff --git a/tests/career.test.ts b/tests/career.test.ts
+index ed55f7c..d72fe14 100644
+--- a/tests/career.test.ts
++++ b/tests/career.test.ts
+@@ -45,8 +45,27 @@ describe('a national class, freshman year to retirement', () => {
+     expect(d[4]).toBeLessThan(0.45);
+     expect(d.lowOrUnrated).toBeGreaterThan(0.1);
+     expect(d.lowOrUnrated).toBeLessThan(0.4);
+-    expect(d.fromSmallSchools).toBeGreaterThan(0.05);
+-    expect(d.fromSmallSchools).toBeLessThan(0.3);
++  });
++
++  it('rarely drafts D2 players, and never before day 3', () => {
++    const sm = s.smallSchools;
++    expect(s.draftedShareByStars.fromD2).toBeLessThan(0.04);
++    if (sm.d2Drafted > 0) expect(sm.d2EarliestRound).toBeGreaterThanOrEqual(4);
++    expect(sm.d2Udfa).toBeGreaterThan(sm.d2Drafted);
++    expect(s.draftedShareByStars.fromFCS).toBeGreaterThan(0.01);
++    expect(s.draftedShareByStars.fromFCS).toBeLessThan(0.12);
++    // Standouts move up through the transfer portal instead.
++    expect(sm.transfersUp).toBeGreaterThan(100);
++    expect(sm.draftedAfterTransfer).toBeGreaterThan(0);
++  });
++
++  it('keeps a 99 level rating for the very best in the nation', () => {
++    const l = s.levelRatings;
++    // Roughly the No. 1 at each position among high school seniors.
++    expect(l.hsSeniors99).toBeLessThanOrEqual(30);
++    expect(l.hsSeniors90plus).toBeLessThan(250);
++    expect(l.fiveStarSeniorMedian).toBeGreaterThan(80);
++    expect(l.fiveStarSeniorMedian).toBeGreaterThan(l.fourStarSeniorMedian);
+   });
+ 
+   it('produces realistic pro careers', () => {
+diff --git a/tests/stats.ts b/tests/stats.ts
+index 1530f25..a08fc11 100644
+--- a/tests/stats.ts
++++ b/tests/stats.ts
+@@ -93,6 +93,8 @@ export function summarize({ records, draftSlots }: CohortResult) {
+       3: round(drafted.filter((r) => r.stars === 3).length / drafted.length),
+       lowOrUnrated: round(drafted.filter((r) => r.stars <= 2).length / drafted.length),
+       fromSmallSchools: round(drafted.filter((r) => r.college !== 'FBS').length / drafted.length),
++      fromFCS: round(drafted.filter((r) => r.college === 'FCS').length / drafted.length),
++      fromD2: round(drafted.filter((r) => r.college === 'SmallCollege').length / drafted.length),
+     },
+     hs: {
+       freshmanOverall: { mean: round(mean(freshman), 1), p99: round(quantile(freshman, 0.99), 1) },
+@@ -129,6 +131,29 @@ export function summarize({ records, draftSlots }: CohortResult) {
+         KP: median(peakAgesBy(['K', 'P'])),
+       },
+     },
++    smallSchools: {
++      d2Drafted: drafted.filter((r) => r.college === 'SmallCollege').length,
++      d2EarliestRound: Math.min(...drafted.filter((r) => r.college === 'SmallCollege').map((r) => Math.ceil((r.draftPick! / draftSlots) * 7))),
++      d2Udfa: records.filter((r) => r.udfa && r.college === 'SmallCollege').length,
++      fcsDrafted: drafted.filter((r) => r.college === 'FCS').length,
++      transfersUp: records.filter((r) => r.transfers.length > 0).length,
++      draftedAfterTransfer: drafted.filter((r) => r.transfers.length > 0).length,
++      transferRoutes: records.flatMap((r) => r.transfers.map((t) => `${t.from}>${t.to}`)).reduce<Record<string, number>>((m, k) => ((m[k] = (m[k] ?? 0) + 1), m), {}),
++      draftedSignedFCS: drafted.filter((r) => r.signedWith === 'FCS').length,
++      draftedSignedD2: drafted.filter((r) => r.signedWith === 'SmallCollege').length,
++      draftedAfterTransferFromD2: drafted.filter((r) => r.signedWith === 'SmallCollege' && r.transfers.length > 0).length,
++      draftedAfterTransferDay2: drafted.filter((r) => r.transfers.length > 0 && r.draftPick! <= Math.round(draftSlots * 3 / 7)).length,
++    },
++    levelRatings: {
++      hsSeniors99: records.filter((r) => r.player.history[3]!.levelRating! >= 99).length,
++      hsSeniors95plus: records.filter((r) => r.player.history[3]!.levelRating! >= 95).length,
++      hsSeniors90plus: records.filter((r) => r.player.history[3]!.levelRating! >= 90).length,
++      fiveStarSeniorMedian: median(records.filter((r) => r.stars === 5).map((r) => r.player.history[3]!.levelRating!)),
++      fourStarSeniorMedian: median(records.filter((r) => r.stars === 4).map((r) => r.player.history[3]!.levelRating!)),
++      collegeSeasons99: records.flatMap((r) => r.player.history.filter((s) => s.level !== 'HS' && s.level !== 'NFL' && s.levelRating! >= 99)).length,
++      collegeSeasons90plus: records.flatMap((r) => r.player.history.filter((s) => s.level !== 'HS' && s.level !== 'NFL' && s.levelRating! >= 90)).length,
++      draftedFinalCollegeMedian: median(drafted.map((r) => r.player.history.filter((s) => s.level !== 'NFL').at(-1)!.levelRating!)),
++    },
+     levels: {
+       collegeExitsRated65Plus: exitOverall.filter((o) => o >= 65).length,
+       collegeExitsRated70Plus: exitOverall.filter((o) => o >= 70).length,
+-- 
+2.43.0
+
+
+From fba6243d8391d82905487e9eff2127490bac4555 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 10 Oct 2026 22:04:32 +0000
+Subject: [PATCH 3/4] Level ratings: match EA College Football rarity
+
+High schoolers are rated against everyone their age nationally, and college
+players against every FBS player, with ranks anchored so that about a
+hundred players a season are 90+, about eight are 95+, and 99 is reserved
+for a player far clear of the No. 2.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01JQgqp7rz4kKMexyFjLRnjv
+---
+ src/career.ts             |  12 ++--
+ src/levelRating.ts        | 122 +++++++++++++++++++++++++-------------
+ tests/career.test.ts      |  21 +++++--
+ tests/levelRating.test.ts |  35 +++++++++++
+ tests/stats.ts            |   4 ++
+ 5 files changed, 144 insertions(+), 50 deletions(-)
+ create mode 100644 tests/levelRating.test.ts
+
+diff --git a/src/career.ts b/src/career.ts
+index fdc9f1f..b9ed8ef 100644
+--- a/src/career.ts
++++ b/src/career.ts
+@@ -1,7 +1,7 @@
+ import { developSeason } from './development.js';
+ import { generateProspect, overall, potential, type Level, type Player, type PlayingTime } from './player.js';
+ import { Rng, clamp } from './rng.js';
+-import { buildLevelScale, levelGroupKey, levelRating, type LevelScale } from './levelRating.js';
++import { buildLevelScale, levelGroupKey, levelRating, setsLevelScale, type LevelScale } from './levelRating.js';
+ import { scoutPlayer } from './scouting.js';
+ 
+ /**
+@@ -251,22 +251,24 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
+   return { records, draftSlots };
+ }
+ 
+-/** Fill in each season's level rating against everyone at the same position, level and age. */
++/** Fill in each season's level rating against the national pool for his level and age. */
+ function attachLevelRatings(records: CareerRecord[]): void {
+   const groups = new Map<string, number[]>();
+   for (const r of records) {
+     for (const s of r.player.history) {
+-      const key = levelGroupKey(r.player.position, s.level, s.age);
++      const key = levelGroupKey(s.level, s.age);
++      if (!key || !setsLevelScale(s.level)) continue;
+       let g = groups.get(key);
+       if (!g) groups.set(key, (g = []));
+       g.push(s.overall);
+     }
+   }
+   const scales = new Map<string, LevelScale>();
+-  for (const [key, overalls] of groups) scales.set(key, buildLevelScale(overalls));
++  for (const [key, overalls] of groups) scales.set(key, buildLevelScale(overalls, key === 'College' ? 'College' : 'HS'));
+   for (const r of records) {
+     for (const s of r.player.history) {
+-      s.levelRating = levelRating(s.overall, s.level, scales.get(levelGroupKey(r.player.position, s.level, s.age)));
++      const key = levelGroupKey(s.level, s.age);
++      s.levelRating = levelRating(s.overall, s.level, key ? scales.get(key) : undefined);
+     }
+   }
+ }
+diff --git a/src/levelRating.ts b/src/levelRating.ts
+index 63e394d..82a8d5c 100644
+--- a/src/levelRating.ts
++++ b/src/levelRating.ts
+@@ -1,59 +1,101 @@
+ import type { Level } from './player.js';
+-import type { Position } from './positions.js';
+ 
+ /**
+- * A level rating says how good a player is compared with players at the same
+- * position, level and age, on a 1-99 scale. The pro game uses the absolute
+- * rating itself; high school and college get this translation so that a
+- * 60-rated junior reads as the force he is against high school opponents.
++ * A level rating says how good a player is against everyone he could line up
++ * with or against, on a 1-99 scale. The pro game uses the absolute rating
++ * itself; high school and college get this translation so that a 60-rated
++ * junior reads as the force he is against high school opponents.
+  *
+- * 99 is reserved for the best in the nation at that position and age, among
+- * high schoolers or among all college players.
+- * The scale is anchored to how close a player is to the No. 1, not to his
+- * percentile, so being in the top 1% of 250,000 high schoolers is not enough.
++ * - High school: compared with every high schooler of the same age, all
++ *   positions together, like a national recruiting ranking.
++ * - College: compared with every FBS player, all ages and positions together,
++ *   like EA Sports College Football. FCS and small-college players are put on
++ *   the same FBS scale.
++ *
++ * The scale is anchored to national ranks, using how rare top ratings are in
++ * EA College Football (about 11,000 players a season): 90+ is roughly the top
++ * 100 (an All-American; for high schoolers, an All-American Bowl player), 95+
++ * the top 8, and only a player about 5 points clear of the No. 2 reaches 99. EA rated
++ * nobody 99 at launch in College Football 25 or 26, and one player in 27.
+  */
+ export interface LevelScale {
+-  /** Overall of the single best player in the group. */
+-  best: number;
+-  median: number;
+-  /** Overall at the 1st percentile. */
+-  floor: number;
++  /** (overall, level rating) points, ascending in overall. */
++  points: [number, number][];
+ }
+ 
+-/**
+- * High school players are compared with high schoolers; every college player
+- * is compared with all college players nationally, so a D2 star is measured
+- * against the FBS stars he would face on draft day.
+- */
+-const TOP_CURVE = 1.4;
++/** Rating points per overall point above the No. 2 player in the pool. */
++const ABOVE_TOP_SLOPE = 0.4;
++
++/** Players in one real-world pool: a season of FBS rosters, or a national high school age group. */
++export const LEVEL_REFERENCE_POOL = { College: 11_000, HS: 250_000 } as const;
++
++type Pool = keyof typeof LEVEL_REFERENCE_POOL;
++
++/** Anchors: [quantile from the bottom] or [rank from the top in a reference-sized pool], and the rating there. */
++const ANCHORS: Record<Pool, { quantile: [number, number][]; rank: [number, number][] }> = {
++  College: {
++    quantile: [[0.01, 55], [0.5, 72]],
++    rank: [[700, 85], [100, 90], [8, 95], [2, 96.5]],
++  },
++  HS: {
++    quantile: [[0.01, 5], [0.5, 50]],
++    rank: [[2000, 80], [100, 90], [8, 95], [2, 96.5]],
++  },
++};
+ 
+-export function levelGroupKey(position: Position, level: Level, age: number): string {
+-  if (level === 'NFL') return 'NFL';
+-  const pool = level === 'HS' ? 'HS' : 'College';
+-  return `${pool}:${position}:${age}`;
++export function levelGroupKey(level: Level, age: number): string | null {
++  if (level === 'NFL') return null;
++  return level === 'HS' ? `HS:${age}` : 'College';
+ }
+ 
+-export function buildLevelScale(overalls: number[]): LevelScale {
+-  const s = [...overalls].sort((a, b) => a - b);
++/** Whether a season sets the scale for its group (only FBS seasons set the college scale). */
++export function setsLevelScale(level: Level): boolean {
++  return level === 'HS' || level === 'FBS';
++}
++
++/**
++ * Build the scale for one group from the overalls that set it. Ranks are
++ * scaled by how big this pool is compared with the real-world one, so a
++ * smaller simulated class still puts the same share of players at 90+.
++ */
++export function buildLevelScale(overalls: number[], pool: Pool): LevelScale {
++  const s = [...overalls].sort((a, b) => b - a);
+   const n = s.length;
+-  return {
+-    best: s[n - 1]!,
+-    median: s[Math.floor(n / 2)]!,
+-    floor: s[Math.floor(n * 0.01)]!,
+-  };
++  const scale = n / LEVEL_REFERENCE_POOL[pool];
++  const anchors = ANCHORS[pool];
++  const points: [number, number][] = [];
++  for (const [q, rating] of anchors.quantile) points.push([s[Math.min(n - 1, Math.floor(n * (1 - q)))]!, rating]);
++  for (const [rank, rating] of anchors.rank) points.push([s[Math.min(n - 1, Math.max(1, Math.round(rank * scale)) - 1)]!, rating]);
++  points.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
++  // Keep the curve strictly increasing in overall: in a tiny pool two anchors can share a value.
++  const clean: [number, number][] = [];
++  for (const p of points) {
++    const last = clean[clean.length - 1];
++    if (last && p[0] <= last[0]) last[1] = Math.max(last[1], p[1]);
++    else clean.push([p[0], p[1]]);
++  }
++  return { points: clean };
+ }
+ 
+ export function levelRating(overall: number, level: Level, scale: LevelScale | undefined): number {
+-  if (level === 'NFL' || !scale) return clampRating(overall);
+-  if (overall >= scale.median) {
+-    // Convex above the median: the last few points before the very best are
+-    // the hardest to earn, so 90+ means genuinely close to No. 1.
+-    const span = Math.max(1, scale.best - scale.median);
+-    const closeness = Math.min(1, (overall - scale.median) / span);
+-    return clampRating(50 + 49 * Math.pow(closeness, TOP_CURVE));
++  if (level === 'NFL' || !scale || scale.points.length === 0) return clampRating(overall);
++  const pts = scale.points;
++  const top = pts[pts.length - 1]!;
++  if (overall >= top[0]) return clampRating(top[1] + ABOVE_TOP_SLOPE * (overall - top[0]));
++  const bottom = pts[0]!;
++  if (overall <= bottom[0]) {
++    const next = pts[1];
++    const slope = next ? (next[1] - bottom[1]) / (next[0] - bottom[0]) : 1;
++    return clampRating(bottom[1] - slope * (bottom[0] - overall));
++  }
++  for (let i = 1; i < pts.length; i++) {
++    const [x1, y1] = pts[i]!;
++    if (overall <= x1) {
++      const [x0, y0] = pts[i - 1]!;
++      return clampRating(y0 + ((overall - x0) / (x1 - x0)) * (y1 - y0));
++    }
+   }
+-  const span = Math.max(1, scale.median - scale.floor);
+-  return clampRating((50 * (overall - scale.floor)) / span);
++  return clampRating(top[1]);
+ }
+ 
+ function clampRating(x: number): number {
+diff --git a/tests/career.test.ts b/tests/career.test.ts
+index d72fe14..8830636 100644
+--- a/tests/career.test.ts
++++ b/tests/career.test.ts
+@@ -59,12 +59,23 @@ describe('a national class, freshman year to retirement', () => {
+     expect(sm.draftedAfterTransfer).toBeGreaterThan(0);
+   });
+ 
+-  it('keeps a 99 level rating for the very best in the nation', () => {
++  it('makes a 99 level rating as rare as EA College Football does', () => {
+     const l = s.levelRatings;
+-    // Roughly the No. 1 at each position among high school seniors.
+-    expect(l.hsSeniors99).toBeLessThanOrEqual(30);
+-    expect(l.hsSeniors90plus).toBeLessThan(250);
+-    expect(l.fiveStarSeniorMedian).toBeGreaterThan(80);
++    // EA rated nobody 99 at launch in College Football 25 or 26 and one player in 27.
++    expect(l.hsSeniors99).toBeLessThanOrEqual(2);
++    expect(l.collegeSeasons99).toBeLessThanOrEqual(2);
++    // About ten players a season at 95+, and about a hundred at 90+.
++    expect(l.hsSeniors95plus).toBeGreaterThan(3);
++    expect(l.hsSeniors95plus).toBeLessThan(25);
++    expect(l.hsSeniors90plus).toBeGreaterThan(50);
++    expect(l.hsSeniors90plus).toBeLessThan(200);
++    expect(l.collegeSeasons95plus).toBeGreaterThan(5);
++    expect(l.collegeSeasons95plus).toBeLessThan(35);
++    expect(l.collegeSeasons90plus).toBeLessThan(300);
++    // A typical FBS player rates in the low 70s, as on an EA roster.
++    expect(l.fbsSeasonMedian).toBeGreaterThan(65);
++    expect(l.fbsSeasonMedian).toBeLessThan(78);
++    expect(l.fiveStarSeniorMedian).toBeGreaterThan(85);
+     expect(l.fiveStarSeniorMedian).toBeGreaterThan(l.fourStarSeniorMedian);
+   });
+ 
+diff --git a/tests/levelRating.test.ts b/tests/levelRating.test.ts
+new file mode 100644
+index 0000000..d88ce27
+--- /dev/null
++++ b/tests/levelRating.test.ts
+@@ -0,0 +1,35 @@
++import { describe, expect, it } from 'vitest';
++import { buildLevelScale, levelRating } from '../src/levelRating.js';
++import { Rng } from '../src/rng.js';
++
++describe('level rating', () => {
++  const rng = new Rng('level-rating');
++  const pool = Array.from({ length: 11_000 }, () => rng.normal(56, 9));
++  const sorted = [...pool].sort((a, b) => b - a);
++  const scale = buildLevelScale(pool, 'College');
++  const rate = (x: number) => levelRating(x, 'FBS', scale);
++
++  it('rises with overall and stays on the 1-99 scale', () => {
++    let last = 0;
++    for (let x = 0; x <= 100; x += 0.5) {
++      const r = rate(x);
++      expect(r).toBeGreaterThanOrEqual(last);
++      expect(r).toBeGreaterThanOrEqual(1);
++      expect(r).toBeLessThanOrEqual(99);
++      last = r;
++    }
++  });
++
++  it('puts about a hundred players at 90+ and saves 99 for a clear No. 1', () => {
++    const ninetyPlus = pool.filter((x) => rate(x) >= 90).length;
++    expect(ninetyPlus).toBeGreaterThan(80);
++    expect(ninetyPlus).toBeLessThan(130);
++    expect(rate(sorted[1]!)).toBeLessThan(98);
++    expect(rate(sorted[1]! + 1)).toBeLessThan(99);
++    expect(rate(sorted[1]! + 6)).toBe(99);
++  });
++
++  it('leaves the pro game on the absolute scale', () => {
++    expect(levelRating(73.4, 'NFL', scale)).toBe(73);
++  });
++});
+diff --git a/tests/stats.ts b/tests/stats.ts
+index a08fc11..b002c99 100644
+--- a/tests/stats.ts
++++ b/tests/stats.ts
+@@ -151,6 +151,10 @@ export function summarize({ records, draftSlots }: CohortResult) {
+       fiveStarSeniorMedian: median(records.filter((r) => r.stars === 5).map((r) => r.player.history[3]!.levelRating!)),
+       fourStarSeniorMedian: median(records.filter((r) => r.stars === 4).map((r) => r.player.history[3]!.levelRating!)),
+       collegeSeasons99: records.flatMap((r) => r.player.history.filter((s) => s.level !== 'HS' && s.level !== 'NFL' && s.levelRating! >= 99)).length,
++      hsSeasons99AnyAge: records.flatMap((r) => r.player.history.filter((s) => s.level === 'HS' && s.levelRating! >= 99)).length,
++      collegeSeasons95plus: records.flatMap((r) => r.player.history.filter((s) => s.level !== 'HS' && s.level !== 'NFL' && s.levelRating! >= 95)).length,
++      fbsSeasonMedian: median(records.flatMap((r) => r.player.history.filter((s) => s.level === 'FBS').map((s) => s.levelRating!))),
++      bestD2Season: Math.max(...records.flatMap((r) => r.player.history.filter((s) => s.level === 'SmallCollege').map((s) => s.levelRating!))),
+       collegeSeasons90plus: records.flatMap((r) => r.player.history.filter((s) => s.level !== 'HS' && s.level !== 'NFL' && s.levelRating! >= 90)).length,
+       draftedFinalCollegeMedian: median(drafted.map((r) => r.player.history.filter((s) => s.level !== 'NFL').at(-1)!.levelRating!)),
+     },
+-- 
+2.43.0
+
+
+From 22ec05863467967ec6c5da8274ae76d9d7d85f34 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 10 Oct 2026 22:11:46 +0000
+Subject: [PATCH 4/4] Keep kickers and punters out of the top star tiers
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01JQgqp7rz4kKMexyFjLRnjv
+---
+ src/career.ts | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/src/career.ts b/src/career.ts
+index b9ed8ef..2d878e7 100644
+--- a/src/career.ts
++++ b/src/career.ts
+@@ -122,7 +122,9 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
+   const recruitScore = new Map<CareerRecord, number>();
+   for (const r of records) {
+     const rep = scoutPlayer(r.player, { accuracy: 12, level: 'HS' }, rng);
+-    starScore.set(r, rep.overall + 0.75 * (rep.potential - rep.overall));
++    // Kickers and punters are ranked on their own lists and almost never earn four or five stars.
++    const specialist = r.player.position === 'K' || r.player.position === 'P' ? 8 : 0;
++    starScore.set(r, rep.overall + 0.75 * (rep.potential - rep.overall) - specialist);
+     recruitScore.set(r, rep.overall + 0.6 * (rep.potential - rep.overall));
+   }
+   const byStarScore = [...records].sort((a, b) => starScore.get(b)! - starScore.get(a)!);
+-- 
+2.43.0
+
