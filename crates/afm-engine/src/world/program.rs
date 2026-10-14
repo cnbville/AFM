@@ -157,6 +157,49 @@ pub struct ProgramSeason {
     pub national_title: bool,
     pub coach: Option<usize>,
     pub strength: f64,
+    /// Team totals from the match engine; zero games when the stand-in played.
+    pub totals: SeasonTotals,
+}
+
+/// A team's season totals from its engine games.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct SeasonTotals {
+    pub games: u32,
+    pub points_for: i32,
+    pub points_against: i32,
+    pub plays: u32,
+    pub yards: f64,
+    pub pass_yards: f64,
+    pub rush_yards: f64,
+    pub yards_allowed: f64,
+    pub att: u32,
+    pub cmp: u32,
+    pub carries: u32,
+    pub turnovers: u32,
+    pub takeaways: u32,
+    pub sacks: u32,
+    pub sacks_allowed: u32,
+}
+
+impl SeasonTotals {
+    pub fn add(&mut self, own: &crate::game::stats::TeamStats, opp: &crate::game::stats::TeamStats) {
+        self.games += 1;
+        self.points_for += own.points;
+        self.points_against += opp.points;
+        self.plays += own.plays;
+        self.yards += own.yards;
+        self.pass_yards += own.pass_yards;
+        self.rush_yards += own.rush_yards;
+        self.yards_allowed += opp.yards;
+        self.att += own.att;
+        self.cmp += own.cmp;
+        self.carries += own.carries;
+        self.turnovers += own.turnovers;
+        self.takeaways += opp.turnovers;
+        // A team's own line counts the sacks it gave up.
+        self.sacks += opp.sacks;
+        self.sacks_allowed += own.sacks;
+    }
 }
 
 #[derive(Clone, Debug)]

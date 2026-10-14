@@ -186,14 +186,15 @@ fn main() {
     let w = World::new(WorldOptions { seed, history_years: years, engine_from, ..Default::default() });
     println!("# World trial: seed {seed}, {years} years of history, built in {:.0}s\n", t.elapsed().as_secs_f64());
 
-    // AFM_CARDS=path.json: full player pages for featured players, then stop.
+    // AFM_CARDS=path.json: full player pages for featured players.
+    let mut card_values: Vec<serde_json::Value> = Vec::new();
     if let Ok(path) = std::env::var("AFM_CARDS") {
         let first = w.year - years as i32 + 5;
         let mut picked: Vec<(&Alumnus, String)> = Vec::new();
         for a in w.alumni.iter().filter(|a| a.player.is_some() && a.year >= first) {
             let tag = match a.pick {
                 Some(1) => "Number 1 pick".to_string(),
-                Some(p) if p <= 5 && a.year == w.year => format!("Top 5 of the {} draft", a.year),
+                Some(p) if p <= 32 && a.year + 2 >= w.year => format!("Round 1 of the {} draft", a.year),
                 _ => continue,
             };
             picked.push((a, tag));
@@ -209,6 +210,13 @@ fn main() {
         let busts =
             w.alumni.iter().filter(|a| a.player.is_some() && a.year >= first && a.stars == 5 && a.left_football);
         picked.extend(busts.take(3).map(|a| (a, "Five-star who left football".to_string())));
+        let late =
+            w.alumni.iter().filter(|a| a.player.is_some() && a.year >= first && a.pick.is_some_and(|p| p >= 200));
+        picked.extend(late.take(5).map(|a| (a, "Late-round pick".to_string())));
+        let undrafted = w.alumni.iter().filter(|a| {
+            a.player.is_some() && a.year + 1 >= w.year && a.pick.is_none() && !a.left_football && a.stars >= 4
+        });
+        picked.extend(undrafted.take(5).map(|a| (a, "Undrafted blue-chip".to_string())));
         let cards: Vec<serde_json::Value> = picked
             .iter()
             .map(|(a, tag)| {
@@ -269,8 +277,12 @@ fn main() {
             })
             .collect();
         std::fs::write(&path, serde_json::to_string(&cards).unwrap()).unwrap();
-        println!("wrote {} cards to {path}", cards.len());
-        return;
+        println!("wrote {} cards to {path}\n", cards.len());
+        card_values = cards;
+    }
+    if let Ok(path) = std::env::var("AFM_DASH") {
+        write_dashboard(&w, &path, seed, years, &card_values);
+        println!("wrote the debug dashboard data to {path}\n");
     }
     // AFM_ROOKIES=1: how good drafted players are on draft day, by round, then stop.
     if std::env::var("AFM_ROOKIES").is_ok() {
@@ -1022,4 +1034,127 @@ fn trial1_notes(w: &World, years: u32) {
         );
     }
     let _ = Group::QB;
+}
+
+/// AFM_DASH=path.json: everything the trial 3 debug dashboard shows. Hidden
+/// values are included; this is debug tooling, never the game.
+fn write_dashboard(w: &World, path: &str, seed: u32, years: u32, cards: &[serde_json::Value]) {
+    use afm_engine::world::coach::Group;
+    use serde_json::json;
+    let first = w.year - years as i32;
+    let programs: Vec<serde_json::Value> = w
+        .programs
+        .iter()
+        .map(|p| {
+            let seasons: Vec<serde_json::Value> = p
+                .seasons
+                .iter()
+                .filter(|s| s.year >= first)
+                .map(|s| {
+                    let t = &s.totals;
+                    json!([s.year, s.wins, s.losses, s.conference_title, s.national_title,
+                        (s.strength * 10.0).round() / 10.0,
+                        s.coach.map(|c| w.coaches[c].name.clone()),
+                        t.games, t.points_for, t.points_against, t.yards.round(), t.pass_yards.round(),
+                        t.rush_yards.round(), t.yards_allowed.round(), t.turnovers, t.takeaways, t.sacks, t.sacks_allowed,
+                        t.att, t.cmp, t.carries, t.plays])
+                })
+                .collect();
+            let mut pipes: Vec<(f64, &str)> =
+                (0..51).filter(|&k| p.pipeline[k] > 0.05).map(|k| (p.pipeline[k], STATE_CENTERS[k].0)).collect();
+            pipes.sort_by(|a, b| b.0.total_cmp(&a.0));
+            let picks: Vec<u32> = (1..=7).map(|r| p.draft_picks.iter().filter(|d| d.1 == r && d.0 >= first).count() as u32).collect();
+            json!({
+                "name": p.real_name, "div": p.division.name(), "conf": p.conference, "state": STATE_CENTERS[p.state].0,
+                "prestige_start": (p.prestige_start * 100.0).round() / 100.0, "prestige": (p.prestige * 100.0).round() / 100.0,
+                "prestige_history": p.prestige_history.iter().filter(|h| h.0 >= first).map(|h| json!([h.0, (h.1 * 100.0).round() / 100.0])).collect::<Vec<_>>(),
+                "grades": GradeCat::ALL.iter().map(|&g| json!([g.name(), letter(p.grades[g as usize])])).collect::<Vec<_>>(),
+                "grade_history": p.grade_history.iter().filter(|h| h.0 >= first).map(|h| json!([h.0, GradeCat::ALL.iter().map(|&g| letter(h.1[g as usize])).collect::<Vec<_>>()])).collect::<Vec<_>>(),
+                "tradition": (p.tradition * 100.0).round() / 100.0, "facilities": (p.facilities * 100.0).round() / 100.0,
+                "fans": (p.fans * 100.0).round() / 100.0, "nil": (p.collective.budget / 1e5).round() / 10.0,
+                "pipelines": pipes.iter().take(5).map(|(v, k)| json!([k, (v * 100.0).round() / 100.0])).collect::<Vec<_>>(),
+                "picks_by_round": picks, "story": p.story.iter().map(|(y, t)| json!([y, t])).collect::<Vec<_>>(),
+                "seasons": seasons,
+            })
+        })
+        .collect();
+    let stint = |e: Employer, r: Role, from: i32, to: Option<i32>, wins: u32, losses: u32, ended: &str| {
+        json!([from, to, r.name(), employer_name(w, e), wins, losses, ended])
+    };
+    let coaches: Vec<serde_json::Value> = w
+        .coaches
+        .iter()
+        .filter(|c| {
+            c.job.is_some_and(|j| match j.employer {
+                Employer::College(p) => {
+                    matches!(w.programs[p].division, Division::FBS | Division::FCS)
+                        && (j.role == Role::HeadCoach || w.programs[p].division == Division::FBS)
+                }
+                _ => false,
+            })
+        })
+        .map(|c| {
+            let a = debug::coach_ability(c);
+            let mut career: Vec<serde_json::Value> =
+                c.history.iter().map(|s| stint(s.employer, s.role, s.from, Some(s.to), s.wins, s.losses, s.ended)).collect();
+            if let Some(j) = c.job {
+                career.push(stint(j.employer, j.role, j.since, None, c.wins, c.losses, "current"));
+            }
+            json!({
+                "name": c.name, "age": c.age, "eth": c.ethnicity.name(), "rep": (c.reputation * 10.0).round() / 10.0,
+                "role": c.job.map(|j| j.role.name()), "at": c.job.map(|j| employer_name(w, j.employer)),
+                "came_up": c.came_up.name(), "ex_pro": c.ex_pro, "mentor": c.mentor.map(|m| w.coaches[m].name.clone()),
+                "hidden": {"hc_value": (a.head_coach_value() * 10.0).round() / 10.0, "teaching": a.teaching.iter().map(|t| (t * 10.0).round() / 10.0).collect::<Vec<_>>(),
+                    "scheme": a.scheme.round(), "game_mgmt": a.game_management.round(), "motivation": a.motivation.round(),
+                    "discipline": a.discipline.round(), "recruiting": a.recruiting.round(), "network": a.network.round(), "relationships": a.relationships.round()},
+                "units": Group::ALL.iter().map(|&g| { let u = c.units[g as usize]; json!([g.name(), (u.growth_read() * 100.0).round() / 100.0, (u.moved_up * 10.0).round() / 10.0]) }).collect::<Vec<_>>(),
+                "career": career,
+            })
+        })
+        .collect();
+    let draft: Vec<serde_json::Value> = w
+        .alumni
+        .iter()
+        .filter(|a| a.pick.is_some() && a.year > first)
+        .map(|a| {
+            json!([
+                a.year,
+                a.pick,
+                a.name,
+                a.position.name(),
+                a.stars,
+                div_name(w, a),
+                a.nfl_team,
+                a.overall.round(),
+                debug::alumnus_potential(a).round(),
+                a.ethnicity.name(),
+                STATE_CENTERS[a.home_state].0
+            ])
+        })
+        .collect();
+    // FBS head coaches by ethnicity, per year, from every coach's stints.
+    let mut diversity: BTreeMap<i32, BTreeMap<&str, u32>> = BTreeMap::new();
+    for c in &w.coaches {
+        // A finished stint covers its seasons up to the year it ended; the
+        // current job runs through the last season played.
+        let mut spans: Vec<(Employer, Role, i32, i32)> =
+            c.history.iter().map(|s| (s.employer, s.role, s.from, s.to - 1)).collect();
+        if let Some(j) = c.job {
+            spans.push((j.employer, j.role, j.since, w.year - 1));
+        }
+        for (e, r, from, to) in spans {
+            if r == Role::HeadCoach && matches!(e, Employer::College(p) if w.programs[p].division == Division::FBS) {
+                for y in from.max(first)..=to.min(w.year - 1) {
+                    *diversity.entry(y).or_default().entry(c.ethnicity.name()).or_default() += 1;
+                }
+            }
+        }
+    }
+    let out = json!({
+        "seed": seed, "years": years, "first": first, "last": w.year - 1,
+        "programs": programs, "coaches": coaches, "draft": draft, "diversity": diversity, "cards": cards,
+        "season_cols": ["year","w","l","conf","nat","strength","hc","g","pf","pa","yds","pass","rush","yds_allowed","to","takeaways","sacks","sacks_allowed","att","cmp","carries","plays"],
+        "draft_cols": ["year","pick","name","pos","stars","path","team","overall","potential","eth","state"],
+    });
+    std::fs::write(path, serde_json::to_string(&out).unwrap()).unwrap();
 }

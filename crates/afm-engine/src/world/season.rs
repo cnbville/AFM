@@ -34,6 +34,7 @@ pub(crate) struct TeamResult {
     /// Off-field incidents on the roster this season.
     pub incidents: u32,
     pub roster: u32,
+    pub totals: super::program::SeasonTotals,
 }
 
 impl TeamResult {
@@ -515,7 +516,7 @@ fn play_rounds(
             let pe = win_chance(results[a].preseason, results[b].preseason, spread, 0.8);
             results[a].expected += pe;
             results[b].expected += 1.0 - pe;
-            let a_wins = on_field.unwrap_or_else(|| rng.chance(p));
+            let a_wins = book(results, a, b, on_field).unwrap_or_else(|| rng.chance(p));
             let (w, l) = if a_wins { (a, b) } else { (b, a) };
             results[w].wins += 1;
             results[l].losses += 1;
@@ -562,7 +563,7 @@ fn playoff(
         };
         for (&(a, b), on_field) in pairs.iter().zip(played) {
             let p = win_chance(results[a].strength, results[b].strength, spread, 0.4);
-            let a_wins = on_field.unwrap_or_else(|| rng.chance(p));
+            let a_wins = book(results, a, b, on_field).unwrap_or_else(|| rng.chance(p));
             let (w, l) = if a_wins { (a, b) } else { (b, a) };
             results[w].wins += 1;
             results[l].losses += 1;
@@ -690,7 +691,9 @@ fn game_team(w: &World, prog: &super::program::Program) -> Option<GameTeam> {
 
 /// Plays a batch of games on the engine, in parallel. True when the home
 /// side (first) wins.
-fn engine_games(e: &Engine, games: &[(usize, usize)], seed: u64) -> Vec<Option<bool>> {
+type Played = Option<(bool, [crate::game::stats::TeamStats; 2])>;
+
+fn engine_games(e: &Engine, games: &[(usize, usize)], seed: u64) -> Vec<Played> {
     games
         .par_iter()
         .enumerate()
@@ -698,7 +701,16 @@ fn engine_games(e: &Engine, games: &[(usize, usize)], seed: u64) -> Vec<Option<b
             let (Some(ta), Some(tb)) = (&e.teams[a], &e.teams[b]) else { return None };
             let r = quick_game(ta, tb, e.level, seed.wrapping_mul(1_000_003).wrapping_add(k as u64));
             let [ha, hb] = r.stats.score;
-            Some(if ha == hb { (seed ^ k as u64) & 1 == 0 } else { ha > hb })
+            let a_wins = if ha == hb { (seed ^ k as u64) & 1 == 0 } else { ha > hb };
+            Some((a_wins, r.stats.team))
         })
         .collect()
+}
+
+/// Books an engine game into both teams' season totals; returns who won.
+fn book(results: &mut [TeamResult], a: usize, b: usize, played: Played) -> Option<bool> {
+    let (a_wins, [sa, sb]) = played?;
+    results[a].totals.add(&sa, &sb);
+    results[b].totals.add(&sb, &sa);
+    Some(a_wins)
 }

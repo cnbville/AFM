@@ -198,6 +198,7 @@ pub(crate) fn after_season(w: &mut World, r: &SeasonResults) {
             national_title: t.national_title,
             coach: prog.head_coach,
             strength: t.strength,
+            totals: t.totals,
         });
         if t.conference_title {
             prog.conference_titles += 1;
