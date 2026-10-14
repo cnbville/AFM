@@ -93,6 +93,9 @@ The confirmed rule (topic 5.2) is "build the athlete first, the coach places him
 - Two single-class test bands widened, with the seed spread as evidence: five-star floor 86 to 85 among seniors (the rule is top 100 on film), and the 90+ pro share floor 0.5% to 0.2% (0.3% to 2.6% across eight classes, old and new model).
 - Measured on the reference class: 14% of players change position at least once, 6% of draftees play a different position than as freshmen. Real rates are not in the dataset yet; a trial should check them.
 
+### Section 3 build: match engine picks Claude made (2026-10-14, proposed, not confirmed)
+The full list with the numbers is in `docs/match-engine.md` ("Choices Claude made"). In short: the sprint model from the 40 time; acceleration and agility gaps narrow below 60; throw error about 10% wider per 20 accuracy points; the QB leads a receiver by how he really runs; carriers at 95% speed while reading blocks; blocks in space can whiff; tempo 37.5 seconds; a fourth-down success curve; screen timing and the screen "smell"; contain on kick coverage; goal-line coverage compression. Known gaps (points, pass rate, sacks, NFL run length, red zone, returns, high school play count) are listed there as trial candidates.
+
 ## Assumed, not yet confirmed
 - The rest of `docs/design/season-calendar-and-pacing.md` (week-by-week calendar, tension tiers, climax budget) is a draft for section 4.
 

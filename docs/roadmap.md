@@ -239,6 +239,7 @@ Real NFL, colleges and conferences; real towns with generated high schools; team
 
 Every game at every level (high school, college, NFL) simulated play by play by one engine, adjusted for opponent strength. Play-level positions so the 2D view can replay plays. Injuries, weather, home field, travel. The full stats database with every possible stat, including advanced stats (EPA, CPOE, pressure rate).
 - Design finished 2026-10-13: all ten topics are in `docs/design/match-engine.md`. The build starts with athlete-first player creation, then the engine. The real-data checks are development-only safeguards.
+- Built 2026-10-13/14: athlete-first creation, then the match engine with game stats and the development checks (`docs/match-engine.md`). Next: hook the world's games up to the engine, and the career stats record.
 
 ### Section 4. Calendar
 
