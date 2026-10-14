@@ -36,6 +36,71 @@ fn main() {
         })
         .collect();
     let secs = t0.elapsed().as_secs_f64();
+    // Snap shares (topic: depth and rotation): starters' share of their
+    // side's snaps by position, and the lead back's share of the backs'
+    // carries, against real bands (proposed, not confirmed; see
+    // data/real-world/README.md).
+    {
+        use afm_engine::positions::Position as P;
+        let groups: [(P, usize, &str); 11] = [
+            (P::QB, 1, "0.97-1.00"),
+            (P::RB, 1, "0.55-0.70"),
+            (P::WR, 3, "0.75-0.90"),
+            (P::TE, 1, "0.70-0.85"),
+            (P::OT, 2, "0.95-1.00"),
+            (P::IOL, 3, "0.95-1.00"),
+            (P::EDGE, 2, "0.65-0.85"),
+            (P::DT, 2, "0.55-0.75"),
+            (P::LB, 2, "0.80-0.98"),
+            (P::CB, 2, "0.90-1.00"),
+            (P::S, 2, "0.90-1.00"),
+        ];
+        let mut share = vec![0.0f64; groups.len()];
+        let mut carry = [0.0f64; 2];
+        let mut nt = 0.0;
+        for (g, r) in results.iter().enumerate() {
+            let h = (g * 7) % 32;
+            let a = (g * 13 + 5) % 32;
+            let a = if a == h { (a + 1) % 32 } else { a };
+            for (k, ti) in [h, a].into_iter().enumerate() {
+                let lines = &r.stats.players[k];
+                let team = &teams[ti];
+                let off = lines.values().map(|l| l.snaps_off).max().unwrap_or(1).max(1) as f64;
+                let def = lines.values().map(|l| l.snaps_def).max().unwrap_or(1).max(1) as f64;
+                nt += 1.0;
+                for (gi, &(pos, n, _)) in groups.iter().enumerate() {
+                    let defense = matches!(pos, P::EDGE | P::DT | P::LB | P::CB | P::S);
+                    let mut v: Vec<f64> = team
+                        .players
+                        .iter()
+                        .filter(|p| p.position == pos)
+                        .filter_map(|p| lines.get(&p.id))
+                        .map(|l| if defense { l.snaps_def } else { l.snaps_off } as f64)
+                        .collect();
+                    v.sort_by(|x, y| y.total_cmp(x));
+                    let top: f64 = v.iter().take(n).sum();
+                    share[gi] += top / (n as f64 * if defense { def } else { off });
+                }
+                let mut c: Vec<f64> = team
+                    .players
+                    .iter()
+                    .filter(|p| p.position == P::RB)
+                    .filter_map(|p| lines.get(&p.id))
+                    .map(|l| l.rush as f64)
+                    .collect();
+                c.sort_by(|x, y| y.total_cmp(x));
+                carry[0] += c.first().copied().unwrap_or(0.0);
+                carry[1] += c.iter().sum::<f64>();
+            }
+        }
+        if std::env::var("AFM_SNAPS").is_ok() {
+            println!("starters' share of snaps (real band)");
+            for (gi, &(pos, n, real)) in groups.iter().enumerate() {
+                println!("  {:?} x{n}  {:.2}  ({real})", pos, share[gi] / nt);
+            }
+            println!("  lead back's share of RB carries  {:.2}  (0.55-0.65)", carry[0] / carry[1].max(1.0));
+        }
+    }
     if pbp {
         for p in &results[0].stats.plays {
             println!(
@@ -208,6 +273,11 @@ fn main() {
             }
         }
         for p in &s.plays {
+            if p.pressured && matches!(p.kind, PlayType::Pass | PlayType::Sack | PlayType::Scramble) {
+                *m.entry("pr_n").or_default() += 1.0;
+                *m.entry("pr_sack").or_default() += (p.kind == PlayType::Sack) as u8 as f64;
+                *m.entry("pr_comp").or_default() += p.complete as u8 as f64;
+            }
             match p.kind {
                 PlayType::Pass => {
                     if p.complete {
@@ -385,6 +455,8 @@ fn main() {
     row("kickoff touchback", g("ko_tb") / g("kickoffs"), rr["kickoff_touchback_rate"].as_f64());
     row("pressure rate", g("pressures") / g("dropbacks"), None);
     row("time to throw", g("ttt") / g("att"), None);
+    row("sacks per pressure", g("pr_sack") / g("pr_n"), None);
+    row("completions per pressure", g("pr_comp") / g("pr_n"), None);
     row("air yards per att", g("air_yards") / g("att"), None);
     row("drops per att", g("drops") / g("att"), None);
     row("throw aways per att", g("throw_aways") / g("att"), None);

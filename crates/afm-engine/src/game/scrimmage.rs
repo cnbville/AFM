@@ -219,6 +219,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         fight: Vec::new(),
         fight_since: 0.0,
         screen: None,
+        open_reach: knob(0, 1.6),
     };
     let find = |r: ORole| role_of.iter().position(|x| *x == Some(r));
     let qb = find(ORole::QB).unwrap_or(0);
@@ -1264,7 +1265,7 @@ fn man_job(sim: &Sim, d: usize, r: usize) -> Job {
     let (da, ra) = (&sim.agents[d], &sim.agents[r]);
     // Reaction lag: route running against cover skill (topic 2).
     let lag = clamp(
-        0.32 + 0.0065 * (ra.a(Attr::RouteRunning) - da.a(Attr::ManCoverage))
+        knob(60, 0.32) + 0.0065 * (ra.a(Attr::RouteRunning) - da.a(Attr::ManCoverage))
             + 0.003 * (ra.a(Attr::Agility) - da.a(Attr::Agility)),
         0.1,
         0.75,
@@ -1821,14 +1822,14 @@ fn quarterback(
     let panic = pressure * clamp(knob(23, 1.4) - knob(24, 1.0) * poise / 100.0, 0.15, 1.5);
     let (cand, thresh): (Vec<usize>, f64) = if over {
         // Late: the checkdown, or anyone open.
-        (ps.reads.clone(), 1.35 - 0.2 * tired.max(0.0) - 0.4 * panic)
+        (ps.reads.clone(), knob(59, 1.6) - 0.25 - 0.2 * tired.max(0.0) - knob(35, 0.44) * panic)
     } else {
         (
             vec![ps.reads[ps.read]],
-            1.6 + caution - 0.18 * tired.max(0.0) - 0.44 * panic + if ps.read == 0 { 0.1 } else { 0.0 },
+            knob(59, 1.6) + caution - 0.18 * tired.max(0.0) - knob(35, 0.44) * panic + if ps.read == 0 { 0.1 } else { 0.0 },
         )
     };
-    let noise = (knob(25, 1.25) - knob(26, 0.0105) * iq).max(0.2) * (1.0 + 0.6 * panic);
+    let noise = (knob(25, 1.25) - knob(26, 0.0105) * pro(iq)).max(0.2) * (1.0 + 0.6 * panic);
     let mut best: Option<(usize, f64, V2, f64)> = None;
     for &r in if screen { &[][..] } else { &cand[..] } {
         if !sim.agents[r].up(t) || matches!(sim.agents[r].job, Job::PassBlock { .. } | Job::RunBlock { .. }) {
@@ -1890,7 +1891,7 @@ fn quarterback(
             let rel = me - a.pos;
             let dist = rel.len();
             let closing = a.vel.dot(rel.norm()).max(0.0);
-            dist < 3.5 && dist - 1.25 < closing * release
+            dist < 3.5 && dist - knob(37, 1.25) < closing * release
         });
     if blocked_throw && best.is_some() {
         best = None;
@@ -1936,7 +1937,7 @@ fn quarterback(
     let outside = (me.y - s.ball_y).abs() > 4.0;
     let imminent = nearest < 2.2 && pressure > 0.4;
     let away =
-        over && (imminent || tired > 3.2) && sim.rng.chance(0.06 + 0.003 * aw + if outside { 0.12 } else { 0.0 });
+        over && (imminent || tired > 3.2) && sim.rng.chance(knob(38, 1.0) * (0.06 + 0.003 * aw + if outside { 0.12 } else { 0.0 }));
     if away {
         // Throw it away (outside the pocket it is legal past the line).
         let side = if me.y > MID { 1.0 } else { -1.0 };
@@ -2061,9 +2062,9 @@ fn throw(
     // Error grows gently as accuracy falls: real completion rates drop only a
     // few points from the NFL to college and high school, where receivers
     // and coverage are just as far behind (proposed, not confirmed).
-    let mut sd = (0.25 + 0.036 * dist + 0.0007 * dist * dist) * knob(27, 1.5) * (knob(28, 0.005) * (79.0 - acc)).exp();
+    let mut sd = (0.25 + 0.036 * dist + 0.0007 * dist * dist) * knob(27, 1.5) * (knob(28, 0.005) * (79.0 - pro(acc))).exp();
     if pressure > 0.3 {
-        sd *= 1.0 + 0.55 * pressure.min(1.5) * (1.35 - poise / 100.0);
+        sd *= 1.0 + knob(39, 0.55) * pressure.min(1.5) * (1.35 - poise / 100.0);
     }
     if moving {
         sd *= 1.25 - 0.002 * sim.agents[qb].a(Attr::Agility);
@@ -2102,7 +2103,7 @@ fn throw(
             continue;
         }
         let pr = sim.agents[d].a(Attr::PlayRecognition);
-        let base = 0.16 + 0.004 * (100.0 - pr) + 0.1 * sim.rng.next();
+        let base = knob(61, 1.0) * (0.16 + 0.004 * (100.0 - pr) + 0.1 * sim.rng.next());
         let sees = sim.sees(d, q);
         sim.agents[d].ball_react = if sees { t + base } else { (arrive - 0.45 + 0.004 * (100.0 - pr)).max(t + base) };
     }
@@ -2124,6 +2125,14 @@ fn throw(
         }
     }
     (to, r, dist, flight, sd)
+}
+
+/// A quarterback skill on the scale where it decides games: through the pro
+/// range each point counts fully; below it the gap narrows, since the
+/// receivers and coverage he plays with are just as far behind.
+fn pro(x: f64) -> f64 {
+    let knee = knob(58, 0.0);
+    if x >= knee { x } else { knee - (knee - x) * knob(57, 1.0) }
 }
 
 fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
@@ -2159,7 +2168,7 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
     let esc = 0.4 * q.a(Attr::Elusiveness) + 0.3 * q.a(Attr::Agility) + 0.3 * q.a(Attr::Strength);
     let tk = 0.6 * r.a(Attr::Tackling) + 0.2 * r.a(Attr::Strength) + 0.2 * r.a(Attr::Agility);
     let seen = sim.sees(qb, r.pos);
-    let logit = -1.9 + (esc - tk) / 12.0 + if seen { 0.0 } else { -1.0 };
+    let logit = knob(36, -1.9) + (esc - tk) / 12.0 + if seen { 0.0 } else { -1.0 };
     if sim.rng.chance(1.0 / (1.0 + (-logit).exp())) {
         let (rid, qid) = (r.id, q.id);
         sim.notes.missed.push((rid, qid));
@@ -2204,7 +2213,12 @@ fn defend(
     let job = sim.agents[i].job.clone();
     let carrier = sim.carrier();
     let pass_play = pass.is_some();
-    let knows = t >= sim.agents[i].read_at;
+    // A runner through the line is plain to anyone looking at him.
+    let knows = t >= sim.agents[i].read_at
+        || (knob(54, 0.0) > 0.5
+            && sim.carrier().is_some_and(|c| {
+                c != qb && (sim.agents[c].pos.x - s.los) * sim.goal > 0.5 && sim.sees(i, sim.agents[c].pos)
+            }));
     // Once the ball is caught or handed off and he has seen it, he chases.
     if let Some(c) = carrier {
         let handed = c != qb || pass.as_ref().is_some_and(|p| p.scramble);
@@ -2523,7 +2537,7 @@ fn cover_inner(
                 // He sits under a route at depth; a shallow one he only
                 // squeezes, keeping his depth for what comes behind him.
                 let rp = sim.agents[r].pos;
-                let under = rp + (q - rp).norm().scale(1.3);
+                let under = rp + (q - rp).norm().scale(knob(62, 1.3));
                 let lim = width / 2.0 + 3.0;
                 let floor = if rp.x > s.los + 3.5 { s.los } else { (spot.x - 3.0).max(s.los + 2.0) };
                 target = v2(under.x.clamp(floor, spot.x + 6.0), under.y.clamp(spot.y - lim, spot.y + lim));

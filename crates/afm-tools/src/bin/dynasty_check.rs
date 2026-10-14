@@ -46,16 +46,24 @@ fn starters(positions: &[Position]) -> f64 {
 }
 
 /// Win share and average margin for `a` against `b`, home and away in turn.
+fn level() -> Level {
+    match std::env::var("AFM_LEVEL").as_deref() {
+        Ok("nfl") => Level::NFL,
+        Ok("hs") => Level::HS,
+        _ => Level::FBS,
+    }
+}
+
 fn play(a: &GameTeam, b: &GameTeam, games: usize, seed: u64) -> (f64, f64) {
     let r: Vec<(f64, f64)> = (0..games)
         .into_par_iter()
         .map(|g| {
             let s = seed * 1_000_003 + g as u64;
             let (m, home) = if g % 2 == 0 {
-                let r = quick_game(a, b, Level::FBS, s);
+                let r = quick_game(a, b, level(), s);
                 ((r.stats.score[0] - r.stats.score[1]) as f64, true)
             } else {
-                let r = quick_game(b, a, Level::FBS, s);
+                let r = quick_game(b, a, level(), s);
                 ((r.stats.score[1] - r.stats.score[0]) as f64, false)
             };
             let _ = home;
@@ -79,7 +87,7 @@ fn play(a: &GameTeam, b: &GameTeam, games: usize, seed: u64) -> (f64, f64) {
 /// at one position raised by `by` on every attribute. Prints points of
 /// margin per rating point per player, against the real-world band.
 fn values(games: usize, seed: u32, by: f64) {
-    let base = synthetic_team("A", Level::FBS, 0.0, OffScheme::WestCoast, seed);
+    let base = synthetic_team("A", level(), 0.0, OffScheme::WestCoast, seed);
     // Real value per player per rating point, relative to the QB (see
     // data/real-world/position_value.md).
     let groups: [(&str, Vec<Position>, &str); 11] = [
@@ -95,7 +103,7 @@ fn values(games: usize, seed: u32, by: f64) {
         ("CB", vec![Position::CB], "0.12-0.25"),
         ("S", vec![Position::S], "0.08-0.18"),
     ];
-    println!("FBS, {games} games per line: a team against itself, one side's starters raised {by:+}\n");
+    println!("{:?}, {games} games per line: a team against itself, one side's starters raised {by:+}\n", level());
     println!("| Position | starters | margin | points per rating point per player | share of QB | real share |");
     println!("|---|---|---|---|---|---|");
     let mut qb = f64::NAN;

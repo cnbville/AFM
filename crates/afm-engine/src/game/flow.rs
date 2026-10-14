@@ -101,10 +101,11 @@ impl<'a> Side<'a> {
     /// A strict coach rides his starters harder.
     fn threshold(&self, pos: Position) -> f64 {
         let base = match pos {
-            Position::EDGE | Position::DT => 0.84,
-            Position::RB => 0.8,
-            Position::WR | Position::TE => 0.74,
-            Position::LB | Position::CB | Position::S => 0.68,
+            Position::EDGE | Position::DT => crate::game::sim::knob(48, 0.84),
+            Position::RB => crate::game::sim::knob(49, 0.8),
+            Position::WR | Position::TE => crate::game::sim::knob(50, 0.74),
+            Position::LB => crate::game::sim::knob(52, 0.68),
+            Position::CB | Position::S => crate::game::sim::knob(51, 0.68),
             _ => 0.5,
         };
         base - 0.006 * (self.team.staff.strictness - 10.0)
@@ -116,6 +117,9 @@ impl<'a> Side<'a> {
         let list: Vec<usize> =
             self.depth.list(pos).iter().copied().filter(|&i| !self.out[i] && !used.contains(&i)).collect();
         let th = self.threshold(pos);
+        if std::env::var("AFM_EN").is_ok() && !list.is_empty() {
+            eprintln!("EN {:?} {:.3} {:.1}", pos, self.energy[list[0]], if list.len() > 1 { self.rating(list[0], pos) - self.rating(list[1], pos) } else { 99.0 });
+        }
         let mut out = Vec::new();
         let mut skipped = Vec::new();
         for &i in &list {
@@ -1279,13 +1283,13 @@ impl<'a> Game<'a> {
         for &(side, p, work) in &res.work {
             let team = if side == 0 { o } else { d };
             let st = self.sides[team].team.players[p].a(Attr::Stamina);
-            self.sides[team].energy[p] = (self.sides[team].energy[p] - 0.0068 * drain(st, work)).max(0.25);
+            self.sides[team].energy[p] = (self.sides[team].energy[p] - 0.0068 * crate::game::sim::knob(40, 1.0) * drain(st, work)).max(0.25);
         }
         for t in [o, d] {
             let on: Vec<usize> =
                 if t == o { off.iter().map(|x| x.1).collect() } else { def.iter().map(|x| x.1).collect() };
             for i in 0..self.sides[t].energy.len() {
-                let rec = if on.contains(&i) { RECOVER_ON_FIELD } else { RECOVER_ON_BENCH };
+                let rec = if on.contains(&i) { crate::game::sim::knob(46, RECOVER_ON_FIELD) } else { crate::game::sim::knob(47, RECOVER_ON_BENCH) };
                 self.sides[t].energy[i] = (self.sides[t].energy[i] + rec).min(1.0);
             }
         }

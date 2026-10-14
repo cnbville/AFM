@@ -248,7 +248,7 @@ impl Agent {
         if s > a.vmax {
             a.vel = a.vel.scale(a.vmax / s);
         }
-        a.work += DT * (0.2 + 0.8 * s / 9.0);
+        a.work += DT * knob(53, 1.0) * (0.2 + 0.8 * s / 9.0);
         if s > a.top {
             a.top = s;
         }
@@ -483,6 +483,8 @@ pub struct Sim<'a> {
     pub fight_since: f64,
     /// The back on a screen: linemen who leak out block for him before the catch.
     pub screen: Option<usize>,
+    /// How far a free defender in the open field can reach for the carrier.
+    pub open_reach: f64,
 }
 
 /// Print plays as they run (debug tooling only).
@@ -770,8 +772,8 @@ impl<'a> Sim<'a> {
             let sd = if e.pass { knob(16, 0.58) } else { knob(12, 0.75) };
             let w = e.w + mu * DT + sd * DT.sqrt() * gauss(self.rng);
             self.eng[k].w = w;
-            self.agents[b].work += DT * 0.9;
-            self.agents[d].work += DT * 0.9;
+            self.agents[b].work += DT * if e.pass { knob(41, 0.9) } else { knob(43, 0.9) };
+            self.agents[d].work += DT * if e.pass { knob(42, 0.9) } else { knob(44, 0.9) };
             // A beaten blocker may grab him (topic 4).
             if w > 0.75 && !e.grab_checked {
                 // One moment of decision when he is first beaten.
@@ -947,7 +949,11 @@ impl<'a> Sim<'a> {
         }
         let dir = best.1;
         // With the ball in one arm he runs a little under his top speed.
-        self.steer(c, dir.scale(self.agents[c].vmax * 0.95));
+        // Behind the line he presses the hole under control, reading his
+        // blocks, and only opens up once he is through it.
+        let behind = (self.agents[c].pos.x - self.los) * goal < 0.5;
+        let pace = if behind { knob(21, 0.95) } else { 0.95 };
+        self.steer(c, dir.scale(self.agents[c].vmax * pace));
         let x = self.agents[c].pos.x;
         if (x - self.progress) * goal > 0.0 {
             self.progress = x;
@@ -999,7 +1005,8 @@ impl<'a> Sim<'a> {
         // forward under control, so the runner has to beat him with a move
         // (topic 2.2). Good tacklers keep more speed doing it.
         let ahead = (a.pos.x - cp.x) * self.goal;
-        if knob(9, 1.0) > 0.5 && ahead > 0.4 && ahead < 5.0 && dist < 6.0 && cap >= 1.0 {
+        let in_path = (cp.y - a.pos.y).abs() < ahead + knob(55, 99.0);
+        if knob(9, 1.0) > 0.5 && ahead > 0.4 && ahead < 5.0 && dist < 6.0 && cap >= 1.0 && in_path {
             let tk = a.a(Attr::Tackling);
             let fwd = clamp(1.5 + 0.04 * (tk - 50.0), 0.8, 3.5);
             let run_x = (cv.x * self.goal).max(0.5);
@@ -1045,7 +1052,7 @@ impl<'a> Sim<'a> {
             }
             // In space (past the line, no bodies around) a free man can dive.
             let in_space = (self.agents[c].pos.x - self.los) * self.goal > knob(5, 3.0);
-            let free_reach = if d.engaged.is_none() && in_space { knob(0, 1.6) } else { 1.6 };
+            let free_reach = if d.engaged.is_none() && in_space { self.open_reach } else { 1.6 };
             let reach = free_reach + 0.03 * (self.player(i).arm - 32.0);
             // Closest approach over the last tick, so fast players can't
             // pass through each other between two samples.
@@ -1166,6 +1173,8 @@ impl<'a> Sim<'a> {
 
     fn fight_tick(&mut self, c: usize) {
         let t = self.t;
+        // Taking hits wears a runner down.
+        self.agents[c].work += DT * knob(45, 0.0);
         let r = self.agents[c].clone();
         let resist = 1.0
             + knob(19, 1.0) * 0.012 * (r.a(Attr::Strength) - 60.0)
@@ -1403,7 +1412,7 @@ pub fn injury_weeks(kind: InjuryKind, rng: &mut Rng) -> f64 {
 
 /// TEMPORARY tuning knobs (AFM_K0..AFM_K9); removed before merge.
 pub fn knob(i: usize, default: f64) -> f64 {
-    static K: std::sync::OnceLock<[Option<f64>; 40]> = std::sync::OnceLock::new();
+    static K: std::sync::OnceLock<[Option<f64>; 80]> = std::sync::OnceLock::new();
     K.get_or_init(|| std::array::from_fn(|k| std::env::var(format!("AFM_K{k}")).ok().and_then(|v| v.parse().ok())))[i]
         .unwrap_or(default)
 }
