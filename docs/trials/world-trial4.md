@@ -52,7 +52,7 @@ Trial 3: 45%. Real 2000-2025: 73%. EDGE 27% (real 19%). Picks 1-5: EDGE 35%, QB 
 - Rises and falls have causes: Bowling Green rose 0.46 to 0.63 with five MAC titles; James Madison fell 0.53 to 0.38.
 
 ## Candidates for the next round (not fixed, per the working rules)
-1. **Lineup margin.** A whole-lineup edge is worth about twice what real spreads say (item 1). Proposal for Raichel: keep each position's value where it is relative to the others and scale the whole down (the margin per rating point of lineup strength from about 4.8 to about 2.5), through the noise in the battles (block drift, throw error, tackle chance), not through a flat factor. Proposed, not confirmed.
+1. **Lineup margin.** A whole-lineup edge is worth about twice what real spreads say (item 1). The causes and the proposed fix are in `world-trial4-proposals.md`, topics 1-3 (the earlier idea of widening the battle noise is withdrawn).
 2. Blowouts and one-score games (item 2), the same cause.
 3. Droughts (item 3): the same cause, plus the firing loop.
 4. College completion (item 4): receivers' catch radius and coverage at the lower levels.
@@ -61,14 +61,5 @@ Trial 3: 45%. Real 2000-2025: 73%. EDGE 27% (real 19%). Picks 1-5: EDGE 35%, QB 
 7. The coach-of-color pipeline (item 7).
 8. The career stats record and high school games on the engine are still unbuilt.
 
-## Proposals (posted to Raichel 2026-10-14, proposed, not confirmed)
-Claude's pick is first in each item.
-1. **Lineup margin.** Widen the noise in the battles (block drift, throw error, tackle chance) so the better man wins more often but not every snap, keeping every position's relative value. Target about 2.5 points per lineup rating point, blowouts near 20%, one-score games near 40%. Alternatives: scale every position's slope by the same share; or cap how long one program keeps a 70+ roster (treats the symptom).
-2. **Firing loop.** A board weighs the roster it handed the coach (expected wins from lineup strength) and gives a coach who met that expectation a third year.
-3. **College completion.** Scale receivers' catch radius and defenders' reaction lag below the pro range the same way the throw error is (the knee at 68). Alternative: loosen only the throw knee.
-4. **College calling tables.** Pass-rate and tempo tables by down, distance and score from real FBS play-by-play (to be built from the cfbfastR release; only the overall FBS pass rate, 49.6%, is in the data folder today), used by the college levels; high school uses the FBS tables scaled by its clock.
-5. **Draft board.** Price positions from the engine's measured values (QB first, then the pass rush and tackles), with scouts' noise on top. Alternative: move today's hand-set premium list.
-6. **Returns.** The coach weighs a returner's value against his injury risk: a backup with real return skill returns, a star returns when the gap is large.
-7. **Sacks and interceptions.** Recheck after item 1 before touching them.
-8. **Coaches of color.** Raichel's call; no new proposal.
-The position-value bands wait until item 1 is built and re-measured.
+## Proposals (proposed, not confirmed)
+The full proposals, with what was seen, why, the fix, the expected result and the question for Raichel on each topic, are in `world-trial4-proposals.md` (rewritten 2026-10-14). The first short list posted that day is withdrawn: its item 1 (widen the noise in the battles) was wrong, because game-to-game luck in the world is already above real (18 points against 13). The dynasty comes from three causes instead: position values above their bands (4.8 points of margin per lineup point against about 2.4), no coach taking his starters out of a won game, and home field worth 0.7 points against a real 2.5.
