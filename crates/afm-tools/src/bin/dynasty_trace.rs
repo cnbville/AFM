@@ -13,6 +13,7 @@
 use afm_engine::debug;
 use afm_engine::game::{GameTeam, OffScheme, Staff, quick_game};
 use afm_engine::player::Level;
+use afm_engine::positions::Position;
 use afm_engine::world::data::Division;
 use afm_engine::world::{World, WorldOptions};
 use rayon::prelude::*;
@@ -102,98 +103,147 @@ fn main() {
 
         // 1. Every FBS team against the median team.
         let median = side[side.len() / 2].clone();
-        let opp = vec![median.clone(); side.len()];
-        let as_is = against(&side, &opp, games, 11);
-        let n_side: Vec<GameTeam> = side.iter().map(|t| GameTeam { staff: neutral, ..t.clone() }).collect();
-        let n_opp = vec![GameTeam { staff: neutral, ..median.clone() }; side.len()];
-        let players = against(&n_side, &n_opp, games, 12);
-        let s_side: Vec<GameTeam> =
-            side.iter().map(|t| GameTeam { players: median.players.clone(), ..t.clone() }).collect();
-        let staff = against(&s_side, &opp, games, 13);
-        let x: Vec<f64> = fbs.iter().map(|&p| strength[p]).collect();
-        let (a0, b0) = line(&x, &as_is);
-        let (a1, b1) = line(&x, &players);
-        println!("## {year}: every FBS team against the median team ({})\n", median.name);
-        println!(
-            "Margin per lineup point: as is {b0:.2}, players only {b1:.2}. Residual = margin minus what the lineup predicts.\n"
-        );
-        println!("| Program | {year} | lineup | as is | residual | players only | residual | staff only |");
-        println!("|---|---|---|---|---|---|---|---|");
-        let mut order: Vec<usize> = (0..fbs.len()).collect();
-        order.sort_by(|&i, &j| (as_is[j] - a0 - b0 * x[j]).total_cmp(&(as_is[i] - a0 - b0 * x[i])));
-        let mut shown: Vec<usize> = order[..10].to_vec();
-        shown.extend((0..top).filter(|k| !order[..10].contains(k)));
-        for k in shown {
-            let p = fbs[k];
+        // AFM_SPLIT_ONLY skips parts 1 and 2.
+        if std::env::var("AFM_SPLIT_ONLY").is_err() {
+            let opp = vec![median.clone(); side.len()];
+            let as_is = against(&side, &opp, games, 11);
+            let n_side: Vec<GameTeam> = side.iter().map(|t| GameTeam { staff: neutral, ..t.clone() }).collect();
+            let n_opp = vec![GameTeam { staff: neutral, ..median.clone() }; side.len()];
+            let players = against(&n_side, &n_opp, games, 12);
+            let s_side: Vec<GameTeam> =
+                side.iter().map(|t| GameTeam { players: median.players.clone(), ..t.clone() }).collect();
+            let staff = against(&s_side, &opp, games, 13);
+            let x: Vec<f64> = fbs.iter().map(|&p| strength[p]).collect();
+            let (a0, b0) = line(&x, &as_is);
+            let (a1, b1) = line(&x, &players);
+            println!("## {year}: every FBS team against the median team ({})\n", median.name);
             println!(
-                "| {} | {} | {:.1} | {:+.1} | {:+.1} | {:+.1} | {:+.1} | {:+.1} |",
-                w.programs[p].real_name,
-                record(p),
-                x[k],
-                as_is[k],
-                as_is[k] - a0 - b0 * x[k],
-                players[k],
-                players[k] - a1 - b1 * x[k],
-                staff[k]
+                "Margin per lineup point: as is {b0:.2}, players only {b1:.2}. Residual = margin minus what the lineup predicts.\n"
             );
+            println!("| Program | {year} | lineup | as is | residual | players only | residual | staff only |");
+            println!("|---|---|---|---|---|---|---|---|");
+            let mut order: Vec<usize> = (0..fbs.len()).collect();
+            order.sort_by(|&i, &j| (as_is[j] - a0 - b0 * x[j]).total_cmp(&(as_is[i] - a0 - b0 * x[i])));
+            let mut shown: Vec<usize> = order[..10].to_vec();
+            shown.extend((0..top).filter(|k| !order[..10].contains(k)));
+            for k in shown {
+                let p = fbs[k];
+                println!(
+                    "| {} | {} | {:.1} | {:+.1} | {:+.1} | {:+.1} | {:+.1} | {:+.1} |",
+                    w.programs[p].real_name,
+                    record(p),
+                    x[k],
+                    as_is[k],
+                    as_is[k] - a0 - b0 * x[k],
+                    players[k],
+                    players[k] - a1 - b1 * x[k],
+                    staff[k]
+                );
+            }
+
+            // 2. The best programs, round robin.
+            let best: Vec<GameTeam> = side.iter().take(top).cloned().collect();
+            let reference = best[best.len() / 2].players.clone();
+            let po: Vec<GameTeam> = best.iter().map(|t| GameTeam { staff: neutral, ..t.clone() }).collect();
+            let so: Vec<GameTeam> = best.iter().map(|t| GameTeam { players: reference.clone(), ..t.clone() }).collect();
+            let co: Vec<GameTeam> = best
+                .iter()
+                .map(|t| {
+                    let mut s = t.staff;
+                    s.off_scheme = neutral.off_scheme;
+                    s.shell = neutral.shell;
+                    s.front = neutral.front;
+                    GameTeam { players: reference.clone(), staff: s, name: t.name.clone() }
+                })
+                .collect();
+            let sc: Vec<GameTeam> = best
+                .iter()
+                .map(|t| {
+                    let mut s = neutral;
+                    s.off_scheme = t.staff.off_scheme;
+                    s.shell = t.staff.shell;
+                    s.front = t.staff.front;
+                    GameTeam { players: reference.clone(), staff: s, name: t.name.clone() }
+                })
+                .collect();
+            let r = [
+                round_robin(&best, games, 1),
+                round_robin(&po, games, 2),
+                round_robin(&so, games, 3),
+                round_robin(&co, games, 4),
+                round_robin(&sc, games, 5),
+            ];
+            println!("\n## {year}: the top {top} lineups, round robin (average margin against the rest)\n");
+            println!(
+                "| Program | {year} | lineup | offense | shell | OC / DC calling | as is | players only | staff only | callers only | schemes only |"
+            );
+            println!("|---|---|---|---|---|---|---|---|---|---|---|");
+            for (k, t) in best.iter().enumerate() {
+                let p = fbs[k];
+                let st = &t.staff;
+                println!(
+                    "| {} | {} | {:.1} | {:?} | {:?} | {:.1} / {:.1} | {:+.1} | {:+.1} | {:+.1} | {:+.1} | {:+.1} |",
+                    w.programs[p].real_name,
+                    record(p),
+                    x[k],
+                    st.off_scheme,
+                    st.shell,
+                    st.offense.skill,
+                    st.defense.skill,
+                    r[0][k],
+                    r[1][k],
+                    r[2][k],
+                    r[3][k],
+                    r[4][k]
+                );
+            }
         }
 
-        // 2. The best programs, round robin.
-        let best: Vec<GameTeam> = side.iter().take(top).cloned().collect();
-        let reference = best[best.len() / 2].players.clone();
-        let po: Vec<GameTeam> = best.iter().map(|t| GameTeam { staff: neutral, ..t.clone() }).collect();
-        let so: Vec<GameTeam> = best.iter().map(|t| GameTeam { players: reference.clone(), ..t.clone() }).collect();
-        let co: Vec<GameTeam> = best
-            .iter()
-            .map(|t| {
-                let mut s = t.staff;
-                s.off_scheme = neutral.off_scheme;
-                s.shell = neutral.shell;
-                s.front = neutral.front;
-                GameTeam { players: reference.clone(), staff: s, name: t.name.clone() }
-            })
-            .collect();
-        let sc: Vec<GameTeam> = best
-            .iter()
-            .map(|t| {
-                let mut s = neutral;
-                s.off_scheme = t.staff.off_scheme;
-                s.shell = t.staff.shell;
-                s.front = t.staff.front;
-                GameTeam { players: reference.clone(), staff: s, name: t.name.clone() }
-            })
-            .collect();
-        let r = [
-            round_robin(&best, games, 1),
-            round_robin(&po, games, 2),
-            round_robin(&so, games, 3),
-            round_robin(&co, games, 4),
-            round_robin(&sc, games, 5),
+        // 3. Where a top roster's edge sits: swap one position group at a
+        // time for the median team's players (players only, same staff).
+        println!("\n## {year}: where each top roster's edge over the median team sits (players only)\n");
+        let groups = [
+            Position::QB,
+            Position::RB,
+            Position::WR,
+            Position::TE,
+            Position::OT,
+            Position::IOL,
+            Position::EDGE,
+            Position::DT,
+            Position::LB,
+            Position::CB,
+            Position::S,
         ];
-        println!("\n## {year}: the top {top} lineups, round robin (average margin against the rest)\n");
-        println!(
-            "| Program | {year} | lineup | offense | shell | OC / DC calling | as is | players only | staff only | callers only | schemes only |"
-        );
-        println!("|---|---|---|---|---|---|---|---|---|---|---|");
-        for (k, t) in best.iter().enumerate() {
-            let p = fbs[k];
-            let st = &t.staff;
-            println!(
-                "| {} | {} | {:.1} | {:?} | {:?} | {:.1} / {:.1} | {:+.1} | {:+.1} | {:+.1} | {:+.1} | {:+.1} |",
-                w.programs[p].real_name,
-                record(p),
-                x[k],
-                st.off_scheme,
-                st.shell,
-                st.offense.skill,
-                st.defense.skill,
-                r[0][k],
-                r[1][k],
-                r[2][k],
-                r[3][k],
-                r[4][k]
-            );
+        print!("| Program | edge |");
+        for g in groups {
+            print!(" {g:?} |");
         }
+        println!("\n|---|---|{}", "---|".repeat(groups.len()));
+        let m = GameTeam { staff: neutral, ..median.clone() };
+        for k in 0..4.min(fbs.len()) {
+            let t = GameTeam { staff: neutral, ..side[k].clone() };
+            let base = against(std::slice::from_ref(&t), std::slice::from_ref(&m), games * 5, 21)[0];
+            let swapped: Vec<GameTeam> = groups
+                .iter()
+                .map(|&g| {
+                    let mut players: Vec<_> = t.players.iter().filter(|p| p.position != g).cloned().collect();
+                    players.extend(m.players.iter().filter(|p| p.position == g).cloned().map(|mut p| {
+                        p.id += 5_000_000;
+                        p
+                    }));
+                    GameTeam { players, ..t.clone() }
+                })
+                .collect();
+            let opp = vec![m.clone(); swapped.len()];
+            let r = against(&swapped, &opp, games * 5, 22);
+            print!("| {} | {base:+.1} |", w.programs[fbs[k]].real_name);
+            for v in r {
+                print!(" {:+.1} |", base - v);
+            }
+            println!();
+        }
+        println!("\nEach cell: how much of the edge goes when that group is swapped for the median team's.");
         println!();
     }
 }
