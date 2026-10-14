@@ -60,3 +60,15 @@ Trial 3: 45%. Real 2000-2025: 73%. EDGE 27% (real 19%). Picks 1-5: EDGE 35%, QB 
 6. The draft board's quarterback price (item 6).
 7. The coach-of-color pipeline (item 7).
 8. The career stats record and high school games on the engine are still unbuilt.
+
+## Proposals (posted to Raichel 2026-10-14, proposed, not confirmed)
+Claude's pick is first in each item.
+1. **Lineup margin.** Widen the noise in the battles (block drift, throw error, tackle chance) so the better man wins more often but not every snap, keeping every position's relative value. Target about 2.5 points per lineup rating point, blowouts near 20%, one-score games near 40%. Alternatives: scale every position's slope by the same share; or cap how long one program keeps a 70+ roster (treats the symptom).
+2. **Firing loop.** A board weighs the roster it handed the coach (expected wins from lineup strength) and gives a coach who met that expectation a third year.
+3. **College completion.** Scale receivers' catch radius and defenders' reaction lag below the pro range the same way the throw error is (the knee at 68). Alternative: loosen only the throw knee.
+4. **College calling tables.** Pass-rate and tempo tables by down, distance and score from real FBS play-by-play (to be built from the cfbfastR release; only the overall FBS pass rate, 49.6%, is in the data folder today), used by the college levels; high school uses the FBS tables scaled by its clock.
+5. **Draft board.** Price positions from the engine's measured values (QB first, then the pass rush and tackles), with scouts' noise on top. Alternative: move today's hand-set premium list.
+6. **Returns.** The coach weighs a returner's value against his injury risk: a backup with real return skill returns, a star returns when the gap is large.
+7. **Sacks and interceptions.** Recheck after item 1 before touching them.
+8. **Coaches of color.** Raichel's call; no new proposal.
+The position-value bands wait until item 1 is built and re-measured.
