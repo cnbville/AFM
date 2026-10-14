@@ -1,6 +1,6 @@
 # Match engine physics fixes (after world trial 3)
 
-Status: the five fixes below are agreed by Raichel (2026-10-14, World Trial 3 thread). Targets and checks marked "proposed, not confirmed" are Claude's and still need Raichel's word. A fresh build thread builds this, merges to `main` and sends one reply. Then world trial 4 runs on it.
+Status: the next needed fix, not built yet. Raichel (2026-10-14): don't build it now, keep it in git as the next needed fix. The five fixes below are agreed by Raichel (2026-10-14, World Trial 3 thread). Targets and checks marked "proposed, not confirmed" are Claude's and still need Raichel's word. When Raichel says to build it, a fresh build thread builds this, merges to `main` and sends one reply. Then world trial 4 runs on it.
 
 ## Why
 World trial 3 (`docs/trials/world-trial3.md`) gave Tennessee 9 titles in 15 years. Raichel asked whether the cause is the physics of the games. The trace says yes.
