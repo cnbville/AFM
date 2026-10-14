@@ -122,9 +122,11 @@
     },
     "source_url": [
       "https://www.bengals.com/news/2026-nfl-53-man-roster-cutdown-deadline-essential-information",
-      "https://www.si.com/nfl/how-much-nfl-practice-squad-players-make"
+      "https://www.si.com/nfl/how-much-nfl-practice-squad-players-make",
+      "https://www.nbcsportsphiladelphia.com/nfl/nfl-roster-cutdown-day-deadline-date-practice-squad-rules-2026/748331/"
     ],
-    "year": 2026
+    "year": 2026,
+    "eligibility": "Rookies and second-year players with fewer than 9 active games; up to 10 with no more than two accrued seasons; up to 6 with no limit on seasons; those two groups together at most 10."
   },
   "roster_limits": {
     "offseason": 90,
@@ -140,12 +142,73 @@
     "season_start": "Sep 9",
     "season_end": "Jan 10, 2027",
     "super_bowl": "Feb 14, 2027",
-    "source_url": "https://en.wikipedia.org/wiki/2026_NFL_season"
+    "source_url": "https://en.wikipedia.org/wiki/2026_NFL_season",
+    "trade_deadline": "Nov 10, 2026, 4 p.m. ET",
+    "playoffs": "Wild card Jan 16-18, 2027; divisional Jan 23-24; conference Jan 31; Super Bowl LXI Feb 14 at SoFi Stadium"
   },
   "gaps": [
-    "RFA tender amounts 2026",
-    "Game-day active roster size and emergency third QB rule",
-    "Practice squad veteran-count limits",
-    "2027 fifth-year option amounts by position (only per-player estimates found)"
-  ]
+    "2027 fifth-year option amounts by position (only per-player estimates found)",
+    "2027 salary cap: no official projection found",
+    "The full compensatory formula is not public (the NFL names its inputs only)"
+  ],
+  "rfa_tenders_2026": {
+    "right_of_first_refusal_only": 3520000,
+    "original_round": 3674000,
+    "second_round": 5767000,
+    "first_round": 8046000,
+    "first_round_no_limiting_provision": 8546000,
+    "rule": "Each is the greater of the amount or 110% of the player's 2025 Paragraph 5 salary. Offer sheets due Apr 17, 2026; first-refusal decision Apr 22.",
+    "source_url": "https://www.nfl.com/news/2026-nfl-free-agency-questions-answers"
+  },
+  "game_day": {
+    "active": 48,
+    "practice_squad_elevations_per_game": 2,
+    "elevations_per_player": 3,
+    "emergency_third_qb": "A bona fide QB on the 53 may be listed as emergency third QB when only two QBs are active; he may enter only if both are out by injury or disqualification, and must leave if one is cleared.",
+    "source_url": [
+      "https://www.nbcsportsphiladelphia.com/nfl/nfl-roster-cutdown-day-deadline-date-practice-squad-rules-2026/748331/",
+      "https://www.windycitygridiron.com/chicago-bears-roster/97119/chicago-bears-2025-nfl-practice-squad-rules",
+      "https://www.footballnationusa.com/post/nfl-emergency-third-quarterback-rule-explained"
+    ]
+  },
+  "injured_reserve": {
+    "minimum_games_out": 4,
+    "designated_to_return": "Up to 8 per regular season (10 for playoff teams), plus 2 placed at the final cutdown; each player can return twice",
+    "practice_window_days": 21,
+    "pup": "Active/PUP in camp; reserve/PUP misses at least the first 4 games; cannot go on PUP after practicing",
+    "nfi": "Reserve/NFI sits at least 4 games",
+    "source_url": "https://www.foxsports.com/articles/nfl/from-ir-and-pup-to-practice-squads-what-do-nfl-roster-designations-mean",
+    "source_date": "2025-07-22"
+  },
+  "compensatory_picks": {
+    "basis": "Net loss of compensatory free agents, valued by salary, playing time and postseason honors",
+    "rounds": "3 to 7",
+    "max_per_team": 4,
+    "2026_total_formula_picks": 32,
+    "minority_hiring_picks": "A team that loses a minority head coach or top football executive to another team's top job gets a 3rd-round pick in each of the next two drafts (after the round-3 comp picks)",
+    "source_url": "https://edge-operations.nfl.com/updates/football-ops/33-compensatory-draft-choices-announced-for-2026-nfl-draft"
+  },
+  "cap_mechanics": {
+    "signing_bonus_proration_max_years": 5,
+    "void_years": "Placeholder years for proration; bonus left on them accelerates when the contract voids",
+    "release_before_june_1": "All remaining prorated bonus hits this year's cap",
+    "post_june_1": "Up to 2 designations a year; this year keeps its normal proration, the rest moves to next year",
+    "minimum_cash_spending": "90% of the caps over 2021-23, 2024-26 and 2027-30; any shortfall is paid to the players",
+    "cba_expires": "after the 2030 season",
+    "source_url": [
+      "https://sumersports.com/the-zone/void-years-explained/",
+      "https://profootballrumors.com/2022/04/the-nfls-post-june-1-cuts-explained-6",
+      "https://Overthecap.com/collective-bargaining-agreement/article/12/section/9",
+      "https://www.cbssports.com/nfl/news/nfl-moving-to-18-game-schedule-when-can-we-expect-league-to-expand-including-changes-to-international-slate"
+    ]
+  },
+  "calendar_2027": {
+    "tags": "Feb 17 - Mar 3",
+    "combine": "Mar 1-8",
+    "league_year": "Mar 11",
+    "rfa_offer_sheets": "Apr 23",
+    "first_refusal": "Apr 28",
+    "draft": "Apr 29 - May 1, Washington DC",
+    "source_url": "https://www.nfl.com/news/2026-27-national-football-league-important-dates"
+  }
 }
