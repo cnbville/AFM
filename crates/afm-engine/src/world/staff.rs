@@ -560,7 +560,9 @@ pub(crate) fn carousel(w: &mut World) {
             .collect();
         scored.sort_by(|a, b| b.1.total_cmp(&a.1));
         let mut hired = None;
-        for &(c, _) in scored.iter().take(6) {
+        // A search works down its list: when the first names say no, the
+        // school calls the next ones (proposed, not confirmed: 20 calls).
+        for &(c, _) in scored.iter().take(20) {
             let coach = &w.coaches[c];
             let accepts = match coach.job {
                 None => true,
@@ -582,6 +584,19 @@ pub(crate) fn carousel(w: &mut World) {
                 hired = Some(c);
                 break;
             }
+        }
+        // Nobody outside said yes to a college head job: the school promotes
+        // its own coordinator, the better-regarded one (an interim who stays).
+        if hired.is_none()
+            && o.role == Role::HeadCoach
+            && let Employer::College(p) = o.employer
+            && !is_hs
+        {
+            hired = [w.programs[p].oc, w.programs[p].dc]
+                .into_iter()
+                .flatten()
+                .filter(|c| !moved.contains(c))
+                .max_by(|&a, &b| w.coaches[a].reputation.total_cmp(&w.coaches[b].reputation));
         }
         let c = match hired {
             Some(c) => {
@@ -632,6 +647,7 @@ pub(crate) fn carousel(w: &mut World) {
             let name = w.programs[p].name(w.options.names).to_string();
             let coach = &w.coaches[c];
             let from = from_job.map_or("a new coach".to_string(), |(e, _)| match e {
+                Employer::College(q) if q == p => "promoted from his own staff".to_string(),
                 Employer::College(q) => format!("from {}", w.programs[q].name(w.options.names)),
                 Employer::HighSchool(h) => format!("from {} High School football", w.high_schools[h].name),
                 Employer::Nfl(_) => "from the NFL".to_string(),
@@ -793,8 +809,7 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                         let coach = &w.coaches[c];
                         let u = coach.units[g as usize];
                         !moved.contains(&c)
-                            && ((coach.came_up.offense() == g.offense() && u.growth_read() > 0.15)
-                                || u.moved_up >= 1.5)
+                            && ((coach.came_up.offense() == g.offense() && u.growth_read() > 0.15) || u.moved_up >= 1.5)
                     })
                     .collect();
                 sample(w, &hs, 4, &mut pool);
@@ -1032,11 +1047,15 @@ pub(crate) fn update_programs(w: &mut World, r: &SeasonResults) {
 /// growth of every player he coached, against all players at the same level
 /// and age. A high school head coach teaches every group; in college the
 /// position coach counts most, then the coordinator, then the head coach.
+/// One player's year: his group, his (level, age) cohort, his growth and the
+/// coaches credited with their weights.
+type TeachingRow = (Group, (u8, u32), f64, [(Option<usize>, f64); 3]);
+
 pub(crate) fn credit_teaching(w: &mut World) {
     if !w.recording {
         return;
     }
-    let mut rows: Vec<(Group, (u8, u32), f64, [(Option<usize>, f64); 3])> = Vec::new();
+    let mut rows: Vec<TeachingRow> = Vec::new();
     let mut norm: BTreeMap<(u8, u32), (f64, f64)> = BTreeMap::new();
     for p in &w.people {
         let Some(h) = p.player.history.last() else { continue };

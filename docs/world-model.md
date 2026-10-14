@@ -66,6 +66,26 @@ Raichel's running list from the trial 1 walk-through (`/mnt/project-files/design
 
 Fixes from trial 1's flags: foster homes no longer give money (flag 3), the NIL life event happens once (flag 4), and unsigned 3+ star recruits get a reason (flag 5).
 
+## Trial 3 fix list (built 2026-10-14)
+
+Raichel's list in `/mnt/project-files/design/world-trial3-candidates.md`. Numbers marked (proposed) are Claude's picks inside the agreed design.
+
+- **Names (1, 2).** The 1,307 names only the mortgage source has are reweighted from that source's own mix to national shares (Trey is now about 15% Black). DeShawn is added as an estimate.
+- **Coaching gap in the 2000s (3).** The hiring bias eases from 4.2 points in 2005 by 0.08 a year (was 5.0 and 0.12), to bring 2009 nearer the real 7 of 120 (proposed).
+- **Coach hiring on visible evidence (5, 15A-B).** A high school coach's buzz counts only his own seasons. Every coach keeps a record per position group: how much his players grew against others of the same level and age, and how many moved up (signed with a bigger school, made the draft). Schools read his teaching through noise (sd 1.5-5 points, sharper for a better-connected hiring coach) plus that record. Each coach has a "came up as" group; a coordinator from the other side of the ball reads 1 point worse. Head-job hires mark down coaches past 58, and past 54 if they were never a head coach. An FBS head job takes coordinators only from FBS (proposed numbers).
+- **Every rise has a cause (15C).** A head coach's recruiting and relationships, and his position coach's recruiting, add a small bond with recruits. Facilities age a little each year and move in steps (a booster gift or a budget decision), more likely the further behind a school is. Tradition moves slowly with recent results and titles. Each program keeps a story line: new head coach, facility project, title (proposed numbers).
+- **NIL offers per player (13).** An offer is the real position value (QB about $650k at the top of FBS down to K/P $25k) times his talent and rank, times the collective's size. Schools bid against a better offer for their top targets. A program with a hot head coach and a collective bigger than its prestige can "reach" with a 1.6x offer some years. Money weighs by family need (wealth, a crisis) and ambition shifts weight from money to the best path (playing time, development). Player pages say what his deal was (proposed numbers).
+- **Bench (6).** The bench formula is refit so position means land on the real combine means; WR and CB still run about 2 high.
+- **Kickers and punters (7).** Leg strength now leans on a specialist body, so the strongest legs are not on lineman-sized bodies. College kickers average 70.7 in and 188 lb, punters 72.2 in and 199 lb.
+- **Height format (8).** Pages show 6'0 3/4", to the eighth, like the combine.
+- **College games on the match engine (12).** Every college game is played by the match engine, the whole history included, so the history comes from the same football as the save (Raichel, 2026-10-14: the final game builds 30 years this way; trial 3 uses 15). At about 45 ms a game that takes about 2 minutes a season on 4 cores, so the engine needs speeding up. `AFM_ENGINE_FROM=<year>` in `world_trial` uses the old stand-in before that year, for quick checks only. Team schemes are picked from the coach for now (proposed). High school games stay on the stand-in (about 70,000 a year).
+- **Match engine fix.** Injuries on kick returns were booked to the wrong team.
+- **Dynasties (4, Raichel 2026-10-14).** A trace showed one program fielding the best lineup in 28 of 30 years, because recruits judged playing time from one school-wide grade. Now each recruit and transfer also weighs his position room: who at his position will still be there and ahead of him by his second year. He also weighs the units his position leans on, against his division's norm: a QB his receivers, line and tight ends, a WR his QB, a corner his pass rush and safeties, and so on. Buried backups who would start elsewhere enter the portal more often. In the check run the most titles in 30 years fell from 16 to 6 (Georgia and Tennessee), and the five-star draft rate fell to 64% (real 63%). The weights and the "linked units" table are proposed, not confirmed.
+- **Head-job searches.** A search now calls up to 20 names, then promotes the school's own coordinator. Before, an SEC school could end up with a brand-new coach.
+- **Hiring bias after 2016.** Real progress stalled after the mid-2010s, so the ease stops in 2016. A check run gave 7 Black FBS head coaches in 2009 (real 7) and 17-20 in 2025 (real 16).
+- **Trial report.** Each program shows why it moved (hires, facility projects), and the report lists the longest Power 4 runs without a winning season, the most titles, and the top program's lineup strength against the rest of FBS every year.
+- Items 9, 10, 11 and 14 are checks, measured in world trial 3. Last check run: pick 1 a QB 58-62% of the time (real 73%), three-stars drafted 4.8% (real 6.0%), two-stars 1.0% (real 2.1%), longest Power 4 drought 21 seasons (real high about 16).
+
 ## Proposed, not confirmed (Claude's own picks in the build)
 
 - Spin-up of 6 extra years before the 30-year history.

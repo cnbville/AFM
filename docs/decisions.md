@@ -96,6 +96,9 @@ The confirmed rule (topic 5.2) is "build the athlete first, the coach places him
 ### Section 3 build: match engine picks Claude made (2026-10-14, proposed, not confirmed)
 The full list with the numbers is in `docs/match-engine.md` ("Choices Claude made"). In short: the sprint model from the 40 time; acceleration and agility gaps narrow below 60; throw error about 10% wider per 20 accuracy points; the QB leads a receiver by how he really runs; carriers at 95% speed while reading blocks; blocks in space can whiff; tempo 37.5 seconds; a fourth-down success curve; screen timing and the screen "smell"; contain on kick coverage; goal-line coverage compression. Known gaps (points, pass rate, sacks, NFL run length, red zone, returns, high school play count) are listed there as trial candidates.
 
+### World trial 3 fix list picks (2026-10-14, proposed, not confirmed)
+Listed in `docs/world-model.md` ("Trial 3 fix list"): the NIL position values and offer formula, the recruiting bond, facility steps, hiring read noise and age mark-downs, the bias fade, the bench refit, the leg-body lean for kickers, the name reweighting, and team schemes picked from the coach. Confirmed by Raichel 2026-10-14: every college game runs on the engine, history included (30 years in the game, 15 for trial 3).
+
 ## Assumed, not yet confirmed
 - The rest of `docs/design/season-calendar-and-pacing.md` (week-by-week calendar, tension tiers, climax budget) is a draft for section 4.
 

@@ -101,3 +101,12 @@ fn state_transfer_rules_read_from_summaries() {
     assert_eq!(transfer_rule("transfers after the deadline sit 365 days").sit_out, 1.0);
     assert!(transfer_rule("One-time transfer allowed without sitting").free_once);
 }
+
+#[test]
+fn heights_read_like_the_combine() {
+    use crate::body::height_text;
+    assert_eq!(height_text(72.75), "6'0 3/4\"");
+    assert_eq!(height_text(75.5), "6'3 1/2\"");
+    assert_eq!(height_text(71.99), "6'0\"");
+    assert_eq!(height_text(69.125), "5'9 1/8\"");
+}

@@ -171,10 +171,20 @@ pub fn combine(p: &Player, rng: &mut Rng) -> Combine {
     }
 }
 
-/// Feet and inches, the way scouts write it: 6-3 1/2 is "6'3.5\"".
+/// Feet and inches, the way the combine writes it: "6'3 1/2\"", to the eighth.
 pub fn height_text(inches: f64) -> String {
-    let i = (inches * 8.0).round() / 8.0;
-    let ft = (i / 12.0).floor() as i32;
-    let rest = i - 12.0 * ft as f64;
-    format!("{ft}'{rest:.1}\"")
+    let eighths = (inches * 8.0).round() as i64;
+    let (ft, rest) = (eighths / 96, eighths % 96);
+    let (whole, frac) = (rest / 8, rest % 8);
+    let frac = match frac {
+        0 => "",
+        1 => " 1/8",
+        2 => " 1/4",
+        3 => " 3/8",
+        4 => " 1/2",
+        5 => " 5/8",
+        6 => " 3/4",
+        _ => " 7/8",
+    };
+    format!("{ft}'{whole}{frac}\"")
 }

@@ -12,10 +12,10 @@ use super::data::Division;
 use super::{Stage, World, division_level};
 use crate::athlete::Eye;
 use crate::development::{SeasonContext, Trouble, develop_season};
+use crate::game::{Caller, Front, GamePlayer, GameTeam, OffScheme, Shell, Staff as GameStaff, quick_game};
 use crate::league::depth_slots;
 use crate::player::{Level, PlayingTime};
 use crate::positions::{POSITION_COUNT, Position};
-use crate::game::{Caller, Front, GamePlayer, GameTeam, OffScheme, Shell, Staff as GameStaff, quick_game};
 use crate::rng::clamp;
 
 #[derive(Clone, Debug, Default)]
@@ -392,10 +392,10 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
     }
 
     // --- College games: conference games, then non-conference, by division --------
-    // Every college game runs on the match engine (item 12). High school games
-    // still use the rating stand-in: about 70,000 a year is too slow for the
-    // 30-year history on this hardware (proposed, not confirmed).
-    let on_engine = w.year >= w.options.engine_from.unwrap_or(w.options.start_year);
+    // Every college game runs on the match engine, history included (item 12,
+    // Raichel 2026-10-14). High school games still use the rating stand-in:
+    // about 70,000 a year is too slow for the engine today.
+    let on_engine = w.options.engine_from.is_none_or(|from| w.year >= from);
     let game_teams: Vec<Option<GameTeam>> =
         if on_engine { w.programs.par_iter().map(|p| game_team(w, p)).collect() } else { Vec::new() };
     for division in [Division::FBS, Division::FCS, Division::D2, Division::JUCO] {

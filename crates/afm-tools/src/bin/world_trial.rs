@@ -144,6 +144,9 @@ fn program_story(w: &World, i: usize) {
     }
     coaches.sort();
     println!("head coaches: {}", coaches.into_iter().map(|c| c.1).collect::<Vec<_>>().join("; "));
+    if !p.story.is_empty() {
+        println!("why it moved: {}", p.story.iter().map(|(y, t)| format!("{y} {t}")).collect::<Vec<_>>().join(" | "));
+    }
     let warnings: Vec<i32> = w
         .news
         .iter()
@@ -421,6 +424,66 @@ fn main() {
         if let Some(i) = w.programs.iter().position(|p| p.real_name == name) {
             program_story(&w, i);
         }
+    }
+    // Doormats (trial 3 item 11) and dynasties (item 4).
+    let mut droughts: Vec<(usize, &str)> = w
+        .programs
+        .iter()
+        .filter(|p| p.power_four())
+        .map(|p| {
+            let (mut run, mut best) = (0usize, 0usize);
+            for s in &p.seasons {
+                run = if s.wins > s.losses { 0 } else { run + 1 };
+                best = best.max(run);
+            }
+            (best, p.real_name.as_str())
+        })
+        .collect();
+    droughts.sort_by_key(|d| std::cmp::Reverse(d.0));
+    println!(
+        "\nLongest Power 4 runs without a winning season: {}",
+        droughts.iter().take(6).map(|(n, name)| format!("{name} {n}")).collect::<Vec<_>>().join(", ")
+    );
+    let mut titles: Vec<(usize, &str)> = w
+        .programs
+        .iter()
+        .map(|p| (p.seasons.iter().filter(|s| s.national_title).count(), p.real_name.as_str()))
+        .filter(|t| t.0 > 0 && w.programs.iter().any(|p| p.real_name == t.1 && p.division == Division::FBS))
+        .collect();
+    titles.sort_by_key(|t| std::cmp::Reverse(t.0));
+    println!(
+        "Most FBS titles: {}",
+        titles.iter().take(6).map(|(n, name)| format!("{name} {n}")).collect::<Vec<_>>().join(", ")
+    );
+    // Why the top program kept winning: its roster strength against the rest of FBS.
+    if let Some(&(_, top)) = titles.first()
+        && let Some(i) = w.programs.iter().position(|p| p.real_name == top)
+    {
+        program_story(&w, i);
+        let mut line = String::new();
+        for s in &w.programs[i].seasons {
+            let mut others: Vec<f64> = w
+                .programs
+                .iter()
+                .enumerate()
+                .filter(|(j, p)| *j != i && p.division == Division::FBS)
+                .filter_map(|(_, p)| p.seasons.iter().find(|t| t.year == s.year).map(|t| t.strength))
+                .collect();
+            others.sort_by(|a, b| b.total_cmp(a));
+            let rank = others.iter().filter(|&&o| o > s.strength).count() + 1;
+            let coach = s.coach.map_or(String::new(), |c| w.coaches[c].name.clone());
+            line.push_str(&format!(
+                "{} {:.1} (#{rank}, next best {:.1}, HC {coach}){}; ",
+                s.year,
+                s.strength,
+                others.first().copied().unwrap_or(0.0),
+                if s.national_title { " *N" } else { "" }
+            ));
+        }
+        println!("starter strength by year: {line}");
+    }
+    if let Some(i) = w.programs.iter().position(|p| p.real_name == "Mississippi State") {
+        program_story(&w, i);
     }
     // Back-to-back conference titles and the title chances grade.
     println!("\nTitle chances grade after back-to-back conference titles (first five cases):");

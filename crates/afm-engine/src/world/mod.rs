@@ -49,9 +49,9 @@ pub struct WorldOptions {
     pub start_year: i32,
     pub names: NameMode,
     /// The first season whose college games run on the match engine (item 12).
-    /// Earlier seasons use the rating stand-in, since the engine is too slow
-    /// for 30 years of history on a few cores. None means the start year
-    /// (proposed, not confirmed).
+    /// None, the game's setting, plays every college game on the engine,
+    /// history included, so the history comes from the same football as the
+    /// save (Raichel, 2026-10-14). A year is for quick checks only.
     pub engine_from: Option<i32>,
 }
 

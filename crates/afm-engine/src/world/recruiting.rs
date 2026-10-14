@@ -720,6 +720,99 @@ fn utility(p: &Person, wants: &super::background::Wants, prog: &Program, nil_off
     u
 }
 
+/// What a recruit or transfer sees of a roster beyond the school's grades
+/// (trial 3 item 4, Raichel 2026-10-14): the room at his own position, and
+/// the units his position leans on. A QB wants receivers and a line, a corner
+/// wants a pass rush. Weights are proposed, not confirmed.
+struct RosterView {
+    /// Per program and position: (overall, college seasons played) of each player.
+    players: Vec<Vec<Vec<(f64, u32)>>>,
+    /// Per program and position: the starters' average overall.
+    unit: Vec<[f64; POSITION_COUNT]>,
+    /// Per division and position: the typical starters' average.
+    norm: [[f64; POSITION_COUNT]; 4],
+    division: Vec<usize>,
+}
+
+/// The units each position leans on, with weights.
+fn linked(pos: Position) -> &'static [(Position, f64)] {
+    use Position::*;
+    match pos {
+        QB => &[(WR, 0.35), (OT, 0.25), (IOL, 0.2), (TE, 0.2)],
+        RB => &[(IOL, 0.45), (OT, 0.35), (TE, 0.2)],
+        WR => &[(QB, 0.75), (OT, 0.25)],
+        TE => &[(QB, 0.7), (OT, 0.3)],
+        OT | IOL => &[(QB, 0.4), (RB, 0.3), (IOL, 0.15), (OT, 0.15)],
+        EDGE => &[(DT, 0.5), (CB, 0.3), (LB, 0.2)],
+        DT => &[(EDGE, 0.5), (LB, 0.5)],
+        LB => &[(DT, 0.6), (EDGE, 0.4)],
+        CB => &[(EDGE, 0.5), (S, 0.3), (DT, 0.2)],
+        S => &[(CB, 0.5), (LB, 0.3), (EDGE, 0.2)],
+        K | P => &[],
+    }
+}
+
+impl RosterView {
+    fn new(programs: &[Program], people: &[Person]) -> Self {
+        let mut players = Vec::with_capacity(programs.len());
+        let mut unit = Vec::with_capacity(programs.len());
+        let mut sums = [[(0.0, 0.0); POSITION_COUNT]; 4];
+        for prog in programs {
+            let mut r: Vec<Vec<(f64, u32)>> = vec![Vec::new(); POSITION_COUNT];
+            for &i in &prog.roster {
+                let q = &people[i];
+                r[q.player.position.index()].push((q.player.overall(), q.college_seasons));
+            }
+            let mut u = [0.0; POSITION_COUNT];
+            for pos in Position::ALL {
+                let v = &mut r[pos.index()];
+                v.sort_by(|a, b| b.0.total_cmp(&a.0));
+                let n = crate::game::roster::starters(pos).min(v.len());
+                if n > 0 {
+                    u[pos.index()] = v[..n].iter().map(|x| x.0).sum::<f64>() / n as f64;
+                    let e = &mut sums[prog.division as usize][pos.index()];
+                    e.0 += u[pos.index()];
+                    e.1 += 1.0;
+                }
+            }
+            players.push(r);
+            unit.push(u);
+        }
+        let norm = sums.map(|d| d.map(|(t, n)| if n > 0.0 { t / n } else { 0.0 }));
+        let division = programs.iter().map(|p| p.division as usize).collect();
+        RosterView { players, unit, norm, division }
+    }
+
+    /// How a program's roster suits him, in utility points. `me` is how good
+    /// he expects to be when he wants to start, `within` how many seasons the
+    /// players ahead must have left to still be there, and `their_growth`
+    /// how much they improve meanwhile. Recruits judge themselves two years
+    /// on (about 3 points a year against 1 for older players).
+    fn fit(
+        &self,
+        j: usize,
+        p: &Person,
+        wants: &super::background::Wants,
+        me: f64,
+        within: u32,
+        their_growth: f64,
+    ) -> f64 {
+        let pos = p.player.position;
+        let n = crate::game::roster::starters(pos) as f64;
+        let ahead = self.players[j][pos.index()]
+            .iter()
+            .filter(|&&(o, seasons)| seasons <= within && o + their_growth > me)
+            .count() as f64;
+        let room = if ahead < n { 1.0 - 0.5 * ahead / n } else { -((ahead - n + 1.0) / n).min(1.0) };
+        let d = self.division[j];
+        let cast: f64 = linked(pos)
+            .iter()
+            .map(|&(q, wt)| wt * clamp((self.unit[j][q.index()] - self.norm[d][q.index()]) / 4.0, -1.0, 1.0))
+            .sum();
+        (0.06 + 0.2 * wants.playing_time) * room + (0.04 + 0.15 * wants.development) * cast
+    }
+}
+
 /// Signing day: HS seniors, prep-school kids and JUCO players looking to move up.
 pub(crate) fn signing_day(w: &mut World) {
     let year = w.year;
@@ -1097,6 +1190,7 @@ pub(crate) fn signing_day(w: &mut World) {
         let cap = prog.collective.budget * 0.6 * if reach[j] { 0.35 } else { 0.25 };
         (position_nil(p.player.position) * talent * pay * if reach[j] { 1.6 } else { 1.0 }).min(cap)
     };
+    let view = RosterView::new(programs, &w.people);
     let mut held_offer = vec![0.0f64; pool.len()];
     let mut active = true;
     while active {
@@ -1123,7 +1217,8 @@ pub(crate) fn signing_day(w: &mut World) {
                     + 0.25 * pc.unwrap_or(9.0);
                 let bond = 0.015 * (skill - 10.0) + 0.03 * key_normal(seed ^ 91 ^ j as u64, p.player.id as u64);
                 let mut offer = offer_for(j, k, rank);
-                let base_u = bond + 0.04 * key_normal(seed ^ 77 ^ j as u64, p.player.id as u64);
+                let fit = view.fit(j, p, &wants, p.player.overall() + 6.0, 2, 2.0);
+                let base_u = bond + fit + 0.04 * key_normal(seed ^ 77 ^ j as u64, p.player.id as u64);
                 let mut u = utility(p, &wants, prog, offer, 1.0 - rank) + base_u;
                 // Bidding (note 13): a school that wants him near the top of its
                 // board raises its offer to beat the one he holds, within its money.
@@ -1292,7 +1387,9 @@ pub(crate) fn signing_day(w: &mut World) {
                     Division::FCS => 0.5,
                     _ => 0.25,
                 };
-                if w.recording && let Some(c) = w.high_schools[hs].coach {
+                if w.recording
+                    && let Some(c) = w.high_schools[hs].coach
+                {
                     w.coaches[c].units[group as usize].moved_up += up;
                 }
             }
@@ -1438,7 +1535,11 @@ pub(crate) fn portal(w: &mut World, _r: &SeasonResults) {
             _ => 0.0,
         };
         let changed = new_staff[c];
+        // A buried backup who would start elsewhere at this level leaves more
+        // often (item 4: stacked rooms feed rivals). Proposed, not confirmed.
+        let buried = if base > 0.0 { clamp(1.0 + 0.12 * (perf - median(div, pos)), 0.6, 2.0) } else { 1.0 };
         let chance = base
+            * buried
             * if changed { PIPELINE.portal_entry.coaching_change } else { 1.0 }
             * (1.0 + (p.player.personality.competitiveness - 10.0) * 0.04);
         if u < chance {
@@ -1462,6 +1563,7 @@ pub(crate) fn portal(w: &mut World, _r: &SeasonResults) {
     w.rebuild_rosters();
     let mut adds = vec![0usize; w.programs.len()];
     let pn = w.programs.len();
+    let view = RosterView::new(&w.programs, &w.people);
     for (i, why) in entrants {
         let c = w.people[i].college.unwrap();
         let from = w.programs[c].division;
@@ -1491,7 +1593,8 @@ pub(crate) fn portal(w: &mut World, _r: &SeasonResults) {
                 continue;
             }
             let p = &w.people[i];
-            let u = utility(p, &p.family.own_wants, &w.programs[j], w.programs[j].collective.budget / 40.0, 0.6);
+            let u = utility(p, &p.family.own_wants, &w.programs[j], w.programs[j].collective.budget / 40.0, 0.6)
+                + view.fit(j, p, &p.family.own_wants, perf, 3, 0.0);
             if best.is_none_or(|(_, bu)| u > bu) {
                 best = Some((j, u));
             }

@@ -27,7 +27,7 @@ Each roadmap section goes: (1) design rounds with Raichel until the details are 
 ## Next job
 - Section 1 (the engine, the player model in Rust) is done. Raichel finds further calls and bugs in gameplay, not in more trials.
 - Section 2 (the world): built 2026-10-13 (`crates/afm-engine/src/world/`, how it works in `docs/world-model.md`, trial in `docs/trials/world-trial1.md`). Raichel's trial 1 list (items 1-8: prove-it extensions, ethnicity and hiring bias, names, pipelines, the coaching ladder, academics, draft value, measurables) built 2026-10-13, trial in `docs/trials/world-trial2.md`; item 9 (the hidden-gem stat footprint) waits for section 3. Open: realism questions 2-7 and trial 2's flags.
-- Section 3 (match engine and stats database): design done 2026-10-13, spec in `docs/design/match-engine.md`. Athlete-first player creation built 2026-10-13 (`athlete.rs`). The match engine, game stats and the real-data checks built 2026-10-14 (`game/`, how it works and known gaps in `docs/match-engine.md`). Still open in section 3: running the world's games through the engine and the career stats record. Next: build the world trial 3 fix list (`/mnt/project-files/design/world-trial3-candidates.md`), then run world trial 3 with a bigger debug dashboard (Raichel's agreed order).
+- Section 3 (match engine and stats database): design done 2026-10-13, spec in `docs/design/match-engine.md`. Athlete-first player creation built 2026-10-13 (`athlete.rs`). The match engine, game stats and the real-data checks built 2026-10-14 (`game/`, how it works and known gaps in `docs/match-engine.md`). Still open in section 3: the career stats record (college games now run on the engine; high school games still use the stand-in). The world trial 3 fix list was built on 2026-10-14 (`docs/world-model.md`, "Trial 3 fix list"). Every college game now runs on the engine, history included. Next: world trial 3 with 15 years of history and a bigger debug dashboard.
 - Confirmed by Raichel (2026-10-11): the section order and the section loop above, the scouting-staff design, the college program grade categories, 30 years of hidden history before 2026, and the topic 1 leftovers (personality and the powerhouse flip side).
 
 ## Code
@@ -52,8 +52,8 @@ Each roadmap section goes: (1) design rounds with Raichel until the details are 
 - `docs/trials/trial6-cards.json`: the trial 6 cards. `docs/trials/players30-final.json`: the earlier 30-player trial.
 
 ## Commands
-- `cargo test --workspace --release`: all 50 tests, including a full 250,000-player class, a small 3-year world and 640 match engine games (about 60 seconds once built).
-- `cargo run --release --bin world_trial -- 2026 30`: the full world with 30 years of history and the trial report (about 100 seconds).
+- `cargo test --workspace --release`: all 51 tests, including a full 250,000-player class, a small 3-year world with its college games on the match engine, and 640 match engine games (about 3 minutes once built).
+- `cargo run --release --bin world_trial -- 2026 30`: the full world with 30 years of history and the trial report. With every college game on the engine this takes about 2 minutes per season on 4 cores; `AFM_ENGINE_FROM=2026` uses the old stand-in for the history (quick checks only, about 6 minutes).
 - `cargo run --release --bin calibrate -- 250000 seed`: headline stats for one class (about 2 seconds).
 - `cargo run --release --bin positions`: position shares (high school and draft against real data), drafted bodies against the combine, and position changes.
 - `cargo run --release --bin match_check -- nfl 400`: match engine averages against real 2021-25 data (`fbs`, `hs` too; add a seed and `pbp` for a play-by-play). `play_trace` traces one snap.
