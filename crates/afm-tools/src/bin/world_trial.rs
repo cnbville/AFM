@@ -183,7 +183,19 @@ fn main() {
     let t = Instant::now();
     // AFM_ENGINE_FROM=year plays college games on the match engine from that year.
     let engine_from = std::env::var("AFM_ENGINE_FROM").ok().and_then(|v| v.parse().ok());
-    let w = World::new(WorldOptions { seed, history_years: years, engine_from, ..Default::default() });
+    // The dashboard and player pages read the game log (box score totals and
+    // college stat lines). Keeping it only watches the games.
+    let keep_game_log = std::env::var("AFM_DASH").is_ok() || std::env::var("AFM_CARDS").is_ok();
+    // AFM_SCALE=0.05: a small world, for quick checks of the tooling only.
+    let scale = std::env::var("AFM_SCALE").ok().and_then(|v| v.parse().ok()).unwrap_or(1.0);
+    let w = World::new(WorldOptions {
+        seed,
+        history_years: years,
+        engine_from,
+        keep_game_log,
+        scale,
+        ..Default::default()
+    });
     println!("# World trial: seed {seed}, {years} years of history, built in {:.0}s\n", t.elapsed().as_secs_f64());
 
     // AFM_CARDS=path.json: full player pages for featured players.
@@ -217,65 +229,8 @@ fn main() {
             a.player.is_some() && a.year + 1 >= w.year && a.pick.is_none() && !a.left_football && a.stars >= 4
         });
         picked.extend(undrafted.take(5).map(|a| (a, "Undrafted blue-chip".to_string())));
-        let cards: Vec<serde_json::Value> = picked
-            .iter()
-            .map(|(a, tag)| {
-                let p = a.player.as_ref().unwrap();
-                let ceil = debug::ceilings(p);
-                let attrs: Vec<serde_json::Value> = afm_engine::attributes::Attr::ALL
-                    .iter()
-                    .map(|&t| serde_json::json!([format!("{t:?}"), p.attributes[t].round(), ceil[t].round()]))
-                    .collect();
-                let seasons: Vec<serde_json::Value> = p
-                    .history
-                    .iter()
-                    .map(|h| {
-                        serde_json::json!({
-                            "age": h.age, "level": h.level.name(), "pos": h.position.name(), "role": h.playing_time.name(),
-                            "start": h.overall_start.round(), "end": h.overall.round(),
-                            "perf": h.performance.map(|v| v.round()), "lr": h.level_rating, "lr_end": h.level_rating_end,
-                            "pot": debug::season_potential(h).round()
-                        })
-                    })
-                    .collect();
-                let body = afm_engine::body::body_now(p);
-                let mut rng = afm_engine::rng::Rng::new(p.id ^ 0xC0B1);
-                let cmb = afm_engine::body::combine(p, &mut rng);
-                let staff: Vec<serde_json::Value> = a
-                    .college_staff
-                    .iter()
-                    .map(|&(y, prog, hc, pc)| {
-                        serde_json::json!({
-                            "year": y, "school": w.programs[prog].real_name,
-                            "hc": hc.map(|c| w.coaches[c].name.clone()),
-                            "pc": pc.map(|c| w.coaches[c].name.clone()),
-                            "pc_role": afm_engine::world::coach::Group::of(a.position).coach_title(),
-                        })
-                    })
-                    .collect();
-                serde_json::json!({
-                    "ethnicity": a.ethnicity.name(), "gpa": a.gpa_at_signing.map(|g| (g * 100.0).round() / 100.0),
-                    "team": a.nfl_team, "staff": staff,
-                    "positions": p.position_history.iter().map(|(age, pos)| serde_json::json!({"age": age, "pos": pos.name()})).collect::<Vec<_>>(),
-                    "body": {"height": afm_engine::body::height_text(body.height), "weight": body.weight.round(),
-                        "arm": (body.arm * 8.0).round() / 8.0, "hand": (body.hand * 8.0).round() / 8.0,
-                        "wingspan": (body.wingspan * 8.0).round() / 8.0},
-                    "combine": {"forty": cmb.forty, "bench": cmb.bench, "vertical": cmb.vertical,
-                        "broad": cmb.broad, "cone": cmb.cone, "shuttle": cmb.shuttle},
-                    "tag": tag, "name": a.name, "pos": a.position.name(), "stars": a.stars,
-                    "hs": w.school_name(a.high_school), "state": STATE_CENTERS[a.home_state].0,
-                    "path": div_name(&w, a), "pick": a.pick, "year": a.year,
-                    "round": a.pick.map(|pk| afm_engine::career::draft_round(pk, 257)),
-                    "overall": a.overall.round(), "potential": debug::alumnus_potential(a).round(),
-                    "visibility": (debug::alumnus_visibility(a) * 100.0).round() / 100.0,
-                    "background": a.background_summary, "notes": a.notes,
-                    "personality": {"work_ethic": p.personality.work_ethic.round(), "coachability": p.personality.coachability.round(),
-                        "competitiveness": p.personality.competitiveness.round(), "love_of_game": p.personality.love_of_game.round()},
-                    "bloom": (p.bloom * 10.0).round() / 10.0, "injury": p.injury_proneness.round(),
-                    "attributes": attrs, "seasons": seasons
-                })
-            })
-            .collect();
+        let cards: Vec<serde_json::Value> =
+            picked.iter().map(|(a, tag)| afm_tools::dashboard::card(&w, a, tag)).collect();
         std::fs::write(&path, serde_json::to_string(&cards).unwrap()).unwrap();
         println!("wrote {} cards to {path}\n", cards.len());
         card_values = cards;
@@ -283,6 +238,9 @@ fn main() {
     if let Ok(path) = std::env::var("AFM_DASH") {
         write_dashboard(&w, &path, seed, years, &card_values);
         println!("wrote the debug dashboard data to {path}\n");
+    }
+    if keep_game_log {
+        afm_tools::dashboard::print_engine(&w);
     }
     // AFM_ROOKIES=1: how good drafted players are on draft day, by round, then stop.
     if std::env::var("AFM_ROOKIES").is_ok() {
@@ -1153,6 +1111,7 @@ fn write_dashboard(w: &World, path: &str, seed: u32, years: u32, cards: &[serde_
     let out = json!({
         "seed": seed, "years": years, "first": first, "last": w.year - 1,
         "programs": programs, "coaches": coaches, "draft": draft, "diversity": diversity, "cards": cards,
+        "log": afm_tools::dashboard::extras(w, years),
         "season_cols": ["year","w","l","conf","nat","strength","hc","g","pf","pa","yds","pass","rush","yds_allowed","to","takeaways","sacks","sacks_allowed","att","cmp","carries","plays"],
         "draft_cols": ["year","pick","name","pos","stars","path","team","overall","potential","eth","state"],
     });

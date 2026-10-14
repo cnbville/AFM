@@ -399,8 +399,15 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
     let on_engine = w.options.engine_from.is_none_or(|from| w.year >= from);
     let game_teams: Vec<Option<GameTeam>> =
         if on_engine { w.programs.par_iter().map(|p| game_team(w, p)).collect() } else { Vec::new() };
+    let game_log = std::sync::Mutex::new(std::mem::take(&mut w.game_log));
     for division in [Division::FBS, Division::FCS, Division::D2, Division::JUCO] {
-        let engine = Engine { teams: &game_teams, level: division_level(division) };
+        let engine = Engine {
+            teams: &game_teams,
+            level: division_level(division),
+            log: (w.options.keep_game_log && w.recording).then_some(&game_log),
+            year: w.year,
+            division,
+        };
         let engine = on_engine.then_some(&engine);
         let members: Vec<usize> =
             w.programs.iter().filter(|p| p.division == division && !p.roster.is_empty()).map(|p| p.id).collect();
@@ -470,6 +477,18 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
         });
         if let Some(c) = playoff(&ranked, field, COLLEGE_SPREAD, &mut college, &mut w.rng, engine) {
             college[c].national_title = true;
+        }
+    }
+    w.game_log = game_log.into_inner().unwrap();
+    if w.options.keep_game_log && w.recording {
+        for p in w.people.iter().filter(|p| p.stage == Stage::College) {
+            if let Some(s) = w.game_log.players.get_mut(&(w.year, p.player.id)) {
+                s.pos = Some(p.player.position);
+            }
+            w.game_log
+                .names
+                .entry(p.player.id)
+                .or_insert_with(|| (p.name.clone(), p.player.position, p.stars, p.class_of));
         }
     }
     SeasonResults { hs, college }
@@ -638,6 +657,10 @@ fn attach_level_ratings(w: &mut World) {
 struct Engine<'a> {
     teams: &'a [Option<GameTeam>],
     level: Level,
+    /// Trial tooling: where to keep the box scores, when asked.
+    log: Option<&'a std::sync::Mutex<super::game_log::GameLog>>,
+    year: i32,
+    division: Division,
 }
 
 /// A college team for the match engine: its players and its staff's calling.
@@ -701,6 +724,9 @@ fn engine_games(e: &Engine, games: &[(usize, usize)], seed: u64) -> Vec<Played> 
             let (Some(ta), Some(tb)) = (&e.teams[a], &e.teams[b]) else { return None };
             let r = quick_game(ta, tb, e.level, seed.wrapping_mul(1_000_003).wrapping_add(k as u64));
             let [ha, hb] = r.stats.score;
+            if let Some(log) = e.log {
+                log.lock().unwrap().add(e.year, e.division, [a, b], &r.stats);
+            }
             let a_wins = if ha == hb { (seed ^ k as u64) & 1 == 0 } else { ha > hb };
             Some((a_wins, r.stats.team))
         })
