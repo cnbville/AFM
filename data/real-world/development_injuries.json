@@ -1,0 +1,886 @@
+{
+ "source": "nflverse play-by-play 2006-2025, snap counts 2012-2025, injury reports 2012-2025, players, draft picks",
+ "starter_age": {
+  "note": "Player-seasons with 8+ games and 60%+ of the unit's snaps (PFR positions grouped). Age on Sept 1.",
+  "CB": {
+   "n_starter_seasons": 1097,
+   "median_age": 26.0,
+   "mode_age": 24,
+   "share_by_age": {
+    "21": 0.034,
+    "22": 0.078,
+    "23": 0.123,
+    "24": 0.129,
+    "25": 0.123,
+    "26": 0.112,
+    "27": 0.104,
+    "28": 0.098,
+    "29": 0.075,
+    "30": 0.053,
+    "31": 0.03,
+    "32": 0.018,
+    "33": 0.011
+   },
+   "share_30_plus": 0.125,
+   "share_33_plus": 0.024
+  },
+  "DL": {
+   "n_starter_seasons": 391,
+   "median_age": 27.0,
+   "mode_age": 26,
+   "share_by_age": {
+    "21": 0.015,
+    "22": 0.043,
+    "23": 0.074,
+    "24": 0.087,
+    "25": 0.125,
+    "26": 0.151,
+    "27": 0.113,
+    "28": 0.102,
+    "29": 0.1,
+    "30": 0.072,
+    "31": 0.059,
+    "32": 0.023,
+    "33": 0.023
+   },
+   "share_30_plus": 0.189,
+   "share_33_plus": 0.036
+  },
+  "EDGE": {
+   "n_starter_seasons": 474,
+   "median_age": 26.0,
+   "mode_age": 24,
+   "share_by_age": {
+    "21": 0.023,
+    "22": 0.049,
+    "23": 0.091,
+    "24": 0.124,
+    "25": 0.12,
+    "26": 0.124,
+    "27": 0.101,
+    "28": 0.095,
+    "29": 0.08,
+    "30": 0.061,
+    "31": 0.046,
+    "32": 0.042,
+    "33": 0.021,
+    "34": 0.011
+   },
+   "share_30_plus": 0.19,
+   "share_33_plus": 0.04
+  },
+  "LB": {
+   "n_starter_seasons": 1076,
+   "median_age": 26.0,
+   "mode_age": 26,
+   "share_by_age": {
+    "21": 0.022,
+    "22": 0.051,
+    "23": 0.086,
+    "24": 0.121,
+    "25": 0.127,
+    "26": 0.139,
+    "27": 0.126,
+    "28": 0.102,
+    "29": 0.072,
+    "30": 0.053,
+    "31": 0.039,
+    "32": 0.022,
+    "33": 0.013,
+    "34": 0.01
+   },
+   "share_30_plus": 0.151,
+   "share_33_plus": 0.037
+  },
+  "OL": {
+   "n_starter_seasons": 2114,
+   "median_age": 26.0,
+   "mode_age": 25,
+   "share_by_age": {
+    "21": 0.017,
+    "22": 0.054,
+    "23": 0.085,
+    "24": 0.116,
+    "25": 0.123,
+    "26": 0.117,
+    "27": 0.112,
+    "28": 0.097,
+    "29": 0.081,
+    "30": 0.071,
+    "31": 0.052,
+    "32": 0.03,
+    "33": 0.021
+   },
+   "share_30_plus": 0.197,
+   "share_33_plus": 0.044
+  },
+  "QB": {
+   "n_starter_seasons": 446,
+   "median_age": 27.0,
+   "mode_age": 24,
+   "share_by_age": {
+    "21": 0.018,
+    "22": 0.07,
+    "23": 0.099,
+    "24": 0.103,
+    "25": 0.096,
+    "26": 0.067,
+    "27": 0.07,
+    "28": 0.072,
+    "29": 0.052,
+    "30": 0.045,
+    "31": 0.054,
+    "32": 0.043,
+    "33": 0.038,
+    "34": 0.04,
+    "35": 0.029,
+    "36": 0.029,
+    "37": 0.022,
+    "38": 0.016,
+    "39": 0.013
+   },
+   "share_30_plus": 0.354,
+   "share_33_plus": 0.213
+  },
+  "RB": {
+   "n_starter_seasons": 192,
+   "median_age": 25.0,
+   "mode_age": 25,
+   "share_by_age": {
+    "21": 0.047,
+    "22": 0.094,
+    "23": 0.141,
+    "24": 0.146,
+    "25": 0.156,
+    "26": 0.12,
+    "27": 0.115,
+    "28": 0.104,
+    "29": 0.047,
+    "30": 0.016,
+    "32": 0.01
+   },
+   "share_30_plus": 0.031,
+   "share_33_plus": 0.0
+  },
+  "S": {
+   "n_starter_seasons": 875,
+   "median_age": 26.0,
+   "mode_age": 26,
+   "share_by_age": {
+    "21": 0.03,
+    "22": 0.064,
+    "23": 0.104,
+    "24": 0.122,
+    "25": 0.127,
+    "26": 0.131,
+    "27": 0.109,
+    "28": 0.083,
+    "29": 0.073,
+    "30": 0.055,
+    "31": 0.033,
+    "32": 0.023,
+    "33": 0.021,
+    "34": 0.01
+   },
+   "share_30_plus": 0.155,
+   "share_33_plus": 0.045
+  },
+  "TE": {
+   "n_starter_seasons": 381,
+   "median_age": 26.0,
+   "mode_age": 24,
+   "share_by_age": {
+    "21": 0.021,
+    "22": 0.063,
+    "23": 0.076,
+    "24": 0.126,
+    "25": 0.123,
+    "26": 0.115,
+    "27": 0.102,
+    "28": 0.092,
+    "29": 0.089,
+    "30": 0.058,
+    "31": 0.047,
+    "32": 0.024,
+    "33": 0.024,
+    "34": 0.016
+   },
+   "share_30_plus": 0.189,
+   "share_33_plus": 0.06
+  },
+  "WR": {
+   "n_starter_seasons": 999,
+   "median_age": 25.0,
+   "mode_age": 25,
+   "share_by_age": {
+    "21": 0.043,
+    "22": 0.094,
+    "23": 0.13,
+    "24": 0.117,
+    "25": 0.134,
+    "26": 0.115,
+    "27": 0.099,
+    "28": 0.076,
+    "29": 0.06,
+    "30": 0.049,
+    "31": 0.027,
+    "32": 0.028,
+    "33": 0.012
+   },
+   "share_30_plus": 0.129,
+   "share_33_plus": 0.025
+  }
+ },
+ "starter_kept_next_year_by_age": {
+  "CB": {
+   "21": 0.857,
+   "22": 0.81,
+   "23": 0.685,
+   "24": 0.693,
+   "25": 0.697,
+   "26": 0.704,
+   "27": 0.762,
+   "28": 0.65,
+   "29": 0.654,
+   "30": 0.537,
+   "31": 0.438
+  },
+  "DL": {
+   "24": 0.7,
+   "25": 0.773,
+   "26": 0.691,
+   "27": 0.676,
+   "28": 0.778,
+   "29": 0.528
+  },
+  "EDGE": {
+   "23": 0.707,
+   "24": 0.754,
+   "25": 0.648,
+   "26": 0.509,
+   "27": 0.66,
+   "28": 0.585,
+   "29": 0.556
+  },
+  "LB": {
+   "22": 0.745,
+   "23": 0.717,
+   "24": 0.667,
+   "25": 0.722,
+   "26": 0.638,
+   "27": 0.597,
+   "28": 0.554,
+   "29": 0.588,
+   "30": 0.51,
+   "31": 0.474
+  },
+  "OL": {
+   "22": 0.752,
+   "23": 0.71,
+   "24": 0.749,
+   "25": 0.702,
+   "26": 0.712,
+   "27": 0.712,
+   "28": 0.665,
+   "29": 0.673,
+   "30": 0.599,
+   "31": 0.505,
+   "32": 0.593,
+   "33": 0.45
+  },
+  "QB": {
+   "23": 0.744,
+   "24": 0.705,
+   "25": 0.658
+  },
+  "RB": {},
+  "S": {
+   "22": 0.843,
+   "23": 0.721,
+   "24": 0.73,
+   "25": 0.743,
+   "26": 0.765,
+   "27": 0.616,
+   "28": 0.687,
+   "29": 0.569,
+   "30": 0.578
+  },
+  "TE": {
+   "24": 0.667,
+   "25": 0.591,
+   "26": 0.65,
+   "27": 0.59,
+   "28": 0.697,
+   "29": 0.484
+  },
+  "WR": {
+   "21": 0.767,
+   "22": 0.784,
+   "23": 0.661,
+   "24": 0.759,
+   "25": 0.715,
+   "26": 0.679,
+   "27": 0.642,
+   "28": 0.648,
+   "29": 0.696,
+   "30": 0.49
+  }
+ },
+ "epa_age_curves": {
+  "note": "Delta method: the average change in a player's EPA per play from one season to the next, by age, same player both years (weighted by plays). Survivors only, so it flatters old ages a little (players who decline badly stop playing). Cumulative = sum of the changes from the youngest age listed.",
+  "QB_per_dropback": {
+   "22->23": {
+    "pairs": 34,
+    "change": 0.005,
+    "cumulative_from_start": 0.005
+   },
+   "23->24": {
+    "pairs": 51,
+    "change": 0.021,
+    "cumulative_from_start": 0.026
+   },
+   "24->25": {
+    "pairs": 53,
+    "change": -0.014,
+    "cumulative_from_start": 0.012
+   },
+   "25->26": {
+    "pairs": 44,
+    "change": -0.02,
+    "cumulative_from_start": -0.008
+   },
+   "26->27": {
+    "pairs": 47,
+    "change": 0.013,
+    "cumulative_from_start": 0.005
+   },
+   "27->28": {
+    "pairs": 43,
+    "change": 0.007,
+    "cumulative_from_start": 0.012
+   },
+   "28->29": {
+    "pairs": 34,
+    "change": 0.003,
+    "cumulative_from_start": 0.016
+   },
+   "29->30": {
+    "pairs": 32,
+    "change": -0.012,
+    "cumulative_from_start": 0.003
+   },
+   "30->31": {
+    "pairs": 32,
+    "change": -0.009,
+    "cumulative_from_start": -0.005
+   },
+   "31->32": {
+    "pairs": 29,
+    "change": 0.002,
+    "cumulative_from_start": -0.003
+   },
+   "32->33": {
+    "pairs": 25,
+    "change": -0.029,
+    "cumulative_from_start": -0.032
+   },
+   "33->34": {
+    "pairs": 26,
+    "change": -0.035,
+    "cumulative_from_start": -0.067
+   }
+  },
+  "RB_per_carry": {
+   "21->22": {
+    "pairs": 38,
+    "change": -0.014,
+    "cumulative_from_start": -0.014
+   },
+   "22->23": {
+    "pairs": 75,
+    "change": -0.021,
+    "cumulative_from_start": -0.035
+   },
+   "23->24": {
+    "pairs": 99,
+    "change": -0.025,
+    "cumulative_from_start": -0.06
+   },
+   "24->25": {
+    "pairs": 98,
+    "change": -0.002,
+    "cumulative_from_start": -0.062
+   },
+   "25->26": {
+    "pairs": 86,
+    "change": -0.004,
+    "cumulative_from_start": -0.066
+   },
+   "26->27": {
+    "pairs": 67,
+    "change": -0.027,
+    "cumulative_from_start": -0.093
+   },
+   "27->28": {
+    "pairs": 71,
+    "change": -0.016,
+    "cumulative_from_start": -0.109
+   },
+   "28->29": {
+    "pairs": 47,
+    "change": -0.03,
+    "cumulative_from_start": -0.139
+   },
+   "29->30": {
+    "pairs": 27,
+    "change": -0.007,
+    "cumulative_from_start": -0.147
+   }
+  },
+  "WR_per_target": {
+   "21->22": {
+    "pairs": 52,
+    "change": -0.036,
+    "cumulative_from_start": -0.036
+   },
+   "22->23": {
+    "pairs": 128,
+    "change": -0.014,
+    "cumulative_from_start": -0.05
+   },
+   "23->24": {
+    "pairs": 166,
+    "change": -0.021,
+    "cumulative_from_start": -0.071
+   },
+   "24->25": {
+    "pairs": 156,
+    "change": -0.023,
+    "cumulative_from_start": -0.094
+   },
+   "25->26": {
+    "pairs": 162,
+    "change": -0.102,
+    "cumulative_from_start": -0.196
+   },
+   "26->27": {
+    "pairs": 140,
+    "change": -0.049,
+    "cumulative_from_start": -0.245
+   },
+   "27->28": {
+    "pairs": 119,
+    "change": -0.113,
+    "cumulative_from_start": -0.358
+   },
+   "28->29": {
+    "pairs": 96,
+    "change": -0.033,
+    "cumulative_from_start": -0.391
+   },
+   "29->30": {
+    "pairs": 69,
+    "change": -0.092,
+    "cumulative_from_start": -0.483
+   },
+   "30->31": {
+    "pairs": 48,
+    "change": -0.026,
+    "cumulative_from_start": -0.509
+   },
+   "31->32": {
+    "pairs": 42,
+    "change": -0.113,
+    "cumulative_from_start": -0.622
+   },
+   "32->33": {
+    "pairs": 26,
+    "change": -0.06,
+    "cumulative_from_start": -0.683
+   }
+  },
+  "TE_per_target": {
+   "22->23": {
+    "pairs": 33,
+    "change": -0.019,
+    "cumulative_from_start": -0.019
+   },
+   "23->24": {
+    "pairs": 56,
+    "change": 0.0,
+    "cumulative_from_start": -0.019
+   },
+   "24->25": {
+    "pairs": 70,
+    "change": -0.034,
+    "cumulative_from_start": -0.053
+   },
+   "25->26": {
+    "pairs": 79,
+    "change": -0.046,
+    "cumulative_from_start": -0.099
+   },
+   "26->27": {
+    "pairs": 68,
+    "change": -0.082,
+    "cumulative_from_start": -0.18
+   },
+   "27->28": {
+    "pairs": 58,
+    "change": -0.021,
+    "cumulative_from_start": -0.202
+   },
+   "28->29": {
+    "pairs": 58,
+    "change": -0.084,
+    "cumulative_from_start": -0.286
+   },
+   "29->30": {
+    "pairs": 38,
+    "change": -0.101,
+    "cumulative_from_start": -0.387
+   },
+   "30->31": {
+    "pairs": 27,
+    "change": -0.047,
+    "cumulative_from_start": -0.434
+   }
+  }
+ },
+ "careers_drafted_2000_2015": {
+  "note": "Years from draft to last season played (PFR 'to'). Drafted players only; undrafted careers are shorter.",
+  "by_position": {
+   "CB": {
+    "picks": 789,
+    "median_years": 5.0,
+    "mean_years": 5.4,
+    "share_5_plus": 0.544,
+    "share_10_plus": 0.136,
+    "median_games": 52.0
+   },
+   "DL": {
+    "picks": 333,
+    "median_years": 5.0,
+    "mean_years": 5.9,
+    "share_5_plus": 0.568,
+    "share_10_plus": 0.216,
+    "median_games": 51.0
+   },
+   "EDGE": {
+    "picks": 392,
+    "median_years": 6.0,
+    "mean_years": 6.0,
+    "share_5_plus": 0.577,
+    "share_10_plus": 0.224,
+    "median_games": 59.0
+   },
+   "K": {
+    "picks": 35,
+    "median_years": 6.0,
+    "mean_years": 7.6,
+    "share_5_plus": 0.571,
+    "share_10_plus": 0.343,
+    "median_games": 68.0
+   },
+   "LB": {
+    "picks": 485,
+    "median_years": 5.0,
+    "mean_years": 5.4,
+    "share_5_plus": 0.555,
+    "share_10_plus": 0.14,
+    "median_games": 57.0
+   },
+   "OL": {
+    "picks": 674,
+    "median_years": 6.0,
+    "mean_years": 5.8,
+    "share_5_plus": 0.592,
+    "share_10_plus": 0.206,
+    "median_games": 54.0
+   },
+   "P": {
+    "picks": 30,
+    "median_years": 8.5,
+    "mean_years": 8.7,
+    "share_5_plus": 0.667,
+    "share_10_plus": 0.467,
+    "median_games": 118.0
+   },
+   "QB": {
+    "picks": 198,
+    "median_years": 5.5,
+    "mean_years": 6.2,
+    "share_5_plus": 0.54,
+    "share_10_plus": 0.278,
+    "median_games": 18.0
+   },
+   "RB": {
+    "picks": 364,
+    "median_years": 5.0,
+    "mean_years": 5.1,
+    "share_5_plus": 0.541,
+    "share_10_plus": 0.11,
+    "median_games": 45.0
+   },
+   "S": {
+    "picks": 13,
+    "median_years": 5.0,
+    "mean_years": 4.4,
+    "share_5_plus": 0.538,
+    "share_10_plus": 0.077,
+    "median_games": 56.0
+   },
+   "TE": {
+    "picks": 242,
+    "median_years": 6.0,
+    "mean_years": 5.8,
+    "share_5_plus": 0.591,
+    "share_10_plus": 0.174,
+    "median_games": 58.0
+   },
+   "WR": {
+    "picks": 523,
+    "median_years": 4.0,
+    "mean_years": 4.9,
+    "share_5_plus": 0.461,
+    "share_10_plus": 0.136,
+    "median_games": 36.0
+   }
+  },
+  "by_round": {
+   "1": {
+    "median_years": 9.0,
+    "share_never_played": 0.0,
+    "share_5_plus_years": 0.89,
+    "share_pro_bowl": 0.448
+   },
+   "2": {
+    "median_years": 7.0,
+    "share_never_played": 0.012,
+    "share_5_plus_years": 0.801,
+    "share_pro_bowl": 0.207
+   },
+   "3": {
+    "median_years": 6.0,
+    "share_never_played": 0.027,
+    "share_5_plus_years": 0.626,
+    "share_pro_bowl": 0.103
+   },
+   "4": {
+    "median_years": 5.0,
+    "share_never_played": 0.055,
+    "share_5_plus_years": 0.551,
+    "share_pro_bowl": 0.075
+   },
+   "5": {
+    "median_years": 4.0,
+    "share_never_played": 0.129,
+    "share_5_plus_years": 0.465,
+    "share_pro_bowl": 0.061
+   },
+   "6": {
+    "median_years": 4.0,
+    "share_never_played": 0.193,
+    "share_5_plus_years": 0.391,
+    "share_pro_bowl": 0.047
+   },
+   "7": {
+    "median_years": 3.0,
+    "share_never_played": 0.249,
+    "share_5_plus_years": 0.293,
+    "share_pro_bowl": 0.023
+   }
+  }
+ },
+ "wr_breakouts": {
+  "note": "Receivers with under 500 receiving yards one season: share who reach 900 or 1,200 the next season, by NFL career year. 2006-2025 play-by-play.",
+  "year 1 to 2": {
+   "wr_under_500": 358,
+   "share_reaching_900": 0.025,
+   "share_reaching_1200": 0.006
+  },
+  "year 2 to 3": {
+   "wr_under_500": 313,
+   "share_reaching_900": 0.029,
+   "share_reaching_1200": 0.01
+  },
+  "year 3 to 4": {
+   "wr_under_500": 250,
+   "share_reaching_900": 0.024,
+   "share_reaching_1200": 0.008
+  },
+  "year 4 to 5": {
+   "wr_under_500": 196,
+   "share_reaching_900": 0.051,
+   "share_reaching_1200": 0.01
+  },
+  "year 5 to 6": {
+   "wr_under_500": 150,
+   "share_reaching_900": 0.02,
+   "share_reaching_1200": 0.0
+  },
+  "year 6 to 7": {
+   "wr_under_500": 103,
+   "share_reaching_900": 0.01,
+   "share_reaching_1200": 0.0
+  },
+  "year 7 to 8": {
+   "wr_under_500": 92,
+   "share_reaching_900": 0.033,
+   "share_reaching_1200": 0.011
+  },
+  "year 8 to 9": {
+   "wr_under_500": 54,
+   "share_reaching_900": 0.0,
+   "share_reaching_1200": 0.0
+  }
+ },
+ "injury_episodes_by_body_part": {
+  "Knee": {
+   "episodes": 1671,
+   "share": 0.172,
+   "mean_games_missed": 3.49,
+   "median_games_missed": 2.0,
+   "share_0_games": 0.072,
+   "share_4_plus": 0.321,
+   "share_to_season_end": 0.317
+  },
+  "Ankle": {
+   "episodes": 1392,
+   "share": 0.143,
+   "mean_games_missed": 2.76,
+   "median_games_missed": 2.0,
+   "share_0_games": 0.065,
+   "share_4_plus": 0.237,
+   "share_to_season_end": 0.245
+  },
+  "Hamstring": {
+   "episodes": 1258,
+   "share": 0.129,
+   "mean_games_missed": 2.6,
+   "median_games_missed": 2.0,
+   "share_0_games": 0.073,
+   "share_4_plus": 0.204,
+   "share_to_season_end": 0.144
+  },
+  "Concussion": {
+   "episodes": 1079,
+   "share": 0.111,
+   "mean_games_missed": 2.18,
+   "median_games_missed": 1.0,
+   "share_0_games": 0.044,
+   "share_4_plus": 0.143,
+   "share_to_season_end": 0.238
+  },
+  "Shoulder": {
+   "episodes": 548,
+   "share": 0.056,
+   "mean_games_missed": 3.24,
+   "median_games_missed": 2.0,
+   "share_0_games": 0.058,
+   "share_4_plus": 0.279,
+   "share_to_season_end": 0.387
+  },
+  "Foot": {
+   "episodes": 429,
+   "share": 0.044,
+   "mean_games_missed": 4.24,
+   "median_games_missed": 3.0,
+   "share_0_games": 0.07,
+   "share_4_plus": 0.431,
+   "share_to_season_end": 0.371
+  },
+  "Groin": {
+   "episodes": 417,
+   "share": 0.043,
+   "mean_games_missed": 2.68,
+   "median_games_missed": 2.0,
+   "share_0_games": 0.06,
+   "share_4_plus": 0.221,
+   "share_to_season_end": 0.173
+  },
+  "Calf": {
+   "episodes": 366,
+   "share": 0.038,
+   "mean_games_missed": 2.68,
+   "median_games_missed": 2.0,
+   "share_0_games": 0.063,
+   "share_4_plus": 0.21,
+   "share_to_season_end": 0.246
+  },
+  "Back": {
+   "episodes": 258,
+   "share": 0.026,
+   "mean_games_missed": 3.87,
+   "median_games_missed": 2.0,
+   "share_0_games": 0.062,
+   "share_4_plus": 0.353,
+   "share_to_season_end": 0.419
+  },
+  "Neck": {
+   "episodes": 224,
+   "share": 0.023,
+   "mean_games_missed": 4.08,
+   "median_games_missed": 2.5,
+   "share_0_games": 0.04,
+   "share_4_plus": 0.402,
+   "share_to_season_end": 0.469
+  },
+  "Hip": {
+   "episodes": 198,
+   "share": 0.02,
+   "mean_games_missed": 3.31,
+   "median_games_missed": 2.0,
+   "share_0_games": 0.035,
+   "share_4_plus": 0.283,
+   "share_to_season_end": 0.283
+  },
+  "Quadricep": {
+   "episodes": 183,
+   "share": 0.019,
+   "mean_games_missed": 2.85,
+   "median_games_missed": 2.0,
+   "share_0_games": 0.044,
+   "share_4_plus": 0.246,
+   "share_to_season_end": 0.175
+  },
+  "Illness": {
+   "episodes": 168,
+   "share": 0.017,
+   "mean_games_missed": 2.92,
+   "median_games_missed": 2.0,
+   "share_0_games": 0.03,
+   "share_4_plus": 0.25,
+   "share_to_season_end": 0.363
+  }
+ },
+ "injury_episodes_per_player_season": {
+  "CB": 0.514,
+  "DL": 0.346,
+  "EDGE": 0.389,
+  "K": 0.122,
+  "LB": 0.417,
+  "OL": 0.432,
+  "P": 0.058,
+  "QB": 0.378,
+  "RB": 0.44,
+  "S": 0.445,
+  "TE": 0.441,
+  "WR": 0.468
+ },
+ "games_missed_per_player_season": {
+  "CB": 1.5,
+  "DL": 0.96,
+  "EDGE": 1.16,
+  "K": 0.56,
+  "LB": 1.22,
+  "OL": 1.48,
+  "P": 0.25,
+  "QB": 1.38,
+  "RB": 1.32,
+  "S": 1.21,
+  "TE": 1.38,
+  "WR": 1.36
+ },
+ "injury_note": "Episode = a player listed Out or Doubtful on the game-status report after not being listed the week before. Games missed = team games from that week on with no snap for him, counted to his return or the season's end (so injuries late in a season are cut short). Rates divide by player-seasons with 4+ games. Players placed straight on injured reserve without a report entry are missed, so long injuries are undercounted."
+}
