@@ -42,7 +42,7 @@ const PHYSICAL: [Attr; 6] =
     [Attr::Speed, Attr::Acceleration, Attr::Agility, Attr::Strength, Attr::Jumping, Attr::Stamina];
 
 /// Standard normal cumulative distribution (Abramowitz and Stegun 7.1.26).
-pub(crate) fn phi(x: f64) -> f64 {
+pub fn phi(x: f64) -> f64 {
     let t = 1.0 / (1.0 + 0.3275911 * x.abs() / std::f64::consts::SQRT_2);
     let poly = t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
     let erf = 1.0 - poly * (-x * x / 2.0).exp();

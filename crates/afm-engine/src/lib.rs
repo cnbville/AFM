@@ -16,6 +16,7 @@ pub mod attributes;
 pub mod body;
 pub mod career;
 pub mod development;
+pub mod game;
 pub mod league;
 pub mod level_rating;
 pub mod player;

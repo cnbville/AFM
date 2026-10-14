@@ -380,5 +380,5 @@ None. Both earlier questions (washout trimming in 8.6, over-expected stats lifti
 ## Build status
 
 1. **Athlete-first player creation: built 2026-10-13** (`crates/afm-engine/src/athlete.rs`; how it works in `docs/development-model.md`; Claude's calibration picks in `docs/decisions.md`).
-2. The match engine and the stats database: next.
-3. The development-only checks against real football: with the engine.
+2. **The match engine and game stats: built 2026-10-14** (`crates/afm-engine/src/game/`; how it works, calibration and known gaps in `docs/match-engine.md`). Still to come: running every world game through it, and the season and career record across levels.
+3. **The development-only checks: built 2026-10-14** (`match_check`, `crates/afm-tools/tests/match_engine.rs`).
