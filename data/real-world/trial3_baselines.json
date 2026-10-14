@@ -1,0 +1,281 @@
+{
+ "source": "CFBD scores 2001-2025, ESPN recruit ratings, nflverse draft/combine/players, CFBD rosters",
+ "title_game_winners": {
+  "2001": "Miami",
+  "2002": "Ohio State",
+  "2003": "LSU",
+  "2004": "USC",
+  "2005": "Texas",
+  "2006": "Florida",
+  "2007": "LSU",
+  "2008": "Florida",
+  "2009": "Alabama",
+  "2010": "Auburn",
+  "2011": "Alabama",
+  "2012": "Alabama",
+  "2013": "Florida State",
+  "2014": "Ohio State",
+  "2015": "Alabama",
+  "2016": "Clemson",
+  "2017": "Alabama",
+  "2018": "Clemson",
+  "2019": "LSU",
+  "2020": "Alabama",
+  "2021": "Georgia",
+  "2022": "Georgia",
+  "2023": "Michigan",
+  "2024": "Ohio State",
+  "2025": "Indiana"
+ },
+ "titles_per_15_years": {
+  "2001-2015": {
+   "most_titles": 4,
+   "by": "Alabama",
+   "distinct_champions": 9
+  },
+  "2002-2016": {
+   "most_titles": 4,
+   "by": "Alabama",
+   "distinct_champions": 9
+  },
+  "2003-2017": {
+   "most_titles": 5,
+   "by": "Alabama",
+   "distinct_champions": 9
+  },
+  "2004-2018": {
+   "most_titles": 5,
+   "by": "Alabama",
+   "distinct_champions": 9
+  },
+  "2005-2019": {
+   "most_titles": 5,
+   "by": "Alabama",
+   "distinct_champions": 8
+  },
+  "2006-2020": {
+   "most_titles": 6,
+   "by": "Alabama",
+   "distinct_champions": 7
+  },
+  "2007-2021": {
+   "most_titles": 6,
+   "by": "Alabama",
+   "distinct_champions": 8
+  },
+  "2008-2022": {
+   "most_titles": 6,
+   "by": "Alabama",
+   "distinct_champions": 8
+  },
+  "2009-2023": {
+   "most_titles": 6,
+   "by": "Alabama",
+   "distinct_champions": 8
+  },
+  "2010-2024": {
+   "most_titles": 5,
+   "by": "Alabama",
+   "distinct_champions": 8
+  },
+  "2011-2025": {
+   "most_titles": 5,
+   "by": "Alabama",
+   "distinct_champions": 8
+  }
+ },
+ "p4_programs_matched": 68,
+ "p4_unmatched": [],
+ "p4_droughts": {
+  "note": "Current (2026) SEC, Big Ten, Big 12, ACC members plus Notre Dame; a winning season = more wins than losses (all games). Includes seasons some schools spent outside a power conference.",
+  "longest_run_without_winning_season_2001_2025_top10": {
+   "Kansas": 14,
+   "Duke": 12,
+   "Indiana": 11,
+   "Colorado": 10,
+   "Illinois": 10,
+   "Vanderbilt": 10,
+   "Baylor": 9,
+   "SMU": 8,
+   "Syracuse": 8,
+   "Rutgers": 8
+  },
+  "winning_seasons_2011_2025_fewest10": {
+   "Kansas": 1,
+   "Colorado": 3,
+   "Indiana": 4,
+   "Illinois": 4,
+   "Vanderbilt": 4,
+   "Virginia": 4,
+   "Purdue": 4,
+   "Maryland": 5,
+   "Rutgers": 5,
+   "California": 5
+  },
+  "programs_with_zero_winning_seasons_2011_2025": 0,
+  "programs_with_zero_in_any_15yr_window_2001_2025": 0
+ },
+ "best_15yr_records_2011_2025": {
+  "Alabama": "183-26 (0.876)",
+  "Ohio State": "171-28 (0.859)",
+  "Clemson": "168-38 (0.816)",
+  "Georgia": "167-38 (0.815)",
+  "Oregon": "151-46 (0.766)"
+ },
+ "unbeaten_seasons_2011_2025_fbs": 9,
+ "unbeaten_by_team_2011_2025": {
+  "Alabama": 1,
+  "Clemson": 1,
+  "Florida State": 1,
+  "Georgia": 1,
+  "Indiana": 1,
+  "LSU": 1,
+  "Michigan": 1,
+  "Ohio State": 1,
+  "UCF": 1
+ },
+ "fbs_win_pct_year_to_year_corr": 0.536,
+ "draft_picks_by_star": {
+  "note": "Draft picks 2013-2025 matched by name to ESPN-rated FBS/FCS signees (classes 2010-2021, drafted 2-7 years later). 0 = no match: unrated, walk-on, JUCO or prep signee, or a name mismatch.",
+  "share": {
+   "0": 0.252,
+   "2": 0.063,
+   "3": 0.359,
+   "4": 0.227,
+   "5": 0.099
+  },
+  "share_round1": {
+   "0": 0.181,
+   "2": 0.028,
+   "3": 0.276,
+   "4": 0.256,
+   "5": 0.259
+  },
+  "picks": 3231
+ },
+ "combine_by_position_2000_2025": {
+  "QB": {
+   "n": 477,
+   "weight_mean": 221.5,
+   "forty_n": 414,
+   "forty_mean": 4.81,
+   "forty_p10": 4.59,
+   "forty_p90": 5.04,
+   "forty_runners_share": 0.87,
+   "broad_mean": 111.4,
+   "vertical_mean": 31.4
+  },
+  "K": {
+   "n": 121,
+   "weight_mean": 196.9,
+   "forty_n": 61,
+   "forty_mean": 4.91,
+   "forty_p10": 4.74,
+   "forty_p90": 5.1,
+   "forty_runners_share": 0.5,
+   "broad_mean": 113.5,
+   "vertical_mean": 33.5
+  },
+  "P": {
+   "n": 155,
+   "weight_mean": 213.7,
+   "forty_n": 107,
+   "forty_mean": 4.91,
+   "forty_p10": 4.7,
+   "forty_p90": 5.12,
+   "forty_runners_share": 0.69,
+   "broad_mean": 114.1,
+   "vertical_mean": 31.6
+  },
+  "WR": {
+   "n": 1246,
+   "weight_mean": 201.1,
+   "forty_n": 1162,
+   "forty_mean": 4.51,
+   "forty_p10": 4.37,
+   "forty_p90": 4.63,
+   "forty_runners_share": 0.93,
+   "broad_mean": 121.5,
+   "vertical_mean": 35.5
+  },
+  "RB": {
+   "n": 779,
+   "weight_mean": 213.0,
+   "forty_n": 718,
+   "forty_mean": 4.55,
+   "forty_p10": 4.4,
+   "forty_p90": 4.68,
+   "forty_runners_share": 0.92,
+   "broad_mean": 118.7,
+   "vertical_mean": 34.5
+  },
+  "LB": {
+   "n": 260,
+   "weight_mean": 234.3,
+   "forty_n": 174,
+   "forty_mean": 4.63,
+   "forty_p10": 4.47,
+   "forty_p90": 4.83,
+   "forty_runners_share": 0.67,
+   "broad_mean": 120.5,
+   "vertical_mean": 34.8
+  },
+  "TE": {
+   "n": 512,
+   "weight_mean": 252.6,
+   "forty_n": 452,
+   "forty_mean": 4.76,
+   "forty_p10": 4.58,
+   "forty_p90": 4.95,
+   "forty_runners_share": 0.88,
+   "broad_mean": 115.9,
+   "vertical_mean": 33.3
+  },
+  "OT": {
+   "n": 626,
+   "weight_mean": 315.6,
+   "forty_n": 569,
+   "forty_mean": 5.23,
+   "forty_p10": 4.99,
+   "forty_p90": 5.46,
+   "forty_runners_share": 0.91,
+   "broad_mean": 103.6,
+   "vertical_mean": 28.4
+  },
+  "DE": {
+   "n": 532,
+   "weight_mean": 268.7,
+   "forty_n": 514,
+   "forty_mean": 4.83,
+   "forty_p10": 4.65,
+   "forty_p90": 5.01,
+   "forty_runners_share": 0.97,
+   "broad_mean": 114.8,
+   "vertical_mean": 33.0
+  }
+ },
+ "combine_note": "Only players invited to the combine; many kickers and some QBs skip running, so forty_runners_share is shown. Specialists who run are likely the faster ones.",
+ "name_repeats": {
+  "note": "Share of players whose full name (first + last, suffixes dropped for NFL) is shared with at least one other player in the same pool.",
+  "cfbd_rosters_2024_all_divisions_pool": 22843,
+  "cfbd_rosters_2024_share": 0.044,
+  "cfbd_2024_by_pool_size": {
+   "1000": 0.004,
+   "5000": 0.0114,
+   "10000": 0.0192,
+   "22843": 0.044
+  },
+  "nflverse_all_players_pool": 24854,
+  "nflverse_all_players_share": 0.0784,
+  "most_common_2024": {
+   "jayden williams": 7,
+   "isaiah johnson": 6,
+   "jaden robinson": 5,
+   "cam smith": 5,
+   "jalen smith": 5,
+   "jordan brown": 4,
+   "tyler brown": 4,
+   "caleb williams": 4
+  }
+ }
+}
