@@ -45,7 +45,7 @@ Each roadmap section goes: (1) design rounds with Raichel until the details are 
   - `athlete.rs`: athlete-first creation (section 3, topic 5.2): body, athletic traits and skill leanings first, then coaches place and move players.
   - `debug.rs`: true potential and ceilings, only with the `debug` feature. The game must never enable it.
   - Unit tests live in `src/tests/`.
-- `crates/afm-tools`: tooling with the `debug` feature. `stats.rs` (class summary), `bin/calibrate.rs`, and `tests/national_class.rs` (real-world calibration checks), `bin/world_trial.rs` (the section 2 trial report; `AFM_CARDS=path.json` writes full player pages), `tests/world.rs`, `bin/match_check.rs` and `bin/play_trace.rs` (match engine checks), and `tests/match_engine.rs`.
+- `crates/afm-tools`: tooling with the `debug` feature. `stats.rs` (class summary), `bin/calibrate.rs`, and `tests/national_class.rs` (real-world calibration checks), `bin/world_trial.rs` (the section 2 trial report; `AFM_CARDS=path.json` writes full player pages, `AFM_DASH=path.json` the debug dashboard data: every program season with engine team totals, coaches with hidden ratings, every draft pick, diversity by year), `tests/world.rs`, `bin/match_check.rs` and `bin/play_trace.rs` (match engine checks), and `tests/match_engine.rs`.
 - Speed: each player has his own random stream, so per-player work runs on all cores (rayon) and a seed gives the same class on any machine and core count.
 - `data/real-world/` and `data/names/`: researched data with READMEs naming sources and gaps.
 - `legacy-ts/`: the original TypeScript model and scripts, for reference (`cd legacy-ts && npm install`). The trial 6 card script lives there.
