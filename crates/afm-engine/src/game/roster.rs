@@ -87,7 +87,7 @@ impl GamePlayer {
         // Through the pro range each point counts fully; below it (most high
         // school players) the gap narrows (proposed, not confirmed).
         let ac = self.a(Attr::Acceleration);
-        let ac = if ac >= 60.0 { 4.65 + 0.045 * (ac - 60.0) } else { 4.65 + 0.02 * (ac - 60.0) };
+        let ac = if ac >= 60.0 { 4.65 + 0.035 * (ac - 60.0) } else { 4.65 + 0.02 * (ac - 60.0) };
         clamp(ac - 0.006 * (self.weight - 220.0), 2.2, 7.5)
     }
 
@@ -96,7 +96,7 @@ impl GamePlayer {
         // As with acceleration, the gap narrows below the pro range, so a
         // high school athlete still cuts like an athlete.
         let ag = self.a(Attr::Agility);
-        let ag = if ag >= 60.0 { 0.99 + 0.014 * (ag - 60.0) } else { 0.99 + 0.006 * (ag - 60.0) };
+        let ag = if ag >= 60.0 { 0.99 + 0.011 * (ag - 60.0) } else { 0.99 + 0.006 * (ag - 60.0) };
         clamp(ag - 0.002 * (self.weight - 220.0), 0.4, 1.7)
     }
 
@@ -252,31 +252,71 @@ fn offense(pos: Position) -> bool {
     matches!(pos, Position::QB | Position::RB | Position::WR | Position::TE | Position::OT | Position::IOL)
 }
 
-/// The head coach's depth chart (topic 5.1). Each spot takes the best
-/// players at it, listed position first. On a thin roster his best athletes
-/// also play the other side of the ball: a player is added to the other
-/// side's chart when he would beat the players there by `two_way_margin`
-/// rating points (0 for a small high school, large for the NFL, where it
-/// never happens).
+/// Rating points a player gives up at a spot he isn't listed at: he knows
+/// his own spot's technique and calls, not this one's. A coach moves him only
+/// when he is better even after that.
+pub const CROSS_LIST: f64 = 4.0;
+
+/// The head coach's depth chart (topic 5.1). Each spot lists the players
+/// at that position first, best first. A player from another spot on the
+/// same side is listed there only when he beats the players he would pass by
+/// `CROSS_LIST`, and never ahead of others if he starts at his own spot. On a
+/// thin roster his best athletes also play the other side of the ball: a
+/// player is added to the other side's chart when he would beat the players
+/// there by `two_way_margin` rating points (0 for a small high school, large
+/// for the NFL, where it never happens).
 pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
     let ps = &team.players;
     let mut d = Depth::default();
+    let own = |pos: Position| -> Vec<(f64, usize)> {
+        let mut v: Vec<(f64, usize)> =
+            ps.iter().enumerate().filter(|(_, p)| p.position == pos).map(|(i, p)| (p.overall_at(pos), i)).collect();
+        v.sort_by(|a, b| b.0.total_cmp(&a.0));
+        v
+    };
+    // Starters at their own spot stay there.
+    let mut starting = vec![false; ps.len()];
     for pos in Position::ALL {
-        let mut cand: Vec<(f64, usize)> = ps
+        for (_, i) in own(pos).into_iter().take(starters(pos)) {
+            starting[i] = true;
+        }
+    }
+    for pos in Position::ALL {
+        let mut list = own(pos);
+        let n_own = list.len();
+        let same_side = |p: &GamePlayer| {
+            if pos.is_specialist() || p.position.is_specialist() {
+                pos.is_specialist() && p.position.is_specialist()
+            } else {
+                offense(p.position) == offense(pos)
+            }
+        };
+        let mut cross: Vec<(f64, usize)> = ps
             .iter()
             .enumerate()
-            .filter(|(_, p)| offense(p.position) == offense(pos) || pos.is_specialist() || p.position.is_specialist())
-            .map(|(i, p)| {
-                let listed = if p.position == pos { 3.0 } else { 0.0 };
-                (p.overall_at(pos) + listed, i)
-            })
+            .filter(|(i, p)| p.position != pos && same_side(p) && !starting[*i])
+            .map(|(i, p)| (p.overall_at(pos) - CROSS_LIST, i))
             .collect();
-        cand.sort_by(|a, b| b.0.total_cmp(&a.0));
-        d.at[pos.index()] = cand.into_iter().take(wanted(pos)).map(|c| c.1).collect();
+        cross.sort_by(|a, b| b.0.total_cmp(&a.0));
+        list.extend(cross);
+        list.sort_by(|a, b| b.0.total_cmp(&a.0));
+        let want = wanted(pos).max(n_own);
+        list.truncate(want);
+        // Emergency cover: anyone left on this side, starters elsewhere last.
+        if list.len() < want {
+            let mut more: Vec<(f64, usize)> = ps
+                .iter()
+                .enumerate()
+                .filter(|(i, p)| same_side(p) && !list.iter().any(|l| l.1 == *i))
+                .map(|(i, p)| (p.overall_at(pos) - if starting[i] { 50.0 } else { 0.0 }, i))
+                .collect();
+            more.sort_by(|a, b| b.0.total_cmp(&a.0));
+            list.extend(more.into_iter().take(want - list.len()));
+        }
+        d.at[pos.index()] = list.into_iter().map(|c| c.1).collect();
     }
     // Two-way players: the other side's best athletes can start here too.
     for pos in Position::ALL.into_iter().filter(|p| !p.is_specialist()) {
-        let want = wanted(pos);
         let list = &d.at[pos.index()];
         let worst_starter =
             list.iter().take(starters(pos)).map(|&i| ps[i].overall_at(pos)).fold(f64::INFINITY, f64::min);
@@ -287,10 +327,14 @@ pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
             .map(|(i, p)| (p.overall_at(pos), i))
             .filter(|&(r, _)| r > worst_starter + two_way_margin || list.len() < starters(pos))
             .collect();
+        if extra.is_empty() {
+            continue;
+        }
         extra.sort_by(|a, b| b.0.total_cmp(&a.0));
+        let want = list.len().max(wanted(pos));
         let mut merged: Vec<(f64, usize)> = list
             .iter()
-            .map(|&i| (ps[i].overall_at(pos) + if ps[i].position == pos { 3.0 } else { 0.0 }, i))
+            .map(|&i| (ps[i].overall_at(pos) - if ps[i].position == pos { 0.0 } else { CROSS_LIST }, i))
             .chain(extra.into_iter().take(starters(pos)))
             .collect();
         merged.sort_by(|a, b| b.0.total_cmp(&a.0));
@@ -315,9 +359,19 @@ pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
         d.list(Position::WR).iter().chain(d.list(Position::RB)).chain(d.list(Position::CB)).copied().collect();
     kr.sort_by(|&a, &b| returner(&ps[b]).total_cmp(&returner(&ps[a])));
     kr.dedup();
-    // Starters at premium spots rarely return kicks.
+    // Starters rarely return kicks: a return is extra hits for a man the
+    // offense or defense needs. Backups do it unless there are none
+    // (proposed, not confirmed).
     let qb1 = d.list(Position::QB).first().copied();
     kr.retain(|&i| Some(i) != qb1);
+    let starting: Vec<usize> = [Position::RB, Position::WR, Position::CB]
+        .iter()
+        .flat_map(|&p| d.list(p).iter().take(starters(p)).copied())
+        .collect();
+    let backups: Vec<usize> = kr.iter().copied().filter(|i| !starting.contains(i)).collect();
+    if backups.len() >= 2 {
+        kr = backups;
+    }
     d.kick_returners = kr.iter().take(2).copied().collect();
     d.punt_returner = kr
         .iter()

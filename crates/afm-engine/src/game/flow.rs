@@ -102,7 +102,7 @@ impl<'a> Side<'a> {
     fn threshold(&self, pos: Position) -> f64 {
         let base = match pos {
             Position::EDGE | Position::DT => 0.84,
-            Position::RB => 0.8,
+            Position::RB => 0.86,
             Position::WR | Position::TE => 0.74,
             Position::LB | Position::CB | Position::S => 0.68,
             _ => 0.5,
@@ -202,9 +202,15 @@ pub fn play_game(setup: &GameSetup) -> GameResult {
     let mut rng = Rng::new(((setup.seed >> 32) as u32) ^ (setup.seed as u32) ^ 0x9E37_79B9);
     let crew = Crew::draw(&mut rng);
     let t = setup.rules.timeouts;
+    let mut sides =
+        [Side::new(setup.home, setup.two_way_margin[0], t), Side::new(setup.away, setup.two_way_margin[1], t)];
+    // Game prep: each staff studies the other's film (topic 3.2).
+    let (hs, as_) = (setup.home.staff, setup.away.staff);
+    sides[0].mem.prepare(&as_, &hs);
+    sides[1].mem.prepare(&hs, &as_);
     let mut g = Game {
         s: setup,
-        sides: [Side::new(setup.home, setup.two_way_margin[0], t), Side::new(setup.away, setup.two_way_margin[1], t)],
+        sides,
         rng,
         crew,
         stats: GameStats::default(),
@@ -1279,7 +1285,7 @@ impl<'a> Game<'a> {
         for &(side, p, work) in &res.work {
             let team = if side == 0 { o } else { d };
             let st = self.sides[team].team.players[p].a(Attr::Stamina);
-            self.sides[team].energy[p] = (self.sides[team].energy[p] - 0.0068 * drain(st, work)).max(0.25);
+            self.sides[team].energy[p] = (self.sides[team].energy[p] - 0.041 * drain(st, work)).max(0.25);
         }
         for t in [o, d] {
             let on: Vec<usize> =
@@ -1631,6 +1637,9 @@ impl<'a> Game<'a> {
             }
             let md = &mut self.sides[d].mem;
             md.opp_plays += 1.0;
+            if let PlayKind::Pass(i) = call.kind {
+                md.opp_concepts[i] += 1.0;
+            }
             if r.kind != PlayType::Run {
                 md.opp_pass += 1.0;
                 if r.air_yards >= 15.0 {

@@ -20,10 +20,8 @@ pub struct Memory {
     pub deeps: f64,
     /// What the other defense has shown.
     pub blitzes: f64,
-    pub man: f64,
-    pub two_high: f64,
-    pub cover2: f64,
-    pub cover3: f64,
+    /// Snaps of each coverage, in `Coverage` order.
+    pub cov_seen: [f64; 8],
     pub snaps_seen: f64,
     /// What the other offense has done.
     pub opp_pass: f64,
@@ -32,17 +30,37 @@ pub struct Memory {
     pub opp_run_epa: f64,
     pub opp_runs: f64,
     pub opp_quick: f64,
+    /// Pass concepts the other offense has run, in `PASS_CONCEPTS` order.
+    pub opp_concepts: [f64; 16],
 }
 
 impl Memory {
     pub fn saw_defense(&mut self, d: &DefCall) {
         self.snaps_seen += 1.0;
         self.blitzes += (d.pressure.extra() > 0) as u8 as f64;
-        self.man += d.coverage.is_man() as u8 as f64;
-        self.two_high += (d.coverage.high() == 2) as u8 as f64;
-        self.cover2 += matches!(d.coverage, Coverage::Cover2 | Coverage::Tampa2) as u8 as f64;
-        self.cover3 += (d.coverage == Coverage::Cover3) as u8 as f64;
+        self.cov_seen[d.coverage as usize] += 1.0;
     }
+    /// Game prep (topic 3.2): film of the opponent's past games. A sharp
+    /// coordinator starts the game already knowing the other side's habits,
+    /// as if he had seen that many snaps of them (proposed, not confirmed).
+    pub fn prepare(&mut self, opp: &Staff, own: &Staff) {
+        let film = 20.0;
+        let n = film * own.offense.skill / 20.0;
+        if n <= 0.0 {
+            return;
+        }
+        let mix = shell_mix(opp.shell);
+        let tot: f64 = mix.iter().map(|x| x.1).sum();
+        for &(cov, w) in &mix {
+            self.cov_seen[cov as usize] += n * w / tot;
+        }
+        self.blitzes += n * clamp(0.24 + 0.012 * (opp.defense.aggressiveness - 10.0), 0.05, 0.6);
+        self.snaps_seen += n;
+        let nd = film * own.defense.skill / 20.0;
+        self.opp_pass += nd * (0.58 + opp.off_scheme.pass_lean());
+        self.opp_plays += nd;
+    }
+
     fn rate(&self, x: f64) -> f64 {
         (x + 1.0) / (self.snaps_seen + 4.0)
     }
@@ -240,13 +258,12 @@ fn pick_concept(staff: &Staff, mem: &Memory, sit: &Situation, backfield: Backfie
     let red = sit.yardline_100 <= 20.0;
     let goal = sit.yardline_100 <= 8.0;
     let hurry = sit.hurry();
-    // What the defense has been showing, as well as this coordinator can read it.
+    // What the defense has been showing, as well as this coordinator can
+    // read it, and what each concept is worth against that.
     let sharp = (c.skill + c.adaptation) / 40.0;
-    let blitz = mem.rate(mem.blitzes) * sharp + 0.25 * (1.0 - sharp);
-    let man = mem.rate(mem.man) * sharp + 0.25 * (1.0 - sharp);
-    let two_high = mem.rate(mem.two_high) * sharp + 0.4 * (1.0 - sharp);
-    let cover3 = mem.rate(mem.cover3) * sharp + 0.3 * (1.0 - sharp);
-    let cover2 = mem.rate(mem.cover2) * sharp + 0.12 * (1.0 - sharp);
+    let ev = expected_values(mem, sharp);
+    let mean = ev.iter().sum::<f64>() / ev.len() as f64;
+    let trust = 0.2 * sharp;
     let w: Vec<(usize, f64)> = PASS_CONCEPTS
         .iter()
         .enumerate()
@@ -314,23 +331,9 @@ fn pick_concept(staff: &Staff, mem: &Memory, sit: &Situation, backfield: Backfie
             if fav.contains(&pc.name) {
                 w *= 2.2;
             }
-            // Counters from the play-and-counter library (topic 9.1).
-            let counter = |names: &[&str]| names.contains(&pc.name);
-            if counter(&["RB screen", "bubble screen", "slant-flat", "hitches", "stick"]) {
-                w *= 1.0 + 1.5 * (blitz - 0.25).max(0.0) * 2.0;
-            }
-            if counter(&["mesh", "slant-flat", "Y-cross"]) {
-                w *= 1.0 + 1.2 * (man - 0.25).max(0.0) * 2.0;
-            }
-            if counter(&["smash", "four verticals", "flood"]) {
-                w *= 1.0 + 1.4 * (cover2 - 0.12).max(0.0) * 3.0;
-            }
-            if counter(&["flood", "curl-flat", "dagger", "Y-cross"]) {
-                w *= 1.0 + 1.0 * (cover3 - 0.3).max(0.0) * 2.0;
-            }
-            if counter(&["Y-cross", "smash", "play-action dig"]) {
-                w *= 1.0 + 0.8 * (two_high - 0.4).max(0.0) * 2.0;
-            }
+            // What beats what (topic 9.1): the caller leans toward the
+            // concepts that gain the most against the looks he expects.
+            w *= (trust * (ev[i] - mean)).exp();
             if pc.depth == PassDepth::Deep && mem.deeps >= 3.0 {
                 let e = mem.deep_epa / mem.deeps;
                 w *= clamp(1.0 + e * 0.4 * c.adaptation / 20.0, 0.5, 1.6);
@@ -342,23 +345,83 @@ fn pick_concept(staff: &Staff, mem: &Memory, sit: &Situation, backfield: Backfie
     weigh(rng, &w)
 }
 
-/// The defensive call.
-pub fn call_defense(staff: &Staff, mem: &Memory, sit: &Situation, off: &Formation, rng: &mut Rng) -> DefCall {
-    let c: &Caller = &staff.defense;
-    let wr = off.personnel.wide_receivers();
-    let long = sit.togo >= 8.0 && sit.down >= 2;
-    let short = sit.togo <= 2.0;
-    let personnel = if sit.yardline_100 <= 3.0 && wr <= 2 {
-        DefPersonnel::GoalLine
-    } else if wr >= 4 || (long && sit.down == 3 && wr >= 3 && rng.chance(0.5)) {
-        DefPersonnel::Dime
-    } else if wr == 3 {
-        DefPersonnel::Nickel
-    } else {
-        DefPersonnel::Base
-    };
-    // The coordinator's family of coverages, then the situation.
-    let base: [(Coverage, f64); 8] = match staff.shell {
+/// Football knowledge: what each pass concept gains against each look,
+/// measured on the match engine (`call_values` in afm-tools). Rows follow
+/// `PASS_CONCEPTS`; columns are Cover 0 with the double-A blitz, then each
+/// other coverage with four rushers and with a linebacker blitz.
+const CALL_VALUES_CSV: &str = include_str!("../../data/call_values.csv");
+
+fn call_values() -> &'static Vec<[f64; 15]> {
+    static T: std::sync::OnceLock<Vec<[f64; 15]>> = std::sync::OnceLock::new();
+    T.get_or_init(|| {
+        let mut rows = std::collections::HashMap::new();
+        for line in CALL_VALUES_CSV.lines().skip(1) {
+            let mut f = line.split(',');
+            let name = f.next().unwrap_or_default();
+            let mut v = [0.0; 15];
+            for (x, s) in v.iter_mut().zip(f) {
+                *x = s.trim().parse().unwrap_or(0.0);
+            }
+            rows.insert(name.to_string(), v);
+        }
+        PASS_CONCEPTS.iter().map(|p| rows.get(p.name).copied().unwrap_or([0.0; 15])).collect()
+    })
+}
+
+/// The league's coverage mix, the starting belief before any film.
+fn league_mix() -> [f64; 8] {
+    let mut m = [0.0; 8];
+    for shell in [Shell::Cover3, Shell::Quarters, Shell::ManPressure, Shell::Cover2] {
+        let mix = shell_mix(shell);
+        let tot: f64 = mix.iter().map(|x| x.1).sum();
+        for (cov, w) in mix {
+            m[cov as usize] += w / tot / 4.0;
+        }
+    }
+    m
+}
+
+/// Expected value of each pass concept against the looks this caller
+/// expects. A sharp caller trusts what he has seen; a poor one falls back
+/// on the league's habits.
+fn expected_values(mem: &Memory, sharp: f64) -> Vec<f64> {
+    let prior = league_mix();
+    let blitz = mem.rate(mem.blitzes) * sharp + 0.25 * (1.0 - sharp);
+    let p: Vec<f64> = (0..8)
+        .map(|k| sharp * (mem.cov_seen[k] + 4.0 * prior[k]) / (mem.snaps_seen + 4.0) + (1.0 - sharp) * prior[k])
+        .collect();
+    call_values()
+        .iter()
+        .map(|v| {
+            let mut e = p[0] * v[0];
+            for k in 1..8 {
+                e += p[k] * ((1.0 - blitz) * v[2 * k - 1] + blitz * v[2 * k]);
+            }
+            e
+        })
+        .collect()
+}
+
+/// What each coverage gives up (four rushers) against the pass concepts a
+/// defensive coordinator expects. A sharp one trusts what he has seen; a
+/// poor one assumes every concept is as likely.
+fn coverage_values(mem: &Memory, sharp: f64) -> [f64; 8] {
+    let t = call_values();
+    let seen: f64 = mem.opp_concepts.iter().sum();
+    let n = t.len() as f64;
+    let p: Vec<f64> =
+        (0..t.len()).map(|i| sharp * (mem.opp_concepts[i] + 4.0 / n) / (seen + 4.0) + (1.0 - sharp) / n).collect();
+    let mut out = [0.0; 8];
+    for (k, o) in out.iter_mut().enumerate() {
+        let col = if k == 0 { 0 } else { 2 * k - 1 };
+        *o = t.iter().zip(&p).map(|(v, q)| q * v[col]).sum();
+    }
+    out
+}
+
+/// A defensive coordinator's family of coverages: how often he calls each.
+pub fn shell_mix(shell: Shell) -> [(Coverage, f64); 8] {
+    match shell {
         Shell::Cover3 => [
             (Coverage::Cover3, 42.0),
             (Coverage::Cover1, 20.0),
@@ -399,15 +462,41 @@ pub fn call_defense(staff: &Staff, mem: &Memory, sit: &Situation, off: &Formatio
             (Coverage::Cover0, 2.0),
             (Coverage::Tampa2, 14.0),
         ],
+    }
+}
+
+/// The defensive call.
+pub fn call_defense(staff: &Staff, mem: &Memory, sit: &Situation, off: &Formation, rng: &mut Rng) -> DefCall {
+    let c: &Caller = &staff.defense;
+    let wr = off.personnel.wide_receivers();
+    let long = sit.togo >= 8.0 && sit.down >= 2;
+    let short = sit.togo <= 2.0;
+    let personnel = if sit.yardline_100 <= 3.0 && wr <= 2 {
+        DefPersonnel::GoalLine
+    } else if wr >= 4 || (long && sit.down == 3 && wr >= 3 && rng.chance(0.5)) {
+        DefPersonnel::Dime
+    } else if wr == 3 {
+        DefPersonnel::Nickel
+    } else {
+        DefPersonnel::Base
     };
+    // The coordinator's family of coverages, then the situation.
+    let base = shell_mix(staff.shell);
     let sharp = c.adaptation / 20.0;
     let opp_pass = (mem.opp_pass + 2.0) / (mem.opp_plays + 4.0);
     let deep_hurting = if mem.opp_plays > 6.0 { (mem.opp_deep_epa / mem.opp_plays.max(1.0)).max(0.0) } else { 0.0 };
     let run_hurting = if mem.opp_runs > 5.0 { (mem.opp_run_epa / mem.opp_runs).max(0.0) } else { 0.0 };
+    // What each coverage gives up against the passes this coordinator
+    // expects (topic 9.1): a sharp one leans away from the coverages they
+    // beat.
+    let read = (c.skill + c.adaptation) / 40.0;
+    let given = coverage_values(mem, read);
+    let mean = given.iter().sum::<f64>() / 8.0;
+    let trust = 0.2 * read;
     let w: Vec<(Coverage, f64)> = base
         .iter()
         .map(|&(cov, w)| {
-            let mut w = w;
+            let mut w = w * (-trust * (given[cov as usize] - mean)).exp();
             if cov.high() == 2 {
                 w *= if long {
                     1.5
