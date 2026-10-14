@@ -32,7 +32,26 @@ fn main() {
             }
         }
     }
-    let b = synthetic_team("B", level, 0.0, OffScheme::WestCoast, 22);
+    let mut b = synthetic_team("B", level, 0.0, OffScheme::WestCoast, 22);
+    // AFM_TEAMBOOST=side:POS,POS:points raises every starter at those spots
+    // (side a = offense, b = defense).
+    if let Ok(v) = std::env::var("AFM_TEAMBOOST") {
+        let parts: Vec<&str> = v.split(':').collect();
+        let t = if parts[0] == "a" { &mut a } else { &mut b };
+        let by: f64 = parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(10.0);
+        for pos in parts[1].split(',') {
+            let n = afm_engine::positions::Position::ALL
+                .iter()
+                .find(|p| format!("{p:?}") == pos)
+                .map(|&p| afm_engine::game::roster::starters(p))
+                .unwrap_or(1);
+            for p in t.players.iter_mut().filter(|p| format!("{:?}", p.position) == pos).take(n) {
+                for at in afm_engine::attributes::Attr::ALL {
+                    p.attrs[at] = (p.attrs[at] + by).min(99.0);
+                }
+            }
+        }
+    }
     let kind = match what.as_str() {
         "run" => PlayKind::Run(RunConcept::InsideZone),
         "power" => PlayKind::Run(RunConcept::Power),

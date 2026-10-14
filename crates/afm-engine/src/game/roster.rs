@@ -87,7 +87,7 @@ impl GamePlayer {
         // Through the pro range each point counts fully; below it (most high
         // school players) the gap narrows (proposed, not confirmed).
         let ac = self.a(Attr::Acceleration);
-        let ac = if ac >= 60.0 { 4.65 + crate::game::sim::knob(1, 0.045) * (ac - 60.0) } else { 4.65 + 0.02 * (ac - 60.0) };
+        let ac = if ac >= 60.0 { 4.65 + 0.035 * (ac - 60.0) } else { 4.65 + 0.02 * (ac - 60.0) };
         clamp(ac - 0.006 * (self.weight - 220.0), 2.2, 7.5)
     }
 
@@ -96,7 +96,7 @@ impl GamePlayer {
         // As with acceleration, the gap narrows below the pro range, so a
         // high school athlete still cuts like an athlete.
         let ag = self.a(Attr::Agility);
-        let ag = if ag >= 60.0 { 0.99 + crate::game::sim::knob(2, 0.014) * (ag - 60.0) } else { 0.99 + 0.006 * (ag - 60.0) };
+        let ag = if ag >= 60.0 { 0.99 + 0.011 * (ag - 60.0) } else { 0.99 + 0.006 * (ag - 60.0) };
         clamp(ag - 0.002 * (self.weight - 220.0), 0.4, 1.7)
     }
 
@@ -359,9 +359,19 @@ pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
         d.list(Position::WR).iter().chain(d.list(Position::RB)).chain(d.list(Position::CB)).copied().collect();
     kr.sort_by(|&a, &b| returner(&ps[b]).total_cmp(&returner(&ps[a])));
     kr.dedup();
-    // Starters at premium spots rarely return kicks.
+    // Starters rarely return kicks: a return is extra hits for a man the
+    // offense or defense needs. Backups do it unless there are none
+    // (proposed, not confirmed).
     let qb1 = d.list(Position::QB).first().copied();
     kr.retain(|&i| Some(i) != qb1);
+    let starting: Vec<usize> = [Position::RB, Position::WR, Position::CB]
+        .iter()
+        .flat_map(|&p| d.list(p).iter().take(starters(p)).copied())
+        .collect();
+    let backups: Vec<usize> = kr.iter().copied().filter(|i| !starting.contains(i)).collect();
+    if backups.len() >= 2 {
+        kr = backups;
+    }
     d.kick_returners = kr.iter().take(2).copied().collect();
     d.punt_returner = kr
         .iter()

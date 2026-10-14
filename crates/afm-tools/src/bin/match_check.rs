@@ -334,9 +334,18 @@ fn main() {
                         e[1] += y;
                         e[2] += (k == 5) as u8 as f64;
                         if k == 5 && std::env::var("AFM_LONG").is_ok() {
-                            println!("LONG {:.0} | {} | {} | box {} | {}", y, p.call, p.defense_call, p.box_count, p.why);
+                            println!(
+                                "LONG {:.0} | {} | {} | box {} | {}",
+                                y, p.call, p.defense_call, p.box_count, p.why
+                            );
                         }
-                        let bx = if p.box_count <= 6 { 0 } else if p.box_count == 7 { 1 } else { 2 };
+                        let bx = if p.box_count <= 6 {
+                            0
+                        } else if p.box_count == 7 {
+                            1
+                        } else {
+                            2
+                        };
                         by_box[bx][0] += 1.0;
                         by_box[bx][1] += y;
                     }
@@ -486,7 +495,11 @@ fn main() {
         row(&format!("runs {name} yards"), run_b[k] / rn.max(1.0), runs["share"][name].as_f64());
     }
     for (k, name) in ["<=6", "7", ">=8"].iter().enumerate() {
-        row(&format!("ypc, {name} in the box"), by_box[k][1] / by_box[k][0].max(1.0), runs["by_box"][name]["ypc"].as_f64());
+        row(
+            &format!("ypc, {name} in the box"),
+            by_box[k][1] / by_box[k][0].max(1.0),
+            runs["by_box"][name]["ypc"].as_f64(),
+        );
         row(&format!("share of runs, {name} in box"), by_box[k][0] / rn.max(1.0), None);
     }
     if std::env::var("AFM_LONG").is_ok() {
