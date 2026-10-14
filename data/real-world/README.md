@@ -78,6 +78,12 @@ Gaps (exact):
 - Earlier fixes kept: Browns' Huntington Bank Field and Commanders' Northwest Stadium.
 - Gap: `altitude_ft` still has no per-figure source.
 
+**Research area 1 files** (added 2026-10-14, explained in `docs/research/engine-and-tactics.md`):
+- `engine_targets.json` (`scripts/engine_targets.py`): NFL 2021-25 runs by box count, pressure and rushers, coverage and route results, play-action, RPO, motion, snap shares, carry and target shares, red zone, returns, player spread by position, contracts by position, home edge 1999-2025, and the 2025 scheme mix. From nflverse pbp, participation (NGS), FTN charting, snap counts, contracts and nfldata games.csv.
+- `coach_effect_offense.json`, `coach_effect_defense.json` (`scripts/coach_effect.py`): how much head coaches move EPA per play once the QB is held fixed, 2006-2025.
+- `college_scores.json` (`scripts/college_scores.py`): points, margins, blowouts and home edge for FBS, FCS, D2 and D3 from the sportsdataverse `cfb_schedules` release.
+- Gaps: no open play-by-play for D2, D3, NAIA, JUCO or high school; no NAIA or JUCO scores; no high school scheme survey.
+
 ## Main sources
 - Wikipedia lists: FBS, FCS and D2 programs; FBS and FCS stadiums; D2 institutions; conference member pages; national championship pages; AAU members; Carnegie R1/R2 list; US TV markets; current NFL stadiums.
 - Open datasets: sportsdataverse `cfb_schedules` and `cfb_recruits` releases, cfbfastR-data `rosters/csv`, nflverse `draft_picks` and `contracts` releases.
