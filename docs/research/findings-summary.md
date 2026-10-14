@@ -81,3 +81,43 @@ Everything here is **[published]** (NCAA, NFL, court and news sources, linked in
 ### 5. NFL roster and cap rules for section 5
 - **Real:** 48 of 53 players are active on game day. Teams can call up 2 practice squad players a game, and each player at most 3 times. Up to 8 players can come back from injured reserve (after at least 4 games out). Signing bonuses are spread over at most 5 years. Teams must spend 90% of the cap in cash over each multi-year period. The 2026 restricted free agent tenders run from $3.5M to $8.0M. The trade deadline is November 10, 2026.
 - **Means:** section 5 can use these as they are.
+
+## Area 3: real baselines for world trial 3
+
+Labels as above. Data: real college scores 2001-2025 (CFBD), ESPN recruit ratings, NFL draft and combine records (nflverse), 2024 college rosters.
+
+### 1. Dynasties
+- **Real:** [computed] since 2001, no school won more than **6 titles in any 15 years** (Alabama), and every 15 years had **7-9 different champions**. In 2011-2025 all of FBS had only 9 unbeaten seasons, and no school had more than one. The best 15-year record was Alabama's 183-26.
+- **Our game now:** Tennessee won 9 of 15 titles, went 198-13, and had 6 unbeaten seasons.
+- **Means:** clear checks for world trial 4, once the physics fixes are in.
+
+### 2. Droughts
+- **Real:** [computed] none of today's 68 Power 4 programs (plus Notre Dame) went 15 years without a winning season since 2001. The worst was Kansas, with 1 winning season in 2011-2025 and a 14-year run without one.
+- **Our game now:** 3 programs had no winning season in 15 years.
+- **Means:** a 15-year drought should be close to impossible.
+
+### 3. Black head coaches
+- **Real:** [published] 14 of 133 FBS head coaches in 2023 and 16 of 134 in 2024 (CBS Sports). 8 of the 68 Power 4 head coaches in 2025.
+- **Our game now:** 6 in 2025.
+- **Means:** the gap is real, and its cause in the world still needs a trace.
+
+### 4. Pick 1 QB
+- **Real:** [computed, already in the dataset] a QB went first in 73% of drafts since 2000. Our game: 45%. Nothing new needed.
+
+### 5. Late bloomers
+- **Real:** [computed] about **36% of NFL draft picks were 3-star recruits** and about **25% weren't rated at all** (or came via JUCO, prep or walk-on). Even in round 1, 3-stars (28%) are as common as 5-stars (26%).
+- **Our game now:** 3-stars and 2-stars are drafted too rarely (4.6% and 1.1%, against a real 6.0% and 2.1%).
+- **Means (proposal):** more hidden growth after high school, or more scouting misses, so about a third of picks come from 3-stars.
+
+### 6. Kickers and QBs are too athletic
+- **Real:** [computed] at the NFL combine, kickers average a 4.91 forty, and even the fastest 10% run 4.74. Half of kickers don't run at all. QBs average 4.81.
+- **Our game now:** drafted kickers run 4.54 and QBs 4.57, and a kicker had 94 sacks.
+- **Means (proposal):** kickers, punters and QBs get their own, much lower, athletic range.
+
+### 7. Repeated names may be fine
+- **Real:** [computed] 4.4% of the 22,837 players on 2024 college rosters share a full name with another player, and 1.3% of one NFL season's players do. The share grows with the size of the group.
+- **Our game now:** 46.5%, but counted over all 780,000 players, high school included.
+- **Means:** [estimated] at 780,000 players, a real share around half is plausible. Proposal: recount the trial on college rosters alone (about 23,000) and compare with 4.4% before changing the name pools.
+
+### 8. Money and portal gaps
+- **Real:** [published] schools paid players **$1.77 billion** in 2025-26, mostly in football and basketball (NCAA and College Sports Commission). Per-school spending is not published; only estimates exist (Ohio State $49-54M, Texas about $48M). FBS portal entries fell 23% in January 2026 after schools started paying players. There is still no public count of JUCO players moving to FBS.
