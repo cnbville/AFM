@@ -142,3 +142,24 @@ Labels as above. Data: NFL snap counts, injury reports, play-by-play, birth date
 - **Real:** [computed] a regular NFL player has about a **40-50% chance a season** of an injury that keeps him out, and misses about 1-1.5 games a season on average. Knees (17%), ankles (14%), hamstrings (13%) and concussions (11%) are the most common. Corners and receivers get hurt most, and specialists rarely. [published] games are 5-7 times more dangerous than practice, and college games about 2.5 times more than high school games.
 - **After a major injury:** [published] 62% of NFL running backs and receivers came back from an ACL tear, after about 14 months on average, and receivers came back clearly worse. About 24% of pro athletes never returned from an Achilles tear.
 - **Means (proposal):** use the real injury mix, risk by position and recovery times, with major injuries costing about a year and sometimes a career.
+
+## Area 5: high school playoffs and practice limits
+
+All [published] (state associations and news, linked per state in `hs-playoff-formats.md`), unless marked.
+
+### 1. Who makes the playoffs
+- **Real:** every state has its own format. Most take teams by district finish (often the top 4) plus a computer rating (RPI-style, points per win, or MaxPreps rankings). Fields run from everyone (Indiana, Minnesota, small classes in Utah) to 8 per class (Connecticut, Delaware, Vermont, Maine). Big states take about half their teams or more (Illinois 384, Wisconsin 256).
+- **Our game now:** 8 teams per state classification everywhere (`docs/world-model.md`), pending open question Q2.
+- **Means (proposal):** use each state's real format as data per state and class.
+
+### 2. Private schools
+- **Real:** many states now separate or handicap private schools: Louisiana select and non-select, Tennessee Division II, Alabama and Georgia private classes, Illinois' 1.65 enrollment multiplier, Connecticut's play-up rule, and separate private leagues in Mississippi and South Carolina. Several states have an Open division for the best teams (California, Florida, Arizona, Hawaii, Nevada, Oregon).
+- **Means (proposal):** private powerhouses should win in their own brackets where the real state does it.
+
+### 3. Practice limits
+- **Real:** Texas allows 8 hours a week outside the school day, 90 minutes of full contact a week, and 5 acclimatization days. In 2019, 43 states limited full contact in season, from 15 minutes a week (New Jersey) to 90 (Texas, Georgia, Iowa).
+- **Our game now:** no practice model yet (section 6b is not designed).
+- **Means (proposal):** high school teams get less hitting and install time than college, which slows playbook learning; limits per state feed section 6b.
+
+Gaps: field sizes for Arkansas, New Mexico, Rhode Island, New Hampshire, Montana and North Dakota, per-district counts for Kentucky and Oklahoma, and Washington DC.
+
