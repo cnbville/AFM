@@ -10,7 +10,7 @@ Related docs:
 - `docs/decisions.md`: the decision log, mostly about the player model.
 - `docs/development-model.md`: how the player model works today.
 - `docs/design/world.md`: section 2 (the world), the full design spec.
-- `docs/design/season-calendar-and-pacing.md`: draft calendar (week by week) and pacing.
+- `docs/design/calendar.md`: section 4, the season calendar and pacing (design done). `docs/design/season-calendar-and-pacing.md` is the older draft it replaces.
 
 ---
 
@@ -243,7 +243,7 @@ Every game at every level (high school, college, NFL) simulated play by play by 
 
 ### Section 4. Calendar
 
-The whole year for all three levels, with real rules and dates: games, signing days, portal windows, bowls, the combine, the draft, free agency, training camp. The patient pacing lives here. Starting point: `docs/design/season-calendar-and-pacing.md` (a draft from 2026-10-10; its defaults were later settled by the answers above: GM+HC role, mid-February start, real names with a toggle).
+The whole year for all three levels, with real rules and dates: games, signing days, portal windows, bowls, the combine, the draft, free agency, training camp. The patient pacing lives here. Design done 2026-10-14: the spec is `docs/design/calendar.md`. It replaces the older draft `docs/design/season-calendar-and-pacing.md` wherever they differ.
 
 ### Section 5. Team management
 
