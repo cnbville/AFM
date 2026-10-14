@@ -130,7 +130,7 @@ Raichel added the reward rule here (see section 0).
 5. **Defenses answer, so nothing stays on top.** Two-high shells answered the spread passing boom. Every trend gets a counter, and the cycle keeps going.
 6. **Ideas die and come back.** The wishbone and run-and-shoot faded. An old idea can return when defenses forget how to stop it.
 7. **Schemes shape the players.** If high schools pass more, more good passing QBs and fewer fullbacks come through over decades. The player pool shifts with the game.
-8. **Rule changes and analytics spread the same way.** New rules (section 4, rule changes over the years) shift what works, and data-driven habits like going for it on 4th down spread through the trees (section 3: the era changes through the world, not a hidden dial).
+8. **Analytics spread the same way.** On-field rules stay at the 2026 rules for the whole career (section 4, topic 11), so new rules never shift what works; only an agreed fixed list of off-field changes can happen. Data-driven habits like going for it on 4th down spread through the trees (section 3: the era changes through the world, not a hidden dial).
 9. **The user can watch it.** The world shows trend lines per level by year (pass rate, scheme shares, 4th-down rate). Real history only checks that the pace looks believable.
 
 ---

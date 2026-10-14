@@ -1,5 +1,7 @@
 # AFM Design: Season Calendar and Pacing
 
+> SUPERSEDED (2026-10-14): the finished section 4 spec is `docs/design/calendar.md`. Where the two differ, `calendar.md` wins.
+
 > DRAFT for roadmap section 4. The roadmap answers (`docs/roadmap.md`, 2026-10-11) settle this doc's defaults: you are GM and head coach of one NFL team, a save starts mid-February, and names are real (with a fictional toggle at new game, not fictional by default). The week-by-week calendar, tension tiers and climax budget are still unconfirmed.
 
 Status: draft v1 · 2026-10-10
