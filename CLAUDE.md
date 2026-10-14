@@ -8,7 +8,8 @@ A deep, realistic American football management sim modelled on Football Manager:
 3. `docs/decisions.md`: every player-model decision so far, what's assumed and what's open.
 4. `docs/development-model.md`: how the current player model works.
 5. `docs/design/match-engine.md`: section 3 (the match engine and stats database), the finished design spec. `docs/match-engine.md` says how the built engine works.
-6. `docs/design/season-calendar-and-pacing.md`: draft calendar for section 4 (older; the roadmap answers override its defaults).
+6. `docs/design/plays-and-tactics.md`: the plays and tactics database (play library, counters, pre-snap, learning playbooks, game plans, play calling and coach quality, tendencies, a play designer, ideas spreading). Design done 2026-10-14, not built.
+7. `docs/design/season-calendar-and-pacing.md`: draft calendar for section 4 (older; the roadmap answers override its defaults).
 
 ## Working rules (from Raichel)
 - **Ask before every design decision.** Bring a concrete proposal, then wait for the answer. Never pick defaults yourself.
