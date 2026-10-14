@@ -1,0 +1,1298 @@
+diff --git a/docs/development-model.md b/docs/development-model.md
+index 9a0dd30..997a9f7 100644
+--- a/docs/development-model.md
++++ b/docs/development-model.md
+@@ -19,34 +19,73 @@ Code: `src/`. Real-world calibration checks: `tests/career.test.ts`.
+ 
+ `developSeason` covers a season and its offseason, then ages the player a year. It is meant to run at the yearly potential review (W1 of the season calendar). In order:
+ 
+-1. **Injury roll.** Chance depends on level (HS lowest, NFL highest), position (RBs most, kickers least), injury proneness and snaps. Minor and moderate injuries slow growth and cost snaps. A **major injury** (about 1 in 9 injuries) halves the year's growth and permanently costs speed, acceleration, agility and jumping, more so after 24 and again after 28.
+-2. **Form.** Each year has a random form multiplier. On top of that, a **breakout** year (+70% growth, likelier for driven, competitive players up to 25), a **lost season** (complacency, off-field trouble, a bad fit; likelier with low work ethic, ages 17–27) or a **stagnation** year can happen.
+-3. **Potential moves.** Ceilings shift each year, driven by work ethic, coaching quality, coachability and playing time, with a smaller luck term. Growth spurts (ages 14–17) raise physical ceilings. How much ceilings can move falls with age: full until 17, 75% to 20, 50% to 23, 20% to 26, and after that the ceiling only falls with ageing. **A shift is capped at one band (5 points) per checkpoint**, so nobody becomes a five-star overnight. Major injuries are the only exception.
+-4. **Growth.** Each attribute closes part of the gap to its ceiling. The rate depends on the attribute's growth window (speed grows until about 20, strength through about 24, awareness and poise into the 30s), shifted by bloom. It is then scaled by coaching quality (and how much of it sticks, from coachability), playing time (game snaps matter most for mental and technique attributes), work ethic, form and injuries.
+-5. **Ageing.** Past each attribute's decline age, current rating and ceiling both fall, and the yearly loss grows each year. Speed and agility go first (from about 27), strength from about 31, technique in the early 30s, mental attributes last. QBs (+3 years), linemen (+1.5) and kickers (+6) decline later; RBs (−1.5) earlier. High work ethic slows decline.
++1. **Injury roll.** Chance depends on level (HS lowest, NFL highest), position (RBs most, kickers least), injury proneness and snaps. A redshirt, or a player suspended or dismissed that year, is only at practice and is hurt about half as often. Minor and moderate injuries slow growth and cost snaps. A **major injury** (about 1 in 9 injuries) halves the year's growth and permanently costs speed, acceleration, agility and jumping, more so after 24 and again after 28.
++2. **A body that stops growing.** At 18–20, about 2.5% a year (more for early bloomers), a player's body stops developing: his physical ceilings settle at about where his physical ratings are and never rise again.
++3. **Form.** Each year has a random form multiplier. On top of that, one of these can happen:
++   - A **breakout** year: +120% growth and a big jump in on-field level. It is likelier for driven, competitive players and young starters: 3.5% a year to 23, 2% to 27, 1% after. There is no breakout in a redshirt year, a suspension or a season mostly lost to injury. A breakout by a player already close to his ceiling can lift the ceiling by up to about 8 points, less with age. If his rating still falls that year, it was a good year on the field, not a breakout, and it isn't labelled one.
++   - A **suspension or dismissal** (college only, see the pipeline). This works like a lost season.
++   - A **lost season** (complacency, a bad fit, a coach who never trusts him), likelier with low work ethic, ages 17–27.
++   - A **slump**: production falls hard and ratings dip a little.
++   - A **stagnation** year.
++4. **Potential moves.** Ceilings shift each year, driven by work ethic, coaching quality, coachability and playing time, with a smaller luck term. Growth spurts (ages 14–17) raise physical ceilings. How much ceilings can move falls with age: full until 17, 75% to 20, 50% to 23, 20% to 26, and after that the ceiling only falls with ageing. **This yearly drift is capped at one band (5 points) per checkpoint**, so nobody becomes a five-star overnight. These can move potential further:
++   - a major injury;
++   - a stalled body;
++   - a breakout's ceiling lift;
++   - veterans' learning (from 21 to 31, real snaps keep adding to reading defenses, poise and technique);
++   - a ceiling rising when a player outgrows it.
++5. **Growth.** Each attribute closes part of the gap to its ceiling. The rate depends on the attribute's growth window (speed grows until about 20, strength through about 24, awareness and poise into the 30s), shifted by bloom. It is then scaled by:
++   - coaching quality, and how much of it sticks (coachability);
++   - playing time (game snaps matter most for mental and technique attributes);
++   - the level of competition (FCS and D2 slow what is learned from games);
++   - work ethic, form and injuries.
++6. **Ageing.** Past each attribute's decline age, current rating and ceiling both fall, and the yearly loss grows each year. Speed and agility go first (from about 27), strength from about 31, technique in the early 30s, mental attributes last. QBs (+3 years), linemen (+1.5) and kickers and punters (+2, on top of kicking attributes that already last to 36–37) decline later; RBs (−1.5) earlier. Physical decline moves by at most 1.5 years for any position. High work ethic slows decline. Once an attribute has stopped growing or started to decline, the unreachable part of its ceiling halves each year, so veterans don't keep upside they can't use.
++
++Each season record keeps the rating he played the season at (`overallStart`), his rating at the end of the year (`overall`, after the offseason), his potential, and his on-field level (`performance`: his rating during the season plus form; empty for a redshirt or suspended year).
+ 
+ ## The pipeline
+ 
+ `simulateCohort` runs a full national freshman class (default 250,000) through:
+ 
+-- **High school, ages 14–17.** Playing time comes from rank in the class; starting spots open up as the class ages. School coaching quality varies widely.
+-- **Recruiting.** Recruiting services rank the class on noisy scouting reports (current ability plus projection). Stars are rank-based, as in real composites: about 32 five-stars, 350 four-stars, 2,000 three-stars per class. About 1.3% sign with FBS schools, 1% with FCS and 4.5% with smaller colleges. Top FBS recruits get the best coaching.
+-- **College.** Four seasons of eligibility in five years, with a redshirt for freshmen who are not playing. Underclassmen with a strong draft grade leave after their third year.
+-- **Draft.** About 257 picks per class, then undrafted free agents. Draft grades come from scouts, who see small-school players less clearly.
+-- **Pro career.** Starters, rotation and backups develop at different rates. Each year a player can be cut (judged against a replacement level that rises after 30) or retire. Early-round picks get a few years of patience.
++- **High school, ages 14–17.** Playing time comes from rank within his position in the class (a quarterback competes with quarterbacks); starting spots open up as the class ages. School coaching quality varies widely.
++- **Recruiting.** Three services grade each senior's film; their average reads what he is today well. His upside is one shared guess, because services follow each other's projections. Film is judged against his own position, since quarterbacks and linemen mature later. Stars follow film and upside, about 32 five-stars, 350 four-stars, 2,000 three-stars and 4,000 two-stars a class, with these rules:
++  - Five-stars come only from the top 100 on film, four-stars from the top 1,000.
++  - Nobody in the top 150 has fewer than four stars, nobody in the top 800 fewer than three, nobody in the top 3,000 fewer than two.
++  - Kickers and punters get at most three stars.
++- **Signing.** About 1.3% of the class sign with FBS schools, 1% with FCS and 4.5% with smaller colleges.
++  - Three-stars and up sign first, in ranking order.
++  - FBS staffs then pick two-stars and unranked seniors on film and upside.
++  - FCS and then D2 staffs sign the best of the rest on film, so a better high school player never drops below a worse one he was ranked with.
++  - Top FBS recruits get the best coaching.
++- **College.** Four seasons of eligibility in five years, with a redshirt for freshmen who are not playing. Playing time is by rank within position. Underclassmen with a strong draft grade leave after their third year.
++  - **Trouble.** Each year about 3% of players (up to three times more with low work ethic and coachability) are suspended, ruled academically ineligible or dismissed. That year doesn't count as a season played. A second suspension at the same school is a dismissal. A dismissed player drops a level (FBS to FCS, FCS to D2) or, about 45% of the time, leaves football. Draft boards take 4 points off for each suspension and 8 for each dismissal.
++  - **Transfer portal.** Lower-level standouts move up when a scholarship is open and they choose to (most stay): about 350 FCS to FBS, 150 D2 to FBS and 100 D2 to FCS a class.
++- **Draft.** About 257 picks per class in real round sizes, then undrafted free agents. Draft grades come from scouts, who see small-school players less clearly and discount their competition. Each team grades every prospect once through its front office: good GMs see clearly, bad ones reach. No D2 player goes before round 4.
++- **Pro career.** Roles come from the rating a player shows going into the season: starter at 75, rotation at 67. Starters, rotation and backups develop at different rates. Each year a player can be cut (judged against a replacement level that rises after 30) or retire. Early-round picks get a few years of patience.
++
++## Level ratings
++
++Cards also show a 1–99 level rating. In high school it ranks a player against everyone his age nationally, in college against every FBS player (FCS and D2 players go on the same scale after the scouts' discount), and in the pros it is simply his overall. Each player is first placed against his own position, then ranked nationally. The scale follows EA College Football's rarity: about 100 players a season at 90+, about 10 at 95+, and a 99 only for a player well clear of everyone else.
+ 
+ ## Scouting
+ 
+ `scoutPlayer` returns what a staff member believes: estimated overall, a potential estimate and a range rounded to whole bands, plus FM-style half-stars. Error shrinks with scout skill (1–20) and grows for younger players and smaller levels.
+ 
+-## Calibration (250,000-player class)
++## Calibration (four 250,000-player classes, October 2026)
+ 
+ | Measure | Model | Real-world reference |
+ |---|---|---|
+-| Drafted, 5★ / 4★ / 3★ recruits | ~61% / 23% / 4.5% | roughly 55–60% / 20% / 5% |
+-| Draftees who were 2★ or unrated | ~26% | roughly 20–25% |
+-| Average pro career, all / drafted / 1st round / UDFA | ~4.2 / 6.9 / 10 / 2.5 seasons | about 3.3 / 5–6 / 9 / 2 |
+-| Median peak age, all / RB / QB | 26 / 24 / 30 | 26–27 / 25 / 28–30 |
+-| Pro seasons rated 90+ | ~2% | Madden: a few percent |
++| Drafted, 5★ / 4★ / 3★ recruits | 67–94% / 29–31% / 3.9–4.4% | about 63% / 20% / 5% |
++| Draftees who were 2★ or unranked | 16% | about 19% |
++| Top-100 seniors with fewer than four stars | 7–10 | a handful |
++| D2 players drafted | 0–3 a class, round 4 at the earliest | rare, day 3 only |
++| First-rounders from outside the top 50 on the consensus board | 1–4 | 1–3 |
++| Picks who were underclassmen | about 75% (97% of round 1) | 25–35% (about 60% of round 1) |
++| Average pro career, all signed / drafted / 1st round / UDFA | 3.3–3.8 / 6.0–6.7 / 11.8–13.8 / 1.7–2.1 seasons | about 3.3 / 5–6 / 9 / 2 |
++| Median peak age, all but K/P / RB / QB | 27–28 / 25–26 / 31–32 | 26–27 / 25 / 28–30 |
++| Pro seasons rated 90+ | 2–4.5% | Madden: a few percent |
++| College seasons at 90+ / 95+ level rating | 119–125 / 8–11 | EA: about 100 / 10 |
++| Trouble (suspended or dismissed) | 2.6–2.7% of college seasons | — |
++
++Known gaps waiting on design calls: five-stars and four-stars are drafted too often and low-ranked players too rarely (players arrive at college nearly finished), scouts' film error still leaves about 35 of the top 500 seniors with two stars, too many underclassmen leave early, first-round careers run long, retirement ignores position, and roles don't come from depth charts yet.
+ 
+ Run `npm run calibrate` to print the full table for any class size and seed.
+diff --git a/src/career.ts b/src/career.ts
+index 1049406..69fb8fd 100644
+--- a/src/career.ts
++++ b/src/career.ts
+@@ -1,8 +1,9 @@
+ import { developSeason } from './development.js';
+-import { generateProspect, overall, potential, type Level, type Player, type PlayingTime } from './player.js';
++import { generateProspect, overall, potential, type Level, type Player, type PlayingTime, type SeasonRecord } from './player.js';
+ import { Rng, clamp } from './rng.js';
+-import { buildLevelScale, levelGroupKey, levelRating, setsLevelScale, type LevelScale } from './levelRating.js';
++import { buildLevelScale, levelGroupKey, levelRating, positionAligner, setsLevelScale, type LevelScale } from './levelRating.js';
+ import { scoutPlayer } from './scouting.js';
++import type { Position } from './positions.js';
+ 
+ /**
+  * Simulates a whole national high school class from freshman year to the end
+@@ -40,10 +41,29 @@ export const PIPELINE = {
+   competitionDiscount: { FBS: 0, FCS: 1, SmallCollege: 5, HS: 0 } as Record<CollegeLevel | 'HS', number>,
+   /** First round in which teams will spend a pick on a D2/D3/NAIA player (day 3 = round 4). */
+   smallCollegeEarliestRound: 4,
++  /**
++   * Off-field and academic trouble in college. A suspension or academic
++   * ineligibility costs a season of games; a dismissal ends his time at the
++   * school, and many dismissed players drop a level or leave football. The
++   * chance is a year's risk for average work ethic and coachability and runs
++   * about three times higher for the least disciplined.
++   */
++  collegeTrouble: { chance: 0.03, dismissalShare: 0.3, dismissedQuitShare: 0.45 },
++  /** Points every draft board takes off for each suspension and dismissal on a player's record. */
++  redFlagDiscount: { suspended: 4, dismissed: 8 },
++  /**
++   * Stars follow what a senior is on film as well as what he might become.
++   * Nobody gets four or five stars without being among the best seniors in
++   * the country (top 100 for five stars, top 1,000 for four), and nobody in
++   * the top 150 goes without four stars, the top 800 without three, or the
++   * top 3,000 without two. Kickers and punters get at most three stars.
++   */
++  starFilmRank: { maxFor5: 100, maxFor4: 1000, minFor4: 150, minFor3: 800, minFor2: 3000 },
+ } as const;
+ 
+ export type RecruitStars = 0 | 2 | 3 | 4 | 5;
+ export type CollegeLevel = 'FBS' | 'FCS' | 'SmallCollege';
++/** Routes up through the transfer portal. (A dismissed player can also drop a level.) */
+ export type TransferRoute = 'FCS>FBS' | 'SmallCollege>FBS' | 'SmallCollege>FCS';
+ 
+ export interface CareerRecord {
+@@ -57,13 +77,19 @@ export interface CareerRecord {
+   /** College that first signed him out of high school. */
+   signedWith: CollegeLevel | null;
+   transfers: { age: number; from: CollegeLevel; to: CollegeLevel }[];
++  /** Left football during college, after a dismissal. */
++  leftFootball: boolean;
+   /** True potential when leaving college (or high school). */
+   potentialAtExit: number;
++  /** Consensus draft grade when he left college: what teams saw, after red flags and the competition discount. */
++  draftGrade: number | null;
+   draftPick: number | null;
+   udfa: boolean;
+   /** Team that drafted or signed him. */
+   team: Team | null;
+   nflSeasons: number;
++  /** How his pro career ended. */
++  proExit: 'cut' | 'retired' | null;
+   peakOverall: number;
+   peakAge: number;
+ }
+@@ -93,11 +119,14 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
+       college: null,
+       signedWith: null,
+       transfers: [],
++      leftFootball: false,
+       potentialAtExit: 0,
++      draftGrade: null,
+       draftPick: null,
+       udfa: false,
+       team: null,
+       nflSeasons: 0,
++      proExit: null,
+       peakOverall: overall(player),
+       peakAge: player.age,
+     });
+@@ -117,27 +146,77 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
+ 
+   // --- Recruiting: rank the class on what scouts see -------------------------
+   // Recruiting services rank on upside; college staffs offer on film, so what
+-  // a senior already is counts for more in who signs where.
++  // a senior already is counts for more in who signs where. Film is his senior
++  // season: the summer before college comes after signing day. Several
++  // services and staffs grade the same film, so between them they read it
++  // well. Upside is one shared guess: services follow each other's
++  // projections, so pooling them doesn't sharpen it.
++  const filmScore = new Map<CareerRecord, number>();
++  const projection = new Map<CareerRecord, number>();
++  for (const r of records) {
++    const seniorSeason = r.player.history[3]!.overallStart;
++    const now = overall(r.player);
++    let film = 0;
++    let upside = 0;
++    for (let k = 0; k < 3; k++) {
++      const rep = scoutPlayer(r.player, { accuracy: 12, level: 'HS' }, rng);
++      film += (seniorSeason + rep.overall - now) / 3;
++      if (k === 0) upside = rep.potential - rep.overall;
++    }
++    filmScore.set(r, film);
++    projection.set(r, film + (now - seniorSeason) + upside);
++  }
++  // Dominance is judged against his own position: quarterbacks and linemen
++  // mature later, so the best of them rate lower at 17 than the best backs.
++  const alignFilm = positionAligner(records.map((r) => [r.player.position, filmScore.get(r)!] as [Position, number]));
+   const starScore = new Map<CareerRecord, number>();
+   const recruitScore = new Map<CareerRecord, number>();
+   for (const r of records) {
+-    const rep = scoutPlayer(r.player, { accuracy: 12, level: 'HS' }, rng);
+-    // Kickers and punters are ranked on their own lists and almost never earn four or five stars.
+-    const specialist = r.player.position === 'K' || r.player.position === 'P' ? 8 : 0;
+-    starScore.set(r, rep.overall + 0.75 * (rep.potential - rep.overall) - specialist);
+-    recruitScore.set(r, rep.overall + 0.6 * (rep.potential - rep.overall));
++    const film = alignFilm(r.player.position, filmScore.get(r)!);
++    filmScore.set(r, film);
++    // Few programs spend a high ranking or an early scholarship on a kicker or punter.
++    const specialist = isSpecialist(r.player) ? 8 : 0;
++    starScore.set(r, 0.25 * film + 0.75 * projection.get(r)! - specialist);
++    recruitScore.set(r, 0.4 * film + 0.6 * projection.get(r)!);
+   }
++  const filmRank = new Map<CareerRecord, number>();
++  [...records].sort((a, b) => filmScore.get(b)! - filmScore.get(a)!).forEach((r, i) => filmRank.set(r, i + 1));
+   const byStarScore = [...records].sort((a, b) => starScore.get(b)! - starScore.get(a)!);
+-  let cursor = 0;
++  const { maxFor5, maxFor4, minFor4, minFor3, minFor2 } = PIPELINE.starFilmRank;
++  const maxRank: Record<2 | 3 | 4 | 5, number> = { 5: maxFor5, 4: maxFor4, 3: Infinity, 2: Infinity };
++  const mustRank: Record<2 | 3 | 4 | 5, number> = { 5: 0, 4: minFor4, 3: minFor3, 2: minFor2 };
+   for (const stars of [5, 4, 3, 2] as const) {
+-    const n = Math.round(PIPELINE.starShares[stars] * size);
+-    for (let k = 0; k < n && cursor < byStarScore.length; k++) byStarScore[cursor++]!.stars = stars;
++    let n = Math.round(PIPELINE.starShares[stars] * size);
++    const ceiling = Math.max(n, Math.round(maxRank[stars] * share));
++    const floor = Math.round(mustRank[stars] * share);
++    // First the dominant seniors this tier must include, then the best of the rest on upside.
++    for (const pass of ['floor', 'rest'] as const) {
++      for (const r of byStarScore) {
++        if (n <= 0) break;
++        const rank = filmRank.get(r)!;
++        if (r.stars || rank > ceiling || (pass === 'floor' && rank > floor)) continue;
++        if (stars >= 4 && isSpecialist(r.player)) continue;
++        r.stars = stars;
++        n--;
++      }
++    }
+   }
+-  const byRecruitScore = [...records].sort((a, b) => recruitScore.get(b)! - recruitScore.get(a)!);
+-  cursor = 0;
++  let cursor = 0;
++  // Offers follow the rankings: every three-star or better signs before anyone
++  // below him. Below that, staffs trust their own film over a service's last
++  // stars. FBS staffs pick two-stars and unranked seniors on film and upside;
++  // FCS and then D2 staffs sign the best of what's left on film.
++  const tier = (r: CareerRecord) => (r.stars >= 3 ? r.stars : 0);
++  const byRecruitScore = [...records].sort((a, b) => tier(b) - tier(a) || recruitScore.get(b)! - recruitScore.get(a)!);
++  const reorderRest = (compare: (a: CareerRecord, b: CareerRecord) => number) =>
++    byRecruitScore
++      .slice(cursor)
++      .sort(compare)
++      .forEach((r, k) => (byRecruitScore[cursor + k] = r));
+   const collegeCoaching = new Map<CareerRecord, number>();
+   for (const level of ['FBS', 'FCS', 'SmallCollege'] as const) {
+     const n = Math.round(PIPELINE.collegeShares[level] * size);
++    if (level === 'FCS') reorderRest((a, b) => filmScore.get(b)! - filmScore.get(a)!);
+     for (let k = 0; k < n && cursor < byRecruitScore.length; k++) {
+       const r = byRecruitScore[cursor++]!;
+       r.college = level;
+@@ -156,6 +235,9 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
+   const active = new Set(collegians);
+   const seasonsPlayed = new Map<CareerRecord, number>();
+   const redshirted = new Set<CareerRecord>();
++  const dismissed: CareerRecord[] = [];
++  // Players already suspended at their current school: a second incident there ends it.
++  const onNotice = new Set<CareerRecord>();
+   const collegeStarterShare = [0.08, 0.3, 0.5, 0.65, 0.7];
+   for (let year = 0; year < 5 && active.size > 0; year++) {
+     for (const level of ['FBS', 'FCS', 'SmallCollege'] as const) {
+@@ -163,13 +245,23 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
+       const roles = rolesByRank(group, collegeStarterShare[year]!, 0.25);
+       for (const r of group) {
+         let role = roles.get(r)!;
+-        if (role === 'backup' && !redshirted.has(r) && year <= 1) {
++        let trouble = rng.chance(troubleChance(r.player))
++          ? rng.chance(PIPELINE.collegeTrouble.dismissalShare)
++            ? ('dismissed' as const)
++            : ('suspended' as const)
++          : undefined;
++        if (trouble === 'suspended' && onNotice.has(r)) trouble = 'dismissed';
++        if (trouble === 'suspended') onNotice.add(r);
++        if (trouble) role = 'backup';
++        else if (role === 'backup' && !redshirted.has(r) && year <= 1) {
+           role = 'redshirt';
+           redshirted.add(r);
+         }
+-        developSeason(r.player, { level, coaching: collegeCoaching.get(r)!, playingTime: role }, rng);
++        developSeason(r.player, { level, coaching: collegeCoaching.get(r)!, playingTime: role, trouble }, rng);
+         trackPeak(r);
+-        if (role !== 'redshirt') seasonsPlayed.set(r, (seasonsPlayed.get(r) ?? 0) + 1);
++        // A year without games doesn't use one of his four seasons.
++        if (role !== 'redshirt' && !trouble) seasonsPlayed.set(r, (seasonsPlayed.get(r) ?? 0) + 1);
++        if (trouble === 'dismissed') dismissed.push(r);
+       }
+     }
+     for (const r of [...active]) {
+@@ -178,9 +270,28 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
+       if (exhausted || (year >= 2 && score >= PIPELINE.earlyEntryScore)) {
+         active.delete(r);
+         r.potentialAtExit = potential(r.player);
++        r.draftGrade = score;
+         entrants.push({ record: r, score });
+       }
+     }
++    // A dismissed player who isn't ready to declare starts over a level down, or leaves the game.
++    const startingOver = new Set<CareerRecord>();
++    for (const r of dismissed.splice(0)) {
++      if (!active.has(r)) continue;
++      const from = r.college!;
++      const to = from === 'FBS' ? 'FCS' : from === 'FCS' ? 'SmallCollege' : null;
++      if (to && !rng.chance(PIPELINE.collegeTrouble.dismissedQuitShare)) {
++        r.transfers.push({ age: r.player.age, from, to });
++        r.college = to;
++        onNotice.delete(r);
++        startingOver.add(r);
++        collegeCoaching.set(r, clamp(rng.normal(to === 'FCS' ? 10 : 8.5, 2), 1, 20));
++      } else {
++        active.delete(r);
++        r.leftFootball = true;
++        r.potentialAtExit = potential(r.player);
++      }
++    }
+     // Transfer portal: standouts at lower levels move up for the exposure,
+     // coaching and competition, while they still have eligibility left.
+     // Each level only has so many open scholarships for transfers.
+@@ -189,10 +300,13 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
+         FBS: medianOverall([...active].filter((r) => r.college === 'FBS')),
+         FCS: medianOverall([...active].filter((r) => r.college === 'FCS')),
+       };
++      // A player who turns down a move up has decided to stay this year, and
++      // one just dismissed has to prove himself where he landed first.
++      const stayed = new Set<CareerRecord>(startingOver);
+       for (const route of Object.keys(PIPELINE.transferSlots) as TransferRoute[]) {
+         const [from, to] = route.split('>') as ['FCS' | 'SmallCollege', 'FBS' | 'FCS'];
+         const candidates = [...active]
+-          .filter((r) => r.college === from && (seasonsPlayed.get(r) ?? 0) < 4)
++          .filter((r) => r.college === from && (seasonsPlayed.get(r) ?? 0) < 4 && !stayed.has(r))
+           .map((r) => ({ r, ovr: overall(r.player) }))
+           .filter(({ ovr }) => ovr >= medians[to] + PIPELINE.transferMargin[from])
+           // Coaches recruit the portal on film, so their order is only roughly by ability.
+@@ -201,10 +315,14 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
+         let open = Math.round(PIPELINE.transferSlots[route] * size);
+         for (const { r } of candidates) {
+           if (open <= 0) break;
+-          if (!rng.chance(PIPELINE.transferChance)) continue;
++          if (!rng.chance(PIPELINE.transferChance)) {
++            stayed.add(r);
++            continue;
++          }
+           open--;
+           r.transfers.push({ age: r.player.age, from, to });
+           r.college = to;
++          onNotice.delete(r);
+           collegeCoaching.set(r, clamp(rng.normal(to === 'FBS' ? 12 : 10, 2), 1, 20));
+         }
+       }
+@@ -221,6 +339,15 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
+   const udfaSlots = Math.round(draftSlots * PIPELINE.udfaRatio);
+   const pros: CareerRecord[] = [];
+   const pool = [...entrants];
++  // A team grades each prospect once; its board doesn't change between its picks.
++  const boards = new Map<Team, Map<CareerRecord, number>>();
++  const grade = (team: Team, r: CareerRecord) => {
++    let board = boards.get(team);
++    if (!board) boards.set(team, (board = new Map()));
++    let offset = board.get(r);
++    if (offset === undefined) board.set(r, (offset = rng.normal(0, draftBoardNoise(team.draftSkill))));
++    return offset;
++  };
+   for (let pick = 1; pick <= draftSlots && pool.length > 0; pick++) {
+     const team = order[(pick - 1) % order.length]!;
+     let bestIndex = 0;
+@@ -228,7 +355,7 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
+     const round = draftRound(pick, draftSlots);
+     for (let i = 0; i < Math.min(60, pool.length); i++) {
+       if (pool[i]!.record.college === 'SmallCollege' && round < PIPELINE.smallCollegeEarliestRound) continue;
+-      const value = pool[i]!.score + rng.normal(0, boardNoise(team.draftSkill));
++      const value = pool[i]!.score + grade(team, pool[i]!.record);
+       if (value > bestValue) {
+         bestValue = value;
+         bestIndex = i;
+@@ -253,25 +380,45 @@ export function simulateCohort({ size, seed }: CohortOptions): CohortResult {
+   return { records, draftSlots };
+ }
+ 
+-/** Fill in each season's level rating against the national pool for his level and age. */
++/**
++ * Fill in each season's level rating against the national pool for his level
++ * and age, using the rating he played that season at. The end-of-year level
++ * ranks his rating at the end of the season against everyone else's at the
++ * end of theirs.
++ */
+ function attachLevelRatings(records: CareerRecord[], classShare: number): void {
+-  const groups = new Map<string, number[]>();
+-  for (const r of records) {
+-    for (const s of r.player.history) {
+-      const key = levelGroupKey(s.level, s.age);
+-      if (!key || !setsLevelScale(s.level)) continue;
+-      let g = groups.get(key);
+-      if (!g) groups.set(key, (g = []));
+-      g.push(s.overall);
++  type Scales = Map<string, { scale: LevelScale; align: ReturnType<typeof positionAligner> }>;
++  const buildScales = (pick: (s: SeasonRecord) => number): Scales => {
++    const groups = new Map<string, [Position, number][]>();
++    for (const r of records) {
++      for (const s of r.player.history) {
++        const key = levelGroupKey(s.level, s.age);
++        if (!key || !setsLevelScale(s.level)) continue;
++        let g = groups.get(key);
++        if (!g) groups.set(key, (g = []));
++        g.push([r.player.position, pick(s)]);
++      }
+     }
+-  }
+-  const scales = new Map<string, LevelScale>();
+-  for (const [key, overalls] of groups) scales.set(key, buildLevelScale(overalls, key === 'College' ? 'College' : 'HS', classShare));
++    const scales: Scales = new Map();
++    for (const [key, samples] of groups) {
++      const align = positionAligner(samples);
++      const aligned = samples.map(([position, x]) => align(position, x));
++      scales.set(key, { scale: buildLevelScale(aligned, key === 'College' ? 'College' : 'HS', classShare), align });
++    }
++    return scales;
++  };
++  const atStart = buildScales((s) => s.overallStart);
++  const atEnd = buildScales((s) => s.overall);
+   for (const r of records) {
+     for (const s of r.player.history) {
+       const key = levelGroupKey(s.level, s.age);
+       const discount = s.level === 'FCS' || s.level === 'SmallCollege' ? PIPELINE.competitionDiscount[s.level] : 0;
+-      s.levelRating = levelRating(s.overall - discount, s.level, key ? scales.get(key) : undefined);
++      const rate = (scales: Scales, ovr: number) => {
++        const group = key ? scales.get(key) : undefined;
++        return levelRating(group ? group.align(r.player.position, ovr - discount) : ovr, s.level, group?.scale);
++      };
++      s.levelRating = rate(atStart, s.overallStart);
++      s.levelRatingEnd = rate(atEnd, s.overall);
+     }
+   }
+ }
+@@ -305,11 +452,22 @@ function makeTeams(rng: Rng): Team[] {
+   return Array.from({ length: 32 }, (_, id) => ({ id, draftSkill: clamp(Math.round(rng.normal(10.5, 3.5)), 1, 20) }));
+ }
+ 
+-/** How far off a front office's read of a player is, in rating points. */
++/** How far off a front office's read of a player on its own roster is, in rating points. */
+ function boardNoise(skill: number): number {
+   return 1.5 + (20 - skill) * 0.35;
+ }
+ 
++/**
++ * How far off a front office's draft grade is, in rating points: 1 for the
++ * best, 3.5 for an average team and about 6 for the worst. Prospects are
++ * scouted for years and graded by many people, so an average team's board
++ * strays less than its read of a camp body. Real drafts take 1-3 first-
++ * rounders a year from outside the consensus top 50.
++ */
++function draftBoardNoise(skill: number): number {
++  return 1 + (20 - skill) * 0.25;
++}
++
+ function simulateProCareer(r: CareerRecord, draftSlots: number, rng: Rng): void {
+   const p = r.player;
+   const team = r.team!;
+@@ -317,40 +475,66 @@ function simulateProCareer(r: CareerRecord, draftSlots: number, rng: Rng): void
+   // Draft capital buys patience: early picks get years to develop before being cut.
+   const round = r.draftPick === null ? 8 : draftRound(r.draftPick, draftSlots);
+   const protection = [0, 6, 4, 3, 2, 1, 0, 0, 0][round]!;
+-  for (let season = 0; p.age <= 42; season++) {
+-    const ovr = overall(p);
++  // (The age limit is only a safeguard: cuts and retirement end careers.)
++  for (let season = 0; p.age <= 50; season++) {
++    // Roles go by the rating a player shows, the one on his card.
++    const ovr = Math.round(overall(p));
+     const role: PlayingTime = ovr >= NFL_LEVELS.starter ? 'starter' : ovr >= NFL_LEVELS.roster + 2 ? 'rotation' : 'backup';
+     const report = developSeason(p, { level: 'NFL', coaching, playingTime: role }, rng);
+     r.nflSeasons++;
+     trackPeak(r);
+     if (season % 3 === 2) coaching = clamp(rng.normal(13, 2.5), 1, 20);
+ 
+-    const kicker = p.position === 'K' || p.position === 'P';
++    const kicker = isSpecialist(p);
+     const age = p.age;
+     // Teams judge on what they see, including this season's production.
+-    const seen = report.overallAfter * 0.7 + p.history[p.history.length - 1]!.performance * 0.3 + rng.normal(0, boardNoise(team.draftSkill) * 0.5);
++    const performance = p.history[p.history.length - 1]!.performance ?? report.overallAfter;
++    const seen = report.overallAfter * 0.7 + performance * 0.3 + rng.normal(0, boardNoise(team.draftSkill) * 0.5);
+     // Roster spots go to whoever beats the next man up, so the real line sits
+     // a little above the roster guidance and rises with age.
+     const cutLine = NFL_LEVELS.roster + 5 + Math.max(0, age - (kicker ? 35 : 29)) * 1.2 - (season < 3 ? protection : 0);
+     const keepChance = 1 / (1 + Math.exp(-(seen - cutLine) / 2));
+-    if (!rng.chance(keepChance)) return;
++    if (!rng.chance(keepChance)) {
++      r.proExit = 'cut';
++      return;
++    }
+     const major = report.events.includes('majorInjury');
+     const retireAge = kicker ? 35 : 30;
+     // Stars keep playing while they are still stars; fringe veterans walk away.
+     const standing = report.overallAfter >= 85 ? 0.25 : report.overallAfter >= 78 ? 0.5 : 1;
+     const retireChance =
+       ((age < retireAge ? 0.004 : 0.02 + (age - retireAge) * 0.045) + (major ? (age >= 27 ? 0.15 : 0.04) : 0)) * standing;
+-    if (rng.chance(retireChance)) return;
++    if (rng.chance(retireChance)) {
++      r.proExit = 'retired';
++      return;
++    }
+   }
++  r.proExit = 'retired';
++}
++
++/** Yearly chance of off-field or academic trouble in college. */
++function troubleChance(p: Player): number {
++  const { workEthic, coachability } = p.personality;
++  return PIPELINE.collegeTrouble.chance * clamp(1 + (10 - workEthic) * 0.12 + (10 - coachability) * 0.06, 0.25, 3);
++}
++
++function isSpecialist(p: Player): boolean {
++  return p.position === 'K' || p.position === 'P';
+ }
+ 
+ /** What a draft room thinks of a prospect: current ability plus some projection. */
+ function draftScore(r: CareerRecord, rng: Rng): number {
+   const rep = scoutPlayer(r.player, { accuracy: 13, level: r.college ?? 'HS' }, rng);
+   const youth = clamp((23 - r.player.age) / 3, 0, 1);
+-  const specialist = r.player.position === 'K' || r.player.position === 'P' ? 8 : 0;
++  const specialist = isSpecialist(r.player) ? 8 : 0;
+   const competition = PIPELINE.competitionDiscount[r.college ?? 'HS'];
+-  return rep.overall + (0.25 + 0.2 * youth) * (rep.potential - rep.overall) - specialist - competition;
++  // Off-field and academic red flags cost a player on every board.
++  const { suspended, dismissed } = PIPELINE.redFlagDiscount;
++  const flags = r.player.history.reduce(
++    (sum, s) => sum + (s.events.includes('dismissed') ? dismissed : s.events.includes('suspended') ? suspended : 0),
++    0,
++  );
++  return rep.overall + (0.25 + 0.2 * youth) * (rep.potential - rep.overall) - specialist - competition - flags;
+ }
+ 
+ function medianOverall(group: CareerRecord[]): number {
+@@ -359,20 +543,30 @@ function medianOverall(group: CareerRecord[]): number {
+   return xs[Math.floor(xs.length / 2)]!;
+ }
+ 
++/** Playing time by rank within each position: a quarterback competes with quarterbacks. */
+ function rolesByRank(group: CareerRecord[], starterShare: number, rotationShare: number): Map<CareerRecord, PlayingTime> {
+-  const sorted = group.map((r) => ({ r, ovr: overall(r.player) })).sort((a, b) => b.ovr - a.ovr);
++  const byPosition = new Map<Position, { r: CareerRecord; ovr: number }[]>();
++  for (const r of group) {
++    let g = byPosition.get(r.player.position);
++    if (!g) byPosition.set(r.player.position, (g = []));
++    g.push({ r, ovr: overall(r.player) });
++  }
+   const roles = new Map<CareerRecord, PlayingTime>();
+-  sorted.forEach(({ r }, i) => {
+-    const q = i / sorted.length;
+-    roles.set(r, q < starterShare ? 'starter' : q < starterShare + rotationShare ? 'rotation' : 'backup');
+-  });
++  for (const g of byPosition.values()) {
++    g.sort((a, b) => b.ovr - a.ovr);
++    g.forEach(({ r }, i) => {
++      const q = i / g.length;
++      roles.set(r, q < starterShare ? 'starter' : q < starterShare + rotationShare ? 'rotation' : 'backup');
++    });
++  }
+   return roles;
+ }
+ 
++/** Best rating he played a season at. */
+ function trackPeak(r: CareerRecord): void {
+   const last = r.player.history[r.player.history.length - 1];
+-  if (last && last.overall > r.peakOverall) {
+-    r.peakOverall = last.overall;
++  if (last && last.overallStart > r.peakOverall) {
++    r.peakOverall = last.overallStart;
+     r.peakAge = last.age;
+   }
+ }
+diff --git a/src/development.ts b/src/development.ts
+index 53c9089..017c694 100644
+--- a/src/development.ts
++++ b/src/development.ts
+@@ -13,11 +13,18 @@ export interface SeasonContext {
+   /** Quality of the player's coaching staff, 1-20. */
+   coaching: number;
+   playingTime: PlayingTime;
++  /** Off-field or academic trouble that costs him this season's games. */
++  trouble?: 'suspended' | 'dismissed';
+ }
+ 
+ /** Potential is reported in bands of this many points (one half-star). */
+ export const POTENTIAL_BAND = 5;
+-/** Most a player's true potential may move in one checkpoint, up or down, outside of a major injury. */
++/**
++ * Most the yearly drift may move a player's true potential in one checkpoint,
++ * up or down. A major injury, a body that stops developing and a proven
++ * breakout can move it further, and a ceiling also rises when a player
++ * outgrows it.
++ */
+ export const MAX_POTENTIAL_SHIFT = POTENTIAL_BAND;
+ 
+ const LEVEL_INJURY_RATE: Record<Level, number> = {
+@@ -31,14 +38,19 @@ const LEVEL_INJURY_RATE: Record<Level, number> = {
+ /** Points per unit of growth rate added on top of proportional growth. */
+ const FINISHING_STEP = 1.6;
+ const MAX_YEARLY_GAIN = 12;
++/** Yearly chance, at 18-20, that an average bloomer's body stops developing (higher for early bloomers). */
++const STALL_CHANCE = 0.025;
+ 
+ const PROFILE_LIST = ATTRIBUTE_KEYS.map((k) => ATTRIBUTE_PROFILES[k]);
+ const ceilingDeltaBuffer = new Float64Array(ATTRIBUTE_KEYS.length);
++const settlingBuffer = new Uint8Array(ATTRIBUTE_KEYS.length);
+ const deltaAttrs = emptyAttributes(0);
+ 
+ /**
+- * Facilities, strength staff and the quality of the man across from you. A D2
+- * star dominates but is rarely pushed, and his weight room is not an SEC one.
++ * The quality of the man across from you. A D2 star dominates but is rarely
++ * pushed, so what he learns from games (reading defenses, technique) grows
++ * more slowly. This barely touches physical growth: weight rooms and strength
++ * staffs come through the coaching rating, which averages lower at D2.
+  */
+ const LEVEL_GROWTH: Record<Level, number> = {
+   HS: 1,
+@@ -86,7 +98,8 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
+     LEVEL_INJURY_RATE[ctx.level] *
+     POSITION_PROFILES[player.position].injuryRisk *
+     (0.55 + player.injuryProneness * 0.045) *
+-    (ctx.playingTime === 'starter' ? 1.15 : ctx.playingTime === 'redshirt' ? 0.5 : 0.9);
++    // A suspended or dismissed player is at most at practice, like a redshirt.
++    (ctx.trouble ? 0.5 : ctx.playingTime === 'starter' ? 1.15 : ctx.playingTime === 'redshirt' ? 0.5 : 0.9);
+   if (rng.chance(injuryChance)) {
+     const roll = rng.next();
+     const severity: DevelopmentEvent = roll < 0.62 ? 'minorInjury' : roll < 0.89 ? 'moderateInjury' : 'majorInjury';
+@@ -111,6 +124,22 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
+     }
+   }
+ 
++  // --- A body that stops growing ----------------------------------------------
++  // High school stars who were simply bigger and faster than boys their age
++  // often stop growing in college while everyone else catches up. Early
++  // bloomers are the most likely to be done.
++  // Once stalled, his physical ceilings stay where they settled.
++  let stalled = player.history.some((h) => h.events.includes('bodyStalled'));
++  if (age >= 18 && age <= 20 && !stalled && rng.chance(STALL_CHANCE * Math.exp(-0.7 * player.bloom))) {
++    stalled = true;
++    events.push('bodyStalled');
++    for (let i = 0; i < ATTRIBUTE_KEYS.length; i++) {
++      if (PROFILE_LIST[i]!.group !== 'physical') continue;
++      const key = ATTRIBUTE_KEYS[i]!;
++      player.ceilings[key] = Math.min(player.ceilings[key], player.attributes[key] + rng.range(0, 2));
++    }
++  }
++
+   // --- Form for the year: breakouts, slumps and lost seasons ----------------
+   // Development is lumpy: a single season can be worth three normal ones, and a
+   // good year is often followed by a dip as opponents adjust.
+@@ -128,12 +157,19 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
+     (youngStarter ? 1.5 : ctx.playingTime === 'backup' ? 0.6 : 1);
+   const slumpChance = hotLastYear ? 0.16 : 0.06;
+   const stagnationChance = 0.05 - (personality.workEthic - 10) * 0.003 - (personality.competitiveness - 10) * 0.0015;
+-  // Complacency, off-field trouble, a bad scheme fit: the quiet reasons prospects bust.
++  // Complacency, a bad scheme fit, a coach who never trusts him: the quiet reasons prospects bust.
+   const lostSeasonChance =
+     age >= 17 && age <= 27
+       ? Math.max(0.005, 0.03 + (10 - personality.workEthic) * 0.004 + (10 - personality.competitiveness) * 0.002)
+       : 0;
+-  if (ctx.playingTime !== 'redshirt' && rng.chance(breakoutChance)) {
++  if (ctx.trouble) {
++    // A year away from games and from the staff's trust: like a lost season, and it shows on the field.
++    events.push(ctx.trouble);
++    form *= 0.4;
++    setback = 1.8;
++    performance -= rng.range(3, 7);
++  } else if (ctx.playingTime !== 'redshirt' && snapsFactor >= 0.65 && rng.chance(breakoutChance)) {
++    // (No breakout in a redshirt year or one mostly lost to injury.)
+     events.push('breakout');
+     form *= 2.2;
+     performance += rng.range(3, 7);
+@@ -181,6 +217,7 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
+       const key = ATTRIBUTE_KEYS[i]!;
+       let d = shared + rng.normal(0, 1.2 * plasticity);
+       if (spurt && PROFILE_LIST[i]!.group === 'physical') d += rng.range(2, 6) * (key === 'strength' ? 1.3 : 0.8);
++      if (stalled && d > 0 && PROFILE_LIST[i]!.group === 'physical') d = 0;
+       const current = player.ceilings[key];
+       delta[i] = clamp(current + d, MIN_RATING, MAX_RATING) - current;
+       deltaAttrs[key] = delta[i]!;
+@@ -193,7 +230,7 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
+   // Reading defenses, poise and route timing keep deepening with real snaps
+   // well after the body has stopped growing: veterans earn new ceiling and
+   // most of it shows up on the field straight away.
+-  if (age >= 21 && age <= 31) {
++  if (age >= 21 && age <= 31 && !ctx.trouble) {
+     const snapsShare = ctx.playingTime === 'starter' ? 1 : ctx.playingTime === 'rotation' ? 0.6 : 0.2;
+     for (let i = 0; i < ATTRIBUTE_KEYS.length; i++) {
+       const profile = PROFILE_LIST[i]!;
+@@ -205,8 +242,10 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
+   }
+   if (breakoutLift > 0) {
+     const weights = POSITION_PROFILES[player.position].weights;
+-    for (const key of ATTRIBUTE_KEYS) {
+-      if (weights[key]) player.ceilings[key] = Math.min(MAX_RATING, player.ceilings[key] + breakoutLift * rng.range(0.6, 1.2));
++    for (let i = 0; i < ATTRIBUTE_KEYS.length; i++) {
++      const key = ATTRIBUTE_KEYS[i]!;
++      if (!weights[key] || (stalled && PROFILE_LIST[i]!.group === 'physical')) continue;
++      player.ceilings[key] = Math.min(MAX_RATING, player.ceilings[key] + breakoutLift * rng.range(0.6, 1.2));
+     }
+   }
+ 
+@@ -220,10 +259,10 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
+   for (let i = 0; i < ATTRIBUTE_KEYS.length; i++) {
+     const key = ATTRIBUTE_KEYS[i]!;
+     const profile = PROFILE_LIST[i]!;
+-    const gap = player.ceilings[key] - player.attributes[key];
+-    if (gap <= 0) continue;
+     const ageFactor = growthAgeFactor(developmentAge, profile.growthWindow);
+-    if (ageFactor <= 0.01) continue;
++    settlingBuffer[i] = ageFactor <= 0.01 ? 1 : 0;
++    const gap = player.ceilings[key] - player.attributes[key];
++    if (gap <= 0 || ageFactor <= 0.01) continue;
+     const coaching = Math.pow(coachingBoost, profile.coachability);
+     const snaps = Math.pow(snapsMult, profile.experience);
+     const redshirtLift = ctx.playingTime === 'redshirt' && profile.group === 'physical' ? 1.35 : 1;
+@@ -243,13 +282,20 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
+     const onset = profile.declineAge + player.longevity + (profile.group === 'physical' ? Math.min(posOffset, 1.5) : posOffset);
+     const yearsPast = age + 1 - onset;
+     if (yearsPast <= 0) continue;
++    settlingBuffer[i] = 1;
+     const loss = profile.declineRate * yearsPast * declineResistance * rng.logNormal(0.3);
+     player.attributes[key] -= loss;
+     player.ceilings[key] -= loss;
+   }
+ 
+   // --- Tidy up ---------------------------------------------------------------
+-  for (const key of ATTRIBUTE_KEYS) {
++  for (let i = 0; i < ATTRIBUTE_KEYS.length; i++) {
++    const key = ATTRIBUTE_KEYS[i]!;
++    // Once an attribute has stopped growing or started to decline, the ceiling
++    // above it is out of reach: veterans don't keep upside they can't use.
++    if (settlingBuffer[i] && player.ceilings[key] > player.attributes[key]) {
++      player.ceilings[key] = player.attributes[key] + (player.ceilings[key] - player.attributes[key]) / 2;
++    }
+     player.ceilings[key] = clamp(player.ceilings[key], MIN_RATING, MAX_RATING);
+     player.attributes[key] = clamp(player.attributes[key], MIN_RATING, MAX_RATING);
+     // Over-performing a ceiling means the ceiling was wrong, not the player.
+@@ -258,13 +304,19 @@ export function developSeason(player: Player, ctx: SeasonContext, rng: Rng): Sea
+ 
+   const overallAfter = overallFor(player.position, player.attributes);
+   const potentialAfter = potential(player);
++  // A big year on the field from a player whose rating still fell is a career year, not a breakout.
++  if (overallAfter < overallBefore && events.includes('breakout')) events.splice(events.indexOf('breakout'), 1);
++  // He improves (or fades) through the year, so he plays the season between his two ratings.
++  const noGames = ctx.playingTime === 'redshirt' || !!ctx.trouble;
+   player.history.push({
+     age,
+     level: ctx.level,
+     playingTime: ctx.playingTime,
++    overallStart: overallBefore,
+     overall: overallAfter,
+     potential: potentialAfter,
+-    performance: overallAfter + performance,
++    performance: noGames ? null : clamp((overallBefore + overallAfter) / 2 + performance, MIN_RATING, MAX_RATING),
++    coaching: ctx.coaching,
+     events,
+   });
+   player.age += 1;
+diff --git a/src/levelRating.ts b/src/levelRating.ts
+index ac33c01..a42c4d7 100644
+--- a/src/levelRating.ts
++++ b/src/levelRating.ts
+@@ -1,4 +1,5 @@
+ import type { Level } from './player.js';
++import type { Position } from './positions.js';
+ 
+ /**
+  * A level rating says how good a player is against everyone he could line up
+@@ -6,11 +7,17 @@ import type { Level } from './player.js';
+  * itself; high school and college get this translation so that a 60-rated
+  * junior reads as the force he is against high school opponents.
+  *
+- * - High school: compared with every high schooler of the same age, all
+- *   positions together, like a national recruiting ranking.
+- * - College: compared with every FBS player, all ages and positions together,
+- *   like EA Sports College Football. FCS and small-college players are put on
+- *   the same FBS scale after the same discount NFL scouts give their tape.
++ * - High school: compared with every high schooler of the same age, like a
++ *   national recruiting ranking.
++ * - College: compared with every FBS player of any age, like EA Sports College
++ *   Football. FCS and small-college players are put on the same FBS scale
++ *   after the same discount NFL scouts give their tape.
++ *
++ * Positions mature at different ages: at 17 the best quarterbacks and
++ * linemen rate lower than the best running backs and corners, though they are
++ * just as far ahead of their peers. So a player is first placed against his
++ * own position (see positionAligner) and then ranked nationally, the way EA
++ * Sports College Football's top 100 spans every position.
+  *
+  * The scale is anchored to national ranks, using how rare top ratings are in
+  * EA College Football (about 11,000 players a season): 90+ is roughly the top
+@@ -73,6 +80,41 @@ export function buildLevelScale(overalls: number[], pool: Pool, classShare = 1):
+   return { points: clean };
+ }
+ 
++/**
++ * Maps an overall at one position onto the all-position scale of the same
++ * group, so that the same standing among his position's peers gives the same
++ * value: each position's median and 99th percentile line up with the pool's.
++ * Positions with too few players to measure are left as they are.
++ */
++export function positionAligner(samples: Iterable<[Position, number]>): (position: Position, overall: number) => number {
++  const all: number[] = [];
++  const byPosition = new Map<Position, number[]>();
++  for (const [position, x] of samples) {
++    all.push(x);
++    let g = byPosition.get(position);
++    if (!g) byPosition.set(position, (g = []));
++    g.push(x);
++  }
++  const [allMid, allHigh] = quantiles(all, [0.5, 0.99]);
++  const maps = new Map<Position, [number, number]>();
++  for (const [position, xs] of byPosition) {
++    if (xs.length < 30) continue;
++    const [mid, high] = quantiles(xs, [0.5, 0.99]);
++    if (high - mid < 0.5) continue;
++    maps.set(position, [mid, (allHigh - allMid) / (high - mid)]);
++  }
++  return (position, overall) => {
++    const m = maps.get(position);
++    return m ? allMid + (overall - m[0]) * m[1] : overall;
++  };
++}
++
++function quantiles(xs: number[], qs: [number, number]): [number, number] {
++  const s = [...xs].sort((a, b) => a - b);
++  const at = (q: number) => s[Math.min(s.length - 1, Math.floor(q * (s.length - 1)))] ?? 0;
++  return [at(qs[0]), at(qs[1])];
++}
++
+ export function levelRating(overall: number, level: Level, scale: LevelScale | undefined): number {
+   if (level === 'NFL' || !scale || scale.points.length === 0) return clampRating(overall);
+   const pts = scale.points;
+diff --git a/src/player.ts b/src/player.ts
+index 1428467..41e82c6 100644
+--- a/src/player.ts
++++ b/src/player.ts
+@@ -25,12 +25,28 @@ export interface SeasonRecord {
+   age: number;
+   level: Level;
+   playingTime: PlayingTime;
++  /** Rating going into the season: what he played the season at, and what his role was picked from. */
++  overallStart: number;
++  /** Rating at the end of the year, after the season and the offseason that follows. */
+   overall: number;
+   potential: number;
+-  /** On-field level shown that season: overall plus form, slumps and breakouts. */
+-  performance: number;
+-  /** 1-99 against the same position, level and age (filled in by a cohort simulation). */
++  /**
++   * On-field level shown that season: his rating during the season plus form,
++   * slumps and breakouts. Null for a season without games (a redshirt year or
++   * one lost to suspension or dismissal).
++   */
++  performance: number | null;
++  /**
++   * 1-99 for the rating he played the season at, placed against his own
++   * position and then ranked nationally: high schoolers against everyone their
++   * age, college players against all FBS players, pros simply their overall
++   * (filled in by a cohort simulation).
++   */
+   levelRating?: number;
++  /** Where his rating at the end of the year ranks against everyone else's at the end of theirs. */
++  levelRatingEnd?: number;
++  /** Quality of the coaching he had that season, 1-20. */
++  coaching: number;
+   events: DevelopmentEvent[];
+ }
+ 
+@@ -38,9 +54,15 @@ export type PlayingTime = 'starter' | 'rotation' | 'backup' | 'redshirt';
+ 
+ export type DevelopmentEvent =
+   | 'growthSpurt'
++  /** His body stopped developing: physical ceilings settle where they are and don't rise again. */
++  | 'bodyStalled'
+   | 'breakout'
+   | 'stagnation'
+   | 'lostSeason'
++  /** Suspended or academically ineligible for the season. */
++  | 'suspended'
++  /** Dismissed from his college team. */
++  | 'dismissed'
+   | 'slump'
+   | 'minorInjury'
+   | 'moderateInjury'
+diff --git a/src/positions.ts b/src/positions.ts
+index 1fd5c54..f11b29c 100644
+--- a/src/positions.ts
++++ b/src/positions.ts
+@@ -14,7 +14,10 @@ export interface PositionProfile {
+    * slow while a great corner is fast and light.
+    */
+   eliteShape: Partial99;
+-  /** Years added to every attribute's decline age (QBs and specialists last longer). */
++  /**
++   * Years added to every attribute's decline age (QBs and specialists last
++   * longer). Physical attributes take at most 1.5 of it.
++   */
+   agingOffset: number;
+   /** Relative chance of injury per season (1 = league average). */
+   injuryRisk: number;
+@@ -105,14 +108,15 @@ export const POSITION_PROFILES: Record<Position, PositionProfile> = {
+   K: {
+     weights: { kickAccuracy: 5, kickPower: 4, poise: 1 },
+     eliteShape: { kickAccuracy: 97, kickPower: 96, poise: 90, awareness: 60, speed: 55, strength: 45 },
+-    agingOffset: 6,
++    // Kick power and accuracy already decline late (from 36 and 37), so specialists need little extra.
++    agingOffset: 2,
+     injuryRisk: 0.25,
+     share: 0.02,
+   },
+   P: {
+     weights: { kickPower: 5, kickAccuracy: 3, poise: 1 },
+     eliteShape: { kickPower: 97, kickAccuracy: 93, poise: 88, awareness: 60, speed: 55, strength: 45 },
+-    agingOffset: 6,
++    agingOffset: 2,
+     injuryRisk: 0.25,
+     share: 0.02,
+   },
+diff --git a/tests/career.test.ts b/tests/career.test.ts
+index c3cd54b..55740ef 100644
+--- a/tests/career.test.ts
++++ b/tests/career.test.ts
+@@ -25,6 +25,43 @@ describe('a national class, freshman year to retirement', () => {
+     expect(s.hs.fiveStarSeniorOverall).toBeLessThan(s.draft.rookieOverall.median);
+   });
+ 
++  it('gives four and five stars only to players who dominate high school', () => {
++    const r = s.recruiting;
++    expect(r.fiveStarSeniorMin).toBeGreaterThanOrEqual(86);
++    // Almost none of the top 500-odd seniors goes unranked or ends up below FCS,
++    // and few of the national top 100 miss out on four stars.
++    expect(r.topSeniorsUnranked).toBeLessThanOrEqual(2);
++    expect(r.topSeniorsAtD2OrNone).toBeLessThan(r.topSeniors * 0.03);
++    expect(r.top100SeniorsBelowFourStars).toBeLessThan(15);
++    expect(r.blueChipSpecialists).toBe(0);
++  });
++
++  it('still lets staffs sign unranked players they like on film', () => {
++    expect(s.recruiting.unrankedSignedFbsOrFcs).toBeGreaterThan(100);
++    expect(s.recruiting.level80SeniorsWithNoOffer).toBeLessThan(40);
++  });
++
++  it('judges each player against his own position', () => {
++    const r = s.recruiting;
++    // Quarterbacks mature late but are as likely as anyone to be among the best
++    // seniors. Only about seven are expected among the top 120, so the band is wide.
++    expect(r.qbTopSeniorRatio).toBeGreaterThan(0.4);
++    expect(r.qbTopSeniorRatio).toBeLessThan(2.5);
++    expect(r.blueChipQBs).toBeGreaterThan(8);
++    expect(r.fiveStarPositions).toBeGreaterThanOrEqual(6);
++  });
++
++  it('has off-field and academic trouble in college at believable rates', () => {
++    const t = s.trouble;
++    expect(t.perCollegeSeason).toBeGreaterThan(0.015);
++    expect(t.perCollegeSeason).toBeLessThan(0.05);
++    // Some dismissed players leave the game, the rest start over a level down.
++    expect(t.leftFootball).toBeGreaterThan(0);
++    expect(s.smallSchools.transferRoutes['FBS>FCS']).toBeGreaterThan(0);
++    // A second suspension at the same school is a dismissal.
++    expect(t.suspendedTwiceAtOneSchool).toBe(0);
++  });
++
+   it('drafts recruits at realistic rates by star rating', () => {
+     const r = s.draftRateByStars;
+     expect(r[5]).toBeGreaterThan(0.4);
+@@ -55,8 +92,13 @@ describe('a national class, freshman year to retirement', () => {
+     expect(s.draftedShareByStars.fromFCS).toBeGreaterThan(0.01);
+     expect(s.draftedShareByStars.fromFCS).toBeLessThan(0.12);
+     // Standouts move up through the transfer portal instead.
+-    expect(sm.transfersUp).toBeGreaterThan(100);
+-    expect(sm.draftedAfterTransfer).toBeGreaterThan(0);
++    expect(sm.playersMovedUp).toBeGreaterThan(100);
++    expect(sm.draftedAfterMovingUp).toBeGreaterThan(0);
++  });
++
++  it('drafts imperfectly without wild first-round reaches', () => {
++    // Real drafts take 1-3 first-rounders a year from outside the consensus top 50.
++    expect(s.draft.firstRoundersOutsideTop50).toBeLessThanOrEqual(5);
+   });
+ 
+   it('makes a 99 level rating as rare as EA College Football does', () => {
+@@ -82,18 +124,22 @@ describe('a national class, freshman year to retirement', () => {
+ 
+   it('produces realistic pro careers', () => {
+     const c = s.nfl.careerLength;
+-    expect(c.allPros).toBeGreaterThan(2.5);
+-    expect(c.allPros).toBeLessThan(5.5);
++    expect(c.allSigned).toBeGreaterThan(2.5);
++    expect(c.allSigned).toBeLessThan(5.5);
+     expect(c.drafted).toBeGreaterThan(4);
+     expect(c.drafted).toBeLessThan(8.5);
+-    expect(c.firstRound).toBeGreaterThan(c.lateRound + 3);
++    expect(c.firstRound).toBeGreaterThan(c.round7 + 3);
+     expect(c.udfa).toBeLessThan(c.drafted);
++    // Kickers and punters last longer, but they age too.
++    // (George Blanda kicked at 48.)
++    expect(s.nfl.specialists.oldestSeason).toBeLessThanOrEqual(48);
++    expect(s.nfl.specialists.seasonsAt38Plus).toBeLessThan(0.15);
+   });
+ 
+   it('peaks at realistic ages by position', () => {
+     const p = s.nfl.medianPeakAge;
+-    expect(p.all).toBeGreaterThanOrEqual(25);
+-    expect(p.all).toBeLessThanOrEqual(28);
++    expect(p.allButKP).toBeGreaterThanOrEqual(25);
++    expect(p.allButKP).toBeLessThanOrEqual(28);
+     expect(p.RB).toBeLessThanOrEqual(26);
+     expect(p.QB).toBeGreaterThanOrEqual(28);
+     expect(p.QB).toBeGreaterThan(p.RB);
+@@ -113,10 +159,13 @@ describe('a national class, freshman year to retirement', () => {
+     const p = s.potential;
+     expect(p.initialVsExitCorrelationDrafted).toBeGreaterThan(0.3);
+     expect(p.initialVsExitCorrelationDrafted).toBeLessThan(0.85);
+-    expect(p.draftedRoseBy8Plus).toBeGreaterThan(0.3);
+-    expect(p.collegeFellBy8Plus).toBeGreaterThan(0.005);
++    expect(p.draftedRoseBy8PlusSince14).toBeGreaterThan(0.3);
++    expect(p.collegiansFellBy8PlusSince14).toBeGreaterThan(0.005);
+     expect(p.youngRegressionShare).toBeGreaterThan(0.003);
+     expect(p.youngRegressionShare).toBeLessThan(0.15);
++    // A falling rating is never labelled a breakout, and by their mid-30s veterans have no upside left.
++    expect(p.fallingBreakouts).toBe(0);
++    expect(s.nfl.veteranPotentialGap).toBeLessThan(1);
+   });
+ 
+   it('is reproducible from a seed', () => {
+diff --git a/tests/development.test.ts b/tests/development.test.ts
+index 148b5d8..6735d11 100644
+--- a/tests/development.test.ts
++++ b/tests/development.test.ts
+@@ -116,7 +116,7 @@ describe('development curves', () => {
+ });
+ 
+ describe('dynamic potential', () => {
+-  it('moves at most one band per checkpoint, unless a proven breakout breaks the ceiling', () => {
++  it('moves at most one band per checkpoint, unless a breakout, major injury or stalled body moves it further', () => {
+     const rng = new Rng('bands');
+     let checked = 0;
+     let breakouts = 0;
+@@ -128,7 +128,7 @@ describe('dynamic potential', () => {
+         if (r.events.includes('breakout')) {
+           expect(shift).toBeLessThanOrEqual(2 * MAX_POTENTIAL_SHIFT + 2);
+           breakouts++;
+-        } else if (!r.events.includes('majorInjury')) {
++        } else if (!r.events.includes('majorInjury') && !r.events.includes('bodyStalled')) {
+           // Allowance for snaps-driven ceiling growth and players outgrowing a ceiling.
+           expect(shift).toBeLessThanOrEqual(MAX_POTENTIAL_SHIFT + 1.5);
+           checked++;
+diff --git a/tests/stats.ts b/tests/stats.ts
+index ae13474..c743868 100644
+--- a/tests/stats.ts
++++ b/tests/stats.ts
+@@ -25,28 +25,46 @@ export function correlation(xs: number[], ys: number[]): number {
+   return sxy / Math.sqrt(sxx * syy);
+ }
+ 
++const LEVEL_RANK = { SmallCollege: 1, FCS: 2, FBS: 3 } as const;
++const movedUp = (t: CareerRecord['transfers'][number]) => LEVEL_RANK[t.to] > LEVEL_RANK[t.from];
++
+ const round = (x: number, d = 3) => Math.round(x * 10 ** d) / 10 ** d;
+ 
+ export const isDrafted = (r: CareerRecord) => r.draftPick !== null;
+-export const isPro = (r: CareerRecord) => r.nflSeasons > 0;
++/** Drafted or signed as an undrafted free agent. Every signing plays a season until camp cuts exist. */
++export const signedPro = (r: CareerRecord) => r.nflSeasons > 0;
++const isSpecialist = (r: CareerRecord) => r.player.position === 'K' || r.player.position === 'P';
+ 
+-/** NFL peak: the season with the best overall among pro seasons. */
++/** NFL peak: the season he played at his best rating. */
+ export function nflPeakAge(r: CareerRecord): number | null {
+   let best = -1;
+   let age: number | null = null;
+   for (const s of r.player.history) {
+-    if (s.level === 'NFL' && s.overall > best) {
+-      best = s.overall;
++    if (s.level === 'NFL' && s.overallStart > best) {
++      best = s.overallStart;
+       age = s.age;
+     }
+   }
+   return age;
+ }
+ 
++/** Players suspended twice at the same school, a second incident that should have ended his time there. */
++function repeatSuspensionsAtOneSchool(r: CareerRecord): boolean {
++  let lastLevel: string | null = null;
++  let suspensions = 0;
++  for (const s of r.player.history) {
++    if (s.level === 'HS' || s.level === 'NFL') continue;
++    if (s.level !== lastLevel) suspensions = 0;
++    lastLevel = s.level;
++    if (s.events.includes('suspended') && ++suspensions >= 2) return true;
++  }
++  return false;
++}
++
+ export function summarize({ records, draftSlots }: CohortResult) {
+   const n = records.length;
+   const drafted = records.filter(isDrafted);
+-  const pros = records.filter(isPro);
++  const pros = records.filter(signedPro);
+   const byStars = (s: number) => records.filter((r) => r.stars === s);
+   const draftRate = (rs: CareerRecord[]) => (rs.length ? rs.filter(isDrafted).length / rs.length : NaN);
+   const nflSeasons = records.flatMap((r) => r.player.history.filter((s) => s.level === 'NFL'));
+@@ -62,23 +80,40 @@ export function summarize({ records, draftSlots }: CohortResult) {
+   const regressions = records.flatMap((r) =>
+     r.player.history.filter((s, i) => i > 0 && s.age >= 18 && s.age <= 23 && s.overall < r.player.history[i - 1]!.overall),
+   );
++  // How close pros with 4+ seasons came to their potential: at their best
++  // season against their potential that season, and against their potential
++  // on draft day (ceilings keep rising in the pros as veterans learn).
+   const longPros = pros.filter((r) => r.nflSeasons >= 4);
+   const reach = longPros.map((r) => {
+-    const peak = r.player.history.reduce((b, s) => (s.overall > b.overall ? s : b));
+-    return { gap: peak.potential - peak.overall, ratio: peak.overall / peak.potential };
++    const peak = r.player.history.reduce((b, s) => (s.overallStart > b.overallStart ? s : b));
++    const potentialThen = r.player.history[r.player.history.indexOf(peak) - 1]?.potential ?? r.player.originalPotential;
++    return { gap: potentialThen - peak.overallStart, ratio: peak.overallStart / potentialThen };
+   });
++  const reachDraftDay = longPros.map((r) => ({ gap: r.potentialAtExit - r.peakOverall, ratio: r.peakOverall / r.potentialAtExit }));
++  const topSeniors = records.filter((r) => r.player.history[3]!.levelRating! >= 85);
+   const exitOverall = records
+     .filter((r) => r.college)
+     .map((r) => r.player.history.filter((s) => s.level !== 'NFL').at(-1)!.overall);
++  /** Rating on draft day: the end of his last year before the pros. */
+   const draftOverall = drafted.map((r) => r.player.history.filter((s) => s.level !== 'NFL').at(-1)!.overall);
++  // Consensus board: every prospect ranked by the grade teams saw.
++  const consensusRank = new Map<CareerRecord, number>();
++  records
++    .filter((r) => r.draftGrade !== null)
++    .sort((a, b) => b.draftGrade! - a.draftGrade!)
++    .forEach((r, i) => consensusRank.set(r, i + 1));
++  const veteranRows = records.flatMap((r) => r.player.history.filter((s) => s.level === 'NFL' && s.age >= 33 && s.age <= 35));
++  const specialistNflRows = records.filter(isSpecialist).flatMap((r) => r.player.history.filter((s) => s.level === 'NFL'));
++  const seniorL = (r: CareerRecord) => r.player.history[3]!.levelRating!;
+   return {
+     players: n,
+     draftSlots,
+     rates: {
+       college: round(records.filter((r) => r.college).length / n, 4),
+-      fbs: round(records.filter((r) => r.college === 'FBS').length / n, 4),
++      signedFBS: round(records.filter((r) => r.signedWith === 'FBS').length / n, 4),
++      finishedAtFBS: round(records.filter((r) => r.college === 'FBS').length / n, 4),
+       drafted: round(drafted.length / n, 5),
+-      pro: round(pros.length / n, 5),
++      signedPro: round(pros.length / n, 5),
+     },
+     draftRateByStars: {
+       5: round(draftRate(byStars(5))),
+@@ -102,12 +137,15 @@ export function summarize({ records, draftSlots }: CohortResult) {
+       fiveStarSeniorOverall: round(mean(byStars(5).map((r) => r.player.history[3]!.overall)), 1),
+     },
+     draft: {
++      /** Draftees' rating on draft day. */
+       rookieOverall: {
+-        p10: round(quantile(drafted.map((r) => r.player.history.find((s) => s.level === 'NFL')!.overall), 0.1), 1),
+-        median: round(median(drafted.map((r) => r.player.history.find((s) => s.level === 'NFL')!.overall)), 1),
+-        p90: round(quantile(drafted.map((r) => r.player.history.find((s) => s.level === 'NFL')!.overall), 0.9), 1),
++        p10: round(quantile(draftOverall, 0.1), 1),
++        median: round(median(draftOverall), 1),
++        p90: round(quantile(draftOverall, 0.9), 1),
+       },
+       age: round(mean(drafted.map((r) => r.player.history.find((s) => s.level === 'NFL')!.age)), 1),
++      /** First-round picks from outside the consensus top 50: reaches. */
++      firstRoundersOutsideTop50: drafted.filter((r) => draftRound(r.draftPick!, draftSlots) === 1 && consensusRank.get(r)! > 50).length,
+     },
+     nfl: {
+       seasonOverall: {
+@@ -119,30 +157,74 @@ export function summarize({ records, draftSlots }: CohortResult) {
+       },
+       careerLength: {
+         drafted: round(mean(drafted.map((r) => r.nflSeasons)), 2),
+-        allPros: round(mean(pros.map((r) => r.nflSeasons)), 2),
++        /** Drafted players and undrafted signings. */
++        allSigned: round(mean(pros.map((r) => r.nflSeasons)), 2),
+         firstRound: round(mean(firstRound.map((r) => r.nflSeasons)), 2),
+-        lateRound: round(mean(lateRound.map((r) => r.nflSeasons)), 2),
++        round7: round(mean(lateRound.map((r) => r.nflSeasons)), 2),
+         udfa: round(mean(pros.filter((r) => r.udfa).map((r) => r.nflSeasons)), 2),
+       },
+       medianPeakAge: {
+-        all: median(peakAgesBy(['QB', 'RB', 'WR', 'TE', 'OT', 'IOL', 'EDGE', 'DT', 'LB', 'CB', 'S'])),
++        allButKP: median(peakAgesBy(['QB', 'RB', 'WR', 'TE', 'OT', 'IOL', 'EDGE', 'DT', 'LB', 'CB', 'S'])),
+         RB: median(peakAgesBy(['RB'])),
+         QB: median(peakAgesBy(['QB'])),
+         KP: median(peakAgesBy(['K', 'P'])),
+       },
++      /** Upside veterans of 33-35 still show above their rating. */
++      veteranPotentialGap: round(median(veteranRows.map((s) => s.potential - s.overall)), 2),
++      specialists: {
++        signed: records.filter((r) => isSpecialist(r) && r.nflSeasons > 0).length,
++        seasonsAt38Plus: round(specialistNflRows.filter((s) => s.age >= 38).length / specialistNflRows.length),
++        oldestSeason: Math.max(...specialistNflRows.map((s) => s.age)),
++      },
+     },
+     smallSchools: {
+       d2Drafted: drafted.filter((r) => r.college === 'SmallCollege').length,
+-      d2EarliestRound: Math.min(...drafted.filter((r) => r.college === 'SmallCollege').map((r) => draftRound(r.draftPick!, draftSlots))),
++      /** Earliest round a D2 player was drafted in (null if none was). */
++      d2EarliestRound: drafted.some((r) => r.college === 'SmallCollege')
++        ? Math.min(...drafted.filter((r) => r.college === 'SmallCollege').map((r) => draftRound(r.draftPick!, draftSlots)))
++        : null,
+       d2Udfa: records.filter((r) => r.udfa && r.college === 'SmallCollege').length,
+       fcsDrafted: drafted.filter((r) => r.college === 'FCS').length,
+-      transfersUp: records.filter((r) => r.transfers.length > 0).length,
+-      draftedAfterTransfer: drafted.filter((r) => r.transfers.length > 0).length,
++      playersMovedUp: records.filter((r) => r.transfers.some(movedUp)).length,
++      draftedAfterMovingUp: drafted.filter((r) => r.transfers.some(movedUp)).length,
++      /** Every move, by route. Moves down follow a dismissal. */
+       transferRoutes: records.flatMap((r) => r.transfers.map((t) => `${t.from}>${t.to}`)).reduce<Record<string, number>>((m, k) => ((m[k] = (m[k] ?? 0) + 1), m), {}),
+       draftedSignedFCS: drafted.filter((r) => r.signedWith === 'FCS').length,
+       draftedSignedD2: drafted.filter((r) => r.signedWith === 'SmallCollege').length,
+-      draftedAfterTransferFromD2: drafted.filter((r) => r.signedWith === 'SmallCollege' && r.transfers.length > 0).length,
+-      draftedAfterTransferDay2: drafted.filter((r) => r.transfers.length > 0 && draftRound(r.draftPick!, draftSlots) <= 3).length,
++      draftedAfterMovingUpFromD2: drafted.filter((r) => r.signedWith === 'SmallCollege' && r.transfers.some(movedUp)).length,
++      draftedAfterMovingUpRounds1to3: drafted.filter((r) => r.transfers.some(movedUp) && draftRound(r.draftPick!, draftSlots) <= 3).length,
++    },
++    recruiting: {
++      fiveStarSeniorMin: Math.min(...byStars(5).map((r) => r.player.history[3]!.levelRating!)),
++      topSeniors: topSeniors.length,
++      topSeniorsUnranked: topSeniors.filter((r) => r.stars === 0).length,
++      topSeniorsAtD2OrNone: topSeniors.filter((r) => r.signedWith === 'SmallCollege' || !r.signedWith).length,
++      /** QBs' share of the top 100-odd seniors, against their share of all players (1 = fair). */
++      qbTopSeniorRatio: round(
++        records.filter((r) => r.player.history[3]!.levelRating! >= 90 && r.player.position === 'QB').length /
++          records.filter((r) => r.player.history[3]!.levelRating! >= 90).length /
++          (records.filter((r) => r.player.position === 'QB').length / n),
++        2,
++      ),
++      blueChipQBs: records.filter((r) => r.stars >= 4 && r.player.position === 'QB').length,
++      fiveStarPositions: new Set(byStars(5).map((r) => r.player.position)).size,
++      /** National top-100-odd seniors (level 90+, kickers and punters aside) with fewer than four stars. */
++      top100SeniorsBelowFourStars: records.filter((r) => !isSpecialist(r) && seniorL(r) >= 90 && r.stars < 4).length,
++      blueChipSpecialists: records.filter((r) => isSpecialist(r) && r.stars >= 4).length,
++      unrankedSignedFbsOrFcs: records.filter((r) => r.stars === 0 && (r.signedWith === 'FBS' || r.signedWith === 'FCS')).length,
++      /** Seniors around the national top 2,000 who got no college offer at all. */
++      level80SeniorsWithNoOffer: records.filter((r) => seniorL(r) >= 80 && !r.signedWith).length,
++    },
++    trouble: {
++      perCollegeSeason: round(
++        records.flatMap((r) => r.player.history.filter((s) => s.events.includes('suspended') || s.events.includes('dismissed'))).length /
++          records.flatMap((r) => r.player.history.filter((s) => s.level === 'FBS' || s.level === 'FCS' || s.level === 'SmallCollege')).length,
++      ),
++      suspensions: records.flatMap((r) => r.player.history.filter((s) => s.events.includes('suspended'))).length,
++      dismissals: records.flatMap((r) => r.player.history.filter((s) => s.events.includes('dismissed'))).length,
++      leftFootball: records.filter((r) => r.leftFootball).length,
++      fiveStarsInTrouble: records.filter((r) => r.stars === 5 && r.player.history.some((s) => s.events.includes('suspended') || s.events.includes('dismissed'))).length,
++      suspendedTwiceAtOneSchool: records.filter(repeatSuspensionsAtOneSchool).length,
+     },
+     levelRatings: {
+       hsSeniors99: records.filter((r) => r.player.history[3]!.levelRating! >= 99).length,
+@@ -168,20 +250,30 @@ export function summarize({ records, draftSlots }: CohortResult) {
+         '85+': records.filter((r) => r.peakOverall >= 85).length,
+       },
+     },
++    /** Pros with 4+ seasons: his best season against his potential going into it. */
+     reachingPotential: {
+       within2: round(reach.filter((x) => x.gap <= 2).length / reach.length),
+-      reached90to98pct: round(reach.filter((x) => x.gap > 2 && x.ratio >= 0.9).length / reach.length),
++      /** 90% of it or more, but more than 2 points short. */
++      reached90pctPlus: round(reach.filter((x) => x.gap > 2 && x.ratio >= 0.9).length / reach.length),
+       below90pct: round(reach.filter((x) => x.ratio < 0.9).length / reach.length),
+     },
++    /** The same against his potential on draft day. */
++    reachingDraftDayPotential: {
++      within2: round(reachDraftDay.filter((x) => x.gap <= 2).length / reachDraftDay.length),
++      reached90pctPlus: round(reachDraftDay.filter((x) => x.gap > 2 && x.ratio >= 0.9).length / reachDraftDay.length),
++      below90pct: round(reachDraftDay.filter((x) => x.ratio < 0.9).length / reachDraftDay.length),
++    },
+     potential: {
+       initialVsExitCorrelationDrafted: round(correlation(drafted.map((r) => r.initialPotential), drafted.map((r) => r.potentialAtExit))),
+       initialVsExitCorrelationAll: round(correlation(records.map((r) => r.initialPotential), records.map((r) => r.potentialAtExit))),
+-      draftedRoseBy8Plus: round(drafted.filter((r) => r.potentialAtExit - r.initialPotential >= 8).length / drafted.length),
+-      collegeFellBy8Plus: round(
++      draftedRoseBy8PlusSince14: round(drafted.filter((r) => r.potentialAtExit - r.initialPotential >= 8).length / drafted.length),
++      collegiansFellBy8PlusSince14: round(
+         records.filter((r) => r.college && r.potentialAtExit - r.initialPotential <= -8).length /
+           records.filter((r) => r.college).length,
+       ),
+       youngRegressionShare: round(regressions.length / youngSeasons.length),
++      /** Seasons tagged as a breakout although the rating fell. */
++      fallingBreakouts: records.flatMap((r) => r.player.history.filter((s) => s.events.includes('breakout') && s.overall < s.overallStart)).length,
+     },
+   };
+ }

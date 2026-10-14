@@ -1,0 +1,15 @@
+---
+name: afm-section4-design-2
+description: Section 4 (calendar) design answers from Raichel, topics 6-11 (week, training, pacing, waits, staff, rule changes)
+metadata:
+  type: project
+---
+
+Continues [[afm-section4-design]]. All CONFIRMED 2026-10-14.
+
+Topic 6 in-season week (CONFIRMED 2026-10-14): real NFL/college/HS weekly rhythms (NFL Mon film/injuries, Tue off+game plan+waivers, Wed-Fri install/injury report, Sat walkthrough/travel/PS call-ups, Sun inactives; short weeks, bye 4 days, travel/time zones, 14 padded practices, PS poaching, IR windows; scouts at college games/practices). Day-by-day decisions, all delegable: yes. Install capacity limit (more install = more mental errors for low-IQ players, short week shrinks it): yes.
+Topic 7 training slot (CONFIRMED 2026-10-14): CBA/NCAA/HS training blocks in the calendar (NFL phases 1-3, OTAs, minicamp, summer break = own-work window, camp acclimation, 14 padded in season). Each block favours different growth (body offseason, scheme/technique OTAs, reps/competition camp, maintenance season): yes. Training load cuts both ways (growth vs soft-tissue injuries and freshness, vet rest days): yes. Details in 6b.
+Topic 8 pacing (CONFIRMED 2026-10-14): tiers T0-T3 from draft (ambient/notable/major/climax); fixed climaxes draft, cutdown, deadline, playoffs, Super Bowl. Regular-season games become climaxes only when stakes are real (must-win, scouted-since-HS QB debut), ~1-3 a season, sometimes none: yes. No holding back events after a climax; only quieter presentation: confirmed. Raichel found the first wording confusing: use small/medium/big/huge and one example each.
+Topic 9 how long things take (CONFIRMED 2026-10-14): real waits (offers days, FA day-1 hours, trades 1-2 days/hours on deadline + physical, scouting 1-3 wks, injuries unfold, coach hiring weeks under real rules, waivers 24h, appeals weeks). Wait times from the people and situation, not fixed numbers: yes. Deals can fall apart while waiting (rival signs FA, failed physical): yes.
+Topic 10 time controls/delegation (CONFIRMED 2026-10-14): Continue, holiday mode (stops for huge moments), delegate any task with instructions. Staff decide by own skill/personality/habits with readable reasons: yes. Staff given responsibility grow and gain reputation, so get poached: yes.
+Topic 11 rule changes (CONFIRMED 2026-10-14): rules stored per year; 30-year history uses each era's real rules; from 2026 real processes (March owner votes 24/32, CBA ends after 2030, NCAA legislation/courts). Q1 answered NO (2026-10-14): no in-game on-field rule changes, they could break the engine in ways Raichel can't fix in game; on-field rules stay at 2026. Q2 CONFIRMED: off-field structural changes yes, but ONLY from a fixed list agreed with Raichel in advance. List CONFIRMED 2026-10-14: NFL 18 games, CBA after 2030 (deal or lockout), 16-team playoffs, roster/PS sizes, franchise relocation; college CFP 14/16, realignment, SEC/Big Ten breakaway, 5-in-5 eligibility, revenue-share cap changes; HS state NIL adoption, state transfer rule changes.
