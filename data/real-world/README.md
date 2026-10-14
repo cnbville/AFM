@@ -69,7 +69,7 @@ Gaps (exact):
 - Fixed: the first pass had 2022-era minimum salaries ($795,000 rookie). 2026 minimums are $885,000 (0 credited seasons) up to $1,300,000 (7+).
 - Added: 2026 franchise and transition tags for every position, fifth-year option tiers, free agency rules and dates, practice squad size and pay, cutdown rules, 2026 calendar.
 - `rookie_scale_2026.csv`: all 257 picks (years, total value, average per year, guaranteed) from the OverTheCap contract data in the nflverse `contracts` release.
-- Gaps: RFA tender amounts, game-day actives and the emergency third QB rule, practice squad veteran limits, 2027 option amounts by position.
+- Filled 2026-10-14 (research area 2): RFA tenders, game day and elevations, emergency third QB, practice squad eligibility, IR, comp picks, cap mechanics, 2026-27 dates. Gaps now listed in the file itself.
 
 **nfl_teams.csv** (checked 2026-10-11)
 - `market_size_rank` is now the Nielsen 2024-25 TV market (DMA) rank for the team's market, one source for all 32 (Wikipedia list of US TV markets). Teams sharing a market share its rank (Giants/Jets 1, Rams/Chargers 2). Arizona = Phoenix, Carolina = Charlotte, New England = Boston, Tennessee = Nashville, Washington = Washington DC.
@@ -77,6 +77,12 @@ Gaps (exact):
 - SoFi Stadium `roof` is now "canopy": a fixed translucent roof with open sides.
 - Earlier fixes kept: Browns' Huntington Bank Field and Commanders' Northwest Stadium.
 - Gap: `altitude_ft` still has no per-figure source.
+
+**Research area 1 files** (added 2026-10-14, explained in `docs/research/engine-and-tactics.md`):
+- `engine_targets.json` (`scripts/engine_targets.py`): NFL 2021-25 runs by box count, pressure and rushers, coverage and route results, play-action, RPO, motion, snap shares, carry and target shares, red zone, returns, player spread by position, contracts by position, home edge 1999-2025, and the 2025 scheme mix. From nflverse pbp, participation (NGS), FTN charting, snap counts, contracts and nfldata games.csv.
+- `coach_effect_offense.json`, `coach_effect_defense.json` (`scripts/coach_effect.py`): how much head coaches move EPA per play once the QB is held fixed, 2006-2025.
+- `college_scores.json` (`scripts/college_scores.py`): points, margins, blowouts and home edge for FBS, FCS, D2 and D3 from the sportsdataverse `cfb_schedules` release.
+- Gaps: no open play-by-play for D2, D3, NAIA, JUCO or high school; no NAIA or JUCO scores; no high school scheme survey.
 
 ## Main sources
 - Wikipedia lists: FBS, FCS and D2 programs; FBS and FCS stadiums; D2 institutions; conference member pages; national championship pages; AAU members; Carnegie R1/R2 list; US TV markets; current NFL stadiums.
