@@ -3,7 +3,8 @@
 //! the combine, and how often players change position.
 //! Usage: `positions [size] [seed]`.
 
-use afm_engine::body::{body_now, combine_size};
+use afm_engine::attributes::Attr;
+use afm_engine::body::{body_now, combine, combine_size};
 use afm_engine::career::{CohortOptions, simulate_cohort};
 use afm_engine::positions::{POSITION_COUNT, Position};
 use afm_tools::stats::real_draft_shares;
@@ -18,6 +19,9 @@ fn main() {
     let mut hs = [0usize; POSITION_COUNT];
     let mut drafted = [0usize; POSITION_COUNT];
     let mut body = [(0.0, 0.0); POSITION_COUNT];
+    // Bench check: strength, arm length and combine bench of drafted players.
+    let mut lift = [(0.0, 0.0, 0.0); POSITION_COUNT];
+    let mut rng = afm_engine::rng::Rng::new(7);
     let (mut moved, mut drafted_n, mut drafted_moved) = (0usize, 0usize, 0usize);
     for r in recs {
         let first = r.player.position_history[0].1;
@@ -31,6 +35,9 @@ fn main() {
             let b = body_now(&r.player);
             body[k].0 += b.height;
             body[k].1 += b.weight;
+            lift[k].0 += r.player.attributes[Attr::Strength];
+            lift[k].1 += b.arm;
+            lift[k].2 += combine(&r.player, &mut rng).bench;
         }
     }
     let total_share: f64 = Position::ALL.iter().map(|p| p.profile().share).sum();
@@ -50,6 +57,19 @@ fn main() {
             body[k].1 / n,
             hm,
             wm
+        );
+    }
+    println!("pos   strength  arm   bench (real)");
+    for pos in Position::ALL {
+        let k = pos.index();
+        let n = drafted[k].max(1) as f64;
+        println!(
+            "{:<4} {:6.1} {:5.1} {:5.1} ({:4.1})",
+            pos.name(),
+            lift[k].0 / n,
+            lift[k].1 / n,
+            lift[k].2 / n,
+            afm_engine::body::combine_bench_mean(pos)
         );
     }
     println!(

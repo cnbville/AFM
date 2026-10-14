@@ -22,6 +22,8 @@ pub struct HsSeason {
     pub wins: u32,
     pub losses: u32,
     pub state_title: bool,
+    /// The head coach that season.
+    pub coach: Option<usize>,
 }
 
 #[derive(Clone, Debug)]

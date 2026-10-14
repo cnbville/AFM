@@ -178,7 +178,9 @@ fn main() {
     let seed: u32 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(2026);
     let years: u32 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(30);
     let t = Instant::now();
-    let w = World::new(WorldOptions { seed, history_years: years, ..Default::default() });
+    // AFM_ENGINE_FROM=year plays college games on the match engine from that year.
+    let engine_from = std::env::var("AFM_ENGINE_FROM").ok().and_then(|v| v.parse().ok());
+    let w = World::new(WorldOptions { seed, history_years: years, engine_from, ..Default::default() });
     println!("# World trial: seed {seed}, {years} years of history, built in {:.0}s\n", t.elapsed().as_secs_f64());
 
     // AFM_CARDS=path.json: full player pages for featured players, then stop.

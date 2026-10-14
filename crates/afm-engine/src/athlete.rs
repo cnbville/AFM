@@ -127,7 +127,10 @@ fn draw_shape(rng: &mut Rng) -> (Attributes, (f64, f64)) {
     shape[Attr::ManCoverage] = leaning(mix(0.8, cover, 0.6, mirror));
     shape[Attr::ZoneCoverage] = leaning(mix(0.7, cover, 0.7, recog));
     // A real kicking leg is rarer than any other gift.
-    shape[Attr::KickPower] = leaning(leg - 0.4);
+    // A real leg comes with a kicker's or punter's body: lean, and taller for
+    // punting's longer lever (item 7; proposed, not confirmed).
+    let kick_body = body_likeness(fh, fw, Position::K).max(body_likeness(fh, fw, Position::P));
+    shape[Attr::KickPower] = leaning(leg + 0.8 * (kick_body - 0.4) - 0.4);
     shape[Attr::KickAccuracy] = leaning(mix(0.5, leg, 0.85, kick_touch) - 0.4);
     shape[Attr::Awareness] = leaning(mix(0.75, iq, 0.65, aware));
     shape[Attr::PlayRecognition] = leaning(mix(0.75, iq, 0.65, recog));

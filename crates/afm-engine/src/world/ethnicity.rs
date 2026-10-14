@@ -178,7 +178,7 @@ pub fn hiring_bias(e: Ethnicity, year: i32, prestige: f64) -> f64 {
     }
     // Flat through the early 2000s, then easing as the Rooney Rule era and
     // pressure on hiring grow; it keeps fading slowly after the save starts.
-    let eased = 5.0 - 0.12 * (year.min(2026) - 2005).max(0) as f64;
+    let eased = 4.2 - 0.08 * (year.min(2026) - 2005).max(0) as f64;
     let base = (eased - 0.05 * (year - 2026).max(0) as f64).max(0.3);
     base * (0.5 + prestige.clamp(0.0, 1.0))
 }

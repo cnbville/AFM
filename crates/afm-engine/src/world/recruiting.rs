@@ -285,6 +285,12 @@ fn credit_impact(w: &mut World, i: usize, c: usize, weight: f64, year: i32) {
         let t = w.coaches[coach].ties.entry(hs).or_insert(0.0);
         *t = clamp(*t + 0.2 * weight * (1.0 - *t), 0.0, 1.0);
     }
+    // His position coach and coordinator get the visible credit (note 15B).
+    for (coach, share) in [(prog.position_coaches[group as usize], 1.0), (coord, 0.5)] {
+        if let Some(coach) = coach {
+            w.coaches[coach].units[group as usize].moved_up += share * weight;
+        }
+    }
 }
 
 /// All-conference teams, national honors, then the draft. Only impact grows
@@ -627,6 +633,32 @@ fn roster_cap(d: Division) -> usize {
     }
 }
 
+/// What a starter at his position earns at a major program, middle of the
+/// real range (CBS via SI, 2024; `data/real-world/rates.json`). Tight ends
+/// and specialists aren't in the data (proposed, not confirmed).
+fn position_nil(pos: Position) -> f64 {
+    match pos {
+        Position::QB => 650_000.0,
+        Position::OT | Position::IOL => 425_000.0,
+        Position::EDGE | Position::DT => 425_000.0,
+        Position::RB => 250_000.0,
+        Position::WR => 187_500.0,
+        Position::TE => 150_000.0,
+        Position::LB => 200_000.0,
+        Position::CB | Position::S => 172_500.0,
+        Position::K | Position::P => 25_000.0,
+    }
+}
+
+/// A collective budget that pays major-program market rates.
+fn nil_scale(d: Division) -> f64 {
+    match d {
+        Division::FBS => 10.0e6,
+        Division::FCS => 0.4e6,
+        _ => 0.1e6,
+    }
+}
+
 fn level_value(d: Division) -> f64 {
     match d {
         Division::FBS => 1.0,
@@ -648,7 +680,14 @@ fn utility(p: &Person, wants: &super::background::Wants, prog: &Program, nil_off
         + g(GradeCat::Tradition)
         + g(GradeCat::BrandExposure))
         / 4.0;
-    let money = clamp((nil_offer.max(1.0)).log10() / 6.5, 0.0, 1.0);
+    // Money on a real scale (note 13): $3.5M is clearly more than $2M. How
+    // much it matters is his family's need, which ambition pulls against.
+    let money = (nil_offer.max(0.0) / 1.0e6).powf(0.6);
+    let need = clamp(0.25 + 0.75 * (1.0 - p.bg.money) + if crisis { 0.2 } else { 0.0 }, 0.1, 1.2);
+    let drive = clamp((p.family.ambition - 10.0) / 10.0, -1.0, 1.0);
+    let money_w = wants.money * need * (1.0 - 0.35 * drive);
+    // What the ambitious kid weighs instead: the best path to the pros.
+    let path_w = 0.35 * drive.max(0.0) * wants.money;
     let playing = g(GradeCat::PlayingTime) * (0.6 + 0.4 * eval_rank);
     let academics = g(GradeCat::Academics) * (0.5 + 0.5 * clamp((p.bg.gpa - 2.5) / 1.5, 0.0, 1.0));
     let development = (g(GradeCat::ProPipeline) + g(GradeCat::CoachPrestige)) / 2.0;
@@ -658,11 +697,12 @@ fn utility(p: &Person, wants: &super::background::Wants, prog: &Program, nil_off
         + (0.25 + wants.prestige) * prog.prestige_rel * (0.4 + 0.6 * level_value(prog.division))
         + 0.1 * g(GradeCat::Facilities)
         + wants.prestige * prestige
-        + wants.money * money * 1.5
+        + money_w * money * 1.5
         + close_w * close
         + wants.playing_time * playing
         + wants.academics * academics
-        + wants.development * development;
+        + (wants.development + path_w) * development
+        + path_w * playing;
     // No athletic scholarships: the Pioneer League gives none (the family pays),
     // the Ivy League only need-based aid. A scholarship offer elsewhere usually wins.
     match prog.conference.as_str() {
@@ -1032,7 +1072,32 @@ pub(crate) fn signing_day(w: &mut World) {
     let mut taken = vec![0usize; pn];
     let mut special_taken = vec![0u32; pn];
     let mut offers: Vec<Vec<usize>> = vec![Vec::new(); pool.len()];
-    let budget_rank = |prog: &Program, k: f64| prog.collective.budget * 0.6 / prog.class_size as f64 * (2.5 - 2.0 * k);
+    // NIL offers per player (note 13): his position's market value and how
+    // good he is, scaled by what the collective can pay. A program on the rise
+    // with money to spend reaches this year (the new-era reach).
+    let reach: Vec<bool> = programs
+        .iter()
+        .map(|prog| {
+            let rising = prog.head_coach.is_some_and(|c| w.coaches[c].recent.last().is_some_and(|&r| r > 0.25));
+            let rich = prog.collective.budget / nil_scale(prog.division) > 1.15 * prog.prestige_rel;
+            rising && rich && key_uniform(seed ^ 404, prog.id as u64) < 0.6
+        })
+        .collect();
+    let offer_for = |j: usize, k: usize, rank: f64| -> f64 {
+        let prog = &programs[j];
+        let p = &w.people[pool[k].person];
+        let talent = match p.stars {
+            5 => 2.5,
+            4 => 1.0,
+            3 => 0.3,
+            2 => 0.08,
+            _ => 0.03,
+        } * (1.3 - 0.6 * rank);
+        let pay = (prog.collective.budget / 10.0e6).powf(0.8);
+        let cap = prog.collective.budget * 0.6 * if reach[j] { 0.35 } else { 0.25 };
+        (position_nil(p.player.position) * talent * pay * if reach[j] { 1.6 } else { 1.0 }).min(cap)
+    };
+    let mut held_offer = vec![0.0f64; pool.len()];
     let mut active = true;
     while active {
         active = false;
@@ -1047,8 +1112,33 @@ pub(crate) fn signing_day(w: &mut World) {
                 }
                 let p = &w.people[pool[k].person];
                 let wants = p.family.decider_wants;
-                let u = utility(p, &wants, &programs[j], budget_rank(&programs[j], rank), 1.0 - rank)
-                    + 0.04 * key_normal(seed ^ 77 ^ j as u64, p.player.id as u64);
+                // The staff wins him over in person (note 15C): the head coach's
+                // recruiting and relationships, and his position coach's recruiting.
+                let prog = &programs[j];
+                let group = super::coach::Group::of(p.player.position);
+                let hc = prog.head_coach.map(|c| *w.coaches[c].ability());
+                let pc = prog.position_coaches[group as usize].map(|c| w.coaches[c].ability().recruiting);
+                let skill = 0.5 * hc.map_or(9.0, |a| a.recruiting)
+                    + 0.25 * hc.map_or(9.0, |a| a.relationships)
+                    + 0.25 * pc.unwrap_or(9.0);
+                let bond = 0.015 * (skill - 10.0) + 0.03 * key_normal(seed ^ 91 ^ j as u64, p.player.id as u64);
+                let mut offer = offer_for(j, k, rank);
+                let base_u = bond + 0.04 * key_normal(seed ^ 77 ^ j as u64, p.player.id as u64);
+                let mut u = utility(p, &wants, prog, offer, 1.0 - rank) + base_u;
+                // Bidding (note 13): a school that wants him near the top of its
+                // board raises its offer to beat the one he holds, within its money.
+                if let Some((_, cu, _)) = held[k]
+                    && cu >= u
+                    && rank < 0.3
+                {
+                    let cap = prog.collective.budget * 0.6 * if reach[j] { 0.35 } else { 0.25 };
+                    let raised = (offer * 1.5).min(cap);
+                    let ru = utility(p, &wants, prog, raised, 1.0 - rank) + base_u;
+                    if ru > cu {
+                        offer = raised;
+                        u = ru;
+                    }
+                }
                 // Staffs don't waste an offer on a kid already holding a far better one.
                 if held[k].is_some_and(|(_, cu, _)| cu > u + 0.15) {
                     continue;
@@ -1062,11 +1152,13 @@ pub(crate) fn signing_day(w: &mut World) {
                             special_taken[cur] -= 1;
                         }
                         held[k] = Some((j, u, special));
+                        held_offer[k] = offer;
                         taken[j] += 1;
                         special_taken[j] += special as u32;
                     }
                     None => {
                         held[k] = Some((j, u, special));
+                        held_offer[k] = offer;
                         taken[j] += 1;
                         special_taken[j] += special as u32;
                     }
@@ -1141,6 +1233,16 @@ pub(crate) fn signing_day(w: &mut World) {
                         "Signed with {prog_name} ({}) at {age} as {stars} out of {from_hs} (core GPA {gpa:.2}).",
                         division.name()
                     ));
+                    let nil = held_offer[k];
+                    if nil >= 10_000.0 {
+                        let amount = if nil >= 1.0e6 {
+                            format!("${:.1}M", nil / 1.0e6)
+                        } else {
+                            format!("${:.0}K", nil / 1.0e3)
+                        };
+                        let why = if reach[j] { " in a big reach by a rising program" } else { "" };
+                        p.note(format!("His NIL deal there: about {amount} a year{why}."));
+                    }
                     if offer_names.len() > 1 {
                         let n = offer_names.len();
                         let top: Vec<&str> = offer_names.iter().take(4).map(String::as_str).collect();
@@ -1183,6 +1285,16 @@ pub(crate) fn signing_day(w: &mut World) {
                 p.college = Some(j);
                 p.path.push(j);
                 p.on_notice = false;
+                // His high school coach gets the credit for sending him up.
+                let (hs, group) = (p.hs, super::coach::Group::of(p.player.position));
+                let up = match w.programs[j].division {
+                    Division::FBS => 1.0,
+                    Division::FCS => 0.5,
+                    _ => 0.25,
+                };
+                if w.recording && let Some(c) = w.high_schools[hs].coach {
+                    w.coaches[c].units[group as usize].moved_up += up;
+                }
             }
             None => {
                 let p = &mut w.people[i];
