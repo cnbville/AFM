@@ -307,3 +307,16 @@ The better team wins too often and by far too much, home field barely exists, an
 
 ## Order
 Topics 1 to 3 first: they are one problem (dynasties and blowouts). I'd build them together, rerun the world trial, and then come back with topics 4 to 9. Still unbuilt from section 3: the career stats record and high school games on the engine.
+
+## The dynasty re-trace (2026-10-14, after Raichel asked whether topics 1-3 are the final fix)
+
+The dynasty has shown up in every world trial: Georgia 9 titles in 30 years (trial 1), Alabama 9 in 30 (trial 2), Tennessee 9 in 15 (trial 3), Ohio State 10 in 15 (trial 4). The engine made it worse.
+
+What the re-trace found (tool: `dynasty_trace`, output in `world-trial4-dynasty-trace.txt` and `world-trial4-dynasty-split.txt`):
+- **Ohio State wins by about 18 points a game more than its lineup average predicts** (2015-2025 on average; it began in 2013, and three seasons were near zero), against every level of opponent. Since 2015 it went 18-1 in games where the lineups were within 3 points; Georgia went 14-12. Its lineup average was #1 in only five title years and #6 in 2016.
+- **The edge is its players.** The 2016, 2021 and 2025 rosters, replayed as they stood at kickoff: in 2021 and 2025 Ohio State's players alone beat the other top 12 by 32 and 37 points a game (next best: 18 and 13). Its staff with the same players is worth about 2 points, its play callers about 0, its schemes 2-5.
+- **The lineup average hides it**, because it weights all 22 starters equally while the engine pays some positions far more. Swapping one group at a time for the median team's: running back is worth 13-15 points of Ohio State's edge, receivers 5-18, quarterback 5-10, corners 8-9. About half the edge comes from no single group: being better everywhere at once, with no coach easing off, compounds.
+- **Schemes alone are worth points.** With the same players, air raid is worth about +2.7 and man pressure about +2.7 against a West Coast and Cover 2 team (`dynasty_check schemes`). Coaches get a scheme from a hash of their id, so the edge is random and permanent. Ohio State has had air raid plus man pressure since 2013 (worth +2 to +5 a game in the round robins).
+- **Talent concentration is a little high, not the main cause.** Ohio State averaged 10.9 draft picks and 4.3 first-rounders a year (2016-2026); the real top school 2016-2025 was Alabama at 9.2 and 3.2 (nflverse draft picks).
+
+So topics 1 to 3 are not the whole fix. Items for Raichel, asked as a yes/no list on 2026-10-14 (proposed, not confirmed): 1 position values, 2 schemes (new: no scheme wins by itself; each beats some looks and loses to others; coaches pick the scheme that fits their players instead of a random one), 3 garbage time, 4 home field, 5 firing, 6 college calling, 7 draft board, 8 returns (trace first), 9 sacks and interceptions (re-measure), 10 coaches of color (trace first). The check after the build: titles across several world seeds, not one, since a single seed can give one dynasty by chance.
