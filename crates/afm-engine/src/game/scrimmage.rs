@@ -1485,43 +1485,12 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
     }
     let _ = trail;
     if next < pts.len() {
-        let target = pts[next];
-        // Good route runners cut sharper: they start the break later and keep speed.
-        let rr = sim.agents[i].a(Attr::RouteRunning);
-        let switch = 0.6 + 0.012 * rr;
-        if sim.agents[i].pos.dist(target) < switch
-            && let Job::Route { next: n, .. } = &mut sim.agents[i].job
-        {
+        let (target, speed, done) = route_step(&sim.agents[i], &pts, next, settle);
+        if done && let Job::Route { next: n, .. } = &mut sim.agents[i].job {
             *n += 1;
         }
         let bust = sim.agents[i].bust;
         let target = if bust { v2(target.x + 3.0, target.y + 4.0) } else { target };
-        // He keeps a couple of yards of room at the sideline.
-        let target = v2(target.x, clamp(target.y, 2.5, WIDTH - 2.5));
-        let urg = if next + 1 == pts.len() && settle { 0.85 } else { 1.0 };
-        let dist = sim.agents[i].pos.dist(target);
-        // Before the break of a route that stops (hitch, curl, comeback) he
-        // sinks his hips: he brakes so he can plant at the stem.
-        let brake = sim.agents[i].accel * 1.9;
-        let speed = if next + 1 == pts.len() && settle {
-            sim.agents[i].vmax.min(dist * 2.0)
-        } else if settle && next + 2 == pts.len() {
-            let rr = sim.agents[i].a(Attr::RouteRunning);
-            let stop = (2.0 * brake * 0.9 * dist).sqrt() + 1.0 + 0.03 * (rr - 50.0).max(0.0);
-            (sim.agents[i].vmax * urg).min(stop)
-        } else if next + 1 < pts.len() {
-            // A sharp break needs him to gear down first; good route runners
-            // carry more speed through it.
-            let rr = sim.agents[i].a(Attr::RouteRunning);
-            let into = (target - sim.agents[i].pos).norm();
-            let out = (pts[next + 1] - target).norm();
-            let turn = into.dot(out).clamp(-1.0, 1.0).acos();
-            let corner = sim.agents[i].vmax * (1.0 - (0.62 - 0.004 * (rr - 50.0)) * (turn / 1.57).min(1.4)).max(0.15);
-            let limit = (corner * corner + 2.0 * brake * 0.9 * (dist - 0.5).max(0.0)).sqrt();
-            (sim.agents[i].vmax * urg).min(limit)
-        } else {
-            sim.agents[i].vmax * urg
-        };
         let dir = (target - sim.agents[i].pos).norm();
         sim.steer(i, dir.scale(speed));
     } else if settle {
@@ -1543,6 +1512,41 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
         let vm = sim.agents[i].vmax;
         sim.steer(i, dir.scale(vm));
     }
+}
+
+/// One tick of a route: the point he runs at, how fast, and whether he has
+/// reached it (he moves on to the next point).
+fn route_step(a: &Agent, pts: &[V2], next: usize, settle: bool) -> (V2, f64, bool) {
+    let target = pts[next];
+    // Good route runners cut sharper: they start the break later and keep speed.
+    let rr = a.a(Attr::RouteRunning);
+    let switch = 0.6 + 0.012 * rr;
+    let done = a.pos.dist(target) < switch;
+    // He keeps a couple of yards of room at the sideline.
+    let target = v2(target.x, clamp(target.y, 2.5, WIDTH - 2.5));
+    let urg = if next + 1 == pts.len() && settle { 0.85 } else { 1.0 };
+    let dist = a.pos.dist(target);
+    // Before the break of a route that stops (hitch, curl, comeback) he
+    // sinks his hips: he brakes so he can plant at the stem.
+    let brake = a.accel * 1.9;
+    let speed = if next + 1 == pts.len() && settle {
+        a.vmax.min(dist * 2.0)
+    } else if settle && next + 2 == pts.len() {
+        let stop = (2.0 * brake * 0.9 * dist).sqrt() + 1.0 + 0.03 * (rr - 50.0).max(0.0);
+        (a.vmax * urg).min(stop)
+    } else if next + 1 < pts.len() {
+        // A sharp break needs him to gear down first; good route runners
+        // carry more speed through it.
+        let into = (target - a.pos).norm();
+        let out = (pts[next + 1] - target).norm();
+        let turn = into.dot(out).clamp(-1.0, 1.0).acos();
+        let corner = a.vmax * (1.0 - (0.62 - 0.004 * (rr - 50.0)) * (turn / 1.57).min(1.4)).max(0.15);
+        let limit = (corner * corner + 2.0 * brake * 0.9 * (dist - 0.5).max(0.0)).sqrt();
+        (a.vmax * urg).min(limit)
+    } else {
+        a.vmax * urg
+    };
+    (target, speed, done)
 }
 
 fn freelance_ok(sim: &mut Sim, i: usize, strictness: f64, trust: f64) -> bool {
@@ -1912,42 +1916,36 @@ fn window(sim: &Sim, qb: usize, r: usize) -> (f64, V2, f64) {
     (w.min(8.0), p, flight)
 }
 
-/// Where a receiver will be: he follows his route (the quarterback knows it).
+/// Where a receiver will be: the quarterback knows his route and how his
+/// man runs it, so he plays the route forward with the receiver's own
+/// speed, acceleration and cutting.
 fn predict(sim: &Sim, r: usize, dt: f64) -> V2 {
-    let a = &sim.agents[r];
-    let speed = a.vel.len().max(a.vmax * 0.8);
-    let mut left = speed * dt;
-    let mut pos = a.pos;
-    if let Job::Route { pts, next, settle, .. } = &a.job {
-        let mut k = *next;
-        let mut heading = a.vel.norm();
-        while k < pts.len() && left > 0.0 {
-            // A sharp cut costs him time (he gears down through it).
-            let leg = (pts[k] - pos).norm();
-            if heading.len() > 0.5 {
-                let turn = heading.dot(leg).clamp(-1.0, 1.0).acos();
-                left -= speed * 0.3 * (turn / 1.57).min(1.4);
-                if left <= 0.0 {
-                    return pos;
+    let mut a = sim.agents[r].clone();
+    if let Job::Route { pts, next, settle, .. } = &sim.agents[r].job {
+        let mut n = *next;
+        let steps = (dt / DT).round() as usize;
+        for _ in 0..steps {
+            if n < pts.len() {
+                let (target, speed, done) = route_step(&a, pts, n, *settle);
+                if done {
+                    n += 1;
                 }
+                a.steer((target - a.pos).norm().scale(speed));
+            } else if *settle {
+                break;
+            } else {
+                let v = a.vel;
+                let dir = if v.len() > 0.5 { v.norm() } else { v2(1.0, 0.0) };
+                let me = a.pos;
+                let dir =
+                    if me.y < 4.0 && dir.y < 0.0 || me.y > WIDTH - 4.0 && dir.y > 0.0 { v2(1.0, 0.0) } else { dir };
+                a.steer(dir.scale(a.vmax));
             }
-            heading = leg;
-            let d = pos.dist(pts[k]);
-            if d > left {
-                return pos + leg.scale(left);
-            }
-            left -= d;
-            pos = pts[k];
-            k += 1;
+            a.pos = a.pos + a.vel.scale(DT);
         }
-        if *settle {
-            return pos;
-        }
-        let dir = if pts.len() >= 2 { (pts[pts.len() - 1] - pts[pts.len() - 2]).norm() } else { a.vel.norm() };
-        let p = pos + dir.scale(left);
-        return v2(p.x.min(109.0), clamp(p.y, 0.5, WIDTH - 0.5));
+        return v2(a.pos.x.min(109.0), clamp(a.pos.y, 0.5, WIDTH - 0.5));
     }
-    let p = pos + a.vel.scale(dt);
+    let p = a.pos + a.vel.scale(dt);
     v2(p.x.min(109.0), clamp(p.y, 0.5, WIDTH - 0.5))
 }
 
@@ -1985,7 +1983,10 @@ fn throw(
     }
     let moving = sim.agents[qb].vel.len() > 3.0;
     let poise = sim.agents[qb].a(Attr::Poise);
-    let mut sd = (0.25 + 0.036 * dist + 0.0007 * dist * dist) * (2.3 - 0.017 * acc);
+    // Error grows gently as accuracy falls: real completion rates drop only a
+    // few points from the NFL to college and high school, where receivers
+    // and coverage are just as far behind (proposed, not confirmed).
+    let mut sd = (0.25 + 0.036 * dist + 0.0007 * dist * dist) * 1.5 * (0.005 * (79.0 - acc)).exp();
     if pressure > 0.3 {
         sd *= 1.0 + 0.55 * pressure.min(1.5) * (1.35 - poise / 100.0);
     }
@@ -2006,6 +2007,13 @@ fn throw(
     let e2 = sd * gauss(sim.rng);
     let to = target + along.scale(e1) + across.scale(e2);
     let arrive = t + flight;
+    if super::sim::TRACE.load(std::sync::atomic::Ordering::Relaxed) {
+        let ra = &sim.agents[r];
+        println!(
+            "THROW t={t:.1} aim ({:.1},{:.1}) to ({:.1},{:.1}) rec ({:.1},{:.1}) vel ({:.1},{:.1}) vmax {:.1} flight {flight:.2} sd {sd:.2}",
+            p.x, p.y, to.x, to.y, ra.pos.x, ra.pos.y, ra.vel.x, ra.vel.y, ra.vmax
+        );
+    }
     ps.thrown = Some(t);
     ps.target = Some(r);
     let height = 2.0 + 0.08 * dist;

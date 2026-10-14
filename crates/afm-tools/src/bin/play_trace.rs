@@ -10,8 +10,14 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     let what = args.get(1).cloned().unwrap_or("run".into());
     let seed: u64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(1);
-    let a = synthetic_team("A", Level::NFL, 0.0, OffScheme::WestCoast, 11);
-    let b = synthetic_team("B", Level::NFL, 0.0, OffScheme::WestCoast, 22);
+    // AFM_LEVEL=fbs|hs plays the snap at that level (default NFL).
+    let level = match std::env::var("AFM_LEVEL").as_deref() {
+        Ok("fbs") => Level::FBS,
+        Ok("hs") => Level::HS,
+        _ => Level::NFL,
+    };
+    let a = synthetic_team("A", level, 0.0, OffScheme::WestCoast, 11);
+    let b = synthetic_team("B", level, 0.0, OffScheme::WestCoast, 22);
     let kind = match what.as_str() {
         "run" => PlayKind::Run(RunConcept::InsideZone),
         "power" => PlayKind::Run(RunConcept::Power),
@@ -60,7 +66,7 @@ fn main() {
         let mut ys = Vec::new();
         for s in seed..seed + n {
             let los = std::env::var("AFM_LOS").ok().and_then(|v| v.parse().ok()).unwrap_or(30.0);
-            let r = trace_snap_opt(&a, &b, Level::NFL, call, dcall, los, s, false);
+            let r = trace_snap_opt(&a, &b, level, call, dcall, los, s, false);
             println!(
                 "{s:>4} {:?} {:+.1} air {:.0} sep {:.1} cmp {} | {}",
                 r.kind, r.yards, r.air_yards, r.separation, r.complete as u8, r.why
@@ -72,6 +78,6 @@ fn main() {
         return;
     }
     let los = std::env::var("AFM_LOS").ok().and_then(|v| v.parse().ok()).unwrap_or(30.0);
-    let r = trace_snap(&a, &b, Level::NFL, call, dcall, los, seed);
+    let r = trace_snap(&a, &b, level, call, dcall, los, seed);
     println!("{:?} {:+.1} yds | {}", r.kind, r.yards, r.why);
 }

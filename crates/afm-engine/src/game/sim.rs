@@ -221,6 +221,39 @@ impl Agent {
             r,
         }
     }
+    /// Speed up, slow down and cut toward the wanted velocity, within
+    /// his acceleration, sprint curve and agility.
+    pub fn steer(&mut self, want: V2) {
+        let a = self;
+        let v = a.vel;
+        let speed = v.len();
+        let mut want = want;
+        let wl = want.len();
+        if wl > a.vmax {
+            want = want.scale(a.vmax / wl);
+        }
+        let dv = want - v;
+        let dir = if speed > 0.3 { v.scale(1.0 / speed) } else { dv.norm() };
+        let par = dv.dot(dir);
+        let perp = dv - dir.scale(par);
+        // Speeding up: the sprint curve (fast early, easing to top speed).
+        let up = ((a.vmax - speed).max(0.0) / a.tau).max(a.accel * 0.2) * DT;
+        let down = a.accel * 1.9 * DT;
+        let par_c = par.clamp(-down, up);
+        let pl = perp.len();
+        let side = a.accel * a.cut * DT * (1.0 + 0.25 * (1.0 - speed / a.vmax));
+        let perp_c = if pl > side { perp.scale(side / pl) } else { perp };
+        a.vel = v + dir.scale(par_c) + perp_c;
+        let s = a.vel.len();
+        if s > a.vmax {
+            a.vel = a.vel.scale(a.vmax / s);
+        }
+        a.work += DT * (0.2 + 0.8 * s / 9.0);
+        if s > a.top {
+            a.top = s;
+        }
+    }
+
     #[inline]
     pub fn a(&self, a: Attr) -> f64 {
         self.r[a.index()]
@@ -512,34 +545,7 @@ impl<'a> Sim<'a> {
     /// speeding up is slower near top speed, braking is quicker, and
     /// cutting spends acceleration sideways, more for stiff players.
     pub fn steer(&mut self, i: usize, want: V2) {
-        let a = &mut self.agents[i];
-        let v = a.vel;
-        let speed = v.len();
-        let mut want = want;
-        let wl = want.len();
-        if wl > a.vmax {
-            want = want.scale(a.vmax / wl);
-        }
-        let dv = want - v;
-        let dir = if speed > 0.3 { v.scale(1.0 / speed) } else { dv.norm() };
-        let par = dv.dot(dir);
-        let perp = dv - dir.scale(par);
-        // Speeding up: the sprint curve (fast early, easing to top speed).
-        let up = ((a.vmax - speed).max(0.0) / a.tau).max(a.accel * 0.2) * DT;
-        let down = a.accel * 1.9 * DT;
-        let par_c = par.clamp(-down, up);
-        let pl = perp.len();
-        let side = a.accel * a.cut * DT * (1.0 + 0.25 * (1.0 - speed / a.vmax));
-        let perp_c = if pl > side { perp.scale(side / pl) } else { perp };
-        a.vel = v + dir.scale(par_c) + perp_c;
-        let s = a.vel.len();
-        if s > a.vmax {
-            a.vel = a.vel.scale(a.vmax / s);
-        }
-        a.work += DT * (0.2 + 0.8 * s / 9.0);
-        if s > a.top {
-            a.top = s;
-        }
+        self.agents[i].steer(want);
     }
 
     /// Head for a point at full speed, easing in to stop on it.

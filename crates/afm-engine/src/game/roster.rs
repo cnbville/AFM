@@ -84,12 +84,20 @@ impl GamePlayer {
 
     /// Acceleration, yards per second squared.
     pub fn accel(&self) -> f64 {
-        clamp(4.2 + 0.045 * (self.a(Attr::Acceleration) - 50.0) - 0.006 * (self.weight - 220.0), 2.2, 7.5)
+        // Through the pro range each point counts fully; below it (most high
+        // school players) the gap narrows (proposed, not confirmed).
+        let ac = self.a(Attr::Acceleration);
+        let ac = if ac >= 60.0 { 4.65 + 0.045 * (ac - 60.0) } else { 4.65 + 0.02 * (ac - 60.0) };
+        clamp(ac - 0.006 * (self.weight - 220.0), 2.2, 7.5)
     }
 
     /// How hard he can cut, as a share of his acceleration spent sideways.
     pub fn cut(&self) -> f64 {
-        clamp(0.85 + 0.014 * (self.a(Attr::Agility) - 50.0) - 0.002 * (self.weight - 220.0), 0.4, 1.7)
+        // As with acceleration, the gap narrows below the pro range, so a
+        // high school athlete still cuts like an athlete.
+        let ag = self.a(Attr::Agility);
+        let ag = if ag >= 60.0 { 0.99 + 0.014 * (ag - 60.0) } else { 0.99 + 0.006 * (ag - 60.0) };
+        clamp(ag - 0.002 * (self.weight - 220.0), 0.4, 1.7)
     }
 
     /// Composure, 1-20: the hidden trait with today's poise.
