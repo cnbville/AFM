@@ -1,16 +1,17 @@
 # Starting prompt for the new project
 
-Paste everything between the lines below into the new project (as its project instructions, or as the first message). It tells the new Claude what AFM is, where things stand and how Raichel wants it to work.
+Paste everything between the lines below as the first message in the new project. It tells the new Claude what AFM is, where things stand and how Raichel wants it to work, and makes it seed the new project's memory first. The shorter [project-instructions.md](project-instructions.md) goes in the project's instructions field.
 
 ---
 
-You are continuing AFM (American Football Manager), a project that moved from another Claude account on 2026-10-14. Nothing was lost: everything is in the GitHub repo https://github.com/cnbville/AFM (owner Raichel, GitHub `cnbville`).
+You are continuing AFM (American Football Manager), a project that moved from another Claude account on 2026-10-14. Everything from the old project is in the GitHub repo https://github.com/cnbville/AFM (owner Raichel, GitHub `cnbville`), under `docs/handoff/`. The old project itself (its chat, threads, memory and page links) closes with the old account, so the repo copy is the only record.
 
-**Before anything else, read in this order:**
-1. `docs/handoff/README.md`: where things stand, what's next, and where every old file now lives.
-2. `CLAUDE.md`: the code map, commands and the section loop.
-3. `docs/handoff/memory/MEMORY.md` and the other files in `docs/handoff/memory/`: the old project's memory (decisions, preferences, history). Copy what still holds into this project's memory.
-4. `docs/roadmap.md`, then the specs in `docs/design/` as the work needs them.
+**Your first steps, in this order:**
+1. Read `docs/handoff/README.md`: where things stand, what's next, and what's in the handoff folder.
+2. Seed this project's memory from `docs/handoff/memory-seed.md`: save each entry there as its own memory. Then read `docs/handoff/working-rules.md` (every rule and correction from Raichel, with quotes), `docs/handoff/decisions.md` (every decision, by section) and `docs/handoff/open-questions.md` (everything still waiting on Raichel, with proposed picks).
+3. Read `CLAUDE.md` for the code map and commands, then `docs/roadmap.md`, and the specs in `docs/design/` as the work needs them.
+4. When you need the exact words of an earlier discussion, open `docs/handoff/transcripts/` (the project chat and all 20 threads, word for word) or `docs/handoff/raichel-messages.md` (every message Raichel wrote, oldest first).
+5. Tell Raichel in a few lines that you're up to speed, and ask whether to build the engine physics fixes now.
 
 **What AFM is.** A deep, realistic American football management sim modelled on Football Manager. High school prospects develop through college to the NFL, with dynamic hidden potential, deep stats, player cards and a patient season flow that doesn't rush climaxes. Rust engine (Cargo workspace), desktop UI later.
 
@@ -24,7 +25,7 @@ You are continuing AFM (American Football Manager), a project that moved from an
 - **Every trial result explains why.** Sanity-check results for contradictions before showing them. Trials must use the same engine and code paths as the final game.
 - **Trials come with visuals.** Refresh both the clickable mock GUI (debug dashboard) and the full player pages (all attributes, measurables, combine, season-by-season ratings, debug view) with each trial's data. Copies of the old ones are in `docs/handoff/artifacts/`.
 - **Potential is hidden in the game.** Players only see scouted estimates and hints; exact numbers are for debug and trial tools only.
-- **Keep token use low and write plainly.** Short sentences, simple structure, explain jargon. One checker pass per trial, no big agent fan-outs, no small follow-up messages.
+- **Keep token use low and write plainly.** Short sentences, simple structure, a clear ask, explain jargon. One checker pass per trial, no big agent fan-outs, no small follow-up messages.
 - **Don't re-measure after tuning.** Log tuning worries as candidates for the next trial instead of extra runs.
 - **Don't push or merge without Raichel's OK.** Build threads have that OK: they build, merge to `main` and send one final message.
 - **Agreed sequences carry on by themselves.** When a build finishes, start the next agreed step without waiting to be asked.
@@ -33,6 +34,6 @@ You are continuing AFM (American Football Manager), a project that moved from an
 
 **The section loop:** design rounds with Raichel until the details are nailed down, then a spec in `docs/design/` in Raichel's own wording and examples, then a fresh thread builds it, merges it and sends one message, then a short trial with a "why" on every result.
 
-**Next step:** wait for Raichel's word, then build the match engine physics fixes in `docs/design/engine-physics-fixes.md` (agreed, not built). Then run world trial 4 on them. The README lists everything else that is open.
+**Next step:** build the match engine physics fixes in `docs/design/engine-physics-fixes.md` only when Raichel says so. Then run world trial 4 on them (15 years, every college game on the engine), refreshing both the dashboard and the player pages. `docs/handoff/open-questions.md` lists everything else that is open.
 
 ---

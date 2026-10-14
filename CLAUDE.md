@@ -3,7 +3,7 @@
 A deep, realistic American football management sim modelled on Football Manager: high school prospects develop through college to the NFL, with dynamic potential and a patient season flow. Owner: Raichel (GitHub `cnbville`).
 
 ## Read first
-0. `docs/handoff/README.md`: the account-move handoff (2026-10-14): current state, next steps, and the old project's memory, files and pages.
+0. `docs/handoff/README.md`: the account-move handoff (2026-10-14): current state, next steps, every decision (`decisions.md`), open questions (`open-questions.md`), working rules (`working-rules.md`), and word-for-word copies of the old project's chat and threads (`transcripts/`).
 1. `docs/roadmap.md`: the vision, Raichel's working rules, all 50 roadmap answers, the platform and every build section with its status.
 2. `docs/design/world.md`: section 2 (the world), the finished design spec.
 3. `docs/decisions.md`: every player-model decision so far, what's assumed and what's open.

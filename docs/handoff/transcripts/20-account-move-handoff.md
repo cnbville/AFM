@@ -1,6 +1,6 @@
 # 20 Account move handoff
 
-Thread "Account move handoff" from the AFM project on the old account (thread id cmsg_015NJfb6NRUve4Wa2buMtZKs66kwNUwKq3fU4rJSvpSff8). Every message, oldest first, copied word for word on 2026-10-14. 23 messages.
+Thread "Account move handoff" from the AFM project on the old account (thread id cmsg_015NJfb6NRUve4Wa2buMtZKs66kwNUwKq3fU4rJSvpSff8). Every message, oldest first, copied word for word on 2026-10-14. 27 messages.
 
 ### 2026-10-14 11:47:26 UTC · Raichel (member)
 <sub>id cmsg_015NJfb6NRUve4Wa2buMtZKs66kwNUwKq3fU4rJSvpSff8</sub>
@@ -307,3 +307,79 @@ Got it. I'm writing the decisions, open questions and rules files now, then I'll
 *[Internal note between Claude sessions: Received a message from the coordinator]*
 
 > You already hit a usage limit once on this task, and this account is closing. So before you write anything else, commit the verbatim transcripts you've saved and merge them to main right away. That way the copies that can't be recreated are safe even if you get cut off again. Then write the decisions, open questions and rules files and merge those as a second commit.
+
+### 2026-10-14 13:04:53 UTC · Claude
+<sub>id cmsg_015NJfb6NRUve4Wa2buMtZKs531ZpNp8GFFXuq8qdQ6o8X</sub>
+
+*[Progress checklist update]*
+
+```text
+Full-context handoff (extending what's merged)
+
+✓ Saved verbatim transcripts of the chat and all 20 threads
+✓ Read every transcript for decisions and open questions
+✓ Checked memory, shared files, uploads, code backups and branches
+✓ Re-read every spec for what Raichel confirmed and what's open
+**✓ Merged the verbatim transcripts to main (safe copy)**
+✱ Writing decisions, open questions, parked items and rules
+○ Update README, starting prompt and project instructions
+○ Check every thread is fully carried over
+○ Merge the readable layer to main
+```
+
+### 2026-10-14 13:10:30 UTC · Claude
+<sub>id cmsg_015NJfb6NRUve4Wa2buMtZKsK3KVrwKyrgqJKBR2iegB62</sub>
+
+*[Progress checklist update]*
+
+```text
+Full-context handoff (extending what's merged)
+
+✓ Saved verbatim transcripts of the chat and all 20 threads
+✓ Read every transcript for decisions and open questions
+✓ Checked memory, shared files, uploads, code backups and branches
+✓ Merged the verbatim transcripts to main (safe copy)
+**✓ Wrote every decision, by section, with quotes and dates**
+✱ Writing open questions, parked items and working rules
+○ Update README, starting prompt and project instructions
+○ Check every thread is fully carried over
+○ Merge the readable layer to main
+```
+
+### 2026-10-14 13:15:41 UTC · Claude
+<sub>id cmsg_015NJfb6NRUve4Wa2buMtZKsXMvuiz5CweXA5GXqaPpsBZ</sub>
+
+*[Progress checklist update]*
+
+```text
+Full-context handoff (extending what's merged)
+
+✓ Saved verbatim transcripts of the chat and all 20 threads
+✓ Read every transcript for decisions and open questions
+✓ Checked memory, shared files, uploads, code backups and branches
+✓ Merged the verbatim transcripts to main (safe copy)
+✓ Wrote every decision, by section, with quotes and dates
+**✓ Wrote open questions, parked items and working rules**
+✱ Writing settings, memory seed, README and starting prompt
+○ Check every thread is fully carried over
+○ Merge the readable layer to main
+```
+
+### 2026-10-14 13:20:54 UTC · Claude
+<sub>id cmsg_015NJfb6NRUve4Wa2buMtZKs5HsdfUBK28rajKEBPUiEQv</sub>
+
+*[Progress checklist update]*
+
+```text
+Full-context handoff (extending what's merged)
+
+✓ Saved verbatim transcripts of the chat and all 20 threads
+✓ Read every transcript for decisions and open questions
+✓ Checked memory, shared files, uploads, code backups and branches
+✓ Merged the verbatim transcripts to main (safe copy)
+✓ Wrote every decision, by section, with quotes and dates
+✓ Wrote open questions, parked items and working rules
+**✓ Wrote settings, memory seed, README and starting prompt**
+✱ Checking every thread is carried over, and links
+○ Merge the readable layer to main
+```
