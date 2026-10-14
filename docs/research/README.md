@@ -7,8 +7,8 @@ Research done on the old Claude account in its last week (from 2026-10-14), so t
 | 1. Engine and tactics targets | [engine-and-tactics.md](engine-and-tactics.md) | Engine physics fixes and their trial 4 checks, plays and tactics research list, trial 3 finding 6 | Done 2026-10-14 |
 | 2. 2026 rules and money (NCAA after House, NFL CBA and cap) | [rules-and-money-2026.md](rules-and-money-2026.md) | Section 5, calendar, world money and eligibility | Done 2026-10-14 |
 | 3. Real baselines for trial 3 findings, dataset gaps | [trial3-baselines.md](trial3-baselines.md) | Trial 3 findings 1-9, `data/real-world/README.md` gaps | Done 2026-10-14 |
-| 5. High school playoff formats (in progress) | [hs-playoff-formats.md](hs-playoff-formats.md) | Open question Q2, high school world | 10 of 51 states |
 | 4. Development and injuries | [development-and-injuries.md](development-and-injuries.md) | Section 6b, player model, in-game injuries | Done 2026-10-14 |
+| 5. High school playoff formats and practice limits | [hs-playoff-formats.md](hs-playoff-formats.md) | Open question Q2, high school world, section 6b | Done 2026-10-14 (a few gaps listed) |
 
 Each figure is labelled **[published]** (someone else's study or official source, linked), **[computed]** (Claude's arithmetic on raw real data, dataset named, script in `data/real-world/scripts/`) or **[estimated]** (Claude's judgment or model, such as an upper limit). Engine targets and proposals are Claude's reading, not data.
 
