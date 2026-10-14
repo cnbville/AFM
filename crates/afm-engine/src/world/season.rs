@@ -714,7 +714,7 @@ struct Engine<'a> {
 /// A college team for the match engine: its players and its staff's calling.
 /// The scheme is the coordinator's own (picked from his id until coaches
 /// carry a scheme: proposed, not confirmed).
-fn game_team(w: &World, prog: &super::program::Program) -> Option<GameTeam> {
+pub(super) fn game_team(w: &World, prog: &super::program::Program) -> Option<GameTeam> {
     let players: Vec<GamePlayer> = prog
         .roster
         .iter()
