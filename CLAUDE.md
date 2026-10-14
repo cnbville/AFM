@@ -10,6 +10,7 @@ A deep, realistic American football management sim modelled on Football Manager:
 4. `docs/development-model.md`: how the current player model works.
 5. `docs/design/match-engine.md`: section 3 (the match engine and stats database), the finished design spec. `docs/match-engine.md` says how the built engine works.
 6. `docs/design/plays-and-tactics.md`: the plays and tactics database (play library, counters, pre-snap, learning playbooks, game plans, play calling and coach quality, tendencies, a play designer, ideas spreading). Design done 2026-10-14, not built.
+8. `docs/research/README.md`: realism research (real targets for the engine, rules, baselines, development), with sources and proposals for Raichel. Research only, never decisions.
 7. `docs/design/calendar.md`: section 4 (the season calendar and pacing), the finished design spec. Design done 2026-10-14, not built. It replaces the older draft `docs/design/season-calendar-and-pacing.md` wherever they differ.
 
 ## Working rules (from Raichel)

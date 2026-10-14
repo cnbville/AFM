@@ -1,0 +1,28 @@
+{
+ "source": "nflverse play-by-play 2006-2025, regular season",
+ "team_games": 10398,
+ "coaches_with_48_plus_games": 85,
+ "offensive_plays_per_team_game": 62.5,
+ "raw_sd_epa_per_play": 0.0401,
+ "split_half_reliability": 0.567,
+ "true_sd_epa_per_play": 0.0302,
+ "true_sd_points_per_game": 1.89,
+ "p10_to_p90_points_per_game_if_normal": 4.84,
+ "home_edge_epa_per_play": 0.0072,
+ "top5_raw": {
+  "Rod Marinelli": 0.113,
+  "Chan Gailey": 0.074,
+  "Romeo Crennel": 0.065,
+  "Jonathan Gannon": 0.064,
+  "Eric Mangini": 0.057
+ },
+ "bottom5_raw": {
+  "Bruce Arians": -0.087,
+  "Jim Harbaugh": -0.076,
+  "DeMeco Ryans": -0.075,
+  "Mike Zimmer": -0.07,
+  "Brad Childress": -0.067
+ },
+ "mode": "defense",
+ "note": "Offense: the coach of the team with the ball. Defense: the coach of the defending team (lower EPA allowed is better, so the sign flips). Effects are relative to the average coach. Top and bottom lists are raw estimates (noisier than the true spread)."
+}
