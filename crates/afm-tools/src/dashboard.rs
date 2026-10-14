@@ -220,7 +220,48 @@ pub fn extras(w: &World, years: u32) -> Value {
             }),
         );
     }
-    json!({"engine": engine, "champs": champs, "leaders": leaders, "games": log.games.len()})
+    // FBS games with each side's lineup strength and head coach's hidden
+    // calling skill, to see how the engine turns an edge into wins.
+    let side = |prog: usize, y: i32| -> (f64, f64, f64) {
+        let s = w.programs[prog].seasons.iter().find(|s| s.year == y);
+        let coach = s.and_then(|s| s.coach).map(|c| debug::coach_ability(&w.coaches[c]));
+        (s.map_or(0.0, |s| s.strength), coach.map_or(0.0, |a| a.scheme), coach.map_or(0.0, |a| a.game_management))
+    };
+    let fbs_games: Vec<Value> = log
+        .games
+        .iter()
+        .filter(|g| g.division == Division::FBS)
+        .map(|g| {
+            let (a, b) = (side(g.teams[0], g.year), side(g.teams[1], g.year));
+            json!([
+                g.year,
+                g.teams[0],
+                g.teams[1],
+                g.score[0],
+                g.score[1],
+                r1(a.0),
+                r1(b.0),
+                r1(a.1),
+                r1(b.1),
+                r1(a.2),
+                r1(b.2)
+            ])
+        })
+        .collect();
+    let mut lineups: Vec<Value> = log
+        .lineups
+        .iter()
+        .map(|(&(y, prog), (sum, n))| {
+            let avg: Vec<Value> = (0..sum.len())
+                .map(|k| if n[k] > 0 { json!([r1(sum[k] / n[k] as f64), n[k]]) } else { json!(null) })
+                .collect();
+            let ex = log.extras.get(&(y, prog)).map(|e| e.iter().map(|v| r1(*v)).collect::<Vec<_>>());
+            json!([y, prog, w.programs[prog].real_name, avg, ex])
+        })
+        .collect();
+    lineups.sort_by_key(|v| (v[0].as_i64(), v[1].as_u64()));
+    json!({"engine": engine, "champs": champs, "leaders": leaders, "games": log.games.len(), "fbs_games": fbs_games,
+        "lineups": lineups})
 }
 
 /// The match engine's averages per team game in the world, by division.

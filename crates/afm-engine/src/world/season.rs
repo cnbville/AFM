@@ -374,6 +374,54 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
         })
         .collect();
 
+    // Trial tooling: each FBS starting lineup by position, rated as `strength` rates it.
+    if w.options.keep_game_log && w.recording {
+        for p in w.programs.iter().filter(|p| p.division == Division::FBS) {
+            let mut sum = [0.0; POSITION_COUNT];
+            let mut n = [0u32; POSITION_COUNT];
+            for &i in &p.roster {
+                let q = &w.people[i];
+                if q.last_role != Some(PlayingTime::Starter) {
+                    continue;
+                }
+                let h = q.player.history.last();
+                let v = q.last_performance.unwrap_or_else(|| h.map_or(q.player.overall(), |h| h.overall_start));
+                sum[q.player.position.index()] += v;
+                n[q.player.position.index()] += 1;
+            }
+            w.game_log.lineups.insert((w.year, p.id), (sum, n));
+            // Depth, experience, kicker and the coordinators' calling.
+            let mut rot = (0.0_f64, 0.0_f64);
+            let mut exp = (0.0_f64, 0.0_f64);
+            let mut kick = 0.0_f64;
+            for &i in &p.roster {
+                let q = &w.people[i];
+                let h = q.player.history.last();
+                let v = q.last_performance.unwrap_or_else(|| h.map_or(q.player.overall(), |h| h.overall_start));
+                match q.last_role {
+                    Some(PlayingTime::Rotation) => rot = (rot.0 + v, rot.1 + 1.0),
+                    Some(PlayingTime::Starter) => {
+                        exp = (exp.0 + q.college_seasons as f64, exp.1 + 1.0);
+                        if q.player.position == Position::K {
+                            kick = v;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            let call = |c: Option<usize>| {
+                c.or(p.head_coach).map_or(0.0, |c| {
+                    let a = w.coaches[c].ability();
+                    0.6 * a.scheme + 0.4 * a.game_management
+                })
+            };
+            w.game_log.extras.insert(
+                (w.year, p.id),
+                [rot.0 / rot.1.max(1.0), rot.1, exp.0 / exp.1.max(1.0), kick, call(p.oc), call(p.dc)],
+            );
+        }
+    }
+
     // --- High school games: by state and classification ----------------------------
     let mut groups: std::collections::HashMap<(usize, u32), Vec<usize>> = std::collections::HashMap::new();
     for s in w.high_schools.iter() {

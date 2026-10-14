@@ -63,6 +63,12 @@ pub struct GameLog {
     pub players: HashMap<(i32, u32), PlayerSeason>,
     /// Player id to name, position when first seen, stars and class.
     pub names: HashMap<u32, (String, crate::positions::Position, u8, i32)>,
+    /// (season, FBS program) to its starters' rating sum and count by position.
+    /// (season, FBS program) to [rotation players' average, their count,
+    /// starters' average college seasons, kicker, OC calling, DC calling].
+    pub extras: HashMap<(i32, usize), [f64; 6]>,
+    pub lineups:
+        HashMap<(i32, usize), ([f64; crate::positions::POSITION_COUNT], [u32; crate::positions::POSITION_COUNT])>,
 }
 
 impl GameLog {
