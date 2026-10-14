@@ -5,7 +5,7 @@ Research done on the old Claude account in its last week (from 2026-10-14), so t
 | Area | File | Feeds | State |
 |---|---|---|---|
 | 1. Engine and tactics targets | [engine-and-tactics.md](engine-and-tactics.md) | Engine physics fixes and their trial 4 checks, plays and tactics research list, trial 3 finding 6 | Done 2026-10-14 |
-| 2. 2026 rules and money (NCAA after House, NFL CBA and cap) | not yet | Section 5, calendar | To do |
+| 2. 2026 rules and money (NCAA after House, NFL CBA and cap) | [rules-and-money-2026.md](rules-and-money-2026.md) | Section 5, calendar, world money and eligibility | Done 2026-10-14 |
 | 3. Real baselines for trial 3 findings, dataset gaps | not yet | Trial 3 findings 2-9, `data/real-world/README.md` gaps | To do |
 | 4. Development and injuries | not yet | Section 6b | To do |
 

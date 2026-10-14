@@ -69,7 +69,7 @@ Gaps (exact):
 - Fixed: the first pass had 2022-era minimum salaries ($795,000 rookie). 2026 minimums are $885,000 (0 credited seasons) up to $1,300,000 (7+).
 - Added: 2026 franchise and transition tags for every position, fifth-year option tiers, free agency rules and dates, practice squad size and pay, cutdown rules, 2026 calendar.
 - `rookie_scale_2026.csv`: all 257 picks (years, total value, average per year, guaranteed) from the OverTheCap contract data in the nflverse `contracts` release.
-- Gaps: RFA tender amounts, game-day actives and the emergency third QB rule, practice squad veteran limits, 2027 option amounts by position.
+- Filled 2026-10-14 (research area 2): RFA tenders, game day and elevations, emergency third QB, practice squad eligibility, IR, comp picks, cap mechanics, 2026-27 dates. Gaps now listed in the file itself.
 
 **nfl_teams.csv** (checked 2026-10-11)
 - `market_size_rank` is now the Nielsen 2024-25 TV market (DMA) rank for the team's market, one source for all 32 (Wikipedia list of US TV markets). Teams sharing a market share its rank (Giants/Jets 1, Rams/Chargers 2). Arizona = Phoenix, Carolina = Charlotte, New England = Boston, Tennessee = Nashville, Washington = Washington DC.
