@@ -220,7 +220,35 @@ pub fn extras(w: &World, years: u32) -> Value {
             }),
         );
     }
-    json!({"engine": engine, "champs": champs, "leaders": leaders, "games": log.games.len()})
+    // FBS games with each side's lineup strength and head coach's hidden
+    // calling skill, to see how the engine turns an edge into wins.
+    let side = |prog: usize, y: i32| -> (f64, f64, f64) {
+        let s = w.programs[prog].seasons.iter().find(|s| s.year == y);
+        let coach = s.and_then(|s| s.coach).map(|c| debug::coach_ability(&w.coaches[c]));
+        (s.map_or(0.0, |s| s.strength), coach.map_or(0.0, |a| a.scheme), coach.map_or(0.0, |a| a.game_management))
+    };
+    let fbs_games: Vec<Value> = log
+        .games
+        .iter()
+        .filter(|g| g.division == Division::FBS)
+        .map(|g| {
+            let (a, b) = (side(g.teams[0], g.year), side(g.teams[1], g.year));
+            json!([
+                g.year,
+                g.teams[0],
+                g.teams[1],
+                g.score[0],
+                g.score[1],
+                r1(a.0),
+                r1(b.0),
+                r1(a.1),
+                r1(b.1),
+                r1(a.2),
+                r1(b.2)
+            ])
+        })
+        .collect();
+    json!({"engine": engine, "champs": champs, "leaders": leaders, "games": log.games.len(), "fbs_games": fbs_games})
 }
 
 /// The match engine's averages per team game in the world, by division.
