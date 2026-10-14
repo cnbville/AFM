@@ -1,0 +1,177 @@
+{
+  "_meta": {
+    "season": 2026,
+    "description": "Consolidated AFM world data for import, including colleges, high schools, talent geography, NFL rules, pipeline rates, and sources."
+  },
+  "colleges": {
+    "global_counts": {
+      "fbs": 138,
+      "fcs": 128,
+      "d2": 161,
+      "d3_estimate": 240,
+      "naia_estimate": 95
+    },
+    "financial_benchmarks": {
+      "power_4_median_roster_cost": 23147000
+    },
+    "teams": [
+      {
+        "name": "Texas",
+        "division": "FBS",
+        "conference": "SEC",
+        "location": "Austin, TX",
+        "enrollment_est": 53000,
+        "prestige_tier": 1,
+        "nil_budget_est": 46485000,
+        "academic_standing": "AAU"
+      },
+      {
+        "name": "Oregon",
+        "division": "FBS",
+        "conference": "Big Ten",
+        "location": "Eugene, OR",
+        "enrollment_est": 23000,
+        "prestige_tier": 1,
+        "nil_budget_est": 43405000,
+        "academic_standing": "AAU"
+      },
+      {
+        "name": "North Dakota State",
+        "division": "FCS",
+        "conference": "MVFC",
+        "location": "Fargo, ND",
+        "enrollment_est": 12000,
+        "prestige_tier": 1,
+        "nil_budget_est": 1500000,
+        "academic_standing": "Public Research"
+      },
+      {
+        "name": "Ferris State",
+        "division": "D2",
+        "conference": "GLIAC",
+        "location": "Big Rapids, MI",
+        "enrollment_est": 10000,
+        "prestige_tier": 1,
+        "nil_budget_est": 0,
+        "academic_standing": "Public"
+      }
+    ]
+  },
+  "high_schools": {
+    "states": {
+      "TX": {
+        "total_programs_est": 1200,
+        "classifications": ["6A", "5A", "4A", "3A", "2A", "1A"],
+        "transfer_rules": "Strict eligibility guidelines enforced by UIL; transfers for athletic purposes generally ruled ineligible for varsity for one year.",
+        "powerhouses": ["Allen", "North Shore", "Duncanville"]
+      },
+      "FL": {
+        "total_programs_est": 600,
+        "classifications": ["7A", "6A", "5A", "4A", "3A", "2A", "1A", "Independent"],
+        "transfer_rules": "Highly open; students can transfer and play immediately if space is available at the new school.",
+        "powerhouses": ["St. Thomas Aquinas", "IMG Academy", "Chaminade-Madonna", "Columbus"]
+      },
+      "CA": {
+        "total_programs_est": 1000,
+        "classifications": ["Division 1", "Division 2", "Division 3", "Division 4", "Division 5"],
+        "transfer_rules": "Sit-out period required for transfers without a valid change of residence, handled by CIF.",
+        "powerhouses": ["Mater Dei", "St. John Bosco", "Santa Margarita", "Sierra Canyon"]
+      }
+    }
+  },
+  "talent_geography": [
+    {
+      "state": "TX",
+      "fbs_signees_yearly_est": 400,
+      "nfl_draftees_yearly_est": 35,
+      "hotbed_status": "Elite",
+      "primary_regions": ["Dallas-Fort Worth", "Houston"]
+    },
+    {
+      "state": "FL",
+      "fbs_signees_yearly_est": 350,
+      "nfl_draftees_yearly_est": 35,
+      "hotbed_status": "Elite",
+      "primary_regions": ["Miami-Dade", "Broward", "Tampa"]
+    },
+    {
+      "state": "CA",
+      "fbs_signees_yearly_est": 250,
+      "nfl_draftees_yearly_est": 25,
+      "hotbed_status": "Elite",
+      "primary_regions": ["Southern California", "Bay Area"]
+    },
+    {
+      "state": "GA",
+      "fbs_signees_yearly_est": 200,
+      "nfl_draftees_yearly_est": 25,
+      "hotbed_status": "Elite",
+      "primary_regions": ["Atlanta Metro", "South Georgia"]
+    },
+    {
+      "state": "OH",
+      "fbs_signees_yearly_est": 100,
+      "nfl_draftees_yearly_est": 12,
+      "hotbed_status": "High",
+      "primary_regions": ["Northeast Ohio", "Cincinnati"]
+    },
+    {
+      "state": "PA",
+      "fbs_signees_yearly_est": 80,
+      "nfl_draftees_yearly_est": 10,
+      "hotbed_status": "High",
+      "primary_regions": ["Western PA", "Philadelphia"]
+    }
+  ],
+  "nfl": {
+    "league": "NFL",
+    "season": 2026,
+    "teams_count": 32,
+    "financials": {
+      "salary_cap": 301200000,
+      "rookie_scale": "4-year fixed contracts based on draft slot; 1st round picks include a 5th-year team option",
+      "franchise_tag": "1-year fully guaranteed deal based on top 5 salaries at the position",
+      "dead_money": "Guaranteed money that hits the cap if a player is cut or traded"
+    },
+    "roster_rules": {
+      "active_roster": 53,
+      "game_day_active": 48,
+      "practice_squad": 17,
+      "practice_squad_notes": "Maximum 17 players in 2026 assuming at least one qualifies for the International Player Pathway (IPP)."
+    }
+  },
+  "pipelines": {
+    "transfer_portal": {
+      "annual_entrants_est": 3310,
+      "notes": "2025/2026 cycles saw upwards of 3,310+ entrants within the first 48 hours of portal opening."
+    },
+    "draft_probabilities_by_star_rating": {
+      "5_star": {
+        "drafted_any_round": 0.7008,
+        "first_round": 0.343
+      },
+      "4_star": {
+        "drafted_any_round": 0.30,
+        "first_round": 0.038
+      },
+      "3_star": {
+        "drafted_any_round": 0.10,
+        "first_round": 0.004
+      }
+    },
+    "draft_breakdown_by_origin_2026": {
+      "power_4": 239,
+      "group_of_6": 13,
+      "fcs": 4,
+      "naia": 1
+    }
+  },
+  "sources": [
+    "Colleges & Divisions: 2026/2027 season count is 138 FBS teams and 128 FCS teams. D2 features 161 football programs as of the 2025/2026 seasons.",
+    "Financial Data: Texas leads with an estimated $46.48M roster cost/NIL budget for 2026, followed by Oregon ($43.4M), with the Power 4 median sitting at $23.1M.",
+    "High School Data: National top powerhouses (IMG Academy, St. Thomas Aquinas, Mater Dei, St. John Bosco, Duncanville, Allen, etc.) tracked via MaxPreps 2026 rankings.",
+    "NFL: The NFL 2026 Salary Cap is officially set at $301.2 million. Roster constraints dictate a 53-man active roster (48 on game day) and a 17-man practice squad maximum under the IPP rules.",
+    "Pipelines & Rates: The Transfer Portal crossed 3,310 entries in mere days during the spring window. Draft hit rates by star rating (247Sports): 5-stars have a ~70% chance to be drafted overall and a 34.3% chance of being a 1st round pick.",
+    "Draft Breakdown: In the 257-pick draft breakdown, 239 came from P4, 13 from G6, 4 from FCS, and 1 from NAIA."
+  ]
+}
