@@ -15,6 +15,7 @@ pub mod background;
 pub mod coach;
 pub mod data;
 pub mod ethnicity;
+pub mod game_log;
 pub mod geo;
 pub mod high_school;
 pub mod names;
@@ -53,6 +54,9 @@ pub struct WorldOptions {
     /// history included, so the history comes from the same football as the
     /// save (Raichel, 2026-10-14). A year is for quick checks only.
     pub engine_from: Option<i32>,
+    /// Trial tooling: keep every college game's box score totals and each
+    /// player's season totals in `World::game_log` (history years only).
+    pub keep_game_log: bool,
 }
 
 impl Default for WorldOptions {
@@ -64,6 +68,7 @@ impl Default for WorldOptions {
             start_year: 2026,
             names: NameMode::Real,
             engine_from: None,
+            keep_game_log: false,
         }
     }
 }
@@ -268,6 +273,8 @@ pub struct World {
     pub(crate) rng: Rng,
     /// False during the spin-up before recorded history, while rosters fill.
     pub(crate) recording: bool,
+    /// Trial tooling, see `WorldOptions::keep_game_log`.
+    pub game_log: game_log::GameLog,
     next_person: u32,
 }
 
@@ -368,6 +375,7 @@ impl World {
             nfl,
             rng,
             recording: false,
+            game_log: game_log::GameLog::default(),
             next_person: 1,
         };
         staff::staff_everyone(&mut w);
