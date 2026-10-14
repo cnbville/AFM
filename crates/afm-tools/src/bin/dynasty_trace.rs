@@ -20,7 +20,7 @@ use rayon::prelude::*;
 
 /// Margin of `a` against `b`, home and away in turn.
 fn margin(a: &GameTeam, b: &GameTeam, g: usize, seed: u64) -> f64 {
-    if g % 2 == 0 {
+    if g.is_multiple_of(2) {
         let r = quick_game(a, b, Level::FBS, seed);
         (r.stats.score[0] - r.stats.score[1]) as f64
     } else {
