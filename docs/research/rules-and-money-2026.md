@@ -2,6 +2,8 @@
 
 Researched 2026-10-14 by Claude for Raichel. Research only. Anything that points to a design change is under "Proposals for Raichel" and is **proposed, not confirmed**.
 
+Evidence: everything in this file is **[published]** (official or news sources, linked next to each figure), except two items marked **[estimated]**: the 2026 draft-withdrawal date (worked out from the rule) and reading the NIL Go second total as "not cleared". Proposals are Claude's ideas, not data.
+
 It feeds: section 5 (team management: the cap, contracts, rosters), the calendar spec (`docs/design/calendar.md`, topics 2-5 and its fixed list of future changes), and the world's college money and eligibility (`docs/design/world.md`). The NFL figures were also added to `data/real-world/nfl_rules.json`.
 
 ## College after the House settlement
@@ -18,7 +20,7 @@ It feeds: section 5 (team management: the cap, contracts, rosters), the calendar
 - Players already on a roster when the rule started are grandfathered ("designated student-athletes"). Their school may go over 105 until their eligibility runs out.
 
 **NIL Go so far** (CSC NIL Data Report, data to 2026-07-01: https://assets.tina.io/29b83311-e587-42b1-861e-87ebde9aa253/NIL%20Data%20Report%20-%20July%208,%202026.pdf)
-- Since launch on June 11, 2025: 34,195 deals worth $355.2M and 1,812 deals worth $89.9M (the report doesn't label which total is cleared; the second is almost certainly "not cleared").
+- Since launch on June 11, 2025: 34,195 deals worth $355.2M and 1,812 deals worth $89.9M (the report doesn't label which total is cleared; the second is "not cleared" **[estimated]**).
 - May 1 to June 30, 2026 alone: 7,639 deals cleared ($112.9M) and 659 not cleared ($33.7M). So about **8% of deals and 23% of the money** fail review: big booster-style deals fail far more often than small ones.
 - No split by sport or school is published.
 
@@ -46,7 +48,7 @@ It feeds: section 5 (team management: the cap, contracts, rosters), the calendar
 
 **NFL draft: declaring and coming back**
 - 2026 dates: soft deadline Jan 5, declaration deadline Jan 14 (tentative), approved list Jan 15; title-game players by Jan 23 (gunslingerbuzz list above).
-- To keep college eligibility, a player must withdraw **within 72 hours after the NFL's declaration deadline**, must not be drafted, and must not sign with an agent (UGA compliance: https://compliance.sports.uga.edu/amateurism-reminders/; Sportskeeda: https://sportskeeda.com/college-football/can-go-back-college-declare-nfl-draft-ncaaf-nfl-rules-explored). For 2026 that is about January 17. No 2026 NCAA page with the exact date was found, so the date is inferred from the rule. This answers the open question in `docs/handoff/open-questions.md`.
+- To keep college eligibility, a player must withdraw **within 72 hours after the NFL's declaration deadline**, must not be drafted, and must not sign with an agent (UGA compliance: https://compliance.sports.uga.edu/amateurism-reminders/; Sportskeeda: https://sportskeeda.com/college-football/can-go-back-college-declare-nfl-draft-ncaaf-nfl-rules-explored). For 2026 that is about January 17 **[estimated]**. No 2026 NCAA page with the exact date was found, so the date is inferred from the rule. This answers the open question in `docs/handoff/open-questions.md`.
 
 **Already in the dataset:** high school NIL by state and transfer rules (`hs_states.csv`), NIL position ranges and the portal counts (`rates.json`).
 
