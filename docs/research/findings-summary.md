@@ -121,3 +121,24 @@ Labels as above. Data: real college scores 2001-2025 (CFBD), ESPN recruit rating
 
 ### 8. Money and portal gaps
 - **Real:** [published] schools paid players **$1.77 billion** in 2025-26, mostly in football and basketball (NCAA and College Sports Commission). Per-school spending is not published; only estimates exist (Ohio State $49-54M, Texas about $48M). FBS portal entries fell 23% in January 2026 after schools started paying players. There is still no public count of JUCO players moving to FBS.
+
+## Area 4: development, careers and injuries
+
+Labels as above. Data: NFL snap counts, injury reports, play-by-play, birth dates and draft records (nflverse), plus published medical studies.
+
+### 1. Peak ages by position
+- **Real:** [computed] among NFL starters, **35% of QBs are 30 or older** (21% are 33+), against about 20% of linemen and pass rushers, 13% of receivers and corners, and **3% of running backs**. A QB's efficiency holds steady into his early 30s, then drops from about 32. [published, PFF] receivers peak around their fifth season, and receivers and tight ends make a big jump from year 1 to year 2.
+- **Means (proposal):** real peak windows by position, coming from the attributes (speed fades first, smarts keep growing), not flat rules.
+
+### 2. Careers
+- **Real:** [computed] first-round picks last a median of 9 years and 45% make a Pro Bowl. Seventh-rounders last a median of 3 years, and 25% never play a game. Punters last longest (median 8.5 years), receivers shortest (4).
+- **Means:** a check for the world's careers.
+
+### 3. Breakouts
+- **Real:** [computed] a receiver with under 500 yards jumps to 900+ the next season about 1 time in 40, and to 1,200+ about 1 time in 100, in any year of his career. The biggest swings happen between high school and the NFL (area 3: a third of picks were 3-star recruits).
+- **Means:** NFL breakouts should be rare surprises; big late development belongs mostly to college.
+
+### 4. Injuries
+- **Real:** [computed] a regular NFL player has about a **40-50% chance a season** of an injury that keeps him out, and misses about 1-1.5 games a season on average. Knees (17%), ankles (14%), hamstrings (13%) and concussions (11%) are the most common. Corners and receivers get hurt most, and specialists rarely. [published] games are 5-7 times more dangerous than practice, and college games about 2.5 times more than high school games.
+- **After a major injury:** [published] 62% of NFL running backs and receivers came back from an ACL tear, after about 14 months on average, and receivers came back clearly worse. About 24% of pro athletes never returned from an Achilles tear.
+- **Means (proposal):** use the real injury mix, risk by position and recovery times, with major injuries costing about a year and sometimes a career.
