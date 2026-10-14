@@ -248,7 +248,20 @@ pub fn extras(w: &World, years: u32) -> Value {
             ])
         })
         .collect();
-    json!({"engine": engine, "champs": champs, "leaders": leaders, "games": log.games.len(), "fbs_games": fbs_games})
+    let mut lineups: Vec<Value> = log
+        .lineups
+        .iter()
+        .map(|(&(y, prog), (sum, n))| {
+            let avg: Vec<Value> = (0..sum.len())
+                .map(|k| if n[k] > 0 { json!([r1(sum[k] / n[k] as f64), n[k]]) } else { json!(null) })
+                .collect();
+            let ex = log.extras.get(&(y, prog)).map(|e| e.iter().map(|v| r1(*v)).collect::<Vec<_>>());
+            json!([y, prog, w.programs[prog].real_name, avg, ex])
+        })
+        .collect();
+    lineups.sort_by_key(|v| (v[0].as_i64(), v[1].as_u64()));
+    json!({"engine": engine, "champs": champs, "leaders": leaders, "games": log.games.len(), "fbs_games": fbs_games,
+        "lineups": lineups})
 }
 
 /// The match engine's averages per team game in the world, by division.
