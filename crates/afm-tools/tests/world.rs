@@ -7,8 +7,11 @@ use std::sync::LazyLock;
 use afm_engine::world::data::Division;
 use afm_engine::world::{World, WorldOptions};
 
-static WORLD: LazyLock<World> =
-    LazyLock::new(|| World::new(WorldOptions { seed: 7, history_years: 3, ..Default::default() }));
+// The game plays every college game on the engine; the test plays only the
+// last history season on it, to keep the run short.
+static WORLD: LazyLock<World> = LazyLock::new(|| {
+    World::new(WorldOptions { seed: 7, history_years: 3, engine_from: Some(2025), ..Default::default() })
+});
 
 #[test]
 fn rosters_and_staffs_are_full() {

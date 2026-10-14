@@ -48,11 +48,23 @@ pub struct WorldOptions {
     /// The year the save starts.
     pub start_year: i32,
     pub names: NameMode,
+    /// The first season whose college games run on the match engine (item 12).
+    /// None, the game's setting, plays every college game on the engine,
+    /// history included, so the history comes from the same football as the
+    /// save (Raichel, 2026-10-14). A year is for quick checks only.
+    pub engine_from: Option<i32>,
 }
 
 impl Default for WorldOptions {
     fn default() -> Self {
-        WorldOptions { seed: 2026, scale: 1.0, history_years: 30, start_year: 2026, names: NameMode::Real }
+        WorldOptions {
+            seed: 2026,
+            scale: 1.0,
+            history_years: 30,
+            start_year: 2026,
+            names: NameMode::Real,
+            engine_from: None,
+        }
     }
 }
 

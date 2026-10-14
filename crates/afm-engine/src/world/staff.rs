@@ -166,6 +166,7 @@ pub(crate) fn after_season(w: &mut World, r: &SeasonResults) {
             wins: t.wins,
             losses: t.losses,
             state_title: t.state_title,
+            coach: school.coach,
         });
         if t.state_title {
             school.state_titles += 1;
@@ -312,11 +313,12 @@ fn college_news(w: &mut World, p: usize, kind: NewsKind, text: String) {
 }
 
 /// A high school coach so dominant that colleges notice (note 5): a state
-/// title in one of his last two seasons and almost no losses.
+/// title in one of his last two seasons and almost no losses. Only his own
+/// seasons count, never his predecessor's.
 fn hs_buzz(w: &World, c: usize) -> bool {
     let coach = &w.coaches[c];
     let Some(Job { employer: Employer::HighSchool(s), .. }) = coach.job else { return false };
-    let seasons: Vec<_> = w.high_schools[s].seasons.iter().rev().take(2).collect();
+    let seasons: Vec<_> = w.high_schools[s].seasons.iter().rev().take(2).filter(|x| x.coach == Some(c)).collect();
     let title = seasons.iter().any(|x| x.state_title);
     let (wins, games) = seasons.iter().fold((0, 0), |a, x| (a.0 + x.wins, a.1 + x.wins + x.losses));
     title && games > 0 && wins as f64 / games as f64 >= 0.9
@@ -487,25 +489,64 @@ pub(crate) fn carousel(w: &mut World) {
             Employer::College(p) if o.role != Role::HeadCoach => w.programs[p].head_coach,
             _ => None,
         };
+        // Nobody sees a coach's teaching directly (note 15B). A school reads
+        // it from film and calls, sharper with a well-connected staff, and
+        // adds what it can see: how his players grew and moved up.
+        let net = match hiring_hc {
+            Some(h) => w.coaches[h].ability.network,
+            None => 6.0 + 10.0 * needs_prestige,
+        };
+        let read_sd = clamp(3.5 - 0.15 * (net - 10.0), 1.5, 5.0);
         let mut scored: Vec<(usize, f64)> = candidates
             .into_iter()
             .map(|c| {
                 let mut s = candidate_score(&w.coaches[c], needs, &mut w.rng);
-                let a = w.coaches[c].ability();
+                let coach = &w.coaches[c];
+                let a = *coach.ability();
+                let seen = |g: Group, rng: &mut Rng| {
+                    let u = coach.units[g as usize];
+                    a.teaching[g as usize] - 10.0
+                        + rng.normal(0.0, read_sd)
+                        + 2.5 * u.growth_read()
+                        + 0.8 * (1.0 + u.moved_up).ln()
+                };
                 match o.role {
                     // A coordinator hire is judged on his side of the ball.
                     Role::OffensiveCoordinator | Role::DefensiveCoordinator => {
+                        let off = o.role == Role::OffensiveCoordinator;
                         let side: f64 = Group::ALL
                             .iter()
-                            .filter(|g| g.offense() == (o.role == Role::OffensiveCoordinator))
-                            .map(|&g| a.teaching[g as usize])
+                            .filter(|g| g.offense() == off && **g != Group::Specialists)
+                            .map(|&g| seen(g, &mut w.rng))
                             .sum::<f64>()
                             / 4.0;
-                        s += 0.5 * (side - 10.0);
+                        s += 0.5 * side;
+                        if coach.came_up.offense() != off {
+                            s -= 1.0;
+                        }
                     }
-                    // A position coach is judged on teaching his group.
-                    Role::PositionCoach(g) => s += 0.8 * (a.teaching[g as usize] - 10.0),
-                    Role::HeadCoach => {}
+                    // A position coach is judged on teaching his group, and on
+                    // whether he came up coaching it or his record there stands out.
+                    Role::PositionCoach(g) => {
+                        s += 0.8 * seen(g, &mut w.rng);
+                        let u = coach.units[g as usize];
+                        if coach.came_up == g {
+                            s += 0.6;
+                        } else if coach.came_up.offense() != g.offense() && u.growth_read() < 0.3 && u.moved_up < 2.0 {
+                            s -= 1.5;
+                        }
+                    }
+                    Role::HeadCoach => {
+                        // Committees rarely hand a first head job to a man near
+                        // retirement, and prefer coaches in their prime.
+                        let age = coach.age as f64;
+                        let been_head = coach.history.iter().any(|h| h.role == Role::HeadCoach)
+                            || coach.job.is_some_and(|j| j.role == Role::HeadCoach);
+                        s -= 0.5 * (age - 58.0).max(0.0);
+                        if !been_head {
+                            s -= 0.8 * (age - 54.0).max(0.0);
+                        }
+                    }
                 }
                 // Head coaches hire from their own tree (note 2: how the gap travels).
                 if hiring_hc.is_some() && w.coaches[c].mentor == hiring_hc {
@@ -519,7 +560,9 @@ pub(crate) fn carousel(w: &mut World) {
             .collect();
         scored.sort_by(|a, b| b.1.total_cmp(&a.1));
         let mut hired = None;
-        for &(c, _) in scored.iter().take(6) {
+        // A search works down its list: when the first names say no, the
+        // school calls the next ones (proposed, not confirmed: 20 calls).
+        for &(c, _) in scored.iter().take(20) {
             let coach = &w.coaches[c];
             let accepts = match coach.job {
                 None => true,
@@ -541,6 +584,19 @@ pub(crate) fn carousel(w: &mut World) {
                 hired = Some(c);
                 break;
             }
+        }
+        // Nobody outside said yes to a college head job: the school promotes
+        // its own coordinator, the better-regarded one (an interim who stays).
+        if hired.is_none()
+            && o.role == Role::HeadCoach
+            && let Employer::College(p) = o.employer
+            && !is_hs
+        {
+            hired = [w.programs[p].oc, w.programs[p].dc]
+                .into_iter()
+                .flatten()
+                .filter(|c| !moved.contains(c))
+                .max_by(|&a, &b| w.coaches[a].reputation.total_cmp(&w.coaches[b].reputation));
         }
         let c = match hired {
             Some(c) => {
@@ -591,10 +647,16 @@ pub(crate) fn carousel(w: &mut World) {
             let name = w.programs[p].name(w.options.names).to_string();
             let coach = &w.coaches[c];
             let from = from_job.map_or("a new coach".to_string(), |(e, _)| match e {
+                Employer::College(q) if q == p => "promoted from his own staff".to_string(),
                 Employer::College(q) => format!("from {}", w.programs[q].name(w.options.names)),
                 Employer::HighSchool(h) => format!("from {} High School football", w.high_schools[h].name),
                 Employer::Nfl(_) => "from the NFL".to_string(),
             });
+            if o.role == Role::HeadCoach {
+                let line = format!("Hired head coach {} ({from}).", coach.name);
+                w.programs[p].story.push((year, line));
+            }
+            let coach = &w.coaches[c];
             let text = if o.role == Role::HeadCoach {
                 format!("{name} hire {} ({from}).", coach.name)
             } else {
@@ -617,6 +679,10 @@ pub(crate) fn carousel(w: &mut World) {
         };
         let mut rng = w.rng.fork();
         w.coaches[c].age_one_year(mentor.as_ref(), &mut rng);
+        // Schools remember recent work best.
+        for u in w.coaches[c].units.iter_mut() {
+            u.fade(0.85);
+        }
         // Recruiting ties fade unless impact players keep them alive.
         w.coaches[c].ties.retain(|_, t| {
             *t *= 0.9;
@@ -689,7 +755,10 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                     let Some(c) = slot(prog, role) else { continue };
                     let fits = match (o.role, role) {
                         (Role::HeadCoach, Role::PositionCoach(_)) => false,
-                        (Role::HeadCoach, _) => same || below,
+                        // A coordinator a level down rarely jumps straight to a
+                        // head job; head coaches there do (note 5).
+                        (Role::HeadCoach, Role::HeadCoach) => same || below,
+                        (Role::HeadCoach, _) => same,
                         // Coordinators come from coordinators, head coaches a level
                         // down, and position coaches on that side of the ball.
                         (Role::OffensiveCoordinator | Role::DefensiveCoordinator, Role::HeadCoach) => below,
@@ -734,7 +803,14 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                     .schools
                     .iter()
                     .filter_map(|&h| w.high_schools[h].coach)
-                    .filter(|&c| !moved.contains(&c) && w.coaches[c].teaching(g) >= 13.0)
+                    .filter(|&c| {
+                        // Seen as a candidate if he came up on that side of the
+                        // ball or his players at that spot stood out (note 15B).
+                        let coach = &w.coaches[c];
+                        let u = coach.units[g as usize];
+                        !moved.contains(&c)
+                            && ((coach.came_up.offense() == g.offense() && u.growth_read() > 0.15) || u.moved_up >= 1.5)
+                    })
                     .collect();
                 sample(w, &hs, 4, &mut pool);
                 if w.rng.chance(0.12) {
@@ -828,6 +904,8 @@ pub(crate) fn update_programs(w: &mut World, r: &SeasonResults) {
         let t = &r.college[i];
         let win = if t.games() > 0 { t.win_pct() } else { 0.5 };
         let hc_rep = w.programs[i].head_coach.map_or(8.0, |c| w.coaches[c].reputation);
+        let mut rng = w.rng.fork();
+        let (recording, year) = (w.recording, w.year);
         let p = &mut w.programs[i];
         let scale = match p.division {
             Division::FBS => 1.0,
@@ -842,14 +920,40 @@ pub(crate) fn update_programs(w: &mut World, r: &SeasonResults) {
                 + if t.national_title { 0.3 } else { 0.0 });
         if w.recording {
             p.recent = 0.6 * p.recent + 0.4 * clamp(season_score, 0.0, 1.0);
-            p.tradition =
-                clamp(0.985 * p.tradition + 0.015 * p.recent + if t.national_title { 0.03 } else { 0.0 }, 0.0, 1.0);
+            // Tradition is built by titles; recent form only seeps in slowly (note 15C).
+            p.tradition = clamp(
+                0.995 * p.tradition
+                    + 0.005 * p.recent
+                    + if t.national_title { 0.03 } else { 0.0 }
+                    + if t.conference_title { 0.004 } else { 0.0 },
+                0.0,
+                1.0,
+            );
             let fan_target =
                 clamp(0.4 * p.tradition + 0.4 * p.recent + 0.2 * (p.stadium as f64 / 110_000.0).sqrt(), 0.0, 1.0);
             p.fans = 0.93 * p.fans + 0.07 * fan_target;
             let nil_share = clamp((p.collective.budget / 25.0e6).sqrt(), 0.0, 1.0);
             let fac_target = clamp(scale * (0.3 + 0.4 * p.fans) + 0.3 * nil_share, 0.0, 1.0);
-            p.facilities = 0.95 * p.facilities + 0.05 * fac_target;
+            // Facilities move in steps (note 15C): buildings age a little each
+            // year, and a project lands when the money and the will line up.
+            p.facilities = (p.facilities - 0.006).max(0.02);
+            let gap = fac_target - p.facilities;
+            let booster = p.collective.big_booster.is_some();
+            let chance = clamp(0.03 + 0.6 * gap.max(0.0) + if booster { 0.05 } else { 0.0 }, 0.0, 0.4);
+            if gap > 0.02 && rng.chance(chance) {
+                let step = clamp(gap + rng.range(0.0, 0.08), 0.04, 0.2);
+                p.facilities = clamp(p.facilities + step, 0.02, 1.0);
+                let cause = if booster && rng.chance(0.6) {
+                    "paid for by a big booster"
+                } else if win >= 0.7 {
+                    "after a winning run filled the budget"
+                } else {
+                    "a school budget decision"
+                };
+                if recording {
+                    p.story.push((year, format!("New football facilities ({cause}).")));
+                }
+            }
         }
         p.prestige = program::prestige_of(p, hc_rep, conf_strength(&p.conference));
     }
@@ -935,6 +1039,55 @@ pub(crate) fn update_programs(w: &mut World, r: &SeasonResults) {
         if w.recording {
             p.grade_history.push((year, p.grades));
             p.prestige_history.push((year, p.prestige));
+        }
+    }
+}
+
+/// What schools can see of each coach's teaching (note 15B): this year's
+/// growth of every player he coached, against all players at the same level
+/// and age. A high school head coach teaches every group; in college the
+/// position coach counts most, then the coordinator, then the head coach.
+/// One player's year: his group, his (level, age) cohort, his growth and the
+/// coaches credited with their weights.
+type TeachingRow = (Group, (u8, u32), f64, [(Option<usize>, f64); 3]);
+
+pub(crate) fn credit_teaching(w: &mut World) {
+    if !w.recording {
+        return;
+    }
+    let mut rows: Vec<TeachingRow> = Vec::new();
+    let mut norm: BTreeMap<(u8, u32), (f64, f64)> = BTreeMap::new();
+    for p in &w.people {
+        let Some(h) = p.player.history.last() else { continue };
+        if h.age + 1 != p.player.age || h.performance.is_none() {
+            continue;
+        }
+        let group = Group::of(h.position);
+        let staff = match p.stage {
+            Stage::HighSchool => [(w.high_schools[p.hs].coach, 1.0), (None, 0.0), (None, 0.0)],
+            Stage::College => {
+                let prog = &w.programs[p.college.unwrap_or(0)];
+                let coord = if group.offense() { prog.oc } else { prog.dc };
+                [(prog.position_coaches[group as usize], 1.0), (coord, 0.5), (prog.head_coach, 0.25)]
+            }
+            _ => continue,
+        };
+        let key = (h.level as u8, h.age);
+        let delta = h.overall - h.overall_start;
+        let e = norm.entry(key).or_default();
+        e.0 += delta;
+        e.1 += 1.0;
+        rows.push((group, key, delta, staff));
+    }
+    for (group, key, delta, staff) in rows {
+        let (sum, n) = norm[&key];
+        let residual = delta - sum / n;
+        for (c, wt) in staff {
+            if let Some(c) = c {
+                let u = &mut w.coaches[c].units[group as usize];
+                u.growth += wt * residual;
+                u.seasons += wt;
+            }
         }
     }
 }

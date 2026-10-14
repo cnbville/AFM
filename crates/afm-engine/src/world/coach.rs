@@ -181,6 +181,30 @@ pub struct Stint {
     pub ended: &'static str,
 }
 
+/// What schools can see of his teaching at one position group (note 15B):
+/// how his players grew against others at their level and age, and how many
+/// moved up (college offers, honors, the draft). Old seasons fade.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct UnitRecord {
+    pub growth: f64,
+    pub seasons: f64,
+    pub moved_up: f64,
+}
+
+impl UnitRecord {
+    /// Rating points per player-season above the norm, shrunk toward zero
+    /// when he has coached few players there.
+    pub fn growth_read(&self) -> f64 {
+        self.growth / (self.seasons + 8.0)
+    }
+
+    pub fn fade(&mut self, k: f64) {
+        self.growth *= k;
+        self.seasons *= k;
+        self.moved_up *= k;
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Coach {
     pub id: usize,
@@ -213,6 +237,11 @@ pub struct Coach {
     /// Recruiting ties to high schools, 0-1, built from impact players he
     /// coached. They travel with him from job to job (note 4).
     pub ties: HashMap<usize, f64>,
+    /// The group he came up coaching (a DB coach, an offensive line coach):
+    /// public, part of his story.
+    pub came_up: Group,
+    /// His visible teaching record by group.
+    pub units: [UnitRecord; GROUP_COUNT],
 }
 
 /// Typical ability by level: (mean, spread).
@@ -253,6 +282,13 @@ pub fn generate_coach(
         let side = if g.offense() == offense { 1.0 } else { -1.0 };
         teaching[g as usize] = clamp(part(rng, 2.2) + side, 1.0, 20.0);
     }
+    // He came up coaching his best group on his own side.
+    let came_up = Group::ALL
+        .iter()
+        .copied()
+        .filter(|g| g.offense() == offense && *g != Group::Specialists)
+        .max_by(|a, b| teaching[*a as usize].total_cmp(&teaching[*b as usize]))
+        .unwrap_or(Group::ALL[0]);
     let ex_pro = rng.chance(match tier {
         CoachTier::HighSchool => 0.04,
         CoachTier::Nfl => 0.35,
@@ -305,6 +341,8 @@ pub fn generate_coach(
         retired: false,
         prove_it: None,
         ties: HashMap::new(),
+        came_up,
+        units: [UnitRecord::default(); GROUP_COUNT],
     }
 }
 

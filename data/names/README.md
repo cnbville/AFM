@@ -14,6 +14,6 @@ Used by `crates/afm-engine/src/world/names.rs` to give players and coaches names
 Known gaps:
 - Polynesian names have no open source. A hand list of 48 surnames and 30 first names lives in `names.rs` (proposed, not confirmed).
 - Tzioumis has few young adults, so names like Jalen come mainly from the NYC data.
-- "DeShawn" is in neither source.
-- "Trey" shows as mostly white (only Tzioumis has it). That may be wrong.
+- "DeShawn" is in neither source. Added by hand (2026-10-14): 85% Black, birth counts estimated from its SSA peak in the 1990s (`race_source` = `estimate`; proposed, not confirmed).
+- Tzioumis comes from mortgage records, which are mostly white. The 1,307 names only it has are reweighted (2026-10-14) from its approximate sample (white 83%, Black 4.5%, Hispanic 7%, Asian 5.5%) to national birth shares (`race_source` = `tzioumis_reweighted`; the sample shares are approximate, proposed, not confirmed). "Trey" moves from 3% to 15% Black.
 - The official SSA, Census and NYC sites were blocked from here, so the R package copies were used.

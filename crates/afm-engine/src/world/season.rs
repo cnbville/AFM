@@ -12,6 +12,7 @@ use super::data::Division;
 use super::{Stage, World, division_level};
 use crate::athlete::Eye;
 use crate::development::{SeasonContext, Trouble, develop_season};
+use crate::game::{Caller, Front, GamePlayer, GameTeam, OffScheme, Shell, Staff as GameStaff, quick_game};
 use crate::league::depth_slots;
 use crate::player::{Level, PlayingTime};
 use crate::positions::{POSITION_COUNT, Position};
@@ -321,6 +322,7 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
             p.stage = Stage::Done;
         }
     });
+    super::staff::credit_teaching(w);
 
     attach_level_ratings(w);
 
@@ -382,15 +384,23 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
     keys.sort();
     for key in keys {
         let teams = &groups[&key];
-        play_rounds(teams, 10, 3.5, &mut hs, &mut w.rng, false);
-        let champ = playoff(teams, 8, 3.5, &mut hs, &mut w.rng);
+        play_rounds(teams, 10, 3.5, &mut hs, &mut w.rng, false, None);
+        let champ = playoff(teams, 8, 3.5, &mut hs, &mut w.rng, None);
         if let Some(c) = champ {
             hs[c].state_title = true;
         }
     }
 
     // --- College games: conference games, then non-conference, by division --------
+    // Every college game runs on the match engine, history included (item 12,
+    // Raichel 2026-10-14). High school games still use the rating stand-in:
+    // about 70,000 a year is too slow for the engine today.
+    let on_engine = w.options.engine_from.is_none_or(|from| w.year >= from);
+    let game_teams: Vec<Option<GameTeam>> =
+        if on_engine { w.programs.par_iter().map(|p| game_team(w, p)).collect() } else { Vec::new() };
     for division in [Division::FBS, Division::FCS, Division::D2, Division::JUCO] {
+        let engine = Engine { teams: &game_teams, level: division_level(division) };
+        let engine = on_engine.then_some(&engine);
         let members: Vec<usize> =
             w.programs.iter().filter(|p| p.division == division && !p.roster.is_empty()).map(|p| p.id).collect();
         if members.is_empty() {
@@ -413,7 +423,7 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
                 continue;
             }
             let rounds = (teams.len() - 1).min(8);
-            play_rounds(teams, rounds, COLLEGE_SPREAD, &mut college, &mut w.rng, true);
+            play_rounds(teams, rounds, COLLEGE_SPREAD, &mut college, &mut w.rng, true, engine);
             // Conference champion: best conference record, then strength.
             let champ = *teams
                 .iter()
@@ -432,7 +442,7 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
             if needy.len() < 2 {
                 break;
             }
-            play_rounds(&needy, 1, COLLEGE_SPREAD, &mut college, &mut w.rng, false);
+            play_rounds(&needy, 1, COLLEGE_SPREAD, &mut college, &mut w.rng, false, engine);
         }
         let field = match division {
             Division::FBS => 12,
@@ -457,7 +467,7 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
                 + 0.01 * college[b].strength;
             kb.total_cmp(&ka)
         });
-        if let Some(c) = playoff(&ranked, field, COLLEGE_SPREAD, &mut college, &mut w.rng) {
+        if let Some(c) = playoff(&ranked, field, COLLEGE_SPREAD, &mut college, &mut w.rng, engine) {
             college[c].national_title = true;
         }
     }
@@ -481,6 +491,7 @@ fn play_rounds(
     results: &mut [TeamResult],
     rng: &mut crate::rng::Rng,
     conference: bool,
+    engine: Option<&Engine>,
 ) {
     if teams.len() < 2 {
         return;
@@ -492,14 +503,19 @@ fn play_rounds(
             let j = rng.int(0, k as i32) as usize;
             order.swap(k, j);
         }
-        let mut k = 0;
-        while k + 1 < order.len() {
-            let (a, b) = if r % 2 == 0 { (order[k], order[k + 1]) } else { (order[k + 1], order[k]) };
+        let pairs: Vec<(usize, usize)> = (0..order.len() / 2)
+            .map(|k| if r % 2 == 0 { (order[2 * k], order[2 * k + 1]) } else { (order[2 * k + 1], order[2 * k]) })
+            .collect();
+        let played = match engine {
+            Some(e) => engine_games(e, &pairs, rng.int(0, i32::MAX) as u64),
+            None => vec![None; pairs.len()],
+        };
+        for (&(a, b), on_field) in pairs.iter().zip(played) {
             let p = win_chance(results[a].strength, results[b].strength, spread, 0.8);
             let pe = win_chance(results[a].preseason, results[b].preseason, spread, 0.8);
             results[a].expected += pe;
             results[b].expected += 1.0 - pe;
-            let a_wins = rng.chance(p);
+            let a_wins = on_field.unwrap_or_else(|| rng.chance(p));
             let (w, l) = if a_wins { (a, b) } else { (b, a) };
             results[w].wins += 1;
             results[l].losses += 1;
@@ -507,7 +523,6 @@ fn play_rounds(
                 results[w].conf_wins += 1;
                 results[l].conf_losses += 1;
             }
-            k += 2;
         }
     }
 }
@@ -520,6 +535,7 @@ fn playoff(
     spread: f64,
     results: &mut [TeamResult],
     rng: &mut crate::rng::Rng,
+    engine: Option<&Engine>,
 ) -> Option<usize> {
     let mut seeds: Vec<usize> = teams.to_vec();
     seeds.sort_by(|&a, &b| {
@@ -539,10 +555,15 @@ fn playoff(
         next.extend_from_slice(&seeds[..byes]);
         let rest = &seeds[byes..];
         let m = rest.len();
-        for k in 0..m / 2 {
-            let (a, b) = (rest[k], rest[m - 1 - k]);
+        let pairs: Vec<(usize, usize)> = (0..m / 2).map(|k| (rest[k], rest[m - 1 - k])).collect();
+        let played = match engine {
+            Some(e) => engine_games(e, &pairs, rng.int(0, i32::MAX) as u64),
+            None => vec![None; pairs.len()],
+        };
+        for (&(a, b), on_field) in pairs.iter().zip(played) {
             let p = win_chance(results[a].strength, results[b].strength, spread, 0.4);
-            let (w, l) = if rng.chance(p) { (a, b) } else { (b, a) };
+            let a_wins = on_field.unwrap_or_else(|| rng.chance(p));
+            let (w, l) = if a_wins { (a, b) } else { (b, a) };
             results[w].wins += 1;
             results[l].losses += 1;
             next.push(w);
@@ -609,4 +630,75 @@ fn attach_level_ratings(w: &mut World) {
         s.level_rating = Some(rate(&start, s.overall_start));
         s.level_rating_end = Some(rate(&end, s.overall));
     });
+}
+
+/// College games are played by the match engine (item 12): each team as it
+/// is today, its coordinators calling the plays.
+struct Engine<'a> {
+    teams: &'a [Option<GameTeam>],
+    level: Level,
+}
+
+/// A college team for the match engine: its players and its staff's calling.
+/// The scheme is the coordinator's own (picked from his id until coaches
+/// carry a scheme: proposed, not confirmed).
+fn game_team(w: &World, prog: &super::program::Program) -> Option<GameTeam> {
+    let players: Vec<GamePlayer> = prog
+        .roster
+        .iter()
+        .map(|&i| &w.people[i])
+        .filter(|p| p.stage == Stage::College)
+        .map(|p| {
+            let seasons = p.college_seasons as f64;
+            GamePlayer::from_player(&p.player, clamp(0.78 + 0.05 * seasons, 0.0, 0.95), seasons)
+        })
+        .collect();
+    if players.len() < 30 {
+        return None;
+    }
+    let ab = |c: Option<usize>| c.map(|c| *w.coaches[c].ability());
+    let hc = ab(prog.head_coach);
+    let caller = |c: Option<usize>| {
+        let a = ab(c).or(hc);
+        let temper = c.or(prog.head_coach).map_or(10.0, |c| w.coaches[c].personality.ambition);
+        Caller {
+            skill: a.map_or(9.0, |a| 0.6 * a.scheme + 0.4 * a.game_management),
+            adaptation: a.map_or(9.0, |a| a.game_management),
+            aggressiveness: temper,
+        }
+    };
+    let pick = |c: Option<usize>, n: usize| c.map_or(0, |c| (c.wrapping_mul(2_654_435_761) >> 7) % n);
+    let schemes =
+        [OffScheme::WestCoast, OffScheme::AirRaid, OffScheme::WideZone, OffScheme::PowerGap, OffScheme::SpreadOption];
+    let shells = [Shell::Cover3, Shell::Quarters, Shell::ManPressure, Shell::Cover2];
+    let dc = prog.dc.or(prog.head_coach);
+    Some(GameTeam {
+        name: prog.real_name.clone(),
+        players,
+        staff: GameStaff {
+            offense: caller(prog.oc),
+            defense: caller(prog.dc),
+            game_management: hc.map_or(9.0, |a| a.game_management),
+            strictness: hc.map_or(10.0, |a| a.discipline),
+            off_scheme: schemes[pick(prog.oc.or(prog.head_coach), schemes.len())],
+            front: if pick(dc, 3) == 0 { Front::ThreeFour } else { Front::FourThree },
+            shell: shells[pick(dc.map(|c| c / 3), shells.len())],
+            playbook: 1.0,
+        },
+    })
+}
+
+/// Plays a batch of games on the engine, in parallel. True when the home
+/// side (first) wins.
+fn engine_games(e: &Engine, games: &[(usize, usize)], seed: u64) -> Vec<Option<bool>> {
+    games
+        .par_iter()
+        .enumerate()
+        .map(|(k, &(a, b))| {
+            let (Some(ta), Some(tb)) = (&e.teams[a], &e.teams[b]) else { return None };
+            let r = quick_game(ta, tb, e.level, seed.wrapping_mul(1_000_003).wrapping_add(k as u64));
+            let [ha, hb] = r.stats.score;
+            Some(if ha == hb { (seed ^ k as u64) & 1 == 0 } else { ha > hb })
+        })
+        .collect()
 }

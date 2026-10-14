@@ -52,6 +52,11 @@ pub struct Body {
 }
 
 /// A position's combine height and weight: (height mean, sd, weight mean, sd).
+/// The real combine bench average at a position (nflverse 2000-2025).
+pub fn combine_bench_mean(pos: Position) -> f64 {
+    [19.3, 19.95, 14.68, 20.24, 24.35, 25.81, 23.66, 27.41, 21.97, 14.51, 16.93, 15.2, 16.0][pos.index()]
+}
+
 pub fn combine_size(pos: Position) -> (f64, f64, f64, f64) {
     SIZES[pos.index()]
 }
@@ -150,7 +155,9 @@ pub fn combine(p: &Player, rng: &mut Rng) -> Combine {
     let vertical = 20.9 + 0.182 * burst - 0.035 * w + rng.normal(0.0, 1.5);
     let broad = 87.6 + 0.448 * burst - 0.089 * w + rng.normal(0.0, 3.0);
     // Long arms mean a longer press: fewer reps for the same strength.
-    let bench = 11.5 + 0.119 * strength + 0.060 * w - 0.8 * (b.arm - 32.5) + rng.normal(0.0, 2.0);
+    // Refit 2026-10-14 to drafted players' position means after athlete-first
+    // creation (item 6; proposed, not confirmed).
+    let bench = 8.05 + 0.137 * strength + 0.073 * w - 0.8 * (b.arm - 32.5) + rng.normal(0.0, 2.0);
     let cone = 7.58 - 0.007 * quick + 0.0062 * w + rng.normal(0.0, 0.08);
     let shuttle = 4.59 - 0.0045 * quick + 0.0039 * w + rng.normal(0.0, 0.06);
     let r2 = |x: f64| (x * 100.0).round() / 100.0;
@@ -164,10 +171,20 @@ pub fn combine(p: &Player, rng: &mut Rng) -> Combine {
     }
 }
 
-/// Feet and inches, the way scouts write it: 6-3 1/2 is "6'3.5\"".
+/// Feet and inches, the way the combine writes it: "6'3 1/2\"", to the eighth.
 pub fn height_text(inches: f64) -> String {
-    let i = (inches * 8.0).round() / 8.0;
-    let ft = (i / 12.0).floor() as i32;
-    let rest = i - 12.0 * ft as f64;
-    format!("{ft}'{rest:.1}\"")
+    let eighths = (inches * 8.0).round() as i64;
+    let (ft, rest) = (eighths / 96, eighths % 96);
+    let (whole, frac) = (rest / 8, rest % 8);
+    let frac = match frac {
+        0 => "",
+        1 => " 1/8",
+        2 => " 1/4",
+        3 => " 3/8",
+        4 => " 1/2",
+        5 => " 5/8",
+        6 => " 3/4",
+        _ => " 7/8",
+    };
+    format!("{ft}'{whole}{frac}\"")
 }

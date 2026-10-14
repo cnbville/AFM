@@ -175,6 +175,8 @@ pub struct Program {
     pub tradition: f64,
     pub recent: f64,
     pub facilities: f64,
+    /// Why the program moved: facility projects, boosters, hires (note 15C).
+    pub story: Vec<(i32, String)>,
     pub fans: f64,
     /// Overall prestige 0-1, rebuilt yearly from its parts.
     pub prestige: f64,
@@ -311,7 +313,8 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
     let tradition =
         clamp(scale * (0.25 + 0.12 * titles.sqrt() + if p4 { 0.25 } else { 0.0 }) + rng.normal(0.0, 0.05), 0.02, 1.0);
     let win = row.last_5yr_win_pct.unwrap_or(0.45);
-    let recent = clamp(scale * (0.2 + 0.8 * win) * if p4 { 1.0 } else { 0.8 }, 0.02, 1.0);
+    // The same scale the yearly update uses, so nobody drifts just from the start.
+    let recent = clamp(scale * (0.2 + 0.8 * win), 0.02, 1.0);
     let stadium_share = clamp((stadium as f64 / 110_000.0).sqrt(), 0.05, 1.0);
     let facilities =
         clamp(scale * (0.3 + 0.5 * stadium_share + if p4 { 0.2 } else { 0.0 }) + rng.normal(0.0, 0.05), 0.02, 1.0);
@@ -340,6 +343,7 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
         tradition,
         recent,
         facilities,
+        story: Vec::new(),
         fans,
         prestige: 0.0,
         prestige_start: 0.0,

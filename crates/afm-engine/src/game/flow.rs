@@ -551,7 +551,8 @@ impl<'a> Game<'a> {
         r.missed_tackles = kr.notes.missed.clone();
         r.injuries = kr.notes.injuries.clone();
         r.call = if onside { "onside kick".into() } else { "kickoff".into() };
-        self.apply_injuries(&kr.notes.injuries, [team, rec]);
+        // On a return the returning team is side 0 and the kicking team side 1.
+        self.apply_injuries(&kr.notes.injuries, [rec, team]);
         let elapsed = if kr.returned || onside { kr.duration } else { 0.0 };
         if self.clock > 0.0 && !(self.ot && self.rules().overtime != Overtime::NflPeriod) {
             self.tick(elapsed);
@@ -953,7 +954,7 @@ impl<'a> Game<'a> {
         r.tacklers = kr.notes.tacklers.clone();
         r.missed_tackles = kr.notes.missed.clone();
         r.injuries = kr.notes.injuries.clone();
-        self.apply_injuries(&kr.notes.injuries, [o, d]);
+        self.apply_injuries(&kr.notes.injuries, [d, o]);
         self.tick(kr.duration);
         self.running = false;
         r.why = if kr.blocked {

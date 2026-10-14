@@ -89,6 +89,9 @@ pub struct Family {
     pub bloodline: Bloodline,
     /// The decider's priorities, which can differ from the kid's own.
     pub decider_wants: Wants,
+    /// His ambition, 1-20 (hidden): an ambitious kid weighs the best path to
+    /// the NFL over money (note 13).
+    pub ambition: f64,
     /// The kid's own priorities, which take over once he is free to choose.
     pub own_wants: Wants,
     /// An older brother playing college football: index of his program, if any.
@@ -239,7 +242,9 @@ pub fn generate_family(bg: &Background, structure_hint: Option<FamilyStructure>,
         .normalized(),
         Decider::Handler => Wants { money: own_wants.money + 0.45 * rng.next(), ..own_wants }.normalized(),
     };
+    let ambition = clamp(rng.normal(10.0, 3.5), 1.0, 20.0);
     Family {
+        ambition,
         structure,
         decider,
         parent_style,

@@ -177,8 +177,10 @@ pub fn hiring_bias(e: Ethnicity, year: i32, prestige: f64) -> f64 {
         return 0.0;
     }
     // Flat through the early 2000s, then easing as the Rooney Rule era and
-    // pressure on hiring grow; it keeps fading slowly after the save starts.
-    let eased = 5.0 - 0.12 * (year.min(2026) - 2005).max(0) as f64;
+    // pressure on hiring grow. Real progress stalled after the mid-2010s
+    // (about 13 Black FBS head coaches in 2016, 16 in 2024), so the ease stops in
+    // 2016; it fades slowly again after the save starts.
+    let eased = 4.2 - 0.08 * (year.clamp(2005, 2016) - 2005) as f64;
     let base = (eased - 0.05 * (year - 2026).max(0) as f64).max(0.3);
     base * (0.5 + prestige.clamp(0.0, 1.0))
 }
