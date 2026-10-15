@@ -454,6 +454,19 @@ pub const PASS_CONCEPTS: &[PassConcept] = &[
         reads: &[Slot, Slot2, X],
         depth: PassDepth::Screen,
     },
+    // Speed outs: the quick out, the most thrown route in the real NFL
+    // (about one target in six under 10 air yards). Outside receivers break
+    // flat at four yards; the slot sits over the ball (proposed, not
+    // confirmed: the full play library is a later section).
+    PassConcept {
+        name: "speed outs",
+        drop: Drop::Quick,
+        protection: Protection::Standard,
+        play_action: false,
+        routes: &[(X, Out(4.0)), (Z, Out(4.0)), (Slot, Sit(6.0)), (Slot2, Out(4.0)), (TE, Seam), (TE2, Flat)],
+        reads: &[Z, X, Slot, TE, RB],
+        depth: PassDepth::Quick,
+    },
     PassConcept {
         name: "fades",
         drop: Drop::Quick,

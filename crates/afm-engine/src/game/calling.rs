@@ -31,7 +31,7 @@ pub struct Memory {
     pub opp_runs: f64,
     pub opp_quick: f64,
     /// Pass concepts the other offense has run, in `PASS_CONCEPTS` order.
-    pub opp_concepts: [f64; 16],
+    pub opp_concepts: [f64; PASS_CONCEPTS.len()],
 }
 
 impl Memory {
@@ -304,7 +304,10 @@ fn pick_concept(staff: &Staff, mem: &Memory, sit: &Situation, backfield: Backfie
         .map(|(i, pc)| {
             let mut w = 1.0;
             match pc.depth {
-                PassDepth::Screen => w *= if long { 0.6 } else { 0.9 },
+                // Screens are a staple, called on about 9% of real NFL
+                // dropbacks whatever their average gain: they slow the rush
+                // and punish blitzes (proposed, not confirmed).
+                PassDepth::Screen => w *= if long { 1.5 } else { 2.25 },
                 PassDepth::Quick => {
                     w *= if short {
                         2.2

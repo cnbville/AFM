@@ -1542,9 +1542,7 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
 /// ball (real receivers run routes well under their combine speed). Once the
 /// ball is thrown he goes full speed to it (proposed, not confirmed).
 fn route_pace(a: &Agent) -> f64 {
-    // Work in progress: 1.0 keeps today's results. Lower values were tried
-    // (0.8-0.9); see the dynasty handoff before changing it.
-    1.0 * a.vmax
+    0.88 * a.vmax
 }
 
 /// One tick of a route: the point he runs at, how fast, and whether he has
@@ -1864,7 +1862,11 @@ fn quarterback(
         }
         let (w, p, flight) = window(sim, qb, r);
         let seen = w + noise * gauss(sim.rng);
-        let need = thresh;
+        // A deep ball needs less room: an incompletion there costs a down,
+        // but a catch is worth a chunk, so real quarterbacks give their man
+        // a chance at a contested ball far more readily than underneath.
+        let depth = (p.x - s.los) * sim.goal;
+        let need = thresh - (0.05 * (depth - 12.0).max(0.0)).min(1.2);
         if super::sim::TRACE.load(std::sync::atomic::Ordering::Relaxed) {
             eprintln!("READ t={:.1} read {} r {} w {:.2} seen {:.2} need {:.2}", t, ps.read, r, w, seen, need);
         }
@@ -2175,7 +2177,13 @@ fn throw(
     // when he is still running away from the quarterback.
     let aw = sim.agents[r].a(Attr::Awareness);
     let facing_qb = sim.agents[r].face.dot((q - sim.agents[r].pos).norm()) > -0.2;
-    sim.agents[r].ball_react = t + if facing_qb { 0.1 } else { 0.25 } + 0.003 * (100.0 - aw);
+    // He can't know where a long ball will come down until he has seen
+    // some of its flight: until then he keeps running his route, then he
+    // adjusts to it. Good hands and eyes read it sooner (proposed, not
+    // confirmed).
+    let skill = 0.5 * aw + 0.5 * sim.agents[r].a(Attr::Catching);
+    let read = (flight - 0.6).max(0.0) * clamp(0.55 - 0.002 * (skill - 60.0), 0.4, 0.7);
+    sim.agents[r].ball_react = t + (if facing_qb { 0.1 } else { 0.25 } + 0.003 * (100.0 - aw)).max(read);
     // Roughing: a hit arriving after the ball is out.
     let late = (0..sim.agents.len())
         .find(|&d| sim.agents[d].side == 1 && sim.agents[d].engaged.is_none() && sim.agents[d].pos.dist(q) < 1.6);
