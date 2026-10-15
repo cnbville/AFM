@@ -61,6 +61,27 @@ fn big_results_boost_reputation_massively_and_assistants_move_slower() {
 }
 
 #[test]
+fn coaches_lose_sharpness_with_age_even_at_their_ceiling() {
+    // Dynasty item 11.14: a coach who has stopped learning still declines from his late 50s.
+    let mut rng = Rng::new("old coach");
+    let mut c = generate_coach(0, "A".into(), crate::world::ethnicity::Ethnicity::White, CoachTier::Fbs, 50, &mut rng);
+    c.learning_ceiling = 1.0;
+    c.decline_from = 58.0;
+    c.decline_rate = 0.2;
+    let start = c.ability().head_coach_value();
+    for _ in 0..7 {
+        c.age_one_year(None, &mut rng);
+    }
+    let at_57 = c.ability().head_coach_value();
+    for _ in 0..8 {
+        c.age_one_year(None, &mut rng);
+    }
+    let at_65 = c.ability().head_coach_value();
+    assert!((at_57 - start).abs() < 0.5, "no decline before 58: {start:.2} -> {at_57:.2}");
+    assert!(at_57 - at_65 > 1.0, "decline from 58 to 65: {at_57:.2} -> {at_65:.2}");
+}
+
+#[test]
 fn background_marks_are_noteworthy_not_driving() {
     let mut rng = Rng::new("backgrounds");
     let mut poor = Vec::new();
