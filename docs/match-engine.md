@@ -173,6 +173,73 @@ Known gaps, outside item 3: close-game pass rate is high at both levels (FBS 0.5
 
 Open single questions for Raichel: (a) should snaps also drive development (today development uses the depth chart role); (b) the real four-game redshirt rule, so a redshirt's garbage-time snaps don't cost him his year; (c) rivals, senior day and award candidates wait for the calendar, walk-ons and awards.
 
+## Deep passing and scheme balance (dynasty items 1-2, 2026-10-15)
+Raichel's yes on trial 4 topics 1 and 2. Every number below is proposed, not confirmed. Real targets: nflverse play-by-play and participation, 2023-24 (35,841 throws): air yards by route GO 25.2 (time to throw 2.69 s), POST 20.7, CORNER 19.4, IN/DIG 12.4, DEEP OUT 12.9, QUICK OUT 2.7; 20+ yard throws average 29.2 air yards, 35% complete. Route shares from `data/real-world/engine_targets.json`.
+
+What was wrong: at the same time to throw, the engine's go balls were caught 12 yards deeper than real ones, 20+ yard throws were 19% of attempts (real 11.5%), some "throws" went 60-90 yards, and the quick out barely existed (1% of targets, real 17%).
+
+What changed (`game/scrimmage.rs`, `game/playbook.rs`, `game/calling.rs`):
+- **Defenders keep moving while they react.** When the QB judges a window, a defender already running with the route loses no ground during his reaction time. Deep safeties carrying a vertical now close the window they really close.
+- **No throws past his arm.** A spot farther than 25 + 0.45 × throw power yards is never open to him.
+- **The post breaks at 45 degrees** (was 25 yards deep for 12 across).
+- **Routes are run under control**: 88% of top speed until the ball is thrown, then full speed to it.
+- **A deep ball needs less room**: the QB's need for an open window drops 0.05 yards per yard past 12 (at most 1.2). An incompletion deep costs a down; a catch is worth a chunk. Real QBs throw 50-50 balls deep far more than underneath.
+- **The receiver reads a long ball late.** On a throw longer than 0.6 s in the air he keeps running his route for 55% of the extra flight time (less with good hands and awareness), then adjusts. Before, he knew the landing spot at once and could run under any miss.
+- **Speed outs**: a new quick-game concept (outside receivers out at four yards, the slot sitting over the ball).
+- **Screens are called more**: about 9% of real NFL dropbacks are screens, whatever their average gain; the base weight for screen calls went from 0.9 to 2.25 (0.6 to 1.5 on long yardage).
+- `call_values.csv` rebuilt.
+
+Results (400 games each, engine | real NFL):
+
+| | Before | After | Real |
+|---|---|---|---|
+| NFL points per team game | 30.3 | 26.9 | 22.5 |
+| NFL yards per attempt | 8.09 | 7.68 | 7.05 |
+| NFL 20+ yard share | 0.190 | 0.112 | 0.115 |
+| NFL 20+ completion | 0.43 | 0.50 | 0.36 |
+| Go route air yards | 41.9 | about 32 | 25.2 |
+| Post air yards | 42.3 | about 31 | 20.7 |
+| FBS points | 29.0 | 25.2 | about 28 (real FBS) |
+| FBS yards per attempt | 7.09 | 6.34 | 7.29 (real FBS) |
+| FBS completion | 0.542 | 0.569 | 0.606 (real FBS) |
+
+Scheme balance (FBS, each scheme against every scheme on the other side, `AFM_MIX=1 dynasty_check schemes`, two seeds, margin against West Coast or Cover 2; noise about ±0.4; measured before the call-values rebuild):
+
+| | Before (against the base only) | After |
+|---|---|---|
+| Air raid | +2.44 | -0.35 |
+| Wide zone | +1.16 | +0.65 |
+| Power gap | +0.37 | -0.2 |
+| Spread option | +1.09 | -1.5 |
+| Cover 3 | -0.59 | -0.4 |
+| Quarters | -0.47 | -0.9 |
+| Man pressure | +0.93 | +0.1 |
+
+Position values (FBS, 2000 games, +10 on every attribute of a position's starters; lineup point = sum over all 22 starters):
+
+| Position | Per rating point per starter | Share of QB |
+|---|---|---|
+| QB | 0.507 | 1.00 |
+| OT | 0.073 | 0.14 |
+| IOL | 0.049 | 0.10 |
+| WR | 0.129 | 0.25 |
+| TE | 0.268 | 0.53 |
+| RB | 0.403 | 0.79 |
+| EDGE | 0.214 | 0.42 |
+| DT | 0.128 | 0.25 |
+| LB | 0.223 | 0.44 |
+| CB | 0.147 | 0.29 |
+| S | 0.160 | 0.32 |
+
+A lineup point is now worth 3.6 points of margin (was 4.8; target about 2.4). The QB is unchanged. Real per-player spreads (nflverse 2021-25) put a back at 0.27 of the QB and a receiver at 0.30, so the back is still about three times too valuable. Split by attribute (+10 on just these): speed and acceleration 1.5 points, strength and carrying 1.0, vision and awareness 1.0, agility and elusiveness 0.6, catching and route running 0.5, pass blocking 0.5.
+
+Still open, measured after these changes:
+- The back, tight end and linebacker sit well above their real spreads (see above).
+- Wide zone and spread option: outside zone gains about 0.8 yards a carry more than inside zone and zone read (play_trace, FBS, three coverages), and spread option has no outside zone in its run mix. Cover 3 stops inside zone hard (2.6 yards).
+- FBS short passes are completed too rarely (engine screens about 67-82%, real NFL screens 87%), so FBS scores below real now that deep balls no longer overpay. Real FBS completion 60.6%, engine 56.9%.
+- Deep balls in the NFL still land about 7-10 yards deeper than real and are completed 50% of the time (real 36%).
+- Flats and checkdowns are 32% of NFL targets (real flat and swing 9.6%, quick out 17%, screen 10%), with sacks (4.0%, real 6.8%) and throwaways too rare. Sacks are trial 4 topic 9, not approved yet.
+
 ## Not built yet
 - Running every game in the world through the engine (the world still uses its own season results), and the season and career record across levels with percentiles and era adjustment.
 - Coach buzz from stats, hidden-gem stat flags, awards and records. These come with the world trial 3 list and later sections.

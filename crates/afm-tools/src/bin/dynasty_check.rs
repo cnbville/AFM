@@ -188,7 +188,8 @@ fn schemes(games: usize, seed: u32) {
         base.staff.shell,
         base.staff.front
     );
-    let offs = [OffScheme::WestCoast, OffScheme::AirRaid, OffScheme::WideZone, OffScheme::PowerGap, OffScheme::SpreadOption];
+    let offs =
+        [OffScheme::WestCoast, OffScheme::AirRaid, OffScheme::WideZone, OffScheme::PowerGap, OffScheme::SpreadOption];
     let shells = [Shell::Cover3, Shell::Quarters, Shell::ManPressure, Shell::Cover2];
     // AFM_MIX: judge each scheme against every scheme on the other side, not
     // only the base one. Both teams share the other unit, so the margin is
@@ -205,7 +206,10 @@ fn schemes(games: usize, seed: u32) {
                 ms.push(play(&a, &b, games, seed as u64).1);
             }
             let avg = ms.iter().sum::<f64>() / ms.len() as f64;
-            println!("offense {s:?}: margin {avg:+.2} (vs C3 {:+.2}, C4 {:+.2}, man {:+.2}, C2 {:+.2})", ms[0], ms[1], ms[2], ms[3]);
+            println!(
+                "offense {s:?}: margin {avg:+.2} (vs C3 {:+.2}, C4 {:+.2}, man {:+.2}, C2 {:+.2})",
+                ms[0], ms[1], ms[2], ms[3]
+            );
         }
         for sh in shells {
             let mut ms = Vec::new();
