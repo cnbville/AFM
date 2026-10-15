@@ -3,3 +3,4 @@ dist/
 coverage/
 target/
 *.log
+.claude/worktrees/
