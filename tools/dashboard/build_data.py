@@ -734,12 +734,16 @@ def lifecycle(run):
     # draft rates divide by the signing-class totals, and the college path
     # columns exist only for four- and five-stars.
     signed = Counter()
+    complete = set()
     for y, c in run.meta["signing_classes"]:
         if first_class <= y <= last_class:
+            complete.add(y)
             for s, n in enumerate(c):
                 signed[s] += n
     stars = defaultdict(lambda: Counter())
     for a in pool:
+        if a["class_of"] not in complete:
+            continue
         c = stars[a["stars"]]
         c["kept"] += 1
         c["drafted"] += a["pick"] is not None
