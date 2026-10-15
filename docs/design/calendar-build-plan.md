@@ -197,11 +197,11 @@ Delivers: A43 to A46. Dates and windows only; each mechanic comes with its secti
 | Section 7 (scouting) | A46, scout travel in T6 | Not designed |
 | Plays and tactics build | T6.2, the install limit | Spec done, not built |
 | Section 3 leftover | High school games on the engine | Open |
-| The dynasty and fix-list work | Same world code (`world/`) | In progress in "Fixing the dynasty" |
+| The fix-list topics 2-5 and round-2 scheme items | Same world code (`world/`) | Open in "Fixing the dynasty" (part 2, PR #28, merged 2026-10-15) |
 
 ## Open questions for Cain before the build
 
-1. **Where the build goes in the order.** Still open from the handoff. Proposed, not confirmed: after the dynasty and fix-list work merges, because both change the same world code.
+1. **Where the build goes in the order.** Still open from the handoff. The dynasty fix (PR #28) is already on `main`, but fix-list topics 2-5 and the round-2 scheme items will touch the same world code. Proposed, not confirmed: start with phases 1 and 2 (the clock and rule books) now, and move the college and recruiting phases (3 and 5) after those fix-list items merge.
 2. **The chance of each of the 12 off-field changes.** Still open from the handoff.
 3. **The latest date to withdraw from the draft and keep college eligibility.** Still open; it gets source-checked when phase 3 is built.
 4. **A speed budget.** A 30-year world takes about 33 minutes today. Proposed, not confirmed: the daily clock may add at most 25%.
