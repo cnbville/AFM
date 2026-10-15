@@ -130,7 +130,7 @@ How it works:
 - **Specialists (1.4-1.6).** Kickers and punters are graded on leg power, accuracy and the mental side, against their own spot. Their stars come from the kicking camps (top 25 at a spot five stars, 100 four, 250 three, 500 two), not the general ranking. A staff keeps about one kicker and one punter on scholarship; the other kickers, the second punter and the long snappers walk on. A walk-on gets no NIL and pays his way, as at Pioneer League schools.
 - **The long snapper (1.7)** is a position. His rating is his snap (the hidden snapping trait). Nobody is placed there in high school; each high school's best snapper who isn't a ranked prospect can be ranked by the snapping camps, and then colleges recruit him as a snapper.
 - **Who kicks (1.8, 1.9)**: see `docs/match-engine.md`. A kicker kicks and a punter punts, a big-legged kicker takes the kickoffs, and with only one of them he does both.
-- **Portal (1.10).** A program whose starter left and who has no returning starter at that spot reaches out to every entrant there who beats its remaining backups, best entrants first. The 40 random programs stay (item 11.16 is not built).
+- **Portal (1.10).** A program whose starter left and who has no returning starter at that spot reaches out to every entrant there who beats its remaining backups, best entrants first. Item 11.16 has since replaced the 40 random programs (see the next section but one).
 - **NFL (1.11).** Every NFL team carries one long snapper. Teams draft a kicker, punter or snapper only when theirs is below par or aging, with a flat discount on top of the old position value.
 
 Results against real (seed 2026, 8 years of history):
@@ -154,6 +154,39 @@ Still off:
 The class sim in `career.rs` is unchanged (the calibrate output for seed 2026 matches the earlier code exactly).
 
 Merged with the era limits build: class plans read `ncaa::roster_limits` (era limits, NCAA penalty cuts, FCS opt-outs), and the plan's yearly signing cap is that function's second number. The numbers above were measured before the merge, with 2025 limits in every year.
+
+## Recruiting feel, relationships and the portal (dynasty items 11.1-11.3, 11.16-11.18, 2026-10-15)
+
+Raichel's yes on item 11 (`/mnt/project-files/afm/dynasty-fix/round1-kickers-and-item11.md`). Code: `world/recruiting.rs` (signing day and the portal), with records in `world/mod.rs` (`RecruitingLog`) and `season.rs`. The match engine is untouched.
+
+How it works:
+- **11.1 A recruit's own feel for each school.** Each recruit has his own feel for each school: the campus, the people, a friend there, how a visit went. Its spread was 0.04 (in utility points); it is now 0.07. With the staff chemistry below, the total spread is about 0.076, up from 0.05. Two 5-stars now rank the same schools differently.
+- **11.2 Recruits see commitments as they happen.** Signing day is still a matching, but the roster view is live. When a recruit commits, he joins that school's position room at once. The next recruit at his position sees him there, counted the way he counts himself (two years on). If a recruit flips, he leaves the room again. A recruit also re-checks the school he holds when a new offer comes: if a better player at his position committed there since, he may flip. The portal works the same way: a transfer who lands joins the room for the entrants still shopping.
+- **11.3 Top recruits care more about playing early.** The weight on his position room (will he play by his second year) grows with his stars: 1.0 up to two stars, then +0.08 a star, so 1.24 for a 5-star. The same weight applies to transfers.
+- **11.16 Portal players go where they'd start and where they're wanted.** The 40 random programs are gone. A program wants an entrant if he would make its two-deep next season, judged against the players it has left. A program with an open starting spot (1.10) still reaches out to anyone who beats its remaining backups. The entrant picks among the programs that want him, by the same utility and room as before. Nobody else calls. The level rules (moving up, dismissals, the level bar) are unchanged.
+- **11.17 Redshirts can enter the portal.** A redshirt can now leave for playing time or after a coaching change, not only as a steered kid. His rate is 0.12 on the portal's scale, times his early-play weight (so a 5-star redshirt leaves more often). His staff judge him on practice, so "buried" uses his overall, not game play.
+- **11.18 Relationships over the year.** The flat signing-day bond is gone. Each staff recruits the top of each position board all year: three targets per spot in its plan, plus three. The position coach calls and visits every target. The head coach gives his own time to the very top (up to one more than the plan at that spot). Each recruit takes five official visits (the NCAA limit) to the programs he likes best among those recruiting him, and unofficial ones to any within 250 miles. The relationship then depends on how long the staff has known him (better-seen kids are found earlier), how much head coach time he got, whether he saw the campus, the head coach's recruiting and relationships, and the position coach's recruiting. A staff member who knows his high school coach adds trust. A late offer from deep on a board has no relationship behind it. An elite head coach's edge on a top target he hosted is about +0.08 now, against +0.135 flat for every recruit before.
+
+Results (seed 2026, 8 years of history, quick stand-in games; the 15-year check in brackets):
+
+| | Before | After | Real |
+|---|---|---|---|
+| Top program's share of a class's FBS 5-stars | 19.2% (one class at 30%) | 14.2% [13.3%, no rise] | 14% (247Sports: Ohio State 5 of 36 in 2024; Georgia and Texas 4 of 32 in 2025) |
+| Programs signing a 5-star, per class | 15.0 | 19.9 [20.4] | 15-17 (same classes) |
+| Portal entrants who redshirted the season before | 23%, all steered kids | 30% (75% steered, 25% playing time or coaching change) | about a quarter to a third are first- or second-year players (estimate, not checked) |
+| Transfers who start in their first season at the new school | 50% (FBS 43%) | 49% (FBS 36%) | no data found |
+| FBS entrants who land at FBS | 24% | 25% | no data found |
+
+"Before" for the 5-stars is the old recruiting code with the new portal; "before" for the portal is the old portal with the new recruiting. The 30-36% in the dynasty trace came from 30-year worlds; this short world was not run that long.
+
+What drove the 5-star spread, from runs with one change switched off: the early-play weight was the biggest lever (at +0.25 a star the top share fell to 12% and 22 programs signed a 5-star, too spread), then the live room (16% without it). The feel's size mattered least. The relationship change alone moved little.
+
+Not changed and worth a look:
+- The portal's chances (backup 0.18, rotation 0.07, redshirt 0.12) go through a bell-shaped draw, so the real yearly chances are much smaller (about 2.7% for a backup, 1.1% for a redshirt). This was there before.
+- Steered kids decide after their first year, so most of them are redshirts. They make up 23% of all entrants, which may be high.
+- 5-star draft rates in the 8-year runs with the new portal were 74-83% (66 players each, noisy); the old portal gave 71%; the 15-year run gave 69% (297 players). Real is 63%.
+
+Proposed, not confirmed: the feel's size (0.07); the early-play weight (+0.08 a star from three stars); three targets per plan spot plus three; the head coach's own targets (up to one more than the plan at a spot); unofficial visits within 250 miles; the relationship weights (0.025 base, 0.006 per head coach skill point, 0.003 per position coach point, head coach time 1.0 for his own targets and 0.35 for others, 0.4 without a visit, position coach 0.75 without a visit, how long they've known him 0.35 + 0.65 × visibility, 0.03 for a tie to his high school coach, staff chemistry sd 0.03, halved without a visit); the head coach's skill as 60% recruiting and 40% relationships; the two-deep rule for who wants a transfer; the redshirt portal rate (0.12).
 
 ## Proposed, not confirmed (Claude's own picks in the build)
 

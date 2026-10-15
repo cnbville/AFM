@@ -614,6 +614,7 @@ fn main() {
     );
 
     coaching_market(&w, years);
+    recruiting_spread(&w);
 
     // --- Players ---
     println!("\n## Players");
@@ -1255,6 +1256,91 @@ fn write_dashboard(w: &World, path: &str, seed: u32, years: u32, cards: &[serde_
 
 /// The coaching market (dynasty item 11.11-11.15): head coach moves per year,
 /// NFL hires, early exits, and how long title-winning coaches stay.
+/// Dynasty item 11 checks: how 5-stars spread over FBS programs, who enters
+/// the portal, and whether transfers start where they land.
+fn recruiting_spread(w: &World) {
+    use afm_engine::player::PlayingTime;
+    println!("\n## Recruiting spread and the portal (dynasty items 11.1-11.3, 11.16-11.18)");
+    let log = &w.recruiting_log;
+    let mut by_year: BTreeMap<i32, BTreeMap<usize, u32>> = BTreeMap::new();
+    for &(y, j) in &log.five_stars {
+        *by_year.entry(y).or_default().entry(j).or_default() += 1;
+    }
+    let (mut share_sum, mut programs_sum, mut n) = (0.0, 0.0, 0.0);
+    for (y, m) in &by_year {
+        let total: u32 = m.values().sum();
+        let Some((&top_j, &top)) = m.iter().max_by_key(|e| *e.1) else { continue };
+        let share = top as f64 / total as f64;
+        println!(
+            "  class {y}: {total} FBS 5-stars, {} programs signed one, top {} with {top} ({:.0}%)",
+            m.len(),
+            w.program_name(top_j),
+            100.0 * share
+        );
+        share_sum += share;
+        programs_sum += m.len() as f64;
+        n += 1.0;
+    }
+    if n > 0.0 {
+        println!(
+            "  average: top program {:.1}% of FBS 5-stars, {:.1} programs sign one (real 2024-25, 247Sports: 14% and 15-17)",
+            100.0 * share_sum / n,
+            programs_sum / n
+        );
+    }
+    // Portal entrants by their role the season before.
+    let mut roles: BTreeMap<&str, (u32, u32)> = BTreeMap::new();
+    for r in &log.portal {
+        let name = r.role.map_or("none", |x| x.name());
+        let e = roles.entry(name).or_default();
+        e.0 += 1;
+        e.1 += r.to.is_some() as u32;
+    }
+    let total: u32 = roles.values().map(|e| e.0).sum();
+    let years = log.portal.iter().map(|r| r.year).collect::<std::collections::BTreeSet<_>>().len().max(1);
+    println!(
+        "  portal entrants: {total} ({:.0} a year), by role last season (share, landed):",
+        total as f64 / years as f64
+    );
+    for (name, (k, landed)) in &roles {
+        println!(
+            "    {name}: {k} ({:.0}%), {:.0}% found a school",
+            100.0 * *k as f64 / total.max(1) as f64,
+            100.0 * *landed as f64 / (*k).max(1) as f64
+        );
+    }
+    let mut rs_why: BTreeMap<&str, u32> = BTreeMap::new();
+    for r in log.portal.iter().filter(|r| r.role == Some(PlayingTime::Redshirt)) {
+        *rs_why.entry(r.why).or_default() += 1;
+    }
+    println!("    redshirts by reason: {rs_why:?}");
+    let fbs_entrants = log.portal.iter().filter(|r| r.from == Division::FBS).count();
+    let fbs_landed_fbs = log.portal.iter().filter(|r| r.from == Division::FBS && r.to == Some(Division::FBS)).count();
+    println!(
+        "  FBS entrants who landed at FBS: {:.0}% of {fbs_entrants}",
+        100.0 * fbs_landed_fbs as f64 / fbs_entrants.max(1) as f64
+    );
+    // Transfers' first season at the new school.
+    for (label, div) in [("all", None), ("FBS", Some(Division::FBS)), ("FCS", Some(Division::FCS))] {
+        let v: Vec<_> = log.transfer_seasons.iter().filter(|t| div.is_none_or(|d| t.3 == d)).collect();
+        let starts = v.iter().filter(|t| t.2 == PlayingTime::Starter).count();
+        let rotation = v.iter().filter(|t| t.2 == PlayingTime::Rotation).count();
+        println!(
+            "  transfers' first season ({label}, {}): {:.0}% start, {:.0}% rotation",
+            v.len(),
+            100.0 * starts as f64 / v.len().max(1) as f64,
+            100.0 * rotation as f64 / v.len().max(1) as f64
+        );
+    }
+    let rs: Vec<_> = log.transfer_seasons.iter().filter(|t| t.1 == PlayingTime::Redshirt).collect();
+    let rs_start = rs.iter().filter(|t| t.2 == PlayingTime::Starter).count();
+    println!(
+        "  former redshirts among them: {}, {:.0}% start",
+        rs.len(),
+        100.0 * rs_start as f64 / rs.len().max(1) as f64
+    );
+}
+
 fn coaching_market(w: &World, years: u32) {
     println!("\n## Coaching market");
     let first = w.year - years as i32;

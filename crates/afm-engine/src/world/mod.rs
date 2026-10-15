@@ -149,6 +149,8 @@ pub struct Person {
     pub academic_redshirt: bool,
     /// On the roster without a scholarship (fix list 1.6: specialist walk-ons).
     pub walk_on: bool,
+    /// His role before he transferred, until his first season at the new school is logged.
+    pub(crate) transfer_from: Option<PlayingTime>,
     /// His college coaches each season: (year, program, head coach, position coach).
     pub college_staff: Vec<(i32, usize, Option<usize>, Option<usize>)>,
     /// Off-field incidents this season (for the locker room).
@@ -256,6 +258,30 @@ impl Alumnus {
     }
 }
 
+/// One portal entrant (recorded history only).
+#[derive(Clone, Debug)]
+pub struct PortalRecord {
+    /// The offseason he entered (the season just played).
+    pub year: i32,
+    /// His role in that season.
+    pub role: Option<PlayingTime>,
+    /// Why he entered: playing time, coaching change, steered, move up, dismissed or money.
+    pub why: &'static str,
+    pub from: Division,
+    /// Where he landed, or None if he found no school.
+    pub to: Option<Division>,
+}
+
+/// Recruiting and portal records for trials (dynasty item 11 checks).
+#[derive(Clone, Debug, Default)]
+pub struct RecruitingLog {
+    /// (signing class, program) for each high school 5-star (not a specialist) who signed with an FBS program.
+    pub five_stars: Vec<(i32, usize)>,
+    pub portal: Vec<PortalRecord>,
+    /// A transfer's first season at his new school: (season, role before, role now, division).
+    pub transfer_seasons: Vec<(i32, PlayingTime, PlayingTime, Division)>,
+}
+
 pub struct World {
     pub options: WorldOptions,
     /// The next season to be played.
@@ -286,6 +312,8 @@ pub struct World {
     pub(crate) recording: bool,
     /// Trial tooling, see `WorldOptions::keep_game_log`.
     pub game_log: game_log::GameLog,
+    /// Recruiting and portal records for trials (dynasty item 11 checks).
+    pub recruiting_log: RecruitingLog,
     next_person: u32,
 }
 
@@ -388,6 +416,7 @@ impl World {
             rng,
             recording: false,
             game_log: game_log::GameLog::default(),
+            recruiting_log: RecruitingLog::default(),
             next_person: 1,
         };
         staff::staff_everyone(&mut w);
@@ -555,6 +584,7 @@ impl World {
                     gpa_at_signing: None,
                     academic_redshirt: false,
                     walk_on: false,
+                    transfer_from: None,
                     college_staff: Vec::new(),
                     incident: false,
                     notes: Vec::new(),
