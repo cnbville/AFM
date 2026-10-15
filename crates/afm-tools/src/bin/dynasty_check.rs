@@ -7,8 +7,9 @@
 //! for points per rating point at every position.
 
 use afm_engine::attributes::Attr;
+use afm_engine::game::roster::depth_chart;
 use afm_engine::game::synthetic::synthetic_team;
-use afm_engine::game::{GameTeam, OffScheme, quick_game};
+use afm_engine::game::{GameTeam, OffScheme, TeamStats, quick_game};
 use afm_engine::player::Level;
 use afm_engine::positions::Position;
 use rayon::prelude::*;
@@ -28,13 +29,28 @@ const STARTERS: [(Position, usize); 11] = [
     (Position::S, 2),
 ];
 
-/// Raises every attribute of the starters at `positions` by `by`.
+/// Raises the attributes of the depth-chart starters at `positions` by `by`:
+/// every attribute but stamina (stamina changes how often he rotates out, so
+/// it measures snaps, not skill), or only the ones named in `AFM_ATTRS`.
 fn boost(t: &GameTeam, positions: &[Position], by: f64) -> GameTeam {
+    let margin = match level() {
+        Level::HS => 4.0,
+        Level::NFL => 99.0,
+        _ => 14.0,
+    };
+    let depth = depth_chart(t, margin);
+    let only: Vec<String> =
+        std::env::var("AFM_ATTRS").map(|v| v.split(',').map(String::from).collect()).unwrap_or_default();
+    let attrs: Vec<Attr> = Attr::ALL
+        .iter()
+        .copied()
+        .filter(|&a| if only.is_empty() { a != Attr::Stamina } else { only.iter().any(|o| *o == format!("{a:?}")) })
+        .collect();
     let mut t = t.clone();
     for &(pos, n) in STARTERS.iter().filter(|(p, _)| positions.contains(p)) {
-        for p in t.players.iter_mut().filter(|p| p.position == pos).take(n) {
-            for a in Attr::ALL {
-                p.attrs[a] = (p.attrs[a] + by).min(99.0);
+        for &i in depth.list(pos).iter().take(n) {
+            for &a in &attrs {
+                t.players[i].attrs[a] = (t.players[i].attrs[a] + by).min(99.0);
             }
         }
     }
@@ -55,18 +71,18 @@ fn level() -> Level {
 }
 
 fn play(a: &GameTeam, b: &GameTeam, games: usize, seed: u64) -> (f64, f64) {
-    let r: Vec<(f64, f64)> = (0..games)
+    let r: Vec<(f64, f64, [TeamStats; 2])> = (0..games)
         .into_par_iter()
         .map(|g| {
             let s = seed * 1_000_003 + g as u64;
-            let (m, home) = if g % 2 == 0 {
+            let (m, st) = if g % 2 == 0 {
                 let r = quick_game(a, b, level(), s);
-                ((r.stats.score[0] - r.stats.score[1]) as f64, true)
+                ((r.stats.score[0] - r.stats.score[1]) as f64, r.stats.team)
             } else {
                 let r = quick_game(b, a, level(), s);
-                ((r.stats.score[1] - r.stats.score[0]) as f64, false)
+                let [x, y] = r.stats.team;
+                ((r.stats.score[1] - r.stats.score[0]) as f64, [y, x])
             };
-            let _ = home;
             (
                 if m > 0.0 {
                     1.0
@@ -76,10 +92,30 @@ fn play(a: &GameTeam, b: &GameTeam, games: usize, seed: u64) -> (f64, f64) {
                     0.0
                 },
                 m,
+                st,
             )
         })
         .collect();
     let n = r.len() as f64;
+    if std::env::var("AFM_DETAIL").is_ok() {
+        // How the edge shows up: each side's offense, boosted side first.
+        for side in 0..2 {
+            let sum = |f: &dyn Fn(&TeamStats) -> f64| r.iter().map(|x| f(&x.2[side])).sum::<f64>();
+            let car = sum(&|t| t.carries as f64);
+            let db = sum(&|t| t.dropbacks as f64);
+            eprintln!(
+                "    {} offense: ypc {:.2}  yds/dropback {:.2}  sack {:.3}  pressure {:.3}  int {:.4}  explosive/play {:.3}  pts {:.1}",
+                if side == 0 { "boosted" } else { "base   " },
+                sum(&|t| t.rush_yards) / car,
+                sum(&|t| t.pass_yards) / db,
+                sum(&|t| t.sacks as f64) / db,
+                sum(&|t| t.pressures as f64) / db,
+                sum(&|t| t.ints as f64) / db,
+                sum(&|t| t.explosive as f64) / sum(&|t| t.plays as f64),
+                sum(&|t| t.points as f64) / n
+            );
+        }
+    }
     (r.iter().map(|x| x.0).sum::<f64>() / n, r.iter().map(|x| x.1).sum::<f64>() / n)
 }
 

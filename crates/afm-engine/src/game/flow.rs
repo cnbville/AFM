@@ -1570,7 +1570,7 @@ impl<'a> Game<'a> {
         }
         // The nearest defender to the target is the man in coverage.
         if r.kind == PlayType::Pass && !r.throw_away {
-            r.defender = res.pbu.or(res.defender).or(self.nearest_cover(&r, &res));
+            r.defender = res.pbu.or(res.defender);
         }
         // Freelancing results: a jump that made the play, or one that got burned.
         for &(id, _) in &res.notes.freelance {
@@ -1957,13 +1957,6 @@ impl<'a> Game<'a> {
             ep(self.down + 1, (self.togo - (new_x - self.x)).max(1.0), new_x)
         };
         after - r.ep_before
-    }
-
-    fn nearest_cover(&self, r: &PlayRecord, _res: &SnapResult) -> Option<u32> {
-        // From the coverage battles: the defender charged is the one who
-        // contested the catch; otherwise none is charged.
-        let _ = r;
-        None
     }
 
     #[allow(clippy::too_many_arguments)]

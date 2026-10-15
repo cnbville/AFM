@@ -217,6 +217,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         fight_since: 0.0,
         screen: None,
         open_reach: 2.2,
+        press: 0.0,
     };
     let find = |r: ORole| role_of.iter().position(|x| *x == Some(r));
     let qb = find(ORole::QB).unwrap_or(0);
@@ -375,6 +376,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             let (aim_y, pulls) = rc.aim();
             let aim_pt = v2(los + 1.0, by + aim_y * dir);
             aim = Some(aim_pt);
+            sim.press = rc.press();
             let mesh = match (rc, f.backfield) {
                 (RunConcept::Sneak, _) => sim.agents[qb].pos,
                 (_, Backfield::UnderCenter) => v2(los - 4.0, by + 0.6 * dir),
@@ -724,6 +726,13 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             let tgt = target.unwrap_or(qb);
             let outcome = catch_point(&mut sim, tgt, to, from, release, s, &trail);
             res.target = Some(sim.agents[tgt].id);
+            // The defender in coverage on the throw: the nearest one to the
+            // catch point, when he is close enough to be charged with it.
+            res.defender = (off_n..sim.agents.len())
+                .map(|k| (k, sim.agents[k].pos.dist(to)))
+                .filter(|&(_, d)| d < 4.0)
+                .min_by(|a, b| a.1.total_cmp(&b.1))
+                .map(|(k, _)| sim.agents[k].id);
             catch_x = to.x;
             res.air_yards = to.x - los;
             match outcome {
@@ -1536,7 +1545,7 @@ fn route_step(a: &Agent, pts: &[V2], next: usize, settle: bool) -> (V2, f64, boo
     let dist = a.pos.dist(target);
     // Before the break of a route that stops (hitch, curl, comeback) he
     // sinks his hips: he brakes so he can plant at the stem.
-    let brake = a.accel * 1.9;
+    let brake = a.brake();
     let speed = if next + 1 == pts.len() && settle {
         a.vmax.min(dist * 2.0)
     } else if settle && next + 2 == pts.len() {
@@ -1731,7 +1740,13 @@ fn quarterback(
         }
         let dist = a.pos.dist(me);
         let free = a.engaged.is_none() && matches!(a.job, Job::Rush { .. });
-        let close = if free { dist } else { dist + 1.5 };
+        // A rusher winning his block and driving it into the pocket is
+        // pressure too, before he sheds (dynasty item 1: the hand fight and
+        // a collapsing pocket now make pressure, as they do for real
+        // interior rushers).
+        let winning =
+            a.engaged.map_or(0.0, |k| if sim.eng[k].pass { clamp((sim.eng[k].w - 0.3) / 0.7, 0.0, 1.0) } else { 0.0 });
+        let close = if free { dist } else { dist + 1.5 * (1.0 - winning) };
         if close < nearest {
             nearest = close;
         }
@@ -1741,6 +1756,10 @@ fn quarterback(
                 pressure += (4.5 - dist) / 4.5;
                 threat = threat + (me - a.pos).norm().scale((4.5 - dist) / 4.5);
             }
+        } else if winning > 0.0 && dist < 3.0 {
+            let feel = 0.6 * winning * (3.0 - dist) / 3.0;
+            pressure += feel;
+            threat = threat + (me - a.pos).norm().scale(feel);
         }
     }
     if nearest < 2.6 && ps.pressured_at.is_none() {
@@ -2160,6 +2179,14 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
             }
         }
     }
+    // A rusher who has beaten his man but not yet shed him can still reach
+    // the quarterback and drag him down with the blocker on him (dynasty
+    // item 1: the hand fight and a collapsing pocket make sacks, not only a
+    // free rusher).
+    let through = |d: usize| {
+        let a = &sim.agents[d];
+        a.engaged.is_some_and(|k| sim.eng[k].pass && sim.eng[k].w > 0.6) && a.pos.dist(me) < 1.0
+    };
     let mut tacklers: Vec<usize> = (0..sim.agents.len())
         .filter(|&d| {
             let a = &sim.agents[d];
@@ -2167,7 +2194,8 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
             let rel = a.pos - me;
             let rv = (a.vel - sim.agents[qb].vel).scale(DT);
             let back = if rv.len() > 1e-6 { clamp(rel.dot(rv) / rv.dot(rv), 0.0, 1.0) } else { 0.0 };
-            a.side == 1 && a.up(t) && a.engaged.is_none() && (rel - rv.scale(back)).len() < 1.25 && t - a.last_try > 0.6
+            let free = a.engaged.is_none() && (rel - rv.scale(back)).len() < 1.25;
+            a.side == 1 && a.up(t) && (free || through(d)) && t - a.last_try > 0.6
         })
         .collect();
     if tacklers.is_empty() {
@@ -2177,12 +2205,13 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
     let d = tacklers[0];
     sim.agents[d].last_try = t;
     ps.hit = true;
+    let grabbing = sim.agents[d].engaged.is_some();
     // Escape: a mobile, strong quarterback slips some.
     let (q, r) = (&sim.agents[qb], &sim.agents[d]);
     let esc = 0.4 * q.a(Attr::Elusiveness) + 0.3 * q.a(Attr::Agility) + 0.3 * q.a(Attr::Strength);
     let tk = 0.6 * r.a(Attr::Tackling) + 0.2 * r.a(Attr::Strength) + 0.2 * r.a(Attr::Agility);
     let seen = sim.sees(qb, r.pos);
-    let logit = -1.9 + (esc - tk) / 12.0 + if seen { 0.0 } else { -1.0 };
+    let logit = -1.9 + (esc - tk) / 12.0 + if seen { 0.0 } else { -1.0 } + if grabbing { 1.2 } else { 0.0 };
     if sim.rng.chance(1.0 / (1.0 + (-logit).exp())) {
         let (rid, qid) = (r.id, q.id);
         sim.notes.missed.push((rid, qid));
@@ -2332,7 +2361,12 @@ fn defend(
                 let c = carrier.unwrap_or(qb);
                 let me = sim.agents[i].pos;
                 let cp = sim.agents[c].pos;
-                let deep = matches!(job, Job::Zone { deep: true, .. }) || me.x - s.los > 9.0;
+                // Defensive backs fit the alley under control from wherever
+                // they are (a safety rotated down too); a linebacker attacks.
+                let back = matches!(sim.agents[i].label, "CB" | "NB" | "FS" | "SS");
+                let deep = matches!(job, Job::Zone { deep: true, .. })
+                    || (me.x - s.los) * sim.goal > 9.0
+                    || (back && (me.x - s.los) * sim.goal > 5.0);
                 // A corner in man stays on his receiver (who may be faking a
                 // route or blocking him) until the runner is clearly through.
                 // When his man blocks instead of running a route, that is his
@@ -2367,9 +2401,30 @@ fn defend(
                         let floor = if through { None } else { Some(s.los + sim.goal * (fill - 0.02 * (pr - 50.0))) };
                         sim.pursue_cap(i, c, if through { 1.0 } else { 0.6 }, floor);
                     }
+                } else if sim.agents[i].label == "LB" && (s.los - cp.x) * sim.goal > 0.0 && me.dist(cp) > 4.0 {
+                    // A linebacker fills his gap: downhill to the line on the
+                    // runner's side, where the blocks meet him, and he takes
+                    // the runner on when he gets there (not in the backfield).
+                    let aim = v2(s.los + sim.goal * 0.5, me.y + clamp(cp.y - me.y, -2.5, 2.5));
+                    sim.go_to(i, aim, 1.0);
                 } else {
                     sim.pursue(i, c);
                 }
+                return;
+            }
+            let fake = pass.as_ref().is_some_and(|p| p.concept.play_action);
+            if !knows && sim.agents[i].label == "LB" && !fake {
+                // A linebacker reads before he commits, run or pass alike: a
+                // read step at his own depth, shuffling with the back he keys
+                // (or the ball), rather than dropping or running to the back.
+                let me = sim.agents[i].pos;
+                let key = match job {
+                    Job::Man { target, .. } if (sim.agents[target].pos.x - s.los) * sim.goal < -1.0 => {
+                        sim.agents[target].pos.y
+                    }
+                    _ => sim.ball_pos().y,
+                };
+                sim.go_to(i, v2(me.x, me.y + clamp(key - me.y, -2.0, 2.0) * 0.5), 0.5);
                 return;
             }
             if pass_play && !knows {
@@ -2451,7 +2506,15 @@ fn cover_inner(
             let inside = if est.y > s.ball_y { -0.6 } else { 0.6 };
             let deep = est.x - s.los > 8.0;
             // Off coverage keeps a cushion until the receiver eats it up.
-            let cush = (cushion - (t * 2.2)).max(if deep { 0.6 } else { 0.0 });
+            // Before he has read the play, a man whose receiver isn't
+            // releasing (he blocks, or stays in) keeps his cushion: he
+            // doesn't come downhill on a blocker until he reads run.
+            let releasing = sim.agents[target].vel.x * sim.goal > 1.0 || (est.x - s.los) * sim.goal > 1.5;
+            let cush = if t < sim.agents[i].read_at && !releasing {
+                cushion
+            } else {
+                (cushion - (t * 2.2)).max(if deep { 0.6 } else { 0.0 })
+            };
             let spot = v2(est.x + cush - if deep { 0.3 } else { 0.0 }, est.y + inside);
             // Bust: lost his man.
             if sim.agents[i].bust {

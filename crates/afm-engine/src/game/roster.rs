@@ -82,12 +82,17 @@ impl GamePlayer {
         clamp(0.78 + 0.003 * (60.0 - self.a(Attr::Acceleration)) + 0.0006 * (self.weight - 220.0), 0.55, 1.0)
     }
 
-    /// Acceleration, yards per second squared.
+    /// Acceleration, yards per second squared: his grip for braking and
+    /// cutting. The burst from a standing start is `sprint_tau`.
     pub fn accel(&self) -> f64 {
-        // Through the pro range each point counts fully; below it (most high
-        // school players) the gap narrows (proposed, not confirmed).
+        // Fit with `drills` so the sim's 5-10-5 shuttle and 3-cone move per
+        // point as the combine model does (`body::combine`), the way the 40
+        // was fit (dynasty item 1; was 0.035 a point, which made a quick
+        // player 3-8 times quicker in the sim than at the combine). Below the
+        // pro range (most high school players) the gap narrows (proposed,
+        // not confirmed).
         let ac = self.a(Attr::Acceleration);
-        let ac = if ac >= 60.0 { 4.65 + 0.035 * (ac - 60.0) } else { 4.65 + 0.02 * (ac - 60.0) };
+        let ac = if ac >= 60.0 { 4.65 + 0.008 * (ac - 60.0) } else { 4.65 + 0.0046 * (ac - 60.0) };
         clamp(ac - 0.006 * (self.weight - 220.0), 2.2, 7.5)
     }
 
@@ -96,7 +101,8 @@ impl GamePlayer {
         // As with acceleration, the gap narrows below the pro range, so a
         // high school athlete still cuts like an athlete.
         let ag = self.a(Attr::Agility);
-        let ag = if ag >= 60.0 { 0.99 + 0.011 * (ag - 60.0) } else { 0.99 + 0.006 * (ag - 60.0) };
+        // Fit with `drills` as above (was 0.011 a point).
+        let ag = if ag >= 60.0 { 0.99 + 0.004 * (ag - 60.0) } else { 0.99 + 0.0022 * (ag - 60.0) };
         clamp(ag - 0.002 * (self.weight - 220.0), 0.4, 1.7)
     }
 

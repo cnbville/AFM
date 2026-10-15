@@ -521,6 +521,19 @@ impl RunConcept {
     }
     /// Where the back aims, in yards from the center toward the play side,
     /// and whether the scheme pulls a backside guard (gap schemes).
+    /// The pace a back presses the line at, yards per second: zone runs
+    /// patient, gap runs downhill, tosses and sneaks at full speed (0).
+    /// Proposed, not confirmed (Claude's reading of NGS time to the line,
+    /// about 2.8 s from the snap).
+    pub fn press(self) -> f64 {
+        match self {
+            RunConcept::InsideZone | RunConcept::ZoneRead | RunConcept::OutsideZone => 6.3,
+            RunConcept::Power | RunConcept::Counter | RunConcept::BuckSweep => 7.2,
+            RunConcept::Draw => 6.0,
+            RunConcept::Sneak | RunConcept::Toss => 0.0,
+        }
+    }
+
     pub fn aim(self) -> (f64, u8) {
         match self {
             RunConcept::InsideZone | RunConcept::ZoneRead => (1.8, 0),

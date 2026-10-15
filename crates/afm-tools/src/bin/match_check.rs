@@ -129,7 +129,7 @@ fn main() {
     let mut ay = [[0.0f64; 6]; 4];
     let mut by_cov = [[0.0f64; 3]; 2];
     let mut run_b = [0.0f64; 6];
-    let mut cov_runs = std::collections::BTreeMap::<String, [f64; 3]>::new();
+    let mut cov_runs = std::collections::BTreeMap::<String, [f64; 5]>::new();
     let mut by_box = [[0.0f64; 2]; 3];
     let mut pts = Vec::new();
     let mut close = 0.0;
@@ -329,10 +329,12 @@ fn main() {
                         let k = [0.5, 3.5, 9.5, 19.5, 39.5].iter().filter(|&&b| y >= b).count();
                         run_b[k] += 1.0;
                         let cv = p.defense_call.split(',').next().unwrap_or("").to_string();
-                        let e = cov_runs.entry(cv).or_insert([0.0; 3]);
+                        let e = cov_runs.entry(cv).or_insert([0.0; 5]);
                         e[0] += 1.0;
                         e[1] += y;
                         e[2] += (k == 5) as u8 as f64;
+                        e[3] += p.before_contact;
+                        e[4] += p.box_count as f64;
                         if k == 5 && std::env::var("AFM_LONG").is_ok() {
                             println!(
                                 "LONG {:.0} | {} | {} | box {} | {}",
@@ -504,7 +506,14 @@ fn main() {
     }
     if std::env::var("AFM_LONG").is_ok() {
         for (k, v) in &cov_runs {
-            println!("runs vs {k:<12} share {:.3} ypc {:.2} 40+ {:.3}", v[0] / rn, v[1] / v[0], v[2] / v[0]);
+            println!(
+                "runs vs {k:<12} share {:.3} ypc {:.2} 40+ {:.3} before contact {:.2} box {:.2}",
+                v[0] / rn,
+                v[1] / v[0],
+                v[2] / v[0],
+                v[3] / v[0],
+                v[4] / v[0]
+            );
         }
     }
     let fgr = &real["field_goal_pct_by_distance"];
