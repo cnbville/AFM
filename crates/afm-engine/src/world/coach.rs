@@ -36,7 +36,7 @@ impl Group {
             Position::EDGE | Position::DT => Group::DL,
             Position::LB => Group::LB,
             Position::CB | Position::S => Group::DB,
-            Position::K | Position::P => Group::Specialists,
+            Position::K | Position::P | Position::LS => Group::Specialists,
         }
     }
 

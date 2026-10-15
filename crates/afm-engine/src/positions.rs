@@ -20,9 +20,11 @@ pub enum Position {
     S,
     K,
     P,
+    /// Long snapper (fix list 1.7): his snapping trait is his job.
+    LS,
 }
 
-pub const POSITION_COUNT: usize = 13;
+pub const POSITION_COUNT: usize = 14;
 
 impl Position {
     pub const ALL: [Position; POSITION_COUNT] = [
@@ -39,6 +41,7 @@ impl Position {
         Position::S,
         Position::K,
         Position::P,
+        Position::LS,
     ];
 
     #[inline]
@@ -47,16 +50,22 @@ impl Position {
     }
 
     pub fn name(self) -> &'static str {
-        ["QB", "RB", "WR", "TE", "OT", "IOL", "EDGE", "DT", "LB", "CB", "S", "K", "P"][self as usize]
+        ["QB", "RB", "WR", "TE", "OT", "IOL", "EDGE", "DT", "LB", "CB", "S", "K", "P", "LS"][self as usize]
     }
 
     pub fn profile(self) -> &'static PositionProfile {
         &POSITION_PROFILES[self as usize]
     }
 
-    /// Kickers and punters.
+    /// Kickers, punters and long snappers.
     #[inline]
     pub fn is_specialist(self) -> bool {
+        matches!(self, Position::K | Position::P | Position::LS)
+    }
+
+    /// Kickers and punters: the specialists judged by their leg.
+    #[inline]
+    pub fn kicks(self) -> bool {
         matches!(self, Position::K | Position::P)
     }
 }
@@ -402,6 +411,19 @@ pub const POSITION_PROFILES: [PositionProfile; POSITION_COUNT] = [
         injury_risk: 0.25,
         share: 0.02,
     },
+    // Long snapper (fix list 1.7). The snap itself is his hidden snapping
+    // trait (see `long_snapper_rating`); these are the rest of his job: he
+    // blocks on punts and kicks, then covers. Nobody is created or placed
+    // here (share 0): high school snappers play another position, and
+    // colleges list them as snappers at signing day, so no elite shape.
+    // Aging and injury follow the other specialists.
+    PositionProfile {
+        weights: &[(Strength, 3.0), (PassBlocking, 3.0), (Speed, 2.0), (Tackling, 1.5), (Awareness, 1.5)],
+        elite_shape: &[],
+        aging_offset: 2.0,
+        injury_risk: 0.25,
+        share: 0.0,
+    },
 ];
 
 struct Derived {
@@ -460,6 +482,16 @@ pub fn elite_shape_value(position: Position, attr: Attr) -> f64 {
 /// Overall an "elite shape" player would have; used to scale talent into ceilings.
 pub fn elite_shape_overall(position: Position) -> f64 {
     DERIVED.elite_shape_overall[position.index()]
+}
+
+/// A long snapper's rating at his job (fix list 1.7). The snap is the job,
+/// so his hidden snapping trait (1-20, five rating points a step, as
+/// composure reads against poise) sets three quarters of it; blocking and
+/// covering on punts set the rest (proposed, not confirmed: snapping camps
+/// grade the snap first, then size and coverage).
+#[inline]
+pub fn long_snapper_rating(snapping: f64, attrs: &Attributes) -> f64 {
+    0.75 * 5.0 * snapping + 0.25 * overall_for(Position::LS, attrs)
 }
 
 /// Weight of an attribute as listed in the position profile, before normalising (0 if unlisted).

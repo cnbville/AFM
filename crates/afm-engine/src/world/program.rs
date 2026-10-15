@@ -257,8 +257,6 @@ pub struct Program {
     pub conference_titles: u32,
     /// Draft picks by year (round of each pick).
     pub draft_picks: Vec<(i32, u32)>,
-    /// Scholarships a year.
-    pub class_size: usize,
     /// The school's own admissions bar, a core GPA, on top of the NCAA floor (note 6).
     pub admissions_bar: f64,
     /// Exceptions a strict school can make per class for a player it believes
@@ -366,12 +364,6 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
     // million, FCS and D2 far less. A minority of schools have one big booster.
     let base = nil_target(row.division, p4, fans, recent) * rng.log_normal(0.25);
     let big_booster = if rng.chance(if p4 { 0.3 } else { 0.08 }) { Some(base * rng.range(0.2, 0.8)) } else { None };
-    let class_size = match row.division {
-        Division::FBS => 28,
-        Division::FCS => 24,
-        Division::D2 => 30,
-        Division::JUCO => 40,
-    };
     let mut p = Program {
         id,
         real_name: row.name.clone(),
@@ -416,7 +408,6 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
         titles: row.national_titles,
         conference_titles: 0,
         draft_picks: Vec::new(),
-        class_size,
         admissions_bar: admissions(row).0,
         special_admits: admissions(row).1,
     };

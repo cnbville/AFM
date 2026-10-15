@@ -300,6 +300,8 @@ fn main() {
         return;
     }
 
+    special_teams(&w);
+
     // --- Calibration ---
     println!("## Calibration");
     let picks: Vec<&Alumnus> = w.alumni.iter().filter(|a| a.pick.is_some()).collect();
@@ -312,7 +314,10 @@ fn main() {
     for stars in [5u8, 4, 3, 2] {
         let total: u32 =
             w.signing_classes.iter().filter(|c| complete.contains(&c.0)).map(|c| c.1[stars as usize]).sum();
-        let drafted = picks.iter().filter(|a| a.stars == stars && complete.contains(&a.class_of)).count();
+        let drafted = picks
+            .iter()
+            .filter(|a| a.stars == stars && !a.position.is_specialist() && complete.contains(&a.class_of))
+            .count();
         if total > 0 {
             println!("{stars}-star draft rate: {:.1}% ({drafted} of {total})", 100.0 * drafted as f64 / total as f64);
         }
@@ -638,7 +643,7 @@ fn main() {
         recorded.iter().filter(|a| a.steered && a.notes.iter().any(|n| n.contains("free at last"))).count()
     );
     println!("Five-star busts (left football):");
-    for a in recorded.iter().filter(|a| a.stars == 5 && a.left_football).take(2) {
+    for a in recorded.iter().filter(|a| a.stars == 5 && !a.position.is_specialist() && a.left_football).take(2) {
         show_player(&w, a);
     }
     println!("Powerhouse transfer who was drafted:");
@@ -659,7 +664,7 @@ fn main() {
     // --- Character report: what the game shows instead ---
     println!("\n## What a scout sees (character report on a current five-star)");
     let mut w = w;
-    if let Some(i) = w.people.iter().position(|p| p.stars == 5) {
+    if let Some(i) = w.people.iter().position(|p| p.stars == 5 && !p.player.position.is_specialist()) {
         let name = w.people[i].name.clone();
         for acc in [6.0, 16.0] {
             let r = w.people[i].character_report(acc);
@@ -671,6 +676,127 @@ fn main() {
             bg.money, bg.safety, bg.stability, fam.decider, fam.parent_style
         );
     }
+}
+
+/// Fix list topic 1 checks: kickers, punters and long snappers on every
+/// roster, scholarships against walk-ons, position counts against the real
+/// FBS table, and (with the game log) kicking in the last engine season.
+fn special_teams(w: &World) {
+    use afm_engine::positions::{POSITION_COUNT, Position};
+    use afm_engine::world::Stage;
+    println!("## Kickers, punters and roster needs (fix list topic 1)");
+    println!("Rosters going into {} (after signing day):", w.year);
+    // Real FBS 2022-24 per roster, from the fix list table.
+    let real = [5.8, 8.5, 16.2, 7.4, 9.36, 10.14, 9.1, 8.4, 14.6, 10.2, 12.0, 3.5, 2.0, 2.5];
+    for d in [Division::FBS, Division::FCS, Division::D2, Division::JUCO] {
+        let teams: Vec<usize> =
+            w.programs.iter().filter(|p| p.division == d && !p.roster.is_empty()).map(|p| p.id).collect();
+        if teams.is_empty() {
+            continue;
+        }
+        // Counted from the people themselves: the program roster lists hold
+        // stale indices between the year-end clean-up and the next rebuild.
+        let mut counts = vec![[0u32; POSITION_COUNT]; w.programs.len()];
+        let mut sch = [0u32; POSITION_COUNT];
+        for p in &w.people {
+            let Some(t) = p.college else { continue };
+            if p.stage != Stage::College || w.programs[t].division != d {
+                continue;
+            }
+            let k = p.player.position.index();
+            counts[t][k] += 1;
+            if !p.walk_on {
+                sch[k] += 1;
+            }
+        }
+        let mut sizes: Vec<u32> = teams.iter().map(|&t| counts[t].iter().sum()).collect();
+        sizes.sort();
+        let n = teams.len() as f64;
+        let none = |pos: Position| teams.iter().filter(|&&t| counts[t][pos.index()] == 0).count();
+        let per = |pos: Position| teams.iter().map(|&t| counts[t][pos.index()]).sum::<u32>() as f64 / n;
+        let range = |pos: Position| {
+            let v: Vec<u32> = teams.iter().map(|&t| counts[t][pos.index()]).collect();
+            (v.iter().copied().min().unwrap_or(0), v.iter().copied().max().unwrap_or(0))
+        };
+        println!(
+            "- {}: {} teams, roster median {} ({}-{}); no kicker {}, no punter {}, no long snapper {}, neither K nor P {}",
+            d.name(),
+            teams.len(),
+            sizes[sizes.len() / 2],
+            sizes[sizes.len() / 10],
+            sizes[sizes.len() * 9 / 10],
+            none(Position::K),
+            none(Position::P),
+            none(Position::LS),
+            teams
+                .iter()
+                .filter(|&&t| counts[t][Position::K.index()] == 0 && counts[t][Position::P.index()] == 0)
+                .count()
+        );
+        for pos in [Position::K, Position::P, Position::LS] {
+            let (lo, hi) = range(pos);
+            let k = pos.index();
+            let total = per(pos) * n;
+            println!(
+                "  {}: {:.2} a roster ({lo}-{hi}), on scholarship {:.2} a team, walk-ons {:.0}%",
+                pos.name(),
+                per(pos),
+                sch[k] as f64 / n,
+                100.0 * (1.0 - sch[k] as f64 / total.max(1.0))
+            );
+        }
+        if d == Division::FBS {
+            let scale = 105.0 / 119.7;
+            let line: Vec<String> = Position::ALL
+                .iter()
+                .map(|&pos| format!("{} {:.1} ({:.1})", pos.name(), per(pos), real[pos.index()] * scale))
+                .collect();
+            println!("  per roster against the real table scaled to 105: {}", line.join(", "));
+        }
+    }
+    println!(
+        "Real FBS 2022-24: K 3.5 (1-7, never 0), P 2.0 (5% none), LS 2.5; no recruiting record K 69%, P 65%, LS 82%."
+    );
+    // Kicking on the engine, last season with a game log.
+    let Some(last) = w.game_log.games.iter().map(|g| g.year).max() else {
+        println!("(no game log kept: run with AFM_DASH=path for the engine checks)\n");
+        return;
+    };
+    for d in [Division::FBS, Division::FCS] {
+        let gs: Vec<_> = w.game_log.games.iter().filter(|g| g.year == last && g.division == d).collect();
+        let tg = 2.0 * gs.len() as f64;
+        if gs.is_empty() {
+            continue;
+        }
+        let sum = |f: &dyn Fn(&afm_engine::world::game_log::GameSummary, usize) -> f64| -> f64 {
+            gs.iter().map(|g| f(g, 0) + f(g, 1)).sum::<f64>()
+        };
+        let fga = sum(&|g, s| g.stats[s].fg_att as f64);
+        let fgm = sum(&|g, s| g.stats[s].fg_made as f64);
+        let xp = sum(&|g, s| g.xp[s] as f64);
+        let two = sum(&|g, s| g.two_point[s] as f64);
+        let punts = sum(&|g, s| g.punt_yds[s].0 as f64);
+        let punt_yds = sum(&|g, s| g.punt_yds[s].1);
+        println!(
+            "{} {last} on the engine, per team game: field goal tries {:.2} (made {:.0}%), extra point kicks {:.2}, two-point tries {:.2}, punts {:.2} at {:.1} gross",
+            d.name(),
+            fga / tg,
+            100.0 * fgm / fga.max(1.0),
+            xp / tg,
+            two / tg,
+            punts / tg,
+            punt_yds / punts.max(1.0)
+        );
+        // Who kicked: field goal tries by listed position.
+        let mut by_pos: BTreeMap<&str, u32> = BTreeMap::new();
+        for (&(y, _), s) in &w.game_log.players {
+            if y == last && s.fg_att > 0 && w.programs[s.program].division == d {
+                *by_pos.entry(s.pos.map_or("?", |p| p.name())).or_default() += s.fg_att;
+            }
+        }
+        println!("  field goal tries by the kicker's listed position: {by_pos:?}");
+    }
+    println!("Real FBS 2022-24 per team game: field goal tries 1.56, punt gross 42.3 (FCS 40.0).\n");
 }
 
 /// Checks for the eight trial 1 notes, with the facts behind each.
@@ -901,8 +1027,8 @@ fn trial1_notes(w: &World, years: u32) {
         count("summer school"),
         count("Academically ineligible")
     );
-    let five_juco = recorded.iter().filter(|a| a.stars == 5 && a.juco).count();
-    let five = recorded.iter().filter(|a| a.stars == 5).count();
+    let five_juco = recorded.iter().filter(|a| a.stars == 5 && !a.position.is_specialist() && a.juco).count();
+    let five = recorded.iter().filter(|a| a.stars == 5 && !a.position.is_specialist()).count();
     println!("five-stars who went through JUCO: {five_juco} of {five}");
     if let Some(a) = recorded.iter().find(|a| a.notes.iter().any(|n| n.contains("special admissions"))) {
         show_player(w, a);

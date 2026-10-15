@@ -99,7 +99,7 @@ pub fn talent(w: &World) {
         let c = p.college.unwrap();
         per_prog[c].0 += p.player.overall();
         per_prog[c].1 += 1;
-        if p.stars >= 4 {
+        if p.stars >= 4 && !p.player.position.is_specialist() {
             per_prog[c].2 += 1;
         }
     }
@@ -133,6 +133,7 @@ pub fn juco_blue_chips(w: &World) {
     for p in &w.people {
         if p.stage == Stage::College
             && p.stars >= 4
+            && !p.player.position.is_specialist()
             && p.college.is_some_and(|c| w.programs[c].division == Division::JUCO)
         {
             n += 1;
