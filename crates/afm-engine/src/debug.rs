@@ -67,9 +67,33 @@ pub fn coach_ability(c: &crate::world::coach::Coach) -> crate::world::coach::Abi
     *c.ability()
 }
 
+/// A coach's hidden sportsmanship (dynasty item 3), 1-20.
+pub fn coach_sportsmanship(c: &crate::world::coach::Coach) -> f64 {
+    c.sportsmanship
+}
+
 /// A world player's hidden background and family.
 pub fn person_background(
     p: &crate::world::Person,
 ) -> (&crate::world::background::Background, &crate::world::background::Family) {
     (&p.bg, &p.family)
+}
+
+/// Engine teams captured as each season kicks off, for the years listed in
+/// `AFM_CAPTURE` (comma-separated): (season, every program's engine team,
+/// every program's lineup strength as the world rates it).
+pub type Captured = (i32, Vec<Option<crate::game::GameTeam>>, Vec<f64>);
+
+static CAPTURED: std::sync::Mutex<Vec<Captured>> = std::sync::Mutex::new(Vec::new());
+
+pub(crate) fn capture_teams(year: i32, teams: &[Option<crate::game::GameTeam>], strength: &[f64]) {
+    let wanted = std::env::var("AFM_CAPTURE").is_ok_and(|v| v.split(',').any(|y| y.trim() == year.to_string()));
+    if wanted && !teams.is_empty() {
+        CAPTURED.lock().unwrap().push((year, teams.to_vec(), strength.to_vec()));
+    }
+}
+
+/// Takes the captured seasons.
+pub fn captured() -> Vec<Captured> {
+    std::mem::take(&mut CAPTURED.lock().unwrap())
 }

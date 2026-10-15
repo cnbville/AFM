@@ -38,6 +38,25 @@ const FIELD: [Position; 11] = [
     Position::S,
 ];
 
+/// The positions a coach places a boy at: all but long snapper. High school
+/// snappers play another position; colleges list them as snappers at
+/// signing day (fix list 1.7).
+const PLACED: [Position; 13] = [
+    Position::QB,
+    Position::RB,
+    Position::WR,
+    Position::TE,
+    Position::OT,
+    Position::IOL,
+    Position::EDGE,
+    Position::DT,
+    Position::LB,
+    Position::CB,
+    Position::S,
+    Position::K,
+    Position::P,
+];
+
 const PHYSICAL: [Attr; 6] =
     [Attr::Speed, Attr::Acceleration, Attr::Agility, Attr::Strength, Attr::Jumping, Attr::Stamina];
 
@@ -161,7 +180,7 @@ static FIT_SCALE: LazyLock<[f64; POSITION_COUNT]> = LazyLock::new(|| {
         for row in &sample {
             count[argmax_scaled(row, &scale)] += 1.0;
         }
-        for pos in Position::ALL {
+        for pos in PLACED {
             let k = pos.index();
             let target = roster_need(pos) / total;
             let actual = (count[k] / sample.len() as f64).max(1e-4);
@@ -172,7 +191,11 @@ static FIT_SCALE: LazyLock<[f64; POSITION_COUNT]> = LazyLock::new(|| {
 });
 
 fn argmax_scaled(row: &[f64; POSITION_COUNT], scale: &[f64; POSITION_COUNT]) -> usize {
-    (0..POSITION_COUNT).max_by(|&a, &b| (row[a] * scale[a]).total_cmp(&(row[b] * scale[b]))).expect("positions")
+    PLACED
+        .iter()
+        .map(|p| p.index())
+        .max_by(|&a, &b| (row[a] * scale[a]).total_cmp(&(row[b] * scale[b])))
+        .expect("positions")
 }
 
 /// The position a shape suits best, and his overall there.
@@ -203,7 +226,7 @@ pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position)
     // higher, the skills only that position uses are trimmed until it doesn't.
     let best = overall_for(natural, &ceilings) * 0.95;
     for _ in 0..3 {
-        for q in Position::ALL {
+        for q in PLACED {
             let excess = overall_for(q, &ceilings) - best;
             if q == natural || excess <= 0.0 {
                 continue;
@@ -346,13 +369,13 @@ pub fn place_class(players: &mut [&mut Player], eye: Eye) {
     let total_share: f64 = Position::ALL.iter().map(|&p| roster_need(p)).sum();
     let target: Vec<f64> = Position::ALL.iter().map(|&p| roster_need(p) / total_share * n).collect();
     let fit: Vec<[f64; POSITION_COUNT]> = players.iter().map(|p| fits(p, eye)).collect();
-    let best: Vec<f64> = fit.iter().map(|f| f.iter().copied().fold(f64::MIN, f64::max)).collect();
+    let best: Vec<f64> = fit.iter().map(|f| PLACED.iter().map(|q| f[q.index()]).fold(f64::MIN, f64::max)).collect();
     let mut order: Vec<usize> = (0..players.len()).collect();
     order.sort_by(|&a, &b| best[b].total_cmp(&best[a]));
     let mut filled = [0.0; POSITION_COUNT];
     for i in order {
         let scale = best[i].abs().max(1.0);
-        let pick = Position::ALL
+        let pick = PLACED
             .iter()
             .copied()
             .max_by(|&a, &b| {
@@ -385,13 +408,17 @@ pub fn place_class(players: &mut [&mut Player], eye: Eye) {
 /// current fit (switching costs a staff something, so they need to be sure).
 /// Returns the position he moved from.
 pub fn reconsider(p: &mut Player, eye: Eye, margin: f64) -> Option<Position> {
+    // Kickers and snappers are found, not converted: nobody moves a regular there late.
+    if p.position.is_specialist() {
+        return None;
+    }
     let raw = fits(p, eye);
-    let scale = raw.iter().copied().fold(1.0, f64::max);
+    let scale = PLACED.iter().map(|q| raw[q.index()]).fold(1.0, f64::max);
     // Spots are weighed the way the head coach placed him: fit, plus what the spot is worth.
     let fit = Position::ALL.map(|q| raw[q.index()] / scale + premium(q));
     let now = fit[p.position.index()];
     let (pos, best) =
-        Position::ALL.iter().map(|&q| (q, fit[q.index()])).max_by(|a, b| a.1.total_cmp(&b.1)).expect("positions");
+        PLACED.iter().map(|&q| (q, fit[q.index()])).max_by(|a, b| a.1.total_cmp(&b.1)).expect("positions");
     // Kickers are found, not converted: nobody moves a regular to kicker late.
     if pos == p.position || pos.is_specialist() || p.position.is_specialist() {
         return None;

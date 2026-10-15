@@ -257,6 +257,11 @@ fn places_athletes_in_real_position_shares() {
     for pos in Position::ALL {
         let hs = records.iter().filter(|r| r.player.position_history[0].1 == pos).count() as f64 / n;
         let target = pos.profile().share / total;
+        if target == 0.0 {
+            // Long snappers are found at the snapping camps, never placed as freshmen.
+            assert_eq!(hs, 0.0, "{pos}: {hs:.3} of freshmen, none expected");
+            continue;
+        }
         assert!(hs > 0.6 * target && hs < 1.4 * target, "{pos}: {hs:.3} of freshmen, roster share {target:.3}");
         if !pos.is_specialist() {
             let d = drafted.iter().filter(|r| r.player.position == pos).count() as f64 / drafted.len() as f64;

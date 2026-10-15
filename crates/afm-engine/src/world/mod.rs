@@ -19,6 +19,7 @@ pub mod game_log;
 pub mod geo;
 pub mod high_school;
 pub mod names;
+pub mod ncaa;
 pub mod news;
 pub mod program;
 mod recruiting;
@@ -128,6 +129,11 @@ pub struct Person {
     pub nil_income: f64,
     pub pending_dip: Option<f64>,
     pub last_role: Option<PlayingTime>,
+    /// Offensive and defensive snaps in his last college season and in his
+    /// whole college career (dynasty item 3: backups' garbage-time snaps
+    /// count as game experience).
+    pub last_snaps: u32,
+    pub college_snaps: u32,
     pub last_performance: Option<f64>,
     pub transfers: u32,
     pub juco: bool,
@@ -141,6 +147,8 @@ pub struct Person {
     pub gpa_at_signing: Option<f64>,
     /// Signed as an academic redshirt: practices but can't play his first year (note 6).
     pub academic_redshirt: bool,
+    /// On the roster without a scholarship (fix list 1.6: specialist walk-ons).
+    pub walk_on: bool,
     /// His college coaches each season: (year, program, head coach, position coach).
     pub college_staff: Vec<(i32, usize, Option<usize>, Option<usize>)>,
     /// Off-field incidents this season (for the locker room).
@@ -270,6 +278,9 @@ pub struct World {
     pub overflow: [f64; 51],
     /// The 32 NFL teams: front offices and depth charts, for draft needs (note 7).
     pub nfl: Vec<crate::league::Team>,
+    /// Overall of the 64th and 138th best players taken in the last draft:
+    /// what staffs read early NFL entrants against (fix list 1.2).
+    pub(crate) draft_bars: Option<(f64, f64)>,
     pub(crate) rng: Rng,
     /// False during the spin-up before recorded history, while rosters fill.
     pub(crate) recording: bool,
@@ -373,6 +384,7 @@ impl World {
             areas,
             overflow,
             nfl,
+            draft_bars: None,
             rng,
             recording: false,
             game_log: game_log::GameLog::default(),
@@ -433,6 +445,12 @@ fn signing_day_and_rosters(w: &mut World) {
 }
 
 impl World {
+    /// A program as the match engine sees it today (trial tooling only).
+    #[cfg(feature = "debug")]
+    pub fn debug_game_team(&self, prog: usize) -> Option<crate::game::GameTeam> {
+        season::game_team(self, &self.programs[prog])
+    }
+
     pub fn program_name(&self, id: usize) -> &str {
         self.programs[id].name(self.options.names)
     }
@@ -526,6 +544,8 @@ impl World {
                     nil_income: 0.0,
                     pending_dip: None,
                     last_role: None,
+                    last_snaps: 0,
+                    college_snaps: 0,
                     last_performance: None,
                     transfers: 0,
                     juco: false,
@@ -534,6 +554,7 @@ impl World {
                     gpa_trend,
                     gpa_at_signing: None,
                     academic_redshirt: false,
+                    walk_on: false,
                     college_staff: Vec::new(),
                     incident: false,
                     notes: Vec::new(),

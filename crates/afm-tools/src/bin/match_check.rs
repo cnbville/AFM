@@ -10,6 +10,40 @@ use afm_engine::player::Level;
 use rayon::prelude::*;
 use serde_json::Value;
 
+/// The engine's routes pooled with the real route types they match.
+const ROUTE_GROUPS: [(&str, &[&str]); 12] = [
+    ("go / fade / seam", &["GO"]),
+    ("post", &["POST"]),
+    ("corner", &["CORNER"]),
+    ("wheel", &["WHEEL"]),
+    ("dig / in / cross", &["IN/DIG", "IN", "CROSS"]),
+    ("out (10+ air)", &["DEEP OUT"]),
+    ("out (under 10)", &["OUT", "QUICK OUT"]),
+    ("slant", &["SLANT"]),
+    ("hitch / curl / sit", &["HITCH", "HITCH/CURL"]),
+    ("drag", &["SHALLOW CROSS/DRAG"]),
+    ("flat / swing", &["FLAT", "SWING"]),
+    ("screen", &["SCREEN"]),
+];
+
+fn route_group(route: &str, air: f64) -> Option<usize> {
+    Some(match route {
+        "go" | "fade" | "seam" => 0,
+        "post" => 1,
+        "corner" => 2,
+        "wheel" => 3,
+        "dig" => 4,
+        "out" | "comeback" if air >= 10.0 => 5,
+        "out" | "comeback" => 6,
+        "slant" => 7,
+        "hitch" | "curl" | "sit" => 8,
+        "drag" => 9,
+        "flat" | "swing" | "check-release" => 10,
+        "screen" | "bubble" => 11,
+        _ => return None,
+    })
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let level = match args.get(1).map(|s| s.as_str()) {
@@ -36,6 +70,71 @@ fn main() {
         })
         .collect();
     let secs = t0.elapsed().as_secs_f64();
+    // Snap shares (topic: depth and rotation): starters' share of their
+    // side's snaps by position, and the lead back's share of the backs'
+    // carries, against real bands (proposed, not confirmed; see
+    // data/real-world/README.md).
+    {
+        use afm_engine::positions::Position as P;
+        let groups: [(P, usize, &str); 11] = [
+            (P::QB, 1, "0.97-1.00"),
+            (P::RB, 1, "0.55-0.70"),
+            (P::WR, 3, "0.75-0.90"),
+            (P::TE, 1, "0.70-0.85"),
+            (P::OT, 2, "0.95-1.00"),
+            (P::IOL, 3, "0.95-1.00"),
+            (P::EDGE, 2, "0.65-0.85"),
+            (P::DT, 2, "0.55-0.75"),
+            (P::LB, 2, "0.80-0.98"),
+            (P::CB, 2, "0.90-1.00"),
+            (P::S, 2, "0.90-1.00"),
+        ];
+        let mut share = vec![0.0f64; groups.len()];
+        let mut carry = [0.0f64; 2];
+        let mut nt = 0.0;
+        for (g, r) in results.iter().enumerate() {
+            let h = (g * 7) % 32;
+            let a = (g * 13 + 5) % 32;
+            let a = if a == h { (a + 1) % 32 } else { a };
+            for (k, ti) in [h, a].into_iter().enumerate() {
+                let lines = &r.stats.players[k];
+                let team = &teams[ti];
+                let off = lines.values().map(|l| l.snaps_off).max().unwrap_or(1).max(1) as f64;
+                let def = lines.values().map(|l| l.snaps_def).max().unwrap_or(1).max(1) as f64;
+                nt += 1.0;
+                for (gi, &(pos, n, _)) in groups.iter().enumerate() {
+                    let defense = matches!(pos, P::EDGE | P::DT | P::LB | P::CB | P::S);
+                    let mut v: Vec<f64> = team
+                        .players
+                        .iter()
+                        .filter(|p| p.position == pos)
+                        .filter_map(|p| lines.get(&p.id))
+                        .map(|l| if defense { l.snaps_def } else { l.snaps_off } as f64)
+                        .collect();
+                    v.sort_by(|x, y| y.total_cmp(x));
+                    let top: f64 = v.iter().take(n).sum();
+                    share[gi] += top / (n as f64 * if defense { def } else { off });
+                }
+                let mut c: Vec<f64> = team
+                    .players
+                    .iter()
+                    .filter(|p| p.position == P::RB)
+                    .filter_map(|p| lines.get(&p.id))
+                    .map(|l| l.rush as f64)
+                    .collect();
+                c.sort_by(|x, y| y.total_cmp(x));
+                carry[0] += c.first().copied().unwrap_or(0.0);
+                carry[1] += c.iter().sum::<f64>();
+            }
+        }
+        if std::env::var("AFM_SNAPS").is_ok() {
+            println!("starters' share of snaps (real band)");
+            for (gi, &(pos, n, real)) in groups.iter().enumerate() {
+                println!("  {:?} x{n}  {:.2}  ({real})", pos, share[gi] / nt);
+            }
+            println!("  lead back's share of RB carries  {:.2}  (0.55-0.65)", carry[0] / carry[1].max(1.0));
+        }
+    }
     if pbp {
         for p in &results[0].stats.plays {
             println!(
@@ -63,6 +162,11 @@ fn main() {
     let mut fg = [[0.0f64; 2]; 4];
     let mut ay = [[0.0f64; 6]; 4];
     let mut by_cov = [[0.0f64; 3]; 2];
+    // Targets by route group: [targets, catches, yards].
+    let mut by_route = [[0.0f64; 5]; ROUTE_GROUPS.len()];
+    let mut run_b = [0.0f64; 6];
+    let mut cov_runs = std::collections::BTreeMap::<String, [f64; 5]>::new();
+    let mut by_box = [[0.0f64; 2]; 3];
     let mut pts = Vec::new();
     let mut close = 0.0;
     let mut injuries = 0.0;
@@ -205,6 +309,11 @@ fn main() {
             }
         }
         for p in &s.plays {
+            if p.pressured && matches!(p.kind, PlayType::Pass | PlayType::Sack | PlayType::Scramble) {
+                *m.entry("pr_n").or_default() += 1.0;
+                *m.entry("pr_sack").or_default() += (p.kind == PlayType::Sack) as u8 as f64;
+                *m.entry("pr_comp").or_default() += p.complete as u8 as f64;
+            }
             match p.kind {
                 PlayType::Pass => {
                     if p.complete {
@@ -240,6 +349,15 @@ fn main() {
                             *m.entry("yac").or_default() += p.yac;
                         }
                     }
+                    if !p.throw_away
+                        && let Some(g) = route_group(p.route, p.air_yards)
+                    {
+                        by_route[g][0] += 1.0;
+                        by_route[g][1] += p.complete as u8 as f64;
+                        by_route[g][2] += p.yards;
+                        by_route[g][3] += p.air_yards;
+                        by_route[g][4] += p.time_to_throw;
+                    }
                     let cov = if p.coverage_man { 1 } else { 0 };
                     by_cov[cov][0] += 1.0;
                     by_cov[cov][1] += p.complete as u8 as f64;
@@ -251,6 +369,33 @@ fn main() {
                         *m.entry("explosive_run").or_default() += 1.0;
                     }
                     *m.entry("ybc").or_default() += p.before_contact;
+                    if !p.call.contains("kneel") {
+                        let y = p.yards;
+                        let k = [0.5, 3.5, 9.5, 19.5, 39.5].iter().filter(|&&b| y >= b).count();
+                        run_b[k] += 1.0;
+                        let cv = p.defense_call.split(',').next().unwrap_or("").to_string();
+                        let e = cov_runs.entry(cv).or_insert([0.0; 5]);
+                        e[0] += 1.0;
+                        e[1] += y;
+                        e[2] += (k == 5) as u8 as f64;
+                        e[3] += p.before_contact;
+                        e[4] += p.box_count as f64;
+                        if k == 5 && std::env::var("AFM_LONG").is_ok() {
+                            println!(
+                                "LONG {:.0} | {} | {} | box {} | {}",
+                                y, p.call, p.defense_call, p.box_count, p.why
+                            );
+                        }
+                        let bx = if p.box_count <= 6 {
+                            0
+                        } else if p.box_count == 7 {
+                            1
+                        } else {
+                            2
+                        };
+                        by_box[bx][0] += 1.0;
+                        by_box[bx][1] += y;
+                    }
                     *m.entry("missed_tackles").or_default() += p.missed_tackles.len() as f64;
                 }
                 PlayType::Scramble => *m.entry("scrambles").or_default() += 1.0,
@@ -366,6 +511,8 @@ fn main() {
     row("kickoff touchback", g("ko_tb") / g("kickoffs"), rr["kickoff_touchback_rate"].as_f64());
     row("pressure rate", g("pressures") / g("dropbacks"), None);
     row("time to throw", g("ttt") / g("att"), None);
+    row("sacks per pressure", g("pr_sack") / g("pr_n"), None);
+    row("completions per pressure", g("pr_comp") / g("pr_n"), None);
     row("air yards per att", g("air_yards") / g("att"), None);
     row("drops per att", g("drops") / g("att"), None);
     row("throw aways per att", g("throw_aways") / g("att"), None);
@@ -386,6 +533,62 @@ fn main() {
         row(&format!("{name}: att share / cmp / ypa"), by_cov[k][0] / (by_cov[0][0] + by_cov[1][0]).max(1.0), None);
         row("", by_cov[k][1] / by_cov[k][0].max(1.0), None);
         row("", by_cov[k][2] / by_cov[k][0].max(1.0), None);
+    }
+    // Targets by route against NFL 2022-25 (data/real-world/engine_targets.json),
+    // with the real route types pooled into the engine's route groups.
+    let et: Value = serde_json::from_str(include_str!("../../../../data/real-world/engine_targets.json")).unwrap();
+    let tr = &et["targets_by_route"];
+    let rt: f64 = by_route.iter().map(|b| b[0]).sum();
+    let real_all: f64 = ROUTE_GROUPS.iter().flat_map(|g| g.1.iter()).map(|k| tr[*k]["n"].as_f64().unwrap_or(0.0)).sum();
+    println!("targets by route            share  real   catch  real    ypt   real    air    ttt");
+    for (k, (name, real_keys)) in ROUTE_GROUPS.iter().enumerate() {
+        let (mut n, mut c, mut y) = (0.0, 0.0, 0.0);
+        for key in real_keys.iter() {
+            let r = &tr[*key];
+            let rn = r["n"].as_f64().unwrap_or(0.0);
+            n += rn;
+            c += rn * r["catch"].as_f64().unwrap_or(0.0);
+            y += rn * r["ypt"].as_f64().unwrap_or(0.0);
+        }
+        let b = by_route[k];
+        println!(
+            "  {name:<24} {:>6.3} {:>6.3} {:>6.3} {:>6.3} {:>6.2} {:>6.2} {:>6.1} {:>6.2}",
+            b[0] / rt.max(1.0),
+            n / real_all.max(1.0),
+            b[1] / b[0].max(1.0),
+            c / n.max(1.0),
+            b[2] / b[0].max(1.0),
+            y / n.max(1.0),
+            b[3] / b[0].max(1.0),
+            b[4] / b[0].max(1.0)
+        );
+    }
+    // Designed runs against nflverse 2021-25 (data/real-world/position_value.json).
+    let pv: Value = serde_json::from_str(include_str!("../../../../data/real-world/position_value.json")).unwrap();
+    let runs = &pv["designed_runs"];
+    let rn: f64 = run_b.iter().sum();
+    for (k, name) in ["<=0", "1-3", "4-9", "10-19", "20-39", "40+"].iter().enumerate() {
+        row(&format!("runs {name} yards"), run_b[k] / rn.max(1.0), runs["share"][name].as_f64());
+    }
+    for (k, name) in ["<=6", "7", ">=8"].iter().enumerate() {
+        row(
+            &format!("ypc, {name} in the box"),
+            by_box[k][1] / by_box[k][0].max(1.0),
+            runs["by_box"][name]["ypc"].as_f64(),
+        );
+        row(&format!("share of runs, {name} in box"), by_box[k][0] / rn.max(1.0), None);
+    }
+    if std::env::var("AFM_LONG").is_ok() {
+        for (k, v) in &cov_runs {
+            println!(
+                "runs vs {k:<12} share {:.3} ypc {:.2} 40+ {:.3} before contact {:.2} box {:.2}",
+                v[0] / rn,
+                v[1] / v[0],
+                v[2] / v[0],
+                v[3] / v[0],
+                v[4] / v[0]
+            );
+        }
     }
     let fgr = &real["field_goal_pct_by_distance"];
     for (k, name) in ["under30", "30-39", "40-49", "50+"].iter().enumerate() {

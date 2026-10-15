@@ -69,7 +69,7 @@ Gaps (exact):
 - Fixed: the first pass had 2022-era minimum salaries ($795,000 rookie). 2026 minimums are $885,000 (0 credited seasons) up to $1,300,000 (7+).
 - Added: 2026 franchise and transition tags for every position, fifth-year option tiers, free agency rules and dates, practice squad size and pay, cutdown rules, 2026 calendar.
 - `rookie_scale_2026.csv`: all 257 picks (years, total value, average per year, guaranteed) from the OverTheCap contract data in the nflverse `contracts` release.
-- Gaps: RFA tender amounts, game-day actives and the emergency third QB rule, practice squad veteran limits, 2027 option amounts by position.
+- Filled 2026-10-14 (research area 2): RFA tenders, game day and elevations, emergency third QB, practice squad eligibility, IR, comp picks, cap mechanics, 2026-27 dates. Gaps now listed in the file itself.
 
 **nfl_teams.csv** (checked 2026-10-11)
 - `market_size_rank` is now the Nielsen 2024-25 TV market (DMA) rank for the team's market, one source for all 32 (Wikipedia list of US TV markets). Teams sharing a market share its rank (Giants/Jets 1, Rams/Chargers 2). Arizona = Phoenix, Carolina = Charlotte, New England = Boston, Tennessee = Nashville, Washington = Washington DC.
@@ -77,6 +77,12 @@ Gaps (exact):
 - SoFi Stadium `roof` is now "canopy": a fixed translucent roof with open sides.
 - Earlier fixes kept: Browns' Huntington Bank Field and Commanders' Northwest Stadium.
 - Gap: `altitude_ft` still has no per-figure source.
+
+**Research area 1 files** (added 2026-10-14, explained in `docs/research/engine-and-tactics.md`):
+- `engine_targets.json` (`scripts/engine_targets.py`): NFL 2021-25 runs by box count, pressure and rushers, coverage and route results, play-action, RPO, motion, snap shares, carry and target shares, red zone, returns, player spread by position, contracts by position, home edge 1999-2025, and the 2025 scheme mix. From nflverse pbp, participation (NGS), FTN charting, snap counts, contracts and nfldata games.csv.
+- `coach_effect_offense.json`, `coach_effect_defense.json` (`scripts/coach_effect.py`): how much head coaches move EPA per play once the QB is held fixed, 2006-2025.
+- `college_scores.json` (`scripts/college_scores.py`): points, margins, blowouts and home edge for FBS, FCS, D2 and D3 from the sportsdataverse `cfb_schedules` release.
+- Gaps: no open play-by-play for D2, D3, NAIA, JUCO or high school; no NAIA or JUCO scores; no high school scheme survey.
 
 ## Main sources
 - Wikipedia lists: FBS, FCS and D2 programs; FBS and FCS stadiums; D2 institutions; conference member pages; national championship pages; AAU members; Carnegie R1/R2 list; US TV markets; current NFL stadiums.
@@ -94,3 +100,11 @@ Gaps (exact):
 **college_game_targets.json** (added 2026-10-13): the same for FBS-vs-FBS and FCS-vs-FCS regular-season games, 2022-2024, from cfbfastR play-by-play (sportsdataverse-data release `cfbfastR_cfb_pbp`). FBS: 27.0 points per team game, completion 60.6%, 5.12 yards per carry. Built by `scripts/college_game_targets.py`.
 - Penalties there count accepted flags on plays by either team, per team game (about 5.5, so about 11 per game).
 - Gap: no open play-by-play for high school. High school checks will use MaxPreps scoring and blowout rates when researched.
+
+**position_value.json** (added 2026-10-14): what real NFL play says about position value and depth, for the engine physics fixes. From nflverse play-by-play and participation data, 2021-2025: designed-run yards per carry (4.29) and the yardage buckets, yards per carry by box count (6 or fewer 4.73, 7 4.22, 8 or more 3.40), the spread of QB EPA per dropback (sd 0.12) and CPOE (sd 3.0), the spread of RB yards per carry (sd 0.57), pressure rate (29.5%), sack rate, sacks per pressure and time to throw (2.71 s). Built by `scripts/position_value.py`. The engine's position values are measured with `cargo run --release --bin dynasty_check -- value`; the real bands it is held to (QB first by a clear gap, lines and pass rush near the top, RB and TE near the bottom) are Claude's reading of the draft and contract markets, proposed, not confirmed.
+- Gap: snap-share bands (defensive line starters 60-75% of snaps, the lead back 55-65% of carries) come from published participation summaries, not from a dataset in this folder.
+
+**Engine-made table, not real-world data**: `crates/afm-engine/data/call_values.csv` is what each pass and run concept gains against each defensive look, played on the match engine between two average NFL teams (`cargo run --release --bin call_values -- 400 > crates/afm-engine/data/call_values.csv`). It is the football knowledge coordinators call from. Rebuild it after any engine change.
+
+**College roster counts** (added 2026-10-15, fix list topic 1): `scripts/roster_counts.py` reads ESPN college rosters (sportsdataverse-data release `espn_cfb_rosters`, 2022-2025) and prints players per team by position group. FBS 2022-24: about 118 listed players a team; QB 5.8, RB 8.5, WR 16.2, TE 7.4, OL 19.5, DL 17.5, LB 14.6, DB 22.2, K 3.5, P 2.0, LS 2.5. No FBS team lists zero kickers; 4-6% list no punter and 2-4% no long snapper. FCS: K 3.2, P 1.2 (a quarter of FCS teams list no punter, so a kicker punts), LS 1.9. Inside the generic groups, from the teams that list the exact spot: OT 48% of OL (only 6 team seasons, weak), DE 52% of DL, CB 46% of DB. With the cfbfastR play-by-play it also counts two-point tries: 0.24 a team game in FBS, 0.20 in FCS (play-text match, 2022-24).
+- Gap: the roster lists are the full listed roster, walk-ons included. The "no recruiting record" share is not a usable walk-on proxy (it is 1-3% in FBS, so ESPN links nearly everyone).

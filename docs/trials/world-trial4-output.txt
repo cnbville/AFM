@@ -1,0 +1,391 @@
+# World trial: seed 2026, 15 years of history, built in 1040s
+
+wrote 120 cards to /tmp/claude-0/-home-claude-AFM/47de5a8d-e235-5033-809d-c667623e4fed/scratchpad/cards.json
+
+wrote the debug dashboard data to /tmp/claude-0/-home-claude-AFM/47de5a8d-e235-5033-809d-c667623e4fed/scratchpad/dash.json
+
+## Match engine in the world (per team game, every college game of the history)
+| | games | points | plays | pass_rate | cmp_pct | ypa | ypc | sack_rate | int_rate | third_down | turnovers | kr_avg | pr_avg | fg_pct | home_win | blowout | one_score |
+| FBS | 12580 | 36 | 74.5 | 59.5 | 54.9 | 7.7 | 5.72 | 4.3 | 2.3 | 40.4 | 1.41 | 9.6 | 6.9 | 83.4 | 50.7 | 31.1 | 27.9 |
+| FCS | 10249 | 34 | 74.4 | 58.2 | 52.5 | 7.35 | 5.95 | 4.5 | 2.2 | 39.6 | 1.36 | 9.5 | 6.6 | 82.2 | 51.1 | 24.3 | 30.9 |
+| D2 | 14621 | 33.6 | 74.5 | 57.6 | 51.4 | 7.17 | 6.23 | 4.7 | 2.1 | 39.6 | 1.41 | 9.7 | 6.6 | 81.1 | 51.2 | 19.8 | 32.8 |
+| JUCO | 5005 | 33.3 | 75.1 | 56.8 | 50 | 6.71 | 6.44 | 5.2 | 2 | 38.8 | 1.3 | 9.2 | 6.6 | 80.9 | 50.9 | 25.5 | 28.9 |
+
+## Calibration
+draft picks by final division: {"D2": 15, "FBS": 3544, "FCS": 296} of 3855
+5-star draft rate: 66.0% (192 of 291)
+4-star draft rate: 22.9% (695 of 3038)
+3-star draft rate: 4.8% (859 of 18010)
+2-star draft rate: 1.0% (370 of 36016)
+FBS high school signees by home state, share sim vs real:
+  TX 13.4% vs 14.2%, FL 8.4% vs 10.6%, GA 7.6% vs 9.1%, CA 8.7% vs 8.9%, OH 4.8% vs 4.2%, AL 3.9% vs 4.0%, MS 2.8% vs 3.2%, NC 3.1% vs 3.0%, LA 2.8% vs 2.9%, IL 3.0% vs 2.7%
+  ME 0.1% vs 0.0%, VT 0.1% vs 0.0%, NH 0.1% vs 0.0%, ND 0.1% vs 0.0%, RI 0.1% vs 0.1%
+
+## FBS national champions
+2011 Tennessee 15-0; 2012 Tennessee 15-0; 2013 Georgia 14-2; 2014 Alabama 15-1; 2015 Ohio State 15-0; 2016 Ohio State 15-0; 2017 Texas 15-0; 2018 Ohio State 15-0; 2019 Ohio State 16-0; 2020 Ohio State 15-1; 2021 Ohio State 15-0; 2022 Ohio State 15-0; 2023 Ohio State 15-0; 2024 Ohio State 15-0; 2025 Ohio State 15-0
+FCS titles: Montana State 2, Drake 1, Lafayette 1, Lehigh 1, Mercer 1, New Haven 1, North Carolina A&T 1, Southeastern Louisiana 1
+D2 titles: Fairmont State 3, Tuskegee 2, Central Missouri 1, Indianapolis 1, Kentucky State 1, Millersville 1, Northwestern Oklahoma State 1, Ouachita Baptist 1
+
+## Programs
+top 12 prestige now: Ohio State 0.97 (was 0.85), Texas 0.95 (was 0.83), Michigan 0.93 (was 0.87), Florida State 0.92 (was 0.76), Alabama 0.89 (was 0.91), Utah 0.89 (was 0.77), Tennessee 0.89 (was 0.83), Georgia 0.88 (was 0.92), Notre Dame 0.86 (was 0.83), Illinois 0.85 (was 0.75), USC 0.85 (was 0.77), Ole Miss 0.84 (was 0.79)
+
+Biggest riser and biggest faller:
+### Bowling Green (FBS, MAC): prestige 0.46 -> 0.63, national titles in history 0, conference titles 5
+seasons: 2011 3-9; 2012 3-9; 2013 6-6; 2014 6-6; 2015 6-6; 2016 6-6; 2017 5-7; 2018 6-6*C; 2019 9-3*C; 2020 9-4*C; 2021 11-3*C; 2022 5-7; 2023 9-3*C; 2024 9-3; 2025 9-3; 
+head coaches: 2005-2012 Michael Bowers (6-18, fired); 2012-2013 Darrin Durand (6-6, left for another job); 2013-now Anthony Crase (90-57, rep 18.7)
+why it moved: 2012 Hired head coach Darrin Durand (from Utah Tech). | 2013 Hired head coach Anthony Crase (from Jacksonville State). | 2025 New football facilities (paid for by a big booster).
+NIL now $3.7M; warning years: []
+pipelines: FL 0.41, GA 0.36, IL 0.35, VA 0.25, IN 0.21
+draft picks by round: {1: 1, 3: 1, 4: 2, 5: 2, 6: 5, 7: 2}
+grades now: title chances B, coach A+, pipeline C, NIL C, tradition C-, facilities D-, playing time D-
+### James Madison (FBS, Sun Belt): prestige 0.53 -> 0.38, national titles in history 0, conference titles 0
+seasons: 2011 4-8; 2012 5-7; 2013 7-5; 2014 4-8; 2015 2-10; 2016 3-9; 2017 3-9; 2018 1-11; 2019 4-8; 2020 6-6; 2021 4-8; 2022 3-9; 2023 3-9; 2024 0-12; 2025 2-10; 
+head coaches: 2003-2012 Timothy Gill (9-15, fired); 2012-2017 David Cohen (19-41, fired); 2017-2022 Vincent Ogan (18-42, fired); 2022-2024 John Anderson (3-21, fired); 2024-now Paul Simms (2-10, rep 12.2)
+why it moved: 2012 Hired head coach David Cohen (from Lafayette). | 2017 Hired head coach Vincent Ogan (from Sacred Heart). | 2022 Hired head coach John Anderson (from St. Thomas (MN)). | 2024 Hired head coach Paul Simms (from Duquesne).
+NIL now $1.3M; warning years: []
+pipelines: GA 0.26, AL 0.24, KY 0.09, PA 0.09, FL 0.06
+draft picks by round: {1: 1, 4: 1, 5: 1, 6: 2}
+grades now: title chances F, coach D-, pipeline F, NIL F, tradition F, facilities F, playing time B-
+### Alabama (FBS, SEC): prestige 0.91 -> 0.89, national titles in history 1, conference titles 2
+seasons: 2011 10-2; 2012 13-1; 2013 14-1*C; 2014 15-1*N; 2015 12-2; 2016 13-1; 2017 11-3; 2018 13-1; 2019 11-2; 2020 12-3*C; 2021 8-4; 2022 8-4; 2023 12-2; 2024 9-3; 2025 9-3; 
+head coaches: 2003-2023 Ryan Norris (152-27, retired); 2023-now Rene Chapman (18-6, rep 16.5)
+why it moved: 2022 New football facilities (a school budget decision). | 2023 Hired head coach Rene Chapman (from Georgia State).
+NIL now $33.5M; warning years: []
+pipelines: GA 0.97, AL 0.90, TX 0.84, FL 0.82, NC 0.78
+draft picks by round: {1: 46, 2: 25, 3: 25, 4: 14, 5: 5, 6: 17, 7: 13}
+grades now: title chances A, coach A-, pipeline A+, NIL A, tradition A+, facilities A+, playing time B+
+### Nebraska (FBS, Big Ten): prestige 0.71 -> 0.69, national titles in history 0, conference titles 0
+seasons: 2011 3-9; 2012 5-7; 2013 3-9; 2014 4-8; 2015 4-8; 2016 7-5; 2017 3-9; 2018 7-5; 2019 4-8; 2020 5-7; 2021 5-7; 2022 6-6; 2023 4-8; 2024 3-9; 2025 6-6; 
+head coaches: 2001-2011 David Thomas (3-9, fired); 2011-2014 Terry Sexton (12-24, fired); 2014-2022 Kenneth Shell (41-55, fired); 2022-now James Rench (13-23, rep 12.2)
+why it moved: 2011 Hired head coach Terry Sexton (from Rhode Island). | 2014 Hired head coach Kenneth Shell (from Appalachian State). | 2022 Hired head coach James Rench (from Indiana).
+NIL now $9.0M; warning years: []
+pipelines: TX 0.47, CO 0.24, KS 0.18, MO 0.14, UT 0.14
+draft picks by round: {1: 2, 2: 3, 3: 2, 5: 1, 6: 6, 7: 5}
+grades now: title chances C+, coach F, pipeline B, NIL B, tradition A, facilities A, playing time B-
+### Indiana (FBS, Big Ten): prestige 0.67 -> 0.64, national titles in history 0, conference titles 0
+seasons: 2011 1-11; 2012 0-12; 2013 4-8; 2014 5-7; 2015 7-5; 2016 10-2; 2017 7-5; 2018 3-9; 2019 4-8; 2020 3-9; 2021 7-5; 2022 8-4; 2023 6-6; 2024 5-7; 2025 5-7; 
+head coaches: 2003-2011 Eric Shorey (1-11, fired); 2011-2013 Thomas Clark (4-20, fired); 2013-2020 Kyle Locicero (39-45, fired); 2020-2024 Kevin Coley (26-22, fired); 2024-now Randall Watkins (5-7, rep 13.5)
+why it moved: 2011 Hired head coach Thomas Clark (from UTEP). | 2013 Hired head coach Kyle Locicero (from Stanford). | 2020 Hired head coach Kevin Coley (from Bryant). | 2024 Hired head coach Randall Watkins (from Toledo).
+NIL now $12.6M; warning years: [2012]
+pipelines: OH 0.64, GA 0.46, TX 0.30, FL 0.25, IL 0.24
+draft picks by round: {1: 1, 2: 4, 3: 7, 4: 6, 5: 10, 6: 4, 7: 9}
+grades now: title chances B, coach D+, pipeline B+, NIL B+, tradition B-, facilities B, playing time D
+### James Madison (FBS, Sun Belt): prestige 0.53 -> 0.38, national titles in history 0, conference titles 0
+seasons: 2011 4-8; 2012 5-7; 2013 7-5; 2014 4-8; 2015 2-10; 2016 3-9; 2017 3-9; 2018 1-11; 2019 4-8; 2020 6-6; 2021 4-8; 2022 3-9; 2023 3-9; 2024 0-12; 2025 2-10; 
+head coaches: 2003-2012 Timothy Gill (9-15, fired); 2012-2017 David Cohen (19-41, fired); 2017-2022 Vincent Ogan (18-42, fired); 2022-2024 John Anderson (3-21, fired); 2024-now Paul Simms (2-10, rep 12.2)
+why it moved: 2012 Hired head coach David Cohen (from Lafayette). | 2017 Hired head coach Vincent Ogan (from Sacred Heart). | 2022 Hired head coach John Anderson (from St. Thomas (MN)). | 2024 Hired head coach Paul Simms (from Duquesne).
+NIL now $1.3M; warning years: []
+pipelines: GA 0.26, AL 0.24, KY 0.09, PA 0.09, FL 0.06
+draft picks by round: {1: 1, 4: 1, 5: 1, 6: 2}
+grades now: title chances F, coach D-, pipeline F, NIL F, tradition F, facilities F, playing time B-
+
+Longest Power 4 runs without a winning season: Arizona 15, Arkansas 15, Cincinnati 15, NC State 15, Northwestern 15, Kansas State 13
+Most FBS titles: Ohio State 10, Tennessee 2, Alabama 1, Georgia 1, Texas 1
+### Ohio State (FBS, Big Ten): prestige 0.85 -> 0.97, national titles in history 10, conference titles 10
+seasons: 2011 7-5; 2012 7-5; 2013 10-2; 2014 14-1*C; 2015 15-0*N; 2016 15-0*N; 2017 14-1*C; 2018 15-0*N; 2019 16-0*N; 2020 15-1*N; 2021 15-0*N; 2022 15-0*N; 2023 15-0*N; 2024 15-0*N; 2025 15-0*N; 
+head coaches: 2002-2012 Jason May (14-10, fired); 2012-now William Myers (189-5, rep 19.5)
+why it moved: 2012 Hired head coach William Myers (from Maryland). | 2017 New football facilities (after a winning run filled the budget).
+NIL now $70.1M; warning years: []
+pipelines: GA 0.98, FL 0.87, NJ 0.84, CA 0.84, TX 0.81
+draft picks by round: {1: 52, 2: 25, 3: 21, 4: 19, 5: 21, 6: 14, 7: 12}
+grades now: title chances A+, coach A+, pipeline A+, NIL A+, tradition A+, facilities A+, playing time F
+starter strength by year: 2011 63.1 (#14, next best 69.6, HC Jason May); 2012 64.6 (#13, next best 73.0, HC Jason May); 2013 64.5 (#16, next best 71.4, HC William Myers); 2014 70.1 (#4, next best 72.1, HC William Myers); 2015 71.7 (#2, next best 72.4, HC William Myers) *N; 2016 68.8 (#6, next best 72.8, HC William Myers) *N; 2017 70.9 (#2, next best 72.3, HC William Myers); 2018 69.7 (#4, next best 73.4, HC William Myers) *N; 2019 70.3 (#5, next best 72.7, HC William Myers) *N; 2020 72.6 (#1, next best 70.9, HC William Myers) *N; 2021 70.1 (#1, next best 69.1, HC William Myers) *N; 2022 69.4 (#3, next best 71.6, HC William Myers) *N; 2023 71.6 (#1, next best 70.0, HC William Myers) *N; 2024 73.6 (#1, next best 70.9, HC William Myers) *N; 2025 73.0 (#1, next best 71.2, HC William Myers) *N; 
+### Mississippi State (FBS, SEC): prestige 0.62 -> 0.60, national titles in history 0, conference titles 0
+seasons: 2011 5-7; 2012 3-9; 2013 3-9; 2014 1-11; 2015 4-8; 2016 4-8; 2017 7-5; 2018 3-9; 2019 2-10; 2020 8-4; 2021 2-10; 2022 4-8; 2023 4-8; 2024 4-8; 2025 4-8; 
+head coaches: 2002-2013 John Hartley (11-25, fired); 2013-2018 Kirby Grinberg (19-41, fired); 2018-2023 Jacob Evans (20-40, fired); 2023-now Kevin Murphy (8-16, rep 15.5)
+why it moved: 2013 Hired head coach Kirby Grinberg (from Texas State). | 2018 Hired head coach Jacob Evans (from Delaware). | 2023 Hired head coach Kevin Murphy (from Georgia State).
+NIL now $9.9M; warning years: []
+pipelines: GA 0.39, FL 0.29, MS 0.29, TX 0.26, AL 0.17
+draft picks by round: {1: 2, 2: 2, 3: 2, 4: 3, 5: 4, 6: 3, 7: 6}
+grades now: title chances C, coach B, pipeline C-, NIL B, tradition B-, facilities B-, playing time D
+
+Title chances grade after back-to-back conference titles (first five cases):
+- Boise State: C before, B+ after one title, A after two
+- Bowling Green: D+ before, B after one title, A after two
+- Kennesaw State: C- before, B after one title, A after two
+- Kent State: C before, B+ after one title, A after two
+- Liberty: B+ before, A after one title, A after two
+
+NIL: 84 programs got warnings in history. Most warned FBS program (1 years):
+### Western Michigan (FBS, MAC): prestige 0.49 -> 0.41, national titles in history 0, conference titles 1
+seasons: 2011 8-4; 2012 5-7; 2013 3-9; 2014 6-6; 2015 6-6; 2016 6-6; 2017 9-3*C; 2018 9-3; 2019 6-6; 2020 3-9; 2021 0-12; 2022 2-10; 2023 2-10; 2024 2-10; 2025 5-7; 
+head coaches: 1999-2013 William Flannery (16-20, fired); 2013-2015 Jeremiah Tidwell (12-12, left for another job); 2015-2020 Ian Cardona (33-27, fired); 2020-2023 Mark Helms (4-32, fired); 2023-now Jared James (7-17, rep 13.1)
+why it moved: 2013 Hired head coach Jeremiah Tidwell (from Houston). | 2015 Hired head coach Ian Cardona (from FIU). | 2020 Hired head coach Mark Helms (from Mercer). | 2023 Hired head coach Jared James (from Colgate).
+NIL now $1.8M; warning years: [2023]
+pipelines: MI 0.33, FL 0.29, IN 0.12, TN 0.11, MS 0.10
+draft picks by round: {1: 1, 3: 3, 6: 2, 7: 3}
+grades now: title chances D, coach D, pipeline F, NIL D-, tradition F, facilities F, playing time C
+sample warnings: ["Our collective is warning that donations fell 13% this year. NIL offers will be tighter next cycle.", "Western Michigan's NIL collective takes a hit: donations fell 13% this year.", "NIL grade trending down (↓)"]
+
+## Coaches
+Top 3 FBS head coaches by reputation:
+- Robert Jordan (age 47), reputation 19.7; hidden: head-coach value 18.7, teaching 18.5, recruiting 19.2, network 18.2, game mgmt 17.3; ex-pro false; mentor Shawn Drucker
+  2007-2009 offensive coordinator at Shorter (D2): 0-0, 0 titles, left for another job
+  2009-2010 head coach at Valdosta State (D2): 0-0, 0 titles, left for another job
+  2010-2011 head coach at Penn (FCS): 9-4, 1 titles, left for another job
+  2011-2015 offensive coordinator at Rice (FBS): 0-0, 0 titles, left for another job
+  2015-2023 offensive coordinator at SMU (FBS): 0-0, 0 titles, left for another job
+  2023-now head coach at UCLA (FBS): 17-7, 0 titles
+- Peter Johnston (age 64), reputation 19.6; hidden: head-coach value 16.5, teaching 16.7, recruiting 15.5, network 17.2, game mgmt 19.1; ex-pro false; mentor Matthew Mulvihill
+  2002-2010 offensive line coach at Wake Forest (FBS): 0-0, 0 titles, left for another job
+  2010-2014 offensive coordinator at Liberty (FBS): 0-0, 0 titles, left for another job
+  2014-2016 head coach at UNLV (FBS): 14-10, 0 titles, left for another job
+  2016-now head coach at Utah (FBS): 107-15, 6 titles
+- William Myers (age 65), reputation 19.5; hidden: head-coach value 15.1, teaching 15.0, recruiting 20.0, network 15.0, game mgmt 14.8; ex-pro true; mentor none
+  2003-2009 head coach at UConn (FBS): 0-0, 0 titles, left for another job
+  2009-2012 head coach at Maryland (FBS): 22-5, 1 titles, left for another job
+  2012-now head coach at Ohio State (FBS): 189-5, 12 titles
+Most overrated FBS head coach:
+- Derek Morgan (age 58), reputation 16.7; hidden: head-coach value 10.3, teaching 10.9, recruiting 7.7, network 9.9, game mgmt 10.1; ex-pro false; mentor Richard Russell
+  2004-2020 offensive coordinator at Texas Southern (FCS): 0-0, 0 titles, left for another job
+  2020-2025 head coach at Alcorn State (FCS): 51-9, 3 titles, left for another job
+  2025-now head coach at Sacramento State (FBS): 0-0, 0 titles
+Most underrated FBS head coach:
+- Donald Long (age 48), reputation 16.2; hidden: head-coach value 18.6, teaching 18.4, recruiting 19.7, network 19.5, game mgmt 19.5; ex-pro false; mentor Mark Luke
+  2005-2008 special teams coordinator at KS Junior College 7 (JUCO): 0-0, 0 titles, left for another job
+  2008-2011 special teams coordinator at Minnesota State (D2): 0-0, 0 titles, let go by the new staff
+  2011-2012 head coach at Western New Mexico (D2): 8-4, 1 titles, left for another job
+  2012-2013 head coach at Robert Morris (FCS): 9-3, 0 titles, left for another job
+  2013-2016 head coach at Boston College (FBS): 11-25, 0 titles, fired
+  2016-2019 special teams coordinator at Maryland (FBS): 0-0, 0 titles, let go by the new staff
+  2019-2020 offensive coordinator at Colorado Mines (D2): 0-0, 0 titles, left for another job
+  2020-2021 wide receivers coach at Alcorn State (FCS): 0-0, 0 titles, left for another job
+  2021-2024 offensive coordinator at Clemson (FBS): 0-0, 0 titles, left for another job
+  2024-now head coach at Virginia (FBS): 2-10, 0 titles
+FCS head coaches with titles who moved up to FBS head jobs:
+- Brent De (age 59), reputation 13.5; hidden: head-coach value 14.1, teaching 14.1, recruiting 15.6, network 19.5, game mgmt 11.5; ex-pro false; mentor Jeffery Savage
+  2003-2016 linebackers coach at Duke (FBS): 0-0, 0 titles, let go by the new staff
+  2016-2017 offensive coordinator at Stetson (FCS): 0-0, 0 titles, left for another job
+  2017-2020 head coach at Harvard (FCS): 19-18, 1 titles, left for another job
+  2020-now head coach at Coastal Carolina (FBS): 26-34, 0 titles
+- Joseph Hartley (age 52), reputation 13.3; hidden: head-coach value 13.0, teaching 13.9, recruiting 13.1, network 12.6, game mgmt 14.3; ex-pro false; mentor Eric Shorey
+  2004-2011 offensive coordinator at Indiana (FBS): 0-0, 0 titles, let go by the new staff
+  2011-2014 offensive coordinator at Elizabeth City State (D2): 0-0, 0 titles, left for another job
+  2014-2020 head coach at Emporia State (D2): 41-31, 0 titles, left for another job
+  2020-2021 head coach at Robert Morris (FCS): 7-5, 1 titles, left for another job
+  2021-now head coach at Boise State (FBS): 18-30, 0 titles
+(40 in total)
+FBS head coaches fired within two seasons: 45. Example:
+- Kevin Dick (age 48), reputation 13.6; hidden: head-coach value 13.7, teaching 13.9, recruiting 15.7, network 16.9, game mgmt 12.5; ex-pro false; mentor Nathaniel Wright
+  2013-2014 quarterbacks coach at OK Junior College 1 (JUCO): 0-0, 0 titles, left for another job
+  2014-2015 offensive coordinator at UNC Pembroke (D2): 0-0, 0 titles, left for another job
+  2015-2016 offensive line coach at Colgate (FCS): 0-0, 0 titles, left for another job
+  2016-2017 offensive line coach at Sam Houston (FBS): 0-0, 0 titles, left for another job
+  2017-2018 offensive coordinator at Louisiana (FBS): 0-0, 0 titles, left for another job
+  2018-2020 head coach at Toledo (FBS): 10-14, 0 titles, fired
+Biggest coaching tree: 4 current college head coaches came up under Robert Kelly
+- Robert Kelly (age 67), reputation 12.0; hidden: head-coach value 7.0, teaching 7.7, recruiting 6.4, network 12.7, game mgmt 5.7; ex-pro true; mentor Russell Sims
+  2003-2021 head coach at Ouachita Baptist (D2): 103-42, 4 titles, left for another job
+  2021-now defensive coordinator at Bethune-Cookman (FCS): 0-0, 0 titles
+High school head coaches: small programs network 9.8 / teaching 7.7 (n 8011, 2714 ex-pros); powerhouses network 14.1 / teaching 11.5 (n 255)
+
+## Players
+Hidden gem (two stars or fewer, started below FBS, drafted in rounds 1-2):
+- Keith Butcher (S, 0-star, Kearney Central MO) | pick 18 in 2022 | true potential 80, overall at exit 71, senior visibility 0.73
+  path: Lincoln (MO) (D2) -> Iowa (FBS)
+  background: raised by a single parent; money 0.83, safety 1.00, home stability 0.45, school resources 0.48, GPA 2.8, mental stability 11, grit 12, mentor no
+  * Signed with Lincoln (MO) (D2) at 18 as an unranked recruit out of Kearney Central (core GPA 2.50).
+  * He had 4 offers, the biggest from Western Colorado, Lincoln (MO), Henderson State, Truman.
+  * At 20 he was named all-conference at Lincoln (MO).
+  * At 21 he was among his level's top performers at Lincoln (MO).
+  * Entered the portal at 21 after standing out a level below and moved from Lincoln (MO) to Iowa (FBS).
+  * Drafted by the Jacksonville Jaguars in round 1 (pick 18) out of Iowa at 23: they needed a S (their weakest starter there was rated 69); board grade 79.3.
+  (all such gems: 7)
+JUCO to the draft:
+- Owen Wallace (S, 4-star, Fort Worth Ridge TX) | pick 10 in 2026 | true potential 90, overall at exit 75, senior visibility 0.80
+  path: TX Junior College 5 (JUCO) -> Illinois (FBS)
+  background: raised by a single parent; money 0.69, safety 0.90, home stability 0.98, school resources 0.11, GPA 2.9, mental stability 12, grit 16, mentor no
+  * At 18 a highlight clip went viral and got him a first look from recruiters.
+  * Signed with TX Junior College 5 (JUCO) at 18 as a 4-star out of Fort Worth Ridge (core GPA 1.93).
+  * He had 6 offers, the biggest from TX Junior College 6, TX Junior College 1, TX Junior College 5, TX Junior College 2.
+  * His core GPA (1.93) was under the NCAA's 2.0 floor, so four-year schools couldn't take him.
+  * At 19 his JUCO film earned a move up to Illinois (FBS).
+  * Drafted by the Washington Commanders in round 1 (pick 10) out of Illinois at 21: he was the best player left on their board; board grade 82.5.
+Steered to a school by family, then transferred out:
+- Duane Johnson (IOL, 4-star, Roebuck Lake SC) | left football by 2019 | true potential 67, overall at exit 54, senior visibility 0.58
+  path: Texas (FBS) -> The Citadel (FCS)
+  background: raised by both parents; money 0.26, safety 0.56, home stability 0.51, school resources 0.40, GPA 2.3, mental stability 9, grit 8, mentor yes
+  * Signed with Texas (FBS) at 18 as a 4-star out of Roebuck Lake (core GPA 2.25).
+  * His NIL deal there: about $2.4M a year in a big reach by a rising program.
+  * He had 10 offers, the biggest from Alabama, Tennessee, Texas, Clemson.
+  * He signed as an academic redshirt: on scholarship and practicing, but he can't play in his first year.
+  * The choice was a parent's more than his own.
+  * Entered the portal at 18 free at last to choose for himself and moved from Texas to The Citadel (FCS).
+  * Dismissed from his team at 20.
+  * Went undrafted and unsigned, and his football career ended.
+  (steered recruits on record: 763, of whom transferred out once free: 282)
+Five-star busts (left football):
+- Chandler Rivers (LB, 5-star, Lakota West OH) | left football by 2018 | true potential 83, overall at exit 66, senior visibility 0.78
+  path: IA Junior College 3 (JUCO)
+  background: raised by a single parent; money 0.27, safety 0.94, home stability 0.38, school resources 0.20, GPA 1.9, mental stability 8, grit 11, mentor yes
+  * At 15 he transferred from Columbus Lake to powerhouse Lakota West and had to sit out part of the season under OH's transfer rule.
+  * At 18 he went to prep school for a year to fix his grades.
+  * Signed with IA Junior College 3 (JUCO) at 19 as a 5-star out of Lakota West (core GPA 1.87).
+  * He had 25 offers, the biggest from TX Junior College 6, MS Junior College 8, KS Junior College 9, CA Junior College 18.
+  * His core GPA (1.87) was under the NCAA's 2.0 floor, so four-year schools couldn't take him.
+  * Never earned a move up from JUCO and left football.
+- Austin Knight (LB, 5-star, Owasso West OK) | left football by 2018 | true potential 71, overall at exit 54, senior visibility 0.95
+  path: Ohio State (FBS)
+  background: raised by both parents; money 0.71, safety 0.75, home stability 0.54, school resources 0.26, GPA 4.0, mental stability 9, grit 7, mentor no
+  * At 18 a highlight clip went viral and got him a first look from recruiters.
+  * Signed with Ohio State (FBS) at 18 as a 5-star out of Owasso West (core GPA 3.96).
+  * His NIL deal there: about $3.3M a year in a big reach by a rising program.
+  * He had 18 offers, the biggest from Ohio State, Georgia, Texas, Michigan.
+  * Walked away from football at 18.
+Powerhouse transfer who was drafted:
+- Brandon McGee (CB, 5-star, Hough NC) | pick 3 in 2019 | true potential 96, overall at exit 91, senior visibility 0.77
+  path: Texas (FBS)
+  background: raised by both parents; money 0.64, safety 0.40, home stability 0.55, school resources 0.33, GPA 3.2, mental stability 13, grit 20, mentor yes
+  * At 15 he transferred from Cornelius South to powerhouse Hough and had to sit out part of the season under NC's transfer rule.
+  * Signed with Texas (FBS) at 18 as a 5-star out of Hough (core GPA 3.05).
+  * His NIL deal there: about $3.8M a year in a big reach by a rising program.
+  * He had 7 offers, the biggest from Alabama, Georgia, Ohio State, Michigan.
+  * At 18 he was among his level's top performers at Texas.
+  * Moved from S to CB by his college staff at 19.
+  * At 19 he won national honors at Texas.
+  * At 20 he won national honors at Texas.
+  * Drafted by the Los Angeles Chargers in round 1 (pick 3) out of Texas at 21: he was the best player left on their board; board grade 103.5.
+Viral clip:
+- Abelardo Gottfried (RB, 4-star, Los Angeles Park CA) | left football by 2017 | true potential 66, overall at exit 54, senior visibility 0.81
+  path: Wake Forest (FBS)
+  background: raised by both parents; money 0.61, safety 0.39, home stability 0.39, school resources 0.14, GPA 3.4, mental stability 11, grit 15, mentor no
+  * At 18 a highlight clip went viral and got him a first look from recruiters.
+  * Signed with Wake Forest (FBS) at 18 as a 4-star out of Los Angeles Park (core GPA 3.26).
+  * His NIL deal there: about $249K a year.
+  * He had 26 offers, the biggest from USC, Virginia, Baylor, South Carolina.
+  * Walked away from football at 18.
+Top pick of the last draft:
+- Devon Galloway (EDGE, 3-star, Catholic Central MI) | pick 1 in 2026 | true potential 90, overall at exit 84, senior visibility 0.88
+  path: Tennessee (FBS)
+  background: raised by a single parent; money 0.50, safety 0.47, home stability 0.96, school resources 0.32, GPA 3.9, mental stability 11, grit 10, mentor no
+  * At 15 he transferred from Oxford Creek to powerhouse Catholic Central and had to sit out part of the season under MI's transfer rule.
+  * Signed with Tennessee (FBS) at 18 as a 3-star out of Catholic Central (core GPA 3.59).
+  * His NIL deal there: about $390K a year.
+  * He had 31 offers, the biggest from Texas, Alabama, Georgia, Notre Dame.
+  * At 19 he was named all-conference at Tennessee.
+  * At 20 he was among his level's top performers at Tennessee.
+  * Drafted by the Cincinnati Bengals in round 1 (pick 1) out of Tennessee at 21: a EDGE is a premium position; board grade 89.7.
+
+## Trial 1 notes
+
+### 1. Prove-it extensions
+extensions in history: 22 (of those, fired after the prove-it year: 6)
+- 2011 Morgan State give head coach Jesse Setter a contract extension and a vote of confidence after two tough seasons.
+- 2013 UNLV give head coach Ralph Rohr a contract extension and a vote of confidence after two tough seasons.
+- 2013 Grand Valley State give head coach Damon Sage a contract extension and a vote of confidence after two tough seasons.
+- Jesse Setter (age 62), reputation 11.6; hidden: head-coach value 10.0, teaching 11.7, recruiting 7.2, network 15.8, game mgmt 11.2; ex-pro false; mentor Scott Bryan
+  1999-2012 head coach at Morgan State (FCS): 9-15, 1 titles, fired after his prove-it year
+  2012-now offensive line coach at Tusculum (D2): 0-0, 0 titles
+  Morgan State around it: 2011 6-6, 2012 3-9, 2013 4-8
+
+### 2. Ethnicity and the coaching gap
+- 2011: Diversity report: 2 of 138 FBS head coaches are coaches of color (2 Black).
+- 2016: Diversity report: 7 of 138 FBS head coaches are coaches of color (5 Black, 1 Hispanic, 1 Asian).
+- 2025: Diversity report: 9 of 138 FBS head coaches are coaches of color (8 Black, 1 Polynesian).
+FBS coordinators of color now: 35 of 276 (13%)
+FBS head coaches of color now: 9 of 138 (7%)
+FBS position coaches of color now: 152 of 1104 (14%)
+FBS players now: white 42.2%, Black 45.3%, Hispanic 9.9%, Polynesian 1.7%, Asian 0.9%
+High school players now: white 58.3%, Black 23.8%, Hispanic 15.6%, Polynesian 0.8%, Asian 1.5%
+
+### 3. Names
+- white: Andrew Replogle, Joshua Richardson, Julian Neale, Evan Sneed, Brian Wood, Alexis Bridges, Reid Rea, Ryan Crawford
+- Black: Isaiah Honea, Jamal Evans, Vaughn Cropper, Jayden Thurman, Tyler Taylor, Michael Moss, Hayden Lamar, Jeremiah Shorter
+- Hispanic: Ronald Valdez, Victor Ocasio, Antonio Sanchez, Angel Sanchez, Adam Diaz, Joshua Rea, Angel Martinez, Joseph Alicea
+- Polynesian: Colin Seau, Keoni Kealoha, Jamari Ulufonua, Raymond Mauga, Jose Tupou, Viliami Pouha, Benjamin Polamalu, Dwayne Palelei
+- Asian: Timothy Reyes, Brian Ng, Ayaan Chou, Felipe Luu, Justin Wong, Jason Iqbal, Alfred David, Nicholas Kim
+  Jalen: 970 players, 1 of them white
+  Jaylen: 1184 players, 3 of them white
+  Kobe: 446 players, 2 of them white
+  Trey: 464 players, 340 of them white
+  DeShawn: 318 players, 11 of them white
+  Wyatt: 3798 players, 3353 of them white
+players sharing a full name with another active player: 46.5% of 779272
+
+### 4. Pipelines
+programs with a high school pipeline of 0.10+: 421 of 494
+- Bowling Green (prestige 0.46 -> 0.63): states FL 0.41, GA 0.36, IL 0.35, VA 0.25 | schools Fairburn West (GA) 0.30, Oradell East (NJ) 0.28, Trinity Episcopal (VA) 0.25 | areas Fort Lauderdale area (FL) 0.17, Oradell area (NJ) 0.14, Fairburn area (GA) 0.14
+- Toledo (prestige 0.53 -> 0.53): states TX 0.37, GA 0.36, LA 0.22, WI 0.21 | schools Arrowhead (WI) 0.43, Austin Lake (TX) 0.33, Brother Martin (LA) 0.30 | areas Hartland area (WI) 0.21, Houston area (TX) 0.21, Indianapolis area (IN) 0.17
+- Georgia (prestige 0.92 -> 0.88): states FL 0.99, GA 0.99, TX 0.87, SC 0.69 | schools Lee County (GA) 0.78, Broken Arrow (OK) 0.77, IMG Academy (FL) 0.74 | areas Bradenton area (FL) 0.78, Tampa area (FL) 0.65, Leesburg area (GA) 0.64
+- North Dakota State (prestige 0.57 -> 0.42): states GA 0.22, OH 0.21, MO 0.20, MS 0.17 | schools Marietta Heights (GA) 0.41, Blue Springs Prairie (MO) 0.30, Brandon Bay (MS) 0.19 | areas Marietta area (GA) 0.22, Oconomowoc area (WI) 0.14, Blue Springs area (MO) 0.11
+MAC draft picks by home state: [("GA", 15), ("OH", 12), ("TX", 10), ("FL", 8), ("MI", 8), ("CA", 7), ("MD", 5), ("TN", 5), ("MS", 4), ("AL", 3), ("IA", 3), ("LA", 3), ("MA", 3), ("NC", 3), ("PA", 3), ("VA", 3), ("IL", 2), ("IN", 2), ("MN", 2), ("MO", 2), ("NV", 2), ("WI", 2), ("CT", 1), ("HI", 1), ("ID", 1), ("KS", 1), ("KY", 1), ("NH", 1), ("NY", 1), ("OR", 1), ("UT", 1), ("WV", 1)]
+
+### 5. The coaching ladder
+- HS head coach -> D2 position coach: 1635
+- D2 position coach -> D2 coordinator: 1006
+- JUCO position coach -> D2 position coach: 1006
+- D2 position coach -> FCS position coach: 944
+- HS head coach -> JUCO position coach: 944
+- D2 coordinator -> FCS position coach: 849
+- FCS position coach -> FBS position coach: 806
+- D2 position coach -> HS head coach: 803
+- FCS coordinator -> FBS position coach: 585
+- HS head coach -> FCS position coach: 572
+- D2 coordinator -> D2 head coach: 396
+- JUCO position coach -> HS head coach: 393
+- D2 position coach -> FCS coordinator: 387
+- FCS position coach -> HS head coach: 383
+From a high school job to an FBS head job:
+- Harvey Thomason (age 53), reputation 16.1; hidden: head-coach value 16.8, teaching 17.6, recruiting 16.6, network 17.3, game mgmt 16.9; ex-pro false; mentor Steven Frame
+  2005-2011 head coach at Tuscaloosa Central HS (AL): 3-7, 0 titles, left for another job
+  2011-2012 quarterbacks coach at Tuskegee (D2): 0-0, 0 titles, left for another job
+  2012-2013 offensive coordinator at North Alabama (FCS): 0-0, 0 titles, left for another job
+  2013-2018 quarterbacks coach at Navy (FBS): 0-0, 0 titles, let go by the new staff
+  2018-2020 defensive line coach at Navy (FBS): 0-0, 0 titles, left for another job
+  2020-2022 defensive line coach at Oklahoma State (FBS): 0-0, 0 titles, let go by the new staff
+  2022-2023 head coach at Western Illinois (FCS): 6-6, 0 titles, left for another job
+  2023-now head coach at Georgia Southern (FBS): 11-13, 0 titles
+college hires straight from high school: 3990
+- 2025 MS Junior College 2 hire Barry Griffin as quarterbacks coach (from Jackson Bay High School football).
+- 2025 KS Junior College 7 hire David Perez as wide receivers coach (from Cincinnati Valley High School football).
+- 2025 MS Junior College 7 hire Bryan Murray as offensive line coach (from New Canaan West High School football).
+
+### 6. Academics
+on record (5512 drafted or blue-chip players): academic redshirts 175, special admissions 70, JUCO for grades 28, lifted by summer school 67, ineligible seasons 30
+five-stars who went through JUCO: 6 of 220
+- Austin Mark (EDGE, 3-star, Orem Central UT) | pick 127 in 2020 | true potential 82, overall at exit 73, senior visibility 0.58
+  path: Michigan (FBS)
+  background: raised by both parents; money 0.21, safety 0.83, home stability 0.79, school resources 0.08, GPA 2.6, mental stability 10, grit 14, mentor yes
+  * Signed with Michigan (FBS) at 18 as a 3-star out of Orem Central (core GPA 2.66).
+  * His NIL deal there: about $957K a year in a big reach by a rising program.
+  * He had 17 offers, the biggest from Ohio State, Michigan, Tennessee, USC.
+  * Michigan used one of its few special admissions on him: his grades were below the school's bar, but trending up.
+  * Drafted by the Washington Commanders in round 4 (pick 127) out of Michigan at 21: they needed a EDGE (their weakest starter there was rated 75); board grade 75.9.
+- Joshua Miller (OT, 5-star, Spartanburg Creek SC) | pick 5 in 2019 | true potential 84, overall at exit 79, senior visibility 0.78
+  path: Georgia (FBS)
+  background: raised by a single parent; money 0.88, safety 0.77, home stability 0.46, school resources 0.42, GPA 2.1, mental stability 12, grit 10, mentor no
+  * Signed with Georgia (FBS) at 18 as a 5-star out of Spartanburg Creek (core GPA 2.02).
+  * His NIL deal there: about $4.0M a year.
+  * He had 9 offers, the biggest from Alabama, Georgia, Ohio State, Tennessee.
+  * He signed as an academic redshirt: on scholarship and practicing, but he can't play in his first year.
+  * At 20 he was among his level's top performers at Georgia.
+  * Drafted by the New York Jets in round 1 (pick 5) out of Georgia at 21: a OT is a premium position; board grade 85.3.
+
+### 7. The draft by position (sim vs real 2000-2025)
+- pick_1: sim QB 55%, EDGE 27%, OT 9%, WR 9%
+  real QB 73%, EDGE 19%, OT 8%
+- picks_1_5: sim EDGE 35%, QB 31%, OT 22%, WR 5%, CB 4%, DT 2%, LB 2%
+  real QB 28%, EDGE 21%, OT 15%, WR 11%, RB 8%, CB 7%, DT 6%, LB 2%, S 2%, TE 1%
+- round_1: sim CB 15%, EDGE 14%, DT 12%, QB 11%, WR 11%, OT 10%, RB 8%, LB 5%, S 5%, IOL 5%, TE 3%
+  real EDGE 17%, WR 13%, OT 12%, CB 12%, DT 10%, QB 9%, RB 7%, LB 6%, IOL 5%, S 5%, TE 4%, K 0%
+last number 1 pick: Devon Galloway (EDGE), Drafted by the Cincinnati Bengals in round 1 (pick 1) out of Tennessee at 21: a EDGE is a premium position; board grade 89.7.
+
+### 8. Measurables and combine (drafted players, sim vs real combine averages)
+- QB: sim 73.7" 222 lb 4.58s 34.8" bench 17.8 broad 122 cone 7.04 shuttle 4.25 | real 74.66" 221.60 lb 4.82s 31.28" bench 19.30 broad 111.18 cone 7.15 shuttle 4.33
+- RB: sim 71.5" 216 lb 4.52s 35.9" bench 19.3 broad 125 cone 6.98 shuttle 4.20 | real 70.72" 217.46 lb 4.58s 34.24" bench 19.95 broad 117.89 cone 7.11 shuttle 4.29
+- WR: sim 72.4" 203 lb 4.52s 35.6" bench 16.3 broad 124 cone 6.91 shuttle 4.16 | real 72.75" 201.22 lb 4.51s 35.46" bench 14.68 broad 121.40 cone 6.98 shuttle 4.23
+- TE: sim 75.4" 252 lb 4.72s 31.8" bench 21.0 broad 115 cone 7.48 shuttle 4.53 | real 76.32" 252.91 lb 4.76s 33.20" bench 20.24 broad 115.64 cone 7.19 shuttle 4.37
+- OT: sim 76.9" 313 lb 5.14s 29.5" bench 25.4 broad 109 cone 7.64 shuttle 4.63 | real 77.69" 315.56 lb 5.23s 28.27" bench 24.35 broad 103.46 cone 7.84 shuttle 4.75
+- IOL: sim 75.0" 305 lb 5.09s 30.1" bench 25.6 broad 110 cone 7.61 shuttle 4.59 | real 75.81" 310.56 lb 5.26s 28.11" bench 25.81 broad 102.31 cone 7.84 shuttle 4.74
+- EDGE: sim 74.7" 256 lb 4.71s 33.5" bench 21.3 broad 118 cone 7.27 shuttle 4.39 | real 75.60" 263.93 lb 4.79s 33.38" bench 23.66 broad 116.28 cone 7.28 shuttle 4.41
+- DT: sim 75.1" 304 lb 5.08s 30.8" bench 25.7 broad 112 cone 7.61 shuttle 4.61 | real 74.99" 306.76 lb 5.09s 29.31" bench 27.41 broad 105.54 cone 7.70 shuttle 4.66
+- LB: sim 73.7" 235 lb 4.64s 33.8" bench 20.3 broad 119 cone 7.18 shuttle 4.31 | real 73.40" 237.04 lb 4.69s 34.08" bench 21.97 broad 117.33 cone 7.15 shuttle 4.29
+- CB: sim 71.5" 196 lb 4.48s 36.1" bench 16.3 broad 125 cone 6.86 shuttle 4.13 | real 71.35" 192.66 lb 4.49s 36.06" bench 14.51 broad 122.42 cone 6.94 shuttle 4.17
+- S: sim 72.4" 210 lb 4.56s 33.2" bench 16.4 broad 118 cone 7.05 shuttle 4.25 | real 72.22" 206.68 lb 4.56s 35.61" bench 16.93 broad 120.93 cone 7.00 shuttle 4.21
+- K: sim 72.0" 207 lb 4.46s 36.3" bench 15.8 broad 125 cone 6.88 shuttle 4.19 | real 71.89" 197.02 lb 4.91s " bench 15.20 broad  cone  shuttle 
+- P: sim 73.6" 220 lb 4.63s 33.8" bench 17.9 broad 120 cone 7.08 shuttle 4.25 | real 74.04" 213.67 lb 4.91s 31.57" bench 16.00 broad 114.08 cone  shuttle 4.42
+
+## What a scout sees (character report on a current five-star)
+- Aiden Todd, scout judging 6: Home: raised by a single parent. A parent is loud at games. At 22, NIL money changed his family's life.
+- Aiden Todd, scout judging 16: Home: raised by a single parent. Working-class household. A parent is loud at games. Nothing unusual in how he handles pressure. At 22, NIL money changed his family's life.
+  (truth: money 0.48, safety 0.41, stability 12, decider Himself, parent LoudAtGames)

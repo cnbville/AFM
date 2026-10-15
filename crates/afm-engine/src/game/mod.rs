@@ -6,7 +6,9 @@
 //! See `docs/design/match-engine.md` and `docs/match-engine.md`.
 
 pub mod calling;
+pub mod experiment;
 pub mod flow;
+pub mod garbage;
 pub mod geom;
 pub mod kicking;
 pub mod playbook;
@@ -18,7 +20,7 @@ pub mod stats;
 pub mod synthetic;
 pub mod tables;
 
-pub use flow::{GameResult, GameSetup, play_game, quick_game};
+pub use flow::{GameResult, GameSetup, play_game, quick_game, quick_game_with};
 pub use roster::{Caller, Front, GamePlayer, GameTeam, OffScheme, Shell, Staff};
 pub use rules::Rules;
 pub use sim::Conditions;

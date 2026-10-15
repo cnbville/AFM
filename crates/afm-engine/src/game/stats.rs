@@ -45,6 +45,8 @@ pub struct PlayRecord {
     pub blitz: bool,
     pub play_action: bool,
     pub coverage_man: bool,
+    /// The route the target ran.
+    pub route: &'static str,
     pub yards: f64,
     pub first_down: bool,
     pub touchdown: bool,
@@ -107,6 +109,9 @@ pub struct PlayRecord {
     /// Context for splits (8.3): the drive started after a turnover by the
     /// other team, and the score margin for the offense.
     pub after_turnover: bool,
+    /// Garbage time: each side's step at the snap (0 = everyone in; see
+    /// `garbage`), home then away.
+    pub garbage: [u8; 2],
 }
 
 impl PlayRecord {
@@ -128,6 +133,7 @@ impl PlayRecord {
             blitz: false,
             play_action: false,
             coverage_man: false,
+            route: "",
             yards: 0.0,
             first_down: false,
             touchdown: false,
@@ -183,6 +189,7 @@ impl PlayRecord {
             wp_before: 0.5,
             why: String::new(),
             after_turnover: false,
+            garbage: [0, 0],
         }
     }
 

@@ -3,6 +3,8 @@
 //! snap. Every game is reproducible from its seed (topic 9.2).
 
 use super::calling::{self, FourthDown, Memory, Situation};
+use super::experiment;
+use super::garbage;
 use super::geom::{MID, v2};
 use super::kicking::{self, KickTeams};
 use super::playbook::*;
@@ -33,6 +35,8 @@ pub struct GameSetup<'a> {
     /// Rating points a player from the other side of the ball must beat a
     /// starter by to play both ways (topic 5.1), per team.
     pub two_way_margin: [f64; 2],
+    /// What the season does to each head coach's read of a decided game.
+    pub context: [garbage::Context; 2],
 }
 
 impl<'a> GameSetup<'a> {
@@ -52,6 +56,7 @@ impl<'a> GameSetup<'a> {
             playoff: false,
             record: false,
             two_way_margin: [margin, margin],
+            context: [garbage::Context::default(); 2],
         }
     }
 }
@@ -66,6 +71,8 @@ pub struct GameResult {
     pub trust: Vec<(usize, u32, f64)>,
     pub frames: Vec<(u32, Vec<Frame>)>,
     pub crew: Option<Crew>,
+    /// Garbage-time calls and why: (play number, team, what he did).
+    pub decisions: Vec<(u32, usize, String)>,
 }
 
 struct Side<'a> {
@@ -78,6 +85,9 @@ struct Side<'a> {
     hurt: Vec<Option<InjuryKind>>,
     timeouts: u8,
     mem: Memory,
+    /// The head coach's read of a decided game, and who sits because of it.
+    coach: garbage::Coach,
+    benched: Vec<bool>,
 }
 
 impl<'a> Side<'a> {
@@ -93,6 +103,8 @@ impl<'a> Side<'a> {
             hurt: vec![None; n],
             timeouts,
             mem: Memory::default(),
+            coach: garbage::Coach::default(),
+            benched: vec![false; n],
         }
     }
 
@@ -102,7 +114,7 @@ impl<'a> Side<'a> {
     fn threshold(&self, pos: Position) -> f64 {
         let base = match pos {
             Position::EDGE | Position::DT => 0.84,
-            Position::RB => 0.8,
+            Position::RB => 0.86,
             Position::WR | Position::TE => 0.74,
             Position::LB | Position::CB | Position::S => 0.68,
             _ => 0.5,
@@ -113,8 +125,13 @@ impl<'a> Side<'a> {
     /// The best `n` available at a spot, swapping out tired starters when a
     /// fresh backup isn't much worse.
     fn pick(&self, pos: Position, n: usize, used: &mut Vec<usize>) -> Vec<usize> {
-        let list: Vec<usize> =
-            self.depth.list(pos).iter().copied().filter(|&i| !self.out[i] && !used.contains(&i)).collect();
+        let list: Vec<usize> = self
+            .depth
+            .list(pos)
+            .iter()
+            .copied()
+            .filter(|&i| !self.out[i] && !used.contains(&i) && !self.benched[i])
+            .collect();
         let th = self.threshold(pos);
         let mut out = Vec::new();
         let mut skipped = Vec::new();
@@ -142,11 +159,23 @@ impl<'a> Side<'a> {
                 out.push(i);
             }
         }
-        // A thin roster: the best athlete left, from anywhere.
+        // A thin roster: the best athlete left, from anywhere; in a decided
+        // game the deep reserves first, then the pulled starters, the
+        // least important first.
         while out.len() < n {
             let any = (0..self.team.players.len())
-                .filter(|&i| !self.out[i] && !used.contains(&i) && !out.contains(&i))
+                .filter(|&i| !self.out[i] && !used.contains(&i) && !out.contains(&i) && !self.benched[i])
                 .max_by(|&a, &b| self.rating(a, pos).total_cmp(&self.rating(b, pos)));
+            let any = any.or_else(|| {
+                let list = self.depth.list(pos);
+                list.iter().rev().copied().find(|&i| !self.out[i] && !used.contains(&i) && !out.contains(&i)).or_else(
+                    || {
+                        (0..self.team.players.len())
+                            .filter(|&i| !self.out[i] && !used.contains(&i) && !out.contains(&i))
+                            .max_by(|&a, &b| self.rating(a, pos).total_cmp(&self.rating(b, pos)))
+                    },
+                )
+            });
             match any {
                 Some(i) => out.push(i),
                 None => break,
@@ -158,6 +187,39 @@ impl<'a> Side<'a> {
 
     fn rating(&self, i: usize, pos: Position) -> f64 {
         self.team.players[i].overall_at(pos)
+    }
+
+    /// The first player on a list who is still in the game.
+    fn first_up(&self, list: &[usize]) -> Option<usize> {
+        list.iter().copied().find(|&i| !self.out[i])
+    }
+
+    /// The best leg left in the game at a kicking job.
+    fn best_leg(&self, pos: Position) -> usize {
+        (0..self.team.players.len())
+            .filter(|&i| !self.out[i])
+            .max_by(|&a, &b| self.rating(a, pos).total_cmp(&self.rating(b, pos)))
+            .unwrap_or(0)
+    }
+
+    /// The field goal kicker (fix list 1.9): the K list, then the punter's
+    /// leg, then whoever kicks best.
+    fn fg_kicker(&self) -> usize {
+        self.first_up(self.depth.list(Position::K))
+            .or_else(|| self.first_up(self.depth.list(Position::P)))
+            .unwrap_or_else(|| self.best_leg(Position::K))
+    }
+
+    /// The punter (fix list 1.9): the P list, then the kicker's leg.
+    fn punter(&self) -> usize {
+        self.first_up(self.depth.list(Position::P))
+            .or_else(|| self.first_up(self.depth.list(Position::K)))
+            .unwrap_or_else(|| self.best_leg(Position::P))
+    }
+
+    /// The kickoff kicker (fix list 1.8): the best leg among the kickers.
+    fn kickoff_kicker(&self) -> usize {
+        self.first_up(&self.depth.kickoff).unwrap_or_else(|| self.fg_kicker())
     }
 }
 
@@ -195,6 +257,11 @@ struct Game<'a> {
     ot_poss: [u32; 2],
     ot_first: usize,
     drive_start_poss: usize,
+    /// The coaches' own judgment calls draw from their own stream, so a game
+    /// that never gets out of hand plays out the same with or without them.
+    mind: Rng,
+    /// The last garbage-time review: (drives started, quarter).
+    reviewed: Option<(u32, u8)>,
 }
 
 /// Play a game.
@@ -202,9 +269,21 @@ pub fn play_game(setup: &GameSetup) -> GameResult {
     let mut rng = Rng::new(((setup.seed >> 32) as u32) ^ (setup.seed as u32) ^ 0x9E37_79B9);
     let crew = Crew::draw(&mut rng);
     let t = setup.rules.timeouts;
+    let mut sides =
+        [Side::new(setup.home, setup.two_way_margin[0], t), Side::new(setup.away, setup.two_way_margin[1], t)];
+    // Game prep: each staff studies the other's film (topic 3.2).
+    let (hs, as_) = (setup.home.staff, setup.away.staff);
+    sides[0].mem.prepare(&as_, &hs);
+    sides[1].mem.prepare(&hs, &as_);
+    let mut mind = Rng::new(((setup.seed >> 29) as u32) ^ (setup.seed as u32).rotate_left(11) ^ 0x6A09_E667);
+    let habits = garbage::habits(setup.rules.level);
+    for (k, side) in sides.iter_mut().enumerate() {
+        let st = side.team.staff;
+        side.coach = garbage::Coach::new(st.game_management, st.sportsmanship, setup.context[k], &habits, &mut mind);
+    }
     let mut g = Game {
         s: setup,
-        sides: [Side::new(setup.home, setup.two_way_margin[0], t), Side::new(setup.away, setup.two_way_margin[1], t)],
+        sides,
         rng,
         crew,
         stats: GameStats::default(),
@@ -228,6 +307,8 @@ pub fn play_game(setup: &GameSetup) -> GameResult {
         ot_poss: [0, 0],
         ot_first: 0,
         drive_start_poss: 0,
+        mind,
+        reviewed: None,
     };
     g.receive_first = if g.rng.chance(0.5) { 0 } else { 1 };
     let kick_from = setup.rules.kickoff_from;
@@ -295,6 +376,53 @@ impl<'a> Game<'a> {
             game_left: self.game_left(),
             timeouts: self.sides[o].timeouts,
             opp_timeouts: self.sides[1 - o].timeouts,
+            ease: self.sides[o].coach.read.ease,
+            concede: self.sides[o].coach.read.concede,
+            def_ease: self.sides[1 - o].coach.read.ease,
+            def_concede: self.sides[1 - o].coach.read.concede,
+        }
+    }
+
+    /// Garbage time (`garbage`): at each new drive and each new quarter both
+    /// head coaches look at the score and the clock and decide whether the
+    /// game is won or lost, and who plays.
+    fn review(&mut self) {
+        if self.ot {
+            return;
+        }
+        let tag = (self.stats.team[0].drives + self.stats.team[1].drives, self.quarter);
+        if Some(tag) == self.reviewed {
+            return;
+        }
+        self.reviewed = Some(tag);
+        let habits = garbage::habits(self.rules().level);
+        let len = 4.0 * self.rules().quarter;
+        let left = self.game_left();
+        for t in 0..2 {
+            let z = garbage::comeback_z(self.diff(t), left, len);
+            let before = self.sides[t].coach.read;
+            let read = self.sides[t].coach.review(z, self.quarter, &habits, &mut self.mind);
+            if read.rest_back != before.rest_back || read.step != before.step {
+                let benched = garbage::benched(&self.sides[t].depth, self.sides[t].team.players.len(), &read);
+                self.sides[t].benched = benched;
+            }
+            if read.step != before.step {
+                let side = &self.sides[t];
+                let clock =
+                    format!("Q{} {}:{:02}", self.quarter, (self.clock / 60.0) as i32, (self.clock % 60.0) as i32);
+                let lead = self.diff(t);
+                let what = if read.concede || (before.concede && read.step == 0) { "behind" } else { "ahead" };
+                let odds = garbage::comeback_odds(read.seen);
+                let why = format!(
+                    "{clock}: {} {} {} by {}, as he reads it a comeback is about 1 in {:.0}.",
+                    side.team.name,
+                    garbage::step_name(read.step),
+                    what,
+                    lead.abs(),
+                    odds
+                );
+                self.res.decisions.push((self.n + 1, t, why));
+            }
         }
     }
 
@@ -324,6 +452,7 @@ impl<'a> Game<'a> {
         r.ep_before = tables::expected_points(self.down.max(1), self.togo, 100.0 - self.x);
         r.wp_before = tables::win_probability(self.diff(self.poss), self.game_left(), 100.0 - self.x);
         r.after_turnover = self.after_turnover;
+        r.garbage = [self.sides[0].coach.read.step, self.sides[1].coach.read.step];
         r
     }
 
@@ -346,13 +475,13 @@ impl<'a> Game<'a> {
             self.running = false;
             self.recover(0.02);
         }
-        // Mercy rule: a running clock in a blowout (high school).
-        if let Some((lead, q)) = self.rules().mercy {
-            let d = (self.stats.team[0].points - self.stats.team[1].points).abs();
-            if self.quarter >= q && d >= lead {
-                self.clock -= secs * 0.3;
-            }
-        }
+    }
+
+    /// Mercy rule (high school): with a big enough lead in the second half the
+    /// clock keeps running through incompletions, first downs and out of
+    /// bounds; only scores, turnovers and timeouts stop it.
+    fn mercy_running(&self) -> bool {
+        self.rules().mercy.is_some_and(|(lead, q)| self.quarter >= q && self.diff(0).abs() >= lead)
     }
 
     fn recover(&mut self, amt: f64) {
@@ -494,13 +623,13 @@ impl<'a> Game<'a> {
             let rets = side.depth.kick_returners.iter().copied().filter(|&i| !side.out[i]).collect::<Vec<_>>();
             on.extend(rets.iter().take(1));
         } else {
-            let k = side.depth.list(Position::K).first().copied().unwrap_or(0);
-            on.push(k);
+            on.push(side.kickoff_kicker());
         }
         used.extend(on.iter().copied());
         // Coverage and return units: fast backups first.
-        let mut pool: Vec<usize> =
-            (0..ps.len()).filter(|&i| !side.out[i] && !used.contains(&i) && !ps[i].position.is_specialist()).collect();
+        let mut pool: Vec<usize> = (0..ps.len())
+            .filter(|&i| !side.out[i] && !used.contains(&i) && !ps[i].position.is_specialist() && !side.benched[i])
+            .collect();
         let starters: Vec<usize> =
             [Position::QB].iter().flat_map(|p| side.depth.list(*p).iter().take(1).copied()).collect();
         pool.retain(|i| !starters.contains(i));
@@ -521,9 +650,12 @@ impl<'a> Game<'a> {
         // Onside kicks: trailing late, or a surprise from an aggressive coach.
         let late = self.quarter >= 4 && self.game_left() < 180.0;
         let behind = self.diff(team) < 0 && self.diff(team) >= -16;
+        let read = self.sides[team].coach.read;
         let onside = onside
-            || (late && behind)
-            || (!self.ot && self.rng.chance(0.002 * self.sides[team].team.staff.offense.aggressiveness / 10.0));
+            || (late && behind && !read.concede)
+            || (!self.ot
+                && read.ease == 0.0
+                && self.rng.chance(0.002 * self.sides[team].team.staff.offense.aggressiveness / 10.0));
         let mut r = self.new_record(PlayType::Kickoff);
         r.offense = team;
         let kt = KickTeams {
@@ -606,15 +738,15 @@ impl<'a> Game<'a> {
     fn pat(&mut self, team: usize) {
         self.poss = team;
         let staff = self.sides[team].team.staff;
-        let k = self.sides[team].depth.list(Position::K).first().copied();
-        let kicker = k.map(|i| &self.sides[team].team.players[i]);
-        let xp_make = kicker.map_or(0.5, |k| {
-            clamp(0.55 + 0.005 * k.a(Attr::KickAccuracy) - 0.002 * (self.rules().xp_from - 3.0), 0.2, 0.99)
-        });
+        let kicker = &self.sides[team].team.players[self.sides[team].fg_kicker()];
+        let xp_make =
+            clamp(0.55 + 0.005 * kicker.a(Attr::KickAccuracy) - 0.002 * (self.rules().xp_from - 3.0), 0.2, 0.99);
         let diff = self.diff(team);
         let forced_two = self.ot && self.rules().overtime == Overtime::College && self.ot_round >= 2;
-        let two =
-            forced_two || calling::go_for_two(&staff, diff, self.quarter, self.game_left(), xp_make, &mut self.rng);
+        // Up big, nobody goes for two (it reads as running up the score).
+        let easing = self.sides[team].coach.read.ease >= 0.5;
+        let two = forced_two
+            || (!easing && calling::go_for_two(&staff, diff, self.quarter, self.game_left(), xp_make, &mut self.rng));
         if two {
             self.x = 100.0 - self.rules().two_point_from;
             self.down = 1;
@@ -652,13 +784,7 @@ impl<'a> Game<'a> {
     fn kick(&mut self, team: usize, dist: f64, pressure: f64, r: &mut PlayRecord) -> bool {
         let side = &self.sides[team];
         let ps = &side.team.players;
-        let k = side
-            .depth
-            .list(Position::K)
-            .iter()
-            .copied()
-            .find(|&i| !side.out[i])
-            .unwrap_or(side.depth.list(Position::P).first().copied().unwrap_or(0));
+        let k = side.fg_kicker();
         let snapper = &ps[side.depth.snapper];
         let holder = &ps[side.depth.holder];
         let mut used = vec![k];
@@ -708,6 +834,7 @@ impl<'a> Game<'a> {
     // ------------------------------------------------------------ scrimmage
 
     fn scrimmage(&mut self) {
+        self.review();
         let o = self.poss;
         let sit = self.situation();
         let staff = self.sides[o].team.staff;
@@ -746,6 +873,7 @@ impl<'a> Game<'a> {
             if choice == FourthDown::FieldGoal && fg_dist > kicker_range + 3.0 {
                 choice = if yl < 40.0 { FourthDown::Go } else { FourthDown::Punt };
             }
+            choice = self.garbage_fourth(choice, yl);
             match choice {
                 FourthDown::Punt => {
                     self.punt();
@@ -784,21 +912,47 @@ impl<'a> Game<'a> {
         self.stats.plays.push(r);
     }
 
+    /// Garbage time on 4th down: a leader with the game won punts in his own
+    /// half, and in field-goal range often goes for it with the backups
+    /// rather than add three (real FBS up 28+ in the 4th: go 62%, kick 38%;
+    /// close games 33% and 66%). A good sport refuses the kick more often.
+    fn garbage_fourth(&mut self, choice: FourthDown, yl: f64) -> FourthDown {
+        let read = self.sides[self.poss].coach.read;
+        // Beaten, three points change nothing: he lets the offense play for
+        // the touchdown (real FBS, down 28+ in the 4th quarter: 83% go for
+        // it in field goal range).
+        if read.concede && choice == FourthDown::FieldGoal && self.mind.chance(garbage::CONCEDED_GO) {
+            return FourthDown::Go;
+        }
+        if read.ease <= 0.0 {
+            return choice;
+        }
+        if yl > 50.0 {
+            if choice == FourthDown::Go && self.mind.chance(0.7 * read.ease) {
+                return FourthDown::Punt;
+            }
+            return choice;
+        }
+        // With the backups in, the kick reads as running it up.
+        if choice == FourthDown::FieldGoal && read.step >= 1 {
+            let s = self.sides[self.poss].team.staff.sportsmanship;
+            let base = garbage::habits(self.rules().level).fg_go;
+            if self.mind.chance(clamp(base + 0.04 * (s - 10.0), 0.05, 0.95)) {
+                return FourthDown::Go;
+            }
+        }
+        choice
+    }
+
     fn kicker_range(&self, team: usize) -> f64 {
         let side = &self.sides[team];
-        match side.depth.list(Position::K).first() {
-            Some(&k) => {
-                let p = &side.team.players[k];
-                38.0 + 0.3 * p.a(Attr::KickPower) - 4.0
-            }
-            None => 30.0,
-        }
+        let p = &side.team.players[side.fg_kicker()];
+        38.0 + 0.3 * p.a(Attr::KickPower) - 4.0
     }
 
     fn fg_make_estimate(&self, team: usize, dist: f64) -> f64 {
         let side = &self.sides[team];
-        let Some(&k) = side.depth.list(Position::K).first() else { return 0.2 };
-        let p = &side.team.players[k];
+        let p = &side.team.players[side.fg_kicker()];
         let acc = p.a(Attr::KickAccuracy);
         let range = 38.0 + 0.3 * p.a(Attr::KickPower);
         let sd = (2.95 + 0.012 * (dist - 30.0)) * (1.82f64 - 0.0105 * acc).max(0.55);
@@ -816,7 +970,8 @@ impl<'a> Game<'a> {
             return false;
         }
         if self.quarter == 4 {
-            let opp_to = self.sides[1 - o].timeouts as f64;
+            // A beaten team that has given up doesn't spend its timeouts.
+            let opp_to = if self.sides[1 - o].coach.read.concede { 0.0 } else { self.sides[1 - o].timeouts as f64 };
             let downs = (4 - self.down + 1) as f64;
             let need = self.game_left() + opp_to * 38.0;
             return need <= downs * 39.0 && self.game_left() < 160.0;
@@ -904,7 +1059,7 @@ impl<'a> Game<'a> {
         let d = 1 - o;
         let mut r = self.new_record(PlayType::Punt);
         let side = &self.sides[o];
-        let p = side.depth.list(Position::P).iter().copied().find(|&i| !side.out[i]).unwrap_or(0);
+        let p = side.punter();
         let mut kick_on = vec![p];
         let mut used = vec![p];
         kick_on.extend(side.pick(Position::CB, 2, &mut used));
@@ -1279,7 +1434,7 @@ impl<'a> Game<'a> {
         for &(side, p, work) in &res.work {
             let team = if side == 0 { o } else { d };
             let st = self.sides[team].team.players[p].a(Attr::Stamina);
-            self.sides[team].energy[p] = (self.sides[team].energy[p] - 0.0068 * drain(st, work)).max(0.25);
+            self.sides[team].energy[p] = (self.sides[team].energy[p] - 0.041 * drain(st, work)).max(0.25);
         }
         for t in [o, d] {
             let on: Vec<usize> =
@@ -1389,6 +1544,7 @@ impl<'a> Game<'a> {
         r.target = res.target;
         r.carrier = res.carrier;
         r.air_yards = res.air_yards;
+        r.route = res.route;
         r.yac = res.yac;
         r.before_contact = res.before_contact;
         r.time_to_throw = res.time_to_throw;
@@ -1433,7 +1589,7 @@ impl<'a> Game<'a> {
         }
         // The nearest defender to the target is the man in coverage.
         if r.kind == PlayType::Pass && !r.throw_away {
-            r.defender = res.pbu.or(res.defender).or(self.nearest_cover(&r, &res));
+            r.defender = res.pbu.or(res.defender);
         }
         // Freelancing results: a jump that made the play, or one that got burned.
         for &(id, _) in &res.notes.freelance {
@@ -1631,6 +1787,9 @@ impl<'a> Game<'a> {
             }
             let md = &mut self.sides[d].mem;
             md.opp_plays += 1.0;
+            if let PlayKind::Pass(i) = call.kind {
+                md.opp_concepts[i] += 1.0;
+            }
             if r.kind != PlayType::Run {
                 md.opp_pass += 1.0;
                 if r.air_yards >= 15.0 {
@@ -1734,6 +1893,9 @@ impl<'a> Game<'a> {
         }
         r.epa = ep(self.down, self.togo, self.x) - r.ep_before;
         self.stats.book(&r);
+        if self.mercy_running() {
+            stop = false;
+        }
         self.running = !stop;
         self.after_snap_clock(&r);
         r
@@ -1750,6 +1912,7 @@ impl<'a> Game<'a> {
                 self.diff(d) < 0 || (self.quarter == 2 && self.half_left() < 90.0 && self.diff(d) <= 0 && false);
             let gm = self.sides[d].team.staff.game_management;
             if trailing
+                && !self.sides[d].coach.read.concede
                 && self.quarter == 4
                 && self.half_left() < 180.0
                 && self.sides[d].timeouts > 0
@@ -1774,6 +1937,7 @@ impl<'a> Game<'a> {
             }
             13.0
         } else if (self.quarter == 4 && self.diff(o) > 0)
+            || self.sides[o].coach.read.ease > 0.0
             || (self.quarter == 2 && self.half_left() < 120.0 && self.x < 50.0 && self.diff(o) >= 0)
         {
             38.0
@@ -1812,13 +1976,6 @@ impl<'a> Game<'a> {
             ep(self.down + 1, (self.togo - (new_x - self.x)).max(1.0), new_x)
         };
         after - r.ep_before
-    }
-
-    fn nearest_cover(&self, r: &PlayRecord, _res: &SnapResult) -> Option<u32> {
-        // From the coverage battles: the defender charged is the one who
-        // contested the catch; otherwise none is charged.
-        let _ = r;
-        None
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1965,8 +2122,27 @@ fn phi(x: f64) -> f64 {
 
 /// Play a game on a fixed neutral field, mostly for tools and tests.
 pub fn quick_game(home: &GameTeam, away: &GameTeam, level: Level, seed: u64) -> GameResult {
+    quick_game_with(home, away, level, seed, [garbage::Context::default(); 2])
+}
+
+/// `quick_game` with what the season does to each head coach's read of a
+/// decided game.
+pub fn quick_game_with(
+    home: &GameTeam,
+    away: &GameTeam,
+    level: Level,
+    seed: u64,
+    context: [garbage::Context; 2],
+) -> GameResult {
+    if let Some((h, a)) = experiment::adjust(home, away) {
+        let mut s = GameSetup::new(&h, &a, level, seed);
+        s.cond = Conditions { crowd: 0.5, ..Conditions::default() };
+        s.context = context;
+        return play_game(&s);
+    }
     let mut s = GameSetup::new(home, away, level, seed);
     s.cond = Conditions { crowd: 0.5, ..Conditions::default() };
+    s.context = context;
     play_game(&s)
 }
 
@@ -2028,6 +2204,8 @@ pub fn trace_snap_opt(
         ot_poss: [0, 0],
         ot_first: 0,
         drive_start_poss: 0,
+        mind: Rng::new(seed as u32 ^ 0x6A09_E667),
+        reviewed: None,
     };
     g.stats.quarters.push([0, 0]);
     super::sim::TRACE.store(trace, std::sync::atomic::Ordering::Relaxed);

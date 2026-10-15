@@ -1,0 +1,463 @@
+{
+ "source": "sportsdataverse cfb_schedules (CFBD), regular season, same-division games",
+ "seasons": [
+  2014,
+  2015,
+  2016,
+  2017,
+  2018,
+  2019,
+  2021,
+  2022,
+  2023,
+  2024,
+  2025
+ ],
+ "divisions": {
+  "fbs": {
+   "all": {
+    "games": 8097,
+    "points_per_team_game": 27.64,
+    "points_sd": 13.99,
+    "home_games": 7846,
+    "home_win": 0.585,
+    "home_margin": 4.38,
+    "decided_by_8_or_less": 0.367,
+    "decided_by_28_plus": 0.211,
+    "shutout_share_of_team_games": 0.0153
+   },
+   "by_season": {
+    "2014": {
+     "games": 721,
+     "points_per_team_game": 28.31,
+     "points_sd": 14.09,
+     "home_games": 699,
+     "home_win": 0.564,
+     "home_margin": 3.88,
+     "decided_by_8_or_less": 0.354,
+     "decided_by_28_plus": 0.207,
+     "shutout_share_of_team_games": 0.018
+    },
+    "2015": {
+     "games": 724,
+     "points_per_team_game": 28.29,
+     "points_sd": 14.56,
+     "home_games": 704,
+     "home_win": 0.565,
+     "home_margin": 4.09,
+     "decided_by_8_or_less": 0.352,
+     "decided_by_28_plus": 0.214,
+     "shutout_share_of_team_games": 0.0186
+    },
+    "2016": {
+     "games": 719,
+     "points_per_team_game": 29.08,
+     "points_sd": 14.67,
+     "home_games": 693,
+     "home_win": 0.583,
+     "home_margin": 4.24,
+     "decided_by_8_or_less": 0.364,
+     "decided_by_28_plus": 0.213,
+     "shutout_share_of_team_games": 0.0125
+    },
+    "2017": {
+     "games": 736,
+     "points_per_team_game": 27.9,
+     "points_sd": 14.47,
+     "home_games": 715,
+     "home_win": 0.58,
+     "home_margin": 4.43,
+     "decided_by_8_or_less": 0.357,
+     "decided_by_28_plus": 0.232,
+     "shutout_share_of_team_games": 0.0156
+    },
+    "2018": {
+     "games": 733,
+     "points_per_team_game": 28.36,
+     "points_sd": 14.37,
+     "home_games": 710,
+     "home_win": 0.596,
+     "home_margin": 4.37,
+     "decided_by_8_or_less": 0.349,
+     "decided_by_28_plus": 0.225,
+     "shutout_share_of_team_games": 0.0095
+    },
+    "2019": {
+     "games": 734,
+     "points_per_team_game": 27.91,
+     "points_sd": 14.3,
+     "home_games": 714,
+     "home_win": 0.602,
+     "home_margin": 4.6,
+     "decided_by_8_or_less": 0.356,
+     "decided_by_28_plus": 0.238,
+     "shutout_share_of_team_games": 0.0163
+    },
+    "2021": {
+     "games": 732,
+     "points_per_team_game": 27.47,
+     "points_sd": 13.62,
+     "home_games": 712,
+     "home_win": 0.584,
+     "home_margin": 3.68,
+     "decided_by_8_or_less": 0.377,
+     "decided_by_28_plus": 0.214,
+     "shutout_share_of_team_games": 0.0171
+    },
+    "2022": {
+     "games": 734,
+     "points_per_team_game": 27.17,
+     "points_sd": 13.39,
+     "home_games": 715,
+     "home_win": 0.586,
+     "home_margin": 4.2,
+     "decided_by_8_or_less": 0.403,
+     "decided_by_28_plus": 0.199,
+     "shutout_share_of_team_games": 0.0143
+    },
+    "2023": {
+     "games": 750,
+     "points_per_team_game": 26.7,
+     "points_sd": 13.4,
+     "home_games": 728,
+     "home_win": 0.584,
+     "home_margin": 4.16,
+     "decided_by_8_or_less": 0.375,
+     "decided_by_28_plus": 0.192,
+     "shutout_share_of_team_games": 0.0153
+    },
+    "2024": {
+     "games": 752,
+     "points_per_team_game": 26.79,
+     "points_sd": 13.42,
+     "home_games": 717,
+     "home_win": 0.594,
+     "home_margin": 5.29,
+     "decided_by_8_or_less": 0.383,
+     "decided_by_28_plus": 0.191,
+     "shutout_share_of_team_games": 0.016
+    },
+    "2025": {
+     "games": 762,
+     "points_per_team_game": 26.23,
+     "points_sd": 13.3,
+     "home_games": 739,
+     "home_win": 0.597,
+     "home_margin": 5.22,
+     "decided_by_8_or_less": 0.366,
+     "decided_by_28_plus": 0.196,
+     "shutout_share_of_team_games": 0.0144
+    }
+   },
+   "conference_games_only": {
+    "games": 5823,
+    "points_per_team_game": 27.62,
+    "points_sd": 13.54,
+    "home_games": 5691,
+    "home_win": 0.554,
+    "home_margin": 2.43,
+    "decided_by_8_or_less": 0.386,
+    "decided_by_28_plus": 0.182,
+    "shutout_share_of_team_games": 0.013
+   }
+  },
+  "fcs": {
+   "all": {
+    "games": 7008,
+    "points_per_team_game": 26.51,
+    "points_sd": 14.0,
+    "home_games": 6803,
+    "home_win": 0.562,
+    "home_margin": 3.47,
+    "decided_by_8_or_less": 0.369,
+    "decided_by_28_plus": 0.211,
+    "shutout_share_of_team_games": 0.0219
+   },
+   "by_season": {
+    "2014": {
+     "games": 636,
+     "points_per_team_game": 26.99,
+     "points_sd": 14.26,
+     "home_games": 584,
+     "home_win": 0.567,
+     "home_margin": 3.44,
+     "decided_by_8_or_less": 0.358,
+     "decided_by_28_plus": 0.208,
+     "shutout_share_of_team_games": 0.0197
+    },
+    "2015": {
+     "games": 607,
+     "points_per_team_game": 26.04,
+     "points_sd": 14.28,
+     "home_games": 554,
+     "home_win": 0.563,
+     "home_margin": 4.2,
+     "decided_by_8_or_less": 0.356,
+     "decided_by_28_plus": 0.234,
+     "shutout_share_of_team_games": 0.0264
+    },
+    "2016": {
+     "games": 616,
+     "points_per_team_game": 27.12,
+     "points_sd": 13.89,
+     "home_games": 612,
+     "home_win": 0.556,
+     "home_margin": 2.66,
+     "decided_by_8_or_less": 0.391,
+     "decided_by_28_plus": 0.201,
+     "shutout_share_of_team_games": 0.017
+    },
+    "2017": {
+     "games": 625,
+     "points_per_team_game": 25.26,
+     "points_sd": 14.45,
+     "home_games": 614,
+     "home_win": 0.568,
+     "home_margin": 3.63,
+     "decided_by_8_or_less": 0.349,
+     "decided_by_28_plus": 0.226,
+     "shutout_share_of_team_games": 0.0304
+    },
+    "2018": {
+     "games": 607,
+     "points_per_team_game": 27.61,
+     "points_sd": 14.9,
+     "home_games": 596,
+     "home_win": 0.572,
+     "home_margin": 4.14,
+     "decided_by_8_or_less": 0.346,
+     "decided_by_28_plus": 0.244,
+     "shutout_share_of_team_games": 0.0264
+    },
+    "2019": {
+     "games": 662,
+     "points_per_team_game": 27.2,
+     "points_sd": 13.59,
+     "home_games": 656,
+     "home_win": 0.567,
+     "home_margin": 3.66,
+     "decided_by_8_or_less": 0.369,
+     "decided_by_28_plus": 0.199,
+     "shutout_share_of_team_games": 0.0136
+    },
+    "2021": {
+     "games": 629,
+     "points_per_team_game": 26.28,
+     "points_sd": 14.06,
+     "home_games": 625,
+     "home_win": 0.542,
+     "home_margin": 2.45,
+     "decided_by_8_or_less": 0.35,
+     "decided_by_28_plus": 0.21,
+     "shutout_share_of_team_games": 0.0262
+    },
+    "2022": {
+     "games": 641,
+     "points_per_team_game": 27.25,
+     "points_sd": 14.01,
+     "home_games": 625,
+     "home_win": 0.554,
+     "home_margin": 3.15,
+     "decided_by_8_or_less": 0.374,
+     "decided_by_28_plus": 0.209,
+     "shutout_share_of_team_games": 0.0195
+    },
+    "2023": {
+     "games": 610,
+     "points_per_team_game": 25.37,
+     "points_sd": 13.5,
+     "home_games": 592,
+     "home_win": 0.537,
+     "home_margin": 3.45,
+     "decided_by_8_or_less": 0.38,
+     "decided_by_28_plus": 0.2,
+     "shutout_share_of_team_games": 0.0238
+    },
+    "2024": {
+     "games": 688,
+     "points_per_team_game": 26.12,
+     "points_sd": 13.55,
+     "home_games": 671,
+     "home_win": 0.589,
+     "home_margin": 4.45,
+     "decided_by_8_or_less": 0.39,
+     "decided_by_28_plus": 0.195,
+     "shutout_share_of_team_games": 0.0247
+    },
+    "2025": {
+     "games": 687,
+     "points_per_team_game": 26.36,
+     "points_sd": 13.46,
+     "home_games": 674,
+     "home_win": 0.567,
+     "home_margin": 3.03,
+     "decided_by_8_or_less": 0.387,
+     "decided_by_28_plus": 0.204,
+     "shutout_share_of_team_games": 0.0146
+    }
+   },
+   "conference_games_only": {
+    "games": 5189,
+    "points_per_team_game": 26.5,
+    "points_sd": 13.69,
+    "home_games": 5048,
+    "home_win": 0.54,
+    "home_margin": 2.03,
+    "decided_by_8_or_less": 0.379,
+    "decided_by_28_plus": 0.196,
+    "shutout_share_of_team_games": 0.0202
+   }
+  },
+  "ii": {
+   "all": {
+    "games": 4274,
+    "points_per_team_game": 26.43,
+    "points_sd": 15.2,
+    "home_games": 4164,
+    "home_win": 0.528,
+    "home_margin": 2.15,
+    "decided_by_8_or_less": 0.338,
+    "decided_by_28_plus": 0.275,
+    "shutout_share_of_team_games": 0.0343
+   },
+   "by_season": {
+    "2021": {
+     "games": 854,
+     "points_per_team_game": 26.84,
+     "points_sd": 15.59,
+     "home_games": 853,
+     "home_win": 0.519,
+     "home_margin": 1.51,
+     "decided_by_8_or_less": 0.331,
+     "decided_by_28_plus": 0.287,
+     "shutout_share_of_team_games": 0.0369
+    },
+    "2022": {
+     "games": 869,
+     "points_per_team_game": 26.23,
+     "points_sd": 14.77,
+     "home_games": 844,
+     "home_win": 0.514,
+     "home_margin": 1.8,
+     "decided_by_8_or_less": 0.337,
+     "decided_by_28_plus": 0.264,
+     "shutout_share_of_team_games": 0.0299
+    },
+    "2023": {
+     "games": 829,
+     "points_per_team_game": 26.07,
+     "points_sd": 15.39,
+     "home_games": 802,
+     "home_win": 0.535,
+     "home_margin": 2.83,
+     "decided_by_8_or_less": 0.334,
+     "decided_by_28_plus": 0.281,
+     "shutout_share_of_team_games": 0.0344
+    },
+    "2024": {
+     "games": 865,
+     "points_per_team_game": 25.62,
+     "points_sd": 15.04,
+     "home_games": 826,
+     "home_win": 0.53,
+     "home_margin": 2.3,
+     "decided_by_8_or_less": 0.343,
+     "decided_by_28_plus": 0.273,
+     "shutout_share_of_team_games": 0.0434
+    },
+    "2025": {
+     "games": 857,
+     "points_per_team_game": 27.4,
+     "points_sd": 15.15,
+     "home_games": 839,
+     "home_win": 0.541,
+     "home_margin": 2.34,
+     "decided_by_8_or_less": 0.342,
+     "decided_by_28_plus": 0.271,
+     "shutout_share_of_team_games": 0.0268
+    }
+   },
+   "conference_games_only": {
+    "games": 3497,
+    "points_per_team_game": 26.58,
+    "points_sd": 15.23,
+    "home_games": 3425,
+    "home_win": 0.522,
+    "home_margin": 1.73,
+    "decided_by_8_or_less": 0.339,
+    "decided_by_28_plus": 0.276,
+    "shutout_share_of_team_games": 0.0349
+   }
+  },
+  "iii": {
+   "all": {
+    "games": 4756,
+    "points_per_team_game": 26.67,
+    "points_sd": 17.17,
+    "home_games": 4689,
+    "home_win": 0.538,
+    "home_margin": 2.82,
+    "decided_by_8_or_less": 0.261,
+    "decided_by_28_plus": 0.365,
+    "shutout_share_of_team_games": 0.0571
+   },
+   "by_season": {
+    "2022": {
+     "games": 1194,
+     "points_per_team_game": 26.28,
+     "points_sd": 17.19,
+     "home_games": 1180,
+     "home_win": 0.541,
+     "home_margin": 3.85,
+     "decided_by_8_or_less": 0.274,
+     "decided_by_28_plus": 0.357,
+     "shutout_share_of_team_games": 0.0624
+    },
+    "2023": {
+     "games": 1159,
+     "points_per_team_game": 27.24,
+     "points_sd": 17.3,
+     "home_games": 1148,
+     "home_win": 0.536,
+     "home_margin": 2.51,
+     "decided_by_8_or_less": 0.236,
+     "decided_by_28_plus": 0.374,
+     "shutout_share_of_team_games": 0.0505
+    },
+    "2024": {
+     "games": 1207,
+     "points_per_team_game": 26.38,
+     "points_sd": 17.13,
+     "home_games": 1177,
+     "home_win": 0.553,
+     "home_margin": 3.28,
+     "decided_by_8_or_less": 0.25,
+     "decided_by_28_plus": 0.371,
+     "shutout_share_of_team_games": 0.0613
+    },
+    "2025": {
+     "games": 1196,
+     "points_per_team_game": 26.82,
+     "points_sd": 17.03,
+     "home_games": 1184,
+     "home_win": 0.524,
+     "home_margin": 1.64,
+     "decided_by_8_or_less": 0.283,
+     "decided_by_28_plus": 0.356,
+     "shutout_share_of_team_games": 0.0539
+    }
+   },
+   "conference_games_only": {
+    "games": 3464,
+    "points_per_team_game": 26.63,
+    "points_sd": 17.26,
+    "home_games": 3421,
+    "home_win": 0.53,
+    "home_margin": 2.68,
+    "decided_by_8_or_less": 0.256,
+    "decided_by_28_plus": 0.376,
+    "shutout_share_of_team_games": 0.0585
+   }
+  }
+ }
+}

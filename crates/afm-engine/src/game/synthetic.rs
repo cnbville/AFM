@@ -4,7 +4,7 @@
 use super::roster::*;
 use crate::attributes::{Attr, MAX_RATING, MIN_RATING};
 use crate::player::{Level, ProspectOptions, generate_prospect, talent_from_z};
-use crate::positions::Position;
+use crate::positions::{POSITION_COUNT, Position, overall_for};
 use crate::rng::{Rng, clamp};
 
 /// Typical overall of a starter and of a backup at each level, from the
@@ -29,8 +29,10 @@ fn z_for(talent: f64) -> f64 {
     0.5 * (lo + hi)
 }
 
-/// How many of each position a roster carries.
-pub fn roster_counts(level: Level) -> [(Position, usize); 13] {
+/// How many of each position a roster carries. Above high school a team
+/// dresses a long snapper (fix list 1.7); a high school team snaps with a
+/// player from another position.
+pub fn roster_counts(level: Level) -> [(Position, usize); POSITION_COUNT] {
     let big = level != Level::HS;
     [
         (Position::QB, if big { 3 } else { 2 }),
@@ -46,6 +48,7 @@ pub fn roster_counts(level: Level) -> [(Position, usize); 13] {
         (Position::S, if big { 4 } else { 2 }),
         (Position::K, 1),
         (Position::P, 1),
+        (Position::LS, if big { 1 } else { 0 }),
     ]
 }
 
@@ -53,17 +56,21 @@ pub fn roster_counts(level: Level) -> [(Position, usize); 13] {
 /// a bad one -3).
 pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme, seed: u32) -> GameTeam {
     let mut rng = Rng::new(seed);
+    // The long snapper draws from his own stream, so the rest of the team
+    // is the same as before he was added.
+    let mut ls_rng = Rng::new(seed ^ 0x4C53_0000);
     let (starter, backup) = level_strength(level);
     let mut players = Vec::new();
     let mut id = seed.wrapping_mul(1000) & 0x7FFF_FFFF;
     for (pos, n) in roster_counts(level) {
         let starters = starters(pos);
         for k in 0..n {
+            let r = if pos == Position::LS { &mut ls_rng } else { &mut rng };
             let base = if k < starters { starter } else { backup - 2.0 * (k - starters) as f64 };
-            let target = clamp(base + quality + rng.normal(0.0, 4.5), 20.0, 97.0);
+            let target = clamp(base + quality + r.normal(0.0, 4.5), 20.0, 97.0);
             id += 1;
             let mut p = generate_prospect(
-                &mut rng,
+                r,
                 ProspectOptions { id: Some(id), position: Some(pos), age: Some(14), talent_z: Some(z_for(target)) },
             );
             // Grown into his body and skills for the level.
@@ -80,6 +87,11 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
             };
             for a in Attr::ALL {
                 p.attributes[a] = clamp(p.ceilings[a] * share, MIN_RATING, MAX_RATING);
+            }
+            // A snapper is as good as his snap: set it so his rating fits the level.
+            if pos == Position::LS {
+                let rest = overall_for(Position::LS, &p.attributes);
+                p.game.snapping = clamp((target - 0.25 * rest) / 3.75, 1.0, 20.0);
             }
             let exp = match level {
                 Level::NFL => 2.0 + (k % 6) as f64,
@@ -110,6 +122,8 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
         front: if rng.chance(0.35) { Front::ThreeFour } else { Front::FourThree },
         shell: *rng.pick(&[Shell::Cover3, Shell::Quarters, Shell::ManPressure, Shell::Cover2]),
         playbook: 1.0,
+        // From its own stream so the draws above keep their values.
+        sportsmanship: clamp(Rng::new(seed ^ 0x5BD1_E995).normal(10.0, 3.5), 1.0, 20.0),
     };
     GameTeam { name: name.to_string(), players, staff }
 }

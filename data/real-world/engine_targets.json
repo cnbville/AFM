@@ -1,0 +1,2528 @@
+{
+ "source": "nflverse play-by-play, participation (NGS), FTN charting and snap counts; regular seasons",
+ "seasons": [
+  2021,
+  2022,
+  2023,
+  2024,
+  2025
+ ],
+ "runs_by_box": {
+  "note": "Designed runs (no scrambles or kneels). Box = defenders in the box (NGS). Heavy boxes come more in short yardage, so the 'neutral' split (1st/2nd and 5+, ball between the 20s, win probability 10-90%) is the fairer test.",
+  "all": {
+   "5": {
+    "n": 2261,
+    "share": 0.034,
+    "ypc": 5.27,
+    "median": 4.0,
+    "epa": -0.014,
+    "success": 0.425,
+    "stuff_rate_0_or_less": 0.141,
+    "explosive_10plus": 0.142
+   },
+   "6": {
+    "n": 28186,
+    "share": 0.425,
+    "ypc": 4.61,
+    "median": 3.0,
+    "epa": -0.04,
+    "success": 0.416,
+    "stuff_rate_0_or_less": 0.161,
+    "explosive_10plus": 0.113
+   },
+   "7": {
+    "n": 24082,
+    "share": 0.363,
+    "ypc": 4.18,
+    "median": 3.0,
+    "epa": -0.065,
+    "success": 0.403,
+    "stuff_rate_0_or_less": 0.184,
+    "explosive_10plus": 0.101
+   },
+   "8": {
+    "n": 9149,
+    "share": 0.138,
+    "ypc": 3.69,
+    "median": 2.0,
+    "epa": -0.091,
+    "success": 0.395,
+    "stuff_rate_0_or_less": 0.226,
+    "explosive_10plus": 0.088
+   },
+   "9": {
+    "n": 1471,
+    "share": 0.022,
+    "ypc": 2.3,
+    "median": 1.0,
+    "epa": -0.076,
+    "success": 0.439,
+    "stuff_rate_0_or_less": 0.304,
+    "explosive_10plus": 0.041
+   }
+  },
+  "neutral": {
+   "5": {
+    "n": 980,
+    "share": 0.033,
+    "ypc": 5.12,
+    "median": 4.0,
+    "epa": -0.073,
+    "success": 0.391,
+    "stuff_rate_0_or_less": 0.144,
+    "explosive_10plus": 0.134
+   },
+   "6": {
+    "n": 14213,
+    "share": 0.478,
+    "ypc": 4.85,
+    "median": 4.0,
+    "epa": -0.06,
+    "success": 0.386,
+    "stuff_rate_0_or_less": 0.151,
+    "explosive_10plus": 0.12
+   },
+   "7": {
+    "n": 11038,
+    "share": 0.371,
+    "ypc": 4.68,
+    "median": 3.0,
+    "epa": -0.089,
+    "success": 0.356,
+    "stuff_rate_0_or_less": 0.163,
+    "explosive_10plus": 0.116
+   },
+   "8": {
+    "n": 3195,
+    "share": 0.107,
+    "ypc": 4.39,
+    "median": 3.0,
+    "epa": -0.141,
+    "success": 0.329,
+    "stuff_rate_0_or_less": 0.207,
+    "explosive_10plus": 0.116
+   },
+   "9": {
+    "n": 198,
+    "share": 0.007,
+    "ypc": 3.89,
+    "median": 3.0,
+    "epa": -0.221,
+    "success": 0.298,
+    "stuff_rate_0_or_less": 0.172,
+    "explosive_10plus": 0.106
+   }
+  },
+  "neutral_by_box_minus_blockers": {
+   "-2": {
+    "n": 656,
+    "share": 0.022,
+    "ypc": 5.1,
+    "median": 4.0,
+    "epa": -0.053,
+    "success": 0.383,
+    "stuff_rate_0_or_less": 0.159,
+    "explosive_10plus": 0.142
+   },
+   "-1": {
+    "n": 3942,
+    "share": 0.133,
+    "ypc": 4.54,
+    "median": 3.0,
+    "epa": -0.106,
+    "success": 0.355,
+    "stuff_rate_0_or_less": 0.161,
+    "explosive_10plus": 0.107
+   },
+   "0": {
+    "n": 9633,
+    "share": 0.324,
+    "ypc": 4.73,
+    "median": 4.0,
+    "epa": -0.078,
+    "success": 0.374,
+    "stuff_rate_0_or_less": 0.159,
+    "explosive_10plus": 0.118
+   },
+   "1": {
+    "n": 2907,
+    "share": 0.098,
+    "ypc": 4.8,
+    "median": 3.0,
+    "epa": -0.09,
+    "success": 0.346,
+    "stuff_rate_0_or_less": 0.173,
+    "explosive_10plus": 0.12
+   },
+   "2": {
+    "n": 424,
+    "share": 0.014,
+    "ypc": 4.87,
+    "median": 4.0,
+    "epa": -0.114,
+    "success": 0.384,
+    "stuff_rate_0_or_less": 0.184,
+    "explosive_10plus": 0.134
+   }
+  },
+  "blockers_note": "Blockers = offensive linemen + tight ends + fullbacks on the field (a tight end split wide still counts, so this slightly overstates blockers)."
+ },
+ "dropbacks": {
+  "all": {
+   "n": 102020,
+   "share": null,
+   "epa": 0.029,
+   "success": 0.454,
+   "comp": 0.645,
+   "ypa": 7.05,
+   "sack_rate": 0.064,
+   "int_rate": 0.023,
+   "scramble_rate": 0.049
+  },
+  "by_pressure": {
+   "False": {
+    "n": 68641,
+    "share": 0.673,
+    "epa": 0.223,
+    "success": 0.52,
+    "comp": 0.702,
+    "ypa": 7.46,
+    "sack_rate": 0.0,
+    "int_rate": 0.02,
+    "scramble_rate": 0.026
+   },
+   "True": {
+    "n": 28827,
+    "share": 0.283,
+    "epa": -0.298,
+    "success": 0.325,
+    "comp": 0.489,
+    "ypa": 5.96,
+    "sack_rate": 0.139,
+    "int_rate": 0.032,
+    "scramble_rate": 0.048
+   }
+  },
+  "pressure_rate_by_rushers": {
+   "0": {
+    "n": 462,
+    "share": 0.005,
+    "pressure": 0.232,
+    "sack_rate": 0.054,
+    "epa": 0.097,
+    "time_to_throw": 2.71
+   },
+   "2": {
+    "n": 739,
+    "share": 0.007,
+    "pressure": 0.077,
+    "sack_rate": 0.018,
+    "epa": 0.16,
+    "time_to_throw": 2.23
+   },
+   "3": {
+    "n": 5301,
+    "share": 0.052,
+    "pressure": 0.198,
+    "sack_rate": 0.039,
+    "epa": 0.073,
+    "time_to_throw": 2.84
+   },
+   "4": {
+    "n": 68182,
+    "share": 0.668,
+    "pressure": 0.272,
+    "sack_rate": 0.06,
+    "epa": 0.03,
+    "time_to_throw": 2.75
+   },
+   "5": {
+    "n": 20320,
+    "share": 0.199,
+    "pressure": 0.367,
+    "sack_rate": 0.081,
+    "epa": 0.018,
+    "time_to_throw": 2.62
+   },
+   "6": {
+    "n": 5354,
+    "share": 0.052,
+    "pressure": 0.445,
+    "sack_rate": 0.09,
+    "epa": -0.012,
+    "time_to_throw": 2.5
+   },
+   "7": {
+    "n": 1037,
+    "share": 0.01,
+    "pressure": 0.477,
+    "sack_rate": 0.074,
+    "epa": 0.054,
+    "time_to_throw": 2.37
+   }
+  },
+  "time_to_throw": {
+   "mean": 2.71,
+   "p10": 1.6,
+   "p50": 2.5,
+   "p90": 3.94
+  },
+  "by_coverage": {
+   "2_MAN": {
+    "n": 4364,
+    "share": 0.045,
+    "epa": 0.031,
+    "success": 0.434,
+    "comp": 0.589,
+    "ypa": 6.53,
+    "sack_rate": 0.056,
+    "int_rate": 0.025,
+    "scramble_rate": 0.057
+   },
+   "COMBO": {
+    "n": 1616,
+    "share": 0.017,
+    "epa": -0.022,
+    "success": 0.446,
+    "comp": 0.633,
+    "ypa": 6.98,
+    "sack_rate": 0.076,
+    "int_rate": 0.028,
+    "scramble_rate": 0.054
+   },
+   "COVER_0": {
+    "n": 3945,
+    "share": 0.041,
+    "epa": 0.051,
+    "success": 0.433,
+    "comp": 0.527,
+    "ypa": 4.6,
+    "sack_rate": 0.034,
+    "int_rate": 0.021,
+    "scramble_rate": 0.016
+   },
+   "COVER_1": {
+    "n": 26943,
+    "share": 0.277,
+    "epa": 0.07,
+    "success": 0.442,
+    "comp": 0.576,
+    "ypa": 7.04,
+    "sack_rate": 0.047,
+    "int_rate": 0.02,
+    "scramble_rate": 0.036
+   },
+   "COVER_2": {
+    "n": 16962,
+    "share": 0.174,
+    "epa": 0.048,
+    "success": 0.473,
+    "comp": 0.713,
+    "ypa": 7.05,
+    "sack_rate": 0.043,
+    "int_rate": 0.023,
+    "scramble_rate": 0.036
+   },
+   "COVER_3": {
+    "n": 24726,
+    "share": 0.254,
+    "epa": 0.102,
+    "success": 0.49,
+    "comp": 0.688,
+    "ypa": 7.62,
+    "sack_rate": 0.032,
+    "int_rate": 0.023,
+    "scramble_rate": 0.026
+   },
+   "COVER_4": {
+    "n": 11232,
+    "share": 0.115,
+    "epa": 0.079,
+    "success": 0.46,
+    "comp": 0.674,
+    "ypa": 6.82,
+    "sack_rate": 0.035,
+    "int_rate": 0.021,
+    "scramble_rate": 0.027
+   },
+   "COVER_6": {
+    "n": 5967,
+    "share": 0.061,
+    "epa": 0.074,
+    "success": 0.474,
+    "comp": 0.677,
+    "ypa": 7.43,
+    "sack_rate": 0.033,
+    "int_rate": 0.029,
+    "scramble_rate": 0.029
+   },
+   "COVER_9": {
+    "n": 1249,
+    "share": 0.013,
+    "epa": -0.044,
+    "success": 0.431,
+    "comp": 0.642,
+    "ypa": 7.02,
+    "sack_rate": 0.07,
+    "int_rate": 0.028,
+    "scramble_rate": 0.057
+   }
+  },
+  "by_man_zone": {
+   "MAN_COVERAGE": {
+    "n": 35252,
+    "share": 0.362,
+    "epa": 0.063,
+    "success": 0.44,
+    "comp": 0.572,
+    "ypa": 6.7,
+    "sack_rate": 0.047,
+    "int_rate": 0.021,
+    "scramble_rate": 0.036
+   },
+   "ZONE_COVERAGE": {
+    "n": 61997,
+    "share": 0.638,
+    "epa": 0.073,
+    "success": 0.476,
+    "comp": 0.689,
+    "ypa": 7.28,
+    "sack_rate": 0.037,
+    "int_rate": 0.024,
+    "scramble_rate": 0.03
+   }
+  },
+  "coverage_by_season": {
+   "2021": {
+    "COVER_3": 0.329,
+    "COVER_1": 0.237,
+    "COVER_4": 0.142,
+    "COVER_2": 0.137,
+    "COVER_6": 0.085,
+    "COVER_0": 0.047,
+    "2_MAN": 0.018
+   },
+   "2022": {
+    "COVER_3": 0.322,
+    "COVER_1": 0.228,
+    "COVER_4": 0.159,
+    "COVER_2": 0.141,
+    "COVER_6": 0.087,
+    "COVER_0": 0.042,
+    "2_MAN": 0.018
+   },
+   "2023": {
+    "COVER_1": 0.32,
+    "COVER_3": 0.183,
+    "COVER_2": 0.154,
+    "COVER_4": 0.121,
+    "2_MAN": 0.061,
+    "COMBO": 0.055,
+    "COVER_6": 0.052,
+    "COVER_0": 0.031,
+    "COVER_9": 0.021
+   },
+   "2024": {
+    "COVER_1": 0.365,
+    "COVER_2": 0.206,
+    "COVER_3": 0.177,
+    "2_MAN": 0.075,
+    "COVER_4": 0.06,
+    "COVER_0": 0.044,
+    "COVER_6": 0.035,
+    "COMBO": 0.02,
+    "COVER_9": 0.016
+   },
+   "2025": {
+    "COVER_3": 0.277,
+    "COVER_2": 0.229,
+    "COVER_1": 0.224,
+    "COVER_4": 0.101,
+    "COVER_6": 0.054,
+    "2_MAN": 0.047,
+    "COVER_0": 0.039,
+    "COVER_9": 0.025
+   }
+  }
+ },
+ "targets_by_route": {
+  "ANGLE": {
+   "n": 1351,
+   "epa": 0.098,
+   "catch": 0.762,
+   "ypt": 6.41,
+   "int": 0.015
+  },
+  "CORNER": {
+   "n": 3249,
+   "epa": 0.421,
+   "catch": 0.442,
+   "ypt": 10.25,
+   "int": 0.041
+  },
+  "CROSS": {
+   "n": 4107,
+   "epa": 0.227,
+   "catch": 0.686,
+   "ypt": 8.12,
+   "int": 0.028
+  },
+  "DEEP OUT": {
+   "n": 3716,
+   "epa": 0.272,
+   "catch": 0.536,
+   "ypt": 7.79,
+   "int": 0.025
+  },
+  "FLAT": {
+   "n": 4941,
+   "epa": 0.015,
+   "catch": 0.81,
+   "ypt": 5.29,
+   "int": 0.005
+  },
+  "GO": {
+   "n": 7562,
+   "epa": 0.288,
+   "catch": 0.35,
+   "ypt": 9.89,
+   "int": 0.043
+  },
+  "HITCH": {
+   "n": 5830,
+   "epa": 0.137,
+   "catch": 0.703,
+   "ypt": 6.76,
+   "int": 0.023
+  },
+  "HITCH/CURL": {
+   "n": 9106,
+   "epa": 0.157,
+   "catch": 0.745,
+   "ypt": 6.73,
+   "int": 0.017
+  },
+  "IN": {
+   "n": 2143,
+   "epa": 0.24,
+   "catch": 0.597,
+   "ypt": 8.26,
+   "int": 0.032
+  },
+  "IN/DIG": {
+   "n": 4683,
+   "epa": 0.321,
+   "catch": 0.592,
+   "ypt": 9.53,
+   "int": 0.043
+  },
+  "OUT": {
+   "n": 5018,
+   "epa": 0.151,
+   "catch": 0.67,
+   "ypt": 6.36,
+   "int": 0.017
+  },
+  "POST": {
+   "n": 4086,
+   "epa": 0.532,
+   "catch": 0.529,
+   "ypt": 12.27,
+   "int": 0.07
+  },
+  "QUICK OUT": {
+   "n": 9866,
+   "epa": 0.055,
+   "catch": 0.747,
+   "ypt": 5.29,
+   "int": 0.009
+  },
+  "SCREEN": {
+   "n": 8714,
+   "epa": -0.052,
+   "catch": 0.866,
+   "ypt": 5.51,
+   "int": 0.006
+  },
+  "SHALLOW CROSS/DRAG": {
+   "n": 3552,
+   "epa": 0.096,
+   "catch": 0.698,
+   "ypt": 6.49,
+   "int": 0.015
+  },
+  "SLANT": {
+   "n": 5628,
+   "epa": 0.233,
+   "catch": 0.67,
+   "ypt": 7.28,
+   "int": 0.023
+  },
+  "SWING": {
+   "n": 2410,
+   "epa": -0.101,
+   "catch": 0.819,
+   "ypt": 4.81,
+   "int": 0.005
+  },
+  "TEXAS/ANGLE": {
+   "n": 523,
+   "epa": 0.107,
+   "catch": 0.769,
+   "ypt": 6.54,
+   "int": 0.021
+  },
+  "WHEEL": {
+   "n": 798,
+   "epa": 0.316,
+   "catch": 0.456,
+   "ypt": 9.72,
+   "int": 0.021
+  }
+ },
+ "targets_by_route_and_coverage": {
+  "ANGLE": {
+   "COVER_2": {
+    "n": 361,
+    "epa": 0.106,
+    "catch": 0.814,
+    "ypt": 6.77,
+    "int": 0.014
+   },
+   "COVER_3": {
+    "n": 466,
+    "epa": 0.041,
+    "catch": 0.779,
+    "ypt": 6.59,
+    "int": 0.015
+   },
+   "COVER_4": {
+    "n": 202,
+    "epa": 0.043,
+    "catch": 0.683,
+    "ypt": 5.13,
+    "int": 0.01
+   },
+   "COVER_6": {
+    "n": 157,
+    "epa": 0.174,
+    "catch": 0.834,
+    "ypt": 6.39,
+    "int": 0.006
+   }
+  },
+  "CORNER": {
+   "2_MAN": {
+    "n": 158,
+    "epa": 0.163,
+    "catch": 0.373,
+    "ypt": 7.28,
+    "int": 0.032
+   },
+   "COVER_0": {
+    "n": 268,
+    "epa": 0.177,
+    "catch": 0.422,
+    "ypt": 4.81,
+    "int": 0.026
+   },
+   "COVER_1": {
+    "n": 1193,
+    "epa": 0.343,
+    "catch": 0.405,
+    "ypt": 9.74,
+    "int": 0.029
+   },
+   "COVER_2": {
+    "n": 476,
+    "epa": 0.296,
+    "catch": 0.441,
+    "ypt": 10.36,
+    "int": 0.059
+   },
+   "COVER_3": {
+    "n": 637,
+    "epa": 0.698,
+    "catch": 0.523,
+    "ypt": 13.76,
+    "int": 0.057
+   },
+   "COVER_4": {
+    "n": 238,
+    "epa": 0.557,
+    "catch": 0.424,
+    "ypt": 10.16,
+    "int": 0.029
+   },
+   "COVER_6": {
+    "n": 164,
+    "epa": 0.572,
+    "catch": 0.476,
+    "ypt": 11.63,
+    "int": 0.049
+   }
+  },
+  "CROSS": {
+   "COVER_0": {
+    "n": 233,
+    "epa": 0.087,
+    "catch": 0.575,
+    "ypt": 3.51,
+    "int": 0.034
+   },
+   "COVER_1": {
+    "n": 1263,
+    "epa": 0.346,
+    "catch": 0.635,
+    "ypt": 8.65,
+    "int": 0.026
+   },
+   "COVER_2": {
+    "n": 435,
+    "epa": -0.061,
+    "catch": 0.754,
+    "ypt": 6.55,
+    "int": 0.037
+   },
+   "COVER_3": {
+    "n": 1382,
+    "epa": 0.258,
+    "catch": 0.704,
+    "ypt": 9.14,
+    "int": 0.027
+   },
+   "COVER_4": {
+    "n": 472,
+    "epa": 0.211,
+    "catch": 0.752,
+    "ypt": 7.64,
+    "int": 0.021
+   },
+   "COVER_6": {
+    "n": 222,
+    "epa": 0.172,
+    "catch": 0.725,
+    "ypt": 8.1,
+    "int": 0.036
+   }
+  },
+  "DEEP OUT": {
+   "2_MAN": {
+    "n": 284,
+    "epa": 0.226,
+    "catch": 0.511,
+    "ypt": 6.97,
+    "int": 0.018
+   },
+   "COVER_1": {
+    "n": 1307,
+    "epa": 0.305,
+    "catch": 0.539,
+    "ypt": 7.46,
+    "int": 0.02
+   },
+   "COVER_2": {
+    "n": 450,
+    "epa": 0.223,
+    "catch": 0.533,
+    "ypt": 8.2,
+    "int": 0.044
+   },
+   "COVER_3": {
+    "n": 862,
+    "epa": 0.326,
+    "catch": 0.564,
+    "ypt": 8.75,
+    "int": 0.027
+   },
+   "COVER_4": {
+    "n": 337,
+    "epa": 0.277,
+    "catch": 0.528,
+    "ypt": 7.1,
+    "int": 0.012
+   },
+   "COVER_6": {
+    "n": 161,
+    "epa": 0.223,
+    "catch": 0.547,
+    "ypt": 8.94,
+    "int": 0.031
+   }
+  },
+  "FLAT": {
+   "COVER_0": {
+    "n": 253,
+    "epa": 0.031,
+    "catch": 0.711,
+    "ypt": 2.6,
+    "int": 0.016
+   },
+   "COVER_1": {
+    "n": 865,
+    "epa": 0.153,
+    "catch": 0.777,
+    "ypt": 5.64,
+    "int": 0.003
+   },
+   "COVER_2": {
+    "n": 867,
+    "epa": -0.068,
+    "catch": 0.84,
+    "ypt": 5.16,
+    "int": 0.005
+   },
+   "COVER_3": {
+    "n": 1689,
+    "epa": -0.014,
+    "catch": 0.812,
+    "ypt": 5.46,
+    "int": 0.007
+   },
+   "COVER_4": {
+    "n": 731,
+    "epa": -0.005,
+    "catch": 0.828,
+    "ypt": 5.11,
+    "int": 0.004
+   },
+   "COVER_6": {
+    "n": 472,
+    "epa": 0.041,
+    "catch": 0.839,
+    "ypt": 5.81,
+    "int": 0.002
+   }
+  },
+  "GO": {
+   "2_MAN": {
+    "n": 372,
+    "epa": 0.149,
+    "catch": 0.29,
+    "ypt": 8.65,
+    "int": 0.062
+   },
+   "COVER_0": {
+    "n": 386,
+    "epa": 0.03,
+    "catch": 0.319,
+    "ypt": 5.73,
+    "int": 0.026
+   },
+   "COVER_1": {
+    "n": 3102,
+    "epa": 0.226,
+    "catch": 0.331,
+    "ypt": 9.14,
+    "int": 0.025
+   },
+   "COVER_2": {
+    "n": 834,
+    "epa": 0.537,
+    "catch": 0.442,
+    "ypt": 12.41,
+    "int": 0.058
+   },
+   "COVER_3": {
+    "n": 1532,
+    "epa": 0.426,
+    "catch": 0.386,
+    "ypt": 11.89,
+    "int": 0.055
+   },
+   "COVER_4": {
+    "n": 729,
+    "epa": 0.333,
+    "catch": 0.313,
+    "ypt": 9.27,
+    "int": 0.052
+   },
+   "COVER_6": {
+    "n": 370,
+    "epa": 0.159,
+    "catch": 0.351,
+    "ypt": 9.86,
+    "int": 0.084
+   }
+  },
+  "HITCH": {
+   "COVER_1": {
+    "n": 920,
+    "epa": 0.047,
+    "catch": 0.588,
+    "ypt": 5.96,
+    "int": 0.025
+   },
+   "COVER_2": {
+    "n": 956,
+    "epa": 0.21,
+    "catch": 0.753,
+    "ypt": 7.32,
+    "int": 0.025
+   },
+   "COVER_3": {
+    "n": 2247,
+    "epa": 0.167,
+    "catch": 0.733,
+    "ypt": 6.96,
+    "int": 0.021
+   },
+   "COVER_4": {
+    "n": 930,
+    "epa": 0.124,
+    "catch": 0.714,
+    "ypt": 6.75,
+    "int": 0.025
+   },
+   "COVER_6": {
+    "n": 559,
+    "epa": 0.176,
+    "catch": 0.712,
+    "ypt": 6.92,
+    "int": 0.021
+   }
+  },
+  "HITCH/CURL": {
+   "2_MAN": {
+    "n": 379,
+    "epa": 0.065,
+    "catch": 0.678,
+    "ypt": 5.78,
+    "int": 0.026
+   },
+   "COMBO": {
+    "n": 233,
+    "epa": 0.082,
+    "catch": 0.678,
+    "ypt": 6.04,
+    "int": 0.021
+   },
+   "COVER_0": {
+    "n": 168,
+    "epa": 0.065,
+    "catch": 0.571,
+    "ypt": 5.24,
+    "int": 0.03
+   },
+   "COVER_1": {
+    "n": 1759,
+    "epa": 0.031,
+    "catch": 0.641,
+    "ypt": 5.92,
+    "int": 0.016
+   },
+   "COVER_2": {
+    "n": 2372,
+    "epa": 0.187,
+    "catch": 0.797,
+    "ypt": 6.87,
+    "int": 0.014
+   },
+   "COVER_3": {
+    "n": 2371,
+    "epa": 0.21,
+    "catch": 0.771,
+    "ypt": 7.17,
+    "int": 0.016
+   },
+   "COVER_4": {
+    "n": 1067,
+    "epa": 0.201,
+    "catch": 0.782,
+    "ypt": 7.13,
+    "int": 0.02
+   },
+   "COVER_6": {
+    "n": 542,
+    "epa": 0.191,
+    "catch": 0.782,
+    "ypt": 7.18,
+    "int": 0.022
+   },
+   "COVER_9": {
+    "n": 207,
+    "epa": 0.273,
+    "catch": 0.792,
+    "ypt": 7.51,
+    "int": 0.01
+   }
+  },
+  "IN": {
+   "COVER_1": {
+    "n": 604,
+    "epa": 0.166,
+    "catch": 0.533,
+    "ypt": 7.56,
+    "int": 0.025
+   },
+   "COVER_2": {
+    "n": 257,
+    "epa": 0.265,
+    "catch": 0.665,
+    "ypt": 8.65,
+    "int": 0.039
+   },
+   "COVER_3": {
+    "n": 638,
+    "epa": 0.253,
+    "catch": 0.619,
+    "ypt": 9.21,
+    "int": 0.039
+   },
+   "COVER_4": {
+    "n": 314,
+    "epa": 0.276,
+    "catch": 0.624,
+    "ypt": 7.82,
+    "int": 0.032
+   },
+   "COVER_6": {
+    "n": 209,
+    "epa": 0.362,
+    "catch": 0.636,
+    "ypt": 8.65,
+    "int": 0.024
+   }
+  },
+  "IN/DIG": {
+   "2_MAN": {
+    "n": 283,
+    "epa": 0.159,
+    "catch": 0.509,
+    "ypt": 7.23,
+    "int": 0.039
+   },
+   "COVER_1": {
+    "n": 1572,
+    "epa": 0.313,
+    "catch": 0.566,
+    "ypt": 9.03,
+    "int": 0.035
+   },
+   "COVER_2": {
+    "n": 771,
+    "epa": 0.446,
+    "catch": 0.626,
+    "ypt": 10.24,
+    "int": 0.039
+   },
+   "COVER_3": {
+    "n": 975,
+    "epa": 0.333,
+    "catch": 0.624,
+    "ypt": 10.88,
+    "int": 0.059
+   },
+   "COVER_4": {
+    "n": 477,
+    "epa": 0.35,
+    "catch": 0.633,
+    "ypt": 9.35,
+    "int": 0.04
+   },
+   "COVER_6": {
+    "n": 232,
+    "epa": 0.428,
+    "catch": 0.638,
+    "ypt": 11.16,
+    "int": 0.047
+   }
+  },
+  "OUT": {
+   "COVER_0": {
+    "n": 262,
+    "epa": -0.045,
+    "catch": 0.531,
+    "ypt": 3.14,
+    "int": 0.027
+   },
+   "COVER_1": {
+    "n": 1168,
+    "epa": 0.213,
+    "catch": 0.626,
+    "ypt": 6.37,
+    "int": 0.015
+   },
+   "COVER_2": {
+    "n": 543,
+    "epa": 0.091,
+    "catch": 0.724,
+    "ypt": 6.6,
+    "int": 0.024
+   },
+   "COVER_3": {
+    "n": 1545,
+    "epa": 0.142,
+    "catch": 0.683,
+    "ypt": 6.53,
+    "int": 0.016
+   },
+   "COVER_4": {
+    "n": 881,
+    "epa": 0.172,
+    "catch": 0.703,
+    "ypt": 6.6,
+    "int": 0.014
+   },
+   "COVER_6": {
+    "n": 463,
+    "epa": 0.115,
+    "catch": 0.693,
+    "ypt": 6.52,
+    "int": 0.024
+   }
+  },
+  "POST": {
+   "2_MAN": {
+    "n": 193,
+    "epa": 0.446,
+    "catch": 0.508,
+    "ypt": 11.04,
+    "int": 0.057
+   },
+   "COVER_0": {
+    "n": 181,
+    "epa": 1.091,
+    "catch": 0.536,
+    "ypt": 13.33,
+    "int": 0.033
+   },
+   "COVER_1": {
+    "n": 888,
+    "epa": 0.562,
+    "catch": 0.532,
+    "ypt": 11.5,
+    "int": 0.054
+   },
+   "COVER_2": {
+    "n": 794,
+    "epa": 0.553,
+    "catch": 0.545,
+    "ypt": 12.77,
+    "int": 0.083
+   },
+   "COVER_3": {
+    "n": 1069,
+    "epa": 0.473,
+    "catch": 0.557,
+    "ypt": 12.56,
+    "int": 0.072
+   },
+   "COVER_4": {
+    "n": 506,
+    "epa": 0.47,
+    "catch": 0.458,
+    "ypt": 11.44,
+    "int": 0.073
+   },
+   "COVER_6": {
+    "n": 324,
+    "epa": 0.431,
+    "catch": 0.509,
+    "ypt": 13.74,
+    "int": 0.105
+   }
+  },
+  "QUICK OUT": {
+   "2_MAN": {
+    "n": 563,
+    "epa": 0.105,
+    "catch": 0.75,
+    "ypt": 5.17,
+    "int": 0.005
+   },
+   "COMBO": {
+    "n": 213,
+    "epa": -0.0,
+    "catch": 0.746,
+    "ypt": 5.59,
+    "int": 0.014
+   },
+   "COVER_0": {
+    "n": 491,
+    "epa": 0.222,
+    "catch": 0.625,
+    "ypt": 3.5,
+    "int": 0.008
+   },
+   "COVER_1": {
+    "n": 2900,
+    "epa": 0.075,
+    "catch": 0.709,
+    "ypt": 5.21,
+    "int": 0.011
+   },
+   "COVER_2": {
+    "n": 1925,
+    "epa": -0.003,
+    "catch": 0.786,
+    "ypt": 5.19,
+    "int": 0.009
+   },
+   "COVER_3": {
+    "n": 2166,
+    "epa": 0.036,
+    "catch": 0.767,
+    "ypt": 5.62,
+    "int": 0.006
+   },
+   "COVER_4": {
+    "n": 990,
+    "epa": 0.06,
+    "catch": 0.775,
+    "ypt": 5.56,
+    "int": 0.006
+   },
+   "COVER_6": {
+    "n": 433,
+    "epa": 0.063,
+    "catch": 0.781,
+    "ypt": 5.84,
+    "int": 0.009
+   },
+   "COVER_9": {
+    "n": 174,
+    "epa": -0.021,
+    "catch": 0.787,
+    "ypt": 5.48,
+    "int": 0.006
+   }
+  },
+  "SCREEN": {
+   "2_MAN": {
+    "n": 349,
+    "epa": -0.11,
+    "catch": 0.894,
+    "ypt": 4.97,
+    "int": 0.003
+   },
+   "COMBO": {
+    "n": 162,
+    "epa": -0.026,
+    "catch": 0.889,
+    "ypt": 5.83,
+    "int": 0.006
+   },
+   "COVER_0": {
+    "n": 267,
+    "epa": 0.034,
+    "catch": 0.801,
+    "ypt": 5.58,
+    "int": 0.019
+   },
+   "COVER_1": {
+    "n": 1943,
+    "epa": -0.099,
+    "catch": 0.83,
+    "ypt": 5.14,
+    "int": 0.009
+   },
+   "COVER_2": {
+    "n": 1779,
+    "epa": -0.079,
+    "catch": 0.869,
+    "ypt": 5.37,
+    "int": 0.004
+   },
+   "COVER_3": {
+    "n": 2397,
+    "epa": 0.009,
+    "catch": 0.886,
+    "ypt": 5.92,
+    "int": 0.005
+   },
+   "COVER_4": {
+    "n": 1175,
+    "epa": -0.05,
+    "catch": 0.879,
+    "ypt": 5.39,
+    "int": 0.003
+   },
+   "COVER_6": {
+    "n": 492,
+    "epa": -0.065,
+    "catch": 0.874,
+    "ypt": 5.68,
+    "int": 0.008
+   }
+  },
+  "SHALLOW CROSS/DRAG": {
+   "2_MAN": {
+    "n": 200,
+    "epa": 0.207,
+    "catch": 0.7,
+    "ypt": 7.26,
+    "int": 0.01
+   },
+   "COVER_0": {
+    "n": 161,
+    "epa": 0.211,
+    "catch": 0.596,
+    "ypt": 4.37,
+    "int": 0.006
+   },
+   "COVER_1": {
+    "n": 1247,
+    "epa": 0.139,
+    "catch": 0.623,
+    "ypt": 6.79,
+    "int": 0.017
+   },
+   "COVER_2": {
+    "n": 661,
+    "epa": 0.028,
+    "catch": 0.782,
+    "ypt": 6.03,
+    "int": 0.017
+   },
+   "COVER_3": {
+    "n": 638,
+    "epa": 0.15,
+    "catch": 0.782,
+    "ypt": 7.19,
+    "int": 0.013
+   },
+   "COVER_4": {
+    "n": 286,
+    "epa": -0.049,
+    "catch": 0.664,
+    "ypt": 5.79,
+    "int": 0.014
+   }
+  },
+  "SLANT": {
+   "2_MAN": {
+    "n": 324,
+    "epa": 0.16,
+    "catch": 0.636,
+    "ypt": 7.42,
+    "int": 0.025
+   },
+   "COVER_0": {
+    "n": 380,
+    "epa": 0.229,
+    "catch": 0.558,
+    "ypt": 4.57,
+    "int": 0.021
+   },
+   "COVER_1": {
+    "n": 2162,
+    "epa": 0.181,
+    "catch": 0.627,
+    "ypt": 6.91,
+    "int": 0.025
+   },
+   "COVER_2": {
+    "n": 798,
+    "epa": 0.323,
+    "catch": 0.717,
+    "ypt": 7.7,
+    "int": 0.016
+   },
+   "COVER_3": {
+    "n": 1022,
+    "epa": 0.289,
+    "catch": 0.736,
+    "ypt": 8.35,
+    "int": 0.024
+   },
+   "COVER_4": {
+    "n": 545,
+    "epa": 0.198,
+    "catch": 0.714,
+    "ypt": 7.28,
+    "int": 0.026
+   },
+   "COVER_6": {
+    "n": 276,
+    "epa": 0.257,
+    "catch": 0.688,
+    "ypt": 7.92,
+    "int": 0.018
+   }
+  },
+  "SWING": {
+   "COVER_1": {
+    "n": 435,
+    "epa": 0.054,
+    "catch": 0.777,
+    "ypt": 5.92,
+    "int": 0.005
+   },
+   "COVER_2": {
+    "n": 688,
+    "epa": -0.127,
+    "catch": 0.855,
+    "ypt": 4.59,
+    "int": 0.004
+   },
+   "COVER_3": {
+    "n": 637,
+    "epa": -0.099,
+    "catch": 0.815,
+    "ypt": 4.83,
+    "int": 0.005
+   },
+   "COVER_4": {
+    "n": 246,
+    "epa": -0.184,
+    "catch": 0.776,
+    "ypt": 4.09,
+    "int": 0.008
+   }
+  },
+  "WHEEL": {
+   "COVER_1": {
+    "n": 348,
+    "epa": 0.292,
+    "catch": 0.42,
+    "ypt": 9.38,
+    "int": 0.009
+   }
+  }
+ },
+ "targets_by_route_man_zone": {
+  "ANGLE": {
+   "MAN_COVERAGE": {
+    "n": 159,
+    "epa": 0.236,
+    "catch": 0.629,
+    "ypt": 6.6,
+    "int": 0.031
+   },
+   "ZONE_COVERAGE": {
+    "n": 1190,
+    "epa": 0.078,
+    "catch": 0.78,
+    "ypt": 6.39,
+    "int": 0.013
+   }
+  },
+  "CORNER": {
+   "MAN_COVERAGE": {
+    "n": 1619,
+    "epa": 0.298,
+    "catch": 0.405,
+    "ypt": 8.69,
+    "int": 0.029
+   },
+   "ZONE_COVERAGE": {
+    "n": 1627,
+    "epa": 0.542,
+    "catch": 0.479,
+    "ypt": 11.81,
+    "int": 0.053
+   }
+  },
+  "CROSS": {
+   "MAN_COVERAGE": {
+    "n": 1583,
+    "epa": 0.29,
+    "catch": 0.625,
+    "ypt": 7.8,
+    "int": 0.028
+   },
+   "ZONE_COVERAGE": {
+    "n": 2519,
+    "epa": 0.186,
+    "catch": 0.724,
+    "ypt": 8.32,
+    "int": 0.029
+   }
+  },
+  "DEEP OUT": {
+   "MAN_COVERAGE": {
+    "n": 1719,
+    "epa": 0.279,
+    "catch": 0.53,
+    "ypt": 7.3,
+    "int": 0.021
+   },
+   "ZONE_COVERAGE": {
+    "n": 1995,
+    "epa": 0.266,
+    "catch": 0.542,
+    "ypt": 8.2,
+    "int": 0.029
+   }
+  },
+  "FLAT": {
+   "MAN_COVERAGE": {
+    "n": 1163,
+    "epa": 0.123,
+    "catch": 0.759,
+    "ypt": 4.95,
+    "int": 0.006
+   },
+   "ZONE_COVERAGE": {
+    "n": 3769,
+    "epa": -0.018,
+    "catch": 0.825,
+    "ypt": 5.39,
+    "int": 0.005
+   }
+  },
+  "GO": {
+   "MAN_COVERAGE": {
+    "n": 3860,
+    "epa": 0.199,
+    "catch": 0.326,
+    "ypt": 8.75,
+    "int": 0.028
+   },
+   "ZONE_COVERAGE": {
+    "n": 3689,
+    "epa": 0.383,
+    "catch": 0.375,
+    "ypt": 11.08,
+    "int": 0.059
+   }
+  },
+  "HITCH": {
+   "MAN_COVERAGE": {
+    "n": 1108,
+    "epa": 0.023,
+    "catch": 0.578,
+    "ypt": 5.71,
+    "int": 0.026
+   },
+   "ZONE_COVERAGE": {
+    "n": 4714,
+    "epa": 0.163,
+    "catch": 0.732,
+    "ypt": 7.0,
+    "int": 0.023
+   }
+  },
+  "HITCH/CURL": {
+   "MAN_COVERAGE": {
+    "n": 2306,
+    "epa": 0.039,
+    "catch": 0.642,
+    "ypt": 5.85,
+    "int": 0.019
+   },
+   "ZONE_COVERAGE": {
+    "n": 6793,
+    "epa": 0.196,
+    "catch": 0.78,
+    "ypt": 7.03,
+    "int": 0.016
+   }
+  },
+  "IN": {
+   "MAN_COVERAGE": {
+    "n": 719,
+    "epa": 0.174,
+    "catch": 0.531,
+    "ypt": 7.36,
+    "int": 0.026
+   },
+   "ZONE_COVERAGE": {
+    "n": 1422,
+    "epa": 0.273,
+    "catch": 0.631,
+    "ypt": 8.72,
+    "int": 0.035
+   }
+  },
+  "IN/DIG": {
+   "MAN_COVERAGE": {
+    "n": 1974,
+    "epa": 0.291,
+    "catch": 0.551,
+    "ypt": 8.53,
+    "int": 0.034
+   },
+   "ZONE_COVERAGE": {
+    "n": 2701,
+    "epa": 0.346,
+    "catch": 0.622,
+    "ypt": 10.26,
+    "int": 0.05
+   }
+  },
+  "OUT": {
+   "MAN_COVERAGE": {
+    "n": 1567,
+    "epa": 0.18,
+    "catch": 0.613,
+    "ypt": 5.92,
+    "int": 0.017
+   },
+   "ZONE_COVERAGE": {
+    "n": 3447,
+    "epa": 0.139,
+    "catch": 0.696,
+    "ypt": 6.57,
+    "int": 0.018
+   }
+  },
+  "POST": {
+   "MAN_COVERAGE": {
+    "n": 1262,
+    "epa": 0.62,
+    "catch": 0.529,
+    "ypt": 11.69,
+    "int": 0.052
+   },
+   "ZONE_COVERAGE": {
+    "n": 2821,
+    "epa": 0.494,
+    "catch": 0.529,
+    "ypt": 12.53,
+    "int": 0.078
+   }
+  },
+  "QUICK OUT": {
+   "MAN_COVERAGE": {
+    "n": 3954,
+    "epa": 0.098,
+    "catch": 0.704,
+    "ypt": 4.99,
+    "int": 0.01
+   },
+   "ZONE_COVERAGE": {
+    "n": 5904,
+    "epa": 0.027,
+    "catch": 0.775,
+    "ypt": 5.49,
+    "int": 0.008
+   }
+  },
+  "SCREEN": {
+   "MAN_COVERAGE": {
+    "n": 2559,
+    "epa": -0.087,
+    "catch": 0.836,
+    "ypt": 5.16,
+    "int": 0.009
+   },
+   "ZONE_COVERAGE": {
+    "n": 6142,
+    "epa": -0.037,
+    "catch": 0.878,
+    "ypt": 5.65,
+    "int": 0.005
+   }
+  },
+  "SHALLOW CROSS/DRAG": {
+   "MAN_COVERAGE": {
+    "n": 1608,
+    "epa": 0.155,
+    "catch": 0.63,
+    "ypt": 6.61,
+    "int": 0.015
+   },
+   "ZONE_COVERAGE": {
+    "n": 1942,
+    "epa": 0.048,
+    "catch": 0.754,
+    "ypt": 6.4,
+    "int": 0.015
+   }
+  },
+  "SLANT": {
+   "MAN_COVERAGE": {
+    "n": 2866,
+    "epa": 0.185,
+    "catch": 0.619,
+    "ypt": 6.66,
+    "int": 0.024
+   },
+   "ZONE_COVERAGE": {
+    "n": 2756,
+    "epa": 0.283,
+    "catch": 0.723,
+    "ypt": 7.93,
+    "int": 0.021
+   }
+  },
+  "SWING": {
+   "MAN_COVERAGE": {
+    "n": 576,
+    "epa": 0.008,
+    "catch": 0.774,
+    "ypt": 5.64,
+    "int": 0.003
+   },
+   "ZONE_COVERAGE": {
+    "n": 1831,
+    "epa": -0.136,
+    "catch": 0.832,
+    "ypt": 4.54,
+    "int": 0.005
+   }
+  },
+  "TEXAS/ANGLE": {
+   "MAN_COVERAGE": {
+    "n": 158,
+    "epa": 0.374,
+    "catch": 0.734,
+    "ypt": 7.16,
+    "int": 0.019
+   },
+   "ZONE_COVERAGE": {
+    "n": 365,
+    "epa": -0.009,
+    "catch": 0.784,
+    "ypt": 6.28,
+    "int": 0.022
+   }
+  },
+  "WHEEL": {
+   "MAN_COVERAGE": {
+    "n": 423,
+    "epa": 0.269,
+    "catch": 0.418,
+    "ypt": 9.01,
+    "int": 0.014
+   },
+   "ZONE_COVERAGE": {
+    "n": 375,
+    "epa": 0.369,
+    "catch": 0.499,
+    "ypt": 10.52,
+    "int": 0.029
+   }
+  }
+ },
+ "play_action": {
+  "seasons": [
+   2022,
+   2023,
+   2024,
+   2025
+  ],
+  "rate_of_dropbacks": 0.218,
+  "pa": {
+   "n": 17637,
+   "share": null,
+   "epa": 0.115,
+   "success": 0.488,
+   "comp": 0.663,
+   "ypa": 8.1,
+   "sack_rate": 0.059,
+   "int_rate": 0.02,
+   "scramble_rate": 0.048
+  },
+  "no_pa": {
+   "n": 63407,
+   "share": null,
+   "epa": 0.002,
+   "success": 0.442,
+   "comp": 0.641,
+   "ypa": 6.76,
+   "sack_rate": 0.067,
+   "int_rate": 0.023,
+   "scramble_rate": 0.051
+  },
+  "pa_air_yards": 7.78,
+  "no_pa_air_yards": 7.74,
+  "gain_by_team_run_game": {
+   "worst_run_quarter": {
+    "pa_epa": 0.007,
+    "no_pa_epa": -0.089,
+    "pa_gain": 0.096,
+    "n_pa": 4448
+   },
+   "q2": {
+    "pa_epa": 0.136,
+    "no_pa_epa": -0.019,
+    "pa_gain": 0.155,
+    "n_pa": 4195
+   },
+   "q3": {
+    "pa_epa": 0.119,
+    "no_pa_epa": 0.052,
+    "pa_gain": 0.068,
+    "n_pa": 4551
+   },
+   "best_run_quarter": {
+    "pa_epa": 0.197,
+    "no_pa_epa": 0.079,
+    "pa_gain": 0.118,
+    "n_pa": 4443
+   }
+  },
+  "note": "Gain = EPA per dropback with play-action minus without. Teams split into quarters by their designed-run EPA that season."
+ },
+ "ftn_flags": {
+  "is_rpo": {
+   "rate_of_dropbacks": 0.026,
+   "with": {
+    "n": 2136,
+    "share": null,
+    "epa": 0.066,
+    "success": 0.495,
+    "comp": 0.789,
+    "ypa": 6.24,
+    "sack_rate": 0.029,
+    "int_rate": 0.009,
+    "scramble_rate": 0.031
+   },
+   "without": {
+    "n": 78908,
+    "share": null,
+    "epa": 0.026,
+    "success": 0.45,
+    "comp": 0.642,
+    "ypa": 7.08,
+    "sack_rate": 0.066,
+    "int_rate": 0.023,
+    "scramble_rate": 0.051
+   }
+  },
+  "is_screen_pass": {
+   "rate_of_dropbacks": 0.088,
+   "with": {
+    "n": 7154,
+    "share": null,
+    "epa": -0.068,
+    "success": 0.409,
+    "comp": 0.853,
+    "ypa": 5.44,
+    "sack_rate": 0.001,
+    "int_rate": 0.006,
+    "scramble_rate": 0.0
+   },
+   "without": {
+    "n": 73890,
+    "share": null,
+    "epa": 0.036,
+    "success": 0.456,
+    "comp": 0.623,
+    "ypa": 7.23,
+    "sack_rate": 0.072,
+    "int_rate": 0.024,
+    "scramble_rate": 0.055
+   }
+  },
+  "is_motion": {
+   "rate_of_dropbacks": 0.446,
+   "with": {
+    "n": 36109,
+    "share": null,
+    "epa": 0.043,
+    "success": 0.461,
+    "comp": 0.661,
+    "ypa": 7.08,
+    "sack_rate": 0.061,
+    "int_rate": 0.021,
+    "scramble_rate": 0.049
+   },
+   "without": {
+    "n": 44935,
+    "share": null,
+    "epa": 0.014,
+    "success": 0.444,
+    "comp": 0.633,
+    "ypa": 7.03,
+    "sack_rate": 0.069,
+    "int_rate": 0.024,
+    "scramble_rate": 0.051
+   }
+  },
+  "is_no_huddle": {
+   "rate_of_dropbacks": 0.118,
+   "with": {
+    "n": 9531,
+    "share": null,
+    "epa": 0.034,
+    "success": 0.479,
+    "comp": 0.653,
+    "ypa": 6.88,
+    "sack_rate": 0.063,
+    "int_rate": 0.023,
+    "scramble_rate": 0.056
+   },
+   "without": {
+    "n": 71513,
+    "share": null,
+    "epa": 0.026,
+    "success": 0.448,
+    "comp": 0.645,
+    "ypa": 7.08,
+    "sack_rate": 0.066,
+    "int_rate": 0.022,
+    "scramble_rate": 0.05
+   }
+  },
+  "is_qb_out_of_pocket": {
+   "rate_of_dropbacks": 0.18,
+   "with": {
+    "n": 14615,
+    "share": null,
+    "epa": 0.004,
+    "success": 0.422,
+    "comp": 0.499,
+    "ypa": 6.2,
+    "sack_rate": 0.083,
+    "int_rate": 0.023,
+    "scramble_rate": 0.258
+   },
+   "without": {
+    "n": 66429,
+    "share": null,
+    "epa": 0.032,
+    "success": 0.458,
+    "comp": 0.668,
+    "ypa": 7.18,
+    "sack_rate": 0.062,
+    "int_rate": 0.022,
+    "scramble_rate": 0.005
+   }
+  },
+  "blitz_any": {
+   "rate_of_dropbacks": 0.273,
+   "with": {
+    "n": 22120,
+    "share": null,
+    "epa": 0.001,
+    "success": 0.444,
+    "comp": 0.612,
+    "ypa": 7.19,
+    "sack_rate": 0.083,
+    "int_rate": 0.022,
+    "scramble_rate": 0.04
+   },
+   "without": {
+    "n": 58924,
+    "share": null,
+    "epa": 0.036,
+    "success": 0.454,
+    "comp": 0.658,
+    "ypa": 7.0,
+    "sack_rate": 0.059,
+    "int_rate": 0.023,
+    "scramble_rate": 0.054
+   }
+  },
+  "interception_worthy_rate": 0.035,
+  "drop_rate_of_catchable": 0.05,
+  "qb_fault_sack_share": 0.405,
+  "runs_with_motion": {
+   "rate": 0.501,
+   "with": {
+    "1": {
+     "n": 26562,
+     "share": 1.0,
+     "ypc": 4.32,
+     "median": 3.0,
+     "epa": -0.057,
+     "success": 0.41,
+     "stuff_rate_0_or_less": 0.186,
+     "explosive_10plus": 0.106
+    }
+   },
+   "without": {
+    "1": {
+     "n": 26438,
+     "share": 1.0,
+     "ypc": 4.26,
+     "median": 3.0,
+     "epa": -0.056,
+     "success": 0.41,
+     "stuff_rate_0_or_less": 0.183,
+     "explosive_10plus": 0.103
+    }
+   }
+  }
+ },
+ "scheme_mix_nfl": {
+  "seasons": [
+   2025
+  ],
+  "offense_personnel": {
+   "11": 0.631,
+   "12": 0.265,
+   "13": 0.052,
+   "21": 0.02,
+   "10": 0.013,
+   "01": 0.009,
+   "22": 0.003,
+   "02": 0.003
+  },
+  "formation": {
+   "SHOTGUN": 0.615,
+   "UNDER CENTER": 0.336,
+   "PISTOL": 0.049
+  },
+  "qb_location_ftn": {
+   "S": 0.613,
+   "U": 0.336,
+   "P": 0.049
+  },
+  "defense_personnel": {
+   "nickel (5)": 0.596,
+   "base (4 DBs)": 0.295,
+   "dime (6)": 0.091,
+   "3 DBs": 0.011
+  },
+  "pass_rate_all_plays": 0.602,
+  "shotgun_rate": 0.659,
+  "no_huddle_rate": 0.098,
+  "motion_rate": 0.551,
+  "play_action_rate_dropbacks": 0.231,
+  "rpo_rate_all_plays": 0.062,
+  "team_range": {
+   "11_personnel": [
+    0.455,
+    0.801
+   ],
+   "12_personnel": [
+    0.089,
+    0.463
+   ],
+   "21_personnel": [
+    0.0,
+    0.093
+   ],
+   "shotgun": [
+    0.41,
+    0.878
+   ],
+   "play_action_dropbacks": [
+    0.152,
+    0.346
+   ],
+   "motion": [
+    0.386,
+    0.706
+   ]
+  },
+  "defense_coverage": {
+   "COVER_3": 0.277,
+   "COVER_2": 0.229,
+   "COVER_1": 0.224,
+   "COVER_4": 0.101,
+   "COVER_6": 0.054,
+   "2_MAN": 0.047,
+   "COVER_0": 0.039,
+   "COVER_9": 0.025
+  },
+  "defense_man_share": 0.31,
+  "defense_blitz_rate": 0.293,
+  "defense_man_share_team_range": [
+   0.183,
+   0.446
+  ],
+  "defense_blitz_team_range": [
+   0.211,
+   0.513
+  ]
+ },
+ "snap_shares": {
+  "note": "Per team game: players at the position sorted by their share of the unit's snaps; rank 1 = most snaps that game. 'players_10pct' = how many played at least 10% of snaps. PFR position labels: EDGE = DE + OLB (some 3-4 OLBs are off-ball), interior = DT + NT.",
+  "QB": {
+   "rank_mean": [
+    0.964
+   ],
+   "players_10pct_mean": 1.14,
+   "rank1_p10_p90": [
+    0.867,
+    1.0
+   ]
+  },
+  "RB": {
+   "rank_mean": [
+    0.645,
+    0.318,
+    0.111
+   ],
+   "players_10pct_mean": 2.57,
+   "rank1_p10_p90": [
+    0.48,
+    0.83
+   ]
+  },
+  "WR": {
+   "rank_mean": [
+    0.868,
+    0.763,
+    0.559,
+    0.241,
+    0.092
+   ],
+   "players_10pct_mean": 4.29,
+   "rank1_p10_p90": [
+    0.74,
+    0.98
+   ]
+  },
+  "TE": {
+   "rank_mean": [
+    0.743,
+    0.401,
+    0.163
+   ],
+   "players_10pct_mean": 2.67,
+   "rank1_p10_p90": [
+    0.55,
+    0.93
+   ]
+  },
+  "OL": {
+   "rank_mean": [
+    1.0,
+    0.999,
+    0.992,
+    0.975,
+    0.883,
+    0.144,
+    0.034
+   ],
+   "players_10pct_mean": 5.62,
+   "rank1_p10_p90": [
+    1.0,
+    1.0
+   ]
+  },
+  "DL_interior": {
+   "rank_mean": [
+    0.676,
+    0.498,
+    0.309,
+    0.156
+   ],
+   "players_10pct_mean": 3.47,
+   "rank1_p10_p90": [
+    0.5,
+    0.85
+   ]
+  },
+  "EDGE": {
+   "rank_mean": [
+    0.665,
+    0.448,
+    0.255,
+    0.131,
+    0.038
+   ],
+   "players_10pct_mean": 3.21,
+   "rank1_p10_p90": [
+    0.41,
+    0.88
+   ]
+  },
+  "LB_off_ball": {
+   "rank_mean": [
+    0.96,
+    0.82,
+    0.525,
+    0.332
+   ],
+   "players_10pct_mean": 4.72,
+   "rank1_p10_p90": [
+    0.85,
+    1.0
+   ]
+  },
+  "CB": {
+   "rank_mean": [
+    0.974,
+    0.891,
+    0.58,
+    0.177,
+    0.042
+   ],
+   "players_10pct_mean": 3.64,
+   "rank1_p10_p90": [
+    0.91,
+    1.0
+   ]
+  },
+  "S": {
+   "rank_mean": [
+    0.977,
+    0.863,
+    0.28,
+    0.051
+   ],
+   "players_10pct_mean": 2.8,
+   "rank1_p10_p90": [
+    0.93,
+    1.0
+   ]
+  }
+ },
+ "rb_carry_share": {
+  "season_lead_back": {
+   "mean": 0.587,
+   "p10": 0.433,
+   "p90": 0.764
+  },
+  "season_second_back": 0.262,
+  "game_lead_back": {
+   "mean": 0.704,
+   "p10": 0.5,
+   "p90": 0.923
+  },
+  "qb_share_of_designed_runs": 0.064,
+  "note": "Season shares include games the lead back missed, so they run lower than per-game shares."
+ },
+ "target_share_top3_season": [
+  0.235,
+  0.171,
+  0.13
+ ],
+ "target_share_by_position": {
+  "WR": 0.593,
+  "TE": 0.219,
+  "RB": 0.181
+ },
+ "red_zone_and_returns": {
+  "red_zone_td_rate_per_trip": 0.598,
+  "red_zone_score_rate": 0.851,
+  "red_zone_trips_per_team_game": 3.98,
+  "kick_return_avg_by_season": {
+   "2021": 22.1,
+   "2022": 22.8,
+   "2023": 19.9,
+   "2024": 27.5,
+   "2025": 25.9
+  },
+  "kick_return_rate_by_season": {
+   "2021": 0.397,
+   "2022": 0.374,
+   "2023": 0.252,
+   "2024": 0.329,
+   "2025": 0.746
+  },
+  "punt_return_avg": 5.8,
+  "punt_return_rate": 0.701,
+  "note": "A red-zone trip = a drive that ran at least one play at or inside the 20 (Pro-Football-Reference counts the same way). 2025 kickoffs use the new dynamic kickoff rule."
+ },
+ "player_spread": {
+  "note": "Spread (10th to 90th percentile) of per-play EPA among regular players, times the plays they touch in a game. Not causal: it mixes the player with his teammates and scheme. It shows why QB spread dwarfs RB spread.",
+  "qb_epa_per_dropback_p10_p90": [
+   -0.145,
+   0.178
+  ],
+  "qb_points_per_game_p10_to_p90": 12.13,
+  "rb_epa_per_carry_p10_p90": [
+   -0.171,
+   0.049
+  ],
+  "rb_points_per_game_p10_to_p90_at_15_carries": 3.3,
+  "wr_te_epa_per_target_p10_p90": [
+   -0.016,
+   0.5
+  ],
+  "wr_points_per_game_p10_to_p90_at_7_targets": 3.61,
+  "team_dropbacks_per_game": 37.5,
+  "team_rb_carries_per_game": 21.8,
+  "year_to_year_corr": {
+   "qb_epa_per_dropback": [
+    0.426,
+    103
+   ],
+   "rb_epa_per_carry": [
+    0.053,
+    111
+   ],
+   "wr_te_epa_per_target": [
+    0.277,
+    256
+   ]
+  }
+ },
+ "what_wins": {
+  "note": "Correlation of each team-season efficiency with point margin per game, 2021-25 (160 team seasons). Squared = share of margin explained alone.",
+  "pass_epa": 0.815,
+  "rush_epa": 0.532,
+  "def_pass_epa": -0.64,
+  "def_rush_epa": -0.384,
+  "sd_pass_epa": 0.123,
+  "sd_rush_epa": 0.073
+ },
+ "contracts_cap_pct": {
+  "note": "Active contracts signed 2022+, average per year as a share of the cap when signed (OverTheCap via nflverse).",
+  "QB": {
+   "top1": 0.245,
+   "top5_avg": 0.234,
+   "top20_avg": 0.176,
+   "n": 107
+  },
+  "ED": {
+   "top1": 0.167,
+   "top5_avg": 0.158,
+   "top20_avg": 0.116,
+   "n": 264
+  },
+  "WR": {
+   "top1": 0.144,
+   "top5_avg": 0.136,
+   "top20_avg": 0.115,
+   "n": 309
+  },
+  "IDL": {
+   "top1": 0.126,
+   "top5_avg": 0.117,
+   "top20_avg": 0.096,
+   "n": 242
+  },
+  "CB": {
+   "top1": 0.112,
+   "top5_avg": 0.108,
+   "top20_avg": 0.084,
+   "n": 277
+  },
+  "LT": {
+   "top1": 0.105,
+   "top5_avg": 0.1,
+   "top20_avg": 0.078,
+   "n": 108
+  },
+  "RT": {
+   "top1": 0.11,
+   "top5_avg": 0.097,
+   "top20_avg": 0.06,
+   "n": 100
+  },
+  "LG": {
+   "top1": 0.096,
+   "top5_avg": 0.086,
+   "top20_avg": 0.054,
+   "n": 82
+  },
+  "S": {
+   "top1": 0.09,
+   "top5_avg": 0.081,
+   "top20_avg": 0.058,
+   "n": 197
+  },
+  "RG": {
+   "top1": 0.091,
+   "top5_avg": 0.079,
+   "top20_avg": 0.051,
+   "n": 69
+  },
+  "LB": {
+   "top1": 0.089,
+   "top5_avg": 0.075,
+   "top20_avg": 0.053,
+   "n": 226
+  },
+  "RB": {
+   "top1": 0.075,
+   "top5_avg": 0.074,
+   "top20_avg": 0.049,
+   "n": 173
+  },
+  "C": {
+   "top1": 0.09,
+   "top5_avg": 0.067,
+   "top20_avg": 0.034,
+   "n": 84
+  },
+  "TE": {
+   "top1": 0.068,
+   "top5_avg": 0.063,
+   "top20_avg": 0.045,
+   "n": 184
+  },
+  "K": {
+   "top1": 0.025,
+   "top5_avg": 0.023,
+   "top20_avg": 0.015,
+   "n": 36
+  },
+  "P": {
+   "top1": 0.017,
+   "top5_avg": 0.015,
+   "top20_avg": 0.01,
+   "n": 34
+  },
+  "LS": {
+   "top1": 0.007,
+   "top5_avg": 0.007,
+   "top20_avg": 0.006,
+   "n": 34
+  }
+ },
+ "home_field_nfl": {
+  "by_season": {
+   "1999": {
+    "home_win": 0.597,
+    "margin": 3.06,
+    "spread_implied": 2.36,
+    "games": 248
+   },
+   "2000": {
+    "home_win": 0.556,
+    "margin": 2.82,
+    "spread_implied": 2.57,
+    "games": 248
+   },
+   "2001": {
+    "home_win": 0.548,
+    "margin": 2.01,
+    "spread_implied": 2.26,
+    "games": 248
+   },
+   "2002": {
+    "home_win": 0.58,
+    "margin": 2.25,
+    "spread_implied": 2.19,
+    "games": 256
+   },
+   "2003": {
+    "home_win": 0.616,
+    "margin": 3.63,
+    "spread_implied": 2.49,
+    "games": 255
+   },
+   "2004": {
+    "home_win": 0.566,
+    "margin": 2.51,
+    "spread_implied": 2.52,
+    "games": 256
+   },
+   "2005": {
+    "home_win": 0.588,
+    "margin": 3.6,
+    "spread_implied": 2.5,
+    "games": 255
+   },
+   "2006": {
+    "home_win": 0.531,
+    "margin": 0.85,
+    "spread_implied": 2.88,
+    "games": 256
+   },
+   "2007": {
+    "home_win": 0.576,
+    "margin": 2.89,
+    "spread_implied": 2.48,
+    "games": 255
+   },
+   "2008": {
+    "home_win": 0.573,
+    "margin": 2.61,
+    "spread_implied": 2.71,
+    "games": 254
+   },
+   "2009": {
+    "home_win": 0.573,
+    "margin": 2.33,
+    "spread_implied": 2.64,
+    "games": 255
+   },
+   "2010": {
+    "home_win": 0.559,
+    "margin": 1.95,
+    "spread_implied": 2.42,
+    "games": 254
+   },
+   "2011": {
+    "home_win": 0.569,
+    "margin": 3.3,
+    "spread_implied": 2.45,
+    "games": 255
+   },
+   "2012": {
+    "home_win": 0.575,
+    "margin": 2.59,
+    "spread_implied": 2.38,
+    "games": 255
+   },
+   "2013": {
+    "home_win": 0.603,
+    "margin": 3.25,
+    "spread_implied": 2.56,
+    "games": 253
+   },
+   "2014": {
+    "home_win": 0.573,
+    "margin": 2.54,
+    "spread_implied": 2.41,
+    "games": 252
+   },
+   "2015": {
+    "home_win": 0.538,
+    "margin": 1.48,
+    "spread_implied": 2.22,
+    "games": 253
+   },
+   "2016": {
+    "home_win": 0.577,
+    "margin": 2.6,
+    "spread_implied": 2.15,
+    "games": 252
+   },
+   "2017": {
+    "home_win": 0.57,
+    "margin": 2.5,
+    "spread_implied": 2.09,
+    "games": 251
+   },
+   "2018": {
+    "home_win": 0.605,
+    "margin": 2.34,
+    "spread_implied": 2.37,
+    "games": 253
+   },
+   "2019": {
+    "home_win": 0.52,
+    "margin": -0.05,
+    "spread_implied": 1.78,
+    "games": 251
+   },
+   "2020": {
+    "home_win": 0.504,
+    "margin": 0.14,
+    "spread_implied": 1.08,
+    "games": 253
+   },
+   "2021": {
+    "home_win": 0.511,
+    "margin": 1.57,
+    "spread_implied": 1.72,
+    "games": 269
+   },
+   "2022": {
+    "home_win": 0.566,
+    "margin": 2.12,
+    "spread_implied": 1.67,
+    "games": 265
+   },
+   "2023": {
+    "home_win": 0.558,
+    "margin": 2.71,
+    "spread_implied": 1.68,
+    "games": 267
+   },
+   "2024": {
+    "home_win": 0.524,
+    "margin": 1.72,
+    "spread_implied": 1.51,
+    "games": 267
+   },
+   "2025": {
+    "home_win": 0.538,
+    "margin": 2.18,
+    "spread_implied": 1.58,
+    "games": 265
+   }
+  },
+  "by_span": {
+   "1999-2009": {
+    "home_win": 0.573,
+    "margin": 2.59,
+    "spread_implied": 2.51
+   },
+   "2010-2019": {
+    "home_win": 0.567,
+    "margin": 2.25,
+    "spread_implied": 2.28
+   },
+   "2021-2025": {
+    "home_win": 0.538,
+    "margin": 2.06,
+    "spread_implied": 1.63
+   }
+  },
+  "note": "Regular season, neutral-site games removed. 2020 was played mostly without fans. spread_line is the closing betting line (home perspective), the market's estimate of the home edge plus team strength."
+ }
+}
