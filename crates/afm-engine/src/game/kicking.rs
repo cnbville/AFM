@@ -513,6 +513,7 @@ fn run_return(
         fight_since: 0.0,
         screen: None,
         open_reach: 1.6,
+        press: 0.0,
     };
     // Reorder so the return team (side 0) comes first.
     let mut ret_agents: Vec<Agent> = agents.drain(ret_idx..).collect();

@@ -157,7 +157,7 @@ pub fn position_value(pos: Position) -> f64 {
         Position::IOL | Position::S => -0.8,
         Position::LB | Position::TE => -1.0,
         Position::RB => -3.5,
-        Position::K | Position::P => 0.0,
+        Position::K | Position::P | Position::LS => 0.0,
     }
 }
 
@@ -171,7 +171,7 @@ pub fn retire_age(pos: Position) -> f64 {
         Position::WR | Position::EDGE | Position::LB | Position::CB | Position::S => 30.0,
         Position::TE | Position::DT => 31.0,
         Position::OT | Position::IOL => 32.0,
-        Position::K | Position::P => 37.0,
+        Position::K | Position::P | Position::LS => 37.0,
     }
 }
 
@@ -1031,7 +1031,7 @@ fn position_difficulty(pos: Position) -> f64 {
         Position::S | Position::LB | Position::DT | Position::TE => 1.0,
         Position::EDGE | Position::WR => 0.9,
         Position::RB => 0.65,
-        Position::K | Position::P => 0.5,
+        Position::K | Position::P | Position::LS => 0.5,
     }
 }
 
@@ -1990,7 +1990,7 @@ fn add_wear(r: &mut CareerRecord, role: PlayingTime, scale: f64) {
                 0.15
             }
         }
-        Position::K | Position::P => 0.0,
+        Position::K | Position::P | Position::LS => 0.0,
         _ => 0.35,
     };
     r.player.wear += per_season * share * scale;
@@ -2225,7 +2225,7 @@ fn draft_score(r: &CareerRecord, rng: &mut Rng) -> DraftScore {
 /// Playing time by rank within each position: a quarterback competes with quarterbacks.
 /// Takes each player's position and how he is seen; returns roles in the same order.
 fn roles_by_rank(seen: &[(Position, f64)], starter_share: f64, rotation_share: f64) -> Vec<PlayingTime> {
-    let mut by_position: [Vec<usize>; 13] = Default::default();
+    let mut by_position: [Vec<usize>; crate::positions::POSITION_COUNT] = Default::default();
     for (k, &(pos, _)) in seen.iter().enumerate() {
         by_position[pos.index()].push(k);
     }

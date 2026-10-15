@@ -4,7 +4,7 @@
 use crate::attributes::{Attr, Attributes};
 use crate::body::body_now;
 use crate::player::{GameTraits, Personality, Player};
-use crate::positions::{Position, overall_for};
+use crate::positions::{POSITION_COUNT, Position, long_snapper_rating, overall_for};
 use crate::rng::clamp;
 
 /// A player as the match engine sees him on game day.
@@ -59,7 +59,11 @@ impl GamePlayer {
     }
 
     pub fn overall_at(&self, pos: Position) -> f64 {
-        overall_for(pos, &self.attrs)
+        match pos {
+            // The snap is the long snapper's job (fix list 1.7).
+            Position::LS => long_snapper_rating(self.traits.snapping, &self.attrs),
+            _ => overall_for(pos, &self.attrs),
+        }
     }
 
     /// His real 40 time from speed, burst and weight (same fit as the combine).
@@ -82,12 +86,17 @@ impl GamePlayer {
         clamp(0.78 + 0.003 * (60.0 - self.a(Attr::Acceleration)) + 0.0006 * (self.weight - 220.0), 0.55, 1.0)
     }
 
-    /// Acceleration, yards per second squared.
+    /// Acceleration, yards per second squared: his grip for braking and
+    /// cutting. The burst from a standing start is `sprint_tau`.
     pub fn accel(&self) -> f64 {
-        // Through the pro range each point counts fully; below it (most high
-        // school players) the gap narrows (proposed, not confirmed).
+        // Fit with `drills` so the sim's 5-10-5 shuttle and 3-cone move per
+        // point as the combine model does (`body::combine`), the way the 40
+        // was fit (dynasty item 1; was 0.035 a point, which made a quick
+        // player 3-8 times quicker in the sim than at the combine). Below the
+        // pro range (most high school players) the gap narrows (proposed,
+        // not confirmed).
         let ac = self.a(Attr::Acceleration);
-        let ac = if ac >= 60.0 { 4.65 + 0.035 * (ac - 60.0) } else { 4.65 + 0.02 * (ac - 60.0) };
+        let ac = if ac >= 60.0 { 4.65 + 0.008 * (ac - 60.0) } else { 4.65 + 0.0046 * (ac - 60.0) };
         clamp(ac - 0.006 * (self.weight - 220.0), 2.2, 7.5)
     }
 
@@ -96,7 +105,8 @@ impl GamePlayer {
         // As with acceleration, the gap narrows below the pro range, so a
         // high school athlete still cuts like an athlete.
         let ag = self.a(Attr::Agility);
-        let ag = if ag >= 60.0 { 0.99 + 0.011 * (ag - 60.0) } else { 0.99 + 0.006 * (ag - 60.0) };
+        // Fit with `drills` as above (was 0.011 a point).
+        let ag = if ag >= 60.0 { 0.99 + 0.004 * (ag - 60.0) } else { 0.99 + 0.0022 * (ag - 60.0) };
         clamp(ag - 0.002 * (self.weight - 220.0), 0.4, 1.7)
     }
 
@@ -188,6 +198,9 @@ pub struct Staff {
     pub shell: Shell,
     /// How many plays the team carries: high school small, NFL big (topic 3).
     pub playbook: f64,
+    /// Head coach sportsmanship, 1-20 (hidden): how soon he takes his
+    /// starters out of a decided game (dynasty item 3).
+    pub sportsmanship: f64,
 }
 
 impl Staff {
@@ -201,6 +214,7 @@ impl Staff {
             front: Front::FourThree,
             shell: Shell::Cover3,
             playbook: 1.0,
+            sportsmanship: 10.0,
         }
     }
 }
@@ -216,7 +230,11 @@ pub struct GameTeam {
 /// The depth chart: players (indexes into `players`) in order at each spot.
 #[derive(Clone, Debug, Default)]
 pub struct Depth {
-    pub at: [Vec<usize>; 13],
+    pub at: [Vec<usize>; POSITION_COUNT],
+    /// Kickoff kickers, best leg first (fix list 1.8). With three or four
+    /// kickers the strongest leg kicks off and the field goal kicker
+    /// (accuracy and leg, the K list) kicks field goals.
+    pub kickoff: Vec<usize>,
     /// Long snapper, holder, kick and punt returners.
     pub snapper: usize,
     pub holder: usize,
@@ -244,7 +262,8 @@ fn wanted(pos: Position) -> usize {
         Position::LB => 5,
         Position::CB => 5,
         Position::S => 3,
-        Position::K | Position::P => 1,
+        // A backup at each specialist spot, so an injury falls to the next leg.
+        Position::K | Position::P | Position::LS => 2,
     }
 }
 
@@ -265,9 +284,16 @@ pub const CROSS_LIST: f64 = 4.0;
 /// player is added to the other side's chart when he would beat the players
 /// there by `two_way_margin` rating points (0 for a small high school, large
 /// for the NFL, where it never happens).
+///
+/// The kicking jobs go to the kickers and punters a team carries: with only
+/// one of them, he does both (fix list 1.9), and only a team with neither
+/// asks the best leg on the roster. A listed long snapper snaps; he plays
+/// nowhere else (fix list 1.7).
 pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
     let ps = &team.players;
     let mut d = Depth::default();
+    let has_legs = ps.iter().any(|p| p.position.kicks());
+    let has_snapper = ps.iter().any(|p| p.position == Position::LS);
     let own = |pos: Position| -> Vec<(f64, usize)> {
         let mut v: Vec<(f64, usize)> =
             ps.iter().enumerate().filter(|(_, p)| p.position == pos).map(|(i, p)| (p.overall_at(pos), i)).collect();
@@ -284,18 +310,20 @@ pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
     for pos in Position::ALL {
         let mut list = own(pos);
         let n_own = list.len();
-        let same_side = |p: &GamePlayer| {
-            if pos.is_specialist() || p.position.is_specialist() {
-                pos.is_specialist() && p.position.is_specialist()
-            } else {
-                offense(p.position) == offense(pos)
-            }
+        let same_side = |p: &GamePlayer| match pos {
+            // A kicker kicks and a punter punts: the other leg is only the
+            // backup there; a team with neither asks the best leg it has.
+            Position::K | Position::P => !has_legs || p.position.kicks(),
+            // A listed long snapper snaps; without one, anyone can.
+            Position::LS => !has_snapper || p.position == Position::LS,
+            _ => !p.position.is_specialist() && offense(p.position) == offense(pos),
         };
+        let cost = if pos.kicks() && has_legs { 100.0 } else { CROSS_LIST };
         let mut cross: Vec<(f64, usize)> = ps
             .iter()
             .enumerate()
             .filter(|(i, p)| p.position != pos && same_side(p) && !starting[*i])
-            .map(|(i, p)| (p.overall_at(pos) - CROSS_LIST, i))
+            .map(|(i, p)| (p.overall_at(pos) - cost, i))
             .collect();
         cross.sort_by(|a, b| b.0.total_cmp(&a.0));
         list.extend(cross);
@@ -344,15 +372,38 @@ pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
     let best = |f: &dyn Fn(&GamePlayer) -> f64, skip: &[usize]| -> usize {
         (0..ps.len()).filter(|i| !skip.contains(i)).max_by(|&a, &b| f(&ps[a]).total_cmp(&f(&ps[b]))).unwrap_or(0)
     };
-    // The long snapper: the best snapper among players not already starting
-    // at the spots that take the field together with him.
+    // The kicking legs (fix list 1.8, 1.9). The K and P lists already rank
+    // every leg at each job, the listed specialist first: a team with only
+    // a kicker or only a punter has him do both, rated at each from the
+    // same leg. The kickoff goes to the best leg among the kickers.
+    let legs = |pos: Position| -> Vec<usize> { (0..ps.len()).filter(|&i| ps[i].position == pos).collect() };
+    let mut kickoff = legs(Position::K);
+    if kickoff.is_empty() {
+        kickoff = legs(Position::P);
+    }
+    if kickoff.is_empty() {
+        kickoff = d.list(Position::K).to_vec();
+    }
+    kickoff.sort_by(|&a, &b| ps[b].a(Attr::KickPower).total_cmp(&ps[a].a(Attr::KickPower)));
+    d.kickoff = kickoff;
+    // The long snapper (fix list 1.7): the listed snapper, or else the best
+    // snapper among players not already starting at the spots that take
+    // the field together with him.
     let busy: Vec<usize> =
         [Position::QB, Position::K, Position::P].iter().flat_map(|p| d.list(*p).iter().take(1).copied()).collect();
-    d.snapper = best(&|p| p.traits.snapping + 0.02 * p.a(Attr::Awareness), &busy);
+    d.snapper = d
+        .list(Position::LS)
+        .iter()
+        .copied()
+        .find(|&i| ps[i].position == Position::LS && !busy.contains(&i))
+        .unwrap_or_else(|| best(&|p| p.traits.snapping + 0.02 * p.a(Attr::Awareness), &busy));
+    // The holder: the punter, unless he is the one kicking; else the backup quarterback.
+    let kicker = d.list(Position::K).first().copied();
     d.holder = d
         .list(Position::P)
-        .first()
+        .iter()
         .copied()
+        .find(|&i| ps[i].position == Position::P && Some(i) != kicker && i != d.snapper)
         .unwrap_or_else(|| d.list(Position::QB)[1.min(d.list(Position::QB).len() - 1)]);
     let returner = |p: &GamePlayer| 0.5 * p.a(Attr::Speed) + 0.3 * p.a(Attr::Elusiveness) + 0.2 * p.a(Attr::Vision);
     let mut kr: Vec<usize> =
@@ -387,7 +438,7 @@ pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
 /// Starters at each spot in a base set.
 pub fn starters(pos: Position) -> usize {
     match pos {
-        Position::QB | Position::RB | Position::TE | Position::K | Position::P => 1,
+        Position::QB | Position::RB | Position::TE | Position::K | Position::P | Position::LS => 1,
         Position::WR => 3,
         Position::OT => 2,
         Position::IOL => 3,

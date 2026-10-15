@@ -24,6 +24,15 @@ Section 3, built 2026-10-13/14. The design is `docs/design/match-engine.md`; thi
 3. The throw has an error from accuracy, distance, pressure, throwing on the move, wind and his consistency.
 4. At the catch point: tipped balls in the lane, contested catches, interceptions, drops, pass interference. Then the run after the catch.
 
+## Kickers, punters and long snappers (fix list topic 1, 2026-10-15)
+
+Code: `roster.rs` (`depth_chart`) and `flow.rs` (`fg_kicker`, `punter`, `kickoff_kicker`).
+- **Two kicking jobs, two kickers.** The field goal and extra point kicker is the first K on the depth chart. The kickoff goes to the strongest leg (kick power) among the kickers, so a team with a big-legged backup uses him on kickoffs (1.8).
+- **One leg for both jobs.** The kicking jobs go to the kickers and punters a team carries. A kicker kicks and a punter punts; the other one is only the backup leg at that job. A team with only a kicker has him punt, and a team with only a punter has him kick, rated at each job from the same leg (1.9). Only a team with neither asks the best leg on the roster, so position players no longer kick field goals (in the first check run, 38% of FBS field goal tries were by position players). The old flat fallbacks (a 20-point kicker, a 30-yard punt) are gone.
+- **The long snapper** is a position (1.7). His rating at the job is his hidden snapping trait (75%, five points a step) plus blocking and covering (25%). He snaps on punts, field goals and extra points, and plays nowhere else. A team with no listed snapper uses its best snapper who is not the starting QB, K or P, as before.
+- **The holder** is the punter, unless the punter is the one kicking or snapping; otherwise the backup QB.
+- The game-day chart dresses two at K, P and LS. Synthetic teams above high school carry one long snapper (his own random stream, so the rest of the team is unchanged); high school teams snap with a player from another position.
+
 ## Calibration (development only)
 
 The checks compare synthetic-league games to real 2021-25 play-by-play. They never feed back into the game. Run `cargo run --release --bin match_check -- nfl 400` (or `fbs`, `hs`). The automatic version is `crates/afm-tools/tests/match_engine.rs`, with wide bands.
@@ -71,6 +80,7 @@ These are calibration picks inside the confirmed design. Raichel has not signed 
 - **Screens**: linemen release after 0.9 seconds; defenders can "smell" a screen with play recognition.
 - **Kick coverage**: the widest man on each side keeps contain.
 - **Goal-line coverage**: zones and alignment compress toward the end line.
+- **Long snapper rating**: 75% the snapping trait at five points a step, 25% blocking and coverage. The holder rule (punter first, then QB2). Two dressed at K, P and LS (fix list topic 1).
 
 ## Physics fixes (2026-10-14)
 
@@ -130,6 +140,106 @@ What this says, and why:
 - Runs into a stacked box lose on the numbers, whoever called them: 3.9 yards a carry against 6 or fewer in the box, 3.8 against 7, 2.3 against 8 or more (real 4.73, 4.22, 3.40). The stacked box costs more than in real life (a third against a quarter), part of the short-run gap above.
 
 
+## Garbage time (dynasty item 3, 2026-10-15)
+Raichel's yes on trial 4 topic 2 ("go ahead an execute", 2026-10-15). Code: `game/garbage.rs`, with the hooks in `game/flow.rs` and `game/calling.rs`. Every number below is fitted to real play-by-play and is proposed, not confirmed. Real targets: `data/real-world/garbage_time.json` (FBS vs FBS 2022-24, NFL 2018-25; scripts in `data/real-world/scripts/`). Check: `cargo run --release --bin garbage_check -- fbs|nfl|hs [games]`.
+
+How it works:
+- **The read.** At each new drive and each new quarter (from the 3rd quarter; the 2nd in high school) the head coach reads the comeback chance: z = lead / (10 × √(time left / game length) + 3.25), fitted to the real NFL win-probability table. His game management sets how far off his read is in this game (sd 0.03 × (21 − gm)) and at each look (sd 0.015 × (21 − gm)).
+- **Who comes out, in steps.** Step 1: the quarterback, lead back, three receivers, two linebackers, three corners and two safeties. Step 2: the rest of the first team. Step 3: the second string. Kickers, punters and the snapper stay. The lead back already sits a little before step 1 (real: his share of 4th-quarter carries falls by a third up 21-27 while the quarterback still plays). College steps sit at z 4.3, 4.8 and 5.7; the NFL at 4.4 and 5.4 and never pulls the second string; high school at 3.4, 3.9 and 4.7. A coach puts his starters back only when the game is clearly alive again (0.8 z below the step).
+- **Who he is.** A new hidden coach trait, sportsmanship (1-20, mean 10, sd 3.5). Each point below 10 moves his steps 0.15 z later when ahead. A late-season contender (one loss or fewer) reads as 2 points lower; facing the program that fired him, 4 lower.
+- **The leader plays to end it.** From z 1.2 to 2.4 (NFL 1.4 to 2.8) his "ease" grows from 0 to 1: the pass rate moves toward 22% (twice that on 3rd and long, half on short yardage), fewer deep shots, the full play clock, no hurry-up, no timeouts, no two-point tries or onside kicks, punts instead of going for it in his own half. With his backups in, a field-goal try becomes a 4th-down try 55% of the time (25% in the NFL), more for a good sport. His defense plays two-high, blitzes less and drops Cover 0.
+- **The beaten team.** It stops trying to win before it pulls anyone: from z 3.4 (NFL 5.2, high school 3.0) it runs more, takes its time, stops calling timeouts, goes for it in field-goal range 70% of the time (three points change nothing) and stops the late must-score gambles. In 45% of games (NFL 60%, high school 35%) its coach plays it out with his starters whatever the score; otherwise he pulls them like a leader, give or take 0.8 z. Fighting for his job adds 0.8 z, one or two wins short of a bowl 0.5.
+- **Snaps are game experience.** The world counts every player's offensive and defensive snaps from the engine. Experience in the engine is his career college snaps in units of a starter's season (750 snaps), not his seasons on the roster, so a backup's garbage-time snaps add up slowly. Player pages show snaps per season.
+- **Why lines.** Each pull is logged in plain words, e.g. "Q4 2:19: T5 pulls the rest of his first team ahead by 27, as he reads it a comeback is about 1 in 2,800,000."
+
+Results (FBS, 3000 games between 48 synthetic teams, engine | real):
+
+| After 3 quarters | QB1 plays in the 4th, leader | QB1, trailer | Leader Q4 pass | Leader Q4 points | Trailer Q4 points | Trailer secs/play |
+|---|---|---|---|---|---|---|
+| 21-27 | 0.91 / 0.90 | 0.92 / 0.85 | 0.25 / 0.26 | 6.8 / 6.9 | 5.2 / 5.7 | 25.3 / 23.6 |
+| 28-34 | 0.70 / 0.68 | 0.71 / 0.73 | | | | |
+| 35-41 | 0.33 / 0.37 | 0.63 / 0.65 | | | | |
+| 42+ | 0.07 / 0.13 | 0.41 / 0.52 | | | | |
+| 28+ | 0.44 / 0.48 | 0.61 / 0.66 | 0.23 / 0.28 | 7.5 / 6.7 | 5.1 / 4.7 | 27.7 / 27.7 |
+
+Where the build differs from the approved wording, because the real data says so (proposed, not confirmed):
+- The leader's pass rate in a rout stays about 0.23-0.27, not "almost never throws": real FBS leaders up 28+ pass 28% in the 4th quarter.
+- The skill players come out with the quarterback or before him (the lead back first), not after him: that is the real order.
+- With his backups in, a leader in field-goal range usually goes for it instead of kicking (real FBS up 28+: 61% go).
+- Deep shots fall by up to 30%, not to none; the big change is the run rate. Claude's reading, not measured against real air yards yet.
+- The trailer's coach often keeps his starters in a lost game (real FBS: the quarterback plays the 4th quarter in 52% of games down 42+), but stops trying to win well before that.
+
+Known gaps, outside item 3: close-game pass rate is high at both levels (FBS 0.50 against 0.39 for the leader), the lead back takes too many carries in every bucket (FBS close games 0.58 against 0.42), and long field-goal tries from midfield are about three times real (college calling, dynasty item 6, and kickers, fix list topic 1). NFL trailers down 21-27 score 8.3 points in the 4th quarter (real 5.7). The NFL and high school are not on the engine in the world yet. High school has no real target; it pulls earliest by design.
+
+Open single questions for Raichel: (a) should snaps also drive development (today development uses the depth chart role); (b) the real four-game redshirt rule, so a redshirt's garbage-time snaps don't cost him his year; (c) rivals, senior day and award candidates wait for the calendar, walk-ons and awards.
+
+## Deep passing and scheme balance (dynasty items 1-2, 2026-10-15)
+Raichel's yes on trial 4 topics 1 and 2. Every number below is proposed, not confirmed. Real targets: nflverse play-by-play and participation, 2023-24 (35,841 throws): air yards by route GO 25.2 (time to throw 2.69 s), POST 20.7, CORNER 19.4, IN/DIG 12.4, DEEP OUT 12.9, QUICK OUT 2.7; 20+ yard throws average 29.2 air yards, 35% complete. Route shares from `data/real-world/engine_targets.json`.
+
+What was wrong: at the same time to throw, the engine's go balls were caught 12 yards deeper than real ones, 20+ yard throws were 19% of attempts (real 11.5%), some "throws" went 60-90 yards, and the quick out barely existed (1% of targets, real 17%).
+
+What changed (`game/scrimmage.rs`, `game/playbook.rs`, `game/calling.rs`):
+- **Defenders keep moving while they react.** When the QB judges a window, a defender already running with the route loses no ground during his reaction time. Deep safeties carrying a vertical now close the window they really close.
+- **No throws past his arm.** A spot farther than 25 + 0.45 × throw power yards is never open to him.
+- **The post breaks at 45 degrees** (was 25 yards deep for 12 across).
+- **Routes are run under control**: 88% of top speed until the ball is thrown, then full speed to it.
+- **A deep ball needs less room**: the QB's need for an open window drops 0.05 yards per yard past 12 (at most 1.2). An incompletion deep costs a down; a catch is worth a chunk. Real QBs throw 50-50 balls deep far more than underneath.
+- **The receiver reads a long ball late.** On a throw longer than 0.6 s in the air he keeps running his route for 55% of the extra flight time (less with good hands and awareness), then adjusts. Before, he knew the landing spot at once and could run under any miss.
+- **Speed outs**: a new quick-game concept (outside receivers out at four yards, the slot sitting over the ball).
+- **Screens are called more**: about 9% of real NFL dropbacks are screens, whatever their average gain; the base weight for screen calls went from 0.9 to 2.25 (0.6 to 1.5 on long yardage).
+- `call_values.csv` rebuilt.
+
+Results (400 games each, engine | real NFL):
+
+| | Before | After | Real |
+|---|---|---|---|
+| NFL points per team game | 30.3 | 26.9 | 22.5 |
+| NFL yards per attempt | 8.09 | 7.68 | 7.05 |
+| NFL 20+ yard share | 0.190 | 0.112 | 0.115 |
+| NFL 20+ completion | 0.43 | 0.50 | 0.36 |
+| Go route air yards | 41.9 | about 32 | 25.2 |
+| Post air yards | 42.3 | about 31 | 20.7 |
+| FBS points | 29.0 | 25.2 | about 28 (real FBS) |
+| FBS yards per attempt | 7.09 | 6.34 | 7.29 (real FBS) |
+| FBS completion | 0.542 | 0.569 | 0.606 (real FBS) |
+
+Scheme balance (FBS, each scheme against every scheme on the other side, `AFM_MIX=1 dynasty_check schemes`, two seeds, margin against West Coast or Cover 2; noise about ±0.4; measured before the call-values rebuild):
+
+| | Before (against the base only) | After |
+|---|---|---|
+| Air raid | +2.44 | -0.35 |
+| Wide zone | +1.16 | +0.65 |
+| Power gap | +0.37 | -0.2 |
+| Spread option | +1.09 | -1.5 |
+| Cover 3 | -0.59 | -0.4 |
+| Quarters | -0.47 | -0.9 |
+| Man pressure | +0.93 | +0.1 |
+
+Position values (FBS, 2000 games, +10 on every attribute of a position's starters; lineup point = sum over all 22 starters):
+
+| Position | Per rating point per starter | Share of QB |
+|---|---|---|
+| QB | 0.507 | 1.00 |
+| OT | 0.073 | 0.14 |
+| IOL | 0.049 | 0.10 |
+| WR | 0.129 | 0.25 |
+| TE | 0.268 | 0.53 |
+| RB | 0.403 | 0.79 |
+| EDGE | 0.214 | 0.42 |
+| DT | 0.128 | 0.25 |
+| LB | 0.223 | 0.44 |
+| CB | 0.147 | 0.29 |
+| S | 0.160 | 0.32 |
+
+A lineup point is now worth 3.6 points of margin (was 4.8; target about 2.4). The QB is unchanged. Real per-player spreads (nflverse 2021-25) put a back at 0.27 of the QB and a receiver at 0.30, so the back is still about three times too valuable. Split by attribute (+10 on just these): speed and acceleration 1.5 points, strength and carrying 1.0, vision and awareness 1.0, agility and elusiveness 0.6, catching and route running 0.5, pass blocking 0.5.
+
+Still open, measured after these changes:
+- The back, tight end and linebacker sit well above their real spreads (see above).
+- Wide zone and spread option: outside zone gains about 0.8 yards a carry more than inside zone and zone read (play_trace, FBS, three coverages), and spread option has no outside zone in its run mix. Cover 3 stops inside zone hard (2.6 yards).
+- FBS short passes are completed too rarely (engine screens about 67-82%, real NFL screens 87%), so FBS scores below real now that deep balls no longer overpay. Real FBS completion 60.6%, engine 56.9%.
+- Deep balls in the NFL still land about 7-10 yards deeper than real and are completed 50% of the time (real 36%).
+- Flats and checkdowns are 32% of NFL targets (real flat and swing 9.6%, quick out 17%, screen 10%), with sacks (4.0%, real 6.8%) and throwaways too rare. Sacks are trial 4 topic 9, not approved yet.
+
 ## Not built yet
 - Running every game in the world through the engine (the world still uses its own season results), and the season and career record across levels with percentiles and era adjustment.
 - Coach buzz from stats, hidden-gem stat flags, awards and records. These come with the world trial 3 list and later sections.
@@ -138,4 +248,5 @@ What this says, and why:
 ## Debug tools
 - `cargo run --release --bin match_check -- nfl|fbs|hs [games] [seed] [pbp]`: averages against real data; `pbp` prints the first game play by play with its whys.
 - `cargo run --release --bin dynasty_check -- value [games] [seed]`: what each position and the play callers are worth (`AFM_LEVEL`, `AFM_ONLY`). `cargo run --release --bin call_values -- 400`: rebuilds the coaches' what-beats-what table (`AFM_CELL=concept:Coverage` shows one cell's outcomes).
+- `cargo run --release --bin garbage_check -- fbs|nfl|hs [games] [quality sd] [seed]`: garbage time against real play-by-play (who plays the 4th quarter by lead, run-out, 4th downs, sample why lines).
 - `cargo run --release --bin play_trace -- <run|pass|N> [seed] [sweep]`: one snap traced tick by tick, or a sweep of seeds. `AFM_LEVEL=fbs|hs`, `AFM_COV=0-7`, `AFM_LOS=yards` and `AFM_BASE=1` set the level, coverage, spot and personnel. `AFM_TRACE=1` prints every agent.

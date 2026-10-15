@@ -221,6 +221,12 @@ impl Agent {
             r,
         }
     }
+    /// How hard he can stop, yards per second squared: his grip and his
+    /// footwork (agility), as the shuttle measures it.
+    pub fn brake(&self) -> f64 {
+        self.accel * (1.2 + 0.7 * self.cut)
+    }
+
     /// Speed up, slow down and cut toward the wanted velocity, within
     /// his acceleration, sprint curve and agility.
     pub fn steer(&mut self, want: V2) {
@@ -238,7 +244,7 @@ impl Agent {
         let perp = dv - dir.scale(par);
         // Speeding up: the sprint curve (fast early, easing to top speed).
         let up = ((a.vmax - speed).max(0.0) / a.tau).max(a.accel * 0.2) * DT;
-        let down = a.accel * 1.9 * DT;
+        let down = a.brake() * DT;
         let par_c = par.clamp(-down, up);
         let pl = perp.len();
         let side = a.accel * a.cut * DT * (1.0 + 0.25 * (1.0 - speed / a.vmax));
@@ -485,7 +491,19 @@ pub struct Sim<'a> {
     pub screen: Option<usize>,
     /// How far a free defender in the open field can reach for the carrier.
     pub open_reach: f64,
+    /// On a designed run, the pace every back takes to the line until he
+    /// commits to a crease (yards per second; 0 on other plays).
+    pub press: f64,
 }
+
+/// How much a run block's outcome leans on the strength gap per point.
+/// Fitted (dynasty item 1, 2026-10-15) so FBS team-season yards per carry
+/// spread like real FBS (offense and defense sd about 0.64, cfbfastR
+/// 2022-24); 0.05 made run defense about 10% too decisive.
+const RUN_EDGE: f64 = 0.035;
+/// The extra pull a defender with leverage gets when the runner comes at
+/// him (fitted with `RUN_EDGE`; 1.0 before).
+const SHED_RUNNER: f64 = 0.5;
 
 /// Print plays as they run (debug tooling only).
 pub static TRACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -602,7 +620,7 @@ impl<'a> Sim<'a> {
     /// A lineman in the phone booth almost always gets hit.
     pub fn lands_block(&mut self, b: usize, d: usize) -> bool {
         let t = self.t;
-        if t - self.agents[b].last_try < 0.6 {
+        if t - self.agents[b].last_try < 0.3 {
             return false;
         }
         let speed = self.agents[d].vel.len();
@@ -612,9 +630,16 @@ impl<'a> Sim<'a> {
         let (ba, da) = (&self.agents[b], &self.agents[d]);
         let skill = 0.5 * ba.a(Attr::RunBlocking) + 0.5 * ba.a(Attr::Agility);
         let slip = 0.5 * da.a(Attr::Agility) + 0.5 * da.a(Attr::BlockShedding);
-        let p_miss = clamp(0.22 + 0.006 * (slip - skill) + 0.03 * (speed - 4.0).max(0.0), 0.05, 0.55);
+        // A defender running straight at him is easy to get hands on; one
+        // crossing his face is not. Only the speed across counts.
+        let u = if ba.vel.len() > 1.0 { ba.vel.norm() } else { (da.pos - ba.pos).norm() };
+        let across = (da.vel.x * u.y - da.vel.y * u.x).abs();
+        let p_miss = clamp(0.22 + 0.006 * (slip - skill) + 0.05 * (across - 2.0).max(0.0), 0.05, 0.55);
         if self.rng.chance(p_miss) {
             self.agents[b].last_try = t;
+            // Slipping a block costs him his momentum: he has to dip or
+            // side-step to get by.
+            self.agents[d].vel = self.agents[d].vel.scale(0.6);
             return false;
         }
         true
@@ -742,7 +767,7 @@ impl<'a> Sim<'a> {
             } else {
                 0.0
             };
-            let mut mu = base + if e.pass { 0.032 } else { 0.05 } * edge;
+            let mut mu = base + if e.pass { 0.032 } else { RUN_EDGE } * edge;
             // The runner already past him: he turns and runs after him, and
             // the blocker can't hang on (that would be holding).
             if !e.pass
@@ -761,7 +786,7 @@ impl<'a> Sim<'a> {
                 && self.agents[c].pos.dist(self.agents[d].pos) < 2.2
                 && e.w > 0.3
             {
-                mu += 1.0 * (0.5 + e.w);
+                mu += SHED_RUNNER * (0.5 + e.w);
             }
             if TRACE.load(std::sync::atomic::Ordering::Relaxed) && (t - e.start) < DT * 1.5 {
                 println!(
@@ -798,7 +823,8 @@ impl<'a> Sim<'a> {
             if w >= 1.0 {
                 // Shed.
                 self.eng[k].shed_at = Some(t);
-                if e.pass && t - e.start < 2.5 {
+                // A win counts only while the quarterback still holds the ball.
+                if e.pass && t - e.start < 2.5 && qb.is_some() {
                     let id = self.agents[d].id;
                     self.notes.rush_wins.push((id, e.mv, t - e.start));
                 }
@@ -898,7 +924,12 @@ impl<'a> Sim<'a> {
         let goal = self.goal;
         let vision = me.a(Attr::Vision);
         let sight = 7.0 + 0.12 * vision;
-        let speed = me.vmax.max(4.0);
+        // On a designed run he presses the line at the play's pace, the same
+        // for every back, and picks his crease at that pace: the blocks and
+        // the box set the run to the line, his speed shows past it (dynasty
+        // item 1; was full speed from the handoff).
+        let pressing = self.press > 0.0 && aim.is_some() && (me.pos.x - self.los) * goal < 0.5;
+        let speed = if pressing { self.press.min(me.vmax) } else { me.vmax.max(4.0) };
         let mut best = (f64::NEG_INFINITY, v2(goal, 0.0));
         let noise = (1.0 - 0.008 * vision).max(0.2);
         for k in 0..15 {
@@ -947,7 +978,8 @@ impl<'a> Sim<'a> {
         }
         let dir = best.1;
         // With the ball in one arm he runs a little under his top speed.
-        self.steer(c, dir.scale(self.agents[c].vmax * 0.95));
+        let pace = if pressing { speed.min(self.agents[c].vmax * 0.95) } else { self.agents[c].vmax * 0.95 };
+        self.steer(c, dir.scale(pace));
         let x = self.agents[c].pos.x;
         if (x - self.progress) * goal > 0.0 {
             self.progress = x;
@@ -1000,8 +1032,10 @@ impl<'a> Sim<'a> {
         // (topic 2.2). Good tacklers keep more speed doing it.
         let ahead = (a.pos.x - cp.x) * self.goal;
         if ahead > 0.4 && ahead < 5.0 && dist < 6.0 && cap >= 1.0 {
-            let tk = a.a(Attr::Tackling);
-            let fwd = clamp(1.5 + 0.04 * (tk - 50.0), 0.8, 3.5);
+            // Breaking down is footwork and feel, not the tackle itself
+            // (dynasty item 1: tackling now decides only the finish).
+            let feet = 0.5 * a.a(Attr::Agility) + 0.5 * a.a(Attr::Awareness);
+            let fwd = clamp(1.5 + 0.04 * (feet - 50.0), 0.8, 3.5);
             let run_x = (cv.x * self.goal).max(0.5);
             let t_meet = ahead / (run_x + fwd);
             let y_aim = clamp(cp.y + cv.y * t_meet, 0.5, WIDTH - 0.5);
@@ -1019,7 +1053,8 @@ impl<'a> Sim<'a> {
         // instead of flying past; good tacklers keep more speed.
         let facing = (a.pos.x - cp.x) * self.goal > 0.0;
         if facing && dist < 4.0 {
-            effort *= clamp(0.55 + 0.004 * a.a(Attr::Tackling), 0.6, 0.95);
+            let feet = 0.5 * a.a(Attr::Agility) + 0.5 * a.a(Attr::Awareness);
+            effort *= clamp(0.55 + 0.004 * feet, 0.6, 0.95);
         }
         // Full speed at the moving aim point (go_to would ease into it).
         let me = self.agents[i].pos;

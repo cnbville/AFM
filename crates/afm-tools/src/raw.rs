@@ -156,7 +156,7 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
             "pipeline": (0..51).filter(|&k| p.pipeline[k] > 0.01).map(|k| json!([STATE_CENTERS[k].0, r2(p.pipeline[k])])).collect::<Vec<_>>(),
             "footprint": (0..51).filter(|&k| p.footprint[k] > 0.01).map(|k| json!([STATE_CENTERS[k].0, r2(p.footprint[k])])).collect::<Vec<_>>(),
             "titles": p.titles, "conf_titles": p.conference_titles, "draft_picks": p.draft_picks,
-            "class_size": p.class_size, "admissions_bar": r2(p.admissions_bar), "special_admits": p.special_admits,
+            "signing_cap": afm_engine::world::ncaa::roster_limits(p, w.year).1, "admissions_bar": r2(p.admissions_bar), "special_admits": p.special_admits,
             "roster_size": p.roster.len(), "story": p.story,
             "seasons": p.seasons.iter().map(|s| { let t = &s.totals; json!({
                 "year": s.year, "w": s.wins, "l": s.losses, "conf": s.conference_title, "nat": s.national_title,

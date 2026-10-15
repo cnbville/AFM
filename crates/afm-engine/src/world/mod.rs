@@ -19,6 +19,7 @@ pub mod game_log;
 pub mod geo;
 pub mod high_school;
 pub mod names;
+pub mod ncaa;
 pub mod news;
 pub mod program;
 mod recruiting;
@@ -128,6 +129,11 @@ pub struct Person {
     pub nil_income: f64,
     pub pending_dip: Option<f64>,
     pub last_role: Option<PlayingTime>,
+    /// Offensive and defensive snaps in his last college season and in his
+    /// whole college career (dynasty item 3: backups' garbage-time snaps
+    /// count as game experience).
+    pub last_snaps: u32,
+    pub college_snaps: u32,
     pub last_performance: Option<f64>,
     pub transfers: u32,
     pub juco: bool,
@@ -141,6 +147,10 @@ pub struct Person {
     pub gpa_at_signing: Option<f64>,
     /// Signed as an academic redshirt: practices but can't play his first year (note 6).
     pub academic_redshirt: bool,
+    /// On the roster without a scholarship (fix list 1.6: specialist walk-ons).
+    pub walk_on: bool,
+    /// His role before he transferred, until his first season at the new school is logged.
+    pub(crate) transfer_from: Option<PlayingTime>,
     /// His college coaches each season: (year, program, head coach, position coach).
     pub college_staff: Vec<(i32, usize, Option<usize>, Option<usize>)>,
     /// Off-field incidents this season (for the locker room).
@@ -248,6 +258,30 @@ impl Alumnus {
     }
 }
 
+/// One portal entrant (recorded history only).
+#[derive(Clone, Debug)]
+pub struct PortalRecord {
+    /// The offseason he entered (the season just played).
+    pub year: i32,
+    /// His role in that season.
+    pub role: Option<PlayingTime>,
+    /// Why he entered: playing time, coaching change, steered, move up, dismissed or money.
+    pub why: &'static str,
+    pub from: Division,
+    /// Where he landed, or None if he found no school.
+    pub to: Option<Division>,
+}
+
+/// Recruiting and portal records for trials (dynasty item 11 checks).
+#[derive(Clone, Debug, Default)]
+pub struct RecruitingLog {
+    /// (signing class, program) for each high school 5-star (not a specialist) who signed with an FBS program.
+    pub five_stars: Vec<(i32, usize)>,
+    pub portal: Vec<PortalRecord>,
+    /// A transfer's first season at his new school: (season, role before, role now, division).
+    pub transfer_seasons: Vec<(i32, PlayingTime, PlayingTime, Division)>,
+}
+
 pub struct World {
     pub options: WorldOptions,
     /// The next season to be played.
@@ -270,11 +304,16 @@ pub struct World {
     pub overflow: [f64; 51],
     /// The 32 NFL teams: front offices and depth charts, for draft needs (note 7).
     pub nfl: Vec<crate::league::Team>,
+    /// Overall of the 64th and 138th best players taken in the last draft:
+    /// what staffs read early NFL entrants against (fix list 1.2).
+    pub(crate) draft_bars: Option<(f64, f64)>,
     pub(crate) rng: Rng,
     /// False during the spin-up before recorded history, while rosters fill.
     pub(crate) recording: bool,
     /// Trial tooling, see `WorldOptions::keep_game_log`.
     pub game_log: game_log::GameLog,
+    /// Recruiting and portal records for trials (dynasty item 11 checks).
+    pub recruiting_log: RecruitingLog,
     next_person: u32,
 }
 
@@ -373,9 +412,11 @@ impl World {
             areas,
             overflow,
             nfl,
+            draft_bars: None,
             rng,
             recording: false,
             game_log: game_log::GameLog::default(),
+            recruiting_log: RecruitingLog::default(),
             next_person: 1,
         };
         staff::staff_everyone(&mut w);
@@ -532,6 +573,8 @@ impl World {
                     nil_income: 0.0,
                     pending_dip: None,
                     last_role: None,
+                    last_snaps: 0,
+                    college_snaps: 0,
                     last_performance: None,
                     transfers: 0,
                     juco: false,
@@ -540,6 +583,8 @@ impl World {
                     gpa_trend,
                     gpa_at_signing: None,
                     academic_redshirt: false,
+                    walk_on: false,
+                    transfer_from: None,
                     college_staff: Vec::new(),
                     incident: false,
                     notes: Vec::new(),

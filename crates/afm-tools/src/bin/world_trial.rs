@@ -53,7 +53,7 @@ fn employer_name(w: &World, e: Employer) -> String {
         Employer::HighSchool(h) => {
             format!("{} HS ({})", w.high_schools[h].name, STATE_CENTERS[w.high_schools[h].state].0)
         }
-        Employer::Nfl(_) => "NFL".into(),
+        Employer::Nfl(t) => format!("{} (NFL)", w.nfl[t].name),
     }
 }
 
@@ -306,6 +306,8 @@ fn main() {
         return;
     }
 
+    special_teams(&w);
+
     // --- Calibration ---
     println!("## Calibration");
     let picks: Vec<&Alumnus> = w.alumni.iter().filter(|a| a.pick.is_some()).collect();
@@ -318,7 +320,10 @@ fn main() {
     for stars in [5u8, 4, 3, 2] {
         let total: u32 =
             w.signing_classes.iter().filter(|c| complete.contains(&c.0)).map(|c| c.1[stars as usize]).sum();
-        let drafted = picks.iter().filter(|a| a.stars == stars && complete.contains(&a.class_of)).count();
+        let drafted = picks
+            .iter()
+            .filter(|a| a.stars == stars && !a.position.is_specialist() && complete.contains(&a.class_of))
+            .count();
         if total > 0 {
             println!("{stars}-star draft rate: {:.1}% ({drafted} of {total})", 100.0 * drafted as f64 / total as f64);
         }
@@ -608,6 +613,9 @@ fn main() {
         big.2
     );
 
+    coaching_market(&w, years);
+    recruiting_spread(&w);
+
     // --- Players ---
     println!("\n## Players");
     let recorded: Vec<&Alumnus> = w.alumni.iter().filter(|a| a.class_of > w.year - years as i32 + 4).collect();
@@ -644,7 +652,7 @@ fn main() {
         recorded.iter().filter(|a| a.steered && a.notes.iter().any(|n| n.contains("free at last"))).count()
     );
     println!("Five-star busts (left football):");
-    for a in recorded.iter().filter(|a| a.stars == 5 && a.left_football).take(2) {
+    for a in recorded.iter().filter(|a| a.stars == 5 && !a.position.is_specialist() && a.left_football).take(2) {
         show_player(&w, a);
     }
     println!("Powerhouse transfer who was drafted:");
@@ -665,7 +673,7 @@ fn main() {
     // --- Character report: what the game shows instead ---
     println!("\n## What a scout sees (character report on a current five-star)");
     let mut w = w;
-    if let Some(i) = w.people.iter().position(|p| p.stars == 5) {
+    if let Some(i) = w.people.iter().position(|p| p.stars == 5 && !p.player.position.is_specialist()) {
         let name = w.people[i].name.clone();
         for acc in [6.0, 16.0] {
             let r = w.people[i].character_report(acc);
@@ -677,6 +685,127 @@ fn main() {
             bg.money, bg.safety, bg.stability, fam.decider, fam.parent_style
         );
     }
+}
+
+/// Fix list topic 1 checks: kickers, punters and long snappers on every
+/// roster, scholarships against walk-ons, position counts against the real
+/// FBS table, and (with the game log) kicking in the last engine season.
+fn special_teams(w: &World) {
+    use afm_engine::positions::{POSITION_COUNT, Position};
+    use afm_engine::world::Stage;
+    println!("## Kickers, punters and roster needs (fix list topic 1)");
+    println!("Rosters going into {} (after signing day):", w.year);
+    // Real FBS 2022-24 per roster, from the fix list table.
+    let real = [5.8, 8.5, 16.2, 7.4, 9.36, 10.14, 9.1, 8.4, 14.6, 10.2, 12.0, 3.5, 2.0, 2.5];
+    for d in [Division::FBS, Division::FCS, Division::D2, Division::JUCO] {
+        let teams: Vec<usize> =
+            w.programs.iter().filter(|p| p.division == d && !p.roster.is_empty()).map(|p| p.id).collect();
+        if teams.is_empty() {
+            continue;
+        }
+        // Counted from the people themselves: the program roster lists hold
+        // stale indices between the year-end clean-up and the next rebuild.
+        let mut counts = vec![[0u32; POSITION_COUNT]; w.programs.len()];
+        let mut sch = [0u32; POSITION_COUNT];
+        for p in &w.people {
+            let Some(t) = p.college else { continue };
+            if p.stage != Stage::College || w.programs[t].division != d {
+                continue;
+            }
+            let k = p.player.position.index();
+            counts[t][k] += 1;
+            if !p.walk_on {
+                sch[k] += 1;
+            }
+        }
+        let mut sizes: Vec<u32> = teams.iter().map(|&t| counts[t].iter().sum()).collect();
+        sizes.sort();
+        let n = teams.len() as f64;
+        let none = |pos: Position| teams.iter().filter(|&&t| counts[t][pos.index()] == 0).count();
+        let per = |pos: Position| teams.iter().map(|&t| counts[t][pos.index()]).sum::<u32>() as f64 / n;
+        let range = |pos: Position| {
+            let v: Vec<u32> = teams.iter().map(|&t| counts[t][pos.index()]).collect();
+            (v.iter().copied().min().unwrap_or(0), v.iter().copied().max().unwrap_or(0))
+        };
+        println!(
+            "- {}: {} teams, roster median {} ({}-{}); no kicker {}, no punter {}, no long snapper {}, neither K nor P {}",
+            d.name(),
+            teams.len(),
+            sizes[sizes.len() / 2],
+            sizes[sizes.len() / 10],
+            sizes[sizes.len() * 9 / 10],
+            none(Position::K),
+            none(Position::P),
+            none(Position::LS),
+            teams
+                .iter()
+                .filter(|&&t| counts[t][Position::K.index()] == 0 && counts[t][Position::P.index()] == 0)
+                .count()
+        );
+        for pos in [Position::K, Position::P, Position::LS] {
+            let (lo, hi) = range(pos);
+            let k = pos.index();
+            let total = per(pos) * n;
+            println!(
+                "  {}: {:.2} a roster ({lo}-{hi}), on scholarship {:.2} a team, walk-ons {:.0}%",
+                pos.name(),
+                per(pos),
+                sch[k] as f64 / n,
+                100.0 * (1.0 - sch[k] as f64 / total.max(1.0))
+            );
+        }
+        if d == Division::FBS {
+            let scale = 105.0 / 119.7;
+            let line: Vec<String> = Position::ALL
+                .iter()
+                .map(|&pos| format!("{} {:.1} ({:.1})", pos.name(), per(pos), real[pos.index()] * scale))
+                .collect();
+            println!("  per roster against the real table scaled to 105: {}", line.join(", "));
+        }
+    }
+    println!(
+        "Real FBS 2022-24: K 3.5 (1-7, never 0), P 2.0 (5% none), LS 2.5; no recruiting record K 69%, P 65%, LS 82%."
+    );
+    // Kicking on the engine, last season with a game log.
+    let Some(last) = w.game_log.games.iter().map(|g| g.year).max() else {
+        println!("(no game log kept: run with AFM_DASH=path for the engine checks)\n");
+        return;
+    };
+    for d in [Division::FBS, Division::FCS] {
+        let gs: Vec<_> = w.game_log.games.iter().filter(|g| g.year == last && g.division == d).collect();
+        let tg = 2.0 * gs.len() as f64;
+        if gs.is_empty() {
+            continue;
+        }
+        let sum = |f: &dyn Fn(&afm_engine::world::game_log::GameSummary, usize) -> f64| -> f64 {
+            gs.iter().map(|g| f(g, 0) + f(g, 1)).sum::<f64>()
+        };
+        let fga = sum(&|g, s| g.stats[s].fg_att as f64);
+        let fgm = sum(&|g, s| g.stats[s].fg_made as f64);
+        let xp = sum(&|g, s| g.xp[s] as f64);
+        let two = sum(&|g, s| g.two_point[s] as f64);
+        let punts = sum(&|g, s| g.punt_yds[s].0 as f64);
+        let punt_yds = sum(&|g, s| g.punt_yds[s].1);
+        println!(
+            "{} {last} on the engine, per team game: field goal tries {:.2} (made {:.0}%), extra point kicks {:.2}, two-point tries {:.2}, punts {:.2} at {:.1} gross",
+            d.name(),
+            fga / tg,
+            100.0 * fgm / fga.max(1.0),
+            xp / tg,
+            two / tg,
+            punts / tg,
+            punt_yds / punts.max(1.0)
+        );
+        // Who kicked: field goal tries by listed position.
+        let mut by_pos: BTreeMap<&str, u32> = BTreeMap::new();
+        for (&(y, _), s) in &w.game_log.players {
+            if y == last && s.fg_att > 0 && w.programs[s.program].division == d {
+                *by_pos.entry(s.pos.map_or("?", |p| p.name())).or_default() += s.fg_att;
+            }
+        }
+        println!("  field goal tries by the kicker's listed position: {by_pos:?}");
+    }
+    println!("Real FBS 2022-24 per team game: field goal tries 1.56, punt gross 42.3 (FCS 40.0).\n");
 }
 
 /// Checks for the eight trial 1 notes, with the facts behind each.
@@ -907,8 +1036,8 @@ fn trial1_notes(w: &World, years: u32) {
         count("summer school"),
         count("Academically ineligible")
     );
-    let five_juco = recorded.iter().filter(|a| a.stars == 5 && a.juco).count();
-    let five = recorded.iter().filter(|a| a.stars == 5).count();
+    let five_juco = recorded.iter().filter(|a| a.stars == 5 && !a.position.is_specialist() && a.juco).count();
+    let five = recorded.iter().filter(|a| a.stars == 5 && !a.position.is_specialist()).count();
     println!("five-stars who went through JUCO: {five_juco} of {five}");
     if let Some(a) = recorded.iter().find(|a| a.notes.iter().any(|n| n.contains("special admissions"))) {
         show_player(w, a);
@@ -1070,7 +1199,8 @@ fn write_dashboard(w: &World, path: &str, seed: u32, years: u32, cards: &[serde_
                 "came_up": c.came_up.name(), "ex_pro": c.ex_pro, "mentor": c.mentor.map(|m| w.coaches[m].name.clone()),
                 "hidden": {"hc_value": (a.head_coach_value() * 10.0).round() / 10.0, "teaching": a.teaching.iter().map(|t| (t * 10.0).round() / 10.0).collect::<Vec<_>>(),
                     "scheme": a.scheme.round(), "game_mgmt": a.game_management.round(), "motivation": a.motivation.round(),
-                    "discipline": a.discipline.round(), "recruiting": a.recruiting.round(), "network": a.network.round(), "relationships": a.relationships.round()},
+                    "discipline": a.discipline.round(), "recruiting": a.recruiting.round(), "network": a.network.round(), "relationships": a.relationships.round(),
+                    "sportsmanship": debug::coach_sportsmanship(c).round()},
                 "units": Group::ALL.iter().map(|&g| { let u = c.units[g as usize]; json!([g.name(), (u.growth_read() * 100.0).round() / 100.0, (u.moved_up * 10.0).round() / 10.0]) }).collect::<Vec<_>>(),
                 "career": career,
             })
@@ -1122,4 +1252,260 @@ fn write_dashboard(w: &World, path: &str, seed: u32, years: u32, cards: &[serde_
         "draft_cols": ["year","pick","name","pos","stars","path","team","overall","potential","eth","state"],
     });
     std::fs::write(path, serde_json::to_string(&out).unwrap()).unwrap();
+}
+
+/// The coaching market (dynasty item 11.11-11.15): head coach moves per year,
+/// NFL hires, early exits, and how long title-winning coaches stay.
+/// Dynasty item 11 checks: how 5-stars spread over FBS programs, who enters
+/// the portal, and whether transfers start where they land.
+fn recruiting_spread(w: &World) {
+    use afm_engine::player::PlayingTime;
+    println!("\n## Recruiting spread and the portal (dynasty items 11.1-11.3, 11.16-11.18)");
+    let log = &w.recruiting_log;
+    let mut by_year: BTreeMap<i32, BTreeMap<usize, u32>> = BTreeMap::new();
+    for &(y, j) in &log.five_stars {
+        *by_year.entry(y).or_default().entry(j).or_default() += 1;
+    }
+    let (mut share_sum, mut programs_sum, mut n) = (0.0, 0.0, 0.0);
+    for (y, m) in &by_year {
+        let total: u32 = m.values().sum();
+        let Some((&top_j, &top)) = m.iter().max_by_key(|e| *e.1) else { continue };
+        let share = top as f64 / total as f64;
+        println!(
+            "  class {y}: {total} FBS 5-stars, {} programs signed one, top {} with {top} ({:.0}%)",
+            m.len(),
+            w.program_name(top_j),
+            100.0 * share
+        );
+        share_sum += share;
+        programs_sum += m.len() as f64;
+        n += 1.0;
+    }
+    if n > 0.0 {
+        println!(
+            "  average: top program {:.1}% of FBS 5-stars, {:.1} programs sign one (real 2024-25, 247Sports: 14% and 15-17)",
+            100.0 * share_sum / n,
+            programs_sum / n
+        );
+    }
+    // Portal entrants by their role the season before.
+    let mut roles: BTreeMap<&str, (u32, u32)> = BTreeMap::new();
+    for r in &log.portal {
+        let name = r.role.map_or("none", |x| x.name());
+        let e = roles.entry(name).or_default();
+        e.0 += 1;
+        e.1 += r.to.is_some() as u32;
+    }
+    let total: u32 = roles.values().map(|e| e.0).sum();
+    let years = log.portal.iter().map(|r| r.year).collect::<std::collections::BTreeSet<_>>().len().max(1);
+    println!(
+        "  portal entrants: {total} ({:.0} a year), by role last season (share, landed):",
+        total as f64 / years as f64
+    );
+    for (name, (k, landed)) in &roles {
+        println!(
+            "    {name}: {k} ({:.0}%), {:.0}% found a school",
+            100.0 * *k as f64 / total.max(1) as f64,
+            100.0 * *landed as f64 / (*k).max(1) as f64
+        );
+    }
+    let mut rs_why: BTreeMap<&str, u32> = BTreeMap::new();
+    for r in log.portal.iter().filter(|r| r.role == Some(PlayingTime::Redshirt)) {
+        *rs_why.entry(r.why).or_default() += 1;
+    }
+    println!("    redshirts by reason: {rs_why:?}");
+    let fbs_entrants = log.portal.iter().filter(|r| r.from == Division::FBS).count();
+    let fbs_landed_fbs = log.portal.iter().filter(|r| r.from == Division::FBS && r.to == Some(Division::FBS)).count();
+    println!(
+        "  FBS entrants who landed at FBS: {:.0}% of {fbs_entrants}",
+        100.0 * fbs_landed_fbs as f64 / fbs_entrants.max(1) as f64
+    );
+    // Transfers' first season at the new school.
+    for (label, div) in [("all", None), ("FBS", Some(Division::FBS)), ("FCS", Some(Division::FCS))] {
+        let v: Vec<_> = log.transfer_seasons.iter().filter(|t| div.is_none_or(|d| t.3 == d)).collect();
+        let starts = v.iter().filter(|t| t.2 == PlayingTime::Starter).count();
+        let rotation = v.iter().filter(|t| t.2 == PlayingTime::Rotation).count();
+        println!(
+            "  transfers' first season ({label}, {}): {:.0}% start, {:.0}% rotation",
+            v.len(),
+            100.0 * starts as f64 / v.len().max(1) as f64,
+            100.0 * rotation as f64 / v.len().max(1) as f64
+        );
+    }
+    let rs: Vec<_> = log.transfer_seasons.iter().filter(|t| t.1 == PlayingTime::Redshirt).collect();
+    let rs_start = rs.iter().filter(|t| t.2 == PlayingTime::Starter).count();
+    println!(
+        "  former redshirts among them: {}, {:.0}% start",
+        rs.len(),
+        100.0 * rs_start as f64 / rs.len().max(1) as f64
+    );
+}
+
+fn coaching_market(w: &World, years: u32) {
+    println!("\n## Coaching market");
+    let first = w.year - years as i32;
+    let n = years as usize;
+    let fbs = |e: Employer| matches!(e, Employer::College(p) if w.programs[p].division == Division::FBS);
+    let early = |why: &str| why == "retired for his health" || why == "stepped away, burned out";
+    // Every stint, the current job last: (employer, role, from, to, why it ended).
+    type StintRow = (Employer, Role, i32, Option<i32>, &'static str);
+    let stints = |c: &afm_engine::world::coach::Coach| {
+        let mut v: Vec<StintRow> =
+            c.history.iter().map(|s| (s.employer, s.role, s.from, Some(s.to), s.ended)).collect();
+        if let Some(j) = c.job {
+            v.push((j.employer, j.role, j.since, None, ""));
+        }
+        v
+    };
+    let mut fbs_changes = vec![0u32; n];
+    let mut away_college = vec![0u32; n];
+    let mut away_nfl = vec![0u32; n];
+    let mut fbs_fired = vec![0u32; n];
+    let mut nfl_hires = vec![0u32; n];
+    let mut nfl_from_college = vec![0u32; n];
+    let mut nfl_from_coord = vec![0u32; n];
+    let mut nfl_fired = vec![0u32; n];
+    let mut early_all = vec![0u32; n];
+    let mut early_fbs = vec![0u32; n];
+    let mut early_burnout = 0u32;
+    let mut college_to_nfl: Vec<usize> = Vec::new();
+    let slot = |y: i32| if y >= first && y < w.year { Some((y - first) as usize) } else { None };
+    for c in &w.coaches {
+        let v = stints(c);
+        for (k, &(e, r, from, to, why)) in v.iter().enumerate() {
+            if r == Role::HeadCoach && fbs(e) {
+                if let Some(i) = slot(from) {
+                    fbs_changes[i] += 1;
+                }
+                if let Some(y) = to
+                    && let Some(i) = slot(y)
+                {
+                    if why == "left for another job" {
+                        match v.get(k + 1).map(|x| x.0) {
+                            Some(Employer::Nfl(_)) => away_nfl[i] += 1,
+                            _ => away_college[i] += 1,
+                        }
+                    }
+                    if why.starts_with("fired") {
+                        fbs_fired[i] += 1;
+                    }
+                    if early(why) {
+                        early_fbs[i] += 1;
+                    }
+                }
+            }
+            if let Some(y) = to
+                && let Some(i) = slot(y)
+                && early(why)
+            {
+                early_all[i] += 1;
+                if why == "stepped away, burned out" {
+                    early_burnout += 1;
+                }
+            }
+            if r == Role::HeadCoach && matches!(e, Employer::Nfl(_)) {
+                if let Some(i) = slot(from) {
+                    nfl_hires[i] += 1;
+                    match k.checked_sub(1).map(|j| (v[j].0, v[j].1, v[j].3)) {
+                        Some((Employer::College(_), _, Some(t))) if t == from => {
+                            nfl_from_college[i] += 1;
+                            college_to_nfl.push(c.id);
+                        }
+                        Some((Employer::Nfl(_), r, Some(t))) if t == from && r != Role::HeadCoach => {
+                            nfl_from_coord[i] += 1
+                        }
+                        _ => {}
+                    }
+                }
+                if let Some(y) = to
+                    && let Some(i) = slot(y)
+                    && why == "fired"
+                {
+                    nfl_fired[i] += 1;
+                }
+            }
+        }
+    }
+    let avg = |v: &[u32]| v.iter().sum::<u32>() as f64 / n.max(1) as f64;
+    let row = |name: &str, v: &[u32]| {
+        println!("{name}: {:.1} a year ({})", avg(v), v.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(" "))
+    };
+    row("FBS head coach changes (new head coaches)", &fbs_changes);
+    row("FBS head coaches fired", &fbs_fired);
+    row("FBS head coaches hired away by another college", &away_college);
+    row("FBS head coaches hired away by the NFL", &away_nfl);
+    row("NFL head coach hires", &nfl_hires);
+    row("  of them from an NFL coordinator job", &nfl_from_coord);
+    row("  of them straight from a college job", &nfl_from_college);
+    row("NFL head coaches fired", &nfl_fired);
+    row("Coaches retiring before 60 (health or burnout), all levels", &early_all);
+    row("  of them FBS head coaches", &early_fbs);
+    println!("  (burnout {early_burnout}, health {})", early_all.iter().sum::<u32>() - early_burnout);
+    // How long national-title coaches stay where they won.
+    let mut tenures: Vec<(String, String, i32)> = Vec::new();
+    for (p, prog) in w.programs.iter().enumerate() {
+        if prog.division != Division::FBS {
+            continue;
+        }
+        for s in prog.seasons.iter().filter(|s| s.national_title) {
+            let Some(c) = s.coach else { continue };
+            let coach = &w.coaches[c];
+            let len = stints(coach)
+                .iter()
+                .find(|x| {
+                    x.0 == Employer::College(p)
+                        && x.1 == Role::HeadCoach
+                        && x.2 < s.year
+                        && x.3.is_none_or(|t| t >= s.year)
+                })
+                .map(|x| x.3.unwrap_or(w.year) - x.2);
+            if let Some(len) = len {
+                tenures.push((prog.real_name.clone(), coach.name.clone(), len));
+            }
+        }
+    }
+    if !tenures.is_empty() {
+        let mut lens: Vec<i32> = tenures.iter().map(|t| t.2).collect();
+        lens.sort();
+        let mean = lens.iter().sum::<i32>() as f64 / lens.len() as f64;
+        println!(
+            "FBS national-title coaches' tenure at that school (to now if still there): mean {mean:.1}, median {}, max {}, 10+ seasons {} of {}",
+            lens[lens.len() / 2],
+            lens[lens.len() - 1],
+            lens.iter().filter(|&&l| l >= 10).count(),
+            lens.len()
+        );
+        let mut by_coach: BTreeMap<(String, String), (u32, i32)> = BTreeMap::new();
+        for (school, coach, len) in &tenures {
+            let e = by_coach.entry((coach.clone(), school.clone())).or_default();
+            e.0 += 1;
+            e.1 = *len;
+        }
+        let mut list: Vec<_> = by_coach.into_iter().collect();
+        list.sort_by_key(|x| std::cmp::Reverse(x.1.0));
+        let shown: Vec<String> =
+            list.iter().take(6).map(|((c, s), (t, l))| format!("{c} at {s}: {t} titles, {l} seasons")).collect();
+        println!("  most titles: {}", shown.join("; "));
+    }
+    println!("Example stories:");
+    // FBS and NFL stories first, then any level.
+    let big =
+        |n: &&afm_engine::world::news::NewsItem| n.program.is_none_or(|p| w.programs[p].division == Division::FBS);
+    let mut seen: Vec<&str> = Vec::new();
+    for pat in ["for the ", "worn out", "for health", "a chance to go home", "a big raise", "a bigger program"] {
+        let fits = |n: &&afm_engine::world::news::NewsItem| {
+            n.kind == NewsKind::CoachLeft && n.text.contains(pat) && !seen.contains(&n.text.as_str())
+        };
+        if let Some(n) = w.news.iter().rev().filter(fits).find(big).or_else(|| w.news.iter().rev().find(fits)) {
+            println!("- {}: {}", n.year, n.text);
+            seen.push(&n.text);
+        }
+    }
+    for n in w.news.iter().rev().filter(|n| n.kind == NewsKind::CoachHired && n.program.is_none()).take(3) {
+        println!("- {}: {}", n.year, n.text);
+    }
+    if let Some(&c) = college_to_nfl.last() {
+        println!("A college head coach who went to the NFL:");
+        coach_career(w, c);
+    }
 }

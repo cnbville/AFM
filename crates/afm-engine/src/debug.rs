@@ -67,6 +67,11 @@ pub fn coach_ability(c: &crate::world::coach::Coach) -> crate::world::coach::Abi
     *c.ability()
 }
 
+/// A coach's hidden sportsmanship (dynasty item 3), 1-20.
+pub fn coach_sportsmanship(c: &crate::world::coach::Coach) -> f64 {
+    c.sportsmanship
+}
+
 /// A world player's hidden background and family.
 pub fn person_background(
     p: &crate::world::Person,

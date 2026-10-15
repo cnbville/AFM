@@ -85,7 +85,10 @@ impl Rng {
     /// Integer in [min, max] inclusive.
     #[inline]
     pub fn int(&mut self, min: i32, max: i32) -> i32 {
-        min + (self.next() * (max - min + 1) as f64).floor() as i32
+        // Wrapping, as release builds already did: a full-range call
+        // (`int(0, i32::MAX)`, the game seeds) must not panic in debug, and
+        // seeds must stay the same.
+        min.wrapping_add((self.next() * max.wrapping_sub(min).wrapping_add(1) as f64).floor() as i32)
     }
 
     #[inline]

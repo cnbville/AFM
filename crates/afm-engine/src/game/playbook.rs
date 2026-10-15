@@ -208,7 +208,7 @@ impl Route {
             Route::Curl(_) => (&[(0.0, 0.0), (-2.0, -1.5)], true),
             Route::Hitch(_) => (&[(0.0, 0.0), (-1.0, 0.0)], true),
             Route::Comeback(_) => (&[(0.0, 0.0), (-3.0, 3.0)], true),
-            Route::Post(_) => (&[(0.0, 0.0), (25.0, -12.0)], false),
+            Route::Post(_) => (&[(0.0, 0.0), (16.0, -16.0)], false),
             Route::Corner(_) => (&[(0.0, 0.0), (14.0, 11.0)], false),
             Route::Flat => (&[(1.5, 3.0), (3.0, 9.0), (4.0, 12.5), (14.0, 13.5)], false),
             Route::Wheel => (&[(1.0, 4.0), (4.0, 8.0), (40.0, 9.0)], false),
@@ -454,6 +454,19 @@ pub const PASS_CONCEPTS: &[PassConcept] = &[
         reads: &[Slot, Slot2, X],
         depth: PassDepth::Screen,
     },
+    // Speed outs: the quick out, the most thrown route in the real NFL
+    // (about one target in six under 10 air yards). Outside receivers break
+    // flat at four yards; the slot sits over the ball (proposed, not
+    // confirmed: the full play library is a later section).
+    PassConcept {
+        name: "speed outs",
+        drop: Drop::Quick,
+        protection: Protection::Standard,
+        play_action: false,
+        routes: &[(X, Out(4.0)), (Z, Out(4.0)), (Slot, Sit(6.0)), (Slot2, Out(4.0)), (TE, Seam), (TE2, Flat)],
+        reads: &[Z, X, Slot, TE, RB],
+        depth: PassDepth::Quick,
+    },
     PassConcept {
         name: "fades",
         drop: Drop::Quick,
@@ -521,6 +534,19 @@ impl RunConcept {
     }
     /// Where the back aims, in yards from the center toward the play side,
     /// and whether the scheme pulls a backside guard (gap schemes).
+    /// The pace a back presses the line at, yards per second: zone runs
+    /// patient, gap runs downhill, tosses and sneaks at full speed (0).
+    /// Proposed, not confirmed (Claude's reading of NGS time to the line,
+    /// about 2.8 s from the snap).
+    pub fn press(self) -> f64 {
+        match self {
+            RunConcept::InsideZone | RunConcept::ZoneRead | RunConcept::OutsideZone => 6.3,
+            RunConcept::Power | RunConcept::Counter | RunConcept::BuckSweep => 7.2,
+            RunConcept::Draw => 6.0,
+            RunConcept::Sneak | RunConcept::Toss => 0.0,
+        }
+    }
+
     pub fn aim(self) -> (f64, u8) {
         match self {
             RunConcept::InsideZone | RunConcept::ZoneRead => (1.8, 0),

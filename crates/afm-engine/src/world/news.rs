@@ -18,11 +18,15 @@ pub enum NewsKind {
     },
     CoachHired,
     CoachFired,
+    /// A head coach leaves: hired away, retired, or stepped away (dynasty item 11).
+    CoachLeft,
     /// A loyal, successful coach kept for a "prove it" year (note 1).
     CoachExtended,
     /// The yearly diversity report on head coaches (note 2).
     DiversityReport,
     NationalTitle,
+    /// NCAA penalties for a booster's payments (dynasty item 11.6).
+    NcaaPenalty,
     ConferenceTitle,
     StateTitle,
     Realignment,

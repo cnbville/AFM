@@ -1,0 +1,1228 @@
+{
+ "about": "Real 4th-quarter behaviour by the score after three quarters (lead or trail, points), for the garbage-time check (garbage_check). FBS: FBS-vs-FBS games 2022-2024 (cfbfastR play-by-play, sportsdataverse). NFL: regular seasons 2018-2025 (nflverse play-by-play). Pass rate = (passes + sacks) / (that + rushes); scrambles count as rushes; kneels excluded. QB1 = the passer with the most pass plays in quarters 1-3; RB1 = the non-QB with the most carries in quarters 1-3. \"takes any Q4 snap\" = recorded as passer or rusher on a 4th-quarter play. Seconds per play: drive based. 4th-down zones: own = 51+ yards to the goal, mid = 35-50, fg = 34 or less. Scripts: scripts/garbage_time.py, scripts/pull_timing.py, scripts/blowout_snaps.py.",
+ "fbs": {
+  "lead": {
+   "28+": {
+    "team_games": 325,
+    "q4_pass_rate": 0.2768,
+    "q4_points_mean": 6.6554,
+    "q4_points_allowed_mean": 4.6985,
+    "q4_plays_mean": 14.5477,
+    "q4_kneels_mean": 0.32,
+    "q4_sec_per_play_drive_based": 34.2012,
+    "qb1_share_of_q4_passes": 0.3531,
+    "pct_games_qb1_takes_any_q4_snap_given_any_snap": 0.4769,
+    "rb1_share_of_q4_rushes": 0.096,
+    "q4_4th_own_n": 227,
+    "q4_4th_own_go": 0.0793,
+    "q4_4th_own_punt": 0.9207,
+    "q4_4th_mid_n": 116,
+    "q4_4th_mid_go": 0.4138,
+    "q4_4th_mid_fg": 0.0431,
+    "q4_4th_mid_punt": 0.5431,
+    "q4_4th_fg_n": 174,
+    "q4_4th_fg_go": 0.6149,
+    "q4_4th_fg_fg": 0.3851,
+    "q4_sec_per_play_play_level": 22.12
+   },
+   "21-27": {
+    "team_games": 277,
+    "q4_pass_rate": 0.2606,
+    "q4_points_mean": 6.9097,
+    "q4_points_allowed_mean": 5.6859,
+    "q4_plays_mean": 14.8917,
+    "q4_kneels_mean": 0.4549,
+    "q4_sec_per_play_drive_based": 34.3985,
+    "qb1_share_of_q4_passes": 0.738,
+    "pct_games_qb1_takes_any_q4_snap_given_any_snap": 0.8953,
+    "rb1_share_of_q4_rushes": 0.2685,
+    "q4_4th_own_n": 203,
+    "q4_4th_own_go": 0.0493,
+    "q4_4th_own_punt": 0.9507,
+    "q4_4th_mid_n": 100,
+    "q4_4th_mid_go": 0.3,
+    "q4_4th_mid_fg": 0.06,
+    "q4_4th_mid_punt": 0.64,
+    "q4_4th_fg_n": 162,
+    "q4_4th_fg_go": 0.3827,
+    "q4_4th_fg_fg": 0.5926,
+    "q4_sec_per_play_play_level": 23.78
+   },
+   "15-20": {
+    "team_games": 298,
+    "q4_pass_rate": 0.3009,
+    "q4_points_mean": 7.4664,
+    "q4_points_allowed_mean": 7.151,
+    "q4_plays_mean": 15.3926,
+    "q4_kneels_mean": 0.5503,
+    "q4_sec_per_play_drive_based": 32.0813,
+    "qb1_share_of_q4_passes": 0.8926,
+    "pct_games_qb1_takes_any_q4_snap_given_any_snap": 0.9463,
+    "rb1_share_of_q4_rushes": 0.3406,
+    "q4_4th_own_n": 242,
+    "q4_4th_own_go": 0.0744,
+    "q4_4th_own_punt": 0.9256,
+    "q4_4th_mid_n": 106,
+    "q4_4th_mid_go": 0.3208,
+    "q4_4th_mid_fg": 0.0472,
+    "q4_4th_mid_punt": 0.6321,
+    "q4_4th_fg_n": 196,
+    "q4_4th_fg_go": 0.352,
+    "q4_4th_fg_fg": 0.6327,
+    "q4_sec_per_play_play_level": 21.6
+   },
+   "1-14": {
+    "team_games": 1299,
+    "q4_pass_rate": 0.3866,
+    "q4_points_mean": 7.3272,
+    "q4_points_allowed_mean": 7.3795,
+    "q4_plays_mean": 16.8891,
+    "q4_kneels_mean": 0.465,
+    "q4_sec_per_play_drive_based": 28.2119,
+    "qb1_share_of_q4_passes": 0.921,
+    "pct_games_qb1_takes_any_q4_snap_given_any_snap": 0.9569,
+    "rb1_share_of_q4_rushes": 0.4201,
+    "q4_4th_own_n": 1302,
+    "q4_4th_own_go": 0.1306,
+    "q4_4th_own_punt": 0.8694,
+    "q4_4th_mid_n": 542,
+    "q4_4th_mid_go": 0.3395,
+    "q4_4th_mid_fg": 0.0535,
+    "q4_4th_mid_punt": 0.607,
+    "q4_4th_fg_n": 911,
+    "q4_4th_fg_go": 0.3337,
+    "q4_4th_fg_fg": 0.6597,
+    "q4_sec_per_play_play_level": 20.89
+   }
+  },
+  "trail": {
+   "28+": {
+    "team_games": 325,
+    "q4_pass_rate": 0.5108,
+    "q4_points_mean": 4.6985,
+    "q4_points_allowed_mean": 6.6554,
+    "q4_plays_mean": 15.2154,
+    "q4_kneels_mean": 0.0,
+    "q4_sec_per_play_drive_based": 27.7029,
+    "qb1_share_of_q4_passes": 0.5602,
+    "pct_games_qb1_takes_any_q4_snap_given_any_snap": 0.6636,
+    "rb1_share_of_q4_rushes": 0.1997,
+    "q4_4th_own_n": 361,
+    "q4_4th_own_go": 0.1856,
+    "q4_4th_own_punt": 0.8144,
+    "q4_4th_mid_n": 116,
+    "q4_4th_mid_go": 0.7586,
+    "q4_4th_mid_fg": 0.0431,
+    "q4_4th_mid_punt": 0.1983,
+    "q4_4th_fg_n": 166,
+    "q4_4th_fg_go": 0.8313,
+    "q4_4th_fg_fg": 0.1687,
+    "q4_sec_per_play_play_level": 18.77
+   },
+   "21-27": {
+    "team_games": 277,
+    "q4_pass_rate": 0.6308,
+    "q4_points_mean": 5.6859,
+    "q4_points_allowed_mean": 6.9097,
+    "q4_plays_mean": 16.8628,
+    "q4_kneels_mean": 0.0036,
+    "q4_sec_per_play_drive_based": 23.6331,
+    "qb1_share_of_q4_passes": 0.7461,
+    "pct_games_qb1_takes_any_q4_snap_given_any_snap": 0.852,
+    "rb1_share_of_q4_rushes": 0.2297,
+    "q4_4th_own_n": 325,
+    "q4_4th_own_go": 0.3538,
+    "q4_4th_own_punt": 0.6462,
+    "q4_4th_mid_n": 93,
+    "q4_4th_mid_go": 0.8172,
+    "q4_4th_mid_fg": 0.0215,
+    "q4_4th_mid_punt": 0.1613,
+    "q4_4th_fg_n": 191,
+    "q4_4th_fg_go": 0.8534,
+    "q4_4th_fg_fg": 0.1466,
+    "q4_sec_per_play_play_level": 17.99
+   },
+   "15-20": {
+    "team_games": 298,
+    "q4_pass_rate": 0.6549,
+    "q4_points_mean": 7.151,
+    "q4_points_allowed_mean": 7.4664,
+    "q4_plays_mean": 18.3792,
+    "q4_kneels_mean": 0.0201,
+    "q4_sec_per_play_drive_based": 21.3938,
+    "qb1_share_of_q4_passes": 0.7904,
+    "pct_games_qb1_takes_any_q4_snap_given_any_snap": 0.8758,
+    "rb1_share_of_q4_rushes": 0.3157,
+    "q4_4th_own_n": 345,
+    "q4_4th_own_go": 0.4928,
+    "q4_4th_own_punt": 0.5072,
+    "q4_4th_mid_n": 105,
+    "q4_4th_mid_go": 0.8571,
+    "q4_4th_mid_fg": 0.0286,
+    "q4_4th_mid_punt": 0.1143,
+    "q4_4th_fg_n": 181,
+    "q4_4th_fg_go": 0.7403,
+    "q4_4th_fg_fg": 0.2541,
+    "q4_sec_per_play_play_level": 15.89
+   },
+   "1-14": {
+    "team_games": 1299,
+    "q4_pass_rate": 0.6175,
+    "q4_points_mean": 7.3795,
+    "q4_points_allowed_mean": 7.3272,
+    "q4_plays_mean": 18.6528,
+    "q4_kneels_mean": 0.0962,
+    "q4_sec_per_play_drive_based": 22.0729,
+    "qb1_share_of_q4_passes": 0.872,
+    "pct_games_qb1_takes_any_q4_snap_given_any_snap": 0.9376,
+    "rb1_share_of_q4_rushes": 0.3749,
+    "q4_4th_own_n": 1523,
+    "q4_4th_own_go": 0.4156,
+    "q4_4th_own_punt": 0.5844,
+    "q4_4th_mid_n": 483,
+    "q4_4th_mid_go": 0.6977,
+    "q4_4th_mid_fg": 0.0497,
+    "q4_4th_mid_punt": 0.2526,
+    "q4_4th_fg_n": 868,
+    "q4_4th_fg_go": 0.5565,
+    "q4_4th_fg_fg": 0.4389,
+    "q4_sec_per_play_play_level": 16.84
+   }
+  }
+ },
+ "nfl": {
+  "lead": {
+   "28+": {
+    "team_games": 90,
+    "q4_pass_rate": 0.2751,
+    "q4_points_mean": 4.2111,
+    "q4_points_allowed_mean": 5.5333,
+    "q4_plays_mean": 13.4889,
+    "q4_kneels_mean": 1.4111,
+    "qb1_share_of_q4_passes": 0.4482,
+    "pct_games_qb1_takes_any_q4_snap_given_any_snap": 0.6111,
+    "rb1_share_of_q4_rushes": 0.1599,
+    "q4_4th_own_n": 92,
+    "q4_4th_own_go": 0.0109,
+    "q4_4th_own_punt": 0.9891,
+    "q4_4th_mid_n": 25,
+    "q4_4th_mid_go": 0.32,
+    "q4_4th_mid_fg": 0.12,
+    "q4_4th_mid_punt": 0.56,
+    "q4_4th_fg_n": 49,
+    "q4_4th_fg_go": 0.3469,
+    "q4_4th_fg_fg": 0.6531,
+    "q4_sec_per_play_play_level": 35.67
+   },
+   "21-27": {
+    "team_games": 178,
+    "q4_pass_rate": 0.3244,
+    "q4_points_mean": 5.4944,
+    "q4_points_allowed_mean": 5.6966,
+    "q4_plays_mean": 14.3596,
+    "q4_kneels_mean": 1.3539,
+    "qb1_share_of_q4_passes": 0.8602,
+    "pct_games_qb1_takes_any_q4_snap_given_any_snap": 0.9382,
+    "rb1_share_of_q4_rushes": 0.413,
+    "q4_4th_own_n": 169,
+    "q4_4th_own_go": 0.0059,
+    "q4_4th_own_punt": 0.9941,
+    "q4_4th_mid_n": 63,
+    "q4_4th_mid_go": 0.2063,
+    "q4_4th_mid_fg": 0.0952,
+    "q4_4th_mid_punt": 0.6984,
+    "q4_4th_fg_n": 110,
+    "q4_4th_fg_go": 0.3091,
+    "q4_4th_fg_fg": 0.6727,
+    "q4_sec_per_play_play_level": 33.23
+   },
+   "15-20": {
+    "team_games": 276,
+    "q4_pass_rate": 0.3615,
+    "q4_points_mean": 5.4819,
+    "q4_points_allowed_mean": 7.5942,
+    "q4_plays_mean": 15.7717,
+    "q4_kneels_mean": 1.3587,
+    "qb1_share_of_q4_passes": 0.9534,
+    "pct_games_qb1_takes_any_q4_snap_given_any_snap": 0.9819,
+    "rb1_share_of_q4_rushes": 0.4862,
+    "q4_4th_own_n": 281,
+    "q4_4th_own_go": 0.032,
+    "q4_4th_own_punt": 0.968,
+    "q4_4th_mid_n": 111,
+    "q4_4th_mid_go": 0.2432,
+    "q4_4th_mid_fg": 0.1081,
+    "q4_4th_mid_punt": 0.6486,
+    "q4_4th_fg_n": 177,
+    "q4_4th_fg_go": 0.2712,
+    "q4_4th_fg_fg": 0.7288,
+    "q4_sec_per_play_play_level": 30.32
+   },
+   "1-14": {
+    "team_games": 1466,
+    "q4_pass_rate": 0.4771,
+    "q4_points_mean": 6.3261,
+    "q4_points_allowed_mean": 7.1419,
+    "q4_plays_mean": 16.5259,
+    "q4_kneels_mean": 0.9604,
+    "qb1_share_of_q4_passes": 0.9718,
+    "pct_games_qb1_takes_any_q4_snap_given_any_snap": 0.9795,
+    "rb1_share_of_q4_rushes": 0.551,
+    "q4_4th_own_n": 1359,
+    "q4_4th_own_go": 0.0935,
+    "q4_4th_own_punt": 0.9065,
+    "q4_4th_mid_n": 588,
+    "q4_4th_mid_go": 0.2313,
+    "q4_4th_mid_fg": 0.1514,
+    "q4_4th_mid_punt": 0.6173,
+    "q4_4th_fg_n": 1033,
+    "q4_4th_fg_go": 0.1965,
+    "q4_4th_fg_fg": 0.7967,
+    "q4_sec_per_play_play_level": 27.29
+   }
+  },
+  "trail": {
+   "28+": {
+    "team_games": 90,
+    "q4_pass_rate": 0.6638,
+    "q4_points_mean": 5.5333,
+    "q4_points_allowed_mean": 4.2111,
+    "q4_plays_mean": 16.6,
+    "q4_kneels_mean": 0.0444,
+    "qb1_share_of_q4_passes": 0.7978,
+    "pct_games_qb1_takes_any_q4_snap_given_any_snap": 0.8333,
+    "rb1_share_of_q4_rushes": 0.3393,
+    "q4_4th_own_n": 84,
+    "q4_4th_own_go": 0.3095,
+    "q4_4th_own_punt": 0.6905,
+    "q4_4th_mid_n": 26,
+    "q4_4th_mid_go": 0.7692,
+    "q4_4th_mid_fg": 0.0,
+    "q4_4th_mid_punt": 0.2308,
+    "q4_4th_fg_n": 51,
+    "q4_4th_fg_go": 0.8431,
+    "q4_4th_fg_fg": 0.1569,
+    "q4_sec_per_play_play_level": 24.44
+   },
+   "21-27": {
+    "team_games": 178,
+    "q4_pass_rate": 0.7583,
+    "q4_points_mean": 5.6966,
+    "q4_points_allowed_mean": 5.4944,
+    "q4_plays_mean": 18.2079,
+    "q4_kneels_mean": 0.0337,
+    "qb1_share_of_q4_passes": 0.7766,
+    "pct_games_qb1_takes_any_q4_snap_given_any_snap": 0.8539,
+    "rb1_share_of_q4_rushes": 0.344,
+    "q4_4th_own_n": 181,
+    "q4_4th_own_go": 0.4088,
+    "q4_4th_own_punt": 0.5912,
+    "q4_4th_mid_n": 71,
+    "q4_4th_mid_go": 0.8732,
+    "q4_4th_mid_fg": 0.0282,
+    "q4_4th_mid_punt": 0.0986,
+    "q4_4th_fg_n": 107,
+    "q4_4th_fg_go": 0.8598,
+    "q4_4th_fg_fg": 0.1402,
+    "q4_sec_per_play_play_level": 22.03
+   },
+   "15-20": {
+    "team_games": 276,
+    "q4_pass_rate": 0.7921,
+    "q4_points_mean": 7.5942,
+    "q4_points_allowed_mean": 5.4819,
+    "q4_plays_mean": 18.9058,
+    "q4_kneels_mean": 0.0797,
+    "qb1_share_of_q4_passes": 0.8795,
+    "pct_games_qb1_takes_any_q4_snap_given_any_snap": 0.9312,
+    "rb1_share_of_q4_rushes": 0.3824,
+    "q4_4th_own_n": 259,
+    "q4_4th_own_go": 0.4479,
+    "q4_4th_own_punt": 0.5521,
+    "q4_4th_mid_n": 102,
+    "q4_4th_mid_go": 0.8725,
+    "q4_4th_mid_fg": 0.0294,
+    "q4_4th_mid_punt": 0.098,
+    "q4_4th_fg_n": 193,
+    "q4_4th_fg_go": 0.7358,
+    "q4_4th_fg_fg": 0.2642,
+    "q4_sec_per_play_play_level": 21.0
+   },
+   "1-14": {
+    "team_games": 1466,
+    "q4_pass_rate": 0.7118,
+    "q4_points_mean": 7.1419,
+    "q4_points_allowed_mean": 6.3261,
+    "q4_plays_mean": 18.5266,
+    "q4_kneels_mean": 0.1999,
+    "qb1_share_of_q4_passes": 0.941,
+    "pct_games_qb1_takes_any_q4_snap_given_any_snap": 0.9611,
+    "rb1_share_of_q4_rushes": 0.5138,
+    "q4_4th_own_n": 1420,
+    "q4_4th_own_go": 0.3923,
+    "q4_4th_own_punt": 0.6077,
+    "q4_4th_mid_n": 495,
+    "q4_4th_mid_go": 0.604,
+    "q4_4th_mid_fg": 0.1434,
+    "q4_4th_mid_punt": 0.2525,
+    "q4_4th_fg_n": 1064,
+    "q4_4th_fg_go": 0.4709,
+    "q4_4th_fg_fg": 0.5291,
+    "q4_sec_per_play_play_level": 22.63
+   }
+  }
+ },
+ "pull_timing": {
+  "cfb_fbs_vs_fbs_2022_2024": {
+   "qb1_last_snap_when_pulled_while_leading": {
+    "lead": {
+     "n": 451,
+     "p10": 6.0,
+     "p25": 17.0,
+     "p50": 24.0,
+     "p75": 31.0,
+     "p90": 35.0,
+     "mean": 23.082039911308204
+    },
+    "minutes_left": {
+     "n": 451,
+     "p10": 7.7,
+     "p25": 11.05,
+     "p50": 15.0,
+     "p75": 22.216666666666665,
+     "p90": 30.25,
+     "mean": 17.44279379157428
+    },
+    "wp": {
+     "n": 450,
+     "p10": 0.8108143700000001,
+     "p25": 0.98252415,
+     "p50": 0.9946181000000001,
+     "p75": 0.99758105,
+     "p90": 0.99881474,
+     "mean": 0.9485330168888889
+    },
+    "share_last_snap_in_q2_or_earlier": 0.12416851441241686,
+    "share_last_snap_in_q3": 0.37915742793791574,
+    "share_last_snap_in_q4": 0.49445676274944567
+   },
+   "pulls_while_leading": {
+    "lead_at_pull": {
+     "n": 451,
+     "p10": 7.0,
+     "p25": 21.0,
+     "p50": 29.0,
+     "p75": 35.0,
+     "p90": 42.0,
+     "mean": 27.250554323725055
+    },
+    "minutes_left_at_pull": {
+     "n": 451,
+     "p10": 2.8666666666666667,
+     "p25": 6.608333333333333,
+     "p50": 10.733333333333333,
+     "p75": 17.81666666666667,
+     "p90": 25.5,
+     "mean": 12.521138211382114
+    },
+    "wp_at_pull": {
+     "n": 450,
+     "p10": 0.90076889,
+     "p25": 0.99369885,
+     "p50": 0.99814295,
+     "p75": 0.999456675,
+     "p90": 0.99982505,
+     "mean": 0.9667482171111111
+    },
+    "share_in_q3": 0.30376940133037694,
+    "share_in_q4": 0.6940133037694013
+   },
+   "pulls_while_trailing": {
+    "deficit_at_pull": {
+     "n": 668,
+     "p10": 5.0,
+     "p25": 11.0,
+     "p50": 21.0,
+     "p75": 31.0,
+     "p90": 41.0,
+     "mean": 22.468562874251496
+    },
+    "minutes_left_at_pull": {
+     "n": 668,
+     "p10": 1.8,
+     "p25": 4.266666666666667,
+     "p50": 10.75,
+     "p75": 21.616666666666667,
+     "p90": 28.116666666666667,
+     "mean": 12.889545908183633
+    },
+    "wp_at_pull": {
+     "n": 666,
+     "p10": 1.4599999999999999e-05,
+     "p25": 0.00017460000000000002,
+     "p50": 0.0038372,
+     "p75": 0.057841125,
+     "p90": 0.25774284999999997,
+     "mean": 0.06860571051051051
+    }
+   },
+   "by_lead_entering_q4": {
+    "28+": {
+     "team_games": 301,
+     "qb1_last_snap_before_q4": 0.4950166112956811,
+     "qb1_last_snap_in_q4": 0.21262458471760798,
+     "no_confirmed_qb_change": 0.292358803986711
+    },
+    "21-27": {
+     "team_games": 255,
+     "qb1_last_snap_before_q4": 0.09019607843137255,
+     "qb1_last_snap_in_q4": 0.26666666666666666,
+     "no_confirmed_qb_change": 0.6431372549019608
+    },
+    "14-20": {
+     "team_games": 393,
+     "qb1_last_snap_before_q4": 0.030534351145038167,
+     "qb1_last_snap_in_q4": 0.13994910941475827,
+     "no_confirmed_qb_change": 0.8295165394402035
+    },
+    "7-13": {
+     "team_games": 599,
+     "qb1_last_snap_before_q4": 0.0333889816360601,
+     "qb1_last_snap_in_q4": 0.045075125208681135,
+     "no_confirmed_qb_change": 0.9215358931552587
+    },
+    "1-6": {
+     "team_games": 502,
+     "qb1_last_snap_before_q4": 0.053784860557768925,
+     "qb1_last_snap_in_q4": 0.049800796812749,
+     "no_confirmed_qb_change": 0.896414342629482
+    },
+    "-1 to -6": {
+     "team_games": 543,
+     "qb1_last_snap_before_q4": 0.06077348066298342,
+     "qb1_last_snap_in_q4": 0.06077348066298342,
+     "no_confirmed_qb_change": 0.8784530386740331
+    },
+    "-7 to -20": {
+     "team_games": 1137,
+     "qb1_last_snap_before_q4": 0.09146877748460862,
+     "qb1_last_snap_in_q4": 0.11873350923482849,
+     "no_confirmed_qb_change": 0.7897977132805629
+    },
+    "-21 to -27": {
+     "team_games": 298,
+     "qb1_last_snap_before_q4": 0.15771812080536912,
+     "qb1_last_snap_in_q4": 0.22483221476510068,
+     "no_confirmed_qb_change": 0.6174496644295302
+    },
+    "-28 or worse": {
+     "team_games": 378,
+     "qb1_last_snap_before_q4": 0.3412698412698413,
+     "qb1_last_snap_in_q4": 0.2619047619047619,
+     "no_confirmed_qb_change": 0.3968253968253968
+    }
+   }
+  },
+  "nfl_reg_2018_2025": {
+   "qb1_last_snap_when_pulled_while_leading": {
+    "lead": {
+     "n": 175,
+     "p10": 3.0,
+     "p25": 14.0,
+     "p50": 21.0,
+     "p75": 28.0,
+     "p90": 32.0,
+     "mean": 20.228571428571428
+    },
+    "minutes_left": {
+     "n": 175,
+     "p10": 6.903333333333334,
+     "p25": 9.375,
+     "p50": 13.483333333333333,
+     "p75": 19.633333333333333,
+     "p90": 29.88333333333333,
+     "mean": 15.66447619047619
+    },
+    "wp": {
+     "n": 175,
+     "p10": 0.7260249614715576,
+     "p25": 0.9787195026874542,
+     "p50": 0.9986011385917664,
+     "p75": 0.9997902512550354,
+     "p90": 0.9998714685440063,
+     "mean": 0.9403102302551269
+    },
+    "share_last_snap_in_q2_or_earlier": 0.10285714285714286,
+    "share_last_snap_in_q3": 0.2742857142857143,
+    "share_last_snap_in_q4": 0.6228571428571429
+   },
+   "pulls_while_leading": {
+    "lead_at_pull": {
+     "n": 175,
+     "p10": 4.400000000000002,
+     "p25": 17.0,
+     "p50": 25.0,
+     "p75": 32.0,
+     "p90": 38.0,
+     "mean": 23.908571428571427
+    },
+    "minutes_left_at_pull": {
+     "n": 175,
+     "p10": 2.55,
+     "p25": 4.991666666666667,
+     "p50": 8.633333333333333,
+     "p75": 14.358333333333334,
+     "p90": 24.736666666666668,
+     "mean": 10.927238095238096
+    },
+    "wp_at_pull": {
+     "n": 175,
+     "p10": 0.755851662158966,
+     "p25": 0.9956070780754089,
+     "p50": 0.9997624754905701,
+     "p75": 0.9998710751533508,
+     "p90": 0.9999035596847534,
+     "mean": 0.9530867399488177
+    },
+    "share_in_q3": 0.21142857142857144,
+    "share_in_q4": 0.7885714285714286
+   },
+   "pulls_while_trailing": {
+    "deficit_at_pull": {
+     "n": 297,
+     "p10": 5.0,
+     "p25": 10.0,
+     "p50": 19.0,
+     "p75": 25.0,
+     "p90": 32.400000000000034,
+     "mean": 18.858585858585858
+    },
+    "minutes_left_at_pull": {
+     "n": 297,
+     "p10": 1.9733333333333334,
+     "p25": 3.4,
+     "p50": 9.633333333333333,
+     "p75": 20.033333333333335,
+     "p90": 27.533333333333335,
+     "mean": 12.097811447811448
+    },
+    "wp_at_pull": {
+     "n": 297,
+     "p10": 8.234678680310025e-05,
+     "p25": 0.0003892357926815748,
+     "p50": 0.007493425626307726,
+     "p75": 0.12942379713058472,
+     "p90": 0.3170995891094209,
+     "mean": 0.08642606248592083
+    }
+   },
+   "by_lead_entering_q4": {
+    "28+": {
+     "team_games": 82,
+     "qb1_last_snap_before_q4": 0.35365853658536583,
+     "qb1_last_snap_in_q4": 0.3170731707317073,
+     "no_confirmed_qb_change": 0.32926829268292684
+    },
+    "21-27": {
+     "team_games": 155,
+     "qb1_last_snap_before_q4": 0.04516129032258064,
+     "qb1_last_snap_in_q4": 0.2064516129032258,
+     "no_confirmed_qb_change": 0.7483870967741936
+    },
+    "14-20": {
+     "team_games": 326,
+     "qb1_last_snap_before_q4": 0.009202453987730062,
+     "qb1_last_snap_in_q4": 0.09815950920245399,
+     "no_confirmed_qb_change": 0.8926380368098159
+    },
+    "7-13": {
+     "team_games": 636,
+     "qb1_last_snap_before_q4": 0.015723270440251572,
+     "qb1_last_snap_in_q4": 0.025157232704402517,
+     "no_confirmed_qb_change": 0.9591194968553459
+    },
+    "1-6": {
+     "team_games": 622,
+     "qb1_last_snap_before_q4": 0.028938906752411574,
+     "qb1_last_snap_in_q4": 0.00964630225080386,
+     "no_confirmed_qb_change": 0.9614147909967846
+    },
+    "-1 to -6": {
+     "team_games": 658,
+     "qb1_last_snap_before_q4": 0.034954407294832825,
+     "qb1_last_snap_in_q4": 0.02127659574468085,
+     "no_confirmed_qb_change": 0.9437689969604863
+    },
+    "-7 to -20": {
+     "team_games": 1215,
+     "qb1_last_snap_before_q4": 0.048559670781893,
+     "qb1_last_snap_in_q4": 0.06502057613168724,
+     "no_confirmed_qb_change": 0.8864197530864197
+    },
+    "-21 to -27": {
+     "team_games": 201,
+     "qb1_last_snap_before_q4": 0.13930348258706468,
+     "qb1_last_snap_in_q4": 0.15920398009950248,
+     "no_confirmed_qb_change": 0.7014925373134329
+    },
+    "-28 or worse": {
+     "team_games": 132,
+     "qb1_last_snap_before_q4": 0.17424242424242425,
+     "qb1_last_snap_in_q4": 0.22727272727272727,
+     "no_confirmed_qb_change": 0.5984848484848485
+    }
+   }
+  }
+ },
+ "nfl_starter_snap_share": {
+  "meta": {
+   "unmatched_team_rows": 0,
+   "seasons": [
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025
+   ]
+  },
+  "QB1": {
+   "won_by_24plus": {
+    "player_games": 238,
+    "mean": 0.8839915966386557,
+    "median": 0.905,
+    "share_below_90": 0.46218487394957986,
+    "share_below_75": 0.06722689075630252,
+    "share_below_60": 0.03361344537815126
+   },
+   "lost_by_24plus": {
+    "player_games": 195,
+    "mean": 0.8480000000000001,
+    "median": 0.95,
+    "share_below_90": 0.40512820512820513,
+    "share_below_75": 0.2,
+    "share_below_60": 0.10256410256410256
+   },
+   "within_8": {
+    "player_games": 1953,
+    "mean": 0.9693599590373785,
+    "median": 1.0,
+    "share_below_90": 0.05837173579109063,
+    "share_below_75": 0.04608294930875576,
+    "share_below_60": 0.033282130056323606
+   },
+   "led_by_21plus_after_Q3": {
+    "player_games": 247,
+    "mean": 0.8912550607287448,
+    "median": 0.93,
+    "share_below_90": 0.4089068825910931,
+    "share_below_75": 0.06882591093117409,
+    "share_below_60": 0.032388663967611336
+   },
+   "trailed_by_21plus_after_Q3": {
+    "player_games": 205,
+    "mean": 0.8541463414634146,
+    "median": 1.0,
+    "share_below_90": 0.36097560975609755,
+    "share_below_75": 0.21951219512195122,
+    "share_below_60": 0.11707317073170732
+   },
+   "within_8_after_Q3": {
+    "player_games": 1826,
+    "mean": 0.9695290251916758,
+    "median": 1.0,
+    "share_below_90": 0.05805038335158817,
+    "share_below_75": 0.04326396495071194,
+    "share_below_60": 0.0312157721796276
+   }
+  },
+  "RB1": {
+   "won_by_24plus": {
+    "player_games": 239,
+    "mean": 0.530836820083682,
+    "median": 0.53,
+    "share_below_90": 0.9916317991631799,
+    "share_below_75": 0.9246861924686193,
+    "share_below_60": 0.6401673640167364
+   },
+   "lost_by_24plus": {
+    "player_games": 225,
+    "mean": 0.5476888888888889,
+    "median": 0.55,
+    "share_below_90": 0.9777777777777777,
+    "share_below_75": 0.84,
+    "share_below_60": 0.5777777777777777
+   },
+   "within_8": {
+    "player_games": 2041,
+    "mean": 0.6073738363547281,
+    "median": 0.62,
+    "share_below_90": 0.9416952474277315,
+    "share_below_75": 0.7383635472807447,
+    "share_below_60": 0.45369916707496327
+   },
+   "led_by_21plus_after_Q3": {
+    "player_games": 248,
+    "mean": 0.534475806451613,
+    "median": 0.535,
+    "share_below_90": 0.9879032258064516,
+    "share_below_75": 0.8911290322580645,
+    "share_below_60": 0.6451612903225806
+   },
+   "trailed_by_21plus_after_Q3": {
+    "player_games": 238,
+    "mean": 0.5644957983193278,
+    "median": 0.56,
+    "share_below_90": 0.9453781512605042,
+    "share_below_75": 0.8235294117647058,
+    "share_below_60": 0.5546218487394958
+   },
+   "within_8_after_Q3": {
+    "player_games": 1911,
+    "mean": 0.6055677655677656,
+    "median": 0.62,
+    "share_below_90": 0.9434850863422292,
+    "share_below_75": 0.7425431711145997,
+    "share_below_60": 0.4542124542124542
+   }
+  },
+  "WR1-3": {
+   "won_by_24plus": {
+    "player_games": 697,
+    "mean": 0.6362266857962698,
+    "median": 0.67,
+    "share_below_90": 0.945480631276901,
+    "share_below_75": 0.6513629842180775,
+    "share_below_60": 0.35581061692969873
+   },
+   "lost_by_24plus": {
+    "player_games": 663,
+    "mean": 0.7249170437405732,
+    "median": 0.79,
+    "share_below_90": 0.7541478129713424,
+    "share_below_75": 0.42232277526395173,
+    "share_below_60": 0.23378582202111614
+   },
+   "within_8": {
+    "player_games": 6048,
+    "mean": 0.7232109788359787,
+    "median": 0.79,
+    "share_below_90": 0.7437169312169312,
+    "share_below_75": 0.4255952380952381,
+    "share_below_60": 0.24189814814814814
+   },
+   "led_by_21plus_after_Q3": {
+    "player_games": 735,
+    "mean": 0.6394965986394557,
+    "median": 0.67,
+    "share_below_90": 0.9401360544217687,
+    "share_below_75": 0.6435374149659864,
+    "share_below_60": 0.36054421768707484
+   },
+   "trailed_by_21plus_after_Q3": {
+    "player_games": 696,
+    "mean": 0.735646551724138,
+    "median": 0.79,
+    "share_below_90": 0.7557471264367817,
+    "share_below_75": 0.4109195402298851,
+    "share_below_60": 0.21408045977011494
+   },
+   "within_8_after_Q3": {
+    "player_games": 5695,
+    "mean": 0.7211764705882352,
+    "median": 0.78,
+    "share_below_90": 0.7536435469710272,
+    "share_below_75": 0.4294995610184372,
+    "share_below_60": 0.24495171202809482
+   }
+  },
+  "TE1": {
+   "won_by_24plus": {
+    "player_games": 236,
+    "mean": 0.6735593220338983,
+    "median": 0.685,
+    "share_below_90": 0.923728813559322,
+    "share_below_75": 0.6440677966101694,
+    "share_below_60": 0.2966101694915254
+   },
+   "lost_by_24plus": {
+    "player_games": 234,
+    "mean": 0.6703418803418802,
+    "median": 0.69,
+    "share_below_90": 0.8803418803418803,
+    "share_below_75": 0.6153846153846154,
+    "share_below_60": 0.2905982905982906
+   },
+   "within_8": {
+    "player_games": 2092,
+    "mean": 0.7088384321223709,
+    "median": 0.74,
+    "share_below_90": 0.8197896749521989,
+    "share_below_75": 0.5138623326959847,
+    "share_below_60": 0.2638623326959847
+   },
+   "led_by_21plus_after_Q3": {
+    "player_games": 250,
+    "mean": 0.6761600000000001,
+    "median": 0.68,
+    "share_below_90": 0.916,
+    "share_below_75": 0.664,
+    "share_below_60": 0.284
+   },
+   "trailed_by_21plus_after_Q3": {
+    "player_games": 244,
+    "mean": 0.6893852459016393,
+    "median": 0.71,
+    "share_below_90": 0.8565573770491803,
+    "share_below_75": 0.569672131147541,
+    "share_below_60": 0.2581967213114754
+   },
+   "within_8_after_Q3": {
+    "player_games": 1965,
+    "mean": 0.7040814249363868,
+    "median": 0.73,
+    "share_below_90": 0.8244274809160306,
+    "share_below_75": 0.5231552162849873,
+    "share_below_60": 0.27022900763358776
+   }
+  },
+  "OL1-5": {
+   "won_by_24plus": {
+    "player_games": 1155,
+    "mean": 0.9058874458874461,
+    "median": 1.0,
+    "share_below_90": 0.2649350649350649,
+    "share_below_75": 0.09350649350649351,
+    "share_below_60": 0.06666666666666667
+   },
+   "lost_by_24plus": {
+    "player_games": 1102,
+    "mean": 0.926098003629764,
+    "median": 1.0,
+    "share_below_90": 0.1542649727767695,
+    "share_below_75": 0.10798548094373865,
+    "share_below_60": 0.07531760435571688
+   },
+   "within_8": {
+    "player_games": 9855,
+    "mean": 0.9492643328259767,
+    "median": 1.0,
+    "share_below_90": 0.09294774226281076,
+    "share_below_75": 0.07204464738711314,
+    "share_below_60": 0.05509893455098935
+   },
+   "led_by_21plus_after_Q3": {
+    "player_games": 1213,
+    "mean": 0.9109727947238252,
+    "median": 1.0,
+    "share_below_90": 0.24649629018961253,
+    "share_below_75": 0.09150865622423743,
+    "share_below_60": 0.06430338004946413
+   },
+   "trailed_by_21plus_after_Q3": {
+    "player_games": 1144,
+    "mean": 0.9198776223776225,
+    "median": 1.0,
+    "share_below_90": 0.1555944055944056,
+    "share_below_75": 0.12062937062937062,
+    "share_below_60": 0.08741258741258741
+   },
+   "within_8_after_Q3": {
+    "player_games": 9251,
+    "mean": 0.9483839584909739,
+    "median": 1.0,
+    "share_below_90": 0.0956653334774619,
+    "share_below_75": 0.07220840990163226,
+    "share_below_60": 0.0558858501783591
+   }
+  },
+  "DL1-4": {
+   "won_by_24plus": {
+    "player_games": 956,
+    "mean": 0.5281171548117155,
+    "median": 0.53,
+    "share_below_90": 0.9947698744769874,
+    "share_below_75": 0.9194560669456067,
+    "share_below_60": 0.6631799163179917
+   },
+   "lost_by_24plus": {
+    "player_games": 932,
+    "mean": 0.5936802575107295,
+    "median": 0.6,
+    "share_below_90": 0.9699570815450643,
+    "share_below_75": 0.8261802575107297,
+    "share_below_60": 0.48175965665236054
+   },
+   "within_8": {
+    "player_games": 8416,
+    "mean": 0.600131891634981,
+    "median": 0.62,
+    "share_below_90": 0.9475998098859315,
+    "share_below_75": 0.7442965779467681,
+    "share_below_60": 0.4610266159695818
+   },
+   "led_by_21plus_after_Q3": {
+    "player_games": 998,
+    "mean": 0.5309619238476954,
+    "median": 0.53,
+    "share_below_90": 0.9929859719438878,
+    "share_below_75": 0.9038076152304609,
+    "share_below_60": 0.6593186372745491
+   },
+   "trailed_by_21plus_after_Q3": {
+    "player_games": 981,
+    "mean": 0.5893781855249745,
+    "median": 0.61,
+    "share_below_90": 0.9683995922528033,
+    "share_below_75": 0.8256880733944955,
+    "share_below_60": 0.47196738022426094
+   },
+   "within_8_after_Q3": {
+    "player_games": 7953,
+    "mean": 0.601293851376839,
+    "median": 0.62,
+    "share_below_90": 0.9503332075946184,
+    "share_below_75": 0.7500314346787376,
+    "share_below_60": 0.45643153526970953
+   }
+  },
+  "LB1-2": {
+   "won_by_24plus": {
+    "player_games": 476,
+    "mean": 0.7442436974789916,
+    "median": 0.78,
+    "share_below_90": 0.7668067226890757,
+    "share_below_75": 0.44537815126050423,
+    "share_below_60": 0.19747899159663865
+   },
+   "lost_by_24plus": {
+    "player_games": 467,
+    "mean": 0.8325053533190577,
+    "median": 0.92,
+    "share_below_90": 0.4689507494646681,
+    "share_below_75": 0.2398286937901499,
+    "share_below_60": 0.13276231263383298
+   },
+   "within_8": {
+    "player_games": 4202,
+    "mean": 0.8595573536411232,
+    "median": 0.95,
+    "share_below_90": 0.41361256544502617,
+    "share_below_75": 0.20752022846263685,
+    "share_below_60": 0.09995240361732509
+   },
+   "led_by_21plus_after_Q3": {
+    "player_games": 497,
+    "mean": 0.759517102615694,
+    "median": 0.78,
+    "share_below_90": 0.7283702213279678,
+    "share_below_75": 0.42857142857142855,
+    "share_below_60": 0.19114688128772636
+   },
+   "trailed_by_21plus_after_Q3": {
+    "player_games": 484,
+    "mean": 0.8347520661157024,
+    "median": 0.92,
+    "share_below_90": 0.45661157024793386,
+    "share_below_75": 0.24586776859504134,
+    "share_below_60": 0.14256198347107438
+   },
+   "within_8_after_Q3": {
+    "player_games": 3965,
+    "mean": 0.8572433795712484,
+    "median": 0.94,
+    "share_below_90": 0.4201765447667087,
+    "share_below_75": 0.21513240857503152,
+    "share_below_60": 0.10466582597730138
+   }
+  },
+  "CB1-2": {
+   "won_by_24plus": {
+    "player_games": 462,
+    "mean": 0.8037662337662337,
+    "median": 0.835,
+    "share_below_90": 0.6212121212121212,
+    "share_below_75": 0.3116883116883117,
+    "share_below_60": 0.11688311688311688
+   },
+   "lost_by_24plus": {
+    "player_games": 416,
+    "mean": 0.8460576923076922,
+    "median": 0.95,
+    "share_below_90": 0.4014423076923077,
+    "share_below_75": 0.23798076923076922,
+    "share_below_60": 0.14182692307692307
+   },
+   "within_8": {
+    "player_games": 3928,
+    "mean": 0.8839969450101833,
+    "median": 0.99,
+    "share_below_90": 0.27494908350305497,
+    "share_below_75": 0.16878818737270876,
+    "share_below_60": 0.10183299389002037
+   },
+   "led_by_21plus_after_Q3": {
+    "player_games": 486,
+    "mean": 0.808230452674897,
+    "median": 0.84,
+    "share_below_90": 0.5905349794238683,
+    "share_below_75": 0.32098765432098764,
+    "share_below_60": 0.12551440329218108
+   },
+   "trailed_by_21plus_after_Q3": {
+    "player_games": 442,
+    "mean": 0.8279185520361991,
+    "median": 0.95,
+    "share_below_90": 0.40497737556561086,
+    "share_below_75": 0.2692307692307692,
+    "share_below_60": 0.17873303167420815
+   },
+   "within_8_after_Q3": {
+    "player_games": 3704,
+    "mean": 0.8836744060475161,
+    "median": 0.99,
+    "share_below_90": 0.27726781857451405,
+    "share_below_75": 0.1722462203023758,
+    "share_below_60": 0.10016198704103672
+   }
+  },
+  "S1-2": {
+   "won_by_24plus": {
+    "player_games": 451,
+    "mean": 0.8453215077605322,
+    "median": 0.89,
+    "share_below_90": 0.5277161862527716,
+    "share_below_75": 0.19955654101995565,
+    "share_below_60": 0.09090909090909091
+   },
+   "lost_by_24plus": {
+    "player_games": 428,
+    "mean": 0.897196261682243,
+    "median": 0.98,
+    "share_below_90": 0.26635514018691586,
+    "share_below_75": 0.1261682242990654,
+    "share_below_60": 0.08177570093457943
+   },
+   "within_8": {
+    "player_games": 3945,
+    "mean": 0.9153130544993663,
+    "median": 1.0,
+    "share_below_90": 0.19011406844106463,
+    "share_below_75": 0.12141951837769328,
+    "share_below_60": 0.08035487959442332
+   },
+   "led_by_21plus_after_Q3": {
+    "player_games": 475,
+    "mean": 0.8630736842105263,
+    "median": 0.92,
+    "share_below_90": 0.47157894736842104,
+    "share_below_75": 0.18105263157894738,
+    "share_below_60": 0.07789473684210527
+   },
+   "trailed_by_21plus_after_Q3": {
+    "player_games": 442,
+    "mean": 0.8873076923076924,
+    "median": 0.98,
+    "share_below_90": 0.28054298642533937,
+    "share_below_75": 0.14479638009049775,
+    "share_below_60": 0.10180995475113122
+   },
+   "within_8_after_Q3": {
+    "player_games": 3743,
+    "mean": 0.9164600587763827,
+    "median": 1.0,
+    "share_below_90": 0.1912904087630243,
+    "share_below_75": 0.11888859203847181,
+    "share_below_60": 0.07881378573336896
+   }
+  }
+ },
+ "qb1_any_q4_by_lead": {
+  "fbs": {
+   "lead 21-27": {
+    "n": 277,
+    "qb1_any_q4": 0.895,
+    "mean_lead": 23.2
+   },
+   "trail 21-27": {
+    "n": 277,
+    "qb1_any_q4": 0.852,
+    "mean_lead": 23.2
+   },
+   "lead 28-34": {
+    "n": 165,
+    "qb1_any_q4": 0.679,
+    "mean_lead": 30.6
+   },
+   "trail 28-34": {
+    "n": 165,
+    "qb1_any_q4": 0.733,
+    "mean_lead": 30.6
+   },
+   "lead 35-41": {
+    "n": 92,
+    "qb1_any_q4": 0.37,
+    "mean_lead": 37.2
+   },
+   "trail 35-41": {
+    "n": 91,
+    "qb1_any_q4": 0.648,
+    "mean_lead": 37.2
+   },
+   "lead 42-+": {
+    "n": 68,
+    "qb1_any_q4": 0.132,
+    "mean_lead": 46.9
+   },
+   "trail 42-+": {
+    "n": 68,
+    "qb1_any_q4": 0.515,
+    "mean_lead": 46.9
+   }
+  },
+  "nfl": {
+   "lead 21-27": {
+    "n": 178,
+    "qb1_any_q4": 0.938,
+    "mean_lead": 23.3
+   },
+   "trail 21-27": {
+    "n": 178,
+    "qb1_any_q4": 0.854,
+    "mean_lead": 23.3
+   },
+   "lead 28-34": {
+    "n": 61,
+    "qb1_any_q4": 0.738,
+    "mean_lead": 29.9
+   },
+   "trail 28-34": {
+    "n": 61,
+    "qb1_any_q4": 0.885,
+    "mean_lead": 29.9
+   },
+   "lead 35-41": {
+    "n": 24,
+    "qb1_any_q4": 0.333,
+    "mean_lead": 37.4
+   },
+   "trail 35-41": {
+    "n": 24,
+    "qb1_any_q4": 0.792,
+    "mean_lead": 37.4
+   },
+   "lead 42-+": {
+    "n": 5,
+    "qb1_any_q4": 0.4,
+    "mean_lead": 44.0
+   },
+   "trail 42-+": {
+    "n": 5,
+    "qb1_any_q4": 0.4,
+    "mean_lead": 44.0
+   }
+  }
+ }
+}

@@ -21,7 +21,7 @@ fn college_stats(w: &World, id: u32) -> Vec<Value> {
     for y in (w.year - 20)..w.year {
         if let Some(s) = w.game_log.players.get(&(y, id)) {
             out.push(json!({
-                "year": y, "school": w.programs[s.program].real_name, "g": s.games, "pos": s.pos.map(|p| p.name()),
+                "year": y, "school": w.programs[s.program].real_name, "g": s.games, "snaps": s.snaps, "pos": s.pos.map(|p| p.name()),
                 "cmp": s.cmp, "att": s.att, "pyd": s.pass_yds.round(), "ptd": s.pass_td, "int": s.int_thrown,
                 "sk": s.sacked, "car": s.rush, "ryd": s.rush_yds.round(), "rtd": s.rush_td,
                 "rec": s.rec, "recyd": s.rec_yds.round(), "rectd": s.rec_td,
