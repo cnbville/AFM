@@ -1532,9 +1532,19 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
         let me = sim.agents[i].pos;
         // Running out of room: he turns up the sideline.
         let dir = if me.y < 4.0 && dir.y < 0.0 || me.y > WIDTH - 4.0 && dir.y > 0.0 { v2(1.0, 0.0) } else { dir };
-        let vm = sim.agents[i].vmax;
+        let vm = route_pace(&sim.agents[i]);
         sim.steer(i, dir.scale(vm));
     }
+}
+
+/// How fast a receiver runs his route before the ball is in the air: under
+/// control, short of his drill top speed, so he can break and find the
+/// ball (real receivers run routes well under their combine speed). Once the
+/// ball is thrown he goes full speed to it (proposed, not confirmed).
+fn route_pace(a: &Agent) -> f64 {
+    // Work in progress: 1.0 keeps today's results. Lower values were tried
+    // (0.8-0.9); see the dynasty handoff before changing it.
+    1.0 * a.vmax
 }
 
 /// One tick of a route: the point he runs at, how fast, and whether he has
@@ -1543,6 +1553,7 @@ fn route_step(a: &Agent, pts: &[V2], next: usize, settle: bool) -> (V2, f64, boo
     let target = pts[next];
     // Good route runners cut sharper: they start the break later and keep speed.
     let rr = a.a(Attr::RouteRunning);
+    let vmax = route_pace(a);
     let switch = 0.6 + 0.012 * rr;
     let done = a.pos.dist(target) < switch;
     // He keeps a couple of yards of room at the sideline.
@@ -1553,21 +1564,21 @@ fn route_step(a: &Agent, pts: &[V2], next: usize, settle: bool) -> (V2, f64, boo
     // sinks his hips: he brakes so he can plant at the stem.
     let brake = a.brake();
     let speed = if next + 1 == pts.len() && settle {
-        a.vmax.min(dist * 2.0)
+        vmax.min(dist * 2.0)
     } else if settle && next + 2 == pts.len() {
         let stop = (2.0 * brake * 0.9 * dist).sqrt() + 1.0 + 0.03 * (rr - 50.0).max(0.0);
-        (a.vmax * urg).min(stop)
+        (vmax * urg).min(stop)
     } else if next + 1 < pts.len() {
         // A sharp break needs him to gear down first; good route runners
         // carry more speed through it.
         let into = (target - a.pos).norm();
         let out = (pts[next + 1] - target).norm();
         let turn = into.dot(out).clamp(-1.0, 1.0).acos();
-        let corner = a.vmax * (1.0 - (0.62 - 0.004 * (rr - 50.0)) * (turn / 1.57).min(1.4)).max(0.15);
+        let corner = vmax * (1.0 - (0.62 - 0.004 * (rr - 50.0)) * (turn / 1.57).min(1.4)).max(0.15);
         let limit = (corner * corner + 2.0 * brake * 0.9 * (dist - 0.5).max(0.0)).sqrt();
-        (a.vmax * urg).min(limit)
+        (vmax * urg).min(limit)
     } else {
-        a.vmax * urg
+        vmax * urg
     };
     (target, speed, done)
 }
@@ -2025,15 +2036,22 @@ fn window(sim: &Sim, qb: usize, r: usize) -> (f64, V2, f64) {
         let (react, pace) = if on_him { (0.0, 1.0) } else { (0.3, 0.95) };
         // How far he can get there: he reacts, then speeds up from what
         // he is doing now (a man running away has to stop first).
+        // While he reacts he keeps moving as he was: a deep defender
+        // already running with the route loses no ground to it.
         let tau = (flight - react).max(0.0);
         let v0 = clamp(a.vel.dot((p - a.pos).norm()), -2.0, a.vmax);
-        let close = pace * (a.vmax * tau - (a.vmax - v0) * a.tau * (1.0 - (-tau / a.tau).exp())).max(0.0);
+        let drift = v0 * (flight - tau);
+        let close = drift + pace * (a.vmax * tau - (a.vmax - v0) * a.tau * (1.0 - (-tau / a.tau).exp())).max(0.0);
         let gap = a.pos.dist(p) - close;
         // In the lane: a defender between the quarterback and the spot.
         let seg = p - q;
         let k = clamp((a.pos - q).dot(seg) / seg.dot(seg).max(1e-6), 0.0, 1.0);
         let lane = if k > 0.3 && k < 0.95 { (q + seg.scale(k)).dist(a.pos) - 0.4 - 0.8 * k } else { f64::INFINITY };
         w = w.min(gap).min(lane + 0.6);
+    }
+    // He knows his arm: a spot past his range is never open to him.
+    if q.dist(p) > 25.0 + 0.45 * power {
+        w = w.min(-3.0);
     }
     (w.min(8.0), p, flight)
 }
@@ -2061,7 +2079,7 @@ fn predict(sim: &Sim, r: usize, dt: f64) -> V2 {
                 let me = a.pos;
                 let dir =
                     if me.y < 4.0 && dir.y < 0.0 || me.y > WIDTH - 4.0 && dir.y > 0.0 { v2(1.0, 0.0) } else { dir };
-                a.steer(dir.scale(a.vmax));
+                a.steer(dir.scale(route_pace(&a)));
             }
             a.pos = a.pos + a.vel.scale(DT);
         }
