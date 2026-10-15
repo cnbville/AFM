@@ -4,6 +4,8 @@ Three worlds (seeds 2026, 2027, 2028), each with 30 years of history (1996-2025)
 
 The full raw output of each world is in the project folder at `afm/trials-30yr/seed-<n>/` (gzipped JSON lines: every game's box score, every player season, play-level situation totals for the league and every FBS team, programs, coaches, alumni, active players, NFL rosters and news; `report.txt` is the usual trial report). Rebuild the dashboard from them without re-running: `python3 tools/dashboard/build_data.py OUT/data <run dirs>`.
 
+Cain answered the five new findings on 2026-10-15: all go to the fix list for the next build (`docs/design/fix-list.md`), item 3 in a stricter form (real position changes, no switching between position groups for a game).
+
 Each result says why. "Traced" means read in the code; "inferred" means read from the numbers. Everything proposed here is proposed, not confirmed.
 
 ## New findings
