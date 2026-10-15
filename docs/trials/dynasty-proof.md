@@ -2,6 +2,9 @@
 
 Cain asked how we can be sure the dynasty fixes work, after earlier trials promised a fix and the dynasty stayed. This file tests rough versions of trial 4 proposals 1-3 before anything is built. Every fix here is **proposed, not confirmed**. Nothing in the game changed: the rough versions are switches that are off by default, so every result with them off is the same as before.
 
+## What it builds on
+The handoff thread's dynasty re-trace (`world-trial4-proposals.md`, last section; outputs `world-trial4-dynasty-trace.txt` and `world-trial4-dynasty-split.txt`; tools `dynasty_trace` and `dynasty_check schemes`, all on main). It found Ohio State's edge is its players: the engine sees its roster 30+ points above the other top teams while its lineup average is only 1-2 points higher. About half of that sits at RB, WR, QB and CB, the positions the engine overvalues; the rest is compounding from being better everywhere with nobody easing off. Staff are worth about 2 points and schemes 2-5. The rough versions below aim at exactly those causes. The replay uses the same method as `dynasty_trace` (capture every program's engine team at kickoff, then round robins), on a fresh capture: captured rosters only live in memory while the world runs, so there were none on main to reuse.
+
 ## What "fixed" means, from real results
 
 All FBS-against-FBS games 2011-2025 (sportsdataverse `cfb_schedules`, CFBD data), rated per season from the scores (each team gets a rating, with home field fitted as well). 2020 left out.
