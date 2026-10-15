@@ -3,7 +3,7 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::attributes::{ATTRIBUTE_PROFILES, Attr, Attributes, MAX_RATING, MIN_RATING};
-use crate::positions::{Position, elite_shape_overall, elite_shape_value, overall_for};
+use crate::positions::{Position, elite_shape_overall, elite_shape_value, long_snapper_rating, overall_for};
 use crate::rng::{Rng, clamp, round_half_up};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -258,7 +258,11 @@ impl Player {
     /// Current overall rating at the player's position.
     #[inline]
     pub fn overall(&self) -> f64 {
-        overall_for(self.position, &self.attributes)
+        match self.position {
+            // The snap is a long snapper's job (fix list 1.7).
+            Position::LS => long_snapper_rating(self.game.snapping, &self.attributes),
+            pos => overall_for(pos, &self.attributes),
+        }
     }
 
     /// True potential: the overall the player would have if every attribute
@@ -266,7 +270,10 @@ impl Player {
     /// estimates; exposed outside the engine only through `debug`.
     #[inline]
     pub(crate) fn potential(&self) -> f64 {
-        overall_for(self.position, &self.ceilings)
+        match self.position {
+            Position::LS => long_snapper_rating(self.game.snapping, &self.ceilings),
+            pos => overall_for(pos, &self.ceilings),
+        }
     }
 
     pub fn has_had(&self, e: DevelopmentEvent) -> bool {

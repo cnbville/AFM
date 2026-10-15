@@ -24,6 +24,15 @@ Section 3, built 2026-10-13/14. The design is `docs/design/match-engine.md`; thi
 3. The throw has an error from accuracy, distance, pressure, throwing on the move, wind and his consistency.
 4. At the catch point: tipped balls in the lane, contested catches, interceptions, drops, pass interference. Then the run after the catch.
 
+## Kickers, punters and long snappers (fix list topic 1, 2026-10-15)
+
+Code: `roster.rs` (`depth_chart`) and `flow.rs` (`fg_kicker`, `punter`, `kickoff_kicker`).
+- **Two kicking jobs, two kickers.** The field goal and extra point kicker is the first K on the depth chart. The kickoff goes to the strongest leg (kick power) among the kickers, so a team with a big-legged backup uses him on kickoffs (1.8).
+- **One leg for both jobs.** The kicking jobs go to the kickers and punters a team carries. A kicker kicks and a punter punts; the other one is only the backup leg at that job. A team with only a kicker has him punt, and a team with only a punter has him kick, rated at each job from the same leg (1.9). Only a team with neither asks the best leg on the roster, so position players no longer kick field goals (in the first check run, 38% of FBS field goal tries were by position players). The old flat fallbacks (a 20-point kicker, a 30-yard punt) are gone.
+- **The long snapper** is a position (1.7). His rating at the job is his hidden snapping trait (75%, five points a step) plus blocking and covering (25%). He snaps on punts, field goals and extra points, and plays nowhere else. A team with no listed snapper uses its best snapper who is not the starting QB, K or P, as before.
+- **The holder** is the punter, unless the punter is the one kicking or snapping; otherwise the backup QB.
+- The game-day chart dresses two at K, P and LS. Synthetic teams above high school carry one long snapper (his own random stream, so the rest of the team is unchanged); high school teams snap with a player from another position.
+
 ## Calibration (development only)
 
 The checks compare synthetic-league games to real 2021-25 play-by-play. They never feed back into the game. Run `cargo run --release --bin match_check -- nfl 400` (or `fbs`, `hs`). The automatic version is `crates/afm-tools/tests/match_engine.rs`, with wide bands.
@@ -71,6 +80,7 @@ These are calibration picks inside the confirmed design. Raichel has not signed 
 - **Screens**: linemen release after 0.9 seconds; defenders can "smell" a screen with play recognition.
 - **Kick coverage**: the widest man on each side keeps contain.
 - **Goal-line coverage**: zones and alignment compress toward the end line.
+- **Long snapper rating**: 75% the snapping trait at five points a step, 25% blocking and coverage. The holder rule (punter first, then QB2). Two dressed at K, P and LS (fix list topic 1).
 
 ## Physics fixes (2026-10-14)
 

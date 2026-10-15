@@ -120,10 +120,46 @@ Proposed, not confirmed (Claude's picks inside the approved wording):
 - Rogue boosters: a yearly chance of 0.02 times the fan base (1.5x with a big booster) to gain one, 10% a year to stop, a pot of $50K-$300K, prices of $150K, $50K and $15K for a 5-, 4- and 3-star, at most four targets a year in the program's footprint. Detection scale $8M. Penalties: one scholarship per $15K found (3 to 30) over three seasons; a one-year postseason ban from $100K and two from $300K; the head coach named in one case in four, otherwise the recruit's position coach, for one year plus one per $100K (up to 8). FBS only.
 - The yardstick (the leader's prestige when recorded history began) and the 0.25 weight on the latest season.
 
+## Kickers, punters and roster needs (fix list topic 1, 2026-10-15)
+
+Raichel's yes on items 1.1-1.11 (`/mnt/project-files/afm/dynasty-fix/round1-kickers-and-item11.md`). Code: `world/recruiting.rs` (class plans, boards, camps, walk-ons, portal), `positions.rs` (the long snapper), `game/roster.rs` and `game/flow.rs` (who kicks), `league.rs` (NFL long snappers).
+
+How it works:
+- **A class plan per position (1.1, 1.2).** Each staff wants the real FBS roster count at each spot, scaled to its roster limit (`real_roster`, `roster_limits`). It signs this year's hole, or half the hole two years out, whichever is bigger. Two years out, seniors, likely early NFL entrants (read against the last draft) and likely transfers count as gone. Each staff ranks recruits on a board per position.
+- **Talent beats need (1.3).** At a full position a staff still offers a recruit who is clearly better than the best one left at its open spots: a quarter of a film standard deviation better at the top program, a full one at the bottom, at most two over the plan. Not for specialists.
+- **Specialists (1.4-1.6).** Kickers and punters are graded on leg power, accuracy and the mental side, against their own spot. Their stars come from the kicking camps (top 25 at a spot five stars, 100 four, 250 three, 500 two), not the general ranking. A staff keeps about one kicker and one punter on scholarship; the other kickers, the second punter and the long snappers walk on. A walk-on gets no NIL and pays his way, as at Pioneer League schools.
+- **The long snapper (1.7)** is a position. His rating is his snap (the hidden snapping trait). Nobody is placed there in high school; each high school's best snapper who isn't a ranked prospect can be ranked by the snapping camps, and then colleges recruit him as a snapper.
+- **Who kicks (1.8, 1.9)**: see `docs/match-engine.md`. A kicker kicks and a punter punts, a big-legged kicker takes the kickoffs, and with only one of them he does both.
+- **Portal (1.10).** A program whose starter left and who has no returning starter at that spot reaches out to every entrant there who beats its remaining backups, best entrants first. The 40 random programs stay (item 11.16 is not built).
+- **NFL (1.11).** Every NFL team carries one long snapper. Teams draft a kicker, punter or snapper only when theirs is below par or aging, with a flat discount on top of the old position value.
+
+Results against real (seed 2026, 8 years of history):
+
+| FBS, after signing day | Game | Real |
+|---|---|---|
+| Teams with no kicker / no punter / neither | 0 / 0 / 0 of 138 | 0% / 4-6% / 0% |
+| Kickers / punters / long snappers per roster | 3.1 / 1.7 / 2.3 | 3.1 / 1.8 / 2.2 (scaled to 105) |
+| Kickers and punters on scholarship, per team | 1.0 and 0.9 | (no data) |
+| Walk-ons: K / P / LS | 68% / 45% / 100% | no recruiting record 69% / 65% / 82% |
+
+Other FBS positions per 105-man roster (real in brackets): QB 5.2 (5.1), RB 7.6 (7.5), WR 14.3 (14.2), TE 6.0 (6.5), OT 8.2 (8.2), IOL 9.4 (8.9), EDGE 8.3 (8.0), DT 7.4 (7.4), LB 12.1 (12.8), CB 9.6 (8.9), S 9.7 (10.5). FCS: 7 of 127 teams have no punter (real about a quarter list none).
+
+On the engine (last season, FBS, per team game): field goal tries 1.73 (real 1.56), made 82% (real 76%), two-point tries 0.20 (real 0.24), punt gross 44.4 yards (real 42.3). Field goals were kicked by kickers 70% and punters 30% in that run; since then a punter kicks only when his team has no kicker. Points run high on the engine at every level (a known gap), which lifts field goal tries. The kick accuracy that gives 82% was the same before this build.
+
+Still off:
+- Specialists drafted: 4.0 kickers, 3.3 punters and 1.3 long snappers a year (real 2.15, 1.96, 0.35, nflverse 2000-2025). One year with a thin class (the class-size waves, fix list 11.4) took 39 specialists; the other years took 2-9 in all (real about 4.5).
+- Junior colleges fill about 53 of 80 places, and 28 of 69 have no punter.
+- A walk-on never earns a scholarship (walk-ons, fix list topic 5).
+
+The class sim in `career.rs` is unchanged (the calibrate output for seed 2026 matches the earlier code exactly).
+
+Merged with the era limits build: class plans read `ncaa::roster_limits` (era limits, NCAA penalty cuts, FCS opt-outs), and the plan's yearly signing cap is that function's second number. The numbers above were measured before the merge, with 2025 limits in every year.
+
 ## Proposed, not confirmed (Claude's own picks in the build)
 
 - Spin-up of 6 extra years before the 30-year history.
 - Roster caps: FBS 105, FCS 100, D2 110, JUCO 80. Class sizes: FBS 28, FCS 24, D2 30, JUCO 40.
+- Fix list topic 1 (2026-10-15): the long snapper rating (75% the snap at five points a step, 25% blocking and coverage); the splits inside the real OL, DL and DB counts (48% tackles, 52% edges, 46% corners); each staff's own habit for 3 or 4 kickers and 1 or 2 punters; the plan rule (this year's hole, or half the two-year hole rounded down); the draft bars for early entrants (the 64th and 138th best drafted overall, with the declare odds the draft uses); the talent-beats-need margin and cap; camp tiers 25/100/250/500, camp attendance 0.3 + 0.7 x family money, camp noise 1.5 points; the snapping camps rank each high school's best snapper who has no stars; the same specialist scholarship rule at every level; walk-ons get no NIL and pay tuition; the portal's open-spot rule (a starter left, nobody who started there is back, the entrant must beat the backups left); long snapper NIL, ageing and injury as kickers and punters; two at K, P and LS on the game-day chart; the holder (punter first, then the backup QB); NFL teams draft specialists only when their own is below par or aging, plus a flat discount (2 points for K and P, 5 for LS); the long snapper left out of NFL team strength.
 - Playoff fields: FBS 12, FCS 16, D2 16, JUCO 4. High school: 8 teams per state classification.
 - Firing patience by tenure: 10% in year one, 40% in year two, 75% in year three, full after that.
 - Head coaches from FBS or FCS don't drop to high school jobs.

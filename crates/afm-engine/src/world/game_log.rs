@@ -25,6 +25,11 @@ pub struct GameSummary {
     /// Kick and punt returns (count, yards), from the player lines.
     pub kr: [(u32, f64); 2],
     pub pr: [(u32, f64); 2],
+    /// Extra point kicks, two-point tries, and punts with their gross yards,
+    /// from the play log (fix list topic 1 checks).
+    pub xp: [u32; 2],
+    pub two_point: [u32; 2],
+    pub punt_yds: [(u32, f64); 2],
     pub overtime: bool,
 }
 
@@ -335,6 +340,20 @@ impl GameLog {
         for ((prog, k), v) in team {
             bump(self.team_situations.entry((year, prog, k)).or_default(), &v);
         }
+        let mut xp = [0; 2];
+        let mut two_point = [0; 2];
+        let mut punt_yds = [(0, 0.0); 2];
+        for r in &g.plays {
+            match r.kind {
+                PlayType::ExtraPoint => xp[r.offense] += 1,
+                PlayType::TwoPoint => two_point[r.offense] += 1,
+                PlayType::Punt if !r.blocked => {
+                    punt_yds[r.offense].0 += 1;
+                    punt_yds[r.offense].1 += r.kick_distance;
+                }
+                _ => {}
+            }
+        }
         self.games.push(GameSummary {
             year,
             division,
@@ -343,6 +362,9 @@ impl GameLog {
             stats: g.team.clone(),
             kr,
             pr,
+            xp,
+            two_point,
+            punt_yds,
             overtime: g.overtime,
         });
     }

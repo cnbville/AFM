@@ -147,6 +147,8 @@ pub struct Person {
     pub gpa_at_signing: Option<f64>,
     /// Signed as an academic redshirt: practices but can't play his first year (note 6).
     pub academic_redshirt: bool,
+    /// On the roster without a scholarship (fix list 1.6: specialist walk-ons).
+    pub walk_on: bool,
     /// His college coaches each season: (year, program, head coach, position coach).
     pub college_staff: Vec<(i32, usize, Option<usize>, Option<usize>)>,
     /// Off-field incidents this season (for the locker room).
@@ -276,6 +278,9 @@ pub struct World {
     pub overflow: [f64; 51],
     /// The 32 NFL teams: front offices and depth charts, for draft needs (note 7).
     pub nfl: Vec<crate::league::Team>,
+    /// Overall of the 64th and 138th best players taken in the last draft:
+    /// what staffs read early NFL entrants against (fix list 1.2).
+    pub(crate) draft_bars: Option<(f64, f64)>,
     pub(crate) rng: Rng,
     /// False during the spin-up before recorded history, while rosters fill.
     pub(crate) recording: bool,
@@ -379,6 +384,7 @@ impl World {
             areas,
             overflow,
             nfl,
+            draft_bars: None,
             rng,
             recording: false,
             game_log: game_log::GameLog::default(),
@@ -548,6 +554,7 @@ impl World {
                     gpa_trend,
                     gpa_at_signing: None,
                     academic_redshirt: false,
+                    walk_on: false,
                     college_staff: Vec::new(),
                     incident: false,
                     notes: Vec::new(),

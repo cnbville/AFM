@@ -188,6 +188,39 @@ impl<'a> Side<'a> {
     fn rating(&self, i: usize, pos: Position) -> f64 {
         self.team.players[i].overall_at(pos)
     }
+
+    /// The first player on a list who is still in the game.
+    fn first_up(&self, list: &[usize]) -> Option<usize> {
+        list.iter().copied().find(|&i| !self.out[i])
+    }
+
+    /// The best leg left in the game at a kicking job.
+    fn best_leg(&self, pos: Position) -> usize {
+        (0..self.team.players.len())
+            .filter(|&i| !self.out[i])
+            .max_by(|&a, &b| self.rating(a, pos).total_cmp(&self.rating(b, pos)))
+            .unwrap_or(0)
+    }
+
+    /// The field goal kicker (fix list 1.9): the K list, then the punter's
+    /// leg, then whoever kicks best.
+    fn fg_kicker(&self) -> usize {
+        self.first_up(self.depth.list(Position::K))
+            .or_else(|| self.first_up(self.depth.list(Position::P)))
+            .unwrap_or_else(|| self.best_leg(Position::K))
+    }
+
+    /// The punter (fix list 1.9): the P list, then the kicker's leg.
+    fn punter(&self) -> usize {
+        self.first_up(self.depth.list(Position::P))
+            .or_else(|| self.first_up(self.depth.list(Position::K)))
+            .unwrap_or_else(|| self.best_leg(Position::P))
+    }
+
+    /// The kickoff kicker (fix list 1.8): the best leg among the kickers.
+    fn kickoff_kicker(&self) -> usize {
+        self.first_up(&self.depth.kickoff).unwrap_or_else(|| self.fg_kicker())
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -590,8 +623,7 @@ impl<'a> Game<'a> {
             let rets = side.depth.kick_returners.iter().copied().filter(|&i| !side.out[i]).collect::<Vec<_>>();
             on.extend(rets.iter().take(1));
         } else {
-            let k = side.depth.list(Position::K).first().copied().unwrap_or(0);
-            on.push(k);
+            on.push(side.kickoff_kicker());
         }
         used.extend(on.iter().copied());
         // Coverage and return units: fast backups first.
@@ -706,11 +738,9 @@ impl<'a> Game<'a> {
     fn pat(&mut self, team: usize) {
         self.poss = team;
         let staff = self.sides[team].team.staff;
-        let k = self.sides[team].depth.list(Position::K).first().copied();
-        let kicker = k.map(|i| &self.sides[team].team.players[i]);
-        let xp_make = kicker.map_or(0.5, |k| {
-            clamp(0.55 + 0.005 * k.a(Attr::KickAccuracy) - 0.002 * (self.rules().xp_from - 3.0), 0.2, 0.99)
-        });
+        let kicker = &self.sides[team].team.players[self.sides[team].fg_kicker()];
+        let xp_make =
+            clamp(0.55 + 0.005 * kicker.a(Attr::KickAccuracy) - 0.002 * (self.rules().xp_from - 3.0), 0.2, 0.99);
         let diff = self.diff(team);
         let forced_two = self.ot && self.rules().overtime == Overtime::College && self.ot_round >= 2;
         // Up big, nobody goes for two (it reads as running up the score).
@@ -754,13 +784,7 @@ impl<'a> Game<'a> {
     fn kick(&mut self, team: usize, dist: f64, pressure: f64, r: &mut PlayRecord) -> bool {
         let side = &self.sides[team];
         let ps = &side.team.players;
-        let k = side
-            .depth
-            .list(Position::K)
-            .iter()
-            .copied()
-            .find(|&i| !side.out[i])
-            .unwrap_or(side.depth.list(Position::P).first().copied().unwrap_or(0));
+        let k = side.fg_kicker();
         let snapper = &ps[side.depth.snapper];
         let holder = &ps[side.depth.holder];
         let mut used = vec![k];
@@ -922,19 +946,13 @@ impl<'a> Game<'a> {
 
     fn kicker_range(&self, team: usize) -> f64 {
         let side = &self.sides[team];
-        match side.depth.list(Position::K).first() {
-            Some(&k) => {
-                let p = &side.team.players[k];
-                38.0 + 0.3 * p.a(Attr::KickPower) - 4.0
-            }
-            None => 30.0,
-        }
+        let p = &side.team.players[side.fg_kicker()];
+        38.0 + 0.3 * p.a(Attr::KickPower) - 4.0
     }
 
     fn fg_make_estimate(&self, team: usize, dist: f64) -> f64 {
         let side = &self.sides[team];
-        let Some(&k) = side.depth.list(Position::K).first() else { return 0.2 };
-        let p = &side.team.players[k];
+        let p = &side.team.players[side.fg_kicker()];
         let acc = p.a(Attr::KickAccuracy);
         let range = 38.0 + 0.3 * p.a(Attr::KickPower);
         let sd = (2.95 + 0.012 * (dist - 30.0)) * (1.82f64 - 0.0105 * acc).max(0.55);
@@ -1041,7 +1059,7 @@ impl<'a> Game<'a> {
         let d = 1 - o;
         let mut r = self.new_record(PlayType::Punt);
         let side = &self.sides[o];
-        let p = side.depth.list(Position::P).iter().copied().find(|&i| !side.out[i]).unwrap_or(0);
+        let p = side.punter();
         let mut kick_on = vec![p];
         let mut used = vec![p];
         kick_on.extend(side.pick(Position::CB, 2, &mut used));

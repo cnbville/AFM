@@ -46,8 +46,8 @@ pub const NFL_TEAM_NAMES: [&str; 32] = [
 
 /// Depth chart slots per position on a 53-man roster: starters, the extra
 /// players who rotate in on most snaps (third receiver, nickel corner, a
-/// rotational pass rusher), and the total kept on the roster. One kicker and
-/// one punter.
+/// rotational pass rusher), and the total kept on the roster. One kicker,
+/// one punter and one long snapper (fix list 1.11).
 #[derive(Clone, Copy, Debug)]
 pub struct DepthSlots {
     pub starters: usize,
@@ -68,7 +68,7 @@ pub fn depth_slots(pos: Position) -> DepthSlots {
         Position::LB => (2, 1, 5),
         Position::CB => (2, 1, 6),
         Position::S => (2, 0, 4),
-        Position::K | Position::P => (1, 0, 1),
+        Position::K | Position::P | Position::LS => (1, 0, 1),
     };
     DepthSlots { starters, rotation, roster }
 }
@@ -135,11 +135,13 @@ impl Team {
         v
     }
 
-    /// Average rating of the team's starters: roughly how good the team is this year.
+    /// Average rating of the team's starters: roughly how good the team is this
+    /// year. The long snapper is left out: he barely moves a team's strength,
+    /// and leaving him out keeps the calibrated class sim as it was.
     pub fn strength(&self) -> f64 {
         let mut sum = 0.0;
         let mut n = 0;
-        for pos in Position::ALL {
+        for pos in Position::ALL.into_iter().filter(|&p| p != Position::LS) {
             for (rating, _) in self.roster_ratings(pos).into_iter().take(depth_slots(pos).starters) {
                 sum += rating;
                 n += 1;
@@ -164,7 +166,7 @@ fn background_exit_age(pos: Position) -> f64 {
         Position::WR | Position::LB | Position::CB | Position::S => 31.0,
         Position::TE | Position::EDGE | Position::DT => 32.0,
         Position::OT | Position::IOL => 33.0,
-        Position::K | Position::P => 38.0,
+        Position::K | Position::P | Position::LS => 38.0,
     }
 }
 
@@ -174,7 +176,7 @@ fn background_ageing(pos: Position, age: u32) -> f64 {
         Position::RB => -2.0,
         Position::CB | Position::S => -1.0,
         Position::QB => 3.0,
-        Position::K | Position::P => 5.0,
+        Position::K | Position::P | Position::LS => 5.0,
         _ => 0.0,
     };
     let a = age as f64 - shift;
@@ -237,9 +239,13 @@ pub fn make_league(rng: &mut Rng) -> Vec<Team> {
                 win_share: Vec::new(),
             };
             let talent = talent_of(&team, rng);
+            // The long snapper draws from his own stream, so every other
+            // player is the same as before he was added (fix list 1.11).
+            let mut ls_rng = Rng::new(format!("nfl-long-snapper-{id}"));
             for pos in Position::ALL {
+                let r: &mut Rng = if pos == Position::LS { &mut ls_rng } else { &mut *rng };
                 team.depth[pos.index()] =
-                    (0..depth_slots(pos).roster).map(|slot| new_background(rng, pos, slot, talent, false)).collect();
+                    (0..depth_slots(pos).roster).map(|slot| new_background(r, pos, slot, talent, false)).collect();
             }
             team
         })
@@ -272,7 +278,11 @@ pub fn advance_league(teams: &mut [Team], rng: &mut Rng) {
             team.draft_skill = staff_rating(rng, 10.5, 3.5);
         }
         let talent = talent_of(team, rng);
+        // The long snapper's own stream, seeded from the team as it stands.
+        let state = team.depth.iter().flatten().map(|m| m.rating + m.age as f64).sum::<f64>();
+        let mut ls_rng = Rng::new(format!("nfl-long-snapper-{}-{}", team.id, state.to_bits()));
         for pos in Position::ALL {
+            let r: &mut Rng = if pos == Position::LS { &mut ls_rng } else { &mut *rng };
             let mut ranked = std::mem::take(&mut team.depth[pos.index()]);
             ranked.sort_by(|x, y| y.rating.total_cmp(&x.rating));
             let mut kept: Vec<Member> = Vec::with_capacity(ranked.len() + 2);
@@ -283,10 +293,9 @@ pub fn advance_league(teams: &mut [Team], rng: &mut Rng) {
                     continue;
                 }
                 m.age += 1;
-                m.rating = clamp(m.rating + background_ageing(pos, m.age) + rng.normal(0.0, 2.0), 40.0, 97.0);
-                let leaves = m.age as f64 > background_exit_age(pos) + rng.normal(0.0, 2.0)
-                    || m.rating < 60.0
-                    || rng.chance(0.12);
+                m.rating = clamp(m.rating + background_ageing(pos, m.age) + r.normal(0.0, 2.0), 40.0, 97.0);
+                let leaves =
+                    m.age as f64 > background_exit_age(pos) + r.normal(0.0, 2.0) || m.rating < 60.0 || r.chance(0.12);
                 if leaves {
                     open.push(slot);
                 } else {
@@ -301,9 +310,9 @@ pub fn advance_league(teams: &mut [Team], rng: &mut Rng) {
             let mut i = 0;
             while on_roster < roster {
                 let slot = open.get(i).copied().unwrap_or(roster - 1);
-                let s = if rng.chance(0.65) { slot } else { (slot + 1).min(roster - 1) };
-                let young = rng.chance(0.6);
-                kept.push(new_background(rng, pos, s, talent, young));
+                let s = if r.chance(0.65) { slot } else { (slot + 1).min(roster - 1) };
+                let young = r.chance(0.6);
+                kept.push(new_background(r, pos, s, talent, young));
                 on_roster += 1;
                 i += 1;
             }
