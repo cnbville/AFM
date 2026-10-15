@@ -45,6 +45,8 @@ pub struct PlayRecord {
     pub blitz: bool,
     pub play_action: bool,
     pub coverage_man: bool,
+    /// The route the target ran.
+    pub route: &'static str,
     pub yards: f64,
     pub first_down: bool,
     pub touchdown: bool,
@@ -131,6 +133,7 @@ impl PlayRecord {
             blitz: false,
             play_action: false,
             coverage_man: false,
+            route: "",
             yards: 0.0,
             first_down: false,
             touchdown: false,

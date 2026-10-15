@@ -10,6 +10,40 @@ use afm_engine::player::Level;
 use rayon::prelude::*;
 use serde_json::Value;
 
+/// The engine's routes pooled with the real route types they match.
+const ROUTE_GROUPS: [(&str, &[&str]); 12] = [
+    ("go / fade / seam", &["GO"]),
+    ("post", &["POST"]),
+    ("corner", &["CORNER"]),
+    ("wheel", &["WHEEL"]),
+    ("dig / in / cross", &["IN/DIG", "IN", "CROSS"]),
+    ("out (10+ air)", &["DEEP OUT"]),
+    ("out (under 10)", &["OUT", "QUICK OUT"]),
+    ("slant", &["SLANT"]),
+    ("hitch / curl / sit", &["HITCH", "HITCH/CURL"]),
+    ("drag", &["SHALLOW CROSS/DRAG"]),
+    ("flat / swing", &["FLAT", "SWING"]),
+    ("screen", &["SCREEN"]),
+];
+
+fn route_group(route: &str, air: f64) -> Option<usize> {
+    Some(match route {
+        "go" | "fade" | "seam" => 0,
+        "post" => 1,
+        "corner" => 2,
+        "wheel" => 3,
+        "dig" => 4,
+        "out" | "comeback" if air >= 10.0 => 5,
+        "out" | "comeback" => 6,
+        "slant" => 7,
+        "hitch" | "curl" | "sit" => 8,
+        "drag" => 9,
+        "flat" | "swing" | "check-release" => 10,
+        "screen" | "bubble" => 11,
+        _ => return None,
+    })
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let level = match args.get(1).map(|s| s.as_str()) {
@@ -128,6 +162,8 @@ fn main() {
     let mut fg = [[0.0f64; 2]; 4];
     let mut ay = [[0.0f64; 6]; 4];
     let mut by_cov = [[0.0f64; 3]; 2];
+    // Targets by route group: [targets, catches, yards].
+    let mut by_route = [[0.0f64; 5]; ROUTE_GROUPS.len()];
     let mut run_b = [0.0f64; 6];
     let mut cov_runs = std::collections::BTreeMap::<String, [f64; 5]>::new();
     let mut by_box = [[0.0f64; 2]; 3];
@@ -313,6 +349,15 @@ fn main() {
                             *m.entry("yac").or_default() += p.yac;
                         }
                     }
+                    if !p.throw_away
+                        && let Some(g) = route_group(p.route, p.air_yards)
+                    {
+                        by_route[g][0] += 1.0;
+                        by_route[g][1] += p.complete as u8 as f64;
+                        by_route[g][2] += p.yards;
+                        by_route[g][3] += p.air_yards;
+                        by_route[g][4] += p.time_to_throw;
+                    }
                     let cov = if p.coverage_man { 1 } else { 0 };
                     by_cov[cov][0] += 1.0;
                     by_cov[cov][1] += p.complete as u8 as f64;
@@ -488,6 +533,35 @@ fn main() {
         row(&format!("{name}: att share / cmp / ypa"), by_cov[k][0] / (by_cov[0][0] + by_cov[1][0]).max(1.0), None);
         row("", by_cov[k][1] / by_cov[k][0].max(1.0), None);
         row("", by_cov[k][2] / by_cov[k][0].max(1.0), None);
+    }
+    // Targets by route against NFL 2022-25 (data/real-world/engine_targets.json),
+    // with the real route types pooled into the engine's route groups.
+    let et: Value = serde_json::from_str(include_str!("../../../../data/real-world/engine_targets.json")).unwrap();
+    let tr = &et["targets_by_route"];
+    let rt: f64 = by_route.iter().map(|b| b[0]).sum();
+    let real_all: f64 = ROUTE_GROUPS.iter().flat_map(|g| g.1.iter()).map(|k| tr[*k]["n"].as_f64().unwrap_or(0.0)).sum();
+    println!("targets by route            share  real   catch  real    ypt   real    air    ttt");
+    for (k, (name, real_keys)) in ROUTE_GROUPS.iter().enumerate() {
+        let (mut n, mut c, mut y) = (0.0, 0.0, 0.0);
+        for key in real_keys.iter() {
+            let r = &tr[*key];
+            let rn = r["n"].as_f64().unwrap_or(0.0);
+            n += rn;
+            c += rn * r["catch"].as_f64().unwrap_or(0.0);
+            y += rn * r["ypt"].as_f64().unwrap_or(0.0);
+        }
+        let b = by_route[k];
+        println!(
+            "  {name:<24} {:>6.3} {:>6.3} {:>6.3} {:>6.3} {:>6.2} {:>6.2} {:>6.1} {:>6.2}",
+            b[0] / rt.max(1.0),
+            n / real_all.max(1.0),
+            b[1] / b[0].max(1.0),
+            c / n.max(1.0),
+            b[2] / b[0].max(1.0),
+            y / n.max(1.0),
+            b[3] / b[0].max(1.0),
+            b[4] / b[0].max(1.0)
+        );
     }
     // Designed runs against nflverse 2021-25 (data/real-world/position_value.json).
     let pv: Value = serde_json::from_str(include_str!("../../../../data/real-world/position_value.json")).unwrap();

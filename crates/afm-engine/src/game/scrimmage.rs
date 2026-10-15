@@ -134,6 +134,8 @@ pub struct SnapResult {
     pub defender: Option<u32>,
     pub pbu: Option<u32>,
     pub air_yards: f64,
+    /// The route the target ran (empty when nobody was targeted).
+    pub route: &'static str,
     pub yac: f64,
     pub before_contact: f64,
     pub time_to_throw: f64,
@@ -241,6 +243,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         defender: None,
         pbu: None,
         air_yards: 0.0,
+        route: "",
         yac: 0.0,
         before_contact: 0.0,
         time_to_throw: 0.0,
@@ -735,6 +738,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 .map(|(k, _)| sim.agents[k].id);
             catch_x = to.x;
             res.air_yards = to.x - los;
+            if let Job::Route { name, .. } = sim.agents[tgt].job {
+                res.route = name;
+            }
             match outcome {
                 Catch::Complete(sep) => {
                     res.result = Result::Complete;
@@ -1777,6 +1783,10 @@ fn quarterback(
         let fake = ps.concept.play_action && t < 0.45;
         let to = if fake { v2(los - 3.5, me.y) } else { ps.drop_to };
         sim.go_to(qb, to, if fake { 0.6 } else { 0.95 });
+    } else if matches!(ps.concept.drop, Drop::Screen) {
+        // The back screen: he drifts back and away to draw the rush past
+        // the back, as real quarterbacks are coached to.
+        sim.go_to(qb, me + v2(-1.0, 0.0), 0.35);
     } else if pressure > 0.2 {
         let poise = sim.agents[qb].a(Attr::Poise);
         let step = threat.norm().scale(1.0 + 0.01 * poise) + v2(0.6, 0.0);
@@ -1911,6 +1921,9 @@ fn quarterback(
     let acc_q = sim.agents[qb].a(Attr::ThrowAccuracy);
     let pow_q = sim.agents[qb].a(Attr::ThrowPower);
     let release = clamp(0.34 - 0.0025 * (0.5 * acc_q + 0.3 * pow_q + 0.2 * aw - 60.0), 0.22, 0.5);
+    // A screen is a soft flick lofted over the rush: only a rusher who can
+    // get a hand on his arm stops it.
+    let (release, reach) = if screen { (0.6 * release, 1.3) } else { (release, 2.8) };
     let blocked_throw = (0..sim.agents.len()).any(|d| {
         let a = &sim.agents[d];
         if a.side != 1 || !a.up(t) || a.engaged.is_some() || !matches!(a.job, Job::Rush { .. }) {
@@ -1919,7 +1932,7 @@ fn quarterback(
         let rel = me - a.pos;
         let dist = rel.len();
         let closing = a.vel.dot(rel.norm()).max(0.0);
-        dist < 3.5 && dist - 2.8 < closing * release
+        dist < 3.5 && dist - reach < closing * release
     });
     if blocked_throw && best.is_some() {
         best = None;
@@ -2095,7 +2108,7 @@ fn throw(
     // Error grows gently as accuracy falls: real completion rates drop only a
     // few points from the NFL to college and high school, where receivers
     // and coverage are just as far behind (proposed, not confirmed).
-    let mut sd = (0.25 + 0.036 * dist + 0.0007 * dist * dist) * 1.3 * (0.02 * (79.0 - pro(acc))).exp();
+    let mut sd = aim_sd(acc, dist);
     if pressure > 0.3 {
         sd *= 1.0 + 0.55 * pressure.min(1.5) * (1.35 - poise / 100.0);
     }
@@ -2158,6 +2171,11 @@ fn throw(
         }
     }
     (to, r, dist, flight, sd)
+}
+
+/// How far a clean throw misses on average at this distance (yards).
+fn aim_sd(acc: f64, dist: f64) -> f64 {
+    (0.25 + 0.036 * dist + 0.0007 * dist * dist) * 1.3 * (0.02 * (79.0 - pro(acc))).exp()
 }
 
 /// A quarterback skill on the scale where it decides games: through the pro
@@ -2588,7 +2606,10 @@ fn cover_inner(
                         spot.y + (rp.y - spot.y) * 0.65
                     };
                     target = v2((rp.x + cushion).max(spot.x), ty.clamp(spot.y - width / 2.0, spot.y + width / 2.0));
-                    if rv.x > 3.0 && target.x > me.x {
+                    // He matches the vertical's speed and lets the gap to
+                    // his cushion set how much faster or slower he goes, so
+                    // he never stops on his spot and has to restart.
+                    if rv.x > 3.0 {
                         carry = v2(rv.x * 0.9, 0.0);
                     }
                 } else {

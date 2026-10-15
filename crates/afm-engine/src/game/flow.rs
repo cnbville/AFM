@@ -1526,6 +1526,7 @@ impl<'a> Game<'a> {
         r.target = res.target;
         r.carrier = res.carrier;
         r.air_yards = res.air_yards;
+        r.route = res.route;
         r.yac = res.yac;
         r.before_contact = res.before_contact;
         r.time_to_throw = res.time_to_throw;
