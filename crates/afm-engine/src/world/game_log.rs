@@ -35,6 +35,8 @@ pub struct PlayerSeason {
     /// His listed position at the end of the season.
     pub pos: Option<crate::positions::Position>,
     pub games: u32,
+    /// Offensive and defensive snaps.
+    pub snaps: u32,
     pub att: u32,
     pub cmp: u32,
     pub pass_yds: f32,
@@ -299,6 +301,7 @@ impl GameLog {
                 let s = self.players.entry((year, id)).or_default();
                 s.program = teams[side];
                 s.games += 1;
+                s.snaps += l.snaps_off + l.snaps_def;
                 s.att += l.att;
                 s.cmp += l.cmp;
                 s.pass_yds += l.pass_yds as f32;

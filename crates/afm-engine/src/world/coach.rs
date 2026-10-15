@@ -242,6 +242,9 @@ pub struct Coach {
     pub came_up: Group,
     /// His visible teaching record by group.
     pub units: [UnitRecord; GROUP_COUNT],
+    /// Hidden, 1-20: how soon he takes his starters out of a decided game
+    /// (dynasty item 3). Not part of his reputation.
+    pub(crate) sportsmanship: f64,
 }
 
 /// Typical ability by level: (mean, spread).
@@ -343,6 +346,7 @@ pub fn generate_coach(
         ties: HashMap::new(),
         came_up,
         units: [UnitRecord::default(); GROUP_COUNT],
+        sportsmanship: 10.0,
     }
 }
 

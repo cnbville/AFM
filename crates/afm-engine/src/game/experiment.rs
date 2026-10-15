@@ -8,27 +8,6 @@ use crate::positions::Position;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-static GARBAGE_TIME: AtomicBool = AtomicBool::new(false);
-
-/// Rough garbage time (trial 4 proposal 3): a coach pulls his starters in a
-/// decided game and the leader runs out the clock.
-pub fn set_garbage_time(on: bool) {
-    GARBAGE_TIME.store(on, Ordering::Relaxed);
-}
-
-/// Whether a team `diff` points ahead (negative: behind) has its starters
-/// out: up 28 in the 3rd quarter, up 21 in the 4th, or down 28 in the 4th.
-pub fn decided(quarter: u8, diff: i32) -> bool {
-    if !GARBAGE_TIME.load(Ordering::Relaxed) {
-        return false;
-    }
-    match quarter {
-        3 => diff >= 28,
-        4 => diff >= 21 || diff <= -28,
-        _ => false,
-    }
-}
-
 static POSITION_VALUES: AtomicBool = AtomicBool::new(false);
 static SAME_SCHEMES: AtomicBool = AtomicBool::new(false);
 

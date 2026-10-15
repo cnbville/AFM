@@ -110,6 +110,8 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
         front: if rng.chance(0.35) { Front::ThreeFour } else { Front::FourThree },
         shell: *rng.pick(&[Shell::Cover3, Shell::Quarters, Shell::ManPressure, Shell::Cover2]),
         playbook: 1.0,
+        // From its own stream so the draws above keep their values.
+        sportsmanship: clamp(Rng::new(seed ^ 0x5BD1_E995).normal(10.0, 3.5), 1.0, 20.0),
     };
     GameTeam { name: name.to_string(), players, staff }
 }

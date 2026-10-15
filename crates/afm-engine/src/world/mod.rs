@@ -128,6 +128,11 @@ pub struct Person {
     pub nil_income: f64,
     pub pending_dip: Option<f64>,
     pub last_role: Option<PlayingTime>,
+    /// Offensive and defensive snaps in his last college season and in his
+    /// whole college career (dynasty item 3: backups' garbage-time snaps
+    /// count as game experience).
+    pub last_snaps: u32,
+    pub college_snaps: u32,
     pub last_performance: Option<f64>,
     pub transfers: u32,
     pub juco: bool,
@@ -532,6 +537,8 @@ impl World {
                     nil_income: 0.0,
                     pending_dip: None,
                     last_role: None,
+                    last_snaps: 0,
+                    college_snaps: 0,
                     last_performance: None,
                     transfers: 0,
                     juco: false,

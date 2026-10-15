@@ -16,7 +16,6 @@ fn main() {
     let years: u32 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(30);
     let on = std::env::var("AFM_EXPERIMENT").unwrap_or_default();
     experiment::set_position_values(on.contains("pos"));
-    experiment::set_garbage_time(on.contains("garbage"));
     experiment::set_same_schemes(on.contains("schemes"));
     let w = World::new(WorldOptions { seed, history_years: years, ..Default::default() });
     println!("# Dynasty worlds: seed {seed}, {years} years, switches [{on}]\n");
@@ -51,7 +50,7 @@ fn main() {
         *total.entry(*p).or_default() += 1;
     }
     let mut t: Vec<(usize, u32)> = total.into_iter().collect();
-    t.sort_by(|a, b| b.1.cmp(&a.1));
+    t.sort_by_key(|b| std::cmp::Reverse(b.1));
     println!(
         "\nTitles: {}",
         t.iter().map(|(p, n)| format!("{} {n}", w.programs[*p].real_name)).collect::<Vec<_>>().join(", ")

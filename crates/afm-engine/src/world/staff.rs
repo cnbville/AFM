@@ -27,7 +27,11 @@ fn new_coach(w: &mut World, tier: CoachTier, age: u32, pool: CoachPool) -> usize
     let id = w.coaches.len();
     let ethnicity = coach_ethnicity(pool, &mut w.rng);
     let name = names::person_name(ethnicity, w.year - age as i32, &mut w.rng);
-    let c = generate_coach(id, name, ethnicity, tier, age, &mut w.rng);
+    let mut c = generate_coach(id, name, ethnicity, tier, age, &mut w.rng);
+    // Sportsmanship from a keyed draw, so the world's own stream is untouched
+    // (spread like the other personality traits; proposed, not confirmed).
+    c.sportsmanship =
+        clamp(10.0 + 3.5 * super::season::key_normal(w.options.seed as u64 ^ 0x5B0C, id as u64), 1.0, 20.0);
     w.coaches.push(c);
     id
 }

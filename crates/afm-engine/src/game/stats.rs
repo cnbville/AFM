@@ -107,6 +107,9 @@ pub struct PlayRecord {
     /// Context for splits (8.3): the drive started after a turnover by the
     /// other team, and the score margin for the offense.
     pub after_turnover: bool,
+    /// Garbage time: each side's step at the snap (0 = everyone in; see
+    /// `garbage`), home then away.
+    pub garbage: [u8; 2],
 }
 
 impl PlayRecord {
@@ -183,6 +186,7 @@ impl PlayRecord {
             wp_before: 0.5,
             why: String::new(),
             after_turnover: false,
+            garbage: [0, 0],
         }
     }
 

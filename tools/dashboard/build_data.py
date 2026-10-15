@@ -1133,14 +1133,14 @@ def explorer(run, profiles):
             continue
         path = " > ".join(a["colleges"])
         players.append([a["year"], a["pick"], a["name"], a["pos"], a["stars"], a["eth"], a["state"], path, a["team"], r(a["overall"]), r(a["potential"]), a["juco"], a["class_of"], a["left"]])
-    ccols = ["name", "eth", "age", "school", "from", "to", "w", "l", "win_pct", "titles", "ended", "hc_value", "scheme", "game_mgmt", "motivation", "recruiting", "development", "ex_pro", "came_up"]
+    ccols = ["name", "eth", "age", "school", "from", "to", "w", "l", "win_pct", "titles", "ended", "hc_value", "scheme", "game_mgmt", "motivation", "recruiting", "development", "sportsmanship", "ex_pro", "came_up"]
     crow = []
     for c in run.coaches:
         for s in c["career"]:
             if s["role"] == "head coach" and s["at"].get("div") in ("FBS", "FCS") and (s["to"] or run.last + 1) >= run.first:
                 h = c["hidden"]
                 crow.append([c["name"], c["eth"], c["age"], s["at"]["college"], s["from"], s["to"], s["w"], s["l"], pct(s["w"], s["w"] + s["l"]), s["titles"], s["ended"],
-                             h["hc_value"], h["scheme"], h["game_mgmt"], h["motivation"], h["recruiting"], r(st.fmean(h["teaching"])), c["ex_pro"], c["came_up"]])
+                             h["hc_value"], h["scheme"], h["game_mgmt"], h["motivation"], h["recruiting"], r(st.fmean(h["teaching"])), h.get("sportsmanship"), c["ex_pro"], c["came_up"]])
     return {"seasons": {"cols": cols, "rows": rows}, "players": {"cols": pcols, "rows": players}, "coaches": {"cols": ccols, "rows": crow}}
 
 

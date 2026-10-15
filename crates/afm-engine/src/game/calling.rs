@@ -79,6 +79,13 @@ pub struct Situation {
     pub game_left: f64,
     pub timeouts: u8,
     pub opp_timeouts: u8,
+    /// Garbage time (`garbage`): how much the offense plays to end a won
+    /// game (0-1), whether it has given up on a lost one, and the same for
+    /// the defense.
+    pub ease: f64,
+    pub concede: bool,
+    pub def_ease: f64,
+    pub def_concede: bool,
 }
 
 impl Situation {
@@ -91,8 +98,12 @@ impl Situation {
             Clock::Normal
         }
     }
-    /// The offense needs to stop the clock.
+    /// The offense needs to stop the clock. A team that has decided the game
+    /// is won, or lost, doesn't.
     pub fn hurry(&self) -> bool {
+        if self.ease >= 0.5 || self.concede {
+            return false;
+        }
         (self.half_left <= 120.0 && self.score_diff <= 0 && self.quarter >= 2)
             || (self.quarter >= 4 && self.half_left <= 300.0 && self.score_diff < 0)
             || (self.quarter == 2 && self.half_left <= 120.0)
@@ -130,8 +141,23 @@ pub fn call_offense(
     if sit.hurry() {
         p_pass = p_pass.max(0.85);
     }
-    if sit.score_diff > 0 && crate::game::experiment::decided(sit.quarter, sit.score_diff) {
-        p_pass = p_pass.min(0.2);
+    // Garbage time: the leader runs to end it, but still throws about one
+    // play in four (real: 28% of 4th-quarter plays when up 28+, FBS and NFL);
+    // a beaten team stops forcing it (real: 51% down 28+ in FBS against 62%
+    // in close games).
+    if sit.ease > 0.0 {
+        let target = RUN_OUT_PASS
+            * if sit.down >= 3 && sit.togo >= 7.0 {
+                2.0
+            } else if sit.togo <= 2.0 {
+                0.5
+            } else {
+                1.0
+            };
+        p_pass += (target - p_pass) * sit.ease;
+    }
+    if sit.concede {
+        p_pass += (CONCEDED_PASS - p_pass) * 0.7;
     }
     if sit.togo <= 1.0 && sit.down >= 3 {
         p_pass = p_pass.min(0.45);
@@ -220,6 +246,11 @@ pub fn call_offense(
     let dir = if rc == RunConcept::Counter || rng.chance(0.3) { -strength } else { strength };
     OffCall { formation, kind: PlayKind::Run(rc), dir, tempo: hurry }
 }
+
+/// Pass rates a team drifts toward when it plays out a decided game
+/// (proposed, not confirmed; calibrated on `match_check garbage`).
+const RUN_OUT_PASS: f64 = 0.22;
+const CONCEDED_PASS: f64 = 0.45;
 
 fn pick_run(scheme: OffScheme, short: bool, backfield: Backfield, fb: bool, rng: &mut Rng) -> RunConcept {
     use RunConcept::*;
@@ -342,6 +373,11 @@ fn pick_concept(staff: &Staff, mem: &Memory, sit: &Situation, backfield: Backfie
                 w *= clamp(1.0 + e * 0.4 * c.adaptation / 20.0, 0.5, 1.6);
             }
             w *= 1.0 + 0.03 * (c.aggressiveness - 10.0) * if pc.depth == PassDepth::Deep { 1.0 } else { -0.3 };
+            // Up big, a little less going deep (real NFL: 11.7% of throws
+            // travel 20+ yards up 28+, 13.6% in close games).
+            if pc.depth == PassDepth::Deep || pc.name == "play-action shot" {
+                w *= 1.0 - 0.3 * sit.ease;
+            }
             (i, w.max(0.01))
         })
         .collect();
@@ -531,8 +567,26 @@ pub fn call_defense(staff: &Staff, mem: &Memory, sit: &Situation, off: &Formatio
             (cov, w)
         })
         .collect();
+    // Garbage time: the leading defense keeps everything in front of it
+    // (two-high, fewer man looks, no Cover 0) instead of hunting stops.
+    let ease = sit.def_ease;
+    let w: Vec<(Coverage, f64)> = w
+        .into_iter()
+        .map(|(cov, x)| {
+            let mut x = x;
+            if cov == Coverage::Cover0 {
+                x *= 1.0 - ease;
+            } else if cov.is_man() {
+                x *= 1.0 - 0.5 * ease;
+            }
+            if cov.high() == 2 {
+                x *= 1.0 + ease;
+            }
+            (cov, x)
+        })
+        .collect();
     let coverage = weigh(rng, &w);
-    let mut blitz = 0.24 + 0.012 * (c.aggressiveness - 10.0);
+    let mut blitz = 0.24 + 0.012 * (c.aggressiveness - 10.0) - 0.2 * ease;
     if sit.down == 3 && (4.0..=9.0).contains(&sit.togo) {
         blitz += 0.1;
     }
@@ -557,7 +611,7 @@ pub fn call_defense(staff: &Staff, mem: &Memory, sit: &Situation, off: &Formatio
     };
     let pressure =
         if personnel == DefPersonnel::Dime && pressure == Pressure::DoubleA { Pressure::DbBlitz } else { pressure };
-    let disguise = rng.chance(clamp(0.05 + 0.025 * c.skill, 0.05, 0.6));
+    let disguise = rng.chance(clamp(0.05 + 0.025 * c.skill, 0.05, 0.6) * (1.0 - ease));
     DefCall { personnel, coverage, pressure, disguise }
 }
 
@@ -593,7 +647,8 @@ pub fn fourth_down(staff: &Staff, sit: &Situation, fg_make: f64, rng: &mut Rng) 
     let mut ev_go_adj = ev_go;
     // The scoreboard late: a team that must score goes; a team ahead plays it safe.
     let late = sit.quarter >= 4 && sit.game_left < 300.0;
-    if late && sit.score_diff < 0 {
+    // A beaten team that has given up plays it straight.
+    if late && sit.score_diff < 0 && !sit.concede {
         let need = -sit.score_diff;
         if need > 3 || sit.game_left < 120.0 {
             ev_go_adj += 1.2 + (300.0 - sit.game_left) / 100.0;
@@ -614,7 +669,11 @@ pub fn fourth_down(staff: &Staff, sit: &Situation, fg_make: f64, rng: &mut Rng) 
     let by_numbers = ev_go_adj + noise > best_kick.1 + margin;
     let follow = clamp(0.05 + 0.012 * gm + 0.01 * (agg - 10.0), 0.03, 0.45);
     let go = if rng.chance(follow) { by_numbers } else { rng.chance(habit) };
-    if go || (late && sit.score_diff < -3 && sit.game_left < 150.0) { FourthDown::Go } else { best_kick.0 }
+    if go || (late && sit.score_diff < -3 && sit.game_left < 150.0 && !sit.concede) {
+        FourthDown::Go
+    } else {
+        best_kick.0
+    }
 }
 
 /// Go for two after a touchdown (the chart, plus the coach's lean and how

@@ -188,6 +188,9 @@ pub struct Staff {
     pub shell: Shell,
     /// How many plays the team carries: high school small, NFL big (topic 3).
     pub playbook: f64,
+    /// Head coach sportsmanship, 1-20 (hidden): how soon he takes his
+    /// starters out of a decided game (dynasty item 3).
+    pub sportsmanship: f64,
 }
 
 impl Staff {
@@ -201,6 +204,7 @@ impl Staff {
             front: Front::FourThree,
             shell: Shell::Cover3,
             playbook: 1.0,
+            sportsmanship: 10.0,
         }
     }
 }

@@ -12,7 +12,7 @@ use super::data::Division;
 use super::{Stage, World, division_level};
 use crate::athlete::Eye;
 use crate::development::{SeasonContext, Trouble, develop_season};
-use crate::game::{Caller, Front, GamePlayer, GameTeam, OffScheme, Shell, Staff as GameStaff, quick_game};
+use crate::game::{Caller, Front, GamePlayer, GameTeam, OffScheme, Shell, Staff as GameStaff, quick_game_with};
 use crate::league::depth_slots;
 use crate::player::{Level, PlayingTime};
 use crate::positions::{POSITION_COUNT, Position};
@@ -447,12 +447,17 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
     let on_engine = w.options.engine_from.is_none_or(|from| w.year >= from);
     let game_teams: Vec<Option<GameTeam>> =
         if on_engine { w.programs.par_iter().map(|p| game_team(w, p)).collect() } else { Vec::new() };
+    let coach_context: Vec<CoachContext> =
+        if on_engine { w.programs.iter().map(|p| coach_context(w, p)).collect() } else { Vec::new() };
     #[cfg(feature = "debug")]
     crate::debug::capture_teams(w.year, &game_teams, &college.iter().map(|r| r.strength).collect::<Vec<_>>());
     let game_log = std::sync::Mutex::new(std::mem::take(&mut w.game_log));
+    let snaps = std::sync::Mutex::new(std::collections::HashMap::<u32, u32>::new());
     for division in [Division::FBS, Division::FCS, Division::D2, Division::JUCO] {
         let engine = Engine {
             teams: &game_teams,
+            coaches: &coach_context,
+            snaps: &snaps,
             level: division_level(division),
             log: (w.options.keep_game_log && w.recording).then_some(&game_log),
             year: w.year,
@@ -530,6 +535,26 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
         }
     }
     w.game_log = game_log.into_inner().unwrap();
+    // Snaps become game experience. Before the engine runs (quick history
+    // checks only) a season's snaps follow the depth chart.
+    let snaps = snaps.into_inner().unwrap();
+    for (i, p) in w.people.iter_mut().enumerate() {
+        if p.stage != Stage::College {
+            continue;
+        }
+        let n = if on_engine {
+            snaps.get(&p.player.id).copied().unwrap_or(0)
+        } else {
+            match roles[i] {
+                PlayingTime::Starter => SEASON_SNAPS,
+                PlayingTime::Rotation => SEASON_SNAPS * 2 / 5,
+                PlayingTime::Backup => SEASON_SNAPS / 12,
+                _ => 0,
+            }
+        };
+        p.last_snaps = n;
+        p.college_snaps += n;
+    }
     if w.options.keep_game_log && w.recording {
         for p in w.people.iter().filter(|p| p.stage == Stage::College) {
             if let Some(s) = w.game_log.players.get_mut(&(w.year, p.player.id)) {
@@ -577,7 +602,7 @@ fn play_rounds(
             .map(|k| if r % 2 == 0 { (order[2 * k], order[2 * k + 1]) } else { (order[2 * k + 1], order[2 * k]) })
             .collect();
         let played = match engine {
-            Some(e) => engine_games(e, &pairs, rng.int(0, i32::MAX) as u64),
+            Some(e) => engine_games(e, &pairs, rng.int(0, i32::MAX) as u64, results),
             None => vec![None; pairs.len()],
         };
         for (&(a, b), on_field) in pairs.iter().zip(played) {
@@ -627,7 +652,7 @@ fn playoff(
         let m = rest.len();
         let pairs: Vec<(usize, usize)> = (0..m / 2).map(|k| (rest[k], rest[m - 1 - k])).collect();
         let played = match engine {
-            Some(e) => engine_games(e, &pairs, rng.int(0, i32::MAX) as u64),
+            Some(e) => engine_games(e, &pairs, rng.int(0, i32::MAX) as u64, results),
             None => vec![None; pairs.len()],
         };
         for (&(a, b), on_field) in pairs.iter().zip(played) {
@@ -702,10 +727,18 @@ fn attach_level_ratings(w: &mut World) {
     });
 }
 
+/// About the snaps of a full college season as a starter on one side of the
+/// ball: experience counts in these, so a backup's garbage-time snaps add up
+/// slowly (proposed, not confirmed).
+const SEASON_SNAPS: u32 = 750;
+
 /// College games are played by the match engine (item 12): each team as it
 /// is today, its coordinators calling the plays.
 struct Engine<'a> {
     teams: &'a [Option<GameTeam>],
+    coaches: &'a [CoachContext],
+    /// Offensive and defensive snaps this season, by player id.
+    snaps: &'a std::sync::Mutex<std::collections::HashMap<u32, u32>>,
     level: Level,
     /// Trial tooling: where to keep the box scores, when asked.
     log: Option<&'a std::sync::Mutex<super::game_log::GameLog>>,
@@ -724,7 +757,8 @@ pub(super) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
         .filter(|p| p.stage == Stage::College)
         .map(|p| {
             let seasons = p.college_seasons as f64;
-            GamePlayer::from_player(&p.player, clamp(0.78 + 0.05 * seasons, 0.0, 0.95), seasons)
+            let experience = p.college_snaps as f64 / SEASON_SNAPS as f64;
+            GamePlayer::from_player(&p.player, clamp(0.78 + 0.05 * seasons, 0.0, 0.95), experience)
         })
         .collect();
     if players.len() < 30 {
@@ -758,22 +792,73 @@ pub(super) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
             front: if pick(dc, 3) == 0 { Front::ThreeFour } else { Front::FourThree },
             shell: shells[pick(dc.map(|c| c / 3), shells.len())],
             playbook: 1.0,
+            sportsmanship: prog.head_coach.map_or(10.0, |c| w.coaches[c].sportsmanship),
         },
     })
+}
+
+/// What a head coach brings into a game besides his team (dynasty item 3):
+/// the programs that fired him, and whether his job is on the line.
+#[derive(Clone, Debug, Default)]
+struct CoachContext {
+    fired_by: Vec<usize>,
+    hot_seat: bool,
+}
+
+fn coach_context(w: &World, prog: &super::program::Program) -> CoachContext {
+    use super::coach::Employer;
+    let Some(c) = prog.head_coach.map(|c| &w.coaches[c]) else { return CoachContext::default() };
+    let fired_by = c
+        .history
+        .iter()
+        .filter(|s| s.ended.starts_with("fired"))
+        .filter_map(|s| if let Employer::College(p) = s.employer { Some(p) } else { None })
+        .collect();
+    // The carousel's own measure of a bad stretch (`staff.rs`), or a
+    // prove-it year.
+    let n = c.recent.len();
+    let last = if n >= 1 { c.recent[n - 1] } else { 0.0 };
+    let before = if n >= 2 { c.recent[n - 2] } else { 0.0 };
+    let tenure = c.job.as_ref().map_or(0, |j| w.year - j.since);
+    let hot_seat = c.prove_it.is_some() || (tenure >= 2 && -(1.5 * last + 0.7 * before) > 0.06);
+    CoachContext { fired_by, hot_seat }
+}
+
+/// The situation pushes for one side of one game (proposed, not confirmed):
+/// a contender in the playoff race, a grudge against the program that fired
+/// him, a job on the line, a winning season in reach.
+fn game_context(e: &Engine, results: &[TeamResult], me: usize, opp: usize) -> crate::game::garbage::Context {
+    let r = &results[me];
+    let c = e.coaches.get(me).cloned().unwrap_or_default();
+    crate::game::garbage::Context {
+        race: e.division == Division::FBS && r.games() >= 4 && r.losses <= 1,
+        grudge: c.fired_by.contains(&opp),
+        hot_seat: c.hot_seat,
+        bowl_push: r.games() >= 7 && (4..=5).contains(&r.wins),
+    }
 }
 
 /// Plays a batch of games on the engine, in parallel. True when the home
 /// side (first) wins.
 type Played = Option<(bool, [crate::game::stats::TeamStats; 2])>;
 
-fn engine_games(e: &Engine, games: &[(usize, usize)], seed: u64) -> Vec<Played> {
+fn engine_games(e: &Engine, games: &[(usize, usize)], seed: u64, results: &[TeamResult]) -> Vec<Played> {
     games
         .par_iter()
         .enumerate()
         .map(|(k, &(a, b))| {
             let (Some(ta), Some(tb)) = (&e.teams[a], &e.teams[b]) else { return None };
-            let r = quick_game(ta, tb, e.level, seed.wrapping_mul(1_000_003).wrapping_add(k as u64));
+            let context = [(a, b), (b, a)].map(|(me, opp)| game_context(e, results, me, opp));
+            let r = quick_game_with(ta, tb, e.level, seed.wrapping_mul(1_000_003).wrapping_add(k as u64), context);
             let [ha, hb] = r.stats.score;
+            {
+                let mut snaps = e.snaps.lock().unwrap();
+                for side in &r.stats.players {
+                    for (&id, l) in side {
+                        *snaps.entry(id).or_default() += l.snaps_off + l.snaps_def;
+                    }
+                }
+            }
             if let Some(log) = e.log {
                 let part = super::game_log::situations(e.division, [a, b], &r.stats);
                 log.lock().unwrap().add(e.year, e.division, [a, b], &r.stats, part);

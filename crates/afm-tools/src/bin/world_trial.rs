@@ -1070,7 +1070,8 @@ fn write_dashboard(w: &World, path: &str, seed: u32, years: u32, cards: &[serde_
                 "came_up": c.came_up.name(), "ex_pro": c.ex_pro, "mentor": c.mentor.map(|m| w.coaches[m].name.clone()),
                 "hidden": {"hc_value": (a.head_coach_value() * 10.0).round() / 10.0, "teaching": a.teaching.iter().map(|t| (t * 10.0).round() / 10.0).collect::<Vec<_>>(),
                     "scheme": a.scheme.round(), "game_mgmt": a.game_management.round(), "motivation": a.motivation.round(),
-                    "discipline": a.discipline.round(), "recruiting": a.recruiting.round(), "network": a.network.round(), "relationships": a.relationships.round()},
+                    "discipline": a.discipline.round(), "recruiting": a.recruiting.round(), "network": a.network.round(), "relationships": a.relationships.round(),
+                    "sportsmanship": debug::coach_sportsmanship(c).round()},
                 "units": Group::ALL.iter().map(|&g| { let u = c.units[g as usize]; json!([g.name(), (u.growth_read() * 100.0).round() / 100.0, (u.moved_up * 10.0).round() / 10.0]) }).collect::<Vec<_>>(),
                 "career": career,
             })
