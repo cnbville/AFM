@@ -79,7 +79,7 @@ const POLYNESIAN_FIRST: [&str; 30] = [
     "Kaleb", "Tali", "Maka", "Junior", "Semisi", "Lopeti",
 ];
 
-const DECADES: [i32; 5] = [1970, 1980, 1990, 2000, 2010];
+const DECADES: [i32; 8] = [1940, 1950, 1960, 1970, 1980, 1990, 2000, 2010];
 
 /// Cumulative weights for a weighted draw: (names, running totals).
 struct Pool {
@@ -171,24 +171,95 @@ static POOLS: LazyLock<NamePools> = LazyLock::new(|| {
     NamePools { first, last }
 });
 
+/// Prefixes that families write with a capital or an apostrophe inside the
+/// name (DeAndre, Ja'Marr, LaDainian). The SSA file stores them flat.
+const INNER_CAPS: [&str; 11] = ["De", "Da", "Ja", "La", "Le", "Ke", "Ty", "Tre", "Ra", "Sha", "Ka"];
+
+/// A first name as families write it: "Deandre" may be DeAndre or De'Andre
+/// when the rest is itself a common name (proposed, not confirmed).
+fn styled_first(first: &str, ethnicity: Ethnicity, rng: &mut Rng) -> String {
+    if !matches!(ethnicity, Ethnicity::Black | Ethnicity::Polynesian) {
+        return first.to_string();
+    }
+    for pre in INNER_CAPS {
+        if let Some(rest) = first.strip_prefix(pre)
+            && rest.len() >= 4
+            && let Some(c) = rest.chars().next()
+            && is_common_first(&format!("{}{}", c.to_ascii_uppercase(), &rest[c.len_utf8()..]))
+        {
+            let rest_cap = format!("{}{}", c.to_ascii_uppercase(), &rest[c.len_utf8()..]);
+            let x = rng.next();
+            return if x < 0.7 {
+                format!("{pre}{rest_cap}")
+            } else if x < 0.85 {
+                format!("{pre}'{rest_cap}")
+            } else {
+                first.to_string()
+            };
+        }
+    }
+    first.to_string()
+}
+
+/// True for a first name with at least 2,000 US boys since 1940.
+fn is_common_first(name: &str) -> bool {
+    COMMON_FIRST.contains(name)
+}
+
+static COMMON_FIRST: LazyLock<std::collections::HashSet<&'static str>> = LazyLock::new(|| {
+    csv_rows(FIRST_NAMES_CSV)
+        .filter(|r| r[6..].iter().map(|v| v.parse::<f64>().unwrap_or(0.0)).sum::<f64>() >= 2000.0)
+        .map(|r| r[0])
+        .collect()
+});
+
 /// A person's name, drawn by ethnicity and birth year, weighted by real
 /// frequencies (trial 1 note 3). A white Jalen is possible but very rare.
+/// The pools cover every boy's name the SSA lists since 1940 and every
+/// surname the Census lists (100+ people), so repeats come at real rates.
+/// On top: family suffixes (Jr., II, III), hyphenated surnames, and players
+/// who go by initials (shares proposed, not confirmed).
 pub fn person_name(ethnicity: Ethnicity, birth_year: i32, rng: &mut Rng) -> String {
     let pools = &*POOLS;
     let d = DECADES.iter().rposition(|&y| birth_year >= y).unwrap_or(0);
     let first = if ethnicity == Ethnicity::Polynesian && rng.chance(0.35) {
-        *rng.pick(&POLYNESIAN_FIRST)
+        rng.pick(&POLYNESIAN_FIRST).to_string()
     } else {
-        pools.first[d][ethnicity as usize].draw(rng)
+        styled_first(pools.first[d][ethnicity as usize].draw(rng), ethnicity, rng)
     };
-    let last = pools.last[ethnicity as usize].draw(rng);
-    // The Census file is upper case: McNeal, not Mcneal.
-    if let Some(rest) = last.strip_prefix("Mc")
-        && let Some(c) = rest.chars().next()
-    {
-        return format!("{first} Mc{}{}", c.to_ascii_uppercase(), &rest[c.len_utf8()..]);
+    let mut last = pools.last[ethnicity as usize].draw(rng).to_string();
+    // Hyphenated surnames (Smith-Njigba, Robinson-Earl): about 1 in 100,
+    // more often among Hispanic families.
+    let hyphen = if ethnicity == Ethnicity::Hispanic { 0.025 } else { 0.008 };
+    if rng.chance(hyphen) {
+        let second = pools.last[ethnicity as usize].draw(rng);
+        if second != last {
+            last = format!("{last}-{second}");
+        }
     }
-    format!("{first} {last}")
+    // Named after his father: Jr., II, III. More common in Black families.
+    let k = if ethnicity == Ethnicity::Black { 1.6 } else { 1.0 };
+    let x = rng.next();
+    let suffix = if x < 0.045 * k {
+        " Jr."
+    } else if x < 0.057 * k {
+        " II"
+    } else if x < 0.065 * k {
+        " III"
+    } else if x < 0.066 * k {
+        " IV"
+    } else {
+        ""
+    };
+    // Some go by initials (CJ, AJ, TJ): about 3 in 100.
+    let shown = if rng.chance(0.03) {
+        let a = first.chars().next().unwrap_or('J');
+        let b = *rng.pick(&['J', 'J', 'J', 'D', 'C', 'T', 'R', 'M', 'K', 'L']);
+        format!("{a}{b}")
+    } else {
+        first
+    };
+    format!("{shown} {last}{suffix}")
 }
 
 const MASCOT_WORDS: [&str; 16] = [

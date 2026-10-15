@@ -185,7 +185,8 @@ fn main() {
     let engine_from = std::env::var("AFM_ENGINE_FROM").ok().and_then(|v| v.parse().ok());
     // The dashboard and player pages read the game log (box score totals and
     // college stat lines). Keeping it only watches the games.
-    let keep_game_log = std::env::var("AFM_DASH").is_ok() || std::env::var("AFM_CARDS").is_ok();
+    let keep_game_log =
+        std::env::var("AFM_DASH").is_ok() || std::env::var("AFM_CARDS").is_ok() || std::env::var("AFM_RAW").is_ok();
     // AFM_SCALE=0.05: a small world, for quick checks of the tooling only.
     let scale = std::env::var("AFM_SCALE").ok().and_then(|v| v.parse().ok()).unwrap_or(1.0);
     let w = World::new(WorldOptions {
@@ -238,6 +239,11 @@ fn main() {
     if let Ok(path) = std::env::var("AFM_DASH") {
         write_dashboard(&w, &path, seed, years, &card_values);
         println!("wrote the debug dashboard data to {path}\n");
+    }
+    // AFM_RAW=dir: everything the world recorded, as JSON lines.
+    if let Ok(dir) = std::env::var("AFM_RAW") {
+        let summary = afm_tools::raw::write_raw(&w, &dir, seed, years);
+        println!("wrote the raw export to {dir}: {summary}\n");
     }
     if keep_game_log {
         afm_tools::dashboard::print_engine(&w);

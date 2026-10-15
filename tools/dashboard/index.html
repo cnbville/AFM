@@ -1,0 +1,882 @@
+<meta charset="utf-8">
+<title>AFM Debug Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a coaching-booth console. Sticky seed and tab bar, then dense cards of
+   charts; every chart overlays the three worlds against a grey real-football band. */
+:root {
+  --bg: #f4f6f3;
+  --panel: #fcfdfb;
+  --ink: #111613;
+  --ink-2: #4b544e;
+  --ink-3: #7d877f;
+  --line: #dde3dc;
+  --line-2: #c4ccc3;
+  --accent: #26402f;
+  --accent-ink: #f4f6f3;
+  --real: #8e958f;
+  --real-band: rgba(110, 120, 112, 0.16);
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --s3: #1baf7a;
+  --good: #0ca30c;
+  --good-ink: #006300;
+  --warn: #fab219;
+  --warn-ink: #8a5a00;
+  --bad: #d03b3b;
+  --bad-ink: #b02a2a;
+  --display: "Saira Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1311; --panel: #171c19; --ink: #eef1ec; --ink-2: #b9c2bb; --ink-3: #87918a;
+    --line: #262d29; --line-2: #36403a; --accent: #bfd8c4; --accent-ink: #0f1311;
+    --real: #9aa39c; --real-band: rgba(180, 190, 182, 0.13);
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70;
+    --good-ink: #3ccf3c; --warn-ink: #fab219; --bad-ink: #ef7272;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1311; --panel: #171c19; --ink: #eef1ec; --ink-2: #b9c2bb; --ink-3: #87918a;
+  --line: #262d29; --line-2: #36403a; --accent: #bfd8c4; --accent-ink: #0f1311;
+  --real: #9aa39c; --real-band: rgba(180, 190, 182, 0.13);
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70;
+  --good-ink: #3ccf3c; --warn-ink: #fab219; --bad-ink: #ef7272;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 14px; line-height: 1.45; }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 48px; max-width: 1480px; margin: 0 auto; }
+header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; padding-block: 20px 12px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: 34px; letter-spacing: 0.01em; margin: 0; line-height: 1; text-transform: uppercase; }
+h1 small { display: block; font-family: var(--body); font-weight: 400; font-size: 13px; letter-spacing: 0; text-transform: none; color: var(--ink-2); margin-top: 6px; }
+h2 { font-family: var(--display); font-weight: 700; font-size: 22px; text-transform: uppercase; letter-spacing: 0.02em; margin: 0; text-wrap: balance; }
+h3 { font-size: 14px; font-weight: 600; margin: 0; text-wrap: balance; }
+p { margin: 0; }
+.muted { color: var(--ink-2); }
+.tiny { font-size: 12px; color: var(--ink-3); }
+.mono, .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line-2); background: var(--panel); color: var(--ink); border-radius: 999px; padding: 4px 10px; font: 500 13px var(--body); cursor: pointer; }
+.chip[aria-pressed="false"] { opacity: 0.45; }
+.chip:focus-visible, .tab:focus-visible, select:focus-visible, input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+select, input[type="search"], input[type="number"] { font: 13px var(--body); color: var(--ink); background: var(--panel); border: 1px solid var(--line-2); border-radius: 6px; padding: 5px 8px; max-width: 100%; }
+nav.tabs { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line-2); display: flex; gap: 2px; overflow-x: auto; scrollbar-width: thin; }
+.tab { font: 700 15px var(--display); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-2); background: none; border: 0; border-bottom: 3px solid transparent; padding: 10px 12px 8px; cursor: pointer; white-space: nowrap; }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+section.pane { display: grid; gap: 16px; padding-top: 18px; }
+.intro { max-width: 78ch; color: var(--ink-2); }
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); }
+.grid.wide { grid-template-columns: repeat(auto-fill, minmax(min(100%, 640px), 1fr)); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: grid; gap: 8px; min-width: 0; align-content: start; }
+.card > * { min-width: 0; }
+.card .why { font-size: 12.5px; color: var(--ink-2); }
+.chart { width: 100%; min-height: 60px; position: relative; }
+.chart svg { display: block; width: 100%; max-width: 820px; height: auto; overflow: visible; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.legend .sw-real { width: 14px; height: 8px; background: var(--real-band); border-top: 2px dashed var(--real); }
+.scrolly { max-height: 420px; overflow-y: auto; }
+.tablebox { overflow-x: auto; max-width: 100%; }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-weight: 600; color: var(--ink-2); position: sticky; top: 0; background: var(--panel); }
+td.n, th.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+tbody tr:hover { background: var(--bg); }
+.pill { display: inline-flex; align-items: center; gap: 4px; font: 600 11px var(--body); letter-spacing: 0.03em; text-transform: uppercase; border-radius: 4px; padding: 1px 6px; border: 1px solid currentColor; }
+.pill.good { color: var(--good-ink); } .pill.warn { color: var(--warn-ink); } .pill.bad { color: var(--bad-ink); } .pill.none { color: var(--ink-3); }
+.health { display: grid; gap: 0; }
+.hrow { display: grid; grid-template-columns: minmax(150px, 1.4fr) 76px minmax(150px, 2fr) minmax(120px, 1.2fr); gap: 10px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.hrow .vals { display: flex; gap: 10px; flex-wrap: wrap; font-family: var(--mono); font-size: 12.5px; }
+.hrow .vals b { font-weight: 500; }
+.hrow .name { font-weight: 500; }
+.hrow .name .tiny { display: block; font-weight: 400; }
+.spark svg { width: 100%; height: 34px; display: block; }
+@media (max-width: 720px) {
+  .hrow { grid-template-columns: 1fr auto; }
+  .hrow .spark { grid-column: 1 / -1; }
+  .hrow .vals { grid-column: 1 / -1; }
+}
+.summary { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr)); }
+.tile { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--panel); display: grid; gap: 2px; }
+.tile .big { font: 700 26px var(--display); }
+.list { display: grid; gap: 8px; }
+.item { border-left: 3px solid var(--line-2); padding: 4px 0 4px 10px; display: grid; gap: 2px; }
+.item.bad { border-left-color: var(--bad); } .item.warn { border-left-color: var(--warn); } .item.good { border-left-color: var(--good); }
+.item .t { font-weight: 600; }
+.row { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+#tip { position: fixed; pointer-events: none; z-index: 20; background: var(--panel); color: var(--ink); border: 1px solid var(--line-2); border-radius: 6px; padding: 6px 8px; font-size: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.14); max-width: 280px; }
+#tip .k { color: var(--ink-2); }
+.loading { padding: 40px 0; color: var(--ink-2); }
+.bar-attr { display: grid; grid-template-columns: 130px 1fr 64px; gap: 8px; align-items: center; font-size: 12px; }
+.bar-attr .track { height: 8px; background: var(--line); border-radius: 4px; position: relative; overflow: hidden; }
+.bar-attr .fill { position: absolute; inset: 0 auto 0 0; background: var(--s1); border-radius: 4px; }
+.bar-attr .ceil { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--ink); }
+details summary { cursor: pointer; font-weight: 600; }
+@media (prefers-reduced-motion: no-preference) { .card { transition: border-color 0.15s; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>AFM Debug Lab<small id="subtitle">Three 30-year worlds on the current engine. Debug view: hidden values shown.</small></h1>
+    <div class="controls" id="seedChips" aria-label="Worlds shown"></div>
+  </header>
+  <nav class="tabs" role="tablist" id="tabs"></nav>
+  <main id="panes"><p class="loading" id="loading">Loading the three worlds…</p></main>
+</div>
+<div id="tip" hidden></div>
+
+<script>
+"use strict";
+const TABS = [
+  ["health", "Health"], ["engine", "Game engine"], ["balance", "Balance"], ["wins", "What wins"],
+  ["situ", "Situations"], ["players", "Player paths"], ["recruit", "Recruiting"], ["coaches", "Coaches"],
+  ["draft", "Draft"], ["records", "Records"], ["names", "Names"], ["anomalies", "Anomalies"],
+  ["ideas", "Idea board"], ["seeds", "Seed lab"], ["explore", "Explorer"], ["pages", "Pages"],
+];
+const SERIES = ["var(--s1)", "var(--s2)", "var(--s3)"];
+const S = { runs: [], real: null, notes: null, on: [], tab: "health", built: {} };
+const $ = (sel, el = document) => el.querySelector(sel);
+const h = (tag, attrs = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v == null) continue;
+    if (k === "class") e.className = v; else if (k === "html") e.innerHTML = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v);
+  }
+  for (const k of kids.flat()) if (k != null) e.append(k.nodeType ? k : document.createTextNode(String(k)));
+  return e;
+};
+const fmt = (v, d = 1) => v == null || Number.isNaN(v) ? "–" : (typeof v === "number" ? (Math.abs(v) >= 1000 ? Math.round(v).toLocaleString("en-US") : (+v.toFixed(d)).toString()) : String(v));
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const seedName = (i) => `World ${S.runs[i].seed}`;
+const active = () => S.runs.map((r, i) => i).filter((i) => S.on[i]);
+
+/* ---------- Tooltip ---------- */
+const tip = $("#tip");
+function showTip(ev, html) {
+  tip.innerHTML = html; tip.hidden = false;
+  const w = tip.offsetWidth, hh = tip.offsetHeight;
+  let x = ev.clientX + 14, y = ev.clientY + 14;
+  if (x + w > innerWidth - 8) x = ev.clientX - w - 14;
+  if (y + hh > innerHeight - 8) y = ev.clientY - hh - 14;
+  tip.style.left = Math.max(4, x) + "px"; tip.style.top = Math.max(4, y) + "px";
+}
+const hideTip = () => { tip.hidden = true; };
+
+/* ---------- SVG charts ---------- */
+const NS = "http://www.w3.org/2000/svg";
+const sv = (tag, attrs = {}, style) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (style) e.setAttribute("style", style); return e; };
+function niceTicks(lo, hi, n = 5) {
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const span = hi - lo, step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => span / s <= n) || 10 * mag;
+  const ticks = []; for (let t = Math.ceil(lo / step) * step; t <= hi + 1e-9; t += step) ticks.push(+t.toFixed(10));
+  return ticks;
+}
+function frame(el, W, H, m) {
+  el.innerHTML = "";
+  const svg = sv("svg", { viewBox: `0 0 ${W} ${H}`, role: "img" });
+  el.append(svg);
+  return { svg, x0: m.l, x1: W - m.r, y0: H - m.b, y1: m.t };
+}
+function axisY(f, ticks, y, fmtY = (v) => fmt(v)) {
+  for (const t of ticks) {
+    const yy = y(t);
+    f.svg.append(sv("line", { x1: f.x0, x2: f.x1, y1: yy, y2: yy }, "stroke:var(--line);stroke-width:1"));
+    const tx = sv("text", { x: f.x0 - 6, y: yy + 4, "text-anchor": "end" }, "fill:var(--ink-3);font:11px var(--mono)"); tx.textContent = fmtY(t); f.svg.append(tx);
+  }
+}
+/* Line chart: series [{name, color, pts: [[x, y]]}], ref {lo, hi, label} drawn as a grey band or dashed line. */
+function lineChart(el, { series, ref, yLabel, xFmt = (x) => x, yFmt = (v) => fmt(v), H = 220, yMin, yMax }) {
+  const W = 640, m = { l: 46, r: 14, t: 12, b: 26 };
+  const f = frame(el, W, H, m);
+  const all = series.flatMap((s) => s.pts.filter((p) => p[1] != null));
+  if (!all.length) { el.innerHTML = '<p class="tiny">No data recorded for this yet.</p>'; return; }
+  const xs = all.map((p) => p[0]); let ys = all.map((p) => p[1]);
+  if (ref) ys = ys.concat([ref.lo, ref.hi].filter((v) => v != null));
+  let lo = yMin ?? Math.min(...ys), hi = yMax ?? Math.max(...ys);
+  const pad = (hi - lo) * 0.08 || 1; if (yMin == null) lo -= pad; if (yMax == null) hi += pad;
+  const ticks = niceTicks(lo, hi); lo = Math.min(lo, ticks[0]); hi = Math.max(hi, ticks[ticks.length - 1]);
+  const xlo = Math.min(...xs), xhi = Math.max(...xs);
+  const x = (v) => f.x0 + (xhi === xlo ? 0.5 : (v - xlo) / (xhi - xlo)) * (f.x1 - f.x0);
+  const y = (v) => f.y0 - (v - lo) / (hi - lo) * (f.y0 - f.y1);
+  axisY(f, ticks, y, yFmt);
+  if (ref && ref.lo != null) {
+    const a = y(ref.hi ?? ref.lo), b = y(ref.lo);
+    if (ref.hi != null && ref.hi !== ref.lo) f.svg.append(sv("rect", { x: f.x0, y: a, width: f.x1 - f.x0, height: Math.max(1, b - a) }, "fill:var(--real-band)"));
+    f.svg.append(sv("line", { x1: f.x0, x2: f.x1, y1: (a + b) / 2, y2: (a + b) / 2 }, "stroke:var(--real);stroke-width:1.5;stroke-dasharray:5 4"));
+    if (ref.label) { const t = sv("text", { x: f.x1 - 2, y: Math.min(a, b) - 4, "text-anchor": "end" }, "fill:var(--ink-2);font:11px var(--body)"); t.textContent = ref.label; f.svg.append(t); }
+  }
+  const xt = niceTicks(xlo, xhi, Math.min(8, Math.max(2, xhi - xlo)));
+  for (const t of xt) { if (t < xlo || t > xhi) continue; const tx = sv("text", { x: x(t), y: f.y0 + 17, "text-anchor": "middle" }, "fill:var(--ink-3);font:11px var(--mono)"); tx.textContent = xFmt(t); f.svg.append(tx); }
+  f.svg.append(sv("line", { x1: f.x0, x2: f.x1, y1: f.y0, y2: f.y0 }, "stroke:var(--line-2);stroke-width:1"));
+  if (yLabel) { const t = sv("text", { x: f.x0, y: 9 }, "fill:var(--ink-3);font:11px var(--body)"); t.textContent = yLabel; f.svg.append(t); }
+  for (const s of series) {
+    const pts = s.pts.filter((p) => p[1] != null);
+    if (!pts.length) continue;
+    const d = pts.map((p, i) => `${i ? "L" : "M"}${x(p[0]).toFixed(1)},${y(p[1]).toFixed(1)}`).join("");
+    f.svg.append(sv("path", { d, fill: "none" }, `stroke:${s.color};stroke-width:2;stroke-linejoin:round;stroke-linecap:round`));
+    const last = pts[pts.length - 1];
+    f.svg.append(sv("circle", { cx: x(last[0]), cy: y(last[1]), r: 3.5 }, `fill:${s.color};stroke:var(--panel);stroke-width:2`));
+  }
+  const cross = sv("line", { y1: f.y1, y2: f.y0 }, "stroke:var(--ink-3);stroke-width:1;opacity:0"); f.svg.append(cross);
+  const hit = sv("rect", { x: f.x0, y: f.y1, width: f.x1 - f.x0, height: f.y0 - f.y1 }, "fill:transparent"); f.svg.append(hit);
+  const allX = [...new Set(xs)].sort((a, b) => a - b);
+  hit.addEventListener("mousemove", (ev) => {
+    const r = f.svg.getBoundingClientRect(); const px = (ev.clientX - r.left) / r.width * W;
+    const xv = allX.reduce((b, v) => Math.abs(x(v) - px) < Math.abs(x(b) - px) ? v : b, allX[0]);
+    cross.setAttribute("x1", x(xv)); cross.setAttribute("x2", x(xv)); cross.style.opacity = 1;
+    let html = `<b>${esc(xFmt(xv))}</b>`;
+    for (const s of series) { const p = s.pts.find((p) => p[0] === xv); if (p && p[1] != null) html += `<div><span class="dot" style="background:${s.color}"></span> ${esc(s.name)}: <b>${yFmt(p[1])}</b>${p[2] ? ` <span class="k">${esc(p[2])}</span>` : ""}</div>`; }
+    if (ref && ref.lo != null) html += `<div class="k">Real: ${ref.hi != null && ref.hi !== ref.lo ? `${fmt(ref.lo)} to ${fmt(ref.hi)}` : fmt(ref.lo)}</div>`;
+    showTip(ev, html);
+  });
+  hit.addEventListener("mouseleave", () => { cross.style.opacity = 0; hideTip(); });
+}
+/* Grouped bars: cats [labels], series [{name, color, values}], real [values] drawn as a dashed tick. */
+function barChart(el, { cats, series, real, yFmt = (v) => fmt(v), H = 220, yLabel, rotate }) {
+  const W = 640, m = { l: 46, r: 10, t: 14, b: rotate ? 64 : 28 };
+  const f = frame(el, W, H, m);
+  const vals = series.flatMap((s) => s.values).concat(real || []).filter((v) => v != null);
+  if (!vals.length) { el.innerHTML = '<p class="tiny">No data recorded for this yet.</p>'; return; }
+  let lo = Math.min(0, ...vals), hi = Math.max(...vals) * 1.08 || 1;
+  const ticks = niceTicks(lo, hi); hi = Math.max(hi, ticks[ticks.length - 1]); lo = Math.min(lo, ticks[0]);
+  const y = (v) => f.y0 - (v - lo) / (hi - lo) * (f.y0 - f.y1);
+  axisY(f, ticks, y, yFmt);
+  const bw = (f.x1 - f.x0) / cats.length, inner = Math.min(bw * 0.8, 18 * series.length + 10), gap = 2;
+  const one = (inner - gap * (series.length - 1)) / series.length;
+  cats.forEach((c, i) => {
+    const cx = f.x0 + bw * i + bw / 2;
+    series.forEach((s, j) => {
+      const v = s.values[i]; if (v == null) return;
+      const bx = cx - inner / 2 + j * (one + gap), top = y(Math.max(0, v)), bot = y(Math.min(0, v));
+      const rr = Math.min(4, one / 2);
+      const rect = sv("path", { d: `M${bx},${bot}V${top + rr}Q${bx},${top} ${bx + rr},${top}H${bx + one - rr}Q${bx + one},${top} ${bx + one},${top + rr}V${bot}Z` }, `fill:${s.color}`);
+      rect.addEventListener("mousemove", (ev) => showTip(ev, `<b>${esc(c)}</b><div><span class="dot" style="background:${s.color}"></span> ${esc(s.name)}: <b>${yFmt(v)}</b></div>${real && real[i] != null ? `<div class="k">Real: ${yFmt(real[i])}</div>` : ""}`));
+      rect.addEventListener("mouseleave", hideTip);
+      f.svg.append(rect);
+    });
+    if (real && real[i] != null) f.svg.append(sv("line", { x1: cx - inner / 2 - 3, x2: cx + inner / 2 + 3, y1: y(real[i]), y2: y(real[i]) }, "stroke:var(--ink);stroke-width:2;stroke-dasharray:4 3"));
+    const t = sv("text", rotate ? { x: cx, y: f.y0 + 10, "text-anchor": "end", transform: `rotate(-40 ${cx} ${f.y0 + 10})` } : { x: cx, y: f.y0 + 17, "text-anchor": "middle" }, "fill:var(--ink-2);font:11px var(--body)");
+    t.textContent = c; f.svg.append(t);
+  });
+  f.svg.append(sv("line", { x1: f.x0, x2: f.x1, y1: y(0), y2: y(0) }, "stroke:var(--line-2);stroke-width:1"));
+  if (yLabel) { const t = sv("text", { x: f.x0, y: 9 }, "fill:var(--ink-3);font:11px var(--body)"); t.textContent = yLabel; f.svg.append(t); }
+}
+/* Scatter: series [{name, color, pts: [[x, y, label]]}]. */
+function scatter(el, { series, xLabel, yLabel, H = 300, fit = true }) {
+  const W = 640, m = { l: 46, r: 14, t: 14, b: 34 };
+  const f = frame(el, W, H, m);
+  const all = series.flatMap((s) => s.pts).filter((p) => p[0] != null && p[1] != null);
+  if (!all.length) { el.innerHTML = '<p class="tiny">No data recorded for this yet.</p>'; return; }
+  const xs = all.map((p) => p[0]), ys = all.map((p) => p[1]);
+  const xt = niceTicks(Math.min(...xs), Math.max(...xs)), yt = niceTicks(Math.min(...ys), Math.max(...ys));
+  const xlo = Math.min(xt[0], ...xs), xhi = Math.max(xt[xt.length - 1], ...xs), ylo = Math.min(yt[0], ...ys), yhi = Math.max(yt[yt.length - 1], ...ys);
+  const x = (v) => f.x0 + (v - xlo) / ((xhi - xlo) || 1) * (f.x1 - f.x0), y = (v) => f.y0 - (v - ylo) / ((yhi - ylo) || 1) * (f.y0 - f.y1);
+  axisY(f, yt, y);
+  for (const t of xt) { const tx = sv("text", { x: x(t), y: f.y0 + 16, "text-anchor": "middle" }, "fill:var(--ink-3);font:11px var(--mono)"); tx.textContent = fmt(t); f.svg.append(tx); }
+  const lx = sv("text", { x: (f.x0 + f.x1) / 2, y: H - 4, "text-anchor": "middle" }, "fill:var(--ink-2);font:11px var(--body)"); lx.textContent = xLabel || ""; f.svg.append(lx);
+  const ly = sv("text", { x: f.x0, y: 9 }, "fill:var(--ink-3);font:11px var(--body)"); ly.textContent = yLabel || ""; f.svg.append(ly);
+  const many = all.length > 1500;
+  for (const s of series) {
+    for (const p of s.pts) {
+      if (p[0] == null || p[1] == null) continue;
+      const c = sv("circle", { cx: x(p[0]), cy: y(p[1]), r: many ? 2.2 : 4 }, `fill:${s.color};fill-opacity:${many ? 0.45 : 0.75};stroke:var(--panel);stroke-width:${many ? 0 : 1}`);
+      if (!many || p[2]) { c.addEventListener("mousemove", (ev) => showTip(ev, `${p[2] ? `<b>${esc(p[2])}</b><br>` : ""}<span class="k">${esc(xLabel)}:</span> ${fmt(p[0], 2)}<br><span class="k">${esc(yLabel)}:</span> ${fmt(p[1], 2)}<br><span class="k">${esc(s.name)}</span>`)); c.addEventListener("mouseleave", hideTip); }
+      f.svg.append(c);
+    }
+    if (fit && s.pts.length > 5) {
+      const P = s.pts.filter((p) => p[0] != null && p[1] != null), n = P.length;
+      const mx = P.reduce((a, p) => a + p[0], 0) / n, my = P.reduce((a, p) => a + p[1], 0) / n;
+      const sxx = P.reduce((a, p) => a + (p[0] - mx) ** 2, 0), sxy = P.reduce((a, p) => a + (p[0] - mx) * (p[1] - my), 0);
+      if (sxx > 0) { const b = sxy / sxx, a = my - b * mx; f.svg.append(sv("line", { x1: x(xlo), y1: y(a + b * xlo), x2: x(xhi), y2: y(a + b * xhi) }, `stroke:${s.color};stroke-width:2;opacity:0.9`)); }
+    }
+  }
+}
+function corrOf(P) {
+  P = P.filter((p) => p[0] != null && p[1] != null); const n = P.length; if (n < 3) return null;
+  const mx = P.reduce((a, p) => a + p[0], 0) / n, my = P.reduce((a, p) => a + p[1], 0) / n;
+  let sxy = 0, sxx = 0, syy = 0; for (const p of P) { sxy += (p[0] - mx) * (p[1] - my); sxx += (p[0] - mx) ** 2; syy += (p[1] - my) ** 2; }
+  return sxx && syy ? sxy / Math.sqrt(sxx * syy) : null;
+}
+function spark(el, series, ref) {
+  const W = 220, H = 34; el.innerHTML = "";
+  const svg = sv("svg", { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: "none" }); el.append(svg);
+  const all = series.flatMap((s) => s.pts.filter((p) => p[1] != null));
+  if (!all.length) return;
+  let ys = all.map((p) => p[1]); if (ref != null) ys.push(ref);
+  const xs = all.map((p) => p[0]); const lo = Math.min(...ys), hi = Math.max(...ys), xlo = Math.min(...xs), xhi = Math.max(...xs);
+  const x = (v) => 2 + (v - xlo) / ((xhi - xlo) || 1) * (W - 4), y = (v) => H - 3 - (v - lo) / ((hi - lo) || 1) * (H - 6);
+  if (ref != null) svg.append(sv("line", { x1: 0, x2: W, y1: y(ref), y2: y(ref) }, "stroke:var(--real);stroke-width:1.2;stroke-dasharray:4 3"));
+  for (const s of series) { const P = s.pts.filter((p) => p[1] != null); svg.append(sv("path", { d: P.map((p, i) => `${i ? "L" : "M"}${x(p[0]).toFixed(1)},${y(p[1]).toFixed(1)}`).join(""), fill: "none" }, `stroke:${s.color};stroke-width:1.6;vector-effect:non-scaling-stroke`)); }
+}
+function table(cols, rows, { numeric = [], max = 400 } = {}) {
+  const box = h("div", { class: "tablebox" });
+  const t = h("table");
+  t.append(h("thead", {}, h("tr", {}, cols.map((c, i) => h("th", { class: numeric.includes(i) ? "n" : null }, c)))));
+  const tb = h("tbody");
+  const rawCol = cols.map((c) => /^(year|from|to|class|world|pick)$/i.test(String(c)));
+  for (const r of rows.slice(0, max)) tb.append(h("tr", {}, r.map((v, i) => h("td", { class: numeric.includes(i) ? "n" : null }, typeof v === "number" ? (rawCol[i] ? String(v) : fmt(v, 2)) : (v ?? "–")))));
+  t.append(tb); box.append(t);
+  if (rows.length > max) box.append(h("p", { class: "tiny" }, `Showing ${max} of ${rows.length} rows.`));
+  return box;
+}
+function legend(extra = true) {
+  return h("div", { class: "legend" }, active().map((i) => h("span", {}, h("span", { class: "dot", style: `background:${SERIES[i]}` }), seedName(i))), extra ? h("span", {}, h("span", { class: "sw-real" }), "Real football") : null);
+}
+function card(title, why, ...body) { return h("div", { class: "card" }, h("h3", {}, title), why ? h("p", { class: "why" }, why) : null, ...body); }
+function chartDiv(fn) { const d = h("div", { class: "chart" }); requestAnimationFrame(() => fn(d)); return d; }
+const runSeries = (fn) => active().map((i) => ({ name: seedName(i), color: SERIES[i], pts: fn(S.runs[i], i) }));
+const years = (run) => { const ys = []; for (let y = run.first; y <= run.last; y++) ys.push(y); return ys; };
+const sumBy = (arr, f) => arr.reduce((a, x) => a + (f(x) || 0), 0);
+const mean = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+
+/* ---------- Health board ---------- */
+function status(v, real, tol) {
+  if (v == null || real == null) return "none";
+  const d = Math.abs(v - real) / Math.max(Math.abs(real), tol.floor || 1e-9);
+  return d <= tol.green ? "good" : d <= tol.amber ? "warn" : "bad";
+}
+const STATUS_TEXT = { good: "Near real", warn: "Off", bad: "Far off", none: "No real data" };
+function vitalsSeries(key, div = "FBS") { return (run) => Object.entries(run.vitals[div]?.by_year || {}).map(([y, m]) => [+y, m[key]]); }
+function healthDefs() {
+  const R = S.real, V = R.vitals.FBS;
+  const vit = (key, label, unit, why, tol = { green: 0.08, amber: 0.2 }) => ({ label, unit, why, real: V[key], value: (run) => run.vitals.FBS?.all?.[key], series: vitalsSeries(key), tol });
+  const bal = (key) => (run) => run.balance.yearly.map((r) => [r.year, r[key]]);
+  return [
+    { group: "Game shape" },
+    vit("points", "Points per team game", "", "Scoring level. Too high hides how defense and calls matter."),
+    vit("one_score", "Games decided by 8 or less", "%", "Close games are where coaching and luck show."),
+    vit("blowout", "Games decided by 28 or more", "%", "Too many means mismatches decide too much."),
+    vit("margin40", "Games decided by 40 or more", "%", "", { green: 0.15, amber: 0.5 }),
+    vit("home_win", "Home team wins", "%", "Real home field is worth about 2.5 points."),
+    vit("plays", "Plays per team game", "", "Pace: tempo, clock and drive length."),
+    { group: "Passing and running" },
+    vit("pass_rate", "Pass rate (dropbacks)", "%", "How often teams throw, from the play callers."),
+    vit("cmp_pct", "Completion rate", "%", "Throw accuracy, coverage and pressure together."),
+    vit("ypa", "Yards per pass attempt", "", ""),
+    vit("ypc", "Yards per carry", "", "Line battles decide this."),
+    vit("sack_rate", "Sack rate", "%", "", { green: 0.1, amber: 0.25 }),
+    vit("int_rate", "Interception rate", "%", "", { green: 0.1, amber: 0.25 }),
+    vit("third_pct", "Third-down conversion", "%", ""),
+    vit("fourth_go", "Fourth-down tries per team game", "", "Aggression of the calls.", { green: 0.15, amber: 0.35 }),
+    vit("success_rate", "Success rate (EPA above 0)", "%", "Real figure uses the standard down-and-distance success, so treat this as a rough read.", { green: 0.1, amber: 0.25 }),
+    vit("penalties", "Penalties per team game", "", "", { green: 0.15, amber: 0.35 }),
+    { group: "Kicking game" },
+    { label: "Field goal tries per team game", unit: "", why: "Real 1.56 (cfbfastR 2022-24, all distances).", real: 1.56, value: (run) => run.situ.divs.FBS?.kinds?.fg?.per_game ?? null, series: () => [], tol: { green: 0.15, amber: 0.35 } },
+    { label: "Punt gross average", unit: "", why: "Real 42.3 yards (cfbfastR 2022-24).", real: 42.25, value: (run) => run.situ.divs.FBS?.punt_gross ?? null, series: () => [], tol: { green: 0.05, amber: 0.12 } },
+    { label: "FBS teams with no kicker on the roster", unit: "%", why: "Real FBS teams all carry kickers (proposed check: real is about 0%).", real: 0, value: (run) => run.recruit.rosters?.FBS?.no_k ?? null, series: () => [], tol: { green: 0.05, amber: 0.15, floor: 10 } },
+    { label: "Yearly FBS passing yards leader", unit: "", why: "Real leaders 3,932 to 4,191 (2022-24).", real: 4080, value: (run) => { const L = run.records.leaders; const v = Object.values(L).map((d) => d.pass_yds?.[0]?.[0]).filter((x) => x != null).sort((a, b) => a - b); return v.length ? v[Math.floor(v.length / 2)] : null; }, series: (run) => Object.entries(run.records.leaders).map(([y, d]) => [+y, d.pass_yds?.[0]?.[0]]), tol: { green: 0.1, amber: 0.25 } },
+    { group: "World balance" },
+    { label: "Team quality spread (sd of average margin)", unit: "", why: "How far apart the best and worst teams are.", real: V.team_margin_sd, value: (run) => mean(run.balance.yearly.map((r) => r.team_margin_sd).filter((v) => v != null)), series: bal("team_margin_sd"), tol: { green: 0.1, amber: 0.25 } },
+    { label: "Game luck (sd around the expected margin)", unit: "", why: "How much a single game strays from what lineup strength predicts.", real: V.luck_sd, value: (run) => mean(run.balance.luck.map((r) => r.luck_sd)), series: (run) => run.balance.luck.map((r) => [r.year, r.luck_sd]), tol: { green: 0.1, amber: 0.25 } },
+    { label: "Home edge in points", unit: "", why: "Fitted from games: margin left over after lineup strength.", real: V.home_edge, value: (run) => mean(run.balance.luck.map((r) => r.home_edge)), series: (run) => run.balance.luck.map((r) => [r.year, r.home_edge]), tol: { green: 0.25, amber: 0.6, floor: 1 } },
+    { label: "Best team's average margin", unit: "", why: "Real best teams: +22 to +39 a game.", real: 30.5, value: (run) => mean(run.balance.yearly.map((r) => r.top_margin).filter((v) => v != null)), series: bal("top_margin"), tol: { green: 0.15, amber: 0.3 } },
+    { label: "Win rate carried into next season (correlation)", unit: "", why: "Real 0.54: programs stay good, but not locked in.", real: 0.536, value: (run) => mean(run.balance.yearly.map((r) => r.win_corr).filter((v) => v != null)), series: bal("win_corr"), tol: { green: 0.1, amber: 0.25 } },
+    { label: "Unbeaten FBS teams a year", unit: "", why: "Real: 9 in 2011-2025.", real: 0.6, value: (run) => mean(run.balance.yearly.map((r) => r.unbeaten)), series: bal("unbeaten"), tol: { green: 0.35, amber: 1, floor: 0.6 } },
+    { label: "Most titles in any 15 years", unit: "", why: "Real: 4 to 6 (Alabama).", real: 5, value: (run) => Math.max(0, ...run.balance.windows.map((w) => w.most)), series: (run) => run.balance.windows.map((w) => [w.to, w.most]), tol: { green: 0.2, amber: 0.45 } },
+    { label: "Distinct champions in 15 years", unit: "", why: "Real: 7 to 9.", real: 8, value: (run) => mean(run.balance.windows.map((w) => w.distinct)), series: (run) => run.balance.windows.map((w) => [w.to, w.distinct]), tol: { green: 0.15, amber: 0.35 } },
+    { group: "Players and people" },
+    { label: "Five-stars drafted", unit: "%", why: "Real 62% (ESPN ratings, classes 2013-21).", real: 62.2, value: (run) => run.life.by_star.find((r) => r.stars === 5)?.drafted, series: () => [], tol: { green: 0.1, amber: 0.25 } },
+    { label: "Four-stars drafted", unit: "%", why: "Real 24%.", real: 24.4, value: (run) => run.life.by_star.find((r) => r.stars === 4)?.drafted, series: () => [], tol: { green: 0.15, amber: 0.35 } },
+    { label: "Three-stars drafted", unit: "%", why: "Real 6%.", real: 6.0, value: (run) => run.life.by_star.find((r) => r.stars === 3)?.drafted, series: () => [], tol: { green: 0.2, amber: 0.45 } },
+    { label: "FCS players among draft picks", unit: "%", why: "Real about 6%.", real: 6, value: (run) => { const y = run.draft.yearly; return y.length ? sumBy(y, (r) => r.fcs_share * r.n / 100) / sumBy(y, (r) => r.n) * 100 : null; }, series: (run) => run.draft.yearly.map((r) => [r.year, r.fcs_share]), tol: { green: 0.2, amber: 0.45 } },
+    { label: "QBs among top-10 picks", unit: "%", why: "Real 19% (2000-2025).", real: 19.1, value: (run) => run.draft.positions.picks_1_10?.QB ?? 0, series: () => [], tol: { green: 0.2, amber: 0.45 } },
+    { label: "Black FBS head coaches", unit: "%", why: "Real 16 of 134 heading into 2024 (12%).", real: 11.9, value: (run) => { const e = run.coaches.ethnicity; return e.length ? e[e.length - 1].Black ?? 0 : null; }, series: (run) => run.coaches.ethnicity.map((r) => [r.year, r.Black ?? 0]), tol: { green: 0.2, amber: 0.45 } },
+    { label: "Shared full names (22,843 college players)", unit: "%", why: "Real 4.4% on 2024 rosters of the same size. Raichel's repeated-names finding.", real: 4.4, value: (run) => run.names.share_by_pool["22843"] ?? null, series: () => [], tol: { green: 0.2, amber: 0.5 } },
+  ];
+}
+function buildHealth(p) {
+  p.append(h("p", { class: "intro" }, "Every number the sim should get close to real football, one row each. The chip compares the average of the worlds you have switched on with the real figure. The small line is each world's 30-year trend against the real value (dashed), so slow drift stands out. Hover any chart elsewhere for exact values."));
+  const defs = healthDefs();
+  const counts = { good: 0, warn: 0, bad: 0, none: 0 };
+  const box = h("div", { class: "card health" });
+  for (const d of defs) {
+    if (d.group) { box.append(h("h3", { style: "padding-top:10px" }, d.group)); continue; }
+    const vals = active().map((i) => d.value(S.runs[i]));
+    const avg = mean(vals.filter((v) => v != null));
+    const stt = status(avg, d.real, d.tol); counts[stt]++;
+    const sp = h("div", { class: "spark" });
+    requestAnimationFrame(() => spark(sp, runSeries((run) => d.series(run)), d.real));
+    box.append(h("div", { class: "hrow" },
+      h("div", { class: "name" }, d.label, d.why ? h("span", { class: "tiny" }, d.why) : null),
+      h("span", { class: `pill ${stt}` }, STATUS_TEXT[stt]),
+      h("div", { class: "vals" }, h("span", {}, "Real ", h("b", {}, d.real == null ? "–" : fmt(d.real, 2) + d.unit)), active().map((i, k) => h("span", {}, h("span", { class: "dot", style: `background:${SERIES[i]}` }), " ", h("b", {}, vals[k] == null ? "–" : fmt(vals[k], 2) + d.unit)))),
+      sp));
+  }
+  p.append(h("div", { class: "summary" },
+    h("div", { class: "tile" }, h("span", { class: "tiny" }, "Near real"), h("span", { class: "big", style: "color:var(--good-ink)" }, counts.good)),
+    h("div", { class: "tile" }, h("span", { class: "tiny" }, "Off"), h("span", { class: "big", style: "color:var(--warn-ink)" }, counts.warn)),
+    h("div", { class: "tile" }, h("span", { class: "tiny" }, "Far off"), h("span", { class: "big", style: "color:var(--bad-ink)" }, counts.bad)),
+    h("div", { class: "tile" }, h("span", { class: "tiny" }, "Worlds"), h("span", { class: "big" }, active().length), h("span", { class: "tiny" }, `${S.runs[0].first} to ${S.runs[0].last}`))));
+  p.append(h("p", { class: "tiny" }, "Chips: within 8-15% of real is near, within 20-45% is off (the band depends on how noisy the measure is), beyond that is far off. These thresholds are Claude's proposal, not confirmed."));
+  p.append(box);
+}
+
+/* ---------- Game engine ---------- */
+const ENGINE_KEYS = [
+  ["points", "Points per team game"], ["points_sd", "Points spread (sd)"], ["plays", "Plays per team game"], ["pass_rate", "Pass rate %"], ["cmp_pct", "Completion %"],
+  ["ypa", "Yards per attempt"], ["ypc", "Yards per carry"], ["sack_rate", "Sack rate %"], ["pressure_rate", "Pressure rate %"], ["int_rate", "Interception rate %"],
+  ["third_pct", "Third-down conversion %"], ["fourth_go", "Fourth-down tries per game"], ["fourth_pct", "Fourth-down conversion %"], ["success_rate", "Success rate %"],
+  ["epa_play", "EPA per play"], ["turnovers", "Turnovers per team game"], ["fumbles_lost", "Fumbles lost per team game"], ["penalties", "Penalties per team game"],
+  ["penalty_yds", "Penalty yards per team game"], ["explosive", "Explosive plays per team game"], ["first_downs", "First downs per team game"], ["punts", "Punts per team game"],
+  ["fg_att", "Field goal tries per team game"], ["fg_pct", "Field goal %"], ["pts_per_drive", "Points per drive"], ["kr_avg", "Kick return average"], ["pr_avg", "Punt return average"],
+  ["kr_per_game", "Kick returns per team game"], ["home_win", "Home win %"], ["ot", "Overtime games %"], ["margin", "Average margin"], ["one_score", "One-score games %"],
+  ["blowout", "28+ point games %"], ["margin40", "40+ point games %"], ["margin60", "60+ point games %"], ["shutouts", "Shutouts % of team games"], ["fifty_plus", "50+ point team games %"],
+];
+function buildEngine(p) {
+  const sel = h("select", { id: "engineDiv" }, ["FBS", "FCS", "D2", "JUCO"].map((d) => h("option", { value: d }, d)));
+  const body = h("div", { class: "grid" });
+  const draw = () => {
+    const div = sel.value; body.innerHTML = "";
+    const real = S.real.vitals[div] || {};
+    body.append(card("Margin of victory", "Share of games by final margin, 7-point bins. Real FBS: 36.7% decided by 8 or less, 21.1% by 28 or more.", legend(false), chartDiv((el) => barChart(el, { cats: ["0-6", "7-13", "14-20", "21-27", "28-34", "35-41", "42-48", "49-55", "56-62", "63-69", "70+"], series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: S.runs[i].hist[div]?.margin || [] })), yFmt: (v) => fmt(v) + "%" }))));
+    body.append(card("Points per team game", "Share of team games by points scored, 7-point bins.", legend(false), chartDiv((el) => barChart(el, { cats: ["0-6", "7-13", "14-20", "21-27", "28-34", "35-41", "42-48", "49-55", "56-62", "63-69", "70-76", "77-83", "84+"], series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: S.runs[i].hist[div]?.points || [] })), yFmt: (v) => fmt(v) + "%" }))));
+    for (const [k, label] of ENGINE_KEYS) {
+      const rv = real[k];
+      body.append(card(label, rv != null ? `Real ${div}: ${fmt(rv, 2)}.` : "No real figure for this yet.", chartDiv((el) => lineChart(el, { series: runSeries(vitalsSeries(k, div)), ref: rv != null ? { lo: rv, label: "real" } : null, H: 180 }))));
+    }
+  };
+  sel.addEventListener("change", draw);
+  p.append(h("p", { class: "intro" }, "Every box-score number from every college game, by season. Distributions first, then each average with the real figure as a dashed line. Pick a division."), h("div", { class: "row" }, h("label", { for: "engineDiv" }, "Division"), sel), legend(), body);
+  draw();
+}
+
+/* ---------- Balance ---------- */
+function buildBalance(p) {
+  const g = h("div", { class: "grid" });
+  p.append(h("p", { class: "intro" }, "Is the FBS world as open as real college football? Dynasties, droughts, upsets and how much luck there is in a game."), legend(), g);
+  g.append(card("Favourite's win rate by lineup gap", "FBS games grouped by the gap in starters' average rating. Real football has no direct match; the trial 4 proposals compare this against real spreads.", legend(false), chartDiv((el) => barChart(el, { cats: S.runs[active()[0]].balance.gaps[0].bins.map((b) => b.gap), series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: S.runs[i].balance.gaps[0].bins.map((b) => b.fav_win) })), yFmt: (v) => fmt(v) + "%" }))));
+  g.append(card("Favourite's average margin by lineup gap", "Same groups. A small edge turning into a big margin is the dynasty engine.", legend(false), chartDiv((el) => barChart(el, { cats: S.runs[active()[0]].balance.gaps[0].bins.map((b) => b.gap), series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: S.runs[i].balance.gaps[0].bins.map((b) => b.fav_margin) })) }))));
+  g.append(card("Points per rating point of lineup edge", "Fitted each season: how many points one point of lineup strength is worth. The trial 4 proposals put this at about twice real spreads.", chartDiv((el) => lineChart(el, { series: runSeries((r) => r.balance.luck.map((x) => [x.year, x.pts_per_strength])) }))));
+  g.append(card("Game luck", "Spread of the final margin around what lineup strength predicts. Real FBS about 13 points.", chartDiv((el) => lineChart(el, { series: runSeries((r) => r.balance.luck.map((x) => [x.year, x.luck_sd])), ref: { lo: 13, label: "real 13" } }))));
+  g.append(card("Home edge", "Points left over for the home side after lineup strength. Real about 2.5.", chartDiv((el) => lineChart(el, { series: runSeries((r) => r.balance.luck.map((x) => [x.year, x.home_edge])), ref: { lo: 2.5, label: "real 2.5" } }))));
+  g.append(card("Spread of team quality", "Standard deviation of teams' average margin each season. Real 11.2.", chartDiv((el) => lineChart(el, { series: runSeries((r) => r.balance.yearly.map((x) => [x.year, x.team_margin_sd])), ref: { lo: 11.2, label: "real 11.2" } }))));
+  g.append(card("Best team's average margin", "Real best teams +22 to +39 a game.", chartDiv((el) => lineChart(el, { series: runSeries((r) => r.balance.yearly.map((x) => [x.year, x.top_margin, x.champ])), ref: { lo: 22, hi: 39, label: "real range" } }))));
+  g.append(card("Team-seasons averaging +35 or more", "Real FBS: 1 in 15 years.", chartDiv((el) => lineChart(el, { series: runSeries((r) => r.balance.yearly.map((x) => [x.year, x.margin35])), ref: { lo: 1 / 15 } }))));
+  g.append(card("Win rate carried into next season", "Correlation of each team's win rate with the year before. Real 0.54.", chartDiv((el) => lineChart(el, { series: runSeries((r) => r.balance.yearly.map((x) => [x.year, x.win_corr])), ref: { lo: 0.536, label: "real" }, yFmt: (v) => fmt(v, 2) }))));
+  g.append(card("Most titles and distinct champions in 15 years", "Rolling 15-year windows, labelled by the last year. Real: most titles 4-6, distinct champions 7-9.", chartDiv((el) => lineChart(el, { series: active().flatMap((i) => [{ name: seedName(i) + " most titles", color: SERIES[i], pts: S.runs[i].balance.windows.map((w) => [w.to, w.most, w.by]) }]), ref: { lo: 4, hi: 6, label: "real most titles" } })),
+    chartDiv((el) => lineChart(el, { series: active().map((i) => ({ name: seedName(i) + " distinct", color: SERIES[i], pts: S.runs[i].balance.windows.map((w) => [w.to, w.distinct]) })), ref: { lo: 7, hi: 9, label: "real distinct" } }))));
+  g.append(card("Prestige churn", "Rank correlation of program prestige with five years earlier. Near 1 means nothing moves.", chartDiv((el) => lineChart(el, { series: runSeries((r) => r.balance.churn.map((x) => [x.year, x.rank_corr_5yr])), yFmt: (v) => fmt(v, 2) }))));
+  g.append(card("Unbeaten teams per season", "Real 0.6 a year.", chartDiv((el) => lineChart(el, { series: runSeries((r) => r.balance.yearly.map((x) => [x.year, x.unbeaten])), ref: { lo: 0.6 } }))));
+  g.append(card("Win inequality (Gini of wins)", "Higher means wins pile up at fewer programs.", chartDiv((el) => lineChart(el, { series: runSeries((r) => r.balance.yearly.map((x) => [x.year, x.gini_wins])), yFmt: (v) => fmt(v, 3) }))));
+  for (const i of active()) {
+    const b = S.runs[i].balance;
+    g.append(card(`${seedName(i)}: champions and titles`, `Pythagorean luck (sd of win rate minus points-based expectation): ${fmt(b.pyth_sd)} points of win rate. Programs without a winning season in the last 15 years: ${b.no_winning_season_15yr} (real 0).`,
+      table(["Program", "Titles"], b.titles.slice(0, 12), { numeric: [1] }),
+      h("details", {}, h("summary", {}, "Champion by year"), table(["Year", "Champion"], Object.entries(b.champs).sort(), {})),
+      h("details", {}, h("summary", {}, "Best 15-year records (real best: Alabama .876)"), table(["Program", "W", "L", "Pct"], b.best_15yr.map((x) => [x.name, x.w, x.l, x.pct]), { numeric: [1, 2, 3] })),
+      h("details", {}, h("summary", {}, "Longest Power 4 droughts (real longest: Kansas 14)"), table(["Program", "Longest run without a winning season", "Winning seasons"], b.droughts.map((x) => [x.name, x.longest, x.winning_seasons]), { numeric: [1, 2] })),
+      h("details", {}, h("summary", {}, "Biggest prestige falls and rises"), table(["Program", "Conference", "Start", "End", "Change"], b.prestige_moves.map((x) => [x.name, x.conf, x.start, x.end, x.change]), { numeric: [2, 3, 4] }))));
+  }
+}
+
+/* ---------- What wins ---------- */
+function buildWins(p) {
+  const g = h("div", { class: "grid" });
+  p.append(h("p", { class: "intro" }, "What turns into points. Each FBS team-season's average margin is fitted on its starters' ratings by position, depth, experience and the coordinators' calling. 'Per rating point' is the margin one point buys; 'per typical gap' multiplies by how much teams really differ at that spot, so it shows what actually separates teams."), legend(false), g);
+  const terms = S.runs[active()[0]].wins.all?.terms?.map((t) => t.name) || [];
+  g.append(card("Points per rating point, by input", "All 30 seasons. Positions are starters' average rating.", chartDiv((el) => barChart(el, { cats: terms, series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: S.runs[i].wins.all.terms.map((t) => t.per_point) })), yFmt: (v) => fmt(v, 2), rotate: true, H: 260 }))));
+  g.append(card("Points per typical gap, by input", "Coefficient times the spread of that input across teams.", chartDiv((el) => barChart(el, { cats: terms, series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: S.runs[i].wins.all.terms.map((t) => t.per_sd) })), yFmt: (v) => fmt(v, 2), rotate: true, H: 260 }))));
+  const pos = ["QB", "RB", "WR", "TE", "OT", "IOL", "EDGE", "DT", "LB", "CB", "S"];
+  g.append(card("Position value as a share of QB", "Per rating point, divided by the QB's. The trial 4 proposals list earlier bands (never confirmed): RB 0.05-0.15, EDGE 0.15-0.30, WR 0.15-0.30, OT 0.15-0.30.", chartDiv((el) => barChart(el, { cats: pos, series: active().map((i) => { const t = S.runs[i].wins.all.terms; const qb = t.find((x) => x.name === "QB")?.per_point; return { name: seedName(i), color: SERIES[i], values: pos.map((n) => { const v = t.find((x) => x.name === n)?.per_point; return qb && v != null ? v / qb : null; }) }; }), yFmt: (v) => fmt(v, 2) }))));
+  g.append(card("Fit quality by decade", "Share of the margin the inputs explain (R squared), per decade.", chartDiv((el) => lineChart(el, { series: active().map((i) => ({ name: seedName(i), color: SERIES[i], pts: S.runs[i].wins.eras.map((e, k) => [k + 1, e.r2, e.era]) })), xFmt: (x) => S.runs[active()[0]].wins.eras[x - 1]?.era || x, yFmt: (v) => fmt(v, 2) }))));
+  for (const term of ["QB", "EDGE", "OT", "OC calling", "DC calling", "depth (rotation rating)"]) {
+    g.append(card(`${term}: value by decade`, "Points per rating point in each decade: drift shows the engine changing what matters as the world evolves.", chartDiv((el) => lineChart(el, { series: active().map((i) => ({ name: seedName(i), color: SERIES[i], pts: S.runs[i].wins.eras.map((e, k) => [k + 1, e.terms.find((t) => t.name === term)?.per_point, e.era]) })), xFmt: (x) => S.runs[active()[0]].wins.eras[x - 1]?.era || x, yFmt: (v) => fmt(v, 2) }))));
+  }
+  g.append(card("Simple correlation with margin", "Each input alone. Inputs that move together (good teams are good everywhere) share credit here.", chartDiv((el) => barChart(el, { cats: S.runs[active()[0]].wins.corr.map((c) => c.name), series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: S.runs[i].wins.corr.map((c) => c.r) })), yFmt: (v) => fmt(v, 2), rotate: true, H: 280 }))));
+}
+
+/* ---------- Situations ---------- */
+function buildSitu(p) {
+  const sel = h("select", { id: "situDiv" }, ["FBS", "FCS", "D2", "JUCO"].map((d) => h("option", { value: d }, d)));
+  const runSel = h("select", { id: "situRun" }, active().map((i) => h("option", { value: i }, seedName(i))));
+  const body = h("div", { class: "grid wide" });
+  const draw = () => {
+    body.innerHTML = "";
+    const div = sel.value, run = S.runs[+runSel.value], d = run.situ.divs[div];
+    if (!d) { body.append(h("p", {}, "No play data for this division.")); return; }
+    const drift = h("div", { class: "grid", style: "grid-column:1/-1" });
+    for (const [k, lab] of [["fourth_go_rate", "Fourth downs gone for %"], ["blitz_rate", "Blitz rate %"], ["man_rate", "Man coverage %"], ["play_action_rate", "Play action % of dropbacks"], ["pressure_rate", "Pressured % of dropbacks"], ["deep_share", "Throws 20+ air yards %"], ["personnel_11", "11 personnel %"], ["injuries_per_play", "Injuries per 1,000 plays"]])
+      drift.append(card(lab, "FBS, by season. Flat lines mean the play callers never adapt.", chartDiv((el) => lineChart(el, { series: runSeries((r) => r.situ.drift.map((x) => [x.year, x[k]])), H: 170 }))));
+    body.append(h("div", { style: "grid-column:1/-1" }, legend(false)), drift);
+    body.append(card("Down and distance", "Every snap by down and yards to go: how often teams throw, and how each choice works. Success = EPA above 0.",
+      table(["Down", "To go", "Snaps", "Pass %", "Run success %", "Run yds", "Pass success %", "Pass yds", "Pass 1st down %"], d.dd.map((x) => [x.down, x.togo, x.n, x.pass_share, x.run?.success, x.run?.ypp, x.pass?.success, x.pass?.ypp, x.pass?.first]), { numeric: [2, 3, 4, 5, 6, 7, 8] })));
+    const go = S.real.nfl_fourth_go;
+    body.append(card("Fourth-down decisions", "Go, punt or kick by field zone and distance. NFL go rates (2021-25) for comparison; college teams go a little more often.",
+      table(["Zone", "To go", "Snaps", "Go %", "NFL go %", "Punt %", "FG %", "Conversion %"], d.fourth.map((x) => [x.zone, x.togo, x.n, x.go, go[`${x.zone}|${x.togo}`] ?? null, x.punt, x.fg, x.go_conv]), { numeric: [2, 3, 4, 5, 6, 7] })));
+    const states = ["down 17+", "down 9-16", "down 1-8", "tied", "up 1-8", "up 9-16", "up 17+"];
+    body.append(card("Pass rate by quarter and score", "Teams behind should throw more; teams ahead late should run. Flat rows mean the callers ignore the scoreboard.",
+      table(["Quarter", ...states], d.state.map((r) => [r.q, ...states.map((s) => r[s])]), { numeric: [1, 2, 3, 4, 5, 6, 7] }),
+      h("p", { class: "tiny" }, "Last two minutes of the fourth quarter: " + states.map((s) => `${s} ${fmt(d.two_minute[s])}%`).join(", "))));
+    body.append(card("Field zone", "Run and pass by where the ball is.", table(["Zone", "Runs", "Run yds", "Run TD %", "Passes", "Pass yds", "Pass TD %", "Pass TO %"], d.field.map((x) => [x.zone, x.run?.n, x.run?.ypp, x.run?.td, x.pass?.n, x.pass?.ypp, x.pass?.td, x.pass?.to]), { numeric: [1, 2, 3, 4, 5, 6, 7] })));
+    const pp = d.pass;
+    body.append(card("Passing game", `Drops per team game ${fmt(pp.drops_per_game, 2)}, throw-aways ${fmt(pp.throw_aways_per_game, 2)}. 'Extra' is the completion share (sacks count on dropback rows).`,
+      table(["Split", "Plays", "Yds/play", "EPA", "Success %", "TD %", "TO %", "Extra %"], [
+        ...pp.depth.map((x) => ["Air yards " + x.depth, x.n, x.ypp, x.epa, x.success, x.td, x.to, x.extra]),
+        ...pp.time_to_throw.map((x) => ["Time to throw " + x.t, x.n, x.ypp, x.epa, x.success, x.td, x.to, x.extra]),
+        ...Object.entries(pp.play_action).map(([k, x]) => ["Play action " + k, x.n, x.ypp, x.epa, x.success, x.td, x.to, x.extra]),
+        ...Object.entries(pp.pressured).map(([k, x]) => ["Pressured " + k, x.n, x.ypp, x.epa, x.success, x.td, x.to, x.extra]),
+      ], { numeric: [1, 2, 3, 4, 5, 6, 7] })));
+    const box = S.real.nfl_box;
+    body.append(card("Runs by box count", "Defenders in the box against yards per carry. NFL (NGS 2021-25) beside it.",
+      table(["Box", "Runs", "Yds/carry", "Success %", "NFL share %", "NFL yds/carry", "NFL success %"], d.box.filter((x) => x.run).sort((a, b) => +a.name - +b.name).map((x) => [x.name, x.run.n, x.run.ypp, x.run.success, box[x.name]?.share, box[x.name]?.ypc, box[x.name]?.success]), { numeric: [1, 2, 3, 4, 5, 6] })));
+    const grp = (title, rows, why) => card(title, why, table(["Split", "Snaps / team game", "Run yds", "Run success %", "Pass yds", "Pass success %", "Pass EPA"], rows.map((x) => [x.name, x.per_game, x.run?.ypp, x.run?.success, x.pass?.ypp, x.pass?.success, x.pass?.epa]), { numeric: [1, 2, 3, 4, 5, 6] }));
+    body.append(grp("Blitz and coverage", [...d.blitz.map((x) => ({ ...x, name: "Blitz " + x.name })), ...d.coverage], "How pressure and coverage choices pay off."));
+    body.append(grp("Personnel groups", d.personnel, "Offensive personnel (RBs then TEs: 11 = one back, one tight end)."));
+    body.append(grp("Defensive calls (top 30)", d.defense, "Front, coverage and pressure package."));
+    for (const kind of ["pass", "run"]) {
+      const c = d.calls[kind] || [];
+      body.append(card(`Most-used ${kind} calls`, `${d.calls_distinct[kind] || 0} distinct ${kind} calls used. Top 40 by usage.`, table(["Call", "Per team game", "Yds/play", "EPA", "Success %", "TD %", "TO %"], c.map((x) => [x.name, x.per_game, x.ypp, x.epa, x.success, x.td, x.to]), { numeric: [1, 2, 3, 4, 5, 6] })));
+    }
+    const rf = S.real.vitals[div]?.fg_by_distance || {}, nf = S.real.nfl.fg_by_distance;
+    body.append(card("Kicking", `Punt average ${fmt(d.punt_gross)} yards (real FBS 42.3), kickoff touchbacks ${fmt(d.kickoff_tb)}% (NFL 54.9%), punt touchbacks ${fmt(d.punt_tb)}%.`,
+      table(["Field goal distance", "Made %", `Real ${div} %`, "NFL %"], ["under30", "30-39", "40-49", "50+"].map((b) => [b, d.fg_by_distance[b], rf[b], nf[b]]), { numeric: [1, 2, 3] }),
+      h("details", {}, h("summary", {}, "Every kick by distance"), table(["Kind", "From", "Kicks", "Avg yds", "Make or touchback %"], d.kicks.map((k) => [k.kind, k.from, k.n, k.avg, k.rate]), { numeric: [1, 2, 3, 4] }))));
+    body.append(card("Penalties", "Per team game by foul.", table(["Foul", "Status", "Per team game"], d.penalties.map((x) => [x.foul, x.status, x.per_game]), { numeric: [2] })));
+    body.append(card("Other", null, table(["Measure", "Value"], [["Injuries per team game", d.injuries_per_game], ["Missed tackles per carry", d.missed_tackles_per_carry], ["Runs right after a takeaway: yds/play", d.after_turnover.run?.ypp], ["Passes right after a takeaway: yds/play", d.after_turnover.pass?.ypp],
+      ...Object.entries(d.kinds).map(([k, v]) => [`${k}: per team game`, v.per_game])], { numeric: [1] })));
+  };
+  sel.addEventListener("change", draw); runSel.addEventListener("change", draw);
+  p.append(h("p", { class: "intro" }, "Play-level situations from every college game (new in this trial: the game log now keeps per-play totals). Tables show one world at a time; the drift charts overlay all of them."),
+    h("div", { class: "row" }, h("label", { for: "situDiv" }, "Division"), sel, h("label", { for: "situRun" }, "World"), runSel), body);
+  draw();
+}
+
+/* ---------- Players ---------- */
+function buildPlayers(p) {
+  const g = h("div", { class: "grid" });
+  const L = (i) => S.runs[i].life;
+  p.append(h("p", { class: "intro" }, `Where players go, from high school to the draft. Star outcomes use the high school classes that have had time to finish college (${L(active()[0]).pool_classes.join(" to ")}).`), legend(), g);
+  const stars = [2, 3, 4, 5];
+  const realStar = Object.fromEntries(S.real.draft_by_star.map((r) => [r.star, r]));
+  g.append(card("Drafted, by stars", "Share of each star level drafted in any round. Real: ESPN ratings, classes 2013-21.", legend(), chartDiv((el) => barChart(el, { cats: stars.map((s) => s + "-star"), series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: stars.map((s) => L(i).by_star.find((r) => r.stars === s)?.drafted) })), real: stars.map((s) => 100 * realStar[s].any_round), yFmt: (v) => fmt(v) + "%" }))));
+  g.append(card("First round, by stars", "Share of each star level taken in round 1.", chartDiv((el) => barChart(el, { cats: stars.map((s) => s + "-star"), series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: stars.map((s) => L(i).by_star.find((r) => r.stars === s)?.r1) })), real: stars.map((s) => 100 * realStar[s].first_round), yFmt: (v) => fmt(v, 2) + "%" }))));
+  const rs = S.real.draft_star_share.share;
+  g.append(card("Where draft picks come from, by stars", "Share of all picks. Real: 2013-2025 picks matched to ESPN ratings ('0' = unrated, walk-on, JUCO or no match).", chartDiv((el) => barChart(el, { cats: ["0", "2", "3", "4", "5"], series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: ["0", "2", "3", "4", "5"].map((s) => L(i).drafted_star_share[s] ?? 0) })), real: ["0", "2", "3", "4", "5"].map((s) => 100 * rs[s]), yFmt: (v) => fmt(v) + "%" }))));
+  g.append(card("Never drafted, by stars", "Share of four- and five-stars whose careers ended without a draft pick (left football, or finished college undrafted). The world keeps full records only for four- and five-stars.", chartDiv((el) => barChart(el, { cats: [4, 5].map((s) => s + "-star"), series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: [4, 5].map((s) => L(i).by_star.find((r) => r.stars === s)?.left) })), yFmt: (v) => fmt(v) + "%" }))));
+  g.append(card("Transferred, by stars", "Share of four- and five-stars who played for more than one college.", chartDiv((el) => barChart(el, { cats: [4, 5].map((s) => s + "-star"), series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: [4, 5].map((s) => L(i).by_star.find((r) => r.stars === s)?.transfer) })), yFmt: (v) => fmt(v) + "%" }))));
+  const grpSel = h("select", { id: "devGroup" }, ["QB", "RB", "WR", "TE", "OL", "DL", "LB", "DB", "K/P"].map((x) => h("option", { value: x }, x)));
+  const devBox = h("div", { class: "chart" });
+  const drawDev = () => lineChart(devBox, { series: active().flatMap((i) => { const d = L(i).dev[grpSel.value] || []; return [{ name: seedName(i) + " median", color: SERIES[i], pts: d.map((x) => [x.age, x.q[2]]) }, { name: seedName(i) + " 90th pct", color: SERIES[i], pts: d.map((x) => [x.age, x.q[4]]) }, { name: seedName(i) + " 10th pct", color: SERIES[i], pts: d.map((x) => [x.age, x.q[0]]) }]; }), xFmt: (x) => "age " + x, H: 260 });
+  grpSel.addEventListener("change", drawDev); requestAnimationFrame(drawDev);
+  g.append(card("Development curves", "Overall rating by age: 10th, 50th and 90th percentile of every season on record (current college players and kept alumni).", h("div", { class: "row" }, h("label", { for: "devGroup" }, "Group"), grpSel), devBox));
+  g.append(card("Growth in a season, by age", "Median change in overall over one season; a slump is a drop of more than 1 point, a breakout a gain of more than 6.", chartDiv((el) => lineChart(el, { series: active().map((i) => ({ name: seedName(i) + " median", color: SERIES[i], pts: L(i).growth.map((x) => [x.age, x.q[2]]) })), xFmt: (x) => "age " + x })),
+    chartDiv((el) => lineChart(el, { series: active().map((i) => ({ name: seedName(i) + " breakout %", color: SERIES[i], pts: L(i).growth.map((x) => [x.age, x.breakout]) })), xFmt: (x) => "age " + x, yLabel: "breakout %", H: 160 })),
+    chartDiv((el) => lineChart(el, { series: active().map((i) => ({ name: seedName(i) + " slump %", color: SERIES[i], pts: L(i).growth.map((x) => [x.age, x.slump]) })), xFmt: (x) => "age " + x, yLabel: "slump %", H: 160 }))));
+  for (const i of active()) {
+    const l = L(i);
+    g.append(card(`${seedName(i)}: paths and surprises`, `Drafted players were ${fmt(l.reach.q[2])} points below their hidden potential on draft day (median); ${fmt(l.reach.within3)}% were within 3. Five-stars never drafted: ${l.busts_n} (${fmt(l.busts_share)}% of five-stars).`,
+      table(["Stars", "Players in class", "Played college %", "Drafted %", "Round 1 %", "Never drafted %", "JUCO %", "Transferred %"], l.by_star.map((r) => [r.stars, r.n, r.college, r.drafted, r.r1, r.left, r.juco, r.transfer]), { numeric: [0, 1, 2, 3, 4, 5, 6, 7] }),
+      h("details", {}, h("summary", {}, "Transfer moves"), table(["Move", "Players"], l.moves, { numeric: [1] })),
+      h("details", {}, h("summary", {}, "Two-star or lower first-rounders"), table(["Year", "Pick", "Name", "Pos", "Stars", "Path"], l.booms, { numeric: [0, 1, 4] })),
+      h("details", {}, h("summary", {}, "Five-stars never drafted"), table(["Class", "Name", "Pos", "Path", "Left", "Overall", "Potential", "Notes"], l.busts, { numeric: [0, 5, 6] })),
+      h("details", {}, h("summary", {}, "Why players left (most common notes)"), table(["Note", "Players"], l.left_reasons, { numeric: [1] })),
+      h("details", {}, h("summary", {}, "Core GPA at signing, by stars"), table(["Stars", "10th", "25th", "Median", "75th", "90th"], Object.entries(l.gpa).map(([s, q]) => [s, ...q]), { numeric: [1, 2, 3, 4, 5] }))));
+  }
+}
+
+/* ---------- Recruiting ---------- */
+function buildRecruit(p) {
+  const g = h("div", { class: "grid" });
+  p.append(h("p", { class: "intro" }, "Stars, distance from home, where FBS signees come from, and NIL against winning."), legend(), g);
+  const realTot = Object.values(S.real.fbs_signees_by_state).reduce((a, b) => a + b, 0);
+  const top = Object.entries(S.real.fbs_signees_by_state).sort((a, b) => b[1] - a[1]).slice(0, 20).map((x) => x[0]);
+  g.append(card("FBS signees by home state (top 20 real states)", "Share of all FBS high school signees. Real: 2022-26 classes.", chartDiv((el) => barChart(el, { cats: top, series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: top.map((s) => S.runs[i].recruit.fbs_signees_share[s]) })), real: top.map((s) => 100 * S.real.fbs_signees_by_state[s] / realTot), yFmt: (v) => fmt(v) + "%", rotate: true, H: 240 }))));
+  const realStars = Object.fromEntries(S.real.draft_by_star.map((r) => [r.star, r.recruits / 9]));
+  g.append(card("Signing class size by stars", "Recruits per class at each star level, averaged over the 30 classes. Real: ESPN-rated recruits per class (2013-21).", chartDiv((el) => barChart(el, { cats: ["2-star", "3-star", "4-star", "5-star"], series: active().map((i) => { const sc = S.runs[i].recruit.signing_classes; return { name: seedName(i), color: SERIES[i], values: [2, 3, 4, 5].map((s) => mean(sc.map((c) => c[1][s]))) }; }), real: [2, 3, 4, 5].map((s) => realStars[s]) }))));
+  g.append(card("Five-stars per class", "Each year's count. Real about 45 a class in ESPN's ratings.", chartDiv((el) => lineChart(el, { series: runSeries((r) => r.recruit.signing_classes.map((c) => [c[0], c[1][5]])), ref: { lo: realStars[5] } }))));
+  g.append(card("Miles from home to the first FBS school", "Median, by stars.", chartDiv((el) => barChart(el, { cats: ["0", "1", "2", "3", "4", "5"].map((s) => s + "-star"), series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: ["0", "1", "2", "3", "4", "5"].map((s) => S.runs[i].recruit.distance[s]?.q[2]) })) }))));
+  g.append(card("Signed in their home state", "Share of FBS signees, by stars.", chartDiv((el) => barChart(el, { cats: ["0", "1", "2", "3", "4", "5"].map((s) => s + "-star"), series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: ["0", "1", "2", "3", "4", "5"].map((s) => S.runs[i].recruit.in_state[s]) })), yFmt: (v) => fmt(v) + "%" }))));
+  const rosPos = ["QB", "RB", "WR", "TE", "OT", "IOL", "EDGE", "DT", "LB", "CB", "S", "K", "P"];
+  g.append(card("Players per FBS roster, by position", "Final season, average per team. Real FBS teams carry about two kickers and two punters (proposed check, from typical rosters).", chartDiv((el) => barChart(el, { cats: rosPos, series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: rosPos.map((s) => S.runs[i].recruit.rosters?.FBS?.per_team[s]) })), real: rosPos.map((s) => (s === "K" || s === "P" ? 2 : null)) }))));
+  g.append(card("Teams with no kicker or punter", "Final season, share of teams in each division whose roster lists no K, no P, or neither. A team without one kicks with whoever is nearest.", ...active().map((i) => { const R = S.runs[i].recruit.rosters || {}; return h("div", {}, h("p", { class: "tiny" }, seedName(i)), table(["Division", "Teams", "No K %", "No P %", "Neither %", "Home-state share (median %)"], Object.entries(R).map(([d, v]) => [d, v.teams, v.no_k, v.no_p, v.neither, v.home_share[2]]), { numeric: [1, 2, 3, 4, 5] })); })));
+  g.append(card("FBS rosters by home-state share", "Final season: share of each roster from the school's own state. Real flagships lean local (LSU, Texas and Georgia rosters are largely in-state); a national spread everywhere means local pull is too weak.", ...active().slice(0, 1).map((i) => h("div", { class: "scrolly" }, table(["School", "State", "Conference", "Roster", "From home state %", "K", "P", "QB"], S.runs[i].recruit.roster_home || [], { numeric: [3, 4, 5, 6, 7] })))));
+  g.append(card("NIL budget against winning", "FBS programs: yearly collective budget ($M) and win rate over the last five seasons.", chartDiv((el) => scatter(el, { series: active().map((i) => ({ name: seedName(i), color: SERIES[i], pts: S.runs[i].recruit.nil.map((x) => [x[2], x[3], `${x[0]} (${x[1]})`]) })), xLabel: "NIL budget, $M", yLabel: "win %" })),
+    h("p", { class: "tiny" }, active().map((i) => `${seedName(i)} r = ${fmt(S.runs[i].recruit.nil_corr, 2)}`).join(" · "))));
+}
+
+/* ---------- Coaches ---------- */
+function buildCoaches(p) {
+  const g = h("div", { class: "grid" });
+  const C = (i) => S.runs[i].coaches;
+  p.append(h("p", { class: "intro" }, "The carousel, whether hidden ability wins, and who gets the jobs."), legend(), g);
+  g.append(card("FBS head coach hires per year", "New FBS head coaches each season. Real: roughly 15 to 30 changes a year.", chartDiv((el) => lineChart(el, { series: runSeries((r) => r.coaches.hires.map(([y, n]) => [+y, n])), ref: { lo: 15, hi: 30, label: "real range (approx.)" } }))));
+  g.append(card("Firings per year", "FBS head coaches fired each season.", chartDiv((el) => lineChart(el, { series: runSeries((r) => Object.entries(r.coaches.exits).map(([y, c]) => [+y, c.fired || 0])) }))));
+  g.append(card("Tenure of finished FBS head coach jobs", "Seasons in the job (15 = 15 or more).", chartDiv((el) => barChart(el, { cats: [...Array(16).keys()].map(String), series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: C(i).tenure })) }))));
+  g.append(card("Black FBS head coaches", "Share of FBS head coaches each season. Real 12% heading into 2024.", chartDiv((el) => lineChart(el, { series: runSeries((r) => r.coaches.ethnicity.map((x) => [x.year, x.Black ?? 0])), ref: { lo: 11.9, label: "real 12%" } }))));
+  g.append(card("Hidden head coach value against win rate", "FBS head coach jobs with 30 or more recorded games. A clear slope means better coaches win; a cloud means they don't.", chartDiv((el) => scatter(el, { series: active().map((i) => ({ name: seedName(i), color: SERIES[i], pts: C(i).ability.map((a) => [a[2], a[4], `${a[0]}, ${a[1]} (${a[6]})`]) })), xLabel: "hidden head coach value (1-20)", yLabel: "win %" })),
+    h("p", { class: "tiny" }, active().map((i) => `${seedName(i)} r = ${fmt(C(i).ability_corr, 2)}`).join(" · "))));
+  g.append(card("Position coaches' development records", "Rating points per player-season above the norm, for coaches with 8 or more player-seasons in the group (median, by group).", chartDiv((el) => { const gs = Object.keys(C(active()[0]).units); barChart(el, { cats: gs, series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: gs.map((k) => C(i).units[k]?.[2]) })), yFmt: (v) => fmt(v, 2), rotate: true, H: 240 }); })));
+  for (const i of active()) {
+    const c = C(i);
+    g.append(card(`${seedName(i)}: carousel details`, `Median finished tenure ${fmt(c.tenure_median)} seasons. Age at hire: median ${fmt(c.hire_age[2])} (10th ${fmt(c.hire_age[0])}, 90th ${fmt(c.hire_age[4])}). Current FBS head coaches who played in the NFL: ${fmt(c.ex_pro)}%.`,
+      table(["How jobs ended", "Jobs", "Median win %", "10th", "90th"], Object.entries(c.win_by_end).map(([k, v]) => [k, v.n, v.q[2], v.q[0], v.q[4]]), { numeric: [1, 2, 3, 4] }),
+      h("details", {}, h("summary", {}, "Coaching trees (protégés who became FBS head coaches)"), table(["Mentor", "Protégés"], c.trees, { numeric: [1] })),
+      h("details", {}, h("summary", {}, "Kept while losing"), table(["Coach", "School", "From", "To", "W", "L", "Ended"], c.stubborn, { numeric: [2, 3, 4, 5] }))));
+  }
+}
+
+/* ---------- Draft ---------- */
+function buildDraft(p) {
+  const g = h("div", { class: "grid" });
+  const D = (i) => S.runs[i].draft;
+  const pos = ["QB", "RB", "WR", "TE", "OT", "IOL", "EDGE", "DT", "LB", "CB", "S", "K", "P"];
+  p.append(h("p", { class: "intro" }, "Who gets drafted, from where, and how good they are on draft day."), legend(), g);
+  for (const [band, label] of [["pick_1", "Number 1 picks"], ["picks_1_10", "Top 10 picks"], ["round_1", "Round 1"], ["all", "All picks"]]) {
+    g.append(card(`${label} by position`, "Share of picks. Real: drafts 2000-2025.", chartDiv((el) => barChart(el, { cats: pos, series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: pos.map((x) => D(i).positions[band]?.[x] ?? 0) })), real: pos.map((x) => S.real.draft_positions[band]?.[x]), yFmt: (v) => fmt(v) + "%" }))));
+  }
+  g.append(card("Rookie rating by round", "Median overall on draft day; the band in the tooltip is not drawn.", chartDiv((el) => barChart(el, { cats: [1, 2, 3, 4, 5, 6, 7].map((r) => "R" + r), series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: D(i).by_round.map((r) => r.overall[2]) })) }))));
+  g.append(card("Hidden potential by round", "Median potential on draft day: front offices should rank by it, but only see it through scouting.", chartDiv((el) => barChart(el, { cats: [1, 2, 3, 4, 5, 6, 7].map((r) => "R" + r), series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: D(i).by_round.map((r) => r.potential[2]) })) }))));
+  g.append(card("FCS share of picks by year", "Real about 6%.", chartDiv((el) => lineChart(el, { series: runSeries((r) => r.draft.yearly.map((x) => [x.year, x.fcs_share])), ref: { lo: 6, label: "real 6%" } }))));
+  g.append(card("QBs in the top 10 by year", "Real 19% of top-10 picks: about 1.9 a year.", chartDiv((el) => lineChart(el, { series: runSeries((r) => r.draft.yearly.map((x) => [x.year, x.qb_top10])), ref: { lo: 1.9 } }))));
+  g.append(card("First-round rookie rating by year", "Average overall of round-1 picks. Drift means the talent pool is changing.", chartDiv((el) => lineChart(el, { series: runSeries((r) => r.draft.yearly.map((x) => [x.year, x.r1_overall])) }))));
+  g.append(card("NFL front offices", "Each team's GM judgment (1-20) against how its picks (top 64) rated above the norm for their slot.", chartDiv((el) => scatter(el, { series: active().map((i) => ({ name: seedName(i), color: SERIES[i], pts: D(i).front_office.map((f) => [f[1], f[2], f[0]]) })), xLabel: "GM judgment (hidden)", yLabel: "pick quality" })),
+    h("p", { class: "tiny" }, active().map((i) => `${seedName(i)} r = ${fmt(D(i).front_office_corr, 2)}`).join(" · "))));
+  for (const i of active()) {
+    g.append(card(`${seedName(i)}: picks by conference and path`, null, table(["Conference", "Picks"], D(i).conf, { numeric: [1] }), table(["Last college division", "Picks"], Object.entries(D(i).path), { numeric: [1] }),
+      h("details", {}, h("summary", {}, "Every first-round pick"), table(["Year", "Pick", "Name", "Pos", "Stars", "Path", "Team", "Overall", "Potential"], D(i).first_rounders, { numeric: [0, 1, 4, 7, 8] }))));
+  }
+}
+
+/* ---------- Records ---------- */
+function buildRecords(p) {
+  const g = h("div", { class: "grid" });
+  const rec = S.real.fbs_records, lead = S.real.fbs_leaders || {};
+  p.append(h("p", { class: "intro" }, "FBS season leaders against real leaders and records. " + rec._note), legend(), g);
+  const stats = [["pass_yds", "Passing yards", rec.pass_yds, lead.pass_yards], ["pass_td", "Passing TDs", rec.pass_td], ["rush_yds", "Rushing yards", rec.rush_yds, lead.rush_yards], ["rec_yds", "Receiving yards", rec.rec_yds, lead.rec_yards], ["sacks", "Sacks", rec.sacks], ["ints", "Interceptions", rec.ints], ["tackles", "Tackles"], ["rec", "Receptions"], ["rush_td", "Rushing TDs"], ["tfl", "Tackles for loss"]];
+  for (const [k, label, record, realLead] of stats) {
+    const ref = realLead ? { lo: Math.min(...realLead), hi: Math.max(...realLead), label: "real leaders 2022-24" } : record ? { lo: record, label: "real record" } : null;
+    g.append(card(`Season leader: ${label}`, record ? `FBS record ${record}.` : null, chartDiv((el) => lineChart(el, { series: runSeries((r) => Object.entries(r.records.leaders).map(([y, d]) => [+y, d[k]?.[0]?.[0], d[k]?.[0] ? `${d[k][0][1]} (${d[k][0][2]}, ${d[k][0][3]})` : ""])), ref }))));
+  }
+  const th = [["passers_4000", "4,000-yard passers"], ["passers_3000", "3,000-yard passers"], ["rushers_1000", "1,000-yard rushers"], ["receivers_1000", "1,000-yard receivers"], ["sacks_10", "10-sack players"]];
+  for (const [k, label] of th) g.append(card(`${label} per season`, "FBS players reaching the mark. No checked real counts yet.", chartDiv((el) => lineChart(el, { series: runSeries((r) => Object.entries(r.records.thresholds).map(([y, d]) => [+y, d[k] || 0])), H: 170 }))));
+  g.append(card("Qualified passers' completion rate", "Median of FBS passers with 200+ attempts.", chartDiv((el) => lineChart(el, { series: runSeries((r) => Object.entries(r.records.qualified).map(([y, d]) => [+y, d.cmp?.[2]])) }))));
+  g.append(card("Qualified rushers' yards per carry", "Median of FBS backs with 150+ carries.", chartDiv((el) => lineChart(el, { series: runSeries((r) => Object.entries(r.records.qualified).map(([y, d]) => [+y, d.ypc?.[2]])) }))));
+  for (const i of active()) {
+    const R = S.runs[i].records;
+    g.append(card(`${seedName(i)}: the record book`, "Best single season in each stat over 30 years, and how many times the world record was broken.",
+      table(["Stat", "Best", "Player", "School", "Year", "Times broken"], Object.entries(R.best).map(([k, v]) => [k, v[0], v[1], v[2], v[3], R.record_falls[k] || 0]), { numeric: [1, 4, 5] }),
+      h("details", {}, h("summary", {}, "Top 5 each season"), ...Object.entries(R.leaders).slice(-30).map(([y, d]) => h("details", {}, h("summary", {}, y), table(["Stat", "Value", "Player", "Pos", "School", "Stars"], Object.entries(d).flatMap(([k, rows]) => rows.map((r) => [k, ...r])), { numeric: [1, 5] }))))));
+  }
+}
+
+/* ---------- Names ---------- */
+function buildNames(p) {
+  const g = h("div", { class: "grid" });
+  const N = (i) => S.runs[i].names, real = S.real.names;
+  p.append(h("p", { class: "intro" }, "Rebuilt for this trial after the repeated-names finding: every SSA boy's name since 1940 and every Census surname with 100+ people, drawn by ethnicity and birth decade, plus suffixes, hyphens and initials. The fair test compares rosters of the same size."), legend(), g);
+  const sizes = ["1000", "5000", "10000", "22843"];
+  g.append(card("Shared full names, by roster pool size", "Share of players whose first and last name (suffix dropped) matches another player in a random pool of college players. Real: 2024 rosters, all divisions.", chartDiv((el) => barChart(el, { cats: sizes.map((s) => (+s).toLocaleString("en-US")), series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: sizes.map((s) => N(i).share_by_pool[s]) })), real: sizes.map((s) => 100 * (real.cfbd_2024_by_pool_size[s] ?? real.cfbd_rosters_2024_share)), yFmt: (v) => fmt(v, 2) + "%" }))));
+  for (const i of active()) {
+    const n = N(i);
+    g.append(card(`${seedName(i)}`, `${n.college_pool.toLocaleString("en-US")} college players; ${n.distinct_first.toLocaleString("en-US")} distinct first names and ${n.distinct_last.toLocaleString("en-US")} surnames across ${n.everyone_pool.toLocaleString("en-US")} people. Suffixes ${fmt(n.suffix)}%, hyphenated ${fmt(n.hyphen)}%, initials ${fmt(n.initials)}%.`,
+      table(["Most common college names", "Players"], n.most_common_college, { numeric: [1] }),
+      h("details", {}, h("summary", {}, "Top first names and surnames"), table(["First name", "People", "Surname", "People"], n.top_first.map((f, k) => [f[0], f[1], n.top_last[k]?.[0], n.top_last[k]?.[1]]), { numeric: [1, 3] })),
+      h("details", {}, h("summary", {}, "Best-known coaches (sample)"), h("p", { class: "tiny" }, n.coach_sample.join(", ")))));
+  }
+  g.append(card("Real most common names on 2024 rosters", null, table(["Name", "Players"], Object.entries(real.most_common_2024), { numeric: [1] })));
+}
+
+/* ---------- Anomalies ---------- */
+const KIND_WHY = {
+  "Stat line beyond the real record": "A season's top-3 line past the real FBS single-season record (passing yards 5,967, passing TDs 62, rushing yards 2,628, receiving yards 2,060, sacks 24, interceptions 14; written from memory, unchecked). One can happen; several a year means the engine inflates that stat.",
+  "Player in the wrong role": "A player listed at one position who played another all season: quarterback (100 or more passes) or pass rusher (5 or more sacks while listed on offense). The depth chart moves players when they rate 4 points better at the other spot, and his listed position stays the same.",
+  "Five-star never drafted": "Five-stars who finished college undrafted without leaving football (busts who left are on Player paths). Real five-stars are drafted about 62% of the time.",
+};
+function buildAnomalies(p) {
+  const runSel = h("select", { id: "anRun" }, active().map((i) => h("option", { value: i }, seedName(i))));
+  const kindSel = h("select", { id: "anKind" });
+  const list = h("div", { class: "list" });
+  const draw = () => {
+    const A = S.runs[+runSel.value].anomalies;
+    const kinds = [...new Set(A.map((a) => a.kind))];
+    const keep = kindSel.value;
+    kindSel.innerHTML = ""; kindSel.append(h("option", { value: "" }, `All kinds (${A.length})`), ...kinds.map((k) => h("option", { value: k }, `${k} (${A.filter((a) => a.kind === k).length})`)));
+    kindSel.value = kinds.includes(keep) ? keep : "";
+    list.innerHTML = "";
+    if (!kindSel.value) {
+      // One block per kind: how many, by decade, the reason once, and a few examples.
+      for (const k of kinds) {
+        const xs = A.filter((a) => a.kind === k);
+        const dec = {}; for (const a of xs) { const d = Math.floor(a.year / 10) * 10; dec[d] = (dec[d] || 0) + 1; }
+        list.append(h("div", { class: "item bad" }, h("span", { class: "t" }, `${k}: ${xs.length}`), h("span", { class: "tiny" }, Object.entries(dec).map(([d, n]) => `${d}s ${n}`).join(" · ")), h("span", { class: "muted" }, KIND_WHY[k] || xs[0].why),
+          h("span", {}, xs.slice(-4).map((a) => `${a.year}: ${a.title}`).join(" | "))));
+      }
+      return;
+    }
+    const xs = A.filter((a) => a.kind === kindSel.value);
+    const same = xs.every((a) => a.why === xs[0].why);
+    if (same) list.append(h("div", { class: "item" }, h("span", { class: "muted" }, xs[0].why)));
+    for (const a of xs.slice(0, 300)) list.append(h("div", { class: "item bad" }, h("span", { class: "tiny" }, String(a.year)), h("span", { class: "t" }, a.title), same ? null : h("span", { class: "muted" }, a.why)));
+    if (xs.length > 300) list.append(h("p", { class: "tiny" }, `First 300 of ${xs.length} shown.`));
+  };
+  runSel.addEventListener("change", draw); kindSel.addEventListener("change", () => { const v = kindSel.value; draw(); kindSel.value = v; draw(); });
+  p.append(h("p", { class: "intro" }, "Automatic flags: things that should be rare or impossible in real football, each with the reason it was flagged. A long list in one kind points at a mechanism, not bad luck."), h("div", { class: "row" }, h("label", { for: "anRun" }, "World"), runSel, h("label", { for: "anKind" }, "Kind"), kindSel), h("div", { class: "card" }, list));
+  draw();
+}
+
+/* ---------- Idea board ---------- */
+function buildIdeas(p) {
+  p.append(h("p", { class: "intro" }, "Where the sim is flatter or more extreme than real football, and real things it never produces, each written as a candidate improvement. Claude's notes come from the one sanity check of these three worlds; the computed list comes from the health board. Nothing here is decided."));
+  const notes = S.notes?.ideas || [];
+  if (notes.length) p.append(h("div", { class: "card" }, h("h3", {}, "Claude's notes from the sanity check"), h("div", { class: "list" }, notes.map((n) => h("div", { class: `item ${n.level || "warn"}` }, h("span", { class: "tiny" }, n.area), h("span", { class: "t" }, n.title), h("span", { class: "muted" }, n.saw), n.why ? h("span", {}, h("b", {}, "Why: "), n.why) : null, n.idea ? h("span", {}, h("b", {}, "Idea: "), n.idea) : null)))));
+  const defs = healthDefs().filter((d) => !d.group);
+  const rows = [];
+  for (const d of defs) {
+    const vals = active().map((i) => d.value(S.runs[i])).filter((v) => v != null);
+    const avg = mean(vals); const stt = status(avg, d.real, d.tol);
+    if (stt === "bad" || stt === "warn") rows.push({ d, avg, stt, gap: Math.abs(avg - d.real) / Math.max(Math.abs(d.real), d.tol.floor || 1e-9) });
+  }
+  rows.sort((a, b) => b.gap - a.gap);
+  p.append(h("div", { class: "card" }, h("h3", {}, "Computed from the health board, largest gaps first"), h("div", { class: "list" }, rows.map((r) => h("div", { class: `item ${r.stt}` }, h("span", { class: "t" }, `${r.d.label}: ${fmt(r.avg, 2)}${r.d.unit} against real ${fmt(r.d.real, 2)}${r.d.unit}`), h("span", { class: "muted" }, r.d.why || ""))))));
+  const missing = S.notes?.missing || [];
+  if (missing.length) p.append(h("div", { class: "card" }, h("h3", {}, "Real football the sim doesn't model yet"), h("div", { class: "list" }, missing.map((m) => h("div", { class: "item" }, h("span", { class: "t" }, m.title), h("span", { class: "muted" }, m.why))))));
+}
+
+/* ---------- Seed lab ---------- */
+function buildSeeds(p) {
+  p.append(h("p", { class: "intro" }, "The same measures in each world. A measure that differs a lot between worlds is luck or chaos in the world's history; one that matches is a trait of the engine."));
+  const defs = healthDefs().filter((d) => !d.group);
+  const rows = defs.map((d) => { const v = S.runs.map((r) => d.value(r)); const ok = v.filter((x) => x != null); const m = mean(ok); const sd = ok.length > 1 ? Math.sqrt(ok.reduce((a, x) => a + (x - m) ** 2, 0) / (ok.length - 1)) : null; return [d.label, d.real, ...v, sd, m ? (sd / Math.abs(m)) * 100 : null]; });
+  p.append(h("div", { class: "card" }, table(["Measure", "Real", ...S.runs.map((r) => `World ${r.seed}`), "Spread (sd)", "Spread % of mean"], rows, { numeric: [1, 2, 3, 4, 5, 6].slice(0, S.runs.length + 3) })));
+  const champs = h("div", { class: "card" }, h("h3", {}, "Champions side by side"), table(["Year", ...S.runs.map((r) => `World ${r.seed}`)], years(S.runs[0]).map((y) => [y, ...S.runs.map((r) => r.balance.champs[y] || "–")])));
+  p.append(champs);
+}
+
+/* ---------- Explorer ---------- */
+function buildExplore(p) {
+  const ds = h("select", { id: "exDs" }, [["seasons", "Program seasons (FBS and FCS)"], ["players", "Drafted players and five-stars"], ["coaches", "Head coach jobs"]].map(([v, t]) => h("option", { value: v }, t)));
+  const xs = h("select", { id: "exX" }), ys = h("select", { id: "exY" }), divSel = h("select", { id: "exDiv" }, ["All", "FBS", "FCS"].map((d) => h("option", { value: d }, d)));
+  const y0 = h("input", { type: "number", id: "exFrom", value: S.runs[0].first, style: "width:90px" }), y1 = h("input", { type: "number", id: "exTo", value: S.runs[0].last, style: "width:90px" });
+  const search = h("input", { type: "search", id: "exSearch", placeholder: "Filter by name or school" });
+  const plot = h("div", { class: "chart" }), info = h("p", { class: "tiny" }), tbl = h("div");
+  const numericCols = (d) => d.cols.filter((c, k) => d.rows.some((r) => typeof r[k] === "number"));
+  const setCols = () => {
+    const d = S.runs[active()[0]].explorer[ds.value]; const nc = numericCols(d);
+    const pick = { seasons: ["QB", "margin_g"], players: ["pick", "overall"], coaches: ["hc_value", "win_pct"] }[ds.value];
+    xs.innerHTML = ""; ys.innerHTML = ""; nc.forEach((c) => { xs.append(h("option", { value: c }, c)); ys.append(h("option", { value: c }, c)); });
+    xs.value = pick[0]; ys.value = pick[1];
+  };
+  const draw = () => {
+    const series = [], allRows = [];
+    for (const i of active()) {
+      const d = S.runs[i].explorer[ds.value]; const ix = d.cols.indexOf(xs.value), iy = d.cols.indexOf(ys.value);
+      const yi = d.cols.indexOf("year"), di = d.cols.indexOf("div"), ti = d.cols.indexOf("from");
+      const q = search.value.trim().toLowerCase();
+      const rows = d.rows.filter((r) => {
+        const yr = yi >= 0 ? r[yi] : r[ti];
+        if (yr != null && (yr < +y0.value || yr > +y1.value)) return false;
+        if (di >= 0 && divSel.value !== "All" && r[di] !== divSel.value) return false;
+        if (q && !r.some((v) => typeof v === "string" && v.toLowerCase().includes(q))) return false;
+        return true;
+      });
+      const label = (r) => r.filter((v) => typeof v === "string").slice(0, 3).join(" · ") + (yi >= 0 ? ` ${r[yi]}` : "");
+      series.push({ name: seedName(i), color: SERIES[i], pts: rows.map((r) => [r[ix], r[iy], label(r)]) });
+      allRows.push(...rows.map((r) => [`W${S.runs[i].seed}`, ...r]));
+    }
+    scatter(plot, { series, xLabel: xs.value, yLabel: ys.value, H: 360 });
+    info.textContent = series.map((s) => `${s.name}: ${s.pts.length} rows, r = ${fmt(corrOf(s.pts), 2)}`).join(" · ");
+    const d = S.runs[active()[0]].explorer[ds.value];
+    const iy = d.cols.indexOf(ys.value) + 1;
+    allRows.sort((a, b) => (b[iy] ?? -1e9) - (a[iy] ?? -1e9));
+    tbl.innerHTML = ""; tbl.append(h("p", { class: "tiny" }, `Sorted by ${ys.value}, highest first.`), table(["World", ...d.cols], allRows, { max: 200 }));
+  };
+  ds.addEventListener("change", () => { setCols(); draw(); });
+  for (const el of [xs, ys, divSel, y0, y1]) el.addEventListener("change", draw);
+  search.addEventListener("input", draw);
+  p.append(h("p", { class: "intro" }, "Plot any two numbers against each other, with a fitted line and correlation per world. Use it to chase a hunch: does a better QB really mean a bigger margin, do blitz-happy teams get more sacks, do high-value coaches win?"),
+    h("div", { class: "row" }, h("label", { for: "exDs" }, "Data"), ds, h("label", { for: "exX" }, "x"), xs, h("label", { for: "exY" }, "y"), ys, h("label", { for: "exDiv" }, "Division"), divSel, h("label", { for: "exFrom" }, "Years"), y0, y1, search),
+    h("div", { class: "card" }, legend(false), plot, info), h("div", { class: "card" }, tbl));
+  setCols(); draw();
+}
+
+/* ---------- Pages ---------- */
+function buildPages(p) {
+  const runSel = h("select", { id: "pgRun" }, active().map((i) => h("option", { value: i }, seedName(i))));
+  const progSel = h("select", { id: "pgProg" });
+  const playerSel = h("select", { id: "pgPlayer" });
+  const progBox = h("div", { class: "grid" }), playerBox = h("div");
+  const fillLists = () => {
+    const run = S.runs[+runSel.value];
+    const names = Object.keys(run.programs).sort();
+    progSel.innerHTML = ""; names.forEach((n) => progSel.append(h("option", { value: n }, n)));
+    progSel.value = names.includes("Ohio State") ? "Ohio State" : names[0];
+    playerSel.innerHTML = ""; run.players.forEach((pl, k) => playerSel.append(h("option", { value: k }, `${pl.tag}: ${pl.name} (${pl.pos})`)));
+  };
+  const drawProg = () => {
+    const run = S.runs[+runSel.value], name = progSel.value, pg = run.programs[name]; progBox.innerHTML = "";
+    if (!pg) return;
+    const ex = run.explorer.seasons, ci = (c) => ex.cols.indexOf(c);
+    const rows = ex.rows.filter((r) => r[ci("program")] === name).sort((a, b) => a[0] - b[0]);
+    progBox.append(card(`${name}`, `${pg.conf}, ${pg.city}, ${pg.state}. Stadium ${pg.stadium.toLocaleString("en-US")}. Prestige ${pg.prestige_start} at the start, ${pg.prestige} now. ${pg.titles} national and ${pg.conf_titles} conference titles in the sim's whole history (spin-up years included). NIL budget $${pg.nil}M.`,
+      chartDiv((el) => lineChart(el, { series: [{ name: "Wins", color: SERIES[0], pts: rows.map((r) => [r[0], r[ci("w")], r[ci("coach")]]) }, { name: "Losses", color: SERIES[1], pts: rows.map((r) => [r[0], r[ci("l")]]) }], H: 180, yLabel: "wins and losses" })),
+      chartDiv((el) => lineChart(el, { series: [{ name: "Average margin", color: SERIES[2], pts: rows.map((r) => [r[0], r[ci("margin_g")], r[ci("coach")]]) }], H: 160, yLabel: "average margin" })),
+      table(["Year", "W", "L", "PF", "PA", "Strength", "Coach", "Coach value", "QB", "Pass %", "Title"], rows.map((r) => [r[0], r[ci("w")], r[ci("l")], r[ci("pf_g")], r[ci("pa_g")], r[ci("strength")], r[ci("coach")], r[ci("coach_hc_value")], r[ci("QB")], r[ci("pass_share")], r[ci("nat")] ? "national" : r[ci("conf_title")] ? "conference" : ""]), { numeric: [0, 1, 2, 3, 4, 5, 7, 8, 9] })));
+    progBox.append(card("Story", "The program's own history notes.", h("div", { class: "list" }, pg.story.map(([y, t]) => h("div", { class: "item" }, h("span", { class: "tiny" }, y), h("span", {}, t))))),
+      card("Grades and pipelines", `Draft picks by round over the 30 years: ${pg.picks.map((n, k) => `R${k + 1} ${n}`).join(", ")}.`, table(["Grade", "Score"], pg.grades.map(([g, v]) => [g, v]), { numeric: [1] }), table(["Pipeline state", "Strength"], pg.pipeline, { numeric: [1] })));
+  };
+  const drawPlayer = () => {
+    const run = S.runs[+runSel.value], pl = run.players[+playerSel.value]; playerBox.innerHTML = "";
+    if (!pl) return;
+    const attrs = h("div", { class: "list" }, (pl.attributes || []).map(([n, v, c]) => h("div", { class: "bar-attr" }, h("span", {}, n), h("span", { class: "track" }, h("span", { class: "fill", style: `width:${Math.max(0, Math.min(100, v))}%` }), h("span", { class: "ceil", style: `left:${Math.max(0, Math.min(99, c))}%` })), h("span", { class: "num" }, `${fmt(v, 0)} / ${fmt(c, 0)}`))));
+    const seasons = (pl.seasons || []).map((s) => [s.age, s.level, s.pos, s.role, s.start, s.end, s.perf, s.pot]);
+    playerBox.append(h("div", { class: "grid" },
+      card(`${pl.name}, ${pl.pos}`, `${pl.tag}. ${pl.stars}-star from ${pl.hs || ""} (${pl.state}). Path: ${pl.path}. ${pl.pick ? `Pick ${pl.pick} in ${pl.year}` : "Undrafted"}${pl.team ? ` by the ${pl.team}` : ""}. Overall ${fmt(pl.overall)}, hidden potential ${fmt(pl.potential)}.`,
+        h("p", { class: "tiny" }, pl.background || ""), pl.notes?.length ? h("div", { class: "list" }, pl.notes.map((n) => h("div", { class: "item" }, n))) : null,
+        pl.personality ? table(["Trait", "Value"], Object.entries(pl.personality).concat([["bloom", pl.bloom], ["injury proneness", pl.injury]]), { numeric: [1] }) : null,
+        pl.body ? table(["Body", ""], Object.entries(pl.body)) : null, pl.combine ? table(["Combine", ""], Object.entries(pl.combine)) : null),
+      card("Attributes", "Bar = current rating, tick = hidden ceiling (debug only).", attrs),
+      card("Season by season", "Overall at the start and end of each season, performance and hidden potential.", chartDiv((el) => lineChart(el, { series: [{ name: "Overall", color: SERIES[0], pts: (pl.seasons || []).map((s) => [s.age, s.end, s.level]) }, { name: "Potential", color: SERIES[1], pts: (pl.seasons || []).map((s) => [s.age, s.pot]) }], xFmt: (x) => "age " + x, H: 200 })), table(["Age", "Level", "Pos", "Role", "Start", "End", "Perf", "Potential"], seasons, { numeric: [0, 4, 5, 6, 7] }),
+        pl.college_stats?.length ? h("details", {}, h("summary", {}, "College stats"), table(Object.keys(pl.college_stats[0]), pl.college_stats.map((s) => Object.values(s)))) : null)));
+  };
+  runSel.addEventListener("change", () => { fillLists(); drawProg(); drawPlayer(); });
+  progSel.addEventListener("change", drawProg); playerSel.addEventListener("change", drawPlayer);
+  p.append(h("p", { class: "intro" }, "Every FBS program's 30-year page, and full player pages (the featured trial cards plus every first-round pick)."),
+    h("div", { class: "row" }, h("label", { for: "pgRun" }, "World"), runSel, h("label", { for: "pgProg" }, "Program"), progSel), progBox,
+    h("div", { class: "row", style: "padding-top:12px" }, h("label", { for: "pgPlayer" }, "Player"), playerSel), playerBox);
+  fillLists(); drawProg(); drawPlayer();
+}
+
+const BUILD = { health: buildHealth, engine: buildEngine, balance: buildBalance, wins: buildWins, situ: buildSitu, players: buildPlayers, recruit: buildRecruit, coaches: buildCoaches, draft: buildDraft, records: buildRecords, names: buildNames, anomalies: buildAnomalies, ideas: buildIdeas, seeds: buildSeeds, explore: buildExplore, pages: buildPages };
+
+/* ---------- Shell ---------- */
+function render() {
+  const main = $("#panes"); main.innerHTML = ""; S.built = {};
+  for (const [id] of TABS) main.append(h("section", { class: "pane", id: "pane-" + id, role: "tabpanel", hidden: id === S.tab ? null : "" }));
+  show(S.tab);
+}
+function show(id) {
+  S.tab = id;
+  try { localStorage.setItem("afm-lab-tab", id); } catch (e) {}
+  for (const b of document.querySelectorAll(".tab")) b.setAttribute("aria-selected", b.dataset.id === id ? "true" : "false");
+  for (const s of document.querySelectorAll("section.pane")) s.hidden = s.id !== "pane-" + id;
+  const pane = $("#pane-" + id);
+  if (!S.built[id]) { S.built[id] = true; try { BUILD[id](pane); } catch (e) { console.error(e); pane.append(h("p", { class: "muted" }, "This tab could not be drawn: " + e.message)); } }
+}
+async function boot() {
+  const get = (f) => fetch(f).then((r) => { if (!r.ok) throw new Error(f + " " + r.status); return r.json(); });
+  const index = await get("data/index.json");
+  S.real = await get("data/real.json");
+  try { S.notes = await get("data/notes.json"); } catch (e) { S.notes = null; }
+  S.runs = await Promise.all(index.seeds.map((s) => get("data/" + s.file)));
+  S.on = S.runs.map(() => true);
+  $("#subtitle").textContent = `${S.runs.length} world${S.runs.length > 1 ? "s" : ""}, ${S.runs[0].first} to ${S.runs[0].last}, every college game on the match engine. Debug view: hidden values shown.`;
+  const chips = $("#seedChips");
+  S.runs.forEach((r, i) => chips.append(h("button", { class: "chip", "aria-pressed": "true", onclick: (ev) => { if (active().length === 1 && S.on[i]) return; S.on[i] = !S.on[i]; ev.currentTarget.setAttribute("aria-pressed", S.on[i]); render(); } }, h("span", { class: "dot", style: `background:${SERIES[i]}` }), `World ${r.seed}`)));
+  const tabs = $("#tabs");
+  for (const [id, label] of TABS) tabs.append(h("button", { class: "tab", role: "tab", "data-id": id, onclick: () => show(id) }, label));
+  let first = location.hash.slice(1);
+  if (!TABS.some((t) => t[0] === first)) { try { first = localStorage.getItem("afm-lab-tab") || "health"; } catch (e) { first = "health"; } }
+  S.tab = TABS.some((t) => t[0] === first) ? first : "health";
+  render();
+}
+boot().catch((e) => { $("#loading").textContent = "Could not load the trial data: " + e.message; });
+</script>
