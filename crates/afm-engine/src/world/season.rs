@@ -208,6 +208,16 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
         roles[i] = role;
     }
 
+    // A transfer's first depth chart at his new school (trial records, 11.16).
+    for (i, p) in w.people.iter_mut().enumerate() {
+        if let Some(from) = p.transfer_from.take()
+            && p.stage == Stage::College
+            && let Some(c) = p.college
+        {
+            w.recruiting_log.transfer_seasons.push((w.year, from, roles[i], w.programs[c].division));
+        }
+    }
+
     // --- Development -----------------------------------------------------------
     let (people, schools, programs, coaches) = (&mut w.people, &w.high_schools, &w.programs, &w.coaches);
     people.par_iter_mut().zip(roles.par_iter()).for_each(|(p, &role)| {
