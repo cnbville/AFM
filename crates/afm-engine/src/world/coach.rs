@@ -251,6 +251,9 @@ pub struct Coach {
     /// Hidden: the age his sharpness starts to fade, and how fast (11.14).
     pub(crate) decline_from: f64,
     pub(crate) decline_rate: f64,
+    /// The last season an NCAA show-cause order keeps him out of college
+    /// coaching (dynasty item 11.6).
+    pub show_cause: Option<i32>,
 }
 
 /// Typical ability by level: (mean, spread).
@@ -361,6 +364,7 @@ pub fn generate_coach(
         home_state: None,
         decline_from,
         decline_rate,
+        show_cause: None,
     }
 }
 

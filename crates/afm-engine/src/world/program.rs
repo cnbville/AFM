@@ -132,11 +132,14 @@ pub enum NilTrend {
     BoosterLeft,
 }
 
-/// A school's NIL collective (topic 8). Budgets are modeled estimates: no
-/// public source gives NIL dollars per school.
+/// A school's booster base and NIL collective (topic 8). Budgets are modeled
+/// estimates: no public source gives NIL dollars per school. The boosters
+/// give in every era (facilities, the program's standing); their money
+/// reaches players as NIL only from July 2021 (dynasty item 11.5).
 #[derive(Clone, Debug)]
 pub struct Collective {
-    /// Yearly budget in dollars.
+    /// NIL money the program can pay players this offseason, in dollars:
+    /// zero before July 2021 (`ncaa::nil_budget`).
     pub budget: f64,
     /// Steady money from the wider booster base.
     pub base: f64,
@@ -145,6 +148,14 @@ pub struct Collective {
     pub trend: NilTrend,
     /// How many years in a row it has been drying up (drives warning strength).
     pub drying_years: u32,
+}
+
+impl Collective {
+    /// What the booster base gives a year, within the ceiling of the biggest
+    /// real collectives (dynasty item 11.7).
+    pub fn boosters(&self) -> f64 {
+        (self.base + self.big_booster.unwrap_or(0.0)).min(super::ncaa::COLLECTIVE_CEILING)
+    }
 }
 
 /// Season record for history.
@@ -264,6 +275,9 @@ pub struct Program {
     /// Exceptions a strict school can make per class for a player it believes
     /// will grow out of his grades (note 6).
     pub special_admits: u32,
+    /// Era rules and the NCAA: a rogue booster, penalties, the yearly record
+    /// (dynasty items 11.4-11.6).
+    pub era: super::ncaa::ProgramEra,
 }
 
 /// Admissions bars of academically strict programs (proposed, not confirmed:
@@ -396,7 +410,8 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
         grade_history: Vec::new(),
         prestige_history: Vec::new(),
         collective: Collective {
-            budget: base + big_booster.unwrap_or(0.0),
+            // Set each year from the era (`ncaa::nil_budget`); the world starts before NIL.
+            budget: 0.0,
             base,
             big_booster,
             trend: NilTrend::Steady,
@@ -419,6 +434,7 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
         class_size,
         admissions_bar: admissions(row).0,
         special_admits: admissions(row).1,
+        era: Default::default(),
     };
     p.prestige = prestige_of(&p, 10.0, 0.5);
     p
@@ -438,7 +454,9 @@ pub fn nil_target(d: Division, p4: bool, fans: f64, recent: f64) -> f64 {
 
 /// Overall prestige from its parts (topic 7). Recent results count most.
 pub fn prestige_of(p: &Program, coach_rep: f64, conference: f64) -> f64 {
-    let nil_share = clamp((p.collective.budget / 25.0e6).sqrt(), 0.0, 1.0);
+    // Booster money counts in every era: before NIL it built facilities and
+    // paid the staff; revenue sharing, about equal across a level, doesn't.
+    let nil_share = clamp((p.collective.boosters() / 25.0e6).sqrt(), 0.0, 1.0);
     clamp(
         0.15 * p.tradition
             + 0.3 * p.recent
@@ -512,14 +530,20 @@ pub fn fade_pipelines(p: &mut Program, year: i32) {
 }
 
 /// One year of a collective's money. Losing seasons shrink donations; a big
-/// booster can walk away. Returns the warning level (0 = none).
-pub fn update_collective(p: &mut Program, win_pct: f64, rng: &mut Rng) -> u32 {
-    let before = p.collective.budget;
+/// booster can walk away. `next` is the offseason the new NIL budget pays
+/// for. Returns the warning level (0 = none).
+pub fn update_collective(p: &mut Program, win_pct: f64, next: i32, rng: &mut Rng) -> u32 {
+    let before = p.collective.boosters();
     let mood = (win_pct - 0.5) * 0.18 + (p.prestige - 0.5) * 0.04;
     // Donations follow results, and drift back toward what the brand can raise.
     let target = nil_target(p.division, p.power_four(), p.fans, p.recent);
     let c = &mut p.collective;
-    c.base = (c.base * (1.0 + mood + rng.normal(0.0, 0.04))).max(5_000.0);
+    // New money gets harder to find as the boosters near what the biggest
+    // real collectives raise, and they never pass it (11.7). Losses aren't
+    // slowed.
+    let room = (1.0 - c.boosters() / super::ncaa::COLLECTIVE_CEILING).max(0.0);
+    let grow = |g: f64| if g > 0.0 { g * room } else { g };
+    c.base = (c.base * (1.0 + grow(mood + rng.normal(0.0, 0.04)))).max(5_000.0);
     c.base += 0.08 * (target - c.base);
     let mut booster_left = false;
     if let Some(b) = c.big_booster {
@@ -528,14 +552,13 @@ pub fn update_collective(p: &mut Program, win_pct: f64, rng: &mut Rng) -> u32 {
             c.big_booster = None;
             booster_left = true;
         } else {
-            c.big_booster = Some(b * (1.0 + rng.normal(0.02, 0.08)));
+            c.big_booster = Some(b * (1.0 + grow(rng.normal(0.02, 0.08))));
         }
     } else if rng.chance(0.015 + 0.02 * p.prestige) {
         // A new big booster arrives: one rich booster can change a program.
         c.big_booster = Some(c.base * rng.range(0.2, 0.8));
     }
-    c.budget = c.base + c.big_booster.unwrap_or(0.0);
-    let change = c.budget / before.max(1.0) - 1.0;
+    let change = c.boosters() / before.max(1.0) - 1.0;
     c.trend = if booster_left {
         NilTrend::BoosterLeft
     } else if change < -0.12 {
@@ -550,5 +573,7 @@ pub fn update_collective(p: &mut Program, win_pct: f64, rng: &mut Rng) -> u32 {
     } else {
         c.drying_years = 0;
     }
-    c.drying_years
+    let level = c.drying_years;
+    p.collective.budget = super::ncaa::nil_budget(p, next);
+    level
 }

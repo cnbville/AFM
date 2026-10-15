@@ -25,6 +25,8 @@ pub enum NewsKind {
     /// The yearly diversity report on head coaches (note 2).
     DiversityReport,
     NationalTitle,
+    /// NCAA penalties for a booster's payments (dynasty item 11.6).
+    NcaaPenalty,
     ConferenceTitle,
     StateTitle,
     Realignment,
