@@ -3,6 +3,7 @@
 //! snap. Every game is reproducible from its seed (topic 9.2).
 
 use super::calling::{self, FourthDown, Memory, Situation};
+use super::experiment;
 use super::geom::{MID, v2};
 use super::kicking::{self, KickTeams};
 use super::playbook::*;
@@ -78,6 +79,8 @@ struct Side<'a> {
     hurt: Vec<Option<InjuryKind>>,
     timeouts: u8,
     mem: Memory,
+    /// Starters out in a decided game (prototype, `experiment`).
+    pulled: bool,
 }
 
 impl<'a> Side<'a> {
@@ -93,6 +96,7 @@ impl<'a> Side<'a> {
             hurt: vec![None; n],
             timeouts,
             mem: Memory::default(),
+            pulled: false,
         }
     }
 
@@ -113,8 +117,18 @@ impl<'a> Side<'a> {
     /// The best `n` available at a spot, swapping out tired starters when a
     /// fresh backup isn't much worse.
     fn pick(&self, pos: Position, n: usize, used: &mut Vec<usize>) -> Vec<usize> {
+        let skip = if self.pulled {
+            match pos {
+                Position::QB | Position::RB | Position::TE => 1,
+                Position::OT | Position::EDGE | Position::DT | Position::CB | Position::S => 2,
+                Position::IOL | Position::WR | Position::LB => 3,
+                _ => 0,
+            }
+        } else {
+            0
+        };
         let list: Vec<usize> =
-            self.depth.list(pos).iter().copied().filter(|&i| !self.out[i] && !used.contains(&i)).collect();
+            self.depth.list(pos).iter().skip(skip).copied().filter(|&i| !self.out[i] && !used.contains(&i)).collect();
         let th = self.threshold(pos);
         let mut out = Vec::new();
         let mut skipped = Vec::new();
@@ -714,6 +728,9 @@ impl<'a> Game<'a> {
     // ------------------------------------------------------------ scrimmage
 
     fn scrimmage(&mut self) {
+        for t in 0..2 {
+            self.sides[t].pulled = !self.ot && experiment::decided(self.quarter, self.diff(t));
+        }
         let o = self.poss;
         let sit = self.situation();
         let staff = self.sides[o].team.staff;
@@ -1783,6 +1800,7 @@ impl<'a> Game<'a> {
             }
             13.0
         } else if (self.quarter == 4 && self.diff(o) > 0)
+            || (experiment::decided(self.quarter, self.diff(o)) && self.diff(o) > 0)
             || (self.quarter == 2 && self.half_left() < 120.0 && self.x < 50.0 && self.diff(o) >= 0)
         {
             38.0
@@ -1974,6 +1992,11 @@ fn phi(x: f64) -> f64 {
 
 /// Play a game on a fixed neutral field, mostly for tools and tests.
 pub fn quick_game(home: &GameTeam, away: &GameTeam, level: Level, seed: u64) -> GameResult {
+    if let Some((h, a)) = experiment::adjust(home, away) {
+        let mut s = GameSetup::new(&h, &a, level, seed);
+        s.cond = Conditions { crowd: 0.5, ..Conditions::default() };
+        return play_game(&s);
+    }
     let mut s = GameSetup::new(home, away, level, seed);
     s.cond = Conditions { crowd: 0.5, ..Conditions::default() };
     play_game(&s)

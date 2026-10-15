@@ -130,6 +130,9 @@ pub fn call_offense(
     if sit.hurry() {
         p_pass = p_pass.max(0.85);
     }
+    if sit.score_diff > 0 && crate::game::experiment::decided(sit.quarter, sit.score_diff) {
+        p_pass = p_pass.min(0.2);
+    }
     if sit.togo <= 1.0 && sit.down >= 3 {
         p_pass = p_pass.min(0.45);
     }

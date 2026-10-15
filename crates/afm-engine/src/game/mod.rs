@@ -6,6 +6,7 @@
 //! See `docs/design/match-engine.md` and `docs/match-engine.md`.
 
 pub mod calling;
+pub mod experiment;
 pub mod flow;
 pub mod geom;
 pub mod kicking;
