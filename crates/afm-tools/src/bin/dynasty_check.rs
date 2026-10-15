@@ -188,15 +188,49 @@ fn schemes(games: usize, seed: u32) {
         base.staff.shell,
         base.staff.front
     );
-    for s in
-        [OffScheme::WestCoast, OffScheme::AirRaid, OffScheme::WideZone, OffScheme::PowerGap, OffScheme::SpreadOption]
-    {
+    let offs = [OffScheme::WestCoast, OffScheme::AirRaid, OffScheme::WideZone, OffScheme::PowerGap, OffScheme::SpreadOption];
+    let shells = [Shell::Cover3, Shell::Quarters, Shell::ManPressure, Shell::Cover2];
+    // AFM_MIX: judge each scheme against every scheme on the other side, not
+    // only the base one. Both teams share the other unit, so the margin is
+    // this offense against that shell minus West Coast against it (and this
+    // shell against that offense minus Cover 2 against it).
+    if std::env::var("AFM_MIX").is_ok() {
+        for s in offs {
+            let mut ms = Vec::new();
+            for sh in shells {
+                let (mut a, mut b) = (base.clone(), base.clone());
+                a.staff.off_scheme = s;
+                a.staff.shell = sh;
+                b.staff.shell = sh;
+                ms.push(play(&a, &b, games, seed as u64).1);
+            }
+            let avg = ms.iter().sum::<f64>() / ms.len() as f64;
+            println!("offense {s:?}: margin {avg:+.2} (vs C3 {:+.2}, C4 {:+.2}, man {:+.2}, C2 {:+.2})", ms[0], ms[1], ms[2], ms[3]);
+        }
+        for sh in shells {
+            let mut ms = Vec::new();
+            for s in offs {
+                let (mut a, mut b) = (base.clone(), base.clone());
+                a.staff.off_scheme = s;
+                b.staff.off_scheme = s;
+                a.staff.shell = sh;
+                ms.push(play(&a, &b, games, seed as u64).1);
+            }
+            let avg = ms.iter().sum::<f64>() / ms.len() as f64;
+            println!(
+                "shell {sh:?}: margin {avg:+.2} (vs WC {:+.2}, AR {:+.2}, WZ {:+.2}, PG {:+.2}, SO {:+.2})",
+                ms[0], ms[1], ms[2], ms[3], ms[4]
+            );
+        }
+        return;
+    }
+    for s in offs {
         let mut t = base.clone();
         t.staff.off_scheme = s;
         let (w, m) = play(&t, &base, games, seed as u64);
         println!("offense {s:?}: wins {:.1}%, margin {m:+.2}", 100.0 * w);
     }
-    for sh in [Shell::Cover3, Shell::Quarters, Shell::ManPressure, Shell::Cover2] {
+    for sh in shells {
         let mut t = base.clone();
         t.staff.shell = sh;
         let (w, m) = play(&t, &base, games, seed as u64);

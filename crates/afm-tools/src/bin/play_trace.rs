@@ -60,6 +60,7 @@ fn main() {
         "counter" => PlayKind::Run(RunConcept::Counter),
         "draw" => PlayKind::Run(RunConcept::Draw),
         "sneak" => PlayKind::Run(RunConcept::Sneak),
+        "read" => PlayKind::Run(RunConcept::ZoneRead),
         "pass" => PlayKind::Pass(4),
         s => PlayKind::Pass(s.parse().unwrap_or(0)),
     };
