@@ -14,6 +14,7 @@
 pub mod athlete;
 pub mod attributes;
 pub mod body;
+pub mod calendar;
 pub mod career;
 pub mod development;
 pub mod game;
