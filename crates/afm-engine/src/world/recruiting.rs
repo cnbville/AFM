@@ -623,16 +623,6 @@ fn academic_support(prog: &Program) -> f64 {
     clamp(0.3 + 0.7 * prog.facilities, 0.0, 1.0)
 }
 
-fn roster_cap(d: Division) -> usize {
-    match d {
-        // Roster limits since the 2025 House settlement: 105 in FBS.
-        Division::FBS => 105,
-        Division::FCS => 100,
-        Division::D2 => 110,
-        Division::JUCO => 80,
-    }
-}
-
 /// What a starter at his position earns at a major program, middle of the
 /// real range (CBS via SI, 2024; `data/real-world/rates.json`). Tight ends
 /// and specialists aren't in the data (proposed, not confirmed).
@@ -1001,6 +991,8 @@ pub(crate) fn signing_day(w: &mut World) {
         }
         w.signing_classes.push((sign_year, counts));
     }
+    // Rogue boosters pick the recruits they will pay (11.6).
+    super::ncaa::before_matching(w, &seniors.iter().map(|&k| pool[k].person).collect::<Vec<_>>());
 
     let dbg_lap = |what: &str| {
         if std::env::var("AFM_DEBUG").is_ok() {
@@ -1149,12 +1141,12 @@ pub(crate) fn signing_day(w: &mut World) {
         .collect();
 
     dbg_lap("lists");
-    // Slots: a class, bent by roster room.
+    // Slots: the era's yearly signing limit, bent by roster room (11.4).
     let slots: Vec<usize> = programs
         .iter()
         .map(|prog| {
-            let room = roster_cap(prog.division).saturating_sub(prog.roster.len());
-            (room as f64).min(prog.class_size as f64 * 1.4) as usize
+            let (limit, signees) = super::ncaa::roster_limits(prog, sign_year);
+            limit.saturating_sub(prog.roster.len()).min(signees)
         })
         .collect();
 
@@ -1188,7 +1180,12 @@ pub(crate) fn signing_day(w: &mut World) {
         } * (1.3 - 0.6 * rank);
         let pay = (prog.collective.budget / 10.0e6).powf(0.8);
         let cap = prog.collective.budget * 0.6 * if reach[j] { 0.35 } else { 0.25 };
-        (position_nil(p.player.position) * talent * pay * if reach[j] { 1.6 } else { 1.0 }).min(cap)
+        // Within the real range for his position (11.8). Before NIL a rogue
+        // booster's cash is the only money (11.6).
+        (position_nil(p.player.position) * talent * pay * if reach[j] { 1.6 } else { 1.0 })
+            .min(cap)
+            .min(super::ncaa::position_nil_max(p.player.position))
+            + super::ncaa::booster_cash(prog, pool[k].person)
     };
     let view = RosterView::new(programs, &w.people);
     let mut held_offer = vec![0.0f64; pool.len()];
@@ -1227,7 +1224,7 @@ pub(crate) fn signing_day(w: &mut World) {
                     && rank < 0.3
                 {
                     let cap = prog.collective.budget * 0.6 * if reach[j] { 0.35 } else { 0.25 };
-                    let raised = (offer * 1.5).min(cap);
+                    let raised = (offer * 1.5).min(cap).min(super::ncaa::position_nil_max(p.player.position));
                     let ru = utility(p, &wants, prog, raised, 1.0 - rank) + base_u;
                     if ru > cu {
                         offer = raised;
@@ -1329,7 +1326,10 @@ pub(crate) fn signing_day(w: &mut World) {
                         division.name()
                     ));
                     let nil = held_offer[k];
-                    if nil >= 10_000.0 {
+                    if nil >= 10_000.0 && super::ncaa::nil_era(year) {
+                        if w.recording {
+                            w.programs[j].era.offers.push((year, p.player.position, p.stars, nil));
+                        }
                         let amount = if nil >= 1.0e6 {
                             format!("${:.1}M", nil / 1.0e6)
                         } else {
@@ -1548,6 +1548,7 @@ pub(crate) fn portal(w: &mut World, _r: &SeasonResults) {
         }
         // A greedy starter at a poor program can be bought away.
         if p.last_role == Some(PlayingTime::Starter)
+            && super::ncaa::nil_era(year)
             && w.programs[c].collective.budget < 1.0e6
             && div == Division::FBS
             && u < 0.06 * p.family.own_wants.money * 4.0
@@ -1579,7 +1580,10 @@ pub(crate) fn portal(w: &mut World, _r: &SeasonResults) {
         let mut best: Option<(usize, f64)> = None;
         for _ in 0..40 {
             let j = w.rng.int(0, pn as i32 - 1) as usize;
-            if j == c || adds[j] >= 10 || w.programs[j].roster.len() + adds[j] >= roster_cap(w.programs[j].division) {
+            if j == c
+                || adds[j] >= 10
+                || w.programs[j].roster.len() + adds[j] >= super::ncaa::roster_limits(&w.programs[j], year + 1).0
+            {
                 continue;
             }
             let d = w.programs[j].division;

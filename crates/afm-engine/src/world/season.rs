@@ -451,6 +451,8 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
         if on_engine { w.programs.iter().map(|p| coach_context(w, p)).collect() } else { Vec::new() };
     #[cfg(feature = "debug")]
     crate::debug::capture_teams(w.year, &game_teams, &college.iter().map(|r| r.strength).collect::<Vec<_>>());
+    // An NCAA postseason ban: no conference title and no playoff (11.6).
+    let banned: Vec<bool> = w.programs.iter().map(|p| p.era.banned(w.year)).collect();
     let game_log = std::sync::Mutex::new(std::mem::take(&mut w.game_log));
     let snaps = std::sync::Mutex::new(std::collections::HashMap::<u32, u32>::new());
     for division in [Division::FBS, Division::FCS, Division::D2, Division::JUCO] {
@@ -488,15 +490,14 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
             let rounds = (teams.len() - 1).min(8);
             play_rounds(teams, rounds, COLLEGE_SPREAD, &mut college, &mut w.rng, true, engine);
             // Conference champion: best conference record, then strength.
-            let champ = *teams
-                .iter()
-                .max_by(|&&a, &&b| {
-                    let ra = college[a].conf_wins as f64 - college[a].conf_losses as f64 + 0.01 * college[a].strength;
-                    let rb = college[b].conf_wins as f64 - college[b].conf_losses as f64 + 0.01 * college[b].strength;
-                    ra.total_cmp(&rb)
-                })
-                .unwrap();
-            college[champ].conference_title = true;
+            let champ = teams.iter().copied().filter(|&i| !banned[i]).max_by(|&a, &b| {
+                let ra = college[a].conf_wins as f64 - college[a].conf_losses as f64 + 0.01 * college[a].strength;
+                let rb = college[b].conf_wins as f64 - college[b].conf_losses as f64 + 0.01 * college[b].strength;
+                ra.total_cmp(&rb)
+            });
+            if let Some(champ) = champ {
+                college[champ].conference_title = true;
+            }
         }
         // Non-conference games fill every schedule, independents included.
         let target: u32 = if division == Division::JUCO { 10 } else { 12 };
@@ -518,7 +519,8 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
             .iter()
             .copied()
             .filter(|&i| {
-                !matches!(w.programs[i].conference.as_str(), "SWAC" | "MEAC" | "Mid-Eastern_Athletic_Conference")
+                !banned[i]
+                    && !matches!(w.programs[i].conference.as_str(), "SWAC" | "MEAC" | "Mid-Eastern_Athletic_Conference")
             })
             .collect();
         ranked.sort_by(|&a, &b| {

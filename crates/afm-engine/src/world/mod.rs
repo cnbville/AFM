@@ -19,6 +19,7 @@ pub mod game_log;
 pub mod geo;
 pub mod high_school;
 pub mod names;
+pub mod ncaa;
 pub mod news;
 pub mod program;
 mod recruiting;

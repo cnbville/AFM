@@ -116,7 +116,7 @@ fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) {
 }
 
 /// Ends a coach's current job and records the stint.
-fn leave(w: &mut World, coach: usize, why: &'static str) {
+pub(crate) fn leave(w: &mut World, coach: usize, why: &'static str) {
     let year = w.year;
     let Some(job) = w.coaches[coach].job.take() else { return };
     let c = &mut w.coaches[coach];
@@ -870,6 +870,8 @@ fn nfl_firing(w: &mut World, c: usize, t: usize, tenure: i32, openings: &mut Vec
 /// coordinator, head coach (note 5).
 pub(crate) fn carousel(w: &mut World) {
     let year = w.year;
+    // The NCAA rules first: a show-cause order opens a job (11.6).
+    super::ncaa::enforcement(w);
     let mut openings: Vec<Opening> = Vec::new();
     // --- Retirements, firings and extensions -------------------------------------
     for c in 0..w.coaches.len() {
@@ -1313,6 +1315,11 @@ fn diversity_report(w: &mut World) {
 }
 
 /// Who a search looks at for an opening.
+/// Under an NCAA show-cause order: no college will hire him (11.6).
+fn barred(w: &World, c: usize) -> bool {
+    w.coaches[c].show_cause.is_some_and(|until| until >= w.year)
+}
+
 fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usize]) -> Vec<usize> {
     let mut pool: Vec<usize> = Vec::new();
     let sample = |w: &mut World, list: &[usize], k: usize, pool: &mut Vec<usize>| {
@@ -1359,7 +1366,7 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                         }
                         (Role::PositionCoach(_), Role::HeadCoach) => false,
                     };
-                    if fits && !moved.contains(&c) {
+                    if fits && !moved.contains(&c) && !barred(w, c) {
                         list.push(c);
                     }
                 }
@@ -1377,8 +1384,13 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
             sample(w, &list, 40, &mut pool);
             // A big head job also calls the hottest NFL coordinators (proposed: 3).
             if o.role == Role::HeadCoach && div == Division::FBS {
-                let nfl: Vec<usize> =
-                    w.nfl.iter().flat_map(|t| [t.oc, t.dc]).flatten().filter(|c| !moved.contains(c)).collect();
+                let nfl: Vec<usize> = w
+                    .nfl
+                    .iter()
+                    .flat_map(|t| [t.oc, t.dc])
+                    .flatten()
+                    .filter(|&c| !moved.contains(&c) && !barred(w, c))
+                    .collect();
                 pool.extend(hottest(w, &nfl, 3));
             }
             // High school coaches: the top ones get small-college head jobs; a
@@ -1516,6 +1528,8 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
 /// Prestige, grades, NIL and footprints after the season (topic 7, 8, 4).
 pub(crate) fn update_programs(w: &mut World, r: &SeasonResults) {
     let year = w.year;
+    // Booster payments for the class just signed, and the season's record.
+    super::ncaa::after_signing(w);
     // Conference strength: the average prestige of the members.
     let mut conf: BTreeMap<String, (f64, f64)> = BTreeMap::new();
     for p in w.programs.iter() {
@@ -1560,7 +1574,11 @@ pub(crate) fn update_programs(w: &mut World, r: &SeasonResults) {
                 + if t.conference_title { 0.15 } else { 0.0 }
                 + if t.national_title { 0.3 } else { 0.0 });
         if w.recording {
-            p.recent = 0.6 * p.recent + 0.4 * clamp(season_score, 0.0, 1.0);
+            // Recent results build slowly and don't max out (11.10): a season
+            // counts for a quarter, so the last four carry about two-thirds
+            // (a recruit's high school years), and a title season counts more
+            // than a plain 12-1 one (proposed, not confirmed).
+            p.recent = 0.75 * p.recent + 0.25 * season_score;
             // Tradition is built by titles; recent form only seeps in slowly (note 15C).
             p.tradition = clamp(
                 0.995 * p.tradition
@@ -1573,7 +1591,7 @@ pub(crate) fn update_programs(w: &mut World, r: &SeasonResults) {
             let fan_target =
                 clamp(0.4 * p.tradition + 0.4 * p.recent + 0.2 * (p.stadium as f64 / 110_000.0).sqrt(), 0.0, 1.0);
             p.fans = 0.93 * p.fans + 0.07 * fan_target;
-            let nil_share = clamp((p.collective.budget / 25.0e6).sqrt(), 0.0, 1.0);
+            let nil_share = clamp((p.collective.boosters() / 25.0e6).sqrt(), 0.0, 1.0);
             let fac_target = clamp(scale * (0.3 + 0.4 * p.fans) + 0.3 * nil_share, 0.0, 1.0);
             // Facilities move in steps (note 15C): buildings age a little each
             // year, and a project lands when the money and the will line up.
@@ -1599,9 +1617,15 @@ pub(crate) fn update_programs(w: &mut World, r: &SeasonResults) {
         p.prestige = program::prestige_of(p, hc_rep, conf_strength(&p.conference));
     }
     for division in [Division::FBS, Division::FCS, Division::D2, Division::JUCO] {
-        let top = w.programs.iter().filter(|p| p.division == division).map(|p| p.prestige).fold(0.01, f64::max);
+        // A fixed yardstick (11.9): the division leader's prestige when
+        // recorded history began, so the leader no longer always reads 1.0.
+        // The spin-up years before it still measure against the leader.
+        let level = || w.programs.iter().filter(|p| p.division == division);
+        let top = level().map(|p| p.prestige).fold(0.01, f64::max);
+        let start = level().map(|p| p.prestige_start).fold(0.0, f64::max);
+        let yardstick = if start > 0.0 { start } else { top };
         for p in w.programs.iter_mut().filter(|p| p.division == division) {
-            p.prestige_rel = p.prestige / top;
+            p.prestige_rel = p.prestige / yardstick;
         }
     }
     for i in 0..n {
@@ -1635,7 +1659,9 @@ pub(crate) fn update_programs(w: &mut World, r: &SeasonResults) {
             0.02 * t.strength + (0.6 * titles_recent + win) * conf_strength(&p.conference);
         raw[i][GradeCat::CoachPrestige as usize] = hc_rep;
         raw[i][GradeCat::Facilities as usize] = p.facilities;
-        raw[i][GradeCat::Nil as usize] = p.collective.budget;
+        // Before NIL the grade reads the booster base, the money that becomes NIL.
+        raw[i][GradeCat::Nil as usize] =
+            if super::ncaa::nil_era(year) { p.collective.budget } else { p.collective.boosters() };
         raw[i][GradeCat::BrandExposure as usize] =
             0.6 * p.fans + 0.2 * p.tradition + if p.power_four() { 0.2 } else { 0.0 };
         raw[i][GradeCat::ConferenceStrength as usize] = conf_strength(&p.conference);
@@ -1663,12 +1689,13 @@ pub(crate) fn update_programs(w: &mut World, r: &SeasonResults) {
     // --- NIL collectives and their warnings -------------------------------------------
     for i in 0..n {
         let win = if r.college[i].games() > 0 { r.college[i].win_pct() } else { 0.5 };
-        let before = w.programs[i].collective.budget;
+        let before = w.programs[i].collective.boosters();
         let mut rng: Rng = w.rng.fork();
-        let level = program::update_collective(&mut w.programs[i], win, &mut rng);
+        let level = program::update_collective(&mut w.programs[i], win, year + 1, &mut rng);
         let p = &w.programs[i];
-        if w.recording && level > 0 && p.division != Division::JUCO {
-            let change = (p.collective.budget / before.max(1.0) - 1.0) * 100.0;
+        // Collectives exist from July 2021 (11.5).
+        if w.recording && level > 0 && p.division != Division::JUCO && super::ncaa::nil_era(year) {
+            let change = (p.collective.boosters() / before.max(1.0) - 1.0) * 100.0;
             let name = p.name(w.options.names).to_string();
             let booster_left = p.collective.trend == NilTrend::BoosterLeft;
             w.news.extend(news::nil_warnings(year, i, &name, level, booster_left, change));
