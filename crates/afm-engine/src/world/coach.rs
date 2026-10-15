@@ -242,6 +242,12 @@ pub struct Coach {
     pub came_up: Group,
     /// His visible teaching record by group.
     pub units: [UnitRecord; GROUP_COUNT],
+    /// Hidden: the state he calls home, where his family roots are (11.13).
+    /// Set with his first job.
+    pub(crate) home_state: Option<usize>,
+    /// Hidden: the age his sharpness starts to fade, and how fast (11.14).
+    pub(crate) decline_from: f64,
+    pub(crate) decline_rate: f64,
 }
 
 /// Typical ability by level: (mean, spread).
@@ -320,6 +326,11 @@ pub fn generate_coach(
     // Reputation starts near what he looks like on paper, with plenty of error.
     let reputation =
         clamp(ability.head_coach_value() + rng.normal(0.0, 2.0) + if ex_pro { 1.0 } else { 0.0 }, 1.0, 20.0);
+    // Sharpness fades from the late 50s, earlier for some and later for
+    // others, at his own pace (11.14; proposed, not confirmed: onset about
+    // 59 give or take 3.5 years, 0.08-0.35 points a year to start).
+    let decline_from = clamp(rng.normal(59.0, 3.5), 52.0, 68.0);
+    let decline_rate = rng.range(0.08, 0.35);
     Coach {
         id,
         name,
@@ -343,6 +354,9 @@ pub fn generate_coach(
         ties: HashMap::new(),
         came_up,
         units: [UnitRecord::default(); GROUP_COUNT],
+        home_state: None,
+        decline_from,
+        decline_rate,
     }
 }
 
@@ -358,10 +372,12 @@ impl Coach {
     }
 
     /// One year of a coach's career: young coaches learn fast; old ones fall
-    /// behind on schemes. Working under a better head coach rubs off (his tree).
+    /// behind on schemes and lose sharpness. Working under a better head coach
+    /// rubs off (his tree).
     pub fn age_one_year(&mut self, mentor: Option<&Ability>, rng: &mut Rng) {
         self.age += 1;
         let age = self.age as f64;
+        // Learning stops in the late 50s; what comes after is decline, below.
         let learn = if age < 35.0 {
             0.45
         } else if age < 48.0 {
@@ -369,12 +385,35 @@ impl Coach {
         } else if age < 58.0 {
             0.05
         } else {
-            -0.1
+            0.0
         };
         let ceiling = self.learning_ceiling;
         for v in self.ability.parts_mut() {
             let room = (ceiling - *v).max(0.0);
             *v = clamp(*v + learn * (room / 6.0).min(1.0) + rng.normal(0.0, 0.15), 1.0, 20.0);
+        }
+        // Age takes the edge off every coach, at his ceiling or not (11.14):
+        // the energy for the road and for teenagers goes first, then the
+        // sideline sharpness; what he knows about teaching holds longest, and
+        // his network stays. It speeds up a little each year (proposed, not
+        // confirmed: weights 1.2 recruiting, 1.0 motivation, 0.8 game
+        // management, 0.6 relationships, 0.5 discipline, 0.4 teaching; +15% a year).
+        let past = age - self.decline_from;
+        if past > 0.0 {
+            let d = self.decline_rate * (1.0 + 0.15 * past);
+            let a = &mut self.ability;
+            for (v, k) in [
+                (&mut a.recruiting, 1.2),
+                (&mut a.motivation, 1.0),
+                (&mut a.game_management, 0.8),
+                (&mut a.relationships, 0.6),
+                (&mut a.discipline, 0.5),
+            ] {
+                *v = clamp(*v - k * d, 1.0, 20.0);
+            }
+            for t in a.teaching.iter_mut() {
+                *t = clamp(*t - 0.4 * d, 1.0, 20.0);
+            }
         }
         if age >= 58.0 {
             // Schemes move on; an old coach who doesn't adapt falls behind.

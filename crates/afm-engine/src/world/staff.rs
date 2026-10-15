@@ -4,7 +4,8 @@
 use std::collections::{BTreeMap, HashSet};
 
 use super::coach::{
-    CoachTier, Employer, Group, Job, Role, Stint, TitleKind, candidate_score, generate_coach, hiring_needs,
+    Coach, CoachTier, Employer, Group, HiringNeeds, Job, Role, Stint, TitleKind, candidate_score, generate_coach,
+    hiring_needs,
 };
 use super::data::{AcademicTier, Division};
 use super::ethnicity::{CoachPool, Ethnicity, coach_ethnicity, hiring_bias};
@@ -32,8 +33,45 @@ fn new_coach(w: &mut World, tier: CoachTier, age: u32, pool: CoachPool) -> usize
     id
 }
 
+/// The state a job is in (an NFL team has none here).
+fn employer_state(w: &World, e: Employer) -> Option<usize> {
+    match e {
+        Employer::HighSchool(s) => Some(w.high_schools[s].state),
+        Employer::College(p) => Some(w.programs[p].state),
+        Employer::Nfl(_) => None,
+    }
+}
+
+/// The NFL staff jobs the world tracks: head coach and the two coordinators.
+fn nfl_roles() -> [Role; 3] {
+    [Role::HeadCoach, Role::OffensiveCoordinator, Role::DefensiveCoordinator]
+}
+
+/// The coach in an NFL staff slot.
+fn nfl_slot(team: &crate::league::Team, role: Role) -> Option<usize> {
+    match role {
+        Role::HeadCoach => team.head_coach,
+        Role::OffensiveCoordinator => team.oc,
+        Role::DefensiveCoordinator => team.dc,
+        Role::PositionCoach(_) => None,
+    }
+}
+
 fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) {
     let year = w.year;
+    if w.coaches[coach].home_state.is_none() {
+        // His family roots (11.13): most coaches start out near home
+        // (proposed, not confirmed: half); the rest grew up wherever the
+        // country's players do.
+        let home = match employer_state(w, employer) {
+            Some(s) if w.rng.chance(0.5) => s,
+            _ => {
+                let shares: Vec<(usize, f64)> = w.states.iter().enumerate().map(|(i, s)| (i, s.class_share)).collect();
+                w.rng.weighted(&shares)
+            }
+        };
+        w.coaches[coach].home_state = Some(home);
+    }
     w.coaches[coach].job = Some(Job { employer, role, since: year });
     w.coaches[coach].wins = 0;
     w.coaches[coach].losses = 0;
@@ -49,12 +87,24 @@ fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) {
                 Role::PositionCoach(g) => prog.position_coaches[g as usize] = Some(coach),
             }
         }
-        Employer::Nfl(_) => {}
+        Employer::Nfl(t) => {
+            let team = &mut w.nfl[t];
+            match role {
+                Role::HeadCoach => team.head_coach = Some(coach),
+                Role::OffensiveCoordinator => team.oc = Some(coach),
+                Role::DefensiveCoordinator => team.dc = Some(coach),
+                Role::PositionCoach(_) => {}
+            }
+        }
     }
     // An assistant hired under a head coach joins his tree.
+    let boss = match employer {
+        Employer::College(p) => w.programs[p].head_coach,
+        Employer::Nfl(t) => w.nfl[t].head_coach,
+        Employer::HighSchool(_) => None,
+    };
     if role != Role::HeadCoach
-        && let Employer::College(p) = employer
-        && let Some(hc) = w.programs[p].head_coach
+        && let Some(hc) = boss
         && w.coaches[coach].mentor.is_none()
     {
         w.coaches[coach].mentor = Some(hc);
@@ -92,7 +142,14 @@ fn leave(w: &mut World, coach: usize, why: &'static str) {
                 }
             }
         }
-        Employer::Nfl(_) => {}
+        Employer::Nfl(t) => {
+            let team = &mut w.nfl[t];
+            for slot in [&mut team.head_coach, &mut team.oc, &mut team.dc] {
+                if *slot == Some(coach) {
+                    *slot = None;
+                }
+            }
+        }
     }
 }
 
@@ -145,6 +202,127 @@ pub(crate) fn staff_everyone(w: &mut World) {
             w.coaches[c].reputation = clamp(w.coaches[c].reputation + 4.0, 1.0, 20.0);
         }
         hire(w, c, Employer::HighSchool(s), Role::HeadCoach);
+    }
+    // NFL staffs: a head coach and two coordinators per team (11.12).
+    for t in 0..w.nfl.len() {
+        for role in nfl_roles() {
+            let (lo, pool) = match role {
+                Role::HeadCoach => (38, CoachPool::CollegeHead1990),
+                _ => (32, CoachPool::CollegeAssistant1990),
+            };
+            let age = w.rng.int(lo, 64) as u32;
+            let c = new_coach(w, CoachTier::Nfl, age, pool);
+            hire(w, c, Employer::Nfl(t), role);
+            w.coaches[c].job.as_mut().unwrap().since = w.year - w.rng.int(0, 6);
+        }
+    }
+    set_nfl_coaching(w);
+}
+
+/// How well a coach runs one side of the ball, 1-20: his teaching there and his scheme.
+fn side_quality(c: &Coach, offense: bool) -> f64 {
+    let a = c.ability();
+    let groups: Vec<f64> = Group::ALL
+        .iter()
+        .filter(|g| g.offense() == offense && **g != Group::Specialists)
+        .map(|&g| a.teaching[g as usize])
+        .collect();
+    0.7 * groups.iter().sum::<f64>() / groups.len() as f64 + 0.3 * a.scheme
+}
+
+/// The pro league's staff rating for each world team, 1-20, from its named
+/// coaches (11.12): the head coach counts half, each coordinator a quarter on
+/// his side of the ball (proposed, not confirmed).
+fn set_nfl_coaching(w: &mut World) {
+    let year = w.year;
+    for t in 0..w.nfl.len() {
+        let team = &w.nfl[t];
+        let Some(h) = team.head_coach else { continue };
+        let side = |c: Option<usize>, off: bool| c.map_or(11.0, |c| side_quality(&w.coaches[c], off));
+        let q =
+            0.5 * w.coaches[h].ability().head_coach_value() + 0.25 * side(team.oc, true) + 0.25 * side(team.dc, false);
+        let since = w.coaches[h].job.map_or(year, |j| j.since);
+        w.nfl[t].coaching = clamp(q, 1.0, 20.0);
+        w.nfl[t].staff_years = (year - since).max(0) as u32;
+    }
+}
+
+/// One NFL season for the coaches (11.12). The league's games aren't played,
+/// so each team's record comes from its roster, its staff and luck. Real NFL
+/// win shares spread about 0.19 a season, about 0.12 of it luck (proposed,
+/// not confirmed: 0.13 per roster sd, 0.06 per staff sd). The playoff
+/// bracket isn't played either: better teams are likelier to come through it.
+fn nfl_season(w: &mut World) {
+    let year = w.year;
+    let n = w.nfl.len();
+    if n == 0 {
+        return;
+    }
+    let strength: Vec<f64> = w.nfl.iter().map(|t| t.strength()).collect();
+    let mean = strength.iter().sum::<f64>() / n as f64;
+    let sd = (strength.iter().map(|s| (s - mean).powi(2)).sum::<f64>() / n as f64).sqrt().max(0.5);
+    let games = if year >= 2021 { 17 } else { 16 };
+    let mut expect = vec![0.0; n];
+    let mut raw = vec![0.0; n];
+    for t in 0..n {
+        expect[t] = 0.5 + 0.13 * (strength[t] - mean) / sd;
+        let staff = (w.nfl[t].coaching - 13.0) / 2.5;
+        raw[t] = expect[t] + 0.06 * staff + w.rng.normal(0.0, 0.12);
+    }
+    // Every game has a winner: the league's win shares average one half.
+    let shift = 0.5 - raw.iter().sum::<f64>() / n as f64;
+    let wins: Vec<u32> = raw.iter().map(|r| (clamp(r + shift, 0.0, 1.0) * games as f64).round() as u32).collect();
+    let mut order: Vec<usize> = (0..n).collect();
+    order.sort_by(|&a, &b| wins[b].cmp(&wins[a]).then(a.cmp(&b)));
+    let spots = if year >= 2020 { 14 } else { 12 };
+    let seeds: Vec<(usize, f64)> =
+        order.iter().take(spots).map(|&t| (t, (8.0 * (wins[t] as f64 / games as f64 - 0.5)).exp())).collect();
+    let champ = w.rng.weighted(&seeds);
+    let rest: Vec<(usize, f64)> = seeds.iter().copied().filter(|s| s.0 != champ).collect();
+    let runner_up = w.rng.weighted(&rest);
+    for t in 0..n {
+        let share = wins[t] as f64 / games as f64;
+        let vs = share - expect[t];
+        let title = if t == champ {
+            TitleKind::National
+        } else if t == runner_up {
+            TitleKind::Conference
+        } else {
+            TitleKind::None
+        };
+        let team = &mut w.nfl[t];
+        team.win_share.push(share);
+        if team.win_share.len() > 3 {
+            team.win_share.remove(0);
+        }
+        let (hc, oc, dc) = (team.head_coach, team.oc, team.dc);
+        if let Some(h) = hc {
+            let coach = &mut w.coaches[h];
+            coach.wins += wins[t];
+            coach.losses += games - wins[t];
+            if title != TitleKind::None {
+                coach.titles += 1;
+                coach.career_titles += 1;
+            }
+            coach.update_reputation(vs, title, 0.0, true, 1.0);
+        }
+        // A coordinator is judged on his unit: the team's year and his side's own form.
+        for (c, off) in [(oc, true), (dc, false)] {
+            let Some(c) = c else { continue };
+            let unit = 0.03 * (side_quality(&w.coaches[c], off) - 13.5) / 2.0 + w.rng.normal(0.0, 0.04);
+            w.coaches[c].update_reputation(0.5 * vs + unit, title, 0.0, false, 1.0);
+        }
+        if title == TitleKind::National && w.recording {
+            let name = w.nfl[t].name;
+            let coach = hc.map_or(String::new(), |h| format!(" under head coach {}", w.coaches[h].name));
+            w.news.push(NewsItem {
+                year,
+                kind: NewsKind::NationalTitle,
+                channel: Channel::News,
+                program: None,
+                text: format!("The {name} win the Super Bowl{coach}."),
+            });
+        }
     }
 }
 
@@ -236,6 +414,7 @@ pub(crate) fn after_season(w: &mut World, r: &SeasonResults) {
             coach.update_reputation(t.vs_expectation(), t.best_title(), locker, head, stage);
         }
     }
+    nfl_season(w);
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -325,6 +504,362 @@ fn hs_buzz(w: &World, c: usize) -> bool {
     title && games > 0 && wins as f64 / games as f64 >= 0.9
 }
 
+/// What a job pays a year, in today's dollars (11.13). Claude's reading of
+/// 2024-25 pay (USA Today's college salary database, NFL reporting), proposed,
+/// not confirmed: each level's range runs from its smallest program to its
+/// biggest, by prestige. NFL teams pay by owner, and the NFL paid about twice
+/// what college did in the 1990s, until top college pay caught up by the
+/// mid-2010s.
+fn salary(w: &World, e: Employer, role: Role) -> f64 {
+    let pick = |r: [(f64, f64); 3]| match role {
+        Role::HeadCoach => r[0],
+        Role::OffensiveCoordinator | Role::DefensiveCoordinator => r[1],
+        Role::PositionCoach(_) => r[2],
+    };
+    let ((lo, hi), x, era) = match e {
+        Employer::HighSchool(s) => ((0.05e6, 0.16e6), w.high_schools[s].prestige, 1.0),
+        Employer::College(p) => {
+            let range = match w.programs[p].division {
+                Division::FBS => [(0.6e6, 12.0e6), (0.25e6, 2.5e6), (0.15e6, 1.0e6)],
+                Division::FCS => [(0.15e6, 0.7e6), (0.08e6, 0.25e6), (0.05e6, 0.12e6)],
+                Division::D2 => [(0.07e6, 0.2e6), (0.045e6, 0.09e6), (0.035e6, 0.06e6)],
+                Division::JUCO => [(0.05e6, 0.12e6), (0.04e6, 0.07e6), (0.03e6, 0.05e6)],
+            };
+            (pick(range), w.programs[p].prestige, 1.0)
+        }
+        Employer::Nfl(t) => {
+            let owner = (w.nfl[t].owner - 1.0) / 19.0;
+            let era = clamp(1.0 + 0.035 * (2024 - w.year) as f64, 1.0, 2.0);
+            (pick([(5.0e6, 14.0e6), (1.2e6, 4.0e6), (0.5e6, 1.2e6)]), owner, era)
+        }
+    };
+    lo * (hi / lo).powf(clamp(x, 0.0, 1.0)) * era
+}
+
+/// How hot a name is (11.11): what a search committee and the press can see.
+/// His reputation with recency bias, the size of his stage, titles in his
+/// last three seasons there, and a program rising under him (proposed, not
+/// confirmed: +3 for the biggest stage, +2 a conference title, +4 a national
+/// title, +1 per 0.01 of prestige gained in three years, -1 to +3).
+fn hotness(w: &World, c: usize) -> f64 {
+    let coach = &w.coaches[c];
+    let mut h = coach.hiring_buzz();
+    let Some(job) = coach.job else { return h };
+    h += 3.0 * employer_prestige(w, job.employer);
+    match job.employer {
+        Employer::College(p) => {
+            let prog = &w.programs[p];
+            for s in prog.seasons.iter().rev().take(3).filter(|s| s.year > job.since) {
+                if s.national_title {
+                    h += 4.0;
+                } else if s.conference_title {
+                    h += 2.0;
+                }
+            }
+            let hist = &prog.prestige_history;
+            if hist.len() >= 4 && hist[hist.len() - 4].0 >= job.since {
+                let rise = hist[hist.len() - 1].1 - hist[hist.len() - 4].1;
+                h += clamp(100.0 * rise, -1.0, 3.0);
+            }
+        }
+        Employer::Nfl(t) => {
+            // A coordinator on a winning team, or one who reached the Super Bowl.
+            h += 6.0 * (w.nfl[t].win_share.last().copied().unwrap_or(0.5) - 0.5);
+            if coach.titles > 0 {
+                h += 2.0;
+            }
+        }
+        Employer::HighSchool(_) => {}
+    }
+    h
+}
+
+/// The `k` hottest names on a list, hottest first.
+fn hottest(w: &World, list: &[usize], k: usize) -> Vec<usize> {
+    if k == 0 {
+        return Vec::new();
+    }
+    let mut ranked: Vec<(f64, usize)> = list.iter().map(|&c| (hotness(w, c), c)).collect();
+    ranked.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+    ranked.into_iter().take(k).map(|x| x.1).collect()
+}
+
+/// The roster a head coach would leave (11.13), 0-1: 1 when a young core of
+/// starters is coming back, 0 when the starters are mostly leaving.
+fn young_core(w: &World, p: usize) -> f64 {
+    let (mut young, mut starters) = (0.0, 0.0);
+    for &i in &w.programs[p].roster {
+        let person = &w.people[i];
+        if person.last_role == Some(PlayingTime::Starter) {
+            starters += 1.0;
+            if person.college_seasons <= 2 {
+                young += 1.0;
+            }
+        }
+    }
+    if starters == 0.0 { 0.0 } else { clamp((young / starters - 0.3) / 0.4, 0.0, 1.0) }
+}
+
+/// A short name for an employer in a story line.
+fn employer_title(w: &World, e: Employer) -> String {
+    match e {
+        Employer::HighSchool(h) => format!("{} High School", w.high_schools[h].name),
+        Employer::College(p) => w.programs[p].name(w.options.names).to_string(),
+        Employer::Nfl(t) => format!("the {}", w.nfl[t].name),
+    }
+}
+
+/// Whether he has coached in the NFL (or, with `nfl` false, in college).
+fn has_coached(c: &Coach, nfl: bool) -> bool {
+    let at = |e: Employer| if nfl { matches!(e, Employer::Nfl(_)) } else { matches!(e, Employer::College(_)) };
+    c.history.iter().any(|s| at(s.employer)) || c.job.is_some_and(|j| at(j.employer))
+}
+
+/// A coach weighs an offer (11.13): the job itself, the money, the NFL pull,
+/// the roster he would leave, his age, his roots and his seat. Each part is
+/// noteworthy and none decides alone. The move has to clear what it costs
+/// to uproot (0.03, the old bar), then his ambition and loyalty decide.
+/// Returns why he takes it, in plain words, or None.
+///
+/// Sizes (proposed, not confirmed), in prestige points: doubling his pay is
+/// worth 0.035; a first head job 0.12 (0.18 for the most ambitious); the NFL
+/// +0.04 for the most ambitious, -0.04 for the least, and a gifted recruiter
+/// gives up his edge (-0.02); a young core coming back -0.03; -0.003 a year
+/// of age past 52 and -0.0015 a season settled (to 12); going home +0.03,
+/// leaving home -0.02; a hot seat up to +0.03.
+fn weigh_offer(w: &mut World, c: usize, o: Opening) -> Option<String> {
+    let year = w.year;
+    let coach = &w.coaches[c];
+    let Some(job) = coach.job else {
+        // Out of work: he takes it.
+        return Some(coach.history.last().map_or(String::new(), |s| {
+            let how = if s.ended.starts_with("fired") { "fired" } else { "let go" };
+            format!("out of work since he was {how}")
+        }));
+    };
+    let a = (coach.personality.ambition - 10.0) / 10.0;
+    let mut parts: Vec<(f64, String)> = Vec::new();
+    // The job: a bigger program, or a step up the ladder.
+    let been_head = coach
+        .history
+        .iter()
+        .map(|s| (s.employer, s.role))
+        .chain(std::iter::once((job.employer, job.role)))
+        .any(|(e, r)| r == Role::HeadCoach && !matches!(e, Employer::HighSchool(_)));
+    let first_head = o.role == Role::HeadCoach && !been_head && !matches!(o.employer, Employer::HighSchool(_));
+    let gain = o.prestige + rung(o.role) - employer_prestige(w, job.employer) - rung(job.role);
+    let to_nfl = matches!(o.employer, Employer::Nfl(_));
+    let from_nfl = matches!(job.employer, Employer::Nfl(_));
+    let label = if to_nfl && !from_nfl {
+        "the step up to the NFL".to_string()
+    } else if o.prestige > employer_prestige(w, job.employer) + 0.02 {
+        "a bigger program".to_string()
+    } else if rung(o.role) > rung(job.role) && !first_head {
+        format!("a step up to {}", o.role.name())
+    } else {
+        String::new()
+    };
+    parts.push((gain, label));
+    if first_head {
+        parts.push((0.12 * (1.0 + 0.5 * a), "his first head job".to_string()));
+    }
+    // The money: a winner has had raises to keep him (10% a title, to three).
+    let pay_now = salary(w, job.employer, job.role) * (1.0 + 0.1 * coach.titles.min(3) as f64);
+    let pay = salary(w, o.employer, o.role);
+    parts.push((0.05 * (pay / pay_now).ln(), "a big raise".to_string()));
+    // The NFL: the top of the profession for the ambitious. A gifted
+    // recruiter gives up his edge there; an NFL man who hates recruiting stays.
+    let recruiter = (coach.ability().recruiting - 10.0) / 10.0;
+    if to_nfl && !from_nfl {
+        parts.push((0.04 * a - 0.02 * recruiter, "the NFL, where he always wanted to coach".to_string()));
+    } else if from_nfl && !to_nfl {
+        parts.push((0.02 * recruiter, "a return to the college game".to_string()));
+    }
+    // The roster he leaves: a young core coming back keeps a head coach.
+    if job.role == Role::HeadCoach
+        && let Employer::College(p) = job.employer
+    {
+        parts.push((-0.03 * young_core(w, p), String::new()));
+    }
+    // An older coach and a settled family move less.
+    let tenure = (year - job.since).clamp(0, 12) as f64;
+    parts.push((-0.003 * (coach.age as f64 - 52.0).max(0.0) - 0.0015 * tenure, String::new()));
+    // Family roots: going home pulls; leaving home costs.
+    let (here, there) = (employer_state(w, job.employer), employer_state(w, o.employer));
+    if let Some(home) = coach.home_state {
+        if there == Some(home) && here != Some(home) {
+            parts.push((0.03, format!("a chance to go home to {}", w.states[home].code)));
+        } else if here == Some(home) && there != Some(home) {
+            parts.push((-0.02, String::new()));
+        }
+    }
+    // A seat getting hot: a way out before he is pushed.
+    if job.role == Role::HeadCoach {
+        let n = coach.recent.len();
+        let last = if n >= 1 { coach.recent[n - 1] } else { 0.0 };
+        let before = if n >= 2 { coach.recent[n - 2] } else { 0.0 };
+        let heat = clamp(-(1.5 * last + 0.7 * before) / 0.3, 0.0, 1.0);
+        parts.push((0.03 * heat, "a way out before his seat got hot".to_string()));
+    }
+    let pull: f64 = parts.iter().map(|p| p.0).sum();
+    if pull <= 0.03 {
+        return None;
+    }
+    let p = &coach.personality;
+    let chance = clamp(0.35 + 0.04 * (p.ambition - 10.0) - 0.03 * (p.loyalty - 10.0) + 1.5 * pull, 0.05, 0.95);
+    if !w.rng.chance(chance) {
+        return None;
+    }
+    // Why, in plain words: the two biggest pulls.
+    parts.sort_by(|x, y| y.0.total_cmp(&x.0));
+    let why: Vec<String> = parts.into_iter().filter(|x| x.0 > 0.01 && !x.1.is_empty()).take(2).map(|x| x.1).collect();
+    Some(if why.is_empty() { "a fresh start".to_string() } else { why.join(" and ") })
+}
+
+/// A coach under 60 who steps away (11.15): his health, likelier with age,
+/// or burnout, likelier the longer he has carried a high-pressure job and the
+/// more intense he is (proposed, not confirmed: health 0.08% a year at 40,
+/// 0.55% at 59; burnout 0.8% a year after ten seasons in the biggest head
+/// jobs, a coordinator carrying 40% of that pressure).
+fn early_exit(w: &mut World, c: usize, job: Job) -> Option<&'static str> {
+    let coach = &w.coaches[c];
+    let age = coach.age as f64;
+    let health = 0.0008 + 0.00025 * (age - 40.0).max(0.0);
+    let pressure = employer_prestige(w, job.employer) * if job.role == Role::HeadCoach { 1.0 } else { 0.4 };
+    let intensity = 1.0 + 0.04 * (coach.personality.temper - 10.0);
+    let tenure = (w.year - job.since).clamp(0, 15) as f64;
+    let burnout = 0.008 * pressure * pressure * (tenure / 10.0) * intensity;
+    let roll = w.rng.next();
+    if roll < health {
+        Some("retired for his health")
+    } else if roll < health + burnout {
+        Some("stepped away, burned out")
+    } else {
+        None
+    }
+}
+
+fn seasons_text(n: i32) -> String {
+    if n == 1 { "1 season".to_string() } else { format!("{n} seasons") }
+}
+
+/// The story line when a head coach retires or steps away.
+fn retirement_news(w: &mut World, c: usize, job: Job, why: &str) {
+    if !w.recording || job.role != Role::HeadCoach {
+        return;
+    }
+    let year = w.year;
+    let (name, age, seasons) = (w.coaches[c].name.clone(), w.coaches[c].age, seasons_text(year - job.since));
+    let at = employer_title(w, job.employer);
+    let text = match why {
+        "retired for his health" => {
+            format!("Head coach {name} steps down at {at} at {age} for health reasons, after {seasons}.")
+        }
+        "stepped away, burned out" => {
+            format!("Head coach {name} steps away from coaching at {age}, worn out after {seasons} at {at}.")
+        }
+        _ => format!("Head coach {name} retires at {age} after {seasons} at {at}."),
+    };
+    match job.employer {
+        Employer::College(p) => {
+            w.programs[p].story.push((year, format!("Head coach {name} {why} at {age}.")));
+            college_news(w, p, NewsKind::CoachLeft, text);
+        }
+        Employer::Nfl(_) => {
+            w.news.push(NewsItem { year, kind: NewsKind::CoachLeft, channel: Channel::News, program: None, text })
+        }
+        Employer::HighSchool(_) => {}
+    }
+}
+
+/// The story line when a head coach leaves for another job, with why.
+fn departure_news(w: &mut World, c: usize, job: Job, o: Opening, why: &str) {
+    if !w.recording || job.role != Role::HeadCoach {
+        return;
+    }
+    let year = w.year;
+    let name = w.coaches[c].name.clone();
+    let dest = employer_title(w, o.employer);
+    let role = if o.role == Role::HeadCoach { String::new() } else { format!(" as {}", o.role.name()) };
+    let seasons = seasons_text(year - job.since);
+    let at = employer_title(w, job.employer);
+    let text = format!("Head coach {name} leaves {at} for {dest}{role} after {seasons} ({why}).");
+    match job.employer {
+        Employer::College(p) => {
+            w.programs[p].story.push((year, format!("Head coach {name} left for {dest}{role} ({why}).")));
+            college_news(w, p, NewsKind::CoachLeft, text);
+        }
+        Employer::Nfl(_) => {
+            w.news.push(NewsItem { year, kind: NewsKind::CoachLeft, channel: Channel::News, program: None, text })
+        }
+        Employer::HighSchool(_) => {}
+    }
+}
+
+/// NFL owners judge wins (11.12): a losing season or two costs most head
+/// coaches their job by the third year, a coach who beat what his roster
+/// should do gets some slack, and a patient owner waits longer. A coach who
+/// keeps his job often fires a coordinator after a losing year. Proposed, not
+/// confirmed; sized for about 6-8 openings a year (real 2015-2025 about 7).
+fn nfl_firing(w: &mut World, c: usize, t: usize, tenure: i32, openings: &mut Vec<Opening>) {
+    let ws = &w.nfl[t].win_share;
+    let n = ws.len();
+    let last = if n >= 1 { ws[n - 1] } else { 0.5 };
+    let before = if n >= 2 { ws[n - 2] } else { 0.5 };
+    let vs = w.coaches[c].recent.last().copied().unwrap_or(0.0);
+    let badness = 1.6 * (0.5 - last) + 0.6 * (0.5 - before) - 0.5 * vs;
+    let patience = clamp(1.0 - 0.03 * (w.nfl[t].owner - 10.0), 0.6, 1.4);
+    let p = clamp((badness - 0.1) * 3.2 * patience, 0.0, 0.9)
+        * match tenure {
+            0 => 0.0,
+            1 => 0.3,
+            2 => 0.7,
+            _ => 1.0,
+        };
+    if w.rng.chance(p) {
+        leave(w, c, "fired");
+        w.coaches[c].recent.clear();
+        openings.push(Opening { employer: Employer::Nfl(t), role: Role::HeadCoach, prestige: 1.0 });
+        if w.recording {
+            let games = if w.year >= 2021 { 17.0 } else { 16.0 };
+            let wins = (last * games).round();
+            let text = format!(
+                "The {} fire head coach {} after {}, the last one {wins}-{}.",
+                w.nfl[t].name,
+                w.coaches[c].name,
+                seasons_text(tenure),
+                games - wins
+            );
+            w.news.push(NewsItem {
+                year: w.year,
+                kind: NewsKind::CoachFired,
+                channel: Channel::News,
+                program: None,
+                text,
+            });
+        }
+        // A new head coach brings his own coordinators (proposed: each kept 30% of the time).
+        for role in [Role::OffensiveCoordinator, Role::DefensiveCoordinator] {
+            if let Some(a) = nfl_slot(&w.nfl[t], role)
+                && !w.rng.chance(0.3)
+            {
+                leave(w, a, "let go by the new staff");
+                openings.push(Opening { employer: Employer::Nfl(t), role, prestige: 1.0 });
+            }
+        }
+    } else {
+        for role in [Role::OffensiveCoordinator, Role::DefensiveCoordinator] {
+            let p = clamp((0.42 - last) * 1.5, 0.0, 0.35);
+            if let Some(a) = nfl_slot(&w.nfl[t], role)
+                && w.rng.chance(p)
+            {
+                leave(w, a, "fired");
+                openings.push(Opening { employer: Employer::Nfl(t), role, prestige: 1.0 });
+            }
+        }
+    }
+}
+
 /// The coaching carousel: firings (with recency bias), "prove it" extensions,
 /// retirements, and hiring in order of prestige, where every move opens
 /// another job. Coaches climb a ladder: high school, position coach,
@@ -337,17 +872,25 @@ pub(crate) fn carousel(w: &mut World) {
         let Some(job) = w.coaches[c].job else { continue };
         let age = w.coaches[c].age;
         let retire = age >= 60 && w.rng.chance(clamp(0.04 + 0.03 * (age as f64 - 60.0), 0.0, 1.0));
-        if retire {
-            leave(w, c, "retired");
+        // Before 60, his health or burnout (11.15).
+        let early = if age < 60 { early_exit(w, c, job) } else { None };
+        if retire || early.is_some() {
+            let why = early.unwrap_or("retired");
+            leave(w, c, why);
             w.coaches[c].retired = true;
             let prestige = employer_prestige(w, job.employer);
             openings.push(Opening { employer: job.employer, role: job.role, prestige });
+            retirement_news(w, c, job, why);
             continue;
         }
         if job.role != Role::HeadCoach {
             continue;
         }
         let tenure = year - job.since;
+        if let Employer::Nfl(t) = job.employer {
+            nfl_firing(w, c, t, tenure, &mut openings);
+            continue;
+        }
         let coach = &w.coaches[c];
         let n = coach.recent.len();
         let last = if n >= 1 { coach.recent[n - 1] } else { 0.0 };
@@ -464,6 +1007,15 @@ pub(crate) fn carousel(w: &mut World) {
             }
         }
     }
+    for t in 0..w.nfl.len() {
+        for role in nfl_roles() {
+            if nfl_slot(&w.nfl[t], role).is_none()
+                && !openings.iter().any(|o| o.employer == Employer::Nfl(t) && o.role == role)
+            {
+                openings.push(Opening { employer: Employer::Nfl(t), role, prestige: 1.0 });
+            }
+        }
+    }
     for s in 0..w.high_schools.len() {
         if w.high_schools[s].coach.is_none() && !openings.iter().any(|o| o.employer == Employer::HighSchool(s)) {
             let pr = employer_prestige(w, Employer::HighSchool(s));
@@ -485,9 +1037,16 @@ pub(crate) fn carousel(w: &mut World) {
             Employer::College(p) => (w.programs[p].prestige, false),
             Employer::Nfl(_) => (1.0, false),
         };
-        let needs = hiring_needs(needs_prestige, is_hs);
+        let nfl = matches!(o.employer, Employer::Nfl(_));
+        // An NFL team doesn't recruit and is its own exposure: it pays for teaching.
+        let needs = if nfl {
+            HiringNeeds { network: 0.0, teaching: 0.6, recruiting: 0.0 }
+        } else {
+            hiring_needs(needs_prestige, is_hs)
+        };
         let hiring_hc = match o.employer {
             Employer::College(p) if o.role != Role::HeadCoach => w.programs[p].head_coach,
+            Employer::Nfl(t) if o.role != Role::HeadCoach => w.nfl[t].head_coach,
             _ => None,
         };
         // Nobody sees a coach's teaching directly (note 15B). A school reads
@@ -549,6 +1108,17 @@ pub(crate) fn carousel(w: &mut World) {
                         }
                     }
                 }
+                // Each world doubts the other's record (11.11, 11.12): NFL owners
+                // doubt that college success carries over (a different game, no
+                // recruiting edge); a college search doubts a man with no
+                // recruiting ties (proposed, not confirmed: 4 and 2 points for a
+                // head job, half for a coordinator job).
+                let head = if o.role == Role::HeadCoach { 1.0 } else { 0.5 };
+                if nfl && !has_coached(coach, true) {
+                    s -= 4.0 * head;
+                } else if !nfl && !is_hs && !has_coached(coach, false) && !matches!(o.role, Role::PositionCoach(_)) {
+                    s -= 2.0 * head;
+                }
                 // Head coaches hire from their own tree (note 2: how the gap travels).
                 if hiring_hc.is_some() && w.coaches[c].mentor == hiring_hc {
                     s += 1.5;
@@ -561,43 +1131,31 @@ pub(crate) fn carousel(w: &mut World) {
             .collect();
         scored.sort_by(|a, b| b.1.total_cmp(&a.1));
         let mut hired = None;
+        let mut why = String::new();
         // A search works down its list: when the first names say no, the
         // school calls the next ones (proposed, not confirmed: 20 calls).
+        // Each one weighs the offer his own way (11.13).
         for &(c, _) in scored.iter().take(20) {
-            let coach = &w.coaches[c];
-            let accepts = match coach.job {
-                None => true,
-                Some(job) => {
-                    let current = employer_prestige(w, job.employer) + rung(job.role);
-                    let offered = o.prestige + rung(o.role);
-                    let gain = offered - current;
-                    gain > 0.03
-                        && w.rng.chance(clamp(
-                            0.35 + 0.04 * (coach.personality.ambition - 10.0)
-                                - 0.03 * (coach.personality.loyalty - 10.0)
-                                + 1.5 * gain,
-                            0.05,
-                            0.95,
-                        ))
-                }
-            };
-            if accepts {
+            if let Some(reason) = weigh_offer(w, c, o) {
                 hired = Some(c);
+                why = reason;
                 break;
             }
         }
-        // Nobody outside said yes to a college head job: the school promotes
+        // Nobody outside said yes to a head job: the school or team promotes
         // its own coordinator, the better-regarded one (an interim who stays).
-        if hired.is_none()
-            && o.role == Role::HeadCoach
-            && let Employer::College(p) = o.employer
-            && !is_hs
-        {
-            hired = [w.programs[p].oc, w.programs[p].dc]
+        if hired.is_none() && o.role == Role::HeadCoach && !is_hs {
+            let own = match o.employer {
+                Employer::College(p) => [w.programs[p].oc, w.programs[p].dc],
+                Employer::Nfl(t) => [w.nfl[t].oc, w.nfl[t].dc],
+                Employer::HighSchool(_) => [None, None],
+            };
+            hired = own
                 .into_iter()
                 .flatten()
                 .filter(|c| !moved.contains(c))
                 .max_by(|&a, &b| w.coaches[a].reputation.total_cmp(&w.coaches[b].reputation));
+            why = "the names outside said no".to_string();
         }
         let c = match hired {
             Some(c) => {
@@ -605,11 +1163,19 @@ pub(crate) fn carousel(w: &mut World) {
                     leave(w, c, "left for another job");
                     let prestige = employer_prestige(w, job.employer);
                     openings.push(Opening { employer: job.employer, role: job.role, prestige });
+                    if job.employer != o.employer {
+                        departure_news(w, c, job, o, &why);
+                    }
                 }
                 c
             }
             None => {
                 // Nobody suitable said yes: promote a young assistant.
+                why = if o.role == Role::HeadCoach {
+                    "a long-time assistant's first head job, after the names on the list said no".to_string()
+                } else {
+                    String::new()
+                };
                 let tier = match o.employer {
                     Employer::HighSchool(_) => CoachTier::HighSchool,
                     Employer::College(p) => tier_of(w.programs[p].division),
@@ -618,6 +1184,8 @@ pub(crate) fn carousel(w: &mut World) {
                 // A head job goes to a long-time assistant; assistant jobs go younger.
                 let (lo, hi) = match (o.role, o.employer) {
                     (Role::HeadCoach, Employer::College(_)) => (36, 52),
+                    (Role::HeadCoach, Employer::Nfl(_)) => (40, 55),
+                    (_, Employer::Nfl(_)) => (34, 50),
                     (Role::PositionCoach(_), _) => (25, 36),
                     _ => (28, 40),
                 };
@@ -641,18 +1209,27 @@ pub(crate) fn carousel(w: &mut World) {
         moved.insert(c);
         let from_job = w.coaches[c].history.last().map(|s| (s.employer, s.role));
         hire(w, c, o.employer, o.role);
+        // Where he came from, and why he came (11.13).
+        let from = from_job.map_or("a new coach".to_string(), |(e, _)| match e {
+            e if e == o.employer => "promoted from his own staff".to_string(),
+            Employer::College(q) => format!("from {}", w.programs[q].name(w.options.names)),
+            Employer::HighSchool(h) => format!("from {} High School football", w.high_schools[h].name),
+            Employer::Nfl(u) => format!("from the {}", w.nfl[u].name),
+        });
+        let from = if why.is_empty() { from } else { format!("{from}: {why}") };
+        if w.recording
+            && let Employer::Nfl(t) = o.employer
+            && o.role == Role::HeadCoach
+        {
+            let text = format!("The {} hire {} as head coach ({from}).", w.nfl[t].name, w.coaches[c].name);
+            w.news.push(NewsItem { year, kind: NewsKind::CoachHired, channel: Channel::News, program: None, text });
+        }
         if w.recording
             && let Employer::College(p) = o.employer
             && (o.role == Role::HeadCoach || matches!(from_job, Some((Employer::HighSchool(_), _))))
         {
             let name = w.programs[p].name(w.options.names).to_string();
             let coach = &w.coaches[c];
-            let from = from_job.map_or("a new coach".to_string(), |(e, _)| match e {
-                Employer::College(q) if q == p => "promoted from his own staff".to_string(),
-                Employer::College(q) => format!("from {}", w.programs[q].name(w.options.names)),
-                Employer::HighSchool(h) => format!("from {} High School football", w.high_schools[h].name),
-                Employer::Nfl(_) => "from the NFL".to_string(),
-            });
             if o.role == Role::HeadCoach {
                 let line = format!("Hired head coach {} ({from}).", coach.name);
                 w.programs[p].story.push((year, line));
@@ -676,6 +1253,9 @@ pub(crate) fn carousel(w: &mut World) {
             Some(Job { employer: Employer::College(p), role, .. }) if role != Role::HeadCoach => {
                 w.programs[p].head_coach.map(|h| *w.coaches[h].ability())
             }
+            Some(Job { employer: Employer::Nfl(t), role, .. }) if role != Role::HeadCoach => {
+                w.nfl[t].head_coach.map(|h| *w.coaches[h].ability())
+            }
             _ => None,
         };
         let mut rng = w.rng.fork();
@@ -693,6 +1273,7 @@ pub(crate) fn carousel(w: &mut World) {
             w.coaches[c].retired = true;
         }
     }
+    set_nfl_coaching(w);
     if w.recording {
         diversity_report(w);
     }
@@ -779,7 +1360,23 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                     }
                 }
             }
+            // The short list (11.11): for a head or coordinator job, the
+            // hottest names that fit come first (proposed, not confirmed: 15
+            // for a head job, 10 for a coordinator job). The random draw
+            // still brings lesser-known names.
+            let short = match o.role {
+                Role::HeadCoach => 15,
+                Role::OffensiveCoordinator | Role::DefensiveCoordinator => 10,
+                Role::PositionCoach(_) => 0,
+            };
+            pool.extend(hottest(w, &list, short));
             sample(w, &list, 40, &mut pool);
+            // A big head job also calls the hottest NFL coordinators (proposed: 3).
+            if o.role == Role::HeadCoach && div == Division::FBS {
+                let nfl: Vec<usize> =
+                    w.nfl.iter().flat_map(|t| [t.oc, t.dc]).flatten().filter(|c| !moved.contains(c)).collect();
+                pool.extend(hottest(w, &nfl, 3));
+            }
             // High school coaches: the top ones get small-college head jobs; a
             // dominant one can jump to a college staff at any level (Gus Malzahn).
             let hs_head = o.role == Role::HeadCoach && matches!(div, Division::D2 | Division::JUCO);
@@ -848,7 +1445,46 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                 pool.push(c);
             }
         }
-        Employer::Nfl(_) => {}
+        Employer::Nfl(t) => {
+            // NFL coordinators: any of them for a head job, the same side of the
+            // ball elsewhere for a coordinator job (11.12).
+            let head = o.role == Role::HeadCoach;
+            let side = o.role.offense();
+            for (u, team) in w.nfl.iter().enumerate() {
+                for (r, c) in [(Role::OffensiveCoordinator, team.oc), (Role::DefensiveCoordinator, team.dc)] {
+                    if let Some(c) = c
+                        && (head || (u != t && r.offense() == side))
+                        && !moved.contains(&c)
+                    {
+                        pool.push(c);
+                    }
+                }
+            }
+            // Out-of-work NFL coaches: former head coaches, and coordinators on that side.
+            for c in w.coaches.iter().filter(|c| c.job.is_none() && !c.retired && c.age < 66) {
+                let fits = c.history.iter().any(|s| {
+                    matches!(s.employer, Employer::Nfl(_))
+                        && (s.role == Role::HeadCoach || (!head && s.role.offense() == side))
+                });
+                if fits && !moved.contains(&c.id) {
+                    pool.push(c.id);
+                }
+            }
+            // The hottest college names: FBS head coaches for a head job, FBS
+            // coordinators on that side for a coordinator job (proposed: 8 and 5).
+            let college: Vec<usize> = w
+                .programs
+                .iter()
+                .filter(|p| p.division == Division::FBS)
+                .filter_map(|p| match o.role {
+                    Role::OffensiveCoordinator => p.oc,
+                    Role::DefensiveCoordinator => p.dc,
+                    _ => p.head_coach,
+                })
+                .filter(|c| !moved.contains(c))
+                .collect();
+            pool.extend(hottest(w, &college, if head { 8 } else { 5 }));
+        }
     }
     // Unemployed coaches still looking. A former college head coach doesn't take a high school job.
     let hs_job = matches!(o.employer, Employer::HighSchool(_));

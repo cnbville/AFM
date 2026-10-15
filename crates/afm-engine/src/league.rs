@@ -111,6 +111,14 @@ pub struct Team {
     pub depth: [Vec<Member>; POSITION_COUNT],
     /// Years the current coaching staff has been in place.
     pub staff_years: u32,
+    /// In the world, the named head coach and coordinators (ids into the
+    /// world's coaches; dynasty item 11.12). The class sim leaves them empty
+    /// and keeps its own rough staff changes.
+    pub head_coach: Option<usize>,
+    pub oc: Option<usize>,
+    pub dc: Option<usize>,
+    /// Win shares of the world's NFL seasons, most recent last (11.12).
+    pub win_share: Vec<f64>,
 }
 
 impl Team {
@@ -215,7 +223,19 @@ pub fn make_league(rng: &mut Rng) -> Vec<Team> {
             let owner = staff_rating(rng, 10.5, 3.5);
             let coaching = staff_rating(rng, 13.0, 3.0);
             let staff_years = rng.int(0, 5) as u32;
-            let mut team = Team { id, name, draft_skill, owner, coaching, depth: Default::default(), staff_years };
+            let mut team = Team {
+                id,
+                name,
+                draft_skill,
+                owner,
+                coaching,
+                depth: Default::default(),
+                staff_years,
+                head_coach: None,
+                oc: None,
+                dc: None,
+                win_share: Vec::new(),
+            };
             let talent = talent_of(&team, rng);
             for pos in Position::ALL {
                 team.depth[pos.index()] =
@@ -242,7 +262,9 @@ pub fn advance_league(teams: &mut [Team], rng: &mut Rng) {
     for team in teams.iter_mut() {
         let weak = team.strength() <= bottom;
         team.staff_years += 1;
-        if rng.chance(if weak { 0.3 } else { 0.1 }) {
+        // A world team with named coaches changes staff in the coaching carousel.
+        let new_staff = rng.chance(if weak { 0.3 } else { 0.1 });
+        if new_staff && team.head_coach.is_none() {
             team.coaching = staff_rating(rng, 13.0, 3.0);
             team.staff_years = 0;
         }

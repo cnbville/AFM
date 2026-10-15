@@ -53,7 +53,7 @@ fn employer_name(w: &World, e: Employer) -> String {
         Employer::HighSchool(h) => {
             format!("{} HS ({})", w.high_schools[h].name, STATE_CENTERS[w.high_schools[h].state].0)
         }
-        Employer::Nfl(_) => "NFL".into(),
+        Employer::Nfl(t) => format!("{} (NFL)", w.nfl[t].name),
     }
 }
 
@@ -602,6 +602,8 @@ fn main() {
         big.2
     );
 
+    coaching_market(&w, years);
+
     // --- Players ---
     println!("\n## Players");
     let recorded: Vec<&Alumnus> = w.alumni.iter().filter(|a| a.class_of > w.year - years as i32 + 4).collect();
@@ -1116,4 +1118,175 @@ fn write_dashboard(w: &World, path: &str, seed: u32, years: u32, cards: &[serde_
         "draft_cols": ["year","pick","name","pos","stars","path","team","overall","potential","eth","state"],
     });
     std::fs::write(path, serde_json::to_string(&out).unwrap()).unwrap();
+}
+
+/// The coaching market (dynasty item 11.11-11.15): head coach moves per year,
+/// NFL hires, early exits, and how long title-winning coaches stay.
+fn coaching_market(w: &World, years: u32) {
+    println!("\n## Coaching market");
+    let first = w.year - years as i32;
+    let n = years as usize;
+    let fbs = |e: Employer| matches!(e, Employer::College(p) if w.programs[p].division == Division::FBS);
+    let early = |why: &str| why == "retired for his health" || why == "stepped away, burned out";
+    // Every stint, the current job last: (employer, role, from, to, why it ended).
+    type StintRow = (Employer, Role, i32, Option<i32>, &'static str);
+    let stints = |c: &afm_engine::world::coach::Coach| {
+        let mut v: Vec<StintRow> =
+            c.history.iter().map(|s| (s.employer, s.role, s.from, Some(s.to), s.ended)).collect();
+        if let Some(j) = c.job {
+            v.push((j.employer, j.role, j.since, None, ""));
+        }
+        v
+    };
+    let mut fbs_changes = vec![0u32; n];
+    let mut away_college = vec![0u32; n];
+    let mut away_nfl = vec![0u32; n];
+    let mut fbs_fired = vec![0u32; n];
+    let mut nfl_hires = vec![0u32; n];
+    let mut nfl_from_college = vec![0u32; n];
+    let mut nfl_from_coord = vec![0u32; n];
+    let mut nfl_fired = vec![0u32; n];
+    let mut early_all = vec![0u32; n];
+    let mut early_fbs = vec![0u32; n];
+    let mut early_burnout = 0u32;
+    let mut college_to_nfl: Vec<usize> = Vec::new();
+    let slot = |y: i32| if y >= first && y < w.year { Some((y - first) as usize) } else { None };
+    for c in &w.coaches {
+        let v = stints(c);
+        for (k, &(e, r, from, to, why)) in v.iter().enumerate() {
+            if r == Role::HeadCoach && fbs(e) {
+                if let Some(i) = slot(from) {
+                    fbs_changes[i] += 1;
+                }
+                if let Some(y) = to
+                    && let Some(i) = slot(y)
+                {
+                    if why == "left for another job" {
+                        match v.get(k + 1).map(|x| x.0) {
+                            Some(Employer::Nfl(_)) => away_nfl[i] += 1,
+                            _ => away_college[i] += 1,
+                        }
+                    }
+                    if why.starts_with("fired") {
+                        fbs_fired[i] += 1;
+                    }
+                    if early(why) {
+                        early_fbs[i] += 1;
+                    }
+                }
+            }
+            if let Some(y) = to
+                && let Some(i) = slot(y)
+                && early(why)
+            {
+                early_all[i] += 1;
+                if why == "stepped away, burned out" {
+                    early_burnout += 1;
+                }
+            }
+            if r == Role::HeadCoach && matches!(e, Employer::Nfl(_)) {
+                if let Some(i) = slot(from) {
+                    nfl_hires[i] += 1;
+                    match k.checked_sub(1).map(|j| (v[j].0, v[j].1, v[j].3)) {
+                        Some((Employer::College(_), _, Some(t))) if t == from => {
+                            nfl_from_college[i] += 1;
+                            college_to_nfl.push(c.id);
+                        }
+                        Some((Employer::Nfl(_), r, Some(t))) if t == from && r != Role::HeadCoach => {
+                            nfl_from_coord[i] += 1
+                        }
+                        _ => {}
+                    }
+                }
+                if let Some(y) = to
+                    && let Some(i) = slot(y)
+                    && why == "fired"
+                {
+                    nfl_fired[i] += 1;
+                }
+            }
+        }
+    }
+    let avg = |v: &[u32]| v.iter().sum::<u32>() as f64 / n.max(1) as f64;
+    let row = |name: &str, v: &[u32]| {
+        println!("{name}: {:.1} a year ({})", avg(v), v.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(" "))
+    };
+    row("FBS head coach changes (new head coaches)", &fbs_changes);
+    row("FBS head coaches fired", &fbs_fired);
+    row("FBS head coaches hired away by another college", &away_college);
+    row("FBS head coaches hired away by the NFL", &away_nfl);
+    row("NFL head coach hires", &nfl_hires);
+    row("  of them from an NFL coordinator job", &nfl_from_coord);
+    row("  of them straight from a college job", &nfl_from_college);
+    row("NFL head coaches fired", &nfl_fired);
+    row("Coaches retiring before 60 (health or burnout), all levels", &early_all);
+    row("  of them FBS head coaches", &early_fbs);
+    println!("  (burnout {early_burnout}, health {})", early_all.iter().sum::<u32>() - early_burnout);
+    // How long national-title coaches stay where they won.
+    let mut tenures: Vec<(String, String, i32)> = Vec::new();
+    for (p, prog) in w.programs.iter().enumerate() {
+        if prog.division != Division::FBS {
+            continue;
+        }
+        for s in prog.seasons.iter().filter(|s| s.national_title) {
+            let Some(c) = s.coach else { continue };
+            let coach = &w.coaches[c];
+            let len = stints(coach)
+                .iter()
+                .find(|x| {
+                    x.0 == Employer::College(p)
+                        && x.1 == Role::HeadCoach
+                        && x.2 < s.year
+                        && x.3.is_none_or(|t| t >= s.year)
+                })
+                .map(|x| x.3.unwrap_or(w.year) - x.2);
+            if let Some(len) = len {
+                tenures.push((prog.real_name.clone(), coach.name.clone(), len));
+            }
+        }
+    }
+    if !tenures.is_empty() {
+        let mut lens: Vec<i32> = tenures.iter().map(|t| t.2).collect();
+        lens.sort();
+        let mean = lens.iter().sum::<i32>() as f64 / lens.len() as f64;
+        println!(
+            "FBS national-title coaches' tenure at that school (to now if still there): mean {mean:.1}, median {}, max {}, 10+ seasons {} of {}",
+            lens[lens.len() / 2],
+            lens[lens.len() - 1],
+            lens.iter().filter(|&&l| l >= 10).count(),
+            lens.len()
+        );
+        let mut by_coach: BTreeMap<(String, String), (u32, i32)> = BTreeMap::new();
+        for (school, coach, len) in &tenures {
+            let e = by_coach.entry((coach.clone(), school.clone())).or_default();
+            e.0 += 1;
+            e.1 = *len;
+        }
+        let mut list: Vec<_> = by_coach.into_iter().collect();
+        list.sort_by_key(|x| std::cmp::Reverse(x.1.0));
+        let shown: Vec<String> =
+            list.iter().take(6).map(|((c, s), (t, l))| format!("{c} at {s}: {t} titles, {l} seasons")).collect();
+        println!("  most titles: {}", shown.join("; "));
+    }
+    println!("Example stories:");
+    // FBS and NFL stories first, then any level.
+    let big =
+        |n: &&afm_engine::world::news::NewsItem| n.program.is_none_or(|p| w.programs[p].division == Division::FBS);
+    let mut seen: Vec<&str> = Vec::new();
+    for pat in ["for the ", "worn out", "for health", "a chance to go home", "a big raise", "a bigger program"] {
+        let fits = |n: &&afm_engine::world::news::NewsItem| {
+            n.kind == NewsKind::CoachLeft && n.text.contains(pat) && !seen.contains(&n.text.as_str())
+        };
+        if let Some(n) = w.news.iter().rev().filter(fits).find(big).or_else(|| w.news.iter().rev().find(fits)) {
+            println!("- {}: {}", n.year, n.text);
+            seen.push(&n.text);
+        }
+    }
+    for n in w.news.iter().rev().filter(|n| n.kind == NewsKind::CoachHired && n.program.is_none()).take(3) {
+        println!("- {}: {}", n.year, n.text);
+    }
+    if let Some(&c) = college_to_nfl.last() {
+        println!("A college head coach who went to the NFL:");
+        coach_career(w, c);
+    }
 }
