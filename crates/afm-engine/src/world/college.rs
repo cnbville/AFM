@@ -1296,51 +1296,52 @@ pub(crate) fn selection_day(w: &mut World) {
             } else {
                 field = pool.into_iter().take(n).collect();
             }
-            let semis = semifinal_bowls(season);
-            let all6 = ["Rose Bowl", "Sugar Bowl", "Orange Bowl", "Cotton Bowl", "Fiesta Bowl", "Peach Bowl"];
-            let qf: Vec<&'static str> = all6.iter().copied().filter(|b| !semis.contains(b)).collect();
-            let mut dates: Vec<Vec<Date>> = Vec::new();
-            let mut names: Vec<Vec<&'static str>> = Vec::new();
-            let size = field.len().next_power_of_two();
-            let rounds = size.trailing_zeros() as usize;
-            for r in 0..rounds {
-                let left = rounds - r;
-                match left {
-                    1 => {
-                        dates.push(vec![y.title_game]);
-                        names.push(vec!["CFP National Championship"]);
-                    }
-                    2 => {
-                        dates.push(vec![y.cfp_semifinals.0, y.cfp_semifinals.1]);
-                        names.push(semis.to_vec());
-                    }
-                    3 => {
-                        dates.push(vec![y.cfp_quarterfinals.0, y.cfp_quarterfinals.1]);
-                        names.push(qf.clone());
-                    }
-                    _ => {
-                        dates.push(vec![y.cfp_first_round.0, y.cfp_first_round.1]);
-                        names.push(Vec::new());
+            // A bracket needs two teams (tiny test worlds can have fewer).
+            if field.len() >= 2 {
+                let semis = semifinal_bowls(season);
+                let all6 = ["Rose Bowl", "Sugar Bowl", "Orange Bowl", "Cotton Bowl", "Fiesta Bowl", "Peach Bowl"];
+                let qf: Vec<&'static str> = all6.iter().copied().filter(|b| !semis.contains(b)).collect();
+                let mut dates: Vec<Vec<Date>> = Vec::new();
+                let mut names: Vec<Vec<&'static str>> = Vec::new();
+                let size = field.len().next_power_of_two();
+                let rounds = size.trailing_zeros() as usize;
+                for r in 0..rounds {
+                    let left = rounds - r;
+                    match left {
+                        1 => {
+                            dates.push(vec![y.title_game]);
+                            names.push(vec!["CFP National Championship"]);
+                        }
+                        2 => {
+                            dates.push(vec![y.cfp_semifinals.0, y.cfp_semifinals.1]);
+                            names.push(semis.to_vec());
+                        }
+                        3 => {
+                            dates.push(vec![y.cfp_quarterfinals.0, y.cfp_quarterfinals.1]);
+                            names.push(qf.clone());
+                        }
+                        _ => {
+                            dates.push(vec![y.cfp_first_round.0, y.cfp_first_round.1]);
+                            names.push(Vec::new());
+                        }
                     }
                 }
+                let neutral_from = rounds.saturating_sub(3).min(rounds - 1);
+                let mut b = Bracket::new(fbs, &field, dates, if size <= 4 { 0 } else { neutral_from });
+                b.names = names;
+                for &t in &field {
+                    taken.insert(t);
+                }
+                for n in semis.iter().chain(if size > 4 { qf.iter() } else { [].iter() }) {
+                    used_bowls.insert(n);
+                }
+                brackets.push(b);
             }
-            let neutral_from = rounds.saturating_sub(3).min(rounds - 1);
-            let mut b = Bracket::new(fbs, &field, dates, if size <= 4 { 0 } else { neutral_from });
-            b.names = names;
-            for &t in &field {
-                taken.insert(t);
-            }
-            for n in semis.iter().chain(if size > 4 { qf.iter() } else { [].iter() }) {
-                used_bowls.insert(n);
-            }
-            brackets.push(b);
         }
     }
     // The other bowls under their tie-ins (best eligible team left from each
     // tie-in conference; teams with five wins fill the last places).
     let bowls: Vec<usize> = (0..BOWLS.len()).filter(|&k| BOWLS[k].first <= season).collect();
-    let max_two: HashMap<String, u32> = HashMap::new();
-    let _ = max_two;
     for pass_wins in [6u32, 5] {
         for &k in &bowls {
             let bw = &BOWLS[k];
