@@ -7,6 +7,7 @@ Trial and debug tooling only: it shows hidden values (potential, coach ratings).
    (about 35 minutes per 30-year world on 4 cores). The raw export is every college game's box score, every player season, play-level situation totals (league and FBS team), lineups, programs, coaches, alumni, active players, NFL rosters and news, as JSON lines. `gzip` them to keep them; the builder reads `.jsonl` or `.jsonl.gz`.
 2. Build the dashboard data: `python3 tools/dashboard/build_data.py OUT/data runs/seed-2026 runs/seed-2027 runs/seed-2028`. Writes `seed-<n>.json` per world, `real.json` (real-football references, each with its source) and `index.json`. Optional: `OUT/data/notes.json` with Claude's sanity-check notes (`ideas` and `missing` lists) for the Idea board.
 3. Copy `index.html` to `OUT/` and open it through any static server, or publish it as an artifact with the `data/` files beside it.
+4. Player pages: `python3 tools/dashboard/build_pages.py TEMPLATE.html OUT.html "TITLE" runs/seed-2026 runs/seed-2027 runs/seed-2028` puts every world's `cards.json` into a copy of the last player pages (template: `docs/trials/artifacts/world-trial5-player-pages.html`), each card tagged with its world.
 
 Tabs: Health (about 30 vitals against real, with 30-year sparklines), Game engine, Balance, What wins, Situations (play level), Player paths, Recruiting, Coaches, Draft, Records, Names, Anomalies, Idea board, Seed lab, Explorer (any two numbers against each other) and Pages (program and player pages).
 
