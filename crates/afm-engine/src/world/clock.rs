@@ -426,7 +426,16 @@ fn year_start(w: &mut World) {
 /// The last day of a football year has passed: the next one starts.
 fn rollover(w: &mut World) {
     if w.options.keep_game_log {
-        let kept: Vec<Event> = w.calendar.all().filter(|e| e.loud >= Loudness::Medium).cloned().collect();
+        // News that belongs to last season (its signing day fell after the
+        // Super Bowl) joins that season's record.
+        let mut kept: Vec<Event> = Vec::new();
+        for e in w.calendar.all().filter(|e| e.loud >= Loudness::Medium) {
+            let past = e.season.filter(|&s| s != w.year).and_then(|s| w.event_history.iter().rposition(|h| h.0 == s));
+            match past {
+                Some(k) => w.event_history[k].1.push(e.clone()),
+                None => kept.push(e.clone()),
+            }
+        }
         w.event_history.push((w.year, kept));
     }
     w.calendar.close_year();
@@ -638,5 +647,36 @@ mod tests {
             assert!(w.calendar.on(d).iter().all(|e| e.loud < Loudness::Big && !e.needs_decision));
             d = d.add(1);
         }
+    }
+
+    /// F4: the news of a signing day that falls after the Super Bowl shows
+    /// on its day, in the new football year, but is filed under the class's
+    /// season, like the day's counters.
+    #[test]
+    fn late_signing_news_is_filed_under_its_season() {
+        let options = super::super::WorldOptions {
+            scale: 0.002,
+            history_years: 0,
+            names: super::super::names::NameMode::Fictional,
+            keep_game_log: true,
+            ..Default::default()
+        };
+        let mut w = World::empty(options);
+        let season = w.year;
+        let news = |d: Date, text: &str| Event::new(d, Level::Recruiting, Kind::Signing, Loudness::Medium, text);
+        w.calendar.post(news(w.today, "a summer commitment"));
+        rollover(&mut w);
+        let day = w.prev_dates.as_ref().unwrap().signing_day;
+        w.calendar.filing = Some(season);
+        w.calendar.post(news(day, "a February signing"));
+        w.calendar.filing = None;
+        w.calendar.post(news(day, "next year's news"));
+        assert_eq!(w.calendar.on(day).len(), 2, "both show on the day");
+        rollover(&mut w);
+        let texts = |k: usize| w.event_history[k].1.iter().map(|e| e.text.as_str()).collect::<Vec<_>>();
+        assert_eq!(w.event_history[0].0, season);
+        assert_eq!(texts(0), ["a summer commitment", "a February signing"]);
+        assert_eq!(w.event_history[1].0, season + 1);
+        assert_eq!(texts(1), ["next year's news"]);
     }
 }

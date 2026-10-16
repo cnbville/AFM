@@ -1107,6 +1107,29 @@ struct ClassPlan {
     slots: usize,
     /// Roster places it keeps for walk-ons.
     walk_on_room: usize,
+    /// Places under the limit open next fall, signees and walk-ons together.
+    room: usize,
+    /// The limit counts the whole roster (the House era), so a walk-on
+    /// needs a place under it too.
+    whole_roster: bool,
+    /// Places open at each position next fall for a late walk-on: the
+    /// depth a staff carries there less the players it expects back. Under
+    /// a whole-roster limit that depth is the plan's target; under a
+    /// scholarship limit it is a real full squad's, walk-ons included.
+    open_at: [usize; POSITION_COUNT],
+}
+
+impl ClassPlan {
+    /// A walk-on place for a recruit whose commitment fell through on
+    /// signing day: one the plan keeps at his position, or a place at his
+    /// position on the roster as it stands after the matching (`taken`:
+    /// scholarships and walk-ons in the class; `at`: the same at his
+    /// position).
+    fn late_walk_on(&self, i: usize, taken: [usize; 2], at: [usize; 2]) -> bool {
+        let planned = taken[1] < self.walk_on_room && at[1] < self.walk_on[i];
+        let under_limit = !self.whole_roster || taken[0] + taken[1] < self.room;
+        planned || (under_limit && at[0] + at[1] < self.open_at[i])
+    }
 }
 
 /// When the staff reads its roster for a signing stage (T5.2): what this
@@ -1247,10 +1270,10 @@ fn class_plan(
         stay[k][wo] += 1.0 - two;
         returning += 1.0 - next;
     }
-    let mut plan = ClassPlan::default();
+    let mut plan = ClassPlan { whole_roster: super::ncaa::whole_roster_limit(prog, sign_year), ..Default::default() };
     for pos in Position::ALL {
         let k = pos.index();
-        let target = real_roster(pos) * scale;
+        let mut target = real_roster(pos) * scale;
         if pos.is_specialist() {
             // Each staff has its own habit: 3.1 kickers a roster means some carry 3, some 4.
             let habit = key_uniform(seed ^ 0x5EC1_A115 ^ k as u64, prog.id as u64);
@@ -1258,11 +1281,15 @@ fn class_plan(
             let on_scholarship = specialist_scholarships(pos).min(total);
             plan.scholarship[k] = plan_count(on_scholarship, now[k][0], stay[k][0]);
             plan.walk_on[k] = plan_count(total - on_scholarship, now[k][1], stay[k][1]);
+            target = total;
         } else {
             plan.scholarship[k] = plan_count(target, now[k][0] + now[k][1], stay[k][0] + stay[k][1]);
         }
+        let depth = if plan.whole_roster { target } else { real_roster(pos) };
+        plan.open_at[k] = crate::rng::round_half_up(depth - now[k][0] - now[k][1]).max(0.0) as usize;
     }
     let room = limit.saturating_sub(returning.round() as usize);
+    plan.room = room;
     plan.walk_on_room = plan.walk_on.iter().sum::<usize>().min(room);
     // The era's yearly signing cap (11.4) bounds the class.
     plan.slots = (room - plan.walk_on_room).min(signees);
@@ -1949,15 +1976,19 @@ fn stickiness(p: &Person, prog: &Program, coaches: &[super::coach::Coach], year:
 /// A signing stage for the class that signs after `season` (T5). Its
 /// counters (commitments, flips, decommits, signees) go to that season's
 /// calendar log even when February signing day falls after the Super Bowl,
-/// in the next football year, so each log holds one signing day.
+/// in the next football year, so each log holds one signing day. Its news
+/// (commitments, flips, signings) is filed under that season too, while it
+/// still shows on the day it happened.
 pub(crate) fn signing_stage(w: &mut World, stage: SignStage, season: i32) {
     let past = if w.log.year == season { None } else { w.log_history.iter().rposition(|l| l.year == season) };
     if let Some(k) = past {
         std::mem::swap(&mut w.log, &mut w.log_history[k]);
+        w.calendar.filing = Some(season);
     }
     run_signing_stage(w, stage, season);
     if let Some(k) = past {
         std::mem::swap(&mut w.log, &mut w.log_history[k]);
+        w.calendar.filing = None;
     }
 }
 
@@ -2728,8 +2759,14 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     // him on their boards and a place left, the one he likes best, with no
     // NIL money this late. A scholarship needs a slot in the class and his
     // position no more than two over the plan (a specialist follows the
-    // plan exactly); a walk-on needs a walk-on place the plan keeps at his
-    // position. The best recruits choose first (proposed, not confirmed).
+    // plan exactly). Otherwise he walks on, at a walk-on place the plan
+    // keeps at his position or at any place his position still has on the
+    // roster: a scholarship limit leaves walk-ons outside it, so he needs
+    // only room at his position (a real squad's depth there), while the
+    // House era's roster limit needs a place under it too. By February the
+    // matching has used the slots, and the plan keeps walk-on places for
+    // specialists only, so those alone placed almost no one. The best
+    // recruits choose first (proposed, not confirmed).
     let mut scrambled = vec![false; pool.len()];
     if stage == SignStage::Final {
         let mut dropped: Vec<usize> =
@@ -2770,7 +2807,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     taken[j] < plan.slots && taken_at[j][i][0] < plan.scholarship[i] + OVER_PLAN
                 };
                 let walk_on = !scholarship;
-                if walk_on && (taken_walk_on[j] >= plan.walk_on_room || taken_at[j][i][1] >= plan.walk_on[i]) {
+                if walk_on && !plan.late_walk_on(i, [taken[j], taken_walk_on[j]], taken_at[j][i]) {
                     continue;
                 }
                 let u = utility(p, &wants, &programs[j], 0.0, 1.0 - share) + relationship(j, k) + feel(j, k)
@@ -2944,6 +2981,11 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 if committed.is_none() {
                     w.log.commits += 1;
                     w.log.commits_by_month[month] += 1;
+                }
+                if scrambled[k] && walk_on && committed == Some(j) {
+                    w.people[i].note(format!(
+                        "{prog_name} ran out of scholarships for him on signing day; he walked on there instead."
+                    ));
                 }
                 if let Some(c) = committed
                     && c != j
@@ -3905,6 +3947,28 @@ mod tests {
         let quotas = [(5, 1), (4, 2), (3, 1)];
         assert_eq!(service_stars(&specialist, &quotas), vec![5, 3, 4, 3, 4, 3, 0]);
         assert_eq!(service_stars(&[true, false], &[(5, 1)]), vec![3, 5]);
+    }
+
+    /// F17: a recruit whose commitment fell through on signing day can walk
+    /// on wherever his position has room, even when the plan's walk-on
+    /// places and the class's slots are used. Under a whole-roster limit
+    /// (the House era) he needs a place under it too.
+    #[test]
+    fn late_walk_on_needs_room_at_his_position() {
+        let (wr, k) = (Position::WR.index(), Position::K.index());
+        let mut plan = ClassPlan { walk_on_room: 1, room: 20, ..Default::default() };
+        plan.walk_on[k] = 1;
+        plan.open_at[wr] = 2;
+        // The class filled every place under the limit and the specialist walk-on place.
+        let full = [19, 1];
+        assert!(plan.late_walk_on(wr, full, [1, 0]), "room at his position");
+        assert!(!plan.late_walk_on(wr, full, [2, 0]), "his position is full");
+        plan.whole_roster = true;
+        assert!(!plan.late_walk_on(wr, full, [1, 0]), "no place under a whole-roster limit");
+        assert!(plan.late_walk_on(wr, [17, 1], [1, 0]), "a place left under it");
+        // The plan's own walk-on places still count as before.
+        assert!(plan.late_walk_on(k, [19, 0], [0, 0]));
+        assert!(!plan.late_walk_on(k, full, [0, 1]));
     }
 
     /// Official visits (T5): the class signing next, from September 1 of the

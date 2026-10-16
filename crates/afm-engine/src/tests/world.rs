@@ -140,3 +140,21 @@ fn class_counts_read_the_leading_number() {
     assert_eq!((classes("FL"), classes("DC"), classes("TX"), classes("CA")), (7, 4, 12, 15));
     assert!(STATES.iter().all(|s| (1..=15).contains(&s.number_of_classes)));
 }
+
+#[test]
+fn walk_ons_count_against_the_limit_only_under_the_house_roster_limit() {
+    // F17: before 2025 the limits count players on aid, so walk-ons sit
+    // outside them; the House settlement's 105 counts the whole roster,
+    // except at the FCS programs that stayed out of it.
+    use crate::world::ncaa::whole_roster_limit;
+    use crate::world::program::program_from_row;
+    let mut rng = Rng::new(7);
+    let mut program = |name: &str| {
+        let (i, row) = COLLEGES.iter().enumerate().find(|(_, c)| c.name == name).unwrap();
+        program_from_row(i, row, 7, &mut rng)
+    };
+    let (fbs, fcs, out) = (program("Alabama"), program("Montana"), program("Holy Cross"));
+    assert!(!whole_roster_limit(&fbs, 2024) && whole_roster_limit(&fbs, 2025));
+    assert!(!whole_roster_limit(&fcs, 2024) && whole_roster_limit(&fcs, 2025));
+    assert!(!whole_roster_limit(&out, 2025));
+}

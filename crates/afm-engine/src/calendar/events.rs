@@ -105,6 +105,10 @@ pub struct Event {
     /// Remembered on its anniversaries (A42): title games, the Heisman, the
     /// first pick.
     pub memorable: bool,
+    /// The football year it is filed under when that is not the calendar's
+    /// own: a February signing day after the Super Bowl belongs to the
+    /// class's season, like that day's date line.
+    pub season: Option<i32>,
 }
 
 impl Event {
@@ -120,6 +124,7 @@ impl Event {
             program: None,
             text: text.into(),
             memorable: false,
+            season: None,
         }
     }
     pub fn memorable(mut self) -> Event {
@@ -182,11 +187,16 @@ pub struct Calendar {
     pub history: Vec<Event>,
     /// Count of every event posted by (level, kind), across all years, for trials.
     pub counts: BTreeMap<(&'static str, String), u64>,
+    /// While set, what is posted belongs to this football year, not the
+    /// calendar's own (a signing day that falls after the Super Bowl). It
+    /// still shows on its day.
+    pub filing: Option<i32>,
     next_id: u64,
 }
 
 impl Calendar {
-    pub fn post(&mut self, e: Event) {
+    pub fn post(&mut self, mut e: Event) {
+        e.season = e.season.or(self.filing);
         *self.counts.entry((e.level.name(), format!("{:?}", e.kind))).or_default() += 1;
         self.events.entry(e.when.date).or_default().push(e);
     }
