@@ -1259,7 +1259,8 @@ def calendar_view(run, real):
     for e in events:
         loud[e["year"]][e["loud"]] += 1
         kinds[e["year"]][f'{e["level"]}|{e["kind"]}'] += 1
-        if e["loud"] == "Huge" or e["decision"]:
+        # Continue stops on Big and Huge moments and on decisions (T8).
+        if e["loud"] in ("Huge", "Big") or e["decision"]:
             stops[e["year"]].add(e["date"])
     by_year = {y: {"loud": dict(loud[y]), "stop_days": len(stops[y])} for y in loud}
     last = max(loud) if loud else None
@@ -1269,9 +1270,9 @@ def calendar_view(run, real):
         # Games abroad come from the schedule release line ("..., 5 abroad."):
         # single games are small events, which the export leaves out.
         if e["level"] == "Nfl" and "schedule is released" in e["text"]:
+            # A year with none has no count in the line.
             m = re.search(r"(\d+) abroad", e["text"])
-            if m:
-                abroad[e["year"]] = int(m.group(1))
+            abroad[e["year"]] = int(m.group(1)) if m else 0
         if e["level"] == "Nfl" and e["date"][5:] == "12-25" and e["kind"] == "Game" and " beat " in e["text"]:
             christmas[e["year"]] += 1
         if e["rule"] == "NFL: flexible scheduling":
