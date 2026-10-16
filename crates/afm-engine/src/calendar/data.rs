@@ -99,8 +99,9 @@ pub const RIVALRIES: &[Rivalry] = &[
     r!("Purdue", "Illinois", "the Purdue Cannon game", Some("the Purdue Cannon"), Week(6)),
     r!("USC", "Notre Dame", "the Jeweled Shillelagh game", Some("the Jeweled Shillelagh"), RivalryWeek),
     r!("Notre Dame", "Navy", "the Notre Dame-Navy game", Some("the Rip Miller Trophy"), Week(10)),
-    r!("Navy", "Air Force", "the Navy-Air Force game", Some("the Commander-in-Chief's Trophy"), Week(6)),
-    r!("Army", "Air Force", "the Army-Air Force game", Some("the Commander-in-Chief's Trophy"), Week(10)),
+    // Legs of the Commander-in-Chief's Trophy (see `COMMANDER_IN_CHIEF`).
+    r!("Navy", "Air Force", "the Navy-Air Force game", None, Week(6)),
+    r!("Army", "Air Force", "the Army-Air Force game", None, Week(10)),
     r!("Colorado", "Colorado State", "the Rocky Mountain Showdown", Some("the Centennial Cup"), Week(2)),
     r!("Wyoming", "Colorado State", "the Border War", Some("the Bronze Boot"), RivalryWeek),
     r!("Boise State", "Fresno State", "the Milk Can game", Some("the Milk Can"), Week(9)),
@@ -135,6 +136,13 @@ pub const RIVALRIES: &[Rivalry] = &[
     r!("North Dakota", "South Dakota", "the Sitting Bull Trophy game", None, Week(9)),
     r!("Eastern Washington", "Idaho", "the Eastern Washington-Idaho game", None, Week(5)),
 ];
+
+/// The Commander-in-Chief's Trophy and the service academies that play for
+/// it (A28): one trophy for their three games with each other, Army-Navy
+/// included. It goes to the academy with the best record in them, settled
+/// after the Army-Navy game, and stays with its holder when all three split
+/// 1-1 (from memory, to verify).
+pub const COMMANDER_IN_CHIEF: (&str, [&str; 3]) = ("the Commander-in-Chief's Trophy", ["Army", "Navy", "Air Force"]);
 
 /// A bowl game. `ties` are the conferences it takes, in order of choice;
 /// "any" fills from the best eligible team left.

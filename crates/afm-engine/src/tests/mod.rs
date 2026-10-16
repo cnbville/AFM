@@ -3,6 +3,7 @@
 
 mod development;
 mod game_stats;
+mod kick_units;
 mod level_rating;
 mod scouting;
 mod world;

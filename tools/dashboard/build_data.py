@@ -17,6 +17,7 @@ import re
 import statistics as st
 import sys
 from collections import Counter, defaultdict
+from datetime import datetime
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 REAL_DIR = os.path.join(REPO, "data", "real-world")
@@ -1203,6 +1204,60 @@ def player_pages(run):
     return pages
 
 
+PORTAL_WINDOWS = (
+    ("Players at programs with a new head coach", "coach"),
+    ("The spring transfer window", "spring"),
+    ("The transfer window", "winter"),
+)
+
+
+def portal_windows(years, events):
+    """The portal's windows (coach change, winter, spring), each with its
+    entries by day. The year's log keeps one row per window and day, so a
+    December date can come twice (the coach-change and winter windows
+    overlap), and a football year holds April of one cycle and December and
+    January of the next. So the rows are split by window, in the order the
+    year logged them (each window's days in a run, late entrants after), and
+    merged by date within each window. A window is labelled with the season
+    it follows: the spring window belongs to the season before."""
+    wins = []
+    for e in events:
+        if e.get("rule") != "NCAA: transfer window":
+            continue
+        kind = next((k for start, k in PORTAL_WINDOWS if e["text"].startswith(start)), None)
+        if not kind:
+            continue
+        m = re.search(r"until \w+ (\w+ \d+, \d+)", e["text"])
+        close = datetime.strptime(m.group(1), "%b %d, %Y").date().isoformat() if m else e["date"]
+        wins.append({"kind": kind, "season": e["year"] - (kind == "spring"), "open": e["date"], "close": close,
+                     "days": Counter()})
+    wins.sort(key=lambda w: w["open"])
+    for y in years:
+        cur, prev = None, None
+        for d, n in y["portal_by_day"]:
+            # A new run of days is a new window's rows.
+            if prev is not None and d <= prev:
+                cur = None
+            prev = d
+            latest = next((w for w in reversed(wins) if w["open"] <= d), None)
+            if latest is None:
+                continue
+            # Past the end of one window and into a later one.
+            if cur is None or (latest["open"] > cur["open"] and d > cur["close"]):
+                cur = latest
+            cur["days"][d] += n
+    out = []
+    for w in wins:
+        total = sum(w["days"].values())
+        out.append({
+            "kind": w["kind"], "season": w["season"], "open": w["open"], "close": w["close"], "entries": total,
+            "first_day_pct": pct(w["days"].get(w["open"], 0), total),
+            "busiest_pct": pct(max(w["days"].values(), default=0), total),
+            "by_day": sorted([d, n] for d, n in w["days"].items()),
+        })
+    return out
+
+
 def calendar_view(run, real):
     """Section 4: each football year's counters, the stakes per team, the
     portal's days and a year at a glance from the dated events."""
@@ -1219,6 +1274,7 @@ def calendar_view(run, real):
     except FileNotFoundError:
         champs = []
     n_fbs = sum(1 for p in run.programs if p.get("div") == "FBS") or 134
+    windows = portal_windows(years, events)
     rows = []
     for y in years:
         div = y["signed_by_division"]
@@ -1226,9 +1282,14 @@ def calendar_view(run, real):
         huge = Counter(min(n, 4) for _, n in y["huge_by_team"])
         huge[0] = max(0, n_fbs - sum(huge.values()))
         nfl_huge = Counter(min(n, 4) for _, n in y["nfl_huge_by_team"])
-        portal = sorted(y["portal_by_day"], key=lambda d: d[0])
-        busiest = max((n for _, n in portal), default=0)
-        total_portal = sum(n for _, n in portal)
+        # Entries by date, the windows' rows for the same day added up.
+        by_date = Counter()
+        for d, n in y["portal_by_day"]:
+            by_date[d] += n
+        portal = sorted([d, n] for d, n in by_date.items())
+        # First-day share of each window after this season (coach change,
+        # winter, and the next spring's).
+        first_day = {w["kind"]: w["first_day_pct"] for w in windows if w["season"] == y["year"]}
         rows.append({
             "year": y["year"],
             "commits_by_month": y["commits_by_month"], "commits": y["commits"], "decommits": y["decommits"], "flips": y["flips"],
@@ -1237,7 +1298,7 @@ def calendar_view(run, real):
             "visits": [y["official_visits"], y["unofficial_visits"], y["drop_ins"]],
             "declared": y["declared"], "withdrew": y["withdrew"],
             "portal": [y["portal_entries"], y["portal_landed"], y["portal_returned"]], "portal_days": len(portal),
-            "portal_first_day_pct": pct(busiest, total_portal), "portal_by_day": portal,
+            "portal_first_day": first_day, "portal_by_day": portal,
             "opt_outs": y["opt_outs"], "bowl_practice_gain": y["bowl_practice_gain"],
             "four_game_redshirts": y["four_game_redshirts"], "redshirt_tricks": y["redshirt_tricks"],
             "spring": [y["spring_notices"], y["spring_breakouts"], y["spring_fizzles"]],
@@ -1282,7 +1343,7 @@ def calendar_view(run, real):
         if e["year"] == last and e["loud"] in ("Huge", "Big"):
             glance[e["date"][:7]].append([e["date"], e["loud"], e["level"], e["text"]])
     return {
-        "years": rows, "events": by_year, "n_fbs": n_fbs,
+        "years": rows, "events": by_year, "n_fbs": n_fbs, "portal_windows": windows,
         "kinds_last": kinds[last].most_common(40) if last else [],
         "glance_year": last, "glance": {m: v for m, v in sorted(glance.items())},
         "abroad": dict(abroad), "christmas": dict(christmas), "flexed": dict(flexed), "anniversaries": dict(anniv),

@@ -117,6 +117,15 @@ pub fn roster_limits(prog: &Program, season: i32) -> (usize, usize) {
     (limit.saturating_sub(cut), yearly.unwrap_or_else(|| staff_cap(prog.division)).saturating_sub(cut))
 }
 
+/// Whether a program's limit counts its whole roster, walk-ons included:
+/// the House settlement's roster limit. Before it (and at the FCS programs
+/// that stayed out, D2 and junior colleges) the limit counts players on
+/// aid, and walk-ons sit outside it.
+pub fn whole_roster_limit(prog: &Program, season: i32) -> bool {
+    let opted_out = prog.division == Division::FCS && FCS_OPTED_OUT.contains(&prog.real_name.as_str());
+    season >= HOUSE_START && (prog.division == Division::FBS || (prog.division == Division::FCS && !opted_out))
+}
+
 // --- NIL money (11.5, 11.7, 11.8) ---------------------------------------------------------
 
 /// The biggest NIL collectives raise about $20M a year: Ohio State's players
@@ -473,10 +482,15 @@ fn ncaa_case(w: &mut World, j: usize) {
         let ban_text = match ban {
             0 => String::new(),
             1 => ", a one-year postseason ban".to_string(),
-            n => format!(", a {n}-year postseason ban"),
+            n => format!(", {}-year postseason ban", crate::text::with_article(&n.to_string())),
         };
-        let coach_text = show_cause
-            .map_or(String::new(), |(c, y, _)| format!(" and a {y}-year show-cause order for {}", w.coaches[c].name));
+        let coach_text = show_cause.map_or(String::new(), |(c, y, _)| {
+            format!(
+                " and {}-year show-cause order for {}",
+                crate::text::with_article(&y.to_string()),
+                w.coaches[c].name
+            )
+        });
         let line = format!(
             "NCAA penalties for a booster's payments to recruits: {scholarships} scholarships over three seasons{ban_text}{coach_text}."
         );

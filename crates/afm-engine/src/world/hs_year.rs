@@ -852,11 +852,16 @@ const SPRING_SHARE: f64 = 0.03;
 /// step, so a staff tips about twice as many players as step.
 const NOTICES_LAND: f64 = 0.5;
 
-/// The age on his latest season row. A row covers the season and the
-/// offseason after it, so every note about either gives this age and a page
-/// reads one age per season.
+/// The age on his latest season row (`Person::row_age`).
 fn row_age(p: &super::Person) -> u32 {
-    p.player.history.last().map_or(p.player.age, |h| h.age)
+    p.row_age()
+}
+
+/// An early enrollee in his first college spring (F2): his latest row is
+/// still his high school senior season, so a spring step there belongs to
+/// his first college row, which opens with it at fall camp.
+fn before_first_college_row(p: &super::Person) -> bool {
+    p.stage == Stage::College && p.player.history.last().is_none_or(|h| !h.level.is_college())
 }
 
 /// The value the top `share` of `values` clear.
@@ -981,7 +986,8 @@ fn notices(w: &mut World, cands: &[(usize, f64, bool)], d: Date, college: bool) 
 /// noticed player can step: the better half of the notices by the mix land.
 /// The step closes 12-30% of the gap to his ceilings (proposed, not
 /// confirmed) and goes on his latest season row, so the row's end runs
-/// through it.
+/// through it. An early enrollee's first college spring step opens his
+/// first college row instead (F2).
 fn jumps(w: &mut World, cands: &[(usize, f64, bool)], d: Date, college: bool) {
     let seed = w.options.seed as u64 ^ (w.year as u64) << 20 ^ if college { 0x5347 } else { 0x5346 };
     let (mut breakouts, mut fizzles) = (0, 0);
@@ -1015,7 +1021,11 @@ fn jumps(w: &mut World, cands: &[(usize, f64, bool)], d: Date, college: bool) {
             p.note(format!("At {age} the spring step he was tipped for didn't come."));
             continue;
         }
-        crate::development::record_spring_step(&mut p.player, gain);
+        if college && before_first_college_row(p) {
+            p.cal.spring_gain_ahead = Some(p.cal.spring_gain_ahead.unwrap_or(0.0) + gain);
+        } else {
+            crate::development::record_spring_step(&mut p.player, gain);
+        }
         breakouts += 1;
         let r#where = if college { "spring practice" } else { "spring ball" };
         p.note(format!(

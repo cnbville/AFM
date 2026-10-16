@@ -52,7 +52,14 @@ pub fn card(w: &World, a: &Alumnus, tag: &str) -> Value {
                 "age": h.age, "level": h.level.name(), "pos": h.position.name(), "role": h.playing_time.name(),
                 "start": h.overall_start.round(), "end": h.overall.round(),
                 "perf": h.performance.map(|v| v.round()), "lr": h.level_rating, "lr_end": h.level_rating_end,
-                "pot": debug::season_potential(h).round()
+                "pot": debug::season_potential(h).round(),
+                // What happened that season, as in the raw export: the events,
+                // games missed hurt, coaching quality (hidden), the first-year
+                // dip and the spring gain (all of it; "spring_open" is the
+                // part an early enrollee took before this row's season).
+                "ev": h.events.iter().map(|e| e.name()).collect::<Vec<_>>(), "missed": h.games_missed,
+                "coach": r1(h.coaching), "dip": h.adjustment.map(|v| (v * 100.0).round() / 100.0),
+                "spring": h.spring_gain.map(r1), "spring_open": h.spring_open.map(r1)
             })
         })
         .collect();

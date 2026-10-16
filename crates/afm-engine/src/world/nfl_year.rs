@@ -1151,6 +1151,9 @@ fn formula_slots(w: &mut World, season: i32, seed: u64) {
     let mut abroad_week: Vec<Option<usize>> = vec![None; n_weeks];
     let mut used_abroad = vec![false; n];
     let toronto = sites.iter().any(|s| s.0 == TORONTO);
+    // The Toronto game's week and opponent, placed before the London games
+    // so an earlier London game cannot take its opponent abroad first.
+    let mut toronto_game: Option<(usize, usize)> = None;
     let mut euro_week = 3;
     for (i, site) in sites.iter().enumerate() {
         let k = match site.1 {
@@ -1159,11 +1162,20 @@ fn formula_slots(w: &mut World, season: i32, seed: u64) {
             // Toronto: a Bills home game, the one nearest week 13 (the real
             // series ran from week 8 to week 15; Claude's pick, proposed,
             // not confirmed).
-            _ if site.0 == TORONTO => [12, 13, 11, 14, 10, 9, 8, 7]
-                .into_iter()
-                .filter(|&k| k <= last && abroad_week[k].is_none())
-                .find(|&k| s.weeks[k].iter().any(|g| Some(g.0) == buf))
-                .unwrap_or(12.min(last)),
+            _ if site.0 == TORONTO => {
+                let found = [12, 13, 11, 14, 10, 9, 8, 7]
+                    .into_iter()
+                    .filter(|&k| k <= last && abroad_week[k].is_none())
+                    .find(|&k| s.weeks[k].iter().any(|g| Some(g.0) == buf));
+                if let Some(k) = found
+                    && let Some(&(home, away)) = s.weeks[k].iter().find(|g| Some(g.0) == buf)
+                {
+                    toronto_game = Some((k, away));
+                    used_abroad[home] = true;
+                    used_abroad[away] = true;
+                }
+                found.unwrap_or(12.min(last))
+            }
             _ => {
                 let k = euro_week;
                 euro_week += 1;
@@ -1199,14 +1211,15 @@ fn formula_slots(w: &mut World, season: i32, seed: u64) {
         if let Some(i) = abroad_week[k] {
             let (site, day, h, m) = sites[i];
             let pick = (0..games.len())
-                .filter(|&g| !used_abroad[games[g].0] && !used_abroad[games[g].1])
                 .filter(|&g| {
+                    let (home, away) = games[g];
                     if site == TORONTO {
-                        Some(games[g].0) == buf
+                        // Its two teams were marked abroad when it was placed.
+                        Some(home) == buf && toronto_game == Some((k, away))
                     } else {
                         // In the Toronto years the Bills keep their trip abroad for it.
-                        let bills = toronto && (Some(games[g].0) == buf || Some(games[g].1) == buf);
-                        !div_game(&games[g]) && !bills
+                        let bills = toronto && (Some(home) == buf || Some(away) == buf);
+                        !used_abroad[home] && !used_abroad[away] && !div_game(&games[g]) && !bills
                     }
                 })
                 .min_by(|&a, &b| {
@@ -1972,7 +1985,12 @@ mod tests {
 
     /// A league with no players and its formula schedule for `season`.
     fn formula_season(season: i32) -> World {
+        formula_season_seeded(season, crate::world::WorldOptions::default().seed)
+    }
+
+    fn formula_season_seeded(season: i32, seed: u32) -> World {
         let options = crate::world::WorldOptions {
+            seed,
             scale: 0.002,
             history_years: 0,
             start_year: season + 6,
@@ -1992,20 +2010,29 @@ mod tests {
     }
 
     /// The Bills' Toronto game is a Bills home game, and it counts abroad.
+    /// It is placed before the London games, so a London game never takes
+    /// its opponent first (world 2028 missed it in 2 of 6 seasons).
     #[test]
     fn the_bills_host_in_toronto() {
-        let w = formula_season(2010);
-        let s = w.nfl_season.as_ref().unwrap();
-        let buf = w.nfl.iter().position(|t| t.name == "Buffalo Bills");
-        let abroad: Vec<(usize, &Slot)> = s
-            .weeks
-            .iter()
-            .zip(&s.slots)
-            .flat_map(|(g, x)| g.iter().map(|g| g.0).zip(x))
-            .filter(|(_, x)| x.site.is_some())
-            .collect();
-        assert_eq!(abroad.len(), 2);
-        assert!(abroad.iter().any(|(home, x)| x.site.as_deref() == Some(TORONTO) && Some(*home) == buf));
+        for season in 2008..=2013 {
+            for seed in [2026, 2027, 2028] {
+                let w = formula_season_seeded(season, seed);
+                let s = w.nfl_season.as_ref().unwrap();
+                let buf = w.nfl.iter().position(|t| t.name == "Buffalo Bills");
+                let abroad: Vec<(usize, &Slot)> = s
+                    .weeks
+                    .iter()
+                    .zip(&s.slots)
+                    .flat_map(|(g, x)| g.iter().map(|g| g.0).zip(x))
+                    .filter(|(_, x)| x.site.is_some())
+                    .collect();
+                assert_eq!(abroad.len(), international_sites(season).len(), "season {season}, seed {seed}");
+                assert!(
+                    abroad.iter().any(|(home, x)| x.site.as_deref() == Some(TORONTO) && Some(*home) == buf),
+                    "season {season}, seed {seed}"
+                );
+            }
+        }
     }
 
     /// A Sunday Christmas (real 2022: 11 games on Dec 24 and 3 on Dec 25)

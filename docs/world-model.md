@@ -205,6 +205,20 @@ The build of `docs/design/calendar.md` (T1 to T11) and `docs/design/calendar-add
 
 Proposed, not confirmed in this build: the list at the end of `docs/design/calendar-checklist.md`.
 
+### Trial 6 part A (built 2026-10-16)
+
+The 17 items of `docs/trials/world-trial6-proposals.md` part A, which Cain said yes to on 2026-10-16, plus 14 fixes from the review of them.
+
+- **Redshirts.** `world/season.rs` `depth_chart` gives the camp redshirt role only below a 76-man travel squad (`travel_slots`). `world/college.rs` `held_redshirts` sits a camp redshirt before 2018 and, from 2018, lets him play until he has four games; a position below its two-deep (`two_deep`) first uses redshirts who cost nothing that day, then presses the best of the rest. On January 2 `settle_eligibility` calls `played_as_redshirt`: a redshirt who played gets a performance, a form draw (slump, hot year or lost season, with their events) and games missed for an injury, capped by the games his own team played. When the year counts (any game before 2018, five or more from 2018) his row and role become backup; a kept four-game year stays a redshirt row.
+- **Spring steps.** An early enrollee's college spring step is held (`PersonCal.spring_gain_ahead`) and opens his first college row (`development::open_row_with_spring_step`), recorded in `SeasonRecord.spring_open` as well as `spring_gain`.
+- **Note ages.** `Person::row_age` is the age on the latest season row, or, on campus before the first college row, the age that row will carry. Every note about a season and its offseason uses it; notes about a step toward a season not yet started (June transfers, the snapping camps, commitments, camp position moves) keep the current age. `text.rs` writes "an" before vowel sounds.
+- **Signing day.** News a signing stage posts after the Super Bowl is tagged with the class's season (`Event.season`, `Calendar.filing`) and filed there at rollover. A commitment that falls through on signing day lands as a late walk-on (`ClassPlan::late_walk_on`) at the program he likes best with room at his position; before the House roster limit (`ncaa::whole_roster_limit`) non-specialist walk-ons sit outside the scholarship limit (`takes_a_place`). `cal.commit` keeps whether the commitment was a walk-on.
+- **All-star games.** All four college all-star games name their rosters on one day (`clock.rs` `all_star_roster_day`: a week before the first game, after both title games and the withdrawal day where the dates allow) in a fixed order: Senior Bowl, Shrine Bowl, HBCU Legacy Bowl, NFLPA Collegiate Bowl, each with at most two of each specialist. A player who withdraws from the draft gives up his invite. The Senior Bowl is 8 days before the Super Bowl.
+- **Awards.** Each position award is judged like the Heisman, on the season's production (stats, film grades for linemen, both for defenders, distance-weighted kicks) against the position's ten best, with team success and a former-winner factor.
+- **Stakes and trophies.** A result is posted at least Big when the game is huge for one of its teams; rivalry week is huge for both sides at every level. The Commander-in-Chief's Trophy is one three-way trophy settled after Army-Navy (`academy_trophy`). The Bills' Toronto game is reserved before any London game.
+- **Kick units.** Field goal and extra point units carry the long snapper and a holder, punt units the long snapper, 11 different men; a hurt or kicking snapper or holder is replaced (`Side::snapper`, `Side::holder`). Momentum hits on returns go to the team the player is on.
+- **Tools.** Player pages show what happened each season (events, games missed, the first-year dip, spring steps before and after the season). The Debug Lab's portal chart shows each window's first day on its own.
+
 ## Proposed, not confirmed (Claude's own picks in the build)
 
 - Spin-up of 6 extra years before the 30-year history.

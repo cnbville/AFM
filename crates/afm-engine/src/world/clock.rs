@@ -98,6 +98,33 @@ fn commit_wave(y: &YearDates, d: Date) -> Option<u8> {
     [(4, 30), (6, 30), (8, 31), (10, 31)].iter().position(|&(m, day)| Date::ymd(y.season, m, day) == d).map(|k| k as u8)
 }
 
+/// The college all-star games of a football year's January, with their dates.
+fn all_star_games(y: &YearDates) -> [(Date, &'static str); 4] {
+    [
+        (y.senior_bowl, "Senior Bowl"),
+        (y.shrine_bowl, "East-West Shrine Bowl"),
+        (y.hbcu_bowl, "HBCU Legacy Bowl"),
+        (y.nflpa_bowl, "NFLPA Collegiate Bowl"),
+    ]
+}
+
+/// The one day the college all-star games name their rosters (F7): a week
+/// before the first game held, but after the FBS and FCS title games, so
+/// the finalists' seniors are in the pool, and after the draft withdrawal
+/// day when the first game allows it, so the declared underclassmen are
+/// all in and none who withdraws holds an invite. A first game before the
+/// withdrawal day names them the day before it.
+pub(crate) fn all_star_roster_day(y: &YearDates) -> Date {
+    let first = all_star_games(y)
+        .iter()
+        .filter(|g| recruiting::all_star_held(g.1, y.season + 1))
+        .map(|g| g.0)
+        .min()
+        .expect("the Senior Bowl is held every year");
+    let fcs_final = y.fcs_rounds.last().copied().unwrap_or(y.title_game);
+    first.add(-7).max(y.title_game.add(1)).max(fcs_final.add(1)).max(y.declare_withdraw.min(first.add(-1)))
+}
+
 /// The day high school coaching changes are made (January, after the state
 /// finals and the college carousel's hires).
 fn hs_carousel_day(y: &YearDates) -> Date {
@@ -344,15 +371,15 @@ pub(crate) fn advance_day(w: &mut World) {
             hs_year::all_star_game(w, name);
         }
     }
-    for (date, name) in [
-        (y.shrine_bowl, "East-West Shrine Bowl"),
-        (y.hbcu_bowl, "HBCU Legacy Bowl"),
-        (y.nflpa_bowl, "NFLPA Collegiate Bowl"),
-        (y.senior_bowl, "Senior Bowl"),
-    ] {
-        if d == date.add(-7) {
+    // The college all-star games name their rosters together
+    // (all_star_roster_day), the Senior Bowl first and the others from what
+    // is left: the order of the game dates does not decide the tiers.
+    if d == all_star_roster_day(&y) {
+        for name in recruiting::ALL_STAR_ORDER {
             recruiting::all_star_invites(w, name);
         }
+    }
+    for (date, name) in all_star_games(&y) {
         if d == date {
             recruiting::all_star_game(w, name);
         }
@@ -426,7 +453,16 @@ fn year_start(w: &mut World) {
 /// The last day of a football year has passed: the next one starts.
 fn rollover(w: &mut World) {
     if w.options.keep_game_log {
-        let kept: Vec<Event> = w.calendar.all().filter(|e| e.loud >= Loudness::Medium).cloned().collect();
+        // News that belongs to last season (its signing day fell after the
+        // Super Bowl) joins that season's record.
+        let mut kept: Vec<Event> = Vec::new();
+        for e in w.calendar.all().filter(|e| e.loud >= Loudness::Medium) {
+            let past = e.season.filter(|&s| s != w.year).and_then(|s| w.event_history.iter().rposition(|h| h.0 == s));
+            match past {
+                Some(k) => w.event_history[k].1.push(e.clone()),
+                None => kept.push(e.clone()),
+            }
+        }
         w.event_history.push((w.year, kept));
     }
     w.calendar.close_year();
@@ -638,5 +674,36 @@ mod tests {
             assert!(w.calendar.on(d).iter().all(|e| e.loud < Loudness::Big && !e.needs_decision));
             d = d.add(1);
         }
+    }
+
+    /// F4: the news of a signing day that falls after the Super Bowl shows
+    /// on its day, in the new football year, but is filed under the class's
+    /// season, like the day's counters.
+    #[test]
+    fn late_signing_news_is_filed_under_its_season() {
+        let options = super::super::WorldOptions {
+            scale: 0.002,
+            history_years: 0,
+            names: super::super::names::NameMode::Fictional,
+            keep_game_log: true,
+            ..Default::default()
+        };
+        let mut w = World::empty(options);
+        let season = w.year;
+        let news = |d: Date, text: &str| Event::new(d, Level::Recruiting, Kind::Signing, Loudness::Medium, text);
+        w.calendar.post(news(w.today, "a summer commitment"));
+        rollover(&mut w);
+        let day = w.prev_dates.as_ref().unwrap().signing_day;
+        w.calendar.filing = Some(season);
+        w.calendar.post(news(day, "a February signing"));
+        w.calendar.filing = None;
+        w.calendar.post(news(day, "next year's news"));
+        assert_eq!(w.calendar.on(day).len(), 2, "both show on the day");
+        rollover(&mut w);
+        let texts = |k: usize| w.event_history[k].1.iter().map(|e| e.text.as_str()).collect::<Vec<_>>();
+        assert_eq!(w.event_history[0].0, season);
+        assert_eq!(texts(0), ["a summer commitment", "a February signing"]);
+        assert_eq!(w.event_history[1].0, season + 1);
+        assert_eq!(texts(1), ["next year's news"]);
     }
 }

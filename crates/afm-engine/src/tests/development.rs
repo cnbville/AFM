@@ -258,7 +258,34 @@ fn a_spring_step_lands_on_the_season_row() {
     assert!(gain > 0.0);
     crate::development::record_spring_step(&mut p, gain);
     let row = &p.history[0];
-    assert!(row.events.has(Ev::SpringBreakout) && row.spring_gain == Some(gain));
+    assert!(row.events.has(Ev::SpringBreakout) && row.spring_gain == Some(gain) && row.spring_open.is_none());
     develop_season(&mut p, &context_for(19), &mut rng);
     assert!((p.history[1].overall_start - p.history[0].overall).abs() < 1e-9);
+}
+
+#[test]
+fn an_early_enrollees_spring_step_opens_his_first_college_row() {
+    // F2: the step comes before his first college row, so that row opens
+    // with it and his high school row ends where it ended.
+    let mut rng = Rng::new("spring-open");
+    let mut p =
+        generate_prospect(&mut rng, ProspectOptions { age: Some(17), talent_z: Some(2.0), ..Default::default() });
+    develop_season(&mut p, &context_for(17), &mut rng);
+    let hs_end = p.history[0].overall;
+    let gain = crate::development::spring_jump(&mut p, 0.25, &mut rng);
+    assert!(gain > 0.0);
+    develop_season(&mut p, &context_for(18), &mut rng);
+    crate::development::open_row_with_spring_step(&mut p, gain);
+    let (hs, first) = (&p.history[0], &p.history[1]);
+    assert!(hs.spring_gain.is_none() && !hs.events.has(Ev::SpringBreakout) && hs.overall == hs_end);
+    assert!(first.events.has(Ev::SpringBreakout) && first.spring_gain == Some(gain));
+    // The opening step is marked apart, so the rating he played the season
+    // at reads back as the row's start plus the step.
+    assert_eq!(first.spring_open, Some(gain));
+    assert!((first.overall_start - hs_end).abs() < 1e-9);
+    // A later spring step after the season adds to the total, not the opening part.
+    crate::development::record_spring_step(&mut p, 1.5);
+    let first = &p.history[1];
+    assert_eq!(first.spring_open, Some(gain));
+    assert!((first.spring_gain.unwrap() - gain - 1.5).abs() < 1e-9);
 }

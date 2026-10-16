@@ -507,6 +507,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         games_missed,
         adjustment: if dip > 0.0 { Some(round_half_up(dip * 100.0) / 100.0) } else { None },
         spring_gain: None,
+        spring_open: None,
         team: None,
         depth: None,
         situation: None,
@@ -579,6 +580,19 @@ pub fn spring_jump(player: &mut Player, share: f64, rng: &mut Rng) -> f64 {
         player.attributes[key] += room * clamp(share * rng.range(0.7, 1.3), 0.0, 0.9);
     }
     player.overall() - before
+}
+
+/// An early enrollee's college spring step, taken before his first college
+/// row (F2): that row opens with it. The row starts where his high school
+/// row ended, before the step, and carries the step on its way to its end.
+/// The step is the row's `spring_open` (and in its `spring_gain` total).
+pub fn open_row_with_spring_step(player: &mut Player, gain: f64) {
+    if let Some(h) = player.history.last_mut() {
+        h.overall_start -= gain;
+        h.spring_gain = Some(h.spring_gain.unwrap_or(0.0) + gain);
+        h.spring_open = Some(h.spring_open.unwrap_or(0.0) + gain);
+        h.events.add(Ev::SpringBreakout);
+    }
 }
 
 /// Puts a spring breakout of `gain` overall on his latest season row

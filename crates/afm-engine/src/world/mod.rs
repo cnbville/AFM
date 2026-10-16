@@ -12,7 +12,7 @@
 //! game is decided from the two teams' starters, with home field and luck.
 
 pub mod background;
-mod clock;
+pub(crate) mod clock;
 pub mod coach;
 pub(crate) mod college;
 pub mod data;
@@ -26,9 +26,9 @@ pub mod ncaa;
 pub mod news;
 mod nfl_year;
 pub mod program;
-mod recruiting;
+pub(crate) mod recruiting;
 pub mod schedule;
-mod season;
+pub(crate) mod season;
 mod staff;
 
 use rayon::prelude::*;
@@ -235,12 +235,16 @@ pub struct PersonCal {
     pub draft_read: Option<DraftRead>,
     pub opted_out: bool,
     pub redshirt_trick: bool,
-    /// A verbal commitment: program and day (T5.1).
-    pub commit: Option<(usize, crate::calendar::Date)>,
+    /// A verbal commitment: program, day (T5.1), and whether it was to a
+    /// walk-on place.
+    pub commit: Option<(usize, crate::calendar::Date, bool)>,
     pub signed: Option<Signed>,
     pub commit_timing: Option<CommitTiming>,
     /// A spring practice notice is out (T4.1): a breakout may land by the spring game.
     pub spring_notice: bool,
+    /// An early enrollee's college spring step, taken before his first
+    /// college row: that row opens with it at fall camp (F2).
+    pub spring_gain_ahead: Option<f64>,
     /// Invited to the NFL combine (A10) or a college all-star game (A9).
     pub combine_invite: bool,
     pub all_star: Option<&'static str>,
@@ -299,6 +303,19 @@ impl PersonCal {
 impl Person {
     pub fn note(&mut self, s: impl Into<String>) {
         self.notes.push(s.into());
+    }
+    /// The age on his latest season row. A row covers the season and the
+    /// offseason after it, so every note about either gives this age and a
+    /// page reads one age per season (D5, F15). Steps toward a season not
+    /// yet started (a camp move, a summer commitment or transfer) give his
+    /// age now, the age that season's row will carry. So does an early or
+    /// summer enrollee on campus before his first college row (F2): his
+    /// spring, spring term, NIL and portal notes belong to that row.
+    pub fn row_age(&self) -> u32 {
+        match self.player.history.last() {
+            Some(h) if self.stage != Stage::College || h.level.is_college() => h.age,
+            _ => self.player.age,
+        }
     }
     /// What a scout with judging skill `accuracy` (1-20) learns about his
     /// background and family: the only view of them the game gets (1.7).
@@ -485,8 +502,8 @@ pub struct World {
     pub(crate) portal_pending: Vec<usize>,
     /// Verbal commitments decided at a commitment wave and waiting for the
     /// recruit's own announcement day (T5.2): day, person index, player id,
-    /// program.
-    pub(crate) announcements: Vec<(crate::calendar::Date, usize, u32, usize)>,
+    /// program, and whether it is a walk-on place.
+    pub(crate) announcements: Vec<(crate::calendar::Date, usize, u32, usize, bool)>,
     /// The portal market of the open window (kept while entrants decide).
     pub(crate) portal_market: Option<recruiting::PortalMarket>,
     /// Super Bowl champions by season.
@@ -757,7 +774,7 @@ impl World {
         self.add_class_aged(14);
     }
 
-    fn add_class_aged(&mut self, age: u32) {
+    pub(crate) fn add_class_aged(&mut self, age: u32) {
         let size = (250_000.0 * self.options.scale).round() as usize;
         let year = self.year;
         let mut kids: Vec<(usize, usize, u32)> = Vec::with_capacity(size);

@@ -17,7 +17,7 @@ Each result says why. "Traced" means read in the code; "inferred" means read fro
 - The calendar works: signing days, the early period, transfer windows, the draft, the Super Bowl and the NFL dated steps land on their real days by era, and each recruit commits on his own day.
 - The game shape held: FBS teams score 28.9-29.1 a game (real 27.8), 22.5-22.9% of games are decided by 28+ (real 21.1%), home teams win 56% (real 58%).
 - 32 bugs from the first runs are fixed and measured: stars are exactly 33 / 350 / 2,000 / 4,000 a class, 4-stars are drafted 24-25% of the time (real 24.4%), every season has a champion, about 1,380 true freshmen play a year (was 69), and committed recruits who sign nowhere fell from 46% to 1.1%.
-- The fixes caused new problems. The biggest: from 2018 nearly every freshman is held to four games (5+ games fell from about 870 a year to about 135), and a camp redshirt who plays is still developed as a redshirt. 17 bugs are being fixed now (proposals part A).
+- The fixes caused new problems. The biggest: from 2018 nearly every freshman is held to four games (5+ games fell from about 870 a year to about 135), and a camp redshirt who plays is still developed as a redshirt. 17 bugs (proposals part A) were then fixed and merged (PR #33, Cain's yes on 2026-10-16). They are not measured here: the next trial measures them.
 - 38 suggestions wait for a yes or no (proposals part B), 26 of them creative ideas.
 - Big slumps are rare and every one has a cause. Specialists slump too hard and major injuries cost too little (see Slumps).
 

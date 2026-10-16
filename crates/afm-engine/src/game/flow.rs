@@ -221,6 +221,46 @@ impl<'a> Side<'a> {
     fn kickoff_kicker(&self) -> usize {
         self.first_up(&self.depth.kickoff).unwrap_or_else(|| self.fg_kicker())
     }
+
+    /// The long snapper: the depth chart's; if he is hurt, or kicking or
+    /// punting after an injury to a leg, the next listed long snapper, else
+    /// the best snap left in the game who is not kicking or punting.
+    fn snapper(&self) -> usize {
+        let d = &self.depth;
+        let legs = [self.fg_kicker(), self.punter()];
+        if !self.out[d.snapper] && !legs.contains(&d.snapper) {
+            return d.snapper;
+        }
+        let ps = &self.team.players;
+        let free = |i: usize| !self.out[i] && !legs.contains(&i);
+        let snap = |i: usize| ps[i].traits.snapping + 0.02 * ps[i].a(Attr::Awareness);
+        d.list(Position::LS)
+            .iter()
+            .copied()
+            .find(|&i| free(i) && ps[i].position == Position::LS)
+            .or_else(|| (0..ps.len()).filter(|&i| free(i)).max_by(|&a, &b| snap(a).total_cmp(&snap(b))))
+            .unwrap_or(d.snapper)
+    }
+
+    /// The holder for a kick: the depth chart's (the punter, or the backup
+    /// quarterback); if he is hurt, kicking or snapping, a quarterback (the
+    /// backup first), else the surest hands left.
+    fn holder(&self, kicker: usize, snapper: usize) -> usize {
+        let free = |i: usize| !self.out[i] && i != kicker && i != snapper;
+        if free(self.depth.holder) {
+            return self.depth.holder;
+        }
+        let ps = &self.team.players;
+        let qbs = self.depth.list(Position::QB);
+        let hands = |i: usize| ps[i].a(Attr::Catching) + ps[i].a(Attr::Awareness);
+        qbs.iter()
+            .skip(1)
+            .chain(qbs.iter().take(1))
+            .copied()
+            .find(|&i| free(i))
+            .or_else(|| (0..ps.len()).filter(|&i| free(i)).max_by(|&a, &b| hands(a).total_cmp(&hands(b))))
+            .unwrap_or(self.depth.holder)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -785,14 +825,19 @@ impl<'a> Game<'a> {
         let side = &self.sides[team];
         let ps = &side.team.players;
         let k = side.fg_kicker();
-        let snapper = &ps[side.depth.snapper];
-        let holder = &ps[side.depth.holder];
-        let mut used = vec![k];
-        let protect_on: Vec<usize> = side
-            .pick(Position::IOL, 3, &mut used)
+        let sn = side.snapper();
+        let h = side.holder(k, sn);
+        let snapper = &ps[sn];
+        let holder = &ps[h];
+        // The unit is 11: the kicker, the holder and a nine-man wall with
+        // the long snapper in the middle (guards, tackles, ends and wings:
+        // three interior linemen, two tackles and three tight ends).
+        let mut used = vec![k, sn, h];
+        let protect_on: Vec<usize> = [sn]
             .into_iter()
+            .chain(side.pick(Position::IOL, 3, &mut used))
             .chain(side.pick(Position::OT, 2, &mut used))
-            .chain(side.pick(Position::TE, 2, &mut used))
+            .chain(side.pick(Position::TE, 3, &mut used))
             .collect();
         let opp = &self.sides[1 - team];
         let mut used2 = Vec::new();
@@ -824,7 +869,7 @@ impl<'a> Game<'a> {
         r.kick_pressure = pressure;
         r.why = fg.why.clone();
         r.on_field = [
-            protect_on.iter().map(|&i| ps[i].id).chain([ps[k].id]).collect(),
+            protect_on.iter().map(|&i| ps[i].id).chain([ps[h].id, ps[k].id]).collect(),
             rush_on.iter().map(|&i| opp.team.players[i].id).collect(),
         ];
         r.duration = 3.0;
@@ -1060,12 +1105,15 @@ impl<'a> Game<'a> {
         let mut r = self.new_record(PlayType::Punt);
         let side = &self.sides[o];
         let p = side.punter();
+        let sn = side.snapper();
         let mut kick_on = vec![p];
-        let mut used = vec![p];
+        let mut used = vec![p, sn];
         kick_on.extend(side.pick(Position::CB, 2, &mut used));
         kick_on.extend(side.pick(Position::LB, 3, &mut used));
         kick_on.extend(side.pick(Position::TE, 2, &mut used));
-        kick_on.extend(side.pick(Position::IOL, 3, &mut used));
+        kick_on.extend(side.pick(Position::IOL, 2, &mut used));
+        // The long snapper is the unit's center and covers down the middle lane.
+        kick_on.insert(5.min(kick_on.len()), sn);
         let opp = &self.sides[d];
         let pr = opp.depth.punt_returner;
         let mut ret_on = vec![pr];
@@ -1080,7 +1128,7 @@ impl<'a> Game<'a> {
             ret: &opp.team.players,
             kick_on: kick_on.clone(),
             ret_on: ret_on.clone(),
-            snapper: side.depth.snapper,
+            snapper: sn,
             holder: side.depth.holder,
             energy: [&side.energy, &opp.energy],
         };
@@ -1726,11 +1774,14 @@ impl<'a> Game<'a> {
             for &s in &r.sackers.clone() {
                 self.edge_hit(d, s, 1.0);
             }
-            for &(tk, _) in &r.missed_tackles.clone() {
-                self.edge_hit(d, tk, -0.6);
+            // A missed tackle or a fumble can fall to either team (on an
+            // interception return the offense tackles and the defense
+            // carries), so the hit goes to the team he plays for.
+            for &(tk, _) in &r.missed_tackles {
+                self.edge_hit(r.side_of(tk).unwrap_or(d), tk, -0.6);
             }
             if let Some(f) = r.fumbled {
-                self.edge_hit(o, f, -1.0);
+                self.edge_hit(r.side_of(f).unwrap_or(o), f, -1.0);
             }
             if scored_td && let Some(c) = r.carrier {
                 self.edge_hit(o, c, 1.0);
@@ -2113,6 +2164,17 @@ impl<'a> Game<'a> {
         }
         w
     }
+}
+
+/// Tests only: the field goal kicker, the punter and the long snapper a
+/// team sends out with the players at `out` (indexes) hurt.
+#[cfg(test)]
+pub(crate) fn kick_unit_men(team: &GameTeam, out: &[usize]) -> [usize; 3] {
+    let mut side = Side::new(team, 99.0, 3);
+    for &i in out {
+        side.out[i] = true;
+    }
+    [side.fg_kicker(), side.punter(), side.snapper()]
 }
 
 /// Standard normal CDF.

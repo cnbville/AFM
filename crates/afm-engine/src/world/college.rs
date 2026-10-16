@@ -82,6 +82,14 @@ pub struct Line {
     pub sacks: f64,
     pub ints: u32,
     pub fg_made: u32,
+    /// Passes broken up.
+    pub pbus: u32,
+    /// The season's play as film graders see it: the sum of the per-play
+    /// grades (the game's PFF-style grade, -2 to +2 a play).
+    pub grade_sum: f64,
+    /// Field goals tried and made by distance band (under 30, 30-39, 40-49, 50+).
+    pub fg_att_band: [u32; 4],
+    pub fg_made_band: [u32; 4],
 }
 
 /// A single-elimination bracket in standard seeding order.
@@ -162,6 +170,8 @@ pub(crate) struct CollegeSeason {
     /// The rivalry between two programs (lower id first), and the program
     /// listed first in it.
     pub rivalry_of: HashMap<(usize, usize), (usize, usize)>,
+    /// The Commander-in-Chief's Trophy's holder, carried from season to season.
+    pub academy_holder: Option<usize>,
 }
 
 /// A rivalry's record over the world's history (A28): wins by its first
@@ -209,6 +219,7 @@ pub(crate) fn new_season(w: &World) -> CollegeSeason {
         bowl_teams: HashSet::new(),
         series,
         rivalry_of,
+        academy_holder: w.college_prev.as_ref().and_then(|c| c.academy_holder),
     }
 }
 
@@ -318,6 +329,69 @@ fn conditions(w: &World, g: &Game, k: usize) -> (Conditions, Played, Option<Seve
     (cond, played, wx.severe)
 }
 
+/// A redshirt from fall camp: the staff means him to sit this season.
+fn camp_redshirt(p: &super::Person) -> bool {
+    p.stage == Stage::College
+        && p.last_role == Some(PlayingTime::Redshirt)
+        && p.redshirt_used
+        && !p.cal.count_pending
+        && !p.cal.academic_sit
+}
+
+/// The camp redshirts a staff keeps off the field today (F14). Before 2018
+/// any game cost a redshirt his year, so a staff did not play one; from
+/// 2018 it plays him in up to four games and stops there (settle_eligibility).
+/// A redshirt whose year is already gone, or who still has games under the
+/// four-game rule, costs nothing today and is never held. When absences
+/// leave his position short of its two-deep even with those, the best of
+/// the rest play, only as many as fill it, whatever it costs (pulling the
+/// redshirt).
+pub(crate) fn held_redshirts(w: &World, cs: &CollegeSeason) -> HashSet<u32> {
+    let four = w.rules.four_game_redshirt;
+    let mut held = HashSet::new();
+    for prog in &w.programs {
+        let mut able = [0usize; crate::positions::POSITION_COUNT];
+        let mut planned: Vec<(crate::positions::Position, f64, u32)> = Vec::new();
+        for &i in &prog.roster {
+            let p = &w.people[i];
+            if p.stage != Stage::College || cs.out.contains_key(&p.player.id) {
+                continue;
+            }
+            if camp_redshirt(p) {
+                planned.push((p.player.position, p.player.overall(), p.player.id));
+            } else {
+                able[p.player.position.index()] += 1;
+            }
+        }
+        if planned.is_empty() {
+            continue;
+        }
+        // First those who cost nothing today: the year already counts (any
+        // game before 2018, five or more from 2018), or games are left
+        // under the four-game rule.
+        let mut rest = Vec::new();
+        for (pos, ov, id) in planned {
+            let games = cs.snaps.get(&id).map_or(0, |s| s.1);
+            let gone = games > 0 && (!four || games > 4);
+            if gone || (four && games < 4) {
+                able[pos.index()] += 1;
+            } else {
+                rest.push((pos, ov, id));
+            }
+        }
+        // Then the best of the rest, only while the position is short.
+        rest.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.2.cmp(&b.2)));
+        for (pos, _, id) in rest {
+            if able[pos.index()] < season::two_deep(pos) {
+                able[pos.index()] += 1;
+            } else {
+                held.insert(id);
+            }
+        }
+    }
+    held
+}
+
 /// The day's college games.
 pub(crate) fn play_day(w: &mut World, date: Date) {
     let Some(cs) = w.college.as_ref() else { return };
@@ -386,19 +460,7 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
     }
     stakes_for_day(w, &idx);
     let cs = w.college.as_ref().unwrap();
-    // From 2018 a staff stops playing a fall-camp redshirt once he has four
-    // games, so he keeps the year (settle_eligibility).
-    let capped: HashSet<u32> = if w.rules.four_game_redshirt && cs.on_engine {
-        w.people
-            .iter()
-            .filter(|p| matches!(p.stage, Stage::College) && !p.cal.count_pending && !p.cal.academic_sit)
-            .filter(|p| p.last_role == Some(PlayingTime::Redshirt) && p.redshirt_used)
-            .map(|p| p.player.id)
-            .filter(|id| cs.snaps.get(id).is_some_and(|s| s.1 >= 4))
-            .collect()
-    } else {
-        HashSet::new()
-    };
+    let capped = if cs.on_engine { held_redshirts(w, cs) } else { HashSet::new() };
     let seed = w.options.seed as u64 ^ ((cs.year as u64) << 32) ^ ((date.0 as u64) << 8);
     struct Job {
         k: usize,
@@ -526,6 +588,12 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
                         s.sacks += l.sacks;
                         s.ints += l.ints;
                         s.fg_made += l.fg_made.iter().sum::<u32>();
+                        s.pbus += l.pbus;
+                        s.grade_sum += l.grade_sum;
+                        for b in 0..4 {
+                            s.fg_att_band[b] += l.fg_att[b];
+                            s.fg_made_band[b] += l.fg_made[b];
+                        }
                     }
                 }
             }
@@ -585,6 +653,53 @@ fn record_series(w: &mut World, k: usize) -> Option<usize> {
     before
 }
 
+/// The Commander-in-Chief's Trophy (A28): a game between two service
+/// academies is a leg of it, and the Army-Navy game settles it. The academy
+/// that won both its games takes it; when all three split 1-1 (or a leg was
+/// not played) the holder keeps it. Returns what to add to the result's
+/// line, and a sentence after it.
+fn academy_trophy(w: &mut World, k: usize) -> (String, String) {
+    use crate::calendar::data::{COMMANDER_IN_CHIEF, RivalrySlot};
+    let (trophy, names) = COMMANDER_IN_CHIEF;
+    let recording = w.recording;
+    let Some(cs) = w.college.as_mut() else { return Default::default() };
+    let leg = |g: &Game| {
+        g.kind == GameKind::Regular
+            && g.rivalry.is_some_and(|r| names.contains(&RIVALRIES[r].a) && names.contains(&RIVALRIES[r].b))
+    };
+    let g = &cs.games[k];
+    if !leg(g) || g.played.is_none_or(|p| p.cancelled) {
+        return Default::default();
+    }
+    if g.rivalry.is_some_and(|r| RIVALRIES[r].slot != RivalrySlot::ArmyNavy) {
+        return (format!(", a leg of {trophy}"), String::new());
+    }
+    // Wins in the season's legs: with one game each way, only one academy
+    // can win two.
+    let mut wins: BTreeMap<usize, u32> = BTreeMap::new();
+    for g in cs.games.iter().filter(|g| leg(g)) {
+        if let Some(p) = g.played.filter(|p| !p.cancelled) {
+            *wins.entry(if p.home_won { g.home } else { g.away }).or_default() += 1;
+        }
+    }
+    let before = cs.academy_holder;
+    let outright = wins.iter().find(|(_, n)| **n >= 2).map(|(&t, _)| t);
+    if recording && outright.is_some() {
+        cs.academy_holder = outright;
+    }
+    let name = |t: usize| w.programs[t].real_name.as_str();
+    let mut t = trophy.to_string();
+    t[..1].make_ascii_uppercase();
+    let after = match (outright, before) {
+        (Some(o), Some(h)) if o == h => format!(" {} keeps {trophy}, 2-0 against the other academies.", name(o)),
+        (Some(o), Some(_)) => format!(" {} claims {trophy}, 2-0 against the other academies.", name(o)),
+        (Some(o), None) => format!(" {} wins {trophy}, 2-0 against the other academies.", name(o)),
+        (None, Some(h)) => format!(" The academies split their games, so {} keeps {trophy}.", name(h)),
+        (None, None) => format!(" The academies split their games; {t} goes unclaimed."),
+    };
+    (String::new(), after)
+}
+
 /// A playoff game's round, from the rounds left in its bracket.
 fn playoff_round(cs: &CollegeSeason, k: usize) -> Option<&'static str> {
     let b = cs.brackets.iter().find(|b| b.pending.contains(&k))?;
@@ -600,10 +715,12 @@ fn playoff_round(cs: &CollegeSeason, k: usize) -> Option<&'static str> {
 /// Posts a game's result: loud for marked and big games, a news line otherwise.
 fn result_event(w: &mut World, k: usize) {
     let holder = record_series(w, k);
+    let (leg, academy) = academy_trophy(w, k);
     let cs = w.college.as_ref().unwrap();
     let g = &cs.games[k];
     let Some(p) = g.played else { return };
-    if g.loud == Loudness::Small && g.rivalry.is_none() && g.kind == GameKind::Regular {
+    let huge = g.huge_for.contains(&true);
+    if g.loud == Loudness::Small && g.rivalry.is_none() && g.kind == GameKind::Regular && !huge {
         return;
     }
     let (wi, li, ws, ls) =
@@ -613,7 +730,7 @@ fn result_event(w: &mut World, k: usize) {
     let level = if g.division == Division::FBS { "CFP" } else { g.division.name() };
     let what = match (g.kind, g.name) {
         (GameKind::Playoff(_), name) => match (name, playoff_round(cs, k).unwrap_or("first round")) {
-            (Some(n), round) => format!(" in the {n}, a {level} {round}"),
+            (Some(n), round) => format!(" in the {n}, {} {round}", crate::text::with_article(level)),
             (None, round @ ("first round" | "second round")) => format!(" in the {level} {round}"),
             (None, round) => format!(" in the {level} {round}s"),
         },
@@ -637,9 +754,9 @@ fn result_event(w: &mut World, k: usize) {
                             Some(_) => "to claim",
                             None => "to win",
                         };
-                        format!(" in {name} {how} {t}")
+                        format!(" in {name} {how} {t}{leg}")
                     }
-                    None => format!(" in {name}"),
+                    None => format!(" in {name}{leg}"),
                 }
             }
             None => String::new(),
@@ -669,9 +786,14 @@ fn result_event(w: &mut World, k: usize) {
     } else {
         ""
     };
-    let text =
-        format!("{} beat {} {ws}-{ls}{weather}{what}.{series}", w.programs[wi].real_name, w.programs[li].real_name);
+    let text = format!(
+        "{} beat {} {ws}-{ls}{weather}{what}.{series}{academy}",
+        w.programs[wi].real_name, w.programs[li].real_name
+    );
     let loud = g.loud.max(if g.kind != GameKind::Regular { Loudness::Medium } else { Loudness::Small });
+    // A game huge for one of its teams (a rivalry-week game, a sixth win for
+    // a bowl, a coach's job) posts as big at least, so Continue stops on it.
+    let loud = if huge { loud.max(Loudness::Big) } else { loud };
     // Below the FBS a game is huge for its two teams, but national news
     // carries it as big at most (proposed, not confirmed).
     let loud = if g.division == Division::FBS { loud } else { loud.min(Loudness::Big) };
@@ -956,7 +1078,9 @@ fn stakes_for_day(w: &mut World, idx: &[usize]) {
             use crate::calendar::data::RivalrySlot;
             matches!(crate::calendar::data::RIVALRIES[r].slot, RivalrySlot::RivalryWeek | RivalrySlot::ArmyNavy)
         });
-        let mut huge_for = [false; 2];
+        // Below the FBS only the rivalry-week game is read (the other stakes
+        // are FBS races): Harvard-Yale is huge for both, as The Game is.
+        let mut huge_for = [rivalry_week; 2];
         if g.division == Division::FBS {
             for (side, t) in [g.home, g.away].into_iter().enumerate() {
                 let opp = g.opponent(t);
@@ -1031,8 +1155,10 @@ fn update_records(w: &mut World, year: i32) {
         let had = w.programs[prog].season_records[k].is_some();
         if had && w.recording {
             let stat = super::program::RECORD_STATS[k].0;
-            let text =
-                format!("{holder} finishes with {v:.0} {stat}, a {} single-season record.", w.programs[prog].real_name);
+            let text = format!(
+                "{holder} finishes with {v:.0} {stat}, {} single-season record.",
+                crate::text::with_article(&w.programs[prog].real_name)
+            );
             w.calendar.post(Event::new(d, CalLevel::College, Kind::News, Loudness::Small, text).program(prog));
         }
         w.programs[prog].season_records[k] = Some(super::program::SeasonRecord { value: v, holder, year });
@@ -1632,7 +1758,7 @@ fn opt_outs(w: &mut World) {
                 _ => "his bowl game",
             };
             let why = if senior { "to prepare for the draft" } else { "to enter the NFL draft" };
-            outs.push((p.player.id, i, format!("Opted out of {game} at {} {why}.", p.player.age), senior));
+            outs.push((p.player.id, i, format!("Opted out of {game} at {} {why}.", p.row_age()), senior));
         }
     }
     let date = w.today;
@@ -1730,6 +1856,106 @@ fn heisman_kind(pos: crate::positions::Position) -> Option<(usize, f64)> {
     }
 }
 
+/// What the position award voters count in a season line (A25): a passer's,
+/// runner's or receiver's production as the Heisman voters read it; a
+/// kicker's field goals, long makes worth more and short misses costing
+/// more; a defender's tackles, sacks, stops behind the line, interceptions
+/// and breakups (a defensive back's tackles count little). Blockers have no
+/// box-score line. Claude's weights, proposed, not confirmed.
+pub(crate) fn award_stats(l: &Line, pos: crate::positions::Position) -> f64 {
+    use crate::positions::Position::*;
+    let (tackles, sacks, tfl, ints, pbus) = (l.tackles as f64, l.sacks, l.tfl, l.ints as f64, l.pbus as f64);
+    match pos {
+        QB | RB | WR | TE => production(l, pos),
+        K | P | LS => {
+            const MADE: [f64; 4] = [1.0, 1.0, 1.25, 1.75];
+            const MISSED: [f64; 4] = [2.0, 1.5, 1.0, 0.5];
+            (0..4)
+                .map(|b| {
+                    let made = l.fg_made_band[b].min(l.fg_att_band[b]) as f64;
+                    MADE[b] * made - MISSED[b] * (l.fg_att_band[b] as f64 - made)
+                })
+                .sum()
+        }
+        OT | IOL => 0.0,
+        LB => tackles + 6.0 * sacks + 4.0 * tfl + 10.0 * ints + 3.0 * pbus,
+        CB | S => 0.5 * tackles + 6.0 * sacks + 4.0 * tfl + 10.0 * ints + 4.0 * pbus,
+        _ => tackles + 6.0 * sacks + 4.0 * tfl + 10.0 * ints + 3.0 * pbus,
+    }
+}
+
+/// How much of a position award rests on film (the season's per-play
+/// grades) rather than stats: none for passers, runners, receivers and
+/// kickers, all of it for blockers, half for defenders, whose stats tell
+/// part of the story. Claude's pick, proposed, not confirmed.
+pub(crate) fn award_film_weight(pos: crate::positions::Position) -> f64 {
+    use crate::positions::Position::*;
+    match pos {
+        QB | RB | WR | TE | K | P | LS => 0.0,
+        OT | IOL => 1.0,
+        _ => 0.5,
+    }
+}
+
+/// A position award's winner (A25), judged like the Heisman: the season's
+/// stats and film against the mean of the season's ten best at his position,
+/// over a full season (six games or more) in FBS for the team he is still
+/// on. His team's ranking and a former winner's higher bar count as for the
+/// Heisman: real winners nearly all play for ranked teams, a defender's big
+/// numbers on a weak team do not win it, and back-to-back winners are rare
+/// (the Biletnikoff: Michael Crabtree 2007-08, Justin Blackmon 2010-11; from
+/// memory, to verify). Claude's weights, proposed, not confirmed.
+fn show_pick(
+    w: &World,
+    cs: &CollegeSeason,
+    rank: &HashMap<usize, usize>,
+    by_id: &HashMap<u32, usize>,
+    award: &str,
+    positions: &[crate::positions::Position],
+) -> Option<usize> {
+    let candidates: Vec<(u32, usize, usize, f64, f64, usize)> = cs
+        .lines
+        .iter()
+        .filter(|(_, l)| w.programs[l.program].division == Division::FBS && l.games >= 6)
+        .filter_map(|(&id, l)| {
+            let i = *by_id.get(&id)?;
+            // Still on that team: a player gone mid-season is no candidate.
+            let p = &w.people[i];
+            if p.stage != Stage::College || p.college != Some(l.program) {
+                return None;
+            }
+            let pos = p.player.position;
+            let k = positions.iter().position(|&q| q == pos)?;
+            Some((id, i, k, award_stats(l, pos), l.grade_sum, l.program))
+        })
+        .collect();
+    // Each position's bar: the mean of its ten best, by stats and by film.
+    let top_ten = |mut v: Vec<f64>| {
+        v.sort_by(|a, b| b.total_cmp(a));
+        let top = &v[..v.len().min(10)];
+        (top.iter().sum::<f64>() / top.len().max(1) as f64).max(1.0)
+    };
+    let bars: Vec<(f64, f64)> = (0..positions.len())
+        .map(|k| {
+            let stats = candidates.iter().filter(|c| c.2 == k).map(|c| c.3).collect();
+            let film = candidates.iter().filter(|c| c.2 == k).map(|c| c.4).collect();
+            (top_ten(stats), top_ten(film))
+        })
+        .collect();
+    let won = format!("Won the {award}");
+    candidates
+        .iter()
+        .map(|&(id, i, k, stats, film, prog)| {
+            let fw = award_film_weight(positions[k]);
+            let read = (1.0 - fw) * stats / bars[k].0 + fw * film / bars[k].1;
+            let team = rank.get(&prog).map_or(0.8, |&r| 1.3 - 0.02 * r.min(25) as f64);
+            let former = w.people[i].notes.iter().any(|n| n.starts_with(&won));
+            (read * team * if former { 0.85 } else { 1.0 }, id, i)
+        })
+        .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)))
+        .map(|(_, _, i)| i)
+}
+
 /// The Heisman finalists, the ceremony, the awards show and All-America
 /// teams on their days (A25). Placeholder picks: season stats and team
 /// success (proposed, not confirmed).
@@ -1792,7 +2018,7 @@ pub(crate) fn awards(w: &mut World, which: &'static str) {
                 })
                 .collect();
             for &(_, _, i) in scored.iter().take(4) {
-                let age = w.people[i].player.age;
+                let age = w.people[i].row_age();
                 w.people[i].note(format!("A Heisman Trophy finalist at {age}."));
             }
             if !names.is_empty() {
@@ -1804,7 +2030,7 @@ pub(crate) fn awards(w: &mut World, which: &'static str) {
             if let Some(&(_, id, i)) = scored.first() {
                 let c = w.people[i].college.unwrap_or(0);
                 let text = format!("{} of {} wins the Heisman Trophy.", w.people[i].name, w.program_name(c));
-                let age = w.people[i].player.age;
+                let age = w.people[i].row_age();
                 w.people[i].note(format!("Won the Heisman Trophy at {age}."));
                 w.calendar
                     .post(Event::new(date, CalLevel::College, Kind::Award, Loudness::Big, text).program(c).memorable());
@@ -1825,25 +2051,25 @@ pub(crate) fn awards(w: &mut World, which: &'static str) {
             ];
             let mut picks = Vec::new();
             for (award, positions) in list {
-                // By the season's play (performance) for linemen and kickers, stats otherwise.
-                let best = w
-                    .people
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, p)| {
-                        p.stage == Stage::College
-                            && positions.contains(&p.player.position)
-                            && p.last_role == Some(PlayingTime::Starter)
-                            && p.college.is_some_and(|c| w.programs[c].division == Division::FBS)
-                    })
-                    .max_by(|a, b| {
-                        let va = a.1.last_performance.unwrap_or(0.0)
-                            + cs.lines.get(&a.1.player.id).map_or(0.0, |l| 0.01 * production(l, a.1.player.position));
-                        let vb = b.1.last_performance.unwrap_or(0.0)
-                            + cs.lines.get(&b.1.player.id).map_or(0.0, |l| 0.01 * production(l, b.1.player.position));
-                        va.total_cmp(&vb)
-                    })
-                    .map(|(i, _)| i);
+                let best = if cs.on_engine {
+                    show_pick(w, cs, &rank, &by_id, award, positions)
+                } else {
+                    // The stand-in keeps no stats: the season's play from
+                    // the development step.
+                    w.people
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, p)| {
+                            p.stage == Stage::College
+                                && positions.contains(&p.player.position)
+                                && p.last_role == Some(PlayingTime::Starter)
+                                && p.college.is_some_and(|c| w.programs[c].division == Division::FBS)
+                        })
+                        .max_by(|a, b| {
+                            a.1.last_performance.unwrap_or(0.0).total_cmp(&b.1.last_performance.unwrap_or(0.0))
+                        })
+                        .map(|(i, _)| i)
+                };
                 if let Some(i) = best {
                     picks.push((award, i));
                 }
@@ -1852,7 +2078,7 @@ pub(crate) fn awards(w: &mut World, which: &'static str) {
             for (award, i) in picks {
                 let c = w.people[i].college.unwrap_or(0);
                 let id = w.people[i].player.id;
-                let age = w.people[i].player.age;
+                let age = w.people[i].row_age();
                 w.people[i].note(format!("Won the {award} at {age}."));
                 lines.push(format!("{} {} ({})", award, w.people[i].name, w.program_name(c)));
                 w.college.as_mut().unwrap().awards.push((award, id, c));
@@ -2048,12 +2274,18 @@ pub(crate) fn finish(w: &mut World) {
 /// Whether this season counts against a player's eligibility, settled when
 /// the portal opens (January 2): a redshirt can play four games and keep the
 /// year from 2018 on; a redshirt trick keeps it by stopping at four. Before
-/// 2018 any game a redshirt played cost him the year.
+/// 2018 any game a redshirt played cost him the year. A season without a
+/// game is never a season of competition: a player who never got in uses
+/// his redshirt year if he still has it, in every era.
 pub(crate) fn settle_eligibility(w: &mut World) {
     let Some(cs) = w.college.as_ref() else { return };
     let four = w.rules.four_game_redshirt;
     let on_engine = cs.on_engine;
     let games: HashMap<u32, u32> = cs.snaps.iter().map(|(&id, s)| (id, s.1)).collect();
+    let team_games: Vec<u32> = cs.results.iter().map(|r| r.games()).collect();
+    // The team he played his games for: a December transfer has moved on by now.
+    let prog_of: HashMap<u32, usize> = cs.lines.iter().map(|(&id, l)| (id, l.program)).collect();
+    let seed = w.options.seed as u64 ^ ((cs.year as u64) << 24) ^ 0x5E77;
     let mut kept = 0u32;
     for p in w.people.iter_mut() {
         if !matches!(p.stage, Stage::College | Stage::Declared) {
@@ -2067,9 +2299,10 @@ pub(crate) fn settle_eligibility(w: &mut World) {
             if !camp_redshirt || played == 0 {
                 continue;
             }
-            let age = p.player.age;
+            let age = p.row_age();
             let games = if played == 1 { "game" } else { "games" };
-            if !four || played > 4 {
+            let burned = !four || played > 4;
+            if burned {
                 p.redshirt_used = false;
                 p.college_seasons += 1;
                 p.note(format!("Played in {played} {games} at {age}, which cost him his redshirt year."));
@@ -2079,14 +2312,23 @@ pub(crate) fn settle_eligibility(w: &mut World) {
                     "Played in {played} {games} at {age} and kept his redshirt year under the four-game rule."
                 ));
             }
+            let team = prog_of
+                .get(&p.player.id)
+                .copied()
+                .or(p.college)
+                .and_then(|c| team_games.get(c).copied())
+                .unwrap_or(played);
+            played_as_redshirt(p, played, team, burned, seed);
             continue;
         }
         p.cal.count_pending = false;
-        if four && on_engine && !p.redshirt_used && played <= 4 {
+        if on_engine && !p.redshirt_used && (played == 0 || four && played <= 4) {
             p.redshirt_used = true;
-            kept += 1;
+            if four {
+                kept += 1;
+            }
             if p.cal.redshirt_trick {
-                let age = p.player.age;
+                let age = p.row_age();
                 p.note(format!("Stopped playing after four games at {age} to keep his redshirt year."));
             }
         } else {
@@ -2094,6 +2336,72 @@ pub(crate) fn settle_eligibility(w: &mut World) {
         }
     }
     w.log.four_game_redshirts += kept;
+}
+
+/// A camp redshirt who got into games (F1): his season row counts them.
+/// His growth stays the year his staff planned at camp (practice and the
+/// weight room); the row shows his play over the games he got, the form of
+/// his year and the games an injury cost him, as the yearly step reads a
+/// backup's season. When the year counts against his eligibility it was a
+/// backup's season, and his row and role say so. A redshirt kept under the
+/// four-game rule (2018 on, four games or fewer) gets the same play, form
+/// and games missed, but his row and role stay a redshirt's: a year of four
+/// games or fewer is a redshirt year in real football, and the role feeds
+/// the staff's roster read and the portal's role records (proposed, not
+/// confirmed: F1's text said the row says backup).
+fn played_as_redshirt(p: &mut super::Person, played: u32, team_games: u32, burned: bool, seed: u64) {
+    use crate::player::DevelopmentEvent as Ev;
+    let id = p.player.id as u64;
+    let Some(h) = p.player.history.last_mut() else { return };
+    // The rating he played the season at: an early enrollee's row opens
+    // with his first college spring step (F2), taken before the season.
+    let camp = h.overall_start + h.spring_open.unwrap_or(0.0);
+    // His play, as the yearly step reads a backup's season (development.rs):
+    // his rating through the year, a first-year dip and the year's form. A
+    // lost season (drawn at camp) costs 3-7 points of play and no other
+    // form follows it; otherwise a slump costs 4-9 (6%) and a hot year adds
+    // 3-7 (a backup's breakout chance, 2.1%; not in a year a major injury
+    // mostly took). Each is named on the row, so a page gives the reason.
+    let dip = h.adjustment.unwrap_or(0.0);
+    let mut play = 2.0 * key_normal(seed, id) - 7.0 * dip;
+    let form = key_uniform(seed ^ 0xF0, id);
+    let size = key_uniform(seed ^ 0xF1, id);
+    if h.events.has(Ev::LostSeason) {
+        play -= 3.0 + 4.0 * size;
+    } else if form < 0.06 {
+        play -= 4.0 + 5.0 * size;
+        h.events.add(Ev::Slump);
+    } else if form > 1.0 - 0.035 * 0.6 && !h.events.has(Ev::MajorInjury) {
+        play += 3.0 + 4.0 * size;
+        // A big year from a player whose rating still fell is not a breakout.
+        if h.overall >= camp {
+            h.events.add(Ev::Breakout);
+        }
+    }
+    if burned {
+        h.playing_time = PlayingTime::Backup;
+        p.last_role = Some(PlayingTime::Backup);
+    }
+    let perf = clamp((camp + h.overall) / 2.0 + play, crate::attributes::MIN_RATING, crate::attributes::MAX_RATING);
+    h.performance = Some(perf);
+    p.last_performance = Some(perf);
+    // An injury this year cost him games he could have played (the yearly
+    // step's ranges), at most the games his team played without him.
+    if h.games_missed == 0 {
+        let u = key_uniform(seed ^ 0x1A, id);
+        let games = crate::development::season_games(h.level) as f64;
+        let missed = if h.events.has(Ev::MajorInjury) {
+            let least = (games * 0.5).round();
+            least + (games - least + 1.0) * u
+        } else if h.events.has(Ev::ModerateInjury) {
+            2.0 + 5.0 * u
+        } else if h.events.has(Ev::MinorInjury) {
+            3.0 * u
+        } else {
+            0.0
+        };
+        h.games_missed = (missed.floor() as u32).min(team_games.saturating_sub(played));
+    }
 }
 
 /// The lean to leave at which a benched veteran takes the redshirt trick: a
@@ -2403,7 +2711,7 @@ pub(crate) fn spring_term_check(w: &mut World) {
             let risk = 0.06 * clamp((2.5 - p.bg.gpa) / 0.5, 0.0, 1.0) * (1.3 - support);
             if p.rng.chance(risk) {
                 p.cal.spring_ineligible = true;
-                let age = p.player.age;
+                let age = p.row_age();
                 p.note(format!(
                     "Academically ineligible for the fall at {age} after the spring term (GPA {:.2}).",
                     p.bg.gpa
@@ -2448,7 +2756,7 @@ fn fall_term_check(w: &mut World) {
                 return None;
             }
             p.cal.fall_ineligible = true;
-            let (age, gpa) = (p.player.age, p.bg.gpa);
+            let (age, gpa) = (p.row_age(), p.bg.gpa);
             let what = match (playing[c], !last_season(p, season, five)) {
                 (true, true) => "for the postseason and spring practice ",
                 (true, false) => "for the postseason ",
@@ -2482,7 +2790,7 @@ pub(crate) fn december_graduation(w: &mut World) {
             && !p.cal.graduated
         {
             p.cal.graduated = true;
-            let age = p.player.age;
+            let age = p.row_age();
             // The year to use anywhere only when he has a season left.
             if last_season(p, year, five) {
                 p.note(format!("Graduated in December at {age}."));
@@ -2583,6 +2891,110 @@ mod tests {
         let oregon = RIVALRIES.iter().find(|r| r.a == "Oregon" && r.b == "Oregon State").unwrap();
         assert_eq!(oregon.name_in(2019), "the Civil War");
         assert_eq!(oregon.name_in(2020), "the Oregon-Oregon State game");
+    }
+
+    /// The Commander-in-Chief's Trophy is one three-way trophy: the
+    /// Air Force games are legs of it, the Army-Navy game settles it, and
+    /// the holder keeps it when the academies split their games.
+    #[test]
+    fn the_academies_play_for_one_commander_in_chiefs_trophy() {
+        let mut w = world();
+        w.recording = true;
+        let (army, navy, af) = (id(&w, "Army"), id(&w, "Navy"), id(&w, "Air Force"));
+        let row = |a: &str, b: &str| RIVALRIES.iter().position(|r| r.a == a && r.b == b).unwrap();
+        let (na, aa, an) = (row("Navy", "Air Force"), row("Army", "Air Force"), row("Army", "Navy"));
+        let mut texts = Vec::new();
+        // 2026: Navy beats both. 2027: each academy goes 1-1.
+        for (year, games) in [
+            (2026, [(navy, af, true), (army, af, true), (army, navy, false)]),
+            (2027, [(af, navy, true), (army, af, true), (army, navy, false)]),
+        ] {
+            let cs = w.college.as_mut().unwrap();
+            cs.year = year;
+            cs.games.clear();
+            for (day, (&(home, away, home_won), r)) in games.iter().zip([na, aa, an]).enumerate() {
+                let date = Date::ymd(year, 10 + day as u32, 9);
+                let cs = w.college.as_mut().unwrap();
+                let mut g = Game::new(date, home, away, Division::FBS, GameKind::Regular);
+                g.rivalry = Some(r);
+                g.played = played(home_won);
+                cs.games.push(g);
+                let k = cs.games.len() - 1;
+                result_event(&mut w, k);
+                texts.push(w.calendar.on(date).last().unwrap().text.clone());
+            }
+        }
+        assert_eq!(
+            texts[0],
+            "Navy beat Air Force 24-17 in the Navy-Air Force game, a leg of the Commander-in-Chief's Trophy."
+        );
+        assert!(!texts[1].contains("claim") && !texts[1].contains("keep"), "{}", texts[1]);
+        assert!(
+            texts[2].ends_with("Navy wins the Commander-in-Chief's Trophy, 2-0 against the other academies."),
+            "{}",
+            texts[2]
+        );
+        assert!(
+            texts[5].ends_with("The academies split their games, so Navy keeps the Commander-in-Chief's Trophy."),
+            "{}",
+            texts[5]
+        );
+        assert_eq!(w.college.as_ref().unwrap().academy_holder, Some(navy));
+    }
+
+    /// The awards show reads stats for passers, runners, receivers and
+    /// kickers, film for blockers: a kicker who makes his long ones beats
+    /// one with more makes who misses short ones.
+    #[test]
+    fn award_reads_weigh_kicks_by_distance() {
+        use crate::positions::Position::*;
+        let accurate = Line { fg_att_band: [4, 6, 8, 4], fg_made_band: [4, 6, 7, 3], ..Line::default() };
+        let volume = Line { fg_att_band: [10, 10, 8, 4], fg_made_band: [8, 8, 6, 2], ..Line::default() };
+        assert!(award_stats(&accurate, K) > award_stats(&volume, K));
+        assert_eq!(award_film_weight(OT), 1.0);
+        assert_eq!(award_film_weight(QB), 0.0);
+        assert_eq!(award_film_weight(LB), 0.5);
+    }
+
+    /// A rivalry-week game is huge for both its teams below the FBS too,
+    /// so its result posts as big.
+    #[test]
+    fn a_rivalry_week_game_below_the_fbs_is_huge_for_both() {
+        let mut w = world();
+        let (harvard, yale) = (id(&w, "Harvard"), id(&w, "Yale"));
+        let r = RIVALRIES.iter().position(|r| r.a == "Harvard" && r.b == "Yale").unwrap();
+        let date = Date::ymd(2026, 11, 21);
+        let cs = w.college.as_mut().unwrap();
+        let mut g = Game::new(date, harvard, yale, Division::FCS, GameKind::Regular);
+        g.rivalry = Some(r);
+        g.tags = vec![Tag::Rivalry];
+        cs.games.push(g);
+        let k = cs.games.len() - 1;
+        stakes_for_day(&mut w, &[k]);
+        let cs = w.college.as_mut().unwrap();
+        assert_eq!(cs.games[k].huge_for, [true, true]);
+        cs.games[k].played = played(true);
+        result_event(&mut w, k);
+        assert_eq!(w.calendar.on(date).last().unwrap().loud, Loudness::Big);
+    }
+
+    /// A game huge for one of its teams posts its result as big at least,
+    /// whatever the nation makes of it.
+    #[test]
+    fn a_teams_huge_game_posts_big() {
+        let mut w = world();
+        let (a, b) = (id(&w, "Kansas"), id(&w, "Iowa State"));
+        let date = Date::ymd(2026, 11, 21);
+        let cs = w.college.as_mut().unwrap();
+        let mut g = Game::new(date, a, b, Division::FBS, GameKind::Regular);
+        g.tags = vec![Tag::HotSeat];
+        g.loud = Loudness::Medium;
+        g.huge_for = [false, true];
+        g.played = played(true);
+        cs.games.push(g);
+        let k = cs.games.len() - 1;
+        result_event(&mut w, k);
+        assert_eq!(w.calendar.on(date).last().unwrap().loud, Loudness::Big);
     }
 
     #[test]

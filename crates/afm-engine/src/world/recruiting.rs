@@ -404,7 +404,7 @@ pub(crate) fn honors(w: &mut World) {
     for (i, weight, what) in honors {
         let c = w.people[i].college.unwrap();
         credit_impact(w, i, c, weight, year);
-        let age = w.people[i].player.age - 1;
+        let age = w.people[i].row_age();
         let school = w.program_name(c).to_string();
         w.people[i].note(format!("At {age} he {what} at {school}."));
     }
@@ -546,7 +546,7 @@ pub(crate) fn declarations(w: &mut World, phase: Declare) {
                     if phase == Declare::Deadline {
                         let p = &mut w.people[i];
                         p.stage = Stage::Declared;
-                        let age = p.player.age;
+                        let age = p.row_age();
                         p.note(format!("His college career over at {age}, he entered the draft pool."));
                     }
                     continue;
@@ -565,7 +565,7 @@ pub(crate) fn declarations(w: &mut World, phase: Declare) {
                 }
                 let p = &mut w.people[i];
                 p.stage = Stage::Declared;
-                let age = p.player.age;
+                let age = p.row_age();
                 let round = read.round;
                 let proj =
                     if round <= 7 { format!("projected round {round}") } else { "projected to go undrafted".into() };
@@ -594,7 +594,9 @@ pub(crate) fn declarations(w: &mut World, phase: Declare) {
                     p.stage = Stage::College;
                     // He is back for next season: no second declaration this winter.
                     p.cal.declare_plan = Some(false);
-                    let age = p.player.age;
+                    // He has eligibility left again: no all-star game this winter.
+                    p.cal.all_star = None;
+                    let age = p.row_age();
                     p.note(format!(
                         "Withdrew from the draft at {age} after a poor advisory grade and returned to school."
                     ));
@@ -681,7 +683,7 @@ pub(crate) fn combine(w: &mut World) {
             r.score += shift;
             if z >= 1.8 {
                 risers.push(i);
-                let age = p.player.age;
+                let age = p.row_age();
                 p.note(format!("Tested among the best at his position at the combine at {age}."));
             }
         }
@@ -692,15 +694,32 @@ pub(crate) fn combine(w: &mut World) {
     }
 }
 
+/// The college all-star games in the order they name their rosters: the
+/// Senior Bowl picks first every year, whatever the game dates, then the
+/// Shrine Bowl, the HBCU Legacy Bowl and the NFLPA Collegiate Bowl.
+pub(crate) const ALL_STAR_ORDER: [&str; 4] =
+    ["Senior Bowl", "East-West Shrine Bowl", "HBCU Legacy Bowl", "NFLPA Collegiate Bowl"];
+
+/// Whether a college all-star game is played before a draft: the NFLPA
+/// Collegiate Bowl from 2012, the HBCU Legacy Bowl from 2022.
+pub(crate) fn all_star_held(game: &str, draft_year: i32) -> bool {
+    match game {
+        "HBCU Legacy Bowl" => draft_year >= 2022,
+        "NFLPA Collegiate Bowl" => draft_year >= 2012,
+        _ => true,
+    }
+}
+
 /// College all-star games (A9): who is invited, by the staffs' reads.
-/// The Senior Bowl takes the best seniors, the Shrine Bowl and the NFLPA
-/// Collegiate Bowl the next tiers, the HBCU Legacy Bowl (2022 on) players
-/// from HBCU programs. Real rosters are filled from fall invitations, so a
+/// The games name their rosters together, in `ALL_STAR_ORDER`: the Senior
+/// Bowl takes the best seniors, the Shrine Bowl the next tier, the HBCU
+/// Legacy Bowl (2022 on) players from HBCU programs, the NFLPA Collegiate
+/// Bowl the tier after. Real rosters are filled from fall invitations, so a
 /// senior whose college season is over is invited on his December draft
 /// read, before the January deadline puts him in the draft pool.
 pub(crate) fn all_star_invites(w: &mut World, game: &'static str) {
     let year = w.year;
-    if (game == "HBCU Legacy Bowl" && year + 1 < 2022) || (game == "NFLPA Collegiate Bowl" && year + 1 < 2012) {
+    if !all_star_held(game, year + 1) {
         return;
     }
     let draft_year = year + 1;
@@ -730,11 +749,8 @@ pub(crate) fn all_star_invites(w: &mut World, game: &'static str) {
         .filter_map(|(i, p)| p.cal.draft_read.map(|r| (r.score, i)))
         .collect();
     pool.sort_by(|a, b| b.0.total_cmp(&a.0));
-    // The best seniors skip the lesser games.
-    let skip = match game {
-        "East-West Shrine Bowl" | "NFLPA Collegiate Bowl" => (60.0 * w.options.scale).round() as usize,
-        _ => 0,
-    };
+    // The games before this one in the order have taken their players
+    // already, so each takes the best left.
     let size = match game {
         "Senior Bowl" => 110.0,
         "East-West Shrine Bowl" => 110.0,
@@ -742,8 +758,23 @@ pub(crate) fn all_star_invites(w: &mut World, game: &'static str) {
         _ => 100.0,
     };
     let n = ((size * w.options.scale).round() as usize).max(1);
+    // Each of the two teams carries one kicker, one punter and one long
+    // snapper (from memory, to verify): two of each at most, however well
+    // the December read rates them.
+    let per_specialist = ((2.0 * w.options.scale).round() as usize).max(1);
+    let mut specialists: Vec<crate::positions::Position> = Vec::new();
     let mut count = 0;
-    for &(_, i) in pool.iter().skip(skip).take(n) {
+    for &(_, i) in &pool {
+        if count as usize == n {
+            break;
+        }
+        let pos = w.people[i].player.position;
+        if pos.is_specialist() {
+            if specialists.iter().filter(|&&q| q == pos).count() >= per_specialist {
+                continue;
+            }
+            specialists.push(pos);
+        }
         w.people[i].cal.all_star = Some(game);
         count += 1;
     }
@@ -772,7 +803,7 @@ pub(crate) fn all_star_game(w: &mut World, game: &'static str) {
             r.grade += shift;
             r.score += shift;
         }
-        let age = p.player.age;
+        let age = p.row_age();
         p.note(format!("Played in the {game} at {age}."));
         n += 1;
     }
@@ -885,9 +916,12 @@ pub(crate) fn draft(w: &mut World) {
             format!("they traded up to pick {pick} to take their quarterback")
         } else if need >= 1.0 {
             let weakest = team.weakest_starter(pos).map_or(0.0, |x| x.0);
-            format!("they needed a {} (their weakest starter there was rated {weakest:.0})", pos.name())
+            format!(
+                "they needed {} (their weakest starter there was rated {weakest:.0})",
+                crate::text::with_article(pos.name())
+            )
         } else if pv >= 2.0 {
-            format!("a {} is a premium position", pos.name())
+            format!("{} is a premium position", crate::text::with_article(pos.name()))
         } else {
             "he was the best player left on their board".to_string()
         };
@@ -949,7 +983,7 @@ pub(crate) fn draft(w: &mut World) {
         let team_id = how.as_ref().map(|h| h.1);
         let p = &mut w.people[i];
         p.stage = Stage::Pro;
-        let age = p.player.age;
+        let age = p.row_age();
         let when = pick.map_or(y.udfa_rush, pick_time);
         match (how, round, team_name) {
             (Some((pk, _, why)), Some(r), Some(team)) => {
@@ -1107,6 +1141,50 @@ struct ClassPlan {
     slots: usize,
     /// Roster places it keeps for walk-ons.
     walk_on_room: usize,
+    /// Places under the limit open next fall, signees and walk-ons together.
+    room: usize,
+    /// The limit counts the whole roster (the House era), so a walk-on
+    /// needs a place under it too.
+    whole_roster: bool,
+    /// Places open at each position next fall for a late walk-on: the
+    /// depth a staff carries there less the players it expects back. Under
+    /// a whole-roster limit that depth is the plan's target; under a
+    /// scholarship limit it is a real full squad's, walk-ons included.
+    open_at: [usize; POSITION_COUNT],
+}
+
+impl ClassPlan {
+    /// A walk-on place for a recruit whose commitment fell through on
+    /// signing day: one the plan keeps at his position, or a place at his
+    /// position on the roster as it stands after the matching (`taken`:
+    /// scholarships and walk-ons in the class; `at`: the same at his
+    /// position).
+    fn late_walk_on(&self, i: usize, taken: [usize; 2], at: [usize; 2]) -> bool {
+        let planned = taken[1] < self.walk_on_room && at[1] < self.walk_on[i];
+        let under_limit = !self.whole_roster || taken[0] + taken[1] < self.room;
+        planned || (under_limit && at[0] + at[1] < self.open_at[i])
+    }
+}
+
+/// Whether a player takes a place under his program's limit (F17). The
+/// House era's limit counts the whole roster. Before it (and at the FCS
+/// programs that stayed out, D2 and junior colleges) the limit counts
+/// players on aid, and walk-ons sit outside it, except the specialists the
+/// class plan keeps in its own walk-on room under the limit.
+fn takes_a_place(p: &Person, whole_roster: bool) -> bool {
+    whole_roster || !p.walk_on || p.player.position.is_specialist()
+}
+
+/// The players on each program's roster who take a place under its limit
+/// in `season` (`takes_a_place`).
+fn counted_rosters(w: &World, season: i32) -> Vec<usize> {
+    w.programs
+        .iter()
+        .map(|prog| {
+            let whole = super::ncaa::whole_roster_limit(prog, season);
+            prog.roster.iter().filter(|&&i| takes_a_place(&w.people[i], whole)).count()
+        })
+        .collect()
 }
 
 /// When the staff reads its roster for a signing stage (T5.2): what this
@@ -1236,6 +1314,7 @@ fn class_plan(
     let mut now = [[0.0; 2]; POSITION_COUNT];
     let mut stay = [[0.0; 2]; POSITION_COUNT];
     let mut returning = 0.0;
+    let whole_roster = super::ncaa::whole_roster_limit(prog, sign_year);
     for &i in &prog.roster {
         let p = &people[i];
         if p.stage != Stage::College {
@@ -1245,12 +1324,14 @@ fn class_plan(
         let (next, two) = gone(p, prog.division, sign_year, bars, read);
         now[k][wo] += 1.0 - next;
         stay[k][wo] += 1.0 - two;
-        returning += 1.0 - next;
+        if takes_a_place(p, whole_roster) {
+            returning += 1.0 - next;
+        }
     }
-    let mut plan = ClassPlan::default();
+    let mut plan = ClassPlan { whole_roster, ..Default::default() };
     for pos in Position::ALL {
         let k = pos.index();
-        let target = real_roster(pos) * scale;
+        let mut target = real_roster(pos) * scale;
         if pos.is_specialist() {
             // Each staff has its own habit: 3.1 kickers a roster means some carry 3, some 4.
             let habit = key_uniform(seed ^ 0x5EC1_A115 ^ k as u64, prog.id as u64);
@@ -1258,11 +1339,15 @@ fn class_plan(
             let on_scholarship = specialist_scholarships(pos).min(total);
             plan.scholarship[k] = plan_count(on_scholarship, now[k][0], stay[k][0]);
             plan.walk_on[k] = plan_count(total - on_scholarship, now[k][1], stay[k][1]);
+            target = total;
         } else {
             plan.scholarship[k] = plan_count(target, now[k][0] + now[k][1], stay[k][0] + stay[k][1]);
         }
+        let depth = if plan.whole_roster { target } else { real_roster(pos) };
+        plan.open_at[k] = crate::rng::round_half_up(depth - now[k][0] - now[k][1]).max(0.0) as usize;
     }
     let room = limit.saturating_sub(returning.round() as usize);
+    plan.room = room;
     plan.walk_on_room = plan.walk_on.iter().sum::<usize>().min(room);
     // The era's yearly signing cap (11.4) bounds the class.
     plan.slots = (room - plan.walk_on_room).min(signees);
@@ -1699,7 +1784,7 @@ pub(crate) fn announce_commitments(w: &mut World, d: Date) {
     let (today, later): (Vec<_>, Vec<_>) = w.announcements.iter().copied().partition(|a| a.0 <= d);
     w.announcements = later;
     let month = d.month() as usize - 1;
-    for (_, i, id, j) in today {
+    for (_, i, id, j, walk_on) in today {
         let Some(p) = w.people.get(i) else { continue };
         if p.player.id != id || p.stage != Stage::HighSchool || p.cal.commit.is_some() {
             continue;
@@ -1711,7 +1796,7 @@ pub(crate) fn announce_commitments(w: &mut World, d: Date) {
         let started =
             w.hs_season.as_ref().is_some_and(|h| h.states.get(w.high_schools[p.hs].state).is_some_and(|s| s.developed));
         let p = &mut w.people[i];
-        p.cal.commit = Some((j, d));
+        p.cal.commit = Some((j, d, walk_on));
         w.log.commits += 1;
         w.log.commits_by_month[month] += 1;
         let age = p.player.age - started as u32;
@@ -1949,15 +2034,19 @@ fn stickiness(p: &Person, prog: &Program, coaches: &[super::coach::Coach], year:
 /// A signing stage for the class that signs after `season` (T5). Its
 /// counters (commitments, flips, decommits, signees) go to that season's
 /// calendar log even when February signing day falls after the Super Bowl,
-/// in the next football year, so each log holds one signing day.
+/// in the next football year, so each log holds one signing day. Its news
+/// (commitments, flips, signings) is filed under that season too, while it
+/// still shows on the day it happened.
 pub(crate) fn signing_stage(w: &mut World, stage: SignStage, season: i32) {
     let past = if w.log.year == season { None } else { w.log_history.iter().rposition(|l| l.year == season) };
     if let Some(k) = past {
         std::mem::swap(&mut w.log, &mut w.log_history[k]);
+        w.calendar.filing = Some(season);
     }
     run_signing_stage(w, stage, season);
     if let Some(k) = past {
         std::mem::swap(&mut w.log, &mut w.log_history[k]);
+        w.calendar.filing = None;
     }
 }
 
@@ -2106,7 +2195,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         p.visibility = r.visibility;
         p.bg.exposure_network = r.visibility;
         if r.viral && rating {
-            let age = p.player.age;
+            let age = p.row_age();
             p.note(format!("At {age} a highlight clip went viral and got him a first look from recruiters."));
         }
     }
@@ -2167,7 +2256,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         if p.rng.chance(clamp(chance, 0.05, 0.85)) {
             p.bg.gpa = line + p.rng.range(0.0, 0.05);
             pool[k].gpa = p.bg.gpa;
-            let age = p.player.age;
+            let age = p.row_age();
             p.note(format!(
                 "At {age}, summer school and retaken courses lifted his core GPA from {gpa:.2} to {:.2}.",
                 p.bg.gpa
@@ -2730,8 +2819,14 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     // him on their boards and a place left, the one he likes best, with no
     // NIL money this late. A scholarship needs a slot in the class and his
     // position no more than two over the plan (a specialist follows the
-    // plan exactly); a walk-on needs a walk-on place the plan keeps at his
-    // position. The best recruits choose first (proposed, not confirmed).
+    // plan exactly). Otherwise he walks on, at a walk-on place the plan
+    // keeps at his position or at any place his position still has on the
+    // roster: a scholarship limit leaves walk-ons outside it, so he needs
+    // only room at his position (a real squad's depth there), while the
+    // House era's roster limit needs a place under it too. By February the
+    // matching has used the slots, and the plan keeps walk-on places for
+    // specialists only, so those alone placed almost no one. The best
+    // recruits choose first (proposed, not confirmed).
     let mut scrambled = vec![false; pool.len()];
     if stage == SignStage::Final {
         let mut dropped: Vec<usize> =
@@ -2772,7 +2867,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     taken[j] < plan.slots && taken_at[j][i][0] < plan.scholarship[i] + OVER_PLAN
                 };
                 let walk_on = !scholarship;
-                if walk_on && (taken_walk_on[j] >= plan.walk_on_room || taken_at[j][i][1] >= plan.walk_on[i]) {
+                if walk_on && !plan.late_walk_on(i, [taken[j], taken_walk_on[j]], taken_at[j][i]) {
                     continue;
                 }
                 let u = utility(p, &wants, &programs[j], 0.0, 1.0 - share) + relationship(j, k) + feel(j, k)
@@ -2897,7 +2992,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             // made up at the wave; the recruit announces on a day of his own
             // before the next wave (July 4 is a favorite after June's
             // official visits; proposed, not confirmed).
-            let j = held[k].unwrap().program;
+            let Held { program: j, walk_on, .. } = held[k].unwrap();
             let id = w.people[i].player.id;
             let span = if wave >= 3 { 30.0 } else { 58.0 };
             let u = key_uniform(seed ^ 0xA77, id as u64);
@@ -2906,11 +3001,13 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             } else {
                 today.add(1 + (key_uniform(seed ^ 0xA78, id as u64) * span) as i32)
             };
-            w.announcements.push((day, i, id, j));
+            w.announcements.push((day, i, id, j, walk_on));
             continue;
         }
         let from_hs = w.school_name(w.people[i].hs).to_string();
         let committed = w.people[i].cal.commit.map(|c| c.0);
+        // A commitment to a walk-on place never held a scholarship.
+        let committed_on_scholarship = w.people[i].cal.commit.is_some_and(|c| !c.2);
         match held[k] {
             Some(Held { program: j, special, walk_on, .. }) => {
                 let prog_name = w.program_name(j).to_string();
@@ -2947,12 +3044,17 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     w.log.commits += 1;
                     w.log.commits_by_month[month] += 1;
                 }
+                if scrambled[k] && walk_on && committed == Some(j) && committed_on_scholarship {
+                    w.people[i].note(format!(
+                        "{prog_name} ran out of scholarships for him on signing day; he walked on there instead."
+                    ));
+                }
                 if let Some(c) = committed
                     && c != j
                 {
                     w.log.flips += 1;
                     let from = w.program_name(c).to_string();
-                    let age = w.people[i].player.age;
+                    let age = w.people[i].row_age();
                     let text = if scrambled[k] {
                         format!(
                             "His commitment to {from} fell through on signing day at {age}; {prog_name} had room for him."
@@ -2984,7 +3086,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     (false, _) => Step::HsToSmallCollege,
                 };
                 p.pending_dip = Some(World::adjustment(p, step));
-                let age = p.player.age;
+                let age = p.row_age();
                 let pos = p.player.position;
                 let services = match (p.stars, pos.is_specialist()) {
                     (0, false) => "an unranked recruit".to_string(),
@@ -2992,9 +3094,12 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     (s, false) => format!("a {s}-star"),
                     (s, true) => format!("a {s}-star {}", pos.name()),
                 };
-                // A specialist's camp stars are the kicking and snapping camps' own (fix list 1.5).
+                // A specialist's camp stars are the kicking and snapping camps'
+                // own (fix list 1.5), named only when they differ from the services'.
                 let stars = match p.camp_stars {
-                    c if c > 0 && pos.is_specialist() => format!("{services} (a {c}-star by the specialist camps)"),
+                    c if c > 0 && c != p.stars && pos.is_specialist() => {
+                        format!("{services} (a {c}-star by the specialist camps)")
+                    }
                     _ => services,
                 };
                 let when = match stage {
@@ -3119,7 +3224,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 if good && p.bg.gpa < 2.3 && p.rng.chance(0.25 + 0.4 * p.bg.money) {
                     p.stage = Stage::PrepSchool;
                     p.bg.gpa = clamp(p.bg.gpa + p.rng.range(0.1, 0.6), 0.0, 4.0);
-                    let age = p.player.age;
+                    let age = p.row_age();
                     p.note(match &fell_through {
                         Some(school) => format!(
                             "His commitment to {school} fell through; at {age} he went to prep school for a year to fix his grades."
@@ -3184,7 +3289,7 @@ pub(crate) fn enroll(w: &mut World, early: bool) {
         p.on_notice = false;
         p.cal.signed = None;
         if early {
-            let age = p.player.age;
+            let age = p.row_age();
             p.note(format!("Enrolled early at {name} in January at {age}, in time for spring practice."));
         }
         n += 1;
@@ -3288,7 +3393,7 @@ fn enter_portal(w: &mut World, i: usize, c: usize, entered: Date, decide_by: Dat
     // His NIL deal ends when he enters (T3).
     if p.nil_income > 0.0 {
         p.nil_income = 0.0;
-        let age = p.player.age;
+        let age = p.row_age();
         p.note(format!("Lost his NIL deal when he entered the portal at {age}."));
     }
     if p.stars < 4 && p.last_role != Some(PlayingTime::Starter) {
@@ -3671,6 +3776,9 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
     let pn = w.programs.len();
     let season = market.season;
     let one_time = w.changes.rules(season).one_time_transfer;
+    // The rosters change only after the day's decisions, so each program's
+    // count under its limit is read once.
+    let counted = counted_rosters(w, season);
     let seed = w.options.seed as u64 ^ ((market.label as u64) << 24) ^ 0xFA11;
     // The day's landings (person, program), applied to the rosters in
     // place: a full rebuild every portal day costs more than the decisions.
@@ -3716,7 +3824,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                 if !wanted
                     || j == c
                     || mk.adds[j] >= 10
-                    || wr.programs[j].roster.len() + mk.adds[j] >= super::ncaa::roster_limits(&wr.programs[j], season).0
+                    || counted[j] + mk.adds[j] >= super::ncaa::roster_limits(&wr.programs[j], season).0
                 {
                     return None;
                 }
@@ -3742,13 +3850,13 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         let waited = entry.entered.days_to(today).max(1) as f64;
         let fell = ranked.len() >= 2 && key_uniform(seed, w.people[i].player.id as u64) > 0.99f64.powf(waited);
         let pick = if fell { ranked.get(1).copied() } else { ranked.first().copied() };
-        let age = w.people[i].player.age - 1;
+        let age = w.people[i].row_age();
         let from_name = w.program_name(c).to_string();
         let what = why.phrase();
         let Some((j, _)) = pick else {
             // Portal regret (T3): his old school may take him back.
             let back = why != Why::Dismissed
-                && w.programs[c].roster.len() < super::ncaa::roster_limits(&w.programs[c], season).0
+                && counted[c] < super::ncaa::roster_limits(&w.programs[c], season).0
                 && key_uniform(seed ^ 0xBAC, w.people[i].player.id as u64)
                     < if perf >= median(from) - 2.0 { 0.4 } else { 0.15 };
             let p = &mut w.people[i];
@@ -3876,13 +3984,13 @@ pub(crate) fn nil_payouts(w: &mut World) {
                 if perf < team_median {
                     p.bg.stability = clamp(p.bg.stability - 1.0, 1.0, 20.0);
                     jealousy += 0.2;
-                    let age = p.player.age;
+                    let age = p.row_age();
                     p.note(format!(
                         "At {age}, paid among the most on his team, he struggled and took heavy criticism."
                     ));
                 } else if p.rng.chance(0.08) {
                     p.player.personality.work_ethic = clamp(p.player.personality.work_ethic - 1.0, 1.0, 20.0);
-                    let age = p.player.age;
+                    let age = p.row_age();
                     p.note(format!("At {age} a big NIL payday made him a little complacent."));
                 }
             }
@@ -3907,6 +4015,28 @@ mod tests {
         let quotas = [(5, 1), (4, 2), (3, 1)];
         assert_eq!(service_stars(&specialist, &quotas), vec![5, 3, 4, 3, 4, 3, 0]);
         assert_eq!(service_stars(&[true, false], &[(5, 1)]), vec![3, 5]);
+    }
+
+    /// F17: a recruit whose commitment fell through on signing day can walk
+    /// on wherever his position has room, even when the plan's walk-on
+    /// places and the class's slots are used. Under a whole-roster limit
+    /// (the House era) he needs a place under it too.
+    #[test]
+    fn late_walk_on_needs_room_at_his_position() {
+        let (wr, k) = (Position::WR.index(), Position::K.index());
+        let mut plan = ClassPlan { walk_on_room: 1, room: 20, ..Default::default() };
+        plan.walk_on[k] = 1;
+        plan.open_at[wr] = 2;
+        // The class filled every place under the limit and the specialist walk-on place.
+        let full = [19, 1];
+        assert!(plan.late_walk_on(wr, full, [1, 0]), "room at his position");
+        assert!(!plan.late_walk_on(wr, full, [2, 0]), "his position is full");
+        plan.whole_roster = true;
+        assert!(!plan.late_walk_on(wr, full, [1, 0]), "no place under a whole-roster limit");
+        assert!(plan.late_walk_on(wr, [17, 1], [1, 0]), "a place left under it");
+        // The plan's own walk-on places still count as before.
+        assert!(plan.late_walk_on(k, [19, 0], [0, 0]));
+        assert!(!plan.late_walk_on(k, full, [0, 1]));
     }
 
     /// Official visits (T5): the class signing next, from September 1 of the

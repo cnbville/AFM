@@ -110,7 +110,8 @@ pub fn field_goal(
         (0.008 + traj) * (1.0 + (rush - protect) / 30.0).max(0.3) * if bad_snap || bad_hold { 3.0 } else { 1.0 };
     if rng.chance(p_block) {
         fg.blocked = true;
-        fg.why = format!("Blocked: the rush got a hand on a {:.0}-yard try.", distance);
+        let yards = format!("{distance:.0}");
+        fg.why = format!("Blocked: the rush got a hand on {}-yard try.", crate::text::with_article(&yards));
         return fg;
     }
     let short = distance < 40.0;

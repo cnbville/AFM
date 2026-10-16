@@ -2,9 +2,9 @@
 
 Written 2026-10-16 from world trial 6 (`world-trial6.md`; Debug Lab Verdict tab: https://claude.ai/artifact/3SAzca1V9NBFKkW5pAPTSt). Each item is one aspect, a line on what was seen and a line on what changes. Everything here is proposed, not confirmed.
 
-## Part A: being fixed now, no answer needed (17)
+## Part A: approved and built (17)
 
-Clear bugs, export gaps and fixes from the first round that fell short. Cain asked for section 4 finished without approvals, so these are built straight away, picking the most realistic option, and measured with one world run. Say stop on any you disagree with.
+Clear bugs, export gaps and fixes from the first round that fell short. Cain stopped these before review on 2026-10-16, they were asked as a 17-item yes/no list in the thread, and Cain said yes to all 17 ("yes for all, continue"). Built the same day; how they work is in `docs/world-model.md`, "Trial 6 part A".
 
 F1. **A camp redshirt who plays is still developed and shown as a redshirt** (suggestion 2 in the Debug Lab). When a camp redshirt plays, the yearly step treats that season as a backup season (games, performance, form, injuries), and his row says backup.
 F2. **An early enrollee's college spring step lands on his high school row**. An early enrollee's college spring step opens his first college row instead of ending his high school row.
