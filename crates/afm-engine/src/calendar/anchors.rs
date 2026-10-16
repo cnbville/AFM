@@ -272,6 +272,13 @@ fn shrine_bowl(season: i32, sb: Date) -> Date {
     if season <= 2020 { sb.add(-15) } else { sb.add(-10) }
 }
 
+/// The Senior Bowl of a season, from its Super Bowl `sb` (from memory, to
+/// verify): the Saturday eight days before it, which falls in February in
+/// the later Super Bowl years (Feb 5, 2022 to Feb 1, 2025; Jan 31, 2026).
+fn senior_bowl(sb: Date) -> Date {
+    sb.add(-8)
+}
+
 /// The college postseason format for a season.
 pub fn cfb_postseason(season: i32) -> CfbPostseason {
     match season {
@@ -525,7 +532,7 @@ impl YearDates {
             shrine_bowl: shrine_bowl(s, sb),
             hbcu_bowl: Date::last_weekday(s + 1, 1, Weekday::Sat).add(-7).max(title.add(5)),
             nflpa_bowl: Date::last_weekday(s + 1, 1, Weekday::Sat).add(-7).max(title.add(5)),
-            senior_bowl: Date::last_weekday(s + 1, 1, Weekday::Sat).min(sb.add(-8)),
+            senior_bowl: senior_bowl(sb),
         }
     }
 
@@ -609,7 +616,8 @@ mod tests {
     /// deadline after week 8 (2012-2023) and week 9 (2024 on), the
     /// negotiating window from 2013, the Pro Bowl after the Super Bowl to the
     /// 2008 season and before it from 2009, the Shrine Bowl on a Saturday,
-    /// then a Thursday from 2022.
+    /// then a Thursday from 2022, the Senior Bowl eight days before the Super
+    /// Bowl.
     #[test]
     fn nfl_steps_fall_on_their_real_days_by_era() {
         let deadline = |s: i32| YearDates::new(s).trade_deadline.date;
@@ -628,6 +636,18 @@ mod tests {
         assert_eq!(YearDates::new(2019).shrine_bowl, Date::ymd(2020, 1, 18));
         assert_eq!(YearDates::new(2021).shrine_bowl, Date::ymd(2022, 2, 3));
         assert_eq!(YearDates::new(2024).shrine_bowl, Date::ymd(2025, 1, 30));
+        assert_eq!(YearDates::new(2014).senior_bowl, Date::ymd(2015, 1, 24));
+        assert_eq!(YearDates::new(2021).senior_bowl, Date::ymd(2022, 2, 5));
+        assert_eq!(YearDates::new(2024).senior_bowl, Date::ymd(2025, 2, 1));
+        assert_eq!(YearDates::new(2025).senior_bowl, Date::ymd(2026, 1, 31));
+        // Every college all-star game comes after the title game, so the
+        // finalists' seniors can play in them.
+        for s in 1996..=2060 {
+            let y = YearDates::new(s);
+            for g in [y.shrine_bowl, y.hbcu_bowl, y.nflpa_bowl, y.senior_bowl] {
+                assert!(g > y.title_game.add(1), "season {s}");
+            }
+        }
     }
 
     /// An 18-game season (T11 change 1) runs 19 weeks and moves the Super

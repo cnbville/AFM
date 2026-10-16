@@ -344,15 +344,23 @@ pub(crate) fn advance_day(w: &mut World) {
             hs_year::all_star_game(w, name);
         }
     }
-    for (date, name) in [
+    // The college all-star games name their rosters together, a week before
+    // the first of them (but after the title game, so the finalists' seniors
+    // are in the pool), the Senior Bowl first and the others from what is
+    // left: the order of the game dates does not decide the tiers.
+    let all_stars = [
+        (y.senior_bowl, "Senior Bowl"),
         (y.shrine_bowl, "East-West Shrine Bowl"),
         (y.hbcu_bowl, "HBCU Legacy Bowl"),
         (y.nflpa_bowl, "NFLPA Collegiate Bowl"),
-        (y.senior_bowl, "Senior Bowl"),
-    ] {
-        if d == date.add(-7) {
+    ];
+    let first = all_stars.iter().filter(|g| recruiting::all_star_held(g.1, y.season + 1)).map(|g| g.0).min().unwrap();
+    if d == first.add(-7).max(y.title_game.add(1)) {
+        for name in recruiting::ALL_STAR_ORDER {
             recruiting::all_star_invites(w, name);
         }
+    }
+    for (date, name) in all_stars {
         if d == date {
             recruiting::all_star_game(w, name);
         }

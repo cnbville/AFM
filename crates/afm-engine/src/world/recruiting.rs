@@ -692,15 +692,32 @@ pub(crate) fn combine(w: &mut World) {
     }
 }
 
+/// The college all-star games in the order they name their rosters: the
+/// Senior Bowl picks first every year, whatever the game dates, then the
+/// Shrine Bowl, the HBCU Legacy Bowl and the NFLPA Collegiate Bowl.
+pub(crate) const ALL_STAR_ORDER: [&str; 4] =
+    ["Senior Bowl", "East-West Shrine Bowl", "HBCU Legacy Bowl", "NFLPA Collegiate Bowl"];
+
+/// Whether a college all-star game is played before a draft: the NFLPA
+/// Collegiate Bowl from 2012, the HBCU Legacy Bowl from 2022.
+pub(crate) fn all_star_held(game: &str, draft_year: i32) -> bool {
+    match game {
+        "HBCU Legacy Bowl" => draft_year >= 2022,
+        "NFLPA Collegiate Bowl" => draft_year >= 2012,
+        _ => true,
+    }
+}
+
 /// College all-star games (A9): who is invited, by the staffs' reads.
-/// The Senior Bowl takes the best seniors, the Shrine Bowl and the NFLPA
-/// Collegiate Bowl the next tiers, the HBCU Legacy Bowl (2022 on) players
-/// from HBCU programs. Real rosters are filled from fall invitations, so a
+/// The games name their rosters together, in `ALL_STAR_ORDER`: the Senior
+/// Bowl takes the best seniors, the Shrine Bowl the next tier, the HBCU
+/// Legacy Bowl (2022 on) players from HBCU programs, the NFLPA Collegiate
+/// Bowl the tier after. Real rosters are filled from fall invitations, so a
 /// senior whose college season is over is invited on his December draft
 /// read, before the January deadline puts him in the draft pool.
 pub(crate) fn all_star_invites(w: &mut World, game: &'static str) {
     let year = w.year;
-    if (game == "HBCU Legacy Bowl" && year + 1 < 2022) || (game == "NFLPA Collegiate Bowl" && year + 1 < 2012) {
+    if !all_star_held(game, year + 1) {
         return;
     }
     let draft_year = year + 1;
@@ -730,11 +747,8 @@ pub(crate) fn all_star_invites(w: &mut World, game: &'static str) {
         .filter_map(|(i, p)| p.cal.draft_read.map(|r| (r.score, i)))
         .collect();
     pool.sort_by(|a, b| b.0.total_cmp(&a.0));
-    // The best seniors skip the lesser games.
-    let skip = match game {
-        "East-West Shrine Bowl" | "NFLPA Collegiate Bowl" => (60.0 * w.options.scale).round() as usize,
-        _ => 0,
-    };
+    // The games before this one in the order have taken their players
+    // already, so each takes the best left.
     let size = match game {
         "Senior Bowl" => 110.0,
         "East-West Shrine Bowl" => 110.0,
@@ -742,8 +756,23 @@ pub(crate) fn all_star_invites(w: &mut World, game: &'static str) {
         _ => 100.0,
     };
     let n = ((size * w.options.scale).round() as usize).max(1);
+    // Each of the two teams carries one kicker, one punter and one long
+    // snapper (from memory, to verify): two of each at most, however well
+    // the December read rates them.
+    let per_specialist = ((2.0 * w.options.scale).round() as usize).max(1);
+    let mut specialists: Vec<crate::positions::Position> = Vec::new();
     let mut count = 0;
-    for &(_, i) in pool.iter().skip(skip).take(n) {
+    for &(_, i) in &pool {
+        if count as usize == n {
+            break;
+        }
+        let pos = w.people[i].player.position;
+        if pos.is_specialist() {
+            if specialists.iter().filter(|&&q| q == pos).count() >= per_specialist {
+                continue;
+            }
+            specialists.push(pos);
+        }
         w.people[i].cal.all_star = Some(game);
         count += 1;
     }
