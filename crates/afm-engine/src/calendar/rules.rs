@@ -46,7 +46,7 @@ pub struct RuleBook {
     pub nfl_practice_squad: u32,
     /// CBA: padded practices allowed in the regular season (14 since 2011).
     pub nfl_padded_practices: u32,
-    /// Salary cap in dollars (None: the uncapped 2010 year).
+    /// Salary cap in dollars (None: no cap before 1994, and the uncapped 2010 year).
     pub salary_cap: Option<f64>,
     /// A lockout froze the offseason this year (until this many days after the new league year).
     pub lockout_days: Option<u32>,
@@ -138,8 +138,10 @@ impl RuleBook {
     /// The real rule book of a season before any agreed change.
     pub fn era(season: i32) -> RuleBook {
         let weeks = nfl_regular_weeks(season) as u32;
+        // The cap began in 1994; later years grow from 2026's.
         let cap = match real_salary_cap(season) {
             Some(c) => c,
+            None if season < 1994 => None,
             None => Some(301.2e6 * 1.07f64.powi(season - 2026)),
         };
         let fmt = cfb_postseason(season);
@@ -149,6 +151,10 @@ impl RuleBook {
             nfl_weeks: weeks,
             nfl_playoff_teams: if season >= 2020 { 14 } else { 12 },
             nfl_roster: 53,
+            // Practice squad spots: 5 to 2003, 8 from 2004, 10 from 2014, 16
+            // in the COVID years 2020-2021 (the new CBA's 12 was raised) and
+            // kept from 2022 (from memory, to verify); 17 from 2025 as first
+            // built.
             nfl_practice_squad: match season {
                 ..=2003 => 5,
                 2004..=2013 => 8,
@@ -339,8 +345,14 @@ impl ChangeState {
         if self.sixteen.is_some_and(|y| season >= y) {
             r.nfl_playoff_teams = 16;
         }
-        r.nfl_roster = (r.nfl_roster as i32 + self.roster_delta).max(45) as u32;
-        r.nfl_practice_squad = (r.nfl_practice_squad as i32 + self.squad_delta).max(8) as u32;
+        // The floors bound a voted change; they never move an era's real size
+        // (five practice squad spots to 2003).
+        if self.roster_delta != 0 {
+            r.nfl_roster = (r.nfl_roster as i32 + self.roster_delta).max(45) as u32;
+        }
+        if self.squad_delta != 0 {
+            r.nfl_practice_squad = (r.nfl_practice_squad as i32 + self.squad_delta).max(8) as u32;
+        }
         if let Some((y, n)) = self.cfp_size
             && season >= y
         {
@@ -527,8 +539,22 @@ mod tests {
         assert!(!RuleBook::era(2020).nil && RuleBook::era(2021).nil);
         assert!(RuleBook::era(2025).revenue_sharing.is_some() && RuleBook::era(2024).revenue_sharing.is_none());
         assert_eq!(RuleBook::era(2010).salary_cap, None);
+        assert_eq!(RuleBook::era(1993).salary_cap, None, "no cap before 1994");
+        assert!(RuleBook::era(1994).salary_cap.is_some() && RuleBook::era(2030).salary_cap.is_some());
         assert_eq!(RuleBook::era(2012).fcs_playoff, 20);
         assert_eq!(RuleBook::era(2013).fcs_playoff, 24);
         assert!(!RuleBook::era(2016).early_signing && RuleBook::era(2017).early_signing);
+    }
+
+    /// Practice squads keep each era's real size until a vote changes it.
+    #[test]
+    fn practice_squads_keep_their_real_size_until_a_vote() {
+        let none = ChangeState::default();
+        assert_eq!(none.rules(1995).nfl_practice_squad, 5);
+        assert_eq!(none.rules(2004).nfl_practice_squad, 8);
+        assert_eq!(none.rules(2014).nfl_practice_squad, 10);
+        assert_eq!(none.rules(2022).nfl_practice_squad, 16);
+        let voted = ChangeState { squad_delta: 1, ..ChangeState::default() };
+        assert_eq!(voted.rules(2030).nfl_practice_squad, none.rules(2030).nfl_practice_squad + 1);
     }
 }

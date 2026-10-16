@@ -629,8 +629,11 @@ pub(crate) fn combine_invites(w: &mut World) {
         w.people[i].cal.combine_invite = true;
     }
     w.log.combine_invites += n as u32;
-    let text = format!("The NFL invites {n} prospects to the scouting combine.");
-    w.calendar.post(Event::new(w.today, CalLevel::Nfl, Kind::Date, Loudness::Medium, text));
+    // No line while the world spins up and nobody has declared yet.
+    if n > 0 {
+        let text = format!("The NFL invites {n} prospects to the scouting combine.");
+        w.calendar.post(Event::new(w.today, CalLevel::Nfl, Kind::Date, Loudness::Medium, text));
+    }
 }
 
 /// The combine (A10, A11): measured speed, explosion and strength move a

@@ -35,13 +35,16 @@ pub struct YearDates {
     pub super_bowl: Date,
 
     // --- NFL offseason (league year `season`) ---
-    pub pro_bowl_prev: Date,
+    /// Last season's Pro Bowl when it was played the Sunday after its Super
+    /// Bowl (seasons to 2008), which puts it inside this football year.
+    pub pro_bowl_prev: Option<Date>,
     pub tag_window_open: Date,
     pub tag_deadline: Moment,
     pub combine_start: Date,
     pub combine_end: Date,
     pub combine_invites: Date,
-    pub tampering_open: Moment,
+    /// The negotiating window before free agency (2013 on).
+    pub tampering_open: Option<Moment>,
     pub league_year: Moment,
     pub roster_bonus_window: (Date, Date),
     pub annual_meeting: (Date, Date),
@@ -92,7 +95,8 @@ pub struct YearDates {
     pub nfl_honors: Date,
     pub all_pro: Date,
     pub hof_finalists: Date,
-    pub pro_bowl_games: Date,
+    /// The Pro Bowl of this season (None: the 2020 season's was not played).
+    pub pro_bowl_games: Option<Date>,
 
     // --- College ---
     pub labor_day: Date,
@@ -225,6 +229,49 @@ pub fn super_bowl(season: i32) -> Date {
     nfl_last_sunday(season, nfl_regular_weeks(season)).add(sb_gap(season))
 }
 
+/// The week whose Tuesday holds the trade deadline: after week 6 to 2011,
+/// week 8 from 2012, week 9 from 2024 (from memory, to verify).
+fn trade_deadline_week(season: i32) -> usize {
+    match season {
+        ..=2011 => 6,
+        2012..=2023 => 8,
+        _ => 9,
+    }
+}
+
+/// The negotiating window before free agency (2013 on, from memory): three
+/// days to 2015, then two days from noon, the league year opening at 4pm ET
+/// on the last day.
+fn negotiating_window(season: i32, league_year_day: Date) -> Option<Moment> {
+    match season {
+        ..=2012 => None,
+        2013..=2015 => Some(Moment::at(league_year_day.add(-3), 12, 0)),
+        _ => Some(Moment::at(league_year_day.add(-2), 12, 0)),
+    }
+}
+
+/// The Pro Bowl of a season, from its Super Bowl `sb` (from memory, to
+/// verify): the Sunday after the Super Bowl to the 2008 season, the Sunday
+/// before it from the 2009 season (Jan 31, 2010), none for the 2020 season
+/// (cancelled), and the Tuesday of Super Bowl week from the 2025 season (Feb
+/// 3, 2026; later years keep it, proposed, not confirmed).
+fn pro_bowl(season: i32, sb: Date) -> Option<Date> {
+    match season {
+        ..=2008 => Some(sb.add(7)),
+        2020 => None,
+        2009..=2024 => Some(sb.add(-7)),
+        _ => Some(sb.add(-5)),
+    }
+}
+
+/// The East-West Shrine Bowl of a season, from its Super Bowl `sb` (from
+/// memory, to verify): a Saturday a week before the Senior Bowl through the
+/// January 2021 date, then a Thursday in Senior Bowl week from February 2022
+/// (Las Vegas, then Frisco and Arlington).
+fn shrine_bowl(season: i32, sb: Date) -> Date {
+    if season <= 2020 { sb.add(-15) } else { sb.add(-10) }
+}
+
 /// The college postseason format for a season.
 pub fn cfb_postseason(season: i32) -> CfbPostseason {
     match season {
@@ -279,8 +326,7 @@ impl YearDates {
         let first_sunday = last_sunday.add(-7 * (weeks as i32 - 1));
         let kickoff = first_sunday.add(-3);
         let nfl_weeks: Vec<Date> = (0..weeks).map(|k| first_sunday.add(7 * k as i32)).collect();
-        let trade_deadline_week = if s >= 2012 { 9 } else { 6 };
-        let trade_deadline = Moment::at(nfl_weeks[(trade_deadline_week - 1).min(nfl_weeks.len() - 1)].add(2), 16, 0);
+        let trade_deadline = Moment::at(nfl_weeks[(trade_deadline_week(s) - 1).min(nfl_weeks.len() - 1)].add(2), 16, 0);
         let hof_game = kickoff.add(-35);
 
         // --- College: Week 1 is the Saturday before Labor Day, Week 0 a week
@@ -362,13 +408,13 @@ impl YearDates {
             season: s,
             start,
             super_bowl: sb,
-            pro_bowl_prev: start.add(-6),
+            pro_bowl_prev: pro_bowl(s - 1, start.add(-1)).filter(|&d| d >= start),
             tag_window_open: league_year_day.add(-22),
             tag_deadline: Moment::at(league_year_day.add(-8), 16, 0),
             combine_start,
             combine_end,
             combine_invites: Date::nth_weekday(s, 2, Weekday::Fri, 1).max(start.add(1)),
-            tampering_open: Moment::at(league_year_day.add(-2), 12, 0),
+            tampering_open: negotiating_window(s, league_year_day),
             league_year,
             roster_bonus_window: (league_year_day.add(2), league_year_day.add(5)),
             annual_meeting: (Date::last_weekday(s, 3, Weekday::Sun), Date::last_weekday(s, 3, Weekday::Sun).add(3)),
@@ -421,7 +467,7 @@ impl YearDates {
             nfl_honors: sb.add(-3),
             all_pro: last_sunday.add(5),
             hof_finalists: last_sunday.add(2),
-            pro_bowl_games: sb.add(-5),
+            pro_bowl_games: pro_bowl(s, sb),
             labor_day: ld,
             coaches_preseason_poll: Date::nth_weekday(s, 8, Weekday::Mon, 1),
             ap_preseason_poll: Date::nth_weekday(s, 8, Weekday::Mon, 2),
@@ -475,7 +521,7 @@ impl YearDates {
             all_american_bowl: Date::nth_weekday(s + 1, 1, Weekday::Sat, 2),
             polynesian_bowl: Date::nth_weekday(s + 1, 1, Weekday::Sat, 3),
             official_visits_from: Date::ymd(s, 4, 1),
-            shrine_bowl: Date::last_weekday(s + 1, 1, Weekday::Tue).min(sb.add(-12)),
+            shrine_bowl: shrine_bowl(s, sb),
             hbcu_bowl: Date::last_weekday(s + 1, 1, Weekday::Sat).add(-7).max(title.add(5)),
             nflpa_bowl: Date::last_weekday(s + 1, 1, Weekday::Sat).add(-7).max(title.add(5)),
             senior_bowl: Date::last_weekday(s + 1, 1, Weekday::Sat).min(sb.add(-8)),
@@ -505,7 +551,7 @@ mod tests {
         assert_eq!(y.tag_window_open, Date::ymd(2026, 2, 17));
         assert_eq!(y.tag_deadline.date, Date::ymd(2026, 3, 3));
         assert_eq!((y.combine_start, y.combine_end), (Date::ymd(2026, 2, 23), Date::ymd(2026, 3, 2)));
-        assert_eq!(y.tampering_open.date, Date::ymd(2026, 3, 9));
+        assert_eq!(y.tampering_open.map(|m| m.date), Some(Date::ymd(2026, 3, 9)));
         assert_eq!(y.annual_meeting.0, Date::ymd(2026, 3, 29));
         assert_eq!(y.offseason_new_coach, Date::ymd(2026, 4, 6));
         assert_eq!(y.offseason_returning, Date::ymd(2026, 4, 20));
@@ -544,6 +590,31 @@ mod tests {
         ] {
             assert_eq!(super_bowl(season), Date::ymd(y, m, d), "season {season}");
         }
+    }
+
+    /// The NFL's dated steps by era (from memory, to verify): the trade
+    /// deadline after week 8 (2012-2023) and week 9 (2024 on), the
+    /// negotiating window from 2013, the Pro Bowl after the Super Bowl to the
+    /// 2008 season and before it from 2009, the Shrine Bowl on a Saturday,
+    /// then a Thursday from 2022.
+    #[test]
+    fn nfl_steps_fall_on_their_real_days_by_era() {
+        let deadline = |s: i32| YearDates::new(s).trade_deadline.date;
+        assert_eq!(deadline(2013), Date::ymd(2013, 10, 29));
+        assert_eq!(deadline(2023), Date::ymd(2023, 10, 31));
+        assert_eq!(deadline(2024), Date::ymd(2024, 11, 5));
+        assert!(YearDates::new(2012).tampering_open.is_none());
+        let y2014 = YearDates::new(2014);
+        assert_eq!(y2014.tampering_open.map(|m| m.date), Some(y2014.league_year.date.add(-3)), "three days to 2015");
+        assert_eq!(YearDates::new(2008).pro_bowl_games, Some(Date::ymd(2009, 2, 8)));
+        assert_eq!(YearDates::new(2009).pro_bowl_prev, Some(Date::ymd(2009, 2, 8)), "inside the next year");
+        assert_eq!(YearDates::new(2009).pro_bowl_games, Some(Date::ymd(2010, 1, 31)));
+        assert_eq!(YearDates::new(2010).pro_bowl_prev, None);
+        assert_eq!(YearDates::new(2020).pro_bowl_games, None);
+        assert_eq!(YearDates::new(2025).pro_bowl_games, Some(Date::ymd(2026, 2, 3)));
+        assert_eq!(YearDates::new(2019).shrine_bowl, Date::ymd(2020, 1, 18));
+        assert_eq!(YearDates::new(2021).shrine_bowl, Date::ymd(2022, 2, 3));
+        assert_eq!(YearDates::new(2024).shrine_bowl, Date::ymd(2025, 1, 30));
     }
 
     /// An 18-game season (T11 change 1) runs 19 weeks and moves the Super
