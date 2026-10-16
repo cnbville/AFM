@@ -439,8 +439,10 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
 
     // ------------------------------------------------------------- the play
     let max_t = 14.0;
-    let mut trail: Vec<Vec<V2>> = vec![Vec::with_capacity(140); sim.agents.len()];
-    let mut vel_trail: Vec<Vec<V2>> = vec![Vec::with_capacity(140); sim.agents.len()];
+    // One buffer per player, each with its own room (vec![x; n] clones
+    // the empty vector without its capacity).
+    let mut trail: Vec<Vec<V2>> = (0..sim.agents.len()).map(|_| Vec::with_capacity(144)).collect();
+    let mut vel_trail: Vec<Vec<V2>> = (0..sim.agents.len()).map(|_| Vec::with_capacity(144)).collect();
     let mut throw_start: Option<f64> = None;
     let mut catch_x = los;
     let mut thrown_from = los;
@@ -493,6 +495,11 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 let speed = (d / left).min(sim.agents[i].vmax);
                 let dir = (to - sim.agents[i].pos).norm();
                 sim.steer(i, dir.scale(speed));
+                continue;
+            }
+            // A route is run in place: its waypoints are not copied each tick.
+            if matches!(sim.agents[i].job, Job::Route { .. }) {
+                run_route(&mut sim, i, &pass, qb, s, &trail);
                 continue;
             }
             let job = sim.agents[i].job.clone();
@@ -694,29 +701,28 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         }
 
         // ---- ball carrier
-        if let Some(c) = sim.carrier() {
-            let agent_job = sim.agents[c].job.clone();
-            if agent_job == Job::Carrier {
-                let mut a = if (sim.agents[c].pos.x - los) * sim.goal < -0.3 || t < 0.9 { aim } else { None };
-                if let (Some(h), Some(g)) = (a, lead_puller) {
-                    // Patience: he doesn't pass the puller on the way to the
-                    // hole; he stays on his inside hip until the block is made.
-                    let gp = sim.agents[g].pos;
-                    let short = (h.y - gp.y) * s.call.dir > 1.0;
-                    let led = (gp.y - sim.agents[c].pos.y) * s.call.dir > 0.0;
-                    if sim.agents[g].up(t) && sim.agents[g].engaged.is_none() && short && led {
-                        a = Some(v2(gp.x - sim.goal * 1.0, gp.y - s.call.dir * 0.8));
-                    }
+        if let Some(c) = sim.carrier()
+            && matches!(sim.agents[c].job, Job::Carrier)
+        {
+            let mut a = if (sim.agents[c].pos.x - los) * sim.goal < -0.3 || t < 0.9 { aim } else { None };
+            if let (Some(h), Some(g)) = (a, lead_puller) {
+                // Patience: he doesn't pass the puller on the way to the
+                // hole; he stays on his inside hip until the block is made.
+                let gp = sim.agents[g].pos;
+                let short = (h.y - gp.y) * s.call.dir > 1.0;
+                let led = (gp.y - sim.agents[c].pos.y) * s.call.dir > 0.0;
+                if sim.agents[g].up(t) && sim.agents[g].engaged.is_none() && short && led {
+                    a = Some(v2(gp.x - sim.goal * 1.0, gp.y - s.call.dir * 0.8));
                 }
-                if s.hurry && sim.agents[c].side == 0 {
-                    hurry_run(&mut sim, c);
-                } else {
-                    sim.run_carrier(c, a);
-                }
-                // A quarterback slides rather than take a hit he doesn't need.
-                if pass.is_some() && c == qb && slide(&mut sim, c, s) {
-                    res.result = Result::Scramble;
-                }
+            }
+            if s.hurry && sim.agents[c].side == 0 {
+                hurry_run(&mut sim, c);
+            } else {
+                sim.run_carrier(c, a);
+            }
+            // A quarterback slides rather than take a hit he doesn't need.
+            if pass.is_some() && c == qb && slide(&mut sim, c, s) {
+                res.result = Result::Scramble;
             }
         }
 
@@ -1462,7 +1468,8 @@ fn run_blocking(sim: &mut Sim, off_n: usize, roles: &[Option<ORole>], rc: RunCon
 
 fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, trail: &[Vec<V2>]) {
     let t = sim.t;
-    let Job::Route { pts, next, settle, release_delay, .. } = sim.agents[i].job.clone() else { return };
+    let Job::Route { ref pts, next, settle, release_delay, .. } = sim.agents[i].job else { return };
+    let n_pts = pts.len();
     if t < release_delay {
         // A back checks for blitzers before he releases.
         if let Some(r) = blitz_threat(sim, i, qb) {
@@ -1507,8 +1514,10 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
         return;
     }
     let _ = trail;
-    if next < pts.len() {
-        let (target, speed, done) = route_step(&sim.agents[i], &pts, next, settle);
+    if next < n_pts {
+        let a = &sim.agents[i];
+        let Job::Route { pts, .. } = &a.job else { return };
+        let (target, speed, done) = route_step(a, pts, next, settle);
         if done && let Job::Route { next: n, .. } = &mut sim.agents[i].job {
             *n += 1;
         }
@@ -2022,10 +2031,11 @@ fn window(sim: &Sim, qb: usize, r: usize) -> (f64, V2, f64) {
     let speed = 16.5 + 0.13 * power;
     let mut p = ra.pos;
     let mut flight = 0.0;
+    let mut ahead = Predict::new(sim, r);
     for _ in 0..3 {
         let dist = q.dist(p);
         flight = 0.28 + dist / (speed * (1.0 - 0.005 * (dist - 20.0).max(0.0)));
-        p = predict(sim, r, flight);
+        p = ahead.at(flight);
     }
     let mut w = f64::INFINITY;
     for d in 0..sim.agents.len() {
@@ -2060,35 +2070,62 @@ fn window(sim: &Sim, qb: usize, r: usize) -> (f64, V2, f64) {
 
 /// Where a receiver will be: the quarterback knows his route and how his
 /// man runs it, so he plays the route forward with the receiver's own
-/// speed, acceleration and cutting.
-fn predict(sim: &Sim, r: usize, dt: f64) -> V2 {
-    let mut a = sim.agents[r].clone();
-    if let Job::Route { pts, next, settle, .. } = &sim.agents[r].job {
-        let mut n = *next;
-        let steps = (dt / DT).round() as usize;
-        for _ in 0..steps {
-            if n < pts.len() {
-                let (target, speed, done) = route_step(&a, pts, n, *settle);
-                if done {
-                    n += 1;
-                }
-                a.steer((target - a.pos).norm().scale(speed));
-            } else if *settle {
-                break;
-            } else {
-                let v = a.vel;
-                let dir = if v.len() > 0.5 { v.norm() } else { v2(1.0, 0.0) };
-                let me = a.pos;
-                let dir =
-                    if me.y < 4.0 && dir.y < 0.0 || me.y > WIDTH - 4.0 && dir.y > 0.0 { v2(1.0, 0.0) } else { dir };
-                a.steer(dir.scale(route_pace(&a)));
-            }
-            a.pos = a.pos + a.vel.scale(DT);
-        }
-        return v2(a.pos.x.min(109.0), clamp(a.pos.y, 0.5, WIDTH - 0.5));
+/// speed, acceleration and cutting. The route is played forward once and
+/// kept, so asking for several flight times costs one run.
+struct Predict<'s> {
+    sim: &'s Sim<'s>,
+    r: usize,
+    /// The receiver as he moves along the route (his job is not copied).
+    a: Agent,
+    next: usize,
+    /// He has settled in his spot: he stays where he is.
+    stopped: bool,
+    /// Where he is after each tick, from now (index 0).
+    spots: Vec<V2>,
+}
+
+impl<'s> Predict<'s> {
+    fn new(sim: &'s Sim<'s>, r: usize) -> Predict<'s> {
+        let src = &sim.agents[r];
+        let next = if let Job::Route { next, .. } = &src.job { *next } else { 0 };
+        let a = src.without_job();
+        Predict { sim, r, next, stopped: false, spots: vec![a.pos], a }
     }
-    let p = a.pos + a.vel.scale(dt);
-    v2(p.x.min(109.0), clamp(p.y, 0.5, WIDTH - 0.5))
+
+    fn at(&mut self, dt: f64) -> V2 {
+        let Job::Route { pts, settle, .. } = &self.sim.agents[self.r].job else {
+            let a = &self.sim.agents[self.r];
+            let p = a.pos + a.vel.scale(dt);
+            return v2(p.x.min(109.0), clamp(p.y, 0.5, WIDTH - 0.5));
+        };
+        let steps = (dt / DT).round() as usize;
+        while self.spots.len() <= steps {
+            if !self.stopped {
+                let a = &mut self.a;
+                if self.next < pts.len() {
+                    let (target, speed, done) = route_step(a, pts, self.next, *settle);
+                    if done {
+                        self.next += 1;
+                    }
+                    a.steer((target - a.pos).norm().scale(speed));
+                    a.pos = a.pos + a.vel.scale(DT);
+                } else if *settle {
+                    self.stopped = true;
+                } else {
+                    let v = a.vel;
+                    let dir = if v.len() > 0.5 { v.norm() } else { v2(1.0, 0.0) };
+                    let me = a.pos;
+                    let dir =
+                        if me.y < 4.0 && dir.y < 0.0 || me.y > WIDTH - 4.0 && dir.y > 0.0 { v2(1.0, 0.0) } else { dir };
+                    a.steer(dir.scale(route_pace(a)));
+                    a.pos = a.pos + a.vel.scale(DT);
+                }
+            }
+            self.spots.push(self.a.pos);
+        }
+        let p = self.spots[steps];
+        v2(p.x.min(109.0), clamp(p.y, 0.5, WIDTH - 0.5))
+    }
 }
 
 /// The throw: ball speed from arm strength, error from accuracy, distance,
