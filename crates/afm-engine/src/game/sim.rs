@@ -932,6 +932,30 @@ impl<'a> Sim<'a> {
         let speed = if pressing { self.press.min(me.vmax) } else { me.vmax.max(4.0) };
         let mut best = (f64::NEG_INFINITY, v2(goal, 0.0));
         let noise = (1.0 - 0.008 * vision).max(0.2);
+        // The defenders he reckons with, and how free each is: the same
+        // for every heading, so worked out once.
+        let mut seen: [(V2, f64, f64); 32] = [(V2::default(), 0.0, 0.0); 32];
+        let mut n_seen = 0;
+        for d in self.agents.iter() {
+            if d.side == me.side || !d.up(t) {
+                continue;
+            }
+            let dist = d.pos.dist(me.pos);
+            if dist > sight + 6.0 {
+                continue;
+            }
+            // Defenders behind him or far away count only if he can see them.
+            if dist > 3.0 && !self.sees(c, d.pos) && dist > sight * 0.5 {
+                continue;
+            }
+            let engaged = d.engaged.map(|k| self.eng[k].w);
+            let reach = match engaged {
+                Some(w) => 0.15 + 0.35 * ((w + 1.0) / 2.0),
+                None => 1.0,
+            };
+            seen[n_seen] = (d.pos, d.vmax, reach);
+            n_seen += 1;
+        }
         for k in 0..15 {
             let ang = (k as f64 - 7.0) * 0.19;
             let dir = v2(goal * ang.cos(), ang.sin());
@@ -939,27 +963,10 @@ impl<'a> Sim<'a> {
             let p = me.pos + dir.scale(look);
             let t_me = look / speed.max(me.vel.len() * 0.5 + speed * 0.5);
             let mut threat = 0.0;
-            for (j, d) in self.agents.iter().enumerate() {
-                if d.side == me.side || !d.up(t) {
-                    continue;
-                }
-                let dist = d.pos.dist(me.pos);
-                if dist > sight + 6.0 {
-                    continue;
-                }
-                // Defenders behind him or far away count only if he can see them.
-                if dist > 3.0 && !self.sees(c, d.pos) && dist > sight * 0.5 {
-                    continue;
-                }
-                let engaged = d.engaged.map(|k| self.eng[k].w);
-                let reach = match engaged {
-                    Some(w) => 0.15 + 0.35 * ((w + 1.0) / 2.0),
-                    None => 1.0,
-                };
-                let td = (d.pos.dist(p) - 1.0).max(0.0) / d.vmax + 0.15;
+            for &(pos, vmax, reach) in &seen[..n_seen] {
+                let td = (pos.dist(p) - 1.0).max(0.0) / vmax + 0.15;
                 let lead = t_me - td;
                 threat += reach * (lead / 0.35).exp().min(6.0);
-                let _ = j;
             }
             let gain = dir.x * goal;
             let edge = p.y.min(WIDTH - p.y);
