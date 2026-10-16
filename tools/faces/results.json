@@ -1,0 +1,242 @@
+[
+ {
+  "key": "prude",
+  "name": "Caleb Prude",
+  "pos": "OT",
+  "ht": "6-6",
+  "heritage": "black",
+  "pool": "pool_black/00008.jpg",
+  "pool_index": 908,
+  "base_age": 37.0,
+  "rows": [
+   {
+    "age": 17,
+    "file": "prude_17.jpg",
+    "read_age": 24,
+    "read_age2": 27.2,
+    "heritage": "black",
+    "heritage_p": 1.0,
+    "weight": 268,
+    "team": "Bessemer City HS",
+    "steps": {
+     "age": -4.48,
+     "build": 2.57,
+     "beard": -1.71,
+     "hair": 0.0
+    },
+    "same_person": 0.733
+   },
+   {
+    "age": 22,
+    "file": "prude_22.jpg",
+    "read_age": 30,
+    "read_age2": 28.7,
+    "heritage": "black",
+    "heritage_p": 1.0,
+    "weight": 311,
+    "team": "Alabama",
+    "steps": {
+     "age": -3.17,
+     "build": 3.34,
+     "beard": -0.67,
+     "hair": 0.0
+    },
+    "same_person": 1.0
+   },
+   {
+    "age": 28,
+    "file": "prude_28.jpg",
+    "read_age": 37,
+    "read_age2": 29.6,
+    "heritage": "black",
+    "heritage_p": 1.0,
+    "weight": 320,
+    "team": "Ravens",
+    "steps": {
+     "age": -3.39,
+     "build": 3.5,
+     "beard": 0.51,
+     "hair": 0.0
+    },
+    "same_person": 0.879
+   },
+   {
+    "age": 34,
+    "file": "prude_34.jpg",
+    "read_age": 42,
+    "read_age2": 30.9,
+    "heritage": "black",
+    "heritage_p": 1.0,
+    "weight": 306,
+    "team": "Chiefs",
+    "steps": {
+     "age": -1.31,
+     "build": 3.25,
+     "beard": 0.66,
+     "hair": 0.0
+    },
+    "same_person": 0.757
+   }
+  ]
+ },
+ {
+  "key": "mcspadden",
+  "name": "Derek McSpadden",
+  "pos": "QB",
+  "ht": "6-4",
+  "heritage": "white",
+  "pool": "pool/00274.jpg",
+  "pool_index": 274,
+  "base_age": 32.0,
+  "rows": [
+   {
+    "age": 17,
+    "file": "mcspadden_17.jpg",
+    "read_age": 24,
+    "read_age2": 22.0,
+    "heritage": "white",
+    "heritage_p": 0.76,
+    "weight": 192,
+    "team": "Waukee HS",
+    "steps": {
+     "age": -2.84,
+     "build": -0.13,
+     "beard": -1.01,
+     "hair": 0.0
+    },
+    "same_person": 0.829
+   },
+   {
+    "age": 22,
+    "file": "mcspadden_22.jpg",
+    "read_age": 28,
+    "read_age2": 22.5,
+    "heritage": "white",
+    "heritage_p": 1.0,
+    "weight": 217,
+    "team": "Iowa State",
+    "steps": {
+     "age": -1.09,
+     "build": 0.0,
+     "beard": -0.42,
+     "hair": 0.0
+    },
+    "same_person": 1.0
+   },
+   {
+    "age": 28,
+    "file": "mcspadden_28.jpg",
+    "read_age": 34,
+    "read_age2": 25.0,
+    "heritage": "white",
+    "heritage_p": 1.0,
+    "weight": 224,
+    "team": "Packers",
+    "steps": {
+     "age": 0.11,
+     "build": 0.04,
+     "beard": 0.17,
+     "hair": -0.38
+    },
+    "same_person": 0.836
+   },
+   {
+    "age": 34,
+    "file": "mcspadden_34.jpg",
+    "read_age": 42,
+    "read_age2": 30.0,
+    "heritage": "white",
+    "heritage_p": 1.0,
+    "weight": 228,
+    "team": "Jets",
+    "steps": {
+     "age": 0.87,
+     "build": 0.06,
+     "beard": 0.47,
+     "hair": -0.84
+    },
+    "same_person": 0.638
+   }
+  ]
+ },
+ {
+  "key": "meza",
+  "name": "Leonardo Meza",
+  "pos": "LB",
+  "ht": "6-2",
+  "heritage": "latino",
+  "pool": "pool/00063.jpg",
+  "pool_index": 63,
+  "base_age": 40.0,
+  "rows": [
+   {
+    "age": 17,
+    "file": "meza_17.jpg",
+    "read_age": 28,
+    "read_age2": 21.9,
+    "heritage": "latino hispanic",
+    "heritage_p": 0.38,
+    "weight": 214,
+    "team": "Edinburg North HS",
+    "steps": {
+     "age": -5.57,
+     "build": 0.4,
+     "beard": -1.44,
+     "hair": 0.0
+    },
+    "same_person": 0.843
+   },
+   {
+    "age": 22,
+    "file": "meza_22.jpg",
+    "read_age": 30,
+    "read_age2": 23.2,
+    "heritage": "latino hispanic",
+    "heritage_p": 0.34,
+    "weight": 237,
+    "team": "Texas A&M",
+    "steps": {
+     "age": -3.82,
+     "build": 0.67,
+     "beard": -0.11,
+     "hair": 0.0
+    },
+    "same_person": 1.0
+   },
+   {
+    "age": 28,
+    "file": "meza_28.jpg",
+    "read_age": 35,
+    "read_age2": 26.7,
+    "heritage": "white",
+    "heritage_p": 0.56,
+    "weight": 245,
+    "team": "Texans",
+    "steps": {
+     "age": -1.31,
+     "build": 0.76,
+     "beard": 0.26,
+     "hair": 0.0
+    },
+    "same_person": 0.722
+   },
+   {
+    "age": 34,
+    "file": "meza_34.jpg",
+    "read_age": 42,
+    "read_age2": 33.3,
+    "heritage": "white",
+    "heritage_p": 0.43,
+    "weight": 241,
+    "team": "Cowboys",
+    "steps": {
+     "age": 0.0,
+     "build": 0.71,
+     "beard": 0.33,
+     "hair": -0.15
+    },
+    "same_person": 0.388
+   }
+  ]
+ }
+]

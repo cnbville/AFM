@@ -1,0 +1,38 @@
+{
+ "white": {
+  "faces": 38,
+  "mean_similarity": 0.108,
+  "lookalike_pairs": 3,
+  "pairs": 703,
+  "lookalike_share": 0.43,
+  "closest": 0.511,
+  "skin_spread": 23.4
+ },
+ "black": {
+  "faces": 38,
+  "mean_similarity": 0.119,
+  "lookalike_pairs": 7,
+  "pairs": 703,
+  "lookalike_share": 1.0,
+  "closest": 0.631,
+  "skin_spread": 29.2
+ },
+ "latino": {
+  "faces": 12,
+  "mean_similarity": 0.144,
+  "lookalike_pairs": 0,
+  "pairs": 66,
+  "lookalike_share": 0.0,
+  "closest": 0.326,
+  "skin_spread": 18.2
+ },
+ "asian": {
+  "faces": 38,
+  "mean_similarity": 0.103,
+  "lookalike_pairs": 2,
+  "pairs": 703,
+  "lookalike_share": 0.28,
+  "closest": 0.49,
+  "skin_spread": 26.5
+ }
+}
