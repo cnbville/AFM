@@ -348,12 +348,13 @@ impl YearDates {
         let portal_open = Date::ymd(s + 1, 1, 2);
         let portal_close = Date::ymd(s + 1, 1, 16);
         let declare_deadline = Date::ymd(s + 1, 1, 15);
-        // Early signing: the third Wednesday of December from 2017 to 2023,
-        // the first Wednesday from 2024 (Dec 2, 2026). February signing is the
-        // first Wednesday of February.
-        let early_signing = match s + 1 {
-            ..=2017 => None,
-            2018..=2023 => Some(Date::nth_weekday(s, 12, Weekday::Wed, 3)),
+        // Early signing, by the season it falls in: the third Wednesday of
+        // December from 2017 to 2023 (Dec 20, 2017 to Dec 20, 2023), the first
+        // Wednesday from 2024 (adopted March 2024; Dec 4, 2024 and Dec 2, 2026).
+        // February signing is the first Wednesday of February.
+        let early_signing = match s {
+            ..=2016 => None,
+            2017..=2023 => Some(Date::nth_weekday(s, 12, Weekday::Wed, 3)),
             _ => Some(Date::nth_weekday(s, 12, Weekday::Wed, 1)),
         };
         let signing_day = Date::nth_weekday(s + 1, 2, Weekday::Wed, 1);
@@ -529,6 +530,18 @@ mod tests {
         assert_eq!(y.super_bowl, Date::ymd(2027, 2, 14), "Super Bowl LXI");
         assert_eq!(y.nfl_weeks.len(), 18);
         assert_eq!(y.trade_deadline.date, Date::ymd(2026, 11, 10));
+    }
+
+    /// The early signing period by season: none before 2017, the third
+    /// Wednesday of December through 2023, the first Wednesday from 2024.
+    #[test]
+    fn early_signing_follows_the_rule_of_its_season() {
+        assert_eq!(YearDates::new(2016).early_signing, None);
+        assert_eq!(YearDates::new(2017).early_signing, Some(Date::ymd(2017, 12, 20)));
+        assert_eq!(YearDates::new(2022).early_signing, Some(Date::ymd(2022, 12, 21)));
+        assert_eq!(YearDates::new(2023).early_signing, Some(Date::ymd(2023, 12, 20)));
+        assert_eq!(YearDates::new(2024).early_signing, Some(Date::ymd(2024, 12, 4)));
+        assert_eq!(YearDates::new(2025).early_signing, Some(Date::ymd(2025, 12, 3)));
     }
 
     #[test]

@@ -955,7 +955,7 @@ pub(crate) fn all_star_game(w: &mut World, name: &'static str) {
         .iter()
         .enumerate()
         .filter(|(_, p)| {
-            p.stage == Stage::HighSchool && p.class_of == class && p.stars >= 3 && p.cal.all_star.is_none()
+            p.stage == Stage::HighSchool && p.class_of == class && p.stars >= 3 && p.cal.hs_all_star.is_none()
         })
         .map(|(i, p)| {
             let mut score = p.stars as f64 + 0.05 * p.player.overall() + 0.3 * key_normal(seed, p.player.id as u64);
@@ -969,7 +969,7 @@ pub(crate) fn all_star_game(w: &mut World, name: &'static str) {
     let size = ((100.0 * w.options.scale).round() as usize).max(2);
     for &(_, i) in pool.iter().take(size) {
         let p = &mut w.people[i];
-        p.cal.all_star = Some(name);
+        p.cal.hs_all_star = Some(name);
         let age = p.player.age;
         p.note(format!("Played in the {name} at {age}."));
     }
