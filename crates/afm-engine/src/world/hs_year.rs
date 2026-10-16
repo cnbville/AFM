@@ -206,7 +206,10 @@ pub(crate) fn day(w: &mut World, d: Date) {
     // SAT and ACT Saturdays (A30).
     let (y, m, _) = d.parts();
     if d.weekday() == Weekday::Sat
-        && SAT_DATES.iter().chain(ACT_DATES.iter()).any(|&(mm, n)| mm == m && Date::nth_weekday(y, mm, Weekday::Sat, n) == d)
+        && SAT_DATES
+            .iter()
+            .chain(ACT_DATES.iter())
+            .any(|&(mm, n)| mm == m && Date::nth_weekday(y, mm, Weekday::Sat, n) == d)
     {
         test_day(w, d);
     }
@@ -249,11 +252,15 @@ fn heat_days(w: &mut World, s: usize, start: Date) {
 /// scheduled for those who will miss games (A29).
 fn start_state(w: &mut World, s: usize) {
     let schools: Vec<usize> = w.states[s].schools.clone();
-    let who: Vec<bool> = w
-        .people
-        .iter()
-        .map(|p| p.stage == Stage::HighSchool && w.high_schools[p.hs].state == s && p.player.age > 14)
-        .collect();
+    // The state's players, read from its schools' rosters (rebuilt on the
+    // class day, before any state starts).
+    let mut who = vec![false; w.people.len()];
+    for &h in &schools {
+        for &i in &w.high_schools[h].roster {
+            let p = &w.people[i];
+            who[i] = p.stage == Stage::HighSchool && p.player.age > 14;
+        }
+    }
     season::reconsider_positions(w, &who);
     let roles = season::hs_roles(w, &schools);
     season::develop(w, &roles);
@@ -263,7 +270,13 @@ fn start_state(w: &mut World, s: usize) {
         let (strength, preseason, incidents) = season::team_strength(&w.high_schools[h].roster, people);
         res.push((
             h,
-            TeamResult { strength, preseason, incidents, roster: w.high_schools[h].roster.len() as u32, ..Default::default() },
+            TeamResult {
+                strength,
+                preseason,
+                incidents,
+                roster: w.high_schools[h].roster.len() as u32,
+                ..Default::default()
+            },
         ));
     }
     let st = w.hs_season.as_ref().unwrap().states[s].clone();
@@ -338,7 +351,11 @@ fn grade_outs(p: &super::Person, check: GradeCheck, n_weeks: usize, regular: usi
     match check {
         // Last semester's grades: out for the season, unless summer school fixed them.
         GradeCheck::Semester => {
-            if key_uniform(seed ^ 1, id) < 0.4 * q { all } else { 0 }
+            if key_uniform(seed ^ 1, id) < 0.4 * q {
+                all
+            } else {
+                0
+            }
         }
         // Texas: report cards about every six weeks; a failing grade sits him three games.
         GradeCheck::SixWeek => {
@@ -507,7 +524,12 @@ fn play_round(w: &mut World, s: usize, r: usize, d: Date) {
         for k in 0..m / 2 {
             let (a, b) = (rest[k], rest[m - 1 - k]);
             let home = if r == 2 { 0.0 } else { 0.4 };
-            let p = win_chance(hs.results[a].strength - adj(hs, a, week), hs.results[b].strength - adj(hs, b, week), HS_SPREAD, home);
+            let p = win_chance(
+                hs.results[a].strength - adj(hs, a, week),
+                hs.results[b].strength - adj(hs, b, week),
+                HS_SPREAD,
+                home,
+            );
             let a_wins = key_uniform(seed, (a as u64) << 20 ^ b as u64) < p;
             let (wn, l) = if a_wins { (a, b) } else { (b, a) };
             hs.results[wn].wins += 1;
@@ -520,10 +542,10 @@ fn play_round(w: &mut World, s: usize, r: usize, d: Date) {
         alive_all.push((gi, next));
     }
     for (gi, next) in alive_all {
-        if r == 2 || next.len() == 1 {
-            if let Some(&c) = next.first() {
-                hs.results[c].state_title = true;
-            }
+        if (r == 2 || next.len() == 1)
+            && let Some(&c) = next.first()
+        {
+            hs.results[c].state_title = true;
         }
         hs.groups[gi].alive = next;
     }
@@ -557,7 +579,13 @@ fn finish_state(w: &mut World, s: usize, d: Date) {
             continue;
         }
         let school = &mut w.high_schools[h];
-        school.seasons.push(HsSeason { year, wins: t.wins, losses: t.losses, state_title: t.state_title, coach: school.coach });
+        school.seasons.push(HsSeason {
+            year,
+            wins: t.wins,
+            losses: t.losses,
+            state_title: t.state_title,
+            coach: school.coach,
+        });
         if t.state_title {
             school.state_titles += 1;
         }
@@ -613,7 +641,10 @@ fn all_state(w: &mut World, s: usize, d: Date) {
             // draw so the count is right on average.
             let per_team = crate::league::depth_slots(pos).starters as f64 * w.options.scale;
             let draw = |t: u64| {
-                let u = key_uniform(w.options.seed as u64 ^ 0xA115 ^ (s as u64) << 24 ^ (class as u64) << 16 ^ t, pos.index() as u64);
+                let u = key_uniform(
+                    w.options.seed as u64 ^ 0xA115 ^ (s as u64) << 24 ^ (class as u64) << 16 ^ t,
+                    pos.index() as u64,
+                );
                 (per_team + u).floor() as usize
             };
             let (first, second) = (draw(1), draw(2));
@@ -664,7 +695,9 @@ fn test_day(w: &mut World, d: Date) {
         if key_uniform(seed, id) >= chance {
             continue;
         }
-        let raw = 1050.0 + 300.0 * (p.bg.gpa - 2.9) + 20.0 * (p.player.personality.work_ethic - 10.0)
+        let raw = 1050.0
+            + 300.0 * (p.bg.gpa - 2.9)
+            + 20.0 * (p.player.personality.work_ethic - 10.0)
             + 90.0 * key_normal(seed ^ 1, id);
         let score = (clamp(raw, 400.0, 1600.0) / 10.0).round() as u32 * 10;
         p.cal.test_score = Some(p.cal.test_score.map_or(score, |s| s.max(score)));
@@ -752,9 +785,8 @@ fn college_spring_candidates(w: &World) -> Vec<(usize, f64, bool)> {
         let Some(c) = p.college else { continue };
         let prog = &w.programs[c];
         let group = super::coach::Group::of(p.player.position);
-        let teaching = prog.position_coaches[group as usize]
-            .or(prog.head_coach)
-            .map_or(9.0, |c| w.coaches[c].teaching(group));
+        let teaching =
+            prog.position_coaches[group as usize].or(prog.head_coach).map_or(9.0, |c| w.coaches[c].teaching(group));
         out.push((i, teaching, open_reps(w, &prog.roster, i)));
     }
     out
@@ -786,7 +818,7 @@ fn notices(w: &mut World, cands: &[(usize, f64, bool)], d: Date, college: bool) 
         .iter()
         .map(|&(i, teaching, open)| {
             let mix = spring_mix(w, i, teaching, open);
-            let sd = clamp(0.9 - 0.04 * (teaching - 10.0), 0.4, 1.2);
+            let sd = clamp(0.45 - 0.03 * (teaching - 10.0), 0.2, 0.8);
             mix + sd * key_normal(seed, w.people[i].player.id as u64)
         })
         .collect();
@@ -800,7 +832,9 @@ fn notices(w: &mut World, cands: &[(usize, f64, bool)], d: Date, college: bool) 
         p.cal.spring_notice = true;
         let first = p.name.split_whitespace().next().unwrap_or("He").to_string();
         let what = match super::coach::Group::of(p.player.position) {
-            super::coach::Group::OL | super::coach::Group::DL => "keeps his weight up and keeps winning his one-on-ones",
+            super::coach::Group::OL | super::coach::Group::DL => {
+                "keeps his weight up and keeps winning his one-on-ones"
+            }
             super::coach::Group::QB => "keeps reading it this fast and keeps his feet clean",
             _ => "keeps stacking good days and keeps his footwork sharp",
         };
@@ -885,7 +919,13 @@ pub(crate) fn spring_game(w: &mut World) {
     let cands = college_spring_candidates(w);
     jumps(w, &cands, d, true);
     if w.recording {
-        w.calendar.post(Event::new(d, Level::College, Kind::Practice, Loudness::Small, "Spring games around the country."));
+        w.calendar.post(Event::new(
+            d,
+            Level::College,
+            Kind::Practice,
+            Loudness::Small,
+            "Spring games around the country.",
+        ));
     }
 }
 
@@ -914,7 +954,9 @@ pub(crate) fn all_star_game(w: &mut World, name: &'static str) {
         .people
         .iter()
         .enumerate()
-        .filter(|(_, p)| p.stage == Stage::HighSchool && p.class_of == class && p.stars >= 3 && p.cal.all_star.is_none())
+        .filter(|(_, p)| {
+            p.stage == Stage::HighSchool && p.class_of == class && p.stars >= 3 && p.cal.all_star.is_none()
+        })
         .map(|(i, p)| {
             let mut score = p.stars as f64 + 0.05 * p.player.overall() + 0.3 * key_normal(seed, p.player.id as u64);
             if poly && p.ethnicity == super::ethnicity::Ethnicity::Polynesian {

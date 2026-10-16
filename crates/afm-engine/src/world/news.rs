@@ -74,21 +74,24 @@ pub fn nil_warnings(
         _ => format!("{name}'s NIL collective is drying up, and rivals are circling its roster."),
     };
     vec![
-        NewsItem { date: None,
+        NewsItem {
+            date: None,
             year,
             kind: NewsKind::NilWarning { level },
             channel: Channel::Inbox,
             program: Some(program),
             text: inbox,
         },
-        NewsItem { date: None,
+        NewsItem {
+            date: None,
             year,
             kind: NewsKind::NilWarning { level },
             channel: Channel::News,
             program: Some(program),
             text: news,
         },
-        NewsItem { date: None,
+        NewsItem {
+            date: None,
             year,
             kind: NewsKind::NilWarning { level },
             channel: Channel::GradeArrow,

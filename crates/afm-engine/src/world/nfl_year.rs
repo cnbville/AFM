@@ -66,6 +66,70 @@ pub(crate) struct NflSeason {
     pub byes: Vec<Option<Date>>,
     /// Games judged huge by the stakes test, per team.
     pub huge: Vec<u32>,
+    /// Each game's place on the calendar, in the same order as `weeks`.
+    pub slots: Vec<Vec<Slot>>,
+    /// The playoff round's games still to play: (round, conference, higher
+    /// seed, lower seed, kickoff), and the winners so far.
+    pub round_games: Vec<(u32, usize, usize, usize, Moment)>,
+    pub round_next: [Vec<usize>; 2],
+}
+
+/// A game's place on the calendar (T1.2, T2): the kickoff in Eastern time,
+/// its TV window, and a neutral site abroad.
+#[derive(Clone, Debug)]
+pub(crate) struct Slot {
+    pub at: Moment,
+    pub window: Window,
+    pub site: Option<String>,
+    pub played: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Window {
+    /// Sunday at 1pm or in the late afternoon.
+    Sunday,
+    Opener,
+    ThursdayNight,
+    SundayNight,
+    MondayNight,
+    Saturday,
+    Thanksgiving,
+    BlackFriday,
+    Christmas,
+    International,
+    /// Any other day the real schedule uses (a Wednesday opener, a Friday in Brazil).
+    Other,
+}
+
+impl Window {
+    pub fn name(self) -> &'static str {
+        match self {
+            Window::Sunday => "Sunday afternoon",
+            Window::Opener => "the season opener",
+            Window::ThursdayNight => "Thursday night",
+            Window::SundayNight => "Sunday night",
+            Window::MondayNight => "Monday night",
+            Window::Saturday => "Saturday",
+            Window::Thanksgiving => "Thanksgiving",
+            Window::BlackFriday => "Black Friday",
+            Window::Christmas => "Christmas",
+            Window::International => "an international game",
+            Window::Other => "a special date",
+        }
+    }
+
+    /// Prime time: what national audiences and Pro Bowl voters see (A15).
+    pub fn prime(self) -> bool {
+        matches!(
+            self,
+            Window::Opener
+                | Window::ThursdayNight
+                | Window::SundayNight
+                | Window::MondayNight
+                | Window::Thanksgiving
+                | Window::Christmas
+        )
+    }
 }
 
 /// Conference and division of each team, from the real alignment.
@@ -172,7 +236,9 @@ fn strength_places(w: &World, div: &[usize]) -> Vec<usize> {
 
 fn record_key(s: &NflSeason, t: usize) -> f64 {
     let g = (s.wins[t] + s.losses[t] + s.ties[t]).max(1) as f64;
-    (s.wins[t] as f64 + 0.5 * s.ties[t] as f64) / g + 0.001 * s.div_wins[t] as f64 + 0.0001 * s.z.get(t).copied().unwrap_or(0.0)
+    (s.wins[t] as f64 + 0.5 * s.ties[t] as f64) / g
+        + 0.001 * s.div_wins[t] as f64
+        + 0.0001 * s.z.get(t).copied().unwrap_or(0.0)
 }
 
 /// The season's games by the real opponent formula (2002 on): six division
@@ -207,7 +273,7 @@ fn opponent_formula(s: &NflSeason, season: i32, games: u32) -> Vec<(usize, usize
         let (ma, mb) = (members(a), members(b));
         for (i, &x) in ma.iter().enumerate() {
             for (j, &y) in mb.iter().enumerate() {
-                if (i + j + par) % 2 == 0 { out.push((x, y)) } else { out.push((y, x)) }
+                if (i + j + par).is_multiple_of(2) { out.push((x, y)) } else { out.push((y, x)) }
             }
         }
     };
@@ -229,14 +295,26 @@ fn opponent_formula(s: &NflSeason, season: i32, games: u32) -> Vec<(usize, usize
     // Same place, the two other divisions of the conference.
     for c in 0..2 {
         for a in 0..4 {
-            let partner = pairs3.iter().find_map(|&(x, y)| if x == a { Some(y) } else if y == a { Some(x) } else { None });
+            let partner = pairs3.iter().find_map(|&(x, y)| {
+                if x == a {
+                    Some(y)
+                } else if y == a {
+                    Some(x)
+                } else {
+                    None
+                }
+            });
             for b in 0..4 {
                 if b == a || Some(b) == partner || b < a {
                     continue;
                 }
                 let (ma, mb) = (members(c * 4 + a), members(c * 4 + b));
                 for p in 0..ma.len().min(mb.len()) {
-                    if (p + par + a + b) % 2 == 0 { out.push((ma[p], mb[p])) } else { out.push((mb[p], ma[p])) }
+                    if (p + par + a + b).is_multiple_of(2) {
+                        out.push((ma[p], mb[p]))
+                    } else {
+                        out.push((mb[p], ma[p]))
+                    }
                 }
             }
         }
@@ -248,6 +326,18 @@ fn opponent_formula(s: &NflSeason, season: i32, games: u32) -> Vec<(usize, usize
             let (ma, mb) = (members(a), members(b));
             for p in 0..ma.len().min(mb.len()) {
                 if par == 1 { out.push((ma[p], mb[p])) } else { out.push((mb[p], ma[p])) }
+            }
+        }
+    }
+    // An 18th game (T11 change 1): another same-place game across
+    // conferences, against a division not yet played, the NFC hosting when
+    // the AFC hosts the 17th (proposed, not confirmed).
+    if games >= 18 {
+        for a in 0..4 {
+            let b = 4 + (a + rot4 + 1) % 4;
+            let (ma, mb) = (members(a), members(b));
+            for p in 0..ma.len().min(mb.len()) {
+                if par == 1 { out.push((mb[p], ma[p])) } else { out.push((ma[p], mb[p])) }
             }
         }
     }
@@ -352,24 +442,26 @@ pub(crate) fn day(w: &mut World, d: Date) {
     if d == y.schedule_release {
         build_schedule(w, d);
     }
-    if d == y.nfl_kickoff.add(-1) {
+    let first =
+        w.nfl_season.as_ref().and_then(|s| s.slots.iter().flatten().map(|x| x.at.date).min()).unwrap_or(y.nfl_kickoff);
+    if d == first.add(-1) {
         kickoff(w, d);
     }
-    if let Some(k) = y.nfl_weeks.iter().position(|&s| s == d) {
-        play_week(w, k, d);
-    }
+    flex(w, d, &y);
+    play_day(w, d);
     if d == y.black_monday {
         black_monday(w, d);
     }
     if d == y.wild_card {
-        play_round(w, 1, d);
+        start_round(w, 1, d);
     }
     if d == y.divisional {
-        play_round(w, 2, d);
+        start_round(w, 2, d);
     }
     if d == y.conference_title_games {
-        play_round(w, 3, d);
+        start_round(w, 3, d);
     }
+    play_round_games(w, d);
     // NFL hires after the conference title games: weeks of interviews, and
     // a playoff team's coaches can't take a job until it is out (T9).
     if d == y.conference_title_games.add(1) {
@@ -377,6 +469,8 @@ pub(crate) fn day(w: &mut World, d: Date) {
     }
     if d == y.super_bowl {
         play_round(w, 4, d);
+        // The Super Bowl teams' coordinators are free to go now.
+        staff::carousel(w, staff::Scope::NflHires);
     }
 }
 
@@ -393,7 +487,14 @@ fn post_at(w: &mut World, m: Moment, kind: Kind, loud: Loudness, rule: &'static 
 fn dated_events(w: &mut World, d: Date, y: &YearDates) {
     let season = w.year;
     if d == y.start {
-        post(w, d, Kind::Window, Loudness::Small, "CBA: offseason", "Players are on their own until the offseason program; rehab can happen at the facility.");
+        post(
+            w,
+            d,
+            Kind::Window,
+            Loudness::Small,
+            "CBA: offseason",
+            "Players are on their own until the offseason program; rehab can happen at the facility.",
+        );
         post(w, d, Kind::Window, Loudness::Small, "CBA: reserve/future", "Reserve/future contracts can be signed.");
         let cap = w.rules.salary_cap;
         let text = match cap {
@@ -411,61 +512,145 @@ fn dated_events(w: &mut World, d: Date, y: &YearDates) {
     if d == y.combine_start {
         post(w, d, Kind::Date, Loudness::Medium, "NFL: combine", "The scouting combine opens in Indianapolis.");
         // A11, A46: agents and teams meet; free agency whispers.
-        post(w, d, Kind::Whisper, Loudness::Small, "", "Combine week: agents and teams meet in Indianapolis, and free agency whispers start.");
+        post(
+            w,
+            d,
+            Kind::Whisper,
+            Loudness::Small,
+            "",
+            "Combine week: agents and teams meet in Indianapolis, and free agency whispers start.",
+        );
     }
     if d == y.tampering_open.date {
-        post_at(w, y.tampering_open, Kind::Window, Loudness::Big, "CBA: negotiating window", "The two-day negotiating window opens: teams may talk to other teams' free agents.");
+        post_at(
+            w,
+            y.tampering_open,
+            Kind::Window,
+            Loudness::Big,
+            "CBA: negotiating window",
+            "The two-day negotiating window opens: teams may talk to other teams' free agents.",
+        );
     }
     if d == y.league_year.date {
         let lock = w.rules.lockout_days;
         match lock {
-            Some(days) => post(w, d, Kind::Date, Loudness::Huge, "CBA: lockout", format!("The league year is frozen by a lockout for {days} days.")),
-            None => post_at(w, y.league_year, Kind::Date, Loudness::Big, "CBA: new league year", "The new league year opens at 4pm ET: free agency and trades begin."),
+            Some(days) => post(
+                w,
+                d,
+                Kind::Date,
+                Loudness::Huge,
+                "CBA: lockout",
+                format!("The league year is frozen by a lockout for {days} days."),
+            ),
+            None => post_at(
+                w,
+                y.league_year,
+                Kind::Date,
+                Loudness::Big,
+                "CBA: new league year",
+                "The new league year opens at 4pm ET: free agency and trades begin.",
+            ),
         }
     }
     if d == y.roster_bonus_window.0 {
-        post(w, d, Kind::Slot, Loudness::Small, "contracts: roster bonuses", "Roster bonuses come due over the next days: cuts cluster before them (A1).");
+        post(
+            w,
+            d,
+            Kind::Slot,
+            Loudness::Small,
+            "contracts: roster bonuses",
+            "Roster bonuses come due over the next days: cuts cluster before them (A1).",
+        );
     }
     if d == y.comp_picks {
         post(w, d, Kind::Date, Loudness::Small, "CBA: compensatory picks", "Compensatory picks are awarded.");
     }
     if d == y.pro_days.0 {
         post(w, d, Kind::Window, Loudness::Small, "NFL: pro days", "Pro day season opens.");
-        post(w, d, Kind::Window, Loudness::Small, "NFL: top-30 visits", "Teams may host up to 30 prospects on official visits, through the deadline (A13).");
+        post(
+            w,
+            d,
+            Kind::Window,
+            Loudness::Small,
+            "NFL: top-30 visits",
+            "Teams may host up to 30 prospects on official visits, through the deadline (A13).",
+        );
     }
     let todays: Vec<usize> = w.nfl_season.as_ref().unwrap().pro_days.iter().filter(|x| x.1 == d).map(|x| x.0).collect();
     for p in todays {
         let text = format!("{} pro day.", w.program_name(p));
-        w.calendar.post(Event::new(d, Level::College, Kind::Date, Loudness::Small, text).program(p).rule("NFL: pro day"));
+        w.calendar
+            .post(Event::new(d, Level::College, Kind::Date, Loudness::Small, text).program(p).rule("NFL: pro day"));
     }
-    let tickets: Vec<usize> = w.nfl_season.as_ref().unwrap().ticket_days.iter().filter(|x| x.1 == d).map(|x| x.0).collect();
+    let tickets: Vec<usize> =
+        w.nfl_season.as_ref().unwrap().ticket_days.iter().filter(|x| x.1 == d).map(|x| x.0).collect();
     for t in tickets {
         let text = format!("{} season ticket renewal deadline.", w.nfl[t].name);
-        w.calendar.post(Event::new(d, Level::Nfl, Kind::Slot, Loudness::Small, text).team(t).rule("team: tickets (A17)"));
+        w.calendar
+            .post(Event::new(d, Level::Nfl, Kind::Slot, Loudness::Small, text).team(t).rule("team: tickets (A17)"));
     }
     if d == Date::ymd(season, 4, 1) {
-        post(w, d, Kind::Whisper, Loudness::Small, "", "Draft smokescreen season: teams leak false interest until the draft (A46).");
+        post(
+            w,
+            d,
+            Kind::Whisper,
+            Loudness::Small,
+            "",
+            "Draft smokescreen season: teams leak false interest until the draft (A46).",
+        );
     }
     if d == y.top30_deadline {
         post(w, d, Kind::Deadline, Loudness::Small, "NFL: top-30 visits", "Deadline for top-30 visits.");
     }
     if d == y.offseason_new_coach {
-        post(w, d, Kind::Window, Loudness::Small, "CBA: phase 1", "Teams with a new head coach may start their offseason program (phase 1, strength and conditioning) and add a voluntary minicamp.");
+        post(
+            w,
+            d,
+            Kind::Window,
+            Loudness::Small,
+            "CBA: phase 1",
+            "Teams with a new head coach may start their offseason program (phase 1, strength and conditioning) and add a voluntary minicamp.",
+        );
     }
     if d == y.offseason_returning {
-        post(w, d, Kind::Window, Loudness::Small, "CBA: phase 1", "Offseason programs open: two weeks of strength and conditioning only (phase 1).");
+        post(
+            w,
+            d,
+            Kind::Window,
+            Loudness::Small,
+            "CBA: phase 1",
+            "Offseason programs open: two weeks of strength and conditioning only (phase 1).",
+        );
     }
     if d == y.offseason_returning.add(14) {
-        post(w, d, Kind::Window, Loudness::Small, "CBA: phase 2", "Phase 2: three weeks of individual drills, no offense against defense.");
+        post(
+            w,
+            d,
+            Kind::Window,
+            Loudness::Small,
+            "CBA: phase 2",
+            "Phase 2: three weeks of individual drills, no offense against defense.",
+        );
     }
     if d == y.rfa_deadline {
-        post(w, d, Kind::Deadline, Loudness::Small, "CBA: RFA offer sheets", "Restricted free agents' offer sheet deadline (A6).");
-    }
-    if d == y.draft[0].date.add(1) {
-        // A placeholder for the UDFA rush's own hour.
+        post(
+            w,
+            d,
+            Kind::Deadline,
+            Loudness::Small,
+            "CBA: RFA offer sheets",
+            "Restricted free agents' offer sheet deadline (A6).",
+        );
     }
     if d == y.fifth_year_option {
-        post(w, d, Kind::Deadline, Loudness::Small, "CBA: fifth-year option", "Fifth-year option deadline for first-round picks.");
+        post(
+            w,
+            d,
+            Kind::Deadline,
+            Loudness::Small,
+            "CBA: fifth-year option",
+            "Fifth-year option deadline for first-round picks.",
+        );
     }
     if d == y.rookie_minicamp {
         post(w, d, Kind::Practice, Loudness::Small, "CBA: rookie minicamp", "Rookie minicamps.");
@@ -474,13 +659,34 @@ fn dated_events(w: &mut World, d: Date, y: &YearDates) {
         win_totals(w, d);
     }
     if d == y.otas.0 {
-        post(w, d, Kind::Window, Loudness::Small, "CBA: phase 3 (OTAs)", "OTAs open (phase 3): 7-on-7 and 11-on-11 without live contact; workout bonuses count attendance (A3).");
+        post(
+            w,
+            d,
+            Kind::Window,
+            Loudness::Small,
+            "CBA: phase 3 (OTAs)",
+            "OTAs open (phase 3): 7-on-7 and 11-on-11 without live contact; workout bonuses count attendance (A3).",
+        );
     }
     if d == y.rookie_program {
-        post(w, d, Kind::Window, Loudness::Small, "NFL: rookie program", "The league's rookie program takes rookies away from their teams for its days (A14).");
+        post(
+            w,
+            d,
+            Kind::Window,
+            Loudness::Small,
+            "NFL: rookie program",
+            "The league's rookie program takes rookies away from their teams for its days (A14).",
+        );
     }
     if d == y.june_1 {
-        post(w, d, Kind::Date, Loudness::Small, "CBA: June 1", "June 1: a release now spreads dead money over two years (A2).");
+        post(
+            w,
+            d,
+            Kind::Date,
+            Loudness::Small,
+            "CBA: June 1",
+            "June 1: a release now spreads dead money over two years (A2).",
+        );
     }
     if d == y.minicamp.0 {
         post(w, d, Kind::Practice, Loudness::Small, "CBA: mandatory minicamp", "Mandatory minicamps (three days).");
@@ -494,10 +700,24 @@ fn dated_events(w: &mut World, d: Date, y: &YearDates) {
     }
     if d == y.summer_break.0 {
         post(w, d, Kind::Window, Loudness::Small, "CBA: summer break", "Summer break: players train on their own.");
-        post(w, d, Kind::Slot, Loudness::Small, "", "Offseason weddings, youth camps, charity events and quarterback-led throwing sessions fill the summer (A43).");
+        post(
+            w,
+            d,
+            Kind::Slot,
+            Loudness::Small,
+            "",
+            "Offseason weddings, youth camps, charity events and quarterback-led throwing sessions fill the summer (A43).",
+        );
     }
     if d == y.tag_long_term_deadline.date {
-        post_at(w, y.tag_long_term_deadline, Kind::Deadline, Loudness::Big, "CBA: tagged players", "Deadline for long-term deals with tagged players.");
+        post_at(
+            w,
+            y.tag_long_term_deadline,
+            Kind::Deadline,
+            Loudness::Big,
+            "CBA: tagged players",
+            "Deadline for long-term deals with tagged players.",
+        );
     }
     if d == y.veterans_report.add(-3) {
         post(w, d, Kind::Slot, Loudness::Small, "owners (A44)", "Preseason owner meetings: each team's goals are set.");
@@ -506,7 +726,14 @@ fn dated_events(w: &mut World, d: Date, y: &YearDates) {
         post(w, d, Kind::Practice, Loudness::Small, "CBA: training camp", "Rookies report to training camp.");
     }
     if d == y.veterans_report {
-        post(w, d, Kind::Practice, Loudness::Medium, "CBA: training camp", "Veterans report: a player who stays away is holding out (fines of about $50,000 a day); one who reports but won't practice is holding in (A4, A5).");
+        post(
+            w,
+            d,
+            Kind::Practice,
+            Loudness::Medium,
+            "CBA: training camp",
+            "Veterans report: a player who stays away is holding out (fines of about $50,000 a day); one who reports but won't practice is holding in (A4, A5).",
+        );
     }
     if d == y.veterans_report.add(5) {
         post(w, d, Kind::Practice, Loudness::Small, "CBA: acclimation", "Five days without pads are done: pads go on.");
@@ -523,19 +750,47 @@ fn dated_events(w: &mut World, d: Date, y: &YearDates) {
         }
     }
     if d == y.cutdown.date {
-        post_at(w, y.cutdown, Kind::Deadline, Loudness::Huge, "CBA: roster cutdown", format!("Cutdown day: rosters go from 90 to {}.", w.rules.nfl_roster));
+        post_at(
+            w,
+            y.cutdown,
+            Kind::Deadline,
+            Loudness::Huge,
+            "CBA: roster cutdown",
+            format!("Cutdown day: rosters go from 90 to {}.", w.rules.nfl_roster),
+        );
     }
     if d == y.waiver_claims.date {
-        post_at(w, y.waiver_claims, Kind::Deadline, Loudness::Big, "CBA: waivers", "Waiver claims on cut players are awarded.");
+        post_at(
+            w,
+            y.waiver_claims,
+            Kind::Deadline,
+            Loudness::Big,
+            "CBA: waivers",
+            "Waiver claims on cut players are awarded.",
+        );
     }
     if d == y.practice_squads {
-        post(w, d, Kind::Date, Loudness::Medium, "CBA: practice squads", format!("Practice squads are signed ({} spots).", w.rules.nfl_practice_squad));
+        post(
+            w,
+            d,
+            Kind::Date,
+            Loudness::Medium,
+            "CBA: practice squads",
+            format!("Practice squads are signed ({} spots).", w.rules.nfl_practice_squad),
+        );
     }
     if d == y.trade_deadline.date.add(-14) {
         post(w, d, Kind::Whisper, Loudness::Small, "", "Trade rumors pick up ahead of the deadline (A46).");
     }
     if d == y.trade_deadline.date {
-        post_at(w, y.trade_deadline, Kind::Deadline, Loudness::Huge, "CBA: trade deadline", "The trade deadline, 4pm ET.");
+        post_at(
+            w,
+            y.trade_deadline,
+            Kind::Deadline,
+            Loudness::Huge,
+            "CBA: trade deadline",
+            "The trade deadline, 4pm ET.",
+        );
     }
     if d == y.pro_bowl_voting.0 {
         post(w, d, Kind::Window, Loudness::Small, "", "Pro Bowl voting opens.");
@@ -543,8 +798,22 @@ fn dated_events(w: &mut World, d: Date, y: &YearDates) {
     if let Some(&last) = y.nfl_weeks.last()
         && d == last
     {
-        post(w, d, Kind::Deadline, Loudness::Small, "contracts: incentives", "The last regular-season games: every incentive is judged on the season's final numbers (A8).");
-        post(w, d, Kind::Slot, Loudness::Small, "owners (A44)", "End-of-season reviews with the owners, the day before Black Monday.");
+        post(
+            w,
+            d,
+            Kind::Deadline,
+            Loudness::Small,
+            "contracts: incentives",
+            "The last regular-season games: every incentive is judged on the season's final numbers (A8).",
+        );
+        post(
+            w,
+            d,
+            Kind::Slot,
+            Loudness::Small,
+            "owners (A44)",
+            "End-of-season reviews with the owners, the day before Black Monday.",
+        );
     }
     if d == y.all_pro {
         post(w, d, Kind::Award, Loudness::Medium, "", "The All-Pro teams are named.");
@@ -556,14 +825,21 @@ fn dated_events(w: &mut World, d: Date, y: &YearDates) {
         post(w, d, Kind::Game, Loudness::Small, "", "The Pro Bowl Games.");
     }
     if d == y.nfl_honors {
-        post(w, d, Kind::Award, Loudness::Big, "", "NFL Honors: MVP and the season's awards; the Hall of Fame class is announced.");
+        post(
+            w,
+            d,
+            Kind::Award,
+            Loudness::Big,
+            "",
+            "NFL Honors: MVP and the season's awards; the Hall of Fame class is announced.",
+        );
     }
-    let byes: Vec<usize> = (0..w.nfl.len())
-        .filter(|&t| w.nfl_season.as_ref().unwrap().byes[t].is_some_and(|b| b.add(-5) == d))
-        .collect();
+    let byes: Vec<usize> =
+        (0..w.nfl.len()).filter(|&t| w.nfl_season.as_ref().unwrap().byes[t].is_some_and(|b| b.add(-5) == d)).collect();
     if !byes.is_empty() {
         let names: Vec<&str> = byes.iter().map(|&t| w.nfl[t].name).collect();
-        let text = format!("Bye week (four days off by the CBA, self-scouting, owner check-ins): {}.", names.join(", "));
+        let text =
+            format!("Bye week (four days off by the CBA, self-scouting, owner check-ins): {}.", names.join(", "));
         post(w, d, Kind::Slot, Loudness::Small, "CBA: bye week", text);
     }
 }
@@ -572,7 +848,14 @@ fn dated_events(w: &mut World, d: Date, y: &YearDates) {
 /// changes are proposed and voted on; a relocation request is heard.
 fn league_meeting(w: &mut World, d: Date) {
     let season = w.year;
-    post(w, d, Kind::Date, Loudness::Medium, "NFL: annual meeting", "The league's annual meeting: rules proposals are voted on.");
+    post(
+        w,
+        d,
+        Kind::Date,
+        Loudness::Medium,
+        "NFL: annual meeting",
+        "The league's annual meeting: rules proposals are voted on.",
+    );
     let mut rng = w.rng.fork();
     for text in w.changes.league_meeting(season, &mut rng) {
         w.log.rule_changes.push(text.clone());
@@ -591,8 +874,10 @@ fn relocate(w: &mut World, d: Date, rng: &mut crate::rng::Rng) {
     let rows = &*super::data::NFL_TEAMS;
     let t = (0..w.nfl.len())
         .max_by(|&a, &b| {
-            let ka = rows.iter().find(|r| r.name == w.nfl[a].name).map_or(16, |r| r.market_rank) as f64 - w.nfl[a].owner;
-            let kb = rows.iter().find(|r| r.name == w.nfl[b].name).map_or(16, |r| r.market_rank) as f64 - w.nfl[b].owner;
+            let ka =
+                rows.iter().find(|r| r.name == w.nfl[a].name).map_or(16, |r| r.market_rank) as f64 - w.nfl[a].owner;
+            let kb =
+                rows.iter().find(|r| r.name == w.nfl[b].name).map_or(16, |r| r.market_rank) as f64 - w.nfl[b].owner;
             ka.total_cmp(&kb)
         })
         .unwrap_or(0);
@@ -603,7 +888,10 @@ fn relocate(w: &mut World, d: Date, rng: &mut crate::rng::Rng) {
         let nickname = old.rsplit(' ').next().unwrap_or("Team");
         let name: &'static str = Box::leak(format!("{city} {nickname}").into_boxed_str());
         w.nfl[t].name = name;
-        let text = format!("Owners approve the {old}' move to {city}, {yes}-{}: they play next season as the {name}.", 32 - yes);
+        let text = format!(
+            "Owners approve the {old}' move to {city}, {yes}-{}: they play next season as the {name}.",
+            32 - yes
+        );
         w.changes.applied.push(crate::calendar::rules::AppliedChange {
             change: crate::calendar::Change::Relocation,
             season: w.year,
@@ -624,11 +912,26 @@ fn build_schedule(w: &mut World, d: Date) {
     let n_weeks = w.dates.nfl_weeks.len();
     let n = w.nfl.len();
     let seed = w.options.seed as u64 ^ (season as u64) << 22 ^ 0x5343;
+    let real = real_schedule(w, season, n_weeks);
     let s = w.nfl_season.as_mut().unwrap();
     s.year = season;
-    let list = opponent_formula(s, season, games);
-    s.weeks = assign_weeks(&list, n, n_weeks, seed);
+    let from_real = real.is_some();
+    match real {
+        Some((weeks, slots)) => {
+            s.weeks = weeks;
+            s.slots = slots;
+        }
+        None => {
+            let list = opponent_formula(s, season, games);
+            s.weeks = assign_weeks(&list, n, n_weeks, seed);
+        }
+    }
+    if !from_real {
+        holiday_hosts(w, season);
+        formula_slots(w, season, seed);
+    }
     let sundays = w.dates.nfl_weeks.clone();
+    let s = w.nfl_season.as_mut().unwrap();
     for (k, week) in s.weeks.iter().enumerate() {
         let mut playing = vec![false; n];
         for &(a, b) in week {
@@ -641,7 +944,389 @@ fn build_schedule(w: &mut World, d: Date) {
             }
         }
     }
-    post(w, d, Kind::Date, Loudness::Medium, "NFL: schedule release", format!("The {season} schedule is released: {games} games over {n_weeks} weeks."));
+    let abroad = s.slots.iter().flatten().filter(|x| x.site.is_some()).count();
+    let prime = s.slots.iter().flatten().filter(|x| x.window.prime()).count();
+    let how = if from_real { "the real 2026 schedule" } else { "the opponent formula" };
+    post(
+        w,
+        d,
+        Kind::Date,
+        Loudness::Medium,
+        "NFL: schedule release",
+        format!(
+            "The {season} schedule is released ({how}): {games} games over {n_weeks} weeks, {prime} in prime time, {abroad} abroad."
+        ),
+    );
+}
+
+// --- Game slots (T1.2, T2) ------------------------------------------------------------
+
+const SCHEDULE_2026: &str = include_str!("../../../../data/real-world/nfl_schedule_2026.csv");
+
+/// A season's games by week (home, away) and each game's slot.
+type WeekSlots = (Vec<Vec<(usize, usize)>>, Vec<Vec<Slot>>);
+
+/// Year one plays the real 2026 schedule (T2.2): every game on its real day
+/// and kickoff, abroad where it really is. Any other year, or a league that
+/// no longer matches it (a relocation), uses the formula.
+fn real_schedule(w: &World, season: i32, n_weeks: usize) -> Option<WeekSlots> {
+    if season != 2026 {
+        return None;
+    }
+    let idx = |name: &str| w.nfl.iter().position(|t| t.name == name);
+    let y = &w.dates;
+    let mut weeks = vec![Vec::new(); n_weeks];
+    let mut slots = vec![Vec::new(); n_weeks];
+    for line in SCHEDULE_2026.lines().skip(1).filter(|l| !l.trim().is_empty()) {
+        let f: Vec<&str> = line.split(',').collect();
+        if f.len() < 6 {
+            return None;
+        }
+        let k = f[0].parse::<usize>().ok()?.checked_sub(1)?;
+        let mut ymd = f[1].split('-').map(|x| x.parse::<i32>().ok());
+        let date = Date::ymd(ymd.next()??, ymd.next()?? as u32, ymd.next()?? as u32);
+        let mut hm = f[2].split(':').map(|x| x.parse::<u16>().ok());
+        let at = Moment::at(date, hm.next()??, hm.next()??);
+        let (away, home) = (idx(f[3])?, idx(f[4])?);
+        let site = (!f[5].trim().is_empty()).then(|| f[5].trim().to_string());
+        let window = if site.is_some() {
+            Window::International
+        } else if date == y.thanksgiving {
+            Window::Thanksgiving
+        } else if date == y.christmas {
+            Window::Christmas
+        } else {
+            match (date.weekday(), at.minute >= 19 * 60) {
+                (Weekday::Sun, true) => Window::SundayNight,
+                (Weekday::Sun, false) => Window::Sunday,
+                (Weekday::Mon, _) => Window::MondayNight,
+                (Weekday::Thu, _) if k == 0 => Window::Opener,
+                (Weekday::Thu, _) => Window::ThursdayNight,
+                (Weekday::Sat, _) => Window::Saturday,
+                (Weekday::Fri, _) if date == y.thanksgiving.add(1) => Window::BlackFriday,
+                (Weekday::Wed, _) if k == 0 => Window::Opener,
+                _ => Window::Other,
+            }
+        };
+        weeks.get_mut(k)?.push((home, away));
+        slots[k].push(Slot { at, window, site, played: false });
+    }
+    (weeks.iter().map(|v| v.len()).sum::<usize>() > 0).then_some((weeks, slots))
+}
+
+/// Detroit and Dallas host on Thanksgiving: a formula week where both are at
+/// home is swapped into Thanksgiving week (inside the bye weeks, so byes stay
+/// where they were allowed).
+fn holiday_hosts(w: &mut World, season: i32) {
+    let y = w.dates.clone();
+    let det = w.nfl.iter().position(|t| t.name == "Detroit Lions");
+    let dal = w.nfl.iter().position(|t| t.name == "Dallas Cowboys");
+    let s = w.nfl_season.as_mut().unwrap();
+    let Some(tk) = y.nfl_weeks.iter().position(|&sun| sun.add(-3) == y.thanksgiving) else { return };
+    let hosts = |week: &Vec<(usize, usize)>, t: Option<usize>| t.is_none_or(|t| week.iter().any(|g| g.0 == t));
+    if hosts(&s.weeks[tk], det) && hosts(&s.weeks[tk], dal) {
+        return;
+    }
+    let pick = (3..=13usize)
+        .filter(|&j| j != tk && j < s.weeks.len())
+        .find(|&j| hosts(&s.weeks[j], det) && hosts(&s.weeks[j], dal))
+        .or_else(|| (3..=13usize).filter(|&j| j != tk && j < s.weeks.len()).find(|&j| hosts(&s.weeks[j], det)));
+    if let Some(j) = pick
+        && (3..=13).contains(&tk)
+    {
+        s.weeks.swap(tk, j);
+    }
+    let _ = season;
+}
+
+/// International games a season (proposed, not confirmed: the real counts
+/// to 2025, then nine a year as in 2026): Europe, Mexico City, Brazil,
+/// Australia.
+fn international_sites(season: i32) -> Vec<(&'static str, Weekday, u16, u16)> {
+    const LONDON: [&str; 2] = ["Tottenham Hotspur Stadium, London", "Wembley Stadium, London"];
+    let europe = match season {
+        2007..=2012 => 1,
+        2013 => 2,
+        2014..=2016 => 3,
+        2017 => 4,
+        2018 => 3,
+        2019 => 4,
+        2020 => 0,
+        2021 => 1,
+        2022 => 4,
+        2023 => 5,
+        2024 => 4,
+        2025 => 6,
+        s if s > 2025 => 6,
+        _ => 0,
+    };
+    let mut v = Vec::new();
+    for k in 0..europe {
+        let site = match (k, season) {
+            (3, 2022..) => "Allianz Arena, Munich",
+            (4, 2023..) => "Deutsche Bank Park, Frankfurt",
+            (5, 2025..) => "Santiago Bernabeu, Madrid",
+            _ => LONDON[k % 2],
+        };
+        v.push((site, Weekday::Sun, 9, 30));
+    }
+    if matches!(season, 2005 | 2016 | 2017 | 2019 | 2022) || season >= 2026 {
+        v.push(("Estadio Azteca, Mexico City", Weekday::Sun, 20, 20));
+    }
+    if season >= 2024 {
+        v.push(("Sao Paulo", Weekday::Fri, 20, 15));
+    }
+    if season >= 2026 {
+        v.push(("Melbourne Cricket Ground", Weekday::Thu, 20, 35));
+    }
+    v
+}
+
+/// Every game's day and kickoff for a formula year (T1.2, T2), from the
+/// modern pattern by era (proposed, not confirmed): a Thursday opener at the
+/// champion's home (2002 on), Thursday night games (late season 2006-2011,
+/// every week from 2012), Sunday night and Monday night, Thanksgiving in
+/// Detroit and Dallas with a night game from 2006 and a Black Friday game
+/// from 2023, Christmas Day games from 2016, Saturday games once the college
+/// regular season is over, international games, western teams hosting in the
+/// late afternoon.
+fn formula_slots(w: &mut World, season: i32, seed: u64) {
+    let y = w.dates.clone();
+    let rows = &*super::data::NFL_TEAMS;
+    let n = w.nfl.len();
+    let appeal: Vec<f64> = (0..n)
+        .map(|t| {
+            let row = rows.iter().find(|r| r.name == w.nfl[t].name);
+            let market = row.map_or(16, |r| r.market_rank) as f64;
+            let place = w.nfl_season.as_ref().unwrap().prev_place.get(t).copied().unwrap_or(2) as f64;
+            0.6 * (3.0 - place) + 1.5 * (1.0 - (market - 1.0) / 31.0)
+        })
+        .collect();
+    let west: Vec<bool> = (0..n)
+        .map(|t| {
+            rows.iter().find(|r| r.name == w.nfl[t].name).is_some_and(|r| {
+                matches!(w.states[r_state(w, &r.state)].code.as_str(), "CA" | "WA" | "AZ" | "NV" | "CO")
+            })
+        })
+        .collect();
+    let champ = w.nfl_champions.last().map(|c| c.1);
+    let det = w.nfl.iter().position(|t| t.name == "Detroit Lions");
+    let dal = w.nfl.iter().position(|t| t.name == "Dallas Cowboys");
+    let sites = international_sites(season);
+    let s = w.nfl_season.as_mut().unwrap();
+    let n_weeks = s.weeks.len();
+    let last = n_weeks.saturating_sub(1);
+    // Which weeks host the international games: one a week from week 4 (Brazil in week 1).
+    let mut abroad_week: Vec<Option<usize>> = vec![None; n_weeks];
+    let mut used_abroad = vec![false; n];
+    let mut euro_week = 3;
+    for (i, site) in sites.iter().enumerate() {
+        let k = match site.1 {
+            Weekday::Fri | Weekday::Thu => 0,
+            _ if site.0.contains("Mexico") => 10.min(last),
+            _ => {
+                let k = euro_week;
+                euro_week += 1;
+                k.min(last)
+            }
+        };
+        if abroad_week[k].is_none() {
+            abroad_week[k] = Some(i);
+        }
+    }
+    let mut slots: Vec<Vec<Slot>> = Vec::with_capacity(n_weeks);
+    for k in 0..n_weeks {
+        let sun = y.nfl_weeks[k];
+        let games = s.weeks[k].clone();
+        let div_game = |g: &(usize, usize)| s.div[g.0] == s.div[g.1];
+        let score = |g: &(usize, usize)| {
+            appeal[g.0] + appeal[g.1] + 0.3 * key_uniform(seed ^ k as u64, (g.0 * 64 + g.1) as u64)
+        };
+        let mut taken = vec![false; games.len()];
+        let mut slot: Vec<Option<Slot>> = vec![None; games.len()];
+        let mut set = |taken: &mut Vec<bool>, g: usize, at: Moment, window: Window, site: Option<String>| {
+            taken[g] = true;
+            slot[g] = Some(Slot { at, window, site, played: false });
+        };
+        // The best game still open, by appeal; `pred` limits the choice.
+        let best = |taken: &Vec<bool>, pred: &dyn Fn(&(usize, usize)) -> bool| -> Option<usize> {
+            (0..games.len())
+                .filter(|&g| !taken[g] && pred(&games[g]))
+                .max_by(|&a, &b| score(&games[a]).total_cmp(&score(&games[b])).then(b.cmp(&a)))
+        };
+        // International games first: a team goes abroad once a year.
+        if let Some(i) = abroad_week[k] {
+            let (site, day, h, m) = sites[i];
+            let pick = (0..games.len())
+                .filter(|&g| !used_abroad[games[g].0] && !used_abroad[games[g].1] && !div_game(&games[g]))
+                .min_by(|&a, &b| {
+                    key_uniform(seed ^ 0xAB ^ k as u64, a as u64)
+                        .total_cmp(&key_uniform(seed ^ 0xAB ^ k as u64, b as u64))
+                });
+            if let Some(g) = pick {
+                used_abroad[games[g].0] = true;
+                used_abroad[games[g].1] = true;
+                let date = match day {
+                    Weekday::Thu => sun.add(-3),
+                    Weekday::Fri => sun.add(-2),
+                    _ => sun,
+                };
+                set(&mut taken, g, Moment::at(date, h, m), Window::International, Some(site.to_string()));
+            }
+        }
+        // The opener: the champion at home on Thursday (2002 on).
+        if k == 0 && season >= 2002 {
+            let g = best(&taken, &|g| Some(g.0) == champ).or_else(|| best(&taken, &|_| true));
+            if let Some(g) = g {
+                set(&mut taken, g, Moment::at(sun.add(-3), 20, 20), Window::Opener, None);
+            }
+        }
+        // Thanksgiving: Detroit, Dallas, a night game (2006 on), Black Friday (2023 on).
+        if sun.add(-3) == y.thanksgiving {
+            let tg = y.thanksgiving;
+            if let Some(g) = best(&taken, &|g| Some(g.0) == det) {
+                set(&mut taken, g, Moment::at(tg, 12, 30), Window::Thanksgiving, None);
+            }
+            if let Some(g) = best(&taken, &|g| Some(g.0) == dal) {
+                set(&mut taken, g, Moment::at(tg, 16, 30), Window::Thanksgiving, None);
+            }
+            if season >= 2006
+                && let Some(g) = best(&taken, &|_| true)
+            {
+                set(&mut taken, g, Moment::at(tg, 20, 20), Window::Thanksgiving, None);
+            }
+            if season >= 2023
+                && let Some(g) = best(&taken, &|_| true)
+            {
+                set(&mut taken, g, Moment::at(tg.add(1), 15, 0), Window::BlackFriday, None);
+            }
+        } else if k > 0 && k < last {
+            // Thursday night (on a Thursday Christmas, the Christmas games
+            // are the week's Thursday games).
+            let tnf = (season >= 2012 || (2006..=2011).contains(&season) && k >= 9) && y.christmas != sun.add(-3);
+            if tnf && let Some(g) = best(&taken, &|g| s.div[g.0] == s.div[g.1]).or_else(|| best(&taken, &|_| true)) {
+                set(&mut taken, g, Moment::at(sun.add(-3), 20, 15), Window::ThursdayNight, None);
+            }
+        }
+        // Christmas Day games on a weekday of the week (2016 on).
+        let xmas = y.christmas;
+        if season >= 2016 && xmas != sun && xmas >= sun.add(-4) && xmas <= sun.add(1) {
+            let times =
+                if season >= 2020 { [(13, 0), (16, 30), (20, 15)].as_slice() } else { [(16, 30), (20, 15)].as_slice() };
+            for &(h, m) in times {
+                if let Some(g) = best(&taken, &|_| true) {
+                    set(&mut taken, g, Moment::at(xmas, h, m), Window::Christmas, None);
+                }
+            }
+        }
+        // Saturdays once the college regular season is over (2006 on).
+        if season >= 2006 && sun.add(-1) > y.army_navy && xmas != sun.add(-1) {
+            for &(h, m) in &[(16, 30), (20, 15)] {
+                let g = if k == last { best(&taken, &|g| s.div[g.0] == s.div[g.1]) } else { best(&taken, &|_| true) };
+                if let Some(g) = g {
+                    set(&mut taken, g, Moment::at(sun.add(-1), h, m), Window::Saturday, None);
+                }
+            }
+        }
+        // Sunday night, then Monday night (none in the last week).
+        let snf = if season >= 2006 { (20, 20) } else { (20, 15) };
+        if let Some(g) = best(&taken, &|_| true) {
+            set(&mut taken, g, Moment::at(sun, snf.0, snf.1), Window::SundayNight, None);
+        }
+        if k < last {
+            let mnf = if k == 0 && (2006..=2021).contains(&season) { 2 } else { 1 };
+            for j in 0..mnf {
+                if let Some(g) = best(&taken, &|_| true) {
+                    let (h, m) = if mnf == 2 && j == 1 {
+                        (22, 20)
+                    } else if mnf == 2 {
+                        (19, 10)
+                    } else {
+                        (20, 15)
+                    };
+                    set(&mut taken, g, Moment::at(sun.add(1), h, m), Window::MondayNight, None);
+                }
+            }
+        }
+        // Sunday afternoon: western hosts and a few others late.
+        let mut late = 0;
+        for g in 0..games.len() {
+            if taken[g] {
+                continue;
+            }
+            let lateish = west[games[g].0] || late < 2 && key_uniform(seed ^ 0x1A7E ^ k as u64, g as u64) < 0.3;
+            let at = if lateish {
+                late += 1;
+                if late % 2 == 0 { Moment::at(sun, 16, 5) } else { Moment::at(sun, 16, 25) }
+            } else {
+                Moment::at(sun, 13, 0)
+            };
+            set(&mut taken, g, at, Window::Sunday, None);
+        }
+        slots.push(slot.into_iter().map(|x| x.unwrap()).collect());
+    }
+    s.slots = slots;
+}
+
+fn capitalize(text: &str) -> String {
+    let mut c = text.chars();
+    c.next().map_or(String::new(), |f| f.to_uppercase().collect::<String>() + c.as_str())
+}
+
+fn r_state(w: &World, code: &str) -> usize {
+    w.states.iter().position(|st| st.code == code).unwrap_or(0)
+}
+
+/// Flexible scheduling (T2): twelve days before a Sunday (six before the
+/// last one), a better game can take the Sunday night slot. From week 11
+/// (2006-2013), then week 5 (proposed, not confirmed).
+fn flex(w: &mut World, d: Date, y: &YearDates) {
+    let season = w.year;
+    if season < 2006 {
+        return;
+    }
+    let Some(s) = w.nfl_season.as_ref() else { return };
+    if s.slots.is_empty() {
+        return;
+    }
+    let last = s.weeks.len().saturating_sub(1);
+    let from = if season >= 2014 { 4 } else { 10 };
+    let Some(k) =
+        (from..=last).find(|&k| y.nfl_weeks.get(k).is_some_and(|&sun| d == sun.add(if k == last { -6 } else { -12 })))
+    else {
+        return;
+    };
+    let wins = |t: usize| s.wins[t] as f64 + 0.5 * s.ties[t] as f64;
+    let value = |g: &(usize, usize)| wins(g.0) + wins(g.1) - 0.5 * (wins(g.0) - wins(g.1)).abs();
+    let games = &s.weeks[k];
+    let Some(night) = s.slots[k].iter().position(|x| x.window == Window::SundayNight) else { return };
+    let Some(best) = (0..games.len())
+        .filter(|&g| s.slots[k][g].window == Window::Sunday && s.slots[k][g].site.is_none())
+        .max_by(|&a, &b| value(&games[a]).total_cmp(&value(&games[b])).then(b.cmp(&a)))
+    else {
+        return;
+    };
+    if value(&games[best]) < value(&games[night]) + 2.0 {
+        return;
+    }
+    let (h, a) = games[best];
+    let (oh, oa) = games[night];
+    let s = w.nfl_season.as_mut().unwrap();
+    let night_at = s.slots[k][night].at;
+    let best_at = s.slots[k][best].at;
+    s.slots[k][best].at = night_at;
+    s.slots[k][best].window = Window::SundayNight;
+    s.slots[k][night].at = best_at;
+    s.slots[k][night].window = Window::Sunday;
+    let text = format!(
+        "Flexed into Sunday night, week {}: the {} at the {}; the {} at the {} moves to the afternoon.",
+        k + 1,
+        w.nfl[a].name,
+        w.nfl[h].name,
+        w.nfl[oa].name,
+        w.nfl[oh].name
+    );
+    post(w, d, Kind::Date, Loudness::Medium, "NFL: flexible scheduling", text);
 }
 
 /// Win totals after the schedule release (A45): the market's read of each
@@ -686,20 +1371,53 @@ fn win_prob(s: &NflSeason, home: usize, away: usize, field: f64) -> f64 {
     1.0 / (1.0 + (-x).exp())
 }
 
-/// One Sunday: every game of the week.
-fn play_week(w: &mut World, k: usize, d: Date) {
+/// The day's games (T1.2): each is played on its own day and kickoff. A
+/// week's stakes are read before its first game; its lines open after its
+/// last.
+fn play_day(w: &mut World, d: Date) {
     let Some(s) = w.nfl_season.as_ref() else { return };
-    if !s.started || k >= s.weeks.len() {
+    if !s.started {
         return;
     }
-    stakes(w, k, d);
-    let seed = w.options.seed as u64 ^ (w.year as u64) << 24 ^ (k as u64) << 10 ^ 0x4E47;
+    let mut todays: Vec<(usize, usize)> = Vec::new();
+    for (k, week) in s.slots.iter().enumerate() {
+        for (g, x) in week.iter().enumerate() {
+            if x.at.date == d && !x.played {
+                todays.push((k, g));
+            }
+        }
+    }
+    if todays.is_empty() {
+        return;
+    }
+    let mut weeks: Vec<usize> = todays.iter().map(|x| x.0).collect();
+    weeks.dedup();
+    for &k in &weeks {
+        let s = w.nfl_season.as_ref().unwrap();
+        if s.slots[k].iter().all(|x| !x.played) {
+            stakes(w, k, d);
+            if k == 0 {
+                post(
+                    w,
+                    d,
+                    Kind::Slot,
+                    Loudness::Small,
+                    "contracts: per-game bonuses (A7)",
+                    "Per-game roster bonuses are earned each game day by players on the active list.",
+                );
+            }
+        }
+    }
+    let seed_of = |k: usize| w.options.seed as u64 ^ (w.year as u64) << 24 ^ (k as u64) << 10 ^ 0x4E47;
+    let seeds: Vec<u64> = todays.iter().map(|&(k, _)| seed_of(k)).collect();
+    let mut shown: Vec<(usize, usize, Slot)> = Vec::new();
     let s = w.nfl_season.as_mut().unwrap();
-    let games = s.weeks[k].clone();
-    for &(h, a) in &games {
+    for (&(k, g), seed) in todays.iter().zip(seeds) {
+        let (h, a) = s.weeks[k][g];
+        let field = if s.slots[k][g].site.is_some() { 0.0 } else { HOME };
         let key = (h as u64) << 8 ^ a as u64;
-        let p = win_prob(s, h, a, HOME);
-        let pe = 1.0 / (1.0 + (-(PER_SD * (s.z[h] - s.z[a]) + HOME)).exp());
+        let p = win_prob(s, h, a, field);
+        let pe = 1.0 / (1.0 + (-(PER_SD * (s.z[h] - s.z[a]) + field)).exp());
         s.expect[h] += pe;
         s.expect[a] += 1.0 - pe;
         let u = key_uniform(seed, key);
@@ -714,12 +1432,27 @@ fn play_week(w: &mut World, k: usize, d: Date) {
             if same_div {
                 s.div_wins[wn] += 1;
             }
+            let x = &s.slots[k][g];
+            if x.window.prime() || x.site.is_some() {
+                shown.push((wn, l, x.clone()));
+            }
         }
+        s.slots[k][g].played = true;
     }
-    w.log.nfl_games += games.len() as u32;
-    // A45: next week's lines open after the games.
-    if k + 1 < w.dates.nfl_weeks.len() {
-        post(w, d, Kind::News, Loudness::Small, "betting (A45)", format!("Week {} lines open.", k + 2));
+    w.log.nfl_games += todays.len() as u32;
+    // The national windows and the games abroad make the news.
+    for (wn, l, x) in shown {
+        let place = x.site.as_ref().map_or(String::new(), |site| format!(" at {site}"));
+        let text =
+            format!("{}{place}: the {} beat the {}.", capitalize(x.window.name()), w.nfl[wn].name, w.nfl[l].name);
+        w.calendar.post(Event::new(x.at.date, Level::Nfl, Kind::Game, Loudness::Small, text).team(wn).at(x.at));
+    }
+    // A45: next week's lines open after the week's last game.
+    for k in weeks {
+        let s = w.nfl_season.as_ref().unwrap();
+        if s.slots[k].iter().all(|x| x.played) && k + 1 < s.weeks.len() {
+            post(w, d, Kind::News, Loudness::Small, "betting (A45)", format!("Week {} lines open.", k + 2));
+        }
     }
 }
 
@@ -735,7 +1468,8 @@ fn stakes(w: &mut World, k: usize, d: Date) {
     let per_conf = (w.rules.nfl_playoff_teams / 2) as usize;
     let mut cut = [0.0f64; 2];
     for (c, cut_c) in cut.iter_mut().enumerate() {
-        let mut v: Vec<f64> = (0..s.wins.len()).filter(|&t| s.conf[t] == c).map(|t| s.wins[t] as f64 + 0.5 * s.ties[t] as f64).collect();
+        let mut v: Vec<f64> =
+            (0..s.wins.len()).filter(|&t| s.conf[t] == c).map(|t| s.wins[t] as f64 + 0.5 * s.ties[t] as f64).collect();
         v.sort_by(|a, b| b.total_cmp(a));
         *cut_c = v.get(per_conf.saturating_sub(1)).copied().unwrap_or(0.0);
     }
@@ -744,20 +1478,43 @@ fn stakes(w: &mut World, k: usize, d: Date) {
     let lead = |t: usize| {
         (0..s.wins.len()).filter(|&o| s.div[o] == s.div[t]).map(|o| wins(o) as i32).max().unwrap_or(0) as f64
     };
-    let mut huge: Vec<(usize, usize)> = Vec::new();
-    for &(h, a) in &s.weeks[k] {
-        let race = in_race(h) && in_race(a);
-        let division = s.div[h] == s.div[a] && wins(h) >= lead(h) - 1.0 && wins(a) >= lead(a) - 1.0 && wins(h) >= cut[s.conf[h]] - 1.0;
-        if race || division {
-            huge.push((h, a));
+    // Stakes are each team's own (T8.1): in the last four weeks a team
+    // within a win of the playoff line plays for its season, whoever the
+    // opponent, and two division contenders meet for the title.
+    let late = k + 4 >= n_weeks;
+    let mut huge: Vec<(usize, usize, [bool; 2], Moment)> = Vec::new();
+    for (g, &(h, a)) in s.weeks[k].iter().enumerate() {
+        let division = s.div[h] == s.div[a]
+            && wins(h) >= lead(h) - 1.0
+            && wins(a) >= lead(a) - 1.0
+            && wins(h) >= cut[s.conf[h]] - 1.0;
+        let side = [division || late && in_race(h), division || late && in_race(a)];
+        if side[0] || side[1] {
+            let at = s.slots.get(k).and_then(|v| v.get(g)).map_or(Moment::at(d, 13, 0), |x| x.at);
+            huge.push((h, a, side, at));
         }
     }
-    for (h, a) in huge {
+    for (h, a, side, at) in huge {
         let s = w.nfl_season.as_mut().unwrap();
-        s.huge[h] += 1;
-        s.huge[a] += 1;
-        let text = format!("A game with the season on it: the {} host the {}.", w.nfl[h].name, w.nfl[a].name);
-        w.calendar.post(Event::new(d, Level::Nfl, Kind::Game, Loudness::Huge, text).team(h).at(Moment::at(d, 13, 0)));
+        s.huge[h] += side[0] as u32;
+        s.huge[a] += side[1] as u32;
+        // The league's news is loudest when both sides play for their
+        // season; a one-sided stake is that team's huge game, not the week's.
+        let (text, loud, team) = if side[0] && side[1] {
+            (
+                format!("A game with the season on it: the {} host the {}.", w.nfl[h].name, w.nfl[a].name),
+                Loudness::Huge,
+                h,
+            )
+        } else {
+            let (t, o, verb) = if side[0] { (h, a, "host") } else { (a, h, "visit") };
+            (
+                format!("The {} play for their season when they {} the {}.", w.nfl[t].name, verb, w.nfl[o].name),
+                Loudness::Big,
+                t,
+            )
+        };
+        w.calendar.post(Event::new(at.date, Level::Nfl, Kind::Game, loud, text).team(team).at(at));
     }
 }
 
@@ -802,7 +1559,9 @@ fn black_monday(w: &mut World, d: Date) {
     for c in 0..2 {
         let mut winners: Vec<usize> = (0..4)
             .filter_map(|dv| {
-                (0..n).filter(|&t| s.div[t] == c * 4 + dv).max_by(|&a, &b| record_key(&s, a).total_cmp(&record_key(&s, b)))
+                (0..n)
+                    .filter(|&t| s.div[t] == c * 4 + dv)
+                    .max_by(|&a, &b| record_key(&s, a).total_cmp(&record_key(&s, b)))
             })
             .collect();
         winners.sort_by(|&a, &b| record_key(&s, b).total_cmp(&record_key(&s, a)));
@@ -819,7 +1578,14 @@ fn black_monday(w: &mut World, d: Date) {
     s.seed = seed;
     s.booked = true;
     w.log.nfl_huge_by_team = s.huge.clone();
-    post(w, d, Kind::Coaching, Loudness::Big, "", "Black Monday: the day after the regular season, when head coaches are fired.");
+    post(
+        w,
+        d,
+        Kind::Coaching,
+        Loudness::Big,
+        "",
+        "Black Monday: the day after the regular season, when head coaches are fired.",
+    );
     staff::carousel(w, staff::Scope::NflFirings);
 }
 
@@ -827,54 +1593,124 @@ fn black_monday(w: &mut World, d: Date) {
 /// the Super Bowl. The higher seed hosts; the Super Bowl is neutral.
 fn play_round(w: &mut World, round: u32, d: Date) {
     let Some(s) = w.nfl_season.as_ref() else { return };
-    if !s.booked {
+    if !s.booked || round != 4 {
         return;
     }
     let seed = w.options.seed as u64 ^ (w.year as u64) << 24 ^ (round as u64) << 4 ^ 0x504F;
     let mut s = s.clone();
-    if round == 4 {
-        let (a, b) = (s.alive[0].first().copied(), s.alive[1].first().copied());
-        let (Some(a), Some(b)) = (a, b) else { return };
-        let p = win_prob(&s, a, b, 0.0);
-        let a_wins = key_uniform(seed, (a as u64) << 8 ^ b as u64) < p;
-        let (champ, loser) = if a_wins { (a, b) } else { (b, a) };
-        s.out_round[champ] = 5;
-        s.out_round[loser] = 4;
-        s.champion = Some(champ);
-        s.runner_up = Some(loser);
-        s.final_order = Some(order_from(&s));
-        *w.nfl_season.as_mut().unwrap() = s;
-        super_bowl_book(w, champ, loser, d);
+    let (a, b) = (s.alive[0].first().copied(), s.alive[1].first().copied());
+    let (Some(a), Some(b)) = (a, b) else { return };
+    let p = win_prob(&s, a, b, 0.0);
+    let a_wins = key_uniform(seed, (a as u64) << 8 ^ b as u64) < p;
+    let (champ, loser) = if a_wins { (a, b) } else { (b, a) };
+    s.out_round[champ] = 5;
+    s.out_round[loser] = 4;
+    s.champion = Some(champ);
+    s.runner_up = Some(loser);
+    s.final_order = Some(order_from(&s));
+    *w.nfl_season.as_mut().unwrap() = s;
+    w.log.nfl_games += 1;
+    super_bowl_book(w, champ, loser, d);
+}
+
+/// A playoff round's games and their days (T1.2): wild card weekend runs
+/// Saturday to Monday (six games from 2020), the divisional round Saturday
+/// and Sunday, the conference title games on Sunday. The top seeds rest
+/// when the field isn't a power of two.
+fn start_round(w: &mut World, round: u32, d: Date) {
+    let Some(s) = w.nfl_season.as_mut() else { return };
+    if !s.booked {
         return;
     }
-    let mut games = 0;
+    let mut pairs: Vec<(usize, usize, usize)> = Vec::new();
     for c in 0..2 {
         let field = s.alive[c].clone();
         let n = field.len();
-        // Byes for the top seeds when the field isn't a power of two (wild card round only).
         let byes = if round == 1 { n.next_power_of_two() - n } else { 0 };
         let byes = if round == 1 && n == 8 { 0 } else { byes.min(n) };
         let (stay, play) = field.split_at(byes);
-        let mut next: Vec<usize> = stay.to_vec();
+        s.round_next[c] = stay.to_vec();
         let m = play.len();
         for k in 0..m / 2 {
-            let (hi, lo) = (play[k], play[m - 1 - k]);
-            let p = win_prob(&s, hi, lo, HOME);
-            let hi_wins = key_uniform(seed ^ c as u64, (hi as u64) << 8 ^ lo as u64) < p;
-            let (wn, l) = if hi_wins { (hi, lo) } else { (lo, hi) };
-            s.out_round[l] = round;
-            next.push(wn);
-            games += 1;
+            pairs.push((c, play[k], play[m - 1 - k]));
         }
-        // Reseed: the best remaining seed plays the lowest.
-        next.sort_by_key(|&t| s.seed[t].unwrap_or(99));
-        s.alive[c] = next;
     }
-    w.log.nfl_games += games;
-    let names = ["", "Wild card weekend", "The divisional round", "The conference title games"];
-    let text = names[round as usize].to_string() + ".";
-    *w.nfl_season.as_mut().unwrap() = s;
+    // Kickoffs in order: Saturday afternoon and night, Sunday, Monday night.
+    let times: Vec<Moment> = match (round, pairs.len()) {
+        (3, _) => vec![Moment::at(d, 15, 0), Moment::at(d, 18, 30)],
+        (2, _) => vec![
+            Moment::at(d, 16, 30),
+            Moment::at(d, 20, 15),
+            Moment::at(d.add(1), 15, 0),
+            Moment::at(d.add(1), 18, 30),
+        ],
+        (_, 6) => vec![
+            Moment::at(d, 16, 30),
+            Moment::at(d, 20, 15),
+            Moment::at(d.add(1), 13, 0),
+            Moment::at(d.add(1), 16, 30),
+            Moment::at(d.add(1), 20, 15),
+            Moment::at(d.add(2), 20, 15),
+        ],
+        (_, n) => (0..n)
+            .map(|k| match k {
+                0 => Moment::at(d, 16, 30),
+                1 => Moment::at(d, 20, 15),
+                2 => Moment::at(d.add(1), 13, 0),
+                3 => Moment::at(d.add(1), 16, 30),
+                4 => Moment::at(d.add(1), 20, 15),
+                5 => Moment::at(d.add(2), 20, 15),
+                6 => Moment::at(d, 13, 0),
+                _ => Moment::at(d.add(2), 16, 30),
+            })
+            .collect(),
+    };
+    s.round_games =
+        pairs.iter().enumerate().map(|(k, &(c, hi, lo))| (round, c, hi, lo, times[k.min(times.len() - 1)])).collect();
+    let names = ["", "Wild card weekend begins", "The divisional round begins", "The conference title games begin"];
+    let text = format!("{}.", names[round as usize]);
     post(w, d, Kind::Game, Loudness::Huge, "", text);
+}
+
+/// The day's playoff games; when a round is done, the winners are reseeded.
+fn play_round_games(w: &mut World, d: Date) {
+    let Some(s) = w.nfl_season.as_ref() else { return };
+    if s.round_games.iter().all(|g| g.4.date != d) {
+        return;
+    }
+    let mut s = s.clone();
+    let mut results = Vec::new();
+    let mut left = Vec::new();
+    for g in std::mem::take(&mut s.round_games) {
+        let (round, c, hi, lo, at) = g;
+        if at.date != d {
+            left.push(g);
+            continue;
+        }
+        let seed = w.options.seed as u64 ^ (w.year as u64) << 24 ^ (round as u64) << 4 ^ 0x504F;
+        let p = win_prob(&s, hi, lo, HOME);
+        let hi_wins = key_uniform(seed ^ c as u64, (hi as u64) << 8 ^ lo as u64) < p;
+        let (wn, l) = if hi_wins { (hi, lo) } else { (lo, hi) };
+        s.out_round[l] = round;
+        s.round_next[c].push(wn);
+        results.push((round, wn, l, at));
+    }
+    s.round_games = left;
+    if s.round_games.is_empty() {
+        for c in 0..2 {
+            // Reseed: the best remaining seed plays the lowest.
+            let mut next = std::mem::take(&mut s.round_next[c]);
+            next.sort_by_key(|&t| s.seed[t].unwrap_or(99));
+            s.alive[c] = next;
+        }
+    }
+    w.log.nfl_games += results.len() as u32;
+    *w.nfl_season.as_mut().unwrap() = s;
+    let names = ["", "Wild card", "Divisional round", "Conference title game"];
+    for (round, wn, l, at) in results {
+        let text = format!("{}: the {} beat the {}.", names[round as usize], w.nfl[wn].name, w.nfl[l].name);
+        w.calendar.post(Event::new(at.date, Level::Nfl, Kind::Game, Loudness::Huge, text).team(wn).at(at));
+    }
 }
 
 /// The draft order the season sets: teams out of the playoffs by record,
@@ -909,9 +1745,10 @@ fn super_bowl_book(w: &mut World, champ: usize, loser: usize, d: Date) {
     w.nfl_champions.push((year, champ));
     let name = w.nfl[champ].name;
     let text = format!("The {name} win the Super Bowl over the {}.", w.nfl[loser].name);
-    w.calendar.post(Event::new(d, Level::Nfl, Kind::Game, Loudness::Huge, text).team(champ));
+    w.calendar.post(Event::new(d, Level::Nfl, Kind::Game, Loudness::Huge, text).team(champ).memorable());
     if w.recording {
-        let coach = w.nfl[champ].head_coach.map_or(String::new(), |h| format!(" under head coach {}", w.coaches[h].name));
+        let coach =
+            w.nfl[champ].head_coach.map_or(String::new(), |h| format!(" under head coach {}", w.coaches[h].name));
         w.news.push(NewsItem {
             date: Some(d),
             year,
@@ -940,15 +1777,40 @@ impl World {
 /// of training can happen. How training works is section 6b.
 pub(crate) fn training_blocks(w: &mut World, d: Date, y: &YearDates) {
     let blocks: [(Date, Level, &str, &str); 9] = [
-        (y.spring_semester, Level::College, "NCAA: winter conditioning", "College winter conditioning: strength and speed work, no football."),
-        (y.spring_practice.0, Level::College, "NCAA: 15 spring practices", "College spring practice: 15 sessions over about five weeks."),
-        (y.summer_workouts.0, Level::College, "NCAA: 8 hours a week", "College summer: 8 hours a week of required workouts, with film."),
+        (
+            y.spring_semester,
+            Level::College,
+            "NCAA: winter conditioning",
+            "College winter conditioning: strength and speed work, no football.",
+        ),
+        (
+            y.spring_practice.0,
+            Level::College,
+            "NCAA: 15 spring practices",
+            "College spring practice: 15 sessions over about five weeks.",
+        ),
+        (
+            y.summer_workouts.0,
+            Level::College,
+            "NCAA: 8 hours a week",
+            "College summer: 8 hours a week of required workouts, with film.",
+        ),
         (y.fall_camp, Level::College, "NCAA: 29 camp practices", "College fall camp: 29 practices before the opener."),
         (Date::ymd(y.season, 1, 15).max(y.start), Level::HighSchool, "", "High school offseason lifting and track."),
         (Date::ymd(y.season, 5, 1), Level::HighSchool, "", "High school spring ball, in the states that allow it."),
-        (Date::ymd(y.season, 6, 15), Level::HighSchool, "", "High school summer: 7-on-7 tournaments, camps, and each state's dead period."),
+        (
+            Date::ymd(y.season, 6, 15),
+            Level::HighSchool,
+            "",
+            "High school summer: 7-on-7 tournaments, camps, and each state's dead period.",
+        ),
         (Date::ymd(y.season, 7, 27), Level::HighSchool, "", "High school practice opens in the earliest states."),
-        (y.cfb_weeks[0].add(-5), Level::College, "NCAA: 20-hour rule", "College in-season: 20 countable hours a week, one day off."),
+        (
+            y.cfb_weeks[0].add(-5),
+            Level::College,
+            "NCAA: 20-hour rule",
+            "College in-season: 20 countable hours a week, one day off.",
+        ),
     ];
     for (date, level, rule, text) in blocks {
         if d == date {
@@ -956,7 +1818,14 @@ pub(crate) fn training_blocks(w: &mut World, d: Date, y: &YearDates) {
         }
     }
     if d == y.nfl_kickoff {
-        post(w, d, Kind::Window, Loudness::Small, "CBA: in-season practice", "NFL season: practice Wednesday to Friday, 14 padded practices in all.");
+        post(
+            w,
+            d,
+            Kind::Window,
+            Loudness::Small,
+            "CBA: in-season practice",
+            "NFL season: practice Wednesday to Friday, 14 padded practices in all.",
+        );
     }
 }
 
@@ -965,4 +1834,53 @@ pub(crate) fn playoff_field(s: &NflSeason) -> Vec<(usize, usize)> {
     let mut v: Vec<(usize, usize)> = s.seed.iter().enumerate().filter_map(|(t, k)| k.map(|k| (k, t))).collect();
     v.sort();
     v
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The real 2026 schedule (T2.2): 272 games over 18 weeks, 17 for every
+    /// team, all inside the season, Detroit and Dallas home on Thanksgiving,
+    /// three games on Christmas, nine abroad.
+    #[test]
+    fn the_real_2026_schedule_reads_whole() {
+        let y = crate::calendar::YearDates::new(2026);
+        let names: Vec<&str> = super::super::data::NFL_TEAMS.iter().map(|r| r.name.as_str()).collect();
+        let mut games = vec![0u32; names.len()];
+        let (mut rows, mut abroad, mut christmas) = (0, 0, 0);
+        let mut thanksgiving_hosts = Vec::new();
+        for line in SCHEDULE_2026.lines().skip(1).filter(|l| !l.trim().is_empty()) {
+            let f: Vec<&str> = line.split(',').collect();
+            let week: usize = f[0].parse().unwrap();
+            assert!((1..=18).contains(&week), "{line}");
+            let mut ymd = f[1].split('-').map(|x| x.parse::<i32>().unwrap());
+            let date = Date::ymd(ymd.next().unwrap(), ymd.next().unwrap() as u32, ymd.next().unwrap() as u32);
+            assert!(date >= y.nfl_kickoff.add(-1) && date <= y.nfl_weeks[17].add(1), "{line}");
+            for team in [f[3], f[4]] {
+                let t = names.iter().position(|&n| n == team).unwrap_or_else(|| panic!("unknown team {team}"));
+                games[t] += 1;
+            }
+            rows += 1;
+            abroad += !f[5].trim().is_empty() as u32;
+            christmas += (date == y.christmas) as u32;
+            if date == y.thanksgiving {
+                thanksgiving_hosts.push(f[4].to_string());
+            }
+        }
+        assert_eq!(rows, 272);
+        assert!(games.iter().all(|&g| g == 17), "{games:?}");
+        assert_eq!(abroad, 9);
+        assert_eq!(christmas, 3);
+        assert!(thanksgiving_hosts.iter().any(|h| h == "Detroit Lions"));
+        assert!(thanksgiving_hosts.iter().any(|h| h == "Dallas Cowboys"));
+    }
+
+    /// Nine games abroad a season from 2026, none in 2020.
+    #[test]
+    fn international_games_follow_the_eras() {
+        assert_eq!(international_sites(2020).len(), 0);
+        assert_eq!(international_sites(2025).len(), 7);
+        assert_eq!(international_sites(2027).len(), 9);
+    }
 }

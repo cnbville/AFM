@@ -177,11 +177,12 @@ pub struct DraftRead {
     pub round: u32,
 }
 
-/// When a recruit makes up his mind (T5.2): before his senior season, at the
-/// early signing period, or late (February signing day).
+/// When a recruit makes up his mind (T5.2): a commitment wave before the
+/// early period (0 late April, 1 late June, 2 late August, 3 late October),
+/// at the early signing period, or late (February signing day).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CommitTiming {
-    Summer,
+    Summer(u8),
     Early,
     Late,
 }
@@ -251,6 +252,21 @@ pub struct PersonCal {
     /// All-state selections in high school (A32): 1 = honorable mention or
     /// second team, 2 = first team.
     pub all_state: u8,
+    /// Programs that offered him at the last recruiting stage, best first (T5).
+    pub offers: Vec<usize>,
+    /// Dated recruiting contact (T5.3, T5.4): program, day and kind.
+    pub visits: Vec<(usize, crate::calendar::Date, Visit)>,
+}
+
+/// A recruiting action on a day the NCAA periods allow (T5.3, T5.4).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Visit {
+    /// Paid by the school, on campus, at most five.
+    Official,
+    /// Paid by the family: a home game on a Saturday.
+    Unofficial,
+    /// A staff member watches him at his high school in an evaluation week.
+    DropIn,
 }
 
 impl PersonCal {
@@ -442,6 +458,8 @@ pub struct World {
     pub(crate) college_prev: Option<college::CollegeSeason>,
     pub(crate) hs_season: Option<hs_year::HsSeasonState>,
     pub(crate) nfl_season: Option<nfl_year::NflSeason>,
+    /// A head-coach-change transfer window waiting to open (T3): opens, closes.
+    pub(crate) coach_window: Option<(crate::calendar::Date, crate::calendar::Date)>,
     /// Counters for trials: this football year's, and every earlier one.
     pub log: CalendarLog,
     pub log_history: Vec<CalendarLog>,
@@ -450,6 +468,10 @@ pub struct World {
     /// Portal entrants still deciding (person indices; resolved before the
     /// year-end book compacts the people list).
     pub(crate) portal_pending: Vec<usize>,
+    /// Verbal commitments decided at a commitment wave and waiting for the
+    /// recruit's own announcement day (T5.2): day, person index, player id,
+    /// program.
+    pub(crate) announcements: Vec<(crate::calendar::Date, usize, u32, usize)>,
     /// The portal market of the open window (kept while entrants decide).
     pub(crate) portal_market: Option<recruiting::PortalMarket>,
     /// Super Bowl champions by season.
@@ -490,6 +512,13 @@ pub struct CalendarLog {
     pub flips: u32,
     pub signed_early: u32,
     pub signed_late: u32,
+    /// Signees by division (FBS, FCS, small college, JUCO): [before February, February].
+    pub signed_by_division: [[u32; 2]; 4],
+    /// Dated recruiting actions (T5.3, T5.4): official visits, game-day
+    /// unofficial visits, staff drop-ins at high schools.
+    pub official_visits: u32,
+    pub unofficial_visits: u32,
+    pub drop_ins: u32,
     pub early_enrollees: u32,
     pub declared: u32,
     pub withdrew: u32,
@@ -623,10 +652,12 @@ impl World {
             college_prev: None,
             hs_season: None,
             nfl_season: None,
+            coach_window: None,
             log: CalendarLog { year, ..CalendarLog::default() },
             log_history: Vec::new(),
             event_history: Vec::new(),
             portal_pending: Vec::new(),
+            announcements: Vec::new(),
             portal_market: None,
             nfl_champions: Vec::new(),
             realign: Vec::new(),
@@ -900,6 +931,7 @@ impl World {
         }
         self.people
             .retain(|p| matches!(p.stage, Stage::HighSchool | Stage::College | Stage::PrepSchool | Stage::Declared));
+        self.announcements.clear();
     }
 
     /// First-year dip for a step up (shared with the career model).

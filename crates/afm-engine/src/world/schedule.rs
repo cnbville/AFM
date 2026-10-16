@@ -116,6 +116,9 @@ pub struct Game {
     pub name: Option<&'static str>,
     pub tags: Vec<Tag>,
     pub loud: Loudness,
+    /// Each side's own stakes (T8.1): home, away. A game can be huge for one
+    /// team (a sixth win for a bowl, a coach's job) and not for the nation.
+    pub huge_for: [bool; 2],
     pub played: Option<Played>,
 }
 
@@ -136,6 +139,7 @@ impl Game {
             name: None,
             tags: Vec::new(),
             loud: Loudness::Small,
+            huge_for: [false; 2],
             played: None,
         }
     }
@@ -218,7 +222,16 @@ impl Builder<'_> {
         key_uniform(self.seed ^ a.wrapping_mul(0x9E37), b)
     }
     #[allow(clippy::too_many_arguments)]
-    fn add(&mut self, a: usize, b: usize, wk: Option<usize>, date: Date, home_first: bool, conf: bool, rivalry: Option<usize>) {
+    fn add(
+        &mut self,
+        a: usize,
+        b: usize,
+        wk: Option<usize>,
+        date: Date,
+        home_first: bool,
+        conf: bool,
+        rivalry: Option<usize>,
+    ) {
         let (home, away) = if home_first { (a, b) } else { (b, a) };
         let division = self.w.programs[a].division;
         let mut g = Game::new(date, home, away, division, GameKind::Regular);
@@ -559,8 +572,7 @@ pub(crate) fn build(w: &World, season: i32, y: &YearDates) -> Vec<Game> {
     let mut games = b.games;
     games.sort_by(|x, y| x.date.cmp(&y.date).then(x.home.cmp(&y.home)));
     for p in 0..np {
-        let home: Vec<usize> =
-            (0..games.len()).filter(|&k| games[k].home == p && games[k].site.is_none()).collect();
+        let home: Vec<usize> = (0..games.len()).filter(|&k| games[k].home == p && games[k].site.is_none()).collect();
         if let Some(&k) = home.last() {
             games[k].senior_day = true;
         }

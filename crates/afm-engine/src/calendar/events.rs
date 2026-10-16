@@ -101,6 +101,9 @@ pub struct Event {
     pub nfl_team: Option<usize>,
     pub program: Option<usize>,
     pub text: String,
+    /// Remembered on its anniversaries (A42): title games, the Heisman, the
+    /// first pick.
+    pub memorable: bool,
 }
 
 impl Event {
@@ -115,7 +118,12 @@ impl Event {
             nfl_team: None,
             program: None,
             text: text.into(),
+            memorable: false,
         }
+    }
+    pub fn memorable(mut self) -> Event {
+        self.memorable = true;
+        self
     }
     pub fn at(mut self, when: Moment) -> Event {
         self.when = when;

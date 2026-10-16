@@ -4,8 +4,7 @@
 use std::collections::{BTreeMap, HashSet};
 
 use super::coach::{
-    Coach, CoachTier, Employer, Group, HiringNeeds, Job, Role, Stint, candidate_score, generate_coach,
-    hiring_needs,
+    Coach, CoachTier, Employer, Group, HiringNeeds, Job, Role, Stint, candidate_score, generate_coach, hiring_needs,
 };
 use super::data::{AcademicTier, Division};
 use super::ethnicity::{CoachPool, Ethnicity, coach_ethnicity, hiring_bias};
@@ -475,6 +474,15 @@ fn weigh_offer(w: &mut World, c: usize, o: Opening) -> Option<String> {
     if job.since == year {
         return None;
     }
+    // A coach whose team is still in the playoffs can't take a job until it
+    // is out (T9): the Super Bowl teams' staffs are hired after the game.
+    if let Employer::Nfl(t) = job.employer
+        && w.nfl_season
+            .as_ref()
+            .is_some_and(|s| s.booked && s.champion.is_none() && s.alive.iter().any(|a| a.contains(&t)))
+    {
+        return None;
+    }
     let a = (coach.personality.ambition - 10.0) / 10.0;
     let mut parts: Vec<(f64, String)> = Vec::new();
     // The job: a bigger program, or a step up the ladder.
@@ -603,9 +611,14 @@ fn retirement_news(w: &mut World, c: usize, job: Job, why: &str) {
             w.programs[p].story.push((year, format!("Head coach {name} {why} at {age}.")));
             college_news(w, p, NewsKind::CoachLeft, text);
         }
-        Employer::Nfl(_) => {
-            w.news.push(NewsItem { date: None, year, kind: NewsKind::CoachLeft, channel: Channel::News, program: None, text })
-        }
+        Employer::Nfl(_) => w.news.push(NewsItem {
+            date: None,
+            year,
+            kind: NewsKind::CoachLeft,
+            channel: Channel::News,
+            program: None,
+            text,
+        }),
         Employer::HighSchool(_) => {}
     }
 }
@@ -627,9 +640,14 @@ fn departure_news(w: &mut World, c: usize, job: Job, o: Opening, why: &str) {
             w.programs[p].story.push((year, format!("Head coach {name} left for {dest}{role} ({why}).")));
             college_news(w, p, NewsKind::CoachLeft, text);
         }
-        Employer::Nfl(_) => {
-            w.news.push(NewsItem { date: None, year, kind: NewsKind::CoachLeft, channel: Channel::News, program: None, text })
-        }
+        Employer::Nfl(_) => w.news.push(NewsItem {
+            date: None,
+            year,
+            kind: NewsKind::CoachLeft,
+            channel: Channel::News,
+            program: None,
+            text,
+        }),
         Employer::HighSchool(_) => {}
     }
 }
@@ -668,7 +686,8 @@ fn nfl_firing(w: &mut World, c: usize, t: usize, tenure: i32, openings: &mut Vec
                 seasons_text(tenure),
                 games - wins
             );
-            w.news.push(NewsItem { date: None,
+            w.news.push(NewsItem {
+                date: None,
                 year: w.year,
                 kind: NewsKind::CoachFired,
                 channel: Channel::News,
@@ -1083,7 +1102,14 @@ pub(crate) fn carousel(w: &mut World, scope: Scope) {
             && o.role == Role::HeadCoach
         {
             let text = format!("The {} hire {} as head coach ({from}).", w.nfl[t].name, w.coaches[c].name);
-            w.news.push(NewsItem { date: None, year, kind: NewsKind::CoachHired, channel: Channel::News, program: None, text });
+            w.news.push(NewsItem {
+                date: None,
+                year,
+                kind: NewsKind::CoachHired,
+                channel: Channel::News,
+                program: None,
+                text,
+            });
         }
         if w.recording
             && let Employer::College(p) = o.employer
@@ -1101,7 +1127,14 @@ pub(crate) fn carousel(w: &mut World, scope: Scope) {
             } else {
                 format!("{name} hire {} as {} ({from}).", coach.name, o.role.name())
             };
-            w.news.push(NewsItem { date: None, year, kind: NewsKind::CoachHired, channel: Channel::News, program: Some(p), text });
+            w.news.push(NewsItem {
+                date: None,
+                year,
+                kind: NewsKind::CoachHired,
+                channel: Channel::News,
+                program: Some(p),
+                text,
+            });
         }
     }
 
@@ -1189,7 +1222,8 @@ fn diversity_report(w: &mut World) {
         "Diversity report: {of_color} of {total} FBS head coaches are coaches of color ({}).",
         if parts.is_empty() { "none".to_string() } else { parts.join(", ") }
     );
-    w.news.push(NewsItem { date: None,
+    w.news.push(NewsItem {
+        date: None,
         year: w.year,
         kind: NewsKind::DiversityReport,
         channel: Channel::News,

@@ -187,7 +187,7 @@ impl RuleBook {
             junior_officials: season >= 2018,
             four_game_redshirt: season >= 2018,
             five_in_five: false,
-            test_scores: season + 1 <= 2020,
+            test_scores: season < 2020,
             breakaway: false,
         }
     }
@@ -394,14 +394,21 @@ impl ChangeState {
                 });
             } else {
                 news.push("The league and the union agree on a new CBA before the old one runs out.".into());
-                self.applied.push(AppliedChange { change: Change::NewCba, season, detail: "new CBA without a lockout".into() });
+                self.applied.push(AppliedChange {
+                    change: Change::NewCba,
+                    season,
+                    detail: "new CBA without a lockout".into(),
+                });
             }
             if rng.chance(odds.eighteen_games_in_cba) {
                 let yes = Self::owners_vote(rng, 0.85);
                 if yes >= 24 {
-                    self.eighteen = Some(season);
+                    // The schedule for the coming season is already set: the
+                    // longer season starts the year after.
+                    self.eighteen = Some(season + 1);
                     news.push(format!(
-                        "The new CBA brings an 18-game season with two byes, approved by the owners {yes}-{}.",
+                        "The new CBA brings an 18-game season with two byes from {}, approved by the owners {yes}-{}.",
+                        season + 1,
                         32 - yes
                     ));
                     self.applied.push(AppliedChange {
@@ -475,15 +482,25 @@ impl ChangeState {
         }
         if self.five_in_five.is_none() && rng.chance(odds.five_in_five) {
             self.five_in_five = Some(season);
-            out.push((Change::FiveInFive, "The NCAA moves to five years to play five: the redshirt year is gone.".into()));
-            self.applied.push(AppliedChange { change: Change::FiveInFive, season, detail: "Division I Council vote".into() });
+            out.push((
+                Change::FiveInFive,
+                "The NCAA moves to five years to play five: the redshirt year is gone.".into(),
+            ));
+            self.applied.push(AppliedChange {
+                change: Change::FiveInFive,
+                season,
+                detail: "Division I Council vote".into(),
+            });
         }
         if rng.chance(odds.revenue_cap_ruling) {
             let up = rng.chance(0.65);
             let f = if up { rng.range(1.05, 1.25) } else { rng.range(0.8, 0.95) };
             self.revenue_factor = if self.revenue_factor > 0.0 { self.revenue_factor * f } else { f };
             let dir = if up { "raises" } else { "lowers" };
-            out.push((Change::RevenueCap, format!("A ruling {dir} the revenue-sharing cap by {:.0}%.", (f - 1.0).abs() * 100.0)));
+            out.push((
+                Change::RevenueCap,
+                format!("A ruling {dir} the revenue-sharing cap by {:.0}%.", (f - 1.0).abs() * 100.0),
+            ));
             self.applied.push(AppliedChange { change: Change::RevenueCap, season, detail: format!("x{f:.2}") });
         }
         out

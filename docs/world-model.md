@@ -7,7 +7,7 @@ Everything below that Raichel has not answered is marked **proposed, not confirm
 ## The shape of it
 
 - `World::new` builds the whole country, then runs 30 years of hidden history before the 2026 start (decision: 30 years). Six extra spin-up years run first so rosters, coaches and prestige settle; nothing from them is kept.
-- Every year runs in this order: new 14-year-old class, high school transfers, rosters, games, coach reputations, the coaching carousel, players leaving college (draft and graduation), the portal, signing day, program prestige and grades, life events.
+- Since section 4 (2026-10-16) the world runs on a daily clock: each thing happens on its real day under that year's rules (see "Section 4: the calendar" below). Before that, every year ran in one fixed order.
 - Each person has his own random stream, so a seed gives the same world on any machine. A 30-year world takes about 100 seconds in release mode.
 - Game results are a stand-in until section 3: each team's strength comes from its starters, with home field and a win chance from the strength gap.
 
@@ -187,6 +187,23 @@ Not changed and worth a look:
 - 5-star draft rates in the 8-year runs with the new portal were 74-83% (66 players each, noisy); the old portal gave 71%; the 15-year run gave 69% (297 players). Real is 63%.
 
 Proposed, not confirmed: the feel's size (0.07); the early-play weight (+0.08 a star from three stars); three targets per plan spot plus three; the head coach's own targets (up to one more than the plan at a spot); unofficial visits within 250 miles; the relationship weights (0.025 base, 0.006 per head coach skill point, 0.003 per position coach point, head coach time 1.0 for his own targets and 0.35 for others, 0.4 without a visit, position coach 0.75 without a visit, how long they've known him 0.35 + 0.65 × visibility, 0.03 for a tie to his high school coach, staff chemistry sd 0.03, halved without a visit); the head coach's skill as 60% recruiting and 40% relationships; the two-deep rule for who wants a transfer; the redshirt portal rate (0.12).
+
+## Section 4: the calendar (built 2026-10-16)
+
+The build of `docs/design/calendar.md` (T1 to T11) and `docs/design/calendar-additions.md` (A1 to A46), in the order of `docs/design/calendar-build-plan.md`. Point by point with code paths: `docs/design/calendar-checklist.md`. Check tool: `cargo run --release --bin calendar_check -- <scale> <history years> <seed> <engine from>` prints each year's counters and the loud events.
+
+- **The clock.** `world/clock.rs` `advance_day` runs one day. A football year runs from the day after one Super Bowl to the next. `calendar/anchors.rs` works out every date each year from real anchors (Labor Day, Thanksgiving, the first Wednesday of December and so on); 2026 matches the real calendar. History, the 2026 start and later years all run on the same clock.
+- **Rule books.** `calendar/rules.rs` holds each era's real rules and the 12 agreed off-field changes with their real processes. An 18-game season adds a week and moves the Super Bowl (`YearDates::with_weeks`).
+- **Events.** Every system posts dated events with a level, a kind, a loudness (small, medium, big, huge), a clock time and the rule behind it. Continue (`continue_until_needed`) and holiday mode (`holiday_to`) stop on anything huge or anything that needs a decision. Title games, Heismans and first picks are kept as memories for "on this day" lines.
+- **College.** Games on their real Saturdays from Week 0, rivalry week with trophies, conference title games, Army-Navy, the CFP and bowls on real dates, polls (AP, a noisy Coaches Poll, CFP Tuesdays, the BCS era), awards nights, finals week, term checks and December graduation. Each game gets story tags and a stakes test; a game can also be huge for one side only (a sixth win for a bowl, a coach's job).
+- **High school.** Each state starts, plays its playoffs and finishes on its own dates, with grade checks, homecoming and senior night, weekly state polls, all-state teams, SAT and ACT days, heat rules and spring ball breakouts.
+- **Recruiting.** The NCAA periods by date. Officials on Fridays, game-day unofficial visits, drop-ins in evaluation weeks. Four commitment waves; each recruit then announces on his own day. Early signing in December, the rest in February, January enrollees in between.
+- **Portal and the draft.** The real window of each era; the January window gives CFP players five days after their last game; a head coach change opens a 15-day window five days later. Each entrant decides on his own day; his first choice can fall through while he waits. Early entrants declare by January 15 (CFP players after their season).
+- **The NFL year.** `world/nfl_year.rs`: every offseason date from the tag window to cutdown day, the real 2026 schedule (272 games, nine abroad) and a formula for later years with prime time, Thanksgiving, Christmas, games abroad, Saturday games and flex. Stakes are read per team late in the year. Playoff rounds on their real days, Black Monday, hiring after the Super Bowl for coaches still alive in January. NFL games are a stand-in until section 5 plays them on the engine.
+- **Weather.** `calendar/weather.rs`: each day's weather from one main town's climate normals per state, with lightning delays, moves and cancellations, and heat on practice days.
+- **Speed.** Portal days update rosters in place and each state's start reads only its own schools; the results are the same as before for a seed.
+
+Proposed, not confirmed in this build: the list at the end of `docs/design/calendar-checklist.md`.
 
 ## Proposed, not confirmed (Claude's own picks in the build)
 

@@ -625,4 +625,3 @@ pub(crate) fn game_context(
         bowl_push: r.games() >= 7 && (4..=5).contains(&r.wins),
     }
 }
-

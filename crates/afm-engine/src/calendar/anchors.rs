@@ -246,10 +246,16 @@ fn business_day(d: Date) -> Date {
 
 impl YearDates {
     pub fn new(season: i32) -> YearDates {
+        YearDates::with_weeks(season, nfl_regular_weeks(season), nfl_regular_weeks(season - 1))
+    }
+
+    /// A year whose NFL regular season runs `weeks` weeks, after one of
+    /// `prev_weeks` (an 18-game season with two byes runs 20, T11 change 1):
+    /// the Super Bowl moves with the last Sunday.
+    pub fn with_weeks(season: i32, weeks: usize, prev_weeks: usize) -> YearDates {
         let s = season;
-        let start = super_bowl(s - 1).add(1);
-        let sb = super_bowl(s);
-        let weeks = nfl_regular_weeks(s);
+        let start = nfl_last_sunday(s - 1, prev_weeks).add(sb_gap(s - 1)).add(1);
+        let sb = nfl_last_sunday(s, weeks).add(sb_gap(s));
 
         // --- NFL offseason: the new league year opens the second Wednesday of
         // March at 4pm ET (2026: March 11); the tag window opens 22 days
@@ -274,8 +280,7 @@ impl YearDates {
         let kickoff = first_sunday.add(-3);
         let nfl_weeks: Vec<Date> = (0..weeks).map(|k| first_sunday.add(7 * k as i32)).collect();
         let trade_deadline_week = if s >= 2012 { 9 } else { 6 };
-        let trade_deadline =
-            Moment::at(nfl_weeks[(trade_deadline_week - 1).min(nfl_weeks.len() - 1)].add(2), 16, 0);
+        let trade_deadline = Moment::at(nfl_weeks[(trade_deadline_week - 1).min(nfl_weeks.len() - 1)].add(2), 16, 0);
         let hof_game = kickoff.add(-35);
 
         // --- College: Week 1 is the Saturday before Labor Day, Week 0 a week
@@ -319,7 +324,8 @@ impl YearDates {
                 ((Date::ymd(s, 12, 31), jan1), t)
             }
             CfbPostseason::Bcs => {
-                let t = if s >= 2006 { Date::ymd(s + 1, 1, 6).on_or_after(Weekday::Mon) } else { Date::ymd(s + 1, 1, 4) };
+                let t =
+                    if s >= 2006 { Date::ymd(s + 1, 1, 6).on_or_after(Weekday::Mon) } else { Date::ymd(s + 1, 1, 4) };
                 ((jan1, Date::ymd(s + 1, 1, 2)), t)
             }
             CfbPostseason::PollsOnly => ((jan1, Date::ymd(s + 1, 1, 2)), Date::ymd(s + 1, 1, 3)),
@@ -378,7 +384,10 @@ impl YearDates {
             fifth_year_option: business_day(Date::ymd(s, 5, 1)),
             rookie_minicamp: draft_end.add(6),
             rookie_program: Date::nth_weekday(s, 5, Weekday::Mon, 2),
-            rookie_premiere: (Date::nth_weekday(s, 5, Weekday::Wed, 2), Date::nth_weekday(s, 5, Weekday::Wed, 2).add(4)),
+            rookie_premiere: (
+                Date::nth_weekday(s, 5, Weekday::Wed, 2),
+                Date::nth_weekday(s, 5, Weekday::Wed, 2).add(4),
+            ),
             schedule_release: Date::nth_weekday(s, 5, Weekday::Wed, 2),
             spring_meeting: Date::nth_weekday(s, 5, Weekday::Tue, 3),
             otas: (Date::last_weekday(s, 5, Weekday::Mon).add(-7), Date::nth_weekday(s, 6, Weekday::Fri, 2)),
@@ -401,7 +410,10 @@ impl YearDates {
             thanksgiving: tg,
             christmas: Date::ymd(s, 12, 25),
             trade_deadline,
-            pro_bowl_voting: (Date::nth_weekday(s, 11, Weekday::Thu, 2), Date::ymd(s, 12, 15).on_or_after(Weekday::Mon)),
+            pro_bowl_voting: (
+                Date::nth_weekday(s, 11, Weekday::Thu, 2),
+                Date::ymd(s, 12, 15).on_or_after(Weekday::Mon),
+            ),
             black_monday: last_sunday.add(1),
             wild_card: last_sunday.add(6),
             divisional: last_sunday.add(13),
@@ -427,7 +439,7 @@ impl YearDates {
             all_america: ccg.add(5),
             finals_week: (Date::nth_weekday(s, 12, Weekday::Mon, 2), Date::nth_weekday(s, 12, Weekday::Mon, 2).add(4)),
             december_graduation: Date::nth_weekday(s, 12, Weekday::Sat, 2).add(7),
-            bowl_season: (ccg.add(8).on_or_after(Weekday::Sat), Date::ymd(s + 1, 1, 3)),
+            bowl_season: (ccg.add(7).on_or_after(Weekday::Sat), Date::ymd(s + 1, 1, 3)),
             cfp_first_round: cfp_first,
             cfp_quarterfinals: qf,
             cfp_semifinals: semis,
@@ -443,7 +455,10 @@ impl YearDates {
             spring_practice: (Date::nth_weekday(s, 3, Weekday::Mon, 1), Date::nth_weekday(s, 4, Weekday::Sat, 3)),
             spring_game: Date::nth_weekday(s, 4, Weekday::Sat, 3),
             spring_term_end: Date::nth_weekday(s, 5, Weekday::Fri, 2),
-            summer_workouts: (Date::nth_weekday(s, 6, Weekday::Mon, 1), Date::nth_weekday(s, 6, Weekday::Mon, 1).add(55)),
+            summer_workouts: (
+                Date::nth_weekday(s, 6, Weekday::Mon, 1),
+                Date::nth_weekday(s, 6, Weekday::Mon, 1).add(55),
+            ),
             money_year: Date::ymd(s, 7, 1),
             portal_open,
             portal_close,
@@ -505,6 +520,7 @@ mod tests {
         assert_eq!(y.conference_championships, Date::ymd(2026, 12, 5));
         assert_eq!(y.selection_day, Date::ymd(2026, 12, 6));
         assert_eq!(y.army_navy, Date::ymd(2026, 12, 12));
+        assert_eq!(y.bowl_season.0, Date::ymd(2026, 12, 12), "the Saturday after the title games");
         assert_eq!(y.cfp_first_round, (Date::ymd(2026, 12, 18), Date::ymd(2026, 12, 19)));
         assert_eq!(y.cfp_semifinals, (Date::ymd(2027, 1, 14), Date::ymd(2027, 1, 15)));
         assert_eq!(y.title_game, Date::ymd(2027, 1, 25));
@@ -528,6 +544,18 @@ mod tests {
         ] {
             assert_eq!(super_bowl(season), Date::ymd(y, m, d), "season {season}");
         }
+    }
+
+    /// An 18-game season (T11 change 1) runs 19 weeks and moves the Super
+    /// Bowl a week later; the next year starts the day after it.
+    #[test]
+    fn a_longer_nfl_season_moves_the_super_bowl() {
+        let base = YearDates::new(2027);
+        let long = YearDates::with_weeks(2027, 19, 18);
+        assert_eq!(long.nfl_weeks.len(), 19);
+        assert_eq!(long.super_bowl, base.super_bowl.add(7));
+        let next = YearDates::with_weeks(2028, 19, 19);
+        assert_eq!(next.start, long.super_bowl.add(1));
     }
 
     #[test]

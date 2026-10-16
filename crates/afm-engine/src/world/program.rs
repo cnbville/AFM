@@ -276,7 +276,24 @@ pub struct Program {
     /// Era rules and the NCAA: a rogue booster, penalties, the yearly record
     /// (dynasty items 11.4-11.6).
     pub era: super::ncaa::ProgramEra,
+    /// School single-season records (A40): passing, rushing and receiving
+    /// yards and sacks, with the holder's name and year, from the games played
+    /// on the engine.
+    pub season_records: [Option<SeasonRecord>; 4],
 }
+
+/// A school single-season record (A40).
+#[derive(Clone, Debug)]
+pub struct SeasonRecord {
+    pub value: f64,
+    pub holder: String,
+    pub year: i32,
+}
+
+/// The stats a school keeps single-season records for (A40), and the least a
+/// mark must be to count as a record worth chasing (proposed, not confirmed).
+pub const RECORD_STATS: [(&str, f64); 4] =
+    [("passing yards", 2500.0), ("rushing yards", 1000.0), ("receiving yards", 900.0), ("sacks", 8.0)];
 
 /// Admissions bars of academically strict programs (proposed, not confirmed:
 /// schools don't publish football admission floors; these follow their
@@ -397,6 +414,7 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
         prestige: 0.0,
         prestige_start: 0.0,
         prestige_rel: 0.5,
+        season_records: [None, None, None, None],
         grades: [70.0; GRADE_COUNT],
         last_grades: [70.0; GRADE_COUNT],
         grade_history: Vec::new(),
@@ -609,7 +627,13 @@ pub(crate) fn realign_one(w: &mut super::World, rng: &mut Rng) {
     });
     let today = w.today;
     w.calendar.post(
-        crate::calendar::Event::new(today, crate::calendar::Level::College, crate::calendar::Kind::RuleChange, crate::calendar::Loudness::Big, text)
-            .program(pick),
+        crate::calendar::Event::new(
+            today,
+            crate::calendar::Level::College,
+            crate::calendar::Kind::RuleChange,
+            crate::calendar::Loudness::Big,
+            text,
+        )
+        .program(pick),
     );
 }
