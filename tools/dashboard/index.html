@@ -947,8 +947,8 @@ function buildCalendar(p) {
     chartDiv((d) => lineChart(d, { series: calSeries((y) => y.fbs_early_pct), ref: R.fbs_signed_early_pct ? { lo: R.fbs_signed_early_pct[0], hi: R.fbs_signed_early_pct[1], label: "Real (to check)" } : null, yFmt: (v) => fmt(v) + "%" }))));
   g.append(card("Portal: entries, landed and back home", "Entries, players who found a school, and players who went back to their old school.",
     chartDiv((d) => lineChart(d, { series: active().flatMap((i) => [0, 1].map((k) => ({ name: `${seedName(i)} ${k ? "landed" : "entered"}`, color: SERIES[i], pts: calRows(S.runs[i]).map((y) => [y.year, y.portal[k]]) }))) }))));
-  g.append(card("Portal: share on the busiest day", "The real portal is front-loaded: most entrants go in on the first days of the window.",
-    chartDiv((d) => lineChart(d, { series: calSeries((y) => y.portal_first_day_pct), yFmt: (v) => fmt(v) + "%" }))));
+  g.append(card("Portal: share on each window's first day", "The real portal is front-loaded: most entrants go in on the first days of the window. Each window on its own (coach change, winter, and the spring window after it), by the season it follows.",
+    chartDiv((d) => lineChart(d, { series: active().flatMap((i) => [["coach change", "coach"], ["winter", "winter"], ["spring", "spring"]].map(([n, k]) => ({ name: `${seedName(i)} ${n}`, color: SERIES[i], pts: (S.runs[i].calendar.portal_windows || []).filter((w) => w.kind === k && w.first_day_pct != null).map((w) => [w.season, w.first_day_pct]) }))), yFmt: (v) => fmt(v) + "%" }))));
   g.append(card("Recruiting visits", "Official visits on Fridays in contact and quiet periods, game-day unofficial visits within 250 miles, staff drop-ins on evaluation Fridays (thousands).",
     chartDiv((d) => lineChart(d, { series: active().flatMap((i) => ["officials", "unofficials", "drop-ins"].map((n, k) => ({ name: `${seedName(i)} ${n}`, color: SERIES[i], pts: calRows(S.runs[i]).map((y) => [y.year, y.visits[k] / 1000]) }))) }))));
   g.append(card("Commits, decommits and flips", "Verbal commitments, commitments broken, and flips to another school at signing.",
@@ -968,8 +968,8 @@ function buildCalendar(p) {
   g.append(card("NFL calendar checks", "Games abroad (from each year's schedule release) and flexed games a year, with the real games abroad. Christmas games and anniversaries are small events, which the export leaves out.",
     chartDiv((d) => lineChart(d, { series: [...(R.abroad_by_year ? [{ name: "Real abroad (to check)", color: "#888", pts: Object.entries(R.abroad_by_year).map(([y, v]) => [+y, v]) }] : []), ...active().flatMap((i) => [["abroad", "abroad"], ["flexed", "flexed"]].map(([n, k]) => ({ name: `${seedName(i)} ${n}`, color: SERIES[i], pts: Object.entries(S.runs[i].calendar[k] || {}).map(([y, v]) => [+y, v]) }))) ] }))));
   // Portal days of the last year.
-  g.append(card("The last winter's portal, day by day", "Entries per day in the last recorded year.",
-    chartDiv((d) => lineChart(d, { series: runSeries((run) => { const rows = calRows(run); const last = rows[rows.length - 1]; if (!last) return []; const t0 = Date.parse(last.portal_by_day[0]?.[0]); return last.portal_by_day.map(([dt, n]) => [Math.round((Date.parse(dt) - t0) / 864e5), n]); }), xFmt: (x) => `day ${x}` }))));
+  g.append(card("The last winter's portal, day by day", "Entries per day in the last recorded winter window, from the day it opened.",
+    chartDiv((d) => lineChart(d, { series: runSeries((run) => { const last = (run.calendar.portal_windows || []).filter((w) => w.kind === "winter").pop(); if (!last) return []; const t0 = Date.parse(last.open); return last.by_day.map(([dt, n]) => [Math.round((Date.parse(dt) - t0) / 864e5), n]); }), xFmt: (x) => `day ${x}` }))));
   // A year at a glance and the champions.
   const i0 = active()[0], run0 = S.runs[i0], cal = run0.calendar;
   p.append(h("div", { class: "card" }, h("h3", {}, `A year at a glance: ${cal.glance_year}, ${seedName(i0)}`), h("p", { class: "why" }, "Every big and huge event of the last recorded football year, month by month."),
