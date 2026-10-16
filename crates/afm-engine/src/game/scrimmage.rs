@@ -701,28 +701,28 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         }
 
         // ---- ball carrier
-        if let Some(c) = sim.carrier() {
-            if matches!(sim.agents[c].job, Job::Carrier) {
-                let mut a = if (sim.agents[c].pos.x - los) * sim.goal < -0.3 || t < 0.9 { aim } else { None };
-                if let (Some(h), Some(g)) = (a, lead_puller) {
-                    // Patience: he doesn't pass the puller on the way to the
-                    // hole; he stays on his inside hip until the block is made.
-                    let gp = sim.agents[g].pos;
-                    let short = (h.y - gp.y) * s.call.dir > 1.0;
-                    let led = (gp.y - sim.agents[c].pos.y) * s.call.dir > 0.0;
-                    if sim.agents[g].up(t) && sim.agents[g].engaged.is_none() && short && led {
-                        a = Some(v2(gp.x - sim.goal * 1.0, gp.y - s.call.dir * 0.8));
-                    }
+        if let Some(c) = sim.carrier()
+            && matches!(sim.agents[c].job, Job::Carrier)
+        {
+            let mut a = if (sim.agents[c].pos.x - los) * sim.goal < -0.3 || t < 0.9 { aim } else { None };
+            if let (Some(h), Some(g)) = (a, lead_puller) {
+                // Patience: he doesn't pass the puller on the way to the
+                // hole; he stays on his inside hip until the block is made.
+                let gp = sim.agents[g].pos;
+                let short = (h.y - gp.y) * s.call.dir > 1.0;
+                let led = (gp.y - sim.agents[c].pos.y) * s.call.dir > 0.0;
+                if sim.agents[g].up(t) && sim.agents[g].engaged.is_none() && short && led {
+                    a = Some(v2(gp.x - sim.goal * 1.0, gp.y - s.call.dir * 0.8));
                 }
-                if s.hurry && sim.agents[c].side == 0 {
-                    hurry_run(&mut sim, c);
-                } else {
-                    sim.run_carrier(c, a);
-                }
-                // A quarterback slides rather than take a hit he doesn't need.
-                if pass.is_some() && c == qb && slide(&mut sim, c, s) {
-                    res.result = Result::Scramble;
-                }
+            }
+            if s.hurry && sim.agents[c].side == 0 {
+                hurry_run(&mut sim, c);
+            } else {
+                sim.run_carrier(c, a);
+            }
+            // A quarterback slides rather than take a hit he doesn't need.
+            if pass.is_some() && c == qb && slide(&mut sim, c, s) {
+                res.result = Result::Scramble;
             }
         }
 
