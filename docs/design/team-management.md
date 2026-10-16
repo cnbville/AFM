@@ -1,4 +1,4 @@
-# Section 5: team management (design in progress)
+# Section 5: team management (design done 2026-10-16)
 
 Design thread "Section 5 plan", started 2026-10-16 with Cain. Real life is the default: anything real exists and works the way it really does. Only choices real life doesn't settle are asked.
 
@@ -70,7 +70,9 @@ Cain's answers (2026-10-16):
 1. **AI free agency boards (agreed):** each AI team ranks targets by its own grades and needs with a walk-away price; it moves down the board as targets sign elsewhere; a desperate team overpays.
 2. **Weighing offers (agreed, plus):** "Agree climate and party city aspects too. New york and dolphins will have a leg up despite being non-competitive". Hidden priorities set the weights; take-home after state tax counts; climate and nightlife cities (New York, Miami) pull players even when the team is losing.
 3. **When he signs: the perfect offer (Cain's mechanic):** "Give players a perfect offer possibility, if that is reached contract is signed on the dot (doesn't have to be financial but does need to be balanced) if a 85% is attained, he'll likely accept but a 7 day timer starts in which he can be swayed. Be careful with this dynamic". Each player has a hidden ideal package built from his own weights (money, guarantees, role, contender, city, promises). An offer that reaches it is signed at once. One at 85% or more is likely accepted, but a 7-day window opens in which other teams can sway him. Claude's safeguards (proposed, not confirmed): "balanced" means no single term can be stretched to cover the rest (a huge role promise can't stand in for money he cares about); the ideal is hidden and read only through tells, the agent and sit-downs; AI teams work under the same rule; during the tampering window an agreement waits for the new league year like real verbal deals.
-4. **Comp picks:** Cain: "If a coach has been active longer than 2 off-seasons, it's a third round. If shorter it's relative to ranking. The lower the ranking the higher the pick". (Being clarified: see the thread.)
+4. **Comp picks:** Cain: "If a coach has been active longer than 2 off-seasons, it's a third round. If shorter it's relative to ranking. The lower the ranking the higher the pick". Read as (Cain: "thought i already agreed on 4 a b"): (4a) "ranking" is the losing team's league standing, so a worse team gets a higher pick; (4b) this tenure rule covers only the minority head coach and GM picks (real rule: a third-round pick at the end of the round in each of the next two drafts, only when he becomes head coach or the top football executive). Free agent comp picks are rebuilt from OverTheCap's public method (APY rank, snaps, honors, gains netted against losses; rounds 3-7, at most 4 per team), checked against the real 2015-2026 picks, with the real cut-off date for qualifying signings.
+
+Topic 5 is confirmed.
 
 ## Topic 6: trades (confirmed 2026-10-16)
 
