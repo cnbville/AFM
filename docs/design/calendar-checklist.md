@@ -1,6 +1,6 @@
 # Section 4: the build checklist
 
-Status: built 2026-10-16 by the thread "Section 4 calendar build"; the bugs world trial 6 found were fixed the same day (`docs/trials/world-trial6.md`). Cain: "fully complete section 4, without any manual approval from me" and "don't pause any builds to ask for permission, instead choose the most realistic option then tell me in the morning what you pondered about".
+Status: built 2026-10-16 by the thread "Section 4 calendar build"; the bugs world trial 6 found were fixed the same day and the three worlds ran again (`docs/trials/world-trial6.md`; what is left in `docs/trials/world-trial6-proposals.md`). Cain: "fully complete section 4, without any manual approval from me" and "don't pause any builds to ask for permission, instead choose the most realistic option then tell me in the morning what you pondered about".
 
 Every agreed point (T1 to T11 in `calendar.md`) and every addition (A1 to A46 in `calendar-additions.md`) is listed with where it lives in code. Marks:
 - **Built**: works in the world now.
