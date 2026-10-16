@@ -2023,10 +2023,11 @@ fn window(sim: &Sim, qb: usize, r: usize) -> (f64, V2, f64) {
     let speed = 16.5 + 0.13 * power;
     let mut p = ra.pos;
     let mut flight = 0.0;
+    let mut ahead = Predict::new(sim, r);
     for _ in 0..3 {
         let dist = q.dist(p);
         flight = 0.28 + dist / (speed * (1.0 - 0.005 * (dist - 20.0).max(0.0)));
-        p = predict(sim, r, flight);
+        p = ahead.at(flight);
     }
     let mut w = f64::INFINITY;
     for d in 0..sim.agents.len() {
@@ -2061,35 +2062,62 @@ fn window(sim: &Sim, qb: usize, r: usize) -> (f64, V2, f64) {
 
 /// Where a receiver will be: the quarterback knows his route and how his
 /// man runs it, so he plays the route forward with the receiver's own
-/// speed, acceleration and cutting.
-fn predict(sim: &Sim, r: usize, dt: f64) -> V2 {
-    let mut a = sim.agents[r].clone();
-    if let Job::Route { pts, next, settle, .. } = &sim.agents[r].job {
-        let mut n = *next;
-        let steps = (dt / DT).round() as usize;
-        for _ in 0..steps {
-            if n < pts.len() {
-                let (target, speed, done) = route_step(&a, pts, n, *settle);
-                if done {
-                    n += 1;
-                }
-                a.steer((target - a.pos).norm().scale(speed));
-            } else if *settle {
-                break;
-            } else {
-                let v = a.vel;
-                let dir = if v.len() > 0.5 { v.norm() } else { v2(1.0, 0.0) };
-                let me = a.pos;
-                let dir =
-                    if me.y < 4.0 && dir.y < 0.0 || me.y > WIDTH - 4.0 && dir.y > 0.0 { v2(1.0, 0.0) } else { dir };
-                a.steer(dir.scale(route_pace(&a)));
-            }
-            a.pos = a.pos + a.vel.scale(DT);
-        }
-        return v2(a.pos.x.min(109.0), clamp(a.pos.y, 0.5, WIDTH - 0.5));
+/// speed, acceleration and cutting. The route is played forward once and
+/// kept, so asking for several flight times costs one run.
+struct Predict<'s> {
+    sim: &'s Sim<'s>,
+    r: usize,
+    /// The receiver as he moves along the route (his job is not copied).
+    a: Agent,
+    next: usize,
+    /// He has settled in his spot: he stays where he is.
+    stopped: bool,
+    /// Where he is after each tick, from now (index 0).
+    spots: Vec<V2>,
+}
+
+impl<'s> Predict<'s> {
+    fn new(sim: &'s Sim<'s>, r: usize) -> Predict<'s> {
+        let src = &sim.agents[r];
+        let next = if let Job::Route { next, .. } = &src.job { *next } else { 0 };
+        let a = src.without_job();
+        Predict { sim, r, next, stopped: false, spots: vec![a.pos], a }
     }
-    let p = a.pos + a.vel.scale(dt);
-    v2(p.x.min(109.0), clamp(p.y, 0.5, WIDTH - 0.5))
+
+    fn at(&mut self, dt: f64) -> V2 {
+        let Job::Route { pts, settle, .. } = &self.sim.agents[self.r].job else {
+            let a = &self.sim.agents[self.r];
+            let p = a.pos + a.vel.scale(dt);
+            return v2(p.x.min(109.0), clamp(p.y, 0.5, WIDTH - 0.5));
+        };
+        let steps = (dt / DT).round() as usize;
+        while self.spots.len() <= steps {
+            if !self.stopped {
+                let a = &mut self.a;
+                if self.next < pts.len() {
+                    let (target, speed, done) = route_step(a, pts, self.next, *settle);
+                    if done {
+                        self.next += 1;
+                    }
+                    a.steer((target - a.pos).norm().scale(speed));
+                    a.pos = a.pos + a.vel.scale(DT);
+                } else if *settle {
+                    self.stopped = true;
+                } else {
+                    let v = a.vel;
+                    let dir = if v.len() > 0.5 { v.norm() } else { v2(1.0, 0.0) };
+                    let me = a.pos;
+                    let dir =
+                        if me.y < 4.0 && dir.y < 0.0 || me.y > WIDTH - 4.0 && dir.y > 0.0 { v2(1.0, 0.0) } else { dir };
+                    a.steer(dir.scale(route_pace(a)));
+                    a.pos = a.pos + a.vel.scale(DT);
+                }
+            }
+            self.spots.push(self.a.pos);
+        }
+        let p = self.spots[steps];
+        v2(p.x.min(109.0), clamp(p.y, 0.5, WIDTH - 0.5))
+    }
 }
 
 /// The throw: ball speed from arm strength, error from accuracy, distance,

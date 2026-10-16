@@ -223,6 +223,37 @@ impl Agent {
     }
     /// How hard he can stop, yards per second squared: his grip and his
     /// footwork (agility), as the shuttle measures it.
+    /// A copy of him for looking ahead: everything but his job, so a
+    /// route's waypoints are not copied.
+    pub fn without_job(&self) -> Agent {
+        Agent {
+            side: self.side,
+            p: self.p,
+            id: self.id,
+            label: self.label,
+            pos: self.pos,
+            vel: self.vel,
+            face: self.face,
+            vmax: self.vmax,
+            accel: self.accel,
+            tau: self.tau,
+            cut: self.cut,
+            mass: self.mass,
+            job: Job::Idle,
+            down_until: self.down_until,
+            engaged: self.engaged,
+            work: self.work,
+            read_at: self.read_at,
+            ball_react: self.ball_react,
+            face_lock: self.face_lock,
+            bust: self.bust,
+            last_try: self.last_try,
+            top: self.top,
+            smell: self.smell,
+            r: self.r,
+        }
+    }
+
     pub fn brake(&self) -> f64 {
         self.accel * (1.2 + 0.7 * self.cut)
     }
