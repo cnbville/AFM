@@ -537,7 +537,8 @@ pub(crate) fn declarations(w: &mut World, phase: Declare) {
                 };
                 // A team still in the playoff declares after its last game
                 // (T3: the title game's players get until about January 24).
-                if phase == Declare::Deadline && playing.contains(&c) {
+                // A player who opted out is done with his season already.
+                if phase == Declare::Deadline && playing.contains(&c) && !p.cal.opted_out {
                     continue;
                 }
                 let senior = exhausted(p, draft_year, five);
@@ -553,10 +554,12 @@ pub(crate) fn declarations(w: &mut World, phase: Declare) {
                 if p.cal.declare_plan != Some(true) {
                     continue;
                 }
-                // The decisive ones go on the soft date once their season is over.
-                let early = !playing.contains(&c)
-                    && key_uniform(seed, p.player.id as u64)
-                        < 0.5 + 0.03 * (p.player.personality.competitiveness - 10.0);
+                // The decisive ones go on the soft date once their season is
+                // over; an underclassman who opted out goes then for sure.
+                let early = p.cal.opted_out
+                    || !playing.contains(&c)
+                        && key_uniform(seed, p.player.id as u64)
+                            < 0.5 + 0.03 * (p.player.personality.competitiveness - 10.0);
                 if phase == Declare::Soft && !early {
                     continue;
                 }
@@ -576,15 +579,21 @@ pub(crate) fn declarations(w: &mut World, phase: Declare) {
                 ));
             }
             Declare::Withdraw => {
-                if p.stage != Stage::Declared || exhausted(p, draft_year, five) {
+                // A player who opted out of the postseason for the draft has
+                // left college football: he stays in.
+                if p.stage != Stage::Declared || exhausted(p, draft_year, five) || p.cal.opted_out {
                     continue;
                 }
                 let Some(read) = p.cal.draft_read else { continue };
-                // The advisory committee's read comes back: a poor one sends some home.
+                // The advisory committee's read comes back: a poor one sends
+                // some home. The draws are keyed, so a second withdrawal day
+                // (the title game's players) leaves earlier choices as they were.
                 let advisory = read.round as f64 + 1.5 * key_normal(seed ^ 0xAD, p.player.id as u64);
                 if advisory >= 5.0 && key_uniform(seed ^ 0xAE, p.player.id as u64) < 0.3 {
                     let p = &mut w.people[i];
                     p.stage = Stage::College;
+                    // He is back for next season: no second declaration this winter.
+                    p.cal.declare_plan = Some(false);
                     let age = p.player.age;
                     p.note(format!(
                         "Withdrew from the draft at {age} after a poor advisory grade and returned to school."
@@ -3239,6 +3248,90 @@ pub(crate) struct PortalMarket {
     depth: Vec<Vec<Vec<f64>>>,
     adds: Vec<usize>,
     view: RosterView,
+    /// Entrants from teams still alive for the title, on hold until their
+    /// season is over (T3).
+    held: Vec<Held>,
+}
+
+/// A playoff team's entrant on hold (T3): the day the window would have
+/// given him, his extra days after the last game (0-4), and the days he
+/// takes to decide once in.
+#[derive(Clone, Copy, Debug)]
+struct Held {
+    person: usize,
+    program: usize,
+    window_day: Date,
+    extra: i32,
+    decide_in: i32,
+    why: Why,
+}
+
+/// The entry dates of a held entrant until he is released: no decision is
+/// due before then.
+const HELD: Date = Date(i32::MAX / 2);
+
+/// A player's portal entry is set (T3): his NIL deal ends, and a starter's
+/// or blue-chip's entry is news on his day.
+fn enter_portal(w: &mut World, i: usize, c: usize, entered: Date, decide_by: Date, why: Why) -> Option<Event> {
+    let p = &mut w.people[i];
+    p.cal.portal = Some(super::PortalEntry { entered, decide_by, why: why.reason() });
+    // His NIL deal ends when he enters (T3).
+    if p.nil_income > 0.0 {
+        p.nil_income = 0.0;
+        let age = p.player.age;
+        p.note(format!("Lost his NIL deal when he entered the portal at {age}."));
+    }
+    if p.stars < 4 && p.last_role != Some(PlayingTime::Starter) {
+        return None;
+    }
+    let text = format!("{} ({}, {}) enters the transfer portal.", p.name, p.player.position, w.programs[c].real_name);
+    let loud =
+        if p.stars >= 4 && p.last_role == Some(PlayingTime::Starter) { Loudness::Medium } else { Loudness::Small };
+    Some(Event::new(entered, CalLevel::College, Kind::Transfer, loud, text).program(c))
+}
+
+/// Held playoff entrants whose season is over (a loss or the title) enter
+/// within five days of that last game, or on their window day if later (T3,
+/// the 2024-25 rule).
+fn release_held(w: &mut World, market: &mut PortalMarket) {
+    if market.held.is_empty() {
+        return;
+    }
+    let mut out: Vec<(Held, Date)> = Vec::new();
+    let mut still = Vec::new();
+    for h in std::mem::take(&mut market.held) {
+        let alive = w.college.as_ref().is_some_and(|cs| super::college::playoff_alive(cs, h.program));
+        if alive {
+            still.push(h);
+            continue;
+        }
+        let last = w
+            .college
+            .as_ref()
+            .and_then(|cs| {
+                cs.games
+                    .iter()
+                    .filter(|g| {
+                        g.involves(h.program) && g.played.is_some() && g.kind != super::schedule::GameKind::Regular
+                    })
+                    .map(|g| g.date)
+                    .max()
+            })
+            .unwrap_or(w.today);
+        out.push((h, last));
+    }
+    market.held = still;
+    for (h, last) in out {
+        let entered = h.window_day.max(last.add(1 + h.extra));
+        if let Some(e) = enter_portal(w, h.person, h.program, entered, entered.add(h.decide_in), h.why) {
+            w.calendar.post(e);
+        }
+        w.log.portal_entries += 1;
+        match w.log.portal_by_day.iter_mut().find(|x| x.0 == entered) {
+            Some(x) => x.1 += 1,
+            None => w.log.portal_by_day.push((entered, 1)),
+        }
+    }
 }
 
 /// How much of the yearly transfer flow an era had (T11; proposed, not
@@ -3438,33 +3531,15 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
     let mut by_day: std::collections::BTreeMap<Date, u32> = std::collections::BTreeMap::new();
     let mut serious = std::collections::HashSet::new();
     let mut events = Vec::new();
-    // Teams still in the playoff (T3): their players get five days after
-    // the last game, and play it out first. Bowl teams' entrants sit out.
-    let mut playoff_last: std::collections::HashMap<usize, Date> = std::collections::HashMap::new();
-    if let Some(cs) = w.college.as_ref() {
-        for g in cs.games.iter().filter(|g| g.played.is_none()) {
-            if matches!(g.kind, super::schedule::GameKind::Playoff(_) | super::schedule::GameKind::Title)
-                && g.division == Division::FBS
-            {
-                for t in [g.home, g.away] {
-                    let e = playoff_last.entry(t).or_insert(g.date);
-                    *e = (*e).max(g.date);
-                }
-            }
-        }
-        // A team that can still win plays to the title game's date.
-        if let Some(title) = cs
-            .games
-            .iter()
-            .filter(|g| g.kind == super::schedule::GameKind::Title && g.division == Division::FBS)
-            .map(|g| g.date)
-            .max()
-        {
-            for d in playoff_last.values_mut() {
-                *d = (*d).max(title);
-            }
-        }
-    }
+    // Teams still alive for the title (T3, the 2024-25 rule): their
+    // entrants play the run out and are held until the season is over (a
+    // loss or the title), then enter within five days of that last game.
+    // Bowl teams' entrants sit the bowl out.
+    let alive: Vec<bool> = match w.college.as_ref() {
+        Some(cs) => (0..w.programs.len()).map(|t| super::college::playoff_alive(cs, t)).collect(),
+        None => vec![false; w.programs.len()],
+    };
+    let mut held: Vec<Held> = Vec::new();
     let mut cs_out: Vec<u32> = Vec::new();
     for &(i, why) in &entrants {
         let c = w.people[i].college.unwrap();
@@ -3475,43 +3550,26 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
         let id = p.player.id as u64;
         let enter_in =
             if why == Why::Dismissed { 0.0 } else { (len * (1.0 - q).powi(2) * key_uniform(seed ^ 0xE7, id)).floor() };
-        let mut entered_on = today.add(enter_in as i32);
-        match playoff_last.get(&c) {
-            Some(&last) if why != Why::Dismissed && which != PortalWindow::Spring => {
-                let extra = (5.0 * key_uniform(seed ^ 0xE8, id)).floor() as i32;
-                entered_on = entered_on.max(last.add(1 + extra));
-            }
-            _ => cs_out.push(p.player.id),
-        }
-        let decide_in = 3.0 + (22.0 * (1.0 - q) * key_uniform(seed ^ 0xD7, id)).round();
-        let decide_by = entered_on.add(decide_in as i32);
+        let entered_on = today.add(enter_in as i32);
+        let decide_in = 3 + (22.0 * (1.0 - q) * key_uniform(seed ^ 0xD7, id)).round() as i32;
         if why == Why::Dismissed && w.people[i].rng.chance(PIPELINE.college_trouble.serious_share) {
             serious.insert(i);
         }
-        let p = &mut w.people[i];
-        p.cal.portal = Some(super::PortalEntry { entered: entered_on, decide_by, why: why.reason() });
-        // His NIL deal ends when he enters (T3).
-        if p.nil_income > 0.0 {
-            p.nil_income = 0.0;
-            let age = p.player.age;
-            p.note(format!("Lost his NIL deal when he entered the portal at {age}."));
+        if alive[c] && why != Why::Dismissed && which != PortalWindow::Spring {
+            let extra = (5.0 * key_uniform(seed ^ 0xE8, id)).floor() as i32;
+            held.push(Held { person: i, program: c, window_day: entered_on, extra, decide_in, why });
+            // On hold: no day yet, and no decision due until he is released.
+            w.people[i].cal.portal = Some(super::PortalEntry { entered: HELD, decide_by: HELD, why: why.reason() });
+            continue;
         }
+        cs_out.push(id as u32);
         *by_day.entry(entered_on).or_default() += 1;
-        if p.stars >= 4 || p.last_role == Some(PlayingTime::Starter) {
-            let text =
-                format!("{} ({}, {}) enters the transfer portal.", p.name, p.player.position, w.programs[c].real_name);
-            let loud = if p.stars >= 4 && p.last_role == Some(PlayingTime::Starter) {
-                Loudness::Medium
-            } else {
-                Loudness::Small
-            };
-            events.push(Event::new(entered_on, CalLevel::College, Kind::Transfer, loud, text).program(c));
-        }
+        events.extend(enter_portal(w, i, c, entered_on, entered_on.add(decide_in), why));
     }
     for e in events {
         w.calendar.post(e);
     }
-    w.log.portal_entries += entrants.len() as u32;
+    w.log.portal_entries += (entrants.len() - held.len()) as u32;
     w.log.portal_by_day.extend(by_day);
     // Players still to play a bowl or playoff game sit it out.
     if let Some(cs) = w.college.as_mut() {
@@ -3552,11 +3610,23 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
         }
     }
     let view = RosterView::new(&w.programs, &w.people, &leaving);
-    let mut market =
-        PortalMarket { label, season: label + 1, serious, medians, open, backups_best, depth, adds: vec![0; pn], view };
-    // Entrants from an earlier window still deciding keep their place in line.
+    let mut market = PortalMarket {
+        label,
+        season: label + 1,
+        serious,
+        medians,
+        open,
+        backups_best,
+        depth,
+        adds: vec![0; pn],
+        view,
+        held,
+    };
+    // Entrants from an earlier window still deciding keep their place in
+    // line, and playoff entrants stay on hold.
     if let Some(old) = w.portal_market.take() {
         market.adds = old.adds;
+        market.held.extend(old.held);
     }
     w.portal_market = Some(market);
     w.portal_pending.extend(entrants.iter().map(|e| e.0));
@@ -3572,6 +3642,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         w.portal_pending.clear();
         return;
     };
+    release_held(w, &mut market);
     let mut due: Vec<usize> = Vec::new();
     let mut waiting: Vec<usize> = Vec::new();
     for &i in &w.portal_pending {

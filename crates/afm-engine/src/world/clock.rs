@@ -323,9 +323,13 @@ pub(crate) fn advance_day(w: &mut World) {
     if d == y.declare_withdraw {
         recruiting::declarations(w, recruiting::Declare::Withdraw);
     }
-    // The playoff teams' players declare once their season is over (T3).
+    // The playoff teams' players declare once their season is over (T3),
+    // and have their own 72 hours to take it back.
     if d == y.title_game.add(4) && y.title_game.add(4) > y.declare_deadline {
         recruiting::declarations(w, recruiting::Declare::Deadline);
+    }
+    if d == y.title_game.add(4 + 3) && y.title_game.add(4) > y.declare_deadline {
+        recruiting::declarations(w, recruiting::Declare::Withdraw);
     }
     if d == y.early_enrollment {
         if y.early_signing.is_none() {

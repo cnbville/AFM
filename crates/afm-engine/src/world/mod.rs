@@ -224,6 +224,9 @@ pub struct PersonCal {
     pub trouble: bool,
     /// Failed the spring term's eligibility check: out this fall (A23).
     pub spring_ineligible: bool,
+    /// Failed the fall term's check: out of the postseason and spring
+    /// practice, until the spring term's grades (A23).
+    pub fall_ineligible: bool,
     /// Lean toward leaving through the portal, as a chance (T3), and what moved it.
     pub lean: f64,
     pub lean_events: Vec<(crate::calendar::Date, &'static str, f64)>,

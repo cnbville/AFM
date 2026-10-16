@@ -782,6 +782,10 @@ fn college_spring_candidates(w: &World) -> Vec<(usize, f64, bool)> {
         if p.stage != Stage::College || p.college_seasons > 1 || p.class_of < year - 1 {
             continue;
         }
+        // Short of the grades after the fall term: no spring practice (A23).
+        if p.cal.fall_ineligible {
+            continue;
+        }
         let Some(c) = p.college else { continue };
         let prog = &w.programs[c];
         let group = super::coach::Group::of(p.player.position);
