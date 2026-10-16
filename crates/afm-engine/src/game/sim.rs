@@ -623,19 +623,23 @@ impl<'a> Sim<'a> {
         // Bodies don't pass through each other: free players slide around
         // engaged pairs and teammates.
         let n = self.agents.len();
+        let carrier = self.carrier();
         for i in 0..n {
-            if self.agents[i].engaged.is_some() || !self.agents[i].up(t) {
+            if self.agents[i].engaged.is_some() || !self.agents[i].up(t) || Some(i) == carrier {
                 continue;
             }
             let mut push = V2::default();
             for j in 0..n {
-                if i == j {
+                if i == j || Some(j) == carrier {
+                    continue;
+                }
+                let obstacle = self.agents[j].engaged.is_some() || self.agents[j].side == self.agents[i].side;
+                if !obstacle {
                     continue;
                 }
                 let d = self.agents[i].pos - self.agents[j].pos;
                 let l = d.len();
-                let obstacle = self.agents[j].engaged.is_some() || self.agents[j].side == self.agents[i].side;
-                if l < 0.8 && l > 1e-6 && obstacle && Some(j) != self.carrier() && Some(i) != self.carrier() {
+                if l < 0.8 && l > 1e-6 {
                     push = push + d.scale((0.8 - l) / l * 0.5);
                 }
             }
