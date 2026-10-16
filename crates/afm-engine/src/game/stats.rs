@@ -196,6 +196,18 @@ impl PlayRecord {
     pub fn success(&self) -> bool {
         self.epa > 0.0
     }
+
+    /// The team (0 home, 1 away) a player on the field plays for, or None
+    /// when he was not on the field.
+    pub fn side_of(&self, id: u32) -> Option<usize> {
+        if self.on_field[0].contains(&id) {
+            Some(self.offense)
+        } else if self.on_field[1].contains(&id) {
+            Some(1 - self.offense)
+        } else {
+            None
+        }
+    }
 }
 
 /// One player's line for a game, a season or a career (8.3). Everything is
@@ -598,6 +610,11 @@ impl GameStats {
     pub fn book(&mut self, r: &PlayRecord) {
         let o = r.offense;
         let d = 1 - o;
+        // A role can fall to either team (an interception return: the
+        // defense blocks, the offense tackles and forces fumbles), so a
+        // player's line goes to the team he is on; `rule` is for a man
+        // not on the field.
+        let side = |id: u32, rule: usize| r.side_of(id).unwrap_or(rule);
         let grade = |s: &mut StatLine, g: f64| {
             s.grade_sum += g;
             s.graded += 1;
@@ -631,8 +648,7 @@ impl GameStats {
             }
         }
         for &id in &r.busts {
-            let team = if r.on_field[0].contains(&id) { o } else { d };
-            self.line(team, id).busts += 1;
+            self.line(side(id, d), id).busts += 1;
         }
         let ts = &mut self.team[o];
         if scrimmage {
@@ -871,11 +887,12 @@ impl GameStats {
             l.ttp_sum += r.time_to_throw;
         }
         // Blocks: wins, pressures and sacks allowed (the beaten blocker).
+        // On an interception return the defense blocks.
         for &(b, def, pass, won, secs, _) in &r.blocks {
             let gave_sack = !won && r.sackers.contains(&def);
             let gave_pressure = !won && (r.pressures.contains(&def) || gave_sack);
             {
-                let l = self.line(o, b);
+                let l = self.line(side(b, o), b);
                 if pass {
                     l.pb_snaps += 1;
                     let w = won || secs >= 2.5;
@@ -904,7 +921,7 @@ impl GameStats {
                     grade(l, if won { 0.25 } else { -0.35 });
                 }
             }
-            let l = self.line(d, def);
+            let l = self.line(side(def, d), def);
             if pass {
                 l.rush_snaps += 1;
             }
@@ -930,7 +947,7 @@ impl GameStats {
         let tteam = if r.interception || (r.fumble_lost && r.yards != 0.0 && false) { o } else { ret_team(r.kind) };
         let n = r.tacklers.len();
         for (k, &id) in r.tacklers.iter().enumerate() {
-            let l = self.line(tteam, id);
+            let l = self.line(side(id, tteam), id);
             if n == 1 || k == 0 {
                 l.tackles += 1;
             } else {
@@ -950,7 +967,7 @@ impl GameStats {
             }
         }
         for &(tk, runner) in &r.missed_tackles {
-            let team = if r.on_field[1].contains(&tk) { d } else { o };
+            let team = side(tk, o);
             let l = self.line(team, tk);
             l.missed += 1;
             grade(l, -0.7);
@@ -958,12 +975,12 @@ impl GameStats {
             self.line(rteam, runner).forced_missed += 1;
         }
         if let Some(f) = r.forced_fumble {
-            let l = self.line(d, f);
+            let l = self.line(side(f, d), f);
             l.forced_fumbles += 1;
             grade(l, 1.5);
         }
         if let Some(f) = r.fumbled {
-            let team = if r.on_field[0].contains(&f) { o } else { d };
+            let team = side(f, d);
             let l = self.line(team, f);
             l.fumbles += 1;
             l.fumbles_lost += r.fumble_lost as u32;
@@ -976,15 +993,13 @@ impl GameStats {
             self.team[o].turnovers += 1;
         }
         for &(id, won) in &r.freelance {
-            let team = if r.on_field[0].contains(&id) { o } else { d };
-            let l = self.line(team, id);
+            let l = self.line(side(id, d), id);
             l.freelance += 1;
             l.freelance_won += won as u32;
         }
         if r.top_speed.0 != 0 {
             let id = r.top_speed.0;
-            let team = if r.on_field[0].contains(&id) { o } else { d };
-            let l = self.line(team, id);
+            let l = self.line(side(id, d), id);
             l.top_speed = l.top_speed.max(r.top_speed.1);
         }
         // Special teams.
