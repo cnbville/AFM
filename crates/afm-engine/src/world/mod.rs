@@ -125,7 +125,12 @@ pub struct Person {
     pub college: Option<usize>,
     /// Year of his last high school season's spring (his class).
     pub class_of: i32,
+    /// The recruiting services' stars (their latest rating). They rate
+    /// kickers, punters and long snappers 3 stars at most.
     pub stars: u8,
+    /// The kicking and snapping camps' own stars for a kicker, punter or
+    /// long snapper (fix list 1.5): what staffs recruit specialists on.
+    pub camp_stars: u8,
     /// Hidden visibility to college recruiters, 0-1 (topic 4).
     pub(crate) visibility: f64,
     pub college_seasons: u32,
@@ -236,6 +241,9 @@ pub struct PersonCal {
     /// Invited to the NFL combine (A10) or a college all-star game (A9).
     pub combine_invite: bool,
     pub all_star: Option<&'static str>,
+    /// The high school all-star game he played in (January of his senior
+    /// year), kept apart from the college invite.
+    pub hs_all_star: Option<&'static str>,
     /// Best SAT-scale test score so far (A30).
     pub test_score: Option<u32>,
     /// Must sit next season under the transfer rules of the day.
@@ -319,7 +327,10 @@ pub struct Alumnus {
     pub home_state: usize,
     pub high_school: usize,
     pub colleges: Vec<usize>,
+    /// The recruiting services' stars.
     pub stars: u8,
+    /// The specialist camps' stars (kickers, punters, long snappers).
+    pub camp_stars: u8,
     pub year: i32,
     /// Draft pick (1-257), or None for an undrafted free agent.
     pub pick: Option<u32>,
@@ -365,6 +376,7 @@ impl Alumnus {
             high_school: p.hs,
             colleges: p.path.clone(),
             stars: p.stars,
+            camp_stars: p.camp_stars,
             year,
             pick,
             position: p.player.position,
@@ -506,6 +518,9 @@ pub struct CalendarLog {
     pub hs_senior_nights: u32,
     pub hs_all_state: u32,
     pub heat_limited_days: u32,
+    /// Recruiting counters, commitments through signings, belong to the
+    /// season whose class signs: a February signing day that falls after
+    /// the Super Bowl still counts in its season's log.
     pub commits: u32,
     pub commits_by_month: [u32; 12],
     pub decommits: u32,
@@ -807,6 +822,7 @@ impl World {
                     college: None,
                     class_of: year + 18 - age as i32,
                     stars: 0,
+                    camp_stars: 0,
                     visibility: 0.0,
                     college_seasons: 0,
                     redshirt_used: false,
