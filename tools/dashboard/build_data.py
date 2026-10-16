@@ -194,12 +194,15 @@ def real_values():
             "fbs_signed_early_pct": [80, 90],
             "christmas_games": [2, 3],
             "abroad_2025": 7, "abroad_2026": 9,
+            "abroad_by_year": {2005: 1, 2006: 0, 2007: 1, 2008: 2, 2009: 2, 2010: 2, 2011: 2, 2012: 2, 2013: 3, 2014: 3,
+                               2015: 3, 2016: 4, 2017: 5, 2018: 3, 2019: 5, 2020: 0, 2021: 2, 2022: 5, 2023: 5, 2024: 5, 2025: 7},
             "huge_share_1_to_3": 50,
             "_notes": {
                 "nfl_games": "Rule fact: 17 games for 32 teams (272) plus 13 playoff games.",
                 "early_entrants": "Underclassmen granted special eligibility, 2021-2024 NFL announcements (from memory, to check).",
                 "fbs_signed_early_pct": "Share of FBS signees who sign in the December period since 2018 (247Sports and On3 reports, from memory, to check).",
                 "christmas_games": "NFL games on Christmas Day, 2020-2025 seasons (rule history).",
+                "abroad_by_year": "Regular-season NFL games outside the US, including the Bills in Toronto 2008-2013 (NFL International Series history, from memory, to check).",
                 "huge_share_1_to_3": "Design target from T8.1, not real data: most seasons have 1 to 3 huge regular-season games, some none.",
             },
         },
@@ -1263,8 +1266,12 @@ def calendar_view(run, real):
     glance = defaultdict(list)
     abroad, christmas, flexed, anniv = Counter(), Counter(), Counter(), Counter()
     for e in events:
-        if e["level"] == "Nfl" and e["text"].startswith("An international game"):
-            abroad[e["year"]] += 1
+        # Games abroad come from the schedule release line ("..., 5 abroad."):
+        # single games are small events, which the export leaves out.
+        if e["level"] == "Nfl" and "schedule is released" in e["text"]:
+            m = re.search(r"(\d+) abroad", e["text"])
+            if m:
+                abroad[e["year"]] = int(m.group(1))
         if e["level"] == "Nfl" and e["date"][5:] == "12-25" and e["kind"] == "Game" and " beat " in e["text"]:
             christmas[e["year"]] += 1
         if e["rule"] == "NFL: flexible scheduling":

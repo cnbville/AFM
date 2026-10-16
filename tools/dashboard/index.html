@@ -949,8 +949,8 @@ function buildCalendar(p) {
     chartDiv((d) => lineChart(d, { series: active().flatMap((i) => ["notices", "breakouts", "fizzles"].map((n, k) => ({ name: `${seedName(i)} ${n}`, color: SERIES[i], pts: calRows(S.runs[i]).map((y) => [y.year, y.spring[k]]) }))) }))));
   g.append(card("Weather on college game days", "Games in snow, rain and freezing cold, lightning delays, games moved and cancelled.",
     chartDiv((d) => lineChart(d, { series: active().flatMap((i) => ["snow", "rain", "freezing", "lightning"].map((n, k) => ({ name: `${seedName(i)} ${n}`, color: SERIES[i], pts: calRows(S.runs[i]).map((y) => [y.year, y.weather[k]]) }))) }))));
-  g.append(card("NFL calendar checks", "Games abroad, Christmas games and flexed games a year, read from the dated news.",
-    chartDiv((d) => lineChart(d, { series: active().flatMap((i) => [["abroad", "abroad"], ["Christmas", "christmas"], ["flexed", "flexed"]].map(([n, k]) => ({ name: `${seedName(i)} ${n}`, color: SERIES[i], pts: Object.entries(S.runs[i].calendar[k] || {}).map(([y, v]) => [+y, v]) }))) }))));
+  g.append(card("NFL calendar checks", "Games abroad (from each year's schedule release) and flexed games a year, with the real games abroad. Christmas games and anniversaries are small events, which the export leaves out.",
+    chartDiv((d) => lineChart(d, { series: [...(R.abroad_by_year ? [{ name: "Real abroad (to check)", color: "#888", pts: Object.entries(R.abroad_by_year).map(([y, v]) => [+y, v]) }] : []), ...active().flatMap((i) => [["abroad", "abroad"], ["flexed", "flexed"]].map(([n, k]) => ({ name: `${seedName(i)} ${n}`, color: SERIES[i], pts: Object.entries(S.runs[i].calendar[k] || {}).map(([y, v]) => [+y, v]) }))) }))));
   // Portal days of the last year.
   g.append(card("The last winter's portal, day by day", "Entries per day in the last recorded year.",
     chartDiv((d) => lineChart(d, { series: runSeries((run) => { const rows = calRows(run); const last = rows[rows.length - 1]; if (!last) return []; const t0 = Date.parse(last.portal_by_day[0]?.[0]); return last.portal_by_day.map(([dt, n]) => [Math.round((Date.parse(dt) - t0) / 864e5), n]); }), xFmt: (x) => `day ${x}` }))));
