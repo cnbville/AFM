@@ -4,14 +4,12 @@
 use std::collections::{BTreeMap, HashSet};
 
 use super::coach::{
-    Coach, CoachTier, Employer, Group, HiringNeeds, Job, Role, Stint, TitleKind, candidate_score, generate_coach,
-    hiring_needs,
+    Coach, CoachTier, Employer, Group, HiringNeeds, Job, Role, Stint, candidate_score, generate_coach, hiring_needs,
 };
 use super::data::{AcademicTier, Division};
 use super::ethnicity::{CoachPool, Ethnicity, coach_ethnicity, hiring_bias};
 use super::news::{self, Channel, NewsItem, NewsKind};
 use super::program::{self, GRADE_COUNT, GradeCat, NilTrend};
-use super::season::SeasonResults;
 use super::{Stage, World, names};
 use crate::player::PlayingTime;
 use crate::rng::{Rng, clamp};
@@ -224,7 +222,7 @@ pub(crate) fn staff_everyone(w: &mut World) {
 }
 
 /// How well a coach runs one side of the ball, 1-20: his teaching there and his scheme.
-fn side_quality(c: &Coach, offense: bool) -> f64 {
+pub(crate) fn side_quality(c: &Coach, offense: bool) -> f64 {
     let a = c.ability();
     let groups: Vec<f64> = Group::ALL
         .iter()
@@ -237,7 +235,7 @@ fn side_quality(c: &Coach, offense: bool) -> f64 {
 /// The pro league's staff rating for each world team, 1-20, from its named
 /// coaches (11.12): the head coach counts half, each coordinator a quarter on
 /// his side of the ball (proposed, not confirmed).
-fn set_nfl_coaching(w: &mut World) {
+pub(crate) fn set_nfl_coaching(w: &mut World) {
     let year = w.year;
     for t in 0..w.nfl.len() {
         let team = &w.nfl[t];
@@ -249,176 +247,6 @@ fn set_nfl_coaching(w: &mut World) {
         w.nfl[t].coaching = clamp(q, 1.0, 20.0);
         w.nfl[t].staff_years = (year - since).max(0) as u32;
     }
-}
-
-/// One NFL season for the coaches (11.12). The league's games aren't played,
-/// so each team's record comes from its roster, its staff and luck. Real NFL
-/// win shares spread about 0.19 a season, about 0.12 of it luck (proposed,
-/// not confirmed: 0.13 per roster sd, 0.06 per staff sd). The playoff
-/// bracket isn't played either: better teams are likelier to come through it.
-fn nfl_season(w: &mut World) {
-    let year = w.year;
-    let n = w.nfl.len();
-    if n == 0 {
-        return;
-    }
-    let strength: Vec<f64> = w.nfl.iter().map(|t| t.strength()).collect();
-    let mean = strength.iter().sum::<f64>() / n as f64;
-    let sd = (strength.iter().map(|s| (s - mean).powi(2)).sum::<f64>() / n as f64).sqrt().max(0.5);
-    let games = if year >= 2021 { 17 } else { 16 };
-    let mut expect = vec![0.0; n];
-    let mut raw = vec![0.0; n];
-    for t in 0..n {
-        expect[t] = 0.5 + 0.13 * (strength[t] - mean) / sd;
-        let staff = (w.nfl[t].coaching - 13.0) / 2.5;
-        raw[t] = expect[t] + 0.06 * staff + w.rng.normal(0.0, 0.12);
-    }
-    // Every game has a winner: the league's win shares average one half.
-    let shift = 0.5 - raw.iter().sum::<f64>() / n as f64;
-    let wins: Vec<u32> = raw.iter().map(|r| (clamp(r + shift, 0.0, 1.0) * games as f64).round() as u32).collect();
-    let mut order: Vec<usize> = (0..n).collect();
-    order.sort_by(|&a, &b| wins[b].cmp(&wins[a]).then(a.cmp(&b)));
-    let spots = if year >= 2020 { 14 } else { 12 };
-    let seeds: Vec<(usize, f64)> =
-        order.iter().take(spots).map(|&t| (t, (8.0 * (wins[t] as f64 / games as f64 - 0.5)).exp())).collect();
-    let champ = w.rng.weighted(&seeds);
-    let rest: Vec<(usize, f64)> = seeds.iter().copied().filter(|s| s.0 != champ).collect();
-    let runner_up = w.rng.weighted(&rest);
-    for t in 0..n {
-        let share = wins[t] as f64 / games as f64;
-        let vs = share - expect[t];
-        let title = if t == champ {
-            TitleKind::National
-        } else if t == runner_up {
-            TitleKind::Conference
-        } else {
-            TitleKind::None
-        };
-        let team = &mut w.nfl[t];
-        team.win_share.push(share);
-        if team.win_share.len() > 3 {
-            team.win_share.remove(0);
-        }
-        let (hc, oc, dc) = (team.head_coach, team.oc, team.dc);
-        if let Some(h) = hc {
-            let coach = &mut w.coaches[h];
-            coach.wins += wins[t];
-            coach.losses += games - wins[t];
-            if title != TitleKind::None {
-                coach.titles += 1;
-                coach.career_titles += 1;
-            }
-            coach.update_reputation(vs, title, 0.0, true, 1.0);
-        }
-        // A coordinator is judged on his unit: the team's year and his side's own form.
-        for (c, off) in [(oc, true), (dc, false)] {
-            let Some(c) = c else { continue };
-            let unit = 0.03 * (side_quality(&w.coaches[c], off) - 13.5) / 2.0 + w.rng.normal(0.0, 0.04);
-            w.coaches[c].update_reputation(0.5 * vs + unit, title, 0.0, false, 1.0);
-        }
-        if title == TitleKind::National && w.recording {
-            let name = w.nfl[t].name;
-            let coach = hc.map_or(String::new(), |h| format!(" under head coach {}", w.coaches[h].name));
-            w.news.push(NewsItem {
-                year,
-                kind: NewsKind::NationalTitle,
-                channel: Channel::News,
-                program: None,
-                text: format!("The {name} win the Super Bowl{coach}."),
-            });
-        }
-    }
-}
-
-/// Records the season: titles, records, news, and every coach's reputation.
-pub(crate) fn after_season(w: &mut World, r: &SeasonResults) {
-    let year = w.year;
-    // The spin-up only fills rosters; history starts when recording does.
-    if !w.recording {
-        return;
-    }
-    for s in 0..w.high_schools.len() {
-        let t = &r.hs[s];
-        if t.games() == 0 {
-            continue;
-        }
-        let school = &mut w.high_schools[s];
-        school.seasons.push(super::high_school::HsSeason {
-            year,
-            wins: t.wins,
-            losses: t.losses,
-            state_title: t.state_title,
-            coach: school.coach,
-        });
-        if t.state_title {
-            school.state_titles += 1;
-        }
-        if let Some(c) = school.coach {
-            let coach = &mut w.coaches[c];
-            coach.wins += t.wins;
-            coach.losses += t.losses;
-            if t.state_title {
-                coach.titles += 1;
-                coach.career_titles += 1;
-            }
-            let locker = clamp(t.incidents as f64 / t.roster.max(1) as f64 * 8.0, 0.0, 1.0);
-            let stage = w.high_schools[s].prestige;
-            coach.update_reputation(t.vs_expectation(), t.best_title(), locker, true, stage);
-        }
-    }
-    for p in 0..w.programs.len() {
-        let t = &r.college[p];
-        if t.games() == 0 {
-            continue;
-        }
-        let prog = &mut w.programs[p];
-        prog.seasons.push(program::ProgramSeason {
-            year,
-            wins: t.wins,
-            losses: t.losses,
-            conference_title: t.conference_title,
-            national_title: t.national_title,
-            coach: prog.head_coach,
-            strength: t.strength,
-            totals: t.totals,
-        });
-        if t.conference_title {
-            prog.conference_titles += 1;
-        }
-        if t.national_title {
-            prog.titles += 1;
-        }
-        if w.recording && t.national_title {
-            let name = prog.name(w.options.names).to_string();
-            w.news.push(NewsItem {
-                year,
-                kind: NewsKind::NationalTitle,
-                channel: Channel::News,
-                program: Some(p),
-                text: format!("{name} win the {} national title.", prog.division.name()),
-            });
-        }
-        let locker = clamp(t.incidents as f64 / t.roster.max(1) as f64 * 8.0, 0.0, 1.0);
-        let stage = prog.prestige_rel;
-        let staff: Vec<(Option<usize>, bool)> = [(prog.head_coach, true), (prog.oc, false), (prog.dc, false)]
-            .into_iter()
-            .chain(prog.position_coaches.iter().map(|&c| (c, false)))
-            .collect();
-        for (c, head) in staff {
-            let Some(c) = c else { continue };
-            let coach = &mut w.coaches[c];
-            if head {
-                coach.wins += t.wins;
-                coach.losses += t.losses;
-                if t.best_title() != TitleKind::None {
-                    coach.titles += 1;
-                    coach.career_titles += 1;
-                }
-            }
-            coach.update_reputation(t.vs_expectation(), t.best_title(), locker, head, stage);
-        }
-    }
-    nfl_season(w);
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -492,7 +320,7 @@ fn excuse(w: &World, p: usize) -> f64 {
 
 fn college_news(w: &mut World, p: usize, kind: NewsKind, text: String) {
     if w.recording {
-        w.news.push(NewsItem { year: w.year, kind, channel: Channel::News, program: Some(p), text });
+        w.news.push(NewsItem { date: None, year: w.year, kind, channel: Channel::News, program: Some(p), text });
     }
 }
 
@@ -641,6 +469,20 @@ fn weigh_offer(w: &mut World, c: usize, o: Opening) -> Option<String> {
             format!("out of work since he was {how}")
         }));
     };
+    // Hired this cycle (a college job in December, say): he stays put
+    // through the NFL and high school carousels that follow.
+    if job.since == year {
+        return None;
+    }
+    // A coach whose team is still in the playoffs can't take a job until it
+    // is out (T9): the Super Bowl teams' staffs are hired after the game.
+    if let Employer::Nfl(t) = job.employer
+        && w.nfl_season
+            .as_ref()
+            .is_some_and(|s| s.booked && s.champion.is_none() && s.alive.iter().any(|a| a.contains(&t)))
+    {
+        return None;
+    }
     let a = (coach.personality.ambition - 10.0) / 10.0;
     let mut parts: Vec<(f64, String)> = Vec::new();
     // The job: a bigger program, or a step up the ladder.
@@ -769,9 +611,14 @@ fn retirement_news(w: &mut World, c: usize, job: Job, why: &str) {
             w.programs[p].story.push((year, format!("Head coach {name} {why} at {age}.")));
             college_news(w, p, NewsKind::CoachLeft, text);
         }
-        Employer::Nfl(_) => {
-            w.news.push(NewsItem { year, kind: NewsKind::CoachLeft, channel: Channel::News, program: None, text })
-        }
+        Employer::Nfl(_) => w.news.push(NewsItem {
+            date: None,
+            year,
+            kind: NewsKind::CoachLeft,
+            channel: Channel::News,
+            program: None,
+            text,
+        }),
         Employer::HighSchool(_) => {}
     }
 }
@@ -793,9 +640,14 @@ fn departure_news(w: &mut World, c: usize, job: Job, o: Opening, why: &str) {
             w.programs[p].story.push((year, format!("Head coach {name} left for {dest}{role} ({why}).")));
             college_news(w, p, NewsKind::CoachLeft, text);
         }
-        Employer::Nfl(_) => {
-            w.news.push(NewsItem { year, kind: NewsKind::CoachLeft, channel: Channel::News, program: None, text })
-        }
+        Employer::Nfl(_) => w.news.push(NewsItem {
+            date: None,
+            year,
+            kind: NewsKind::CoachLeft,
+            channel: Channel::News,
+            program: None,
+            text,
+        }),
         Employer::HighSchool(_) => {}
     }
 }
@@ -835,6 +687,7 @@ fn nfl_firing(w: &mut World, c: usize, t: usize, tenure: i32, openings: &mut Vec
                 games - wins
             );
             w.news.push(NewsItem {
+                date: None,
                 year: w.year,
                 kind: NewsKind::CoachFired,
                 channel: Channel::News,
@@ -868,14 +721,22 @@ fn nfl_firing(w: &mut World, c: usize, t: usize, tenure: i32, openings: &mut Vec
 /// retirements, and hiring in order of prestige, where every move opens
 /// another job. Coaches climb a ladder: high school, position coach,
 /// coordinator, head coach (note 5).
-pub(crate) fn carousel(w: &mut World) {
+pub(crate) fn carousel(w: &mut World, scope: Scope) {
     let year = w.year;
     // The NCAA rules first: a show-cause order opens a job (11.6).
-    super::ncaa::enforcement(w);
+    if scope == Scope::College {
+        super::ncaa::enforcement(w);
+    }
     let mut openings: Vec<Opening> = Vec::new();
     // --- Retirements, firings and extensions -------------------------------------
     for c in 0..w.coaches.len() {
+        if scope == Scope::NflHires {
+            break;
+        }
         let Some(job) = w.coaches[c].job else { continue };
+        if !scope.covers(job.employer) {
+            continue;
+        }
         let age = w.coaches[c].age;
         let retire = age >= 60 && w.rng.chance(clamp(0.04 + 0.03 * (age as f64 - 60.0), 0.0, 1.0));
         // Before 60, his health or burnout (11.15).
@@ -1002,8 +863,15 @@ pub(crate) fn carousel(w: &mut World) {
             }
         }
     }
+    if scope == Scope::NflFirings {
+        set_nfl_coaching(w);
+        return;
+    }
     // Empty seats from earlier years too.
     for p in 0..w.programs.len() {
+        if scope != Scope::College {
+            break;
+        }
         let pr = employer_prestige(w, Employer::College(p));
         for role in college_roles() {
             if slot(&w.programs[p], role).is_none()
@@ -1014,6 +882,9 @@ pub(crate) fn carousel(w: &mut World) {
         }
     }
     for t in 0..w.nfl.len() {
+        if scope != Scope::NflHires {
+            break;
+        }
         for role in nfl_roles() {
             if nfl_slot(&w.nfl[t], role).is_none()
                 && !openings.iter().any(|o| o.employer == Employer::Nfl(t) && o.role == role)
@@ -1023,6 +894,9 @@ pub(crate) fn carousel(w: &mut World) {
         }
     }
     for s in 0..w.high_schools.len() {
+        if scope != Scope::HighSchool {
+            break;
+        }
         if w.high_schools[s].coach.is_none() && !openings.iter().any(|o| o.employer == Employer::HighSchool(s)) {
             let pr = employer_prestige(w, Employer::HighSchool(s));
             openings.push(Opening { employer: Employer::HighSchool(s), role: Role::HeadCoach, prestige: pr });
@@ -1228,7 +1102,14 @@ pub(crate) fn carousel(w: &mut World) {
             && o.role == Role::HeadCoach
         {
             let text = format!("The {} hire {} as head coach ({from}).", w.nfl[t].name, w.coaches[c].name);
-            w.news.push(NewsItem { year, kind: NewsKind::CoachHired, channel: Channel::News, program: None, text });
+            w.news.push(NewsItem {
+                date: None,
+                year,
+                kind: NewsKind::CoachHired,
+                channel: Channel::News,
+                program: None,
+                text,
+            });
         }
         if w.recording
             && let Employer::College(p) = o.employer
@@ -1246,11 +1127,50 @@ pub(crate) fn carousel(w: &mut World) {
             } else {
                 format!("{name} hire {} as {} ({from}).", coach.name, o.role.name())
             };
-            w.news.push(NewsItem { year, kind: NewsKind::CoachHired, channel: Channel::News, program: Some(p), text });
+            w.news.push(NewsItem {
+                date: None,
+                year,
+                kind: NewsKind::CoachHired,
+                channel: Channel::News,
+                program: Some(p),
+                text,
+            });
         }
     }
 
-    // --- Everyone ages a year; assistants learn from their head coach --------------
+    set_nfl_coaching(w);
+    if w.recording && scope == Scope::College {
+        diversity_report(w);
+    }
+}
+
+/// Which carousel runs: college jobs the Sunday after rivalry week, NFL jobs
+/// on Black Monday, high school jobs in late January. A move can open a job
+/// at any level, and that job is filled the same day.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Scope {
+    College,
+    /// Black Monday: NFL firings and retirements; the seats stay open.
+    NflFirings,
+    /// After the conference title games: the open NFL seats are filled.
+    NflHires,
+    HighSchool,
+}
+
+impl Scope {
+    fn covers(self, e: Employer) -> bool {
+        matches!(
+            (self, e),
+            (Scope::College, Employer::College(_))
+                | (Scope::NflFirings | Scope::NflHires, Employer::Nfl(_))
+                | (Scope::HighSchool, Employer::HighSchool(_))
+        )
+    }
+}
+
+/// Everyone ages a year once the carousels are done; assistants learn from
+/// their head coach.
+pub(crate) fn age_coaches(w: &mut World) {
     for c in 0..w.coaches.len() {
         if w.coaches[c].retired {
             continue;
@@ -1280,9 +1200,6 @@ pub(crate) fn carousel(w: &mut World) {
         }
     }
     set_nfl_coaching(w);
-    if w.recording {
-        diversity_report(w);
-    }
 }
 
 /// The yearly TIDES-style count of FBS head coaches by ethnicity (note 2).
@@ -1306,6 +1223,7 @@ fn diversity_report(w: &mut World) {
         if parts.is_empty() { "none".to_string() } else { parts.join(", ") }
     );
     w.news.push(NewsItem {
+        date: None,
         year: w.year,
         kind: NewsKind::DiversityReport,
         channel: Channel::News,
@@ -1526,7 +1444,7 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
 }
 
 /// Prestige, grades, NIL and footprints after the season (topic 7, 8, 4).
-pub(crate) fn update_programs(w: &mut World, r: &SeasonResults) {
+pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResult]) {
     let year = w.year;
     // Booster payments for the class just signed, and the season's record.
     super::ncaa::after_signing(w);
@@ -1556,7 +1474,7 @@ pub(crate) fn update_programs(w: &mut World, r: &SeasonResults) {
         }
     }
     for i in 0..n {
-        let t = &r.college[i];
+        let t = &results[i];
         let win = if t.games() > 0 { t.win_pct() } else { 0.5 };
         let hc_rep = w.programs[i].head_coach.map_or(8.0, |c| w.coaches[c].reputation);
         let mut rng = w.rng.fork();
@@ -1629,7 +1547,7 @@ pub(crate) fn update_programs(w: &mut World, r: &SeasonResults) {
         }
     }
     for i in 0..n {
-        let t = &r.college[i];
+        let t = &results[i];
         let win = if t.games() > 0 { t.win_pct() } else { 0.5 };
         let hc_rep = w.programs[i].head_coach.map_or(8.0, |c| w.coaches[c].reputation);
         let p = &mut w.programs[i];
@@ -1688,7 +1606,7 @@ pub(crate) fn update_programs(w: &mut World, r: &SeasonResults) {
 
     // --- NIL collectives and their warnings -------------------------------------------
     for i in 0..n {
-        let win = if r.college[i].games() > 0 { r.college[i].win_pct() } else { 0.5 };
+        let win = if results[i].games() > 0 { results[i].win_pct() } else { 0.5 };
         let before = w.programs[i].collective.boosters();
         let mut rng: Rng = w.rng.fork();
         let level = program::update_collective(&mut w.programs[i], win, year + 1, &mut rng);

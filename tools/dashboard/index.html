@@ -136,13 +136,13 @@ details summary { cursor: pointer; font-weight: 600; }
 <script>
 "use strict";
 const TABS = [
-  ["health", "Health"], ["engine", "Game engine"], ["balance", "Balance"], ["wins", "What wins"],
+  ["verdict", "Verdict"], ["calendar", "Calendar"], ["health", "Health"], ["engine", "Game engine"], ["balance", "Balance"], ["wins", "What wins"],
   ["situ", "Situations"], ["players", "Player paths"], ["recruit", "Recruiting"], ["coaches", "Coaches"],
-  ["draft", "Draft"], ["records", "Records"], ["names", "Names"], ["anomalies", "Anomalies"],
+  ["draft", "Draft"], ["records", "Records"], ["names", "Names"], ["slumps", "Slumps"], ["anomalies", "Anomalies"],
   ["ideas", "Idea board"], ["seeds", "Seed lab"], ["explore", "Explorer"], ["pages", "Pages"],
 ];
 const SERIES = ["var(--s1)", "var(--s2)", "var(--s3)"];
-const S = { runs: [], real: null, notes: null, on: [], tab: "health", built: {} };
+const S = { runs: [], real: null, notes: null, on: [], tab: "verdict", built: {} };
 const $ = (sel, el = document) => el.querySelector(sel);
 const h = (tag, attrs = {}, ...kids) => {
   const e = document.createElement(tag);
@@ -845,7 +845,136 @@ function buildPages(p) {
   fillLists(); drawProg(); drawPlayer();
 }
 
-const BUILD = { health: buildHealth, engine: buildEngine, balance: buildBalance, wins: buildWins, situ: buildSitu, players: buildPlayers, recruit: buildRecruit, coaches: buildCoaches, draft: buildDraft, records: buildRecords, names: buildNames, anomalies: buildAnomalies, ideas: buildIdeas, seeds: buildSeeds, explore: buildExplore, pages: buildPages };
+/* ---------- Verdict: positives, negatives and bugs, suggestions ---------- */
+const VERDICT_KEY = "afm-lab-answers";
+function loadAnswers() { try { return JSON.parse(localStorage.getItem(VERDICT_KEY) || "{}"); } catch (e) { return {}; } }
+function saveAnswers(a) { try { localStorage.setItem(VERDICT_KEY, JSON.stringify(a)); } catch (e) {} }
+function verdictItem(n, cls) {
+  return h("div", { class: `item ${cls}` },
+    n.area ? h("span", { class: "tiny" }, n.area) : null,
+    h("span", { class: "t" }, n.title),
+    n.saw ? h("span", { class: "muted" }, n.saw) : null,
+    n.why ? h("span", {}, h("b", {}, "Why: "), n.why) : null,
+    n.fix ? h("span", {}, h("b", {}, "Fix: "), n.fix) : null);
+}
+function buildVerdict(p) {
+  const V = S.notes?.verdict || {};
+  p.append(h("p", { class: "intro" }, "What the three worlds say after the section 4 build, in three lists: what works, what is wrong or buggy, and what could change or be added. Every suggestion is one aspect with its own yes or no (small items of one kind are bundled, each part named). Tick your answers here; they stay in this browser, and the button copies them as a numbered list to paste back. Nothing here is decided."));
+  const defs = healthDefs().filter((d) => !d.group);
+  const auto = { good: [], warn: [], bad: [] };
+  for (const d of defs) {
+    const vals = active().map((i) => d.value(S.runs[i])).filter((v) => v != null);
+    const avg = mean(vals); const stt = status(avg, d.real, d.tol);
+    if (auto[stt]) auto[stt].push({ title: `${d.label}: ${fmt(avg, 2)}${d.unit} (real ${fmt(d.real, 2)}${d.unit})`, saw: d.why });
+  }
+  const pos = V.positives || [], neg = V.negatives || [], sug = V.suggestions || [];
+  p.append(h("div", { class: "summary" },
+    h("div", { class: "tile" }, h("span", { class: "tiny" }, "Positives"), h("span", { class: "big" }, String(pos.length + auto.good.length))),
+    h("div", { class: "tile" }, h("span", { class: "tiny" }, "Negatives and bugs"), h("span", { class: "big" }, String(neg.length + auto.bad.length))),
+    h("div", { class: "tile" }, h("span", { class: "tiny" }, "Suggestions and ideas"), h("span", { class: "big" }, String(sug.length))),
+    h("div", { class: "tile" }, h("span", { class: "tiny" }, "Health board"), h("span", { class: "big" }, `${auto.good.length} / ${auto.warn.length} / ${auto.bad.length}`), h("span", { class: "tiny" }, "near / off / far off"))));
+  const ans = loadAnswers();
+  const out = h("pre", { class: "tiny mono", style: "white-space:pre-wrap;margin:0" });
+  const refresh = () => { const a = loadAnswers(); out.textContent = sug.map((s, i) => `${s.n ?? i + 1}. ${a[s.n ?? i + 1] || "–"}`).join("\n"); };
+  const sugList = h("div", { class: "list" }, sug.map((s, i) => {
+    const n = s.n ?? i + 1;
+    const pick = (v) => h("button", { class: "chip", "aria-pressed": ans[n] === v ? "true" : "false", onclick: (ev) => {
+      const a = loadAnswers(); a[n] = a[n] === v ? undefined : v; saveAnswers(a);
+      for (const b of ev.currentTarget.parentNode.querySelectorAll("button")) b.setAttribute("aria-pressed", b.textContent === a[n] ? "true" : "false");
+      refresh();
+    } }, v);
+    return h("div", { class: "item" },
+      h("span", { class: "tiny" }, `${n}. ${s.area || ""}`),
+      h("span", { class: "t" }, s.title),
+      s.saw ? h("span", { class: "muted" }, s.saw) : null,
+      s.what ? h("span", {}, h("b", {}, "What changes: "), s.what) : null,
+      s.parts ? h("span", { class: "muted" }, "Parts: " + s.parts.join("; ")) : null,
+      h("div", { class: "row" }, pick("yes"), pick("no"), pick("later")));
+  }));
+  refresh();
+  const copy = h("button", { class: "chip", onclick: async () => { try { await navigator.clipboard.writeText(out.textContent); copy.textContent = "Copied"; } catch (e) { copy.textContent = "Select the list below to copy"; } } }, "Copy my answers");
+  p.append(h("div", { class: "grid wide" },
+    h("div", { class: "card" }, h("h3", {}, "Positives: what works"), h("div", { class: "list" }, pos.map((n) => verdictItem(n, "good")),
+      auto.good.length ? h("details", {}, h("summary", {}, `Health board measures near real (${auto.good.length})`), h("div", { class: "list" }, auto.good.map((n) => verdictItem(n, "good")))) : null)),
+    h("div", { class: "card" }, h("h3", {}, "Negatives and bugs"), h("div", { class: "list" }, neg.map((n) => verdictItem(n, n.level || "bad")),
+      auto.bad.length ? h("details", {}, h("summary", {}, `Health board measures far off (${auto.bad.length})`), h("div", { class: "list" }, auto.bad.map((n) => verdictItem(n, "bad")))) : null,
+      auto.warn.length ? h("details", {}, h("summary", {}, `Health board measures a little off (${auto.warn.length})`), h("div", { class: "list" }, auto.warn.map((n) => verdictItem(n, "warn")))) : null))));
+  p.append(h("div", { class: "card" }, h("h3", {}, "Suggestions and creative ideas"), h("div", { class: "row" }, copy), sugList, h("details", {}, h("summary", {}, "Your answers as text"), out)));
+}
+
+/* ---------- Calendar (section 4) ---------- */
+const MONTHS_FY = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0];
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function calRows(run) { return run.calendar?.years || []; }
+function calSeries(fn) { return runSeries((run) => calRows(run).map((y) => [y.year, fn(y)])); }
+function buildCalendar(p) {
+  if (!active().some((i) => S.runs[i].calendar)) { p.append(h("p", { class: "muted" }, "These worlds were run before section 4: no calendar data.")); return; }
+  const R = S.real.calendar || {};
+  p.append(h("p", { class: "intro" }, "Section 4: the daily clock. Each football year runs from the day after one Super Bowl to the next. These are the counters every year logs and the dated events it posts. Grey bands are real football where a source exists; the huge-game target is the design rule from topic 8, not real data."));
+  const avgOf = (fn) => mean(active().map((i) => mean(calRows(S.runs[i]).map(fn).filter((v) => v != null))).filter((v) => v != null));
+  p.append(h("div", { class: "summary" },
+    [["NFL games a year", avgOf((y) => y.nfl_games), `real ${R.nfl_games}`],
+     ["Early NFL entrants", avgOf((y) => y.declared), `real about ${R.early_entrants?.join("-")}`],
+     ["FBS signees signing in December", avgOf((y) => y.fbs_early_pct), `% (real about ${R.fbs_signed_early_pct?.join("-")}%)`],
+     ["Portal entry days", avgOf((y) => y.portal_days), "days with at least one entry"],
+     ["FBS teams with 1-3 huge games", avgOf((y) => y.college_huge_share_1_3), "% of FBS teams (target: most)"],
+     ["NFL teams with 1-3 huge games", avgOf((y) => y.nfl_huge_share_1_3), "% of NFL teams (target: most)"],
+     ["Days Continue stops", mean(active().map((i) => mean(Object.values(S.runs[i].calendar.events).map((e) => e.stop_days)))), "a year: huge moments or decisions"],
+    ].map(([t, v, s]) => h("div", { class: "tile" }, h("span", { class: "tiny" }, t), h("span", { class: "big" }, fmt(v)), h("span", { class: "tiny" }, s)))));
+  const g = h("div", { class: "grid" });
+  p.append(legend(), g);
+  g.append(card("Commitments by month", "Average verbal commitments and signings a year by month of the football year. Commitment waves follow junior days, June's official visits, the summer camps and senior-season visits; then each recruit announces on his own day. December and February are the signing periods.",
+    chartDiv((d) => barChart(d, { cats: MONTHS_FY.map((m) => MONTH_NAMES[m]), series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: MONTHS_FY.map((m) => mean(calRows(S.runs[i]).map((y) => y.commits_by_month[m]))) })) }))));
+  g.append(card("Early NFL entrants", "Underclassmen who declare by the January deadline. CFP players decide after their last game.",
+    chartDiv((d) => lineChart(d, { series: calSeries((y) => y.declared), ref: R.early_entrants ? { lo: R.early_entrants[0], hi: R.early_entrants[1], label: "Real (to check)" } : null }))));
+  g.append(card("FBS signees who sign in December", "Share of FBS signees signing in the early period (from 2017), the rest in February.",
+    chartDiv((d) => lineChart(d, { series: calSeries((y) => y.fbs_early_pct), ref: R.fbs_signed_early_pct ? { lo: R.fbs_signed_early_pct[0], hi: R.fbs_signed_early_pct[1], label: "Real (to check)" } : null, yFmt: (v) => fmt(v) + "%" }))));
+  g.append(card("Portal: entries, landed and back home", "Entries, players who found a school, and players who went back to their old school.",
+    chartDiv((d) => lineChart(d, { series: active().flatMap((i) => [0, 1].map((k) => ({ name: `${seedName(i)} ${k ? "landed" : "entered"}`, color: SERIES[i], pts: calRows(S.runs[i]).map((y) => [y.year, y.portal[k]]) }))) }))));
+  g.append(card("Portal: share on the busiest day", "The real portal is front-loaded: most entrants go in on the first days of the window.",
+    chartDiv((d) => lineChart(d, { series: calSeries((y) => y.portal_first_day_pct), yFmt: (v) => fmt(v) + "%" }))));
+  g.append(card("Recruiting visits", "Official visits on Fridays in contact and quiet periods, game-day unofficial visits within 250 miles, staff drop-ins on evaluation Fridays (thousands).",
+    chartDiv((d) => lineChart(d, { series: active().flatMap((i) => ["officials", "unofficials", "drop-ins"].map((n, k) => ({ name: `${seedName(i)} ${n}`, color: SERIES[i], pts: calRows(S.runs[i]).map((y) => [y.year, y.visits[k] / 1000]) }))) }))));
+  g.append(card("Commits, decommits and flips", "Verbal commitments, commitments broken, and flips to another school at signing.",
+    chartDiv((d) => lineChart(d, { series: active().flatMap((i) => [["commits", (y) => y.commits], ["decommits", (y) => y.decommits], ["flips", (y) => y.flips]].map(([n, f]) => ({ name: `${seedName(i)} ${n}`, color: SERIES[i], pts: calRows(S.runs[i]).map((y) => [y.year, f(y)]) }))) }))));
+  g.append(card("Huge regular-season games per FBS team", "Share of FBS teams by their number of huge regular-season games (topic 8: most seasons 1 to 3, some none). A game is huge for a team when two real stakes meet.",
+    chartDiv((d) => barChart(d, { cats: ["0", "1", "2", "3", "4+"], series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: [0, 1, 2, 3, 4].map((k) => mean(calRows(S.runs[i]).map((y) => 100 * y.college_huge[k] / S.runs[i].calendar.n_fbs))) })), yFmt: (v) => fmt(v) + "%" }))));
+  g.append(card("Huge regular-season games per NFL team", "Share of NFL teams by their number of huge games: late-season games for a playoff place or a division.",
+    chartDiv((d) => barChart(d, { cats: ["0", "1", "2", "3", "4+"], series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: [0, 1, 2, 3, 4].map((k) => mean(calRows(S.runs[i]).map((y) => 100 * y.nfl_huge[k] / 32))) })), yFmt: (v) => fmt(v) + "%" }))));
+  g.append(card("Days Continue stops", "Days a year with a huge moment or a decision, where Continue stops (topic 1 and 8).",
+    chartDiv((d) => lineChart(d, { series: runSeries((run) => Object.entries(run.calendar.events).map(([y, e]) => [+y, e.stop_days])) }))));
+  g.append(card("Bowl opt-outs and four-game redshirts", "Opt-outs from bowls (draft grade, personality, stakes) and redshirts kept under the four-game rule (from 2018).",
+    chartDiv((d) => lineChart(d, { series: active().flatMap((i) => [["opt-outs", (y) => y.opt_outs], ["four-game redshirts", (y) => y.four_game_redshirts]].map(([n, f]) => ({ name: `${seedName(i)} ${n}`, color: SERIES[i], pts: calRows(S.runs[i]).map((y) => [y.year, f(y)]) }))) }))));
+  g.append(card("Spring breakouts", "Notices at the start of spring, breakouts by the spring game, notices that fizzled (college and high school).",
+    chartDiv((d) => lineChart(d, { series: active().flatMap((i) => ["notices", "breakouts", "fizzles"].map((n, k) => ({ name: `${seedName(i)} ${n}`, color: SERIES[i], pts: calRows(S.runs[i]).map((y) => [y.year, y.spring[k]]) }))) }))));
+  g.append(card("Weather on college game days", "Games in snow, rain and freezing cold, lightning delays, games moved and cancelled.",
+    chartDiv((d) => lineChart(d, { series: active().flatMap((i) => ["snow", "rain", "freezing", "lightning"].map((n, k) => ({ name: `${seedName(i)} ${n}`, color: SERIES[i], pts: calRows(S.runs[i]).map((y) => [y.year, y.weather[k]]) }))) }))));
+  g.append(card("NFL calendar checks", "Games abroad, Christmas games and flexed games a year, read from the dated news.",
+    chartDiv((d) => lineChart(d, { series: active().flatMap((i) => [["abroad", "abroad"], ["Christmas", "christmas"], ["flexed", "flexed"]].map(([n, k]) => ({ name: `${seedName(i)} ${n}`, color: SERIES[i], pts: Object.entries(S.runs[i].calendar[k] || {}).map(([y, v]) => [+y, v]) }))) }))));
+  // Portal days of the last year.
+  g.append(card("The last winter's portal, day by day", "Entries per day in the last recorded year.",
+    chartDiv((d) => lineChart(d, { series: runSeries((run) => { const rows = calRows(run); const last = rows[rows.length - 1]; if (!last) return []; const t0 = Date.parse(last.portal_by_day[0]?.[0]); return last.portal_by_day.map(([dt, n]) => [Math.round((Date.parse(dt) - t0) / 864e5), n]); }), xFmt: (x) => `day ${x}` }))));
+  // A year at a glance and the champions.
+  const i0 = active()[0], run0 = S.runs[i0], cal = run0.calendar;
+  p.append(h("div", { class: "card" }, h("h3", {}, `A year at a glance: ${cal.glance_year}, ${seedName(i0)}`), h("p", { class: "why" }, "Every big and huge event of the last recorded football year, month by month."),
+    h("div", { class: "scrolly" }, Object.entries(cal.glance).map(([m, evs]) => h("details", { open: null }, h("summary", {}, `${m} (${evs.length})`), table(["Date", "Loud", "Level", "What"], evs, { max: 300 }))))));
+  const yearsAll = [...new Set(active().flatMap((i) => S.runs[i].calendar.nfl_champions.map((c) => c[0])))].sort();
+  p.append(h("div", { class: "grid" },
+    h("div", { class: "card" }, h("h3", {}, "Super Bowl champions"), h("div", { class: "scrolly" }, table(["Year", ...active().map(seedName)], yearsAll.map((y) => [y, ...active().map((i) => (S.runs[i].calendar.nfl_champions.find((c) => c[0] === y) || [0, "–"])[1])])))),
+    h("div", { class: "card" }, h("h3", {}, "Rule changes from the agreed list"), h("p", { class: "why" }, "The 12 off-field changes, each through its real process."), h("div", { class: "scrolly" }, table(["World", "Year", "Change"], active().flatMap((i) => calRows(S.runs[i]).flatMap((y) => y.rule_changes.map((c) => [S.runs[i].seed, y.year, c]))))))));
+}
+
+/* ---------- Slumps (named in every trial) ---------- */
+function buildSlumps(p) {
+  p.append(h("p", { class: "intro" }, "Every player with a big slump: a season where his rating fell 2 or more points, or his play fell 5 or more points below his rating in a slump. The reason comes from that season's development events (injury, games missed, a form slump, a lost season, suspension, age, poor coaching). Rows are players still active or kept as alumni."));
+  p.append(h("div", { class: "summary" }, active().map((i) => { const s = S.runs[i].slumps || { n: 0 }; return h("div", { class: "tile" }, h("span", { class: "tiny" }, seedName(i)), h("span", { class: "big" }, String(s.n)), h("span", { class: "tiny" }, `${s.rating_drops ?? 0} rating drops, ${s.form_slumps ?? 0} form slumps`)); })));
+  for (const i of active()) {
+    const s = S.runs[i].slumps; if (!s) continue;
+    p.append(h("div", { class: "card" }, h("h3", {}, seedName(i)), table(["Year (about)", "Name", "Pos", "Age", "Level", "Role", "Rating before", "After", "Change", "Play", "Play vs rating", "Why"], s.rows, { numeric: [3, 6, 7, 8, 9, 10], max: 150 })));
+  }
+}
+
+const BUILD = { verdict: buildVerdict, calendar: buildCalendar, slumps: buildSlumps, health: buildHealth, engine: buildEngine, balance: buildBalance, wins: buildWins, situ: buildSitu, players: buildPlayers, recruit: buildRecruit, coaches: buildCoaches, draft: buildDraft, records: buildRecords, names: buildNames, anomalies: buildAnomalies, ideas: buildIdeas, seeds: buildSeeds, explore: buildExplore, pages: buildPages };
 
 /* ---------- Shell ---------- */
 function render() {
@@ -874,8 +1003,8 @@ async function boot() {
   const tabs = $("#tabs");
   for (const [id, label] of TABS) tabs.append(h("button", { class: "tab", role: "tab", "data-id": id, onclick: () => show(id) }, label));
   let first = location.hash.slice(1);
-  if (!TABS.some((t) => t[0] === first)) { try { first = localStorage.getItem("afm-lab-tab") || "health"; } catch (e) { first = "health"; } }
-  S.tab = TABS.some((t) => t[0] === first) ? first : "health";
+  if (!TABS.some((t) => t[0] === first)) { try { first = localStorage.getItem("afm-lab-tab") || "verdict"; } catch (e) { first = "verdict"; } }
+  S.tab = TABS.some((t) => t[0] === first) ? first : "verdict";
   render();
 }
 boot().catch((e) => { $("#loading").textContent = "Could not load the trial data: " + e.message; });

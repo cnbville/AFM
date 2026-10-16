@@ -48,3 +48,23 @@ fn champions_are_strong_programs() {
         }
     }
 }
+
+/// Section 4: a football year on the calendar hangs together.
+#[test]
+fn the_calendar_year_hangs_together() {
+    let w = &*WORLD;
+    let log = w.log_history.iter().find(|l| l.year == 2025).expect("the 2025 football year");
+    // Commitments are announced through the year, not on a few days (T5.2).
+    let months = log.commits_by_month.iter().filter(|&&c| c > 0).count();
+    assert!(months >= 7, "{:?}", log.commits_by_month);
+    // FBS signees mostly sign in December's early period (2017 on).
+    let fbs = log.signed_by_division[Division::FBS as usize];
+    assert!(fbs[0] > 3 * fbs[1], "{fbs:?}");
+    // Real early entrants granted eligibility, 2022-2025: about 58-95.
+    assert!((40..=130).contains(&log.declared), "{}", log.declared);
+    // The portal fills over many days, not one (T3, T9).
+    assert!(log.portal_by_day.len() >= 10, "{:?}", log.portal_by_day);
+    // A full NFL year: 272 regular-season games and 13 playoff games.
+    assert_eq!(log.nfl_games, 285);
+    assert!(log.official_visits > 0 && log.unofficial_visits > 0 && log.drop_ins > 0);
+}

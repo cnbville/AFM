@@ -186,6 +186,23 @@ def real_values():
         "black_fbs_hc_share": 100 * 16 / 134,
         "names": t3["name_repeats"],
         "nfl_box": box, "nfl_pass_rate": nsit["pass_rate"],
+        # Section 4 references. Rule facts are exact; the rest are Claude's
+        # memory of public reports, marked "to check".
+        "calendar": {
+            "nfl_games": 285,
+            "early_entrants": [58, 98],
+            "fbs_signed_early_pct": [80, 90],
+            "christmas_games": [2, 3],
+            "abroad_2025": 7, "abroad_2026": 9,
+            "huge_share_1_to_3": 50,
+            "_notes": {
+                "nfl_games": "Rule fact: 17 games for 32 teams (272) plus 13 playoff games.",
+                "early_entrants": "Underclassmen granted special eligibility, 2021-2024 NFL announcements (from memory, to check).",
+                "fbs_signed_early_pct": "Share of FBS signees who sign in the December period since 2018 (247Sports and On3 reports, from memory, to check).",
+                "christmas_games": "NFL games on Christmas Day, 2020-2025 seasons (rule history).",
+                "huge_share_1_to_3": "Design target from T8.1, not real data: most seasons have 1 to 3 huge regular-season games, some none.",
+            },
+        },
         "sources": {
             "college": cgt["source"], "nfl": nfl["source"], "baselines": t3["source"],
             "game_shape": "CFBD schedules 2011-2025 (docs/trials/world-trial4-proposals.md)",
@@ -1183,6 +1200,138 @@ def player_pages(run):
     return pages
 
 
+def calendar_view(run, real):
+    """Section 4: each football year's counters, the stakes per team, the
+    portal's days and a year at a glance from the dated events."""
+    try:
+        years = list(jl(run.path, "calendar_years"))
+    except FileNotFoundError:
+        return None
+    try:
+        events = list(jl(run.path, "calendar_events"))
+    except FileNotFoundError:
+        events = []
+    try:
+        champs = list(jl(run.path, "nfl_champions"))
+    except FileNotFoundError:
+        champs = []
+    n_fbs = sum(1 for p in run.programs if p.get("div") == "FBS") or 134
+    rows = []
+    for y in years:
+        div = y["signed_by_division"]
+        fbs_total = div[0][0] + div[0][1]
+        huge = Counter(min(n, 4) for _, n in y["huge_by_team"])
+        huge[0] = max(0, n_fbs - sum(huge.values()))
+        nfl_huge = Counter(min(n, 4) for _, n in y["nfl_huge_by_team"])
+        portal = sorted(y["portal_by_day"], key=lambda d: d[0])
+        busiest = max((n for _, n in portal), default=0)
+        total_portal = sum(n for _, n in portal)
+        rows.append({
+            "year": y["year"],
+            "commits_by_month": y["commits_by_month"], "commits": y["commits"], "decommits": y["decommits"], "flips": y["flips"],
+            "fbs_early_pct": pct(div[0][0], fbs_total), "fcs_early_pct": pct(div[1][0], div[1][0] + div[1][1]),
+            "signed_by_division": div, "early_enrollees": y["early_enrollees"],
+            "visits": [y["official_visits"], y["unofficial_visits"], y["drop_ins"]],
+            "declared": y["declared"], "withdrew": y["withdrew"],
+            "portal": [y["portal_entries"], y["portal_landed"], y["portal_returned"]], "portal_days": len(portal),
+            "portal_first_day_pct": pct(busiest, total_portal), "portal_by_day": portal,
+            "opt_outs": y["opt_outs"], "bowl_practice_gain": y["bowl_practice_gain"],
+            "four_game_redshirts": y["four_game_redshirts"], "redshirt_tricks": y["redshirt_tricks"],
+            "spring": [y["spring_notices"], y["spring_breakouts"], y["spring_fizzles"]],
+            "weather": [y["snow"], y["rain"], y["freezing"], y["lightning"], y["moved"], y["cancelled"]],
+            "heat_days": y["heat_days"],
+            "hs": [y["hs_games"], y["hs_forfeits"], y["hs_no_contests"], y["hs_grade_outs"], y["hs_all_state"]],
+            "ineligible": [y["spring_ineligible"], y["fall_ineligible"]],
+            "invites": [y["combine_invites"], y["all_star_invites"]],
+            "college_huge": [huge.get(k, 0) for k in range(5)], "nfl_huge": [nfl_huge.get(k, 0) for k in range(5)],
+            "college_huge_share_1_3": pct(sum(huge.get(k, 0) for k in (1, 2, 3)), n_fbs),
+            "nfl_huge_share_1_3": pct(sum(nfl_huge.get(k, 0) for k in (1, 2, 3)), 32),
+            "rule_changes": y["rule_changes"], "nfl_games": y["nfl_games"],
+            "whispers": y["whispers"], "sit_out": y["sit_out_transfers"],
+        })
+    # Events: loud counts per year, Continue stops, and the last year at a glance.
+    loud = defaultdict(Counter)
+    stops = defaultdict(set)
+    kinds = defaultdict(Counter)
+    for e in events:
+        loud[e["year"]][e["loud"]] += 1
+        kinds[e["year"]][f'{e["level"]}|{e["kind"]}'] += 1
+        if e["loud"] == "Huge" or e["decision"]:
+            stops[e["year"]].add(e["date"])
+    by_year = {y: {"loud": dict(loud[y]), "stop_days": len(stops[y])} for y in loud}
+    last = max(loud) if loud else None
+    glance = defaultdict(list)
+    abroad, christmas, flexed, anniv = Counter(), Counter(), Counter(), Counter()
+    for e in events:
+        if e["level"] == "Nfl" and e["text"].startswith("An international game"):
+            abroad[e["year"]] += 1
+        if e["level"] == "Nfl" and e["date"][5:] == "12-25" and e["kind"] == "Game" and " beat " in e["text"]:
+            christmas[e["year"]] += 1
+        if e["rule"] == "NFL: flexible scheduling":
+            flexed[e["year"]] += 1
+        if e["kind"] == "Anniversary":
+            anniv[e["year"]] += 1
+        if e["year"] == last and e["loud"] in ("Huge", "Big"):
+            glance[e["date"][:7]].append([e["date"], e["loud"], e["level"], e["text"]])
+    return {
+        "years": rows, "events": by_year, "n_fbs": n_fbs,
+        "kinds_last": kinds[last].most_common(40) if last else [],
+        "glance_year": last, "glance": {m: v for m, v in sorted(glance.items())},
+        "abroad": dict(abroad), "christmas": dict(christmas), "flexed": dict(flexed), "anniversaries": dict(anniv),
+        "nfl_champions": [[c["year"], c["team"]] for c in champs],
+    }
+
+
+def slumps(run):
+    """Every big slump (the trial rule): a season where the rating fell 2 or
+    more points, or the play fell 5 or more below the rating with a slump.
+    The reason comes from that season's development events."""
+    out = []
+    seen = set()
+    for src in (run.people, run.alumni):
+        for q in src:
+            det = q.get("detail")
+            if not det:
+                continue
+            key = (q["name"], q.get("class_of"))
+            if key in seen:
+                continue
+            seen.add(key)
+            for s in det["seasons"]:
+                if s["start"] is None or s["end"] is None:
+                    continue
+                drop = s["end"] - s["start"]
+                form = (s["perf"] - s["start"]) if s.get("perf") is not None else 0
+                ev = s.get("ev", [])
+                if drop > -2 and not (form <= -5 and "slump" in ev):
+                    continue
+                why = []
+                if "majorInjury" in ev:
+                    why.append("major injury")
+                elif "moderateInjury" in ev:
+                    why.append("moderate injury")
+                elif "minorInjury" in ev:
+                    why.append("minor injury")
+                if s.get("missed"):
+                    why.append(f'{s["missed"]} games missed')
+                for k, t in (("slump", "a form slump"), ("lostSeason", "a lost season"), ("suspended", "suspended or ineligible"),
+                             ("dismissed", "dismissed"), ("stagnation", "stagnation"), ("bodyStalled", "body stopped developing")):
+                    if k in ev:
+                        why.append(t)
+                if s["age"] >= 30:
+                    why.append(f'age {s["age"]} decline')
+                if s.get("coach") is not None and s["coach"] < 7:
+                    why.append(f'poor coaching ({s["coach"]})')
+                if s["role"] in ("redshirt", "unsigned", "practiceSquad") and drop <= -2:
+                    why.append("no snaps")
+                year = (q.get("class_of") or 0) + s["age"] - 18 if q.get("class_of") else None
+                out.append([year, q["name"], s["pos"], s["age"], s["level"], s["role"], s["start"], s["end"], r(drop),
+                            s.get("perf"), r(form), ", ".join(why) or "no event recorded (the yearly step)"])
+    out.sort(key=lambda x: (x[8], x[10]))
+    return {"n": len(out), "rating_drops": sum(1 for x in out if x[8] <= -2), "form_slumps": sum(1 for x in out if x[10] <= -5),
+            "rows": out[:400]}
+
+
 def build(run, real):
     print(f"seed {run.seed}: {len(run.games)} games, {len(run.alumni)} alumni, {len(run.people)} people", file=sys.stderr)
     profiles = team_profiles(run)
@@ -1195,6 +1344,7 @@ def build(run, real):
         "situ": situations(run), "life": life, "recruit": recruiting(run), "coaches": coach, "draft": draft(run),
         "records": recs, "names": names(run), "anomalies": anomalies(run, real, recs, coach, life),
         "explorer": explorer(run, profiles), "programs": program_pages(run), "players": player_pages(run),
+        "calendar": calendar_view(run, real), "slumps": slumps(run),
     }
     return data
 

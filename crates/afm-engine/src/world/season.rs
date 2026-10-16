@@ -1,7 +1,7 @@
-//! One season at every level: depth charts, development, and the games.
-//!
-//! The games are a stand-in until the match engine (section 3): a game is won
-//! by comparing the two teams' starters as they played that year (form,
+//! One season at every level: depth charts, development, team strength and
+//! what the match engine needs. The games themselves run on the calendar
+//! (`college.rs`, `hs_year.rs`). High school games are a stand-in: a game is
+//! won by comparing the two teams' starters as they played that year (form,
 //! slumps and breakouts included), plus home field and luck.
 
 use rayon::prelude::*;
@@ -12,7 +12,7 @@ use super::data::Division;
 use super::{Stage, World, division_level};
 use crate::athlete::Eye;
 use crate::development::{SeasonContext, Trouble, develop_season};
-use crate::game::{Caller, Front, GamePlayer, GameTeam, OffScheme, Shell, Staff as GameStaff, quick_game_with};
+use crate::game::{Caller, Front, GamePlayer, GameTeam, OffScheme, Shell, Staff as GameStaff};
 use crate::league::depth_slots;
 use crate::player::{Level, PlayingTime};
 use crate::positions::{POSITION_COUNT, Position};
@@ -59,11 +59,6 @@ impl TeamResult {
             TitleKind::None
         }
     }
-}
-
-pub(crate) struct SeasonResults {
-    pub hs: Vec<TeamResult>,
-    pub college: Vec<TeamResult>,
 }
 
 /// A cheap, order-independent uniform draw in [0, 1) from a key.
@@ -121,26 +116,26 @@ fn depth_chart(
     out
 }
 
-pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
-    let year = w.year as u64;
-    let seed = w.options.seed as u64;
-    let n = w.people.len();
-    let mut roles = vec![PlayingTime::Backup; n];
-
-    // --- Where everyone plays (topic 5.2) ---------------------------------------
-    // Before each season, staffs take a fresh look: a boy who grew, a new
-    // college staff, an athlete signed without a set position.
+/// Staffs take a fresh look before each season (topic 5.2): a boy who grew,
+/// a new college staff, an athlete signed without a set position.
+pub(crate) fn reconsider_positions(w: &mut World, who: &[bool]) {
     let eyes: Vec<Option<(Eye, f64)>> = w
         .people
         .iter()
-        .map(|p| match p.stage {
-            Stage::HighSchool if p.player.age > 14 => Some((w.hs_eye(p.hs), 0.03)),
-            Stage::College => p.college.map(|c| {
-                let prog = &w.programs[c];
-                let skill = prog.head_coach.map_or(10.0, |h| w.coaches[h].ability().head_coach_value());
-                (Eye::coach(skill).staff(0x434F_0000 ^ c as u32), 0.015)
-            }),
-            _ => None,
+        .enumerate()
+        .map(|(i, p)| {
+            if !who[i] {
+                return None;
+            }
+            match p.stage {
+                Stage::HighSchool if p.player.age > 14 => Some((w.hs_eye(p.hs), 0.03)),
+                Stage::College => p.college.map(|c| {
+                    let prog = &w.programs[c];
+                    let skill = prog.head_coach.map_or(10.0, |h| w.coaches[h].ability().head_coach_value());
+                    (Eye::coach(skill).staff(0x434F_0000 ^ c as u32), 0.015)
+                }),
+                _ => None,
+            }
         })
         .collect();
     w.people.par_iter_mut().zip(eyes.par_iter()).for_each(|(p, eye)| {
@@ -151,13 +146,18 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
             p.note(format!("Moved from {from} to {to} by {by} at {age}."));
         }
     });
+}
 
-    // --- Depth charts ---------------------------------------------------------
+/// Depth charts at a set of high schools. A transfer sitting out under his
+/// state's rule plays no varsity games.
+pub(crate) fn hs_roles(w: &World, schools: &[usize]) -> Vec<(usize, PlayingTime)> {
+    let year = w.year as u64;
+    let seed = w.options.seed as u64;
     let people = &w.people;
-    let hs_roles: Vec<Vec<(usize, PlayingTime)>> = w
-        .high_schools
+    schools
         .par_iter()
-        .map(|s| {
+        .map(|&h| {
+            let s = &w.high_schools[h];
             let mut entries: Vec<(usize, Position, f64)> = s
                 .roster
                 .iter()
@@ -168,7 +168,6 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
                 })
                 .collect();
             let mut chart = depth_chart(&mut entries, false, &|_| false);
-            // A transfer sitting out under his state's rule plays no varsity games.
             for (i, role) in chart.iter_mut() {
                 let p = &people[*i];
                 if p.sit_out > 0.0 && key_normal(seed ^ year ^ 7, p.player.id as u64).abs() < 1.6 * p.sit_out {
@@ -177,9 +176,17 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
             }
             chart
         })
-        .collect();
-    let programs = &w.programs;
-    let college_roles: Vec<Vec<(usize, PlayingTime)>> = programs
+        .flatten()
+        .collect()
+}
+
+/// Depth charts at every college program. Young players must beat the
+/// upperclassmen ahead of them.
+pub(crate) fn college_roles(w: &World) -> Vec<(usize, PlayingTime)> {
+    let year = w.year as u64;
+    let seed = w.options.seed as u64;
+    let people = &w.people;
+    w.programs
         .par_iter()
         .map(|prog| {
             let mut entries: Vec<(usize, Position, f64)> = prog
@@ -187,7 +194,6 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
                 .iter()
                 .map(|&i| {
                     let p = &people[i];
-                    // Young players must beat the upperclassmen ahead of them.
                     let blocked = match p.college_seasons {
                         0 => 4.0 + 6.0 * prog.prestige,
                         1 => 2.0 + 3.0 * prog.prestige,
@@ -203,25 +209,35 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
                 !p.redshirt_used && p.college_seasons <= 1
             })
         })
-        .collect();
-    for (i, role) in hs_roles.into_iter().flatten().chain(college_roles.into_iter().flatten()) {
-        roles[i] = role;
-    }
+        .flatten()
+        .collect()
+}
 
+/// The season's development step (one checkpoint a year, `development.rs`)
+/// for the people given, with their roles. High school players develop when
+/// their state's season starts, college and prep players at fall camp.
+pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
+    let year = w.year as u64;
+    let n = w.people.len();
+    let mut role_of: Vec<Option<PlayingTime>> = vec![None; n];
+    for &(i, r) in roles {
+        role_of[i] = Some(r);
+    }
     // A transfer's first depth chart at his new school (trial records, 11.16).
     for (i, p) in w.people.iter_mut().enumerate() {
-        if let Some(from) = p.transfer_from.take()
+        if let Some(role) = role_of[i]
             && p.stage == Stage::College
+            && let Some(from) = p.transfer_from.take()
             && let Some(c) = p.college
         {
-            w.recruiting_log.transfer_seasons.push((w.year, from, roles[i], w.programs[c].division));
+            w.recruiting_log.transfer_seasons.push((w.year, from, role, w.programs[c].division));
         }
     }
-
-    // --- Development -----------------------------------------------------------
     let (people, schools, programs, coaches) = (&mut w.people, &w.high_schools, &w.programs, &w.coaches);
-    people.par_iter_mut().zip(roles.par_iter()).for_each(|(p, &role)| {
+    people.par_iter_mut().zip(role_of.par_iter()).for_each(|(p, role)| {
+        let Some(role) = *role else { return };
         p.incident = false;
+        p.cal.season_reset();
         let group = Group::of(p.player.position);
         let (level, coaching, team_situation, base_trouble) = match p.stage {
             Stage::HighSchool => {
@@ -268,8 +284,9 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
         }
         let role = if trouble.is_some() { PlayingTime::Backup } else { role };
         // Academics (note 6): an academic redshirt sits his first year; a
-        // borderline student can lose his eligibility, less often with strong
-        // academic support. Neither uses a season of eligibility.
+        // borderline student can lose his eligibility (checked when the
+        // spring term ended, A23), less often with strong academic support.
+        // Neither uses a season of eligibility.
         let mut academic_sit = false;
         if p.stage == Stage::College && trouble.is_none() {
             let prog = &programs[p.college.unwrap_or(0)];
@@ -277,13 +294,16 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
             if p.academic_redshirt {
                 academic_sit = true;
                 p.academic_redshirt = false;
-            } else if prog.division != Division::JUCO {
-                let risk = 0.06 * clamp((2.5 - p.bg.gpa) / 0.5, 0.0, 1.0) * (1.3 - support);
-                if p.rng.chance(risk) {
-                    academic_sit = true;
-                    let age = p.player.age;
-                    p.note(format!("Academically ineligible for the season at {age} (GPA {:.2}).", p.bg.gpa));
-                }
+            } else if p.cal.spring_ineligible {
+                academic_sit = true;
+                p.cal.spring_ineligible = false;
+            }
+            // A transfer sitting out his year under the rules of the day: a
+            // year on the clock, practice only, no season of competition.
+            if p.cal.transfer_sit {
+                academic_sit = true;
+                p.cal.transfer_sit = false;
+                p.cal.sitting_transfer = true;
             }
             let effort = 0.012 * (p.player.personality.work_ethic - 10.0) + 0.06 * (support - 0.5);
             p.bg.gpa = clamp(p.bg.gpa + effort + p.rng.normal(0.0, 0.1), 0.0, 4.0);
@@ -307,12 +327,16 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
             let effort = (p.player.personality.work_ethic - 10.0) * 0.03 + (p.bg.stability - 10.0) * 0.02;
             p.bg.gpa = clamp(p.bg.gpa + p.rng.range(-0.1, 0.45) + effort, 0.0, 4.0);
         }
-        // An academic sit is a year on the clock without a season of competition.
+        // An academic sit is a year on the clock without a season of
+        // competition. A redshirt is decided now; whether the season counts
+        // is settled when it ends, by the games he played (the 2018 rule).
+        p.cal.academic_sit = academic_sit;
+        p.cal.trouble = trouble.is_some();
         if p.stage == Stage::College && !academic_sit {
             if role == PlayingTime::Redshirt {
                 p.redshirt_used = true;
             } else if trouble.is_none() {
-                p.college_seasons += 1;
+                p.cal.count_pending = true;
             }
         }
         match trouble {
@@ -333,46 +357,40 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
             p.stage = Stage::Done;
         }
     });
-    super::staff::credit_teaching(w);
+}
 
-    attach_level_ratings(w);
-
-    // --- Team strength -----------------------------------------------------------
-    let team_strength = |roster: &[usize], people: &[super::Person]| -> (f64, f64, u32) {
-        let mut sum = 0.0;
-        let mut pre = 0.0;
-        let mut n = 0.0;
-        let mut incidents = 0;
-        for &i in roster {
-            let p = &people[i];
-            if p.incident {
-                incidents += 1;
-            }
-            if p.last_role != Some(PlayingTime::Starter) || p.player.position.is_specialist() {
-                continue;
-            }
-            let h = p.player.history.last();
-            pre += h.map_or(p.player.overall(), |h| h.overall_start);
-            sum += p.last_performance.unwrap_or_else(|| h.map_or(p.player.overall(), |h| h.overall_start));
-            n += 1.0;
+/// A team's strength from its starters as they play this season (form,
+/// slumps and breakouts included), its preseason strength, and its
+/// off-field incidents.
+pub(crate) fn team_strength(roster: &[usize], people: &[super::Person]) -> (f64, f64, u32) {
+    let mut sum = 0.0;
+    let mut pre = 0.0;
+    let mut n = 0.0;
+    let mut incidents = 0;
+    for &i in roster {
+        let p = &people[i];
+        if p.incident {
+            incidents += 1;
         }
-        if n == 0.0 { (30.0, 30.0, incidents) } else { (sum / n, pre / n, incidents) }
-    };
+        if p.last_role != Some(PlayingTime::Starter) || p.player.position.is_specialist() {
+            continue;
+        }
+        let h = p.player.history.last();
+        pre += h.map_or(p.player.overall(), |h| h.overall_start);
+        sum += p.last_performance.unwrap_or_else(|| h.map_or(p.player.overall(), |h| h.overall_start));
+        n += 1.0;
+    }
+    if n == 0.0 { (30.0, 30.0, incidents) } else { (sum / n, pre / n, incidents) }
+}
+
+/// Every program's season record so far, with its strength (game
+/// management turns talent into wins).
+pub(crate) fn college_results(w: &World) -> Vec<TeamResult> {
     let people = &w.people;
-    let mut hs: Vec<super::season::TeamResult> = w
-        .high_schools
-        .par_iter()
-        .map(|s| {
-            let (strength, preseason, incidents) = team_strength(&s.roster, people);
-            TeamResult { strength, preseason, incidents, roster: s.roster.len() as u32, ..Default::default() }
-        })
-        .collect();
-    let mut college: Vec<TeamResult> = w
-        .programs
+    w.programs
         .par_iter()
         .map(|p| {
             let (strength, preseason, incidents) = team_strength(&p.roster, people);
-            // Game management turns talent into wins.
             let gm = p.head_coach.map_or(0.0, |c| (w.coaches[c].ability().game_management - 10.0) * 0.12);
             TeamResult {
                 strength: strength + gm,
@@ -382,308 +400,73 @@ pub(crate) fn play_seasons(w: &mut World) -> SeasonResults {
                 ..Default::default()
             }
         })
-        .collect();
+        .collect()
+}
 
-    // Trial tooling: each FBS starting lineup by position, rated as `strength` rates it.
-    if w.options.keep_game_log && w.recording {
-        for p in w.programs.iter().filter(|p| p.division == Division::FBS) {
-            let mut sum = [0.0; POSITION_COUNT];
-            let mut n = [0u32; POSITION_COUNT];
-            for &i in &p.roster {
-                let q = &w.people[i];
-                if q.last_role != Some(PlayingTime::Starter) {
-                    continue;
-                }
-                let h = q.player.history.last();
-                let v = q.last_performance.unwrap_or_else(|| h.map_or(q.player.overall(), |h| h.overall_start));
-                sum[q.player.position.index()] += v;
-                n[q.player.position.index()] += 1;
-            }
-            w.game_log.lineups.insert((w.year, p.id), (sum, n));
-            // Depth, experience, kicker and the coordinators' calling.
-            let mut rot = (0.0_f64, 0.0_f64);
-            let mut exp = (0.0_f64, 0.0_f64);
-            let mut kick = 0.0_f64;
-            for &i in &p.roster {
-                let q = &w.people[i];
-                let h = q.player.history.last();
-                let v = q.last_performance.unwrap_or_else(|| h.map_or(q.player.overall(), |h| h.overall_start));
-                match q.last_role {
-                    Some(PlayingTime::Rotation) => rot = (rot.0 + v, rot.1 + 1.0),
-                    Some(PlayingTime::Starter) => {
-                        exp = (exp.0 + q.college_seasons as f64, exp.1 + 1.0);
-                        if q.player.position == Position::K {
-                            kick = v;
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            let call = |c: Option<usize>| {
-                c.or(p.head_coach).map_or(0.0, |c| {
-                    let a = w.coaches[c].ability();
-                    0.6 * a.scheme + 0.4 * a.game_management
-                })
-            };
-            w.game_log.extras.insert(
-                (w.year, p.id),
-                [rot.0 / rot.1.max(1.0), rot.1, exp.0 / exp.1.max(1.0), kick, call(p.oc), call(p.dc)],
-            );
-        }
+/// Trial tooling: each FBS starting lineup by position, rated as `strength`
+/// rates it, with depth, experience, kicker and the coordinators' calling.
+pub(crate) fn record_lineups(w: &mut World) {
+    if !(w.options.keep_game_log && w.recording) {
+        return;
     }
-
-    // --- High school games: by state and classification ----------------------------
-    let mut groups: std::collections::HashMap<(usize, u32), Vec<usize>> = std::collections::HashMap::new();
-    for s in w.high_schools.iter() {
-        if !s.roster.is_empty() {
-            groups.entry((s.state, s.classification)).or_default().push(s.id);
-        }
-    }
-    let mut keys: Vec<(usize, u32)> = groups.keys().copied().collect();
-    keys.sort();
-    for key in keys {
-        let teams = &groups[&key];
-        play_rounds(teams, 10, 3.5, &mut hs, &mut w.rng, false, None);
-        let champ = playoff(teams, 8, 3.5, &mut hs, &mut w.rng, None);
-        if let Some(c) = champ {
-            hs[c].state_title = true;
-        }
-    }
-
-    // --- College games: conference games, then non-conference, by division --------
-    // Every college game runs on the match engine, history included (item 12,
-    // Raichel 2026-10-14). High school games still use the rating stand-in:
-    // about 70,000 a year is too slow for the engine today.
-    let on_engine = w.options.engine_from.is_none_or(|from| w.year >= from);
-    let game_teams: Vec<Option<GameTeam>> =
-        if on_engine { w.programs.par_iter().map(|p| game_team(w, p)).collect() } else { Vec::new() };
-    let coach_context: Vec<CoachContext> =
-        if on_engine { w.programs.iter().map(|p| coach_context(w, p)).collect() } else { Vec::new() };
-    #[cfg(feature = "debug")]
-    crate::debug::capture_teams(w.year, &game_teams, &college.iter().map(|r| r.strength).collect::<Vec<_>>());
-    // An NCAA postseason ban: no conference title and no playoff (11.6).
-    let banned: Vec<bool> = w.programs.iter().map(|p| p.era.banned(w.year)).collect();
-    let game_log = std::sync::Mutex::new(std::mem::take(&mut w.game_log));
-    let snaps = std::sync::Mutex::new(std::collections::HashMap::<u32, u32>::new());
-    for division in [Division::FBS, Division::FCS, Division::D2, Division::JUCO] {
-        let engine = Engine {
-            teams: &game_teams,
-            coaches: &coach_context,
-            snaps: &snaps,
-            level: division_level(division),
-            log: (w.options.keep_game_log && w.recording).then_some(&game_log),
-            year: w.year,
-            division,
-        };
-        let engine = on_engine.then_some(&engine);
-        let members: Vec<usize> =
-            w.programs.iter().filter(|p| p.division == division && !p.roster.is_empty()).map(|p| p.id).collect();
-        if members.is_empty() {
-            continue;
-        }
-        if std::env::var("AFM_DEBUG").is_ok() {
-            let xs: Vec<f64> = members.iter().map(|&i| college[i].strength).collect();
-            let m = xs.iter().sum::<f64>() / xs.len() as f64;
-            let sd = (xs.iter().map(|x| (x - m).powi(2)).sum::<f64>() / xs.len() as f64).sqrt();
-            let mut v = xs.clone();
-            v.sort_by(|a, b| b.total_cmp(a));
-            eprintln!("STRENGTH {:?} {} mean {m:.1} sd {sd:.2} top5 {:?}", division, w.year, &v[..5.min(v.len())]);
-        }
-        let mut confs: std::collections::BTreeMap<String, Vec<usize>> = std::collections::BTreeMap::new();
-        for &i in &members {
-            confs.entry(w.programs[i].conference.clone()).or_default().push(i);
-        }
-        for (name, teams) in confs.iter() {
-            if name.contains("Independent") || teams.len() < 2 {
+    for p in w.programs.iter().filter(|p| p.division == Division::FBS) {
+        let mut sum = [0.0; POSITION_COUNT];
+        let mut n = [0u32; POSITION_COUNT];
+        for &i in &p.roster {
+            let q = &w.people[i];
+            if q.last_role != Some(PlayingTime::Starter) {
                 continue;
             }
-            let rounds = (teams.len() - 1).min(8);
-            play_rounds(teams, rounds, COLLEGE_SPREAD, &mut college, &mut w.rng, true, engine);
-            // Conference champion: best conference record, then strength.
-            let champ = teams.iter().copied().filter(|&i| !banned[i]).max_by(|&a, &b| {
-                let ra = college[a].conf_wins as f64 - college[a].conf_losses as f64 + 0.01 * college[a].strength;
-                let rb = college[b].conf_wins as f64 - college[b].conf_losses as f64 + 0.01 * college[b].strength;
-                ra.total_cmp(&rb)
-            });
-            if let Some(champ) = champ {
-                college[champ].conference_title = true;
+            let h = q.player.history.last();
+            let v = q.last_performance.unwrap_or_else(|| h.map_or(q.player.overall(), |h| h.overall_start));
+            sum[q.player.position.index()] += v;
+            n[q.player.position.index()] += 1;
+        }
+        w.game_log.lineups.insert((w.year, p.id), (sum, n));
+        let mut rot = (0.0_f64, 0.0_f64);
+        let mut exp = (0.0_f64, 0.0_f64);
+        let mut kick = 0.0_f64;
+        for &i in &p.roster {
+            let q = &w.people[i];
+            let h = q.player.history.last();
+            let v = q.last_performance.unwrap_or_else(|| h.map_or(q.player.overall(), |h| h.overall_start));
+            match q.last_role {
+                Some(PlayingTime::Rotation) => rot = (rot.0 + v, rot.1 + 1.0),
+                Some(PlayingTime::Starter) => {
+                    exp = (exp.0 + q.college_seasons as f64 + q.cal.count_pending as u32 as f64, exp.1 + 1.0);
+                    if q.player.position == Position::K {
+                        kick = v;
+                    }
+                }
+                _ => {}
             }
         }
-        // Non-conference games fill every schedule, independents included.
-        let target: u32 = if division == Division::JUCO { 10 } else { 12 };
-        for _ in 0..12 {
-            let needy: Vec<usize> = members.iter().copied().filter(|&i| college[i].games() < target).collect();
-            if needy.len() < 2 {
-                break;
-            }
-            play_rounds(&needy, 1, COLLEGE_SPREAD, &mut college, &mut w.rng, false, engine);
-        }
-        let field = match division {
-            Division::FBS => 12,
-            Division::FCS | Division::D2 => 16,
-            Division::JUCO => 4,
-        };
-        // Conference champions get in first, then the best of the rest.
-        // The SWAC and MEAC skip the FCS playoffs (Celebration Bowl instead).
-        let mut ranked: Vec<usize> = members
-            .iter()
-            .copied()
-            .filter(|&i| {
-                !banned[i]
-                    && !matches!(w.programs[i].conference.as_str(), "SWAC" | "MEAC" | "Mid-Eastern_Athletic_Conference")
+        let call = |c: Option<usize>| {
+            c.or(p.head_coach).map_or(0.0, |c| {
+                let a = w.coaches[c].ability();
+                0.6 * a.scheme + 0.4 * a.game_management
             })
-            .collect();
-        ranked.sort_by(|&a, &b| {
-            let ka = college[a].win_pct()
-                + if college[a].conference_title { 0.15 } else { 0.0 }
-                + 0.01 * college[a].strength;
-            let kb = college[b].win_pct()
-                + if college[b].conference_title { 0.15 } else { 0.0 }
-                + 0.01 * college[b].strength;
-            kb.total_cmp(&ka)
-        });
-        if let Some(c) = playoff(&ranked, field, COLLEGE_SPREAD, &mut college, &mut w.rng, engine) {
-            college[c].national_title = true;
-        }
-    }
-    w.game_log = game_log.into_inner().unwrap();
-    // Snaps become game experience. Before the engine runs (quick history
-    // checks only) a season's snaps follow the depth chart.
-    let snaps = snaps.into_inner().unwrap();
-    for (i, p) in w.people.iter_mut().enumerate() {
-        if p.stage != Stage::College {
-            continue;
-        }
-        let n = if on_engine {
-            snaps.get(&p.player.id).copied().unwrap_or(0)
-        } else {
-            match roles[i] {
-                PlayingTime::Starter => SEASON_SNAPS,
-                PlayingTime::Rotation => SEASON_SNAPS * 2 / 5,
-                PlayingTime::Backup => SEASON_SNAPS / 12,
-                _ => 0,
-            }
         };
-        p.last_snaps = n;
-        p.college_snaps += n;
+        w.game_log.extras.insert(
+            (w.year, p.id),
+            [rot.0 / rot.1.max(1.0), rot.1, exp.0 / exp.1.max(1.0), kick, call(p.oc), call(p.dc)],
+        );
     }
-    if w.options.keep_game_log && w.recording {
-        for p in w.people.iter().filter(|p| p.stage == Stage::College) {
-            if let Some(s) = w.game_log.players.get_mut(&(w.year, p.player.id)) {
-                s.pos = Some(p.player.position);
-            }
-            w.game_log
-                .names
-                .entry(p.player.id)
-                .or_insert_with(|| (p.name.clone(), p.player.position, p.stars, p.class_of));
-        }
-    }
-    SeasonResults { hs, college }
 }
 
 /// How much a gap in starters' average rating decides a college game. At 3.5,
 /// a team 5 points better wins about 4 in 5 (proposed, not confirmed; the
 /// match engine in section 3 replaces this stand-in).
-const COLLEGE_SPREAD: f64 = 3.5;
+pub(crate) const COLLEGE_SPREAD: f64 = 3.5;
 
-fn win_chance(a: f64, b: f64, spread: f64, home: f64) -> f64 {
+pub(crate) fn win_chance(a: f64, b: f64, spread: f64, home: f64) -> f64 {
     1.0 / (1.0 + (-(a - b + home) / spread).exp())
-}
-
-/// Plays `rounds` rounds of random pairings within a group.
-fn play_rounds(
-    teams: &[usize],
-    rounds: usize,
-    spread: f64,
-    results: &mut [TeamResult],
-    rng: &mut crate::rng::Rng,
-    conference: bool,
-    engine: Option<&Engine>,
-) {
-    if teams.len() < 2 {
-        return;
-    }
-    let mut order: Vec<usize> = teams.to_vec();
-    for r in 0..rounds {
-        // Rotate a shuffled order so pairings change every round.
-        for k in (1..order.len()).rev() {
-            let j = rng.int(0, k as i32) as usize;
-            order.swap(k, j);
-        }
-        let pairs: Vec<(usize, usize)> = (0..order.len() / 2)
-            .map(|k| if r % 2 == 0 { (order[2 * k], order[2 * k + 1]) } else { (order[2 * k + 1], order[2 * k]) })
-            .collect();
-        let played = match engine {
-            Some(e) => engine_games(e, &pairs, rng.int(0, i32::MAX) as u64, results),
-            None => vec![None; pairs.len()],
-        };
-        for (&(a, b), on_field) in pairs.iter().zip(played) {
-            let p = win_chance(results[a].strength, results[b].strength, spread, 0.8);
-            let pe = win_chance(results[a].preseason, results[b].preseason, spread, 0.8);
-            results[a].expected += pe;
-            results[b].expected += 1.0 - pe;
-            let a_wins = book(results, a, b, on_field).unwrap_or_else(|| rng.chance(p));
-            let (w, l) = if a_wins { (a, b) } else { (b, a) };
-            results[w].wins += 1;
-            results[l].losses += 1;
-            if conference {
-                results[w].conf_wins += 1;
-                results[l].conf_losses += 1;
-            }
-        }
-    }
-}
-
-/// Single elimination among the top `field` teams of `ranked` (already in seed
-/// order or ranked here by record). Returns the champion.
-fn playoff(
-    teams: &[usize],
-    field: usize,
-    spread: f64,
-    results: &mut [TeamResult],
-    rng: &mut crate::rng::Rng,
-    engine: Option<&Engine>,
-) -> Option<usize> {
-    let mut seeds: Vec<usize> = teams.to_vec();
-    seeds.sort_by(|&a, &b| {
-        let ka =
-            results[a].win_pct() + if results[a].conference_title { 0.15 } else { 0.0 } + 0.01 * results[a].strength;
-        let kb =
-            results[b].win_pct() + if results[b].conference_title { 0.15 } else { 0.0 } + 0.01 * results[b].strength;
-        kb.total_cmp(&ka)
-    });
-    seeds.truncate(field.max(1));
-    while seeds.len() > 1 {
-        let n = seeds.len();
-        let mut next = Vec::with_capacity(n.div_ceil(2));
-        // Top seeds get byes when the field isn't a power of two.
-        let pow = n.next_power_of_two();
-        let byes = pow - n;
-        next.extend_from_slice(&seeds[..byes]);
-        let rest = &seeds[byes..];
-        let m = rest.len();
-        let pairs: Vec<(usize, usize)> = (0..m / 2).map(|k| (rest[k], rest[m - 1 - k])).collect();
-        let played = match engine {
-            Some(e) => engine_games(e, &pairs, rng.int(0, i32::MAX) as u64, results),
-            None => vec![None; pairs.len()],
-        };
-        for (&(a, b), on_field) in pairs.iter().zip(played) {
-            let p = win_chance(results[a].strength, results[b].strength, spread, 0.4);
-            let a_wins = book(results, a, b, on_field).unwrap_or_else(|| rng.chance(p));
-            let (w, l) = if a_wins { (a, b) } else { (b, a) };
-            results[w].wins += 1;
-            results[l].losses += 1;
-            next.push(w);
-        }
-        seeds = next;
-    }
-    seeds.first().copied()
 }
 
 /// Level ratings for the season just played (note 8): "89 among seniors".
 /// High schoolers are ranked against everyone their age, college players on
 /// the FBS scale (FCS and small-college tape discounted), as in `level_rating`.
-fn attach_level_ratings(w: &mut World) {
+pub(crate) fn attach_level_ratings(w: &mut World) {
     use crate::level_rating::{
         LevelGroup, Pool, PositionAligner, build_level_scale, level_group, level_rating, sets_level_scale,
     };
@@ -742,33 +525,20 @@ fn attach_level_ratings(w: &mut World) {
 /// About the snaps of a full college season as a starter on one side of the
 /// ball: experience counts in these, so a backup's garbage-time snaps add up
 /// slowly (proposed, not confirmed).
-const SEASON_SNAPS: u32 = 750;
-
-/// College games are played by the match engine (item 12): each team as it
-/// is today, its coordinators calling the plays.
-struct Engine<'a> {
-    teams: &'a [Option<GameTeam>],
-    coaches: &'a [CoachContext],
-    /// Offensive and defensive snaps this season, by player id.
-    snaps: &'a std::sync::Mutex<std::collections::HashMap<u32, u32>>,
-    level: Level,
-    /// Trial tooling: where to keep the box scores, when asked.
-    log: Option<&'a std::sync::Mutex<super::game_log::GameLog>>,
-    year: i32,
-    division: Division,
-}
+pub(crate) const SEASON_SNAPS: u32 = 750;
 
 /// A college team for the match engine: its players and its staff's calling.
 /// The scheme is the coordinator's own (picked from his id until coaches
 /// carry a scheme: proposed, not confirmed).
-pub(super) fn game_team(w: &World, prog: &super::program::Program) -> Option<GameTeam> {
+pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<GameTeam> {
     let players: Vec<GamePlayer> = prog
         .roster
         .iter()
         .map(|&i| &w.people[i])
         .filter(|p| p.stage == Stage::College)
         .map(|p| {
-            let seasons = p.college_seasons as f64;
+            // This season counts as one (settled when it ends).
+            let seasons = (p.college_seasons + p.cal.count_pending as u32) as f64;
             let experience = p.college_snaps as f64 / SEASON_SNAPS as f64;
             GamePlayer::from_player(&p.player, clamp(0.78 + 0.05 * seasons, 0.0, 0.95), experience)
         })
@@ -812,12 +582,12 @@ pub(super) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
 /// What a head coach brings into a game besides his team (dynasty item 3):
 /// the programs that fired him, and whether his job is on the line.
 #[derive(Clone, Debug, Default)]
-struct CoachContext {
-    fired_by: Vec<usize>,
-    hot_seat: bool,
+pub(crate) struct CoachContext {
+    pub fired_by: Vec<usize>,
+    pub hot_seat: bool,
 }
 
-fn coach_context(w: &World, prog: &super::program::Program) -> CoachContext {
+pub(crate) fn coach_context(w: &World, prog: &super::program::Program) -> CoachContext {
     use super::coach::Employer;
     let Some(c) = prog.head_coach.map(|c| &w.coaches[c]) else { return CoachContext::default() };
     let fired_by = c
@@ -839,52 +609,19 @@ fn coach_context(w: &World, prog: &super::program::Program) -> CoachContext {
 /// The situation pushes for one side of one game (proposed, not confirmed):
 /// a contender in the playoff race, a grudge against the program that fired
 /// him, a job on the line, a winning season in reach.
-fn game_context(e: &Engine, results: &[TeamResult], me: usize, opp: usize) -> crate::game::garbage::Context {
+pub(crate) fn game_context(
+    coaches: &[CoachContext],
+    division: Division,
+    results: &[TeamResult],
+    me: usize,
+    opp: usize,
+) -> crate::game::garbage::Context {
     let r = &results[me];
-    let c = e.coaches.get(me).cloned().unwrap_or_default();
+    let c = coaches.get(me).cloned().unwrap_or_default();
     crate::game::garbage::Context {
-        race: e.division == Division::FBS && r.games() >= 4 && r.losses <= 1,
+        race: division == Division::FBS && r.games() >= 4 && r.losses <= 1,
         grudge: c.fired_by.contains(&opp),
         hot_seat: c.hot_seat,
         bowl_push: r.games() >= 7 && (4..=5).contains(&r.wins),
     }
-}
-
-/// Plays a batch of games on the engine, in parallel. True when the home
-/// side (first) wins.
-type Played = Option<(bool, [crate::game::stats::TeamStats; 2])>;
-
-fn engine_games(e: &Engine, games: &[(usize, usize)], seed: u64, results: &[TeamResult]) -> Vec<Played> {
-    games
-        .par_iter()
-        .enumerate()
-        .map(|(k, &(a, b))| {
-            let (Some(ta), Some(tb)) = (&e.teams[a], &e.teams[b]) else { return None };
-            let context = [(a, b), (b, a)].map(|(me, opp)| game_context(e, results, me, opp));
-            let r = quick_game_with(ta, tb, e.level, seed.wrapping_mul(1_000_003).wrapping_add(k as u64), context);
-            let [ha, hb] = r.stats.score;
-            {
-                let mut snaps = e.snaps.lock().unwrap();
-                for side in &r.stats.players {
-                    for (&id, l) in side {
-                        *snaps.entry(id).or_default() += l.snaps_off + l.snaps_def;
-                    }
-                }
-            }
-            if let Some(log) = e.log {
-                let part = super::game_log::situations(e.division, [a, b], &r.stats);
-                log.lock().unwrap().add(e.year, e.division, [a, b], &r.stats, part);
-            }
-            let a_wins = if ha == hb { (seed ^ k as u64) & 1 == 0 } else { ha > hb };
-            Some((a_wins, r.stats.team))
-        })
-        .collect()
-}
-
-/// Books an engine game into both teams' season totals; returns who won.
-fn book(results: &mut [TeamResult], a: usize, b: usize, played: Played) -> Option<bool> {
-    let (a_wins, [sa, sb]) = played?;
-    results[a].totals.add(&sa, &sb);
-    results[b].totals.add(&sb, &sa);
-    Some(a_wins)
 }

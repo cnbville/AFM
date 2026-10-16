@@ -1,6 +1,6 @@
-# Section 4: the season calendar and pacing (design done)
+# Section 4: the season calendar and pacing (built)
 
-Status: design finished 2026-10-14. All eleven topics are answered. Nothing is built yet. On 2026-10-15 Cain confirmed 46 additions (`docs/design/calendar-additions.md`) and asked for one build plan covering both (`docs/design/calendar-build-plan.md`). Next, a fresh thread builds it (see the section loop in `docs/roadmap.md`).
+Status: design finished 2026-10-14. All eleven topics are answered. On 2026-10-15 Cain confirmed 46 additions (`docs/design/calendar-additions.md`) and asked for one build plan covering both (`docs/design/calendar-build-plan.md`). **Built 2026-10-16**: each point with its code is in `docs/design/calendar-checklist.md`, and how it works is in `docs/world-model.md` ("Section 4: the calendar").
 
 This spec is written from the "Section 4 calendar design" thread in the project chat. Raichel's own words are in quotes. It replaces the old draft `docs/design/season-calendar-and-pacing.md` wherever the two differ.
 

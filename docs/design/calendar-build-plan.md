@@ -1,6 +1,6 @@
 # Section 4: the calendar build plan
 
-Status: written 2026-10-15 at Cain's request: "add the 46 and the 11 agreed topics that are already decided into one big build plan". Nothing is built yet.
+Status: written 2026-10-15 at Cain's request: "add the 46 and the 11 agreed topics that are already decided into one big build plan". **Built 2026-10-16** (phases 1 to 10; the phase 11 trial follows). The open questions at the end were taken at Claude's proposals under the overnight rule; `docs/design/calendar-checklist.md` lists each point with its code.
 
 What it builds:
 - **The 11 agreed topics** in `docs/design/calendar.md` (confirmed 2026-10-14). Written below as T1 to T11.

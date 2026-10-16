@@ -1,0 +1,608 @@
+//! Section 4: the daily clock (T1). The world runs one day at a time, from
+//! the day after one Super Bowl to the day after the next (a football year),
+//! and every system acts on its own real day under that day's rule book:
+//! the NFL offseason and season, the college year (camp, Saturdays, polls,
+//! the postseason by era, the portal and the draft deadlines), each state's
+//! high school season, recruiting stages and the coaching carousels.
+//!
+//! The 30 hidden years, the 2026 start and every later year run through
+//! this same clock (one code path, build plan rule 1).
+
+use super::college::{self, PollKind};
+use super::data::Division;
+use super::{CalendarLog, World, hs_year, nfl_year, recruiting, staff};
+use crate::calendar::data::MEDIA_DAYS;
+use crate::calendar::rules::TransferRule;
+use crate::calendar::{Date, Event, Kind, Level, Loudness, Moment, Weekday, YearDates};
+
+/// Time spent per step, printed each year with AFM_PROFILE set (tooling).
+static PROFILE: std::sync::Mutex<Vec<(&'static str, f64)>> = std::sync::Mutex::new(Vec::new());
+
+fn timed<T>(name: &'static str, f: impl FnOnce() -> T) -> T {
+    if std::env::var_os("AFM_PROFILE").is_none() {
+        return f();
+    }
+    let t = std::time::Instant::now();
+    let out = f();
+    let dt = t.elapsed().as_secs_f64();
+    let mut v = PROFILE.lock().unwrap();
+    match v.iter_mut().find(|x| x.0 == name) {
+        Some(x) => x.1 += dt,
+        None => v.push((name, dt)),
+    }
+    out
+}
+
+fn print_profile(year: i32) {
+    if std::env::var_os("AFM_PROFILE").is_none() {
+        return;
+    }
+    let mut v = std::mem::take(&mut *PROFILE.lock().unwrap());
+    v.sort_by(|a, b| b.1.total_cmp(&a.1));
+    let parts: Vec<String> = v.iter().take(14).map(|(n, t)| format!("{n} {t:.2}s")).collect();
+    eprintln!("PROFILE {year}: {}", parts.join(", "));
+}
+
+/// One football year: days until the next one starts.
+pub(crate) fn advance_year(w: &mut World) {
+    let year = w.year;
+    while w.year == year {
+        advance_day(w);
+    }
+}
+
+/// Which day of a portal window it is: the windows by era (T3, T11).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum PortalWindow {
+    Winter,
+    Spring,
+    /// After a head coach change (T3): 30 days from five days after the
+    /// carousel (seasons 2022-2024), then 15 days from five days after the
+    /// new coach's hire (2025 on).
+    CoachChange,
+}
+
+/// The transfer windows of the offseason after `season`: (opens, closes,
+/// which). Before 2018 there was no portal: a transfer asked his school for
+/// a release after the season (modelled as a January "window"). 2018-2021
+/// the portal was open all year; most entered after the season. From the
+/// 2022 season: a winter window and a spring window; from the 2025 season
+/// one January window (Jan 2-16).
+pub(crate) fn portal_windows(season: i32, rule: TransferRule) -> Vec<(Date, Date, PortalWindow)> {
+    let s = season;
+    match rule {
+        TransferRule::Permission | TransferRule::OpenPortal => {
+            vec![(Date::ymd(s, 12, 1).on_or_after(Weekday::Mon), Date::ymd(s + 1, 1, 31), PortalWindow::Winter)]
+        }
+        TransferRule::Windows => {
+            let (open, close) = match s {
+                2022 => (Date::ymd(2022, 12, 5), Date::ymd(2023, 1, 18)),
+                2023 => (Date::ymd(2023, 12, 4), Date::ymd(2024, 1, 2)),
+                _ => (Date::ymd(s, 12, 9), Date::ymd(s, 12, 28)),
+            };
+            let spring = if s == 2024 {
+                (Date::ymd(2025, 4, 16), Date::ymd(2025, 4, 25))
+            } else {
+                (Date::ymd(s + 1, 4, 15), Date::ymd(s + 1, 4, 30))
+            };
+            vec![(open, close, PortalWindow::Winter), (spring.0, spring.1, PortalWindow::Spring)]
+        }
+        TransferRule::January => vec![(Date::ymd(s + 1, 1, 2), Date::ymd(s + 1, 1, 16), PortalWindow::Winter)],
+    }
+}
+
+/// The commitment waves (T5.2): after junior days and the spring
+/// evaluation period, after June's official visits, after the summer camps,
+/// and in the senior season after game-day visits.
+fn commit_wave(y: &YearDates, d: Date) -> Option<u8> {
+    [(4, 30), (6, 30), (8, 31), (10, 31)].iter().position(|&(m, day)| Date::ymd(y.season, m, day) == d).map(|k| k as u8)
+}
+
+/// The day high school coaching changes are made (January, after the state
+/// finals and the college carousel's hires).
+fn hs_carousel_day(y: &YearDates) -> Date {
+    Date::ymd(y.season + 1, 1, 20)
+}
+
+/// The day June transfers happen: each state's transfer season, after the
+/// school year ends.
+fn hs_transfer_day(y: &YearDates) -> Date {
+    Date::ymd(y.season, 6, 15)
+}
+
+/// Day `d` of football year `y`.
+pub(crate) fn advance_day(w: &mut World) {
+    let d = w.today;
+    let y = w.dates.clone();
+    if d == y.start {
+        year_start(w);
+    }
+    // --- Days of last football year that fall after its Super Bowl ----------------
+    if let Some(p) = w.prev_dates.clone()
+        && d == p.signing_day
+        && d > p.super_bowl
+    {
+        signing_day_and_book(w, p.season);
+    }
+
+    anniversaries(w, d);
+    timed("recruiting days", || recruiting::recruiting_day(w, d));
+    recruiting::announce_commitments(w, d);
+
+    // --- The NFL year (T2, A1-A17): its own dated steps -----------------------------
+    timed("nfl", || nfl_year::day(w, d));
+
+    // --- Spring: college spring practice and high school spring ball (T4.1) ----------
+    if d == y.spring_practice.0 {
+        hs_year::spring_notices(w);
+    }
+    if d == y.spring_game {
+        hs_year::spring_game(w);
+    }
+    if d == y.junior_days.0 {
+        post(
+            w,
+            d,
+            Level::Recruiting,
+            Kind::Window,
+            Loudness::Small,
+            "Junior days open: programs host juniors on campus.",
+        );
+    }
+    if d == y.official_visits_from && w.rules.junior_officials {
+        post(w, d, Level::Recruiting, Kind::Window, Loudness::Small, "Juniors may take official visits from today.");
+    }
+    // The draft: three days in April (T2), on the anchors' hours.
+    if d == y.draft[0].date {
+        timed("draft", || recruiting::draft(w));
+    }
+    // The spring portal window (2023-2025).
+    for (open, close, which) in portal_windows(w.year - 1, transfer_rule_of(w, w.year - 1)) {
+        if which == PortalWindow::Spring && d == open {
+            timed("portal open", || recruiting::portal_open(w, which, close));
+        }
+    }
+    if d == y.spring_term_end {
+        college::spring_term_check(w);
+    }
+    if d == y.summer_enrollment {
+        recruiting::enroll(w, false);
+    }
+    if d == hs_transfer_day(&y) {
+        timed("hs transfers", || recruiting::high_school_transfers(w));
+        w.rebuild_rosters();
+    }
+    if d == y.money_year {
+        timed("nil", || recruiting::nil_payouts(w));
+        college_changes(w);
+    }
+    if d >= y.media_days.0 && d <= y.media_days.1 && d.weekday() != Weekday::Sat && d.weekday() != Weekday::Sun {
+        let k = y.media_days.0.days_to(d) as usize;
+        if let Some(conf) = MEDIA_DAYS.get(k) {
+            let text = format!("{conf} media days.");
+            post(w, d, Level::College, Kind::Date, Loudness::Small, &text);
+        }
+    }
+    if let Some(wave) = commit_wave(&y, d) {
+        timed("sign summer", || recruiting::signing_stage(w, recruiting::SignStage::Summer(wave), w.year));
+    }
+
+    // --- Fall: camp, the new high school year, polls -------------------------------
+    if d == y.fall_camp {
+        timed("college start", || college::start(w));
+        college::lean_checkpoint(w, college::LeanCheck::FallCamp);
+    }
+    if d == y.coaches_preseason_poll {
+        college::release_poll(w, d, PollKind::CoachesPreseason);
+    }
+    if d == y.ap_preseason_poll {
+        college::release_poll(w, d, PollKind::ApPreseason);
+    }
+    timed("hs", || hs_year::day(w, d));
+
+    // --- College Saturdays and the weeks around them (T3, T6) ------------------------
+    timed("college games", || college::play_day(w, d));
+    college::bowl_practices(w, d);
+    if d.weekday() == Weekday::Sun && d > y.cfb_weeks[0] && d <= y.selection_day {
+        let kind = if d == y.selection_day { None } else { Some(PollKind::Ap) };
+        if let Some(k) = kind {
+            college::release_poll(w, d, PollKind::Coaches);
+            college::release_poll(w, d, k);
+            if w.rules.cfb_postseason == crate::calendar::CfbPostseason::Bcs && d >= y.cfb_weeks[0].add(7 * 7 + 1) {
+                college::release_poll(w, d, PollKind::Bcs);
+            }
+        }
+    }
+    // Playoff committee rankings on Tuesdays (2014 on).
+    if d.weekday() == Weekday::Tue
+        && d >= y.first_cfp_ranking
+        && d < y.selection_day
+        && matches!(
+            w.rules.cfb_postseason,
+            crate::calendar::CfbPostseason::FourTeam | crate::calendar::CfbPostseason::TwelveTeam
+        )
+    {
+        college::release_poll(w, d, PollKind::Cfp);
+    }
+    if y.cfb_weeks.len() > 4 && d == y.cfb_weeks[4].add(1) {
+        college::redshirt_trick(w);
+    }
+    if y.cfb_weeks.len() > 8 && d == y.cfb_weeks[8].add(1) {
+        college::lean_checkpoint(w, college::LeanCheck::MidSeason);
+    }
+    for (div, end) in
+        [(Division::JUCO, y.juco_regular_end), (Division::D2, y.d2_regular_end), (Division::FCS, y.fcs_regular_end)]
+    {
+        if d == end.add(1) {
+            college::regular_season_end(w, div);
+        }
+    }
+    // The Sunday after rivalry week: the regular season's book, then the
+    // college coaching carousel (firings come before the title games).
+    if d == y.fbs_regular_end.add(1) {
+        college::record_regular_season(w);
+        college::regular_season_end(w, Division::FBS);
+        timed("carousel college", || staff::carousel(w, staff::Scope::College));
+        college::lean_checkpoint(w, college::LeanCheck::CoachingChanges);
+        // A head coach change opens its own transfer window five days later
+        // (T3): 30 days long in the windows era (2022-2024), 15 days from 2025 on.
+        let days = match w.changes.rules(w.year).transfer {
+            TransferRule::Windows => Some(30),
+            TransferRule::January => Some(15),
+            _ => None,
+        };
+        if let Some(days) = days {
+            w.coach_window = Some((d.add(5), d.add(5 + days)));
+        }
+        timed("draft reads", || recruiting::draft_reads(w));
+    }
+    if d == y.selection_day {
+        college::release_poll(
+            w,
+            d,
+            if w.rules.cfb_postseason == crate::calendar::CfbPostseason::Bcs {
+                PollKind::Bcs
+            } else if w.rules.cfb_postseason == crate::calendar::CfbPostseason::PollsOnly {
+                PollKind::Ap
+            } else {
+                PollKind::Cfp
+            },
+        );
+        timed("selection", || college::selection_day(w));
+        college::lean_checkpoint(w, college::LeanCheck::Bowls);
+    }
+    if d == y.heisman_finalists {
+        college::awards(w, "finalists");
+    }
+    if d == y.all_america {
+        recruiting::honors(w);
+    }
+    if d == y.awards_show {
+        college::awards(w, "show");
+    }
+    if d == y.heisman {
+        college::awards(w, "heisman");
+    }
+    if Some(d) == y.early_signing {
+        timed("sign early", || recruiting::signing_stage(w, recruiting::SignStage::Early, w.year));
+        college::lean_checkpoint(w, college::LeanCheck::EarlySigning);
+    }
+    if d == y.finals_week.0 {
+        college::finals_week(w);
+    }
+    if d == y.december_graduation {
+        college::december_graduation(w);
+    }
+    // --- The offseason's windows (T3): portal, draft deadlines, enrollment ----------
+    let season = w.year;
+    let rule = w.rules.transfer;
+    for (open, close, which) in portal_windows(season, rule) {
+        if which == PortalWindow::Winter && d == open {
+            recruiting::portal_open(w, which, close);
+        }
+    }
+    if let Some((open, close)) = w.coach_window
+        && d == open
+    {
+        w.coach_window = None;
+        recruiting::portal_open(w, PortalWindow::CoachChange, close);
+    }
+    // Entrants decide on their own days (T3, T9).
+    if !w.portal_pending.is_empty() {
+        timed("portal day", || recruiting::portal_day(w, false));
+    }
+    if d == Date::ymd(season + 1, 1, 2) {
+        college::settle_eligibility(w);
+    }
+    if d == y.declare_soft {
+        recruiting::declarations(w, recruiting::Declare::Soft);
+    }
+    if d == y.declare_deadline {
+        recruiting::declarations(w, recruiting::Declare::Deadline);
+    }
+    if d == y.declare_withdraw {
+        recruiting::declarations(w, recruiting::Declare::Withdraw);
+    }
+    // The playoff teams' players declare once their season is over (T3).
+    if d == y.title_game.add(4) && y.title_game.add(4) > y.declare_deadline {
+        recruiting::declarations(w, recruiting::Declare::Deadline);
+    }
+    if d == y.early_enrollment {
+        if y.early_signing.is_none() {
+            // Before the early signing period, early enrollees signed aid
+            // agreements in January and enrolled at once.
+            recruiting::signing_stage(w, recruiting::SignStage::JanuaryEnrollees, w.year);
+        }
+        recruiting::enroll(w, true);
+    }
+    for (date, name) in [(y.all_american_bowl, "All-American Bowl"), (y.polynesian_bowl, "Polynesian Bowl")] {
+        if d == date {
+            hs_year::all_star_game(w, name);
+        }
+    }
+    for (date, name) in [
+        (y.shrine_bowl, "East-West Shrine Bowl"),
+        (y.hbcu_bowl, "HBCU Legacy Bowl"),
+        (y.nflpa_bowl, "NFLPA Collegiate Bowl"),
+        (y.senior_bowl, "Senior Bowl"),
+    ] {
+        if d == date.add(-7) {
+            recruiting::all_star_invites(w, name);
+        }
+        if d == date {
+            recruiting::all_star_game(w, name);
+        }
+    }
+    // The college season ends with its last title game.
+    if d >= y.title_game && w.college.as_ref().is_some_and(|c| c.started && !c.finished) && college::all_played(w) {
+        timed("college finish", || college::finish(w));
+    }
+    if d == hs_carousel_day(&y) {
+        timed("carousel hs", || staff::carousel(w, staff::Scope::HighSchool));
+        staff::age_coaches(w);
+    }
+    if d == y.signing_day && d <= y.super_bowl {
+        timed("signing day", || signing_day_and_book(w, y.season));
+    }
+    // The week's rhythm, for the record and the future screens (T6), and
+    // the training blocks of every level (T7).
+    timed("rhythm", || rhythm(w, d, &y));
+    nfl_year::training_blocks(w, d, &y);
+
+    // News items of the day get the day's date.
+    for n in w.news.iter_mut().rev() {
+        if n.date.is_some() {
+            break;
+        }
+        n.date = Some(d);
+    }
+    w.today = d.add(1);
+    if w.today > y.super_bowl {
+        rollover(w);
+    }
+}
+
+fn transfer_rule_of(w: &World, season: i32) -> TransferRule {
+    w.changes.rules(season).transfer
+}
+
+/// A new football year begins (the day after the Super Bowl).
+fn year_start(w: &mut World) {
+    let year = w.year;
+    w.rules = w.changes.rules(year);
+    // Conference moves announced last year take effect.
+    for (p, conf) in std::mem::take(&mut w.realign) {
+        w.programs[p].conference = conf;
+    }
+    w.college_prev = w.college.take();
+    w.college = Some(college::new_season(w));
+    w.hs_season = Some(hs_year::new_season(w));
+    w.nfl_season = Some(nfl_year::new_season(w));
+    let y = w.dates.clone();
+    // The year's fixed dates on the calendar (T1.3).
+    let sb = format!("Super Bowl ({}).", y.super_bowl.pretty());
+    let draft = format!("The NFL draft opens {}.", y.draft[0].date.pretty());
+    let signing = format!("National signing day, {}.", y.signing_day.pretty());
+    for (date, level, kind, loud, text) in [
+        (y.start, Level::Nfl, Kind::Date, Loudness::Small, "The football year begins.".to_string()),
+        (y.draft[0].date, Level::Nfl, Kind::Date, Loudness::Huge, draft),
+        (y.super_bowl, Level::Nfl, Kind::Game, Loudness::Huge, sb),
+        (y.signing_day, Level::Recruiting, Kind::Date, Loudness::Big, signing),
+    ] {
+        w.calendar.post(Event::new(date, level, kind, loud, text));
+    }
+    if let Some(esp) = y.early_signing {
+        let text = format!("The early signing period opens {}.", esp.pretty());
+        w.calendar
+            .post(Event::new(esp, Level::Recruiting, Kind::Window, Loudness::Big, text).rule("NCAA: early signing"));
+    }
+    let _ = hs_transfer_day(&y);
+}
+
+/// The last day of a football year has passed: the next one starts.
+fn rollover(w: &mut World) {
+    if w.options.keep_game_log {
+        let kept: Vec<Event> = w.calendar.all().filter(|e| e.loud >= Loudness::Medium).cloned().collect();
+        w.event_history.push((w.year, kept));
+    }
+    w.calendar.close_year();
+    let next = w.year + 1;
+    let log = std::mem::replace(&mut w.log, CalendarLog { year: next, ..CalendarLog::default() });
+    w.log_history.push(log);
+    let weeks = |y: i32| w.changes.rules(y).nfl_weeks as usize;
+    let dates = YearDates::with_weeks(next, weeks(next), weeks(next - 1));
+    w.prev_dates = Some(std::mem::replace(&mut w.dates, dates));
+    print_profile(w.year);
+    w.year = next;
+}
+
+/// February signing day, then the year-end book for `season`: program
+/// prestige, grades and NIL, life events, and everyone who left is archived.
+fn signing_day_and_book(w: &mut World, season: i32) {
+    // Anyone still weighing his portal options decides now.
+    recruiting::portal_day(w, true);
+    recruiting::signing_stage(w, recruiting::SignStage::Final, season);
+    let keep = w.year;
+    w.year = season;
+    let results = match (&w.college, &w.college_prev) {
+        (Some(c), _) if c.year == season => c.results.clone(),
+        (_, Some(c)) if c.year == season => c.results.clone(),
+        _ => vec![Default::default(); w.programs.len()],
+    };
+    staff::update_programs(w, &results);
+    w.life_events();
+    w.compact();
+    w.rebuild_rosters();
+    w.year = keep;
+}
+
+/// College off-field changes from the agreed list (T11): rolled each summer
+/// from 2027, with the state-by-state high school rules.
+fn college_changes(w: &mut World) {
+    let season = w.year;
+    let mut rng = w.rng.fork();
+    for (_, text) in w.changes.college_year(season, &mut rng) {
+        w.log.rule_changes.push(text.clone());
+        w.calendar.post(Event::new(w.today, Level::College, Kind::RuleChange, Loudness::Big, text));
+    }
+    if season >= 2027 {
+        let odds = crate::calendar::rules::CHANGE_ODDS;
+        for s in 0..w.states.len() {
+            if !w.states[s].hs_nil && rng.chance(odds.hs_nil_per_state) {
+                w.states[s].hs_nil = true;
+                let text = format!("{} lets high school athletes earn NIL money.", w.states[s].code);
+                w.log.rule_changes.push(text.clone());
+                w.changes.applied.push(crate::calendar::rules::AppliedChange {
+                    change: crate::calendar::Change::HsNil,
+                    season,
+                    detail: w.states[s].code.clone(),
+                });
+                w.calendar.post(Event::new(w.today, Level::HighSchool, Kind::RuleChange, Loudness::Small, text));
+            }
+            if rng.chance(odds.hs_transfer_per_state) {
+                let loosen = rng.chance(0.5);
+                let rule = &mut w.states[s].transfer;
+                rule.sit_out = if loosen { (rule.sit_out - 0.5).max(0.0) } else { (rule.sit_out + 0.5).min(1.0) };
+                let dir = if loosen { "loosens" } else { "tightens" };
+                let text = format!("{} {dir} its high school transfer rule.", w.states[s].code);
+                w.log.rule_changes.push(text.clone());
+                w.changes.applied.push(crate::calendar::rules::AppliedChange {
+                    change: crate::calendar::Change::HsTransferRules,
+                    season,
+                    detail: format!("{} {dir}", w.states[s].code),
+                });
+                w.calendar.post(Event::new(w.today, Level::HighSchool, Kind::RuleChange, Loudness::Small, text));
+            }
+        }
+        // A program changes conference (realignment), rarely.
+        if rng.chance(odds.conference_switch) {
+            super::program::realign_one(w, &mut rng);
+        }
+    }
+}
+
+fn post(w: &mut World, d: Date, level: Level, kind: Kind, loud: Loudness, text: &str) {
+    w.calendar.post(Event::new(d, level, kind, loud, text));
+}
+
+/// The week's rhythm at each level (T6), posted as quiet steps for the record
+/// and the future screens: the NFL week in season, the college game week, the
+/// high school week. Each decision step is a hook the screens and staff
+/// hand-offs (T10) will fill.
+fn rhythm(w: &mut World, d: Date, y: &YearDates) {
+    let in_nfl = d > y.nfl_kickoff.add(-4) && d <= *y.nfl_weeks.last().unwrap_or(&y.nfl_kickoff);
+    if in_nfl {
+        let step: Option<(u16, &str)> = match d.weekday() {
+            Weekday::Mon => {
+                Some((9, "NFL Monday: film of Sunday's game, injury exams, the head coach's press conference."))
+            }
+            Weekday::Tue => Some((16, "NFL Tuesday: players off; the game plan is built; waiver claims at 4pm ET.")),
+            Weekday::Wed => Some((15, "NFL Wednesday: the plan is installed; first injury report.")),
+            Weekday::Thu => Some((15, "NFL Thursday: third downs and the red zone.")),
+            Weekday::Fri => Some((15, "NFL Friday: situations; final injury statuses.")),
+            Weekday::Sat => Some((16, "NFL Saturday: walkthrough and travel; practice squad call-ups by 4pm ET.")),
+            Weekday::Sun => Some((11, "NFL Sunday: inactives 90 minutes before kickoff.")),
+        };
+        if let Some((h, text)) = step {
+            w.calendar.post(
+                Event::new(d, Level::Nfl, Kind::Rhythm, Loudness::Small, text)
+                    .at(Moment::at(d, h, 0))
+                    .rule("CBA: in-season week"),
+            );
+        }
+    }
+    let in_college = d >= y.cfb_weeks[0].add(-5) && d <= y.fbs_regular_end;
+    if in_college && d.weekday() == Weekday::Mon {
+        w.calendar.post(
+            Event::new(d, Level::College, Kind::Rhythm, Loudness::Small, "College game week: 20 countable hours, one day off; Tuesday to Thursday practice, Friday travel, Saturday games; staffs at high school games on Fridays.")
+                .rule("NCAA: 20-hour rule"),
+        );
+    }
+    let hs_fall = d >= y.hs_school_start && d <= y.thanksgiving;
+    if hs_fall && d.weekday() == Weekday::Mon {
+        w.calendar.post(Event::new(
+            d,
+            Level::HighSchool,
+            Kind::Rhythm,
+            Loudness::Small,
+            "High school week: film Monday, practice Tuesday to Thursday, games Friday, JV and film Saturday.",
+        ));
+    }
+}
+
+/// "On this day" (A42): title games, Heismans and first picks from five,
+/// ten, fifteen... years ago, as news lines only (never a stakes factor).
+fn anniversaries(w: &mut World, d: Date) {
+    let (y, m, day) = d.parts();
+    let found: Vec<(i32, Level, String)> = w
+        .calendar
+        .history
+        .iter()
+        .filter(|e| e.memorable)
+        .filter_map(|e| {
+            let (ey, em, ed) = e.when.date.parts();
+            let ago = y - ey;
+            (em == m && ed == day && ago > 0 && ago % 5 == 0).then(|| (ago, e.level, e.text.clone()))
+        })
+        .collect();
+    for (ago, level, text) in found {
+        let words = match ago {
+            5 => "Five".to_string(),
+            10 => "Ten".to_string(),
+            15 => "Fifteen".to_string(),
+            20 => "Twenty".to_string(),
+            25 => "Twenty-five".to_string(),
+            30 => "Thirty".to_string(),
+            35 => "Thirty-five".to_string(),
+            n => n.to_string(),
+        };
+        let line = format!("{words} years ago today: {text}");
+        w.calendar.post(Event::new(d, level, Kind::Anniversary, Loudness::Small, line));
+    }
+}
+
+/// T10: Continue skips quiet days and stops on the first day with an event
+/// that needs a decision or is huge. Returns the day it stopped on.
+pub fn continue_until_needed(w: &mut World, max_days: u32) -> Date {
+    for _ in 0..max_days {
+        let d = w.today;
+        advance_day(w);
+        if w.calendar.on(d).iter().any(|e| e.needs_decision || e.loud == Loudness::Huge) {
+            return d;
+        }
+    }
+    w.today
+}
+
+/// T10: holiday mode to a chosen date. Staff run things; it always stops for
+/// a huge moment. Returns the day it stopped on.
+pub fn holiday_to(w: &mut World, until: Date) -> Date {
+    while w.today < until {
+        let d = w.today;
+        advance_day(w);
+        if w.calendar.on(d).iter().any(|e| e.loud == Loudness::Huge) {
+            return d;
+        }
+    }
+    w.today
+}
