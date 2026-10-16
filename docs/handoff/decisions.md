@@ -247,6 +247,11 @@ Spec `docs/design/calendar.md`. Design in [T16], 2026-10-13/14. Topic order: "ye
 10. **Time controls and delegation:** "yes yes" (12:07).
 11. **Rule changes:** "1. no because it may cause engine breaking aspects that i can't fix in game" (12:08). "yes but make fixed possibilities that we agree upon before" (12:09). The fixed list of 12 off-field changes: "sure" (12:14).
 - **Merge the spec:** "merg" ([T19] 12:21).
+- **World trial 6 (2026-10-16, thread "Section 4 calendar build"):** list in `docs/trials/world-trial6-proposals.md`.
+  - Part A, 17 fixes: "yes for all, continue with the situation" (11:33). Built and merged (PR #33); the next trial measures them.
+  - Part B, 38 items, and 9 findings from building part A: re-checked under the two rules of 2026-10-16 (real life is the default; never ask what is already decided). 45 are settled by an earlier decision or by real life and go to the build list; the proposals file names what settles each.
+  - Spring steps per player (part B 43): "2" (15:04). A player makes at most two spring steps.
+  - Spring step size (part B 44): "unless i encounter unusual steps in the future, keep it as is" (15:04). Steps stay sized from the gap to the hidden ceiling.
 
 ## 10. Plays and tactics database
 

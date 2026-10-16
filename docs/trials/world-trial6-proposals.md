@@ -26,9 +26,17 @@ F17. **Let the signing-day fallback use any walk-on place** (suggestion 16 in th
 
 F11 (momentum on interception returns) changes game results a little; the world run after the fixes measures it.
 
-## Part B: yes or no (38)
+## Part B: settled (38)
 
-Numbers match the Debug Lab, where each item has yes / no / later buttons and a button that copies the answers. Fixes first, then creative ideas.
+Numbers match the Debug Lab. On 2026-10-16 every item was re-checked under the two new rules (real life is the default; never ask what is already decided). 36 are settled and go to the build list with no question; Cain answered the last two (15:04).
+
+What settles each:
+- An earlier decision: 11 (call 2 notes, 2026-10-11: NIL can make staying worth millions), 12 (T4, playoffs by each state's format), 13 (A38, weather under each level's real rule), 17 and 18 (fix list topic 4, volatile development; amounts set in its detail round), 22, 26 and 27 (T8.1, a game is huge only with real stakes: must win, your job on the line), 29 and 30 (A28, each rivalry with its trophy and all-time record), 33 (T5.1, a coach fired moves commits), 34 (T5, offers build over the years), 39 (T11, each era's real setup; this also covers the league's size by year: 30 teams to 1998, 31 to 2001, 32 from 2002).
+- The trial rules (every result explains why; every trial names the big slumps): 19, 20, 21, 23, 25; 24 rides on the next trial with AFM_PROFILE=1.
+- Real life: 6, 7 (build 6 first, then close what is left), 8, 9, 10, 15, 28, 31, 32, 35, 36, 37 (exact day to verify), 38, 40, 41, 42, 45 (a contender does not fire its coach mid-playoff; a retiring coach coaches the last game).
+- Cain's answers: 43, at most two spring steps per player ("2"); 44, step size stays as it is ("unless i encounter unusual steps in the future, keep it as is").
+
+The items as first written:
 
 ### Realism fixes (12)
 
@@ -150,3 +158,17 @@ Numbers match the Debug Lab, where each item has yes / no / later buttons and a 
 44. **Size high school spring steps from normal growth (Cain's call)** (World and players)
    - Seen: High school steps are a median +6.2 / +6.1 / +6.2 and 72% are 5+ points, while a whole high school season row at 15 changes a median +4.1.
    - Change: Size the spring step from his normal yearly growth (for example one extra year of growth) instead of from the gap to his hidden ceiling (development.rs spring_jump).
+
+## Part C: found while building part A, settled (9)
+
+Each settled by real life or an earlier decision on 2026-10-16; all go to the build list.
+
+1. Continue does not stop on a signing day after the Super Bowl (rollover drops the day). T10: Continue stops when something needs you. Plain bug.
+2. The December draft read ranks long snappers among the top seniors, so combine invites likely fill with them. Real drafts take 0-2 a year. Plain bug.
+3. Kick coverage uses starters, so young backups rarely get special-teams snaps and few freshmen reach 5+ games. Real coverage units are mostly backups and freshmen.
+4. The Senior Bowl takes declared underclassmen (16-22% of rosters). Real: seniors, plus graduated underclassmen in recent years (year to verify).
+5. Nobody declines an all-star invite. Real first-rounders often skip the Senior Bowl.
+6. Back-to-back position award winners about 7%. Tune to the real repeat rate.
+7. Walk-on room uses FBS 2022-24 depth at every level. Use each level's real roster depth.
+8. Travel squad: replace Claude's 76-man table with each conference's real travel limit by era (for example the SEC's 70, to verify).
+9. A camp redshirt held to 4 games keeps the label: the NCAA's 2018 four-game rule (already how it works).
