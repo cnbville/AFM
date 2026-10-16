@@ -252,6 +252,10 @@ Spec `docs/design/calendar.md`. Design in [T16], 2026-10-13/14. Topic order: "ye
   - Part B, 38 items, and 9 findings from building part A: re-checked under the two rules of 2026-10-16 (real life is the default; never ask what is already decided). 45 are settled by an earlier decision or by real life and go to the build list; the proposals file names what settles each.
   - Spring steps per player (part B 43): "2" (15:04). A player makes at most two spring steps.
   - Spring step size (part B 44): "unless i encounter unusual steps in the future, keep it as is" (15:04). Steps stay sized from the gap to the hidden ceiling.
+  - Part D, 44 Debug Lab findings that had no item (2026-10-16, thread on trial 6 leftovers): 41 settled by real life or an earlier decision, listed in the proposals file. Cain's answers (23:21), and "add those to the plan as well" (23:21):
+    - Spin-up before history: "agreed": 12 years instead of 6.
+    - Story hooks alone lifting another team's result into the inbox: "No.". They only colour the text.
+    - Continue: "Yes, anything that'd be of importance to me". It stops on Big moments that matter to the manager and on Huge moments anywhere.
 
 ## 10. Plays and tactics database
 
