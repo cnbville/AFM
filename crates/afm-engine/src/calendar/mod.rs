@@ -46,9 +46,12 @@ impl Period {
     pub fn unofficial_visits(self) -> bool {
         self != Period::Dead
     }
-    /// Official visits (paid by the school): contact or quiet periods.
+    /// Official visits (paid by the school) are barred only in dead periods:
+    /// a prospect may take one in a contact, evaluation or quiet period. In
+    /// the fall evaluation period they fall on the school's home-game
+    /// weekends.
     pub fn official_visits(self) -> bool {
-        matches!(self, Period::Contact | Period::Quiet)
+        self != Period::Dead
     }
 }
 
@@ -114,5 +117,16 @@ mod tests {
         assert_eq!(recruiting_period(&y, Date::ymd(2026, 12, 25)), Period::Dead);
         assert_eq!(recruiting_period(&y, Date::ymd(2027, 1, 12)), Period::Contact);
         assert_eq!(recruiting_period(&y, Date::ymd(2027, 2, 3)), Period::Dead, "signing day");
+    }
+
+    /// Official visits are barred only in dead periods, so the senior fall
+    /// (an evaluation period) has them.
+    #[test]
+    fn official_visits_are_barred_only_in_dead_periods() {
+        let y = YearDates::new(2026);
+        assert!(recruiting_period(&y, Date::ymd(2026, 10, 2)).official_visits(), "fall evaluation period");
+        assert!(recruiting_period(&y, Date::ymd(2026, 4, 20)).official_visits(), "spring contact period");
+        assert!(recruiting_period(&y, Date::ymd(2026, 6, 10)).official_visits(), "June quiet period");
+        assert!(!recruiting_period(&y, Date::ymd(2026, 7, 4)).official_visits(), "summer dead period");
     }
 }

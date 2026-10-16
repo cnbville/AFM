@@ -85,10 +85,16 @@ pub enum DevelopmentEvent {
     MinorInjury,
     ModerateInjury,
     MajorInjury,
+    /// His first year at a new level: he played below his rating while he
+    /// adjusted (the first-year dip; its size is the row's `adjustment`).
+    FirstYear,
+    /// A spring breakout in the offseason after the season (section 4,
+    /// T4.1); its gain is the row's `spring_gain`.
+    SpringBreakout,
 }
 
 impl DevelopmentEvent {
-    pub const ALL: [DevelopmentEvent; 11] = [
+    pub const ALL: [DevelopmentEvent; 13] = [
         DevelopmentEvent::GrowthSpurt,
         DevelopmentEvent::BodyStalled,
         DevelopmentEvent::Breakout,
@@ -100,6 +106,8 @@ impl DevelopmentEvent {
         DevelopmentEvent::MinorInjury,
         DevelopmentEvent::ModerateInjury,
         DevelopmentEvent::MajorInjury,
+        DevelopmentEvent::FirstYear,
+        DevelopmentEvent::SpringBreakout,
     ];
 
     pub fn name(self) -> &'static str {
@@ -115,6 +123,8 @@ impl DevelopmentEvent {
             DevelopmentEvent::MinorInjury => "minorInjury",
             DevelopmentEvent::ModerateInjury => "moderateInjury",
             DevelopmentEvent::MajorInjury => "majorInjury",
+            DevelopmentEvent::FirstYear => "firstYear",
+            DevelopmentEvent::SpringBreakout => "springBreakout",
         }
     }
 }
@@ -175,6 +185,10 @@ pub struct SeasonRecord {
     pub games_missed: u32,
     /// Size of his first-year dip after a step up (0 = ready at once, 1 = a very hard first year).
     pub adjustment: Option<f64>,
+    /// Overall gained in a spring breakout in the offseason after the season
+    /// (section 4, T4.1). Already in `overall`, so the next row starts where
+    /// this one ends.
+    pub spring_gain: Option<f64>,
     /// Pro team he spent the season with (index into the league).
     pub team: Option<usize>,
     /// Depth chart spot, e.g. "WR2", "practice squad" or "free agent".

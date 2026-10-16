@@ -225,3 +225,40 @@ fn is_deterministic_for_a_seed() {
     };
     assert_eq!(make(), make());
 }
+
+#[test]
+fn names_a_first_year_without_drawing_anything() {
+    // The first-year mark is only a mark: with or without a dip the same
+    // draws are made, and the row names the first year only with one.
+    for seed in 0..50u32 {
+        let base = prospects(1, &format!("first-year-{seed}"), 1.0).remove(0);
+        let run = |dip: f64| {
+            let (mut p, mut rng) = (base.clone(), Rng::new(seed));
+            let mut ctx = context_for(18);
+            ctx.adjustment = dip;
+            develop_season(&mut p, &ctx, &mut rng);
+            (p.history[0].events.has(Ev::FirstYear), rng.next_u32())
+        };
+        let (none, after_none) = run(0.0);
+        let (some, after_some) = run(0.6);
+        assert!(!none && some);
+        assert_eq!(after_none, after_some);
+    }
+}
+
+#[test]
+fn a_spring_step_lands_on_the_season_row() {
+    // The step goes on the row of the season before it, so the next row
+    // starts where that one ends.
+    let mut rng = Rng::new("spring-row");
+    let mut p =
+        generate_prospect(&mut rng, ProspectOptions { age: Some(18), talent_z: Some(2.0), ..Default::default() });
+    develop_season(&mut p, &context_for(18), &mut rng);
+    let gain = crate::development::spring_jump(&mut p, 0.25, &mut rng);
+    assert!(gain > 0.0);
+    crate::development::record_spring_step(&mut p, gain);
+    let row = &p.history[0];
+    assert!(row.events.has(Ev::SpringBreakout) && row.spring_gain == Some(gain));
+    develop_season(&mut p, &context_for(19), &mut rng);
+    assert!((p.history[1].overall_start - p.history[0].overall).abs() < 1e-9);
+}

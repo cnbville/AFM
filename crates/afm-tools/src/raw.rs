@@ -66,7 +66,8 @@ fn player_detail(p: &afm_engine::player::Player) -> Value {
             "age": h.age, "level": h.level.name(), "pos": h.position.name(), "role": h.playing_time.name(),
             "start": r1(h.overall_start), "end": r1(h.overall), "perf": h.performance.map(r1),
             "lr": h.level_rating, "lr_end": h.level_rating_end, "pot": r1(debug::season_potential(h)),
-            "ev": h.events.iter().map(|e| e.name()).collect::<Vec<_>>(), "missed": h.games_missed, "coach": r1(h.coaching)
+            "ev": h.events.iter().map(|e| e.name()).collect::<Vec<_>>(), "missed": h.games_missed, "coach": r1(h.coaching),
+            "dip": h.adjustment, "spring": h.spring_gain.map(r1)
         })).collect::<Vec<_>>(),
         "positions": p.position_history.iter().map(|(age, pos)| json!([age, pos.name()])).collect::<Vec<_>>(),
         "personality": {"work_ethic": r1(p.personality.work_ethic), "coachability": r1(p.personality.coachability),
@@ -205,7 +206,7 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
         let mut v = json!({
             "name": a.name, "eth": a.ethnicity.name(), "state": STATE_CENTERS[a.home_state].0, "hs": w.school_name(a.high_school),
             "colleges": a.colleges.iter().map(|&c| w.programs[c].real_name.as_str()).collect::<Vec<_>>(),
-            "college_ids": a.colleges, "stars": a.stars, "year": a.year, "pick": a.pick, "pos": a.position.name(),
+            "college_ids": a.colleges, "stars": a.stars, "camp_stars": a.camp_stars, "year": a.year, "pick": a.pick, "pos": a.position.name(),
             "overall": r1(a.overall), "potential": r1(debug::alumnus_potential(a)), "visibility": r2(debug::alumnus_visibility(a)),
             "juco": a.juco, "left": a.left_football, "class_of": a.class_of, "steered": a.steered,
             "background": a.background_summary, "notes": a.notes, "team": a.nfl_team, "gpa": a.gpa_at_signing.map(r2),
@@ -220,15 +221,16 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
 
     let mut f = Lines::new(dir, "people.jsonl");
     for q in &w.people {
-        // College players in full; high schoolers only once recruited (3 stars and up).
+        // College players in full; high schoolers only once recruited (3
+        // stars and up from the services or the specialist camps).
         let college = matches!(q.stage, Stage::College | Stage::PrepSchool);
-        if !college && !(q.stage == Stage::HighSchool && q.stars >= 3) {
+        if !college && !(q.stage == Stage::HighSchool && q.stars.max(q.camp_stars) >= 3) {
             continue;
         }
         let mut v = json!({
             "id": q.player.id, "name": q.name, "eth": q.ethnicity.name(), "stage": format!("{:?}", q.stage),
             "pos": q.player.position.name(), "age": q.player.age, "overall": r1(q.player.overall()),
-            "potential": r1(debug::person_potential(q)), "stars": q.stars, "class_of": q.class_of,
+            "potential": r1(debug::person_potential(q)), "stars": q.stars, "camp_stars": q.camp_stars, "class_of": q.class_of,
             "state": STATE_CENTERS[q.home_state].0, "hs": q.hs, "college": q.college, "path": q.path,
             "college_seasons": q.college_seasons, "transfers": q.transfers, "juco": q.juco, "nil": q.nil_income.round(),
             "role": q.last_role.map(|r| r.name()), "perf": q.last_performance.map(r1), "gpa": q.gpa_at_signing.map(r2),

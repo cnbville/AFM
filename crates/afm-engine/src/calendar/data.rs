@@ -30,6 +30,18 @@ pub struct Rivalry {
     pub neutral: Option<(&'static str, &'static str)>,
 }
 
+impl Rivalry {
+    /// The game's name in a season: a few names changed over the years.
+    /// Oregon and Oregon State's game was the Civil War through 2019 (from
+    /// memory, to verify).
+    pub fn name_in(&self, season: i32) -> &'static str {
+        match (self.a, self.b) {
+            ("Oregon", "Oregon State") if season <= 2019 => "the Civil War",
+            _ => self.name,
+        }
+    }
+}
+
 macro_rules! r {
     ($a:expr, $b:expr, $n:expr, $t:expr, $s:expr) => {
         Rivalry { a: $a, b: $b, name: $n, trophy: $t, slot: $s, neutral: None }
@@ -50,7 +62,7 @@ pub const RIVALRIES: &[Rivalry] = &[
     r!("Georgia", "Georgia Tech", "Clean, Old-Fashioned Hate", Some("the Governor's Cup"), RivalryWeek),
     r!("Clemson", "South Carolina", "the Palmetto Bowl", Some("the Hardee's Trophy"), RivalryWeek),
     r!("Florida", "Florida State", "the Sunshine Showdown", None, RivalryWeek),
-    r!("Oregon", "Oregon State", "the Rivalry", Some("the Platypus Trophy"), RivalryWeek),
+    r!("Oregon", "Oregon State", "the Oregon-Oregon State game", Some("the Platypus Trophy"), RivalryWeek),
     r!("Washington", "Washington State", "the Apple Cup", Some("the Apple Cup"), RivalryWeek),
     r!("USC", "UCLA", "the Crosstown Showdown", Some("the Victory Bell"), RivalryWeek),
     r!("Stanford", "California", "the Big Game", Some("the Stanford Axe"), RivalryWeek),
