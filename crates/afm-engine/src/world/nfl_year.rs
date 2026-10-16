@@ -1150,6 +1150,7 @@ fn formula_slots(w: &mut World, season: i32, seed: u64) {
     // Which weeks host the international games: one a week from week 4 (Brazil in week 1).
     let mut abroad_week: Vec<Option<usize>> = vec![None; n_weeks];
     let mut used_abroad = vec![false; n];
+    let toronto = sites.iter().any(|s| s.0 == TORONTO);
     let mut euro_week = 3;
     for (i, site) in sites.iter().enumerate() {
         let k = match site.1 {
@@ -1199,7 +1200,15 @@ fn formula_slots(w: &mut World, season: i32, seed: u64) {
             let (site, day, h, m) = sites[i];
             let pick = (0..games.len())
                 .filter(|&g| !used_abroad[games[g].0] && !used_abroad[games[g].1])
-                .filter(|&g| if site == TORONTO { Some(games[g].0) == buf } else { !div_game(&games[g]) })
+                .filter(|&g| {
+                    if site == TORONTO {
+                        Some(games[g].0) == buf
+                    } else {
+                        // In the Toronto years the Bills keep their trip abroad for it.
+                        let bills = toronto && (Some(games[g].0) == buf || Some(games[g].1) == buf);
+                        !div_game(&games[g]) && !bills
+                    }
+                })
                 .min_by(|&a, &b| {
                     key_uniform(seed ^ 0xAB ^ k as u64, a as u64)
                         .total_cmp(&key_uniform(seed ^ 0xAB ^ k as u64, b as u64))

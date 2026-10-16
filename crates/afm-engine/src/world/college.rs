@@ -386,6 +386,19 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
     }
     stakes_for_day(w, &idx);
     let cs = w.college.as_ref().unwrap();
+    // From 2018 a staff stops playing a fall-camp redshirt once he has four
+    // games, so he keeps the year (settle_eligibility).
+    let capped: HashSet<u32> = if w.rules.four_game_redshirt && cs.on_engine {
+        w.people
+            .iter()
+            .filter(|p| matches!(p.stage, Stage::College) && !p.cal.count_pending && !p.cal.academic_sit)
+            .filter(|p| p.last_role == Some(PlayingTime::Redshirt) && p.redshirt_used)
+            .map(|p| p.player.id)
+            .filter(|id| cs.snaps.get(id).is_some_and(|s| s.1 >= 4))
+            .collect()
+    } else {
+        HashSet::new()
+    };
     let seed = w.options.seed as u64 ^ ((cs.year as u64) << 32) ^ ((date.0 as u64) << 8);
     struct Job {
         k: usize,
@@ -402,7 +415,7 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
             let (cond, played, _) = conditions(w, g, k);
             let strip = |t: &GameTeam| {
                 let mut t = t.clone();
-                t.players.retain(|p| !cs.out.contains_key(&p.id));
+                t.players.retain(|p| !cs.out.contains_key(&p.id) && !capped.contains(&p.id));
                 t
             };
             let teams = if cs.on_engine {

@@ -1,6 +1,6 @@
 # Section 4: the build checklist
 
-Status: built 2026-10-16 by the thread "Section 4 calendar build". Cain: "fully complete section 4, without any manual approval from me" and "don't pause any builds to ask for permission, instead choose the most realistic option then tell me in the morning what you pondered about".
+Status: built 2026-10-16 by the thread "Section 4 calendar build"; the bugs world trial 6 found were fixed the same day (`docs/trials/world-trial6.md`). Cain: "fully complete section 4, without any manual approval from me" and "don't pause any builds to ask for permission, instead choose the most realistic option then tell me in the morning what you pondered about".
 
 Every agreed point (T1 to T11 in `calendar.md`) and every addition (A1 to A46 in `calendar-additions.md`) is listed with where it lives in code. Marks:
 - **Built**: works in the world now.
@@ -26,9 +26,9 @@ Code paths are under `crates/afm-engine/src/`.
 | T3.1 | One combined January choice: draft, portal or stay | Built; CFP teams' players decide after their last game | `recruiting::draft_reads`, `declarations`, `portal_open` |
 | T3.2 | Bowl opt-outs from draft grade, personality and stakes | Built | `world/college.rs` |
 | T4 | Each state's own season, playoffs and transfer season | Built (games still on the stand-in until section 3 moves them) | `world/hs_year.rs`, `calendar/data.rs` |
-| T4.1 | Spring ball breakouts for (RS) freshmen and sophomores, with a notice first | Built: about 3% of eligible players break out; about half of notices fizzle | `hs_year::notices`, `jumps` |
+| T4.1 | Spring ball breakouts for (RS) freshmen and sophomores, with a notice first | Built: about 6% of eligible players get a notice early in spring; only noticed players can step, and about half of notices fizzle, so about 3% step. The step lands on the season row | `hs_year::notices`, `jumps`, `development::record_spring_step` |
 | T4.2 | National independents like IMG Academy, kept in check | Built | `world/high_school.rs`, `recruiting.rs` |
-| T5 | Recruiting periods, visits and signing | Built: contact, evaluation, quiet and dead periods by date; official visits on Fridays, unofficial game-day visits, drop-ins in evaluation weeks | `calendar/mod.rs` `recruiting_period`, `recruiting::recruiting_day` |
+| T5 | Recruiting periods, visits and signing | Built: contact, evaluation, quiet and dead periods by date; official visits on Fridays in any period but a dead one (from Sept 1 of the senior year; juniors from April 1 from 2018; fall officials to a school at home that weekend), unofficial game-day visits, drop-ins in evaluation weeks | `calendar/mod.rs` `recruiting_period`, `recruiting::recruiting_day`, `official_visit_allowed` |
 | T5.1 | Commits, decommits and flips move like the portal lean | Built | `recruiting::signing_stage` |
 | T5.2 | When a kid commits comes from his personality and family | Built: four commitment waves (after spring evaluation, June official visits, summer camps, senior-season visits), then each recruit announces on his own day | `recruiting::commit_timing`, `announce_commitments` |
 | T5.3 | Committed and local kids allow more | Built: drop-ins favor committed kids, local unofficial visits, commits pull friends | `recruiting::recruiting_day`, `signing_stage` |
@@ -38,7 +38,7 @@ Code paths are under `crates/afm-engine/src/`.
 | T6.2 | The install limit | Dated slot: needs the plays and tactics build | |
 | T7 | Where training sits in the year | Dated slot: every block is dated; what training does is section 6b | `world/nfl_year.rs` |
 | T7.1, T7.2 | Each block favors a kind of growth; load cuts both ways | Dated slot for section 6b | |
-| T8 | Small, medium, big, huge; Continue never skips huge | Built | `calendar/events.rs` `Loudness`, `clock.rs` |
+| T8 | Small, medium, big, huge; Continue never skips huge | Built: Continue stops on big and huge moments and on decisions; holiday mode only on huge | `calendar/events.rs` `Loudness`, `clock.rs` `continue_until_needed` |
 | T8.1 | A regular-season game is huge only when it really matters | Built for both the NFL and college, per team (see the stakes numbers below) | `nfl_year::stakes`, `college::stakes_for_day` |
 | T8.2 | No news held back after a huge moment | Built: nothing is held | |
 | T9 | Waits come from the people involved; deals can fall apart | Built for the portal (each entrant decides on his own day; a first choice can fall through while he waits) and coach hiring (no interviews of coaches still in the playoffs). Contract and trade waits are section 5 | `recruiting::portal_day`, `staff::weigh_offer` |
@@ -60,13 +60,13 @@ Code paths are under `crates/afm-engine/src/`.
 | A6 | The RFA offer sheet deadline | Dated slot |
 | A7 | Per-game roster bonus game days | Dated slot |
 | A8 | Incentive cut-off at week 18 | Dated slot |
-| A9 | College all-star games (Senior Bowl, Shrine Bowl, HBCU Legacy Bowl, NFLPA Collegiate Bowl) | Built: invite lists from the world |
+| A9 | College all-star games (Senior Bowl, Shrine Bowl, HBCU Legacy Bowl, NFLPA Collegiate Bowl) | Built: invite lists from the world, seniors invited once their season is over |
 | A10 | Combine invite list day | Built (about 320 invites) |
 | A11 | Combine week as the agents' meeting place | Built as a whisper window |
 | A12 | Pro day dates per school | Built |
 | A13 | Top-30 visit window | Built |
 | A14 | The rookie program in June | Built |
-| A15 | NFL awards and Hall of Fame dates | Built, placeholder picks (proposed, not confirmed) |
+| A15 | NFL awards and Hall of Fame dates | Dated slot: the award nights and Hall of Fame dates are on the calendar; the names wait for section 5's NFL players (the first version of this list said placeholder picks; there are none) |
 | A16 | Ring ceremony | Built |
 | A17 | Season ticket renewal deadline per team | Built |
 | A18 | Poll and ranking releases (AP, Coaches, CFP Tuesdays, BCS era) | Built, placeholder rankings (proposed, not confirmed) |
@@ -74,12 +74,12 @@ Code paths are under `crates/afm-engine/src/`.
 | A20 | Bowl selection day under the tie-ins | Built |
 | A21 | Bowl practices | Built |
 | A22 | Finals week | Built |
-| A23 | Term-end academic eligibility checks | Built |
+| A23 | Term-end academic eligibility checks | Built: after the fall term (misses the postseason and spring ball) and the spring term |
 | A24 | December graduation and graduate transfers | Built |
 | A25 | College awards dates | Built, placeholder picks |
 | A26 | Conference media days | Built |
 | A27 | Marked college games (senior day, homecoming) | Built |
-| A28 | Rivalry week with trophies and all-time records | Built |
+| A28 | Rivalry week with trophies and all-time records | Built: trophies (to claim or to keep) and the series record since the first simulated year (real records before it are not loaded) |
 | A29 | Grade checks per state | Built |
 | A30 | SAT and ACT dates | Built |
 | A31 | Marked high school games (homecoming, senior night) | Built |
@@ -121,3 +121,4 @@ Code paths are under `crates/afm-engine/src/`.
 - Bowl season starts the Saturday after the conference title games.
 - School records for the milestone tag: passing, rushing, receiving yards and sacks, from the program's own history.
 - Coaches Poll: a noisy copy of the placeholder ranking.
+- Made while fixing the world trial 6 bugs: the specialists' services' stars capped at 3 (the camps rate them on their own); a commitment that falls through on signing day goes to the program the recruit likes best among those with room that have him on their board (best film chooses first, no NIL money that late); the redshirt-trick bar at a lean of 0.3 (about 35-45 FBS players a year), and a trick taker is set on leaving; Heisman priors (QB 1.0, RB 0.84, WR and TE 0.78, defense 0.75), a 0.85 factor for a former winner and at least 6 games; spring notices for about 6% so about 3% still step; the Bills' Toronto game in the home week nearest week 13; on a Sunday Christmas, a 4:30pm game (and a 1pm game from 2020) beside the night game; the Pro Bowl Games on the Tuesday of Super Bowl week from the 2025 season; the Shrine Bowl on Thursday from 2022; high school schedules try 8 keyed shuffles a week and put games outside the classification early in the season.

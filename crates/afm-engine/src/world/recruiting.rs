@@ -706,14 +706,16 @@ pub(crate) fn all_star_invites(w: &mut World, game: &'static str) {
     let draft_year = year + 1;
     let five = w.changes.rules(draft_year).five_in_five;
     let hbcu = |c: usize| matches!(w.programs[c].conference.as_str(), "SWAC" | "MEAC");
-    // Teams still playing: their seniors are invited once their season is over.
-    let playing: std::collections::HashSet<usize> = w.college.as_ref().map_or_else(Default::default, |c| {
-        c.games.iter().filter(|g| g.played.is_none()).flat_map(|g| [g.home, g.away]).collect()
-    });
+    // Teams still playing (bracket rounds not drawn yet included): their
+    // seniors are invited once their season is over.
+    let playing: Vec<bool> = match w.college.as_ref() {
+        Some(cs) => (0..w.programs.len()).map(|t| super::college::still_playing(cs, t)).collect(),
+        None => vec![false; w.programs.len()],
+    };
     let done_senior = |p: &Person| {
         p.stage == Stage::College
             && p.cal.portal.is_none()
-            && p.college.is_some_and(|c| !playing.contains(&c))
+            && p.college.is_some_and(|c| !playing[c])
             && exhausted(p, draft_year, five)
     };
     let mut pool: Vec<(f64, usize)> = w
@@ -1600,6 +1602,8 @@ fn camp_rankings(
     find_snappers: bool,
 ) {
     // Each high school's snapper: the best snapper not at QB, K or P, as on game day.
+    // The class that just signed is still on the rosters until June: skip it.
+    let class = seniors.iter().map(|&k| w.people[pool[k].person].class_of).max().unwrap_or(i32::MIN);
     let mut snapper: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
     let schools = if find_snappers { &w.high_schools[..] } else { &[] };
     for s in schools {
@@ -1607,6 +1611,7 @@ fn camp_rankings(
             .roster
             .iter()
             .copied()
+            .filter(|&i| w.people[i].class_of >= class)
             .filter(|&i| !matches!(w.people[i].player.position, Position::QB | Position::K | Position::P))
             .max_by(|&a, &b| {
                 let f = |i: usize| {
