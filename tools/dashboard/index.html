@@ -851,15 +851,23 @@ function loadAnswers() { try { return JSON.parse(localStorage.getItem(VERDICT_KE
 function saveAnswers(a) { try { localStorage.setItem(VERDICT_KEY, JSON.stringify(a)); } catch (e) {} }
 function verdictItem(n, cls) {
   return h("div", { class: `item ${cls}` },
-    n.area ? h("span", { class: "tiny" }, n.area) : null,
+    n.area ? h("span", { class: "tiny" }, [n.area, n.kind, n.new ? "new since the fixes" : null].filter(Boolean).join(" · ")) : null,
     h("span", { class: "t" }, n.title),
     n.saw ? h("span", { class: "muted" }, n.saw) : null,
     n.why ? h("span", {}, h("b", {}, "Why: "), n.why) : null,
     n.fix ? h("span", {}, h("b", {}, "Fix: "), n.fix) : null);
 }
+function fixedItem(n) {
+  return h("div", { class: "item good" },
+    h("span", { class: "tiny" }, [n.id, n.area].filter(Boolean).join(" · ")),
+    h("span", { class: "t" }, n.title),
+    n.before ? h("span", { class: "muted" }, h("b", {}, "Before: "), n.before) : null,
+    n.after ? h("span", {}, h("b", {}, "After: "), n.after) : null,
+    n.why ? h("span", { class: "muted" }, n.why) : null);
+}
 function buildVerdict(p) {
   const V = S.notes?.verdict || {};
-  p.append(h("p", { class: "intro" }, "What the three worlds say after the section 4 build, in three lists: what works, what is wrong or buggy, and what could change or be added. Every suggestion is one aspect with its own yes or no (small items of one kind are bundled, each part named). Tick your answers here; they stay in this browser, and the button copies them as a numbered list to paste back. Nothing here is decided."));
+  p.append(h("p", { class: "intro" }, "What the three worlds say after the section 4 build and its fixes, in three lists: what works, what is wrong or buggy, and what could change or be added. Below them: what this build fixed, what it did not, the spot checks and the doubts. Every suggestion is one aspect with its own yes or no (small items of one kind are bundled, each part named). Tick your answers here; they stay in this browser, and the button copies them as a numbered list to paste back. Nothing here is decided."));
   const defs = healthDefs().filter((d) => !d.group);
   const auto = { good: [], warn: [], bad: [] };
   for (const d of defs) {
@@ -875,7 +883,7 @@ function buildVerdict(p) {
     h("div", { class: "tile" }, h("span", { class: "tiny" }, "Health board"), h("span", { class: "big" }, `${auto.good.length} / ${auto.warn.length} / ${auto.bad.length}`), h("span", { class: "tiny" }, "near / off / far off"))));
   const ans = loadAnswers();
   const out = h("pre", { class: "tiny mono", style: "white-space:pre-wrap;margin:0" });
-  const refresh = () => { const a = loadAnswers(); out.textContent = sug.map((s, i) => `${s.n ?? i + 1}. ${a[s.n ?? i + 1] || "–"}`).join("\n"); };
+  const refresh = () => { const a = loadAnswers(); out.textContent = sug.filter((s) => !s.status).map((s, i) => `${s.n ?? i + 1}. ${a[s.n ?? i + 1] || "–"}`).join("\n"); };
   const sugList = h("div", { class: "list" }, sug.map((s, i) => {
     const n = s.n ?? i + 1;
     const pick = (v) => h("button", { class: "chip", "aria-pressed": ans[n] === v ? "true" : "false", onclick: (ev) => {
@@ -889,7 +897,7 @@ function buildVerdict(p) {
       s.saw ? h("span", { class: "muted" }, s.saw) : null,
       s.what ? h("span", {}, h("b", {}, "What changes: "), s.what) : null,
       s.parts ? h("span", { class: "muted" }, "Parts: " + s.parts.join("; ")) : null,
-      h("div", { class: "row" }, pick("yes"), pick("no"), pick("later")));
+      s.status ? h("span", { class: "tiny" }, s.status) : h("div", { class: "row" }, pick("yes"), pick("no"), pick("later")));
   }));
   refresh();
   const copy = h("button", { class: "chip", onclick: async () => { try { await navigator.clipboard.writeText(out.textContent); copy.textContent = "Copied"; } catch (e) { copy.textContent = "Select the list below to copy"; } } }, "Copy my answers");
@@ -900,6 +908,14 @@ function buildVerdict(p) {
       auto.bad.length ? h("details", {}, h("summary", {}, `Health board measures far off (${auto.bad.length})`), h("div", { class: "list" }, auto.bad.map((n) => verdictItem(n, "bad")))) : null,
       auto.warn.length ? h("details", {}, h("summary", {}, `Health board measures a little off (${auto.warn.length})`), h("div", { class: "list" }, auto.warn.map((n) => verdictItem(n, "warn")))) : null))));
   p.append(h("div", { class: "card" }, h("h3", {}, "Suggestions and creative ideas"), h("div", { class: "row" }, copy), sugList, h("details", {}, h("summary", {}, "Your answers as text"), out)));
+  const fixed = V.fixed || [], notFixed = V.not_fixed || [];
+  if (fixed.length || notFixed.length) p.append(h("div", { class: "grid wide" },
+    h("div", { class: "card" }, h("h3", {}, `Fixed in this build (${fixed.length})`), h("p", { class: "why" }, "Bugs the first three worlds showed, fixed and measured again in these worlds: the number before the fix, then after it in each world."), h("div", { class: "list" }, fixed.map(fixedItem))),
+    h("div", { class: "card" }, h("h3", {}, `Not fixed or only partly (${notFixed.length})`), h("div", { class: "list" }, notFixed.map((n) => verdictItem(n, "warn"))))));
+  const spot = V.spot_checks || [], doubts = V.doubts || [];
+  if (spot.length || doubts.length || V.speed) p.append(h("div", { class: "grid wide" },
+    h("div", { class: "card" }, h("h3", {}, "Spot checks of the key numbers"), h("p", { class: "why" }, "Skeptics re-measured the numbers the decisions rest on."), h("div", { class: "list" }, spot.map((c) => h("div", { class: `item ${c.held ? "good" : "bad"}` }, h("span", { class: "tiny" }, c.held ? "held" : "corrected"), h("span", { class: "t" }, c.claim), h("span", { class: "muted" }, c.result))))),
+    h("div", { class: "card" }, h("h3", {}, "Doubts and speed"), V.speed ? h("p", {}, V.speed) : null, h("div", { class: "list" }, doubts.map((d) => h("div", { class: "item" }, h("span", { class: "muted" }, d)))))));
 }
 
 /* ---------- Calendar (section 4) ---------- */
@@ -915,11 +931,11 @@ function buildCalendar(p) {
   p.append(h("div", { class: "summary" },
     [["NFL games a year", avgOf((y) => y.nfl_games), `real ${R.nfl_games}`],
      ["Early NFL entrants", avgOf((y) => y.declared), `real about ${R.early_entrants?.join("-")}`],
-     ["FBS signees signing in December", avgOf((y) => y.fbs_early_pct), `% (real about ${R.fbs_signed_early_pct?.join("-")}%)`],
+     ["FBS signees signing in December", avgOf((y) => (y.year >= 2017 ? y.fbs_early_pct : null)), `% from 2017 (real about ${R.fbs_signed_early_pct?.join("-")}%)`],
      ["Portal entry days", avgOf((y) => y.portal_days), "days with at least one entry"],
      ["FBS teams with 1-3 huge games", avgOf((y) => y.college_huge_share_1_3), "% of FBS teams (target: most)"],
      ["NFL teams with 1-3 huge games", avgOf((y) => y.nfl_huge_share_1_3), "% of NFL teams (target: most)"],
-     ["Days Continue stops", mean(active().map((i) => mean(Object.values(S.runs[i].calendar.events).map((e) => e.stop_days)))), "a year: huge moments or decisions"],
+     ["Days Continue stops", mean(active().map((i) => mean(Object.values(S.runs[i].calendar.events).map((e) => e.stop_days)))), "a year: big or huge moments, or decisions"],
     ].map(([t, v, s]) => h("div", { class: "tile" }, h("span", { class: "tiny" }, t), h("span", { class: "big" }, fmt(v)), h("span", { class: "tiny" }, s)))));
   const g = h("div", { class: "grid" });
   p.append(legend(), g);
@@ -941,7 +957,7 @@ function buildCalendar(p) {
     chartDiv((d) => barChart(d, { cats: ["0", "1", "2", "3", "4+"], series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: [0, 1, 2, 3, 4].map((k) => mean(calRows(S.runs[i]).map((y) => 100 * y.college_huge[k] / S.runs[i].calendar.n_fbs))) })), yFmt: (v) => fmt(v) + "%" }))));
   g.append(card("Huge regular-season games per NFL team", "Share of NFL teams by their number of huge games: late-season games for a playoff place or a division.",
     chartDiv((d) => barChart(d, { cats: ["0", "1", "2", "3", "4+"], series: active().map((i) => ({ name: seedName(i), color: SERIES[i], values: [0, 1, 2, 3, 4].map((k) => mean(calRows(S.runs[i]).map((y) => 100 * y.nfl_huge[k] / 32))) })), yFmt: (v) => fmt(v) + "%" }))));
-  g.append(card("Days Continue stops", "Days a year with a huge moment or a decision, where Continue stops (topic 1 and 8).",
+  g.append(card("Days Continue stops", "Days a year with a big or huge moment or a decision, where Continue stops (topic 1 and 8).",
     chartDiv((d) => lineChart(d, { series: runSeries((run) => Object.entries(run.calendar.events).map(([y, e]) => [+y, e.stop_days])) }))));
   g.append(card("Bowl opt-outs and four-game redshirts", "Opt-outs from bowls (draft grade, personality, stakes) and redshirts kept under the four-game rule (from 2018).",
     chartDiv((d) => lineChart(d, { series: active().flatMap((i) => [["opt-outs", (y) => y.opt_outs], ["four-game redshirts", (y) => y.four_game_redshirts]].map(([n, f]) => ({ name: `${seedName(i)} ${n}`, color: SERIES[i], pts: calRows(S.runs[i]).map((y) => [y.year, f(y)]) }))) }))));
@@ -950,7 +966,7 @@ function buildCalendar(p) {
   g.append(card("Weather on college game days", "Games in snow, rain and freezing cold, lightning delays, games moved and cancelled.",
     chartDiv((d) => lineChart(d, { series: active().flatMap((i) => ["snow", "rain", "freezing", "lightning"].map((n, k) => ({ name: `${seedName(i)} ${n}`, color: SERIES[i], pts: calRows(S.runs[i]).map((y) => [y.year, y.weather[k]]) }))) }))));
   g.append(card("NFL calendar checks", "Games abroad (from each year's schedule release) and flexed games a year, with the real games abroad. Christmas games and anniversaries are small events, which the export leaves out.",
-    chartDiv((d) => lineChart(d, { series: [...(R.abroad_by_year ? [{ name: "Real abroad (to check)", color: "#888", pts: Object.entries(R.abroad_by_year).map(([y, v]) => [+y, v]) }] : []), ...active().flatMap((i) => [["abroad", "abroad"], ["flexed", "flexed"]].map(([n, k]) => ({ name: `${seedName(i)} ${n}`, color: SERIES[i], pts: Object.entries(S.runs[i].calendar[k] || {}).map(([y, v]) => [+y, v]) }))) }))));
+    chartDiv((d) => lineChart(d, { series: [...(R.abroad_by_year ? [{ name: "Real abroad (to check)", color: "#888", pts: Object.entries(R.abroad_by_year).map(([y, v]) => [+y, v]) }] : []), ...active().flatMap((i) => [["abroad", "abroad"], ["flexed", "flexed"]].map(([n, k]) => ({ name: `${seedName(i)} ${n}`, color: SERIES[i], pts: Object.entries(S.runs[i].calendar[k] || {}).map(([y, v]) => [+y, v]) }))) ] }))));
   // Portal days of the last year.
   g.append(card("The last winter's portal, day by day", "Entries per day in the last recorded year.",
     chartDiv((d) => lineChart(d, { series: runSeries((run) => { const rows = calRows(run); const last = rows[rows.length - 1]; if (!last) return []; const t0 = Date.parse(last.portal_by_day[0]?.[0]); return last.portal_by_day.map(([dt, n]) => [Math.round((Date.parse(dt) - t0) / 864e5), n]); }), xFmt: (x) => `day ${x}` }))));
