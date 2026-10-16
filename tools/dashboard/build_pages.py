@@ -44,7 +44,8 @@ NOTE_OLD = '("89 among seniors").</p>'
 NOTE_NEW = (
     '("89 among seniors"). "What happened" gives the reasons behind a season: injuries with the games'
     " they cost, slumps, breakouts, the first-year dip at a new level (0 is ready at once, 1 a very"
-    " hard first year), and a spring breakout"
+    " hard first year), and a spring breakout, which comes after the season except an early enrollee's"
+    " first college spring, before his first college season"
     ' (its gain is already in "Rating out").</p>'
 )
 
@@ -66,9 +67,16 @@ def season_words(s):
             words.append(f"first year at this level, adjusting{size}")
         else:
             words.append(f"first year at this level: he played below his rating while he adjusted{size}")
-    spring = s.get("spring")
-    if "springBreakout" in ev or spring:
-        gain = f", +{spring:.1f}" if spring else ""
+    # An early enrollee's first college spring step opens his first college
+    # row ("spring_open", before the season); any other part of the row's
+    # spring gain came after the season. Older cards have no "spring_open".
+    spring = s.get("spring") or 0
+    opening = s.get("spring_open") or 0
+    after = spring - opening
+    if opening:
+        words.append(f"spring breakout in spring practice before the season, +{opening:.1f}")
+    if after > 0.05 or ("springBreakout" in ev and not opening):
+        gain = f", +{after:.1f}" if after > 0.05 else ""
         words.append(f"spring breakout after the season{gain}")
     text = "; ".join(words)
     return text[:1].upper() + text[1:]

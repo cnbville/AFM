@@ -222,15 +222,16 @@ impl<'a> Side<'a> {
         self.first_up(&self.depth.kickoff).unwrap_or_else(|| self.fg_kicker())
     }
 
-    /// The long snapper: the depth chart's; if he is hurt, the next listed
-    /// long snapper, else the best snap left in the game.
+    /// The long snapper: the depth chart's; if he is hurt, or kicking or
+    /// punting after an injury to a leg, the next listed long snapper, else
+    /// the best snap left in the game who is not kicking or punting.
     fn snapper(&self) -> usize {
         let d = &self.depth;
-        if !self.out[d.snapper] {
+        let legs = [self.fg_kicker(), self.punter()];
+        if !self.out[d.snapper] && !legs.contains(&d.snapper) {
             return d.snapper;
         }
         let ps = &self.team.players;
-        let legs = [self.fg_kicker(), self.punter()];
         let free = |i: usize| !self.out[i] && !legs.contains(&i);
         let snap = |i: usize| ps[i].traits.snapping + 0.02 * ps[i].a(Attr::Awareness);
         d.list(Position::LS)
@@ -2163,6 +2164,17 @@ impl<'a> Game<'a> {
         }
         w
     }
+}
+
+/// Tests only: the field goal kicker, the punter and the long snapper a
+/// team sends out with the players at `out` (indexes) hurt.
+#[cfg(test)]
+pub(crate) fn kick_unit_men(team: &GameTeam, out: &[usize]) -> [usize; 3] {
+    let mut side = Side::new(team, 99.0, 3);
+    for &i in out {
+        side.out[i] = true;
+    }
+    [side.fg_kicker(), side.punter(), side.snapper()]
 }
 
 /// Standard normal CDF.

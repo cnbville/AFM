@@ -428,9 +428,12 @@ pub(crate) fn team_strength(roster: &[usize], people: &[super::Person]) -> (f64,
         if p.last_role != Some(PlayingTime::Starter) || p.player.position.is_specialist() {
             continue;
         }
-        let h = p.player.history.last();
-        pre += h.map_or(p.player.overall(), |h| h.overall_start);
-        sum += p.last_performance.unwrap_or_else(|| h.map_or(p.player.overall(), |h| h.overall_start));
+        // The rating he plays the season at: an early enrollee's row opens
+        // with his first college spring step (F2), taken before the season.
+        let camp =
+            p.player.history.last().map_or(p.player.overall(), |h| h.overall_start + h.spring_open.unwrap_or(0.0));
+        pre += camp;
+        sum += p.last_performance.unwrap_or(camp);
         n += 1.0;
     }
     if n == 0.0 { (30.0, 30.0, incidents) } else { (sum / n, pre / n, incidents) }

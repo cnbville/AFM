@@ -273,3 +273,143 @@ fn a_camp_redshirt_who_plays_has_a_season_on_his_row() {
         assert!(w.people[1].redshirt_used && w.people[1].college_seasons == 0);
     }
 }
+
+#[test]
+fn a_redshirt_who_costs_nothing_fills_a_hole_before_one_whose_year_it_would_take() {
+    // Review fix: one regular quarterback is out, so the two-deep is one
+    // short. The redshirt who costs nothing today plays and the other sits,
+    // whichever is better: from 2018 the one with games left under the
+    // four-game rule, before it the one whose year is already gone.
+    use crate::player::PlayingTime as Pt;
+    use crate::positions::Position;
+    for (season, best_games, other_games) in [(2019, 4, 2), (2016, 0, 1)] {
+        let (mut w, c) = college_world(season);
+        for i in 0..4 {
+            let p = &mut w.people[i];
+            crate::athlete::set_position(&mut p.player, Position::QB);
+            p.stage = crate::world::Stage::College;
+            p.college = Some(c);
+            p.last_role = Some(if i >= 2 { Pt::Redshirt } else { Pt::Backup });
+            p.redshirt_used = i >= 2;
+            p.cal.count_pending = i < 2;
+        }
+        w.programs[c].roster = vec![0, 1, 2, 3];
+        let (best, other) = if w.people[2].player.overall() >= w.people[3].player.overall() { (2, 3) } else { (3, 2) };
+        let mut cs = crate::world::college::new_season(&w);
+        let (best, other) = (w.people[best].player.id, w.people[other].player.id);
+        cs.snaps.insert(best, (10, best_games));
+        cs.snaps.insert(other, (5, other_games));
+        cs.out.insert(w.people[0].player.id, "suspended");
+        let held = crate::world::college::held_redshirts(&w, &cs);
+        assert!(held.contains(&best) && !held.contains(&other), "{season}: held {held:?}");
+    }
+}
+
+#[test]
+fn an_early_enrollees_notes_give_the_age_of_his_first_college_row() {
+    // Review fix (F2, F15): on campus before his first college row, every
+    // note (enrollment, spring, spring term, NIL, portal) gives the age that
+    // row will carry; once it exists, its own age.
+    use crate::development::{SeasonContext, develop_season};
+    use crate::player::{Level, PlayingTime as Pt};
+    let (mut w, _) = college_world(2019);
+    let p = &mut w.people[0];
+    develop_season(&mut p.player, &SeasonContext::new(Level::HS, 9.0, Pt::Starter), &mut p.rng);
+    let hs_age = p.player.history.last().unwrap().age;
+    assert_eq!(p.row_age(), hs_age);
+    p.stage = crate::world::Stage::College;
+    assert_eq!(p.row_age(), hs_age + 1);
+    develop_season(&mut p.player, &SeasonContext::new(Level::FBS, 12.0, Pt::Redshirt), &mut p.rng);
+    assert_eq!(p.row_age(), hs_age + 1);
+    assert_eq!(p.player.age, hs_age + 2);
+}
+
+#[test]
+fn a_player_who_withdraws_from_the_draft_gives_up_his_all_star_invite() {
+    // Review fix: back in school with eligibility left, he plays no
+    // all-star game that winter.
+    use crate::world::recruiting::{Declare, declarations};
+    let (mut w, c) = college_world(2018);
+    w.year = 2018;
+    for p in w.people.iter_mut() {
+        p.stage = crate::world::Stage::Declared;
+        p.college = Some(c);
+        p.class_of = 2017;
+        p.college_seasons = 2;
+        p.cal.draft_read = Some(crate::world::DraftRead { grade: 40.0, score: 0.0, round: 8 });
+        p.cal.all_star = Some("Senior Bowl");
+    }
+    declarations(&mut w, Declare::Withdraw);
+    let back = w.people.iter().filter(|p| p.stage == crate::world::Stage::College).count();
+    assert!(back > 0, "nobody withdrew");
+    for p in &w.people {
+        assert_eq!(p.cal.all_star.is_some(), p.stage == crate::world::Stage::Declared);
+    }
+}
+
+#[test]
+fn all_star_rosters_are_named_after_the_title_games_and_the_withdrawal_day() {
+    // Review fix (F7): the one roster day comes after the FBS and FCS title
+    // games, after the withdrawal day whenever the first game allows it,
+    // and never after the first game held.
+    use crate::calendar::YearDates;
+    use crate::world::clock::all_star_roster_day;
+    use crate::world::recruiting::all_star_held;
+    for season in 1990..=2031 {
+        let y = YearDates::new(season);
+        let first = [
+            (y.senior_bowl, "Senior Bowl"),
+            (y.shrine_bowl, "East-West Shrine Bowl"),
+            (y.hbcu_bowl, "HBCU Legacy Bowl"),
+            (y.nflpa_bowl, "NFLPA Collegiate Bowl"),
+        ]
+        .into_iter()
+        .filter(|g| all_star_held(g.1, season + 1))
+        .map(|g| g.0)
+        .min()
+        .unwrap();
+        let day = all_star_roster_day(&y);
+        let fcs_final = *y.fcs_rounds.last().unwrap();
+        assert!(day > y.title_game && day > fcs_final, "{season}: {}", day.pretty());
+        assert!(day <= first && day >= first.add(-7), "{season}: {} vs {}", day.pretty(), first.pretty());
+        if first.add(-1) >= y.declare_withdraw {
+            assert!(day >= y.declare_withdraw, "{season}: {}", day.pretty());
+        }
+    }
+}
+
+#[test]
+fn a_played_redshirt_season_names_its_form() {
+    // Review fix (F1): every camp redshirt who played draws the year's form,
+    // kept four-game years too, and the row names a slump or a breakout, so
+    // a slump list gives the reason. A lost season drawn at camp rules out
+    // both; a major injury rules out a breakout.
+    use crate::player::{DevelopmentEvent as Ev, Level, PlayingTime as Pt};
+    for (season, played) in [(2016, 7), (2019, 3)] {
+        let (mut w, c) = college_world(season);
+        let mut cs = crate::world::college::new_season(&w);
+        cs.on_engine = true;
+        cs.results[c].wins = 8;
+        cs.results[c].losses = 4;
+        let ctx = crate::development::SeasonContext::new(Level::FBS, 12.0, Pt::Redshirt);
+        for p in w.people.iter_mut() {
+            p.stage = crate::world::Stage::College;
+            p.college = Some(c);
+            crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);
+            p.last_role = Some(Pt::Redshirt);
+            p.redshirt_used = true;
+            cs.snaps.insert(p.player.id, (20, played));
+        }
+        w.college = Some(cs);
+        crate::world::college::settle_eligibility(&mut w);
+        let rows: Vec<_> = w.people.iter().map(|p| p.player.history.last().unwrap()).collect();
+        let slumps = rows.iter().filter(|h| h.events.has(Ev::Slump)).count();
+        assert!((3..=40).contains(&slumps), "{season}: {slumps} slumps in {}", rows.len());
+        for h in &rows {
+            let form = h.events.has(Ev::Slump) || h.events.has(Ev::Breakout);
+            assert!(!(form && h.events.has(Ev::LostSeason)), "{season}: form in a lost season");
+            assert!(!(h.events.has(Ev::Breakout) && h.events.has(Ev::MajorInjury)));
+            assert_eq!(h.playing_time, if played > 4 || season < 2018 { Pt::Backup } else { Pt::Redshirt });
+        }
+    }
+}

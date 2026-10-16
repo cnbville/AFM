@@ -341,8 +341,11 @@ fn camp_redshirt(p: &super::Person) -> bool {
 /// The camp redshirts a staff keeps off the field today (F14). Before 2018
 /// any game cost a redshirt his year, so a staff did not play one; from
 /// 2018 it plays him in up to four games and stops there (settle_eligibility).
-/// When absences leave his position short of its two-deep, the best of
-/// them play whatever it costs (pulling the redshirt).
+/// A redshirt whose year is already gone, or who still has games under the
+/// four-game rule, costs nothing today and is never held. When absences
+/// leave his position short of its two-deep even with those, the best of
+/// the rest play, only as many as fill it, whatever it costs (pulling the
+/// redshirt).
 pub(crate) fn held_redshirts(w: &World, cs: &CollegeSeason) -> HashSet<u32> {
     let four = w.rules.four_game_redshirt;
     let mut held = HashSet::new();
@@ -363,12 +366,23 @@ pub(crate) fn held_redshirts(w: &World, cs: &CollegeSeason) -> HashSet<u32> {
         if planned.is_empty() {
             continue;
         }
-        planned.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.2.cmp(&b.2)));
-        for (pos, _, id) in planned {
+        // First those who cost nothing today: the year already counts (any
+        // game before 2018, five or more from 2018), or games are left
+        // under the four-game rule.
+        let mut rest = Vec::new();
+        for (pos, ov, id) in planned {
             let games = cs.snaps.get(&id).map_or(0, |s| s.1);
-            let free = four && games < 4;
-            let short = able[pos.index()] < season::two_deep(pos);
-            if free || short {
+            let gone = games > 0 && (!four || games > 4);
+            if gone || (four && games < 4) {
+                able[pos.index()] += 1;
+            } else {
+                rest.push((pos, ov, id));
+            }
+        }
+        // Then the best of the rest, only while the position is short.
+        rest.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.2.cmp(&b.2)));
+        for (pos, _, id) in rest {
+            if able[pos.index()] < season::two_deep(pos) {
                 able[pos.index()] += 1;
             } else {
                 held.insert(id);
@@ -2269,6 +2283,8 @@ pub(crate) fn settle_eligibility(w: &mut World) {
     let on_engine = cs.on_engine;
     let games: HashMap<u32, u32> = cs.snaps.iter().map(|(&id, s)| (id, s.1)).collect();
     let team_games: Vec<u32> = cs.results.iter().map(|r| r.games()).collect();
+    // The team he played his games for: a December transfer has moved on by now.
+    let prog_of: HashMap<u32, usize> = cs.lines.iter().map(|(&id, l)| (id, l.program)).collect();
     let seed = w.options.seed as u64 ^ ((cs.year as u64) << 24) ^ 0x5E77;
     let mut kept = 0u32;
     for p in w.people.iter_mut() {
@@ -2296,7 +2312,12 @@ pub(crate) fn settle_eligibility(w: &mut World) {
                     "Played in {played} {games} at {age} and kept his redshirt year under the four-game rule."
                 ));
             }
-            let team = p.college.and_then(|c| team_games.get(c).copied()).unwrap_or(played);
+            let team = prog_of
+                .get(&p.player.id)
+                .copied()
+                .or(p.college)
+                .and_then(|c| team_games.get(c).copied())
+                .unwrap_or(played);
             played_as_redshirt(p, played, team, burned, seed);
             continue;
         }
@@ -2320,32 +2341,48 @@ pub(crate) fn settle_eligibility(w: &mut World) {
 /// A camp redshirt who got into games (F1): his season row counts them.
 /// His growth stays the year his staff planned at camp (practice and the
 /// weight room); the row shows his play over the games he got, the form of
-/// his year and the games an injury cost him. When the year counts against
-/// his eligibility it was a backup's season, and his row and role say so;
-/// a redshirt kept under the four-game rule stays a redshirt on the row.
+/// his year and the games an injury cost him, as the yearly step reads a
+/// backup's season. When the year counts against his eligibility it was a
+/// backup's season, and his row and role say so. A redshirt kept under the
+/// four-game rule (2018 on, four games or fewer) gets the same play, form
+/// and games missed, but his row and role stay a redshirt's: a year of four
+/// games or fewer is a redshirt year in real football, and the role feeds
+/// the staff's roster read and the portal's role records (proposed, not
+/// confirmed: F1's text said the row says backup).
 fn played_as_redshirt(p: &mut super::Person, played: u32, team_games: u32, burned: bool, seed: u64) {
     use crate::player::DevelopmentEvent as Ev;
     let id = p.player.id as u64;
     let Some(h) = p.player.history.last_mut() else { return };
-    // His play, as the yearly step reads a season's (development.rs): his
-    // rating through the year and a first-year dip, and for a backup's
-    // season the year's form: a slump costs 4-9 points of play (6%), a hot
-    // year adds 3-7 (a backup's breakout chance, 2.1%).
+    // The rating he played the season at: an early enrollee's row opens
+    // with his first college spring step (F2), taken before the season.
+    let camp = h.overall_start + h.spring_open.unwrap_or(0.0);
+    // His play, as the yearly step reads a backup's season (development.rs):
+    // his rating through the year, a first-year dip and the year's form. A
+    // lost season (drawn at camp) costs 3-7 points of play and no other
+    // form follows it; otherwise a slump costs 4-9 (6%) and a hot year adds
+    // 3-7 (a backup's breakout chance, 2.1%; not in a year a major injury
+    // mostly took). Each is named on the row, so a page gives the reason.
     let dip = h.adjustment.unwrap_or(0.0);
     let mut play = 2.0 * key_normal(seed, id) - 7.0 * dip;
+    let form = key_uniform(seed ^ 0xF0, id);
+    let size = key_uniform(seed ^ 0xF1, id);
+    if h.events.has(Ev::LostSeason) {
+        play -= 3.0 + 4.0 * size;
+    } else if form < 0.06 {
+        play -= 4.0 + 5.0 * size;
+        h.events.add(Ev::Slump);
+    } else if form > 1.0 - 0.035 * 0.6 && !h.events.has(Ev::MajorInjury) {
+        play += 3.0 + 4.0 * size;
+        // A big year from a player whose rating still fell is not a breakout.
+        if h.overall >= camp {
+            h.events.add(Ev::Breakout);
+        }
+    }
     if burned {
         h.playing_time = PlayingTime::Backup;
         p.last_role = Some(PlayingTime::Backup);
-        let form = key_uniform(seed ^ 0xF0, id);
-        let size = key_uniform(seed ^ 0xF1, id);
-        if form < 0.06 {
-            play -= 4.0 + 5.0 * size;
-        } else if form > 1.0 - 0.035 * 0.6 {
-            play += 3.0 + 4.0 * size;
-        }
     }
-    let perf =
-        clamp((h.overall_start + h.overall) / 2.0 + play, crate::attributes::MIN_RATING, crate::attributes::MAX_RATING);
+    let perf = clamp((camp + h.overall) / 2.0 + play, crate::attributes::MIN_RATING, crate::attributes::MAX_RATING);
     h.performance = Some(perf);
     p.last_performance = Some(perf);
     // An injury this year cost him games he could have played (the yearly

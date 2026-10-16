@@ -863,11 +863,6 @@ fn before_first_college_row(p: &super::Person) -> bool {
     p.stage == Stage::College && p.player.history.last().is_none_or(|h| !h.level.is_college())
 }
 
-/// The age a college spring note gives: the row the spring belongs to.
-fn spring_age(p: &super::Person, college: bool) -> u32 {
-    if college && before_first_college_row(p) { p.player.age } else { row_age(p) }
-}
-
 /// The value the top `share` of `values` clear.
 fn top_bar(values: &[f64], share: f64) -> f64 {
     if values.is_empty() {
@@ -965,7 +960,7 @@ fn notices(w: &mut World, cands: &[(usize, f64, bool)], d: Date, college: bool) 
             super::coach::Group::QB => "keeps reading it this fast and keeps his feet clean",
             _ => "keeps stacking good days and keeps his footwork sharp",
         };
-        let age = spring_age(p, college);
+        let age = row_age(p);
         p.note(format!("Spring notice at {age}: if {first} {what}, he'll likely make a big step."));
         if college && p.stars >= 4 {
             let text = format!("Spring practice: {} is turning heads.", p.name);
@@ -1013,7 +1008,7 @@ fn jumps(w: &mut World, cands: &[(usize, f64, bool)], d: Date, college: bool) {
                 p.player.attributes = before;
             }
         }
-        let age = spring_age(p, college);
+        let age = row_age(p);
         if gain < 0.5 {
             fizzles += 1;
             p.note(format!("At {age} the spring step he was tipped for didn't come."));

@@ -88,8 +88,10 @@ pub enum DevelopmentEvent {
     /// His first year at a new level: he played below his rating while he
     /// adjusted (the first-year dip; its size is the row's `adjustment`).
     FirstYear,
-    /// A spring breakout in the offseason after the season (section 4,
-    /// T4.1); its gain is the row's `spring_gain`.
+    /// A spring breakout (section 4, T4.1); its gain is the row's
+    /// `spring_gain`. It comes in the offseason after the season, except an
+    /// early enrollee's first college spring, which opens his first college
+    /// row (F2; that part is the row's `spring_open`).
     SpringBreakout,
 }
 
@@ -185,10 +187,15 @@ pub struct SeasonRecord {
     pub games_missed: u32,
     /// Size of his first-year dip after a step up (0 = ready at once, 1 = a very hard first year).
     pub adjustment: Option<f64>,
-    /// Overall gained in a spring breakout in the offseason after the season
-    /// (section 4, T4.1). Already in `overall`, so the next row starts where
-    /// this one ends.
+    /// Overall gained in spring breakouts on this row (section 4, T4.1):
+    /// one in the offseason after the season is already in `overall`, so the
+    /// next row starts where this one ends; an early enrollee's step before
+    /// his first college season is in the row's rise (`spring_open`).
     pub spring_gain: Option<f64>,
+    /// The part of `spring_gain` an early enrollee took in his first college
+    /// spring, before this row's season (F2): the row starts before it, so
+    /// the rating he played the season at is `overall_start` plus this.
+    pub spring_open: Option<f64>,
     /// Pro team he spent the season with (index into the league).
     pub team: Option<usize>,
     /// Depth chart spot, e.g. "WR2", "practice squad" or "free agent".

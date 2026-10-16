@@ -67,7 +67,7 @@ fn player_detail(p: &afm_engine::player::Player) -> Value {
             "start": r1(h.overall_start), "end": r1(h.overall), "perf": h.performance.map(r1),
             "lr": h.level_rating, "lr_end": h.level_rating_end, "pot": r1(debug::season_potential(h)),
             "ev": h.events.iter().map(|e| e.name()).collect::<Vec<_>>(), "missed": h.games_missed, "coach": r1(h.coaching),
-            "dip": h.adjustment, "spring": h.spring_gain.map(r1)
+            "dip": h.adjustment, "spring": h.spring_gain.map(r1), "spring_open": h.spring_open.map(r1)
         })).collect::<Vec<_>>(),
         "positions": p.position_history.iter().map(|(age, pos)| json!([age, pos.name()])).collect::<Vec<_>>(),
         "personality": {"work_ethic": r1(p.personality.work_ethic), "coachability": r1(p.personality.coachability),

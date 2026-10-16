@@ -12,7 +12,7 @@
 //! game is decided from the two teams' starters, with home field and luck.
 
 pub mod background;
-mod clock;
+pub(crate) mod clock;
 pub mod coach;
 pub(crate) mod college;
 pub mod data;
@@ -26,7 +26,7 @@ pub mod ncaa;
 pub mod news;
 mod nfl_year;
 pub mod program;
-mod recruiting;
+pub(crate) mod recruiting;
 pub mod schedule;
 pub(crate) mod season;
 mod staff;
@@ -235,8 +235,9 @@ pub struct PersonCal {
     pub draft_read: Option<DraftRead>,
     pub opted_out: bool,
     pub redshirt_trick: bool,
-    /// A verbal commitment: program and day (T5.1).
-    pub commit: Option<(usize, crate::calendar::Date)>,
+    /// A verbal commitment: program, day (T5.1), and whether it was to a
+    /// walk-on place.
+    pub commit: Option<(usize, crate::calendar::Date, bool)>,
     pub signed: Option<Signed>,
     pub commit_timing: Option<CommitTiming>,
     /// A spring practice notice is out (T4.1): a breakout may land by the spring game.
@@ -307,9 +308,14 @@ impl Person {
     /// offseason after it, so every note about either gives this age and a
     /// page reads one age per season (D5, F15). Steps toward a season not
     /// yet started (a camp move, a summer commitment or transfer) give his
-    /// age now, the age that season's row will carry.
+    /// age now, the age that season's row will carry. So does an early or
+    /// summer enrollee on campus before his first college row (F2): his
+    /// spring, spring term, NIL and portal notes belong to that row.
     pub fn row_age(&self) -> u32 {
-        self.player.history.last().map_or(self.player.age, |h| h.age)
+        match self.player.history.last() {
+            Some(h) if self.stage != Stage::College || h.level.is_college() => h.age,
+            _ => self.player.age,
+        }
     }
     /// What a scout with judging skill `accuracy` (1-20) learns about his
     /// background and family: the only view of them the game gets (1.7).
@@ -496,8 +502,8 @@ pub struct World {
     pub(crate) portal_pending: Vec<usize>,
     /// Verbal commitments decided at a commitment wave and waiting for the
     /// recruit's own announcement day (T5.2): day, person index, player id,
-    /// program.
-    pub(crate) announcements: Vec<(crate::calendar::Date, usize, u32, usize)>,
+    /// program, and whether it is a walk-on place.
+    pub(crate) announcements: Vec<(crate::calendar::Date, usize, u32, usize, bool)>,
     /// The portal market of the open window (kept while entrants decide).
     pub(crate) portal_market: Option<recruiting::PortalMarket>,
     /// Super Bowl champions by season.

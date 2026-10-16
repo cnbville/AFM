@@ -55,3 +55,29 @@ fn long_snapper_is_on_the_kicking_units() {
         assert!(kicks >= 100, "{level:?}: only {kicks} kicks in 12 games");
     }
 }
+
+/// A team with no long snapper whose best snap is its backup kicker: when
+/// the starting kicker is hurt, the backup kicks and someone else snaps, so
+/// no man is on the unit twice.
+#[test]
+fn the_kicker_never_snaps_to_himself() {
+    use crate::attributes::Attr;
+    use crate::game::flow::kick_unit_men;
+    let mut team = synthetic_league(Level::FBS, 1, 21).remove(0);
+    team.players.retain(|p| p.position != Position::LS);
+    let k1 = team.players.iter().position(|p| p.position == Position::K).unwrap();
+    let mut k2 = team.players[k1].clone();
+    k2.id = team.players.iter().map(|p| p.id).max().unwrap() + 1;
+    k2.attrs[Attr::KickAccuracy] -= 15.0;
+    k2.attrs[Attr::KickPower] -= 15.0;
+    k2.traits.snapping = team.players.iter().map(|p| p.traits.snapping).fold(0.0, f64::max) + 5.0;
+    team.players.push(k2);
+    let k2 = team.players.len() - 1;
+    // With everyone fit the backup kicker is the snapper.
+    let [k, _, sn] = kick_unit_men(&team, &[]);
+    assert_eq!((k, sn), (k1, k2));
+    // The starter is hurt: the backup kicks, and the snap goes to someone else.
+    let [k, p, sn] = kick_unit_men(&team, &[k1]);
+    assert_eq!(k, k2);
+    assert!(sn != k && sn != p, "kicker {k}, punter {p}, snapper {sn}");
+}

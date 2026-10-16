@@ -594,6 +594,8 @@ pub(crate) fn declarations(w: &mut World, phase: Declare) {
                     p.stage = Stage::College;
                     // He is back for next season: no second declaration this winter.
                     p.cal.declare_plan = Some(false);
+                    // He has eligibility left again: no all-star game this winter.
+                    p.cal.all_star = None;
                     let age = p.row_age();
                     p.note(format!(
                         "Withdrew from the draft at {age} after a poor advisory grade and returned to school."
@@ -1164,6 +1166,27 @@ impl ClassPlan {
     }
 }
 
+/// Whether a player takes a place under his program's limit (F17). The
+/// House era's limit counts the whole roster. Before it (and at the FCS
+/// programs that stayed out, D2 and junior colleges) the limit counts
+/// players on aid, and walk-ons sit outside it, except the specialists the
+/// class plan keeps in its own walk-on room under the limit.
+fn takes_a_place(p: &Person, whole_roster: bool) -> bool {
+    whole_roster || !p.walk_on || p.player.position.is_specialist()
+}
+
+/// The players on each program's roster who take a place under its limit
+/// in `season` (`takes_a_place`).
+fn counted_rosters(w: &World, season: i32) -> Vec<usize> {
+    w.programs
+        .iter()
+        .map(|prog| {
+            let whole = super::ncaa::whole_roster_limit(prog, season);
+            prog.roster.iter().filter(|&&i| takes_a_place(&w.people[i], whole)).count()
+        })
+        .collect()
+}
+
 /// When the staff reads its roster for a signing stage (T5.2): what this
 /// season still adds to everyone's count, whether the winter portal is still
 /// ahead, and the most seasons a player gets.
@@ -1291,6 +1314,7 @@ fn class_plan(
     let mut now = [[0.0; 2]; POSITION_COUNT];
     let mut stay = [[0.0; 2]; POSITION_COUNT];
     let mut returning = 0.0;
+    let whole_roster = super::ncaa::whole_roster_limit(prog, sign_year);
     for &i in &prog.roster {
         let p = &people[i];
         if p.stage != Stage::College {
@@ -1300,9 +1324,11 @@ fn class_plan(
         let (next, two) = gone(p, prog.division, sign_year, bars, read);
         now[k][wo] += 1.0 - next;
         stay[k][wo] += 1.0 - two;
-        returning += 1.0 - next;
+        if takes_a_place(p, whole_roster) {
+            returning += 1.0 - next;
+        }
     }
-    let mut plan = ClassPlan { whole_roster: super::ncaa::whole_roster_limit(prog, sign_year), ..Default::default() };
+    let mut plan = ClassPlan { whole_roster, ..Default::default() };
     for pos in Position::ALL {
         let k = pos.index();
         let mut target = real_roster(pos) * scale;
@@ -1758,7 +1784,7 @@ pub(crate) fn announce_commitments(w: &mut World, d: Date) {
     let (today, later): (Vec<_>, Vec<_>) = w.announcements.iter().copied().partition(|a| a.0 <= d);
     w.announcements = later;
     let month = d.month() as usize - 1;
-    for (_, i, id, j) in today {
+    for (_, i, id, j, walk_on) in today {
         let Some(p) = w.people.get(i) else { continue };
         if p.player.id != id || p.stage != Stage::HighSchool || p.cal.commit.is_some() {
             continue;
@@ -1770,7 +1796,7 @@ pub(crate) fn announce_commitments(w: &mut World, d: Date) {
         let started =
             w.hs_season.as_ref().is_some_and(|h| h.states.get(w.high_schools[p.hs].state).is_some_and(|s| s.developed));
         let p = &mut w.people[i];
-        p.cal.commit = Some((j, d));
+        p.cal.commit = Some((j, d, walk_on));
         w.log.commits += 1;
         w.log.commits_by_month[month] += 1;
         let age = p.player.age - started as u32;
@@ -2964,7 +2990,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             // made up at the wave; the recruit announces on a day of his own
             // before the next wave (July 4 is a favorite after June's
             // official visits; proposed, not confirmed).
-            let j = held[k].unwrap().program;
+            let Held { program: j, walk_on, .. } = held[k].unwrap();
             let id = w.people[i].player.id;
             let span = if wave >= 3 { 30.0 } else { 58.0 };
             let u = key_uniform(seed ^ 0xA77, id as u64);
@@ -2973,11 +2999,13 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             } else {
                 today.add(1 + (key_uniform(seed ^ 0xA78, id as u64) * span) as i32)
             };
-            w.announcements.push((day, i, id, j));
+            w.announcements.push((day, i, id, j, walk_on));
             continue;
         }
         let from_hs = w.school_name(w.people[i].hs).to_string();
         let committed = w.people[i].cal.commit.map(|c| c.0);
+        // A commitment to a walk-on place never held a scholarship.
+        let committed_on_scholarship = w.people[i].cal.commit.is_some_and(|c| !c.2);
         match held[k] {
             Some(Held { program: j, special, walk_on, .. }) => {
                 let prog_name = w.program_name(j).to_string();
@@ -3014,7 +3042,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     w.log.commits += 1;
                     w.log.commits_by_month[month] += 1;
                 }
-                if scrambled[k] && walk_on && committed == Some(j) {
+                if scrambled[k] && walk_on && committed == Some(j) && committed_on_scholarship {
                     w.people[i].note(format!(
                         "{prog_name} ran out of scholarships for him on signing day; he walked on there instead."
                     ));
@@ -3746,6 +3774,9 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
     let pn = w.programs.len();
     let season = market.season;
     let one_time = w.changes.rules(season).one_time_transfer;
+    // The rosters change only after the day's decisions, so each program's
+    // count under its limit is read once.
+    let counted = counted_rosters(w, season);
     let seed = w.options.seed as u64 ^ ((market.label as u64) << 24) ^ 0xFA11;
     // The day's landings (person, program), applied to the rosters in
     // place: a full rebuild every portal day costs more than the decisions.
@@ -3791,7 +3822,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                 if !wanted
                     || j == c
                     || mk.adds[j] >= 10
-                    || wr.programs[j].roster.len() + mk.adds[j] >= super::ncaa::roster_limits(&wr.programs[j], season).0
+                    || counted[j] + mk.adds[j] >= super::ncaa::roster_limits(&wr.programs[j], season).0
                 {
                     return None;
                 }
@@ -3823,7 +3854,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         let Some((j, _)) = pick else {
             // Portal regret (T3): his old school may take him back.
             let back = why != Why::Dismissed
-                && w.programs[c].roster.len() < super::ncaa::roster_limits(&w.programs[c], season).0
+                && counted[c] < super::ncaa::roster_limits(&w.programs[c], season).0
                 && key_uniform(seed ^ 0xBAC, w.people[i].player.id as u64)
                     < if perf >= median(from) - 2.0 { 0.4 } else { 0.15 };
             let p = &mut w.people[i];
