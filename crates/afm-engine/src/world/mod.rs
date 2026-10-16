@@ -28,7 +28,7 @@ mod nfl_year;
 pub mod program;
 mod recruiting;
 pub mod schedule;
-mod season;
+pub(crate) mod season;
 mod staff;
 
 use rayon::prelude::*;
@@ -241,6 +241,9 @@ pub struct PersonCal {
     pub commit_timing: Option<CommitTiming>,
     /// A spring practice notice is out (T4.1): a breakout may land by the spring game.
     pub spring_notice: bool,
+    /// An early enrollee's college spring step, taken before his first
+    /// college row: that row opens with it at fall camp (F2).
+    pub spring_gain_ahead: Option<f64>,
     /// Invited to the NFL combine (A10) or a college all-star game (A9).
     pub combine_invite: bool,
     pub all_star: Option<&'static str>,
@@ -299,6 +302,14 @@ impl PersonCal {
 impl Person {
     pub fn note(&mut self, s: impl Into<String>) {
         self.notes.push(s.into());
+    }
+    /// The age on his latest season row. A row covers the season and the
+    /// offseason after it, so every note about either gives this age and a
+    /// page reads one age per season (D5, F15). Steps toward a season not
+    /// yet started (a camp move, a summer commitment or transfer) give his
+    /// age now, the age that season's row will carry.
+    pub fn row_age(&self) -> u32 {
+        self.player.history.last().map_or(self.player.age, |h| h.age)
     }
     /// What a scout with judging skill `accuracy` (1-20) learns about his
     /// background and family: the only view of them the game gets (1.7).
@@ -757,7 +768,7 @@ impl World {
         self.add_class_aged(14);
     }
 
-    fn add_class_aged(&mut self, age: u32) {
+    pub(crate) fn add_class_aged(&mut self, age: u32) {
         let size = (250_000.0 * self.options.scale).round() as usize;
         let year = self.year;
         let mut kids: Vec<(usize, usize, u32)> = Vec::with_capacity(size);

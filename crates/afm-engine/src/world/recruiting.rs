@@ -404,7 +404,7 @@ pub(crate) fn honors(w: &mut World) {
     for (i, weight, what) in honors {
         let c = w.people[i].college.unwrap();
         credit_impact(w, i, c, weight, year);
-        let age = w.people[i].player.age - 1;
+        let age = w.people[i].row_age();
         let school = w.program_name(c).to_string();
         w.people[i].note(format!("At {age} he {what} at {school}."));
     }
@@ -546,7 +546,7 @@ pub(crate) fn declarations(w: &mut World, phase: Declare) {
                     if phase == Declare::Deadline {
                         let p = &mut w.people[i];
                         p.stage = Stage::Declared;
-                        let age = p.player.age;
+                        let age = p.row_age();
                         p.note(format!("His college career over at {age}, he entered the draft pool."));
                     }
                     continue;
@@ -565,7 +565,7 @@ pub(crate) fn declarations(w: &mut World, phase: Declare) {
                 }
                 let p = &mut w.people[i];
                 p.stage = Stage::Declared;
-                let age = p.player.age;
+                let age = p.row_age();
                 let round = read.round;
                 let proj =
                     if round <= 7 { format!("projected round {round}") } else { "projected to go undrafted".into() };
@@ -594,7 +594,7 @@ pub(crate) fn declarations(w: &mut World, phase: Declare) {
                     p.stage = Stage::College;
                     // He is back for next season: no second declaration this winter.
                     p.cal.declare_plan = Some(false);
-                    let age = p.player.age;
+                    let age = p.row_age();
                     p.note(format!(
                         "Withdrew from the draft at {age} after a poor advisory grade and returned to school."
                     ));
@@ -681,7 +681,7 @@ pub(crate) fn combine(w: &mut World) {
             r.score += shift;
             if z >= 1.8 {
                 risers.push(i);
-                let age = p.player.age;
+                let age = p.row_age();
                 p.note(format!("Tested among the best at his position at the combine at {age}."));
             }
         }
@@ -801,7 +801,7 @@ pub(crate) fn all_star_game(w: &mut World, game: &'static str) {
             r.grade += shift;
             r.score += shift;
         }
-        let age = p.player.age;
+        let age = p.row_age();
         p.note(format!("Played in the {game} at {age}."));
         n += 1;
     }
@@ -914,9 +914,12 @@ pub(crate) fn draft(w: &mut World) {
             format!("they traded up to pick {pick} to take their quarterback")
         } else if need >= 1.0 {
             let weakest = team.weakest_starter(pos).map_or(0.0, |x| x.0);
-            format!("they needed a {} (their weakest starter there was rated {weakest:.0})", pos.name())
+            format!(
+                "they needed {} (their weakest starter there was rated {weakest:.0})",
+                crate::text::with_article(pos.name())
+            )
         } else if pv >= 2.0 {
-            format!("a {} is a premium position", pos.name())
+            format!("{} is a premium position", crate::text::with_article(pos.name()))
         } else {
             "he was the best player left on their board".to_string()
         };
@@ -978,7 +981,7 @@ pub(crate) fn draft(w: &mut World) {
         let team_id = how.as_ref().map(|h| h.1);
         let p = &mut w.people[i];
         p.stage = Stage::Pro;
-        let age = p.player.age;
+        let age = p.row_age();
         let when = pick.map_or(y.udfa_rush, pick_time);
         match (how, round, team_name) {
             (Some((pk, _, why)), Some(r), Some(team)) => {
@@ -2166,7 +2169,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         p.visibility = r.visibility;
         p.bg.exposure_network = r.visibility;
         if r.viral && rating {
-            let age = p.player.age;
+            let age = p.row_age();
             p.note(format!("At {age} a highlight clip went viral and got him a first look from recruiters."));
         }
     }
@@ -2227,7 +2230,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         if p.rng.chance(clamp(chance, 0.05, 0.85)) {
             p.bg.gpa = line + p.rng.range(0.0, 0.05);
             pool[k].gpa = p.bg.gpa;
-            let age = p.player.age;
+            let age = p.row_age();
             p.note(format!(
                 "At {age}, summer school and retaken courses lifted his core GPA from {gpa:.2} to {:.2}.",
                 p.bg.gpa
@@ -3021,7 +3024,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 {
                     w.log.flips += 1;
                     let from = w.program_name(c).to_string();
-                    let age = w.people[i].player.age;
+                    let age = w.people[i].row_age();
                     let text = if scrambled[k] {
                         format!(
                             "His commitment to {from} fell through on signing day at {age}; {prog_name} had room for him."
@@ -3053,7 +3056,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     (false, _) => Step::HsToSmallCollege,
                 };
                 p.pending_dip = Some(World::adjustment(p, step));
-                let age = p.player.age;
+                let age = p.row_age();
                 let pos = p.player.position;
                 let services = match (p.stars, pos.is_specialist()) {
                     (0, false) => "an unranked recruit".to_string(),
@@ -3061,9 +3064,12 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     (s, false) => format!("a {s}-star"),
                     (s, true) => format!("a {s}-star {}", pos.name()),
                 };
-                // A specialist's camp stars are the kicking and snapping camps' own (fix list 1.5).
+                // A specialist's camp stars are the kicking and snapping camps'
+                // own (fix list 1.5), named only when they differ from the services'.
                 let stars = match p.camp_stars {
-                    c if c > 0 && pos.is_specialist() => format!("{services} (a {c}-star by the specialist camps)"),
+                    c if c > 0 && c != p.stars && pos.is_specialist() => {
+                        format!("{services} (a {c}-star by the specialist camps)")
+                    }
                     _ => services,
                 };
                 let when = match stage {
@@ -3188,7 +3194,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 if good && p.bg.gpa < 2.3 && p.rng.chance(0.25 + 0.4 * p.bg.money) {
                     p.stage = Stage::PrepSchool;
                     p.bg.gpa = clamp(p.bg.gpa + p.rng.range(0.1, 0.6), 0.0, 4.0);
-                    let age = p.player.age;
+                    let age = p.row_age();
                     p.note(match &fell_through {
                         Some(school) => format!(
                             "His commitment to {school} fell through; at {age} he went to prep school for a year to fix his grades."
@@ -3253,7 +3259,7 @@ pub(crate) fn enroll(w: &mut World, early: bool) {
         p.on_notice = false;
         p.cal.signed = None;
         if early {
-            let age = p.player.age;
+            let age = p.row_age();
             p.note(format!("Enrolled early at {name} in January at {age}, in time for spring practice."));
         }
         n += 1;
@@ -3357,7 +3363,7 @@ fn enter_portal(w: &mut World, i: usize, c: usize, entered: Date, decide_by: Dat
     // His NIL deal ends when he enters (T3).
     if p.nil_income > 0.0 {
         p.nil_income = 0.0;
-        let age = p.player.age;
+        let age = p.row_age();
         p.note(format!("Lost his NIL deal when he entered the portal at {age}."));
     }
     if p.stars < 4 && p.last_role != Some(PlayingTime::Starter) {
@@ -3811,7 +3817,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         let waited = entry.entered.days_to(today).max(1) as f64;
         let fell = ranked.len() >= 2 && key_uniform(seed, w.people[i].player.id as u64) > 0.99f64.powf(waited);
         let pick = if fell { ranked.get(1).copied() } else { ranked.first().copied() };
-        let age = w.people[i].player.age - 1;
+        let age = w.people[i].row_age();
         let from_name = w.program_name(c).to_string();
         let what = why.phrase();
         let Some((j, _)) = pick else {
@@ -3945,13 +3951,13 @@ pub(crate) fn nil_payouts(w: &mut World) {
                 if perf < team_median {
                     p.bg.stability = clamp(p.bg.stability - 1.0, 1.0, 20.0);
                     jealousy += 0.2;
-                    let age = p.player.age;
+                    let age = p.row_age();
                     p.note(format!(
                         "At {age}, paid among the most on his team, he struggled and took heavy criticism."
                     ));
                 } else if p.rng.chance(0.08) {
                     p.player.personality.work_ethic = clamp(p.player.personality.work_ethic - 1.0, 1.0, 20.0);
-                    let age = p.player.age;
+                    let age = p.row_age();
                     p.note(format!("At {age} a big NIL payday made him a little complacent."));
                 }
             }

@@ -482,10 +482,15 @@ fn ncaa_case(w: &mut World, j: usize) {
         let ban_text = match ban {
             0 => String::new(),
             1 => ", a one-year postseason ban".to_string(),
-            n => format!(", a {n}-year postseason ban"),
+            n => format!(", {}-year postseason ban", crate::text::with_article(&n.to_string())),
         };
-        let coach_text = show_cause
-            .map_or(String::new(), |(c, y, _)| format!(" and a {y}-year show-cause order for {}", w.coaches[c].name));
+        let coach_text = show_cause.map_or(String::new(), |(c, y, _)| {
+            format!(
+                " and {}-year show-cause order for {}",
+                crate::text::with_article(&y.to_string()),
+                w.coaches[c].name
+            )
+        });
         let line = format!(
             "NCAA penalties for a booster's payments to recruits: {scholarships} scholarships over three seasons{ban_text}{coach_text}."
         );

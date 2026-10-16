@@ -262,3 +262,22 @@ fn a_spring_step_lands_on_the_season_row() {
     develop_season(&mut p, &context_for(19), &mut rng);
     assert!((p.history[1].overall_start - p.history[0].overall).abs() < 1e-9);
 }
+
+#[test]
+fn an_early_enrollees_spring_step_opens_his_first_college_row() {
+    // F2: the step comes before his first college row, so that row opens
+    // with it and his high school row ends where it ended.
+    let mut rng = Rng::new("spring-open");
+    let mut p =
+        generate_prospect(&mut rng, ProspectOptions { age: Some(17), talent_z: Some(2.0), ..Default::default() });
+    develop_season(&mut p, &context_for(17), &mut rng);
+    let hs_end = p.history[0].overall;
+    let gain = crate::development::spring_jump(&mut p, 0.25, &mut rng);
+    assert!(gain > 0.0);
+    develop_season(&mut p, &context_for(18), &mut rng);
+    crate::development::open_row_with_spring_step(&mut p, gain);
+    let (hs, first) = (&p.history[0], &p.history[1]);
+    assert!(hs.spring_gain.is_none() && !hs.events.has(Ev::SpringBreakout) && hs.overall == hs_end);
+    assert!(first.events.has(Ev::SpringBreakout) && first.spring_gain == Some(gain));
+    assert!((first.overall_start - hs_end).abs() < 1e-9);
+}

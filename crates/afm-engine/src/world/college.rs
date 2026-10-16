@@ -329,6 +329,55 @@ fn conditions(w: &World, g: &Game, k: usize) -> (Conditions, Played, Option<Seve
     (cond, played, wx.severe)
 }
 
+/// A redshirt from fall camp: the staff means him to sit this season.
+fn camp_redshirt(p: &super::Person) -> bool {
+    p.stage == Stage::College
+        && p.last_role == Some(PlayingTime::Redshirt)
+        && p.redshirt_used
+        && !p.cal.count_pending
+        && !p.cal.academic_sit
+}
+
+/// The camp redshirts a staff keeps off the field today (F14). Before 2018
+/// any game cost a redshirt his year, so a staff did not play one; from
+/// 2018 it plays him in up to four games and stops there (settle_eligibility).
+/// When absences leave his position short of its two-deep, the best of
+/// them play whatever it costs (pulling the redshirt).
+pub(crate) fn held_redshirts(w: &World, cs: &CollegeSeason) -> HashSet<u32> {
+    let four = w.rules.four_game_redshirt;
+    let mut held = HashSet::new();
+    for prog in &w.programs {
+        let mut able = [0usize; crate::positions::POSITION_COUNT];
+        let mut planned: Vec<(crate::positions::Position, f64, u32)> = Vec::new();
+        for &i in &prog.roster {
+            let p = &w.people[i];
+            if p.stage != Stage::College || cs.out.contains_key(&p.player.id) {
+                continue;
+            }
+            if camp_redshirt(p) {
+                planned.push((p.player.position, p.player.overall(), p.player.id));
+            } else {
+                able[p.player.position.index()] += 1;
+            }
+        }
+        if planned.is_empty() {
+            continue;
+        }
+        planned.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.2.cmp(&b.2)));
+        for (pos, _, id) in planned {
+            let games = cs.snaps.get(&id).map_or(0, |s| s.1);
+            let free = four && games < 4;
+            let short = able[pos.index()] < season::two_deep(pos);
+            if free || short {
+                able[pos.index()] += 1;
+            } else {
+                held.insert(id);
+            }
+        }
+    }
+    held
+}
+
 /// The day's college games.
 pub(crate) fn play_day(w: &mut World, date: Date) {
     let Some(cs) = w.college.as_ref() else { return };
@@ -397,19 +446,7 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
     }
     stakes_for_day(w, &idx);
     let cs = w.college.as_ref().unwrap();
-    // From 2018 a staff stops playing a fall-camp redshirt once he has four
-    // games, so he keeps the year (settle_eligibility).
-    let capped: HashSet<u32> = if w.rules.four_game_redshirt && cs.on_engine {
-        w.people
-            .iter()
-            .filter(|p| matches!(p.stage, Stage::College) && !p.cal.count_pending && !p.cal.academic_sit)
-            .filter(|p| p.last_role == Some(PlayingTime::Redshirt) && p.redshirt_used)
-            .map(|p| p.player.id)
-            .filter(|id| cs.snaps.get(id).is_some_and(|s| s.1 >= 4))
-            .collect()
-    } else {
-        HashSet::new()
-    };
+    let capped = if cs.on_engine { held_redshirts(w, cs) } else { HashSet::new() };
     let seed = w.options.seed as u64 ^ ((cs.year as u64) << 32) ^ ((date.0 as u64) << 8);
     struct Job {
         k: usize,
@@ -679,7 +716,7 @@ fn result_event(w: &mut World, k: usize) {
     let level = if g.division == Division::FBS { "CFP" } else { g.division.name() };
     let what = match (g.kind, g.name) {
         (GameKind::Playoff(_), name) => match (name, playoff_round(cs, k).unwrap_or("first round")) {
-            (Some(n), round) => format!(" in the {n}, a {level} {round}"),
+            (Some(n), round) => format!(" in the {n}, {} {round}", crate::text::with_article(level)),
             (None, round @ ("first round" | "second round")) => format!(" in the {level} {round}"),
             (None, round) => format!(" in the {level} {round}s"),
         },
@@ -1104,8 +1141,10 @@ fn update_records(w: &mut World, year: i32) {
         let had = w.programs[prog].season_records[k].is_some();
         if had && w.recording {
             let stat = super::program::RECORD_STATS[k].0;
-            let text =
-                format!("{holder} finishes with {v:.0} {stat}, a {} single-season record.", w.programs[prog].real_name);
+            let text = format!(
+                "{holder} finishes with {v:.0} {stat}, {} single-season record.",
+                crate::text::with_article(&w.programs[prog].real_name)
+            );
             w.calendar.post(Event::new(d, CalLevel::College, Kind::News, Loudness::Small, text).program(prog));
         }
         w.programs[prog].season_records[k] = Some(super::program::SeasonRecord { value: v, holder, year });
@@ -1705,7 +1744,7 @@ fn opt_outs(w: &mut World) {
                 _ => "his bowl game",
             };
             let why = if senior { "to prepare for the draft" } else { "to enter the NFL draft" };
-            outs.push((p.player.id, i, format!("Opted out of {game} at {} {why}.", p.player.age), senior));
+            outs.push((p.player.id, i, format!("Opted out of {game} at {} {why}.", p.row_age()), senior));
         }
     }
     let date = w.today;
@@ -1965,7 +2004,7 @@ pub(crate) fn awards(w: &mut World, which: &'static str) {
                 })
                 .collect();
             for &(_, _, i) in scored.iter().take(4) {
-                let age = w.people[i].player.age;
+                let age = w.people[i].row_age();
                 w.people[i].note(format!("A Heisman Trophy finalist at {age}."));
             }
             if !names.is_empty() {
@@ -1977,7 +2016,7 @@ pub(crate) fn awards(w: &mut World, which: &'static str) {
             if let Some(&(_, id, i)) = scored.first() {
                 let c = w.people[i].college.unwrap_or(0);
                 let text = format!("{} of {} wins the Heisman Trophy.", w.people[i].name, w.program_name(c));
-                let age = w.people[i].player.age;
+                let age = w.people[i].row_age();
                 w.people[i].note(format!("Won the Heisman Trophy at {age}."));
                 w.calendar
                     .post(Event::new(date, CalLevel::College, Kind::Award, Loudness::Big, text).program(c).memorable());
@@ -2025,7 +2064,7 @@ pub(crate) fn awards(w: &mut World, which: &'static str) {
             for (award, i) in picks {
                 let c = w.people[i].college.unwrap_or(0);
                 let id = w.people[i].player.id;
-                let age = w.people[i].player.age;
+                let age = w.people[i].row_age();
                 w.people[i].note(format!("Won the {award} at {age}."));
                 lines.push(format!("{} {} ({})", award, w.people[i].name, w.program_name(c)));
                 w.college.as_mut().unwrap().awards.push((award, id, c));
@@ -2221,12 +2260,16 @@ pub(crate) fn finish(w: &mut World) {
 /// Whether this season counts against a player's eligibility, settled when
 /// the portal opens (January 2): a redshirt can play four games and keep the
 /// year from 2018 on; a redshirt trick keeps it by stopping at four. Before
-/// 2018 any game a redshirt played cost him the year.
+/// 2018 any game a redshirt played cost him the year. A season without a
+/// game is never a season of competition: a player who never got in uses
+/// his redshirt year if he still has it, in every era.
 pub(crate) fn settle_eligibility(w: &mut World) {
     let Some(cs) = w.college.as_ref() else { return };
     let four = w.rules.four_game_redshirt;
     let on_engine = cs.on_engine;
     let games: HashMap<u32, u32> = cs.snaps.iter().map(|(&id, s)| (id, s.1)).collect();
+    let team_games: Vec<u32> = cs.results.iter().map(|r| r.games()).collect();
+    let seed = w.options.seed as u64 ^ ((cs.year as u64) << 24) ^ 0x5E77;
     let mut kept = 0u32;
     for p in w.people.iter_mut() {
         if !matches!(p.stage, Stage::College | Stage::Declared) {
@@ -2240,9 +2283,10 @@ pub(crate) fn settle_eligibility(w: &mut World) {
             if !camp_redshirt || played == 0 {
                 continue;
             }
-            let age = p.player.age;
+            let age = p.row_age();
             let games = if played == 1 { "game" } else { "games" };
-            if !four || played > 4 {
+            let burned = !four || played > 4;
+            if burned {
                 p.redshirt_used = false;
                 p.college_seasons += 1;
                 p.note(format!("Played in {played} {games} at {age}, which cost him his redshirt year."));
@@ -2252,14 +2296,18 @@ pub(crate) fn settle_eligibility(w: &mut World) {
                     "Played in {played} {games} at {age} and kept his redshirt year under the four-game rule."
                 ));
             }
+            let team = p.college.and_then(|c| team_games.get(c).copied()).unwrap_or(played);
+            played_as_redshirt(p, played, team, burned, seed);
             continue;
         }
         p.cal.count_pending = false;
-        if four && on_engine && !p.redshirt_used && played <= 4 {
+        if on_engine && !p.redshirt_used && (played == 0 || four && played <= 4) {
             p.redshirt_used = true;
-            kept += 1;
+            if four {
+                kept += 1;
+            }
             if p.cal.redshirt_trick {
-                let age = p.player.age;
+                let age = p.row_age();
                 p.note(format!("Stopped playing after four games at {age} to keep his redshirt year."));
             }
         } else {
@@ -2267,6 +2315,56 @@ pub(crate) fn settle_eligibility(w: &mut World) {
         }
     }
     w.log.four_game_redshirts += kept;
+}
+
+/// A camp redshirt who got into games (F1): his season row counts them.
+/// His growth stays the year his staff planned at camp (practice and the
+/// weight room); the row shows his play over the games he got, the form of
+/// his year and the games an injury cost him. When the year counts against
+/// his eligibility it was a backup's season, and his row and role say so;
+/// a redshirt kept under the four-game rule stays a redshirt on the row.
+fn played_as_redshirt(p: &mut super::Person, played: u32, team_games: u32, burned: bool, seed: u64) {
+    use crate::player::DevelopmentEvent as Ev;
+    let id = p.player.id as u64;
+    let Some(h) = p.player.history.last_mut() else { return };
+    // His play, as the yearly step reads a season's (development.rs): his
+    // rating through the year and a first-year dip, and for a backup's
+    // season the year's form: a slump costs 4-9 points of play (6%), a hot
+    // year adds 3-7 (a backup's breakout chance, 2.1%).
+    let dip = h.adjustment.unwrap_or(0.0);
+    let mut play = 2.0 * key_normal(seed, id) - 7.0 * dip;
+    if burned {
+        h.playing_time = PlayingTime::Backup;
+        p.last_role = Some(PlayingTime::Backup);
+        let form = key_uniform(seed ^ 0xF0, id);
+        let size = key_uniform(seed ^ 0xF1, id);
+        if form < 0.06 {
+            play -= 4.0 + 5.0 * size;
+        } else if form > 1.0 - 0.035 * 0.6 {
+            play += 3.0 + 4.0 * size;
+        }
+    }
+    let perf =
+        clamp((h.overall_start + h.overall) / 2.0 + play, crate::attributes::MIN_RATING, crate::attributes::MAX_RATING);
+    h.performance = Some(perf);
+    p.last_performance = Some(perf);
+    // An injury this year cost him games he could have played (the yearly
+    // step's ranges), at most the games his team played without him.
+    if h.games_missed == 0 {
+        let u = key_uniform(seed ^ 0x1A, id);
+        let games = crate::development::season_games(h.level) as f64;
+        let missed = if h.events.has(Ev::MajorInjury) {
+            let least = (games * 0.5).round();
+            least + (games - least + 1.0) * u
+        } else if h.events.has(Ev::ModerateInjury) {
+            2.0 + 5.0 * u
+        } else if h.events.has(Ev::MinorInjury) {
+            3.0 * u
+        } else {
+            0.0
+        };
+        h.games_missed = (missed.floor() as u32).min(team_games.saturating_sub(played));
+    }
 }
 
 /// The lean to leave at which a benched veteran takes the redshirt trick: a
@@ -2576,7 +2674,7 @@ pub(crate) fn spring_term_check(w: &mut World) {
             let risk = 0.06 * clamp((2.5 - p.bg.gpa) / 0.5, 0.0, 1.0) * (1.3 - support);
             if p.rng.chance(risk) {
                 p.cal.spring_ineligible = true;
-                let age = p.player.age;
+                let age = p.row_age();
                 p.note(format!(
                     "Academically ineligible for the fall at {age} after the spring term (GPA {:.2}).",
                     p.bg.gpa
@@ -2621,7 +2719,7 @@ fn fall_term_check(w: &mut World) {
                 return None;
             }
             p.cal.fall_ineligible = true;
-            let (age, gpa) = (p.player.age, p.bg.gpa);
+            let (age, gpa) = (p.row_age(), p.bg.gpa);
             let what = match (playing[c], !last_season(p, season, five)) {
                 (true, true) => "for the postseason and spring practice ",
                 (true, false) => "for the postseason ",
@@ -2655,7 +2753,7 @@ pub(crate) fn december_graduation(w: &mut World) {
             && !p.cal.graduated
         {
             p.cal.graduated = true;
-            let age = p.player.age;
+            let age = p.row_age();
             // The year to use anywhere only when he has a season left.
             if last_season(p, year, five) {
                 p.note(format!("Graduated in December at {age}."));

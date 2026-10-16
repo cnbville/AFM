@@ -581,6 +581,17 @@ pub fn spring_jump(player: &mut Player, share: f64, rng: &mut Rng) -> f64 {
     player.overall() - before
 }
 
+/// An early enrollee's college spring step, taken before his first college
+/// row (F2): that row opens with it. The row starts where his high school
+/// row ended, before the step, and carries the step on its way to its end.
+pub fn open_row_with_spring_step(player: &mut Player, gain: f64) {
+    if let Some(h) = player.history.last_mut() {
+        h.overall_start -= gain;
+        h.spring_gain = Some(h.spring_gain.unwrap_or(0.0) + gain);
+        h.events.add(Ev::SpringBreakout);
+    }
+}
+
 /// Puts a spring breakout of `gain` overall on his latest season row
 /// (section 4, T4.1): a row covers the season and the offseason after it,
 /// so its end runs through the step and the next row starts where it ends.

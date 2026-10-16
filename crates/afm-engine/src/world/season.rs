@@ -85,11 +85,48 @@ pub(crate) fn key_normal(a: u64, b: u64) -> f64 {
     (-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos()
 }
 
+/// A college travel squad at each position (F14): the two-deep, a third
+/// quarterback, and the extra backs, receivers, linemen, linebackers and
+/// defensive backs who cover kicks and step in when a starter is hurt; one
+/// kicker, punter and long snapper. 76 players: real conference limits for
+/// road games are about 70-74 (from memory, to verify), and at home the
+/// whole roster dresses. Proposed, not confirmed: the counts, set so about
+/// 40-50% of first-year FBS players redshirt and 600-850 true freshmen a
+/// year play five games or more (trial 6 measured about 870 before 2018,
+/// when nobody was held out).
+pub(crate) fn travel_slots(pos: Position) -> usize {
+    match pos {
+        Position::QB => 3,
+        Position::RB => 5,
+        Position::WR => 10,
+        Position::TE => 4,
+        Position::OT => 6,
+        Position::IOL => 9,
+        Position::EDGE => 7,
+        Position::DT => 6,
+        Position::LB => 8,
+        Position::CB => 8,
+        Position::S => 7,
+        Position::K | Position::P | Position::LS => 1,
+    }
+}
+
+/// The two-deep at a position: a starter and his backup at each spot, and
+/// one kicker, punter and long snapper.
+pub(crate) fn two_deep(pos: Position) -> usize {
+    if pos.is_specialist() { 1 } else { 2 * depth_slots(pos).starters }
+}
+
 /// Roles on one team's depth chart, from how the staff sees each player.
-fn depth_chart(
+/// In college the redshirt role goes only to a player with his redshirt
+/// year left who falls below the travel squad (F14): a freshman in it plays
+/// his season in every era. A player sitting the season out (`sits`: an
+/// academic or transfer sit) takes no travel place.
+pub(crate) fn depth_chart(
     entries: &mut [(usize, Position, f64)],
     college: bool,
     redshirt_free: &dyn Fn(usize) -> bool,
+    sits: &dyn Fn(usize) -> bool,
 ) -> Vec<(usize, PlayingTime)> {
     let mut out = Vec::with_capacity(entries.len());
     let mut by_pos: [Vec<(usize, f64)>; POSITION_COUNT] = Default::default();
@@ -100,16 +137,21 @@ fn depth_chart(
         let list = &mut by_pos[pos.index()];
         list.sort_by(|a, b| b.1.total_cmp(&a.1));
         let slots = depth_slots(pos);
+        // Travel places taken by the players ranked above him.
+        let mut travelling = 0;
         for (k, &(i, _)) in list.iter().enumerate() {
             let role = if k < slots.starters {
                 PlayingTime::Starter
             } else if k < slots.starters + slots.rotation.max(1) {
                 PlayingTime::Rotation
-            } else if college && redshirt_free(i) {
+            } else if college && travelling >= travel_slots(pos) && redshirt_free(i) {
                 PlayingTime::Redshirt
             } else {
                 PlayingTime::Backup
             };
+            if !sits(i) {
+                travelling += 1;
+            }
             out.push((i, role));
         }
     }
@@ -167,7 +209,7 @@ pub(crate) fn hs_roles(w: &World, schools: &[usize]) -> Vec<(usize, PlayingTime)
                     (i, p.player.position, seen)
                 })
                 .collect();
-            let mut chart = depth_chart(&mut entries, false, &|_| false);
+            let mut chart = depth_chart(&mut entries, false, &|_| false, &|_| false);
             for (i, role) in chart.iter_mut() {
                 let p = &people[*i];
                 if p.sit_out > 0.0 && key_normal(seed ^ year ^ 7, p.player.id as u64).abs() < 1.6 * p.sit_out {
@@ -204,10 +246,18 @@ pub(crate) fn college_roles(w: &World) -> Vec<(usize, PlayingTime)> {
                     (i, p.player.position, seen)
                 })
                 .collect();
-            depth_chart(&mut entries, true, &|i| {
-                let p = &people[i];
-                !p.redshirt_used && p.college_seasons <= 1
-            })
+            depth_chart(
+                &mut entries,
+                true,
+                &|i| {
+                    let p = &people[i];
+                    !p.redshirt_used && p.college_seasons <= 1
+                },
+                &|i| {
+                    let p = &people[i];
+                    p.academic_redshirt || p.cal.spring_ineligible || p.cal.transfer_sit
+                },
+            )
         })
         .flatten()
         .collect()
@@ -316,6 +366,9 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             ..SeasonContext::new(level, clamp(coaching, 1.0, 20.0), role)
         };
         develop_season(&mut p.player, &ctx, &mut p.rng);
+        if let Some(gain) = p.cal.spring_gain_ahead.take() {
+            crate::development::open_row_with_spring_step(&mut p.player, gain);
+        }
         p.last_role = Some(role);
         p.last_performance = p.player.history.last().and_then(|h| h.performance);
         p.sit_out = 0.0;

@@ -567,7 +567,10 @@ pub fn simulate_cohort(opts: CohortOptions) -> CohortResult {
             // His new staff decides where he plays: colleges sign athletes and move them.
             if let Some(from) = athlete::reconsider(&mut r.player, Eye::coach(col.coaching[i]).staff(2), 0.015) {
                 let to = r.player.position;
-                r.note(format!("Signed as a {from}; his college staff moved him to {to}."));
+                r.note(format!(
+                    "Signed as {}; his college staff moved him to {to}.",
+                    crate::text::with_article(from.name())
+                ));
             }
             let step = match level {
                 CollegeLevel::FBS => Step::HsToFbs,
@@ -863,7 +866,7 @@ pub fn simulate_cohort(opts: CohortOptions) -> CohortResult {
                 let why = if changed {
                     "after a coaching change".to_string()
                 } else {
-                    format!("stuck as a {}", role.map_or("backup", |r| r.name()))
+                    format!("stuck as {}", crate::text::with_article(role.map_or("backup", |r| r.name())))
                 };
                 let mut to: Option<CollegeLevel> = None;
                 if seen >= percentile(&levels[from.index()], 0.4) {
@@ -1383,7 +1386,7 @@ fn run_draft(
         let mut parts: Vec<String> = Vec::new();
         let (n, pv, reach) = best_parts;
         if n >= 1.0 {
-            parts.push(format!("they needed a {pos}"));
+            parts.push(format!("they needed {}", crate::text::with_article(pos.name())));
         }
         if n <= -3.0 {
             parts.push(format!("even with a starting {pos} in place"));
@@ -2085,7 +2088,10 @@ fn retires(s: &ProState, r: &mut CareerRecord, report: &SeasonReport, rng: &mut 
     let odds = if chance >= 0.2 {
         String::new()
     } else {
-        format!(", a {}% chance that year", round_half_up(chance * 100.0).max(1.0))
+        format!(
+            ", {}% chance that year",
+            crate::text::with_article(&round_half_up(chance * 100.0).max(1.0).to_string())
+        )
     };
     let reasons = if why.is_empty() { String::new() } else { format!(": {}", why.join(", ")) };
     r.note(format!(
