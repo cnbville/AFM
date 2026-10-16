@@ -638,6 +638,10 @@ impl<'a> Sim<'a> {
                     continue;
                 }
                 let d = self.agents[i].pos - self.agents[j].pos;
+                // Clearly apart (well past 0.8 yards): no square root needed.
+                if d.dot(d) > 0.65 {
+                    continue;
+                }
                 let l = d.len();
                 if l < 0.8 && l > 1e-6 {
                     push = push + d.scale((0.8 - l) / l * 0.5);
