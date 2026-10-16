@@ -906,9 +906,8 @@ fn college_spring_candidates(w: &World) -> Vec<(usize, f64, bool)> {
             let c = p.college?;
             let prog = &w.programs[c];
             let group = super::coach::Group::of(p.player.position);
-            let teaching = prog.position_coaches[group as usize]
-                .or(prog.head_coach)
-                .map_or(9.0, |c| w.coaches[c].teaching(group));
+            let teaching =
+                prog.position_coaches[group as usize].or(prog.head_coach).map_or(9.0, |c| w.coaches[c].teaching(group));
             Some((i, teaching, open_reps(w, &prog.roster, i)))
         })
         .collect()
