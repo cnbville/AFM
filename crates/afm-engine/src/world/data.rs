@@ -98,6 +98,12 @@ pub fn split_csv_line(line: &str) -> Vec<String> {
     out
 }
 
+/// The whole number a cell starts with, if any ("7 (plus ...)" is 7).
+fn leading_number(cell: &str) -> Option<u32> {
+    let s = cell.trim();
+    s[..s.find(|c: char| !c.is_ascii_digit()).unwrap_or(s.len())].parse().ok()
+}
+
 struct Table {
     header: Vec<String>,
     rows: Vec<Vec<String>>,
@@ -192,7 +198,10 @@ pub static STATES: LazyLock<Vec<StateRow>> = LazyLock::new(|| {
                 code: r[code].clone(),
                 governing_body: r[body].clone(),
                 programs: r[programs].parse().unwrap_or(100),
-                number_of_classes: r[classes].parse().unwrap_or(4),
+                // The cell's leading number: Florida's reads "7 (plus Independent
+                // League and FIT)". DC's is blank (the source covers the 50
+                // states), so it keeps the default of 4.
+                number_of_classes: leading_number(&r[classes]).unwrap_or(4),
                 transfer_rule: r[transfer].clone(),
                 powerhouses,
                 fbs_signees_per_year: trow.and_then(|x| x[signees].parse().ok()).unwrap_or(1.0),

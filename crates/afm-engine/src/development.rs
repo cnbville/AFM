@@ -144,6 +144,12 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     let dip = ctx.adjustment;
     let situation = ctx.situation;
     let mut games_missed = 0;
+    // A first year at a new level is named on the row, so a page or a slump
+    // list can give it as the reason he played below his rating. (A mark
+    // only: it draws nothing.)
+    if dip > 0.0 {
+        events.add(Ev::FirstYear);
+    }
 
     // --- Injuries: the main source of setbacks -------------------------------
     let mut growth_multiplier = 1.0;
@@ -500,6 +506,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         events,
         games_missed,
         adjustment: if dip > 0.0 { Some(round_half_up(dip * 100.0) / 100.0) } else { None },
+        spring_gain: None,
         team: None,
         depth: None,
         situation: None,
@@ -572,4 +579,15 @@ pub fn spring_jump(player: &mut Player, share: f64, rng: &mut Rng) -> f64 {
         player.attributes[key] += room * clamp(share * rng.range(0.7, 1.3), 0.0, 0.9);
     }
     player.overall() - before
+}
+
+/// Puts a spring breakout of `gain` overall on his latest season row
+/// (section 4, T4.1): a row covers the season and the offseason after it,
+/// so its end runs through the step and the next row starts where it ends.
+pub fn record_spring_step(player: &mut Player, gain: f64) {
+    if let Some(h) = player.history.last_mut() {
+        h.overall += gain;
+        h.spring_gain = Some(h.spring_gain.unwrap_or(0.0) + gain);
+        h.events.add(Ev::SpringBreakout);
+    }
 }

@@ -131,3 +131,12 @@ fn heights_read_like_the_combine() {
     assert_eq!(height_text(71.99), "6'0\"");
     assert_eq!(height_text(69.125), "5'9 1/8\"");
 }
+
+#[test]
+fn class_counts_read_the_leading_number() {
+    // Florida's cell reads "7 (plus Independent League and FIT)"; DC's is
+    // blank in the source and keeps the default of 4.
+    let classes = |code: &str| STATES.iter().find(|s| s.code == code).unwrap().number_of_classes;
+    assert_eq!((classes("FL"), classes("DC"), classes("TX"), classes("CA")), (7, 4, 12, 15));
+    assert!(STATES.iter().all(|s| (1..=15).contains(&s.number_of_classes)));
+}

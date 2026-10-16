@@ -1325,6 +1325,9 @@ def slumps(run):
                              ("dismissed", "dismissed"), ("stagnation", "stagnation"), ("bodyStalled", "body stopped developing")):
                     if k in ev:
                         why.append(t)
+                if "firstYear" in ev:
+                    dip = s.get("dip")
+                    why.append(f"first year at this level (dip {dip:.2})" if dip is not None else "first year at this level")
                 if s["age"] >= 30:
                     why.append(f'age {s["age"]} decline')
                 if s.get("coach") is not None and s["coach"] < 7:
