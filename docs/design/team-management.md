@@ -21,3 +21,9 @@ Cain's answers:
 1. **Snaps drive pro development.** Cain: "Absolutely, i'm shocked it hasn't, the amount of snaps and the quality of snaps matter just as much as the EPA". Development reads real snaps and how hard they were (the opponents he faced), plus practice reps by role. A practice squad player grows mostly on technique and the playbook.
 2. **Rust.** Cain: "Agreed, but 3 game max". A hidden game sharpness drops while a player is out of football (faster with low work ethic), costs a little timing and reading of the game, and is fully back within at most 3 games.
 3. **Waiting or retiring while unsigned.** Cain: "As dynamic as possible". Each week an unsigned veteran weighs his chance of an NFL call (injuries around the league at his position, his own level) against his age, career earnings, family, love of the game and offers from other leagues. Most give up by midseason; a few hold out for a September injury call.
+
+## Topic 2: contract value (in discussion)
+
+Notes from Cain (2026-10-16, not answers to the questions yet):
+- The cap must grow realistically.
+- Non-QB franchise players get paid by what they are to their team. Cain: "a Bijan or Jahmyr Gibbs getting record setting, it should up the floor off the RB's but not by a set amount since everyone just knows they're much more then a regular RB", unlike "a Kenneth Walker who is good but not franchise". Claude's reading (proposed, not confirmed): the price comes from the player's real share of his team's offense (snaps, touches and targets, explosive plays, how much the plan runs through him, how far he is above the replacement at hand), not the position label. A record deal pulls the comparables up only for players the market sees as that kind of player; a good starter's comparables stay the good starters.
