@@ -81,3 +81,12 @@ Cain's answers:
 2. **Trade value is worth minus contract (agreed, "but delicate"):** the team's own grade over his remaining years minus his cost, adjusted for need; old-school GMs weigh name and stats more. Handle with care in the build and check it in the trial.
 3. **GM to GM talks on the topic 4 table (agreed):** term board, tells, leaks; hidden GM-GM relationships; a GM who fleeced another gets fewer calls back.
 4. **Shopping rumors hurt the player (yes):** a leaked shopping effort costs morale and trust by personality; a loyal veteran takes it worst; some play angry.
+
+## Topic 7: AI front offices (in discussion)
+
+Real facts to build: each GM carries his own style (draft-and-develop like the Packers and Steelers; the Saints' yearly restructures; the Eagles' void years and early extensions; some won't pay RBs, some always pay the lines), and it moves with him. Teams load up in a rookie-deal QB window (the 2021 Rams: Stafford, Ramsey, Von Miller, Super Bowl LVI). Resets: one big dead-money year, or stripping to youth and picks. A hot-seat GM trades the future for now; owners demand splashes, block rebuilds or take over talks. Your own staff decide the same way (calendar topic 10).
+
+Cain's answers (2026-10-16):
+1. **Contend or rebuild:** agreed as proposed (the GM's own read of roster, QB window, cap 2-3 years out, core age, division, owner patience, job security, with a readable reason), plus Cain: "Add a fan dynamic and general opinion aspect to it": fan mood (results, hype, star signings, season ticket renewals A17, market size) and the media story feed the call, felt most by the owner.
+2. **Where styles come from:** agreed (learned from the front office he came up in, analytics spreading by era, winners copied).
+3. **Human biases:** "Yes, look at Deshaun Watson who despite all got picked over Shedeur Sanders, while JJ McCarthy got traded after 2 seasons because they have no trust. So expand on these strengths weaknesses and tie them into owner involvement." Expanded list 3.1-3.17 posted in the thread, waiting on Cain.
