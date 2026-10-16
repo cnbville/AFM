@@ -264,6 +264,20 @@ Spec `docs/design/plays-and-tactics.md`. Design in [T18], 2026-10-14.
 - **Topic 5, the game plan (11:30):** "Yes, and it's important to me that the weights of this are rewarding good plans. Like earlier you had the issue with the HC, that it didn't have a lot off effect on the outcome. Twhen buulding this topic it's imperal that it effects get rewarded without being broken so that it incentivises learning objective knowledge of the game". A rule for the whole design.
 - **Topic 6, who calls:** "Agree" (11:47). **Topics 7, 8 and 9:** "yes" (11:49, 11:49, 11:50).
 
+## 11. Player faces (section 10, thread "Regen faces", 2026-10-16)
+
+Spec `docs/design/faces.md`. Cain asked how AFM will make faces for fictional players (20:39). Answers at 22:04:
+
+- **Style: GAN photo faces with a stored recipe.** "GAN-> make sure it's somehow ethnetically accurate with the names". A face's dominant heritage matches the ethnicity his name comes from.
+- **New headshot every 4 years on media day:** "Once per 4 years on media day". (Asked: also on a team change; proposed, not confirmed.)
+- **Mixed ancestry for faces, names keep the main group:** "yes".
+- **Face recipe added at player creation on its own random stream (identical results per seed), pictures in section 10:** "yes".
+- **Silhouette with initials on plain screens before section 10:** "yes".
+- **Looks in the sim:** "elaborate please". Proposal 6a-6c open (appeal measured from the face; small input to social following, NIL and endorsements; small QB pay premium; never ratings or the draft).
+- **Proof of concept:** "yes immediately".
+- Cain's computers: a MacBook M1 and an Intel Mac (22:00). The face model must run on both.
+- **Proof sample size:** "current amount is enough, just need to see a baseline" (22:43): the random pool stopped at 900 faces. Results in `docs/design/faces.md`, "Proof".
+
 ---
 
 ## Superseded decisions

@@ -12,6 +12,7 @@ A deep, realistic American football management sim modelled on Football Manager:
 6. `docs/design/plays-and-tactics.md`: the plays and tactics database (play library, counters, pre-snap, learning playbooks, game plans, play calling and coach quality, tendencies, a play designer, ideas spreading). Design done 2026-10-14, not built.
 8. `docs/research/README.md`: realism research (real targets for the engine, rules, baselines, development), with sources and proposals for Raichel. Research only, never decisions.
 7. `docs/design/calendar.md`: section 4 (the season calendar and pacing), the finished design spec. Design done 2026-10-14, built 2026-10-16 (every point with its code in `docs/design/calendar-checklist.md`; how it works in `docs/world-model.md`, "Section 4: the calendar"). It replaces the older draft `docs/design/season-calendar-and-pacing.md` wherever they differ.
+9. `docs/design/faces.md`: player faces (section 10): GAN photo faces with a stored recipe that ages, matched to the name's heritage. Design started 2026-10-16, proof of concept in `tools/faces/`, not built into the game.
 
 ## Working rules (from Raichel)
 - **Ask before every design decision.** Bring a concrete proposal, then wait for the answer. Never pick defaults yourself.
