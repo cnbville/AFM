@@ -497,6 +497,11 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 sim.steer(i, dir.scale(speed));
                 continue;
             }
+            // A route is run in place: its waypoints are not copied each tick.
+            if matches!(sim.agents[i].job, Job::Route { .. }) {
+                run_route(&mut sim, i, &pass, qb, s, &trail);
+                continue;
+            }
             let job = sim.agents[i].job.clone();
             match job {
                 Job::Passer => {}
@@ -1463,7 +1468,8 @@ fn run_blocking(sim: &mut Sim, off_n: usize, roles: &[Option<ORole>], rc: RunCon
 
 fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, trail: &[Vec<V2>]) {
     let t = sim.t;
-    let Job::Route { pts, next, settle, release_delay, .. } = sim.agents[i].job.clone() else { return };
+    let Job::Route { ref pts, next, settle, release_delay, .. } = sim.agents[i].job else { return };
+    let n_pts = pts.len();
     if t < release_delay {
         // A back checks for blitzers before he releases.
         if let Some(r) = blitz_threat(sim, i, qb) {
@@ -1508,8 +1514,10 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
         return;
     }
     let _ = trail;
-    if next < pts.len() {
-        let (target, speed, done) = route_step(&sim.agents[i], &pts, next, settle);
+    if next < n_pts {
+        let a = &sim.agents[i];
+        let Job::Route { pts, .. } = &a.job else { return };
+        let (target, speed, done) = route_step(a, pts, next, settle);
         if done && let Job::Route { next: n, .. } = &mut sim.agents[i].job {
             *n += 1;
         }
