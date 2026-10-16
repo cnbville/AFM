@@ -172,3 +172,70 @@ Each settled by real life or an earlier decision on 2026-10-16; all go to the bu
 7. Walk-on room uses FBS 2022-24 depth at every level. Use each level's real roster depth.
 8. Travel squad: replace Claude's 76-man table with each conference's real travel limit by era (for example the SEC's 70, to verify).
 9. A camp redshirt held to 4 games keeps the label: the NCAA's 2018 four-game rule (already how it works).
+
+## Part D: Debug Lab findings that never became an item, settled (44)
+
+Found 2026-10-16 by checking every Debug Lab negative (N), not-fixed item (NF) and doubt (D) against parts A to C. 41 are settled by real life or an earlier decision; Cain answered the other 3 the same day (23:21). All go to the build list with part B and part C.
+
+Already covered, no new item: N4 and N21 (freshmen held to four games from 2018, planned redshirts burned before 2018) by F14, in code and not yet measured, finished by part C 3 and 8; N41 (titles on too few programs) by the dynasty fix.
+
+#### World and players
+1. N22: a spring step makes a slump more likely the next fall. The hot-year check should leave the spring gain out. Plain bug: Cain's spring step is a real jump, not a lucky year that regresses.
+2. N46: classes of 1998-99 are 15-18% small because the spin-up before history is too short. Lengthen it from 6 to 12 years (Cain's call, below).
+
+#### Engine
+3. N48: one-score FBS games 28.5-28.9%, real 36.7%. Trace which part widens margins, then tune to the real share.
+
+#### Recruiting
+4. N25: 5-stars drafted 70-74% (real 62%), first round 31-32% (real 21%). Re-measure after part B 6; if still high, widen the services' noise at the top of the class.
+5. N29: the All-American Bowl is mostly 3-stars. Invite by the services' final ranking.
+6. N30: long snappers take about 5 All-American Bowl places a class. Set places by position, one or two for specialists.
+7. N31: early enrollees miss the January all-star games. Real early enrollees play in them.
+8. N32: half of the camps' 5-star snappers sign nowhere. Match the camps' real tier sizes (to verify).
+9. N33: verbal commitments to junior colleges before the senior season. Junior colleges recruit only at the end.
+10. N40: the House roster limit nearly doubles the FBS class of 2025. Keep high school classes near normal; the new places fill over several classes, through walk-ons and the portal.
+11. N42: too few recruits commit before the senior season (27% against about 60-70% of a top 300).
+12. N43: no commitments in March or April of the junior year. Add the wave after junior days.
+13. N44: June is quiet (2.5-3.3%). Move the June wave into mid-June.
+14. N45: FBS signs 97.6% of its class in December. Hold back the real share for February.
+
+#### Portal, eligibility and the draft
+15. N24: more FBS transfers come from D2 than FCS. Discount D2 play the way FCS play is discounted.
+16. N34: every opt-out is announced on selection day. Each gets his own day before his bowl.
+17. N49: every declaration lands on January 6 or 15. Each announces on his own day after his last game.
+18. N50: the carousel fires and hires on one day. Each opening gets its own search length.
+19. N51: opt-outs jump at 2018 and then stay flat. A yearly ramp from 2016 rising into the 2020s.
+20. N52: the spring window draws 4-5% of a cycle. Raise it to the real share (rides with part B 10).
+21. N53: before 2018 most transfers enter on one day. Spread them over the offseason, with waves after each team's last game.
+22. N54: no spring entries in 2018-2021. Add the spring wave from players who lost the spring depth battle.
+23. D11: the coach-change window opens before selection day, so a playoff team's coach-change entrants would not be held. Plain bug.
+
+#### Stakes, news and postseason
+24. N26: two Heisman finalists from one school in 7-16 of 30 years (real about 5). Teammates split the vote.
+25. N27: the title-game loser often finishes below No. 2. Real: No. 2.
+26. N55: rivalry week is huge even for 4-win teams. T8.1: huge only with one more real stake.
+27. N56: NFL stakes are all or nothing (none or four). T8.1 and the agreed 1-3: huge only when the result can clinch or end the team's hopes.
+28. N59: bowl loudness ignores the bowl. Major bowls Big or Huge, other bowls Medium or Big.
+29. NF6: "All-America teams are named: 0 players" in 1990. Plain bug.
+
+#### NFL, high school and weather
+30. N35: Christmas games follow one number per era. A real table by year.
+31. N36: "90 to 53" in every era. Roster limits and cutdown steps from the rule book by era (T11).
+32. N37: postseason dates bundle (semifinals on one day, real quarterfinal days, Thursday title games for 2008-09, Jan 3 title bowls 2000-02, real first CFP ranking dates).
+33. N38: NFL and all-star dates bundle (Senior Bowl 8 days before the Super Bowl, the league year by year, the HBCU Legacy Bowl in late February, the All-American Bowl's real dates).
+34. N39: cancelled events bundle (2011 and 2020 Hall of Fame Games, 2020 enshrinement, January 2021 All-American and Shrine Bowls, 2021 combine workouts).
+35. N60: 4-5 late-season flexes a season (real about 1-4). Flex only when the night game lost its stakes.
+36. N61: one team can own Sunday night. The real cap on each team's standalone prime-time games.
+37. N62: 320 combine invites every year. Invite above a draft-read bar.
+38. N63: 411 undrafted signings every year. Sign above a lower bar, with roster room.
+39. D18: Missouri State listed as FBS in 2015 (it moved up in 2025). Plain bug.
+
+#### Export gaps (trial rules: every result explains why)
+40. D4: small events are not exported (visits, 4-star news, weekly polls, tags, Pro Bowl, Shrine Bowl).
+41. D5: high school games and state champions are not exported.
+42. D22: some 4- and 5-star cards have no offers note, and cards before about 2002 have no college stats. Trace first.
+
+Cain's three calls (23:21):
+- N46: the spin-up before recorded history runs 12 years instead of 6 ("agreed").
+- N57: story hooks alone (hometown, revenge, a coach's return, a milestone) never lift another team's game result into the inbox; they only colour the text ("No.").
+- N58: Continue stops on Big moments that matter to the manager (his own team, his level, anything of importance to him) and on Huge moments anywhere ("Yes, anything that'd be of importance to me").
