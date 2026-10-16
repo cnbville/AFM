@@ -697,8 +697,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
 
         // ---- ball carrier
         if let Some(c) = sim.carrier() {
-            let agent_job = sim.agents[c].job.clone();
-            if agent_job == Job::Carrier {
+            if matches!(sim.agents[c].job, Job::Carrier) {
                 let mut a = if (sim.agents[c].pos.x - los) * sim.goal < -0.3 || t < 0.9 { aim } else { None };
                 if let (Some(h), Some(g)) = (a, lead_puller) {
                     // Patience: he doesn't pass the puller on the way to the

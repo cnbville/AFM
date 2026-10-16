@@ -266,7 +266,7 @@ impl Agent {
     }
     #[inline]
     pub fn up(&self, t: f64) -> bool {
-        t >= self.down_until && self.job != Job::Out
+        t >= self.down_until && !matches!(self.job, Job::Out)
     }
 }
 
