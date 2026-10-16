@@ -56,3 +56,8 @@ Question 1 (mood as a bar or words) was rejected by Cain: "Neither it feels lack
 - **1c. Tells instead of a meter:** reply speed, counter or silence, leaks, the player's posts, skipped voluntary OTAs, reported interest from other teams (possibly a bluff).
 - **1d. Traps in the fine print:** injury guarantees vesting just after a likely cut date, back-loaded "funny money", void years, offset and guarantee-voiding language; per-game roster bonuses, escalators, early vesting from the agent's side. Spotting one depends on staff and agent skill; a burned player, and his agent's other clients, remember.
 - **1e. Sit-downs with the player apart from his agent:** his personality shows and can move him off the agent's line; going around the agent risks the agent's goodwill.
+- **2. Promises (agreed):** logged with a date, shown on the term board; a broken promise costs trust with the player, his agent's other clients and the locker room, by how public it was; a wary player can ask for it in writing as a real clause.
+- **3. Your negotiating rating (agreed):** sets how well you read tells and bluffs, sense his floor and spot his traps; works alongside the cap manager's rating (1b); grows with deals; your background sets the start.
+- **4. Pace (agreed):** each offer waits a day or more; busy agents and calm or content players are slower; deadlines compress talks (most deals in the last 48 hours); a stalled talk cools and he starts reading the market.
+
+Topic 4 is confirmed.
