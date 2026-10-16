@@ -530,3 +530,46 @@ pub fn growth_age_factor(age: f64, window: (f64, f64)) -> f64 {
         0.55f64.powf(age - end)
     }
 }
+
+/// Extra practices outside the yearly checkpoint (section 4, A21: bowl
+/// practices): a small step toward his ceilings for a young player, more
+/// with good coaching and work ethic. Returns the overall gained. Proposed,
+/// not confirmed: 15 practices close about 4% of the gap for an 18-year-old.
+pub fn extra_practices(player: &mut Player, practices: u32, coaching: f64, rng: &mut Rng) -> f64 {
+    let age = player.age as f64;
+    if age > 22.0 || practices == 0 {
+        return 0.0;
+    }
+    let before = player.overall();
+    let youth = clamp((23.0 - age) / 5.0, 0.0, 1.0);
+    let rate = 0.0027
+        * practices as f64
+        * youth
+        * (0.75 + clamp(coaching, 1.0, 20.0) * 0.025)
+        * (0.75 + player.personality.work_ethic * 0.025);
+    let position = player.position;
+    for key in Attr::ALL {
+        if weight(position, key) == 0.0 {
+            continue;
+        }
+        let room = (player.ceilings[key] - player.attributes[key]).max(0.0);
+        player.attributes[key] += room * rate * rng.range(0.5, 1.5);
+    }
+    player.overall() - before
+}
+
+/// A spring breakout (section 4, topic 4.1): a sudden real step by the spring
+/// game, closing `share` of the gap to his ceilings on the attributes his
+/// position uses. Room under the ceiling bounds it. Returns the overall gained.
+pub fn spring_jump(player: &mut Player, share: f64, rng: &mut Rng) -> f64 {
+    let before = player.overall();
+    let position = player.position;
+    for key in Attr::ALL {
+        if weight(position, key) == 0.0 {
+            continue;
+        }
+        let room = (player.ceilings[key] - player.attributes[key]).max(0.0);
+        player.attributes[key] += room * clamp(share * rng.range(0.7, 1.3), 0.0, 0.9);
+    }
+    player.overall() - before
+}

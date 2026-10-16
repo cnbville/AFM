@@ -126,7 +126,7 @@ pub struct YearDates {
     pub d2_regular_end: Date,
     pub juco_regular_end: Date,
 
-    // --- College offseason (spring of `season`) ---
+    /// The spring semester that opens in this football year's January (early enrollees arrive).
     pub spring_semester: Date,
     pub spring_practice: (Date, Date),
     pub spring_game: Date,
@@ -439,7 +439,7 @@ impl YearDates {
             fcs_regular_end: rivalry.add(-7),
             d2_regular_end: tg.add(-12),
             juco_regular_end: Date::nth_weekday(s, 11, Weekday::Sat, 2),
-            spring_semester: Date::ymd(s, 1, 12),
+            spring_semester: Date::ymd(s + 1, 1, 12),
             spring_practice: (Date::nth_weekday(s, 3, Weekday::Mon, 1), Date::nth_weekday(s, 4, Weekday::Sat, 3)),
             spring_game: Date::nth_weekday(s, 4, Weekday::Sat, 3),
             spring_term_end: Date::nth_weekday(s, 5, Weekday::Fri, 2),

@@ -178,8 +178,8 @@ fn normals(c: &Climate, d: Date) -> (f64, f64, f64, f64) {
     (lerp(&c.high), lerp(&c.low), wet, dew)
 }
 
-/// The weather in a state at a date and hour (Eastern), drawn from its
-/// normals with a day-to-day swing shared by every place in the state.
+/// The weather in a state at a date and local hour, drawn from its normals
+/// with a day-to-day swing shared by every place in the state.
 pub fn weather_at(seed: u64, state: usize, code: &str, d: Date, hour: u32) -> Weather {
     let c = climate(code);
     let (high, low, wet, dew) = normals(c, d);
@@ -191,7 +191,7 @@ pub fn weather_at(seed: u64, state: usize, code: &str, d: Date, hour: u32) -> We
     let swing = if winter { 9.0 } else { 6.0 };
     let anomaly = swing * normal(key, day);
     // Temperature through the day: the low near dawn, the high mid-afternoon.
-    let local = hour as f64 - 1.0;
+    let local = hour as f64;
     let shape = match local {
         h if h <= 6.0 => 0.05,
         h if h <= 15.0 => (h - 6.0) / 9.0,

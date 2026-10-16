@@ -568,3 +568,48 @@ pub fn update_collective(p: &mut Program, win_pct: f64, next: i32, rng: &mut Rng
     p.collective.budget = super::ncaa::nil_budget(p, next);
     level
 }
+
+/// A school accepts a stronger conference's invitation (topic 11, change 7):
+/// one of the top Group of Five programs joins the power conference with the
+/// most members in its state (the smallest one on a tie). The move is
+/// announced now and takes effect next season. Proposed, not confirmed.
+pub(crate) fn realign_one(w: &mut super::World, rng: &mut Rng) {
+    let p4 = |c: &str| matches!(c, "SEC" | "Big Ten" | "Big 12" | "ACC");
+    let mut g5: Vec<(f64, usize)> = w
+        .programs
+        .iter()
+        .filter(|p| p.division == Division::FBS && !p4(&p.conference) && !p.conference.contains("Independent"))
+        .filter(|p| !w.realign.iter().any(|r| r.0 == p.id))
+        .map(|p| (p.prestige + rng.normal(0.0, 0.05), p.id))
+        .collect();
+    g5.sort_by(|a, b| b.0.total_cmp(&a.0));
+    let Some(&(_, pick)) = g5.iter().take(5).nth(rng.int(0, 4.min(g5.len() as i32 - 1)) as usize) else { return };
+    let state = w.programs[pick].state;
+    let mut best: Option<(i32, i32, String)> = None;
+    for conf in ["SEC", "Big Ten", "Big 12", "ACC"] {
+        let members: Vec<&Program> = w.programs.iter().filter(|p| p.conference == conf).collect();
+        let here = members.iter().filter(|p| p.state == state).count() as i32;
+        let key = (here, -(members.len() as i32), conf.to_string());
+        if best.as_ref().is_none_or(|b| (key.0, key.1) > (b.0, b.1)) {
+            best = Some(key);
+        }
+    }
+    let Some((_, _, conf)) = best else { return };
+    let season = w.year;
+    let from = w.programs[pick].conference.clone();
+    let name = w.programs[pick].real_name.clone();
+    w.realign.push((pick, conf.clone()));
+    let text = format!("{name} accepts an invitation to leave the {from} for the {conf}, from next season.");
+    w.programs[pick].story.push((season, text.clone()));
+    w.log.rule_changes.push(text.clone());
+    w.changes.applied.push(crate::calendar::rules::AppliedChange {
+        change: crate::calendar::Change::ConferenceSwitch,
+        season,
+        detail: format!("{name}: {from} to {conf}"),
+    });
+    let today = w.today;
+    w.calendar.post(
+        crate::calendar::Event::new(today, crate::calendar::Level::College, crate::calendar::Kind::RuleChange, crate::calendar::Loudness::Big, text)
+            .program(pick),
+    );
+}

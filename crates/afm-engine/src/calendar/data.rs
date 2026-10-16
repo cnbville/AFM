@@ -320,3 +320,16 @@ pub const MEDIA_DAYS: [&str; 10] =
 /// Saturdays; the world schedules both.
 pub const SAT_DATES: [(u32, u32); 7] = [(3, 2), (5, 1), (6, 1), (8, 4), (10, 1), (11, 1), (12, 1)];
 pub const ACT_DATES: [(u32, u32); 7] = [(2, 2), (4, 2), (6, 2), (7, 2), (9, 2), (10, 4), (12, 2)];
+
+/// Hours a state's football towns sit behind Eastern time during the season
+/// (Arizona keeps standard time, so it plays on Pacific clocks in the fall).
+pub fn et_offset(code: &str) -> i32 {
+    match code {
+        "AL" | "AR" | "IL" | "IA" | "KS" | "LA" | "MN" | "MS" | "MO" | "NE" | "ND" | "OK" | "SD" | "TX" | "WI" => 1,
+        "CO" | "ID" | "MT" | "NM" | "UT" | "WY" => 2,
+        "AZ" | "CA" | "NV" | "OR" | "WA" => 3,
+        "AK" => 4,
+        "HI" => 6,
+        _ => 0,
+    }
+}

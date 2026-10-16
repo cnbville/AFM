@@ -25,11 +25,13 @@ use crate::rng::Rng;
 pub enum TransferRule {
     /// Before the portal: a transfer needs his school's release and sits a year.
     Permission,
-    /// The portal (2018-2020): enter any time, most sit a year unless waived.
+    /// The portal (opened October 2018, seasons 2018-2021): enter any time;
+    /// a transfer sat a year until the one-time rule of 2021.
     OpenPortal,
-    /// Windows (2021-2025): a winter and a spring window, one free transfer.
+    /// Windows (seasons 2022-2024): a winter window after the season and a
+    /// spring window, one free transfer.
     Windows,
-    /// One January window (2026 on).
+    /// One January window, Jan 2-16 (from the 2025 season's offseason).
     January,
 }
 
@@ -174,8 +176,8 @@ impl RuleBook {
             d2_playoff: if season >= 2016 { 28 } else { 24 },
             transfer: match season {
                 ..=2017 => TransferRule::Permission,
-                2018..=2020 => TransferRule::OpenPortal,
-                2021..=2025 => TransferRule::Windows,
+                2018..=2021 => TransferRule::OpenPortal,
+                2022..=2024 => TransferRule::Windows,
                 _ => TransferRule::January,
             },
             one_time_transfer: season >= 2021,

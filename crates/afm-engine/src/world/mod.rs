@@ -12,17 +12,22 @@
 //! game is decided from the two teams' starters, with home field and luck.
 
 pub mod background;
+mod clock;
 pub mod coach;
+pub(crate) mod college;
 pub mod data;
 pub mod ethnicity;
 pub mod game_log;
 pub mod geo;
 pub mod high_school;
+mod hs_year;
 pub mod names;
 pub mod ncaa;
 pub mod news;
+mod nfl_year;
 pub mod program;
 mod recruiting;
+pub mod schedule;
 mod season;
 mod staff;
 
@@ -81,6 +86,9 @@ pub enum Stage {
     /// A year at a prep school to fix grades or get bigger (topic 2, 1.6).
     PrepSchool,
     College,
+    /// In the NFL draft pool: an underclassman who declared, or a senior whose
+    /// college career is over, off the college roster until the draft (T3.1).
+    Declared,
     /// Left for the pros (drafted or undrafted); archived.
     Pro,
     /// Left football.
@@ -156,6 +164,109 @@ pub struct Person {
     /// Off-field incidents this season (for the locker room).
     pub incident: bool,
     pub notes: Vec<String>,
+    /// What the dated systems know about him this year (section 4).
+    pub cal: PersonCal,
+}
+
+/// The draft staffs' read of a player in December (T3.1, T3.2): his consensus
+/// grade, his board score, and the round it projects to (8 = undrafted).
+#[derive(Clone, Copy, Debug)]
+pub struct DraftRead {
+    pub grade: f64,
+    pub score: f64,
+    pub round: u32,
+}
+
+/// When a recruit makes up his mind (T5.2): before his senior season, at the
+/// early signing period, or late (February signing day).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum CommitTiming {
+    Summer,
+    Early,
+    Late,
+}
+
+/// A signed recruit before he enrolls: the program, a walk-on spot or not,
+/// the day he signed, and whether he enrolls in January.
+#[derive(Clone, Copy, Debug)]
+pub struct Signed {
+    pub program: usize,
+    pub walk_on: bool,
+    pub date: crate::calendar::Date,
+    pub early_enrollee: bool,
+}
+
+/// A portal entrant's dates (T3): the day he entered and the day his
+/// decision is due.
+#[derive(Clone, Copy, Debug)]
+pub struct PortalEntry {
+    pub entered: crate::calendar::Date,
+    pub decide_by: crate::calendar::Date,
+    pub why: &'static str,
+}
+
+/// A person's calendar state (section 4). Per-season flags reset at his
+/// season's start.
+#[derive(Clone, Debug, Default)]
+pub struct PersonCal {
+    /// This season counts against his eligibility unless he plays four games
+    /// or fewer (2018 rule); settled January 2.
+    pub count_pending: bool,
+    /// Academically ineligible this season.
+    pub academic_sit: bool,
+    /// Suspended or dismissed this season.
+    pub trouble: bool,
+    /// Failed the spring term's eligibility check: out this fall (A23).
+    pub spring_ineligible: bool,
+    /// Lean toward leaving through the portal, as a chance (T3), and what moved it.
+    pub lean: f64,
+    pub lean_events: Vec<(crate::calendar::Date, &'static str, f64)>,
+    /// A whisper about his leaving is out (T3).
+    pub whispered: bool,
+    pub draft_read: Option<DraftRead>,
+    pub opted_out: bool,
+    pub redshirt_trick: bool,
+    /// A verbal commitment: program and day (T5.1).
+    pub commit: Option<(usize, crate::calendar::Date)>,
+    pub signed: Option<Signed>,
+    pub commit_timing: Option<CommitTiming>,
+    /// A spring practice notice is out (T4.1): a breakout may land by the spring game.
+    pub spring_notice: bool,
+    /// Invited to the NFL combine (A10) or a college all-star game (A9).
+    pub combine_invite: bool,
+    pub all_star: Option<&'static str>,
+    /// Best SAT-scale test score so far (A30).
+    pub test_score: Option<u32>,
+    /// Must sit next season under the transfer rules of the day.
+    pub transfer_sit: bool,
+    /// Sitting out this season as a transfer (practice only).
+    pub sitting_transfer: bool,
+    pub portal: Option<PortalEntry>,
+    /// High school games missed this season for grades (A29).
+    pub hs_grade_out: u32,
+    /// Plans to enter the draft if the reads hold (drawn in December).
+    pub declare_plan: Option<bool>,
+    /// Graduated (a December graduate can transfer without sitting).
+    pub graduated: bool,
+    /// All-state selections in high school (A32): 1 = honorable mention or
+    /// second team, 2 = first team.
+    pub all_state: u8,
+}
+
+impl PersonCal {
+    /// A new season's start: last season's flags go.
+    pub fn season_reset(&mut self) {
+        self.academic_sit = false;
+        self.sitting_transfer = false;
+        self.trouble = false;
+        self.opted_out = false;
+        self.redshirt_trick = false;
+        self.whispered = false;
+        self.lean = 0.0;
+        self.lean_events.clear();
+        self.hs_grade_out = 0;
+        self.spring_notice = false;
+    }
 }
 
 impl Person {
@@ -315,6 +426,88 @@ pub struct World {
     /// Recruiting and portal records for trials (dynasty item 11 checks).
     pub recruiting_log: RecruitingLog,
     next_person: u32,
+    /// Section 4: today on the clock, this football year's real dates (from
+    /// the day after one Super Bowl to the next) and last year's (for days
+    /// that fall after its Super Bowl, like a 1990s signing day).
+    pub today: crate::calendar::Date,
+    pub dates: crate::calendar::YearDates,
+    pub(crate) prev_dates: Option<crate::calendar::YearDates>,
+    /// Every system's events, with their loudness (T8).
+    pub calendar: crate::calendar::Calendar,
+    /// The 12 agreed off-field changes as they happen (T11).
+    pub changes: crate::calendar::ChangeState,
+    /// This football year's rule book.
+    pub rules: crate::calendar::RuleBook,
+    pub(crate) college: Option<college::CollegeSeason>,
+    pub(crate) college_prev: Option<college::CollegeSeason>,
+    pub(crate) hs_season: Option<hs_year::HsSeasonState>,
+    pub(crate) nfl_season: Option<nfl_year::NflSeason>,
+    /// Counters for trials: this football year's, and every earlier one.
+    pub log: CalendarLog,
+    pub log_history: Vec<CalendarLog>,
+    /// Trial tooling: each year's medium and louder events.
+    pub event_history: Vec<(i32, Vec<crate::calendar::Event>)>,
+    /// Portal entrants still deciding (person indices; resolved before the
+    /// year-end book compacts the people list).
+    pub(crate) portal_pending: Vec<usize>,
+    /// The portal market of the open window (kept while entrants decide).
+    pub(crate) portal_market: Option<recruiting::PortalMarket>,
+    /// Super Bowl champions by season.
+    pub nfl_champions: Vec<(i32, usize)>,
+    /// Conference moves announced, to take effect next season (program, conference).
+    pub(crate) realign: Vec<(usize, String)>,
+}
+
+/// What the dated systems did in one football year, for trials.
+#[derive(Clone, Debug, Default)]
+pub struct CalendarLog {
+    pub year: i32,
+    pub games: u32,
+    pub snow_games: u32,
+    pub rain_games: u32,
+    pub freezing_games: u32,
+    pub lightning_delays: u32,
+    pub weather_moves: u32,
+    pub weather_cancels: u32,
+    pub opt_outs: u32,
+    pub bowl_practice_gain: f64,
+    pub four_game_redshirts: u32,
+    pub redshirt_tricks: u32,
+    pub spring_notices: u32,
+    pub spring_breakouts: u32,
+    pub spring_fizzles: u32,
+    pub hs_games: u32,
+    pub hs_forfeits: u32,
+    pub hs_no_contests: u32,
+    pub hs_grade_outs: u32,
+    pub hs_homecomings: u32,
+    pub hs_senior_nights: u32,
+    pub hs_all_state: u32,
+    pub heat_limited_days: u32,
+    pub commits: u32,
+    pub commits_by_month: [u32; 12],
+    pub decommits: u32,
+    pub flips: u32,
+    pub signed_early: u32,
+    pub signed_late: u32,
+    pub early_enrollees: u32,
+    pub declared: u32,
+    pub withdrew: u32,
+    pub portal_entries: u32,
+    pub portal_by_day: Vec<(crate::calendar::Date, u32)>,
+    pub portal_landed: u32,
+    pub portal_returned: u32,
+    pub whispers: u32,
+    pub sit_out_transfers: u32,
+    pub spring_ineligible: u32,
+    pub fall_ineligible: u32,
+    pub combine_invites: u32,
+    pub all_star_invites: u32,
+    pub huge_by_team: Vec<(usize, u32)>,
+    pub rule_changes: Vec<String>,
+    pub nfl_games: u32,
+    /// Huge games per NFL team in the season (the stakes test).
+    pub nfl_huge_by_team: Vec<u32>,
 }
 
 /// Years before recorded history, used to fill high school and college rosters.
@@ -397,6 +590,8 @@ impl World {
         }
         let overflow = overflow_by_state(&programs);
         let nfl = crate::league::make_league(&mut rng);
+        let changes = crate::calendar::ChangeState::default();
+        let dates = crate::calendar::YearDates::new(year);
         let mut w = World {
             options,
             year,
@@ -418,6 +613,23 @@ impl World {
             game_log: game_log::GameLog::default(),
             recruiting_log: RecruitingLog::default(),
             next_person: 1,
+            today: dates.start,
+            rules: changes.rules(year),
+            dates,
+            prev_dates: None,
+            calendar: crate::calendar::Calendar::default(),
+            changes,
+            college: None,
+            college_prev: None,
+            hs_season: None,
+            nfl_season: None,
+            log: CalendarLog { year, ..CalendarLog::default() },
+            log_history: Vec::new(),
+            event_history: Vec::new(),
+            portal_pending: Vec::new(),
+            portal_market: None,
+            nfl_champions: Vec::new(),
+            realign: Vec::new(),
         };
         staff::staff_everyone(&mut w);
         for d in [Division::FBS, Division::FCS, Division::D2, Division::JUCO] {
@@ -432,45 +644,44 @@ impl World {
         w
     }
 
-    /// One full year: a new class arrives, high school transfers, the seasons,
-    /// titles, the draft, signing day, the portal, the coaching carousel, and
-    /// program prestige, grades and NIL.
+    /// One football year on the daily clock (section 4): from the day after
+    /// one Super Bowl to the day after the next. Every system acts on its own
+    /// real days (see `clock`).
     pub fn advance_year(&mut self) {
-        let debug = std::env::var("AFM_DEBUG").is_ok();
-        let mut t = std::time::Instant::now();
-        let mut lap = |name: &str| {
-            if debug {
-                eprintln!("  {name}: {:.2}s", t.elapsed().as_secs_f64());
-            }
-            t = std::time::Instant::now();
-        };
-        self.add_class();
-        lap("new class");
-        recruiting::high_school_transfers(self);
-        self.rebuild_rosters();
-        lap("hs transfers");
-        let results = season::play_seasons(self);
-        lap("seasons");
-        staff::after_season(self, &results);
-        staff::carousel(self);
-        lap("carousel");
-        recruiting::college_exits(self, &results);
-        lap("draft");
-        recruiting::portal(self, &results);
-        lap("portal");
-        signing_day_and_rosters(self);
-        lap("signing day");
-        staff::update_programs(self, &results);
-        self.life_events();
-        self.compact();
-        lap("programs and life");
-        self.year += 1;
+        clock::advance_year(self);
     }
-}
 
-fn signing_day_and_rosters(w: &mut World) {
-    recruiting::signing_day(w);
-    w.rebuild_rosters();
+    /// One day on the clock.
+    pub fn advance_day(&mut self) {
+        clock::advance_day(self);
+    }
+
+    /// Continue (T10): skips quiet days and stops on the first day with an
+    /// event that needs a decision or is huge. Returns that day.
+    pub fn continue_until_needed(&mut self, max_days: u32) -> crate::calendar::Date {
+        clock::continue_until_needed(self, max_days)
+    }
+
+    /// Holiday mode (T10): staff run things until `until`; it always stops
+    /// for a huge moment. Returns the day it stopped on.
+    pub fn holiday_to(&mut self, until: crate::calendar::Date) -> crate::calendar::Date {
+        clock::holiday_to(self, until)
+    }
+
+    /// The college season's ranking releases so far: (day, poll, top 25).
+    pub fn polls(&self) -> Vec<(crate::calendar::Date, &'static str, Vec<usize>)> {
+        self.college.iter().flat_map(|c| c.polls.iter().map(|p| (p.date, p.kind.name(), p.top.clone()))).collect()
+    }
+
+    /// A state's high school season this year: first game, playoffs, finals.
+    pub fn hs_state_dates(&self, code: &str) -> (crate::calendar::Date, crate::calendar::Date, crate::calendar::Date) {
+        hs_year::state_season_dates(code, self.year)
+    }
+
+    /// This NFL season's playoff field: (seed, team), AFC and NFC mixed.
+    pub fn nfl_playoff_field(&self) -> Vec<(usize, usize)> {
+        self.nfl_season.as_ref().map_or(Vec::new(), nfl_year::playoff_field)
+    }
 }
 
 impl World {
@@ -588,6 +799,7 @@ impl World {
                     college_staff: Vec::new(),
                     incident: false,
                     notes: Vec::new(),
+                    cal: PersonCal::default(),
                 }
             })
             .collect();
@@ -686,7 +898,8 @@ impl World {
                 .collect();
             self.alumni.extend(gone);
         }
-        self.people.retain(|p| matches!(p.stage, Stage::HighSchool | Stage::College | Stage::PrepSchool));
+        self.people
+            .retain(|p| matches!(p.stage, Stage::HighSchool | Stage::College | Stage::PrepSchool | Stage::Declared));
     }
 
     /// First-year dip for a step up (shared with the career model).

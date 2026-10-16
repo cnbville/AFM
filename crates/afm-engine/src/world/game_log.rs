@@ -31,6 +31,8 @@ pub struct GameSummary {
     pub two_point: [u32; 2],
     pub punt_yds: [(u32, f64); 2],
     pub overtime: bool,
+    /// A game between programs of different divisions (an FBS buy game).
+    pub cross: bool,
 }
 
 /// A player's season at one program: the headline counting stats.
@@ -366,6 +368,7 @@ impl GameLog {
             two_point,
             punt_yds,
             overtime: g.overtime,
+            cross: false,
         });
     }
 }

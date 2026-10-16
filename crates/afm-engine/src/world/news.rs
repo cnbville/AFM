@@ -34,6 +34,8 @@ pub enum NewsKind {
 
 #[derive(Clone, Debug)]
 pub struct NewsItem {
+    /// The day it came out (section 4); stamped by the clock.
+    pub date: Option<crate::calendar::Date>,
     pub year: i32,
     pub kind: NewsKind,
     pub channel: Channel,
@@ -72,21 +74,21 @@ pub fn nil_warnings(
         _ => format!("{name}'s NIL collective is drying up, and rivals are circling its roster."),
     };
     vec![
-        NewsItem {
+        NewsItem { date: None,
             year,
             kind: NewsKind::NilWarning { level },
             channel: Channel::Inbox,
             program: Some(program),
             text: inbox,
         },
-        NewsItem {
+        NewsItem { date: None,
             year,
             kind: NewsKind::NilWarning { level },
             channel: Channel::News,
             program: Some(program),
             text: news,
         },
-        NewsItem {
+        NewsItem { date: None,
             year,
             kind: NewsKind::NilWarning { level },
             channel: Channel::GradeArrow,

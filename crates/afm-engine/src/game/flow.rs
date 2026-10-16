@@ -2146,6 +2146,29 @@ pub fn quick_game_with(
     play_game(&s)
 }
 
+/// A quick game in given conditions (section 4: weather from the date and
+/// the place, a neutral site with no home crowd).
+pub fn quick_game_in(
+    home: &GameTeam,
+    away: &GameTeam,
+    level: Level,
+    seed: u64,
+    context: [garbage::Context; 2],
+    cond: Conditions,
+    neutral: bool,
+) -> GameResult {
+    let adjusted = experiment::adjust(home, away);
+    let (home, away) = match &adjusted {
+        Some((h, a)) => (h, a),
+        None => (home, away),
+    };
+    let mut s = GameSetup::new(home, away, level, seed);
+    s.cond = cond;
+    s.neutral = neutral;
+    s.context = context;
+    play_game(&s)
+}
+
 #[allow(dead_code)]
 fn unused() -> crate::game::geom::V2 {
     v2(0.0, 0.0)

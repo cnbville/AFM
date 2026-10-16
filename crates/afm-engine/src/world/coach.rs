@@ -466,6 +466,14 @@ impl Coach {
         head: bool,
         stage: f64,
     ) {
+        self.season_reputation(vs_expectation, locker_room, head);
+        self.title_reputation(title, head, stage);
+    }
+
+    /// The season's record against expectation and the locker room, judged
+    /// when the regular season ends (section 4: firings come before the
+    /// title games).
+    pub fn season_reputation(&mut self, vs_expectation: f64, locker_room: f64, head: bool) {
         self.recent.push(vs_expectation);
         if self.recent.len() > 6 {
             self.recent.remove(0);
@@ -474,6 +482,13 @@ impl Coach {
         // What the results say he is.
         let shown = self.ability.head_coach_value() + 12.0 * vs_expectation;
         self.reputation += speed * 0.3 * (shown - self.reputation);
+        self.reputation -= speed * 0.6 * locker_room;
+        self.reputation = clamp(self.reputation, 1.0, 20.0);
+    }
+
+    /// A title's boost, when it is won.
+    pub fn title_reputation(&mut self, title: TitleKind, head: bool, stage: f64) {
+        let speed = if head { 1.0 } else { 0.5 };
         let headroom = ((20.0 - self.reputation) / 8.0).min(1.0);
         self.reputation += speed
             * headroom
@@ -484,7 +499,6 @@ impl Coach {
                 TitleKind::State => 3.0,
                 TitleKind::National => 5.0,
             };
-        self.reputation -= speed * 0.6 * locker_room;
         self.reputation = clamp(self.reputation, 1.0, 20.0);
     }
 
