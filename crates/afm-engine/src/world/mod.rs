@@ -706,7 +706,8 @@ impl World {
     }
 
     /// Continue (T10): skips quiet days and stops on the first day with an
-    /// event that needs a decision or is huge. Returns that day.
+    /// event that needs a decision, or a big or huge moment (T8). Returns
+    /// that day.
     pub fn continue_until_needed(&mut self, max_days: u32) -> crate::calendar::Date {
         clock::continue_until_needed(self, max_days)
     }

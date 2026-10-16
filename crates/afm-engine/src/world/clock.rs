@@ -586,12 +586,15 @@ fn anniversaries(w: &mut World, d: Date) {
 }
 
 /// T10: Continue skips quiet days and stops on the first day with an event
-/// that needs a decision or is huge. Returns the day it stopped on.
+/// that needs a decision, or a big or huge moment (T8: a big moment stops
+/// the game and shows its own screen, such as free agency opening). Returns
+/// the day it stopped on.
 pub fn continue_until_needed(w: &mut World, max_days: u32) -> Date {
+    let stops = |e: &Event| e.needs_decision || e.loud >= Loudness::Big;
     for _ in 0..max_days {
         let d = w.today;
         advance_day(w);
-        if w.calendar.on(d).iter().any(|e| e.needs_decision || e.loud == Loudness::Huge) {
+        if w.calendar.on(d).iter().any(stops) {
             return d;
         }
     }
@@ -609,4 +612,31 @@ pub fn holiday_to(w: &mut World, until: Date) -> Date {
         }
     }
     w.today
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// T8, T10: Continue stops on a big moment too (the franchise tag
+    /// deadline, long before the draft), and every day it skips is quiet.
+    #[test]
+    fn continue_stops_on_big_moments() {
+        let options = super::super::WorldOptions {
+            scale: 0.002,
+            history_years: 0,
+            names: super::super::names::NameMode::Fictional,
+            ..Default::default()
+        };
+        let mut w = World::empty(options);
+        let start = w.today;
+        let stop = continue_until_needed(&mut w, 120);
+        assert!(stop < w.dates.draft[0].date, "stopped on {}", stop.pretty());
+        assert!(w.calendar.on(stop).iter().any(|e| e.loud == Loudness::Big), "stopped on {}", stop.pretty());
+        let mut d = start;
+        while d < stop {
+            assert!(w.calendar.on(d).iter().all(|e| e.loud < Loudness::Big && !e.needs_decision));
+            d = d.add(1);
+        }
+    }
 }

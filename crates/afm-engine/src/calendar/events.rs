@@ -9,7 +9,8 @@ use super::date::{Date, Moment};
 use std::collections::BTreeMap;
 
 /// How loud a moment is (topic 8): small is a news line, medium an inbox
-/// message, big its own screen, huge the full show that Continue never skips.
+/// message, big its own screen (Continue stops on it), huge the full show
+/// that neither Continue nor holiday mode ever skips.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Loudness {
     Small,
