@@ -11,6 +11,7 @@
 //! the match engine): a game is won by comparing the two teams' starters as
 //! they play this year, plus home field and luck.
 
+use rayon::prelude::*;
 use std::collections::HashMap;
 
 use super::coach::TitleKind;
@@ -873,13 +874,14 @@ fn top_bar(values: &[f64], share: f64) -> f64 {
 /// him at his position on the roster.
 fn open_reps(w: &World, roster: &[usize], i: usize) -> bool {
     let p = &w.people[i];
+    let mine = p.player.overall();
     let ahead = roster
         .iter()
         .filter(|&&j| {
             j != i
                 && w.people[j].player.position == p.player.position
-                && w.people[j].player.overall() > p.player.overall()
                 && matches!(w.people[j].stage, Stage::College | Stage::HighSchool)
+                && w.people[j].player.overall() > mine
         })
         .count();
     ahead <= crate::league::depth_slots(p.player.position).starters
@@ -888,41 +890,47 @@ fn open_reps(w: &World, roster: &[usize], i: usize) -> bool {
 /// The spring candidates: (person, his position coach's teaching, open reps).
 fn college_spring_candidates(w: &World) -> Vec<(usize, f64, bool)> {
     let year = w.year;
-    let mut out = Vec::new();
-    for (i, p) in w.people.iter().enumerate() {
-        // True freshmen (early enrollees), redshirt freshmen and sophomores.
-        if p.stage != Stage::College || p.college_seasons > 1 || p.class_of < year - 1 {
-            continue;
-        }
-        // Short of the grades after the fall term: no spring practice (A23).
-        if p.cal.fall_ineligible {
-            continue;
-        }
-        let Some(c) = p.college else { continue };
-        let prog = &w.programs[c];
-        let group = super::coach::Group::of(p.player.position);
-        let teaching =
-            prog.position_coaches[group as usize].or(prog.head_coach).map_or(9.0, |c| w.coaches[c].teaching(group));
-        out.push((i, teaching, open_reps(w, &prog.roster, i)));
-    }
-    out
+    // Read only, so worked out on all cores; the list keeps the people order.
+    w.people
+        .par_iter()
+        .enumerate()
+        .filter_map(|(i, p)| {
+            // True freshmen (early enrollees), redshirt freshmen and sophomores.
+            if p.stage != Stage::College || p.college_seasons > 1 || p.class_of < year - 1 {
+                return None;
+            }
+            // Short of the grades after the fall term: no spring practice (A23).
+            if p.cal.fall_ineligible {
+                return None;
+            }
+            let c = p.college?;
+            let prog = &w.programs[c];
+            let group = super::coach::Group::of(p.player.position);
+            let teaching = prog.position_coaches[group as usize]
+                .or(prog.head_coach)
+                .map_or(9.0, |c| w.coaches[c].teaching(group));
+            Some((i, teaching, open_reps(w, &prog.roster, i)))
+        })
+        .collect()
 }
 
 fn hs_spring_candidates(w: &World) -> Vec<(usize, f64, bool)> {
-    let mut out = Vec::new();
-    for (i, p) in w.people.iter().enumerate() {
-        if p.stage != Stage::HighSchool || !(15..=16).contains(&p.player.age) {
-            continue;
-        }
-        let school = &w.high_schools[p.hs];
-        if !hs_calendar(&w.states[school.state].code).spring_ball {
-            continue;
-        }
-        let group = super::coach::Group::of(p.player.position);
-        let teaching = school.coach.map_or(7.0, |c| w.coaches[c].teaching(group));
-        out.push((i, teaching, open_reps(w, &school.roster, i)));
-    }
-    out
+    w.people
+        .par_iter()
+        .enumerate()
+        .filter_map(|(i, p)| {
+            if p.stage != Stage::HighSchool || !(15..=16).contains(&p.player.age) {
+                return None;
+            }
+            let school = &w.high_schools[p.hs];
+            if !hs_calendar(&w.states[school.state].code).spring_ball {
+                return None;
+            }
+            let group = super::coach::Group::of(p.player.position);
+            let teaching = school.coach.map_or(7.0, |c| w.coaches[c].teaching(group));
+            Some((i, teaching, open_reps(w, &school.roster, i)))
+        })
+        .collect()
 }
 
 /// Notices early in spring (T4.1): the staff reads the mix, sharper with a
