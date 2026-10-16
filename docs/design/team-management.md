@@ -4,7 +4,7 @@ Design thread "Section 5 plan", started 2026-10-16 with Cain. Real life is the d
 
 Already decided before this section (build work, no questions): roster rules (Q27 and the 2026 research numbers), depth charts and who plays (trial 5 calls, the depth and rotation physics fix, calendar topic 10), cap rules (Q23), rookie contracts (Q25; the UDFA rush is Q34, section 7), eras (calendar topic 11), the 2026 start (it falls out of the 30-year history), honors voting (real rules and real voter habits).
 
-Topics: 1 the living NFL; 2 contract value; 3 agents and negotiation; 4 free agency and the street pool; 5 trades; 6 AI front offices; 7 scheme fit and value.
+Topics: 1 the living NFL; 2 contract value; 3 agents; 4 negotiations (its own topic, Cain 2026-10-16); 5 free agency and the street pool; 6 trades; 7 AI front offices; 8 scheme fit and value.
 
 ## Topic 1: the living NFL (confirmed 2026-10-16)
 
@@ -35,3 +35,13 @@ Notes from Cain (2026-10-16, not answers to the questions yet):
 - **Question 3 answered (Cain, 2026-10-16):** "make it personality based yes". No flat contract-year boost; a driven or money-hungry player plays harder and through knocks (more injury risk), a cautious one protects his body, most don't change.
 
 Topic 2 is confirmed.
+
+## Topic 3: agents (confirmed 2026-10-16)
+
+Real facts to build: every player has an NFLPA-certified agent (fee capped at 3%); a few negotiate alone (Lamar Jackson). Agencies range from one-man shops to giants; size brings leverage and information. The player sets the goals (money, guarantees, years, contender, role, home) from his hidden personality, and can overrule his agent. Deadlines make deals (the tag deadline in mid-July, camp report day, week 1). Since the 2020 CBA camp fines are mandatory and can't be forgiven for players on rookie deals, so stars often hold in (Brandon Aiyuk 2024) or hold out (CeeDee Lamb 2024). The combine is the agents' meeting place (calendar A11).
+
+Cain's answers:
+1. **Agents bluff.** Cain: "Definitely and bad bluffs should hurt the players causing realistic disputes and firing". An agent's hidden honesty sets how often he claims interest that isn't there; a GM reads it by judgment and history with that agent. A bluff that is called hurts the player (an offer cut or pulled, a worse relationship with the team), can start a public dispute, and can lead the player to fire his agent.
+2. **Agent-GM relationships carry across clients.** Cain: "Yes, absolutely doesn't need to be said, it's ultra realism game".
+3. **How talks run.** Cain: "You're downplaying the importance of negotiations. i'm expecting a ultra-realistic but gamified aspect in the game", and "I want a separate topic for the negotiations". Moved to topic 4.
+4. **Holdouts, hold-ins and trade requests.** Agreed as proposed: each day the player weighs how underpaid he is against the market, years left, leverage (age, tag risk, team need), fines and personality (greed, loyalty, leadership, temper), with a readable reason.
