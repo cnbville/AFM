@@ -439,8 +439,10 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
 
     // ------------------------------------------------------------- the play
     let max_t = 14.0;
-    let mut trail: Vec<Vec<V2>> = vec![Vec::with_capacity(140); sim.agents.len()];
-    let mut vel_trail: Vec<Vec<V2>> = vec![Vec::with_capacity(140); sim.agents.len()];
+    // One buffer per player, each with its own room (vec![x; n] clones
+    // the empty vector without its capacity).
+    let mut trail: Vec<Vec<V2>> = (0..sim.agents.len()).map(|_| Vec::with_capacity(144)).collect();
+    let mut vel_trail: Vec<Vec<V2>> = (0..sim.agents.len()).map(|_| Vec::with_capacity(144)).collect();
     let mut throw_start: Option<f64> = None;
     let mut catch_x = los;
     let mut thrown_from = los;
