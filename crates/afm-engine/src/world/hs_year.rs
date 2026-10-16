@@ -119,35 +119,45 @@ pub(crate) fn new_season(w: &World) -> HsSeasonState {
     for s in &w.high_schools {
         by.entry((s.state, s.classification)).or_default().push(s.id);
     }
-    let mut groups = Vec::new();
+    // Groups come out by state, then classification.
+    let mut groups: Vec<Group> = by
+        .into_iter()
+        .map(|((state, class), schools)| Group {
+            state,
+            class,
+            schools,
+            schedule: vec![Vec::new(); states[state].weeks.len()],
+            alive: Vec::new(),
+        })
+        .collect();
     let mut marks = vec![None; w.high_schools.len()];
-    for ((state, class), schools) in by {
+    let mut first = 0;
+    while first < groups.len() {
+        let state = groups[first].state;
+        let end = first + groups[first..].iter().take_while(|g| g.state == state).count();
         let n_weeks = states[state].weeks.len();
-        let mut schedule = Vec::with_capacity(n_weeks);
-        let mut home_days: HashMap<usize, Vec<Date>> = HashMap::new();
-        for k in 0..n_weeks {
-            // A fresh shuffle each week, keyed so the schedule is the same on any machine.
-            let mut order = schools.clone();
-            order.sort_by(|&a, &b| {
-                key_uniform(seed ^ (k as u64) << 20 ^ state as u64, a as u64)
-                    .total_cmp(&key_uniform(seed ^ (k as u64) << 20 ^ state as u64, b as u64))
-            });
-            let games: Vec<(usize, usize)> = (0..order.len() / 2)
-                .map(|j| if k % 2 == 0 { (order[2 * j], order[2 * j + 1]) } else { (order[2 * j + 1], order[2 * j]) })
-                .collect();
-            for &(h, _) in &games {
-                home_days.entry(h).or_default().push(states[state].weeks[k]);
+        let classes: Vec<(u32, &[usize])> =
+            groups[first..end].iter().map(|g| (g.class, g.schools.as_slice())).collect();
+        let weeks = state_schedule(&classes, n_weeks, seed ^ (state as u64) << 8);
+        // Each game is filed under the home team's classification.
+        let mut home_days: Vec<(usize, Date)> = Vec::new();
+        for (k, games) in weeks.into_iter().enumerate() {
+            for (h, a) in games {
+                let class = w.high_schools[h].classification;
+                let g = first + groups[first..end].iter().position(|g| g.class == class).unwrap_or(0);
+                groups[g].schedule[k].push((h, a));
+                home_days.push((h, states[state].weeks[k]));
             }
-            schedule.push(games);
         }
         // Homecoming: the home game nearest midseason; senior night: the last home game.
-        for (&h, days) in &home_days {
-            let mid = states[state].weeks[n_weeks / 2];
-            let hc = *days.iter().min_by_key(|d| d.days_to(mid).abs()).unwrap();
-            let sn = *days.last().unwrap();
-            marks[h] = Some((hc, sn));
+        home_days.sort_by_key(|&(h, d)| (h, d));
+        let mid = states[state].weeks[n_weeks / 2];
+        for days in home_days.chunk_by(|a, b| a.0 == b.0) {
+            let hc = days.iter().map(|x| x.1).min_by_key(|d| d.days_to(mid).abs()).unwrap();
+            let sn = days.last().unwrap().1;
+            marks[days[0].0] = Some((hc, sn));
         }
-        groups.push(Group { state, class, schools, schedule, alive: Vec::new() });
+        first = end;
     }
     let earliest = states.iter().map(|s| s.start).min().unwrap_or(w.dates.hs_school_start);
     let latest = states.iter().map(|s| s.start).max().unwrap_or(w.dates.hs_school_start);
@@ -161,6 +171,97 @@ pub(crate) fn new_season(w: &World) -> HsSeasonState {
         ratings_day: latest.add(1),
         rated: false,
     }
+}
+
+/// Shuffles a week's schedule may try before it settles for byes or extra
+/// games outside the classification.
+const SCHEDULE_TRIES: u64 = 8;
+
+/// A state's regular season, week by week, as (home, away) games, from its
+/// classifications (class number and schools). Two schools never meet twice
+/// in a regular season; a playoff rematch is fine. Each week pairs schools
+/// inside their classification first, in a keyed shuffle. A school left
+/// over (an odd classification, or one too small to fill a season without a
+/// rematch) plays a school it hasn't met from the nearest classification;
+/// one still left has a bye. A week tries a few shuffles and keeps the one with the fewest
+/// byes, then the fewest games outside the classification. The weeks are
+/// built forward and played in reverse, so the games outside the
+/// classification come early, as non-district games do.
+fn state_schedule(classes: &[(u32, &[usize])], n_weeks: usize, seed: u64) -> Vec<Vec<(usize, usize)>> {
+    const FREE: usize = usize::MAX;
+    let ids: Vec<usize> = classes.iter().flat_map(|c| c.1.iter().copied()).collect();
+    let class_of: Vec<u32> = classes.iter().flat_map(|c| std::iter::repeat_n(c.0, c.1.len())).collect();
+    let n = ids.len();
+    let odd = classes.iter().filter(|c| c.1.len() % 2 == 1).count();
+    // Who each school has met, by index into `ids`.
+    let mut met: Vec<Vec<usize>> = vec![Vec::new(); n];
+    let mut weeks: Vec<Vec<(usize, usize)>> = Vec::with_capacity(n_weeks);
+    for k in 0..n_weeks {
+        // The best try so far: (byes, games outside the classification) and its games.
+        let mut best = ((usize::MAX, usize::MAX), Vec::new());
+        for t in 0..SCHEDULE_TRIES {
+            let key = seed ^ (k as u64) << 20 ^ t << 48;
+            let shuffle: Vec<f64> = ids.iter().map(|&id| key_uniform(key, id as u64)).collect();
+            let mut order: Vec<usize> = (0..n).collect();
+            order.sort_by(|&a, &b| class_of[a].cmp(&class_of[b]).then(shuffle[a].total_cmp(&shuffle[b])));
+            let mut partner = vec![FREE; n];
+            let mut pairs: Vec<(usize, usize)> = Vec::with_capacity(n / 2);
+            // Inside the classification.
+            for (x, &a) in order.iter().enumerate() {
+                if partner[a] != FREE {
+                    continue;
+                }
+                let b = order[x + 1..]
+                    .iter()
+                    .take_while(|&&b| class_of[b] == class_of[a])
+                    .find(|&&b| partner[b] == FREE && !met[a].contains(&b));
+                if let Some(&b) = b {
+                    (partner[a], partner[b]) = (b, a);
+                    pairs.push((a, b));
+                }
+            }
+            let inside = pairs.len();
+            // The rest: a school not yet met, from the nearest classification.
+            let left: Vec<usize> = order.iter().copied().filter(|&a| partner[a] == FREE).collect();
+            for (x, &a) in left.iter().enumerate() {
+                if partner[a] != FREE {
+                    continue;
+                }
+                let b = left[x + 1..]
+                    .iter()
+                    .filter(|&&b| partner[b] == FREE && !met[a].contains(&b))
+                    .min_by_key(|&&b| class_of[b].abs_diff(class_of[a]));
+                if let Some(&b) = b {
+                    (partner[a], partner[b]) = (b, a);
+                    pairs.push((a, b));
+                }
+            }
+            let score = (n - 2 * pairs.len(), pairs.len() - inside);
+            // Nothing better is possible: every classification paired off,
+            // and only the odd ones out play across.
+            let full = score.0 <= n % 2 && score.1 <= odd / 2;
+            if score < best.0 {
+                best = (score, pairs);
+            }
+            if full {
+                break;
+            }
+        }
+        let pairs = best.1;
+        for &(a, b) in &pairs {
+            met[a].push(b);
+            met[b].push(a);
+        }
+        weeks.push(pairs);
+    }
+    weeks.reverse();
+    weeks
+        .into_iter()
+        .enumerate()
+        .map(|(k, pairs)| {
+            pairs.into_iter().map(|(a, b)| if k % 2 == 0 { (ids[a], ids[b]) } else { (ids[b], ids[a]) }).collect()
+        })
+        .collect()
 }
 
 /// The high school day.
@@ -742,9 +843,20 @@ fn spring_mix(w: &World, i: usize, teaching: f64, open: bool) -> f64 {
         + body
 }
 
-/// The share of eligible players who make a real spring step, and the share
-/// a staff tips for one: about the top 3% each (proposed, not confirmed).
+/// The share of eligible players who make a real spring step: about the top
+/// 3% (proposed, not confirmed).
 const SPRING_SHARE: f64 = 0.03;
+/// The share of notices that land (T4.1: some don't pan out): about half
+/// (the build's pick, proposed, not confirmed). Only a noticed player can
+/// step, so a staff tips about twice as many players as step.
+const NOTICES_LAND: f64 = 0.5;
+
+/// The age on his latest season row. A row covers the season and the
+/// offseason after it, so every note about either gives this age and a page
+/// reads one age per season.
+fn row_age(p: &super::Person) -> u32 {
+    p.player.history.last().map_or(p.player.age, |h| h.age)
+}
 
 /// The value the top `share` of `values` clear.
 fn top_bar(values: &[f64], share: f64) -> f64 {
@@ -810,7 +922,8 @@ fn hs_spring_candidates(w: &World) -> Vec<(usize, f64, bool)> {
 }
 
 /// Notices early in spring (T4.1): the staff reads the mix, sharper with a
-/// better staff, so some notices don't pan out and some steps surprise.
+/// better staff, so some notices don't pan out. A step never comes without
+/// one.
 fn notices(w: &mut World, cands: &[(usize, f64, bool)], d: Date, college: bool) {
     let seed = w.options.seed as u64 ^ (w.year as u64) << 20 ^ if college { 0x5350 } else { 0x5348 };
     let mut n = 0;
@@ -822,7 +935,7 @@ fn notices(w: &mut World, cands: &[(usize, f64, bool)], d: Date, college: bool) 
             mix + sd * key_normal(seed, w.people[i].player.id as u64)
         })
         .collect();
-    let bar = top_bar(&reads, SPRING_SHARE);
+    let bar = top_bar(&reads, SPRING_SHARE / NOTICES_LAND);
     for (&(i, _, _), &read) in cands.iter().zip(&reads) {
         if read < bar {
             continue;
@@ -838,7 +951,7 @@ fn notices(w: &mut World, cands: &[(usize, f64, bool)], d: Date, college: bool) 
             super::coach::Group::QB => "keeps reading it this fast and keeps his feet clean",
             _ => "keeps stacking good days and keeps his footwork sharp",
         };
-        let age = p.player.age;
+        let age = row_age(p);
         p.note(format!("Spring notice at {age}: if {first} {what}, he'll likely make a big step."));
         if college && p.stars >= 4 {
             let text = format!("Spring practice: {} is turning heads.", p.name);
@@ -853,45 +966,50 @@ fn notices(w: &mut World, cands: &[(usize, f64, bool)], d: Date, college: bool) 
     w.log.spring_notices += n;
 }
 
-/// By the spring game the step lands, or the notice fizzles (T4.1). The
-/// step closes 12-30% of the gap to his ceilings (proposed, not confirmed).
+/// By the spring game the step lands, or the notice fizzles (T4.1). Only a
+/// noticed player can step: the better half of the notices by the mix land.
+/// The step closes 12-30% of the gap to his ceilings (proposed, not
+/// confirmed) and goes on his latest season row, so the row's end runs
+/// through it.
 fn jumps(w: &mut World, cands: &[(usize, f64, bool)], d: Date, college: bool) {
     let seed = w.options.seed as u64 ^ (w.year as u64) << 20 ^ if college { 0x5347 } else { 0x5346 };
     let (mut breakouts, mut fizzles) = (0, 0);
+    let noticed: Vec<(usize, f64, bool)> =
+        cands.iter().copied().filter(|&(i, _, _)| w.people[i].cal.spring_notice).collect();
     // The mix is the cause; a little luck in how it lands.
-    let lands: Vec<f64> = cands
+    let lands: Vec<f64> = noticed
         .iter()
         .map(|&(i, teaching, open)| {
             spring_mix(w, i, teaching, open) + 0.25 * key_normal(seed, w.people[i].player.id as u64)
         })
         .collect();
-    let bar = top_bar(&lands, SPRING_SHARE);
-    for (&(i, _, _), &land) in cands.iter().zip(&lands) {
-        let noticed = w.people[i].cal.spring_notice;
+    let bar = top_bar(&lands, NOTICES_LAND);
+    for (&(i, _, _), &land) in noticed.iter().zip(&lands) {
         let id = w.people[i].player.id as u64;
-        let real = land >= bar;
-        if !real {
-            if noticed {
-                fizzles += 1;
-                let p = &mut w.people[i];
-                let age = p.player.age;
-                p.note(format!("At {age} the spring step he was tipped for didn't come."));
-                p.cal.spring_notice = false;
-            }
-            continue;
-        }
-        let share = 0.12 + 0.18 * key_uniform(seed ^ 1, id);
         let p = &mut w.people[i];
-        let gain = crate::development::spring_jump(&mut p.player, share, &mut p.rng);
+        p.cal.spring_notice = false;
+        let mut gain = 0.0;
+        if land >= bar {
+            let share = 0.12 + 0.18 * key_uniform(seed ^ 1, id);
+            let before = p.player.attributes;
+            gain = crate::development::spring_jump(&mut p.player, share, &mut p.rng);
+            // Under half a point is no step: he had no room left to make one.
+            if gain < 0.5 {
+                p.player.attributes = before;
+            }
+        }
+        let age = row_age(p);
         if gain < 0.5 {
+            fizzles += 1;
+            p.note(format!("At {age} the spring step he was tipped for didn't come."));
             continue;
         }
+        crate::development::record_spring_step(&mut p.player, gain);
         breakouts += 1;
-        let age = p.player.age;
-        let how = if noticed { "as his coaches had hinted" } else { "out of nowhere" };
         let r#where = if college { "spring practice" } else { "spring ball" };
-        p.note(format!("Broke out in {where} at {age}, {how}: +{gain:.1} overall by the spring game."));
-        p.cal.spring_notice = false;
+        p.note(format!(
+            "Broke out in {where} at {age}, as his coaches had hinted: +{gain:.1} overall by the spring game."
+        ));
         if college && (p.stars >= 4 || gain >= 4.0) {
             let text = format!("{} breaks out in spring practice (+{gain:.1}).", p.name);
             let prog = p.college;
@@ -944,8 +1062,12 @@ fn spring_jumps_hs(w: &mut World, d: Date) {
 /// The January high school all-star games: the All-American Bowl (San
 /// Antonio, about 100 of the class's best) and the Polynesian Bowl
 /// (Honolulu, about 100, Polynesian players first). A final stage before
-/// signing day: the week's practices are scouted.
+/// signing day: the week's practices are scouted. Each game is played only
+/// from its first real season (see `all_star_first_season`).
 pub(crate) fn all_star_game(w: &mut World, name: &'static str) {
+    if w.year < all_star_first_season(name) {
+        return;
+    }
     let d = w.today;
     let class = w.year + 1;
     let seed = w.options.seed as u64 ^ (class as u64) << 16 ^ name.len() as u64;
@@ -971,13 +1093,22 @@ pub(crate) fn all_star_game(w: &mut World, name: &'static str) {
         let p = &mut w.people[i];
         p.cal.all_star = Some(name);
         let age = p.player.age;
-        p.note(format!("Played in the {name} at {age}."));
+        // The age on his senior season's row (the game is in its offseason).
+        p.note(format!("Played in the {name} at {}.", age - 1));
     }
     w.log.all_star_invites += pool.len().min(size) as u32;
     if w.recording {
         let text = format!("The {name} is played.");
         w.calendar.post(Event::new(d, Level::HighSchool, Kind::Game, Loudness::Medium, text));
     }
+}
+
+/// The first football season of a January high school all-star game (from
+/// memory, to verify): the All-American Bowl's first game was Dec 30, 2000
+/// (the 2000 season), the Polynesian Bowl's in January 2017 (the 2016
+/// season).
+pub(crate) fn all_star_first_season(name: &str) -> i32 {
+    if name.starts_with("Polynesian") { 2016 } else { 2000 }
 }
 
 /// Each state's all-star game for its graduating seniors, late May.
@@ -987,7 +1118,7 @@ fn state_all_stars(w: &mut World, d: Date) {
     for p in w.people.iter_mut() {
         if p.stage == Stage::HighSchool && p.class_of == year && p.cal.all_state >= 2 {
             states_played.insert(p.home_state);
-            let age = p.player.age;
+            let age = row_age(p);
             p.note(format!("Played in his state's high school all-star game at {age}."));
         }
     }
@@ -1005,4 +1136,57 @@ pub(crate) fn state_season_dates(code: &str, year: i32) -> (Date, Date, Date) {
         shifted(c.playoffs.0, c.playoffs.1, year, thanksgiving),
         shifted(c.finals.0, c.finals.1, year, thanksgiving),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::world::WorldOptions;
+    use std::collections::BTreeSet;
+
+    #[test]
+    fn high_school_regular_seasons_have_no_rematches() {
+        let w = World::empty(WorldOptions { scale: 1.0, ..Default::default() });
+        let hs = new_season(&w);
+        let mut games = vec![0u32; w.high_schools.len()];
+        for (s, st) in hs.states.iter().enumerate() {
+            let mut met = BTreeSet::new();
+            for k in 0..st.weeks.len() {
+                let mut busy = BTreeSet::new();
+                for g in hs.groups.iter().filter(|g| g.state == s) {
+                    for &(h, a) in &g.schedule[k] {
+                        assert!(met.insert((h.min(a), h.max(a))), "{} schools meet twice", w.states[s].code);
+                        assert!(busy.insert(h) && busy.insert(a), "a school plays twice in one week");
+                        games[h] += 1;
+                        games[a] += 1;
+                    }
+                }
+            }
+        }
+        // Byes come only from odd counts and the tiny states: under 1% of
+        // school-weeks, and under 10% even in DC (25 schools in 4 classes).
+        let byes = |state: Option<usize>| {
+            let (mut slots, mut played) = (0, 0);
+            for s in w.high_schools.iter().filter(|s| state.is_none_or(|x| s.state == x)) {
+                slots += hs.states[s.state].weeks.len() as u32;
+                played += games[s.id];
+            }
+            1.0 - played as f64 / slots as f64
+        };
+        assert!(byes(None) < 0.01, "bye share {:.3}", byes(None));
+        let dc = w.states.iter().position(|s| s.code == "DC").unwrap();
+        assert!(byes(Some(dc)) < 0.1, "DC bye share {:.3}", byes(Some(dc)));
+        // The same seed gives the same schedule.
+        let again = new_season(&w);
+        assert!(hs.groups.iter().zip(&again.groups).all(|(a, b)| a.schedule == b.schedule));
+        // Florida plays in its seven classifications.
+        let fl = w.states.iter().position(|s| s.code == "FL").unwrap();
+        assert_eq!(hs.groups.iter().filter(|g| g.state == fl).count(), 7);
+    }
+
+    #[test]
+    fn january_all_star_games_start_in_their_real_seasons() {
+        assert_eq!(all_star_first_season("All-American Bowl"), 2000);
+        assert_eq!(all_star_first_season("Polynesian Bowl"), 2016);
+    }
 }
