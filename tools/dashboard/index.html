@@ -931,7 +931,7 @@ function buildCalendar(p) {
   p.append(h("div", { class: "summary" },
     [["NFL games a year", avgOf((y) => y.nfl_games), `real ${R.nfl_games}`],
      ["Early NFL entrants", avgOf((y) => y.declared), `real about ${R.early_entrants?.join("-")}`],
-     ["FBS signees signing in December", avgOf((y) => y.fbs_early_pct), `% (real about ${R.fbs_signed_early_pct?.join("-")}%)`],
+     ["FBS signees signing in December", avgOf((y) => (y.year >= 2017 ? y.fbs_early_pct : null)), `% from 2017 (real about ${R.fbs_signed_early_pct?.join("-")}%)`],
      ["Portal entry days", avgOf((y) => y.portal_days), "days with at least one entry"],
      ["FBS teams with 1-3 huge games", avgOf((y) => y.college_huge_share_1_3), "% of FBS teams (target: most)"],
      ["NFL teams with 1-3 huge games", avgOf((y) => y.nfl_huge_share_1_3), "% of NFL teams (target: most)"],
