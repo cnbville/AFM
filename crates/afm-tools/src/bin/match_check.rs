@@ -3,6 +3,7 @@
 //! Usage: match_check [nfl|fbs|hs] [games] [seed] [pbp]
 //! With `pbp`, prints the first game's play-by-play with its whys.
 
+extern crate afm_tools;
 use afm_engine::game::quick_game;
 use afm_engine::game::stats::PlayType;
 use afm_engine::game::synthetic::synthetic_league;

@@ -223,6 +223,37 @@ impl Agent {
     }
     /// How hard he can stop, yards per second squared: his grip and his
     /// footwork (agility), as the shuttle measures it.
+    /// A copy of him for looking ahead: everything but his job, so a
+    /// route's waypoints are not copied.
+    pub fn without_job(&self) -> Agent {
+        Agent {
+            side: self.side,
+            p: self.p,
+            id: self.id,
+            label: self.label,
+            pos: self.pos,
+            vel: self.vel,
+            face: self.face,
+            vmax: self.vmax,
+            accel: self.accel,
+            tau: self.tau,
+            cut: self.cut,
+            mass: self.mass,
+            job: Job::Idle,
+            down_until: self.down_until,
+            engaged: self.engaged,
+            work: self.work,
+            read_at: self.read_at,
+            ball_react: self.ball_react,
+            face_lock: self.face_lock,
+            bust: self.bust,
+            last_try: self.last_try,
+            top: self.top,
+            smell: self.smell,
+            r: self.r,
+        }
+    }
+
     pub fn brake(&self) -> f64 {
         self.accel * (1.2 + 0.7 * self.cut)
     }
@@ -266,7 +297,7 @@ impl Agent {
     }
     #[inline]
     pub fn up(&self, t: f64) -> bool {
-        t >= self.down_until && self.job != Job::Out
+        t >= self.down_until && !matches!(self.job, Job::Out)
     }
 }
 
@@ -592,19 +623,27 @@ impl<'a> Sim<'a> {
         // Bodies don't pass through each other: free players slide around
         // engaged pairs and teammates.
         let n = self.agents.len();
+        let carrier = self.carrier();
         for i in 0..n {
-            if self.agents[i].engaged.is_some() || !self.agents[i].up(t) {
+            if self.agents[i].engaged.is_some() || !self.agents[i].up(t) || Some(i) == carrier {
                 continue;
             }
             let mut push = V2::default();
             for j in 0..n {
-                if i == j {
+                if i == j || Some(j) == carrier {
+                    continue;
+                }
+                let obstacle = self.agents[j].engaged.is_some() || self.agents[j].side == self.agents[i].side;
+                if !obstacle {
                     continue;
                 }
                 let d = self.agents[i].pos - self.agents[j].pos;
+                // Clearly apart (well past 0.8 yards): no square root needed.
+                if d.dot(d) > 0.65 {
+                    continue;
+                }
                 let l = d.len();
-                let obstacle = self.agents[j].engaged.is_some() || self.agents[j].side == self.agents[i].side;
-                if l < 0.8 && l > 1e-6 && obstacle && Some(j) != self.carrier() && Some(i) != self.carrier() {
+                if l < 0.8 && l > 1e-6 {
                     push = push + d.scale((0.8 - l) / l * 0.5);
                 }
             }
@@ -932,6 +971,30 @@ impl<'a> Sim<'a> {
         let speed = if pressing { self.press.min(me.vmax) } else { me.vmax.max(4.0) };
         let mut best = (f64::NEG_INFINITY, v2(goal, 0.0));
         let noise = (1.0 - 0.008 * vision).max(0.2);
+        // The defenders he reckons with, and how free each is: the same
+        // for every heading, so worked out once.
+        let mut seen: [(V2, f64, f64); 32] = [(V2::default(), 0.0, 0.0); 32];
+        let mut n_seen = 0;
+        for d in self.agents.iter() {
+            if d.side == me.side || !d.up(t) {
+                continue;
+            }
+            let dist = d.pos.dist(me.pos);
+            if dist > sight + 6.0 {
+                continue;
+            }
+            // Defenders behind him or far away count only if he can see them.
+            if dist > 3.0 && !self.sees(c, d.pos) && dist > sight * 0.5 {
+                continue;
+            }
+            let engaged = d.engaged.map(|k| self.eng[k].w);
+            let reach = match engaged {
+                Some(w) => 0.15 + 0.35 * ((w + 1.0) / 2.0),
+                None => 1.0,
+            };
+            seen[n_seen] = (d.pos, d.vmax, reach);
+            n_seen += 1;
+        }
         for k in 0..15 {
             let ang = (k as f64 - 7.0) * 0.19;
             let dir = v2(goal * ang.cos(), ang.sin());
@@ -939,27 +1002,10 @@ impl<'a> Sim<'a> {
             let p = me.pos + dir.scale(look);
             let t_me = look / speed.max(me.vel.len() * 0.5 + speed * 0.5);
             let mut threat = 0.0;
-            for (j, d) in self.agents.iter().enumerate() {
-                if d.side == me.side || !d.up(t) {
-                    continue;
-                }
-                let dist = d.pos.dist(me.pos);
-                if dist > sight + 6.0 {
-                    continue;
-                }
-                // Defenders behind him or far away count only if he can see them.
-                if dist > 3.0 && !self.sees(c, d.pos) && dist > sight * 0.5 {
-                    continue;
-                }
-                let engaged = d.engaged.map(|k| self.eng[k].w);
-                let reach = match engaged {
-                    Some(w) => 0.15 + 0.35 * ((w + 1.0) / 2.0),
-                    None => 1.0,
-                };
-                let td = (d.pos.dist(p) - 1.0).max(0.0) / d.vmax + 0.15;
+            for &(pos, vmax, reach) in &seen[..n_seen] {
+                let td = (pos.dist(p) - 1.0).max(0.0) / vmax + 0.15;
                 let lead = t_me - td;
                 threat += reach * (lead / 0.35).exp().min(6.0);
-                let _ = j;
             }
             let gain = dir.x * goal;
             let edge = p.y.min(WIDTH - p.y);

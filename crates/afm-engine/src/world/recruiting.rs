@@ -2725,6 +2725,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         u
     };
     let mut held_offer = vec![0.0f64; pool.len()];
+    // Each recruit's rating, read once: nobody develops while offers go out.
+    let overall_of: Vec<f64> = pool.par_iter().map(|r| w.people[r.person].player.overall()).collect();
     let mut active = true;
     while active {
         active = false;
@@ -2746,7 +2748,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 let mut offer = if walk_on { 0.0 } else { offer_for(j, k, rank) };
                 // His room there as it stands today, commitments included (11.2),
                 // weighed more by a better recruit (11.3).
-                let me = p.player.overall() + 6.0;
+                let me = overall_of[k] + 6.0;
                 let early = early_weight(recruiting_stars(p));
                 let fit = view.fit(j, who, p, &wants, me, 2, 2.0, early);
                 // The relationship the staff built over the year (11.18) and his
