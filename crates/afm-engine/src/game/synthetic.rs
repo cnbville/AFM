@@ -60,7 +60,7 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
     // is the same as before he was added.
     let mut ls_rng = Rng::new(seed ^ 0x4C53_0000);
     let (starter, backup) = level_strength(level);
-    let mut players = Vec::new();
+    let mut raw = Vec::new();
     let mut id = seed.wrapping_mul(1000) & 0x7FFF_FFFF;
     for (pos, n) in roster_counts(level) {
         let starters = starters(pos);
@@ -102,20 +102,28 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
                 Level::HS => 0.8,
                 _ => 0.86,
             };
-            players.push(GamePlayer::from_player(&p, know, exp));
+            raw.push((p, know, exp));
         }
     }
+    // The staff sets its spots (fix list topic 3).
+    let spots = crate::spots::choose_spots(&raw.iter().map(|r| &r.0).collect::<Vec<_>>());
+    for (r, s) in raw.iter_mut().zip(spots) {
+        crate::spots::set_spot(&mut r.0, s);
+    }
+    let players: Vec<GamePlayer> = raw.iter().map(|(p, know, exp)| GamePlayer::from_player(p, *know, *exp)).collect();
+    // The staff sizes its weekly plan to its players (T6.2).
+    let aware = players.iter().map(|p| p.a(Attr::Awareness)).sum::<f64>() / players.len().max(1) as f64;
     let staff = Staff {
-        offense: Caller {
-            skill: clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
-            adaptation: clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
-            aggressiveness: clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
-        },
-        defense: Caller {
-            skill: clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
-            adaptation: clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
-            aggressiveness: clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
-        },
+        offense: Caller::new(
+            clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
+            clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
+            clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
+        ),
+        defense: Caller::new(
+            clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
+            clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
+            clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
+        ),
         game_management: clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
         strictness: clamp(rng.normal(10.0, 3.0), 1.0, 20.0),
         off_scheme: scheme,
@@ -124,8 +132,12 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
         playbook: 1.0,
         // From its own stream so the draws above keep their values.
         sportsmanship: clamp(Rng::new(seed ^ 0x5BD1_E995).normal(10.0, 3.5), 1.0, 20.0),
+        nickel: clamp(Rng::new(seed ^ 0x2545_F491).normal(0.88, 0.08), 0.55, 0.99),
+        year: 2026,
+        film_study: 10.0,
+        install: absorb(aware).clamp(0.35, 1.0),
     };
-    GameTeam { name: name.to_string(), players, staff }
+    GameTeam::new(name.to_string(), players, staff)
 }
 
 /// A league's worth of synthetic teams with a spread of quality and schemes.

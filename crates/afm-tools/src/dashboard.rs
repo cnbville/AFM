@@ -169,7 +169,7 @@ pub fn engine_row(games: &[&GameSummary]) -> BTreeMap<&'static str, f64> {
     ])
 }
 
-const DIVS: [Division; 4] = [Division::FBS, Division::FCS, Division::D2, Division::JUCO];
+const DIVS: [Division; 6] = Division::ALL;
 
 /// What the game log adds to the dashboard: match engine averages by
 /// division (all history and by season), champions, and FBS stat leaders.

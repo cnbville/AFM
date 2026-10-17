@@ -16,6 +16,7 @@ use std::collections::HashMap;
 
 use super::coach::TitleKind;
 use super::high_school::HsSeason;
+use super::recruiting::film_raw;
 use super::season::{self, TeamResult, key_normal, key_uniform, win_chance};
 use super::{Stage, World};
 use crate::calendar::anchors::{labor_day, thanksgiving};
@@ -37,8 +38,9 @@ pub(crate) struct StateSeason {
     pub finals: Date,
     /// Regular-season game days, by week (a bye week has no games).
     pub weeks: Vec<Date>,
-    /// The playoff rounds: quarterfinals, semifinals, final.
-    pub rounds: [Date; 3],
+    /// The playoff rounds, one a week from the state's first round to its
+    /// final (part B 12).
+    pub rounds: Vec<Date>,
     pub developed: bool,
     pub done: bool,
 }
@@ -103,9 +105,12 @@ fn state_dates(w: &World, year: i32) -> Vec<StateSeason> {
                 }
                 k += 1;
             }
-            let span = (playoffs.days_to(finals) / 7).max(2);
-            let semi = playoffs.add(7 * (span / 2));
-            StateSeason { start, finals, weeks, rounds: [playoffs, semi, finals], developed: false, done: false }
+            // One round a week (part B 12): the weeks between the first
+            // round and the final, the final on its own day.
+            let span = ((playoffs.days_to(finals) + 3) / 7).max(1);
+            let mut rounds: Vec<Date> = (0..span).map(|k| playoffs.add(7 * k)).collect();
+            rounds.push(finals);
+            StateSeason { start, finals, weeks, rounds, developed: false, done: false }
         })
         .collect()
 }
@@ -139,7 +144,8 @@ pub(crate) fn new_season(w: &World) -> HsSeasonState {
         let n_weeks = states[state].weeks.len();
         let classes: Vec<(u32, &[usize])> =
             groups[first..end].iter().map(|g| (g.class, g.schools.as_slice())).collect();
-        let weeks = state_schedule(&classes, n_weeks, seed ^ (state as u64) << 8);
+        let area = |id: usize| w.high_schools[id].area;
+        let weeks = state_schedule(&classes, &area, n_weeks, seed ^ (state as u64) << 8);
         // Each game is filed under the home team's classification.
         let mut home_days: Vec<(usize, Date)> = Vec::new();
         for (k, games) in weeks.into_iter().enumerate() {
@@ -178,84 +184,119 @@ pub(crate) fn new_season(w: &World) -> HsSeasonState {
 /// games outside the classification.
 const SCHEDULE_TRIES: u64 = 8;
 
+/// About how many schools make a district (part B 40; real districts run
+/// about 5 to 8; proposed, not confirmed: 7, fewer when the season is short).
+const DISTRICT_SIZE: usize = 7;
+
 /// A state's regular season, week by week, as (home, away) games, from its
-/// classifications (class number and schools). Two schools never meet twice
-/// in a regular season; a playoff rematch is fine. Each week pairs schools
-/// inside their classification first, in a keyed shuffle. A school left
-/// over (an odd classification, or one too small to fill a season without a
-/// rematch) plays a school it hasn't met from the nearest classification;
-/// one still left has a bye. A week tries a few shuffles and keeps the one with the fewest
-/// byes, then the fewest games outside the classification. The weeks are
-/// built forward and played in reverse, so the games outside the
-/// classification come early, as non-district games do.
-fn state_schedule(classes: &[(u32, &[usize])], n_weeks: usize, seed: u64) -> Vec<Vec<(usize, usize)>> {
+/// classifications (class number and schools) and each school's area (part
+/// B 40). Each classification splits into districts of nearby schools
+/// (sorted by area), which play a round robin in the season's last weeks.
+/// The first weeks are non-district games, against a school not met yet
+/// from the same area first, then a similar classification. A school with a
+/// district bye plays another school with one. Two schools never meet twice
+/// in a regular season; a playoff rematch is fine.
+fn state_schedule(
+    classes: &[(u32, &[usize])],
+    area: &dyn Fn(usize) -> usize,
+    n_weeks: usize,
+    seed: u64,
+) -> Vec<Vec<(usize, usize)>> {
     const FREE: usize = usize::MAX;
     let ids: Vec<usize> = classes.iter().flat_map(|c| c.1.iter().copied()).collect();
     let class_of: Vec<u32> = classes.iter().flat_map(|c| std::iter::repeat_n(c.0, c.1.len())).collect();
+    let area_of: Vec<usize> = ids.iter().map(|&id| area(id)).collect();
     let n = ids.len();
-    let odd = classes.iter().filter(|c| c.1.len() % 2 == 1).count();
-    // Who each school has met, by index into `ids`.
+    // --- Districts: nearby schools of one classification ---------------------------
+    let size = DISTRICT_SIZE.min(n_weeks.saturating_sub(2)).max(2);
+    let mut district = vec![FREE; n];
+    let mut districts: Vec<Vec<usize>> = Vec::new();
+    let mut at = 0;
+    for c in classes {
+        let mut idx: Vec<usize> = (at..at + c.1.len()).collect();
+        at += c.1.len();
+        idx.sort_by(|&a, &b| {
+            area_of[a]
+                .cmp(&area_of[b])
+                .then(key_uniform(seed ^ 0xD15, ids[a] as u64).total_cmp(&key_uniform(seed ^ 0xD15, ids[b] as u64)))
+        });
+        let k = idx.len().div_ceil(size).max(1);
+        for j in 0..k {
+            let part: Vec<usize> = idx[j * idx.len() / k..(j + 1) * idx.len() / k].to_vec();
+            for &i in &part {
+                district[i] = districts.len();
+            }
+            districts.push(part);
+        }
+    }
+    // Round robins by the circle method: a phantom school gives the byes.
+    let rounds_of = |m: usize| if m.is_multiple_of(2) { m.saturating_sub(1) } else { m };
+    let d_weeks = districts.iter().map(|d| rounds_of(d.len())).max().unwrap_or(0).min(n_weeks);
+    let mut weeks: Vec<Vec<(usize, usize)>> = vec![Vec::new(); n_weeks];
     let mut met: Vec<Vec<usize>> = vec![Vec::new(); n];
-    let mut weeks: Vec<Vec<(usize, usize)>> = Vec::with_capacity(n_weeks);
+    let mut busy: Vec<Vec<bool>> = vec![vec![false; n]; n_weeks];
+    for d in &districts {
+        let mut ring: Vec<usize> = d.clone();
+        if ring.len() % 2 == 1 {
+            ring.push(FREE);
+        }
+        let m = ring.len();
+        for r in 0..rounds_of(d.len()).min(d_weeks) {
+            let wk = n_weeks - d_weeks + r;
+            for x in 0..m / 2 {
+                let (a, b) = (ring[x], ring[m - 1 - x]);
+                if a != FREE && b != FREE {
+                    weeks[wk].push((a, b));
+                    met[a].push(b);
+                    met[b].push(a);
+                    busy[wk][a] = true;
+                    busy[wk][b] = true;
+                }
+            }
+            // Rotate all but the first.
+            let last = ring.pop().unwrap();
+            ring.insert(1, last);
+        }
+    }
+    // --- Everything else: non-district weeks and district byes -------------------
     for k in 0..n_weeks {
-        // The best try so far: (byes, games outside the classification) and its games.
-        let mut best = ((usize::MAX, usize::MAX), Vec::new());
+        let mut best: (usize, Vec<(usize, usize)>) = (usize::MAX, Vec::new());
         for t in 0..SCHEDULE_TRIES {
             let key = seed ^ (k as u64) << 20 ^ t << 48;
+            let mut order: Vec<usize> = (0..n).filter(|&a| !busy[k][a]).collect();
             let shuffle: Vec<f64> = ids.iter().map(|&id| key_uniform(key, id as u64)).collect();
-            let mut order: Vec<usize> = (0..n).collect();
-            order.sort_by(|&a, &b| class_of[a].cmp(&class_of[b]).then(shuffle[a].total_cmp(&shuffle[b])));
+            order.sort_by(|&a, &b| area_of[a].cmp(&area_of[b]).then(shuffle[a].total_cmp(&shuffle[b])));
             let mut partner = vec![FREE; n];
-            let mut pairs: Vec<(usize, usize)> = Vec::with_capacity(n / 2);
-            // Inside the classification.
+            let mut pairs: Vec<(usize, usize)> = Vec::new();
             for (x, &a) in order.iter().enumerate() {
                 if partner[a] != FREE {
                     continue;
                 }
-                let b = order[x + 1..]
-                    .iter()
-                    .take_while(|&&b| class_of[b] == class_of[a])
-                    .find(|&&b| partner[b] == FREE && !met[a].contains(&b));
+                // The same area first, then the closest classification;
+                // the order is by area, so the nearby schools come next.
+                let open = |b: &&usize| partner[**b] == FREE && !met[a].contains(*b) && district[**b] != district[a];
+                let rank = |b: &&usize| ((area_of[**b] != area_of[a]) as u32, class_of[**b].abs_diff(class_of[a]));
+                let near = order[x + 1..].iter().take(200).filter(open).min_by_key(rank);
+                let b = near.or_else(|| order[x + 1..].iter().filter(open).min_by_key(rank));
                 if let Some(&b) = b {
                     (partner[a], partner[b]) = (b, a);
                     pairs.push((a, b));
                 }
             }
-            let inside = pairs.len();
-            // The rest: a school not yet met, from the nearest classification.
-            let left: Vec<usize> = order.iter().copied().filter(|&a| partner[a] == FREE).collect();
-            for (x, &a) in left.iter().enumerate() {
-                if partner[a] != FREE {
-                    continue;
-                }
-                let b = left[x + 1..]
-                    .iter()
-                    .filter(|&&b| partner[b] == FREE && !met[a].contains(&b))
-                    .min_by_key(|&&b| class_of[b].abs_diff(class_of[a]));
-                if let Some(&b) = b {
-                    (partner[a], partner[b]) = (b, a);
-                    pairs.push((a, b));
-                }
+            let left = order.len() - 2 * pairs.len();
+            if left < best.0 {
+                best = (left, pairs);
             }
-            let score = (n - 2 * pairs.len(), pairs.len() - inside);
-            // Nothing better is possible: every classification paired off,
-            // and only the odd ones out play across.
-            let full = score.0 <= n % 2 && score.1 <= odd / 2;
-            if score < best.0 {
-                best = (score, pairs);
-            }
-            if full {
+            if best.0 <= order.len() % 2 {
                 break;
             }
         }
-        let pairs = best.1;
-        for &(a, b) in &pairs {
+        for &(a, b) in &best.1 {
             met[a].push(b);
             met[b].push(a);
+            weeks[k].push((a, b));
         }
-        weeks.push(pairs);
     }
-    weeks.reverse();
     weeks
         .into_iter()
         .enumerate()
@@ -386,7 +427,7 @@ fn start_state(w: &mut World, s: usize) {
         ));
     }
     let st = w.hs_season.as_ref().unwrap().states[s].clone();
-    let n_weeks = st.weeks.len() + 3;
+    let n_weeks = st.weeks.len() + st.rounds.len();
     let check = hs_calendar(&w.states[s].code).grades;
     let seed = w.options.seed as u64 ^ (w.year as u64) << 28 ^ 0x6772;
     let mut out: HashMap<usize, Vec<f64>> = HashMap::new();
@@ -510,6 +551,7 @@ fn play_week(w: &mut World, s: usize, k: usize, d: Date) {
     let mut forfeits = 0;
     let mut no_contests = 0;
     let (mut homecomings, mut senior_nights) = (0, 0);
+    let mut outcomes: Vec<(usize, usize)> = Vec::new();
     for g in hs.groups.iter().filter(|g| g.state == s) {
         let Some(week) = g.schedule.get(k) else { continue };
         for &(h, a) in week {
@@ -517,7 +559,10 @@ fn play_week(w: &mut World, s: usize, k: usize, d: Date) {
             if hs.results[h].roster == 0 || hs.results[a].roster == 0 {
                 continue;
             }
-            if storm && key_uniform(seed ^ 0x51, key) < 0.3 || key_uniform(seed ^ 0x52, key) < 0.002 {
+            // A landfall reaches the coastal schools only (part B 41).
+            let coastal = key_uniform(w.options.seed as u64 ^ 0xC0A5, h as u64)
+                < crate::calendar::weather::hurricane_school_share(&code);
+            if storm && coastal && key_uniform(seed ^ 0x51, key) < 0.3 || key_uniform(seed ^ 0x52, key) < 0.002 {
                 no_contests += 1;
                 continue;
             }
@@ -549,6 +594,13 @@ fn play_week(w: &mut World, s: usize, k: usize, d: Date) {
             let (wn, l) = if home_wins { (h, a) } else { (a, h) };
             hs.results[wn].wins += 1;
             hs.results[l].losses += 1;
+            outcomes.push((wn, l));
+        }
+    }
+    if w.recording {
+        for (wn, l) in outcomes {
+            super::records::hs_result(w, wn, true);
+            super::records::hs_result(w, l, false);
         }
     }
     w.log.hs_games += games;
@@ -594,9 +646,12 @@ fn poll(w: &mut World, s: usize, d: Date, which: &str) {
     w.calendar.post(Event::new(d, Level::HighSchool, Kind::Poll, Loudness::Small, text));
 }
 
-/// The playoff field: each classification's best eight.
+/// The playoff field: each classification's best, as many as its rounds
+/// need (part B 12: five rounds take 32; a small class takes everyone, the
+/// top seeds with byes).
 fn seed_playoffs(w: &mut World, s: usize) {
     let hs = w.hs_season.as_mut().unwrap();
+    let field = 1usize << hs.states[s].rounds.len().min(8);
     let results = &hs.results;
     for g in hs.groups.iter_mut().filter(|g| g.state == s) {
         let mut seeds: Vec<usize> = g.schools.iter().copied().filter(|&h| results[h].roster > 0).collect();
@@ -605,7 +660,7 @@ fn seed_playoffs(w: &mut World, s: usize) {
             let kb = results[b].win_pct() + 0.01 * results[b].strength;
             kb.total_cmp(&ka)
         });
-        seeds.truncate(8);
+        seeds.truncate(field);
         g.alive = seeds;
     }
 }
@@ -615,7 +670,9 @@ fn play_round(w: &mut World, s: usize, r: usize, d: Date) {
     let seed = w.options.seed as u64 ^ (w.year as u64) << 24 ^ (r as u64) << 12 ^ 0x706F;
     let hs = w.hs_season.as_mut().unwrap();
     let week = hs.states[s].weeks.len() + r;
+    let last = hs.states[s].rounds.len() - 1;
     let mut games = 0;
+    let mut outcomes: Vec<(usize, usize)> = Vec::new();
     let mut alive_all: Vec<(usize, Vec<usize>)> = Vec::new();
     for (gi, g) in hs.groups.iter().enumerate() {
         if g.state != s || g.alive.len() < 2 {
@@ -629,7 +686,7 @@ fn play_round(w: &mut World, s: usize, r: usize, d: Date) {
         let m = rest.len();
         for k in 0..m / 2 {
             let (a, b) = (rest[k], rest[m - 1 - k]);
-            let home = if r == 2 { 0.0 } else { 0.4 };
+            let home = if r == last { 0.0 } else { 0.4 };
             let p = win_chance(
                 hs.results[a].strength - adj(hs, a, week),
                 hs.results[b].strength - adj(hs, b, week),
@@ -640,6 +697,7 @@ fn play_round(w: &mut World, s: usize, r: usize, d: Date) {
             let (wn, l) = if a_wins { (a, b) } else { (b, a) };
             hs.results[wn].wins += 1;
             hs.results[l].losses += 1;
+            outcomes.push((wn, l));
             next.push(wn);
             games += 1;
         }
@@ -648,7 +706,7 @@ fn play_round(w: &mut World, s: usize, r: usize, d: Date) {
         alive_all.push((gi, next));
     }
     for (gi, next) in alive_all {
-        if (r == 2 || next.len() == 1)
+        if (r == last || next.len() == 1)
             && let Some(&c) = next.first()
         {
             hs.results[c].state_title = true;
@@ -656,6 +714,12 @@ fn play_round(w: &mut World, s: usize, r: usize, d: Date) {
         hs.groups[gi].alive = next;
     }
     w.log.hs_games += games;
+    if w.recording {
+        for (wn, l) in outcomes {
+            super::records::hs_result(w, wn, true);
+            super::records::hs_result(w, l, false);
+        }
+    }
     let _ = d;
 }
 
@@ -896,6 +960,11 @@ fn open_reps(w: &World, roster: &[usize], i: usize) -> bool {
     ahead <= crate::league::depth_slots(p.player.position).starters
 }
 
+/// Spring steps a player has made: at most two in a career (part B 43, Cain's call).
+fn spring_steps(p: &super::Person) -> usize {
+    p.player.history.iter().filter(|r| r.spring_gain.is_some()).count() + p.cal.spring_gain_ahead.is_some() as usize
+}
+
 /// The spring candidates: (person, his position coach's teaching, open reps).
 fn college_spring_candidates(w: &World) -> Vec<(usize, f64, bool)> {
     let year = w.year;
@@ -905,7 +974,7 @@ fn college_spring_candidates(w: &World) -> Vec<(usize, f64, bool)> {
         .enumerate()
         .filter_map(|(i, p)| {
             // True freshmen (early enrollees), redshirt freshmen and sophomores.
-            if p.stage != Stage::College || p.college_seasons > 1 || p.class_of < year - 1 {
+            if p.stage != Stage::College || p.college_seasons > 1 || p.class_of < year - 1 || spring_steps(p) >= 2 {
                 return None;
             }
             // Short of the grades after the fall term: no spring practice (A23).
@@ -927,7 +996,7 @@ fn hs_spring_candidates(w: &World) -> Vec<(usize, f64, bool)> {
         .par_iter()
         .enumerate()
         .filter_map(|(i, p)| {
-            if p.stage != Stage::HighSchool || !(15..=16).contains(&p.player.age) {
+            if p.stage != Stage::HighSchool || !(15..=16).contains(&p.player.age) || spring_steps(p) >= 2 {
                 return None;
             }
             let school = &w.high_schools[p.hs];
@@ -1084,12 +1153,32 @@ fn spring_jumps_hs(w: &mut World, d: Date) {
 
 // --- All-star games --------------------------------------------------------------------
 
-/// The January high school all-star games: the All-American Bowl (San
-/// Antonio, about 100 of the class's best) and the Polynesian Bowl
-/// (Honolulu, about 100, Polynesian players first). A final stage before
-/// signing day: the week's practices are scouted. Each game is played only
-/// from its first real season (see `all_star_first_season`).
-pub(crate) fn all_star_game(w: &mut World, name: &'static str) {
+/// Places on a January high school all-star game's two rosters by
+/// position (part D 6): about a real roster's shape, with one kicker,
+/// punter and snapper a side.
+const ALL_STAR_PLACES: [(Position, usize); 14] = [
+    (Position::QB, 6),
+    (Position::RB, 6),
+    (Position::WR, 12),
+    (Position::TE, 4),
+    (Position::OT, 8),
+    (Position::IOL, 8),
+    (Position::EDGE, 8),
+    (Position::DT, 8),
+    (Position::LB, 10),
+    (Position::CB, 10),
+    (Position::S, 8),
+    (Position::K, 2),
+    (Position::P, 2),
+    (Position::LS, 2),
+];
+
+/// A January high school all-star game names its rosters in the senior
+/// fall (part B 35): the All-American Bowl in mid-October, the Polynesian
+/// Bowl from what is left in November. Invitations follow the services'
+/// ranking at each position (part D 5), the specialists the camps' stars;
+/// the Polynesian Bowl looks first at players of Polynesian heritage.
+pub(crate) fn all_star_rosters(w: &mut World, name: &'static str) {
     if w.year < all_star_first_season(name) {
         return;
     }
@@ -1097,33 +1186,70 @@ pub(crate) fn all_star_game(w: &mut World, name: &'static str) {
     let class = w.year + 1;
     let seed = w.options.seed as u64 ^ (class as u64) << 16 ^ name.len() as u64;
     let poly = name.starts_with("Polynesian");
-    let mut pool: Vec<(f64, usize)> = w
-        .people
-        .iter()
-        .enumerate()
-        .filter(|(_, p)| {
-            p.stage == Stage::HighSchool && p.class_of == class && p.stars >= 3 && p.cal.hs_all_star.is_none()
-        })
-        .map(|(i, p)| {
-            let mut score = p.stars as f64 + 0.05 * p.player.overall() + 0.3 * key_normal(seed, p.player.id as u64);
-            if poly && p.ethnicity == super::ethnicity::Ethnicity::Polynesian {
-                score += 1.5;
-            }
-            (score, i)
-        })
-        .collect();
-    pool.sort_by(|a, b| b.0.total_cmp(&a.0));
-    let size = ((100.0 * w.options.scale).round() as usize).max(2);
-    for &(_, i) in pool.iter().take(size) {
-        let p = &mut w.people[i];
-        p.cal.hs_all_star = Some(name);
-        let age = p.player.age;
-        // The age on his senior season's row (the game is in its offseason).
-        p.note(format!("Played in the {name} at {}.", age - 1));
+    let scale = w.options.scale;
+    let mut invited = 0u32;
+    for (pos, places) in ALL_STAR_PLACES {
+        let mut pool: Vec<(f64, usize)> = w
+            .people
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| {
+                p.stage == Stage::HighSchool
+                    && p.class_of == class
+                    && p.player.position == pos
+                    && p.cal.hs_all_star.is_none()
+                    && (p.stars >= 3 || p.camp_stars >= 3)
+            })
+            .map(|(i, p)| {
+                let stars = if pos.is_specialist() { p.camp_stars } else { p.stars } as f64;
+                let read = p.cal.service_read.unwrap_or(p.player.overall());
+                let mut score =
+                    10.0 * stars + 0.25 * film_raw(p) + 0.75 * read + 0.3 * key_normal(seed, p.player.id as u64);
+                if poly && p.ethnicity == super::ethnicity::Ethnicity::Polynesian {
+                    score += 15.0;
+                }
+                (score, i)
+            })
+            .collect();
+        pool.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+        let size = ((places as f64 * scale).round() as usize).max(1);
+        for &(_, i) in pool.iter().take(size) {
+            let p = &mut w.people[i];
+            p.cal.hs_all_star = Some(name);
+            let age = row_age(p);
+            p.note(format!("Invited to the {name} at {age}, in his senior season."));
+            invited += 1;
+        }
     }
-    w.log.all_star_invites += pool.len().min(size) as u32;
+    w.log.all_star_invites += invited;
     if w.recording {
-        let text = format!("The {name} is played.");
+        let text = format!("The {name} names its rosters: {invited} seniors invited.");
+        w.calendar.post(Event::new(d, Level::HighSchool, Kind::Signing, Loudness::Small, text));
+    }
+}
+
+/// The game itself in January: everyone invited plays, early enrollees
+/// included (part D 7: they report to campus right after it).
+pub(crate) fn all_star_game(w: &mut World, name: &'static str) {
+    if w.year < all_star_first_season(name) {
+        return;
+    }
+    let d = w.today;
+    let class = w.year + 1;
+    let mut played = 0;
+    for p in w.people.iter_mut() {
+        if p.class_of == class
+            && p.cal.hs_all_star == Some(name)
+            && matches!(p.stage, Stage::HighSchool | Stage::College)
+        {
+            // The age on his senior season's row (the game is in its offseason).
+            let age = row_age(p);
+            p.note(format!("Played in the {name} at {age}."));
+            played += 1;
+        }
+    }
+    if w.recording {
+        let text = format!("The {name} is played, {played} seniors on its rosters.");
         w.calendar.post(Event::new(d, Level::HighSchool, Kind::Game, Loudness::Medium, text));
     }
 }
@@ -1204,6 +1330,18 @@ mod tests {
         // The same seed gives the same schedule.
         let again = new_season(&w);
         assert!(hs.groups.iter().zip(&again.groups).all(|(a, b)| a.schedule == b.schedule));
+        // Part B 40: most games are inside the classification (district
+        // games and nearby non-district games of the same size).
+        let (mut inside, mut all) = (0, 0);
+        for g in &hs.groups {
+            for week in &g.schedule {
+                for &(h, a) in week {
+                    all += 1;
+                    inside += (w.high_schools[h].classification == w.high_schools[a].classification) as u32;
+                }
+            }
+        }
+        assert!(inside as f64 / all as f64 > 0.6, "inside share {inside}/{all}");
         // Florida plays in its seven classifications.
         let fl = w.states.iter().position(|s| s.code == "FL").unwrap();
         assert_eq!(hs.groups.iter().filter(|g| g.state == fl).count(), 7);

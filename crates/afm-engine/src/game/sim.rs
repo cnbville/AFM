@@ -39,8 +39,12 @@ pub struct Conditions {
     /// Feet above sea level.
     pub altitude: f64,
     pub turf: bool,
-    /// 0-1: how loud the home crowd is.
+    /// 0-1: how loud the home crowd is. On a snap it is the noise the
+    /// offense plays into (0 for the home offense).
     pub crowd: f64,
+    /// 0-1, on a snap: how unused the offense is to this cold (a warm
+    /// climate or dome team in a freezing game); grip and throws suffer.
+    pub cold_unused: f64,
 }
 
 impl Default for Conditions {
@@ -54,6 +58,7 @@ impl Default for Conditions {
             altitude: 500.0,
             turf: false,
             crowd: 0.6,
+            cold_unused: 0.0,
         }
     }
 }
@@ -126,12 +131,19 @@ pub enum Job {
         cushion: f64,
         lag: f64,
     },
-    /// Zone: a landmark and how deep the zone is.
+    /// Zone: a landmark and how deep the zone is. A matched zone carries a
+    /// receiver who goes vertical through it (pattern matching).
     Zone {
         spot: V2,
         deep: bool,
         width: f64,
+        matched: bool,
     },
+    /// Spying the quarterback (plays and tactics topic 5.4): mirror him
+    /// from the second level, come at once if he runs.
+    Spy,
+    /// The pitch man on an option, keeping his relation to the quarterback.
+    PitchMan,
     /// Chasing the ball.
     Pursue,
     /// Blocking for a ball carrier (returns, after a catch, after a turnover).
@@ -191,6 +203,14 @@ pub struct Agent {
     pub top: f64,
     /// He has read the screen and is going for the back.
     pub smell: bool,
+    /// A rusher on a stunt waits until this time before he loops.
+    pub hold_until: f64,
+    /// His run fit (plays and tactics topic 1): 0 none, 1 force (contain
+    /// and turn it in), 2 fill his gap, 3 the alley from depth; the gap he
+    /// owns at the line; and whether he misfits this snap.
+    pub fit: u8,
+    pub gap_y: f64,
+    pub misfit: bool,
     /// Ratings with fatigue, injury and momentum in.
     pub r: [f64; 25],
 }
@@ -234,6 +254,10 @@ impl Agent {
             last_try: -9.0,
             top: 0.0,
             smell: false,
+            hold_until: 0.0,
+            fit: 0,
+            gap_y: 0.0,
+            misfit: false,
             r,
         }
     }
@@ -266,6 +290,10 @@ impl Agent {
             last_try: self.last_try,
             top: self.top,
             smell: self.smell,
+            hold_until: self.hold_until,
+            fit: self.fit,
+            gap_y: self.gap_y,
+            misfit: self.misfit,
             r: self.r,
         }
     }
@@ -361,6 +389,9 @@ pub enum FoulKind {
     DelayOfGame,
     IllegalFormation,
     IntentionalGrounding,
+    /// A lineman more than the level's limit downfield when a pass is
+    /// thrown past the line (an RPO thrown late).
+    IneligibleDownfield,
 }
 
 impl FoulKind {
@@ -379,6 +410,7 @@ impl FoulKind {
             FoulKind::DelayOfGame => "delay of game",
             FoulKind::IllegalFormation => "illegal formation",
             FoulKind::IntentionalGrounding => "intentional grounding",
+            FoulKind::IneligibleDownfield => "ineligible man downfield",
         }
     }
     /// Yards, and whether it is an automatic first down for the offense.
@@ -388,9 +420,11 @@ impl FoulKind {
             FoulKind::DefensiveHolding => (5.0, true),
             FoulKind::PassInterference => (15.0, true),
             FoulKind::RoughingPasser | FoulKind::UnnecessaryRoughness | FoulKind::FaceMask => (15.0, true),
-            FoulKind::FalseStart | FoulKind::Offside | FoulKind::DelayOfGame | FoulKind::IllegalFormation => {
-                (5.0, false)
-            }
+            FoulKind::FalseStart
+            | FoulKind::Offside
+            | FoulKind::DelayOfGame
+            | FoulKind::IllegalFormation
+            | FoulKind::IneligibleDownfield => (5.0, false),
             FoulKind::IntentionalGrounding => (10.0, false),
         }
     }
@@ -481,6 +515,13 @@ pub struct Notes {
     pub injuries: Vec<Injury>,
     pub top_speed: Vec<(u32, f64)>,
     pub why: Vec<String>,
+    /// An RPO the quarterback pulled and threw; an option pitched.
+    pub rpo_pulled: bool,
+    pub pitched: bool,
+    /// Run fits missed this snap (plays and tactics topic 1).
+    pub misfits: Vec<u32>,
+    /// A stunt the line passed off or didn't (topic 4.9).
+    pub stunt: Option<bool>,
 }
 
 /// One frame of tracking for the 2D view (topic 9.3): every player and the ball.
@@ -541,6 +582,14 @@ pub struct Sim<'a> {
     /// On a designed run, the pace every back takes to the line until he
     /// commits to a crease (yards per second; 0 on other plays).
     pub press: f64,
+    /// The defense plays a two-gap front (a 3-4): its interior linemen
+    /// read the block before they pick a gap (S9).
+    pub two_gap: bool,
+    /// On a designed run: Some(true) for a gap scheme (down blocks and a
+    /// puller), Some(false) for a zone scheme, None otherwise.
+    pub gap_run: Option<bool>,
+    /// A stunt this snap: the penetrator and the looper (topic 1).
+    pub stunt: Option<(usize, usize)>,
 }
 
 /// How much a run block's outcome leans on the strength gap per point.
@@ -551,6 +600,18 @@ const RUN_EDGE: f64 = 0.035;
 /// The extra pull a defender with leverage gets when the runner comes at
 /// him (fitted with `RUN_EDGE`; 1.0 before).
 const SHED_RUNNER: f64 = 0.5;
+
+/// How far a free defender in the open field can reach or lunge for the
+/// ball carrier, on scrimmage plays and returns alike. (2.2 before, and 1.6
+/// on returns: runners slipped past squared-up defenders untouched, so
+/// nine in ten runs past 20 yards went past 40 against two in ten real,
+/// and long touchdowns ran near twice real; proposed, not confirmed.)
+pub const OPEN_REACH: f64 = 2.5;
+
+/// Rating points a road line loses off the snap at full crowd noise.
+/// Fitted with the other home-field causes to the real home margin
+/// (proposed, not confirmed).
+const SILENT_COUNT: f64 = 24.0;
 
 /// Print plays as they run (debug tooling only).
 pub static TRACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -728,11 +789,18 @@ impl<'a> Sim<'a> {
     /// A lineman in the phone booth almost always gets hit.
     pub fn lands_block(&mut self, b: usize, d: usize) -> bool {
         let t = self.t;
-        if t - self.agents[b].last_try < 0.3 {
+        // A set blocker gets his hands back up quicker than one running.
+        let wait = if self.agents[b].vel.len() < 2.5 { 0.15 } else { 0.3 };
+        if t - self.agents[b].last_try < wait {
             return false;
         }
         let speed = self.agents[d].vel.len();
         if matches!(self.agents[d].label, "DE" | "DT" | "NT") && speed < 3.0 {
+            return true;
+        }
+        // Anyone barely moving yet is in the phone booth too: there is no
+        // room or speed to slip the block.
+        if speed < 2.0 {
             return true;
         }
         let (ba, da) = (&self.agents[b], &self.agents[d]);
@@ -742,7 +810,15 @@ impl<'a> Sim<'a> {
         // crossing his face is not. Only the speed across counts.
         let u = if ba.vel.len() > 1.0 { ba.vel.norm() } else { (da.pos - ba.pos).norm() };
         let across = (da.vel.x * u.y - da.vel.y * u.x).abs();
-        let p_miss = clamp(0.22 + 0.006 * (slip - skill) + 0.05 * (across - 2.0).max(0.0), 0.05, 0.55);
+        // A blocker who is set and square, with the man running straight at
+        // him, rarely whiffs (a kick return wall, a pass set): only a dip or
+        // a rip gets by (proposed, not confirmed).
+        let set = ba.vel.len() < 2.5 && across < 2.0 && da.vel.dot((ba.pos - da.pos).norm()) > 2.0;
+        let p_miss = if set {
+            clamp(0.06 + 0.004 * (slip - skill), 0.02, 0.25)
+        } else {
+            clamp(0.22 + 0.006 * (slip - skill) + 0.05 * (across - 2.0).max(0.0), 0.05, 0.55)
+        };
         if self.rng.chance(p_miss) {
             self.agents[b].last_try = t;
             // Slipping a block costs him his momentum: he has to dip or
@@ -772,7 +848,13 @@ impl<'a> Sim<'a> {
         } else {
             bl.a(Attr::RunBlocking) * 0.5 + bl.a(Attr::Acceleration) * 0.3 + bl.a(Attr::Strength) * 0.2
         };
-        let w0 = if pass { -0.42 } else { -0.3 } + 0.006 * (get_off - set) + 0.18 * gauss(self.rng);
+        // Silent count (trial 4 topic 3): a road line in a loud stadium
+        // snaps on a visual cue, a beat late, and the defense times it.
+        let silent = if bl.side == 0 && self.t < 1.0 { SILENT_COUNT * self.cond.crowd } else { 0.0 };
+        let w0 = if pass { -0.42 } else { -0.3 }
+            + 0.006 * (get_off + silent - set)
+            + self.front_fit(de.label, pass)
+            + 0.18 * gauss(self.rng);
         let k = self.eng.len();
         self.eng.push(Engagement {
             blocker: b,
@@ -789,6 +871,27 @@ impl<'a> Sim<'a> {
         });
         self.agents[b].engaged = Some(k);
         self.agents[d].engaged = Some(k);
+    }
+
+    /// How the front's technique fits the play (S9), in block-win units:
+    /// a two-gap interior lineman holds his ground against a gap scheme but
+    /// gets stretched by zone and rushes the passer a beat late; a one-gap
+    /// lineman shoots into the backfield against zone and gets washed down
+    /// by a gap scheme (sizes proposed, not confirmed).
+    fn front_fit(&self, label: &str, pass: bool) -> f64 {
+        let dl = matches!(label, "DT" | "DE");
+        if !dl {
+            return 0.0;
+        }
+        let two_gap = self.two_gap && label == "DT";
+        match (pass, self.gap_run, two_gap) {
+            (true, _, true) => -0.03,
+            (false, Some(true), true) => 0.05,
+            (false, Some(false), true) => -0.02,
+            (false, Some(true), false) => -0.02,
+            (false, Some(false), false) => 0.03,
+            _ => 0.0,
+        }
     }
 
     fn pick_move(&mut self, b: usize, d: usize) -> Move {
@@ -892,9 +995,13 @@ impl<'a> Sim<'a> {
                 && !reading
                 && let Some(c) = carrier
                 && self.agents[c].pos.dist(self.agents[d].pos) < 2.2
-                && e.w > 0.3
+                && e.w > 0.0
             {
-                mu += SHED_RUNNER * (0.5 + e.w);
+                // (Any leverage at all, and twice as hard as it was: real
+                // runners meet first contact about a yard and a half past
+                // the line, the engine's at three and a half; proposed, not
+                // confirmed.)
+                mu += 2.0 * SHED_RUNNER * (0.5 + e.w).max(0.2);
             }
             if TRACE.load(std::sync::atomic::Ordering::Relaxed) && (t - e.start) < DT * 1.5 {
                 println!(
@@ -914,7 +1021,9 @@ impl<'a> Sim<'a> {
                 let disc = self.player(b).traits.discipline;
                 let tech =
                     if e.pass { self.agents[b].a(Attr::PassBlocking) } else { self.agents[b].a(Attr::RunBlocking) };
-                let p = 0.034 * (1.7 - disc / 14.0) * (1.5 - tech / 100.0);
+                // Raised a third (offensive holding ran 0.88 a team game against
+                // about 1.26 real, illegal hands included; proposed, not confirmed).
+                let p = 0.046 * (1.7 - disc / 14.0) * (1.5 - tech / 100.0);
                 if self.rng.chance(p) {
                     self.eng[k].held = true;
                     self.eng[k].w = 0.35;
@@ -1296,12 +1405,14 @@ impl<'a> Sim<'a> {
         self.agents[c].vel = along.scale(v.max(-1.0));
         let force = (r.mass * r.vel.len() + d.mass * d.vel.len()) * 0.5;
         self.contact_force = self.contact_force.max(force);
-        // Ball security against the hit (topic 2).
+        // Ball security against the hit (topic 2). Nearly doubled: fumbles
+        // lost ran 0.2 a team game in the NFL against 0.45 real (proposed,
+        // not confirmed).
         let carry = r.a(Attr::Carrying);
         let hit = d.a(Attr::Strength) * 0.5 + d.a(Attr::Tackling) * 0.5;
-        let rain = if self.cond.rain || self.cond.snow { 1.35 } else { 1.0 };
+        let rain = (if self.cond.rain || self.cond.snow { 1.35 } else { 1.0 }) * (1.0 + 0.3 * self.cond.cold_unused);
         let p =
-            0.0085 * (force / 1700.0).powf(1.5) * (1.0 + (60.0 - carry) * 0.035).max(0.25) * (0.7 + hit / 160.0) * rain;
+            0.016 * (force / 1700.0).powf(1.5) * (1.0 + (60.0 - carry) * 0.035).max(0.25) * (0.7 + hit / 160.0) * rain;
         if self.notes.fumbled.is_none() && self.rng.chance(p) {
             self.notes.fumbled = Some(r.id);
             self.notes.forced_fumble = Some(d.id);
@@ -1375,13 +1486,19 @@ impl<'a> Sim<'a> {
         if (x - self.progress) * self.goal > 0.0 {
             self.progress = x;
         }
-        // Face masks and late hits ride on the tackle.
-        if self.rng.chance(0.0045 * self.crew.personal) {
-            let i = self.fight[0];
+        // Face masks and late hits ride on the tackle. Unnecessary roughness
+        // stands for every 15-yard personal foul after the whistle (late hits,
+        // hits on a defenceless man, horse collars, taunting): real NFL
+        // about 0.47 a team game with them, face masks 0.18 (Claude's
+        // reading of 2023, proposed, not confirmed; they were 0 and 0.09).
+        if let Some(&i) = self.fight.first() {
             let disc = self.player(i).traits.discipline;
-            if self.rng.chance((1.6 - disc / 12.0).max(0.2) * 0.6) {
-                let (id, side) = (self.agents[i].id, self.agents[i].side);
+            let temper = (1.6 - disc / 12.0).max(0.2) * 0.6;
+            let (id, side) = (self.agents[i].id, self.agents[i].side);
+            if self.rng.chance(0.0087 * self.crew.personal * temper) {
                 self.notes.fouls.push(Foul { kind: FoulKind::FaceMask, side, player: id, at: x });
+            } else if self.rng.chance(0.023 * self.crew.personal * temper) {
+                self.notes.fouls.push(Foul { kind: FoulKind::UnnecessaryRoughness, side, player: id, at: x });
             }
         }
         self.dead = true;

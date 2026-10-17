@@ -35,7 +35,7 @@ Code paths are under `crates/afm-engine/src/`.
 | T5.4 | Recruiting as real actions a human coach could use later | Built: offers, visits and drop-ins are stored per recruit | `PersonCal::offers`, `PersonCal::visits` |
 | T6 | The in-season week, day by day, at every level | Built as dated rhythm events (NFL, college, high school weeks) | `clock.rs` `rhythm` |
 | T6.1 | Each day's decisions as hooks | Dated slot: the days are marked; the decisions are section 5, 6b and the play-calling build | `clock.rs` `rhythm` |
-| T6.2 | The install limit | Dated slot: needs the plays and tactics build | |
+| T6.2 | The install limit | Built with plays and tactics (build 7 step 5): the weekly plan is sized to what the players absorb, a short week installs less and a bye more, calls past the install add busts | `game/roster.rs` `plan`, `prep_week`, `absorb`; `world/college.rs` `play_day` |
 | T7 | Where training sits in the year | Dated slot: every block is dated; what training does is section 6b | `world/nfl_year.rs` |
 | T7.1, T7.2 | Each block favors a kind of growth; load cuts both ways | Dated slot for section 6b | |
 | T8 | Small, medium, big, huge; Continue never skips huge | Built: Continue stops on big and huge moments and on decisions; holiday mode only on huge | `calendar/events.rs` `Loudness`, `clock.rs` `continue_until_needed` |

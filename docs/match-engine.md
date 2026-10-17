@@ -240,13 +240,41 @@ Still open, measured after these changes:
 - Deep balls in the NFL still land about 7-10 yards deeper than real and are completed 50% of the time (real 36%).
 - Flats and checkdowns are 32% of NFL targets (real flat and swing 9.6%, quick out 17%, screen 10%), with sacks (4.0%, real 6.8%) and throwaways too rare. Sacks are trial 4 topic 9, not approved yet.
 
+## Build 7 engine work (2026-10-17)
+
+- **Passing (dynasty RB value, passing side).** The ball leaves at the end of the throwing motion; the QB clock runs 0.3 s longer; roughing the passer, unnecessary roughness and face masks at a real 6 fouls a team game; beaten blockers drag the QB down; man coverage reacts a tenth sooner and misses more with depth; a catch past the end line is incomplete; kickoffs with wall and man blocking.
+- **Coverage shells.** Press corners in Cover 0, 1 and 2-man; Cover 2 and Tampa 2 corners squat at 5 yards, others play off at 6.5. Flat defenders sit outside the numbers, so a hitch by the outside receiver is not undercut. Underneath zone defenders read the route late by their play recognition (0.1-0.6 s).
+- **Home field (trial 4 topic 3).** Crowd noise from the stadium, night games, rivalries and stakes; the road offense works on a silent count, misses checks and false-starts at the real road ratio; travel, time zones, the body clock and altitude (`data/real-world/college_altitude.csv`) tire the visitors; warm-climate teams handle cold worse. FBS home margin 2.5 points (real 2.4); NFL 0.9 (real 2.1, finding).
+- **College calling (trial 4 topic 5).** Pass rate and fourth-down tables from real FBS play-by-play (cfbfastR 2023-24, `data/real-world/scripts/college_situations.py`).
+- **S8-S10.** Each DC's own nickel habit; one-gap and two-gap fronts fit runs and the rush differently; no-huddle snaps stop the defense substituting, and breath comes back with time between snaps.
+- **Position spots (fix list topic 3).** The engine plays each man at his listed spot: tackles by side, guards and center, nose and three-technique, middle and outside linebackers, nickel, free and strong safety, fullback (`flow.rs` `lineup`, `spots.rs`). A man at a spot he has never been listed at plays below his rating there; a man from another position group is an emergency (`PlayRecord.emergency`). High school players still go both ways.
+
+Measured after steps 2-4 (`match_check`, 600 games): FBS 28.8 points (real FBS 27.0), completion 61.1% (real 60.6%), 7.0 yards an attempt (real 7.3), games within 8 points 38% (NFL real 54%); NFL 32.0 points (real 22.5), completion 69% (real 64.5%).
+
+- **Plays and tactics (step 5).** Sets, motion, fronts with techniques, stunts, fire zones, robber and match coverages, RPOs, the option pitch, missed run fits; motion and disguise before the snap; knowledge per concept family and line chemistry; film, the matchup plan, tendencies and self-scouting; four calling skills; the play designer (`game/designer.rs`). The checklist is `docs/design/build7-checklist.md`, step 5.
+- **The install (calendar T6.2).** `GameTeam::plan()`: the share of the book installed this week, from the coordinator's install (what his players absorb, `roster::absorb`) times the week (`roster::prep_week`: a Thursday game 0.65, a normal week 1.0, a bye 1.15). A smaller plan calls fewer concepts; calls past the install add busts (`Tactics.load`).
+- **Calibration (step 5j, each proposed, not confirmed).** Kickoffs: the kicker kicks from between the hashes and trails, the safeties stay behind the wave (return touchdowns 0.11 → 0.02 a team game, real 0.012). Tackling in space: one open-field lunge of 2.5 yards (`sim::OPEN_REACH`). Drops: quick 1.25 s, reads a tenth after the top of the drop (throws under 1.6 s 21% → 6%, real 10%). Quick game is one picture: the QB keys the flat defender and throws the open one of the first two routes (stick against Cover 3: 48% → 87% complete). Man coverage lags 0.12 s at the break.
+
+Measured after step 5 (`match_check`, 400 games each):
+
+| Per team game | NFL engine | NFL real | FBS engine | FBS real | HS engine |
+|---|---|---|---|---|---|
+| Points | 30.0 | 22.5 | 24.3 | 27.0 | 21.6 |
+| Completion % | 65.8 | 64.5 | 57.1 | 60.6 | 49.2 |
+| Yards per attempt | 7.7 | 7.05 | 6.5 | 7.3 | 4.5 |
+| Yards per carry | 4.4 | 4.5 | 5.0 | 5.1 | 5.7 |
+| Third-down conversion | 43.2% | 39.8% | 38.6% | 40.3% | 35.4% |
+| Sack rate | 6.1% | 6.8% | 7.8% | 6.1% | 16.9% |
+| Time to throw | 2.56 s | 2.71 s | 2.75 s | | 2.99 s |
+
+Trial 7 findings from these: the engine scores more in the NFL than in FBS, the reverse of real football (the offense gains more from better players than the defense does); NFL red zone completion 63% (real 53%); yards after the catch 3.8 (real 5.2); targets to tight ends 13% and backs 12% (real 22% and 18%); flats 17% of targets (real 9%); runs of 10-19 yards too rare; Cover 4 and Cover 6 leave the flat too open (stick gains 15 yards a play against them on the engine); high school sacks 17% of dropbacks.
+
 ## Not built yet
-- Running every game in the world through the engine (the world still uses its own season results), and the season and career record across levels with percentiles and era adjustment.
-- Coach buzz from stats, hidden-gem stat flags, awards and records. These come with the world trial 3 list and later sections.
+- High school games on the engine (the world still plays them on the stand-in): about 10 minutes a season.
 - The 2D replay view (section 10).
 
 ## Debug tools
 - `cargo run --release --bin match_check -- nfl|fbs|hs [games] [seed] [pbp]`: averages against real data; `pbp` prints the first game play by play with its whys.
 - `cargo run --release --bin dynasty_check -- value [games] [seed]`: what each position and the play callers are worth (`AFM_LEVEL`, `AFM_ONLY`). `cargo run --release --bin call_values -- 400`: rebuilds the coaches' what-beats-what table (`AFM_CELL=concept:Coverage` shows one cell's outcomes).
 - `cargo run --release --bin garbage_check -- fbs|nfl|hs [games] [quality sd] [seed]`: garbage time against real play-by-play (who plays the 4th quarter by lead, run-out, 4th downs, sample why lines).
-- `cargo run --release --bin play_trace -- <run|pass|N> [seed] [sweep]`: one snap traced tick by tick, or a sweep of seeds. `AFM_LEVEL=fbs|hs`, `AFM_COV=0-7`, `AFM_LOS=yards` and `AFM_BASE=1` set the level, coverage, spot and personnel. `AFM_TRACE=1` prints every agent.
+- `cargo run --release --bin play_trace -- <run|pass|N> [seed] [sweep]`: one snap traced tick by tick, or a sweep of seeds. `AFM_LEVEL=fbs|hs`, `AFM_COV=0-9`, `AFM_LOS=yards` and `AFM_BASE=1` set the level, coverage, spot and personnel. `AFM_TRACE=1` prints every agent.

@@ -6,6 +6,10 @@ use crate::body::body_now;
 use crate::player::{GameTraits, Personality, Player};
 use crate::positions::{POSITION_COUNT, Position, long_snapper_rating, overall_for};
 use crate::rng::clamp;
+use crate::spots::{self, SPOT_COUNT, Spot, fill_in, spot_rating};
+
+use super::calling::Film;
+use super::playbook::FAMILY_COUNT;
 
 /// A player as the match engine sees him on game day.
 #[derive(Clone, Debug)]
@@ -24,11 +28,20 @@ pub struct GamePlayer {
     pub injury_proneness: f64,
     /// How well he knows this team's playbook, 0-1 (topic 3).
     pub knowledge: f64,
+    /// What he knows of each concept family, 0-1 (plays and tactics topic
+    /// 4): a third is knowing his job, two thirds understanding why, all of
+    /// it mastery.
+    pub know: [f32; FAMILY_COUNT],
     /// Seasons of real game experience.
     pub experience: f64,
     /// How much his coach lets him freelance, 0-1 (topic 3.1). Moves with
     /// what happens when he does.
     pub trust: f64,
+    /// His listed spot, the spots he has been listed at (bits) and his
+    /// rating at every spot (fix list topic 3).
+    pub spot: Spot,
+    pub spots_played: u32,
+    pub spot_r: [f64; SPOT_COUNT],
 }
 
 impl GamePlayer {
@@ -48,9 +61,24 @@ impl GamePlayer {
             personality: p.personality,
             injury_proneness: p.injury_proneness,
             knowledge: clamp(knowledge, 0.0, 1.0),
+            know: [clamp(knowledge, 0.0, 1.0) as f32; FAMILY_COUNT],
             experience,
             trust: 0.5,
+            spot: p.spot,
+            spots_played: p.spots_played | p.spot.bit(),
+            spot_r: Spot::ALL.map(|s| spot_rating(s, &p.attributes, b.weight)),
         }
+    }
+
+    /// Rating points he gives up at a position he isn't listed at: the
+    /// least he'd lose at one of its spots (3.3). Nothing at a spot he has
+    /// played.
+    pub fn cross_cost(&self, pos: Position) -> f64 {
+        spots::spots_of(pos)
+            .iter()
+            .filter(|&&s| s != Spot::FB)
+            .map(|&s| if self.spots_played & s.bit() != 0 { 0.0 } else { fill_in(s, self.spot) })
+            .fold(f64::INFINITY, f64::min)
     }
 
     #[inline]
@@ -170,17 +198,31 @@ pub enum Shell {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Caller {
-    /// Play-calling quality, 1-20 (hidden ability).
+    /// Play-calling quality, 1-20 (hidden ability): the mean of his skills.
     pub skill: f64,
     /// How fast and how well he adjusts during a game, 1-20.
     pub adaptation: f64,
-    /// 1-20: deep shots, blitzes, fourth downs.
+    /// 1-20: deep shots, blitzes, fourth downs. A style, not a quality.
     pub aggressiveness: f64,
+    /// Plays and tactics topic 6.2, 1-20 each: reading what the other side
+    /// shows and what beats it; situational knowledge (down, distance,
+    /// field zone); creativity (calls that fit his players, breaking his
+    /// own tendencies).
+    pub reading: f64,
+    pub situational: f64,
+    pub creativity: f64,
+    /// Under pressure (behind late, a job on the line), -1 tightens up, +1
+    /// gambles (topic 6.5), from his personality.
+    pub nerve: f64,
 }
 
 impl Caller {
     pub fn average() -> Caller {
-        Caller { skill: 10.0, adaptation: 10.0, aggressiveness: 10.0 }
+        Caller::new(10.0, 10.0, 10.0)
+    }
+    /// A caller whose skills all sit at his overall quality.
+    pub fn new(skill: f64, adaptation: f64, aggressiveness: f64) -> Caller {
+        Caller { skill, adaptation, aggressiveness, reading: skill, situational: skill, creativity: skill, nerve: 0.0 }
     }
 }
 
@@ -201,6 +243,20 @@ pub struct Staff {
     /// Head coach sportsmanship, 1-20 (hidden): how soon he takes his
     /// starters out of a decided game (dynasty item 3).
     pub sportsmanship: f64,
+    /// The defensive coordinator's personnel habit (S8): how often he meets
+    /// three receivers with nickel instead of staying in base. Real NFL
+    /// teams answered 11 personnel with nickel 88% of the time.
+    pub nickel: f64,
+    /// The season: what the era plays (RPOs, motion, the triple option).
+    pub year: i32,
+    /// The staff's film study, 1-20 (topic 5.1): coordinators plus quality
+    /// control. How much of the opponent's tendencies it finds.
+    pub film_study: f64,
+    /// The install (calendar T6.2, plays and tactics topic 4.6): the share
+    /// of the playbook in a normal week's game plan, 0.35-1. A bigger plan
+    /// carries more calls and more mental errors for players who can't
+    /// absorb it.
+    pub install: f64,
 }
 
 impl Staff {
@@ -215,6 +271,10 @@ impl Staff {
             shell: Shell::Cover3,
             playbook: 1.0,
             sportsmanship: 10.0,
+            install: INSTALL,
+            nickel: 0.88,
+            year: 2026,
+            film_study: 10.0,
         }
     }
 }
@@ -225,6 +285,71 @@ pub struct GameTeam {
     pub name: String,
     pub players: Vec<GamePlayer>,
     pub staff: Staff,
+    /// What the team has shown this season (topic 5.1): the other staff
+    /// studies it.
+    pub film: Film,
+    /// How long the offensive line has played together, 0-1 (topic 4.9):
+    /// cleaner calls, stunts passed off.
+    pub line_chem: f64,
+    /// How new each concept family still is to defenses at this level, 0-1
+    /// (topic 9): a fresh idea is read a beat late.
+    pub novelty: [f64; FAMILY_COUNT],
+    /// This week's preparation time against a normal week (calendar T6.2):
+    /// a short week (a Thursday game after a Saturday) about 0.8, after a
+    /// bye about 1.1.
+    pub week: f64,
+}
+
+/// A normal week's install, as a share of the playbook (proposed, not
+/// confirmed).
+pub const INSTALL: f64 = 0.75;
+
+impl GameTeam {
+    /// A team with no film, a settled line, nothing new and a normal week.
+    pub fn new(name: String, players: Vec<GamePlayer>, staff: Staff) -> GameTeam {
+        GameTeam {
+            name,
+            players,
+            staff,
+            film: Film::default(),
+            line_chem: 0.6,
+            novelty: [0.0; FAMILY_COUNT],
+            week: 1.0,
+        }
+    }
+
+    /// The plan the staff takes into this game and the load it puts on the
+    /// players (T6.2). A short week cuts the plan, but only half the
+    /// shortfall: real staffs trim the install and still see more mental
+    /// errors. After a bye they add a little. Returns (the share of the
+    /// playbook called, the load against a normal week's learning).
+    pub fn plan(&self) -> (f64, f64) {
+        let w = self.week.max(0.3);
+        let planned = (self.staff.install * (1.0 - 0.5 * (1.0 - w))).clamp(0.2, 1.0);
+        (planned, planned / w)
+    }
+}
+
+/// How much of a game plan a player can absorb in a normal week, by his
+/// awareness (T6.2): about all of a full plan at 75, two thirds at 60,
+/// under half at 50 (proposed, not confirmed).
+pub fn absorb(awareness: f64) -> f64 {
+    ((awareness - 30.0) / 45.0).clamp(0.2, 1.3)
+}
+
+/// Days since a team's last game to its preparation (T6.2): four days or
+/// fewer is a very short week, five a Thursday game, a week normal, a bye
+/// more (proposed, not confirmed).
+pub fn prep_week(days: Option<i32>) -> f64 {
+    match days {
+        None => 1.15,
+        Some(d) if d <= 4 => 0.65,
+        Some(5) => 0.8,
+        Some(6) => 0.92,
+        Some(d) if d <= 9 => 1.0,
+        Some(d) if d <= 13 => 1.1,
+        Some(_) => 1.15,
+    }
 }
 
 /// The depth chart: players (indexes into `players`) in order at each spot.
@@ -271,19 +396,23 @@ fn offense(pos: Position) -> bool {
     matches!(pos, Position::QB | Position::RB | Position::WR | Position::TE | Position::OT | Position::IOL)
 }
 
-/// Rating points a player gives up at a spot he isn't listed at: he knows
-/// his own spot's technique and calls, not this one's. A coach moves him only
-/// when he is better even after that.
-pub const CROSS_LIST: f64 = 4.0;
+/// Rating points a two-way corner or receiver must beat the starters by
+/// on the other side (3.5): good enough at both, after what playing a spot
+/// he doesn't practice costs him.
+pub const CROSS_LIST: f64 = 3.0;
 
 /// The head coach's depth chart (topic 5.1). Each spot lists the players
-/// at that position first, best first. A player from another spot on the
-/// same side is listed there only when he beats the players he would pass by
-/// `CROSS_LIST`, and never ahead of others if he starts at his own spot. On a
-/// thin roster his best athletes also play the other side of the ball: a
-/// player is added to the other side's chart when he would beat the players
-/// there by `two_way_margin` rating points (0 for a small high school, large
-/// for the NFL, where it never happens).
+/// at that position first, best first. A player from another position in
+/// the same group (fix list 3.1-3.2: tackles and guards, ends and tackles,
+/// corners and safeties) is listed there only when he beats the players he
+/// would pass after what the unfamiliar spot costs him (3.3), and never
+/// ahead of others if he starts at his own spot. Another group's player is
+/// listed only when the group runs out of bodies for its starters, an
+/// emergency (3.6). A player is added to the other side's chart when he
+/// would beat the starters there by `two_way_margin` rating points: small
+/// high schools play their best athletes both ways (3.10); college and the
+/// NFL never do (99), except a corner who is good enough at receiver, or a
+/// receiver at corner (3.5, 3.11).
 ///
 /// The kicking jobs go to the kickers and punters a team carries: with only
 /// one of them, he does both (fix list 1.9), and only a team with neither
@@ -316,21 +445,21 @@ pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
             Position::K | Position::P => !has_legs || p.position.kicks(),
             // A listed long snapper snaps; without one, anyone can.
             Position::LS => !has_snapper || p.position == Position::LS,
-            _ => !p.position.is_specialist() && offense(p.position) == offense(pos),
+            _ => !p.position.is_specialist() && spots::group(p.position) == spots::group(pos),
         };
-        let cost = if pos.kicks() && has_legs { 100.0 } else { CROSS_LIST };
+        let kicks = pos.kicks() && has_legs;
         let mut cross: Vec<(f64, usize)> = ps
             .iter()
             .enumerate()
             .filter(|(i, p)| p.position != pos && same_side(p) && !starting[*i])
-            .map(|(i, p)| (p.overall_at(pos) - cost, i))
+            .map(|(i, p)| (p.overall_at(pos) - if kicks { 100.0 } else { p.cross_cost(pos) }, i))
             .collect();
         cross.sort_by(|a, b| b.0.total_cmp(&a.0));
         list.extend(cross);
         list.sort_by(|a, b| b.0.total_cmp(&a.0));
         let want = wanted(pos).max(n_own);
         list.truncate(want);
-        // Emergency cover: anyone left on this side, starters elsewhere last.
+        // Cover inside the group: anyone left in it, starters elsewhere last.
         if list.len() < want {
             let mut more: Vec<(f64, usize)> = ps
                 .iter()
@@ -341,6 +470,23 @@ pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
             more.sort_by(|a, b| b.0.total_cmp(&a.0));
             list.extend(more.into_iter().take(want - list.len()));
         }
+        // An emergency (3.6): the group can't field its starters, so the
+        // closest fit on this side of the ball from another group, rated at
+        // his true fit there, starters elsewhere last.
+        if list.len() < starters(pos) && !pos.is_specialist() {
+            let mut more: Vec<(f64, usize)> = ps
+                .iter()
+                .enumerate()
+                .filter(|(i, p)| {
+                    !p.position.is_specialist()
+                        && offense(p.position) == offense(pos)
+                        && !list.iter().any(|l| l.1 == *i)
+                })
+                .map(|(i, p)| (p.overall_at(pos) - if starting[i] { 50.0 } else { 0.0 }, i))
+                .collect();
+            more.sort_by(|a, b| b.0.total_cmp(&a.0));
+            list.extend(more.into_iter().take(starters(pos) - list.len()));
+        }
         d.at[pos.index()] = list.into_iter().map(|c| c.1).collect();
     }
     // Two-way players: the other side's best athletes can start here too.
@@ -348,12 +494,20 @@ pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
         let list = &d.at[pos.index()];
         let worst_starter =
             list.iter().take(starters(pos)).map(|&i| ps[i].overall_at(pos)).fold(f64::INFINITY, f64::min);
+        // The corner and receiver exception (3.5) holds at every level.
+        let swap = |p: &GamePlayer| {
+            p.position == Position::CB && pos == Position::WR || p.position == Position::WR && pos == Position::CB
+        };
         let mut extra: Vec<(f64, usize)> = ps
             .iter()
             .enumerate()
             .filter(|(_, p)| offense(p.position) != offense(pos) && !p.position.is_specialist())
-            .map(|(i, p)| (p.overall_at(pos), i))
-            .filter(|&(r, _)| r > worst_starter + two_way_margin || list.len() < starters(pos))
+            .map(|(i, p)| (p.overall_at(pos), i, swap(p)))
+            .filter(|&(r, _, sw)| {
+                let margin = if sw { two_way_margin.min(CROSS_LIST) } else { two_way_margin };
+                r > worst_starter + margin || list.len() < starters(pos)
+            })
+            .map(|(r, i, _)| (r, i))
             .collect();
         if extra.is_empty() {
             continue;
@@ -362,7 +516,7 @@ pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
         let want = list.len().max(wanted(pos));
         let mut merged: Vec<(f64, usize)> = list
             .iter()
-            .map(|&i| (ps[i].overall_at(pos) - if ps[i].position == pos { 0.0 } else { CROSS_LIST }, i))
+            .map(|&i| (ps[i].overall_at(pos) - if ps[i].position == pos { 0.0 } else { ps[i].cross_cost(pos) }, i))
             .chain(extra.into_iter().take(starters(pos)))
             .collect();
         merged.sort_by(|a, b| b.0.total_cmp(&a.0));

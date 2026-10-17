@@ -254,6 +254,29 @@ pub struct Coach {
     /// The last season an NCAA show-cause order keeps him out of college
     /// coaching (dynasty item 11.6).
     pub show_cause: Option<i32>,
+    /// A college head coach's contract (trial 4 topic 4).
+    pub contract: Option<Contract>,
+    /// Hidden: what he knows of each system (S1-S4).
+    pub(crate) systems: super::systems::Systems,
+    /// Buzz from his units' numbers (world item 5), fading by half a season.
+    pub stat_buzz: f64,
+}
+
+/// A college head coach's contract (trial 4 topic 4): the last season it
+/// covers, what it pays a year, and the share of the unpaid rest the
+/// school owes if it fires him.
+#[derive(Clone, Copy, Debug)]
+pub struct Contract {
+    pub through: i32,
+    pub salary: f64,
+    pub buyout_share: f64,
+}
+
+impl Contract {
+    /// What firing him after `season` would cost.
+    pub fn buyout(&self, season: i32) -> f64 {
+        (self.through - season).max(0) as f64 * self.salary * self.buyout_share
+    }
 }
 
 /// Typical ability by level: (mean, spread).
@@ -365,6 +388,9 @@ pub fn generate_coach(
         decline_from,
         decline_rate,
         show_cause: None,
+        contract: None,
+        systems: Default::default(),
+        stat_buzz: 0.0,
     }
 }
 
@@ -508,7 +534,7 @@ impl Coach {
         let n = self.recent.len();
         let last = if n >= 1 { self.recent[n - 1] } else { 0.0 };
         let before = if n >= 2 { self.recent[n - 2] } else { 0.0 };
-        self.reputation + 10.0 * last + 4.0 * before
+        self.reputation + 10.0 * last + 4.0 * before + self.stat_buzz
     }
 }
 

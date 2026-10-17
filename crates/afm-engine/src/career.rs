@@ -1482,6 +1482,8 @@ struct ProState {
     stuck_noted: bool,
     /// Released in this year's camp: other teams can still claim him before the season.
     just_released: bool,
+    /// Signed a starter's deal this offseason (fix list 4.5): a payday.
+    paid: bool,
 }
 
 impl Member {
@@ -1530,6 +1532,7 @@ fn simulate_league_years(
             last_perf: None,
             stuck_noted: false,
             just_released: false,
+            paid: false,
         })
         .collect();
     for s in &states {
@@ -1579,6 +1582,7 @@ fn simulate_league_years(
                 && rng.chance((p_chance(own_slot) + 0.25).min(0.95))
             {
                 s.contract_years = contract_length(own_slot, pos, rng);
+                s.paid = own_slot < starters;
                 continue;
             }
             if rng.chance(p_chance(market.slot)) {
@@ -1593,6 +1597,7 @@ fn simulate_league_years(
                 s.team = market.team;
                 teams[market.team].depth[pos.index()].push(Member::class_player(ovr, r.player.age, i));
                 s.contract_years = contract_length(market.slot, pos, rng);
+                s.paid = market.slot < starters;
                 s.free_agent = false;
                 s.new_team = true;
                 s.stuck_noted = false;
@@ -1770,7 +1775,8 @@ fn simulate_league_years(
                         round_half_up(tm.organisation())
                     ));
             }
-            let ctx = SeasonContext { adjustment, situation, ..SeasonContext::new(Level::NFL, coaching, role) };
+            let payday = std::mem::take(&mut s.paid);
+            let ctx = SeasonContext { adjustment, situation, payday, ..SeasonContext::new(Level::NFL, coaching, role) };
             let report = develop_season(&mut r.player, &ctx, &mut prngs[i]);
             let row = r.player.history.last_mut().unwrap();
             row.depth = Some(depth);
@@ -2026,7 +2032,12 @@ fn retires(s: &ProState, r: &mut CareerRecord, report: &SeasonReport, rng: &mut 
         } else {
             0.3
         };
-        if rng.chance(base * clamp(1.3 - love * 0.03, 0.6, 1.3)) {
+        // An unsigned quarterback waits longer for a call: every team keeps
+        // two or three and quarterbacks get hurt every week, so backups find
+        // work into their thirties (section 5 topic 1.3: he weighs his chance
+        // of a call; proposed, not confirmed size).
+        let wait = if p.position == Position::QB { 0.6 } else { 1.0 };
+        if rng.chance(base * wait * clamp(1.3 - love * 0.03, 0.6, 1.3)) {
             r.note(format!("Unsigned for a season, he retired at {age}."));
             return true;
         }

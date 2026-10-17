@@ -19,7 +19,19 @@ fn rosters_and_staffs_are_full() {
     let fbs: Vec<_> = w.programs.iter().filter(|p| p.division == Division::FBS).collect();
     let avg = fbs.iter().map(|p| p.roster.len()).sum::<usize>() as f64 / fbs.len() as f64;
     assert!((80.0..=105.0).contains(&avg), "FBS rosters average {avg:.0}");
-    assert!(w.programs.iter().all(|p| p.head_coach.is_some()));
+    // A head job is empty only while its search runs (part D 18); the
+    // world stops in February, when the last links of the carousel's
+    // chains (and jobs left for the NFL in late January) are still open.
+    // A program that doesn't field a team this year needs no coach.
+    let no_coach: Vec<_> = w
+        .programs
+        .iter()
+        .filter(|p| p.plays(w.year) && p.head_coach.is_none() && !w.head_search_open(p.id))
+        .map(|p| format!("{} ({:?}, plays {})", p.real_name, p.division, p.plays(w.year)))
+        .collect();
+    assert!(no_coach.is_empty(), "no head coach and no search: {no_coach:?} on {:?}", w.today);
+    let searching = w.programs.iter().filter(|p| p.head_coach.is_none() && p.division == Division::FBS).count();
+    assert!(searching <= 4, "{searching} FBS head jobs still open on {:?}", w.today);
     assert!(w.high_schools.iter().all(|s| s.coach.is_some()));
 }
 
@@ -67,4 +79,27 @@ fn the_calendar_year_hangs_together() {
     // A full NFL year: 272 regular-season games and 13 playoff games.
     assert_eq!(log.nfl_games, 285);
     assert!(log.official_visits > 0 && log.unofficial_visits > 0 && log.drop_ins > 0);
+}
+
+#[test]
+fn the_stats_book_keeps_every_division() {
+    let w = &*WORLD;
+    let b = &w.stats;
+    let (last, _) = *b.year_index.last().expect("a season in the book");
+    let recs = b.year(last);
+    for d in Division::ALL {
+        let n = recs.iter().filter(|r| r.division == d).count();
+        assert!(n > 300, "{n} {d:?} seasons in {last}");
+    }
+    assert!(recs.iter().any(|r| r.footprint != 0), "no footprints in {last}");
+    assert!(b.norms.keys().any(|k| k.0 == last));
+    assert!(!b.books.is_empty());
+    // The first-team All-America: 25 a level.
+    let fbs =
+        b.honors.values().flat_map(|h| h.all_america.iter()).filter(|x| x.0 == last && x.1 == Division::FBS).count();
+    assert_eq!(fbs, 25, "FBS first-team All-Americans in {last}");
+    // Every season is a career page: his seasons come back in order.
+    let r = &recs[0];
+    let career = b.career(r.id);
+    assert!(career.iter().any(|s| s.year as i32 == last && s.program == r.program));
 }

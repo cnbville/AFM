@@ -39,6 +39,8 @@ pub struct PlayRecord {
     pub score: [i32; 2],
     pub kind: PlayType,
     pub call: String,
+    /// The play caller's reason (plays and tactics topic 6.6).
+    pub call_why: &'static str,
     pub defense_call: String,
     pub personnel: String,
     pub box_count: u8,
@@ -50,6 +52,8 @@ pub struct PlayRecord {
     pub yards: f64,
     pub first_down: bool,
     pub touchdown: bool,
+    /// The defense scored on the return (a pick six or a fumble return).
+    pub defense_td: bool,
     pub turnover: bool,
     pub safety: bool,
     pub passer: Option<u32>,
@@ -112,6 +116,9 @@ pub struct PlayRecord {
     /// Garbage time: each side's step at the snap (0 = everyone in; see
     /// `garbage`), home then away.
     pub garbage: [u8; 2],
+    /// A man from another position group was on the field because his own
+    /// group was out of bodies (fix list 3.6).
+    pub emergency: bool,
 }
 
 impl PlayRecord {
@@ -127,6 +134,7 @@ impl PlayRecord {
             score: [0, 0],
             kind,
             call: String::new(),
+            call_why: "",
             defense_call: String::new(),
             personnel: String::new(),
             box_count: 0,
@@ -137,6 +145,7 @@ impl PlayRecord {
             yards: 0.0,
             first_down: false,
             touchdown: false,
+            defense_td: false,
             turnover: false,
             safety: false,
             passer: None,
@@ -190,6 +199,7 @@ impl PlayRecord {
             why: String::new(),
             after_turnover: false,
             garbage: [0, 0],
+            emergency: false,
         }
     }
 

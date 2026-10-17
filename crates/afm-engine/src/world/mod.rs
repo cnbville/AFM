@@ -26,10 +26,13 @@ pub mod ncaa;
 pub mod news;
 mod nfl_year;
 pub mod program;
+pub mod records;
 pub(crate) mod recruiting;
 pub mod schedule;
 pub(crate) mod season;
 mod staff;
+pub mod systems;
+pub mod trends;
 
 use rayon::prelude::*;
 
@@ -170,6 +173,11 @@ pub struct Person {
     pub incident: bool,
     pub notes: Vec<String>,
     /// What the dated systems know about him this year (section 4).
+    /// How much he wants to stay in his own state (fix list 2.2): family,
+    /// local fame. Added to every school in it.
+    pub stay_home: f64,
+    /// The school he grew up cheering for (fix list 2.3), usually in his state.
+    pub childhood_team: Option<usize>,
     pub cal: PersonCal,
 }
 
@@ -183,8 +191,9 @@ pub struct DraftRead {
 }
 
 /// When a recruit makes up his mind (T5.2): a commitment wave before the
-/// early period (0 late April, 1 late June, 2 late August, 3 late October),
-/// at the early signing period, or late (February signing day).
+/// early period (0 after junior days in March, 1 late April, 2 mid-June, 3
+/// late August, 4 late October), at the early signing period, or late
+/// (February signing day).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CommitTiming {
     Summer(u8),
@@ -209,6 +218,8 @@ pub struct PortalEntry {
     pub entered: crate::calendar::Date,
     pub decide_by: crate::calendar::Date,
     pub why: &'static str,
+    /// Held until his team's playoff run ended (T3).
+    pub held: bool,
 }
 
 /// A person's calendar state (section 4). Per-season flags reset at his
@@ -234,6 +245,8 @@ pub struct PersonCal {
     pub whispered: bool,
     pub draft_read: Option<DraftRead>,
     pub opted_out: bool,
+    /// The day his opt-out is announced (part D 16): his own day before his bowl.
+    pub opt_out_on: Option<crate::calendar::Date>,
     pub redshirt_trick: bool,
     /// A verbal commitment: program, day (T5.1), and whether it was to a
     /// walk-on place.
@@ -271,6 +284,21 @@ pub struct PersonCal {
     pub offers: Vec<usize>,
     /// Dated recruiting contact (T5.3, T5.4): program, day and kind.
     pub visits: Vec<(usize, crate::calendar::Date, Visit)>,
+    /// The services' running read of his upside: each new look moves it
+    /// halfway toward what they saw (part B 6).
+    pub service_read: Option<f64>,
+    /// Scholarship offers made before his class's first commitment wave,
+    /// with their days (part B 34): from his sophomore year for the best.
+    pub early_offers: Vec<(usize, crate::calendar::Date)>,
+    /// The NFL advisory committee's grade (part B 37): the round, 8 for
+    /// "return to school".
+    pub advisory: Option<u8>,
+    /// Graduated at this May's commencement: the graduate-transfer choice
+    /// is open (part B 36).
+    pub may_graduate: bool,
+    /// A big NIL deal came this year (fix list 4.5): read by the season's
+    /// development step, then cleared.
+    pub payday: bool,
 }
 
 /// A recruiting action on a day the NCAA periods allow (T5.3, T5.4).
@@ -291,12 +319,14 @@ impl PersonCal {
         self.sitting_transfer = false;
         self.trouble = false;
         self.opted_out = false;
+        self.opt_out_on = None;
         self.redshirt_trick = false;
         self.whispered = false;
         self.lean = 0.0;
         self.lean_events.clear();
         self.hs_grade_out = 0;
         self.spring_notice = false;
+        self.may_graduate = false;
     }
 }
 
@@ -334,7 +364,7 @@ pub fn division_level(d: Division) -> Level {
     match d {
         Division::FBS => Level::FBS,
         Division::FCS => Level::FCS,
-        Division::D2 | Division::JUCO => Level::SmallCollege,
+        Division::D2 | Division::NAIA | Division::D3 | Division::JUCO => Level::SmallCollege,
     }
 }
 
@@ -429,6 +459,17 @@ pub struct PortalRecord {
     pub from: Division,
     /// Where he landed, or None if he found no school.
     pub to: Option<Division>,
+    /// For the raw export (part B 19): who, the days he entered and
+    /// decided, the programs, whether he was held through a playoff run,
+    /// whether his first choice fell through and whether he went back.
+    pub id: u32,
+    pub entered: crate::calendar::Date,
+    pub decided: crate::calendar::Date,
+    pub from_program: usize,
+    pub to_program: Option<usize>,
+    pub held: bool,
+    pub fell_through: bool,
+    pub returned: bool,
 }
 
 /// Recruiting and portal records for trials (dynasty item 11 checks).
@@ -471,6 +512,11 @@ pub struct World {
     pub(crate) recording: bool,
     /// Trial tooling, see `WorldOptions::keep_game_log`.
     pub game_log: game_log::GameLog,
+    /// The career stats record, record books and Hall of Fame (section 3,
+    /// topic 8): always kept.
+    pub stats: records::StatBook,
+    /// Each position's typical score in each coaching system (S3).
+    pub(crate) system_norms: systems::SystemNorms,
     /// Recruiting and portal records for trials (dynasty item 11 checks).
     pub recruiting_log: RecruitingLog,
     next_person: u32,
@@ -510,12 +556,31 @@ pub struct World {
     pub nfl_champions: Vec<(i32, usize)>,
     /// Conference moves announced, to take effect next season (program, conference).
     pub(crate) realign: Vec<(usize, String)>,
+    /// College coaching searches under way, each deciding on its own day (part D 18).
+    pub(crate) searches: Vec<staff::Search>,
+    /// Coaches who took a job in this college carousel cycle: none moves twice.
+    pub(crate) moved_cycle: std::collections::HashSet<usize>,
+    /// The college win curve's spread fitted to last season's games: what
+    /// a roster's expected wins are read with.
+    pub(crate) college_spread: f64,
+    /// The manager's seat (N58): Continue stops on Big moments about his
+    /// team or his level, and on Huge ones anywhere. None in trials, where
+    /// every Big moment stops it.
+    pub seat: Option<Seat>,
+    /// Each division's concept families by season (plays and tactics topic
+    /// 9.9), and how new each family is to its defenses now (9.5).
+    pub trends: Vec<trends::Trend>,
+    pub(crate) novelty: [[f64; crate::game::playbook::FAMILY_COUNT]; data::DIVISION_COUNT],
 }
 
 /// What the dated systems did in one football year, for trials.
 #[derive(Clone, Debug, Default)]
 pub struct CalendarLog {
     pub year: i32,
+    /// Spring system changes by college staffs (S3), and the FBS programs
+    /// running each system after spring (offenses, fronts, shells).
+    pub system_switches: u32,
+    pub fbs_systems: [u32; 11],
     pub games: u32,
     pub snow_games: u32,
     pub rain_games: u32,
@@ -544,11 +609,17 @@ pub struct CalendarLog {
     pub commits: u32,
     pub commits_by_month: [u32; 12],
     pub decommits: u32,
+    /// Walk-ons put on scholarship in fall camp (topic 5.4).
+    pub walk_on_scholarships: u32,
+    /// Students who made a team at an open tryout (topic 5.5).
+    pub tryouts: u32,
+    pub graduates: u32,
+    pub graduate_transfers: u32,
     pub flips: u32,
     pub signed_early: u32,
     pub signed_late: u32,
     /// Signees by division (FBS, FCS, small college, JUCO): [before February, February].
-    pub signed_by_division: [[u32; 2]; 4],
+    pub signed_by_division: [[u32; 2]; data::DIVISION_COUNT],
     /// Dated recruiting actions (T5.3, T5.4): official visits, game-day
     /// unofficial visits, staff drop-ins at high schools.
     pub official_visits: u32,
@@ -557,7 +628,13 @@ pub struct CalendarLog {
     pub early_enrollees: u32,
     pub declared: u32,
     pub withdrew: u32,
+    /// Declarations and withdrawals by day (part B 20): the title game's
+    /// players declare and withdraw late.
+    pub declared_by_day: Vec<(crate::calendar::Date, u32)>,
+    pub withdrew_by_day: Vec<(crate::calendar::Date, u32)>,
     pub portal_entries: u32,
+    /// Portal entrants by the division they left (part B 10).
+    pub portal_by_division: [u32; data::DIVISION_COUNT],
     pub portal_by_day: Vec<(crate::calendar::Date, u32)>,
     pub portal_landed: u32,
     pub portal_returned: u32,
@@ -567,6 +644,8 @@ pub struct CalendarLog {
     pub fall_ineligible: u32,
     pub combine_invites: u32,
     pub all_star_invites: u32,
+    /// College all-star invitations turned down (part C 5).
+    pub all_star_declined: u32,
     pub huge_by_team: Vec<(usize, u32)>,
     pub rule_changes: Vec<String>,
     pub nfl_games: u32,
@@ -574,10 +653,33 @@ pub struct CalendarLog {
     pub nfl_huge_by_team: Vec<u32>,
 }
 
+/// Where the manager works (N58): his level, and his NFL team or college
+/// program.
+#[derive(Clone, Copy, Debug)]
+pub struct Seat {
+    pub level: crate::calendar::Level,
+    pub nfl_team: Option<usize>,
+    pub program: Option<usize>,
+}
+
+impl Seat {
+    /// Whether a moment matters to him: his own team, or his level.
+    pub fn cares(&self, e: &crate::calendar::Event) -> bool {
+        e.level == self.level
+            || (e.program.is_some() && e.program == self.program)
+            || (e.nfl_team.is_some() && e.nfl_team == self.nfl_team)
+    }
+}
+
 /// Years before recorded history, used to fill high school and college rosters.
-const SPIN_UP_YEARS: u32 = 6;
+pub const SPIN_UP_YEARS: u32 = 12;
 
 impl World {
+    /// The world's first season: the spin-up years before recorded history.
+    pub fn first_year(&self) -> i32 {
+        self.options.start_year - self.options.history_years as i32 - SPIN_UP_YEARS as i32
+    }
+
     /// Builds the world and its hidden history. The save then starts at
     /// `options.start_year`.
     pub fn new(options: WorldOptions) -> World {
@@ -593,6 +695,7 @@ impl World {
         for p in w.programs.iter_mut() {
             p.prestige_start = p.prestige;
         }
+        program::seed_pipelines(&mut w);
         for _ in 0..w.options.history_years {
             w.advance_year();
         }
@@ -604,12 +707,26 @@ impl World {
         let mut rng = Rng::new(options.seed);
         let seed = options.seed;
         let mut programs: Vec<Program> = Vec::new();
-        for (i, row) in data::COLLEGES.iter().enumerate() {
-            programs.push(program::program_from_row(i, row, seed, &mut rng));
-        }
-        for row in recruiting::juco_rows() {
+        // Every program starts as it really was in the world's first season
+        // (college history), or as it was when it first fielded a team, so
+        // Boise State starts in Division I-AA and grows. Programs that
+        // dropped football since 1984 play their real years.
+        let first = options.start_year - options.history_years as i32 - SPIN_UP_YEARS as i32;
+        let rows = data::COLLEGES.iter().map(|r| (r, false)).chain(data::DROPPED_COLLEGES.iter().map(|r| (r, true)));
+        for (row, dropped) in rows {
             let id = programs.len();
-            programs.push(program::program_from_row(id, &row, seed, &mut rng));
+            let mut probe = program::program_from_row(id, row, seed, &mut Rng::new(0));
+            probe.set_history(dropped);
+            let status = (first.max(data::HISTORY_FIRST)..=data::HISTORY_LAST + 1).find_map(|y| probe.real_status(y));
+            let mut start = row.clone();
+            if let Some((d, c)) = status {
+                start.division = d;
+                start.conference = c;
+            }
+            let mut p = program::program_from_row(id, &start, seed, &mut rng);
+            p.base = probe.base.clone();
+            p.set_history(dropped);
+            programs.push(p);
         }
         let mut high_schools = Vec::new();
         let mut states = Vec::new();
@@ -675,6 +792,8 @@ impl World {
             rng,
             recording: false,
             game_log: game_log::GameLog::default(),
+            stats: records::StatBook::default(),
+            system_norms: [[0.0; 11]; crate::positions::POSITION_COUNT],
             recruiting_log: RecruitingLog::default(),
             next_person: 1,
             today: dates.start,
@@ -696,9 +815,17 @@ impl World {
             portal_market: None,
             nfl_champions: Vec::new(),
             realign: Vec::new(),
+            searches: Vec::new(),
+            moved_cycle: std::collections::HashSet::new(),
+            college_spread: season::COLLEGE_SPREAD,
+            seat: None,
+            trends: Vec::new(),
+            novelty: [[0.0; crate::game::playbook::FAMILY_COUNT]; data::DIVISION_COUNT],
         };
         staff::staff_everyone(&mut w);
-        for d in [Division::FBS, Division::FCS, Division::D2, Division::JUCO] {
+        systems::spring_install(&mut w);
+        systems::set_spots(&mut w);
+        for d in Division::ALL {
             let top = w.programs.iter().filter(|p| p.division == d).map(|p| p.prestige).fold(0.01, f64::max);
             for p in w.programs.iter_mut().filter(|p| p.division == d) {
                 p.prestige_rel = p.prestige / top;
@@ -867,13 +994,67 @@ impl World {
                     college_staff: Vec::new(),
                     incident: false,
                     notes: Vec::new(),
+                    stay_home: 0.0,
+                    childhood_team: None,
                     cal: PersonCal::default(),
                 }
             })
             .collect();
         let start = self.people.len();
         self.people.extend(new);
+        self.draw_home_ties(start);
         self.place_new_class(start);
+    }
+
+    /// Each new boy's pull to stay in his state and the team he grew up
+    /// cheering for (fix list 2.2, 2.3), on keyed draws. Proposed, not
+    /// confirmed: a quarter feel no pull, half a little (0.02-0.08), a
+    /// quarter a lot (0.10-0.25). Four in five grew up with a team in their
+    /// own state, picked by fan base and tradition; the rest with a national
+    /// brand (and every boy in a state without one).
+    fn draw_home_ties(&mut self, start: usize) {
+        let seed = self.options.seed as u64;
+        let year = self.year;
+        let mut by_state: Vec<Vec<(usize, f64)>> = vec![Vec::new(); 51];
+        let mut national: Vec<(usize, f64)> = Vec::new();
+        for p in &self.programs {
+            if !matches!(p.division, Division::FBS | Division::FCS) || !p.plays(year) {
+                continue;
+            }
+            let pull = p.fans * (0.3 + p.grades[program::GradeCat::Tradition as usize] / 100.0);
+            by_state[p.state].push((p.id, pull));
+            if p.division == Division::FBS {
+                national.push((p.id, pull * p.prestige_rel * p.prestige_rel));
+            }
+        }
+        let pick = |list: &[(usize, f64)], u: f64| -> Option<usize> {
+            let total: f64 = list.iter().map(|x| x.1).sum();
+            let mut left = u * total;
+            for &(id, wgt) in list {
+                if left < wgt {
+                    return Some(id);
+                }
+                left -= wgt;
+            }
+            list.last().map(|x| x.0)
+        };
+        for person in &mut self.people[start..] {
+            let id = person.player.id as u64;
+            let u = season::key_uniform(seed ^ 0x57A1, id);
+            // Sized against the real home-state shares (fix list 2.8: FBS
+            // median 37%, p10 15%, p90 65%); a first pass at 0-0.25 gave a
+            // median of 20% (proposed, not confirmed).
+            person.stay_home = if u < 0.2 {
+                0.0
+            } else if u < 0.65 {
+                0.04 + 0.10 * season::key_uniform(seed ^ 0x57A2, id)
+            } else {
+                0.15 + 0.25 * season::key_uniform(seed ^ 0x57A3, id)
+            };
+            let local = &by_state[person.home_state];
+            let list = if local.is_empty() || season::key_uniform(seed ^ 0x57A4, id) < 0.2 { &national } else { local };
+            person.childhood_team = pick(list, season::key_uniform(seed ^ 0x57A5, id));
+        }
     }
 
     /// Athlete first (topic 5.2): each high school's head coach places the

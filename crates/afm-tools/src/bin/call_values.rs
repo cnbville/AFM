@@ -6,31 +6,27 @@
 //! `cargo run --release --bin call_values -- 400 > crates/afm-engine/data/call_values.csv`
 //! Each value is mean yards on the snap (capped at 40) minus 45 for a turnover.
 
-use afm_engine::game::OffScheme;
 use afm_engine::game::flow::trace_snap_opt;
 use afm_engine::game::playbook::*;
 use afm_engine::game::synthetic::synthetic_team;
+use afm_engine::game::{Front, OffScheme};
 use afm_engine::player::Level;
 use rayon::prelude::*;
 
 fn main() {
     let n: u64 = std::env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(400);
     let a = synthetic_team("A", Level::NFL, 0.0, OffScheme::WestCoast, 11);
-    let b = synthetic_team("B", Level::NFL, 0.0, OffScheme::WestCoast, 22);
-    let covs = [
-        Coverage::Cover0,
-        Coverage::Cover1,
-        Coverage::Cover2,
-        Coverage::Tampa2,
-        Coverage::Cover3,
-        Coverage::Cover4,
-        Coverage::Cover2Man,
-        Coverage::Cover6,
-    ];
+    let mut b = synthetic_team("B", Level::NFL, 0.0, OffScheme::WestCoast, 22);
+    // The odd and tite fronts are a 3-4 staff's (a nose and two ends), the
+    // rest a 4-3 staff's: the synthetic defense drew a 3-4, so the over
+    // front lined up as an odd one.
+    b.staff.front = Front::FourThree;
+    let mut b34 = b.clone();
+    b34.staff.front = Front::ThreeFour;
     // Each coverage with four rushers and with a linebacker blitz (Cover 0
     // always sends the double-A pressure).
     let mut looks = Vec::new();
-    for &c in &covs {
+    for c in Coverage::ALL {
         if c == Coverage::Cover0 {
             looks.push((c, Pressure::DoubleA));
         } else {
@@ -38,37 +34,20 @@ fn main() {
             looks.push((c, Pressure::LbBlitz));
         }
     }
-    let runs = [
-        RunConcept::InsideZone,
-        RunConcept::OutsideZone,
-        RunConcept::Power,
-        RunConcept::Counter,
-        RunConcept::Draw,
-        RunConcept::ZoneRead,
-        RunConcept::Toss,
-        RunConcept::BuckSweep,
-    ];
-    let mut plays: Vec<(String, PlayKind)> =
+    // Runs against each front (plays and tactics topic 1), from Cover 3
+    // with four rushers.
+    let fronts = [FrontLook::Over, FrontLook::Under, FrontLook::Wide, FrontLook::Odd, FrontLook::Tite, FrontLook::Bear];
+    let runs: Vec<RunConcept> = RUN_CONCEPTS.iter().copied().filter(|&r| r != RunConcept::Sneak).collect();
+    let plays: Vec<(String, PlayKind)> =
         PASS_CONCEPTS.iter().enumerate().map(|(i, p)| (p.name.to_string(), PlayKind::Pass(i))).collect();
-    plays.extend(runs.iter().map(|&r| (format!("{r:?}"), PlayKind::Run(r))));
     // AFM_CELL=concept:Coverage prints what happens on one cell (debug).
     if let Ok(cell) = std::env::var("AFM_CELL") {
         let (pn, cn) = cell.split_once(':').unwrap();
         let i = PASS_CONCEPTS.iter().position(|p| p.name == pn).unwrap();
-        let cov = *covs.iter().find(|c| format!("{c:?}") == cn).unwrap();
-        let call = OffCall {
-            formation: Formation {
-                personnel: Personnel::P11,
-                backfield: Backfield::Shotgun,
-                trips: false,
-                strength: 1.0,
-            },
-            kind: PlayKind::Pass(i),
-            dir: 1.0,
-            tempo: false,
-        };
-        let dcall =
-            DefCall { personnel: DefPersonnel::Nickel, coverage: cov, pressure: Pressure::Four, disguise: false };
+        let cov = *Coverage::ALL.iter().find(|c| format!("{c:?}") == cn).unwrap();
+        let call =
+            OffCall::new(Formation::plain(Personnel::P11, Backfield::Shotgun, 1.0), PlayKind::Pass(i), 1.0, false);
+        let dcall = DefCall::new(DefPersonnel::Nickel, cov, Pressure::Four);
         let mut hist = std::collections::BTreeMap::new();
         let (mut comp, mut air, mut yac, mut sep, mut ttt) = (0.0, 0.0, 0.0, 0.0, 0.0);
         // Completions and attempts by time to throw (half-second buckets).
@@ -109,25 +88,15 @@ fn main() {
         );
         return;
     }
-    let rows: Vec<String> = plays
+    let blank_fronts = vec![String::new(); fronts.len()];
+    let mut rows: Vec<String> = plays
         .par_iter()
         .map(|(name, kind)| {
-            let gun = matches!(kind, PlayKind::Pass(_) | PlayKind::Run(RunConcept::ZoneRead));
-            let call = OffCall {
-                formation: Formation {
-                    personnel: Personnel::P11,
-                    backfield: if gun { Backfield::Shotgun } else { Backfield::UnderCenter },
-                    trips: false,
-                    strength: 1.0,
-                },
-                kind: *kind,
-                dir: 1.0,
-                tempo: false,
-            };
+            let call = OffCall::new(Formation::plain(Personnel::P11, Backfield::Shotgun, 1.0), *kind, 1.0, false);
             let cells: Vec<String> = looks
                 .iter()
                 .map(|&(coverage, pressure)| {
-                    let dcall = DefCall { personnel: DefPersonnel::Nickel, coverage, pressure, disguise: false };
+                    let dcall = DefCall::new(DefPersonnel::Nickel, coverage, pressure);
                     let mut v = 0.0;
                     for s in 0..n {
                         let r = trace_snap_opt(&a, &b, Level::NFL, call, dcall, 35.0, 1 + s, false);
@@ -136,10 +105,47 @@ fn main() {
                     format!("{:.2}", v / n as f64)
                 })
                 .collect();
-            format!("{name},{}", cells.join(","))
+            format!("{name},{},{}", cells.join(","), blank_fronts.join(","))
         })
         .collect();
-    let head: Vec<String> = looks.iter().map(|(c, p)| format!("{c:?}/{p:?}")).collect();
+    let blank_looks = vec![String::new(); looks.len()];
+    rows.extend(
+        runs.par_iter()
+            .map(|&rc| {
+                // Each run from the look it is run from: gun for the reads and
+                // QB runs, a fullback for the iso, jet motion for the sweep.
+                let gun = matches!(
+                    rc,
+                    RunConcept::ZoneRead | RunConcept::QbPower | RunConcept::SpeedOption | RunConcept::TripleOption
+                );
+                let pers = if rc == RunConcept::Iso { Personnel::P21 } else { Personnel::P11 };
+                let mut f = Formation::plain(pers, if gun { Backfield::Shotgun } else { Backfield::UnderCenter }, 1.0);
+                let mut dir = 1.0;
+                if rc == RunConcept::JetSweep {
+                    f.motion = Motion::Jet;
+                    dir = -1.0;
+                }
+                let call = OffCall::new(f, PlayKind::Run(rc), dir, false);
+                let cells: Vec<String> = fronts
+                    .iter()
+                    .map(|&front| {
+                        let mut dcall = DefCall::new(DefPersonnel::Base, Coverage::Cover3, Pressure::Four);
+                        dcall.front = front;
+                        let d = if matches!(front, FrontLook::Odd | FrontLook::Tite) { &b34 } else { &b };
+                        let mut v = 0.0;
+                        for s in 0..n {
+                            let r = trace_snap_opt(&a, d, Level::NFL, call, dcall, 35.0, 1 + s, false);
+                            v += r.yards.min(40.0) - if r.turnover { 45.0 } else { 0.0 };
+                        }
+                        format!("{:.2}", v / n as f64)
+                    })
+                    .collect();
+                format!("{rc:?},{},{}", blank_looks.join(","), cells.join(","))
+            })
+            .collect::<Vec<_>>(),
+    );
+    let mut head: Vec<String> = looks.iter().map(|(c, p)| format!("{c:?}/{p:?}")).collect();
+    head.extend(fronts.iter().map(|f| format!("Front:{f:?}")));
     println!("concept,{}", head.join(","));
     for r in rows {
         println!("{r}");

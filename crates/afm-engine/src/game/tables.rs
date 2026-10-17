@@ -9,6 +9,12 @@ use std::sync::LazyLock;
 const EP_CSV: &str = include_str!("../../../../data/real-world/nfl_expected_points.csv");
 const PASS_CSV: &str = include_str!("../../../../data/real-world/nfl_pass_rate.csv");
 const GO_CSV: &str = include_str!("../../../../data/real-world/nfl_fourth_go.csv");
+// College calling (trial 4 topic 5): FBS-vs-FBS cfbfastR play-by-play,
+// 2023-24, in the same buckets (`college_situations.py`). College teams pass
+// half their snaps, the NFL 58%; high school uses the college habit too
+// (no real table; proposed, not confirmed).
+const COLLEGE_PASS_CSV: &str = include_str!("../../../../data/real-world/college_pass_rate.csv");
+const COLLEGE_GO_CSV: &str = include_str!("../../../../data/real-world/college_fourth_go.csv");
 const WP_CSV: &str = include_str!("../../../../data/real-world/nfl_win_prob.csv");
 
 fn rows(csv: &str) -> impl Iterator<Item = Vec<&str>> {
@@ -98,10 +104,14 @@ pub fn expected_points(down: u8, togo: f64, yardline_100: f64) -> f64 {
     0.0
 }
 
-#[allow(clippy::type_complexity)]
-static PASS: LazyLock<HashMap<(i32, i32, i32, u8), (f64, f64)>> = LazyLock::new(|| {
+type PassTable = HashMap<(i32, i32, i32, u8), (f64, f64)>;
+
+static PASS: LazyLock<PassTable> = LazyLock::new(|| pass_table(PASS_CSV));
+static COLLEGE_PASS: LazyLock<PassTable> = LazyLock::new(|| pass_table(COLLEGE_PASS_CSV));
+
+fn pass_table(csv: &str) -> PassTable {
     let mut m = HashMap::new();
-    for r in rows(PASS_CSV) {
+    for r in rows(csv) {
         let time = match r[3] {
             "late" => 1,
             "two_minute" => 2,
@@ -113,7 +123,7 @@ static PASS: LazyLock<HashMap<(i32, i32, i32, u8), (f64, f64)>> = LazyLock::new(
         );
     }
     m
-});
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Clock {
@@ -124,8 +134,10 @@ pub enum Clock {
     TwoMinute,
 }
 
-/// How often real NFL offenses pass in this situation (downs 1-3).
-pub fn real_pass_rate(down: u8, togo: f64, score_diff: i32, clock: Clock) -> f64 {
+/// How often real offenses pass in this situation (downs 1-3): the NFL's
+/// habit, or the college one below the NFL.
+pub fn real_pass_rate(down: u8, togo: f64, score_diff: i32, clock: Clock, college: bool) -> f64 {
+    let table = if college { &*COLLEGE_PASS } else { &*PASS };
     let d = down.clamp(1, 3) as i32;
     let t = togo_bucket(togo);
     let s = score_bucket(score_diff);
@@ -135,26 +147,31 @@ pub fn real_pass_rate(down: u8, togo: f64, score_diff: i32, clock: Clock) -> f64
         Clock::TwoMinute => 2,
     };
     for (cc, ss) in [(c, s), (0, s), (c, 0), (0, 0)] {
-        if let Some(&(rate, _)) = PASS.get(&(d, t, ss, cc)) {
+        if let Some(&(rate, _)) = table.get(&(d, t, ss, cc)) {
             return rate;
         }
     }
-    0.58
+    if college { 0.5 } else { 0.58 }
 }
 
-static GO: LazyLock<HashMap<(i32, i32, i32), f64>> = LazyLock::new(|| {
-    rows(GO_CSV)
+fn go_table(csv: &str) -> HashMap<(i32, i32, i32), f64> {
+    rows(csv)
         .map(|r| ((r[0].parse().unwrap(), r[1].parse().unwrap(), r[2].parse().unwrap()), r[3].parse().unwrap()))
         .collect()
-});
+}
 
-/// How often real NFL teams go for it on fourth down here.
-pub fn real_fourth_go_rate(togo: f64, yardline_100: f64, score_diff: i32) -> f64 {
+static GO: LazyLock<HashMap<(i32, i32, i32), f64>> = LazyLock::new(|| go_table(GO_CSV));
+static COLLEGE_GO: LazyLock<HashMap<(i32, i32, i32), f64>> = LazyLock::new(|| go_table(COLLEGE_GO_CSV));
+
+/// How often real teams go for it on fourth down here (NFL, or college
+/// below the NFL).
+pub fn real_fourth_go_rate(togo: f64, yardline_100: f64, score_diff: i32, college: bool) -> f64 {
+    let table = if college { &*COLLEGE_GO } else { &*GO };
     let t = togo_bucket(togo);
     let y = ((yardline_100.clamp(1.0, 99.0) as i32) / 10).min(9) * 10;
     let s = score_bucket(score_diff);
     for ss in [s, 0, -1, 7] {
-        if let Some(&r) = GO.get(&(t, y, ss)) {
+        if let Some(&r) = table.get(&(t, y, ss)) {
             return r;
         }
     }

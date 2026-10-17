@@ -11,8 +11,10 @@ use super::coach::{Group, TitleKind};
 use super::data::Division;
 use super::{Stage, World, division_level};
 use crate::athlete::Eye;
+use crate::attributes::Attr;
 use crate::development::{SeasonContext, Trouble, develop_season};
-use crate::game::{Caller, Front, GamePlayer, GameTeam, OffScheme, Shell, Staff as GameStaff};
+use crate::game::playbook::{FAMILY_COUNT, Family};
+use crate::game::{Caller, GamePlayer, GameTeam, Staff as GameStaff};
 use crate::league::depth_slots;
 use crate::player::{Level, PlayingTime};
 use crate::positions::{POSITION_COUNT, Position};
@@ -88,13 +90,41 @@ pub(crate) fn key_normal(a: u64, b: u64) -> f64 {
 /// A college travel squad at each position (F14): the two-deep, a third
 /// quarterback, and the extra backs, receivers, linemen, linebackers and
 /// defensive backs who cover kicks and step in when a starter is hurt; one
-/// kicker, punter and long snapper. 76 players: real conference limits for
-/// road games are about 70-74 (from memory, to verify), and at home the
-/// whole roster dresses. Proposed, not confirmed: the counts, set so about
+/// kicker, punter and long snapper. 76 players, scaled to the program's own
+/// road limit (`travel_limit`); at home the whole roster dresses. Proposed,
+/// not confirmed: the counts, set so about
 /// 40-50% of first-year FBS players redshirt and 600-850 true freshmen a
 /// year play five games or more (trial 6 measured about 870 before 2018,
 /// when nobody was held out).
-pub(crate) fn travel_slots(pos: Position) -> usize {
+pub(crate) fn travel_slots(pos: Position, limit: usize) -> usize {
+    if pos.is_specialist() {
+        return 1;
+    }
+    let base = travel_base(pos) as f64;
+    // Scaled to the program's own limit; never fewer than three quarterbacks.
+    let n = (base * limit as f64 / TRAVEL_BASE_TOTAL).round() as usize;
+    if pos == Position::QB { n.max(3) } else { n.max(1) }
+}
+
+/// The counts above add up to this many players.
+const TRAVEL_BASE_TOTAL: f64 = 76.0;
+
+/// A program's road travel squad by conference and era (part C 8): the
+/// Power conferences 70, the Big Ten 74 from 2018 (NBC Sports, 2018), the
+/// rest of FBS 70, FCS 64, Division II 55, Division III and the NAIA 55,
+/// junior colleges 50. Only the Big Ten change is checked; the rest from
+/// memory, to verify (proposed, not confirmed).
+pub(crate) fn travel_limit(prog: &super::program::Program, season: i32) -> usize {
+    match prog.division {
+        Division::FBS if prog.conference == "Big Ten" && season >= 2018 => 74,
+        Division::FBS => 70,
+        Division::FCS => 64,
+        Division::D2 | Division::D3 | Division::NAIA => 55,
+        Division::JUCO => 50,
+    }
+}
+
+fn travel_base(pos: Position) -> usize {
     match pos {
         Position::QB => 3,
         Position::RB => 5,
@@ -124,7 +154,7 @@ pub(crate) fn two_deep(pos: Position) -> usize {
 /// academic or transfer sit) takes no travel place.
 pub(crate) fn depth_chart(
     entries: &mut [(usize, Position, f64)],
-    college: bool,
+    travel: Option<usize>,
     redshirt_free: &dyn Fn(usize) -> bool,
     sits: &dyn Fn(usize) -> bool,
 ) -> Vec<(usize, PlayingTime)> {
@@ -144,7 +174,7 @@ pub(crate) fn depth_chart(
                 PlayingTime::Starter
             } else if k < slots.starters + slots.rotation.max(1) {
                 PlayingTime::Rotation
-            } else if college && travelling >= travel_slots(pos) && redshirt_free(i) {
+            } else if travel.is_some_and(|t| travelling >= travel_slots(pos, t)) && redshirt_free(i) {
                 PlayingTime::Redshirt
             } else {
                 PlayingTime::Backup
@@ -209,7 +239,7 @@ pub(crate) fn hs_roles(w: &World, schools: &[usize]) -> Vec<(usize, PlayingTime)
                     (i, p.player.position, seen)
                 })
                 .collect();
-            let mut chart = depth_chart(&mut entries, false, &|_| false, &|_| false);
+            let mut chart = depth_chart(&mut entries, None, &|_| false, &|_| false);
             for (i, role) in chart.iter_mut() {
                 let p = &people[*i];
                 if p.sit_out > 0.0 && key_normal(seed ^ year ^ 7, p.player.id as u64).abs() < 1.6 * p.sit_out {
@@ -248,7 +278,7 @@ pub(crate) fn college_roles(w: &World) -> Vec<(usize, PlayingTime)> {
                 .collect();
             depth_chart(
                 &mut entries,
-                true,
+                Some(travel_limit(prog, year as i32)),
                 &|i| {
                     let p = &people[i];
                     !p.redshirt_used && p.college_seasons <= 1
@@ -363,6 +393,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             trouble,
             adjustment: p.pending_dip.take().unwrap_or(0.0),
             situation: clamp(team_situation + background::situation_push(&p.player, &p.bg), -1.0, 1.0),
+            payday: std::mem::take(&mut p.cal.payday),
             ..SeasonContext::new(level, clamp(coaching, 1.0, 20.0), role)
         };
         develop_season(&mut p.player, &ctx, &mut p.rng);
@@ -584,9 +615,20 @@ pub(crate) fn attach_level_ratings(w: &mut World) {
 pub(crate) const SEASON_SNAPS: u32 = 750;
 
 /// A college team for the match engine: its players and its staff's calling.
-/// The scheme is the coordinator's own (picked from his id until coaches
-/// carry a scheme: proposed, not confirmed).
+/// The systems are the ones the staff installed this spring (S3); a new
+/// playbook is known only as far as it shares the old one (S5).
 pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<GameTeam> {
+    let inst = prog.installed;
+    // What the playbook leans on (plays and tactics topic 4): families the
+    // team runs a lot get the reps, the rest are known less well. Its own
+    // tape says which; with none yet every family counts the same.
+    let fam = prog.film.families();
+    let fam_top = |off: bool| {
+        let r = if off { 0..Family::Front as usize } else { Family::Front as usize..FAMILY_COUNT };
+        fam[r].iter().copied().fold(0.0, f64::max)
+    };
+    let (top_off, top_def) = (fam_top(true), fam_top(false));
+    let has_film = prog.film.off_snaps >= 40.0;
     let players: Vec<GamePlayer> = prog
         .roster
         .iter()
@@ -596,43 +638,113 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
             // This season counts as one (settled when it ends).
             let seasons = (p.college_seasons + p.cal.count_pending as u32) as f64;
             let experience = p.college_snaps as f64 / SEASON_SNAPS as f64;
-            GamePlayer::from_player(&p.player, clamp(0.78 + 0.05 * seasons, 0.0, 0.95), experience)
+            let side = if super::systems::offense(p.player.position) { inst.off_known } else { inst.def_known };
+            let know = clamp(0.78 + 0.05 * seasons, 0.0, 0.95) * (0.8 + 0.2 * side);
+            let mut g = GamePlayer::from_player(&p.player, know, experience);
+            // Per family: reps by how much the playbook uses it, and the
+            // understanding a sharp player builds faster (topic 4.2, 4.4;
+            // proposed, not confirmed).
+            let iq = 0.5 * (p.player.attributes[Attr::Awareness] + p.player.attributes[Attr::PlayRecognition]);
+            let mind = clamp(0.92 + 0.08 * (iq - 60.0) / 25.0, 0.82, 1.04);
+            for f in Family::ALL {
+                let (use_, top) = if f.offense() { (fam[f as usize], top_off) } else { (fam[f as usize], top_def) };
+                let reps = if has_film && top > 0.0 { 0.78 + 0.22 * clamp(use_ / top, 0.0, 1.0).sqrt() } else { 0.92 };
+                g.know[f as usize] = clamp(know * reps * mind, 0.0, 1.0) as f32;
+            }
+            g
         })
         .collect();
     if players.len() < 30 {
         return None;
     }
+    // Line chemistry (topic 4.9): the share of the five most experienced
+    // linemen who started up front here last season (proposed, not
+    // confirmed).
+    let mut line: Vec<&super::Person> = prog
+        .roster
+        .iter()
+        .map(|&i| &w.people[i])
+        .filter(|p| p.stage == Stage::College && matches!(p.player.position, Position::OT | Position::IOL))
+        .collect();
+    line.sort_by_key(|p| std::cmp::Reverse(p.college_snaps));
+    let back = line
+        .iter()
+        .take(5)
+        .filter(|p| p.last_snaps >= 350 && p.college_staff.last().is_some_and(|s| s.1 == prog.id && s.0 == w.year - 1))
+        .count();
+    let line_chem = 0.25 + 0.15 * back as f64;
     let ab = |c: Option<usize>| c.map(|c| *w.coaches[c].ability());
     let hc = ab(prog.head_coach);
-    let caller = |c: Option<usize>| {
+    // A caller runs a system he knows less well worse (S4): his calling
+    // skill scales with what he knows of the installed system.
+    let caller = |c: Option<usize>, slot: usize| {
+        let who = c.or(prog.head_coach);
         let a = ab(c).or(hc);
-        let temper = c.or(prog.head_coach).map_or(10.0, |c| w.coaches[c].personality.ambition);
+        let temper = who.map_or(10.0, |c| w.coaches[c].personality.ambition);
+        let know = who.map_or(0.8, |c| w.coaches[c].systems.know[slot]);
+        // His four calling skills (plays and tactics topic 6.2): reading
+        // leans on scheme, situational on game management, creativity is
+        // scheme with more of his own spread; nerve from ambition (proposed,
+        // not confirmed).
+        let id = who.unwrap_or(usize::MAX) as u64;
+        let spread = |k: u64, sd: f64| if who.is_some() { sd * key_normal(k, id) } else { 0.0 };
+        let fit = 0.7 + 0.3 * know;
+        let reading =
+            a.map_or(9.0, |a| clamp(0.7 * a.scheme + 0.3 * a.game_management + spread(0x5EAD, 2.0), 1.0, 20.0));
+        let situational =
+            a.map_or(9.0, |a| clamp(0.7 * a.game_management + 0.3 * a.scheme + spread(0x517A, 2.0), 1.0, 20.0));
+        let creativity = a.map_or(9.0, |a| clamp(a.scheme + spread(0xC4EA, 3.0), 1.0, 20.0));
+        let nerve = clamp(0.04 * (temper - 10.0) + spread(0x4E4E, 0.4), -1.0, 1.0);
         Caller {
-            skill: a.map_or(9.0, |a| 0.6 * a.scheme + 0.4 * a.game_management),
+            skill: a.map_or(9.0, |a| 0.6 * a.scheme + 0.4 * a.game_management) * fit,
             adaptation: a.map_or(9.0, |a| a.game_management),
             aggressiveness: temper,
+            reading: reading * fit,
+            situational,
+            creativity: creativity * fit,
+            nerve,
         }
     };
-    let pick = |c: Option<usize>, n: usize| c.map_or(0, |c| (c.wrapping_mul(2_654_435_761) >> 7) % n);
-    let schemes =
-        [OffScheme::WestCoast, OffScheme::AirRaid, OffScheme::WideZone, OffScheme::PowerGap, OffScheme::SpreadOption];
-    let shells = [Shell::Cover3, Shell::Quarters, Shell::ManPressure, Shell::Cover2];
+    // Film study (topic 5.1): the coordinators' eye and the quality-control
+    // staff a budget buys (proposed, not confirmed).
+    let eye = |c: Option<usize>| ab(c.or(prog.head_coach)).map_or(9.0, |a| a.scheme);
+    let film_study = clamp(0.35 * (eye(prog.oc) + eye(prog.dc)) + 7.0 * prog.facilities, 1.0, 20.0);
     let dc = prog.dc.or(prog.head_coach);
-    Some(GameTeam {
-        name: prog.real_name.clone(),
+    // The install (T6.2): the staff sizes the weekly plan to what its
+    // players can absorb; a poor staff misjudges it, an aggressive one puts
+    // in more (proposed, not confirmed).
+    let aware = players.iter().map(|p| p.a(Attr::Awareness)).sum::<f64>() / players.len().max(1) as f64;
+    let install = {
+        let oc = caller(prog.oc, inst.off);
+        let who = prog.oc.or(prog.head_coach).unwrap_or(usize::MAX) as u64;
+        let miss = 0.15 * (1.0 - oc.skill / 20.0).max(0.0) * key_normal(0x1257 ^ w.year as u64, who);
+        clamp(crate::game::roster::absorb(aware) + miss + 0.01 * (oc.aggressiveness - 10.0), 0.35, 1.0)
+    };
+    let mut team = GameTeam::new(
+        prog.real_name.clone(),
         players,
-        staff: GameStaff {
-            offense: caller(prog.oc),
-            defense: caller(prog.dc),
+        GameStaff {
+            offense: caller(prog.oc, inst.off),
+            defense: caller(prog.dc, 7 + inst.shell),
             game_management: hc.map_or(9.0, |a| a.game_management),
             strictness: hc.map_or(10.0, |a| a.discipline),
-            off_scheme: schemes[pick(prog.oc.or(prog.head_coach), schemes.len())],
-            front: if pick(dc, 3) == 0 { Front::ThreeFour } else { Front::FourThree },
-            shell: shells[pick(dc.map(|c| c / 3), shells.len())],
+            off_scheme: inst.offense(),
+            front: inst.front(),
+            shell: inst.shell(),
             playbook: 1.0,
             sportsmanship: prog.head_coach.map_or(10.0, |c| w.coaches[c].sportsmanship),
+            // His own habit, kept for his career (S8; spread proposed, not
+            // confirmed).
+            nickel: dc.map_or(0.88, |c| clamp(0.88 + 0.08 * key_normal(0x41C8, c as u64), 0.55, 0.99)),
+            year: w.year,
+            film_study,
+            install,
         },
-    })
+    );
+    team.film = prog.film.clone();
+    team.line_chem = line_chem;
+    team.novelty = super::trends::team_novelty(w, prog.division, &prog.film);
+    Some(team)
 }
 
 /// What a head coach brings into a game besides his team (dynasty item 3):

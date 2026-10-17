@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use super::data::{AcademicTier, CollegeRow, Division};
+use super::data::{self, AcademicTier, CollegeRow, Division};
 use super::geo;
 use crate::rng::{Rng, clamp};
 
@@ -158,6 +158,17 @@ impl Collective {
     }
 }
 
+/// The athletic director (trial 4 topic 4): a person who reads the coach
+/// against the roster he was given. Judgement sharpens the read, patience
+/// sets how long a bad stretch is tolerated, both 1-20.
+#[derive(Clone, Debug)]
+pub struct AthleticDirector {
+    pub name: String,
+    pub judgement: f64,
+    pub patience: f64,
+    pub since: i32,
+}
+
 /// Season record for history.
 #[derive(Clone, Debug)]
 pub struct ProgramSeason {
@@ -190,6 +201,11 @@ pub struct SeasonTotals {
     pub takeaways: u32,
     pub sacks: u32,
     pub sacks_allowed: u32,
+    /// Expected points added on offense and allowed on defense, and the
+    /// opponents' plays (coach buzz, world item 5).
+    pub epa: f64,
+    pub epa_allowed: f64,
+    pub plays_allowed: u32,
 }
 
 impl SeasonTotals {
@@ -210,6 +226,9 @@ impl SeasonTotals {
         // A team's own line counts the sacks it gave up.
         self.sacks += opp.sacks;
         self.sacks_allowed += own.sacks;
+        self.epa += own.epa;
+        self.epa_allowed += opp.epa;
+        self.plays_allowed += opp.plays;
     }
 }
 
@@ -239,6 +258,15 @@ pub struct Program {
     /// Prestige against the best program in its division, 0-1: how big a name
     /// it is at its own level (NDSU in FCS, Alabama in FBS).
     pub prestige_rel: f64,
+    /// Seasons with no team (not started yet, dropped or suspended), from
+    /// the real history (`college_history.csv`).
+    pub dark: Vec<(i32, i32)>,
+    /// Its real past where it differs from today (1984-2025, college
+    /// history): first and last season, division (None: no team) and conference.
+    pub history: Vec<(i32, i32, Option<Division>, String)>,
+    /// Its 2026 division and conference; None for a program that has since
+    /// dropped football.
+    pub base: Option<(Division, String)>,
     pub grades: [f64; GRADE_COUNT],
     /// Last year's grades, for the trend arrows.
     pub last_grades: [f64; GRADE_COUNT],
@@ -258,6 +286,16 @@ pub struct Program {
     pub hs_pipeline: HashMap<usize, (f64, i32)>,
     pub area_pipeline: HashMap<usize, (f64, i32)>,
     pub head_coach: Option<usize>,
+    /// The athletic director, who judges and fires the head coach (trial 4 topic 4).
+    pub ad: Option<AthleticDirector>,
+    /// Who coaches the team's remaining games when that is not the head
+    /// coach: an interim after a firing or departure, or a retiring coach
+    /// who stays through his team's last game (part B 38, 45).
+    pub sideline: Option<usize>,
+    /// The season the head coach last changed (fired, retired or left).
+    pub hc_changed: i32,
+    /// Recruiting class scores by signing year (0-100 points, top class 100).
+    pub class_scores: Vec<(i32, f64)>,
     pub oc: Option<usize>,
     pub dc: Option<usize>,
     /// Position coaches by group (note 5).
@@ -280,6 +318,11 @@ pub struct Program {
     /// yards and sacks, with the holder's name and year, from the games played
     /// on the engine.
     pub season_records: [Option<SeasonRecord>; 4],
+    /// The systems it runs and how well its players know them (S3, S5).
+    pub installed: super::systems::Installed,
+    /// What its games have shown (plays and tactics topics 5.1 and 7.7):
+    /// this season's tape, and last season's at less weight.
+    pub film: crate::game::Film,
 }
 
 /// A school single-season record (A40).
@@ -339,6 +382,53 @@ fn admissions(row: &CollegeRow) -> (f64, u32) {
 }
 
 impl Program {
+    /// Whether the program fields a team in `year`: a program that had not
+    /// started football yet, or had dropped or suspended it, does not.
+    pub fn plays(&self, year: i32) -> bool {
+        !self.dark.iter().any(|&(a, b)| (a..=b).contains(&year))
+    }
+
+    /// Its real division and conference in a season (college history):
+    /// None when it fielded no team. Seasons before the history starts read
+    /// as its first year; from 2026 on its own row stands, and the world's
+    /// own changes take over after that.
+    pub fn real_status(&self, season: i32) -> Option<(Division, String)> {
+        let s = season.max(data::HISTORY_FIRST);
+        match self.history.iter().find(|h| (h.0..=h.1).contains(&s)) {
+            Some(h) => h.2.map(|d| (d, h.3.clone())),
+            None => self.base.clone(),
+        }
+    }
+
+    /// Fills its real past from the college history and the seasons it
+    /// fielded no team.
+    pub fn set_history(&mut self, dropped: bool) {
+        self.history = data::COLLEGE_HISTORY
+            .iter()
+            .filter(|h| h.name == self.real_name)
+            .map(|h| (h.first, h.last, h.division, h.conference.clone()))
+            .collect();
+        if dropped {
+            self.base = None;
+        }
+        self.dark.clear();
+        let mut open: Option<i32> = None;
+        for y in data::HISTORY_FIRST..=data::HISTORY_LAST + 1 {
+            let dark = self.real_status(y).is_none();
+            match (dark, open) {
+                (true, None) => open = Some(if y == data::HISTORY_FIRST { i32::MIN } else { y }),
+                (false, Some(a)) => {
+                    self.dark.push((a, y - 1));
+                    open = None;
+                }
+                _ => {}
+            }
+        }
+        if let Some(a) = open {
+            self.dark.push((a, i32::MAX));
+        }
+    }
+
     pub fn name(&self, mode: super::names::NameMode) -> &str {
         match mode {
             super::names::NameMode::Real => &self.real_name,
@@ -357,6 +447,8 @@ fn division_scale(d: Division) -> f64 {
         Division::FBS => 1.0,
         Division::FCS => 0.45,
         Division::D2 => 0.25,
+        Division::NAIA => 0.2,
+        Division::D3 => 0.15,
         Division::JUCO => 0.15,
     }
 }
@@ -414,6 +506,9 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
         prestige: 0.0,
         prestige_start: 0.0,
         prestige_rel: 0.5,
+        dark: Vec::new(),
+        history: Vec::new(),
+        base: Some((row.division, row.conference.clone())),
         season_records: [None, None, None, None],
         grades: [70.0; GRADE_COUNT],
         last_grades: [70.0; GRADE_COUNT],
@@ -433,6 +528,10 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
         hs_pipeline: HashMap::new(),
         area_pipeline: HashMap::new(),
         head_coach: None,
+        ad: None,
+        sideline: None,
+        hc_changed: i32::MIN,
+        class_scores: Vec::new(),
         oc: None,
         dc: None,
         position_coaches: [None; super::coach::GROUP_COUNT],
@@ -444,6 +543,8 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
         admissions_bar: admissions(row).0,
         special_admits: admissions(row).1,
         era: Default::default(),
+        installed: Default::default(),
+        film: Default::default(),
     };
     p.prestige = prestige_of(&p, 10.0, 0.5);
     p
@@ -490,6 +591,8 @@ pub fn rebuild_footprint(p: &mut Program, overflow: &[f64; 51]) {
         Division::FBS => 1.0,
         Division::FCS => 0.55,
         Division::D2 => 0.3,
+        Division::NAIA => 0.3,
+        Division::D3 => 0.25,
         Division::JUCO => 0.6,
     };
     let overflow_reach = match p.division {
@@ -518,6 +621,45 @@ pub fn record_impact(p: &mut Program, state: usize, hs: usize, area: usize, weig
         let e = map.entry(key).or_insert((0.0, year));
         e.0 = clamp(e.0 + k * weight * (1.0 - e.0), 0.0, 1.0);
         e.1 = year;
+    }
+}
+
+/// The pipelines a program already has when the history starts (fix list
+/// 2.6): to the high schools and areas of its own state, sized by its
+/// tradition and its level, strongest to the state's best programs. Proposed,
+/// not confirmed: an FBS flagship with top tradition starts at 0.5 to the
+/// best schools and areas, an FCS program at about a third of that, lower
+/// levels at a fifth. They fade like any pipeline unless signees renew them.
+pub(crate) fn seed_pipelines(w: &mut super::World) {
+    let year = w.year;
+    let mut best_hs = [0.0f64; 51];
+    for h in &w.high_schools {
+        best_hs[h.state] = best_hs[h.state].max(h.prestige);
+    }
+    for p in w.programs.iter_mut() {
+        if !p.plays(year) {
+            continue;
+        }
+        let level = match p.division {
+            Division::FBS => 1.0,
+            Division::FCS => 0.35,
+            _ => 0.2,
+        };
+        let size = 0.5 * level * clamp(p.grades[GradeCat::Tradition as usize] / 100.0, 0.0, 1.0);
+        if size <= 0.0 {
+            continue;
+        }
+        p.pipeline[p.state] = p.pipeline[p.state].max(0.5 * size);
+        p.pipeline_last_impact[p.state] = year;
+        for h in w.high_schools.iter().filter(|h| h.state == p.state) {
+            let v = size * (0.25 + 0.75 * h.prestige / best_hs[h.state].max(1e-9));
+            let e = p.hs_pipeline.entry(h.id).or_insert((0.0, year));
+            e.0 = e.0.max(v);
+            e.1 = year;
+            let a = p.area_pipeline.entry(h.area).or_insert((0.0, year));
+            a.0 = a.0.max(v);
+            a.1 = year;
+        }
     }
 }
 
@@ -636,4 +778,120 @@ pub(crate) fn realign_one(w: &mut super::World, rng: &mut Rng) {
         )
         .program(pick),
     );
+}
+
+/// A level's name in a season's own words: Division I-A and I-AA until the
+/// 2006 renaming to FBS and FCS.
+pub fn division_era_name(d: Division, season: i32) -> &'static str {
+    match d {
+        Division::FBS if season < 2006 => "Division I-A",
+        Division::FCS if season < 2006 => "Division I-AA",
+        Division::FBS => "FBS",
+        Division::FCS => "FCS",
+        Division::D2 => "Division II",
+        Division::NAIA => "the NAIA",
+        Division::D3 => "Division III",
+        Division::JUCO => "junior college football",
+    }
+}
+
+fn conference_phrase(c: &str) -> String {
+    if c.contains("Independent") { "as an independent".to_string() } else { format!("in the {c}") }
+}
+
+/// The season's real moves, at the start of the football year (college
+/// history, through 2026): a program moving between levels or conferences,
+/// starting football or coming back to it, and the staff of a program that
+/// dropped it let go. Each is news; after 2026 the world's own realignment
+/// takes over.
+pub(crate) fn apply_history(w: &mut super::World) {
+    use crate::calendar::{Event, Kind, Level, Loudness};
+    let season = w.year;
+    if season > data::HISTORY_LAST + 1 {
+        return;
+    }
+    let today = w.today;
+    for i in 0..w.programs.len() {
+        let p = &w.programs[i];
+        let (was, now) = (p.plays(season - 1), p.plays(season));
+        if was && !now {
+            // Dropped or paused after last season: the staff goes.
+            let staff: Vec<usize> =
+                [p.head_coach, p.oc, p.dc].into_iter().chain(p.position_coaches.iter().copied()).flatten().collect();
+            for c in staff {
+                super::staff::leave(w, c, "his school dropped football");
+            }
+            continue;
+        }
+        let Some((d, c)) = p.real_status(season) else { continue };
+        let name = p.real_name.clone();
+        let (old_d, old_c) = (p.division, p.conference.clone());
+        let text = if !was {
+            let before = (data::HISTORY_FIRST..season).any(|y| p.plays(y) && y >= w.first_year());
+            if before {
+                format!("{name} brings football back, in {} {}.", division_era_name(d, season), conference_phrase(&c))
+            } else {
+                format!(
+                    "{name} plays its first season of football, in {} {}.",
+                    division_era_name(d, season),
+                    conference_phrase(&c)
+                )
+            }
+        } else if d != old_d {
+            let dir = if (d as usize) < old_d as usize { "moves up" } else { "moves down" };
+            format!(
+                "{name} {dir} from {} to {} and plays {}.",
+                division_era_name(old_d, season),
+                division_era_name(d, season),
+                conference_phrase(&c)
+            )
+        } else if c != old_c {
+            if c.contains("Independent") {
+                format!("{name} leaves the {old_c} to play as an independent.")
+            } else if old_c.contains("Independent") {
+                format!("{name} ends its years as an independent and joins the {c}.")
+            } else {
+                format!("{name} leaves the {old_c} for the {c}.")
+            }
+        } else {
+            continue;
+        };
+        let p = &mut w.programs[i];
+        if was && (d as usize) < old_d as usize {
+            // A school moves up after building for it: facilities and crowds
+            // take a step toward the new level (proposed, not confirmed).
+            let step = (division_scale(d) / division_scale(old_d)).sqrt();
+            p.facilities = clamp(p.facilities * step, 0.0, 1.0);
+            p.fans = clamp(p.fans * step, 0.0, 1.0);
+        }
+        p.division = d;
+        p.conference = c;
+        p.story.push((season, text.clone()));
+        let loud = match d.min(old_d) {
+            Division::FBS => Loudness::Big,
+            Division::FCS => Loudness::Medium,
+            _ => Loudness::Small,
+        };
+        w.calendar.post(Event::new(today, Level::College, Kind::RuleChange, loud, text).program(i));
+    }
+}
+
+/// The schools dropping or pausing football after this season announce it
+/// when their regular season ends (college history); every player with
+/// eligibility left is free to transfer in the winter.
+pub(crate) fn announce_drops(w: &mut super::World) {
+    use crate::calendar::{Event, Kind, Level, Loudness};
+    let season = w.year;
+    let today = w.today;
+    for i in 0..w.programs.len() {
+        let p = &w.programs[i];
+        if !p.plays(season) || p.plays(season + 1) || p.roster.is_empty() && p.head_coach.is_none() {
+            continue;
+        }
+        // Nobody knows yet whether it comes back (UAB did, two years later).
+        let text = format!("{} drops football after this season. Its players are free to transfer.", p.real_name);
+        let loud = if p.division == Division::FBS { Loudness::Big } else { Loudness::Medium };
+        w.programs[i].story.push((season, text.clone()));
+        w.calendar.post(Event::new(today, Level::College, Kind::RuleChange, loud, text).program(i));
+    }
 }

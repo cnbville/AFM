@@ -93,10 +93,20 @@ pub enum DevelopmentEvent {
     /// early enrollee's first college spring, which opens his first college
     /// row (F2; that part is the row's `spring_open`).
     SpringBreakout,
+    /// A major injury that left a lasting loss: he never got all of his
+    /// burst back (fix list 4.3).
+    LostBurst,
+    /// He put on bad weight and lost speed and quickness (fix list 4.4).
+    WeightGain,
+    /// A lost-drive year after a big NIL deal or a big contract (fix list 4.5).
+    Complacent,
+    /// Weak teaching or a scheme that doesn't fit him cost him ability, not
+    /// only growth (fix list 4.6).
+    PoorCoaching,
 }
 
 impl DevelopmentEvent {
-    pub const ALL: [DevelopmentEvent; 13] = [
+    pub const ALL: [DevelopmentEvent; 17] = [
         DevelopmentEvent::GrowthSpurt,
         DevelopmentEvent::BodyStalled,
         DevelopmentEvent::Breakout,
@@ -110,6 +120,10 @@ impl DevelopmentEvent {
         DevelopmentEvent::MajorInjury,
         DevelopmentEvent::FirstYear,
         DevelopmentEvent::SpringBreakout,
+        DevelopmentEvent::LostBurst,
+        DevelopmentEvent::WeightGain,
+        DevelopmentEvent::Complacent,
+        DevelopmentEvent::PoorCoaching,
     ];
 
     pub fn name(self) -> &'static str {
@@ -127,26 +141,30 @@ impl DevelopmentEvent {
             DevelopmentEvent::MajorInjury => "majorInjury",
             DevelopmentEvent::FirstYear => "firstYear",
             DevelopmentEvent::SpringBreakout => "springBreakout",
+            DevelopmentEvent::LostBurst => "lostBurst",
+            DevelopmentEvent::WeightGain => "weightGain",
+            DevelopmentEvent::Complacent => "complacent",
+            DevelopmentEvent::PoorCoaching => "poorCoaching",
         }
     }
 }
 
 /// A season's events, as a small bit set.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Events(u16);
+pub struct Events(u32);
 
 impl Events {
     #[inline]
     pub fn has(self, e: DevelopmentEvent) -> bool {
-        self.0 & (1 << e as u16) != 0
+        self.0 & (1 << e as u32) != 0
     }
     #[inline]
     pub fn add(&mut self, e: DevelopmentEvent) {
-        self.0 |= 1 << e as u16;
+        self.0 |= 1 << e as u32;
     }
     #[inline]
     pub fn remove(&mut self, e: DevelopmentEvent) {
-        self.0 &= !(1 << e as u16);
+        self.0 &= !(1 << e as u32);
     }
     pub fn is_empty(self) -> bool {
         self.0 == 0
@@ -228,6 +246,10 @@ pub struct Player {
     pub body: crate::body::Body,
     /// Every position he has been placed at, with his age then (topic 5.2).
     pub position_history: Vec<(u32, Position)>,
+    /// His depth-chart spot inside his position (fix list topic 3), and
+    /// every spot he has ever been listed at, as bits of `Spot`.
+    pub spot: crate::spots::Spot,
+    pub spots_played: u32,
     pub history: Vec<SeasonRecord>,
     /// Hidden game-day traits for the match engine (section 3).
     pub game: GameTraits,
@@ -397,6 +419,8 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
         personality,
         body,
         position_history: vec![(age, position)],
+        spot: crate::spots::spots_of(position)[0],
+        spots_played: crate::spots::spots_of(position)[0].bit(),
         history: Vec::new(),
         game: GameTraits::for_id(id),
     }

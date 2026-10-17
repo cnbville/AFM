@@ -4,9 +4,9 @@
 //! With `pbp`, prints the first game's play-by-play with its whys.
 
 extern crate afm_tools;
-use afm_engine::game::quick_game;
 use afm_engine::game::stats::PlayType;
 use afm_engine::game::synthetic::synthetic_league;
+use afm_engine::game::{Conditions, Venue, quick_game_in};
 use afm_engine::player::Level;
 use rayon::prelude::*;
 use serde_json::Value;
@@ -45,7 +45,19 @@ fn route_group(route: &str, air: f64) -> Option<usize> {
     })
 }
 
+/// The teams of game `g`: each matchup is played twice, once at each end,
+/// so team strength cancels out of the home margin.
+fn pair(g: usize) -> (usize, usize) {
+    let k = g / 2;
+    let h = (k * 7) % 32;
+    let a = (k * 13 + 5) % 32;
+    let a = if a == h { (a + 1) % 32 } else { a };
+    if g.is_multiple_of(2) { (h, a) } else { (a, h) }
+}
+
 fn main() {
+    // AFM_QBSTATS=1: how the quarterbacks chose their throws (debug).
+    let qb_stats = std::env::var("AFM_QBSTATS").is_ok();
     let args: Vec<String> = std::env::args().collect();
     let level = match args.get(1).map(|s| s.as_str()) {
         Some("fbs") => Level::FBS,
@@ -64,10 +76,16 @@ fn main() {
     let results: Vec<_> = (0..games)
         .into_par_iter()
         .map(|g| {
-            let h = (g * 7) % 32;
-            let a = (g * 13 + 5) % 32;
-            let a = if a == h { (a + 1) % 32 } else { a };
-            quick_game(&teams[h], &teams[a], level, seed as u64 * 1_000_003 + g as u64)
+            let (h, a) = pair(g);
+            // An average road trip: the crowd of an average FBS conference
+            // or NFL game (a 50,000-70,000 stadium) and about 500 miles and
+            // half a time zone of travel for the visitors.
+            let venue = Venue {
+                cond: Conditions { crowd: 0.65, ..Conditions::default() },
+                wear: [0.0, 0.012],
+                ..Venue::default()
+            };
+            quick_game_in(&teams[h], &teams[a], level, seed as u64 * 1_000_003 + g as u64, Default::default(), venue)
         })
         .collect();
     let secs = t0.elapsed().as_secs_f64();
@@ -94,9 +112,7 @@ fn main() {
         let mut carry = [0.0f64; 2];
         let mut nt = 0.0;
         for (g, r) in results.iter().enumerate() {
-            let h = (g * 7) % 32;
-            let a = (g * 13 + 5) % 32;
-            let a = if a == h { (a + 1) % 32 } else { a };
+            let (h, a) = pair(g);
             for (k, ti) in [h, a].into_iter().enumerate() {
                 let lines = &r.stats.players[k];
                 let team = &teams[ti];
@@ -163,10 +179,18 @@ fn main() {
     let mut fg = [[0.0f64; 2]; 4];
     let mut ay = [[0.0f64; 6]; 4];
     let mut by_cov = [[0.0f64; 3]; 2];
+    let pos_of: std::collections::HashMap<u32, afm_engine::positions::Position> =
+        teams.iter().flat_map(|t| t.players.iter().map(|p| (p.id, p.position))).collect();
+    let mut tgt_pos = [0.0f64; 4];
+    let mut emergencies = 0.0;
     // Targets by route group: [targets, catches, yards].
     let mut by_route = [[0.0f64; 5]; ROUTE_GROUPS.len()];
     let mut run_b = [0.0f64; 6];
     let mut cov_runs = std::collections::BTreeMap::<String, [f64; 5]>::new();
+    // Passing by the coverage called: [dropbacks, dropback EPA, sacks,
+    // targets, target EPA, completions].
+    let mut cov_pass = std::collections::BTreeMap::<String, [f64; 6]>::new();
+    let mut cov_route = std::collections::BTreeMap::<(String, usize), [f64; 3]>::new();
     let mut by_box = [[0.0f64; 2]; 3];
     let mut pts = Vec::new();
     let mut close = 0.0;
@@ -256,7 +280,20 @@ fn main() {
                     rz_td = true;
                 }
             }
+            emergencies += p.emergency as u8 as f64;
             let dropback = matches!(p.kind, PlayType::Pass | PlayType::Sack | PlayType::Scramble);
+            if dropback {
+                let cv = p.defense_call.split(',').next().unwrap_or("").to_string();
+                let e = cov_pass.entry(cv).or_insert([0.0; 6]);
+                e[0] += 1.0;
+                e[1] += p.epa;
+                e[2] += (p.kind == PlayType::Sack) as u8 as f64;
+                if p.kind == PlayType::Pass {
+                    e[3] += 1.0;
+                    e[4] += p.epa;
+                    e[5] += p.complete as u8 as f64;
+                }
+            }
             if (dropback || p.kind == PlayType::Run)
                 && p.down == 1
                 && p.quarter <= 3
@@ -305,11 +342,16 @@ fn main() {
                 *m.entry(if p.kind == PlayType::Kickoff { "return_td_ko" } else { "return_td_punt" }).or_default() +=
                     1.0;
             }
-            if p.interception && p.touchdown {
+            if p.interception && p.defense_td {
                 *m.entry("pick_six").or_default() += 1.0;
             }
         }
         for p in &s.plays {
+            for &(kind, _, _, _, accepted) in &p.penalties {
+                if accepted {
+                    *m.entry(kind.name()).or_default() += 1.0;
+                }
+            }
             if p.pressured && matches!(p.kind, PlayType::Pass | PlayType::Sack | PlayType::Scramble) {
                 *m.entry("pr_n").or_default() += 1.0;
                 *m.entry("pr_sack").or_default() += (p.kind == PlayType::Sack) as u8 as f64;
@@ -319,13 +361,32 @@ fn main() {
                 PlayType::Pass => {
                     if p.complete {
                         *m.entry("pass_td").or_default() += p.touchdown as u8 as f64;
+                        let band = if p.yardline_100 <= 5.0 {
+                            "ptd_5"
+                        } else if p.yardline_100 <= 20.0 {
+                            "ptd_20"
+                        } else {
+                            "ptd_far"
+                        };
+                        *m.entry(band).or_default() += p.touchdown as u8 as f64;
+                    }
+                    if p.yardline_100 <= 20.0 && !p.throw_away {
+                        *m.entry("rz_att").or_default() += 1.0;
+                        *m.entry("rz_comp").or_default() += p.complete as u8 as f64;
+                        *m.entry("rz_ptd").or_default() += (p.complete && p.touchdown) as u8 as f64;
                     }
                     if p.yards >= 20.0 {
                         *m.entry("explosive_pass").or_default() += 1.0;
                     }
                     *m.entry("air_yards").or_default() += p.air_yards;
                     *m.entry("ttt").or_default() += p.time_to_throw;
+                    *m.entry("ttt_u16").or_default() += (p.time_to_throw < 1.6) as u8 as f64;
+                    *m.entry("ttt_u25").or_default() += (p.time_to_throw < 2.5) as u8 as f64;
+                    *m.entry("ttt_o39").or_default() += (p.time_to_throw > 3.94) as u8 as f64;
                     *m.entry("drops").or_default() += p.drop as u8 as f64;
+                    if !p.complete && !p.interception && !p.drop && !p.throw_away {
+                        *m.entry(if p.pbu.is_some() { "inc_pbu" } else { "inc_off" }).or_default() += 1.0;
+                    }
                     *m.entry("throw_aways").or_default() += p.throw_away as u8 as f64;
                     if !p.throw_away {
                         // Real completion by air-yards band (nflverse 2021-2024).
@@ -358,11 +419,26 @@ fn main() {
                         by_route[g][2] += p.yards;
                         by_route[g][3] += p.air_yards;
                         by_route[g][4] += p.time_to_throw;
+                        let cv = p.defense_call.split(',').next().unwrap_or("").to_string();
+                        let e = cov_route.entry((cv, g)).or_insert([0.0; 3]);
+                        e[0] += 1.0;
+                        e[1] += p.complete as u8 as f64;
+                        e[2] += p.yards;
                     }
                     let cov = if p.coverage_man { 1 } else { 0 };
                     by_cov[cov][0] += 1.0;
                     by_cov[cov][1] += p.complete as u8 as f64;
                     by_cov[cov][2] += p.yards;
+                    if let Some(t) = p.target {
+                        use afm_engine::positions::Position as P;
+                        let k = match pos_of.get(&t) {
+                            Some(P::WR) => 0,
+                            Some(P::TE) => 1,
+                            Some(P::RB) => 2,
+                            _ => 3,
+                        };
+                        tgt_pos[k] += 1.0;
+                    }
                 }
                 PlayType::Run => {
                     *m.entry("rush_td").or_default() += p.touchdown as u8 as f64;
@@ -422,6 +498,19 @@ fn main() {
             if matches!(p.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble) {
                 *m.entry("epa").or_default() += p.epa;
                 *m.entry("success").or_default() += p.success() as u8 as f64;
+                // cfbfastR's success: half the distance on 1st down, 70% on
+                // 2nd, all of it on 3rd and 4th.
+                let need = match p.down {
+                    1 => 0.5,
+                    2 => 0.7,
+                    _ => 1.0,
+                };
+                let cfb_ok = !p.turnover && (p.touchdown || p.first_down || p.yards >= need * p.togo);
+                *m.entry("success_cfb").or_default() += cfb_ok as u8 as f64;
+                let k = if p.kind == PlayType::Run { "run" } else { "db" };
+                *m.entry(if k == "run" { "run_n" } else { "db_n" }).or_default() += 1.0;
+                *m.entry(if k == "run" { "run_epa" } else { "db_epa" }).or_default() += p.epa;
+                *m.entry(if k == "run" { "run_succ" } else { "db_succ" }).or_default() += p.success() as u8 as f64;
             }
         }
     }
@@ -441,6 +530,18 @@ fn main() {
     row("points", mean, real["points_per_team_game"].as_f64());
     row("points sd", sd, real["points_sd"].as_f64());
     row("games decided by <= 8", close / games as f64, real["share_games_decided_by_8_or_less"].as_f64());
+    // Home field (trial 4 topic 3): the same matchups at both ends, crowd
+    // 0.65. Real: NFL 2021-25 2.1 points (nfldata), FBS conference games
+    // 2.4, FCS 2.0 (CFBD 2014-25).
+    {
+        let m: Vec<f64> = results.iter().map(|r| (r.stats.team[0].points - r.stats.team[1].points) as f64).collect();
+        let hm = m.iter().sum::<f64>() / m.len() as f64;
+        let se = (m.iter().map(|x| (x - hm).powi(2)).sum::<f64>() / m.len() as f64).sqrt() / (m.len() as f64).sqrt();
+        let wins =
+            m.iter().filter(|&&x| x > 0.0).count() as f64 / m.iter().filter(|&&x| x != 0.0).count().max(1) as f64;
+        let target = if level == Level::NFL { 2.1 } else { 2.4 };
+        println!("{:<28} {:>9.3} {:>9.3}  (se {:.2}, home wins {:.3})", "home margin", hm, target, se, wins);
+    }
     row("plays", g("plays") / n, f("plays"));
     row("pass attempts", g("att") / n, f("att"));
     row("completions", g("cmp") / n, f("cmp"));
@@ -452,9 +553,40 @@ fn main() {
     row("fumbles lost", g("fumbles_lost") / n, f("fumbles_lost"));
     row("penalties", g("penalties") / n, f("penalties"));
     row("penalty yards", g("penalty_yards") / n, f("penalty_yards"));
+    // Accepted fouls by kind per team game: Claude's reading of the 2023
+    // season totals (nflpenalties.com), for diagnosis only. Kinds the engine
+    // folds together: offensive holding with offensive illegal hands;
+    // defensive holding with illegal contact and defensive illegal hands;
+    // unnecessary roughness with horse collars and taunting; illegal
+    // formation with shifts, motion, ineligible downfield and too many men;
+    // offside with neutral zone and encroachment.
+    for (k, real) in [
+        ("offensive holding", 1.26),
+        ("false start", 1.1),
+        ("pass interference", 0.42),
+        ("defensive holding", 0.65),
+        ("unnecessary roughness", 0.47),
+        ("roughing the passer", 0.15),
+        ("illegal block in the back", 0.28),
+        ("offside", 0.52),
+        ("delay of game", 0.26),
+        ("illegal formation", 0.6),
+        ("face mask", 0.18),
+        ("offensive pass interference", 0.17),
+        ("intentional grounding", 0.07),
+    ] {
+        row(&format!("  {k}"), g(k) / n, Some(real));
+    }
     row("third downs", g("third") / n, f("third"));
     row("fourth down tries", g("fourth_go") / n, f("fourth_go"));
     row("pass TD", g("pass_td") / n, f("pass_td"));
+    row("  from inside the 5", g("ptd_5") / n, None);
+    row("  from the 6 to the 20", g("ptd_20") / n, None);
+    row("  from outside the 20", g("ptd_far") / n, None);
+    // Red zone passing, Claude's reading of recent NFL seasons: about 53%
+    // completed and a touchdown on about 19% of attempts.
+    row("red zone completion", g("rz_comp") / g("rz_att"), Some(0.53));
+    row("red zone TD per attempt", g("rz_ptd") / g("rz_att"), Some(0.19));
     row("rush TD", g("rush_td") / n, f("rush_td"));
     row("scrambles", g("scrambles") / n, None);
     row("punts", g("punts") / n, None);
@@ -462,8 +594,10 @@ fn main() {
     row("pass rate 1st down neutral", g("neutral_pass") / g("neutral_plays").max(1.0), Some(0.50));
     row("clock per run play (all)", g("run_gap") / g("run_gap_n").max(1.0), None);
     row("clock per run play (Q1/Q3)", g("run_gap_q13") / g("run_gap_q13_n").max(1.0), Some(38.0));
-    row("red zone trips", g("rz") / n, Some(3.2));
-    row("red zone TD rate", g("rz_td") / g("rz").max(1.0), Some(0.56));
+    // engine_targets.json (nflverse 2021-25, a trip is a drive with a play
+    // at or inside the 20).
+    row("red zone trips", g("rz") / n, Some(3.98));
+    row("red zone TD rate", g("rz_td") / g("rz").max(1.0), Some(0.598));
     row("drives", g("drives") / n, Some(11.0));
     row("drive start (to goal)", g("drive_start") / g("drives").max(1.0), Some(70.5));
     row("drives starting in opp half", g("short_fields") / g("drives").max(1.0), None);
@@ -484,7 +618,10 @@ fn main() {
         row(k, g(k) / g("runs_all").max(1.0), Some(real));
     }
     row("kickoff returns", g("kr") / n, None);
-    row("kickoff return avg", g("kr_yds") / g("kr").max(1.0), Some(26.5));
+    // 2025 dynamic kickoff (touchback to the 35): 74.6% returned, 25.9 a
+    // return (engine_targets.json, red_zone_and_returns); the 2021-25 mix
+    // of rules is no target for one rule book.
+    row("kickoff return avg", g("kr_yds") / g("kr").max(1.0), Some(25.9));
     row("kickoff returns 40+", g("kr40") / g("kr").max(1.0), Some(0.05));
     row("punt returns", g("pr") / n, None);
     row("punt return avg", g("pr_yds") / g("pr").max(1.0), Some(9.5));
@@ -506,16 +643,33 @@ fn main() {
     row("explosive pass rate", g("explosive_pass") / g("att"), rr["explosive_pass_rate"].as_f64());
     row("success rate", g("success") / g("plays"), rr["success_rate"].as_f64());
     row("EPA per play", g("epa") / g("plays"), rr["epa_per_play"].as_f64());
+    // engine_targets.json: dropbacks success 0.454, EPA 0.029; designed runs
+    // about 0.41 and -0.05 (box-count rows weighted; runs here include QB
+    // keepers).
+    row("  dropback success", g("db_succ") / g("db_n"), Some(0.454));
+    row("  dropback EPA", g("db_epa") / g("db_n"), Some(0.029));
+    row("  run success", g("run_succ") / g("run_n"), Some(0.41));
+    row("  run EPA", g("run_epa") / g("run_n"), Some(-0.05));
     row("XP %", g("xp_made") / g("xp_att"), rr["xp_pct"].as_f64());
     row("punt gross", g("punt_gross") / g("punts"), rr["punt_gross"].as_f64());
     row("punt inside 20", g("punt_in20") / g("punts"), rr["punt_inside20_rate"].as_f64());
-    row("kickoff touchback", g("ko_tb") / g("kickoffs"), rr["kickoff_touchback_rate"].as_f64());
-    row("pressure rate", g("pressures") / g("dropbacks"), None);
-    row("time to throw", g("ttt") / g("att"), None);
-    row("sacks per pressure", g("pr_sack") / g("pr_n"), None);
-    row("completions per pressure", g("pr_comp") / g("pr_n"), None);
+    row("kickoff touchback", g("ko_tb") / g("kickoffs"), Some(0.22));
+    // FTN 2021-25 (engine_targets.json, dropbacks by pressure): pressured on
+    // 28.3% of dropbacks, 48.9% completed then; scrambles 4.9% of dropbacks.
+    // Time to throw (engine_targets.json): mean 2.71 s, p10 1.6, p50 2.5,
+    // p90 3.94; a pressured dropback ends in a sack 13.9% of the time.
+    row("pressure rate", g("pressures") / g("dropbacks"), Some(0.283));
+    row("scramble rate", g("scrambles") / g("dropbacks"), Some(0.049));
+    row("time to throw", g("ttt") / g("att"), Some(2.71));
+    row("  thrown under 1.6 s", g("ttt_u16") / g("att"), Some(0.1));
+    row("  thrown under 2.5 s", g("ttt_u25") / g("att"), Some(0.5));
+    row("  thrown after 3.94 s", g("ttt_o39") / g("att"), Some(0.1));
+    row("sacks per pressure", g("pr_sack") / g("pr_n"), Some(0.139));
+    row("completions per pressure", g("pr_comp") / g("pr_n"), Some(0.489));
     row("air yards per att", g("air_yards") / g("att"), None);
     row("drops per att", g("drops") / g("att"), None);
+    row("broken up per att", g("inc_pbu") / g("att"), None);
+    row("off target per att", g("inc_off") / g("att"), None);
     row("throw aways per att", g("throw_aways") / g("att"), None);
     row("yards before contact", g("ybc") / g("carries"), None);
     row("missed tackles per run", g("missed_tackles") / g("carries"), None);
@@ -579,6 +733,73 @@ fn main() {
         );
         row(&format!("share of runs, {name} in box"), by_box[k][0] / rn.max(1.0), None);
     }
+    let tt: f64 = tgt_pos.iter().sum::<f64>().max(1.0);
+    row("emergency snaps per game", emergencies / games as f64, None);
+    row("targets to WR", tgt_pos[0] / tt, Some(0.593));
+    row("targets to TE", tgt_pos[1] / tt, Some(0.219));
+    row("targets to RB", tgt_pos[2] / tt, Some(0.181));
+    row("targets to others", tgt_pos[3] / tt, None);
+    // Real EPA per target by coverage (NFL 2022-25, FTN charting pooled
+    // over routes, `targets_by_route_and_coverage`): no coverage gives up
+    // much more than another.
+    println!("passing by coverage          share  db EPA  sack   tgt EPA  real   catch");
+    let real_tgt = |k: &str| match k {
+        "Cover 0" => Some(0.171),
+        "Cover 1" => Some(0.179),
+        "Cover 2" => Some(0.149),
+        "Cover 3" => Some(0.190),
+        "Cover 4" => Some(0.158),
+        "2-man" => Some(0.134),
+        "Cover 6" => Some(0.179),
+        _ => None,
+    };
+    let dbs: f64 = cov_pass.values().map(|v| v[0]).sum::<f64>().max(1.0);
+    for (k, v) in &cov_pass {
+        println!(
+            "  {:<26} {:.3}  {:+.3}  {:.3}  {:+.3}  {}  {:.3}",
+            k,
+            v[0] / dbs,
+            v[1] / v[0].max(1.0),
+            v[2] / v[0].max(1.0),
+            v[4] / v[3].max(1.0),
+            real_tgt(k).map_or("  -   ".to_string(), |r| format!("{r:+.3}")),
+            v[5] / v[3].max(1.0)
+        );
+    }
+    if std::env::var("AFM_COVROUTE").is_ok() {
+        let tc = &et["targets_by_route_and_coverage"];
+        for (cov, key) in [("Cover 1", "COVER_1"), ("Cover 2", "COVER_2"), ("Cover 3", "COVER_3"), ("2-man", "2_MAN")] {
+            let tot: f64 =
+                (0..ROUTE_GROUPS.len()).map(|g| cov_route.get(&(cov.to_string(), g)).map_or(0.0, |v| v[0])).sum();
+            let mut rtot = 0.0;
+            for (_, keys) in ROUTE_GROUPS.iter() {
+                for k in keys.iter() {
+                    rtot += tc[*k][key]["n"].as_f64().unwrap_or(0.0);
+                }
+            }
+            println!("{cov}: route share real catch real ypt real");
+            for (g, (name, keys)) in ROUTE_GROUPS.iter().enumerate() {
+                let (mut n, mut c, mut y) = (0.0, 0.0, 0.0);
+                for k in keys.iter() {
+                    let r = &tc[*k][key];
+                    let rn = r["n"].as_f64().unwrap_or(0.0);
+                    n += rn;
+                    c += rn * r["catch"].as_f64().unwrap_or(0.0);
+                    y += rn * r["ypt"].as_f64().unwrap_or(0.0);
+                }
+                let v = cov_route.get(&(cov.to_string(), g)).copied().unwrap_or([0.0; 3]);
+                println!(
+                    "  {name:<22} {:.3} {:.3}  {:.3} {:.3}  {:5.2} {:5.2}",
+                    v[0] / tot.max(1.0),
+                    n / rtot.max(1.0),
+                    v[1] / v[0].max(1.0),
+                    c / n.max(1.0),
+                    v[2] / v[0].max(1.0),
+                    y / n.max(1.0)
+                );
+            }
+        }
+    }
     if std::env::var("AFM_LONG").is_ok() {
         for (k, v) in &cov_runs {
             println!(
@@ -594,5 +815,56 @@ fn main() {
     let fgr = &real["field_goal_pct_by_distance"];
     for (k, name) in ["under30", "30-39", "40-49", "50+"].iter().enumerate() {
         row(&format!("FG {name} (n={:.0})", fg[k][0]), fg[k][1] / fg[k][0].max(1.0), fgr[name]["pct"].as_f64());
+    }
+    // College levels: the real cfbfastR figures (2022-24) for the main rows.
+    if matches!(level, Level::FBS | Level::FCS) {
+        let cr: Value =
+            serde_json::from_str(include_str!("../../../../data/real-world/college_game_targets.json")).unwrap();
+        let d = &cr["divisions"][if level == Level::FBS { "fbs" } else { "fcs" }];
+        let (cp, cq) = (&d["per_team_game"], &d["rates"]);
+        println!("{:<28} {:>9} {:>9}", "college (cfbfastR)", "engine", "real");
+        row("points", mean, cp["final_score"].as_f64());
+        row("plays", g("plays") / n, cp["plays"].as_f64());
+        row("pass attempts", g("att") / n, cp["att"].as_f64());
+        row("carries", g("carries") / n, cp["carries"].as_f64());
+        row("rush yards", g("rush_yards") / n, cp["rush_yards"].as_f64());
+        row("pass TD", g("pass_td") / n, cp["pass_td"].as_f64());
+        row("rush TD", g("rush_td") / n, cp["rush_td"].as_f64());
+        row("sacks", g("sacks") / n, cp["sacks"].as_f64());
+        row("interceptions", g("int") / n, cp["int"].as_f64());
+        row("completion %", g("cmp") / g("att"), cq["completion_pct"].as_f64());
+        row("yards per attempt", g("pass_yards") / g("att"), cq["yards_per_attempt"].as_f64());
+        row("yards per carry", g("rush_yards") / g("carries"), cq["yards_per_carry"].as_f64());
+        row("pass rate", g("dropbacks") / g("plays"), cq["pass_rate"].as_f64());
+        row("third down conv", g("third_conv") / g("third"), cq["third_down_conversion"].as_f64());
+        row("explosive run rate", g("explosive_run") / g("carries"), cq["explosive_run_rate"].as_f64());
+        row("success rate (cfbfastR's)", g("success_cfb") / g("plays"), cq["success_rate"].as_f64());
+    }
+    if qb_stats {
+        let c: Vec<u64> =
+            afm_engine::game::scrimmage::QB_WHY.iter().map(|x| x.load(std::sync::atomic::Ordering::Relaxed)).collect();
+        let total = c.iter().sum::<u64>().max(1) as f64;
+        let names =
+            ["read 1", "read 2", "read 3", "read 4+", "any open late", "checkdown", "forced", "throwaway", "scramble"];
+        for (n, v) in names.iter().zip(&c) {
+            println!("  QB choice {n:<14} {:.3}", *v as f64 / total);
+        }
+        let cc: Vec<u64> = afm_engine::game::scrimmage::QB_WHY_COV
+            .iter()
+            .map(|x| x.load(std::sync::atomic::Ordering::Relaxed))
+            .collect();
+        for (ci, cn) in ["C0", "C1", "C2", "T2", "C3", "C4", "2M", "C6"].iter().enumerate() {
+            let row = &cc[ci * 9..ci * 9 + 9];
+            let t = row.iter().sum::<u64>().max(1) as f64;
+            let s: Vec<String> = row.iter().map(|v| format!("{:.3}", *v as f64 / t)).collect();
+            println!("  QB choice {cn}: {}", s.join(" "));
+        }
+        let sd: Vec<u64> = afm_engine::game::scrimmage::THROW_SD
+            .iter()
+            .map(|x| x.load(std::sync::atomic::Ordering::Relaxed))
+            .collect();
+        for (k, n) in ["under 10", "10-20", "over 20"].iter().enumerate() {
+            println!("  throw miss sd {n:<9} {:.2} yd", sd[2 * k] as f64 / 1000.0 / sd[2 * k + 1].max(1) as f64);
+        }
     }
 }

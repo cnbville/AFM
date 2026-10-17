@@ -89,7 +89,8 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
             "year": g.year, "div": g.division.name(), "home": g.teams[0], "away": g.teams[1],
             "score": g.score, "ot": g.overtime, "kr": [[g.kr[0].0, r1(g.kr[0].1)], [g.kr[1].0, r1(g.kr[1].1)]],
             "pr": [[g.pr[0].0, r1(g.pr[0].1)], [g.pr[1].0, r1(g.pr[1].1)]],
-            "stats": [team_stats(&g.stats[0]), team_stats(&g.stats[1])]
+            "stats": [team_stats(&g.stats[0]), team_stats(&g.stats[1])],
+            "tags": g.tags, "loud": g.loud, "emergency_snaps": g.emergency_snaps
         }));
     }
     counts.push(("games".into(), f.n));
@@ -263,9 +264,11 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
     let mut f = Lines::new(dir, "calendar_years.jsonl");
     for l in &w.log_history {
         f.put(json!({
-            "year": l.year, "college_games": l.games, "snow": l.snow_games, "rain": l.rain_games, "freezing": l.freezing_games,
+            // The warm-up years before the history (part B 23): checks read only the history.
+            "year": l.year, "spin_up": l.year < first, "college_games": l.games, "snow": l.snow_games, "rain": l.rain_games, "freezing": l.freezing_games,
             "lightning": l.lightning_delays, "moved": l.weather_moves, "cancelled": l.weather_cancels, "opt_outs": l.opt_outs,
             "bowl_practice_gain": r1(l.bowl_practice_gain), "four_game_redshirts": l.four_game_redshirts, "redshirt_tricks": l.redshirt_tricks,
+            "system_switches": l.system_switches, "fbs_systems": l.fbs_systems,
             "spring_notices": l.spring_notices, "spring_breakouts": l.spring_breakouts, "spring_fizzles": l.spring_fizzles,
             "hs_games": l.hs_games, "hs_forfeits": l.hs_forfeits, "hs_no_contests": l.hs_no_contests, "hs_grade_outs": l.hs_grade_outs,
             "hs_homecomings": l.hs_homecomings, "hs_senior_nights": l.hs_senior_nights, "hs_all_state": l.hs_all_state,
@@ -273,10 +276,12 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
             "flips": l.flips, "signed_early": l.signed_early, "signed_late": l.signed_late, "signed_by_division": l.signed_by_division,
             "official_visits": l.official_visits, "unofficial_visits": l.unofficial_visits, "drop_ins": l.drop_ins,
             "early_enrollees": l.early_enrollees, "declared": l.declared, "withdrew": l.withdrew, "portal_entries": l.portal_entries,
+            "declared_by_day": l.declared_by_day.iter().map(|(d, n)| json!([d.to_string(), n])).collect::<Vec<_>>(),
+            "withdrew_by_day": l.withdrew_by_day.iter().map(|(d, n)| json!([d.to_string(), n])).collect::<Vec<_>>(),
             "portal_by_day": l.portal_by_day.iter().map(|(d, n)| json!([d.to_string(), n])).collect::<Vec<_>>(),
             "portal_landed": l.portal_landed, "portal_returned": l.portal_returned, "whispers": l.whispers,
             "sit_out_transfers": l.sit_out_transfers, "spring_ineligible": l.spring_ineligible, "fall_ineligible": l.fall_ineligible,
-            "combine_invites": l.combine_invites, "all_star_invites": l.all_star_invites,
+            "combine_invites": l.combine_invites, "all_star_invites": l.all_star_invites, "all_star_declined": l.all_star_declined, "walk_on_scholarships": l.walk_on_scholarships, "tryouts": l.tryouts,
             "huge_by_team": l.huge_by_team.iter().map(|&(t, n)| json!([w.programs[t].real_name, n])).collect::<Vec<_>>(),
             "rule_changes": l.rule_changes, "nfl_games": l.nfl_games,
             "nfl_huge_by_team": l.nfl_huge_by_team.iter().enumerate().map(|(t, &n)| json!([w.nfl[t].name, n])).collect::<Vec<_>>(),
@@ -287,7 +292,7 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
     for (year, events) in &w.event_history {
         for e in events {
             f.put(json!({
-                "year": year, "date": e.when.date.to_string(), "min": e.when.minute, "level": format!("{:?}", e.level),
+                "year": year, "spin_up": *year < first, "date": e.when.date.to_string(), "min": e.when.minute, "level": format!("{:?}", e.level),
                 "kind": format!("{:?}", e.kind), "loud": format!("{:?}", e.loud), "rule": e.rule,
                 "nfl": e.nfl_team.map(|t| w.nfl[t].name), "program": e.program.map(|c| w.programs[c].real_name.as_str()),
                 "text": e.text, "memorable": e.memorable, "decision": e.needs_decision,
@@ -295,11 +300,101 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
         }
     }
     counts.push(("calendar events".into(), f.n));
+    // Every portal entrant (part B 19): days, programs, hold, first choice, return.
+    let mut f = Lines::new(dir, "portal.jsonl");
+    for r in &w.recruiting_log.portal {
+        f.put(json!({
+            "year": r.year, "id": r.id, "entered": r.entered.to_string(), "decided": r.decided.to_string(),
+            "held": r.held, "from": w.programs[r.from_program].real_name, "from_div": r.from.name(),
+            "to": r.to_program.map(|j| w.programs[j].real_name.as_str()), "to_div": r.to.map(|d| d.name()),
+            "role": r.role.map(|x| x.name()), "why": r.why, "fell_through": r.fell_through, "returned": r.returned,
+        }));
+    }
+    counts.push(("portal entrants".into(), f.n));
+    // High school seasons and state champions (part D 41).
+    let mut f = Lines::new(dir, "high_schools.jsonl");
+    for h in &w.high_schools {
+        if h.seasons.iter().all(|s| s.year < first) {
+            continue;
+        }
+        f.put(json!({
+            "id": h.id, "name": h.name, "state": STATE_CENTERS[h.state].0, "town": h.town, "class": h.classification,
+            "enrollment": h.enrollment, "private": h.private, "prestige": r2(h.prestige), "titles": h.state_titles,
+            "seasons": h.seasons.iter().filter(|s| s.year >= first).map(|s| json!([s.year, s.wins, s.losses, s.state_title])).collect::<Vec<_>>(),
+        }));
+    }
+    counts.push(("high schools".into(), f.n));
     let mut f = Lines::new(dir, "nfl_champions.jsonl");
     for &(year, t) in &w.nfl_champions {
         f.put(json!({"year": year, "team": w.nfl[t].name}));
     }
     counts.push(("nfl champions".into(), f.n));
+
+    // The career stats book (section 3, topic 8): every college season with
+    // its nonzero stats, footprint flags and headline percentiles.
+    use afm_engine::world::records::{self as rec, Stat};
+    let book = &w.stats;
+    let mut f = Lines::new(dir, "book_seasons.jsonl");
+    for r in &book.seasons {
+        let mut stats = serde_json::Map::new();
+        for &k in Stat::ALL {
+            let v = r.get(k);
+            if v != 0.0 {
+                stats.insert(k.key().to_string(), json!(r2(v)));
+            }
+        }
+        let pct: serde_json::Map<String, Value> = rec::headline_metrics(r.pos)
+            .iter()
+            .filter_map(|&m| Some((m.name().to_string(), json!(r2(book.percentile(r, m)?)))))
+            .collect();
+        f.put(json!({
+            "id": r.id, "year": r.year, "div": r.division.name(), "pos": r.pos.to_string(),
+            "program": w.programs[r.program as usize].real_name, "g": r.games, "sos": r1(r.sos as f64),
+            "footprint": rec::footprint_text(r), "pct": pct, "s": stats,
+        }));
+    }
+    counts.push(("book seasons".into(), f.n));
+    let mut f = Lines::new(dir, "record_books.jsonl");
+    let mut keys: Vec<_> = book.books.keys().collect();
+    keys.sort();
+    for key in keys {
+        let (scope, b) = key;
+        let (div, conf, state) = match scope {
+            rec::Scope::Division(d) => (d.name(), None, None),
+            rec::Scope::Conference(d, c) => (d.name(), Some(c.as_str()), None),
+            rec::Scope::State(s) => ("HS", None, Some(STATE_CENTERS[*s].0)),
+        };
+        let list = &book.books[key];
+        f.put(json!({
+            "div": div, "conference": conf, "state": state, "book": b.name(),
+            "entries": list.iter().map(|e| json!({
+                "value": r1(e.value), "id": e.id, "name": e.name, "program": w.programs.get(e.program).map(|p| p.real_name.as_str()),
+                "year": e.year, "from": e.from, "live": e.live,
+            })).collect::<Vec<_>>(),
+        }));
+    }
+    counts.push(("record books".into(), f.n));
+    let mut f = Lines::new(dir, "hall_of_fame.jsonl");
+    for h in &book.hall {
+        f.put(json!({
+            "year": h.year, "name": h.name, "coach": h.coach, "div": h.division.name(),
+            "programs": h.programs.iter().map(|&p| w.programs[p].real_name.as_str()).collect::<Vec<_>>(), "why": h.why,
+        }));
+    }
+    counts.push(("hall of fame".into(), f.n));
+    let mut f = Lines::new(dir, "coach_buzz.jsonl");
+    for b in &book.buzz {
+        f.put(json!({
+            "year": b.year, "coach": w.coaches[b.coach].name, "coach_id": b.coach, "program": w.programs[b.program].real_name,
+            "offense": b.offense, "pct": r2(b.pct), "gain": r2(b.gain), "why": b.why,
+        }));
+    }
+    counts.push(("coach buzz".into(), f.n));
+    let mut f = Lines::new(dir, "records_broken.jsonl");
+    for (year, d, b, name, v) in &book.broken {
+        f.put(json!({"year": year, "div": d.name(), "book": b.name(), "name": name, "value": r1(*v)}));
+    }
+    counts.push(("records broken".into(), f.n));
 
     let meta = json!({
         "seed": seed, "years": years, "first": first, "last": w.year - 1,

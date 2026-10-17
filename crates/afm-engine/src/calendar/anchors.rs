@@ -179,10 +179,12 @@ pub fn nfl_kickoff(y: i32) -> Date {
     labor_day(y).add(3)
 }
 
-/// Regular-season weeks in the NFL by season: 17 games from 2021.
+/// Regular-season weeks in the NFL by season: 16 games in 16 weeks to
+/// 1989 (no byes), a bye week from 1990, 17 games from 2021.
 pub fn nfl_regular_weeks(season: i32) -> usize {
     match season {
-        ..=1992 => 17,
+        ..=1989 => 16,
+        1990..=1992 => 17,
         1993 => 18,
         1994..=1998 => 17,
         1999..=2001 => 17,
@@ -192,8 +194,14 @@ pub fn nfl_regular_weeks(season: i32) -> usize {
 }
 
 /// Real Super Bowl dates before 2004, when the season's start moved around
-/// Labor Day weekend (seasons 1990-2003).
-const EARLY_SUPER_BOWLS: [(i32, (i32, u32, u32)); 14] = [
+/// Labor Day weekend (seasons 1984-2003).
+const EARLY_SUPER_BOWLS: [(i32, (i32, u32, u32)); 20] = [
+    (1984, (1985, 1, 20)),
+    (1985, (1986, 1, 26)),
+    (1986, (1987, 1, 25)),
+    (1987, (1988, 1, 31)),
+    (1988, (1989, 1, 22)),
+    (1989, (1990, 1, 28)),
     (1990, (1991, 1, 27)),
     (1991, (1992, 1, 26)),
     (1992, (1993, 1, 31)),
@@ -255,6 +263,101 @@ fn negotiating_window(season: i32, league_year_day: Date) -> Option<Moment> {
 /// before it from the 2009 season (Jan 31, 2010), none for the 2020 season
 /// (cancelled), and the Tuesday of Super Bowl week from the 2025 season (Feb
 /// 3, 2026; later years keep it, proposed, not confirmed).
+/// Events called off in a football year (part D 34): the Hall of Fame Game
+/// in 2011 (the lockout), 2016 (called off at the stadium: an unsafe field)
+/// and 2020 with that year's enshrinement (COVID-19), the All-American Bowl
+/// and the Shrine Bowl of January 2021 (football year 2020), and the 2021
+/// combine's workouts (medical checks only; from memory, to verify).
+pub fn cancelled(event: &str, season: i32) -> bool {
+    matches!(
+        (event, season),
+        ("Hall of Fame Game", 2011 | 2016 | 2020)
+            | ("Hall of Fame enshrinement", 2020)
+            | ("All-American Bowl", 2020)
+            | ("East-West Shrine Bowl", 2020)
+            | ("combine workouts", 2021)
+    )
+}
+
+/// The day the new league year opens (part D 33): February 1 before free
+/// agency, then the real days, which moved a week later in 2020-2023;
+/// from 2026 the second Wednesday of March. Days before 2012 from memory,
+/// to verify; the 1990s free agency opened on a mid-February Friday.
+fn league_year_day(s: i32) -> Date {
+    let (m, d) = match s {
+        ..=1992 => (2, 1),
+        1993 => (3, 1),
+        1994..=2000 => return Date::ymd(s, 2, 12).on_or_after(Weekday::Fri),
+        2001 => (3, 2),
+        2002 => (3, 1),
+        2003 => (2, 28),
+        2004 => (3, 3),
+        2005 => (3, 2),
+        2006 => (3, 11),
+        2007 => (3, 2),
+        2008 => (2, 29),
+        2009 => (2, 27),
+        2010 => (3, 5),
+        2011 => (3, 12),
+        2012 => (3, 13),
+        2013 => (3, 12),
+        2014 => (3, 11),
+        2015 => (3, 10),
+        2016 => (3, 9),
+        2017 => (3, 9),
+        2020 => (3, 18),
+        2021 => (3, 17),
+        2022 => (3, 16),
+        2023 => (3, 15),
+        _ => return Date::nth_weekday(s, 3, Weekday::Wed, 2),
+    };
+    Date::ymd(s, m, d)
+}
+
+/// The combine's last day: the second Tuesday of February before 2001,
+/// then nine days before the league year, except 2020 (Feb 24 to Mar 2,
+/// before the late league year).
+fn combine_end(s: i32, league_year_day: Date) -> Date {
+    match s {
+        ..=2000 => Date::nth_weekday(s, 2, Weekday::Tue, 2),
+        2020 => Date::ymd(2020, 3, 2),
+        _ => league_year_day.add(-9),
+    }
+}
+
+/// The All-American Bowl (high school, first played December 30, 2001):
+/// the first Saturday from January 3, later the second Saturday of
+/// January (January 11, 2025 and January 10, 2026; from memory, to verify).
+fn all_american_bowl(s: i32) -> Date {
+    match s {
+        2004 => Date::ymd(2005, 1, 15),
+        ..=2023 => Date::ymd(s + 1, 1, 3).on_or_after(Weekday::Sat),
+        _ => Date::nth_weekday(s + 1, 1, Weekday::Sat, 2),
+    }
+}
+
+/// The first College Football Playoff ranking (part D 32; from memory, to
+/// verify); before the playoff, the first Tuesday of November stands for
+/// the first BCS standings' weight in the race.
+fn first_cfp_ranking(s: i32) -> Date {
+    let (m, d) = match s {
+        2014 => (10, 28),
+        2015 => (11, 3),
+        2016 => (11, 1),
+        2017 => (10, 31),
+        2018 => (10, 30),
+        2019 => (11, 5),
+        2020 => (11, 17),
+        2021 => (11, 2),
+        2022 => (11, 1),
+        2023 => (10, 31),
+        2024 => (11, 5),
+        2025 => (11, 4),
+        _ => return Date::nth_weekday(s, 11, Weekday::Tue, 1),
+    };
+    Date::ymd(s, m, d)
+}
+
 fn pro_bowl(season: i32, sb: Date) -> Option<Date> {
     match season {
         ..=2008 => Some(sb.add(7)),
@@ -277,6 +380,26 @@ fn shrine_bowl(season: i32, sb: Date) -> Date {
 /// the later Super Bowl years (Feb 5, 2022 to Feb 1, 2025; Jan 31, 2026).
 fn senior_bowl(sb: Date) -> Date {
     sb.add(-8)
+}
+
+/// The first day of the two-day drafts before 1995 (from memory, to
+/// verify): Tuesday and Wednesday to 1987, Sunday and Monday from 1988.
+fn early_draft_day(year: i32) -> Option<Date> {
+    let (m, d) = match year {
+        1984 => (5, 1),
+        1985 => (4, 30),
+        1986 => (4, 29),
+        1987 => (4, 28),
+        1988 => (4, 24),
+        1989 => (4, 23),
+        1990 => (4, 22),
+        1991 => (4, 21),
+        1992 => (4, 26),
+        1993 => (4, 25),
+        1994 => (4, 24),
+        _ => return None,
+    };
+    Some(Date::ymd(year, m, d))
 }
 
 /// The college postseason format for a season.
@@ -315,15 +438,18 @@ impl YearDates {
         // March at 4pm ET (2026: March 11); the tag window opens 22 days
         // earlier and closes 8 days earlier (2026: Feb 17 to Mar 3); the
         // combine ends 9 days before the league year (2026: Feb 23 to Mar 2).
-        let league_year_day = Date::nth_weekday(s, 3, Weekday::Wed, 2);
+        let league_year_day = league_year_day(s);
         let league_year = Moment::at(league_year_day, 16, 0);
-        let combine_end = league_year_day.add(-9);
+        let combine_end = combine_end(s, league_year_day);
         let combine_start = combine_end.add(-7);
         // The draft: the fourth Thursday of April (2026: April 23-25, Pittsburgh).
-        // Before 2010 it was a Saturday-Sunday weekend draft.
+        // Before 2010 it was a Saturday-Sunday weekend draft, and before 1995
+        // a two-day draft on its own real days.
         let draft_thu = Date::nth_weekday(s, 4, Weekday::Thu, 4);
         let draft = if s >= 2010 {
             [Moment::at(draft_thu, 20, 0), Moment::at(draft_thu.add(1), 19, 0), Moment::at(draft_thu.add(2), 12, 0)]
+        } else if let Some(first) = early_draft_day(s) {
+            [Moment::at(first, 8, 0), Moment::at(first, 16, 0), Moment::at(first.add(1), 8, 0)]
         } else {
             let sat = draft_thu.add(2);
             [Moment::at(sat, 12, 0), Moment::at(sat, 18, 0), Moment::at(sat.add(1), 11, 0)]
@@ -362,7 +488,8 @@ impl YearDates {
         // first round Dec 18-19, quarterfinals Dec 30 and Jan 1, semifinals
         // Jan 14-15, the title game Monday Jan 25 in Las Vegas.
         let cfp_first = (selection.add(12), selection.add(13));
-        let qf = (Date::ymd(s, 12, 30), jan1);
+        // Quarterfinals: New Year's Eve and New Year's Day in 2024 and 2025.
+        let qf = if s <= 2025 { (Date::ymd(s, 12, 31), jan1) } else { (Date::ymd(s, 12, 30), jan1) };
         let semis_thu = jan1.add(13).on_or_after(Weekday::Thu);
         let (semis, title) = match fmt {
             CfbPostseason::TwelveTeam if s == 2024 => {
@@ -373,12 +500,29 @@ impl YearDates {
             }
             CfbPostseason::TwelveTeam => ((semis_thu, semis_thu.add(1)), semis_thu.add(11)),
             CfbPostseason::FourTeam => {
+                // The semifinals' real days (part D 32): both on one day,
+                // New Year's Eve, New Year's Day or the last Saturday of
+                // December (from memory, to verify).
                 let t = Date::ymd(s + 1, 1, 7).on_or_after(Weekday::Mon);
-                ((Date::ymd(s, 12, 31), jan1), t)
+                let day = match s {
+                    2014 | 2017 | 2020 | 2023 => jan1,
+                    2018 => Date::ymd(2018, 12, 29),
+                    2019 => Date::ymd(2019, 12, 28),
+                    _ => Date::ymd(s, 12, 31),
+                };
+                ((day, day), t)
             }
             CfbPostseason::Bcs => {
-                let t =
-                    if s >= 2006 { Date::ymd(s + 1, 1, 6).on_or_after(Weekday::Mon) } else { Date::ymd(s + 1, 1, 4) };
+                // The title game: the bowl's own day to 2005 (January 3 in
+                // 2000-2002), then a Monday, but a Thursday after the 2008
+                // and 2009 seasons (January 8, 2009 and January 7, 2010).
+                let t = match s {
+                    2008 => Date::ymd(2009, 1, 8),
+                    2009 => Date::ymd(2010, 1, 7),
+                    2006.. => Date::ymd(s + 1, 1, 6).on_or_after(Weekday::Mon),
+                    2000..=2002 => Date::ymd(s + 1, 1, 3),
+                    _ => Date::ymd(s + 1, 1, 4),
+                };
                 ((jan1, Date::ymd(s + 1, 1, 2)), t)
             }
             CfbPostseason::PollsOnly => ((jan1, Date::ymd(s + 1, 1, 2)), Date::ymd(s + 1, 1, 3)),
@@ -417,7 +561,7 @@ impl YearDates {
             start,
             super_bowl: sb,
             pro_bowl_prev: pro_bowl(s - 1, start.add(-1)).filter(|&d| d >= start),
-            tag_window_open: league_year_day.add(-22),
+            tag_window_open: league_year_day.add(-22).max(start.add(1)),
             tag_deadline: Moment::at(league_year_day.add(-8), 16, 0),
             combine_start,
             combine_end,
@@ -486,7 +630,7 @@ impl YearDates {
             conference_championships: ccg,
             army_navy,
             selection_day: selection,
-            first_cfp_ranking: Date::nth_weekday(s, 11, Weekday::Tue, 1),
+            first_cfp_ranking: first_cfp_ranking(s),
             heisman_finalists: ccg.add(3),
             awards_show: ccg.add(6),
             heisman: Date::nth_weekday(s, 12, Weekday::Sat, 2).max(ccg.add(7)),
@@ -526,11 +670,13 @@ impl YearDates {
             summer_enrollment: Date::nth_weekday(s, 6, Weekday::Mon, 1),
             hs_school_start: Date::nth_weekday(s, 8, Weekday::Mon, 2),
             junior_days: (Date::ymd(s, 2, 1).max(start), Date::ymd(s, 3, 31)),
-            all_american_bowl: Date::nth_weekday(s + 1, 1, Weekday::Sat, 2),
+            all_american_bowl: all_american_bowl(s),
             polynesian_bowl: Date::nth_weekday(s + 1, 1, Weekday::Sat, 3),
             official_visits_from: Date::ymd(s, 4, 1),
             shrine_bowl: shrine_bowl(s, sb),
-            hbcu_bowl: Date::last_weekday(s + 1, 1, Weekday::Sat).add(-7).max(title.add(5)),
+            // The HBCU Legacy Bowl: the last Saturday of February (Feb 26,
+            // 2022 to Feb 22, 2025).
+            hbcu_bowl: Date::last_weekday(s + 1, 2, Weekday::Sat),
             nflpa_bowl: Date::last_weekday(s + 1, 1, Weekday::Sat).add(-7).max(title.add(5)),
             senior_bowl: senior_bowl(sb),
         }

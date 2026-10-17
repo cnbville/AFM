@@ -1,7 +1,7 @@
 //! Debug tool: trace one snap. Usage: play_trace [run|pass|N concept index] [seed]
 
 use afm_engine::game::OffScheme;
-use afm_engine::game::flow::{trace_snap, trace_snap_opt};
+use afm_engine::game::flow::{trace_kickoff, trace_snap, trace_snap_opt};
 use afm_engine::game::playbook::*;
 use afm_engine::game::synthetic::synthetic_team;
 use afm_engine::player::Level;
@@ -52,6 +52,53 @@ fn main() {
             }
         }
     }
+    // `kickoff [seed] [n]`: n kickoffs by A to B, with where each lands, the
+    // return and the spot (one traced when n is left out).
+    if what == "kickoff" {
+        let n: u64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(0);
+        if n == 0 {
+            let (r, spot) = trace_kickoff(&a, &b, level, seed, true);
+            println!("{} | land {:.0} ret {:.1} spot {spot:.1}", r.why, 100.0 - r.kick_distance - 35.0, r.return_yards);
+            return;
+        }
+        let (mut tb, mut ret, mut yds, mut spot_sum, mut long) = (0, 0, 0.0, 0.0, 0);
+        let (mut td, mut first_td) = (0, None);
+        let mut ys = Vec::new();
+        for s in seed..seed + n {
+            let (r, spot) = trace_kickoff(&a, &b, level, s, false);
+            spot_sum += spot;
+            if r.touchback {
+                tb += 1;
+            } else if r.returner.is_some() {
+                ret += 1;
+                yds += r.return_yards;
+                ys.push(r.return_yards);
+                if r.return_yards >= 40.0 {
+                    long += 1;
+                }
+                if r.touchdown {
+                    td += 1;
+                    first_td.get_or_insert(s);
+                }
+            }
+        }
+        ys.sort_by(|a, b| a.total_cmp(b));
+        let q = |f: f64| ys.get(((ys.len() as f64 - 1.0) * f) as usize).copied().unwrap_or(0.0);
+        println!(
+            "touchback {:.3} returned {:.3} avg {:.1} (p10 {:.0} p50 {:.0} p90 {:.0}) 40+ {:.3} TD {:.4} (first seed {:?}) start {:.1}",
+            tb as f64 / n as f64,
+            ret as f64 / n as f64,
+            yds / ret.max(1) as f64,
+            q(0.1),
+            q(0.5),
+            q(0.9),
+            long as f64 / ret.max(1) as f64,
+            td as f64 / ret.max(1) as f64,
+            first_td,
+            spot_sum / n as f64
+        );
+        return;
+    }
     let kind = match what.as_str() {
         "run" => PlayKind::Run(RunConcept::InsideZone),
         "power" => PlayKind::Run(RunConcept::Power),
@@ -61,41 +108,37 @@ fn main() {
         "draw" => PlayKind::Run(RunConcept::Draw),
         "sneak" => PlayKind::Run(RunConcept::Sneak),
         "read" => PlayKind::Run(RunConcept::ZoneRead),
+        "duo" => PlayKind::Run(RunConcept::Duo),
+        "trap" => PlayKind::Run(RunConcept::Trap),
+        "iso" => PlayKind::Run(RunConcept::Iso),
+        "qbpower" => PlayKind::Run(RunConcept::QbPower),
+        "speed" => PlayKind::Run(RunConcept::SpeedOption),
+        "triple" => PlayKind::Run(RunConcept::TripleOption),
+        "jet" => PlayKind::Run(RunConcept::JetSweep),
+        "rpo" => PlayKind::Rpo(RunConcept::InsideZone, concept("RPO glance")),
         "pass" => PlayKind::Pass(4),
         s => PlayKind::Pass(s.parse().unwrap_or(0)),
     };
     // AFM_BASE=1: 12 personnel under center against a base defense.
     let base = std::env::var("AFM_BASE").is_ok();
     let (pers, bf) = if base { (Personnel::P12, Backfield::UnderCenter) } else { (Personnel::P11, Backfield::Shotgun) };
-    let call = OffCall {
-        formation: Formation { personnel: pers, backfield: bf, trips: false, strength: 1.0 },
-        kind,
-        dir: 1.0,
-        tempo: false,
-    };
-    // AFM_COV picks the coverage (0 Cover 0 .. 7 Cover 6), default Cover 3.
-    let covs = [
-        Coverage::Cover0,
-        Coverage::Cover1,
-        Coverage::Cover2,
-        Coverage::Tampa2,
-        Coverage::Cover3,
-        Coverage::Cover4,
-        Coverage::Cover2Man,
-        Coverage::Cover6,
-    ];
-    let cov = std::env::var("AFM_COV")
-        .ok()
-        .and_then(|v| v.parse::<usize>().ok())
-        .map(|k| covs[k % 8])
-        .unwrap_or(Coverage::Cover3);
+    // AFM_SET picks the set (0 doubles .. 5 wing), AFM_MOTION the motion
+    // (0 none, 1 jet, 2 orbit, 3 across, 4 shift).
+    let env_n = |k: &str| std::env::var(k).ok().and_then(|v| v.parse::<usize>().ok());
+    let sets = [Set::Doubles, Set::Trips, Set::Bunch, Set::Stack, Set::Empty, Set::Wing];
+    let motions = [Motion::None, Motion::Jet, Motion::Orbit, Motion::Across, Motion::Shift];
+    let mut formation = Formation::plain(pers, bf, 1.0);
+    formation.set = env_n("AFM_SET").map_or(Set::Doubles, |k| sets[k % sets.len()]);
+    formation.motion = env_n("AFM_MOTION")
+        .map_or(if kind == PlayKind::Run(RunConcept::JetSweep) { Motion::Jet } else { Motion::None }, |k| {
+            motions[k % motions.len()]
+        });
+    let dir = if kind == PlayKind::Run(RunConcept::JetSweep) { -1.0 } else { 1.0 };
+    let call = OffCall::new(formation, kind, dir, false);
+    // AFM_COV picks the coverage (0 Cover 0 .. 9 Cover 3 match), default Cover 3.
+    let cov = env_n("AFM_COV").map_or(Coverage::Cover3, |k| Coverage::ALL[k % COVERAGE_COUNT]);
     let pressure = if cov == Coverage::Cover0 { Pressure::DoubleA } else { Pressure::Four };
-    let dcall = DefCall {
-        personnel: if base { DefPersonnel::Base } else { DefPersonnel::Nickel },
-        coverage: cov,
-        pressure,
-        disguise: false,
-    };
+    let dcall = DefCall::new(if base { DefPersonnel::Base } else { DefPersonnel::Nickel }, cov, pressure);
     // A third argument sweeps that many seeds without the trace.
     if let Some(n) = args.get(3).and_then(|s| s.parse::<u64>().ok()) {
         let mut ys = Vec::new();

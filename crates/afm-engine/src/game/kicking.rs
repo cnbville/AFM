@@ -191,12 +191,21 @@ pub fn kickoff(
         res.duration = 2.5;
         return res;
     }
-    let max = leg(kicker, 44.0, 0.23, cond, along) + rng.normal(0.0, 3.0);
-    // Where he aims: the NFL's 2025 landing zone makes kickers drop it short
-    // of the goal line; elsewhere a big leg aims for a touchback.
+    // A real NFL kickoff leg carries about 70 yards (before 2024 most went
+    // five to nine yards deep from the 35); a college leg a few less, a high
+    // school one far less (proposed, not confirmed: was 44 + 0.23 per point,
+    // which put almost no kick in the end zone at any level).
+    let max = leg(kicker, 49.0, 0.23, cond, along) + rng.normal(0.0, 3.0);
+    // Where he aims: under the NFL's 2025 rule a kick into the end zone is a
+    // touchback to the 35, so most kickers drop it in the landing zone and
+    // make the return team bring it out (real 2025: 75% returned). A
+    // dangerous returner gets kicked away from more often (proposed, not
+    // confirmed). Elsewhere a big leg aims for a touchback.
     let aim = if rules.nfl_kickoff {
-        let deep = from - max;
-        if deep < -6.0 && rng.chance(0.55) { -4.0 } else { 3.0 + rng.range(0.0, 4.0) }
+        let r = &k.ret[k.ret_on[0]];
+        let danger = 0.5 * (r.a(Attr::Speed) + r.a(Attr::Elusiveness)) - 80.0;
+        let away = clamp(0.2 + 0.012 * danger, 0.08, 0.45);
+        if from - max < -1.0 && rng.chance(away) { -2.0 - rng.range(0.0, 5.0) } else { 2.0 + rng.range(0.0, 8.0) }
     } else if from - max < -2.0 {
         -5.0
     } else {
@@ -416,6 +425,52 @@ fn muff(p: &GamePlayer, cond: &Conditions, rng: &mut Rng) -> bool {
 /// A tracked return (topic 7): the returner catches at `catch`, his
 /// blockers set up, the coverage arrives from where it was when the ball
 /// came down, and the return plays out like any run.
+/// A return blocker on his assigned man: get between him and the ball and
+/// put hands on him. False once the man is down, blocked by someone else or
+/// past the returner, and the blocker goes back to walling off.
+fn block_man(sim: &mut Sim, i: usize, d: usize) -> bool {
+    let (me, dp, cp) = (sim.agents[i].pos, sim.agents[d].pos, sim.agents[0].pos);
+    if !sim.agents[d].up(sim.t) || sim.agents[d].engaged.is_some() || dp.x < cp.x - 1.0 {
+        return false;
+    }
+    if sim.closest(i, d) < 1.3 && sim.lands_block(i, d) {
+        sim.engage(i, d, false);
+        return true;
+    }
+    // Stay square in front of him, a few yards toward the ball, and let him
+    // come (a blocker who runs at a cover man in space whiffs); close the
+    // last yards matching his speed.
+    let vm = sim.agents[i].vmax;
+    // A man still getting started a few yards away (the 2025 NFL setup
+    // zone, five yards from the coverage): go get him before he builds
+    // speed and an angle, as on the line of scrimmage.
+    let want = if sim.agents[d].vel.len() < 4.0 && me.dist(dp) < 7.0 {
+        (dp - me).norm().scale(vm)
+    } else if me.dist(dp) > 3.0 {
+        // The first spot on his path to the ball that the blocker reaches
+        // before him.
+        let (path, len) = ((cp - dp).norm(), dp.dist(cp));
+        let vd = sim.agents[d].vel.len().max(sim.agents[d].vmax * 0.8);
+        // He wants to be there and set (feet under him) half a second
+        // before the man arrives, so he slows into the spot.
+        let mut k = 1.5;
+        while k < len && me.dist(dp + path.scale(k)) / vm + 0.5 > k / vd {
+            k += 1.0;
+        }
+        let set = dp + path.scale(k.min(len));
+        let gap = set.dist(me);
+        if gap > 0.3 { (set - me).norm().scale(vm.min(2.0 * gap)) } else { V2::default() }
+    } else {
+        // Set: only slide across to stay on his line to the ball.
+        let path = (cp - dp).norm();
+        let rel = me - dp;
+        let off = rel - path.scale(rel.dot(path));
+        off.scale(-3.0)
+    };
+    sim.steer(i, want);
+    true
+}
+
 #[allow(clippy::too_many_arguments)]
 fn run_return(
     k: &KickTeams,
@@ -456,7 +511,11 @@ fn run_return(
         } else {
             (cover_start - speed * run).max(catch.x + 5.0 + rng.range(0.0, 6.0))
         };
-        let y = if gap.is_some() && (n == 1 || n == 2) {
+        let y = if n == 0 {
+            // The kicker kicks from between the hashes and trails in the
+            // middle as the last man (it used to start him at the sideline).
+            MID + rng.range(-3.0, 3.0)
+        } else if gap.is_some() && (n == 1 || n == 2) {
             // Gunners close on the returner from either side.
             catch.y + if n == 1 { -4.5 } else { 4.5 } + rng.range(-2.0, 2.0)
         } else {
@@ -478,8 +537,19 @@ fn run_return(
             let lane = 6.0 + ((n - 1) as f64) * (WIDTH - 12.0) / 9.0;
             // NFL 2025: nine of the return team line up in the setup zone
             // (their 30 to 35) and may not move until the ball lands.
+            // Elsewhere the front line starts ten yards off the ball and drops
+            // to set the wall about 25 yards in front of the catch, the middle
+            // men 15, the up-back 8 (real return schemes; proposed, not
+            // confirmed: they all used to sit 8 to 16 yards in front).
             let x = if kickoff && rules.nfl_kickoff {
                 30.0 + rng.range(0.0, 5.0)
+            } else if kickoff {
+                let depth = match n {
+                    1 => 8.0 + rng.range(0.0, 4.0),
+                    2..=5 => 15.0 + rng.range(0.0, 5.0),
+                    _ => 23.0 + rng.range(0.0, 6.0),
+                };
+                catch.x + depth
             } else {
                 catch.x + 8.0 + rng.range(0.0, 8.0)
             };
@@ -500,7 +570,8 @@ fn run_return(
         rng,
         notes: Notes::default(),
         record: if record { Some(Vec::new()) } else { None },
-        cond: *cond,
+        // No silent count on kicks.
+        cond: Conditions { crowd: 0.0, ..*cond },
         crew: *crew,
         goal: 1.0,
         carrier_side: 0,
@@ -513,8 +584,12 @@ fn run_return(
         fight: Vec::new(),
         fight_since: 0.0,
         screen: None,
-        open_reach: 1.6,
+        // The same lunge in the open field as on a scrimmage play.
+        open_reach: OPEN_REACH,
         press: 0.0,
+        two_gap: false,
+        gap_run: None,
+        stunt: None,
     };
     // Reorder so the return team (side 0) comes first.
     let mut ret_agents: Vec<Agent> = agents.drain(ret_idx..).collect();
@@ -542,6 +617,37 @@ fn run_return(
     if let Some(i) = widest(&|a, b| a > b) {
         contain[i] = 1.0;
     }
+    // Kickoff return blocking is man to man: each blocker takes the cover
+    // man in his lane, counted from the outside in, as real return units
+    // are taught; the kicker is left for the returner. Punt returns keep
+    // the old rule (hold the gunners, then wall off).
+    // Two cover men, one on each side inside the contain men, are the
+    // safeties: they trail the first wave by about ten yards, so a returner
+    // who breaks the wall still has men to beat (real kickoff coverage; the
+    // first wave is eight). The two spare blockers double the first wave.
+    let mut man: Vec<Option<usize>> = vec![None; sim.agents.len()];
+    let mut safety = vec![false; sim.agents.len()];
+    if kickoff {
+        let mut blockers: Vec<usize> = (1..sim.agents.len()).filter(|&i| sim.agents[i].side == 0).collect();
+        let mut cover: Vec<usize> =
+            (0..sim.agents.len()).filter(|&i| sim.agents[i].side == 1 && sim.agents[i].label == "ST").collect();
+        blockers.sort_by(|&a, &b| sim.agents[a].pos.y.total_cmp(&sim.agents[b].pos.y));
+        cover.sort_by(|&a, &b| sim.agents[a].pos.y.total_cmp(&sim.agents[b].pos.y));
+        if cover.len() >= 8 {
+            let n = cover.len();
+            for k in [2, n - 3] {
+                safety[cover[k]] = true;
+            }
+            cover.retain(|&c| !safety[c]);
+        }
+        let (nb, nc) = (blockers.len(), cover.len());
+        for (j, &b) in blockers.iter().enumerate() {
+            man[b] = cover.get(j * nc / nb.max(1)).copied();
+        }
+    }
+    // How far in front of the returner each deep man holds: the safeties
+    // ten yards, the kicker fifteen (proposed, not confirmed).
+    let deep = |i: usize| if safety[i] { 10.0 } else { 15.0 };
     let ktrace = super::sim::TRACE.load(std::sync::atomic::Ordering::Relaxed);
     let mut buf = String::new();
     while sim.t < 12.0 && !sim.dead {
@@ -551,17 +657,51 @@ fn run_return(
             buf.push('\n');
         }
         sim.update_blocks(None, Some(0));
+        // Where the first wave is: the safeties trail it by about ten yards
+        // and the kicker sits behind them as the last man, so a returner
+        // who breaks the wall still meets two levels (real kickoff coverage).
+        let wave: Vec<f64> = (1..sim.agents.len())
+            .filter(|&i| sim.agents[i].side == 1 && !safety[i] && sim.agents[i].label == "ST")
+            .map(|i| sim.agents[i].pos.x)
+            .collect();
+        let wave_x = if wave.is_empty() { sim.agents[0].pos.x } else { wave.iter().sum::<f64>() / wave.len() as f64 };
         for i in 1..sim.agents.len() {
             if !sim.agents[i].up(sim.t) || sim.agents[i].engaged.is_some() {
                 continue;
             }
             match sim.agents[i].job {
-                Job::Escort => escort(&mut sim, i),
+                Job::Escort => {
+                    if !man[i].is_some_and(|d| block_man(&mut sim, i, d)) {
+                        escort(&mut sim, i)
+                    }
+                }
                 Job::Pursue => {
                     let (me, rp) = (sim.agents[i].pos, sim.agents[0].pos);
                     let ahead = me.x > rp.x + 1.0;
                     if contain[i] != 0.0 && ahead && me.dist(rp) > 4.0 {
                         let aim = v2(rp.x + 3.0, rp.y + contain[i] * 2.5);
+                        let vm = sim.agents[i].vmax;
+                        sim.steer(i, (aim - me).norm().scale(vm));
+                    } else if kickoff && (safety[i] || sim.agents[i].label == "K") && me.x - rp.x > deep(i) {
+                        // A safety or the kicker holds his level behind the
+                        // wave, shaded to the ball, until the returner is on
+                        // him; then he attacks with a deep angle.
+                        let level = (rp.x + deep(i)).max(wave_x + deep(i) - 3.0);
+                        let shade = if safety[i] { (lanes[i] - MID) * 0.3 } else { 0.0 };
+                        let aim = v2(level, rp.y + shade);
+                        let vm = sim.agents[i].vmax;
+                        let gap = (me.x - level).abs();
+                        sim.steer(i, (aim - me).norm().scale(vm.min(2.5 * gap + 2.0)));
+                    } else if kickoff && !lanes[i].is_nan() && me.x - rp.x > 20.0 {
+                        // Lane discipline: down the field in his lane, spread
+                        // across the ball, until he is about 20 yards from it,
+                        // so the return can't bounce to an empty side (real
+                        // coverage rules; the distance is sized against real
+                        // return averages, proposed, not confirmed).
+                        // His lane moves with the ball and narrows as he
+                        // closes, so the unit arrives spread across it.
+                        let squeeze = clamp((me.x - rp.x) / 35.0, 0.6, 1.0);
+                        let aim = v2(rp.x, rp.y + (lanes[i] - MID) * squeeze);
                         let vm = sim.agents[i].vmax;
                         sim.steer(i, (aim - me).norm().scale(vm));
                     } else {
