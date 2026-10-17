@@ -87,3 +87,28 @@ Plays and tactics pushed NFL scoring to 32.2 points (real 22.5) and kickoff retu
 - The move-back rule (3.9) left 8 retired quarterbacks with three or more seasons in the class sim, with a median last age of 28.5 against 27 for backs. An unsigned quarterback now waits longer for a call (every team carries two or three): median 31 (proposed, not confirmed size).
 - Under the House limit the world test found Power 4 rosters under 105. Three causes, all fixed: the class plan didn't count recruits who signed in an earlier period and hadn't enrolled; walk-ons signed before the January portal window took places the portal should have; and the 2024-25 walk-ons the settlement names as designated student-athletes counted against the limit (real: they never do). Under the limit a class now fills what the plan leaves with walk-ons in the final period (proposed, not confirmed).
 - With the rosters fixed, the test found 5 FBS head jobs still open in March. A head search after the regular season is now a sprint: FBS 2-10 days, FCS 5-21 (real January searches: Michigan 2 days in 2024, Washington 2, Arizona 5, San Jose State 4; proposed, not confirmed sizes).
+
+## Step 6: section 5 in the world (`docs/design/team-management.md`)
+
+The world's living NFL for every AI team; the manager's own screens come with section 8. The class sim (`career.rs`) keeps its own pro model.
+
+| Item | What | Status |
+|---|---|---|
+| Part B 39: franchises by era | `world/franchise.rs`: 28 teams to 1994, Carolina and Jacksonville in 1995, the Browns' move to Baltimore in 1996 with Cleveland dark until 1999, Houston in 2002 and the eight divisions; every name, city, division and roof on its real dates; expansion drafts; draft rounds and order by era | built |
+| Topic 1: pros as people | `world/pro/`: every pro a person from high school and college; the league filled at the start with generated veterans spread like a real roster; drafted and undrafted players join and stay people; era roster limits, practice squad, game-day actives, IR by era | built |
+| NFL games on the engine | `pro/games.rs`: actives from the depth chart, the staff's calling and installed systems, the stadium's weather; preseason by era; box score onto each player's season | built |
+| Pro development and retirement | Snaps against real opponents drive pro growth; the unsigned veteran's weekly choice; retirement by position and age | built |
+| Topic 2: contract value | `pro/money.rs` and `market.rs` `worth`: the cap by year, minimums, real contract parts (base, proration, guarantees, roster, workout and per-game bonuses, incentives, void years), dead money, the rookie scale from 2011 and the rookie pool before it; each team prices a player through its GM's biases, scheme fit, age curve and need | built |
+| Topic 3: agents | `market.rs` `Agent`: agencies big and small, skill and honesty, client lists, standing with each team; players hire and fire them | built |
+| Topic 4: negotiations | The player's hidden ideal package, offers scored part by part, the perfect offer signs at once, 85% opens a 7-day window, bluffs, verbal agreements wait for the league year | built |
+| Topic 5: free agency | UFA at 4 accrued seasons, RFA at 3, ERFA below; tags from 1993 with repeat prices; RFA tenders and offer sheets with a 5-day match; the tampering window from 2013; Plan B before 1993; fifth-year options; rookie extensions after the third season from 2011; holdouts and hold-ins; restructures, cap casualties and June 1 designations (A1, A2); waivers and claims; reserve/future deals; the cash floor; comp picks by the real method (`pro/trades.rs`) | built |
+| Topic 6: trades | `pro/trades.rs`: each GM's pick chart (classic or surplus), player value over his remaining years minus his cost, windows from the league year to the deadline, dead money to the trading team, a physical can void a deal, shopping rumors | built |
+| Topic 7: AI front offices | `pro/office.rs`: GM style and hidden biases, owner traits and meddling (draft overrides, pet players), fan mood, contend or rebuild each year | built |
+| Topic 8: scheme fit | Fit to the staff's installed systems in each team's price | built |
+| Other pro leagues | `pro/leagues.rs`: CFL, USFL, Arena, World League and NFL Europe allocations, XFL, UFL, AAF on their real dates; the International Player Pathway from 2017 | built |
+| A1-A8 contract dates | Roster bonus due dates, June 1, workout bonuses, camp report day, hold-ins, the RFA deadline, per-game bonuses, the incentive cut-off | built |
+| A15 and NFL records | `pro/honors.rs`: Pro Bowl, All-Pro, season awards, Super Bowl MVP, the NFL record book from the real 1983 marks, the Pro Football Hall of Fame vote | built |
+| Part D 30, 35, 36 | Christmas games by the real count per season; flexes only for a losing night-game team and a better game; prime-time games capped per team | built |
+| Part D 31 | Roster limits and cutdowns by era | built |
+| Part D 37, 38 | Combine invites: the draftable players plus about 60 more; undrafted signings sized by the room left on rosters | built |
+| Part B 21 | Pro seasons in the export (`raw.rs`: pros, market, trades, clubs, honors, agents) and an NFL section in the trial report | built |

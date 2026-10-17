@@ -14,8 +14,9 @@
 
 use super::coach::TitleKind;
 use super::news::{Channel, NewsItem, NewsKind};
+use super::pro::games::{self as pro_games, Fixture, Side};
 use super::season::{key_normal, key_uniform};
-use super::{World, recruiting, staff};
+use super::{World, franchise, recruiting, staff};
 use crate::calendar::{Date, Event, Kind, Level, Loudness, Moment, Weekday, YearDates};
 
 /// Win odds per standard deviation of roster strength (a logit), per point
@@ -33,6 +34,8 @@ pub(crate) struct NflSeason {
     /// Conference (0 AFC, 1 NFC) and division (0-7, AFC East first) per team.
     pub conf: Vec<usize>,
     pub div: Vec<usize>,
+    /// Whether each franchise plays this season.
+    pub active: Vec<bool>,
     /// Each week's games, (home, away).
     pub weeks: Vec<Vec<(usize, usize)>>,
     pub wins: Vec<u32>,
@@ -134,29 +137,28 @@ impl Window {
     }
 }
 
-/// Conference and division of each team, from the real alignment.
+/// No conference or division: a franchise that doesn't play this season.
+const NONE: usize = 99;
+
+/// Conference and division of each team that season, from the real
+/// alignment of the year (see `franchise`).
 fn alignment(w: &World) -> (Vec<usize>, Vec<usize>) {
-    let rows = &*super::data::NFL_TEAMS;
     let n = w.nfl.len();
-    let mut conf = vec![0; n];
-    let mut div = vec![0; n];
+    let mut conf = vec![NONE; n];
+    let mut div = vec![NONE; n];
     for t in 0..n {
-        let name = w.nfl[t].name;
-        let row = rows.iter().find(|r| r.name == name).or_else(|| rows.get(t));
-        let (c, d) = row.map_or((t / 16, (t / 4) % 4), |r| {
-            let c = if r.conference == "AFC" { 0 } else { 1 };
-            let d = match r.division.as_str() {
-                "East" => 0,
-                "North" => 1,
-                "South" => 2,
-                _ => 3,
-            };
-            (c, d)
-        });
-        conf[t] = c;
-        div[t] = c * 4 + d;
+        if let Some((c, d)) = franchise::alignment(t, w.year) {
+            conf[t] = c;
+            div[t] = d;
+        }
     }
     (conf, div)
+}
+
+/// The team's row in the 2026 team table (market, home state), by franchise.
+fn team_row(t: usize) -> Option<&'static super::data::NflTeamRow> {
+    let name = crate::league::NFL_TEAM_NAMES.get(t)?;
+    super::data::NFL_TEAMS.iter().find(|r| r.name == *name)
 }
 
 /// A new football year: last season's order and places carry over.
@@ -182,7 +184,9 @@ pub(crate) fn new_season(w: &World) -> NflSeason {
         }
         pro_days.push((p.id, d));
     }
+    let active: Vec<bool> = div.iter().map(|&d| d != NONE).collect();
     let ticket_days = (0..n)
+        .filter(|&t| active[t])
         .map(|t| {
             let k = (key_uniform(seed ^ 0x544B, t as u64) * 60.0) as i32;
             (t, Date::ymd(year, 3, 1).add(k))
@@ -192,6 +196,7 @@ pub(crate) fn new_season(w: &World) -> NflSeason {
         year,
         conf,
         div,
+        active,
         wins: vec![0; n],
         losses: vec![0; n],
         ties: vec![0; n],
@@ -346,11 +351,246 @@ fn opponent_formula(s: &NflSeason, season: i32, games: u32) -> Vec<(usize, usize
     out
 }
 
+/// The season's games before the 2002 realignment, with three divisions a
+/// conference of four to six teams (proposed, not confirmed: the real
+/// formula's shape, not its exact rotation): home and away against the
+/// division, four games against the other conference (a division in
+/// rotation, same-place teams first), and the rest against the
+/// conference's other divisions, same-place teams first. Home and away
+/// even out over the season.
+fn old_formula(s: &NflSeason, season: i32, games: u32, seed: u64) -> Vec<(usize, usize)> {
+    let n = s.div.len();
+    let teams: Vec<usize> = (0..n).filter(|&t| s.active[t]).collect();
+    let size = |d: usize| teams.iter().filter(|&&t| s.div[t] == d).count() as i32;
+    let mut out = Vec::new();
+    for &a in &teams {
+        for &b in &teams {
+            if a != b && s.div[a] == s.div[b] {
+                out.push((a, b));
+            }
+        }
+    }
+    let mut met = vec![vec![false; n]; n];
+    for &(a, b) in &out {
+        met[a][b] = true;
+    }
+    let mut need: Vec<i32> =
+        (0..n).map(|t| if s.active[t] { (games as i32 - 2 * (size(s.div[t]) - 1)).max(0) } else { 0 }).collect();
+    // East, Central and West as 0, 1 and 2 within each conference.
+    let slot = |d: usize| match d % 4 {
+        0 => 0,
+        1 => 1,
+        _ => 2,
+    };
+    let rot = season.rem_euclid(3) as usize;
+    let cost = |a: usize, b: usize| -> f64 {
+        let place = (s.prev_place[a] as f64 - s.prev_place[b] as f64).abs();
+        let jitter = key_uniform(seed ^ 0x0F0F, (a.min(b) as u64) << 8 ^ a.max(b) as u64);
+        let other = if s.conf[a] == s.conf[b] {
+            0.0
+        } else {
+            let (x, y) =
+                if s.conf[a] == 0 { (slot(s.div[a]), slot(s.div[b])) } else { (slot(s.div[b]), slot(s.div[a])) };
+            if (x + rot) % 3 == y { 0.0 } else { 1.0 }
+        };
+        other + 0.3 * place + 0.5 * jitter
+    };
+    let mut edges: Vec<(usize, usize)> = Vec::new();
+    // Four against the other conference, the rest inside it, then anyone
+    // still short plays whoever is left.
+    let phases: [(fn(&NflSeason, usize, usize) -> bool, bool); 3] =
+        [(|s, a, b| s.conf[a] != s.conf[b], true), (|s, a, b| s.conf[a] == s.conf[b], false), (|_, _, _| true, false)];
+    for (allowed, capped) in phases {
+        let mut q: Vec<i32> = need.iter().map(|&x| if capped { x.min(4) } else { x }).collect();
+        let before = q.clone();
+        quota_match(&mut q, &mut met, &mut edges, |a, b| allowed(s, a, b), &cost);
+        for t in 0..n {
+            need[t] -= before[t] - q[t];
+        }
+    }
+    // Home and away: the side with fewer home games so far hosts, then
+    // lopsided teams swap games until no swap helps.
+    let mut bal = vec![0i32; n];
+    let mut sided: Vec<(usize, usize)> = Vec::with_capacity(edges.len());
+    for &(a, b) in &edges {
+        let flip = key_uniform(seed ^ 0x4A, (a as u64) << 8 ^ b as u64) < 0.5;
+        let (h, v) = if bal[a] < bal[b] || (bal[a] == bal[b] && flip) { (a, b) } else { (b, a) };
+        bal[h] += 1;
+        bal[v] -= 1;
+        sided.push((h, v));
+    }
+    for _ in 0..50 {
+        let mut changed = false;
+        for g in sided.iter_mut() {
+            let (h, v) = *g;
+            if bal[h] - bal[v] > 2 {
+                *g = (v, h);
+                bal[h] -= 2;
+                bal[v] += 2;
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    out.extend(sided);
+    out
+}
+
+/// Pairs teams up to each one's quota of games: the team with the most
+/// games still to place takes its cheapest allowed partner. When none is
+/// left, it takes the place of one side of a pairing already made and the
+/// other side goes to a team still short; when even that fails, the rest
+/// of its quota passes to the next phase.
+fn quota_match(
+    q: &mut [i32],
+    met: &mut [Vec<bool>],
+    edges: &mut Vec<(usize, usize)>,
+    allowed: impl Fn(usize, usize) -> bool,
+    cost: &impl Fn(usize, usize) -> f64,
+) {
+    let n = q.len();
+    let start = edges.len();
+    let link = |met: &mut [Vec<bool>], a: usize, b: usize, on: bool| {
+        met[a][b] = on;
+        met[b][a] = on;
+    };
+    loop {
+        let Some(x) = (0..n).filter(|&t| q[t] > 0).max_by_key(|&t| (q[t], n - t)) else { break };
+        let y = (0..n)
+            .filter(|&y| y != x && q[y] > 0 && allowed(x, y) && !met[x][y])
+            .min_by(|&a, &b| cost(x, a).total_cmp(&cost(x, b)));
+        if let Some(y) = y {
+            link(met, x, y, true);
+            edges.push((x, y));
+            q[x] -= 1;
+            q[y] -= 1;
+            continue;
+        }
+        let mut fixed = false;
+        'swap: for e in start..edges.len() {
+            let (a, b) = edges[e];
+            if a == x || b == x {
+                continue;
+            }
+            for (u, v) in [(a, b), (b, a)] {
+                if !allowed(x, u) || met[x][u] {
+                    continue;
+                }
+                let z = (0..n)
+                    .find(|&z| z != u && z != v && q[z] > 0 && (z != x || q[x] >= 2) && allowed(z, v) && !met[z][v]);
+                if let Some(z) = z {
+                    link(met, a, b, false);
+                    edges.swap_remove(e);
+                    link(met, x, u, true);
+                    link(met, z, v, true);
+                    edges.push((x, u));
+                    edges.push((z, v));
+                    q[x] -= 1;
+                    q[z] -= 1;
+                    fixed = true;
+                    break 'swap;
+                }
+            }
+        }
+        if !fixed {
+            q[x] = 0;
+        }
+    }
+}
+
+/// Spreads a season with no bye weeks (before 1990): every team plays every
+/// week, so each week is a perfect matching of the games left, found by a
+/// keyed search that starts over when the last weeks can't be paired.
+fn round_weeks(games: &[(usize, usize)], n: usize, n_weeks: usize, seed: u64) -> Option<Vec<Vec<(usize, usize)>>> {
+    for attempt in 0..300u64 {
+        let mut left = games.to_vec();
+        let mut weeks = Vec::with_capacity(n_weeks);
+        for k in 0..n_weeks {
+            let Some(mut pick) = perfect_week(&left, n, seed ^ attempt << 24 ^ (k as u64) << 8) else { break };
+            pick.sort_unstable_by(|a, b| b.cmp(a));
+            weeks.push(pick.iter().map(|&g| left.swap_remove(g)).collect());
+        }
+        if weeks.len() == n_weeks && left.is_empty() {
+            return Some(weeks);
+        }
+    }
+    None
+}
+
+/// One week in which every team with games left plays one of them, or None.
+fn perfect_week(left: &[(usize, usize)], n: usize, key: u64) -> Option<Vec<usize>> {
+    let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
+    for (g, &(a, b)) in left.iter().enumerate() {
+        adj[a].push(g);
+        adj[b].push(g);
+    }
+    for (t, list) in adj.iter_mut().enumerate() {
+        list.sort_by(|&x, &y| key_uniform(key ^ t as u64, x as u64).total_cmp(&key_uniform(key ^ t as u64, y as u64)));
+    }
+    let mut used: Vec<bool> = adj.iter().map(|a| a.is_empty()).collect();
+    let mut pick = Vec::new();
+    let mut budget = 5000u32;
+    fn other(g: (usize, usize), t: usize) -> usize {
+        if g.0 == t { g.1 } else { g.0 }
+    }
+    fn go(
+        left: &[(usize, usize)],
+        adj: &[Vec<usize>],
+        used: &mut [bool],
+        pick: &mut Vec<usize>,
+        budget: &mut u32,
+    ) -> bool {
+        // The open team with the fewest open games goes first.
+        let mut best: Option<(usize, usize)> = None;
+        for t in 0..used.len() {
+            if used[t] {
+                continue;
+            }
+            let c = adj[t].iter().filter(|&&g| !used[other(left[g], t)]).count();
+            if best.is_none_or(|b| c < b.1) {
+                best = Some((t, c));
+            }
+        }
+        let Some((t, c)) = best else { return true };
+        if c == 0 || *budget == 0 {
+            return false;
+        }
+        *budget -= 1;
+        for &g in &adj[t] {
+            let o = other(left[g], t);
+            if used[o] {
+                continue;
+            }
+            used[t] = true;
+            used[o] = true;
+            pick.push(g);
+            if go(left, adj, used, pick, budget) {
+                return true;
+            }
+            pick.pop();
+            used[t] = false;
+            used[o] = false;
+        }
+        false
+    }
+    go(left, &adj, &mut used, &mut pick, &mut budget).then_some(pick)
+}
+
 /// Spreads the games over the weeks, one game a team a week, with byes
 /// between weeks 4 and 14 (a keyed search; any byes are allowed if it fails).
 fn assign_weeks(games: &[(usize, usize)], n: usize, n_weeks: usize, seed: u64) -> Vec<Vec<(usize, usize)>> {
+    // With an odd number of teams someone sits every week, so byes can't
+    // all fall in weeks 4-14.
+    let mut playing = vec![false; n];
+    for &(a, b) in games {
+        playing[a] = true;
+        playing[b] = true;
+    }
+    let even = playing.iter().filter(|&&p| p).count() % 2 == 0;
     for attempt in 0..400u64 {
-        let strict = attempt < 300;
+        let strict = attempt < 300 && even;
         let mut left: Vec<(usize, usize)> = games.to_vec();
         let mut weeks: Vec<Vec<(usize, usize)>> = Vec::with_capacity(n_weeks);
         let mut ok = true;
@@ -475,6 +715,9 @@ pub(crate) fn day(w: &mut World, d: Date) {
         // The Super Bowl teams' coordinators are free to go now.
         staff::carousel(w, staff::Scope::NflHires);
     }
+    // The pros' own day: the league year, free agency, camp, cutdowns,
+    // the street and the season's end (section 5).
+    super::pro::day(w, d);
 }
 
 fn post(w: &mut World, d: Date, kind: Kind, loud: Loudness, rule: &'static str, text: impl Into<String>) {
@@ -900,13 +1143,11 @@ fn league_meeting(w: &mut World, d: Date) {
 /// confirmed: the cities without a team that real bids have named.
 fn relocate(w: &mut World, d: Date, rng: &mut crate::rng::Rng) {
     const CITIES: [&str; 6] = ["San Antonio", "St. Louis", "San Diego", "Portland", "Salt Lake City", "Oakland"];
-    let rows = &*super::data::NFL_TEAMS;
     let t = (0..w.nfl.len())
+        .filter(|&t| franchise::active(t, w.year))
         .max_by(|&a, &b| {
-            let ka =
-                rows.iter().find(|r| r.name == w.nfl[a].name).map_or(16, |r| r.market_rank) as f64 - w.nfl[a].owner;
-            let kb =
-                rows.iter().find(|r| r.name == w.nfl[b].name).map_or(16, |r| r.market_rank) as f64 - w.nfl[b].owner;
+            let ka = team_row(a).map_or(16, |r| r.market_rank) as f64 - w.nfl[a].owner;
+            let kb = team_row(b).map_or(16, |r| r.market_rank) as f64 - w.nfl[b].owner;
             ka.total_cmp(&kb)
         })
         .unwrap_or(0);
@@ -953,8 +1194,18 @@ fn build_schedule(w: &mut World, d: Date) {
         None => {
             // 1987's schedule was drawn for 16 games before the strike
             // cancelled week 3 (never made up).
-            let list = opponent_formula(s, season, games.max(16));
-            s.weeks = assign_weeks(&list, n, n_weeks, seed);
+            let drawn = games.max(16);
+            let list = if franchise::eight_divisions(season) {
+                opponent_formula(s, season, drawn)
+            } else {
+                old_formula(s, season, drawn, seed)
+            };
+            // Before 1990 there were no byes: every team played every week.
+            s.weeks = if n_weeks <= drawn as usize {
+                round_weeks(&list, n, n_weeks, seed).unwrap_or_else(|| assign_weeks(&list, n, n_weeks, seed))
+            } else {
+                assign_weeks(&list, n, n_weeks, seed)
+            };
             if season == 1987 && s.weeks.len() > 2 {
                 s.weeks[2].clear();
             }
@@ -973,7 +1224,7 @@ fn build_schedule(w: &mut World, d: Date) {
             playing[b] = true;
         }
         for t in 0..n {
-            if !playing[t] && s.byes[t].is_none() {
+            if s.active[t] && !playing[t] && s.byes[t].is_none() {
                 s.byes[t] = sundays.get(k).copied();
             }
         }
@@ -1142,21 +1393,19 @@ fn international_sites(season: i32) -> Vec<(&'static str, Weekday, u16, u16)> {
 /// international games, western teams hosting in the late afternoon.
 fn formula_slots(w: &mut World, season: i32, seed: u64) {
     let y = w.dates.clone();
-    let rows = &*super::data::NFL_TEAMS;
     let n = w.nfl.len();
     let appeal: Vec<f64> = (0..n)
         .map(|t| {
-            let row = rows.iter().find(|r| r.name == w.nfl[t].name);
-            let market = row.map_or(16, |r| r.market_rank) as f64;
+            let market = team_row(t).map_or(16, |r| r.market_rank) as f64;
             let place = w.nfl_season.as_ref().unwrap().prev_place.get(t).copied().unwrap_or(2) as f64;
             0.6 * (3.0 - place) + 1.5 * (1.0 - (market - 1.0) / 31.0)
         })
         .collect();
     let west: Vec<bool> = (0..n)
         .map(|t| {
-            rows.iter().find(|r| r.name == w.nfl[t].name).is_some_and(|r| {
-                matches!(w.states[r_state(w, &r.state)].code.as_str(), "CA" | "WA" | "AZ" | "NV" | "CO")
-            })
+            let state = franchise::era(t, season.min(franchise::PRESENT)).map(|e| e.state);
+            let state = state.or_else(|| team_row(t).map(|r| r.state.as_str()));
+            state.is_some_and(|st| matches!(st, "CA" | "WA" | "AZ" | "NV" | "CO"))
         })
         .collect();
     let champ = w.nfl_champions.last().map(|c| c.1);
@@ -1207,6 +1456,9 @@ fn formula_slots(w: &mut World, season: i32, seed: u64) {
         }
     }
     let mut slots: Vec<Vec<Slot>> = Vec::with_capacity(n_weeks);
+    // Standalone prime-time games per team (part D 36, N61): at most five
+    // on the schedule as released (real cap, from memory, to verify).
+    let mut prime = vec![0u32; s.wins.len()];
     for k in 0..n_weeks {
         let sun = y.nfl_weeks[k];
         let games = s.weeks[k].clone();
@@ -1226,6 +1478,7 @@ fn formula_slots(w: &mut World, season: i32, seed: u64) {
                 .filter(|&g| !taken[g] && pred(&games[g]))
                 .max_by(|&a, &b| score(&games[a]).total_cmp(&score(&games[b])).then(b.cmp(&a)))
         };
+        let open = |g: &(usize, usize)| prime[g.0] < PRIME_CAP && prime[g.1] < PRIME_CAP;
         // International games first: a team goes abroad once a year. The
         // Bills host in Toronto, division rivals included.
         if let Some(i) = abroad_week[k] {
@@ -1287,18 +1540,22 @@ fn formula_slots(w: &mut World, season: i32, seed: u64) {
             // Thursday night (on a Thursday Christmas, the Christmas games
             // are the week's Thursday games).
             let tnf = (season >= 2012 || (2006..=2011).contains(&season) && k >= 9) && y.christmas != sun.add(-3);
-            if tnf && let Some(g) = best(&taken, &|g| s.div[g.0] == s.div[g.1]).or_else(|| best(&taken, &|_| true)) {
+            if tnf
+                && let Some(g) = best(&taken, &|g| s.div[g.0] == s.div[g.1] && open(g))
+                    .or_else(|| best(&taken, &open))
+                    .or_else(|| best(&taken, &|_| true))
+            {
                 set(&mut taken, g, Moment::at(sun.add(-3), 20, 15), Window::ThursdayNight, None);
             }
         }
         // Christmas Day games on a weekday of the week (2016 on). On a
         // Monday Christmas the night game is Monday Night Football.
         let xmas = y.christmas;
-        let weekday_xmas = season >= 2016 && xmas != sun && xmas >= sun.add(-4) && xmas <= sun.add(1);
+        let n_xmas = christmas_games(season);
+        let weekday_xmas = n_xmas > 0 && xmas != sun && xmas >= sun.add(-4) && xmas <= sun.add(1);
         if weekday_xmas {
-            let times =
-                if season >= 2020 { [(13, 0), (16, 30), (20, 15)].as_slice() } else { [(16, 30), (20, 15)].as_slice() };
-            for &(h, m) in times {
+            let all = [(13, 0), (16, 30), (20, 15)];
+            for &(h, m) in &all[3 - n_xmas.min(3)..] {
                 if let Some(g) = best(&taken, &|_| true) {
                     set(&mut taken, g, Moment::at(xmas, h, m), Window::Christmas, None);
                 }
@@ -1311,9 +1568,8 @@ fn formula_slots(w: &mut World, season: i32, seed: u64) {
         let snf = if season >= 2006 { (20, 20) } else { (20, 15) };
         let sunday_xmas = xmas == sun;
         if sunday_xmas {
-            let early = if season >= 2020 { [(13, 0)].as_slice() } else { [].as_slice() };
-            let late = if season == 2011 { [].as_slice() } else { [(16, 30)].as_slice() };
-            for &(h, m) in early.iter().chain(late).chain([&snf]) {
+            let all = [(13, 0), (16, 30), snf];
+            for &(h, m) in &all[3 - n_xmas.min(3)..] {
                 if let Some(g) = best(&taken, &|_| true) {
                     set(&mut taken, g, Moment::at(xmas, h, m), Window::Christmas, None);
                 }
@@ -1331,13 +1587,13 @@ fn formula_slots(w: &mut World, season: i32, seed: u64) {
         }
         // Sunday night, then Monday night (none in the last week; on a
         // Christmas Sunday or Monday, the Christmas night game is it).
-        if !sunday_xmas && let Some(g) = best(&taken, &|_| true) {
+        if !sunday_xmas && let Some(g) = best(&taken, &open).or_else(|| best(&taken, &|_| true)) {
             set(&mut taken, g, Moment::at(sun, snf.0, snf.1), Window::SundayNight, None);
         }
         if k < last && !(weekday_xmas && xmas == sun.add(1)) {
             let mnf = if k == 0 && (2006..=2021).contains(&season) { 2 } else { 1 };
             for j in 0..mnf {
-                if let Some(g) = best(&taken, &|_| true) {
+                if let Some(g) = best(&taken, &open).or_else(|| best(&taken, &|_| true)) {
                     let (h, m) = if mnf == 2 && j == 1 {
                         (22, 20)
                     } else if mnf == 2 {
@@ -1367,6 +1623,14 @@ fn formula_slots(w: &mut World, season: i32, seed: u64) {
             set(&mut taken, g, at, window, None);
         }
         slots.push(slot.into_iter().map(|x| x.unwrap()).collect());
+        if season >= 2006 {
+            for (g, sl) in slots.last().unwrap().iter().enumerate() {
+                if matches!(sl.window, Window::SundayNight | Window::MondayNight | Window::ThursdayNight) {
+                    prime[games[g].0] += 1;
+                    prime[games[g].1] += 1;
+                }
+            }
+        }
     }
     s.slots = slots;
 }
@@ -1376,8 +1640,20 @@ fn capitalize(text: &str) -> String {
     c.next().map_or(String::new(), |f| f.to_uppercase().collect::<String>() + c.as_str())
 }
 
-fn r_state(w: &World, code: &str) -> usize {
-    w.states.iter().position(|st| st.code == code).unwrap_or(0)
+/// The most standalone prime-time games a team is scheduled for.
+const PRIME_CAP: u32 = 5;
+
+/// Christmas Day games by season (part D 30, N35): the real number each
+/// year (2016-2025 from the schedules; earlier years from memory, to
+/// verify), three a year after 2025 (proposed, not confirmed).
+fn christmas_games(season: i32) -> usize {
+    match season {
+        1989 | 1995 | 2000 | 2009 | 2010 | 2011 | 2020 => 1,
+        2005 | 2006 | 2016 | 2017 | 2021 | 2024 => 2,
+        2022 | 2023 | 2025 => 3,
+        s if s > 2025 => 3,
+        _ => 0,
+    }
 }
 
 /// Flexible scheduling (T2): twelve days before a Sunday (six before the
@@ -1414,7 +1690,27 @@ fn flex(w: &mut World, d: Date, y: &YearDates) {
     else {
         return;
     };
-    if value(&games[best]) < value(&games[night]) + 2.0 {
+    // Only a night game that lost its stakes is flexed out (part D 35,
+    // N60: real about one to four a season): a team in it is out of the
+    // race (well under .500 this late).
+    let played = (s.wins[games[night].0] + s.losses[games[night].0] + s.ties[games[night].0]).max(1) as f64;
+    let dead = |t: usize| wins(t) / played < 0.4;
+    if !(dead(games[night].0) || dead(games[night].1)) || value(&games[best]) < value(&games[night]) + 2.0 {
+        return;
+    }
+    // A flex can't push a team past six standalone prime-time games.
+    let prime = |t: usize| {
+        s.slots
+            .iter()
+            .zip(&s.weeks)
+            .flat_map(|(sl, wk)| sl.iter().zip(wk))
+            .filter(|(sl, g)| {
+                (g.0 == t || g.1 == t)
+                    && matches!(sl.window, Window::SundayNight | Window::MondayNight | Window::ThursdayNight)
+            })
+            .count()
+    };
+    if prime(games[best].0) >= 6 || prime(games[best].1) >= 6 {
         return;
     }
     let (h, a) = games[best];
@@ -1444,12 +1740,14 @@ fn flex(w: &mut World, d: Date, y: &YearDates) {
 /// roster.
 fn win_totals(w: &mut World, d: Date) {
     let games = w.rules.nfl_games as f64;
-    let s: Vec<f64> = w.nfl.iter().map(|t| t.strength()).collect();
-    let mean = s.iter().sum::<f64>() / s.len().max(1) as f64;
-    let sd = (s.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / s.len().max(1) as f64).sqrt().max(0.5);
+    let teams: Vec<usize> = (0..w.nfl.len()).filter(|&t| franchise::active(t, w.year)).collect();
+    let s: Vec<(usize, f64)> = teams.iter().map(|&t| (t, w.nfl[t].strength())).collect();
+    let m = s.len().max(1) as f64;
+    let mean = s.iter().map(|x| x.1).sum::<f64>() / m;
+    let sd = (s.iter().map(|x| (x.1 - mean).powi(2)).sum::<f64>() / m).sqrt().max(0.5);
     // A line sits on the half win nearest what the roster should win.
     let mut v: Vec<(f64, usize)> =
-        s.iter().enumerate().map(|(t, x)| (((0.5 + 0.13 * (x - mean) / sd) * games).floor() + 0.5, t)).collect();
+        s.iter().map(|&(t, x)| (((0.5 + 0.13 * (x - mean) / sd) * games).floor() + 0.5, t)).collect();
     v.sort_by(|a, b| b.0.total_cmp(&a.0));
     let line = |x: &(f64, usize)| format!("{} {:.1}", w.nfl[x.1].name, x.0);
     let top: Vec<String> = v.iter().take(3).map(line).collect();
@@ -1465,10 +1763,13 @@ fn kickoff(w: &mut World, d: Date) {
     if w.nfl_season.as_ref().unwrap().weeks.is_empty() {
         build_schedule(w, d);
     }
+    let active = w.nfl_season.as_ref().unwrap().active.clone();
     let strength: Vec<f64> = w.nfl.iter().map(|t| t.strength()).collect();
-    let mean = strength.iter().sum::<f64>() / n as f64;
-    let sd = (strength.iter().map(|s| (s - mean).powi(2)).sum::<f64>() / n as f64).sqrt().max(0.5);
-    let z: Vec<f64> = strength.iter().map(|s| (s - mean) / sd).collect();
+    let on: Vec<f64> = (0..n).filter(|&t| active[t]).map(|t| strength[t]).collect();
+    let m = on.len().max(1) as f64;
+    let mean = on.iter().sum::<f64>() / m;
+    let sd = (on.iter().map(|s| (s - mean).powi(2)).sum::<f64>() / m).sqrt().max(0.5);
+    let z: Vec<f64> = (0..n).map(|t| if active[t] { (strength[t] - mean) / sd } else { 0.0 }).collect();
     let staff: Vec<f64> = w.nfl.iter().map(|t| (t.coaching - 13.0) / 2.5).collect();
     let s = w.nfl_season.as_mut().unwrap();
     s.z = z;
@@ -1523,9 +1824,32 @@ fn play_day(w: &mut World, d: Date) {
     }
     let seed_of = |k: usize| w.options.seed as u64 ^ (w.year as u64) << 24 ^ (k as u64) << 10 ^ 0x4E47;
     let seeds: Vec<u64> = todays.iter().map(|&(k, _)| seed_of(k)).collect();
+    // On the match engine (section 5): each game is played out.
+    let outcomes = {
+        let s = w.nfl_season.as_ref().unwrap();
+        let fixtures: Vec<Fixture> = todays
+            .iter()
+            .zip(&seeds)
+            .map(|(&(k, g), &seed)| {
+                let (h, a) = s.weeks[k][g];
+                let x = &s.slots[k][g];
+                let loud = if x.window.prime() { 0.04 } else { 0.0 };
+                Fixture {
+                    home: h,
+                    away: a,
+                    at: x.at,
+                    neutral: x.site.is_some(),
+                    loud,
+                    seed: seed ^ (h as u64) << 8 ^ a as u64,
+                }
+            })
+            .collect();
+        engine_games(w, &fixtures)
+    };
+    let mut played: Vec<([usize; 2], [f64; 2])> = Vec::new();
     let mut shown: Vec<(usize, usize, Slot)> = Vec::new();
     let s = w.nfl_season.as_mut().unwrap();
-    for (&(k, g), seed) in todays.iter().zip(seeds) {
+    for (n, (&(k, g), seed)) in todays.iter().zip(seeds).enumerate() {
         let (h, a) = s.weeks[k][g];
         let field = if s.slots[k][g].site.is_some() { 0.0 } else { HOME };
         let key = (h as u64) << 8 ^ a as u64;
@@ -1533,9 +1857,17 @@ fn play_day(w: &mut World, d: Date) {
         let pe = 1.0 / (1.0 + (-(PER_SD * (s.z[h] - s.z[a]) + field)).exp());
         s.expect[h] += pe;
         s.expect[a] += 1.0 - pe;
-        let u = key_uniform(seed, key);
+        // The engine's score, or the stand-in's draw.
+        let (u, p, tie) = match &outcomes[n] {
+            Some((r, _)) => {
+                let [x, y] = r.stats.score;
+                played.push(([h, a], [s.z[a], s.z[h]]));
+                (if x > y { 0.0 } else { 1.0 }, 0.5, x == y)
+            }
+            None => (key_uniform(seed, key), p, key_uniform(seed ^ 0x7E, key) < TIE),
+        };
         let same_div = s.div[h] == s.div[a];
-        if key_uniform(seed ^ 0x7E, key) < TIE {
+        if tie {
             s.ties[h] += 1;
             s.ties[a] += 1;
         } else {
@@ -1552,6 +1884,12 @@ fn play_day(w: &mut World, d: Date) {
         }
         s.slots[k][g].played = true;
     }
+    let mut it = played.into_iter();
+    for o in outcomes.iter().flatten() {
+        if let Some((teams, z)) = it.next() {
+            pro_games::record(w, teams, &o.0, &o.1, z);
+        }
+    }
     w.log.nfl_games += todays.len() as u32;
     // The national windows and the games abroad make the news.
     for (wn, l, x) in shown {
@@ -1567,6 +1905,16 @@ fn play_day(w: &mut World, d: Date) {
             post(w, d, Kind::News, Loudness::Small, "betting (A45)", format!("Week {} lines open.", k + 2));
         }
     }
+}
+
+/// NFL games on the match engine once the world plays its games there
+/// (`WorldOptions::engine_from`); None for each game on the stand-in.
+fn engine_games(w: &World, games: &[Fixture]) -> Vec<Option<(crate::game::GameResult, [Side; 2])>> {
+    let on = w.options.engine_from.is_none_or(|from| w.year >= from) && !w.clubs.is_empty();
+    if !on {
+        return games.iter().map(|_| None).collect();
+    }
+    pro_games::play(w, games)
 }
 
 /// The stakes test for NFL games (topic 8): in the last four weeks a game
@@ -1662,7 +2010,7 @@ fn black_monday(w: &mut World, d: Date) {
         return;
     }
     let s = s.clone();
-    for t in 0..n {
+    for t in (0..n).filter(|&t| s.active[t]) {
         let games = (s.wins[t] + s.losses[t] + s.ties[t]).max(1);
         let share = (s.wins[t] as f64 + 0.5 * s.ties[t] as f64) / games as f64;
         let vs = share - s.expect[t] / games as f64;
@@ -1712,6 +2060,8 @@ fn black_monday(w: &mut World, d: Date) {
     s.seed = seed;
     s.booked = true;
     w.log.nfl_huge_by_team = s.huge.clone();
+    super::pro::honors::season_honors(w, d);
+    super::pro::black_monday(w);
     post(
         w,
         d,
@@ -1735,7 +2085,19 @@ fn play_round(w: &mut World, round: u32, d: Date) {
     let (a, b) = (s.alive[0].first().copied(), s.alive[1].first().copied());
     let (Some(a), Some(b)) = (a, b) else { return };
     let p = win_prob(&s, a, b, 0.0);
-    let a_wins = key_uniform(seed, (a as u64) << 8 ^ b as u64) < p;
+    let at = Moment::at(d, 18, 30);
+    let game = engine_games(w, &[Fixture { home: a, away: b, at, neutral: true, loud: 0.0, seed: seed ^ 0x5B }]);
+    let a_wins = match game.first().and_then(|g| g.as_ref()) {
+        Some((r, sides)) => {
+            pro_games::record(w, [a, b], r, sides, [s.z[b], s.z[a]]);
+            let [x, y] = r.stats.score;
+            let won = if x == y { key_uniform(seed, (a as u64) << 8 ^ b as u64) < p } else { x > y };
+            let (side, champ) = if won { (0, a) } else { (1, b) };
+            super::pro::honors::super_bowl_mvp(w, r, &sides[side], side, champ, d);
+            won
+        }
+        None => key_uniform(seed, (a as u64) << 8 ^ b as u64) < p,
+    };
     let (champ, loser) = if a_wins { (a, b) } else { (b, a) };
     s.out_round[champ] = 5;
     s.out_round[loser] = 4;
@@ -1815,6 +2177,25 @@ fn play_round_games(w: &mut World, d: Date) {
     let mut s = s.clone();
     let mut results = Vec::new();
     let mut left = Vec::new();
+    let today: Vec<_> = s.round_games.iter().filter(|g| g.4.date == d).copied().collect();
+    let fixtures: Vec<Fixture> = today
+        .iter()
+        .map(|&(round, c, hi, lo, at)| {
+            let seed = w.options.seed as u64 ^ (w.year as u64) << 24 ^ (round as u64) << 4 ^ 0x504F ^ c as u64;
+            Fixture { home: hi, away: lo, at, neutral: false, loud: 0.1, seed: seed ^ (hi as u64) << 8 ^ lo as u64 }
+        })
+        .collect();
+    let outcomes = engine_games(w, &fixtures);
+    let mut engine: Vec<(usize, usize, bool)> = Vec::new();
+    for (g, o) in today.iter().zip(&outcomes) {
+        if let Some((r, sides)) = o {
+            pro_games::record(w, [g.2, g.3], r, sides, [s.z[g.3], s.z[g.2]]);
+            let [x, y] = r.stats.score;
+            if x != y {
+                engine.push((g.2, g.3, x > y));
+            }
+        }
+    }
     for g in std::mem::take(&mut s.round_games) {
         let (round, c, hi, lo, at) = g;
         if at.date != d {
@@ -1823,7 +2204,10 @@ fn play_round_games(w: &mut World, d: Date) {
         }
         let seed = w.options.seed as u64 ^ (w.year as u64) << 24 ^ (round as u64) << 4 ^ 0x504F;
         let p = win_prob(&s, hi, lo, HOME);
-        let hi_wins = key_uniform(seed ^ c as u64, (hi as u64) << 8 ^ lo as u64) < p;
+        let hi_wins = match engine.iter().find(|e| e.0 == hi && e.1 == lo) {
+            Some(e) => e.2,
+            None => key_uniform(seed ^ c as u64, (hi as u64) << 8 ^ lo as u64) < p,
+        };
         let (wn, l) = if hi_wins { (hi, lo) } else { (lo, hi) };
         s.out_round[l] = round;
         s.round_next[c].push(wn);
@@ -1849,10 +2233,10 @@ fn play_round_games(w: &mut World, d: Date) {
 
 /// The draft order the season sets: teams out of the playoffs by record,
 /// worst first, then playoff teams by the round they went out in, the Super
-/// Bowl loser 31st and the champion 32nd.
+/// Bowl loser next to last and the champion last.
 fn order_from(s: &NflSeason) -> Vec<usize> {
     let n = s.wins.len();
-    let mut v: Vec<usize> = (0..n).collect();
+    let mut v: Vec<usize> = (0..n).filter(|&t| s.active[t]).collect();
     v.sort_by(|&a, &b| {
         let ra = (s.out_round[a], record_key(s, a));
         let rb = (s.out_round[b], record_key(s, b));

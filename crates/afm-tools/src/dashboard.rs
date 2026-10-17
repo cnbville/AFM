@@ -8,7 +8,7 @@ use afm_engine::world::coach::Group;
 use afm_engine::world::data::Division;
 use afm_engine::world::game_log::{GameSummary, PlayerSeason};
 use afm_engine::world::geo::STATE_CENTERS;
-use afm_engine::world::{Alumnus, World};
+use afm_engine::world::World;
 use serde_json::{Value, json};
 
 fn r1(x: f64) -> f64 {
@@ -36,9 +36,28 @@ fn college_stats(w: &World, id: u32) -> Vec<Value> {
 }
 
 /// A full player page: every attribute with its hidden ceiling, body and
-/// combine, season-by-season ratings, coaches, college stats and the story.
-pub fn card(w: &World, a: &Alumnus, tag: &str) -> Value {
-    let p = a.player.as_ref().unwrap();
+/// combine, season-by-season ratings, coaches, college stats, the pro
+/// career (deal, seasons, honors) and the story. A pro still playing is read
+/// from the living person, so the page runs to today.
+pub fn card(w: &World, k: usize, tag: &str) -> Value {
+    let a = &w.alumni[k];
+    let live = w.people.iter().find(|q| q.pro.as_ref().and_then(|c| c.alumnus) == Some(k));
+    let p = live.map_or_else(|| a.player.as_deref().unwrap(), |q| &q.player);
+    let notes = live.map_or(&a.notes, |q| &q.notes);
+    let pro = live.and_then(|q| q.pro.as_deref()).or(a.pro.as_deref()).map(|c| {
+        crate::raw::pro_row(
+            w,
+            p.id,
+            &a.name,
+            p.position.name(),
+            p.age,
+            p.overall(),
+            debug::potential(p),
+            c,
+            &[],
+            live.is_some(),
+        )
+    });
     let ceil = debug::ceilings(p);
     let attrs: Vec<Value> = afm_engine::attributes::Attr::ALL
         .iter()
@@ -92,9 +111,9 @@ pub fn card(w: &World, a: &Alumnus, tag: &str) -> Value {
         "path": a.colleges.iter().map(|&c| format!("{} ({})", w.programs[c].real_name, w.programs[c].division.name())).collect::<Vec<_>>().join(" -> "),
         "pick": a.pick, "year": a.year, "class_of": a.class_of, "juco": a.juco,
         "round": a.pick.map(|pk| afm_engine::career::draft_round(pk, 257)),
-        "overall": a.overall.round(), "potential": debug::alumnus_potential(a).round(),
+        "overall": p.overall().round(), "potential": debug::alumnus_potential(a).round(),
         "visibility": (debug::alumnus_visibility(a) * 100.0).round() / 100.0,
-        "background": a.background_summary, "notes": a.notes,
+        "background": a.background_summary, "notes": notes, "pro": pro,
         "personality": {"work_ethic": p.personality.work_ethic.round(), "coachability": p.personality.coachability.round(),
             "competitiveness": p.personality.competitiveness.round(), "love_of_game": p.personality.love_of_game.round()},
         "bloom": (p.bloom * 10.0).round() / 10.0, "injury": p.injury_proneness.round(),

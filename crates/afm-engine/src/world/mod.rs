@@ -17,6 +17,7 @@ pub mod coach;
 pub(crate) mod college;
 pub mod data;
 pub mod ethnicity;
+pub mod franchise;
 pub mod game_log;
 pub mod geo;
 pub mod high_school;
@@ -25,6 +26,7 @@ pub mod names;
 pub mod ncaa;
 pub mod news;
 mod nfl_year;
+pub mod pro;
 pub mod program;
 pub mod records;
 pub(crate) mod recruiting;
@@ -92,7 +94,8 @@ pub enum Stage {
     /// In the NFL draft pool: an underclassman who declared, or a senior whose
     /// college career is over, off the college roster until the draft (T3.1).
     Declared,
-    /// Left for the pros (drafted or undrafted); archived.
+    /// In pro football (drafted, undrafted or a veteran at the start of
+    /// history): his career is in `Person::pro` (section 5).
     Pro,
     /// Left football.
     Done,
@@ -179,6 +182,8 @@ pub struct Person {
     /// The school he grew up cheering for (fix list 2.3), usually in his state.
     pub childhood_team: Option<usize>,
     pub cal: PersonCal,
+    /// His pro career (section 5): None until he joins the league.
+    pub pro: Option<Box<pro::ProCareer>>,
 }
 
 /// The draft staffs' read of a player in December (T3.1, T3.2): his consensus
@@ -402,6 +407,8 @@ pub struct Alumnus {
     pub college_staff: Vec<(i32, usize, Option<usize>, Option<usize>)>,
     /// The full player as he left, kept for drafted players and blue-chips (trial player pages).
     pub player: Option<Box<crate::player::Player>>,
+    /// His pro career, written when he retires (section 5).
+    pub pro: Option<Box<pro::ProCareer>>,
 }
 
 impl Alumnus {
@@ -443,6 +450,7 @@ impl Alumnus {
             gpa_at_signing: p.gpa_at_signing,
             college_staff: p.college_staff.clone(),
             player: (pick.is_some() || p.stars >= 4).then(|| Box::new(p.player.clone())),
+            pro: None,
         }
     }
 }
@@ -504,6 +512,10 @@ pub struct World {
     pub overflow: [f64; 51],
     /// The 32 NFL teams: front offices and depth charts, for draft needs (note 7).
     pub nfl: Vec<crate::league::Team>,
+    /// Each franchise's books and depth chart of people (section 5).
+    pub clubs: Vec<pro::Club>,
+    /// The NFL's honors, record book and Hall of Fame (section 5).
+    pub nfl_book: pro::honors::NflBook,
     /// Overall of the 64th and 138th best players taken in the last draft:
     /// what staffs read early NFL entrants against (fix list 1.2).
     pub(crate) draft_bars: Option<(f64, f64)>,
@@ -536,6 +548,8 @@ pub struct World {
     pub(crate) college_prev: Option<college::CollegeSeason>,
     pub(crate) hs_season: Option<hs_year::HsSeasonState>,
     pub(crate) nfl_season: Option<nfl_year::NflSeason>,
+    /// The NFL's market: agents, deals waiting, picks and trades (section 5).
+    pub market: pro::market::Market,
     /// A head-coach-change transfer window waiting to open (T3): opens, closes.
     pub(crate) coach_window: Option<(crate::calendar::Date, crate::calendar::Date)>,
     /// Counters for trials: this football year's, and every earlier one.
@@ -618,7 +632,7 @@ pub struct CalendarLog {
     pub flips: u32,
     pub signed_early: u32,
     pub signed_late: u32,
-    /// Signees by division (FBS, FCS, small college, JUCO): [before February, February].
+    /// Scholarship signees by division (FBS, FCS, small college, JUCO): [before February, February].
     pub signed_by_division: [[u32; 2]; data::DIVISION_COUNT],
     /// Dated recruiting actions (T5.3, T5.4): official visits, game-day
     /// unofficial visits, staff drop-ins at high schools.
@@ -649,6 +663,7 @@ pub struct CalendarLog {
     pub huge_by_team: Vec<(usize, u32)>,
     pub rule_changes: Vec<String>,
     pub nfl_games: u32,
+    pub nfl_preseason_games: u32,
     /// Huge games per NFL team in the season (the stakes test).
     pub nfl_huge_by_team: Vec<u32>,
 }
@@ -788,6 +803,8 @@ impl World {
             areas,
             overflow,
             nfl,
+            clubs: Vec::new(),
+            nfl_book: pro::honors::NflBook::new(),
             draft_bars: None,
             rng,
             recording: false,
@@ -806,6 +823,7 @@ impl World {
             college_prev: None,
             hs_season: None,
             nfl_season: None,
+            market: Default::default(),
             coach_window: None,
             log: CalendarLog { year, ..CalendarLog::default() },
             log_history: Vec::new(),
@@ -823,6 +841,7 @@ impl World {
             novelty: [[0.0; crate::game::playbook::FAMILY_COUNT]; data::DIVISION_COUNT],
         };
         staff::staff_everyone(&mut w);
+        pro::fill_league(&mut w);
         systems::spring_install(&mut w);
         systems::set_spots(&mut w);
         for d in Division::ALL {
@@ -901,7 +920,7 @@ impl World {
         self.add_class_aged(14);
     }
 
-    pub(crate) fn add_class_aged(&mut self, age: u32) {
+    pub fn add_class_aged(&mut self, age: u32) {
         let size = (250_000.0 * self.options.scale).round() as usize;
         let year = self.year;
         let mut kids: Vec<(usize, usize, u32)> = Vec::with_capacity(size);
@@ -997,6 +1016,7 @@ impl World {
                     stay_home: 0.0,
                     childhood_team: None,
                     cal: PersonCal::default(),
+                    pro: None,
                 }
             })
             .collect();
@@ -1134,7 +1154,7 @@ impl World {
             });
     }
 
-    /// Drops everyone who left football or turned pro (pros are archived).
+    /// Drops everyone who left football (a retired pro's career is already in his alumni record).
     fn compact(&mut self) {
         // Blue-chips who left football stay on record: busts are part of history.
         if self.recording {
@@ -1142,14 +1162,16 @@ impl World {
             let gone: Vec<Alumnus> = self
                 .people
                 .iter()
-                .filter(|p| p.stage == Stage::Done && p.stars >= 4)
+                .filter(|p| p.stage == Stage::Done && p.stars >= 4 && p.pro.is_none())
                 .map(|p| Alumnus::from_person(p, year, None, true))
                 .collect();
             self.alumni.extend(gone);
         }
-        self.people
-            .retain(|p| matches!(p.stage, Stage::HighSchool | Stage::College | Stage::PrepSchool | Stage::Declared));
+        self.people.retain(|p| {
+            matches!(p.stage, Stage::HighSchool | Stage::College | Stage::PrepSchool | Stage::Declared | Stage::Pro)
+        });
         self.announcements.clear();
+        pro::rebuild(self);
     }
 
     /// First-year dip for a step up (shared with the career model).

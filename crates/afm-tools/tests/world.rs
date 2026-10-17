@@ -39,7 +39,15 @@ fn rosters_and_staffs_are_full() {
 fn the_draft_comes_mostly_from_fbs() {
     let w = &*WORLD;
     let picks: Vec<_> = w.alumni.iter().filter(|a| a.pick.is_some()).collect();
-    assert_eq!(picks.len(), 257 * 3);
+    // Seven rounds for 32 teams, plus the compensatory picks awarded that
+    // year (32 from 1994, and diversity picks from 2021).
+    let drafts: std::collections::BTreeSet<i32> = picks.iter().map(|a| a.year).collect();
+    assert_eq!(drafts.len(), 3);
+    let expected: usize = drafts
+        .iter()
+        .map(|&y| 7 * 32 + w.market.picks.comp.iter().filter(|c| c.year == y).count())
+        .sum();
+    assert_eq!(picks.len(), expected);
     let share = |d: Division| {
         picks.iter().filter(|a| w.programs[*a.colleges.last().unwrap()].division == d).count() as f64
             / picks.len() as f64
@@ -102,4 +110,38 @@ fn the_stats_book_keeps_every_division() {
     let r = &recs[0];
     let career = b.career(r.id);
     assert!(career.iter().any(|s| s.year as i32 == last && s.program == r.program));
+}
+
+#[test]
+fn the_nfl_lives() {
+    use afm_engine::world::franchise::active_teams;
+    use afm_engine::world::pro::money;
+    use afm_engine::world::pro::trades::CompKind;
+    let w = &*WORLD;
+    // Every team holds an offseason roster of people.
+    for t in active_teams(w.year) {
+        let held = w.clubs[t].roster.len();
+        assert!((45..=95).contains(&held), "the {} hold {held} players", w.nfl[t].name);
+    }
+    // The hard cap holds on opening day.
+    for m in w.market.years.iter().filter(|m| money::capped(m.year) && m.cap_use[1] > 0.0) {
+        assert!(m.cap_use[2] <= 1.001, "{}: a team at {:.3} of the cap on opening day", m.year, m.cap_use[2]);
+        assert!(m.cap_use[1] >= 0.8, "{}: the median team at {:.3} of the cap", m.year, m.cap_use[1]);
+    }
+    // Compensatory picks: 32 a year (supplemental picks fill what free
+    // agency leaves), at most four a team for free agency.
+    let years: std::collections::BTreeSet<i32> = w.market.picks.comp.iter().map(|c| c.year).collect();
+    assert!(!years.is_empty());
+    for y in years {
+        let of = |k: CompKind| w.market.picks.comp.iter().filter(move |c| c.year == y && c.kind == k);
+        assert_eq!(of(CompKind::FreeAgency).count() + of(CompKind::Supplemental).count(), 32, "{y}");
+        for t in active_teams(y) {
+            assert!(of(CompKind::FreeAgency).filter(|c| c.team == t).count() <= 4, "{y}");
+        }
+    }
+    // A full league year moves players: free agents to new teams, trades.
+    let m = w.market.years.iter().find(|m| m.year == w.year - 1).unwrap();
+    assert!(m.signed_new >= 50, "{} free agents changed teams in {}", m.signed_new, m.year);
+    assert!(m.trades >= 1, "no trades in {}", m.year);
+    assert!(m.futures >= 100, "{} reserve/future deals in {}", m.futures, m.year);
 }

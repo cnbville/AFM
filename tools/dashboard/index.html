@@ -5,7 +5,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 /* Layout: a coaching-booth console. Sticky seed and tab bar, then dense cards of
-   charts; every chart overlays the three worlds against a grey real-football band. */
+   charts; every chart overlays the worlds against a grey real-football band. */
 :root {
   --bg: #f4f6f3;
   --panel: #fcfdfb;
@@ -125,11 +125,11 @@ details summary { cursor: pointer; font-weight: 600; }
 
 <div class="wrap">
   <header class="top">
-    <h1>AFM Debug Lab<small id="subtitle">Three 30-year worlds on the current engine. Debug view: hidden values shown.</small></h1>
+    <h1>AFM Debug Lab<small id="subtitle">30-year worlds on the current engine. Debug view: hidden values shown.</small></h1>
     <div class="controls" id="seedChips" aria-label="Worlds shown"></div>
   </header>
   <nav class="tabs" role="tablist" id="tabs"></nav>
-  <main id="panes"><p class="loading" id="loading">Loading the three worlds…</p></main>
+  <main id="panes"><p class="loading" id="loading">Loading the worlds…</p></main>
 </div>
 <div id="tip" hidden></div>
 
@@ -138,7 +138,7 @@ details summary { cursor: pointer; font-weight: 600; }
 const TABS = [
   ["verdict", "Verdict"], ["calendar", "Calendar"], ["health", "Health"], ["engine", "Game engine"], ["balance", "Balance"], ["wins", "What wins"],
   ["situ", "Situations"], ["players", "Player paths"], ["recruit", "Recruiting"], ["coaches", "Coaches"],
-  ["draft", "Draft"], ["records", "Records"], ["names", "Names"], ["slumps", "Slumps"], ["anomalies", "Anomalies"],
+  ["draft", "Draft"], ["nfl", "NFL"], ["records", "Records"], ["names", "Names"], ["slumps", "Slumps"], ["anomalies", "Anomalies"],
   ["ideas", "Idea board"], ["seeds", "Seed lab"], ["explore", "Explorer"], ["pages", "Pages"],
 ];
 const SERIES = ["var(--s1)", "var(--s2)", "var(--s3)"];
@@ -867,7 +867,7 @@ function fixedItem(n) {
 }
 function buildVerdict(p) {
   const V = S.notes?.verdict || {};
-  p.append(h("p", { class: "intro" }, "What the three worlds say after the section 4 build and its fixes, in three lists: what works, what is wrong or buggy, and what could change or be added. Below them: what this build fixed, what it did not, the spot checks and the doubts. Every suggestion is one aspect with its own yes or no (small items of one kind are bundled, each part named). Tick your answers here; they stay in this browser, and the button copies them as a numbered list to paste back. Nothing here is decided."));
+  p.append(h("p", { class: "intro" }, (S.notes?.verdict?.intro || "What the worlds say after the latest build, in three lists:") + " what works, what is wrong or buggy, and what could change or be added. Below them: what this build fixed, what it did not, the spot checks and the doubts. Every suggestion is one aspect with its own yes or no (small items of one kind are bundled, each part named). Tick your answers here; they stay in this browser, and the button copies them as a numbered list to paste back. Nothing here is decided."));
   const defs = healthDefs().filter((d) => !d.group);
   const auto = { good: [], warn: [], bad: [] };
   for (const d of defs) {
@@ -910,12 +910,62 @@ function buildVerdict(p) {
   p.append(h("div", { class: "card" }, h("h3", {}, "Suggestions and creative ideas"), h("div", { class: "row" }, copy), sugList, h("details", {}, h("summary", {}, "Your answers as text"), out)));
   const fixed = V.fixed || [], notFixed = V.not_fixed || [];
   if (fixed.length || notFixed.length) p.append(h("div", { class: "grid wide" },
-    h("div", { class: "card" }, h("h3", {}, `Fixed in this build (${fixed.length})`), h("p", { class: "why" }, "Bugs the first three worlds showed, fixed and measured again in these worlds: the number before the fix, then after it in each world."), h("div", { class: "list" }, fixed.map(fixedItem))),
+    h("div", { class: "card" }, h("h3", {}, `Fixed in this build (${fixed.length})`), h("p", { class: "why" }, "Bugs the last trial showed, fixed and measured again in this trial: the number before the fix, then after it in each world."), h("div", { class: "list" }, fixed.map(fixedItem))),
     h("div", { class: "card" }, h("h3", {}, `Not fixed or only partly (${notFixed.length})`), h("div", { class: "list" }, notFixed.map((n) => verdictItem(n, "warn"))))));
   const spot = V.spot_checks || [], doubts = V.doubts || [];
   if (spot.length || doubts.length || V.speed) p.append(h("div", { class: "grid wide" },
     h("div", { class: "card" }, h("h3", {}, "Spot checks of the key numbers"), h("p", { class: "why" }, "Skeptics re-measured the numbers the decisions rest on."), h("div", { class: "list" }, spot.map((c) => h("div", { class: `item ${c.held ? "good" : "bad"}` }, h("span", { class: "tiny" }, c.held ? "held" : "corrected"), h("span", { class: "t" }, c.claim), h("span", { class: "muted" }, c.result))))),
     h("div", { class: "card" }, h("h3", {}, "Doubts and speed"), V.speed ? h("p", {}, V.speed) : null, h("div", { class: "list" }, doubts.map((d) => h("div", { class: "item" }, h("span", { class: "muted" }, d)))))));
+}
+
+/* ---------- The living NFL (section 5) ---------- */
+const NFL_KEYS = [
+  ["points", "Points per team game"], ["one_score", "One-score games %"], ["home_win", "Home win %"], ["plays", "Plays per team game"],
+  ["pass_rate", "Pass rate %"], ["cmp_pct", "Completion %"], ["ypa", "Yards per attempt"], ["ypc", "Yards per carry"],
+  ["sack_rate", "Sack rate %"], ["int_rate", "Interception rate %"], ["third_pct", "Third-down conversion %"], ["fourth_go", "Fourth-down tries per game"],
+  ["penalties", "Penalties per team game"], ["fg_pct", "Field goal %"], ["kr_avg", "Kick return average"], ["shutouts", "Shutouts % of team games"],
+];
+const MARKET_COLS = [
+  ["ufa", "UFAs on the market"], ["resigned", "Re-signed before the market"], ["signed_new", "Signed with a new team"], ["perfect", "Perfect offers"],
+  ["tags", "Franchise tags"], ["transition", "Transition tags"], ["tenders", "RFA tenders"], ["sheets", "Offer sheets"], ["sheets_matched", "Sheets matched"],
+  ["options_taken", "Fifth-year options taken"], ["options_declined", "Options declined"], ["extensions", "Extensions"], ["rookie_extensions", "Rookie extensions"],
+  ["restructures", "Restructures"], ["cap_cuts", "Cap casualties"], ["june1", "June 1 releases"], ["futures", "Reserve/future deals"], ["waiver_claims", "Waiver claims"],
+  ["holdouts", "Holdouts"], ["holdins", "Hold-ins"], ["bluffs", "Agent bluffs"], ["bluffs_called", "Bluffs called"], ["agents_fired", "Agents fired"],
+  ["promises_broken", "Promises broken"], ["trades", "Trades"], ["deadline_trades", "Deadline trades"], ["picks_traded", "Picks traded"],
+  ["comp_picks", "Comp picks awarded"], ["other_league", "Joined another league"], ["ipp", "Pathway players"],
+];
+function buildNfl(p) {
+  const runs = active().filter((i) => S.runs[i].nfl);
+  if (!runs.length) { p.append(h("p", { class: "muted" }, "These worlds were run before section 5: no NFL data.")); return; }
+  const R = S.real.nfl || {};
+  p.append(h("p", { class: "intro" }, "Section 5: the NFL as a living league. Every pro is a person from high school and college; every NFL game runs on the match engine; contracts, free agency, tags, trades, waivers, comp picks and other leagues run on their real dates and rules. Grey lines are real NFL figures (nflverse 2021-25 for the games); the market counts have no real line where no clean public count exists."));
+  const g = h("div", { class: "grid" });
+  for (const [k, label] of NFL_KEYS) {
+    const rv = R[k];
+    g.append(card(label, rv != null ? `Real NFL: ${fmt(rv, 2)}.` : "No real figure for this yet.", chartDiv((el) => lineChart(el, { series: runs.map((i) => ({ name: seedName(i), color: SERIES[i], pts: Object.entries(S.runs[i].nfl.vitals.by_year).map(([y, m]) => [+y, m[k]]) })), ref: rv != null ? { lo: rv, label: "real" } : null, H: 170 }))));
+  }
+  g.append(card("Margin of victory", `Share of NFL games by final margin, 7-point bins. Real: ${fmt(R.one_score, 1)}% decided by 8 or less.`, chartDiv((el) => barChart(el, { cats: ["0-6", "7-13", "14-20", "21-27", "28-34", "35-41", "42-48", "49-55", "56-62", "63-69", "70+"], series: runs.map((i) => ({ name: seedName(i), color: SERIES[i], values: S.runs[i].nfl.margin_hist })), yFmt: (v) => fmt(v) + "%" }))));
+  p.append(h("h2", {}, "Games"), g);
+  const m = h("div", { class: "grid wide" });
+  for (const i of runs) {
+    const N = S.runs[i].nfl;
+    m.append(card("Cap use on opening day", "Payroll over the cap (with carryover) for the lowest, median and highest team. Real teams spend about 90-100% (the cash floor is 89% over four years, 2011 CBA).", chartDiv((el) => lineChart(el, { series: [["low", 0], ["median", 1], ["high", 2]].map(([n, k], j) => ({ name: n, color: SERIES[j], pts: N.market.filter((x) => x.cap_use && x.cap_use[1] > 0).map((x) => [x.year, x.cap_use[k]]) })), ref: { lo: 0.9, hi: 1.0, label: "real band" }, yFmt: (v) => fmt(v, 2) }))));
+    m.append(card("Trades and comp picks a year", "Player trades from the new league year to the deadline (draft-day pick trades come with section 7), and compensatory picks awarded (32 a year by rule from 1994, plus diversity picks from 2021).", chartDiv((el) => lineChart(el, { series: [{ name: "trades", color: SERIES[0], pts: N.trades.by_year }, { name: "comp picks", color: SERIES[1], pts: N.comp.map((c) => [c[0], c[1] + c[2] + c[3]]) }] }))));
+    m.append(card("The market's books by year", "Every count the market logs, one row a year.", table(["Year"].concat(MARKET_COLS.map((c) => c[1])), N.market.map((x) => [x.year].concat(MARKET_COLS.map((c) => x[c[0]]))), { numeric: MARKET_COLS.map((_, k) => k + 1) })));
+    m.append(card("Pay by position (deals in force at the end)", "Top-5 average a year against real 2025 top-5 shares of the cap.", table(["Pos", "Players", "Top-5 APY $M", "Median APY $M", "Top-5 % of cap", "Real top-5 %"], N.pay, { numeric: [1, 2, 3, 4, 5] })));
+    m.append(card("Biggest deals in force", "Annual value, guarantees and when signed.", table(["Player", "Pos", "Team", "Age", "Years", "APY $M", "Gtd $M", "Signed", "Kind"], N.biggest, { numeric: [3, 4, 5, 6, 7] })));
+    m.append(card("Who holds the rosters", "Players who played or sat on a practice squad each season, by how they came in. Generated veterans fill the league at the start of history and age out.", chartDiv((el) => lineChart(el, { series: [["drafted", 1], ["undrafted", 2], ["generated", 3], ["pathway", 4]].map(([n, k], j) => ({ name: n, color: ["var(--s1)", "var(--s2)", "var(--s3)", "var(--ink-3)"][j], pts: N.makeup.map((x) => [x[0], x[k]]) })) }))));
+    m.append(card("Average age of players who played", "Real NFL about 26 to 27.", chartDiv((el) => lineChart(el, { series: [{ name: seedName(i), color: SERIES[i], pts: N.age }], ref: { lo: 26, hi: 27, label: "real" } }))));
+    m.append(card("Careers by draft round", "Drafted players with eight seasons behind them: seasons with a game, and the share with four or more.", table(["Round", "Players", "Seasons played", "4+ seasons %"], N.career_by_round, { numeric: [0, 1, 2, 3] })));
+    m.append(card("Trades", "The latest 150, newest last.", h("div", { class: "scrolly" }, table(["Date", "Buyer", "Seller", "Picks", "Deal"], N.trades.rows, { numeric: [3] }))));
+    m.append(card("Comp picks by year", "Free agency picks, supplemental picks that fill the 32, and diversity picks (2021 on).", table(["Year", "Free agency", "Supplemental", "Diversity"], N.comp, { numeric: [0, 1, 2, 3] })));
+    m.append(card("Awards", "MVP, offensive and defensive players and rookies, comeback, Super Bowl MVP.", h("div", { class: "scrolly" }, table(["Year", "Award", "Player", "Team"], N.awards, {}))));
+    m.append(card("Pro Football Hall of Fame classes", "The world's own inductees, with the case the voters read.", h("div", { class: "scrolly" }, table(["Year", "Player", "Pos", "Case"], N.hall, {}))));
+    m.append(card("NFL records broken", "Real records start from the 1983 book; the world's players can break them.", table(["Year", "Record", "Holder", "Value"], N.broken, { numeric: [3] })));
+    m.append(card("Front offices at the end", "Hidden GM and owner traits (debug view).", h("div", { class: "scrolly" }, table(["Team", "Mode", "Why", "Fans", "GM", "Since", "Skill", "Chart", "Fixation", "Owner meddling", "Owner's pet", "GM changes", "Payroll $M", "Dead $M"], N.offices, { numeric: [3, 5, 6, 9, 11, 12, 13] }))));
+    m.append(card("Agencies by clients", `${N.agents} agents in all.`, table(["Agency", "Clients"], N.agencies, { numeric: [1] })));
+  }
+  p.append(h("h2", {}, "The league"), m);
 }
 
 /* ---------- Calendar (section 4) ---------- */
@@ -990,7 +1040,7 @@ function buildSlumps(p) {
   }
 }
 
-const BUILD = { verdict: buildVerdict, calendar: buildCalendar, slumps: buildSlumps, health: buildHealth, engine: buildEngine, balance: buildBalance, wins: buildWins, situ: buildSitu, players: buildPlayers, recruit: buildRecruit, coaches: buildCoaches, draft: buildDraft, records: buildRecords, names: buildNames, anomalies: buildAnomalies, ideas: buildIdeas, seeds: buildSeeds, explore: buildExplore, pages: buildPages };
+const BUILD = { verdict: buildVerdict, calendar: buildCalendar, slumps: buildSlumps, health: buildHealth, engine: buildEngine, balance: buildBalance, wins: buildWins, situ: buildSitu, players: buildPlayers, recruit: buildRecruit, coaches: buildCoaches, draft: buildDraft, nfl: buildNfl, records: buildRecords, names: buildNames, anomalies: buildAnomalies, ideas: buildIdeas, seeds: buildSeeds, explore: buildExplore, pages: buildPages };
 
 /* ---------- Shell ---------- */
 function render() {

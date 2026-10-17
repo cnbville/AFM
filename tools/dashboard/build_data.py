@@ -1404,6 +1404,124 @@ def slumps(run):
             "rows": out[:400]}
 
 
+# --- Section 5: the living NFL -------------------------------------------------
+
+# Top-5 average salary by position as a share of the cap (2025, the same
+# shares the engine's market starts from, `money.rs` `top5_share`).
+NFL_TOP5 = {"QB": 23.4, "EDGE": 15.8, "WR": 13.6, "DT": 11.7, "CB": 10.8, "OT": 9.85, "S": 8.1, "IOL": 7.7,
+            "LB": 7.5, "RB": 7.4, "TE": 6.3, "K": 2.3, "P": 1.5, "LS": 0.7}
+
+
+def opt_jl(run, name):
+    try:
+        return list(jl(run.path, name))
+    except FileNotFoundError:
+        return []
+
+
+def nfl_view(run, real):
+    """The living NFL: engine numbers from NFL games, the market's books by
+    year, cap use, trades and comp picks, pay by position, who holds the
+    rosters, careers by draft round, honors, records, the Hall of Fame,
+    front offices and agents."""
+    games = opt_jl(run, "nfl_games")
+    if not games and not opt_jl(run, "nfl_market"):
+        return None
+    out = {}
+    by = defaultdict(list)
+    for g in games:
+        by[g["year"]].append(g)
+    out["vitals"] = {"all": game_metrics(games), "by_year": {y: game_metrics(by[y]) for y in sorted(by)}}
+    mh = Counter(min(abs(g["score"][0] - g["score"][1]) // 7, 10) for g in games)
+    out["margin_hist"] = [pct(mh[i], len(games)) for i in range(11)] if games else []
+    out["market"] = opt_jl(run, "nfl_market")
+    trades, comp = Counter(), defaultdict(Counter)
+    trade_rows = []
+    for t in opt_jl(run, "nfl_trades"):
+        if t.get("comp"):
+            comp[t["year"]][t["kind"]] += 1
+            continue
+        m = re.search(r"(\d{4})$", t["date"])
+        y = int(m.group(1)) if m else None
+        trades[y] += 1
+        trade_rows.append([t["date"], t["buyer"], t["seller"], len(t.get("picks") or []), t["text"]])
+    out["trades"] = {"by_year": sorted([y, n] for y, n in trades.items() if y), "rows": trade_rows[-150:]}
+    out["comp"] = sorted([y, c.get("FreeAgency", 0), c.get("Supplemental", 0), c.get("Diversity", 0)] for y, c in comp.items())
+    # Pros: pay, roster makeup, ages and careers.
+    pros = opt_jl(run, "pros")
+    last = run.last
+    pay = defaultdict(list)
+    biggest = []
+    makeup = defaultdict(Counter)
+    ages = defaultdict(list)
+    by_round = defaultdict(list)
+    tags_by_pos = Counter()
+    for q in pros:
+        d = q.get("deal")
+        gen = any("generated veteran" in n for n in q.get("notes", []))
+        origin = "pathway" if q.get("ipp") else "generated" if gen else "drafted" if q.get("draft") else "undrafted"
+        if q["active"] and d and q["status"] in ("Roster", "Injured", "Reserve") and d["last"] >= last:
+            pay[q["pos"]].append(d["apy"])
+            biggest.append([q["name"], q["pos"], d["team"], q["age"], d["years"], round(d["apy"] / 1e6, 2), round(d["guaranteed"] / 1e6, 1), d["signed"], d["kind"]])
+        seasons = q.get("seasons", [])
+        if q.get("tags"):
+            tags_by_pos[q["pos"]] += q["tags"]
+        last_season = max((s["year"] for s in seasons), default=None)
+        for s in seasons:
+            if s.get("team") and (s["g"] > 0 or s.get("ps_weeks", 0) > 0):
+                makeup[s["year"]][origin] += 1
+                if s["g"] > 0 and last_season is not None:
+                    ages[s["year"]].append(q["age"] - ((last if q["active"] else last_season) - s["year"]))
+        dr = q.get("draft")
+        if dr and dr[0] <= last - 8:
+            played = sum(1 for s in seasons if s["g"] > 0)
+            by_round[dr[1]].append(played)
+    # The cap this year: each club's payroll plus its room (carryover included), the median club.
+    clubs = opt_jl(run, "nfl_clubs")
+    cap = st.median([c["payroll"] + c["space"] - c["carryover"] for c in clubs if c["roster"] > 0]) if clubs else None
+    out["cap"] = cap
+    out["pay"] = []
+    for pos, v in sorted(pay.items()):
+        v.sort(reverse=True)
+        top5 = st.fmean(v[:5]) if v else None
+        out["pay"].append([pos, len(v), round(top5 / 1e6, 2) if top5 else None, round(st.median(v) / 1e6, 2) if v else None,
+                           pct(top5, cap, 2) if top5 and cap else None, NFL_TOP5.get(pos)])
+    biggest.sort(key=lambda x: -x[5])
+    out["biggest"] = biggest[:25]
+    out["makeup"] = [[y, makeup[y]["drafted"], makeup[y]["undrafted"], makeup[y]["generated"], makeup[y]["pathway"]] for y in sorted(makeup)]
+    out["age"] = [[y, r(st.fmean(a))] for y, a in sorted(ages.items()) if a]
+    out["career_by_round"] = [[k, len(v), r(st.fmean(v)), pct(sum(x >= 4 for x in v), len(v))] for k, v in sorted(by_round.items())]
+    out["tags_by_pos"] = sorted(tags_by_pos.items(), key=lambda x: -x[1])
+    # Honors, records, the Hall.
+    awards, hall, broken, records = [], [], [], []
+    for h_ in opt_jl(run, "nfl_honors"):
+        k = h_["kind"]
+        if k == "award":
+            awards.append([h_["year"], h_["award"], h_["name"], h_["team"]])
+        elif k == "hall":
+            hall.append([h_["year"], h_["name"], h_["pos"], h_["why"]])
+        elif k == "broken":
+            broken.append([h_["year"], h_["stat"], h_["holder"], h_["value"]])
+        elif k == "record":
+            records.append([h_["stat"], "career" if h_["career"] else "season", h_["value"], h_["holder"], h_["year"], "world" if h_["world"] else "real"])
+    out["awards"] = sorted(awards)
+    out["hall"] = sorted(hall)
+    out["broken"] = sorted(broken)
+    out["records"] = records
+    # Front offices and agents at the end of the world.
+    out["offices"] = [[c["team"], c["mode"], c["why"], c["fans"], c["gm"]["name"], c["gm"]["since"], c["gm"]["skill"],
+                       "classic" if c["gm"]["classic_chart"] else "surplus", c["gm"]["fixation"], c["owner"]["meddling"],
+                       c["owner"]["pet"], c["gm_changes"], round(c["payroll"] / 1e6, 1), round(c["dead"] / 1e6, 1)]
+                      for c in clubs if c["roster"] > 0]
+    agents = opt_jl(run, "agents")
+    agencies = Counter()
+    for a in agents:
+        agencies[a["agency"]] += len(a["clients"]) if isinstance(a["clients"], list) else a["clients"]
+    out["agencies"] = agencies.most_common(15)
+    out["agents"] = len(agents)
+    return out
+
+
 def build(run, real):
     print(f"seed {run.seed}: {len(run.games)} games, {len(run.alumni)} alumni, {len(run.people)} people", file=sys.stderr)
     profiles = team_profiles(run)
@@ -1416,7 +1534,7 @@ def build(run, real):
         "situ": situations(run), "life": life, "recruit": recruiting(run), "coaches": coach, "draft": draft(run),
         "records": recs, "names": names(run), "anomalies": anomalies(run, real, recs, coach, life),
         "explorer": explorer(run, profiles), "programs": program_pages(run), "players": player_pages(run),
-        "calendar": calendar_view(run, real), "slumps": slumps(run),
+        "calendar": calendar_view(run, real), "slumps": slumps(run), "nfl": nfl_view(run, real),
     }
     return data
 

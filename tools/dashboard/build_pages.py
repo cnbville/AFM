@@ -50,6 +50,39 @@ NOTE_NEW = (
 )
 
 
+# The pro career box (section 5): status, draft, teams, earnings, agent and
+# deal, then every NFL season with its box score, pay and honors.
+PRO_OLD = 'document.getElementById("main").innerHTML = `'
+PRO_JS = (
+    'const pr=c.pro;const money=v=>v==null?"·":(v>=1e6?"$"+(v/1e6).toFixed(2)+"M":"$"+Math.round(v/1e3)+"K");'
+    'const proT=pr?`<div class="box scroll" style="margin-top:12px"><h2>Pro career</h2><div class="kv">'
+    '<span>Status</span><span>${pr.status}${pr.team?" · "+pr.team:""}</span>'
+    '<span>Drafted</span><span>${pr.draft?`${pr.draft[0]}, round ${pr.draft[1]}, pick ${pr.draft[2]} (${pr.draft[3]})`:"undrafted"}</span>'
+    '<span>Teams</span><span>${pr.teams.join(", ")||"·"}</span><span>Accrued seasons</span><span>${pr.accrued}</span>'
+    '<span>Career earnings</span><span>${money(pr.earnings)}</span><span>Agent</span><span>${pr.agent??"none"}</span>'
+    '${pr.tags?`<span>Tagged</span><span>${pr.tags} time${pr.tags>1?"s":""}</span>`:""}</div>'
+    '${pr.deal?`<p style="margin:8px 0">Deal: ${pr.deal.kind}, ${pr.deal.years} year${pr.deal.years>1?"s":""} through ${pr.deal.last},'
+    ' ${money(pr.deal.apy)} a year, ${money(pr.deal.guaranteed)} guaranteed, signed ${pr.deal.signed} with the ${pr.deal.team}'
+    '${pr.deal.voids?`, ${pr.deal.voids} void year${pr.deal.voids>1?"s":""}`:""}${pr.deal.no_trade?", no-trade clause":""}.</p>`:""}'
+    '<table><tr><th class="n">Year</th><th>Team</th><th class="n">G</th><th class="n">GS</th><th class="n">Snaps O/D/ST</th>'
+    '<th class="n">PS wks</th><th class="n">IR wks</th><th class="n">Pay</th><th class="n">Cmp/Att</th><th class="n">Pass yds</th>'
+    '<th class="n">TD</th><th class="n">INT</th><th class="n">Car</th><th class="n">Rush yds</th><th class="n">TD</th><th class="n">Rec</th>'
+    '<th class="n">Rec yds</th><th class="n">TD</th><th class="n">Tkl</th><th class="n">Sacks</th><th class="n">INT</th><th class="n">PBU</th>'
+    '<th class="n">Grade</th><th>Honors</th></tr>${pr.seasons.map(s=>`<tr><td class="n">${s.year}</td><td>${s.team??"·"}</td>'
+    '<td class="n">${s.g}</td><td class="n">${s.gs}</td><td class="n">${s.snaps.join("/")}</td><td class="n">${s.ps_weeks||""}</td>'
+    '<td class="n">${s.ir_weeks||""}</td><td class="n">${money(s.pay)}</td><td class="n">${s.pass[0]}/${s.pass[1]}</td>'
+    '<td class="n">${s.pass[2]}</td><td class="n">${s.pass[3]}</td><td class="n">${s.pass[4]}</td><td class="n">${s.rush[0]}</td>'
+    '<td class="n">${s.rush[1]}</td><td class="n">${s.rush[2]}</td><td class="n">${s.rec[0]}</td><td class="n">${s.rec[1]}</td>'
+    '<td class="n">${s.rec[2]}</td><td class="n">${s.def[0]}</td><td class="n">${s.def[1]}</td><td class="n">${s.def[2]}</td>'
+    '<td class="n">${s.def[3]}</td><td class="n">${s.grade??"·"}</td><td>${[s.pro_bowl?"Pro Bowl":"",'
+    's.all_pro?`All-Pro (${s.all_pro==1?"first":"second"} team)`:"",...(s.awards||[])].filter(Boolean).join(", ")}</td></tr>`).join("")}'
+    '</table><p style="color:var(--mute);font-size:12px">Every NFL season from the match engine: games, starts, snaps on offense,'
+    ' defense and special teams, practice squad and injured reserve weeks, and what he was paid that season.</p></div>`:"";\n  '
+)
+END_OLD = "${statT}`;"
+END_NEW = "${statT}${proT}`;"
+
+
 def season_words(s):
     """A season row's events, games missed, dip and spring gain in plain words."""
     ev = s.get("ev") or []
@@ -90,6 +123,10 @@ def show_events(line):
         line = line.replace(ROW_OLD, ROW_NEW)
     if NOTE_NEW not in line:
         line = line.replace(NOTE_OLD, NOTE_NEW)
+    if PRO_OLD in line and "const proT=" not in line:
+        line = line.replace(PRO_OLD, PRO_JS + PRO_OLD)
+    if END_NEW not in line:
+        line = line.replace(END_OLD, END_NEW)
     return line
 
 

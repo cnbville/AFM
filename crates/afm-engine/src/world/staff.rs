@@ -76,6 +76,18 @@ fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) {
         w.coaches[coach].home_state = Some(home);
     }
     let since = if matches!(employer, Employer::College(_)) { cycle_year(w) } else { year };
+    // A coach of color hired away from an NFL coordinator job to be a head
+    // coach earns his old team the diversity picks (2020 resolution).
+    if let (Employer::Nfl(_), Role::HeadCoach) = (employer, role)
+        && w.coaches[coach].ethnicity != super::ethnicity::Ethnicity::White
+    {
+        let last = w.coaches[coach].job.map(|j| (j.employer, j.role, j.since)).or_else(|| {
+            w.coaches[coach].history.last().filter(|s| s.to >= year - 1).map(|s| (s.employer, s.role, s.from))
+        });
+        if let Some((Employer::Nfl(old), Role::OffensiveCoordinator | Role::DefensiveCoordinator, from)) = last {
+            super::pro::trades::note_diversity_hire(w, old, (year - from).max(0) as u32);
+        }
+    }
     w.coaches[coach].job = Some(Job { employer, role, since });
     w.coaches[coach].wins = 0;
     w.coaches[coach].losses = 0;
@@ -250,8 +262,9 @@ pub(crate) fn staff_everyone(w: &mut World) {
         }
         hire(w, c, Employer::HighSchool(s), Role::HeadCoach);
     }
-    // NFL staffs: a head coach and two coordinators per team (11.12).
-    for t in 0..w.nfl.len() {
+    // NFL staffs: a head coach and two coordinators per team that plays (11.12).
+    let year = w.year;
+    for t in (0..w.nfl.len()).filter(|&t| super::franchise::active(t, year)) {
         for role in nfl_roles() {
             let (lo, pool) = match role {
                 Role::HeadCoach => (38, CoachPool::CollegeHead1990),
@@ -852,6 +865,11 @@ pub(crate) fn carousel(w: &mut World, scope: Scope) {
     for t in 0..w.nfl.len() {
         if scope != Scope::NflHires {
             break;
+        }
+        // Hires are for next season: a franchise joining then hires now (the
+        // Panthers' Capers in January 1995), one going dark doesn't.
+        if !super::franchise::active(t, w.year + 1) {
+            continue;
         }
         for role in nfl_roles() {
             if nfl_slot(&w.nfl[t], role).is_none()
