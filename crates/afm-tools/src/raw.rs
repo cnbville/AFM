@@ -76,6 +76,43 @@ fn player_detail(p: &afm_engine::player::Player) -> Value {
     })
 }
 
+/// One pro career for the export: who he is, his deal and every season.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn pro_row(
+    w: &World,
+    id: u32,
+    name: &str,
+    pos: &str,
+    age: u32,
+    overall: f64,
+    potential: f64,
+    c: &afm_engine::world::pro::ProCareer,
+    notes: &[String],
+    active: bool,
+) -> Value {
+    let deal = c.contract.as_ref().map(|k| json!({
+        "team": w.nfl[k.team].name, "kind": format!("{:?}", k.kind), "signed": k.signed, "years": k.real_years(), "last": k.last_year(),
+        "apy": k.apy().round(), "guaranteed": k.guaranteed().round(), "bonus": k.signing_bonus.round(), "option": k.option, "no_trade": k.no_trade,
+        "voids": k.years.iter().filter(|y| y.void).count(),
+        "by_year": k.years.iter().map(|y| json!([y.year, y.cap_hit().round(), y.cash().round(), y.void])).collect::<Vec<_>>(),
+    }));
+    let seasons: Vec<Value> = c.seasons.iter().map(|s| {
+        let l = &s.stats;
+        json!({"year": s.year, "team": s.team.map(|t| w.nfl[t].name), "g": s.games, "gs": s.starts, "snaps": s.snaps, "opp": r2(if s.snaps[0] + s.snaps[1] > 0 { s.opp / (s.snaps[0] + s.snaps[1]) as f64 } else { 0.0 }),
+            "ps_weeks": s.ps_weeks, "ir_weeks": s.ir_weeks, "pay": s.pay.round(), "pro_bowl": s.pro_bowl, "all_pro": s.all_pro, "awards": s.awards,
+            "grade": if l.graded > 0 { Some(r1(l.grade())) } else { None },
+            "pass": [l.cmp, l.att, l.pass_yds.round(), l.pass_td, l.int], "rush": [l.rush, l.rush_yds.round(), l.rush_td],
+            "rec": [l.rec, l.rec_yds.round(), l.rec_td], "def": [l.tackles, r1(l.sacks), l.ints, l.pbus]})
+    }).collect();
+    json!({
+        "id": id, "name": name, "pos": pos, "age": age, "overall": r1(overall), "potential": r1(potential), "active": active,
+        "status": format!("{:?}", c.status), "team": c.team.map(|t| w.nfl[t].name), "draft": c.draft.map(|d| json!([d.0, d.1, d.2, w.nfl[d.3].name])),
+        "first_year": c.first_year, "accrued": c.accrued, "earnings": c.earnings.round(), "teams": c.teams.iter().map(|&t| w.nfl[t].name).collect::<Vec<_>>(),
+        "agent": c.agent.map(|a| w.market.agents[a].name.clone()), "trust": r2(c.trust), "tags": c.tags, "hold": format!("{:?}", c.hold),
+        "ipp": c.ipp, "deal": deal, "seasons": seasons, "notes": notes,
+    })
+}
+
 /// Writes every file of the raw export into `dir` and returns a one-line summary.
 pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
     std::fs::create_dir_all(dir).unwrap();
@@ -94,6 +131,18 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
         }));
     }
     counts.push(("games".into(), f.n));
+
+    // NFL games on the engine: the same box score, teams by name.
+    let mut f = Lines::new(dir, "nfl_games.jsonl");
+    for g in &log.nfl_games {
+        f.put(json!({
+            "year": g.year, "div": "NFL", "home": w.nfl[g.teams[0]].name, "away": w.nfl[g.teams[1]].name,
+            "score": g.score, "ot": g.overtime, "kr": [[g.kr[0].0, r1(g.kr[0].1)], [g.kr[1].0, r1(g.kr[1].1)]],
+            "pr": [[g.pr[0].0, r1(g.pr[0].1)], [g.pr[1].0, r1(g.pr[1].1)]],
+            "stats": [team_stats(&g.stats[0]), team_stats(&g.stats[1])],
+        }));
+    }
+    counts.push(("nfl games".into(), f.n));
 
     let mut f = Lines::new(dir, "player_seasons.jsonl");
     let mut keys: Vec<&(i32, u32)> = log.players.keys().collect();
@@ -252,6 +301,119 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
         }));
     }
     counts.push(("nfl teams".into(), f.n));
+
+    // Section 5 (part B 21): every pro career, season by season, with his
+    // deal, his agent and his honors; the market's books; trades, comp
+    // picks, front offices, NFL honors and the Pro Football Hall of Fame.
+    let mut f = Lines::new(dir, "pros.jsonl");
+    for q in w.people.iter().filter(|q| q.pro.is_some()) {
+        f.put(pro_row(
+            w,
+            q.player.id,
+            &q.name,
+            q.player.position.name(),
+            q.player.age,
+            q.player.overall(),
+            debug::person_potential(q),
+            q.pro.as_ref().unwrap(),
+            &q.notes,
+            true,
+        ));
+    }
+    for a in w.alumni.iter().filter(|a| a.pro.is_some()) {
+        let (id, age) = a.player.as_ref().map_or((0, 0), |p| (p.id, p.age));
+        f.put(pro_row(
+            w,
+            id,
+            &a.name,
+            a.position.name(),
+            age,
+            a.overall,
+            debug::alumnus_potential(a),
+            a.pro.as_ref().unwrap(),
+            &a.notes,
+            false,
+        ));
+    }
+    counts.push(("pros".into(), f.n));
+
+    let mut f = Lines::new(dir, "nfl_market.jsonl");
+    for m in &w.market.years {
+        f.put(json!({
+            "year": m.year, "ufa": m.ufa, "resigned": m.resigned, "signed_new": m.signed_new, "perfect": m.perfect, "swayed": m.swayed,
+            "tags": m.tags, "transition": m.transition, "tenders": m.tenders, "sheets": m.sheets, "sheets_matched": m.sheets_matched,
+            "options_taken": m.options_taken, "options_declined": m.options_declined, "extensions": m.extensions,
+            "rookie_extensions": m.rookie_extensions, "restructures": m.restructures, "cap_cuts": m.cap_cuts, "june1": m.june1,
+            "futures": m.futures, "waiver_claims": m.waiver_claims, "holdouts": m.holdouts, "holdins": m.holdins, "bluffs": m.bluffs,
+            "bluffs_called": m.bluffs_called, "agents_fired": m.agents_fired, "promises_broken": m.promises_broken, "trades": m.trades,
+            "deadline_trades": m.deadline_trades, "picks_traded": m.picks_traded, "comp_picks": m.comp_picks,
+            "other_league": m.other_league, "ipp": m.ipp, "floor_paid": m.floor_paid.round(),
+            "cap_use": m.cap_use.map(|x| (x * 1000.0).round() / 1000.0),
+            "dead": m.dead.map(|x| (x * 1000.0).round() / 1000.0),
+            "carryover": m.carryover.map(|x| (x * 1000.0).round() / 1000.0),
+        }));
+    }
+    counts.push(("market years".into(), f.n));
+
+    let mut f = Lines::new(dir, "nfl_trades.jsonl");
+    for t in &w.market.picks.trades {
+        f.put(json!({"date": t.date.pretty(), "buyer": w.nfl[t.buyer].name, "seller": w.nfl[t.seller].name, "picks": t.picks, "text": t.text}));
+    }
+    for c in &w.market.picks.comp {
+        f.put(json!({"comp": true, "year": c.year, "team": w.nfl[c.team].name, "owner": w.nfl[c.owner].name, "round": c.round, "kind": format!("{:?}", c.kind), "value": r1(c.value)}));
+    }
+    counts.push(("trades and comp picks".into(), f.n));
+
+    let mut f = Lines::new(dir, "nfl_clubs.jsonl");
+    for (t, c) in w.clubs.iter().enumerate() {
+        let o = &c.office;
+        let g = &o.gm;
+        let yr = w.year;
+        f.put(json!({
+            "team": w.nfl[t].name, "roster": c.roster.len(), "payroll": afm_engine::world::pro::payroll(w, t, yr).round(),
+            "space": afm_engine::world::pro::space(w, t, yr).round(), "dead": c.dead_in(yr).round(), "carryover": c.carryover.round(),
+            "cash": c.cash.iter().map(|x| json!([x.0, x.1.round()])).collect::<Vec<_>>(),
+            "mode": format!("{:?}", o.mode), "why": o.why, "fans": r2(o.fans), "gm_changes": o.gm_changes,
+            "gm": {"name": g.name, "since": g.since, "skill": r1(g.skill), "film_lean": r2(g.film_lean), "sunk_cost": r2(g.sunk_cost),
+                "impatience": r2(g.impatience), "not_my_guy": r2(g.not_my_guy), "loyalty": r2(g.loyalty), "recency": r2(g.recency),
+                "copycat": r2(g.copycat), "overconfidence": r2(g.overconfidence), "risk": r2(g.risk), "name_value": r2(g.name_value),
+                "fixation": g.fixation.map(|p| p.name()), "classic_chart": g.classic_chart, "pays_backs": g.pays_backs,
+                "restructures": r2(g.restructures), "early_extensions": r2(g.early_extensions)},
+            "owner": {"meddling": r2(o.owner.meddling), "pet": o.owner.pet.map(|i| w.people.get(i).map(|p| p.name.clone())),
+                "cash_will": r2(o.owner.cash_will), "patience": r2(o.owner.patience), "pr": r2(o.owner.pr),
+                "draft_override": r2(o.owner.draft_override), "trust": r2(o.owner.trust)},
+        }));
+    }
+    counts.push(("nfl clubs".into(), f.n));
+
+    let mut f = Lines::new(dir, "nfl_honors.jsonl");
+    let b = &w.nfl_book;
+    for a in &b.awards {
+        f.put(json!({"kind": "award", "year": a.0, "award": a.1, "id": a.2, "name": a.3, "team": w.nfl[a.4].name}));
+    }
+    for a in &b.all_pro {
+        f.put(json!({"kind": "all_pro", "year": a.0, "team_no": a.1, "id": a.2, "pos": a.3.name(), "team": w.nfl[a.4].name}));
+    }
+    for a in &b.pro_bowls {
+        f.put(json!({"kind": "pro_bowl", "year": a.0, "id": a.1, "team": w.nfl[a.2].name}));
+    }
+    for r in &b.records {
+        f.put(json!({"kind": "record", "stat": r.stat, "career": r.career, "value": r1(r.value), "holder": r.holder, "year": r.year, "world": r.world}));
+    }
+    for r in &b.broken {
+        f.put(json!({"kind": "broken", "year": r.0, "stat": r.1, "holder": r.2, "value": r1(r.3)}));
+    }
+    for h in &b.hall {
+        f.put(json!({"kind": "hall", "year": h.0, "id": h.1, "name": h.2, "pos": h.3.name(), "why": h.4}));
+    }
+    counts.push(("nfl honors".into(), f.n));
+
+    let mut f = Lines::new(dir, "agents.jsonl");
+    for a in &w.market.agents {
+        f.put(json!({"name": a.name, "agency": a.agency, "size": a.size, "skill": r1(a.skill), "honesty": r2(a.honesty), "clients": a.clients, "fired": a.fired,
+            "rel": a.rel.iter().map(|x| r2(*x)).collect::<Vec<_>>()}));
+    }
+    counts.push(("agents".into(), f.n));
 
     let mut f = Lines::new(dir, "news.jsonl");
     for n in &w.news {

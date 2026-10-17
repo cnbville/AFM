@@ -508,6 +508,7 @@ fn year_start(w: &mut World) {
     w.college = Some(college::new_season(w));
     w.hs_season = Some(hs_year::new_season(w));
     w.nfl_season = Some(nfl_year::new_season(w));
+    super::franchise::year_start(w);
     let y = w.dates.clone();
     // The year's fixed dates on the calendar (T1.3).
     let sb = format!("Super Bowl ({}).", y.super_bowl.pretty());

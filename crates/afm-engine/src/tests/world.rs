@@ -201,6 +201,12 @@ fn notes_read_an_before_a_vowel_sound() {
 fn college_world(season: i32) -> (crate::world::World, usize) {
     use crate::world::{World, WorldOptions};
     let mut w = World::empty(WorldOptions { scale: 0.001, ..Default::default() });
+    // The college tests work on the class alone: the generated NFL goes.
+    w.people.retain(|p| p.stage != crate::world::Stage::Pro);
+    for club in w.clubs.iter_mut() {
+        club.roster.clear();
+    }
+    crate::world::pro::rebuild(&mut w);
     w.add_class_aged(18);
     w.rules = w.changes.rules(season);
     let c = w.programs.iter().position(|p| p.division == Division::FBS).unwrap();

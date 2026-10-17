@@ -516,3 +516,32 @@ pub(crate) fn spring_install(w: &mut World) {
     }
     w.log.fbs_systems = mix;
 }
+
+/// An NFL staff's systems for the year (section 5): each coordinator runs
+/// the system he knows best; a new caller's playbook is known as far as it
+/// shares the old one (S5). Proposed, not confirmed: NFL staffs don't weigh
+/// the roster's fit as college staffs do in spring.
+pub(crate) fn nfl_install(w: &World, mut inst: Installed, oc: Option<usize>, dc: Option<usize>) -> Installed {
+    let mut known: [f64; 2] = [1.0, 1.0];
+    for (kind, caller) in [(Kind::Offense, oc), (Kind::Front, dc), (Kind::Shell, dc)] {
+        let Some(c) = caller else { continue };
+        let r = kind.range();
+        let know = &w.coaches[c].systems.know;
+        let Some(best) = r.clone().max_by(|&a, &b| know[a].total_cmp(&know[b])) else { continue };
+        let pick = best - r.start;
+        let cur = inst.slot(kind) - r.start;
+        let side = if kind == Kind::Offense { 0 } else { 1 };
+        if inst.by[kind as usize].is_some() && pick != cur {
+            known[side] = known[side].min(overlap(kind, cur, pick));
+        }
+        match kind {
+            Kind::Offense => inst.off = pick,
+            Kind::Front => inst.front = pick,
+            Kind::Shell => inst.shell = pick,
+        }
+        inst.by[kind as usize] = Some(c);
+    }
+    inst.off_known = known[0];
+    inst.def_known = known[1];
+    inst
+}

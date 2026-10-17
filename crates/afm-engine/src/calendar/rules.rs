@@ -42,7 +42,15 @@ pub struct RuleBook {
     pub nfl_games: u32,
     pub nfl_weeks: u32,
     pub nfl_playoff_teams: u32,
+    /// The regular-season roster limit: 49 in 1984, 45 in 1985-88, 47 in
+    /// 1989-92, 53 from 1993 (real).
     pub nfl_roster: u32,
+    /// Players dressed on game day: everyone through 1988, 45 to 2010 (a
+    /// third quarterback could dress as an emergency), 46 from 2011, 48
+    /// from 2020 (with eight offensive linemen).
+    pub nfl_actives: u32,
+    /// The offseason roster limit: 80 to 2010, 90 from 2011.
+    pub nfl_offseason: u32,
     pub nfl_practice_squad: u32,
     /// CBA: padded practices allowed in the regular season (14 since 2011).
     pub nfl_padded_practices: u32,
@@ -109,6 +117,31 @@ const SALARY_CAP: [(i32, f64); 33] = [
     (2026, 301.2),
 ];
 
+/// The cap after 2026 (section 5 topic 2, Cain's rule): 8% a year, and in
+/// a year a new media deal starts, the average of the last three media-deal
+/// jumps (real: 2006 +19.3%, 2014 +8.1%, 2022 +14.1%). The deals run eight
+/// years like the real ones, so the next starts in 2030 (proposed, not
+/// confirmed); the average rolls forward with the world's own deals.
+pub fn future_cap(season: i32) -> f64 {
+    let mut cap = 301.2e6;
+    let mut jumps = [0.193, 0.081, 0.141];
+    for y in 2027..=season {
+        if (y - 2022) % 8 == 0 {
+            let jump = jumps.iter().sum::<f64>() / 3.0;
+            jumps = [jumps[1], jumps[2], jump];
+            cap *= 1.0 + jump;
+        } else {
+            cap *= 1.08;
+        }
+    }
+    cap
+}
+
+/// Whether a new media deal starts this season (real 1998, 2006, 2014, 2022; then every eight years).
+pub fn media_deal_year(season: i32) -> bool {
+    matches!(season, 1998 | 2006 | 2014) || (season >= 2022 && (season - 2022) % 8 == 0)
+}
+
 /// The real cap for a year, if known.
 pub fn real_salary_cap(year: i32) -> Option<Option<f64>> {
     SALARY_CAP.iter().find(|c| c.0 == year).map(|c| if c.1 == 0.0 { None } else { Some(c.1 * 1.0e6) })
@@ -142,7 +175,7 @@ impl RuleBook {
         let cap = match real_salary_cap(season) {
             Some(c) => c,
             None if season < 1994 => None,
-            None => Some(301.2e6 * 1.07f64.powi(season - 2026)),
+            None => Some(future_cap(season)),
         };
         let fmt = cfb_postseason(season);
         RuleBook {
@@ -159,13 +192,28 @@ impl RuleBook {
                 1990..=2019 => 12,
                 _ => 14,
             },
-            nfl_roster: 53,
-            // Practice squad spots: 5 to 2003, 8 from 2004, 10 from 2014, 16
+            nfl_roster: match season {
+                ..=1984 => 49,
+                1985..=1988 => 45,
+                1989..=1992 => 47,
+                _ => 53,
+            },
+            nfl_actives: match season {
+                ..=1984 => 49,
+                1985..=1988 => 45,
+                1989..=2010 => 45,
+                2011..=2019 => 46,
+                _ => 48,
+            },
+            nfl_offseason: if season >= 2011 { 90 } else { 80 },
+            // Practice squad spots: none before the 1989 developmental
+            // squad, 5 to 2003, 8 from 2004, 10 from 2014, 16
             // in the COVID years 2020-2021 (the new CBA's 12 was raised) and
             // kept from 2022 (from memory, to verify); 17 from 2025 as first
             // built.
             nfl_practice_squad: match season {
-                ..=2003 => 5,
+                ..=1988 => 0,
+                1989..=2003 => 5,
                 2004..=2013 => 8,
                 2014..=2019 => 10,
                 2020..=2021 => 16,

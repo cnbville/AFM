@@ -191,7 +191,7 @@ fn background_ageing(pos: Position, age: u32) -> f64 {
     }
 }
 
-fn new_background(rng: &mut Rng, pos: Position, slot: usize, talent: f64, young: bool) -> Member {
+pub(crate) fn new_background(rng: &mut Rng, pos: Position, slot: usize, talent: f64, young: bool) -> Member {
     let DepthSlots { starters, rotation, .. } = depth_slots(pos);
     let mean = if slot < starters {
         78.0 + 3.0 * talent
@@ -252,8 +252,13 @@ pub fn make_league(rng: &mut Rng) -> Vec<Team> {
         .collect()
 }
 
+/// A new owner or general manager's rating, 1-20.
+pub fn new_staff_rating(rng: &mut Rng) -> f64 {
+    staff_rating(rng, 10.5, 3.5)
+}
+
 /// Roster talent a team tends to acquire: well-run teams find better players, with plenty of luck.
-fn talent_of(team: &Team, rng: &mut Rng) -> f64 {
+pub(crate) fn talent_of(team: &Team, rng: &mut Rng) -> f64 {
     0.5 * rng.normal(0.0, 1.0) + 0.5 * ((team.organisation() - 11.0) / 3.0)
 }
 

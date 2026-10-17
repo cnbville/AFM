@@ -33,11 +33,25 @@ pub struct SeasonContext {
     /// He signed a big NIL deal or a big contract before this season
     /// (fix list 4.5): a lost-drive year gets likelier.
     pub payday: bool,
+    /// A pro's real snaps last season as a share of a starter's season,
+    /// weighted by how hard they were (section 5 topic 1.1). When given, it
+    /// replaces the playing-time class in growth, potential and experience;
+    /// the class still decides the rest.
+    pub snaps: Option<f64>,
 }
 
 impl SeasonContext {
     pub fn new(level: Level, coaching: f64, playing_time: PlayingTime) -> Self {
-        SeasonContext { level, coaching, playing_time, trouble: None, adjustment: 0.0, situation: 0.0, payday: false }
+        SeasonContext {
+            level,
+            coaching,
+            playing_time,
+            trouble: None,
+            adjustment: 0.0,
+            situation: 0.0,
+            payday: false,
+            snaps: None,
+        }
     }
 }
 
@@ -112,6 +126,19 @@ pub fn season_games(level: Level) -> u32 {
         Level::FBS => 12,
         Level::NFL => 17,
     }
+}
+
+/// Growth from a pro's real snaps (section 5 topic 1.1): a backup's
+/// practice reps at none, a starter's season at a full share, a little more
+/// for a heavy load against strong teams (proposed, not confirmed: the
+/// playing-time classes' values, joined in a line).
+fn snaps_growth(share: f64) -> f64 {
+    0.8 + 0.35 * clamp(share, 0.0, 1.15)
+}
+
+/// Potential's lean from real snaps, as `playing_time_potential`.
+fn snaps_potential(share: f64) -> f64 {
+    -0.25 + 0.4 * clamp(share, 0.0, 1.15)
 }
 
 fn playing_time_potential(pt: PlayingTime) -> f64 {
@@ -418,7 +445,8 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             + ((personality.coachability - 10.0) / 10.0) * 0.25 * ((ctx.coaching - 10.0) / 10.0 + 0.5)
             + ((ctx.coaching - 10.0) / 10.0) * 0.35
             + 0.25 * situation
-            + (if young_pro { 0.0 } else { playing_time_potential(pt) }) * snaps_factor
+            + (if young_pro { 0.0 } else { ctx.snaps.map_or(playing_time_potential(pt), snaps_potential) })
+                * snaps_factor
             - setback
             + rng.normal(0.0, 0.9);
         let shared = drive * 1.7 * plasticity;
@@ -450,9 +478,10 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // well after the body has stopped growing: veterans earn new ceiling and
     // most of it shows up on the field straight away.
     if (21.0..=31.0).contains(&age) && ctx.trouble.is_none() {
-        let snaps_share = match pt {
-            PlayingTime::Starter => 1.0,
-            PlayingTime::Rotation => 0.6,
+        let snaps_share = match (ctx.snaps, pt) {
+            (Some(x), _) => clamp(x, 0.2, 1.0),
+            (_, PlayingTime::Starter) => 1.0,
+            (_, PlayingTime::Rotation) => 0.6,
             _ => 0.2,
         };
         for key in Attr::ALL {
@@ -478,7 +507,8 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     let coaching_mult = 0.75 + ctx.coaching * 0.025; // 10 -> 1.0, 20 -> 1.25
     let coachability_lean = 0.6 + personality.coachability * 0.04; // how much of coaching sticks
     let work_mult = 0.75 + personality.work_ethic * 0.025;
-    let snaps_mult = playing_time_growth(pt) * (0.7 + 0.3 * snaps_factor) * level_growth(ctx.level);
+    let snaps_mult =
+        ctx.snaps.map_or(playing_time_growth(pt), snaps_growth) * (0.7 + 0.3 * snaps_factor) * level_growth(ctx.level);
     let hs = ctx.level == Level::HS;
     let college = ctx.level.is_college();
     let development_age = age - player.bloom;

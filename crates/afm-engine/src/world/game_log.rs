@@ -96,6 +96,9 @@ pub struct GameLog {
     /// (season, FBS program, key) to the same totals for one team: "o|" keys
     /// when it has the ball, "d|" keys when it defends.
     pub team_situations: HashMap<(i32, usize, String), Situ>,
+    /// NFL games on the engine (section 5): the same box score, team
+    /// indices into `World::nfl`; `division` is unused.
+    pub nfl_games: Vec<GameSummary>,
 }
 
 fn togo_bucket(t: f64) -> &'static str {
@@ -347,36 +350,64 @@ impl GameLog {
         for ((prog, k), v) in team {
             bump(self.team_situations.entry((year, prog, k)).or_default(), &v);
         }
-        let mut xp = [0; 2];
-        let mut two_point = [0; 2];
-        let mut punt_yds = [(0, 0.0); 2];
-        for r in &g.plays {
-            match r.kind {
-                PlayType::ExtraPoint => xp[r.offense] += 1,
-                PlayType::TwoPoint => two_point[r.offense] += 1,
-                PlayType::Punt if !r.blocked => {
-                    punt_yds[r.offense].0 += 1;
-                    punt_yds[r.offense].1 += r.kick_distance;
-                }
-                _ => {}
+        let summary = summarize(year, division, teams, g, kr, pr);
+        self.games.push(summary);
+    }
+
+    /// An NFL game's box score (the players' seasons live on their pro careers).
+    pub fn add_nfl(&mut self, year: i32, teams: [usize; 2], g: &GameStats) {
+        let mut kr = [(0, 0.0); 2];
+        let mut pr = [(0, 0.0); 2];
+        for side in 0..2 {
+            for l in g.players[side].values() {
+                kr[side].0 += l.kr;
+                kr[side].1 += l.kr_yds;
+                pr[side].0 += l.pr;
+                pr[side].1 += l.pr_yds;
             }
         }
-        self.games.push(GameSummary {
-            year,
-            division,
-            teams,
-            score: g.score,
-            stats: g.team.clone(),
-            kr,
-            pr,
-            xp,
-            two_point,
-            punt_yds,
-            overtime: g.overtime,
-            tags: Vec::new(),
-            loud: "",
-            emergency_snaps: g.plays.iter().filter(|p| p.emergency).count() as u32,
-            cross: false,
-        });
+        let summary = summarize(year, Division::FBS, teams, g, kr, pr);
+        self.nfl_games.push(summary);
+    }
+}
+
+fn summarize(
+    year: i32,
+    division: Division,
+    teams: [usize; 2],
+    g: &GameStats,
+    kr: [(u32, f64); 2],
+    pr: [(u32, f64); 2],
+) -> GameSummary {
+    let mut xp = [0; 2];
+    let mut two_point = [0; 2];
+    let mut punt_yds = [(0, 0.0); 2];
+    for r in &g.plays {
+        match r.kind {
+            PlayType::ExtraPoint => xp[r.offense] += 1,
+            PlayType::TwoPoint => two_point[r.offense] += 1,
+            PlayType::Punt if !r.blocked => {
+                punt_yds[r.offense].0 += 1;
+                punt_yds[r.offense].1 += r.kick_distance;
+            }
+            _ => {}
+        }
+    }
+    GameSummary {
+        year,
+        division,
+        teams,
+        score: g.score,
+        stats: g.team.clone(),
+        kr,
+        pr,
+        xp,
+        two_point,
+        punt_yds,
+        overtime: g.overtime,
+        tags: Vec::new(),
+        loud: "",
+        emergency_snaps: g.plays.iter().filter(|p| p.emergency).count() as u32,
+        cross: false,
     }
 }

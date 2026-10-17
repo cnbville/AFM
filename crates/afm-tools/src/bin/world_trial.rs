@@ -203,35 +203,74 @@ fn main() {
     let mut card_values: Vec<serde_json::Value> = Vec::new();
     if let Ok(path) = std::env::var("AFM_CARDS") {
         let first = w.year - years as i32 + 5;
-        let mut picked: Vec<(&Alumnus, String)> = Vec::new();
-        for a in w.alumni.iter().filter(|a| a.player.is_some() && a.year >= first) {
+        let al = || w.alumni.iter().enumerate().filter(|(_, a)| a.player.is_some() && a.year >= first);
+        let mut picked: Vec<(usize, String)> = Vec::new();
+        for (k, a) in al() {
             let tag = match a.pick {
                 Some(1) => "Number 1 pick".to_string(),
                 Some(p) if p <= 32 && a.year + 2 >= w.year => format!("Round 1 of the {} draft", a.year),
                 _ => continue,
             };
-            picked.push((a, tag));
+            picked.push((k, tag));
         }
-        let gems = w.alumni.iter().filter(|a| {
-            a.player.is_some()
-                && a.year >= first
-                && a.stars <= 2
+        let gems = al().filter(|(_, a)| {
+            a.stars <= 2
                 && a.pick.is_some_and(|p| p <= 64)
                 && a.colleges.first().is_some_and(|&c| w.programs[c].division != Division::FBS)
         });
-        picked.extend(gems.take(3).map(|a| (a, "Hidden gem".to_string())));
-        let busts =
-            w.alumni.iter().filter(|a| a.player.is_some() && a.year >= first && a.stars == 5 && a.left_football);
-        picked.extend(busts.take(3).map(|a| (a, "Five-star who left football".to_string())));
-        let late =
-            w.alumni.iter().filter(|a| a.player.is_some() && a.year >= first && a.pick.is_some_and(|p| p >= 200));
-        picked.extend(late.take(5).map(|a| (a, "Late-round pick".to_string())));
-        let undrafted = w.alumni.iter().filter(|a| {
-            a.player.is_some() && a.year + 1 >= w.year && a.pick.is_none() && !a.left_football && a.stars >= 4
+        picked.extend(gems.take(3).map(|(k, _)| (k, "Hidden gem".to_string())));
+        let busts = al().filter(|(_, a)| a.stars == 5 && a.left_football);
+        picked.extend(busts.take(3).map(|(k, _)| (k, "Five-star who left football".to_string())));
+        let late = al().filter(|(_, a)| a.pick.is_some_and(|p| p >= 200));
+        picked.extend(late.take(5).map(|(k, _)| (k, "Late-round pick".to_string())));
+        let undrafted =
+            al().filter(|(_, a)| a.year + 1 >= w.year && a.pick.is_none() && !a.left_football && a.stars >= 4);
+        picked.extend(undrafted.take(5).map(|(k, _)| (k, "Undrafted blue-chip".to_string())));
+        // Pro careers (section 5): Hall of Famers, MVPs, big free agents,
+        // traded players, holdouts and undrafted starters.
+        let career = |k: usize| {
+            w.people
+                .iter()
+                .find(|q| q.pro.as_ref().and_then(|c| c.alumnus) == Some(k))
+                .and_then(|q| q.pro.as_deref())
+                .or(w.alumni[k].pro.as_deref())
+        };
+        let id_of = |k: usize| w.alumni[k].player.as_ref().map(|p| p.id);
+        let hall: Vec<u32> = w.nfl_book.hall.iter().map(|h| h.1).collect();
+        let mvp: Vec<u32> = w.nfl_book.awards.iter().filter(|a| a.1 == "MVP").map(|a| a.2).collect();
+        let traded: Vec<usize> = w.market.picks.trades.iter().map(|t| t.player).collect();
+        let traded_ids: Vec<u32> = traded.iter().filter_map(|&i| w.people.get(i).map(|p| p.player.id)).collect();
+        let mut extra = |label: &str, n: usize, f: &dyn Fn(usize) -> bool| {
+            let mut got = 0;
+            for (k, _) in al() {
+                if got == n {
+                    break;
+                }
+                if !picked.iter().any(|x| x.0 == k) && f(k) {
+                    picked.push((k, label.to_string()));
+                    got += 1;
+                }
+            }
+        };
+        extra("Hall of Famer", 3, &|k| id_of(k).is_some_and(|id| hall.contains(&id)));
+        extra("NFL MVP", 2, &|k| id_of(k).is_some_and(|id| mvp.contains(&id)));
+        extra("Traded", 3, &|k| id_of(k).is_some_and(|id| traded_ids.contains(&id)));
+        extra("Big free agent deal", 3, &|k| {
+            career(k).is_some_and(|c| {
+                c.contract.as_ref().is_some_and(|d| {
+                    d.kind == afm_engine::world::pro::money::Kind::Veteran
+                        && c.draft.is_none_or(|x| x.3 != d.team)
+                        && d.apy() > afm_engine::world::pro::money::price_cap(w.year) * 0.08
+                })
+            })
         });
-        picked.extend(undrafted.take(5).map(|a| (a, "Undrafted blue-chip".to_string())));
+        extra("Held out", 2, &|k| career(k).is_some_and(|c| c.hold != afm_engine::world::pro::market::Hold::None));
+        extra("Undrafted to starter", 3, &|k| {
+            w.alumni[k].pick.is_none()
+                && career(k).is_some_and(|c| c.seasons.iter().map(|s| s.starts).sum::<u32>() >= 32)
+        });
         let cards: Vec<serde_json::Value> =
-            picked.iter().map(|(a, tag)| afm_tools::dashboard::card(&w, a, tag)).collect();
+            picked.iter().map(|(k, tag)| afm_tools::dashboard::card(&w, *k, tag)).collect();
         std::fs::write(&path, serde_json::to_string(&cards).unwrap()).unwrap();
         println!("wrote {} cards to {path}\n", cards.len());
         card_values = cards;
@@ -743,6 +782,7 @@ fn main() {
     trial1_notes(&w, years);
     stat_book(&w);
     walk_on_picks(&w);
+    nfl_league(&w, years);
 
     // --- Character report: what the game shows instead ---
     println!("\n## What a scout sees (character report on a current five-star)");
@@ -1745,4 +1785,180 @@ fn coaching_market(w: &World, years: u32) {
         println!("A college head coach who went to the NFL:");
         coach_career(w, c);
     }
+}
+
+/// Section 5 in the world: the living NFL (rosters of people, money, the
+/// market, trades, honors), with rough real ranges to read it against
+/// (from memory, to verify: about 550 unrestricted free agents a year, 6-9
+/// franchise tags, at most one or two offer sheets, about half of fifth-year
+/// options taken, 25-40 cutdown claims, 40-60 player trades, 32-39 comp
+/// picks, 10-15 futures deals a team).
+fn nfl_league(w: &World, years: u32) {
+    use afm_engine::world::pro::{Status, money, payroll};
+    println!("\n## The NFL as a living league (section 5)");
+    let first = w.year - years.min(30) as i32;
+    println!(
+        "| year | UFA | re-signed | new team | perfect | swayed | tags | trans | tenders | sheets (matched) | 5th opt taken/declined | ext | rookie ext | restruct | cap cuts | June 1 | futures | claims | holdouts/ins | bluffs (called) | agents fired | promises broken | trades (deadline) | comp | other lg | IPP | cap use (low/median/high) | dead money | carryover |"
+    );
+    println!(
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"
+    );
+    for m in w.market.years.iter().filter(|m| m.year >= first) {
+        println!(
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} ({}) | {}/{} | {} | {} | {} | {} | {} | {} | {} | {}/{} | {} ({}) | {} | {} | {} ({}) | {} | {} | {} | {:.2}/{:.2}/{:.2} | {:.2}/{:.2}/{:.2} | {:.2}/{:.2}/{:.2} |",
+            m.year,
+            m.ufa,
+            m.resigned,
+            m.signed_new,
+            m.perfect,
+            m.swayed,
+            m.tags,
+            m.transition,
+            m.tenders,
+            m.sheets,
+            m.sheets_matched,
+            m.options_taken,
+            m.options_declined,
+            m.extensions,
+            m.rookie_extensions,
+            m.restructures,
+            m.cap_cuts,
+            m.june1,
+            m.futures,
+            m.waiver_claims,
+            m.holdouts,
+            m.holdins,
+            m.bluffs,
+            m.bluffs_called,
+            m.agents_fired,
+            m.promises_broken,
+            m.trades,
+            m.deadline_trades,
+            m.comp_picks,
+            m.other_league,
+            m.ipp,
+            m.cap_use[0],
+            m.cap_use[1],
+            m.cap_use[2],
+            m.dead[0],
+            m.dead[1],
+            m.dead[2],
+            m.carryover[0],
+            m.carryover[1],
+            m.carryover[2]
+        );
+    }
+    // Who holds the rosters now.
+    let (mut drafted, mut undrafted, mut generated, mut ipp, mut held) = (0, 0, 0, 0, 0);
+    let mut ages = Vec::new();
+    for p in w.people.iter().filter(|p| p.stage == Stage::Pro) {
+        let c = p.pro.as_ref().unwrap();
+        if !c.held() {
+            continue;
+        }
+        held += 1;
+        ages.push(p.player.age as f64);
+        if c.ipp {
+            ipp += 1;
+        } else if p.notes.iter().any(|n| n.contains("generated")) {
+            generated += 1;
+        } else if c.draft.is_some() {
+            drafted += 1;
+        } else {
+            undrafted += 1;
+        }
+    }
+    let age = ages.iter().sum::<f64>() / ages.len().max(1) as f64;
+    println!(
+        "\nOn NFL books now: {held} (drafted {drafted}, undrafted {undrafted}, generated {generated}, pathway {ipp}); average age {age:.1} (real about 26)."
+    );
+    let year = w.year;
+    let cap = money::price_cap(year);
+    let mut use_: Vec<(f64, &str)> = (0..w.clubs.len())
+        .filter(|&t| afm_engine::world::franchise::active(t, year))
+        .map(|t| (payroll(w, t, year) / cap, w.nfl[t].name))
+        .collect();
+    use_.sort_by(|a, b| a.0.total_cmp(&b.0));
+    if let (Some(lo), Some(hi)) = (use_.first(), use_.last()) {
+        println!(
+            "Cap use in {year} (cap ${:.1}M): lowest {:.0}% ({}), median {:.0}%, highest {:.0}% ({}).",
+            cap / 1e6,
+            lo.0 * 100.0,
+            lo.1,
+            use_[use_.len() / 2].0 * 100.0,
+            hi.0 * 100.0,
+            hi.1
+        );
+    }
+    // The biggest deals.
+    let mut deals: Vec<(f64, String)> = w
+        .people
+        .iter()
+        .filter_map(|p| {
+            let k = p.pro.as_ref()?.contract.as_ref()?;
+            Some((
+                k.apy(),
+                format!(
+                    "{} ({}, {}): {} years, ${:.1}M a year, ${:.1}M guaranteed, {:?}",
+                    p.name,
+                    p.player.position.name(),
+                    w.nfl[k.team].name,
+                    k.real_years(),
+                    k.apy() / 1e6,
+                    k.guaranteed() / 1e6,
+                    k.kind
+                ),
+            ))
+        })
+        .collect();
+    deals.sort_by(|a, b| b.0.total_cmp(&a.0));
+    println!("\n### Biggest deals now (share of the cap)");
+    for (apy, d) in deals.iter().take(10) {
+        println!("- {d} ({:.1}% of the cap)", apy / cap * 100.0);
+    }
+    println!("\n### Holdouts and hold-ins (last five years)");
+    for p in w.people.iter().filter(|p| p.stage == Stage::Pro) {
+        for n in p.notes.iter().filter(|n| n.starts_with("Held out") || n.starts_with("Held in")) {
+            println!("- {}: {n}", p.name);
+        }
+    }
+    println!("\n### Trades (last 15)");
+    for t in w.market.picks.trades.iter().rev().take(15) {
+        println!("- {}: {}", t.date.pretty(), t.text);
+    }
+    println!("\n### NFL awards (last ten seasons)");
+    for a in w
+        .nfl_book
+        .awards
+        .iter()
+        .filter(|a| a.0 >= w.year - 10 && matches!(a.1, "MVP" | "OPOY" | "DPOY" | "OROY" | "DROY"))
+    {
+        println!("- {} {}: {} ({})", a.0, a.1, a.3, w.nfl[a.4].name);
+    }
+    println!("\n### Pro Football Hall of Fame (last five classes)");
+    for h in w.nfl_book.hall.iter().filter(|h| h.0 >= w.year - 5) {
+        println!("- {}: {} ({}) {}", h.0, h.2, h.3.name(), h.4);
+    }
+    println!("\n### NFL records set in the world");
+    for r in w.nfl_book.records.iter().filter(|r| r.world) {
+        println!(
+            "- {} {}: {:.0} by {} ({})",
+            if r.career { "career" } else { "season" },
+            r.stat,
+            r.value,
+            r.holder,
+            r.year
+        );
+    }
+    let unsigned = w
+        .people
+        .iter()
+        .filter(|p| p.stage == Stage::Pro && p.pro.as_ref().is_some_and(|c| c.status == Status::FreeAgent))
+        .count();
+    let other = w
+        .people
+        .iter()
+        .filter(|p| p.stage == Stage::Pro && p.pro.as_ref().is_some_and(|c| matches!(c.status, Status::Other(_))))
+        .count();
+    println!("\nUnsigned pros now: {unsigned}; in other leagues: {other}.");
 }
