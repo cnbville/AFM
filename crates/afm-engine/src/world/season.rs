@@ -11,7 +11,9 @@ use super::coach::{Group, TitleKind};
 use super::data::Division;
 use super::{Stage, World, division_level};
 use crate::athlete::Eye;
+use crate::attributes::Attr;
 use crate::development::{SeasonContext, Trouble, develop_season};
+use crate::game::playbook::{FAMILY_COUNT, Family};
 use crate::game::{Caller, GamePlayer, GameTeam, Staff as GameStaff};
 use crate::league::depth_slots;
 use crate::player::{Level, PlayingTime};
@@ -617,6 +619,16 @@ pub(crate) const SEASON_SNAPS: u32 = 750;
 /// playbook is known only as far as it shares the old one (S5).
 pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<GameTeam> {
     let inst = prog.installed;
+    // What the playbook leans on (plays and tactics topic 4): families the
+    // team runs a lot get the reps, the rest are known less well. Its own
+    // tape says which; with none yet every family counts the same.
+    let fam = prog.film.families();
+    let fam_top = |off: bool| {
+        let r = if off { 0..Family::Front as usize } else { Family::Front as usize..FAMILY_COUNT };
+        fam[r].iter().copied().fold(0.0, f64::max)
+    };
+    let (top_off, top_def) = (fam_top(true), fam_top(false));
+    let has_film = prog.film.off_snaps >= 40.0;
     let players: Vec<GamePlayer> = prog
         .roster
         .iter()
@@ -628,12 +640,39 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
             let experience = p.college_snaps as f64 / SEASON_SNAPS as f64;
             let side = if super::systems::offense(p.player.position) { inst.off_known } else { inst.def_known };
             let know = clamp(0.78 + 0.05 * seasons, 0.0, 0.95) * (0.8 + 0.2 * side);
-            GamePlayer::from_player(&p.player, know, experience)
+            let mut g = GamePlayer::from_player(&p.player, know, experience);
+            // Per family: reps by how much the playbook uses it, and the
+            // understanding a sharp player builds faster (topic 4.2, 4.4;
+            // proposed, not confirmed).
+            let iq = 0.5 * (p.player.attributes[Attr::Awareness] + p.player.attributes[Attr::PlayRecognition]);
+            let mind = clamp(0.92 + 0.08 * (iq - 60.0) / 25.0, 0.82, 1.04);
+            for f in Family::ALL {
+                let (use_, top) = if f.offense() { (fam[f as usize], top_off) } else { (fam[f as usize], top_def) };
+                let reps = if has_film && top > 0.0 { 0.78 + 0.22 * clamp(use_ / top, 0.0, 1.0).sqrt() } else { 0.92 };
+                g.know[f as usize] = clamp(know * reps * mind, 0.0, 1.0) as f32;
+            }
+            g
         })
         .collect();
     if players.len() < 30 {
         return None;
     }
+    // Line chemistry (topic 4.9): the share of the five most experienced
+    // linemen who started up front here last season (proposed, not
+    // confirmed).
+    let mut line: Vec<&super::Person> = prog
+        .roster
+        .iter()
+        .map(|&i| &w.people[i])
+        .filter(|p| p.stage == Stage::College && matches!(p.player.position, Position::OT | Position::IOL))
+        .collect();
+    line.sort_by_key(|p| std::cmp::Reverse(p.college_snaps));
+    let back = line
+        .iter()
+        .take(5)
+        .filter(|p| p.last_snaps >= 350 && p.college_staff.last().is_some_and(|s| s.1 == prog.id && s.0 == w.year - 1))
+        .count();
+    let line_chem = 0.25 + 0.15 * back as f64;
     let ab = |c: Option<usize>| c.map(|c| *w.coaches[c].ability());
     let hc = ab(prog.head_coach);
     // A caller runs a system he knows less well worse (S4): his calling
@@ -643,17 +682,48 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
         let a = ab(c).or(hc);
         let temper = who.map_or(10.0, |c| w.coaches[c].personality.ambition);
         let know = who.map_or(0.8, |c| w.coaches[c].systems.know[slot]);
+        // His four calling skills (plays and tactics topic 6.2): reading
+        // leans on scheme, situational on game management, creativity is
+        // scheme with more of his own spread; nerve from ambition (proposed,
+        // not confirmed).
+        let id = who.unwrap_or(usize::MAX) as u64;
+        let spread = |k: u64, sd: f64| if who.is_some() { sd * key_normal(k, id) } else { 0.0 };
+        let fit = 0.7 + 0.3 * know;
+        let reading =
+            a.map_or(9.0, |a| clamp(0.7 * a.scheme + 0.3 * a.game_management + spread(0x5EAD, 2.0), 1.0, 20.0));
+        let situational =
+            a.map_or(9.0, |a| clamp(0.7 * a.game_management + 0.3 * a.scheme + spread(0x517A, 2.0), 1.0, 20.0));
+        let creativity = a.map_or(9.0, |a| clamp(a.scheme + spread(0xC4EA, 3.0), 1.0, 20.0));
+        let nerve = clamp(0.04 * (temper - 10.0) + spread(0x4E4E, 0.4), -1.0, 1.0);
         Caller {
-            skill: a.map_or(9.0, |a| 0.6 * a.scheme + 0.4 * a.game_management) * (0.7 + 0.3 * know),
+            skill: a.map_or(9.0, |a| 0.6 * a.scheme + 0.4 * a.game_management) * fit,
             adaptation: a.map_or(9.0, |a| a.game_management),
             aggressiveness: temper,
+            reading: reading * fit,
+            situational,
+            creativity: creativity * fit,
+            nerve,
         }
     };
+    // Film study (topic 5.1): the coordinators' eye and the quality-control
+    // staff a budget buys (proposed, not confirmed).
+    let eye = |c: Option<usize>| ab(c.or(prog.head_coach)).map_or(9.0, |a| a.scheme);
+    let film_study = clamp(0.35 * (eye(prog.oc) + eye(prog.dc)) + 7.0 * prog.facilities, 1.0, 20.0);
     let dc = prog.dc.or(prog.head_coach);
-    Some(GameTeam {
-        name: prog.real_name.clone(),
+    // The install (T6.2): the staff sizes the weekly plan to what its
+    // players can absorb; a poor staff misjudges it, an aggressive one puts
+    // in more (proposed, not confirmed).
+    let aware = players.iter().map(|p| p.a(Attr::Awareness)).sum::<f64>() / players.len().max(1) as f64;
+    let install = {
+        let oc = caller(prog.oc, inst.off);
+        let who = prog.oc.or(prog.head_coach).unwrap_or(usize::MAX) as u64;
+        let miss = 0.15 * (1.0 - oc.skill / 20.0).max(0.0) * key_normal(0x1257 ^ w.year as u64, who);
+        clamp(crate::game::roster::absorb(aware) + miss + 0.01 * (oc.aggressiveness - 10.0), 0.35, 1.0)
+    };
+    let mut team = GameTeam::new(
+        prog.real_name.clone(),
         players,
-        staff: GameStaff {
+        GameStaff {
             offense: caller(prog.oc, inst.off),
             defense: caller(prog.dc, 7 + inst.shell),
             game_management: hc.map_or(9.0, |a| a.game_management),
@@ -666,8 +736,15 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
             // His own habit, kept for his career (S8; spread proposed, not
             // confirmed).
             nickel: dc.map_or(0.88, |c| clamp(0.88 + 0.08 * key_normal(0x41C8, c as u64), 0.55, 0.99)),
+            year: w.year,
+            film_study,
+            install,
         },
-    })
+    );
+    team.film = prog.film.clone();
+    team.line_chem = line_chem;
+    team.novelty = super::trends::team_novelty(w, prog.division, &prog.film);
+    Some(team)
 }
 
 /// What a head coach brings into a game besides his team (dynasty item 3):

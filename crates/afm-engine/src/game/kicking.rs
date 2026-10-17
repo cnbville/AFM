@@ -511,7 +511,11 @@ fn run_return(
         } else {
             (cover_start - speed * run).max(catch.x + 5.0 + rng.range(0.0, 6.0))
         };
-        let y = if gap.is_some() && (n == 1 || n == 2) {
+        let y = if n == 0 {
+            // The kicker kicks from between the hashes and trails in the
+            // middle as the last man (it used to start him at the sideline).
+            MID + rng.range(-3.0, 3.0)
+        } else if gap.is_some() && (n == 1 || n == 2) {
             // Gunners close on the returner from either side.
             catch.y + if n == 1 { -4.5 } else { 4.5 } + rng.range(-2.0, 2.0)
         } else {
@@ -580,10 +584,12 @@ fn run_return(
         fight: Vec::new(),
         fight_since: 0.0,
         screen: None,
-        open_reach: 1.6,
+        // The same lunge in the open field as on a scrimmage play.
+        open_reach: OPEN_REACH,
         press: 0.0,
         two_gap: false,
         gap_run: None,
+        stunt: None,
     };
     // Reorder so the return team (side 0) comes first.
     let mut ret_agents: Vec<Agent> = agents.drain(ret_idx..).collect();
@@ -639,6 +645,9 @@ fn run_return(
             man[b] = cover.get(j * nc / nb.max(1)).copied();
         }
     }
+    // How far in front of the returner each deep man holds: the safeties
+    // ten yards, the kicker fifteen (proposed, not confirmed).
+    let deep = |i: usize| if safety[i] { 10.0 } else { 15.0 };
     let ktrace = super::sim::TRACE.load(std::sync::atomic::Ordering::Relaxed);
     let mut buf = String::new();
     while sim.t < 12.0 && !sim.dead {
@@ -648,6 +657,14 @@ fn run_return(
             buf.push('\n');
         }
         sim.update_blocks(None, Some(0));
+        // Where the first wave is: the safeties trail it by about ten yards
+        // and the kicker sits behind them as the last man, so a returner
+        // who breaks the wall still meets two levels (real kickoff coverage).
+        let wave: Vec<f64> = (1..sim.agents.len())
+            .filter(|&i| sim.agents[i].side == 1 && !safety[i] && sim.agents[i].label == "ST")
+            .map(|i| sim.agents[i].pos.x)
+            .collect();
+        let wave_x = if wave.is_empty() { sim.agents[0].pos.x } else { wave.iter().sum::<f64>() / wave.len() as f64 };
         for i in 1..sim.agents.len() {
             if !sim.agents[i].up(sim.t) || sim.agents[i].engaged.is_some() {
                 continue;
@@ -665,10 +682,15 @@ fn run_return(
                         let aim = v2(rp.x + 3.0, rp.y + contain[i] * 2.5);
                         let vm = sim.agents[i].vmax;
                         sim.steer(i, (aim - me).norm().scale(vm));
-                    } else if safety[i] && me.x - rp.x > 10.0 {
-                        let aim = v2(rp.x + 10.0, rp.y + (lanes[i] - MID) * 0.3);
+                    } else if kickoff && (safety[i] || sim.agents[i].label == "K") && me.x - rp.x > deep(i) {
+                        // A safety or the kicker holds his level behind the
+                        // wave, shaded to the ball, until the returner is on
+                        // him; then he attacks with a deep angle.
+                        let level = (rp.x + deep(i)).max(wave_x + deep(i) - 3.0);
+                        let shade = if safety[i] { (lanes[i] - MID) * 0.3 } else { 0.0 };
+                        let aim = v2(level, rp.y + shade);
                         let vm = sim.agents[i].vmax;
-                        let gap = (me.x - rp.x - 10.0).max(0.0);
+                        let gap = (me.x - level).abs();
                         sim.steer(i, (aim - me).norm().scale(vm.min(2.5 * gap + 2.0)));
                     } else if kickoff && !lanes[i].is_nan() && me.x - rp.x > 20.0 {
                         // Lane discipline: down the field in his lane, spread

@@ -82,6 +82,8 @@ pub struct GameResult {
     pub crew: Option<Crew>,
     /// Garbage-time calls and why: (play number, team, what he did).
     pub decisions: Vec<(u32, usize, String)>,
+    /// What each team showed on film this game (home, away).
+    pub film: [calling::Film; 2],
 }
 
 struct Side<'a> {
@@ -421,10 +423,27 @@ pub fn play_game(setup: &GameSetup) -> GameResult {
     let t = setup.rules.timeouts;
     let mut sides =
         [Side::new(setup.home, setup.two_way_margin[0], t), Side::new(setup.away, setup.two_way_margin[1], t)];
-    // Game prep: each staff studies the other's film (topic 3.2).
+    // Game prep: each staff studies the other's film (plays and tactics
+    // topic 5.1) and makes its matchup plan (5.4).
     let (hs, as_) = (setup.home.staff, setup.away.staff);
-    sides[0].mem.prepare(&as_, &hs);
-    sides[1].mem.prepare(&hs, &as_);
+    let mut prep = Rng::new(((setup.seed >> 17) as u32) ^ (setup.seed as u32).rotate_left(5) ^ 0x3C6E_F372);
+    sides[0].mem.prepare(&as_, &setup.away.film, &hs, &mut prep);
+    sides[1].mem.prepare(&hs, &setup.home.film, &as_, &mut prep);
+    let plans: Vec<calling::Plan> = (0..2)
+        .map(|k| {
+            let (me, them) = (&sides[k], &sides[1 - k]);
+            let rated = |side: &Side, pos: Position, n: usize, sp: Spot| -> Vec<(usize, f64)> {
+                side.depth.list(pos).iter().take(n).map(|&i| (i, side.team.players[i].spot_r[sp.index()])).collect()
+            };
+            let their_cbs = rated(them, Position::CB, 2, Spot::CB);
+            let their_wrs = rated(them, Position::WR, 3, Spot::WR);
+            let our_cbs: Vec<f64> = rated(me, Position::CB, 2, Spot::CB).iter().map(|x| x.1).collect();
+            let qb_run = them.depth.list(Position::QB).first().map_or(0.0, |&i| qb_run(&them.team.players[i]));
+            calling::make_plan(&me.team.staff, &their_cbs, &their_wrs, &our_cbs, qb_run, &mut prep)
+        })
+        .collect();
+    sides[0].mem.plan = plans[0];
+    sides[1].mem.plan = plans[1];
     let mut mind = Rng::new(((setup.seed >> 29) as u32) ^ (setup.seed as u32).rotate_left(11) ^ 0x6A09_E667);
     let habits = garbage::habits(setup.rules.level);
     for (k, side) in sides.iter_mut().enumerate() {
@@ -1021,17 +1040,12 @@ impl<'a> Game<'a> {
         }
         // Kneel to run out the clock.
         if !self.ot && self.should_kneel() {
-            let call = OffCall {
-                formation: Formation {
-                    personnel: Personnel::P12,
-                    backfield: Backfield::UnderCenter,
-                    trips: false,
-                    strength: 1.0,
-                },
-                kind: PlayKind::Kneel,
-                dir: 1.0,
-                tempo: false,
-            };
+            let call = OffCall::new(
+                Formation::plain(Personnel::P12, Backfield::UnderCenter, 1.0),
+                PlayKind::Kneel,
+                1.0,
+                false,
+            );
             self.run_scrimmage_call(call, None);
             return;
         }
@@ -1066,17 +1080,8 @@ impl<'a> Game<'a> {
             && self.down < 4
             && self.half_left() > 3.0
         {
-            let call = OffCall {
-                formation: Formation {
-                    personnel: Personnel::P11,
-                    backfield: Backfield::Shotgun,
-                    trips: false,
-                    strength: 1.0,
-                },
-                kind: PlayKind::Spike,
-                dir: 1.0,
-                tempo: true,
-            };
+            let call =
+                OffCall::new(Formation::plain(Personnel::P11, Backfield::Shotgun, 1.0), PlayKind::Spike, 1.0, true);
             self.run_scrimmage_call(call, None);
             return;
         }
@@ -1512,11 +1517,22 @@ impl<'a> Game<'a> {
         let staff_d = self.sides[1 - o].team.staff;
         let has_fb = self.sides[o].depth.list(Position::RB).len() >= 2;
         let te_count = self.sides[o].depth.list(Position::TE).iter().filter(|&&i| !self.sides[o].out[i]).count();
-        let mut call = calling::call_offense(&staff_o, &self.sides[o].mem, &sit, has_fb, te_count, &mut self.rng);
+        let qb = self.sides[o].depth.list(Position::QB).iter().copied().find(|&i| !self.sides[o].out[i]);
+        let qb_threat = qb.map_or(0.0, |i| qb_run(&self.sides[o].team.players[i]));
+        let ctx = calling::OffCtx {
+            has_fb,
+            te_count,
+            qb_run: qb_threat,
+            level: self.s.rules.level,
+            plan: self.sides[o].team.plan().0,
+        };
+        let mut call = calling::call_offense(&staff_o, &self.sides[o].mem, &sit, &ctx, &mut self.rng);
         if two_point && matches!(call.kind, PlayKind::Pass(_)) && self.rng.chance(0.3) {
             call.kind = PlayKind::Pass(0);
         }
-        let dcall = calling::call_defense(&staff_d, &self.sides[1 - o].mem, &sit, &call.formation, &mut self.rng);
+        let dctx = calling::DefCtx { qb_run: qb_threat };
+        let dcall =
+            calling::call_defense(&staff_d, &self.sides[1 - o].mem, &sit, &call.formation, &dctx, &mut self.rng);
         self.run_scrimmage_call(call, Some(dcall))
     }
 
@@ -1524,60 +1540,105 @@ impl<'a> Game<'a> {
         let o = self.poss;
         let d = 1 - o;
         let sit = self.situation();
-        let dcall = dcall.unwrap_or(DefCall {
-            personnel: DefPersonnel::Base,
-            coverage: Coverage::Cover3,
-            pressure: Pressure::Four,
-            disguise: false,
-        });
+        let dcall = dcall.unwrap_or(DefCall::new(DefPersonnel::Base, Coverage::Cover3, Pressure::Four));
         self.sides[d].frozen = self.no_huddle;
         let (off, def) = self.lineup(&call, &dcall);
         self.sides[d].frozen = false;
-        // Pre-snap check (topic 3): a smart quarterback changes a run into a
-        // quick throw against a stacked box, or a pass into a run against a
-        // light one, if his coach lets him.
+        // Before the snap (plays and tactics topic 3): the quarterback reads
+        // the numbers in the box and the shell, as far as his coach lets him
+        // act on it (3.3): no freedom, a two-play "kill" call, or full
+        // audibles. Trust grows with experience; a strict coach gives less.
         let qb = off.iter().find(|x| x.0 == ORole::QB).map(|x| x.1).unwrap_or(0);
         let qp = &self.sides[o].team.players[qb];
         let box_n = def
             .iter()
             .filter(|(s, _)| s.is_line() || s.is_lb() || *s == DSlot::SS && dcall.coverage.high() < 2)
-            .count();
-        let freedom = clamp(0.9 - 0.035 * self.sides[o].team.staff.strictness, 0.15, 0.85);
-        let skill = clamp((qp.a(Attr::Awareness) - 50.0) / 50.0 + 0.1 * qp.experience.min(5.0) / 5.0, 0.0, 1.0);
+            .count() as i32;
+        let blockers =
+            5 + off.iter().filter(|x| matches!(x.0, ORole::TE | ORole::TE2 | ORole::TE3 | ORole::FB)).count() as i32;
+        let numbers = box_n - blockers;
+        let freedom =
+            clamp(0.85 - 0.035 * self.sides[o].team.staff.strictness + 0.04 * qp.experience.min(5.0), 0.1, 0.95);
+        let iq = 0.6 * qp.a(Attr::Awareness) + 0.4 * qp.a(Attr::Vision);
+        // His read of the shell: a disguise fools him unless he out-thinks
+        // the secondary (3.5).
+        let shows_two = dcall.coverage.high() == 2 || dcall.disguise;
+        let db_iq = def
+            .iter()
+            .filter(|(s, _)| s.is_db())
+            .map(|&(_, i)| self.sides[d].team.players[i].a(Attr::PlayRecognition))
+            .sum::<f64>()
+            / def.iter().filter(|(s, _)| s.is_db()).count().max(1) as f64;
+        let fooled =
+            dcall.disguise && dcall.coverage.high() < 2 && !self.rng.chance(clamp(0.5 + 0.02 * (iq - db_iq), 0.1, 0.9));
         // A road crowd drowns out checks at the line: hand signals carry
         // fewer of them.
         let noise = 1.0 - 0.5 * self.home_crowd(o);
+        let sees = clamp((iq - 40.0) / 50.0, 0.05, 0.95) * noise;
         let mut audible = false;
-        if !sit.hurry() && self.rng.chance(freedom * skill * 0.6 * noise) {
-            match call.kind {
-                PlayKind::Run(_) if box_n >= 8 && sit.togo > 2.0 => {
-                    call.kind = PlayKind::Pass(0);
+        if !sit.hurry() && call.kind != PlayKind::Kneel {
+            let run_called = matches!(call.kind, PlayKind::Run(_));
+            let pass_called = matches!(call.kind, PlayKind::Pass(c) if pass_concept(c).depth != PassDepth::Screen);
+            // Run into a loaded box, or throw against a light one with two deep.
+            // A defense is meant to be one up against the run (an extra
+            // man the back must beat); two up is a loaded box.
+            let want = if run_called && numbers >= 2 && sit.togo > 2.0 {
+                Some(true)
+            } else if pass_called && numbers <= -1 && (shows_two && !fooled) && sit.togo <= 6.0 {
+                Some(false)
+            } else {
+                None
+            };
+            if let Some(to_pass) = want
+                && self.rng.chance(sees)
+            {
+                let alt = call.alt.filter(|a| matches!(a, PlayKind::Pass(_)) == to_pass);
+                let new = if freedom >= 0.35 && alt.is_some() {
+                    alt
+                } else if freedom >= 0.7 {
+                    Some(if to_pass {
+                        PlayKind::Pass(calling::quick_check(sit.togo))
+                    } else {
+                        PlayKind::Run(RunConcept::InsideZone)
+                    })
+                } else {
+                    None
+                };
+                if let Some(k) = new {
+                    call.kind = k;
                     audible = true;
                 }
-                PlayKind::Pass(c) if box_n <= 6 && sit.togo <= 4.0 && PASS_CONCEPTS[c].depth != PassDepth::Screen => {
-                    call.kind = PlayKind::Run(RunConcept::InsideZone);
-                    audible = true;
-                }
-                _ => {}
             }
         }
+        let fam = call_family(call.kind);
+        let (belief_run, sure) = self.sides[d].mem.belief(call.formation.look());
         let mut r = self.new_record(match call.kind {
-            PlayKind::Run(_) => PlayType::Run,
+            PlayKind::Run(_) | PlayKind::Rpo(..) => PlayType::Run,
             PlayKind::Pass(_) => PlayType::Pass,
             PlayKind::Kneel => PlayType::Kneel,
             PlayKind::Spike => PlayType::Spike,
         });
         r.call = format!(
-            "{} {} {}{}",
+            "{} {} {} {}{}",
             call.formation.personnel.name(),
             match call.formation.backfield {
                 Backfield::Shotgun => "gun",
                 Backfield::Pistol => "pistol",
                 Backfield::UnderCenter => "under center",
             },
+            call.formation.set.name(),
             call.describe(),
             if audible { " (audible)" } else { "" }
         );
+        r.call_why = if audible {
+            if call.kind.is_pass() {
+                "the quarterback saw a loaded box and checked to a throw"
+            } else {
+                "the quarterback saw a light box and checked to a run"
+            }
+        } else {
+            call.why
+        };
         r.defense_call = dcall.describe();
         r.personnel = call.formation.personnel.name().into();
         r.blitz = dcall.pressure.extra() > 0;
@@ -1624,6 +1685,36 @@ impl<'a> Game<'a> {
         r.emergency = off.iter().any(|&(rl, i)| stranger(&self.sides[o], i, orole_spot(rl)))
             || def.iter().any(|&(sl, i)| stranger(&self.sides[d], i, dslot_spot(sl)));
         let crowd = self.home_crowd(o);
+        // What he knows of the coverage before the snap (topic 3): his own
+        // read, a disguise that fooled him, and motion against man (the
+        // defender follows his man across unless the coordinator bumps).
+        let mut pre_read = if fooled { 0.0 } else { clamp((iq - 45.0) / 50.0, 0.0, 1.0) * noise };
+        if call.formation.motion == Motion::Across
+            && dcall.coverage.is_man()
+            && !self.rng.chance(0.15 + 0.02 * self.sides[d].team.staff.defense.reading)
+        {
+            pre_read = (pre_read + 0.35).min(1.0);
+        }
+        let tac = scrimmage::Tactics {
+            belief_run,
+            sure,
+            study: self.sides[d].team.staff.film_study,
+            pre_read,
+            fooled,
+            target_cb: self.sides[o].mem.plan.target_cb,
+            bracket: self.sides[d].mem.plan.bracket,
+            chem: self.sides[o].team.line_chem,
+            novelty: self.sides[o].team.novelty[fam as usize],
+            family: fam,
+            // Linemen downfield on a pass: NFL one yard, NCAA three, high
+            // school (NFHS) two.
+            downfield: match self.s.rules.level {
+                Level::NFL => 1.0,
+                Level::HS => 2.0,
+                _ => 3.0,
+            },
+            load: [self.sides[o].team.plan().1, self.sides[d].team.plan().1],
+        };
         let snap = Snap {
             teams: [&self.sides[o].team.players, &self.sides[d].team.players],
             offense: &off,
@@ -1645,6 +1736,7 @@ impl<'a> Game<'a> {
             record: self.s.record,
             hurry: sit.hurry(),
             two_gap: self.sides[d].team.staff.front == Front::ThreeFour,
+            tac,
         };
         let res = scrimmage::run_snap(&snap, &mut self.rng);
         r.on_field = [
@@ -1996,6 +2088,11 @@ impl<'a> Game<'a> {
         }
         // Why (topic 1): the chain that decided it.
         r.why = self.why(&r, &res, label, &call, &dcall, accepted_pen);
+        // The tape (topic 5.1): every real snap goes on both teams' film.
+        if matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble) {
+            self.res.film[o].offense(&call, r.down);
+            self.res.film[d].defense(&dcall);
+        }
         // Coordinator memory.
         if matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble) && !accepted_pen {
             let epa_est = self.estimate_epa(&r, new_x, first_down, turnover, scored_td);
@@ -2012,10 +2109,32 @@ impl<'a> Game<'a> {
                     m.deep_epa += epa_est;
                 }
             }
+            // Tendencies (topic 7): the look and what came out of it, for
+            // this offense's self-scout and the defense's keys; run
+            // concepts by result.
+            let look = call.formation.look();
+            let pass_look = !matches!(call.kind, PlayKind::Run(_) | PlayKind::Rpo(..)) as usize;
+            m.own_look[look][pass_look] += 1.0;
+            let ran = match call.kind {
+                PlayKind::Run(rc) => Some(rc),
+                PlayKind::Rpo(rc, _) if r.kind == PlayType::Run => Some(rc),
+                _ => None,
+            };
+            if let Some(rc) = ran {
+                m.run_res[rc as usize][0] += epa_est;
+                m.run_res[rc as usize][1] += 1.0;
+            }
             let md = &mut self.sides[d].mem;
+            md.opp_look[look][pass_look] += 1.0;
+            if let Some(rc) = ran {
+                md.opp_run_res[rc as usize][0] += epa_est;
+                md.opp_run_res[rc as usize][1] += 1.0;
+            }
             md.opp_plays += 1.0;
-            if let PlayKind::Pass(i) = call.kind {
-                md.opp_concepts[i] += 1.0;
+            if let PlayKind::Pass(i) = call.kind
+                && let Some(x) = md.opp_concepts.get_mut(i)
+            {
+                *x += 1.0;
             }
             if r.kind != PlayType::Run {
                 md.opp_pass += 1.0;
@@ -2560,4 +2679,10 @@ fn same_group(pos: Position, sp: Spot) -> bool {
         || pos == Position::TE && sp == Spot::FB
         || pos == Position::CB && to == Position::WR
         || pos == Position::WR && to == Position::CB
+}
+
+/// How much a quarterback threatens to run, 0-1 (topic 5.4): a spy and the
+/// option game key on it (proposed, not confirmed).
+fn qb_run(p: &GamePlayer) -> f64 {
+    clamp((0.6 * p.a(Attr::Speed) + 0.4 * p.a(Attr::Elusiveness) - 68.0) / 20.0, 0.0, 1.0)
 }

@@ -8,6 +8,9 @@ use crate::positions::{POSITION_COUNT, Position, long_snapper_rating, overall_fo
 use crate::rng::clamp;
 use crate::spots::{self, SPOT_COUNT, Spot, fill_in, spot_rating};
 
+use super::calling::Film;
+use super::playbook::FAMILY_COUNT;
+
 /// A player as the match engine sees him on game day.
 #[derive(Clone, Debug)]
 pub struct GamePlayer {
@@ -25,6 +28,10 @@ pub struct GamePlayer {
     pub injury_proneness: f64,
     /// How well he knows this team's playbook, 0-1 (topic 3).
     pub knowledge: f64,
+    /// What he knows of each concept family, 0-1 (plays and tactics topic
+    /// 4): a third is knowing his job, two thirds understanding why, all of
+    /// it mastery.
+    pub know: [f32; FAMILY_COUNT],
     /// Seasons of real game experience.
     pub experience: f64,
     /// How much his coach lets him freelance, 0-1 (topic 3.1). Moves with
@@ -54,6 +61,7 @@ impl GamePlayer {
             personality: p.personality,
             injury_proneness: p.injury_proneness,
             knowledge: clamp(knowledge, 0.0, 1.0),
+            know: [clamp(knowledge, 0.0, 1.0) as f32; FAMILY_COUNT],
             experience,
             trust: 0.5,
             spot: p.spot,
@@ -190,17 +198,31 @@ pub enum Shell {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Caller {
-    /// Play-calling quality, 1-20 (hidden ability).
+    /// Play-calling quality, 1-20 (hidden ability): the mean of his skills.
     pub skill: f64,
     /// How fast and how well he adjusts during a game, 1-20.
     pub adaptation: f64,
-    /// 1-20: deep shots, blitzes, fourth downs.
+    /// 1-20: deep shots, blitzes, fourth downs. A style, not a quality.
     pub aggressiveness: f64,
+    /// Plays and tactics topic 6.2, 1-20 each: reading what the other side
+    /// shows and what beats it; situational knowledge (down, distance,
+    /// field zone); creativity (calls that fit his players, breaking his
+    /// own tendencies).
+    pub reading: f64,
+    pub situational: f64,
+    pub creativity: f64,
+    /// Under pressure (behind late, a job on the line), -1 tightens up, +1
+    /// gambles (topic 6.5), from his personality.
+    pub nerve: f64,
 }
 
 impl Caller {
     pub fn average() -> Caller {
-        Caller { skill: 10.0, adaptation: 10.0, aggressiveness: 10.0 }
+        Caller::new(10.0, 10.0, 10.0)
+    }
+    /// A caller whose skills all sit at his overall quality.
+    pub fn new(skill: f64, adaptation: f64, aggressiveness: f64) -> Caller {
+        Caller { skill, adaptation, aggressiveness, reading: skill, situational: skill, creativity: skill, nerve: 0.0 }
     }
 }
 
@@ -225,6 +247,16 @@ pub struct Staff {
     /// three receivers with nickel instead of staying in base. Real NFL
     /// teams answered 11 personnel with nickel 88% of the time.
     pub nickel: f64,
+    /// The season: what the era plays (RPOs, motion, the triple option).
+    pub year: i32,
+    /// The staff's film study, 1-20 (topic 5.1): coordinators plus quality
+    /// control. How much of the opponent's tendencies it finds.
+    pub film_study: f64,
+    /// The install (calendar T6.2, plays and tactics topic 4.6): the share
+    /// of the playbook in a normal week's game plan, 0.35-1. A bigger plan
+    /// carries more calls and more mental errors for players who can't
+    /// absorb it.
+    pub install: f64,
 }
 
 impl Staff {
@@ -239,7 +271,10 @@ impl Staff {
             shell: Shell::Cover3,
             playbook: 1.0,
             sportsmanship: 10.0,
+            install: INSTALL,
             nickel: 0.88,
+            year: 2026,
+            film_study: 10.0,
         }
     }
 }
@@ -250,6 +285,71 @@ pub struct GameTeam {
     pub name: String,
     pub players: Vec<GamePlayer>,
     pub staff: Staff,
+    /// What the team has shown this season (topic 5.1): the other staff
+    /// studies it.
+    pub film: Film,
+    /// How long the offensive line has played together, 0-1 (topic 4.9):
+    /// cleaner calls, stunts passed off.
+    pub line_chem: f64,
+    /// How new each concept family still is to defenses at this level, 0-1
+    /// (topic 9): a fresh idea is read a beat late.
+    pub novelty: [f64; FAMILY_COUNT],
+    /// This week's preparation time against a normal week (calendar T6.2):
+    /// a short week (a Thursday game after a Saturday) about 0.8, after a
+    /// bye about 1.1.
+    pub week: f64,
+}
+
+/// A normal week's install, as a share of the playbook (proposed, not
+/// confirmed).
+pub const INSTALL: f64 = 0.75;
+
+impl GameTeam {
+    /// A team with no film, a settled line, nothing new and a normal week.
+    pub fn new(name: String, players: Vec<GamePlayer>, staff: Staff) -> GameTeam {
+        GameTeam {
+            name,
+            players,
+            staff,
+            film: Film::default(),
+            line_chem: 0.6,
+            novelty: [0.0; FAMILY_COUNT],
+            week: 1.0,
+        }
+    }
+
+    /// The plan the staff takes into this game and the load it puts on the
+    /// players (T6.2). A short week cuts the plan, but only half the
+    /// shortfall: real staffs trim the install and still see more mental
+    /// errors. After a bye they add a little. Returns (the share of the
+    /// playbook called, the load against a normal week's learning).
+    pub fn plan(&self) -> (f64, f64) {
+        let w = self.week.max(0.3);
+        let planned = (self.staff.install * (1.0 - 0.5 * (1.0 - w))).clamp(0.2, 1.0);
+        (planned, planned / w)
+    }
+}
+
+/// How much of a game plan a player can absorb in a normal week, by his
+/// awareness (T6.2): about all of a full plan at 75, two thirds at 60,
+/// under half at 50 (proposed, not confirmed).
+pub fn absorb(awareness: f64) -> f64 {
+    ((awareness - 30.0) / 45.0).clamp(0.2, 1.3)
+}
+
+/// Days since a team's last game to its preparation (T6.2): four days or
+/// fewer is a very short week, five a Thursday game, a week normal, a bye
+/// more (proposed, not confirmed).
+pub fn prep_week(days: Option<i32>) -> f64 {
+    match days {
+        None => 1.15,
+        Some(d) if d <= 4 => 0.65,
+        Some(5) => 0.8,
+        Some(6) => 0.92,
+        Some(d) if d <= 9 => 1.0,
+        Some(d) if d <= 13 => 1.1,
+        Some(_) => 1.15,
+    }
 }
 
 /// The depth chart: players (indexes into `players`) in order at each spot.

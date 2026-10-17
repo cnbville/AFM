@@ -131,12 +131,19 @@ pub enum Job {
         cushion: f64,
         lag: f64,
     },
-    /// Zone: a landmark and how deep the zone is.
+    /// Zone: a landmark and how deep the zone is. A matched zone carries a
+    /// receiver who goes vertical through it (pattern matching).
     Zone {
         spot: V2,
         deep: bool,
         width: f64,
+        matched: bool,
     },
+    /// Spying the quarterback (plays and tactics topic 5.4): mirror him
+    /// from the second level, come at once if he runs.
+    Spy,
+    /// The pitch man on an option, keeping his relation to the quarterback.
+    PitchMan,
     /// Chasing the ball.
     Pursue,
     /// Blocking for a ball carrier (returns, after a catch, after a turnover).
@@ -196,6 +203,14 @@ pub struct Agent {
     pub top: f64,
     /// He has read the screen and is going for the back.
     pub smell: bool,
+    /// A rusher on a stunt waits until this time before he loops.
+    pub hold_until: f64,
+    /// His run fit (plays and tactics topic 1): 0 none, 1 force (contain
+    /// and turn it in), 2 fill his gap, 3 the alley from depth; the gap he
+    /// owns at the line; and whether he misfits this snap.
+    pub fit: u8,
+    pub gap_y: f64,
+    pub misfit: bool,
     /// Ratings with fatigue, injury and momentum in.
     pub r: [f64; 25],
 }
@@ -239,6 +254,10 @@ impl Agent {
             last_try: -9.0,
             top: 0.0,
             smell: false,
+            hold_until: 0.0,
+            fit: 0,
+            gap_y: 0.0,
+            misfit: false,
             r,
         }
     }
@@ -271,6 +290,10 @@ impl Agent {
             last_try: self.last_try,
             top: self.top,
             smell: self.smell,
+            hold_until: self.hold_until,
+            fit: self.fit,
+            gap_y: self.gap_y,
+            misfit: self.misfit,
             r: self.r,
         }
     }
@@ -366,6 +389,9 @@ pub enum FoulKind {
     DelayOfGame,
     IllegalFormation,
     IntentionalGrounding,
+    /// A lineman more than the level's limit downfield when a pass is
+    /// thrown past the line (an RPO thrown late).
+    IneligibleDownfield,
 }
 
 impl FoulKind {
@@ -384,6 +410,7 @@ impl FoulKind {
             FoulKind::DelayOfGame => "delay of game",
             FoulKind::IllegalFormation => "illegal formation",
             FoulKind::IntentionalGrounding => "intentional grounding",
+            FoulKind::IneligibleDownfield => "ineligible man downfield",
         }
     }
     /// Yards, and whether it is an automatic first down for the offense.
@@ -393,9 +420,11 @@ impl FoulKind {
             FoulKind::DefensiveHolding => (5.0, true),
             FoulKind::PassInterference => (15.0, true),
             FoulKind::RoughingPasser | FoulKind::UnnecessaryRoughness | FoulKind::FaceMask => (15.0, true),
-            FoulKind::FalseStart | FoulKind::Offside | FoulKind::DelayOfGame | FoulKind::IllegalFormation => {
-                (5.0, false)
-            }
+            FoulKind::FalseStart
+            | FoulKind::Offside
+            | FoulKind::DelayOfGame
+            | FoulKind::IllegalFormation
+            | FoulKind::IneligibleDownfield => (5.0, false),
             FoulKind::IntentionalGrounding => (10.0, false),
         }
     }
@@ -486,6 +515,13 @@ pub struct Notes {
     pub injuries: Vec<Injury>,
     pub top_speed: Vec<(u32, f64)>,
     pub why: Vec<String>,
+    /// An RPO the quarterback pulled and threw; an option pitched.
+    pub rpo_pulled: bool,
+    pub pitched: bool,
+    /// Run fits missed this snap (plays and tactics topic 1).
+    pub misfits: Vec<u32>,
+    /// A stunt the line passed off or didn't (topic 4.9).
+    pub stunt: Option<bool>,
 }
 
 /// One frame of tracking for the 2D view (topic 9.3): every player and the ball.
@@ -552,6 +588,8 @@ pub struct Sim<'a> {
     /// On a designed run: Some(true) for a gap scheme (down blocks and a
     /// puller), Some(false) for a zone scheme, None otherwise.
     pub gap_run: Option<bool>,
+    /// A stunt this snap: the penetrator and the looper (topic 1).
+    pub stunt: Option<(usize, usize)>,
 }
 
 /// How much a run block's outcome leans on the strength gap per point.
@@ -562,6 +600,13 @@ const RUN_EDGE: f64 = 0.035;
 /// The extra pull a defender with leverage gets when the runner comes at
 /// him (fitted with `RUN_EDGE`; 1.0 before).
 const SHED_RUNNER: f64 = 0.5;
+
+/// How far a free defender in the open field can reach or lunge for the
+/// ball carrier, on scrimmage plays and returns alike. (2.2 before, and 1.6
+/// on returns: runners slipped past squared-up defenders untouched, so
+/// nine in ten runs past 20 yards went past 40 against two in ten real,
+/// and long touchdowns ran near twice real; proposed, not confirmed.)
+pub const OPEN_REACH: f64 = 2.5;
 
 /// Rating points a road line loses off the snap at full crowd noise.
 /// Fitted with the other home-field causes to the real home margin
@@ -950,9 +995,13 @@ impl<'a> Sim<'a> {
                 && !reading
                 && let Some(c) = carrier
                 && self.agents[c].pos.dist(self.agents[d].pos) < 2.2
-                && e.w > 0.3
+                && e.w > 0.0
             {
-                mu += SHED_RUNNER * (0.5 + e.w);
+                // (Any leverage at all, and twice as hard as it was: real
+                // runners meet first contact about a yard and a half past
+                // the line, the engine's at three and a half; proposed, not
+                // confirmed.)
+                mu += 2.0 * SHED_RUNNER * (0.5 + e.w).max(0.2);
             }
             if TRACE.load(std::sync::atomic::Ordering::Relaxed) && (t - e.start) < DT * 1.5 {
                 println!(

@@ -108,41 +108,37 @@ fn main() {
         "draw" => PlayKind::Run(RunConcept::Draw),
         "sneak" => PlayKind::Run(RunConcept::Sneak),
         "read" => PlayKind::Run(RunConcept::ZoneRead),
+        "duo" => PlayKind::Run(RunConcept::Duo),
+        "trap" => PlayKind::Run(RunConcept::Trap),
+        "iso" => PlayKind::Run(RunConcept::Iso),
+        "qbpower" => PlayKind::Run(RunConcept::QbPower),
+        "speed" => PlayKind::Run(RunConcept::SpeedOption),
+        "triple" => PlayKind::Run(RunConcept::TripleOption),
+        "jet" => PlayKind::Run(RunConcept::JetSweep),
+        "rpo" => PlayKind::Rpo(RunConcept::InsideZone, concept("RPO glance")),
         "pass" => PlayKind::Pass(4),
         s => PlayKind::Pass(s.parse().unwrap_or(0)),
     };
     // AFM_BASE=1: 12 personnel under center against a base defense.
     let base = std::env::var("AFM_BASE").is_ok();
     let (pers, bf) = if base { (Personnel::P12, Backfield::UnderCenter) } else { (Personnel::P11, Backfield::Shotgun) };
-    let call = OffCall {
-        formation: Formation { personnel: pers, backfield: bf, trips: false, strength: 1.0 },
-        kind,
-        dir: 1.0,
-        tempo: false,
-    };
-    // AFM_COV picks the coverage (0 Cover 0 .. 7 Cover 6), default Cover 3.
-    let covs = [
-        Coverage::Cover0,
-        Coverage::Cover1,
-        Coverage::Cover2,
-        Coverage::Tampa2,
-        Coverage::Cover3,
-        Coverage::Cover4,
-        Coverage::Cover2Man,
-        Coverage::Cover6,
-    ];
-    let cov = std::env::var("AFM_COV")
-        .ok()
-        .and_then(|v| v.parse::<usize>().ok())
-        .map(|k| covs[k % 8])
-        .unwrap_or(Coverage::Cover3);
+    // AFM_SET picks the set (0 doubles .. 5 wing), AFM_MOTION the motion
+    // (0 none, 1 jet, 2 orbit, 3 across, 4 shift).
+    let env_n = |k: &str| std::env::var(k).ok().and_then(|v| v.parse::<usize>().ok());
+    let sets = [Set::Doubles, Set::Trips, Set::Bunch, Set::Stack, Set::Empty, Set::Wing];
+    let motions = [Motion::None, Motion::Jet, Motion::Orbit, Motion::Across, Motion::Shift];
+    let mut formation = Formation::plain(pers, bf, 1.0);
+    formation.set = env_n("AFM_SET").map_or(Set::Doubles, |k| sets[k % sets.len()]);
+    formation.motion = env_n("AFM_MOTION")
+        .map_or(if kind == PlayKind::Run(RunConcept::JetSweep) { Motion::Jet } else { Motion::None }, |k| {
+            motions[k % motions.len()]
+        });
+    let dir = if kind == PlayKind::Run(RunConcept::JetSweep) { -1.0 } else { 1.0 };
+    let call = OffCall::new(formation, kind, dir, false);
+    // AFM_COV picks the coverage (0 Cover 0 .. 9 Cover 3 match), default Cover 3.
+    let cov = env_n("AFM_COV").map_or(Coverage::Cover3, |k| Coverage::ALL[k % COVERAGE_COUNT]);
     let pressure = if cov == Coverage::Cover0 { Pressure::DoubleA } else { Pressure::Four };
-    let dcall = DefCall {
-        personnel: if base { DefPersonnel::Base } else { DefPersonnel::Nickel },
-        coverage: cov,
-        pressure,
-        disguise: false,
-    };
+    let dcall = DefCall::new(if base { DefPersonnel::Base } else { DefPersonnel::Nickel }, cov, pressure);
     // A third argument sweeps that many seeds without the trace.
     if let Some(n) = args.get(3).and_then(|s| s.parse::<u64>().ok()) {
         let mut ys = Vec::new();

@@ -32,6 +32,7 @@ pub mod schedule;
 pub(crate) mod season;
 mod staff;
 pub mod systems;
+pub mod trends;
 
 use rayon::prelude::*;
 
@@ -566,6 +567,10 @@ pub struct World {
     /// team or his level, and on Huge ones anywhere. None in trials, where
     /// every Big moment stops it.
     pub seat: Option<Seat>,
+    /// Each division's concept families by season (plays and tactics topic
+    /// 9.9), and how new each family is to its defenses now (9.5).
+    pub trends: Vec<trends::Trend>,
+    pub(crate) novelty: [[f64; crate::game::playbook::FAMILY_COUNT]; data::DIVISION_COUNT],
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -814,6 +819,8 @@ impl World {
             moved_cycle: std::collections::HashSet::new(),
             college_spread: season::COLLEGE_SPREAD,
             seat: None,
+            trends: Vec::new(),
+            novelty: [[0.0; crate::game::playbook::FAMILY_COUNT]; data::DIVISION_COUNT],
         };
         staff::staff_everyone(&mut w);
         systems::spring_install(&mut w);

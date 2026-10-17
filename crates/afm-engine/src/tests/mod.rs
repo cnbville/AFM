@@ -6,6 +6,7 @@ mod game_stats;
 mod kick_units;
 mod level_rating;
 mod scouting;
+mod tactics;
 mod world;
 
 use crate::development::{SeasonContext, develop_season};

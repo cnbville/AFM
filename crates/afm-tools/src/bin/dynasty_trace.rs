@@ -153,7 +153,7 @@ fn main() {
                     s.off_scheme = neutral.off_scheme;
                     s.shell = neutral.shell;
                     s.front = neutral.front;
-                    GameTeam { players: reference.clone(), staff: s, name: t.name.clone() }
+                    GameTeam::new(t.name.clone(), reference.clone(), s)
                 })
                 .collect();
             let sc: Vec<GameTeam> = best
@@ -163,7 +163,7 @@ fn main() {
                     s.off_scheme = t.staff.off_scheme;
                     s.shell = t.staff.shell;
                     s.front = t.staff.front;
-                    GameTeam { players: reference.clone(), staff: s, name: t.name.clone() }
+                    GameTeam::new(t.name.clone(), reference.clone(), s)
                 })
                 .collect();
             let r = [

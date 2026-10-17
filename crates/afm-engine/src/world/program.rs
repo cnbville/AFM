@@ -320,6 +320,9 @@ pub struct Program {
     pub season_records: [Option<SeasonRecord>; 4],
     /// The systems it runs and how well its players know them (S3, S5).
     pub installed: super::systems::Installed,
+    /// What its games have shown (plays and tactics topics 5.1 and 7.7):
+    /// this season's tape, and last season's at less weight.
+    pub film: crate::game::Film,
 }
 
 /// A school single-season record (A40).
@@ -541,6 +544,7 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
         special_admits: admissions(row).1,
         era: Default::default(),
         installed: Default::default(),
+        film: Default::default(),
     };
     p.prestige = prestige_of(&p, 10.0, 0.5);
     p

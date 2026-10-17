@@ -289,6 +289,14 @@ pub(crate) fn start(w: &mut World) {
     season::develop(w, &roles);
     season::record_lineups(w);
     let results = season::college_results(w);
+    // Last season's tape still gets studied, at less weight (topic 7.7); a
+    // new coordinator's old tape is at his old school, so his new team's
+    // film on that side of the ball mostly starts over (proposed, not
+    // confirmed).
+    super::trends::record(w);
+    for prog in w.programs.iter_mut() {
+        prog.film.fade(if prog.hc_changed == w.year { 0.1 } else { 0.3 });
+    }
     let on_engine = w.college.as_ref().unwrap().on_engine;
     let teams: Vec<Option<GameTeam>> =
         if on_engine { w.programs.par_iter().map(|p| season::game_team(w, p)).collect() } else { Vec::new() };
@@ -558,14 +566,25 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
         .map(|&k| {
             let g = &cs.games[k];
             let (venue, played, _) = conditions(w, g, k);
-            let strip = |t: &GameTeam| {
+            // The days each side had to prepare (T6.2).
+            let week = |me: usize| {
+                let last = cs
+                    .games
+                    .iter()
+                    .filter(|o| o.involves(me) && o.played.is_some() && o.date < date)
+                    .map(|o| o.date)
+                    .max();
+                crate::game::roster::prep_week(last.map(|d| date.0 - d.0))
+            };
+            let strip = |t: &GameTeam, me: usize| {
                 let mut t = t.clone();
                 t.players.retain(|p| !cs.out.contains_key(&p.id) && !capped.contains(&p.id));
+                t.week = week(me);
                 t
             };
             let teams = if cs.on_engine {
                 match (cs.teams.get(g.home).and_then(|t| t.as_ref()), cs.teams.get(g.away).and_then(|t| t.as_ref())) {
-                    (Some(a), Some(b)) => Some((strip(a), strip(b))),
+                    (Some(a), Some(b)) => Some((strip(a, g.home), strip(b, g.away))),
                     _ => None,
                 }
             } else {
@@ -648,6 +667,13 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
             let [sa, sb] = &r.stats.team;
             cs.results[home].totals.add(sa, sb);
             cs.results[away].totals.add(sb, sa);
+            // The tape (topic 5.1): what each team showed goes on its film.
+            for (side, prog) in [(0usize, home), (1usize, away)] {
+                if let Some(Some(t)) = cs.teams.get_mut(prog) {
+                    t.film.add(&r.film[side]);
+                }
+                w.programs[prog].film.add(&r.film[side]);
+            }
             for (side, prog) in [(0usize, home), (1usize, away)] {
                 // The career record (topic 8): every division, every player.
                 if w.recording

@@ -39,6 +39,8 @@ pub struct PlayRecord {
     pub score: [i32; 2],
     pub kind: PlayType,
     pub call: String,
+    /// The play caller's reason (plays and tactics topic 6.6).
+    pub call_why: &'static str,
     pub defense_call: String,
     pub personnel: String,
     pub box_count: u8,
@@ -132,6 +134,7 @@ impl PlayRecord {
             score: [0, 0],
             kind,
             call: String::new(),
+            call_why: "",
             defense_call: String::new(),
             personnel: String::new(),
             box_count: 0,
