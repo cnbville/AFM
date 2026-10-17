@@ -609,6 +609,45 @@ pub fn record_impact(p: &mut Program, state: usize, hs: usize, area: usize, weig
     }
 }
 
+/// The pipelines a program already has when the history starts (fix list
+/// 2.6): to the high schools and areas of its own state, sized by its
+/// tradition and its level, strongest to the state's best programs. Proposed,
+/// not confirmed: an FBS flagship with top tradition starts at 0.5 to the
+/// best schools and areas, an FCS program at about a third of that, lower
+/// levels at a fifth. They fade like any pipeline unless signees renew them.
+pub(crate) fn seed_pipelines(w: &mut super::World) {
+    let year = w.year;
+    let mut best_hs = [0.0f64; 51];
+    for h in &w.high_schools {
+        best_hs[h.state] = best_hs[h.state].max(h.prestige);
+    }
+    for p in w.programs.iter_mut() {
+        if !p.plays(year) {
+            continue;
+        }
+        let level = match p.division {
+            Division::FBS => 1.0,
+            Division::FCS => 0.35,
+            _ => 0.2,
+        };
+        let size = 0.5 * level * clamp(p.grades[GradeCat::Tradition as usize] / 100.0, 0.0, 1.0);
+        if size <= 0.0 {
+            continue;
+        }
+        p.pipeline[p.state] = p.pipeline[p.state].max(0.5 * size);
+        p.pipeline_last_impact[p.state] = year;
+        for h in w.high_schools.iter().filter(|h| h.state == p.state) {
+            let v = size * (0.25 + 0.75 * h.prestige / best_hs[h.state].max(1e-9));
+            let e = p.hs_pipeline.entry(h.id).or_insert((0.0, year));
+            e.0 = e.0.max(v);
+            e.1 = year;
+            let a = p.area_pipeline.entry(h.area).or_insert((0.0, year));
+            a.0 = a.0.max(v);
+            a.1 = year;
+        }
+    }
+}
+
 /// Pipelines fade slowly after several years with no impact.
 pub fn fade_pipelines(p: &mut Program, year: i32) {
     for s in 0..51 {

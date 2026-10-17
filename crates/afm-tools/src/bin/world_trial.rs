@@ -12,7 +12,7 @@ use afm_engine::world::data::{self, Division};
 use afm_engine::world::geo::STATE_CENTERS;
 use afm_engine::world::news::{Channel, NewsKind};
 use afm_engine::world::program::{GradeCat, letter};
-use afm_engine::world::{Alumnus, World, WorldOptions};
+use afm_engine::world::{Alumnus, Stage, World, WorldOptions};
 
 fn div_name(w: &World, a: &Alumnus) -> String {
     a.colleges
@@ -345,6 +345,60 @@ fn main() {
     rows.sort_by(|a, b| b.0.total_cmp(&a.0));
     println!("  {}", rows.iter().take(10).map(|r| r.1.clone()).collect::<Vec<_>>().join(", "));
     println!("  {}", rows.iter().rev().take(5).map(|r| r.1.clone()).collect::<Vec<_>>().join(", "));
+    // Fix list topic 2: recruited players from the school's own state (real
+    // FBS 2022-25: median 37%, p10 15%, p90 65%; Texas Tech 80%, Texas 68%,
+    // LSU 55%, Ohio State 45%, Alabama 43%, Michigan 24%, Oregon 18%, Notre
+    // Dame 6%).
+    let mut shares: Vec<(f64, &str)> = w
+        .programs
+        .iter()
+        .filter(|p| p.division == Division::FBS && p.plays(w.year))
+        .filter_map(|p| {
+            let recruited: Vec<_> = w
+                .people
+                .iter()
+                .filter(|q| q.stage == Stage::College && q.college == Some(p.id) && !q.walk_on && q.stars >= 2)
+                .collect();
+            (recruited.len() >= 20).then(|| {
+                let home = recruited.iter().filter(|q| q.home_state == p.state).count();
+                (home as f64 / recruited.len() as f64, p.real_name.as_str())
+            })
+        })
+        .collect();
+    shares.sort_by(|a, b| a.0.total_cmp(&b.0));
+    if !shares.is_empty() {
+        let q = |f: f64| 100.0 * shares[((shares.len() - 1) as f64 * f).round() as usize].0;
+        println!(
+            "FBS recruited players from the school's state: median {:.0}%, p10 {:.0}%, p90 {:.0}% (real 37%, 15%, 65%)",
+            q(0.5),
+            q(0.1),
+            q(0.9)
+        );
+        let named = [
+            "Texas Tech",
+            "Texas",
+            "LSU",
+            "Florida",
+            "USC",
+            "Georgia",
+            "Ohio State",
+            "Alabama",
+            "Penn State",
+            "Clemson",
+            "Pittsburgh",
+            "Michigan",
+            "Oregon",
+            "Notre Dame",
+        ];
+        println!(
+            "  {}",
+            named
+                .iter()
+                .filter_map(|n| shares.iter().find(|s| s.1 == *n).map(|s| format!("{n} {:.0}%", 100.0 * s.0)))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
 
     // --- National champions ---
     println!("\n## FBS national champions");
@@ -710,7 +764,6 @@ fn main() {
 /// FBS table, and (with the game log) kicking in the last engine season.
 fn special_teams(w: &World) {
     use afm_engine::positions::{POSITION_COUNT, Position};
-    use afm_engine::world::Stage;
     println!("## Kickers, punters and roster needs (fix list topic 1)");
     println!("Rosters going into {} (after signing day):", w.year);
     // Real FBS 2022-24 per roster, from the fix list table.
@@ -1332,6 +1385,13 @@ fn recruiting_spread(w: &World) {
         *rs_why.entry(r.why).or_default() += 1;
     }
     println!("    redshirts by reason: {rs_why:?}");
+    // Part B 10: FBS entrants by cycle (real NCAA: 2,531 in 2021, 2,918 in
+    // 2022; Hudl 2025: about 3,700 from FBS conferences).
+    let mut by_year: BTreeMap<i32, u32> = BTreeMap::new();
+    for r in log.portal.iter().filter(|r| r.from == Division::FBS) {
+        *by_year.entry(r.year).or_default() += 1;
+    }
+    println!("    FBS entrants by cycle: {by_year:?}");
     let fbs_entrants = log.portal.iter().filter(|r| r.from == Division::FBS).count();
     let fbs_landed_fbs = log.portal.iter().filter(|r| r.from == Division::FBS && r.to == Some(Division::FBS)).count();
     println!(

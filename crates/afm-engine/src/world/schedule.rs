@@ -741,15 +741,30 @@ mod tests {
 
     #[test]
     fn a_season_schedule_looks_real() {
-        let w = World::empty(WorldOptions { scale: 0.01, ..Default::default() });
+        // The world opens in 2026 (after its spin-up years), so the programs
+        // carry their 2026 divisions and conferences.
+        let w = World::empty(WorldOptions {
+            scale: 0.01,
+            history_years: 0,
+            start_year: 2026 + crate::world::SPIN_UP_YEARS as i32,
+            ..Default::default()
+        });
+        assert_eq!(w.year, 2026);
         let y = YearDates::new(2026);
         let games = build(&w, 2026, &y);
-        let fbs: Vec<usize> = w.programs.iter().filter(|p| p.division == Division::FBS).map(|p| p.id).collect();
+        // Programs that dropped football keep their old division but play no one.
+        let fbs: Vec<usize> =
+            w.programs.iter().filter(|p| p.division == Division::FBS && p.plays(2026)).map(|p| p.id).collect();
         let mut counts: Vec<u32> = fbs.iter().map(|&p| games.iter().filter(|g| g.involves(p)).count() as u32).collect();
         counts.sort();
         let avg = counts.iter().sum::<u32>() as f64 / counts.len() as f64;
         assert!(avg > 11.5, "FBS teams average {avg:.2} games");
-        assert!(counts[0] >= 10, "fewest games {}", counts[0]);
+        let few: Vec<String> = fbs
+            .iter()
+            .filter(|&&p| games.iter().filter(|g| g.involves(p)).count() < 10)
+            .map(|&p| format!("{} ({})", w.programs[p].real_name, w.programs[p].conference))
+            .collect();
+        assert!(counts[0] >= 10, "fewest games {}: {few:?}", counts[0]);
         // No team plays twice on one day.
         for &p in &fbs {
             let mut days: Vec<Date> = games.iter().filter(|g| g.involves(p)).map(|g| g.date).collect();

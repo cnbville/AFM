@@ -170,6 +170,11 @@ pub struct Person {
     pub incident: bool,
     pub notes: Vec<String>,
     /// What the dated systems know about him this year (section 4).
+    /// How much he wants to stay in his own state (fix list 2.2): family,
+    /// local fame. Added to every school in it.
+    pub stay_home: f64,
+    /// The school he grew up cheering for (fix list 2.3), usually in his state.
+    pub childhood_team: Option<usize>,
     pub cal: PersonCal,
 }
 
@@ -210,6 +215,8 @@ pub struct PortalEntry {
     pub entered: crate::calendar::Date,
     pub decide_by: crate::calendar::Date,
     pub why: &'static str,
+    /// Held until his team's playoff run ended (T3).
+    pub held: bool,
 }
 
 /// A person's calendar state (section 4). Per-season flags reset at his
@@ -449,6 +456,17 @@ pub struct PortalRecord {
     pub from: Division,
     /// Where he landed, or None if he found no school.
     pub to: Option<Division>,
+    /// For the raw export (part B 19): who, the days he entered and
+    /// decided, the programs, whether he was held through a playoff run,
+    /// whether his first choice fell through and whether he went back.
+    pub id: u32,
+    pub entered: crate::calendar::Date,
+    pub decided: crate::calendar::Date,
+    pub from_program: usize,
+    pub to_program: Option<usize>,
+    pub held: bool,
+    pub fell_through: bool,
+    pub returned: bool,
 }
 
 /// Recruiting and portal records for trials (dynasty item 11 checks).
@@ -594,6 +612,10 @@ pub struct CalendarLog {
     pub early_enrollees: u32,
     pub declared: u32,
     pub withdrew: u32,
+    /// Declarations and withdrawals by day (part B 20): the title game's
+    /// players declare and withdraw late.
+    pub declared_by_day: Vec<(crate::calendar::Date, u32)>,
+    pub withdrew_by_day: Vec<(crate::calendar::Date, u32)>,
     pub portal_entries: u32,
     pub portal_by_day: Vec<(crate::calendar::Date, u32)>,
     pub portal_landed: u32,
@@ -655,6 +677,7 @@ impl World {
         for p in w.programs.iter_mut() {
             p.prestige_start = p.prestige;
         }
+        program::seed_pipelines(&mut w);
         for _ in 0..w.options.history_years {
             w.advance_year();
         }
@@ -947,13 +970,67 @@ impl World {
                     college_staff: Vec::new(),
                     incident: false,
                     notes: Vec::new(),
+                    stay_home: 0.0,
+                    childhood_team: None,
                     cal: PersonCal::default(),
                 }
             })
             .collect();
         let start = self.people.len();
         self.people.extend(new);
+        self.draw_home_ties(start);
         self.place_new_class(start);
+    }
+
+    /// Each new boy's pull to stay in his state and the team he grew up
+    /// cheering for (fix list 2.2, 2.3), on keyed draws. Proposed, not
+    /// confirmed: a quarter feel no pull, half a little (0.02-0.08), a
+    /// quarter a lot (0.10-0.25). Four in five grew up with a team in their
+    /// own state, picked by fan base and tradition; the rest with a national
+    /// brand (and every boy in a state without one).
+    fn draw_home_ties(&mut self, start: usize) {
+        let seed = self.options.seed as u64;
+        let year = self.year;
+        let mut by_state: Vec<Vec<(usize, f64)>> = vec![Vec::new(); 51];
+        let mut national: Vec<(usize, f64)> = Vec::new();
+        for p in &self.programs {
+            if !matches!(p.division, Division::FBS | Division::FCS) || !p.plays(year) {
+                continue;
+            }
+            let pull = p.fans * (0.3 + p.grades[program::GradeCat::Tradition as usize] / 100.0);
+            by_state[p.state].push((p.id, pull));
+            if p.division == Division::FBS {
+                national.push((p.id, pull * p.prestige_rel * p.prestige_rel));
+            }
+        }
+        let pick = |list: &[(usize, f64)], u: f64| -> Option<usize> {
+            let total: f64 = list.iter().map(|x| x.1).sum();
+            let mut left = u * total;
+            for &(id, wgt) in list {
+                if left < wgt {
+                    return Some(id);
+                }
+                left -= wgt;
+            }
+            list.last().map(|x| x.0)
+        };
+        for person in &mut self.people[start..] {
+            let id = person.player.id as u64;
+            let u = season::key_uniform(seed ^ 0x57A1, id);
+            // Sized against the real home-state shares (fix list 2.8: FBS
+            // median 37%, p10 15%, p90 65%); a first pass at 0-0.25 gave a
+            // median of 20% (proposed, not confirmed).
+            person.stay_home = if u < 0.2 {
+                0.0
+            } else if u < 0.65 {
+                0.04 + 0.10 * season::key_uniform(seed ^ 0x57A2, id)
+            } else {
+                0.15 + 0.25 * season::key_uniform(seed ^ 0x57A3, id)
+            };
+            let local = &by_state[person.home_state];
+            let list = if local.is_empty() || season::key_uniform(seed ^ 0x57A4, id) < 0.2 { &national } else { local };
+            person.childhood_team = pick(list, season::key_uniform(seed ^ 0x57A5, id));
+        }
     }
 
     /// Athlete first (topic 5.2): each high school's head coach places the

@@ -230,7 +230,7 @@ fn state_schedule(
         }
     }
     // Round robins by the circle method: a phantom school gives the byes.
-    let rounds_of = |m: usize| if m % 2 == 0 { m.saturating_sub(1) } else { m };
+    let rounds_of = |m: usize| if m.is_multiple_of(2) { m.saturating_sub(1) } else { m };
     let d_weeks = districts.iter().map(|d| rounds_of(d.len())).max().unwrap_or(0).min(n_weeks);
     let mut weeks: Vec<Vec<(usize, usize)>> = vec![Vec::new(); n_weeks];
     let mut met: Vec<Vec<usize>> = vec![Vec::new(); n];

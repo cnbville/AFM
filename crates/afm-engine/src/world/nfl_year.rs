@@ -1608,7 +1608,7 @@ fn stakes(w: &mut World, k: usize, d: Date) {
         let div_alive = best(t) >= rivals.iter().map(|&o| wins(o)).fold(0.0, f64::max);
         let clinch_div = div_alive && wins(t) + 1.0 > rivals.iter().map(|&o| best(o)).fold(0.0, f64::max);
         let ends_div = div_alive && best(t) - 1.0 < rivals.iter().map(|&o| wins(o)).fold(0.0, f64::max);
-        let spot_open = alive && !(wins(t) > nth(others.iter().map(|&o| best(o)).collect(), per_conf));
+        let spot_open = alive && wins(t) <= nth(others.iter().map(|&o| best(o)).collect(), per_conf);
         (spot_open && (clinch_spot || ends_spot)) || clinch_div || ends_div
     };
     // A head coach on the hot seat (part B 27): in his third season or
@@ -2034,7 +2034,7 @@ mod tests {
             seed,
             scale: 0.002,
             history_years: 0,
-            start_year: season + 6,
+            start_year: season + crate::world::SPIN_UP_YEARS as i32,
             names: crate::world::names::NameMode::Fictional,
             ..Default::default()
         };

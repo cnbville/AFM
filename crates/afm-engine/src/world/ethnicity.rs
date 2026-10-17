@@ -147,12 +147,23 @@ pub fn player_ethnicity(state: usize, talent_z: f64, rng: &mut Rng) -> Ethnicity
 /// (see `hiring_bias`). `head_job_start` covers the head coaches already in
 /// place when the world begins (1990): about 3% of major-college head coaches
 /// were Black then. Shares are proposed, not confirmed.
-pub fn coach_ethnicity(kind: CoachPool, rng: &mut Rng) -> Ethnicity {
+pub fn coach_ethnicity(kind: CoachPool, year: i32, rng: &mut Rng) -> Ethnicity {
+    // Young coaches entering the college ranks (trial 4 topic 9, traced
+    // 2026-10-17): FBS assistants below coordinator were 34% Black and 5%
+    // other minorities in 2012, 44% and 9% in 2022 (NCAA demographics, via
+    // AP). Entrants run from about 27% of color by 1990 to 50% by 2015
+    // (proposed, not confirmed); of them 82% Black, 8% Hispanic, 6%
+    // Polynesian, 4% Asian.
+    let entering = |year: i32| {
+        let color = 0.27 + 0.23 * ((year - 1990) as f64 / 25.0).clamp(0.0, 1.0);
+        [1.0 - color, 0.82 * color, 0.08 * color, 0.06 * color, 0.04 * color]
+    };
     let w: [f64; ETHNICITY_COUNT] = match kind {
-        CoachPool::Entering => [0.6, 0.34, 0.035, 0.015, 0.01],
+        CoachPool::Entering => entering(year),
         CoachPool::HighSchool => [0.78, 0.16, 0.04, 0.01, 0.01],
         CoachPool::CollegeHead1990 => [0.96, 0.03, 0.005, 0.004, 0.001],
-        CoachPool::CollegeAssistant1990 => [0.88, 0.1, 0.01, 0.007, 0.003],
+        // The staffs already in place when the world starts (proposed, not confirmed).
+        CoachPool::CollegeAssistant1990 => [0.8, 0.17, 0.015, 0.01, 0.005],
     };
     let entries: Vec<(Ethnicity, f64)> = Ethnicity::ALL.iter().copied().zip(w).collect();
     rng.weighted(&entries)

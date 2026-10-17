@@ -24,7 +24,7 @@ fn tier_of(d: Division) -> CoachTier {
 
 fn new_coach(w: &mut World, tier: CoachTier, age: u32, pool: CoachPool) -> usize {
     let id = w.coaches.len();
-    let ethnicity = coach_ethnicity(pool, &mut w.rng);
+    let ethnicity = coach_ethnicity(pool, w.year, &mut w.rng);
     let name = names::person_name(ethnicity, w.year - age as i32, &mut w.rng);
     let mut c = generate_coach(id, name, ethnicity, tier, age, &mut w.rng);
     // Sportsmanship from a keyed draw, so the world's own stream is untouched
@@ -904,6 +904,14 @@ pub(crate) struct Search {
     decide_on: crate::calendar::Date,
 }
 
+impl World {
+    /// Whether a college head coach search is under way at this program
+    /// (the job stays empty until the search decides; part D 18).
+    pub fn head_search_open(&self, p: usize) -> bool {
+        self.searches.iter().any(|s| s.opening.employer == Employer::College(p) && s.opening.role == Role::HeadCoach)
+    }
+}
+
 /// Starts a college search. Lengths (proposed, not confirmed, from real
 /// searches): an FBS head job 4-22 days, FCS 10-35, smaller colleges 14-45,
 /// a coordinator 7-30, a position coach 10-40. A head job opened by an
@@ -1062,8 +1070,19 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
             if hiring_hc.is_some() && w.coaches[c].mentor == hiring_hc {
                 s += 1.5;
             }
+            // The committee bias falls hardest on head jobs and offensive
+            // coordinators, least on position coaches (trial 4 topic 9: FBS
+            // 2022-23, assistants 53% of color, defensive coordinators over
+            // 20% Black, offensive coordinators 7-9%, head coaches 14 of 133;
+            // the rung weights are proposed, not confirmed).
             if !is_hs {
-                s -= hiring_bias(w.coaches[c].ethnicity, year, needs_prestige);
+                let rung = match o.role {
+                    Role::HeadCoach => 1.0,
+                    Role::OffensiveCoordinator => 0.7,
+                    Role::DefensiveCoordinator => 0.4,
+                    Role::PositionCoach(_) => 0.15,
+                };
+                s -= rung * hiring_bias(w.coaches[c].ethnicity, year, needs_prestige);
             }
             (c, s)
         })

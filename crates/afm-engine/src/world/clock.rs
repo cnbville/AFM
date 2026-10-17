@@ -532,13 +532,20 @@ fn year_start(w: &mut World) {
     let _ = hs_transfer_day(&y);
 }
 
+/// Recorded years whose small events the game log keeps (part D 40).
+const SMALL_EVENT_YEARS: i32 = 5;
+
 /// The last day of a football year has passed: the next one starts.
 fn rollover(w: &mut World) {
     if w.options.keep_game_log {
         // News that belongs to last season (its signing day fell after the
         // Super Bowl) joins that season's record.
+        // Small events too (part D 40: visits, 4-star news, weekly polls,
+        // the Pro Bowl), for the last five recorded years only, to bound
+        // the memory a 30-year world keeps (proposed, not confirmed).
         let mut kept: Vec<Event> = Vec::new();
-        for e in w.calendar.all().filter(|e| e.loud >= Loudness::Medium && e.when.date < w.today) {
+        let small = w.recording;
+        for e in w.calendar.all().filter(|e| (small || e.loud >= Loudness::Medium) && e.when.date < w.today) {
             let past = e.season.filter(|&s| s != w.year).and_then(|s| w.event_history.iter().rposition(|h| h.0 == s));
             match past {
                 Some(k) => w.event_history[k].1.push(e.clone()),
@@ -546,6 +553,11 @@ fn rollover(w: &mut World) {
             }
         }
         w.event_history.push((w.year, kept));
+        for (y, events) in w.event_history.iter_mut() {
+            if *y <= w.year - SMALL_EVENT_YEARS {
+                events.retain(|e| e.loud >= Loudness::Medium);
+            }
+        }
     }
     w.calendar.close_year(w.today);
     let next = w.year + 1;
@@ -793,6 +805,9 @@ mod tests {
         let season = w.year;
         let news = |d: Date, text: &str| Event::new(d, Level::Recruiting, Kind::Signing, Loudness::Medium, text);
         w.calendar.post(news(w.today, "a summer commitment"));
+        // The year turns over the day after its last day: news dated today
+        // or later belongs to the new year.
+        w.today = w.today.add(1);
         rollover(&mut w);
         let day = w.prev_dates.as_ref().unwrap().signing_day;
         w.calendar.filing = Some(season);
@@ -800,6 +815,7 @@ mod tests {
         w.calendar.filing = None;
         w.calendar.post(news(day, "next year's news"));
         assert_eq!(w.calendar.on(day).len(), 2, "both show on the day");
+        w.today = day.add(1);
         rollover(&mut w);
         let texts = |k: usize| w.event_history[k].1.iter().map(|e| e.text.as_str()).collect::<Vec<_>>();
         assert_eq!(w.event_history[0].0, season);

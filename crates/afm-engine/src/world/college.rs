@@ -999,9 +999,13 @@ pub(crate) fn rank_of(cs: &CollegeSeason, t: usize) -> Option<usize> {
 /// Tags each of the day's games and sets how loud it is. A game is huge only
 /// when it really matters: two ranked teams with a playoff place at stake, a
 /// rivalry between contenders, a coach's job on the line in a big game.
+/// One game's stakes for the day: the game, its tags, how loud, which side
+/// is on the line and why.
+type StakeUpdate = (usize, Vec<Tag>, Loudness, [bool; 2], Vec<&'static str>);
+
 fn stakes_for_day(w: &mut World, idx: &[usize]) {
     let Some(cs) = w.college.as_ref() else { return };
-    let mut updates: Vec<(usize, Vec<Tag>, Loudness, [bool; 2], Vec<&'static str>)> = Vec::new();
+    let mut updates: Vec<StakeUpdate> = Vec::new();
     let mut notes: Vec<(usize, String)> = Vec::new();
     // Each team's own race (T8.1): the fewest conference losses in its
     // conference, and the regular-season games it has left.

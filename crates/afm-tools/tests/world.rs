@@ -19,7 +19,18 @@ fn rosters_and_staffs_are_full() {
     let fbs: Vec<_> = w.programs.iter().filter(|p| p.division == Division::FBS).collect();
     let avg = fbs.iter().map(|p| p.roster.len()).sum::<usize>() as f64 / fbs.len() as f64;
     assert!((80.0..=105.0).contains(&avg), "FBS rosters average {avg:.0}");
-    assert!(w.programs.iter().all(|p| p.head_coach.is_some()));
+    // A head job is empty only while its search runs (part D 18); the
+    // world stops in February, when the last links of the carousel's
+    // chains (and jobs left for the NFL in late January) are still open.
+    let no_coach: Vec<_> = w
+        .programs
+        .iter()
+        .filter(|p| p.head_coach.is_none() && !w.head_search_open(p.id))
+        .map(|p| format!("{} ({:?}, plays {})", p.real_name, p.division, p.plays(w.year)))
+        .collect();
+    assert!(no_coach.is_empty(), "no head coach and no search: {no_coach:?} on {:?}", w.today);
+    let searching = w.programs.iter().filter(|p| p.head_coach.is_none() && p.division == Division::FBS).count();
+    assert!(searching <= 4, "{searching} FBS head jobs still open on {:?}", w.today);
     assert!(w.high_schools.iter().all(|s| s.coach.is_some()));
 }
 
