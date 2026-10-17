@@ -82,7 +82,10 @@ fn print_log(l: &CalendarLog) {
         ("whispers", l.whispers.to_string()),
         ("sit-out transfers", l.sit_out_transfers.to_string()),
         ("spring / fall ineligible", format!("{} / {}", l.spring_ineligible, l.fall_ineligible)),
-        ("combine invites / all-star invites", format!("{} / {}", l.combine_invites, l.all_star_invites)),
+        (
+            "combine invites / all-star invites / declined",
+            format!("{} / {} / {}", l.combine_invites, l.all_star_invites, l.all_star_declined),
+        ),
         ("college teams with a huge game", l.huge_by_team.len().to_string()),
         ("college huge games (sum)", l.huge_by_team.iter().map(|h| h.1).sum::<u32>().to_string()),
         ("rule changes", format!("{:?}", l.rule_changes)),

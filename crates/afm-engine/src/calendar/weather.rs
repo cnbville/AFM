@@ -498,8 +498,128 @@ pub fn climate(code: &str) -> &'static Climate {
     CLIMATES.iter().find(|c| c.state == code).unwrap_or(&CLIMATES[42])
 }
 
-/// States where hurricanes reach football towns (August to October).
-const HURRICANE_STATES: [&str; 8] = ["FL", "LA", "TX", "MS", "AL", "GA", "SC", "NC"];
+/// A state's yearly chance that a hurricane or tropical storm reaches its
+/// football towns in season (part B 13): Florida most years apart,
+/// Louisiana every five, Texas and North Carolina every six or seven, the
+/// rest of the Gulf and the Southeast less often, the Mid-Atlantic and New
+/// England rarely. Read from the storms that moved games since 2004
+/// (Charley to Milton; from memory, to verify).
+fn hurricane_year_chance(code: &str) -> f64 {
+    match code {
+        "FL" => 0.40,
+        "LA" => 0.20,
+        "TX" | "NC" => 0.15,
+        "SC" => 0.12,
+        "MS" | "AL" | "GA" => 0.08,
+        "VA" => 0.05,
+        "NJ" | "NY" => 0.03,
+        "MD" | "DE" | "CT" | "RI" | "MA" => 0.02,
+        _ => 0.0,
+    }
+}
+
+/// How the season's storms fall by month: September most, October
+/// included, a few in November (Kate 1985, Nicole 2022).
+fn hurricane_month_share(m: u32) -> f64 {
+    match m {
+        8 => 0.30,
+        9 => 0.45,
+        10 => 0.20,
+        11 => 0.05,
+        _ => 0.0,
+    }
+}
+
+/// Cities a landfall in their state reaches (part B 41): the coastal plain,
+/// about 150 miles in. Florida's whole peninsula and panhandle and the
+/// small coastal states count whole; the rest list their towns.
+const HURRICANE_REACH: [(&str, &[&str]); 8] = [
+    (
+        "TX",
+        &[
+            "Houston",
+            "Beaumont",
+            "Prairie View",
+            "Huntsville",
+            "College Station",
+            "Brenham",
+            "Kingsville",
+            "Brownsville/Edinburg",
+            "Nacogdoches",
+            "San Antonio",
+            "Seguin",
+            "San Marcos",
+            "Austin",
+            "Corpus Christi",
+            "Galveston",
+            "Victoria",
+        ],
+    ),
+    ("LA", &["Baton Rouge", "Lafayette", "Lake Charles", "Thibodaux", "Hammond", "New Orleans", "Pineville"]),
+    (
+        "MS",
+        &[
+            "Hattiesburg",
+            "Perkinston",
+            "Poplarville",
+            "Ellisville",
+            "Summit",
+            "Wesson",
+            "Lorman",
+            "Raymond",
+            "Jackson",
+            "Biloxi",
+            "Gulfport",
+        ],
+    ),
+    ("AL", &["Mobile", "Troy", "Montgomery", "Tuskegee", "Auburn", "Dothan"]),
+    ("GA", &["Savannah", "Statesboro", "Valdosta", "Albany", "Thomasville", "Cuthbert", "Fort Valley", "Macon"]),
+    ("SC", &["Charleston", "North Charleston", "Conway", "Orangeburg", "Columbia", "Newberry", "Myrtle Beach"]),
+    (
+        "NC",
+        &[
+            "Greenville",
+            "Elizabeth City",
+            "Wilson",
+            "Rocky Mount",
+            "Fayetteville",
+            "Pembroke",
+            "Murfreesboro",
+            "Buies Creek",
+            "Raleigh",
+            "Durham",
+            "Chapel Hill",
+            "Louisburg",
+            "Wilmington",
+        ],
+    ),
+    ("VA", &["Norfolk", "Hampton", "Newport News", "Williamsburg", "Richmond", "Ashland", "Ettrick"]),
+];
+
+/// Whether a hurricane in its state reaches a college town (part B 41).
+pub fn hurricane_reaches(code: &str, city: &str) -> bool {
+    match HURRICANE_REACH.iter().find(|r| r.0 == code) {
+        Some((_, towns)) => towns.contains(&city),
+        None => hurricane_year_chance(code) > 0.0,
+    }
+}
+
+/// The share of a state's high schools a landfall reaches: their towns are
+/// generated, so each school is coastal by a draw at this share (proposed,
+/// not confirmed: about the share of the state's people on the coastal
+/// plain).
+pub fn hurricane_school_share(code: &str) -> f64 {
+    match code {
+        "FL" => 1.0,
+        "LA" => 0.85,
+        "SC" => 0.55,
+        "NC" | "VA" => 0.5,
+        "TX" | "MS" => 0.45,
+        "AL" => 0.4,
+        "GA" => 0.35,
+        _ => 0.6,
+    }
+}
 /// Snow-belt states where a blizzard can stop a game (November to January).
 const BLIZZARD_STATES: [&str; 15] =
     ["NY", "MI", "MN", "ND", "SD", "WI", "IA", "NE", "ME", "VT", "NH", "MA", "PA", "WY", "MT"];
@@ -615,12 +735,11 @@ pub fn weather_at(seed: u64, state: usize, code: &str, d: Date, hour: u32) -> We
     let lightning = raining && uniform(key ^ 0x7A3, day) < if warm { 0.35 } else { 0.05 };
     let wind = (c.wind * (1.0 + 0.45 * normal(key ^ 0x7A4, day))).max(0.0) * if raining { 1.2 } else { 1.0 };
     let mut severe = None;
-    if HURRICANE_STATES.contains(&code) && (8..=10).contains(&m) {
-        let peak = if m == 9 { 0.0012 } else { 0.0006 };
-        // A storm affects several days around landfall: key it on the week.
-        if uniform(key ^ 0x4C1, (day / 4) * 4) < peak * 4.0 {
-            severe = Some(Severe::Hurricane);
-        }
+    // A storm affects several days around landfall: keyed on four-day
+    // blocks, about 7.6 to a month.
+    let block = hurricane_year_chance(code) * hurricane_month_share(m) / 7.6;
+    if block > 0.0 && uniform(key ^ 0x4C1, (day / 4) * 4) < block {
+        severe = Some(Severe::Hurricane);
     }
     if BLIZZARD_STATES.contains(&code) && matches!(m, 11 | 12 | 1) && snow && uniform(key ^ 0x4C2, day) < 0.08 {
         severe = Some(Severe::Blizzard);

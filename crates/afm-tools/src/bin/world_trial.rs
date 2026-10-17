@@ -360,7 +360,14 @@ fn main() {
         })
         .collect();
     println!("{}", champs.iter().map(|(y, n)| format!("{y} {n}")).collect::<Vec<_>>().join("; "));
-    for d in [Division::FCS, Division::D2] {
+    // Part B 25: a season with no FBS champion is a bug.
+    let first = w.options.start_year - w.options.history_years as i32;
+    for y in first..w.options.start_year {
+        if !champs.contains_key(&y) {
+            println!("WARNING: no FBS national champion in {y}");
+        }
+    }
+    for d in [Division::FCS, Division::D2, Division::NAIA, Division::D3] {
         let c: BTreeMap<String, usize> = w
             .programs
             .iter()

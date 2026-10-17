@@ -213,10 +213,10 @@ fn the_redshirt_role_goes_only_below_the_travel_squad() {
     use crate::player::PlayingTime as Pt;
     use crate::positions::Position;
     use crate::world::season::{depth_chart, travel_slots};
-    assert_eq!(travel_slots(Position::QB), 3);
+    assert_eq!(travel_slots(Position::QB, 76), 3);
     let mut entries: Vec<(usize, Position, f64)> = (0..6).map(|i| (i, Position::QB, 80.0 - i as f64)).collect();
     let roles = |entries: &mut [(usize, Position, f64)], sits: &dyn Fn(usize) -> bool| {
-        let mut r = depth_chart(entries, true, &|_| true, sits);
+        let mut r = depth_chart(entries, Some(76), &|_| true, sits);
         r.sort_by_key(|x| x.0);
         r.into_iter().map(|x| x.1).collect::<Vec<_>>()
     };

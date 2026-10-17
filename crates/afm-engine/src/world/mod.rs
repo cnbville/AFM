@@ -534,6 +534,10 @@ pub struct World {
     /// The college win curve's spread fitted to last season's games: what
     /// a roster's expected wins are read with.
     pub(crate) college_spread: f64,
+    /// The manager's seat (N58): Continue stops on Big moments about his
+    /// team or his level, and on Huge ones anywhere. None in trials, where
+    /// every Big moment stops it.
+    pub seat: Option<Seat>,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -593,11 +597,31 @@ pub struct CalendarLog {
     pub fall_ineligible: u32,
     pub combine_invites: u32,
     pub all_star_invites: u32,
+    /// College all-star invitations turned down (part C 5).
+    pub all_star_declined: u32,
     pub huge_by_team: Vec<(usize, u32)>,
     pub rule_changes: Vec<String>,
     pub nfl_games: u32,
     /// Huge games per NFL team in the season (the stakes test).
     pub nfl_huge_by_team: Vec<u32>,
+}
+
+/// Where the manager works (N58): his level, and his NFL team or college
+/// program.
+#[derive(Clone, Copy, Debug)]
+pub struct Seat {
+    pub level: crate::calendar::Level,
+    pub nfl_team: Option<usize>,
+    pub program: Option<usize>,
+}
+
+impl Seat {
+    /// Whether a moment matters to him: his own team, or his level.
+    pub fn cares(&self, e: &crate::calendar::Event) -> bool {
+        e.level == self.level
+            || (e.program.is_some() && e.program == self.program)
+            || (e.nfl_team.is_some() && e.nfl_team == self.nfl_team)
+    }
 }
 
 /// Years before recorded history, used to fill high school and college rosters.
@@ -744,6 +768,7 @@ impl World {
             searches: Vec::new(),
             moved_cycle: std::collections::HashSet::new(),
             college_spread: season::COLLEGE_SPREAD,
+            seat: None,
         };
         staff::staff_everyone(&mut w);
         for d in Division::ALL {

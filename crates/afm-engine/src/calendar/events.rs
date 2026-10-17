@@ -244,8 +244,11 @@ impl Calendar {
     }
 
     /// Ends a football year: loud moments move to history, the rest is dropped.
-    pub fn close_year(&mut self) {
-        for (_, list) in std::mem::take(&mut self.events) {
+    /// Events dated `keep_from` or later stay: a signing day after the
+    /// Super Bowl, or news posted ahead, belongs to the new year (part C 1).
+    pub fn close_year(&mut self, keep_from: Date) {
+        let ahead = self.events.split_off(&keep_from);
+        for (_, list) in std::mem::replace(&mut self.events, ahead) {
             for e in list {
                 if e.loud >= Loudness::Big {
                     self.history.push(e);

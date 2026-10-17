@@ -244,7 +244,11 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     let last = if n >= 1 { player.history.get(n - 1) } else { None };
     let before = if n >= 2 { player.history.get(n - 2) } else { None };
     let hot_last_year = match (last, before) {
-        (Some(l), b) => l.events.has(Ev::Breakout) || b.is_some_and(|b| l.overall - b.overall >= 6.0),
+        // A spring step is a real jump, not a lucky year that regresses
+        // (part D 1): its gain is left out.
+        (Some(l), b) => {
+            l.events.has(Ev::Breakout) || b.is_some_and(|b| l.overall - b.overall - l.spring_gain.unwrap_or(0.0) >= 6.0)
+        }
         _ => false,
     };
     let young_starter = pt == PlayingTime::Starter && age <= 22.0;
@@ -310,9 +314,12 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         events.add(Ev::Slump);
         form *= 0.6;
         performance -= rng.range(4.0, 9.0);
+        // A kicker's, punter's or snapper's rating is nearly all skill, so his
+        // loss is halved to cost him about what a slump costs others (part B 17).
+        let size = if player.position.is_specialist() { 0.5 } else { 1.0 };
         for key in Attr::ALL {
             if key.profile().group != AttributeGroup::Physical {
-                player.attributes[key] -= rng.range(0.5, 3.0);
+                player.attributes[key] -= size * rng.range(0.5, 3.0);
             }
         }
     } else if rng.chance(stagnation_chance) {

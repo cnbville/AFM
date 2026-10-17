@@ -88,13 +88,41 @@ pub(crate) fn key_normal(a: u64, b: u64) -> f64 {
 /// A college travel squad at each position (F14): the two-deep, a third
 /// quarterback, and the extra backs, receivers, linemen, linebackers and
 /// defensive backs who cover kicks and step in when a starter is hurt; one
-/// kicker, punter and long snapper. 76 players: real conference limits for
-/// road games are about 70-74 (from memory, to verify), and at home the
-/// whole roster dresses. Proposed, not confirmed: the counts, set so about
+/// kicker, punter and long snapper. 76 players, scaled to the program's own
+/// road limit (`travel_limit`); at home the whole roster dresses. Proposed,
+/// not confirmed: the counts, set so about
 /// 40-50% of first-year FBS players redshirt and 600-850 true freshmen a
 /// year play five games or more (trial 6 measured about 870 before 2018,
 /// when nobody was held out).
-pub(crate) fn travel_slots(pos: Position) -> usize {
+pub(crate) fn travel_slots(pos: Position, limit: usize) -> usize {
+    if pos.is_specialist() {
+        return 1;
+    }
+    let base = travel_base(pos) as f64;
+    // Scaled to the program's own limit; never fewer than three quarterbacks.
+    let n = (base * limit as f64 / TRAVEL_BASE_TOTAL).round() as usize;
+    if pos == Position::QB { n.max(3) } else { n.max(1) }
+}
+
+/// The counts above add up to this many players.
+const TRAVEL_BASE_TOTAL: f64 = 76.0;
+
+/// A program's road travel squad by conference and era (part C 8): the
+/// Power conferences 70, the Big Ten 74 from 2018 (NBC Sports, 2018), the
+/// rest of FBS 70, FCS 64, Division II 55, Division III and the NAIA 55,
+/// junior colleges 50. Only the Big Ten change is checked; the rest from
+/// memory, to verify (proposed, not confirmed).
+pub(crate) fn travel_limit(prog: &super::program::Program, season: i32) -> usize {
+    match prog.division {
+        Division::FBS if prog.conference == "Big Ten" && season >= 2018 => 74,
+        Division::FBS => 70,
+        Division::FCS => 64,
+        Division::D2 | Division::D3 | Division::NAIA => 55,
+        Division::JUCO => 50,
+    }
+}
+
+fn travel_base(pos: Position) -> usize {
     match pos {
         Position::QB => 3,
         Position::RB => 5,
@@ -124,7 +152,7 @@ pub(crate) fn two_deep(pos: Position) -> usize {
 /// academic or transfer sit) takes no travel place.
 pub(crate) fn depth_chart(
     entries: &mut [(usize, Position, f64)],
-    college: bool,
+    travel: Option<usize>,
     redshirt_free: &dyn Fn(usize) -> bool,
     sits: &dyn Fn(usize) -> bool,
 ) -> Vec<(usize, PlayingTime)> {
@@ -144,7 +172,7 @@ pub(crate) fn depth_chart(
                 PlayingTime::Starter
             } else if k < slots.starters + slots.rotation.max(1) {
                 PlayingTime::Rotation
-            } else if college && travelling >= travel_slots(pos) && redshirt_free(i) {
+            } else if travel.is_some_and(|t| travelling >= travel_slots(pos, t)) && redshirt_free(i) {
                 PlayingTime::Redshirt
             } else {
                 PlayingTime::Backup
@@ -209,7 +237,7 @@ pub(crate) fn hs_roles(w: &World, schools: &[usize]) -> Vec<(usize, PlayingTime)
                     (i, p.player.position, seen)
                 })
                 .collect();
-            let mut chart = depth_chart(&mut entries, false, &|_| false, &|_| false);
+            let mut chart = depth_chart(&mut entries, None, &|_| false, &|_| false);
             for (i, role) in chart.iter_mut() {
                 let p = &people[*i];
                 if p.sit_out > 0.0 && key_normal(seed ^ year ^ 7, p.player.id as u64).abs() < 1.6 * p.sit_out {
@@ -248,7 +276,7 @@ pub(crate) fn college_roles(w: &World) -> Vec<(usize, PlayingTime)> {
                 .collect();
             depth_chart(
                 &mut entries,
-                true,
+                Some(travel_limit(prog, year as i32)),
                 &|i| {
                     let p = &people[i];
                     !p.redshirt_used && p.college_seasons <= 1

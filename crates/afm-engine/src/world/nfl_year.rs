@@ -517,7 +517,12 @@ fn dated_events(w: &mut World, d: Date, y: &YearDates) {
         post_at(w, y.tag_deadline, Kind::Deadline, Loudness::Big, "CBA: tag deadline", "Franchise tag deadline.");
     }
     if d == y.combine_start {
-        post(w, d, Kind::Date, Loudness::Medium, "NFL: combine", "The scouting combine opens in Indianapolis.");
+        let text = if crate::calendar::anchors::cancelled("combine workouts", y.season) {
+            "The scouting combine opens in Indianapolis for medical checks only: the workouts move to the pro days."
+        } else {
+            "The scouting combine opens in Indianapolis."
+        };
+        post(w, d, Kind::Date, Loudness::Medium, "NFL: combine", text);
         // A11, A46: agents and teams meet; free agency whispers.
         post(
             w,
@@ -749,10 +754,20 @@ fn dated_events(w: &mut World, d: Date, y: &YearDates) {
         post(w, d, Kind::Practice, Loudness::Small, "CBA: acclimation", "Five days without pads are done: pads go on.");
     }
     if d == y.hof_game {
-        post(w, d, Kind::Game, Loudness::Medium, "", "The Hall of Fame Game opens the preseason.");
+        let text = if crate::calendar::anchors::cancelled("Hall of Fame Game", y.season) {
+            "The Hall of Fame Game is called off."
+        } else {
+            "The Hall of Fame Game opens the preseason."
+        };
+        post(w, d, Kind::Game, Loudness::Medium, "", text);
     }
     if d == y.hof_enshrinement {
-        post(w, d, Kind::Ceremony, Loudness::Medium, "", "Hall of Fame enshrinement in Canton.");
+        let text = if crate::calendar::anchors::cancelled("Hall of Fame enshrinement", y.season) {
+            "No enshrinement in Canton this year: the class goes in next summer."
+        } else {
+            "Hall of Fame enshrinement in Canton."
+        };
+        post(w, d, Kind::Ceremony, Loudness::Medium, "", text);
     }
     for (k, p) in y.preseason.iter().enumerate() {
         if d == *p {

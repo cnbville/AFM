@@ -433,7 +433,11 @@ pub(crate) fn advance_day(w: &mut World) {
     }
     for (date, name) in [(y.all_american_bowl, "All-American Bowl"), (y.polynesian_bowl, "Polynesian Bowl")] {
         if d == date {
-            hs_year::all_star_game(w, name);
+            if crate::calendar::anchors::cancelled(name, y.season) {
+                post(w, d, Level::HighSchool, Kind::Game, Loudness::Medium, &format!("The {name} is called off."));
+            } else {
+                hs_year::all_star_game(w, name);
+            }
         }
     }
     // The college all-star games name their rosters together
@@ -446,7 +450,11 @@ pub(crate) fn advance_day(w: &mut World) {
     }
     for (date, name) in all_star_games(&y) {
         if d == date {
-            recruiting::all_star_game(w, name);
+            if crate::calendar::anchors::cancelled(name, y.season) {
+                post(w, d, Level::College, Kind::Game, Loudness::Medium, &format!("The {name} is called off."));
+            } else {
+                recruiting::all_star_game(w, name);
+            }
         }
     }
     // The college season ends with its last title game.
@@ -505,10 +513,16 @@ fn year_start(w: &mut World) {
         (y.start, Level::Nfl, Kind::Date, Loudness::Small, "The football year begins.".to_string()),
         (y.draft[0].date, Level::Nfl, Kind::Date, Loudness::Huge, draft),
         (y.super_bowl, Level::Nfl, Kind::Game, Loudness::Huge, sb),
-        (y.signing_day, Level::Recruiting, Kind::Date, Loudness::Big, signing),
     ] {
         w.calendar.post(Event::new(date, level, kind, loud, text));
     }
+    // A signing day after the Super Bowl falls in the next football year but
+    // stays on the calendar and belongs to this class's season (part C 1).
+    let mut e = Event::new(y.signing_day, Level::Recruiting, Kind::Date, Loudness::Big, signing);
+    if y.signing_day > y.super_bowl {
+        e.season = Some(y.season);
+    }
+    w.calendar.post(e);
     if let Some(esp) = y.early_signing {
         let text = format!("The early signing period opens {}.", esp.pretty());
         w.calendar
@@ -523,7 +537,7 @@ fn rollover(w: &mut World) {
         // News that belongs to last season (its signing day fell after the
         // Super Bowl) joins that season's record.
         let mut kept: Vec<Event> = Vec::new();
-        for e in w.calendar.all().filter(|e| e.loud >= Loudness::Medium) {
+        for e in w.calendar.all().filter(|e| e.loud >= Loudness::Medium && e.when.date < w.today) {
             let past = e.season.filter(|&s| s != w.year).and_then(|s| w.event_history.iter().rposition(|h| h.0 == s));
             match past {
                 Some(k) => w.event_history[k].1.push(e.clone()),
@@ -532,7 +546,7 @@ fn rollover(w: &mut World) {
         }
         w.event_history.push((w.year, kept));
     }
-    w.calendar.close_year();
+    w.calendar.close_year(w.today);
     let next = w.year + 1;
     let log = std::mem::replace(&mut w.log, CalendarLog { year: next, ..CalendarLog::default() });
     w.log_history.push(log);
@@ -690,11 +704,16 @@ fn anniversaries(w: &mut World, d: Date) {
 }
 
 /// T10: Continue skips quiet days and stops on the first day with an event
-/// that needs a decision, or a big or huge moment (T8: a big moment stops
-/// the game and shows its own screen, such as free agency opening). Returns
-/// the day it stopped on.
+/// that needs a decision, a big moment that matters to the manager (his
+/// team or his level) or a huge moment anywhere (T8: a big moment stops the
+/// game and shows its own screen, such as free agency opening). Returns the
+/// day it stopped on.
 pub fn continue_until_needed(w: &mut World, max_days: u32) -> Date {
-    let stops = |e: &Event| e.needs_decision || e.loud >= Loudness::Big;
+    // N58 (Cain): Big moments that matter to the manager, Huge ones anywhere.
+    let seat = w.seat;
+    let stops = |e: &Event| {
+        e.needs_decision || e.loud == Loudness::Huge || (e.loud == Loudness::Big && seat.is_none_or(|s| s.cares(e)))
+    };
     for _ in 0..max_days {
         let d = w.today;
         advance_day(w);
@@ -742,6 +761,19 @@ mod tests {
             assert!(w.calendar.on(d).iter().all(|e| e.loud < Loudness::Big && !e.needs_decision));
             d = d.add(1);
         }
+    }
+
+    /// N58: a manager's Continue passes Big moments at other levels, but a
+    /// college moment about his own program still matters to him.
+    #[test]
+    fn a_seat_cares_about_its_level_and_team() {
+        let seat = super::super::Seat { level: Level::Nfl, nfl_team: Some(3), program: None };
+        let d = Date::ymd(2026, 9, 5);
+        assert!(!seat.cares(&Event::new(d, Level::College, Kind::Game, Loudness::Big, "A college game.")));
+        assert!(seat.cares(&Event::new(d, Level::Nfl, Kind::Game, Loudness::Big, "An NFL game.")));
+        let coach = super::super::Seat { level: Level::College, nfl_team: None, program: Some(7) };
+        let nfl = Event::new(d, Level::Nfl, Kind::Transfer, Loudness::Big, "His player is drafted.").program(7);
+        assert!(coach.cares(&nfl));
     }
 
     /// F4: the news of a signing day that falls after the Super Bowl shows

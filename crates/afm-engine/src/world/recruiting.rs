@@ -767,6 +767,9 @@ pub(crate) const ALL_STAR_ORDER: [&str; 4] =
 
 /// Whether a college all-star game is played before a draft: the NFLPA
 /// Collegiate Bowl from 2012, the HBCU Legacy Bowl from 2022.
+/// The mark of a player who turned an all-star invitation down (part C 5).
+pub(crate) const DECLINED: &str = "declined";
+
 pub(crate) fn all_star_held(game: &str, draft_year: i32) -> bool {
     match game {
         "HBCU Legacy Bowl" => draft_year >= 2022,
@@ -789,7 +792,8 @@ pub(crate) fn all_star_invites(w: &mut World, game: &'static str) {
     }
     let draft_year = year + 1;
     let five = w.changes.rules(draft_year).five_in_five;
-    let hbcu = |c: usize| matches!(w.programs[c].conference.as_str(), "SWAC" | "MEAC");
+    // The HBCU conferences: SWAC and MEAC in FCS, SIAC and CIAA in Division II (part B 42).
+    let hbcu = |c: usize| matches!(w.programs[c].conference.as_str(), "SWAC" | "MEAC" | "SIAC" | "CIAA");
     // Teams still playing (bracket rounds not drawn yet included): their
     // seniors are invited once their season is over.
     let playing: Vec<bool> = match w.college.as_ref() {
@@ -807,9 +811,10 @@ pub(crate) fn all_star_invites(w: &mut World, game: &'static str) {
         .iter()
         .enumerate()
         .filter(|(_, p)| (p.stage == Stage::Declared || done_senior(p)) && p.cal.all_star.is_none())
-        .filter(|(_, p)| {
-            exhausted(p, draft_year, five) || game == "Senior Bowl" && p.cal.draft_read.is_some_and(|r| r.round <= 3)
-        })
+        // Seniors, and underclassmen who have graduated; any declared
+        // underclassman from the 2024 games, when the NFL opened the
+        // all-star games to them (part C 4; NFL, November 2023).
+        .filter(|(_, p)| exhausted(p, draft_year, five) || p.cal.graduated || draft_year >= 2024)
         .filter(|(_, p)| game != "HBCU Legacy Bowl" || p.college.is_some_and(hbcu))
         .filter_map(|(i, p)| p.cal.draft_read.map(|r| (r.score, i)))
         .collect();
@@ -829,7 +834,8 @@ pub(crate) fn all_star_invites(w: &mut World, game: &'static str) {
     let per_specialist = ((2.0 * w.options.scale).round() as usize).max(1);
     let mut specialists: Vec<crate::positions::Position> = Vec::new();
     let mut count = 0;
-    for &(_, i) in &pool {
+    let seed = w.options.seed as u64 ^ ((draft_year as u64) << 20) ^ 0xA115;
+    for (rank, &(_, i)) in pool.iter().enumerate() {
         if count as usize == n {
             break;
         }
@@ -839,6 +845,25 @@ pub(crate) fn all_star_invites(w: &mut World, game: &'static str) {
                 continue;
             }
             specialists.push(pos);
+        }
+        // A projected first-rounder often skips the week, with nothing to
+        // gain and an injury to risk (part C 5; proposed, not confirmed: the
+        // best 15 of the pool 60%, the rest of round one 35%, round two 10%,
+        // anyone else 2%). He is not asked by the games after it either.
+        let round = w.people[i].cal.draft_read.map_or(8, |r| r.round);
+        let skip = match round {
+            1 if (rank as f64) < 15.0 * w.options.scale => 0.6,
+            1 => 0.35,
+            2 => 0.1,
+            _ => 0.02,
+        };
+        if key_uniform(seed ^ game.len() as u64, w.people[i].player.id as u64) < skip {
+            let p = &mut w.people[i];
+            p.cal.all_star = Some(DECLINED);
+            let age = p.row_age();
+            p.note(format!("Turned down the {game} at {age} to prepare for the draft on his own."));
+            w.log.all_star_declined += 1;
+            continue;
         }
         w.people[i].cal.all_star = Some(game);
         count += 1;
@@ -1185,6 +1210,21 @@ fn real_roster(pos: Position) -> f64 {
 /// The real FBS roster these counts add up to.
 const REAL_ROSTER_TOTAL: f64 = 119.7;
 
+/// A full squad at each level, walk-ons included (part C 7): about 120 in
+/// FBS before the House limit, 108 in FCS, 115 in Division II, 107 in
+/// Division III, 100 in the NAIA and 80 at a junior college (NCAA
+/// participation counts over teams, from memory, to verify).
+fn level_roster(d: Division) -> f64 {
+    match d {
+        Division::FBS => REAL_ROSTER_TOTAL,
+        Division::FCS => 108.0,
+        Division::D2 => 115.0,
+        Division::D3 => 107.0,
+        Division::NAIA => 100.0,
+        Division::JUCO => 80.0,
+    }
+}
+
 /// Specialists a staff keeps on scholarship (fix list 1.6): about one kicker
 /// and one punter. The other kickers, the second punter and the long
 /// snappers walk on (real: 65-82% of FBS specialists have no recruiting
@@ -1412,7 +1452,8 @@ fn class_plan(
         } else {
             plan.scholarship[k] = plan_count(target, now[k][0] + now[k][1], stay[k][0] + stay[k][1]);
         }
-        let depth = if plan.whole_roster { target } else { real_roster(pos) };
+        let depth =
+            if plan.whole_roster { target } else { real_roster(pos) * level_roster(prog.division) / REAL_ROSTER_TOTAL };
         plan.open_at[k] = crate::rng::round_half_up(depth - now[k][0] - now[k][1]).max(0.0) as usize;
     }
     let room = limit.saturating_sub(returning.round() as usize);

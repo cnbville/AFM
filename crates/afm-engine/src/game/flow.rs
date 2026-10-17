@@ -124,6 +124,32 @@ impl<'a> Side<'a> {
 
     /// The best `n` available at a spot, swapping out tired starters when a
     /// fresh backup isn't much worse.
+    /// Whether a player starts at his own position.
+    fn starts(&self, i: usize) -> bool {
+        let pos = self.team.players[i].position;
+        self.depth.list(pos).iter().take(crate::league::depth_slots(pos).starters).any(|&j| j == i)
+    }
+
+    /// A coverage or return unit's men at a spot (part C 3): the backups
+    /// first, as real units are mostly backups and young players, then the
+    /// starters when the backups run out.
+    fn cover_pick(&self, pos: Position, n: usize, used: &mut Vec<usize>) -> Vec<usize> {
+        let list: Vec<usize> = self
+            .depth
+            .list(pos)
+            .iter()
+            .copied()
+            .filter(|&i| !self.out[i] && !used.contains(&i) && !self.benched[i])
+            .collect();
+        let (starters, backups): (Vec<usize>, Vec<usize>) = list.iter().partition(|&&i| self.starts(i));
+        let out: Vec<usize> = backups.into_iter().chain(starters).take(n).collect();
+        if out.len() < n {
+            return self.pick(pos, n, used);
+        }
+        used.extend(out.iter().copied());
+        out
+    }
+
     fn pick(&self, pos: Position, n: usize, used: &mut Vec<usize>) -> Vec<usize> {
         let list: Vec<usize> = self
             .depth
@@ -673,12 +699,17 @@ impl<'a> Game<'a> {
         let starters: Vec<usize> =
             [Position::QB].iter().flat_map(|p| side.depth.list(*p).iter().take(1).copied()).collect();
         pool.retain(|i| !starters.contains(i));
-        pool.sort_by(|&a, &b| {
-            let f = |p: &GamePlayer| {
-                0.4 * p.a(Attr::Speed) + 0.3 * p.a(Attr::Tackling) + 0.3 * p.a(Attr::RunBlocking) + side.energy[0] * 0.0
-            };
-            f(&ps[b]).total_cmp(&f(&ps[a]))
-        });
+        // A starter only beats a backup who is clearly worse (part C 3: real
+        // units are mostly backups and young players; proposed, not
+        // confirmed: a starter counts 10 points less).
+        let score: Vec<f64> = (0..ps.len())
+            .map(|i| {
+                let p = &ps[i];
+                0.4 * p.a(Attr::Speed) + 0.3 * p.a(Attr::Tackling) + 0.3 * p.a(Attr::RunBlocking)
+                    - if side.starts(i) { 10.0 } else { 0.0 }
+            })
+            .collect();
+        pool.sort_by(|&a, &b| score[b].total_cmp(&score[a]));
         on.extend(pool.into_iter().take(11 - on.len()));
         on
     }
@@ -1108,21 +1139,21 @@ impl<'a> Game<'a> {
         let sn = side.snapper();
         let mut kick_on = vec![p];
         let mut used = vec![p, sn];
-        kick_on.extend(side.pick(Position::CB, 2, &mut used));
-        kick_on.extend(side.pick(Position::LB, 3, &mut used));
-        kick_on.extend(side.pick(Position::TE, 2, &mut used));
-        kick_on.extend(side.pick(Position::IOL, 2, &mut used));
+        kick_on.extend(side.cover_pick(Position::CB, 2, &mut used));
+        kick_on.extend(side.cover_pick(Position::LB, 3, &mut used));
+        kick_on.extend(side.cover_pick(Position::TE, 2, &mut used));
+        kick_on.extend(side.cover_pick(Position::IOL, 2, &mut used));
         // The long snapper is the unit's center and covers down the middle lane.
         kick_on.insert(5.min(kick_on.len()), sn);
         let opp = &self.sides[d];
         let pr = opp.depth.punt_returner;
         let mut ret_on = vec![pr];
         let mut used2 = vec![pr];
-        ret_on.extend(opp.pick(Position::CB, 2, &mut used2));
-        ret_on.extend(opp.pick(Position::LB, 3, &mut used2));
-        ret_on.extend(opp.pick(Position::S, 1, &mut used2));
-        ret_on.extend(opp.pick(Position::DT, 2, &mut used2));
-        ret_on.extend(opp.pick(Position::EDGE, 2, &mut used2));
+        ret_on.extend(opp.cover_pick(Position::CB, 2, &mut used2));
+        ret_on.extend(opp.cover_pick(Position::LB, 3, &mut used2));
+        ret_on.extend(opp.cover_pick(Position::S, 1, &mut used2));
+        ret_on.extend(opp.cover_pick(Position::DT, 2, &mut used2));
+        ret_on.extend(opp.cover_pick(Position::EDGE, 2, &mut used2));
         let kt = KickTeams {
             kick: &side.team.players,
             ret: &opp.team.players,

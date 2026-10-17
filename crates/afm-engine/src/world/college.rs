@@ -307,7 +307,15 @@ fn conditions(w: &World, g: &Game, k: usize) -> (Conditions, Played, Option<Seve
     let code = w.states[state].code.as_str();
     let local = (g.kickoff.0 as i32 - et_offset(code)).clamp(9, 23) as u32;
     let seed = w.options.seed as u64;
-    let wx = if indoor { weather::indoors() } else { weather::weather_at(seed, state, code, g.date, local) };
+    let mut wx = if indoor { weather::indoors() } else { weather::weather_at(seed, state, code, g.date, local) };
+    // A landfall reaches only the coastal plain (part B 41).
+    let city = match g.site {
+        Some(s) => s.town,
+        None => home.city.as_str(),
+    };
+    if wx.severe == Some(Severe::Hurricane) && !weather::hurricane_reaches(code, city) {
+        wx.severe = None;
+    }
     let along = (key_uniform(seed ^ 0xA10, (g.date.0 as u64) << 16 ^ k as u64) * 2.0 - 1.0).clamp(-1.0, 1.0);
     let cond = Conditions {
         temperature: wx.temperature,
@@ -1074,17 +1082,16 @@ fn stakes_for_day(w: &mut World, idx: &[usize]) {
         if hometown && !tags.contains(&Tag::Hometown) {
             tags.push(Tag::Hometown);
         }
-        // Loudness: the stakes test. Story tags (A40) count half a stake each,
-        // at most one in all, so story alone never makes a game huge
-        // (proposed, not confirmed).
+        // Loudness: the stakes test.
         let real = tags.iter().filter(|t| matches!(t, Tag::PlayoffSpot | Tag::Ranked)).count()
             + (tags.contains(&Tag::Rivalry) && (ranked(g.home).is_some() || ranked(g.away).is_some())) as usize
             + (tags.contains(&Tag::HotSeat) && tags.contains(&Tag::Rivalry)) as usize;
-        let story = tags
-            .iter()
-            .filter(|t| matches!(t, Tag::Revenge | Tag::CoachReturn | Tag::Hometown | Tag::Milestone))
-            .count();
-        let stakes = real as f64 + (0.5 * story as f64).min(1.0);
+        // Story hooks (a player facing his old team, a coach's return, a
+        // player at home, a record within reach) only colour the text: alone
+        // they never lift a result into the inbox (N57, Cain: "No.").
+        let story = |t: &Tag| matches!(t, Tag::Revenge | Tag::CoachReturn | Tag::Hometown | Tag::Milestone);
+        let tagged = tags.iter().any(|t| !story(t));
+        let stakes = real as f64;
         // The reasons, in plain words, for the result's text (part B 22).
         let mut why: Vec<&'static str> = match g.kind {
             GameKind::Title => vec!["the national title"],
@@ -1119,7 +1126,7 @@ fn stakes_for_day(w: &mut World, idx: &[usize]) {
             GameKind::Bowl(_) | GameKind::Celebration => Loudness::Medium,
             _ if stakes >= 2.0 => Loudness::Huge,
             _ if stakes >= 1.0 => Loudness::Big,
-            _ if !tags.is_empty() => Loudness::Medium,
+            _ if tagged => Loudness::Medium,
             _ => Loudness::Small,
         };
         // Each side's own stakes (T8.1, proposed, not confirmed): the
