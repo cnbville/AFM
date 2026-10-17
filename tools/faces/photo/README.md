@@ -20,6 +20,10 @@ Weights from Hugging Face: `SG161222/RealVisXL_V5.0_Lightning` (fp16 files) to `
 3. `embed.py '<the other 9 jobs with 1>'`, then `draw_iid.py '<those jobs>' 1.5 0.65 0.5`: the locked photos. Weights stay fp16 in memory and compute in fp32.
 4. `score.py`, then `page.py out.html` (with `tpl.html`, `notes.json` and the GAN proof photos in `gan/`).
 
+## Light version (8 GB M1)
+
+`light/light.py 8 2.0 0.7 0.6`: Realistic Vision 6 (SD 1.5, `SG161222/Realistic_Vision_V6.0_B1_noVAE` to `hf/rv6`, VAE `stabilityai/sd-vae-ft-mse` to `hf/vae15`), Hyper-SD 8-step LoRA (`ByteDance/Hyper-SD`, `Hyper-SD15-8steps-CFG-lora.safetensors` to `hf/hyper`) and IP-Adapter FaceID Plus v2 (`h94/IP-Adapter-FaceID` to `hf/faceid`, image encoder from `h94/IP-Adapter` to `hf/ipa`). Arguments: steps, guidance, face adapter scale, face LoRA weight. Writes `light/` with `times.json` (seconds per photo, `_peak_gb` peak memory). `ltest.py` tries three lock settings on Prude; `lscore.py` scores drift.
+
 ## Licences
 
-RealVisXL: SDXL OpenRAIL++. InstantID weights: Apache 2.0. insightface models (antelopev2, buffalo_l): non-commercial research only.
+RealVisXL: SDXL OpenRAIL++. InstantID weights: Apache 2.0. Realistic Vision 6: CreativeML OpenRAIL-M. IP-Adapter FaceID: non-commercial research only. insightface models (antelopev2, buffalo_l): non-commercial research only.

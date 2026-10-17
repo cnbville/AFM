@@ -6,6 +6,7 @@ import sys
 OUT = sys.argv[1] if len(sys.argv) > 1 else "out/index.html"
 gan = {p["key"]: {r["age"]: r for r in p["rows"]} for p in json.load(open("/home/user/AFM/tools/faces/results.json"))}
 sc = json.load(open("out/scores.json")); tm = json.load(open("out/times.json"))
+lsc = json.load(open("light/scores.json")); ltm = json.load(open("light/times.json"))
 def b64(path, w):
     im = Image.open(path).convert("RGB"); h = round(im.height * w / im.width)
     buf = io.BytesIO(); im.resize((w, h), Image.LANCZOS).save(buf, "JPEG", quality=82)
@@ -18,7 +19,8 @@ rows = []
 for k, name, sub, teams in P:
     g = "".join(f'<figure class="shot gan"><img src="data:image/jpeg;base64,{b64(f"gan/{k}_{a}.jpg",320)}" alt="{name} at {a}, GAN" width="320" height="320"><figcaption><b>{a}</b><span class="m">same person {same(gan[k][a]["same_person"])}</span></figcaption></figure>' for a in (17,22,28,34))
     p = "".join(f'<figure class="shot"><img src="data:image/jpeg;base64,{b64(f"out/{k}_{a}.png",360)}" alt="{name} at {a}, photo model" width="360" height="463"><figcaption><b>{a}</b> · {teams[a]}<span class="m">same person {same(sc[f"{k}_{a}"]["same_person"])} · {tm[f"{k}_{a}"]/60:.1f} min</span></figcaption></figure>' for a in (17,22,28,34))
-    rows.append(f'<section class="player"><header><h2>{name}</h2><p class="sub">{sub}</p></header><p class="lbl">New: photo model (RealVisXL + InstantID)</p><div class="row">{p}</div><p class="lbl">Before: GAN proof</p><div class="row small">{g}</div></section>')
+    l = "".join(f'<figure class="shot"><img src="data:image/jpeg;base64,{b64(f"light/{k}_{a}.png",360)}" alt="{name} at {a}, light model" width="360" height="450"><figcaption><b>{a}</b> · {teams[a]}<span class="m">same person {same(lsc[f"{k}_{a}"]["same_person"])} · {ltm[f"{k}_{a}"]/60:.1f} min</span></figcaption></figure>' for a in (17,22,28,34))
+    rows.append(f'<section class="player"><header><h2>{name}</h2><p class="sub">{sub}</p></header><p class="lbl">Big photo model (RealVisXL + InstantID), about 10 GB</p><div class="row">{p}</div><p class="lbl">Light photo model for an 8 GB M1 (Realistic Vision 6 + FaceID)</p><div class="row">{l}</div><p class="lbl">Before: GAN proof</p><div class="row small">{g}</div></section>')
 notes = json.load(open("notes.json"))
 html = open("tpl.html").read().replace("{{ROWS}}", "".join(rows))
 for key, val in notes.items(): html = html.replace("{{" + key + "}}", val)
