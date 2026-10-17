@@ -292,6 +292,9 @@ pub fn restructure(c: &mut Contract, y: i32, keep: f64, add_void: u32) -> f64 {
     if amount <= 0.0 {
         return 0.0;
     }
+    // Void years only fill the spread up to its five-year limit (real).
+    let have = c.years.iter().filter(|x| x.year >= y).count() as u32;
+    let add_void = add_void.min(5u32.saturating_sub(have));
     let last = c.years.iter().map(|x| x.year).max().unwrap_or(y);
     for v in 0..add_void as i32 {
         c.years.push(Year { year: last + 1 + v, void: true, ..Default::default() });
@@ -347,7 +350,7 @@ pub fn usual_years(pos: Position, grade: f64, age: u32) -> u32 {
         Position::OT | Position::IOL => 30,
         _ => 29,
     };
-    let left = prime_end as i32 - age as i32;
+    let left = prime_end - age as i32;
     let base = if grade >= 82.0 {
         5
     } else if grade >= 76.0 {

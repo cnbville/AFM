@@ -199,7 +199,7 @@ fn pathway(w: &mut World, d: Date) {
             t,
             super::money::Kind::PracticeSquad,
             year,
-            &super::money::Terms::flat(1, super::money::minimum(year, 0)),
+            &super::money::Terms::flat(1, super::money::practice_squad_week(year) * (w.rules.nfl_games as f64 + 1.0)),
         );
         c.contract = Some(deal);
         p.pro = Some(Box::new(c));

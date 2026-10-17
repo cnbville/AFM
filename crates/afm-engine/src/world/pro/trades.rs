@@ -351,6 +351,9 @@ pub(crate) fn trade_window(w: &mut World, d: Date, deadline: bool) {
     }
 }
 
+/// Picks offered (year, round, original team) and their cost to the buyer.
+type Package = (Vec<(i32, u32, usize)>, f64);
+
 /// The buyer's picks that meet the seller's ask on the seller's chart at
 /// the lowest cost on the buyer's own: the cheapest single pick, else the
 /// cheapest pair, over the next three drafts.
@@ -374,7 +377,7 @@ fn package(w: &World, buyer: usize, seller: usize, ask: f64) -> Option<Vec<(i32,
         }
     }
     let single = own.iter().filter(|x| x.1 >= ask).min_by(|a, b| a.2.total_cmp(&b.2)).map(|x| (vec![x.0], x.2));
-    let mut pair: Option<(Vec<(i32, u32, usize)>, f64)> = None;
+    let mut pair: Option<Package> = None;
     for a in 0..own.len() {
         for b in a + 1..own.len() {
             if own[a].1 + own[b].1 >= ask {
@@ -410,7 +413,7 @@ fn execute(
         .as_ref()
         .and_then(|c| c.contract.as_ref())
         .map_or(0.0, |k| k.years.iter().filter(|y| y.year >= year).map(|y| y.proration).sum());
-    w.clubs[seller].add_dead(year, dead);
+    w.clubs[seller].add_dead(year, dead, w.people[i].player.id, super::DeadWhy::Traded);
     if let Some(k) = w.people[i].pro.as_mut().unwrap().contract.as_mut() {
         for y in k.years.iter_mut().filter(|y| y.year >= year) {
             y.proration = 0.0;

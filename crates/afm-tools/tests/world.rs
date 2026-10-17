@@ -30,7 +30,8 @@ fn rosters_and_staffs_are_full() {
         .map(|p| format!("{} ({:?}, plays {})", p.real_name, p.division, p.plays(w.year)))
         .collect();
     assert!(no_coach.is_empty(), "no head coach and no search: {no_coach:?} on {:?}", w.today);
-    let searching = w.programs.iter().filter(|p| p.head_coach.is_none() && p.division == Division::FBS).count();
+    let searching =
+        w.programs.iter().filter(|p| p.plays(w.year) && p.head_coach.is_none() && p.division == Division::FBS).count();
     assert!(searching <= 4, "{searching} FBS head jobs still open on {:?}", w.today);
     assert!(w.high_schools.iter().all(|s| s.coach.is_some()));
 }
@@ -43,10 +44,8 @@ fn the_draft_comes_mostly_from_fbs() {
     // year (32 from 1994, and diversity picks from 2021).
     let drafts: std::collections::BTreeSet<i32> = picks.iter().map(|a| a.year).collect();
     assert_eq!(drafts.len(), 3);
-    let expected: usize = drafts
-        .iter()
-        .map(|&y| 7 * 32 + w.market.picks.comp.iter().filter(|c| c.year == y).count())
-        .sum();
+    let expected: usize =
+        drafts.iter().map(|&y| 7 * 32 + w.market.picks.comp.iter().filter(|c| c.year == y).count()).sum();
     assert_eq!(picks.len(), expected);
     let share = |d: Division| {
         picks.iter().filter(|a| w.programs[*a.colleges.last().unwrap()].division == d).count() as f64
@@ -123,7 +122,7 @@ fn the_nfl_lives() {
         let held = w.clubs[t].roster.len();
         assert!((45..=95).contains(&held), "the {} hold {held} players", w.nfl[t].name);
     }
-    // The hard cap holds on opening day.
+    // The hard cap holds on opening day, and teams spend most of it.
     for m in w.market.years.iter().filter(|m| money::capped(m.year) && m.cap_use[1] > 0.0) {
         assert!(m.cap_use[2] <= 1.001, "{}: a team at {:.3} of the cap on opening day", m.year, m.cap_use[2]);
         assert!(m.cap_use[1] >= 0.8, "{}: the median team at {:.3} of the cap", m.year, m.cap_use[1]);

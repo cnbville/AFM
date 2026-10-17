@@ -1798,14 +1798,14 @@ fn nfl_league(w: &World, years: u32) {
     println!("\n## The NFL as a living league (section 5)");
     let first = w.year - years.min(30) as i32;
     println!(
-        "| year | UFA | re-signed | new team | perfect | swayed | tags | trans | tenders | sheets (matched) | 5th opt taken/declined | ext | rookie ext | restruct | cap cuts | June 1 | futures | claims | holdouts/ins | bluffs (called) | agents fired | promises broken | trades (deadline) | comp | other lg | IPP | cap use (low/median/high) |"
+        "| year | UFA | re-signed | new team | perfect | swayed | tags | trans | tenders | sheets (matched) | 5th opt taken/declined | ext | rookie ext | restruct | cap cuts | June 1 | futures | claims | holdouts/ins | bluffs (called) | agents fired | promises broken | trades (deadline) | comp | other lg | IPP | cap use (low/median/high) | dead money | carryover |"
     );
     println!(
-        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"
     );
     for m in w.market.years.iter().filter(|m| m.year >= first) {
         println!(
-            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} ({}) | {}/{} | {} | {} | {} | {} | {} | {} | {} | {}/{} | {} ({}) | {} | {} | {} ({}) | {} | {} | {} | {:.2}/{:.2}/{:.2} |",
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} ({}) | {}/{} | {} | {} | {} | {} | {} | {} | {} | {}/{} | {} ({}) | {} | {} | {} ({}) | {} | {} | {} | {:.2}/{:.2}/{:.2} | {:.2}/{:.2}/{:.2} | {:.2}/{:.2}/{:.2} |",
             m.year,
             m.ufa,
             m.resigned,
@@ -1839,7 +1839,13 @@ fn nfl_league(w: &World, years: u32) {
             m.ipp,
             m.cap_use[0],
             m.cap_use[1],
-            m.cap_use[2]
+            m.cap_use[2],
+            m.dead[0],
+            m.dead[1],
+            m.dead[2],
+            m.carryover[0],
+            m.carryover[1],
+            m.carryover[2]
         );
     }
     // Who holds the rosters now.

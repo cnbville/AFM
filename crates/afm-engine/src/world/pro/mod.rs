@@ -184,10 +184,13 @@ pub struct Club {
     pub roster: Vec<usize>,
     /// The depth chart at each position, best first (the active roster).
     pub depth: Vec<Vec<usize>>,
-    /// Dead money charged to each league year.
-    pub dead: Vec<(i32, f64)>,
+    /// Dead money charged to each league year, charge by charge.
+    pub dead: Vec<DeadCharge>,
     /// Unused cap carried into the next league year (2011 on).
     pub carryover: f64,
+    /// The room left when a league year's regular season ended, with every
+    /// charge of that year in: what carries over.
+    pub unused: Option<(i32, f64)>,
     /// The systems its coordinators run (S3) and its own tape.
     pub installed: super::systems::Installed,
     pub film: crate::game::Film,
@@ -199,13 +202,43 @@ pub struct Club {
     pub cash: Vec<(i32, f64)>,
 }
 
+/// Why a team carries dead money.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DeadWhy {
+    /// A cap casualty: released to clear room.
+    CapCut,
+    /// Any other release (cutdown, a roster move, a practice squad deal ending).
+    Released,
+    /// Guaranteed pay owed once a waived player clears waivers.
+    Waived,
+    /// A roster deal replaced by a practice squad deal at cutdown.
+    PracticeSquad,
+    Retired,
+    /// The bonus left with the seller of a traded player.
+    Traded,
+    /// Bonus spread over void years when a deal ends.
+    Voided,
+    /// Incentives settled after the season (can be a credit).
+    Incentives,
+}
+
+/// One dead-money charge, as real cap pages list them: the league year it
+/// lands on, the amount and the player it is for.
+#[derive(Clone, Copy, Debug)]
+pub struct DeadCharge {
+    pub year: i32,
+    pub amount: f64,
+    pub player: u32,
+    pub why: DeadWhy,
+}
+
 impl Club {
     pub fn dead_in(&self, year: i32) -> f64 {
-        self.dead.iter().filter(|d| d.0 == year).map(|d| d.1).sum()
+        self.dead.iter().filter(|d| d.year == year).map(|d| d.amount).sum()
     }
-    fn add_dead(&mut self, year: i32, amount: f64) {
+    fn add_dead(&mut self, year: i32, amount: f64, player: u32, why: DeadWhy) {
         if amount > 0.0 {
-            self.dead.push((year, amount));
+            self.dead.push(DeadCharge { year, amount, player, why });
         }
     }
 }
@@ -612,7 +645,7 @@ pub(crate) fn fill_league(w: &mut World) {
     office::staff_offices(w);
     market::staff_agents(w);
     rebuild(w);
-    market::set_norms(w);
+    market::set_ladders(w);
     for i in 0..w.people.len() {
         if w.people[i].stage == Stage::Pro {
             market::sign_agent(w, i);
@@ -715,6 +748,7 @@ pub(crate) fn move_club(w: &mut World, from: usize, to: usize, why: &str) {
     let dead = std::mem::take(&mut w.clubs[from].dead);
     w.clubs[to].dead.extend(dead);
     w.clubs[to].carryover += std::mem::take(&mut w.clubs[from].carryover);
+    w.clubs[to].unused = w.clubs[from].unused.take().or(w.clubs[to].unused);
 }
 
 /// Fills a team's holes so it can field a team: at each position it signs
@@ -797,8 +831,12 @@ pub(crate) fn day(w: &mut World, d: Date) {
     let mut changed = false;
     leagues::day(w, d);
     if d == y.tag_window_open {
-        // The year's pay scale: last season's starters by position.
-        market::set_norms(w);
+        // The year's pay ladders: the veterans by position after last season.
+        market::set_ladders(w);
+        // Cap cuts and restructures start right after the season, so teams
+        // can talk with their own free agents (real: February into March).
+        set_carryover(w);
+        market::cap_moves(w, d, true);
         market::resign_talks(w, d, false);
         changed = true;
     }
@@ -808,13 +846,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
         changed = true;
     }
     if d == y.league_year.date.add(-1) {
-        // Carryover (2011 on, real): a team declares its unused room and it
-        // comes with the team.
-        let year = w.year;
-        let prev = year - 1;
-        for t in 0..w.clubs.len() {
-            w.clubs[t].carryover = if year >= 2011 && money::capped(prev) { space(w, t, prev).max(0.0) } else { 0.0 };
-        }
+        set_carryover(w);
         market::cap_moves(w, d, true);
         changed = true;
     }
@@ -891,14 +923,19 @@ pub(crate) fn day(w: &mut World, d: Date) {
         // Cap use on opening day: each active team's payroll over its cap.
         let year = w.year;
         let cap = money::price_cap(year);
-        let mut used: Vec<f64> = super::franchise::active_teams(year)
-            .into_iter()
-            .map(|t| payroll(w, t, year) / (cap + if money::capped(year) { w.clubs[t].carryover } else { 0.0 }))
-            .collect();
-        used.sort_by(|a, b| a.total_cmp(b));
-        if let (Some(&lo), Some(&hi)) = (used.first(), used.last()) {
-            w.market.year_mut(year).cap_use = [lo, used[used.len() / 2], hi];
-        }
+        let teams = super::franchise::active_teams(year);
+        let spread = |mut v: Vec<f64>| {
+            v.sort_by(|a, b| a.total_cmp(b));
+            if v.is_empty() { [0.0; 3] } else { [v[0], v[v.len() / 2], v[v.len() - 1]] }
+        };
+        let carry = |t: usize| if money::capped(year) { w.clubs[t].carryover } else { 0.0 };
+        let used = spread(teams.iter().map(|&t| payroll(w, t, year) / (cap + carry(t))).collect());
+        let dead = spread(teams.iter().map(|&t| w.clubs[t].dead_in(year) / cap).collect());
+        let carried = spread(teams.iter().map(|&t| carry(t) / cap).collect());
+        let m = w.market.year_mut(year);
+        m.cap_use = used;
+        m.dead = dead;
+        m.carryover = carried;
     }
     // In season, each Tuesday: injured players to reserve, the street's
     // calls, the unsigned veteran's week (topic 1.3).
@@ -969,16 +1006,22 @@ fn league_year(w: &mut World, d: Date) {
 /// guaranteed pay land on the team's cap as dead money (split over two
 /// years after June 1).
 pub(crate) fn release(w: &mut World, i: usize, d: Date, why: &str) {
-    let june1 = d >= w.dates.june_1 && d < w.dates.super_bowl;
-    release_with(w, i, d, why, june1, true);
+    release_with(w, i, d, why, false, true, DeadWhy::Released);
+}
+
+/// From June 1 to the Super Bowl a release splits its dead money over
+/// two league years by itself (real).
+pub(crate) fn after_june1(w: &World, d: Date) -> bool {
+    d >= w.dates.june_1 && d < w.dates.super_bowl
 }
 
 /// A release with its terms: `june1` splits the dead money (a June 1
 /// release or a post-June 1 designation), `waivers` sends a player who
 /// qualifies to the waiver wire, where a claiming team takes over his
 /// contract (his old team then owes only the bonus already paid).
-pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: bool, waivers: bool) {
+pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: bool, waivers: bool, cause: DeadWhy) {
     let year = w.year;
+    let june1 = june1 || after_june1(w, d);
     let waive = waivers && market::waivable(w, i, d);
     let Some(c) = w.people[i].pro.as_mut() else { return };
     let Some(t) = c.team else { return };
@@ -1008,8 +1051,9 @@ pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: b
     c.wants_out = false;
     c.ideal = None;
     w.clubs[t].roster.retain(|&x| x != i);
-    w.clubs[t].add_dead(year, dead.0.max(0.0));
-    w.clubs[t].add_dead(year + 1, dead.1);
+    let id = w.people[i].player.id;
+    w.clubs[t].add_dead(year, dead.0.max(0.0), id, cause);
+    w.clubs[t].add_dead(year + 1, dead.1, id, cause);
     let name = w.nfl[t].name;
     let p = &mut w.people[i];
     let age = p.row_age();
@@ -1018,6 +1062,21 @@ pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: b
         round_half_up(p.player.overall()),
         if waive { ", placed on waivers" } else { "" }
     ));
+}
+
+/// Carryover (2011 on, real): a team declares last league year's unused
+/// room and it comes with the team. The room is the one left when the
+/// season ended: a player released or retired since was paid for the year,
+/// so his charge stays on that year's books.
+fn set_carryover(w: &mut World) {
+    let year = w.year;
+    let prev = year - 1;
+    for t in 0..w.clubs.len() {
+        w.clubs[t].carryover = match w.clubs[t].unused {
+            Some((y, room)) if year >= 2011 && y == prev && money::capped(prev) => room,
+            _ => 0.0,
+        };
+    }
 }
 
 /// What a free agent asks for a year and for how long: his market price
@@ -1033,7 +1092,7 @@ fn ask(w: &World, i: usize, year: i32, d: Date) -> (f64, u32) {
     let g = p.player.overall();
     let weeks = (w.dates.league_year.date.days_to(d).max(0) / 7) as u32 + c.map_or(0, |c| c.weeks_unsigned);
     let min = money::minimum(year, accrued);
-    let rel = g + market::pay_shift(w, p.player.position);
+    let rel = market::market_grade(w, p.player.position, g);
     let price =
         money::price_cap(year) * money::market_share(p.player.position, rel) * (1.0 - 0.04 * weeks as f64).max(0.0);
     (price.max(min), money::usual_years(p.player.position, g, p.player.age))
@@ -1402,6 +1461,20 @@ fn cutdown(w: &mut World, d: Date) {
             w.people[i].pro.as_mut().unwrap().status = Status::Roster;
         }
         for i in squad {
+            // A practice squad deal replaces his roster contract (real: a
+            // weekly salary about a quarter of the rookie minimum's); a
+            // bonus already paid stays on the cap.
+            let c = w.people[i].pro.as_ref().unwrap();
+            if c.contract.as_ref().is_some_and(|k| k.kind != money::Kind::PracticeSquad) {
+                let (now, later) = c.contract.as_ref().unwrap().dead_if_cut(year, d, true);
+                let id = w.people[i].player.id;
+                w.clubs[t].add_dead(year, now.max(0.0), id, DeadWhy::PracticeSquad);
+                w.clubs[t].add_dead(year + 1, later, id, DeadWhy::PracticeSquad);
+                let weeks = w.rules.nfl_games as f64 + 1.0;
+                let pay = money::practice_squad_week(year) * weeks;
+                let deal = money::build(t, money::Kind::PracticeSquad, year, &money::Terms::flat(1, pay));
+                w.people[i].pro.as_mut().unwrap().contract = Some(deal);
+            }
             let c = w.people[i].pro.as_mut().unwrap();
             if c.status != Status::PracticeSquad {
                 c.ps_seasons += 1;
@@ -1423,6 +1496,10 @@ fn cutdown(w: &mut World, d: Date) {
 /// in about 30 a year is hired away or retires besides).
 pub(crate) fn black_monday(w: &mut World) {
     let year = w.year;
+    // The books close on the regular season: what is left carries over.
+    for t in 0..w.clubs.len() {
+        w.clubs[t].unused = Some((year, space(w, t, year).max(0.0)));
+    }
     office::fan_year(w);
     market::settle_incentives(w);
     let out: Vec<usize> = w
@@ -1557,8 +1634,9 @@ pub(crate) fn retire(w: &mut World, i: usize, d: Date, why: &str) {
         // A retiring player under contract leaves his bonus on the cap.
         if let Some(k) = w.people[i].pro.as_mut().unwrap().contract.take() {
             let dead = k.dead_if_cut(year, d, d >= w.dates.june_1);
-            w.clubs[t].add_dead(year, dead.0);
-            w.clubs[t].add_dead(year + 1, dead.1);
+            let id = w.people[i].player.id;
+            w.clubs[t].add_dead(year, dead.0, id, DeadWhy::Retired);
+            w.clubs[t].add_dead(year + 1, dead.1, id, DeadWhy::Retired);
         }
         w.clubs[t].roster.retain(|&x| x != i);
     }

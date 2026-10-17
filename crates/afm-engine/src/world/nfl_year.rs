@@ -351,6 +351,9 @@ fn opponent_formula(s: &NflSeason, season: i32, games: u32) -> Vec<(usize, usize
     out
 }
 
+/// Which pairs of teams a phase of the old formula may match.
+type Pairing = fn(&NflSeason, usize, usize) -> bool;
+
 /// The season's games before the 2002 realignment, with three divisions a
 /// conference of four to six teams (proposed, not confirmed: the real
 /// formula's shape, not its exact rotation): home and away against the
@@ -398,7 +401,7 @@ fn old_formula(s: &NflSeason, season: i32, games: u32, seed: u64) -> Vec<(usize,
     let mut edges: Vec<(usize, usize)> = Vec::new();
     // Four against the other conference, the rest inside it, then anyone
     // still short plays whoever is left.
-    let phases: [(fn(&NflSeason, usize, usize) -> bool, bool); 3] =
+    let phases: [(Pairing, bool); 3] =
         [(|s, a, b| s.conf[a] != s.conf[b], true), (|s, a, b| s.conf[a] == s.conf[b], false), (|_, _, _| true, false)];
     for (allowed, capped) in phases {
         let mut q: Vec<i32> = need.iter().map(|&x| if capped { x.min(4) } else { x }).collect();
@@ -456,8 +459,7 @@ fn quota_match(
         met[a][b] = on;
         met[b][a] = on;
     };
-    loop {
-        let Some(x) = (0..n).filter(|&t| q[t] > 0).max_by_key(|&t| (q[t], n - t)) else { break };
+    while let Some(x) = (0..n).filter(|&t| q[t] > 0).max_by_key(|&t| (q[t], n - t)) {
         let y = (0..n)
             .filter(|&y| y != x && q[y] > 0 && allowed(x, y) && !met[x][y])
             .min_by(|&a, &b| cost(x, a).total_cmp(&cost(x, b)));
@@ -2493,6 +2495,9 @@ mod tests {
         let y = w.dates.clone();
         let s = w.nfl_season.as_mut().unwrap();
         s.wins = (0..s.wins.len()).map(|t| (t * 7 % 11) as u32).collect();
+        // Ten games in: the teams at three wins or fewer are out of the race,
+        // so their night games can be flexed out (part D 35).
+        s.losses = s.wins.iter().map(|&x| 10 - x).collect();
         let mut d = y.nfl_weeks[0];
         while d <= *y.nfl_weeks.last().unwrap() {
             flex(&mut w, d, &y);
@@ -2505,7 +2510,9 @@ mod tests {
         let late: usize = (10..y.nfl_weeks.len() - 1).map(flexed).sum();
         assert_eq!(early, 2, "the limit binds in this league");
         assert_eq!(w.nfl_season.as_ref().unwrap().early_flexes, 2);
-        assert!(late > 2, "later weeks have no limit ({late})");
+        // Later weeks have no limit, but only a night game that lost its
+        // stakes is flexed out (part D 35: real one to four a season).
+        assert!(late >= 1, "later weeks have no limit ({late})");
     }
 
     /// The season kicks off on the opener's own day, not the day before.

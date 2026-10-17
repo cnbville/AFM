@@ -60,7 +60,7 @@ Each roadmap section goes: (1) design rounds with Raichel until the details are 
 - `docs/trials/trial6-cards.json`: the trial 6 cards. `docs/trials/players30-final.json`: the earlier 30-player trial.
 
 ## Commands
-- `cargo test --workspace --release`: all 52 tests, including a full 250,000-player class, a small 3-year world with its college games on the match engine, and 640 match engine games (about 3 minutes once built).
+- `cargo test --workspace --release`: all 116 tests, including a full 250,000-player class, a small 3-year world with its college and NFL games on the match engine and a living NFL, and 640 match engine games (about 25 minutes once built, almost all of it the 3-year world).
 - `cargo run --release --bin world_trial -- 2026 30`: the full world with 30 years of history and the trial report. With every college game on the engine this takes about 2 minutes per season on 4 cores; `AFM_ENGINE_FROM=2026` uses the old stand-in for the history (quick checks only, about 6 minutes).
 - `cargo run --release --bin calibrate -- 250000 seed`: headline stats for one class (about 2 seconds).
 - `cargo run --release --bin calendar_check -- 1.0 3 2026 2100`: section 4 counters per year (commitments by month, signings, visits, portal days, declarations, stakes) and the loud events of the last year. Arguments: world scale, history years, seed, first engine year (2100 keeps every game on the stand-in, for speed).

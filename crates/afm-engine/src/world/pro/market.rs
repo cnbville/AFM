@@ -8,7 +8,7 @@
 //! under the same rules a manager will. Sizes are Claude's, proposed, not
 //! confirmed, unless a comment names the real rule.
 
-use super::{Status, grade, money, office::Mode, release_with, space};
+use super::{DeadCharge, DeadWhy, Status, grade, money, office::Mode, release_with, space};
 use crate::calendar::{Date, Event, Kind, Level as CalLevel, Loudness};
 use crate::league::depth_slots;
 use crate::positions::Position;
@@ -254,37 +254,91 @@ pub(crate) fn consensus(w: &World, i: usize) -> f64 {
     ovr + 0.3 * prod + 0.5 * honors(w, i).min(4.0)
 }
 
-/// The open market's price a year for a read.
-/// The starters' average the price curve was set on (the league at the
-/// start of history).
-const PAY_REF: f64 = 77.0;
-
-/// Pay is set against peers, as real contracts are benchmarked on
-/// comparables: a grade is read against this year's starters at the
-/// position, so prices stay anchored if the league's talent drifts.
-pub(crate) fn pay_shift(w: &World, pos: Position) -> f64 {
-    let n = w.market.norm[pos.index()];
-    if n <= 0.0 { 0.0 } else { (PAY_REF - n).clamp(-8.0, 8.0) }
+/// Where a read sits in the market, on the price curve's grade scale:
+/// real contracts are benchmarked on comparables, so a player is priced by
+/// his rank among the league's veterans at his position, not by the raw
+/// number. The rank, over the starting places at the position across the
+/// league, reads off the real pay ladder (`ladder_share`), and the result
+/// is the grade `money::market_share` turns into that share of the top
+/// five. Thresholds on this scale (a 90 is top-five money, an 80 the top
+/// third of the starters) hold whatever the league's talent drifts to.
+pub(crate) fn market_grade(w: &World, pos: Position, read: f64) -> f64 {
+    let list = &w.market.ladder[pos.index()];
+    if list.is_empty() {
+        return read;
+    }
+    // Veterans above him (the list runs best first).
+    let above = list.partition_point(|&g| g > read);
+    let places = (w.market.teams.max(1) * depth_slots(pos).starters.max(1)) as f64;
+    let s = (above as f64 + 0.5) / places;
+    if s > 2.0 {
+        // Below every place a team pays for: under the market's floor.
+        return (66.0 - 4.0 * (s - 2.0)).max(50.0);
+    }
+    66.0 + 24.0 * ladder_share(pos, s).powf(1.0 / 1.6)
 }
 
-/// This year's starters' average rating at each position, across the league.
-pub(crate) fn set_norms(w: &mut World) {
+/// The real pay ladder: a contract's average a year as a share of the top
+/// five's, by rank over the starting places league-wide (0.5 is the 16th
+/// best of 32 starters). Read from OverTheCap's position lists on
+/// 2026-10-17: edge rushers 1.0 at the top five, 0.76 at 8th, 0.55 at 16th,
+/// 0.32 at 32nd, 0.12 at 64th, 0.06 at 96th (cornerbacks and wide
+/// receivers alike); quarterbacks flat near the top (12th still 0.90 of the
+/// top five), then a cliff to the bridge starters and backups.
+/// Proposed, not confirmed.
+fn ladder_share(pos: Position, s: f64) -> f64 {
+    const GENERAL: [(f64, f64); 9] = [
+        (0.0, 1.15),
+        (0.06, 1.0),
+        (0.125, 0.78),
+        (0.25, 0.58),
+        (0.5, 0.36),
+        (0.75, 0.2),
+        (1.0, 0.11),
+        (1.5, 0.055),
+        (2.0, 0.0),
+    ];
+    const QB: [(f64, f64); 8] =
+        [(0.0, 1.12), (0.1, 1.0), (0.375, 0.9), (0.5, 0.6), (0.75, 0.3), (1.0, 0.13), (1.5, 0.05), (2.0, 0.0)];
+    let pts: &[(f64, f64)] = if pos == Position::QB { &QB } else { &GENERAL };
+    let s = s.max(0.0);
+    for k in 1..pts.len() {
+        let (s1, f1) = pts[k];
+        if s <= s1 {
+            let (s0, f0) = pts[k - 1];
+            return f0 + (f1 - f0) * (s - s0) / (s1 - s0);
+        }
+    }
+    0.0
+}
+
+/// The year's pay ladders: every veteran's consensus read at each position
+/// (four seasons on the books, or a veteran deal), best first.
+pub(crate) fn set_ladders(w: &mut World) {
     let year = w.year;
-    let mut sum = [0.0; crate::positions::POSITION_COUNT];
-    let mut n = [0.0; crate::positions::POSITION_COUNT];
-    for t in super::super::franchise::active_teams(year) {
-        for (k, list) in w.nfl[t].depth.iter().enumerate() {
-            for m in list.iter().filter(|m| m.role == Some(crate::player::PlayingTime::Starter)) {
-                sum[k] += m.rating;
-                n[k] += 1.0;
-            }
+    let mut lists: Vec<Vec<f64>> = vec![Vec::new(); crate::positions::POSITION_COUNT];
+    for i in 0..w.people.len() {
+        let p = &w.people[i];
+        if p.stage != Stage::Pro {
+            continue;
+        }
+        let Some(c) = p.pro.as_ref() else { continue };
+        let veteran = c.accrued >= 4
+            || c.contract.as_ref().is_some_and(|k| {
+                !matches!(
+                    k.kind,
+                    money::Kind::Rookie | money::Kind::Undrafted | money::Kind::Future | money::Kind::PracticeSquad
+                )
+            });
+        if veteran && (c.held() || c.status == Status::FreeAgent) {
+            lists[p.player.position.index()].push(consensus(w, i));
         }
     }
-    for k in 0..sum.len() {
-        if n[k] > 0.0 {
-            w.market.norm[k] = sum[k] / n[k];
-        }
+    for l in lists.iter_mut() {
+        l.sort_by(|a, b| b.total_cmp(a));
     }
+    w.market.ladder = lists;
+    w.market.teams = super::super::franchise::active_teams(year).len();
 }
 
 pub(crate) fn market_price(year: i32, pos: Position, view: f64, accrued: u32) -> f64 {
@@ -353,8 +407,8 @@ pub(crate) fn worth(w: &World, t: usize, i: usize) -> (f64, f64) {
         view -= 1.0 * (age - end + 1) as f64;
     }
     let accrued = c.map_or(0, |c| c.accrued);
-    let shift = pay_shift(w, pos);
-    let mut apy = market_price(year, pos, view + shift, accrued);
+    let rel = market_grade(w, pos, view);
+    let mut apy = market_price(year, pos, rel, accrued);
     // Where he would play here.
     let slots = depth_slots(pos);
     let better =
@@ -379,7 +433,7 @@ pub(crate) fn worth(w: &World, t: usize, i: usize) -> (f64, f64) {
         apy *= 1.1;
     }
     // 3.15 an owner who wants a splash after a bad year.
-    if o.fans < -0.3 && view + shift >= 82.0 {
+    if o.fans < -0.3 && rel >= 82.0 {
         apy *= 1.0 + 0.1 * o.owner.pr;
     }
     (view, apy.max(money::minimum(year, accrued)))
@@ -441,7 +495,7 @@ pub(crate) fn ideal(w: &World, i: usize, d: Date) -> Ideal {
     let p = &w.people[i];
     let g = goals(w, i);
     let c = p.pro.as_ref();
-    let view = consensus(w, i) + pay_shift(w, p.player.position);
+    let view = market_grade(w, p.player.position, consensus(w, i));
     let accrued = c.map_or(0, |c| c.accrued);
     let agent = c.and_then(|c| c.agent).map_or(8.0, |a| w.market.agents[a].skill);
     let apy = market_price(year, p.player.position, view, accrued)
@@ -556,7 +610,15 @@ pub(crate) fn score(w: &World, i: usize, o: &Offer, ideal: &Ideal, own: Option<u
 /// goes straight to its number. Guarantees as he asks, up to what the
 /// owner will put in escrow (3.13). None when the team is too far away or
 /// has no room.
-pub(crate) fn make_offer(w: &World, t: usize, i: usize, ideal: &Ideal, days: i32, committed: f64) -> Option<Offer> {
+pub(crate) fn make_offer(
+    w: &World,
+    t: usize,
+    i: usize,
+    ideal: &Ideal,
+    days: i32,
+    committed: f64,
+    cap_year: i32,
+) -> Option<Offer> {
     let year = w.year;
     let (view, walk) = worth(w, t, i);
     if walk < ideal.apy * 0.72 {
@@ -570,15 +632,16 @@ pub(crate) fn make_offer(w: &World, t: usize, i: usize, ideal: &Ideal, days: i32
     let apy = if eager { walk.min(ideal.apy * 1.03) } else { walk.min(ideal.apy * climb) };
     let accrued = w.people[i].pro.as_ref().map_or(0, |c| c.accrued);
     let apy = apy.max(money::minimum(year, accrued));
-    // Year one's cap hit (the bonus spreads it) has to fit.
-    if space(w, t, year) - committed < apy * 0.75 {
+    // Year one's cap hit (the bonus spreads it) has to fit in the year the
+    // new money starts (next year for an extension).
+    if space(w, t, cap_year) - committed < apy * 0.75 {
         return None;
     }
     let slots = depth_slots(pos);
     let better =
         w.clubs[t].depth.get(pos.index()).map_or(0, |d| d.iter().filter(|&&j| j != i && grade(w, t, j) > view).count());
     let gtd = ideal.gtd.min(0.25 + 0.5 * o.owner.cash_will);
-    let years = money::usual_years(pos, view + pay_shift(w, pos), w.people[i].player.age);
+    let years = money::usual_years(pos, market_grade(w, pos, view), w.people[i].player.age);
     Some(Offer { team: t, apy, years, gtd, start: ideal.start && better < slots.starters })
 }
 
@@ -588,7 +651,7 @@ pub(crate) fn make_offer(w: &World, t: usize, i: usize, ideal: &Ideal, days: i32
 /// A3), per-game bonuses for older players (A7), incentives on a prove-it
 /// deal (A8), void years for a GM who uses them (from 2016), a no-trade
 /// clause for an elite quarterback now and then.
-pub(crate) fn terms_for(w: &World, i: usize, o: &Offer) -> money::Terms {
+pub(crate) fn terms_for(w: &World, i: usize, o: &Offer, start: i32) -> money::Terms {
     let year = w.year;
     let p = &w.people[i];
     let gm = &w.clubs[o.team].office.gm;
@@ -605,13 +668,27 @@ pub(crate) fn terms_for(w: &World, i: usize, o: &Offer) -> money::Terms {
     t.void_years = if year >= 2016 && big && gm.early_extensions > 0.6 { 2 } else { 0 };
     t.no_trade =
         p.player.position == Position::QB && consensus(w, i) >= 88.0 && key_uniform(0x0D7A, p.player.id as u64) < 0.3;
+    // A team with room to spare front-loads (real: the Browns, 49ers and
+    // Colts of the late 2010s): the bonus becomes a guaranteed first-year
+    // salary and the pay falls year by year, so the room is used now and
+    // the later years stay clean (proposed, not confirmed: when more than
+    // 10% of the cap would still be free after the deal).
+    if big && o.years >= 2 && money::capped(start) {
+        let spare = super::space(w, o.team, start) - o.apy - money::price_cap(start) * 0.10;
+        if spare > 0.0 {
+            t.base_guarantee += t.bonus_share;
+            t.bonus_share = 0.0;
+            t.ramp = -0.10;
+            t.void_years = 0;
+        }
+    }
     t
 }
 
 /// Signs a negotiated deal.
 pub(crate) fn sign_offer(w: &mut World, i: usize, o: &Offer, d: Date, kind: money::Kind, why: &str) {
     let year = w.year;
-    let terms = terms_for(w, i, o);
+    let terms = terms_for(w, i, o, year);
     let deal = money::build(o.team, kind, year, &terms);
     let t = o.team;
     let name = w.nfl[t].name;
@@ -737,7 +814,7 @@ pub(crate) fn market_day(w: &mut World, d: Date) {
             if w.clubs[t].roster.len() >= limit {
                 continue;
             }
-            if let Some(o) = make_offer(w, t, i, &ideal, days, committed[t]) {
+            if let Some(o) = make_offer(w, t, i, &ideal, days, committed[t], year) {
                 let s = score(w, i, &o, &ideal, former);
                 offers.push((o, s));
             }
@@ -829,7 +906,7 @@ fn bluff(w: &mut World, i: usize, o: Offer, ideal: &Ideal, former: Option<usize>
     w.market.year_mut(year).bluffs += 1;
     let gm = w.clubs[o.team].office.gm.skill;
     let rel = w.market.agents[a].rel[o.team];
-    let read = clamp(0.3 + 0.03 * (gm - 10.0) - 0.4 * rel.min(0.0) + 0.1 * rel.max(0.0) * -1.0, 0.05, 0.9);
+    let read = clamp(0.3 + 0.03 * (gm - 10.0) - 0.4 * rel.min(0.0) - 0.1 * rel.max(0.0), 0.05, 0.9);
     let called = key_uniform(w.options.seed as u64 ^ 0xB1F0 ^ d.0 as u64, id) < read;
     if !called {
         let (_, walk) = worth(w, o.team, i);
@@ -901,11 +978,11 @@ pub(crate) fn resign_talks(w: &mut World, d: Date, deadline: bool) {
         // test the market, and some come back from it (proposed, not
         // confirmed: a relative grade of 68).
         let (view, _) = worth(w, t, i);
-        if view + pay_shift(w, w.people[i].player.position) < 68.0 {
+        if market_grade(w, w.people[i].player.position, view) < 68.0 {
             continue;
         }
         let id = ideal(w, i, d);
-        let Some(o) = make_offer(w, t, i, &id, 30, 0.0) else { continue };
+        let Some(o) = make_offer(w, t, i, &id, 30, 0.0, year) else { continue };
         let s = score(w, i, &o, &id, Some(t));
         // A money-minded player with no tie to the team wants to see what
         // the market pays (proposed, not confirmed size).
@@ -943,7 +1020,7 @@ pub(crate) fn tags_and_tenders(w: &mut World, d: Date) {
         let accrued = c.accrued;
         let pos = p.player.position;
         let (view, walk) = worth(w, t, i);
-        let view = view + pay_shift(w, pos);
+        let view = market_grade(w, pos, view);
         let own = c.contract.as_ref().map_or(0.0, |k| k.cap_hit(year - 1));
         if accrued >= 4 {
             let times = c.tags;
@@ -1072,9 +1149,9 @@ pub(crate) fn open_league_year(w: &mut World, d: Date) {
             .as_ref()
             .and_then(|c| c.contract.as_ref())
             .map_or(0.0, |k| k.years.iter().filter(|x| x.year >= year).map(|x| x.proration).sum());
-        w.clubs[t].add_dead(year, dead);
+        w.clubs[t].add_dead(year, dead, w.people[i].player.id, DeadWhy::Voided);
         let (view, _) = worth(w, t, i);
-        let rel = view + pay_shift(w, w.people[i].player.position);
+        let rel = market_grade(w, w.people[i].player.position, view);
         let keep = if year < 1989 {
             rel >= 62.0
         } else if year < 1993 {
@@ -1085,7 +1162,7 @@ pub(crate) fn open_league_year(w: &mut World, d: Date) {
         };
         if keep {
             let id = ideal(w, i, d);
-            let o = make_offer(w, t, i, &id, 30, 0.0).unwrap_or(Offer {
+            let o = make_offer(w, t, i, &id, 30, 0.0, year).unwrap_or(Offer {
                 team: t,
                 apy: id.apy * 0.9,
                 years: id.years,
@@ -1105,7 +1182,7 @@ pub(crate) fn open_league_year(w: &mut World, d: Date) {
                 y.injury = 0.0;
             }
         }
-        release_with(w, i, d, "his contract ran out", false, false);
+        release_with(w, i, d, "his contract ran out", false, false, DeadWhy::Released);
         let c = w.people[i].pro.as_mut().unwrap();
         c.former = Some(t);
         if ufa {
@@ -1143,7 +1220,7 @@ pub(crate) fn offer_sheets(w: &mut World, d: Date) {
                 super::trades::give_pick(w, s.offer.team, s.old, year, r);
             }
             w.people[s.person].pro.as_mut().unwrap().rfa = None;
-            super::release_with(w, s.person, d, "left on an offer sheet", false, false);
+            super::release_with(w, s.person, d, "left on an offer sheet", false, false, DeadWhy::Released);
             sign_offer(w, s.person, &s.offer, d, money::Kind::Veteran, "an offer sheet his team didn't match");
         }
     }
@@ -1167,15 +1244,20 @@ pub(crate) fn offer_sheets(w: &mut World, d: Date) {
             money::Tender::Second => 1.35,
             _ => 1.15,
         };
+        // Teams rarely try: the picks, and a match is likely (real: about
+        // one sheet a year). One chance a day for each tendered player.
+        if key_uniform(0x5EE7 ^ d.0 as u64, i as u64) > 0.004 {
+            continue;
+        }
         for t in 0..w.clubs.len() {
             if t == old || !super::super::franchise::active(t, year) {
                 continue;
             }
             let (_, walk) = worth(w, t, i);
-            if walk < price * pick_cost * 1.4 || key_uniform(0x5EE7 ^ d.0 as u64, (t as u64) << 32 ^ i as u64) > 0.02 {
+            if walk < price * pick_cost * 1.4 {
                 continue;
             }
-            let Some(mut o) = make_offer(w, t, i, &id, 20, 0.0) else { continue };
+            let Some(mut o) = make_offer(w, t, i, &id, 20, 0.0, year) else { continue };
             // Terms his team can't easily match (the poison pill).
             o.gtd = (o.gtd + 0.15).min(0.9);
             w.market.sheets.push(Sheet { person: i, offer: o, old, tender, until: d.add(5) });
@@ -1311,13 +1393,19 @@ pub(crate) fn extension_talks(w: &mut World, d: Date, deadline: bool) {
         .collect();
     for (t, i) in list {
         let (view, walk) = worth(w, t, i);
-        if view + pay_shift(w, w.people[i].player.position) < 76.0 {
+        if market_grade(w, w.people[i].player.position, view) < 76.0 {
             continue;
         }
         let mut id = ideal(w, i, d);
-        let left = w.people[i].pro.as_ref().unwrap().contract.as_ref().unwrap().last_year() - year;
+        let k = w.people[i].pro.as_ref().unwrap().contract.as_ref().unwrap();
+        let left = k.last_year() - year;
+        // The new deal replaces what next year's old deal would count, and
+        // the team keeps next year's room for its draft class and its own
+        // free agents (proposed, not confirmed: 8% of next year's cap).
+        let freed = k.cap_hit(year + 1);
+        let keep = money::price_cap(year + 1) * 0.08;
         id.apy *= 1.0 - 0.04 * left as f64;
-        let Some(mut o) = make_offer(w, t, i, &id, 40, 0.0) else { continue };
+        let Some(mut o) = make_offer(w, t, i, &id, 40, keep - freed, year + 1) else { continue };
         o.apy = o.apy.min(walk);
         let s = score(w, i, &o, &id, Some(t));
         let bar = if deadline { 0.82 } else { 0.87 };
@@ -1341,7 +1429,7 @@ pub(crate) fn extension_talks(w: &mut World, d: Date, deadline: bool) {
 /// year, and the old deal's later bonus money rides along.
 fn extend(w: &mut World, i: usize, o: &Offer, d: Date) {
     let year = w.year;
-    let terms = terms_for(w, i, o);
+    let terms = terms_for(w, i, o, year + 1);
     let mut new = money::build(o.team, money::Kind::Extension, year + 1, &terms);
     let name = w.nfl[o.team].name;
     let p = &mut w.people[i];
@@ -1404,10 +1492,12 @@ pub(crate) fn holdouts(w: &mut World, d: Date, report_day: bool) {
         if report_day && hold == Hold::None {
             let Some(k) = c.contract.as_ref() else { continue };
             let seasons = c.seasons.iter().filter(|s| s.games > 0).count();
-            let view = consensus(w, i) + pay_shift(w, w.people[i].player.position);
+            let view = market_grade(w, w.people[i].player.position, consensus(w, i));
             let market = market_price(year, w.people[i].player.position, view, c.accrued);
             let under = market / k.apy().max(1.0);
-            if view < 80.0 || under < 1.8 || seasons < 3 {
+            // Stars only, far under their market (real: a handful a year,
+            // Aiyuk and Lamb in 2024).
+            if view < 85.0 || under < 2.0 || seasons < 3 {
                 continue;
             }
             let g = goals(w, i);
@@ -1533,10 +1623,17 @@ pub(crate) fn cap_moves(w: &mut World, d: Date, before_league_year: bool) {
             continue;
         }
         let o = &w.clubs[t].office;
+        // Before the league year a team clears room for its draft class
+        // (about 4.5% of the cap) and the market, a contender more (proposed,
+        // not confirmed: 3% and 6% on top).
         let target =
-            if before_league_year { cap * (0.03 + if o.mode == Mode::Contend { 0.03 } else { 0.0 }) } else { 0.0 };
+            if before_league_year { cap * (0.075 + if o.mode == Mode::Contend { 0.03 } else { 0.0 }) } else { 0.0 };
         let habit = if before_league_year { o.gm.restructures } else { 0.0 };
         let mut short = target - space(w, t, year);
+        // Void years (from 2016) let even a deal in its last year spread a
+        // bonus: a GM with the habit uses them, and any GM who must get
+        // under on opening day.
+        let voids = if year >= 2016 && (habit > 0.5 || !before_league_year) { 2 } else { 0 };
         // Restructures, biggest base salaries of the core first.
         let mut core: Vec<(usize, f64)> = w.clubs[t]
             .roster
@@ -1544,19 +1641,20 @@ pub(crate) fn cap_moves(w: &mut World, d: Date, before_league_year: bool) {
             .filter_map(|&i| {
                 let k = w.people[i].pro.as_ref()?.contract.as_ref()?;
                 let y = k.year(year)?;
-                // On opening day any deal with years left will do.
+                // On opening day any deal will do.
                 let core = before_league_year && y.base > money::minimum(year, 4) * 3.0 && grade(w, t, i) >= 74.0;
                 let any = !before_league_year && y.base > money::minimum(year, 4) * 2.0;
-                (k.team == t && k.last_year() > year && (core || any)).then_some((i, y.base))
+                let spreads = k.last_year() > year || voids > 0;
+                (k.team == t && spreads && (core || any)).then_some((i, y.base))
             })
             .collect();
         core.sort_by(|a, b| b.1.total_cmp(&a.1));
         let mut done = 0;
+        let mut kept = Vec::new();
         for (i, _) in core {
             if short <= 0.0 && !(habit > 0.7 && done < 2) {
                 break;
             }
-            let voids = if year >= 2016 && habit > 0.5 { 2 } else { 0 };
             let keep = money::minimum(year, 4);
             let saved = {
                 let k = w.people[i].pro.as_mut().unwrap().contract.as_mut().unwrap();
@@ -1565,6 +1663,7 @@ pub(crate) fn cap_moves(w: &mut World, d: Date, before_league_year: bool) {
             if saved > 0.0 {
                 short -= saved;
                 done += 1;
+                kept.push(i);
                 w.market.year_mut(year).restructures += 1;
                 let p = &mut w.people[i];
                 let age = p.row_age();
@@ -1577,33 +1676,48 @@ pub(crate) fn cap_moves(w: &mut World, d: Date, before_league_year: bool) {
         if short <= 0.0 {
             continue;
         }
-        // Cap casualties: the most cap saved for the least lost.
-        let mut cuts: Vec<(usize, f64, f64)> = w.clubs[t]
+        // Cap casualties: the most cap saved for the least lost. A team over
+        // the cap itself must get under by the new league year (real), so
+        // then any player can go.
+        // A player just restructured stays: the team kept him on purpose.
+        // From June 1 a release splits its dead money by itself (real).
+        let over = space(w, t, year) < 0.0;
+        let split = super::after_june1(w, d);
+        let mut cuts: Vec<(usize, f64, f64, bool)> = w.clubs[t]
             .roster
             .iter()
             .filter_map(|&i| {
                 let c = w.people[i].pro.as_ref()?;
                 let k = c.contract.as_ref()?;
-                if k.team != t || w.clubs[t].office.owner.pet == Some(i) {
+                if k.team != t || w.clubs[t].office.owner.pet == Some(i) || kept.contains(&i) {
                     return None;
                 }
-                let save = k.cut_savings(year, d, false);
+                let save = k.cut_savings(year, d, split);
                 let (_, walk) = worth(w, t, i);
                 let surplus = walk - k.cap_hit(year);
-                // Before the league year only players worth less than their hit
-                // go; on opening day a team must get under whatever it costs.
-                (save > money::minimum(year, 4) && (surplus < 0.0 || !before_league_year)).then_some((i, save, surplus))
+                // Before the league year only players worth little more than
+                // their hit go (real: about 100-150 cap casualties a year);
+                // on opening day a team must get under whatever it costs.
+                let thin = surplus < 0.2 * k.cap_hit(year);
+                // On opening day any saving counts: the hard cap is absolute.
+                let worth_it =
+                    if before_league_year { save > money::minimum(year, 4) && (thin || over) } else { save > 0.0 };
+                worth_it.then_some((i, save, surplus, thin))
             })
             .collect();
         cuts.sort_by(|a, b| (a.2 - a.1).total_cmp(&(b.2 - b.1)));
         let mut june1 = 0;
-        for (i, save, _) in cuts {
+        for (i, save, _, thin) in cuts {
             if short <= 0.0 {
                 break;
             }
+            // A player worth his deal goes only while the team is over the cap.
+            if before_league_year && !thin && short <= target {
+                continue;
+            }
             let k = w.people[i].pro.as_ref().unwrap().contract.as_ref().unwrap();
             let (now, _) = k.dead_if_cut(year, d, false);
-            let designate = year >= 2006 && june1 < 2 && now > save * 0.5;
+            let designate = !split && year >= 2006 && june1 < 2 && now > save * 0.5;
             let saved = if designate { k.cut_savings(year, d, true) } else { save };
             release_with(
                 w,
@@ -1612,6 +1726,7 @@ pub(crate) fn cap_moves(w: &mut World, d: Date, before_league_year: bool) {
                 if designate { "a cap casualty, designated post-June 1" } else { "a cap casualty" },
                 designate,
                 true,
+                DeadWhy::CapCut,
             );
             short -= saved;
             if designate {
@@ -1645,7 +1760,7 @@ pub(crate) fn futures(w: &mut World, d: Date, teams: &[usize]) {
                 future_deal(w, i, t, year);
                 signed += 1;
             } else {
-                release_with(w, i, d, "his practice squad deal ended", false, false);
+                release_with(w, i, d, "his practice squad deal ended", false, false, DeadWhy::Released);
             }
         }
         // Young players off the street to the 90 (proposed: up to about a dozen a team).
@@ -1751,12 +1866,12 @@ pub(crate) fn claims(w: &mut World, d: Date) {
             let c = w.people[i].pro.as_mut().unwrap();
             if let (Some(k), Some(f)) = (c.contract.take(), from) {
                 let owed = k.guaranteed_left(year, d);
-                w.clubs[f].add_dead(year, owed);
+                w.clubs[f].add_dead(year, owed, w.people[i].player.id, DeadWhy::Waived);
             }
             continue;
         };
         if let Some(j) = drop {
-            release_with(w, j, d, "let go after a waiver claim", false, false);
+            release_with(w, j, d, "let go after a waiver claim", false, false, DeadWhy::Released);
             w.people[j].pro.as_mut().unwrap().on_waivers = false;
         }
         let name = w.nfl[t].name;
@@ -1819,7 +1934,8 @@ pub(crate) fn settle_incentives(w: &mut World) {
             charge += y.nltbe;
         }
         if charge != 0.0 {
-            w.clubs[t].dead.push((year + 1, charge));
+            let player = w.people[i].player.id;
+            w.clubs[t].dead.push(DeadCharge { year: year + 1, amount: charge, player, why: DeadWhy::Incentives });
         }
     }
 }
@@ -1900,6 +2016,10 @@ pub struct MarketYear {
     /// Payroll over the cap (with carryover) on opening day: lowest,
     /// median and highest team.
     pub cap_use: [f64; 3],
+    /// Dead money and carryover on opening day as shares of the cap:
+    /// lowest, median and highest team.
+    pub dead: [f64; 3],
+    pub carryover: [f64; 3],
 }
 
 /// The league's market state.
@@ -1916,8 +2036,11 @@ pub struct Market {
     /// chart points (topic 6 question 3: a GM who fleeced another gets
     /// fewer calls back).
     pub fleece: Vec<Vec<f64>>,
-    /// This year's starters' average rating by position (`set_norms`).
-    pub norm: [f64; crate::positions::POSITION_COUNT],
+    /// This year's veterans' consensus reads by position, best first
+    /// (`set_ladders`): the comparables every price is read against.
+    pub ladder: Vec<Vec<f64>>,
+    /// Active teams this year (the ladder's starting places).
+    pub teams: usize,
 }
 
 impl Market {

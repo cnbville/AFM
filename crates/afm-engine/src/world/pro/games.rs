@@ -262,13 +262,7 @@ pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bo
         franchise::Roof::Retractable => outside.temperature < 55.0 || outside.rain || outside.wind > 15.0,
         franchise::Roof::Open => false,
     };
-    let wx = if neutral {
-        crate::calendar::weather::indoors()
-    } else if closed {
-        crate::calendar::weather::indoors()
-    } else {
-        outside
-    };
+    let wx = if neutral || closed { crate::calendar::weather::indoors() } else { outside };
     let along = (key_uniform(seed ^ 0xA11, (at.date.0 as u64) << 16 ^ (home as u64) << 8 ^ away as u64) * 2.0 - 1.0)
         .clamp(-1.0, 1.0);
     let altitude = if code == "CO" { 5280.0 } else { 0.0 };

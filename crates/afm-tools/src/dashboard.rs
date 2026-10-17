@@ -4,11 +4,11 @@
 use std::collections::BTreeMap;
 
 use afm_engine::debug;
+use afm_engine::world::World;
 use afm_engine::world::coach::Group;
 use afm_engine::world::data::Division;
 use afm_engine::world::game_log::{GameSummary, PlayerSeason};
 use afm_engine::world::geo::STATE_CENTERS;
-use afm_engine::world::World;
 use serde_json::{Value, json};
 
 fn r1(x: f64) -> f64 {

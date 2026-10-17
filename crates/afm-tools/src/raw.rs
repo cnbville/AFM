@@ -349,6 +349,8 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
             "deadline_trades": m.deadline_trades, "picks_traded": m.picks_traded, "comp_picks": m.comp_picks,
             "other_league": m.other_league, "ipp": m.ipp, "floor_paid": m.floor_paid.round(),
             "cap_use": m.cap_use.map(|x| (x * 1000.0).round() / 1000.0),
+            "dead": m.dead.map(|x| (x * 1000.0).round() / 1000.0),
+            "carryover": m.carryover.map(|x| (x * 1000.0).round() / 1000.0),
         }));
     }
     counts.push(("market years".into(), f.n));
