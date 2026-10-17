@@ -18,6 +18,7 @@ use crate::attributes::Attr;
 use crate::player::Level;
 use crate::positions::Position;
 use crate::rng::{Rng, clamp};
+use crate::spots::{self, Spot, best_order, fill_in};
 
 /// Everything needed to play one game.
 #[derive(Clone, Debug)]
@@ -47,10 +48,10 @@ pub struct GameSetup<'a> {
 
 impl<'a> GameSetup<'a> {
     pub fn new(home: &'a GameTeam, away: &'a GameTeam, level: Level, seed: u64) -> GameSetup<'a> {
+        // Two-way play: small high schools only (fix list 3.10, 3.11).
         let margin = match level {
             Level::HS => 4.0,
-            Level::NFL => 99.0,
-            _ => 14.0,
+            _ => 99.0,
         };
         GameSetup {
             home,
@@ -98,14 +99,41 @@ struct Side<'a> {
     benched: Vec<bool>,
     /// Can't substitute this snap (the offense went no-huddle).
     frozen: bool,
+    /// Per player, the spots he knows (bits of `Spot`): his listed spots,
+    /// and the spot he worked at in this week's practice (fix list 3.3).
+    familiar: Vec<u32>,
 }
 
 impl<'a> Side<'a> {
     fn new(team: &'a GameTeam, margin: f64, timeouts: u8) -> Side<'a> {
         let n = team.players.len();
+        let depth = depth_chart(team, margin);
+        // The week's practice: the starters work at the spots they will
+        // play, so a backup stepping in for a man out this week knows his
+        // spot by Saturday. A coach keeps a man where he knows the job
+        // unless moving him is clearly better.
+        let mut familiar: Vec<u32> = team.players.iter().map(|p| p.spots_played | p.spot.bit()).collect();
+        for pos in Position::ALL {
+            let spots = spots::starter_spots(pos);
+            if spots.len() < 2 {
+                continue;
+            }
+            let list: Vec<usize> = depth.list(pos).iter().take(spots.len()).copied().collect();
+            let value = |i: usize, sp: Spot| {
+                let p = &team.players[i];
+                let cost = if familiar[i] & sp.bit() != 0 { 0.0 } else { fill_in(sp, p.spot) };
+                p.spot_r[sp.index()] - 0.5 * cost
+            };
+            let order = best_order(&list, spots, &value);
+            for (k, i) in order.into_iter().enumerate() {
+                if let Some(i) = i {
+                    familiar[i] |= spots[k].bit();
+                }
+            }
+        }
         Side {
             team,
-            depth: depth_chart(team, margin),
+            depth,
             energy: vec![1.0; n],
             edge: vec![0.0; n],
             trust: team.players.iter().map(|p| p.trust).collect(),
@@ -116,7 +144,44 @@ impl<'a> Side<'a> {
             coach: garbage::Coach::default(),
             benched: vec![false; n],
             frozen: false,
+            familiar,
         }
+    }
+
+    /// Rating points he gives up at a spot he doesn't know (3.3): footwork
+    /// from the other side, the center's snap and calls, the middle
+    /// linebacker's calls.
+    fn unfamiliar(&self, i: usize, sp: Spot) -> f64 {
+        if self.familiar[i] & sp.bit() != 0 { 0.0 } else { fill_in(sp, self.team.players[i].spot) }
+    }
+
+    /// What he gives at a spot this snap.
+    fn at_spot(&self, i: usize, sp: Spot) -> f64 {
+        self.team.players[i].spot_r[sp.index()] - self.unfamiliar(i, sp)
+    }
+
+    /// The fullback (3.4): a back or a tight end, never anyone else; the
+    /// one who plays it best.
+    fn pick_fb(&self, used: &mut Vec<usize>) -> Option<usize> {
+        let th = if self.frozen { 0.0 } else { self.threshold(Position::RB) };
+        let ok = |i: &usize| !self.out[*i] && !used.contains(i) && !self.benched[*i];
+        let cands: Vec<usize> = self
+            .depth
+            .list(Position::RB)
+            .iter()
+            .chain(self.depth.list(Position::TE))
+            .copied()
+            .filter(|i| ok(i) && matches!(self.team.players[*i].position, Position::RB | Position::TE))
+            .collect();
+        let fresh = cands.iter().copied().filter(|&i| self.energy[i] >= th);
+        let pick =
+            fresh.max_by(|&a, &b| self.at_spot(a, Spot::FB).total_cmp(&self.at_spot(b, Spot::FB))).or_else(|| {
+                cands.iter().copied().max_by(|&a, &b| self.at_spot(a, Spot::FB).total_cmp(&self.at_spot(b, Spot::FB)))
+            });
+        if let Some(i) = pick {
+            used.push(i);
+        }
+        pick
     }
 
     /// Fatigue threshold for swapping a player out (topic 6): defensive
@@ -196,23 +261,25 @@ impl<'a> Side<'a> {
                 out.push(i);
             }
         }
-        // A thin roster: the best athlete left, from anywhere; in a decided
-        // game the deep reserves first, then the pulled starters, the
-        // least important first.
+        // A thin roster: a rested man from the same position group (fix
+        // list 3.2); in a decided game the pulled starters come back before
+        // anyone plays out of his group, the least important first; only
+        // then the best athlete left from anywhere, an emergency (3.6).
+        let all = 0..self.team.players.len();
+        let group = spots::group(pos);
+        let in_group = |i: usize| spots::group(self.team.players[i].position) == group;
         while out.len() < n {
-            let any = (0..self.team.players.len())
-                .filter(|&i| !self.out[i] && !used.contains(&i) && !out.contains(&i) && !self.benched[i])
-                .max_by(|&a, &b| self.rating(a, pos).total_cmp(&self.rating(b, pos)));
-            let any = any.or_else(|| {
-                let list = self.depth.list(pos);
-                list.iter().rev().copied().find(|&i| !self.out[i] && !used.contains(&i) && !out.contains(&i)).or_else(
-                    || {
-                        (0..self.team.players.len())
-                            .filter(|&i| !self.out[i] && !used.contains(&i) && !out.contains(&i))
-                            .max_by(|&a, &b| self.rating(a, pos).total_cmp(&self.rating(b, pos)))
-                    },
-                )
-            });
+            let free = |i: usize| !self.out[i] && !used.contains(&i) && !out.contains(&i);
+            let best = |f: &dyn Fn(usize) -> bool| {
+                all.clone()
+                    .filter(|&i| free(i) && f(i))
+                    .max_by(|&a, &b| self.rating(a, pos).total_cmp(&self.rating(b, pos)))
+            };
+            let any = best(&|i| !self.benched[i] && in_group(i))
+                .or_else(|| self.depth.list(pos).iter().rev().copied().find(|&i| free(i)))
+                .or_else(|| best(&in_group))
+                .or_else(|| best(&|i| !self.benched[i]))
+                .or_else(|| best(&|_| true));
             match any {
                 Some(i) => out.push(i),
                 None => break,
@@ -1274,10 +1341,21 @@ impl<'a> Game<'a> {
                 }
             }
         };
+        // The line: each man to the spot he plays best together with the
+        // others, a fill-in paying for a spot he doesn't know (3.3).
+        let line = |list: Vec<usize>, rs: &[ORole], off: &mut Vec<(ORole, usize)>| {
+            let spots: Vec<Spot> = rs.iter().map(|&r| orole_spot(r)).collect();
+            let order = best_order(&list, &spots, &|i, sp| o.at_spot(i, sp));
+            for (k, i) in order.into_iter().enumerate() {
+                if let Some(i) = i {
+                    off.push((rs[k], i));
+                }
+            }
+        };
         add(o.pick(Position::QB, 1, &mut used), &[ORole::QB], &mut off);
-        add(o.pick(Position::OT, 2, &mut used), &[ORole::LT, ORole::RT], &mut off);
-        add(o.pick(Position::IOL, 3, &mut used), &[ORole::LG, ORole::C, ORole::RG], &mut off);
-        let backs: Vec<ORole> = roles.iter().copied().filter(|r| r.is_back()).collect();
+        line(o.pick(Position::OT, 2, &mut used), &[ORole::LT, ORole::RT], &mut off);
+        line(o.pick(Position::IOL, 3, &mut used), &[ORole::LG, ORole::C, ORole::RG], &mut off);
+        let backs: Vec<ORole> = roles.iter().copied().filter(|r| r.is_back() && *r != ORole::FB).collect();
         add(o.pick(Position::RB, backs.len(), &mut used), &backs, &mut off);
         let wrs: Vec<ORole> =
             roles.iter().copied().filter(|r| matches!(r, ORole::X | ORole::Z | ORole::Slot | ORole::Slot2)).collect();
@@ -1285,6 +1363,12 @@ impl<'a> Game<'a> {
         let tes: Vec<ORole> =
             roles.iter().copied().filter(|r| matches!(r, ORole::TE | ORole::TE2 | ORole::TE3)).collect();
         add(o.pick(Position::TE, tes.len(), &mut used), &tes, &mut off);
+        if roles.contains(&ORole::FB) {
+            match o.pick_fb(&mut used) {
+                Some(i) => off.push((ORole::FB, i)),
+                None => add(o.pick(Position::RB, 1, &mut used), &[ORole::FB], &mut off),
+            }
+        }
         let three_four = d.team.staff.front == Front::ThreeFour;
         let slots: Vec<(DSlot, Position)> = match dcall.personnel {
             DefPersonnel::Base if three_four => vec![
@@ -1358,9 +1442,11 @@ impl<'a> Game<'a> {
         for pos in [Position::EDGE, Position::DT, Position::LB, Position::CB, Position::S] {
             let want: Vec<DSlot> = slots.iter().filter(|s| s.1 == pos).map(|s| s.0).collect();
             let got = d.pick(pos, want.len(), &mut dused);
-            for (k, s) in want.iter().enumerate() {
-                if let Some(&i) = got.get(k) {
-                    def.push((*s, i));
+            let spots: Vec<Spot> = want.iter().map(|&s| dslot_spot(s)).collect();
+            let order = best_order(&got, &spots, &|i, sp| d.at_spot(i, sp));
+            for (k, i) in order.into_iter().enumerate() {
+                if let Some(i) = i {
+                    def.push((want[k], i));
                 }
             }
         }
@@ -1521,6 +1607,22 @@ impl<'a> Game<'a> {
                 hurt_edge_d[i] -= 3.0;
             }
         }
+        // A man at a spot he doesn't know plays below his rating there (3.3).
+        for &(rl, i) in &off {
+            hurt_edge_o[i] -= self.sides[o].unfamiliar(i, orole_spot(rl));
+        }
+        for &(sl, i) in &def {
+            hurt_edge_d[i] -= self.sides[d].unfamiliar(i, dslot_spot(sl));
+        }
+        // An emergency (3.6): a man from another position group, when his
+        // own group is out of bodies. Tight ends at fullback and corners at
+        // receiver (or the other way) are no emergency (3.4, 3.5), nor is a
+        // high school two-way player his coach listed there (3.10).
+        let stranger = |side: &Side, i: usize, sp: Spot| {
+            !same_group(side.team.players[i].position, sp) && !side.depth.list(sp.position()).contains(&i)
+        };
+        r.emergency = off.iter().any(|&(rl, i)| stranger(&self.sides[o], i, orole_spot(rl)))
+            || def.iter().any(|&(sl, i)| stranger(&self.sides[d], i, dslot_spot(sl)));
         let crowd = self.home_crowd(o);
         let snap = Snap {
             teams: [&self.sides[o].team.players, &self.sides[d].team.players],
@@ -2417,4 +2519,45 @@ pub fn trace_kickoff(off: &GameTeam, def: &GameTeam, level: Level, seed: u64, tr
     g.kickoff(0, from, false);
     super::sim::TRACE.store(false, std::sync::atomic::Ordering::Relaxed);
     (g.stats.plays.pop().expect("a kickoff record"), g.x)
+}
+
+/// The depth-chart spot an offensive role asks for.
+fn orole_spot(r: ORole) -> Spot {
+    match r {
+        ORole::QB => Spot::QB,
+        ORole::RB => Spot::RB,
+        ORole::FB => Spot::FB,
+        ORole::X | ORole::Z | ORole::Slot | ORole::Slot2 => Spot::WR,
+        ORole::TE | ORole::TE2 | ORole::TE3 => Spot::TE,
+        ORole::LT => Spot::LT,
+        ORole::RT => Spot::RT,
+        ORole::LG | ORole::RG => Spot::G,
+        ORole::C => Spot::C,
+    }
+}
+
+/// The depth-chart spot a defensive slot asks for.
+fn dslot_spot(s: DSlot) -> Spot {
+    match s {
+        DSlot::LE | DSlot::RE => Spot::EDGE,
+        DSlot::DTL | DSlot::DTR => Spot::DT,
+        DSlot::NT => Spot::NT,
+        DSlot::Mike => Spot::MLB,
+        DSlot::Sam | DSlot::Will => Spot::OLB,
+        DSlot::CBL | DSlot::CBR => Spot::CB,
+        DSlot::NCB | DSlot::DCB => Spot::NB,
+        DSlot::FS => Spot::FS,
+        DSlot::SS => Spot::SS,
+    }
+}
+
+/// Whether a listed position may play a spot without it being an
+/// emergency: his own group, a tight end at fullback (3.4), a corner at
+/// receiver or a receiver at corner (3.5).
+fn same_group(pos: Position, sp: Spot) -> bool {
+    let to = sp.position();
+    spots::group(pos) == spots::group(to)
+        || pos == Position::TE && sp == Spot::FB
+        || pos == Position::CB && to == Position::WR
+        || pos == Position::WR && to == Position::CB
 }

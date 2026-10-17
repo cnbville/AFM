@@ -201,6 +201,11 @@ pub struct SeasonTotals {
     pub takeaways: u32,
     pub sacks: u32,
     pub sacks_allowed: u32,
+    /// Expected points added on offense and allowed on defense, and the
+    /// opponents' plays (coach buzz, world item 5).
+    pub epa: f64,
+    pub epa_allowed: f64,
+    pub plays_allowed: u32,
 }
 
 impl SeasonTotals {
@@ -221,6 +226,9 @@ impl SeasonTotals {
         // A team's own line counts the sacks it gave up.
         self.sacks += opp.sacks;
         self.sacks_allowed += own.sacks;
+        self.epa += own.epa;
+        self.epa_allowed += opp.epa;
+        self.plays_allowed += opp.plays;
     }
 }
 
@@ -310,6 +318,8 @@ pub struct Program {
     /// yards and sacks, with the holder's name and year, from the games played
     /// on the engine.
     pub season_records: [Option<SeasonRecord>; 4],
+    /// The systems it runs and how well its players know them (S3, S5).
+    pub installed: super::systems::Installed,
 }
 
 /// A school single-season record (A40).
@@ -530,6 +540,7 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
         admissions_bar: admissions(row).0,
         special_admits: admissions(row).1,
         era: Default::default(),
+        installed: Default::default(),
     };
     p.prestige = prestige_of(&p, 10.0, 0.5);
     p

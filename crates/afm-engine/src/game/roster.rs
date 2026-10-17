@@ -6,6 +6,7 @@ use crate::body::body_now;
 use crate::player::{GameTraits, Personality, Player};
 use crate::positions::{POSITION_COUNT, Position, long_snapper_rating, overall_for};
 use crate::rng::clamp;
+use crate::spots::{self, SPOT_COUNT, Spot, fill_in, spot_rating};
 
 /// A player as the match engine sees him on game day.
 #[derive(Clone, Debug)]
@@ -29,6 +30,11 @@ pub struct GamePlayer {
     /// How much his coach lets him freelance, 0-1 (topic 3.1). Moves with
     /// what happens when he does.
     pub trust: f64,
+    /// His listed spot, the spots he has been listed at (bits) and his
+    /// rating at every spot (fix list topic 3).
+    pub spot: Spot,
+    pub spots_played: u32,
+    pub spot_r: [f64; SPOT_COUNT],
 }
 
 impl GamePlayer {
@@ -50,7 +56,21 @@ impl GamePlayer {
             knowledge: clamp(knowledge, 0.0, 1.0),
             experience,
             trust: 0.5,
+            spot: p.spot,
+            spots_played: p.spots_played | p.spot.bit(),
+            spot_r: Spot::ALL.map(|s| spot_rating(s, &p.attributes, b.weight)),
         }
+    }
+
+    /// Rating points he gives up at a position he isn't listed at: the
+    /// least he'd lose at one of its spots (3.3). Nothing at a spot he has
+    /// played.
+    pub fn cross_cost(&self, pos: Position) -> f64 {
+        spots::spots_of(pos)
+            .iter()
+            .filter(|&&s| s != Spot::FB)
+            .map(|&s| if self.spots_played & s.bit() != 0 { 0.0 } else { fill_in(s, self.spot) })
+            .fold(f64::INFINITY, f64::min)
     }
 
     #[inline]
@@ -276,19 +296,23 @@ fn offense(pos: Position) -> bool {
     matches!(pos, Position::QB | Position::RB | Position::WR | Position::TE | Position::OT | Position::IOL)
 }
 
-/// Rating points a player gives up at a spot he isn't listed at: he knows
-/// his own spot's technique and calls, not this one's. A coach moves him only
-/// when he is better even after that.
-pub const CROSS_LIST: f64 = 4.0;
+/// Rating points a two-way corner or receiver must beat the starters by
+/// on the other side (3.5): good enough at both, after what playing a spot
+/// he doesn't practice costs him.
+pub const CROSS_LIST: f64 = 3.0;
 
 /// The head coach's depth chart (topic 5.1). Each spot lists the players
-/// at that position first, best first. A player from another spot on the
-/// same side is listed there only when he beats the players he would pass by
-/// `CROSS_LIST`, and never ahead of others if he starts at his own spot. On a
-/// thin roster his best athletes also play the other side of the ball: a
-/// player is added to the other side's chart when he would beat the players
-/// there by `two_way_margin` rating points (0 for a small high school, large
-/// for the NFL, where it never happens).
+/// at that position first, best first. A player from another position in
+/// the same group (fix list 3.1-3.2: tackles and guards, ends and tackles,
+/// corners and safeties) is listed there only when he beats the players he
+/// would pass after what the unfamiliar spot costs him (3.3), and never
+/// ahead of others if he starts at his own spot. Another group's player is
+/// listed only when the group runs out of bodies for its starters, an
+/// emergency (3.6). A player is added to the other side's chart when he
+/// would beat the starters there by `two_way_margin` rating points: small
+/// high schools play their best athletes both ways (3.10); college and the
+/// NFL never do (99), except a corner who is good enough at receiver, or a
+/// receiver at corner (3.5, 3.11).
 ///
 /// The kicking jobs go to the kickers and punters a team carries: with only
 /// one of them, he does both (fix list 1.9), and only a team with neither
@@ -321,21 +345,21 @@ pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
             Position::K | Position::P => !has_legs || p.position.kicks(),
             // A listed long snapper snaps; without one, anyone can.
             Position::LS => !has_snapper || p.position == Position::LS,
-            _ => !p.position.is_specialist() && offense(p.position) == offense(pos),
+            _ => !p.position.is_specialist() && spots::group(p.position) == spots::group(pos),
         };
-        let cost = if pos.kicks() && has_legs { 100.0 } else { CROSS_LIST };
+        let kicks = pos.kicks() && has_legs;
         let mut cross: Vec<(f64, usize)> = ps
             .iter()
             .enumerate()
             .filter(|(i, p)| p.position != pos && same_side(p) && !starting[*i])
-            .map(|(i, p)| (p.overall_at(pos) - cost, i))
+            .map(|(i, p)| (p.overall_at(pos) - if kicks { 100.0 } else { p.cross_cost(pos) }, i))
             .collect();
         cross.sort_by(|a, b| b.0.total_cmp(&a.0));
         list.extend(cross);
         list.sort_by(|a, b| b.0.total_cmp(&a.0));
         let want = wanted(pos).max(n_own);
         list.truncate(want);
-        // Emergency cover: anyone left on this side, starters elsewhere last.
+        // Cover inside the group: anyone left in it, starters elsewhere last.
         if list.len() < want {
             let mut more: Vec<(f64, usize)> = ps
                 .iter()
@@ -346,6 +370,23 @@ pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
             more.sort_by(|a, b| b.0.total_cmp(&a.0));
             list.extend(more.into_iter().take(want - list.len()));
         }
+        // An emergency (3.6): the group can't field its starters, so the
+        // closest fit on this side of the ball from another group, rated at
+        // his true fit there, starters elsewhere last.
+        if list.len() < starters(pos) && !pos.is_specialist() {
+            let mut more: Vec<(f64, usize)> = ps
+                .iter()
+                .enumerate()
+                .filter(|(i, p)| {
+                    !p.position.is_specialist()
+                        && offense(p.position) == offense(pos)
+                        && !list.iter().any(|l| l.1 == *i)
+                })
+                .map(|(i, p)| (p.overall_at(pos) - if starting[i] { 50.0 } else { 0.0 }, i))
+                .collect();
+            more.sort_by(|a, b| b.0.total_cmp(&a.0));
+            list.extend(more.into_iter().take(starters(pos) - list.len()));
+        }
         d.at[pos.index()] = list.into_iter().map(|c| c.1).collect();
     }
     // Two-way players: the other side's best athletes can start here too.
@@ -353,12 +394,20 @@ pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
         let list = &d.at[pos.index()];
         let worst_starter =
             list.iter().take(starters(pos)).map(|&i| ps[i].overall_at(pos)).fold(f64::INFINITY, f64::min);
+        // The corner and receiver exception (3.5) holds at every level.
+        let swap = |p: &GamePlayer| {
+            p.position == Position::CB && pos == Position::WR || p.position == Position::WR && pos == Position::CB
+        };
         let mut extra: Vec<(f64, usize)> = ps
             .iter()
             .enumerate()
             .filter(|(_, p)| offense(p.position) != offense(pos) && !p.position.is_specialist())
-            .map(|(i, p)| (p.overall_at(pos), i))
-            .filter(|&(r, _)| r > worst_starter + two_way_margin || list.len() < starters(pos))
+            .map(|(i, p)| (p.overall_at(pos), i, swap(p)))
+            .filter(|&(r, _, sw)| {
+                let margin = if sw { two_way_margin.min(CROSS_LIST) } else { two_way_margin };
+                r > worst_starter + margin || list.len() < starters(pos)
+            })
+            .map(|(r, i, _)| (r, i))
             .collect();
         if extra.is_empty() {
             continue;
@@ -367,7 +416,7 @@ pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
         let want = list.len().max(wanted(pos));
         let mut merged: Vec<(f64, usize)> = list
             .iter()
-            .map(|&i| (ps[i].overall_at(pos) - if ps[i].position == pos { 0.0 } else { CROSS_LIST }, i))
+            .map(|&i| (ps[i].overall_at(pos) - if ps[i].position == pos { 0.0 } else { ps[i].cross_cost(pos) }, i))
             .chain(extra.into_iter().take(starters(pos)))
             .collect();
         merged.sort_by(|a, b| b.0.total_cmp(&a.0));

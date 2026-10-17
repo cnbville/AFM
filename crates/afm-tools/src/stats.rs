@@ -342,8 +342,9 @@ pub struct PotentialStats {
     /// Share of player seasons (18 and up) that lost more than a rating point
     /// (fix list topic 4: was under 0.3%).
     pub seasons_lost_1_plus: f64,
-    /// NFL starters still starting the next season, by age, all positions
-    /// (fix list 4.7; real nflverse about 0.70 at 22-27, 0.5-0.6 at 30).
+    /// NFL starters still starting the next season, by age, all positions,
+    /// leaving out jobs lost to an injury (fix list 4.7; real nflverse about
+    /// 0.70 at 22-27, 0.5-0.6 at 30).
     pub nfl_starter_kept_next_year_by_age: BTreeMap<u32, f64>,
 }
 
@@ -404,7 +405,13 @@ pub fn summarize(result: &CohortResult) -> Summary {
                 }
             }
             let prev = &h[i - 1];
-            if prev.level == Level::NFL && prev.playing_time == PlayingTime::Starter && (22..=31).contains(&prev.age) {
+            // Jobs lost to an injury don't count (fix list 4.7).
+            let hurt = h[i].events.has(Ev::ModerateInjury) || h[i].events.has(Ev::MajorInjury);
+            if prev.level == Level::NFL
+                && prev.playing_time == PlayingTime::Starter
+                && (22..=31).contains(&prev.age)
+                && !hurt
+            {
                 let e = kept.entry(prev.age).or_default();
                 e.1 += 1;
                 if h[i].level == Level::NFL && h[i].playing_time == PlayingTime::Starter {

@@ -31,6 +31,7 @@ fn new_coach(w: &mut World, tier: CoachTier, age: u32, pool: CoachPool) -> usize
     // (spread like the other personality traits; proposed, not confirmed).
     c.sportsmanship =
         clamp(10.0 + 3.5 * super::season::key_normal(w.options.seed as u64 ^ 0x5B0C, id as u64), 1.0, 20.0);
+    c.systems = super::systems::draw(id, c.came_up, c.ability.scheme, w.options.seed as u64);
     w.coaches.push(c);
     id
 }
@@ -1710,17 +1711,21 @@ pub(crate) fn age_coaches(w: &mut World) {
         if w.coaches[c].retired {
             continue;
         }
-        let mentor = match w.coaches[c].job {
+        let head = match w.coaches[c].job {
             Some(Job { employer: Employer::College(p), role, .. }) if role != Role::HeadCoach => {
-                w.programs[p].head_coach.map(|h| *w.coaches[h].ability())
+                w.programs[p].head_coach
             }
-            Some(Job { employer: Employer::Nfl(t), role, .. }) if role != Role::HeadCoach => {
-                w.nfl[t].head_coach.map(|h| *w.coaches[h].ability())
-            }
+            Some(Job { employer: Employer::Nfl(t), role, .. }) if role != Role::HeadCoach => w.nfl[t].head_coach,
             _ => None,
         };
+        let mentor = head.map(|h| *w.coaches[h].ability());
         let mut rng = w.rng.fork();
         w.coaches[c].age_one_year(mentor.as_ref(), &mut rng);
+        // His head coach's systems rub off on him (S2).
+        if let Some(h) = head {
+            let hs = w.coaches[h].systems;
+            super::systems::learn_from(&mut w.coaches[c].systems, &hs);
+        }
         // Schools remember recent work best.
         for u in w.coaches[c].units.iter_mut() {
             u.fade(0.85);

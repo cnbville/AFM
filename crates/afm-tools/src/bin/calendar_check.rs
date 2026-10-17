@@ -51,6 +51,10 @@ fn print_log(l: &CalendarLog) {
         ("bowl practice gain (sum)", format!("{:.0}", l.bowl_practice_gain)),
         ("four-game redshirts / tricks", format!("{} / {}", l.four_game_redshirts, l.redshirt_tricks)),
         (
+            "system switches (FBS WC AR WZ PG SO / 43 34 / C3 C4 man C2)",
+            format!("{} ({:?})", l.system_switches, l.fbs_systems),
+        ),
+        (
             "spring notices / breakouts / fizzles",
             format!("{} / {} / {}", l.spring_notices, l.spring_breakouts, l.spring_fizzles),
         ),
@@ -73,6 +77,7 @@ fn print_log(l: &CalendarLog) {
             "portal entries / landed / returned",
             format!("{} / {} / {}", l.portal_entries, l.portal_landed, l.portal_returned),
         ),
+        ("portal entries by division (FBS FCS D2 NAIA D3 JUCO)", format!("{:?}", l.portal_by_division)),
         ("portal entry days", l.portal_by_day.len().to_string()),
         ("portal busiest days", {
             let mut v = l.portal_by_day.clone();

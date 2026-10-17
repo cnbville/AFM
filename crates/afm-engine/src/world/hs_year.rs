@@ -551,6 +551,7 @@ fn play_week(w: &mut World, s: usize, k: usize, d: Date) {
     let mut forfeits = 0;
     let mut no_contests = 0;
     let (mut homecomings, mut senior_nights) = (0, 0);
+    let mut outcomes: Vec<(usize, usize)> = Vec::new();
     for g in hs.groups.iter().filter(|g| g.state == s) {
         let Some(week) = g.schedule.get(k) else { continue };
         for &(h, a) in week {
@@ -593,6 +594,13 @@ fn play_week(w: &mut World, s: usize, k: usize, d: Date) {
             let (wn, l) = if home_wins { (h, a) } else { (a, h) };
             hs.results[wn].wins += 1;
             hs.results[l].losses += 1;
+            outcomes.push((wn, l));
+        }
+    }
+    if w.recording {
+        for (wn, l) in outcomes {
+            super::records::hs_result(w, wn, true);
+            super::records::hs_result(w, l, false);
         }
     }
     w.log.hs_games += games;
@@ -664,6 +672,7 @@ fn play_round(w: &mut World, s: usize, r: usize, d: Date) {
     let week = hs.states[s].weeks.len() + r;
     let last = hs.states[s].rounds.len() - 1;
     let mut games = 0;
+    let mut outcomes: Vec<(usize, usize)> = Vec::new();
     let mut alive_all: Vec<(usize, Vec<usize>)> = Vec::new();
     for (gi, g) in hs.groups.iter().enumerate() {
         if g.state != s || g.alive.len() < 2 {
@@ -688,6 +697,7 @@ fn play_round(w: &mut World, s: usize, r: usize, d: Date) {
             let (wn, l) = if a_wins { (a, b) } else { (b, a) };
             hs.results[wn].wins += 1;
             hs.results[l].losses += 1;
+            outcomes.push((wn, l));
             next.push(wn);
             games += 1;
         }
@@ -704,6 +714,12 @@ fn play_round(w: &mut World, s: usize, r: usize, d: Date) {
         hs.groups[gi].alive = next;
     }
     w.log.hs_games += games;
+    if w.recording {
+        for (wn, l) in outcomes {
+            super::records::hs_result(w, wn, true);
+            super::records::hs_result(w, l, false);
+        }
+    }
     let _ = d;
 }
 

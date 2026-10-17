@@ -114,6 +114,9 @@ pub struct PlayRecord {
     /// Garbage time: each side's step at the snap (0 = everyone in; see
     /// `garbage`), home then away.
     pub garbage: [u8; 2],
+    /// A man from another position group was on the field because his own
+    /// group was out of bodies (fix list 3.6).
+    pub emergency: bool,
 }
 
 impl PlayRecord {
@@ -193,6 +196,7 @@ impl PlayRecord {
             why: String::new(),
             after_turnover: false,
             garbage: [0, 0],
+            emergency: false,
         }
     }
 

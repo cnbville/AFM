@@ -246,6 +246,10 @@ pub struct Player {
     pub body: crate::body::Body,
     /// Every position he has been placed at, with his age then (topic 5.2).
     pub position_history: Vec<(u32, Position)>,
+    /// His depth-chart spot inside his position (fix list topic 3), and
+    /// every spot he has ever been listed at, as bits of `Spot`.
+    pub spot: crate::spots::Spot,
+    pub spots_played: u32,
     pub history: Vec<SeasonRecord>,
     /// Hidden game-day traits for the match engine (section 3).
     pub game: GameTraits,
@@ -415,6 +419,8 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
         personality,
         body,
         position_history: vec![(age, position)],
+        spot: crate::spots::spots_of(position)[0],
+        spots_played: crate::spots::spots_of(position)[0].bit(),
         history: Vec::new(),
         game: GameTraits::for_id(id),
     }

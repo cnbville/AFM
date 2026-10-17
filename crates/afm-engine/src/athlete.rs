@@ -335,6 +335,19 @@ pub fn set_position(p: &mut Player, pos: Position) {
     }
     p.position = pos;
     p.position_history.push((p.age, pos));
+    // His spot at the new position: where he suits best (a staff sets the
+    // whole room's spots each spring).
+    let s = crate::spots::spots_of(pos)
+        .iter()
+        .copied()
+        .filter(|&s| s != crate::spots::Spot::FB)
+        .max_by(|&a, &b| {
+            let r = |s| crate::spots::spot_rating(s, &p.attributes, p.body.weight);
+            r(a).total_cmp(&r(b))
+        })
+        .unwrap_or(crate::spots::spots_of(pos)[0]);
+    p.spot = s;
+    p.spots_played |= s.bit();
     let (_, _, wm, _) = combine_size(pos);
     let (_, dw) = talent_size(p.original_potential);
     let target = wm + dw;
@@ -423,7 +436,10 @@ pub fn reconsider(p: &mut Player, eye: Eye, margin: f64) -> Option<Position> {
     if pos == p.position || pos.is_specialist() || p.position.is_specialist() {
         return None;
     }
-    if best > now + margin {
+    // A staff almost never moves a man back where he came from (fix list
+    // 3.9): it takes three times the usual gap (proposed, not confirmed).
+    let back = p.position_history.iter().any(|&(_, q)| q == pos);
+    if best > now + if back { 3.0 * margin } else { margin } {
         let from = p.position;
         set_position(p, pos);
         return Some(from);

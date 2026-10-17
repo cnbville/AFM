@@ -80,3 +80,26 @@ fn the_calendar_year_hangs_together() {
     assert_eq!(log.nfl_games, 285);
     assert!(log.official_visits > 0 && log.unofficial_visits > 0 && log.drop_ins > 0);
 }
+
+#[test]
+fn the_stats_book_keeps_every_division() {
+    let w = &*WORLD;
+    let b = &w.stats;
+    let (last, _) = *b.year_index.last().expect("a season in the book");
+    let recs = b.year(last);
+    for d in Division::ALL {
+        let n = recs.iter().filter(|r| r.division == d).count();
+        assert!(n > 300, "{n} {d:?} seasons in {last}");
+    }
+    assert!(recs.iter().any(|r| r.footprint != 0), "no footprints in {last}");
+    assert!(b.norms.keys().any(|k| k.0 == last));
+    assert!(!b.books.is_empty());
+    // The first-team All-America: 25 a level.
+    let fbs =
+        b.honors.values().flat_map(|h| h.all_america.iter()).filter(|x| x.0 == last && x.1 == Division::FBS).count();
+    assert_eq!(fbs, 25, "FBS first-team All-Americans in {last}");
+    // Every season is a career page: his seasons come back in order.
+    let r = &recs[0];
+    let career = b.career(r.id);
+    assert!(career.iter().any(|s| s.year as i32 == last && s.program == r.program));
+}

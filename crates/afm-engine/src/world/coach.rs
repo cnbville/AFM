@@ -256,6 +256,10 @@ pub struct Coach {
     pub show_cause: Option<i32>,
     /// A college head coach's contract (trial 4 topic 4).
     pub contract: Option<Contract>,
+    /// Hidden: what he knows of each system (S1-S4).
+    pub(crate) systems: super::systems::Systems,
+    /// Buzz from his units' numbers (world item 5), fading by half a season.
+    pub stat_buzz: f64,
 }
 
 /// A college head coach's contract (trial 4 topic 4): the last season it
@@ -385,6 +389,8 @@ pub fn generate_coach(
         decline_rate,
         show_cause: None,
         contract: None,
+        systems: Default::default(),
+        stat_buzz: 0.0,
     }
 }
 
@@ -528,7 +534,7 @@ impl Coach {
         let n = self.recent.len();
         let last = if n >= 1 { self.recent[n - 1] } else { 0.0 };
         let before = if n >= 2 { self.recent[n - 2] } else { 0.0 };
-        self.reputation + 10.0 * last + 4.0 * before
+        self.reputation + 10.0 * last + 4.0 * before + self.stat_buzz
     }
 }
 

@@ -31,6 +31,11 @@ pub struct GameSummary {
     pub two_point: [u32; 2],
     pub punt_yds: [(u32, f64); 2],
     pub overtime: bool,
+    /// Why the game mattered (its tags, part D 40), how loud it was, and
+    /// snaps a man from another position group had to play (fix list 3.6).
+    pub tags: Vec<&'static str>,
+    pub loud: &'static str,
+    pub emergency_snaps: u32,
     /// A game between programs of different divisions (an FBS buy game).
     pub cross: bool,
 }
@@ -368,6 +373,9 @@ impl GameLog {
             two_point,
             punt_yds,
             overtime: g.overtime,
+            tags: Vec::new(),
+            loud: "",
+            emergency_snaps: g.plays.iter().filter(|p| p.emergency).count() as u32,
             cross: false,
         });
     }

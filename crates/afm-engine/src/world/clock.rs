@@ -176,6 +176,9 @@ pub(crate) fn advance_day(w: &mut World) {
     // --- Spring: college spring practice and high school spring ball (T4.1) ----------
     if d == y.spring_practice.0 {
         hs_year::spring_notices(w);
+        // Staffs install their systems for the year (S3-S5).
+        super::systems::spring_install(w);
+        super::systems::set_spots(w);
     }
     if d == y.spring_game {
         hs_year::spring_game(w);

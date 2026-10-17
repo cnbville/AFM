@@ -24,6 +24,7 @@ pub mod player;
 pub mod positions;
 pub mod rng;
 pub mod scouting;
+pub mod spots;
 pub mod text;
 pub mod world;
 

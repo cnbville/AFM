@@ -26,10 +26,12 @@ pub mod ncaa;
 pub mod news;
 mod nfl_year;
 pub mod program;
+pub mod records;
 pub(crate) mod recruiting;
 pub mod schedule;
 pub(crate) mod season;
 mod staff;
+pub mod systems;
 
 use rayon::prelude::*;
 
@@ -509,6 +511,11 @@ pub struct World {
     pub(crate) recording: bool,
     /// Trial tooling, see `WorldOptions::keep_game_log`.
     pub game_log: game_log::GameLog,
+    /// The career stats record, record books and Hall of Fame (section 3,
+    /// topic 8): always kept.
+    pub stats: records::StatBook,
+    /// Each position's typical score in each coaching system (S3).
+    pub(crate) system_norms: systems::SystemNorms,
     /// Recruiting and portal records for trials (dynasty item 11 checks).
     pub recruiting_log: RecruitingLog,
     next_person: u32,
@@ -565,6 +572,10 @@ pub struct World {
 #[derive(Clone, Debug, Default)]
 pub struct CalendarLog {
     pub year: i32,
+    /// Spring system changes by college staffs (S3), and the FBS programs
+    /// running each system after spring (offenses, fronts, shells).
+    pub system_switches: u32,
+    pub fbs_systems: [u32; 11],
     pub games: u32,
     pub snow_games: u32,
     pub rain_games: u32,
@@ -617,6 +628,8 @@ pub struct CalendarLog {
     pub declared_by_day: Vec<(crate::calendar::Date, u32)>,
     pub withdrew_by_day: Vec<(crate::calendar::Date, u32)>,
     pub portal_entries: u32,
+    /// Portal entrants by the division they left (part B 10).
+    pub portal_by_division: [u32; data::DIVISION_COUNT],
     pub portal_by_day: Vec<(crate::calendar::Date, u32)>,
     pub portal_landed: u32,
     pub portal_returned: u32,
@@ -774,6 +787,8 @@ impl World {
             rng,
             recording: false,
             game_log: game_log::GameLog::default(),
+            stats: records::StatBook::default(),
+            system_norms: [[0.0; 11]; crate::positions::POSITION_COUNT],
             recruiting_log: RecruitingLog::default(),
             next_person: 1,
             today: dates.start,
@@ -801,6 +816,8 @@ impl World {
             seat: None,
         };
         staff::staff_everyone(&mut w);
+        systems::spring_install(&mut w);
+        systems::set_spots(&mut w);
         for d in Division::ALL {
             let top = w.programs.iter().filter(|p| p.division == d).map(|p| p.prestige).fold(0.01, f64::max);
             for p in w.programs.iter_mut().filter(|p| p.division == d) {

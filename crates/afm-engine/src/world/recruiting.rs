@@ -247,30 +247,72 @@ pub(crate) fn boarding(h: &super::high_school::HighSchool) -> bool {
 
 // --- College exits: awards, the draft ------------------------------------------------
 
-/// What a position is worth on draft day, in board points (note 7). Teams pay
-/// for quarterbacks, pass rushers and tackles; an elite one at the top of
-/// the board is worth far more than an elite guard or safety. Calibrated
-/// against the real 2000-2025 drafts (nflverse): about 73% of number 1
-/// picks were quarterbacks, the rest edge rushers and tackles.
+/// What a veteran at a position costs, as a share of the salary cap: the
+/// average of the five best-paid (OverTheCap via nflverse, contracts signed
+/// 2022 and later, `engine_targets.json` `contracts_cap_pct`). Tackles are
+/// the mean of left and right; the interior line of guards and centers.
+fn veteran_top5(pos: Position) -> f64 {
+    match pos {
+        Position::QB => 0.234,
+        Position::EDGE => 0.158,
+        Position::WR => 0.136,
+        Position::DT => 0.117,
+        Position::CB => 0.108,
+        Position::OT => 0.0985,
+        Position::S => 0.081,
+        Position::IOL => 0.077,
+        Position::LB => 0.075,
+        Position::RB => 0.074,
+        Position::TE => 0.063,
+        Position::K => 0.023,
+        Position::P => 0.015,
+        Position::LS => 0.007,
+    }
+}
+
+/// The average veteran price over the eleven non-specialist positions.
+const VETERAN_MEAN: f64 = 0.111;
+
+/// The league minimum, as a share of the cap.
+const VETERAN_MIN: f64 = 0.004;
+
+/// What a prospect would cost on the open market once he is what his grade
+/// says, as a share of the cap: the minimum for a backup, up to the top-five
+/// price for an elite one (proposed, not confirmed: the curve's bend).
+fn market_value(top5: f64, grade: f64) -> f64 {
+    VETERAN_MIN + (top5 - VETERAN_MIN) * clamp((grade - 66.0) / 24.0, 0.0, 1.0).powf(1.6)
+}
+
+/// Board points per share of the cap a year (sized so the value term is
+/// about the old flat premiums at the top of the board: a quarterback
+/// graded 85 about 12 points, an edge graded 90 about 7).
+const BOARD_PER_CAP: f64 = 140.0;
+
+/// What a position is worth on draft day, in board points (trial 4 topic 6):
+/// each team values a prospect by what he would cost on the open market
+/// against a player of the same grade at an average position. A
+/// quarterback's market is twice an edge rusher's, so a quarterback graded
+/// a few points lower still goes first; a back's or a tight end's is below
+/// average, so they slide. The rookie deal is the same at a pick whatever
+/// the position, so what a team saves is this value too (it shows in the
+/// pick's reason).
 fn draft_position_value(pos: Position, grade: f64) -> f64 {
-    // How much of the premium applies: full for the best prospects.
-    // Teams reach for a quarterback: his premium starts lower down the board.
-    let top = clamp((grade - if pos == Position::QB { 74.0 } else { 78.0 }) / 8.0, 0.0, 1.0);
-    let (base, premium) = match pos {
-        Position::QB => (0.3, 11.0),
-        Position::EDGE => (1.6, 5.5),
-        Position::OT => (0.6, 3.0),
-        Position::WR => (0.4, 0.0),
-        Position::CB => (1.0, 0.0),
-        Position::DT => (0.6, 0.5),
-        Position::RB => (-0.4, 0.0),
-        Position::S => (-0.5, -3.0),
-        Position::LB => (-0.3, -2.5),
-        Position::IOL => (-1.6, -3.0),
-        Position::TE => (-0.6, -3.0),
-        Position::K | Position::P | Position::LS => (-25.0, 0.0),
-    };
-    base + premium * top
+    BOARD_PER_CAP * (market_value(veteran_top5(pos), grade) - market_value(VETERAN_MEAN, grade))
+}
+
+/// What a pick costs a year on the 2026 rookie scale, as a share of the
+/// cap (nflverse contracts, `rookie_scale_2026.csv`; the 2025 cap of
+/// $279.2 million): a straight line through the real slots, about 5.1% for
+/// the first pick, 1.5% at the end of round one, 0.4% in round seven.
+fn rookie_cap_share(pick: u32) -> f64 {
+    let p = pick as f64;
+    if p <= 32.0 {
+        0.0513 - (0.0513 - 0.0150) * (p - 1.0) / 31.0
+    } else if p <= 64.0 {
+        0.0120 - (0.0120 - 0.0058) * (p - 33.0) / 31.0
+    } else {
+        (0.0058 - 0.0018 * (p - 64.0) / 193.0).max(0.004)
+    }
 }
 
 /// A flat discount on kickers, punters and long snappers on draft day, on
@@ -295,6 +337,23 @@ fn competition_discount(d: Division) -> f64 {
         Division::D3 => 7.0,
     }
 }
+
+/// The first-team All-America by position.
+const ALL_AMERICA: [(Position, usize); 13] = [
+    (Position::QB, 1),
+    (Position::RB, 2),
+    (Position::WR, 3),
+    (Position::TE, 1),
+    (Position::OT, 2),
+    (Position::IOL, 3),
+    (Position::EDGE, 2),
+    (Position::DT, 2),
+    (Position::LB, 3),
+    (Position::CB, 2),
+    (Position::S, 2),
+    (Position::K, 1),
+    (Position::P, 1),
+];
 
 /// Credits an impact player to his program's pipelines and to the staff who
 /// coached him: their ties to his high school travel with them (note 4).
@@ -327,6 +386,7 @@ fn credit_impact(w: &mut World, i: usize, c: usize, weight: f64, year: i32) {
 pub(crate) fn honors(w: &mut World) {
     let year = w.year;
     let mut honors: Vec<(usize, f64, &'static str)> = Vec::new();
+    let mut all_america: Vec<(usize, Division)> = Vec::new();
     for division in [Division::FBS, Division::FCS, Division::D2, Division::NAIA, Division::D3] {
         let mut perf: Vec<(f64, usize)> = w
             .people
@@ -340,12 +400,23 @@ pub(crate) fn honors(w: &mut World) {
             .filter_map(|(i, p)| p.last_performance.map(|v| (v, i)))
             .collect();
         perf.sort_by(|a, b| b.0.total_cmp(&a.0));
+        // The first-team All-America by position, as the real teams are
+        // picked (25 a level: a quarterback, two backs, three receivers, a
+        // tight end, five linemen, four up front, three linebackers, four
+        // backs, a kicker and a punter; proposed, not confirmed).
+        let mut first_team: Vec<usize> = Vec::new();
+        for (pos, n) in ALL_AMERICA {
+            first_team.extend(perf.iter().filter(|x| w.people[x.1].player.position == pos).take(n).map(|x| x.1));
+        }
+        for &i in &first_team {
+            honors.push((i, 1.0, "was a first-team All-American"));
+            all_america.push((i, division));
+        }
+        // The second and third teams and honorable mentions: the rest of
+        // the level's best two percent.
         let leaders = (perf.len() as f64 * 0.02).ceil() as usize;
-        let awards = (perf.len() as f64 * 0.003).ceil() as usize;
-        for (k, &(_, i)) in perf.iter().take(leaders).enumerate() {
-            if k < awards {
-                honors.push((i, 1.0, "won national honors"));
-            } else {
+        for &(_, i) in perf.iter().take(leaders) {
+            if !first_team.contains(&i) {
                 honors.push((i, 0.75, "was among his level's top performers"));
             }
         }
@@ -393,6 +464,16 @@ pub(crate) fn honors(w: &mut World) {
         }
     }
     let n_all_america = honors.iter().filter(|h| h.1 >= 1.0).count();
+    if w.recording {
+        for &(i, d) in &all_america {
+            super::records::honor(w, i, year, Some(d), None);
+        }
+        for &(i, weight, _) in &honors {
+            if weight == 0.5 {
+                super::records::honor(w, i, year, None, None);
+            }
+        }
+    }
     for (i, weight, what) in honors {
         let c = w.people[i].college.unwrap();
         credit_impact(w, i, c, weight, year);
@@ -423,6 +504,9 @@ pub(crate) fn draft_reads(w: &mut World) {
     let year = w.year;
     let draft_year = year + 1;
     let five = w.changes.rules(draft_year).five_in_five;
+    // The hidden-gem footprint (world item 9): this season's flags, as the
+    // scouts' own stat services show them in December.
+    let feet = super::records::current_footprints(w);
     let mut rows: Vec<(usize, f64, f64)> = Vec::new();
     for i in 0..w.people.len() {
         let p = &w.people[i];
@@ -441,7 +525,41 @@ pub(crate) fn draft_reads(w: &mut World) {
             let to = p.player.position;
             p.note(format!("Played {from} in college; pro scouts project him at {to}."));
         }
-        let rep = scout_player(&p.player, ScoutOptions { accuracy: 13.0, level }, &mut p.rng);
+        // A small-school player whose numbers flag him (this season or
+        // last) gets a second look: more scouts on his film, a truer read.
+        // The numbers can lie (a weak schedule), so the film decides
+        // (proposed, not confirmed: accuracy 13 to 8).
+        let id = p.player.id;
+        let flagged = division != Division::FBS
+            && (feet.get(&id).is_some_and(|&f| f != 0) || !w.stats.footprint_since(id, year - 1).is_empty());
+        let why = if flagged {
+            let mut why: Vec<String> =
+                w.stats.footprint_since(id, year - 1).iter().flat_map(|r| super::records::footprint_text(r)).collect();
+            if let Some(&f) = feet.get(&id) {
+                let probe = super::records::SeasonRecord {
+                    id,
+                    year: year as i16,
+                    division,
+                    pos: w.people[i].player.position,
+                    program: c as u16,
+                    games: 0,
+                    footprint: f,
+                    sos: 0.0,
+                    s: [0.0; super::records::STAT_COUNT],
+                };
+                why.extend(super::records::footprint_text(&probe));
+            }
+            why
+        } else {
+            Vec::new()
+        };
+        let p = &mut w.people[i];
+        if !why.is_empty() {
+            let age = p.row_age();
+            p.note(format!("At {age} pro scouts took a second look at his film: {}.", why.join("; ")));
+        }
+        let accuracy = if flagged { 8.0 } else { 13.0 };
+        let rep = scout_player(&p.player, ScoutOptions { accuracy, level }, &mut p.rng);
         let youth = clamp((23.0 - p.player.age as f64) / 3.0, 0.0, 1.0);
         let flags: f64 = p
             .player
@@ -995,11 +1113,18 @@ pub(crate) fn draft(w: &mut World) {
             _ => 0.3,
         };
         let noise_sd = crate::career::draft_board_noise(w.nfl[t].draft_skill);
+        // The GM's style (trial 4 topic 6.5): some draft for need, some
+        // take the best player left (proposed, not confirmed: a need weight
+        // from 0.5 to 1.5, his own for his career).
+        let style = 0.5 + key_uniform(0xD4A7, w.nfl[t].id as u64);
         let mut best: Option<(usize, f64, f64, f64)> = None;
         for (idx, &(i, g)) in pool.iter().enumerate().take(60) {
             let pos = w.people[i].player.position;
-            let off = *boards[t].entry(i).or_insert_with(|| noise_sd * w.rng.normal(0.0, 1.0));
-            let need = crate::career::need(&w.nfl[t], pos) * if round <= 2 { 0.5 } else { 1.0 };
+            // Scouts disagree more about a quarterback (topic 6.3): how he
+            // reads a pro defense is the hardest thing to project.
+            let risk = if pos == Position::QB { 1.3 } else { 1.0 };
+            let off = *boards[t].entry(i).or_insert_with(|| risk * noise_sd * w.rng.normal(0.0, 1.0));
+            let need = crate::career::need(&w.nfl[t], pos) * if round <= 2 { 0.5 } else { 1.0 } * style;
             // A quarterback's premium is about need: a team happy with its starter
             // doesn't spend a first-round pick on another.
             // At the very top any team without a franchise QB takes the best one.
@@ -1039,7 +1164,11 @@ pub(crate) fn draft(w: &mut World) {
                 crate::text::with_article(pos.name())
             )
         } else if pv >= 2.0 {
-            format!("{} is a premium position", crate::text::with_article(pos.name()))
+            let save = (market_value(veteran_top5(pos), g) - rookie_cap_share(pick)) * 279.2;
+            format!(
+                "{} is a premium position: on his rookie deal he would save about ${save:.0} million a year against a veteran of his grade",
+                crate::text::with_article(pos.name())
+            )
         } else {
             "he was the best player left on their board".to_string()
         };
@@ -1678,11 +1807,15 @@ fn recruiting_stars(p: &Person) -> u8 {
 
 /// What a walk-on spot costs a family next to a scholarship: tuition, as at
 /// the Pioneer League schools, which give no athletic aid. Schools that give
-/// none anyway cost nothing extra.
+/// none anyway cost nothing extra. Out of state it costs about 1.77 times as
+/// much (a public four-year school's full cost, $44,090 against $24,920 in
+/// state, College Board 2024-25), so walk-ons are mostly local (fix list
+/// 5.2; private schools charge everyone the same, not modeled).
 fn walk_on_cost(p: &Person, prog: &Program) -> f64 {
+    let away = if prog.state == p.home_state { 1.0 } else { 1.77 };
     match prog.conference.as_str() {
         "PFL" | "Ivy" => 0.0,
-        _ => 0.8 * (1.0 - 0.6 * p.bg.money),
+        _ => 0.8 * (1.0 - 0.6 * p.bg.money) * away,
     }
 }
 
@@ -1774,7 +1907,14 @@ pub(crate) fn closeness(miles: f64) -> f64 {
 const CHILDHOOD_LEAN: f64 = 0.18;
 
 /// How much a school appeals to a recruit, from the wants of whoever decides (topic 5).
-fn utility(p: &Person, wants: &super::background::Wants, prog: &Program, nil_offer: f64, eval_rank: f64) -> f64 {
+fn utility(
+    norms: &super::systems::SystemNorms,
+    p: &Person,
+    wants: &super::background::Wants,
+    prog: &Program,
+    nil_offer: f64,
+    eval_rank: f64,
+) -> f64 {
     let g = |c: GradeCat| prog.grades[c as usize] / 100.0;
     let close = closeness(geo::miles(p.home_state, prog.state));
     let crisis = p.bg.story.iter().rev().take(1).any(|s| s.contains("death") || s.contains("lost a job"));
@@ -1829,8 +1969,28 @@ fn utility(p: &Person, wants: &super::background::Wants, prog: &Program, nil_off
     if p.family.older_brother_at == Some(prog.id) {
         u += if p.family.follows_brother { 0.15 } else { -0.05 };
     }
+    // A system that shows him off (S7): a receiver leans to a passing
+    // offense, a back to a running one.
+    u += SHOWCASE * super::systems::showcase(&p.player, &prog.installed, norms);
+    // A 5-star is courted by everyone but signs with the few programs that
+    // win titles and fill first rounds (about 15-17 sign one a year, real
+    // 2024-25, 247Sports; dynasty item 11.1, proposed, not confirmed).
+    if p.stars == 5 {
+        u += FIVE_STAR_PULL * prog.prestige_rel.powi(3) * level_value(prog.division);
+    }
     u
 }
+
+/// How much more a 5-star leans to the very top programs (X1).
+const FIVE_STAR_PULL: f64 = 0.25;
+
+/// How much a system that shows a recruit off counts, at full fit (S7;
+/// a third of the childhood lean, proposed, not confirmed).
+const SHOWCASE: f64 = 0.06;
+
+/// A staff's lean to a recruit who suits its systems, in standard
+/// deviations of evaluation per unit of fit (S6).
+const FIT_EVAL: f64 = 0.3;
 
 /// What a recruit or transfer sees of a roster beyond the school's grades
 /// (trial 3 item 4, Raichel 2026-10-14): the room at his own position, and
@@ -2636,6 +2796,7 @@ pub(crate) fn signing_stage(w: &mut World, stage: SignStage, season: i32) {
 }
 
 fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
+    let norms = w.system_norms;
     let year = season;
     let sign_year = year + 1;
     let today = w.today;
@@ -2930,6 +3091,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         juco_mover: bool,
         /// The program he holds a verbal commitment to.
         committed: Option<usize>,
+        /// His fit to each system (S6).
+        fit: [f64; 11],
     }
     let cands: Vec<Cand> = interest
         .iter()
@@ -2964,6 +3127,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 pos: p.player.position,
                 juco_mover: r.juco_mover,
                 committed: p.cal.commit.map(|x| x.0),
+                fit: super::systems::fits(&p.player, p.player.position, &w.system_norms),
             }
         })
         .collect();
@@ -3036,8 +3200,12 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     continue;
                 }
                 let read = |k: u64| noise_sd * key_normal(pseed.wrapping_add(k), c.id);
-                // Staffs offer on film more than on a service's projection.
+                // Staffs offer on film more than on a service's projection,
+                // and value a player who suits what they run (S6; worth up
+                // to about a third of a standard deviation, proposed, not
+                // confirmed).
                 let mut eval = 0.6 * (c.film + read(1)) + 0.4 * (c.proj + read(2));
+                eval += FIT_EVAL * all_mean_sd.1 * super::systems::fit_to(&c.fit, c.pos, &prog.installed);
                 // A borderline student can lose his eligibility in college. Strong
                 // academic support takes that risk more easily, and so does a
                 // coach who has to win now.
@@ -3222,7 +3390,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 let mut liked: Vec<(f64, usize)> = list
                     .iter()
                     .map(|&(j, _, share)| {
-                        (utility(p, &wants, &programs[j], offer_for(j, k, share), 1.0 - share) + feel(j, k), j)
+                        (utility(&norms, p, &wants, &programs[j], offer_for(j, k, share), 1.0 - share) + feel(j, k), j)
                     })
                     .collect();
                 liked.sort_by(|a, b| b.0.total_cmp(&a.0));
@@ -3366,7 +3534,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 // own feel for the school (11.1).
                 let base_u =
                     relationship(j, k) + feel(j, k) + pull(j, k) - if walk_on { walk_on_cost(p, prog) } else { 0.0 };
-                let mut u = utility(p, &wants, prog, offer, 1.0 - rank) + base_u + fit;
+                let mut u = utility(&norms, p, &wants, prog, offer, 1.0 - rank) + base_u + fit;
                 // What the school he holds is worth to him now: a recruit at his
                 // position may have committed there since (11.2).
                 let held_u = held[k].map(|h| h.base + view.fit(h.program, who, p, &wants, me, 2, 2.0, early));
@@ -3379,7 +3547,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 {
                     let cap = prog.collective.budget * 0.6 * if reach[j] { 0.35 } else { 0.25 };
                     let raised = (offer * 1.5).min(cap).min(super::ncaa::position_nil_max(p.player.position));
-                    let ru = utility(p, &wants, prog, raised, 1.0 - rank) + base_u + fit;
+                    let ru = utility(&norms, p, &wants, prog, raised, 1.0 - rank) + base_u + fit;
                     if ru > hu {
                         offer = raised;
                         u = ru;
@@ -3481,7 +3649,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 if walk_on && !plan.late_walk_on(i, [taken[j], taken_walk_on[j]], taken_at[j][i]) {
                     continue;
                 }
-                let u = utility(p, &wants, &programs[j], 0.0, 1.0 - share) + relationship(j, k) + feel(j, k)
+                let u = utility(&norms, p, &wants, &programs[j], 0.0, 1.0 - share) + relationship(j, k) + feel(j, k)
                     - if walk_on { walk_on_cost(p, &programs[j]) } else { 0.0 };
                 if best.is_none_or(|b| u > b.0) {
                     best = Some((u, j, walk_on, special));
@@ -3651,9 +3819,11 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 let p = &w.people[i];
                 let steered = p.family.decider != Decider::Himself && {
                     let own = p.family.own_wants;
-                    let mine = utility(p, &own, &w.programs[j], 1e5, 0.5);
+                    let mine = utility(&norms, p, &own, &w.programs[j], 1e5, 0.5);
                     // His own favorite among the programs that wanted him.
-                    offers[k].iter().any(|&jj| jj != j && utility(p, &own, &w.programs[jj], 1e5, 0.5) > mine + 0.06)
+                    offers[k]
+                        .iter()
+                        .any(|&jj| jj != j && utility(&norms, p, &own, &w.programs[jj], 1e5, 0.5) > mine + 0.06)
                 };
                 if w.recording && !r.juco_mover && !walk_on && division == Division::FBS {
                     w.fbs_signees_by_state[w.people[i].home_state] += 1;
@@ -4380,6 +4550,7 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
     for &(i, why) in &entrants {
         let c = w.people[i].college.unwrap();
         let div = w.programs[c].division;
+        w.log.portal_by_division[div as usize] += 1;
         let p = &w.people[i];
         let perf = p.last_performance.unwrap_or(p.player.overall());
         let q = clamp((perf - median(div, p.player.position)) / 10.0 + 0.4 + 0.1 * p.stars as f64, 0.0, 1.0);
@@ -4482,6 +4653,7 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
 /// while he waits. No school: his old one may take him back (portal regret),
 /// or he leaves football. `force` decides everyone still waiting.
 pub(crate) fn portal_day(w: &mut World, force: bool) {
+    let norms = w.system_norms;
     let today = w.today;
     let Some(mut market) = w.portal_market.take() else {
         w.portal_pending.clear();
@@ -4597,8 +4769,14 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                     return None;
                 }
                 let p = &wr.people[i];
-                let u = utility(p, &p.family.own_wants, &wr.programs[j], wr.programs[j].collective.budget / 40.0, 0.6)
-                    + mk.view.fit(j, i, p, &p.family.own_wants, perf, 3, 0.0, early_weight(p.stars));
+                let u = utility(
+                    &norms,
+                    p,
+                    &p.family.own_wants,
+                    &wr.programs[j],
+                    wr.programs[j].collective.budget / 40.0,
+                    0.6,
+                ) + mk.view.fit(j, i, p, &p.family.own_wants, perf, 3, 0.0, early_weight(p.stars));
                 Some((j, u))
             })
             .collect();

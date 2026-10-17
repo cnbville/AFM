@@ -189,8 +189,11 @@ struct Pass {
 /// scramble (read by `match_check` with `AFM_QBSTATS`).
 pub static QB_WHY: [std::sync::atomic::AtomicU64; 9] = [const { std::sync::atomic::AtomicU64::new(0) }; 9];
 
-fn qb_why(k: usize) {
+pub static QB_WHY_COV: [std::sync::atomic::AtomicU64; 72] = [const { std::sync::atomic::AtomicU64::new(0) }; 72];
+
+fn qb_why(k: usize, cov: Coverage) {
     QB_WHY[k].fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    QB_WHY_COV[cov as usize * 9 + k].fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 }
 
 /// Debug sums of the throw miss (sd, thousandths of a yard) and count, by
@@ -977,9 +980,18 @@ fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2>
     }
     left.sort_by(|a, b| b.y.total_cmp(&a.y));
     right.sort_by(|a, b| a.y.total_cmp(&b.y));
-    let press =
-        matches!(s.dcall.coverage, Coverage::Cover0 | Coverage::Cover1 | Coverage::Cover2Man | Coverage::Cover2);
-    let cush = if press { 1.2 } else { 6.5 };
+    // Press in man; a Cover 2 corner rolls up to about 5 yards (a cloud
+    // corner: he jams, then takes the flat); other zones play off. (Cover 2
+    // corners pressed at the line and squatted every short throw: quick outs
+    // were caught 43% of the time against them, real 77%.)
+    let press = matches!(s.dcall.coverage, Coverage::Cover0 | Coverage::Cover1 | Coverage::Cover2Man);
+    let cush = if press {
+        1.2
+    } else if matches!(s.dcall.coverage, Coverage::Cover2 | Coverage::Tampa2) {
+        5.0
+    } else {
+        6.5
+    };
     let wide = |list: &Vec<V2>, k: usize, side: f64| -> V2 {
         match list.get(k) {
             Some(p) => v2(los + cush, p.y - 0.8 * side),
@@ -1152,7 +1164,9 @@ fn assign_defense(
     let quarter_out = |side: f64| zone(v2(los + 13.0, side_y(side, 9.0)), true, 13.0);
     let quarter_in = |side: f64| zone(v2(los + 13.0, MID + side * 4.5), true, 13.0);
     let curl_flat = |side: f64| zone(v2(los + 9.0, by + side * 10.0), false, 12.0);
-    let flat = |side: f64| zone(v2(los + 4.0, side_y(side, 9.0)), false, 10.0);
+    // The flat: from the sideline to about the numbers (it sat on the
+    // numbers, right on top of the outside receiver's hitch).
+    let flat = |side: f64| zone(v2(los + 4.0, side_y(side, 6.0)), false, 8.0);
     let hook = |side: f64| zone(v2(los + 10.0, by + side * 4.5), false, 9.0);
     let middle = zone(v2(los + 10.5, by), false, 9.0);
 
@@ -2069,7 +2083,7 @@ fn quarterback(
     let want_run =
         (over || pressure > 0.5) && lane && t > 2.0 && sim.rng.chance(clamp(0.03 + 0.004 * (speed - 50.0), 0.01, 0.2));
     if want_run || (pressure > 1.0 && lane && speed > 75.0 && sim.rng.chance(0.25)) {
-        qb_why(8);
+        qb_why(8, s.dcall.coverage);
         ps.scramble = true;
         return None;
     }
@@ -2082,7 +2096,7 @@ fn quarterback(
         && (imminent || t > clock + 0.5)
         && sim.rng.chance(0.3 * (0.06 + 0.003 * aw + if outside { 0.12 } else { 0.0 }));
     if away {
-        qb_why(7);
+        qb_why(7, s.dcall.coverage);
         // Throw it away (outside the pocket it is legal past the line).
         let side = if me.y > MID { 1.0 } else { -1.0 };
         let to = v2(los + 3.0, if side > 0.0 { WIDTH + 2.0 } else { -2.0 });
@@ -2296,7 +2310,7 @@ fn throw(
     ps.thrown = Some(t);
     ps.target = Some(r);
     if !matches!(ps.concept.drop, Drop::Screen | Drop::Bubble) {
-        qb_why(ps.why);
+        qb_why(ps.why, s.dcall.coverage);
     }
     let height = 2.0 + 0.08 * dist;
     sim.ball = Ball::Air { from: q, to, release: t, arrive, target: Some(r), height };
@@ -2816,14 +2830,24 @@ fn cover_inner(
             {
                 // He sits under a route at depth; a shallow one he only
                 // squeezes, keeping his depth for what comes behind him.
-                let rp = sim.agents[r].pos;
+                // His eyes are on the quarterback, so he sees a break late:
+                // he plays where the route was a beat ago (quicker for a
+                // sharp reader).
+                let lag = clamp(0.3 - 0.004 * (pr - 60.0), 0.1, 0.6);
+                let n = trail[r].len();
+                let k = ((lag / DT).round() as usize).min(n.saturating_sub(1));
+                let (rp, rv) = if n > 0 {
+                    (trail[r][n - 1 - k], vel_trail[r][n - 1 - k])
+                } else {
+                    (sim.agents[r].pos, sim.agents[r].vel)
+                };
                 let under = rp + (q - rp).norm().scale(1.3);
                 let lim = width / 2.0 + 3.0;
                 let floor = if rp.x > s.los + 3.5 { s.los } else { (spot.x - 3.0).max(s.los + 2.0) };
                 target = v2(under.x.clamp(floor, spot.x + 6.0), under.y.clamp(spot.y - lim, spot.y + lim));
                 // He moves with the route he is under (not easing into a spot
                 // the receiver has already left).
-                carry = sim.agents[r].vel.scale(0.9);
+                carry = rv.scale(0.9);
             } else {
                 // Nothing in his area: he sinks under a vertical running
                 // through it (a cloud corner carrying #1) until he hands it off.

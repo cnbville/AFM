@@ -52,7 +52,7 @@ fn pair(g: usize) -> (usize, usize) {
     let h = (k * 7) % 32;
     let a = (k * 13 + 5) % 32;
     let a = if a == h { (a + 1) % 32 } else { a };
-    if g % 2 == 0 { (h, a) } else { (a, h) }
+    if g.is_multiple_of(2) { (h, a) } else { (a, h) }
 }
 
 fn main() {
@@ -179,10 +179,18 @@ fn main() {
     let mut fg = [[0.0f64; 2]; 4];
     let mut ay = [[0.0f64; 6]; 4];
     let mut by_cov = [[0.0f64; 3]; 2];
+    let pos_of: std::collections::HashMap<u32, afm_engine::positions::Position> =
+        teams.iter().flat_map(|t| t.players.iter().map(|p| (p.id, p.position))).collect();
+    let mut tgt_pos = [0.0f64; 4];
+    let mut emergencies = 0.0;
     // Targets by route group: [targets, catches, yards].
     let mut by_route = [[0.0f64; 5]; ROUTE_GROUPS.len()];
     let mut run_b = [0.0f64; 6];
     let mut cov_runs = std::collections::BTreeMap::<String, [f64; 5]>::new();
+    // Passing by the coverage called: [dropbacks, dropback EPA, sacks,
+    // targets, target EPA, completions].
+    let mut cov_pass = std::collections::BTreeMap::<String, [f64; 6]>::new();
+    let mut cov_route = std::collections::BTreeMap::<(String, usize), [f64; 3]>::new();
     let mut by_box = [[0.0f64; 2]; 3];
     let mut pts = Vec::new();
     let mut close = 0.0;
@@ -272,7 +280,20 @@ fn main() {
                     rz_td = true;
                 }
             }
+            emergencies += p.emergency as u8 as f64;
             let dropback = matches!(p.kind, PlayType::Pass | PlayType::Sack | PlayType::Scramble);
+            if dropback {
+                let cv = p.defense_call.split(',').next().unwrap_or("").to_string();
+                let e = cov_pass.entry(cv).or_insert([0.0; 6]);
+                e[0] += 1.0;
+                e[1] += p.epa;
+                e[2] += (p.kind == PlayType::Sack) as u8 as f64;
+                if p.kind == PlayType::Pass {
+                    e[3] += 1.0;
+                    e[4] += p.epa;
+                    e[5] += p.complete as u8 as f64;
+                }
+            }
             if (dropback || p.kind == PlayType::Run)
                 && p.down == 1
                 && p.quarter <= 3
@@ -398,11 +419,26 @@ fn main() {
                         by_route[g][2] += p.yards;
                         by_route[g][3] += p.air_yards;
                         by_route[g][4] += p.time_to_throw;
+                        let cv = p.defense_call.split(',').next().unwrap_or("").to_string();
+                        let e = cov_route.entry((cv, g)).or_insert([0.0; 3]);
+                        e[0] += 1.0;
+                        e[1] += p.complete as u8 as f64;
+                        e[2] += p.yards;
                     }
                     let cov = if p.coverage_man { 1 } else { 0 };
                     by_cov[cov][0] += 1.0;
                     by_cov[cov][1] += p.complete as u8 as f64;
                     by_cov[cov][2] += p.yards;
+                    if let Some(t) = p.target {
+                        use afm_engine::positions::Position as P;
+                        let k = match pos_of.get(&t) {
+                            Some(P::WR) => 0,
+                            Some(P::TE) => 1,
+                            Some(P::RB) => 2,
+                            _ => 3,
+                        };
+                        tgt_pos[k] += 1.0;
+                    }
                 }
                 PlayType::Run => {
                     *m.entry("rush_td").or_default() += p.touchdown as u8 as f64;
@@ -697,6 +733,73 @@ fn main() {
         );
         row(&format!("share of runs, {name} in box"), by_box[k][0] / rn.max(1.0), None);
     }
+    let tt: f64 = tgt_pos.iter().sum::<f64>().max(1.0);
+    row("emergency snaps per game", emergencies / games as f64, None);
+    row("targets to WR", tgt_pos[0] / tt, Some(0.593));
+    row("targets to TE", tgt_pos[1] / tt, Some(0.219));
+    row("targets to RB", tgt_pos[2] / tt, Some(0.181));
+    row("targets to others", tgt_pos[3] / tt, None);
+    // Real EPA per target by coverage (NFL 2022-25, FTN charting pooled
+    // over routes, `targets_by_route_and_coverage`): no coverage gives up
+    // much more than another.
+    println!("passing by coverage          share  db EPA  sack   tgt EPA  real   catch");
+    let real_tgt = |k: &str| match k {
+        "Cover 0" => Some(0.171),
+        "Cover 1" => Some(0.179),
+        "Cover 2" => Some(0.149),
+        "Cover 3" => Some(0.190),
+        "Cover 4" => Some(0.158),
+        "2-man" => Some(0.134),
+        "Cover 6" => Some(0.179),
+        _ => None,
+    };
+    let dbs: f64 = cov_pass.values().map(|v| v[0]).sum::<f64>().max(1.0);
+    for (k, v) in &cov_pass {
+        println!(
+            "  {:<26} {:.3}  {:+.3}  {:.3}  {:+.3}  {}  {:.3}",
+            k,
+            v[0] / dbs,
+            v[1] / v[0].max(1.0),
+            v[2] / v[0].max(1.0),
+            v[4] / v[3].max(1.0),
+            real_tgt(k).map_or("  -   ".to_string(), |r| format!("{r:+.3}")),
+            v[5] / v[3].max(1.0)
+        );
+    }
+    if std::env::var("AFM_COVROUTE").is_ok() {
+        let tc = &et["targets_by_route_and_coverage"];
+        for (cov, key) in [("Cover 1", "COVER_1"), ("Cover 2", "COVER_2"), ("Cover 3", "COVER_3"), ("2-man", "2_MAN")] {
+            let tot: f64 =
+                (0..ROUTE_GROUPS.len()).map(|g| cov_route.get(&(cov.to_string(), g)).map_or(0.0, |v| v[0])).sum();
+            let mut rtot = 0.0;
+            for (_, keys) in ROUTE_GROUPS.iter() {
+                for k in keys.iter() {
+                    rtot += tc[*k][key]["n"].as_f64().unwrap_or(0.0);
+                }
+            }
+            println!("{cov}: route share real catch real ypt real");
+            for (g, (name, keys)) in ROUTE_GROUPS.iter().enumerate() {
+                let (mut n, mut c, mut y) = (0.0, 0.0, 0.0);
+                for k in keys.iter() {
+                    let r = &tc[*k][key];
+                    let rn = r["n"].as_f64().unwrap_or(0.0);
+                    n += rn;
+                    c += rn * r["catch"].as_f64().unwrap_or(0.0);
+                    y += rn * r["ypt"].as_f64().unwrap_or(0.0);
+                }
+                let v = cov_route.get(&(cov.to_string(), g)).copied().unwrap_or([0.0; 3]);
+                println!(
+                    "  {name:<22} {:.3} {:.3}  {:.3} {:.3}  {:5.2} {:5.2}",
+                    v[0] / tot.max(1.0),
+                    n / rtot.max(1.0),
+                    v[1] / v[0].max(1.0),
+                    c / n.max(1.0),
+                    v[2] / v[0].max(1.0),
+                    y / n.max(1.0)
+                );
+            }
+        }
+    }
     if std::env::var("AFM_LONG").is_ok() {
         for (k, v) in &cov_runs {
             println!(
@@ -745,6 +848,16 @@ fn main() {
             ["read 1", "read 2", "read 3", "read 4+", "any open late", "checkdown", "forced", "throwaway", "scramble"];
         for (n, v) in names.iter().zip(&c) {
             println!("  QB choice {n:<14} {:.3}", *v as f64 / total);
+        }
+        let cc: Vec<u64> = afm_engine::game::scrimmage::QB_WHY_COV
+            .iter()
+            .map(|x| x.load(std::sync::atomic::Ordering::Relaxed))
+            .collect();
+        for (ci, cn) in ["C0", "C1", "C2", "T2", "C3", "C4", "2M", "C6"].iter().enumerate() {
+            let row = &cc[ci * 9..ci * 9 + 9];
+            let t = row.iter().sum::<u64>().max(1) as f64;
+            let s: Vec<String> = row.iter().map(|v| format!("{:.3}", *v as f64 / t)).collect();
+            println!("  QB choice {cn}: {}", s.join(" "));
         }
         let sd: Vec<u64> = afm_engine::game::scrimmage::THROW_SD
             .iter()

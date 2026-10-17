@@ -89,7 +89,8 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
             "year": g.year, "div": g.division.name(), "home": g.teams[0], "away": g.teams[1],
             "score": g.score, "ot": g.overtime, "kr": [[g.kr[0].0, r1(g.kr[0].1)], [g.kr[1].0, r1(g.kr[1].1)]],
             "pr": [[g.pr[0].0, r1(g.pr[0].1)], [g.pr[1].0, r1(g.pr[1].1)]],
-            "stats": [team_stats(&g.stats[0]), team_stats(&g.stats[1])]
+            "stats": [team_stats(&g.stats[0]), team_stats(&g.stats[1])],
+            "tags": g.tags, "loud": g.loud, "emergency_snaps": g.emergency_snaps
         }));
     }
     counts.push(("games".into(), f.n));
@@ -267,6 +268,7 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
             "year": l.year, "spin_up": l.year < first, "college_games": l.games, "snow": l.snow_games, "rain": l.rain_games, "freezing": l.freezing_games,
             "lightning": l.lightning_delays, "moved": l.weather_moves, "cancelled": l.weather_cancels, "opt_outs": l.opt_outs,
             "bowl_practice_gain": r1(l.bowl_practice_gain), "four_game_redshirts": l.four_game_redshirts, "redshirt_tricks": l.redshirt_tricks,
+            "system_switches": l.system_switches, "fbs_systems": l.fbs_systems,
             "spring_notices": l.spring_notices, "spring_breakouts": l.spring_breakouts, "spring_fizzles": l.spring_fizzles,
             "hs_games": l.hs_games, "hs_forfeits": l.hs_forfeits, "hs_no_contests": l.hs_no_contests, "hs_grade_outs": l.hs_grade_outs,
             "hs_homecomings": l.hs_homecomings, "hs_senior_nights": l.hs_senior_nights, "hs_all_state": l.hs_all_state,
@@ -327,6 +329,72 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
         f.put(json!({"year": year, "team": w.nfl[t].name}));
     }
     counts.push(("nfl champions".into(), f.n));
+
+    // The career stats book (section 3, topic 8): every college season with
+    // its nonzero stats, footprint flags and headline percentiles.
+    use afm_engine::world::records::{self as rec, Stat};
+    let book = &w.stats;
+    let mut f = Lines::new(dir, "book_seasons.jsonl");
+    for r in &book.seasons {
+        let mut stats = serde_json::Map::new();
+        for &k in Stat::ALL {
+            let v = r.get(k);
+            if v != 0.0 {
+                stats.insert(k.key().to_string(), json!(r2(v)));
+            }
+        }
+        let pct: serde_json::Map<String, Value> = rec::headline_metrics(r.pos)
+            .iter()
+            .filter_map(|&m| Some((m.name().to_string(), json!(r2(book.percentile(r, m)?)))))
+            .collect();
+        f.put(json!({
+            "id": r.id, "year": r.year, "div": r.division.name(), "pos": r.pos.to_string(),
+            "program": w.programs[r.program as usize].real_name, "g": r.games, "sos": r1(r.sos as f64),
+            "footprint": rec::footprint_text(r), "pct": pct, "s": stats,
+        }));
+    }
+    counts.push(("book seasons".into(), f.n));
+    let mut f = Lines::new(dir, "record_books.jsonl");
+    let mut keys: Vec<_> = book.books.keys().collect();
+    keys.sort();
+    for key in keys {
+        let (scope, b) = key;
+        let (div, conf, state) = match scope {
+            rec::Scope::Division(d) => (d.name(), None, None),
+            rec::Scope::Conference(d, c) => (d.name(), Some(c.as_str()), None),
+            rec::Scope::State(s) => ("HS", None, Some(STATE_CENTERS[*s].0)),
+        };
+        let list = &book.books[key];
+        f.put(json!({
+            "div": div, "conference": conf, "state": state, "book": b.name(),
+            "entries": list.iter().map(|e| json!({
+                "value": r1(e.value), "id": e.id, "name": e.name, "program": w.programs.get(e.program).map(|p| p.real_name.as_str()),
+                "year": e.year, "from": e.from, "live": e.live,
+            })).collect::<Vec<_>>(),
+        }));
+    }
+    counts.push(("record books".into(), f.n));
+    let mut f = Lines::new(dir, "hall_of_fame.jsonl");
+    for h in &book.hall {
+        f.put(json!({
+            "year": h.year, "name": h.name, "coach": h.coach, "div": h.division.name(),
+            "programs": h.programs.iter().map(|&p| w.programs[p].real_name.as_str()).collect::<Vec<_>>(), "why": h.why,
+        }));
+    }
+    counts.push(("hall of fame".into(), f.n));
+    let mut f = Lines::new(dir, "coach_buzz.jsonl");
+    for b in &book.buzz {
+        f.put(json!({
+            "year": b.year, "coach": w.coaches[b.coach].name, "coach_id": b.coach, "program": w.programs[b.program].real_name,
+            "offense": b.offense, "pct": r2(b.pct), "gain": r2(b.gain), "why": b.why,
+        }));
+    }
+    counts.push(("coach buzz".into(), f.n));
+    let mut f = Lines::new(dir, "records_broken.jsonl");
+    for (year, d, b, name, v) in &book.broken {
+        f.put(json!({"year": year, "div": d.name(), "book": b.name(), "name": name, "value": r1(*v)}));
+    }
+    counts.push(("records broken".into(), f.n));
 
     let meta = json!({
         "seed": seed, "years": years, "first": first, "last": w.year - 1,

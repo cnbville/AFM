@@ -49,6 +49,9 @@ pub const POTENTIAL_BAND: f64 = 5.0;
 /// outgrows it.
 pub const MAX_POTENTIAL_SHIFT: f64 = POTENTIAL_BAND;
 
+/// Rating points a year a skill only his old position used fades (3.8).
+const OLD_SKILL_FADE: f64 = 1.5;
+
 fn level_injury_rate(level: Level) -> f64 {
     match level {
         Level::HS => 0.13,
@@ -547,6 +550,28 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             * if physical { wear_mult } else { 1.0 };
         player.attributes[key] -= loss;
         player.ceilings[key] -= loss;
+    }
+
+    // --- Old skills fade (fix list 3.8) ------------------------------------------
+    // A skill only an old position used fades each year he doesn't practice
+    // it: a converted quarterback's passing, a former receiver's routes.
+    // (Proposed, not confirmed: 1.5 points a year, the room above it too.)
+    if player.position_history.iter().any(|h| h.1 != position) {
+        for key in Attr::ALL {
+            if key.profile().group == AttributeGroup::Physical || weight(position, key) > 0.01 {
+                continue;
+            }
+            let old = player
+                .position_history
+                .iter()
+                .filter(|h| h.1 != position)
+                .map(|h| weight(h.1, key))
+                .fold(0.0, f64::max);
+            if old >= 0.04 {
+                player.attributes[key] -= OLD_SKILL_FADE;
+                player.ceilings[key] -= OLD_SKILL_FADE;
+            }
+        }
     }
 
     // --- Tidy up ---------------------------------------------------------------

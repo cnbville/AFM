@@ -741,6 +741,8 @@ fn main() {
     }
 
     trial1_notes(&w, years);
+    stat_book(&w);
+    walk_on_picks(&w);
 
     // --- Character report: what the game shows instead ---
     println!("\n## What a scout sees (character report on a current five-star)");
@@ -755,6 +757,147 @@ fn main() {
         println!(
             "  (truth: money {:.2}, safety {:.2}, stability {:.0}, decider {:?}, parent {:?})",
             bg.money, bg.safety, bg.stability, fam.decider, fam.parent_style
+        );
+    }
+}
+
+/// Fix list 5.7: walk-ons develop under the same model, so some are drafted.
+/// Real: about 25% of picks were unrated or unmatched to a recruiting
+/// record (walk-ons, JUCO, prep schools, name mismatches; trial 3 baselines).
+fn walk_on_picks(w: &World) {
+    let picks: Vec<&Alumnus> = w.alumni.iter().filter(|a| a.pick.is_some()).collect();
+    let n = picks.len().max(1) as f64;
+    let unrated = picks.iter().filter(|a| a.stars == 0).count();
+    let walked = picks.iter().filter(|a| a.notes.iter().any(|x| x.starts_with("Walked on at"))).count();
+    let juco = picks.iter().filter(|a| a.juco).count();
+    println!("\n## Walk-ons and unrated players in the draft (fix list 5.7)");
+    println!(
+        "{} picks: unrated {:.1}% (real about 25% with JUCO, prep and mismatches), walked on {:.1}% ({walked}), JUCO {:.1}%",
+        picks.len(),
+        100.0 * unrated as f64 / n,
+        100.0 * walked as f64 / n,
+        100.0 * juco as f64 / n
+    );
+}
+
+/// The career stats book (section 3, topic 8): the top of each FBS record
+/// book with the era view, footprints by division, the Hall of Fame and
+/// the coaches with the most buzz from their units.
+fn stat_book(w: &World) {
+    use afm_engine::world::records::{Book, RECORD_STATS, STREAKS, Scope, TESTING};
+    let b = &w.stats;
+    println!("\n## The career stats book (section 3, topic 8)");
+    println!(
+        "{} player seasons kept over {} seasons; {} records broken; {} Hall of Fame inductees",
+        b.seasons.len(),
+        b.year_index.len(),
+        b.broken.len(),
+        b.hall.len()
+    );
+    for d in [Division::FBS, Division::FCS, Division::D2, Division::D3] {
+        println!("### {} record books (best three)", d.name());
+        let mut books: Vec<Book> = (0..RECORD_STATS.len()).flat_map(|k| [Book::Season(k), Book::Career(k)]).collect();
+        books.extend((0..STREAKS.len()).map(Book::Streak));
+        books.push(Book::WinStreak);
+        for bk in books {
+            let Some(list) = b.books.get(&(Scope::Division(d), bk)) else { continue };
+            let row: Vec<String> = list
+                .iter()
+                .take(3)
+                .map(|e| {
+                    let era = if let Book::Season(k) = bk {
+                        b.career(e.id)
+                            .into_iter()
+                            .find(|r| r.year as i32 == e.year && r.division == d)
+                            .map(|r| format!(", era-adjusted {:.0}", b.era_adjusted(r, RECORD_STATS[k])))
+                            .unwrap_or_default()
+                    } else {
+                        String::new()
+                    };
+                    let years = if e.from != e.year { format!("{}-{}", e.from, e.year) } else { e.year.to_string() };
+                    format!(
+                        "{:.0} {} ({}, {years}{}{era})",
+                        e.value,
+                        e.name,
+                        w.programs[e.program].real_name,
+                        if e.live { ", running" } else { "" }
+                    )
+                })
+                .collect();
+            println!("- {}: {}", bk.name(), row.join("; "));
+        }
+    }
+    // High school winning streaks across the states (real: De La Salle's 151, 1992-2004).
+    let mut hs: Vec<_> = b
+        .books
+        .iter()
+        .filter(|(k, _)| matches!(k.0, Scope::State(_)))
+        .flat_map(|(k, v)| v.iter().map(move |e| (k.0.clone(), e)))
+        .collect();
+    hs.sort_by(|a, b| b.1.value.total_cmp(&a.1.value));
+    let row: Vec<String> = hs
+        .iter()
+        .take(5)
+        .map(|(sc, e)| {
+            let st = if let Scope::State(s) = sc { afm_engine::world::geo::STATE_CENTERS[*s].0 } else { "" };
+            format!("{:.0} {} {st} {}-{}{}", e.value, e.name, e.from, e.year, if e.live { " running" } else { "" })
+        })
+        .collect();
+    println!("### Longest high school winning streaks: {}", row.join("; "));
+    println!("### Hidden-gem footprints by season (flagged seasons: stats / testing)");
+    for &(year, _) in b.year_index.iter().rev().take(5) {
+        let recs = b.year(year);
+        let line: Vec<String> = Division::ALL
+            .iter()
+            .map(|&d| {
+                let stats = recs.iter().filter(|r| r.division == d && r.footprint & !TESTING != 0).count();
+                let test = recs.iter().filter(|r| r.division == d && r.footprint & TESTING != 0).count();
+                format!("{} {stats}/{test}", d.name())
+            })
+            .collect();
+        println!("- {year}: {}", line.join(", "));
+    }
+    // Footprinted small-school players and the draft.
+    let flagged: Vec<u32> = {
+        let mut v: Vec<u32> = b
+            .seasons
+            .iter()
+            .filter(|r| r.division != Division::FBS && r.footprint & !TESTING != 0)
+            .map(|r| r.id)
+            .collect();
+        v.sort();
+        v.dedup();
+        v
+    };
+    println!("{} small-school players with a stats footprint", flagged.len());
+    println!("### College Football Hall of Fame (last three classes)");
+    let last: Vec<i32> = {
+        let mut y: Vec<i32> = b.hall.iter().map(|h| h.year).collect();
+        y.sort();
+        y.dedup();
+        y.into_iter().rev().take(3).collect()
+    };
+    for y in last {
+        for h in b.hall.iter().filter(|h| h.year == y) {
+            let progs: Vec<&str> = h.programs.iter().map(|&p| w.programs[p].real_name.as_str()).collect();
+            println!(
+                "- {y}: {}{} ({}, {}): {}",
+                h.name,
+                if h.coach { ", coach" } else { "" },
+                h.division.name(),
+                progs.join(", "),
+                h.why
+            );
+        }
+    }
+    println!("### Coach buzz from unit stats (last season, biggest gains)");
+    let last_year = b.buzz.iter().map(|x| x.year).max().unwrap_or(0);
+    let mut top: Vec<_> = b.buzz.iter().filter(|x| x.year == last_year).collect();
+    top.sort_by(|a, b| b.gain.total_cmp(&a.gain));
+    for x in top.iter().take(8) {
+        println!(
+            "- {} ({}): +{:.2}, {}; buzz now {:.2}",
+            w.coaches[x.coach].name, w.programs[x.program].real_name, x.gain, x.why, w.coaches[x.coach].stat_buzz
         );
     }
 }

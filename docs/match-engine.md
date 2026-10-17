@@ -240,9 +240,19 @@ Still open, measured after these changes:
 - Deep balls in the NFL still land about 7-10 yards deeper than real and are completed 50% of the time (real 36%).
 - Flats and checkdowns are 32% of NFL targets (real flat and swing 9.6%, quick out 17%, screen 10%), with sacks (4.0%, real 6.8%) and throwaways too rare. Sacks are trial 4 topic 9, not approved yet.
 
+## Build 7 engine work (2026-10-17)
+
+- **Passing (dynasty RB value, passing side).** The ball leaves at the end of the throwing motion; the QB clock runs 0.3 s longer; roughing the passer, unnecessary roughness and face masks at a real 6 fouls a team game; beaten blockers drag the QB down; man coverage reacts a tenth sooner and misses more with depth; a catch past the end line is incomplete; kickoffs with wall and man blocking.
+- **Coverage shells.** Press corners in Cover 0, 1 and 2-man; Cover 2 and Tampa 2 corners squat at 5 yards, others play off at 6.5. Flat defenders sit outside the numbers, so a hitch by the outside receiver is not undercut. Underneath zone defenders read the route late by their play recognition (0.1-0.6 s).
+- **Home field (trial 4 topic 3).** Crowd noise from the stadium, night games, rivalries and stakes; the road offense works on a silent count, misses checks and false-starts at the real road ratio; travel, time zones, the body clock and altitude (`data/real-world/college_altitude.csv`) tire the visitors; warm-climate teams handle cold worse. FBS home margin 2.5 points (real 2.4); NFL 0.9 (real 2.1, finding).
+- **College calling (trial 4 topic 5).** Pass rate and fourth-down tables from real FBS play-by-play (cfbfastR 2023-24, `data/real-world/scripts/college_situations.py`).
+- **S8-S10.** Each DC's own nickel habit; one-gap and two-gap fronts fit runs and the rush differently; no-huddle snaps stop the defense substituting, and breath comes back with time between snaps.
+- **Position spots (fix list topic 3).** The engine plays each man at his listed spot: tackles by side, guards and center, nose and three-technique, middle and outside linebackers, nickel, free and strong safety, fullback (`flow.rs` `lineup`, `spots.rs`). A man at a spot he has never been listed at plays below his rating there; a man from another position group is an emergency (`PlayRecord.emergency`). High school players still go both ways.
+
+Measured after build 7 (`match_check`, 600 games): FBS 28.8 points (real FBS 27.0), completion 61.1% (real 60.6%), 7.0 yards an attempt (real 7.3), games within 8 points 38% (NFL real 54%); NFL 32.0 points (real 22.5), completion 69% (real 64.5%). Targets to tight ends and backs run low (FBS 15% and 13% against NFL 22% and 18%). These are trial 7 findings.
+
 ## Not built yet
-- Running every game in the world through the engine (the world still uses its own season results), and the season and career record across levels with percentiles and era adjustment.
-- Coach buzz from stats, hidden-gem stat flags, awards and records. These come with the world trial 3 list and later sections.
+- High school games on the engine (the world still plays them on the stand-in): about 10 minutes a season.
 - The 2D replay view (section 10).
 
 ## Debug tools

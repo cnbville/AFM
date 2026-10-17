@@ -151,6 +151,9 @@ pub(crate) struct CollegeSeason {
     /// Offensive and defensive snaps, and games played (any snap), by player id.
     pub snaps: HashMap<u32, (u32, u32)>,
     pub lines: HashMap<u32, Line>,
+    /// Every player's summed game lines at every division, for the career
+    /// stats record (section 3, topic 8).
+    pub book: HashMap<u32, super::records::BookLine>,
     /// Players who sit out games from now on, and why.
     pub out: HashMap<u32, &'static str>,
     pub polls: Vec<Poll>,
@@ -229,6 +232,7 @@ pub(crate) fn new_season(w: &World) -> CollegeSeason {
         started: false,
         snaps: HashMap::new(),
         lines: HashMap::new(),
+        book: HashMap::new(),
         out: HashMap::new(),
         polls: Vec::new(),
         brackets: Vec::new(),
@@ -639,11 +643,36 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
         if kind == GameKind::ConferenceTitle {
             cs.results[wi].conference_title = true;
         }
+        let mut streak_in: Vec<(u32, usize, [bool; 3], [bool; 3])> = Vec::new();
         if let Some(r) = &r {
             let [sa, sb] = &r.stats.team;
             cs.results[home].totals.add(sa, sb);
             cs.results[away].totals.add(sb, sa);
             for (side, prog) in [(0usize, home), (1usize, away)] {
+                // The career record (topic 8): every division, every player.
+                if w.recording
+                    && let Some(team) = j.teams.as_ref().map(|t| if side == 0 { &t.0 } else { &t.1 })
+                {
+                    let pos_of: HashMap<u32, crate::positions::Position> =
+                        team.players.iter().map(|p| (p.id, p.position)).collect();
+                    let opp = if side == 0 { away } else { home };
+                    let opp_strength = cs.results[opp].strength;
+                    for (&id, l) in &r.stats.players[side] {
+                        let b = cs.book.entry(id).or_default();
+                        b.program = prog;
+                        if let Some(&pos) = pos_of.get(&id) {
+                            b.pos = Some(pos);
+                        }
+                        b.games += 1;
+                        b.opp_strength += opp_strength;
+                        b.line.add(l);
+                        let eligible = [l.att >= 5, l.rush >= 5, l.routes > 0 || l.targets > 0];
+                        let hit = [l.pass_td > 0, l.rush_yds >= 100.0, l.rec > 0];
+                        if eligible.iter().any(|&e| e) {
+                            streak_in.push((id, prog, eligible, hit));
+                        }
+                    }
+                }
                 for (&id, l) in &r.stats.players[side] {
                     let e = cs.snaps.entry(id).or_default();
                     e.0 += l.snaps_off + l.snaps_def;
@@ -680,6 +709,10 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
                 let d = w.programs[home].division;
                 let part = super::game_log::situations(d, [home, away], &r.stats);
                 w.game_log.add(year, d, [home, away], &r.stats, part);
+                if let Some(last) = w.game_log.games.last_mut() {
+                    last.tags = cs.games[k].tags.iter().map(|t| t.name()).collect();
+                    last.loud = cs.games[k].loud.name();
+                }
                 if w.programs[home].division != w.programs[away].division
                     && let Some(last) = w.game_log.games.last_mut()
                 {
@@ -701,6 +734,12 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
         }
         if !played.indoor && played.temperature < 32.0 {
             w.log.freezing_games += 1;
+        }
+        if w.recording && r.is_some() {
+            streak_in.sort_by_key(|x| x.0);
+            super::records::game_streaks(w, year, &streak_in);
+            super::records::program_streak(w, year, if home_won { home } else { away }, true);
+            super::records::program_streak(w, year, if home_won { away } else { home }, false);
         }
         let _ = division;
         result_event(w, k);
@@ -2349,6 +2388,8 @@ pub(crate) fn record_regular_season(w: &mut World) {
         }
         w.college.as_mut().unwrap().credited[p] = (t.wins, t.losses);
     }
+    // Coach buzz from the units' numbers (world item 5).
+    super::records::unit_buzz(w, year, &results);
 }
 
 /// A program's staff for credit, the coach on the sideline first (as head
@@ -2436,6 +2477,18 @@ pub(crate) fn finish(w: &mut World) {
     release_poll(w, date, PollKind::Final);
     let year = w.college.as_ref().unwrap().year;
     update_records(w, year);
+    // The season's awards go on each winner's record, then the season
+    // goes into the career stats book (topic 8).
+    let awards = w.college.as_ref().unwrap().awards.clone();
+    if w.recording {
+        let by_id: HashMap<u32, usize> = w.people.iter().enumerate().map(|(i, p)| (p.player.id, i)).collect();
+        for (award, id, _) in awards {
+            if let Some(&i) = by_id.get(&id) {
+                super::records::honor(w, i, year, None, Some(award));
+            }
+        }
+        super::records::close_season(w);
+    }
     let cs = w.college.as_ref().unwrap();
     let results = cs.results.clone();
     let credited = cs.credited.clone();

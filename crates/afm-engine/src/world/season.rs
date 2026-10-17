@@ -12,7 +12,7 @@ use super::data::Division;
 use super::{Stage, World, division_level};
 use crate::athlete::Eye;
 use crate::development::{SeasonContext, Trouble, develop_season};
-use crate::game::{Caller, Front, GamePlayer, GameTeam, OffScheme, Shell, Staff as GameStaff};
+use crate::game::{Caller, GamePlayer, GameTeam, Staff as GameStaff};
 use crate::league::depth_slots;
 use crate::player::{Level, PlayingTime};
 use crate::positions::{POSITION_COUNT, Position};
@@ -613,9 +613,10 @@ pub(crate) fn attach_level_ratings(w: &mut World) {
 pub(crate) const SEASON_SNAPS: u32 = 750;
 
 /// A college team for the match engine: its players and its staff's calling.
-/// The scheme is the coordinator's own (picked from his id until coaches
-/// carry a scheme: proposed, not confirmed).
+/// The systems are the ones the staff installed this spring (S3); a new
+/// playbook is known only as far as it shares the old one (S5).
 pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<GameTeam> {
+    let inst = prog.installed;
     let players: Vec<GamePlayer> = prog
         .roster
         .iter()
@@ -625,7 +626,9 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
             // This season counts as one (settled when it ends).
             let seasons = (p.college_seasons + p.cal.count_pending as u32) as f64;
             let experience = p.college_snaps as f64 / SEASON_SNAPS as f64;
-            GamePlayer::from_player(&p.player, clamp(0.78 + 0.05 * seasons, 0.0, 0.95), experience)
+            let side = if super::systems::offense(p.player.position) { inst.off_known } else { inst.def_known };
+            let know = clamp(0.78 + 0.05 * seasons, 0.0, 0.95) * (0.8 + 0.2 * side);
+            GamePlayer::from_player(&p.player, know, experience)
         })
         .collect();
     if players.len() < 30 {
@@ -633,31 +636,31 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
     }
     let ab = |c: Option<usize>| c.map(|c| *w.coaches[c].ability());
     let hc = ab(prog.head_coach);
-    let caller = |c: Option<usize>| {
+    // A caller runs a system he knows less well worse (S4): his calling
+    // skill scales with what he knows of the installed system.
+    let caller = |c: Option<usize>, slot: usize| {
+        let who = c.or(prog.head_coach);
         let a = ab(c).or(hc);
-        let temper = c.or(prog.head_coach).map_or(10.0, |c| w.coaches[c].personality.ambition);
+        let temper = who.map_or(10.0, |c| w.coaches[c].personality.ambition);
+        let know = who.map_or(0.8, |c| w.coaches[c].systems.know[slot]);
         Caller {
-            skill: a.map_or(9.0, |a| 0.6 * a.scheme + 0.4 * a.game_management),
+            skill: a.map_or(9.0, |a| 0.6 * a.scheme + 0.4 * a.game_management) * (0.7 + 0.3 * know),
             adaptation: a.map_or(9.0, |a| a.game_management),
             aggressiveness: temper,
         }
     };
-    let pick = |c: Option<usize>, n: usize| c.map_or(0, |c| (c.wrapping_mul(2_654_435_761) >> 7) % n);
-    let schemes =
-        [OffScheme::WestCoast, OffScheme::AirRaid, OffScheme::WideZone, OffScheme::PowerGap, OffScheme::SpreadOption];
-    let shells = [Shell::Cover3, Shell::Quarters, Shell::ManPressure, Shell::Cover2];
     let dc = prog.dc.or(prog.head_coach);
     Some(GameTeam {
         name: prog.real_name.clone(),
         players,
         staff: GameStaff {
-            offense: caller(prog.oc),
-            defense: caller(prog.dc),
+            offense: caller(prog.oc, inst.off),
+            defense: caller(prog.dc, 7 + inst.shell),
             game_management: hc.map_or(9.0, |a| a.game_management),
             strictness: hc.map_or(10.0, |a| a.discipline),
-            off_scheme: schemes[pick(prog.oc.or(prog.head_coach), schemes.len())],
-            front: if pick(dc, 3) == 0 { Front::ThreeFour } else { Front::FourThree },
-            shell: shells[pick(dc.map(|c| c / 3), shells.len())],
+            off_scheme: inst.offense(),
+            front: inst.front(),
+            shell: inst.shell(),
             playbook: 1.0,
             sportsmanship: prog.head_coach.map_or(10.0, |c| w.coaches[c].sportsmanship),
             // His own habit, kept for his career (S8; spread proposed, not
