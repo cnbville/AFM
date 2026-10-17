@@ -4268,16 +4268,24 @@ fn release_held(w: &mut World, market: &mut PortalMarket) {
     }
 }
 
-/// How much of the yearly transfer flow an era had (T11; proposed, not
-/// confirmed): before the portal a transfer needed his school's release and
-/// sat a year, so about half as many moved; the first portal years about
-/// four in five; from 2020 on, today's flow.
+/// How much of the yearly transfer flow an era had (T11 and part B 10;
+/// proposed, not confirmed): before the portal a transfer needed his
+/// school's release and sat a year, so about half as many moved; the first
+/// portal years about four in five. The one-time free transfer and NIL
+/// (2021) set the 2022 flow (NCAA: 2,918 FBS entrants); revenue sharing and
+/// roster limits grew it to about 4,200 (2024-25). From the 2025 season
+/// the single January window takes the players who would have waited for
+/// spring.
 fn era_factor(label: i32, rule: crate::calendar::rules::TransferRule) -> f64 {
     use crate::calendar::rules::TransferRule;
     match rule {
         TransferRule::Permission => 0.5,
         TransferRule::OpenPortal if label < 2020 => 0.8,
-        _ => 1.0,
+        TransferRule::OpenPortal if label < 2021 => 0.9,
+        _ if label <= 2022 => 1.0,
+        _ if label == 2023 => 1.2,
+        TransferRule::January => 1.45 * 1.3,
+        _ => 1.45,
     }
 }
 
