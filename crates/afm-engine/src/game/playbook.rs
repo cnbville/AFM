@@ -243,7 +243,10 @@ impl Route {
             .iter()
             .map(|&(dx, dy)| {
                 let x = if d > 0.0 { los + d + dx } else { start.x + 1.0 + dx };
-                v2(x, (start.y + dy * out).clamp(1.0, WIDTH - 1.0))
+                // Receivers keep room to work at the sideline, as they are
+                // coached to (two and a half yards; it was one, and outs
+                // ended on the line).
+                v2(x, (start.y + dy * out).clamp(2.5, WIDTH - 2.5))
             })
             .collect();
         (pts, settle)

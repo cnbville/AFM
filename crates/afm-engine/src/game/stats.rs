@@ -50,6 +50,8 @@ pub struct PlayRecord {
     pub yards: f64,
     pub first_down: bool,
     pub touchdown: bool,
+    /// The defense scored on the return (a pick six or a fumble return).
+    pub defense_td: bool,
     pub turnover: bool,
     pub safety: bool,
     pub passer: Option<u32>,
@@ -137,6 +139,7 @@ impl PlayRecord {
             yards: 0.0,
             first_down: false,
             touchdown: false,
+            defense_td: false,
             turnover: false,
             safety: false,
             passer: None,

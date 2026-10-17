@@ -728,11 +728,18 @@ impl<'a> Sim<'a> {
     /// A lineman in the phone booth almost always gets hit.
     pub fn lands_block(&mut self, b: usize, d: usize) -> bool {
         let t = self.t;
-        if t - self.agents[b].last_try < 0.3 {
+        // A set blocker gets his hands back up quicker than one running.
+        let wait = if self.agents[b].vel.len() < 2.5 { 0.15 } else { 0.3 };
+        if t - self.agents[b].last_try < wait {
             return false;
         }
         let speed = self.agents[d].vel.len();
         if matches!(self.agents[d].label, "DE" | "DT" | "NT") && speed < 3.0 {
+            return true;
+        }
+        // Anyone barely moving yet is in the phone booth too: there is no
+        // room or speed to slip the block.
+        if speed < 2.0 {
             return true;
         }
         let (ba, da) = (&self.agents[b], &self.agents[d]);
@@ -742,7 +749,15 @@ impl<'a> Sim<'a> {
         // crossing his face is not. Only the speed across counts.
         let u = if ba.vel.len() > 1.0 { ba.vel.norm() } else { (da.pos - ba.pos).norm() };
         let across = (da.vel.x * u.y - da.vel.y * u.x).abs();
-        let p_miss = clamp(0.22 + 0.006 * (slip - skill) + 0.05 * (across - 2.0).max(0.0), 0.05, 0.55);
+        // A blocker who is set and square, with the man running straight at
+        // him, rarely whiffs (a kick return wall, a pass set): only a dip or
+        // a rip gets by (proposed, not confirmed).
+        let set = ba.vel.len() < 2.5 && across < 2.0 && da.vel.dot((ba.pos - da.pos).norm()) > 2.0;
+        let p_miss = if set {
+            clamp(0.06 + 0.004 * (slip - skill), 0.02, 0.25)
+        } else {
+            clamp(0.22 + 0.006 * (slip - skill) + 0.05 * (across - 2.0).max(0.0), 0.05, 0.55)
+        };
         if self.rng.chance(p_miss) {
             self.agents[b].last_try = t;
             // Slipping a block costs him his momentum: he has to dip or
@@ -914,7 +929,9 @@ impl<'a> Sim<'a> {
                 let disc = self.player(b).traits.discipline;
                 let tech =
                     if e.pass { self.agents[b].a(Attr::PassBlocking) } else { self.agents[b].a(Attr::RunBlocking) };
-                let p = 0.034 * (1.7 - disc / 14.0) * (1.5 - tech / 100.0);
+                // Raised a third (offensive holding ran 0.88 a team game against
+                // about 1.26 real, illegal hands included; proposed, not confirmed).
+                let p = 0.046 * (1.7 - disc / 14.0) * (1.5 - tech / 100.0);
                 if self.rng.chance(p) {
                     self.eng[k].held = true;
                     self.eng[k].w = 0.35;
@@ -1296,12 +1313,14 @@ impl<'a> Sim<'a> {
         self.agents[c].vel = along.scale(v.max(-1.0));
         let force = (r.mass * r.vel.len() + d.mass * d.vel.len()) * 0.5;
         self.contact_force = self.contact_force.max(force);
-        // Ball security against the hit (topic 2).
+        // Ball security against the hit (topic 2). Nearly doubled: fumbles
+        // lost ran 0.2 a team game in the NFL against 0.45 real (proposed,
+        // not confirmed).
         let carry = r.a(Attr::Carrying);
         let hit = d.a(Attr::Strength) * 0.5 + d.a(Attr::Tackling) * 0.5;
         let rain = if self.cond.rain || self.cond.snow { 1.35 } else { 1.0 };
         let p =
-            0.0085 * (force / 1700.0).powf(1.5) * (1.0 + (60.0 - carry) * 0.035).max(0.25) * (0.7 + hit / 160.0) * rain;
+            0.016 * (force / 1700.0).powf(1.5) * (1.0 + (60.0 - carry) * 0.035).max(0.25) * (0.7 + hit / 160.0) * rain;
         if self.notes.fumbled.is_none() && self.rng.chance(p) {
             self.notes.fumbled = Some(r.id);
             self.notes.forced_fumble = Some(d.id);
@@ -1375,13 +1394,19 @@ impl<'a> Sim<'a> {
         if (x - self.progress) * self.goal > 0.0 {
             self.progress = x;
         }
-        // Face masks and late hits ride on the tackle.
-        if self.rng.chance(0.0045 * self.crew.personal) {
-            let i = self.fight[0];
+        // Face masks and late hits ride on the tackle. Unnecessary roughness
+        // stands for every 15-yard personal foul after the whistle (late hits,
+        // hits on a defenceless man, horse collars, taunting): real NFL
+        // about 0.47 a team game with them, face masks 0.18 (Claude's
+        // reading of 2023, proposed, not confirmed; they were 0 and 0.09).
+        if let Some(&i) = self.fight.first() {
             let disc = self.player(i).traits.discipline;
-            if self.rng.chance((1.6 - disc / 12.0).max(0.2) * 0.6) {
-                let (id, side) = (self.agents[i].id, self.agents[i].side);
+            let temper = (1.6 - disc / 12.0).max(0.2) * 0.6;
+            let (id, side) = (self.agents[i].id, self.agents[i].side);
+            if self.rng.chance(0.0087 * self.crew.personal * temper) {
                 self.notes.fouls.push(Foul { kind: FoulKind::FaceMask, side, player: id, at: x });
+            } else if self.rng.chance(0.023 * self.crew.personal * temper) {
+                self.notes.fouls.push(Foul { kind: FoulKind::UnnecessaryRoughness, side, player: id, at: x });
             }
         }
         self.dead = true;

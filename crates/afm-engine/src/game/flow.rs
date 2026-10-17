@@ -702,11 +702,20 @@ impl<'a> Game<'a> {
         // A starter only beats a backup who is clearly worse (part C 3: real
         // units are mostly backups and young players; proposed, not
         // confirmed: a starter counts 10 points less).
+        // A return unit wants men who can block in space (tight ends,
+        // linebackers, fullbacks; under the 2025 NFL kickoff, bigger bodies
+        // in the setup zone); a coverage unit wants speed, tackling and the
+        // hands to get off a block (proposed, not confirmed: both used to
+        // pick by speed, tackling and blocking alike).
         let score: Vec<f64> = (0..ps.len())
             .map(|i| {
                 let p = &ps[i];
-                0.4 * p.a(Attr::Speed) + 0.3 * p.a(Attr::Tackling) + 0.3 * p.a(Attr::RunBlocking)
-                    - if side.starts(i) { 10.0 } else { 0.0 }
+                let skill = if receiving {
+                    0.3 * p.a(Attr::Speed) + 0.4 * p.a(Attr::RunBlocking) + 0.3 * p.a(Attr::Strength)
+                } else {
+                    0.4 * p.a(Attr::Speed) + 0.35 * p.a(Attr::Tackling) + 0.25 * p.a(Attr::BlockShedding)
+                };
+                skill - if side.starts(i) { 10.0 } else { 0.0 }
             })
             .collect();
         pool.sort_by(|&a, &b| score[b].total_cmp(&score[a]));
@@ -1350,7 +1359,7 @@ impl<'a> Game<'a> {
             }
             let p = &self.sides[o].team.players[i];
             let tired = 1.0 - self.sides[o].energy[i];
-            let chance = 0.0016
+            let chance = 0.00135
                 * (1.6 - p.traits.discipline / 15.0).max(0.3)
                 * (1.0 + 1.3 * crowd)
                 * crew
@@ -1372,10 +1381,14 @@ impl<'a> Game<'a> {
         }
         let qb = off.iter().find(|x| x.0 == ORole::QB).map(|x| x.1).unwrap_or(0);
         let qp = &self.sides[o].team.players[qb];
-        if self.rng.chance(0.0035 * (1.3 - qp.a(Attr::Awareness) / 120.0) * (1.0 + crowd) * crew) {
+        if self.rng.chance(0.0047 * (1.3 - qp.a(Attr::Awareness) / 120.0) * (1.0 + crowd) * crew) {
             return Some(Foul { kind: FoulKind::DelayOfGame, side: 0, player: qp.id, at: self.x });
         }
-        if self.rng.chance(0.0035 * crew * (1.3 - qp.knowledge * 0.3)) {
+        // Illegal formation stands for every 5-yard offensive alignment foul
+        // (shifts, motion, ineligible downfield, too many men): real about
+        // 0.6 a team game together (Claude's reading of 2023, proposed, not
+        // confirmed). False starts ran a fifth high, delay a quarter low.
+        if self.rng.chance(0.0078 * crew * (1.3 - qp.knowledge * 0.3)) {
             let id =
                 off.iter().find(|x| x.0.is_receiver()).map(|x| self.sides[o].team.players[x.1].id).unwrap_or(qp.id);
             return Some(Foul { kind: FoulKind::IllegalFormation, side: 0, player: id, at: self.x });
@@ -1909,6 +1922,7 @@ impl<'a> Game<'a> {
             return r;
         }
         if res.defense_td {
+            r.defense_td = true;
             r.epa = -6.95 - r.ep_before;
             self.add_points(d, 6);
             self.stats.book(&r);
@@ -2267,35 +2281,10 @@ fn unused() -> crate::game::geom::V2 {
     v2(0.0, 0.0)
 }
 
-/// Debug tooling: run one snap with a given call from a spot, printing the
-/// tracked play as it goes.
-pub fn trace_snap(
-    off: &GameTeam,
-    def: &GameTeam,
-    level: Level,
-    call: OffCall,
-    dcall: DefCall,
-    los: f64,
-    seed: u64,
-) -> PlayRecord {
-    trace_snap_opt(off, def, level, call, dcall, los, seed, true)
-}
-
-/// Run one snap with or without the agent trace.
-#[allow(clippy::too_many_arguments)]
-pub fn trace_snap_opt(
-    off: &GameTeam,
-    def: &GameTeam,
-    level: Level,
-    call: OffCall,
-    dcall: DefCall,
-    los: f64,
-    seed: u64,
-    trace: bool,
-) -> PlayRecord {
-    let setup = GameSetup::new(off, def, level, seed);
+/// A bare game at one spot, for the trace tools.
+fn bare_game<'a>(setup: &'a GameSetup, off: &'a GameTeam, def: &'a GameTeam, los: f64, seed: u64) -> Game<'a> {
     let mut g = Game {
-        s: &setup,
+        s: setup,
         sides: [Side::new(off, 99.0, 3), Side::new(def, 99.0, 3)],
         rng: Rng::new(seed as u32),
         crew: Crew { holding: 1.0, pass_interference: 1.0, pre_snap: 0.0, personal: 1.0 },
@@ -2324,8 +2313,51 @@ pub fn trace_snap_opt(
         reviewed: None,
     };
     g.stats.quarters.push([0, 0]);
+    g
+}
+
+/// Debug tooling: run one snap with a given call from a spot, printing the
+/// tracked play as it goes.
+pub fn trace_snap(
+    off: &GameTeam,
+    def: &GameTeam,
+    level: Level,
+    call: OffCall,
+    dcall: DefCall,
+    los: f64,
+    seed: u64,
+) -> PlayRecord {
+    trace_snap_opt(off, def, level, call, dcall, los, seed, true)
+}
+
+/// Run one snap with or without the agent trace.
+#[allow(clippy::too_many_arguments)]
+pub fn trace_snap_opt(
+    off: &GameTeam,
+    def: &GameTeam,
+    level: Level,
+    call: OffCall,
+    dcall: DefCall,
+    los: f64,
+    seed: u64,
+    trace: bool,
+) -> PlayRecord {
+    let setup = GameSetup::new(off, def, level, seed);
+    let mut g = bare_game(&setup, off, def, los, seed);
     super::sim::TRACE.store(trace, std::sync::atomic::Ordering::Relaxed);
     let r = g.run_scrimmage_call(call, Some(dcall));
     super::sim::TRACE.store(false, std::sync::atomic::Ordering::Relaxed);
     r
+}
+
+/// One kickoff by `off` to `def` with the level's rules, for the trace
+/// tools: the play record and where the receiving team takes over.
+pub fn trace_kickoff(off: &GameTeam, def: &GameTeam, level: Level, seed: u64, trace: bool) -> (PlayRecord, f64) {
+    let setup = GameSetup::new(off, def, level, seed);
+    let mut g = bare_game(&setup, off, def, 35.0, seed);
+    super::sim::TRACE.store(trace, std::sync::atomic::Ordering::Relaxed);
+    let from = g.rules().kickoff_from;
+    g.kickoff(0, from, false);
+    super::sim::TRACE.store(false, std::sync::atomic::Ordering::Relaxed);
+    (g.stats.plays.pop().expect("a kickoff record"), g.x)
 }

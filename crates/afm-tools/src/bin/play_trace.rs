@@ -1,7 +1,7 @@
 //! Debug tool: trace one snap. Usage: play_trace [run|pass|N concept index] [seed]
 
 use afm_engine::game::OffScheme;
-use afm_engine::game::flow::{trace_snap, trace_snap_opt};
+use afm_engine::game::flow::{trace_kickoff, trace_snap, trace_snap_opt};
 use afm_engine::game::playbook::*;
 use afm_engine::game::synthetic::synthetic_team;
 use afm_engine::player::Level;
@@ -51,6 +51,53 @@ fn main() {
                 }
             }
         }
+    }
+    // `kickoff [seed] [n]`: n kickoffs by A to B, with where each lands, the
+    // return and the spot (one traced when n is left out).
+    if what == "kickoff" {
+        let n: u64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(0);
+        if n == 0 {
+            let (r, spot) = trace_kickoff(&a, &b, level, seed, true);
+            println!("{} | land {:.0} ret {:.1} spot {spot:.1}", r.why, 100.0 - r.kick_distance - 35.0, r.return_yards);
+            return;
+        }
+        let (mut tb, mut ret, mut yds, mut spot_sum, mut long) = (0, 0, 0.0, 0.0, 0);
+        let (mut td, mut first_td) = (0, None);
+        let mut ys = Vec::new();
+        for s in seed..seed + n {
+            let (r, spot) = trace_kickoff(&a, &b, level, s, false);
+            spot_sum += spot;
+            if r.touchback {
+                tb += 1;
+            } else if r.returner.is_some() {
+                ret += 1;
+                yds += r.return_yards;
+                ys.push(r.return_yards);
+                if r.return_yards >= 40.0 {
+                    long += 1;
+                }
+                if r.touchdown {
+                    td += 1;
+                    first_td.get_or_insert(s);
+                }
+            }
+        }
+        ys.sort_by(|a, b| a.total_cmp(b));
+        let q = |f: f64| ys.get(((ys.len() as f64 - 1.0) * f) as usize).copied().unwrap_or(0.0);
+        println!(
+            "touchback {:.3} returned {:.3} avg {:.1} (p10 {:.0} p50 {:.0} p90 {:.0}) 40+ {:.3} TD {:.4} (first seed {:?}) start {:.1}",
+            tb as f64 / n as f64,
+            ret as f64 / n as f64,
+            yds / ret.max(1) as f64,
+            q(0.1),
+            q(0.5),
+            q(0.9),
+            long as f64 / ret.max(1) as f64,
+            td as f64 / ret.max(1) as f64,
+            first_td,
+            spot_sum / n as f64
+        );
+        return;
     }
     let kind = match what.as_str() {
         "run" => PlayKind::Run(RunConcept::InsideZone),

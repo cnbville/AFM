@@ -169,8 +169,23 @@ struct Pass {
     look_off: f64,
     /// The receiver he has decided on and when the ball comes out: seeing
     /// it and letting it go takes a beat, shorter for a quick mind.
-    commit: Option<(usize, f64)>,
+    commit: Option<(usize, f64, f64)>,
+    /// Why he chose the man he throws to (debug counts, `QB_WHY`).
+    why: usize,
 }
+
+/// Debug counts of how throws were chosen: on reads 1-4+, any open man
+/// after the progression, the checkdown, a forced ball, a throwaway, a
+/// scramble (read by `match_check` with `AFM_QBSTATS`).
+pub static QB_WHY: [std::sync::atomic::AtomicU64; 9] = [const { std::sync::atomic::AtomicU64::new(0) }; 9];
+
+fn qb_why(k: usize) {
+    QB_WHY[k].fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Debug sums of the throw miss (sd, thousandths of a yard) and count, by
+/// throw length (under 10, 10-20, over 20 yards): for `match_check`.
+pub static THROW_SD: [std::sync::atomic::AtomicU64; 6] = [const { std::sync::atomic::AtomicU64::new(0) }; 6];
 
 /// Run a snap.
 pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
@@ -367,6 +382,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 hot: false,
                 look_off: 0.0,
                 commit: None,
+                why: 0,
             });
             if c.drop == Drop::Screen {
                 sim.screen = pass.as_ref().and_then(|ps| ps.reads.first().copied());
@@ -763,8 +779,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                         sim.agents[k].job = Job::Pursue;
                     }
                     sim.progress = to.x;
-                    // A catch at the sideline needs his feet in (topic 5).
-                    if to.y < 0.6 || to.y > WIDTH - 0.6 {
+                    // A catch at the sideline or the end line needs his feet
+                    // in (topic 5).
+                    if to.y < 0.6 || to.y > WIDTH - 0.6 || to.x > END_LINE - 0.6 {
                         let feet = s.rules.feet_inbounds as f64;
                         let aw = sim.agents[tgt].a(Attr::Awareness);
                         if !sim.rng.chance(clamp(0.35 + 0.006 * aw - 0.15 * (feet - 1.0), 0.1, 0.95)) {
@@ -1280,9 +1297,12 @@ fn assign_defense(
 
 fn man_job(sim: &Sim, d: usize, r: usize) -> Job {
     let (da, ra) = (&sim.agents[d], &sim.agents[r]);
-    // Reaction lag: route running against cover skill (topic 2).
+    // Reaction lag: route running against cover skill (topic 2). A tenth of
+    // a second quicker than it was: man coverage was completed 72% of the
+    // time in the NFL against about 57% real (Cover 0, 1 and 2-man,
+    // engine_targets.json), proposed, not confirmed.
     let lag = clamp(
-        0.32 + 0.0065 * (ra.a(Attr::RouteRunning) - da.a(Attr::ManCoverage))
+        0.22 + 0.0065 * (ra.a(Attr::RouteRunning) - da.a(Attr::ManCoverage))
             + 0.003 * (ra.a(Attr::Agility) - da.a(Attr::Agility)),
         0.1,
         0.75,
@@ -1651,7 +1671,9 @@ pub(crate) fn escort(sim: &mut Sim, i: usize) {
             // Blocks from behind are illegal.
             let from_behind =
                 (sim.agents[d].pos - me).dot(sim.agents[d].vel.norm()) > 0.5 && sim.agents[d].vel.len() > 3.0;
-            if from_behind && sim.rng.chance(0.03 * sim.crew.holding) {
+            // Called on 7.5% of them (was 3%: illegal blocks ran 0.1 a team
+            // game, real about 0.28; proposed, not confirmed).
+            if from_behind && sim.rng.chance(0.075 * sim.crew.holding) {
                 let (id, side, at) = (sim.agents[i].id, side, me.x);
                 sim.notes.fouls.push(Foul { kind: FoulKind::IllegalBlock, side, player: id, at });
             }
@@ -1742,6 +1764,12 @@ fn read_option(sim: &mut Sim, qb: usize, dir: f64, off_n: usize) -> bool {
 
 /// The quarterback: drop, read the progression, feel pressure, then throw,
 /// scramble, throw it away or hold it (topics 1 and 2). Returns the throw.
+/// The window (yards) a quarterback wants on a read before he lets it go.
+/// It was 1.6: quarterbacks passed up open men, ran out of reads and threw
+/// 29% of NFL targets to the flat (real 9%). At 0.3 the flat is 18%, the
+/// rest is the play library's (proposed, not confirmed).
+const READ_NEED: f64 = 0.3;
+
 fn quarterback(
     sim: &mut Sim,
     ps: &mut Pass,
@@ -1840,7 +1868,9 @@ fn quarterback(
     // A quick mind gets rid of it sooner; a slow one hangs on, as lower
     // levels do (real time to throw rises from the NFL to college to high
     // school). A shot play buys a beat more (proposed, not confirmed).
-    let clock = clamp(3.3 - 0.01 * (aw - 60.0) - 0.004 * (poise - 60.0), 2.8, 3.8)
+    // (Raised 0.3 s: with the throwing motion counted, real time to throw
+    // still ran 0.3 s longer, and a tenth of real throws come after 3.9 s.)
+    let clock = clamp(3.6 - 0.01 * (aw - 60.0) - 0.004 * (poise - 60.0), 3.1, 4.1)
         + if ps.concept.drop == Drop::Deep { 0.3 } else { 0.0 };
     let late = t > clock;
     let over = ps.read >= ps.reads.len() || late;
@@ -1855,7 +1885,7 @@ fn quarterback(
     } else {
         (
             vec![ps.reads[ps.read]],
-            1.6 + caution - 0.18 * tired.max(0.0) - 0.44 * panic + if ps.read == 0 { 0.1 } else { 0.0 },
+            READ_NEED + caution - 0.18 * tired.max(0.0) - 0.44 * panic + if ps.read == 0 { 0.1 } else { 0.0 },
         )
     };
     let noise = (1.6 - 0.017 * pro(iq)).max(0.2) * (1.0 + 0.6 * panic);
@@ -1881,6 +1911,7 @@ fn quarterback(
         }
         if seen > need && best.is_none_or(|b| seen > b.1) {
             best = Some((r, seen, p, flight));
+            ps.why = if over { 4 } else { ps.read.min(3) };
         }
     }
     if screen {
@@ -1926,12 +1957,18 @@ fn quarterback(
             {
                 continue;
             }
+            // The checkdown has to be open (real checkdowns are about 9% of
+            // targets); forcing it takes at least a step on his man. With
+            // neither, he holds it: a scramble, a throwaway or a sack, as
+            // real dropbacks end about 15% of the time (proposed, not
+            // confirmed: it took anyone within 7 yards and 2.5 yards beaten).
             let (w, p, flight) = window(sim, qb, r);
-            if !force && ((p.x - s.los) * sim.goal > 7.0 || w < -2.5) {
+            if if force { w < -1.2 } else { (p.x - s.los) * sim.goal > 7.0 || w < 0.3 } {
                 continue;
             }
             if ck.is_none_or(|c| w > c.1) {
                 ck = Some((r, w, p, flight));
+                ps.why = if force { 6 } else { 5 };
             }
         }
         best = ck;
@@ -1962,16 +1999,20 @@ fn quarterback(
     }
     // Seeing it and letting it go: a quick mind throws on the break
     // (anticipation); a slow one waits to see the man open, and the ball
-    // comes out late. Pressure on top of him makes him throw at once.
+    // comes out late. Then the throwing motion: the ball leaves at the end
+    // of it (it used to leave the moment he decided, so real time to throw,
+    // snap to release, ran about half a second short). Pressure on top of
+    // him makes him skip the wait and short-arm it.
     if !screen
         && let Some((r, ..)) = best
         && ps.commit.is_none()
     {
         let delay = clamp(0.25 - 0.005 * (iq - 50.0), 0.0, 0.6);
-        ps.commit = Some((r, t + delay));
+        ps.commit = Some((r, t + delay + release, t + 0.6 * release));
     }
-    if !screen && let Some((r, at)) = ps.commit {
-        let now = t + 1e-9 >= at || pressure > 0.8 || nearest < 2.0;
+    if !screen && let Some((r, at, hurried)) = ps.commit {
+        let hurry = pressure > 0.8 || nearest < 2.0;
+        let now = t + 1e-9 >= if hurry { hurried } else { at };
         if !now || blocked_throw {
             return None;
         }
@@ -1986,15 +2027,21 @@ fn quarterback(
     }
     // Nothing open: scramble, throw it away, or hold it.
     let speed = sim.agents[qb].a(Attr::Speed);
-    let lane = (0..sim.agents.len()).filter(|&d| sim.agents[d].side == 1 && sim.agents[d].up(t)).all(|d| {
-        let a = sim.agents[d].pos;
-        !(a.x > me.x - 1.0 && a.x < me.x + 5.0 && (a.y - me.y).abs() < 2.5)
-    });
-    let want_run = (over || pressure > 0.7)
-        && lane
-        && t > 2.2
-        && sim.rng.chance(clamp(0.015 + 0.0028 * (speed - 50.0), 0.006, 0.15));
+    // A way out: to one side or the other no free defender is within three
+    // yards, and nobody has hold of him. Rushers locked on blockers are
+    // what he slides around (it used to need an empty box straight ahead,
+    // which a pocket never has: scrambles ran at a tenth of the real 4.9%).
+    let free_near = |side: f64| {
+        (0..sim.agents.len()).any(|d| {
+            let a = &sim.agents[d];
+            a.side == 1 && a.up(t) && a.engaged.is_none() && a.pos.dist(me) < 3.0 && (a.pos.y - me.y) * side > -0.5
+        })
+    };
+    let lane = nearest > 1.2 && (!free_near(1.0) || !free_near(-1.0));
+    let want_run =
+        (over || pressure > 0.5) && lane && t > 2.0 && sim.rng.chance(clamp(0.03 + 0.004 * (speed - 50.0), 0.01, 0.2));
     if want_run || (pressure > 1.0 && lane && speed > 75.0 && sim.rng.chance(0.25)) {
+        qb_why(8);
         ps.scramble = true;
         return None;
     }
@@ -2002,11 +2049,12 @@ fn quarterback(
     // and the sense to give up on it; many hold on and take the sack.
     let outside = (me.y - s.ball_y).abs() > 4.0;
     let imminent = nearest < 2.2 && pressure > 0.4;
-    let away = over
+    let away = (over || pressure > 0.6)
         && (outside || !blocked_throw)
         && (imminent || t > clock + 0.5)
         && sim.rng.chance(0.3 * (0.06 + 0.003 * aw + if outside { 0.12 } else { 0.0 }));
     if away {
+        qb_why(7);
         // Throw it away (outside the pocket it is legal past the line).
         let side = if me.y > MID { 1.0 } else { -1.0 };
         let to = v2(los + 3.0, if side > 0.0 { WIDTH + 2.0 } else { -2.0 });
@@ -2096,7 +2144,7 @@ impl<'s> Predict<'s> {
         let Job::Route { pts, settle, .. } = &self.sim.agents[self.r].job else {
             let a = &self.sim.agents[self.r];
             let p = a.pos + a.vel.scale(dt);
-            return v2(p.x.min(109.0), clamp(p.y, 0.5, WIDTH - 0.5));
+            return v2(p.x.min(109.0), clamp(p.y, 1.5, WIDTH - 1.5));
         };
         let steps = (dt / DT).round() as usize;
         while self.spots.len() <= steps {
@@ -2124,7 +2172,7 @@ impl<'s> Predict<'s> {
             self.spots.push(self.a.pos);
         }
         let p = self.spots[steps];
-        v2(p.x.min(109.0), clamp(p.y, 0.5, WIDTH - 0.5))
+        v2(p.x.min(109.0), clamp(p.y, 1.5, WIDTH - 1.5))
     }
 }
 
@@ -2160,14 +2208,22 @@ fn throw(
         let away = (p - sim.agents[d].pos).norm();
         target = target + away.scale(0.45 * acc / 100.0);
     }
+    // He leaves his man room to catch it in bounds (aim points stay a yard
+    // and a half inside the lines; they used to sit on them, and a third of
+    // wide-open quick outs sailed out of bounds).
+    target.y = clamp(target.y, 1.5, WIDTH - 1.5);
     let moving = sim.agents[qb].vel.len() > 3.0;
     let poise = sim.agents[qb].a(Attr::Poise);
     // Error grows gently as accuracy falls: real completion rates drop only a
     // few points from the NFL to college and high school, where receivers
     // and coverage are just as far behind (proposed, not confirmed).
-    let mut sd = aim_sd(acc, dist);
+    let down = ((target.x - q.x) * sim.goal).max(0.0);
+    let mut sd = aim_sd(acc, dist, down);
+    // Pressure in his face throws him off: completions under pressure ran
+    // 53% in the NFL against 49% real, so the effect is about two thirds
+    // stronger than it was (proposed, not confirmed).
     if pressure > 0.3 {
-        sd *= 1.0 + 0.55 * pressure.min(1.5) * (1.35 - poise / 100.0);
+        sd *= 1.0 + 0.9 * pressure.min(1.5) * (1.35 - poise / 100.0);
     }
     if moving {
         sd *= 1.25 - 0.002 * sim.agents[qb].a(Attr::Agility);
@@ -2181,8 +2237,13 @@ fn throw(
     sd *= 1.15 - 0.015 * consistency;
     let along = (target - q).norm();
     let across = along.perp();
-    // Deep balls need the arm too: a weak arm has to put more air under it.
-    let deep = if dist > 25.0 { 1.35 * clamp(1.0 + 0.01 * (75.0 - power), 0.8, 1.4) } else { 1.0 };
+    // Depth is judged less well the farther downfield (the miss grows along
+    // the line from 12 yards downfield: real NFL completion is 54.5% at
+    // 10-19 air yards and 36% at 20+, the engine ran 60% and 46%; a long
+    // throw across the field is not a deep ball), and deep balls need the
+    // arm too: a weak arm has to put more air under it.
+    let judge = 1.0 + 0.022 * (down - 12.0).max(0.0);
+    let deep = judge * if dist > 25.0 { 1.1 * clamp(1.0 + 0.01 * (75.0 - power), 0.8, 1.4) } else { 1.0 };
     let e1 = sd * deep * gauss(sim.rng);
     let e2 = sd * gauss(sim.rng);
     let to = target + along.scale(e1) + across.scale(e2);
@@ -2194,8 +2255,20 @@ fn throw(
             p.x, p.y, to.x, to.y, ra.pos.x, ra.pos.y, ra.vel.x, ra.vel.y, ra.vmax
         );
     }
+    let band = if dist < 10.0 {
+        0
+    } else if dist < 20.0 {
+        1
+    } else {
+        2
+    };
+    THROW_SD[2 * band].fetch_add((sd * 1000.0) as u64, std::sync::atomic::Ordering::Relaxed);
+    THROW_SD[2 * band + 1].fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     ps.thrown = Some(t);
     ps.target = Some(r);
+    if !matches!(ps.concept.drop, Drop::Screen | Drop::Bubble) {
+        qb_why(ps.why);
+    }
     let height = 2.0 + 0.08 * dist;
     sim.ball = Ball::Air { from: q, to, release: t, arrive, target: Some(r), height };
     // The defense reacts to the throw (topic 2.1): those watching the
@@ -2221,24 +2294,44 @@ fn throw(
     let skill = 0.5 * aw + 0.5 * sim.agents[r].a(Attr::Catching);
     let read = (flight - 0.6).max(0.0) * clamp(0.55 - 0.002 * (skill - 60.0), 0.4, 0.7);
     sim.agents[r].ball_react = t + (if facing_qb { 0.1 } else { 0.25 } + 0.003 * (100.0 - aw)).max(read);
-    // Roughing: a hit arriving after the ball is out.
+    // A rusher closing on him as the ball comes out can't pull up: a hit on
+    // the quarterback, and roughing the passer when it lands well after
+    // the release or high (real NFL: roughing about 0.15 a team game;
+    // proposed, not confirmed). It used to take a man within 1.6 yards, and
+    // the throw is never let go with one that close, so it never came.
     let late = (0..sim.agents.len())
-        .find(|&d| sim.agents[d].side == 1 && sim.agents[d].engaged.is_none() && sim.agents[d].pos.dist(q) < 1.6);
-    if let Some(d) = late {
+        .filter(|&d| sim.agents[d].side == 1 && sim.agents[d].engaged.is_none() && sim.agents[d].up(t))
+        .filter_map(|d| {
+            let a = &sim.agents[d];
+            let rel = q - a.pos;
+            let closing = a.vel.dot(rel.norm());
+            let contact = (rel.len() - 0.8) / closing.max(0.1);
+            (rel.len() < 4.5 && closing > 2.0 && contact < 0.7).then_some((d, contact))
+        })
+        .min_by(|a, b| a.1.total_cmp(&b.1));
+    if let Some((d, contact)) = late {
         ps.hit = true;
         let id = sim.agents[d].id;
         sim.notes.hits.push(id);
         let disc = sim.player(d).traits.discipline;
-        if sim.rng.chance(0.06 * (1.5 - disc / 20.0) * sim.crew.personal) {
+        let base = if contact > 0.4 { 0.1 } else { 0.015 };
+        if sim.rng.chance(base * (1.5 - disc / 20.0) * sim.crew.personal) {
             sim.notes.fouls.push(Foul { kind: FoulKind::RoughingPasser, side: 1, player: id, at: q.x });
         }
     }
     (to, r, dist, flight, sd)
 }
 
-/// How far a clean throw misses on average at this distance (yards).
-fn aim_sd(acc: f64, dist: f64) -> f64 {
-    (0.25 + 0.036 * dist + 0.0007 * dist * dist) * 1.3 * (0.02 * (79.0 - pro(acc))).exp()
+/// How far a clean throw misses on average at this distance (yards). Each
+/// accuracy point is worth 1.7% less miss (was 2%): FBS throws missed 27%
+/// more than NFL throws and FBS completion ran 9 points under the NFL's,
+/// against 4 real (proposed, not confirmed).
+/// The miss grows with the length of the throw and faster with how far
+/// downfield it goes (a long throw across the field to an out is a firm,
+/// flat ball; the curve used to take throw length alone, and a third of
+/// wide-open quick outs from the far hash missed).
+fn aim_sd(acc: f64, dist: f64, down: f64) -> f64 {
+    (0.25 + 0.036 * dist + 0.0007 * down * down) * 1.3 * (0.017 * (82.0 - pro(acc))).exp()
 }
 
 /// A quarterback skill on the scale where it decides games: through the pro
@@ -2266,7 +2359,7 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
     // free rusher).
     let through = |d: usize| {
         let a = &sim.agents[d];
-        a.engaged.is_some_and(|k| sim.eng[k].pass && sim.eng[k].w > 0.6) && a.pos.dist(me) < 1.0
+        a.engaged.is_some_and(|k| sim.eng[k].pass && sim.eng[k].w > 0.45) && a.pos.dist(me) < 1.2
     };
     let mut tacklers: Vec<usize> = (0..sim.agents.len())
         .filter(|&d| {
@@ -2292,7 +2385,7 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
     let esc = 0.4 * q.a(Attr::Elusiveness) + 0.3 * q.a(Attr::Agility) + 0.3 * q.a(Attr::Strength);
     let tk = 0.6 * r.a(Attr::Tackling) + 0.2 * r.a(Attr::Strength) + 0.2 * r.a(Attr::Agility);
     let seen = sim.sees(qb, r.pos);
-    let logit = -1.9 + (esc - tk) / 12.0 + if seen { 0.0 } else { -1.0 } + if grabbing { 1.2 } else { 0.0 };
+    let logit = -2.4 + (esc - tk) / 12.0 + if seen { 0.0 } else { -1.0 } + if grabbing { 1.2 } else { 0.0 };
     if sim.rng.chance(1.0 / (1.0 + (-logit).exp())) {
         let (rid, qid) = (r.id, q.id);
         sim.notes.missed.push((rid, qid));
@@ -2607,12 +2700,14 @@ fn cover_inner(
             // his spot on top of that.
             let want = v + (spot - me).scale(2.0);
             sim.steer(i, want);
-            // Hand-fighting downfield can draw a flag (defensive holding / illegal contact).
+            // Hand-fighting downfield can draw a flag (defensive holding,
+            // illegal contact, illegal hands: real NFL about 0.65 a team game
+            // together, Claude's reading of 2023; it ran 0.09).
             let rd = sim.agents[target].pos.dist(me);
             if rd < 0.9
                 && t > 0.8
                 && t < 2.6
-                && sim.rng.chance(0.0016 * sim.crew.holding * (1.6 - sim.player(i).traits.discipline / 14.0))
+                && sim.rng.chance(0.0105 * sim.crew.holding * (1.6 - sim.player(i).traits.discipline / 14.0))
             {
                 let (id, at) = (sim.agents[i].id, me.x);
                 let ok = pass.as_ref().is_some_and(|p| p.thrown.is_none());
@@ -2861,7 +2956,9 @@ fn catch_point(sim: &mut Sim, r: usize, to: V2, from: V2, release: f64, s: &Snap
     // An open man can stop, come back or lay out for a loose ball; a
     // covered one can't, or the defender gets there first.
     let reach = 1.3 + 0.4 * (dd - 1.5).clamp(0.0, 4.0);
-    if to.y < -0.5 || to.y > WIDTH + 0.5 || dr > radius + reach {
+    // Past the end line is out of bounds too (it used to be caught there,
+    // and red zone passes went for touchdowns half again as often as real).
+    if to.y < -0.5 || to.y > WIDTH + 0.5 || to.x > END_LINE + 0.5 || dr > radius + reach {
         // Off target. A defender in the way may still pick it.
         if let Some(d) = dbest {
             let da = &sim.agents[d];
@@ -2913,9 +3010,12 @@ fn catch_point(sim: &mut Sim, r: usize, to: V2, from: V2, release: f64, s: &Snap
     let mut p = 1.0 - (0.105 - 0.00095 * c).max(0.012);
     let reach = dr / radius;
     // Inside his frame it is routine; reaching away from his body or
-    // diving costs more the farther it is.
-    if reach > 0.75 {
-        p *= 1.0 - 0.7 * clamp((reach - 0.75) / 1.3, 0.0, 1.0);
+    // diving costs more the farther it is. (Gentler than it was: 28% of NFL
+    // throws and 40% of FBS throws ended off target or out of reach,
+    // against about 18-20% real off-target throws; proposed, not
+    // confirmed.)
+    if reach > 0.9 {
+        p *= 1.0 - 0.6 * clamp((reach - 0.9) / 1.6, 0.0, 1.0);
     }
     if dd < 1.4 {
         let fight = 0.5 * c + 0.25 * ra.a(Attr::Strength) + 0.25 * ra.a(Attr::Jumping);
@@ -2952,12 +3052,14 @@ fn pi_check(sim: &mut Sim, d: usize, r: usize, to: V2, air: f64, broke_up: bool)
     let trailing = (to - da.pos).dot(to - ra.pos) > 0.0 && da.pos.dist(to) > ra.pos.dist(to);
     let facing = da.face.dot((sim.ball_pos() - da.pos).norm()) > 0.3;
     let disc = sim.player(d).traits.discipline;
+    // Half again what it was: pass interference ran 0.27 a team game, real
+    // about 0.42, offensive 0.05 against 0.17 (proposed, not confirmed).
     let base = if trailing && !facing {
-        0.55
+        0.8
     } else if trailing {
-        0.22
+        0.33
     } else {
-        0.05
+        0.075
     };
     let p = base
         * (1.35 - disc / 20.0)
@@ -2967,7 +3069,7 @@ fn pi_check(sim: &mut Sim, d: usize, r: usize, to: V2, air: f64, broke_up: bool)
     if sim.rng.chance(p) {
         let id = da.id;
         sim.notes.fouls.push(Foul { kind: FoulKind::PassInterference, side: 1, player: id, at: to.x });
-    } else if sim.rng.chance(0.012 * (1.3 - sim.player(r).traits.discipline / 20.0) * sim.crew.pass_interference) {
+    } else if sim.rng.chance(0.029 * (1.3 - sim.player(r).traits.discipline / 20.0) * sim.crew.pass_interference) {
         let id = ra.id;
         sim.notes.fouls.push(Foul { kind: FoulKind::OffensivePassInterference, side: 0, player: id, at: to.x });
     }
