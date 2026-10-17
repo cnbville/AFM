@@ -69,6 +69,24 @@ Code and how to rerun: `tools/faces/` (trial tooling, not the game). Page: the "
   - The media-day cut-out recolours the photo's own shirt instead of drawing a jersey.
   - Hairstyles and tattoos can't be steered.
 
+## Photo model proof (2026-10-17)
+
+Cain called the GAN photos "horrible" and asked for a clear fix or the 3D heads. This proof tests a current photo model with a face lock on the same three players. Code and measured times: `tools/faces/photo/`. Page: the "AFM Photo Face Proof" artifact.
+
+- **Set-up.** RealVisXL V5.0 Lightning (a photoreal Stable Diffusion XL fine-tune, 6 steps, 896 by 1152). The age-22 photo comes from a text description: heritage, position, height, weight, beard, jersey. Other ages add a face lock fed the age-22 face: InstantID (face adapter 0.65, landmark guide 0.5, prompt guidance 1.5). PhotoMaker V2 was tried first and failed (0.09 to 0.15 same-person).
+- **Identity drift** (same reader and line as the GAN proof):
+
+  | Player | 17 | 28 | 34 |
+  |---|---|---|---|
+  | Prude | 0.78 | 0.75 | 0.79 |
+  | McSpadden | 0.75 | 0.74 | 0.72 |
+  | Meza | 0.79 | 0.84 | 0.82 |
+
+- **Looks.** Photoreal skin, light, jerseys and pads in team colours. Logos and numbers are garbled.
+- **Weak spots seen.** Ageing is too weak: 17 and 34 look much like 22 (age reader 25 to 36). Weight barely shows. McSpadden's hairline does not recede. The pose is the same in every photo. A weaker lock shows more age and weight but less likeness.
+- **Speed (measured on 4 Xeon cores at 2.8 GHz, 15 GB, no graphics card).** First photo of a player 2.9 to 3.0 min; each locked photo 7.3 to 7.9 min (7.6 on average). Estimates, not measured: about 0.5 to 1 min and 2 to 4 min on an M1; about 4 to 8 min and 10 to 20 min on an Intel Mac. About 11 GB of model files; about 10 GB of memory per locked photo, so an 8 GB M1 would swap.
+- **Licences.** RealVisXL inherits the SDXL OpenRAIL++ licence. InstantID's weights are Apache 2.0, but it reads faces with insightface's antelopev2 models, which are non-commercial research only. Fine for personal use; a public release would need another face reader.
+
 ## Known limits
 
 - Ageing edits drift a little: after many years the face can look like a relative of the young one. The proof measures this with a face recognition model.
