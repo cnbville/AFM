@@ -2032,7 +2032,12 @@ fn retires(s: &ProState, r: &mut CareerRecord, report: &SeasonReport, rng: &mut 
         } else {
             0.3
         };
-        if rng.chance(base * clamp(1.3 - love * 0.03, 0.6, 1.3)) {
+        // An unsigned quarterback waits longer for a call: every team keeps
+        // two or three and quarterbacks get hurt every week, so backups find
+        // work into their thirties (section 5 topic 1.3: he weighs his chance
+        // of a call; proposed, not confirmed size).
+        let wait = if p.position == Position::QB { 0.6 } else { 1.0 };
+        if rng.chance(base * wait * clamp(1.3 - love * 0.03, 0.6, 1.3)) {
             r.note(format!("Unsigned for a season, he retired at {age}."));
             return true;
         }

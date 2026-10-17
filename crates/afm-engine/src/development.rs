@@ -555,6 +555,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // --- Old skills fade (fix list 3.8) ------------------------------------------
     // A skill only an old position used fades each year he doesn't practice
     // it: a converted quarterback's passing, a former receiver's routes.
+    // Only positions he held from 18 on count: a high school freshman's
+    // first spot is rarely drilled (faded from 14, it put 9 first-rounders a
+    // year from outside the consensus top 50 against a real 1-3).
     // (Proposed, not confirmed: 1.5 points a year, the room above it too.)
     if player.position_history.iter().any(|h| h.1 != position) {
         for key in Attr::ALL {
@@ -564,7 +567,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             let old = player
                 .position_history
                 .iter()
-                .filter(|h| h.1 != position)
+                .filter(|h| h.1 != position && h.0 >= 18)
                 .map(|h| weight(h.1, key))
                 .fold(0.0, f64::max);
             if old >= 0.04 {

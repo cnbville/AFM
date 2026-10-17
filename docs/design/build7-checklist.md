@@ -81,3 +81,7 @@ Plays and tactics pushed NFL scoring to 32.2 points (real 22.5) and kickoff retu
 - Man coverage lag 0.12 s at the break.
 - Every NFL (400 games): points 32.2 → 30.0, completion 69.2% → 65.8% (real 64.5%), sacks 5.2% → 6.1% (6.8%), time to throw 2.39 → 2.56 s (2.71).
 - FBS fell with it: points 28.7 → 24.3 (real 27.0), completion 60.8% → 57.1% (60.6%), yards per attempt 7.0 → 6.5 (7.3). High school sacks rose from 10.9% to 16.9% of dropbacks and points from 27.5 to 21.6 (no real high school play-by-play; high school games still run on the stand-in in the world). The engine scores more in the NFL than in FBS, the reverse of real football. All three are findings for trial 7.
+
+### Found by the full test run
+- The old-skill fade (fix list 3.8) also faded skills from a high school freshman's first position, which put 9 first-rounders a year from outside the consensus top 50 (real 1-3). It now counts only positions held from 18 on: 3.
+- The move-back rule (3.9) left 8 retired quarterbacks with three or more seasons in the class sim, with a median last age of 28.5 against 27 for backs. An unsigned quarterback now waits longer for a call (every team carries two or three): median 31 (proposed, not confirmed size).
