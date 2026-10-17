@@ -201,6 +201,10 @@ pub struct Staff {
     /// Head coach sportsmanship, 1-20 (hidden): how soon he takes his
     /// starters out of a decided game (dynasty item 3).
     pub sportsmanship: f64,
+    /// The defensive coordinator's personnel habit (S8): how often he meets
+    /// three receivers with nickel instead of staying in base. Real NFL
+    /// teams answered 11 personnel with nickel 88% of the time.
+    pub nickel: f64,
 }
 
 impl Staff {
@@ -215,6 +219,7 @@ impl Staff {
             shell: Shell::Cover3,
             playbook: 1.0,
             sportsmanship: 10.0,
+            nickel: 0.88,
         }
     }
 }

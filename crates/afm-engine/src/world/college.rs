@@ -23,7 +23,7 @@ use super::{Stage, World, division_level, geo};
 use crate::calendar::data::{BOWLS, CELEBRATION_BOWL, INDOOR_PROGRAMS, RIVALRIES, et_offset};
 use crate::calendar::weather::{self, Severe};
 use crate::calendar::{CfbPostseason, Date, Event, Kind, Level as CalLevel, Loudness};
-use crate::game::{Conditions, GameTeam, quick_game_in};
+use crate::game::{Conditions, GameTeam, Venue, quick_game_in};
 use crate::player::PlayingTime;
 use crate::rng::clamp;
 
@@ -318,7 +318,7 @@ pub(crate) fn start(w: &mut World) {
 
 /// Weather for a game: from the climate of the home town (or the neutral
 /// site) at local kickoff, or indoors.
-fn conditions(w: &World, g: &Game, k: usize) -> (Conditions, Played, Option<Severe>) {
+fn conditions(w: &World, g: &Game, k: usize) -> (Venue, Played, Option<Severe>) {
     let home = &w.programs[g.home];
     let (state, indoor) = match g.site {
         Some(s) => (s.state, s.indoor),
@@ -337,15 +337,48 @@ fn conditions(w: &World, g: &Game, k: usize) -> (Conditions, Played, Option<Seve
         wx.severe = None;
     }
     let along = (key_uniform(seed ^ 0xA10, (g.date.0 as u64) << 16 ^ k as u64) * 2.0 - 1.0).clamp(-1.0, 1.0);
+    let altitude = match g.site {
+        Some(s) => geo::town_altitude(s.town),
+        None => geo::college_altitude(&home.real_name),
+    };
+    // The crowd (trial 4 topic 3): a big stadium is louder, a night game,
+    // a rivalry and a game that matters to the home side louder still.
+    // Real home edges are about 2 points at every level, so small crowds
+    // still count (proposed, not confirmed).
+    let crowd = clamp(
+        0.3 + 0.45 * (home.stadium as f64 / 100_000.0).sqrt()
+            + if local >= 18 { 0.08 } else { 0.0 }
+            + if g.rivalry.is_some() { 0.05 } else { 0.0 }
+            + if g.huge_for[0] { 0.05 } else { 0.0 },
+        0.1,
+        1.0,
+    );
     let cond = Conditions {
         temperature: wx.temperature,
         wind: wx.wind,
         wind_along: along,
         rain: wx.rain,
         snow: wx.snow,
-        crowd: 0.5,
+        altitude,
+        crowd,
         ..Conditions::default()
     };
+    let neutral = g.site.is_some();
+    let teams = [g.home, g.away];
+    let wear = teams.map(|t| if t == g.home && !neutral { 0.0 } else { road_wear(w, t, state, g.kickoff.0, altitude) });
+    let cold_unused = teams.map(|t| {
+        if indoor {
+            return 0.0;
+        }
+        let p = &w.programs[t];
+        let usual = if INDOOR_PROGRAMS.contains(&p.real_name.as_str()) {
+            72.0
+        } else {
+            weather::usual_high(&w.states[p.state].code, g.date)
+        };
+        clamp((usual - wx.temperature - 15.0) / 25.0, 0.0, 1.0) * clamp((45.0 - wx.temperature) / 15.0, 0.0, 1.0)
+    });
+    let venue = Venue { cond, neutral, wear, cold_unused };
     let mut played = Played {
         temperature: wx.temperature,
         wind: wx.wind,
@@ -357,7 +390,22 @@ fn conditions(w: &World, g: &Game, k: usize) -> (Conditions, Played, Option<Seve
     if wx.lightning && !indoor {
         played.delay = weather::lightning_delay(seed, g.date.0 as u64 * 1009 + k as u64);
     }
-    (cond, played, wx.severe)
+    (venue, played, wx.severe)
+}
+
+/// A travelling team's road wear (trial 4 topic 3), extra fatigue per play
+/// as a share: the distance, the time zones, a kickoff early or late on its
+/// body clock and thin air it is not used to. Fitted with the crowd to the
+/// real home margin (proposed, not confirmed).
+fn road_wear(w: &World, team: usize, state: usize, kickoff_et: u16, altitude: f64) -> f64 {
+    let p = &w.programs[team];
+    let miles = geo::miles(p.state, state).min(2500.0);
+    let (here, home) = (et_offset(&w.states[state].code), et_offset(&w.states[p.state].code));
+    let body = kickoff_et as i32 - home;
+    let early = (11 - body).max(0) as f64;
+    let late = (body - 22).max(0) as f64;
+    let thin = clamp((altitude - geo::college_altitude(&p.real_name).max(3000.0)) / 4000.0, 0.0, 1.0);
+    0.015 * miles / 1000.0 + 0.008 * (here - home).abs() as f64 + 0.01 * early + 0.008 * late + 0.08 * thin
 }
 
 /// A redshirt from fall camp: the staff means him to sit this season.
@@ -495,7 +543,7 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
     let seed = w.options.seed as u64 ^ ((cs.year as u64) << 32) ^ ((date.0 as u64) << 8);
     struct Job {
         k: usize,
-        cond: Conditions,
+        venue: Venue,
         played: Played,
         neutral: bool,
         teams: Option<(GameTeam, GameTeam)>,
@@ -505,7 +553,7 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
         .iter()
         .map(|&k| {
             let g = &cs.games[k];
-            let (cond, played, _) = conditions(w, g, k);
+            let (venue, played, _) = conditions(w, g, k);
             let strip = |t: &GameTeam| {
                 let mut t = t.clone();
                 t.players.retain(|p| !cs.out.contains_key(&p.id) && !capped.contains(&p.id));
@@ -521,7 +569,7 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
             };
             let context = [(g.home, g.away), (g.away, g.home)]
                 .map(|(me, opp)| season::game_context(&cs.coaches, g.division, &cs.results, me, opp));
-            Job { k, cond, played, neutral: g.site.is_some(), teams, context }
+            Job { k, venue, played, neutral: g.site.is_some(), teams, context }
         })
         .collect();
     let levels: Vec<crate::player::Level> = jobs
@@ -542,7 +590,7 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
                 return None;
             }
             let s = seed.wrapping_mul(1_000_003).wrapping_add(j.k as u64);
-            Some(quick_game_in(a, b, level, s, j.context, j.cond, j.neutral))
+            Some(quick_game_in(a, b, level, s, j.context, j.venue))
         })
         .collect();
     let recording_log = w.options.keep_game_log && w.recording;

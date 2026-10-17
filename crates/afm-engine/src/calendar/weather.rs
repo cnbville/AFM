@@ -706,6 +706,12 @@ fn normals(c: &Climate, d: Date) -> (f64, f64, f64, f64) {
     (lerp(&c.high), lerp(&c.low), wet, dew)
 }
 
+/// The usual afternoon high in a state on a date (climate normals): what a
+/// team from there is used to playing in.
+pub fn usual_high(code: &str, d: Date) -> f64 {
+    normals(climate(code), d).0
+}
+
 /// The weather in a state at a date and local hour, drawn from its normals
 /// with a day-to-day swing shared by every place in the state.
 pub fn weather_at(seed: u64, state: usize, code: &str, d: Date, hour: u32) -> Weather {

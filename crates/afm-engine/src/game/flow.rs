@@ -37,6 +37,12 @@ pub struct GameSetup<'a> {
     pub two_way_margin: [f64; 2],
     /// What the season does to each head coach's read of a decided game.
     pub context: [garbage::Context; 2],
+    /// Road wear per team (home first), extra fatigue per play as a share:
+    /// travel, time zones against the body clock and thin air for a team
+    /// not used to it (trial 4 topic 3).
+    pub wear: [f64; 2],
+    /// Per team, 0-1: how unused it is to this game's cold.
+    pub cold_unused: [f64; 2],
 }
 
 impl<'a> GameSetup<'a> {
@@ -57,6 +63,8 @@ impl<'a> GameSetup<'a> {
             record: false,
             two_way_margin: [margin, margin],
             context: [garbage::Context::default(); 2],
+            wear: [0.0; 2],
+            cold_unused: [0.0; 2],
         }
     }
 }
@@ -88,6 +96,8 @@ struct Side<'a> {
     /// The head coach's read of a decided game, and who sits because of it.
     coach: garbage::Coach,
     benched: Vec<bool>,
+    /// Can't substitute this snap (the offense went no-huddle).
+    frozen: bool,
 }
 
 impl<'a> Side<'a> {
@@ -105,6 +115,7 @@ impl<'a> Side<'a> {
             mem: Memory::default(),
             coach: garbage::Coach::default(),
             benched: vec![false; n],
+            frozen: false,
         }
     }
 
@@ -158,7 +169,7 @@ impl<'a> Side<'a> {
             .copied()
             .filter(|&i| !self.out[i] && !used.contains(&i) && !self.benched[i])
             .collect();
-        let th = self.threshold(pos);
+        let th = if self.frozen { 0.0 } else { self.threshold(pos) };
         let mut out = Vec::new();
         let mut skipped = Vec::new();
         for &i in &list {
@@ -328,6 +339,12 @@ struct Game<'a> {
     mind: Rng,
     /// The last garbage-time review: (drives started, quarter).
     reviewed: Option<(u32, u8)>,
+    /// Time since the last snap as a share of a normal huddle's (S10):
+    /// players get their breath back with time, not per play.
+    pace: f64,
+    /// The offense went to the line without a huddle (S10): the defense
+    /// can't substitute.
+    no_huddle: bool,
 }
 
 /// Play a game.
@@ -368,6 +385,8 @@ pub fn play_game(setup: &GameSetup) -> GameResult {
         n: 0,
         after_turnover: false,
         two_min_warned: false,
+        pace: 1.0,
+        no_huddle: false,
         ot: false,
         ot_round: 0,
         ot_poss: [0, 0],
@@ -446,6 +465,7 @@ impl<'a> Game<'a> {
             concede: self.sides[o].coach.read.concede,
             def_ease: self.sides[1 - o].coach.read.ease,
             def_concede: self.sides[1 - o].coach.read.concede,
+            college: self.rules().level != Level::NFL,
         }
     }
 
@@ -1359,9 +1379,11 @@ impl<'a> Game<'a> {
             }
             let p = &self.sides[o].team.players[i];
             let tired = 1.0 - self.sides[o].energy[i];
-            let chance = 0.00135
+            // Road teams jump 21% more often in real FBS conference games
+            // (1.28 a game against 1.06, cfbfastR 2023-24).
+            let chance = 0.00162
                 * (1.6 - p.traits.discipline / 15.0).max(0.3)
-                * (1.0 + 1.3 * crowd)
+                * (1.0 + 0.32 * crowd)
                 * crew
                 * (1.0 + tired)
                 * (1.25 - 0.25 * p.knowledge);
@@ -1381,7 +1403,8 @@ impl<'a> Game<'a> {
         }
         let qb = off.iter().find(|x| x.0 == ORole::QB).map(|x| x.1).unwrap_or(0);
         let qp = &self.sides[o].team.players[qb];
-        if self.rng.chance(0.0047 * (1.3 - qp.a(Attr::Awareness) / 120.0) * (1.0 + crowd) * crew) {
+        // Road delays: 34% more (0.34 a game against 0.26).
+        if self.rng.chance(0.0050 * (1.3 - qp.a(Attr::Awareness) / 120.0) * (1.0 + 0.52 * crowd) * crew) {
             return Some(Foul { kind: FoulKind::DelayOfGame, side: 0, player: qp.id, at: self.x });
         }
         // Illegal formation stands for every 5-yard offensive alignment foul
@@ -1421,7 +1444,9 @@ impl<'a> Game<'a> {
             pressure: Pressure::Four,
             disguise: false,
         });
+        self.sides[d].frozen = self.no_huddle;
         let (off, def) = self.lineup(&call, &dcall);
+        self.sides[d].frozen = false;
         // Pre-snap check (topic 3): a smart quarterback changes a run into a
         // quick throw against a stacked box, or a pass into a run against a
         // light one, if his coach lets him.
@@ -1433,8 +1458,11 @@ impl<'a> Game<'a> {
             .count();
         let freedom = clamp(0.9 - 0.035 * self.sides[o].team.staff.strictness, 0.15, 0.85);
         let skill = clamp((qp.a(Attr::Awareness) - 50.0) / 50.0 + 0.1 * qp.experience.min(5.0) / 5.0, 0.0, 1.0);
+        // A road crowd drowns out checks at the line: hand signals carry
+        // fewer of them.
+        let noise = 1.0 - 0.5 * self.home_crowd(o);
         let mut audible = false;
-        if !sit.hurry() && self.rng.chance(freedom * skill * 0.6) {
+        if !sit.hurry() && self.rng.chance(freedom * skill * 0.6 * noise) {
             match call.kind {
                 PlayKind::Run(_) if box_n >= 8 && sit.togo > 2.0 => {
                     call.kind = PlayKind::Pass(0);
@@ -1508,12 +1536,13 @@ impl<'a> Game<'a> {
             down: self.down,
             togo: self.togo,
             rules: &self.s.rules,
-            cond: Conditions { crowd, ..self.s.cond },
+            cond: Conditions { crowd, cold_unused: self.s.cold_unused[o], ..self.s.cond },
             crew: self.crew,
             strictness: [self.sides[o].team.staff.strictness, self.sides[d].team.staff.strictness],
             injury_scale: 1.0,
             record: self.s.record,
             hurry: sit.hurry(),
+            two_gap: self.sides[d].team.staff.front == Front::ThreeFour,
         };
         let res = scrimmage::run_snap(&snap, &mut self.rng);
         r.on_field = [
@@ -1526,13 +1555,14 @@ impl<'a> Game<'a> {
         for &(side, p, work) in &res.work {
             let team = if side == 0 { o } else { d };
             let st = self.sides[team].team.players[p].a(Attr::Stamina);
-            self.sides[team].energy[p] = (self.sides[team].energy[p] - 0.041 * drain(st, work)).max(0.25);
+            let wear = 1.0 + self.s.wear[team];
+            self.sides[team].energy[p] = (self.sides[team].energy[p] - 0.041 * drain(st, work) * wear).max(0.25);
         }
         for t in [o, d] {
             let on: Vec<usize> =
                 if t == o { off.iter().map(|x| x.1).collect() } else { def.iter().map(|x| x.1).collect() };
             for i in 0..self.sides[t].energy.len() {
-                let rec = if on.contains(&i) { RECOVER_ON_FIELD } else { RECOVER_ON_BENCH };
+                let rec = self.pace * if on.contains(&i) { RECOVER_ON_FIELD } else { RECOVER_ON_BENCH };
                 self.sides[t].energy[i] = (self.sides[t].energy[i] + rec).min(1.0);
             }
         }
@@ -2020,6 +2050,8 @@ impl<'a> Game<'a> {
                 return;
             }
         }
+        self.pace = 1.0;
+        self.no_huddle = false;
         if !self.running {
             // Clock restarts on the snap (or on the ready signal for some stops).
             return;
@@ -2031,6 +2063,7 @@ impl<'a> Game<'a> {
                 self.running = false;
                 return;
             }
+            self.no_huddle = true;
             13.0
         } else if (self.quarter == 4 && self.diff(o) > 0)
             || self.sides[o].coach.read.ease > 0.0
@@ -2038,12 +2071,22 @@ impl<'a> Game<'a> {
         {
             38.0
         } else {
-            let tempo = match self.sides[o].team.staff.off_scheme {
-                OffScheme::AirRaid | OffScheme::SpreadOption => 33.0,
-                _ => 37.5,
+            // Tempo (S10): up-tempo systems go to the line without a huddle
+            // on about a third of their snaps, everyone else now and then
+            // (real NFL about 7% outside the two-minute drill); the averages
+            // stay 33 and 37.5 seconds (proposed, not confirmed).
+            let (share, huddle) = match self.sides[o].team.staff.off_scheme {
+                OffScheme::AirRaid | OffScheme::SpreadOption => (0.35, 38.0),
+                _ => (0.06, 38.2),
             };
-            tempo + self.rng.range(-3.0, 3.0)
+            if self.rng.chance(share) {
+                self.no_huddle = true;
+                24.0 + self.rng.range(-2.0, 2.0)
+            } else {
+                huddle + self.rng.range(-3.0, 3.0)
+            }
         };
+        self.pace = gap / 37.5;
         self.tick(gap);
     }
 
@@ -2253,16 +2296,26 @@ pub fn quick_game_with(
     play_game(&s)
 }
 
-/// A quick game in given conditions (section 4: weather from the date and
-/// the place, a neutral site with no home crowd).
+/// Where a game is played and what it asks of each team (section 4 and
+/// trial 4 topic 3): the weather, the crowd and altitude in `cond`, a
+/// neutral site, each team's road wear and how unused it is to the cold.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Venue {
+    pub cond: Conditions,
+    /// No home crowd.
+    pub neutral: bool,
+    pub wear: [f64; 2],
+    pub cold_unused: [f64; 2],
+}
+
+/// A quick game at a venue.
 pub fn quick_game_in(
     home: &GameTeam,
     away: &GameTeam,
     level: Level,
     seed: u64,
     context: [garbage::Context; 2],
-    cond: Conditions,
-    neutral: bool,
+    venue: Venue,
 ) -> GameResult {
     let adjusted = experiment::adjust(home, away);
     let (home, away) = match &adjusted {
@@ -2270,8 +2323,10 @@ pub fn quick_game_in(
         None => (home, away),
     };
     let mut s = GameSetup::new(home, away, level, seed);
-    s.cond = cond;
-    s.neutral = neutral;
+    s.cond = venue.cond;
+    s.neutral = venue.neutral;
+    s.wear = venue.wear;
+    s.cold_unused = venue.cold_unused;
     s.context = context;
     play_game(&s)
 }
@@ -2304,6 +2359,8 @@ fn bare_game<'a>(setup: &'a GameSetup, off: &'a GameTeam, def: &'a GameTeam, los
         n: 0,
         after_turnover: false,
         two_min_warned: false,
+        pace: 1.0,
+        no_huddle: false,
         ot: false,
         ot_round: 0,
         ot_poss: [0, 0],

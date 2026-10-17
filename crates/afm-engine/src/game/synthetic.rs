@@ -124,6 +124,7 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
         playbook: 1.0,
         // From its own stream so the draws above keep their values.
         sportsmanship: clamp(Rng::new(seed ^ 0x5BD1_E995).normal(10.0, 3.5), 1.0, 20.0),
+        nickel: clamp(Rng::new(seed ^ 0x2545_F491).normal(0.88, 0.08), 0.55, 0.99),
     };
     GameTeam { name: name.to_string(), players, staff }
 }

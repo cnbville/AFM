@@ -83,3 +83,28 @@ fn great_circle(a: usize, b: usize) -> f64 {
     let h = (dp / 2.0).sin().powi(2) + p1.cos() * p2.cos() * (dl / 2.0).sin().powi(2);
     3959.0 * 2.0 * h.sqrt().asin()
 }
+
+const ALTITUDE_CSV: &str = include_str!("../../../../data/real-world/college_altitude.csv");
+
+static ALTITUDES: std::sync::LazyLock<Vec<(&'static str, &'static str, f64)>> = std::sync::LazyLock::new(|| {
+    ALTITUDE_CSV
+        .lines()
+        .skip(1)
+        .filter_map(|l| {
+            let c: Vec<&str> = l.split(',').collect();
+            Some((c.first()?.trim(), c.get(1)?.trim(), c.get(3)?.trim().parse().ok()?))
+        })
+        .collect()
+});
+
+/// A college's home field above sea level in feet (city elevations from
+/// `college_altitude.csv`; every place not listed sits under 2,000 feet,
+/// taken as 500).
+pub fn college_altitude(name: &str) -> f64 {
+    ALTITUDES.iter().find(|a| a.0 == name).map_or(500.0, |a| a.2)
+}
+
+/// A town's altitude in feet, for neutral sites (500 when not listed).
+pub fn town_altitude(town: &str) -> f64 {
+    ALTITUDES.iter().find(|a| a.1 == town).map_or(500.0, |a| a.2)
+}

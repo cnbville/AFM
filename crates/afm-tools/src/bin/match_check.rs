@@ -4,9 +4,9 @@
 //! With `pbp`, prints the first game's play-by-play with its whys.
 
 extern crate afm_tools;
-use afm_engine::game::quick_game;
 use afm_engine::game::stats::PlayType;
 use afm_engine::game::synthetic::synthetic_league;
+use afm_engine::game::{Conditions, Venue, quick_game_in};
 use afm_engine::player::Level;
 use rayon::prelude::*;
 use serde_json::Value;
@@ -45,6 +45,16 @@ fn route_group(route: &str, air: f64) -> Option<usize> {
     })
 }
 
+/// The teams of game `g`: each matchup is played twice, once at each end,
+/// so team strength cancels out of the home margin.
+fn pair(g: usize) -> (usize, usize) {
+    let k = g / 2;
+    let h = (k * 7) % 32;
+    let a = (k * 13 + 5) % 32;
+    let a = if a == h { (a + 1) % 32 } else { a };
+    if g % 2 == 0 { (h, a) } else { (a, h) }
+}
+
 fn main() {
     // AFM_QBSTATS=1: how the quarterbacks chose their throws (debug).
     let qb_stats = std::env::var("AFM_QBSTATS").is_ok();
@@ -66,10 +76,16 @@ fn main() {
     let results: Vec<_> = (0..games)
         .into_par_iter()
         .map(|g| {
-            let h = (g * 7) % 32;
-            let a = (g * 13 + 5) % 32;
-            let a = if a == h { (a + 1) % 32 } else { a };
-            quick_game(&teams[h], &teams[a], level, seed as u64 * 1_000_003 + g as u64)
+            let (h, a) = pair(g);
+            // An average road trip: the crowd of an average FBS conference
+            // or NFL game (a 50,000-70,000 stadium) and about 500 miles and
+            // half a time zone of travel for the visitors.
+            let venue = Venue {
+                cond: Conditions { crowd: 0.65, ..Conditions::default() },
+                wear: [0.0, 0.012],
+                ..Venue::default()
+            };
+            quick_game_in(&teams[h], &teams[a], level, seed as u64 * 1_000_003 + g as u64, Default::default(), venue)
         })
         .collect();
     let secs = t0.elapsed().as_secs_f64();
@@ -96,9 +112,7 @@ fn main() {
         let mut carry = [0.0f64; 2];
         let mut nt = 0.0;
         for (g, r) in results.iter().enumerate() {
-            let h = (g * 7) % 32;
-            let a = (g * 13 + 5) % 32;
-            let a = if a == h { (a + 1) % 32 } else { a };
+            let (h, a) = pair(g);
             for (k, ti) in [h, a].into_iter().enumerate() {
                 let lines = &r.stats.players[k];
                 let team = &teams[ti];
@@ -448,6 +462,15 @@ fn main() {
             if matches!(p.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble) {
                 *m.entry("epa").or_default() += p.epa;
                 *m.entry("success").or_default() += p.success() as u8 as f64;
+                // cfbfastR's success: half the distance on 1st down, 70% on
+                // 2nd, all of it on 3rd and 4th.
+                let need = match p.down {
+                    1 => 0.5,
+                    2 => 0.7,
+                    _ => 1.0,
+                };
+                let cfb_ok = !p.turnover && (p.touchdown || p.first_down || p.yards >= need * p.togo);
+                *m.entry("success_cfb").or_default() += cfb_ok as u8 as f64;
                 let k = if p.kind == PlayType::Run { "run" } else { "db" };
                 *m.entry(if k == "run" { "run_n" } else { "db_n" }).or_default() += 1.0;
                 *m.entry(if k == "run" { "run_epa" } else { "db_epa" }).or_default() += p.epa;
@@ -471,6 +494,18 @@ fn main() {
     row("points", mean, real["points_per_team_game"].as_f64());
     row("points sd", sd, real["points_sd"].as_f64());
     row("games decided by <= 8", close / games as f64, real["share_games_decided_by_8_or_less"].as_f64());
+    // Home field (trial 4 topic 3): the same matchups at both ends, crowd
+    // 0.65. Real: NFL 2021-25 2.1 points (nfldata), FBS conference games
+    // 2.4, FCS 2.0 (CFBD 2014-25).
+    {
+        let m: Vec<f64> = results.iter().map(|r| (r.stats.team[0].points - r.stats.team[1].points) as f64).collect();
+        let hm = m.iter().sum::<f64>() / m.len() as f64;
+        let se = (m.iter().map(|x| (x - hm).powi(2)).sum::<f64>() / m.len() as f64).sqrt() / (m.len() as f64).sqrt();
+        let wins =
+            m.iter().filter(|&&x| x > 0.0).count() as f64 / m.iter().filter(|&&x| x != 0.0).count().max(1) as f64;
+        let target = if level == Level::NFL { 2.1 } else { 2.4 };
+        println!("{:<28} {:>9.3} {:>9.3}  (se {:.2}, home wins {:.3})", "home margin", hm, target, se, wins);
+    }
     row("plays", g("plays") / n, f("plays"));
     row("pass attempts", g("att") / n, f("att"));
     row("completions", g("cmp") / n, f("cmp"));
@@ -700,7 +735,7 @@ fn main() {
         row("pass rate", g("dropbacks") / g("plays"), cq["pass_rate"].as_f64());
         row("third down conv", g("third_conv") / g("third"), cq["third_down_conversion"].as_f64());
         row("explosive run rate", g("explosive_run") / g("carries"), cq["explosive_run_rate"].as_f64());
-        row("success rate", g("success") / g("plays"), cq["success_rate"].as_f64());
+        row("success rate (cfbfastR's)", g("success_cfb") / g("plays"), cq["success_rate"].as_f64());
     }
     if qb_stats {
         let c: Vec<u64> =

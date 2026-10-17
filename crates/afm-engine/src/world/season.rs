@@ -660,6 +660,9 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
             shell: shells[pick(dc.map(|c| c / 3), shells.len())],
             playbook: 1.0,
             sportsmanship: prog.head_coach.map_or(10.0, |c| w.coaches[c].sportsmanship),
+            // His own habit, kept for his career (S8; spread proposed, not
+            // confirmed).
+            nickel: dc.map_or(0.88, |c| clamp(0.88 + 0.08 * key_normal(0x41C8, c as u64), 0.55, 0.99)),
         },
     })
 }

@@ -86,6 +86,8 @@ pub struct Situation {
     pub concede: bool,
     pub def_ease: f64,
     pub def_concede: bool,
+    /// Below the NFL: calls start from the real college habits.
+    pub college: bool,
 }
 
 impl Situation {
@@ -126,7 +128,7 @@ pub fn call_offense(
 ) -> OffCall {
     let c = &staff.offense;
     let scheme = staff.off_scheme;
-    let mut p_pass = tables::real_pass_rate(sit.down, sit.togo, sit.score_diff, sit.clock());
+    let mut p_pass = tables::real_pass_rate(sit.down, sit.togo, sit.score_diff, sit.clock(), sit.college);
     p_pass += scheme.pass_lean() + 0.006 * (c.aggressiveness - 10.0);
     // In-game learning (topic 3.2): lean toward what has worked, faster
     // and more accurately for a sharp coordinator.
@@ -518,7 +520,7 @@ pub fn call_defense(staff: &Staff, mem: &Memory, sit: &Situation, off: &Formatio
     } else if wr >= 4 || (long && sit.down == 3 && wr >= 3 && rng.chance(0.5)) {
         DefPersonnel::Dime
     } else if wr == 3 {
-        DefPersonnel::Nickel
+        if rng.chance(staff.nickel) { DefPersonnel::Nickel } else { DefPersonnel::Base }
     } else {
         DefPersonnel::Base
     };
@@ -668,7 +670,7 @@ pub fn fourth_down(staff: &Staff, sit: &Situation, fg_make: f64, rng: &mut Rng) 
     let best_kick =
         if ev_fg > ev_punt && fg_make > 0.3 { (FourthDown::FieldGoal, ev_fg) } else { (FourthDown::Punt, ev_punt) };
     // Real coaches still mostly kick: the real go rate as a habit.
-    let habit = tables::real_fourth_go_rate(togo, y, sit.score_diff);
+    let habit = tables::real_fourth_go_rate(togo, y, sit.score_diff, sit.college);
     let by_numbers = ev_go_adj + noise > best_kick.1 + margin;
     let follow = clamp(0.05 + 0.012 * gm + 0.01 * (agg - 10.0), 0.03, 0.45);
     let go = if rng.chance(follow) { by_numbers } else { rng.chance(habit) };

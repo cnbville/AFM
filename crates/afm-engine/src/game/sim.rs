@@ -39,8 +39,12 @@ pub struct Conditions {
     /// Feet above sea level.
     pub altitude: f64,
     pub turf: bool,
-    /// 0-1: how loud the home crowd is.
+    /// 0-1: how loud the home crowd is. On a snap it is the noise the
+    /// offense plays into (0 for the home offense).
     pub crowd: f64,
+    /// 0-1, on a snap: how unused the offense is to this cold (a warm
+    /// climate or dome team in a freezing game); grip and throws suffer.
+    pub cold_unused: f64,
 }
 
 impl Default for Conditions {
@@ -54,6 +58,7 @@ impl Default for Conditions {
             altitude: 500.0,
             turf: false,
             crowd: 0.6,
+            cold_unused: 0.0,
         }
     }
 }
@@ -541,6 +546,12 @@ pub struct Sim<'a> {
     /// On a designed run, the pace every back takes to the line until he
     /// commits to a crease (yards per second; 0 on other plays).
     pub press: f64,
+    /// The defense plays a two-gap front (a 3-4): its interior linemen
+    /// read the block before they pick a gap (S9).
+    pub two_gap: bool,
+    /// On a designed run: Some(true) for a gap scheme (down blocks and a
+    /// puller), Some(false) for a zone scheme, None otherwise.
+    pub gap_run: Option<bool>,
 }
 
 /// How much a run block's outcome leans on the strength gap per point.
@@ -551,6 +562,11 @@ const RUN_EDGE: f64 = 0.035;
 /// The extra pull a defender with leverage gets when the runner comes at
 /// him (fitted with `RUN_EDGE`; 1.0 before).
 const SHED_RUNNER: f64 = 0.5;
+
+/// Rating points a road line loses off the snap at full crowd noise.
+/// Fitted with the other home-field causes to the real home margin
+/// (proposed, not confirmed).
+const SILENT_COUNT: f64 = 24.0;
 
 /// Print plays as they run (debug tooling only).
 pub static TRACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -787,7 +803,13 @@ impl<'a> Sim<'a> {
         } else {
             bl.a(Attr::RunBlocking) * 0.5 + bl.a(Attr::Acceleration) * 0.3 + bl.a(Attr::Strength) * 0.2
         };
-        let w0 = if pass { -0.42 } else { -0.3 } + 0.006 * (get_off - set) + 0.18 * gauss(self.rng);
+        // Silent count (trial 4 topic 3): a road line in a loud stadium
+        // snaps on a visual cue, a beat late, and the defense times it.
+        let silent = if bl.side == 0 && self.t < 1.0 { SILENT_COUNT * self.cond.crowd } else { 0.0 };
+        let w0 = if pass { -0.42 } else { -0.3 }
+            + 0.006 * (get_off + silent - set)
+            + self.front_fit(de.label, pass)
+            + 0.18 * gauss(self.rng);
         let k = self.eng.len();
         self.eng.push(Engagement {
             blocker: b,
@@ -804,6 +826,27 @@ impl<'a> Sim<'a> {
         });
         self.agents[b].engaged = Some(k);
         self.agents[d].engaged = Some(k);
+    }
+
+    /// How the front's technique fits the play (S9), in block-win units:
+    /// a two-gap interior lineman holds his ground against a gap scheme but
+    /// gets stretched by zone and rushes the passer a beat late; a one-gap
+    /// lineman shoots into the backfield against zone and gets washed down
+    /// by a gap scheme (sizes proposed, not confirmed).
+    fn front_fit(&self, label: &str, pass: bool) -> f64 {
+        let dl = matches!(label, "DT" | "DE");
+        if !dl {
+            return 0.0;
+        }
+        let two_gap = self.two_gap && label == "DT";
+        match (pass, self.gap_run, two_gap) {
+            (true, _, true) => -0.03,
+            (false, Some(true), true) => 0.05,
+            (false, Some(false), true) => -0.02,
+            (false, Some(true), false) => -0.02,
+            (false, Some(false), false) => 0.03,
+            _ => 0.0,
+        }
     }
 
     fn pick_move(&mut self, b: usize, d: usize) -> Move {
@@ -1318,7 +1361,7 @@ impl<'a> Sim<'a> {
         // not confirmed).
         let carry = r.a(Attr::Carrying);
         let hit = d.a(Attr::Strength) * 0.5 + d.a(Attr::Tackling) * 0.5;
-        let rain = if self.cond.rain || self.cond.snow { 1.35 } else { 1.0 };
+        let rain = (if self.cond.rain || self.cond.snow { 1.35 } else { 1.0 }) * (1.0 + 0.3 * self.cond.cold_unused);
         let p =
             0.016 * (force / 1700.0).powf(1.5) * (1.0 + (60.0 - carry) * 0.035).max(0.25) * (0.7 + hit / 160.0) * rain;
         if self.notes.fumbled.is_none() && self.rng.chance(p) {

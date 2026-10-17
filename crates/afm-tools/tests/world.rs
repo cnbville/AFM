@@ -22,10 +22,11 @@ fn rosters_and_staffs_are_full() {
     // A head job is empty only while its search runs (part D 18); the
     // world stops in February, when the last links of the carousel's
     // chains (and jobs left for the NFL in late January) are still open.
+    // A program that doesn't field a team this year needs no coach.
     let no_coach: Vec<_> = w
         .programs
         .iter()
-        .filter(|p| p.head_coach.is_none() && !w.head_search_open(p.id))
+        .filter(|p| p.plays(w.year) && p.head_coach.is_none() && !w.head_search_open(p.id))
         .map(|p| format!("{} ({:?}, plays {})", p.real_name, p.division, p.plays(w.year)))
         .collect();
     assert!(no_coach.is_empty(), "no head coach and no search: {no_coach:?} on {:?}", w.today);

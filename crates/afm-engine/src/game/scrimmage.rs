@@ -5,6 +5,14 @@ use super::geom::{DT, MID, V2, WIDTH, v2};
 
 /// The back of the end zone the offense attacks.
 const END_LINE: f64 = 110.0;
+/// Extra bust chance per road offensive player per snap at full crowd
+/// noise (trial 4 topic 3).
+const NOISE_BUSTS: f64 = 0.03;
+/// Awareness a road offensive player loses to full crowd noise. With
+/// `NOISE_BUSTS` and the silent count it is fitted so an average FBS
+/// conference crowd (0.65) is worth the real 2.4 points (2023-24 cfbfastR:
+/// road passing loses 0.05 EPA a play); proposed, not confirmed.
+const NOISE_LOAD: f64 = 11.0;
 use super::playbook::*;
 use super::roster::GamePlayer;
 use super::rules::Rules;
@@ -97,6 +105,8 @@ pub struct Snap<'a> {
     /// The offense needs the clock stopped (two-minute drill): runners get
     /// out of bounds and receivers work the sideline.
     pub hurry: bool,
+    /// The defense plays a two-gap front (S9).
+    pub two_gap: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -203,6 +213,13 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         slot_of.push(None);
     }
     let off_n = agents.len();
+    // A road offense works through the noise: hand signals, a silent count
+    // and calls it can't hear take some of every player's attention
+    // (trial 4 topic 3).
+    let load = NOISE_LOAD * s.cond.crowd;
+    for a in agents.iter_mut() {
+        a.r[Attr::Awareness.index()] = (a.r[Attr::Awareness.index()] - load).max(1.0);
+    }
     let def_spots = align_defense(s, &agents, &role_of);
     for (k, &(d, p)) in s.defense.iter().enumerate() {
         let gp = &s.teams[1][p];
@@ -235,6 +252,8 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         screen: None,
         open_reach: 2.2,
         press: 0.0,
+        two_gap: s.two_gap,
+        gap_run: None,
     };
     let find = |r: ORole| role_of.iter().position(|x| *x == Some(r));
     let qb = find(ORole::QB).unwrap_or(0);
@@ -311,11 +330,15 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     }
 
     // Busted assignments (topic 3): players who don't know the playbook.
+    // A road offense in a loud stadium also misses calls it can't hear: the
+    // line's protection calls and the receivers' adjustments (trial 4 topic
+    // 3; size fitted to the real home margin, proposed, not confirmed).
     for i in 0..sim.agents.len() {
         let gp = sim.player(i);
         let iq = gp.a(Attr::Awareness);
         let know = gp.knowledge;
-        let p = (1.0 - know) * 0.05 + (60.0 - iq).max(0.0) * 0.0006;
+        let noise = if i < off_n { NOISE_BUSTS * s.cond.crowd * (1.3 - iq / 100.0).max(0.3) } else { 0.0 };
+        let p = (1.0 - know) * 0.05 + (60.0 - iq).max(0.0) * 0.0006 + noise;
         if sim.rng.chance(p) {
             sim.agents[i].bust = true;
             let id = sim.agents[i].id;
@@ -444,6 +467,11 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 res.carrier = Some(sim.agents[qb].id);
             }
             assign_defense(&mut sim, s, off_n, &slot_of, &role_of, false);
+            sim.gap_run = match rc {
+                RunConcept::InsideZone | RunConcept::OutsideZone | RunConcept::ZoneRead => Some(false),
+                RunConcept::Power | RunConcept::Counter | RunConcept::BuckSweep => Some(true),
+                _ => None,
+            };
             run_blocking(&mut sim, off_n, &role_of, rc, dir, pulls);
             // On a gap run the back follows the lead puller to the hole.
             lead_puller = (0..off_n).find(|&i| {
@@ -2233,6 +2261,7 @@ fn throw(
     if s.cond.rain || s.cond.snow {
         sd *= 1.1;
     }
+    sd *= 1.0 + 0.08 * s.cond.cold_unused;
     let consistency = sim.player(qb).traits.consistency;
     sd *= 1.15 - 0.015 * consistency;
     let along = (target - q).norm();
@@ -3024,6 +3053,7 @@ fn catch_point(sim: &mut Sim, r: usize, to: V2, from: V2, release: f64, s: &Snap
     if s.cond.rain || s.cond.snow {
         p *= 0.97;
     }
+    p *= 1.0 - 0.03 * s.cond.cold_unused;
     let speed = from.dist(to) / (sim.t - release).max(0.2);
     if speed > 24.0 && dr < 1.0 {
         p *= 0.985;

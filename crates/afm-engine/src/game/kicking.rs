@@ -566,7 +566,8 @@ fn run_return(
         rng,
         notes: Notes::default(),
         record: if record { Some(Vec::new()) } else { None },
-        cond: *cond,
+        // No silent count on kicks.
+        cond: Conditions { crowd: 0.0, ..*cond },
         crew: *crew,
         goal: 1.0,
         carrier_side: 0,
@@ -581,6 +582,8 @@ fn run_return(
         screen: None,
         open_reach: 1.6,
         press: 0.0,
+        two_gap: false,
+        gap_run: None,
     };
     // Reorder so the return team (side 0) comes first.
     let mut ret_agents: Vec<Agent> = agents.drain(ret_idx..).collect();
