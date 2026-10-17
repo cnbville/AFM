@@ -1,0 +1,50 @@
+{
+ "prude_17": {
+  "same_person": 0.587,
+  "read_age": 36
+ },
+ "prude_22": {
+  "same_person": 1.0,
+  "read_age": 34
+ },
+ "prude_28": {
+  "same_person": 0.521,
+  "read_age": 37
+ },
+ "prude_34": {
+  "same_person": 0.662,
+  "read_age": 34
+ },
+ "mcspadden_17": {
+  "same_person": 0.673,
+  "read_age": 23
+ },
+ "mcspadden_22": {
+  "same_person": 1.0,
+  "read_age": 26
+ },
+ "mcspadden_28": {
+  "same_person": 0.708,
+  "read_age": 29
+ },
+ "mcspadden_34": {
+  "same_person": 0.66,
+  "read_age": 28
+ },
+ "meza_17": {
+  "same_person": 0.593,
+  "read_age": 32
+ },
+ "meza_22": {
+  "same_person": 1.0,
+  "read_age": 29
+ },
+ "meza_28": {
+  "same_person": 0.592,
+  "read_age": 37
+ },
+ "meza_34": {
+  "same_person": 0.539,
+  "read_age": 31
+ }
+}

@@ -35,13 +35,15 @@ td.est{color:var(--muted)}
 </style>
 <div class="wrap">
 <h1>Photo face proof</h1>
-<p class="lead">The same three players as the GAN proof, now drawn by a current photo model as media-day headshots at 17, 22, 28 and 34, in that year's team jersey. The age-22 photo is drawn from a text description (heritage, position, height, weight, beard). Every other age is drawn from the same description for that year plus a face lock that copies his face from the age-22 photo. <b>Same person</b> compares each photo with the one at 22 using the same face recognition model as the GAN proof: 1.00 is identical, and about 0.4 and above usually counts as the same person. <b>Min</b> is the measured time to draw that one photo. The 3D heads (style E) are on the <a href="https://claude.ai/artifact/REu4En5Qw4rH5FGW5KA7qi" target="_blank" rel="noopener">face styles page</a>, since they turn in 3D and can't be pasted in as photos.</p>
+<p class="lead">The same three players as the GAN proof, now drawn by two photo models (a big one and a light one that fits an 8 GB M1) as media-day headshots at 17, 22, 28 and 34, in that year's team jersey. The age-22 photo is drawn from a text description (heritage, position, height, weight, beard). Every other age is drawn from the same description for that year plus a face lock that copies his face from the age-22 photo. <b>Same person</b> compares each photo with the one at 22 using the same face recognition model as the GAN proof: 1.00 is identical, and about 0.4 and above usually counts as the same person. <b>Min</b> is the measured time to draw that one photo. The 3D heads (style E) are on the <a href="https://claude.ai/artifact/REu4En5Qw4rH5FGW5KA7qi" target="_blank" rel="noopener">face styles page</a>, since they turn in 3D and can't be pasted in as photos.</p>
 {{ROWS}}
 <section class="tail">
 <h2>What I see</h2>
 {{SUMMARY}}
 <h2>Speed and cost</h2>
 {{SPEED}}
+<h2>Light version for an 8 GB M1</h2>
+{{LIGHT}}
 <h2>How it was made</h2>
 <p>Photo model: RealVisXL V5.0 Lightning, a photoreal fine-tune of Stable Diffusion XL that needs only 6 steps, at 896 by 1152 pixels. Face lock: InstantID (its face adapter at 0.65 strength, its face-landmark guide at 0.5, prompt guidance 1.5), fed the face reading of the age-22 photo. PhotoMaker V2 was tried first as the face lock and failed: same-person scores of 0.09 to 0.15, a different man every time. Jersey lettering and numbers are garbled, as agreed; they would be put on top later. Code: the "photo model" scripts in the faces proof folder.</p>
 </section>
