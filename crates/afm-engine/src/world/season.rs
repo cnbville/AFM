@@ -391,6 +391,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             trouble,
             adjustment: p.pending_dip.take().unwrap_or(0.0),
             situation: clamp(team_situation + background::situation_push(&p.player, &p.bg), -1.0, 1.0),
+            payday: std::mem::take(&mut p.cal.payday),
             ..SeasonContext::new(level, clamp(coaching, 1.0, 20.0), role)
         };
         develop_season(&mut p.player, &ctx, &mut p.rng);

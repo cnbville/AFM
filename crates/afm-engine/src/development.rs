@@ -30,11 +30,14 @@ pub struct SeasonContext {
     /// scheme and how well run the organisation is. A bad situation drags his
     /// play and his confidence; a good one lifts both.
     pub situation: f64,
+    /// He signed a big NIL deal or a big contract before this season
+    /// (fix list 4.5): a lost-drive year gets likelier.
+    pub payday: bool,
 }
 
 impl SeasonContext {
     pub fn new(level: Level, coaching: f64, playing_time: PlayingTime) -> Self {
-        SeasonContext { level, coaching, playing_time, trouble: None, adjustment: 0.0, situation: 0.0 }
+        SeasonContext { level, coaching, playing_time, trouble: None, adjustment: 0.0, situation: 0.0, payday: false }
     }
 }
 
@@ -144,6 +147,22 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     let dip = ctx.adjustment;
     let situation = ctx.situation;
     let mut games_missed = 0;
+    // The year back from a major injury (fix list 4.3): a player who healed
+    // gets back the rehab loss his ceilings kept room for. One who never got
+    // his burst back has no room to regain.
+    if let Some(last) = player.history.last()
+        && last.events.has(Ev::MajorInjury)
+        && !last.events.has(Ev::LostBurst)
+    {
+        let age_hit = injury_age_hit(age - 1.0);
+        for key in Attr::ALL {
+            if key.profile().injury_sensitive {
+                let room = (player.ceilings[key] - player.attributes[key]).max(0.0);
+                player.attributes[key] += room.min(rng.range(1.5, 5.0) * age_hit);
+            }
+        }
+    }
+    let mut rehab = false;
     // A first year at a new level is named on the row, so a page or a slump
     // list can give it as the reason he played below his rating. (A mark
     // only: it draws nothing.)
@@ -190,20 +209,31 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             _ => {
                 growth_multiplier *= 0.5;
                 snaps_factor = 0.2;
-                // Torn ACLs and Achilles tendons take explosiveness, more so with age.
-                let age_hit = if age >= 28.0 {
-                    1.6
-                } else if age >= 24.0 {
-                    1.2
+                // Torn ACLs and Achilles tendons take explosiveness, more so with
+                // age. How it heals (fix list 4.3): in real NFL studies 62-74% of
+                // players are back on the field after an ACL repair, and those who
+                // return start fewer games (81% before, 57% after). Proposed, not
+                // confirmed: 55% heal fully (the rehab loss comes back next year),
+                // 30% keep a small lasting loss and 15% never get their burst back.
+                let age_hit = injury_age_hit(age);
+                let heal = rng.next();
+                let (now, lasting) = if heal < 0.55 {
+                    ((1.5, 5.0), (0.0, 0.0))
+                } else if heal < 0.85 {
+                    ((1.5, 5.0), (1.0, 3.0))
                 } else {
-                    1.0
+                    events.add(Ev::LostBurst);
+                    ((3.0, 7.0), (3.0, 7.0))
                 };
+                rehab = heal < 0.85;
                 for key in Attr::ALL {
                     if !key.profile().injury_sensitive {
                         continue;
                     }
-                    player.attributes[key] -= rng.range(1.5, 5.0) * age_hit;
-                    player.ceilings[key] -= rng.range(0.5, 4.0) * age_hit;
+                    player.attributes[key] -= rng.range(now.0, now.1) * age_hit;
+                    if lasting.1 > 0.0 {
+                        player.ceilings[key] -= rng.range(lasting.0, lasting.1) * age_hit;
+                    }
                 }
                 player.injury_proneness = (player.injury_proneness + 1.0).min(20.0);
                 player.wear += 1.5;
@@ -236,10 +266,13 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // Young players feel their surroundings most: a bad team can shake a
     // young quarterback's confidence for years, and a good one can revive him.
     let youth = if age <= 25.0 { 2.0 } else { 1.0 };
-    let mut form = rng.log_normal(0.38) * (1.0 - 0.15 * dip) * (1.0 + 0.12 * situation * youth);
+    // Growth swings wider than it used to (fix list 4.2; was 0.38). Proposed, not confirmed.
+    let mut form = rng.log_normal(0.5) * (1.0 - 0.15 * dip) * (1.0 + 0.12 * situation * youth);
     let mut setback = 0.0;
     let mut performance = rng.normal(0.0, 2.0) - 7.0 * dip + 2.5 * situation * youth;
     let mut breakout_lift = 0.0;
+    // Losses that land after the year's growth (slumps, bad teaching).
+    let mut late_loss = Attributes::filled(0.0);
     let n = player.history.len();
     let last = if n >= 1 { player.history.get(n - 1) } else { None };
     let before = if n >= 2 { player.history.get(n - 2) } else { None };
@@ -271,11 +304,13 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     let stagnation_chance =
         0.05 - (personality.work_ethic - 10.0) * 0.003 - (personality.competitiveness - 10.0) * 0.0015;
     // Complacency, a bad scheme fit, a coach who never trusts him: the quiet reasons prospects bust.
-    let lost_season_chance = if (17.0..=27.0).contains(&age) {
-        (0.03 + (10.0 - personality.work_ethic) * 0.004 + (10.0 - personality.competitiveness) * 0.002).max(0.005)
-    } else {
-        0.0
-    };
+    let base_lost =
+        (0.03 + (10.0 - personality.work_ethic) * 0.004 + (10.0 - personality.competitiveness) * 0.002).max(0.005);
+    // A big NIL deal or a big contract (fix list 4.5): the drive can go, more
+    // so for a low work ethic. Proposed, not confirmed: 2.5 times as likely
+    // at an average work ethic, 4 times at 4, about even at 16 and up.
+    let payday_mult = if ctx.payday { clamp(2.5 + 0.25 * (10.0 - personality.work_ethic), 1.0, 4.5) } else { 1.0 };
+    let lost_season_chance = if (17.0..=27.0).contains(&age) || ctx.payday { base_lost * payday_mult } else { 0.0 };
     if let Some(trouble) = ctx.trouble {
         // A year away from games and from the staff's trust: like a lost season, and it shows on the field.
         events.add(match trouble {
@@ -306,6 +341,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         }
     } else if rng.chance(lost_season_chance) {
         events.add(Ev::LostSeason);
+        if ctx.payday {
+            events.add(Ev::Complacent);
+        }
         form *= 0.4;
         setback = 1.8;
         performance -= rng.range(3.0, 7.0);
@@ -316,15 +354,51 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         performance -= rng.range(4.0, 9.0);
         // A kicker's, punter's or snapper's rating is nearly all skill, so his
         // loss is halved to cost him about what a slump costs others (part B 17).
+        // Fix list 4.1: 2-6 points (was 0.5-3), taken after the year's growth
+        // so the year's growth can't hide it; it grows back over the next
+        // years, and a veteran whose skills have settled keeps part of it.
         let size = if player.position.is_specialist() { 0.5 } else { 1.0 };
         for key in Attr::ALL {
             if key.profile().group != AttributeGroup::Physical {
-                player.attributes[key] -= size * rng.range(0.5, 3.0);
+                late_loss[key] += size * rng.range(2.0, 6.0);
             }
         }
     } else if rng.chance(stagnation_chance) {
         events.add(Ev::Stagnation);
         form *= 0.3;
+    }
+
+    // --- Weight gain (fix list 4.4) ----------------------------------------------
+    // Bad weight from a lax diet and offseason: it costs speed and quickness,
+    // and only part of it ever comes off. Low work ethic and low discipline
+    // raise the chance. Proposed, not confirmed: 2.5% a year for an average
+    // player, about 6% for the laxest, about 1% for the most driven.
+    if (18.0..=32.0).contains(&age) {
+        let lax =
+            clamp(1.0 + 0.12 * (10.0 - personality.work_ethic) + 0.06 * (10.0 - player.game.discipline), 0.3, 2.5);
+        if rng.chance(0.025 * lax) {
+            events.add(Ev::WeightGain);
+            player.body.weight += rng.range(8.0, 25.0);
+            for key in [Attr::Speed, Attr::Acceleration, Attr::Agility] {
+                player.attributes[key] -= rng.range(1.0, 3.0);
+                player.ceilings[key] -= rng.range(0.5, 2.0);
+            }
+        }
+    }
+
+    // --- Teaching that costs ability (fix list 4.6) ------------------------------
+    // A weak position coach teaches bad habits, and a scheme that doesn't fit
+    // him asks for what he can't do: his technique can go backwards, not only
+    // grow slower. Coachability protects him. Proposed, not confirmed: 4% a
+    // year per coaching point under 8, plus up to 9% for a bad situation.
+    let poor = clamp(0.04 * (8.0 - ctx.coaching), 0.0, 0.2) + clamp(0.15 * (-situation - 0.4), 0.0, 0.09);
+    if poor > 0.0 && rng.chance(poor * clamp(1.5 - 0.05 * personality.coachability, 0.5, 1.5)) {
+        events.add(Ev::PoorCoaching);
+        for key in Attr::ALL {
+            if key.profile().group == AttributeGroup::Technical && weight(position, key) > 0.0 {
+                late_loss[key] += rng.range(1.0, 3.0);
+            }
+        }
     }
 
     // --- Dynamic potential -----------------------------------------------------
@@ -448,6 +522,10 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             gap.min(gap * rate + FINISHING_STEP * rate).min(MAX_YEARLY_GAIN) + rng.normal(0.0, 0.5);
     }
 
+    for key in Attr::ALL {
+        player.attributes[key] -= late_loss[key];
+    }
+
     // --- Ageing ----------------------------------------------------------------
     let decline_resistance = 1.15 - personality.work_ethic * 0.015; // 10 -> 1.0, 20 -> 0.85
     let pos_offset = position.profile().aging_offset;
@@ -476,7 +554,8 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         let (attr, ceil) = (&mut player.attributes.0[i], &mut player.ceilings.0[i]);
         // Once an attribute has stopped growing or started to decline, the ceiling
         // above it is out of reach: veterans don't keep upside they can't use.
-        if settling[i] && *ceil > *attr {
+        // (A healing injury keeps its room: the rehab loss comes back next year.)
+        if settling[i] && *ceil > *attr && !(rehab && Attr::ALL[i].profile().injury_sensitive) {
             *ceil = *attr + (*ceil - *attr) / 2.0;
         }
         *ceil = clamp(*ceil, MIN_RATING, MAX_RATING);
@@ -521,6 +600,17 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     });
     player.age += 1;
     SeasonReport { overall_before, overall_after, potential_before, potential_after, events, games_missed }
+}
+
+/// A major injury costs an older body more.
+fn injury_age_hit(age: f64) -> f64 {
+    if age >= 28.0 {
+        1.6
+    } else if age >= 24.0 {
+        1.2
+    } else {
+        1.0
+    }
 }
 
 /// How freely a ceiling can still move at a given age (0 = only falls with age).

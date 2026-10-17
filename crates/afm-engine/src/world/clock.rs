@@ -251,6 +251,7 @@ pub(crate) fn advance_day(w: &mut World) {
 
     // --- Fall: camp, the new high school year, polls -------------------------------
     if d == y.fall_camp {
+        recruiting::camp_walk_ons(w);
         timed("college start", || college::start(w));
         college::lean_checkpoint(w, college::LeanCheck::FallCamp);
     }

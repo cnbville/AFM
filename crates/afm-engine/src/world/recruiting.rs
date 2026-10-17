@@ -1271,6 +1271,100 @@ impl ClassPlan {
     }
 }
 
+/// The share of programs a year where a student makes the team at an open
+/// tryout (topic 5.5; proposed, not confirmed: one in twelve in FBS and FCS,
+/// one in six below, where squads are bigger and the bar lower).
+fn tryout_sticks(d: Division) -> f64 {
+    match d {
+        Division::FBS | Division::FCS => 0.08,
+        Division::JUCO => 0.0,
+        _ => 0.16,
+    }
+}
+
+/// Fall camp (topic 5): walk-ons who played their way into the two-deep go
+/// on scholarship where one is free (5.4), and a few students make a team
+/// at an open tryout, the best of the state's new graduates who never
+/// signed (5.5). Division III, the Ivy League and the Pioneer League give
+/// no athletic aid, so their walk-ons stay as they are.
+pub(crate) fn camp_walk_ons(w: &mut World) {
+    let season = w.year;
+    w.rebuild_rosters();
+    let mut awards: Vec<(usize, usize)> = Vec::new();
+    for (j, prog) in w.programs.iter().enumerate() {
+        let no_aid = prog.division == Division::D3 || matches!(prog.conference.as_str(), "Ivy" | "PFL");
+        if !prog.plays(season) || no_aid {
+            continue;
+        }
+        let limit = super::ncaa::roster_limits(prog, season).0;
+        let college = |i: &usize| w.people[*i].stage == Stage::College;
+        let on_aid = prog.roster.iter().filter(|i| college(i) && !w.people[**i].walk_on).count();
+        let free = limit.saturating_sub(on_aid);
+        if free == 0 {
+            continue;
+        }
+        let mut cands: Vec<(f64, usize)> = prog
+            .roster
+            .iter()
+            .copied()
+            .filter(|i| college(i))
+            .filter(|&i| {
+                let p = &w.people[i];
+                p.walk_on && matches!(p.last_role, Some(PlayingTime::Starter | PlayingTime::Rotation))
+            })
+            .map(|i| (w.people[i].last_performance.unwrap_or(w.people[i].player.overall()), i))
+            .collect();
+        cands.sort_by(|a, b| b.0.total_cmp(&a.0));
+        awards.extend(cands.iter().take(free).map(|&(_, i)| (j, i)));
+    }
+    for (j, i) in awards {
+        let name = w.programs[j].real_name.clone();
+        let fbs = w.programs[j].division == Division::FBS;
+        let p = &mut w.people[i];
+        p.walk_on = false;
+        let age = p.row_age();
+        p.note(format!(
+            "Earned a scholarship at {name} in fall camp at {age}, after playing his way into the two-deep."
+        ));
+        w.log.walk_on_scholarships += 1;
+        if fbs && w.recording && p.last_role == Some(PlayingTime::Starter) {
+            let text = format!("{name} puts former walk-on {} ({}) on scholarship.", p.name, p.player.position);
+            w.calendar.post(Event::new(w.today, CalLevel::College, Kind::Signing, Loudness::Small, text).program(j));
+        }
+    }
+    // Open tryouts: the best new graduates in each state who never signed.
+    let mut by_state: Vec<Vec<(f64, usize)>> = vec![Vec::new(); w.states.len()];
+    for (i, p) in w.people.iter().enumerate() {
+        if p.stage == Stage::Done && p.class_of == season && p.path.is_empty() && p.college.is_none() {
+            let s = w.high_schools[p.hs].state;
+            by_state[s].push((p.player.overall(), i));
+        }
+    }
+    for list in by_state.iter_mut() {
+        list.sort_by(|a, b| b.0.total_cmp(&a.0));
+        list.truncate(20);
+    }
+    let seed = w.options.seed as u64 ^ (season as u64) << 20 ^ 0x7A1C;
+    for j in 0..w.programs.len() {
+        let prog = &w.programs[j];
+        if !prog.plays(season) || key_uniform(seed, j as u64) >= tryout_sticks(prog.division) {
+            continue;
+        }
+        let Some((_, i)) = by_state[prog.state].first().copied() else { continue };
+        by_state[prog.state].remove(0);
+        let name = prog.real_name.clone();
+        let p = &mut w.people[i];
+        p.stage = Stage::College;
+        p.college = Some(j);
+        p.path.push(j);
+        p.walk_on = true;
+        let age = p.row_age();
+        p.note(format!("Made the team at {name} at an open tryout at {age}, a student nobody had recruited."));
+        w.log.tryouts += 1;
+    }
+    w.rebuild_rosters();
+}
+
 /// Whether a player takes a place under his program's limit (F17). The
 /// House era's limit counts the whole roster. Before it (and at the FCS
 /// programs that stayed out, D2 and junior colleges) the limit counts
@@ -1451,6 +1545,13 @@ fn class_plan(
             target = total;
         } else {
             plan.scholarship[k] = plan_count(target, now[k][0] + now[k][1], stay[k][0] + stay[k][1]);
+            if !whole_roster {
+                // Preferred walk-ons fill out a real squad for the level
+                // (topic 5.1), on top of the scholarship signees.
+                let squad = real_roster(pos) * level_roster(prog.division) / REAL_ROSTER_TOTAL;
+                let signed = plan.scholarship[k] as f64;
+                plan.walk_on[k] = plan_count(squad, now[k][0] + now[k][1] + signed, stay[k][0] + stay[k][1] + signed);
+            }
         }
         let depth =
             if plan.whole_roster { target } else { real_roster(pos) * level_roster(prog.division) / REAL_ROSTER_TOTAL };
@@ -1458,13 +1559,26 @@ fn class_plan(
     }
     let room = limit.saturating_sub(returning.round() as usize);
     plan.room = room;
-    plan.walk_on_room = plan.walk_on.iter().sum::<usize>().min(room);
+    // Under a scholarship limit only the specialists' walk-on places sit
+    // under it; the other walk-ons are outside it (F17).
+    let under: usize = Position::ALL
+        .into_iter()
+        .filter(|p| whole_roster || p.is_specialist())
+        .map(|p| plan.walk_on[p.index()])
+        .sum::<usize>()
+        .min(room);
+    let outside: usize = Position::ALL
+        .into_iter()
+        .filter(|p| !whole_roster && !p.is_specialist())
+        .map(|p| plan.walk_on[p.index()])
+        .sum();
+    plan.walk_on_room = under + outside;
     // The era's yearly signing cap (11.4) bounds the class. Under the
     // House roster limit the new places fill over several classes, through
     // walk-ons and the portal; a high school class stays near its usual
     // size (part D 10: real 2025 and 2026 classes stayed about 20-30).
     let usual = if whole_roster { HOUSE_CLASS_MAX } else { usize::MAX };
-    plan.slots = (room - plan.walk_on_room).min(signees).min(usual);
+    plan.slots = (room - under).min(signees).min(usual);
     plan
 }
 
@@ -4518,6 +4632,11 @@ pub(crate) fn nil_payouts(w: &mut World) {
         let mut jealousy = 0.0;
         for (k, &(money, i)) in paid.iter().enumerate() {
             let p = &mut w.people[i];
+            // A new big deal is a payday (fix list 4.5). Proposed, not
+            // confirmed: $250,000, where the top earners' backlash starts.
+            if money > 250_000.0 && p.nil_income <= 250_000.0 {
+                p.cal.payday = true;
+            }
             p.nil_income = money;
             // The top earners on a team: payouts can bring jealousy, complacency or pressure.
             if k < 3 && money > 250_000.0 {

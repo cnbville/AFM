@@ -286,6 +286,9 @@ pub struct PersonCal {
     /// Graduated at this May's commencement: the graduate-transfer choice
     /// is open (part B 36).
     pub may_graduate: bool,
+    /// A big NIL deal came this year (fix list 4.5): read by the season's
+    /// development step, then cleared.
+    pub payday: bool,
 }
 
 /// A recruiting action on a day the NCAA periods allow (T5.3, T5.4).
@@ -572,6 +575,10 @@ pub struct CalendarLog {
     pub commits: u32,
     pub commits_by_month: [u32; 12],
     pub decommits: u32,
+    /// Walk-ons put on scholarship in fall camp (topic 5.4).
+    pub walk_on_scholarships: u32,
+    /// Students who made a team at an open tryout (topic 5.5).
+    pub tryouts: u32,
     pub graduates: u32,
     pub graduate_transfers: u32,
     pub flips: u32,

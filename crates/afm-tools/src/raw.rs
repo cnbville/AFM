@@ -276,7 +276,7 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
             "portal_by_day": l.portal_by_day.iter().map(|(d, n)| json!([d.to_string(), n])).collect::<Vec<_>>(),
             "portal_landed": l.portal_landed, "portal_returned": l.portal_returned, "whispers": l.whispers,
             "sit_out_transfers": l.sit_out_transfers, "spring_ineligible": l.spring_ineligible, "fall_ineligible": l.fall_ineligible,
-            "combine_invites": l.combine_invites, "all_star_invites": l.all_star_invites, "all_star_declined": l.all_star_declined,
+            "combine_invites": l.combine_invites, "all_star_invites": l.all_star_invites, "all_star_declined": l.all_star_declined, "walk_on_scholarships": l.walk_on_scholarships, "tryouts": l.tryouts,
             "huge_by_team": l.huge_by_team.iter().map(|&(t, n)| json!([w.programs[t].real_name, n])).collect::<Vec<_>>(),
             "rule_changes": l.rule_changes, "nfl_games": l.nfl_games,
             "nfl_huge_by_team": l.nfl_huge_by_team.iter().enumerate().map(|(t, &n)| json!([w.nfl[t].name, n])).collect::<Vec<_>>(),

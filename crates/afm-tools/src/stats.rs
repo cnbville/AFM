@@ -339,6 +339,12 @@ pub struct PotentialStats {
     pub young_regression_share: f64,
     /// Seasons tagged as a breakout although the rating fell.
     pub falling_breakouts: usize,
+    /// Share of player seasons (18 and up) that lost more than a rating point
+    /// (fix list topic 4: was under 0.3%).
+    pub seasons_lost_1_plus: f64,
+    /// NFL starters still starting the next season, by age, all positions
+    /// (fix list 4.7; real nflverse about 0.70 at 22-27, 0.5-0.6 at 30).
+    pub nfl_starter_kept_next_year_by_age: BTreeMap<u32, f64>,
 }
 
 fn reach(gaps: &[(f64, f64)]) -> Reach {
@@ -379,6 +385,9 @@ pub fn summarize(result: &CohortResult) -> Summary {
     let late_round: Vec<&CareerRecord> = drafted.iter().copied().filter(|r| round_of(r) == 7).collect();
     let mut young_seasons = 0usize;
     let mut regressions = 0usize;
+    let mut adult_seasons = 0usize;
+    let mut lost_1 = 0usize;
+    let mut kept: BTreeMap<u32, (usize, usize)> = BTreeMap::new();
     for r in records {
         let h = &r.player.history;
         for i in 1..h.len() {
@@ -386,6 +395,20 @@ pub fn summarize(result: &CohortResult) -> Summary {
                 young_seasons += 1;
                 if h[i].overall < h[i - 1].overall {
                     regressions += 1;
+                }
+            }
+            if h[i].age >= 18 {
+                adult_seasons += 1;
+                if h[i].overall < h[i].overall_start - 1.0 {
+                    lost_1 += 1;
+                }
+            }
+            let prev = &h[i - 1];
+            if prev.level == Level::NFL && prev.playing_time == PlayingTime::Starter && (22..=31).contains(&prev.age) {
+                let e = kept.entry(prev.age).or_default();
+                e.1 += 1;
+                if h[i].level == Level::NFL && h[i].playing_time == PlayingTime::Starter {
+                    e.0 += 1;
                 }
             }
         }
@@ -682,6 +705,8 @@ pub fn summarize(result: &CohortResult) -> Summary {
                 .flat_map(|r| r.player.history.iter())
                 .filter(|s| s.events.has(Ev::Breakout) && s.overall < s.overall_start)
                 .count(),
+            seasons_lost_1_plus: r3(share(lost_1, adult_seasons)),
+            nfl_starter_kept_next_year_by_age: kept.iter().map(|(&a, &(k, n))| (a, r3(share(k, n)))).collect(),
         },
     }
 }

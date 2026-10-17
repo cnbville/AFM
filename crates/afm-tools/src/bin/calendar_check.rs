@@ -86,6 +86,7 @@ fn print_log(l: &CalendarLog) {
             "combine invites / all-star invites / declined",
             format!("{} / {} / {}", l.combine_invites, l.all_star_invites, l.all_star_declined),
         ),
+        ("walk-ons put on scholarship / tryouts", format!("{} / {}", l.walk_on_scholarships, l.tryouts)),
         ("college teams with a huge game", l.huge_by_team.len().to_string()),
         ("college huge games (sum)", l.huge_by_team.iter().map(|h| h.1).sum::<u32>().to_string()),
         ("rule changes", format!("{:?}", l.rule_changes)),
