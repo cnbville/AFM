@@ -15,7 +15,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use rayon::prelude::*;
 
 use super::coach::TitleKind;
-use super::data::Division;
+use super::data::{DIVISION_COUNT, Division};
 use super::news::{Channel, NewsItem, NewsKind};
 use super::schedule::{self, Game, GameKind, Played, Site, Tag};
 use super::season::{self, COLLEGE_SPREAD, CoachContext, TeamResult, key_normal, key_uniform, win_chance};
@@ -156,7 +156,7 @@ pub(crate) struct CollegeSeason {
     pub polls: Vec<Poll>,
     pub brackets: Vec<Bracket>,
     /// National champions by division (FBS, FCS, D2, JUCO).
-    pub champions: [Option<usize>; 4],
+    pub champions: [Option<usize>; DIVISION_COUNT],
     pub finished: bool,
     /// Regular-season wins and losses already credited to head coaches.
     pub credited: Vec<(u32, u32)>,
@@ -212,7 +212,7 @@ pub(crate) fn new_season(w: &World) -> CollegeSeason {
         out: HashMap::new(),
         polls: Vec::new(),
         brackets: Vec::new(),
-        champions: [None; 4],
+        champions: [None; DIVISION_COUNT],
         finished: false,
         credited: vec![(0, 0); np],
         awards: Vec::new(),
@@ -250,6 +250,9 @@ pub(crate) fn projected_strength(w: &World, prog: usize) -> f64 {
 pub(crate) fn start(w: &mut World) {
     if w.college.as_ref().is_none_or(|c| c.started) {
         return;
+    }
+    for prog in w.programs.iter_mut() {
+        prog.sideline = None;
     }
     let who: Vec<bool> = w.people.iter().map(|p| p.stage == Stage::College).collect();
     season::reconsider_positions(w, &who);
@@ -546,7 +549,7 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
         // Records.
         if kind == GameKind::Regular {
             let adv = if j.neutral { 0.0 } else { 0.8 };
-            let pe = win_chance(cs.results[home].preseason, cs.results[away].preseason, COLLEGE_SPREAD, adv);
+            let pe = win_chance(cs.results[home].preseason, cs.results[away].preseason, w.college_spread, adv);
             cs.results[home].expected += pe;
             cs.results[away].expected += 1.0 - pe;
         }
@@ -797,6 +800,13 @@ fn result_event(w: &mut World, k: usize) {
     // Below the FBS a game is huge for its two teams, but national news
     // carries it as big at most (proposed, not confirmed).
     let loud = if g.division == Division::FBS { loud } else { loud.min(Loudness::Big) };
+    // Why it is loud (part B 22).
+    let text = if loud >= Loudness::Big && !g.why.is_empty() {
+        let label = if loud == Loudness::Huge { "Huge" } else { "Big" };
+        format!("{text} ({label}: {}.)", g.why.join(", "))
+    } else {
+        text
+    };
     let date = g.date;
     let title = g.kind == GameKind::Title && g.division == Division::FBS;
     let mut e = Event::new(date, CalLevel::College, Kind::Game, loud, text).program(wi);
@@ -814,8 +824,12 @@ fn result_event(w: &mut World, k: usize) {
 /// and a conference title counted once won.
 pub(crate) fn ranking(w: &World, division: Division) -> Vec<(usize, f64)> {
     let Some(cs) = w.college.as_ref() else { return Vec::new() };
-    let members: Vec<usize> =
-        w.programs.iter().filter(|p| p.division == division && !p.roster.is_empty()).map(|p| p.id).collect();
+    let members: Vec<usize> = w
+        .programs
+        .iter()
+        .filter(|p| p.division == division && !p.roster.is_empty() && p.plays(w.year))
+        .map(|p| p.id)
+        .collect();
     let set: HashSet<usize> = members.iter().copied().collect();
     let mut games: HashMap<usize, Vec<(usize, f64)>> = HashMap::new();
     for g in cs.games.iter() {
@@ -909,6 +923,17 @@ pub(crate) fn release_poll(w: &mut World, date: Date, kind: PollKind) {
     {
         top.retain(|&t| t != c);
         top.insert(0, c);
+        // The title game's loser is second (part D 25), as voters rank it.
+        let runner_up = w.college.as_ref().and_then(|cs| {
+            cs.games
+                .iter()
+                .find(|g| g.kind == GameKind::Title && g.division == Division::FBS && g.involves(c))
+                .and_then(|g| g.played.as_ref().map(|_| if g.home == c { g.away } else { g.home }))
+        });
+        if let Some(r) = runner_up {
+            top.retain(|&t| t != r);
+            top.insert(1, r);
+        }
         top.truncate(25);
     }
     if top.is_empty() {
@@ -944,13 +969,13 @@ pub(crate) fn rank_of(cs: &CollegeSeason, t: usize) -> Option<usize> {
 /// rivalry between contenders, a coach's job on the line in a big game.
 fn stakes_for_day(w: &mut World, idx: &[usize]) {
     let Some(cs) = w.college.as_ref() else { return };
-    let mut updates: Vec<(usize, Vec<Tag>, Loudness, [bool; 2])> = Vec::new();
+    let mut updates: Vec<(usize, Vec<Tag>, Loudness, [bool; 2], Vec<&'static str>)> = Vec::new();
     let mut notes: Vec<(usize, String)> = Vec::new();
     // Each team's own race (T8.1): the fewest conference losses in its
     // conference, and the regular-season games it has left.
     let mut conf_best: HashMap<&str, u32> = HashMap::new();
     for (t, prog) in w.programs.iter().enumerate() {
-        if prog.division == Division::FBS && !prog.roster.is_empty() {
+        if prog.division == Division::FBS && !prog.roster.is_empty() && prog.plays(w.year) {
             let e = conf_best.entry(prog.conference.as_str()).or_insert(u32::MAX);
             *e = (*e).min(cs.results[t].conf_losses);
         }
@@ -1060,9 +1085,38 @@ fn stakes_for_day(w: &mut World, idx: &[usize]) {
             .filter(|t| matches!(t, Tag::Revenge | Tag::CoachReturn | Tag::Hometown | Tag::Milestone))
             .count();
         let stakes = real as f64 + (0.5 * story as f64).min(1.0);
+        // The reasons, in plain words, for the result's text (part B 22).
+        let mut why: Vec<&'static str> = match g.kind {
+            GameKind::Title => vec!["the national title"],
+            GameKind::Playoff(_) => vec!["a playoff game"],
+            GameKind::ConferenceTitle => vec!["a conference title"],
+            GameKind::Bowl(_) | GameKind::Celebration => vec!["a bowl game"],
+            GameKind::Regular => Vec::new(),
+        };
+        for (t, reason) in [
+            (Tag::Ranked, "both ranked"),
+            (Tag::PlayoffSpot, "a playoff place at stake"),
+            (Tag::Rivalry, "a rivalry"),
+            (Tag::HotSeat, "a coach's job on the line"),
+            (Tag::Revenge, "a player facing his old team"),
+            (Tag::CoachReturn, "a coach facing his old team"),
+            (Tag::Hometown, "a player at home"),
+            (Tag::Milestone, "a record within reach"),
+        ] {
+            if tags.contains(&t) {
+                why.push(reason);
+            }
+        }
+        // Bowls by the bowl (part D 28): a major bowl is big, huge with a
+        // stake; any other bowl medium, big with a stake.
+        let major = g.name.is_some_and(|n| BOWLS.iter().any(|b| b.name == n && b.major));
         let loud = match g.kind {
             GameKind::Title => Loudness::Huge,
             GameKind::Playoff(_) if g.division == Division::FBS => Loudness::Huge,
+            GameKind::Bowl(_) if major && stakes >= 1.0 => Loudness::Huge,
+            GameKind::Bowl(_) if major => Loudness::Big,
+            GameKind::Bowl(_) | GameKind::Celebration if stakes >= 1.0 => Loudness::Big,
+            GameKind::Bowl(_) | GameKind::Celebration => Loudness::Medium,
             _ if stakes >= 2.0 => Loudness::Huge,
             _ if stakes >= 1.0 => Loudness::Big,
             _ if !tags.is_empty() => Loudness::Medium,
@@ -1097,19 +1151,32 @@ fn stakes_for_day(w: &mut World, idx: &[usize]) {
                     tags.contains(&Tag::HotSeat) && cs.coaches.get(t).is_some_and(|c| c.hot_seat) && r.games() >= 8;
                 let n = tags.contains(&Tag::Ranked) as u32 + contender as u32 + race as u32 + bowl as u32 + job as u32;
                 let rivalry = tags.contains(&Tag::Rivalry);
-                huge_for[side] = rivalry_week
-                    || rivalry && n >= 1
-                    || n >= 2
-                    || g.kind != GameKind::Regular && loud == Loudness::Huge;
+                // Rivalry week alone is not enough (part D 26): it needs one
+                // more real stake; a sixth win for a bowl in the last game
+                // is huge on its own (part B 26).
+                huge_for[side] =
+                    rivalry && n >= 1 || n >= 2 || bowl || g.kind != GameKind::Regular && loud == Loudness::Huge;
+                if huge_for[side] || loud >= Loudness::Big {
+                    for (on, reason) in [
+                        (race, "a conference race between leaders"),
+                        (bowl, "a sixth win for a bowl"),
+                        (contender && !tags.contains(&Tag::PlayoffSpot), "playoff hopes"),
+                    ] {
+                        if on && !why.contains(&reason) {
+                            why.push(reason);
+                        }
+                    }
+                }
             }
         }
-        updates.push((k, tags, loud, huge_for));
+        updates.push((k, tags, loud, huge_for, why));
     }
     let cs = w.college.as_mut().unwrap();
-    for (k, tags, loud, huge_for) in updates {
+    for (k, tags, loud, huge_for, why) in updates {
         cs.games[k].tags = tags;
         cs.games[k].loud = loud;
         cs.games[k].huge_for = huge_for;
+        cs.games[k].why = why;
     }
     let d = w.today;
     for (t, text) in notes {
@@ -1208,7 +1275,7 @@ pub(crate) fn regular_season_end(w: &mut World, division: Division) {
     let rank: HashMap<usize, usize> =
         ranking(w, division).into_iter().enumerate().map(|(k, (t, _))| (t, k + 1)).collect();
     let mut confs: BTreeMap<String, Vec<usize>> = BTreeMap::new();
-    for p in w.programs.iter().filter(|p| p.division == division && !p.roster.is_empty()) {
+    for p in w.programs.iter().filter(|p| p.division == division && !p.roster.is_empty() && p.plays(w.year)) {
         if !p.conference.contains("Independent") {
             confs.entry(p.conference.clone()).or_default().push(p.id);
         }
@@ -1262,6 +1329,20 @@ fn pick_division_playoff(w: &mut World, division: Division) {
                 2
             }
         }
+        // The real fields (from memory, to verify): Division III 16 teams
+        // from 1985, 28 from 1999, 32 from 2005; the NAIA 16 from 1987
+        // and 20 from 2022.
+        Division::D3 => match cs.year {
+            ..=1984 => 8,
+            1985..=1998 => 16,
+            1999..=2004 => 28,
+            _ => 32,
+        },
+        Division::NAIA => match cs.year {
+            ..=1986 => 8,
+            1987..=2021 => 16,
+            _ => 20,
+        },
         Division::FBS => return,
     };
     let excluded = |t: usize| {
@@ -1290,7 +1371,8 @@ fn pick_division_playoff(w: &mut World, division: Division) {
     let rounds_needed = seeds.len().next_power_of_two().trailing_zeros() as usize;
     let all: Vec<Date> = match division {
         Division::FCS => y.fcs_rounds.clone(),
-        Division::D2 => y.d2_rounds.clone(),
+        // Division III and the NAIA play their rounds on Division II's weekends.
+        Division::D2 | Division::NAIA | Division::D3 => y.d2_rounds.clone(),
         _ => vec![y.juco_title.add(-7), y.juco_title],
     };
     let dates: Vec<Vec<Date>> = all[all.len().saturating_sub(rounds_needed)..].iter().map(|&d| vec![d]).collect();
@@ -1436,6 +1518,23 @@ fn neutral_site(name: Option<&'static str>, division: Division, season: i32) -> 
         }
         Division::D2 => s("TX", "McKinney", false),
         Division::JUCO => s("TX", "Wichita Falls", false),
+        // The Stagg Bowl (from memory, to verify): Phenix City 1985-89,
+        // Bradenton 1990-92, Salem 1993-2017 and from 2023, Shenandoah
+        // 2018-19, Canton 2021-22.
+        Division::D3 => match season {
+            ..=1989 => s("AL", "Phenix City", false),
+            1990..=1992 => s("FL", "Bradenton", false),
+            2018 | 2019 => s("TX", "Shenandoah", false),
+            2021 | 2022 => s("OH", "Canton", false),
+            _ => s("VA", "Salem", false),
+        },
+        // The NAIA final (from memory, to verify): Rome, Georgia 2008-13,
+        // Daytona Beach from 2014, Savannah, Tennessee before.
+        Division::NAIA => match season {
+            ..=2007 => s("TN", "Savannah", false),
+            2008..=2013 => s("GA", "Rome", false),
+            _ => s("FL", "Daytona Beach", false),
+        },
     }
 }
 
@@ -1710,27 +1809,40 @@ fn opt_outs(w: &mut World) {
     let Some(cs) = w.college.as_ref() else { return };
     let season = cs.year;
     let five = w.changes.rules(season + 1).five_in_five;
+    // A yearly ramp (part D 19): a handful before 2016 (Christian
+    // McCaffrey and Leonard Fournette made it news that year), then rising
+    // every year into the 2020s (proposed, not confirmed: the shares of the
+    // full rate below).
     let era = match season {
-        ..=2015 => 0.05,
-        2016 | 2017 => 0.4,
+        ..=2015 => 0.03,
+        2016 => 0.15,
+        2017 => 0.3,
+        2018 => 0.45,
+        2019 => 0.6,
+        2020 => 0.85,
+        2021 => 0.9,
+        2022 => 0.95,
         _ => 1.0,
     };
-    // Each bowl team's first postseason game.
-    let mut first: HashMap<usize, (GameKind, bool)> = HashMap::new();
-    for g in cs.games.iter().filter(|g| g.played.is_none() && g.kind != GameKind::Regular) {
+    // Each bowl team's first postseason game, and its day.
+    let mut first: HashMap<usize, (GameKind, bool, Date)> = HashMap::new();
+    let mut later: Vec<&super::schedule::Game> =
+        cs.games.iter().filter(|g| g.played.is_none() && g.kind != GameKind::Regular).collect();
+    later.sort_by_key(|g| g.date);
+    for g in later {
         let major = g.name.is_some_and(|n| BOWLS.iter().any(|b| b.name == n && b.major));
         for t in [g.home, g.away] {
-            first.entry(t).or_insert((g.kind, major));
+            first.entry(t).or_insert((g.kind, major, g.date));
         }
     }
     let seed = w.options.seed as u64 ^ ((season as u64) << 20) ^ 0x0F70;
-    let mut outs: Vec<(u32, usize, String, bool)> = Vec::new();
+    let mut outs: Vec<(u32, usize, String, bool, Date)> = Vec::new();
     for (i, p) in w.people.iter().enumerate() {
         if p.stage != Stage::College {
             continue;
         }
         let Some(c) = p.college else { continue };
-        let Some(&(kind, major)) = first.get(&c) else { continue };
+        let Some(&(kind, major, game_day)) = first.get(&c) else { continue };
         let Some(read) = p.cal.draft_read else { continue };
         let senior = last_season(p, season, five);
         if !senior && p.cal.declare_plan != Some(true) {
@@ -1758,15 +1870,20 @@ fn opt_outs(w: &mut World) {
                 _ => "his bowl game",
             };
             let why = if senior { "to prepare for the draft" } else { "to enter the NFL draft" };
-            outs.push((p.player.id, i, format!("Opted out of {game} at {} {why}.", p.row_age()), senior));
+            // His own day to say so (part D 16): from the day after the
+            // bowl draw to three days before the game, most in the first weeks.
+            let span = (w.today.days_to(game_day) - 3).max(0) as f64;
+            let u = key_uniform(seed ^ 0xDA7E, p.player.id as u64);
+            let day = w.today.add(1 + (span * u.powf(1.5)).floor() as i32);
+            outs.push((p.player.id, i, format!("Opted out of {game} at {} {why}.", p.row_age()), senior, day));
         }
     }
-    let date = w.today;
-    for (id, i, note, senior) in outs {
+    for (id, i, note, senior, date) in outs {
         let c = w.people[i].college.unwrap_or(0);
         let name = w.people[i].name.clone();
         w.people[i].note(note);
         w.people[i].cal.opted_out = true;
+        w.people[i].cal.opt_out_on = Some(date);
         w.log.opt_outs += 1;
         let loud =
             if w.people[i].cal.draft_read.is_some_and(|r| r.round == 1) { Loudness::Medium } else { Loudness::Small };
@@ -1950,7 +2067,7 @@ fn show_pick(
             let read = (1.0 - fw) * stats / bars[k].0 + fw * film / bars[k].1;
             let team = rank.get(&prog).map_or(0.8, |&r| 1.3 - 0.02 * r.min(25) as f64);
             let former = w.people[i].notes.iter().any(|n| n.starts_with(&won));
-            (read * team * if former { 0.85 } else { 1.0 }, id, i)
+            (read * team * if former { 0.75 } else { 1.0 }, id, i)
         })
         .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)))
         .map(|(_, _, i)| i)
@@ -1970,8 +2087,8 @@ pub(crate) fn awards(w: &mut World, which: &'static str) {
     // The Heisman race: each candidate's production against the mean of the
     // season's ten best of his kind, weighted by how voters treat his kind
     // and by his team's ranking. A full season (six games or more) makes a
-    // candidate, and a former winner is held to a higher bar: nobody has won
-    // twice since Archie Griffin (1974-75, from memory, to verify). Claude's
+    // candidate, and a former winner is held to a higher bar (part B 15:
+    // 0.7): nobody has won twice since Archie Griffin (1974-75). Claude's
     // picks, proposed, not confirmed.
     let candidates: Vec<(u32, usize, usize, f64, f64, usize)> = cs
         .lines
@@ -2001,10 +2118,20 @@ pub(crate) fn awards(w: &mut World, which: &'static str) {
         .map(|&(id, i, kind, weight, prod, prog)| {
             let team = rank.get(&prog).map_or(0.8, |&r| 1.3 - 0.02 * r.min(25) as f64);
             let former = w.people[i].notes.iter().any(|n| n.starts_with("Won the Heisman Trophy"));
-            let s = weight * prod / bar[kind] * team * if former { 0.85 } else { 1.0 };
+            let s = weight * prod / bar[kind] * team * if former { 0.7 } else { 1.0 };
             (s, id, i)
         })
         .collect();
+    scored.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+    // Teammates split the vote (part D 24): each teammate below a school's
+    // best candidate loses a fifth more (proposed, not confirmed).
+    let mut seen: HashMap<usize, i32> = HashMap::new();
+    for e in scored.iter_mut() {
+        let prog = w.people[e.2].college.unwrap_or(usize::MAX);
+        let k = seen.entry(prog).or_insert(0);
+        e.0 *= 0.8f64.powi(*k);
+        *k += 1;
+    }
     scored.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
     let date = w.today;
     match which {
@@ -2103,38 +2230,106 @@ pub(crate) fn record_regular_season(w: &mut World) {
         return;
     }
     let year = cs.year;
+    // The athletic directors read results against the engine's own win
+    // curve (trial 4 topic 4): expected wins are worked out again with the
+    // spread this season's games show.
+    refit_expectations(w);
+    let cs = w.college.as_ref().unwrap();
     let results: Vec<TeamResult> = cs.results.clone();
+    let credited = cs.credited.clone();
     for p in 0..w.programs.len() {
         let t = &results[p];
         if t.games() == 0 {
             continue;
         }
         let prog = &mut w.programs[p];
+        // The coach on the sideline: an interim after an in-season firing.
+        let head = prog.sideline.or(prog.head_coach);
         prog.seasons.push(super::program::ProgramSeason {
             year,
             wins: t.wins,
             losses: t.losses,
             conference_title: t.conference_title,
             national_title: false,
-            coach: prog.head_coach,
+            coach: head,
             strength: t.strength,
             totals: t.totals,
         });
         let locker = clamp(t.incidents as f64 / t.roster.max(1) as f64 * 8.0, 0.0, 1.0);
-        let staff: Vec<(Option<usize>, bool)> = [(prog.head_coach, true), (prog.oc, false), (prog.dc, false)]
-            .into_iter()
-            .chain(prog.position_coaches.iter().map(|&c| (c, false)))
-            .collect();
-        for (c, head) in staff {
-            let Some(c) = c else { continue };
-            let coach = &mut w.coaches[c];
-            if head {
-                coach.wins += t.wins;
-                coach.losses += t.losses;
+        let staff = staff_of(prog, head);
+        let (cw, cl) = credited[p];
+        for (c, is_head) in staff {
+            if is_head {
+                super::staff::credit_head(w, c, p, t.wins.saturating_sub(cw), t.losses.saturating_sub(cl), 0);
             }
-            coach.season_reputation(t.vs_expectation(), locker, head);
+            w.coaches[c].season_reputation(t.vs_expectation(), locker, is_head);
         }
         w.college.as_mut().unwrap().credited[p] = (t.wins, t.losses);
+    }
+}
+
+/// A program's staff for credit, the coach on the sideline first (as head
+/// coach), each coach once.
+fn staff_of(prog: &super::program::Program, head: Option<usize>) -> Vec<(usize, bool)> {
+    let mut staff: Vec<(usize, bool)> = head.map(|h| (h, true)).into_iter().collect();
+    for c in [prog.oc, prog.dc].into_iter().chain(prog.position_coaches.iter().copied()).flatten() {
+        if !staff.iter().any(|s| s.0 == c) {
+            staff.push((c, false));
+        }
+    }
+    staff
+}
+
+/// Fits this season's win curve to the games played (one spread for every
+/// level, home field as before) and works each team's expected wins out
+/// again with it, so a roster's expectation matches what the engine does.
+/// The fitted spread carries into next season's running expectation.
+fn refit_expectations(w: &mut World) {
+    let Some(cs) = w.college.as_ref() else { return };
+    let games: Vec<(usize, usize, f64, bool)> = cs
+        .games
+        .iter()
+        .filter(|g| g.kind == GameKind::Regular)
+        .filter_map(|g| {
+            g.played.as_ref().map(|pl| (g.home, g.away, if g.site.is_some() { 0.0 } else { 0.8 }, pl.home_won))
+        })
+        .collect();
+    if games.len() < 200 {
+        return;
+    }
+    let pre: Vec<f64> = cs.results.iter().map(|r| r.preseason).collect();
+    let loglik = |spread: f64| -> f64 {
+        games
+            .iter()
+            .map(|&(h, a, adv, won)| {
+                let p = win_chance(pre[h], pre[a], spread, adv).clamp(1e-6, 1.0 - 1e-6);
+                if won { p.ln() } else { (1.0 - p).ln() }
+            })
+            .sum()
+    };
+    // Golden-section search on 1-20 rating points.
+    let (mut lo, mut hi) = (1.0f64, 20.0f64);
+    let g = 0.618_033_988_75;
+    for _ in 0..40 {
+        let a = hi - g * (hi - lo);
+        let b = lo + g * (hi - lo);
+        if loglik(a) > loglik(b) {
+            hi = b;
+        } else {
+            lo = a;
+        }
+    }
+    let spread = 0.5 * (lo + hi);
+    let mut expected = vec![0.0; pre.len()];
+    for &(h, a, adv, _) in &games {
+        let pe = win_chance(pre[h], pre[a], spread, adv);
+        expected[h] += pe;
+        expected[a] += 1.0 - pe;
+    }
+    w.college_spread = spread;
+    let cs = w.college.as_mut().unwrap();
+    for (r, e) in cs.results.iter_mut().zip(expected) {
+        r.expected = e;
     }
 }
 
@@ -2185,27 +2380,24 @@ pub(crate) fn finish(w: &mut World) {
                 prog.titles += 1;
             }
             let stage = prog.prestige_rel;
-            let staff: Vec<(Option<usize>, bool)> = [(prog.head_coach, true), (prog.oc, false), (prog.dc, false)]
-                .into_iter()
-                .chain(prog.position_coaches.iter().map(|&c| (c, false)))
-                .collect();
-            for (c, head) in staff {
-                let Some(c) = c else { continue };
-                let coach = &mut w.coaches[c];
-                if head {
-                    coach.wins += t.wins.saturating_sub(cw);
-                    coach.losses += t.losses.saturating_sub(cl);
-                    if t.best_title() != TitleKind::None {
-                        coach.titles += 1;
-                        coach.career_titles += 1;
-                    }
+            // The coach on the sideline gets the postseason (part B 45): a
+            // retiring coach who stayed, or the interim.
+            let head = prog.sideline.or(prog.head_coach);
+            let staff = staff_of(prog, head);
+            for (c, is_head) in staff {
+                if is_head {
+                    let title = (t.best_title() != TitleKind::None) as u32;
+                    super::staff::credit_head(w, c, p, t.wins.saturating_sub(cw), t.losses.saturating_sub(cl), title);
                 }
-                coach.title_reputation(t.best_title(), head, stage);
+                w.coaches[c].title_reputation(t.best_title(), is_head, stage);
             }
+        }
+        for prog in w.programs.iter_mut() {
+            prog.sideline = None;
         }
         for (d, champ) in champions.iter().enumerate() {
             let Some(c) = *champ else { continue };
-            let division = [Division::FBS, Division::FCS, Division::D2, Division::JUCO][d];
+            let division = Division::ALL[d];
             let name = w.programs[c].name(w.options.names).to_string();
             w.news.push(NewsItem {
                 date: None,
@@ -2476,7 +2668,8 @@ pub(crate) fn still_contending(cs: &CollegeSeason, t: usize, field: usize) -> bo
     if field == 0 || cs.brackets.iter().any(|b| b.division == Division::FBS) {
         return false;
     }
-    let title_game = cs.games.iter().any(|g| g.played.is_none() && g.involves(t) && g.kind == GameKind::ConferenceTitle);
+    let title_game =
+        cs.games.iter().any(|g| g.played.is_none() && g.involves(t) && g.kind == GameKind::ConferenceTitle);
     let ranked = cs.polls.last().is_some_and(|p| p.top.iter().take(field + 6).any(|&x| x == t));
     title_game || ranked
 }
@@ -2523,7 +2716,7 @@ pub(crate) fn lean_checkpoint(w: &mut World, check: LeanCheck) {
     match check {
         LeanCheck::FallCamp => {
             // Starters' level at each position and division: the bar a backup measures himself against.
-            let mut perf: [[Vec<f64>; crate::positions::POSITION_COUNT]; 4] = Default::default();
+            let mut perf: [[Vec<f64>; crate::positions::POSITION_COUNT]; DIVISION_COUNT] = Default::default();
             for p in w.people.iter() {
                 if p.stage == Stage::College
                     && p.last_role == Some(PlayingTime::Starter)
@@ -2635,11 +2828,7 @@ pub(crate) fn lean_checkpoint(w: &mut World, check: LeanCheck) {
             }
         }
         LeanCheck::CoachingChanges => {
-            let changed: Vec<bool> = w
-                .programs
-                .iter()
-                .map(|p| p.head_coach.is_some_and(|c| w.coaches[c].job.is_some_and(|j| j.since == year)))
-                .collect();
+            let changed: Vec<bool> = w.programs.iter().map(|p| p.hc_changed == year).collect();
             let factor = PIPELINE.portal_entry.coaching_change;
             for p in w.people.iter_mut() {
                 if p.stage == Stage::College

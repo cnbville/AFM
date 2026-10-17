@@ -16,8 +16,8 @@ use std::collections::HashMap;
 
 use super::coach::TitleKind;
 use super::high_school::HsSeason;
-use super::season::{self, TeamResult, key_normal, key_uniform, win_chance};
 use super::recruiting::film_raw;
+use super::season::{self, TeamResult, key_normal, key_uniform, win_chance};
 use super::{Stage, World};
 use crate::calendar::anchors::{labor_day, thanksgiving};
 use crate::calendar::data::{ACT_DATES, GradeCheck, SAT_DATES, hs_calendar};
@@ -1135,7 +1135,8 @@ pub(crate) fn all_star_rosters(w: &mut World, name: &'static str) {
             .map(|(i, p)| {
                 let stars = if pos.is_specialist() { p.camp_stars } else { p.stars } as f64;
                 let read = p.cal.service_read.unwrap_or(p.player.overall());
-                let mut score = 10.0 * stars + 0.25 * film_raw(p) + 0.75 * read + 0.3 * key_normal(seed, p.player.id as u64);
+                let mut score =
+                    10.0 * stars + 0.25 * film_raw(p) + 0.75 * read + 0.3 * key_normal(seed, p.player.id as u64);
                 if poly && p.ethnicity == super::ethnicity::Ethnicity::Polynesian {
                     score += 15.0;
                 }
@@ -1169,7 +1170,10 @@ pub(crate) fn all_star_game(w: &mut World, name: &'static str) {
     let class = w.year + 1;
     let mut played = 0;
     for p in w.people.iter_mut() {
-        if p.class_of == class && p.cal.hs_all_star == Some(name) && matches!(p.stage, Stage::HighSchool | Stage::College) {
+        if p.class_of == class
+            && p.cal.hs_all_star == Some(name)
+            && matches!(p.stage, Stage::HighSchool | Stage::College)
+        {
             // The age on his senior season's row (the game is in its offseason).
             let age = row_age(p);
             p.note(format!("Played in the {name} at {age}."));

@@ -7,6 +7,9 @@
 use std::sync::LazyLock;
 
 const COLLEGES_CSV: &str = include_str!("../../../../data/real-world/colleges.csv");
+const COLLEGES_LOWER_CSV: &str = include_str!("../../../../data/real-world/colleges_lower.csv");
+const COLLEGE_HISTORY_CSV: &str = include_str!("../../../../data/real-world/college_history.csv");
+const COLLEGE_DROPPED_CSV: &str = include_str!("../../../../data/real-world/college_history_dropped.csv");
 const HS_STATES_CSV: &str = include_str!("../../../../data/real-world/hs_states.csv");
 const TALENT_CSV: &str = include_str!("../../../../data/real-world/talent_by_state.csv");
 const NFL_TEAMS_CSV: &str = include_str!("../../../../data/real-world/nfl_teams.csv");
@@ -17,17 +20,43 @@ pub enum Division {
     FBS,
     FCS,
     D2,
+    /// NAIA football (scholarships, below Division II).
+    NAIA,
+    /// Division III: no athletic scholarships.
+    D3,
+    /// Junior colleges (NJCAA and California's CCCAA).
     JUCO,
 }
 
+/// The number of college divisions, for arrays indexed by `Division as usize`.
+pub const DIVISION_COUNT: usize = 6;
+
 impl Division {
+    /// Every division, from the top level down (the order of the enum).
+    pub const ALL: [Division; DIVISION_COUNT] =
+        [Division::FBS, Division::FCS, Division::D2, Division::NAIA, Division::D3, Division::JUCO];
+
     pub fn name(self) -> &'static str {
         match self {
             Division::FBS => "FBS",
             Division::FCS => "FCS",
             Division::D2 => "D2",
+            Division::NAIA => "NAIA",
+            Division::D3 => "D3",
             Division::JUCO => "JUCO",
         }
+    }
+
+    pub fn parse(s: &str) -> Option<Division> {
+        Some(match s {
+            "FBS" => Division::FBS,
+            "FCS" => Division::FCS,
+            "D2" => Division::D2,
+            "NAIA" => Division::NAIA,
+            "D3" => Division::D3,
+            "JUCO" => Division::JUCO,
+            _ => return None,
+        })
     }
 }
 
@@ -121,8 +150,82 @@ impl Table {
     }
 }
 
+/// Every real college program playing in 2026: FBS, FCS and Division II
+/// (`colleges.csv`), then Division III, NAIA and the junior colleges
+/// (`colleges_lower.csv`).
 pub static COLLEGES: LazyLock<Vec<CollegeRow>> = LazyLock::new(|| {
-    let t = Table::parse(COLLEGES_CSV);
+    let mut rows = college_rows(COLLEGES_CSV);
+    rows.extend(college_rows(COLLEGES_LOWER_CSV));
+    rows
+});
+
+/// The first and last seasons the college history covers.
+pub const HISTORY_FIRST: i32 = 1984;
+pub const HISTORY_LAST: i32 = 2025;
+
+/// One span of a program's past (1984-2025) that differs from its 2026 row:
+/// its division and conference in those seasons, or no team at all.
+#[derive(Clone, Debug)]
+pub struct HistoryRow {
+    pub name: String,
+    pub first: i32,
+    pub last: i32,
+    /// None: the school fielded no team (not yet started, paused or dropped).
+    pub division: Option<Division>,
+    pub conference: String,
+}
+
+/// The past of the programs playing today (`college_history.csv`) and of
+/// the programs that dropped football since 1984 (`college_history_dropped.csv`).
+pub static COLLEGE_HISTORY: LazyLock<Vec<HistoryRow>> = LazyLock::new(|| {
+    let mut out = Vec::new();
+    for csv in [COLLEGE_HISTORY_CSV, COLLEGE_DROPPED_CSV] {
+        let t = Table::parse(csv);
+        let (name, first, last, div, conf) =
+            (t.col("name"), t.col("first_season"), t.col("last_season"), t.col("division"), t.col("conference"));
+        for r in &t.rows {
+            out.push(HistoryRow {
+                name: r[name].clone(),
+                first: r[first].parse().unwrap_or(1984),
+                last: r[last].parse().unwrap_or(2025),
+                division: Division::parse(&r[div]),
+                conference: r[conf].clone(),
+            });
+        }
+    }
+    out
+});
+
+/// Programs that played since 1984 and have since dropped football, with
+/// their first span's division and conference (`college_history_dropped.csv`).
+pub static DROPPED_COLLEGES: LazyLock<Vec<CollegeRow>> = LazyLock::new(|| {
+    let t = Table::parse(COLLEGE_DROPPED_CSV);
+    let (name, div, conf, city, state) =
+        (t.col("name"), t.col("division"), t.col("conference"), t.col("city"), t.col("state"));
+    let mut out: Vec<CollegeRow> = Vec::new();
+    for r in &t.rows {
+        if out.iter().any(|c| c.name == r[name]) {
+            continue;
+        }
+        let Some(division) = Division::parse(&r[div]) else { continue };
+        out.push(CollegeRow {
+            name: r[name].clone(),
+            division,
+            conference: r[conf].clone(),
+            city: r[city].clone(),
+            state: r[state].clone(),
+            enrollment: 8000,
+            national_titles: 0,
+            last_5yr_win_pct: None,
+            stadium_capacity: None,
+            academic_tier: AcademicTier::Other,
+        });
+    }
+    out
+});
+
+fn college_rows(csv: &str) -> Vec<CollegeRow> {
+    let t = Table::parse(csv);
     let (name, div, conf, city, state, enr, titles, win, stadium, acad) = (
         t.col("name"),
         t.col("division"),
@@ -142,11 +245,7 @@ pub static COLLEGES: LazyLock<Vec<CollegeRow>> = LazyLock::new(|| {
         .filter(|r| !r[notes].contains("no completed games"))
         .map(|r| CollegeRow {
             name: r[name].clone(),
-            division: match r[div].as_str() {
-                "FBS" => Division::FBS,
-                "FCS" => Division::FCS,
-                _ => Division::D2,
-            },
+            division: Division::parse(&r[div]).unwrap_or(Division::D2),
             conference: r[conf].clone(),
             city: r[city].clone(),
             state: r[state].clone(),
@@ -162,7 +261,7 @@ pub static COLLEGES: LazyLock<Vec<CollegeRow>> = LazyLock::new(|| {
             },
         })
         .collect()
-});
+}
 
 pub static STATES: LazyLock<Vec<StateRow>> = LazyLock::new(|| {
     let t = Table::parse(HS_STATES_CSV);

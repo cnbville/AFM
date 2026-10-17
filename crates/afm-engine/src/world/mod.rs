@@ -235,6 +235,8 @@ pub struct PersonCal {
     pub whispered: bool,
     pub draft_read: Option<DraftRead>,
     pub opted_out: bool,
+    /// The day his opt-out is announced (part D 16): his own day before his bowl.
+    pub opt_out_on: Option<crate::calendar::Date>,
     pub redshirt_trick: bool,
     /// A verbal commitment: program, day (T5.1), and whether it was to a
     /// walk-on place.
@@ -304,6 +306,7 @@ impl PersonCal {
         self.sitting_transfer = false;
         self.trouble = false;
         self.opted_out = false;
+        self.opt_out_on = None;
         self.redshirt_trick = false;
         self.whispered = false;
         self.lean = 0.0;
@@ -348,7 +351,7 @@ pub fn division_level(d: Division) -> Level {
     match d {
         Division::FBS => Level::FBS,
         Division::FCS => Level::FCS,
-        Division::D2 | Division::JUCO => Level::SmallCollege,
+        Division::D2 | Division::NAIA | Division::D3 | Division::JUCO => Level::SmallCollege,
     }
 }
 
@@ -524,6 +527,13 @@ pub struct World {
     pub nfl_champions: Vec<(i32, usize)>,
     /// Conference moves announced, to take effect next season (program, conference).
     pub(crate) realign: Vec<(usize, String)>,
+    /// College coaching searches under way, each deciding on its own day (part D 18).
+    pub(crate) searches: Vec<staff::Search>,
+    /// Coaches who took a job in this college carousel cycle: none moves twice.
+    pub(crate) moved_cycle: std::collections::HashSet<usize>,
+    /// The college win curve's spread fitted to last season's games: what
+    /// a roster's expected wins are read with.
+    pub(crate) college_spread: f64,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -564,7 +574,7 @@ pub struct CalendarLog {
     pub signed_early: u32,
     pub signed_late: u32,
     /// Signees by division (FBS, FCS, small college, JUCO): [before February, February].
-    pub signed_by_division: [[u32; 2]; 4],
+    pub signed_by_division: [[u32; 2]; data::DIVISION_COUNT],
     /// Dated recruiting actions (T5.3, T5.4): official visits, game-day
     /// unofficial visits, staff drop-ins at high schools.
     pub official_visits: u32,
@@ -594,6 +604,11 @@ pub struct CalendarLog {
 pub const SPIN_UP_YEARS: u32 = 12;
 
 impl World {
+    /// The world's first season: the spin-up years before recorded history.
+    pub fn first_year(&self) -> i32 {
+        self.options.start_year - self.options.history_years as i32 - SPIN_UP_YEARS as i32
+    }
+
     /// Builds the world and its hidden history. The save then starts at
     /// `options.start_year`.
     pub fn new(options: WorldOptions) -> World {
@@ -620,12 +635,26 @@ impl World {
         let mut rng = Rng::new(options.seed);
         let seed = options.seed;
         let mut programs: Vec<Program> = Vec::new();
-        for (i, row) in data::COLLEGES.iter().enumerate() {
-            programs.push(program::program_from_row(i, row, seed, &mut rng));
-        }
-        for row in recruiting::juco_rows() {
+        // Every program starts as it really was in the world's first season
+        // (college history), or as it was when it first fielded a team, so
+        // Boise State starts in Division I-AA and grows. Programs that
+        // dropped football since 1984 play their real years.
+        let first = options.start_year - options.history_years as i32 - SPIN_UP_YEARS as i32;
+        let rows = data::COLLEGES.iter().map(|r| (r, false)).chain(data::DROPPED_COLLEGES.iter().map(|r| (r, true)));
+        for (row, dropped) in rows {
             let id = programs.len();
-            programs.push(program::program_from_row(id, &row, seed, &mut rng));
+            let mut probe = program::program_from_row(id, row, seed, &mut Rng::new(0));
+            probe.set_history(dropped);
+            let status = (first.max(data::HISTORY_FIRST)..=data::HISTORY_LAST + 1).find_map(|y| probe.real_status(y));
+            let mut start = row.clone();
+            if let Some((d, c)) = status {
+                start.division = d;
+                start.conference = c;
+            }
+            let mut p = program::program_from_row(id, &start, seed, &mut rng);
+            p.base = probe.base.clone();
+            p.set_history(dropped);
+            programs.push(p);
         }
         let mut high_schools = Vec::new();
         let mut states = Vec::new();
@@ -712,9 +741,12 @@ impl World {
             portal_market: None,
             nfl_champions: Vec::new(),
             realign: Vec::new(),
+            searches: Vec::new(),
+            moved_cycle: std::collections::HashSet::new(),
+            college_spread: season::COLLEGE_SPREAD,
         };
         staff::staff_everyone(&mut w);
-        for d in [Division::FBS, Division::FCS, Division::D2, Division::JUCO] {
+        for d in Division::ALL {
             let top = w.programs.iter().filter(|p| p.division == d).map(|p| p.prestige).fold(0.01, f64::max);
             for p in w.programs.iter_mut().filter(|p| p.division == d) {
                 p.prestige_rel = p.prestige / top;

@@ -421,6 +421,17 @@ fn main() {
         })
         .collect();
     droughts.sort_by_key(|d| std::cmp::Reverse(d.0));
+    // FBS programs with no winning season in the last 15 recorded years (trial 4 topic 4).
+    let dry: Vec<&str> = fbs
+        .iter()
+        .map(|&i| &w.programs[i])
+        .filter(|p| {
+            let last: Vec<_> = p.seasons.iter().rev().take(15).collect();
+            last.len() == 15 && last.iter().all(|s| s.wins <= s.losses)
+        })
+        .map(|p| p.real_name.as_str())
+        .collect();
+    println!("\nFBS programs with no winning season in the last 15 years: {} ({})", dry.len(), dry.join(", "));
     println!(
         "\nLongest Power 4 runs without a winning season: {}",
         droughts.iter().take(6).map(|(n, name)| format!("{name} {n}")).collect::<Vec<_>>().join(", ")
@@ -554,7 +565,7 @@ fn main() {
         .iter()
         .filter(|c| {
             c.history.iter().any(|s| {
-                s.ended == "fired"
+                s.ended.starts_with("fired")
                     && s.role == Role::HeadCoach
                     && s.to - s.from <= 2
                     && matches!(s.employer, Employer::College(p) if w.programs[p].division == Division::FBS)
@@ -697,7 +708,7 @@ fn special_teams(w: &World) {
     println!("Rosters going into {} (after signing day):", w.year);
     // Real FBS 2022-24 per roster, from the fix list table.
     let real = [5.8, 8.5, 16.2, 7.4, 9.36, 10.14, 9.1, 8.4, 14.6, 10.2, 12.0, 3.5, 2.0, 2.5];
-    for d in [Division::FBS, Division::FCS, Division::D2, Division::JUCO] {
+    for d in Division::ALL {
         let teams: Vec<usize> =
             w.programs.iter().filter(|p| p.division == d && !p.roster.is_empty()).map(|p| p.id).collect();
         if teams.is_empty() {
@@ -1361,6 +1372,8 @@ fn coaching_market(w: &World, years: u32) {
     let mut away_college = vec![0u32; n];
     let mut away_nfl = vec![0u32; n];
     let mut fbs_fired = vec![0u32; n];
+    let mut fbs_in_season = vec![0u32; n];
+    let mut fired_tenure: Vec<i32> = Vec::new();
     let mut nfl_hires = vec![0u32; n];
     let mut nfl_from_college = vec![0u32; n];
     let mut nfl_from_coord = vec![0u32; n];
@@ -1386,8 +1399,12 @@ fn coaching_market(w: &World, years: u32) {
                             _ => away_college[i] += 1,
                         }
                     }
-                    if why.starts_with("fired") {
+                    if why.starts_with("fired") || why.starts_with("not retained") {
                         fbs_fired[i] += 1;
+                        fired_tenure.push(y - from);
+                    }
+                    if why == "fired during the season" {
+                        fbs_in_season[i] += 1;
                     }
                     if early(why) {
                         early_fbs[i] += 1;
@@ -1432,6 +1449,16 @@ fn coaching_market(w: &World, years: u32) {
     };
     row("FBS head coach changes (new head coaches)", &fbs_changes);
     row("FBS head coaches fired", &fbs_fired);
+    row("  of them during the season", &fbs_in_season);
+    if !fired_tenure.is_empty() {
+        let short = fired_tenure.iter().filter(|&&t| t <= 2).count();
+        let mean = fired_tenure.iter().sum::<i32>() as f64 / fired_tenure.len() as f64;
+        println!(
+            "  seasons in the job when fired: mean {mean:.1}; within two seasons {short} of {} ({:.1} a year)",
+            fired_tenure.len(),
+            short as f64 / n.max(1) as f64
+        );
+    }
     row("FBS head coaches hired away by another college", &away_college);
     row("FBS head coaches hired away by the NFL", &away_nfl);
     row("NFL head coach hires", &nfl_hires);

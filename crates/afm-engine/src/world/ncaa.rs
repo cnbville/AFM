@@ -92,6 +92,11 @@ pub fn scholarship_rules(d: Division, season: i32, opted_out: bool) -> (usize, O
         Division::FCS if season >= HOUSE_START && !opted_out => (105, None),
         Division::FCS => (85, Some(30)),
         Division::D2 => (110, None),
+        // NAIA: 24 equivalencies, no cap on players (proposed, not
+        // confirmed: rosters like Division II's). Division III gives no
+        // athletic aid and carries the biggest rosters, about 115.
+        Division::NAIA => (110, None),
+        Division::D3 => (115, None),
         Division::JUCO => (85, None),
     }
 }
@@ -104,6 +109,8 @@ fn staff_cap(d: Division) -> usize {
         Division::FBS => 39,
         Division::FCS => 33,
         Division::D2 => 42,
+        Division::NAIA => 42,
+        Division::D3 => 45,
         Division::JUCO => 56,
     }
 }
@@ -111,6 +118,11 @@ fn staff_cap(d: Division) -> usize {
 /// A program's roster limit for a season, and the most new signees it may
 /// add, after any NCAA scholarship penalty. Every roster rule reads them here.
 pub fn roster_limits(prog: &Program, season: i32) -> (usize, usize) {
+    // No team that season or the next (college history): nobody to sign. A
+    // new program signs its first class a year early and practices.
+    if !prog.plays(season) && !prog.plays(season + 1) {
+        return (0, 0);
+    }
     let opted_out = prog.division == Division::FCS && FCS_OPTED_OUT.contains(&prog.real_name.as_str());
     let (limit, yearly) = scholarship_rules(prog.division, season, opted_out);
     let cut = prog.era.cut_in(season) as usize;

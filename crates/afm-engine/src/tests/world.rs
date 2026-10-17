@@ -14,12 +14,38 @@ use crate::world::program::{GradeCat, GradeSpeed, letter, move_grade};
 fn real_data_loads() {
     let count = |d: Division| COLLEGES.iter().filter(|c| c.division == d).count();
     assert_eq!((count(Division::FBS), count(Division::FCS), count(Division::D2)), (138, 127, 160));
+    // Division III, the NAIA and the junior colleges (NJCAA and CCCAA) in 2026.
+    assert_eq!((count(Division::D3), count(Division::NAIA), count(Division::JUCO)), (244, 96, 113));
     assert_eq!(STATES.len(), 51);
     // 46 states plus DC allow high school NIL (On3, May 2026).
     assert_eq!(STATES.iter().filter(|s| hs_nil(&s.code)).count(), 47);
     assert!(!hs_nil("AL") && hs_nil("CA"));
     let ca = STATES.iter().find(|s| s.code == "CA").unwrap();
     assert_eq!(ca.powerhouses.len(), 5);
+}
+
+#[test]
+fn college_history_matches_real_counts() {
+    use crate::world::data::DROPPED_COLLEGES;
+    use crate::world::program::{Program, program_from_row};
+    let rows = COLLEGES.iter().map(|r| (r, false)).chain(DROPPED_COLLEGES.iter().map(|r| (r, true)));
+    let programs: Vec<Program> = rows
+        .enumerate()
+        .map(|(i, (r, dropped))| {
+            let mut p = program_from_row(i, r, 1, &mut Rng::new(1));
+            p.set_history(dropped);
+            p
+        })
+        .collect();
+    // Division I-A had 105 teams in 1984 and 119 in 2006; FBS had 136 in 2025.
+    let fbs = |y: i32| programs.iter().filter(|p| p.real_status(y).is_some_and(|s| s.0 == Division::FBS)).count();
+    assert_eq!((fbs(1984), fbs(2006), fbs(2025)), (105, 119, 136));
+    let find = |n: &str| programs.iter().find(|p| p.real_name == n).unwrap();
+    assert_eq!(find("Boise State").real_status(1990).map(|s| s.0), Some(Division::FCS));
+    // UAB dropped football after 2014 and came back in 2017.
+    let uab = find("UAB");
+    assert!(uab.plays(2014) && !uab.plays(2015) && !uab.plays(2016) && uab.plays(2017));
+    assert!(!find("Georgia State").plays(2009) && find("Georgia State").plays(2010));
 }
 
 #[test]

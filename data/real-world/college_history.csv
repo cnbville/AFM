@@ -1,0 +1,751 @@
+name,first_season,last_season,division,conference,source_url
+Abilene Christian,1984,2012,D2,LSC,https://en.wikipedia.org/wiki/Abilene_Christian_Wildcats_football
+Abilene Christian,2013,2013,FCS,Independent,https://en.wikipedia.org/wiki/Abilene_Christian_Wildcats_football
+Abilene Christian,2014,2020,FCS,Southland,https://en.wikipedia.org/wiki/Abilene_Christian_Wildcats_football
+Abilene Christian,2021,2022,FCS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+Adams State,1984,1989,NAIA,RMAC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_II_football_programs
+Air Force,1984,1998,FBS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+Akron,1984,1986,FCS,Ohio Valley,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Akron,1987,1991,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Alabama A&M,1984,1997,D2,SIAC,https://en.wikipedia.org/wiki/Alabama_A%26M_Bulldogs_football
+Alabama A&M,1998,1998,FCS,Independent,memory
+Albany,1984,1994,D3,Independent,https://en.wikipedia.org/wiki/Albany_Great_Danes_football
+Albany,1995,1996,D2,Independent,https://en.wikipedia.org/wiki/Albany_Great_Danes_football
+Albany,1997,1998,D2,EFC,https://en.wikipedia.org/wiki/Albany_Great_Danes_football
+Albany,1999,2012,FCS,NEC,https://en.wikipedia.org/wiki/Albany_Great_Danes_football
+Allen,1984,2017,none,,https://en.wikipedia.org/wiki/Allen_Yellow_Jackets_football
+Anderson (SC),1984,2023,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_II_football_programs
+Appalachian State,1984,2013,FCS,SoCon,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Arizona,1984,2010,FBS,Pac-10,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Arizona,2011,2023,FBS,Pac-12,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Arizona State,1984,2010,FBS,Pac-10,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Arizona State,2011,2023,FBS,Pac-12,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Arkansas,1984,1991,FBS,SWC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Arkansas State,1984,1986,FCS,Southland,https://en.wikipedia.org/wiki/Southland_Conference
+Arkansas State,1987,1991,FCS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Arkansas State,1992,1992,FBS,Independent,https://en.wikipedia.org/wiki/NCAA_Division_I_Football_Bowl_Subdivision_alignment_history
+Arkansas State,1993,1995,FBS,Big West,https://en.wikipedia.org/wiki/Big_West_Conference
+Arkansas State,1996,1998,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Arkansas State,1999,2000,FBS,Big West,https://en.wikipedia.org/wiki/Big_West_Conference
+Arkansas Tech,1984,1994,NAIA,AIC,https://en.wikipedia.org/wiki/Arkansas_Tech_Wonder_Boys_football
+Arkansas Tech,1995,2010,D2,GSC,https://en.wikipedia.org/wiki/Arkansas_Tech_Wonder_Boys_football
+Arkansas-Monticello,1984,1994,NAIA,AIC,memory
+Arkansas-Monticello,1995,2010,D2,GSC,https://en.wikipedia.org/wiki/Great_American_Conference
+Arkansas-Pine Bluff,1984,1984,NAIA,Independent,https://en.wikipedia.org/wiki/Arkansas%E2%80%93Pine_Bluff_Golden_Lions_football
+Arkansas-Pine Bluff,1985,1986,NAIA,AIC,https://en.wikipedia.org/wiki/Arkansas%E2%80%93Pine_Bluff_Golden_Lions_football
+Arkansas-Pine Bluff,1987,1997,NAIA,Independent,https://en.wikipedia.org/wiki/Arkansas%E2%80%93Pine_Bluff_Golden_Lions_football
+Army,1984,1997,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Army,1998,2004,FBS,CUSA,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Army,2005,2023,FBS,Independent,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Augustana (SD),1984,2007,D2,NCC,https://en.wikipedia.org/wiki/Northern_Sun_Intercollegiate_Conference
+Austin Peay,1984,1996,FCS,Ohio Valley,https://en.wikipedia.org/wiki/Austin_Peay_Governors_football
+Austin Peay,1997,2000,FCS,Independent,https://en.wikipedia.org/wiki/Austin_Peay_Governors_football
+Austin Peay,2001,2005,FCS,PFL,https://en.wikipedia.org/wiki/Pioneer_Football_League
+Austin Peay,2006,2006,FCS,Independent,https://en.wikipedia.org/wiki/Austin_Peay_Governors_football
+Austin Peay,2007,2021,FCS,Ohio Valley,https://en.wikipedia.org/wiki/Ohio_Valley_Conference
+Austin Peay,2022,2022,FCS,ASUN,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+BYU,1984,1998,FBS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+BYU,1999,2010,FBS,Mountain West,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+BYU,2011,2022,FBS,Independent,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Barton,1984,2019,none,,https://en.wikipedia.org/wiki/Barton_Bulldogs_football
+Barton,2020,2021,D2,Independent,https://en.wikipedia.org/wiki/Barton_Bulldogs_football
+Barton,2022,2024,D2,SAC,https://en.wikipedia.org/wiki/Barton_Bulldogs_football
+Baylor,1984,1995,FBS,SWC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Bemidji State,1984,1991,D2,NIC,https://en.wikipedia.org/wiki/Northern_Sun_Intercollegiate_Conference
+Bethune-Cookman,1984,2020,FCS,MEAC,https://en.wikipedia.org/wiki/Mid-Eastern_Athletic_Conference
+Bluefield State,1984,2020,none,,https://en.wikipedia.org/wiki/Bluefield_State_Big_Blues_football
+Bluefield State,2021,2023,D2,Independent,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Boise State,1984,1995,FCS,Big Sky,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Boise State,1996,2000,FBS,Big West,https://en.wikipedia.org/wiki/Big_West_Conference
+Boise State,2001,2010,FBS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+Boise State,2011,2025,FBS,Mountain West,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Boston College,1984,1990,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Boston College,1991,2004,FBS,Big East,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Bryant,1984,1998,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Bryant,1999,2007,D2,NE-10,https://en.wikipedia.org/wiki/Bryant_Bulldogs_football
+Bryant,2008,2021,FCS,NEC,https://en.wikipedia.org/wiki/Bryant_Bulldogs_football
+Bryant,2022,2022,FCS,Big South,https://en.wikipedia.org/wiki/Bryant_Bulldogs_football
+Bryant,2023,2023,FCS,OVC-Big South,https://en.wikipedia.org/wiki/Bryant_Bulldogs_football
+Bucknell,1984,1985,FCS,Independent,https://en.wikipedia.org/wiki/Patriot_League
+Bucknell,1986,1989,FCS,Colonial League,https://en.wikipedia.org/wiki/Patriot_League
+Buffalo,1984,1992,D3,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Buffalo,1993,1998,FCS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Butler,1984,1989,D2,Heartland Collegiate,https://en.wikipedia.org/wiki/Butler_Bulldogs_football
+Butler,1990,1992,D2,MIFC,https://en.wikipedia.org/wiki/Butler_Bulldogs_football
+CSU Pueblo,1984,1984,NAIA,RMAC,https://en.wikipedia.org/wiki/Rocky_Mountain_Athletic_Conference
+CSU Pueblo,1985,2007,none,,https://en.wikipedia.org/wiki/CSU_Pueblo_ThunderWolves_football
+Cal Poly,1984,1992,D2,Western Football,https://en.wikipedia.org/wiki/Cal_Poly_Mustangs_football
+Cal Poly,1993,1993,D2,American West,https://en.wikipedia.org/wiki/Cal_Poly_Mustangs_football
+Cal Poly,1994,1995,FCS,American West,https://en.wikipedia.org/wiki/American_West_Conference
+Cal Poly,1996,2003,FCS,Independent,https://en.wikipedia.org/wiki/Cal_Poly_Mustangs_football
+Cal Poly,2004,2011,FCS,Great West,https://en.wikipedia.org/wiki/Great_West_Conference
+California,1984,2010,FBS,Pac-10,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+California,2011,2023,FBS,Pac-12,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Campbell,1984,2007,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Campbell,2008,2017,FCS,PFL,https://en.wikipedia.org/wiki/Pioneer_Football_League
+Campbell,2018,2022,FCS,Big South,https://en.wikipedia.org/wiki/Big_South_Conference
+Carson-Newman,1984,1990,NAIA,SAC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_II_football_programs
+Catawba,1984,1990,NAIA,SAC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_II_football_programs
+Central Arkansas,1984,1992,NAIA,AIC,https://en.wikipedia.org/wiki/Central_Arkansas_Bears_football
+Central Arkansas,1993,2006,D2,GSC,https://en.wikipedia.org/wiki/Central_Arkansas_Bears_football
+Central Arkansas,2007,2020,FCS,Southland,https://en.wikipedia.org/wiki/Central_Arkansas_Bears_football
+Central Arkansas,2021,2022,FCS,ASUN,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+Central Connecticut,1984,1992,D2,Independent,https://en.wikipedia.org/wiki/Central_Connecticut_Blue_Devils_football
+Central Connecticut,1993,1995,FCS,Independent,https://en.wikipedia.org/wiki/Central_Connecticut_Blue_Devils_football
+Central State (OH),1984,1986,D2,Independent,https://en.wikipedia.org/wiki/Central_State_Marauders_football
+Central State (OH),1987,1996,NAIA,Independent,https://en.wikipedia.org/wiki/Central_State_Marauders_football
+Central State (OH),1997,2004,none,,https://en.wikipedia.org/wiki/Central_State_Marauders_football
+Central State (OH),2005,2005,D2,Independent,https://en.wikipedia.org/wiki/Central_State_Marauders_football
+Central State (OH),2006,2009,D2,Great Lakes Football,https://en.wikipedia.org/wiki/Central_State_Marauders_football
+Central State (OH),2010,2011,D2,Independent,https://en.wikipedia.org/wiki/Central_State_Marauders_football
+Central State (OH),2012,2012,D2,G-MAC,https://en.wikipedia.org/wiki/Central_State_Marauders_football
+Central Washington,2001,2021,D2,GNAC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_II_football_programs
+Charleston (WV),1984,2002,none,,https://en.wikipedia.org/wiki/Charleston_Golden_Eagles_football
+Charleston (WV),2003,2004,D2,Independent,https://en.wikipedia.org/wiki/Charleston_Golden_Eagles_football
+Charleston (WV),2005,2012,D2,WVIAC,https://en.wikipedia.org/wiki/Charleston_Golden_Eagles_football
+Charleston Southern,1984,1990,none,,https://en.wikipedia.org/wiki/Charleston_Southern_Buccaneers_football
+Charleston Southern,1991,1992,D3,Independent,https://en.wikipedia.org/wiki/Charleston_Southern_Buccaneers_football
+Charleston Southern,1993,2001,FCS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Charleston Southern,2002,2022,FCS,Big South,https://en.wikipedia.org/wiki/Big_South_Conference
+Charlotte,1984,2012,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Charlotte,2013,2014,FCS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Charlotte,2015,2022,FBS,CUSA,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Chicago State,1984,2025,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Chowan,2000,2003,D3,USA South,https://en.wikipedia.org/wiki/Chowan_Hawks_football
+Chowan,2004,2007,D2,Independent,https://en.wikipedia.org/wiki/Chowan_Hawks_football
+Chowan,2008,2022,D2,CIAA,https://en.wikipedia.org/wiki/Chowan_Hawks_football
+Chowan,2023,2024,D2,GSC,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Cincinnati,1984,1995,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Cincinnati,1996,2004,FBS,CUSA,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Cincinnati,2005,2012,FBS,Big East,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Cincinnati,2013,2022,FBS,American,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Coastal Carolina,1984,2002,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Coastal Carolina,2003,2015,FCS,Big South,https://en.wikipedia.org/wiki/Big_South_Conference
+Coastal Carolina,2016,2016,FCS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Colgate,1984,1985,FCS,Independent,https://en.wikipedia.org/wiki/Patriot_League
+Colgate,1986,1989,FCS,Colonial League,https://en.wikipedia.org/wiki/Patriot_League
+Colorado,1984,1995,FBS,Big Eight,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Colorado,2011,2023,FBS,Pac-12,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Colorado Mesa,1984,1989,NAIA,RMAC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_II_football_programs
+Colorado State,1984,1998,FBS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+Colorado State,1999,2025,FBS,Mountain West,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Concord,1984,1992,NAIA,WVIAC,https://en.wikipedia.org/wiki/West_Virginia_Intercollegiate_Athletic_Conference
+Concord,1993,2012,D2,WVIAC,https://en.wikipedia.org/wiki/West_Virginia_Intercollegiate_Athletic_Conference
+Davenport,1984,2015,none,,https://en.wikipedia.org/wiki/Davenport_Panthers_football
+Davenport,2016,2016,NAIA,Independent,https://en.wikipedia.org/wiki/Davenport_Panthers_football
+Davidson,1984,1985,FCS,SoCon,https://en.wikipedia.org/wiki/Davidson_Wildcats_football
+Davidson,1986,1988,FCS,Colonial League,https://en.wikipedia.org/wiki/Patriot_League
+Davidson,1989,1989,FCS,Independent,https://en.wikipedia.org/wiki/Davidson_Wildcats_football
+Davidson,1990,1992,D3,Independent,https://en.wikipedia.org/wiki/Davidson_Wildcats_football
+Davidson,1993,2000,FCS,Independent,https://en.wikipedia.org/wiki/Davidson_Wildcats_football
+Dayton,1984,1992,D3,Independent,https://en.wikipedia.org/wiki/Dayton_Flyers_football
+Delaware,1984,1985,FCS,Independent,https://en.wikipedia.org/wiki/Yankee_Conference
+Delaware,1986,1996,FCS,Yankee,https://en.wikipedia.org/wiki/Yankee_Conference
+Delaware,1997,2006,FCS,Atlantic 10,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Delaware,2007,2024,FCS,CAA,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Drake,1984,1985,FCS,Missouri Valley,https://en.wikipedia.org/wiki/List_of_Drake_Bulldogs_football_seasons
+Drake,1986,1986,none,,https://en.wikipedia.org/wiki/List_of_Drake_Bulldogs_football_seasons
+Drake,1987,1992,D3,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Duquesne,1984,1992,D3,Independent,https://en.wikipedia.org/wiki/Duquesne_Dukes_football
+Duquesne,1993,1993,FCS,Independent,https://themetro.org/sports/2017/6/21/GEN_0621170838.aspx
+Duquesne,1994,2007,FCS,MAAC,https://themetro.org/sports/2017/6/21/GEN_0621170838.aspx
+East Carolina,1984,1996,FBS,Independent,memory
+East Carolina,1997,2013,FBS,CUSA,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+East Central,1984,1996,NAIA,OIC,https://en.wikipedia.org/wiki/East_Central_Tigers_football
+East Central,1997,2010,D2,LSC,https://en.wikipedia.org/wiki/East_Central_Tigers_football
+East Tennessee State,2004,2014,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+East Tennessee State,2015,2015,FCS,Independent,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+East Texas A&M,1984,2021,D2,LSC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Eastern Illinois,1984,1984,FCS,Mid-Continent,https://en.wikipedia.org/wiki/1985_NCAA_Division_I-AA_football_season
+Eastern Illinois,1985,1995,FCS,Gateway,https://en.wikipedia.org/wiki/Missouri_Valley_Football_Conference
+Eastern Illinois,1996,2022,FCS,Ohio Valley,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Eastern Kentucky,1984,2020,FCS,Ohio Valley,https://en.wikipedia.org/wiki/Ohio_Valley_Conference
+Eastern Kentucky,2021,2022,FCS,ASUN,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+Eastern Washington,1984,1986,FCS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Edward Waters,2014,2015,NAIA,Sun,https://en.wikipedia.org/wiki/Edward_Waters_Tigers_football
+Edward Waters,2017,2020,NAIA,Mid-South,https://en.wikipedia.org/wiki/Edward_Waters_Tigers_football
+Elon,1984,1990,NAIA,SAC,https://en.wikipedia.org/wiki/Elon_Phoenix_football
+Elon,1991,1996,D2,SAC,https://en.wikipedia.org/wiki/Elon_Phoenix_football
+Elon,1997,1998,D2,Independent,https://en.wikipedia.org/wiki/Elon_Phoenix_football
+Elon,1999,2001,FCS,Independent,https://en.wikipedia.org/wiki/Elon_Phoenix_football
+Elon,2002,2002,FCS,Big South,https://en.wikipedia.org/wiki/Big_South_Conference
+Elon,2003,2013,FCS,SoCon,https://en.wikipedia.org/wiki/Southern_Conference
+Emory & Henry,1984,2021,D3,ODAC,https://en.wikipedia.org/wiki/Emory_and_Henry_Wasps_football
+Erskine,1984,2020,none,,https://en.wikipedia.org/wiki/Erskine_Flying_Fleet_football
+Erskine,2021,2021,D2,Independent,https://en.wikipedia.org/wiki/Erskine_Flying_Fleet_football
+Erskine,2022,2023,D2,SAC,https://en.wikipedia.org/wiki/Erskine_Flying_Fleet_football
+Erskine,2024,2024,D2,GSC,https://en.wikipedia.org/wiki/Erskine_Flying_Fleet_football
+FIU,1984,2001,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+FIU,2002,2004,FCS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+FIU,2005,2012,FBS,Sun Belt,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Fairmont State,1984,1992,NAIA,WVIAC,https://en.wikipedia.org/wiki/West_Virginia_Intercollegiate_Athletic_Conference
+Fairmont State,1993,2012,D2,WVIAC,https://en.wikipedia.org/wiki/West_Virginia_Intercollegiate_Athletic_Conference
+Ferrum,2022,2024,D3,ODAC,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Florida A&M,1984,1986,FCS,Independent,https://en.wikipedia.org/wiki/Mid-Eastern_Athletic_Conference
+Florida A&M,1987,2003,FCS,MEAC,https://en.wikipedia.org/wiki/Mid-Eastern_Athletic_Conference
+Florida A&M,2004,2004,FBS,Independent,https://en.wikipedia.org/wiki/2004_Florida_A%26M_Rattlers_football_team
+Florida A&M,2005,2020,FCS,MEAC,https://en.wikipedia.org/wiki/Mid-Eastern_Athletic_Conference
+Florida Atlantic,1984,2000,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Florida Atlantic,2001,2004,FCS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Florida Atlantic,2005,2012,FBS,Sun Belt,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Florida Atlantic,2013,2022,FBS,CUSA,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Florida State,1984,1991,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Fordham,1984,1984,D3,Independent,https://en.wikipedia.org/wiki/Fordham_Rams_football
+Fordham,1985,1988,D3,Liberty,https://en.wikipedia.org/wiki/Fordham_Rams_football
+Fordham,1989,1989,FCS,Independent,https://en.wikipedia.org/wiki/Fordham_Rams_football
+Franklin Pierce,1984,2018,none,,https://en.wikipedia.org/wiki/Franklin_Pierce_Ravens_football
+Fresno State,1984,1987,FBS,PCAA,https://en.wikipedia.org/wiki/Big_West_Conference
+Fresno State,1988,1991,FBS,Big West,https://en.wikipedia.org/wiki/Big_West_Conference
+Fresno State,1992,2011,FBS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+Fresno State,2012,2025,FBS,Mountain West,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Gardner-Webb,1984,1992,NAIA,SAC,https://en.wikipedia.org/wiki/Gardner%E2%80%93Webb_Runnin%27_Bulldogs_football
+Gardner-Webb,1993,1999,D2,SAC,https://en.wikipedia.org/wiki/Gardner%E2%80%93Webb_Runnin%27_Bulldogs_football
+Gardner-Webb,2000,2001,FCS,Independent,https://en.wikipedia.org/wiki/Gardner%E2%80%93Webb_Runnin%27_Bulldogs_football
+Gardner-Webb,2002,2022,FCS,Big South,https://en.wikipedia.org/wiki/Big_South_Conference
+Georgetown,1984,1992,D3,Independent,https://en.wikipedia.org/wiki/Georgetown_Hoyas_football
+Georgetown,1993,2000,FCS,MAAC,https://en.wikipedia.org/wiki/Georgetown_Hoyas_football
+Georgia Southern,1984,1992,FCS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Georgia Southern,1993,2013,FCS,SoCon,https://en.wikipedia.org/wiki/Southern_Conference
+Georgia State,1984,2009,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Georgia State,2010,2011,FCS,Independent,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Georgia State,2012,2012,FCS,CAA,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Glenville State,1984,1992,NAIA,WVIAC,https://en.wikipedia.org/wiki/West_Virginia_Intercollegiate_Athletic_Conference
+Glenville State,1993,2012,D2,WVIAC,https://en.wikipedia.org/wiki/West_Virginia_Intercollegiate_Athletic_Conference
+Hampton,1984,1994,D2,CIAA,https://en.wikipedia.org/wiki/Hampton_Pirates_football
+Hampton,1995,2017,FCS,MEAC,https://en.wikipedia.org/wiki/Hampton_Pirates_football
+Hampton,2018,2018,FCS,Independent,https://en.wikipedia.org/wiki/Hampton_Pirates_football
+Hampton,2019,2021,FCS,Big South,https://en.wikipedia.org/wiki/Hampton_Pirates_football
+Harding,1984,1994,NAIA,AIC,https://en.wikipedia.org/wiki/Harding_Bisons_football
+Harding,1995,1996,NAIA,Independent,https://en.wikipedia.org/wiki/Harding_Bisons_football
+Harding,1997,1999,D2,LSC,https://en.wikipedia.org/wiki/Harding_Bisons_football
+Harding,2000,2010,D2,GSC,https://en.wikipedia.org/wiki/Harding_Bisons_football
+Hawaii,1984,2011,FBS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+Henderson State,1984,1994,NAIA,AIC,memory
+Henderson State,1995,2010,D2,GSC,https://en.wikipedia.org/wiki/Great_American_Conference
+Holy Cross,1984,1985,FCS,Independent,https://en.wikipedia.org/wiki/Patriot_League
+Holy Cross,1986,1989,FCS,Colonial League,https://en.wikipedia.org/wiki/Patriot_League
+Houston,1984,1995,FBS,SWC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Houston,1996,2012,FBS,CUSA,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Houston,2013,2022,FBS,American,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Houston Christian,1984,2012,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Houston Christian,2013,2013,FCS,Independent,memory
+Idaho,1996,2000,FBS,Big West,https://en.wikipedia.org/wiki/Big_West_Conference
+Idaho,2001,2004,FBS,Sun Belt,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Idaho,2005,2012,FBS,WAC,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Idaho,2013,2013,FBS,Independent,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Idaho,2014,2017,FBS,Sun Belt,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Illinois State,1984,1984,FCS,Missouri Valley,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Illinois State,1985,2007,FCS,Gateway,https://en.wikipedia.org/wiki/Missouri_Valley_Football_Conference
+Incarnate Word,1984,2008,none,,https://en.wikipedia.org/wiki/Incarnate_Word_Cardinals_football
+Incarnate Word,2009,2009,D2,Independent,https://en.wikipedia.org/wiki/Incarnate_Word_Cardinals_football
+Incarnate Word,2010,2012,D2,LSC,https://en.wikipedia.org/wiki/Incarnate_Word_Cardinals_football
+Incarnate Word,2013,2013,FCS,Independent,https://en.wikipedia.org/wiki/Incarnate_Word_Cardinals_football
+Indiana State,1984,1985,FCS,Missouri Valley,https://en.wikipedia.org/wiki/1985_Indiana_State_Sycamores_football_team
+Indiana State,1986,2007,FCS,Gateway,https://en.wikipedia.org/wiki/Missouri_Valley_Football_Conference
+Iowa State,1984,1995,FBS,Big Eight,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Jacksonville State,1984,1992,D2,GSC,https://en.wikipedia.org/wiki/List_of_Jacksonville_State_Gamecocks_football_seasons
+Jacksonville State,1993,1995,D2,Independent,https://en.wikipedia.org/wiki/List_of_Jacksonville_State_Gamecocks_football_seasons
+Jacksonville State,1996,2002,FCS,Southland,https://en.wikipedia.org/wiki/List_of_Jacksonville_State_Gamecocks_football_seasons
+Jacksonville State,2003,2020,FCS,Ohio Valley,https://en.wikipedia.org/wiki/List_of_Jacksonville_State_Gamecocks_football_seasons
+Jacksonville State,2021,2022,FCS,ASUN,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+James Madison,1984,1992,FCS,Independent,https://en.wikipedia.org/wiki/Yankee_Conference
+James Madison,1993,1996,FCS,Yankee,https://en.wikipedia.org/wiki/Yankee_Conference
+James Madison,1997,2006,FCS,Atlantic 10,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+James Madison,2007,2021,FCS,CAA,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Kansas,1984,1995,FBS,Big Eight,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Kansas State,1984,1995,FBS,Big Eight,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Kennesaw State,1984,2014,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Kennesaw State,2015,2021,FCS,Big South,https://en.wikipedia.org/wiki/Big_South_Conference
+Kennesaw State,2022,2022,FCS,ASUN,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Kennesaw State,2023,2023,FCS,Independent,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Kentucky Wesleyan,2014,2015,D2,Independent,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+LIU,1984,1984,D2,Independent,https://en.wikipedia.org/wiki/LIU_Sharks_football
+LIU,1985,1985,D2,Liberty,https://en.wikipedia.org/wiki/LIU_Sharks_football
+LIU,1986,1992,D3,Liberty,https://en.wikipedia.org/wiki/LIU_Sharks_football
+LIU,1993,1996,D2,Independent,https://en.wikipedia.org/wiki/LIU_Sharks_football
+LIU,1997,2000,D2,EFC,https://en.wikipedia.org/wiki/LIU_Sharks_football
+LIU,2001,2007,D2,NE-10,https://en.wikipedia.org/wiki/LIU_Sharks_football
+LIU,2008,2012,D2,PSAC,https://en.wikipedia.org/wiki/LIU_Sharks_football
+LIU,2013,2018,D2,NE-10,https://en.wikipedia.org/wiki/LIU_Sharks_football
+Lafayette,1984,1985,FCS,Independent,https://en.wikipedia.org/wiki/Patriot_League
+Lafayette,1986,1989,FCS,Colonial League,https://en.wikipedia.org/wiki/Patriot_League
+Lake Erie,1984,2007,none,,memory
+Lake Erie,2008,2009,D2,Independent,https://en.wikipedia.org/wiki/Lake_Erie_Storm_football
+Lake Erie,2010,2016,D2,GLIAC,https://en.wikipedia.org/wiki/Lake_Erie_Storm_football
+Lamar,1987,1989,FCS,Independent,https://en.wikipedia.org/wiki/Lamar_Cardinals_football
+Lamar,1990,2009,none,,https://en.wikipedia.org/wiki/Lamar_Cardinals_football
+Lamar,2021,2021,FCS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+Lehigh,1984,1985,FCS,Independent,https://en.wikipedia.org/wiki/Patriot_League
+Lehigh,1986,1989,FCS,Colonial League,https://en.wikipedia.org/wiki/Patriot_League
+Lenoir-Rhyne,1984,1988,NAIA,SAC,https://en.wikipedia.org/wiki/Lenoir%E2%80%93Rhyne_Bears_football
+Liberty,1984,1987,D2,Independent,https://en.wikipedia.org/wiki/Liberty_Flames_football
+Liberty,1988,2001,FCS,Independent,https://en.wikipedia.org/wiki/Liberty_Flames_football
+Liberty,2002,2017,FCS,Big South,https://en.wikipedia.org/wiki/Big_South_Conference
+Liberty,2018,2022,FBS,Independent,https://en.wikipedia.org/wiki/NCAA_Division_I_Football_Bowl_Subdivision_alignment_history
+Lincoln (MO),1984,1989,D2,MIAA,https://en.wikipedia.org/wiki/Lincoln_Blue_Tigers_football
+Lincoln (MO),1990,1999,none,,https://en.wikipedia.org/wiki/Lincoln_Blue_Tigers_football
+Lincoln (MO),2000,2000,NAIA,CSFL,https://en.wikipedia.org/wiki/Lincoln_Blue_Tigers_football
+Lincoln (MO),2001,2005,D2,Independent,https://en.wikipedia.org/wiki/Lincoln_Blue_Tigers_football
+Lincoln (MO),2006,2009,D2,Great Lakes Football,https://en.wikipedia.org/wiki/Lincoln_Blue_Tigers_football
+Lincoln (MO),2010,2010,D2,Independent,https://en.wikipedia.org/wiki/Lincoln_Blue_Tigers_football
+Lincoln (MO),2011,2013,D2,MIAA,https://en.wikipedia.org/wiki/Lincoln_Blue_Tigers_football
+Lincoln (MO),2019,2022,D2,MIAA,https://en.wikipedia.org/wiki/Lincoln_Blue_Tigers_football
+Lincoln (MO),2023,2023,D2,Independent,https://en.wikipedia.org/wiki/Lincoln_Blue_Tigers_football
+Lincoln (PA),1984,2007,none,,https://en.wikipedia.org/wiki/Lincoln_Lions_football
+Lindenwood,1984,1989,none,,https://en.wikipedia.org/wiki/Lindenwood_Lions_football
+Lindenwood,1990,1993,NAIA,Independent,https://en.wikipedia.org/wiki/Lindenwood_Lions_football
+Lindenwood,1994,1995,NAIA,Mid-States,https://en.wikipedia.org/wiki/Lindenwood_Lions_football
+Lindenwood,1996,2010,NAIA,HAAC,https://en.wikipedia.org/wiki/Lindenwood_Lions_football
+Lindenwood,2011,2011,NAIA,Independent,https://en.wikipedia.org/wiki/Lindenwood_Lions_football
+Lindenwood,2012,2018,D2,MIAA,https://en.wikipedia.org/wiki/Lindenwood_Lions_football
+Lindenwood,2019,2021,D2,GLVC,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Lindenwood,2022,2022,FCS,Ohio Valley,https://en.wikipedia.org/wiki/Ohio_Valley_Conference
+Louisiana,1984,1992,FBS,Independent,https://en.wikipedia.org/wiki/NCAA_Division_I_Football_Bowl_Subdivision_alignment_history
+Louisiana,1993,1995,FBS,Big West,https://en.wikipedia.org/wiki/Big_West_Conference
+Louisiana,1996,2000,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Louisiana Tech,1984,1986,FCS,Southland,https://en.wikipedia.org/wiki/Southland_Conference
+Louisiana Tech,1987,1988,FCS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Louisiana Tech,1989,1992,FBS,Independent,https://en.wikipedia.org/wiki/NCAA_Division_I_Football_Bowl_Subdivision_alignment_history
+Louisiana Tech,1993,1995,FBS,Big West,https://en.wikipedia.org/wiki/Big_West_Conference
+Louisiana Tech,1996,2000,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Louisiana Tech,2001,2012,FBS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+Louisiana Tech,2013,2025,FBS,CUSA,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Louisville,1984,1995,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Louisville,1996,2004,FBS,CUSA,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Louisville,2005,2012,FBS,Big East,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Louisville,2013,2013,FBS,American,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Maine,1984,1996,FCS,Yankee,https://en.wikipedia.org/wiki/Yankee_Conference
+Maine,1997,2006,FCS,Atlantic 10,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Marist,1984,1984,D3,Metropolitan,https://en.wikipedia.org/wiki/Marist_Red_Foxes_football
+Marist,1985,1988,D3,Independent,https://en.wikipedia.org/wiki/Marist_Red_Foxes_football
+Marist,1989,1991,D3,ACFC,https://en.wikipedia.org/wiki/Marist_Red_Foxes_football
+Marist,1992,1992,D3,Liberty,https://en.wikipedia.org/wiki/Marist_Red_Foxes_football
+Marist,1993,1993,FCS,Independent,https://en.wikipedia.org/wiki/Marist_Red_Foxes_football
+Marist,1994,2007,FCS,MAAC,https://themetro.org/sports/2017/6/21/GEN_0621170838.aspx
+Marist,2008,2008,FCS,Independent,https://en.wikipedia.org/wiki/Marist_Red_Foxes_football
+Mars Hill,1984,1990,NAIA,SAC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_II_football_programs
+Marshall,1984,1996,FCS,SoCon,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Marshall,1997,2004,FBS,MAC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Marshall,2005,2021,FBS,CUSA,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Maryland,1984,2013,FBS,ACC,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Memphis,1984,1995,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Memphis,1996,2012,FBS,CUSA,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Mercer,1984,2012,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Mercer,2013,2013,FCS,PFL,https://en.wikipedia.org/wiki/Pioneer_Football_League
+Mercyhurst,1984,1992,D3,Independent,https://en.wikipedia.org/wiki/Mercyhurst_Lakers_football
+Mercyhurst,1993,1997,D2,Independent,https://en.wikipedia.org/wiki/Mercyhurst_Lakers_football
+Mercyhurst,1998,1998,D2,MIFC,https://en.wikipedia.org/wiki/Mercyhurst_Lakers_football
+Mercyhurst,1999,2007,D2,GLIAC,https://en.wikipedia.org/wiki/Mercyhurst_Lakers_football
+Mercyhurst,2008,2023,D2,PSAC,https://en.wikipedia.org/wiki/Mercyhurst_Lakers_football
+Merrimack,1984,1995,none,,https://en.wikipedia.org/wiki/Merrimack_Warriors_football
+Merrimack,1996,1996,D3,ECFC,https://en.wikipedia.org/wiki/Merrimack_Warriors_football
+Merrimack,1997,2000,D2,EFC,https://en.wikipedia.org/wiki/Merrimack_Warriors_football
+Merrimack,2001,2018,D2,NE-10,https://en.wikipedia.org/wiki/Merrimack_Warriors_football
+Merrimack,2020,2023,FCS,NEC,https://en.wikipedia.org/wiki/Merrimack_Warriors_football
+Miami (FL),1984,1990,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Miami (FL),1991,2003,FBS,Big East,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Middle Tennessee,1984,1998,FCS,Ohio Valley,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Middle Tennessee,1999,2000,FBS,Independent,https://en.wikipedia.org/wiki/NCAA_Division_I_Football_Bowl_Subdivision_alignment_history
+Middle Tennessee,2001,2012,FBS,Sun Belt,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Midwestern State,1987,1994,NAIA,TIAA,https://en.wikipedia.org/wiki/Texas_Intercollegiate_Athletic_Association_(1976%E2%80%931996)
+Midwestern State,1995,1996,NAIA,LSC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_II_football_programs
+Minnesota Duluth,1984,1991,D2,NIC,https://en.wikipedia.org/wiki/Northern_Sun_Intercollegiate_Conference
+Minnesota Duluth,2004,2007,D2,NCC,https://en.wikipedia.org/wiki/Northern_Sun_Intercollegiate_Conference
+Minnesota State,1984,2007,D2,NCC,https://en.wikipedia.org/wiki/Northern_Sun_Intercollegiate_Conference
+Minnesota State Moorhead,1984,1991,NAIA,NIC,https://en.wikipedia.org/wiki/Northern_Sun_Intercollegiate_Conference
+Minnesota State Moorhead,1992,1992,NAIA,NSIC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_II_football_programs
+Missouri,1984,1995,FBS,Big Eight,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Missouri,1996,2011,FBS,Big 12,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Missouri State,1984,1984,FCS,Mid-Continent,https://en.wikipedia.org/wiki/1985_NCAA_Division_I-AA_football_season
+Missouri State,1985,2007,FCS,Gateway,https://en.wikipedia.org/wiki/Missouri_Valley_Football_Conference
+Missouri State,2008,2024,FCS,MVFC,https://en.wikipedia.org/wiki/Missouri_Valley_Football_Conference
+Monmouth,1984,1992,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Monmouth,1993,1995,FCS,Independent,memory
+Monmouth,1996,2013,FCS,NEC,memory
+Monmouth,2014,2021,FCS,Big South,https://en.wikipedia.org/wiki/Big_South_Conference
+Morehead State,1984,1995,FCS,Ohio Valley,https://en.wikipedia.org/wiki/Morehead_State_Eagles_football
+Morehead State,1996,2000,FCS,Independent,https://en.wikipedia.org/wiki/Morehead_State_Eagles_football
+Morgan State,1984,1985,D2,MEAC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Murray State,1984,2022,FCS,Ohio Valley,https://en.wikipedia.org/wiki/Missouri_Valley_Football_Conference
+Navy,1984,2014,FBS,Independent,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Nebraska,1984,1995,FBS,Big Eight,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Nebraska,1996,2010,FBS,Big 12,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Nebraska-Kearney,1994,2011,D2,RMAC,https://en.wikipedia.org/wiki/Rocky_Mountain_Athletic_Conference
+Nevada,1984,1991,FCS,Big Sky,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Nevada,1992,1999,FBS,Big West,https://en.wikipedia.org/wiki/Big_West_Conference
+Nevada,2000,2011,FBS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+New Hampshire,1984,1996,FCS,Yankee,https://en.wikipedia.org/wiki/Yankee_Conference
+New Hampshire,1997,2006,FCS,Atlantic 10,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+New Haven,1984,2003,D2,Independent,https://en.wikipedia.org/wiki/New_Haven_Chargers_football
+New Haven,2004,2008,none,,https://en.wikipedia.org/wiki/New_Haven_Chargers_football
+New Haven,2009,2024,D2,NE-10,https://en.wikipedia.org/wiki/New_Haven_Chargers_football
+New Mexico,1984,1998,FBS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+New Mexico State,1984,1987,FBS,PCAA,https://en.wikipedia.org/wiki/Big_West_Conference
+New Mexico State,1988,2000,FBS,Big West,https://en.wikipedia.org/wiki/Big_West_Conference
+New Mexico State,2001,2004,FBS,Sun Belt,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+New Mexico State,2005,2012,FBS,WAC,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+New Mexico State,2013,2013,FBS,Independent,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+New Mexico State,2014,2017,FBS,Sun Belt,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+New Mexico State,2018,2022,FBS,Independent,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Newberry,1984,1988,NAIA,SAC,https://en.wikipedia.org/wiki/South_Atlantic_Conference
+Newberry,1989,1989,NAIA,Independent,https://en.wikipedia.org/wiki/South_Atlantic_Conference
+Newberry,1990,1995,D2,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_II_football_programs
+Nicholls,1984,1986,FCS,Gulf Star,https://en.wikipedia.org/wiki/List_of_Nicholls_Colonels_football_seasons
+Nicholls,1987,1990,FCS,Independent,https://en.wikipedia.org/wiki/List_of_Nicholls_Colonels_football_seasons
+Norfolk State,1984,1996,D2,CIAA,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+North Alabama,1984,2017,D2,GSC,https://en.wikipedia.org/wiki/North_Alabama_Lions_football
+North Alabama,2018,2018,FCS,Independent,https://en.wikipedia.org/wiki/North_Alabama_Lions_football
+North Alabama,2019,2021,FCS,Big South,https://en.wikipedia.org/wiki/North_Alabama_Lions_football
+North Alabama,2022,2022,FCS,ASUN,https://en.wikipedia.org/wiki/North_Alabama_Lions_football
+North Carolina A&T,1984,2020,FCS,MEAC,https://en.wikipedia.org/wiki/Mid-Eastern_Athletic_Conference
+North Carolina A&T,2021,2022,FCS,Big South,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+North Carolina Central,1984,2006,D2,CIAA,memory
+North Carolina Central,2007,2010,FCS,Independent,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+North Dakota,1984,2007,D2,NCC,memory
+North Dakota,2008,2011,FCS,Great West,https://en.wikipedia.org/wiki/Great_West_Conference
+North Dakota,2012,2017,FCS,Big Sky,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+North Dakota,2018,2019,FCS,Independent,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+North Dakota State,1984,2003,D2,NCC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+North Dakota State,2004,2007,FCS,Great West,https://en.wikipedia.org/wiki/Great_West_Conference
+North Dakota State,2008,2025,FCS,MVFC,https://en.wikipedia.org/wiki/Missouri_Valley_Football_Conference
+North Greenville,1984,1993,none,,https://en.wikipedia.org/wiki/North_Greenville_Crusaders_football
+North Greenville,1998,2002,NAIA,Mid-South,https://en.wikipedia.org/wiki/North_Greenville_Crusaders_football
+North Greenville,2014,2017,D2,Independent,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+North Greenville,2018,2024,D2,GSC,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+North Texas,1984,1994,FCS,Southland,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+North Texas,1995,1995,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+North Texas,1996,2000,FBS,Big West,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+North Texas,2001,2012,FBS,Sun Belt,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+North Texas,2013,2022,FBS,CUSA,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Northeastern State,1984,1996,NAIA,OIC,https://en.wikipedia.org/wiki/Northeastern_State_RiverHawks_football
+Northeastern State,1997,2010,D2,LSC,https://en.wikipedia.org/wiki/Northeastern_State_RiverHawks_football
+Northeastern State,2012,2023,D2,MIAA,https://en.wikipedia.org/wiki/Northeastern_State_RiverHawks_football
+Northern Colorado,1984,2002,D2,NCC,https://en.wikipedia.org/wiki/Northern_Colorado_Bears_football
+Northern Colorado,2003,2003,FCS,Independent,memory
+Northern Colorado,2004,2005,FCS,Great West,https://en.wikipedia.org/wiki/Great_West_Conference
+Northern Illinois,1984,1985,FBS,MAC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Northern Illinois,1986,1992,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Northern Illinois,1993,1995,FBS,Big West,https://en.wikipedia.org/wiki/Big_West_Conference
+Northern Illinois,1996,1996,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Northern Illinois,1997,2025,FBS,MAC,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Northern Iowa,1984,1984,FCS,Mid-Continent,https://en.wikipedia.org/wiki/1985_NCAA_Division_I-AA_football_season
+Northern Iowa,1985,2007,FCS,Gateway,https://en.wikipedia.org/wiki/Missouri_Valley_Football_Conference
+Northern State,1984,1991,NAIA,NIC,https://en.wikipedia.org/wiki/Northern_Sun_Intercollegiate_Conference
+Northern State,1992,1992,NAIA,NSIC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_II_football_programs
+Northwestern Oklahoma State,1984,1996,NAIA,OIC,https://en.wikipedia.org/wiki/Northwestern_Oklahoma_State_Rangers_football
+Northwestern Oklahoma State,1997,1999,NAIA,Independent,https://en.wikipedia.org/wiki/Northwestern_Oklahoma_State_Rangers_football
+Northwestern Oklahoma State,2000,2011,NAIA,CSFL,https://en.wikipedia.org/wiki/Northwestern_Oklahoma_State_Rangers_football
+Northwestern State,1984,1986,FCS,Gulf Star,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Northwood,1992,2021,D2,GLIAC,memory
+Notre Dame,2020,2020,FBS,ACC,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Ohio Dominican,2010,2016,D2,GLIAC,https://en.wikipedia.org/wiki/Ohio_Dominican_Panthers_football
+Oklahoma,1984,1995,FBS,Big Eight,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Oklahoma,1996,2023,FBS,Big 12,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Oklahoma Baptist,1984,2012,none,,https://en.wikipedia.org/wiki/Oklahoma_Baptist_Bison_football
+Oklahoma Baptist,2013,2014,NAIA,CSFL,https://en.wikipedia.org/wiki/Oklahoma_Baptist_Bison_football
+Oklahoma State,1984,1995,FBS,Big Eight,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Old Dominion,1984,2008,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Old Dominion,2009,2010,FCS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Old Dominion,2011,2012,FCS,CAA,memory
+Old Dominion,2013,2013,FCS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Old Dominion,2014,2021,FBS,CUSA,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Oregon,1984,2010,FBS,Pac-10,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Oregon,2011,2023,FBS,Pac-12,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Oregon State,1984,2010,FBS,Pac-10,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Ouachita Baptist,1984,1994,NAIA,AIC,https://en.wikipedia.org/wiki/Ouachita_Baptist_Tigers_football
+Ouachita Baptist,1995,1996,NAIA,Independent,https://en.wikipedia.org/wiki/Ouachita_Baptist_Tigers_football
+Ouachita Baptist,1997,1999,D2,LSC,https://en.wikipedia.org/wiki/Ouachita_Baptist_Tigers_football
+Ouachita Baptist,2000,2010,D2,GSC,https://en.wikipedia.org/wiki/Ouachita_Baptist_Tigers_football
+Penn State,1984,1992,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Pittsburgh,1984,1990,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Pittsburgh,1991,2012,FBS,Big East,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Portland State,1984,1992,D2,Western Football,https://en.wikipedia.org/wiki/Portland_State_Vikings_football
+Portland State,1993,1995,D2,Independent,https://en.wikipedia.org/wiki/Portland_State_Vikings_football
+Post,2022,2023,D2,Independent,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Presbyterian,1984,1992,NAIA,SAC,https://en.wikipedia.org/wiki/Presbyterian_Blue_Hose_football
+Presbyterian,1993,2006,D2,SAC,https://en.wikipedia.org/wiki/Presbyterian_Blue_Hose_football
+Presbyterian,2007,2007,D2,Independent,https://en.wikipedia.org/wiki/Presbyterian_Blue_Hose_football
+Presbyterian,2008,2019,FCS,Big South,https://en.wikipedia.org/wiki/Presbyterian_Blue_Hose_football
+Presbyterian,2020,2020,FCS,Independent,https://en.wikipedia.org/wiki/Presbyterian_Blue_Hose_football
+Rhode Island,1984,1996,FCS,Yankee,https://en.wikipedia.org/wiki/Yankee_Conference
+Rhode Island,1997,2006,FCS,Atlantic 10,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Rice,1984,1995,FBS,SWC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Rice,1996,2004,FBS,WAC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Rice,2005,2022,FBS,CUSA,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Richmond,1984,1985,FCS,Independent,https://en.wikipedia.org/wiki/Richmond_Spiders_football
+Richmond,1986,1996,FCS,Yankee,https://en.wikipedia.org/wiki/Yankee_Conference
+Richmond,1997,2006,FCS,Atlantic 10,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Richmond,2007,2024,FCS,CAA,https://en.wikipedia.org/wiki/Richmond_Spiders_football
+Robert Morris,1984,1993,none,,https://en.wikipedia.org/wiki/Robert_Morris_Colonials_football
+Robert Morris,1994,1995,FCS,Independent,https://en.wikipedia.org/wiki/Robert_Morris_Colonials_football
+Robert Morris,2020,2022,FCS,Big South,https://en.wikipedia.org/wiki/Robert_Morris_Colonials_football
+Robert Morris,2023,2023,FCS,OVC-Big South,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Rutgers,1984,1990,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Rutgers,1991,2012,FBS,Big East,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Rutgers,2013,2013,FBS,American,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+SMU,1984,1986,FBS,SWC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+SMU,1987,1988,none,,memory
+SMU,1989,1995,FBS,SWC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+SMU,1996,2004,FBS,WAC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+SMU,2005,2012,FBS,CUSA,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+SMU,2013,2023,FBS,American,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Sacramento State,1984,1984,D2,NCAC,https://en.wikipedia.org/wiki/Sacramento_State_Hornets_football
+Sacramento State,1985,1992,D2,Western Football,https://en.wikipedia.org/wiki/Sacramento_State_Hornets_football
+Sacramento State,1993,1995,FCS,American West,https://en.wikipedia.org/wiki/American_West_Conference
+Sacramento State,1996,2025,FCS,Big Sky,https://en.wikipedia.org/wiki/Sacramento_State_Hornets_football
+Sacred Heart,1984,1990,none,,https://en.wikipedia.org/wiki/Sacred_Heart_Pioneers_football
+Sacred Heart,1991,1992,D3,Independent,https://en.wikipedia.org/wiki/Sacred_Heart_Pioneers_football
+Sacred Heart,1993,1994,D2,Independent,https://en.wikipedia.org/wiki/Sacred_Heart_Pioneers_football
+Sacred Heart,1995,1996,D2,ECFC,https://en.wikipedia.org/wiki/Sacred_Heart_Pioneers_football
+Sacred Heart,1997,1997,D2,EFC,https://en.wikipedia.org/wiki/Sacred_Heart_Pioneers_football
+Sacred Heart,1998,2023,FCS,NEC,https://en.wikipedia.org/wiki/Sacred_Heart_Pioneers_football
+Sacred Heart,2024,2025,FCS,Independent,https://en.wikipedia.org/wiki/Sacred_Heart_Pioneers_football
+Saint Anselm,1984,1998,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_II_football_programs
+Sam Houston,1984,1985,D2,Gulf Star,https://en.wikipedia.org/wiki/Gulf_Star_Conference
+Sam Houston,1986,1986,FCS,Gulf Star,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Sam Houston,1987,2020,FCS,Southland,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Sam Houston,2021,2022,FCS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+Samford,1984,1988,D3,Independent,https://en.wikipedia.org/wiki/Samford_Bulldogs_football
+Samford,1989,2002,FCS,Independent,https://en.wikipedia.org/wiki/Samford_Bulldogs_football
+Samford,2003,2007,FCS,Ohio Valley,https://en.wikipedia.org/wiki/Samford_Bulldogs_football
+San Diego,1984,1992,D3,Independent,https://en.wikipedia.org/wiki/San_Diego_Toreros_football
+San Diego State,1984,1998,FBS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+San Diego State,1999,2025,FBS,Mountain West,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+San Jose State,1984,1987,FBS,PCAA,https://en.wikipedia.org/wiki/Big_West_Conference
+San Jose State,1988,1995,FBS,Big West,https://en.wikipedia.org/wiki/Big_West_Conference
+San Jose State,1996,2012,FBS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+Savannah State,2000,2009,FCS,Independent,https://en.wikipedia.org/wiki/Savannah_State_Tigers_football
+Savannah State,2010,2018,FCS,MEAC,https://en.wikipedia.org/wiki/Savannah_State_Tigers_football
+Shepherd,1984,1989,NAIA,WVIAC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_II_football_programs
+Shepherd,1990,2012,D2,WVIAC,https://en.wikipedia.org/wiki/West_Virginia_Intercollegiate_Athletic_Conference
+Shepherd,2013,2018,D2,MEC,https://en.wikipedia.org/wiki/West_Virginia_Intercollegiate_Athletic_Conference
+Shorter,2015,2024,D2,GSC,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+South Alabama,1984,2008,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+South Alabama,2009,2011,FCS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+South Carolina,1984,1991,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+South Dakota,1984,2007,D2,NCC,memory
+South Dakota,2008,2011,FCS,Great West,https://en.wikipedia.org/wiki/Great_West_Conference
+South Dakota State,1984,2003,D2,NCC,memory
+South Dakota State,2004,2007,FCS,Great West,https://en.wikipedia.org/wiki/Great_West_Conference
+South Florida,1984,1996,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+South Florida,1997,2000,FCS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+South Florida,2001,2002,FBS,Independent,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+South Florida,2003,2004,FBS,CUSA,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+South Florida,2005,2012,FBS,Big East,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Southeast Missouri State,1984,1990,D2,MIAA,https://en.wikipedia.org/wiki/Southeast_Missouri_State_Redhawks_football
+Southeast Missouri State,1991,2022,FCS,Ohio Valley,https://en.wikipedia.org/wiki/Southeast_Missouri_State_Redhawks_football
+Southeastern Louisiana,1984,1985,FCS,Gulf Star,https://en.wikipedia.org/wiki/Southeastern_Louisiana_Lions_football
+Southeastern Louisiana,1986,2002,none,,https://en.wikipedia.org/wiki/Southeastern_Louisiana_Lions_football
+Southeastern Louisiana,2003,2004,FCS,Independent,https://en.wikipedia.org/wiki/Southeastern_Louisiana_Lions_football
+Southeastern Oklahoma State,1984,1996,NAIA,OIC,memory
+Southeastern Oklahoma State,1997,2010,D2,LSC,https://en.wikipedia.org/wiki/Great_American_Conference
+Southern Arkansas,1984,1994,NAIA,AIC,https://en.wikipedia.org/wiki/Southern_Arkansas_Muleriders_football
+Southern Arkansas,1995,2010,D2,GSC,https://en.wikipedia.org/wiki/Southern_Arkansas_Muleriders_football
+Southern Illinois,1984,1984,FCS,Missouri Valley,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Southern Illinois,1985,2007,FCS,Gateway,https://en.wikipedia.org/wiki/Missouri_Valley_Football_Conference
+Southern Miss,1984,1995,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Southern Miss,1996,2021,FBS,CUSA,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Southern Nazarene,1984,1999,none,,https://en.wikipedia.org/wiki/Southern_Nazarene_Crimson_Storm_football
+Southern Nazarene,2000,2000,NAIA,Independent,https://en.wikipedia.org/wiki/Southern_Nazarene_Crimson_Storm_football
+Southern Nazarene,2001,2011,NAIA,CSFL,https://en.wikipedia.org/wiki/Southern_Nazarene_Crimson_Storm_football
+Southern Utah,1984,1985,NAIA,RMAC,https://en.wikipedia.org/wiki/Southern_Utah_Thunderbirds_football
+Southern Utah,1986,1992,D2,Western Football,https://en.wikipedia.org/wiki/Southern_Utah_Thunderbirds_football
+Southern Utah,1993,1995,FCS,American West,https://en.wikipedia.org/wiki/American_West_Conference
+Southern Utah,1996,2003,FCS,Independent,https://en.wikipedia.org/wiki/Southern_Utah_Thunderbirds_football
+Southern Utah,2004,2011,FCS,Great West,https://en.wikipedia.org/wiki/Great_West_Conference
+Southern Utah,2022,2022,FCS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+Southern Utah,2023,2025,FCS,UAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+Southwest Minnesota State,1984,1991,NAIA,NIC,https://en.wikipedia.org/wiki/Northern_Sun_Intercollegiate_Conference
+Southwest Minnesota State,1992,1992,NAIA,NSIC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_II_football_programs
+Southwestern Oklahoma State,1984,1996,NAIA,OIC,memory
+Southwestern Oklahoma State,1997,2010,D2,LSC,https://en.wikipedia.org/wiki/Great_American_Conference
+St. Thomas (MN),1984,2020,D3,MIAC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Stanford,1984,2010,FBS,Pac-10,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Stanford,2011,2023,FBS,Pac-12,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Stephen F. Austin,1984,1985,D2,Gulf Star,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Stephen F. Austin,1986,1986,FCS,Gulf Star,https://en.wikipedia.org/wiki/Gulf_Star_Conference
+Stephen F. Austin,2021,2022,FCS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+Stephen F. Austin,2023,2023,FCS,UAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+Stetson,1984,2012,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Stonehill,1984,1987,none,,https://en.wikipedia.org/wiki/Stonehill_Skyhawks_football
+Stonehill,1988,1988,D3,Independent,https://en.wikipedia.org/wiki/Stonehill_Skyhawks_football
+Stonehill,1989,1996,D3,ECFC,https://en.wikipedia.org/wiki/Stonehill_Skyhawks_football
+Stonehill,1997,2000,D2,EFC,https://en.wikipedia.org/wiki/Stonehill_Skyhawks_football
+Stonehill,2001,2021,D2,NE-10,https://en.wikipedia.org/wiki/Stonehill_Skyhawks_football
+Stony Brook,1984,1987,D3,Independent,https://en.wikipedia.org/wiki/Stony_Brook_Seawolves_football
+Stony Brook,1988,1991,D3,Liberty,https://en.wikipedia.org/wiki/Stony_Brook_Seawolves_football
+Stony Brook,1992,1995,D3,Freedom,https://en.wikipedia.org/wiki/Stony_Brook_Seawolves_football
+Stony Brook,1996,1996,D2,Independent,https://en.wikipedia.org/wiki/Stony_Brook_Seawolves_football
+Stony Brook,1997,1998,D2,EFC,https://en.wikipedia.org/wiki/Stony_Brook_Seawolves_football
+Stony Brook,1999,2006,FCS,NEC,https://en.wikipedia.org/wiki/Stony_Brook_Seawolves_football
+Stony Brook,2007,2007,FCS,Independent,https://en.wikipedia.org/wiki/Stony_Brook_Seawolves_football
+Stony Brook,2008,2012,FCS,Big South,https://en.wikipedia.org/wiki/Stony_Brook_Seawolves_football
+Sul Ross State,1984,1995,NAIA,TIAA,https://en.wikipedia.org/wiki/Texas_Intercollegiate_Athletic_Association_(1976%E2%80%931996)
+Sul Ross State,1996,2023,D3,ASC,https://en.wikipedia.org/wiki/Texas_Intercollegiate_Athletic_Association_(1976%E2%80%931996)
+Syracuse,1984,1990,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Syracuse,1991,2012,FBS,Big East,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+TCU,1984,1995,FBS,SWC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+TCU,1996,2000,FBS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+TCU,2001,2004,FBS,CUSA,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+TCU,2005,2011,FBS,Mountain West,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Tarleton State,1984,1990,NAIA,TIAA,https://en.wikipedia.org/wiki/Texas_Intercollegiate_Athletic_Association_(1976%E2%80%931996)
+Tarleton State,1991,1993,D2,Independent,https://en.wikipedia.org/wiki/Texas_Intercollegiate_Athletic_Association_(1976%E2%80%931996)
+Tarleton State,1994,2019,D2,LSC,https://en.wikipedia.org/wiki/Texas_Intercollegiate_Athletic_Association_(1976%E2%80%931996)
+Tarleton State,2020,2020,FCS,Independent,https://en.wikipedia.org/wiki/Tarleton_State_Texans_football
+Tarleton State,2021,2022,FCS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+Temple,1984,1990,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Temple,1991,2004,FBS,Big East,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Temple,2005,2006,FBS,Independent,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Temple,2007,2011,FBS,MAC,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Temple,2012,2012,FBS,Big East,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Tennessee State,1984,1987,FCS,Independent,https://en.wikipedia.org/wiki/Ohio_Valley_Conference
+Tennessee State,1988,2022,FCS,Ohio Valley,https://en.wikipedia.org/wiki/Ohio_Valley_Conference
+Tennessee Tech,1984,2022,FCS,Ohio Valley,https://en.wikipedia.org/wiki/Ohio_Valley_Conference
+Tennessee Tech,2023,2025,FCS,OVC-Big South,https://en.wikipedia.org/wiki/Ohio_Valley_Conference
+Texas,1984,1995,FBS,SWC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Texas,1996,2023,FBS,Big 12,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Texas A&M,1984,1995,FBS,SWC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Texas A&M,1996,2011,FBS,Big 12,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Texas State,1984,1986,FCS,Gulf Star,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Texas State,1987,2010,FCS,Southland,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Texas State,2011,2011,FCS,Independent,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Texas State,2012,2012,FBS,WAC,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Texas State,2013,2025,FBS,Sun Belt,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Texas Tech,1984,1995,FBS,SWC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Towson,1984,1986,D2,Independent,https://en.wikipedia.org/wiki/Towson_Tigers_football
+Towson,1987,1996,FCS,Independent,https://en.wikipedia.org/wiki/Towson_Tigers_football
+Towson,1997,2003,FCS,Patriot,https://en.wikipedia.org/wiki/Patriot_League
+Towson,2004,2006,FCS,Atlantic 10,https://en.wikipedia.org/wiki/Towson_Tigers_football
+Troy,1984,1990,D2,GSC,https://en.wikipedia.org/wiki/Troy_Trojans_football
+Troy,1991,1995,FCS,Independent,https://en.wikipedia.org/wiki/Troy_Trojans_football
+Troy,1996,2000,FCS,Southland,https://en.wikipedia.org/wiki/Southland_Conference
+Troy,2001,2003,FBS,Independent,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Tulane,1984,1995,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Tulane,1996,2013,FBS,CUSA,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Tulsa,1984,1985,FBS,Missouri Valley,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Tulsa,1986,1995,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Tulsa,1996,2004,FBS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+Tulsa,2005,2013,FBS,CUSA,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Tusculum,1984,1990,none,,https://en.wikipedia.org/wiki/Tusculum_Pioneers_football
+Tusculum,1991,1995,NAIA,Mid-South,https://en.wikipedia.org/wiki/Tusculum_Pioneers_football
+UAB,1984,1990,none,,memory
+UAB,1991,1992,D3,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+UAB,1993,1995,FCS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+UAB,1996,1998,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+UAB,1999,2014,FBS,CUSA,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+UAB,2015,2016,none,,https://en.wikipedia.org/wiki/NCAA_Division_I_Football_Bowl_Subdivision_alignment_history
+UAB,2017,2022,FBS,CUSA,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+UC Davis,1984,1992,D2,NCAC,https://en.wikipedia.org/wiki/UC_Davis_Aggies_football
+UC Davis,1993,1993,D2,American West,https://en.wikipedia.org/wiki/American_West_Conference
+UC Davis,1994,2002,D2,Independent,https://en.wikipedia.org/wiki/UC_Davis_Aggies_football
+UC Davis,2003,2003,FCS,Independent,https://en.wikipedia.org/wiki/UC_Davis_Aggies_football
+UC Davis,2004,2011,FCS,Great West,https://en.wikipedia.org/wiki/Great_West_Conference
+UCF,1984,1989,D2,Independent,https://en.wikipedia.org/wiki/UCF_Knights_football
+UCF,1990,1995,FCS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+UCF,1996,2001,FBS,Independent,https://en.wikipedia.org/wiki/UCF_Knights_football
+UCF,2002,2004,FBS,MAC,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+UCF,2005,2012,FBS,CUSA,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+UCF,2013,2022,FBS,American,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+UCLA,1984,2010,FBS,Pac-10,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+UCLA,2011,2023,FBS,Pac-12,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+UConn,1984,1996,FCS,Yankee,https://en.wikipedia.org/wiki/Yankee_Conference
+UConn,1997,1999,FCS,Atlantic 10,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+UConn,2004,2012,FBS,Big East,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+UConn,2013,2019,FBS,American,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+ULM,1984,1993,FCS,Southland,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+ULM,1994,2000,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+UMass,1984,1996,FCS,Yankee,https://en.wikipedia.org/wiki/Yankee_Conference
+UMass,1997,2006,FCS,Atlantic 10,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+UMass,2007,2011,FCS,CAA,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+UMass,2016,2024,FBS,Independent,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+UNC Pembroke,1984,2006,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_II_football_programs
+UNC Pembroke,2021,2024,D2,MEC,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+UNLV,1984,1987,FBS,PCAA,https://en.wikipedia.org/wiki/Big_West_Conference
+UNLV,1988,1995,FBS,Big West,https://en.wikipedia.org/wiki/Big_West_Conference
+UNLV,1996,1998,FBS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+USC,1984,2010,FBS,Pac-10,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+USC,2011,2023,FBS,Pac-12,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+UT Martin,1984,1989,D2,GSC,https://en.wikipedia.org/wiki/UT_Martin_Skyhawks_football
+UT Martin,1990,1991,D2,Independent,https://en.wikipedia.org/wiki/UT_Martin_Skyhawks_football
+UT Martin,1992,2022,FCS,Ohio Valley,https://en.wikipedia.org/wiki/UT_Martin_Skyhawks_football
+UT Permian Basin,1984,2015,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_II_football_programs
+UTEP,1984,2004,FBS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+UTEP,2005,2025,FBS,CUSA,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+UTRGV,1984,2024,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+UTSA,1984,2010,none,,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+UTSA,2011,2011,FCS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+UTSA,2012,2012,FBS,WAC,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+UTSA,2013,2022,FBS,CUSA,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+UVA Wise,2010,2012,NAIA,Mid-South,https://en.wikipedia.org/wiki/UVA_Wise_Cavaliers_football
+UVA Wise,2013,2018,D2,MEC,https://en.wikipedia.org/wiki/UVA_Wise_Cavaliers_football
+Upper Iowa,2008,2023,D2,NSIC,memory
+Utah,1984,1998,FBS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+Utah,1999,2010,FBS,Mountain West,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Utah,2011,2023,FBS,Pac-12,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Utah State,1984,1987,FBS,PCAA,https://en.wikipedia.org/wiki/Big_West_Conference
+Utah State,1988,2000,FBS,Big West,https://en.wikipedia.org/wiki/Big_West_Conference
+Utah State,2001,2002,FBS,Independent,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Utah State,2003,2004,FBS,Sun Belt,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Utah State,2005,2012,FBS,WAC,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Utah State,2013,2025,FBS,Mountain West,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Utah Tech,1984,2005,none,,https://en.wikipedia.org/wiki/Utah_Tech_Trailblazers_football
+Utah Tech,2006,2007,D2,Independent,https://en.wikipedia.org/wiki/Utah_Tech_Trailblazers_football
+Utah Tech,2008,2016,D2,GNAC,https://en.wikipedia.org/wiki/Utah_Tech_Trailblazers_football
+Utah Tech,2017,2019,D2,RMAC,https://en.wikipedia.org/wiki/Utah_Tech_Trailblazers_football
+Utah Tech,2020,2020,FCS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Utah Tech,2021,2022,FCS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+Utah Tech,2023,2025,FCS,UAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+VMI,2003,2013,FCS,Big South,https://en.wikipedia.org/wiki/Big_South_Conference
+Valparaiso,1984,1989,D2,Heartland Collegiate,https://en.wikipedia.org/wiki/Valparaiso_Beacons_football
+Valparaiso,1990,1992,D2,MIFC,https://en.wikipedia.org/wiki/Valparaiso_Beacons_football
+Villanova,1984,1984,none,,https://en.wikipedia.org/wiki/Villanova_Wildcats_football
+Villanova,1985,1986,D3,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Villanova,1987,1987,FCS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+Villanova,1988,1996,FCS,Yankee,https://en.wikipedia.org/wiki/Yankee_Conference
+Villanova,1997,2006,FCS,Atlantic 10,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Villanova,2007,2025,FCS,CAA,https://en.wikipedia.org/wiki/Villanova_Wildcats_football
+Virginia Tech,1984,1990,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Virginia Tech,1991,2003,FBS,Big East,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Wagner,1984,1991,D3,Independent,https://en.wikipedia.org/wiki/Wagner_Seahawks_football
+Wagner,1992,1992,D3,Liberty,https://en.wikipedia.org/wiki/Wagner_Seahawks_football
+Wagner,1993,1995,FCS,Independent,https://en.wikipedia.org/wiki/Wagner_Seahawks_football
+Washington,1984,2010,FBS,Pac-10,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Washington,2011,2023,FBS,Pac-12,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Washington State,1984,2010,FBS,Pac-10,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+West Florida,1984,2015,none,,memory
+West Florida,2016,2025,D2,GSC,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+West Georgia,1984,2023,D2,GSC,https://en.wikipedia.org/wiki/West_Georgia_Wolves_football
+West Liberty,1984,1990,NAIA,WVIAC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_II_football_programs
+West Liberty,1991,2012,D2,WVIAC,https://en.wikipedia.org/wiki/West_Virginia_Intercollegiate_Athletic_Conference
+West Texas A&M,1984,1985,FCS,Missouri Valley,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_FCS_football_programs
+West Virginia,1984,1990,FBS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+West Virginia,1991,2011,FBS,Big East,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+West Virginia Wesleyan,1984,1985,NAIA,WVIAC,https://en.wikipedia.org/wiki/West_Virginia_Intercollegiate_Athletic_Conference
+West Virginia Wesleyan,1986,1987,NAIA,Independent,https://en.wikipedia.org/wiki/West_Virginia_Intercollegiate_Athletic_Conference
+West Virginia Wesleyan,1988,1992,NAIA,WVIAC,https://en.wikipedia.org/wiki/West_Virginia_Intercollegiate_Athletic_Conference
+West Virginia Wesleyan,1993,2012,D2,WVIAC,https://en.wikipedia.org/wiki/West_Virginia_Intercollegiate_Athletic_Conference
+Western Colorado,1984,1989,NAIA,RMAC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_II_football_programs
+Western Illinois,1984,1984,FCS,Mid-Continent,https://en.wikipedia.org/wiki/1985_NCAA_Division_I-AA_football_season
+Western Illinois,1985,2007,FCS,Gateway,https://en.wikipedia.org/wiki/Missouri_Valley_Football_Conference
+Western Illinois,2008,2023,FCS,MVFC,https://en.wikipedia.org/wiki/Missouri_Valley_Football_Conference
+Western Kentucky,1984,1998,FCS,Independent,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+Western Kentucky,1999,2000,FCS,Ohio Valley,https://en.wikipedia.org/wiki/Ohio_Valley_Conference
+Western Kentucky,2001,2006,FCS,Gateway,https://en.wikipedia.org/wiki/Missouri_Valley_Football_Conference
+Western Kentucky,2007,2008,FBS,Independent,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Western Kentucky,2009,2013,FBS,Sun Belt,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Western New Mexico,2014,2015,D2,RMAC,https://github.com/sportsdataverse/cfbfastR-data/tree/main/schedules/csv
+Western Oregon,2001,2021,D2,GNAC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_II_football_programs
+William & Mary,1984,1992,FCS,Independent,https://en.wikipedia.org/wiki/Yankee_Conference
+William & Mary,1993,1996,FCS,Yankee,https://en.wikipedia.org/wiki/Yankee_Conference
+William & Mary,1997,2006,FCS,Atlantic 10,https://en.wikipedia.org/wiki/List_of_NCAA_Division_I_conference_changes_before_2000
+William & Mary,2007,2025,FCS,CAA,https://en.wikipedia.org/wiki/Patriot_League
+Wingate,1989,1990,NAIA,SAC,https://en.wikipedia.org/wiki/List_of_NCAA_Division_II_football_programs
+Winona State,1984,1991,D2,NIC,https://en.wikipedia.org/wiki/Northern_Sun_Intercollegiate_Conference
+Winston-Salem State,2007,2009,FCS,MEAC,https://en.wikipedia.org/wiki/Winston-Salem_State_Rams_football
+Wofford,1984,1987,NAIA,Independent,https://en.wikipedia.org/wiki/Wofford_Terriers_football
+Wofford,1988,1994,D2,Independent,https://en.wikipedia.org/wiki/Wofford_Terriers_football
+Wofford,1995,1996,FCS,Independent,https://en.wikipedia.org/wiki/Wofford_Terriers_football
+Wyoming,1984,1998,FBS,WAC,https://en.wikipedia.org/wiki/Western_Athletic_Conference
+Youngstown State,1984,1987,FCS,Ohio Valley,https://en.wikipedia.org/wiki/Ohio_Valley_Conference
+Youngstown State,1988,1996,FCS,Independent,https://en.wikipedia.org/wiki/Ohio_Valley_Conference
+Youngstown State,1997,2007,FCS,Gateway,https://en.wikipedia.org/wiki/Missouri_Valley_Football_Conference

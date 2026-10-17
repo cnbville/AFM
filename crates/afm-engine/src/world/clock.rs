@@ -292,9 +292,13 @@ pub(crate) fn advance_day(w: &mut World) {
     if y.cfb_weeks.len() > 8 && d == y.cfb_weeks[8].add(1) {
         college::lean_checkpoint(w, college::LeanCheck::MidSeason);
     }
-    for (div, end) in
-        [(Division::JUCO, y.juco_regular_end), (Division::D2, y.d2_regular_end), (Division::FCS, y.fcs_regular_end)]
-    {
+    for (div, end) in [
+        (Division::JUCO, y.juco_regular_end),
+        (Division::D2, y.d2_regular_end),
+        (Division::NAIA, y.d2_regular_end),
+        (Division::D3, y.d2_regular_end),
+        (Division::FCS, y.fcs_regular_end),
+    ] {
         if d == end.add(1) {
             college::regular_season_end(w, div);
         }
@@ -302,6 +306,7 @@ pub(crate) fn advance_day(w: &mut World) {
     // The Sunday after rivalry week: the regular season's book, then the
     // college coaching carousel (firings come before the title games).
     if d == y.fbs_regular_end.add(1) {
+        super::program::announce_drops(w);
         college::record_regular_season(w);
         college::regular_season_end(w, Division::FBS);
         timed("carousel college", || staff::carousel(w, staff::Scope::College));
@@ -317,6 +322,18 @@ pub(crate) fn advance_day(w: &mut World) {
             w.coach_window = Some((d.add(5), d.add(5 + days)));
         }
         timed("draft reads", || recruiting::draft_reads(w));
+    }
+    // In-season firings (part B 38): the Sundays from late September to mid-November.
+    if d.weekday() == Weekday::Sun && (4..=10).any(|k| y.cfb_weeks.get(k).is_some_and(|s| d == s.add(1))) {
+        staff::in_season_firings(w);
+    }
+    // College coaching searches decide on their own days (part D 18); at
+    // fall camp any still open decide at once.
+    if !w.searches.is_empty() {
+        timed("searches", || staff::college_searches_day(w, d == y.fall_camp));
+    }
+    if d == Date::ymd(y.season + 1, 1, 31) && w.recording {
+        staff::diversity_report(w);
     }
     if d == y.selection_day {
         college::release_poll(
@@ -380,7 +397,8 @@ pub(crate) fn advance_day(w: &mut World) {
     if d == Date::ymd(season + 1, 1, 2) {
         college::settle_eligibility(w);
     }
-    if d == y.declare_soft {
+    // Early entrants announce on their own days (part D 17).
+    if d > y.fbs_regular_end && d < y.declare_deadline {
         recruiting::declarations(w, recruiting::Declare::Soft);
     }
     if d == y.declare_deadline {
@@ -406,10 +424,9 @@ pub(crate) fn advance_day(w: &mut World) {
         recruiting::enroll(w, true);
     }
     // The January games name their rosters in the senior fall (part B 35).
-    for (date, name) in [
-        (Date::ymd(w.year, 10, 15), "All-American Bowl"),
-        (Date::ymd(w.year, 11, 1), "Polynesian Bowl"),
-    ] {
+    for (date, name) in
+        [(Date::ymd(w.year, 10, 15), "All-American Bowl"), (Date::ymd(w.year, 11, 1), "Polynesian Bowl")]
+    {
         if d == date {
             hs_year::all_star_rosters(w, name);
         }
@@ -473,6 +490,8 @@ fn year_start(w: &mut World) {
     for (p, conf) in std::mem::take(&mut w.realign) {
         w.programs[p].conference = conf;
     }
+    // The real moves of the season (college history, through 2026).
+    super::program::apply_history(w);
     w.college_prev = w.college.take();
     w.college = Some(college::new_season(w));
     w.hs_season = Some(hs_year::new_season(w));

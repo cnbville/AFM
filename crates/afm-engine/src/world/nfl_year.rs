@@ -1554,9 +1554,10 @@ fn play_day(w: &mut World, d: Date) {
     }
 }
 
-/// The stakes test for NFL games (topic 8): late in the year a game between
-/// two teams in the playoff race, or for a division, is huge; a head coach
-/// on the hot seat in such a game adds to it.
+/// The stakes test for NFL games (topic 8): in the last four weeks a game
+/// is huge for a team when its result can clinch a playoff place or the
+/// division or end its hopes (part D 27), or when its head coach's job
+/// rides on the last two games (part B 27).
 fn stakes(w: &mut World, k: usize, d: Date) {
     let s = w.nfl_season.as_ref().unwrap();
     let n_weeks = s.weeks.len();
@@ -1564,29 +1565,49 @@ fn stakes(w: &mut World, k: usize, d: Date) {
         return;
     }
     let per_conf = (w.rules.nfl_playoff_teams / 2) as usize;
-    let mut cut = [0.0f64; 2];
-    for (c, cut_c) in cut.iter_mut().enumerate() {
-        let mut v: Vec<f64> =
-            (0..s.wins.len()).filter(|&t| s.conf[t] == c).map(|t| s.wins[t] as f64 + 0.5 * s.ties[t] as f64).collect();
-        v.sort_by(|a, b| b.total_cmp(a));
-        *cut_c = v.get(per_conf.saturating_sub(1)).copied().unwrap_or(0.0);
-    }
+    let n_teams = s.wins.len();
     let wins = |t: usize| s.wins[t] as f64 + 0.5 * s.ties[t] as f64;
-    let in_race = |t: usize| (wins(t) - cut[s.conf[t]]).abs() <= 1.0;
-    let lead = |t: usize| {
-        (0..s.wins.len()).filter(|&o| s.div[o] == s.div[t]).map(|o| wins(o) as i32).max().unwrap_or(0) as f64
+    // Games each team has left, this week's included.
+    let mut left = vec![0.0f64; n_teams];
+    for week in &s.weeks[k..] {
+        for &(h, a) in week {
+            left[h] += 1.0;
+            left[a] += 1.0;
+        }
+    }
+    let best = |t: usize| wins(t) + left[t];
+    // The `n`-th highest of a list (1 = highest).
+    let nth = |mut v: Vec<f64>, n: usize| {
+        v.sort_by(|a, b| b.total_cmp(a));
+        v.get(n.saturating_sub(1)).copied().unwrap_or(f64::NEG_INFINITY)
     };
-    // Stakes are each team's own (T8.1): in the last four weeks a team
-    // within a win of the playoff line plays for its season, whoever the
-    // opponent, and two division contenders meet for the title.
-    let late = k + 4 >= n_weeks;
+    // A game is a team's stake when its result can settle the team's
+    // season (part D 27): a win clinches a playoff place or the division,
+    // or a loss ends its hopes of either (wins only; tiebreakers left out).
+    let settles = |t: usize| {
+        let others: Vec<usize> = (0..n_teams).filter(|&o| o != t && s.conf[o] == s.conf[t]).collect();
+        let clinch_spot = wins(t) + 1.0 > nth(others.iter().map(|&o| best(o)).collect(), per_conf);
+        let alive = best(t) >= nth(others.iter().map(|&o| wins(o)).collect(), per_conf);
+        let ends_spot = alive && best(t) - 1.0 < nth(others.iter().map(|&o| wins(o)).collect(), per_conf);
+        let rivals: Vec<usize> = others.iter().copied().filter(|&o| s.div[o] == s.div[t]).collect();
+        let div_alive = best(t) >= rivals.iter().map(|&o| wins(o)).fold(0.0, f64::max);
+        let clinch_div = div_alive && wins(t) + 1.0 > rivals.iter().map(|&o| best(o)).fold(0.0, f64::max);
+        let ends_div = div_alive && best(t) - 1.0 < rivals.iter().map(|&o| wins(o)).fold(0.0, f64::max);
+        let spot_open = alive && !(wins(t) > nth(others.iter().map(|&o| best(o)).collect(), per_conf));
+        (spot_open && (clinch_spot || ends_spot)) || clinch_div || ends_div
+    };
+    // A head coach on the hot seat (part B 27): in his third season or
+    // later, a losing year after a losing one; his last two games decide it.
+    let hot = |t: usize| {
+        let games = s.wins[t] + s.losses[t] + s.ties[t];
+        let pct = wins(t) / games.max(1) as f64;
+        let last = w.nfl[t].win_share.last().copied().unwrap_or(0.5);
+        let tenure = w.nfl[t].head_coach.and_then(|c| w.coaches[c].job).map_or(0, |j| w.year - j.since);
+        k + 2 >= n_weeks && tenure >= 2 && games >= 10 && pct < 0.4 && last < 0.45
+    };
     let mut huge: Vec<(usize, usize, [bool; 2], Moment)> = Vec::new();
     for (g, &(h, a)) in s.weeks[k].iter().enumerate() {
-        let division = s.div[h] == s.div[a]
-            && wins(h) >= lead(h) - 1.0
-            && wins(a) >= lead(a) - 1.0
-            && wins(h) >= cut[s.conf[h]] - 1.0;
-        let side = [division || late && in_race(h), division || late && in_race(a)];
+        let side = [settles(h) || hot(h), settles(a) || hot(a)];
         if side[0] || side[1] {
             let at = s.slots.get(k).and_then(|v| v.get(g)).map_or(Moment::at(d, 13, 0), |x| x.at);
             huge.push((h, a, side, at));

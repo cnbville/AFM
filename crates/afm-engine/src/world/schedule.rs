@@ -119,6 +119,8 @@ pub struct Game {
     /// Each side's own stakes (T8.1): home, away. A game can be huge for one
     /// team (a sixth win for a bowl, a coach's job) and not for the nation.
     pub huge_for: [bool; 2],
+    /// Why the game is loud, in plain words (part B 22).
+    pub why: Vec<&'static str>,
     pub played: Option<Played>,
 }
 
@@ -140,6 +142,7 @@ impl Game {
             tags: Vec::new(),
             loud: Loudness::Small,
             huge_for: [false; 2],
+            why: Vec::new(),
             played: None,
         }
     }
@@ -166,6 +169,8 @@ pub fn games_target(d: Division, season: i32) -> u32 {
             }
         }
         Division::FCS | Division::D2 => 11,
+        // NAIA teams play 10 or 11, Division III 10 (proposed, not confirmed: 10 for both).
+        Division::NAIA | Division::D3 => 10,
         Division::JUCO => 9,
     }
 }
@@ -175,7 +180,7 @@ pub fn last_week(d: Division, y: &YearDates) -> usize {
     let end = match d {
         Division::FBS => y.fbs_regular_end,
         Division::FCS => y.fcs_regular_end,
-        Division::D2 => y.d2_regular_end,
+        Division::D2 | Division::NAIA | Division::D3 => y.d2_regular_end,
         Division::JUCO => y.juco_regular_end,
     };
     y.cfb_weeks.iter().rposition(|&w| w <= end).unwrap_or(y.cfb_weeks.len() - 1)
@@ -421,7 +426,7 @@ pub(crate) fn build(w: &World, season: i32, y: &YearDates) -> Vec<Game> {
     for (k, r) in RIVALRIES.iter().enumerate() {
         let (Some(&a), Some(&c)) = (by_name.get(r.a), by_name.get(r.b)) else { continue };
         let (pa, pc) = (&w.programs[a], &w.programs[c]);
-        if pa.division != pc.division {
+        if pa.division != pc.division || !pa.plays(season) || !pc.plays(season) {
             continue;
         }
         let last = last_week(pa.division, y);
@@ -464,10 +469,11 @@ pub(crate) fn build(w: &World, season: i32, y: &YearDates) -> Vec<Game> {
         b.place(a, c, true, Some(k), last);
     }
 
-    for division in [Division::FBS, Division::FCS, Division::D2, Division::JUCO] {
+    for division in Division::ALL {
         let last = last_week(division, y);
         let target = games_target(division, season);
-        let members: Vec<usize> = w.programs.iter().filter(|p| p.division == division).map(|p| p.id).collect();
+        let members: Vec<usize> =
+            w.programs.iter().filter(|p| p.division == division && p.plays(season)).map(|p| p.id).collect();
         // --- Conference games ---------------------------------------------------------
         let mut confs: BTreeMap<&str, Vec<usize>> = BTreeMap::new();
         for &i in &members {
@@ -492,7 +498,8 @@ pub(crate) fn build(w: &World, season: i32, y: &YearDates) -> Vec<Game> {
         }
         // --- FBS buy games: most FBS teams host one FCS opponent ------------------------
         if division == Division::FBS {
-            let fcs: Vec<usize> = w.programs.iter().filter(|p| p.division == Division::FCS).map(|p| p.id).collect();
+            let fcs: Vec<usize> =
+                w.programs.iter().filter(|p| p.division == Division::FCS && p.plays(season)).map(|p| p.id).collect();
             let fcs_target = games_target(Division::FCS, season);
             // Each FCS team's conference games still to come, so a buy game
             // never pushes it past 12 games (one FBS opponent each, rarely two).
@@ -568,8 +575,9 @@ pub(crate) fn build(w: &World, season: i32, y: &YearDates) -> Vec<Game> {
         }
     }
 
-    // --- Senior day and homecoming (A27) ------------------------------------------------
     let mut games = b.games;
+    weeknights(&mut games, w, season, y, seed);
+    // --- Senior day and homecoming (A27) ------------------------------------------------
     games.sort_by(|x, y| x.date.cmp(&y.date).then(x.home.cmp(&y.home)));
     for p in 0..np {
         let home: Vec<usize> = (0..games.len()).filter(|&k| games[k].home == p && games[k].site.is_none()).collect();
@@ -588,6 +596,137 @@ pub(crate) fn build(w: &World, season: i32, y: &YearDates) -> Vec<Game> {
         }
     }
     games
+}
+
+/// Rivalry-week games played on Thanksgiving or the day after, by years
+/// (part B 31; from memory, to verify): Texas and Texas A&M on Thanksgiving
+/// through 2011, the Egg Bowl on Thanksgiving from 2013, and the Black
+/// Friday games.
+const HOLIDAY_GAMES: &[(&str, &str, i32, i32, bool)] = &[
+    ("Texas", "Texas A&M", 1984, 2011, true),
+    ("Ole Miss", "Mississippi State", 2013, 2023, true),
+    ("Nebraska", "Iowa", 2011, 2025, false),
+    ("Iowa", "Nebraska", 2011, 2025, false),
+    ("Missouri", "Arkansas", 2014, 2025, false),
+    ("LSU", "Arkansas", 1992, 2013, false),
+    ("Washington", "Washington State", 2012, 2016, false),
+    ("Oregon", "Oregon State", 2008, 2022, false),
+    ("Toledo", "Bowling Green", 2005, 2025, false),
+    ("UCF", "South Florida", 2013, 2025, false),
+    ("Virginia", "Virginia Tech", 2012, 2018, false),
+    ("Pittsburgh", "West Virginia", 2000, 2011, false),
+];
+
+/// College games off Saturday (part B 31). Proposed, not confirmed, sized
+/// from memory of the TV schedules: FBS Thursday nights from 1990 (one a
+/// week, two from 2000, three from 2010) and Friday nights from 1995 (one
+/// a week, three from 2005), more on opening weekend; a Labor Day Monday
+/// game from 1997; the MAC's November weeknights from 2006; Thanksgiving
+/// and Black Friday games in rivalry week. A team moved to a weeknight had
+/// a bye before (Thursday and midweek) or played the Saturday before (Friday).
+fn weeknights(games: &mut [Game], w: &World, season: i32, y: &YearDates, seed: u64) {
+    let key = |a: u64, b: u64| key_uniform(seed ^ 0x3EEC, a.wrapping_mul(7919) ^ b);
+    let thursdays = match season {
+        ..=1989 => 0,
+        1990..=1999 => 1,
+        2000..=2009 => 2,
+        _ => 3,
+    };
+    let fridays = match season {
+        ..=1994 => 0,
+        1995..=2004 => 1,
+        _ => 3,
+    };
+    let last = last_week(Division::FBS, y);
+    let night = |w: &World, home: usize| {
+        if et_offset(&w.states[w.programs[home].state].code) >= 2 { (22, 30) } else { (19, 30) }
+    };
+    // Each team's game dates, kept current as games move.
+    let mut dates: HashMap<usize, Vec<Date>> = HashMap::new();
+    for g in games.iter() {
+        dates.entry(g.home).or_default().push(g.date);
+        dates.entry(g.away).or_default().push(g.date);
+    }
+    // At least `days` between the moved game and each of the team's other games.
+    let rested = |dates: &HashMap<usize, Vec<Date>>, t: usize, this: Date, to: Date, days: i32| {
+        dates[&t].iter().filter(|&&d| d != this).all(|&d| d.days_to(to).abs() >= days)
+    };
+    for wk in 0..=last {
+        let sat = y.cfb_weeks[wk];
+        let mut list: Vec<usize> = (0..games.len())
+            .filter(|&k| {
+                let g = &games[k];
+                g.division == Division::FBS && g.kind == GameKind::Regular && g.date == sat && g.site.is_none()
+            })
+            .collect();
+        list.sort_by(|&a, &b| key(a as u64, wk as u64).total_cmp(&key(b as u64, wk as u64)));
+        let mut moves: Vec<(usize, Date, (u16, u16))> = Vec::new();
+        let opening = wk <= 1;
+        let rivalry_week = wk == last;
+        // Thanksgiving and Black Friday.
+        if rivalry_week && season >= 1990 {
+            for &k in &list {
+                let g = &games[k];
+                let (h, a) = (w.programs[g.home].real_name.as_str(), w.programs[g.away].real_name.as_str());
+                let hit = HOLIDAY_GAMES
+                    .iter()
+                    .find(|x| ((x.0 == h && x.1 == a) || (x.0 == a && x.1 == h)) && (x.2..=x.3).contains(&season));
+                if let Some(&(_, _, _, _, thanksgiving)) = hit {
+                    let day = if thanksgiving { y.thanksgiving } else { y.thanksgiving.add(1) };
+                    let ko = if thanksgiving { night(w, g.home) } else { (12, 0) };
+                    moves.push((k, day, ko));
+                }
+            }
+        }
+        let mut n_thu = if opening { 3 * thursdays } else { thursdays };
+        let mut n_fri = if opening { 2 * fridays } else { fridays };
+        // A Labor Day Monday night game on opening weekend.
+        let mut monday = season >= 1997 && sat.add(2) == y.labor_day;
+        let mac_midweek = season >= 2006 && sat.month() == 11;
+        for &k in &list {
+            if moves.iter().any(|m| m.0 == k) {
+                continue;
+            }
+            let g = &games[k];
+            if g.rivalry.is_some() && rivalry_week {
+                continue;
+            }
+            let (h, a) = (g.home, g.away);
+            if mac_midweek && g.conference && w.programs[h].conference == "MAC" {
+                let day = sat.add(if key(k as u64, 0x3ED) < 0.5 { -4 } else { -3 });
+                if rested(&dates, h, sat, day, 6) && rested(&dates, a, sat, day, 6) {
+                    moves.push((k, day, (19, 0)));
+                    continue;
+                }
+            }
+            if monday && !g.conference {
+                moves.push((k, sat.add(2), (20, 0)));
+                monday = false;
+                continue;
+            }
+            if n_thu > 0 && rested(&dates, h, sat, sat.add(-2), 9) && rested(&dates, a, sat, sat.add(-2), 9) {
+                moves.push((k, sat.add(-2), night(w, h)));
+                n_thu -= 1;
+                continue;
+            }
+            if n_fri > 0 && rested(&dates, h, sat, sat.add(-1), 6) && rested(&dates, a, sat, sat.add(-1), 6) {
+                moves.push((k, sat.add(-1), night(w, h)));
+                n_fri -= 1;
+            }
+        }
+        for (k, day, ko) in moves {
+            let g = &mut games[k];
+            for t in [g.home, g.away] {
+                if let Some(v) = dates.get_mut(&t) {
+                    for d in v.iter_mut().filter(|d| **d == g.date) {
+                        *d = day;
+                    }
+                }
+            }
+            g.date = day;
+            g.kickoff = ko;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -626,7 +765,7 @@ mod tests {
         let conf = games.iter().filter(|g| g.involves(bama) && g.conference).count();
         assert!((8..=9).contains(&conf), "Alabama plays {conf} SEC games");
         if std::env::var("AFM_DEBUG").is_ok() {
-            for d in [Division::FBS, Division::FCS, Division::D2, Division::JUCO] {
+            for d in Division::ALL {
                 let ids: Vec<usize> = w.programs.iter().filter(|p| p.division == d).map(|p| p.id).collect();
                 let mut hist = std::collections::BTreeMap::new();
                 for &p in &ids {
