@@ -73,6 +73,8 @@ pub enum Kind {
     DraftPick,
     Signing,
     Commitment,
+    /// A scholarship offer (part B 34).
+    Offer,
     Visit,
     Practice,
     Academic,

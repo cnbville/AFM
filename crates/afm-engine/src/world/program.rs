@@ -239,6 +239,9 @@ pub struct Program {
     /// Prestige against the best program in its division, 0-1: how big a name
     /// it is at its own level (NDSU in FCS, Alabama in FBS).
     pub prestige_rel: f64,
+    /// Seasons with no team (not started yet, dropped or suspended), from
+    /// the real history (`college_history.csv`).
+    pub dark: Vec<(i32, i32)>,
     pub grades: [f64; GRADE_COUNT],
     /// Last year's grades, for the trend arrows.
     pub last_grades: [f64; GRADE_COUNT],
@@ -339,6 +342,12 @@ fn admissions(row: &CollegeRow) -> (f64, u32) {
 }
 
 impl Program {
+    /// Whether the program fields a team in `year`: a program that had not
+    /// started football yet, or had dropped or suspended it, does not.
+    pub fn plays(&self, year: i32) -> bool {
+        !self.dark.iter().any(|&(a, b)| (a..=b).contains(&year))
+    }
+
     pub fn name(&self, mode: super::names::NameMode) -> &str {
         match mode {
             super::names::NameMode::Real => &self.real_name,
@@ -414,6 +423,7 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
         prestige: 0.0,
         prestige_start: 0.0,
         prestige_rel: 0.5,
+        dark: Vec::new(),
         season_records: [None, None, None, None],
         grades: [70.0; GRADE_COUNT],
         last_grades: [70.0; GRADE_COUNT],

@@ -60,6 +60,9 @@ pub(crate) enum PortalWindow {
     /// carousel (seasons 2022-2024), then 15 days from five days after the
     /// new coach's hire (2025 on).
     CoachChange,
+    /// After May commencement (part B 36): graduates with a season left,
+    /// outside the windows until 2024 (graduate transfers were exempt).
+    Graduate,
 }
 
 /// The transfer windows of the offseason after `season`: (opens, closes,
@@ -72,7 +75,14 @@ pub(crate) fn portal_windows(season: i32, rule: TransferRule) -> Vec<(Date, Date
     let s = season;
     match rule {
         TransferRule::Permission | TransferRule::OpenPortal => {
-            vec![(Date::ymd(s, 12, 1).on_or_after(Weekday::Mon), Date::ymd(s + 1, 1, 31), PortalWindow::Winter)]
+            // No windows: players left after their season (each entrant's
+            // day follows his team's last game, part D 21) and again after
+            // spring practice, to the end of May (part D 22).
+            let spring = Date::nth_weekday(s + 1, 4, Weekday::Sat, 3).add(2);
+            vec![
+                (Date::ymd(s, 12, 1).on_or_after(Weekday::Mon), Date::ymd(s + 1, 1, 31), PortalWindow::Winter),
+                (spring, Date::ymd(s + 1, 5, 31), PortalWindow::Spring),
+            ]
         }
         TransferRule::Windows => {
             let (open, close) = match s {
@@ -91,11 +101,15 @@ pub(crate) fn portal_windows(season: i32, rule: TransferRule) -> Vec<(Date, Date
     }
 }
 
-/// The commitment waves (T5.2): after junior days and the spring
-/// evaluation period, after June's official visits, after the summer camps,
-/// and in the senior season after game-day visits.
+/// The commitment waves of the class signing next (T5.2): after junior
+/// days (part D 12), after the spring evaluation period, in mid-June after
+/// the camps and junior officials (part D 13), at the end of summer and at
+/// the end of October.
 fn commit_wave(y: &YearDates, d: Date) -> Option<u8> {
-    [(4, 30), (6, 30), (8, 31), (10, 31)].iter().position(|&(m, day)| Date::ymd(y.season, m, day) == d).map(|k| k as u8)
+    [(3, 20), (4, 30), (6, 15), (8, 31), (10, 31)]
+        .iter()
+        .position(|&(m, day)| Date::ymd(y.season, m, day) == d)
+        .map(|k| k as u8)
 }
 
 /// The college all-star games of a football year's January, with their dates.
@@ -192,6 +206,14 @@ pub(crate) fn advance_day(w: &mut World) {
     if d == y.spring_term_end {
         college::spring_term_check(w);
     }
+    // Commencement, the second Saturday of May, and the graduate transfers
+    // who move after it (part B 36): exempt from the windows until 2024.
+    if d == Date::nth_weekday(w.year, 5, Weekday::Sat, 2) {
+        college::may_graduation(w);
+        if !matches!(transfer_rule_of(w, w.year - 1), TransferRule::January) {
+            timed("portal open", || recruiting::portal_open(w, PortalWindow::Graduate, Date::ymd(w.year, 6, 30)));
+        }
+    }
     if d == y.summer_enrollment {
         recruiting::enroll(w, false);
     }
@@ -208,6 +230,19 @@ pub(crate) fn advance_day(w: &mut World) {
         if let Some(conf) = MEDIA_DAYS.get(k) {
             let text = format!("{conf} media days.");
             post(w, d, Level::College, Kind::Date, Loudness::Small, &text);
+        }
+    }
+    // Dated offers before a class's first wave (part B 34).
+    let season = w.year;
+    for (date, class_of, pass) in [
+        (y.junior_days.0.add(14), season + 1, 4),
+        (Date::ymd(season, 6, 15), season + 2, 1),
+        (Date::ymd(season, 9, 1), season + 2, 2),
+        (Date::ymd(season + 1, 1, 15), season + 3, 0),
+        (Date::ymd(season + 1, 1, 15), season + 2, 3),
+    ] {
+        if d == date {
+            timed("early offers", || recruiting::early_offers(w, d, class_of, pass));
         }
     }
     if let Some(wave) = commit_wave(&y, d) {
@@ -312,7 +347,11 @@ pub(crate) fn advance_day(w: &mut World) {
     }
     if Some(d) == y.early_signing {
         timed("sign early", || recruiting::signing_stage(w, recruiting::SignStage::Early, w.year));
+        recruiting::class_rankings_news(w, w.year + 1, "Early signing period");
         college::lean_checkpoint(w, college::LeanCheck::EarlySigning);
+    }
+    if d == Date::ymd(w.year, 12, 15) {
+        recruiting::advisory_grades(w);
     }
     if d == y.finals_week.0 {
         college::finals_week(w);
@@ -365,6 +404,15 @@ pub(crate) fn advance_day(w: &mut World) {
             recruiting::signing_stage(w, recruiting::SignStage::JanuaryEnrollees, w.year);
         }
         recruiting::enroll(w, true);
+    }
+    // The January games name their rosters in the senior fall (part B 35).
+    for (date, name) in [
+        (Date::ymd(w.year, 10, 15), "All-American Bowl"),
+        (Date::ymd(w.year, 11, 1), "Polynesian Bowl"),
+    ] {
+        if d == date {
+            hs_year::all_star_rosters(w, name);
+        }
     }
     for (date, name) in [(y.all_american_bowl, "All-American Bowl"), (y.polynesian_bowl, "Polynesian Bowl")] {
         if d == date {
@@ -482,6 +530,7 @@ fn signing_day_and_book(w: &mut World, season: i32) {
     // Anyone still weighing his portal options decides now.
     recruiting::portal_day(w, true);
     recruiting::signing_stage(w, recruiting::SignStage::Final, season);
+    recruiting::class_rankings_news(w, season + 1, "National signing day");
     let keep = w.year;
     w.year = season;
     let results = match (&w.college, &w.college_prev) {

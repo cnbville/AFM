@@ -179,10 +179,12 @@ pub fn nfl_kickoff(y: i32) -> Date {
     labor_day(y).add(3)
 }
 
-/// Regular-season weeks in the NFL by season: 17 games from 2021.
+/// Regular-season weeks in the NFL by season: 16 games in 16 weeks to
+/// 1989 (no byes), a bye week from 1990, 17 games from 2021.
 pub fn nfl_regular_weeks(season: i32) -> usize {
     match season {
-        ..=1992 => 17,
+        ..=1989 => 16,
+        1990..=1992 => 17,
         1993 => 18,
         1994..=1998 => 17,
         1999..=2001 => 17,
@@ -192,8 +194,14 @@ pub fn nfl_regular_weeks(season: i32) -> usize {
 }
 
 /// Real Super Bowl dates before 2004, when the season's start moved around
-/// Labor Day weekend (seasons 1990-2003).
-const EARLY_SUPER_BOWLS: [(i32, (i32, u32, u32)); 14] = [
+/// Labor Day weekend (seasons 1984-2003).
+const EARLY_SUPER_BOWLS: [(i32, (i32, u32, u32)); 20] = [
+    (1984, (1985, 1, 20)),
+    (1985, (1986, 1, 26)),
+    (1986, (1987, 1, 25)),
+    (1987, (1988, 1, 31)),
+    (1988, (1989, 1, 22)),
+    (1989, (1990, 1, 28)),
     (1990, (1991, 1, 27)),
     (1991, (1992, 1, 26)),
     (1992, (1993, 1, 31)),
@@ -279,6 +287,26 @@ fn senior_bowl(sb: Date) -> Date {
     sb.add(-8)
 }
 
+/// The first day of the two-day drafts before 1995 (from memory, to
+/// verify): Tuesday and Wednesday to 1987, Sunday and Monday from 1988.
+fn early_draft_day(year: i32) -> Option<Date> {
+    let (m, d) = match year {
+        1984 => (5, 1),
+        1985 => (4, 30),
+        1986 => (4, 29),
+        1987 => (4, 28),
+        1988 => (4, 24),
+        1989 => (4, 23),
+        1990 => (4, 22),
+        1991 => (4, 21),
+        1992 => (4, 26),
+        1993 => (4, 25),
+        1994 => (4, 24),
+        _ => return None,
+    };
+    Some(Date::ymd(year, m, d))
+}
+
 /// The college postseason format for a season.
 pub fn cfb_postseason(season: i32) -> CfbPostseason {
     match season {
@@ -320,10 +348,13 @@ impl YearDates {
         let combine_end = league_year_day.add(-9);
         let combine_start = combine_end.add(-7);
         // The draft: the fourth Thursday of April (2026: April 23-25, Pittsburgh).
-        // Before 2010 it was a Saturday-Sunday weekend draft.
+        // Before 2010 it was a Saturday-Sunday weekend draft, and before 1995
+        // a two-day draft on its own real days.
         let draft_thu = Date::nth_weekday(s, 4, Weekday::Thu, 4);
         let draft = if s >= 2010 {
             [Moment::at(draft_thu, 20, 0), Moment::at(draft_thu.add(1), 19, 0), Moment::at(draft_thu.add(2), 12, 0)]
+        } else if let Some(first) = early_draft_day(s) {
+            [Moment::at(first, 8, 0), Moment::at(first, 16, 0), Moment::at(first.add(1), 8, 0)]
         } else {
             let sat = draft_thu.add(2);
             [Moment::at(sat, 12, 0), Moment::at(sat, 18, 0), Moment::at(sat.add(1), 11, 0)]

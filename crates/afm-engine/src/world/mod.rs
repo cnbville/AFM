@@ -183,8 +183,9 @@ pub struct DraftRead {
 }
 
 /// When a recruit makes up his mind (T5.2): a commitment wave before the
-/// early period (0 late April, 1 late June, 2 late August, 3 late October),
-/// at the early signing period, or late (February signing day).
+/// early period (0 after junior days in March, 1 late April, 2 mid-June, 3
+/// late August, 4 late October), at the early signing period, or late
+/// (February signing day).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CommitTiming {
     Summer(u8),
@@ -271,6 +272,18 @@ pub struct PersonCal {
     pub offers: Vec<usize>,
     /// Dated recruiting contact (T5.3, T5.4): program, day and kind.
     pub visits: Vec<(usize, crate::calendar::Date, Visit)>,
+    /// The services' running read of his upside: each new look moves it
+    /// halfway toward what they saw (part B 6).
+    pub service_read: Option<f64>,
+    /// Scholarship offers made before his class's first commitment wave,
+    /// with their days (part B 34): from his sophomore year for the best.
+    pub early_offers: Vec<(usize, crate::calendar::Date)>,
+    /// The NFL advisory committee's grade (part B 37): the round, 8 for
+    /// "return to school".
+    pub advisory: Option<u8>,
+    /// Graduated at this May's commencement: the graduate-transfer choice
+    /// is open (part B 36).
+    pub may_graduate: bool,
 }
 
 /// A recruiting action on a day the NCAA periods allow (T5.3, T5.4).
@@ -297,6 +310,7 @@ impl PersonCal {
         self.lean_events.clear();
         self.hs_grade_out = 0;
         self.spring_notice = false;
+        self.may_graduate = false;
     }
 }
 
@@ -544,6 +558,8 @@ pub struct CalendarLog {
     pub commits: u32,
     pub commits_by_month: [u32; 12],
     pub decommits: u32,
+    pub graduates: u32,
+    pub graduate_transfers: u32,
     pub flips: u32,
     pub signed_early: u32,
     pub signed_late: u32,
@@ -575,7 +591,7 @@ pub struct CalendarLog {
 }
 
 /// Years before recorded history, used to fill high school and college rosters.
-const SPIN_UP_YEARS: u32 = 6;
+pub const SPIN_UP_YEARS: u32 = 12;
 
 impl World {
     /// Builds the world and its hidden history. The save then starts at

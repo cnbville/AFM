@@ -147,9 +147,18 @@ impl RuleBook {
         let fmt = cfb_postseason(season);
         RuleBook {
             season,
-            nfl_games: if season >= 2021 { 17 } else { 16 },
+            // 1987: the strike cancelled week 3, so 15 games.
+            nfl_games: match season {
+                1987 => 15,
+                ..=2020 => 16,
+                _ => 17,
+            },
             nfl_weeks: weeks,
-            nfl_playoff_teams: if season >= 2020 { 14 } else { 12 },
+            nfl_playoff_teams: match season {
+                ..=1989 => 10,
+                1990..=2019 => 12,
+                _ => 14,
+            },
             nfl_roster: 53,
             // Practice squad spots: 5 to 2003, 8 from 2004, 10 from 2014, 16
             // in the COVID years 2020-2021 (the new CBA's 12 was raised) and

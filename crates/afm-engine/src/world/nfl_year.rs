@@ -936,8 +936,13 @@ fn build_schedule(w: &mut World, d: Date) {
             s.slots = slots;
         }
         None => {
-            let list = opponent_formula(s, season, games);
+            // 1987's schedule was drawn for 16 games before the strike
+            // cancelled week 3 (never made up).
+            let list = opponent_formula(s, season, games.max(16));
             s.weeks = assign_weeks(&list, n, n_weeks, seed);
+            if season == 1987 && s.weeks.len() > 2 {
+                s.weeks[2].clear();
+            }
         }
     }
     if !from_real {

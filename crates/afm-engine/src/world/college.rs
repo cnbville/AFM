@@ -2466,6 +2466,21 @@ pub(crate) fn playoff_alive(cs: &CollegeSeason, t: usize) -> bool {
     }) || cs.brackets.iter().any(|b| b.division == Division::FBS && b.champion.is_none() && b.slots.contains(&Some(t)))
 }
 
+/// Whether a team may still play for the title (part D 23): alive in the
+/// playoff, or, before the field is picked, with a conference title game
+/// still to play or ranked close enough to the field to make it.
+pub(crate) fn still_contending(cs: &CollegeSeason, t: usize, field: usize) -> bool {
+    if playoff_alive(cs, t) {
+        return true;
+    }
+    if field == 0 || cs.brackets.iter().any(|b| b.division == Division::FBS) {
+        return false;
+    }
+    let title_game = cs.games.iter().any(|g| g.played.is_none() && g.involves(t) && g.kind == GameKind::ConferenceTitle);
+    let ranked = cs.polls.last().is_some_and(|p| p.top.iter().take(field + 6).any(|&x| x == t));
+    title_game || ranked
+}
+
 /// Whether every college game scheduled so far has been played and every
 /// bracket is decided.
 pub(crate) fn all_played(w: &World) -> bool {
@@ -2538,7 +2553,11 @@ pub(crate) fn lean_checkpoint(w: &mut World, check: LeanCheck) {
                 if div == Division::JUCO {
                     return;
                 }
+                // A starter has a small lean of his own (part B 8), about a
+                // third of a rotation player's, so a coaching change, a
+                // missed bowl or a blue-chip signed at his spot can move him.
                 let base = match p.last_role {
+                    Some(PlayingTime::Starter) => PIPELINE.portal_entry.rotation / 3.0,
                     Some(PlayingTime::Backup) => PIPELINE.portal_entry.backup,
                     Some(PlayingTime::Rotation) => PIPELINE.portal_entry.rotation,
                     Some(PlayingTime::Redshirt) if !p.cal.academic_sit => {
@@ -2549,11 +2568,21 @@ pub(crate) fn lean_checkpoint(w: &mut World, check: LeanCheck) {
                 if base == 0.0 {
                     return;
                 }
-                let m = med[div as usize][p.player.position.index()];
+                // A starter measures himself against the level above.
+                let up = if p.last_role == Some(PlayingTime::Starter) {
+                    match div {
+                        Division::FBS | Division::FCS => Division::FBS,
+                        _ => Division::FCS,
+                    }
+                } else {
+                    div
+                };
+                let m = med[up as usize][p.player.position.index()];
                 let buried = clamp(1.0 + 0.12 * (p.player.overall() - m), 0.6, 2.0);
                 let comp = 1.0 + (p.player.personality.competitiveness - 10.0) * 0.04;
                 p.cal.lean = base;
                 let why = match p.last_role {
+                    Some(PlayingTime::Starter) => "a starter at fall camp",
                     Some(PlayingTime::Backup) => "a backup at fall camp",
                     Some(PlayingTime::Rotation) => "in the rotation at fall camp",
                     _ => "redshirting this year",
@@ -2782,13 +2811,15 @@ pub(crate) fn december_graduation(w: &mut World) {
     fall_term_check(w);
     let year = w.year;
     let five = w.changes.rules(year + 1).five_in_five;
+    let seed = w.options.seed as u64 ^ (year as u64) << 20 ^ 0xDEC6;
     for p in w.people.iter_mut() {
-        if p.stage == Stage::College
-            && year + 1 - p.class_of >= 4
-            && p.bg.gpa >= 2.6
-            && p.college.is_some()
-            && !p.cal.graduated
-        {
+        // December is for the early finishers (part B 36): a good student
+        // in his fourth fall, or a fifth-year senior finishing his degree.
+        // Proposed, not confirmed: a third of the first, half of the second.
+        let years = year + 1 - p.class_of;
+        let early = years == 4 && p.bg.gpa >= 3.0 && key_uniform(seed, p.player.id as u64) < 0.35;
+        let fifth = years >= 5 && p.bg.gpa >= 2.3 && key_uniform(seed ^ 5, p.player.id as u64) < 0.5;
+        if p.stage == Stage::College && (early || fifth) && p.college.is_some() && !p.cal.graduated {
             p.cal.graduated = true;
             let age = p.row_age();
             // The year to use anywhere only when he has a season left.
@@ -2799,6 +2830,37 @@ pub(crate) fn december_graduation(w: &mut World) {
             }
         }
     }
+}
+
+/// Spring commencement in May (part B 36), where most players graduate:
+/// at the end of a fourth or fifth year, by his grades. A graduate with a
+/// season left may then move as a graduate transfer (`portal_open`).
+/// Proposed, not confirmed: 45-90% of fourth-year players by GPA, 85% of
+/// fifth-year players with a 2.0 or better.
+pub(crate) fn may_graduation(w: &mut World) {
+    let year = w.year;
+    let seed = w.options.seed as u64 ^ (year as u64) << 20 ^ 0x3A76;
+    let mut n = 0;
+    for p in w.people.iter_mut() {
+        if p.stage != Stage::College || p.cal.graduated || p.college.is_none() {
+            continue;
+        }
+        let years = year - p.class_of;
+        let chance = match years {
+            ..=3 => 0.0,
+            4 => clamp(0.45 + 0.25 * (p.bg.gpa - 2.0), 0.0, 0.9) * (p.bg.gpa >= 2.0) as u8 as f64,
+            _ => 0.85 * (p.bg.gpa >= 2.0) as u8 as f64,
+        };
+        if key_uniform(seed, p.player.id as u64) >= chance {
+            continue;
+        }
+        p.cal.graduated = true;
+        p.cal.may_graduate = true;
+        let age = p.row_age();
+        p.note(format!("Graduated in May at {age}."));
+        n += 1;
+    }
+    w.log.graduates += n;
 }
 
 #[cfg(test)]

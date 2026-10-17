@@ -847,6 +847,7 @@ pub(crate) fn carousel(w: &mut World, scope: Scope) {
                     format!("{name} fire head coach {coach_name} after his prove-it season ({tenure} seasons in all).")
                 };
                 college_news(w, p, NewsKind::CoachFired, text);
+                super::recruiting::decommit_after_firing(w, p);
             }
             // A new head coach usually brings his own coordinators and many of his own position coaches.
             if let Employer::College(p) = job.employer {

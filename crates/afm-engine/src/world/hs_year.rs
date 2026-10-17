@@ -17,6 +17,7 @@ use std::collections::HashMap;
 use super::coach::TitleKind;
 use super::high_school::HsSeason;
 use super::season::{self, TeamResult, key_normal, key_uniform, win_chance};
+use super::recruiting::film_raw;
 use super::{Stage, World};
 use crate::calendar::anchors::{labor_day, thanksgiving};
 use crate::calendar::data::{ACT_DATES, GradeCheck, SAT_DATES, hs_calendar};
@@ -1084,12 +1085,32 @@ fn spring_jumps_hs(w: &mut World, d: Date) {
 
 // --- All-star games --------------------------------------------------------------------
 
-/// The January high school all-star games: the All-American Bowl (San
-/// Antonio, about 100 of the class's best) and the Polynesian Bowl
-/// (Honolulu, about 100, Polynesian players first). A final stage before
-/// signing day: the week's practices are scouted. Each game is played only
-/// from its first real season (see `all_star_first_season`).
-pub(crate) fn all_star_game(w: &mut World, name: &'static str) {
+/// Places on a January high school all-star game's two rosters by
+/// position (part D 6): about a real roster's shape, with one kicker,
+/// punter and snapper a side.
+const ALL_STAR_PLACES: [(Position, usize); 14] = [
+    (Position::QB, 6),
+    (Position::RB, 6),
+    (Position::WR, 12),
+    (Position::TE, 4),
+    (Position::OT, 8),
+    (Position::IOL, 8),
+    (Position::EDGE, 8),
+    (Position::DT, 8),
+    (Position::LB, 10),
+    (Position::CB, 10),
+    (Position::S, 8),
+    (Position::K, 2),
+    (Position::P, 2),
+    (Position::LS, 2),
+];
+
+/// A January high school all-star game names its rosters in the senior
+/// fall (part B 35): the All-American Bowl in mid-October, the Polynesian
+/// Bowl from what is left in November. Invitations follow the services'
+/// ranking at each position (part D 5), the specialists the camps' stars;
+/// the Polynesian Bowl looks first at players of Polynesian heritage.
+pub(crate) fn all_star_rosters(w: &mut World, name: &'static str) {
     if w.year < all_star_first_season(name) {
         return;
     }
@@ -1097,33 +1118,66 @@ pub(crate) fn all_star_game(w: &mut World, name: &'static str) {
     let class = w.year + 1;
     let seed = w.options.seed as u64 ^ (class as u64) << 16 ^ name.len() as u64;
     let poly = name.starts_with("Polynesian");
-    let mut pool: Vec<(f64, usize)> = w
-        .people
-        .iter()
-        .enumerate()
-        .filter(|(_, p)| {
-            p.stage == Stage::HighSchool && p.class_of == class && p.stars >= 3 && p.cal.hs_all_star.is_none()
-        })
-        .map(|(i, p)| {
-            let mut score = p.stars as f64 + 0.05 * p.player.overall() + 0.3 * key_normal(seed, p.player.id as u64);
-            if poly && p.ethnicity == super::ethnicity::Ethnicity::Polynesian {
-                score += 1.5;
-            }
-            (score, i)
-        })
-        .collect();
-    pool.sort_by(|a, b| b.0.total_cmp(&a.0));
-    let size = ((100.0 * w.options.scale).round() as usize).max(2);
-    for &(_, i) in pool.iter().take(size) {
-        let p = &mut w.people[i];
-        p.cal.hs_all_star = Some(name);
-        let age = p.player.age;
-        // The age on his senior season's row (the game is in its offseason).
-        p.note(format!("Played in the {name} at {}.", age - 1));
+    let scale = w.options.scale;
+    let mut invited = 0u32;
+    for (pos, places) in ALL_STAR_PLACES {
+        let mut pool: Vec<(f64, usize)> = w
+            .people
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| {
+                p.stage == Stage::HighSchool
+                    && p.class_of == class
+                    && p.player.position == pos
+                    && p.cal.hs_all_star.is_none()
+                    && (p.stars >= 3 || p.camp_stars >= 3)
+            })
+            .map(|(i, p)| {
+                let stars = if pos.is_specialist() { p.camp_stars } else { p.stars } as f64;
+                let read = p.cal.service_read.unwrap_or(p.player.overall());
+                let mut score = 10.0 * stars + 0.25 * film_raw(p) + 0.75 * read + 0.3 * key_normal(seed, p.player.id as u64);
+                if poly && p.ethnicity == super::ethnicity::Ethnicity::Polynesian {
+                    score += 15.0;
+                }
+                (score, i)
+            })
+            .collect();
+        pool.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+        let size = ((places as f64 * scale).round() as usize).max(1);
+        for &(_, i) in pool.iter().take(size) {
+            let p = &mut w.people[i];
+            p.cal.hs_all_star = Some(name);
+            let age = row_age(p);
+            p.note(format!("Invited to the {name} at {age}, in his senior season."));
+            invited += 1;
+        }
     }
-    w.log.all_star_invites += pool.len().min(size) as u32;
+    w.log.all_star_invites += invited;
     if w.recording {
-        let text = format!("The {name} is played.");
+        let text = format!("The {name} names its rosters: {invited} seniors invited.");
+        w.calendar.post(Event::new(d, Level::HighSchool, Kind::Signing, Loudness::Small, text));
+    }
+}
+
+/// The game itself in January: everyone invited plays, early enrollees
+/// included (part D 7: they report to campus right after it).
+pub(crate) fn all_star_game(w: &mut World, name: &'static str) {
+    if w.year < all_star_first_season(name) {
+        return;
+    }
+    let d = w.today;
+    let class = w.year + 1;
+    let mut played = 0;
+    for p in w.people.iter_mut() {
+        if p.class_of == class && p.cal.hs_all_star == Some(name) && matches!(p.stage, Stage::HighSchool | Stage::College) {
+            // The age on his senior season's row (the game is in its offseason).
+            let age = row_age(p);
+            p.note(format!("Played in the {name} at {age}."));
+            played += 1;
+        }
+    }
+    if w.recording {
+        let text = format!("The {name} is played, {played} seniors on its rosters.");
         w.calendar.post(Event::new(d, Level::HighSchool, Kind::Game, Loudness::Medium, text));
     }
 }
