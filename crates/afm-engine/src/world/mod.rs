@@ -978,6 +978,22 @@ impl World {
 }
 
 /// Talent each state produces beyond what its own Power 4 programs sign, 0-1.
+/// Mutable references to the items at `idx` (ascending, no repeats), so
+/// per-person work on part of the world can run on all cores.
+pub(crate) fn pick_mut<T>(v: &mut [T], idx: impl IntoIterator<Item = usize>) -> Vec<&mut T> {
+    let mut out = Vec::new();
+    let mut rest = v;
+    let mut base = 0;
+    for i in idx {
+        let (_, tail) = std::mem::take(&mut rest).split_at_mut(i - base);
+        let (x, tail) = tail.split_first_mut().expect("ascending indices");
+        out.push(x);
+        rest = tail;
+        base = i + 1;
+    }
+    out
+}
+
 fn overflow_by_state(programs: &[Program]) -> [f64; 51] {
     let mut out = [0.0; 51];
     for row in data::STATES.iter() {

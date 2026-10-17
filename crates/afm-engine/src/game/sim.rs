@@ -9,6 +9,22 @@ use super::roster::GamePlayer;
 use crate::attributes::Attr;
 use crate::rng::{Rng, clamp};
 
+/// Players on the field at most, for the compact per-tick scans.
+const MAX_AGENTS: usize = 32;
+
+/// The ball carrier's 15 candidate headings (cosine, sine), worked out once.
+fn headings() -> &'static [(f64, f64); 15] {
+    static H: std::sync::OnceLock<[(f64, f64); 15]> = std::sync::OnceLock::new();
+    H.get_or_init(|| {
+        let mut h = [(0.0, 0.0); 15];
+        for (k, x) in h.iter_mut().enumerate() {
+            let ang = (k as f64 - 7.0) * 0.19;
+            *x = (ang.cos(), ang.sin());
+        }
+        h
+    })
+}
+
 /// Weather and setting for one game (topic 4).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Conditions {
@@ -624,6 +640,60 @@ impl<'a> Sim<'a> {
         // engaged pairs and teammates.
         let n = self.agents.len();
         let carrier = self.carrier();
+        if n > MAX_AGENTS {
+            self.separate_slow(t, carrier);
+            return;
+        }
+        // A compact copy, so the pair scan stays in cache: each side's
+        // obstacles (its own players and anyone engaged), in index order.
+        let mut pos = [V2::default(); MAX_AGENTS];
+        let mut mover = [false; MAX_AGENTS];
+        let mut obst = [[0u8; MAX_AGENTS]; 2];
+        let mut n_obst = [0usize; 2];
+        for (j, a) in self.agents.iter().enumerate() {
+            pos[j] = a.pos;
+            let engaged = a.engaged.is_some();
+            mover[j] = !engaged && a.up(t) && Some(j) != carrier;
+            if Some(j) == carrier {
+                continue;
+            }
+            for (s, list) in obst.iter_mut().enumerate() {
+                if engaged || a.side == s {
+                    list[n_obst[s]] = j as u8;
+                    n_obst[s] += 1;
+                }
+            }
+        }
+        for i in 0..n {
+            if !mover[i] {
+                continue;
+            }
+            let side = self.agents[i].side;
+            let pi = pos[i];
+            let mut push = V2::default();
+            for &j in &obst[side][..n_obst[side]] {
+                let j = j as usize;
+                if i == j {
+                    continue;
+                }
+                let d = pi - pos[j];
+                // Clearly apart (well past 0.8 yards): no square root needed.
+                if d.dot(d) > 0.65 {
+                    continue;
+                }
+                let l = d.len();
+                if l < 0.8 && l > 1e-6 {
+                    push = push + d.scale((0.8 - l) / l * 0.5);
+                }
+            }
+            pos[i] = pi + push;
+            self.agents[i].pos = pos[i];
+        }
+    }
+
+    /// The same separation for more players than the compact scan holds.
+    fn separate_slow(&mut self, t: f64, carrier: Option<usize>) {
+        let n = self.agents.len();
         for i in 0..n {
             if self.agents[i].engaged.is_some() || !self.agents[i].up(t) || Some(i) == carrier {
                 continue;
@@ -638,7 +708,6 @@ impl<'a> Sim<'a> {
                     continue;
                 }
                 let d = self.agents[i].pos - self.agents[j].pos;
-                // Clearly apart (well past 0.8 yards): no square root needed.
                 if d.dot(d) > 0.65 {
                     continue;
                 }
@@ -995,9 +1064,8 @@ impl<'a> Sim<'a> {
             seen[n_seen] = (d.pos, d.vmax, reach);
             n_seen += 1;
         }
-        for k in 0..15 {
-            let ang = (k as f64 - 7.0) * 0.19;
-            let dir = v2(goal * ang.cos(), ang.sin());
+        for &(cos, sin) in headings() {
+            let dir = v2(goal * cos, sin);
             let look = 3.5;
             let p = me.pos + dir.scale(look);
             let t_me = look / speed.max(me.vel.len() * 0.5 + speed * 0.5);
