@@ -18,7 +18,7 @@ use crate::calendar::{Date, Event, Kind, Level, Loudness, Moment, Weekday, YearD
 /// Time spent per step, printed each year with AFM_PROFILE set (tooling).
 static PROFILE: std::sync::Mutex<Vec<(&'static str, f64)>> = std::sync::Mutex::new(Vec::new());
 
-fn timed<T>(name: &'static str, f: impl FnOnce() -> T) -> T {
+pub(crate) fn timed<T>(name: &'static str, f: impl FnOnce() -> T) -> T {
     if std::env::var_os("AFM_PROFILE").is_none() {
         return f();
     }

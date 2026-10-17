@@ -269,8 +269,10 @@ fn state_schedule(classes: &[(u32, &[usize])], n_weeks: usize, seed: u64) -> Vec
 pub(crate) fn day(w: &mut World, d: Date) {
     let Some(hs) = w.hs_season.as_ref() else { return };
     if d == hs.class_day {
-        w.add_class();
-        w.rebuild_rosters();
+        super::clock::timed("hs class", || {
+            w.add_class();
+            w.rebuild_rosters();
+        });
     }
     let n_states = w.states.len();
     for s in 0..n_states {
@@ -280,14 +282,14 @@ pub(crate) fn day(w: &mut World, d: Date) {
         }
         if d == st.start.add(-1) && !st.developed {
             heat_days(w, s, st.start);
-            start_state(w, s);
+            super::clock::timed("hs start", || start_state(w, s));
             poll(w, s, d, "Preseason");
         }
         if let Some(k) = st.weeks.iter().position(|&g| g == d) {
-            play_week(w, s, k, d);
+            super::clock::timed("hs week", || play_week(w, s, k, d));
         }
         if st.weeks.iter().any(|&g| g.add(3) == d) {
-            poll(w, s, d, "Weekly");
+            super::clock::timed("hs poll", || poll(w, s, d, "Weekly"));
         }
         if d == st.rounds[0] {
             seed_playoffs(w, s);
@@ -296,13 +298,15 @@ pub(crate) fn day(w: &mut World, d: Date) {
             play_round(w, s, r, d);
         }
         if d == st.finals {
-            finish_state(w, s, d);
+            super::clock::timed("hs finish", || finish_state(w, s, d));
         }
     }
     let hs = w.hs_season.as_ref().unwrap();
     if d == hs.ratings_day && !hs.rated {
-        season::attach_level_ratings(w);
-        super::staff::credit_teaching(w);
+        super::clock::timed("hs ratings", || {
+            season::attach_level_ratings(w);
+            super::staff::credit_teaching(w);
+        });
         w.hs_season.as_mut().unwrap().rated = true;
     }
     // SAT and ACT Saturdays (A30).
@@ -313,19 +317,19 @@ pub(crate) fn day(w: &mut World, d: Date) {
             .chain(ACT_DATES.iter())
             .any(|&(mm, n)| mm == m && Date::nth_weekday(y, mm, Weekday::Sat, n) == d)
     {
-        test_day(w, d);
+        super::clock::timed("hs tests", || test_day(w, d));
     }
     // High school spring ball in the states that have it (T4.1): notices
     // early in May, the step by the end of it.
     if (m, d.day()) == (5, 1) {
-        spring_notices_hs(w, d);
+        super::clock::timed("hs spring", || spring_notices_hs(w, d));
     }
     if d == Date::last_weekday(y, 5, Weekday::Fri) {
-        spring_jumps_hs(w, d);
+        super::clock::timed("hs spring", || spring_jumps_hs(w, d));
     }
     // State all-star games for the graduating seniors, late May.
     if d == Date::last_weekday(y, 5, Weekday::Sat) {
-        state_all_stars(w, d);
+        super::clock::timed("hs allstars", || state_all_stars(w, d));
     }
 }
 
@@ -363,9 +367,9 @@ fn start_state(w: &mut World, s: usize) {
             who[i] = p.stage == Stage::HighSchool && p.player.age > 14;
         }
     }
-    season::reconsider_positions(w, &who);
-    let roles = season::hs_roles(w, &schools);
-    season::develop(w, &roles);
+    super::clock::timed("hs reconsider", || season::reconsider_positions(w, &who));
+    let roles = super::clock::timed("hs roles", || season::hs_roles(w, &schools));
+    super::clock::timed("hs develop", || season::develop(w, &roles));
     let people = &w.people;
     let mut res: Vec<(usize, TeamResult)> = Vec::with_capacity(schools.len());
     for &h in &schools {

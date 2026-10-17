@@ -2188,8 +2188,9 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     }
     let dbg_t = std::time::Instant::now();
     // Services' upside guess: one shared projection.
-    for r in pool.iter_mut() {
-        let p = &mut w.people[r.person];
+    // Each read uses the recruit's own random stream, so it runs on all cores.
+    let persons = super::pick_mut(&mut w.people, pool.iter().map(|r| r.person));
+    persons.into_par_iter().zip(pool.par_iter_mut()).for_each(|(p, r)| {
         let rep = scout_player(&p.player, ScoutOptions { accuracy: 12.0, level: Level::HS }, &mut p.rng);
         r.projection = rep.potential;
         p.visibility = r.visibility;
@@ -2198,7 +2199,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             let age = p.row_age();
             p.note(format!("At {age} a highlight clip went viral and got him a first look from recruiters."));
         }
-    }
+    });
 
     // --- Star ratings: the services only rank kids they have seen -------------------------
     let seniors: Vec<usize> = (0..pool.len()).filter(|&k| !pool[k].juco_mover).collect();
@@ -2224,12 +2225,12 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         camp_rankings(w, &mut pool, &seniors, seed, all_mean_sd, stage == SignStage::Summer(0));
     }
     // When each recruit makes up his mind (T5.2).
-    for r in pool.iter() {
-        let p = &mut w.people[r.person];
+    let persons = super::pick_mut(&mut w.people, pool.iter().map(|r| r.person));
+    persons.into_par_iter().zip(pool.par_iter()).for_each(|(p, r)| {
         if p.cal.commit_timing.is_none() {
             p.cal.commit_timing = Some(commit_timing(p, seed, r.juco_mover));
         }
-    }
+    });
 
     // Senior year: borderline students with offers coming get pushed over an
     // NCAA line by summer school and retaken courses (note 6). Big programs
