@@ -1,0 +1,48 @@
+<title>AFM Photo Face Proof</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+/* Layout: one band per player; the new photo model on top, the old GAN proof below it, then speed and cost */
+:root{--bg:#eef0f2;--panel:#fff;--fg:#1b2026;--muted:#5b6570;--line:#d5dade;--accent:#c8102e;--good:#1d7a46;
+--display:"Barlow Condensed","Arial Narrow",sans-serif;--body:"Source Sans 3",system-ui,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14181c;--panel:#1d2329;--fg:#e8ecef;--muted:#9aa4ae;--line:#2e363e;--accent:#ff4d5e;--good:#5cc98a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14181c;--panel:#1d2329;--fg:#e8ecef;--muted:#9aa4ae;--line:#2e363e;--accent:#ff4d5e;--good:#5cc98a;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5}
+.wrap{max-width:1100px;margin:0 auto;padding:28px 16px 48px}
+h1,h2{font-family:var(--display);text-transform:uppercase;letter-spacing:.02em;margin:0;text-wrap:balance}
+h1{font-size:40px;line-height:1} h2{font-size:26px}
+.lead,.tail p,.tail li{max-width:72ch;color:var(--muted)}
+.lead{margin:8px 0 0}
+.lead a,.tail a{color:var(--accent)}
+.player{border-top:1px solid var(--line);padding-block:22px;display:grid;gap:10px}
+.sub{margin:2px 0 0;color:var(--muted);font-size:14px}
+.lbl{margin:6px 0 0;font:700 13px var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+.row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.row.small{grid-template-columns:repeat(4,minmax(0,1fr));max-width:620px;gap:8px}
+.shot{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.shot img{display:block;width:100%;height:auto;max-width:100%}
+figcaption{padding:8px 10px 10px;font-size:13px;font-variant-numeric:tabular-nums}
+.gan figcaption{padding:4px 6px 6px;font-size:11.5px}
+figcaption b{font-family:var(--display);font-size:18px;color:var(--accent)}
+.gan figcaption b{font-size:14px}
+.m{display:block;color:var(--muted);font-size:12px}
+.tail{border-top:1px solid var(--line);padding-top:22px;display:grid;gap:10px}
+table{border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px;max-width:100%}
+.tw{overflow-x:auto}
+th,td{padding:6px 12px 6px 0;border-top:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-weight:600}
+td.est{color:var(--muted)}
+@media (max-width:760px){.row{grid-template-columns:repeat(2,minmax(0,1fr))}.row.small{grid-template-columns:repeat(4,minmax(0,1fr))}}
+</style>
+<div class="wrap">
+<h1>Photo face proof</h1>
+<p class="lead">The same three players as the GAN proof, now drawn by a current photo model as media-day headshots at 17, 22, 28 and 34, in that year's team jersey. The age-22 photo is drawn from a text description (heritage, position, height, weight, beard). Every other age is drawn from the same description for that year plus a face lock that copies his face from the age-22 photo. <b>Same person</b> compares each photo with the one at 22 using the same face recognition model as the GAN proof: 1.00 is identical, and about 0.4 and above usually counts as the same person. <b>Min</b> is the measured time to draw that one photo. The 3D heads (style E) are on the <a href="https://claude.ai/artifact/REu4En5Qw4rH5FGW5KA7qi" target="_blank" rel="noopener">face styles page</a>, since they turn in 3D and can't be pasted in as photos.</p>
+{{ROWS}}
+<section class="tail">
+<h2>What I see</h2>
+{{SUMMARY}}
+<h2>Speed and cost</h2>
+{{SPEED}}
+<h2>How it was made</h2>
+<p>Photo model: RealVisXL V5.0 Lightning, a photoreal fine-tune of Stable Diffusion XL that needs only 6 steps, at 896 by 1152 pixels. Face lock: InstantID (its face adapter at 0.65 strength, its face-landmark guide at 0.5, prompt guidance 1.5), fed the face reading of the age-22 photo. PhotoMaker V2 was tried first as the face lock and failed: same-person scores of 0.09 to 0.15, a different man every time. Jersey lettering and numbers are garbled, as agreed; they would be put on top later. Code: the "photo model" scripts in the faces proof folder.</p>
+</section>
+</div>
