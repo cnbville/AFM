@@ -914,7 +914,8 @@ impl World {
 }
 
 /// Starts a college search. Lengths (proposed, not confirmed, from real
-/// searches): an FBS head job 4-22 days, FCS 10-35, smaller colleges 14-45,
+/// searches): an FBS head job 4-22 days (2-10 after the regular season),
+/// FCS 10-35 (5-21 after it), smaller colleges 14-45,
 /// a coordinator 7-30, a position coach 10-40. A head job opened by an
 /// in-season firing is filled after the regular season, like real ones.
 fn schedule_search(w: &mut World, o: Opening) {
@@ -922,7 +923,13 @@ fn schedule_search(w: &mut World, o: Opening) {
     if w.searches.iter().any(|s| s.opening.employer == o.employer && s.opening.role == o.role) {
         return;
     }
+    // After the regular season a head search is a sprint: signees, the
+    // portal and a staff to hire can't wait (real January chains: Michigan
+    // 2 days in 2024, Washington 2, Arizona 5, San Jose State 4).
+    let late = w.today >= w.dates.fbs_regular_end || w.today < w.dates.spring_practice.0;
     let (lo, hi) = match (o.role, w.programs[p].division) {
+        (Role::HeadCoach, Division::FBS) if late => (2, 10),
+        (Role::HeadCoach, Division::FCS) if late => (5, 21),
         (Role::HeadCoach, Division::FBS) => (4, 22),
         (Role::HeadCoach, Division::FCS) => (10, 35),
         (Role::HeadCoach, _) => (14, 45),

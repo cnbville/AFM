@@ -1422,9 +1422,18 @@ impl ClassPlan {
     /// scholarships and walk-ons in the class; `at`: the same at his
     /// position).
     fn late_walk_on(&self, i: usize, taken: [usize; 2], at: [usize; 2]) -> bool {
-        let planned = taken[1] < self.walk_on_room && at[1] < self.walk_on[i];
+        let planned = self.walk_on_open(i, taken[1], at);
         let under_limit = !self.whole_roster || taken[0] + taken[1] < self.room;
         planned || (under_limit && at[0] + at[1] < self.open_at[i])
+    }
+
+    /// A planned walk-on place at a position: under a scholarship limit
+    /// the plan counts walk-ons alone; under a whole-roster limit a
+    /// position's walk-ons fill what its signees leave of its target.
+    fn walk_on_open(&self, i: usize, taken_walk_on: usize, at: [usize; 2]) -> bool {
+        let shared = self.whole_roster && !Position::ALL[i].is_specialist();
+        let at_pos = if shared { at[0] + at[1] } else { at[1] };
+        taken_walk_on < self.walk_on_room && at_pos < self.walk_on[i]
     }
 }
 
@@ -1528,7 +1537,14 @@ pub(crate) fn camp_walk_ons(w: &mut World) {
 /// players on aid, and walk-ons sit outside it, except the specialists the
 /// class plan keeps in its own walk-on room under the limit.
 fn takes_a_place(p: &Person, whole_roster: bool) -> bool {
-    whole_roster || !p.walk_on || p.player.position.is_specialist()
+    if whole_roster {
+        // The House settlement's designated student-athletes (real): a
+        // walk-on on a roster in 2024-25, or promised a place in the 2025
+        // class, never counts against the limit at any school.
+        !(p.walk_on && p.class_of <= super::ncaa::HOUSE_START)
+    } else {
+        !p.walk_on || p.player.position.is_specialist()
+    }
 }
 
 /// The players on each program's roster who take a place under its limit
@@ -1659,9 +1675,11 @@ fn plan_count(target: f64, now: f64, staying: f64) -> usize {
 /// (part D 10; proposed, not confirmed).
 const HOUSE_CLASS_MAX: usize = 30;
 
+#[allow(clippy::too_many_arguments)]
 fn class_plan(
     prog: &Program,
     people: &[Person],
+    signed: &[usize],
     sign_year: i32,
     seed: u64,
     bars: Option<(f64, f64)>,
@@ -1692,6 +1710,27 @@ fn class_plan(
             returning += 1.0 - next;
         }
     }
+    // Recruits who signed in an earlier period and haven't enrolled are
+    // part of next fall's roster and of this class.
+    let mut signed_class = 0;
+    for &i in signed {
+        let p = &people[i];
+        let Some(s) = p.cal.signed else { continue };
+        let (k, wo) = (p.player.position.index(), s.walk_on as usize);
+        now[k][wo] += 1.0;
+        stay[k][wo] += 1.0;
+        let counted = match (whole_roster, s.walk_on) {
+            (_, false) => true,
+            (true, true) => p.class_of > super::ncaa::HOUSE_START,
+            (false, true) => p.player.position.is_specialist(),
+        };
+        if counted {
+            returning += 1.0;
+        }
+        if !s.walk_on {
+            signed_class += 1;
+        }
+    }
     let mut plan = ClassPlan { whole_roster, ..Default::default() };
     for pos in Position::ALL {
         let k = pos.index();
@@ -1706,7 +1745,11 @@ fn class_plan(
             target = total;
         } else {
             plan.scholarship[k] = plan_count(target, now[k][0] + now[k][1], stay[k][0] + stay[k][1]);
-            if !whole_roster {
+            if whole_roster {
+                // The places a class leaves open at a position go to
+                // walk-ons on partial aid or none (fix below).
+                plan.walk_on[k] = plan.scholarship[k];
+            } else {
                 // Preferred walk-ons fill out a real squad for the level
                 // (topic 5.1), on top of the scholarship signees.
                 let squad = real_roster(pos) * level_roster(prog.division) / REAL_ROSTER_TOTAL;
@@ -1724,7 +1767,7 @@ fn class_plan(
     // under it; the other walk-ons are outside it (F17).
     let under: usize = Position::ALL
         .into_iter()
-        .filter(|p| whole_roster || p.is_specialist())
+        .filter(|p| p.is_specialist())
         .map(|p| plan.walk_on[p.index()])
         .sum::<usize>()
         .min(room);
@@ -1739,7 +1782,14 @@ fn class_plan(
     // walk-ons and the portal; a high school class stays near its usual
     // size (part D 10: real 2025 and 2026 classes stayed about 20-30).
     let usual = if whole_roster { HOUSE_CLASS_MAX } else { usize::MAX };
-    plan.slots = (room - under).min(signees).min(usual);
+    plan.slots = (room - under).min(signees.saturating_sub(signed_class)).min(usual.saturating_sub(signed_class));
+    // Under the House limit the places the class can't fill go to
+    // walk-ons on partial aid or none, signed in the final period after
+    // the January portal window has had its turn (proposed, not
+    // confirmed; real Power 4 rosters reached the 105 limit in 2025).
+    if whole_roster {
+        plan.walk_on_room = room - plan.slots;
+    }
     plan
 }
 
@@ -3137,8 +3187,19 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     let habit_seed = w.options.seed as u64;
     let bars = w.draft_bars;
     let read = RosterRead { stage, limit: if w.changes.rules(sign_year).five_in_five { 5 } else { 4 } };
-    let plans: Vec<ClassPlan> =
-        programs.par_iter().map(|prog| class_plan(prog, &w.people, sign_year, habit_seed, bars, read)).collect();
+    let mut signed_by: Vec<Vec<usize>> = vec![Vec::new(); programs.len()];
+    for (i, p) in w.people.iter().enumerate() {
+        if let Some(s) = p.cal.signed
+            && p.stage != Stage::College
+        {
+            signed_by[s.program].push(i);
+        }
+    }
+    let plans: Vec<ClassPlan> = programs
+        .par_iter()
+        .zip(signed_by.par_iter())
+        .map(|(prog, signed)| class_plan(prog, &w.people, signed, sign_year, habit_seed, bars, read))
+        .collect();
     // A board per position (fix list 1.1): each staff ranks the recruits it
     // sees against the others at the same spot. Kickers, punters and long
     // snappers are ranked on what the camps measure (fix list 1.4).
@@ -3321,7 +3382,10 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             let i = pos.index();
             let Some(e) = head(i) else { continue };
             let sch_open = sch_room && taken_at[j][i][0] < plan.scholarship[i];
-            let walk_on_open = taken_walk_on[j] < plan.walk_on_room && taken_at[j][i][1] < plan.walk_on[i];
+            // Under the House limit, a walk-on place at a regular position
+            // opens only in the final period, once the portal has had its turn.
+            let late = stage == SignStage::Final || !plan.whole_roster || pos.is_specialist();
+            let walk_on_open = late && plan.walk_on_open(i, taken_walk_on[j], taken_at[j][i]);
             if !sch_open && !walk_on_open {
                 continue;
             }
@@ -3836,7 +3900,10 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 } else {
                     w.log.signed_early += 1;
                 }
-                w.log.signed_by_division[division as usize][(stage == SignStage::Final) as usize] += 1;
+                // Walk-ons sign no letter or scholarship agreement.
+                if !walk_on {
+                    w.log.signed_by_division[division as usize][(stage == SignStage::Final) as usize] += 1;
+                }
                 if committed.is_none() {
                     w.log.commits += 1;
                     w.log.commits_by_month[month] += 1;
