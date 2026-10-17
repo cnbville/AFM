@@ -6,7 +6,8 @@
 //! (`college.rs`).
 //!
 //! Conference membership is the 2026 membership for every year, as in the
-//! rest of the world (section 2). Every listed rivalry is played every year.
+//! rest of the world (section 2). Every listed rivalry is played in its real
+//! years (part B 28), and every year after 2025 unless it has ended.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -427,6 +428,10 @@ pub(crate) fn build(w: &World, season: i32, y: &YearDates) -> Vec<Game> {
         let (Some(&a), Some(&c)) = (by_name.get(r.a), by_name.get(r.b)) else { continue };
         let (pa, pc) = (&w.programs[a], &w.programs[c]);
         if pa.division != pc.division || !pa.plays(season) || !pc.plays(season) {
+            continue;
+        }
+        // Only in its real years: starts, pauses and ends (part B 28).
+        if super::data::rivalry_past(r.a, r.b).is_some_and(|h| !h.played(season)) {
             continue;
         }
         let last = last_week(pa.division, y);

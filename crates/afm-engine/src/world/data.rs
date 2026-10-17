@@ -4,6 +4,7 @@
 //! no public source exists (NIL dollars per school, for example), the world
 //! models an estimate instead and says so.
 
+use std::collections::HashMap;
 use std::sync::LazyLock;
 
 const COLLEGES_CSV: &str = include_str!("../../../../data/real-world/colleges.csv");
@@ -11,6 +12,7 @@ const COLLEGES_LOWER_CSV: &str = include_str!("../../../../data/real-world/colle
 const COLLEGE_HISTORY_CSV: &str = include_str!("../../../../data/real-world/college_history.csv");
 const COLLEGE_DROPPED_CSV: &str = include_str!("../../../../data/real-world/college_history_dropped.csv");
 const HS_STATES_CSV: &str = include_str!("../../../../data/real-world/hs_states.csv");
+const RIVALRIES_CSV: &str = include_str!("../../../../data/real-world/rivalries.csv");
 const TALENT_CSV: &str = include_str!("../../../../data/real-world/talent_by_state.csv");
 const NFL_TEAMS_CSV: &str = include_str!("../../../../data/real-world/nfl_teams.csv");
 
@@ -195,6 +197,73 @@ pub static COLLEGE_HISTORY: LazyLock<Vec<HistoryRow>> = LazyLock::new(|| {
     }
     out
 });
+
+/// A listed rivalry's real past (`rivalries.csv`, part B 28-30): the
+/// seasons it was played and its all-time record and trophy holder after
+/// 1983 and after 1995. Wins are [first listed, second listed].
+#[derive(Clone, Debug, Default)]
+pub struct RivalryPast {
+    pub first: i32,
+    /// The last season played, when the series has ended for now.
+    pub last: Option<i32>,
+    /// Seasons since 1984 it was not played.
+    pub pauses: Vec<i32>,
+    pub thru_1983: ([u32; 2], u32, Option<usize>),
+    pub thru_1995: ([u32; 2], u32, Option<usize>),
+}
+
+impl RivalryPast {
+    /// Played in this season. Up to 2025 the real years; after that every
+    /// year unless the series has ended.
+    pub fn played(&self, season: i32) -> bool {
+        season >= self.first && !self.pauses.contains(&season) && self.last.is_none_or(|l| season <= l)
+    }
+}
+
+/// Each rivalry's past by its two names (first listed, second listed).
+pub static RIVALRY_PAST: LazyLock<HashMap<(String, String), RivalryPast>> = LazyLock::new(|| {
+    let t = Table::parse(RIVALRIES_CSV);
+    let c = |n: &str| t.col(n);
+    let num = |r: &Vec<String>, n: &str| r[c(n)].trim().parse::<u32>().unwrap_or(0);
+    let holder = |r: &Vec<String>, n: &str| match r[c(n)].trim() {
+        "a" => Some(0),
+        "b" => Some(1),
+        _ => None,
+    };
+    let mut out = HashMap::new();
+    for r in &t.rows {
+        let mut pauses = Vec::new();
+        for part in r[c("pauses")].split(';').map(str::trim).filter(|x| !x.is_empty()) {
+            let (from, to) = part.split_once('-').unwrap_or((part, part));
+            let (from, to) = (from.trim().parse().unwrap_or(0), to.trim().parse().unwrap_or(0));
+            pauses.extend(from..=to);
+        }
+        out.insert(
+            (r[c("a")].clone(), r[c("b")].clone()),
+            RivalryPast {
+                first: r[c("first_year")].trim().parse().unwrap_or(HISTORY_FIRST),
+                last: r[c("last_year")].trim().parse().ok(),
+                pauses,
+                thru_1983: (
+                    [num(r, "a_wins_thru_1983"), num(r, "b_wins_thru_1983")],
+                    num(r, "ties_thru_1983"),
+                    holder(r, "holder_after_1983"),
+                ),
+                thru_1995: (
+                    [num(r, "a_wins_thru_1995"), num(r, "b_wins_thru_1995")],
+                    num(r, "ties_thru_1995"),
+                    holder(r, "holder_after_1995"),
+                ),
+            },
+        );
+    }
+    out
+});
+
+/// A listed rivalry's real past, by its two names as listed.
+pub fn rivalry_past(a: &str, b: &str) -> Option<&'static RivalryPast> {
+    RIVALRY_PAST.get(&(a.to_string(), b.to_string()))
+}
 
 /// Programs that played since 1984 and have since dropped football, with
 /// their first span's division and conference (`college_history_dropped.csv`).

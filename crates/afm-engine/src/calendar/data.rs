@@ -108,7 +108,7 @@ pub const RIVALRIES: &[Rivalry] = &[
     r!("Nevada", "UNLV", "the Battle for Nevada", Some("the Fremont Cannon"), RivalryWeek),
     r!("New Mexico", "New Mexico State", "the Rio Grande Rivalry", Some("the Maloof Trophy"), Week(3)),
     r!("Toledo", "Bowling Green", "the Battle of I-75", Some("the Battle of I-75 Trophy"), RivalryWeek),
-    r!("Ohio", "Miami (OH)", "the Battle of the Bricks", Some("the Bell"), Week(8)),
+    r!("Ohio", "Miami (OH)", "the Battle of the Bricks", None, Week(8)),
     r!("Central Michigan", "Western Michigan", "the Michigan MAC Trophy game", Some("the Victory Cannon"), Week(9)),
     r!("Houston", "Rice", "the Bayou Bucket", Some("the Bayou Bucket"), Week(3)),
     r!("SMU", "TCU", "the Battle for the Iron Skillet", Some("the Iron Skillet"), Week(3)),

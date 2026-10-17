@@ -180,8 +180,11 @@ pub(crate) struct CollegeSeason {
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct Series {
     pub wins: [u32; 2],
+    pub ties: u32,
     pub since: Option<i32>,
     pub holder: Option<usize>,
+    /// The real all-time record and trophy holder are loaded (part B 29, 30).
+    pub real: bool,
 }
 
 /// A new season: its schedule is built at the start of the football year
@@ -197,7 +200,24 @@ pub(crate) fn new_season(w: &World) -> CollegeSeason {
             Some(((a.min(b), a.max(b)), (k, a)))
         })
         .collect();
-    let series = w.college_prev.as_ref().map_or_else(|| vec![Series::default(); RIVALRIES.len()], |c| c.series.clone());
+    let mut series =
+        w.college_prev.as_ref().map_or_else(|| vec![Series::default(); RIVALRIES.len()], |c| c.series.clone());
+    // The real all-time records and trophy holders come in when the history
+    // starts being kept (part B 29, 30): through 1995 for a 1996 start,
+    // through 1983 for a world that keeps it from 1984. Games in the hidden
+    // warm-up years before don't count.
+    if w.recording {
+        for (k, r) in RIVALRIES.iter().enumerate() {
+            let s = &mut series[k];
+            if s.real {
+                continue;
+            }
+            let Some(h) = super::data::rivalry_past(r.a, r.b) else { continue };
+            let (wins, ties, holder) = if w.year <= 1984 { h.thru_1983 } else { h.thru_1995 };
+            let side = |i: usize| by_name.get(if i == 0 { r.a } else { r.b }).copied();
+            *s = Series { wins, ties, since: Some(h.first), holder: holder.and_then(side), real: true };
+        }
+    }
     CollegeSeason {
         year: w.year,
         games: schedule::build(w, w.year, &w.dates),
@@ -778,14 +798,18 @@ fn result_event(w: &mut World, k: usize) {
         let s = &cs.series[r];
         let (a, b) = (s.wins[0], s.wins[1]);
         let since = s.since.unwrap_or(cs.year);
+        // A real record is all-time, ties included (part B 29).
+        let ties = if s.ties > 0 { format!("-{}", s.ties) } else { String::new() };
+        let span = if s.real { String::new() } else { format!(" since {since}") };
+        let all = if s.real { "all-time " } else { "" };
         if a + b < 2 {
             String::new()
         } else if a == b {
-            format!(" The series is tied {a}-{b} since {since}.")
+            format!(" The {all}series is tied {a}-{b}{ties}{span}.")
         } else {
             let other = if first == g.home { g.away } else { g.home };
             let leader = if a > b { first } else { other };
-            format!(" {} leads the series {}-{} since {since}.", w.programs[leader].real_name, a.max(b), a.min(b))
+            format!(" {} leads the {all}series {}-{}{ties}{span}.", w.programs[leader].real_name, a.max(b), a.min(b))
         }
     });
     let weather = if p.snow {
@@ -3149,6 +3173,29 @@ mod tests {
         let oregon = RIVALRIES.iter().find(|r| r.a == "Oregon" && r.b == "Oregon State").unwrap();
         assert_eq!(oregon.name_in(2019), "the Civil War");
         assert_eq!(oregon.name_in(2020), "the Oregon-Oregon State game");
+    }
+
+    /// Rivalries are played in their real years, and the history opens
+    /// with each one's real all-time record and trophy holder (part B 28-30).
+    #[test]
+    fn rivalries_keep_their_real_years_records_and_holders() {
+        let past = |a: &str, b: &str| super::super::data::rivalry_past(a, b).unwrap();
+        let lone_star = past("Texas", "Texas A&M");
+        assert!(lone_star.played(2011) && !lone_star.played(2012) && !lone_star.played(2023) && lone_star.played(2024));
+        let heroes = past("Iowa", "Nebraska");
+        assert!(!heroes.played(1990) && heroes.played(2011));
+        let bedlam = past("Oklahoma", "Oklahoma State");
+        assert!(bedlam.played(2023) && !bedlam.played(2024) && !bedlam.played(2030));
+        assert!(past("Alabama", "Auburn").played(2030));
+
+        let mut w = World::empty(WorldOptions { scale: 0.01, ..Default::default() });
+        w.recording = true;
+        w.year = 1996;
+        let cs = new_season(&w);
+        let r = RIVALRIES.iter().position(|r| r.a == "Alabama" && r.b == "Auburn").unwrap();
+        let s = cs.series[r];
+        assert_eq!((s.wins, s.ties, s.holder), ([34, 25], 1, Some(id(&w, "Auburn"))));
+        assert!(s.real);
     }
 
     /// The Commander-in-Chief's Trophy is one three-way trophy: the
