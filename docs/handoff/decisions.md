@@ -40,7 +40,7 @@ All in `docs/roadmap.md` section 3, with Raichel's words. Asked in five batches 
 - **Q1 role:** "C", both GM and head coach, like FM.
 - **Q2 career:** "Absolutely, the game starts in 2026 then could go on for 50 years if needed, switching teams".
 - **Q3 teams:** "Any teams, again it's based on real life and a comprehensive simulation game."
-- **Q4 levels you coach:** "NFL for now, leave room for updates".
+- **Q4 levels you coach:** "NFL for now, leave room for updates". **Superseded** on 2026-10-18 by the coaching career at every level (section 12 below).
 - **Q5 names:** "A, realistic names". **Superseded** by Q11.
 - **Q6:** personal use (above). **Q7:** "One realistic mode". **Q8:** "Yes, changeble starting stats".
 - **Q9 levels simulated:** "All 3 with extreme detail, i want every part to matter, stats in highschool should translate to NFL (i mean this nuanced)".
@@ -282,6 +282,15 @@ Spec `docs/design/faces.md`. Cain asked how AFM will make faces for fictional pl
 - Cain's computers: a MacBook M1 and an Intel Mac (22:00). The face model must run on both.
 - **Proof sample size:** "current amount is enough, just need to see a baseline" (22:43): the random pool stopped at 900 faces. Results in `docs/design/faces.md`, "Proof".
 
+## 12. Your career: coach at high school, college and the NFL (2026-10-18)
+
+Cain asked in the project chat (20:55): "is it to late to pivot to an game where i can play as a CFB and HS coach ?" The coordinator answered that it is not too late (the world already simulates every level, and none of the player's own career screens exist yet) and asked on a decision card whether the coaching modes replace the NFL career or come alongside it. Cain tapped **"Alongside"** (20:56).
+
+- **One career at every level.** A career can start at a high school, a college or an NFL team, and climb (or fall) between them the way real coaches do. The NFL mode stays as it was agreed (Q1: GM and head coach in one).
+- **The college coaching mode moves out of section 11 ("Later")** into the main build. High school coaching is new.
+- What it builds on, so none of it is asked again: Q2 (fired, hired elsewhere, 50+ years), Q3 (any team), Q8 (your background sets your starting reputation), Q20 (your ratings grow), Q41 (a save starts mid-February), and the coach ladder of section 2 (high school, position coach, coordinator, head coach, with buzz from titles and records). Your own moves between levels follow the same real market the AI coaches use.
+- What it touches: sections 5 to 10 of `docs/roadmap.md` (each says how), and the gaps listed there under "What a coach career at high school and college still needs".
+
 ---
 
 ## Superseded decisions
@@ -290,6 +299,7 @@ Spec `docs/design/faces.md`. Cain asked how AFM will make faces for fictional pl
 |---|---|---|
 | TypeScript web app (Claude's default, never confirmed) | Rust engine in a desktop app (Q49) | 2026-10-11 |
 | Season calendar draft `season-calendar-and-pacing.md` ([T03]) | `docs/design/calendar.md` wherever they differ | 2026-10-14 |
+| Q4: you coach the NFL only, college coaching later | One career that can start at a high school, a college or an NFL team | 2026-10-18 |
 | Calendar draft: one potential step per checkpoint | Breakouts can lift a ceiling up to ~10 a year | 2026-10-10 |
 | Calendar draft: at most 2 climax games, news held back 5 days | Climaxes only with real stakes, nothing held back (topic 8) | 2026-10-14 |
 | Original vs boosted potential on cards ("Q2: both") | Shown on trial and debug pages only (Q46) | 2026-10-11 |

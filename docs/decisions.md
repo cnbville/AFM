@@ -80,7 +80,7 @@ An American football management sim modelled on Football Manager. Priorities: re
 
 ### Roadmap (2026-10-11)
 - All 50 roadmap answers, the build order and the sections are in `docs/roadmap.md`. Section 2 design is in `docs/design/world.md`.
-- They settle the season calendar doc's old defaults: you are GM and head coach of one NFL team (college coaching later), a save starts mid-February, and names are real with a fictional toggle at new game.
+- They settle the season calendar doc's old defaults: you are GM and head coach of one NFL team (college coaching later; since 2026-10-18 a career can start at a high school, a college or an NFL team, see `docs/handoff/decisions.md` section 12), a save starts mid-February, and names are real with a fictional toggle at new game.
 
 ### Section 3 build: athlete-first details Claude picked (2026-10-13, proposed, not confirmed)
 The confirmed rule (topic 5.2) is "build the athlete first, the coach places him, real totals still hold". These numbers are Claude's calibration picks for it:
