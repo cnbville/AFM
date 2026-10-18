@@ -585,7 +585,9 @@ pub fn summarize(result: &CohortResult) -> Summary {
                     let o: Vec<f64> = records
                         .iter()
                         .flat_map(|r| r.player.history.iter())
-                        .filter(|h| h.level == Level::NFL && h.position == pos && h.playing_time == PlayingTime::Starter)
+                        .filter(|h| {
+                            h.level == Level::NFL && h.position == pos && h.playing_time == PlayingTime::Starter
+                        })
                         .map(|h| h.overall_start)
                         .collect();
                     (pos.name().to_string(), round(mean(&o), 1))

@@ -411,8 +411,11 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // raise the chance. Proposed, not confirmed: 2.5% a year for an average
     // player, about 6% for the laxest, about 1% for the most driven.
     if (18.0..=32.0).contains(&age) {
-        let lax =
-            clamp(1.0 + 0.12 * (10.0 - personality.work_ethic) + 0.06 * (10.0 - player.attributes[Attr::Discipline] / 5.0), 0.3, 2.5);
+        let lax = clamp(
+            1.0 + 0.12 * (10.0 - personality.work_ethic) + 0.06 * (10.0 - player.attributes[Attr::Discipline] / 5.0),
+            0.3,
+            2.5,
+        );
         if rng.chance(0.025 * lax) {
             events.add(Ev::WeightGain);
             player.body.weight += rng.range(8.0, 25.0);

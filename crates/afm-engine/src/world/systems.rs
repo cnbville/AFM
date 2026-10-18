@@ -204,13 +204,9 @@ fn score(p: &Player, pos: Position, slot: usize) -> f64 {
     let mix = |w: &[(Attr, f64)]| w.iter().map(|&(x, v)| a(x) * v).sum::<f64>();
     let heavy = clamp((p.body.weight - 250.0) / 1.2, 20.0, 99.0);
     match (pos, slot) {
-        (P::QB, 0) => mix(&[
-            (ShortAccuracy, 0.3),
-            (Decisions, 0.2),
-            (Anticipation, 0.2),
-            (QuickRelease, 0.15),
-            (Footwork, 0.15),
-        ]),
+        (P::QB, 0) => {
+            mix(&[(ShortAccuracy, 0.3), (Decisions, 0.2), (Anticipation, 0.2), (QuickRelease, 0.15), (Footwork, 0.15)])
+        }
         (P::QB, 1) => mix(&[
             (ShortAccuracy, 0.2),
             (MediumAccuracy, 0.2),
@@ -219,13 +215,9 @@ fn score(p: &Player, pos: Position, slot: usize) -> f64 {
             (QuickRelease, 0.15),
             (Decisions, 0.15),
         ]),
-        (P::QB, 2) => mix(&[
-            (ThrowOnMove, 0.3),
-            (BallHandling, 0.25),
-            (MediumAccuracy, 0.2),
-            (Speed, 0.15),
-            (Agility, 0.1),
-        ]),
+        (P::QB, 2) => {
+            mix(&[(ThrowOnMove, 0.3), (BallHandling, 0.25), (MediumAccuracy, 0.2), (Speed, 0.15), (Agility, 0.1)])
+        }
         (P::QB, 3) => mix(&[
             (ArmStrength, 0.3),
             (DeepAccuracy, 0.2),
@@ -265,36 +257,20 @@ fn score(p: &Player, pos: Position, slot: usize) -> f64 {
         (P::OT | P::IOL, 0) => mix(&[(PassBlocking, 0.55), (Agility, 0.2), (RunBlocking, 0.15), (HandUse, 0.1)]),
         (P::OT | P::IOL, 1) => mix(&[(PassBlocking, 0.7), (Anchor, 0.15), (Agility, 0.15)]),
         (P::OT | P::IOL, 2) => mix(&[(Agility, 0.3), (BlockingInSpace, 0.3), (RunBlocking, 0.2), (Speed, 0.2)]),
-        (P::OT | P::IOL, 3) => mix(&[
-            (RunBlocking, 0.4),
-            (Strength, 0.3),
-            (Anchor, 0.1),
-            (BlockingInSpace, 0.1),
-            (HandUse, 0.1),
-        ]),
+        (P::OT | P::IOL, 3) => {
+            mix(&[(RunBlocking, 0.4), (Strength, 0.3), (Anchor, 0.1), (BlockingInSpace, 0.1), (HandUse, 0.1)])
+        }
         (P::OT | P::IOL, 4) => mix(&[(RunBlocking, 0.4), (Agility, 0.25), (BlockingInSpace, 0.2), (Strength, 0.15)]),
-        (P::DT, 5) => mix(&[
-            (Acceleration, 0.35),
-            (FinesseRush, 0.2),
-            (PowerRush, 0.15),
-            (Agility, 0.15),
-            (Anticipation, 0.15),
-        ]),
+        (P::DT, 5) => {
+            mix(&[(Acceleration, 0.35), (FinesseRush, 0.2), (PowerRush, 0.15), (Agility, 0.15), (Anticipation, 0.15)])
+        }
         (P::DT, 6) => mix(&[(Anchor, 0.25), (BlockShedding, 0.2), (HandUse, 0.2), (Strength, 0.15)]) + 0.2 * heavy,
-        (P::EDGE, 5) => mix(&[
-            (FinesseRush, 0.25),
-            (PowerRush, 0.2),
-            (Acceleration, 0.2),
-            (BlockShedding, 0.2),
-            (Anchor, 0.15),
-        ]),
-        (P::EDGE, 6) => mix(&[
-            (Speed, 0.25),
-            (FinesseRush, 0.25),
-            (Flexibility, 0.2),
-            (ZoneCoverage, 0.15),
-            (Pursuit, 0.15),
-        ]),
+        (P::EDGE, 5) => {
+            mix(&[(FinesseRush, 0.25), (PowerRush, 0.2), (Acceleration, 0.2), (BlockShedding, 0.2), (Anchor, 0.15)])
+        }
+        (P::EDGE, 6) => {
+            mix(&[(Speed, 0.25), (FinesseRush, 0.25), (Flexibility, 0.2), (ZoneCoverage, 0.15), (Pursuit, 0.15)])
+        }
         (P::LB, 5) => mix(&[(Speed, 0.3), (Pursuit, 0.25), (PlayRecognition, 0.25), (ZoneCoverage, 0.2)]),
         (P::LB, 6) => mix(&[(Tackling, 0.3), (BlockShedding, 0.25), (Traffic, 0.2), (Anchor, 0.15), (Strength, 0.1)]),
         (P::CB, 7) => mix(&[(Speed, 0.4), (ZoneCoverage, 0.35), (Anticipation, 0.15), (BallTracking, 0.1)]),

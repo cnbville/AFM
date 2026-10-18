@@ -217,6 +217,13 @@ pub struct Agent {
 }
 
 impl Agent {
+    /// How far bodies around him push him off his line: a player who moves
+    /// well through traffic slides past them (proposed, not confirmed).
+    #[inline]
+    pub fn traffic(&self) -> f64 {
+        clamp(1.0 - 0.008 * (self.a(Attr::Traffic) - 60.0), 0.55, 1.35)
+    }
+
     pub fn new(side: usize, p: usize, gp: &GamePlayer, label: &'static str, pos: V2, energy: f64, edge: f64) -> Agent {
         // Fatigue lowers speed, strength and sharpness (topic 2).
         let tired = 1.0 - energy;
@@ -358,6 +365,8 @@ pub struct Engagement {
     /// He already had his one moment to grab when first beaten.
     pub grab_checked: bool,
     pub shed_at: Option<f64>,
+    /// The rusher already went to his counter move.
+    pub countered: bool,
 }
 
 /// A foul during the play.
@@ -480,12 +489,9 @@ impl InjuryKind {
             }
             InjuryKind::Hamstring => &[(Attr::Speed, 0.10), (Attr::Acceleration, 0.10)],
             InjuryKind::Knee => &[(Attr::Agility, 0.10), (Attr::Speed, 0.06)],
-            InjuryKind::Shoulder => &[
-                (Attr::Tackling, 0.10),
-                (Attr::RunBlocking, 0.08),
-                (Attr::HandUse, 0.08),
-                (Attr::ArmStrength, 0.10),
-            ],
+            InjuryKind::Shoulder => {
+                &[(Attr::Tackling, 0.10), (Attr::RunBlocking, 0.08), (Attr::HandUse, 0.08), (Attr::ArmStrength, 0.10)]
+            }
             InjuryKind::Ribs => &[(Attr::Strength, 0.06), (Attr::BallSecurity, 0.08)],
             InjuryKind::Hand => &[
                 (Attr::Catching, 0.10),
@@ -664,8 +670,9 @@ impl<'a> Sim<'a> {
     }
 
     /// Can `i` see point `p`? A cone of about 140 degrees in front, with
-    /// peripheral vision widened by play recognition (topic 2.1); anything
-    /// within two yards is felt.
+    /// peripheral vision widened by what he reads with (topic 2.1): a ball
+    /// carrier his vision, a quarterback in the pocket his feel for it,
+    /// everyone else play recognition. Anything within two yards is felt.
     pub fn sees(&self, i: usize, p: V2) -> bool {
         let a = &self.agents[i];
         let d = p - a.pos;
@@ -673,7 +680,14 @@ impl<'a> Sim<'a> {
             return true;
         }
         let ang = a.face.angle_between(d);
-        let half = 1.2 + 0.006 * (a.a(Attr::PlayRecognition) - 50.0);
+        let read = if matches!(a.job, Job::Passer) {
+            Attr::PocketPresence
+        } else if self.carrier() == Some(i) {
+            Attr::BallCarrierVision
+        } else {
+            Attr::PlayRecognition
+        };
+        let half = 1.2 + 0.006 * (a.a(read) - 50.0);
         ang < half
     }
 
@@ -764,7 +778,7 @@ impl<'a> Sim<'a> {
                     push = push + d.scale((0.8 - l) / l * 0.5);
                 }
             }
-            pos[i] = pi + push;
+            pos[i] = pi + push.scale(self.agents[i].traffic());
             self.agents[i].pos = pos[i];
         }
     }
@@ -794,7 +808,8 @@ impl<'a> Sim<'a> {
                     push = push + d.scale((0.8 - l) / l * 0.5);
                 }
             }
-            self.agents[i].pos = self.agents[i].pos + push;
+            let k = self.agents[i].traffic();
+            self.agents[i].pos = self.agents[i].pos + push.scale(k);
         }
     }
 
@@ -869,7 +884,9 @@ impl<'a> Sim<'a> {
         };
         // Silent count (trial 4 topic 3): a road line in a loud stadium
         // snaps on a visual cue, a beat late, and the defense times it.
-        let silent = if bl.side == 0 && self.t < 1.0 { SILENT_COUNT * self.cond.crowd } else { 0.0 };
+        // A focused lineman reacts to the snap cue sooner.
+        let focus = clamp(1.0 - 0.05 * (self.trait20(b, Attr::Concentration) - 10.0), 0.5, 1.5);
+        let silent = if bl.side == 0 && self.t < 1.0 { SILENT_COUNT * self.cond.crowd * focus } else { 0.0 };
         let w0 = if pass { -0.42 } else { -0.3 }
             + 0.006 * (get_off + silent - set)
             + self.front_fit(de.label, pass)
@@ -887,6 +904,7 @@ impl<'a> Sim<'a> {
             held: false,
             grab_checked: false,
             shed_at: None,
+            countered: false,
         });
         self.agents[b].engaged = Some(k);
         self.agents[d].engaged = Some(k);
@@ -971,7 +989,9 @@ impl<'a> Sim<'a> {
         let pb = a.a(Attr::PassBlocking);
         match mv {
             // Mirroring the arc: feet, bend and a punch that lands.
-            Move::Speed => 0.5 * pb + 0.2 * a.a(Attr::Agility) + 0.15 * a.a(Attr::Flexibility) + 0.15 * a.a(Attr::HandUse),
+            Move::Speed => {
+                0.5 * pb + 0.2 * a.a(Attr::Agility) + 0.15 * a.a(Attr::Flexibility) + 0.15 * a.a(Attr::HandUse)
+            }
             // The anchor against the bull rush.
             Move::Power => {
                 0.4 * pb
@@ -998,6 +1018,13 @@ impl<'a> Sim<'a> {
             + (a.mass - 280.0) * 0.08
     }
 
+    /// How well a defender holds the point against a double team: anchor,
+    /// strength, balance and mass, on the rating scale.
+    fn anchor(&self, d: usize) -> f64 {
+        let a = &self.agents[d];
+        0.6 * a.a(Attr::Anchor) + 0.2 * a.a(Attr::Strength) + 0.2 * a.a(Attr::Balance) + (a.mass - 300.0) * 0.08
+    }
+
     /// One tick of every block. Pass blocks drift toward the quarterback as
     /// the rusher wins ground; run blocks move with whoever is winning.
     pub fn update_blocks(&mut self, qb: Option<usize>, carrier: Option<usize>) {
@@ -1019,7 +1046,27 @@ impl<'a> Sim<'a> {
                 self.shed_power(d) - self.block_power(b, e.mv, false)
             };
             if let Some(h) = e.helper {
-                edge -= 0.6 * self.block_power(h, e.mv, e.pass) - 20.0;
+                // A stout man holds the point against two (proposed, not
+                // confirmed: 0.3 of his anchor above 60).
+                edge -= 0.6 * self.block_power(h, e.mv, e.pass) - 20.0 - 0.3 * (self.anchor(d) - 60.0);
+            }
+            // A stalled rush: once a rep, the rusher goes to his counter
+            // when his plan says it beats the set better (topic 1).
+            if e.pass && !e.countered && e.w < -0.2 && t - e.start > 0.8 {
+                self.eng[k].countered = true;
+                let plan = clamp(
+                    0.45 + 0.008 * (self.agents[d].a(Attr::FootballIq) - 60.0)
+                        + 0.03 * (self.trait20(d, Attr::Motor) - 10.0),
+                    0.15,
+                    0.85,
+                );
+                if self.rng.chance(plan) {
+                    let mv = self.pick_move(b, d);
+                    if mv != e.mv && self.rush_power(d, mv) - self.block_power(b, mv, true) > edge {
+                        self.eng[k].mv = mv;
+                        edge = self.rush_power(d, mv) - self.block_power(b, mv, true);
+                    }
+                }
             }
             // Run defenders must first see the run to fight toward it.
             let reading = !e.pass && t < self.agents[d].read_at;
@@ -1036,7 +1083,14 @@ impl<'a> Sim<'a> {
             if !e.pass
                 && let Some(c) = carrier
                 && (self.agents[c].pos.x - self.agents[d].pos.x) * self.goal > 1.5
-                && self.rng.chance(0.18)
+                && self.rng.chance(
+                    0.18 * clamp(
+                        1.0 + 0.04 * (self.trait20(d, Attr::Motor) - 10.0)
+                            - 0.006 * (self.agents[b].a(Attr::HandUse) - 60.0),
+                        0.5,
+                        1.6,
+                    ),
+                )
             {
                 self.release(k);
                 continue;
@@ -1075,7 +1129,9 @@ impl<'a> Sim<'a> {
                     if e.pass { self.agents[b].a(Attr::PassBlocking) } else { self.agents[b].a(Attr::RunBlocking) };
                 // Raised a third (offensive holding ran 0.88 a team game against
                 // about 1.26 real, illegal hands included; proposed, not confirmed).
-                let p = 0.046 * (1.7 - disc / 14.0) * (1.5 - tech / 100.0);
+                // Hands outside the frame get caught (hand use).
+                let hands = clamp(1.0 - 0.012 * (self.agents[b].a(Attr::HandUse) - 60.0), 0.5, 1.6);
+                let p = 0.046 * (1.7 - disc / 14.0) * (1.5 - tech / 100.0) * hands;
                 if self.rng.chance(p) {
                     self.eng[k].held = true;
                     self.eng[k].w = 0.35;
@@ -1112,7 +1168,16 @@ impl<'a> Sim<'a> {
                 // Driven off the ball or sealed. Now and then he is put on the
                 // ground; otherwise the blocker stays on him and keeps him
                 // sealed (a won block is sustained, not let go).
-                if self.rng.chance(0.25 * DT / 0.5) {
+                // A pancake: the blocker's finish and strength against the
+                // man's balance (proposed, not confirmed).
+                let finish = clamp(
+                    1.0 + 0.04 * (self.trait20(b, Attr::Physicality) - 10.0)
+                        + 0.006 * (self.agents[b].a(Attr::Strength) - 60.0)
+                        - 0.008 * (self.agents[d].a(Attr::Balance) - 60.0),
+                    0.4,
+                    1.8,
+                );
+                if self.rng.chance(0.25 * finish * DT / 0.5) {
                     self.agents[d].down_until = t + 0.6 + 0.6 * self.rng.next();
                     self.release(k);
                     self.notes.blocks.push((self.agents[b].id, self.agents[d].id, false, true, t - e.start, false));
@@ -1355,7 +1420,9 @@ impl<'a> Sim<'a> {
             // In space (past the line, no bodies around) a free man can dive.
             let in_space = (self.agents[c].pos.x - self.los) * self.goal > 3.0;
             let free_reach = if d.engaged.is_none() && in_space { self.open_reach } else { 1.6 };
-            let reach = free_reach + 0.03 * (self.player(i).arm - 32.0);
+            // A sure tackler wraps from farther (wrap range and dives).
+            let wrap = if free_reach > 1.6 { clamp(0.01 * (d.a(Attr::Tackling) - 60.0), -0.4, 0.4) } else { 0.0 };
+            let reach = free_reach + wrap + 0.03 * (self.player(i).arm - 32.0);
             // Closest approach over the last tick, so fast players can't
             // pass through each other between two samples.
             let rel = d.pos - self.agents[c].pos;
@@ -1428,8 +1495,10 @@ impl<'a> Sim<'a> {
             self.agents[i].down_until = t + 0.4 + 0.6 * self.rng.next();
             // A dive at his legs from the side or behind can still trip
             // him up or knock him off stride.
-            let trip = if head_on < 0.3 { 0.72 } else { 0.88 };
-            self.agents[c].vel = self.agents[c].vel.scale(trip);
+            // Balance keeps him on stride.
+            let trip =
+                if head_on < 0.3 { 0.72 } else { 0.88 } + clamp(0.002 * (r.a(Attr::Balance) - 60.0), -0.08, 0.08);
+            self.agents[c].vel = self.agents[c].vel.scale(trip.min(0.96));
             return;
         }
         if self.notes.first_contact.is_none() {
@@ -1437,7 +1506,11 @@ impl<'a> Sim<'a> {
         }
         // A blocked man's arm usually only grabs at a runner going full
         // speed: it slows him, but he runs through it.
-        if arm_only && r.vel.len() > 3.0 && self.rng.chance(0.6) {
+        // His balance against the tackler's will to finish the hit.
+        let through = 0.6
+            * clamp(1.0 + 0.008 * (r.a(Attr::Balance) - 60.0), 0.75, 1.25)
+            * clamp(1.0 - 0.025 * (self.trait20(i, Attr::Physicality) - 10.0), 0.8, 1.2);
+        if arm_only && r.vel.len() > 3.0 && self.rng.chance(through.min(0.9)) {
             self.agents[c].vel = self.agents[c].vel.scale(0.6);
             return;
         }
@@ -1486,6 +1559,7 @@ impl<'a> Sim<'a> {
             + 0.005 * (r.a(Attr::LegDrive) - 60.0)
             + 0.003 * (r.a(Attr::Balance) - 60.0)
             + 0.002 * (r.a(Attr::Elusiveness) - 60.0)
+            + 0.006 * (self.trait20(c, Attr::Competitiveness) - 10.0)
             + (r.mass - 215.0) / 300.0;
         let mut hazard = 0.0;
         let mut hold = 0.0;
@@ -1494,6 +1568,7 @@ impl<'a> Sim<'a> {
             let f = 1.0
                 + 0.03 * (d.a(Attr::Tackling) - 60.0)
                 + 0.012 * (d.a(Attr::Strength) - 60.0)
+                + 0.01 * (self.trait20(i, Attr::Competitiveness) - 10.0)
                 + (d.mass - 215.0) / 300.0;
             hazard += 3.1 * f.max(0.3);
             hold += d.mass * f.max(0.3);

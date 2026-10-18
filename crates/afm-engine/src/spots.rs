@@ -166,13 +166,9 @@ fn lean(spot: Spot) -> &'static [(Attr, f64)] {
         ],
         Spot::DT => &[(Acceleration, 0.35), (FinesseRush, 0.2), (PowerRush, 0.15), (Agility, 0.15), (HandUse, 0.15)],
         Spot::NT => &[(Anchor, 0.4), (Strength, 0.35), (BlockShedding, 0.25)],
-        Spot::MLB => &[
-            (PlayRecognition, 0.3),
-            (FootballIq, 0.25),
-            (Communication, 0.15),
-            (Tackling, 0.15),
-            (Traffic, 0.15),
-        ],
+        Spot::MLB => {
+            &[(PlayRecognition, 0.3), (FootballIq, 0.25), (Communication, 0.15), (Tackling, 0.15), (Traffic, 0.15)]
+        }
         Spot::OLB => &[(Speed, 0.35), (ZoneCoverage, 0.25), (Blitzing, 0.2), (Pursuit, 0.2)],
         Spot::CB => &[(Speed, 0.35), (ManCoverage, 0.35), (Press, 0.15), (Jumping, 0.15)],
         Spot::NB => &[
@@ -183,13 +179,9 @@ fn lean(spot: Spot) -> &'static [(Attr, f64)] {
             (Tackling, 0.1),
             (Blitzing, 0.05),
         ],
-        Spot::FS => &[
-            (Speed, 0.35),
-            (ZoneCoverage, 0.3),
-            (PlayRecognition, 0.15),
-            (BallTracking, 0.1),
-            (Communication, 0.1),
-        ],
+        Spot::FS => {
+            &[(Speed, 0.35), (ZoneCoverage, 0.3), (PlayRecognition, 0.15), (BallTracking, 0.1), (Communication, 0.1)]
+        }
         Spot::SS => &[(Tackling, 0.35), (PlayRecognition, 0.25), (Strength, 0.15), (Traffic, 0.15), (Physicality, 0.1)],
         _ => &[],
     }

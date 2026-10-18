@@ -164,7 +164,10 @@ pub fn kick_unit_strength(players: &[GamePlayer], on: &[usize], rush: bool) -> f
         .map(|&i| {
             let p = &players[i];
             if rush {
-                0.3 * p.a(Attr::PowerRush) + 0.2 * p.a(Attr::FinesseRush) + 0.3 * p.a(Attr::Strength) + 0.2 * p.a(Attr::Jumping)
+                0.3 * p.a(Attr::PowerRush)
+                    + 0.2 * p.a(Attr::FinesseRush)
+                    + 0.3 * p.a(Attr::Strength)
+                    + 0.2 * p.a(Attr::Jumping)
             } else {
                 0.6 * p.a(Attr::PassBlocking) + 0.4 * p.a(Attr::Strength)
             }
