@@ -144,6 +144,10 @@ def main():
             for s in c.get("seasons", []):
                 s["what"] = season_words(s)
             cards.append(c)
+    seeds = sorted({re.sub(r"\D", "", os.path.basename(os.path.normpath(r))) or r for r in runs})
+    count = {1: "one world", 2: "two worlds", 3: "three worlds"}.get(len(seeds), f"{len(seeds)} worlds")
+    # The header names this page's own trial and worlds, not the template's.
+    ctx = f"{title.removeprefix('AFM ')} · {count} (seed{'s' if len(seeds) > 1 else ''} {', '.join(seeds)})"
     lines = open(template).read().split("\n")
     done = False
     for i, line in enumerate(lines):
@@ -152,6 +156,8 @@ def main():
             done = True
         elif line.startswith("<title>"):
             lines[i] = f"<title>{title}</title>"
+        elif line.startswith('  <div class="ctx">'):
+            lines[i] = f'  <div class="ctx">{ctx}</div>'
         else:
             lines[i] = show_events(line)
     if not done:

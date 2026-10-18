@@ -388,6 +388,15 @@ def balance(run):
     for (pid, y), s in seasons.items():
         if s["nat"]:
             champs[y] = run.prog[pid]["name"]
+    # A program's seasons carry no division, so one that moved up would
+    # count its FCS titles here; the news names the level of each title.
+    try:
+        for n in jl(run.path, "news"):
+            m = re.match(r"(.*) wins the FBS national title", n["text"]) if n["kind"] == "NationalTitle" else None
+            if m and n["year"] >= run.first:
+                champs[n["year"]] = m.group(1)
+    except OSError:
+        pass
     titles = Counter(champs.values())
     windows = []
     for a in range(run.first, run.last - 13):
@@ -902,7 +911,7 @@ def recruiting(run):
                                "per_team": {pos: r(sum(ros[i][pos] for i in ids) / len(ids), 2) for pos in ("QB", "RB", "WR", "TE", "OT", "IOL", "EDGE", "DT", "LB", "CB", "S", "K", "P")},
                                "home_share": quant([100 * ros[i]["home"] / ros[i]["n"] for i in ids])}
     home = sorted(([run.prog[i]["name"], run.prog[i]["state"], run.prog[i]["conf"], ros[i]["n"], pct(ros[i]["home"], ros[i]["n"]), ros[i]["K"], ros[i]["P"], ros[i]["QB"]]
-                   for i in ros if run.prog[i]["div"] == "FBS"), key=lambda x: -x[4])
+                   for i in ros if run.prog[i]["div"] == "FBS" and ros[i]["n"]), key=lambda x: -x[4])
     return {
         "signing_classes": sc, "fbs_signees_share": {k: pct(v, tot) for k, v in signee.items()},
         "distance": {s: {"n": len(v), "q": quant(v)} for s, v in sorted(dist.items())},

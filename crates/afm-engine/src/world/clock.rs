@@ -39,7 +39,7 @@ fn print_profile(year: i32) {
     }
     let mut v = std::mem::take(&mut *PROFILE.lock().unwrap());
     v.sort_by(|a, b| b.1.total_cmp(&a.1));
-    let parts: Vec<String> = v.iter().take(14).map(|(n, t)| format!("{n} {t:.2}s")).collect();
+    let parts: Vec<String> = v.iter().take(24).map(|(n, t)| format!("{n} {t:.2}s")).collect();
     eprintln!("PROFILE {year}: {}", parts.join(", "));
 }
 

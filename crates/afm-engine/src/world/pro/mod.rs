@@ -829,7 +829,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
     }
     let y = w.dates.clone();
     let mut changed = false;
-    leagues::day(w, d);
+    super::clock::timed("pro leagues", || leagues::day(w, d));
     if d == y.tag_window_open {
         // The year's pay ladders: the veterans by position after last season.
         market::set_ladders(w);
@@ -860,8 +860,8 @@ pub(crate) fn day(w: &mut World, d: Date) {
     if d >= opened && d < y.veterans_report {
         let days = y.league_year.date.days_to(d);
         if days <= 14 || matches!(d.weekday(), crate::calendar::Weekday::Tue | crate::calendar::Weekday::Fri) {
-            market::market_day(w, d);
-            market::offer_sheets(w, d);
+            super::clock::timed("pro market", || market::market_day(w, d));
+            super::clock::timed("pro sheets", || market::offer_sheets(w, d));
             changed = true;
         }
     }
@@ -895,7 +895,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
         && d < y.veterans_report
         && (d.days_to(y.league_year.date) % 7 == 0 || d.weekday() == crate::calendar::Weekday::Tue)
     {
-        changed |= street_signings(w, d, false);
+        changed |= super::clock::timed("pro street", || street_signings(w, d, false));
     }
     if d == y.veterans_report {
         market::holdouts(w, d, true);
@@ -915,7 +915,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
         changed = true;
     }
     // Waiver claims each day a player is on the wire.
-    market::claims(w, d);
+    super::clock::timed("pro claims", || market::claims(w, d));
     if d == y.nfl_kickoff {
         // From the first game every contract counts against the cap.
         market::cap_moves(w, d, false);
@@ -940,9 +940,9 @@ pub(crate) fn day(w: &mut World, d: Date) {
     // In season, each Tuesday: injured players to reserve, the street's
     // calls, the unsigned veteran's week (topic 1.3).
     if d >= y.cutdown.date && d.weekday() == crate::calendar::Weekday::Tue && d <= y.super_bowl {
-        heal_week(w);
-        changed |= street_signings(w, d, true);
-        unsigned_week(w, d);
+        super::clock::timed("pro heal", || heal_week(w));
+        changed |= super::clock::timed("pro street", || street_signings(w, d, true));
+        super::clock::timed("pro unsigned", || unsigned_week(w, d));
     }
     // The Hall of Fame class is named the Saturday before the Super Bowl.
     if d == y.super_bowl.add(-1) {
@@ -958,10 +958,12 @@ pub(crate) fn day(w: &mut World, d: Date) {
         changed = true;
     }
     if changed {
-        for t in 0..w.nfl.len() {
-            order_depth(w, t);
-        }
-        mirror(w);
+        super::clock::timed("pro depth", || {
+            for t in 0..w.nfl.len() {
+                order_depth(w, t);
+            }
+            mirror(w);
+        });
     }
 }
 
