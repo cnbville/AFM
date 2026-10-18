@@ -866,5 +866,8 @@ fn main() {
         for (k, n) in ["under 10", "10-20", "over 20"].iter().enumerate() {
             println!("  throw miss sd {n:<9} {:.2} yd", sd[2 * k] as f64 / 1000.0 / sd[2 * k + 1].max(1) as f64);
         }
+        let throws = (sd[1] + sd[3] + sd[5]).max(1) as f64;
+        let batted = afm_engine::game::scrimmage::BATTED.load(std::sync::atomic::Ordering::Relaxed);
+        println!("  batted at the line {:.1}% of throws", 100.0 * batted as f64 / throws);
     }
 }
