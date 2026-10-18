@@ -112,7 +112,7 @@ pub(crate) fn pro_row(
     }).collect();
     json!({
         "id": id, "name": name, "pos": pos, "age": age, "overall": r1(overall), "potential": r1(potential), "active": active,
-        "status": format!("{:?}", c.status), "team": c.team.map(|t| w.nfl[t].name), "draft": c.draft.map(|d| json!([d.0, d.1, d.2, w.nfl[d.3].name])),
+        "status": format!("{:?}", c.status), "team": c.team.map(|t| w.nfl[t].name), "draft": c.draft.map(|d| json!([d.0, d.1, d.2, club(d.3, d.0)])),
         "first_year": c.first_year, "accrued": c.accrued, "earnings": c.earnings.round(), "teams": c.teams.iter().map(|&t| w.nfl[t].name).collect::<Vec<_>>(),
         "agent": c.agent.map(|a| w.market.agents[a].name.clone()), "trust": r2(c.trust), "tags": c.tags, "hold": format!("{:?}", c.hold),
         "ipp": c.ipp, "deal": deal, "seasons": seasons, "notes": notes,
