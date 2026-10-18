@@ -693,7 +693,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
         kickoff(w, d);
     }
     flex(w, d, &y);
-    play_day(w, d);
+    super::clock::timed("nfl games", || play_day(w, d));
     if d == y.black_monday {
         black_monday(w, d);
     }
@@ -719,7 +719,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
     }
     // The pros' own day: the league year, free agency, camp, cutdowns,
     // the street and the season's end (section 5).
-    super::pro::day(w, d);
+    super::clock::timed("nfl people", || super::pro::day(w, d));
 }
 
 fn post(w: &mut World, d: Date, kind: Kind, loud: Loudness, rule: &'static str, text: impl Into<String>) {

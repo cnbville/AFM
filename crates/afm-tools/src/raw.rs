@@ -496,6 +496,34 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
     // its nonzero stats, footprint flags and headline percentiles.
     use afm_engine::world::records::{self as rec, Stat};
     let book = &w.stats;
+    // Each season's peers (same year, division and position), sorted once
+    // per headline metric: the same percentile as `StatsBook::percentile`
+    // without scanning the year for every season.
+    let mut peers: std::collections::HashMap<(i16, afm_engine::world::data::Division, usize, rec::Metric), Vec<f64>> =
+        std::collections::HashMap::new();
+    for r in &book.seasons {
+        for &m in rec::headline_metrics(r.pos) {
+            if let Some(v) = m.value(r) {
+                peers.entry((r.year, r.division, r.pos.index(), m)).or_default().push(v);
+            }
+        }
+    }
+    for v in peers.values_mut() {
+        v.sort_by(|a, b| a.total_cmp(b));
+    }
+    let percentile = |r: &rec::SeasonRecord, m: rec::Metric| -> Option<f64> {
+        let v = m.value(r)?;
+        let list = peers.get(&(r.year, r.division, r.pos.index(), m))?;
+        if list.len() <= 1 {
+            return Some(1.0);
+        }
+        let below = if m.higher_better() {
+            list.partition_point(|&x| x < v)
+        } else {
+            list.len() - list.partition_point(|&x| x <= v)
+        };
+        Some(below as f64 / (list.len() - 1) as f64)
+    };
     let mut f = Lines::new(dir, "book_seasons.jsonl");
     for r in &book.seasons {
         let mut stats = serde_json::Map::new();
@@ -507,7 +535,7 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
         }
         let pct: serde_json::Map<String, Value> = rec::headline_metrics(r.pos)
             .iter()
-            .filter_map(|&m| Some((m.name().to_string(), json!(r2(book.percentile(r, m)?)))))
+            .filter_map(|&m| Some((m.name().to_string(), json!(r2(percentile(r, m)?)))))
             .collect();
         f.put(json!({
             "id": r.id, "year": r.year, "div": r.division.name(), "pos": r.pos.to_string(),
