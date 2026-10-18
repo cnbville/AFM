@@ -24,6 +24,10 @@ pub struct GamePlayer {
     pub height: f64,
     pub weight: f64,
     pub arm: f64,
+    /// Throwing hand and kicking foot: a lefty quarterback's blind side is
+    /// his right, and a lefty punter's spin is harder to field.
+    pub left_handed: bool,
+    pub left_footed: bool,
     pub traits: GameTraits,
     pub personality: Personality,
     pub injury_proneness: f64,
@@ -58,6 +62,8 @@ impl GamePlayer {
             height: b.height,
             weight: b.weight,
             arm: b.arm,
+            left_handed: b.left_handed,
+            left_footed: b.left_footed,
             traits: p.game,
             personality: p.personality,
             injury_proneness: p.injury_proneness,
