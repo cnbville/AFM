@@ -504,14 +504,14 @@ pub const ATTRIBUTE_PROFILES: [AttributeProfile; ATTRIBUTE_COUNT] = [
     physical(0.74, 0.22, (14.0, 21.0), 0.3, 28.0, 0.8, true, 0.06), // jumping
     physical(0.62, 0.22, (14.0, 24.0), 0.7, 30.0, 0.6, false, 0.06), // stamina
     technical(0.58, 0.2, (14.0, 22.0), 0.5, 0.2, 34.0, 0.6),        // armStrength
-    technical(0.52, 0.16, (15.0, 26.0), 0.8, 0.5, 36.0, 0.5),       // shortAccuracy
+    technical(0.52, 0.16, (15.0, 27.0), 0.8, 0.6, 36.0, 0.5),       // shortAccuracy
     technical(0.48, 0.15, (15.0, 27.0), 0.8, 0.6, 35.0, 0.6),       // mediumAccuracy
-    technical(0.44, 0.14, (15.0, 27.0), 0.7, 0.6, 34.0, 0.7),       // deepAccuracy
+    technical(0.44, 0.14, (15.0, 27.0), 0.7, 0.6, 34.0, 0.6),       // deepAccuracy
     technical(0.5, 0.14, (15.0, 28.0), 0.6, 0.6, 36.0, 0.4),        // touch
-    technical(0.55, 0.16, (14.0, 25.0), 0.6, 0.5, 31.0, 0.8),       // throwOnMove
-    technical(0.55, 0.15, (14.0, 24.0), 0.7, 0.3, 35.0, 0.4),       // quickRelease
-    technical(0.42, 0.16, (15.0, 27.0), 0.85, 0.5, 35.0, 0.5),      // footwork
-    technical(0.38, 0.13, (16.0, 30.0), 0.6, 0.8, 36.0, 0.4),       // pocketPresence
+    technical(0.55, 0.16, (14.0, 26.0), 0.6, 0.5, 32.0, 0.7),       // throwOnMove
+    technical(0.55, 0.15, (14.0, 26.0), 0.7, 0.4, 35.0, 0.4),       // quickRelease
+    technical(0.42, 0.16, (15.0, 28.0), 0.85, 0.6, 35.0, 0.5),      // footwork
+    technical(0.38, 0.13, (16.0, 31.0), 0.6, 0.8, 36.0, 0.4),       // pocketPresence
     technical(0.5, 0.17, (14.0, 24.0), 0.75, 0.4, 35.0, 0.4),       // ballHandling
     technical(0.35, 0.12, (16.0, 30.0), 0.6, 0.8, 37.0, 0.3),       // eyeManipulation
     technical(0.58, 0.18, (14.0, 24.0), 0.7, 0.4, 32.0, 0.5),       // ballSecurity

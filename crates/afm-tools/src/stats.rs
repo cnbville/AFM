@@ -241,6 +241,9 @@ pub struct Nfl {
     /// Upside veterans of 33-35 still show above their rating.
     pub veteran_potential_gap: f64,
     pub specialists: Specialists,
+    /// Mean rating of NFL starters by position: what the match engine plays
+    /// pros at.
+    pub starter_overall_by_position: BTreeMap<String, f64>,
 }
 
 #[derive(Serialize, Debug, PartialEq)]
@@ -576,6 +579,18 @@ pub fn summarize(result: &CohortResult) -> Summary {
                 kp: median(&peak_ages_by(&[Position::K, Position::P])),
             },
             veteran_potential_gap: round(median(&veteran_gaps), 2),
+            starter_overall_by_position: Position::ALL
+                .iter()
+                .map(|&pos| {
+                    let o: Vec<f64> = records
+                        .iter()
+                        .flat_map(|r| r.player.history.iter())
+                        .filter(|h| h.level == Level::NFL && h.position == pos && h.playing_time == PlayingTime::Starter)
+                        .map(|h| h.overall_start)
+                        .collect();
+                    (pos.name().to_string(), round(mean(&o), 1))
+                })
+                .collect(),
             specialists: Specialists {
                 signed: count_where(&|r| is_specialist(r) && r.nfl_seasons > 0),
                 seasons_at_38_plus: r3(share(
