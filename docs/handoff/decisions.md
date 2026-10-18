@@ -289,6 +289,7 @@ Cain asked in the project chat (20:55): "is it to late to pivot to an game where
 - **One career at every level.** A career can start at a high school, a college or an NFL team, and climb (or fall) between them the way real coaches do. The NFL mode stays as it was agreed (Q1: GM and head coach in one).
 - **The college coaching mode moves out of section 11 ("Later")** into the main build. High school coaching is new.
 - What it builds on, so none of it is asked again: Q2 (fired, hired elsewhere, 50+ years), Q3 (any team), Q8 (your background sets your starting reputation), Q20 (your ratings grow), Q41 (a save starts mid-February), and the coach ladder of section 2 (high school, position coach, coordinator, head coach, with buzz from titles and records). Your own moves between levels follow the same real market the AI coaches use.
+- **The first playable opens all three levels at once** (21:07). Claude asked whether to open NFL and college first and add high school once its games run on the engine; Cain asked how much longer all three would take (about one more build step and two short design rounds, Claude's reading from past builds), then: "okay then we'll do all at once, update the existing roadmap".
 - What it touches: sections 5 to 10 of `docs/roadmap.md` (each says how), and the gaps listed there under "What a coach career at high school and college still needs".
 
 ---

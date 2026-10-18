@@ -199,7 +199,7 @@ Answer: "Okay you can rewrite into rust." The player model was ported to Rust an
 - **A (chosen): playable early with plain screens, then add depth and polish while playing and debugging.** Raichel: "Ahhhh okay... yeah A. Smart."
 - B: build everything, including nice screens and the 2D view, before playing.
 
-"First playable" means: you start a career in 2026, pick a team (since 2026-10-18 a high school, a college or an NFL team; which levels the first playable opens with is question 1 under "Your career at every level") and play your first season (offseason, draft, games, playoffs) on plain text screens, with high school and college simulated around you. Before that, the world builds a hidden history so rosters, records and programs look real on day one.
+"First playable" means: you start a career in 2026, pick a team (since 2026-10-18 any high school, college or NFL team: the first playable opens all three levels at once) and play your first season (offseason, draft, games, playoffs) on plain text screens, with high school and college simulated around you. Before that, the world builds a hidden history so rosters, records and programs look real on day one.
 
 ---
 
@@ -236,7 +236,14 @@ What a coach career at high school and college still needs (checked in the code 
 - **College is simulated in full, but only by the AI.** Games on the engine with stats and the stat book; staffs of 11 (head coach, two coordinators, 8 position coaches); recruiting boards, visits and offers; the portal; NIL with collectives and revenue sharing; roster limits by era; the coaching carousel and firing. None of it has a place for your own choices yet: your recruiting board, offers and visits, your NIL and revenue-sharing budget, portal calls, scholarships and the depth chart.
 - **The manager's seat already allows a college program** (`world/mod.rs`, `Seat`: it decides which news stops the clock for you). It has no high school seat yet.
 
-Questions for Cain are kept in the thread, as the working rules ask. Proposed, not confirmed: question 1, which levels the first playable opens with.
+**The first playable opens all three levels at once (Cain, 2026-10-18 21:07):** "okay then we'll do all at once, update the existing roadmap". Asked whether to open NFL and college first and add high school later, Cain chose all three, so the first career is the real one. The high school work this adds to the road to the first playable:
+1. Every high school game on the engine. Timed 2026-10-18: 2,000 high school engine games take 16 s on 4 cores (`match_check -- hs 2000`; FBS 14.6 s), so about 90,000 games a year add roughly 12 minutes of simulation per season.
+2. High school games at real length (83 plays a team now, too many for 12-minute quarters).
+3. A high school coaching staff (needs a short design round).
+4. The school's side of the job: principal or athletic director, boosters, job security (with section 6's job security design).
+5. The high school seat and its screens (with sections 8 and 10).
+
+Still open, to ask when the build gets there: whether high school history also runs on the engine, as college history does. At the timing above, 42 years of history (30 recorded plus 12 spin-up) would make setting up a new game take hours.
 
 ### Section 1. Engine (done)
 
@@ -286,7 +293,7 @@ Your scouting staff and assignments, reports with hidden potential, vague outloo
 ### Section 8. First playable
 
 New-game setup (team choice, name toggle, your background and editable starting stats), save and load, and plain text screens. Raichel starts playing and debugging here.
-- The team choice covers high schools, colleges and NFL teams (which ones the first playable opens with is question 1 under "Your career at every level").
+- The team choice covers every high school, college and NFL team: all three levels open at once (Cain, 2026-10-18), with the high school work listed under "Your career at every level".
 
 ### Section 9. Game day control
 
