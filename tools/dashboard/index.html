@@ -1063,7 +1063,7 @@ async function boot() {
   try { S.notes = await get("data/notes.json"); } catch (e) { S.notes = null; }
   S.runs = await Promise.all(index.seeds.map((s) => get("data/" + s.file)));
   S.on = S.runs.map(() => true);
-  $("#subtitle").textContent = `${S.runs.length} world${S.runs.length > 1 ? "s" : ""}, ${S.runs[0].first} to ${S.runs[0].last}, every college game on the match engine. Debug view: hidden values shown.`;
+  $("#subtitle").textContent = `${S.runs.length} world${S.runs.length > 1 ? "s" : ""}, ${S.runs[0].first} to ${S.runs[0].last}, every game on the match engine. Debug view: hidden values shown.`;
   const chips = $("#seedChips");
   S.runs.forEach((r, i) => chips.append(h("button", { class: "chip", "aria-pressed": "true", onclick: (ev) => { if (active().length === 1 && S.on[i]) return; S.on[i] = !S.on[i]; ev.currentTarget.setAttribute("aria-pressed", S.on[i]); render(); } }, h("span", { class: "dot", style: `background:${SERIES[i]}` }), `World ${r.seed}`)));
   const tabs = $("#tabs");
