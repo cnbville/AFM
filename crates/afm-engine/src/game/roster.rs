@@ -4,7 +4,7 @@
 use crate::attributes::{Attr, Attributes};
 use crate::body::body_now;
 use crate::player::{GameTraits, Personality, Player};
-use crate::positions::{POSITION_COUNT, Position, long_snapper_rating, overall_for};
+use crate::positions::{POSITION_COUNT, Position, overall_for};
 use crate::rng::clamp;
 use crate::spots::{self, SPOT_COUNT, Spot, fill_in, spot_rating};
 
@@ -87,11 +87,14 @@ impl GamePlayer {
     }
 
     pub fn overall_at(&self, pos: Position) -> f64 {
-        match pos {
-            // The snap is the long snapper's job (fix list 1.7).
-            Position::LS => long_snapper_rating(self.traits.snapping, &self.attrs),
-            _ => overall_for(pos, &self.attrs),
-        }
+        overall_for(pos, &self.attrs)
+    }
+
+    /// An attribute on the 1-20 scale the engine's hidden traits used
+    /// (five rating points a step).
+    #[inline]
+    pub fn on20(&self, a: Attr) -> f64 {
+        clamp(self.a(a) / 5.0, 1.0, 20.0)
     }
 
     /// His real 40 time from speed, burst and weight (same fit as the combine).
@@ -138,9 +141,9 @@ impl GamePlayer {
         clamp(ag - 0.002 * (self.weight - 220.0), 0.4, 1.7)
     }
 
-    /// Composure, 1-20: the hidden trait with today's poise.
+    /// Composure, 1-20.
     pub fn composure(&self) -> f64 {
-        clamp(0.6 * self.traits.composure + 0.4 * self.a(Attr::Poise) / 5.0, 1.0, 20.0)
+        self.on20(Attr::Composure)
     }
 }
 
@@ -550,7 +553,7 @@ pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
         .iter()
         .copied()
         .find(|&i| ps[i].position == Position::LS && !busy.contains(&i))
-        .unwrap_or_else(|| best(&|p| p.traits.snapping + 0.02 * p.a(Attr::Awareness), &busy));
+        .unwrap_or_else(|| best(&|p| p.a(Attr::LongSnapping) + 0.1 * p.a(Attr::FootballIq), &busy));
     // The holder: the punter, unless he is the one kicking; else the backup quarterback.
     let kicker = d.list(Position::K).first().copied();
     d.holder = d
@@ -559,7 +562,12 @@ pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
         .copied()
         .find(|&i| ps[i].position == Position::P && Some(i) != kicker && i != d.snapper)
         .unwrap_or_else(|| d.list(Position::QB)[1.min(d.list(Position::QB).len() - 1)]);
-    let returner = |p: &GamePlayer| 0.5 * p.a(Attr::Speed) + 0.3 * p.a(Attr::Elusiveness) + 0.2 * p.a(Attr::Vision);
+    let returner = |p: &GamePlayer| {
+        0.4 * p.a(Attr::Speed)
+            + 0.25 * p.a(Attr::Elusiveness)
+            + 0.2 * p.a(Attr::BallCarrierVision)
+            + 0.15 * p.a(Attr::BallTracking)
+    };
     let mut kr: Vec<usize> =
         d.list(Position::WR).iter().chain(d.list(Position::RB)).chain(d.list(Position::CB)).copied().collect();
     kr.sort_by(|&a, &b| returner(&ps[b]).total_cmp(&returner(&ps[a])));

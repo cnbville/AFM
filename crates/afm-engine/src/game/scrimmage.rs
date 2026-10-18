@@ -287,7 +287,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     // (trial 4 topic 3).
     let load = NOISE_LOAD * s.cond.crowd;
     for a in agents.iter_mut() {
-        a.r[Attr::Awareness.index()] = (a.r[Attr::Awareness.index()] - load).max(1.0);
+        a.r[Attr::FootballIq.index()] = (a.r[Attr::FootballIq.index()] - load).max(1.0);
     }
     let def_spots = align_defense(s, &agents, &role_of);
     for (k, &(d, p)) in s.defense.iter().enumerate() {
@@ -428,7 +428,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     let checks = matches!(f.set, Set::Trips | Set::Bunch | Set::Empty) || f.motion != Motion::None;
     for i in 0..sim.agents.len() {
         let gp = sim.player(i);
-        let iq = gp.a(Attr::Awareness);
+        let iq = gp.a(Attr::FootballIq);
         let fam = if i < off_n {
             tac.family
         } else if slot_of[i].is_some_and(|d| d.is_line()) {
@@ -476,7 +476,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             let gp = sim.player(i);
             let pr = gp.a(Attr::PlayRecognition);
             let know = gp.know[Family::Front as usize] as f64;
-            let disc = gp.traits.discipline;
+            let disc = gp.on20(Attr::Discipline);
             let p = 0.035
                 + 0.002 * (65.0 - pr).max(-15.0)
                 + 0.06 * (1.0 - know)
@@ -864,7 +864,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                             sim.progress = sim.agents[i].pos.x;
                             res.carrier = Some(sim.agents[i].id);
                             // A rare bad exchange.
-                            let carry = sim.agents[i].a(Attr::Carrying);
+                            let carry = sim.agents[i].a(Attr::BallSecurity);
                             if sim.rng.chance(0.0025 * (1.6 - carry / 100.0)) {
                                 sim.notes.fumbled = Some(sim.agents[i].id);
                                 sim.fumble(i);
@@ -1134,7 +1134,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                     // in (topic 5).
                     if to.y < 0.6 || to.y > WIDTH - 0.6 || to.x > END_LINE - 0.6 {
                         let feet = s.rules.feet_inbounds as f64;
-                        let aw = sim.agents[tgt].a(Attr::Awareness);
+                        let aw = 0.6 * sim.agents[tgt].a(Attr::BodyControl) + 0.4 * sim.agents[tgt].a(Attr::FootballIq);
                         if !sim.rng.chance(clamp(0.35 + 0.006 * aw - 0.15 * (feet - 1.0), 0.1, 0.95)) {
                             res.result = Result::Incomplete;
                             sim.dead = true;
@@ -1886,7 +1886,7 @@ fn stunt_pickup(sim: &mut Sim, chem: f64) {
         (0..off_n).find(|&b| matches!(sim.agents[b].job, Job::PassBlock { target: Some(t) } if t == d))
     };
     let (Some(bp), Some(bl)) = (on(sim, pen), on(sim, lp)) else { return };
-    let aw = 0.5 * (sim.agents[bp].a(Attr::Awareness) + sim.agents[bl].a(Attr::Awareness));
+    let aw = 0.5 * (sim.agents[bp].a(Attr::FootballIq) + sim.agents[bl].a(Attr::FootballIq));
     let ok = sim.rng.chance(clamp(0.35 + 0.45 * chem + 0.004 * (aw - 60.0), 0.2, 0.92));
     if ok {
         sim.agents[bp].job = Job::PassBlock { target: Some(lp) };
@@ -2169,7 +2169,7 @@ fn route_step(a: &Agent, pts: &[V2], next: usize, settle: bool) -> (V2, f64, boo
 
 fn freelance_ok(sim: &mut Sim, i: usize, strictness: f64, trust: f64) -> bool {
     let gp = sim.player(i);
-    let iq = 0.5 * gp.a(Attr::Awareness) + 0.5 * gp.a(Attr::PlayRecognition);
+    let iq = 0.5 * gp.a(Attr::FootballIq) + 0.5 * gp.a(Attr::PlayRecognition);
     let p = clamp(0.25 + 0.008 * (iq - 50.0) + 0.5 * (trust - 0.5) - 0.025 * (strictness - 10.0), 0.05, 0.95);
     // Decide once per play: store in the bust flag's sibling via the random draw.
     let key = (sim.agents[i].id as u64 * 2654435761 + (sim.los * 10.0) as u64) % 1000;
@@ -2186,7 +2186,7 @@ fn blitz_threat(sim: &Sim, i: usize, qb: usize) -> Option<usize> {
                 && sim.agents[d].up(sim.t)
         })
         .filter(|&d| sim.agents[d].pos.dist(q) < 6.0 && sim.agents[d].pos.dist(sim.agents[i].pos) < 4.5)
-        .filter(|_| sim.agents[i].a(Attr::Awareness) > 25.0)
+        .filter(|_| sim.agents[i].a(Attr::FootballIq) > 25.0)
         .min_by(|&a, &b| sim.agents[a].pos.dist(q).total_cmp(&sim.agents[b].pos.dist(q)))
 }
 
@@ -2290,7 +2290,7 @@ fn slide(sim: &mut Sim, c: usize, s: &Snap) -> bool {
         .map(|d| sim.agents[d].pos.dist(me))
         .fold(f64::INFINITY, f64::min);
     let past = me.x >= s.los + s.togo;
-    let tough = sim.player(c).traits.toughness;
+    let tough = sim.player(c).on20(Attr::Toughness);
     if near < 2.2 && (past || tough < 12.0) {
         sim.progress = sim.progress.max(me.x - 0.5);
         sim.dead = true;
@@ -2312,7 +2312,7 @@ fn read_option(sim: &mut Sim, qb: usize, dir: f64, off_n: usize) -> bool {
         .min_by(|&a, &b| sim.agents[a].pos.dist(q).total_cmp(&sim.agents[b].pos.dist(q)));
     let Some(e) = end else { return false };
     let crash = sim.agents[e].vel.y * dir > 1.0 || (sim.agents[e].pos.y - q.y).abs() < 2.5;
-    let iq = sim.agents[qb].a(Attr::Awareness);
+    let iq = sim.agents[qb].a(Attr::Decisions);
     let right = sim.rng.chance(clamp(0.55 + 0.005 * iq, 0.5, 0.97));
     if right { crash } else { !crash }
 }
@@ -2343,7 +2343,7 @@ fn rpo_pull(sim: &mut Sim, qb: usize, tgt: usize, off_n: usize) -> bool {
     let Some(k) = key else { return true };
     let a = &sim.agents[k];
     let plays_run = sim.t >= a.read_at && a.vel.x < -0.8 || a.pos.x < sim.los + 2.5;
-    let iq = 0.6 * sim.agents[qb].a(Attr::Awareness) + 0.4 * sim.agents[qb].a(Attr::Vision);
+    let iq = 0.6 * sim.agents[qb].a(Attr::Decisions) + 0.4 * sim.agents[qb].a(Attr::PlayRecognition);
     let right = sim.rng.chance(clamp(0.6 + 0.0045 * iq, 0.6, 0.97));
     if right { plays_run } else { !plays_run }
 }
@@ -2369,7 +2369,7 @@ fn option_pitch(sim: &mut Sim, qb: usize, pm: usize, dir: f64, off_n: usize) -> 
         return None;
     }
     let takes_qb = k.dist(q) < k.dist(p);
-    let iq = 0.6 * sim.agents[qb].a(Attr::Awareness) + 0.4 * sim.agents[qb].a(Attr::Vision);
+    let iq = 0.6 * sim.agents[qb].a(Attr::Decisions) + 0.4 * sim.agents[qb].a(Attr::PlayRecognition);
     let right = sim.rng.chance(clamp(0.6 + 0.004 * iq, 0.6, 0.96));
     Some(if right { takes_qb } else { !takes_qb })
 }
@@ -2407,7 +2407,10 @@ fn quarterback(
     let mut pressure = 0.0f64;
     let mut nearest = f64::INFINITY;
     let mut threat = V2::default();
-    let aw = sim.agents[qb].a(Attr::Awareness);
+    // He feels the rush he can't see (pocket presence); what he knows
+    // (football IQ) sets his hot reads.
+    let feel = sim.agents[qb].a(Attr::PocketPresence);
+    let aw = sim.agents[qb].a(Attr::FootballIq);
     for d in 0..sim.agents.len() {
         let a = &sim.agents[d];
         if a.side != 1 || !a.up(t) {
@@ -2426,7 +2429,7 @@ fn quarterback(
             nearest = close;
         }
         if free && dist < 4.5 {
-            let seen = sim.sees(qb, a.pos) || sim.rng.chance(0.15 + 0.005 * aw);
+            let seen = sim.sees(qb, a.pos) || sim.rng.chance(0.15 + 0.005 * feel);
             if seen {
                 pressure += (4.5 - dist) / 4.5;
                 threat = threat + (me - a.pos).norm().scale((4.5 - dist) / 4.5);
@@ -2457,9 +2460,8 @@ fn quarterback(
         // the back, as real quarterbacks are coached to.
         sim.go_to(qb, me + v2(-1.0, 0.0), 0.35);
     } else if pressure > 0.2 {
-        let poise = sim.agents[qb].a(Attr::Poise);
-        let step = threat.norm().scale(1.0 + 0.01 * poise) + v2(0.6, 0.0);
-        sim.go_to(qb, me + step.scale(2.0), 0.6 + 0.004 * aw);
+        let step = threat.norm().scale(1.0 + 0.01 * feel) + v2(0.6, 0.0);
+        sim.go_to(qb, me + step.scale(2.0), 0.6 + 0.004 * feel);
     } else {
         let spot = v2(ps.drop_to.x + 0.8, ps.drop_to.y);
         sim.go_to(qb, spot, 0.3);
@@ -2471,12 +2473,12 @@ fn quarterback(
     let screen = matches!(ps.concept.drop, Drop::Screen | Drop::Bubble);
     if pressure > 0.6 && t < 2.0 && !ps.hot && !screen {
         ps.hot = true;
-        if sim.agents[qb].a(Attr::Awareness) > 45.0 || sim.rng.chance(0.4) {
+        if aw > 45.0 || sim.rng.chance(0.4) {
             ps.read = 0;
         }
     }
-    let vis = sim.agents[qb].a(Attr::Vision);
-    let iq = 0.6 * aw + 0.4 * vis;
+    // How fast he works through his reads: what he sees and how fast he decides.
+    let iq = 0.5 * sim.agents[qb].a(Attr::PlayRecognition) + 0.5 * sim.agents[qb].a(Attr::Decisions);
     // What he saw before the snap (topic 3.5): a shell he read cleanly
     // speeds every read; a disguise that fooled him slows them.
     // Measured against a typical read (0.45): the engine's reads were
@@ -2490,7 +2492,8 @@ fn quarterback(
         ps.read += 1;
         ps.read_since = t;
     }
-    let poise = sim.agents[qb].a(Attr::Poise);
+    let decide = sim.agents[qb].a(Attr::Decisions);
+    let poise = sim.agents[qb].a(Attr::Composure);
     // His internal clock (topic 1): even in a clean pocket he gets the ball
     // out by a little over three seconds, to the checkdown if nothing else.
     // A quick mind gets rid of it sooner; a slow one hangs on, as lower
@@ -2498,7 +2501,7 @@ fn quarterback(
     // school). A shot play buys a beat more (proposed, not confirmed).
     // (Raised 0.3 s: with the throwing motion counted, real time to throw
     // still ran 0.3 s longer, and a tenth of real throws come after 3.9 s.)
-    let clock = clamp(3.6 - 0.01 * (aw - 60.0) - 0.004 * (poise - 60.0), 3.1, 4.1)
+    let clock = clamp(3.6 - 0.01 * (decide - 60.0) - 0.004 * (feel - 60.0), 3.1, 4.1)
         + if ps.concept.drop == Drop::Deep { 0.3 } else { 0.0 };
     let late = t > clock;
     let over = ps.read >= ps.reads.len() || late;
@@ -2613,9 +2616,8 @@ fn quarterback(
     // a clean, compact release. A free rusher who will be on him before the
     // ball is out doesn't let him throw: he has to escape, eat it or get it
     // away some other way.
-    let acc_q = sim.agents[qb].a(Attr::ThrowAccuracy);
-    let pow_q = sim.agents[qb].a(Attr::ThrowPower);
-    let release = clamp(0.34 - 0.0025 * (0.5 * acc_q + 0.3 * pow_q + 0.2 * aw - 60.0), 0.22, 0.5);
+    let quick = 0.75 * sim.agents[qb].a(Attr::QuickRelease) + 0.25 * sim.agents[qb].a(Attr::Footwork);
+    let release = clamp(0.34 - 0.0025 * (quick - 60.0), 0.22, 0.5);
     // A screen is a soft flick lofted over the rush: only a rusher who can
     // get a hand on his arm stops it.
     let (release, reach) = if screen { (0.6 * release, 1.3) } else { (release, 2.8) };
@@ -2643,7 +2645,8 @@ fn quarterback(
         && let Some((r, ..)) = best
         && ps.commit.is_none()
     {
-        let delay = clamp(0.25 - 0.005 * (iq - 50.0), 0.0, 0.6);
+        // Throwing on the break is anticipation.
+        let delay = clamp(0.25 - 0.005 * (sim.agents[qb].a(Attr::Anticipation) - 50.0), 0.0, 0.6);
         ps.commit = Some((r, t + delay + release, t + 0.6 * release));
     }
     if !screen && let Some((r, at, hurried)) = ps.commit {
@@ -2711,7 +2714,7 @@ fn quarterback(
 fn window(sim: &Sim, qb: usize, r: usize) -> (f64, V2, f64) {
     let q = sim.agents[qb].pos;
     let ra = &sim.agents[r];
-    let power = sim.agents[qb].a(Attr::ThrowPower);
+    let power = sim.agents[qb].a(Attr::ArmStrength);
     let speed = 16.5 + 0.13 * power;
     let mut p = ra.pos;
     let mut flight = 0.0;
@@ -2827,9 +2830,11 @@ fn throw(
 ) -> (V2, usize, f64, f64, f64) {
     let t = sim.t;
     let q = sim.agents[qb].pos;
-    let acc = sim.agents[qb].a(Attr::ThrowAccuracy);
-    let power = sim.agents[qb].a(Attr::ThrowPower);
+    let power = sim.agents[qb].a(Attr::ArmStrength);
     let dist = q.dist(p);
+    // Placement by air yards to the aim point, blended between the bands
+    // (short to 10, medium 10-19, deep 20 and out) so there is no cliff.
+    let acc = pass_accuracy(&sim.agents[qb], ((p.x - q.x) * sim.goal).max(0.0));
     // A ball he can't reach falls short.
     let range = 25.0 + 0.45 * power;
     let mut target = p;
@@ -2849,7 +2854,7 @@ fn throw(
     // wide-open quick outs sailed out of bounds).
     target.y = clamp(target.y, 1.5, WIDTH - 1.5);
     let moving = sim.agents[qb].vel.len() > 3.0;
-    let poise = sim.agents[qb].a(Attr::Poise);
+    let poise = sim.agents[qb].a(Attr::Composure);
     // Error grows gently as accuracy falls: real completion rates drop only a
     // few points from the NFL to college and high school, where receivers
     // and coverage are just as far behind (proposed, not confirmed).
@@ -2862,7 +2867,7 @@ fn throw(
         sd *= 1.0 + 0.9 * pressure.min(1.5) * (1.35 - poise / 100.0);
     }
     if moving {
-        sd *= 1.25 - 0.002 * sim.agents[qb].a(Attr::Agility);
+        sd *= 1.25 - 0.002 * sim.agents[qb].a(Attr::ThrowOnMove);
     }
     let wind = s.cond.wind * (0.004 + 0.0004 * dist);
     sd *= 1.0 + wind;
@@ -2922,7 +2927,7 @@ fn throw(
     }
     // The receiver looks for it: at once on a timing throw, a beat later
     // when he is still running away from the quarterback.
-    let aw = sim.agents[r].a(Attr::Awareness);
+    let aw = sim.agents[r].a(Attr::BallTracking);
     let facing_qb = sim.agents[r].face.dot((q - sim.agents[r].pos).norm()) > -0.2;
     // He can't know where a long ball will come down until he has seen
     // some of its flight: until then he keeps running his route, then he
@@ -2950,7 +2955,7 @@ fn throw(
         ps.hit = true;
         let id = sim.agents[d].id;
         sim.notes.hits.push(id);
-        let disc = sim.player(d).traits.discipline;
+        let disc = sim.player(d).on20(Attr::Discipline);
         let base = if contact > 0.4 { 0.1 } else { 0.015 };
         if sim.rng.chance(base * (1.5 - disc / 20.0) * sim.crew.personal) {
             sim.notes.fouls.push(Foul { kind: FoulKind::RoughingPasser, side: 1, player: id, at: q.x });
@@ -2967,6 +2972,15 @@ fn throw(
 /// downfield it goes (a long throw across the field to an out is a firm,
 /// flat ball; the curve used to take throw length alone, and a third of
 /// wide-open quick outs from the far hash missed).
+/// A passer's placement for a throw of this many air yards: short
+/// accuracy to 5, medium from 15, deep from 25, blended between (PFF's
+/// 0-9, 10-19 and 20+ bands, without their cliffs).
+pub fn pass_accuracy(qb: &Agent, air: f64) -> f64 {
+    let t1 = clamp((air - 5.0) / 10.0, 0.0, 1.0);
+    let t2 = clamp((air - 15.0) / 10.0, 0.0, 1.0);
+    (1.0 - t1) * qb.a(Attr::ShortAccuracy) + (t1 - t2) * qb.a(Attr::MediumAccuracy) + t2 * qb.a(Attr::DeepAccuracy)
+}
+
 fn aim_sd(acc: f64, dist: f64, down: f64) -> f64 {
     (0.25 + 0.036 * dist + 0.0007 * down * down) * 1.3 * (0.017 * (82.0 - pro(acc))).exp()
 }
@@ -3034,7 +3048,7 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
         tacklers.iter().take(2).filter(|&&k| sim.agents[k].pos.dist(me) < 1.1).map(|&k| sim.agents[k].id).collect();
     sim.notes.hits.push(sim.agents[d].id);
     let force = sim.agents[d].mass * sim.agents[d].vel.len();
-    let carry = sim.agents[qb].a(Attr::Carrying);
+    let carry = sim.agents[qb].a(Attr::BallSecurity);
     let p_fumble = (if seen { 0.06 } else { 0.16 }) * (1.3 - carry / 120.0);
     sim.fight = vec![d];
     if sim.rng.chance(p_fumble) {
@@ -3372,7 +3386,7 @@ fn cover_inner(
             if rd < 0.9
                 && t > 0.8
                 && t < 2.6
-                && sim.rng.chance(0.0105 * sim.crew.holding * (1.6 - sim.player(i).traits.discipline / 14.0))
+                && sim.rng.chance(0.0105 * sim.crew.holding * (1.6 - sim.player(i).on20(Attr::Discipline) / 14.0))
             {
                 let (id, at) = (sim.agents[i].id, me.x);
                 let ok = pass.as_ref().is_some_and(|p| p.thrown.is_none());
@@ -3733,7 +3747,7 @@ fn pi_check(sim: &mut Sim, d: usize, r: usize, to: V2, air: f64, broke_up: bool)
     let (da, ra) = (&sim.agents[d], &sim.agents[r]);
     let trailing = (to - da.pos).dot(to - ra.pos) > 0.0 && da.pos.dist(to) > ra.pos.dist(to);
     let facing = da.face.dot((sim.ball_pos() - da.pos).norm()) > 0.3;
-    let disc = sim.player(d).traits.discipline;
+    let disc = sim.player(d).on20(Attr::Discipline);
     // Half again what it was: pass interference ran 0.27 a team game, real
     // about 0.42, offensive 0.05 against 0.17 (proposed, not confirmed).
     let base = if trailing && !facing {
@@ -3751,7 +3765,7 @@ fn pi_check(sim: &mut Sim, d: usize, r: usize, to: V2, air: f64, broke_up: bool)
     if sim.rng.chance(p) {
         let id = da.id;
         sim.notes.fouls.push(Foul { kind: FoulKind::PassInterference, side: 1, player: id, at: to.x });
-    } else if sim.rng.chance(0.029 * (1.3 - sim.player(r).traits.discipline / 20.0) * sim.crew.pass_interference) {
+    } else if sim.rng.chance(0.029 * (1.3 - sim.player(r).on20(Attr::Discipline) / 20.0) * sim.crew.pass_interference) {
         let id = ra.id;
         sim.notes.fouls.push(Foul { kind: FoulKind::OffensivePassInterference, side: 0, player: id, at: to.x });
     }

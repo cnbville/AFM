@@ -90,8 +90,9 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
             }
             // A snapper is as good as his snap: set it so his rating fits the level.
             if pos == Position::LS {
-                let rest = overall_for(Position::LS, &p.attributes);
-                p.game.snapping = clamp((target - 0.25 * rest) / 3.75, 1.0, 20.0);
+                let w = crate::positions::weight(Position::LS, Attr::LongSnapping);
+                let rest = overall_for(Position::LS, &p.attributes) - w * p.attributes[Attr::LongSnapping];
+                p.attributes[Attr::LongSnapping] = clamp((target - rest) / w, MIN_RATING, MAX_RATING);
             }
             let exp = match level {
                 Level::NFL => 2.0 + (k % 6) as f64,
@@ -112,7 +113,7 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
     }
     let players: Vec<GamePlayer> = raw.iter().map(|(p, know, exp)| GamePlayer::from_player(p, *know, *exp)).collect();
     // The staff sizes its weekly plan to its players (T6.2).
-    let aware = players.iter().map(|p| p.a(Attr::Awareness)).sum::<f64>() / players.len().max(1) as f64;
+    let aware = players.iter().map(|p| p.a(Attr::FootballIq)).sum::<f64>() / players.len().max(1) as f64;
     let staff = Staff {
         offense: Caller::new(
             clamp(rng.normal(10.0, 3.0), 1.0, 20.0),

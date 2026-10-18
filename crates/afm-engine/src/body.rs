@@ -49,7 +49,17 @@ pub struct Body {
     /// The weight his frame carries naturally, before a position's weight
     /// program adds or takes off pounds.
     pub frame_weight: f64,
+    /// Throws left-handed: his blind side is his right.
+    pub left_handed: bool,
+    /// Kicks with his left foot: the ball spins the other way.
+    pub left_footed: bool,
 }
+
+/// About one in ten throws left-handed and about one in six kicks
+/// left-footed, as in the population: most lefties kick left, about one
+/// righty in eight does (proposed, not confirmed).
+const LEFT_HANDED: f64 = 0.1;
+const RIGHTY_LEFT_FOOTED: f64 = 0.12;
 
 /// A position's combine height and weight: (height mean, sd, weight mean, sd).
 /// The real combine bench average at a position (nflverse 2000-2025).
@@ -68,7 +78,9 @@ impl Body {
         let arm = 0.425 * height + if heavy { 0.3 } else { 0.0 } + rng.normal(0.0, 0.8);
         let hand = 9.45 + 0.08 * (height - 74.0) + if heavy { 0.35 } else { 0.0 } + rng.normal(0.0, 0.35);
         let wingspan = 2.03 * arm + 12.3 + rng.normal(0.0, 1.0);
-        Body { height, weight, arm, hand, wingspan, frame_weight: weight }
+        let left_handed = rng.chance(LEFT_HANDED);
+        let left_footed = rng.chance(if left_handed { 0.6 } else { RIGHTY_LEFT_FOOTED });
+        Body { height, weight, arm, hand, wingspan, frame_weight: weight, left_handed, left_footed }
     }
 }
 
@@ -99,7 +111,9 @@ pub fn adult_body(id: u32, pos: Position, potential: f64, strength_z: f64, speed
     let arm = 0.425 * height + arm_offset + rng.normal(0.0, 0.8);
     let hand = 9.45 + 0.08 * (height - 74.0) + if lineman(pos) { 0.35 } else { 0.0 } + rng.normal(0.0, 0.35);
     let wingspan = 2.03 * arm + 12.3 + rng.normal(0.0, 1.0);
-    Body { height, weight, arm, hand, wingspan, frame_weight: weight }
+    let left_handed = rng.chance(LEFT_HANDED);
+    let left_footed = rng.chance(if left_handed { 0.6 } else { RIGHTY_LEFT_FOOTED });
+    Body { height, weight, arm, hand, wingspan, frame_weight: weight, left_handed, left_footed }
 }
 
 /// His body now: boys grow through high school, late bloomers later, and
@@ -120,6 +134,8 @@ pub fn body_now(p: &Player) -> Body {
         hand: a.hand * (0.9 + 0.1 * grown),
         wingspan: a.wingspan * k,
         frame_weight: a.frame_weight,
+        left_handed: a.left_handed,
+        left_footed: a.left_footed,
     }
 }
 

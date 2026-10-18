@@ -68,9 +68,11 @@ fn the_kicker_never_snaps_to_himself() {
     let k1 = team.players.iter().position(|p| p.position == Position::K).unwrap();
     let mut k2 = team.players[k1].clone();
     k2.id = team.players.iter().map(|p| p.id).max().unwrap() + 1;
-    k2.attrs[Attr::KickAccuracy] -= 15.0;
+    k2.attrs[Attr::ShortKickAccuracy] -= 15.0;
+    k2.attrs[Attr::LongKickAccuracy] -= 15.0;
     k2.attrs[Attr::KickPower] -= 15.0;
-    k2.traits.snapping = team.players.iter().map(|p| p.traits.snapping).fold(0.0, f64::max) + 5.0;
+    k2.attrs[Attr::Composure] -= 15.0;
+    k2.attrs[Attr::LongSnapping] = team.players.iter().map(|p| p.a(Attr::LongSnapping)).fold(0.0, f64::max) + 5.0;
     team.players.push(k2);
     let k2 = team.players.len() - 1;
     // With everyone fit the backup kicker is the snapper.

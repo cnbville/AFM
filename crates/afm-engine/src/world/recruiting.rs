@@ -1889,19 +1889,11 @@ fn class_plan(
     plan
 }
 
-/// What a kicking camp measures (fix list 1.4): leg power, accuracy and the
-/// mental side, weighted as the position rates them, with the mental side
-/// read the way the match engine uses it (composure with poise). A long
-/// snapper is measured on his snap.
+/// What a kicking camp measures (fix list 1.4): leg power, accuracy by
+/// distance, get-off and the mental side, weighted as the position rates
+/// them. A long snapper is measured on his snap.
 fn specialist_grade(p: &crate::player::Player) -> f64 {
-    use crate::attributes::Attr;
-    let a = &p.attributes;
-    let mental = 0.6 * 5.0 * p.game.composure + 0.4 * a[Attr::Poise];
-    match p.position {
-        Position::K => (5.0 * a[Attr::KickAccuracy] + 4.0 * a[Attr::KickPower] + mental) / 10.0,
-        Position::P => (5.0 * a[Attr::KickPower] + 3.0 * a[Attr::KickAccuracy] + mental) / 9.0,
-        _ => p.overall(),
-    }
+    p.overall()
 }
 
 /// Camp star tiers for specialists (fix list 1.5), by national rank at each
@@ -2317,7 +2309,8 @@ fn camp_rankings(
             .max_by(|&a, &b| {
                 let f = |i: usize| {
                     let p = &w.people[i].player;
-                    p.game.snapping + 0.02 * p.attributes[crate::attributes::Attr::Awareness]
+                    p.attributes[crate::attributes::Attr::LongSnapping]
+                        + 0.1 * p.attributes[crate::attributes::Attr::FootballIq]
                 };
                 f(a).total_cmp(&f(b))
             });
@@ -2346,7 +2339,7 @@ fn camp_rankings(
             continue;
         }
         let grade = if spot == Position::LS {
-            crate::positions::long_snapper_rating(p.player.game.snapping, &p.player.attributes)
+            crate::positions::overall_for(Position::LS, &p.player.attributes)
         } else {
             specialist_grade(&p.player)
         };

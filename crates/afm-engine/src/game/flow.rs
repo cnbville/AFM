@@ -339,7 +339,7 @@ impl<'a> Side<'a> {
         }
         let ps = &self.team.players;
         let free = |i: usize| !self.out[i] && !legs.contains(&i);
-        let snap = |i: usize| ps[i].traits.snapping + 0.02 * ps[i].a(Attr::Awareness);
+        let snap = |i: usize| ps[i].a(Attr::LongSnapping) + 0.1 * ps[i].a(Attr::FootballIq);
         d.list(Position::LS)
             .iter()
             .copied()
@@ -358,7 +358,7 @@ impl<'a> Side<'a> {
         }
         let ps = &self.team.players;
         let qbs = self.depth.list(Position::QB);
-        let hands = |i: usize| ps[i].a(Attr::Catching) + ps[i].a(Attr::Awareness);
+        let hands = |i: usize| ps[i].a(Attr::Catching) + ps[i].a(Attr::Concentration);
         qbs.iter()
             .skip(1)
             .chain(qbs.iter().take(1))
@@ -926,7 +926,7 @@ impl<'a> Game<'a> {
         let staff = self.sides[team].team.staff;
         let kicker = &self.sides[team].team.players[self.sides[team].fg_kicker()];
         let xp_make =
-            clamp(0.55 + 0.005 * kicker.a(Attr::KickAccuracy) - 0.002 * (self.rules().xp_from - 3.0), 0.2, 0.99);
+            clamp(0.55 + 0.005 * kicker.a(Attr::ShortKickAccuracy) - 0.002 * (self.rules().xp_from - 3.0), 0.2, 0.99);
         let diff = self.diff(team);
         let forced_two = self.ot && self.rules().overtime == Overtime::College && self.ot_round >= 2;
         // Up big, nobody goes for two (it reads as running up the score).
@@ -1130,7 +1130,7 @@ impl<'a> Game<'a> {
     fn fg_make_estimate(&self, team: usize, dist: f64) -> f64 {
         let side = &self.sides[team];
         let p = &side.team.players[side.fg_kicker()];
-        let acc = p.a(Attr::KickAccuracy);
+        let acc = super::kicking::fg_accuracy(p, dist);
         let range = 38.0 + 0.3 * p.a(Attr::KickPower);
         let sd = (2.95 + 0.012 * (dist - 30.0)) * (1.82f64 - 0.0105 * acc).max(0.55);
         let half = (3.083 / dist).atan().to_degrees();
@@ -1473,7 +1473,7 @@ impl<'a> Game<'a> {
             // Road teams jump 21% more often in real FBS conference games
             // (1.28 a game against 1.06, cfbfastR 2023-24).
             let chance = 0.00162
-                * (1.6 - p.traits.discipline / 15.0).max(0.3)
+                * (1.6 - p.on20(Attr::Discipline) / 15.0).max(0.3)
                 * (1.0 + 0.32 * crowd)
                 * crew
                 * (1.0 + tired)
@@ -1487,7 +1487,7 @@ impl<'a> Game<'a> {
                 continue;
             }
             let p = &self.sides[1 - o].team.players[i];
-            let chance = 0.0019 * (1.6 - p.traits.discipline / 15.0).max(0.3) * crew;
+            let chance = 0.0019 * (1.6 - p.on20(Attr::Discipline) / 15.0).max(0.3) * crew;
             if self.rng.chance(chance) {
                 return Some(Foul { kind: FoulKind::Offside, side: 1, player: p.id, at: self.x });
             }
@@ -1495,7 +1495,7 @@ impl<'a> Game<'a> {
         let qb = off.iter().find(|x| x.0 == ORole::QB).map(|x| x.1).unwrap_or(0);
         let qp = &self.sides[o].team.players[qb];
         // Road delays: 34% more (0.34 a game against 0.26).
-        if self.rng.chance(0.0050 * (1.3 - qp.a(Attr::Awareness) / 120.0) * (1.0 + 0.52 * crowd) * crew) {
+        if self.rng.chance(0.0050 * (1.3 - qp.a(Attr::FootballIq) / 120.0) * (1.0 + 0.52 * crowd) * crew) {
             return Some(Foul { kind: FoulKind::DelayOfGame, side: 0, player: qp.id, at: self.x });
         }
         // Illegal formation stands for every 5-yard offensive alignment foul
@@ -1559,14 +1559,14 @@ impl<'a> Game<'a> {
         let numbers = box_n - blockers;
         let freedom =
             clamp(0.85 - 0.035 * self.sides[o].team.staff.strictness + 0.04 * qp.experience.min(5.0), 0.1, 0.95);
-        let iq = 0.6 * qp.a(Attr::Awareness) + 0.4 * qp.a(Attr::Vision);
+        let iq = 0.5 * qp.a(Attr::PlayRecognition) + 0.5 * qp.a(Attr::FootballIq);
         // His read of the shell: a disguise fools him unless he out-thinks
         // the secondary (3.5).
         let shows_two = dcall.coverage.high() == 2 || dcall.disguise;
         let db_iq = def
             .iter()
             .filter(|(s, _)| s.is_db())
-            .map(|&(_, i)| self.sides[d].team.players[i].a(Attr::PlayRecognition))
+            .map(|&(_, i)| self.sides[d].team.players[i].a(Attr::Disguise))
             .sum::<f64>()
             / def.iter().filter(|(s, _)| s.is_db()).count().max(1) as f64;
         let fooled =

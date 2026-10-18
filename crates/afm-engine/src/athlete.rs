@@ -57,8 +57,16 @@ const PLACED: [Position; 13] = [
     Position::P,
 ];
 
-const PHYSICAL: [Attr; 6] =
-    [Attr::Speed, Attr::Acceleration, Attr::Agility, Attr::Strength, Attr::Jumping, Attr::Stamina];
+const PHYSICAL: [Attr; 8] = [
+    Attr::Speed,
+    Attr::Acceleration,
+    Attr::Agility,
+    Attr::Strength,
+    Attr::Balance,
+    Attr::Flexibility,
+    Attr::Jumping,
+    Attr::Stamina,
+];
 
 /// Standard normal cumulative distribution (Abramowitz and Stegun 7.1.26).
 pub fn phi(x: f64) -> f64 {
@@ -103,8 +111,10 @@ fn draw_frame(rng: &mut Rng) -> (f64, f64) {
 }
 
 /// The athlete's shape: what each attribute would be if he became an elite
-/// player, before talent scales it. Returns the shape and the frame.
-fn draw_shape(rng: &mut Rng) -> (Attributes, (f64, f64)) {
+/// player, before talent scales it. Returns the shape, the frame and his
+/// will to compete (a standard normal, which his personality shares).
+fn draw_shape(rng: &mut Rng) -> (Attributes, (f64, f64), f64) {
+    use Attr::*;
     let (fh, fw) = draw_frame(rng);
     let mut shape = Attributes::filled(45.0);
 
@@ -117,45 +127,104 @@ fn draw_shape(rng: &mut Rng) -> (Attributes, (f64, f64)) {
         shape[a] = likeness.iter().map(|&(p, l)| l * elite_shape_value(p, a)).sum::<f64>() / total;
     }
     let explosive = rng.normal(0.0, 1.0);
-    shape[Attr::Speed] += 4.0 * explosive + rng.normal(0.0, 3.0);
-    shape[Attr::Acceleration] += 4.0 * explosive + rng.normal(0.0, 3.0);
-    shape[Attr::Jumping] += 4.0 * explosive + rng.normal(0.0, 3.0);
-    shape[Attr::Agility] += 2.5 * explosive + rng.normal(0.0, 3.5);
-    shape[Attr::Strength] += rng.normal(0.0, 5.0);
-    shape[Attr::Stamina] += rng.normal(0.0, 5.0);
+    shape[Speed] += 4.0 * explosive + rng.normal(0.0, 3.0);
+    shape[Acceleration] += 4.0 * explosive + rng.normal(0.0, 3.0);
+    shape[Jumping] += 4.0 * explosive + rng.normal(0.0, 3.0);
+    shape[Agility] += 2.5 * explosive + rng.normal(0.0, 3.5);
+    shape[Strength] += rng.normal(0.0, 5.0);
+    shape[Stamina] += rng.normal(0.0, 5.0);
+    // Balance and bend are their own gifts (proposed, not confirmed: about
+    // as spread as agility).
+    shape[Balance] += 1.5 * explosive + rng.normal(0.0, 4.0);
+    shape[Flexibility] += 1.0 * explosive + rng.normal(0.0, 5.0);
 
     // Skill leanings, independent of the body: a gift that shows in several
-    // attributes gets a shared draw, mixed with each attribute's own.
+    // attributes gets a shared draw, mixed with each attribute's own. The
+    // gifts follow what scouts see together: an arm, ball placement, a
+    // passer's mechanics and his feel; hands, routes, tracking and body
+    // control; a lineman's hands and his power; cover instincts; a leg; the
+    // mind (football IQ, recognition, the snap, decisions, poise, focus,
+    // self-control, leading); and the will to compete under it all.
     let mut z = || rng.normal(0.0, 1.0);
-    let (arm, touch, hands, route, ball, elude) = (z(), z(), z(), z(), z(), z());
-    let (block, feet, tough, tackle, shed, rush) = (z(), z(), z(), z(), z(), z());
-    let (cover, mirror, leg, kick_touch, iq, recog) = (z(), z(), z(), z(), z(), z());
-    let (aware, vision, poise) = (z(), z(), z());
-    let mix = |a: f64, x: f64, b: f64, y: f64| (a * x + b * y) / (a * a + b * b).sqrt();
-    shape[Attr::ThrowPower] = leaning(arm);
-    shape[Attr::ThrowAccuracy] = leaning(mix(0.5, arm, 0.85, touch));
-    shape[Attr::Catching] = leaning(hands);
-    shape[Attr::RouteRunning] = leaning(mix(0.5, hands, 0.85, route));
-    shape[Attr::Carrying] = leaning(mix(0.6, ball, 0.8, tough));
-    shape[Attr::Elusiveness] = leaning(mix(0.85, elude, 0.4, explosive));
-    shape[Attr::RunBlocking] = leaning(mix(0.65, block, 0.6, tough));
-    shape[Attr::PassBlocking] = leaning(mix(0.75, block, 0.55, feet));
-    shape[Attr::Tackling] = leaning(mix(0.7, tough, 0.7, tackle));
-    shape[Attr::BlockShedding] = leaning(mix(0.6, tough, 0.8, shed));
-    shape[Attr::PassRush] = leaning(mix(0.8, rush, 0.4, shed));
-    shape[Attr::ManCoverage] = leaning(mix(0.8, cover, 0.6, mirror));
-    shape[Attr::ZoneCoverage] = leaning(mix(0.7, cover, 0.7, recog));
+    let (arm, place, mech, feel, hands, route) = (z(), z(), z(), z(), z(), z());
+    let (ball, elude, power, block, feet, tough) = (z(), z(), z(), z(), z(), z());
+    let (tackle, shed, rush, cover, mirror, leg) = (z(), z(), z(), z(), z(), z());
+    let (kick_touch, iq, recog, aware, vision, poise) = (z(), z(), z(), z(), z(), z());
+    let (track, body, hand, snap, compete, engine) = (z(), z(), z(), z(), z(), z());
+    let (focus, disc, lead, hit, antic, decide) = (z(), z(), z(), z(), z(), z());
+    let (punt_leg, punt_touch, split) = (z(), z(), z());
+    let mix = |parts: &[(f64, f64)]| {
+        let norm = parts.iter().map(|(w, _)| w * w).sum::<f64>().sqrt();
+        parts.iter().map(|(w, x)| w * x).sum::<f64>() / norm
+    };
+    shape[ArmStrength] = leaning(arm);
+    shape[ShortAccuracy] = leaning(mix(&[(0.3, arm), (0.9, place)]));
+    shape[MediumAccuracy] = leaning(mix(&[(0.45, arm), (0.85, place)]));
+    shape[DeepAccuracy] = leaning(mix(&[(0.7, arm), (0.7, place)]));
+    shape[Touch] = leaning(mix(&[(0.8, place), (0.5, feel)]));
+    shape[ThrowOnMove] = leaning(mix(&[(0.6, place), (0.5, arm), (0.5, explosive)]));
+    shape[QuickRelease] = leaning(mix(&[(0.7, mech), (0.5, arm)]));
+    shape[Footwork] = leaning(mix(&[(0.8, mech), (0.5, feet)]));
+    shape[PocketPresence] = leaning(mix(&[(0.7, feel), (0.5, poise)]));
+    shape[BallHandling] = leaning(mix(&[(0.6, mech), (0.6, hands)]));
+    shape[EyeManipulation] = leaning(mix(&[(0.7, feel), (0.6, iq)]));
+    shape[BallSecurity] = leaning(mix(&[(0.6, ball), (0.8, tough)]));
+    shape[BallCarrierVision] = leaning(vision);
+    shape[Elusiveness] = leaning(mix(&[(0.85, elude), (0.4, explosive)]));
+    shape[LegDrive] = leaning(mix(&[(0.7, power), (0.5, tough), (0.3, compete)]));
+    shape[Catching] = leaning(hands);
+    shape[ContestedCatch] = leaning(mix(&[(0.6, hands), (0.5, compete), (0.4, power)]));
+    shape[BallTracking] = leaning(mix(&[(0.7, track), (0.5, hands)]));
+    shape[BodyControl] = leaning(mix(&[(0.7, body), (0.5, explosive)]));
+    shape[RouteRunning] = leaning(mix(&[(0.5, hands), (0.85, route)]));
+    shape[Release] = leaning(mix(&[(0.7, route), (0.4, hand), (0.4, explosive)]));
+    shape[PassBlocking] = leaning(mix(&[(0.75, block), (0.55, feet)]));
+    shape[RunBlocking] = leaning(mix(&[(0.65, block), (0.6, tough)]));
+    shape[BlockingInSpace] = leaning(mix(&[(0.6, block), (0.6, feet), (0.3, explosive)]));
+    shape[HandUse] = leaning(mix(&[(0.7, hand), (0.4, block), (0.4, rush)]));
+    shape[Anchor] = leaning(mix(&[(0.7, power), (0.5, block), (0.3, tough)]));
+    shape[PowerRush] = leaning(mix(&[(0.7, rush), (0.6, power)]));
+    shape[FinesseRush] = leaning(mix(&[(0.8, rush), (0.4, explosive), (0.3, hand)]));
+    shape[BlockShedding] = leaning(mix(&[(0.6, tough), (0.8, shed)]));
+    shape[ManCoverage] = leaning(mix(&[(0.8, cover), (0.6, mirror)]));
+    shape[ZoneCoverage] = leaning(mix(&[(0.7, cover), (0.7, recog)]));
+    shape[Press] = leaning(mix(&[(0.6, mirror), (0.5, power), (0.4, hand)]));
+    shape[Disguise] = leaning(mix(&[(0.6, cover), (0.7, iq)]));
+    shape[Tackling] = leaning(mix(&[(0.7, tough), (0.7, tackle)]));
+    shape[Pursuit] = leaning(mix(&[(0.7, tackle), (0.6, recog), (0.3, engine)]));
+    shape[Blitzing] = leaning(mix(&[(0.6, rush), (0.6, recog), (0.3, explosive)]));
+    shape[Traffic] = leaning(mix(&[(0.6, shed), (0.6, recog), (0.4, body)]));
     // A real kicking leg is rarer than any other gift.
     // A real leg comes with a kicker's or punter's body: lean, and taller for
     // punting's longer lever (item 7; proposed, not confirmed).
     let kick_body = body_likeness(fh, fw, Position::K).max(body_likeness(fh, fw, Position::P));
-    shape[Attr::KickPower] = leaning(leg + 0.8 * (kick_body - 0.4) - 0.4);
-    shape[Attr::KickAccuracy] = leaning(mix(0.5, leg, 0.85, kick_touch) - 0.4);
-    shape[Attr::Awareness] = leaning(mix(0.75, iq, 0.65, aware));
-    shape[Attr::PlayRecognition] = leaning(mix(0.75, iq, 0.65, recog));
-    shape[Attr::Vision] = leaning(vision);
-    shape[Attr::Poise] = leaning(poise);
-    (shape, (fh, fw))
+    shape[KickPower] = leaning(leg + 0.8 * (kick_body - 0.4) - 0.4);
+    // One kicker is lethal short, another long (Raichel, topic 7): one base
+    // and a lean, with a big leg helping from distance.
+    shape[ShortKickAccuracy] = leaning(mix(&[(0.2, leg), (0.9, kick_touch)]) - 0.4 + 0.3 * split);
+    shape[LongKickAccuracy] = leaning(mix(&[(0.55, leg), (0.75, kick_touch)]) - 0.4 - 0.3 * split);
+    shape[KickTrajectory] = leaning(mix(&[(0.6, kick_touch), (0.6, leg)]) - 0.4);
+    shape[KickoffTechnique] = leaning(mix(&[(0.5, leg), (0.7, kick_touch)]) - 0.4);
+    let punt = mix(&[(0.7, leg), (0.7, punt_leg)]);
+    shape[PuntPower] = leaning(punt + 0.8 * (kick_body - 0.4) - 0.4);
+    shape[PuntPlacement] = leaning(mix(&[(0.4, punt), (0.8, punt_touch)]) - 0.4);
+    shape[GetOff] = leaning(mix(&[(0.6, kick_touch), (0.5, mech)]) - 0.4);
+    // Long snapping is a rare, taught knack; most centers never learn it.
+    shape[LongSnapping] = leaning(snap - 0.6);
+    shape[ShotgunSnap] = leaning(mix(&[(0.6, snap), (0.6, hands)]));
+    shape[FootballIq] = leaning(mix(&[(0.75, iq), (0.65, aware)]));
+    shape[PlayRecognition] = leaning(mix(&[(0.75, iq), (0.65, recog)]));
+    shape[Anticipation] = leaning(mix(&[(0.6, iq), (0.5, recog), (0.5, antic)]));
+    shape[Decisions] = leaning(mix(&[(0.6, iq), (0.5, poise), (0.5, decide)]));
+    shape[Composure] = leaning(poise);
+    shape[Concentration] = leaning(mix(&[(0.8, focus), (0.4, poise)]));
+    shape[Discipline] = leaning(mix(&[(0.8, disc), (0.4, iq)]));
+    shape[Communication] = leaning(mix(&[(0.6, iq), (0.7, lead)]));
+    shape[Toughness] = leaning(mix(&[(0.8, tough), (0.5, compete)]));
+    shape[Motor] = leaning(mix(&[(0.8, engine), (0.5, compete)]));
+    shape[Competitiveness] = leaning(compete);
+    shape[Physicality] = leaning(mix(&[(0.6, hit), (0.5, tough), (0.4, compete)]));
+    (shape, (fh, fw), compete)
 }
 
 /// How a staff weighs a fit at each position against the others. A coach
@@ -169,7 +238,7 @@ static FIT_SCALE: LazyLock<[f64; POSITION_COUNT]> = LazyLock::new(|| {
     let mut rng = Rng::new("athlete-fit-calibration");
     let sample: Vec<[f64; POSITION_COUNT]> = (0..40_000)
         .map(|_| {
-            let (shape, (h, w)) = draw_shape(&mut rng);
+            let (shape, (h, w), _) = draw_shape(&mut rng);
             Position::ALL.map(|p| overall_for(p, &shape) * (1.0 - misfit(h, w, p)))
         })
         .collect();
@@ -205,10 +274,11 @@ fn best_fit(shape: &Attributes, frame: (f64, f64)) -> (Position, f64) {
     (Position::ALL[k], overall_for(Position::ALL[k], shape))
 }
 
-/// Ceilings, his body and his natural position for a new athlete of the
-/// given talent. Talent is how good he can become at the spot that suits him best.
-pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position) {
-    let (shape, (fh, fw)) = draw_shape(rng);
+/// Ceilings, his body, his natural position and his will to compete (a
+/// standard normal) for a new athlete of the given talent. Talent is how
+/// good he can become at the spot that suits him best.
+pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position, f64) {
+    let (shape, (fh, fw), compete) = draw_shape(rng);
     let (natural, fit) = best_fit(&shape, (fh, fw));
     // Talent is his overall at his best spot. The skills that spot needs rise
     // together: a great player is good at everything his position asks, so
@@ -249,7 +319,7 @@ pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position)
     let height = clamp(fh + dh, 64.0, 82.0);
     let weight = clamp(fw + dw, 140.0, 380.0);
     let body = Body::grown(height, weight, rng);
-    (ceilings, body, natural)
+    (ceilings, body, natural, compete)
 }
 
 /// How sharp a staff's eye for a player's real position is, 0-1: a high

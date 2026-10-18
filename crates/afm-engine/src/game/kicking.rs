@@ -49,9 +49,18 @@ pub struct KickResult {
     pub frames: Option<Vec<Frame>>,
 }
 
-/// Kick distance for a leg (yards in the air), with weather and altitude.
-fn leg(kicker: &GamePlayer, base: f64, per: f64, cond: &Conditions, along: f64) -> f64 {
-    let kp = kicker.a(Attr::KickPower);
+/// A kicker's accuracy on a field goal of this distance: short kick
+/// accuracy to 30 yards, long from 50, blended between (one kicker is
+/// lethal short, another long; Raichel, topic 7), so there is no cliff at 40.
+pub fn fg_accuracy(kicker: &GamePlayer, distance: f64) -> f64 {
+    let t = clamp((distance - 30.0) / 20.0, 0.0, 1.0);
+    (1.0 - t) * kicker.a(Attr::ShortKickAccuracy) + t * kicker.a(Attr::LongKickAccuracy)
+}
+
+/// Kick distance for a leg (yards in the air), with weather and altitude:
+/// kick power for place kicks, punt power for punts.
+fn leg(kicker: &GamePlayer, power: Attr, base: f64, per: f64, cond: &Conditions, along: f64) -> f64 {
+    let kp = kicker.a(power);
     let mut d = base + per * kp;
     // Thin air carries the ball; cold air doesn't.
     d *= 1.0 + 0.000015 * cond.altitude;
@@ -95,9 +104,9 @@ pub fn field_goal(
     rng: &mut Rng,
 ) -> FieldGoal {
     // The snap and the hold are their own battles (topic 7).
-    let snap_skill = snapper.traits.snapping;
+    let snap_skill = snapper.on20(Attr::LongSnapping);
     let bad_snap = rng.chance(0.004 * (1.0 + (10.0 - snap_skill).max(-5.0) * 0.18));
-    let hold = holder.a(Attr::Catching) * 0.5 + holder.a(Attr::Awareness) * 0.5;
+    let hold = holder.a(Attr::Catching) * 0.5 + holder.a(Attr::Concentration) * 0.5;
     let bad_hold = !bad_snap && rng.chance(0.004 * (1.6 - hold / 100.0));
     let mut fg = FieldGoal { made: false, blocked: false, distance, bad_snap, why: String::new() };
     if bad_snap && rng.chance(0.6) {
@@ -114,8 +123,7 @@ pub fn field_goal(
         fg.why = format!("Blocked: the rush got a hand on {}-yard try.", crate::text::with_article(&yards));
         return fg;
     }
-    let short = distance < 40.0;
-    let acc = kicker.a(Attr::KickAccuracy) + if short { kicker.traits.kick_short } else { kicker.traits.kick_long };
+    let acc = fg_accuracy(kicker, distance);
     // Spread in degrees: an average NFL kicker misses by about 2.5 degrees.
     let mut sd = (2.4 + 0.014 * (distance - 30.0)) * (1.82 - 0.0105 * acc).max(0.55);
     sd *= 1.18 - 0.018 * kicker.traits.consistency;
@@ -126,7 +134,7 @@ pub fn field_goal(
     sd *= 1.0 + 0.012 * cond.wind;
     let angle = sd * rng.normal(0.0, 1.0);
     let lateral = distance * angle.to_radians().tan();
-    let reach = leg(kicker, 40.0, 0.3, cond, along) + rng.normal(0.0, 3.0);
+    let reach = leg(kicker, Attr::KickPower, 40.0, 0.3, cond, along) + rng.normal(0.0, 3.0);
     let wide = lateral.abs() > 3.083;
     let short_of = reach < distance;
     fg.made = !wide && !short_of;
@@ -154,7 +162,7 @@ pub fn kick_unit_strength(players: &[GamePlayer], on: &[usize], rush: bool) -> f
         .map(|&i| {
             let p = &players[i];
             if rush {
-                0.5 * p.a(Attr::PassRush) + 0.3 * p.a(Attr::Strength) + 0.2 * p.a(Attr::Jumping)
+                0.3 * p.a(Attr::PowerRush) + 0.2 * p.a(Attr::FinesseRush) + 0.3 * p.a(Attr::Strength) + 0.2 * p.a(Attr::Jumping)
             } else {
                 0.6 * p.a(Attr::PassBlocking) + 0.4 * p.a(Attr::Strength)
             }
@@ -182,7 +190,7 @@ pub fn kickoff(
     let mut res = KickResult::default();
     if onside {
         // A short kick and a scramble for it; the hands team waits for it.
-        let acc = kicker.a(Attr::KickAccuracy);
+        let acc = kicker.a(Attr::KickoffTechnique);
         let p = clamp(0.08 + 0.0025 * (acc - 50.0) + if rules.nfl_kickoff { -0.02 } else { 0.03 }, 0.03, 0.25);
         res.distance = 11.0 + rng.range(0.0, 3.0);
         let spot = from - res.distance;
@@ -195,7 +203,7 @@ pub fn kickoff(
     // five to nine yards deep from the 35); a college leg a few less, a high
     // school one far less (proposed, not confirmed: was 44 + 0.23 per point,
     // which put almost no kick in the end zone at any level).
-    let max = leg(kicker, 49.0, 0.23, cond, along) + rng.normal(0.0, 3.0);
+    let max = leg(kicker, Attr::KickPower, 49.0, 0.23, cond, along) + rng.normal(0.0, 3.0);
     // Where he aims: under the NFL's 2025 rule a kick into the end zone is a
     // touchback to the 35, so most kickers drop it in the landing zone and
     // make the return team bring it out (real 2025: 75% returned). A
@@ -217,7 +225,7 @@ pub fn kickoff(
     res.distance = from - land_x;
     res.hang = hang;
     // Out of bounds: rare, the ball goes to the 40.
-    if rng.chance(0.006 * (1.4 - kicker.a(Attr::KickAccuracy) / 100.0)) {
+    if rng.chance(0.006 * (1.4 - kicker.a(Attr::KickoffTechnique) / 100.0)) {
         res.out_of_bounds = true;
         res.spot = 40.0;
         res.duration = hang;
@@ -237,7 +245,7 @@ pub fn kickoff(
     // The returner's call: take a knee deep in the end zone, or bring it out.
     let returner = k.ret_on[0];
     let rp = &k.ret[returner];
-    let judgment = rp.a(Attr::Awareness);
+    let judgment = rp.a(Attr::Decisions);
     let tb_value = rules.kickoff_touchback;
     let kneel = land_x < 0.0 && {
         let expected = land_x + 22.0 + 0.1 * (rp.a(Attr::Speed) - 70.0);
@@ -285,7 +293,7 @@ pub fn punt(
     let snapper = &k.kick[k.snapper];
     let mut res = KickResult::default();
     // The snap.
-    let snap_skill = snapper.traits.snapping;
+    let snap_skill = snapper.on20(Attr::LongSnapping);
     let bad = rng.chance(0.005 * (1.0 + (10.0 - snap_skill).max(-5.0) * 0.2));
     res.bad_snap = bad;
     // The rush against the shield; a slow operation gets blocked.
@@ -302,16 +310,16 @@ pub fn punt(
         }
         return res;
     }
-    let max = leg(punter, 17.0, 0.215, cond, along) + 14.0 + rng.normal(0.0, 4.5);
+    let max = leg(punter, Attr::PuntPower, 17.0, 0.215, cond, along) + 14.0 + rng.normal(0.0, 4.5);
     // Placement: from midfield he aims inside the 10 rather than the end zone.
     let dist_goal = from + 15.0;
     let pin = from < 62.0;
-    let acc = punter.a(Attr::KickAccuracy);
+    let acc = punter.a(Attr::PuntPlacement);
     let aim_land = if pin { 8.0 + rng.normal(0.0, 6.0 - 0.04 * acc) } else { from - max };
     let land_x = aim_land.max(from - max);
     let _ = dist_goal;
     let hang = clamp(
-        3.5 + 0.018 * (punter.a(Attr::KickPower) - 60.0) + 0.006 * (acc - 60.0) + rng.normal(0.0, 0.25)
+        3.5 + 0.018 * (punter.a(Attr::PuntPower) - 60.0) + 0.006 * (acc - 60.0) + rng.normal(0.0, 0.25)
             - if pin { 0.2 } else { 0.0 },
         2.9,
         5.2,
@@ -352,7 +360,7 @@ pub fn punt(
         .fold(0.0, f64::max);
     let cover_gap = clamp(4.6 - 1.6 * (hang - 4.2) - 0.08 * (gunner - jammer) + rng.normal(0.0, 2.0), 0.0, 15.0);
     let returner = &k.ret[k.ret_on[0]];
-    let judgment = returner.a(Attr::Awareness);
+    let judgment = returner.a(Attr::Decisions);
     // Inside his 10, a returner lets it go: it bounces.
     if land_x < 10.0 {
         let field = rng.chance(clamp(0.1 + 0.004 * (60.0 - judgment), 0.02, 0.4));
