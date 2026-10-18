@@ -115,6 +115,8 @@ impl<'a> Side<'a> {
         // spot by Saturday. A coach keeps a man where he knows the job
         // unless moving him is clearly better.
         let mut familiar: Vec<u32> = team.players.iter().map(|p| p.spots_played | p.spot.bit()).collect();
+        // A left-handed starter's blind side is his right (`spots::blind_side`).
+        let lefty = depth.list(Position::QB).first().is_some_and(|&i| team.players[i].left_handed);
         for pos in Position::ALL {
             let spots = spots::starter_spots(pos);
             if spots.len() < 2 {
@@ -124,7 +126,7 @@ impl<'a> Side<'a> {
             let value = |i: usize, sp: Spot| {
                 let p = &team.players[i];
                 let cost = if familiar[i] & sp.bit() != 0 { 0.0 } else { fill_in(sp, p.spot) };
-                p.spot_r[sp.index()] - 0.5 * cost
+                p.spot_r[spots::blind_side(sp, lefty).index()] - 0.5 * cost
             };
             let order = best_order(&list, spots, &value);
             for (k, i) in order.into_iter().enumerate() {
@@ -160,6 +162,12 @@ impl<'a> Side<'a> {
     /// What he gives at a spot this snap.
     fn at_spot(&self, i: usize, sp: Spot) -> f64 {
         self.team.players[i].spot_r[sp.index()] - self.unfamiliar(i, sp)
+    }
+
+    /// A lineman at a spot on the line, facing the demands of the blind side
+    /// when his quarterback is a lefty.
+    fn on_line(&self, i: usize, sp: Spot, lefty: bool) -> f64 {
+        self.team.players[i].spot_r[spots::blind_side(sp, lefty).index()] - self.unfamiliar(i, sp)
     }
 
     /// The fullback (3.4): a back or a tight end, never anyone else; the
@@ -1359,8 +1367,9 @@ impl<'a> Game<'a> {
         // The line: each man to the spot he plays best together with the
         // others, a fill-in paying for a spot he doesn't know (3.3).
         let line = |list: Vec<usize>, rs: &[ORole], off: &mut Vec<(ORole, usize)>| {
+            let lefty = off.iter().any(|&(r, i)| r == ORole::QB && o.team.players[i].left_handed);
             let spots: Vec<Spot> = rs.iter().map(|&r| orole_spot(r)).collect();
-            let order = best_order(&list, &spots, &|i, sp| o.at_spot(i, sp));
+            let order = best_order(&list, &spots, &|i, sp| o.on_line(i, sp, lefty));
             for (k, i) in order.into_iter().enumerate() {
                 if let Some(i) = i {
                     off.push((rs[k], i));

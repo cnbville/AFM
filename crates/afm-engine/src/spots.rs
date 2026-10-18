@@ -254,6 +254,17 @@ pub fn starter_spots(pos: Position) -> &'static [Spot] {
     }
 }
 
+/// The spot whose demands a man at `spot` faces: with a left-handed
+/// quarterback the right tackle guards the blind side, so he is rated as a
+/// left tackle and the left tackle as a right tackle.
+pub fn blind_side(spot: Spot, lefty: bool) -> Spot {
+    match spot {
+        Spot::LT if lefty => Spot::RT,
+        Spot::RT if lefty => Spot::LT,
+        s => s,
+    }
+}
+
 /// A staff sets its spots (each spring, and for a new roster): the starters
 /// at each position go to the spots that suit them best together, every
 /// backup to his own best spot. Returns each player's spot, in order; the
@@ -268,12 +279,7 @@ pub fn choose_spots(players: &[&Player]) -> Vec<Spot> {
         .filter(|p| p.position == Position::QB)
         .max_by(|a, b| a.overall().total_cmp(&b.overall()))
         .is_some_and(|q| q.body.left_handed);
-    let blind = |s: Spot| match s {
-        Spot::LT if lefty => Spot::RT,
-        Spot::RT if lefty => Spot::LT,
-        s => s,
-    };
-    let r = |p: &Player, s: Spot| spot_rating(blind(s), &p.attributes, p.body.weight);
+    let r = |p: &Player, s: Spot| spot_rating(blind_side(s, lefty), &p.attributes, p.body.weight);
     for pos in Position::ALL {
         let mut idx: Vec<usize> = (0..players.len()).filter(|&i| players[i].position == pos).collect();
         if idx.is_empty() {
