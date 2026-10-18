@@ -1,7 +1,9 @@
 //! Section 2 trial: builds a real-size world with 30 years of hidden history
 //! and prints the notable outcomes with the facts behind each one, so every
 //! result can be given a "why". Uses the debug feature (hidden values).
-//! Usage: world_trial [seed] [history_years]
+//! Usage: world_trial [seed] [history_years] [future_years]
+//! Future years run the world on past the save's start (2026), the way the
+//! game will, and the report covers history and future together.
 
 use std::collections::BTreeMap;
 use std::time::Instant;
@@ -204,7 +206,7 @@ fn main() {
         std::env::var("AFM_DASH").is_ok() || std::env::var("AFM_CARDS").is_ok() || std::env::var("AFM_RAW").is_ok();
     // AFM_SCALE=0.05: a small world, for quick checks of the tooling only.
     let scale = std::env::var("AFM_SCALE").ok().and_then(|v| v.parse().ok()).unwrap_or(1.0);
-    let w = World::new(WorldOptions {
+    let mut w = World::new(WorldOptions {
         seed,
         history_years: years,
         engine_from,
@@ -212,7 +214,19 @@ fn main() {
         scale,
         ..Default::default()
     });
-    println!("# World trial: seed {seed}, {years} years of history, built in {:.0}s\n", t.elapsed().as_secs_f64());
+    let future: u32 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(0);
+    let built = t.elapsed().as_secs_f64();
+    for _ in 0..future {
+        let s = Instant::now();
+        w.advance_year();
+        eprintln!("future season to {}: {:.0}s", w.year, s.elapsed().as_secs_f64());
+    }
+    println!(
+        "# World trial: seed {seed}, {years} years of history and {future} into the future, history built in {built:.0}s, all in {:.0}s\n",
+        t.elapsed().as_secs_f64()
+    );
+    // Every report below covers the whole recorded span, history and future.
+    let years = years + future;
 
     // AFM_CARDS=path.json: full player pages for featured players.
     let mut card_values: Vec<serde_json::Value> = Vec::new();
@@ -468,7 +482,7 @@ fn main() {
     println!("{}", champs.iter().map(|(y, n)| format!("{y} {n}")).collect::<Vec<_>>().join("; "));
     // Part B 25: a season with no FBS champion is a bug.
     let first = w.options.start_year - w.options.history_years as i32;
-    for y in first..w.options.start_year {
+    for y in first..w.year {
         if !champs.contains_key(&y) {
             println!("WARNING: no FBS national champion in {y}");
         }
@@ -801,7 +815,6 @@ fn main() {
 
     // --- Character report: what the game shows instead ---
     println!("\n## What a scout sees (character report on a current five-star)");
-    let mut w = w;
     if let Some(i) = w.people.iter().position(|p| p.stars == 5 && !p.player.position.is_specialist()) {
         let name = w.people[i].name.clone();
         for acc in [6.0, 16.0] {
