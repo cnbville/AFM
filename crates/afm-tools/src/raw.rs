@@ -10,6 +10,12 @@ use afm_engine::world::geo::STATE_CENTERS;
 use afm_engine::world::{Stage, World};
 use serde_json::{Value, json};
 
+/// A franchise's name in a season (trial 7 finding 17: the export used
+/// today's names, the Commanders in 1996).
+fn club(t: usize, year: i32) -> &'static str {
+    afm_engine::world::franchise::name(t, year)
+}
+
 fn r1(x: f64) -> f64 {
     (x * 10.0).round() / 10.0
 }
@@ -98,7 +104,7 @@ pub(crate) fn pro_row(
     }));
     let seasons: Vec<Value> = c.seasons.iter().map(|s| {
         let l = &s.stats;
-        json!({"year": s.year, "team": s.team.map(|t| w.nfl[t].name), "g": s.games, "gs": s.starts, "snaps": s.snaps, "opp": r2(if s.snaps[0] + s.snaps[1] > 0 { s.opp / (s.snaps[0] + s.snaps[1]) as f64 } else { 0.0 }),
+        json!({"year": s.year, "team": s.team.map(|t| club(t, s.year)), "g": s.games, "gs": s.starts, "snaps": s.snaps, "opp": r2(if s.snaps[0] + s.snaps[1] > 0 { s.opp / (s.snaps[0] + s.snaps[1]) as f64 } else { 0.0 }),
             "ps_weeks": s.ps_weeks, "ir_weeks": s.ir_weeks, "pay": s.pay.round(), "pro_bowl": s.pro_bowl, "all_pro": s.all_pro, "awards": s.awards,
             "grade": if l.graded > 0 { Some(r1(l.grade())) } else { None },
             "pass": [l.cmp, l.att, l.pass_yds.round(), l.pass_td, l.int], "rush": [l.rush, l.rush_yds.round(), l.rush_td],
@@ -106,7 +112,7 @@ pub(crate) fn pro_row(
     }).collect();
     json!({
         "id": id, "name": name, "pos": pos, "age": age, "overall": r1(overall), "potential": r1(potential), "active": active,
-        "status": format!("{:?}", c.status), "team": c.team.map(|t| w.nfl[t].name), "draft": c.draft.map(|d| json!([d.0, d.1, d.2, w.nfl[d.3].name])),
+        "status": format!("{:?}", c.status), "team": c.team.map(|t| w.nfl[t].name), "draft": c.draft.map(|d| json!([d.0, d.1, d.2, club(d.3, d.0)])),
         "first_year": c.first_year, "accrued": c.accrued, "earnings": c.earnings.round(), "teams": c.teams.iter().map(|&t| w.nfl[t].name).collect::<Vec<_>>(),
         "agent": c.agent.map(|a| w.market.agents[a].name.clone()), "trust": r2(c.trust), "tags": c.tags, "hold": format!("{:?}", c.hold),
         "ipp": c.ipp, "deal": deal, "seasons": seasons, "notes": notes,
@@ -136,7 +142,7 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
     let mut f = Lines::new(dir, "nfl_games.jsonl");
     for g in &log.nfl_games {
         f.put(json!({
-            "year": g.year, "div": "NFL", "home": w.nfl[g.teams[0]].name, "away": w.nfl[g.teams[1]].name,
+            "year": g.year, "div": "NFL", "home": club(g.teams[0], g.year), "away": club(g.teams[1], g.year),
             "score": g.score, "ot": g.overtime, "kr": [[g.kr[0].0, r1(g.kr[0].1)], [g.kr[1].0, r1(g.kr[1].1)]],
             "pr": [[g.pr[0].0, r1(g.pr[0].1)], [g.pr[1].0, r1(g.pr[1].1)]],
             "stats": [team_stats(&g.stats[0]), team_stats(&g.stats[1])],
@@ -306,7 +312,12 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
     // deal, his agent and his honors; the market's books; trades, comp
     // picks, front offices, NFL honors and the Pro Football Hall of Fame.
     let mut f = Lines::new(dir, "pros.jsonl");
-    for q in w.people.iter().filter(|q| q.pro.is_some()) {
+    // A pro who retired at the end of the last season is archived already
+    // and still among the people until the year's clean-up: his archived
+    // row stands (trial 7 finding 17: 86 pros were written twice).
+    let archived: std::collections::HashSet<u32> =
+        w.alumni.iter().filter(|a| a.pro.is_some()).filter_map(|a| a.player.as_ref().map(|p| p.id)).collect();
+    for q in w.people.iter().filter(|q| q.pro.is_some() && !archived.contains(&q.player.id)) {
         f.put(pro_row(
             w,
             q.player.id,
@@ -357,10 +368,11 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
 
     let mut f = Lines::new(dir, "nfl_trades.jsonl");
     for t in &w.market.picks.trades {
-        f.put(json!({"date": t.date.pretty(), "buyer": w.nfl[t.buyer].name, "seller": w.nfl[t.seller].name, "picks": t.picks, "text": t.text}));
+        let y = t.date.year();
+        f.put(json!({"date": t.date.pretty(), "buyer": club(t.buyer, y), "seller": club(t.seller, y), "picks": t.picks, "text": t.text}));
     }
     for c in &w.market.picks.comp {
-        f.put(json!({"comp": true, "year": c.year, "team": w.nfl[c.team].name, "owner": w.nfl[c.owner].name, "round": c.round, "kind": format!("{:?}", c.kind), "value": r1(c.value)}));
+        f.put(json!({"comp": true, "year": c.year, "team": club(c.team, c.year), "owner": club(c.owner, c.year), "round": c.round, "kind": format!("{:?}", c.kind), "value": r1(c.value)}));
     }
     counts.push(("trades and comp picks".into(), f.n));
 
@@ -389,13 +401,13 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
     let mut f = Lines::new(dir, "nfl_honors.jsonl");
     let b = &w.nfl_book;
     for a in &b.awards {
-        f.put(json!({"kind": "award", "year": a.0, "award": a.1, "id": a.2, "name": a.3, "team": w.nfl[a.4].name}));
+        f.put(json!({"kind": "award", "year": a.0, "award": a.1, "id": a.2, "name": a.3, "team": club(a.4, a.0)}));
     }
     for a in &b.all_pro {
-        f.put(json!({"kind": "all_pro", "year": a.0, "team_no": a.1, "id": a.2, "pos": a.3.name(), "team": w.nfl[a.4].name}));
+        f.put(json!({"kind": "all_pro", "year": a.0, "team_no": a.1, "id": a.2, "pos": a.3.name(), "team": club(a.4, a.0)}));
     }
     for a in &b.pro_bowls {
-        f.put(json!({"kind": "pro_bowl", "year": a.0, "id": a.1, "team": w.nfl[a.2].name}));
+        f.put(json!({"kind": "pro_bowl", "year": a.0, "id": a.1, "team": club(a.2, a.0)}));
     }
     for r in &b.records {
         f.put(json!({"kind": "record", "stat": r.stat, "career": r.career, "value": r1(r.value), "holder": r.holder, "year": r.year, "world": r.world}));
@@ -456,7 +468,9 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
             f.put(json!({
                 "year": year, "spin_up": *year < first, "date": e.when.date.to_string(), "min": e.when.minute, "level": format!("{:?}", e.level),
                 "kind": format!("{:?}", e.kind), "loud": format!("{:?}", e.loud), "rule": e.rule,
-                "nfl": e.nfl_team.map(|t| w.nfl[t].name), "program": e.program.map(|c| w.programs[c].real_name.as_str()),
+                // The franchise's name on the day (trial 7 finding 17: today's name on 1996 events).
+                "nfl": e.nfl_team.map(|t| afm_engine::world::franchise::name(t, e.when.date.year())),
+                "program": e.program.map(|c| w.programs[c].real_name.as_str()),
                 "text": e.text, "memorable": e.memorable, "decision": e.needs_decision,
             }));
         }
@@ -488,7 +502,7 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
     counts.push(("high schools".into(), f.n));
     let mut f = Lines::new(dir, "nfl_champions.jsonl");
     for &(year, t) in &w.nfl_champions {
-        f.put(json!({"year": year, "team": w.nfl[t].name}));
+        f.put(json!({"year": year, "team": club(t, year)}));
     }
     counts.push(("nfl champions".into(), f.n));
 

@@ -7,6 +7,7 @@ use rayon::prelude::*;
 
 use super::background::Decider;
 use super::data::{DIVISION_COUNT, Division};
+use super::news::count;
 use super::program::{GradeCat, Program, record_impact};
 use super::season::{key_normal, key_uniform};
 use super::{Alumnus, CommitTiming, Person, Stage, World, division_level, geo};
@@ -520,11 +521,17 @@ pub(crate) fn draft_reads(w: &mut World) {
         }
         let level = division_level(division);
         let p = &mut w.people[i];
-        // Pro scouts list him where they see him playing on Sundays.
-        if let Some(from) = crate::athlete::reconsider(&mut p.player, crate::athlete::Eye::NFL_SCOUTS, 0.005) {
-            let to = p.player.position;
-            p.note(format!("Played {from} in college; pro scouts project him at {to}."));
-        }
+        // Pro scouts list him where they see him playing on Sundays and
+        // rate him there; he keeps playing his college position until he
+        // leaves (trial 7 finding 12: a quarterback projected at end went
+        // back to his team listed at end).
+        let to = crate::athlete::better_position(&p.player, crate::athlete::Eye::NFL_SCOUTS, 0.005);
+        p.cal.pro_position = to;
+        let projected = to.map(|pos| {
+            let mut q = p.player.clone();
+            crate::athlete::set_position(&mut q, pos);
+            q
+        });
         // A small-school player whose numbers flag him (this season or
         // last) gets a second look: more scouts on his film, a truer read.
         // The numbers can lie (a weak schedule), so the film decides
@@ -559,7 +566,8 @@ pub(crate) fn draft_reads(w: &mut World) {
             p.note(format!("At {age} pro scouts took a second look at his film: {}.", why.join("; ")));
         }
         let accuracy = if flagged { 8.0 } else { 13.0 };
-        let rep = scout_player(&p.player, ScoutOptions { accuracy, level }, &mut p.rng);
+        let seen = projected.as_ref().unwrap_or(&p.player);
+        let rep = scout_player(seen, ScoutOptions { accuracy, level }, &mut p.rng);
         let youth = clamp((23.0 - p.player.age as f64) / 3.0, 0.0, 1.0);
         let flags: f64 = p
             .player
@@ -581,7 +589,7 @@ pub(crate) fn draft_reads(w: &mut World) {
         // ranks a long snapper as the draft does, far down the board, so
         // combine invites go to real prospects. The round's weight follows
         // the grade.
-        let pos = p.player.position;
+        let pos = seen.position;
         let rf = if grade >= 78.0 {
             1.0
         } else if grade >= 72.0 {
@@ -1068,6 +1076,14 @@ pub(crate) fn draft(w: &mut World) {
     let season = draft_year - 1;
     let seed = w.options.seed as u64;
     let y = w.dates.clone();
+    // The draft class moves to where the pro scouts project it.
+    for p in w.people.iter_mut().filter(|p| p.stage == Stage::Declared) {
+        if let Some(to) = p.cal.pro_position.take() {
+            let from = p.player.position;
+            crate::athlete::set_position(&mut p.player, to);
+            p.note(format!("Played {from} in college; pro scouts project him at {to}."));
+        }
+    }
     let mut declared: Vec<(usize, f64)> = Vec::new();
     for (i, p) in w.people.iter().enumerate() {
         if p.stage == Stage::Declared
@@ -1808,11 +1824,20 @@ fn class_plan(
         let mut target = real_roster(pos) * scale;
         if pos.is_specialist() {
             // Each staff has its own habit: 3.1 kickers a roster means some carry 3, some 4.
+            // Under a scholarship limit the walk-ons fill out a real squad's
+            // specialists, as at every other position.
             let habit = key_uniform(seed ^ 0x5EC1_A115 ^ k as u64, prog.id as u64);
-            let total = (target + habit).floor();
+            let squad =
+                if whole_roster { target } else { real_roster(pos) * level_roster(prog.division) / REAL_ROSTER_TOTAL };
+            let total = (squad + habit).floor();
             let on_scholarship = specialist_scholarships(pos).min(total);
             plan.scholarship[k] = plan_count(on_scholarship, now[k][0], stay[k][0]);
-            plan.walk_on[k] = plan_count(total - on_scholarship, now[k][1], stay[k][1]);
+            // Everyone at the position counts against the total: a walk-on
+            // put on scholarship in fall camp still snaps or kicks there
+            // (trial 7 finding 14: counting walk-ons alone kept adding
+            // snappers, 4.6 a roster against a real 2.5).
+            let signed = plan.scholarship[k] as f64;
+            plan.walk_on[k] = plan_count(total, now[k][0] + now[k][1] + signed, stay[k][0] + stay[k][1] + signed);
             target = total;
         } else {
             plan.scholarship[k] = plan_count(target, now[k][0] + now[k][1], stay[k][0] + stay[k][1]);
@@ -1926,12 +1951,12 @@ fn recruiting_stars(p: &Person) -> u8 {
     if p.player.position.is_specialist() { p.camp_stars } else { p.stars }
 }
 
-/// What a walk-on spot costs a family next to a scholarship: tuition, as at
-/// the Pioneer League schools, which give no athletic aid. Schools that give
-/// none anyway cost nothing extra. Out of state it costs about 1.77 times as
-/// much (a public four-year school's full cost, $44,090 against $24,920 in
-/// state, College Board 2024-25), so walk-ons are mostly local (fix list
-/// 5.2; private schools charge everyone the same, not modeled).
+/// What a walk-on spot costs a recruit: his family's tuition, as at the
+/// Pioneer League schools, which give no athletic aid. Schools that give
+/// none anyway cost no tuition extra. Out of state tuition costs about 1.77
+/// times as much (a public four-year school's full cost, $44,090 against
+/// $24,920 in state, College Board 2024-25), so walk-ons are mostly local
+/// (fix list 5.2; private schools charge everyone the same, not modeled).
 fn walk_on_cost(p: &Person, prog: &Program) -> f64 {
     let away = if prog.state == p.home_state { 1.0 } else { 1.77 };
     match prog.conference.as_str() {
@@ -1939,6 +1964,23 @@ fn walk_on_cost(p: &Person, prog: &Program) -> f64 {
         _ => 0.8 * (1.0 - 0.6 * p.bg.money) * away,
     }
 }
+
+/// What a recruit gives up by taking a walk-on place over a scholarship
+/// offer he has, besides the money (trial 7 finding 4): a promised place on
+/// the team, the last turn at reps, and a staff with nothing invested in
+/// him. It weighs by the level of the scholarship he turns down: walking on
+/// at a Power Four school over an FCS or Division II scholarship is the
+/// common preferred walk-on story, while turning down an FBS scholarship to
+/// walk on is rare, so blue-chips with FBS offers sign. Charged only when a
+/// walk-on place is weighed against a real scholarship offer; a recruit
+/// with none loses nothing. Kickers, punters and snappers often walk on at
+/// big programs, so they don't feel it. Proposed, not confirmed.
+fn scholarship_given_up(p: &Person, scholarship_at: &Program) -> f64 {
+    if p.player.position.is_specialist() { 0.0 } else { WALK_ON_GIVE_UP * level_value(scholarship_at.division) }
+}
+
+/// What turning down an FBS scholarship to walk on costs (see above).
+const WALK_ON_GIVE_UP: f64 = 1.4;
 
 /// What a starter at his position earns at a major program, middle of the
 /// real range (CBS via SI, 2024; `data/real-world/rates.json`). Tight ends
@@ -2129,6 +2171,9 @@ struct RosterView {
     /// Per division and position: the typical starters' average.
     norm: [[f64; POSITION_COUNT]; DIVISION_COUNT],
     division: Vec<usize>,
+    /// Per program and position: bumped whenever the room changes, so a
+    /// fit read once can be kept until it does.
+    ver: Vec<[u32; POSITION_COUNT]>,
 }
 
 /// The units each position leans on, with weights.
@@ -2178,17 +2223,20 @@ impl RosterView {
         }
         let norm = sums.map(|d| d.map(|(t, n)| if n > 0.0 { t / n } else { 0.0 }));
         let division = programs.iter().map(|p| p.division as usize).collect();
-        RosterView { players, unit, norm, division }
+        let ver = vec![[0; POSITION_COUNT]; programs.len()];
+        RosterView { players, unit, norm, division, ver }
     }
 
     /// A commitment or a transfer joins program `j`'s room (11.2).
     fn join(&mut self, j: usize, pos: Position, who: usize, overall: f64, seasons: u32) {
         self.players[j][pos.index()].push((overall, seasons, who));
+        self.ver[j][pos.index()] += 1;
     }
 
     /// A recruit who flips leaves his old room (11.2).
     fn leave(&mut self, j: usize, pos: Position, who: usize) {
         self.players[j][pos.index()].retain(|e| e.2 != who);
+        self.ver[j][pos.index()] += 1;
     }
 
     /// How a program's roster suits him, in utility points. `me` is how good
@@ -2478,27 +2526,32 @@ pub(crate) fn decommit_after_firing(w: &mut World, prog: usize) {
     let seed = w.options.seed as u64 ^ (d.0 as u64) << 16 ^ 0xDEC0;
     let school = w.programs[prog].real_name.clone();
     let pstate = w.programs[prog].state;
+    // Who reopens, read on all cores (each by his own key), then applied in order.
+    let reopens: Vec<(usize, u8)> = w
+        .people
+        .par_iter()
+        .enumerate()
+        .filter_map(|(i, p)| {
+            if p.stage != Stage::HighSchool || p.cal.signed.is_some() || p.cal.commit.is_none_or(|c| c.0 != prog) {
+                return None;
+            }
+            let stars = recruiting_stars(p);
+            let base = match stars {
+                5 => 0.45,
+                4 => 0.35,
+                3 => 0.25,
+                _ => 0.15,
+            };
+            let pers = &p.player.personality;
+            let loyal = clamp(1.0 - 0.04 * (pers.love_of_game - 10.0) - 0.03 * (pers.coachability - 10.0), 0.5, 1.4);
+            let near = if geo::miles(p.home_state, pstate) <= 250.0 { 0.7 } else { 1.0 };
+            (key_uniform(seed, p.player.id as u64) < base * loyal * near).then_some((i, stars))
+        })
+        .collect();
     let mut posts = Vec::new();
-    for i in 0..w.people.len() {
-        let p = &w.people[i];
-        if p.stage != Stage::HighSchool || p.cal.signed.is_some() || p.cal.commit.is_none_or(|c| c.0 != prog) {
-            continue;
-        }
-        let stars = recruiting_stars(p);
-        let base = match stars {
-            5 => 0.45,
-            4 => 0.35,
-            3 => 0.25,
-            _ => 0.15,
-        };
-        let pers = &p.player.personality;
-        let loyal = clamp(1.0 - 0.04 * (pers.love_of_game - 10.0) - 0.03 * (pers.coachability - 10.0), 0.5, 1.4);
-        let near = if geo::miles(p.home_state, pstate) <= 250.0 { 0.7 } else { 1.0 };
-        if key_uniform(seed, p.player.id as u64) >= base * loyal * near {
-            continue;
-        }
-        let (name, pos, age) = (p.name.clone(), p.player.position, p.row_age());
+    for (i, stars) in reopens {
         let p = &mut w.people[i];
+        let (name, pos, age) = (p.name.clone(), p.player.position, p.row_age());
         p.cal.commit = None;
         // He waits to see who is hired and decides at a signing date.
         p.cal.commit_timing = Some(if key_uniform(seed ^ 1, p.player.id as u64) < 0.7 {
@@ -2548,8 +2601,8 @@ pub(crate) fn class_rankings_news(w: &mut World, sign_year: i32, label: &str) {
             v.sort_by(|a, b| b.total_cmp(a));
             let score: f64 =
                 v.iter().enumerate().map(|(n, r)| r * (-((n as f64).powi(2)) / (2.0 * 10.0f64.powi(2))).exp()).sum();
-            let count = |r: f64| v.iter().filter(|&&x| x == r).count() as u32;
-            (score, j, [count(99.0), count(92.0), v.len() as u32])
+            let at = |r: f64| v.iter().filter(|&&x| x == r).count() as u32;
+            (score, j, [at(99.0), at(92.0), v.len() as u32])
         })
         .collect();
     scores.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
@@ -2562,6 +2615,10 @@ pub(crate) fn class_rankings_news(w: &mut World, sign_year: i32, label: &str) {
             _ => list.push((sign_year, score)),
         }
     }
+    // The services rank FBS classes; junior colleges and the lower
+    // divisions have rankings of their own, which nobody headlines (trial 7
+    // finding 13).
+    scores.retain(|s| w.programs[s.1].division == Division::FBS);
     if scores.len() < 3 {
         return;
     }
@@ -2569,7 +2626,13 @@ pub(crate) fn class_rankings_news(w: &mut World, sign_year: i32, label: &str) {
         .iter()
         .take(3)
         .map(|(_, j, c)| {
-            format!("{} ({} signees, {} five-stars, {} four-stars)", w.programs[*j].real_name, c[2], c[0], c[1])
+            format!(
+                "{} ({}, {}, {})",
+                w.programs[*j].real_name,
+                count(c[2], "signee"),
+                count(c[0], "five-star"),
+                count(c[1], "four-star")
+            )
         })
         .collect();
     let text =
@@ -3216,7 +3279,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         fit: [f64; 11],
     }
     let cands: Vec<Cand> = interest
-        .iter()
+        .par_iter()
         .map(|&k| {
             let r = &pool[k];
             let p = &w.people[r.person];
@@ -3639,6 +3702,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         u
     };
     let mut held_offer = vec![0.0f64; pool.len()];
+    // His fit at the school he holds, kept until that room changes: (program, room version, fit).
+    let mut held_fit: Vec<Option<(usize, u32, f64)>> = vec![None; pool.len()];
     // Each recruit's rating, read once: nobody develops while offers go out.
     let overall_of: Vec<f64> = pool.par_iter().map(|r| w.people[r.person].player.overall()).collect();
     let mut active = true;
@@ -3669,10 +3734,25 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 // own feel for the school (11.1).
                 let base_u =
                     relationship(j, k) + feel(j, k) + pull(j, k) - if walk_on { walk_on_cost(p, prog) } else { 0.0 };
-                let mut u = utility(&norms, p, &wants, prog, offer, 1.0 - rank) + base_u + fit;
+                // A walk-on is last in line for reps, wherever he sits on the board.
+                let standing = if walk_on { 0.0 } else { 1.0 - rank };
+                let mut u = utility(&norms, p, &wants, prog, offer, standing) + base_u + fit;
                 // What the school he holds is worth to him now: a recruit at his
                 // position may have committed there since (11.2).
-                let held_u = held[k].map(|h| h.base + view.fit(h.program, who, p, &wants, me, 2, 2.0, early));
+                let held_u = held[k].map(|h| {
+                    let v = view.ver[h.program][p.player.position.index()];
+                    let f = match held_fit[k] {
+                        Some((j0, v0, f)) if j0 == h.program && v0 == v => f,
+                        _ => {
+                            let f = view.fit(h.program, who, p, &wants, me, 2, 2.0, early);
+                            held_fit[k] = Some((h.program, v, f));
+                            f
+                        }
+                    };
+                    // Against a scholarship here, the walk-on place he holds
+                    // costs him the scholarship he would turn down.
+                    h.base + f - if h.walk_on && !walk_on { scholarship_given_up(p, prog) } else { 0.0 }
+                });
                 // Bidding (note 13): a school that wants him near the top of its
                 // board raises its offer to beat the one he holds, within its money.
                 if let Some(hu) = held_u
@@ -3688,12 +3768,17 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                         u = ru;
                     }
                 }
+                // A walk-on place set against the scholarship he holds costs him that scholarship.
+                let given_up = match held[k] {
+                    Some(h) if walk_on && !h.walk_on => scholarship_given_up(p, &programs[h.program]),
+                    _ => 0.0,
+                };
                 // Staffs don't waste an offer on a kid already holding a far better one.
-                if held_u.is_some_and(|hu| hu > u + 0.15) {
+                if held_u.is_some_and(|hu| hu > u - given_up + 0.15) {
                     continue;
                 }
                 offers[k].push(j);
-                if held_u.is_some_and(|hu| hu >= u) {
+                if held_u.is_some_and(|hu| hu >= u - given_up) {
                     continue;
                 }
                 let (pos, overall) = (p.player.position, p.player.overall());
@@ -3769,7 +3854,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             let wants = p.family.decider_wants;
             let pos = p.player.position;
             let i = pos.index();
-            let mut best: Option<(f64, usize, bool, bool)> = None;
+            let mut options: Vec<(f64, usize, bool, bool)> = Vec::new();
             for &(j, special, share) in &listed[k] {
                 let plan = &plans[j];
                 if special && special_taken[j] >= programs[j].special_admits {
@@ -3784,13 +3869,24 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 if walk_on && !plan.late_walk_on(i, [taken[j], taken_walk_on[j]], taken_at[j][i]) {
                     continue;
                 }
-                let u = utility(&norms, p, &wants, &programs[j], 0.0, 1.0 - share) + relationship(j, k) + feel(j, k)
+                let standing = if walk_on { 0.0 } else { 1.0 - share };
+                let u = utility(&norms, p, &wants, &programs[j], 0.0, standing) + relationship(j, k) + feel(j, k)
                     - if walk_on { walk_on_cost(p, &programs[j]) } else { 0.0 };
-                if best.is_none_or(|b| u > b.0) {
-                    best = Some((u, j, walk_on, special));
+                options.push((u, j, walk_on, special));
+            }
+            // A walk-on place costs him the best scholarship he turns down for it.
+            let scholarship = options.iter().filter(|o| !o.2).max_by(|a, b| a.0.total_cmp(&b.0)).map(|o| o.1);
+            let mut best: Option<(f64, f64, usize, bool, bool)> = None;
+            for &(u, j, walk_on, special) in &options {
+                let given_up = match scholarship {
+                    Some(s) if walk_on => scholarship_given_up(p, &programs[s]),
+                    _ => 0.0,
+                };
+                if best.is_none_or(|b| u - given_up > b.0) {
+                    best = Some((u - given_up, u, j, walk_on, special));
                 }
             }
-            let Some((u, j, walk_on, special)) = best else { continue };
+            let Some((_, u, j, walk_on, special)) = best else { continue };
             held[k] = Some(Held { program: j, base: u, special, walk_on, pos: i });
             offers[k].push(j);
             scrambled[k] = true;
@@ -3942,13 +4038,24 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             Some(Held { program: j, special, walk_on, .. }) => {
                 let prog_name = w.program_name(j).to_string();
                 let division = w.programs[j].division;
-                // The offers he had, biggest names first.
-                let mut offer_list: Vec<usize> = offers[k].clone();
+                // The offers he had, biggest names first: this stage's, the
+                // ones still standing from before and the early ones (trial 7
+                // finding 15: a recruit long committed drew no new offers at
+                // signing, so his card listed none).
+                let earlier = &w.people[i].cal;
+                let mut offer_list: Vec<usize> = offers[k]
+                    .iter()
+                    .copied()
+                    .chain(earlier.offers.iter().copied())
+                    .chain(earlier.early_offers.iter().map(|o| o.0))
+                    .collect();
+                offer_list.sort_unstable();
+                offer_list.dedup();
                 offer_list.sort_by(|&a, &b| {
                     (w.programs[b].prestige + 0.3 * level_value(w.programs[b].division))
                         .total_cmp(&(w.programs[a].prestige + 0.3 * level_value(w.programs[a].division)))
+                        .then(a.cmp(&b))
                 });
-                offer_list.dedup();
                 let offer_names: Vec<String> = offer_list.iter().map(|&o| w.program_name(o).to_string()).collect();
                 // Was he steered? Compare with where he himself would have gone among his offers.
                 let p = &w.people[i];

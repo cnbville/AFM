@@ -485,9 +485,11 @@ pub(crate) fn hall_case(w: &mut World, i: usize) {
         return;
     }
     let why = format!(
-        "{ap1} first-team All-Pro, {pb} Pro Bowls, {mvp} MVP{}, {rings} Super Bowl title{}, {starts} seasons as a starter",
+        "{ap1} first-team All-Pro, {}, {mvp} MVP{}, {rings} Super Bowl title{}, {} as a starter",
+        crate::world::news::count(pb, "Pro Bowl"),
         if mvp == 1 { "" } else { "s" },
-        if rings == 1 { "" } else { "s" }
+        if rings == 1 { "" } else { "s" },
+        crate::world::news::count(starts, "season")
     );
     w.nfl_book.candidates.push(HallCandidate {
         id,

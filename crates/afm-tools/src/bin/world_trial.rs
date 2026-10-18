@@ -176,6 +176,21 @@ fn program_story(w: &World, i: usize) {
     );
 }
 
+/// A program's division in a season: its real one through history, then
+/// its own (trial 7 finding 17: seasons carry no division, so old FCS
+/// titles counted as FBS).
+fn division_in(p: &afm_engine::world::program::Program, year: i32) -> Division {
+    if year <= afm_engine::world::data::HISTORY_LAST {
+        p.real_status(year).map_or(p.division, |s| s.0)
+    } else {
+        p.division
+    }
+}
+
+fn fbs_in(p: &afm_engine::world::program::Program, year: i32) -> bool {
+    division_in(p, year) == Division::FBS
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let seed: u32 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(2026);
@@ -238,8 +253,7 @@ fn main() {
         let id_of = |k: usize| w.alumni[k].player.as_ref().map(|p| p.id);
         let hall: Vec<u32> = w.nfl_book.hall.iter().map(|h| h.1).collect();
         let mvp: Vec<u32> = w.nfl_book.awards.iter().filter(|a| a.1 == "MVP").map(|a| a.2).collect();
-        let traded: Vec<usize> = w.market.picks.trades.iter().map(|t| t.player).collect();
-        let traded_ids: Vec<u32> = traded.iter().filter_map(|&i| w.people.get(i).map(|p| p.player.id)).collect();
+        let traded_ids: Vec<u32> = w.market.picks.trades.iter().map(|t| t.player).collect();
         let mut extra = |label: &str, n: usize, f: &dyn Fn(usize) -> bool| {
             let mut got = 0;
             for (k, _) in al() {
@@ -444,11 +458,10 @@ fn main() {
     let champs: BTreeMap<i32, String> = w
         .programs
         .iter()
-        .filter(|p| p.division == Division::FBS)
         .flat_map(|p| {
             p.seasons
                 .iter()
-                .filter(|s| s.national_title)
+                .filter(|s| s.national_title && fbs_in(p, s.year))
                 .map(move |s| (s.year, format!("{} {}-{}", p.real_name, s.wins, s.losses)))
         })
         .collect();
@@ -464,8 +477,10 @@ fn main() {
         let c: BTreeMap<String, usize> = w
             .programs
             .iter()
-            .filter(|p| p.division == d)
-            .map(|p| (p.real_name.clone(), p.seasons.iter().filter(|s| s.national_title).count()))
+            .map(|p| {
+                let won = p.seasons.iter().filter(|s| s.national_title && division_in(p, s.year) == d).count();
+                (p.real_name.clone(), won)
+            })
             .filter(|x| x.1 > 0)
             .collect();
         let mut v: Vec<_> = c.into_iter().collect();
@@ -539,8 +554,8 @@ fn main() {
     let mut titles: Vec<(usize, &str)> = w
         .programs
         .iter()
-        .map(|p| (p.seasons.iter().filter(|s| s.national_title).count(), p.real_name.as_str()))
-        .filter(|t| t.0 > 0 && w.programs.iter().any(|p| p.real_name == t.1 && p.division == Division::FBS))
+        .map(|p| (p.seasons.iter().filter(|s| s.national_title && fbs_in(p, s.year)).count(), p.real_name.as_str()))
+        .filter(|t| t.0 > 0)
         .collect();
     titles.sort_by_key(|t| std::cmp::Reverse(t.0));
     println!(
@@ -874,7 +889,8 @@ fn stat_book(w: &World) {
         .filter(|(k, _)| matches!(k.0, Scope::State(_)))
         .flat_map(|(k, v)| v.iter().map(move |e| (k.0.clone(), e)))
         .collect();
-    hs.sort_by(|a, b| b.1.value.total_cmp(&a.1.value));
+    // Ties by name: the books are a hash map, read in no set order.
+    hs.sort_by(|a, b| b.1.value.total_cmp(&a.1.value).then_with(|| a.1.name.cmp(&b.1.name)));
     let row: Vec<String> = hs
         .iter()
         .take(5)
@@ -1303,7 +1319,8 @@ fn trial1_notes(w: &World, years: u32) {
     // 7. The draft by position.
     println!("\n### 7. The draft by position (sim vs real 2000-2025)");
     let drafted: Vec<&Alumnus> = w.alumni.iter().filter(|a| a.pick.is_some() && a.year > first + 4).collect();
-    let real = std::fs::read_to_string("data/real-world/draft_positions_2000_2025.csv").unwrap_or_default();
+    // Built in, so the report finds it from any folder (trial 7 finding 17).
+    let real = include_str!("../../../../data/real-world/draft_positions_2000_2025.csv");
     for (band, cut) in [("pick_1", 1u32), ("picks_1_5", 5), ("round_1", 32)] {
         let sel: Vec<&&Alumnus> = drafted.iter().filter(|a| a.pick.unwrap() <= cut).collect();
         let mut by: BTreeMap<&str, usize> = BTreeMap::new();
@@ -1336,7 +1353,7 @@ fn trial1_notes(w: &World, years: u32) {
 
     // 8. Measurables and combine.
     println!("\n### 8. Measurables and combine (drafted players, sim vs real combine averages)");
-    let combine = std::fs::read_to_string("data/real-world/combine_by_position.csv").unwrap_or_default();
+    let combine = include_str!("../../../../data/real-world/combine_by_position.csv");
     for pos in afm_engine::positions::Position::ALL {
         let sel: Vec<&&Alumnus> = drafted.iter().filter(|a| a.position == pos).collect();
         if sel.is_empty() {

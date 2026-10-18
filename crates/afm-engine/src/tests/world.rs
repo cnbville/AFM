@@ -197,6 +197,24 @@ fn notes_read_an_before_a_vowel_sound() {
     }
 }
 
+#[test]
+fn counts_read_singular_and_plural() {
+    use crate::world::news::count;
+    assert_eq!(count(1u32, "season"), "1 season");
+    assert_eq!(count(0u32, "signee"), "0 signees");
+    assert_eq!(count(4u32, "more year"), "4 more years");
+}
+
+#[test]
+fn the_uncapped_2010_year_keeps_its_books_and_six_year_free_agency() {
+    // Trial 7 finding 5: 2010 had no cap, but teams kept their books and
+    // free agency needed six accrued seasons.
+    use crate::world::pro::money::{cap_books, capped, ufa_seasons};
+    assert!(!capped(2010) && cap_books(2010));
+    assert!(capped(2009) && capped(2011) && !cap_books(1993));
+    assert_eq!((ufa_seasons(2009), ufa_seasons(2010), ufa_seasons(2011)), (4, 6, 4));
+}
+
 /// A tiny world's people, under one season's rules, and an FBS program.
 fn college_world(season: i32) -> (crate::world::World, usize) {
     use crate::world::{World, WorldOptions};

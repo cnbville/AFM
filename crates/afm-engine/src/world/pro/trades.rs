@@ -46,7 +46,8 @@ pub struct Trade {
     pub date: Date,
     pub buyer: usize,
     pub seller: usize,
-    pub player: usize,
+    /// The player's id (a person's place moves when the world is compacted).
+    pub player: u32,
     /// (draft year, round, original team) from buyer to seller.
     pub picks: Vec<(i32, u32, usize)>,
     pub text: String,
@@ -243,6 +244,7 @@ fn player_points(w: &World, t: usize, i: usize) -> f64 {
 /// A deal can still die in talks or on a physical.
 pub(crate) fn trade_window(w: &mut World, d: Date, deadline: bool) {
     let year = w.year;
+    let june1 = super::after_june1(w, d);
     let teams: Vec<usize> = (0..w.clubs.len()).filter(|&t| super::super::franchise::active(t, year)).collect();
     if w.market.fleece.len() < w.nfl.len() {
         w.market.fleece = vec![vec![0.0; w.nfl.len()]; w.nfl.len()];
@@ -322,6 +324,11 @@ pub(crate) fn trade_window(w: &mut World, d: Date, deadline: bool) {
                 if space(w, buyer, year) < cost {
                     continue;
                 }
+                // The seller must stay under the cap too (real): the bonus it
+                // keeps lands on its cap as his cap number comes off.
+                if space(w, seller, year) + k.cap_hit(year) < kept_bonus(k, year, june1).0 {
+                    continue;
+                }
                 if best.is_none_or(|b| vb - ask > b.2) {
                     best = Some((seller, i, vb - ask, ask));
                 }
@@ -349,6 +356,17 @@ pub(crate) fn trade_window(w: &mut World, d: Date, deadline: bool) {
         execute(w, d, buyer, seller, i, package, deadline);
         moved.push(i);
     }
+}
+
+/// The bonus a seller keeps when it trades a player: his proration from
+/// this league year on lands on its cap this year, or, from June 1 on, this
+/// year's share stays and the later years' land next year, as with a
+/// release (real; trial 7 finding 18: a trade once left a seller with half
+/// the cap in dead money in one year, and it could no longer field a team).
+/// Returns (this year, next year).
+fn kept_bonus(k: &money::Contract, year: i32, june1: bool) -> (f64, f64) {
+    let share = |pick: &dyn Fn(i32) -> bool| k.years.iter().filter(|y| pick(y.year)).map(|y| y.proration).sum::<f64>();
+    if june1 { (share(&|y| y == year), share(&|y| y > year)) } else { (share(&|y| y >= year), 0.0) }
 }
 
 /// Picks offered (year, round, original team) and their cost to the buyer.
@@ -408,12 +426,12 @@ fn execute(
     let year = w.year;
     // The seller keeps the bonus already paid: its remaining proration
     // accelerates onto the seller's cap; the buyer takes the salary.
-    let dead: f64 = w.people[i]
-        .pro
-        .as_ref()
-        .and_then(|c| c.contract.as_ref())
-        .map_or(0.0, |k| k.years.iter().filter(|y| y.year >= year).map(|y| y.proration).sum());
-    w.clubs[seller].add_dead(year, dead, w.people[i].player.id, super::DeadWhy::Traded);
+    let june1 = super::after_june1(w, d);
+    let (now, later) =
+        w.people[i].pro.as_ref().and_then(|c| c.contract.as_ref()).map_or((0.0, 0.0), |k| kept_bonus(k, year, june1));
+    let id = w.people[i].player.id;
+    w.clubs[seller].add_dead(year, now, id, super::DeadWhy::Traded);
+    w.clubs[seller].add_dead(year + 1, later, id, super::DeadWhy::Traded);
     if let Some(k) = w.people[i].pro.as_mut().unwrap().contract.as_mut() {
         for y in k.years.iter_mut().filter(|y| y.year >= year) {
             y.proration = 0.0;
@@ -430,8 +448,9 @@ fn execute(
     let got = (fair - 75.0).max(0.0) * 120.0;
     w.market.fleece[seller][buyer] += (consensus_given - got).max(0.0);
     w.market.fleece[buyer][seller] += (got - consensus_given).max(0.0);
-    super::transfer(w, i, buyer, "traded");
+    // Named with the team he played for (trial 7 finding 17).
     let who = super::describe(w, i);
+    super::transfer(w, i, buyer, "traded");
     let to = w.nfl[buyer].name;
     let from = w.nfl[seller].name;
     let what: Vec<String> = picks.iter().map(|&(y, r, _)| format!("a {y} round {r} pick")).collect();
@@ -446,7 +465,8 @@ fn execute(
     let c = w.people[i].pro.as_mut().unwrap();
     c.wants_out = false;
     c.hold = super::market::Hold::None;
-    w.market.picks.trades.push(Trade { date: d, buyer, seller, player: i, picks, text });
+    let player = w.people[i].player.id;
+    w.market.picks.trades.push(Trade { date: d, buyer, seller, player, picks, text });
 }
 
 /// A shopping effort that leaks (topic 6 question 4): the player hears it;
@@ -587,6 +607,8 @@ pub(crate) fn award_comp_picks(w: &mut World, d: Date) {
             awards.push((t, r, v));
         }
     }
+    // Last year's free agents are settled.
+    w.market.picks.cfa.retain(|x| x.0 >= year);
     awards.sort_by(|a, b| b.2.total_cmp(&a.2));
     awards.truncate(32);
     let earned = awards.len();

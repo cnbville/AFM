@@ -475,8 +475,14 @@ fn hottest(w: &World, list: &[usize], k: usize) -> Vec<usize> {
         return Vec::new();
     }
     let mut ranked: Vec<(f64, usize)> = list.iter().map(|&c| (hotness(w, c), c)).collect();
-    ranked.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
-    ranked.into_iter().take(k).map(|x| x.1).collect()
+    let by = |a: &(f64, usize), b: &(f64, usize)| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1));
+    // Only the top k need sorting.
+    if ranked.len() > k {
+        ranked.select_nth_unstable_by(k - 1, by);
+        ranked.truncate(k);
+    }
+    ranked.sort_by(by);
+    ranked.into_iter().map(|x| x.1).collect()
 }
 
 /// The roster a head coach would leave (11.13), 0-1: 1 when a young core of
@@ -1434,16 +1440,17 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
         openings.push(Opening { employer: job.employer, role: Role::HeadCoach, prestige });
         let name = w.programs[p].name(w.options.names).to_string();
         let coach_name = w.coaches[c].name.clone();
+        let seasons = news::count(tenure as u64, "season");
         let text = match why {
             "fired" if buyout >= 1.0e6 => format!(
-                "{name} fire head coach {coach_name} after {tenure} seasons; the buyout is about ${:.1} million.",
+                "{name} fire head coach {coach_name} after {seasons}; the buyout is about ${:.1} million.",
                 buyout / 1.0e6
             ),
-            "fired" => format!("{name} fire head coach {coach_name} after {tenure} seasons."),
+            "fired" => format!("{name} fire head coach {coach_name} after {seasons}."),
             "not retained when his contract ran out" => {
-                format!("{name} let head coach {coach_name}'s contract run out after {tenure} seasons.")
+                format!("{name} let head coach {coach_name}'s contract run out after {seasons}.")
             }
-            _ => format!("{name} fire head coach {coach_name} after his prove-it season ({tenure} seasons in all)."),
+            _ => format!("{name} fire head coach {coach_name} after his prove-it season ({seasons} in all)."),
         };
         college_news(w, p, NewsKind::CoachFired, text);
         super::recruiting::decommit_after_firing(w, p);

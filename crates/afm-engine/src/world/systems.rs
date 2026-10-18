@@ -306,7 +306,12 @@ pub fn fits(p: &Player, pos: Position, norms: &SystemNorms) -> [f64; 11] {
     let mut f = [0.0; 11];
     for &kind in kinds(pos) {
         let r = kind.range();
-        let s: Vec<f64> = r.clone().map(|slot| score(p, pos, slot) - norms[pos.index()][slot]).collect();
+        // On the stack: recruiting weighs this for every offer.
+        let mut buf = [0.0; 11];
+        let s = &mut buf[..r.len()];
+        for (i, slot) in r.clone().enumerate() {
+            s[i] = score(p, pos, slot) - norms[pos.index()][slot];
+        }
         let mean = s.iter().sum::<f64>() / s.len() as f64;
         for (i, slot) in r.enumerate() {
             f[slot] = clamp((s[i] - mean) / 10.0, -1.5, 1.5);

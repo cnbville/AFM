@@ -27,6 +27,21 @@ pub fn capped(year: i32) -> bool {
     year >= 1994 && year != 2010
 }
 
+/// Whether teams keep their books the cap's way (the top 51 until the
+/// first game, room kept for the season, cuts and restructures): from 1994
+/// on, the uncapped 2010 included, when owners still budgeted against the
+/// 2009 cap and teams cut and restructured as usual (trial 7 finding 5).
+pub fn cap_books(year: i32) -> bool {
+    year >= 1994
+}
+
+/// The accrued seasons that make a player an unrestricted free agent: four
+/// from 1993, six in the uncapped 2010 (real: four and five became
+/// restricted that year).
+pub fn ufa_seasons(year: i32) -> u32 {
+    if year == 2010 { 6 } else { 4 }
+}
+
 /// The league minimum by accrued seasons, as the 2025 scale's shares of the
 /// cap (real 2025: $840K with none, $960K, $1.03M, $1.1M, $1.17M for 4-6,
 /// $1.255M for 7 or more), applied to every year.

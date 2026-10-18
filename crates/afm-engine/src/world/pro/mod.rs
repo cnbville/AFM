@@ -118,6 +118,9 @@ pub struct ProCareer {
     pub rfa: Option<money::Tender>,
     /// The team he last left (comp picks, waivers, loyalty).
     pub former: Option<usize>,
+    /// He left it because his deal ran out, not because he was cut: only
+    /// such a free agent counts toward the comp picks (real rule).
+    pub expired: bool,
     /// Released and on waivers until the next claim time.
     pub on_waivers: bool,
     /// Came through the International Player Pathway.
@@ -157,6 +160,7 @@ impl ProCareer {
             wants_out: false,
             rfa: None,
             former: None,
+            expired: false,
             on_waivers: false,
             ipp: false,
             spring_snaps: 0.0,
@@ -244,6 +248,23 @@ impl Club {
 }
 
 // --- Rosters ------------------------------------------------------------------------
+
+/// The people who left football are archived and the rest move up
+/// (`World::compact`): every list that holds people by place follows them
+/// (`map`: old place to new). Before this, a comp pick's free agent noted in
+/// March pointed at someone else by the next March, so the formula awarded
+/// almost no picks (trial 7 finding 7), and an owner lost his pet each
+/// February.
+pub(crate) fn remap_people(w: &mut World, map: &[Option<usize>]) {
+    let at = |i: usize| map.get(i).copied().flatten();
+    for c in w.clubs.iter_mut() {
+        c.office.owner.pet = c.office.owner.pet.and_then(at);
+    }
+    let book = &mut w.market.picks;
+    book.cfa.retain_mut(|x| at(x.1).map(|i| x.1 = i).is_some());
+    w.market.pending.retain_mut(|x| at(x.person).map(|i| x.person = i).is_some());
+    w.market.sheets.retain_mut(|x| at(x.person).map(|i| x.person = i).is_some());
+}
 
 /// Rebuilds every club's list from the people (after the yearly compaction
 /// moves indices) and the mirror into the league table.
@@ -386,7 +407,7 @@ pub(crate) fn roster_limit(w: &World, d: Date) -> usize {
 pub fn payroll(w: &World, t: usize, year: i32) -> f64 {
     // The offseason rule of 51 (real): until the first game only a team's
     // 51 biggest cap hits count. A stack buffer: this runs for every offer.
-    let top51 = money::capped(year) && (year > w.year || (year == w.year && w.today < w.dates.nfl_kickoff));
+    let top51 = money::cap_books(year) && (year > w.year || (year == w.year && w.today < w.dates.nfl_kickoff));
     let mut buf = [0.0f64; 160];
     let mut n = 0;
     let mut all = 0.0;
@@ -417,15 +438,24 @@ const TOP_51: usize = 51;
 
 /// The cap space a team has in a league year (the carryover added). With
 /// no cap, the owner's budget plays the part: about the league's average
-/// payroll, more for a free-spending owner (proposed, not confirmed).
+/// payroll, more for a free-spending owner (proposed, not confirmed). In
+/// the uncapped 2010 owners budgeted on the 2009 cap, the free spenders
+/// over it and the thrifty under (trial 7 finding 5; proposed, not
+/// confirmed: 2% of it a point of the owner's spending from 10).
 pub fn space(w: &World, t: usize, year: i32) -> f64 {
     let cap = money::price_cap(year);
-    let room =
-        if money::capped(year) { cap + w.clubs[t].carryover } else { cap * (0.95 + 0.02 * (w.nfl[t].owner - 10.0)) };
+    let spend = 0.02 * (w.nfl[t].owner - 10.0);
+    let room = if money::capped(year) {
+        cap + w.clubs[t].carryover
+    } else if money::cap_books(year) {
+        money::price_cap(year - 1) * (1.0 + spend) + w.clubs[t].carryover
+    } else {
+        cap * (0.95 + spend)
+    };
     // While only the top 51 count, a team keeps room for what counts from
     // the first game: the rest of the 53, the practice squad and injury
     // replacements (proposed, not confirmed: 5% of the cap).
-    let reserve = if money::capped(year) && (year > w.year || (year == w.year && w.today < w.dates.nfl_kickoff)) {
+    let reserve = if money::cap_books(year) && (year > w.year || (year == w.year && w.today < w.dates.nfl_kickoff)) {
         cap * IN_SEASON_RESERVE
     } else {
         0.0
@@ -779,36 +809,108 @@ fn fill_holes(w: &mut World, d: Date, full: bool) {
                 if have >= need {
                     break;
                 }
-                let street = (0..w.people.len())
-                    .filter(|&i| {
-                        let p = &w.people[i];
-                        p.stage == Stage::Pro
-                            && p.player.position == pos
-                            && p.pro.as_ref().is_some_and(|c| c.status == Status::FreeAgent && !c.on_waivers)
-                            && !w.market.pending.iter().any(|x| x.person == i)
-                    })
-                    .max_by(|&a, &b| w.people[a].player.overall().total_cmp(&w.people[b].player.overall()));
-                let i = match street {
-                    Some(i) => i,
-                    None => {
-                        let mut rng = w.rng.fork();
-                        let rating = clamp(rng.normal(61.0, 3.0), 52.0, 68.0);
-                        let age = rng.int(23, 28) as u32;
-                        let seed = rng.next_u32();
-                        let mut p = veteran(w, pos, rating, age, seed);
-                        let mut c = ProCareer::new(None, Status::FreeAgent, year);
-                        c.sharpness = 0.9;
-                        p.note(format!("Came to the NFL from another league at {age} (generated player)."));
-                        p.pro = Some(Box::new(c));
-                        w.people.push(p);
-                        w.people.len() - 1
-                    }
-                };
+                let i = street_or_new(w, pos);
                 let accrued = w.people[i].pro.as_ref().map_or(0, |c| c.accrued);
                 sign(w, i, t, d, money::minimum(year, accrued), 1, money::Kind::Minimum);
             }
         }
     }
+}
+
+/// The best unsigned player at a position, or, when the street has nobody,
+/// one from another league (see `fill_holes`).
+fn street_or_new(w: &mut World, pos: Position) -> usize {
+    // The best by rating, the later one on a tie, on all cores.
+    use rayon::prelude::*;
+    let street = (0..w.people.len())
+        .into_par_iter()
+        .filter(|&i| {
+            let p = &w.people[i];
+            p.stage == Stage::Pro
+                && p.player.position == pos
+                && p.pro.as_ref().is_some_and(|c| c.status == Status::FreeAgent && !c.on_waivers)
+                && !w.market.pending.iter().any(|x| x.person == i)
+        })
+        .map(|i| (w.people[i].player.overall(), i))
+        .max_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
+    if let Some((_, i)) = street {
+        return i;
+    }
+    let year = w.year;
+    let mut rng = w.rng.fork();
+    let rating = clamp(rng.normal(61.0, 3.0), 52.0, 68.0);
+    let age = rng.int(23, 28) as u32;
+    let seed = rng.next_u32();
+    let mut p = veteran(w, pos, rating, age, seed);
+    let mut c = ProCareer::new(None, Status::FreeAgent, year);
+    c.sharpness = 0.9;
+    p.note(format!("Came to the NFL from another league at {age} (generated player)."));
+    p.pro = Some(Box::new(c));
+    w.people.push(p);
+    w.people.len() - 1
+}
+
+/// Every team keeps its full roster and a full game-day squad, as real
+/// teams do (trial 7 finding 18: a team short of bodies played most of a
+/// season off the engine). Below the roster limit it signs the best
+/// unsigned player at the spot it is thinnest for the minimum; at the
+/// limit with too few healthy players to dress, its longest injury goes
+/// to injured reserve to open the place. It pays for a signing by
+/// restructuring, never by cutting someone else (a cut opens the place
+/// again: three teams cut and re-signed every week in a test world). A
+/// team that still can't afford the minimum plays short-handed, unless
+/// it can't dress a full game-day squad (proposed, not confirmed).
+fn fill_roster(w: &mut World, d: Date) -> bool {
+    let year = w.year;
+    let limit = roster_limit(w, d);
+    let dress = w.rules.nfl_actives as usize;
+    let mut changed = false;
+    for t in 0..w.clubs.len() {
+        if !super::franchise::active(t, year) {
+            continue;
+        }
+        let mut signed = false;
+        for _ in 0..limit {
+            let on: Vec<usize> = w.clubs[t]
+                .roster
+                .iter()
+                .copied()
+                .filter(|&i| w.people[i].pro.as_ref().is_some_and(|c| c.status == Status::Roster))
+                .collect();
+            let out = |i: usize| w.people[i].pro.as_ref().map_or(0, |c| c.out_weeks);
+            let healthy = on.iter().filter(|&&i| out(i) == 0).count();
+            if on.len() >= limit {
+                if healthy >= dress {
+                    break;
+                }
+                let Some(&i) = on.iter().filter(|&&i| out(i) > 0).max_by_key(|&&i| (out(i), std::cmp::Reverse(i)))
+                else {
+                    break;
+                };
+                w.people[i].pro.as_mut().unwrap().status = Status::Reserve;
+                changed = true;
+                continue;
+            }
+            let thin = |p: Position| {
+                let have = on.iter().filter(|&&i| out(i) == 0 && w.people[i].player.position == p).count();
+                depth_slots(p).roster as i64 - have as i64
+            };
+            let pos = Position::ALL.into_iter().max_by_key(|&p| (thin(p), std::cmp::Reverse(p.index()))).unwrap();
+            let i = street_or_new(w, pos);
+            let accrued = w.people[i].pro.as_ref().map_or(0, |c| c.accrued);
+            let price = money::minimum(year, accrued);
+            if money::cap_books(year) && space(w, t, year) < price {
+                market::clear_room(w, t, d, false, price, false);
+                if space(w, t, year) < price && healthy >= dress {
+                    break;
+                }
+            }
+            sign(w, i, t, d, price, 1, money::Kind::Minimum);
+            signed = true;
+        }
+        changed |= signed;
+    }
+    changed
 }
 
 // --- The NFL year for the people ---------------------------------------------------------
@@ -912,6 +1014,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
     if d == y.cutdown.date {
         cutdown(w, d);
         fill_holes(w, d, false);
+        fill_roster(w, d);
         changed = true;
     }
     // Waiver claims each day a player is on the wire.
@@ -942,6 +1045,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
     if d >= y.cutdown.date && d.weekday() == crate::calendar::Weekday::Tue && d <= y.super_bowl {
         super::clock::timed("pro heal", || heal_week(w));
         changed |= super::clock::timed("pro street", || street_signings(w, d, true));
+        changed |= super::clock::timed("pro fill", || fill_roster(w, d));
         super::clock::timed("pro unsigned", || unsigned_week(w, d));
     }
     // The Hall of Fame class is named the Saturday before the Super Bowl.
@@ -1036,6 +1140,7 @@ pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: b
     }
     if waive {
         c.on_waivers = true;
+        w.market.waivers = true;
         if let Some(k) = c.contract.as_mut() {
             for y in k.years.iter_mut().filter(|y| y.year >= year) {
                 y.proration = 0.0;
@@ -1048,6 +1153,7 @@ pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: b
     c.team = None;
     c.weeks_unsigned = 0;
     c.former = Some(t);
+    c.expired = false;
     c.rfa = None;
     c.hold = market::Hold::None;
     c.wants_out = false;
@@ -1619,7 +1725,7 @@ fn unsigned_week(w: &mut World, d: Date) {
         );
         if p.rng.chance(weekly) {
             let weeks = c.weeks_unsigned;
-            retire(w, i, d, &format!("unsigned for {weeks} weeks"));
+            retire(w, i, d, &format!("unsigned for {}", crate::world::news::count(weeks, "week")));
         }
     }
 }
