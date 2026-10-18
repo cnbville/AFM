@@ -5,8 +5,8 @@ Code: `crates/afm-engine/src/` (Rust). Real-world calibration checks: `crates/af
 
 ## Ratings
 
-- **25 attributes on a 1–99 scale**: physical (speed, acceleration, agility, strength, jumping, stamina), technical (throwing, catching, route running, blocking, tackling, pass rush, coverage, kicking and more) and mental (awareness, play recognition, vision, poise).
-- **Overall is position-specific**: a weighted mean of the attributes that matter at each of 13 positions (QB, RB, WR, TE, OT, IOL, EDGE, DT, LB, CB, S, K, P). A guard's overall ignores his speed; a corner's leans on it.
+- **67 attributes on a 1–99 scale, plus 5 hidden 1–20 traits** (agreed 2026-10-18; the list, how players get them and what each drives on the field are in `docs/design/attributes.md`): physical (8), passing (11), running (4), receiving (6), line play (8), defense (8), kicking and snapping (10) and mental (12); hidden: consistency, temperament, recovery, injury proneness and longevity.
+- **Overall is position-specific**: a weighted mean of the attributes that matter at each of 14 positions (QB, RB, WR, TE, OT, IOL, EDGE, DT, LB, CB, S, K, P, LS). A guard's overall ignores his speed; a corner's leans on it.
 - **Every attribute has a hidden ceiling.** True potential is the overall the player would have if every attribute reached its ceiling. The user never sees it, only scouting reports.
 
 ## Where talent comes from

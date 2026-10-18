@@ -192,7 +192,7 @@ impl<'a> Side<'a> {
     fn threshold(&self, pos: Position) -> f64 {
         let base = match pos {
             Position::EDGE | Position::DT => 0.84,
-            Position::RB => 0.86,
+            Position::RB => 0.60,
             Position::WR | Position::TE => 0.74,
             Position::LB | Position::CB | Position::S => 0.68,
             _ => 0.5,
@@ -244,12 +244,21 @@ impl<'a> Side<'a> {
                 break;
             }
             if self.energy[i] < th {
+                // The more worn he is, the bigger the drop a coach accepts to
+                // spell him, so a star back or rusher still comes out for a
+                // breather. It used to be a flat 9 points: a star never came
+                // out and took nine of ten carries (trial 7 finding 2). Now
+                // the lead back takes about 65% of the backs' carries in an
+                // NFL game (real 70%, 59% over a season with the games he
+                // misses), 53% in FBS, and a star 15 points better about 82%
+                // (real stars about 80-85%; proposed, not confirmed).
+                let allow = 60.0 * (th - self.energy[i]);
                 let next = list.iter().copied().find(|&j| {
                     j != i
                         && !out.contains(&j)
                         && !skipped.contains(&j)
                         && self.energy[j] >= th
-                        && self.rating(j, pos) >= self.rating(i, pos) - 9.0
+                        && self.rating(j, pos) >= self.rating(i, pos) - allow
                 });
                 if next.is_some() {
                     skipped.push(i);

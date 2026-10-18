@@ -269,6 +269,37 @@ Measured after step 5 (`match_check`, 400 games each):
 
 Trial 7 findings from these: the engine scores more in the NFL than in FBS, the reverse of real football (the offense gains more from better players than the defense does); NFL red zone completion 63% (real 53%); yards after the catch 3.8 (real 5.2); targets to tight ends 13% and backs 12% (real 22% and 18%); flats 17% of targets (real 9%); runs of 10-19 yards too rare; Cover 4 and Cover 6 leave the flat too open (stick gains 15 yards a play against them on the engine); high school sacks 17% of dropbacks.
 
+## The 67 attributes and the retune (2026-10-18)
+
+Raichel agreed to 67 visible and 5 hidden attributes and a retune for trial 7 findings 1 (NFL scoring) and 2 (college stat lines). What each attribute drives is in `docs/design/attributes.md`. The retune, each proposed, not confirmed:
+- **Synthetic NFL rosters look like the world's.** Each NFL position is shifted by where the world's starters sat in trial 7 (offensive line and corners high, linebackers low; `synthetic.rs`, `nfl_offset`). Inferred, not measured on a world with the new list.
+- **Placement.** Each accuracy point is worth 0.5% less miss (was 1.7%). Footwork, release and anticipation are read at half their first size: NFL quarterbacks rate far above 60 in all three and threw in 2.41 s.
+- **Back committees.** The more worn a starter is, the bigger the drop a coach accepts to spell him (`flow.rs`, `pick`). It used to be a flat 9 points, so a star back took nine of ten carries. The lead back now takes about 65% of the backs' carries in an NFL game (real 70%, and 59% over a season with the games he misses) and 53% in FBS; a star 15 points better about 82% (real stars about 80-85%).
+- **Holding** reads the blocker against the man in front of him. Read on its own, it ran 0.7 a team game in the NFL and 2.6 in high school (real about 1.3 at each).
+- **Fumbles** read the hitter's strength and tackling against the carrier's ball security. Read on their own, NFL carriers almost never fumbled (0.27 lost a team game).
+- **Trait norms.** The NFL norm is 67 (was 64), measured on the shifted rosters.
+
+Measured with `match_check`, 400 games each:
+
+| Per team game | NFL engine | NFL real | FBS engine | FBS real | HS engine |
+|---|---|---|---|---|---|
+| Points | 26.5 | 22.5 | 23.9 | 27.0 | 23.0 |
+| Completion % | 63.8 | 64.5 | 59.4 | 60.6 | 51.5 |
+| Yards per attempt | 7.0 | 7.05 | 6.6 | 7.3 | 4.9 |
+| Yards per carry | 4.1 | 4.5 | 4.9 | 5.1 | 5.8 |
+| Third-down conversion | 41.1% | 39.8% | 37.9% | 40.3% | 36.9% |
+| Sack rate | 4.9% | 6.8% | 8.1% | 6.1% | 15.6% |
+| Time to throw | 2.58 s | 2.71 s | 2.77 s | | 3.01 s |
+| Penalties | 5.0 | 6.0 | 6.1 | | 6.7 |
+| Fumbles lost | 0.44 | 0.45 | 0.43 | | 0.37 |
+| Lead back's share of the backs' carries | 65% | 70% | 53% | | 55% |
+
+On main the same check gave NFL 30.0 points, 65.8% and 7.7 a throw on balanced rosters. With the NFL rosters left balanced the engine now gives about 25.7.
+
+**Not reached: NFL points 20-25.** Passing per throw is at real, but the engine still scores 4 points over real. The yards come in the wrong shape: throws of 10-19 yards complete 59% (real 54.5%) and 20+ 41% (real 36%), yards after the catch are 3.5 (real 5.2), explosive runs are 4% of carries (real 11.6%), and red zone passes complete 62% (real 53%). The offense moves the chains steadily and rarely needs a big play. Tested and not kept: a miss that grows faster with distance put NFL scoring at 25.0, but completion fell to 62%, 6.5 a throw, and FBS to 6.2 a throw (real 7.3). Fixing the shape (run after the catch, breakaway runs) is a bigger job than this build. The NFL test band is 20-28 for now, not the agreed 20-25. The next trial measures the world's own NFL, which ran 40 points a team game in 2021-25 in trial 7 (9.2 a throw): most of finding 1 sits in the world's rosters, not in these synthetic ones.
+
+**Finding 2 left for the next trial.** The college stat leaders against the real FBS leaders need a world, so the trial measures them. On the synthetic checks the top man's share of a team's sacks is 0.33 (real about 0.25-0.35). FBS sacks still run high, 3.1 a team game (real 2.0), as on main.
+
 ## Not built yet
 - High school games on the engine (the world still plays them on the stand-in): about 10 minutes a season.
 - The 2D replay view (section 10).

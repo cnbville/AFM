@@ -576,9 +576,14 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 Drop::Bubble => 0.75,
             } + if c.play_action { 0.35 } else { 0.0 };
             // Clean feet get him to the top of the drop and set sooner, a
-            // tenth either way at the extremes (proposed, not confirmed).
+            // few hundredths either way at the extremes. Footwork, release
+            // and anticipation were first read at twice these sizes: NFL
+            // quarterbacks rate far above 60 in all three, so they threw in
+            // 2.41 s (real 2.71) and were sacked on 4.6% of dropbacks (real
+            // 6.8%). Now 2.57 s and 2.1 sacks a team game (proposed, not
+            // confirmed).
             let feet = sim.agents[qb].a(Attr::Footwork);
-            let mut set_at = set_at + clamp(-0.003 * (feet - 60.0), -0.12, 0.15);
+            let mut set_at = set_at + clamp(-0.0015 * (feet - 60.0), -0.06, 0.08);
             // A bad shotgun snap (high, low or wide) costs him the top of his
             // drop: rare, about 0.4% at 60 and a handful a team season
             // (proposed, not confirmed). The fumbled snap is not modelled.
@@ -2716,7 +2721,7 @@ fn quarterback(
     // ball is out doesn't let him throw: he has to escape, eat it or get it
     // away some other way.
     let quick = 0.75 * sim.agents[qb].a(Attr::QuickRelease) + 0.25 * sim.agents[qb].a(Attr::Footwork);
-    let release = clamp(0.34 - 0.0025 * (quick - 60.0), 0.22, 0.5);
+    let release = clamp(0.34 - 0.00125 * (quick - 60.0), 0.26, 0.42);
     // A screen is a soft flick lofted over the rush: only a rusher who can
     // get a hand on his arm stops it.
     let (release, reach) = if screen { (0.6 * release, 1.3) } else { (release, 2.8) };
@@ -2744,8 +2749,9 @@ fn quarterback(
         && let Some((r, ..)) = best
         && ps.commit.is_none()
     {
-        // Throwing on the break is anticipation.
-        let delay = clamp(0.25 - 0.005 * (sim.agents[qb].a(Attr::Anticipation) - 50.0), 0.0, 0.6);
+        // Throwing on the break is anticipation (half its first size, see
+        // footwork above).
+        let delay = clamp(0.25 - 0.0025 * (sim.agents[qb].a(Attr::Anticipation) - 50.0), 0.0, 0.6);
         ps.commit = Some((r, t + delay + release, t + 0.6 * release));
     }
     if !screen && let Some((r, at, hurried)) = ps.commit {
@@ -3136,9 +3142,11 @@ fn batter(sim: &mut Sim, qb: usize, along: V2, dist: f64) -> Option<usize> {
 const BAT: f64 = 0.17;
 
 /// How far a clean throw misses on average at this distance (yards). Each
-/// accuracy point is worth 1.7% less miss (was 2%): FBS throws missed 27%
-/// more than NFL throws and FBS completion ran 9 points under the NFL's,
-/// against 4 real (proposed, not confirmed).
+/// accuracy point is worth 0.5% less miss (was 1.7%, first 2%): on rosters
+/// like the world's, NFL passing ran 7.4 yards a throw and 68% complete
+/// against FBS 6.4 and 57%, where real NFL passing runs 7.05 and 64.5% and
+/// FBS 7.29 and 60.6%. Now NFL 7.0 and 64.6%, FBS 6.5 and 58% (proposed,
+/// not confirmed).
 /// The miss grows with the length of the throw and faster with how far
 /// downfield it goes (a long throw across the field to an out is a firm,
 /// flat ball; the curve used to take throw length alone, and a third of
@@ -3153,7 +3161,7 @@ pub fn pass_accuracy(qb: &Agent, air: f64) -> f64 {
 }
 
 fn aim_sd(acc: f64, dist: f64, down: f64) -> f64 {
-    (0.25 + 0.036 * dist + 0.0007 * down * down) * 1.3 * (0.017 * (82.0 - pro(acc))).exp()
+    (0.25 + 0.036 * dist + 0.0007 * down * down) * 1.3 * (0.005 * (110.0 - pro(acc))).exp()
 }
 
 /// A quarterback skill on the scale where it decides games: through the pro

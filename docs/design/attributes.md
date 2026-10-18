@@ -81,8 +81,62 @@ rosters (proposed, not confirmed).
 ## What each attribute drives on the field
 
 One main owner per engine moment, so nothing counts twice. Every new read is
-centred at 60 (a 60-rated player plays as the engine did before) and bounded.
-The full table is below once the engine wiring lands.
+centred at 60 (a 60-rated player plays as the engine did before) and bounded;
+trait-like ratings are read against the level (above). All sizes are
+proposed, not confirmed. Files: `sim.rs` (movement, blocks, tackles),
+`scrimmage.rs` (the snap: passing, coverage, busts), `flow.rs` (pre-snap
+fouls, units, rotation), `kicking.rs`.
+
+- **Moving:** speed, acceleration (top speed and burst), agility (cuts, man
+  coverage lag with flexibility), balance (staying up in contact, trips and
+  arm tackles), stamina (fatigue), moving through traffic (how much bodies
+  around him slow him).
+- **Throwing:** arm strength (range, deep balls), short, medium and deep
+  accuracy (placement, blended by air yards), touch (a share of placement on
+  10-25 yard throws with a defender under the path, and softer short balls),
+  throwing on the move, release speed (time to get it off; batted balls),
+  footwork (time to set; a share of the release), pocket presence (his vision
+  in the pocket), ball handling (play-action and jet fakes, the handoff),
+  eye manipulation (looking off a deep defender on the first read),
+  decisions (forcing a throw, throwing it away, intentional grounding).
+- **Running and catching:** ball security (fumbles), vision (the carrier's
+  vision cone), elusiveness, leg drive (yards after contact); catching (the
+  catch), contested catches (the catch under contact; a defender's at the
+  catch point), ball tracking (reading the flight, muffs), body control
+  (catch radius and balls off his frame, toe-taps), route running (settling
+  in zone holes with football IQ), release (off press and as a gunner).
+- **Blocking and rushing:** pass and run blocking (the rep), blocking in
+  space (getting hands on a man in space: climbs, screens, return walls,
+  illegal blocks in the back), hand use (holding, sustaining a won block),
+  anchor (double teams, the bull rush), power and finesse rush (the move),
+  block shedding; a stalled rusher's counter move reads football IQ and
+  motor.
+- **Defending:** man and zone coverage (zone with play recognition),
+  press (the jam, the vise on punts), disguise (the shell before the snap,
+  what motion shows), tackling (the tackle and wrap range), pursuit,
+  blitzing (beating the back's pickup), anticipation (jumping routes, the
+  quarterback's eyes, batted balls, the get-off and offside).
+- **Mental:** football IQ (assignments, blitz pickup, alignment fouls,
+  ineligible downfield), play recognition (the vision cone, motion reads),
+  communication (the caller's unit busts less: quarterback, center, the
+  green-dot defender), concentration (crowd noise, false starts, late-drive
+  lapses, the silent count), discipline (fouls, biting on fakes), composure
+  (pressure, kicks), toughness, motor (effort through the whistle, letting
+  go of a block), competitiveness (piles on short yardage), physicality
+  (finishing blocks and pancakes, committing to the hit).
+- **Kicking and snapping:** kick power (distance), short and long kick
+  accuracy, kick trajectory (blocked kicks), kickoff technique (hang and
+  landing spot, onside kicks), punt power, punt placement (pinning at the
+  numbers), get-off (time to kick; blocked kicks and punts), long snapping
+  (bad snaps, snap time), shotgun snapping (bad shotgun snaps).
+
+Checked on the repo's match checks only (no trial): batted passes are 1.6% of
+NFL throws (real about 1.5-2%); offside 0.56 a team game (real 0.52). High
+school completion fell from 49.5% to 47.2%, mostly body control (high school
+receivers adjust poorly to a ball off their frame). Not modelled: the ball's
+height (touch only takes a share of placement) and a fumbled shotgun snap
+(a bad one costs time only). Scouting reports grade the overall only, so
+there is no per-attribute scouting noise yet.
 
 ## Proposed, not confirmed
 
@@ -96,5 +150,13 @@ Claude's picks inside the agreed list, for Raichel to adjust:
 - the combine: the 40 reads game speed plus a stable track offset (sd 0.04 s;
   some play faster than they time) and 0.03 s of noise a run; the 3-cone also
   reads flexibility, as scouts use it as the bend test;
-- the trait norms by level;
-- the hidden traits' drift with age.
+- the trait norms by level (NFL 67, measured on rosters like the world's);
+- the hidden traits' drift with age;
+- the retune on the new list (`docs/match-engine.md`, "The 67 attributes and
+  the retune"): placement 0.5% a point of accuracy, footwork, release and
+  anticipation at half their first size, holding and fumbles read against the
+  man across from him, back committees (lead back about 65% of the backs'
+  carries in an NFL game, a star about 82%), and synthetic NFL rosters shifted to look like the world's. NFL
+  scoring is 26.5 points a team game on them (real 22.5); the agreed 20-25
+  band was not reached, so the test band is 20-28 until the next trial
+  measures the world.

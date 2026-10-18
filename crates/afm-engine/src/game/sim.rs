@@ -1127,13 +1127,18 @@ impl<'a> Sim<'a> {
                 // One moment of decision when he is first beaten.
                 self.eng[k].grab_checked = true;
                 let disc = self.trait20(b, Attr::Discipline);
-                let tech =
-                    if e.pass { self.agents[b].a(Attr::PassBlocking) } else { self.agents[b].a(Attr::RunBlocking) };
-                // Raised a third (offensive holding ran 0.88 a team game against
-                // about 1.26 real, illegal hands included; proposed, not confirmed).
-                // Hands outside the frame get caught (hand use).
-                let hands = clamp(1.0 - 0.012 * (self.agents[b].a(Attr::HandUse) - 60.0), 0.5, 1.6);
-                let p = 0.046 * (1.7 - disc / 14.0) * (1.5 - tech / 100.0) * hands;
+                let (bb, dd) = (&self.agents[b], &self.agents[d]);
+                let tech = if e.pass { bb.a(Attr::PassBlocking) } else { bb.a(Attr::RunBlocking) };
+                // How badly he is beaten, technique and hands against the
+                // man's rush and hands: officials call each level to its own
+                // standard, so it is read against the man in front of him, not
+                // on an absolute scale (it was absolute: holding ran 0.71 a
+                // team game in the NFL, 1.49 in FBS and 2.58 in high school,
+                // real about 1.26 at each; proposed, not confirmed).
+                let rush =
+                    if e.pass { dd.a(Attr::PowerRush).max(dd.a(Attr::FinesseRush)) } else { dd.a(Attr::BlockShedding) };
+                let beat = 0.5 * (rush + dd.a(Attr::HandUse)) - 0.5 * (tech + bb.a(Attr::HandUse));
+                let p = 0.044 * (1.7 - disc / 14.0) * clamp(1.0 + 0.012 * beat, 0.5, 1.6);
                 if self.rng.chance(p) {
                     self.eng[k].held = true;
                     self.eng[k].w = 0.35;
@@ -1532,14 +1537,15 @@ impl<'a> Sim<'a> {
         self.agents[c].vel = along.scale(v.max(-1.0));
         let force = (r.mass * r.vel.len() + d.mass * d.vel.len()) * 0.5;
         self.contact_force = self.contact_force.max(force);
-        // Ball security against the hit (topic 2). Nearly doubled: fumbles
-        // lost ran 0.2 a team game in the NFL against 0.45 real (proposed,
-        // not confirmed).
+        // Ball security against the hit (topic 2), read against the man
+        // making it: his strength and tackling against the carrier's ball
+        // security. It was read on its own, so NFL carriers, rated far above
+        // 60, almost never fumbled (0.27 lost a team game, real 0.45). Now
+        // about 0.45 in the NFL and 0.4 in FBS (proposed, not confirmed).
         let carry = r.a(Attr::BallSecurity);
         let hit = d.a(Attr::Strength) * 0.5 + d.a(Attr::Tackling) * 0.5;
         let rain = (if self.cond.rain || self.cond.snow { 1.35 } else { 1.0 }) * (1.0 + 0.3 * self.cond.cold_unused);
-        let p =
-            0.016 * (force / 1700.0).powf(1.5) * (1.0 + (60.0 - carry) * 0.035).max(0.25) * (0.7 + hit / 160.0) * rain;
+        let p = 0.018 * (force / 1700.0).powf(1.5) * clamp(1.0 + 0.025 * (hit - carry), 0.25, 2.5) * rain;
         if self.notes.fumbled.is_none() && self.rng.chance(p) {
             self.notes.fumbled = Some(r.id);
             self.notes.forced_fumble = Some(d.id);

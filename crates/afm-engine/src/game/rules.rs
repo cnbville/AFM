@@ -136,10 +136,12 @@ impl Rules {
 /// hidden 1-20 traits were the same at every level: officials call holding to
 /// the level's standard, so a college line and an NFL line draw about as many
 /// flags (real: about 6 penalties a team game at both). Measured on the
-/// synthetic rosters (`level_strength`); proposed, not confirmed.
+/// synthetic rosters (`level_strength`, with the NFL's world-like position
+/// offsets: at 64 the NFL drew 4.5 penalties a team game); proposed, not
+/// confirmed.
 pub fn trait_norm(level: Level, a: Attr) -> f64 {
     let base = match level {
-        Level::NFL => 64.0,
+        Level::NFL => 67.0,
         Level::FBS => 48.0,
         Level::FCS => 42.0,
         Level::SmallCollege => 37.0,
