@@ -817,7 +817,7 @@ impl<'a> Game<'a> {
             .map(|i| {
                 let p = &ps[i];
                 let skill = if receiving {
-                    0.3 * p.a(Attr::Speed) + 0.4 * p.a(Attr::RunBlocking) + 0.3 * p.a(Attr::Strength)
+                    0.3 * p.a(Attr::Speed) + 0.4 * p.a(Attr::BlockingInSpace) + 0.3 * p.a(Attr::Strength)
                 } else {
                     0.4 * p.a(Attr::Speed) + 0.35 * p.a(Attr::Tackling) + 0.25 * p.a(Attr::BlockShedding)
                 };
@@ -1471,11 +1471,16 @@ impl<'a> Game<'a> {
             }
             let p = &self.sides[o].team.players[i];
             let tired = 1.0 - self.sides[o].energy[i];
+            let level = self.s.rules.level;
             // Road teams jump 21% more often in real FBS conference games
-            // (1.28 a game against 1.06, cfbfastR 2023-24).
+            // (1.28 a game against 1.06, cfbfastR 2023-24). Concentration
+            // joins discipline, and decides how much the noise gets to him
+            // (proposed, not confirmed).
+            let conc = p.trait20(Attr::Concentration, level);
+            let focus = 0.6 * p.trait20(Attr::Discipline, level) + 0.4 * conc;
             let chance = 0.00162
-                * (1.6 - p.trait20(Attr::Discipline, self.s.rules.level) / 15.0).max(0.3)
-                * (1.0 + 0.32 * crowd)
+                * (1.6 - focus / 15.0).max(0.3)
+                * (1.0 + 0.32 * crowd * clamp(1.5 - 0.05 * conc, 0.5, 1.5))
                 * crew
                 * (1.0 + tired)
                 * (1.25 - 0.25 * p.knowledge);
@@ -1483,18 +1488,29 @@ impl<'a> Game<'a> {
                 return Some(Foul { kind: FoulKind::FalseStart, side: 0, player: p.id, at: self.x });
             }
         }
+        let qb = off.iter().find(|x| x.0 == ORole::QB).map(|x| x.1).unwrap_or(0);
+        let qp = &self.sides[o].team.players[qb];
+        // The hard count on 3rd or 4th and short: a smart quarterback draws
+        // the defense offside (proposed, not confirmed).
+        let hard = if self.down >= 3 && self.togo <= 2.0 {
+            clamp(1.5 + 0.05 * (qp.trait20(Attr::FootballIq, self.s.rules.level) - 10.0), 1.0, 2.5)
+        } else {
+            1.0
+        };
         for &(s, i) in def {
             if !s.is_line() {
                 continue;
             }
             let p = &self.sides[1 - o].team.players[i];
-            let chance = 0.0019 * (1.6 - p.trait20(Attr::Discipline, self.s.rules.level) / 15.0).max(0.3) * crew;
+            // The best snap anticipators get off early, and now and then too
+            // early (read against his level; proposed, not confirmed).
+            let jump = clamp(1.0 + 0.04 * (p.trait20(Attr::Anticipation, self.s.rules.level) - 10.0), 0.6, 1.5);
+            let chance =
+                0.0019 * (1.6 - p.trait20(Attr::Discipline, self.s.rules.level) / 15.0).max(0.3) * jump * hard * crew;
             if self.rng.chance(chance) {
                 return Some(Foul { kind: FoulKind::Offside, side: 1, player: p.id, at: self.x });
             }
         }
-        let qb = off.iter().find(|x| x.0 == ORole::QB).map(|x| x.1).unwrap_or(0);
-        let qp = &self.sides[o].team.players[qb];
         // Road delays: 34% more (0.34 a game against 0.26).
         if self.rng.chance(0.0050 * (1.3 - qp.a(Attr::FootballIq) / 120.0) * (1.0 + 0.52 * crowd) * crew) {
             return Some(Foul { kind: FoulKind::DelayOfGame, side: 0, player: qp.id, at: self.x });
@@ -1503,7 +1519,16 @@ impl<'a> Game<'a> {
         // (shifts, motion, ineligible downfield, too many men): real about
         // 0.6 a team game together (Claude's reading of 2023, proposed, not
         // confirmed). False starts ran a fifth high, delay a quarter low.
-        if self.rng.chance(0.0078 * crew * (1.3 - qp.knowledge * 0.3)) {
+        // Lining up right is the quarterback's and the line's football IQ
+        // (proposed, not confirmed).
+        let callers: Vec<f64> = off
+            .iter()
+            .filter(|x| x.0.is_line() || x.0 == ORole::QB)
+            .map(|x| self.sides[o].team.players[x.1].a(Attr::FootballIq))
+            .collect();
+        let line_iq = callers.iter().sum::<f64>() / callers.len().max(1) as f64;
+        let align = clamp(1.0 - 0.008 * (line_iq - 60.0), 0.6, 1.4);
+        if self.rng.chance(0.0078 * crew * (1.3 - qp.knowledge * 0.3) * align) {
             let id =
                 off.iter().find(|x| x.0.is_receiver()).map(|x| self.sides[o].team.players[x.1].id).unwrap_or(qp.id);
             return Some(Foul { kind: FoulKind::IllegalFormation, side: 0, player: id, at: self.x });
@@ -1694,7 +1719,10 @@ impl<'a> Game<'a> {
             && dcall.coverage.is_man()
             && !self.rng.chance(0.15 + 0.02 * self.sides[d].team.staff.defense.reading)
         {
-            pre_read = (pre_read + 0.35).min(1.0);
+            // What motion shows him: his recognition against the
+            // secondary's disguise (proposed, not confirmed).
+            let shows = clamp(1.0 + 0.01 * (self.sides[o].team.players[qb].a(Attr::PlayRecognition) - db_iq), 0.5, 1.5);
+            pre_read = (pre_read + 0.35 * shows).min(1.0);
         }
         let tac = scrimmage::Tactics {
             belief_run,

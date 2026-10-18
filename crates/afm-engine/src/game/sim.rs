@@ -836,7 +836,9 @@ impl<'a> Sim<'a> {
             return true;
         }
         let (ba, da) = (&self.agents[b], &self.agents[d]);
-        let skill = 0.5 * ba.a(Attr::RunBlocking) + 0.5 * ba.a(Attr::Agility);
+        // Getting hands on a man in space is its own skill (climbing to a
+        // linebacker, a screen, a return wall).
+        let skill = 0.5 * ba.a(Attr::BlockingInSpace) + 0.5 * ba.a(Attr::Agility);
         let slip = 0.5 * da.a(Attr::Agility) + 0.5 * da.a(Attr::BlockShedding);
         // A defender running straight at him is easy to get hands on; one
         // crossing his face is not. Only the speed across counts.
