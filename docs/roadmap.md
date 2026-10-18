@@ -227,7 +227,7 @@ The player model: attributes, positions, hidden potential, development from age 
 - Code: `crates/afm-engine`. How it works: `docs/development-model.md`. Every decision: `docs/decisions.md`. Trial history: `docs/design/`.
 - Known gap: FCS players are about 2-5% of draft picks depending on the seed (real about 6%).
 - The player-facing `potential_outlook` (tier words, confidence and hints) is a placeholder until section 7's scouting design.
-- The full attribute list (about 35-40, FM-style) still needs Raichel's sign-off.
+- The attribute list: 67 visible and 5 hidden, agreed 2026-10-18 and built (`docs/design/attributes.md`).
 
 ### Section 2. The world
 

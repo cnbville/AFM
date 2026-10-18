@@ -273,7 +273,9 @@ pub fn apply_background(p: &mut Player, bg: &mut Background, family: &Family, rn
     if d > 0.2 {
         // Hardship as fuel: a little extra toughness and hunger.
         p.personality.competitiveness = clamp(p.personality.competitiveness + h * rng.range(0.0, 1.5), 1.0, 20.0);
-        p.ceilings[Attr::Poise] = clamp(p.ceilings[Attr::Poise] + h * rng.range(0.0, 2.0), 1.0, 99.0);
+        let fuel = h * rng.range(0.0, 2.0);
+        p.ceilings[Attr::Toughness] = clamp(p.ceilings[Attr::Toughness] + fuel, 1.0, 99.0);
+        p.ceilings[Attr::Competitiveness] = clamp(p.ceilings[Attr::Competitiveness] + 0.5 * fuel, 1.0, 99.0);
     } else if d < -0.2 {
         bg.stability = clamp(bg.stability - h * rng.range(0.0, 2.5), 1.0, 20.0);
     }
@@ -293,15 +295,15 @@ pub fn apply_background(p: &mut Player, bg: &mut Background, family: &Family, rn
     }
     match family.bloodline {
         Bloodline::NflPlayer => {
-            for key in [Attr::Strength, Attr::Speed, Attr::Awareness] {
+            for key in [Attr::Strength, Attr::Speed, Attr::FootballIq] {
                 p.ceilings[key] = clamp(p.ceilings[key] + rng.range(0.0, 2.5), 1.0, 99.0);
             }
-            p.attributes[Attr::Awareness] =
-                clamp(p.attributes[Attr::Awareness] + 2.0, 1.0, p.ceilings[Attr::Awareness]);
+            p.attributes[Attr::FootballIq] =
+                clamp(p.attributes[Attr::FootballIq] + 2.0, 1.0, p.ceilings[Attr::FootballIq]);
         }
         Bloodline::CollegePlayer => {
-            p.attributes[Attr::Awareness] =
-                clamp(p.attributes[Attr::Awareness] + 1.0, 1.0, p.ceilings[Attr::Awareness]);
+            p.attributes[Attr::FootballIq] =
+                clamp(p.attributes[Attr::FootballIq] + 1.0, 1.0, p.ceilings[Attr::FootballIq]);
         }
         Bloodline::None => {}
     }

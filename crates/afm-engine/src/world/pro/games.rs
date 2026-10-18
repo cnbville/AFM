@@ -150,7 +150,7 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
         let experience =
             p.college_snaps as f64 / crate::world::season::SEASON_SNAPS as f64 + pro_snaps(p) / NFL_SEASON_SNAPS as f64;
         let mut g = GamePlayer::from_player(&p.player, know, experience);
-        let iq = 0.5 * (p.player.attributes[Attr::Awareness] + p.player.attributes[Attr::PlayRecognition]);
+        let iq = 0.5 * (p.player.attributes[Attr::FootballIq] + p.player.attributes[Attr::PlayRecognition]);
         let mind = clamp(0.92 + 0.08 * (iq - 60.0) / 25.0, 0.82, 1.04);
         for f in Family::ALL {
             let (use_, top) = if f.offense() { (fam[f as usize], top_off) } else { (fam[f as usize], top_def) };
@@ -214,7 +214,7 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
     let budget = clamp(0.85 + 0.015 * (tm.owner - 10.0), 0.7, 1.0);
     let film_study = clamp(0.35 * (eye(tm.oc) + eye(tm.dc)) + 7.0 * budget, 1.0, 20.0);
     let dc = tm.dc.or(tm.head_coach);
-    let aware = players.iter().map(|p| p.a(Attr::Awareness)).sum::<f64>() / players.len().max(1) as f64;
+    let aware = players.iter().map(|p| p.a(Attr::FootballIq)).sum::<f64>() / players.len().max(1) as f64;
     let install = {
         let oc = caller(tm.oc, inst.off);
         let who = tm.oc.or(tm.head_coach).unwrap_or(usize::MAX) as u64;

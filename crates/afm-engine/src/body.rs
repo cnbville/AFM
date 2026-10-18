@@ -49,7 +49,17 @@ pub struct Body {
     /// The weight his frame carries naturally, before a position's weight
     /// program adds or takes off pounds.
     pub frame_weight: f64,
+    /// Throws left-handed: his blind side is his right.
+    pub left_handed: bool,
+    /// Kicks with his left foot: the ball spins the other way.
+    pub left_footed: bool,
 }
+
+/// About one in ten throws left-handed and about one in six kicks
+/// left-footed, as in the population: most lefties kick left, about one
+/// righty in eight does (proposed, not confirmed).
+const LEFT_HANDED: f64 = 0.1;
+const RIGHTY_LEFT_FOOTED: f64 = 0.12;
 
 /// A position's combine height and weight: (height mean, sd, weight mean, sd).
 /// The real combine bench average at a position (nflverse 2000-2025).
@@ -68,7 +78,9 @@ impl Body {
         let arm = 0.425 * height + if heavy { 0.3 } else { 0.0 } + rng.normal(0.0, 0.8);
         let hand = 9.45 + 0.08 * (height - 74.0) + if heavy { 0.35 } else { 0.0 } + rng.normal(0.0, 0.35);
         let wingspan = 2.03 * arm + 12.3 + rng.normal(0.0, 1.0);
-        Body { height, weight, arm, hand, wingspan, frame_weight: weight }
+        let left_handed = rng.chance(LEFT_HANDED);
+        let left_footed = rng.chance(if left_handed { 0.6 } else { RIGHTY_LEFT_FOOTED });
+        Body { height, weight, arm, hand, wingspan, frame_weight: weight, left_handed, left_footed }
     }
 }
 
@@ -99,7 +111,9 @@ pub fn adult_body(id: u32, pos: Position, potential: f64, strength_z: f64, speed
     let arm = 0.425 * height + arm_offset + rng.normal(0.0, 0.8);
     let hand = 9.45 + 0.08 * (height - 74.0) + if lineman(pos) { 0.35 } else { 0.0 } + rng.normal(0.0, 0.35);
     let wingspan = 2.03 * arm + 12.3 + rng.normal(0.0, 1.0);
-    Body { height, weight, arm, hand, wingspan, frame_weight: weight }
+    let left_handed = rng.chance(LEFT_HANDED);
+    let left_footed = rng.chance(if left_handed { 0.6 } else { RIGHTY_LEFT_FOOTED });
+    Body { height, weight, arm, hand, wingspan, frame_weight: weight, left_handed, left_footed }
 }
 
 /// His body now: boys grow through high school, late bloomers later, and
@@ -120,6 +134,8 @@ pub fn body_now(p: &Player) -> Body {
         hand: a.hand * (0.9 + 0.1 * grown),
         wingspan: a.wingspan * k,
         frame_weight: a.frame_weight,
+        left_handed: a.left_handed,
+        left_footed: a.left_footed,
     }
 }
 
@@ -150,15 +166,22 @@ pub fn combine(p: &Player, rng: &mut Rng) -> Combine {
         (at(Attr::Speed), at(Attr::Acceleration), at(Attr::Agility), at(Attr::Strength), at(Attr::Jumping));
     let w = b.weight - 220.0;
     let burst = jumping.max(0.95 * accel);
+    // The 3-cone is the scouts' bend test for edge rushers: it reads hip
+    // flexibility as well as feet; the short shuttle is change of direction.
     let quick = 0.7 * agility + 0.3 * accel;
-    let forty = 5.56 - 0.0124 * (0.75 * speed + 0.25 * accel) + 0.0033 * w + rng.normal(0.0, 0.04);
+    let bend = 0.55 * agility + 0.25 * accel + 0.2 * at(Attr::Flexibility);
+    // Speed is how fast he plays. On the track some run faster or slower than
+    // they play (a stable sd 0.04 s each, on his own stream), and each run
+    // adds its own 0.03 s (proposed, not confirmed).
+    let track = Rng::new(p.id ^ 0x40_7AC4).normal(0.0, 0.04);
+    let forty = 5.56 - 0.0124 * (0.75 * speed + 0.25 * accel) + 0.0033 * w + track + rng.normal(0.0, 0.03);
     let vertical = 20.9 + 0.182 * burst - 0.035 * w + rng.normal(0.0, 1.5);
     let broad = 87.6 + 0.448 * burst - 0.089 * w + rng.normal(0.0, 3.0);
     // Long arms mean a longer press: fewer reps for the same strength.
     // Refit 2026-10-14 to drafted players' position means after athlete-first
     // creation (item 6; proposed, not confirmed).
     let bench = 8.05 + 0.137 * strength + 0.073 * w - 0.8 * (b.arm - 32.5) + rng.normal(0.0, 2.0);
-    let cone = 7.58 - 0.007 * quick + 0.0062 * w + rng.normal(0.0, 0.08);
+    let cone = 7.58 - 0.007 * bend + 0.0062 * w + rng.normal(0.0, 0.08);
     let shuttle = 4.59 - 0.0045 * quick + 0.0039 * w + rng.normal(0.0, 0.06);
     let r2 = |x: f64| (x * 100.0).round() / 100.0;
     Combine {

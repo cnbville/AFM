@@ -177,6 +177,8 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     let dip = ctx.adjustment;
     let situation = ctx.situation;
     let mut games_missed = 0;
+    // The hidden traits drift a little each year, on their own stream.
+    player.game.age_one_year(player.age, &mut Rng::new(player.id.wrapping_mul(0x2545_F491) ^ player.age));
     // The year back from a major injury (fix list 4.3): a player who healed
     // gets back the rehab loss his ceilings kept room for. One who never got
     // his burst back has no room to regain.
@@ -224,6 +226,11 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             Ev::ModerateInjury => rng.int(2, 6),
             _ => rng.int(round_half_up(games * 0.5) as i32, games as i32),
         } as u32;
+        // Some bodies heal faster (hidden recovery; proposed, not confirmed:
+        // up to about a quarter quicker or slower than average).
+        if severity != Ev::MajorInjury {
+            games_missed = round_half_up(games_missed as f64 * (1.3 - 0.03 * player.game.recovery)) as u32;
+        }
         if no_games {
             games_missed = 0;
         }
@@ -404,8 +411,11 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // raise the chance. Proposed, not confirmed: 2.5% a year for an average
     // player, about 6% for the laxest, about 1% for the most driven.
     if (18.0..=32.0).contains(&age) {
-        let lax =
-            clamp(1.0 + 0.12 * (10.0 - personality.work_ethic) + 0.06 * (10.0 - player.game.discipline), 0.3, 2.5);
+        let lax = clamp(
+            1.0 + 0.12 * (10.0 - personality.work_ethic) + 0.06 * (10.0 - player.attributes[Attr::Discipline] / 5.0),
+            0.3,
+            2.5,
+        );
         if rng.chance(0.025 * lax) {
             events.add(Ev::WeightGain);
             player.body.weight += rng.range(8.0, 25.0);

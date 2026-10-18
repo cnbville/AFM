@@ -75,7 +75,8 @@ From `docs/design/plays-and-tactics.md`, open items (proposed, not confirmed):
 ### 10. The attribute list and positions
 - **Decided 2026-10-10:** about 35-40 FM-style attributes ("B") and about 20 positions ("C"). Claude promised: "Before I build anything I'll send you the full list of about 35–40 attributes to sign off." ([T02] 2026-10-10 20:17)
 - **Never sent.** The code still has 25 attributes (`attributes.rs`) and 13 positions (`positions.rs`).
-- **No pick proposed** for the list itself. **Handoff suggestion:** draft the full list (release, hands, ball skills, leadership, football IQ and the like, per section 3's needs) and the ~20 positions (C/G, DE/DT, MLB/OLB, FS/SS, slot CB, FB, long snapper) for Raichel's sign-off before section 5.
+- **Answered 2026-10-18 for the attributes:** Raichel agreed to 67 visible and 5 hidden attributes (`docs/design/attributes.md`), built the same day. The positions are still 14 (LS added); the ~20 positions are still open.
+- **No pick proposed** for the positions. **Handoff suggestion:** draft the full list (release, hands, ball skills, leadership, football IQ and the like, per section 3's needs) and the ~20 positions (C/G, DE/DT, MLB/OLB, FS/SS, slot CB, FB, long snapper) for Raichel's sign-off before section 5.
 
 ### 11. The player-facing potential read
 - `potential_outlook` (tier words, confidence, hints) is a placeholder until section 7's scouting design. The hint rule from Q18 is confirmed; the wording and tiers are not.
@@ -116,7 +117,7 @@ Raichel has not signed these off. Each list names its numbers:
 
 | Decision | Where it was decided | State |
 |---|---|---|
-| About 35-40 attributes, about 20 positions | [T02] 2026-10-10 | Code has 25 and 13 |
+| About 35-40 attributes, about 20 positions | [T02] 2026-10-10 | Attributes built 2026-10-18 (67 + 5 hidden); positions 14 |
 | Engine physics fixes (5 items) | [T17] 2026-10-14 | Spec only, waiting on "build" |
 | Career stats record across levels (percentiles, era adjustment) | Section 3 topic 8 | Not built |
 | High school games on the engine | Section 3 ground rules | Stand-in for now |

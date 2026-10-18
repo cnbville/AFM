@@ -20,7 +20,7 @@ An American football management sim modelled on Football Manager. Priorities: re
 ### Ratings and attributes (2026-10-10)
 - 1-99 absolute scale: 99 = an all-time great at his peak (prime Tom Brady). High school players dominate on lower absolute ratings.
 - Cards also show a level-relative rating (e.g. "99 among HS juniors"). A level-relative 99 in HS or college must be rare. Benchmark: EA College Football has 0-1 players at 99, about 10 at 95+, about 100 at 90+ of ~11,000.
-- About 35-40 FM-style attributes (the full list still needs Raichel's sign-off).
+- About 35-40 FM-style attributes (2026-10-10). Raichel found the 38 built in section 3 too thin and agreed on 2026-10-18 (thread "Full build and trial 7") to 67 visible attributes and 5 hidden ones, then an engine retune on them; tendencies become their own layer after, with a short design round. The list: `docs/design/attributes.md`.
 - About 20 real depth-chart positions. Every player is rated at every position he could play, with fit derived from the attributes each position needs.
 
 ### Potential and development (2026-10-10)
@@ -107,7 +107,6 @@ Listed in `docs/world-model.md` ("Trial 3 fix list"): the NIL position values an
 - The league structure in detail (how many college programs, conferences, schedules): part of section 2.
 - The first-year adjustment drivers (step size, position, polish, football IQ and make-up, physical readiness, fit and luck): proposed, not signed off.
 - How strong the NIL pull back to school is, and whether a player knows roughly which team would draft him.
-- The full attribute list.
 
 ## Trial history
 - Trials 1-4: see `docs/design/player-model-decisions.md` and `docs/design/open-bugs-after-trial4.md`.

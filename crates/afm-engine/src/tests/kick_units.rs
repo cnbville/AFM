@@ -24,6 +24,9 @@ fn long_snapper_is_on_the_kicking_units() {
             let snappers = [h, a].map(|t| {
                 teams[t].players.iter().filter(|p| p.position == Position::LS).map(|p| p.id).collect::<Vec<u32>>()
             });
+            // A snapper hurt in the game is replaced (the next best snap), so
+            // only a healthy one must be on the unit.
+            let hurt: HashSet<u32> = res.injuries.iter().map(|(_, i)| i.id).collect();
             let mut kicked = [false; 2];
             for r in &s.plays {
                 if !matches!(r.kind, PlayType::FieldGoal | PlayType::ExtraPoint | PlayType::Punt) {
@@ -34,7 +37,7 @@ fn long_snapper_is_on_the_kicking_units() {
                 let distinct: HashSet<u32> = on.iter().copied().collect();
                 assert_eq!(on.len(), 11, "{level:?} game {g}: {:?} unit has {} men", r.kind, on.len());
                 assert_eq!(distinct.len(), 11, "{level:?} game {g}: a man listed twice on the {:?} unit", r.kind);
-                if level != Level::HS {
+                if level != Level::HS && snappers[r.offense].iter().all(|id| !hurt.contains(id)) {
                     assert!(
                         snappers[r.offense].iter().any(|id| on.contains(id)),
                         "{level:?} game {g}: no long snapper on the {:?} unit",
@@ -68,9 +71,11 @@ fn the_kicker_never_snaps_to_himself() {
     let k1 = team.players.iter().position(|p| p.position == Position::K).unwrap();
     let mut k2 = team.players[k1].clone();
     k2.id = team.players.iter().map(|p| p.id).max().unwrap() + 1;
-    k2.attrs[Attr::KickAccuracy] -= 15.0;
+    k2.attrs[Attr::ShortKickAccuracy] -= 15.0;
+    k2.attrs[Attr::LongKickAccuracy] -= 15.0;
     k2.attrs[Attr::KickPower] -= 15.0;
-    k2.traits.snapping = team.players.iter().map(|p| p.traits.snapping).fold(0.0, f64::max) + 5.0;
+    k2.attrs[Attr::Composure] -= 15.0;
+    k2.attrs[Attr::LongSnapping] = team.players.iter().map(|p| p.a(Attr::LongSnapping)).fold(0.0, f64::max) + 5.0;
     team.players.push(k2);
     let k2 = team.players.len() - 1;
     // With everyone fit the backup kicker is the snapper.

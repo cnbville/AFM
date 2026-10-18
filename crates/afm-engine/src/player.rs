@@ -3,7 +3,7 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::attributes::{ATTRIBUTE_PROFILES, Attr, Attributes, MAX_RATING, MIN_RATING};
-use crate::positions::{Position, elite_shape_overall, elite_shape_value, long_snapper_rating, overall_for};
+use crate::positions::{Position, elite_shape_overall, elite_shape_value, overall_for};
 use crate::rng::{Rng, clamp, round_half_up};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -255,44 +255,40 @@ pub struct Player {
     pub game: GameTraits,
 }
 
-/// Hidden game-day traits on Football Manager's 1-20 scale (section 3). They
-/// come from the player's own id stream, so adding them changed no other draw.
+/// Hidden game-day traits on Football Manager's 1-20 scale (section 3). The
+/// game never shows them; scouts and staffs only get hints. Discipline,
+/// toughness, motor, composure, long snapping and the kicker's short-or-long
+/// lean were hidden here before 2026-10-18 and are visible attributes now.
+/// They come from the player's own id stream, so adding them changed no
+/// other draw.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GameTraits {
-    /// Avoids penalties: holding when beaten, jumping early, late hits.
-    pub discipline: f64,
-    /// Plays through pain, and takes hits without going down early.
-    pub toughness: f64,
-    /// How steady his play is from snap to snap.
+    /// How often he plays to his ratings, game to game (form) and snap to snap.
     pub consistency: f64,
-    /// Keeps chasing the play when it seems over (work rate on the field).
-    pub motor: f64,
-    /// Composure under pressure: big moments and short memory after a mistake.
-    /// The biggest gift a kicker or punter has (topic 7).
-    pub composure: f64,
-    /// Long snapping for punts and kicks (topic 7).
-    pub snapping: f64,
-    /// Kicking accuracy split (topic 7): points added to kick accuracy inside
-    /// 40 yards and from 40 and out. One kicker is lethal short, another long.
-    pub kick_short: f64,
-    pub kick_long: f64,
+    /// Self-control under provocation: late hits, retaliation, taunting, ejections.
+    pub temperament: f64,
+    /// How fast his body comes back between games and from injury.
+    pub recovery: f64,
 }
 
 impl GameTraits {
     pub fn for_id(id: u32) -> GameTraits {
         let mut r = Rng::new(id ^ 0x6A4D_E5A1);
         let mut t = || clamp(round_half_up(r.normal(10.0, 3.5)), 1.0, 20.0);
-        let (discipline, toughness, consistency, motor, composure, snapping) = (t(), t(), t(), t(), t(), t());
-        let split = r.normal(0.0, 5.0);
-        GameTraits {
-            discipline,
-            toughness,
-            consistency,
-            motor,
-            composure,
-            snapping,
-            kick_short: split + r.normal(0.0, 2.0),
-            kick_long: -split + r.normal(0.0, 2.0),
+        let (consistency, temperament, recovery) = (t(), t(), t());
+        GameTraits { consistency, temperament, recovery }
+    }
+
+    /// A year older (proposed, not confirmed): steadiness and self-control
+    /// come with maturity into the mid-twenties; recovery slows from 30.
+    pub fn age_one_year(&mut self, age: u32, rng: &mut Rng) {
+        let a = age as f64;
+        if a < 26.0 {
+            self.consistency = clamp(self.consistency + rng.range(0.0, 0.25), 1.0, 20.0);
+            self.temperament = clamp(self.temperament + rng.range(0.0, 0.3), 1.0, 20.0);
+        }
+        if a >= 30.0 {
+            self.recovery = clamp(self.recovery - rng.range(0.1, 0.4), 1.0, 20.0);
         }
     }
 }
@@ -301,11 +297,7 @@ impl Player {
     /// Current overall rating at the player's position.
     #[inline]
     pub fn overall(&self) -> f64 {
-        match self.position {
-            // The snap is a long snapper's job (fix list 1.7).
-            Position::LS => long_snapper_rating(self.game.snapping, &self.attributes),
-            pos => overall_for(pos, &self.attributes),
-        }
+        overall_for(self.position, &self.attributes)
     }
 
     /// True potential: the overall the player would have if every attribute
@@ -313,10 +305,7 @@ impl Player {
     /// estimates; exposed outside the engine only through `debug`.
     #[inline]
     pub(crate) fn potential(&self) -> f64 {
-        match self.position {
-            Position::LS => long_snapper_rating(self.game.snapping, &self.ceilings),
-            pos => overall_for(pos, &self.ceilings),
-        }
+        overall_for(self.position, &self.ceilings)
     }
 
     pub fn has_had(&self, e: DevelopmentEvent) -> bool {
@@ -360,10 +349,10 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
     // Athlete first (topic 5.2): body, athletic traits and skill leanings come
     // before any position. A fixed position (tests, tools) builds the player
     // around that position's elite shape instead.
-    let (position, ceilings, body) = match opts.position {
+    let (position, ceilings, body, compete) = match opts.position {
         None => {
-            let (ceilings, body, natural) = crate::athlete::create(rng, talent);
-            (natural, ceilings, body)
+            let (ceilings, body, natural, compete) = crate::athlete::create(rng, talent);
+            (natural, ceilings, body, compete)
         }
         Some(position) => {
             let scale = talent / elite_shape_overall(position);
@@ -376,7 +365,7 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
             // His build: how his strength and speed ceilings sit against his position's norm.
             let dev = |a: Attr| (ceilings[a] - elite_shape_value(position, a) * scale) / 4.0;
             let body = crate::body::adult_body(id, position, potential, dev(Attr::Strength), dev(Attr::Speed));
-            (position, ceilings, body)
+            (position, ceilings, body, rng.normal(0.0, 1.0))
         }
     };
 
@@ -402,7 +391,9 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
     let personality = Personality {
         work_ethic: trait_1_20(rng),
         coachability: trait_1_20(rng),
-        competitiveness: trait_1_20(rng),
+        // The drive to win he trains with is the will he plays with
+        // (proposed, not confirmed: correlation 0.6).
+        competitiveness: clamp(round_half_up(10.0 + 3.5 * (0.6 * compete + 0.8 * rng.normal(0.0, 1.0))), 1.0, 20.0),
         love_of_game: trait_1_20(rng),
     };
     Player {

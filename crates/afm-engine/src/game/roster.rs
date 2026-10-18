@@ -3,13 +3,14 @@
 
 use crate::attributes::{Attr, Attributes};
 use crate::body::body_now;
-use crate::player::{GameTraits, Personality, Player};
-use crate::positions::{POSITION_COUNT, Position, long_snapper_rating, overall_for};
+use crate::player::{GameTraits, Level, Personality, Player};
+use crate::positions::{POSITION_COUNT, Position, overall_for};
 use crate::rng::clamp;
 use crate::spots::{self, SPOT_COUNT, Spot, fill_in, spot_rating};
 
 use super::calling::Film;
 use super::playbook::FAMILY_COUNT;
+use super::rules::{TRAIT_STEP, trait_norm};
 
 /// A player as the match engine sees him on game day.
 #[derive(Clone, Debug)]
@@ -23,6 +24,10 @@ pub struct GamePlayer {
     pub height: f64,
     pub weight: f64,
     pub arm: f64,
+    /// Throwing hand and kicking foot: a lefty quarterback's blind side is
+    /// his right, and a lefty punter's spin is harder to field.
+    pub left_handed: bool,
+    pub left_footed: bool,
     pub traits: GameTraits,
     pub personality: Personality,
     pub injury_proneness: f64,
@@ -57,6 +62,8 @@ impl GamePlayer {
             height: b.height,
             weight: b.weight,
             arm: b.arm,
+            left_handed: b.left_handed,
+            left_footed: b.left_footed,
             traits: p.game,
             personality: p.personality,
             injury_proneness: p.injury_proneness,
@@ -87,11 +94,14 @@ impl GamePlayer {
     }
 
     pub fn overall_at(&self, pos: Position) -> f64 {
-        match pos {
-            // The snap is the long snapper's job (fix list 1.7).
-            Position::LS => long_snapper_rating(self.traits.snapping, &self.attrs),
-            _ => overall_for(pos, &self.attrs),
-        }
+        overall_for(pos, &self.attrs)
+    }
+
+    /// An attribute on the 1-20 scale the engine's hidden traits used
+    /// (five rating points a step).
+    #[inline]
+    pub fn on20(&self, a: Attr) -> f64 {
+        clamp(self.a(a) / 5.0, 1.0, 20.0)
     }
 
     /// His real 40 time from speed, burst and weight (same fit as the combine).
@@ -138,9 +148,17 @@ impl GamePlayer {
         clamp(ag - 0.002 * (self.weight - 220.0), 0.4, 1.7)
     }
 
-    /// Composure, 1-20: the hidden trait with today's poise.
-    pub fn composure(&self) -> f64 {
-        clamp(0.6 * self.traits.composure + 0.4 * self.a(Attr::Poise) / 5.0, 1.0, 20.0)
+    /// A trait-like rating (discipline, toughness, motor, composure,
+    /// concentration) on the 1-20 scale, read against his level: 10 is the
+    /// level's typical player, as the old hidden traits were.
+    #[inline]
+    pub fn trait20(&self, a: Attr, level: Level) -> f64 {
+        clamp(10.0 + (self.a(a) - trait_norm(level, a)) / TRAIT_STEP, 1.0, 20.0)
+    }
+
+    /// Composure, 1-20, against his level.
+    pub fn composure(&self, level: Level) -> f64 {
+        self.trait20(Attr::Composure, level)
     }
 }
 
@@ -550,7 +568,7 @@ pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
         .iter()
         .copied()
         .find(|&i| ps[i].position == Position::LS && !busy.contains(&i))
-        .unwrap_or_else(|| best(&|p| p.traits.snapping + 0.02 * p.a(Attr::Awareness), &busy));
+        .unwrap_or_else(|| best(&|p| p.a(Attr::LongSnapping) + 0.1 * p.a(Attr::FootballIq), &busy));
     // The holder: the punter, unless he is the one kicking; else the backup quarterback.
     let kicker = d.list(Position::K).first().copied();
     d.holder = d
@@ -559,7 +577,12 @@ pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
         .copied()
         .find(|&i| ps[i].position == Position::P && Some(i) != kicker && i != d.snapper)
         .unwrap_or_else(|| d.list(Position::QB)[1.min(d.list(Position::QB).len() - 1)]);
-    let returner = |p: &GamePlayer| 0.5 * p.a(Attr::Speed) + 0.3 * p.a(Attr::Elusiveness) + 0.2 * p.a(Attr::Vision);
+    let returner = |p: &GamePlayer| {
+        0.4 * p.a(Attr::Speed)
+            + 0.25 * p.a(Attr::Elusiveness)
+            + 0.2 * p.a(Attr::BallCarrierVision)
+            + 0.15 * p.a(Attr::BallTracking)
+    };
     let mut kr: Vec<usize> =
         d.list(Position::WR).iter().chain(d.list(Position::RB)).chain(d.list(Position::CB)).copied().collect();
     kr.sort_by(|&a, &b| returner(&ps[b]).total_cmp(&returner(&ps[a])));

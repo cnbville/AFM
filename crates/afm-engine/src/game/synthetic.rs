@@ -20,6 +20,33 @@ pub fn level_strength(level: Level) -> (f64, f64) {
     }
 }
 
+/// Where the world's NFL starters sit against `level_strength` by position:
+/// trial 7's 2025 depth charts (QB 83, OT 86, EDGE 81, ...) moved by what the
+/// 67-attribute list shifted on the class checks (`calibrate`,
+/// `starter_overall_by_position`), less the base 77. The world puts its
+/// offensive line well above its defensive line on the rating scale, and
+/// the engine is tuned on rosters like the world's (trial 7 finding 1).
+/// Inferred, not measured on a world with the new list; proposed, not
+/// confirmed.
+fn nfl_offset(pos: Position) -> f64 {
+    match pos {
+        Position::QB => 6.6,
+        Position::RB => 2.4,
+        Position::WR => 2.9,
+        Position::TE => 4.6,
+        Position::OT => 9.0,
+        Position::IOL => 7.0,
+        Position::EDGE => 5.3,
+        Position::DT => 2.1,
+        Position::LB => -0.3,
+        Position::CB => 7.8,
+        Position::S => 3.9,
+        Position::K => 5.1,
+        Position::P => 0.8,
+        Position::LS => 0.0,
+    }
+}
+
 fn z_for(talent: f64) -> f64 {
     let (mut lo, mut hi) = (-4.0, 6.0);
     for _ in 0..50 {
@@ -66,7 +93,8 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
         let starters = starters(pos);
         for k in 0..n {
             let r = if pos == Position::LS { &mut ls_rng } else { &mut rng };
-            let base = if k < starters { starter } else { backup - 2.0 * (k - starters) as f64 };
+            let shift = if level == Level::NFL { nfl_offset(pos) } else { 0.0 };
+            let base = shift + if k < starters { starter } else { backup - 2.0 * (k - starters) as f64 };
             let target = clamp(base + quality + r.normal(0.0, 4.5), 20.0, 97.0);
             id += 1;
             let mut p = generate_prospect(
@@ -90,8 +118,9 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
             }
             // A snapper is as good as his snap: set it so his rating fits the level.
             if pos == Position::LS {
-                let rest = overall_for(Position::LS, &p.attributes);
-                p.game.snapping = clamp((target - 0.25 * rest) / 3.75, 1.0, 20.0);
+                let w = crate::positions::weight(Position::LS, Attr::LongSnapping);
+                let rest = overall_for(Position::LS, &p.attributes) - w * p.attributes[Attr::LongSnapping];
+                p.attributes[Attr::LongSnapping] = clamp((target - rest) / w, MIN_RATING, MAX_RATING);
             }
             let exp = match level {
                 Level::NFL => 2.0 + (k % 6) as f64,
@@ -112,7 +141,7 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
     }
     let players: Vec<GamePlayer> = raw.iter().map(|(p, know, exp)| GamePlayer::from_player(p, *know, *exp)).collect();
     // The staff sizes its weekly plan to its players (T6.2).
-    let aware = players.iter().map(|p| p.a(Attr::Awareness)).sum::<f64>() / players.len().max(1) as f64;
+    let aware = players.iter().map(|p| p.a(Attr::FootballIq)).sum::<f64>() / players.len().max(1) as f64;
     let staff = Staff {
         offense: Caller::new(
             clamp(rng.normal(10.0, 3.0), 1.0, 20.0),

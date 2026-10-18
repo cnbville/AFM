@@ -1,6 +1,7 @@
 //! The real rules of each level (topic 5). Only the rules differ by level:
 //! how good the play looks comes from the players.
 
+use crate::attributes::Attr;
 use crate::player::Level;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -128,3 +129,36 @@ impl Rules {
         Rules { hash: 6.667, ..Rules::for_level(Level::HS) }
     }
 }
+
+/// What a typical dressed player at a level has in a trait-like rating
+/// (discipline, toughness, motor, composure, concentration, competitiveness,
+/// physicality). The engine reads these against the level, the way the old
+/// hidden 1-20 traits were the same at every level: officials call holding to
+/// the level's standard, so a college line and an NFL line draw about as many
+/// flags (real: about 6 penalties a team game at both). Measured on the
+/// synthetic rosters (`level_strength`, with the NFL's world-like position
+/// offsets: at 64 the NFL drew 4.5 penalties a team game); proposed, not
+/// confirmed.
+pub fn trait_norm(level: Level, a: Attr) -> f64 {
+    let base = match level {
+        Level::NFL => 67.0,
+        Level::FBS => 48.0,
+        Level::FCS => 42.0,
+        Level::SmallCollege => 37.0,
+        Level::HS => 29.0,
+    };
+    let offset = match a {
+        Attr::Toughness => 3.0,
+        Attr::Motor => 1.5,
+        Attr::Composure => 1.0,
+        Attr::Concentration => 4.5,
+        Attr::Competitiveness => 5.5,
+        Attr::Physicality => -0.5,
+        _ => 0.0,
+    };
+    base + offset
+}
+
+/// Rating points a step on the 1-20 trait scale: the spread of these ratings
+/// within a level (sd about 9) over the old traits' spread (sd 3.5).
+pub const TRAIT_STEP: f64 = 2.6;

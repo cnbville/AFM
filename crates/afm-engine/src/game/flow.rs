@@ -115,6 +115,8 @@ impl<'a> Side<'a> {
         // spot by Saturday. A coach keeps a man where he knows the job
         // unless moving him is clearly better.
         let mut familiar: Vec<u32> = team.players.iter().map(|p| p.spots_played | p.spot.bit()).collect();
+        // A left-handed starter's blind side is his right (`spots::blind_side`).
+        let lefty = depth.list(Position::QB).first().is_some_and(|&i| team.players[i].left_handed);
         for pos in Position::ALL {
             let spots = spots::starter_spots(pos);
             if spots.len() < 2 {
@@ -124,7 +126,7 @@ impl<'a> Side<'a> {
             let value = |i: usize, sp: Spot| {
                 let p = &team.players[i];
                 let cost = if familiar[i] & sp.bit() != 0 { 0.0 } else { fill_in(sp, p.spot) };
-                p.spot_r[sp.index()] - 0.5 * cost
+                p.spot_r[spots::blind_side(sp, lefty).index()] - 0.5 * cost
             };
             let order = best_order(&list, spots, &value);
             for (k, i) in order.into_iter().enumerate() {
@@ -162,6 +164,12 @@ impl<'a> Side<'a> {
         self.team.players[i].spot_r[sp.index()] - self.unfamiliar(i, sp)
     }
 
+    /// A lineman at a spot on the line, facing the demands of the blind side
+    /// when his quarterback is a lefty.
+    fn on_line(&self, i: usize, sp: Spot, lefty: bool) -> f64 {
+        self.team.players[i].spot_r[spots::blind_side(sp, lefty).index()] - self.unfamiliar(i, sp)
+    }
+
     /// The fullback (3.4): a back or a tight end, never anyone else; the
     /// one who plays it best.
     fn pick_fb(&self, used: &mut Vec<usize>) -> Option<usize> {
@@ -192,7 +200,7 @@ impl<'a> Side<'a> {
     fn threshold(&self, pos: Position) -> f64 {
         let base = match pos {
             Position::EDGE | Position::DT => 0.84,
-            Position::RB => 0.86,
+            Position::RB => 0.60,
             Position::WR | Position::TE => 0.74,
             Position::LB | Position::CB | Position::S => 0.68,
             _ => 0.5,
@@ -244,12 +252,21 @@ impl<'a> Side<'a> {
                 break;
             }
             if self.energy[i] < th {
+                // The more worn he is, the bigger the drop a coach accepts to
+                // spell him, so a star back or rusher still comes out for a
+                // breather. It used to be a flat 9 points: a star never came
+                // out and took nine of ten carries (trial 7 finding 2). Now
+                // the lead back takes about 65% of the backs' carries in an
+                // NFL game (real 70%, 59% over a season with the games he
+                // misses), 53% in FBS, and a star 15 points better about 82%
+                // (real stars about 80-85%; proposed, not confirmed).
+                let allow = 60.0 * (th - self.energy[i]);
                 let next = list.iter().copied().find(|&j| {
                     j != i
                         && !out.contains(&j)
                         && !skipped.contains(&j)
                         && self.energy[j] >= th
-                        && self.rating(j, pos) >= self.rating(i, pos) - 9.0
+                        && self.rating(j, pos) >= self.rating(i, pos) - allow
                 });
                 if next.is_some() {
                     skipped.push(i);
@@ -339,7 +356,7 @@ impl<'a> Side<'a> {
         }
         let ps = &self.team.players;
         let free = |i: usize| !self.out[i] && !legs.contains(&i);
-        let snap = |i: usize| ps[i].traits.snapping + 0.02 * ps[i].a(Attr::Awareness);
+        let snap = |i: usize| ps[i].a(Attr::LongSnapping) + 0.1 * ps[i].a(Attr::FootballIq);
         d.list(Position::LS)
             .iter()
             .copied()
@@ -358,7 +375,7 @@ impl<'a> Side<'a> {
         }
         let ps = &self.team.players;
         let qbs = self.depth.list(Position::QB);
-        let hands = |i: usize| ps[i].a(Attr::Catching) + ps[i].a(Attr::Awareness);
+        let hands = |i: usize| ps[i].a(Attr::Catching) + ps[i].a(Attr::Concentration);
         qbs.iter()
             .skip(1)
             .chain(qbs.iter().take(1))
@@ -817,7 +834,7 @@ impl<'a> Game<'a> {
             .map(|i| {
                 let p = &ps[i];
                 let skill = if receiving {
-                    0.3 * p.a(Attr::Speed) + 0.4 * p.a(Attr::RunBlocking) + 0.3 * p.a(Attr::Strength)
+                    0.3 * p.a(Attr::Speed) + 0.4 * p.a(Attr::BlockingInSpace) + 0.3 * p.a(Attr::Strength)
                 } else {
                     0.4 * p.a(Attr::Speed) + 0.35 * p.a(Attr::Tackling) + 0.25 * p.a(Attr::BlockShedding)
                 };
@@ -926,7 +943,7 @@ impl<'a> Game<'a> {
         let staff = self.sides[team].team.staff;
         let kicker = &self.sides[team].team.players[self.sides[team].fg_kicker()];
         let xp_make =
-            clamp(0.55 + 0.005 * kicker.a(Attr::KickAccuracy) - 0.002 * (self.rules().xp_from - 3.0), 0.2, 0.99);
+            clamp(0.55 + 0.005 * kicker.a(Attr::ShortKickAccuracy) - 0.002 * (self.rules().xp_from - 3.0), 0.2, 0.99);
         let diff = self.diff(team);
         let forced_two = self.ot && self.rules().overtime == Overtime::College && self.ot_round >= 2;
         // Up big, nobody goes for two (it reads as running up the score).
@@ -1006,6 +1023,7 @@ impl<'a> Game<'a> {
             pressure,
             &self.s.cond,
             along,
+            self.s.rules.level,
             &mut self.rng,
         );
         r.kicker = Some(ps[k].id);
@@ -1130,7 +1148,7 @@ impl<'a> Game<'a> {
     fn fg_make_estimate(&self, team: usize, dist: f64) -> f64 {
         let side = &self.sides[team];
         let p = &side.team.players[side.fg_kicker()];
-        let acc = p.a(Attr::KickAccuracy);
+        let acc = super::kicking::fg_accuracy(p, dist);
         let range = 38.0 + 0.3 * p.a(Attr::KickPower);
         let sd = (2.95 + 0.012 * (dist - 30.0)) * (1.82f64 - 0.0105 * acc).max(0.55);
         let half = (3.083 / dist).atan().to_degrees();
@@ -1349,8 +1367,9 @@ impl<'a> Game<'a> {
         // The line: each man to the spot he plays best together with the
         // others, a fill-in paying for a spot he doesn't know (3.3).
         let line = |list: Vec<usize>, rs: &[ORole], off: &mut Vec<(ORole, usize)>| {
+            let lefty = off.iter().any(|&(r, i)| r == ORole::QB && o.team.players[i].left_handed);
             let spots: Vec<Spot> = rs.iter().map(|&r| orole_spot(r)).collect();
-            let order = best_order(&list, &spots, &|i, sp| o.at_spot(i, sp));
+            let order = best_order(&list, &spots, &|i, sp| o.on_line(i, sp, lefty));
             for (k, i) in order.into_iter().enumerate() {
                 if let Some(i) = i {
                     off.push((rs[k], i));
@@ -1470,11 +1489,16 @@ impl<'a> Game<'a> {
             }
             let p = &self.sides[o].team.players[i];
             let tired = 1.0 - self.sides[o].energy[i];
+            let level = self.s.rules.level;
             // Road teams jump 21% more often in real FBS conference games
-            // (1.28 a game against 1.06, cfbfastR 2023-24).
+            // (1.28 a game against 1.06, cfbfastR 2023-24). Concentration
+            // joins discipline, and decides how much the noise gets to him
+            // (proposed, not confirmed).
+            let conc = p.trait20(Attr::Concentration, level);
+            let focus = 0.6 * p.trait20(Attr::Discipline, level) + 0.4 * conc;
             let chance = 0.00162
-                * (1.6 - p.traits.discipline / 15.0).max(0.3)
-                * (1.0 + 0.32 * crowd)
+                * (1.6 - focus / 15.0).max(0.3)
+                * (1.0 + 0.32 * crowd * clamp(1.5 - 0.05 * conc, 0.5, 1.5))
                 * crew
                 * (1.0 + tired)
                 * (1.25 - 0.25 * p.knowledge);
@@ -1482,27 +1506,47 @@ impl<'a> Game<'a> {
                 return Some(Foul { kind: FoulKind::FalseStart, side: 0, player: p.id, at: self.x });
             }
         }
+        let qb = off.iter().find(|x| x.0 == ORole::QB).map(|x| x.1).unwrap_or(0);
+        let qp = &self.sides[o].team.players[qb];
+        // The hard count on 3rd or 4th and short: a smart quarterback draws
+        // the defense offside (proposed, not confirmed).
+        let hard = if self.down >= 3 && self.togo <= 2.0 {
+            clamp(1.5 + 0.05 * (qp.trait20(Attr::FootballIq, self.s.rules.level) - 10.0), 1.0, 2.5)
+        } else {
+            1.0
+        };
         for &(s, i) in def {
             if !s.is_line() {
                 continue;
             }
             let p = &self.sides[1 - o].team.players[i];
-            let chance = 0.0019 * (1.6 - p.traits.discipline / 15.0).max(0.3) * crew;
+            // The best snap anticipators get off early, and now and then too
+            // early (read against his level; proposed, not confirmed).
+            let jump = clamp(1.0 + 0.04 * (p.trait20(Attr::Anticipation, self.s.rules.level) - 10.0), 0.6, 1.5);
+            let chance =
+                0.0019 * (1.6 - p.trait20(Attr::Discipline, self.s.rules.level) / 15.0).max(0.3) * jump * hard * crew;
             if self.rng.chance(chance) {
                 return Some(Foul { kind: FoulKind::Offside, side: 1, player: p.id, at: self.x });
             }
         }
-        let qb = off.iter().find(|x| x.0 == ORole::QB).map(|x| x.1).unwrap_or(0);
-        let qp = &self.sides[o].team.players[qb];
         // Road delays: 34% more (0.34 a game against 0.26).
-        if self.rng.chance(0.0050 * (1.3 - qp.a(Attr::Awareness) / 120.0) * (1.0 + 0.52 * crowd) * crew) {
+        if self.rng.chance(0.0050 * (1.3 - qp.a(Attr::FootballIq) / 120.0) * (1.0 + 0.52 * crowd) * crew) {
             return Some(Foul { kind: FoulKind::DelayOfGame, side: 0, player: qp.id, at: self.x });
         }
         // Illegal formation stands for every 5-yard offensive alignment foul
         // (shifts, motion, ineligible downfield, too many men): real about
         // 0.6 a team game together (Claude's reading of 2023, proposed, not
         // confirmed). False starts ran a fifth high, delay a quarter low.
-        if self.rng.chance(0.0078 * crew * (1.3 - qp.knowledge * 0.3)) {
+        // Lining up right is the quarterback's and the line's football IQ
+        // (proposed, not confirmed).
+        let callers: Vec<f64> = off
+            .iter()
+            .filter(|x| x.0.is_line() || x.0 == ORole::QB)
+            .map(|x| self.sides[o].team.players[x.1].a(Attr::FootballIq))
+            .collect();
+        let line_iq = callers.iter().sum::<f64>() / callers.len().max(1) as f64;
+        let align = clamp(1.0 - 0.008 * (line_iq - 60.0), 0.6, 1.4);
+        if self.rng.chance(0.0078 * crew * (1.3 - qp.knowledge * 0.3) * align) {
             let id =
                 off.iter().find(|x| x.0.is_receiver()).map(|x| self.sides[o].team.players[x.1].id).unwrap_or(qp.id);
             return Some(Foul { kind: FoulKind::IllegalFormation, side: 0, player: id, at: self.x });
@@ -1559,14 +1603,14 @@ impl<'a> Game<'a> {
         let numbers = box_n - blockers;
         let freedom =
             clamp(0.85 - 0.035 * self.sides[o].team.staff.strictness + 0.04 * qp.experience.min(5.0), 0.1, 0.95);
-        let iq = 0.6 * qp.a(Attr::Awareness) + 0.4 * qp.a(Attr::Vision);
+        let iq = 0.5 * qp.a(Attr::PlayRecognition) + 0.5 * qp.a(Attr::FootballIq);
         // His read of the shell: a disguise fools him unless he out-thinks
         // the secondary (3.5).
         let shows_two = dcall.coverage.high() == 2 || dcall.disguise;
         let db_iq = def
             .iter()
             .filter(|(s, _)| s.is_db())
-            .map(|&(_, i)| self.sides[d].team.players[i].a(Attr::PlayRecognition))
+            .map(|&(_, i)| self.sides[d].team.players[i].a(Attr::Disguise))
             .sum::<f64>()
             / def.iter().filter(|(s, _)| s.is_db()).count().max(1) as f64;
         let fooled =
@@ -1693,7 +1737,10 @@ impl<'a> Game<'a> {
             && dcall.coverage.is_man()
             && !self.rng.chance(0.15 + 0.02 * self.sides[d].team.staff.defense.reading)
         {
-            pre_read = (pre_read + 0.35).min(1.0);
+            // What motion shows him: his recognition against the
+            // secondary's disguise (proposed, not confirmed).
+            let shows = clamp(1.0 + 0.01 * (self.sides[o].team.players[qb].a(Attr::PlayRecognition) - db_iq), 0.5, 1.5);
+            pre_read = (pre_read + 0.35 * shows).min(1.0);
         }
         let tac = scrimmage::Tactics {
             belief_run,
@@ -1825,7 +1872,7 @@ impl<'a> Game<'a> {
     fn edge_hit(&mut self, team: usize, id: u32, amount: f64) {
         // Momentum (topic 4.1): small, and composure decides how much it bites.
         if let Some(i) = self.sides[team].team.players.iter().position(|p| p.id == id) {
-            let c = self.sides[team].team.players[i].composure();
+            let c = self.sides[team].team.players[i].composure(self.s.rules.level);
             let delta = if amount < 0.0 { amount * 1.5 * (1.25 - c / 20.0) } else { amount * 0.8 };
             let e = &mut self.sides[team].edge[i];
             *e = clamp(*e + delta, -3.0, 2.0);
@@ -1833,9 +1880,10 @@ impl<'a> Game<'a> {
     }
 
     fn decay_edges(&mut self) {
+        let level = self.s.rules.level;
         for s in self.sides.iter_mut() {
             for (i, e) in s.edge.iter_mut().enumerate() {
-                let c = s.team.players[i].composure();
+                let c = s.team.players[i].composure(level);
                 let k = if *e < 0.0 { (0.8 - 0.03 * c).max(0.2) } else { 0.7 };
                 *e *= k;
             }

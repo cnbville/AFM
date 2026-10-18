@@ -204,49 +204,87 @@ fn score(p: &Player, pos: Position, slot: usize) -> f64 {
     let mix = |w: &[(Attr, f64)]| w.iter().map(|&(x, v)| a(x) * v).sum::<f64>();
     let heavy = clamp((p.body.weight - 250.0) / 1.2, 20.0, 99.0);
     match (pos, slot) {
-        (P::QB, 0) => mix(&[(ThrowAccuracy, 0.5), (Awareness, 0.3), (Poise, 0.2)]),
-        (P::QB, 1) => mix(&[(ThrowAccuracy, 0.4), (ThrowPower, 0.3), (Poise, 0.3)]),
-        (P::QB, 2) => mix(&[(ThrowAccuracy, 0.35), (Agility, 0.25), (Awareness, 0.2), (Speed, 0.2)]),
-        (P::QB, 3) => mix(&[(ThrowPower, 0.4), (Poise, 0.3), (Awareness, 0.3)]),
-        (P::QB, 4) => mix(&[(Speed, 0.4), (Agility, 0.2), (Elusiveness, 0.2), (ThrowAccuracy, 0.2)]),
-        (P::RB, 0) => mix(&[(Catching, 0.4), (Agility, 0.3), (Vision, 0.3)]),
-        (P::RB, 1) => mix(&[(Catching, 0.5), (Speed, 0.3), (PassBlocking, 0.2)]),
-        (P::RB, 2) => mix(&[(Vision, 0.4), (Agility, 0.3), (Acceleration, 0.3)]),
-        (P::RB, 3) => mix(&[(Strength, 0.4), (Carrying, 0.2), (Vision, 0.2), (Acceleration, 0.2)]),
-        (P::RB, 4) => mix(&[(Speed, 0.4), (Acceleration, 0.3), (Vision, 0.3)]),
-        (P::WR, 0) => mix(&[(RouteRunning, 0.5), (Catching, 0.3), (Agility, 0.2)]),
-        (P::WR, 1) => mix(&[(RouteRunning, 0.35), (Speed, 0.35), (Catching, 0.3)]),
-        (P::WR, 2) => mix(&[(RunBlocking, 0.3), (RouteRunning, 0.3), (Speed, 0.4)]),
-        (P::WR, 3) => mix(&[(RunBlocking, 0.4), (Catching, 0.3), (Strength, 0.3)]),
-        (P::WR, 4) => mix(&[(Speed, 0.5), (RunBlocking, 0.25), (Catching, 0.25)]),
+        (P::QB, 0) => {
+            mix(&[(ShortAccuracy, 0.3), (Decisions, 0.2), (Anticipation, 0.2), (QuickRelease, 0.15), (Footwork, 0.15)])
+        }
+        (P::QB, 1) => mix(&[
+            (ShortAccuracy, 0.2),
+            (MediumAccuracy, 0.2),
+            (DeepAccuracy, 0.15),
+            (ArmStrength, 0.15),
+            (QuickRelease, 0.15),
+            (Decisions, 0.15),
+        ]),
+        (P::QB, 2) => {
+            mix(&[(ThrowOnMove, 0.3), (BallHandling, 0.25), (MediumAccuracy, 0.2), (Speed, 0.15), (Agility, 0.1)])
+        }
+        (P::QB, 3) => mix(&[
+            (ArmStrength, 0.3),
+            (DeepAccuracy, 0.2),
+            (PocketPresence, 0.2),
+            (BallHandling, 0.15),
+            (Footwork, 0.15),
+        ]),
+        (P::QB, 4) => mix(&[
+            (Speed, 0.3),
+            (Decisions, 0.2),
+            (BallHandling, 0.15),
+            (Elusiveness, 0.15),
+            (ShortAccuracy, 0.1),
+            (Agility, 0.1),
+        ]),
+        (P::RB, 0) => mix(&[(Catching, 0.35), (BallCarrierVision, 0.25), (RouteRunning, 0.2), (Agility, 0.2)]),
+        (P::RB, 1) => mix(&[(Catching, 0.4), (PassBlocking, 0.35), (Speed, 0.25)]),
+        (P::RB, 2) => mix(&[(BallCarrierVision, 0.45), (Acceleration, 0.3), (Agility, 0.25)]),
+        (P::RB, 3) => mix(&[
+            (LegDrive, 0.3),
+            (Balance, 0.2),
+            (Acceleration, 0.2),
+            (BallSecurity, 0.15),
+            (BallCarrierVision, 0.15),
+        ]),
+        (P::RB, 4) => mix(&[(Speed, 0.4), (Acceleration, 0.3), (BallCarrierVision, 0.3)]),
+        (P::WR, 0) => mix(&[(RouteRunning, 0.45), (Catching, 0.3), (Agility, 0.15), (FootballIq, 0.1)]),
+        (P::WR, 1) => mix(&[(RouteRunning, 0.3), (Speed, 0.3), (Catching, 0.25), (FootballIq, 0.15)]),
+        (P::WR, 2) => mix(&[(Speed, 0.4), (BlockingInSpace, 0.3), (RouteRunning, 0.3)]),
+        (P::WR, 3) => mix(&[(BlockingInSpace, 0.35), (ContestedCatch, 0.3), (Catching, 0.2), (Strength, 0.15)]),
+        (P::WR, 4) => mix(&[(Speed, 0.45), (BlockingInSpace, 0.3), (Catching, 0.25)]),
         (P::TE, 0) => mix(&[(Catching, 0.4), (RouteRunning, 0.4), (RunBlocking, 0.2)]),
         (P::TE, 1) => mix(&[(Catching, 0.5), (RouteRunning, 0.5)]),
-        (P::TE, 2) => mix(&[(RunBlocking, 0.5), (Agility, 0.25), (Catching, 0.25)]),
-        (P::TE, 3) => mix(&[(RunBlocking, 0.6), (Strength, 0.4)]),
-        (P::TE, 4) => mix(&[(RunBlocking, 0.4), (Catching, 0.3), (Speed, 0.3)]),
-        (P::OT | P::IOL, 0) => mix(&[(PassBlocking, 0.6), (Agility, 0.2), (RunBlocking, 0.2)]),
-        (P::OT | P::IOL, 1) => mix(&[(PassBlocking, 0.8), (Agility, 0.2)]),
-        (P::OT | P::IOL, 2) => mix(&[(Agility, 0.35), (RunBlocking, 0.35), (Speed, 0.3)]),
-        (P::OT | P::IOL, 3) => mix(&[(Strength, 0.45), (RunBlocking, 0.45), (PassBlocking, 0.1)]),
-        (P::OT | P::IOL, 4) => mix(&[(RunBlocking, 0.5), (Agility, 0.3), (Strength, 0.2)]),
-        (P::DT, 5) => mix(&[(Acceleration, 0.4), (PassRush, 0.35), (Agility, 0.25)]),
-        (P::DT, 6) => mix(&[(Strength, 0.45), (BlockShedding, 0.35)]) + 0.2 * heavy,
-        (P::EDGE, 5) => mix(&[(Strength, 0.35), (PassRush, 0.35), (BlockShedding, 0.3)]),
-        (P::EDGE, 6) => mix(&[(Speed, 0.35), (PassRush, 0.35), (ZoneCoverage, 0.3)]),
-        (P::LB, 5) => mix(&[(Speed, 0.4), (ZoneCoverage, 0.3), (PlayRecognition, 0.3)]),
-        (P::LB, 6) => mix(&[(BlockShedding, 0.4), (Tackling, 0.4), (Strength, 0.2)]),
-        (P::CB, 7) => mix(&[(Speed, 0.4), (ZoneCoverage, 0.4), (PlayRecognition, 0.2)]),
-        (P::CB, 8) => mix(&[(ZoneCoverage, 0.4), (PlayRecognition, 0.3), (Tackling, 0.3)]),
-        (P::CB, 9) => mix(&[(ManCoverage, 0.6), (Speed, 0.4)]),
-        (P::CB, 10) => mix(&[(ZoneCoverage, 0.4), (Tackling, 0.4), (Strength, 0.2)]),
-        (P::S, 7) => mix(&[(Speed, 0.5), (ZoneCoverage, 0.3), (PlayRecognition, 0.2)]),
-        (P::S, 8) => mix(&[(PlayRecognition, 0.4), (Tackling, 0.3), (ZoneCoverage, 0.3)]),
+        (P::TE, 2) => mix(&[(RunBlocking, 0.35), (Agility, 0.25), (Catching, 0.25), (BlockingInSpace, 0.15)]),
+        (P::TE, 3) => mix(&[(RunBlocking, 0.45), (HandUse, 0.2), (Strength, 0.2), (Anchor, 0.15)]),
+        (P::TE, 4) => mix(&[(BlockingInSpace, 0.4), (Catching, 0.3), (Speed, 0.3)]),
+        (P::OT | P::IOL, 0) => mix(&[(PassBlocking, 0.55), (Agility, 0.2), (RunBlocking, 0.15), (HandUse, 0.1)]),
+        (P::OT | P::IOL, 1) => mix(&[(PassBlocking, 0.7), (Anchor, 0.15), (Agility, 0.15)]),
+        (P::OT | P::IOL, 2) => mix(&[(Agility, 0.3), (BlockingInSpace, 0.3), (RunBlocking, 0.2), (Speed, 0.2)]),
+        (P::OT | P::IOL, 3) => {
+            mix(&[(RunBlocking, 0.4), (Strength, 0.3), (Anchor, 0.1), (BlockingInSpace, 0.1), (HandUse, 0.1)])
+        }
+        (P::OT | P::IOL, 4) => mix(&[(RunBlocking, 0.4), (Agility, 0.25), (BlockingInSpace, 0.2), (Strength, 0.15)]),
+        (P::DT, 5) => {
+            mix(&[(Acceleration, 0.35), (FinesseRush, 0.2), (PowerRush, 0.15), (Agility, 0.15), (Anticipation, 0.15)])
+        }
+        (P::DT, 6) => mix(&[(Anchor, 0.25), (BlockShedding, 0.2), (HandUse, 0.2), (Strength, 0.15)]) + 0.2 * heavy,
+        (P::EDGE, 5) => {
+            mix(&[(FinesseRush, 0.25), (PowerRush, 0.2), (Acceleration, 0.2), (BlockShedding, 0.2), (Anchor, 0.15)])
+        }
+        (P::EDGE, 6) => {
+            mix(&[(Speed, 0.25), (FinesseRush, 0.25), (Flexibility, 0.2), (ZoneCoverage, 0.15), (Pursuit, 0.15)])
+        }
+        (P::LB, 5) => mix(&[(Speed, 0.3), (Pursuit, 0.25), (PlayRecognition, 0.25), (ZoneCoverage, 0.2)]),
+        (P::LB, 6) => mix(&[(Tackling, 0.3), (BlockShedding, 0.25), (Traffic, 0.2), (Anchor, 0.15), (Strength, 0.1)]),
+        (P::CB, 7) => mix(&[(Speed, 0.4), (ZoneCoverage, 0.35), (Anticipation, 0.15), (BallTracking, 0.1)]),
+        (P::CB, 8) => mix(&[(ZoneCoverage, 0.35), (PlayRecognition, 0.25), (Tackling, 0.25), (ManCoverage, 0.15)]),
+        (P::CB, 9) => mix(&[(ManCoverage, 0.45), (Speed, 0.35), (Press, 0.2)]),
+        (P::CB, 10) => mix(&[(Press, 0.3), (ZoneCoverage, 0.3), (Tackling, 0.3), (Strength, 0.1)]),
+        (P::S, 7) => mix(&[(Speed, 0.45), (ZoneCoverage, 0.25), (BallTracking, 0.15), (PlayRecognition, 0.15)]),
+        (P::S, 8) => mix(&[(PlayRecognition, 0.35), (Tackling, 0.25), (ZoneCoverage, 0.25), (Anticipation, 0.15)]),
         (P::S, 9) => mix(&[(ManCoverage, 0.5), (Speed, 0.3), (Tackling, 0.2)]),
-        (P::S, 10) => mix(&[(Speed, 0.4), (ZoneCoverage, 0.4), (PlayRecognition, 0.2)]),
-        (P::LB, 9) => mix(&[(ManCoverage, 0.6), (Speed, 0.4)]),
+        (P::S, 10) => mix(&[(Speed, 0.35), (ZoneCoverage, 0.35), (BallTracking, 0.15), (PlayRecognition, 0.15)]),
+        (P::LB, 9) => mix(&[(ManCoverage, 0.5), (Speed, 0.35), (Blitzing, 0.15)]),
         (P::LB, 7 | 8 | 10) => mix(&[(ZoneCoverage, 0.6), (PlayRecognition, 0.4)]),
-        (P::DT | P::EDGE, 9) => mix(&[(PassRush, 0.6), (Acceleration, 0.4)]),
-        (P::DT | P::EDGE, 7 | 8 | 10) => mix(&[(PassRush, 0.5), (BlockShedding, 0.5)]),
+        (P::DT | P::EDGE, 9) => mix(&[(Acceleration, 0.4), (FinesseRush, 0.3), (PowerRush, 0.3)]),
+        (P::DT | P::EDGE, 7 | 8 | 10) => mix(&[(BlockShedding, 0.5), (PowerRush, 0.25), (FinesseRush, 0.25)]),
         _ => 0.0,
     }
 }

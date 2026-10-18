@@ -687,7 +687,7 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
             // Per family: reps by how much the playbook uses it, and the
             // understanding a sharp player builds faster (topic 4.2, 4.4;
             // proposed, not confirmed).
-            let iq = 0.5 * (p.player.attributes[Attr::Awareness] + p.player.attributes[Attr::PlayRecognition]);
+            let iq = 0.5 * (p.player.attributes[Attr::FootballIq] + p.player.attributes[Attr::PlayRecognition]);
             let mind = clamp(0.92 + 0.08 * (iq - 60.0) / 25.0, 0.82, 1.04);
             for f in Family::ALL {
                 let (use_, top) = if f.offense() { (fam[f as usize], top_off) } else { (fam[f as usize], top_def) };
@@ -756,7 +756,7 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
     // The install (T6.2): the staff sizes the weekly plan to what its
     // players can absorb; a poor staff misjudges it, an aggressive one puts
     // in more (proposed, not confirmed).
-    let aware = players.iter().map(|p| p.a(Attr::Awareness)).sum::<f64>() / players.len().max(1) as f64;
+    let aware = players.iter().map(|p| p.a(Attr::FootballIq)).sum::<f64>() / players.len().max(1) as f64;
     let install = {
         let oc = caller(prog.oc, inst.off);
         let who = prog.oc.or(prog.head_coach).unwrap_or(usize::MAX) as u64;

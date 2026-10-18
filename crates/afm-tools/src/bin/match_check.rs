@@ -67,7 +67,48 @@ fn main() {
     let games: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(200);
     let seed: u32 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
     let pbp = args.get(4).is_some_and(|s| s == "pbp");
-    let teams = synthetic_league(level, 32, seed);
+    let mut teams = synthetic_league(level, 32, seed);
+    // AFM_STAR=RB:15 makes each team's best player at a position that many
+    // points better at everything, to see how a star shares the load.
+    // A position ending in * (CB*:5) moves every player there.
+    if let Ok(v) = std::env::var("AFM_STAR")
+        && let Some((name, add)) = v.split_once(':')
+        && let Ok(add) = add.parse::<f64>()
+        && let Some(name) = name.strip_suffix('*')
+    {
+        for name in name.split(',') {
+            let pos = afm_engine::positions::Position::ALL.into_iter().find(|p| format!("{p:?}") == name);
+            for t in teams.iter_mut() {
+                for p in t.players.iter_mut().filter(|p| Some(p.position) == pos) {
+                    for a in afm_engine::attributes::Attr::ALL {
+                        p.attrs[a] = (p.attrs[a] + add).clamp(1.0, 99.0);
+                    }
+                    for r in p.spot_r.iter_mut() {
+                        *r += add;
+                    }
+                }
+            }
+        }
+    } else if let Ok(v) = std::env::var("AFM_STAR")
+        && let Some((name, add)) = v.split_once(':')
+        && let Ok(add) = add.parse::<f64>()
+    {
+        let pos = afm_engine::positions::Position::ALL.into_iter().find(|p| format!("{p:?}") == name);
+        for t in teams.iter_mut() {
+            let best = (0..t.players.len()).filter(|&i| Some(t.players[i].position) == pos).max_by(|&a, &b| {
+                t.players[a].overall_at(pos.unwrap()).total_cmp(&t.players[b].overall_at(pos.unwrap()))
+            });
+            if let Some(i) = best {
+                let p = &mut t.players[i];
+                for a in afm_engine::attributes::Attr::ALL {
+                    p.attrs[a] = (p.attrs[a] + add).min(99.0);
+                }
+                for r in p.spot_r.iter_mut() {
+                    *r += add;
+                }
+            }
+        }
+    }
     // AFM_TRACE=1 prints every agent's state (use with one game).
     if std::env::var("AFM_TRACE").is_ok() {
         afm_engine::game::sim::TRACE.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -111,11 +152,18 @@ fn main() {
         let mut share = vec![0.0f64; groups.len()];
         let mut carry = [0.0f64; 2];
         let mut nt = 0.0;
+        // Sacks and tackles for loss by player over all a team's games.
+        let mut rush: Vec<std::collections::HashMap<u32, (f64, f64)>> = vec![Default::default(); teams.len()];
         for (g, r) in results.iter().enumerate() {
             let (h, a) = pair(g);
             for (k, ti) in [h, a].into_iter().enumerate() {
                 let lines = &r.stats.players[k];
                 let team = &teams[ti];
+                for (id, l) in lines.iter() {
+                    let e = rush[ti].entry(*id).or_default();
+                    e.0 += l.sacks;
+                    e.1 += l.tfl;
+                }
                 let off = lines.values().map(|l| l.snaps_off).max().unwrap_or(1).max(1) as f64;
                 let def = lines.values().map(|l| l.snaps_def).max().unwrap_or(1).max(1) as f64;
                 nt += 1.0;
@@ -149,7 +197,23 @@ fn main() {
             for (gi, &(pos, n, real)) in groups.iter().enumerate() {
                 println!("  {:?} x{n}  {:.2}  ({real})", pos, share[gi] / nt);
             }
-            println!("  lead back's share of RB carries  {:.2}  (0.55-0.65)", carry[0] / carry[1].max(1.0));
+            println!(
+                "  lead back's share of RB carries  {:.2}  (real NFL game 0.70, p10 0.50, p90 0.92)",
+                carry[0] / carry[1].max(1.0)
+            );
+            let top = |f: &dyn Fn(&(f64, f64)) -> f64| {
+                let v: Vec<f64> = rush
+                    .iter()
+                    .filter(|m| !m.is_empty())
+                    .map(|m| {
+                        let all: f64 = m.values().map(f).sum();
+                        m.values().map(f).fold(0.0, f64::max) / all.max(1.0)
+                    })
+                    .collect();
+                v.iter().sum::<f64>() / v.len().max(1) as f64
+            };
+            println!("  top man's share of team sacks  {:.2}  (about 0.25-0.35)", top(&|x| x.0));
+            println!("  top man's share of team TFL    {:.2}  (about 0.20-0.30)", top(&|x| x.1));
         }
     }
     if pbp {
@@ -866,5 +930,8 @@ fn main() {
         for (k, n) in ["under 10", "10-20", "over 20"].iter().enumerate() {
             println!("  throw miss sd {n:<9} {:.2} yd", sd[2 * k] as f64 / 1000.0 / sd[2 * k + 1].max(1) as f64);
         }
+        let throws = (sd[1] + sd[3] + sd[5]).max(1) as f64;
+        let batted = afm_engine::game::scrimmage::BATTED.load(std::sync::atomic::Ordering::Relaxed);
+        println!("  batted at the line {:.1}% of throws", 100.0 * batted as f64 / throws);
     }
 }

@@ -23,8 +23,8 @@ fn peaks_speed_in_the_mid_20s_and_awareness_around_30() {
             if p.attributes[Attr::Speed] > best_speed.0 {
                 best_speed = (p.attributes[Attr::Speed], age);
             }
-            if p.attributes[Attr::Awareness] > best_awareness.0 {
-                best_awareness = (p.attributes[Attr::Awareness], age);
+            if p.attributes[Attr::FootballIq] > best_awareness.0 {
+                best_awareness = (p.attributes[Attr::FootballIq], age);
             }
             if p.age == 33 {
                 speed_loss_by_33.push(best_speed.0 - p.attributes[Attr::Speed]);

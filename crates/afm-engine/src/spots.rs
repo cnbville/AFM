@@ -145,25 +145,44 @@ pub fn group(pos: Position) -> u8 {
 }
 
 /// What a spot asks beyond its position's overall: the left tackle's feet
-/// against speed rushers, the right tackle's run game, the center's calls,
-/// the middle linebacker's reads (Cain: as hard as quarterback), the free
-/// safety's range, the strong safety's run support, the nickel's quickness,
-/// the nose tackle's size.
+/// and bend against speed rushers, the right tackle's run game, the guard's
+/// anchor and pulls, the center's calls and shotgun snap, the middle
+/// linebacker's reads (Cain: as hard as quarterback), the free safety's
+/// range, the strong safety's run support, the nickel's quickness, the nose
+/// tackle's size and anchor.
 fn lean(spot: Spot) -> &'static [(Attr, f64)] {
     match spot {
-        Spot::RB => &[(Vision, 0.35), (Elusiveness, 0.35), (Speed, 0.3)],
-        Spot::LT => &[(PassBlocking, 0.5), (Agility, 0.3), (Speed, 0.2)],
-        Spot::RT => &[(RunBlocking, 0.45), (Strength, 0.35), (PassBlocking, 0.2)],
-        Spot::G => &[(Strength, 0.45), (RunBlocking, 0.45), (PassBlocking, 0.1)],
-        Spot::C => &[(Awareness, 0.5), (RunBlocking, 0.2), (PassBlocking, 0.2), (Agility, 0.1)],
-        Spot::DT => &[(Acceleration, 0.4), (PassRush, 0.35), (Agility, 0.25)],
-        Spot::NT => &[(Strength, 0.6), (BlockShedding, 0.4)],
-        Spot::MLB => &[(Awareness, 0.4), (PlayRecognition, 0.35), (Tackling, 0.25)],
-        Spot::OLB => &[(Speed, 0.4), (ZoneCoverage, 0.3), (PassRush, 0.3)],
-        Spot::CB => &[(Speed, 0.4), (ManCoverage, 0.4), (Jumping, 0.2)],
-        Spot::NB => &[(Agility, 0.4), (Acceleration, 0.3), (ManCoverage, 0.15), (Tackling, 0.15)],
-        Spot::FS => &[(Speed, 0.4), (ZoneCoverage, 0.35), (PlayRecognition, 0.25)],
-        Spot::SS => &[(Tackling, 0.4), (Strength, 0.3), (PlayRecognition, 0.3)],
+        Spot::RB => &[(BallCarrierVision, 0.3), (Elusiveness, 0.3), (Speed, 0.25), (Balance, 0.15)],
+        Spot::LT => &[(PassBlocking, 0.4), (Agility, 0.2), (Flexibility, 0.15), (HandUse, 0.15), (Speed, 0.1)],
+        Spot::RT => &[(RunBlocking, 0.4), (Strength, 0.25), (PassBlocking, 0.2), (Anchor, 0.15)],
+        Spot::G => &[(RunBlocking, 0.35), (Strength, 0.3), (Anchor, 0.25), (BlockingInSpace, 0.1)],
+        Spot::C => &[
+            (FootballIq, 0.25),
+            (Communication, 0.25),
+            (ShotgunSnap, 0.2),
+            (RunBlocking, 0.1),
+            (PassBlocking, 0.1),
+            (Agility, 0.1),
+        ],
+        Spot::DT => &[(Acceleration, 0.35), (FinesseRush, 0.2), (PowerRush, 0.15), (Agility, 0.15), (HandUse, 0.15)],
+        Spot::NT => &[(Anchor, 0.4), (Strength, 0.35), (BlockShedding, 0.25)],
+        Spot::MLB => {
+            &[(PlayRecognition, 0.3), (FootballIq, 0.25), (Communication, 0.15), (Tackling, 0.15), (Traffic, 0.15)]
+        }
+        Spot::OLB => &[(Speed, 0.35), (ZoneCoverage, 0.25), (Blitzing, 0.2), (Pursuit, 0.2)],
+        Spot::CB => &[(Speed, 0.35), (ManCoverage, 0.35), (Press, 0.15), (Jumping, 0.15)],
+        Spot::NB => &[
+            (Agility, 0.35),
+            (Acceleration, 0.25),
+            (ManCoverage, 0.15),
+            (Anticipation, 0.1),
+            (Tackling, 0.1),
+            (Blitzing, 0.05),
+        ],
+        Spot::FS => {
+            &[(Speed, 0.35), (ZoneCoverage, 0.3), (PlayRecognition, 0.15), (BallTracking, 0.1), (Communication, 0.1)]
+        }
+        Spot::SS => &[(Tackling, 0.35), (PlayRecognition, 0.25), (Strength, 0.15), (Traffic, 0.15), (Physicality, 0.1)],
         _ => &[],
     }
 }
@@ -184,7 +203,13 @@ pub fn spot_rating(spot: Spot, a: &Attributes, weight: f64) -> f64 {
         // The fullback is a blocker who catches: half a tight end's game,
         // half lead blocking.
         Spot::FB => {
-            0.5 * overall_for(Position::TE, a) + 0.5 * (0.5 * a[RunBlocking] + 0.3 * a[Strength] + 0.2 * a[Catching])
+            let lead = 0.35 * a[BlockingInSpace]
+                + 0.15 * a[RunBlocking]
+                + 0.15 * a[Strength]
+                + 0.1 * a[Anchor]
+                + 0.05 * a[LegDrive]
+                + 0.2 * a[Catching];
+            0.5 * overall_for(Position::TE, a) + 0.5 * lead
         }
         _ => {
             let pos = spot.position();
@@ -229,6 +254,17 @@ pub fn starter_spots(pos: Position) -> &'static [Spot] {
     }
 }
 
+/// The spot whose demands a man at `spot` faces: with a left-handed
+/// quarterback the right tackle guards the blind side, so he is rated as a
+/// left tackle and the left tackle as a right tackle.
+pub fn blind_side(spot: Spot, lefty: bool) -> Spot {
+    match spot {
+        Spot::LT if lefty => Spot::RT,
+        Spot::RT if lefty => Spot::LT,
+        s => s,
+    }
+}
+
 /// A staff sets its spots (each spring, and for a new roster): the starters
 /// at each position go to the spots that suit them best together, every
 /// backup to his own best spot. Returns each player's spot, in order; the
@@ -236,7 +272,14 @@ pub fn starter_spots(pos: Position) -> &'static [Spot] {
 /// familiar.
 pub fn choose_spots(players: &[&Player]) -> Vec<Spot> {
     let mut out: Vec<Spot> = players.iter().map(|p| p.spot).collect();
-    let r = |p: &Player, s: Spot| spot_rating(s, &p.attributes, p.body.weight);
+    // A left-handed starter's blind side is his right: the best pass
+    // protector plays right tackle (Tua's Dolphins, Young's 49ers).
+    let lefty = players
+        .iter()
+        .filter(|p| p.position == Position::QB)
+        .max_by(|a, b| a.overall().total_cmp(&b.overall()))
+        .is_some_and(|q| q.body.left_handed);
+    let r = |p: &Player, s: Spot| spot_rating(blind_side(s, lefty), &p.attributes, p.body.weight);
     for pos in Position::ALL {
         let mut idx: Vec<usize> = (0..players.len()).filter(|&i| players[i].position == pos).collect();
         if idx.is_empty() {
