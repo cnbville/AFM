@@ -69,7 +69,8 @@ fn main() {
         );
     }
     println!("pos   strength  arm   bench (real)");
-    for pos in Position::ALL {
+    // No long snappers come out of a class (they sign as free agents).
+    for pos in Position::ALL.into_iter().filter(|&p| p != Position::LS) {
         let k = pos.index();
         let n = drafted[k].max(1) as f64;
         println!(

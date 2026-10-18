@@ -166,15 +166,22 @@ pub fn combine(p: &Player, rng: &mut Rng) -> Combine {
         (at(Attr::Speed), at(Attr::Acceleration), at(Attr::Agility), at(Attr::Strength), at(Attr::Jumping));
     let w = b.weight - 220.0;
     let burst = jumping.max(0.95 * accel);
+    // The 3-cone is the scouts' bend test for edge rushers: it reads hip
+    // flexibility as well as feet; the short shuttle is change of direction.
     let quick = 0.7 * agility + 0.3 * accel;
-    let forty = 5.56 - 0.0124 * (0.75 * speed + 0.25 * accel) + 0.0033 * w + rng.normal(0.0, 0.04);
+    let bend = 0.55 * agility + 0.25 * accel + 0.2 * at(Attr::Flexibility);
+    // Speed is how fast he plays. On the track some run faster or slower than
+    // they play (a stable sd 0.04 s each, on his own stream), and each run
+    // adds its own 0.03 s (proposed, not confirmed).
+    let track = Rng::new(p.id ^ 0x40_7AC4).normal(0.0, 0.04);
+    let forty = 5.56 - 0.0124 * (0.75 * speed + 0.25 * accel) + 0.0033 * w + track + rng.normal(0.0, 0.03);
     let vertical = 20.9 + 0.182 * burst - 0.035 * w + rng.normal(0.0, 1.5);
     let broad = 87.6 + 0.448 * burst - 0.089 * w + rng.normal(0.0, 3.0);
     // Long arms mean a longer press: fewer reps for the same strength.
     // Refit 2026-10-14 to drafted players' position means after athlete-first
     // creation (item 6; proposed, not confirmed).
     let bench = 8.05 + 0.137 * strength + 0.073 * w - 0.8 * (b.arm - 32.5) + rng.normal(0.0, 2.0);
-    let cone = 7.58 - 0.007 * quick + 0.0062 * w + rng.normal(0.0, 0.08);
+    let cone = 7.58 - 0.007 * bend + 0.0062 * w + rng.normal(0.0, 0.08);
     let shuttle = 4.59 - 0.0045 * quick + 0.0039 * w + rng.normal(0.0, 0.06);
     let r2 = |x: f64| (x * 100.0).round() / 100.0;
     Combine {

@@ -20,6 +20,33 @@ pub fn level_strength(level: Level) -> (f64, f64) {
     }
 }
 
+/// Where the world's NFL starters sit against `level_strength` by position:
+/// trial 7's 2025 depth charts (QB 83, OT 86, EDGE 81, ...) moved by what the
+/// 67-attribute list shifted on the class checks (`calibrate`,
+/// `starter_overall_by_position`), less the base 77. The world puts its
+/// offensive line well above its defensive line on the rating scale, and
+/// the engine is tuned on rosters like the world's (trial 7 finding 1).
+/// Inferred, not measured on a world with the new list; proposed, not
+/// confirmed.
+fn nfl_offset(pos: Position) -> f64 {
+    match pos {
+        Position::QB => 6.6,
+        Position::RB => 2.4,
+        Position::WR => 2.9,
+        Position::TE => 4.6,
+        Position::OT => 9.0,
+        Position::IOL => 7.0,
+        Position::EDGE => 5.3,
+        Position::DT => 2.1,
+        Position::LB => -0.3,
+        Position::CB => 7.8,
+        Position::S => 3.9,
+        Position::K => 5.1,
+        Position::P => 0.8,
+        Position::LS => 0.0,
+    }
+}
+
 fn z_for(talent: f64) -> f64 {
     let (mut lo, mut hi) = (-4.0, 6.0);
     for _ in 0..50 {
@@ -66,7 +93,8 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
         let starters = starters(pos);
         for k in 0..n {
             let r = if pos == Position::LS { &mut ls_rng } else { &mut rng };
-            let base = if k < starters { starter } else { backup - 2.0 * (k - starters) as f64 };
+            let shift = if level == Level::NFL { nfl_offset(pos) } else { 0.0 };
+            let base = shift + if k < starters { starter } else { backup - 2.0 * (k - starters) as f64 };
             let target = clamp(base + quality + r.normal(0.0, 4.5), 20.0, 97.0);
             id += 1;
             let mut p = generate_prospect(
