@@ -129,6 +129,7 @@ Raichel has not signed these off. Each list names its numbers:
 | Plays and tactics database | `docs/design/plays-and-tactics.md` | Spec only |
 | Engine speed-up (same results per seed) | [T15] 2026-10-14 08:12 | Not started |
 | Sections 5 to 11 | `docs/roadmap.md` | Not designed |
+| Player tendencies (15 in 8 groups, topics 1-4, six coaching styles) | `docs/design/tendencies.md`, 2026-10-18 | Spec only |
 
 Done since the specs were written (the specs still say "not done"):
 - **High school NIL rules per state** were added to `data/real-world/hs_states.csv` on 2026-10-13. `docs/design/world.md` follow-up 5 still says "Not done yet".
