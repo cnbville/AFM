@@ -111,10 +111,6 @@ Raichel has not signed these off. Each list names its numbers:
 ### 16. Not chosen yet
 - **The desktop UI technology** (Q49 chose a Rust engine and a desktop app; the UI stack is open).
 
-### 17. Tendencies: the six coaching styles (asked 2026-10-18 21:5x)
-- **Asked:** Raichel said yes to "your style is yours to set" and added "find more individual styles to pick". Claude proposed six more settings besides risk: structure or freedom, physical or protective, ball hunting or sound, mould or adapt, schemes pull too, coordinators bring their own (`docs/design/tendencies.md`, "Your coaching style").
-- **Claude's pick:** yes to all six.
-
 ---
 
 ## B. Decided but not built
@@ -133,7 +129,7 @@ Raichel has not signed these off. Each list names its numbers:
 | Plays and tactics database | `docs/design/plays-and-tactics.md` | Spec only |
 | Engine speed-up (same results per seed) | [T15] 2026-10-14 08:12 | Not started |
 | Sections 5 to 11 | `docs/roadmap.md` | Not designed |
-| Player tendencies (15 in 8 groups, topics 1-4) | `docs/design/tendencies.md`, 2026-10-18 | Spec only |
+| Player tendencies (15 in 8 groups, topics 1-4, six coaching styles) | `docs/design/tendencies.md`, 2026-10-18 | Spec only |
 
 Done since the specs were written (the specs still say "not done"):
 - **High school NIL rules per state** were added to `data/real-world/hs_states.csv` on 2026-10-13. `docs/design/world.md` follow-up 5 still says "Not done yet".

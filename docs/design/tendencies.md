@@ -3,8 +3,8 @@
 Raichel agreed on 2026-10-18 (thread "Full build and trial 7") that
 tendencies are their own layer, not attributes, with a short design round
 after the 67-attribute build. The round ran the same evening in four topics.
-Topics 1-4 are confirmed. The coaching styles Raichel asked for at the end
-are proposed, not confirmed (see "Your coaching style").
+Everything here is confirmed: topics 1-4, then the six coaching styles
+Raichel asked for at the end ("agreed on all", 21:59).
 
 Not built yet. The build section at the end says what the build must prove.
 
@@ -23,7 +23,8 @@ Not built yet. The build section at the end says what the build must prove.
   any good CFB coach would've caught that."
 - On instructions (21:53): "make sure that the engine reflects this in
   results, make sure it's not a empty addition."
-- On your style (21:53): "find more individual styles to pick."
+- On your style (21:53): "find more individual styles to pick." Then, to
+  the six proposed (21:59): "agreed on all".
 
 ## Topic 1. What a tendency is (confirmed)
 
@@ -172,9 +173,10 @@ with anticipation deciding whether he guessed right.
 | Wrap up, no strips or big hits | tacklers | fewer missed tackles; fewer forced fumbles |
 | Stay home, don't jump routes | coverage players | fewer interceptions and fewer big plays allowed |
 
-## Your coaching style (proposed, not confirmed)
+## Your coaching style (confirmed)
 
-Asked 2026-10-18 21:5x, waiting on Raichel. Your style becomes six settings,
+Confirmed 2026-10-18 21:59 ("agreed on all"). Besides risk, your style has six
+more settings,
 each running from one end to the other, each a real philosophy. Each pulls
 certain tendencies at the topic 3 rate and sets fit on your boards. Every AI
 coach gets the same settings from his personality and ability, so programs
