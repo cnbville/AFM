@@ -3,13 +3,14 @@
 
 use crate::attributes::{Attr, Attributes};
 use crate::body::body_now;
-use crate::player::{GameTraits, Personality, Player};
+use crate::player::{GameTraits, Level, Personality, Player};
 use crate::positions::{POSITION_COUNT, Position, overall_for};
 use crate::rng::clamp;
 use crate::spots::{self, SPOT_COUNT, Spot, fill_in, spot_rating};
 
 use super::calling::Film;
 use super::playbook::FAMILY_COUNT;
+use super::rules::{TRAIT_STEP, trait_norm};
 
 /// A player as the match engine sees him on game day.
 #[derive(Clone, Debug)]
@@ -141,9 +142,17 @@ impl GamePlayer {
         clamp(ag - 0.002 * (self.weight - 220.0), 0.4, 1.7)
     }
 
-    /// Composure, 1-20.
-    pub fn composure(&self) -> f64 {
-        self.on20(Attr::Composure)
+    /// A trait-like rating (discipline, toughness, motor, composure,
+    /// concentration) on the 1-20 scale, read against his level: 10 is the
+    /// level's typical player, as the old hidden traits were.
+    #[inline]
+    pub fn trait20(&self, a: Attr, level: Level) -> f64 {
+        clamp(10.0 + (self.a(a) - trait_norm(level, a)) / TRAIT_STEP, 1.0, 20.0)
+    }
+
+    /// Composure, 1-20, against his level.
+    pub fn composure(&self, level: Level) -> f64 {
+        self.trait20(Attr::Composure, level)
     }
 }
 

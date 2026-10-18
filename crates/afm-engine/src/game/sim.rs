@@ -7,6 +7,7 @@
 use super::geom::{DT, MID, V2, WIDTH, v2};
 use super::roster::GamePlayer;
 use crate::attributes::{ATTRIBUTE_COUNT, Attr};
+use crate::player::Level;
 use crate::rng::{Rng, clamp};
 
 /// Players on the field at most, for the compact per-tick scans.
@@ -597,6 +598,8 @@ pub struct Sim<'a> {
     pub gap_run: Option<bool>,
     /// A stunt this snap: the penetrator and the looper (topic 1).
     pub stunt: Option<(usize, usize)>,
+    /// The level being played: trait-like ratings are read against it.
+    pub level: Level,
 }
 
 /// How much a run block's outcome leans on the strength gap per point.
@@ -633,6 +636,13 @@ impl<'a> Sim<'a> {
     pub fn player(&self, i: usize) -> &GamePlayer {
         let a = &self.agents[i];
         &self.teams[a.side][a.p]
+    }
+
+    /// A trait-like rating of agent `i` on the 1-20 scale, against the level
+    /// (see `GamePlayer::trait20`).
+    #[inline]
+    pub fn trait20(&self, i: usize, a: Attr) -> f64 {
+        self.player(i).trait20(a, self.level)
     }
 
     pub fn carrier(&self) -> Option<usize> {
@@ -1060,7 +1070,7 @@ impl<'a> Sim<'a> {
             if w > 0.75 && !e.grab_checked {
                 // One moment of decision when he is first beaten.
                 self.eng[k].grab_checked = true;
-                let disc = self.player(b).on20(Attr::Discipline);
+                let disc = self.trait20(b, Attr::Discipline);
                 let tech =
                     if e.pass { self.agents[b].a(Attr::PassBlocking) } else { self.agents[b].a(Attr::RunBlocking) };
                 // Raised a third (offensive holding ran 0.88 a team game against
@@ -1310,7 +1320,7 @@ impl<'a> Sim<'a> {
             self.steer(i, want);
             return;
         }
-        let motor = self.teams[a.side][a.p].on20(Attr::Motor);
+        let motor = self.teams[a.side][a.p].trait20(Attr::Motor, self.level);
         // A player out of the play with a low motor stops chasing.
         let behind = (a.pos.x - cp.x) * self.goal < -4.0 && dist > 8.0;
         let mut effort = if behind && motor < 9.0 { 0.8 + 0.02 * motor } else { 1.0 };
@@ -1538,7 +1548,7 @@ impl<'a> Sim<'a> {
         if let Some(&i) = self.fight.first() {
             // A face mask is technique (discipline); the late hit after
             // the whistle is temper (hidden temperament).
-            let disc = self.player(i).on20(Attr::Discipline);
+            let disc = self.trait20(i, Attr::Discipline);
             let technique = (1.6 - disc / 12.0).max(0.2) * 0.6;
             let temper = (1.6 - self.player(i).traits.temperament / 12.0).max(0.2) * 0.6;
             let (id, side) = (self.agents[i].id, self.agents[i].side);
@@ -1586,7 +1596,7 @@ impl<'a> Sim<'a> {
         let gp = self.player(i);
         let gp_recovery = gp.traits.recovery;
         let prone = 0.55 + gp.injury_proneness / 18.0;
-        let tough = gp.on20(Attr::Toughness);
+        let tough = gp.trait20(Attr::Toughness, self.level);
         let turf = if self.cond.turf { 1.12 } else { 1.0 };
         let p = self.injury_scale * 0.0042 * share * (force / 1700.0).powf(1.6) * prone * turf;
         if !self.rng.chance(p) {

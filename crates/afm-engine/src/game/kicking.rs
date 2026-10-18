@@ -9,6 +9,7 @@ use super::rules::Rules;
 use super::scrimmage::escort;
 use super::sim::*;
 use crate::attributes::Attr;
+use crate::player::Level;
 use crate::rng::{Rng, clamp};
 
 /// The kicking team and the return team for a kick.
@@ -73,8 +74,8 @@ fn leg(kicker: &GamePlayer, power: Attr, base: f64, per: f64, cond: &Conditions,
 }
 
 /// Composure under pressure (topic 7): how much a big moment widens his miss.
-fn pressure_factor(kicker: &GamePlayer, pressure: f64) -> f64 {
-    let c = kicker.composure();
+fn pressure_factor(kicker: &GamePlayer, pressure: f64, level: Level) -> f64 {
+    let c = kicker.composure(level);
     1.0 + pressure * clamp(1.15 - c / 15.0, 0.0, 1.0) * 0.9
 }
 
@@ -101,6 +102,7 @@ pub fn field_goal(
     pressure: f64,
     cond: &Conditions,
     along: f64,
+    level: Level,
     rng: &mut Rng,
 ) -> FieldGoal {
     // The snap and the hold are their own battles (topic 7).
@@ -127,7 +129,7 @@ pub fn field_goal(
     // Spread in degrees: an average NFL kicker misses by about 2.5 degrees.
     let mut sd = (2.4 + 0.014 * (distance - 30.0)) * (1.82 - 0.0105 * acc).max(0.55);
     sd *= 1.18 - 0.018 * kicker.traits.consistency;
-    sd *= pressure_factor(kicker, pressure);
+    sd *= pressure_factor(kicker, pressure, level);
     if bad_snap || bad_hold {
         sd *= 1.6;
     }
@@ -138,7 +140,7 @@ pub fn field_goal(
     let wide = lateral.abs() > 3.083;
     let short_of = reach < distance;
     fg.made = !wide && !short_of;
-    let composure = kicker.composure();
+    let composure = kicker.composure(level);
     fg.why = if fg.made {
         if pressure > 0.6 && composure > 14.0 {
             format!("Good from {:.0}: ice in his veins with the game on the line.", distance)
@@ -328,7 +330,7 @@ pub fn punt(
     res.distance = from - land_x;
     res.hang = hang;
     // Out of bounds (coffin corner or a shank).
-    if !(0.0..=WIDTH).contains(&land_y) || rng.chance(0.03 * (1.3 - punter.composure() / 20.0)) {
+    if !(0.0..=WIDTH).contains(&land_y) || rng.chance(0.03 * (1.3 - punter.composure(rules.level) / 20.0)) {
         res.out_of_bounds = true;
         land_y = land_y.clamp(0.0, WIDTH);
         let _ = land_y;
@@ -598,6 +600,7 @@ fn run_return(
         two_gap: false,
         gap_run: None,
         stunt: None,
+        level: rules.level,
     };
     // Reorder so the return team (side 0) comes first.
     let mut ret_agents: Vec<Agent> = agents.drain(ret_idx..).collect();

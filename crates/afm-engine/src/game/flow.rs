@@ -1006,6 +1006,7 @@ impl<'a> Game<'a> {
             pressure,
             &self.s.cond,
             along,
+            self.s.rules.level,
             &mut self.rng,
         );
         r.kicker = Some(ps[k].id);
@@ -1473,7 +1474,7 @@ impl<'a> Game<'a> {
             // Road teams jump 21% more often in real FBS conference games
             // (1.28 a game against 1.06, cfbfastR 2023-24).
             let chance = 0.00162
-                * (1.6 - p.on20(Attr::Discipline) / 15.0).max(0.3)
+                * (1.6 - p.trait20(Attr::Discipline, self.s.rules.level) / 15.0).max(0.3)
                 * (1.0 + 0.32 * crowd)
                 * crew
                 * (1.0 + tired)
@@ -1487,7 +1488,7 @@ impl<'a> Game<'a> {
                 continue;
             }
             let p = &self.sides[1 - o].team.players[i];
-            let chance = 0.0019 * (1.6 - p.on20(Attr::Discipline) / 15.0).max(0.3) * crew;
+            let chance = 0.0019 * (1.6 - p.trait20(Attr::Discipline, self.s.rules.level) / 15.0).max(0.3) * crew;
             if self.rng.chance(chance) {
                 return Some(Foul { kind: FoulKind::Offside, side: 1, player: p.id, at: self.x });
             }
@@ -1825,7 +1826,7 @@ impl<'a> Game<'a> {
     fn edge_hit(&mut self, team: usize, id: u32, amount: f64) {
         // Momentum (topic 4.1): small, and composure decides how much it bites.
         if let Some(i) = self.sides[team].team.players.iter().position(|p| p.id == id) {
-            let c = self.sides[team].team.players[i].composure();
+            let c = self.sides[team].team.players[i].composure(self.s.rules.level);
             let delta = if amount < 0.0 { amount * 1.5 * (1.25 - c / 20.0) } else { amount * 0.8 };
             let e = &mut self.sides[team].edge[i];
             *e = clamp(*e + delta, -3.0, 2.0);
@@ -1833,9 +1834,10 @@ impl<'a> Game<'a> {
     }
 
     fn decay_edges(&mut self) {
+        let level = self.s.rules.level;
         for s in self.sides.iter_mut() {
             for (i, e) in s.edge.iter_mut().enumerate() {
-                let c = s.team.players[i].composure();
+                let c = s.team.players[i].composure(level);
                 let k = if *e < 0.0 { (0.8 - 0.03 * c).max(0.2) } else { 0.7 };
                 *e *= k;
             }

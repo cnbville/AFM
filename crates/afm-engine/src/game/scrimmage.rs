@@ -324,6 +324,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         two_gap: s.two_gap,
         gap_run: None,
         stunt: None,
+        level: s.rules.level,
     };
     let find = |r: ORole| role_of.iter().position(|x| *x == Some(r));
     let qb = find(ORole::QB).unwrap_or(0);
@@ -476,7 +477,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             let gp = sim.player(i);
             let pr = gp.a(Attr::PlayRecognition);
             let know = gp.know[Family::Front as usize] as f64;
-            let disc = gp.on20(Attr::Discipline);
+            let disc = gp.trait20(Attr::Discipline, s.rules.level);
             let p = 0.035
                 + 0.002 * (65.0 - pr).max(-15.0)
                 + 0.06 * (1.0 - know)
@@ -2290,7 +2291,7 @@ fn slide(sim: &mut Sim, c: usize, s: &Snap) -> bool {
         .map(|d| sim.agents[d].pos.dist(me))
         .fold(f64::INFINITY, f64::min);
     let past = me.x >= s.los + s.togo;
-    let tough = sim.player(c).on20(Attr::Toughness);
+    let tough = sim.trait20(c, Attr::Toughness);
     if near < 2.2 && (past || tough < 12.0) {
         sim.progress = sim.progress.max(me.x - 0.5);
         sim.dead = true;
@@ -2955,7 +2956,7 @@ fn throw(
         ps.hit = true;
         let id = sim.agents[d].id;
         sim.notes.hits.push(id);
-        let disc = sim.player(d).on20(Attr::Discipline);
+        let disc = sim.trait20(d, Attr::Discipline);
         let base = if contact > 0.4 { 0.1 } else { 0.015 };
         if sim.rng.chance(base * (1.5 - disc / 20.0) * sim.crew.personal) {
             sim.notes.fouls.push(Foul { kind: FoulKind::RoughingPasser, side: 1, player: id, at: q.x });
@@ -3386,7 +3387,7 @@ fn cover_inner(
             if rd < 0.9
                 && t > 0.8
                 && t < 2.6
-                && sim.rng.chance(0.0105 * sim.crew.holding * (1.6 - sim.player(i).on20(Attr::Discipline) / 14.0))
+                && sim.rng.chance(0.0105 * sim.crew.holding * (1.6 - sim.trait20(i, Attr::Discipline) / 14.0))
             {
                 let (id, at) = (sim.agents[i].id, me.x);
                 let ok = pass.as_ref().is_some_and(|p| p.thrown.is_none());
@@ -3747,7 +3748,7 @@ fn pi_check(sim: &mut Sim, d: usize, r: usize, to: V2, air: f64, broke_up: bool)
     let (da, ra) = (&sim.agents[d], &sim.agents[r]);
     let trailing = (to - da.pos).dot(to - ra.pos) > 0.0 && da.pos.dist(to) > ra.pos.dist(to);
     let facing = da.face.dot((sim.ball_pos() - da.pos).norm()) > 0.3;
-    let disc = sim.player(d).on20(Attr::Discipline);
+    let disc = sim.trait20(d, Attr::Discipline);
     // Half again what it was: pass interference ran 0.27 a team game, real
     // about 0.42, offensive 0.05 against 0.17 (proposed, not confirmed).
     let base = if trailing && !facing {
@@ -3765,7 +3766,7 @@ fn pi_check(sim: &mut Sim, d: usize, r: usize, to: V2, air: f64, broke_up: bool)
     if sim.rng.chance(p) {
         let id = da.id;
         sim.notes.fouls.push(Foul { kind: FoulKind::PassInterference, side: 1, player: id, at: to.x });
-    } else if sim.rng.chance(0.029 * (1.3 - sim.player(r).on20(Attr::Discipline) / 20.0) * sim.crew.pass_interference) {
+    } else if sim.rng.chance(0.029 * (1.3 - sim.trait20(r, Attr::Discipline) / 20.0) * sim.crew.pass_interference) {
         let id = ra.id;
         sim.notes.fouls.push(Foul { kind: FoulKind::OffensivePassInterference, side: 0, player: id, at: to.x });
     }
