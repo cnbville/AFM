@@ -1,6 +1,13 @@
 //! News and inbox items the world produces. NIL warnings (topic 8, follow-up
 //! answer 4) come through three channels at once and repeat as things get worse.
 
+/// A count with its noun in plain English: "1 four-star", "3 four-stars"
+/// (trial 7 finding 17).
+pub(crate) fn count<N: Into<u64>>(n: N, noun: &str) -> String {
+    let n = n.into();
+    if n == 1 { format!("1 {noun}") } else { format!("{n} {noun}s") }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Channel {
     /// A message from the program's own staff (seen by that program's coach).

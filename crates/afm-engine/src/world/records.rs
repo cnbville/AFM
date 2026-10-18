@@ -1147,7 +1147,7 @@ fn hall_of_fame(w: &mut World, year: i32) {
             continue;
         }
         let score = wins as f64 / games as f64 * 10.0 + titles as f64 + games as f64 / 100.0;
-        let why = format!("{wins}-{losses} as a college head coach, {titles} titles");
+        let why = format!("{wins}-{losses} as a college head coach, {}", super::news::count(titles, "title"));
         coaches.push((score, c, top, programs, why));
     }
     coaches.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));

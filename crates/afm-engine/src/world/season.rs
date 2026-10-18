@@ -191,32 +191,75 @@ pub(crate) fn depth_chart(
 /// Staffs take a fresh look before each season (topic 5.2): a boy who grew,
 /// a new college staff, an athlete signed without a set position.
 pub(crate) fn reconsider_positions(w: &mut World, who: &[bool]) {
-    let eyes: Vec<Option<(Eye, f64)>> = w
+    let r: &World = w;
+    let moves: Vec<(usize, Position)> = r
         .people
-        .iter()
+        .par_iter()
         .enumerate()
-        .map(|(i, p)| {
+        .filter_map(|(i, p)| {
             if !who[i] {
                 return None;
             }
-            match p.stage {
-                Stage::HighSchool if p.player.age > 14 => Some((w.hs_eye(p.hs), 0.03)),
-                Stage::College => p.college.map(|c| {
-                    let prog = &w.programs[c];
-                    let skill = prog.head_coach.map_or(10.0, |h| w.coaches[h].ability().head_coach_value());
+            let (eye, margin) = match p.stage {
+                Stage::HighSchool if p.player.age > 14 => (r.hs_eye(p.hs), 0.03),
+                Stage::College => {
+                    let c = p.college?;
+                    let prog = &r.programs[c];
+                    let skill = prog.head_coach.map_or(10.0, |h| r.coaches[h].ability().head_coach_value());
                     (Eye::coach(skill).staff(0x434F_0000 ^ c as u32), 0.015)
-                }),
-                _ => None,
-            }
+                }
+                _ => return None,
+            };
+            crate::athlete::better_position(&p.player, eye, margin).map(|to| (i, to))
         })
         .collect();
-    w.people.par_iter_mut().zip(eyes.par_iter()).for_each(|(p, eye)| {
-        let Some((eye, margin)) = *eye else { return };
-        if let Some(from) = crate::athlete::reconsider(&mut p.player, eye, margin) {
-            let (age, to) = (p.player.age, p.player.position);
-            let by = if p.stage == Stage::College { "his college staff" } else { "his high school coach" };
-            p.note(format!("Moved from {from} to {to} by {by} at {age}."));
+    if moves.is_empty() {
+        return;
+    }
+    // A staff never empties a room to fill another (trial 7 finding 12: a
+    // team whose quarterbacks were all moved to defense played one of them
+    // at quarterback anyway, listed at linebacker): a player moves only
+    // while his old room keeps its two-deep. Each team's rooms as they
+    // stand, high schools after the colleges.
+    let schools_from = w.programs.len();
+    let team = |p: &super::Person| match p.stage {
+        Stage::College => p.college,
+        Stage::HighSchool => Some(schools_from + p.hs),
+        _ => None,
+    };
+    let mut counted = vec![false; schools_from + w.high_schools.len()];
+    for &(i, _) in &moves {
+        if let Some(t) = team(&w.people[i]) {
+            counted[t] = true;
         }
+    }
+    let mut rooms = vec![[0u32; POSITION_COUNT]; counted.len()];
+    for p in w.people.iter() {
+        if let Some(t) = team(p)
+            && counted[t]
+        {
+            rooms[t][p.player.position.index()] += 1;
+        }
+    }
+    let mut made: Vec<(usize, Position)> = Vec::with_capacity(moves.len());
+    for (i, to) in moves {
+        let from = w.people[i].player.position;
+        let Some(t) = team(&w.people[i]) else { continue };
+        let room = &mut rooms[t];
+        if room[from.index()] as usize <= two_deep(from) {
+            continue;
+        }
+        room[from.index()] -= 1;
+        room[to.index()] += 1;
+        made.push((i, to));
+    }
+    let persons = super::pick_mut(&mut w.people, made.iter().map(|m| m.0));
+    persons.into_par_iter().zip(made.par_iter()).for_each(|(p, &(_, to))| {
+        let from = p.player.position;
+        crate::athlete::set_position(&mut p.player, to);
+        let age = p.player.age;
+        let by = if p.stage == Stage::College { "his college staff" } else { "his high school coach" };
+        p.note(format!("Moved from {from} to {to} by {by} at {age}."));
     });
 }
 

@@ -421,6 +421,15 @@ pub fn place_class(players: &mut [&mut Player], eye: Eye) {
 /// current fit (switching costs a staff something, so they need to be sure).
 /// Returns the position he moved from.
 pub fn reconsider(p: &mut Player, eye: Eye, margin: f64) -> Option<Position> {
+    let to = better_position(p, eye, margin)?;
+    let from = p.position;
+    set_position(p, to);
+    Some(from)
+}
+
+/// Where a staff would move a player on a fresh look, without moving him
+/// (see `reconsider`).
+pub fn better_position(p: &Player, eye: Eye, margin: f64) -> Option<Position> {
     // Kickers and snappers are found, not converted: nobody moves a regular there late.
     if p.position.is_specialist() {
         return None;
@@ -439,10 +448,5 @@ pub fn reconsider(p: &mut Player, eye: Eye, margin: f64) -> Option<Position> {
     // A staff almost never moves a man back where he came from (fix list
     // 3.9): it takes three times the usual gap (proposed, not confirmed).
     let back = p.position_history.iter().any(|&(_, q)| q == pos);
-    if best > now + if back { 3.0 * margin } else { margin } {
-        let from = p.position;
-        set_position(p, pos);
-        return Some(from);
-    }
-    None
+    if best > now + if back { 3.0 * margin } else { margin } { Some(pos) } else { None }
 }

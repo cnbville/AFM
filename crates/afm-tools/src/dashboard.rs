@@ -15,10 +15,12 @@ fn r1(x: f64) -> f64 {
     (x * 10.0).round() / 10.0
 }
 
-/// A player's college seasons from the game log, by year.
+/// A player's college seasons from the game log, by year: every year it
+/// holds, the whole recorded history (trial 7 finding 15: the last 20 years
+/// only, so older classes had none).
 fn college_stats(w: &World, id: u32) -> Vec<Value> {
     let mut out = Vec::new();
-    for y in (w.year - 20)..w.year {
+    for y in w.first_year()..w.year {
         if let Some(s) = w.game_log.players.get(&(y, id)) {
             out.push(json!({
                 "year": y, "school": w.programs[s.program].real_name, "g": s.games, "snaps": s.snaps, "pos": s.pos.map(|p| p.name()),

@@ -249,6 +249,9 @@ pub struct PersonCal {
     /// A whisper about his leaving is out (T3).
     pub whispered: bool,
     pub draft_read: Option<DraftRead>,
+    /// Where December's pro scouts project him, when it isn't his college
+    /// position: he moves there when he leaves for the pros, not before.
+    pub pro_position: Option<crate::positions::Position>,
     pub opted_out: bool,
     /// The day his opt-out is announced (part D 16): his own day before his bowl.
     pub opt_out_on: Option<crate::calendar::Date>,
@@ -1167,10 +1170,27 @@ impl World {
                 .collect();
             self.alumni.extend(gone);
         }
-        self.people.retain(|p| {
-            matches!(p.stage, Stage::HighSchool | Stage::College | Stage::PrepSchool | Stage::Declared | Stage::Pro)
-        });
+        // Where each person who stays lands, for the lists that hold people
+        // by place (trial 7 finding 7: the comp picks' free agents).
+        let mut next = 0;
+        let map: Vec<Option<usize>> = self
+            .people
+            .iter()
+            .map(|p| {
+                let stays = matches!(
+                    p.stage,
+                    Stage::HighSchool | Stage::College | Stage::PrepSchool | Stage::Declared | Stage::Pro
+                );
+                stays.then(|| {
+                    next += 1;
+                    next - 1
+                })
+            })
+            .collect();
+        let mut stays = map.iter();
+        self.people.retain(|_| stays.next().is_some_and(|m| m.is_some()));
         self.announcements.clear();
+        pro::remap_people(self, &map);
         pro::rebuild(self);
     }
 

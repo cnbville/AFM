@@ -7,7 +7,7 @@ Seed 2026, 30 recorded years (1996-2025) after a 12-year spin-up from 1984. Ever
 - Debug Lab: https://claude.ai/artifact/3SAzca1V9NBFKkW5pAPTSt (new version, one world). Player pages (117 players): `docs/trials/artifacts/world-trial7-player-pages.html`, also at https://claude.ai/artifact/CGhQ8ZM8xefZmTUtV8sfoy.
 - One checker pass re-measured the 18 claims the findings rest on; its corrections are made in place (see "Spot checks").
 
-Nothing here is fixed. Every finding waits for Raichel's yes or no.
+Raichel's answer (2026-10-18): fix 4, 5, 6, 7, 11-18 now, with quick checks and no trial (built 2026-10-18; `docs/world-model.md`, "Trial 7 fix-now list"). Parked until the systems that feed them are built: 1, 2, 3, 8, 9, 10 and part D 4.
 
 ## Part A of trial 6 (F1-F17), measured
 

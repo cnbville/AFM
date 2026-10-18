@@ -1203,12 +1203,20 @@ fn stakes_for_day(w: &mut World, idx: &[usize]) {
                             if !tags.contains(&Tag::Milestone) {
                                 tags.push(Tag::Milestone);
                             }
+                            // Sacks come in halves: "needs 1.5 sacks", "needs 1 sack".
                             let need = rec.value - now;
                             let stat = super::program::RECORD_STATS[k].0;
+                            let (need, stat) = if need.fract().abs() > 0.01 {
+                                (format!("{need:.1}"), stat)
+                            } else if need.round() == 1.0 {
+                                ("1".to_string(), stat.strip_suffix('s').unwrap_or(stat))
+                            } else {
+                                (format!("{need:.0}"), stat)
+                            };
                             notes.push((
                                 t,
                                 format!(
-                                    "{} needs {need:.0} {stat} to break {}'s single-season record ({:.0}, {} in {}).",
+                                    "{} needs {need} {stat} to break {}'s single-season record ({:.0}, {} in {}).",
                                     p.name, w.programs[t].real_name, rec.value, rec.holder, rec.year
                                 ),
                             ));

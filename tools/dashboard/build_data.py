@@ -1391,7 +1391,7 @@ def slumps(run):
                 elif "minorInjury" in ev:
                     why.append("minor injury")
                 if s.get("missed"):
-                    why.append(f'{s["missed"]} games missed')
+                    why.append(f'{s["missed"]} game{"" if s["missed"] == 1 else "s"} missed')
                 for k, t in (("slump", "a form slump"), ("lostSeason", "a lost season"), ("suspended", "suspended or ineligible"),
                              ("dismissed", "dismissed"), ("stagnation", "stagnation"), ("bodyStalled", "body stopped developing")):
                     if k in ev:
