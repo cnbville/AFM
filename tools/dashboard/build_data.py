@@ -1531,6 +1531,125 @@ def nfl_view(run, real):
     return out
 
 
+# --- Tendencies (2026-10-19): how often players try things, by level ---------
+
+# Mirrors `Tend::ALL` in crates/afm-engine/src/tendencies.rs: key, label, the
+# positions that own it.
+TENDS = [
+    ("bouncesRuns", "Bounces runs", {"RB"}),
+    ("contactWillingness", "Contact willingness", {"QB", "RB", "WR", "TE", "LB", "CB", "S"}),
+    ("reachesBallOut", "Reaches the ball out", {"QB", "RB", "WR", "TE", "LB", "CB", "S"}),
+    ("patientOrDownhill", "Patient or downhill", {"RB"}),
+    ("scrambles", "Scrambles", {"QB"}),
+    ("gunslinger", "Gunslinger or checkdown", {"QB"}),
+    ("holdsForBigPlay", "Holds for the big play", {"QB"}),
+    ("returnerRisk", "Returner risk", {"RB", "WR", "CB", "S"}),
+    ("rushesUpfield", "Rushes upfield or keeps contain", {"EDGE", "DT"}),
+    ("timesTheSnap", "Times the snap", {"EDGE", "DT"}),
+    ("getsHandsUp", "Gets his hands up", {"EDGE", "DT"}),
+    ("goesForStrip", "Goes for the strip", {"EDGE", "DT", "LB", "CB", "S"}),
+    ("bigHit", "Big hit or sure tackle", {"EDGE", "DT", "LB", "CB", "S"}),
+    ("fliesDownhill", "Flies downhill or reads first", {"LB", "S"}),
+    ("jumpsRoutes", "Jumps routes", {"LB", "CB", "S"}),
+]
+# The designed spread among regulars (`tendencies::level_sd`).
+TEND_SD = {"NFL": 3.2, "FBS": 3.8, "FCS": 4.0, "D2": 4.2, "JUCO": 4.2, "HS": 4.8}
+TEND_LEVELS = ["HS", "JUCO", "D2", "FCS", "FBS", "NFL"]
+
+
+def tend_view(run):
+    """Tendencies in the world: the spread by level against the designed one,
+    how far coaching moved them, the drift over the recorded future seasons,
+    whether a player's numbers show in his season stats, and the coaches'
+    styles."""
+    by_year = opt_jl(run, "tend_by_year")
+    rows = opt_jl(run, "tendencies")
+    if not by_year and not rows:
+        return None
+    out = {"keys": [[k, l, sorted(o)] for k, l, o in TENDS], "design_sd": TEND_SD}
+    levels = [l for l in TEND_LEVELS if by_year and l in by_year[-1]["groups"]]
+    out["levels"] = levels
+    out["drift"] = {l: {k: [[y["year"], y["groups"][l][k]["mean"], y["groups"][l][k]["sd"]] for y in by_year if l in y["groups"]] for k, _, _ in TENDS} for l in levels}
+    out["last"] = by_year[-1]["groups"] if by_year else {}
+    out["years"] = [y["year"] for y in by_year]
+    # Coached habits: share of owned numbers coaching moved 2+ points down or up.
+    idx = {k: i for i, (k, _, _) in enumerate(TENDS)}
+    coached = []
+    for l in levels:
+        sel = [r for r in rows if r["lvl"] == l]
+        line = [l, len(sel)]
+        for k, _, own in TENDS:
+            i = idx[k]
+            d = [r["v"][i] - r["was"][i] for r in sel if r["pos"] in own]
+            line.append(pct(sum(1 for x in d if x <= -2), len(d)) if d else None)
+        coached.append(line)
+    out["coached"] = coached
+    # Do the numbers show in the stats? Last recorded season, players with volume.
+    last = run.last
+    ps = {"FBS": {}, "NFL": {}}
+    for s in run.player_seasons():
+        if s["year"] == last:
+            ps["FBS"][s["id"]] = s
+    # Pro season lines carry fewer stats (no sacks taken, returns or tackles
+    # for loss): those checks run at FBS only.
+    for p in opt_jl(run, "pros"):
+        for s in p["seasons"]:
+            if s["year"] == last and s["team"] and s["g"]:
+                ps["NFL"][p["id"]] = {"g": s["g"], "cmp": s["pass"][0], "att": s["pass"][1], "pass_yds": s["pass"][2], "int": s["pass"][4],
+                                      "rush": s["rush"][0], "tackles": s["def"][0], "sacks": s["def"][1], "ints": s["def"][2], "pbus": s["def"][3]}
+    checks = [
+        ("QB", "scrambles", "QB runs per pass or run", lambda s: s["rush"] / max(1, s["att"] + s["rush"]), lambda s: s["att"] >= 150),
+        ("QB", "gunslinger", "Interceptions per pass", lambda s: s["int"] / max(1, s["att"]), lambda s: s["att"] >= 150),
+        ("QB", "gunslinger", "Yards per completion", lambda s: s["pass_yds"] / max(1, s["cmp"]), lambda s: s["att"] >= 150),
+        ("QB", "holdsForBigPlay", "Sacks per dropback", lambda s: s["sacked"] / max(1, s["att"] + s["sacked"]), lambda s: s["att"] >= 150),
+        ("RB", "returnerRisk", "Kick returns a game", lambda s: s["kr"] / max(1, s["g"]), lambda s: s["kr"] >= 5),
+        ("WR", "returnerRisk", "Kick returns a game", lambda s: s["kr"] / max(1, s["g"]), lambda s: s["kr"] >= 5),
+        ("CB", "jumpsRoutes", "Interceptions a game", lambda s: s["ints"] / max(1, s["g"]), lambda s: s["g"] >= 8),
+        ("S", "jumpsRoutes", "Interceptions a game", lambda s: s["ints"] / max(1, s["g"]), lambda s: s["g"] >= 8),
+        ("LB", "fliesDownhill", "Tackles for loss per tackle", lambda s: s["tfl"] / max(1, s["tackles"]), lambda s: s["tackles"] >= 30),
+        ("S", "fliesDownhill", "Tackles for loss per tackle", lambda s: s["tfl"] / max(1, s["tackles"]), lambda s: s["tackles"] >= 30),
+        ("EDGE", "getsHandsUp", "Passes batted or defensed a game", lambda s: s["pbus"] / max(1, s["g"]), lambda s: s["g"] >= 8),
+        ("DT", "getsHandsUp", "Passes batted or defensed a game", lambda s: s["pbus"] / max(1, s["g"]), lambda s: s["g"] >= 8),
+        ("EDGE", "rushesUpfield", "Sacks a game", lambda s: s["sacks"] / max(1, s["g"]), lambda s: s["g"] >= 8),
+    ]
+    res = []
+    for pos, k, stat, f, ok in checks:
+        i = idx[k]
+        for l in ("FBS", "NFL"):
+            pairs = []
+            for row in rows:
+                line = ps[l].get(row["id"]) if row["lvl"] == l and row["pos"] == pos else None
+                if line is None:
+                    continue
+                try:
+                    if ok(line):
+                        pairs.append((row["v"][i], f(line)))
+                except KeyError:
+                    break
+            if len(pairs) < 20:
+                continue
+            pairs.sort()
+            fifth = max(1, len(pairs) // 5)
+            lo = st.mean(y for _, y in pairs[:fifth])
+            hi = st.mean(y for _, y in pairs[-fifth:])
+            res.append([l, pos, next(t[1] for t in TENDS if t[0] == k), stat, len(pairs), r(corr([x for x, _ in pairs], [y for _, y in pairs]), 2), r(lo, 3), r(hi, 3)])
+    out["results"] = res
+    # Coaches' styles: head coaches in a job now, by level.
+    sty = defaultdict(list)
+    for c in run.coaches:
+        st_ = c.get("style")
+        cur = next((j for j in c.get("career", []) if j.get("ended") == "current"), None)
+        if not st_ or not cur or cur.get("role") != "head coach":
+            continue
+        at = cur.get("at") or {}
+        lvl = "NFL" if at.get("nfl") else at.get("div") or ("HS" if at.get("hs") else None)
+        if lvl:
+            sty[lvl].append(st_)
+    names = ["risk", "freedom", "physical", "ball_hunting", "mould"]
+    out["styles"] = [[l, len(v)] + [f"{r(st.mean(x[n] for x in v))} ± {r(st.pstdev([x[n] for x in v]))}" for n in names] for l, v in sty.items() if v]
+    return out
+
+
 def build(run, real):
     print(f"seed {run.seed}: {len(run.games)} games, {len(run.alumni)} alumni, {len(run.people)} people", file=sys.stderr)
     profiles = team_profiles(run)
@@ -1544,6 +1663,7 @@ def build(run, real):
         "records": recs, "names": names(run), "anomalies": anomalies(run, real, recs, coach, life),
         "explorer": explorer(run, profiles), "programs": program_pages(run), "players": player_pages(run),
         "calendar": calendar_view(run, real), "slumps": slumps(run), "nfl": nfl_view(run, real),
+        "tend": tend_view(run),
     }
     return data
 

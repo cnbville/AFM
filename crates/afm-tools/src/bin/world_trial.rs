@@ -216,10 +216,24 @@ fn main() {
     });
     let future: u32 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(0);
     let built = t.elapsed().as_secs_f64();
+    // With AFM_RAW, the world's tendencies by level at the save's start and
+    // after every future season, written as they come.
+    let mut drift = std::env::var("AFM_RAW").ok().map(|dir| {
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::File::create(format!("{dir}/tend_by_year.jsonl")).unwrap()
+    });
+    let mut snap = |w: &World| {
+        if let Some(f) = drift.as_mut() {
+            use std::io::Write;
+            writeln!(f, "{}", afm_tools::raw::tend_summary(w)).unwrap();
+        }
+    };
+    snap(&w);
     for _ in 0..future {
         let s = Instant::now();
         w.advance_year();
         eprintln!("future season to {}: {:.0}s", w.year, s.elapsed().as_secs_f64());
+        snap(&w);
     }
     println!(
         "# World trial: seed {seed}, {years} years of history and {future} into the future, history built in {built:.0}s, all in {:.0}s\n",

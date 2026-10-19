@@ -82,6 +82,78 @@ PRO_JS = (
 END_OLD = "${statT}`;"
 END_NEW = "${statT}${proT}`;"
 
+# Tendencies (2026-10-19): how often he tries things, from the raw export
+# (`build_pages.py` joins them by name and class). Debug view: the raw number.
+TEND_JS = (
+    'const tw=v=>v<4.5?"almost never":v<8?"rarely":v<13?"sometimes":v<16.5?"often":"almost always";'
+    'const tendT=c.tend&&c.tend.length?`<div class="box" style="margin-top:12px"><h2>Tendencies</h2><table>'
+    '<tr><th>Habit</th><th class="n">Now</th><th>How often</th><th>Leans to</th><th>Coaching</th></tr>'
+    '${c.tend.map(t=>`<tr><td>${t[0]}</td><td class="n">${t[1].toFixed(1)}</td><td>${tw(t[1])}</td><td>${t[1]>=10.5?t[4]:t[3]}</td>'
+    '<td>${Math.abs(t[1]-t[2])>=1?`${t[1]<t[2]?"coached down":"moved up"} from ${t[2].toFixed(1)}`:"·"}</td></tr>`).join("")}</table>'
+    '<p style="color:var(--mute);font-size:12px">How often he tries something, 1 to 20, never how well (his ratings say that).'
+    ' The number is the world\'s own (debug view); the game shows a scouted range and a word. "Coaching" is where his'
+    ' coaches moved a habit; the old habit comes back under stress.</p></div>`:"";\n  '
+)
+END_NEW2 = "${statT}${proT}${tendT}`;"
+
+# Mirrors `Tend::ALL` (crates/afm-engine/src/tendencies.rs): label, owners, ends.
+TENDS = [
+    ("Bounces runs", {"RB"}, "hits the called hole", "bounces runs"),
+    ("Contact willingness", {"QB", "RB", "WR", "TE", "LB", "CB", "S"}, "avoids contact", "seeks contact"),
+    ("Reaches the ball out", {"QB", "RB", "WR", "TE", "LB", "CB", "S"}, "never reaches", "always reaches"),
+    ("Patient or downhill", {"RB"}, "downhill", "patient"),
+    ("Scrambles", {"QB"}, "stays in the pocket", "leaves the pocket"),
+    ("Gunslinger or checkdown", {"QB"}, "checks it down", "gunslinger"),
+    ("Holds for the big play", {"QB"}, "gets it out", "holds for the big play"),
+    ("Returner risk", {"RB", "WR", "CB", "S"}, "plays it safe", "brings everything out"),
+    ("Rushes upfield or keeps contain", {"EDGE", "DT"}, "keeps contain", "rushes upfield"),
+    ("Times the snap", {"EDGE", "DT"}, "waits for the ball", "guesses the count"),
+    ("Gets his hands up", {"EDGE", "DT"}, "rushes through", "gets his hands up"),
+    ("Goes for the strip", {"EDGE", "DT", "LB", "CB", "S"}, "wraps up", "goes for the strip"),
+    ("Big hit or sure tackle", {"EDGE", "DT", "LB", "CB", "S"}, "sure tackle", "big hit"),
+    ("Flies downhill or reads first", {"LB", "S"}, "reads first", "flies downhill"),
+    ("Jumps routes", {"LB", "CB", "S"}, "stays home", "jumps routes"),
+]
+
+
+def raw_rows(run, name):
+    import gzip
+
+    for path, op in ((f"{run}/raw/{name}.jsonl.gz", gzip.open), (f"{run}/raw/{name}.jsonl", open)):
+        if os.path.exists(path):
+            with op(path, "rt") as f:
+                for line in f:
+                    yield json.loads(line)
+            return
+
+
+def tend_lookup(run):
+    """Each player's tendencies now (v, was) by (name, class) and by name for
+    pros, from the raw export, or {} for runs before tendencies."""
+    by_key, by_id = {}, {}
+    for t in raw_rows(run, "tendencies"):
+        by_id[t["id"]] = (t["v"], t["was"])
+    for name in ("alumni", "people"):
+        for a in raw_rows(run, name):
+            d = a.get("detail")
+            if isinstance(d, dict) and d.get("tend"):
+                by_key[(a["name"], a["class_of"])] = ([x[1] for x in d["tend"]], [x[2] for x in d["tend"]])
+            elif a.get("id") in by_id:
+                by_key[(a["name"], a["class_of"])] = by_id[a["id"]]
+    for p in raw_rows(run, "pros"):
+        if p["id"] in by_id:
+            by_key.setdefault((p["name"], None), by_id[p["id"]])
+    return by_key
+
+
+def card_tend(c, look):
+    got = look.get((c.get("name"), c.get("class_of"))) or look.get((c.get("name"), None))
+    if not got:
+        return None
+    v, was = got
+    pos = c.get("pos")
+    return [[lab, v[i], was[i], lo, hi] for i, (lab, own, lo, hi) in enumerate(TENDS) if pos in own]
+
 
 def season_words(s):
     """A season row's events, games missed, dip and spring gain in plain words."""
@@ -125,8 +197,10 @@ def show_events(line):
         line = line.replace(NOTE_OLD, NOTE_NEW)
     if PRO_OLD in line and "const proT=" not in line:
         line = line.replace(PRO_OLD, PRO_JS + PRO_OLD)
-    if END_NEW not in line:
-        line = line.replace(END_OLD, END_NEW)
+    if PRO_OLD in line and "const tendT=" not in line:
+        line = line.replace(PRO_OLD, TEND_JS + PRO_OLD)
+    if END_NEW2 not in line:
+        line = line.replace(END_OLD, END_NEW2).replace(END_NEW, END_NEW2)
     return line
 
 
@@ -137,7 +211,11 @@ def main():
     cards = []
     for run in runs:
         seed = re.sub(r"\D", "", os.path.basename(os.path.normpath(run))) or run
+        look = tend_lookup(run)
         for c in json.load(open(os.path.join(run, "cards.json"))):
+            t = card_tend(c, look)
+            if t:
+                c["tend"] = t
             tag = c.get("tag") or ""
             if not tag.startswith("World "):
                 c["tag"] = f"World {seed} · {tag}" if tag else f"World {seed}"
