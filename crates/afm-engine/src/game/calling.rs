@@ -151,6 +151,30 @@ pub struct Plan {
     pub target_cb: Option<usize>,
     pub bracket: Option<usize>,
     pub spy: bool,
+    /// Moves against the other team's tendencies (tendencies topic 4.4),
+    /// each 0-1 by how sure the staff is.
+    pub vs: VsHabits,
+}
+
+/// Matchup moves that target the other team's habits (tendencies topic
+/// 4.4): hard counts against a snap guesser, double moves and pump fakes
+/// against route jumpers, kicking short of the goal line to a returner who
+/// brings everything out, draws against edges who rush upfield. Each is
+/// 0-1: how much the staff leans on it.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct VsHabits {
+    pub hard_count: f64,
+    pub double_moves: f64,
+    pub kick_deep: f64,
+    pub draws: f64,
+}
+
+/// What a staff's film study makes of a group's habit: the true mean with
+/// an error that shrinks with study, and how hard it leans on a move
+/// against it (none below about 13 on the scale).
+pub fn read_habit(true_mean: f64, film_study: f64, rng: &mut Rng) -> f64 {
+    let seen = true_mean + rng.normal(0.0, 0.15 * (21.0 - film_study).max(1.0));
+    clamp((seen - 12.5) / 4.0, 0.0, 1.0)
 }
 
 /// What a coordinator has learned about this game.
@@ -789,6 +813,12 @@ fn pick_run(
     // A jet man in motion can take it.
     if f.motion == Motion::Jet {
         w.push((JetSweep, 2.5));
+    }
+    // Draws against edges who rush upfield (tendencies topic 4.4).
+    for x in w.iter_mut() {
+        if x.0 == Draw {
+            x.1 *= 1.0 + 1.5 * mem.plan.vs.draws;
+        }
     }
     if short {
         for x in w.iter_mut() {
@@ -1455,7 +1485,12 @@ pub fn make_plan(
         let our = our_cbs.iter().copied().fold(0.0, f64::max);
         best.filter(|b| b.1 - our > 5.0).map(|b| b.0)
     };
-    Plan { target_cb, bracket, spy: their_qb_run > 0.6 && rng.chance(0.4 + 0.03 * own.defense.reading) }
+    Plan {
+        target_cb,
+        bracket,
+        spy: their_qb_run > 0.6 && rng.chance(0.4 + 0.03 * own.defense.reading),
+        vs: VsHabits::default(),
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -11,7 +11,7 @@ use super::playbook::*;
 use super::roster::*;
 use super::rules::{FirstDownStop, Overtime, Rules};
 use super::scrimmage::{self, DSlot, Snap, SnapResult};
-use super::sim::{Conditions, Crew, Foul, FoulKind, Frame, Injury, InjuryKind};
+use super::sim::{Conditions, Crew, Foul, FoulKind, Frame, Injury, InjuryKind, Mood};
 use super::stats::*;
 use super::tables;
 use crate::attributes::Attr;
@@ -461,6 +461,36 @@ pub fn play_game(setup: &GameSetup) -> GameResult {
         .collect();
     sides[0].mem.plan = plans[0];
     sides[1].mem.plan = plans[1];
+    // Moves against the other team's habits (tendencies topic 4.4), from
+    // what each staff's film study reads of them. Own stream, so the plans
+    // above keep their draws.
+    let mut habit_rng = Rng::new(((setup.seed >> 23) as u32) ^ (setup.seed as u32).rotate_left(7) ^ 0x7E4D_A11B);
+    for k in 0..2 {
+        let them = &sides[1 - k];
+        let study = sides[k].team.staff.film_study;
+        let mean = |pos: &[Position], n: usize, t: crate::tendencies::Tend| {
+            let v: Vec<f64> = pos
+                .iter()
+                .flat_map(|&p| them.depth.list(p).iter().take(n).map(|&i| them.team.players[i].tend.get(t)))
+                .collect();
+            if v.is_empty() { crate::tendencies::MID } else { v.iter().sum::<f64>() / v.len() as f64 }
+        };
+        use crate::tendencies::Tend;
+        let snap = mean(&[Position::EDGE, Position::DT], 2, Tend::SnapTiming);
+        let jump = mean(&[Position::CB, Position::S], 2, Tend::JumpRoutes);
+        let up = mean(&[Position::EDGE], 2, Tend::Upfield);
+        let ret = them
+            .depth
+            .kick_returners
+            .first()
+            .map_or(crate::tendencies::MID, |&i| them.team.players[i].tend.get(Tend::ReturnRisk));
+        sides[k].mem.plan.vs = calling::VsHabits {
+            hard_count: calling::read_habit(snap, study, &mut habit_rng),
+            double_moves: calling::read_habit(jump, study, &mut habit_rng),
+            draws: calling::read_habit(up, study, &mut habit_rng),
+            kick_deep: calling::read_habit(ret, study, &mut habit_rng),
+        };
+    }
     let mut mind = Rng::new(((setup.seed >> 29) as u32) ^ (setup.seed as u32).rotate_left(11) ^ 0x6A09_E667);
     let habits = garbage::habits(setup.rules.level);
     for (k, side) in sides.iter_mut().enumerate() {
@@ -550,6 +580,33 @@ impl<'a> Game<'a> {
 
     fn diff(&self, team: usize) -> i32 {
         self.stats.team[team].points - self.stats.team[1 - team].points
+    }
+
+    /// What the score and the clock do to habits (tendencies topics 3.7 and
+    /// 3.8), team `a` first: down two scores late every player gambles
+    /// more, protecting a lead every player protects the ball; a playoff
+    /// game or a close one late is a big moment, when old habits come back
+    /// (sizes proposed, not confirmed).
+    fn mood(&self, a: usize) -> Mood {
+        let q = self.rules().quarter;
+        let left = self.game_left();
+        let late = clamp((q - left) / (0.67 * q), 0.0, 1.0);
+        let gamble = |t: usize| match self.diff(t) {
+            d if d <= -9 => 2.5 * late,
+            d if d < 0 && left < q / 3.0 => 1.5 * late,
+            d if d >= 9 => -2.0 * late,
+            d if d > 0 && left < q / 3.0 => -1.5 * late,
+            _ => 0.0,
+        };
+        let close = self.diff(a).abs() <= 8 && left < 0.55 * q;
+        let stakes = (if self.s.playoff { 0.5 } else { 0.0 }) + if close { 0.4 * late } else { 0.0 };
+        Mood {
+            gamble: [gamble(a), gamble(1 - a)],
+            stakes: [stakes; 2],
+            strict: [self.sides[a].team.staff.strictness, self.sides[1 - a].team.staff.strictness],
+            line: None,
+            snap_y: self.ball_y,
+        }
     }
 
     fn situation(&self) -> Situation {
@@ -869,6 +926,8 @@ impl<'a> Game<'a> {
             snapper: self.sides[team].depth.snapper,
             holder: self.sides[team].depth.holder,
             energy: [&self.sides[team].energy, &self.sides[rec].energy],
+            mood: self.mood(team),
+            kick_deep: self.sides[team].mem.plan.vs.kick_deep,
         };
         let mut rules = self.s.rules;
         rules.kickoff_from = from;
@@ -885,6 +944,8 @@ impl<'a> Game<'a> {
         r.tacklers = kr.notes.tacklers.clone();
         r.missed_tackles = kr.notes.missed.clone();
         r.injuries = kr.notes.injuries.clone();
+        r.tend = kr.notes.tend;
+        r.tend.start = Some(kr.spot);
         r.call = if onside { "onside kick".into() } else { "kickoff".into() };
         // On a return the returning team is side 0 and the kicking team side 1.
         self.apply_injuries(&kr.notes.injuries, [rec, team]);
@@ -1281,6 +1342,8 @@ impl<'a> Game<'a> {
             snapper: sn,
             holder: side.depth.holder,
             energy: [&side.energy, &opp.energy],
+            mood: self.mood(o),
+            kick_deep: 0.0,
         };
         let along = self.wind_along(o);
         let kr = kicking::punt(
@@ -1307,6 +1370,9 @@ impl<'a> Game<'a> {
         r.tacklers = kr.notes.tacklers.clone();
         r.missed_tackles = kr.notes.missed.clone();
         r.injuries = kr.notes.injuries.clone();
+        r.tend = kr.notes.tend;
+        r.tend.muffed = kr.muffed;
+        r.tend.start = Some(kr.spot);
         self.apply_injuries(&kr.notes.injuries, [d, o]);
         self.tick(kr.duration);
         self.running = false;
@@ -1510,8 +1576,11 @@ impl<'a> Game<'a> {
         let qp = &self.sides[o].team.players[qb];
         // The hard count on 3rd or 4th and short: a smart quarterback draws
         // the defense offside (proposed, not confirmed).
-        let hard = if self.down >= 3 && self.togo <= 2.0 {
-            clamp(1.5 + 0.05 * (qp.trait20(Attr::FootballIq, self.s.rules.level) - 10.0), 1.0, 2.5)
+        // Against a front of snap guessers the plan uses it on more downs
+        // (tendencies topic 4.4).
+        let vs = self.sides[o].mem.plan.vs.hard_count;
+        let hard = if self.down >= 3 && self.togo <= 2.0 || vs > 0.0 && (self.down >= 3 || self.togo <= 3.0) {
+            clamp(1.5 + 0.05 * (qp.trait20(Attr::FootballIq, self.s.rules.level) - 10.0), 1.0, 2.5) * (1.0 + 0.5 * vs)
         } else {
             1.0
         };
@@ -1523,8 +1592,34 @@ impl<'a> Game<'a> {
             // The best snap anticipators get off early, and now and then too
             // early (read against his level; proposed, not confirmed).
             let jump = clamp(1.0 + 0.04 * (p.trait20(Attr::Anticipation, self.s.rules.level) - 10.0), 0.6, 1.5);
-            let chance =
-                0.0019 * (1.6 - p.trait20(Attr::Discipline, self.s.rules.level) / 15.0).max(0.3) * jump * hard * crew;
+            // Times the snap (tendencies): a guesser jumps more, and a hard
+            // count gets him most. A "no snap guessing" order he follows
+            // sets him to 1.
+            let level = self.s.rules.level;
+            let guess = match p.orders.sets(crate::tendencies::Tend::SnapTiming) {
+                Some(v)
+                    if self.rng.chance(crate::tendencies::obey_chance(
+                        p.trait20(Attr::Discipline, level),
+                        p.personality.coachability,
+                        p.trust,
+                        self.sides[1 - o].team.staff.strictness,
+                    )) =>
+                {
+                    v
+                }
+                _ => p.tend.get(crate::tendencies::Tend::SnapTiming),
+            };
+            let lean = (guess - crate::tendencies::MID) / 9.5;
+            let guess = (1.0 + 1.1 * lean).max(0.1) * hard.powf(1.0 + 0.8 * lean.max(0.0)) / hard.max(1.0);
+            // (0.0019 before tendencies: guessers are the less disciplined
+            // men and a hard count now targets them, so 0.00172 keeps the
+            // league's offside where it was.)
+            let chance = 0.00172
+                * (1.6 - p.trait20(Attr::Discipline, self.s.rules.level) / 15.0).max(0.3)
+                * jump
+                * hard
+                * guess
+                * crew;
             if self.rng.chance(chance) {
                 return Some(Foul { kind: FoulKind::Offside, side: 1, player: p.id, at: self.x });
             }
@@ -1761,6 +1856,7 @@ impl<'a> Game<'a> {
                 _ => 3.0,
             },
             load: [self.sides[o].team.plan().1, self.sides[d].team.plan().1],
+            double_moves: self.sides[o].mem.plan.vs.double_moves,
         };
         let snap = Snap {
             teams: [&self.sides[o].team.players, &self.sides[d].team.players],
@@ -1784,6 +1880,7 @@ impl<'a> Game<'a> {
             hurry: sit.hurry(),
             two_gap: self.sides[d].team.staff.front == Front::ThreeFour,
             tac,
+            mood: self.mood(o),
         };
         let res = scrimmage::run_snap(&snap, &mut self.rng);
         r.on_field = [
@@ -1927,6 +2024,7 @@ impl<'a> Game<'a> {
         r.fumbled = res.notes.fumbled;
         r.blocks = res.notes.blocks.clone();
         r.rush_wins = res.notes.rush_wins.clone();
+        r.tend = res.notes.tend;
         r.busts = res.notes.busts.clone();
         r.injuries = res.notes.injuries.clone();
         r.top_speed = res

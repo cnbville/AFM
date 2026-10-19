@@ -1,0 +1,173 @@
+{
+ "source": "nflverse play-by-play, Next Gen Stats and PFR advanced defense, regular seasons 2016-2025",
+ "note": "per player season among regulars unless a stat says team season; percentiles p5-p95",
+ "stats": {
+  "scramble_rate": {
+   "tendency": "scrambles",
+   "who": "QB, 250+ dropbacks",
+   "n": 336,
+   "p5": 0.0062,
+   "p25": 0.0249,
+   "p50": 0.0402,
+   "p75": 0.0582,
+   "p95": 0.0903
+  },
+  "tight_window_pct": {
+   "tendency": "gunslinger",
+   "who": "QB, 200+ attempts",
+   "def": "attempts into a window under a yard (NGS aggressiveness)",
+   "n": 346,
+   "p5": 11.38,
+   "p25": 13.54,
+   "p50": 15.82,
+   "p75": 17.91,
+   "p95": 21.18
+  },
+  "intended_air_yards": {
+   "tendency": "gunslinger",
+   "who": "QB, 200+ attempts",
+   "n": 346,
+   "p5": 6.63,
+   "p25": 7.43,
+   "p50": 7.99,
+   "p75": 8.77,
+   "p95": 9.86
+  },
+  "time_to_throw": {
+   "tendency": "holds",
+   "who": "QB, 200+ attempts",
+   "n": 346,
+   "p5": 2.494,
+   "p25": 2.655,
+   "p50": 2.767,
+   "p75": 2.876,
+   "p95": 3.036
+  },
+  "time_to_los": {
+   "tendency": "patient",
+   "who": "RB, 100+ carries",
+   "n": 464,
+   "p5": 2.543,
+   "p25": 2.684,
+   "p50": 2.762,
+   "p75": 2.864,
+   "p95": 3.001
+  },
+  "outside_share": {
+   "tendency": "bounces runs",
+   "who": "RB, 100+ carries",
+   "def": "carries to the end (outside the tackles); the play-by-play has no called gap",
+   "n": 465,
+   "p5": 0.088,
+   "p25": 0.142,
+   "p50": 0.188,
+   "p75": 0.243,
+   "p95": 0.345
+  },
+  "run_oob_share": {
+   "tendency": "contact willingness (low)",
+   "who": "RB, 100+ carries",
+   "def": "carries ending out of bounds",
+   "n": 465,
+   "p5": 0.009,
+   "p25": 0.0248,
+   "p50": 0.0418,
+   "p75": 0.0655,
+   "p95": 0.0984
+  },
+  "endzone_return_share": {
+   "tendency": "returner risk",
+   "who": "team season, 2016-2023 rules, 15+ kicks",
+   "def": "deep kicks (in the end zone or a touchback) brought out",
+   "n": 256,
+   "p5": 0.065,
+   "p25": 0.13,
+   "p50": 0.193,
+   "p75": 0.263,
+   "p95": 0.36
+  },
+  "fair_catch_rate": {
+   "tendency": "returner risk (low)",
+   "who": "team season, 20+ punts caught or fair-caught",
+   "n": 320,
+   "p5": 0.228,
+   "p25": 0.327,
+   "p50": 0.388,
+   "p75": 0.455,
+   "p95": 0.561
+  },
+  "snap_flags_per_17": {
+   "tendency": "times the snap",
+   "who": "DL and OLB, 10+ games with a tackle",
+   "def": "offside, encroachment and neutral zone flags per 17 games",
+   "n": 1928,
+   "p5": 0.0,
+   "p25": 0.0,
+   "p50": 0.0,
+   "p75": 1.55,
+   "p95": 4.25
+  },
+  "forced_fumbles_per_100_tackles": {
+   "tendency": "goes for the strip",
+   "who": "40+ tackles",
+   "n": 3194,
+   "p5": 0.0,
+   "p25": 0.0,
+   "p50": 0.55,
+   "p75": 1.98,
+   "p95": 4.65
+  },
+  "tfl_per_17": {
+   "tendency": "flies downhill",
+   "who": "LB and S, 40+ tackles",
+   "n": 1452,
+   "p5": 0.0,
+   "p25": 2.83,
+   "p50": 5.31,
+   "p75": 8.5,
+   "p95": 15.0
+  },
+  "missed_tackle_pct": {
+   "tendency": "big hit (high) or sure tackle (low)",
+   "who": "40+ combined tackles",
+   "def": "missed / (missed + combined)",
+   "n": 2714,
+   "p5": 0.023,
+   "p25": 0.058,
+   "p50": 0.083,
+   "p75": 0.114,
+   "p95": 0.162
+  },
+  "int_per_target": {
+   "tendency": "jumps routes",
+   "who": "CB and S, 40+ targets",
+   "n": 1110,
+   "p5": 0.0,
+   "p25": 0.0,
+   "p50": 0.0189,
+   "p75": 0.0351,
+   "p95": 0.0727
+  },
+  "yards_per_target_allowed": {
+   "tendency": "jumps routes (cost)",
+   "who": "CB and S, 40+ targets",
+   "n": 1110,
+   "p5": 5.3,
+   "p25": 6.5,
+   "p50": 7.4,
+   "p75": 8.4,
+   "p95": 10.1
+  },
+  "batted_per_17": {
+   "tendency": "gets his hands up",
+   "who": "DL, 10+ games",
+   "def": "batted passes per 17 games",
+   "n": 429,
+   "p5": 0.0,
+   "p25": 0.0,
+   "p50": 1.0,
+   "p75": 1.55,
+   "p95": 4.0
+  }
+ }
+}

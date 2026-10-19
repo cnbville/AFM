@@ -119,6 +119,8 @@ pub struct PlayRecord {
     /// A man from another position group was on the field because his own
     /// group was out of bodies (fix list 3.6).
     pub emergency: bool,
+    /// What the players' tendencies did (`docs/design/tendencies.md`).
+    pub tend: super::sim::TendNotes,
 }
 
 impl PlayRecord {
@@ -200,6 +202,7 @@ impl PlayRecord {
             after_turnover: false,
             garbage: [0, 0],
             emergency: false,
+            tend: Default::default(),
         }
     }
 

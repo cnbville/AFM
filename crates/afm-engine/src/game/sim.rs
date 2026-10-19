@@ -9,6 +9,7 @@ use super::roster::GamePlayer;
 use crate::attributes::{ATTRIBUTE_COUNT, Attr};
 use crate::player::Level;
 use crate::rng::{Rng, clamp};
+use crate::tendencies::Tend;
 
 /// Players on the field at most, for the compact per-tick scans.
 const MAX_AGENTS: usize = 32;
@@ -214,6 +215,8 @@ pub struct Agent {
     pub misfit: bool,
     /// Ratings with fatigue, injury and momentum in.
     pub r: [f64; ATTRIBUTE_COUNT],
+    /// How tired he is coming into the snap, 0-1 (old habits come back).
+    pub tired: f64,
 }
 
 impl Agent {
@@ -262,6 +265,7 @@ impl Agent {
             gap_y: 0.0,
             misfit: false,
             r,
+            tired,
         }
     }
     /// How hard he can stop, yards per second squared: his grip and his
@@ -298,6 +302,7 @@ impl Agent {
             gap_y: self.gap_y,
             misfit: self.misfit,
             r: self.r,
+            tired: self.tired,
         }
     }
 
@@ -536,6 +541,73 @@ pub struct Notes {
     pub misfits: Vec<u32>,
     /// A stunt the line passed off or didn't (topic 4.9).
     pub stunt: Option<bool>,
+    /// What the players' tendencies did this snap.
+    pub tend: TendNotes,
+}
+
+/// What the players' tendencies did on a play (`docs/design/tendencies.md`),
+/// for the stats each one is checked against.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct TendNotes {
+    /// The ball carrier on a designed run crossed the line this far from
+    /// where the ball was snapped (yards across), this long after the snap.
+    pub cross: Option<(f64, f64)>,
+    /// A reach for the line to gain or the goal line: who, whether the ball
+    /// got there, whether he fumbled it.
+    pub reach: Option<(u32, bool, bool)>,
+    /// The quarterback slid.
+    pub slid: bool,
+    /// The carrier stepped out of bounds with a tackler closing.
+    pub stepped_out: bool,
+    /// A kickoff landing in the end zone: did he bring it out?
+    pub deep_kick: Option<bool>,
+    /// A punt landing inside the 10: did he field it?
+    pub fielded_inside_10: Option<bool>,
+    /// A route jump: who, and whether he guessed right.
+    pub jump: Option<(u32, bool)>,
+    /// The lineman who batted the pass at the line.
+    pub hands_up: Option<u32>,
+    /// Where the receiving team took over after a kick (yards from its
+    /// own goal line), and whether a punt was muffed.
+    pub start: Option<f64>,
+    pub muffed: bool,
+}
+
+/// What the game around a play does to habits (tendencies topic 3.7-3.8),
+/// per side of the sim (0 the snapping or returning team).
+#[derive(Clone, Copy, Debug)]
+pub struct Mood {
+    /// Tendency points every gamble moves: up down two scores late, down
+    /// protecting a lead.
+    pub gamble: [f64; 2],
+    /// How big the moment is, 0-1: a playoff game, a close game late.
+    pub stakes: [f64; 2],
+    /// Head coach strictness, 1-20: a strict coach's instructions are
+    /// followed more often.
+    pub strict: [f64; 2],
+    /// The line to gain, in the sim's frame (None on returns).
+    pub line: Option<f64>,
+    /// Where the ball was snapped, across the field.
+    pub snap_y: f64,
+}
+
+impl Default for Mood {
+    fn default() -> Mood {
+        Mood { gamble: [0.0; 2], stakes: [0.0; 2], strict: [10.0; 2], line: None, snap_y: MID }
+    }
+}
+
+impl Mood {
+    /// The same game, seen from the other side.
+    pub fn swap(self) -> Mood {
+        Mood {
+            gamble: [self.gamble[1], self.gamble[0]],
+            stakes: [self.stakes[1], self.stakes[0]],
+            strict: [self.strict[1], self.strict[0]],
+            line: None,
+            snap_y: self.snap_y,
+        }
+    }
 }
 
 /// One frame of tracking for the 2D view (topic 9.3): every player and the ball.
@@ -606,6 +678,8 @@ pub struct Sim<'a> {
     pub stunt: Option<(usize, usize)>,
     /// The level being played: trait-like ratings are read against it.
     pub level: Level,
+    /// What the game does to habits this snap (tendencies).
+    pub mood: Mood,
 }
 
 /// How much a run block's outcome leans on the strength gap per point.
@@ -642,6 +716,50 @@ impl<'a> Sim<'a> {
     pub fn player(&self, i: usize) -> &GamePlayer {
         let a = &self.agents[i];
         &self.teams[a.side][a.p]
+    }
+
+    /// Agent `i`'s tendency this snap (tendencies topics 3.7, 3.8, 4.3): an
+    /// instruction he follows sets it; otherwise his own number, slipping
+    /// up to a third back toward a coached-down habit under stress (a big
+    /// game, tired, low composure), plus the game situation on gambles.
+    pub fn tend(&self, i: usize, t: Tend) -> f64 {
+        let a = &self.agents[i];
+        let gp = &self.teams[a.side][a.p];
+        if let Some(v) = gp.orders.sets(t)
+            && self.obeys(i)
+        {
+            return v;
+        }
+        let base = gp.tend.get(t);
+        let was = gp.tend.was[t.index()];
+        let poise = gp.trait20(Attr::Composure, self.level);
+        let stress = clamp(self.mood.stakes[a.side] + 0.8 * a.tired + 0.05 * (10.0 - poise), 0.0, 1.0);
+        let gamble = if t.gamble() { self.mood.gamble[a.side] } else { 0.0 };
+        clamp(base + stress * (was - base) / 3.0 + gamble, 1.0, 20.0)
+    }
+
+    /// His tendency as a lean, -1 at 1 to +1 at 20.
+    #[inline]
+    pub fn lean(&self, i: usize, t: Tend) -> f64 {
+        (self.tend(i, t) - crate::tendencies::MID) / 9.5
+    }
+
+    /// Does he follow his instructions this snap? Decided once a play, from
+    /// a key rather than a draw, so asking changes nothing else.
+    pub fn obeys(&self, i: usize) -> bool {
+        let a = &self.agents[i];
+        let gp = &self.teams[a.side][a.p];
+        let p = crate::tendencies::obey_chance(
+            gp.trait20(Attr::Discipline, self.level),
+            gp.personality.coachability,
+            gp.trust,
+            self.mood.strict[a.side],
+        );
+        let mut x = (a.id as u64) << 20 ^ ((self.los * 16.0) as i64 as u64) ^ 0x0BE1_D0E5;
+        x = (x ^ (x >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        x = (x ^ (x >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        x ^= x >> 31;
+        ((x >> 11) as f64 / (1u64 << 53) as f64) < p
     }
 
     /// A trait-like rating of agent `i` on the 1-20 scale, against the level
@@ -878,7 +996,10 @@ impl<'a> Sim<'a> {
         // Get-off against the set: the first step decides a lot. The
         // rusher's jump is his burst and his read of the snap; the blocker
         // knows the count.
-        let get_off = de.a(Attr::Acceleration) * 0.6 + de.a(Attr::Anticipation) * 0.4;
+        // Times the snap (tendencies): a man who guesses the count gets off
+        // sooner on the snaps he guesses right (offside is the cost).
+        let get_off =
+            de.a(Attr::Acceleration) * 0.6 + de.a(Attr::Anticipation) * 0.4 + 12.0 * self.lean(d, Tend::SnapTiming);
         let set = if pass {
             bl.a(Attr::PassBlocking) * 0.5 + bl.a(Attr::Agility) * 0.3 + bl.a(Attr::FootballIq) * 0.2
         } else {
@@ -951,29 +1072,35 @@ impl<'a> Sim<'a> {
     /// strength through the hands; a finesse move is hands and quickness.
     fn rush_power(&self, d: usize, mv: Move) -> f64 {
         let a = &self.agents[d];
-        match mv {
-            Move::Speed => {
-                0.4 * a.a(Attr::FinesseRush)
-                    + 0.2 * a.a(Attr::Speed)
-                    + 0.15 * a.a(Attr::Acceleration)
-                    + 0.15 * a.a(Attr::Flexibility)
-                    + 0.1 * a.a(Attr::HandUse)
+        // The wide arc wins the corner more often; a man who stops to get
+        // his hands up gives up some rush (tendencies).
+        let edge = matches!(a.job, Job::Rush { contain, .. } if contain != 0.0);
+        let arc = if edge { 10.0 * self.lean(d, Tend::Upfield) } else { 0.0 };
+        let hands = 2.5 * self.lean(d, Tend::HandsUp);
+        arc - hands
+            + match mv {
+                Move::Speed => {
+                    0.4 * a.a(Attr::FinesseRush)
+                        + 0.2 * a.a(Attr::Speed)
+                        + 0.15 * a.a(Attr::Acceleration)
+                        + 0.15 * a.a(Attr::Flexibility)
+                        + 0.1 * a.a(Attr::HandUse)
+                }
+                Move::Power => {
+                    0.4 * a.a(Attr::PowerRush)
+                        + 0.25 * a.a(Attr::Strength)
+                        + 0.15 * a.a(Attr::HandUse)
+                        + 0.1 * a.a(Attr::Balance)
+                        + 0.1 * a.a(Attr::BlockShedding)
+                        + (a.mass - 280.0) * 0.08
+                }
+                Move::Finesse => {
+                    0.45 * a.a(Attr::FinesseRush)
+                        + 0.25 * a.a(Attr::Agility)
+                        + 0.2 * a.a(Attr::HandUse)
+                        + 0.1 * a.a(Attr::BlockShedding)
+                }
             }
-            Move::Power => {
-                0.4 * a.a(Attr::PowerRush)
-                    + 0.25 * a.a(Attr::Strength)
-                    + 0.15 * a.a(Attr::HandUse)
-                    + 0.1 * a.a(Attr::Balance)
-                    + 0.1 * a.a(Attr::BlockShedding)
-                    + (a.mass - 280.0) * 0.08
-            }
-            Move::Finesse => {
-                0.45 * a.a(Attr::FinesseRush)
-                    + 0.25 * a.a(Attr::Agility)
-                    + 0.2 * a.a(Attr::HandUse)
-                    + 0.1 * a.a(Attr::BlockShedding)
-            }
-        }
     }
 
     fn block_power(&self, b: usize, mv: Move, pass: bool) -> f64 {
@@ -1269,10 +1396,32 @@ impl<'a> Sim<'a> {
         // for every back, and picks his crease at that pace: the blocks and
         // the box set the run to the line, his speed shows past it (dynasty
         // item 1; was full speed from the handoff).
-        let pressing = self.press > 0.0 && aim.is_some() && (me.pos.x - self.los) * goal < 0.5;
-        let speed = if pressing { self.press.min(me.vmax) } else { me.vmax.max(4.0) };
+        // Patient or downhill (tendencies): a patient back presses slower
+        // and stays on his press to the line, waiting for the crease (his
+        // vision makes it pay); a downhill one presses faster and commits a
+        // yard or so behind it (his burst makes that pay).
+        let patient = if aim.is_some() { self.lean(c, Tend::Patience) } else { 0.0 };
+        let commit = 0.5 + 1.4 * patient.min(0.0);
+        // A patient back stops waiting when a free defender is on him.
+        let crowded = patient > 0.0
+            && self
+                .agents
+                .iter()
+                .any(|d| d.side != me.side && d.up(t) && d.engaged.is_none() && d.pos.dist(me.pos) < 3.0);
+        let pressing = self.press > 0.0 && aim.is_some() && (me.pos.x - self.los) * goal < commit && !crowded;
+        let press = self.press * (1.0 - 0.25 * patient);
+        let speed = if pressing { press.min(me.vmax) } else { me.vmax.max(4.0) };
+        // Bounces runs (tendencies): behind the line on a designed run, a
+        // bouncer leans off the called hole toward the edge or the cutback;
+        // a low one sticks to it. His vision picks which way.
+        let behind = aim.is_some() && (me.pos.x - self.los) * goal < 1.0;
+        let bounce = if behind { self.lean(c, Tend::Bounce) } else { 0.0 };
+        // Contact willingness at the sideline: with a tackler closing, one
+        // who avoids contact steps out; one who seeks it turns up.
+        let contact = self.lean(c, Tend::Contact);
         let mut best = (f64::NEG_INFINITY, v2(goal, 0.0));
-        let noise = (1.0 - 0.008 * vision).max(0.2);
+        // A patient back reads the crease cleanly while he waits.
+        let noise = (1.0 - 0.008 * vision).max(0.2) * if pressing { 1.0 - 0.35 * patient } else { 1.0 };
         // The defenders he reckons with, and how free each is: the same
         // for every heading, so worked out once.
         let mut seen: [(V2, f64, f64); 32] = [(V2::default(), 0.0, 0.0); 32];
@@ -1310,14 +1459,21 @@ impl<'a> Sim<'a> {
             }
             let gain = dir.x * goal;
             let edge = p.y.min(WIDTH - p.y);
-            let sideline = if edge < 1.0 { 3.0 * (1.0 - edge) } else { 0.0 };
+            let mut sideline = if edge < 1.0 { 3.0 * (1.0 - edge) } else { 0.0 };
+            let near_edge = me.pos.y.min(WIDTH - me.pos.y) < 6.0;
+            if near_edge && threat > 0.5 {
+                let outward = if me.pos.y < MID { -dir.y } else { dir.y };
+                sideline -= 6.0 * (-contact).max(0.0) * outward.max(0.0);
+                sideline += 1.5 * contact.max(0.0) * outward.max(0.0);
+            }
+            let lateral = dir.y.abs() * 0.9 * bounce;
             // He commits to a path: changing course costs speed, so the
             // heading he is on gets a bonus once he is moving.
             let keep = if me.vel.len() > 2.0 { 0.9 * dir.dot(me.vel.norm()) } else { 0.0 };
-            let mut score = 1.5 * gain - 1.1 * threat - sideline + keep + noise * gauss(self.rng) * 0.6;
+            let mut score = 1.5 * gain - 1.1 * threat - sideline + keep + lateral + noise * gauss(self.rng) * 0.6;
             if let Some(a) = aim {
                 let wanted = (a - me.pos).norm();
-                score += 1.2 * dir.dot(wanted);
+                score += 1.2 * (1.0 - 0.6 * bounce) * dir.dot(wanted);
             }
             if score > best.0 {
                 best = (score, dir);
@@ -1449,6 +1605,17 @@ impl<'a> Sim<'a> {
             if engaged_w.is_some() && dist > reach - 0.55 {
                 continue;
             }
+            // Contact willingness (tendencies): a free defender who avoids
+            // contact sometimes doesn't take on a bigger man coming at him
+            // (the corner who won't tackle in run support).
+            let bigger = self.agents[c].mass > d.mass + 15.0 && self.agents[c].vel.len() > 4.0;
+            if engaged_w.is_none() && bigger {
+                let shy = (-self.lean(i, Tend::Contact) - 0.15).max(0.0);
+                if shy > 0.0 && self.rng.chance(0.35 * shy) {
+                    self.agents[i].last_try = t;
+                    continue;
+                }
+            }
             new_tacklers.push((i, engaged_w.is_some(), (dist - (reach - 0.55)).max(0.0)));
         }
         for (i, arm_only, lunge) in new_tacklers {
@@ -1489,8 +1656,13 @@ impl<'a> Sim<'a> {
         let space = if r.vel.len() > 5.0 { 0.25 } else { -0.2 };
         let arm = if arm_only { 1.5 } else { 0.0 };
         let dive = 2.0 * lunge;
+        // The big hit against the sure tackle, and the strip against the
+        // wrap (tendencies): a man throwing his body or punching at the
+        // ball misses more often, a sure tackler less. Scaled straight on
+        // the miss chance, so the league average stays where it was.
+        let style = (1.0 + 0.7 * self.lean(i, Tend::BigHit) + 0.25 * self.lean(i, Tend::Strip)).max(0.2);
         let logit = -3.0 + (evade - tackle) / 50.0 + angle + fast + space + arm + dive;
-        let p_miss = 1.0 / (1.0 + (-logit).exp());
+        let p_miss = (style / (1.0 + (-logit).exp())).min(0.95);
         if TRACE.load(std::sync::atomic::Ordering::Relaxed) {
             println!(
                 "HIT t={:.1} {} at ({:.1},{:.1}) evade {:.0} tackle {:.0} head_on {:.2} closing {:.1} lunge {:.2} arm {} p_miss {:.2}",
@@ -1535,7 +1707,9 @@ impl<'a> Sim<'a> {
         let pd = d.mass * d.vel.dot(along);
         let v = (pr + pd * share) / (r.mass + d.mass * share);
         self.agents[c].vel = along.scale(v.max(-1.0));
-        let force = (r.mass * r.vel.len() + d.mass * d.vel.len()) * 0.5;
+        // A big hitter puts more into it (tendencies).
+        let force =
+            (r.mass * r.vel.len() + d.mass * d.vel.len()) * 0.5 * (1.0 + 0.2 * share * self.lean(i, Tend::BigHit));
         self.contact_force = self.contact_force.max(force);
         // Ball security against the hit (topic 2), read against the man
         // making it: his strength and tackling against the carrier's ball
@@ -1545,14 +1719,17 @@ impl<'a> Sim<'a> {
         let carry = r.a(Attr::BallSecurity);
         let hit = d.a(Attr::Strength) * 0.5 + d.a(Attr::Tackling) * 0.5;
         let rain = (if self.cond.rain || self.cond.snow { 1.35 } else { 1.0 }) * (1.0 + 0.3 * self.cond.cold_unused);
-        let p = 0.018 * (force / 1700.0).powf(1.5) * clamp(1.0 + 0.025 * (hit - carry), 0.25, 2.5) * rain;
+        // Going for the strip (tendencies): the punch-out.
+        let strip = (1.0 + 1.15 * self.lean(i, Tend::Strip)).max(0.1);
+        let p = 0.018 * (force / 1700.0).powf(1.5) * clamp(1.0 + 0.025 * (hit - carry), 0.25, 2.5) * rain * strip;
         if self.notes.fumbled.is_none() && self.rng.chance(p) {
             self.notes.fumbled = Some(r.id);
             self.notes.forced_fumble = Some(d.id);
             self.fumble(c);
             return;
         }
-        self.injury_check(c, force, 1.0);
+        // A runner who seeks contact takes more of it.
+        self.injury_check(c, force, (1.0 + 0.4 * self.lean(c, Tend::Contact)).max(0.2));
         self.injury_check(i, force, 0.7);
     }
 
@@ -1568,6 +1745,7 @@ impl<'a> Sim<'a> {
             + 0.003 * (r.a(Attr::Balance) - 60.0)
             + 0.002 * (r.a(Attr::Elusiveness) - 60.0)
             + 0.006 * (self.trait20(c, Attr::Competitiveness) - 10.0)
+            + 0.15 * self.lean(c, Tend::Contact)
             + (r.mass - 215.0) / 300.0;
         let mut hazard = 0.0;
         let mut hold = 0.0;
@@ -1577,6 +1755,7 @@ impl<'a> Sim<'a> {
                 + 0.03 * (d.a(Attr::Tackling) - 60.0)
                 + 0.012 * (d.a(Attr::Strength) - 60.0)
                 + 0.01 * (self.trait20(i, Attr::Competitiveness) - 10.0)
+                - 0.12 * self.lean(i, Tend::Strip)
                 + (d.mass - 215.0) / 300.0;
             hazard += 3.1 * f.max(0.3);
             hold += d.mass * f.max(0.3);
@@ -1602,6 +1781,9 @@ impl<'a> Sim<'a> {
             }
         }
         if self.rng.chance(1.0 - (-hazard * DT).exp()) {
+            if self.reach(c) {
+                return;
+            }
             self.tackled(c);
             return;
         }
@@ -1615,6 +1797,56 @@ impl<'a> Sim<'a> {
             self.agents[i].pos = p + (self.agents[i].pos - p).norm().scale(0.7);
             self.agents[i].vel = self.agents[c].vel;
         }
+    }
+
+    /// Reaching the ball out as he goes down (tendencies): short of the line
+    /// to gain or the goal line with a tackler on him, a reacher stretches
+    /// the ball for it. It gets there if the line is within his arm, and the
+    /// ball is out in front of him, away from his body: a hit can knock it
+    /// loose (Calvin Johnson at Seattle, 2015). His ball security against
+    /// the tackler decides how often. Returns true when it came loose.
+    fn reach(&mut self, c: usize) -> bool {
+        if self.goal < 0.0 || self.agents[c].side != 0 {
+            return false;
+        }
+        let x = self.agents[c].pos.x;
+        let lines = [self.mood.line, Some(100.0)];
+        let Some(line) = lines
+            .into_iter()
+            .flatten()
+            .filter(|&l| l > x)
+            .fold(None, |m: Option<f64>, l| Some(m.map_or(l, |m| m.min(l))))
+        else {
+            return false;
+        };
+        let short = line - x;
+        if !(0.05..1.6).contains(&short) {
+            return false;
+        }
+        let lean = self.lean(c, Tend::Reach);
+        let p = clamp(0.25 + 0.55 * lean, 0.0, 0.97);
+        if !self.rng.chance(p) {
+            return false;
+        }
+        let arm = 0.75 + 0.03 * (self.player(c).arm - 32.0);
+        let gets = short <= arm;
+        let i = self.fight.first().copied().unwrap_or(c);
+        let carry = self.agents[c].a(Attr::BallSecurity);
+        let hit = self.agents[i].a(Attr::Strength) * 0.5 + self.agents[i].a(Attr::Tackling) * 0.5;
+        let loose = self.rng.chance(0.035 * clamp(1.0 + 0.025 * (hit - carry), 0.3, 2.5));
+        self.notes.tend.reach = Some((self.agents[c].id, gets && !loose, loose));
+        if loose {
+            self.progress = self.progress.max(x);
+            self.notes.fumbled = Some(self.agents[c].id);
+            self.notes.forced_fumble = Some(self.agents[i].id);
+            self.agents[c].pos.x = x + arm.min(short + 0.3);
+            self.fumble(c);
+            return true;
+        }
+        if gets {
+            self.agents[c].pos.x = line + 0.05;
+        }
+        false
     }
 
     pub fn tackled(&mut self, c: usize) {
@@ -1633,7 +1865,9 @@ impl<'a> Sim<'a> {
             // the whistle is temper (hidden temperament).
             let disc = self.trait20(i, Attr::Discipline);
             let technique = (1.6 - disc / 12.0).max(0.2) * 0.6;
-            let temper = (1.6 - self.player(i).traits.temperament / 12.0).max(0.2) * 0.6;
+            let temper = (1.6 - self.player(i).traits.temperament / 12.0).max(0.2)
+                * 0.6
+                * (1.0 + 0.6 * self.lean(i, Tend::BigHit)).max(0.2);
             let (id, side) = (self.agents[i].id, self.agents[i].side);
             if self.rng.chance(0.0087 * self.crew.personal * technique) {
                 self.notes.fouls.push(Foul { kind: FoulKind::FaceMask, side, player: id, at: x });
@@ -1658,7 +1892,9 @@ impl<'a> Sim<'a> {
                 continue;
             }
             let d = a.pos.dist(spot);
-            let w = (-d / 1.8).exp() * (0.6 + (a.a(Attr::Anticipation) + a.a(Attr::Competitiveness)) / 400.0);
+            // Who dives on the pile: contact willingness (tendencies).
+            let dive = 1.0 + 0.25 * self.lean(i, Tend::Contact);
+            let w = (-d / 1.8).exp() * (0.6 + (a.a(Attr::Anticipation) + a.a(Attr::Competitiveness)) / 400.0) * dive;
             wsum[a.side] += w;
             if w > best[a.side].0 {
                 best[a.side] = (w, i);
@@ -1756,6 +1992,10 @@ impl<'a> Sim<'a> {
         let a = &self.agents[c];
         let p = a.pos;
         if p.y <= 0.0 || p.y >= WIDTH {
+            // Stepped out with a tackler closing (contact willingness).
+            let side = a.side;
+            self.notes.tend.stepped_out =
+                self.agents.iter().any(|d| d.side != side && d.up(self.t) && d.pos.dist(p) < 3.5);
             self.out_of_bounds = true;
             self.dead = true;
             let x = if (p.x - self.progress) * self.goal > 0.0 { p.x } else { self.progress };

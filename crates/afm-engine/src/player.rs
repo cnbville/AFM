@@ -253,6 +253,9 @@ pub struct Player {
     pub history: Vec<SeasonRecord>,
     /// Hidden game-day traits for the match engine (section 3).
     pub game: GameTraits,
+    /// How often he picks each option the play gives him
+    /// (`docs/design/tendencies.md`). Hidden: staffs see scouted reads.
+    pub tend: crate::tendencies::Tendencies,
 }
 
 /// Hidden game-day traits on Football Manager's 1-20 scale (section 3). The
@@ -396,6 +399,7 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
         competitiveness: clamp(round_half_up(10.0 + 3.5 * (0.6 * compete + 0.8 * rng.normal(0.0, 1.0))), 1.0, 20.0),
         love_of_game: trait_1_20(rng),
     };
+    let tend = crate::tendencies::Tendencies::at_14(id, &ceilings, body.weight, body.height, &personality);
     Player {
         id,
         position,
@@ -414,5 +418,6 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
         spots_played: crate::spots::spots_of(position)[0].bit(),
         history: Vec::new(),
         game: GameTraits::for_id(id),
+        tend,
     }
 }
