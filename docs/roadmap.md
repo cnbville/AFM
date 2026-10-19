@@ -239,7 +239,7 @@ What a coach career at high school and college still needs (checked in the code 
 **The first playable opens all three levels at once (Cain, 2026-10-18 21:07):** "okay then we'll do all at once, update the existing roadmap". Asked whether to open NFL and college first and add high school later, Cain chose all three, so the first career is the real one. The high school work this adds to the road to the first playable:
 1. Every high school game on the engine. Timed 2026-10-18: 2,000 high school engine games take 16 s on 4 cores (`match_check -- hs 2000`; FBS 14.6 s), so about 90,000 games a year add roughly 12 minutes of simulation per season.
 2. High school games at real length (83 plays a team now, too many for 12-minute quarters).
-3. A high school coaching staff (needs a short design round).
+3. A high school coaching staff (designed in `docs/design/people.md`, topic 10).
 4. The school's side of the job: principal or athletic director, boosters, job security (with section 6's job security design).
 5. The high school seat and its screens (with sections 8 and 10).
 
@@ -280,6 +280,7 @@ Roster limits (90/53, practice squad, IR), depth charts, contracts and the full 
 Personality, morale and chemistry, off-field events, rated staff and hiring (and staff being poached), owner goals and job security, and your own manager profile with growing ratings and an editable starting background.
 - Job security and bosses at every level: the NFL owner, the college athletic director, president and boosters, the high school principal or athletic director and booster club. Your moves between levels use the same coaching market the AI coaches use.
 - A high school staff (coordinators and assistants, many of them teachers) that you hire.
+- **Design written 2026-10-19:** all 15 topics in `docs/design/people.md` (thread "make new thread for designing section 6"). Real life is written in as the default; numbers no source publishes are marked "proposed, not confirmed", and two open choices wait for Cain at the end of the doc. Not built.
 
 ### Section 6b. Training (deep)
 
