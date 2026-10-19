@@ -263,6 +263,9 @@ pub struct Coach {
     /// The style set in his coach profile (the user's coach); AI coaches
     /// leave it empty and coach to the style their nature gives them.
     pub style_set: Option<crate::tendencies::Style>,
+    /// The average discipline of the head coaches at his level, less the
+    /// middle (`set_freedom_norms`): freedom is read against it.
+    pub freedom_norm: f64,
 }
 
 /// A college head coach's contract (trial 4 topic 4): the last season it
@@ -395,6 +398,7 @@ pub fn generate_coach(
         systems: Default::default(),
         stat_buzz: 0.0,
         style_set: None,
+        freedom_norm: 0.0,
     }
 }
 
@@ -423,11 +427,24 @@ impl Coach {
         let n = |k: u64| super::season::key_normal(k, id);
         crate::tendencies::Style {
             risk: self.personality.ambition,
-            freedom: clamp(21.0 - self.ability.discipline + 1.5 * n(0xF4EE), 1.0, 20.0),
+            // Read against the head coaches at his level (trial 8 finding
+            // 4: top jobs go to disciplined coaches, so nearly every FBS and
+            // NFL staff gave little freedom, about 6).
+            freedom: clamp(21.0 - self.ability.discipline + self.freedom_norm + 1.5 * n(0xF4EE), 1.0, 20.0),
             physical: clamp(10.5 + 0.4 * (self.personality.temper - 10.0) + 2.5 * n(0x9A11), 1.0, 20.0),
             ball_hunting: clamp(10.5 + 3.0 * n(0xBA11), 1.0, 20.0),
             mould: clamp(10.5 - 0.25 * (self.ability.relationships - 10.0) + 2.5 * n(0x40D1), 1.0, 20.0),
         }
+    }
+
+    /// The level of the job he holds, if any.
+    pub fn job_level(&self, programs: &[super::program::Program]) -> Option<crate::player::Level> {
+        use crate::player::Level;
+        self.job.map(|j| match j.employer {
+            Employer::HighSchool(_) => Level::HS,
+            Employer::College(p) => super::division_level(programs[p].division),
+            Employer::Nfl(_) => Level::NFL,
+        })
     }
 
     /// One year of a coach's career: young coaches learn fast; old ones fall
@@ -602,4 +619,36 @@ pub fn candidate_score(c: &Coach, needs: HiringNeeds, rng: &mut Rng) -> f64 {
         + needs.recruiting * (read(a.recruiting, rng) - 10.0) * 0.6
         + if c.ex_pro { 2.0 * needs.network } else { 0.0 }
         + rng.normal(0.0, 1.0)
+}
+
+/// Each coach's freedom is read against the head coaches at his level: the
+/// level's average discipline less the middle, so each level has strict and
+/// free staffs around the middle (trial 8 finding 4).
+pub fn set_freedom_norms(w: &mut super::World) {
+    let mut sum = [0.0f64; 5];
+    let mut n = [0.0f64; 5];
+    use crate::player::Level;
+    let idx = |l: Level| match l {
+        Level::HS => 0,
+        Level::FBS => 1,
+        Level::FCS => 2,
+        Level::SmallCollege => 3,
+        Level::NFL => 4,
+    };
+    for c in &w.coaches {
+        if let (Some(j), Some(l)) = (c.job, c.job_level(&w.programs))
+            && j.role == Role::HeadCoach
+            && !c.retired
+        {
+            sum[idx(l)] += c.ability.discipline;
+            n[idx(l)] += 1.0;
+        }
+    }
+    for i in 0..w.coaches.len() {
+        if let Some(l) = w.coaches[i].job_level(&w.programs)
+            && n[idx(l)] > 0.0
+        {
+            w.coaches[i].freedom_norm = sum[idx(l)] / n[idx(l)] - 10.5;
+        }
+    }
 }

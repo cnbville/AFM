@@ -216,6 +216,10 @@ fn main() {
     });
     let future: u32 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(0);
     let built = t.elapsed().as_secs_f64();
+    // Memory (trial 8 finding 11), with the game log on or off: the log is
+    // trial tooling only, so the world's own budget is read without it.
+    let log_state = if keep_game_log { "on" } else { "off" };
+    eprintln!("memory after the history (game log {log_state}): {}", afm_tools::memory_text());
     // With AFM_RAW, the world's tendencies by level at the save's start and
     // after every future season, written as they come.
     let mut drift = std::env::var("AFM_RAW").ok().map(|dir| {
@@ -232,12 +236,18 @@ fn main() {
     for _ in 0..future {
         let s = Instant::now();
         w.advance_year();
-        eprintln!("future season to {}: {:.0}s", w.year, s.elapsed().as_secs_f64());
+        eprintln!(
+            "future season to {}: {:.0}s, memory {}",
+            w.year,
+            s.elapsed().as_secs_f64(),
+            afm_tools::memory_text()
+        );
         snap(&w);
     }
     println!(
-        "# World trial: seed {seed}, {years} years of history and {future} into the future, history built in {built:.0}s, all in {:.0}s\n",
-        t.elapsed().as_secs_f64()
+        "# World trial: seed {seed}, {years} years of history and {future} into the future, history built in {built:.0}s, all in {:.0}s, memory {} with the game log {log_state}\n",
+        t.elapsed().as_secs_f64(),
+        afm_tools::memory_text()
     );
     // Every report below covers the whole recorded span, history and future.
     let years = years + future;
@@ -1842,14 +1852,14 @@ fn nfl_league(w: &World, years: u32) {
     println!("\n## The NFL as a living league (section 5)");
     let first = w.year - years.min(30) as i32;
     println!(
-        "| year | UFA | re-signed | new team | perfect | swayed | tags | trans | tenders | sheets (matched) | 5th opt taken/declined | ext | rookie ext | restruct | cap cuts | June 1 | futures | claims | holdouts/ins | bluffs (called) | agents fired | promises broken | trades (deadline) | comp | other lg | IPP | cap use (low/median/high) | dead money | carryover |"
+        "| year | UFA | re-signed | new team | perfect | swayed | tags | trans | tenders | sheets (matched) | 5th opt taken/declined | ext | rookie ext | restruct | cap cuts | June 1 | futures | claims | holdouts/ins | bluffs (called) | agents fired | promises broken | trades (deadline) | comp (formula/supp; CFAs noted/valued) | other lg | IPP | cap use (low/median/high) | dead money | carryover |"
     );
     println!(
         "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"
     );
     for m in w.market.years.iter().filter(|m| m.year >= first) {
         println!(
-            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} ({}) | {}/{} | {} | {} | {} | {} | {} | {} | {} | {}/{} | {} ({}) | {} | {} | {} ({}) | {} | {} | {} | {:.2}/{:.2}/{:.2} | {:.2}/{:.2}/{:.2} | {:.2}/{:.2}/{:.2} |",
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} ({}) | {}/{} | {} | {} | {} | {} | {} | {} | {} | {}/{} | {} ({}) | {} | {} | {} ({}) | {} ({}/{}; {}/{}) | {} | {} | {:.2}/{:.2}/{:.2} | {:.2}/{:.2}/{:.2} | {:.2}/{:.2}/{:.2} |",
             m.year,
             m.ufa,
             m.resigned,
@@ -1879,6 +1889,10 @@ fn nfl_league(w: &World, years: u32) {
             m.trades,
             m.deadline_trades,
             m.comp_picks,
+            m.comp_formula,
+            m.comp_supplemental,
+            m.cfa_noted,
+            m.cfa_valued,
             m.other_league,
             m.ipp,
             m.cap_use[0],

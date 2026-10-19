@@ -340,6 +340,7 @@ pub(crate) fn college_roles(w: &World) -> Vec<(usize, PlayingTime)> {
 /// for the people given, with their roles. High school players develop when
 /// their state's season starts, college and prep players at fall camp.
 pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
+    super::coach::set_freedom_norms(w);
     let year = w.year as u64;
     let n = w.people.len();
     let mut role_of: Vec<Option<PlayingTime>> = vec![None; n];
@@ -355,6 +356,20 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         {
             w.recruiting_log.transfer_seasons.push((w.year, from, role, w.programs[c].division));
         }
+    }
+    // What the players' tools support on average at each level and
+    // position (trial 8 finding 3): habits are read against it.
+    let mut centres = crate::tendencies::Centres::new();
+    for (i, p) in w.people.iter().enumerate() {
+        if role_of[i].is_none() {
+            continue;
+        }
+        let level = match p.stage {
+            Stage::HighSchool | Stage::PrepSchool => Level::HS,
+            Stage::College => division_level(w.programs[p.college.unwrap_or(0)].division),
+            _ => continue,
+        };
+        centres.add(level, p.player.position, &p.player.attributes);
     }
     let (people, schools, programs, coaches) = (&mut w.people, &w.high_schools, &w.programs, &w.coaches);
     people.par_iter_mut().zip(role_of.par_iter()).for_each(|(p, role)| {
@@ -451,6 +466,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             payday: std::mem::take(&mut p.cal.payday),
             style,
             scheme,
+            tend_centre: centres.get(level, p.player.position),
             ..SeasonContext::new(level, clamp(coaching, 1.0, 20.0), role)
         };
         develop_season(&mut p.player, &ctx, &mut p.rng);

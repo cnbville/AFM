@@ -20,6 +20,15 @@ use crate::positions::Position;
 use crate::rng::{Rng, clamp};
 use crate::spots::{self, Spot, best_order, fill_in};
 
+/// Seconds from the end of a play until the ball is spotted (and the chains
+/// set) and the referee's ready signal starts a stopped clock again
+/// (proposed, not confirmed).
+const BALL_SPOTTED: f64 = 7.0;
+
+/// The play clock after an administrative stoppage such as a penalty,
+/// from the ready signal (40 seconds otherwise, from the end of the play).
+const ADMIN_PLAY_CLOCK: f64 = 25.0;
+
 /// Everything needed to play one game.
 #[derive(Clone, Debug)]
 pub struct GameSetup<'a> {
@@ -562,6 +571,14 @@ pub fn play_game(setup: &GameSetup) -> GameResult {
 impl<'a> Game<'a> {
     fn rules(&self) -> &Rules {
         &self.s.rules
+    }
+
+    /// Late in a half, when the clock waits for the snap after a stoppage:
+    /// the last two minutes of each half, and at the NFL the last five of
+    /// the game (NFL rule 4-3; NCAA and high school rule 3-3).
+    fn clock_late(&self) -> bool {
+        let second_half = if self.rules().level == Level::NFL { 300.0 } else { 120.0 };
+        (self.quarter == 2 && self.half_left() <= 120.0) || (self.quarter >= 4 && self.half_left() <= second_half)
     }
 
     fn half_left(&self) -> f64 {
@@ -1936,10 +1953,18 @@ impl<'a> Game<'a> {
         }
         r.why = format!("{} on #{} before the snap.", f.kind.name(), f.player);
         r.epa = tables::expected_points(self.down, self.togo, 100.0 - self.x) - r.ep_before;
-        self.running = false;
-        self.tick(0.0);
         self.edge_hit(team, f.player, -1.0);
         self.stats.book(&r);
+        // A running clock starts again on the ready signal once the penalty
+        // is marked off, except late in a half (a mercy-rule clock just runs).
+        if self.running && self.mercy_running() {
+            self.after_snap_clock(&r, None);
+        } else if self.running && !self.clock_late() {
+            let lost = self.rules().play_clock - ADMIN_PLAY_CLOCK;
+            self.after_snap_clock(&r, Some(lost));
+        } else {
+            self.running = false;
+        }
         r
     }
 
@@ -2075,6 +2100,10 @@ impl<'a> Game<'a> {
         let off_foul = fouls.iter().find(|f| f.side == 0).cloned();
         let def_foul = fouls.iter().find(|f| f.side == 1).cloned();
         let mut replay = false;
+        // The play stands with the penalty added: a personal foul after a
+        // gain is marked off from where the play ended, and intentional
+        // grounding is an incomplete pass.
+        let mut stands = false;
         let mut auto_first = false;
         let mut lose_down = false;
         let mut scored_td = res.touchdown;
@@ -2119,6 +2148,10 @@ impl<'a> Game<'a> {
             let accept = pen_val > play_val;
             r.penalties.push((f.kind, d, f.player, if accept { pen_x - los } else { 0.0 }, accept));
             if accept {
+                stands =
+                    matches!(f.kind, FoulKind::RoughingPasser | FoulKind::FaceMask | FoulKind::UnnecessaryRoughness)
+                        && !turnover
+                        && gain > 0.0;
                 new_x = pen_x;
                 scored_td = false;
                 turnover = false;
@@ -2154,12 +2187,14 @@ impl<'a> Game<'a> {
                 safety = false;
                 replay = f.kind != FoulKind::IntentionalGrounding;
                 lose_down = f.kind == FoulKind::IntentionalGrounding;
+                stands = f.kind == FoulKind::IntentionalGrounding;
                 self.edge_hit(o, f.player, -1.0);
             }
         }
         let accepted_pen = r.penalties.iter().any(|p| p.4);
-        r.yards = if accepted_pen { 0.0 } else { gain };
-        if !accepted_pen {
+        r.nullified = accepted_pen && !stands;
+        r.yards = if r.nullified { 0.0 } else { gain };
+        if !r.nullified {
             match r.kind {
                 PlayType::Pass if !r.complete => r.yards = 0.0,
                 PlayType::Pass if r.interception => r.yards = 0.0,
@@ -2208,12 +2243,28 @@ impl<'a> Game<'a> {
         self.tick(dur);
         let mut stop =
             matches!(res.result, R::Incomplete | R::Spike) || accepted_pen || turnover || scored_td || safety;
+        // Seconds of the usual time between plays that pass before the clock
+        // starts again on the referee's ready signal, when it does (trial 8
+        // finding 6: the clock waited for the snap after every stoppage, so
+        // a stopped play was followed by the next snap 5.6 s of game time on,
+        // real 15.2, and NFL teams ran 70 plays a game, real 62).
+        let mut ready: Option<f64> = None;
+        let late = self.clock_late();
+        let nfl = self.rules().level == Level::NFL;
+        // Out of bounds at the NFL: the clock starts again once the ball is
+        // spotted, except late in a half; elsewhere it waits for the snap.
         if res.out_of_bounds && !turnover {
-            let late =
-                (self.quarter == 2 && self.half_left() <= 120.0) || (self.quarter >= 4 && self.half_left() <= 300.0);
-            if self.rules().level != Level::NFL || late {
-                stop = true;
+            stop = true;
+            if nfl && !late {
+                ready = Some(BALL_SPOTTED);
             }
+        }
+        // A penalty on a play that would have left the clock running: it
+        // starts on the ready signal once the penalty is marked off, with
+        // the shorter play clock, except late in a half.
+        let play_stops = matches!(res.result, R::Incomplete | R::Spike) || (res.out_of_bounds && !nfl);
+        if accepted_pen && !late && !play_stops {
+            ready = Some(self.rules().play_clock - ADMIN_PLAY_CLOCK);
         }
         // Down and distance.
         let mut first_down = false;
@@ -2360,17 +2411,24 @@ impl<'a> Game<'a> {
             }
             r.epa = ep(self.down, self.togo, self.x) - r.ep_before;
             self.stats.book(&r);
-            self.running = !stop && self.rules().level == Level::NFL && false;
+            self.running = ready.is_some();
+            self.after_snap_clock(&r, ready);
             return r;
         }
         self.x = new_x.clamp(0.5, 99.5);
         if first_down {
             self.down = 1;
             self.togo = 10.0f64.min(100.0 - self.x);
-            match self.rules().first_down_stop {
-                FirstDownStop::Always => stop = true,
-                FirstDownStop::LastTwoMinutes if self.half_left() <= 120.0 => stop = true,
-                _ => {}
+            // The clock stops to set the chains and starts again on the
+            // ready signal.
+            let chains = match self.rules().first_down_stop {
+                FirstDownStop::Always => true,
+                FirstDownStop::LastTwoMinutes => self.half_left() <= 120.0,
+                FirstDownStop::Never => false,
+            };
+            if chains && !stop {
+                stop = true;
+                ready = Some(BALL_SPOTTED);
             }
         } else {
             self.down = self.down + 1 + lose_down as u8;
@@ -2388,14 +2446,16 @@ impl<'a> Game<'a> {
         self.stats.book(&r);
         if self.mercy_running() {
             stop = false;
+            ready = None;
         }
-        self.running = !stop;
-        self.after_snap_clock(&r);
+        self.running = !stop || ready.is_some();
+        self.after_snap_clock(&r, ready);
         r
     }
 
-    /// Time from the end of one play to the next snap, and timeouts.
-    fn after_snap_clock(&mut self, _r: &PlayRecord) {
+    /// Time from the end of one play to the next snap, and timeouts. `ready`:
+    /// the seconds of it before the clock starts again on the ready signal.
+    fn after_snap_clock(&mut self, _r: &PlayRecord, ready: Option<f64>) {
         let o = self.poss;
         let sit = self.situation();
         // Defense trailing late: stop the clock with a timeout.
@@ -2454,7 +2514,7 @@ impl<'a> Game<'a> {
             }
         };
         self.pace = gap / 37.5;
-        self.tick(gap);
+        self.tick((gap - ready.unwrap_or(0.0)).max(0.0));
     }
 
     fn value_after(&self, gain: f64, new_x: f64) -> f64 {

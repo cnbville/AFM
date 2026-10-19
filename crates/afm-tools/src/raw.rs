@@ -396,7 +396,7 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
     let archived: std::collections::HashSet<u32> =
         w.alumni.iter().filter(|a| a.pro.is_some()).filter_map(|a| a.player.as_ref().map(|p| p.id)).collect();
     for q in w.people.iter().filter(|q| q.pro.is_some() && !archived.contains(&q.player.id)) {
-        f.put(pro_row(
+        let mut v = pro_row(
             w,
             q.player.id,
             &q.name,
@@ -407,7 +407,11 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
             q.pro.as_ref().unwrap(),
             &q.notes,
             true,
-        ));
+        );
+        // Active pros in full, so `match_check` can play the world's NFL
+        // rosters (AFM_ROSTERS; trial 8 finding 6).
+        v["detail"] = player_detail(&q.player);
+        f.put(v);
     }
     for a in w.alumni.iter().filter(|a| a.pro.is_some()) {
         let (id, age) = a.player.as_ref().map_or((0, 0), |p| (p.id, p.age));
@@ -436,6 +440,8 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
             "futures": m.futures, "waiver_claims": m.waiver_claims, "holdouts": m.holdouts, "holdins": m.holdins, "bluffs": m.bluffs,
             "bluffs_called": m.bluffs_called, "agents_fired": m.agents_fired, "promises_broken": m.promises_broken, "trades": m.trades,
             "deadline_trades": m.deadline_trades, "picks_traded": m.picks_traded, "comp_picks": m.comp_picks,
+            "cfa_noted": m.cfa_noted, "cfa_valued": m.cfa_valued, "comp_formula": m.comp_formula,
+            "comp_supplemental": m.comp_supplemental,
             "other_league": m.other_league, "ipp": m.ipp, "floor_paid": m.floor_paid.round(),
             "cap_use": m.cap_use.map(|x| (x * 1000.0).round() / 1000.0),
             "dead": m.dead.map(|x| (x * 1000.0).round() / 1000.0),

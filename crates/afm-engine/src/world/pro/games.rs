@@ -374,6 +374,7 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
         c.out_weeks = c.out_weeks.max(weeks);
         if weeks >= 6 {
             c.status = Status::Reserve;
+            c.pup = false;
             let p = &mut w.people[i];
             let age = p.row_age();
             p.note(format!(
@@ -432,6 +433,7 @@ pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[
         c.out_weeks = c.out_weeks.max(weeks);
         if ir && c.status == Status::Roster {
             c.status = Status::Reserve;
+            c.pup = false;
             let t = teams[inj.side];
             let name = w.nfl[t].name;
             let p = &mut w.people[i];

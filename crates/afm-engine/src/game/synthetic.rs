@@ -21,26 +21,24 @@ pub fn level_strength(level: Level) -> (f64, f64) {
 }
 
 /// Where the world's NFL starters sit against `level_strength` by position:
-/// trial 7's 2025 depth charts (QB 83, OT 86, EDGE 81, ...) moved by what the
-/// 67-attribute list shifted on the class checks (`calibrate`,
-/// `starter_overall_by_position`), less the base 77. The world puts its
-/// offensive line well above its defensive line on the rating scale, and
-/// the engine is tuned on rosters like the world's (trial 7 finding 1).
-/// Inferred, not measured on a world with the new list; proposed, not
-/// confirmed.
+/// trial 8's depth charts in its last year (2045, the 67 attributes), each
+/// position's starters' average over FBS starters' (trial 8 finding 6; it
+/// was trial 7's 2025 charts moved by the class checks, with the offensive
+/// line well above the world's). The engine is tuned on rosters like the
+/// world's (trial 7 finding 1). Proposed, not confirmed.
 fn nfl_offset(pos: Position) -> f64 {
     match pos {
-        Position::QB => 6.6,
-        Position::RB => 2.4,
-        Position::WR => 2.9,
-        Position::TE => 4.6,
-        Position::OT => 9.0,
-        Position::IOL => 7.0,
-        Position::EDGE => 5.3,
-        Position::DT => 2.1,
-        Position::LB => -0.3,
-        Position::CB => 7.8,
-        Position::S => 3.9,
+        Position::QB => 6.9,
+        Position::RB => 3.1,
+        Position::WR => 3.2,
+        Position::TE => 2.7,
+        Position::OT => 5.3,
+        Position::IOL => 2.9,
+        Position::EDGE => 3.8,
+        Position::DT => 1.9,
+        Position::LB => 3.2,
+        Position::CB => 3.6,
+        Position::S => 2.9,
         Position::K => 5.1,
         Position::P => 0.8,
         Position::LS => 0.0,
@@ -144,6 +142,18 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
         }
     }
     // The staff sets its spots (fix list topic 3).
+    finish_team(name, level, raw, &mut rng, seed, scheme)
+}
+
+/// Depth spots, game players and a staff for a team's players.
+fn finish_team(
+    name: &str,
+    _level: Level,
+    mut raw: Vec<(crate::player::Player, f64, f64)>,
+    rng: &mut Rng,
+    seed: u32,
+    scheme: OffScheme,
+) -> GameTeam {
     let spots = crate::spots::choose_spots(&raw.iter().map(|r| &r.0).collect::<Vec<_>>());
     for (r, s) in raw.iter_mut().zip(spots) {
         crate::spots::set_spot(&mut r.0, s);
@@ -177,6 +187,38 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
         style: Default::default(),
     };
     GameTeam::new(name.to_string(), players, staff)
+}
+
+/// A player read from a world trial's export (`tools/rosters/`): his
+/// position, ratings and tendencies. What the export leaves out (his body
+/// and hidden traits) comes from a prospect drawn at that position.
+pub struct RatedPlayer {
+    pub position: Position,
+    pub attrs: crate::attributes::Attributes,
+    pub tend: [f64; crate::tendencies::TEND_COUNT],
+}
+
+/// A team built from exported players, for checking the engine on a
+/// world's own rosters without running the world (trial tooling).
+pub fn team_from_ratings(name: &str, level: Level, list: &[RatedPlayer], scheme: OffScheme, seed: u32) -> GameTeam {
+    let mut rng = Rng::new(seed);
+    let mut id = seed.wrapping_mul(1000) & 0x7FFF_FFFF;
+    let mut raw = Vec::new();
+    for (k, rp) in list.iter().enumerate() {
+        id += 1;
+        let target = overall_for(rp.position, &rp.attrs);
+        let mut p = generate_prospect(
+            &mut rng,
+            ProspectOptions { id: Some(id), position: Some(rp.position), age: Some(14), talent_z: Some(z_for(target)) },
+        );
+        p.age = 19 + (k % 4) as u32;
+        p.attributes = rp.attrs;
+        p.ceilings = rp.attrs;
+        p.tend.v = rp.tend;
+        p.tend.was = rp.tend;
+        raw.push((p, 0.86, 1.0 + (k % 3) as f64));
+    }
+    finish_team(name, level, raw, &mut rng, seed, scheme)
 }
 
 /// A league's worth of synthetic teams with a spread of quality and schemes.

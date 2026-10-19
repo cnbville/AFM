@@ -217,6 +217,10 @@ pub struct Agent {
     pub r: [f64; ATTRIBUTE_COUNT],
     /// How tired he is coming into the snap, 0-1 (old habits come back).
     pub tired: f64,
+    /// A pass rusher who beat him, and when he has his feet back under
+    /// him: he can't square that man up again before then.
+    pub beat_by: Option<usize>,
+    pub recover_at: f64,
 }
 
 impl Agent {
@@ -266,6 +270,8 @@ impl Agent {
             misfit: false,
             r,
             tired,
+            beat_by: None,
+            recover_at: 0.0,
         }
     }
     /// How hard he can stop, yards per second squared: his grip and his
@@ -303,6 +309,8 @@ impl Agent {
             misfit: self.misfit,
             r: self.r,
             tired: self.tired,
+            beat_by: self.beat_by,
+            recover_at: self.recover_at,
         }
     }
 
@@ -668,6 +676,12 @@ pub struct Sim<'a> {
     /// On a designed run, the pace every back takes to the line until he
     /// commits to a crease (yards per second; 0 on other plays).
     pub press: f64,
+    /// On a designed run, the lane the back chose when he read the hole
+    /// (across the field), once he has read it.
+    pub lane: Option<f64>,
+    /// Route jumpers who guessed wrong: who, the spot he broke for, and
+    /// when.
+    pub bites: Vec<(usize, V2, f64)>,
     /// The defense plays a two-gap front (a 3-4): its interior linemen
     /// read the block before they pick a gap (S9).
     pub two_gap: bool,
@@ -969,7 +983,7 @@ impl<'a> Sim<'a> {
         let p_miss = if set {
             clamp(0.06 + 0.004 * (slip - skill), 0.02, 0.25)
         } else {
-            clamp(0.22 + 0.006 * (slip - skill) + 0.05 * (across - 2.0).max(0.0), 0.05, 0.55)
+            clamp(0.17 + 0.006 * (slip - skill) + 0.05 * (across - 2.0).max(0.0), 0.05, 0.55)
         };
         if self.rng.chance(p_miss) {
             self.agents[b].last_try = t;
@@ -1010,7 +1024,14 @@ impl<'a> Sim<'a> {
         // A focused lineman reacts to the snap cue sooner.
         let focus = clamp(1.0 - 0.05 * (self.trait20(b, Attr::Concentration) - 10.0), 0.5, 1.5);
         let silent = if bl.side == 0 && self.t < 1.0 { SILENT_COUNT * self.cond.crowd * focus } else { 0.0 };
-        let w0 = if pass { -0.42 } else { -0.3 }
+        // A run block starts with the defender a little ahead, then the
+        // blocker's get-off against the defender's read decides who has
+        // the first leverage. It started with the blocker well ahead, -0.3, and the
+        // world's FBS rosters ran 5.9 yards a carry with backs falling
+        // forward; at 0.15 they run 5.08 (real 5.12) with plays wiped out
+        // by a penalty no longer counted (trial 8 item 7; proposed, not
+        // confirmed).
+        let w0 = if pass { -0.42 } else { 0.15 }
             + 0.006 * (get_off + silent - set)
             + self.front_fit(de.label, pass)
             + 0.18 * gauss(self.rng);
@@ -1287,6 +1308,22 @@ impl<'a> Sim<'a> {
                     let id = self.agents[d].id;
                     self.notes.rush_wins.push((id, e.mv, t - e.start));
                 }
+                // The beaten blocker has lost his feet and his leverage:
+                // he can't square the same man up again until he has
+                // recovered and is back between him and the quarterback
+                // (the edge kept, unless the blocker's recovery wins it
+                // back; times proposed, not confirmed).
+                if e.pass {
+                    let bb = &self.agents[b];
+                    let turned = if e.mv == Move::Speed { 0.15 } else { 0.0 };
+                    let rec = clamp(
+                        0.8 + turned - 0.010 * (bb.a(Attr::Agility) - 60.0) - 0.006 * (bb.a(Attr::PassBlocking) - 60.0),
+                        0.35,
+                        1.3,
+                    );
+                    self.agents[b].beat_by = Some(d);
+                    self.agents[b].recover_at = t + rec;
+                }
                 self.release(k);
                 // He comes off the block where he won it.
                 let push = match e.mv {
@@ -1348,6 +1385,17 @@ impl<'a> Sim<'a> {
                 self.agents[h].vel = v;
             }
         }
+    }
+
+    /// Whether pass blocker `b` can take on rusher `d` (with the
+    /// quarterback at `q`): a man who beat him must first be squared up
+    /// from in front again.
+    pub fn can_square(&self, b: usize, d: usize, q: V2) -> bool {
+        let a = &self.agents[b];
+        if a.beat_by != Some(d) {
+            return true;
+        }
+        self.t >= a.recover_at && a.pos.dist(q) + 0.5 < self.agents[d].pos.dist(q)
     }
 
     pub fn release(&mut self, k: usize) {
@@ -1446,6 +1494,49 @@ impl<'a> Sim<'a> {
             seen[n_seen] = (d.pos, d.vmax, reach);
             n_seen += 1;
         }
+        // How crowded a spot is for him: who gets there before he does.
+        let crowd = |p: V2, run: f64| {
+            let t_me = me.pos.dist(p) / run.max(1.0);
+            seen[..n_seen]
+                .iter()
+                .map(|&(pos, vmax, reach)| {
+                    reach * (((t_me - ((pos.dist(p) - 1.0).max(0.0) / vmax + 0.15)) / 0.35).exp().min(6.0))
+                })
+                .sum::<f64>()
+        };
+        // The hole read (bang, bend or bounce): pressing a designed run he
+        // reads the called hole a couple of yards from the line and picks
+        // his lane, the hole if it is there, else the cutback or the edge,
+        // whichever his eyes find; a bouncer leans off the called hole.
+        // He then stays in that lane to the line instead of drifting to
+        // wherever the bodies are fewest (outside runs ran at two and a
+        // half times the real share; sizes proposed, not confirmed).
+        let mut aim = aim;
+        if let Some(a) = aim {
+            let depth = (self.los - me.pos.x) * goal;
+            if self.lane.is_none() && depth < 2.5 && self.press > 0.0 {
+                let out = if a.y >= self.mood.snap_y { 1.0 } else { -1.0 };
+                let lanes = [(a.y, -0.9), (a.y - 3.0 * out, -0.6 * bounce), (a.y + 3.5 * out, -0.6 * bounce)];
+                let run = speed.max(4.0);
+                let read = 0.8 * (1.0 - 0.008 * vision).max(0.2);
+                let mut pick = (f64::INFINITY, a.y);
+                for (y, lean) in lanes {
+                    let y = clamp(y, 1.0, WIDTH - 1.0);
+                    let cost = crowd(v2(self.los + 0.5 * goal, y), run) + lean + read * gauss(self.rng);
+                    if cost < pick.0 {
+                        pick = (cost, y);
+                    }
+                }
+                self.lane = Some(pick.1);
+            }
+            if let Some(y) = self.lane {
+                aim = Some(v2(a.x, y));
+            }
+        }
+        // Before the read his lane is the called hole.
+        let read = self.lane.is_some();
+        let lane = aim.map(|a| self.lane.unwrap_or(a.y));
+        let bounce = if read { 0.0 } else { bounce };
         for &(cos, sin) in headings() {
             let dir = v2(goal * cos, sin);
             let look = 3.5;
@@ -1463,14 +1554,23 @@ impl<'a> Sim<'a> {
             let near_edge = me.pos.y.min(WIDTH - me.pos.y) < 6.0;
             if near_edge && threat > 0.5 {
                 let outward = if me.pos.y < MID { -dir.y } else { dir.y };
-                sideline -= 6.0 * (-contact).max(0.0) * outward.max(0.0);
+                // Out of bounds when no gain is left: most backs take the
+                // sideline rather than a hit for nothing, one who avoids
+                // contact sooner, one who seeks it turns up (base proposed,
+                // not confirmed: real backs end 4.2% of carries out of
+                // bounds, the engine's ended 0.7%).
+                let step = (0.5 - 0.6 * contact).max(0.0);
+                sideline -= 6.0 * step * outward.max(0.0);
                 sideline += 1.5 * contact.max(0.0) * outward.max(0.0);
             }
             let lateral = dir.y.abs() * 0.9 * bounce;
+            // In his lane to the line.
+            let off_lane = lane.map_or(0.0, |y| 2.0 * ((p.y - y).abs() - 1.5).max(0.0));
             // He commits to a path: changing course costs speed, so the
             // heading he is on gets a bonus once he is moving.
             let keep = if me.vel.len() > 2.0 { 0.9 * dir.dot(me.vel.norm()) } else { 0.0 };
-            let mut score = 1.5 * gain - 1.1 * threat - sideline + keep + lateral + noise * gauss(self.rng) * 0.6;
+            let mut score =
+                1.5 * gain - 1.1 * threat - sideline + keep + lateral - off_lane + noise * gauss(self.rng) * 0.6;
             if let Some(a) = aim {
                 let wanted = (a - me.pos).norm();
                 score += 1.2 * (1.0 - 0.6 * bounce) * dir.dot(wanted);
@@ -1855,6 +1955,29 @@ impl<'a> Sim<'a> {
         if (x - self.progress) * self.goal > 0.0 {
             self.progress = x;
         }
+        // Taken down, the pile goes where its weight is going: he falls
+        // about a quarter of a second of it, up to a yard and a half.
+        let mut mv = self.agents[c].vel.scale(self.agents[c].mass);
+        let mut mass = self.agents[c].mass;
+        for &i in &self.fight {
+            mv = mv + self.agents[i].vel.scale(self.agents[i].mass);
+            mass += self.agents[i].mass;
+        }
+        let fall = mv.scale(0.25 / mass);
+        let fall = if fall.len() > 1.5 { fall.norm().scale(1.5) } else { fall };
+        // Falling forward: going down with his weight going forward, the
+        // ball lands ahead of his hips, by the fall and the reach of his
+        // body, up to most of a yard more (the spot was his hips: backs
+        // gained 1.2 yards a carry after contact, real 2.0, PFR 2021-25;
+        // proposed, not confirmed). Driven back, the spot is where he got.
+        let fwd = fall.x * self.goal;
+        if fwd > 0.0 {
+            let body = 0.9 * (fwd / 0.6).min(1.0);
+            let spot = x + (fwd + body) * self.goal;
+            if (spot - self.progress) * self.goal > 0.0 {
+                self.progress = spot;
+            }
+        }
         // Face masks and late hits ride on the tackle. Unnecessary roughness
         // stands for every 15-yard personal foul after the whistle (late hits,
         // hits on a defenceless man, horse collars, taunting): real NFL
@@ -1877,6 +2000,12 @@ impl<'a> Sim<'a> {
         }
         self.dead = true;
         self.ball = Ball::Dead(v2(self.progress, self.agents[c].pos.y));
+        // Taken down at the sideline, he lands out of bounds if the fall
+        // crosses the line (the clock stops; proposed, not confirmed).
+        let y = self.agents[c].pos.y + fall.y;
+        if y <= 0.0 || y >= WIDTH {
+            self.out_of_bounds = true;
+        }
     }
 
     /// The ball is out: a scramble for it near where it fell.

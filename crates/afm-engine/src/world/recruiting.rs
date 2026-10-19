@@ -1568,7 +1568,25 @@ pub(crate) fn camp_walk_ons(w: &mut World) {
             .map(|i| (w.people[i].last_performance.unwrap_or(w.people[i].player.overall()), i))
             .collect();
         cands.sort_by(|a, b| b.0.total_cmp(&a.0));
-        awards.extend(cands.iter().take(free).map(|&(_, i)| (j, i)));
+        // A team keeps one long snapper on scholarship at most (trial 8
+        // finding 9: real teams usually have one): a walk-on snapper earns
+        // one only when no snapper on the roster has it.
+        let snap = |i: usize| w.people[i].player.position == Position::LS;
+        let mut snapper_on_aid = prog.roster.iter().any(|&i| college(&i) && !w.people[i].walk_on && snap(i));
+        let mut given = 0;
+        for &(_, i) in &cands {
+            if given == free {
+                break;
+            }
+            if snap(i) {
+                if snapper_on_aid {
+                    continue;
+                }
+                snapper_on_aid = true;
+            }
+            awards.push((j, i));
+            given += 1;
+        }
     }
     for (j, i) in awards {
         let name = w.programs[j].real_name.clone();
@@ -1967,8 +1985,8 @@ fn walk_on_cost(p: &Person, prog: &Program) -> f64 {
 /// walk-on place is weighed against a real scholarship offer; a recruit
 /// with none loses nothing. Kickers, punters and snappers often walk on at
 /// big programs, so they don't feel it. Proposed, not confirmed.
-fn scholarship_given_up(p: &Person, scholarship_at: &Program) -> f64 {
-    if p.player.position.is_specialist() { 0.0 } else { WALK_ON_GIVE_UP * level_value(scholarship_at.division) }
+fn scholarship_given_up(pos: Position, scholarship_at: &Program) -> f64 {
+    if pos.is_specialist() { 0.0 } else { WALK_ON_GIVE_UP * level_value(scholarship_at.division) }
 }
 
 /// What turning down an FBS scholarship to walk on costs (see above).
@@ -2070,6 +2088,19 @@ fn utility(
     nil_offer: f64,
     eval_rank: f64,
 ) -> f64 {
+    let fits = super::systems::fits(&p.player, p.player.position, norms);
+    utility_fit(&fits, p, wants, prog, nil_offer, eval_rank)
+}
+
+/// [`utility`] from his fits to every system, read once (`systems::fits`).
+fn utility_fit(
+    fits: &[f64; 11],
+    p: &Person,
+    wants: &super::background::Wants,
+    prog: &Program,
+    nil_offer: f64,
+    eval_rank: f64,
+) -> f64 {
     let g = |c: GradeCat| prog.grades[c as usize] / 100.0;
     let close = closeness(geo::miles(p.home_state, prog.state));
     let crisis = p.bg.story.iter().rev().take(1).any(|s| s.contains("death") || s.contains("lost a job"));
@@ -2126,7 +2157,7 @@ fn utility(
     }
     // A system that shows him off (S7): a receiver leans to a passing
     // offense, a back to a running one.
-    u += SHOWCASE * super::systems::showcase(&p.player, &prog.installed, norms);
+    u += SHOWCASE * super::systems::showcase(fits, p.player.position, &prog.installed);
     // A 5-star is courted by everyone but signs with the few programs that
     // win titles and fill first rounds (about 15-17 sign one a year, real
     // 2024-25, 247Sports; dynasty item 11.1, proposed, not confirmed).
@@ -2237,20 +2268,19 @@ impl RosterView {
     /// how much they improve meanwhile. Recruits judge themselves two years
     /// on (about 3 points a year against 1 for older players). `early` is how
     /// much more than usual he cares about playing early (11.3). `who` is
-    /// himself, left out of the room.
+    /// himself at `pos`, left out of the room.
     #[allow(clippy::too_many_arguments)]
     fn fit(
         &self,
         j: usize,
         who: usize,
-        p: &Person,
+        pos: Position,
         wants: &super::background::Wants,
         me: f64,
         within: u32,
         their_growth: f64,
         early: f64,
     ) -> f64 {
-        let pos = p.player.position;
         let n = crate::game::roster::starters(pos) as f64;
         let ahead = self.players[j][pos.index()]
             .iter()
@@ -2972,6 +3002,12 @@ pub(crate) fn signing_stage(w: &mut World, stage: SignStage, season: i32) {
     }
 }
 
+/// Offers read one by one before the matching reads the rest of every
+/// board at once on all cores (trial 8 finding 10): the busy stages make
+/// about 2.5 million offers, deep down whole boards, the quiet ones about
+/// 40,000, fewer than reading every board would cost.
+const READ_ALL_AFTER: usize = 100_000;
+
 fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     let norms = w.system_norms;
     let year = season;
@@ -3541,6 +3577,15 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         }
         best.map(|b| (b.0, b.2))
     };
+    // Each recruit's fit to every system, read once: what a school's systems
+    // would show him off in (S7) weighs in every offer.
+    let pool_fits: Vec<[f64; 11]> = pool
+        .par_iter()
+        .map(|r| {
+            let p = &w.people[r.person];
+            super::systems::fits(&p.player, p.player.position, &norms)
+        })
+        .collect();
     // --- Relationships built over the year (dynasty item 11.18) -------------------------
     // Staffs recruit the top of each position board all year: the position
     // coach calls and visits every target, the head coach gives his own time
@@ -3581,7 +3626,9 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 let mut liked: Vec<(f64, usize)> = list
                     .iter()
                     .map(|&(j, _, share)| {
-                        (utility(&norms, p, &wants, &programs[j], offer_for(j, k, share), 1.0 - share) + feel(j, k), j)
+                        let u =
+                            utility_fit(&pool_fits[k], p, &wants, &programs[j], offer_for(j, k, share), 1.0 - share);
+                        (u + feel(j, k), j)
                     })
                     .collect();
                 liked.sort_by(|a, b| b.0.total_cmp(&a.0));
@@ -3699,52 +3746,114 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     let mut held_fit: Vec<Option<(usize, u32, f64)>> = vec![None; pool.len()];
     // Each recruit's rating, read once: nobody develops while offers go out.
     let overall_of: Vec<f64> = pool.par_iter().map(|r| w.people[r.person].player.overall()).collect();
+    // What the matching reads of each recruit, read once on all cores: his
+    // spot, the wants a room is weighed by and how much he cares about
+    // playing early (trial 8 finding 10: reading these off each person, and
+    // his ties to each school, was most of the matching's time).
+    struct Seat {
+        pos: Position,
+        wants: super::background::Wants,
+        early: f64,
+    }
+    let seats: Vec<Seat> = pool
+        .par_iter()
+        .map(|r| {
+            let p = &w.people[r.person];
+            Seat { pos: p.player.position, wants: p.family.decider_wants, early: early_weight(recruiting_stars(p)) }
+        })
+        .collect();
+    // What doesn't change while offers go out, per board entry: the
+    // scholarship offer; the school's appeal with it and as a walk-on place,
+    // each with his ties (the relationship the staff built over the year,
+    // 11.18, his own feel for the school, 11.1, and the pull of a
+    // commitment) and less the walk-on cost; and the ties alone. Each is
+    // read when a staff's offers first get there; once staffs are walking
+    // deep down their boards (places nobody takes), the rest of every board
+    // is read at once on all cores. The offers themselves go out in order,
+    // so the results are the same.
+    #[derive(Clone, Copy)]
+    struct Fixed {
+        offer: f64,
+        scholarship: f64,
+        walk_on: f64,
+        ties: f64,
+    }
+    let fixed_at = |j: usize, i: usize, r: usize| -> Fixed {
+        let board = &boards[j][i];
+        let k = board[r].0;
+        let rank = r as f64 / board.len().max(1) as f64;
+        let p = &w.people[pool[k].person];
+        let wants = p.family.decider_wants;
+        let prog = &programs[j];
+        let offer = offer_for(j, k, rank);
+        let ties = relationship(j, k) + feel(j, k) + pull(j, k);
+        Fixed {
+            offer,
+            // A walk-on is last in line for reps, wherever he sits on the board.
+            scholarship: utility_fit(&pool_fits[k], p, &wants, prog, offer, 1.0 - rank) + ties,
+            walk_on: utility_fit(&pool_fits[k], p, &wants, prog, 0.0, 0.0) + (ties - walk_on_cost(p, prog)),
+            ties,
+        }
+    };
+    let mut fixed: Vec<Vec<Vec<Fixed>>> = vec![vec![Vec::new(); POSITION_COUNT]; pn];
+    let mut read_one_by_one = 0;
     let mut active = true;
     while active {
         active = false;
         for j in 0..pn {
             while let Some((i, walk_on)) = next_offer(j, &cursor, &taken, &taken_walk_on, &taken_at) {
                 let board = &boards[j][i];
-                let (k, _, special) = board[cursor[j][i]];
-                let rank = cursor[j][i] as f64 / board.len().max(1) as f64;
+                let r = cursor[j][i];
+                let (k, _, special) = board[r];
+                let rank = r as f64 / board.len().max(1) as f64;
                 cursor[j][i] += 1;
                 active = true;
                 if special && special_taken[j] >= programs[j].special_admits {
                     continue;
                 }
+                if r >= fixed[j][i].len() {
+                    if read_one_by_one < READ_ALL_AFTER {
+                        while fixed[j][i].len() <= r {
+                            let e = fixed_at(j, i, fixed[j][i].len());
+                            fixed[j][i].push(e);
+                            read_one_by_one += 1;
+                        }
+                    } else {
+                        fixed.par_iter_mut().enumerate().for_each(|(j, by_pos)| {
+                            for (i, v) in by_pos.iter_mut().enumerate() {
+                                let done = v.len();
+                                v.extend((done..boards[j][i].len()).map(|r| fixed_at(j, i, r)));
+                            }
+                        });
+                    }
+                }
+                let fx = fixed[j][i][r];
                 let who = pool[k].person;
-                let p = &w.people[who];
-                let wants = p.family.decider_wants;
+                let seat = &seats[k];
                 let prog = &programs[j];
                 // A walk-on spot carries no money and costs the family tuition (fix list 1.6).
-                let mut offer = if walk_on { 0.0 } else { offer_for(j, k, rank) };
+                let mut offer = if walk_on { 0.0 } else { fx.offer };
                 // His room there as it stands today, commitments included (11.2),
                 // weighed more by a better recruit (11.3).
                 let me = overall_of[k] + 6.0;
-                let early = early_weight(recruiting_stars(p));
-                let fit = view.fit(j, who, p, &wants, me, 2, 2.0, early);
-                // The relationship the staff built over the year (11.18) and his
-                // own feel for the school (11.1).
-                let base_u =
-                    relationship(j, k) + feel(j, k) + pull(j, k) - if walk_on { walk_on_cost(p, prog) } else { 0.0 };
-                // A walk-on is last in line for reps, wherever he sits on the board.
-                let standing = if walk_on { 0.0 } else { 1.0 - rank };
-                let mut u = utility(&norms, p, &wants, prog, offer, standing) + base_u + fit;
+                let fit = view.fit(j, who, seat.pos, &seat.wants, me, 2, 2.0, seat.early);
+                let base_u = if walk_on { fx.walk_on } else { fx.scholarship };
+                let mut u = base_u + fit;
                 // What the school he holds is worth to him now: a recruit at his
                 // position may have committed there since (11.2).
                 let held_u = held[k].map(|h| {
-                    let v = view.ver[h.program][p.player.position.index()];
+                    let v = view.ver[h.program][seat.pos.index()];
                     let f = match held_fit[k] {
                         Some((j0, v0, f)) if j0 == h.program && v0 == v => f,
                         _ => {
-                            let f = view.fit(h.program, who, p, &wants, me, 2, 2.0, early);
+                            let f = view.fit(h.program, who, seat.pos, &seat.wants, me, 2, 2.0, seat.early);
                             held_fit[k] = Some((h.program, v, f));
                             f
                         }
                     };
                     // Against a scholarship here, the walk-on place he holds
                     // costs him the scholarship he would turn down.
-                    h.base + f - if h.walk_on && !walk_on { scholarship_given_up(p, prog) } else { 0.0 }
+                    h.base + f - if h.walk_on && !walk_on { scholarship_given_up(seat.pos, prog) } else { 0.0 }
                 });
                 // Bidding (note 13): a school that wants him near the top of its
                 // board raises its offer to beat the one he holds, within its money.
@@ -3753,9 +3862,11 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     && rank < 0.3
                     && !walk_on
                 {
+                    let p = &w.people[who];
+                    let wants = p.family.decider_wants;
                     let cap = prog.collective.budget * 0.6 * if reach[j] { 0.35 } else { 0.25 };
-                    let raised = (offer * 1.5).min(cap).min(super::ncaa::position_nil_max(p.player.position));
-                    let ru = utility(&norms, p, &wants, prog, raised, 1.0 - rank) + base_u + fit;
+                    let raised = (offer * 1.5).min(cap).min(super::ncaa::position_nil_max(seat.pos));
+                    let ru = utility_fit(&pool_fits[k], p, &wants, prog, raised, 1.0 - rank) + fx.ties + fit;
                     if ru > hu {
                         offer = raised;
                         u = ru;
@@ -3763,7 +3874,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 }
                 // A walk-on place set against the scholarship he holds costs him that scholarship.
                 let given_up = match held[k] {
-                    Some(h) if walk_on && !h.walk_on => scholarship_given_up(p, &programs[h.program]),
+                    Some(h) if walk_on && !h.walk_on => scholarship_given_up(seat.pos, &programs[h.program]),
                     _ => 0.0,
                 };
                 // Staffs don't waste an offer on a kid already holding a far better one.
@@ -3774,7 +3885,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 if held_u.is_some_and(|hu| hu >= u - given_up) {
                     continue;
                 }
-                let (pos, overall) = (p.player.position, p.player.overall());
+                let (pos, overall) = (seat.pos, overall_of[k]);
                 if let Some(h) = held[k] {
                     // He trades up: his old program's spot opens again.
                     let c = h.program;
@@ -3863,7 +3974,9 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     continue;
                 }
                 let standing = if walk_on { 0.0 } else { 1.0 - share };
-                let u = utility(&norms, p, &wants, &programs[j], 0.0, standing) + relationship(j, k) + feel(j, k)
+                let u = utility_fit(&pool_fits[k], p, &wants, &programs[j], 0.0, standing)
+                    + relationship(j, k)
+                    + feel(j, k)
                     - if walk_on { walk_on_cost(p, &programs[j]) } else { 0.0 };
                 options.push((u, j, walk_on, special));
             }
@@ -3872,7 +3985,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             let mut best: Option<(f64, f64, usize, bool, bool)> = None;
             for &(u, j, walk_on, special) in &options {
                 let given_up = match scholarship {
-                    Some(s) if walk_on => scholarship_given_up(p, &programs[s]),
+                    Some(s) if walk_on => scholarship_given_up(pos, &programs[s]),
                     _ => 0.0,
                 };
                 if best.is_none_or(|b| u - given_up > b.0) {
@@ -3891,6 +4004,65 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             }
             taken_at[j][i][walk_on as usize] += 1;
             special_taken[j] += special as u32;
+        }
+    }
+    // Preferred walk-ons from home (trial 8 finding 5). Walk-on offers go
+    // down the same boards as scholarships, from the top, and the top of a
+    // Division I board holds recruits with scholarships, who since trial 7's
+    // fix 4 turn a walk-on place down. The boards hold only the recruits a
+    // staff sees (rated ones, the top quarter of the class on film, and
+    // its own commitments), so they ran out before reaching the local
+    // unrated kids who make up most real walk-ons, and the places stayed
+    // empty (FBS rosters at 82 of 105). So in the final period each
+    // Division I staff with planned walk-on places still open offers them
+    // to the best unsigned unrated and 2-star seniors from its own state,
+    // by film, who meet the NCAA floor and its own admissions bar, until
+    // its plan is met. A kid with nothing else takes it, as one with no
+    // offer takes any; the walk-on cost is unchanged. Programs pick in
+    // order of prestige, the order real kids weigh walk-on offers in
+    // (proposed, not confirmed: Division I only, home state only).
+    if stage == SignStage::Final {
+        let mut by_state: Vec<Vec<usize>> = vec![Vec::new(); w.states.len()];
+        for (k, r) in pool.iter().enumerate() {
+            let p = &w.people[r.person];
+            if held[k].is_none() && !r.juco_mover && recruiting_stars(p) <= 2 {
+                by_state[p.home_state].push(k);
+            }
+        }
+        for list in by_state.iter_mut() {
+            list.sort_by(|&a, &b| pool[b].film.total_cmp(&pool[a].film).then(a.cmp(&b)));
+        }
+        let mut order: Vec<usize> =
+            (0..pn).filter(|&j| matches!(programs[j].division, Division::FBS | Division::FCS)).collect();
+        order.sort_by(|&a, &b| programs[b].prestige.total_cmp(&programs[a].prestige).then(a.cmp(&b)));
+        for j in order {
+            let (prog, plan) = (&programs[j], &plans[j]);
+            for &k in &by_state[prog.state] {
+                if taken_walk_on[j] >= plan.walk_on_room {
+                    break;
+                }
+                if held[k].is_some() {
+                    continue;
+                }
+                let who = pool[k].person;
+                let p = &w.people[who];
+                let (pos, i) = (p.player.position, p.player.position.index());
+                let elig = eligibility_gpa(pool[k].gpa, p.cal.test_score, sign_year);
+                if ncaa_tier(prog.division, elig) == Eligibility::NonQualifier
+                    || pool[k].gpa < prog.admissions_bar
+                    || !plan.walk_on_open(i, taken_walk_on[j], taken_at[j][i])
+                {
+                    continue;
+                }
+                let wants = p.family.decider_wants;
+                let u = utility_fit(&pool_fits[k], p, &wants, prog, 0.0, 0.0) + relationship(j, k) + feel(j, k)
+                    - walk_on_cost(p, prog);
+                held[k] = Some(Held { program: j, base: u, special: false, walk_on: true, pos: i });
+                offers[k].push(j);
+                view.join(j, pos, who, p.player.overall() + 4.0, 0);
+                taken_walk_on[j] += 1;
+                taken_at[j][i][1] += 1;
+            }
         }
     }
 
@@ -5015,14 +5187,15 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                     return None;
                 }
                 let p = &wr.people[i];
-                let u = utility(
-                    &norms,
-                    p,
-                    &p.family.own_wants,
-                    &wr.programs[j],
-                    wr.programs[j].collective.budget / 40.0,
-                    0.6,
-                ) + mk.view.fit(j, i, p, &p.family.own_wants, perf, 3, 0.0, early_weight(p.stars));
+                let u =
+                    utility(
+                        &norms,
+                        p,
+                        &p.family.own_wants,
+                        &wr.programs[j],
+                        wr.programs[j].collective.budget / 40.0,
+                        0.6,
+                    ) + mk.view.fit(j, i, p.player.position, &p.family.own_wants, perf, 3, 0.0, early_weight(p.stars));
                 Some((j, u))
             })
             .collect();

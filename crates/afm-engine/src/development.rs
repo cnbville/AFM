@@ -42,6 +42,9 @@ pub struct SeasonContext {
     /// tendencies (`tendencies::develop_year`). None: no pull.
     pub style: Option<crate::tendencies::Style>,
     pub scheme: Option<(crate::game::roster::OffScheme, crate::game::roster::Front)>,
+    /// How far what his tools support sits from the middle on average at
+    /// his position and level (`tendencies::Centres`); zero: read raw.
+    pub tend_centre: [f64; crate::tendencies::TEND_COUNT],
 }
 
 impl SeasonContext {
@@ -57,6 +60,7 @@ impl SeasonContext {
             snaps: None,
             style: None,
             scheme: None,
+            tend_centre: [0.0; crate::tendencies::TEND_COUNT],
         }
     }
 }
@@ -660,6 +664,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         played,
         major_injury: events.has(Ev::MajorInjury),
         speed_lost: (speed_before - player.attributes[Attr::Speed]).max(0.0),
+        centre: ctx.tend_centre,
     };
     crate::tendencies::develop_year(&mut player.tend, &player.attributes, &personality, player.age, &year, player.id);
 

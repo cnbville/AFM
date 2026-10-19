@@ -2045,6 +2045,15 @@ pub struct MarketYear {
     pub deadline_trades: u32,
     pub picks_traded: u32,
     pub comp_picks: u32,
+    /// Free agents who left their team and signed elsewhere in the
+    /// window this year at a qualifying wage (trial 8 finding 8).
+    pub cfa_noted: u32,
+    /// Of last year's, those still with the new team at the season's end
+    /// and valued in a round (counted at this year's award).
+    pub cfa_valued: u32,
+    /// This year's comp picks from the formula and the supplemental ones.
+    pub comp_formula: u32,
+    pub comp_supplemental: u32,
     pub other_league: u32,
     pub ipp: u32,
     pub floor_paid: f64,
