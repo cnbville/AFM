@@ -362,10 +362,15 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         p.incident = false;
         p.cal.season_reset();
         let group = Group::of(p.player.position);
+        // The unit's style pulls his habits (tendencies topic 3.5): the
+        // head coach's, two-thirds of the way against his coordinator's.
+        let mut style = None;
+        let mut scheme = None;
         let (level, coaching, team_situation, base_trouble) = match p.stage {
             Stage::HighSchool => {
                 let s = &schools[p.hs];
                 let teach = s.coach.map_or(7.0, |c| coaches[c].teaching(group));
+                style = s.coach.map(|c| coaches[c].style());
                 // Bigger, richer staffs add position coaches beside the head coach.
                 (Level::HS, 0.6 * teach + 0.4 * (4.0 + 12.0 * s.resources), (s.resources - 0.5) * 0.1, 0.012)
             }
@@ -377,6 +382,13 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 let co = coord.map_or(hc, |c| coaches[c].teaching(group));
                 // His position coach teaches him most days (note 5).
                 let pc = prog.position_coaches[group as usize].map_or(co, |c| coaches[c].teaching(group));
+                let hs = prog.head_coach.map(|c| coaches[c].style());
+                let cs = coord.map(|c| coaches[c].style());
+                style = match (hs, cs) {
+                    (Some(h), Some(c)) => Some(crate::tendencies::Style::blend(&h, &c)),
+                    (h, c) => h.or(c),
+                };
+                scheme = Some((prog.installed.offense(), prog.installed.front()));
                 (
                     division_level(prog.division),
                     0.2 * hc + 0.35 * co + 0.3 * pc + 0.15 * (6.0 + 12.0 * prog.facilities),
@@ -437,6 +449,8 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             adjustment: p.pending_dip.take().unwrap_or(0.0),
             situation: clamp(team_situation + background::situation_push(&p.player, &p.bg), -1.0, 1.0),
             payday: std::mem::take(&mut p.cal.payday),
+            style,
+            scheme,
             ..SeasonContext::new(level, clamp(coaching, 1.0, 20.0), role)
         };
         develop_season(&mut p.player, &ctx, &mut p.rng);
@@ -782,8 +796,10 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
             year: w.year,
             film_study,
             install,
+            style: prog.head_coach.map_or_else(Default::default, |c| w.coaches[c].style()),
         },
     );
+    team.give_orders(division_level(prog.division));
     team.film = prog.film.clone();
     team.line_chem = line_chem;
     team.novelty = super::trends::team_novelty(w, prog.division, &prog.film);

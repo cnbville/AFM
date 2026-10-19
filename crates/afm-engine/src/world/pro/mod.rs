@@ -1349,6 +1349,22 @@ fn camp(w: &mut World, d: Date) {
             }
             None => (6.0, 0.0),
         };
+        // The staff's style and scheme pull his habits (tendencies topic 3.5).
+        let (style, scheme) = match team {
+            Some(t) => {
+                let tm = &w.nfl[t];
+                let coord = if crate::world::systems::offense(w.people[i].player.position) { tm.oc } else { tm.dc };
+                let hs = tm.head_coach.map(|c| w.coaches[c].style());
+                let cs = coord.map(|c| w.coaches[c].style());
+                let style = match (hs, cs) {
+                    (Some(h), Some(c)) => Some(crate::tendencies::Style::blend(&h, &c)),
+                    (h, c) => h.or(c),
+                };
+                let inst = w.clubs[t].installed;
+                (style, Some((inst.offense(), inst.front())))
+            }
+            None => (None, None),
+        };
         let p = &mut w.people[i];
         let mut adjustment = 0.0;
         if team.is_some() && (first || new_team) && role != PlayingTime::Unsigned {
@@ -1385,6 +1401,8 @@ fn camp(w: &mut World, d: Date) {
             situation,
             payday,
             snaps,
+            style,
+            scheme,
             ..crate::development::SeasonContext::new(Level::NFL, clamp(coaching, 1.0, 20.0), role)
         };
         crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);

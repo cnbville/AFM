@@ -122,6 +122,15 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
                 let rest = overall_for(Position::LS, &p.attributes) - w * p.attributes[Attr::LongSnapping];
                 p.attributes[Attr::LongSnapping] = clamp((target - rest) / w, MIN_RATING, MAX_RATING);
             }
+            // Habits at the level's spread (tendencies topic 3.2).
+            p.tend = crate::tendencies::Tendencies::at_level(
+                id,
+                level,
+                &p.ceilings,
+                p.body.weight,
+                p.body.height,
+                &p.personality,
+            );
             let exp = match level {
                 Level::NFL => 2.0 + (k % 6) as f64,
                 _ => 1.0 + (k % 3) as f64,
@@ -165,6 +174,7 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
         year: 2026,
         film_study: 10.0,
         install: absorb(aware).clamp(0.35, 1.0),
+        style: Default::default(),
     };
     GameTeam::new(name.to_string(), players, staff)
 }

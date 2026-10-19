@@ -238,8 +238,10 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
             year: w.year,
             film_study,
             install,
+            style: tm.head_coach.map_or_else(Default::default, |c| w.coaches[c].style()),
         },
     );
+    team.give_orders(crate::player::Level::NFL);
     team.film = club.film.clone();
     team.line_chem = 0.25 + 0.15 * back as f64;
     Some(Side { team, who })

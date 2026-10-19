@@ -260,6 +260,9 @@ pub struct Coach {
     pub(crate) systems: super::systems::Systems,
     /// Buzz from his units' numbers (world item 5), fading by half a season.
     pub stat_buzz: f64,
+    /// The style set in his coach profile (the user's coach); AI coaches
+    /// leave it empty and coach to the style their nature gives them.
+    pub style_set: Option<crate::tendencies::Style>,
 }
 
 /// A college head coach's contract (trial 4 topic 4): the last season it
@@ -391,6 +394,7 @@ pub fn generate_coach(
         contract: None,
         systems: Default::default(),
         stat_buzz: 0.0,
+        style_set: None,
     }
 }
 
@@ -403,6 +407,27 @@ impl Coach {
 
     pub(crate) fn ability(&self) -> &Ability {
         &self.ability
+    }
+
+    /// His coaching style (tendencies, "Your coaching style"). An AI coach's
+    /// comes from his personality and ability, so programs get identities:
+    /// risk is the aggressiveness his play calling already uses (ambition),
+    /// structure his discipline, physical his temper, and the rest his own
+    /// lean (proposed, not confirmed). Never drawn from a stream, so no
+    /// other draw moves.
+    pub fn style(&self) -> crate::tendencies::Style {
+        if let Some(s) = self.style_set {
+            return s;
+        }
+        let id = self.id as u64;
+        let n = |k: u64| super::season::key_normal(k, id);
+        crate::tendencies::Style {
+            risk: self.personality.ambition,
+            freedom: clamp(21.0 - self.ability.discipline + 1.5 * n(0xF4EE), 1.0, 20.0),
+            physical: clamp(10.5 + 0.4 * (self.personality.temper - 10.0) + 2.5 * n(0x9A11), 1.0, 20.0),
+            ball_hunting: clamp(10.5 + 3.0 * n(0xBA11), 1.0, 20.0),
+            mould: clamp(10.5 - 0.25 * (self.ability.relationships - 10.0) + 2.5 * n(0x40D1), 1.0, 20.0),
+        }
     }
 
     /// One year of a coach's career: young coaches learn fast; old ones fall

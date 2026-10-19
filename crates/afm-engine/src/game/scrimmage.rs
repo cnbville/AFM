@@ -19,6 +19,7 @@ use super::rules::Rules;
 use super::sim::*;
 use crate::attributes::Attr;
 use crate::rng::{Rng, clamp};
+use crate::tendencies::Tend;
 
 /// Defensive spots. "L" is the offense's left (higher y).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -108,6 +109,8 @@ pub struct Snap<'a> {
     /// The defense plays a two-gap front (S9).
     pub two_gap: bool,
     pub tac: Tactics,
+    /// What the game does to habits this snap (offense, defense).
+    pub mood: super::sim::Mood,
 }
 
 /// What the plan and the game so far bring to one snap (plays and tactics
@@ -140,6 +143,9 @@ pub struct Tactics {
     /// Each side's game plan load (calendar T6.2), offense then defense:
     /// the plan's size against the week to learn it.
     pub load: [f64; 2],
+    /// How much the offense planned double moves and pump fakes against
+    /// route jumpers (tendencies topic 4.4), 0-1.
+    pub double_moves: f64,
 }
 
 impl Default for Tactics {
@@ -157,6 +163,7 @@ impl Default for Tactics {
             family: Family::Quick,
             downfield: 1.0,
             load: [super::roster::INSTALL; 2],
+            double_moves: 0.0,
         }
     }
 }
@@ -334,6 +341,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         gap_run: None,
         stunt: None,
         level: s.rules.level,
+        mood: super::sim::Mood { line: Some(s.los + s.togo), snap_y: s.ball_y, ..s.mood },
     };
     let find = |r: ORole| role_of.iter().position(|x| *x == Some(r));
     let qb = find(ORole::QB).unwrap_or(0);
@@ -420,11 +428,20 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     for i in off_n..sim.agents.len() {
         let pr = sim.agents[i].a(Attr::PlayRecognition);
         let bite = clamp(1.5 - 0.05 * sim.trait20(i, Attr::Discipline), 0.5, 1.5);
-        let base = 0.22 + 0.0075 * (100.0 - pr) + 0.12 * sim.rng.next();
-        let extra = if fake { (0.15 + 0.012 * (100.0 - pr) * sim.rng.next()) * sell * bite } else { 0.0 };
+        let slot = slot_of[i].unwrap_or(DSlot::Mike);
+        // Flies downhill or reads first (tendencies): a linebacker or
+        // safety who triggers on his first read gets there sooner, and
+        // bites harder on the fake.
+        let downhill =
+            if slot.is_lb() || matches!(slot, DSlot::FS | DSlot::SS) { sim.lean(i, Tend::Downhill) } else { 0.0 };
+        let base = 0.22 + 0.0075 * (100.0 - pr) + 0.12 * sim.rng.next() - 0.14 * downhill;
+        let extra = if fake {
+            (0.15 + 0.012 * (100.0 - pr) * sim.rng.next()) * sell * bite * (1.0 + 0.9 * downhill).max(0.1)
+        } else {
+            0.0
+        };
         let keyed = lean * taught * clamp(pr / 80.0, 0.3, 1.2);
         let tend = if run_play { -0.16 * keyed } else { 0.16 * keyed };
-        let slot = slot_of[i].unwrap_or(DSlot::Mike);
         let fam = if slot.is_line() { Family::Front } else { cov_fam };
         // Measured against a starter who knows his job well (0.9).
         let slow = 0.12 * (0.9 - sim.player(i).know[fam as usize] as f64);
@@ -1145,6 +1162,14 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 hurry_run(&mut sim, c);
             } else {
                 sim.run_carrier(c, a);
+            }
+            // Where and when he crossed the line on a designed run.
+            if aim.is_some()
+                && pass.is_none()
+                && sim.notes.tend.cross.is_none()
+                && (sim.agents[c].pos.x - los) * sim.goal >= 0.0
+            {
+                sim.notes.tend.cross = Some((sim.agents[c].pos.y - sim.mood.snap_y, t));
             }
             // A quarterback slides rather than take a hit he doesn't need.
             if pass.is_some() && c == qb && slide(&mut sim, c, s) {
@@ -2392,11 +2417,17 @@ fn slide(sim: &mut Sim, c: usize, s: &Snap) -> bool {
         .map(|d| sim.agents[d].pos.dist(me))
         .fold(f64::INFINITY, f64::min);
     let past = me.x >= s.los + s.togo;
-    let tough = sim.trait20(c, Attr::Toughness);
-    if near < 2.2 && (past || tough < 12.0) {
+    // Contact willingness (tendencies; toughness decided this before): one
+    // who avoids contact slides early and short of the sticks, one who
+    // seeks it (above 12, as toughness above 12 did) lowers his shoulder
+    // unless he is past them.
+    let contact = sim.tend(c, Tend::Contact);
+    let early = 2.2 + 1.0 * ((9.0 - contact) / 8.0).max(0.0);
+    if near < early && (past || contact < 12.0) {
         sim.progress = sim.progress.max(me.x - 0.5);
         sim.dead = true;
         sim.ball = Ball::Dead(me);
+        sim.notes.tend.slid = true;
         return true;
     }
     false
@@ -2586,7 +2617,8 @@ fn quarterback(
     // Measured against a typical read (0.45): the engine's reads were
     // fitted with it.
     let shown = (1.0 - 0.2 * (s.tac.pre_read - PRE_READ)) * if s.tac.fooled { 1.15 } else { 1.0 };
-    let per_read = clamp(0.62 - 0.0045 * (iq - 50.0), 0.3, 0.95) * shown;
+    // A man who holds for the big play stays on each read a little longer.
+    let per_read = clamp(0.62 - 0.0045 * (iq - 50.0), 0.3, 0.95) * shown * (1.0 + 0.6 * sim.lean(qb, Tend::Hold));
     // He stays on a read until that route has made its break.
     let developing = ps.read < ps.reads.len()
         && matches!(&sim.agents[ps.reads[ps.read]].job, Job::Route { pts, next, .. } if *next == 0 && pts.len() > 1);
@@ -2603,8 +2635,17 @@ fn quarterback(
     // school). A shot play buys a beat more (proposed, not confirmed).
     // (Raised 0.3 s: with the throwing motion counted, real time to throw
     // still ran 0.3 s longer, and a tenth of real throws come after 3.9 s.)
+    // Holds for the big play or gets it out (tendencies): his clock runs
+    // longer or shorter, and early on he wants more than an open man
+    // underneath (or takes him at once).
+    let hold = sim.lean(qb, Tend::Hold);
     let clock = clamp(3.6 - 0.01 * (decide - 60.0) - 0.004 * (feel - 60.0), 3.1, 4.1)
-        + if ps.concept.drop == Drop::Deep { 0.3 } else { 0.0 };
+        + if ps.concept.drop == Drop::Deep { 0.3 } else { 0.0 }
+        + 1.0 * hold;
+    // Gunslinger or checkdown (tendencies): how much room he wants before
+    // he lets it go, more so downfield; a checkdown man takes the short
+    // throw sooner.
+    let sling = sim.lean(qb, Tend::Gunslinger);
     let late = t > clock;
     let over = ps.read >= ps.reads.len() || late;
     // A good quarterback holds the safety with his eyes before coming back.
@@ -2648,12 +2689,18 @@ fn quarterback(
         // but a catch is worth a chunk, so real quarterbacks give their man
         // a chance at a contested ball far more readily than underneath.
         let depth = (p.x - s.los) * sim.goal;
-        let need = thresh - (0.05 * (depth - 12.0).max(0.0)).min(1.2);
+        let need = thresh
+            - (0.05 * (depth - 12.0).max(0.0)).min(1.2)
+            - 1.0 * sling
+            - if depth > 12.0 { 0.4 * sling } else { 0.0 }
+            + if over { 0.0 } else { 0.5 * hold + if depth < 10.0 { 0.9 * hold } else { 0.0 } };
+        // A gunslinger looks to the deeper man when two are open.
+        let seen_pref = seen + 0.03 * sling * depth;
         if super::sim::TRACE.load(std::sync::atomic::Ordering::Relaxed) {
             eprintln!("READ t={:.1} read {} r {} w {:.2} seen {:.2} need {:.2}", t, ps.read, r, w, seen, need);
         }
-        if seen > need && best.is_none_or(|b| seen > b.1) {
-            best = Some((r, seen, p, flight));
+        if seen > need && best.is_none_or(|b| seen_pref > b.1) {
+            best = Some((r, seen_pref, p, flight));
             ps.why = if over { 4 } else { ps.read.min(3) };
         }
     }
@@ -2688,8 +2735,9 @@ fn quarterback(
     // covered, as real quarterbacks do far more often than they throw it
     // away. The catch point then decides: a contested catch, a breakup or
     // a pick.
-    if best.is_none() && late && !screen {
-        let force = t > clock + 0.5;
+    let ck_at = clock + 0.7 * sling.min(0.0);
+    if best.is_none() && t > ck_at && !screen {
+        let force = t > clock + 0.5 - 0.4 * sling.max(0.0);
         let mut ck: Option<(usize, f64, V2, f64)> = None;
         for &r in &cand {
             if !sim.agents[r].up(t) || !matches!(sim.agents[r].job, Job::Route { .. }) {
@@ -2778,13 +2826,34 @@ fn quarterback(
     let free_near = |side: f64| {
         (0..sim.agents.len()).any(|d| {
             let a = &sim.agents[d];
-            a.side == 1 && a.up(t) && a.engaged.is_none() && a.pos.dist(me) < 3.0 && (a.pos.y - me.y) * side > -0.5
+            // Rushes upfield or keeps contain (tendencies): an edge on the
+            // wide arc often runs past the quarterback's depth and can't
+            // stop him stepping up and out; a contain man shuts his side
+            // from a yard further off (proposed, not confirmed).
+            let up = if matches!(a.job, Job::Rush { contain, .. } if contain != 0.0) {
+                sim.lean(d, Tend::Upfield)
+            } else {
+                0.0
+            };
+            let overran = up > 0.0 && play_draw(sim, d, 3) < 0.6 * up;
+            let range = 3.0 + (-up).max(0.0) * 0.8;
+            a.side == 1
+                && a.up(t)
+                && a.engaged.is_none()
+                && !overran
+                && a.pos.dist(me) < range
+                && (a.pos.y - me.y) * side > -0.5
         })
     };
     let lane = nearest > 1.2 && (!free_near(1.0) || !free_near(-1.0));
-    let want_run =
-        (over || pressure > 0.5) && lane && t > 2.0 && sim.rng.chance(clamp(0.03 + 0.004 * (speed - 50.0), 0.01, 0.2));
-    if want_run || (pressure > 1.0 && lane && speed > 75.0 && sim.rng.chance(0.25)) {
+    // Scrambles (tendencies): how readily he leaves the pocket; his speed
+    // decides what it gains.
+    let leaves = (1.0 + 1.2 * sim.lean(qb, Tend::Scramble)).max(0.1);
+    let want_run = (over || pressure > 0.5)
+        && lane
+        && t > 2.0
+        && sim.rng.chance(clamp(0.03 + 0.004 * (speed - 50.0), 0.01, 0.2) * leaves);
+    if want_run || (pressure > 1.0 && lane && speed > 75.0 && sim.rng.chance((0.25 * leaves).min(0.9))) {
         qb_why(8, s.dcall.coverage);
         ps.scramble = true;
         return None;
@@ -3019,6 +3088,7 @@ fn throw(
         && let Some(d) = batter(sim, qb, along, dist)
     {
         ps.batted = Some((d, to));
+        sim.notes.tend.hands_up = Some(sim.agents[d].id);
         BATTED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         to = sim.agents[d].pos + along.scale(1.0 + sim.rng.next());
         arrive = t + 0.5 + 0.4 * sim.rng.next();
@@ -3057,6 +3127,13 @@ fn throw(
         let base = 0.16 + 0.004 * (100.0 - pr) + 0.1 * sim.rng.next();
         let sees = sim.sees(d, q);
         sim.agents[d].ball_react = if sees { t + base } else { (arrive - 0.45 + 0.004 * (100.0 - pr)).max(t + base) };
+        // A route jumper who guessed right broke before the ball was out;
+        // one who guessed wrong turned the wrong way and finds it late.
+        match sim.notes.tend.jump {
+            Some((id, true)) if id == sim.agents[d].id => sim.agents[d].ball_react = t,
+            Some((id, false)) if id == sim.agents[d].id => sim.agents[d].ball_react = arrive + 0.3,
+            _ => {}
+        }
     }
     // The receiver looks for it: at once on a timing throw, a beat later
     // when he is still running away from the quarterback.
@@ -3130,7 +3207,9 @@ fn batter(sim: &mut Sim, qb: usize, along: V2, dist: f64) -> Option<usize> {
             0.3,
             2.0,
         );
-        let p = BAT * (1.0 - off) * reach * passer * arc;
+        // Gets his hands up (tendencies): he stops to get them in the lane.
+        let hands = clamp(1.0 + 1.1 * sim.lean(d, Tend::HandsUp), 0.15, 2.4);
+        let p = BAT * (1.0 - off) * reach * passer * arc * hands;
         if sim.rng.chance(p) {
             return Some(d);
         }
@@ -3315,6 +3394,11 @@ fn defend(
     }
     match job {
         Job::Rush { lane, contain, .. } => {
+            // Rushes upfield or keeps contain (tendencies): an upfield edge
+            // squeezes a run from deeper in the backfield (his pass rush is
+            // in `rush_power` and the quarterback's escape lanes).
+            let up = if contain != 0.0 { sim.lean(i, Tend::Upfield) } else { 0.0 };
+            let deep = 1.0 * up.max(0.0);
             // The looper on a stunt waits a beat for the penetrator to cross.
             if t < sim.agents[i].hold_until {
                 let me = sim.agents[i].pos;
@@ -3342,7 +3426,7 @@ fn defend(
                 let cp = sim.agents[c].pos;
                 let behind = (s.los - cp.x) * sim.goal > 0.5;
                 if behind && me.dist(cp) > 1.6 {
-                    let x = s.los - sim.goal * 0.4;
+                    let x = s.los - sim.goal * (0.4 + deep.max(0.0));
                     let y = clamp(cp.y + contain * 1.2, lane - 1.6, lane + 1.6);
                     let aim = v2(x, me.y + clamp(y - me.y, -3.0, 3.0));
                     let vm = sim.agents[i].vmax * 0.5;
@@ -3490,6 +3574,67 @@ fn defend(
     }
 }
 
+/// A per-play draw for one player that needs no random stream: the same
+/// player on the same snap gets the same number, so a decision made on
+/// every tick holds for the whole play.
+fn play_draw(sim: &Sim, i: usize, salt: u64) -> f64 {
+    let mut z = (sim.agents[i].id as u64)
+        .wrapping_mul(0x9E37_79B9_7F4A_7C15)
+        .wrapping_add((sim.los * 10.0) as u64)
+        .wrapping_add(salt.wrapping_mul(0xD6E8_FEB8_6659_FD93));
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    z ^= z >> 31;
+    (z >> 11) as f64 / (1u64 << 53) as f64
+}
+
+/// Jumping the route (topic 3.1, tendencies): when the quarterback commits
+/// to a throw near him (his own man in man coverage, any route within
+/// four and a half yards in zone), a route jumper breaks on it before the ball is
+/// out. How often he gambles is his tendency; whether he guessed right is
+/// his anticipation and read, and a planned double move or pump fake makes
+/// the guess harder. Right, he breaks to the catch point and plays the
+/// ball at once (an interception chance); wrong, he bit on the fake, is
+/// three yards short of where the ball goes and finds it late. His coach's
+/// strictness and trust still decide whether he may (proposed, not
+/// confirmed: chance a throw near him 0.07 at an average tendency, times
+/// 1 + 2.5 lean, none below about 6.7).
+fn jump_route(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>, man: Option<usize>) -> Option<V2> {
+    let p = pass.as_ref()?;
+    if p.thrown.is_some() {
+        return None;
+    }
+    let (w, ..) = p.commit?;
+    let me = sim.agents[i].pos;
+    let wp = sim.agents[w].pos;
+    if man.is_some_and(|m| m != w) || wp.dist(me) > 4.5 {
+        return None;
+    }
+    if !freelance_ok(sim, i, s.strictness[1], s.trust[1][sim.agents[i].p]) {
+        return None;
+    }
+    let lean = sim.lean(i, Tend::JumpRoutes);
+    if play_draw(sim, i, 1) > clamp(0.07 * (1.0 + 2.5 * lean), 0.0, 0.9) {
+        return None;
+    }
+    let antic = sim.agents[i].a(Attr::Anticipation);
+    let pr = sim.agents[i].a(Attr::PlayRecognition);
+    let p_right = clamp(0.35 + 0.012 * (antic - 60.0) + 0.006 * (pr - 60.0) - 0.25 * s.tac.double_moves, 0.1, 0.9);
+    let right = play_draw(sim, i, 2) < p_right;
+    let id = sim.agents[i].id;
+    if sim.notes.tend.jump.is_none() {
+        sim.notes.tend.jump = Some((id, right));
+    }
+    if !sim.notes.freelance.iter().any(|f| f.0 == id) {
+        sim.notes.freelance.push((id, false));
+    }
+    // Right, he reads where the ball is going (the spot the quarterback
+    // will lead his man to) and gets in front of it.
+    let (_, spot, _) = window(sim, qb, w);
+    let to_qb = (sim.agents[qb].pos - spot).norm();
+    Some(if right { spot + to_qb.scale(0.4) } else { wp + to_qb.scale(3.5) - sim.agents[w].vel.scale(0.8) })
+}
+
 #[allow(clippy::too_many_arguments)]
 fn cover(
     sim: &mut Sim,
@@ -3561,6 +3706,11 @@ fn cover_inner(
             // He runs with his man's (lagged) velocity and closes the gap to
             // his spot on top of that.
             let want = v + (spot - me).scale(2.0);
+            if let Some(j) = jump_route(sim, i, s, qb, pass, Some(target)) {
+                let vm = sim.agents[i].vmax;
+                sim.steer(i, (j - me).norm().scale(vm));
+                return;
+            }
             sim.steer(i, want);
             // Hand-fighting downfield can draw a flag (defensive holding,
             // illegal contact, illegal hands: real NFL about 0.65 a team game
@@ -3710,21 +3860,9 @@ fn cover_inner(
                     let pull = clamp(0.3 * held * bite * (ep.y - target.y), -4.0, 4.0);
                     target.y += pull;
                 }
-                // Jumping the route (topic 3.1): a gamble only smart, trusted players win.
-                if !deep
-                    && ep.dist(me) < 7.0
-                    && freelance_ok(sim, i, s.strictness[1], s.trust[1][sim.agents[i].p])
-                    && antic > 70.0
-                {
-                    let jump = 0.012 * (antic - 70.0) / 30.0;
-                    if sim.rng.chance(jump) {
-                        let id = sim.agents[i].id;
-                        if !sim.notes.freelance.iter().any(|f| f.0 == id) {
-                            sim.notes.freelance.push((id, false));
-                        }
-                        let under = ep + (q - ep).norm().scale(0.8);
-                        target = under;
-                    }
+                // Jumping the route (topic 3.1, tendencies): see `jump_route`.
+                if !deep && let Some(j) = jump_route(sim, i, s, qb, pass, None) {
+                    target = j;
                 }
             }
             if super::sim::TRACE.load(std::sync::atomic::Ordering::Relaxed)
@@ -3880,7 +4018,14 @@ fn catch_point(
     if let Some(d) = dbest {
         let da = sim.agents[d].clone();
         let reacted = sim.t >= da.ball_react;
-        let d_reach = 1.05 + 0.012 * (sim.player(d).height - 72.0) + 0.004 * (da.a(Attr::Jumping) - 50.0);
+        // A route jumper who broke on the throw runs through the catch
+        // point at speed, square to the ball: more reach, and a real chance
+        // to pick it (proposed, not confirmed).
+        let broke = sim.notes.tend.jump == Some((da.id, true));
+        let d_reach = 1.05
+            + 0.012 * (sim.player(d).height - 72.0)
+            + 0.004 * (da.a(Attr::Jumping) - 50.0)
+            + if broke { 0.6 } else { 0.0 };
         if dd < d_reach && reacted {
             let cov = da.a(Attr::ManCoverage).max(da.a(Attr::ZoneCoverage));
             let closeness = 1.0 - dd / d_reach;
@@ -3890,9 +4035,12 @@ fn catch_point(
                 // trailing with his back turned mostly plays through the hands.
                 let sees_ball = da.face.dot((from - da.pos).norm()) > 0.0;
                 let p_int = clamp(
-                    0.22 * closeness * (0.45 + da.a(Attr::Catching) / 110.0) * if sees_ball { 1.0 } else { 0.45 },
+                    0.22 * closeness
+                        * (0.45 + da.a(Attr::Catching) / 110.0)
+                        * if sees_ball || broke { 1.0 } else { 0.45 }
+                        * if broke { 3.5 } else { 1.0 },
                     0.0,
-                    0.6,
+                    0.7,
                 );
                 if sim.rng.chance(p_int) {
                     return Catch::Intercepted(d);
@@ -3941,6 +4089,12 @@ fn catch_point(
     if dd < 1.4 {
         let fight = 0.5 * ra.a(Attr::ContestedCatch) + 0.25 * ra.a(Attr::Strength) + 0.25 * ra.a(Attr::Jumping);
         p *= 1.0 - 0.32 * (1.0 - dd / 1.4) * (1.25 - fight / 100.0);
+        // Over the middle with a hitter arriving, one who avoids contact
+        // short-arms it (tendencies: contact willingness).
+        let middle = (to.y - MID).abs() < 9.0;
+        if middle {
+            p *= 1.0 - 0.12 * (1.0 - dd / 1.4) * (-sim.lean(r, Tend::Contact)).max(0.0);
+        }
     }
     if s.cond.rain || s.cond.snow {
         p *= 0.97;
