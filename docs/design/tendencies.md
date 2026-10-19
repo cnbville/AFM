@@ -6,7 +6,11 @@ after the 67-attribute build. The round ran the same evening in four topics.
 Everything here is confirmed: topics 1-4, then the six coaching styles
 Raichel asked for at the end ("agreed on all", 21:59).
 
-Not built yet. The build section at the end says what the build must prove.
+Built 2026-10-19 (thread "Tendencies build"). How it works and what each
+tendency measured against the real spread: `docs/match-engine.md`, "Player
+tendencies"; the world side (birth, development, styles, scouting):
+`docs/world-model.md`, "Player tendencies". The build's own picks are listed
+there as proposed, not confirmed.
 
 ## Raichel's words
 

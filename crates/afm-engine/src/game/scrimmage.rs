@@ -3598,7 +3598,7 @@ fn play_draw(sim: &Sim, i: usize, salt: u64) -> f64 {
 /// three yards short of where the ball goes and finds it late. His coach's
 /// strictness and trust still decide whether he may (proposed, not
 /// confirmed: chance a throw near him 0.07 at an average tendency, times
-/// 1 + 2.5 lean, none below about 6.7).
+/// 1 + 4 lean, none below about 8).
 fn jump_route(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>, man: Option<usize>) -> Option<V2> {
     let p = pass.as_ref()?;
     if p.thrown.is_some() {
@@ -3614,7 +3614,7 @@ fn jump_route(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>,
         return None;
     }
     let lean = sim.lean(i, Tend::JumpRoutes);
-    if play_draw(sim, i, 1) > clamp(0.07 * (1.0 + 2.5 * lean), 0.0, 0.9) {
+    if play_draw(sim, i, 1) > clamp(0.07 * (1.0 + 4.0 * lean), 0.0, 0.9) {
         return None;
     }
     let antic = sim.agents[i].a(Attr::Anticipation);
