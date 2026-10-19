@@ -502,6 +502,9 @@ fn exhausted(p: &Person, draft_year: i32, five_in_five: bool) -> bool {
 /// drives bowl opt-outs and each underclassman's January choice, which he
 /// makes now and acts on by the deadlines.
 pub(crate) fn draft_reads(w: &mut World) {
+    // The clubs' fall (section 7): school calls on the spring list (last
+    // December's reads), then cross-checks, before the reads are redone.
+    super::pro::scouts::fall(w);
     let year = w.year;
     let draft_year = year + 1;
     let five = w.changes.rules(draft_year).five_in_five;
@@ -643,7 +646,10 @@ fn declare_chance(p: &Person, round: u32, draft_year: i32) -> f64 {
         _ => 1.0e6,
     };
     let stay_pay = if super::ncaa::nil_era(draft_year - 1) { p.nil_income } else { 0.0 };
-    chance * clamp(1.0 - 0.6 * stay_pay / rookie_year, 0.25, 1.0)
+    // Section 6 topic 1: an ambitious player goes sooner (proposed, not
+    // confirmed: up to a quarter more or less likely).
+    let ambition = 1.0 + 0.25 * p.player.personality.traits.z(crate::player::Trait::Ambition);
+    clamp(chance * clamp(1.0 - 0.6 * stay_pay / rookie_year, 0.25, 1.0) * ambition, 0.0, 0.97)
 }
 
 /// The NFL's College Advisory Committee returns its grades in mid-December
@@ -846,6 +852,9 @@ pub(crate) fn declarations(w: &mut World, phase: Declare) {
 /// The NFL combine invite list (A10): the best of the draft pool, by the
 /// staffs' December reads (about 320 a year).
 pub(crate) fn combine_invites(w: &mut World) {
+    // The declared underclassmen were on nobody's spring list: the clubs
+    // write them up from film now (section 7, topic 3).
+    super::pro::scouts::underclassmen(w);
     let mut pool: Vec<(f64, usize)> = w
         .people
         .iter()
@@ -875,15 +884,17 @@ pub(crate) fn combine_invites(w: &mut World) {
     }
 }
 
-/// The combine (A10, A11): measured speed, explosion and strength move a
-/// prospect's grade a little: a workout warrior rises, a slow tester falls.
-/// Proposed, not confirmed: up to about 1.5 grade points either way.
+/// The combine (A10, A11): the measurements and interviews go into every
+/// club's file (section 7, topic 10: the flat grade shift is gone, so a
+/// club that knew a player learns little and one that didn't learns a
+/// lot). The best testers at each position make the news.
 pub(crate) fn combine(w: &mut World) {
     use crate::attributes::Attr;
     let invited: Vec<usize> = (0..w.people.len()).filter(|&i| w.people[i].cal.combine_invite).collect();
     if invited.is_empty() {
         return;
     }
+    super::pro::scouts::combine(w, &invited);
     let test = |p: &Person| {
         let a = &p.player.attributes;
         (a[Attr::Speed] + a[Attr::Acceleration] + a[Attr::Agility] + a[Attr::Strength]) / 4.0
@@ -904,16 +915,10 @@ pub(crate) fn combine(w: &mut World) {
     for &i in &invited {
         let p = &mut w.people[i];
         let (m, sd) = stats[&p.player.position];
-        let z = (test(p) - m) / sd;
-        if let Some(r) = p.cal.draft_read.as_mut() {
-            let shift = clamp(0.6 * z, -1.5, 1.5);
-            r.grade += shift;
-            r.score += shift;
-            if z >= 1.8 {
-                risers.push(i);
-                let age = p.row_age();
-                p.note(format!("Tested among the best at his position at the combine at {age}."));
-            }
+        if (test(p) - m) / sd >= 1.8 {
+            risers.push(i);
+            let age = p.row_age();
+            p.note(format!("Tested among the best at his position at the combine at {age}."));
         }
     }
     if let Some(&i) = risers.first() {
@@ -1043,6 +1048,13 @@ pub(crate) fn all_star_invites(w: &mut World, game: &'static str) {
 /// January deadline plays as a college player still.
 pub(crate) fn all_star_game(w: &mut World, game: &'static str) {
     let mut n = 0;
+    let players: Vec<usize> = (0..w.people.len())
+        .filter(|&i| {
+            let p = &w.people[i];
+            p.cal.all_star == Some(game) && matches!(p.stage, Stage::Declared | Stage::College)
+        })
+        .collect();
+    super::pro::scouts::all_star(w, game, &players);
     for p in w
         .people
         .iter_mut()
@@ -1117,77 +1129,94 @@ pub(crate) fn draft(w: &mut World) {
         })
         .collect();
     pool.sort_by(|a, b| b.1.total_cmp(&a.1));
-    let mut boards: Vec<std::collections::HashMap<usize, f64>> = vec![Default::default(); w.nfl.len()];
+    // Each club picks from its own board, read from its own scouts' files
+    // (section 7, topic 9); the public grade only fills in what it barely saw.
+    let club_boards = super::pro::scouts::boards(w, &pool, &align);
+    let public_rank = super::pro::scouts::public_ranks(&pool);
     let mut picked: Vec<(usize, u32, usize, String)> = Vec::new();
+    let mut traded_up: std::collections::HashSet<u32> = Default::default();
+    // Draft-day trades: (buyer, seller, pick, what was given, future pick).
+    let mut swaps: Vec<(usize, usize, u32, String, Option<u32>)> = Vec::new();
+    let mut slides: Vec<(usize, usize, u32)> = Vec::new();
     for pick in 1..=slots as u32 {
         if pool.is_empty() {
             break;
         }
-        // A team with a young franchise QB holding a top-5 pick in a class with a
-        // first-round QB trades down to a team that needs one (the Rams for Goff
-        // in 2016, the Panthers for Young in 2023).
-        let mut traded_up = false;
-        if pick <= 5 {
-            let slot = pick as usize - 1;
-            let holder = board[slot].0;
-            let best_qb = pool.iter().take(60).find(|e| w.people[e.0].player.position == Position::QB).map(|e| e.1);
-            if crate::career::need(&w.nfl[holder], Position::QB) <= -8.0 && best_qb.is_some_and(|g| g >= 80.0) {
-                let end = (slot + 11).min(board.len());
-                if let Some(k) = (slot + 1..end).find(|&k| crate::career::need(&w.nfl[board[k].0], Position::QB) >= 0.0)
-                {
-                    let (a, b) = (board[slot].0, board[k].0);
-                    board[slot].0 = b;
-                    board[k].0 = a;
-                    traded_up = true;
-                }
-            }
-        }
-        let (t, round) = board[pick as usize - 1];
+        let slot = pick as usize - 1;
+        let round = board[slot].1;
         let rf = match round {
             1 | 2 => 1.0,
             3 | 4 => 0.6,
             _ => 0.3,
         };
-        let noise_sd = crate::career::draft_board_noise(w.nfl[t].draft_skill);
-        // The GM's style (trial 4 topic 6.5): some draft for need, some
-        // take the best player left (proposed, not confirmed: a need weight
-        // from 0.5 to 1.5, his own for his career).
-        let style = 0.5 + key_uniform(0xD4A7, w.nfl[t].id as u64);
-        let mut best: Option<(usize, f64, f64, f64)> = None;
-        for (idx, &(i, g)) in pool.iter().enumerate().take(60) {
+        // A club's value of a prospect at this pick (value, position worth,
+        // need, board grade), or None if it won't take him.
+        let parts = |t: usize, i: usize| -> Option<(f64, f64, f64, f64)> {
+            let b = club_boards.get(t)?;
+            if b.dnd.contains(&i) {
+                return None;
+            }
+            let g = *b.grade.get(&i)?;
             let pos = w.people[i].player.position;
-            // Scouts disagree more about a quarterback (topic 6.3): how he
-            // reads a pro defense is the hardest thing to project.
-            let risk = if pos == Position::QB { 1.3 } else { 1.0 };
-            let off = *boards[t].entry(i).or_insert_with(|| risk * noise_sd * w.rng.normal(0.0, 1.0));
-            let need = crate::career::need(&w.nfl[t], pos) * if round <= 2 { 0.5 } else { 1.0 } * style;
+            // Kickers, punters and long snappers: a team drafts one only when its
+            // own is below par or aging, and even then most are found after the
+            // draft (fix list 1.11; proposed, not confirmed).
+            let need_here = crate::career::need(&w.nfl[t], pos);
+            if pos.is_specialist() && need_here <= 0.0 {
+                return None;
+            }
+            // The GM's style (trial 4 topic 6.5): some draft for need, some
+            // take the best player left (proposed, not confirmed: a need weight
+            // from 0.5 to 1.5, his own for his career).
+            let style = 0.5 + key_uniform(0xD4A7, w.nfl[t].id as u64);
+            let need = need_here * if round <= 2 { 0.5 } else { 1.0 } * style;
             // A quarterback's premium is about need: a team happy with its starter
             // doesn't spend a first-round pick on another.
             // At the very top any team without a franchise QB takes the best one.
             let top_qb = clamp(1.0 - (pick as f64 - 1.0) / 8.0, 0.0, 1.0);
-            let qb_gate = if pos == Position::QB {
-                clamp((crate::career::need(&w.nfl[t], pos) + 2.0) / 4.0, 0.2, 1.0).max(top_qb)
-            } else {
-                1.0
-            };
-            // Kickers, punters and long snappers: a team drafts one only when its
-            // own is below par or aging, and even then most are found after the
-            // draft (fix list 1.11; proposed, not confirmed).
-            if pos.is_specialist() && crate::career::need(&w.nfl[t], pos) <= 0.0 {
-                continue;
-            }
+            let qb_gate = if pos == Position::QB { clamp((need_here + 2.0) / 4.0, 0.2, 1.0).max(top_qb) } else { 1.0 };
             let pv = draft_position_value(pos, g) * rf * qb_gate - specialist_draft_discount(pos);
             // At the very top, a great player at a lesser position is worth less than
             // his grade says: a generational WR or safety rarely goes first.
             let lesser = !matches!(pos, Position::QB | Position::EDGE | Position::OT);
             let top = clamp(1.0 - (pick as f64 - 1.0) / 10.0, 0.0, 1.0);
-            let damp = if lesser { 0.35 * (g + off - 85.0).max(0.0) * top } else { 0.0 };
-            let v = g + off + pv + need - damp;
+            let damp = if lesser { 0.35 * (g - 85.0).max(0.0) * top } else { 0.0 };
+            Some((g + pv + need - damp, pv, need, g))
+        };
+        let value = |t: usize, i: usize| parts(t, i).map(|x| x.0);
+        // Clubs look at the best few hundred left by the public boards
+        // (their own sleepers among them).
+        let left: Vec<usize> = pool.iter().take(300).map(|x| x.0).collect();
+        // A trade on the clock (topic 11), from each GM's chart, his tier
+        // and a rival's need.
+        if let Some(sw) = super::pro::scouts::trade_on_clock(w, &board, slot, &left, &value) {
+            board[slot].0 = sw.buyer;
+            board[sw.their_slot].0 = sw.seller;
+            let mut what = format!("pick {}", sw.their_slot + 1);
+            let mut future = None;
+            match sw.extra {
+                Some(super::pro::scouts::Extra::Slot(q)) => {
+                    board[q].0 = sw.seller;
+                    what += &format!(" and pick {}", q + 1);
+                }
+                Some(super::pro::scouts::Extra::Future(r)) => {
+                    future = Some(r);
+                    what += &format!(" and a {} round {r} pick", draft_year + 1);
+                }
+                None => {}
+            }
+            swaps.push((sw.buyer, sw.seller, pick, what, future));
+            traded_up.insert(pick);
+        }
+        let t = board[slot].0;
+        let mut best: Option<(usize, f64, f64, f64, f64)> = None;
+        for (idx, &(i, _)) in pool.iter().enumerate().take(300) {
+            let Some((v, pv, need, g)) = parts(t, i) else { continue };
             if best.is_none_or(|b| v > b.1) {
-                best = Some((idx, v, pv, need));
+                best = Some((idx, v, pv, need, g));
             }
         }
-        let Some((idx, _, pv, need)) = best else { break };
+        let Some((idx, _, pv, need, g)) = best else { break };
         // 3.16 an owner who overrules the draft room in round one for a big
         // name or a local hero (proposed, not confirmed: up to 15% of a
         // meddler's first-round picks).
@@ -1211,13 +1240,14 @@ pub(crate) fn draft(w: &mut World) {
             }
             _ => idx,
         };
-        let (i, g) = pool.remove(idx);
+        let (i, public) = pool.remove(idx);
+        let g = if overruled { club_boards[t].grade.get(&i).copied().unwrap_or(public) } else { g };
         let pos = w.people[i].player.position;
         let team = &w.nfl[t];
         let why = if overruled {
             "the owner overruled the draft room for a name he wanted".to_string()
-        } else if traded_up && pos == Position::QB {
-            format!("they traded up to pick {pick} to take their quarterback")
+        } else if traded_up.contains(&pick) {
+            format!("they traded up to pick {pick} to take him")
         } else if need >= 1.0 {
             let weakest = team.weakest_starter(pos).map_or(0.0, |x| x.0);
             format!(
@@ -1233,9 +1263,11 @@ pub(crate) fn draft(w: &mut World) {
         } else {
             "he was the best player left on their board".to_string()
         };
-        let why = format!("{why}; board grade {g:.1}");
+        let rank = public_rank.get(&i).copied().unwrap_or(usize::MAX);
+        let why = format!("{why}; their board grade {g:.1}, public {public:.1} ({})", ordinal_rank(rank));
         let player = &w.people[i].player;
         w.nfl[t].depth[pos.index()].push(crate::league::Member::background(player.overall(), player.age));
+        slides.push((i, rank, pick));
         picked.push((i, pick, t, why));
     }
     // What it took to go in rounds 1-2 and 3-4 this year, as overall ratings:
@@ -1247,33 +1279,75 @@ pub(crate) fn draft(w: &mut World) {
         let at = |r: u32| drafted[end_of(r).min(drafted.len() - 1)];
         w.draft_bars = Some((at(2), at(4)));
     }
-    // Undrafted signings fill the room teams have left (part D 38, N63):
-    // every team signs the best players left above a lower bar until its
-    // offseason roster is full (proposed, not confirmed: an overall of 50).
-    let udfa = if w.clubs.is_empty() {
-        (slots as f64 * PIPELINE.udfa_ratio).round() as usize
+    for (i, rank, pick) in slides {
+        super::pro::scouts::note_slide(w, i, rank, pick);
+    }
+    // The trades on the clock, on the books and in the news.
+    let night = y.draft[0];
+    for (buyer, seller, pick, what, future) in swaps {
+        if let Some(r) = future {
+            super::pro::trades::give_pick(w, buyer, seller, draft_year + 1, r);
+        }
+        let text = format!(
+            "The {} trade up to pick {pick} with the {}, giving {what}.",
+            w.nfl[buyer].name, w.nfl[seller].name
+        );
+        let picks = future.map(|r| vec![(draft_year + 1, r, buyer)]).unwrap_or_default();
+        w.market.picks.trades.push(super::pro::trades::Trade {
+            date: night.date,
+            buyer,
+            seller,
+            player: u32::MAX,
+            picks,
+            text: text.clone(),
+        });
+        let my = w.market.year_mut(draft_year);
+        my.draft_trades += 1;
+        let loud = if pick <= 10 { Loudness::Medium } else { Loudness::Small };
+        w.calendar.post(Event::new(night.date, CalLevel::Nfl, Kind::Transfer, loud, text).team(buyer));
+    }
+    // The undrafted rush (topic 12): each club calls the best left on its
+    // own board with its bonus pool; each player picks his path.
+    let left: Vec<usize> = pool.iter().map(|x| x.0).collect();
+    let offers: Vec<(usize, super::pro::scouts::Offer)> = if w.clubs.is_empty() {
+        let n = ((slots as f64 * PIPELINE.udfa_ratio).round() as usize).min(left.len());
+        let cap = super::pro::money::price_cap(draft_year);
+        (0..n)
+            .map(|k| {
+                let wanted = 1.0 - k as f64 / n.max(1) as f64;
+                let bonus = cap * 0.0009 * wanted * wanted + cap * 0.00002;
+                let t = super::pro::undrafted_team(w, left[k]);
+                (left[k], super::pro::scouts::Offer { team: t, bonus, guarantee: 0.0 })
+            })
+            .collect()
     } else {
         let limit = w.rules.nfl_offseason as usize;
-        let room: usize = (0..w.clubs.len())
-            .filter(|&t| super::franchise::active(t, draft_year))
-            .map(|t| limit.saturating_sub(w.clubs[t].roster.len() + picked.iter().filter(|x| x.2 == t).count()))
-            .sum();
-        let able = pool.iter().filter(|x| w.people[x.0].player.overall() >= 50.0).count();
-        room.min(able)
+        let mut room: Vec<usize> = (0..w.nfl.len())
+            .map(|t| {
+                if t < w.clubs.len() && super::franchise::active(t, draft_year) {
+                    limit.saturating_sub(w.clubs[t].roster.len() + picked.iter().filter(|x| x.2 == t).count())
+                } else {
+                    0
+                }
+            })
+            .collect();
+        super::pro::scouts::rush(w, &club_boards, &left, &mut room)
     };
+    let udfa = offers.len();
+    w.market.year_mut(draft_year).udfa_signed += udfa as u32;
+    let by_offer: std::collections::HashMap<usize, super::pro::scouts::Offer> = offers.into_iter().collect();
     // Each signee, with his pick, team and why (None for an undrafted signing).
-    // Undrafted signees carry how eagerly teams chased them (0-1, the
-    // best of the rest first): what their signing bonus reflects.
     type Drafted = Option<(u32, usize, String)>;
-    let mut signed: Vec<(usize, Drafted, f64)> =
-        picked.into_iter().map(|(i, pk, t, why)| (i, Some((pk, t, why)), 1.0)).collect();
-    for (k, &(i, _)) in pool.iter().enumerate() {
-        if k < udfa {
-            signed.push((i, None, 1.0 - k as f64 / udfa.max(1) as f64));
-        } else {
-            let p = &mut w.people[i];
-            p.stage = Stage::Done;
-            p.note("Went undrafted and unsigned, and his football career ended.");
+    let mut signed: Vec<(usize, Drafted, Option<super::pro::scouts::Offer>)> =
+        picked.into_iter().map(|(i, pk, t, why)| (i, Some((pk, t, why)), None)).collect();
+    for &(i, _) in pool.iter() {
+        match by_offer.get(&i) {
+            Some(&o) => signed.push((i, None, Some(o))),
+            None => {
+                let p = &mut w.people[i];
+                p.stage = Stage::Done;
+                p.note("Went undrafted and unsigned, and his football career ended.");
+            }
         }
     }
     // The picks on their hours (T1.5): round 1 Thursday night, 2-3 Friday,
@@ -1289,7 +1363,7 @@ pub(crate) fn draft(w: &mut World) {
         }
     };
     let mut events: Vec<Event> = Vec::new();
-    for (i, how, wanted) in signed {
+    for (i, how, offer) in signed {
         let c = w.people[i].college.unwrap();
         let school = w.program_name(c).to_string();
         let pick = how.as_ref().map(|h| h.0);
@@ -1306,8 +1380,8 @@ pub(crate) fn draft(w: &mut World) {
         credit_impact(w, i, c, weight, season);
         let team_name = how.as_ref().map(|h| w.nfl[h.1].name);
         let team_id = how.as_ref().map(|h| h.1);
-        // An undrafted player signs where his path to the 53 looks clearest.
-        let udfa_team = how.is_none().then(|| super::pro::undrafted_team(w, i));
+        // An undrafted player signs where the rush took him.
+        let udfa_team = offer.map(|o| o.team);
         let udfa_name = udfa_team.map_or("", |t| w.nfl[t].name);
         let p = &mut w.people[i];
         p.stage = Stage::Pro;
@@ -1341,7 +1415,11 @@ pub(crate) fn draft(w: &mut World) {
         }
         match (team_id, pick, round, udfa_team) {
             (Some(t), Some(pk), Some(r), _) => super::pro::join_drafted(w, i, t, draft_year, pk, r),
-            (_, _, _, Some(t)) => super::pro::join_undrafted(w, i, t, draft_year, wanted),
+            (_, _, _, Some(t)) => {
+                let o = offer.unwrap();
+                let terms = super::pro::money::undrafted_offer(draft_year, o.bonus, o.guarantee);
+                super::pro::join_undrafted(w, i, t, draft_year, &terms)
+            }
             _ => {}
         }
     }
@@ -1352,7 +1430,24 @@ pub(crate) fn draft(w: &mut World) {
     w.calendar
         .post(Event::new(y.udfa_rush.date, CalLevel::Nfl, Kind::Signing, Loudness::Medium, udfa_text).at(y.udfa_rush));
     super::pro::after_draft(w);
+    super::pro::scouts::after_rush(w);
     super::franchise::clear_dark(w);
+}
+
+/// "12th on the public boards", or "unranked" for a player outside them.
+fn ordinal_rank(rank: usize) -> String {
+    if rank == usize::MAX {
+        return "unranked publicly".to_string();
+    }
+    let n = rank + 1;
+    let suffix = match (n % 10, n % 100) {
+        (1, 11) | (2, 12) | (3, 13) => "th",
+        (1, _) => "st",
+        (2, _) => "nd",
+        (3, _) => "rd",
+        _ => "th",
+    };
+    format!("{n}{suffix} on the public boards")
 }
 
 // --- Recruiting ---------------------------------------------------------------------
@@ -3371,12 +3466,19 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         .par_iter()
         .zip(plans.par_iter())
         .map(|(prog, plan)| {
-            let rec_skill = prog.head_coach.map_or(10.0, |c| coaches[c].ability().recruiting);
+            // The staff's evaluators (section 7, topic 14): the position
+            // coach of each recruit's group and the head coach, each with
+            // his own eye and his own lasting lean on the kid.
+            let hc_eye = prog.head_coach.map(|c| (coaches[c].evaluation(), coaches[c].id as u64));
+            let eyes: Vec<Option<(f64, u64)>> = prog
+                .position_coaches
+                .iter()
+                .map(|pc| pc.map(|c| (coaches[c].evaluation(), coaches[c].id as u64)))
+                .collect();
             // A head coach on the hot seat: recent results under expectation.
             let pressure = prog
                 .head_coach
                 .map_or(0.0, |c| clamp(-3.0 * coaches[c].recent.last().copied().unwrap_or(0.0), 0.0, 1.0));
-            let noise_sd = clamp(3.5 - 0.15 * (rec_skill - 10.0), 1.0, 6.0);
             let pseed = seed ^ (prog.id as u64).wrapping_mul(0x1000_0001);
             // The staff's own ties to high schools, carried from their old jobs (note 4).
             let mut ties: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
@@ -3423,7 +3525,14 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 if special && (tier != Eligibility::Qualifier || !c.grows_out || prog.special_admits == 0) {
                     continue;
                 }
-                let read = |k: u64| noise_sd * key_normal(pseed.wrapping_add(k), c.id);
+                let g = super::coach::Group::of(c.pos) as usize;
+                let (he, _) = hc_eye.unwrap_or((10.0, pseed));
+                let (pe, pk) = eyes.get(g).copied().flatten().or(hc_eye).unwrap_or((10.0, pseed));
+                let noise_sd = clamp(3.5 - 0.15 * (0.6 * pe + 0.4 * he - 10.0), 1.0, 6.0);
+                let read = |k: u64| {
+                    noise_sd * (0.6 * key_normal(pk ^ 0xE7E0 ^ k, c.id) + 0.4 * key_normal(pseed.wrapping_add(k), c.id))
+                        / 0.7211
+                };
                 // Staffs offer on film more than on a service's projection,
                 // and value a player who suits what they run (S6; worth up
                 // to about a third of a standard deviation, proposed, not

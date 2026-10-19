@@ -323,6 +323,11 @@ pub struct Program {
     /// What its games have shown (plays and tactics topics 5.1 and 7.7):
     /// this season's tape, and last season's at less weight.
     pub film: crate::game::Film,
+    /// Section 6: the support staff's heads, the room's mood (-1 to 1) and
+    /// this year's captains.
+    pub support: super::people::Support,
+    pub team_mood: f32,
+    pub captains: Vec<usize>,
 }
 
 /// A school single-season record (A40).
@@ -545,6 +550,9 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
         era: Default::default(),
         installed: Default::default(),
         film: Default::default(),
+        support: Default::default(),
+        team_mood: 0.0,
+        captains: Vec::new(),
     };
     p.prestige = prestige_of(&p, 10.0, 0.5);
     p

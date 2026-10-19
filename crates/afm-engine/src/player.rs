@@ -41,6 +41,131 @@ pub struct Personality {
     pub competitiveness: f64,
     /// Love of the game and durability of mind: some keep playing through the grind, others walk away early.
     pub love_of_game: f64,
+    /// Section 6 topic 1: the traits read off the field, one byte each.
+    pub traits: Traits,
+}
+
+/// Section 6 topic 1 (`docs/design/people.md`): the hidden traits beside
+/// the four above, 1-20 each, stored as one byte. Drawn at 14 with real
+/// correlations (Big Five meta-analyses, about 0.2-0.4; the sizes are
+/// proposed, not confirmed) and maturing with age and events.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub struct Traits {
+    /// Pushes for more: a bigger stage, a starting job, the big contract.
+    pub ambition: u8,
+    /// Stays with his team, coach, school and town.
+    pub loyalty: u8,
+    /// How much money counts against everything else.
+    pub greed: u8,
+    /// Off-field anger: rows with coaches, public fights, firing his agent.
+    pub temper: u8,
+    /// Needs the ball, the spotlight and the credit; swagger too.
+    pub ego: u8,
+    /// Others follow him; he steadies a room.
+    pub leadership: u8,
+    /// Judgment off the field: curfews, weight, rehab, study at home.
+    pub professionalism: u8,
+    /// Handles a new city, scheme, coach, level or culture.
+    pub adaptability: u8,
+}
+
+/// One of the traits, as a number for the code that reads them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Trait {
+    Ambition,
+    Loyalty,
+    Greed,
+    Temper,
+    Ego,
+    Leadership,
+    Professionalism,
+    Adaptability,
+}
+
+impl Traits {
+    pub fn get(&self, t: Trait) -> f64 {
+        (match t {
+            Trait::Ambition => self.ambition,
+            Trait::Loyalty => self.loyalty,
+            Trait::Greed => self.greed,
+            Trait::Temper => self.temper,
+            Trait::Ego => self.ego,
+            Trait::Leadership => self.leadership,
+            Trait::Professionalism => self.professionalism,
+            Trait::Adaptability => self.adaptability,
+        }) as f64
+    }
+    pub fn set(&mut self, t: Trait, v: f64) {
+        let v = clamp(round_half_up(v), 1.0, 20.0) as u8;
+        match t {
+            Trait::Ambition => self.ambition = v,
+            Trait::Loyalty => self.loyalty = v,
+            Trait::Greed => self.greed = v,
+            Trait::Temper => self.temper = v,
+            Trait::Ego => self.ego = v,
+            Trait::Leadership => self.leadership = v,
+            Trait::Professionalism => self.professionalism = v,
+            Trait::Adaptability => self.adaptability = v,
+        }
+    }
+    pub fn shift(&mut self, t: Trait, by: f64) {
+        let v = self.get(t) + by;
+        self.set(t, v);
+    }
+    /// Centred on 0 (10 is average): -1 at 0, +1 at 20.
+    pub fn z(&self, t: Trait) -> f64 {
+        (self.get(t) - 10.0) / 10.0
+    }
+
+    /// The draw at 14, keyed by the player (no draw from his stream, so
+    /// everything else about him stays as it was). Correlations (proposed,
+    /// not confirmed): professionalism with work ethic (0.35); temper
+    /// against loyalty (-0.25) and with ego (0.2); ego against
+    /// coachability (-0.3) and loyalty (-0.2), with competitiveness (0.2);
+    /// leadership with competitiveness and work ethic (0.2 each) and ego
+    /// (0.15); adaptability with coachability (0.2); greed against love of
+    /// the game (-0.2); ambition with competitiveness (0.3).
+    pub fn draw(key: u64, base: &Personality) -> Traits {
+        let n = |salt: u64| keyed_normal(key, salt);
+        let zs = |v: f64| (v - 10.0) / 3.5;
+        let (we, co, cp, love) =
+            (zs(base.work_ethic), zs(base.coachability), zs(base.competitiveness), zs(base.love_of_game));
+        let mix = |parts: &[(f64, f64)], salt: u64| {
+            let r: f64 = parts.iter().map(|x| x.0 * x.0).sum::<f64>();
+            let own = (1.0 - r).max(0.2).sqrt();
+            let z = parts.iter().map(|x| x.0 * x.1).sum::<f64>() + own * n(salt);
+            clamp(round_half_up(10.0 + 3.5 * z), 1.0, 20.0) as u8
+        };
+        let loyalty = mix(&[(0.15, love)], 2);
+        let lz = zs(loyalty as f64);
+        let ego = mix(&[(-0.3, co), (-0.2, lz), (0.2, cp)], 5);
+        let ez = zs(ego as f64);
+        Traits {
+            ambition: mix(&[(0.3, cp)], 1),
+            loyalty,
+            greed: mix(&[(-0.2, love)], 3),
+            temper: mix(&[(-0.25, lz), (0.2, ez)], 4),
+            ego,
+            leadership: mix(&[(0.2, cp), (0.2, we), (0.15, ez)], 6),
+            professionalism: mix(&[(0.35, we)], 7),
+            adaptability: mix(&[(0.2, co)], 8),
+        }
+    }
+}
+
+/// A normal draw from a key (order-independent, no stream consumed).
+pub(crate) fn keyed_normal(a: u64, b: u64) -> f64 {
+    let mut z = a.wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ b.wrapping_add(0x632B_E59B_D9B4_E019);
+    let mut next = || {
+        z = z.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut x = z;
+        x = (x ^ (x >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        x = (x ^ (x >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        ((x ^ (x >> 31)) >> 11) as f64 / (1u64 << 53) as f64
+    };
+    let u1 = next().max(1e-12);
+    let u2 = next();
+    (-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos()
 }
 
 /// Practice squad players train all year without playing; an unsigned free
@@ -398,7 +523,11 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
         // (proposed, not confirmed: correlation 0.6).
         competitiveness: clamp(round_half_up(10.0 + 3.5 * (0.6 * compete + 0.8 * rng.normal(0.0, 1.0))), 1.0, 20.0),
         love_of_game: trait_1_20(rng),
+        traits: Traits::default(),
     };
+    let mut personality = personality;
+    let key = (id as u64) << 20 ^ personality.work_ethic.to_bits() ^ attributes[Attr::Speed].to_bits().rotate_left(17);
+    personality.traits = Traits::draw(key, &personality);
     let tend = crate::tendencies::Tendencies::at_14(id, &ceilings, body.weight, body.height, &personality);
     Player {
         id,

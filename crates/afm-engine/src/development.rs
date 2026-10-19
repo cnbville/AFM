@@ -45,6 +45,15 @@ pub struct SeasonContext {
     /// How far what his tools support sits from the middle on average at
     /// his position and level (`tendencies::Centres`); zero: read raw.
     pub tend_centre: [f64; crate::tendencies::TEND_COUNT],
+    /// Section 6 topics 3 and 4: his mood and his room's, -1 to 1. It moves
+    /// practice effort, so growth (proposed, not confirmed: up to 10%).
+    pub morale: f64,
+    /// Section 6 topics 1 and 10: the strength staff and his own
+    /// professionalism, -1 to 1: the physical side of growth (up to 8%).
+    pub physical: f64,
+    /// Section 6 topic 10: the medical staff, -1 to 1: how fast he comes
+    /// back from a minor or moderate injury (up to 15%).
+    pub medical: f64,
 }
 
 impl SeasonContext {
@@ -61,6 +70,9 @@ impl SeasonContext {
             style: None,
             scheme: None,
             tend_centre: [0.0; crate::tendencies::TEND_COUNT],
+            morale: 0.0,
+            physical: 0.0,
+            medical: 0.0,
         }
     }
 }
@@ -240,7 +252,11 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         // Some bodies heal faster (hidden recovery; proposed, not confirmed:
         // up to about a quarter quicker or slower than average).
         if severity != Ev::MajorInjury {
-            games_missed = round_half_up(games_missed as f64 * (1.3 - 0.03 * player.game.recovery)) as u32;
+            games_missed = round_half_up(
+                games_missed as f64
+                    * (1.3 - 0.03 * player.game.recovery)
+                    * (1.0 - 0.15 * clamp(ctx.medical, -1.0, 1.0)),
+            ) as u32;
         }
         if no_games {
             games_missed = 0;
@@ -535,6 +551,8 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     let development_age = age - player.bloom;
     // Coachability scales how far coaching moves him from average, good or bad.
     let coaching_boost = 1.0 + (coaching_mult - 1.0) * coachability_lean;
+    let morale_mult = 1.0 + 0.10 * clamp(ctx.morale, -1.0, 1.0);
+    let physical_mult = 1.0 + 0.08 * clamp(ctx.physical, -1.0, 1.0);
     let mut settling = [false; ATTRIBUTE_COUNT];
     for key in Attr::ALL {
         let profile = &ATTRIBUTE_PROFILES[key.index()];
@@ -565,7 +583,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
                 * form
                 * growth_multiplier
                 * redshirt_lift
-                * hs_lag,
+                * hs_lag
+                * morale_mult
+                * if profile.group == AttributeGroup::Physical { physical_mult } else { 1.0 },
             0.0,
             0.5,
         );

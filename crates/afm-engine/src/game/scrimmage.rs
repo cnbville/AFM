@@ -821,6 +821,37 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             }
         }
 
+        // Combination blocks: the man with a linebacker to climb to leaves
+        // the double team once the down lineman is controlled, when his
+        // linebacker comes downhill at it, or after a second at most
+        // (fix list S6.1; proposed, not confirmed).
+        for i in 0..off_n {
+            let Some(lb) = sim.agents[i].climb else { continue };
+            let Some(k) = sim.agents[i].engaged else { continue };
+            let e = &sim.eng[k];
+            if e.over {
+                sim.agents[i].climb = None;
+                continue;
+            }
+            let Some(h) = e.helper else { continue };
+            if !sim.agents[lb].up(t) || sim.agents[lb].engaged.is_some() {
+                // His linebacker is taken: he stays on the double team.
+                sim.agents[i].climb = None;
+                continue;
+            }
+            let held = t - e.start;
+            let lbp = sim.agents[lb].pos;
+            let downhill = (lbp.x - los) * sim.goal < 2.0 || lbp.dist(sim.agents[i].pos) < 2.5;
+            if (e.w < -0.15 && held > 0.35) || held > 1.0 || downhill {
+                if e.blocker == i {
+                    sim.eng[k].blocker = h;
+                }
+                sim.eng[k].helper = None;
+                sim.agents[i].engaged = None;
+                sim.agents[i].climb = None;
+                sim.agents[i].job = Job::RunBlock { target: Some(lb), pull: false };
+            }
+        }
         // ---- offense
         for i in 0..off_n {
             if !sim.agents[i].up(t) || sim.agents[i].engaged.is_some() {
@@ -1018,7 +1049,8 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 }
                 Job::RunBlock { target, pull } => {
                     let c = sim.carrier();
-                    match target.filter(|&d| sim.agents[d].up(t) && sim.agents[d].engaged.is_none()) {
+                    let combo = sim.agents[i].climb.is_some();
+                    match target.filter(|&d| sim.agents[d].up(t) && (sim.agents[d].engaged.is_none() || combo)) {
                         Some(d) => {
                             let dp = sim.agents[d].pos;
                             // Get between him and the ball.
@@ -1054,7 +1086,11 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                                 && sim.lands_block(i, d)
                             {
                                 sim.engage(i, d, false);
-                                sim.agents[i].job = Job::RunBlock { target: None, pull: false };
+                                // A double team already full: he goes on to
+                                // his linebacker.
+                                let next =
+                                    if sim.agents[i].engaged.is_none() { sim.agents[i].climb.take() } else { None };
+                                sim.agents[i].job = Job::RunBlock { target: next, pull: false };
                             }
                         }
                         None => {
@@ -2118,6 +2154,43 @@ fn run_blocking(sim: &mut Sim, off_n: usize, roles: &[Option<ORole>], rc: RunCon
                 sim.agents[b].pos.y,
                 t.map(|d| (sim.agents[d].label, sim.agents[d].pos.x, sim.agents[d].pos.y))
             );
+        }
+    }
+    // Combination blocks (fix list S6.1): an uncovered lineman sent to a
+    // linebacker first helps the covered man beside him (play side first)
+    // on his down lineman, and climbs to his linebacker once the down man
+    // is controlled or the linebacker comes downhill. Zone and duo run
+    // two, the gap runs one at the point of attack (proposed, not
+    // confirmed).
+    let combos = match rc {
+        RunConcept::InsideZone | RunConcept::ZoneRead | RunConcept::Duo | RunConcept::Draw => 2,
+        RunConcept::OutsideZone | RunConcept::Power | RunConcept::Counter | RunConcept::Iso => 1,
+        _ => 0,
+    };
+    let mut made = 0;
+    let mut doubled: Vec<usize> = Vec::new();
+    for k in 0..line.len() {
+        if made >= combos {
+            break;
+        }
+        let b = line[k];
+        let Job::RunBlock { target: Some(lb), pull: false } = sim.agents[b].job else { continue };
+        if sim.agents[lb].pos.x < sim.los + 2.5 {
+            continue;
+        }
+        for nb in [k.checked_sub(1), Some(k + 1)].into_iter().flatten() {
+            let Some(&a) = line.get(nb) else { continue };
+            if let Job::RunBlock { target: Some(d), pull: false } = sim.agents[a].job
+                && sim.agents[d].pos.x < sim.los + 2.5
+                && matches!(sim.agents[d].label, "DT" | "NT" | "DE")
+                && !doubled.contains(&d)
+            {
+                sim.agents[b].job = Job::RunBlock { target: Some(d), pull: false };
+                sim.agents[b].climb = Some(lb);
+                doubled.push(d);
+                made += 1;
+                break;
+            }
         }
     }
     // Pullers kick out or lead on whoever is left at the point of attack.

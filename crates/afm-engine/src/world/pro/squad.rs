@@ -27,7 +27,10 @@ pub(crate) fn protected_count(year: i32) -> usize {
 }
 
 fn healthy(w: &World, i: usize, status: Status) -> bool {
-    w.people[i].pro.as_ref().is_some_and(|c| c.status == status && c.out_weeks == 0)
+    w.people[i]
+        .pro
+        .as_ref()
+        .is_some_and(|c| c.status == status && c.out_weeks == 0 && crate::world::people::available(c))
 }
 
 fn elevations_used(w: &World, i: usize) -> u32 {

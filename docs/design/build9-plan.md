@@ -4,6 +4,10 @@ Thread "Full build and trial 9", started 2026-10-19 21:21 from Cain's message: "
 
 Specs: `docs/design/team-management.md` (section 5), `docs/design/people.md` (section 6), `docs/design/scouting.md` (section 7), the fix list at the top of `docs/design/fix-list.md` (S6.1-S6.3, built with section 6 by Cain's ask), decisions in `docs/handoff/decisions.md` sections 13 and 14.
 
+## Status
+
+Steps 1-3 built 2026-10-19 (PR #59). The linebacker gap fits planned for S6.1 were tried and dropped (they lowered linebackers' tackles); combination blocks alone are built. S6.2 is partly fixed: NFL plays out of bounds 1.6% to 5.3% (real 10.7%); the rest is route and run geometry, listed for Raichel (`docs/match-engine.md`, "Fix list S6.1 and S6.2").
+
 ## The split
 
 Sections 6 and 7 are mostly about people the world runs on, and partly about your own screens. As with section 5, the build splits three ways:

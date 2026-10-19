@@ -26,6 +26,7 @@ pub mod names;
 pub mod ncaa;
 pub mod news;
 mod nfl_year;
+pub mod people;
 pub mod pro;
 pub mod program;
 pub mod records;
@@ -184,6 +185,14 @@ pub struct Person {
     pub cal: PersonCal,
     /// His pro career (section 5): None until he joins the league.
     pub pro: Option<Box<pro::ProCareer>>,
+    /// Section 6 topic 3: his mood, -1 to 1 (0 is his own baseline), and
+    /// the main reason behind it (`people::Why`).
+    pub mood: f32,
+    pub mood_why: u8,
+    /// His trust in his head coach, 0-1, and which coach it is (a new head
+    /// coach starts it fresh).
+    pub trust: f32,
+    pub trust_in: u32,
 }
 
 /// The draft staffs' read of a player in December (T3.1, T3.2): his consensus
@@ -974,6 +983,7 @@ impl World {
                 );
                 let family = generate_family(&bg, Some(structure), &mut rng);
                 apply_background(&mut player, &mut bg, &family, &mut rng);
+                people::sync_new(&mut player, &bg, &family);
                 let ethnicity = ethnicity::player_ethnicity(s, z, &mut rng);
                 // Grades drift through high school: effort pushes them up.
                 let gpa_trend = rng.normal(0.0, 0.07)
@@ -1020,6 +1030,10 @@ impl World {
                     childhood_team: None,
                     cal: PersonCal::default(),
                     pro: None,
+                    mood: 0.0,
+                    mood_why: 0,
+                    trust: 0.6,
+                    trust_in: u32::MAX,
                 }
             })
             .collect();

@@ -54,9 +54,10 @@ pub fn goals(w: &World, i: usize) -> Goals {
         role: clamp(k(4) + 0.1 * comp, 0.05, 1.0),
         city: k(5),
         home: clamp(0.3 * k(6) + 0.5 * p.stay_home, 0.0, 1.0),
-        loyalty: clamp(k(7) + 0.15 * love, 0.05, 1.0),
-        greed: clamp(k(8) - 0.15 * love, 0.05, 1.0),
-        temper: k(9),
+        // Section 6 topic 1: loyalty, greed and temper are his personality's.
+        loyalty: clamp(0.5 + 0.45 * per.traits.z(crate::player::Trait::Loyalty) + 0.05 * k(7), 0.05, 1.0),
+        greed: clamp(0.5 + 0.45 * per.traits.z(crate::player::Trait::Greed) + 0.05 * k(8), 0.05, 1.0),
+        temper: clamp(0.5 + 0.45 * per.traits.z(crate::player::Trait::Temper) + 0.05 * k(9), 0.05, 1.0),
         alone: key_uniform(w.options.seed as u64 ^ 0xA10E, id) < 0.003,
     }
 }
@@ -592,6 +593,8 @@ pub(crate) fn score(w: &World, i: usize, o: &Offer, ideal: &Ideal, own: Option<u
     };
     let trust = p.pro.as_ref().map_or(1.0, |c| c.trust);
     let loyal_q = if own == Some(o.team) { 0.9 + 0.25 * trust } else { 1.0 };
+    // Section 6 topic 2: a grudge against the team, or a coach he played for.
+    let ties_q = super::super::people::ties_q(w, i, o.team);
     let parts = [
         (g.money * 1.6, money_q),
         (g.security, gtd_q),
@@ -601,6 +604,7 @@ pub(crate) fn score(w: &World, i: usize, o: &Offer, ideal: &Ideal, own: Option<u
         (g.city * 0.4, city_q),
         (g.home * 0.4, home_q),
         (g.loyalty * 0.6, loyal_q),
+        (0.4, ties_q),
     ];
     let wsum: f64 = parts.iter().map(|x| x.0).sum();
     let s = parts.iter().map(|x| x.0 * x.1).sum::<f64>() / wsum.max(1e-6);
@@ -1558,7 +1562,9 @@ pub(crate) fn holdouts(w: &mut World, d: Date, report_day: bool) {
             let g = goals(w, i);
             let age = w.people[i].player.age;
             let leverage = if age <= 29 { 1.0 } else { 0.6 };
-            let push = g.greed * (under / 3.0).min(1.0) * leverage - 0.3 * g.loyalty * c.trust + 0.1 * g.temper;
+            let mood = w.people[i].mood as f64;
+            let push =
+                g.greed * (under / 3.0).min(1.0) * leverage - 0.3 * g.loyalty * c.trust + 0.1 * g.temper - 0.15 * mood;
             if push < 0.3 {
                 continue;
             }
@@ -2071,6 +2077,14 @@ pub struct MarketYear {
     /// settlements at cutdown (section 5 leftovers).
     pub poached: u32,
     pub settlements: u32,
+    /// Off-field cases opened and league suspensions handed out (section 6).
+    pub trouble: u32,
+    pub suspensions: u32,
+    /// Section 7: trades between clubs on draft day, undrafted signings in
+    /// the rush and the looks the clubs' scouts filed on the class.
+    pub draft_trades: u32,
+    pub udfa_signed: u32,
+    pub scout_looks: u32,
     pub holdouts: u32,
     pub holdins: u32,
     pub bluffs: u32,
@@ -2127,6 +2141,8 @@ pub struct Market {
     /// Each year's franchise and transition tag shares of the cap by
     /// position (the 2011 formula's five-year history).
     pub tag_shares: Vec<(i32, Vec<[f64; 2]>)>,
+    /// Off-field cases waiting on the league's ruling (section 6 topic 7).
+    pub cases: Vec<super::super::people::Case>,
 }
 
 impl Market {

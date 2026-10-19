@@ -838,6 +838,7 @@ fn dated_events(w: &mut World, d: Date, y: &YearDates) {
     }
     let todays: Vec<usize> = w.nfl_season.as_ref().unwrap().pro_days.iter().filter(|x| x.1 == d).map(|x| x.0).collect();
     for p in todays {
+        super::pro::scouts::pro_day(w, p, d);
         let text = format!("{} pro day.", w.program_name(p));
         w.calendar
             .post(Event::new(d, Level::College, Kind::Date, Loudness::Small, text).program(p).rule("NFL: pro day"));
@@ -860,6 +861,7 @@ fn dated_events(w: &mut World, d: Date, y: &YearDates) {
         );
     }
     if d == y.top30_deadline {
+        super::pro::scouts::spring(w);
         post(w, d, Kind::Deadline, Loudness::Small, "NFL: top-30 visits", "Deadline for top-30 visits.");
     }
     if d == y.offseason_new_coach {

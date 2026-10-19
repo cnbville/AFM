@@ -526,6 +526,29 @@ fn main() {
             e[0] += gap;
             e[1] += 1.0;
         }
+        // Plays ending out of bounds in normal time (fix list S6.2), as
+        // nflverse's out_of_bounds flag counts them.
+        for p in &s.plays {
+            let half_left = p.clock + if p.quarter % 2 == 1 { 900.0 } else { 0.0 };
+            let late = half_left <= 120.0 || (p.quarter == 4 && half_left <= 300.0);
+            if late
+                || p.nullified
+                || !matches!(p.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble)
+            {
+                continue;
+            }
+            let oob = p.out_of_bounds as u8 as f64;
+            *m.entry("oob_n").or_default() += 1.0;
+            *m.entry("oob").or_default() += oob;
+            if p.kind == PlayType::Pass && p.complete {
+                *m.entry("oob_cmp_n").or_default() += 1.0;
+                *m.entry("oob_cmp").or_default() += oob;
+            }
+            if p.kind == PlayType::Run {
+                *m.entry("oob_run_n").or_default() += 1.0;
+                *m.entry("oob_run").or_default() += oob;
+            }
+        }
         for p in &s.plays {
             for &(kind, _, _, _, accepted) in &p.penalties {
                 if accepted {
@@ -754,6 +777,12 @@ fn main() {
         }
         let all = |si: usize| between[si].iter().map(|e| e[1]).sum::<f64>();
         row("share of plays stopping clock", all(1) / (all(0) + all(1)), None);
+        // nflverse 2023, regular season, outside the last two minutes of a
+        // half and the last five of the game.
+        let real = |v: f64| if level == Level::NFL { Some(v) } else { None };
+        row("plays ending out of bounds", g("oob") / g("oob_n").max(1.0), real(0.107));
+        row("  completions out of bounds", g("oob_cmp") / g("oob_cmp_n").max(1.0), real(0.207));
+        row("  designed runs out of bounds", g("oob_run") / g("oob_run_n").max(1.0), real(0.055));
     }
     row("pass attempts", g("att") / n, f("att"));
     row("completions", g("cmp") / n, f("cmp"));

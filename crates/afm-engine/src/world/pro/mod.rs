@@ -15,6 +15,7 @@ pub mod leagues;
 pub mod market;
 pub mod money;
 pub mod office;
+pub mod scouts;
 pub mod squad;
 pub mod trades;
 
@@ -133,6 +134,13 @@ pub struct ProCareer {
     pub ipp: bool,
     /// Spring snaps abroad (an NFL Europe allocation), as a share of a season.
     pub spring_snaps: f64,
+    /// Section 6 topic 2: grudges against teams that cut or traded him
+    /// (team, strength 1-20), fading each year.
+    pub grudges: Vec<(u8, u8)>,
+    /// Section 6 topic 7: games left on a league suspension, and paid
+    /// leave on the commissioner exempt list (weeks).
+    pub suspended: u32,
+    pub exempt: u32,
 }
 
 impl ProCareer {
@@ -171,6 +179,9 @@ impl ProCareer {
             on_waivers: false,
             ipp: false,
             spring_snaps: 0.0,
+            grudges: Vec::new(),
+            suspended: 0,
+            exempt: 0,
         }
     }
 
@@ -191,6 +202,14 @@ impl ProCareer {
 /// depth chart and its books.
 #[derive(Clone, Debug, Default)]
 pub struct Club {
+    /// Section 6: the support staff's heads, the room's mood and captains.
+    pub support: super::people::Support,
+    pub team_mood: f32,
+    pub captains: Vec<usize>,
+    /// Section 7: its personnel department and its file on each draft
+    /// prospect (by player id), kept from the fall to the undrafted rush.
+    pub scouts: Vec<scouts::Scout>,
+    pub files: std::collections::HashMap<u32, Vec<scouts::Look>>,
     /// Everyone on its books: roster, practice squad and reserve lists.
     pub roster: Vec<usize>,
     /// The depth chart at each position, best first (the active roster).
@@ -526,6 +545,7 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
     );
     let family = super::background::generate_family(&bg, Some(structure), &mut rng);
     super::background::apply_background(&mut player, &mut bg, &family, &mut rng);
+    super::people::sync_new(&mut player, &bg, &family);
     let ethnicity = super::ethnicity::player_ethnicity(state, z, &mut rng);
     let year = w.year;
     // His college: an FBS program by its prestige, a few from below.
@@ -577,6 +597,10 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
         childhood_team: None,
         cal: PersonCal::default(),
         pro: None,
+        mood: 0.0,
+        mood_why: 0,
+        trust: 0.6,
+        trust_in: u32::MAX,
     }
 }
 
@@ -734,8 +758,8 @@ pub(crate) fn undrafted_team(w: &World, i: usize) -> usize {
 }
 
 /// An undrafted player signs with a team in the rush.
-pub(crate) fn join_undrafted(w: &mut World, i: usize, t: usize, year: i32, wanted: f64) {
-    let terms = money::undrafted_terms(year, wanted);
+pub(crate) fn join_undrafted(w: &mut World, i: usize, t: usize, year: i32, terms: &money::Terms) {
+    let terms = *terms;
     let mut c = ProCareer::new(Some(t), Status::Roster, year);
     c.contract = Some(money::build(t, money::Kind::Undrafted, year, &terms));
     c.alumnus = w.recording.then(|| w.alumni.len().saturating_sub(1));
@@ -1064,6 +1088,10 @@ pub(crate) fn day(w: &mut World, d: Date) {
         // so a late-season injury lasted into the next season).
         super::clock::timed("pro heal", || offseason_heal(w));
     }
+    // Off-field trouble and the league's rulings, every Tuesday (section 6).
+    if d.weekday() == crate::calendar::Weekday::Tue {
+        super::clock::timed("pro trouble", || super::people::pro_trouble_week(w, d));
+    }
     // The Hall of Fame class is named the Saturday before the Super Bowl.
     if d == y.super_bowl.add(-1) {
         honors::hall_vote(w, d);
@@ -1183,6 +1211,10 @@ pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: b
     } else {
         c.contract = None;
     }
+    // A veteran cut before his deal ran out can hold it against the team
+    // (section 6 topic 2): it hurts more the longer he was there.
+    let years_there = c.seasons.iter().filter(|s| s.team == Some(t)).count() as f64;
+    let expired = c.contract.as_ref().is_none_or(|k| k.last_year() < year);
     c.status = Status::FreeAgent;
     c.team = None;
     c.weeks_unsigned = 0;
@@ -1193,6 +1225,9 @@ pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: b
     c.wants_out = false;
     c.ideal = None;
     w.clubs[t].roster.retain(|&x| x != i);
+    if !expired && years_there >= 2.0 && !matches!(cause, DeadWhy::Retired) {
+        super::people::grudge(&mut w.people[i], t, (years_there / 4.0).min(1.0));
+    }
     let id = w.people[i].player.id;
     w.clubs[t].add_dead(year, dead.0.max(0.0), id, cause);
     w.clubs[t].add_dead(year + 1, dead.1, id, cause);
@@ -1342,6 +1377,7 @@ pub(crate) fn sign(w: &mut World, i: usize, t: usize, d: Date, apy: f64, years: 
 /// on a new team adjust.
 fn camp(w: &mut World, d: Date) {
     super::coach::set_freedom_norms(w);
+    super::people::pro_mood(w);
     let year = w.year;
     let league_strength = {
         let teams: Vec<f64> =
@@ -1409,6 +1445,14 @@ fn camp(w: &mut World, d: Date) {
             }
             None => (None, None),
         };
+        // Section 6: his mood and the room's, his strength and medical staff.
+        let (morale, physical, medical) = {
+            let p = &w.people[i];
+            let room = team.map_or(0.0, |t| w.clubs[t].team_mood);
+            let support = team.map(|t| &w.clubs[t].support);
+            let (ph, me) = super::people::support_ctx(support, &p.player.personality);
+            (super::people::morale(p, room), ph, me)
+        };
         let p = &mut w.people[i];
         let mut adjustment = 0.0;
         if team.is_some() && (first || new_team) && role != PlayingTime::Unsigned {
@@ -1448,6 +1492,9 @@ fn camp(w: &mut World, d: Date) {
             style,
             scheme,
             tend_centre: centres.get(Level::NFL, p.player.position),
+            morale,
+            physical,
+            medical,
             ..crate::development::SeasonContext::new(Level::NFL, clamp(coaching, 1.0, 20.0), role)
         };
         crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);

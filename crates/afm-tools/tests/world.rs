@@ -144,3 +144,71 @@ fn the_nfl_lives() {
     assert!(m.trades >= 1, "no trades in {}", m.year);
     assert!(m.futures >= 100, "{} reserve/future deals in {}", m.futures, m.year);
 }
+
+#[test]
+fn people_live() {
+    use afm_engine::player::Trait;
+    use afm_engine::world::franchise::active_teams;
+    use afm_engine::world::pro::money;
+    let w = &*WORLD;
+    // Section 6: every club and FBS program has its support heads and captains.
+    for t in active_teams(w.year) {
+        let c = &w.clubs[t];
+        assert!(c.support.strength.rating > 0 && c.support.medical.rating > 0, "the {} lack staff", w.nfl[t].name);
+        assert_eq!(c.captains.len(), 6, "the {} have {} captains", w.nfl[t].name, c.captains.len());
+    }
+    let fbs: Vec<_> = w.programs.iter().filter(|p| p.division == Division::FBS && p.plays(w.year)).collect();
+    assert!(fbs.iter().all(|p| p.support.academic.rating > 0));
+    assert!(fbs.iter().filter(|p| p.captains.len() == 4).count() * 10 >= fbs.len() * 9);
+    // Traits average near 10 with a real spread.
+    let traits: Vec<f64> =
+        w.people.iter().take(50_000).map(|p| p.player.personality.traits.get(Trait::Professionalism)).collect();
+    let mean = traits.iter().sum::<f64>() / traits.len() as f64;
+    assert!((9.0..12.0).contains(&mean), "professionalism averages {mean:.2}");
+    // Moods spread both ways among college players.
+    let moods: Vec<f32> = w.people.iter().filter(|p| p.college.is_some() && p.pro.is_none()).map(|p| p.mood).collect();
+    let low = moods.iter().filter(|&&m| m < -0.2).count() as f64 / moods.len() as f64;
+    let high = moods.iter().filter(|&&m| m > 0.2).count() as f64 / moods.len() as f64;
+    eprintln!("college moods: {:.1}% low, {:.1}% high of {}", 100.0 * low, 100.0 * high, moods.len());
+    assert!(low > 0.015 && high > 0.015, "moods {low:.3} low, {high:.3} high");
+    // Pros get into trouble at about the real rate, and some are suspended.
+    let m = w.market.years.iter().find(|m| m.year == w.year - 1).unwrap();
+    eprintln!(
+        "{}: {} cases, {} suspensions, {} poached, {} settlements",
+        m.year, m.trouble, m.suspensions, m.poached, m.settlements
+    );
+    assert!((15..=150).contains(&m.trouble), "{} cases in {}", m.trouble, m.year);
+    // Fix list S6.3: no player is paid more than half the cap in a year.
+    let cap = money::price_cap(w.year - 1);
+    for p in w.people.iter() {
+        if let Some(s) = p.pro.as_ref().and_then(|c| c.seasons.iter().find(|s| s.year == w.year - 1)) {
+            assert!(s.pay <= 0.5 * cap, "{} paid {:.0} against a cap of {:.0}", p.name, s.pay, cap);
+        }
+    }
+}
+
+#[test]
+fn clubs_scout_and_draft_from_their_own_boards() {
+    use afm_engine::world::franchise::active_teams;
+    use afm_engine::world::pro::scouts::Role;
+    let w = &*WORLD;
+    // Section 7: every club has a director, national and area scouts, and
+    // its files were cleared after the rush.
+    for t in active_teams(w.year) {
+        let s = &w.clubs[t].scouts;
+        assert_eq!(s.iter().filter(|x| x.role == Role::Director).count(), 1, "the {} directors", w.nfl[t].name);
+        assert!(s.iter().filter(|x| x.role == Role::National).count() >= 1);
+        assert!((5..=10).contains(&s.iter().filter(|x| x.role == Role::Area).count()));
+        assert!(w.clubs[t].files.is_empty(), "the {} kept their files", w.nfl[t].name);
+    }
+    // The last draft: looks filed, players signed in the rush, picks
+    // explained from each club's own board.
+    let m = w.market.years.iter().rev().find(|m| m.udfa_signed > 0).expect("no undrafted signings");
+    eprintln!(
+        "{}: {} looks, {} draft-day trades, {} undrafted signed",
+        m.year, m.scout_looks, m.draft_trades, m.udfa_signed
+    );
+    assert!(m.scout_looks > 1_000, "{} looks in {}", m.scout_looks, m.year);
+    let own = w.people.iter().filter(|p| p.notes.iter().any(|n| n.contains("their board grade"))).count();
+    assert!(own > 0, "no pick names its board");
+}

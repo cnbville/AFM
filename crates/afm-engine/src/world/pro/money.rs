@@ -467,6 +467,17 @@ pub fn undrafted_terms(year: i32, wanted: f64) -> Terms {
     t
 }
 
+/// An undrafted rookie's deal from the rush (section 7, topic 12): three
+/// years at the minimum, the bonus from the club's pool and any base
+/// salary it guarantees on top (real: no limit on guarantees).
+pub fn undrafted_offer(year: i32, bonus: f64, guarantee: f64) -> Terms {
+    let min = minimum(year, 0);
+    let mut t = Terms::flat(3, min + bonus / 3.0);
+    t.bonus_share = bonus / (3.0 * t.apy);
+    t.base_guarantee = guarantee / (3.0 * t.apy);
+    t
+}
+
 // --- Tags and tenders ----------------------------------------------------------------------
 
 /// A tag's price: the average of the top five (franchise) or top ten

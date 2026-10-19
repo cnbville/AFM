@@ -590,6 +590,7 @@ fn signing_day_and_book(w: &mut World, season: i32) {
     };
     staff::update_programs(w, &results);
     w.life_events();
+    super::people::year_book(w);
     w.compact();
     w.rebuild_rosters();
     w.year = keep;
