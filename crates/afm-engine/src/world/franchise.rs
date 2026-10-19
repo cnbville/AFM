@@ -288,8 +288,8 @@ pub fn active_teams(year: i32) -> Vec<usize> {
     (0..32).filter(|&t| active(t, year)).collect()
 }
 
-const RAVENS: usize = 2;
-const BROWNS: usize = 7;
+pub(crate) const RAVENS: usize = 2;
+pub(crate) const BROWNS: usize = 7;
 
 /// A new football year (the day after the Super Bowl): names and homes by
 /// era, the Browns' move to Baltimore (1996), a dark franchise's staff and

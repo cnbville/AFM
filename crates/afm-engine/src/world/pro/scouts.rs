@@ -232,12 +232,21 @@ fn hire(rng: &mut Rng, year: i32, role: Role, budget: f64) -> Scout {
 /// moves up: a national scout to director, an area scout to national.
 /// Without it, only empty departments are filled (a new club, the first
 /// year). Called only while the files are empty, since a file names
-/// scouts by their place.
-pub(crate) fn staff(w: &mut World, turnover: bool) {
+/// scouts by their place. The clubs staffed are those that pick in
+/// `draft_year`: an expansion club hires its department the spring
+/// before its first draft, as the Panthers and the Jaguars did in 1994
+/// (real), and a club that has gone dark keeps none.
+pub(crate) fn staff(w: &mut World, turnover: bool, draft_year: i32) {
+    use super::super::franchise::{BROWNS, RAVENS, active};
     let year = w.year;
     let mut rng = Rng::new(w.options.seed ^ 0x5C07_0000 ^ (year as u32).wrapping_mul(104_729));
+    // 1996 (real): the Browns' front office went to Baltimore with the
+    // team, so their scouts work the 1996 class for the Ravens.
+    if draft_year == 1996 && w.clubs.len() > BROWNS.max(RAVENS) && w.clubs[RAVENS].scouts.is_empty() {
+        w.clubs[RAVENS].scouts = std::mem::take(&mut w.clubs[BROWNS].scouts);
+    }
     for t in 0..w.clubs.len() {
-        if !super::super::franchise::active(t, year) {
+        if !active(t, draft_year) {
             continue;
         }
         if !turnover && !w.clubs[t].scouts.is_empty() {
@@ -718,14 +727,30 @@ fn reads(w: &World, people: &[usize]) -> Vec<HashMap<usize, Read>> {
 }
 
 fn file(w: &mut World, t: usize, i: usize, who: u8, kind: LookKind, date: Date) {
+    // A scout's look needs a scout in that place (a club with no
+    // department has no one to send).
+    if who < GM && who as usize >= w.clubs[t].scouts.len() {
+        debug_assert!(false, "club {t} has no scout {who}");
+        return;
+    }
     let id = w.people[i].player.id;
     w.clubs[t].files.entry(id).or_default().push(Look { who, kind, date });
     let year = w.year;
     w.market.year_mut(year).scout_looks += 1;
 }
 
+/// The draft the clubs are working toward: this year's until its first
+/// night, then next year's (the fall, the all-star games in January).
+fn coming_draft(w: &World) -> i32 {
+    if w.today <= w.dates.draft[0].date { w.year } else { w.year + 1 }
+}
+
+/// The clubs that scout now: those that pick in the coming draft (a new
+/// club from the spring before its first draft; trial 9 crashed in 1995
+/// when the Panthers and the Jaguars had a draft but no scouts).
 fn clubs(w: &World) -> Vec<usize> {
-    (0..w.clubs.len()).filter(|&t| super::super::franchise::active(t, w.year)).collect()
+    let draft_year = coming_draft(w);
+    (0..w.clubs.len()).filter(|&t| super::super::franchise::active(t, draft_year)).collect()
 }
 
 // --- The scouting year (topic 3) ------------------------------------------------------------
@@ -740,12 +765,12 @@ pub(crate) fn fall(w: &mut World) {
     if w.clubs.is_empty() || w.nfl.is_empty() {
         return;
     }
-    staff(w, false);
+    let year = w.year;
+    let draft_year = year + 1;
+    staff(w, false, draft_year);
     for c in w.clubs.iter_mut() {
         c.files.clear();
     }
-    let year = w.year;
-    let draft_year = year + 1;
     // The seniors at each program, and the spring list.
     let mut seniors: Vec<Vec<usize>> = vec![Vec::new(); w.programs.len()];
     let mut listed: Vec<(usize, f64)> = Vec::new();
@@ -1328,7 +1353,9 @@ pub(crate) fn after_rush(w: &mut World) {
         c.files.clear();
         c.files.shrink_to_fit();
     }
-    staff(w, true);
+    // The draft is over: the departments get ready for next year's.
+    let next = w.year + 1;
+    staff(w, true, next);
 }
 
 /// A prospect's public rank in the class (0 is first), by the aligned

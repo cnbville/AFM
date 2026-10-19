@@ -123,6 +123,7 @@ fn the_nfl_lives() {
         assert!((45..=95).contains(&held), "the {} hold {held} players", w.nfl[t].name);
     }
     // The hard cap holds on opening day, and teams spend most of it.
+    // Every year once the spin-up's first classes are seniors.
     for m in w.market.years.iter().filter(|m| money::capped(m.year) && m.cap_use[1] > 0.0) {
         assert!(m.cap_use[2] <= 1.001, "{}: a team at {:.3} of the cap on opening day", m.year, m.cap_use[2]);
         assert!(m.cap_use[1] >= 0.8, "{}: the median team at {:.3} of the cap", m.year, m.cap_use[1]);
@@ -268,4 +269,43 @@ fn a_seed_gives_the_same_world_on_any_core_count() {
     eprintln!("{n} people, hashes {one:x} and {four:x}");
     assert_eq!(n, m);
     assert_eq!(one, four, "the same seed built a different world on 1 and 4 cores");
+}
+
+/// The history's franchise changes (trial 9 crashed in 1995, when the new
+/// Panthers and Jaguars had a draft but no scouts) and every era of the
+/// history the 3-year world doesn't reach: a small world from 1990 to
+/// 2010 on the quick stand-in, through the expansion of 1995, the Browns'
+/// move to Baltimore (1996), their return (1999), the Texans (2002) and
+/// the uncapped year (2010). Every club that picks has a department,
+/// every look in a file names someone who exists, and the returning
+/// Browns hired a new department.
+#[test]
+fn a_history_through_the_expansion_years_runs() {
+    use afm_engine::world::pro::scouts::{GM, Role};
+    let w = World::new(WorldOptions {
+        seed: 5,
+        scale: 0.05,
+        history_years: 9,
+        start_year: 2011,
+        engine_from: Some(2100),
+        ..Default::default()
+    });
+    for (t, c) in w.clubs.iter().enumerate() {
+        if !afm_engine::world::franchise::active(t, w.year) {
+            continue;
+        }
+        let name = &w.nfl[t].name;
+        assert!(c.scouts.iter().any(|s| s.role == Role::Director), "{name} have no scouting director");
+        for (id, looks) in &c.files {
+            for l in looks {
+                assert!(l.who >= GM || (l.who as usize) < c.scouts.len(), "{name}: a look at {id} by scout {}", l.who);
+            }
+        }
+    }
+    // The Browns (7) went dark in 1996 and came back in 1999.
+    assert!(w.clubs[7].scouts.iter().all(|s| s.since >= 1998), "the returning Browns kept scouts from before 1998");
+    // Every year once the spin-up's first classes are seniors.
+    for m in w.market.years.iter().filter(|m| (1995..=2010).contains(&m.year)) {
+        assert!(m.scout_looks > 0, "no scouting in {}", m.year);
+    }
 }
