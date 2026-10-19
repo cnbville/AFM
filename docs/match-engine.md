@@ -300,11 +300,69 @@ On main the same check gave NFL 30.0 points, 65.8% and 7.7 a throw on balanced r
 
 **Finding 2 left for the next trial.** The college stat leaders against the real FBS leaders need a world, so the trial measures them. On the synthetic checks the top man's share of a team's sacks is 0.33 (real about 0.25-0.35). FBS sacks still run high, 3.1 a team game (real 2.0), as on main.
 
+## Player tendencies (2026-10-19)
+
+The design is `docs/design/tendencies.md`. Every player carries 15 tendencies, 1 to 20 (how often he tries something, not how well). The engine reads them through `Sim::tend`: his number, pulled back toward his old habit (`was`) under stress (late and close, playoffs, tired, less with composure), shifted by up to 2.5 on the gamble ones when his team must gamble or protect a lead, and replaced by an instruction's number on the snaps he obeys it. Obedience is decided once a play from a key, not a draw, so asking changes nothing else. `lean` is the number as -1 to +1.
+
+Every effect is linear in the lean, so a league whose players sit at the middle plays as before, and a league at the real spread averages out (an exponential multiplier raised the averages; each was replaced). Where each one acts:
+
+- **Bounces runs:** behind the line on a designed run, how hard he holds the called hole and how much he likes a lateral heading.
+- **Contact willingness:** at the sideline with a tackler closing, steps out or turns up; quarterback slides; leg drive in the pile; his share of injuries in a hit; a shy defender sometimes passes on a bigger man.
+- **Reaches the ball out:** short of the line to gain or the goal line with a tackler on him, he stretches for it (`Sim::reach`): it gets there if the line is within his arm; 3.5% (more against a strong tackler, less with ball security) it comes loose.
+- **Patient or downhill:** the press pace to the line (up to a quarter slower or faster), a downhill back committing a yard behind it, a patient one reading the crease cleaner and stopping his wait when a free defender is within 3 yards.
+- **Scrambles:** how readily he leaves the pocket (1 + 1.2 lean on the scramble chance).
+- **Gunslinger:** how much room he needs before he throws, more downfield, the deeper man preferred when two are open, forcing it sooner; a checkdown man dumps it off sooner.
+- **Holds for the big play:** his clock (up to a second longer), how long he stays on each read, and early on how much more than an open man underneath he wants.
+- **Returner risk:** kickoffs in the end zone (his guess of where he will get to against the touchback, a logistic call sharpened by judgment), punts inside the 10, fair catches with coverage close.
+- **Rushes upfield or keeps contain:** an edge's rush power (up to 10 rating points), whether he has run past the quarterback's depth so a step-up gets out (`free_near`), how far a contain man shuts his side, how deep he squeezes a run.
+- **Times the snap:** his get-off (12 rating points at the ends) and his offside chance, a hard count getting him most.
+- **Gets his hands up:** batted balls, at a little rush.
+- **Goes for the strip:** fumbles forced in a hit (1 + 1.15 lean), at some missed tackles.
+- **Big hit or sure tackle:** missed tackles (scaled straight on the miss chance), force in the hit, roughness flags, injuries both ways.
+- **Flies downhill:** a linebacker's or safety's read time and how hard he bites on a play fake.
+- **Jumps routes:** when the quarterback commits to a throw near him (`jump_route`), he breaks on it: guessed right, he plays the ball at once with more reach and a real interception chance; wrong, he bit on the fake and finds the ball late. The coach's strictness and trust still decide whether he may.
+
+**Instructions** (`tendencies::Instruction`, ten of them): kneel deeper than N yards, fair catch inside the 10, slide, take shots, protect the ball, high and tight, keep contain, no snap guessing, wrap up, stay home. Each sets its tendency on the snaps he obeys: 0.86 for a typical player, about 0.7 at discipline 3 of 20, more under a strict coach and with trust. AI staffs give them before every game (`GameTeam::give_orders`).
+
+**Plans against habits.** Each staff reads the other side's habits from film (`calling::read_habit`): a hard count against snap guessers, double moves against route jumpers, kicking deep against a returner who brings everything out, more draws against upfield rushers.
+
+### What each one does (measured 2026-10-19)
+
+`cargo run --release --bin tendency_check -- nfl 272 1 all`: 816 NFL games for the spread, then a 17-game season for 32 teams (272 games) per arm, every owner at 4 and then 16 on the same seed. 151 s on 4 threads, about 4 s an arm. The real spreads are NFL regulars 2016-2025 (`data/real-world/tendency_spreads.json`).
+
+| Tendency | Tied stat | At 4 | At 16 | Real p5-p95 | Cost at 16 |
+|---|---|---|---|---|---|
+| Bounces runs | carries outside the tackles | 28.6% | 62.3% | 8.8-34.5% | stuffed 19.9 to 21.7% |
+| Contact willingness | QB scrambles ending in a slide | 62% | 17% | none | injuries 0.31 to 0.52 a team game |
+| Reaches the ball out | reaches a team game | 0.00 | 2.17 (42% get there) | none | 0.08 fumbles a team game |
+| Patient or downhill | RB time to the line | 1.83 s | 2.15 s | 2.54-3.00 s | stuffed 16 to 26%, 5.50 to 5.68 a carry |
+| Scrambles | scramble rate | 2.3% | 9.9% | 0.6-9.0% | scramble yards 5 to 27 a game |
+| Gunslinger | tight-window throws | 13.1% | 16.4% | 11.4-21.2% | air yards 9.6 to 11.6; INT 2.2 to 3.1% |
+| Holds for the big play | time to throw | 2.41 s | 2.74 s | 2.49-3.04 s | sacks 4.2 to 5.9%; 20+ completions 8.8 to 10.5% |
+| Returner risk (FBS rules) | end-zone kicks brought out | 3.5% | 42% | 6.5-36% | start 25.0 to 23.3 |
+| Returner risk | punt fair-catch rate | 56% | 18% | 23-56% | fielded inside the 10, 3 to 12% |
+| Rushes upfield | scramble yards allowed | 18.7 | 20.1 | none | rush wins 0.15 to 0.32 a dropback, sacks flat |
+| Times the snap | DL offside per 17 games | 0.20 | 3.61 | 0-4.25 | pressure flat |
+| Gets his hands up | batted passes per DL per 17 | 0.33 | 2.02 | 0-4 | sacks 5.3 to 4.8% |
+| Goes for the strip | forced fumbles per 100 tackles | 0.44 | 2.02 | 0-4.65 | missed tackles 8.7 to 11.5% |
+| Big hit or sure tackle | missed tackle rate | 6.1% | 13.7% | 2.3-16.2% | roughness 0.31 to 0.62, injuries 0.32 to 0.51 |
+| Flies downhill | LB and S tackles for loss per 17 | 5.2 | 6.4 | 0-15 | play action 9.6 to 10.4 a throw |
+| Jumps routes | CB and S interceptions a target | 4.4% | 5.0% | 0-7.3% | 2.7 jumps a team game, 14% picked when right |
+
+Fit: backs who bounce at 16 against 4 gain 1.10 yards a carry when fast (5.46 to 6.56) and 0.78 when slow (4.73 to 5.51), with speed, burst and elusiveness 12 points apart.
+
+Instructions (the habit at 17, or 4 for "take shots"; free, ordered, ordered at discipline 3): slide 20/63/55% of scrambles; protect the ball INT 3.6/2.5/2.7%; take shots air yards 9.2/11.6/11.2; high and tight reaches 2.36/0.48/0.75 a game; keep contain rush wins 0.33/0.15/0.19; no snap guessing offside 4.16/0.68/2.11 per 17; wrap up missed tackles 15.8/4.5/7.1%; stay home jumps 2.25/0.17/0.72 a game; fair catch inside the 10: fielded 15/2/4%; kneel deeper than 3 (FBS rules) brought out 46/36/39%.
+
+Levels (`match_check` 1600 games, seed 7, against main): NFL 25.6 to 25.5 points a team game, 4.22 to 4.34 a carry; FBS 23.9 to 24.0; high school 23.3 to 23.9. Sacks, interceptions, completions and scrambles stay within noise. NFL punt returns fell from 8.0 to 6.9 yards (risk-takers field more punts with coverage close).
+
+**Not reached.** Two tied stats sit outside the real spread because of the engine, not the tendency: backs run outside about twice as often as real at every setting, and almost never end out of bounds (0.7%, real 4.2%), so contact willingness cannot show at the sideline. Time to the line runs 0.7 s under the real Next Gen number at every setting (the spread, 0.3 s, is two-thirds of real). Route jumping moves interceptions 14%, not the threefold of the real best (much of that is luck), and its cost (big plays allowed) does not show. Rushing upfield doesn't raise sacks: a won pass rush barely moves pressure in this engine (rush power plus or minus 58 points moved pressure under a point), because the beaten blocker squares the rusher up again a tick later.
+
 ## Not built yet
 - High school games on the engine (the world still plays them on the stand-in): about 10 minutes a season.
 - The 2D replay view (section 10).
 
 ## Debug tools
+- `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
 - `cargo run --release --bin match_check -- nfl|fbs|hs [games] [seed] [pbp]`: averages against real data; `pbp` prints the first game play by play with its whys.
 - `cargo run --release --bin dynasty_check -- value [games] [seed]`: what each position and the play callers are worth (`AFM_LEVEL`, `AFM_ONLY`). `cargo run --release --bin call_values -- 400`: rebuilds the coaches' what-beats-what table (`AFM_CELL=concept:Coverage` shows one cell's outcomes).
 - `cargo run --release --bin garbage_check -- fbs|nfl|hs [games] [quality sd] [seed]`: garbage time against real play-by-play (who plays the 4th quarter by lead, run-out, 4th downs, sample why lines).

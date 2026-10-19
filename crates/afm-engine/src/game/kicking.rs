@@ -11,6 +11,7 @@ use super::sim::*;
 use crate::attributes::Attr;
 use crate::player::Level;
 use crate::rng::{Rng, clamp};
+use crate::tendencies::{Instruction, MID as MID_T, Tend};
 
 /// The kicking team and the return team for a kick.
 pub struct KickTeams<'a> {
@@ -23,6 +24,11 @@ pub struct KickTeams<'a> {
     pub snapper: usize,
     pub holder: usize,
     pub energy: [&'a [f64]; 2],
+    /// What the game does to habits (kicking team, return team).
+    pub mood: super::sim::Mood,
+    /// How much the kicking team's plan kicks to a returner who brings
+    /// everything out (tendencies topic 4.4), 0-1.
+    pub kick_deep: f64,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -221,7 +227,12 @@ pub fn kickoff(
     // make the return team bring it out (real 2025: 75% returned). A
     // dangerous returner gets kicked away from more often (proposed, not
     // confirmed). Elsewhere a big leg aims for a touchback.
-    let aim = if rules.nfl_kickoff {
+    // Against a returner who brings everything out, the plan kicks it to
+    // land just inside the goal line and lets him (tendencies topic 4.4).
+    let deep = k.kick_deep > 0.0 && rng.chance(0.6 * k.kick_deep);
+    let aim = if deep && from - max < -1.0 {
+        -1.0 - rng.range(0.0, 3.0)
+    } else if rules.nfl_kickoff {
         let r = &k.ret[k.ret_on[0]];
         let danger = 0.5 * (r.a(Attr::Speed) + r.a(Attr::Elusiveness)) - 80.0;
         let away = clamp(0.2 + 0.012 * danger, 0.08, 0.45);
@@ -267,14 +278,27 @@ pub fn kickoff(
     let rp = &k.ret[returner];
     let judgment = rp.a(Attr::Decisions);
     let tb_value = rules.kickoff_touchback;
+    // Returner risk (tendencies): a risk-taker believes he will get more
+    // out of it than he will. An order to kneel past a depth decides it
+    // when he follows it.
+    let level = rules.level;
+    let risk = rp.tend_now(Tend::ReturnRisk, k.mood.gamble[1], k.mood.stakes[1], k.energy[1][returner], level);
+    let ordered = rp.orders.kneel_depth().filter(|_| rp.follows(k.mood.strict[1], level, rng));
+    // The order only adds kneels: deeper than his depth he takes the knee
+    // whatever he thinks of his chances.
     let kneel = land_x < 0.0 && {
-        let expected = land_x + 22.0 + 0.1 * (rp.a(Attr::Speed) - 70.0);
-        let mut kneel = expected < tb_value;
-        if rng.chance(clamp(0.35 - 0.003 * judgment, 0.05, 0.4)) {
-            kneel = !kneel;
-        }
-        kneel
+        // He weighs where he thinks he will get to against the touchback;
+        // good judgment makes it a sharper call.
+        let expected = land_x + 22.0 + 0.1 * (rp.a(Attr::Speed) - 70.0) + 0.9 * (risk - MID_T);
+        let width = clamp(5.5 - 0.04 * judgment, 1.5, 4.5);
+        let own = !rng.chance(1.0 / (1.0 + ((tb_value - expected) / width).exp()));
+        own || ordered.is_some_and(|d| -land_x > d)
     };
+    let mut res_deep = None;
+    if land_x < 0.0 {
+        res_deep = Some(!kneel);
+    }
+    res.notes.tend.deep_kick = res_deep;
     if kneel {
         res.touchback = true;
         res.spot = tb_value;
@@ -394,9 +418,20 @@ pub fn punt(
     let cover_gap = clamp(4.6 - 1.6 * (hang - 4.2) - 0.08 * (gunner - jammer) + rng.normal(0.0, 2.0), 0.0, 15.0);
     let returner = &k.ret[k.ret_on[0]];
     let judgment = returner.a(Attr::Decisions);
+    // Returner risk (tendencies): a risk-taker fields punts he could let
+    // bounce and returns ones he could fair-catch; an order to fair-catch
+    // inside the 10 and let the rest bounce decides it when he follows it.
+    let level = rules.level;
+    let r_i = k.ret_on[0];
+    let risk = returner.tend_now(Tend::ReturnRisk, k.mood.gamble[1], k.mood.stakes[1], k.energy[1][r_i], level);
+    let safe = returner.orders.has(|o| matches!(o, Instruction::FairCatchInsideTen))
+        && returner.follows(k.mood.strict[1], level, rng);
+    let lean = (risk - MID_T) / 9.5;
     // Inside his 10, a returner lets it go: it bounces.
     if land_x < 10.0 {
-        let field = rng.chance(clamp(0.1 + 0.004 * (60.0 - judgment), 0.02, 0.4));
+        let field =
+            !safe && rng.chance(clamp((0.1 + 0.004 * (60.0 - judgment)) * (1.0 + 1.3 * lean).max(0.1), 0.02, 0.7));
+        res.notes.tend.fielded_inside_10 = Some(field);
         if !field {
             let roll = rng.normal(2.0, 7.0);
             let end = land_x - roll;
@@ -413,8 +448,11 @@ pub fn punt(
             return res;
         }
     }
-    // Fair catch when coverage is on him.
-    if cover_gap < 5.0 && rng.chance(clamp(0.95 - 0.004 * (judgment - 50.0), 0.7, 0.98)) || cover_gap < 1.5 {
+    // Fair catch when coverage is on him: a risk-taker brings more of them
+    // back and muffs more doing it.
+    let fc = if safe { 0.99 } else { clamp(0.95 - 0.004 * (judgment - 50.0) - 0.3 * lean, 0.45, 0.99) };
+    let reach = if safe { 7.0 } else { 5.0 - 1.5 * lean };
+    if cover_gap < reach && rng.chance(fc) || cover_gap < 1.5 {
         res.fair_catch = true;
         res.spot = land_x.max(1.0);
         res.inside20 = res.spot <= 20.0;
@@ -429,7 +467,9 @@ pub fn punt(
         }
         return res;
     }
-    if muff(returner, punter, cond, rng) {
+    // Returning one with coverage close is how muffs happen.
+    let crowded = if cover_gap < 5.0 { 2 } else { 1 };
+    if (0..crowded).any(|_| muff(returner, punter, cond, rng)) {
         res.muffed = true;
         res.returner = Some(returner.id);
         res.recovered_by_kicking = rng.chance(0.5);
@@ -637,6 +677,8 @@ fn run_return(
         gap_run: None,
         stunt: None,
         level: rules.level,
+        // The sim's side 0 is the return team.
+        mood: k.mood.swap(),
     };
     // Reorder so the return team (side 0) comes first.
     let mut ret_agents: Vec<Agent> = agents.drain(ret_idx..).collect();
@@ -796,6 +838,9 @@ fn run_return(
         );
     }
     res.out_of_bounds = sim.out_of_bounds;
+    let before = res.notes.tend;
     res.notes = std::mem::take(&mut sim.notes);
+    res.notes.tend.deep_kick = before.deep_kick;
+    res.notes.tend.fielded_inside_10 = before.fielded_inside_10;
     res.frames = sim.record.take();
 }

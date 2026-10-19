@@ -7,6 +7,7 @@ mod kick_units;
 mod level_rating;
 mod scouting;
 mod tactics;
+mod tendencies;
 mod world;
 
 use crate::development::{SeasonContext, develop_season};

@@ -38,6 +38,10 @@ pub struct SeasonContext {
     /// replaces the playing-time class in growth, potential and experience;
     /// the class still decides the rest.
     pub snaps: Option<f64>,
+    /// His unit's coaching style and the scheme it runs, which pull his
+    /// tendencies (`tendencies::develop_year`). None: no pull.
+    pub style: Option<crate::tendencies::Style>,
+    pub scheme: Option<(crate::game::roster::OffScheme, crate::game::roster::Front)>,
 }
 
 impl SeasonContext {
@@ -51,6 +55,8 @@ impl SeasonContext {
             situation: 0.0,
             payday: false,
             snaps: None,
+            style: None,
+            scheme: None,
         }
     }
 }
@@ -169,6 +175,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     let position = player.position;
     let overall_before = player.overall();
     let potential_before = player.potential();
+    let speed_before = player.attributes[Attr::Speed];
     let mut events = Events::default();
     let age = player.age as f64;
     let pt = ctx.playing_time;
@@ -633,6 +640,28 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             *ceil = *attr;
         }
     }
+
+    // His habits (tendencies topic 3): results, coaching, the staff's
+    // style, age and a major injury. On their own stream.
+    let played = if no_games {
+        0.0
+    } else {
+        match pt {
+            PlayingTime::Starter => 1.0,
+            PlayingTime::Rotation => 0.7,
+            _ => 0.3,
+        }
+    };
+    let year = crate::tendencies::YearCtx {
+        level: ctx.level,
+        teaching: ctx.coaching,
+        style: ctx.style,
+        scheme: ctx.scheme,
+        played,
+        major_injury: events.has(Ev::MajorInjury),
+        speed_lost: (speed_before - player.attributes[Attr::Speed]).max(0.0),
+    };
+    crate::tendencies::develop_year(&mut player.tend, &player.attributes, &personality, player.age, &year, player.id);
 
     let overall_after = player.overall();
     let potential_after = player.potential();

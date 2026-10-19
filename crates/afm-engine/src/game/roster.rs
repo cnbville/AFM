@@ -47,6 +47,10 @@ pub struct GamePlayer {
     pub spot: Spot,
     pub spots_played: u32,
     pub spot_r: [f64; SPOT_COUNT],
+    /// His tendencies (`docs/design/tendencies.md`) and his coach's
+    /// instructions to him.
+    pub tend: crate::tendencies::Tendencies,
+    pub orders: crate::tendencies::Orders,
 }
 
 impl GamePlayer {
@@ -74,6 +78,8 @@ impl GamePlayer {
             spot: p.spot,
             spots_played: p.spots_played | p.spot.bit(),
             spot_r: Spot::ALL.map(|s| spot_rating(s, &p.attributes, b.weight)),
+            tend: p.tend,
+            orders: Default::default(),
         }
     }
 
@@ -159,6 +165,28 @@ impl GamePlayer {
     /// Composure, 1-20, against his level.
     pub fn composure(&self, level: Level) -> f64 {
         self.trait20(Attr::Composure, level)
+    }
+
+    /// His tendency at a moment outside a tracked play (a kick decision):
+    /// his own number, slipping back toward a coached-down habit under
+    /// stress, plus the game situation on gambles (as `Sim::tend`).
+    /// Instructions are checked where they apply.
+    pub fn tend_now(&self, t: crate::tendencies::Tend, gamble: f64, stakes: f64, energy: f64, level: Level) -> f64 {
+        let base = self.tend.get(t);
+        let was = self.tend.was[t.index()];
+        let stress = clamp(stakes + 0.8 * (1.0 - energy) + 0.05 * (10.0 - self.composure(level)), 0.0, 1.0);
+        let g = if t.gamble() { gamble } else { 0.0 };
+        clamp(base + stress * (was - base) / 3.0 + g, 1.0, 20.0)
+    }
+
+    /// Does he follow his orders on this play? A draw only when he has one.
+    pub fn follows(&self, strictness: f64, level: Level, rng: &mut crate::rng::Rng) -> bool {
+        rng.chance(crate::tendencies::obey_chance(
+            self.trait20(Attr::Discipline, level),
+            self.personality.coachability,
+            self.trust,
+            strictness,
+        ))
     }
 }
 
@@ -275,6 +303,9 @@ pub struct Staff {
     /// carries more calls and more mental errors for players who can't
     /// absorb it.
     pub install: f64,
+    /// The head coach's style (tendencies): what he wants from his players'
+    /// habits and the instructions he gives.
+    pub style: crate::tendencies::Style,
 }
 
 impl Staff {
@@ -290,6 +321,7 @@ impl Staff {
             playbook: 1.0,
             sportsmanship: 10.0,
             install: INSTALL,
+            style: Default::default(),
             nickel: 0.88,
             year: 2026,
             film_study: 10.0,
@@ -333,6 +365,69 @@ impl GameTeam {
             line_chem: 0.6,
             novelty: [0.0; FAMILY_COUNT],
             week: 1.0,
+        }
+    }
+
+    /// The head coach's instructions to his players (tendencies topic 4.3),
+    /// as AI staffs give them (proposed, not confirmed): a conservative
+    /// coach tells his returners to kneel deep and fair-catch inside the 10
+    /// and his quarterback to protect the ball, an aggressive one tells his
+    /// quarterback to take shots; any coach who sees a habit that hurts the
+    /// player (his tools don't pay for it) orders it away when his style
+    /// doesn't want it. A sharper staff (film study) notices smaller ones.
+    pub fn give_orders(&mut self, level: Level) {
+        use crate::tendencies::{Instruction as I, Tend as T, misfit};
+        let st = self.staff.style;
+        let eye = 3.5 - 0.1 * (self.staff.film_study - 10.0);
+        for p in self.players.iter_mut() {
+            let mut o = Vec::new();
+            let off = |t: T, p: &GamePlayer| misfit(t, p.tend.get(t), &p.attrs, level);
+            let pos = p.position;
+            if matches!(pos, Position::RB | Position::WR | Position::CB | Position::S)
+                && (st.risk <= 7.0 || off(T::ReturnRisk, p) > eye)
+            {
+                o.push(I::KneelDeeperThan(if st.risk <= 5.0 { 1.0 } else { 4.0 }));
+                o.push(I::FairCatchInsideTen);
+            }
+            if pos == Position::QB {
+                if st.risk <= 8.0 && off(T::Gunslinger, p) > 0.5 * eye {
+                    o.push(I::ProtectBall);
+                } else if st.risk >= 14.0 && off(T::Gunslinger, p) < -0.5 * eye {
+                    o.push(I::TakeShots);
+                }
+                if st.physical <= 10.0 && p.tend.get(T::Contact) >= 14.0 {
+                    o.push(I::Slide);
+                }
+            }
+            if matches!(pos, Position::QB | Position::RB | Position::WR | Position::TE)
+                && st.risk < 15.0
+                && off(T::Reach, p) > eye
+            {
+                o.push(I::HighAndTight);
+            }
+            if pos == Position::EDGE
+                && (off(T::Upfield, p) > eye || st.freedom <= 6.0 && p.tend.get(T::Upfield) >= 14.0)
+            {
+                o.push(I::KeepContain);
+            }
+            if matches!(pos, Position::EDGE | Position::DT)
+                && (off(T::SnapTiming, p) > eye || st.freedom <= 5.0 && p.tend.get(T::SnapTiming) >= 14.0)
+            {
+                o.push(I::NoSnapGuessing);
+            }
+            if matches!(pos, Position::LB | Position::S | Position::CB | Position::EDGE | Position::DT)
+                && st.physical <= 12.0
+                && (off(T::BigHit, p) > eye || st.ball_hunting <= 7.0 && p.tend.get(T::Strip) >= 15.0)
+            {
+                o.push(I::WrapUp);
+            }
+            if matches!(pos, Position::LB | Position::S | Position::CB)
+                && st.freedom <= 12.0
+                && off(T::JumpRoutes, p) > eye
+            {
+                o.push(I::StayHome);
+            }
+            p.orders = crate::tendencies::Orders(o);
         }
     }
 
