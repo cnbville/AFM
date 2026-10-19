@@ -5,6 +5,7 @@
 use std::io::Write;
 
 use afm_engine::debug;
+use afm_engine::tendencies::Tend;
 use afm_engine::world::coach::{Employer, Group};
 use afm_engine::world::geo::STATE_CENTERS;
 use afm_engine::world::{Stage, World};
@@ -79,7 +80,62 @@ fn player_detail(p: &afm_engine::player::Player) -> Value {
         "personality": {"work_ethic": r1(p.personality.work_ethic), "coachability": r1(p.personality.coachability),
             "competitiveness": r1(p.personality.competitiveness), "love_of_game": r1(p.personality.love_of_game)},
         "bloom": r1(p.bloom), "injury": r1(p.injury_proneness),
+        "tend": tend_row(&p.tend),
     })
+}
+
+/// A player's 15 tendencies: key, what he does now, and the number before
+/// coaching moved it.
+fn tend_row(t: &afm_engine::tendencies::Tendencies) -> Value {
+    json!(Tend::ALL.iter().map(|&k| json!([k.key(), r1(t.get(k)), r1(t.was[k.index()])])).collect::<Vec<_>>())
+}
+
+/// Where a person plays now, for the tendency tables: high school, his
+/// college's division, NFL (on a club) or other pro.
+fn tend_group(w: &World, q: &afm_engine::world::Person) -> Option<&'static str> {
+    match q.stage {
+        Stage::HighSchool | Stage::PrepSchool => Some("HS"),
+        Stage::College => q.college.map(|c| w.programs[c].division.name()),
+        Stage::Pro => Some(if q.pro.as_ref().is_some_and(|c| c.team.is_some()) { "NFL" } else { "Pro, no club" }),
+        Stage::Declared | Stage::Done => None,
+    }
+}
+
+/// The tendencies of everyone in the world now, by level: per tendency, among
+/// the positions that own it, the mean, spread, 5th and 95th percentile and
+/// how far coaching has moved the number on average. Trial 8 writes one per
+/// future season to see the world drift.
+pub fn tend_summary(w: &World) -> Value {
+    let mut by: std::collections::BTreeMap<&str, Vec<Vec<(f64, f64)>>> = std::collections::BTreeMap::new();
+    for q in &w.people {
+        let Some(g) = tend_group(w, q) else { continue };
+        let rows = by.entry(g).or_insert_with(|| vec![Vec::new(); Tend::ALL.len()]);
+        for &k in &Tend::ALL {
+            if k.owned_by(q.player.position) {
+                rows[k.index()].push((q.player.tend.get(k), q.player.tend.v[k.index()] - q.player.tend.was[k.index()]));
+            }
+        }
+    }
+    let groups: serde_json::Map<String, Value> = by
+        .into_iter()
+        .map(|(g, rows)| {
+            let t: serde_json::Map<String, Value> = Tend::ALL
+                .iter()
+                .map(|&k| {
+                    let mut v: Vec<f64> = rows[k.index()].iter().map(|x| x.0).collect();
+                    v.sort_by(f64::total_cmp);
+                    let n = v.len().max(1) as f64;
+                    let mean = v.iter().sum::<f64>() / n;
+                    let sd = (v.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n).sqrt();
+                    let q = |f: f64| v.get(((v.len() as f64 - 1.0) * f).round() as usize).copied().unwrap_or(0.0);
+                    let moved = rows[k.index()].iter().map(|x| x.1).sum::<f64>() / n;
+                    (k.key().to_string(), json!({"n": v.len(), "mean": r2(mean), "sd": r2(sd), "p5": r1(q(0.05)), "p95": r1(q(0.95)), "moved": r2(moved)}))
+                })
+                .collect();
+            (g.to_string(), Value::Object(t))
+        })
+        .collect();
+    json!({"year": w.year, "groups": groups})
 }
 
 /// One pro career for the export: who he is, his deal and every season.
@@ -235,6 +291,9 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
         .filter(|c| c.job.is_some_and(|j| above_hs(j.employer)) || c.history.iter().any(|s| above_hs(s.employer)))
     {
         let a = debug::coach_ability(c);
+        let st = c.style();
+        let style = json!({"risk": r1(st.risk), "freedom": r1(st.freedom), "physical": r1(st.physical),
+            "ball_hunting": r1(st.ball_hunting), "mould": r1(st.mould), "set": c.style_set.is_some()});
         let mut career: Vec<Value> = c
             .history
             .iter()
@@ -253,6 +312,7 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
                 "discipline": r1(a.discipline), "recruiting": r1(a.recruiting), "network": r1(a.network), "relationships": r1(a.relationships)},
             "units": Group::ALL.iter().map(|&g| { let u = c.units[g as usize]; json!([g.name(), r2(u.growth_read()), r1(u.seasons), r1(u.moved_up)]) }).collect::<Vec<_>>(),
             "career": career,
+            "style": style,
         }));
     }
     counts.push(("coaches".into(), f.n));
@@ -297,6 +357,24 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
         f.put(v);
     }
     counts.push(("active people".into(), f.n));
+
+    // Tendencies of everyone in football now (every 10th high schooler), for
+    // the trial's tendency checks: id, level, position, age, then the 15
+    // numbers now and before coaching moved them, in `Tend::ALL` order.
+    let mut f = Lines::new(dir, "tendencies.jsonl");
+    for q in &w.people {
+        let Some(g) = tend_group(w, q) else { continue };
+        if g == "HS" && q.player.id % 10 != 0 {
+            continue;
+        }
+        let t = &q.player.tend;
+        f.put(json!({
+            "id": q.player.id, "lvl": g, "pos": q.player.position.name(), "age": q.player.age, "stars": q.stars,
+            "ovr": r1(q.player.overall()), "v": Tend::ALL.iter().map(|&k| r1(t.get(k))).collect::<Vec<_>>(),
+            "was": t.was.iter().map(|&x| r1(x)).collect::<Vec<_>>(), "dip": r1(t.contact_dip),
+        }));
+    }
+    counts.push(("tendency rows".into(), f.n));
 
     let mut f = Lines::new(dir, "nfl.jsonl");
     for t in &w.nfl {

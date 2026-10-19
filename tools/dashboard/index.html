@@ -138,7 +138,7 @@ details summary { cursor: pointer; font-weight: 600; }
 const TABS = [
   ["verdict", "Verdict"], ["calendar", "Calendar"], ["health", "Health"], ["engine", "Game engine"], ["balance", "Balance"], ["wins", "What wins"],
   ["situ", "Situations"], ["players", "Player paths"], ["recruit", "Recruiting"], ["coaches", "Coaches"],
-  ["draft", "Draft"], ["nfl", "NFL"], ["records", "Records"], ["names", "Names"], ["slumps", "Slumps"], ["anomalies", "Anomalies"],
+  ["draft", "Draft"], ["nfl", "NFL"], ["tend", "Tendencies"], ["records", "Records"], ["names", "Names"], ["slumps", "Slumps"], ["anomalies", "Anomalies"],
   ["ideas", "Idea board"], ["seeds", "Seed lab"], ["explore", "Explorer"], ["pages", "Pages"],
 ];
 const SERIES = ["var(--s1)", "var(--s2)", "var(--s3)"];
@@ -1040,7 +1040,31 @@ function buildSlumps(p) {
   }
 }
 
-const BUILD = { verdict: buildVerdict, calendar: buildCalendar, slumps: buildSlumps, health: buildHealth, engine: buildEngine, balance: buildBalance, wins: buildWins, situ: buildSitu, players: buildPlayers, recruit: buildRecruit, coaches: buildCoaches, draft: buildDraft, nfl: buildNfl, records: buildRecords, names: buildNames, anomalies: buildAnomalies, ideas: buildIdeas, seeds: buildSeeds, explore: buildExplore, pages: buildPages };
+/* ---------- Tendencies (2026-10-19) ---------- */
+const LVL_COLORS = { HS: "var(--ink-3)", JUCO: "var(--warn)", D2: "var(--good)", FCS: "var(--s3)", FBS: "var(--s1)", NFL: "var(--s2)" };
+function buildTend(p) {
+  const runs = active().filter((i) => S.runs[i].tend);
+  if (!runs.length) { p.append(h("p", { class: "muted" }, "These worlds were run before tendencies were built (2026-10-19): no tendency data.")); return; }
+  p.append(h("p", { class: "intro" }, "Player tendencies: how often a player tries something, never how well (docs/design/tendencies.md). 1 to 20 at every position that owns the habit. Each line is a level's average among the players who own it, from the save's start through every recorded future season; the band is the level's middle (10.5) and the designed spread is the sd the build aims for (NFL 3.2, FBS 3.8, high school 4.8). Coaching moves a hurtful habit down; the table of coached habits shows the share of players whose number coaching moved 2 or more points down."));
+  for (const i of runs) {
+    const T = S.runs[i].tend;
+    const g = h("div", { class: "grid" });
+    for (const [k, label, own] of T.keys) {
+      g.append(card(label, `Owned by ${own.join(", ")}. Average by level and year.`, chartDiv((el) => lineChart(el, { series: T.levels.map((l) => ({ name: l, color: LVL_COLORS[l] || "var(--ink-2)", pts: (T.drift[l][k] || []).map((x) => [x[0], x[1]]) })), ref: { lo: 10.5, label: "middle" }, H: 160, yMin: 4, yMax: 16 }))));
+    }
+    p.append(h("h2", {}, `${seedName(i)}: the averages over the years`), g);
+    const w = h("div", { class: "grid wide" });
+    const spreadRows = [];
+    for (const [k, label] of T.keys) for (const l of T.levels) { const x = T.last[l]?.[k]; if (x) spreadRows.push([label, l, x.n, x.mean, x.sd, T.design_sd[l] ?? null, x.p5, x.p95, x.moved]); }
+    w.append(card(`Spread in ${T.years[T.years.length - 1]}`, "Mean, sd and the 5th to 95th percentile among the players who own each habit, against the designed sd. 'Moved' is the average shift coaching has made (negative: coached down).", h("div", { class: "scrolly" }, table(["Tendency", "Level", "Players", "Mean", "Sd", "Designed sd", "p5", "p95", "Moved"], spreadRows, { numeric: [2, 3, 4, 5, 6, 7, 8] }))));
+    w.append(card("Coached habits", "Share of players (%) at each level whose number coaching moved 2 or more points down, by tendency.", h("div", { class: "scrolly" }, table(["Level", "Players"].concat(T.keys.map((k) => k[1])), T.coached, { numeric: T.keys.map((_, j) => j + 1).concat([T.keys.length + 1]) }))));
+    w.append(card("Do the numbers show in the stats?", `The last recorded season: players with volume, the correlation between his tendency and the stat it should move, and the stat's average in the bottom and top fifth by the tendency. Season stats come from the engine; the tendency is read at the end of the run (after that year's development step).`, table(["Level", "Pos", "Tendency", "Stat", "Players", "Correlation", "Bottom fifth", "Top fifth"], T.results, { numeric: [4, 5, 6, 7] })));
+    w.append(card("Head coaches' styles now", "Mean ± sd of the five settings (1-20) among head coaches in a job, by level. Risk from ambition, freedom from discipline, physical from temper, moulding from relationships.", table(["Level", "Coaches", "Risk", "Freedom", "Physical", "Ball hunting", "Moulding"], T.styles, { numeric: [1] })));
+    p.append(h("h2", {}, `${seedName(i)}: the world now`), w);
+  }
+}
+
+const BUILD = { verdict: buildVerdict, calendar: buildCalendar, slumps: buildSlumps, health: buildHealth, engine: buildEngine, balance: buildBalance, wins: buildWins, situ: buildSitu, players: buildPlayers, recruit: buildRecruit, coaches: buildCoaches, draft: buildDraft, nfl: buildNfl, tend: buildTend, records: buildRecords, names: buildNames, anomalies: buildAnomalies, ideas: buildIdeas, seeds: buildSeeds, explore: buildExplore, pages: buildPages };
 
 /* ---------- Shell ---------- */
 function render() {
@@ -1061,7 +1085,11 @@ async function boot() {
   const index = await get("data/index.json");
   S.real = await get("data/real.json");
   try { S.notes = await get("data/notes.json"); } catch (e) { S.notes = null; }
-  S.runs = await Promise.all(index.seeds.map((s) => get("data/" + s.file)));
+  S.runs = await Promise.all(index.seeds.map(async (s) => {
+    const run = await get("data/" + s.file);
+    if (s.players) run.players = await get("data/" + s.players);
+    return run;
+  }));
   S.on = S.runs.map(() => true);
   $("#subtitle").textContent = `${S.runs.length} world${S.runs.length > 1 ? "s" : ""}, ${S.runs[0].first} to ${S.runs[0].last}, every game on the match engine. Debug view: hidden values shown.`;
   const chips = $("#seedChips");
