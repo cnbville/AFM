@@ -307,6 +307,14 @@ The design is in `docs/design/people.md`, all 15 topics.
 - **Your health never ends your career for you** (2026-10-19): "nah, imaging spending months on a save and it gets ripped from you". Health can force a leave, and your doctor and family push you to step down, but only you end the career (topic 13).
 - **Your background gives a pool of points for your starting ratings, like FM** (2026-10-19): "A" (topic 15, settling how Q8's "changeable starting stats" works).
 
+## 14. Section 7: scouting, recruiting and the draft (thread "start new thread to design section 7", 2026-10-19)
+
+The design is in `docs/design/scouting.md`, 18 topics in five parts (how anyone judges a player; the NFL draft; college recruiting; the high school seat; following players). Audit in the project folder at `afm/section7/existing.md`. Cain asked for the thread on 2026-10-19 20:05: "start new thread to design section 7".
+
+- **Built on earlier decisions, not re-asked:** Q18 and Q46 (ranges that sharpen, hints, never an exact ceiling), Q31 (director, area scouts and cross-checkers; boards only from your own reports; AI boards the same way; pro scouting the same), Q32 (insane character detail), Q33 (live draft with trades), Q34 (the undrafted rush), Q28 and Q29 (budgets, rated staff), calendar topics 5, 9 and 10, section 6's traits, trouble, media and line bank, and the career at every level (section 12).
+- **Real life went straight in,** per section 13's rule. No open choices: unpublished numbers are marked "proposed, not confirmed" for the next trial.
+- **Parked trial 7 items** (round 1 positions, the 5-star draft rate, trade volume) are measured after section 7 is built, not tuned in the design.
+
 ---
 
 ## Superseded decisions
