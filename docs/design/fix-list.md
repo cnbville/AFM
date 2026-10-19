@@ -1,6 +1,51 @@
-# Fix list for the next build
+# Fix list for the section 6 build
 
-Cain's answers to world trial 5 (`docs/trials/world-trial5.md`), 2026-10-15. Nothing here is built. Cain will ask for the list to be executed; that is when we go into extreme detail on how, topic by topic. Until then, each item says what Cain wants (his words), what the game does today (traced in the code), and the questions to settle in the detail round (proposed, not confirmed).
+Cain's answers to the open items of the trial 8 fixes, 2026-10-19 (thread "Full build and trial 7"). Cain: "btw don't tune them immediately, add them to a fix list i'll include with the building of section 6". Nothing here is built. Each item says what Cain said, what the game does today (traced in the code where it says so, numbers from `match_check` and trial 8's raw export at `afm/trials-8/`), and what the fix changes. The details in each fix are Claude's proposals, not confirmed.
+
+Not on this list, by Cain's answer the same day: NFL passing on world-like rosters (7.9 yards an attempt, real 7.05; "keep it like this for now") and FBS scoring (24.5 points a team game, real 27.0; "Keep it for now, we'l tune later").
+
+## S6.1 Run fits: combination blocks and linebacker fits
+Cain: "yes tune them" (to "Build run fits (double teams, linebacker fits)?").
+
+Today (traced, `docs/match-engine.md`, "Trial 8 fixes"): runs have the wrong shape. On the world's FBS rosters 31% of runs gain nothing (real 18%), 19% gain 1-3 yards (real 37%) and 37% gain 4-9 (real 34%). Linebackers make 18% of first tackles (real 37%), defensive backs 42% (real 30%). Blocks are one on one, with no double team that holds a tackle and then climbs to a linebacker, so a lineman either sheds early (a stuff) or the back is through to the safeties. Moving the block start only trades one for the other. Synthetic NFL teams run 3.39 a carry with 43% stuffs (real 4.50 and 18%).
+
+The fix (proposed, not confirmed):
+- Combination blocks: two linemen take a down lineman together, and one climbs to the linebacker once the down lineman is controlled, by the run concept (zone, power, counter) and the front.
+- Linebacker fits: each linebacker owns a gap from the call and the front, reads his key, fills it and meets the back near the line; a linebacker who misreads or is late opens the cutback.
+- Check after, on the world's FBS and NFL rosters (`AFM_ROSTERS`): gains by bucket, first tackles by group, yards a carry (FBS 5.12, NFL 4.50) and yards after contact.
+
+## S6.2 Plays ending out of bounds
+Cain: "yes tune" (to "Fix how few NFL plays end out of bounds?").
+
+Today (`match_check`, 600 NFL games): 1.4% of NFL plays end out of bounds in normal time. After a play that stops the clock, the next snap comes 9.2 s of game time later (real 15.2, nflverse 2021-25), likely because few stops are the kind where the clock starts again once the ball is spotted (inferred). Teams run 64.0 plays a game (real 61.9). Why so few plays reach the sideline is not traced yet.
+
+The fix (proposed, not confirmed):
+- Trace where runs, catches and scrambles end against the sideline: cutbacks inside, tackles in bounds, routes toward the sideline, and players getting out on purpose late in a half.
+- Read the real share of plays ending out of bounds from nflverse's play by play (its out-of-bounds flag), by play type and time left, and tune toward it.
+- Check after: that share, the snap-to-snap times in `match_check` and plays a game.
+
+## S6.3 Bonus money paid twice (the $251M contract)
+Cain: "251 m a year seems broken right ?"
+
+Today (traced in the code, numbers from trial 8's raw export):
+- An extension adds the old deal's whole signing bonus to the new deal (`market.rs`, `extend`), and a season's pay counts the deal's whole signing bonus in its first year (`pro/mod.rs`, the season pay). So every extension pays out every earlier bonus again.
+- A restructure turns salary into signing bonus (`money.rs`, `restructure`), but that bonus is only paid in a deal's first year. So restructured money isn't paid in the year it's restructured; it lands at the next extension, together with the old bonuses.
+- The headline average and the guarantee count the old bonuses again. Makai Tarry's deal reads $251M a year and $1.96B guaranteed because of this.
+- His pay was 1-2% of the cap in most seasons (the restructured money went unpaid), then 46% of it in 2033, the first year of his extension. From 2026 to 2045, 144 player seasons paid one player more than 30% of the cap; the worst was Hunter Baker (QB, 2038) at 139%. Not all 144 are this bug, since a new deal's bonus can be large too. The same money goes into each team's cash spending.
+- The prices themselves look right: Tarry's deals were 20-25% of the cap of the year they started (the real top five quarterbacks average 23.4%).
+- Also seen: tags may be priced too high. His transition tag was $117M, 23% of that year's cap, and the quarterback tag has a floor at 85% of the top five's average (19.9% of the cap). The real 2025 quarterback franchise tag was $40.2M, 14.4% of the cap (from memory, to verify).
+- Also seen: a new deal can pay a lot up front. His 2037 Miami deal (a free agent signing, not an extension) paid 43% of that year's cap in its first season. Real first-year cash on the top quarterback deals is about a third of the cap or less (from memory, to verify).
+
+The fix (proposed, not confirmed):
+- A signing bonus is paid once, in the year it is signed. A restructure's bonus is paid in the year of the restructure.
+- An extension's bonus is only its new money. The old deal's unpaid proration still counts on the cap, as it does now.
+- The headline average and guarantee of an extension count only the new money (OverTheCap's "new money" average).
+- Check the tag prices against the real tags by year, and the first-year cash of new deals against real deals.
+- Check after: each season's pay and cap hit against the cap for the top players, and each team's cash a year.
+
+# Earlier: the trial 5 fix list (2026-10-15)
+
+Cain's answers to world trial 5 (`docs/trials/world-trial5.md`), kept as they were written on 2026-10-15. Topics 2-5 were built in build 7 (`docs/design/build7-checklist.md`). Each item says what Cain wanted (his words), what the game did then (traced in the code), and the questions settled in the detail round.
 
 Also waiting, not part of this list yet: the 10-item yes/no list from the dynasty re-trace (`docs/trials/world-trial4-proposals.md`, last section). When Cain answers it, the agreed items join this list.
 
