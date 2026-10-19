@@ -281,6 +281,9 @@ Spec `docs/design/faces.md`. Cain asked how AFM will make faces for fictional pl
 - **Proof of concept:** "yes immediately".
 - Cain's computers: a MacBook M1 and an Intel Mac (22:00). The face model must run on both.
 - **Proof sample size:** "current amount is enough, just need to see a baseline" (22:43): the random pool stopped at 900 faces. Results in `docs/design/faces.md`, "Proof".
+- **3D baseline for now (2026-10-19 14:12, thread "3D face model"):** "still too far from realistic but for now i'm to tired of fixing this that i'm accepting this": the ten v7 3D heads in the approved light. Face work paused.
+- **Your own photos (2026-10-19, same thread):** an upload button on the player page. Any player ("Any"); media day keeps your photo ("Keep yours" on the card); a "Copy AI prompt" button ("yes but include random aspects, like bleached dreads, scar above temple, fat."); a folder import later ("agreed"). Spec `docs/design/faces.md`, "Your own photos".
+- **Appearance (2026-10-19 17:00):** "yes" to a per-player list (hair and dye, facial hair, scars and a broken nose, neck and forearm tattoos, earrings, a gap in the teeth, freckles, build from weight, frame and position, changes over a career, rates from real roster headshots). Spec `docs/design/faces.md`, "Appearance".
 
 ## 12. Your career: coach at high school, college and the NFL (2026-10-18)
 

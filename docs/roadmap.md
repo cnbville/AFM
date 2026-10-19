@@ -304,6 +304,7 @@ Game plans, live play calling (play by play), in-game decisions (halftime, timeo
 
 Dense FM-style screens with a modern finish, player cards, the news inbox, history (Hall of Fame, awards, record books), and the 2D Next Gen Stats-style replays.
 - Screens for each seat: recruiting boards and visits for college, the school and its feeder area for high school.
+- Your own photos (Cain, 2026-10-19): an upload button on any player's page sets your own picture (for example one you made with an AI image tool) as his profile photo, and a "Copy AI prompt" button writes a prompt from his data and appearance. Media day keeps your photo. A folder import for many at once comes later. Details in `docs/design/faces.md`, "Your own photos".
 
 ### Section 11. Later
 

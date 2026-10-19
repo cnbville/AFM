@@ -88,6 +88,45 @@ Cain called the GAN photos "horrible" and asked for a clear fix or the 3D heads.
 - **Light version for an 8 GB M1 (2026-10-17).** Cain: "very heavy for my 8gb m1". Realistic Vision 6 (SD 1.5, 512 by 640), Hyper-SD 8 steps, IP-Adapter FaceID Plus v2 face lock (`tools/faces/photo/light/`). Same-person 0.52 to 0.71 (all over 0.4). Ages a little better (looser lock), but rougher: hair and framing wander between photos, some jerseys in the wrong colours. Needed prompt rewrites (the first try drew Prude as a woman) and McSpadden's age-22 photo redrawn twice. Measured here: 1.4 to 1.5 min for the first photo, 1.6 to 1.9 min per locked photo, 13 GB peak in full precision. Estimates, not measured: about 15 to 25 s a photo and 3 to 5 GB on an M1; about 2 to 4 min on an Intel Mac. About 4 GB of model files in half precision.
 - **Licences.** RealVisXL inherits the SDXL OpenRAIL++ licence. InstantID's weights are Apache 2.0, but it reads faces with insightface's antelopev2 models, which are non-commercial research only. Fine for personal use; a public release would need another face reader.
 
+## Where faces stand (2026-10-19)
+
+After the photo proofs, faces moved to 3D heads drawn in Blender (thread "3D face model"; mock only, renders in the project folder under `afm/faces-3d/`, nothing in the game). Cain, 2026-10-19 14:12, on the ten v7 players in the approved light: "still too far from realistic but for now i'm to tired of fixing this that i'm accepting this". They are the face baseline for now, and face work is paused.
+
+## Your own photos (Cain, 2026-10-19)
+
+Cain, 14:14: "i want a feature in the game where i can easily press a button that uploads and changes the player profile. SO that i can manually generate AI pictures and at least have those for my own players".
+
+Answers (16:53 to 17:01):
+
+1. **Any player can get your photo**, not only your own team, so it also works for recruits and draft targets you follow. Cain: "Any".
+2. **Media day keeps your photo.** The new headshot every 4 years does not replace it; the player page shows a small "new team photo" note you can switch to in one click. Cain picked "Keep yours" on the card, after a first "Yes" that could be read either way.
+3. **A "Copy AI prompt" button** next to the upload button writes a ready image prompt from the player's data: heritage, age, height, weight, position, team colours, hair, beard and his appearance (below). Cain: "yes but include random aspects, like bleached dreads, scar above temple, fat."
+4. **A folder import for many photos at once, later,** in the style of FM's NewGAN (files named after players), once the button works. Cain: "agreed". How files are named and matched is left for then.
+
+How the button works (proposed with the questions; Cain answered the questions without changing it, so proposed, not confirmed):
+
+- A "Change photo" button on the player page. You pick a PNG, JPG, WebP or HEIC file and drag a crop box onto the face.
+- The file is copied into the save's own folder, so it survives saving, loading and moving the save. It never leaves your computer.
+- Your photo replaces the generated face everywhere he shows up: the player page, cards, news, the depth chart and history.
+- "Back to generated face" undoes it at any time.
+- The photo stays with him when he leaves your team, graduates or retires.
+- The generated face stays the default for every player without your photo.
+
+## Appearance (Cain, 2026-10-19 17:00)
+
+The player model had no appearance beyond body and heritage. Cain answered "yes" to this list. It feeds the "Copy AI prompt" button, and the 3D face shows what it can once face work restarts. This is not "Looks in the sim" (decision 6 above), which is about appeal.
+
+- **Drawn at creation** on its own random stream, so every seed gives the same results as before.
+- **Hair:** a style from the haircut library and a natural colour, plus dye at the real rate (bleached locs, blond tips, a coloured streak).
+- **Facial hair:** from his beard genes and his own choice, as already planned.
+- **Marks:** old scars (above the temple, through a brow, on the chin) and a nose broken in the past.
+- **Tattoos:** neck and forearm ink, the parts a headshot shows.
+- **Small features:** earrings, a gap in the teeth, freckles.
+- **Build comes from the sim, not from chance:** weight, frame and position make him lean, muscular or heavy-set. A 340 lb nose tackle gets a full face; a player who puts on 25 lb gets a fuller face in his next prompt.
+- **It changes the way real players' looks do:** a new haircut or dye in some off-seasons, greying and a receding hairline with age for players who carry the genes.
+- **Rates** (how often each look appears) are set by counting real NFL and college roster headshots when this is built.
+- The injury model has no face injuries yet. If they come, a scar or a crooked nose can follow from one (proposed, not confirmed).
+
 ## Known limits
 
 - Ageing edits drift a little: after many years the face can look like a relative of the young one. The proof measures this with a face recognition model.
