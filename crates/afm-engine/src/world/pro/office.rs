@@ -75,9 +75,47 @@ pub enum Mode {
     Rebuild,
 }
 
+/// Who holds the final say on the roster (topic 8): the GM in most
+/// clubs, the head coach in some (Bill Belichick's Patriots, Pete Carroll's
+/// Seahawks, Kyle Shanahan's 49ers by contract), the owner in a few (Jerry
+/// Jones's Cowboys). It settles GM-coach disagreements over fit.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Power {
+    #[default]
+    Gm,
+    Coach,
+    Owner,
+}
+
+impl Power {
+    /// How much scheme fit weighs in the club's price of a player: a coach
+    /// with the final say wants players for his system now.
+    pub fn fit_weight(self) -> f64 {
+        match self {
+            Power::Gm => 1.0,
+            Power::Coach => 1.4,
+            Power::Owner => 0.9,
+        }
+    }
+}
+
+/// The power structure a club settles on when it hires (proposed, not
+/// confirmed: about a fifth of clubs give the coach the final say, owners
+/// who meddle most keep it themselves).
+pub(crate) fn draw_power(rng: &mut Rng, owner: &Owner) -> Power {
+    if owner.meddling > 0.8 && rng.chance(0.7) {
+        Power::Owner
+    } else if rng.chance(0.2) {
+        Power::Coach
+    } else {
+        Power::Gm
+    }
+}
+
 /// A team's front office.
 #[derive(Clone, Debug, Default)]
 pub struct Office {
+    pub power: Power,
     pub gm: Gm,
     pub owner: Owner,
     /// The fans' mood, -1 to 1: results, hype, star signings, renewals.
@@ -141,7 +179,9 @@ pub(crate) fn staff_offices(w: &mut World) {
         let since = year - rng.int(0, 8);
         let mut gm = new_gm(&mut rng, since, w.nfl[t].draft_skill, name);
         gm.skill = w.nfl[t].draft_skill;
-        w.clubs[t].office = Office { gm, owner: new_owner(&mut rng), ..Default::default() };
+        let owner = new_owner(&mut rng);
+        let power = draw_power(&mut rng, &owner);
+        w.clubs[t].office = Office { gm, owner, power, ..Default::default() };
     }
 }
 
@@ -170,6 +210,7 @@ pub(crate) fn replace_gm(w: &mut World, t: usize, why: &str) {
     w.nfl[t].draft_skill = skill;
     let office = &mut w.clubs[t].office;
     office.gm = gm;
+    office.power = draw_power(&mut rng, &office.owner);
     office.owner.trust = 0.7;
     office.gm_changes += 1;
     let team = w.nfl[t].name;

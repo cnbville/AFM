@@ -15,6 +15,7 @@ pub mod leagues;
 pub mod market;
 pub mod money;
 pub mod office;
+pub mod squad;
 pub mod trades;
 
 use super::season::{key_normal, key_uniform};
@@ -61,6 +62,8 @@ pub struct ProSeason {
     /// 1 first team, 2 second team.
     pub all_pro: u8,
     pub awards: Vec<&'static str>,
+    /// Game-day elevations from the practice squad (2020 on).
+    pub elevations: u32,
     /// His statistics (filled by the engine games).
     pub stats: crate::game::stats::StatLine,
 }
@@ -219,6 +222,8 @@ pub enum DeadWhy {
     Released,
     /// Guaranteed pay owed once a waived player clears waivers.
     Waived,
+    /// An injury settlement for a player cut while hurt.
+    Settlement,
     /// A roster deal replaced by a practice squad deal at cutdown.
     PracticeSquad,
     Retired,
@@ -1050,6 +1055,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
     // calls, the unsigned veteran's week (topic 1.3).
     if d >= y.cutdown.date && d.weekday() == crate::calendar::Weekday::Tue && d <= y.super_bowl {
         super::clock::timed("pro heal", || heal_week(w));
+        changed |= super::clock::timed("pro poach", || squad::poach(w, d));
         changed |= super::clock::timed("pro street", || street_signings(w, d, true));
         changed |= super::clock::timed("pro fill", || fill_roster(w, d));
         super::clock::timed("pro unsigned", || unsigned_week(w, d));
@@ -1651,6 +1657,7 @@ fn cutdown(w: &mut World, d: Date) {
             p.note(format!("Cut from the {name}'s roster at {age}, he stayed on the practice squad."));
         }
         for i in cut {
+            squad::settle_injury(w, t, i);
             release(w, i, d, "cut at the final cutdown");
         }
     }
@@ -1878,9 +1885,7 @@ fn season_end(w: &mut World, d: Date) {
         let c = p.pro.as_mut().unwrap();
         let held = c.held();
         let squad = c.status == Status::PracticeSquad;
-        let pay = c.contract.as_ref().map_or(0.0, |k| {
-            k.year(year).map_or(0.0, |x| x.cash()) + if k.signed == year { k.signing_bonus } else { 0.0 }
-        });
+        let pay = c.contract.as_ref().map_or(0.0, |k| k.year(year).map_or(0.0, |x| x.cash()));
         if let Some(t) = c.team {
             match w.clubs[t].cash.last_mut() {
                 Some(x) if x.0 == year => x.1 += pay,

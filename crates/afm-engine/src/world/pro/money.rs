@@ -102,6 +102,10 @@ pub struct Year {
     pub proration: f64,
     /// A year that voids before it is played: it only carries proration.
     pub void: bool,
+    /// Bonus money paid out in this league year (the signing bonus in the
+    /// year it is signed, a restructure's bonus in its year). Fix list S6.3:
+    /// a bonus is paid once.
+    pub bonus_paid: f64,
 }
 
 impl Year {
@@ -109,6 +113,10 @@ impl Year {
         self.base + self.proration + self.roster_bonus + self.workout + self.per_game + self.ltbe
     }
     pub fn cash(&self) -> f64 {
+        self.pay() + self.bonus_paid
+    }
+    /// This year's pay without bonus money.
+    pub fn pay(&self) -> f64 {
         if self.void { 0.0 } else { self.base + self.roster_bonus + self.workout + self.per_game }
     }
 }
@@ -127,6 +135,10 @@ pub struct Contract {
     /// A round-one rookie deal's fifth-year option (2011 on): None until
     /// decided, then whether it was picked up.
     pub option: Option<bool>,
+    /// The first league year of this deal's new money: the signing year for
+    /// a new deal, the year after for an extension (OverTheCap's "new money"
+    /// headline; fix list S6.3).
+    pub new_from: i32,
 }
 
 impl Contract {
@@ -138,14 +150,14 @@ impl Contract {
         self.years.iter().filter(|x| !x.void).map(|x| x.year).max().unwrap_or(self.signed)
     }
     pub fn real_years(&self) -> u32 {
-        self.years.iter().filter(|x| !x.void).count() as u32
+        self.years.iter().filter(|x| !x.void && x.year >= self.new_from).count() as u32
     }
     pub fn cap_hit(&self, y: i32) -> f64 {
         self.year(y).map_or(0.0, Year::cap_hit)
     }
-    /// Total pay over the real years.
+    /// Total new money over the real years: bonuses plus pay.
     pub fn total(&self) -> f64 {
-        self.signing_bonus + self.years.iter().map(Year::cash).sum::<f64>()
+        self.signing_bonus + self.years.iter().filter(|x| x.year >= self.new_from).map(Year::pay).sum::<f64>()
     }
     /// Average a year: the headline number agents sell.
     pub fn apy(&self) -> f64 {
@@ -153,7 +165,7 @@ impl Contract {
     }
     /// What he is sure to get at signing: the bonus and guaranteed base.
     pub fn guaranteed(&self) -> f64 {
-        self.signing_bonus + self.years.iter().map(|x| x.guaranteed).sum::<f64>()
+        self.signing_bonus + self.years.iter().filter(|x| x.year >= self.new_from).map(|x| x.guaranteed).sum::<f64>()
     }
     /// Pay still guaranteed from league year `y` on (vested injury
     /// guarantees count once the day has passed).
@@ -277,6 +289,7 @@ pub fn build(team: usize, kind: Kind, start: i32, t: &Terms) -> Contract {
             nltbe: t.incentives,
             proration: 0.0,
             void: false,
+            bonus_paid: 0.0,
         });
     }
     for k in 0..t.void_years as i32 {
@@ -285,6 +298,9 @@ pub fn build(team: usize, kind: Kind, start: i32, t: &Terms) -> Contract {
     let spread = years.len().min(5);
     for y in years.iter_mut().take(spread) {
         y.proration = bonus / spread as f64;
+    }
+    if let Some(y) = years.first_mut() {
+        y.bonus_paid = bonus;
     }
     Contract {
         team,
@@ -295,6 +311,7 @@ pub fn build(team: usize, kind: Kind, start: i32, t: &Terms) -> Contract {
         no_trade: t.no_trade,
         offsets: t.offsets,
         option: None,
+        new_from: start,
     }
 }
 
@@ -315,6 +332,7 @@ pub fn restructure(c: &mut Contract, y: i32, keep: f64, add_void: u32) -> f64 {
         c.years.push(Year { year: last + 1 + v, void: true, ..Default::default() });
     }
     c.years[k].base -= amount;
+    c.years[k].bonus_paid += amount;
     c.years[k].guaranteed = c.years[k].guaranteed.max(0.0).min(c.years[k].base);
     let spread: Vec<usize> = (k..c.years.len()).take(5).collect();
     for &j in &spread {
@@ -464,6 +482,16 @@ pub fn tag_price(top: &[f64], franchise: bool, own: f64, times: u32, qb_price: f
         0 => avg.max(own * 1.2),
         1 => avg.max(own * 1.2),
         _ => (own * 1.44).max(qb_price).max(avg),
+    }
+}
+
+/// A tag's price from the formula's base: at least 120% of his own last
+/// pay; a second tag 120% of the last, a third 144% (or the quarterback
+/// price if higher).
+pub fn tag_repeat(base: f64, own: f64, times: u32, qb_price: f64) -> f64 {
+    match times {
+        0 | 1 => base.max(own * 1.2),
+        _ => (own * 1.44).max(qb_price).max(base),
     }
 }
 

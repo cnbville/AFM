@@ -401,7 +401,8 @@ pub(crate) fn worth(w: &World, t: usize, i: usize) -> (f64, f64) {
     }
     // Topic 8: fit in this team's systems.
     let fits = super::super::systems::fits(&p.player, pos, &w.system_norms);
-    view += 2.0 * super::super::systems::fit_to(&fits, pos, &w.clubs[t].installed);
+    view +=
+        2.0 * w.clubs[t].office.power.fit_weight() * super::super::systems::fit_to(&fits, pos, &w.clubs[t].installed);
     // The age curve over a deal.
     let end = prime_end(pos);
     if age >= end {
@@ -1012,7 +1013,38 @@ pub(crate) fn tags_and_tenders(w: &mut World, d: Date) {
         return;
     }
     let top = top_cap_hits(w);
-    let qb_price = tag_at(&top, Position::QB, true, year);
+    // The 2011 CBA's tag formula reads five years of top cap numbers as a
+    // share of each year's cap (fix list S6.3: the tags ran far over real).
+    let cap = money::price_cap(year);
+    let shares: Vec<[f64; 2]> = top
+        .iter()
+        .map(|l| {
+            let f = money::tag_price(l, true, 0.0, 0, 0.0) / cap;
+            let t = money::tag_price(l, false, 0.0, 0, 0.0) / cap;
+            [f, t]
+        })
+        .collect();
+    w.market.tag_shares.push((year, shares));
+    w.market.tag_shares.retain(|(y, _)| *y > year - 5);
+    let bases: Vec<[f64; 2]> = Position::ALL
+        .iter()
+        .map(|&pos| {
+            let one = |k: usize| {
+                let hist: Vec<f64> = w.market.tag_shares.iter().map(|(_, v)| v[pos.index()][k]).collect();
+                let share = if year >= 2011 {
+                    hist.iter().sum::<f64>() / hist.len().max(1) as f64
+                } else {
+                    *hist.last().unwrap_or(&0.0)
+                };
+                // A position with too few paid veterans in the world still
+                // has a real market (the floor sits well under the top five).
+                (share * cap).max(cap * money::top5_share(pos) * 0.45)
+            };
+            [one(0), one(1)]
+        })
+        .collect();
+    let base = |pos: Position, franchise: bool| bases[pos.index()][usize::from(!franchise)];
+    let qb_price = base(Position::QB, true);
     // The best expiring players first; one tag a team a year from 2011, a
     // franchise and a transition tag before (from memory, to check).
     let mut list = expiring(w);
@@ -1028,11 +1060,8 @@ pub(crate) fn tags_and_tenders(w: &mut World, d: Date) {
         let own = c.contract.as_ref().map_or(0.0, |k| k.cap_hit(year - 1));
         if accrued >= money::ufa_seasons(year) {
             let times = c.tags;
-            let franchise =
-                money::tag_price(&top[pos.index()], true, own, times, if times >= 2 { qb_price } else { 0.0 })
-                    .max(money::price_cap(year) * money::top5_share(pos) * 0.85);
-            let transition = money::tag_price(&top[pos.index()], false, own, times, 0.0)
-                .max(money::price_cap(year) * money::top5_share(pos) * 0.72);
+            let franchise = money::tag_repeat(base(pos, true), own, times, if times >= 2 { qb_price } else { 0.0 });
+            let transition = money::tag_repeat(base(pos, false), own, times, 0.0);
             // A one-year tag carries no long-term risk and keeps a core
             // player from walking, so a team pays up to half again its
             // long-term number for it (proposed, not confirmed).
@@ -1143,11 +1172,6 @@ fn top_cap_hits(w: &World) -> Vec<Vec<f64>> {
         l.truncate(10);
     }
     v
-}
-
-fn tag_at(top: &[Vec<f64>], pos: Position, franchise: bool, year: i32) -> f64 {
-    money::tag_price(&top[pos.index()], franchise, 0.0, 0, 0.0)
-        .max(money::price_cap(year) * money::top5_share(pos) * 0.85)
 }
 
 /// The league year opens (March): contracts that ran out end. A void year
@@ -1463,9 +1487,17 @@ fn extend(w: &mut World, i: usize, o: &Offer, d: Date) {
     if let Some(y1) = new.years.first_mut() {
         y1.proration += later;
     }
+    // The new bonus is paid now, at signing, in this league year (fix list
+    // S6.3: the old deal's bonuses were paid already and are not paid again).
+    let bonus = new.years.first().map_or(0.0, |y| y.bonus_paid);
+    if let Some(now) = years.iter_mut().rev().find(|y| y.year == year && !y.void) {
+        now.bonus_paid += bonus;
+        if let Some(y1) = new.years.first_mut() {
+            y1.bonus_paid = 0.0;
+        }
+    }
     years.append(&mut new.years);
     new.years = years;
-    new.signing_bonus += old.signing_bonus;
     new.option = old.option;
     let apy = o.apy;
     c.contract = Some(new);
@@ -2035,6 +2067,10 @@ pub struct MarketYear {
     pub june1: u32,
     pub futures: u32,
     pub waiver_claims: u32,
+    /// Practice squad players signed to another team's 53, and injury
+    /// settlements at cutdown (section 5 leftovers).
+    pub poached: u32,
+    pub settlements: u32,
     pub holdouts: u32,
     pub holdins: u32,
     pub bluffs: u32,
@@ -2088,6 +2124,9 @@ pub struct Market {
     /// Someone went on waivers since the last claims pass, so `claims`
     /// skips its daily scan of everyone when nobody did.
     pub waivers: bool,
+    /// Each year's franchise and transition tag shares of the cap by
+    /// position (the 2011 formula's five-year history).
+    pub tag_shares: Vec<(i32, Vec<[f64; 2]>)>,
 }
 
 impl Market {

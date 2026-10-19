@@ -85,6 +85,7 @@ pub(crate) fn actives(w: &World, t: usize) -> Vec<(usize, bool)> {
         depth += 1;
     }
     out.truncate(limit);
+    super::squad::elevate(w, t, &mut out);
     out
 }
 
@@ -401,6 +402,7 @@ pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[
         }
         for (&id, l) in &r.stats.players[side] {
             let Some(&(i, starter)) = sides[side].who.get(&id) else { continue };
+            super::squad::count_elevation(w, i);
             let Some(c) = w.people[i].pro.as_mut() else { continue };
             let dressed = l.snaps_off + l.snaps_def + l.snaps_st > 0;
             if dressed {
