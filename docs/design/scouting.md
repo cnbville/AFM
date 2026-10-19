@@ -436,7 +436,7 @@ Proposed, not confirmed: how much each look narrows each attribute group. The bu
 - **New:** college staffs' evaluations as files (topic 1), the real looks of recruiting, and each service as its own evaluator.
 
 ### How real football works
-- **Who may look and when.** Only the head coach and his on-field assistants may evaluate off campus, and only in evaluation and contact periods, which have limits by era. In the 2020s FBS staffs get 42 evaluation days in the fall and 168 in the spring window, counted per coach per day (NCAA Bylaw 13.17).
+- **Who may look and when.** Only the head coach and his on-field assistants may evaluate off campus, and only in evaluation and contact periods, which have limits by era. FBS staffs had 42 evaluation days from September to November, chosen by the school (NCAA Bylaw 13.17, the 2022-23 calendar), cut to about 33 in the football recruiting model adopted in 2023; the spring window has its own limit.
 - **Film first.** Hudl put every high school's film online from the late 2000s. Before that, small-school kids depended on a coach mailing tapes.
 - **Camps.** College one-day camps in June let staffs measure and coach a kid themselves: real height and weight, a laser-timed 40, how he takes coaching. Satellite camps (Michigan's 2015 tour) took camps into other states; the NCAA banned them in April 2016 and lifted the ban weeks later. National showcases (Nike's camps and The Opening, the Elite 11 for quarterbacks) and all-star games (the U.S. Army All-American Bowl from 2000, the Under Armour game from 2008, the Polynesian Bowl from 2017) put the best against each other.
 - **Junior days and visits.** Staffs read the kid and his family on campus: how he acts, who makes the decisions, what they ask.
