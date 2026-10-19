@@ -234,11 +234,176 @@ He answers in words, with tells your relationship rating reads (eye contact, sho
 
 **AI coaches talk too,** with the same moves chosen by their personality and relationship ratings, so other programs' rooms rise and fall for real reasons.
 
-### 1 question
+### How a talk plays on screen (Cain, 2026-10-19)
 
-**How does a talk play on screen?**
-Real life doesn't settle this, because it's about how the game presents a conversation.
-- Option A: you pick moves and tones from the list above, he answers in written lines with tells, and a talk runs 2 to 5 exchanges. It's fast, the same choice always works for the same reasons, and it's easy to prove in tests.
-- Option B: you type freely, and a small language model on your Mac reads what you meant and writes his answer. It feels the most natural, but it needs about 1 to 2 GB of memory on an 8 GB M1 next to the world, it's slower, and it's harder to keep fair and testable.
+Asked: picked moves and tones (A) or free typing read by a small language model on the Mac (B). Cain: "A, but make sure conversations-messages has a uge database so it doesn't get stale, which is one fo my hatrets of FM, been seing the same shit for 5 years".
 
-My pick: A. It runs on any Mac, and your skill shows in which move you pick for which player, at what moment.
+- **A, confirmed.** You pick moves and tones, and he answers in written lines with tells, over 2 to 5 exchanges.
+- **The lines must never go stale.** FM's problem is a small pool of fixed sentences seen for years. AFM's answer has five parts, and they apply to every written line in the game: talks, press conferences, interviews, posts, news and fan voices (topic 9).
+  1. **A huge line bank.** Tens of thousands of lines, written and reviewed during development (not generated on your Mac), stored as data files that can keep growing after release. Text compresses well, so even 100,000 lines are a few megabytes.
+  2. **Lines are built from parts, not picked whole.** An answer is put together from an opening, the point, a detail and a closing, each with many versions, so the same move almost never produces the same sentence twice.
+  3. **Every person has a voice.** Word choice comes from his personality (a big ego talks about himself, a quiet leader keeps it short), his age, where he grew up, his background and the era (2026 slang isn't 1998 slang). Two players saying the same thing sound different.
+  4. **Lines carry real facts.** Names, stats, dates and shared history get filled in from the world: last week's fumble, the sick mother he told you about in March, the coach who cut him in 2027, the friend who just transferred. Because the facts change, the line is new even when its pattern repeats.
+  5. **The game remembers what it said.** Each person tracks the lines he has used with you, and nobody repeats a pattern to the same person for a long time. The bank is weighted toward lines you haven't seen yet.
+- Proposed, not confirmed: the bank's starting size (about 50,000 lines across talks, media and fans) and how long a pattern rests before it can come back to the same person (a season). The build proves it by reading a few hundred generated talks and counting repeats, and the count is timed.
+
+---
+
+## Topic 6. Life away from football
+
+### What exists
+- **Built:** family life events for high school, prep and college players: a family move, a parent losing a job, a death, a new baby, a mentor stepping in, NIL changing the family's life. They move stability, money and home. GPA in high school, academic redshirts and spring ineligibility in college, and graduating (it frees a player to transfer and to declare). Section 2's unsafe neighborhood raises the risk of incidents, injuries outside football and losing people close to him.
+- **Decided:** births, funerals, weddings, quarterback-led throwing sessions, youth camps and charity events get real dates and real absences (calendar A43, dated slots only). A parent falling ill pulls a college player toward home, and a breakup or academic trouble moves his portal lean (calendar topic 3).
+- **New:** what those events are and do for everyone, pros included, and mental health support.
+
+### How real football works
+- Players miss games for the birth of a child and for funerals, and teams allow it. Offseason weddings and vacations, and quarterbacks gather their receivers for throwing sessions before camp.
+- Families lean on the money. A young pro or a paid college player often supports parents and siblings, and the pressure is real. Many pros struggle with money after their careers.
+- Mental health support is required now. Since 2019 every NFL club must retain a behavioral health team clinician (the NFL-NFLPA Behavioral Health Agreement, CBA Article 39). Colleges run counseling and sports psychology, more at big programs.
+- College players are students: classes, majors, eligibility and a degree, which matters most to players whose pro chances are thin.
+- High school athletes often play other sports (basketball, baseball, track), and some choose one over football.
+
+### The design
+**Events.** Each person's life runs on the daily clock, with real rates by age. Proposed, not confirmed, where no source gives one.
+- **Family:** births (his own children, more common as he ages), weddings (offseason), a parent's or relative's illness, deaths, a family moving, money trouble at home, a parent losing or finding work. The built events stay and extend to pros.
+- **Relationships:** a girlfriend or wife, a breakup or divorce, a long-distance relationship pulling him toward a city.
+- **School:** for high school and college players, classes and grades through the season (the GPA trend is built), a major, academic trouble, graduating, and the degree as a reason to stay in college.
+- **Money:** supporting family, a bad investment or a dishonest adviser (pros), big NIL or contract money changing family life (built for NIL).
+- **Health away from football:** illness and injuries outside football (section 2's unsafe area raises the risk).
+- **Community:** charity work, his own youth camp, appearances. These build fans and the Walter Payton Man of the Year case, cost a little offseason time and raise his name (topic 9).
+- **Offseason habits:** throwing sessions led by a quarterback (they build quarterback and receiver chemistry, topic 4), private trainers, or a long vacation. Professionalism and ambition decide which.
+- **Other sports:** high school athletes play a second or third sport by season. It splits training time (section 6b) and can win him over to another sport.
+
+**What events do.**
+- **Absences:** a birth costs a game or practices when it falls in season, and a funeral a few days, on the calendar's real dates. You can't stop it, and refusing leave is a talk (topic 5) that costs trust with the whole room.
+- **Mood and stability:** each event moves his life part of morale (topic 3) and his stability, scaled by personality. A strong family, a girlfriend or wife and a good mentor steady him, and so does mental health support.
+- **Focus:** a heavy week at home lowers his practice focus and his form a little, unless he opens up and gets support.
+- **Decisions:** moving closer to an ill parent (decided for the portal, and now also free agency and trade requests), retiring early for family, choosing school or another sport, taking guaranteed money over a bet on himself when family depends on him.
+
+**Mental health support.** Each team has the support real teams of its level and era have: NFL clinicians (required from 2019), counseling and sports psychologists at colleges (more at richer programs), and little in most high schools. Support speeds stability's recovery (built: support lifts the target) and lowers the risk of a crisis. Players with low stability and pride (ego, temper) use it less.
+
+**What you see.** Only what he or his family tell you, what your staff picks up and what's public. A player who trusts you tells you about the sick parent. One who doesn't just slumps.
+
+---
+
+## Topic 7. Off-field trouble and outside discipline
+
+### What exists
+- **Built:** a yearly trouble roll, 1.2% a year in high school, 3% in college and 1% at prep schools (`world/season.rs`). It reads work ethic, coachability and background, and ends in a season-long suspension or dismissal (about 30% are dismissals). Draft boards take off 4 points for a suspension and 8 for a dismissal. A player on notice gets dismissed the next time. An incident count feeds a coach's reputation. Pros have no trouble at all.
+- **Decided:** a suspension appeal takes weeks, and news isn't held back (calendar topics 8 and 9). Guarantee-voiding language in contracts (section 5, 1d). The rule books change by era (calendar `rules.rs`).
+- **New:** the kinds of trouble, with each level's real process and penalties by era, at every level including the NFL.
+
+### How real football works
+- **The NFL.** The USA Today arrest database counted about 56 arrests and citations a year from 2007 (71 in 2006), roughly 2.5% of players a year, with DUI and domestic cases falling after 2014. NFL players are arrested less often than other men their age (a 2015 study, 2000-2013).
+  - **Personal conduct policy:** a 6-game unpaid baseline for a first domestic violence or sexual assault case since December 2014, and no conviction needed. Since the 2020 CBA a jointly appointed disciplinary officer rules first, and the commissioner hears the appeal and can raise it (Deshaun Watson, 2022: the officer gave 6 games; during the league's appeal it was settled at 11 games and a $5 million fine). A player charged with a violent crime can go on the commissioner exempt list: paid leave, no practice and no games, sometimes for months.
+  - **Substances of abuse:** since the 2020 CBA, no suspensions for marijuana, testing only at the start of camp, and treatment first. DUI is a 3-game suspension.
+  - **Performance-enhancing drugs:** a first anabolic steroid positive is 6 games under the 2020 CBA (4 under the 2014 policy), and stimulants and masking agents 2.
+  - **Gambling (2023 policy):** betting on NFL games is at least a year, on his own team at least two, and non-NFL betting at a team facility or on team travel 2 games, then 6, then a year. Fixing a game is banishment.
+- **College.** Team rules first (topic 8), then the school (conduct code, Title IX), then the NCAA. A failed PED test costs a year of eligibility. Cannabis has been off the Division I banned list since June 2024. Betting on his own school's games costs eligibility for good. Academic standing decides who plays.
+- **High school.** The school and the state association. Ejection rules are set by each state: the next game in most, more for fighting (California: three games and a sportsmanship course). Academic eligibility varies by state, and Texas's "no pass, no play" means a grade below 70 sits him out of games (not practice) for three school weeks.
+- Charges take time. An arrest becomes a charge, court dates, a plea, a dismissal or an acquittal, over weeks or months, and the league and team decide alongside (Jabrill Peppers missed seven games on paid leave in 2024, then was acquitted).
+
+### The design
+**Trouble is an event with a kind and a process.** The yearly roll is replaced. Each person carries a daily risk that ends in a real kind of trouble, then runs the real process of his level and era.
+- **Risk:** a base rate by level and age, matched to the NFL's real 2.5% a year. College and high school rates have no national data, so they're proposed, not confirmed (the current 3% and 1.2% stay as the starting point). It's scaled by professionalism and stability (most), temper (fights, domestic cases), greed (gambling, benefits), background (built), money and fame (nightlife, more chances), the room and the coach (a strong room and a strict, respected coach lower it), and age (it falls through the twenties).
+- **Kinds,** weighted by the real mix: DUI and traffic, fights and assault, domestic violence, drugs and possession, weapons, theft and fraud, failed drug tests (PEDs, and recreational drugs where banned), gambling, academic misconduct, and NCAA benefits cases (mainly before NIL, like Ohio State's 2010 memorabilia case). The mix shifts by era with the real policies (for example, fewer DUIs after ridesharing and the 2014 policy).
+- **The process at each level** follows the rule book of the year: the police and courts (charge, court dates, outcome), then the league or association (NFL personal conduct, exempt list, drug and gambling policies; NCAA eligibility; state association rules), then the school or club (your call, topic 8). Every step has its date on the calendar, and appeals take weeks.
+- **On-field discipline:** ejections, fines and suspensions for dangerous hits follow each level's rules (the rules by era live in the match engine and calendar rule books).
+
+**What trouble does.**
+- Games and practices missed, and paid or unpaid time, by the real rule.
+- Money: forfeited game checks, guarantees voided where the contract says so (section 5), NIL deals pulled, endorsement loss.
+- His name: draft boards mark it (built red flags, now by kind and outcome, so an acquittal weighs far less than a conviction), and scouts' character reports carry it (section 7).
+- His people: his mood, stability and trust in you, by how you handled it (topic 8), and the room's mood (topic 4).
+- Your job: incidents feed the bad-locker-room hit on your reputation (built) and your bosses' view (topic 12). The media covers it (topic 9).
+- Second chances are real: some programs and clubs take players others dismissed, by the head coach's style and how desperate the team is.
+
+**What you see.** The arrest or the failed test reaches you when it happens, from police, the league or the news. Sometimes you hear it first through the media, before the player tells you, and that costs trust in both directions.
+
+---
+
+## Topic 8. Your team rules and discipline
+
+### What exists
+- **Built:** a head coach's strictness, read from his discipline rating and visible, so coaches build a reputation for it. In games it limits freelancing, and a stricter coach's instructions are followed more often (`tendencies.rs`).
+- **Decided:** strictness is visible and players and agents weigh it ("a free-roaming DB might steer away from a strict coach", match engine 3.1). Structure or freedom is one of your seven style settings (tendencies). The trust cost of strict instructions and of discipline belongs to this section (tendencies, topic 4).
+- **New:** the rules you set, what breaking them looks like, the punishments each level allows, and how the room takes it.
+
+### How real football works
+- **NFL club discipline is set by the CBA (Article 42).** A schedule of maximum fines rises each year (2025: up to $3,089 for being late to a meeting, curfew or a team activity; $822 a pound a day for being overweight), with warning letters first for small offenses. Unexcused training camp absence costs $50,000 a day ($40,000 for rookie contracts). For conduct detrimental to the club, the maximum is one week's pay and up to four weeks' unpaid suspension, and a deactivation for conduct counts as discipline (written in after Terrell Owens's 2005 case). The club tells the union, and the player can file a grievance to an arbitrator.
+- **College coaches can't fine scholarship players.** They use running and early-morning workouts, lost privileges, benching, suspensions ("violating team rules") and dismissal. Programs run their own drug testing and class checks.
+- **High school coaches** set team rules within the school's code: attendance, grades, behavior. Parents push back, and some go to the AD or the principal.
+- What decides whether discipline works is fairness. If the star is held to the same rule as the backup, the room accepts it. Double standards are the oldest locker-room complaint, and some coaches let the leadership council set punishments so the players own it.
+
+### The design
+**Your rulebook.** You set your team's rules, each with how strictly you enforce it: curfews (the night before games, in camp), being on time, meetings and class attendance (college and high school), weight targets, dress and travel, phones and social media (a ban costs players NIL money from 2021; topic 9), your own drug testing (college), and conduct away from the facility. AI coaches set theirs from their structure-or-freedom style, their discipline rating and their personality.
+
+**Breaking rules.** Violations come from personality (professionalism most, then temper and ego), mood (unhappy players test limits), age and the room. A long list of strict rules catches more players and wears on veterans, and a loose list lets small things grow into the off-field trouble of topic 7. You learn about a violation through your staff, and only as well as they see it (their discipline and relationship ratings), so some never reach you.
+
+**Your responses,** within each level's real limits by era:
+- A talk or a warning (topic 5).
+- A fine: NFL only, on the CBA schedule of the year, with warning letters first for small offenses.
+- Extra conditioning or lost privileges (college and high school).
+- Benching: a series, a start or a game.
+- A team suspension: in the NFL, unpaid and up to four weeks for conduct detrimental; in college and high school, games.
+- A deactivation, a release or a dismissal (section 5's cap rules apply to releases; a dismissed college player can transfer).
+- Handing it to the leadership council.
+
+You can go past the NFL limit, as real clubs have, but the player files a grievance and an arbitrator can overturn it and award back pay. The union and agents remember.
+
+**What it does.**
+- **On him:** trust and mood move by how fair he thinks it was and by his personality. A proud, quick-tempered star takes a public benching as war, and a coachable young player can take it as a lesson. Firm, fair discipline from a respected coach raises professionalism over time (topic 1). Unfair discipline breeds grudges (topic 2).
+- **On the room:** consistency is tracked. Punishing the backup and excusing the star for the same thing lowers team mood and trust in you across the roster. Fair, consistent rules raise them and lower the trouble risk in topic 7.
+- **On games:** suspended and benched players are missing, and the depth chart and the engine see it.
+- **On your name:** how you run a team becomes your reputation as a disciplinarian or a players' coach. Recruits, parents, free agents and agents weigh it (decided), and the media covers it (topic 9).
+
+---
+
+## Topic 9. Media, social media and fans
+
+Built on the research Cain asked for on 2026-10-16: `docs/research/media-and-social.md` (PR #48). Its sources and labels (published, known, inferred) carry over. Facts below are from it unless marked.
+
+### What exists
+- **Built:** a plain news feed (`world/news.rs`: a date, a kind, a channel, a program and one line of text) with loudness from the calendar (small news line, medium inbox, big screen, huge full show). NFL fans' mood from -1 to 1 feeds the owner and the contend-or-rebuild call. College programs have a fan base number. The polls exist with placeholder voters (`world/college.rs`, "placeholder voters, proposed, not confirmed"). Viral clips (2% a year, 6% with a social-media parent) get a kid a first look. Coach reputation is "what schools and the media think of him", and buzz comes from his units' numbers. Calendar dates exist for media days, state media polls, polls, awards, signing days and portal windows.
+- **Decided:** press conferences come into this section (Cain, 2026-10-18), and the Monday press conference is on the calendar. News isn't held back after a big moment (calendar topic 8). Trade rumors before the deadline and draft smokescreens get their windows (calendar additions). Fans' general opinion feeds the contend-or-rebuild call (section 5, topic 7).
+- **New:** everything else. The people who report, how stories start and spread, press conferences, players' and recruits' social media, followers and NIL, fans as a force, and what all of it feeds back into.
+
+### The design
+**The media world changes by era.** The world runs from 1996, so it follows the real timeline: newspapers and phone-line recruiting services in the 1990s, Rivals (1998-2000), MaxPreps (2002), Twitter as the place news breaks (about 2008-2012), Instagram (2010) and 247Sports (2010), "click, don't type" for coaches and recruits (August 2016), The Athletic (2016), TikTok (2018), NIL (July 2021), On3 (2021), On3 buying Rivals (2025). News speed rises with it: the next morning's paper, then the same day online, then minutes on X. Recruits get a public voice from about 2008-2010.
+
+**Reporters and outlets are people.** Each level has the real kinds:
+- **NFL:** national insiders, team beat writers, team-employed media, local talk radio and TV, national shows and ex-player analysts, athlete-owned podcasts and draft media (mock drafts, anonymous scout quotes like Bob McGinn's poll of NFL personnel).
+- **College:** beat writers, the school's own content studio, recruiting services with team sites and insiders (247Sports Crystal Ball predictions, right 80-92% of the time for the top analysts), portal reporters, hot-seat media, and the poll voters (about 60 AP voters and 65 coaches, plus the 13-person committee).
+- **High school:** a shrinking local paper, MaxPreps rankings, Hudl film, local TV highlights, and recruits as their own outlets.
+
+Each reporter has sources (who he knows: agents, executives, coaches, parents, boosters), accuracy, a reach, a leaning (toward a team or a market) and a temperament. Reporters move between outlets and retire, and new ones come up. Real names follow the name toggle (Q11).
+
+**Stories start somewhere and spread.** A story starts with a source who has a reason to talk: an agent creating a market, a team floating a smokescreen or softening fans before a cut, a player's camp, a parent, a booster, a rival staff, a scout. Then it runs the real chain: the first report, aggregation ("per [reporter]"), reaction, then a response or a correction. Reports climb a real ladder of certainty ("exploring", "expected to", "per sources", "has agreed"), and some are wrong. How far a story goes depends on the name (attention follows fame more than performance: the 2015 study of 53 NFL quarterbacks), the market and fan base (the most intense fan bases are Buffalo, Kansas City and Green Bay, not the biggest cities), and the moment (a March story competes with free agency).
+
+**Press conferences and interviews.** Your availabilities follow each level's real rules: the NFL's media policy (postgame within 10-15 minutes, the head coach and quarterback at the podium, fines for not talking, injury reports three times a week with fines for wrong ones), each college's own habits (and the SEC, Big Ten and ACC availability reports from 2024), and local reporters in high school. You answer with the same moves and tones as talks (topic 5): deflect, praise, take the blame, criticize a player (it counts double, topic 5), fire back at a critic, give away little or a lot about injuries (within the rules), or hand the opponent bulletin-board material. Reporters you treat well and feed get scoops and treat you softer, and ones you freeze out dig. Players give their own interviews, and their quotes come from their personality (ego and temper make headlines).
+
+**Social media.** Players, recruits, coaches (you too) and parents have accounts, from the era they existed.
+- **Followers** grow with fame, performance, big moments (draft night: Ashton Jeanty +35,000 in a day in 2025), market, looks (the faces design has a small hook for it) and how much he posts. Some are fake.
+- **Posts** come from personality and mood: offers and commitments ("Blessed to receive an offer from..."), hype, cryptic complaints, a public trade request, late-night posting (NBA players who tweeted late played worse the next day, a sleep proxy, so it costs a little focus), and fights with fans. The NFL rule stops posting from 90 minutes before kickoff until after interviews (2009 on), and your own team rule can ban it (topic 8).
+- **Recruits' signals:** posting a school's hashtag made a recruit about 3 times as likely to sign there, and each coach on a staff he follows made it 47% more likely (the University of Iowa study). These are tells for every staff, yours included, and section 7 uses them.
+- **NIL is a social media market:** a player's NIL value starts from followers per platform and engagement, then adds performance, TV exposure and deals (the On3 model). Most deals are small posts, and most money comes from collectives (about 82%). The world's NIL code reads this value.
+
+**Fans.** Each team has a fan base with a size, a passion and a mood. NFL fans' mood is built, and it extends to every college and high school community (and to boosters, topic 12).
+- **Mood** moves with wins against hopes, rivalries, hires and departures, star signings and scandals.
+- **Fan voices** (callers, posts, comments, signs) are drawn when a screen opens, from the facts and the mood, so they cost no memory.
+- **Money follows:** attendance rises with this season's and last season's wins, bowl and playoff history and rivalries (last season matters most early on), and donations jump after surprise wins (about +28% after a five-win jump, Anderson, NBER). Both feed budgets (topic 12).
+- **Pressure:** social media lets fans push a school or club to act fast (Rutgers took a day to go from suspending to firing a coach), so fan mood is one input to firing decisions (topic 13).
+- **Abuse is real:** the NCAA's 2024 pilot study confirmed 5,000+ abusive or threatening messages aimed at 3,164 athletes, and 70% of surveyed NFL players had been messaged about betting or fantasy losses (peaking in fantasy playoff weeks). Harassment went with depression in one study of D1 athletes, so it hits stability for players who read it (low stability, high ego).
+
+**Polls and award voters are media people.** The built polls get real voters with their published habits: they favor their own state and conference (less than before 2007) and anchor on the preseason rank. Award voting follows the same idea for each award's real electorate.
+
+**What coverage feeds back into.** Proposed, not confirmed, sizes small, because nobody has measured them:
+- **Morale:** praise and criticism are the "noise" part of mood (topic 3), weighted by ego and stability. Players who say they don't read it mostly don't.
+- **Reputation:** coach and player reputation move with coverage (attention follows fame).
+- **Recruiting and draft stock:** rankings, predictions and anonymous scout quotes shape perception, and boards weigh them a little.
+- **Negotiations:** leaks create or kill markets (section 5's reported interest and bluffs).
+- **Job security:** fan and media pressure is one input next to results and money (topics 12 and 14).
+
+**What you see.** A news screen by level and era: your beat, the national stories, your recruits' feeds and the fan reaction, all marked with how sure each report is. You can follow reporters and players, and your staff flags what matters.
+
+**Cost.** The world stores events, not text: about 32-64 bytes for who, what, when, source, how sure and outlet, and the lines are written when a screen opens (from the line bank of topic 5: parts, voices, real facts and memory, so news and fan voices don't go stale either). At 2-5 million events a year, past seasons keep only the loud ones and summarize the rest, and fan voices are never stored. The research's sizes get timed in a proof before the build commits to them.
