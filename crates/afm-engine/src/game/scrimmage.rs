@@ -965,7 +965,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                             let spot = dp + (q - dp).norm().scale(1.0) + dv.scale(0.15);
                             let me = sim.agents[i].pos;
                             sim.steer(i, dv.scale(0.8) + (spot - me).scale(3.0));
-                            if me.dist(dp) < 1.5 {
+                            if me.dist(dp) < 1.5 && sim.can_square(i, d, q) {
                                 sim.engage(i, d, true);
                             }
                         }
@@ -979,6 +979,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                                         && matches!(a.job, Job::Rush { .. })
                                         && a.engaged.is_none()
                                         && a.pos.dist(me) < 4.5
+                                        && sim.can_square(i, d, q)
                                 })
                                 .min_by(|&a, &b| sim.agents[a].pos.dist(q).total_cmp(&sim.agents[b].pos.dist(q)));
                             if let Some(d) = threat {
@@ -2540,6 +2541,8 @@ fn quarterback(
     let mut pressure = 0.0f64;
     let mut nearest = f64::INFINITY;
     let mut threat = V2::default();
+    // How soon the first free rusher he knows about will be on him, seconds.
+    let mut soon = f64::INFINITY;
     // He feels the rush he can't see (pocket presence); what he knows
     // (football IQ) sets his hot reads.
     let feel = sim.agents[qb].a(Attr::PocketPresence);
@@ -2561,11 +2564,15 @@ fn quarterback(
         if close < nearest {
             nearest = close;
         }
-        if free && dist < 4.5 {
+        if free && dist < 7.0 {
             let seen = sim.sees(qb, a.pos) || sim.rng.chance(0.15 + 0.005 * feel);
-            if seen {
+            if seen && dist < 4.5 {
                 pressure += (4.5 - dist) / 4.5;
                 threat = threat + (me - a.pos).norm().scale((4.5 - dist) / 4.5);
+            }
+            if seen {
+                let closing = a.vel.dot((me - a.pos).norm()).max(3.0);
+                soon = soon.min((dist - 1.0).max(0.0) / closing);
             }
         } else if winning > 0.0 && dist < 3.0 {
             let feel = 0.6 * winning * (3.0 - dist) / 3.0;
@@ -2647,7 +2654,13 @@ fn quarterback(
     // throw sooner.
     let sling = sim.lean(qb, Tend::Gunslinger);
     let late = t > clock;
-    let over = ps.read >= ps.reads.len() || late;
+    // A free man coming at him (the beaten block, the blitzer nobody
+    // picked up): he is done going through his reads and takes the best
+    // he has now, the hot or check-down man included, rather than eat it
+    // (proposed, not confirmed: about nine tenths of a second away, a
+    // little sooner for a poised passer who trusts his pocket).
+    let urgent = soon < 0.9 - 0.004 * (poise - 60.0) && !screen;
+    let over = ps.read >= ps.reads.len() || late || urgent;
     // A good quarterback holds the safety with his eyes before coming back.
     // (Eye manipulation: nothing for most, up to a full pull for the best.)
     let manip = clamp((sim.agents[qb].a(Attr::EyeManipulation) - 60.0) / 30.0, 0.0, 1.0);
@@ -2655,7 +2668,11 @@ fn quarterback(
     let tired = t - ps.set_at;
     let caution = 0.008 * (sim.agents[qb].a(Attr::Decisions) - 60.0);
     let panic = pressure * clamp(1.6 - 1.4 * poise / 100.0, 0.15, 1.5);
-    let (cand, thresh): (Vec<usize>, f64) = if over {
+    let (cand, thresh): (Vec<usize>, f64) = if urgent {
+        // Under the gun: anyone with a window, a tighter one than he'd
+        // take from a clean pocket.
+        (ps.reads.clone(), READ_NEED + caution - 0.44 * panic - 0.2)
+    } else if over {
         // Late: the checkdown, or anyone open.
         (ps.reads.clone(), 1.35 - 0.2 * tired.max(0.0) - 0.44 * panic)
     } else {
@@ -2736,8 +2753,8 @@ fn quarterback(
     // away. The catch point then decides: a contested catch, a breakup or
     // a pick.
     let ck_at = clock + 0.7 * sling.min(0.0);
-    if best.is_none() && t > ck_at && !screen {
-        let force = t > clock + 0.5 - 0.4 * sling.max(0.0);
+    if best.is_none() && (t > ck_at || urgent) && !screen {
+        let force = t > clock + 0.5 - 0.4 * sling.max(0.0) || urgent && soon < 0.5;
         let mut ck: Option<(usize, f64, V2, f64)> = None;
         for &r in &cand {
             if !sim.agents[r].up(t) || !matches!(sim.agents[r].job, Job::Route { .. }) {
@@ -2783,7 +2800,11 @@ fn quarterback(
         let closing = a.vel.dot(rel.norm()).max(0.0);
         dist < 3.5 && dist - reach < closing * release
     });
-    if blocked_throw && best.is_some() {
+    // A man coming at him makes him skip the wait and short-arm it; once
+    // the arm is moving the ball comes out (or the hit lands first).
+    let hurry = pressure > 0.8 || nearest < 2.0 || urgent;
+    let in_motion = ps.commit.is_some_and(|(_, at, _)| hurry || t + release + 1e-9 >= at);
+    if blocked_throw && !in_motion {
         best = None;
         ps.commit = None;
     }
@@ -2803,9 +2824,8 @@ fn quarterback(
         ps.commit = Some((r, t + delay + release, t + 0.6 * release));
     }
     if !screen && let Some((r, at, hurried)) = ps.commit {
-        let hurry = pressure > 0.8 || nearest < 2.0;
         let now = t + 1e-9 >= if hurry { hurried } else { at };
-        if !now || blocked_throw {
+        if !now || blocked_throw && !in_motion {
             return None;
         }
         if sim.agents[r].up(t) {
@@ -2861,7 +2881,7 @@ fn quarterback(
     // Throwing it away takes a rusher on top of him (or a play long dead)
     // and the sense to give up on it; many hold on and take the sack.
     let outside = (me.y - s.ball_y).abs() > 4.0;
-    let imminent = nearest < 2.2 && pressure > 0.4;
+    let imminent = nearest < 2.2 && pressure > 0.4 || urgent;
     let away = (over || pressure > 0.6)
         && (outside || !blocked_throw)
         && (imminent || t > clock + 0.5)

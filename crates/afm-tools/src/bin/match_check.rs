@@ -416,6 +416,11 @@ fn main() {
                     *m.entry(kind.name()).or_default() += 1.0;
                 }
             }
+            if matches!(p.kind, PlayType::Pass | PlayType::Sack | PlayType::Scramble) {
+                // A rusher who beat his block within 2.5 s, as ESPN's win rate counts it.
+                *m.entry("rw_n").or_default() += 1.0;
+                *m.entry("rw_any").or_default() += !p.rush_wins.is_empty() as u8 as f64;
+            }
             if p.pressured && matches!(p.kind, PlayType::Pass | PlayType::Sack | PlayType::Scramble) {
                 *m.entry("pr_n").or_default() += 1.0;
                 *m.entry("pr_sack").or_default() += (p.kind == PlayType::Sack) as u8 as f64;
@@ -729,6 +734,7 @@ fn main() {
     row("  thrown under 2.5 s", g("ttt_u25") / g("att"), Some(0.5));
     row("  thrown after 3.94 s", g("ttt_o39") / g("att"), Some(0.1));
     row("sacks per pressure", g("pr_sack") / g("pr_n"), Some(0.139));
+    row("dropbacks with a rush win", g("rw_any") / g("rw_n"), None);
     row("completions per pressure", g("pr_comp") / g("pr_n"), Some(0.489));
     row("air yards per att", g("air_yards") / g("att"), None);
     row("drops per att", g("drops") / g("att"), None);

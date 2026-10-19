@@ -217,6 +217,10 @@ pub struct Agent {
     pub r: [f64; ATTRIBUTE_COUNT],
     /// How tired he is coming into the snap, 0-1 (old habits come back).
     pub tired: f64,
+    /// A pass rusher who beat him, and when he has his feet back under
+    /// him: he can't square that man up again before then.
+    pub beat_by: Option<usize>,
+    pub recover_at: f64,
 }
 
 impl Agent {
@@ -266,6 +270,8 @@ impl Agent {
             misfit: false,
             r,
             tired,
+            beat_by: None,
+            recover_at: 0.0,
         }
     }
     /// How hard he can stop, yards per second squared: his grip and his
@@ -303,6 +309,8 @@ impl Agent {
             misfit: self.misfit,
             r: self.r,
             tired: self.tired,
+            beat_by: self.beat_by,
+            recover_at: self.recover_at,
         }
     }
 
@@ -1287,6 +1295,22 @@ impl<'a> Sim<'a> {
                     let id = self.agents[d].id;
                     self.notes.rush_wins.push((id, e.mv, t - e.start));
                 }
+                // The beaten blocker has lost his feet and his leverage:
+                // he can't square the same man up again until he has
+                // recovered and is back between him and the quarterback
+                // (the edge kept, unless the blocker's recovery wins it
+                // back; times proposed, not confirmed).
+                if e.pass {
+                    let bb = &self.agents[b];
+                    let turned = if e.mv == Move::Speed { 0.15 } else { 0.0 };
+                    let rec = clamp(
+                        0.8 + turned - 0.010 * (bb.a(Attr::Agility) - 60.0) - 0.006 * (bb.a(Attr::PassBlocking) - 60.0),
+                        0.35,
+                        1.3,
+                    );
+                    self.agents[b].beat_by = Some(d);
+                    self.agents[b].recover_at = t + rec;
+                }
                 self.release(k);
                 // He comes off the block where he won it.
                 let push = match e.mv {
@@ -1348,6 +1372,17 @@ impl<'a> Sim<'a> {
                 self.agents[h].vel = v;
             }
         }
+    }
+
+    /// Whether pass blocker `b` can take on rusher `d` (with the
+    /// quarterback at `q`): a man who beat him must first be squared up
+    /// from in front again.
+    pub fn can_square(&self, b: usize, d: usize, q: V2) -> bool {
+        let a = &self.agents[b];
+        if a.beat_by != Some(d) {
+            return true;
+        }
+        self.t >= a.recover_at && a.pos.dist(q) + 0.5 < self.agents[d].pos.dist(q)
     }
 
     pub fn release(&mut self, k: usize) {
