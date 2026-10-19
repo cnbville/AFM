@@ -12,7 +12,7 @@
 use crate::attributes::{Attr, Attributes};
 use crate::game::roster::{Front, OffScheme};
 use crate::player::{Level, Personality};
-use crate::positions::Position;
+use crate::positions::{POSITION_COUNT, Position};
 use crate::rng::{Rng, clamp, round_half_up};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -487,6 +487,66 @@ pub struct YearCtx {
     /// His speed lost this year, rating points (aging backs and
     /// quarterbacks adjust).
     pub speed_lost: f64,
+    /// What his tools support, on average at his position and level, less
+    /// the middle (`Centres`): taken off his ideal so the average man at
+    /// each position sits at 10.5. Zero: read raw.
+    pub centre: [f64; TEND_COUNT],
+}
+
+/// Habits closer than this to what his tools support are his style, not a
+/// mistake: results, coaching and the staff's pull leave them (trial 8
+/// finding 2: with every gap taught away, NFL habits spread 1.1-2.8 against
+/// the agreed 3.2).
+pub const STYLE_BAND: f64 = 3.0;
+
+/// The average of what players' tools support at each level and position
+/// (trial 8 finding 3: `ideal` read every attribute against one speed norm,
+/// so fast positions sat above the middle: backs' bounce 13.5 at FBS).
+pub struct Centres {
+    sum: Vec<[f64; TEND_COUNT]>,
+    n: Vec<f64>,
+}
+
+fn level_index(level: Level) -> usize {
+    match level {
+        Level::HS => 0,
+        Level::SmallCollege => 1,
+        Level::FCS => 2,
+        Level::FBS => 3,
+        Level::NFL => 4,
+    }
+}
+
+impl Centres {
+    pub fn new() -> Centres {
+        Centres { sum: vec![[0.0; TEND_COUNT]; 5 * POSITION_COUNT], n: vec![0.0; 5 * POSITION_COUNT] }
+    }
+
+    pub fn add(&mut self, level: Level, pos: Position, a: &Attributes) {
+        let k = level_index(level) * POSITION_COUNT + pos.index();
+        for t in Tend::ALL {
+            if let Some(v) = ideal(t, a, level) {
+                self.sum[k][t.index()] += v - MID;
+            }
+        }
+        self.n[k] += 1.0;
+    }
+
+    /// The average less the middle at a level and position (zero with
+    /// nobody there).
+    pub fn get(&self, level: Level, pos: Position) -> [f64; TEND_COUNT] {
+        let k = level_index(level) * POSITION_COUNT + pos.index();
+        if self.n[k] < 1.0 {
+            return [0.0; TEND_COUNT];
+        }
+        self.sum[k].map(|s| s / self.n[k])
+    }
+}
+
+impl Default for Centres {
+    fn default() -> Centres {
+        Centres::new()
+    }
 }
 
 /// One year of change (topic 3.3-3.6). From his own stream, so no other
@@ -509,26 +569,32 @@ pub fn develop_year(t: &mut Tendencies, a: &Attributes, pers: &Personality, age:
         let mut natural = 0.0;
         let mut coached = 0.0;
         if let Some(id) = ideal(k, a, ctx.level) {
+            let id = clamp(id - ctx.centre[i], 1.0, 20.0);
             let gap = id - v;
+            // Inside the band a habit is his style; only what lies beyond
+            // it costs him.
+            let beyond = (gap.abs() - STYLE_BAND).max(0.0);
             // Results teach: about a point a year when they are clear.
-            natural += gap.signum() * gap.abs().min(1.0 * learn) * if gap.abs() > 1.0 { 1.0 } else { 0.5 };
-            // Coaching takes off what hurts him; a weak coach lets it grow.
-            if gap.abs() > 1.0 {
+            natural += gap.signum() * beyond.min(1.0 * learn) * if beyond > 1.0 { 1.0 } else { 0.5 };
+            // Coaching takes off what hurts him, to the edge of the band; a
+            // weak coach lets it grow.
+            if beyond > 0.0 {
                 coached += if coach >= 0.0 {
-                    gap.signum() * (gap.abs() - natural.abs()).max(0.0).min(coach)
+                    gap.signum() * (beyond - natural.abs()).max(0.0).min(coach)
                 } else {
                     -gap.signum() * -coach
                 };
             }
         }
-        // The staff's style and scheme pull, at a third of the harm fix.
+        // The staff's style and scheme pull, at a third of the harm fix, to
+        // the edge of the same band.
         let pull = (coach.max(0.5) / 3.0) * mould;
         for target in [ctx.style.and_then(|s| s.target(k)), ctx.scheme.and_then(|(o, f)| scheme_target(k, o, f))]
             .into_iter()
             .flatten()
         {
             let gap = target - v;
-            natural += gap.signum() * gap.abs().min(pull);
+            natural += gap.signum() * (gap.abs() - STYLE_BAND).max(0.0).min(pull);
         }
         // A little drift of his own while he is young.
         natural += r.normal(0.0, 0.35) * settle;

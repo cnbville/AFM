@@ -501,6 +501,7 @@ pub(crate) fn note_cfa(w: &mut World, i: usize, from: usize, to: usize, apy: f64
         return;
     }
     w.market.picks.cfa.push((year, i, from, to, apy));
+    w.market.year_mut(year).cfa_noted += 1;
 }
 
 /// The comp picks, awarded at the league meeting for this year's draft
@@ -572,6 +573,7 @@ pub(crate) fn award_comp_picks(w: &mut World, d: Date) {
     let teams = w.nfl.len();
     let mut lost: Vec<Vec<(u32, f64)>> = vec![Vec::new(); teams];
     let mut gained: Vec<Vec<(u32, f64)>> = vec![Vec::new(); teams];
+    let mut valued = 0;
     for &(y, i, from, to, apy) in &w.market.picks.cfa {
         if y != last {
             continue;
@@ -584,6 +586,7 @@ pub(crate) fn award_comp_picks(w: &mut World, d: Date) {
         }
         let v = value(w, i, apy);
         let Some(r) = round_of(v) else { continue };
+        valued += 1;
         lost[from].push((r, v));
         gained[to].push((r, v));
     }
@@ -653,7 +656,13 @@ pub(crate) fn award_comp_picks(w: &mut World, d: Date) {
         w.market.picks.comp.push(CompPick { year, team: t, owner: t, round, value: 0.0, kind: CompKind::Diversity });
     }
     let total = w.market.picks.comp.iter().filter(|c| c.year == year).count() as u32;
-    w.market.year_mut(year).comp_picks = total;
+    let supplemental =
+        w.market.picks.comp.iter().filter(|c| c.year == year && c.kind == CompKind::Supplemental).count() as u32;
+    let m = w.market.year_mut(year);
+    m.comp_picks = total;
+    m.cfa_valued = valued;
+    m.comp_formula = earned as u32;
+    m.comp_supplemental = supplemental;
     post(
         w,
         d,

@@ -673,6 +673,8 @@ fn run_return(
         // The same lunge in the open field as on a scrimmage play.
         open_reach: OPEN_REACH,
         press: 0.0,
+        lane: None,
+        bites: Vec::new(),
         two_gap: false,
         gap_run: None,
         stunt: None,

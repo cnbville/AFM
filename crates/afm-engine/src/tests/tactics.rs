@@ -75,11 +75,14 @@ fn new_plays_run() {
         f.motion = motion;
         let call = OffCall::new(f, PlayKind::Run(rc), dir, false);
         let mut yards = 0.0;
-        for s in 0..60 {
+        // 300 snaps: a run's yards spread about six yards, so 60 left
+        // the average a yard either way (Duo, a double-team run the
+        // engine blocks one on one, gains about 1.6 a carry here).
+        for s in 0..300 {
             let r = trace_snap_opt(&a, &b, Level::FBS, call, d, 35.0, 100 + s, false);
             yards += r.yards;
         }
-        assert!(yards / 60.0 > 1.0, "{rc:?} averaged {:.2}", yards / 60.0);
+        assert!(yards / 300.0 > 1.0, "{rc:?} averaged {:.2}", yards / 300.0);
     }
     let f = Formation::plain(Personnel::P11, Backfield::Shotgun, 1.0);
     let call = OffCall::new(f, PlayKind::Rpo(RunConcept::InsideZone, concept("RPO glance")), 1.0, false);

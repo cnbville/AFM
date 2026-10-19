@@ -2,7 +2,7 @@ use super::mean;
 use crate::player::{Level, ProspectOptions, generate_prospect};
 use crate::rng::Rng;
 use crate::tendencies::{
-    Instruction, MID, Orders, Style, Tend, Tendencies, YearCtx, develop_year, level_sd, obey_chance, scout,
+    Instruction, MID, Orders, Style, TEND_COUNT, Tend, Tendencies, YearCtx, develop_year, level_sd, obey_chance, scout,
 };
 
 fn prospects(n: usize) -> Vec<crate::player::Player> {
@@ -55,6 +55,7 @@ fn a_good_coach_takes_a_bad_habit_down() {
             played: 1.0,
             major_injury: false,
             speed_lost: 0.0,
+            centre: [0.0; TEND_COUNT],
         };
         mean(
             &ps.iter()
@@ -85,6 +86,7 @@ fn habits_settle_with_age() {
             played: 1.0,
             major_injury: false,
             speed_lost: 0.0,
+            centre: [0.0; TEND_COUNT],
         };
         mean(
             &ps.iter()

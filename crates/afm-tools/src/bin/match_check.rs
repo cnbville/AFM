@@ -47,12 +47,65 @@ fn route_group(route: &str, air: f64) -> Option<usize> {
 
 /// The teams of game `g`: each matchup is played twice, once at each end,
 /// so team strength cancels out of the home margin.
-fn pair(g: usize) -> (usize, usize) {
+fn pair_of(g: usize) -> (usize, usize) {
     let k = g / 2;
     let h = (k * 7) % 32;
     let a = (k * 13 + 5) % 32;
     let a = if a == h { (a + 1) % 32 } else { a };
     if g.is_multiple_of(2) { (h, a) } else { (a, h) }
+}
+
+/// AFM_ROSTERS=file.json (from `tools/rosters/export_rosters.py`): a world
+/// trial's own rosters instead of synthetic teams, playing conference
+/// games, home and away. Returns the teams and the schedule.
+fn world_rosters(path: &str, level: Level, seed: u32) -> (Vec<afm_engine::game::GameTeam>, Vec<(usize, usize)>) {
+    use afm_engine::attributes::{Attr, Attributes};
+    use afm_engine::game::OffScheme;
+    use afm_engine::game::synthetic::{RatedPlayer, team_from_ratings};
+    use afm_engine::positions::Position;
+    use afm_engine::tendencies::{TEND_COUNT, Tend};
+    let v: Value = serde_json::from_str(&std::fs::read_to_string(path).expect("rosters file")).expect("rosters json");
+    let schemes =
+        [OffScheme::SpreadOption, OffScheme::AirRaid, OffScheme::WestCoast, OffScheme::PowerGap, OffScheme::WideZone];
+    let mut teams = Vec::new();
+    let mut conf = Vec::new();
+    for (k, t) in v["teams"].as_array().unwrap().iter().enumerate() {
+        let list: Vec<RatedPlayer> = t["players"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|p| {
+                let pos = Position::ALL.into_iter().find(|x| format!("{x:?}") == p["pos"].as_str().unwrap_or(""))?;
+                let mut attrs = Attributes::default();
+                for a in Attr::ALL {
+                    attrs[a] = p["attrs"][format!("{a:?}")].as_f64().unwrap_or(40.0);
+                }
+                let mut tend = [10.5; TEND_COUNT];
+                for (i, td) in Tend::ALL.into_iter().enumerate() {
+                    tend[i] = p["tend"][td.key()].as_f64().unwrap_or(10.5);
+                }
+                Some(RatedPlayer { position: pos, attrs, tend })
+            })
+            .collect();
+        let s = seed.wrapping_add(k as u32 * 7919);
+        teams.push(team_from_ratings(t["name"].as_str().unwrap_or("?"), level, &list, schemes[k % schemes.len()], s));
+        conf.push(t["conf"].as_str().unwrap_or("").to_string());
+    }
+    let mut sched = Vec::new();
+    for h in 0..teams.len() {
+        for a in 0..teams.len() {
+            if h != a && conf[h] == conf[a] && !conf[h].is_empty() && !conf[h].starts_with("Indep") {
+                sched.push((h, a));
+            }
+        }
+    }
+    // Interleave so a short run still spreads over every conference.
+    let mut r = afm_engine::rng::Rng::new(seed ^ 0x5EED);
+    for i in (1..sched.len()).rev() {
+        let j = (r.next() * (i + 1) as f64) as usize;
+        sched.swap(i, j.min(i));
+    }
+    (teams, sched)
 }
 
 fn main() {
@@ -67,15 +120,46 @@ fn main() {
     let games: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(200);
     let seed: u32 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
     let pbp = args.get(4).is_some_and(|s| s == "pbp");
-    let mut teams = synthetic_league(level, 32, seed);
+    let (mut teams, sched) = match std::env::var("AFM_ROSTERS") {
+        Ok(path) => world_rosters(&path, level, seed),
+        Err(_) => (synthetic_league(level, 32, seed), Vec::new()),
+    };
+    let pair = |g: usize| if sched.is_empty() { pair_of(g) } else { sched[g % sched.len()] };
+    // AFM_DUMP=path writes the teams as a rosters file (the AFM_ROSTERS
+    // format) and stops: with tools/rosters/export_rosters.py output it lets
+    // a check swap one position group between test and world rosters.
+    if let Ok(out) = std::env::var("AFM_DUMP") {
+        use afm_engine::attributes::Attr;
+        use afm_engine::tendencies::Tend;
+        let ts: Vec<Value> = teams
+            .iter()
+            .map(|t| {
+                let ps: Vec<Value> = t
+                    .players
+                    .iter()
+                    .map(|p| {
+                        let attrs: serde_json::Map<String, Value> =
+                            Attr::ALL.into_iter().map(|a| (format!("{a:?}"), p.attrs[a].into())).collect();
+                        let tend: serde_json::Map<String, Value> =
+                            Tend::ALL.into_iter().map(|td| (td.key().to_string(), p.tend.get(td).into())).collect();
+                        serde_json::json!({"pos": format!("{:?}", p.position), "attrs": attrs, "tend": tend})
+                    })
+                    .collect();
+                serde_json::json!({"name": t.name, "conf": "", "players": ps})
+            })
+            .collect();
+        std::fs::write(&out, serde_json::json!({"teams": ts}).to_string()).expect("write the rosters file");
+        return;
+    }
     // AFM_STAR=RB:15 makes each team's best player at a position that many
     // points better at everything, to see how a star shares the load.
     // A position ending in * (CB*:5) moves every player there.
-    if let Ok(v) = std::env::var("AFM_STAR")
-        && let Some((name, add)) = v.split_once(':')
-        && let Ok(add) = add.parse::<f64>()
-        && let Some(name) = name.strip_suffix('*')
-    {
+    // Several at once: AFM_STAR="CB*:-4.7;LB*:5.1" (each spec as above).
+    let stars: Vec<String> =
+        std::env::var("AFM_STAR").map(|v| v.split(';').map(String::from).collect()).unwrap_or_default();
+    for v in stars.iter().filter(|v| v.contains("*:")) {
+        let Some((name, add)) = v.split_once(':') else { continue };
+        let (Ok(add), Some(name)) = (add.parse::<f64>(), name.strip_suffix('*')) else { continue };
         for name in name.split(',') {
             let pos = afm_engine::positions::Position::ALL.into_iter().find(|p| format!("{p:?}") == name);
             for t in teams.iter_mut() {
@@ -89,7 +173,9 @@ fn main() {
                 }
             }
         }
-    } else if let Ok(v) = std::env::var("AFM_STAR")
+    }
+    if let Ok(v) = std::env::var("AFM_STAR")
+        && !v.contains('*')
         && let Some((name, add)) = v.split_once(':')
         && let Ok(add) = add.parse::<f64>()
     {
@@ -246,6 +332,10 @@ fn main() {
     let pos_of: std::collections::HashMap<u32, afm_engine::positions::Position> =
         teams.iter().flat_map(|t| t.players.iter().map(|p| (p.id, p.position))).collect();
     let mut tgt_pos = [0.0f64; 4];
+    // First tackles on runs by line, linebackers and backs: [runs, yards].
+    let mut first_tackle = [[0.0f64; 2]; 3];
+    // Seconds between snaps: [running, stopped] x [normal, late, two-minute] x [seconds, plays].
+    let mut between = [[[0.0f64; 2]; 3]; 2];
     let mut emergencies = 0.0;
     // Targets by route group: [targets, catches, yards].
     let mut by_route = [[0.0f64; 5]; ROUTE_GROUPS.len()];
@@ -410,6 +500,32 @@ fn main() {
                 *m.entry("pick_six").or_default() += 1.0;
             }
         }
+        // Seconds of game clock from a run or pass to the next snap, by
+        // whether the play stopped the clock, as the nflverse script counts
+        // them (`data/real-world/scripts/nfl_situations.py`).
+        for pair in s.plays.windows(2) {
+            let (a, b) = (&pair[0], &pair[1]);
+            let gap = a.clock - b.clock;
+            if a.quarter != b.quarter
+                || !matches!(a.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble)
+                || !(0.0..=60.0).contains(&gap)
+            {
+                continue;
+            }
+            let incomplete = a.kind == PlayType::Pass && !a.complete && !a.interception;
+            let stopped = incomplete || a.out_of_bounds || a.touchdown || a.penalties.iter().any(|x| x.4);
+            let half_left = a.clock + if a.quarter % 2 == 1 { 900.0 } else { 0.0 };
+            let tb = if half_left <= 120.0 {
+                2
+            } else if a.quarter == 4 && half_left <= 420.0 {
+                1
+            } else {
+                0
+            };
+            let e = &mut between[stopped as usize][tb];
+            e[0] += gap;
+            e[1] += 1.0;
+        }
         for p in &s.plays {
             for &(kind, _, _, _, accepted) in &p.penalties {
                 if accepted {
@@ -515,6 +631,21 @@ fn main() {
                         *m.entry("explosive_run").or_default() += 1.0;
                     }
                     *m.entry("ybc").or_default() += p.before_contact;
+                    // Who made the first tackle (not on touchdowns): line,
+                    // linebacker or back, and the gain on those runs.
+                    if !p.touchdown {
+                        use afm_engine::positions::Position as P;
+                        let k = match p.tacklers.first().and_then(|t| pos_of.get(t)) {
+                            Some(P::EDGE | P::DT) => Some(0),
+                            Some(P::LB) => Some(1),
+                            Some(P::CB | P::S) => Some(2),
+                            _ => None,
+                        };
+                        if let Some(k) = k {
+                            first_tackle[k][0] += 1.0;
+                            first_tackle[k][1] += p.yards;
+                        }
+                    }
                     if !p.call.contains("kneel") {
                         let y = p.yards;
                         let k = [0.5, 3.5, 9.5, 19.5, 39.5].iter().filter(|&&b| y >= b).count();
@@ -612,6 +743,18 @@ fn main() {
         println!("{:<28} {:>9.3} {:>9.3}  (se {:.2}, home wins {:.3})", "home margin", hm, target, se, wins);
     }
     row("plays", g("plays") / n, f("plays"));
+    {
+        let sit: Value = serde_json::from_str(include_str!("../../../../data/real-world/nfl_situations.json")).unwrap();
+        for (si, sname) in ["running", "stopped"].iter().enumerate() {
+            for (ti, tname) in ["normal", "late", "two_minute"].iter().enumerate() {
+                let e = between[si][ti];
+                let real = sit["seconds_between_snaps"][format!("{sname}_{tname}")].as_f64();
+                row(&format!("snap to snap, {sname} {tname}"), e[0] / e[1].max(1.0), real);
+            }
+        }
+        let all = |si: usize| between[si].iter().map(|e| e[1]).sum::<f64>();
+        row("share of plays stopping clock", all(1) / (all(0) + all(1)), None);
+    }
     row("pass attempts", g("att") / n, f("att"));
     row("completions", g("cmp") / n, f("cmp"));
     row("pass yards (net)", g("pass_yards") / n, Some(f("pass_yards").unwrap() - f("sack_yards").unwrap()));
@@ -743,6 +886,15 @@ fn main() {
     row("throw aways per att", g("throw_aways") / g("att"), None);
     row("yards before contact", g("ybc") / g("carries"), None);
     row("missed tackles per run", g("missed_tackles") / g("carries"), None);
+    // Real: nflverse play-by-play 2023-24, backs' designed runs, the first
+    // tackler's position (solo, then shared tackle), touchdowns left out.
+    let ft: f64 = first_tackle.iter().map(|r| r[0]).sum();
+    for (k, (name, share, yds)) in
+        [("line", 0.330, 2.44), ("linebackers", 0.371, 3.35), ("backs", 0.296, 6.86)].into_iter().enumerate()
+    {
+        row(&format!("first tackle on runs: {name}"), first_tackle[k][0] / ft, Some(share));
+        row("  gain when they make it", first_tackle[k][1] / first_tackle[k][0].max(1.0), Some(yds));
+    }
     row("YAC per completion", g("yac") / g("cmp"), Some(5.2));
     let real_ay = [(0.176, 0.788), (0.501, 0.709), (0.207, 0.545), (0.115, 0.360)];
     let tot: f64 = ay.iter().map(|b| b[0]).sum();

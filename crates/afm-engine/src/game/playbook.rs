@@ -891,12 +891,20 @@ impl RunConcept {
     /// patient, gap runs downhill, tosses and sneaks at full speed (0).
     /// Proposed, not confirmed (Claude's reading of NGS time to the line,
     /// about 2.8 s from the snap).
+    /// Slow to the hole, fast through it: about two thirds of what it was
+    /// (backs reached the line 0.7 s before the real Next Gen time; with
+    /// the later handoff they reach it at about 2.55 s, real 2.76;
+    /// proposed, not confirmed).
     pub fn press(self) -> f64 {
         match self {
-            RunConcept::InsideZone | RunConcept::ZoneRead | RunConcept::OutsideZone => 6.3,
-            RunConcept::Power | RunConcept::Counter | RunConcept::BuckSweep => 7.2,
-            RunConcept::Duo | RunConcept::Trap | RunConcept::Iso | RunConcept::QbPower => 7.0,
-            RunConcept::Draw => 6.0,
+            RunConcept::InsideZone | RunConcept::ZoneRead | RunConcept::OutsideZone => 4.1,
+            RunConcept::Power | RunConcept::Counter | RunConcept::BuckSweep => 4.7,
+            RunConcept::Duo | RunConcept::Trap | RunConcept::Iso => 4.55,
+            // The quarterback keeps from the snap behind his pullers; the
+            // Next Gen time is the backs' (at 4.55 QB power gained 0.7 a
+            // carry on the test teams).
+            RunConcept::QbPower => 7.0,
+            RunConcept::Draw => 3.9,
             RunConcept::Sneak | RunConcept::Toss | RunConcept::JetSweep => 0.0,
             RunConcept::SpeedOption | RunConcept::TripleOption => 0.0,
         }

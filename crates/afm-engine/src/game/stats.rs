@@ -82,6 +82,9 @@ pub struct PlayRecord {
     pub pressured: bool,
     pub scramble: bool,
     pub out_of_bounds: bool,
+    /// Wiped out by an accepted penalty: only its snaps and the penalty
+    /// count, as in real box scores (nflverse calls it a no-play).
+    pub nullified: bool,
     pub duration: f64,
     /// Special teams.
     pub kicker: Option<u32>,
@@ -176,6 +179,7 @@ impl PlayRecord {
             pressured: false,
             scramble: false,
             out_of_bounds: false,
+            nullified: false,
             duration: 0.0,
             kicker: None,
             returner: None,
@@ -662,6 +666,10 @@ impl GameStats {
         }
         for &id in &r.busts {
             self.line(side(id, d), id).busts += 1;
+        }
+        if r.nullified {
+            self.team[o].time_of_possession += r.duration;
+            return;
         }
         let ts = &mut self.team[o];
         if scrimmage {

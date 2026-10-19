@@ -389,11 +389,10 @@ fn feature(pos: Position, off: usize) -> f64 {
 }
 
 /// How well a program's systems show a recruit off (S7), about -1 to 1:
-/// half how much the offense features his position, half his own fit.
-pub fn showcase(p: &Player, inst: &Installed, norms: &SystemNorms) -> f64 {
-    let pos = p.position;
-    let f = fits(p, pos, norms);
-    let fit = fit_to(&f, pos, inst);
+/// half how much the offense features his position, half his own fit
+/// (`f`, his [`fits`]).
+pub fn showcase(f: &[f64; 11], pos: Position, inst: &Installed) -> f64 {
+    let fit = fit_to(f, pos, inst);
     let feat = if kinds(pos).contains(&Kind::Offense) { feature(pos, inst.off) } else { 0.0 };
     0.5 * feat + 0.5 * fit
 }

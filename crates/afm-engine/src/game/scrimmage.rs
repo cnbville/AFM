@@ -337,6 +337,8 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         screen: None,
         open_reach: OPEN_REACH,
         press: 0.0,
+        lane: None,
+        bites: Vec::new(),
         two_gap: s.two_gap,
         gap_run: None,
         stunt: None,
@@ -668,28 +670,32 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 (_, Backfield::Pistol) => v2(los - 4.6, by + 0.5 * dir),
                 (_, Backfield::Shotgun) => v2(los - 5.2, by + 0.4 * dir),
             };
+            // When the ball is handed off. (Each was 0.4 s sooner: with the
+            // press it put backs on the line 0.7 s before the real Next Gen
+            // time; the toss is still pitched at once. Proposed, not
+            // confirmed.)
             let mesh_t = match rc {
                 RunConcept::Sneak => 0.0,
-                RunConcept::Draw => 1.1,
+                RunConcept::Draw => 1.5,
                 RunConcept::Toss => 0.45,
                 // Gap runs wait for the pullers (the counter step).
                 RunConcept::Power => {
                     if f.backfield == Backfield::UnderCenter {
-                        0.95
+                        1.35
                     } else {
-                        0.8
+                        1.2
                     }
                 }
                 RunConcept::Counter => {
                     if f.backfield == Backfield::UnderCenter {
-                        1.15
+                        1.55
                     } else {
-                        1.0
+                        1.4
                     }
                 }
                 _ => match f.backfield {
-                    Backfield::UnderCenter => 0.8,
-                    _ => 0.6,
+                    Backfield::UnderCenter => 1.2,
+                    _ => 1.0,
                 },
             };
             for i in 0..off_n {
@@ -1017,7 +1023,17 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                             let dp = sim.agents[d].pos;
                             // Get between him and the ball.
                             let ball = c.map(|c| sim.agents[c].pos).unwrap_or(v2(los - 3.0, by));
-                            let spot = dp + (ball - dp).norm().scale(0.8) + sim.agents[d].vel.scale(0.25);
+                            // Climbing to a man on the move he takes an angle
+                            // to where he will be, as a pursuer does (he ran
+                            // at where the man was, and a third of the
+                            // linebackers he was sent to were never blocked;
+                            // proposed, not confirmed).
+                            let ahead = if (dp.x - los).abs() >= 2.0 {
+                                (sim.agents[i].pos.dist(dp) / sim.agents[i].vmax.max(1.0)).min(0.8)
+                            } else {
+                                0.25
+                            };
+                            let spot = dp + (ball - dp).norm().scale(0.8) + sim.agents[d].vel.scale(ahead);
                             let lead = if pull { 1.0 } else { 0.95 };
                             // A moving target: run at him, matching his speed when close.
                             let me = sim.agents[i].pos;
@@ -2657,9 +2673,10 @@ fn quarterback(
     // A free man coming at him (the beaten block, the blitzer nobody
     // picked up): he is done going through his reads and takes the best
     // he has now, the hot or check-down man included, rather than eat it
-    // (proposed, not confirmed: about nine tenths of a second away, a
-    // little sooner for a poised passer who trusts his pocket).
-    let urgent = soon < 0.9 - 0.004 * (poise - 60.0) && !screen;
+    // (proposed, not confirmed: about 0.85 of a second away, a little
+    // sooner for a poised passer who trusts his pocket; the world's FBS
+    // rosters then take a sack on about 6% of dropbacks, real 6.0%).
+    let urgent = soon < 0.85 - 0.004 * (poise - 60.0) && !screen;
     let over = ps.read >= ps.reads.len() || late || urgent;
     // A good quarterback holds the safety with his eyes before coming back.
     // (Eye manipulation: nothing for most, up to a full pull for the best.)
@@ -3364,6 +3381,11 @@ fn defend(
     let carrier = sim.carrier();
     let pass_play = pass.is_some();
     let knows = t >= sim.agents[i].read_at;
+    if let Some(spot) = bitten(sim, i) {
+        let (me, vm) = (sim.agents[i].pos, sim.agents[i].vmax);
+        sim.steer(i, (spot - me).norm().scale(vm));
+        return;
+    }
     // Once the ball is caught or handed off and he has seen it, he chases.
     if let Some(c) = carrier {
         let handed = c != qb || pass.as_ref().is_some_and(|p| p.scramble);
@@ -3535,10 +3557,18 @@ fn defend(
                         let floor = if through { None } else { Some(s.los + sim.goal * (fill - 0.02 * (pr - 50.0))) };
                         sim.pursue_cap(i, c, if through { 1.0 } else { 0.6 }, floor);
                     }
-                } else if sim.agents[i].label == "LB" && (s.los - cp.x) * sim.goal > 0.0 && me.dist(cp) > 4.0 {
+                } else if sim.agents[i].label == "LB"
+                    && (s.los - cp.x) * sim.goal > 0.0
+                    && me.dist(cp) > 1.8 + 1.5 * sim.lean(i, Tend::Downhill)
+                {
                     // A linebacker fills his gap: downhill to the line on the
                     // runner's side, where the blocks meet him, and he takes
                     // the runner on when he gets there (not in the backfield).
+                    // He leaves the line for the runner only when he is
+                    // nearly on him, from farther if he flies downhill (he
+                    // went from four yards, and with backs at the real pace
+                    // linebackers made 9.6 tackles for loss a season, real
+                    // 5.3; proposed, not confirmed).
                     let mut aim = v2(s.los + sim.goal * 0.5, me.y + clamp(cp.y - me.y, -2.5, 2.5));
                     // A misfit: he flows a gap too far, or the false way on
                     // misdirection, and the runner cuts back behind him.
@@ -3614,12 +3644,21 @@ fn play_draw(sim: &Sim, i: usize, salt: u64) -> f64 {
 /// out. How often he gambles is his tendency; whether he guessed right is
 /// his anticipation and read, and a planned double move or pump fake makes
 /// the guess harder. Right, he breaks to the catch point and plays the
-/// ball at once (an interception chance); wrong, he bit on the fake, is
-/// three yards short of where the ball goes and finds it late. His coach's
+/// ball at once (an interception chance); wrong, he bit on the fake: he
+/// drives for the break he guessed, his man turns it upfield past him (the
+/// sight adjustment a receiver is taught against a jumper), the throw leads
+/// the man deep, and the jumper needs a moment to plant and turn before he
+/// can chase (trial 8: wrong guesses gave up no more big plays, because he
+/// trailed his man three yards underneath all the way). His coach's
 /// strictness and trust still decide whether he may (proposed, not
 /// confirmed: chance a throw near him 0.07 at an average tendency, times
-/// 1 + 4 lean, none below about 8).
+/// 1 + 4 lean, none below about 8; the turn takes 0.5-0.9 s by his
+/// anticipation).
 fn jump_route(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>, man: Option<usize>) -> Option<V2> {
+    // He gambles once a play.
+    if sim.bites.iter().any(|b| b.0 == i) {
+        return None;
+    }
     let p = pass.as_ref()?;
     if p.thrown.is_some() {
         return None;
@@ -3652,7 +3691,27 @@ fn jump_route(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>,
     // will lead his man to) and gets in front of it.
     let (_, spot, _) = window(sim, qb, w);
     let to_qb = (sim.agents[qb].pos - spot).norm();
-    Some(if right { spot + to_qb.scale(0.4) } else { wp + to_qb.scale(3.5) - sim.agents[w].vel.scale(0.8) })
+    if right {
+        return Some(spot + to_qb.scale(0.4));
+    }
+    let guess = wp + to_qb.scale(3.5) - sim.agents[w].vel.scale(0.8);
+    sim.bites.push((i, guess, sim.t));
+    // His man sees him bite and goes over the top.
+    let goal = sim.goal;
+    if let Job::Route { pts, next, settle, .. } = &mut sim.agents[w].job {
+        *pts = vec![v2(wp.x + 30.0 * goal, wp.y)];
+        *next = 0;
+        *settle = false;
+    }
+    Some(guess)
+}
+
+/// A route jumper who guessed wrong keeps going for the break he guessed
+/// until he has planted and turned (see `jump_route`).
+fn bitten(sim: &Sim, i: usize) -> Option<V2> {
+    let &(_, spot, at) = sim.bites.iter().find(|b| b.0 == i)?;
+    let turn = (0.9 - 0.008 * (sim.agents[i].a(Attr::Anticipation) - 40.0)).clamp(0.5, 0.9);
+    (sim.t < at + turn).then_some(spot)
 }
 
 #[allow(clippy::too_many_arguments)]

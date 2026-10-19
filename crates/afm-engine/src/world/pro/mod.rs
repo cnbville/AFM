@@ -88,6 +88,9 @@ pub struct ProCareer {
     pub weeks_unsigned: u32,
     /// Weeks left out injured.
     pub out_weeks: u32,
+    /// On the reserve/PUP list: still hurt at the new league year, he comes
+    /// back when healed without using one of the team's returns.
+    pub pup: bool,
     /// Every team he has been with, in order.
     pub teams: Vec<usize>,
     /// His entry in `World::alumni` (drafted and undrafted players).
@@ -145,6 +148,7 @@ impl ProCareer {
             sharpness: 1.0,
             weeks_unsigned: 0,
             out_weeks: 0,
+            pup: false,
             teams: team.into_iter().collect(),
             alumnus: None,
             paid: false,
@@ -887,7 +891,9 @@ fn fill_roster(w: &mut World, d: Date) -> bool {
                 else {
                     break;
                 };
-                w.people[i].pro.as_mut().unwrap().status = Status::Reserve;
+                let c = w.people[i].pro.as_mut().unwrap();
+                c.status = Status::Reserve;
+                c.pup = false;
                 changed = true;
                 continue;
             }
@@ -1047,6 +1053,10 @@ pub(crate) fn day(w: &mut World, d: Date) {
         changed |= super::clock::timed("pro street", || street_signings(w, d, true));
         changed |= super::clock::timed("pro fill", || fill_roster(w, d));
         super::clock::timed("pro unsigned", || unsigned_week(w, d));
+    } else if d.weekday() == crate::calendar::Weekday::Tue {
+        // Injuries heal in the offseason too (they only healed in season,
+        // so a late-season injury lasted into the next season).
+        super::clock::timed("pro heal", || offseason_heal(w));
     }
     // The Hall of Fame class is named the Saturday before the Super Bowl.
     if d == y.super_bowl.add(-1) {
@@ -1095,6 +1105,24 @@ fn league_year(w: &mut World, d: Date) {
         c.installed = inst;
         c.film.fade(if new_coach { 0.1 } else { 0.3 });
         c.ir_used = 0;
+    }
+    // The reserve lists end with the season (trial 8 finding 1: a healed
+    // player whose team had no returns left sat on reserve for years). A
+    // healed player is back on the offseason roster; one still hurt moves
+    // to the reserve/PUP list and comes back when healed.
+    for i in 0..w.people.len() {
+        if w.people[i].stage != Stage::Pro {
+            continue;
+        }
+        let Some(c) = w.people[i].pro.as_mut() else { continue };
+        if c.status == Status::Reserve {
+            if c.out_weeks == 0 {
+                c.status = Status::Roster;
+                c.pup = false;
+            } else {
+                c.pup = true;
+            }
+        }
     }
     office::choose_modes(w);
     for i in 0..w.people.len() {
@@ -1307,6 +1335,7 @@ pub(crate) fn sign(w: &mut World, i: usize, t: usize, d: Date, apy: f64, years: 
 /// season, his staff's teaching and his surroundings; rookies and players
 /// on a new team adjust.
 fn camp(w: &mut World, d: Date) {
+    super::coach::set_freedom_norms(w);
     let year = w.year;
     let league_strength = {
         let teams: Vec<f64> =
@@ -1314,6 +1343,15 @@ fn camp(w: &mut World, d: Date) {
         teams.iter().sum::<f64>() / teams.len().max(1) as f64
     };
     let pros: Vec<usize> = (0..w.people.len()).filter(|&i| w.people[i].stage == Stage::Pro).collect();
+    // What the pros' tools support on average at each position (trial 8
+    // finding 3): habits are read against it.
+    let mut centres = crate::tendencies::Centres::new();
+    for &i in &pros {
+        let p = &w.people[i];
+        if p.pro.as_ref().is_some_and(|c| c.team.is_some()) {
+            centres.add(Level::NFL, p.player.position, &p.player.attributes);
+        }
+    }
     for i in pros {
         let (team, status, first, new_team, payday) = {
             let c = w.people[i].pro.as_ref().unwrap();
@@ -1403,6 +1441,7 @@ fn camp(w: &mut World, d: Date) {
             snaps,
             style,
             scheme,
+            tend_centre: centres.get(Level::NFL, p.player.position),
             ..crate::development::SeasonContext::new(Level::NFL, clamp(coaching, 1.0, 20.0), role)
         };
         crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);
@@ -1670,13 +1709,18 @@ fn heal_week(w: &mut World) {
                 _ => {}
             }
         }
+        let pup = c.pup;
         if back
             && status == Status::Reserve
             && let Some(t) = team
-            && w.clubs[t].ir_used < games::ir_returns(year)
+            && (pup || w.clubs[t].ir_used < games::ir_returns(year))
         {
-            w.clubs[t].ir_used += 1;
-            w.people[i].pro.as_mut().unwrap().status = Status::Roster;
+            if !pup {
+                w.clubs[t].ir_used += 1;
+            }
+            let c = w.people[i].pro.as_mut().unwrap();
+            c.status = Status::Roster;
+            c.pup = false;
             let over = count(w, t, Status::Roster) > w.rules.nfl_roster as usize;
             if over {
                 // Room for him: the team lets its lowest-rated healthy player at the deepest spot go.
@@ -1691,6 +1735,22 @@ fn heal_week(w: &mut World) {
                     release(w, j, d, "cut to make room for a player back from injured reserve");
                 }
             }
+        }
+    }
+}
+
+/// An offseason week: injuries heal, and a player on the reserve/PUP list
+/// who is healed is back on the offseason roster.
+fn offseason_heal(w: &mut World) {
+    for p in w.people.iter_mut().filter(|p| p.stage == Stage::Pro) {
+        let Some(c) = p.pro.as_mut() else { continue };
+        if c.out_weeks == 0 {
+            continue;
+        }
+        c.out_weeks -= 1;
+        if c.out_weeks == 0 && c.status == Status::Reserve && c.pup {
+            c.status = Status::Roster;
+            c.pup = false;
         }
     }
 }
