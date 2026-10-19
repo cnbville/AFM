@@ -1085,7 +1085,11 @@ async function boot() {
   const index = await get("data/index.json");
   S.real = await get("data/real.json");
   try { S.notes = await get("data/notes.json"); } catch (e) { S.notes = null; }
-  S.runs = await Promise.all(index.seeds.map((s) => get("data/" + s.file)));
+  S.runs = await Promise.all(index.seeds.map(async (s) => {
+    const run = await get("data/" + s.file);
+    if (s.players) run.players = await get("data/" + s.players);
+    return run;
+  }));
   S.on = S.runs.map(() => true);
   $("#subtitle").textContent = `${S.runs.length} world${S.runs.length > 1 ? "s" : ""}, ${S.runs[0].first} to ${S.runs[0].last}, every game on the match engine. Debug view: hidden values shown.`;
   const chips = $("#seedChips");

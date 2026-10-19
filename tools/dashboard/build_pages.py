@@ -187,17 +187,19 @@ def season_words(s):
     return text[:1].upper() + text[1:]
 
 
-def show_events(line):
-    """Add the "What happened" column to the template's season table, once."""
+def show_events(line, whole):
+    """Add the "What happened" column, the pro career box and the tendencies
+    box to the template, once (`whole` is the template's full text: the
+    boxes' JS sits on the lines before the one it is added to)."""
     if HEAD_NEW not in line:
         line = line.replace(HEAD_OLD, HEAD_NEW)
     if ROW_NEW not in line:
         line = line.replace(ROW_OLD, ROW_NEW)
     if NOTE_NEW not in line:
         line = line.replace(NOTE_OLD, NOTE_NEW)
-    if PRO_OLD in line and "const proT=" not in line:
+    if PRO_OLD in line and "const proT=" not in whole:
         line = line.replace(PRO_OLD, PRO_JS + PRO_OLD)
-    if PRO_OLD in line and "const tendT=" not in line:
+    if PRO_OLD in line and "const tendT=" not in whole:
         line = line.replace(PRO_OLD, TEND_JS + PRO_OLD)
     if END_NEW2 not in line:
         line = line.replace(END_OLD, END_NEW2).replace(END_NEW, END_NEW2)
@@ -226,7 +228,8 @@ def main():
     count = {1: "one world", 2: "two worlds", 3: "three worlds"}.get(len(seeds), f"{len(seeds)} worlds")
     # The header names this page's own trial and worlds, not the template's.
     ctx = f"{title.removeprefix('AFM ')} · {count} (seed{'s' if len(seeds) > 1 else ''} {', '.join(seeds)})"
-    lines = open(template).read().split("\n")
+    whole = open(template).read()
+    lines = whole.split("\n")
     done = False
     for i, line in enumerate(lines):
         if line.startswith("const CARDS = "):
@@ -237,7 +240,7 @@ def main():
         elif line.startswith('  <div class="ctx">'):
             lines[i] = f'  <div class="ctx">{ctx}</div>'
         else:
-            lines[i] = show_events(line)
+            lines[i] = show_events(line, whole)
     if not done:
         sys.exit("template has no `const CARDS = ` line")
     open(out, "w").write("\n".join(lines))

@@ -1393,7 +1393,8 @@ def slumps(run):
                 if s.get("missed"):
                     why.append(f'{s["missed"]} game{"" if s["missed"] == 1 else "s"} missed')
                 for k, t in (("slump", "a form slump"), ("lostSeason", "a lost season"), ("suspended", "suspended or ineligible"),
-                             ("dismissed", "dismissed"), ("stagnation", "stagnation"), ("bodyStalled", "body stopped developing")):
+                             ("dismissed", "dismissed"), ("stagnation", "stagnation"), ("bodyStalled", "body stopped developing"),
+                             ("poorCoaching", "teaching that cost ability")):
                     if k in ev:
                         why.append(t)
                 if "firstYear" in ev:
@@ -1678,9 +1679,16 @@ def main():
         run = Run(path)
         data = build(run, real)
         name = f"seed-{run.seed}.json"
-        json.dump(data, open(f"{out_dir}/{name}", "w"), separators=(",", ":"), default=lambda o: dict(o) if isinstance(o, Counter) else str(o))
-        seeds.append({"seed": run.seed, "file": name, "first": run.first, "last": run.last})
-        print(f"wrote {out_dir}/{name}: {os.path.getsize(f'{out_dir}/{name}') / 1e6:.1f} MB", file=sys.stderr)
+        # The player pages go in their own file: a 50-year world's pages
+        # alone are about 14 MB, and an artifact file may hold 16 MB.
+        pages = f"seed-{run.seed}-players.json"
+        dump = lambda obj, f: json.dump(obj, open(f"{out_dir}/{f}", "w"), separators=(",", ":"),
+                                        default=lambda o: dict(o) if isinstance(o, Counter) else str(o))
+        dump(data.pop("players", []), pages)
+        dump(data, name)
+        seeds.append({"seed": run.seed, "file": name, "players": pages, "first": run.first, "last": run.last})
+        for f in (name, pages):
+            print(f"wrote {out_dir}/{f}: {os.path.getsize(f'{out_dir}/{f}') / 1e6:.1f} MB", file=sys.stderr)
     json.dump({"seeds": seeds}, open(f"{out_dir}/index.json", "w"))
 
 
