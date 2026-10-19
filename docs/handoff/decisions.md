@@ -297,6 +297,18 @@ Cain asked in the project chat (20:55): "is it to late to pivot to an game where
 
 ---
 
+## 13. Section 6: people (thread "make new thread for designing section 6", 2026-10-18 and 19)
+
+The design is in `docs/design/people.md`, all 15 topics.
+
+- **The topic list** (2026-10-18 22:17): Cain asked to "redo the topic list with your new find logical thinking which should've been happening from the start", so every topic was checked against the code and the docs first (Built, Decided, New; audit in the project folder at `afm/section6/existing.md`).
+- **Real life goes straight into the spec** (2026-10-19): "are you just asking me stuff to show me you did a good job ? because you know i want ultra realism and these all just feel like stuff you should know". Only choices real life can't settle are asked; unpublished numbers are marked "proposed, not confirmed".
+- **Talks are picked moves and tones (A), with a huge line bank** (2026-10-19): "A, but make sure conversations-messages has a uge database so it doesn't get stale, which is one fo my hatrets of FM, been seing the same shit for 5 years". The bank covers all text: talks, media, news and fans (topic 5).
+- **Your health never ends your career for you** (2026-10-19): "nah, imaging spending months on a save and it gets ripped from you". Health can force a leave, and your doctor and family push you to step down, but only you end the career (topic 13).
+- **Your background gives a pool of points for your starting ratings, like FM** (2026-10-19): "A" (topic 15, settling how Q8's "changeable starting stats" works).
+
+---
+
 ## Superseded decisions
 
 | Old | Replaced by | When |

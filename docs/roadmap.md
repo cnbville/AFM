@@ -280,7 +280,7 @@ Roster limits (90/53, practice squad, IR), depth charts, contracts and the full 
 Personality, morale and chemistry, off-field events, rated staff and hiring (and staff being poached), owner goals and job security, and your own manager profile with growing ratings and an editable starting background.
 - Job security and bosses at every level: the NFL owner, the college athletic director, president and boosters, the high school principal or athletic director and booster club. Your moves between levels use the same coaching market the AI coaches use.
 - A high school staff (coordinators and assistants, many of them teachers) that you hire.
-- **Design written 2026-10-19:** all 15 topics in `docs/design/people.md` (thread "make new thread for designing section 6"). Real life is written in as the default; numbers no source publishes are marked "proposed, not confirmed", and two open choices wait for Cain at the end of the doc. Not built.
+- **Design written 2026-10-19:** all 15 topics in `docs/design/people.md` (thread "make new thread for designing section 6"). Real life is written in as the default; numbers no source publishes are marked "proposed, not confirmed", and Cain answered its two open choices the same day (your health never ends your career; your background gives a pool of rating points). Not built.
 
 ### Section 6b. Training (deep)
 

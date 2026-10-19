@@ -544,7 +544,7 @@ Video and equipment staff are named people with no ratings: they matter to a rea
 - **Trouble** runs on topic 7 for coaches, owners and staff, by their level's rules: arrests, affairs with staff, NCAA cases and cover-ups (show-cause orders are built), the NFL's personal conduct policy (it covers coaches and owners), and the same media and boss fallout.
 - **Retirement** reads health, age, family, money, love of the game, results and his boss's push, instead of a flat rate from 60. Retired coaches stay in the world: TV analysts, consultants, references, mentors to their tree, and some come back.
 
-**Your own life.** You get the same: a family from your profile, events you decide on (miss the game for your child's birth, or not), health and burnout from your hours, which your staff and the calendar's holiday mode take off you (calendar topic 10). One open choice, at the end of this doc: whether your health can end your career for you.
+**Your own life.** You get the same: a family from your profile, events you decide on (miss the game for your child's birth, or not), health and burnout from your hours, which your staff and the calendar's holiday mode take off you (calendar topic 10). Your health never ends your career for you (Cain, 2026-10-19: "imaging spending months on a save and it gets ripped from you"). It can put you on leave for weeks with an interim coaching, and your doctor and family can push you to step down, but only you end the career.
 
 ---
 
@@ -602,7 +602,7 @@ You see your own ratings (you set them at the start, Q8). Other people see only 
 
 **Backgrounds** follow the real roads: former NFL player (a journeyman, a starter, a Pro Bowler or a star), former college player, never played past high school, high school coach, college position coach or coordinator, NFL assistant or coordinator, scout or personnel, and analytics. Your background sets:
 - Your starting reputation (Q8), and with it which bosses take you seriously, how players and recruits receive you, and how skeptical boosters and the media are if you start somewhere big.
-- Where your ratings start (how you edit them is an open choice, at the end of this doc).
+- Where your ratings start: your background gives you a pool of points to spread across your ratings, like FM, so an ex-star starts stronger on motivation and relationships and a career assistant on teaching and scheme (Cain, 2026-10-19, answering Q8's "changeable starting stats"). Proposed, not confirmed: the size of each background's pool.
 - Your network: your background places you in the world's own history, where you played or coached and with whom, so those people (now coaches, GMs, agents and scouts) know you (topic 2).
 - Your negotiating start (section 5).
 
@@ -619,9 +619,9 @@ You see your own ratings (you set them at the start, Q8). Other people see only 
 
 ---
 
-## Open choices (waiting on Cain)
+## Cain's answers on the two open choices (2026-10-19)
 
-Real life can't settle these two, so they wait for Cain. Until then the picks are **proposed, not confirmed**.
+Both picks were confirmed, and they are written into topics 13 and 15.
 
-1. **Can your own health end your career?** (topic 13) A: health can put you on leave for weeks with an interim, and your doctor and family push you to step down, but only you end the career. B: as in real life, a rare serious event can end it for you, mostly late in life. Claude's pick: A, because real coaches with health scares (Meyer, Fox, Kubiak) made the call themselves, and B can end a 50-year save on one roll.
-2. **How do you set your starting ratings?** (topic 15, Q8) A: your background gives you a pool of points to spread, like FM, so an ex-star starts with more motivation and relationships and a career assistant with more teaching and scheme. B: you set every rating freely. Claude's pick: A, so the background you pick matters and the start stays honest.
+1. **Your health never ends your career for you.** Health can put you on leave for weeks with an interim, and your doctor and family push you to step down, but only you end the career. Cain: "nah, imaging spending months on a save and it gets ripped from you".
+2. **Your background gives you a pool of points** to spread across your starting ratings, like FM. Cain: "A".
