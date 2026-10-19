@@ -155,11 +155,17 @@ fn people_live() {
     for t in active_teams(w.year) {
         let c = &w.clubs[t];
         assert!(c.support.strength.rating > 0 && c.support.medical.rating > 0, "the {} lack staff", w.nfl[t].name);
-        assert_eq!(c.captains.len(), 6, "the {} have {} captains", w.nfl[t].name, c.captains.len());
+        // Six voted; one who has left since the vote is off the list.
+        assert!((3..=6).contains(&c.captains.len()), "the {} have {} captains", w.nfl[t].name, c.captains.len());
+        assert!(
+            c.captains.iter().all(|&i| w.people[i].pro.is_some()),
+            "the {} captains point at non-pros",
+            w.nfl[t].name
+        );
     }
     let fbs: Vec<_> = w.programs.iter().filter(|p| p.division == Division::FBS && p.plays(w.year)).collect();
     assert!(fbs.iter().all(|p| p.support.academic.rating > 0));
-    assert!(fbs.iter().filter(|p| p.captains.len() == 4).count() * 10 >= fbs.len() * 9);
+    assert!(fbs.iter().filter(|p| p.captains.len() >= 3).count() * 10 >= fbs.len() * 9);
     // Traits average near 10 with a real spread.
     let traits: Vec<f64> =
         w.people.iter().take(50_000).map(|p| p.player.personality.traits.get(Trait::Professionalism)).collect();
@@ -193,13 +199,22 @@ fn clubs_scout_and_draft_from_their_own_boards() {
     use afm_engine::world::pro::scouts::Role;
     let w = &*WORLD;
     // Section 7: every club has a director, national and area scouts, and
-    // its files were cleared after the rush.
+    // its files hold only the coming draft class (the last rush cleared
+    // the rest; the world ends in February, after the fall's school calls).
+    let class: std::collections::HashSet<u32> = w
+        .people
+        .iter()
+        .filter(|p| matches!(p.stage, afm_engine::world::Stage::College | afm_engine::world::Stage::Declared))
+        .map(|p| p.player.id)
+        .collect();
     for t in active_teams(w.year) {
         let s = &w.clubs[t].scouts;
         assert_eq!(s.iter().filter(|x| x.role == Role::Director).count(), 1, "the {} directors", w.nfl[t].name);
         assert!(s.iter().filter(|x| x.role == Role::National).count() >= 1);
         assert!((5..=10).contains(&s.iter().filter(|x| x.role == Role::Area).count()));
-        assert!(w.clubs[t].files.is_empty(), "the {} kept their files", w.nfl[t].name);
+        let files = &w.clubs[t].files;
+        assert!(!files.is_empty(), "the {} have no files on the coming class", w.nfl[t].name);
+        assert!(files.keys().all(|id| class.contains(id)), "the {} kept files on a past class", w.nfl[t].name);
     }
     // The last draft: looks filed, players signed in the rush, picks
     // explained from each club's own board.
@@ -211,4 +226,46 @@ fn clubs_scout_and_draft_from_their_own_boards() {
     assert!(m.scout_looks > 1_000, "{} looks in {}", m.scout_looks, m.year);
     let own = w.people.iter().filter(|p| p.notes.iter().any(|n| n.contains("their board grade"))).count();
     assert!(own > 0, "no pick names its board");
+}
+
+/// A seed gives the same world on any number of cores (bug check, build
+/// 9): two small worlds built on one core and on four match person by
+/// person, draft pick by draft pick and in the NFL's money.
+#[test]
+fn a_seed_gives_the_same_world_on_any_core_count() {
+    use std::hash::{Hash, Hasher};
+    let build = |threads: usize| {
+        let pool = rayon::ThreadPoolBuilder::new().num_threads(threads).build().unwrap();
+        pool.install(|| {
+            let w = World::new(WorldOptions {
+                seed: 11,
+                scale: 0.05,
+                history_years: 2,
+                engine_from: Some(2100),
+                ..Default::default()
+            });
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            for p in &w.people {
+                p.player.id.hash(&mut h);
+                p.player.overall().to_bits().hash(&mut h);
+                p.mood.to_bits().hash(&mut h);
+                (p.stage as u8).hash(&mut h);
+                p.college.hash(&mut h);
+                p.pro.as_ref().map(|c| (c.team, c.contract.as_ref().map(|k| k.apy().to_bits()))).hash(&mut h);
+            }
+            for c in &w.clubs {
+                c.captains.hash(&mut h);
+                c.scouts.len().hash(&mut h);
+            }
+            for m in &w.market.years {
+                (m.year, m.signed_new, m.trades, m.draft_trades, m.udfa_signed, m.trouble).hash(&mut h);
+            }
+            (h.finish(), w.people.len())
+        })
+    };
+    let (one, n) = build(1);
+    let (four, m) = build(4);
+    eprintln!("{n} people, hashes {one:x} and {four:x}");
+    assert_eq!(n, m);
+    assert_eq!(one, four, "the same seed built a different world on 1 and 4 cores");
 }

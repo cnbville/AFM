@@ -78,7 +78,8 @@ fn player_detail(p: &afm_engine::player::Player) -> Value {
         })).collect::<Vec<_>>(),
         "positions": p.position_history.iter().map(|(age, pos)| json!([age, pos.name()])).collect::<Vec<_>>(),
         "personality": {"work_ethic": r1(p.personality.work_ethic), "coachability": r1(p.personality.coachability),
-            "competitiveness": r1(p.personality.competitiveness), "love_of_game": r1(p.personality.love_of_game)},
+            "competitiveness": r1(p.personality.competitiveness), "love_of_game": r1(p.personality.love_of_game),
+            "traits": afm_engine::player::Trait::ALL.iter().map(|&t| json!([format!("{t:?}"), p.personality.traits.get(t)])).collect::<Vec<_>>()},
         "bloom": r1(p.bloom), "injury": r1(p.injury_proneness),
         "tend": tend_row(&p.tend),
     })
@@ -272,6 +273,8 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
             "titles": p.titles, "conf_titles": p.conference_titles, "draft_picks": p.draft_picks,
             "signing_cap": afm_engine::world::ncaa::roster_limits(p, w.year).1, "admissions_bar": r2(p.admissions_bar), "special_admits": p.special_admits,
             "roster_size": p.roster.len(), "story": p.story,
+            "team_mood": r2(p.team_mood as f64), "captains": p.captains.len(),
+            "support": [p.support.strength.rating, p.support.medical.rating, p.support.analytics.rating, p.support.academic.rating],
             "seasons": p.seasons.iter().map(|s| { let t = &s.totals; json!({
                 "year": s.year, "w": s.wins, "l": s.losses, "conf": s.conference_title, "nat": s.national_title,
                 "strength": r2(s.strength), "coach": s.coach, "g": t.games, "pf": t.points_for, "pa": t.points_against,
@@ -350,6 +353,7 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
             "state": STATE_CENTERS[q.home_state].0, "hs": q.hs, "college": q.college, "path": q.path,
             "college_seasons": q.college_seasons, "transfers": q.transfers, "juco": q.juco, "nil": q.nil_income.round(),
             "role": q.last_role.map(|r| r.name()), "perf": q.last_performance.map(r1), "gpa": q.gpa_at_signing.map(r2),
+            "mood": r2(q.mood as f64), "coach_trust": r2(q.trust as f64), "mood_why": q.mood_why,
         });
         if college {
             v["detail"] = player_detail(&q.player);
@@ -411,6 +415,13 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
         // Active pros in full, so `match_check` can play the world's NFL
         // rosters (AFM_ROSTERS; trial 8 finding 6).
         v["detail"] = player_detail(&q.player);
+        // Section 6: his mood now, trust, suspension and grudges.
+        let c = q.pro.as_ref().unwrap();
+        v["mood"] = json!(r2(q.mood as f64));
+        v["coach_trust"] = json!(r2(q.trust as f64));
+        v["mood_why"] = json!(q.mood_why);
+        v["suspended"] = json!(c.suspended);
+        v["grudges"] = json!(c.grudges.iter().map(|g| json!([g.0, g.1])).collect::<Vec<_>>());
         f.put(v);
     }
     for a in w.alumni.iter().filter(|a| a.pro.is_some()) {
@@ -442,6 +453,8 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
             "deadline_trades": m.deadline_trades, "picks_traded": m.picks_traded, "comp_picks": m.comp_picks,
             "cfa_noted": m.cfa_noted, "cfa_valued": m.cfa_valued, "comp_formula": m.comp_formula,
             "comp_supplemental": m.comp_supplemental,
+            "draft_trades": m.draft_trades, "udfa_signed": m.udfa_signed, "scout_looks": m.scout_looks,
+            "poached": m.poached, "settlements": m.settlements, "trouble": m.trouble, "suspensions": m.suspensions,
             "other_league": m.other_league, "ipp": m.ipp, "floor_paid": m.floor_paid.round(),
             "cap_use": m.cap_use.map(|x| (x * 1000.0).round() / 1000.0),
             "dead": m.dead.map(|x| (x * 1000.0).round() / 1000.0),
@@ -478,6 +491,11 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
             "owner": {"meddling": r2(o.owner.meddling), "pet": o.owner.pet.map(|i| w.people.get(i).map(|p| p.name.clone())),
                 "cash_will": r2(o.owner.cash_will), "patience": r2(o.owner.patience), "pr": r2(o.owner.pr),
                 "draft_override": r2(o.owner.draft_override), "trust": r2(o.owner.trust)},
+            "power": format!("{:?}", o.power), "team_mood": r2(c.team_mood as f64),
+            "captains": c.captains.iter().filter_map(|&i| w.people.get(i).map(|p| p.name.clone())).collect::<Vec<_>>(),
+            "support": [c.support.strength.rating, c.support.medical.rating, c.support.analytics.rating],
+            "scouts": c.scouts.iter().map(|s| json!({"name": s.name, "role": format!("{:?}", s.role), "region": s.region,
+                "judge": s.judge, "potential": s.potential, "work": s.work, "bias": format!("{:?}", s.bias), "since": s.since})).collect::<Vec<_>>(),
         }));
     }
     counts.push(("nfl clubs".into(), f.n));

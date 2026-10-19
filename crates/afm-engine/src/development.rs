@@ -551,7 +551,10 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     let development_age = age - player.bloom;
     // Coachability scales how far coaching moves him from average, good or bad.
     let coaching_boost = 1.0 + (coaching_mult - 1.0) * coachability_lean;
-    let morale_mult = 1.0 + 0.10 * clamp(ctx.morale, -1.0, 1.0);
+    // His mood (up to 10%) and his room's (up to 5%, `people::morale`
+    // gives -1.5 to 1.5; it was cut at 1, so the room added nothing to a
+    // player already at his limit).
+    let morale_mult = 1.0 + 0.10 * clamp(ctx.morale, -1.5, 1.5);
     let physical_mult = 1.0 + 0.08 * clamp(ctx.physical, -1.0, 1.0);
     let mut settling = [false; ATTRIBUTE_COUNT];
     for key in Attr::ALL {

@@ -463,3 +463,24 @@ fn a_played_redshirt_season_names_its_form() {
         }
     }
 }
+
+#[test]
+fn a_long_save_keeps_its_calendar_and_money() {
+    // Bug check (build 9): a save can run far past the trials' last year
+    // (2045). Every year to 2200 has its dates in order, an era's rule
+    // book and a cap that grows.
+    use crate::calendar::YearDates;
+    use crate::calendar::rules::RuleBook;
+    use crate::world::pro::money;
+    let mut cap = 0.0;
+    for season in 2026..=2200 {
+        let y = YearDates::new(season);
+        assert!(y.start < y.nfl_kickoff && y.nfl_kickoff < y.super_bowl, "{season}");
+        assert!(y.combine_invites < y.combine_start && y.combine_start < y.draft[0].date, "{season}");
+        let r = RuleBook::era(season);
+        assert!(r.nfl_games >= 16, "{season}");
+        let c = money::price_cap(season);
+        assert!(c.is_finite() && c > cap, "{season}: cap {c}");
+        cap = c;
+    }
+}

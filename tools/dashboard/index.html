@@ -138,7 +138,7 @@ details summary { cursor: pointer; font-weight: 600; }
 const TABS = [
   ["verdict", "Verdict"], ["calendar", "Calendar"], ["health", "Health"], ["engine", "Game engine"], ["balance", "Balance"], ["wins", "What wins"],
   ["situ", "Situations"], ["players", "Player paths"], ["recruit", "Recruiting"], ["coaches", "Coaches"],
-  ["draft", "Draft"], ["nfl", "NFL"], ["tend", "Tendencies"], ["records", "Records"], ["names", "Names"], ["slumps", "Slumps"], ["anomalies", "Anomalies"],
+  ["draft", "Draft"], ["nfl", "NFL"], ["tend", "Tendencies"], ["people", "People & scouting"], ["records", "Records"], ["names", "Names"], ["slumps", "Slumps"], ["anomalies", "Anomalies"],
   ["ideas", "Idea board"], ["seeds", "Seed lab"], ["explore", "Explorer"], ["pages", "Pages"],
 ];
 const SERIES = ["var(--s1)", "var(--s2)", "var(--s3)"];
@@ -1064,7 +1064,35 @@ function buildTend(p) {
   }
 }
 
-const BUILD = { verdict: buildVerdict, calendar: buildCalendar, slumps: buildSlumps, health: buildHealth, engine: buildEngine, balance: buildBalance, wins: buildWins, situ: buildSitu, players: buildPlayers, recruit: buildRecruit, coaches: buildCoaches, draft: buildDraft, nfl: buildNfl, tend: buildTend, records: buildRecords, names: buildNames, anomalies: buildAnomalies, ideas: buildIdeas, seeds: buildSeeds, explore: buildExplore, pages: buildPages };
+/* ---------- People and scouting (build 9, 2026-10-19) ---------- */
+function buildPeople(p) {
+  const runs = active().filter((i) => S.runs[i].people);
+  if (!runs.length) { p.append(h("p", { class: "muted" }, "These worlds were run before sections 6 and 7 were built (2026-10-19): no people or scouting data.")); return; }
+  p.append(h("p", { class: "intro" }, "Sections 6 and 7, the world side (docs/design/build9-plan.md): moods and their main reason, the 8 traits as people age, team rooms and captains, support staffs, each NFL club's scouting department, draft-day trades, the undrafted rush, practice squad poaching, injury settlements and off-field cases. Real references where they exist: about 2.5% of NFL players in trouble a year (USA Today arrest database), 20-40 draft-day trades a year (2010s), a few dozen practice squad poaches a season."));
+  for (const i of runs) {
+    const P = S.runs[i].people;
+    const g = h("div", { class: "grid" });
+    const lab = { draft_trades: "Draft-day trades", udfa_signed: "Undrafted signed in the rush", scout_looks: "Scouting looks filed", poached: "Practice squad players poached", settlements: "Injury settlements", trouble: "Off-field cases", suspensions: "Suspensions" };
+    P.year_keys.forEach((k, j) => {
+      g.append(card(lab[k] || k, "By year.", chartDiv((el) => lineChart(el, { series: [{ name: seedName(i), color: SERIES[i], pts: P.years.map((y) => [y[0], y[j + 1]]) }], H: 160 }))));
+    });
+    p.append(h("h2", {}, `${seedName(i)}: the yearly counts`), g);
+    const w = h("div", { class: "grid wide" });
+    for (const [lvl, M] of Object.entries(P.moods || {})) {
+      w.append(card(`Moods now: ${lvl}`, `${M.n} players: mean ${fmt(M.mean, 2)}, ${M.low}% under -0.2, ${M.high}% over 0.2; trust in the head coach ${fmt(M.trust, 2)} (0-1). Bars: players by mood (-1 to 1).`,
+        chartDiv((el) => barChart(el, { cats: M.hist.map((x) => fmt(x[0], 2)), series: [{ name: "players", color: SERIES[i], values: M.hist.map((x) => x[1]) }], rotate: true, H: 180 })),
+        table(["Main reason", "Players"], M.why, { numeric: [1] })));
+    }
+    w.append(card("Traits by age", "Average of each trait (1-20) by age among college players and active pros: professionalism should rise and temper settle from 18 into the early thirties; ego grows with stardom.", h("div", { class: "scrolly" }, table(["Age"].concat(P.traits).concat(["Players"]), P.trait_age, { numeric: P.traits.map((_, j) => j + 1).concat([P.traits.length + 1]) }))));
+    w.append(card("Boards against the public", "Each pick's slot minus his public rank, by round: how far clubs' own boards stray from the consensus. 'Reaches' went 32+ slots before their public rank, 'slides' 32+ after.", table(["Round", "Picks", "Average gap", "Reaches %", "Slides %"], P.strays, { numeric: [1, 2, 3, 4] })));
+    w.append(card("NFL clubs now", "Final say, team mood (-1 to 1), captains, support heads (strength, medical, analytics; 1-20, hidden), scouting department size and judging.", h("div", { class: "scrolly" }, table(["Club", "Final say", "Team mood", "Captains", "Strength", "Medical", "Analytics", "Area scouts", "National", "Judging"], P.clubs, { numeric: [2, 4, 5, 6, 7, 8, 9] }))));
+    w.append(card("Scouts' hidden biases", "How many scouts in the league carry each bias.", table(["Bias", "Scouts"], P.biases, { numeric: [1] })));
+    w.append(card("FBS rooms now", "Team mood, captains and support heads (strength, medical, analytics, academics), lowest mood first.", h("div", { class: "scrolly" }, table(["Program", "Team mood", "Captains", "Strength", "Medical", "Analytics", "Academics"], P.rooms_fbs, { numeric: [1, 2, 3, 4, 5, 6] }))));
+    p.append(h("h2", {}, `${seedName(i)}: the world now`), w);
+  }
+}
+
+const BUILD = { verdict: buildVerdict, calendar: buildCalendar, slumps: buildSlumps, health: buildHealth, engine: buildEngine, balance: buildBalance, wins: buildWins, situ: buildSitu, players: buildPlayers, recruit: buildRecruit, coaches: buildCoaches, draft: buildDraft, nfl: buildNfl, tend: buildTend, people: buildPeople, records: buildRecords, names: buildNames, anomalies: buildAnomalies, ideas: buildIdeas, seeds: buildSeeds, explore: buildExplore, pages: buildPages };
 
 /* ---------- Shell ---------- */
 function render() {

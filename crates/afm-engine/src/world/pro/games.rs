@@ -410,9 +410,14 @@ pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[
         if let Some(c) = w.clubs.get_mut(t) {
             c.film.add(&r.film[side]);
         }
+        // Every practice squad player dressed for the game used one of his
+        // elevations, whether he played a snap or not (bug check, build 9:
+        // only those with a stat line counted).
+        for &(i, _) in sides[side].who.values() {
+            super::squad::count_elevation(w, i);
+        }
         for (&id, l) in &r.stats.players[side] {
             let Some(&(i, starter)) = sides[side].who.get(&id) else { continue };
-            super::squad::count_elevation(w, i);
             let Some(c) = w.people[i].pro.as_mut() else { continue };
             let dressed = l.snaps_off + l.snaps_def + l.snaps_st > 0;
             if dressed {

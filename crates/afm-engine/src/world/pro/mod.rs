@@ -287,11 +287,20 @@ pub(crate) fn remap_people(w: &mut World, map: &[Option<usize>]) {
     let at = |i: usize| map.get(i).copied().flatten();
     for c in w.clubs.iter_mut() {
         c.office.owner.pet = c.office.owner.pet.and_then(at);
+        c.captains = c.captains.iter().filter_map(|&i| at(i)).collect();
+    }
+    // College captains are held by place too (bug check, build 9: they
+    // pointed at other people from signing day to the next camp).
+    for prog in w.programs.iter_mut() {
+        prog.captains = prog.captains.iter().filter_map(|&i| at(i)).collect();
     }
     let book = &mut w.market.picks;
     book.cfa.retain_mut(|x| at(x.1).map(|i| x.1 = i).is_some());
     w.market.pending.retain_mut(|x| at(x.person).map(|i| x.person = i).is_some());
     w.market.sheets.retain_mut(|x| at(x.person).map(|i| x.person = i).is_some());
+    // Off-field cases wait weeks for a ruling, across signing day (bug
+    // check, build 9: a ruling landed on whoever took his place).
+    w.market.cases.retain_mut(|x| at(x.person).map(|i| x.person = i).is_some());
 }
 
 /// Rebuilds every club's list from the people (after the yearly compaction

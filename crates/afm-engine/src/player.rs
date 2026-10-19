@@ -82,6 +82,19 @@ pub enum Trait {
     Adaptability,
 }
 
+impl Trait {
+    pub const ALL: [Trait; 8] = [
+        Trait::Ambition,
+        Trait::Loyalty,
+        Trait::Greed,
+        Trait::Temper,
+        Trait::Ego,
+        Trait::Leadership,
+        Trait::Professionalism,
+        Trait::Adaptability,
+    ];
+}
+
 impl Traits {
     pub fn get(&self, t: Trait) -> f64 {
         (match t {
