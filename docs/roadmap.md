@@ -214,9 +214,9 @@ The order below is **confirmed** (Raichel, 2026-10-11: "ok to all"): world, matc
 | 3 | Match engine and stats database | **Built** (2026-10-14); high school games still on the stand-in |
 | 4 | Calendar | **Built** (2026-10-16) |
 | 5 | Team management | **Built for the AI's NFL** (2026-10-17); your own side waits for section 8 |
-| 6 | People | Not designed |
+| 6 | People | Designed (2026-10-19), not built |
 | 6b | Training (deep) | Not designed |
-| 7 | Scouting, recruiting and draft | Not designed |
+| 7 | Scouting, recruiting and draft | Designed (2026-10-19), not built |
 | 8 | First playable | Not designed |
 | 9 | Game day control | Not designed |
 | 10 | Screens and 2D view | Not designed |
@@ -290,6 +290,7 @@ Its own section because Raichel sees "sooooo much realism, potential" in it. The
 
 Your scouting staff and assignments, reports with hidden potential, vague outlooks and hints, character reports with "insane detail", the combine, pro days and private workouts, the live draft and the UDFA rush.
 - College seat: recruiting is the college draft. Your own board, evaluations, offers, visits, relationships and signing days, on the same rules and calendar the AI staffs use now.
+- **Design written 2026-10-19:** all 18 topics in `docs/design/scouting.md` (thread "start new thread to design section 7"), with real life written in as the default and no open choices. Not built.
 
 ### Section 8. First playable
 
