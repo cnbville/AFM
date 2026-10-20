@@ -2,7 +2,7 @@
 //! off, the way the game will run it. Prints resident memory and the live
 //! heap after the history and after each future season, then weighs each
 //! of the world's stores by dropping it, biggest first.
-//! Usage: memory_check [seed] [history_years] [future_years]
+//! Usage: memory_check [seed] [history_years] [future_years] [scale]
 
 use std::time::Instant;
 
@@ -14,8 +14,11 @@ fn main() {
     let seed: u32 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(2026);
     let years: u32 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(30);
     let future: u32 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(0);
+    // A share of the real size, for quick checks only.
+    let scale: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(1.0);
     let t = Instant::now();
-    let mut w = World::new(WorldOptions { seed, history_years: years, keep_game_log: false, ..Default::default() });
+    let opts = WorldOptions { seed, history_years: years, keep_game_log: false, scale, ..Default::default() };
+    let mut w = World::new_watched(opts, |w, secs| year_line(w, secs));
     println!(
         "history of {years} years built in {:.0}s: heap {:.2} GB, resident {}",
         t.elapsed().as_secs_f64(),
@@ -25,13 +28,7 @@ fn main() {
     for _ in 0..future {
         let s = Instant::now();
         w.advance_year();
-        println!(
-            "season to {}: {:.0}s, heap {:.2} GB, resident {}",
-            w.year,
-            s.elapsed().as_secs_f64(),
-            afm_tools::heap_gb(),
-            afm_tools::memory_text()
-        );
+        year_line(&w, s.elapsed().as_secs_f64());
     }
     println!(
         "people {}, alumni {}, coaches {}, high schools {}, programs {}, news {}",
@@ -78,4 +75,21 @@ fn main() {
     }
     println!("| everything else | {rest:.3} |");
     println!("\nall in {:.0}s", t.elapsed().as_secs_f64());
+}
+
+/// One season's line: its time, memory, and its high school games on the
+/// engine with their per-team averages.
+fn year_line(w: &World, secs: f64) {
+    let (games, hs) = w.log_history.last().map_or((0, Default::default()), |l| (l.hs_engine_games, l.hs_totals));
+    let per = |x: f64| if hs.games > 0 { x / hs.games as f64 } else { 0.0 };
+    println!(
+        "season {}: {secs:.0}s, heap {:.2} GB, resident {}, people {}, HS engine games {games} (a team game: {:.1} points, {:.1} plays, {:.0} yards)",
+        w.year - 1,
+        afm_tools::heap_gb(),
+        afm_tools::memory_text(),
+        w.people.len(),
+        per(hs.points_for as f64),
+        per(hs.plays as f64),
+        per(hs.yards),
+    );
 }

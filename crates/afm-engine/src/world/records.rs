@@ -412,8 +412,8 @@ pub fn headline_metrics(pos: Position) -> &'static [Metric] {
 pub enum Scope {
     Division(Division),
     Conference(Division, String),
-    /// A state's high schools (team records only: high school games still
-    /// run on the stand-in, which keeps no player stats).
+    /// A state's high schools: team records, and players' records from
+    /// the seasons played on the match engine.
     State(usize),
 }
 
@@ -792,6 +792,11 @@ fn place(list: &mut Vec<RecordEntry>, e: RecordEntry, n: usize) -> bool {
     list.insert(pos, e);
     list.truncate(n);
     pos == 0 && was_best.is_some()
+}
+
+/// Puts an entry on a state's list (the best ten, like a division's).
+pub(crate) fn place_entry(list: &mut Vec<RecordEntry>, e: RecordEntry) {
+    place(list, e, DIVISION_TOP);
 }
 
 /// Puts a running streak or career on its list, in place of its own

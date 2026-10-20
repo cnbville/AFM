@@ -24,6 +24,8 @@ pub struct HsSeason {
     pub state_title: bool,
     /// The head coach that season.
     pub coach: Option<usize>,
+    /// Points scored and allowed, from engine seasons (zero on the stand-in).
+    pub points: [u32; 2],
 }
 
 #[derive(Clone, Debug)]
