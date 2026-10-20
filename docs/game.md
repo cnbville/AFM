@@ -28,7 +28,16 @@ Built 2026-10-20/21 overnight (thread "Build the program", PR #75), from `docs/d
 
 ## Memory (step 1)
 
-Ratings and tendencies are stored as 4-byte floats instead of 8, and the people list keeps a third spare instead of doubling. On a 4-year quick world: a person went from 2,408 to 1,752 bytes; heap 5.60 to 4.59 GB, resident 4.09 to 3.53 GB, peak 6.08 to 4.99 GB. The full 30-year measurement is in "Doubts" below.
+Ratings and tendencies are stored as 4-byte floats instead of 8, and the people list keeps a third spare instead of doubling. On a 4-year quick world: a person went from 2,408 to 1,752 bytes; heap 5.60 to 4.59 GB, resident 4.09 to 3.53 GB, peak 6.08 to 4.99 GB. 
+The 30-year world for first saves (seed 2026, `afm/worlds/` in the project folder, 1.98 GB in five parts), measured in `afm_play` on a 4-core Linux machine on 2026-10-21:
+
+| Step | Time | Resident memory |
+|---|---|---|
+| Import (join the five parts into the library) | 76 s | |
+| Open | 51 s (73 s on the old code) | 3.32 GB (3.84 GB on the old code) |
+| Start a career at Iowa | 0.2 s | 3.32 GB |
+| Continue from 9 February to the first game (stops on 24 April and 2, 4 and 6 September) | 148 s | 5.10 GB, peak 5.17 GB |
+| Save | 74 s | 5.10 GB |
 
 ## Not built yet (section 8's design, for the next builds)
 
@@ -47,6 +56,9 @@ Ratings and tendencies are stored as 4-byte floats instead of 8, and the people 
 - A bug pack saves the world as it is when you report, not from the morning of that day.
 
 ## Doubts
+
+- Memory in season is 5.1 GB, over the agreed 4 GB budget (opening is under it at 3.3 GB). The season's stores (game logs, the year's records) grow from the first day; compacting them is the next memory step. An 8 GB M1 runs it, with little room for other apps.
+- Continue stops on the morning after your game, not before kickoff, because the world plays the whole day in one step. The game page opens at once.
 
 - Storing ratings as 4-byte floats changes results per seed slightly (rounding), so a seed no longer rebuilds a pre-build world exactly. Accepted because the section 8 build changes the world anyway.
 - Season records are still 8-byte; compacting old seasons (topic 8) isn't done.
