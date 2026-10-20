@@ -18,7 +18,7 @@ fn main() {
     let scale: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(1.0);
     let t = Instant::now();
     let opts = WorldOptions { seed, history_years: years, keep_game_log: false, scale, ..Default::default() };
-    let mut w = World::new_watched(opts, |w, secs| year_line(w, secs));
+    let mut w = World::new_watched(opts, year_line);
     println!(
         "history of {years} years built in {:.0}s: heap {:.2} GB, resident {}",
         t.elapsed().as_secs_f64(),

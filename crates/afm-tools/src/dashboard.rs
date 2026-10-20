@@ -102,6 +102,12 @@ pub fn card(w: &World, k: usize, tag: &str) -> Value {
     json!({
         "ethnicity": a.ethnicity.name(), "gpa": a.gpa_at_signing.map(|g| (g * 100.0).round() / 100.0),
         "team": a.nfl_team, "staff": staff,
+        // High school seasons on the engine (section 8, choice 2), with the school's name.
+        "hs": live.map(|q| q.hs_lines.iter().map(|l| {
+            let mut v = crate::raw::hs_line(l);
+            v["school"] = json!(w.high_schools[l.school as usize].name);
+            v
+        }).collect::<Vec<_>>()).unwrap_or_default(),
         "positions": p.position_history.iter().map(|(age, pos)| json!({"age": age, "pos": pos.name()})).collect::<Vec<_>>(),
         "body": {"height": afm_engine::body::height_text(body.height), "weight": body.weight.round(),
             "arm": (body.arm * 8.0).round() / 8.0, "hand": (body.hand * 8.0).round() / 8.0,
