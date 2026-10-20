@@ -244,6 +244,28 @@ impl Terms {
     pub fn guaranteed(&self) -> f64 {
         self.total() * (self.bonus_share + self.base_guarantee)
     }
+    /// Year one's share of the pay outside the bonus, as `build` ramps it.
+    fn first_share(&self) -> f64 {
+        1.0 / (0..self.years.max(1) as i32).map(|k| (1.0 + self.ramp).powi(k)).sum::<f64>()
+    }
+    /// Year one's cash: the signing bonus and the first year's pay.
+    pub fn first_year_cash(&self) -> f64 {
+        let bonus = self.total() * self.bonus_share;
+        bonus + (self.total() - bonus) * self.first_share()
+    }
+    /// Keeps year one's cash at or under `limit` by moving signing bonus
+    /// into guaranteed base, which `build` pays out in the later years. The
+    /// guarantee stays the same.
+    pub fn limit_first_year(&mut self, limit: f64) {
+        let total = self.total();
+        if self.years <= 1 || total <= 0.0 || self.first_year_cash() <= limit {
+            return;
+        }
+        let f1 = self.first_share();
+        let bonus = ((limit - total * f1) / (1.0 - f1)).clamp(0.0, total * self.bonus_share);
+        self.base_guarantee += self.bonus_share - bonus / total;
+        self.bonus_share = bonus / total;
+    }
 }
 
 /// The year's day injury guarantees for the next league year vest: the

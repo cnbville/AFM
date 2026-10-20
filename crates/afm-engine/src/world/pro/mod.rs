@@ -703,6 +703,7 @@ pub(crate) fn fill_league(w: &mut World) {
             let years_left = 1 + (key_uniform(w.options.seed as u64 ^ 0x7E4A, p.player.id as u64) * 4.0) as u32;
             let mut terms = money::Terms::flat(years_left, apy);
             terms.bonus_share = if grade >= 76.0 { 0.25 } else { 0.05 };
+            terms.limit_first_year(money::price_cap(year) * 0.38);
             c.contract = Some(money::build(t, money::Kind::Veteran, year, &terms));
         }
         p.note(format!("A pro since {} (generated veteran at the start of history).", year - accrued as i32));
@@ -1355,6 +1356,7 @@ pub(crate) fn sign(w: &mut World, i: usize, t: usize, d: Date, apy: f64, years: 
     let year = w.year;
     let mut terms = money::Terms::flat(years.max(1), apy);
     terms.bonus_share = if apy > money::minimum(year, 4) * 3.0 { 0.3 } else { 0.0 };
+    terms.limit_first_year(money::price_cap(year) * 0.38);
     let deal = money::build(t, kind, year, &terms);
     let name = w.nfl[t].name;
     let p = &mut w.people[i];

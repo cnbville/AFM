@@ -484,3 +484,30 @@ fn a_long_save_keeps_its_calendar_and_money() {
         cap = c;
     }
 }
+
+#[test]
+fn a_big_deal_pays_no_more_than_a_real_first_year() {
+    // Trial 9 bug 11: Mckenzie Tupou Jr.'s five years at $62M carried a
+    // $111.5M signing bonus, 52.6% of the 2025 cap in year one. The excess
+    // bonus becomes guaranteed base in the later years.
+    use crate::world::pro::money;
+    let cap = money::price_cap(2025);
+    let mut t = money::Terms::flat(5, 62.03e6);
+    t.bonus_share = 0.36;
+    t.base_guarantee = 0.19;
+    t.ramp = 0.06;
+    let gtd = t.guaranteed();
+    assert!(t.first_year_cash() > 0.5 * cap);
+    t.limit_first_year(0.38 * cap);
+    assert!((t.guaranteed() - gtd).abs() < 1.0, "the guarantee changed");
+    let k = money::build(0, money::Kind::Veteran, 2025, &t);
+    let y1 = &k.years[0];
+    let cash = y1.pay() + y1.bonus_paid;
+    assert!(cash <= 0.38 * cap + 1.0 && cash > 0.37 * cap, "year one {:.1}% of the cap", 100.0 * cash / cap);
+    assert!((k.total() - t.total()).abs() < 1.0, "the money changed");
+    // A deal under the line is left alone.
+    let mut s = money::Terms::flat(4, 20.0e6);
+    s.bonus_share = 0.3;
+    s.limit_first_year(0.38 * cap);
+    assert_eq!(s.bonus_share, 0.3);
+}

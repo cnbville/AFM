@@ -6,7 +6,7 @@ Section 8 in the roadmap: new-game setup (team choice at any high school, colleg
 
 ## What is ready
 
-- **The world runs every day on its own.** `World::new` builds the 30-year history, then `advance_day`, `continue_until_needed` (stops on a decision or a big moment) and `holiday_to` drive the save (`world/mod.rs`, `world/clock.rs`). Trial 9 ran 20 seasons past 2026 without anything breaking, and its 10 plain bugs are fixed (PR #60).
+- **The world runs every day on its own.** `World::new` builds the 30-year history, then `advance_day`, `continue_until_needed` (stops on a decision or a big moment) and `holiday_to` drive the save (`world/mod.rs`, `world/clock.rs`). Trial 9 ran 20 seasons past 2026 without anything breaking, and its 10 plain bugs, plus one its test world found, are fixed (PR #60).
 - **Every AI decision has a world side to replace.** Depth charts, game plans and play calling, contracts, tags, trades, waivers, free agency, the draft board and draft-day trades, the undrafted rush, recruiting boards and offers, the portal, NIL, staff hiring and firing, captains and the room. Section 8 adds your screens on top: where you choose, the AI's choice is skipped.
 - **A seat for you.** `Seat` (level, NFL team, program) decides which news stops the clock for you. It has no high school seat yet.
 - **The same seed gives the same world on any machine and core count.** New test in build 9 (`a_seed_gives_the_same_world_on_any_core_count`), so a save can be rebuilt and a bug reproduced.

@@ -688,6 +688,11 @@ pub(crate) fn terms_for(w: &World, i: usize, o: &Offer, start: i32) -> money::Te
             t.void_years = 0;
         }
     }
+    // No deal pays more in its first year than real top deals have: about
+    // 38% of the cap in bonus and pay (Rodgers 2018, Prescott 2024, from
+    // memory, to verify); the rest of the bonus becomes guaranteed base in
+    // the later years (trial 9 bug 11; proposed, not confirmed).
+    t.limit_first_year(money::price_cap(start) * 0.38);
     t
 }
 
