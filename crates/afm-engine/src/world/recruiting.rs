@@ -284,21 +284,51 @@ fn market_value(top5: f64, grade: f64) -> f64 {
     VETERAN_MIN + (top5 - VETERAN_MIN) * clamp((grade - 66.0) / 24.0, 0.0, 1.0).powf(1.6)
 }
 
+/// What clubs pay for a position on draft day, on the same scale as
+/// [`veteran_top5`]: the veteran price, moved by how real clubs spend first
+/// round picks (2000-2025, `draft_positions_2000_2025.csv`). Tackles and
+/// corners go in round one well beyond their veteran pay (tackles 12.1% of
+/// first-round picks, corners 11.9%), receivers and edge rushers less than
+/// theirs (13.4% and 16.8%): a class holds many receivers, and the long,
+/// athletic tackles and corners a club can't find later are few. Trial 9
+/// finding 8: priced on veteran pay alone, round one took receivers 22.3%,
+/// edge rushers 20.5%, tackles 6.1% and corners 7.7% (proposed, not
+/// confirmed: each step sized to the gap in grade points).
+fn draft_top5(pos: Position) -> f64 {
+    match pos {
+        Position::QB => 0.234,
+        Position::EDGE => 0.148,
+        Position::OT => 0.135,
+        Position::CB => 0.131,
+        Position::DT => 0.112,
+        Position::WR => 0.110,
+        Position::TE => 0.090,
+        Position::RB => 0.088,
+        Position::LB => 0.080,
+        Position::S => 0.075,
+        Position::IOL => 0.075,
+        Position::K => 0.023,
+        Position::P => 0.015,
+        Position::LS => 0.007,
+    }
+}
+
 /// Board points per share of the cap a year (sized so the value term is
 /// about the old flat premiums at the top of the board: a quarterback
 /// graded 85 about 12 points, an edge graded 90 about 7).
 const BOARD_PER_CAP: f64 = 140.0;
 
 /// What a position is worth on draft day, in board points (trial 4 topic 6):
-/// each team values a prospect by what he would cost on the open market
-/// against a player of the same grade at an average position. A
+/// each team values a prospect by what his position is worth on draft day
+/// ([`draft_top5`]) against a player of the same grade at an average
+/// position. A
 /// quarterback's market is twice an edge rusher's, so a quarterback graded
 /// a few points lower still goes first; a back's or a tight end's is below
 /// average, so they slide. The rookie deal is the same at a pick whatever
 /// the position, so what a team saves is this value too (it shows in the
 /// pick's reason).
 fn draft_position_value(pos: Position, grade: f64) -> f64 {
-    BOARD_PER_CAP * (market_value(veteran_top5(pos), grade) - market_value(VETERAN_MEAN, grade))
+    BOARD_PER_CAP * (market_value(draft_top5(pos), grade) - market_value(VETERAN_MEAN, grade))
 }
 
 /// What a pick costs a year on the 2026 rookie scale, as a share of the
@@ -4151,11 +4181,18 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     // offer takes any; the walk-on cost is unchanged. Programs pick in
     // order of prestige, the order real kids weigh walk-on offers in
     // (proposed, not confirmed: Division I only, home state only).
+    // Trial 9 finding 4: only kids holding nothing were asked, and by then
+    // most local seniors held a Division II, III, NAIA or junior college
+    // offer, so FBS rosters stayed at 80 (real near 105). A kid holding a
+    // small-college place now weighs the walk-on place against it, the
+    // scholarship he would give up included, as in the main signing, and
+    // takes whichever he values more (the common preferred walk-on story).
     if stage == SignStage::Final {
+        let division_one = |j: usize| matches!(programs[j].division, Division::FBS | Division::FCS);
         let mut by_state: Vec<Vec<usize>> = vec![Vec::new(); w.states.len()];
         for (k, r) in pool.iter().enumerate() {
             let p = &w.people[r.person];
-            if held[k].is_none() && !r.juco_mover && recruiting_stars(p) <= 2 {
+            if held[k].is_none_or(|h| !division_one(h.program)) && !r.juco_mover && recruiting_stars(p) <= 2 {
                 by_state[p.home_state].push(k);
             }
         }
@@ -4171,7 +4208,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 if taken_walk_on[j] >= plan.walk_on_room {
                     break;
                 }
-                if held[k].is_some() {
+                if held[k].is_some_and(|h| division_one(h.program)) {
                     continue;
                 }
                 let who = pool[k].person;
@@ -4187,6 +4224,24 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 let wants = p.family.decider_wants;
                 let u = utility_fit(&pool_fits[k], p, &wants, prog, 0.0, 0.0) + relationship(j, k) + feel(j, k)
                     - walk_on_cost(p, prog);
+                if let Some(h) = held[k] {
+                    let given_up = if h.walk_on { 0.0 } else { scholarship_given_up(pos, &programs[h.program]) };
+                    if u - given_up <= h.base {
+                        continue;
+                    }
+                    // He takes the walk-on place: his small-college place opens.
+                    let c = h.program;
+                    view.leave(c, pos, who);
+                    if h.walk_on {
+                        taken_walk_on[c] -= 1;
+                    } else {
+                        taken[c] -= 1;
+                    }
+                    taken_at[c][h.pos][h.walk_on as usize] -= 1;
+                    if h.special {
+                        special_taken[c] -= 1;
+                    }
+                }
                 held[k] = Some(Held { program: j, base: u, special: false, walk_on: true, pos: i });
                 offers[k].push(j);
                 view.join(j, pos, who, p.player.overall() + 4.0, 0);

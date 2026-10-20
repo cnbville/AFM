@@ -3,9 +3,54 @@
 //! through the engine's `debug` feature, so it must never ship with the game.
 
 /// A faster allocator for the trial tools: the match engine makes and drops
-/// many small buffers every snap. Results don't depend on it.
+/// many small buffers every snap. Results don't depend on it. With
+/// `count_heap` on it also keeps the live heap's size, so `memory_check`
+/// can weigh each of the world's stores by dropping it.
 #[global_allocator]
-static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
+static ALLOC: Counting = Counting;
+
+struct Counting;
+
+static COUNTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static LIVE: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
+
+unsafe impl std::alloc::GlobalAlloc for Counting {
+    unsafe fn alloc(&self, l: std::alloc::Layout) -> *mut u8 {
+        if COUNTING.load(std::sync::atomic::Ordering::Relaxed) {
+            LIVE.fetch_add(l.size() as isize, std::sync::atomic::Ordering::Relaxed);
+        }
+        unsafe { mimalloc::MiMalloc.alloc(l) }
+    }
+    unsafe fn alloc_zeroed(&self, l: std::alloc::Layout) -> *mut u8 {
+        if COUNTING.load(std::sync::atomic::Ordering::Relaxed) {
+            LIVE.fetch_add(l.size() as isize, std::sync::atomic::Ordering::Relaxed);
+        }
+        unsafe { mimalloc::MiMalloc.alloc_zeroed(l) }
+    }
+    unsafe fn dealloc(&self, p: *mut u8, l: std::alloc::Layout) {
+        if COUNTING.load(std::sync::atomic::Ordering::Relaxed) {
+            LIVE.fetch_sub(l.size() as isize, std::sync::atomic::Ordering::Relaxed);
+        }
+        unsafe { mimalloc::MiMalloc.dealloc(p, l) }
+    }
+    unsafe fn realloc(&self, p: *mut u8, l: std::alloc::Layout, new: usize) -> *mut u8 {
+        if COUNTING.load(std::sync::atomic::Ordering::Relaxed) {
+            LIVE.fetch_add(new as isize - l.size() as isize, std::sync::atomic::Ordering::Relaxed);
+        }
+        unsafe { mimalloc::MiMalloc.realloc(p, l, new) }
+    }
+}
+
+/// Starts counting the live heap (from zero: call it before anything is
+/// built).
+pub fn count_heap() {
+    COUNTING.store(true, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// The live heap counted since `count_heap`, in GB.
+pub fn heap_gb() -> f64 {
+    LIVE.load(std::sync::atomic::Ordering::Relaxed) as f64 / 1_073_741_824.0
+}
 
 /// Resident memory now and at its peak, in GB (trial 8 finding 11: the
 /// world's budget is set from these). Read from `/proc` on Linux, where the

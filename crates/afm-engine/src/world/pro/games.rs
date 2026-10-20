@@ -478,6 +478,89 @@ pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[
     let _ = Stage::Pro;
 }
 
+/// A week of practice (Tuesday, from the veterans' report to the Super
+/// Bowl): each healthy player on a roster or practice squad may get hurt
+/// in practice, more in camp's long padded days than in season, more for
+/// the injury-prone and for older bodies (soft tissue). Trial 9 finding
+/// 13: injuries only came from games, while real practices give about
+/// 41% of NFL time-loss injuries (lower body, 2015-2018: Mack et al., Am J
+/// Sports Med 2020, PMID 32485114). The mix leans to hamstrings and
+/// ankles; how long each lasts is the game's (`injury_weeks`). A camp
+/// injury is handled as a preseason one (the cutdown decides a
+/// non-vested player), a season one as a game's (injured reserve past its
+/// minimum). Proposed, not confirmed: about 1.0 week-plus injuries a team
+/// a camp week and 0.35 a season week.
+pub(crate) fn practice_injuries(w: &mut World, d: crate::calendar::Date) {
+    use crate::game::sim::{InjuryKind as K, injury_weeks};
+    let year = w.year;
+    let camp = d < w.dates.cutdown.date;
+    let base = if camp { 0.0155 } else { 0.009 };
+    const MIX: [(K, f64); 12] = [
+        (K::Hamstring, 22.0),
+        (K::AnkleSprain, 15.0),
+        (K::Knee, 14.0),
+        (K::Bruise, 10.0),
+        (K::Shoulder, 7.0),
+        (K::Back, 6.0),
+        (K::Hand, 6.0),
+        (K::HighAnkleSprain, 4.0),
+        (K::Concussion, 4.0),
+        (K::Acl, 2.5),
+        (K::Ribs, 2.0),
+        (K::Fracture, 2.0),
+    ];
+    let seed = w.options.seed as u64 ^ 0x9AC7 ^ (d.0 as u64) << 20;
+    for t in franchise::active_teams(year) {
+        let med = crate::world::people::Support::z(w.clubs[t].support.medical.rating);
+        let name = w.nfl[t].name;
+        let roster = w.clubs[t].roster.clone();
+        for i in roster {
+            let p = &w.people[i];
+            let Some(c) = p.pro.as_ref() else { continue };
+            if !matches!(c.status, Status::Roster | Status::PracticeSquad) || c.out_weeks > 0 {
+                continue;
+            }
+            let prone = 0.55 + p.player.injury_proneness / 18.0;
+            let age = 1.0 + 0.03 * (p.player.age as f64 - 26.0).max(0.0);
+            let spec = if p.player.position.is_specialist() { 0.25 } else { 1.0 };
+            if key_uniform(seed, p.player.id as u64) >= base * prone * age * spec {
+                continue;
+            }
+            let mut rng = crate::rng::Rng::new((seed as u32) ^ p.player.id.wrapping_mul(0x9E37_79B1));
+            let kind = rng.weighted(&MIX);
+            let recovery = p.player.game.recovery;
+            let weeks = injury_weeks(kind, &mut rng) * (1.3 - 0.03 * recovery) * (1.0 - 0.12 * med);
+            let weeks = weeks.ceil() as u32;
+            if weeks == 0 {
+                continue;
+            }
+            let vested = c.accrued >= 4;
+            let squad = c.status == Status::PracticeSquad;
+            let c = w.people[i].pro.as_mut().unwrap();
+            c.out_weeks = c.out_weeks.max(weeks);
+            let ir = if camp { weeks >= 6 && vested } else { weeks >= ir_minimum(year) && !squad };
+            if ir {
+                c.status = Status::Reserve;
+                c.pup = false;
+            }
+            let p = &mut w.people[i];
+            let age = p.row_age();
+            if camp && weeks >= 6 {
+                p.note(format!(
+                    "Hurt in camp practice at {age} ({}, about {weeks} weeks){}.",
+                    kind.name(),
+                    if ir { ": injured reserve" } else { "" }
+                ));
+            } else if ir {
+                p.note(format!(
+                    "Placed on injured reserve by the {name} at {age} ({} in practice, about {weeks} weeks).",
+                    kind.name()
+                ));
+            }
+        }
+    }
+}
+
 /// The shortest absence a team puts on injured reserve: before 2012 the
 /// list ended a season, so only long injuries went on it; from 2020 a
 /// player can come back after a few games (proposed, not confirmed: 6

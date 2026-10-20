@@ -496,8 +496,11 @@ pub struct YearCtx {
 /// Habits closer than this to what his tools support are his style, not a
 /// mistake: results, coaching and the staff's pull leave them (trial 8
 /// finding 2: with every gap taught away, NFL habits spread 1.1-2.8 against
-/// the agreed 3.2).
-pub const STYLE_BAND: f64 = 3.0;
+/// the agreed 3.2). Trial 9 finding 3: at 3 points the spread still could
+/// not get much past the band, since everything outside it was pulled to
+/// its edge (NFL 0.96-2.37 in the world; 1.85-2.59 over a career in the
+/// unit test); at 5 the same test keeps 3.0-3.5.
+pub const STYLE_BAND: f64 = 5.0;
 
 /// The average of what players' tools support at each level and position
 /// (trial 8 finding 3: `ideal` read every attribute against one speed norm,

@@ -337,6 +337,16 @@ pub fn build(team: usize, kind: Kind, start: i32, t: &Terms) -> Contract {
     }
 }
 
+/// The most a deal pays in its first year, bonus and pay, as a share of
+/// that year's cap: Prescott's 2021 extension paid $75M against a $182.5M
+/// cap, 41% (the real high; his 2024 deal paid $81.25M, 32%).
+pub const FIRST_YEAR_MAX: f64 = 0.41;
+
+/// The highest cap hit a club lets a restructure build in a later year, as
+/// a share of that year's cap: Watson's 2025 hit, $72.9M against $279.2M,
+/// 26%, is the real high (Prescott 2024 22%).
+pub const CAP_HIT_MAX: f64 = 0.26;
+
 /// A restructure (the Saints' habit, topic 7): this year's base above the
 /// minimum turns into a signing bonus spread over the years left (void
 /// years added when few are left). Saves cap now, costs it later.

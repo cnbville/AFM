@@ -427,6 +427,14 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     // A quarterback who sells the fake holds them longer (ball handling); a
     // disciplined defender keeps his eyes where they belong.
     let sell = clamp(1.0 + 0.01 * (sim.agents[qb].a(Attr::BallHandling) - 60.0), 0.6, 1.4);
+    // Recognition is read against the level, as the offense's timing is
+    // (trial 9 finding 2): on the raw scale an average NFL defender read a
+    // run 0.14 s sooner than an average FBS one while the blocking and the
+    // back's path kept the same clock, so NFL runs were stuffed 33-36% of
+    // the time (real 18%). Anchored at FBS, which the world's rosters
+    // calibrate (proposed, not confirmed).
+    let level_read = super::rules::trait_norm(sim.level, Attr::PlayRecognition)
+        - super::rules::trait_norm(crate::Level::FBS, Attr::PlayRecognition);
     for i in off_n..sim.agents.len() {
         let pr = sim.agents[i].a(Attr::PlayRecognition);
         let bite = clamp(1.5 - 0.05 * sim.trait20(i, Attr::Discipline), 0.5, 1.5);
@@ -436,7 +444,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         // bites harder on the fake.
         let downhill =
             if slot.is_lb() || matches!(slot, DSlot::FS | DSlot::SS) { sim.lean(i, Tend::Downhill) } else { 0.0 };
-        let base = 0.22 + 0.0075 * (100.0 - pr) + 0.12 * sim.rng.next() - 0.14 * downhill;
+        let base = 0.22 + 0.0075 * (100.0 - pr + level_read) + 0.12 * sim.rng.next() - 0.14 * downhill;
         let extra = if fake {
             (0.15 + 0.012 * (100.0 - pr) * sim.rng.next()) * sell * bite * (1.0 + 0.9 * downhill).max(0.1)
         } else {

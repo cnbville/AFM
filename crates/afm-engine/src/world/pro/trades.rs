@@ -240,14 +240,30 @@ fn player_points(w: &World, t: usize, i: usize) -> f64 {
 
 // --- The trade market ------------------------------------------------------------------------------------
 
-/// One trade window (the new league year, before the draft, camp, cutdown
-/// week, the deadline): a contender or middling team with a hole at a
+/// When a trade window opens: the offseason's (the new league year,
+/// before the draft, camp, cutdown week), each week of the season before
+/// the deadline, and deadline week.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Window {
+    Offseason,
+    Season,
+    Deadline,
+}
+
+/// One trade window: a contender or middling team with a hole at a
 /// starting spot calls teams with a starter-grade player there that they
 /// value less (a rebuilding team, a surplus, a player who asked out). The
 /// seller asks its own value of him, more from a GM who was fleeced by
 /// this buyer before; the buyer pays with picks only up to its own value.
-/// A deal can still die in talks or on a physical.
-pub(crate) fn trade_window(w: &mut World, d: Date, deadline: bool) {
+/// A deal can still die in talks or on a physical. Trial 9 finding 10,
+/// traced with `MarketYear::trade_funnel`: about 40 calls a year, a deal
+/// both sides value in half of them and a third of talks failing gave
+/// 10-17 trades a year, against real several dozen (Front Office Sports
+/// counts 15-22 players traded in season, kickoff to the deadline, in
+/// 2020-24). So clubs call more in each window, and every week of the
+/// season before the deadline is a window too, as real GMs call through
+/// September and October (the rates proposed, not confirmed).
+pub(crate) fn trade_window(w: &mut World, d: Date, window: Window) {
     let year = w.year;
     let june1 = super::after_june1(w, d);
     let teams: Vec<usize> = (0..w.clubs.len()).filter(|&t| super::super::franchise::active(t, year)).collect();
@@ -269,11 +285,16 @@ pub(crate) fn trade_window(w: &mut World, d: Date, deadline: bool) {
         holes.sort_by(|a, b| b.1.total_cmp(&a.1));
         let Some(&(pos, _)) = holes.first() else { continue };
         let roll = key_uniform(w.options.seed as u64 ^ 0x7EAD ^ d.0 as u64, buyer as u64);
-        let calls =
-            if deadline { 0.35 } else { 0.18 } * if w.clubs[buyer].office.mode == Mode::Contend { 1.5 } else { 1.0 };
+        let calls = match window {
+            Window::Offseason => 0.45,
+            Window::Season => 0.1,
+            Window::Deadline => 0.45,
+        } * if w.clubs[buyer].office.mode == Mode::Contend { 1.5 } else { 1.0 };
         if roll > calls {
             continue;
         }
+        w.market.year_mut(year).trade_funnel[0] += 1;
+        let mut reached = 0;
         let worst = w.clubs[buyer].depth[pos.index()]
             .iter()
             .take(depth_slots(pos).starters)
@@ -310,6 +331,7 @@ pub(crate) fn trade_window(w: &mut World, d: Date, deadline: bool) {
                 if gb < worst + 2.0 {
                     continue;
                 }
+                reached = reached.max(1);
                 let surplus_seller = {
                     let sm = w.clubs[seller].office.mode;
                     let starters = depth_slots(pos).starters;
@@ -319,6 +341,7 @@ pub(crate) fn trade_window(w: &mut World, d: Date, deadline: bool) {
                 if !surplus_seller {
                     continue;
                 }
+                reached = reached.max(2);
                 let vb = player_points(w, buyer, i);
                 let vs = player_points(w, seller, i) * if c.wants_out { 0.85 } else { 1.0 };
                 let ask = vs.max(30.0) * (1.05 + (w.market.fleece[buyer][seller] / 5000.0).clamp(0.0, 0.3));
@@ -334,18 +357,29 @@ pub(crate) fn trade_window(w: &mut World, d: Date, deadline: bool) {
                 if space(w, seller, year) + k.cap_hit(year) < kept_bonus(k, year, june1).0 {
                     continue;
                 }
+                reached = reached.max(3);
                 if best.is_none_or(|b| vb - ask > b.2) {
                     best = Some((seller, i, vb - ask, ask));
                 }
             }
         }
+        {
+            let f = &mut w.market.year_mut(year).trade_funnel;
+            for k in 1..=reached {
+                f[k] += 1;
+            }
+        }
         let Some((seller, i, _, ask)) = best else { continue };
         // Talks can fail; a physical can void it (proposed, not confirmed).
         if key_uniform(w.options.seed as u64 ^ 0x7EAE ^ d.0 as u64, i as u64) < 0.35 {
+            w.market.year_mut(year).trade_funnel[4] += 1;
             shopping_rumor(w, i, seller, d);
             continue;
         }
-        let Some(package) = package(w, buyer, seller, ask) else { continue };
+        let Some(package) = package(w, buyer, seller, ask) else {
+            w.market.year_mut(year).trade_funnel[5] += 1;
+            continue;
+        };
         if key_uniform(w.options.seed as u64 ^ 0x7EAF ^ d.0 as u64, i as u64) < 0.02 {
             let who = super::describe(w, i);
             post(
@@ -358,7 +392,7 @@ pub(crate) fn trade_window(w: &mut World, d: Date, deadline: bool) {
             );
             continue;
         }
-        execute(w, d, buyer, seller, i, package, deadline);
+        execute(w, d, buyer, seller, i, package, window);
         moved.push(i);
     }
 }
@@ -426,7 +460,7 @@ fn execute(
     seller: usize,
     i: usize,
     picks: Vec<(i32, u32, usize)>,
-    deadline: bool,
+    window: Window,
 ) {
     let year = w.year;
     // The seller keeps the bonus already paid: its remaining proration
@@ -464,8 +498,11 @@ fn execute(
     let my = w.market.year_mut(year);
     my.trades += 1;
     my.picks_traded += picks.len() as u32;
-    if deadline {
+    if window == Window::Deadline {
         my.deadline_trades += 1;
+    }
+    if window != Window::Offseason {
+        my.season_trades += 1;
     }
     let c = w.people[i].pro.as_mut().unwrap();
     c.wants_out = false;

@@ -269,10 +269,18 @@ pub(crate) fn market_grade(w: &World, pos: Position, read: f64) -> f64 {
     if list.is_empty() {
         return read;
     }
-    // Veterans above him (the list runs best first).
+    // Veterans above him (the list runs best first). Below every veteran
+    // there is no comparable, so his place is his rank among everyone at
+    // the position, young players included (trial 9 finding 14: a ladder
+    // of veterans alone, often shorter than twice the starting places,
+    // read a fringe young player as a role player worth about $4M).
     let above = list.partition_point(|&g| g > read);
     let places = (w.market.teams.max(1) * depth_slots(pos).starters.max(1)) as f64;
-    let s = (above as f64 + 0.5) / places;
+    let rank = match w.market.depth.get(pos.index()) {
+        Some(all) if above == list.len() && !all.is_empty() => all.partition_point(|&g| g > read).max(above),
+        _ => above,
+    };
+    let s = (rank as f64 + 0.5) / places;
     if s > 2.0 {
         // Below every place a team pays for: under the market's floor.
         return (66.0 - 4.0 * (s - 2.0)).max(50.0);
@@ -319,6 +327,7 @@ fn ladder_share(pos: Position, s: f64) -> f64 {
 pub(crate) fn set_ladders(w: &mut World) {
     let year = w.year;
     let mut lists: Vec<Vec<f64>> = vec![Vec::new(); crate::positions::POSITION_COUNT];
+    let mut depth: Vec<Vec<f64>> = vec![Vec::new(); crate::positions::POSITION_COUNT];
     for i in 0..w.people.len() {
         let p = &w.people[i];
         if p.stage != Stage::Pro {
@@ -332,14 +341,19 @@ pub(crate) fn set_ladders(w: &mut World) {
                     money::Kind::Rookie | money::Kind::Undrafted | money::Kind::Future | money::Kind::PracticeSquad
                 )
             });
-        if veteran && (c.held() || c.status == Status::FreeAgent) {
-            lists[p.player.position.index()].push(consensus(w, i));
+        if c.held() || c.status == Status::FreeAgent {
+            let read = consensus(w, i);
+            depth[p.player.position.index()].push(read);
+            if veteran {
+                lists[p.player.position.index()].push(read);
+            }
         }
     }
-    for l in lists.iter_mut() {
+    for l in lists.iter_mut().chain(depth.iter_mut()) {
         l.sort_by(|a, b| b.total_cmp(a));
     }
     w.market.ladder = lists;
+    w.market.depth = depth;
     w.market.teams = super::super::franchise::active_teams(year).len();
 }
 
@@ -663,8 +677,14 @@ pub(crate) fn terms_for(w: &World, i: usize, o: &Offer, start: i32) -> money::Te
     let gm = &w.clubs[o.team].office.gm;
     let mut t = money::Terms::flat(o.years, o.apy);
     let big = o.apy > money::minimum(year, 4) * 3.0;
-    t.bonus_share = if big { o.gtd * 0.65 } else { 0.0 };
-    t.base_guarantee = if big { o.gtd * 0.35 } else { 0.0 };
+    // The signing bonus as real top deals size it: about a quarter to a
+    // third of the new money (Prescott 2024 33%, Lamar Jackson 2023 28%,
+    // Bosa 2023 29%, Watson 2022 20%), the rest of the guarantee as
+    // guaranteed base (trial 9 finding 6: two thirds of the guarantee went
+    // into the bonus, up to $700M).
+    let bonus = if big { (o.gtd * 0.55).min(0.35) } else { 0.0 };
+    t.bonus_share = bonus;
+    t.base_guarantee = if big { o.gtd - bonus } else { 0.0 };
     t.injury_guarantee = if big && o.years >= 3 { 0.08 } else { 0.0 };
     t.ramp = if o.years >= 3 { 0.06 } else { 0.0 };
     t.roster_share = if o.years >= 3 && year >= 1994 { 0.05 } else { 0.0 };
@@ -688,11 +708,10 @@ pub(crate) fn terms_for(w: &World, i: usize, o: &Offer, start: i32) -> money::Te
             t.void_years = 0;
         }
     }
-    // No deal pays more in its first year than real top deals have: about
-    // 38% of the cap in bonus and pay (Rodgers 2018, Prescott 2024, from
-    // memory, to verify); the rest of the bonus becomes guaranteed base in
-    // the later years (trial 9 bug 11; proposed, not confirmed).
-    t.limit_first_year(money::price_cap(start) * 0.38);
+    // No deal pays more in its first year than real top deals have
+    // (`money::FIRST_YEAR_MAX`); the rest of the bonus becomes guaranteed
+    // base in the later years (trial 9 bug 11).
+    t.limit_first_year(money::price_cap(start) * money::FIRST_YEAR_MAX);
     t
 }
 
@@ -1463,6 +1482,12 @@ pub(crate) fn extension_talks(w: &mut World, d: Date, deadline: bool) {
         let keep = money::price_cap(year + 1) * 0.08;
         id.apy *= 1.0 - 0.04 * left as f64;
         let Some(mut o) = make_offer(w, t, i, &id, 40, keep - freed, year + 1) else { continue };
+        // An extension adds at least two years, except for a player past
+        // 32 (trial 9 finding 7: 995 of 4,384 extensions added one year;
+        // real one-year extensions are rare and for older veterans).
+        if w.people[i].player.age <= 32 {
+            o.years = o.years.max(2);
+        }
         // A tag is replaced only by a long-term deal (trial 9: 31 tags were
         // "replaced" by a one-year deal); a one-year deal is the tag itself.
         if o.years < 2
@@ -1761,6 +1786,18 @@ pub(crate) fn clear_room(w: &mut World, t: usize, d: Date, before_league_year: b
             break;
         }
         let keep = money::minimum(year, 4);
+        // Before the league year a club converts only what its later books
+        // can carry: no later year's hit past `money::CAP_HIT_MAX` of that
+        // year's cap (trial 9 finding 6: restructures stacked hits to 37%).
+        // On opening day it must get under whatever it costs.
+        if before_league_year {
+            let mut trial = w.people[i].pro.as_ref().unwrap().contract.clone().unwrap();
+            money::restructure(&mut trial, year, keep, voids);
+            if trial.years.iter().any(|y| y.year > year && y.cap_hit() > money::price_cap(y.year) * money::CAP_HIT_MAX)
+            {
+                continue;
+            }
+        }
         let saved = {
             let k = w.people[i].pro.as_mut().unwrap().contract.as_mut().unwrap();
             money::restructure(k, year, keep, voids)
@@ -2111,6 +2148,8 @@ pub struct MarketYear {
     /// Practice squad players signed to another team's 53, and injury
     /// settlements at cutdown (section 5 leftovers).
     pub poached: u32,
+    /// Practice squad players their own team signed up to its 53 in season.
+    pub signed_up: u32,
     pub settlements: u32,
     /// Off-field cases opened and league suspensions handed out (section 6).
     pub trouble: u32,
@@ -2128,6 +2167,13 @@ pub struct MarketYear {
     pub promises_broken: u32,
     pub trades: u32,
     pub deadline_trades: u32,
+    /// Trades from the season's first week through the deadline.
+    pub season_trades: u32,
+    /// Where trade calls end (trial 9 finding 10): buyers who called, a
+    /// player at the hole the buyer grades above its starter, one a seller
+    /// would part with, one the buyer values at the seller's ask (and the
+    /// cap allows), talks that failed, no package of picks.
+    pub trade_funnel: [u32; 6],
     pub picks_traded: u32,
     pub comp_picks: u32,
     /// Free agents who left their team and signed elsewhere in the
@@ -2168,6 +2214,9 @@ pub struct Market {
     /// This year's veterans' consensus reads by position, best first
     /// (`set_ladders`): the comparables every price is read against.
     pub ladder: Vec<Vec<f64>>,
+    /// Everyone's reads by position, young players included, best first:
+    /// how deep a player below every veteran sits (trial 9 finding 14).
+    pub depth: Vec<Vec<f64>>,
     /// Active teams this year (the ladder's starting places).
     pub teams: usize,
     /// Someone went on waivers since the last claims pass, so `claims`

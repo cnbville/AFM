@@ -703,7 +703,7 @@ pub(crate) fn fill_league(w: &mut World) {
             let years_left = 1 + (key_uniform(w.options.seed as u64 ^ 0x7E4A, p.player.id as u64) * 4.0) as u32;
             let mut terms = money::Terms::flat(years_left, apy);
             terms.bonus_share = if grade >= 76.0 { 0.25 } else { 0.05 };
-            terms.limit_first_year(money::price_cap(year) * 0.38);
+            terms.limit_first_year(money::price_cap(year) * money::FIRST_YEAR_MAX);
             c.contract = Some(money::build(t, money::Kind::Veteran, year, &terms));
         }
         p.note(format!("A pro since {} (generated veteran at the start of history).", year - accrued as i32));
@@ -1023,11 +1023,15 @@ pub(crate) fn day(w: &mut World, d: Date) {
         || d == y.veterans_report.add(7)
         || d == y.cutdown.date.add(-2)
     {
-        trades::trade_window(w, d, false);
+        trades::trade_window(w, d, trades::Window::Offseason);
+        changed = true;
+    }
+    if d >= y.nfl_kickoff.add(5) && d < y.trade_deadline.date.add(-4) && d.weekday() == crate::calendar::Weekday::Tue {
+        trades::trade_window(w, d, trades::Window::Season);
         changed = true;
     }
     if d == y.trade_deadline.date.add(-4) || d == y.trade_deadline.date {
-        trades::trade_window(w, d, true);
+        trades::trade_window(w, d, trades::Window::Deadline);
         changed = true;
     }
     if d == y.june_1
@@ -1085,6 +1089,10 @@ pub(crate) fn day(w: &mut World, d: Date) {
         m.dead = dead;
         m.carryover = carried;
     }
+    // Practice, camp through the season: injuries on the practice field.
+    if d >= y.veterans_report && d <= y.super_bowl && d.weekday() == crate::calendar::Weekday::Tue {
+        super::clock::timed("pro practice", || games::practice_injuries(w, d));
+    }
     // In season, each Tuesday: injured players to reserve, the street's
     // calls, the unsigned veteran's week (topic 1.3).
     if d >= y.cutdown.date && d.weekday() == crate::calendar::Weekday::Tue && d <= y.super_bowl {
@@ -1092,6 +1100,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
         changed |= super::clock::timed("pro poach", || squad::poach(w, d));
         changed |= super::clock::timed("pro street", || street_signings(w, d, true));
         changed |= super::clock::timed("pro fill", || fill_roster(w, d));
+        changed |= super::clock::timed("pro squads", || squad::refill_squads(w, d));
         super::clock::timed("pro unsigned", || unsigned_week(w, d));
     } else if d.weekday() == crate::calendar::Weekday::Tue {
         // Injuries heal in the offseason too (they only healed in season,
@@ -1356,7 +1365,7 @@ pub(crate) fn sign(w: &mut World, i: usize, t: usize, d: Date, apy: f64, years: 
     let year = w.year;
     let mut terms = money::Terms::flat(years.max(1), apy);
     terms.bonus_share = if apy > money::minimum(year, 4) * 3.0 { 0.3 } else { 0.0 };
-    terms.limit_first_year(money::price_cap(year) * 0.38);
+    terms.limit_first_year(money::price_cap(year) * money::FIRST_YEAR_MAX);
     let deal = money::build(t, kind, year, &terms);
     let name = w.nfl[t].name;
     let p = &mut w.people[i];
@@ -1674,22 +1683,24 @@ pub(crate) fn cutdown(w: &mut World, d: Date) {
         }
         let cut_line = keep.iter().filter(|x| chosen.contains(&x.0)).map(|x| x.1).fold(f64::MAX, f64::min);
         // The practice squad: young players with at most two seasons on a
-        // roster, close to the line (the era's size; none before 1989).
+        // roster, close to the line (the era's size; none before 1989),
+        // and from 2014 a few veterans in the places the rules open to
+        // them (`squad::veteran_places`).
+        let (places, most) = squad::veteran_places(year);
         let mut squad: Vec<usize> = Vec::new();
         let mut cut: Vec<usize> = Vec::new();
+        let mut vets = 0;
         for &(i, v) in &keep {
             if chosen.contains(&i) {
                 continue;
             }
             let c = w.people[i].pro.as_ref().unwrap();
-            let seasons = c.seasons.iter().filter(|s| s.games > 0).count() as u32;
-            let eligible = seasons <= 2
-                && c.ps_seasons < 3
-                && w.people[i].player.age <= 26
-                && v >= cut_line - 7.0
-                && c.out_weeks == 0;
+            let young = squad::squad_eligible(c, w.people[i].player.age);
+            let vet = !young && vets < places && c.accrued <= most;
+            let eligible = (young || vet) && v >= cut_line - 7.0 && c.out_weeks == 0;
             if squad.len() < ps && eligible {
                 squad.push(i);
+                vets += usize::from(vet);
             } else {
                 cut.push(i);
             }
