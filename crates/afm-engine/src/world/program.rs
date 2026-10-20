@@ -9,7 +9,7 @@ use crate::rng::{Rng, clamp};
 
 /// The program grade categories (1.6). NIL and brand exposure are graded
 /// separately because one swings fast and the other moves steadily (topic 7).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[repr(u8)]
 pub enum GradeCat {
     Academics,
@@ -75,7 +75,7 @@ impl GradeCat {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum GradeSpeed {
     /// A little each year.
     Steady,
@@ -122,7 +122,7 @@ pub fn move_grade(current: f64, target: f64, speed: GradeSpeed, realigned: bool)
 }
 
 /// Why a collective's money is moving, for warnings.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum NilTrend {
     Growing,
     Steady,
@@ -136,7 +136,7 @@ pub enum NilTrend {
 /// estimates: no public source gives NIL dollars per school. The boosters
 /// give in every era (facilities, the program's standing); their money
 /// reaches players as NIL only from July 2021 (dynasty item 11.5).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Collective {
     /// NIL money the program can pay players this offseason, in dollars:
     /// zero before July 2021 (`ncaa::nil_budget`).
@@ -161,7 +161,7 @@ impl Collective {
 /// The athletic director (trial 4 topic 4): a person who reads the coach
 /// against the roster he was given. Judgement sharpens the read, patience
 /// sets how long a bad stretch is tolerated, both 1-20.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct AthleticDirector {
     pub name: String,
     pub judgement: f64,
@@ -170,7 +170,7 @@ pub struct AthleticDirector {
 }
 
 /// Season record for history.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct ProgramSeason {
     pub year: i32,
     pub wins: u32,
@@ -184,7 +184,7 @@ pub struct ProgramSeason {
 }
 
 /// A team's season totals from its engine games.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct SeasonTotals {
     pub games: u32,
     pub points_for: i32,
@@ -232,7 +232,7 @@ impl SeasonTotals {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Program {
     pub id: usize,
     pub real_name: String,
@@ -276,10 +276,13 @@ pub struct Program {
     pub prestige_history: Vec<(i32, f64)>,
     pub collective: Collective,
     /// How well the staff knows each state, 0-1 (topic 4).
+    #[serde(with = "serde_big_array::BigArray")]
     pub footprint: [f64; 51],
     /// Pipelines per state, 0-1: grown only by impact, fading slowly.
+    #[serde(with = "serde_big_array::BigArray")]
     pub pipeline: [f64; 51],
     /// Last year a signee from each state made an impact.
+    #[serde(with = "serde_big_array::BigArray")]
     pub pipeline_last_impact: [i32; 51],
     /// Pipelines to single high schools and to recruiting areas (a Detroit
     /// high school, the Tampa area), 0-1, with the last impact year (note 4).
@@ -331,7 +334,7 @@ pub struct Program {
 }
 
 /// A school single-season record (A40).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SeasonRecord {
     pub value: f64,
     pub holder: String,

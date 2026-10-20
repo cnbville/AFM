@@ -125,7 +125,7 @@ fn pass_table(csv: &str) -> PassTable {
     m
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Clock {
     Normal,
     /// Fourth quarter, last seven minutes.

@@ -15,7 +15,7 @@ use crate::player::Level;
 use crate::rng::Rng;
 
 /// A play on the drawing board.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Design {
     pub name: String,
     pub formation: Formation,
@@ -29,7 +29,7 @@ pub struct Design {
 }
 
 /// Why a design is illegal at a level (8.2).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Issue {
     /// Fewer than seven on the line of scrimmage.
     FewOnLine(usize),
@@ -196,7 +196,7 @@ pub fn save(d: &Design, level: Level) -> Result<usize, Vec<Issue>> {
 /// A practice read (8.6): the play run against the scout team's looks a
 /// few times. The scout team's own players set how true the look is, and
 /// a few snaps make a noisy read.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PracticeRead {
     pub snaps: u32,
     pub yards: f64,

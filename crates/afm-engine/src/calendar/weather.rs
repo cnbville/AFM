@@ -625,7 +625,7 @@ const BLIZZARD_STATES: [&str; 15] =
     ["NY", "MI", "MN", "ND", "SD", "WI", "IA", "NE", "ME", "VT", "NH", "MA", "PA", "WY", "MT"];
 
 /// One place's weather at one moment.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Weather {
     pub temperature: f64,
     pub dew_point: f64,
@@ -638,7 +638,7 @@ pub struct Weather {
     pub severe: Option<Severe>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Severe {
     Hurricane,
     Blizzard,

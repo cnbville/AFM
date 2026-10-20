@@ -28,7 +28,7 @@ fn headings() -> &'static [(f64, f64); 15] {
 }
 
 /// Weather and setting for one game (topic 4).
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Conditions {
     /// Degrees Fahrenheit.
     pub temperature: f64,
@@ -67,7 +67,7 @@ impl Default for Conditions {
 
 /// An officiating crew's tendencies (topic 4): multipliers on how often
 /// each kind of foul is called when it happens.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Crew {
     pub holding: f64,
     pub pass_interference: f64,
@@ -83,7 +83,7 @@ impl Crew {
 }
 
 /// What a player is doing on this snap.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Job {
     Idle,
     /// Quarterback with the ball on a pass play.
@@ -102,7 +102,8 @@ pub enum Job {
         pts: Vec<V2>,
         next: usize,
         settle: bool,
-        name: &'static str,
+        #[serde(deserialize_with = "crate::save::leaked")]
+        name: crate::save::Text,
         release_delay: f64,
     },
     /// A back taking a handoff: where he aims.
@@ -154,7 +155,7 @@ pub enum Job {
     Out,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Move {
     Speed,
     Power,
@@ -167,14 +168,15 @@ impl Move {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Agent {
     /// 0: the team snapping or kicking, 1: the other team.
     pub side: usize,
     /// Index into that team's players.
     pub p: usize,
     pub id: u32,
-    pub label: &'static str,
+    #[serde(deserialize_with = "crate::save::leaked")]
+    pub label: crate::save::Text,
     pub pos: V2,
     pub vel: V2,
     pub face: V2,
@@ -217,6 +219,7 @@ pub struct Agent {
     /// once the down lineman is controlled.
     pub climb: Option<usize>,
     /// Ratings with fatigue, injury and momentum in.
+    #[serde(with = "serde_big_array::BigArray")]
     pub r: [f64; ATTRIBUTE_COUNT],
     /// How tired he is coming into the snap, 0-1 (old habits come back).
     pub tired: f64,
@@ -368,7 +371,7 @@ impl Agent {
 
 /// A block in progress (topic 1): `w` runs from -1 (the blocker has won:
 /// driven, sealed or stoned) to +1 (the defender has shed him).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Engagement {
     pub blocker: usize,
     pub defender: usize,
@@ -388,7 +391,7 @@ pub struct Engagement {
 }
 
 /// A foul during the play.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Foul {
     pub kind: FoulKind,
     pub side: usize,
@@ -397,7 +400,7 @@ pub struct Foul {
     pub at: f64,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum FoulKind {
     OffensiveHolding,
     DefensiveHolding,
@@ -454,7 +457,7 @@ impl FoulKind {
 }
 
 /// An injury on a play (topic 6).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Injury {
     pub side: usize,
     pub p: usize,
@@ -466,7 +469,7 @@ pub struct Injury {
     pub plays_on: bool,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum InjuryKind {
     Bruise,
     AnkleSprain,
@@ -526,7 +529,7 @@ impl InjuryKind {
 }
 
 /// What the sim records on a play, for stats, grades and the why.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Notes {
     pub pressures: Vec<(u32, f64)>,
     pub hits: Vec<u32>,
@@ -560,7 +563,7 @@ pub struct Notes {
 
 /// What the players' tendencies did on a play (`docs/design/tendencies.md`),
 /// for the stats each one is checked against.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TendNotes {
     /// The ball carrier on a designed run crossed the line this far from
     /// where the ball was snapped (yards across), this long after the snap.
@@ -588,7 +591,7 @@ pub struct TendNotes {
 
 /// What the game around a play does to habits (tendencies topic 3.7-3.8),
 /// per side of the sim (0 the snapping or returning team).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Mood {
     /// Tendency points every gamble moves: up down two scores late, down
     /// protecting a lead.
@@ -624,14 +627,14 @@ impl Mood {
 }
 
 /// One frame of tracking for the 2D view (topic 9.3): every player and the ball.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Frame {
     pub t: f64,
     pub ball: V2,
     pub players: Vec<(u32, f32, f32)>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Ball {
     /// Held by an agent.
     Held(usize),

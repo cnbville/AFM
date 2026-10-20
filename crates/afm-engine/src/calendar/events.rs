@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 /// How loud a moment is (topic 8): small is a news line, medium an inbox
 /// message, big its own screen (Continue stops on it), huge the full show
 /// that neither Continue nor holiday mode ever skips.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Loudness {
     Small,
     Medium,
@@ -31,7 +31,7 @@ impl Loudness {
 }
 
 /// Which level an event belongs to.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Level {
     Nfl,
     College,
@@ -55,7 +55,7 @@ impl Level {
 }
 
 /// What an event is, for filters, trials and the future screens.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Kind {
     /// A fixed date in a level's year (the combine, the draft, signing day).
     Date,
@@ -90,7 +90,7 @@ pub enum Kind {
     News,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Event {
     pub when: Moment,
     pub level: Level,
@@ -99,7 +99,8 @@ pub struct Event {
     /// Waits on a decision from whoever runs the team it is about.
     pub needs_decision: bool,
     /// The rule that allows it ("CBA: tag window", "NCAA: dead period").
-    pub rule: &'static str,
+    #[serde(deserialize_with = "crate::save::leaked")]
+    pub rule: crate::save::Text,
     /// An NFL team (index), college program or high school it is about.
     pub nfl_team: Option<usize>,
     pub program: Option<usize>,
@@ -158,7 +159,7 @@ impl Event {
 /// An answer someone is waiting on (topic 9): an agent's reply, a trade
 /// physical, a coaching search. It comes due at `due`, and while it waits it
 /// can fall apart.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Pending {
     pub id: u64,
     pub opened: Moment,
@@ -171,7 +172,7 @@ pub struct Pending {
 }
 
 /// How a pending answer came out.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Outcome {
     Answered,
     FellApart,
@@ -179,7 +180,7 @@ pub enum Outcome {
 
 /// The calendar: the year's events, pending answers and a record of loud
 /// moments from past years.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Calendar {
     /// This football year's events by date, in the order they were posted.
     pub events: BTreeMap<Date, Vec<Event>>,
@@ -188,6 +189,7 @@ pub struct Calendar {
     /// Big and huge moments from past years, kept for anniversaries (A42).
     pub history: Vec<Event>,
     /// Count of every event posted by (level, kind), across all years, for trials.
+    #[serde(deserialize_with = "crate::save::leaked")]
     pub counts: BTreeMap<(&'static str, String), u64>,
     /// While set, what is posted belongs to this football year, not the
     /// calendar's own (a signing day that falls after the Super Bowl). It

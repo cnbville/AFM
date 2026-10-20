@@ -6,7 +6,7 @@ pub const WIDTH: f64 = 160.0 / 3.0;
 pub const MID: f64 = WIDTH / 2.0;
 pub const DT: f64 = 0.1;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct V2 {
     pub x: f64,
     pub y: f64,

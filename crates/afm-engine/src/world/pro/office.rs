@@ -9,7 +9,7 @@ use crate::world::World;
 
 /// A general manager (topic 7): his judgment, his lean and his biases
 /// (3.1-3.10), each a strength from 0 (none) to 1.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Gm {
     pub name: String,
     pub since: i32,
@@ -48,7 +48,7 @@ pub struct Gm {
 }
 
 /// An owner's hidden traits (3.11-3.17).
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Owner {
     /// 3.11 hands-off (0) to Jerry Jones (1).
     pub meddling: f64,
@@ -67,7 +67,7 @@ pub struct Owner {
 }
 
 /// Where a team stands this year (topic 7 question 1).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Mode {
     Contend,
     #[default]
@@ -79,7 +79,7 @@ pub enum Mode {
 /// clubs, the head coach in some (Bill Belichick's Patriots, Pete Carroll's
 /// Seahawks, Kyle Shanahan's 49ers by contract), the owner in a few (Jerry
 /// Jones's Cowboys). It settles GM-coach disagreements over fit.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Power {
     #[default]
     Gm,
@@ -113,7 +113,7 @@ pub(crate) fn draw_power(rng: &mut Rng, owner: &Owner) -> Power {
 }
 
 /// A team's front office.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Office {
     pub power: Power,
     pub gm: Gm,

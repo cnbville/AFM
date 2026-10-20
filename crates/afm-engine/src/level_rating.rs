@@ -25,7 +25,7 @@ use crate::player::Level;
 use crate::positions::{POSITION_COUNT, Position};
 use crate::rng::round_half_up;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct LevelScale {
     /// (overall, level rating) points, ascending in overall.
     pub points: Vec<(f64, f64)>,
@@ -34,7 +34,7 @@ pub struct LevelScale {
 /// Rating points per overall point above the No. 2 player in the pool.
 const ABOVE_TOP_SLOPE: f64 = 0.4;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Pool {
     College,
     HS,
@@ -61,7 +61,7 @@ fn anchors(pool: Pool) -> Anchors {
 }
 
 /// Group a season is rated in: high schoolers by age, every college player together, pros not at all.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum LevelGroup {
     HS(u32),
     College,
@@ -115,7 +115,7 @@ pub fn build_level_scale(overalls: &[f64], pool: Pool, class_share: f64) -> Leve
 /// group, so that the same standing among his position's peers gives the same
 /// value: each position's median and 99th percentile line up with the pool's.
 /// Positions with too few players to measure are left as they are.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PositionAligner {
     maps: [Option<(f64, f64)>; POSITION_COUNT],
     all_mid: f64,

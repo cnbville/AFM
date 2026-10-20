@@ -14,9 +14,10 @@ use crate::world::season::key_uniform;
 
 /// A league's run: name, first and last season, and its months (signing
 /// month, last month).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct League {
-    pub name: &'static str,
+    #[serde(deserialize_with = "crate::save::leaked")]
+    pub name: crate::save::Text,
     pub from: i32,
     pub to: i32,
     pub opens: u32,

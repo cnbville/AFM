@@ -50,7 +50,7 @@ use names::NameMode;
 use news::NewsItem;
 use program::Program;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct WorldOptions {
     pub seed: u32,
     /// 1.0 = a real-size world: every high school program and a national class
@@ -93,7 +93,7 @@ impl Default for WorldOptions {
 }
 
 /// Where a player is in his football life.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Stage {
     HighSchool,
     /// A year at a prep school to fix grades or get bigger (topic 2, 1.6).
@@ -110,7 +110,7 @@ pub enum Stage {
 }
 
 /// One state's football setting.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct StateInfo {
     pub code: String,
     pub transfer: TransferRule,
@@ -125,7 +125,7 @@ pub struct StateInfo {
     pub schools: Vec<usize>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Person {
     pub name: String,
     pub ethnicity: ethnicity::Ethnicity,
@@ -207,7 +207,7 @@ pub struct Person {
 
 /// The draft staffs' read of a player in December (T3.1, T3.2): his consensus
 /// grade, his board score, and the round it projects to (8 = undrafted).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct DraftRead {
     pub grade: f64,
     pub score: f64,
@@ -218,7 +218,7 @@ pub struct DraftRead {
 /// early period (0 after junior days in March, 1 late April, 2 mid-June, 3
 /// late August, 4 late October), at the early signing period, or late
 /// (February signing day).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub enum CommitTiming {
     Summer(u8),
     Early,
@@ -227,7 +227,7 @@ pub enum CommitTiming {
 
 /// A signed recruit before he enrolls: the program, a walk-on spot or not,
 /// the day he signed, and whether he enrolls in January.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Signed {
     pub program: usize,
     pub walk_on: bool,
@@ -237,18 +237,19 @@ pub struct Signed {
 
 /// A portal entrant's dates (T3): the day he entered and the day his
 /// decision is due.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PortalEntry {
     pub entered: crate::calendar::Date,
     pub decide_by: crate::calendar::Date,
-    pub why: &'static str,
+    #[serde(deserialize_with = "crate::save::leaked")]
+    pub why: crate::save::Text,
     /// Held until his team's playoff run ended (T3).
     pub held: bool,
 }
 
 /// A person's calendar state (section 4). Per-season flags reset at his
 /// season's start.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct PersonCal {
     /// This season counts against his eligibility unless he plays four games
     /// or fewer (2018 rule); settled January 2.
@@ -264,6 +265,7 @@ pub struct PersonCal {
     pub fall_ineligible: bool,
     /// Lean toward leaving through the portal, as a chance (T3), and what moved it.
     pub lean: f64,
+    #[serde(deserialize_with = "crate::save::leaked")]
     pub lean_events: Vec<(crate::calendar::Date, &'static str, f64)>,
     /// A whisper about his leaving is out (T3).
     pub whispered: bool,
@@ -287,10 +289,12 @@ pub struct PersonCal {
     pub spring_gain_ahead: Option<f64>,
     /// Invited to the NFL combine (A10) or a college all-star game (A9).
     pub combine_invite: bool,
-    pub all_star: Option<&'static str>,
+    #[serde(deserialize_with = "crate::save::leaked")]
+    pub all_star: Option<crate::save::Text>,
     /// The high school all-star game he played in (January of his senior
     /// year), kept apart from the college invite.
-    pub hs_all_star: Option<&'static str>,
+    #[serde(deserialize_with = "crate::save::leaked")]
+    pub hs_all_star: Option<crate::save::Text>,
     /// Best SAT-scale test score so far (A30).
     pub test_score: Option<u32>,
     /// Must sit next season under the transfer rules of the day.
@@ -329,7 +333,7 @@ pub struct PersonCal {
 }
 
 /// A recruiting action on a day the NCAA periods allow (T5.3, T5.4).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Visit {
     /// Paid by the school, on campus, at most five.
     Official,
@@ -397,7 +401,7 @@ pub fn division_level(d: Division) -> Level {
 
 /// A player who left the world: drafted, undrafted, or a blue-chip who left
 /// football. Kept for history, pipelines and trials.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Alumnus {
     pub name: String,
     pub ethnicity: ethnicity::Ethnicity,
@@ -423,7 +427,8 @@ pub struct Alumnus {
     pub background_summary: String,
     pub notes: Vec<String>,
     /// The NFL team that drafted him.
-    pub nfl_team: Option<&'static str>,
+    #[serde(deserialize_with = "crate::save::leaked")]
+    pub nfl_team: Option<crate::save::Text>,
     pub gpa_at_signing: Option<f64>,
     /// His college coaches each season: (year, program, head coach, position coach).
     pub college_staff: Vec<(i32, usize, Option<usize>, Option<usize>)>,
@@ -478,14 +483,15 @@ impl Alumnus {
 }
 
 /// One portal entrant (recorded history only).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PortalRecord {
     /// The offseason he entered (the season just played).
     pub year: i32,
     /// His role in that season.
     pub role: Option<PlayingTime>,
     /// Why he entered: playing time, coaching change, steered, move up, dismissed or money.
-    pub why: &'static str,
+    #[serde(deserialize_with = "crate::save::leaked")]
+    pub why: crate::save::Text,
     pub from: Division,
     /// Where he landed, or None if he found no school.
     pub to: Option<Division>,
@@ -503,7 +509,7 @@ pub struct PortalRecord {
 }
 
 /// Recruiting and portal records for trials (dynasty item 11 checks).
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct RecruitingLog {
     /// (signing class, program) for each high school 5-star (not a specialist) who signed with an FBS program.
     pub five_stars: Vec<(i32, usize)>,
@@ -512,6 +518,7 @@ pub struct RecruitingLog {
     pub transfer_seasons: Vec<(i32, PlayingTime, PlayingTime, Division)>,
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct World {
     pub options: WorldOptions,
     /// The next season to be played.
@@ -526,11 +533,13 @@ pub struct World {
     /// Star counts per signing class (index = stars), for calibration.
     pub signing_classes: Vec<(i32, [u32; 6])>,
     /// High school players signed by FBS programs per home state, over recorded history.
+    #[serde(with = "serde_big_array::BigArray")]
     pub fbs_signees_by_state: [u32; 51],
     /// Recruiting areas (state, town), indexed by `HighSchool::area`.
     pub areas: Vec<(usize, String)>,
     /// How much talent each state has beyond what its own Power 4 schools
     /// sign, 0-1: where Group of 5 and FCS staffs go recruiting (note 4).
+    #[serde(with = "serde_big_array::BigArray")]
     pub overflow: [f64; 51],
     /// The 32 NFL teams: front offices and depth charts, for draft needs (note 7).
     pub nfl: Vec<crate::league::Team>,
@@ -545,6 +554,8 @@ pub struct World {
     /// False during the spin-up before recorded history, while rosters fill.
     pub(crate) recording: bool,
     /// Trial tooling, see `WorldOptions::keep_game_log`.
+    /// Trial tooling only: not saved (`save.rs`).
+    #[serde(skip)]
     pub game_log: game_log::GameLog,
     /// The career stats record, record books and Hall of Fame (section 3,
     /// topic 8): always kept.
@@ -610,7 +621,7 @@ pub struct World {
 }
 
 /// What the dated systems did in one football year, for trials.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct CalendarLog {
     pub year: i32,
     /// Spring system changes by college staffs (S3), and the FBS programs
@@ -696,7 +707,7 @@ pub struct CalendarLog {
 
 /// Where the manager works (N58): his level, and his NFL team or college
 /// program.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Seat {
     pub level: crate::calendar::Level,
     pub nfl_team: Option<usize>,

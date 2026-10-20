@@ -8,7 +8,7 @@ use std::sync::LazyLock;
 use super::ethnicity::Ethnicity;
 use crate::rng::Rng;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum NameMode {
     #[default]
     Real,

@@ -14,9 +14,10 @@ use crate::positions::Position;
 use crate::world::{Stage, World};
 
 /// One record: the value, who holds it and since when.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct NflRecord {
-    pub stat: &'static str,
+    #[serde(deserialize_with = "crate::save::leaked")]
+    pub stat: crate::save::Text,
     pub career: bool,
     pub value: f64,
     pub holder: String,
@@ -26,7 +27,7 @@ pub struct NflRecord {
 }
 
 /// A retired player waiting on the Hall of Fame vote.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct HallCandidate {
     pub id: u32,
     pub name: String,
@@ -37,9 +38,10 @@ pub struct HallCandidate {
 }
 
 /// The league's book of honors.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct NflBook {
     /// (season, award, player id, name, team).
+    #[serde(deserialize_with = "crate::save::leaked")]
     pub awards: Vec<(i32, &'static str, u32, String, usize)>,
     /// (season, player id, team): Pro Bowl selections.
     pub pro_bowls: Vec<(i32, u32, usize)>,

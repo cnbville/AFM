@@ -10,7 +10,7 @@
 //! researched summaries (to check per state when the network allows).
 
 /// When a rivalry is played.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum RivalrySlot {
     /// Rivalry week, the last regular-season Saturday.
     RivalryWeek,
@@ -216,7 +216,7 @@ pub const BOWLS: &[Bowl] = &[
 pub const CELEBRATION_BOWL: (&str, &str, i32) = ("Celebration Bowl", "Atlanta", 2015);
 
 /// How a state checks grades for eligibility (A29).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum GradeCheck {
     /// Texas "no pass, no play": a failing grade at a six-week report card
     /// sits him at least three weeks.

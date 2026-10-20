@@ -20,7 +20,7 @@ use crate::player::{Level, PlayingTime};
 use crate::positions::{POSITION_COUNT, Position};
 use crate::rng::clamp;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub(crate) struct TeamResult {
     pub wins: u32,
     pub losses: u32,
@@ -851,7 +851,7 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
 
 /// What a head coach brings into a game besides his team (dynasty item 3):
 /// the programs that fired him, and whether his job is on the line.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub(crate) struct CoachContext {
     pub fired_by: Vec<usize>,
     pub hot_seat: bool,

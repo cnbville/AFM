@@ -23,6 +23,7 @@ pub mod level_rating;
 pub mod player;
 pub mod positions;
 pub mod rng;
+pub mod save;
 pub mod scouting;
 pub mod spots;
 pub mod tendencies;

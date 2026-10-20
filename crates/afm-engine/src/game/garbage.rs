@@ -54,7 +54,7 @@ pub fn comeback_odds(z: f64) -> f64 {
 /// What the situation does to one coach's read of one game (proposed, not
 /// confirmed). Only pushes the world has data for exist; rivals, award
 /// races and senior day wait for the calendar, awards and walk-ons.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Context {
     /// A contender late in the season: he believes margins impress the
     /// voters, so he keeps his starters in longer when ahead.
@@ -74,7 +74,7 @@ pub struct Context {
 /// players first, the lead back usually before the quarterback; with them
 /// the back seven on defense; the lines last; at the end of a rout the
 /// second string too.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Habits {
     pub first_quarter: u8,
     pub steps: [f64; 3],
@@ -138,7 +138,7 @@ const HOLD: f64 = 0.8;
 const REST_BACK: f64 = 1.2;
 
 /// A coach's read of his side's game at one review.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Read {
     /// 0 = everyone in; 1 = skill players and back seven out; 2 = the whole
     /// first team out; 3 = the second string out too.
@@ -155,7 +155,7 @@ pub struct Read {
 }
 
 /// Per-coach, per-game state of the read.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Coach {
     pub read: Read,
     /// How far off this coach's read is in this game (z units).

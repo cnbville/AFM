@@ -7,7 +7,7 @@ use crate::player::{DevelopmentEvent, Level, Player};
 use crate::rng::{Rng, clamp, round_half_up};
 
 /// A scout's report. Every number in it is an estimate with the scout's error.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct ScoutReport {
     pub overall: f64,
     /// Central estimate of potential. Engine-internal: the player-facing side
@@ -32,7 +32,7 @@ fn level_visibility(level: Level) -> f64 {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct ScoutOptions {
     /// Scout's judging ability, 1-20.
     pub accuracy: f64,
@@ -70,7 +70,7 @@ pub fn to_stars(rating: f64) -> f64 {
 // --- What the player-facing side sees ------------------------------------------
 
 /// A vague sense of how good a player could become, in words.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
 pub enum PotentialTier {
     /// Unlikely to play beyond high school.
     HighSchool,
@@ -116,7 +116,7 @@ impl PotentialTier {
 }
 
 /// How sure the staff is of its read.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Confidence {
     Unsure,
     FairlySure,
@@ -125,7 +125,7 @@ pub enum Confidence {
 
 /// Small clues about where a player is heading. Only good scouts pick them up,
 /// and even they are sometimes wrong.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Hint {
     StillGrowingIntoHisBody,
     PhysicallyMatureAlready,
@@ -150,7 +150,7 @@ impl Hint {
 
 /// Everything the player-facing side may know about a player's potential: a
 /// tier in words, how sure the staff is, and a few hints. Never a ceiling.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PotentialOutlook {
     pub tier: PotentialTier,
     pub confidence: Confidence,

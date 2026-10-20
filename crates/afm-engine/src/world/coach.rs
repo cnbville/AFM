@@ -8,7 +8,7 @@ use crate::positions::Position;
 use crate::rng::{Rng, clamp};
 
 /// Position groups a coach teaches.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[repr(u8)]
 pub enum Group {
     QB,
@@ -73,7 +73,7 @@ impl Group {
 }
 
 /// Hidden ability, every part 1-20 (topic 3).
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Ability {
     pub teaching: [f64; GROUP_COUNT],
     pub scheme: f64,
@@ -112,7 +112,7 @@ impl Ability {
 }
 
 /// Personality, 1-20 each.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CoachPersonality {
     /// Wants to move up.
     pub ambition: f64,
@@ -121,7 +121,7 @@ pub struct CoachPersonality {
     pub temper: f64,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Role {
     HeadCoach,
     OffensiveCoordinator,
@@ -153,14 +153,14 @@ impl Role {
 }
 
 /// Where a coach works.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Employer {
     HighSchool(usize),
     College(usize),
     Nfl(usize),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Job {
     pub employer: Employer,
     pub role: Role,
@@ -168,7 +168,7 @@ pub struct Job {
 }
 
 /// One finished job, for the coach's record.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Stint {
     pub employer: Employer,
     pub role: Role,
@@ -178,13 +178,14 @@ pub struct Stint {
     pub losses: u32,
     pub titles: u32,
     /// Why it ended, in plain words.
-    pub ended: &'static str,
+    #[serde(deserialize_with = "crate::save::leaked")]
+    pub ended: crate::save::Text,
 }
 
 /// What schools can see of his teaching at one position group (note 15B):
 /// how his players grew against others at their level and age, and how many
 /// moved up (college offers, honors, the draft). Old seasons fade.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct UnitRecord {
     pub growth: f64,
     pub seasons: f64,
@@ -205,7 +206,7 @@ impl UnitRecord {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Coach {
     pub id: usize,
     pub name: String,
@@ -271,7 +272,7 @@ pub struct Coach {
 /// A college head coach's contract (trial 4 topic 4): the last season it
 /// covers, what it pays a year, and the share of the unpaid rest the
 /// school owes if it fires him.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Contract {
     pub through: i32,
     pub salary: f64,
@@ -296,7 +297,7 @@ pub fn level_ability(level: CoachTier) -> (f64, f64) {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub enum CoachTier {
     HighSchool,
     SmallCollege,
@@ -590,7 +591,7 @@ impl Coach {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum TitleKind {
     None,
     State,
@@ -601,7 +602,7 @@ pub enum TitleKind {
 /// What a school wants from a hire, 0-1 weights (1.5, topic 3). Small schools pay
 /// for network because it gets their kids seen; powerhouses are their own
 /// exposure and pay for teaching and scheme.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct HiringNeeds {
     pub network: f64,
     pub teaching: f64,

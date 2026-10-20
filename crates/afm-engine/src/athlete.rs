@@ -325,7 +325,7 @@ pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position,
 /// How sharp a staff's eye for a player's real position is, 0-1: a high
 /// school coach with little time sees less than a college staff, and NFL
 /// scouts see the most.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Eye {
     /// Share of the read that comes from where he is headed rather than what he is now.
     pub insight: f64,

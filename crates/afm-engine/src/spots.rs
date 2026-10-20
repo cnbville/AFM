@@ -11,7 +11,7 @@ use crate::attributes::Attributes;
 use crate::player::Player;
 use crate::positions::{Position, overall_for};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize)]
 pub enum Spot {
     #[default]
     QB,
