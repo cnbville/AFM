@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><link rel="stylesheet" href="../showtime.css"><title>Cover</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap">
+<style>
+html,body{margin:0;background:var(--ground)}
+.cv{position:relative;width:960px;height:300px;overflow:hidden;background:var(--ground)}
+.cv svg{position:absolute;inset:0}
+.a{fill:var(--accent)}.l{fill:var(--live)}.g{fill:var(--gold)}.f{fill:var(--fg)}.r{fill:var(--lift)}
+.num{fill:none;stroke:var(--fg);stroke-opacity:.5;stroke-width:2;font:900 340px/1 Archivo, sans-serif;font-stretch:68%}
+.cv .t{position:absolute;left:44px;bottom:40px;max-width:440px;display:grid;gap:10px}
+.cv h1{margin:0;font:800 88px/.92 Archivo, sans-serif;letter-spacing:-.04em;color:var(--fg)}
+.cv p{margin:0;font:500 14px/1.3 Archivo, sans-serif;color:var(--fg2)}
+</style></head>
+<body><div class="cv">
+<svg viewBox="0 0 960 300" width="960" height="300" aria-hidden="true">
+<!-- blocks: accent 300x300 (radius-xl 28), live 132x96 (radius-md), gold 132x56 (radius-sm), fg 96x96 disc (radius-full), lift 220x120 (radius-lg)
+     arrangement: one tall accent slab bleeding off the top, satellites stacked right of it
+     pattern: a distinctive numerals face -> one oversized outlined numeral clipped by the slab, the system's signature rank number
+     steps: gaps space-5 (18px); radii radius-sm 12, radius-md 16, radius-lg 22, radius-xl 28 -->
+<defs><clipPath id="c"><rect x="500" y="-28" width="300" height="300" rx="28"/></clipPath></defs>
+<rect class="r" x="560" y="190" width="220" height="140" rx="22"/>
+<rect class="a" x="500" y="-28" width="300" height="300" rx="28"/>
+<text class="num" x="560" y="290" clip-path="url(#c)">1</text>
+<rect class="l" x="818" y="-16" width="160" height="96" rx="16"/>
+<circle class="f" cx="866" cy="146" r="48"/>
+<rect class="g" x="818" y="212" width="160" height="56" rx="12"/>
+</svg>
+<div class="t"><h1>Showtime</h1><p>The All-22 draft room look, ready for any app.</p></div>
+</div></body></html>

@@ -219,7 +219,7 @@ The order below is **confirmed** (Raichel, 2026-10-11: "ok to all"): world, matc
 | 7 | Scouting, recruiting and draft | Designed (2026-10-19), not built |
 | 8 | First playable | Designed (2026-10-20, `docs/design/first-playable.md`), not built |
 | 9 | Game day control | Not designed |
-| 10 | Screens and 2D view | Design written (2026-10-20, `docs/design/screens.md`), five choices with Cain |
+| 10 | Screens and 2D view | Design written (2026-10-20, `docs/design/screens.md`, on Showtime), three choices with Cain |
 | 11 | Later | Not started |
 
 Status updated 2026-10-18. `CLAUDE.md` ("Next job") has the detail.
@@ -309,7 +309,7 @@ Game plans, live play calling (play by play), in-game decisions (halftime, timeo
 ### Section 10. Screens and 2D view
 
 Dense FM-style screens with a modern finish, player cards, the news inbox, history (Hall of Fame, awards, record books), and the 2D Next Gen Stats-style replays.
-- **Design written 2026-10-20** in `docs/design/screens.md` (thread "Design the UI"): 16 topics (the window, the look, tables, showing your staff's reads, the player page, people, your team's screens by seat, inbox and talks, the big moments, game pages and history, charts, the 2D view, faces on screen, speed and memory, comfort, build order), with a mock-up canvas of the key screens. Five taste choices wait on Cain.
+- **Design written 2026-10-20** in `docs/design/screens.md` (thread "Design the UI"): 16 topics (the window, the look, tables, showing your staff's reads, the player page, people, your team's screens by seat, inbox and talks, the big moments, game pages and history, charts, the 2D view, faces on screen, speed and memory, comfort, build order), with a mock-up canvas of the key screens. The look is Cain's own Showtime design system (`ui/showtime/`, 2026-10-20); three taste choices wait on Cain.
 - Screens for each seat: recruiting boards and visits for college, the school and its feeder area for high school.
 - Your own photos (Cain, 2026-10-19): an upload button on any player's page sets your own picture (for example one you made with an AI image tool) as his profile photo, and a "Copy AI prompt" button writes a prompt from his data and appearance. Media day keeps your photo. A folder import for many at once comes later. Details in `docs/design/faces.md`, "Your own photos".
 
