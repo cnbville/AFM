@@ -855,6 +855,11 @@ pub(crate) fn combine_invites(w: &mut World) {
     // The declared underclassmen were on nobody's spring list: the clubs
     // write them up from film now (section 7, topic 3).
     super::pro::scouts::underclassmen(w);
+    // Last year's invites are done with: a pro is never invited again (trial
+    // 9: the flag stayed on, so veterans "tested among the best" every year).
+    for p in w.people.iter_mut() {
+        p.cal.combine_invite = false;
+    }
     let mut pool: Vec<(f64, usize)> = w
         .people
         .iter()
@@ -890,7 +895,9 @@ pub(crate) fn combine_invites(w: &mut World) {
 /// lot). The best testers at each position make the news.
 pub(crate) fn combine(w: &mut World) {
     use crate::attributes::Attr;
-    let invited: Vec<usize> = (0..w.people.len()).filter(|&i| w.people[i].cal.combine_invite).collect();
+    let invited: Vec<usize> = (0..w.people.len())
+        .filter(|&i| w.people[i].cal.combine_invite && w.people[i].stage == Stage::Declared)
+        .collect();
     if invited.is_empty() {
         return;
     }
@@ -1189,7 +1196,8 @@ pub(crate) fn draft(w: &mut World) {
         let left: Vec<usize> = pool.iter().take(300).map(|x| x.0).collect();
         // A trade on the clock (topic 11), from each GM's chart, his tier
         // and a rival's need.
-        if let Some(sw) = super::pro::scouts::trade_on_clock(w, &board, slot, &left, &value) {
+        let promised: Vec<(usize, u32)> = swaps.iter().filter_map(|s| s.4.map(|r| (s.0, r))).collect();
+        if let Some(sw) = super::pro::scouts::trade_on_clock(w, &board, slot, &left, &value, &promised) {
             board[slot].0 = sw.buyer;
             board[sw.their_slot].0 = sw.seller;
             let mut what = format!("pick {}", sw.their_slot + 1);
@@ -3598,6 +3606,15 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         pos: usize,
     }
     const OVER_PLAN: usize = 2;
+    // A Division I staff always finds a place for a 5-star it wants, over
+    // a full class too (proposed, not confirmed: two places). Trial 9: once
+    // the classes were full, the 5-stars who waited for February had no
+    // Division I offer left, and from 2027 about half of every class (239
+    // in all) signed with one junior college.
+    const OVER_CLASS: usize = 2;
+    let elite = |j: usize, k: usize| {
+        w.people[pool[k].person].stars == 5 && matches!(programs[j].division, Division::FBS | Division::FCS)
+    };
     let pn = programs.len();
     let mut cursor = vec![[0usize; POSITION_COUNT]; pn];
     let mut held: Vec<Option<Held>> = vec![None; pool.len()];
@@ -3653,7 +3670,10 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         for pos in Position::ALL {
             let i = pos.index();
             let Some(e) = head(i) else { continue };
-            let sch_open = sch_room && taken_at[j][i][0] < plan.scholarship[i];
+            let star = boards[j][i].get(cursor[j][i]).is_some_and(|x| elite(j, x.0))
+                && taken[j] < plan.slots + OVER_CLASS
+                && taken_at[j][i][0] < plan.scholarship[i] + OVER_PLAN;
+            let sch_open = (sch_room && taken_at[j][i][0] < plan.scholarship[i]) || star;
             // Under the House limit, a walk-on place at a regular position
             // opens only in the final period, once the portal has had its turn.
             let late = stage == SignStage::Final || !plan.whole_roster || pos.is_specialist();
@@ -4076,7 +4096,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 let scholarship = if pos.is_specialist() {
                     taken[j] < plan.slots && taken_at[j][i][0] < plan.scholarship[i]
                 } else {
-                    taken[j] < plan.slots && taken_at[j][i][0] < plan.scholarship[i] + OVER_PLAN
+                    let over = if elite(j, k) { OVER_CLASS } else { 0 };
+                    taken[j] < plan.slots + over && taken_at[j][i][0] < plan.scholarship[i] + OVER_PLAN
                 };
                 let walk_on = !scholarship;
                 if walk_on && !plan.late_walk_on(i, [taken[j], taken_walk_on[j]], taken_at[j][i]) {

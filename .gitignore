@@ -4,3 +4,5 @@ coverage/
 target/
 *.log
 .claude/worktrees/
+__pycache__/
+*.pyc

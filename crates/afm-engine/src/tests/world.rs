@@ -484,3 +484,79 @@ fn a_long_save_keeps_its_calendar_and_money() {
         cap = c;
     }
 }
+
+#[test]
+fn a_big_deal_pays_no_more_than_a_real_first_year() {
+    // Trial 9 bug 11: Mckenzie Tupou Jr.'s five years at $62M carried a
+    // $111.5M signing bonus, 52.6% of the 2025 cap in year one. The excess
+    // bonus becomes guaranteed base in the later years.
+    use crate::world::pro::money;
+    let cap = money::price_cap(2025);
+    let mut t = money::Terms::flat(5, 62.03e6);
+    t.bonus_share = 0.36;
+    t.base_guarantee = 0.19;
+    t.ramp = 0.06;
+    let gtd = t.guaranteed();
+    assert!(t.first_year_cash() > 0.5 * cap);
+    t.limit_first_year(0.38 * cap);
+    assert!((t.guaranteed() - gtd).abs() < 1.0, "the guarantee changed");
+    let k = money::build(0, money::Kind::Veteran, 2025, &t);
+    let y1 = &k.years[0];
+    let cash = y1.pay() + y1.bonus_paid;
+    assert!(cash <= 0.38 * cap + 1.0 && cash > 0.37 * cap, "year one {:.1}% of the cap", 100.0 * cash / cap);
+    assert!((k.total() - t.total()).abs() < 1.0, "the money changed");
+    // A deal under the line is left alone.
+    let mut s = money::Terms::flat(4, 20.0e6);
+    s.bonus_share = 0.3;
+    s.limit_first_year(0.38 * cap);
+    assert_eq!(s.bonus_share, 0.3);
+}
+
+#[test]
+fn a_player_hurt_in_camp_goes_on_reserve_or_is_settled_with() {
+    // Trial 9 bug 7: every camp injury of six weeks or more went to reserve
+    // before the cutdown, so nobody hurt was ever cut and settled with (12
+    // in 50 years). Now a club keeps a hurt player it wants on reserve,
+    // settles with the others, and never puts one on its practice squad.
+    // Camp injuries are too rare for the test world to show it (trial 9
+    // finding 13), so here a whole club is hurt and must cut down to 40.
+    use crate::world::franchise::active;
+    use crate::world::pro::{self, Status};
+    use crate::world::{World, WorldOptions};
+    let mut w = World::empty(WorldOptions { scale: 0.001, ..Default::default() });
+    w.rules.nfl_roster = 40;
+    let t = (0..w.clubs.len()).find(|&t| active(t, w.year) && w.clubs[t].roster.len() > 45).unwrap();
+    let roster: Vec<usize> = w.clubs[t]
+        .roster
+        .iter()
+        .copied()
+        .filter(|&i| w.people[i].pro.as_ref().unwrap().status == Status::Roster)
+        .collect();
+    for &i in &roster {
+        w.people[i].pro.as_mut().unwrap().out_weeks = 8;
+    }
+    let d = w.today;
+    pro::cutdown(&mut w, d);
+    let (mut reserve, mut settled) = (0, 0);
+    for &i in &roster {
+        let p = &w.people[i];
+        let c = p.pro.as_ref().unwrap();
+        assert_ne!(c.status, Status::PracticeSquad, "{} hurt on the practice squad", p.name);
+        if c.team == Some(t) {
+            assert_eq!(c.status, Status::Reserve, "{} kept hurt but not on reserve", p.name);
+            reserve += 1;
+        } else {
+            assert!(
+                p.notes.iter().any(|n| n.contains("with an injury settlement")),
+                "{} cut hurt, not settled",
+                p.name
+            );
+            settled += 1;
+        }
+    }
+    assert!(
+        reserve == 40 && settled == roster.len() - 40,
+        "{reserve} on reserve, {settled} settled of {}",
+        roster.len()
+    );
+}

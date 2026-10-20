@@ -250,7 +250,7 @@ fn honors(w: &World, i: usize) -> f64 {
 
 /// The league's consensus read of a player, on the rating scale: his tape
 /// and his numbers half and half, his name a little.
-pub(crate) fn consensus(w: &World, i: usize) -> f64 {
+pub fn consensus(w: &World, i: usize) -> f64 {
     let ovr = w.people[i].player.overall();
     let prod = production(w, i).map_or(0.0, |(e, t)| clamp(0.5 * e + 0.5 * t - ovr, -6.0, 6.0));
     ovr + 0.3 * prod + 0.5 * honors(w, i).min(4.0)
@@ -688,6 +688,11 @@ pub(crate) fn terms_for(w: &World, i: usize, o: &Offer, start: i32) -> money::Te
             t.void_years = 0;
         }
     }
+    // No deal pays more in its first year than real top deals have: about
+    // 38% of the cap in bonus and pay (Rodgers 2018, Prescott 2024, from
+    // memory, to verify); the rest of the bonus becomes guaranteed base in
+    // the later years (trial 9 bug 11; proposed, not confirmed).
+    t.limit_first_year(money::price_cap(start) * 0.38);
     t
 }
 
@@ -1421,16 +1426,16 @@ pub(crate) fn extension_talks(w: &mut World, d: Date, deadline: bool) {
             {
                 return None;
             }
-            // One extension a league year (trial 7 finding 11): a deal
-            // extended this year (it starts next year, or this year when
-            // it replaced a tag) or starting this year is settled; the
-            // summer's later talks used to extend a one-year extension
-            // again.
-            if k.kind == money::Kind::Extension && k.signed >= year {
+            // A deal signed this league year is settled (trial 7 finding
+            // 11: the summer's later talks extended a one-year extension
+            // again; trial 9: 538 players signed or re-signed in the spring
+            // and extended by the same team that summer). Only a tag is
+            // there to be replaced.
+            let tagged = matches!(k.kind, money::Kind::Franchise | money::Kind::Transition);
+            if k.signed >= year && !tagged {
                 return None;
             }
             let left = k.last_year() - year;
-            let tagged = matches!(k.kind, money::Kind::Franchise | money::Kind::Transition);
             if tagged && d > w.dates.tag_long_term_deadline.date {
                 return None;
             }
@@ -1458,6 +1463,17 @@ pub(crate) fn extension_talks(w: &mut World, d: Date, deadline: bool) {
         let keep = money::price_cap(year + 1) * 0.08;
         id.apy *= 1.0 - 0.04 * left as f64;
         let Some(mut o) = make_offer(w, t, i, &id, 40, keep - freed, year + 1) else { continue };
+        // A tag is replaced only by a long-term deal (trial 9: 31 tags were
+        // "replaced" by a one-year deal); a one-year deal is the tag itself.
+        if o.years < 2
+            && w.people[i]
+                .pro
+                .as_ref()
+                .and_then(|c| c.contract.as_ref())
+                .is_some_and(|k| matches!(k.kind, money::Kind::Franchise | money::Kind::Transition))
+        {
+            continue;
+        }
         o.apy = o.apy.min(walk);
         let s = score(w, i, &o, &id, Some(t));
         let bar = if deadline { 0.82 } else { 0.87 };
@@ -1595,8 +1611,9 @@ pub(crate) fn holdouts(w: &mut World, d: Date, report_day: bool) {
             c.hold = if out { Hold::Out } else { Hold::In };
             let row = p.row_age();
             p.note(format!(
-                "{} the {name}'s camp at {row}, wanting a new deal (paid ${:.1}M against a market near ${:.1}M).",
+                "{} the {} camp at {row}, wanting a new deal (paid ${:.1}M against a market near ${:.1}M).",
                 if out { "Held out of" } else { "Held in at" },
+                super::possessive(name),
                 paid / 1e6,
                 market / 1e6
             ));

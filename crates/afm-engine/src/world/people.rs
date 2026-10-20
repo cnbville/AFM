@@ -401,6 +401,34 @@ pub(crate) fn hs_camp_mood(w: &mut World, schools: &[usize], roles: &[(usize, Pl
     }
 }
 
+/// A pro's pay a year against what he thinks he is worth: the league's
+/// read of him on the pay ladder, the price the market itself sets (a
+/// backup on the minimum is paid what his place on the ladder pays).
+/// Trial 9 bug 6: a straight line from the top five's pay put most of the
+/// league under its worth, and NFL moods averaged -0.10. A deal the rules
+/// price (the rookie scale, an undrafted or reserve/future deal, the
+/// practice squad, a restricted tender) is read against that scale until
+/// he may negotiate after three seasons, as the CBA has allowed since 2011;
+/// then a star on his rookie deal feels it (proposed, not confirmed).
+pub fn pay_and_worth(w: &World, i: usize) -> Option<(f64, f64)> {
+    let p = &w.people[i];
+    let c = p.pro.as_ref()?;
+    let apy = c.contract.as_ref().map_or(0.0, |k| k.apy());
+    let scale = c.contract.as_ref().is_some_and(|k| match k.kind {
+        money::Kind::Tender => true,
+        money::Kind::Rookie | money::Kind::Undrafted | money::Kind::Future | money::Kind::PracticeSquad => {
+            c.accrued < 3
+        }
+        _ => false,
+    });
+    if scale {
+        return Some((apy, apy));
+    }
+    let pos = p.player.position;
+    let view = market::market_grade(w, pos, market::consensus(w, i));
+    Some((apy, market::market_price(w.year, pos, view, c.accrued)))
+}
+
 /// NFL camp's mood read (topics 3 and 4): role against his own view, last
 /// season's record, his pay against his market (greed weights it), the
 /// room; then each club's captains and team mood. The year's support
@@ -429,7 +457,6 @@ pub(crate) fn pro_mood(w: &mut World) {
         let coach = w.nfl[t].head_coach;
         let motivation = coach.map_or(10.0, |c| w.coaches[c].ability().motivation);
         let room = w.clubs[t].team_mood as f64;
-        let cap = money::price_cap(year);
         for &i in &roster {
             let p = &w.people[i];
             let c = p.pro.as_ref().unwrap();
@@ -448,11 +475,7 @@ pub(crate) fn pro_mood(w: &mut World) {
                     }
                 }
             };
-            // Pay against what he thinks he is worth: the league's read of
-            // him on the pay ladder (a star on a rookie deal feels it).
-            let apy = c.contract.as_ref().map_or(0.0, |k| k.apy());
-            let worth =
-                cap * money::top5_share(p.player.position) * clamp((market::consensus(w, i) - 60.0) / 30.0, 0.02, 1.0);
+            let (apy, worth) = pay_and_worth(w, i).unwrap_or((0.0, 0.0));
             let money = if worth <= 0.0 { 0.0 } else { clamp(apy / worth - 1.0, -1.0, 0.5) };
             let amb = p.player.personality.traits.z(Trait::Ambition);
             let parts = Parts {

@@ -175,7 +175,11 @@ fn take(w: &mut World, from: usize, t: usize, i: usize, d: Date, pay: f64) {
     c.new_team = true;
     c.teams.push(t);
     let age = p.row_age();
-    p.note(format!("Signed off the {a}'s practice squad to the {b}'s 53 at {age}."));
+    p.note(format!(
+        "Signed off the {} practice squad to the {} 53 at {age}.",
+        super::possessive(a),
+        super::possessive(b)
+    ));
     w.clubs[t].roster.push(i);
     let who = super::describe(w, i);
     market::post(
@@ -184,7 +188,7 @@ fn take(w: &mut World, from: usize, t: usize, i: usize, d: Date, pay: f64) {
         Some(t),
         crate::calendar::Loudness::Small,
         crate::calendar::Kind::Signing,
-        format!("{who} is signed off the {a}'s practice squad by the {b}."),
+        format!("{who} is signed off the {} practice squad by the {b}.", super::possessive(a)),
     );
 }
 

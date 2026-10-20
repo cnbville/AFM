@@ -273,6 +273,7 @@ The whole year for all three levels, with real rules and dates: games, signing d
 
 Roster limits (90/53, practice squad, IR), depth charts, contracts and the full cap, agents, the rookie scale and fifth-year option, trades (including AI to AI), free agency, the practice squad.
 - College seat: roster limits by era, scholarships, the portal, NIL and revenue-sharing budgets, the depth chart (the AI side exists in `world/`).
+- The AI side of the NFL was built 2026-10-17 (build 7 step 6); its leftovers (practice squad elevations and poaching, injury settlements, each club's power structure) on 2026-10-20 in build 9 (PR #59).
 - High school seat: the roster from the school's own enrollment, transfers by each state's rule, positions and the depth chart.
 
 ### Section 6. People
@@ -280,7 +281,7 @@ Roster limits (90/53, practice squad, IR), depth charts, contracts and the full 
 Personality, morale and chemistry, off-field events, rated staff and hiring (and staff being poached), owner goals and job security, and your own manager profile with growing ratings and an editable starting background.
 - Job security and bosses at every level: the NFL owner, the college athletic director, president and boosters, the high school principal or athletic director and booster club. Your moves between levels use the same coaching market the AI coaches use.
 - A high school staff (coordinators and assistants, many of them teachers) that you hire.
-- **Design written 2026-10-19:** all 15 topics in `docs/design/people.md` (thread "make new thread for designing section 6"). Real life is written in as the default; numbers no source publishes are marked "proposed, not confirmed", and Cain answered its two open choices the same day (your health never ends your career; your background gives a pool of rating points). Not built.
+- **Design written 2026-10-19:** all 15 topics in `docs/design/people.md` (thread "make new thread for designing section 6"). Real life is written in as the default; numbers no source publishes are marked "proposed, not confirmed", and Cain answered its two open choices the same day (your health never ends your career; your background gives a pool of rating points). **World side built 2026-10-20** in build 9 (PR #59; what is built, what waits for section 8 and what waits for later in `docs/design/build9-plan.md`; how it works in `docs/world-model.md`, "Build 9"), measured by world trial 9 (`docs/trials/world-trial9.md`) and its bugs fixed (PR #60). Your own side (talks, press, rules, your profile) comes with the screens.
 
 ### Section 6b. Training (deep)
 
@@ -290,7 +291,7 @@ Its own section because Raichel sees "sooooo much realism, potential" in it. The
 
 Your scouting staff and assignments, reports with hidden potential, vague outlooks and hints, character reports with "insane detail", the combine, pro days and private workouts, the live draft and the UDFA rush.
 - College seat: recruiting is the college draft. Your own board, evaluations, offers, visits, relationships and signing days, on the same rules and calendar the AI staffs use now.
-- **Design written 2026-10-19:** all 18 topics in `docs/design/scouting.md` (thread "start new thread to design section 7"), with real life written in as the default and no open choices. Not built.
+- **Design written 2026-10-19:** all 18 topics in `docs/design/scouting.md` (thread "start new thread to design section 7"), with real life written in as the default and no open choices. **World side built 2026-10-20** in build 9 (PR #59: scouting departments, club files and boards, draft-day trades, the undrafted rush), measured by world trial 9 and its bugs fixed (PR #60). Your own scouting staff, board and war room come with the screens.
 
 ### Section 8. First playable
 

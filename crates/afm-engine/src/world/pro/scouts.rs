@@ -1173,6 +1173,7 @@ pub(crate) fn trade_on_clock(
     slot: usize,
     left: &[usize],
     value: &dyn Fn(usize, usize) -> Option<f64>,
+    promised: &[(usize, u32)],
 ) -> Option<Swap> {
     let seller = board[slot].0;
     if seller >= w.clubs.len() {
@@ -1230,14 +1231,25 @@ pub(crate) fn trade_on_clock(
     let extra = match later {
         Some(q) => Some(Extra::Slot(q)),
         None => {
+            // The cheapest of next year's picks that covers the gap: the
+            // latest round worth enough, or one round dearer if the buyer
+            // has already dealt that one, never more (trial 9: the search
+            // ran from round 1, so moving up ten places in round 7 cost a
+            // first; the test world then had a first paid to move up
+            // twelve places in round 3, with the rounds between not his to
+            // give). A pick promised earlier in this draft isn't his to
+            // give again.
             let year = w.year + 1;
-            (1..=7u32)
-                .find(|&r| {
-                    let mid = ((r - 1) as usize * teams + teams / 2) as f64;
-                    super::trades::chart(sg.classic_chart, mid) * 0.85 >= 0.9 * gap
-                        && w.market.picks.owner_of(year, r, buyer) == buyer
-                })
-                .map(Extra::Future)
+            let covers = |r: u32| {
+                let mid = ((r - 1) as usize * teams + teams / 2) as f64;
+                super::trades::chart(sg.classic_chart, mid) * 0.85 >= 0.9 * gap
+            };
+            (1..=7u32).rev().find(|&r| covers(r)).and_then(|cheapest| {
+                (cheapest.saturating_sub(1).max(1)..=cheapest)
+                    .rev()
+                    .find(|&r| w.market.picks.owner_of(year, r, buyer) == buyer && !promised.contains(&(buyer, r)))
+                    .map(Extra::Future)
+            })
         }
     };
     // A swap worth almost nothing on the chart needs nothing added.
@@ -1271,18 +1283,22 @@ pub(crate) fn udfa_pool(year: i32) -> f64 {
 /// ones getting more and a guaranteed salary too; each player, best first,
 /// takes the offer with the clearest path to the 53 by his own view of
 /// himself, the money, a coach who knew him from college and home, with
-/// his agent shaping the call. `room[t]` is each club's room left.
+/// his agent shaping the call. A club that loses its calls to other clubs
+/// calls again, further down its board, with what is left of its pool,
+/// until its room is full or its board runs out (trial 9: one round of
+/// calls left most of the room empty, about 180 signings a year against
+/// about 500 real). `room[t]` is each club's room left.
 pub(crate) fn rush(w: &World, boards: &[Board], left: &[usize], room: &mut [usize]) -> Vec<(usize, Offer)> {
     let year = w.year;
     let pool = udfa_pool(year);
     let floor = 0.00002 * money::price_cap(year);
     let min_pay = money::minimum(year, 0);
-    let mut offers: HashMap<usize, Vec<Offer>> = HashMap::new();
-    let mut best_grade: HashMap<usize, f64> = HashMap::new();
-    for t in clubs(w) {
-        if room[t] == 0 {
-            continue;
-        }
+    let money_unit = 0.0004 * money::price_cap(year);
+    let seed = w.options.seed as u64 ^ (year as u64) << 20 ^ 0x0DFA;
+    let teams = clubs(w);
+    // Each club's board of the players left, best first.
+    let mut lists: Vec<Vec<(usize, f64)>> = vec![Vec::new(); w.nfl.len()];
+    for &t in &teams {
         let b = &boards[t];
         let mut list: Vec<(usize, f64)> = left
             .iter()
@@ -1291,56 +1307,85 @@ pub(crate) fn rush(w: &World, boards: &[Board], left: &[usize], room: &mut [usiz
             .filter(|&(_, g)| g >= 50.0)
             .collect();
         list.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
-        list.truncate(room[t] + 4);
-        let n = list.len();
-        let weights: Vec<f64> = (0..n).map(|k| ((n - k) as f64).powi(2)).collect();
-        let total: f64 = weights.iter().sum::<f64>().max(1.0);
-        for (k, &(i, g)) in list.iter().enumerate() {
-            let bonus = (pool * weights[k] / total).max(floor);
-            let guarantee = match k {
-                0 => 0.5,
-                1 => 0.3,
-                2 => 0.15,
-                _ => 0.0,
-            } * min_pay;
-            offers.entry(i).or_default().push(Offer { team: t, bonus, guarantee });
-            let e = best_grade.entry(i).or_insert(g);
-            *e = e.max(g);
-        }
+        lists[t] = list;
     }
-    let mut order: Vec<(usize, f64)> = best_grade.into_iter().collect();
-    order.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
-    let money_unit = 0.0004 * money::price_cap(year);
-    let seed = w.options.seed as u64 ^ (year as u64) << 20 ^ 0x0DFA;
+    let mut cursor = vec![0usize; w.nfl.len()];
+    let mut pool_left = vec![pool; w.nfl.len()];
+    let mut taken: HashSet<usize> = HashSet::new();
     let mut signed = Vec::new();
-    for (i, _) in order {
-        let p = &w.people[i];
-        let pos = p.player.position;
-        // His view of himself (section 6): ego lifts it.
-        let me = p.player.overall() + 3.0 * p.player.personality.traits.z(Trait::Ego);
-        let agent =
-            p.pro.as_ref().and_then(|c| c.agent).and_then(|a| w.market.agents.get(a)).map_or(10.0, |g| g.skill) / 20.0;
-        let mut best: Option<(Offer, f64)> = None;
-        for o in offers.get(&i).into_iter().flatten() {
-            if room[o.team] == 0 {
+    loop {
+        let mut offers: HashMap<usize, Vec<Offer>> = HashMap::new();
+        let mut best_grade: HashMap<usize, f64> = HashMap::new();
+        for &t in &teams {
+            if room[t] == 0 {
                 continue;
             }
-            let t = o.team;
-            let ahead = w.nfl[t].depth[pos.index()].iter().filter(|m| m.rating >= me).count() as f64;
-            let path = depth_slots(pos).roster as f64 - ahead;
-            let cash = (o.bonus + o.guarantee) / money_unit;
-            let knew = (super::super::people::ties_q(w, i, t) > 1.0) as u8 as f64;
-            let state = super::super::franchise::era(t, year).and_then(|e| super::super::geo::state_index(e.state));
-            let home = state.is_some_and(|s| s == p.home_state) as u8 as f64;
-            let luck = (1.6 - agent) * key_normal(seed ^ (t as u64) << 40, p.player.id as u64);
-            let u = path + 0.6 * cash + 0.8 * knew + 0.3 * home + luck;
-            if best.is_none_or(|b| u > b.1) {
-                best = Some((*o, u));
+            let mut calls: Vec<(usize, usize, f64)> = Vec::new();
+            while calls.len() < room[t] + 4 && cursor[t] < lists[t].len() {
+                let (i, g) = lists[t][cursor[t]];
+                if !taken.contains(&i) {
+                    calls.push((cursor[t], i, g));
+                }
+                cursor[t] += 1;
+            }
+            let n = calls.len();
+            let weights: Vec<f64> = (0..n).map(|k| ((n - k) as f64).powi(2)).collect();
+            let total: f64 = weights.iter().sum::<f64>().max(1.0);
+            for (k, &(at, i, g)) in calls.iter().enumerate() {
+                let bonus = (pool_left[t] * weights[k] / total).max(floor);
+                // The club's very top undrafted targets also get some salary guaranteed.
+                let guarantee = match at {
+                    0 => 0.5,
+                    1 => 0.3,
+                    2 => 0.15,
+                    _ => 0.0,
+                } * min_pay;
+                offers.entry(i).or_default().push(Offer { team: t, bonus, guarantee });
+                let e = best_grade.entry(i).or_insert(g);
+                *e = e.max(g);
             }
         }
-        if let Some((o, _)) = best {
-            room[o.team] -= 1;
-            signed.push((i, o));
+        if offers.is_empty() {
+            break;
+        }
+        let mut order: Vec<(usize, f64)> = best_grade.into_iter().collect();
+        order.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+        let before = signed.len();
+        for (i, _) in order {
+            let p = &w.people[i];
+            let pos = p.player.position;
+            // His view of himself (section 6): ego lifts it.
+            let me = p.player.overall() + 3.0 * p.player.personality.traits.z(Trait::Ego);
+            let agent =
+                p.pro.as_ref().and_then(|c| c.agent).and_then(|a| w.market.agents.get(a)).map_or(10.0, |g| g.skill)
+                    / 20.0;
+            let mut best: Option<(Offer, f64)> = None;
+            for o in offers.get(&i).into_iter().flatten() {
+                if room[o.team] == 0 {
+                    continue;
+                }
+                let t = o.team;
+                let ahead = w.nfl[t].depth[pos.index()].iter().filter(|m| m.rating >= me).count() as f64;
+                let path = depth_slots(pos).roster as f64 - ahead;
+                let cash = (o.bonus + o.guarantee) / money_unit;
+                let knew = (super::super::people::ties_q(w, i, t) > 1.0) as u8 as f64;
+                let state = super::super::franchise::era(t, year).and_then(|e| super::super::geo::state_index(e.state));
+                let home = state.is_some_and(|s| s == p.home_state) as u8 as f64;
+                let luck = (1.6 - agent) * key_normal(seed ^ (t as u64) << 40, p.player.id as u64);
+                let u = path + 0.6 * cash + 0.8 * knew + 0.3 * home + luck;
+                if best.is_none_or(|b| u > b.1) {
+                    best = Some((*o, u));
+                }
+            }
+            if let Some((o, _)) = best {
+                room[o.team] -= 1;
+                pool_left[o.team] = (pool_left[o.team] - o.bonus).max(0.0);
+                taken.insert(i);
+                signed.push((i, o));
+            }
+        }
+        if signed.len() == before {
+            break;
         }
     }
     signed

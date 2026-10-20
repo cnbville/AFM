@@ -185,6 +185,85 @@ fn people_live() {
         m.year, m.trouble, m.suspensions, m.poached, m.settlements
     );
     assert!((15..=150).contains(&m.trouble), "{} cases in {}", m.trouble, m.year);
+    // Trial 9 bugs: camp injuries all went to reserve, so nobody hurt was
+    // ever cut and settled (0-1 a year); NFL moods leaned sour because pay
+    // was read against a line from the top five's pay, not the market.
+    // Camp injuries are rare (about two a year of six weeks or more in
+    // trial 9, finding 13), so the check is on each one: a player hurt in
+    // camp who was not put on reserve and was cut at the cutdown was
+    // settled with.
+    let settled: u32 = w.market.years.iter().map(|m| m.settlements).sum();
+    let (mut hurt, mut cut_hurt) = (0, 0);
+    for p in w.people.iter().filter(|p| p.pro.is_some()) {
+        for (k, n) in p.notes.iter().enumerate() {
+            let Some(rest) = n.strip_prefix("Hurt in the preseason at ") else { continue };
+            if n.ends_with(": injured reserve.") {
+                continue;
+            }
+            hurt += 1;
+            let age = rest.split(' ').next().unwrap();
+            let later = &p.notes[k + 1..];
+            if later.iter().any(|m| m.contains(&format!(" at {age} (cut at the final cutdown)"))) {
+                cut_hurt += 1;
+                assert!(
+                    later.iter().any(|m| m.contains(&format!(" at {age} with an injury settlement"))),
+                    "{} was cut hurt at {age} with no settlement",
+                    p.name
+                );
+            }
+        }
+    }
+    let nfl: Vec<&afm_engine::world::Person> =
+        w.people.iter().filter(|p| p.pro.as_ref().is_some_and(|c| c.held())).collect();
+    let nfl_mean = nfl.iter().map(|p| p.mood).sum::<f32>() / nfl.len().max(1) as f32;
+    let money_why = nfl.iter().filter(|p| p.mood_why == afm_engine::world::people::Why::Money as u8).count();
+    eprintln!(
+        "camp injuries not on reserve: {hurt}, cut {cut_hurt}; settlements in the history: {settled}; NFL mood mean {nfl_mean:+.3}, money the main reason for {money_why} of {}",
+        nfl.len()
+    );
+    // (The cutdown itself is proved on a whole hurt club in the engine's
+    // unit tests: `a_player_hurt_in_camp_goes_on_reserve_or_is_settled_with`.)
+    // A veteran's pay is read against the market's price for him, and a
+    // deal the rules price (the rookie scale, undrafted, future, practice
+    // squad, tenders) against that scale until he may negotiate, so the
+    // middle veteran and the middle of the league are paid about what they
+    // think they are worth. The old line from the top five's pay put most
+    // of the league far below (printed beside them).
+    let middle = |vets: bool, old: bool| {
+        let mut r: Vec<f64> = nfl
+            .iter()
+            .filter_map(|p| {
+                let k = p.pro.as_ref()?.contract.as_ref()?;
+                let vet = matches!(
+                    k.kind,
+                    money::Kind::Veteran | money::Kind::Extension | money::Kind::Franchise | money::Kind::Transition
+                );
+                if vets && !vet {
+                    return None;
+                }
+                let i = w.people.iter().position(|q| std::ptr::eq(q, *p))?;
+                let (apy, worth) = afm_engine::world::people::pay_and_worth(w, i)?;
+                let worth = if old {
+                    let read = afm_engine::world::pro::market::consensus(w, i);
+                    money::price_cap(w.year)
+                        * money::top5_share(p.player.position)
+                        * ((read - 60.0) / 30.0).clamp(0.02, 1.0)
+                } else {
+                    worth
+                };
+                (apy > 0.0 && worth > 0.0).then_some(apy / worth)
+            })
+            .collect();
+        r.sort_by(f64::total_cmp);
+        r[r.len() / 2]
+    };
+    let (all, vets, old) = (middle(false, false), middle(true, false), middle(false, true));
+    eprintln!(
+        "NFL pay against worth, the middle player: {all:.2}, the middle veteran {vets:.2} (the old line read {old:.2})"
+    );
+    assert!((0.8..=1.25).contains(&all), "the middle NFL player is paid {all:.2} of his worth");
+    assert!((0.8..=1.25).contains(&vets), "the middle NFL veteran is paid {vets:.2} of his worth");
+    assert!(nfl_mean > -0.2, "NFL moods average {nfl_mean:+.3}");
     // Fix list S6.3: no player is paid more than half the cap in a year
     // (real highs are about 35-38%: Prescott 2024, Rodgers 2018).
     let cap = money::price_cap(w.year - 1);
@@ -249,6 +328,69 @@ fn clubs_scout_and_draft_from_their_own_boards() {
     assert!(m.scout_looks > 1_000, "{} looks in {}", m.scout_looks, m.year);
     let own = w.people.iter().filter(|p| p.notes.iter().any(|n| n.contains("their board grade"))).count();
     assert!(own > 0, "no pick names its board");
+    // Trial 9 bugs. The rush fills the room clubs have (one round of calls
+    // signed about 180 a year; real about 500).
+    assert!(m.udfa_signed >= 300, "{} undrafted signed in {}", m.udfa_signed, m.year);
+    // A prospect goes to one combine (the invite stayed on, and veterans
+    // "tested among the best" every year).
+    let combines = |p: &afm_engine::world::Person| p.notes.iter().filter(|n| n.contains("at the combine at")).count();
+    let again = w.people.iter().filter(|p| combines(p) > 1).count();
+    assert_eq!(again, 0, "{again} players went to the combine twice");
+    // Moving up on draft day costs a pick that fits the move (the search
+    // for a future pick started at round 1).
+    for tr in w.market.picks.trades.iter().filter(|t| t.player == u32::MAX) {
+        let pick: u32 = tr
+            .text
+            .split("trade up to pick ")
+            .nth(1)
+            .and_then(|x| x.split(' ').next())
+            .and_then(|x| x.parse().ok())
+            .unwrap_or(0);
+        assert!(!(pick > 64 && tr.text.contains("round 1 pick")), "{}", tr.text);
+    }
+    // A deal signed this league year isn't extended the same year, and a
+    // tag is replaced only by a long-term deal.
+    for p in w.people.iter().filter(|p| p.pro.is_some()) {
+        for pair in p.notes.windows(2) {
+            // Spring market deals, so both notes fall in one league year.
+            let spring = ["(after a week", "(the offer met", "(before free agency)", "(agreed in the tampering"]
+                .iter()
+                .any(|x| pair[0].contains(x));
+            let signed =
+                spring && (pair[0].starts_with("Signed with the ") || pair[0].starts_with("Re-signed with the "));
+            let at = |n: &str, from: &str| n.strip_prefix(from).and_then(|x| x.split(':').next()).map(str::to_string);
+            let a = at(&pair[0], "Signed with the ").or_else(|| at(&pair[0], "Re-signed with the "));
+            let b = at(&pair[1], "Extended by the ");
+            assert!(
+                !(signed && a.is_some() && a.map(|x| x.split(" (").next().unwrap().to_string()) == b),
+                "{}: {pair:?}",
+                p.name
+            );
+        }
+        assert!(!p.notes.iter().any(|n| n.contains("replacing the tag: 1 year")), "{}", p.name);
+    }
+}
+
+/// Trial 9 bug: once the classes were full, 5-stars who waited for
+/// February had no Division I offer left and signed with one junior
+/// college, 12-20 a class from 2027. A Division I staff makes room for one.
+#[test]
+fn five_stars_find_division_one_places() {
+    let w = &*WORLD;
+    let mut at_juco: std::collections::BTreeMap<(i32, usize), u32> = Default::default();
+    let first = |path: &[usize]| path.first().copied().filter(|&c| w.programs[c].division == Division::JUCO);
+    for p in w.people.iter().filter(|p| p.stars == 5) {
+        if let Some(c) = first(&p.path) {
+            *at_juco.entry((p.class_of, c)).or_default() += 1;
+        }
+    }
+    for a in w.alumni.iter().filter(|a| a.stars == 5) {
+        if let Some(c) = first(&a.colleges) {
+            *at_juco.entry((a.class_of, c)).or_default() += 1;
+        }
+    }
+    eprintln!("5-stars who began at a junior college, by class and school: {at_juco:?}");
+    assert!(at_juco.values().all(|&n| n <= 2), "{at_juco:?}");
 }
 
 /// A seed gives the same world on any number of cores (bug check, build
