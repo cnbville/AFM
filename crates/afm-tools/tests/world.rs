@@ -223,14 +223,24 @@ fn people_live() {
     );
     // (The cutdown itself is proved on a whole hurt club in the engine's
     // unit tests: `a_player_hurt_in_camp_goes_on_reserve_or_is_settled_with`.)
-    // A pro's pay is read against the market's price for him, so the
-    // middle of the league is paid about what it thinks it is worth; the
-    // old line from the top five's pay put most of it below (the old read
-    // is printed beside the new one).
-    let ratio = |old: bool| {
+    // A veteran's pay is read against the market's price for him, and a
+    // deal the rules price (the rookie scale, undrafted, future, practice
+    // squad, tenders) against that scale until he may negotiate, so the
+    // middle veteran and the middle of the league are paid about what they
+    // think they are worth. The old line from the top five's pay put most
+    // of the league far below (printed beside them).
+    let middle = |vets: bool, old: bool| {
         let mut r: Vec<f64> = nfl
             .iter()
             .filter_map(|p| {
+                let k = p.pro.as_ref()?.contract.as_ref()?;
+                let vet = matches!(
+                    k.kind,
+                    money::Kind::Veteran | money::Kind::Extension | money::Kind::Franchise | money::Kind::Transition
+                );
+                if vets && !vet {
+                    return None;
+                }
                 let i = w.people.iter().position(|q| std::ptr::eq(q, *p))?;
                 let (apy, worth) = afm_engine::world::people::pay_and_worth(w, i)?;
                 let worth = if old {
@@ -247,9 +257,12 @@ fn people_live() {
         r.sort_by(f64::total_cmp);
         r[r.len() / 2]
     };
-    let (new, old) = (ratio(false), ratio(true));
-    eprintln!("NFL pay against worth, the middle player: {new:.2} (the old line read {old:.2})");
-    assert!((0.8..=1.25).contains(&new), "the middle NFL player is paid {new:.2} of his worth");
+    let (all, vets, old) = (middle(false, false), middle(true, false), middle(false, true));
+    eprintln!(
+        "NFL pay against worth, the middle player: {all:.2}, the middle veteran {vets:.2} (the old line read {old:.2})"
+    );
+    assert!((0.8..=1.25).contains(&all), "the middle NFL player is paid {all:.2} of his worth");
+    assert!((0.8..=1.25).contains(&vets), "the middle NFL veteran is paid {vets:.2} of his worth");
     assert!(nfl_mean > -0.2, "NFL moods average {nfl_mean:+.3}");
     // Fix list S6.3: no player is paid more than half the cap in a year
     // (real highs are about 35-38%: Prescott 2024, Rodgers 2018).

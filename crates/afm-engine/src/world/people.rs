@@ -6,7 +6,7 @@
 //! publishes is Claude's, proposed, not confirmed.
 
 use super::background::{Background, Family};
-use super::pro::{self, Status, market};
+use super::pro::{self, Status, market, money};
 use super::season::{key_normal, key_uniform};
 use super::{Person, Stage, World};
 use crate::calendar::{Date, Kind, Loudness};
@@ -401,25 +401,38 @@ pub(crate) fn hs_camp_mood(w: &mut World, schools: &[usize], roles: &[(usize, Pl
     }
 }
 
-/// NFL camp's mood read (topics 3 and 4): role against his own view, last
-/// season's record, his pay against his market (greed weights it), the
-/// room; then each club's captains and team mood. The year's support
-/// staff turnover runs here, once (NFL camp opens before college camp).
 /// A pro's pay a year against what he thinks he is worth: the league's
-/// read of him on the pay ladder, the price the market itself sets (a star
-/// on a rookie deal feels it; a backup on the minimum is paid what his
-/// place on the ladder pays). Trial 9 bug 6: a straight line from the top
-/// five's pay put most of the league under its worth, and NFL moods
-/// averaged -0.10.
+/// read of him on the pay ladder, the price the market itself sets (a
+/// backup on the minimum is paid what his place on the ladder pays).
+/// Trial 9 bug 6: a straight line from the top five's pay put most of the
+/// league under its worth, and NFL moods averaged -0.10. A deal the rules
+/// price (the rookie scale, an undrafted or reserve/future deal, the
+/// practice squad, a restricted tender) is read against that scale until
+/// he may negotiate after three seasons, as the CBA has allowed since 2011;
+/// then a star on his rookie deal feels it (proposed, not confirmed).
 pub fn pay_and_worth(w: &World, i: usize) -> Option<(f64, f64)> {
     let p = &w.people[i];
     let c = p.pro.as_ref()?;
     let apy = c.contract.as_ref().map_or(0.0, |k| k.apy());
+    let scale = c.contract.as_ref().is_some_and(|k| match k.kind {
+        money::Kind::Tender => true,
+        money::Kind::Rookie | money::Kind::Undrafted | money::Kind::Future | money::Kind::PracticeSquad => {
+            c.accrued < 3
+        }
+        _ => false,
+    });
+    if scale {
+        return Some((apy, apy));
+    }
     let pos = p.player.position;
     let view = market::market_grade(w, pos, market::consensus(w, i));
     Some((apy, market::market_price(w.year, pos, view, c.accrued)))
 }
 
+/// NFL camp's mood read (topics 3 and 4): role against his own view, last
+/// season's record, his pay against his market (greed weights it), the
+/// room; then each club's captains and team mood. The year's support
+/// staff turnover runs here, once (NFL camp opens before college camp).
 pub(crate) fn pro_mood(w: &mut World) {
     staff_support(w);
     let year = w.year;
