@@ -348,6 +348,10 @@ pub struct GameTeam {
     /// a short week (a Thursday game after a Saturday) about 0.8, after a
     /// bye about 1.1.
     pub week: f64,
+    /// Your own depth chart (section 8, topic 6): at each position you
+    /// ordered, the player ids you listed, best first. Empty for every AI
+    /// team, whose staff orders it.
+    pub order: Vec<(Position, Vec<u32>)>,
 }
 
 /// A normal week's install, as a share of the playbook (proposed, not
@@ -365,6 +369,7 @@ impl GameTeam {
             line_chem: 0.6,
             novelty: [0.0; FAMILY_COUNT],
             week: 1.0,
+            order: Vec::new(),
         }
     }
 
@@ -532,6 +537,23 @@ pub const CROSS_LIST: f64 = 3.0;
 /// asks the best leg on the roster. A listed long snapper snaps; he plays
 /// nowhere else (fix list 1.7).
 pub fn depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
+    let mut d = staff_depth_chart(team, two_way_margin);
+    // Your order goes first where you set one (section 8, topic 6): the
+    // players you listed, in your order, then the staff's list for the rest.
+    for (pos, ids) in &team.order {
+        let mut list: Vec<usize> = ids.iter().filter_map(|id| team.players.iter().position(|p| p.id == *id)).collect();
+        for &i in &d.at[pos.index()] {
+            if !list.contains(&i) {
+                list.push(i);
+            }
+        }
+        d.at[pos.index()] = list;
+    }
+    d
+}
+
+/// The depth chart as the staff orders it.
+fn staff_depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
     let ps = &team.players;
     let mut d = Depth::default();
     let has_legs = ps.iter().any(|p| p.position.kicks());

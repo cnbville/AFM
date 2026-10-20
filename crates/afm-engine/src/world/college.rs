@@ -645,6 +645,9 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
             }
         };
         played.home_won = home_won;
+        if let Some(r) = &r {
+            w.keep_seat_game(crate::calendar::Level::College, [home, away], &r.stats);
+        }
         let cs = w.college.as_mut().unwrap();
         // Records.
         if kind == GameKind::Regular {

@@ -840,6 +840,9 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
         },
     );
     team.give_orders(division_level(prog.division));
+    if w.seat_program(prog.id) {
+        team.order = w.seat_depth.clone();
+    }
     team.film = prog.film.clone();
     team.line_chem = line_chem;
     team.novelty = super::trends::team_novelty(w, prog.division, &prog.film);

@@ -253,6 +253,9 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
         },
     );
     team.give_orders(crate::player::Level::NFL);
+    if w.seat_club(t) {
+        team.order = w.seat_depth.clone();
+    }
     team.film = club.film.clone();
     team.line_chem = 0.25 + 0.15 * back as f64;
     Some(Side { team, who })
@@ -412,6 +415,7 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
 /// player out for a long spell goes on injured reserve).
 pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[Side; 2], opp_z: [f64; 2]) {
     let year = w.year;
+    w.keep_seat_game(crate::calendar::Level::Nfl, teams, &r.stats);
     if w.options.keep_game_log && w.recording {
         w.game_log.add_nfl(year, teams, &r.stats);
     }

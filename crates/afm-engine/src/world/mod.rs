@@ -33,7 +33,8 @@ pub mod records;
 pub(crate) mod recruiting;
 pub mod schedule;
 pub(crate) mod season;
-mod staff;
+pub mod seat;
+pub mod staff;
 pub mod systems;
 pub mod trends;
 
@@ -403,11 +404,13 @@ pub struct Alumnus {
     pub pick: Option<u32>,
     pub position: crate::positions::Position,
     pub overall: f64,
+    #[cfg_attr(not(feature = "debug"), allow(dead_code))]
     pub(crate) potential: f64,
     pub juco: bool,
     pub left_football: bool,
     /// His high school class (year of his last high school spring).
     pub class_of: i32,
+    #[cfg_attr(not(feature = "debug"), allow(dead_code))]
     pub(crate) visibility: f64,
     pub steered: bool,
     pub background_summary: String,
@@ -597,6 +600,12 @@ pub struct World {
     /// 9.9), and how new each family is to its defenses now (9.5).
     pub trends: Vec<trends::Trend>,
     pub(crate) novelty: [[f64; crate::game::playbook::FAMILY_COUNT]; data::DIVISION_COUNT],
+    /// Your team's games kept whole for their game pages (section 8).
+    pub seat_games: Vec<seat::SeatGame>,
+    /// Your depth chart where you set one (section 8, topic 6).
+    pub seat_depth: Vec<(crate::positions::Position, Vec<u32>)>,
+    /// Your career once it has started: you, your coach id, your notes.
+    pub career: Option<seat::Career>,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -851,6 +860,9 @@ impl World {
             seat: None,
             trends: Vec::new(),
             novelty: [[0.0; crate::game::playbook::FAMILY_COUNT]; data::DIVISION_COUNT],
+            seat_games: Vec::new(),
+            seat_depth: Vec::new(),
+            career: None,
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);
