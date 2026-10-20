@@ -215,7 +215,7 @@ The order below is **confirmed** (Raichel, 2026-10-11: "ok to all"): world, matc
 | 4 | Calendar | **Built** (2026-10-16) |
 | 5 | Team management | **Built for the AI's NFL** (2026-10-17); your own side waits for section 8 |
 | 6 | People | Designed (2026-10-19), not built |
-| 6b | Training (deep) | Not designed |
+| 6b | Training (deep) | Designed (2026-10-20, `docs/design/training.md`), three choices open, not built |
 | 7 | Scouting, recruiting and draft | Designed (2026-10-19), not built |
 | 8 | First playable | Designed (2026-10-20, `docs/design/first-playable.md`), not built |
 | 9 | Game day control | Not designed |
@@ -286,6 +286,8 @@ Personality, morale and chemistry, off-field events, rated staff and hiring (and
 ### Section 6b. Training (deep)
 
 Its own section because Raichel sees "sooooo much realism, potential" in it. The 50 answers only fix the outline: weekly focus per unit plus an individual plan per player, with staff quality affecting development. Everything else is for the design rounds. College and high school practice follow their own real limits (the NCAA's 20 countable hours, each state's practice and heat rules, already in the calendar).
+
+- **Design written 2026-10-20:** 15 topics in `docs/design/training.md` (thread "Section 6b design: training"): the practice day by periods, gear, contact level and reps; the week and the year on each level's real rule book; the time budget; each player's plan (focus, habit, position move, body, extra work, rehab, mentor); who teaches; load and practice injuries; practice reps as real battles; the offseason on their own (calendar parked item 1); high school; the AI's plans; growth landing as the work happens. Three choices wait for Cain (topic 15).
 
 ### Section 7. Scouting, recruiting and draft
 
