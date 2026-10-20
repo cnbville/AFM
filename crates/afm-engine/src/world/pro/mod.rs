@@ -1419,6 +1419,7 @@ fn camp(w: &mut World, d: Date) {
             centres.add(Level::NFL, p.player.position, &p.player.attributes);
         }
     }
+    let focus = w.focus_by_person();
     for i in pros {
         let (team, status, first, new_team, payday) = {
             let c = w.people[i].pro.as_ref().unwrap();
@@ -1520,6 +1521,7 @@ fn camp(w: &mut World, d: Date) {
             morale,
             physical,
             medical,
+            focus: focus.get(&i).copied(),
             ..crate::development::SeasonContext::new(Level::NFL, clamp(coaching, 1.0, 20.0), role)
         };
         crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);

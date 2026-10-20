@@ -255,3 +255,4 @@ a { color: inherit; }
 .item.cal .st-chip.huge { border-color: var(--live); color: var(--fg); }
 .teamcell { display: inline-flex; align-items: center; gap: 10px; }
 .tbl tr.mine td { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.tbl select.focus { background: transparent; color: var(--fg); border: 1px solid var(--hair); border-radius: 8px; padding: 4px 8px; font: inherit; max-width: 260px; }

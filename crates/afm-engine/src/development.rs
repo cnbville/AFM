@@ -54,6 +54,10 @@ pub struct SeasonContext {
     /// Section 6 topic 10: the medical staff, -1 to 1: how fast he comes
     /// back from a minor or moderate injury (up to 15%).
     pub medical: f64,
+    /// Section 6b topic 5: his plan's main focus, set by you. The focus
+    /// grows up to 1.5 times its share and his other skills pay for it
+    /// (choice 2, confirmed); how much sticks follows his coachability.
+    pub focus: Option<Attr>,
 }
 
 impl SeasonContext {
@@ -73,6 +77,7 @@ impl SeasonContext {
             morale: 0.0,
             physical: 0.0,
             medical: 0.0,
+            focus: None,
         }
     }
 }
@@ -558,6 +563,14 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     let morale_mult = 1.0 + 0.10 * clamp(ctx.morale, -1.5, 1.5);
     let physical_mult = 1.0 + 0.08 * clamp(ctx.physical, -1.0, 1.0);
     let mut settling = [false; ATTRIBUTE_COUNT];
+    // The plan's focus (section 6b topic 5; proposed, not confirmed: the
+    // share each other skill gives up so the year's total stays about even).
+    let focus_take = clamp(0.6 + 0.02 * personality.coachability, 0.6, 1.0);
+    let focus_mult = |key: Attr| match ctx.focus {
+        Some(f) if f == key => 1.0 + 0.5 * focus_take,
+        Some(f) if key.profile().group == f.profile().group => 1.0 - 0.035 * focus_take,
+        _ => 1.0,
+    };
     for key in Attr::ALL {
         let profile = &ATTRIBUTE_PROFILES[key.index()];
         let age_factor = growth_age_factor(development_age, profile.growth_window);
@@ -589,6 +602,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
                 * redshirt_lift
                 * hs_lag
                 * morale_mult
+                * focus_mult(key)
                 * if profile.group == AttributeGroup::Physical { physical_mult } else { 1.0 },
             0.0,
             0.5,

@@ -289,3 +289,39 @@ fn an_early_enrollees_spring_step_opens_his_first_college_row() {
     assert_eq!(first.spring_open, Some(gain));
     assert!((first.spring_gain.unwrap() - gain - 1.5).abs() < 1e-9);
 }
+
+/// Section 6b topic 5, choice 2: a plan's main focus grows up to about 1.5
+/// times its share, the rest of his skills of that kind pay for it, and his
+/// year as a whole moves well inside 15% either way.
+#[test]
+fn a_training_focus_grows_its_skill_and_costs_the_rest_a_little() {
+    let mut rng = Rng::new("focus");
+    let (mut plain_focus, mut with_focus, mut plain_all, mut with_all) = (0.0, 0.0, 0.0, 0.0);
+    for p in prospects(400, "focus", 1.0) {
+        let mut ctx = context_for(19);
+        let key = Attr::ALL
+            .into_iter()
+            .filter(|&a| a.profile().group == crate::attributes::AttributeGroup::Technical)
+            .max_by(|&a, &b| {
+                crate::positions::weight(p.position, a).total_cmp(&crate::positions::weight(p.position, b))
+            })
+            .unwrap();
+        let mut a = p.clone();
+        let mut b = p.clone();
+        let mut ra = rng.clone();
+        let mut rb = rng.clone();
+        develop_season(&mut a, &ctx, &mut ra);
+        ctx.focus = Some(key);
+        develop_season(&mut b, &ctx, &mut rb);
+        rng.next();
+        plain_focus += a.attributes.get(key) - p.attributes.get(key);
+        with_focus += b.attributes.get(key) - p.attributes.get(key);
+        plain_all += Attr::ALL.iter().map(|&k| a.attributes.get(k) - p.attributes.get(k)).sum::<f64>();
+        with_all += Attr::ALL.iter().map(|&k| b.attributes.get(k) - p.attributes.get(k)).sum::<f64>();
+    }
+    let lift = with_focus / plain_focus;
+    let year = with_all / plain_all;
+    println!("focus lift {lift:.3}, the year {year:.3}");
+    assert!(lift > 1.15 && lift < 1.55, "focus lift {lift:.2}");
+    assert!((year - 1.0).abs() < 0.15, "the year moves {year:.3}");
+}

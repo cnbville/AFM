@@ -627,6 +627,10 @@ pub struct World {
     /// Your depth chart where you set one (section 8, topic 6).
     #[serde(default)]
     pub seat_depth: Vec<(crate::positions::Position, Vec<u32>)>,
+    /// Your players' plan focus (section 6b topic 5): player id and
+    /// attribute index.
+    #[serde(default)]
+    pub seat_focus: Vec<(u32, u8)>,
     /// Your career once it has started: you, your coach id, your notes.
     #[serde(default)]
     pub career: Option<seat::Career>,
@@ -900,6 +904,7 @@ impl World {
             novelty: [[0.0; crate::game::playbook::FAMILY_COUNT]; data::DIVISION_COUNT],
             seat_games: Vec::new(),
             seat_depth: Vec::new(),
+            seat_focus: Vec::new(),
             career: None,
         };
         staff::staff_everyone(&mut w);

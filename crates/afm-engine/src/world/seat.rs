@@ -16,7 +16,7 @@ use super::World;
 pub struct SeatGame {
     pub date: Date,
     pub level: crate::calendar::Level,
-    /// College program or NFL club index of each side (home, away).
+    /// High school, college program or NFL club index of each side (home, away).
     pub teams: [usize; 2],
     pub names: [String; 2],
     pub stats: GameStats,
@@ -39,6 +39,7 @@ impl World {
         }
         let names = match level {
             crate::calendar::Level::Nfl => teams.map(|t| self.nfl_team_name(t)),
+            crate::calendar::Level::HighSchool => teams.map(|h| self.school_name(h).to_string()),
             _ => teams.map(|p| self.program_name(p).to_string()),
         };
         self.seat_games.push(SeatGame { date: self.today, level, teams, names, stats: stats.clone() });
@@ -61,9 +62,41 @@ impl World {
         }
     }
 
+    /// Sets (or with None clears) a player's plan focus.
+    pub fn set_focus(&mut self, player: u32, focus: Option<crate::attributes::Attr>) {
+        self.seat_focus.retain(|(id, _)| *id != player);
+        if let Some(a) = focus {
+            self.seat_focus.push((player, a.index() as u8));
+        }
+    }
+
+    pub fn focus_of(&self, player: u32) -> Option<crate::attributes::Attr> {
+        self.seat_focus.iter().find(|(id, _)| *id == player).map(|&(_, a)| crate::attributes::Attr::ALL[a as usize])
+    }
+
+    /// The plan focus of each player on your roster now, by person index
+    /// (a plan stays with your team: a player who leaves drops it).
+    pub(crate) fn focus_by_person(&self) -> std::collections::HashMap<usize, crate::attributes::Attr> {
+        let Some(seat) = self.seat else { return Default::default() };
+        if self.seat_focus.is_empty() {
+            return Default::default();
+        }
+        let roster: &[usize] = match seat.level {
+            crate::calendar::Level::Nfl => seat.nfl_team.and_then(|t| self.clubs.get(t)).map_or(&[], |c| &c.roster),
+            crate::calendar::Level::HighSchool => seat.program.map_or(&[], |h| &self.high_schools[h].roster),
+            _ => seat.program.map_or(&[], |p| &self.programs[p].roster),
+        };
+        roster.iter().filter_map(|&i| self.focus_of(self.people[i].player.id).map(|a| (i, a))).collect()
+    }
+
     /// Whether a college program is yours (its game team takes your order).
     pub(crate) fn seat_program(&self, prog: usize) -> bool {
-        self.seat.is_some_and(|s| s.program == Some(prog) && s.level != crate::calendar::Level::Nfl)
+        self.seat.is_some_and(|s| s.program == Some(prog) && s.level == crate::calendar::Level::College)
+    }
+
+    /// Your high school, when you coach one.
+    pub(crate) fn seat_school(&self) -> Option<usize> {
+        self.seat.filter(|s| s.level == crate::calendar::Level::HighSchool).and_then(|s| s.program)
     }
 
     pub(crate) fn seat_club(&self, t: usize) -> bool {
@@ -247,9 +280,17 @@ impl World {
             started: self.today,
             seed: career_seed,
             notes: Vec::new(),
+            hs_staff: Vec::new(),
         });
+        if let Job::HighSchool(h) = job {
+            let staff = self.hire_hs_staff(h);
+            if let Some(c) = self.career.as_mut() {
+                c.hs_staff = staff;
+            }
+        }
         self.seat_depth.clear();
         self.seat_games.clear();
+        self.seat_focus.clear();
         id
     }
 }
@@ -266,6 +307,114 @@ pub struct Career {
     pub seed: u32,
     /// Notes by player id, oldest first.
     pub notes: Vec<(u32, Vec<Note>)>,
+    /// Your high school staff, when you coach a high school.
+    #[serde(default)]
+    pub hs_staff: Vec<HsAssistant>,
+}
+
+/// A high school assistant (people topic 10): most teach at the school and
+/// coach for a stipend. Small schools have two to four, big Texas programs
+/// fifteen or more across varsity, JV and freshmen.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct HsAssistant {
+    pub name: String,
+    pub age: u32,
+    /// Offensive or defensive coordinator, or a position group's coach.
+    pub coordinator: Option<bool>,
+    /// The group he coaches (`coach::Group` as an index).
+    pub group: u8,
+    /// What he teaches in class, or None for a walk-on coach.
+    pub subject: Option<String>,
+    /// Coaching stipend a season, in dollars.
+    pub stipend: u32,
+    /// Hidden teaching ability, 1-20 on every coach's scale.
+    pub teaching: f64,
+    pub since: i32,
+}
+
+/// Subjects high school coaches teach (proposed, not confirmed: weighted
+/// toward physical education and history, as real staffs are).
+const SUBJECTS: [&str; 10] = [
+    "physical education",
+    "physical education",
+    "history",
+    "history",
+    "health",
+    "math",
+    "science",
+    "English",
+    "special education",
+    "driver's education",
+];
+
+impl World {
+    /// Your high school staff from the school's size and money (proposed,
+    /// not confirmed: two plus one per 400 students, 3 to 15; ability
+    /// around what the school's resources buy, the stand-in AI schools use).
+    pub(crate) fn hire_hs_staff(&mut self, h: usize) -> Vec<HsAssistant> {
+        let school = &self.high_schools[h];
+        let n = (2 + school.enrollment / 400).clamp(3, 15) as usize;
+        let mean = 4.0 + 12.0 * school.resources;
+        let rich = school.resources;
+        let year = self.year;
+        let mut rng = crate::rng::Rng::new(self.options.seed ^ 0x45AF_F000 ^ h as u32);
+        // Coordinators first, then the groups a staff fills in order.
+        let order: [(Option<bool>, u8); 15] = [
+            (Some(true), 0),
+            (Some(false), 6),
+            (None, 3),
+            (None, 4),
+            (None, 6),
+            (None, 5),
+            (None, 2),
+            (None, 1),
+            (None, 0),
+            (None, 7),
+            (None, 3),
+            (None, 4),
+            (None, 6),
+            (None, 2),
+            (None, 5),
+        ];
+        order[..n]
+            .iter()
+            .map(|&(coordinator, group)| {
+                let eth = super::ethnicity::coach_ethnicity(super::ethnicity::CoachPool::HighSchool, year, &mut rng);
+                let age = 24 + (rng.next() * 34.0) as u32;
+                let name = super::names::person_name(eth, year - age as i32, &mut rng);
+                // Some states allow walk-on coaches who don't teach.
+                let subject = (rng.next() > 0.15).then(|| SUBJECTS[(rng.next() * 10.0) as usize % 10].to_string());
+                let lead = if coordinator.is_some() { 1.0 } else { 0.0 };
+                HsAssistant {
+                    name,
+                    age,
+                    coordinator,
+                    group,
+                    subject,
+                    stipend: (2500.0 + 5500.0 * rich + 1500.0 * lead + rng.normal(0.0, 800.0)).max(1000.0) as u32,
+                    teaching: crate::rng::clamp(mean + lead + rng.normal(0.0, 2.5), 1.0, 20.0),
+                    since: year - (rng.next() * 8.0) as i32,
+                }
+            })
+            .collect()
+    }
+
+    /// What your high school staff teaches a position group: its best man
+    /// for the group, coordinators covering their side (people topic 10;
+    /// proposed, not confirmed).
+    pub(crate) fn hs_staff_teaching(&self, h: usize, group: super::coach::Group) -> Option<f64> {
+        if self.seat_school() != Some(h) {
+            return None;
+        }
+        let staff = &self.career.as_ref()?.hs_staff;
+        let g = group as u8;
+        let offense = matches!(g, 0..=3);
+        staff
+            .iter()
+            .filter(|a| a.group == g || a.coordinator == Some(offense) && g != 7)
+            .map(|a| if a.group == g { a.teaching } else { a.teaching - 1.5 })
+            .max_by(f64::total_cmp)
+    }
 }
 
 /// One of your notes: the game date it was written and its text.

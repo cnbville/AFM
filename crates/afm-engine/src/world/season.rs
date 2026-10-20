@@ -371,8 +371,12 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         };
         centres.add(level, p.player.position, &p.player.attributes);
     }
+    let seat_staff: Option<(usize, [Option<f64>; super::coach::GROUP_COUNT])> =
+        w.seat_school().map(|h| (h, super::coach::Group::ALL.map(|g| w.hs_staff_teaching(h, g))));
+    let focus = w.focus_by_person();
+    let staff_of = |h: usize, g: Group| seat_staff.and_then(|(s, t)| if s == h { t[g as usize] } else { None });
     let (people, schools, programs, coaches) = (&mut w.people, &w.high_schools, &w.programs, &w.coaches);
-    people.par_iter_mut().zip(role_of.par_iter()).for_each(|(p, role)| {
+    people.par_iter_mut().zip(role_of.par_iter()).enumerate().for_each(|(i, (p, role))| {
         let Some(role) = *role else { return };
         p.incident = false;
         p.cal.season_reset();
@@ -386,8 +390,10 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 let s = &schools[p.hs];
                 let teach = s.coach.map_or(7.0, |c| coaches[c].teaching(group));
                 style = s.coach.map(|c| coaches[c].style());
-                // Bigger, richer staffs add position coaches beside the head coach.
-                (Level::HS, 0.6 * teach + 0.4 * (4.0 + 12.0 * s.resources), (s.resources - 0.5) * 0.1, 0.012)
+                // Bigger, richer staffs add position coaches beside the head
+                // coach; your own school's are people you can see.
+                let staff = staff_of(p.hs, group).unwrap_or(4.0 + 12.0 * s.resources);
+                (Level::HS, 0.6 * teach + 0.4 * staff, (s.resources - 0.5) * 0.1, 0.012)
             }
             Stage::College => {
                 let prog = &programs[p.college.unwrap_or(0)];
@@ -491,6 +497,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             morale,
             physical,
             medical,
+            focus: focus.get(&i).copied(),
             ..SeasonContext::new(level, clamp(coaching, 1.0, 20.0), role)
         };
         develop_season(&mut p.player, &ctx, &mut p.rng);

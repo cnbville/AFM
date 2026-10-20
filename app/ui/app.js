@@ -113,6 +113,7 @@ const I = {
   back: '<path d="M15 5l-7 7 7 7"/>',
   fwd: '<path d="M9 5l7 7-7 7"/>',
   team: '<path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/>',
+  train: '<path d="M3 10v4M6 7v10M18 7v10M21 10v4M6 12h12"/>',
 };
 const icon = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${I[k] || ""}</svg>`;
 
@@ -127,6 +128,7 @@ function frame(content, crumb) {
     ["sec", "Your team"],
     ["roster", "Squad", "squad"],
     ["depth", "Depth chart", "depth"],
+    ["training", "Training", "train"],
     ["schedule", "Schedule", "sched"],
     ["games", "Game pages", "game"],
     ["standings", "Standings", "table"],
@@ -349,6 +351,23 @@ screens.roster = async (a) => {
   </div></div>`;
 };
 
+screens.training = async () => {
+  const x = await api("training");
+  setColors(x.team.colors);
+  const set = x.rows.filter((r) => r.focus).length;
+  const cols = [
+    { k: "name", t: "Name", l: true, f: (r) => playerLink(r.id, r.name) },
+    { k: "pos", t: "Pos", l: true },
+    { k: "class", t: "Class", l: true },
+    { k: "age", t: "Age" },
+    { k: "ovr", t: "Rating", div: true, v: (r) => mid(r.ovr), f: (r) => range(r.ovr) },
+    { k: "focus", t: "Main focus", l: true, div: true, v: (r) => r.focus || "", f: (r) => `<select class="focus" data-act="focus" data-id="${r.id}"><option value="">Balanced (the staff's plan)</option>${r.options.map((o) => `<option value="${o.key}" ${o.key === r.focus ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>` },
+  ];
+  return `<div class="film"><div class="pad"><div class="h1">Training</div>
+    <p class="sub">Each player's plan for the year. A main focus gets the bigger share of his individual periods: it grows up to half as fast again, and his other skills of the same kind a little slower. How much sticks depends on how coachable he is. Growth lands when his year's development does. ${set} of ${x.rows.length} players have a focus.</p>
+    ${table("training", cols, x.rows, { groupBy: (r) => r.pos })}</div></div>`;
+};
+
 screens.depth = async () => {
   const x = await api("depth");
   setColors(x.team.colors);
@@ -477,10 +496,11 @@ screens.staff = async (a) => {
   setColors(x.team.colors);
   const cols = [
     { k: "role", t: "Role", l: true },
-    { k: "name", t: "Name", l: true, f: (r) => `<a class="link name" data-go="coach" data-id="${r.id}">${esc(r.name)}</a>${r.you ? ' <span class="st-pill gold">You</span>' : ""}` },
+    { k: "name", t: "Name", l: true, f: (r) => (r.id == null ? `<b>${esc(r.name)}</b>` : `<a class="link name" data-go="coach" data-id="${r.id}">${esc(r.name)}</a>`) + (r.you ? ' <span class="st-pill gold">You</span>' : "") },
     { k: "age", t: "Age" },
     { k: "reputation", t: "Reputation", l: true },
-    { k: "came_up", t: "Came up as", l: true },
+    { k: "came_up", t: x.rows.some((r) => r.pay) ? "Came up as, or day job" : "Came up as", l: true },
+    ...(x.rows.some((r) => r.pay) ? [{ k: "pay", t: "Stipend", f: (r) => (r.pay ? money(r.pay) : "") }] : []),
     { k: "record", t: "Record here", l: true },
     { k: "since", t: "Since" },
   ];
@@ -525,7 +545,7 @@ screens.you = async () => {
 };
 
 // ---------- render ----------
-const CRUMBS = { home: "Home", inbox: "Inbox", news: "News", calendar: "Calendar", roster: "Squad", depth: "Depth chart", player: "Player", schedule: "Schedule", games: "Game pages", game: "Game", standings: "Standings", staff: "Staff", coach: "Coach", team: "Team", search: "Search", you: "Your profile" };
+const CRUMBS = { home: "Home", inbox: "Inbox", news: "News", calendar: "Calendar", roster: "Squad", depth: "Depth chart", training: "Training", player: "Player", schedule: "Schedule", games: "Game pages", game: "Game", standings: "Standings", staff: "Staff", coach: "Coach", team: "Team", search: "Search", you: "Your profile" };
 
 async function render(scroll) {
   const r = S.route;
@@ -558,9 +578,14 @@ async function cont() {
     S.status = r.status;
     S.busy = false;
     const why = r.why.map((w) => w.text).join(" · ");
-    toast(`${r.days} day${r.days === 1 ? "" : "s"} played. Stopped on ${r.stopped_on}${why ? ": " + why : ""}`);
-    if (S.route.screen === "home") render();
-    else go("home");
+    if (r.game) {
+      toast(`Final: ${r.game.text}`);
+      go("game", { index: r.game.index });
+    } else {
+      toast(`${r.days} day${r.days === 1 ? "" : "s"} played. Stopped on ${r.stopped_on}${why ? ": " + why : ""}`);
+      if (S.route.screen === "home") render();
+      else go("home");
+    }
   } catch (e) {
     S.busy = false;
     toast(e.message);
@@ -721,6 +746,9 @@ document.addEventListener("input", (ev) => {
 });
 document.addEventListener("change", (ev) => {
   if (ev.target.dataset.act === "conf") go("standings", { conference: ev.target.value });
+  if (ev.target.dataset.act === "focus") {
+    api("set_focus", { id: Number(ev.target.dataset.id), key: ev.target.value }).then(() => toast("Plan saved.")).catch((e) => toast(e.message));
+  }
   if (["s-name", "s-age", "s-state", "s-eth"].includes(ev.target.id)) readSetup();
 });
 document.addEventListener("keydown", (ev) => {

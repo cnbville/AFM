@@ -171,6 +171,8 @@ struct HsPlayed {
     score: [u32; 2],
     team: [crate::game::stats::TeamStats; 2],
     lines: [Vec<(usize, [i32; HS_STAT_COUNT], bool)>; 2],
+    /// The whole game, kept only for your school's game page.
+    full: Option<crate::game::stats::GameStats>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -682,6 +684,8 @@ fn play_week(w: &mut World, s: usize, k: usize, d: Date) {
     let code = w.states[s].code.clone();
     let wx = weather_at(w.options.seed as u64, s, &code, d, 19);
     let storm = wx.severe == Some(Severe::Hurricane);
+    // Your school's games always run on the engine, so you get their game pages.
+    let seat = w.seat_school();
     let hs = w.hs_season.as_mut().unwrap();
     let on_engine = hs.on_engine;
     let mut games = 0;
@@ -720,7 +724,7 @@ fn play_week(w: &mut World, s: usize, k: usize, d: Date) {
             let home_wins = if fh || fa {
                 forfeits += 1;
                 fa
-            } else if on_engine {
+            } else if on_engine || seat.is_some_and(|x| x == h || x == a) {
                 engine.push((h, a, key));
                 continue;
             } else {
@@ -831,6 +835,9 @@ fn hs_team(w: &World, h: usize, week: usize) -> Option<(GameTeam, Vec<(u32, usiz
         },
     );
     team.give_orders(crate::player::Level::HS);
+    if w.seat_school() == Some(h) {
+        team.order = w.seat_depth.clone();
+    }
     // Line chemistry: upperclassmen up front have played together.
     let line_vets = dressed
         .iter()
@@ -867,6 +874,7 @@ fn engine_games(
     } else {
         crate::game::Rules::for_level(crate::player::Level::HS)
     };
+    let seat = w.seat_school();
     let world: &World = w;
     let played: Vec<Option<HsPlayed>> = games
         .par_iter()
@@ -906,7 +914,8 @@ fn engine_games(
                     .collect()
             });
             let [ha, hb] = r.stats.score;
-            Some(HsPlayed { score: [ha.max(0) as u32, hb.max(0) as u32], team: r.stats.team.clone(), lines })
+            let full = seat.is_some_and(|x| x == h || x == a).then(|| r.stats.clone());
+            Some(HsPlayed { score: [ha.max(0) as u32, hb.max(0) as u32], team: r.stats.team.clone(), lines, full })
         })
         .collect();
     let mut out = Vec::with_capacity(games.len());
@@ -932,6 +941,9 @@ fn engine_games(
                     *x += y;
                 }
             }
+        }
+        if let Some(full) = g.full.as_ref() {
+            w.keep_seat_game(Level::HighSchool, [h, a], full);
         }
         w.log.hs_engine_games += 1;
         w.log.hs_totals.add(&g.team[0], &g.team[1]);
@@ -1027,8 +1039,17 @@ fn play_round(w: &mut World, s: usize, r: usize, d: Date) {
     let code = w.states[s].code.clone();
     let wx = weather_at(w.options.seed as u64, s, &code, d, 19);
     let engine: Vec<(usize, usize, u64)> = pairs.iter().map(|&(_, a, b, key)| (a, b, key)).collect();
-    let played =
-        if hs.on_engine { engine_games(w, s, week, &engine, &wx, r == last, seed) } else { vec![None; pairs.len()] };
+    let seat = w.seat_school();
+    let played = if hs.on_engine {
+        engine_games(w, s, week, &engine, &wx, r == last, seed)
+    } else if let Some(k) = seat.and_then(|x| engine.iter().position(|&(a, b, _)| a == x || b == x)) {
+        // Your school's playoff game runs on the engine even in a stand-in season.
+        let mut v = vec![None; pairs.len()];
+        v[k] = engine_games(w, s, week, &engine[k..k + 1], &wx, r == last, seed)[0];
+        v
+    } else {
+        vec![None; pairs.len()]
+    };
     let hs = w.hs_season.as_mut().unwrap();
     let mut outcomes: Vec<(usize, usize)> = Vec::new();
     let mut next_of: HashMap<usize, Vec<usize>> = byes_of.into_iter().collect();
@@ -1771,5 +1792,60 @@ mod tests {
     fn january_all_star_games_start_in_their_real_seasons() {
         assert_eq!(all_star_first_season("All-American Bowl"), 2000);
         assert_eq!(all_star_first_season("Polynesian Bowl"), 2016);
+    }
+}
+
+/// A school in its classification's standings: (school, wins, losses).
+pub type HsStanding = (usize, u32, u32);
+
+/// A high school game on this season's schedule, for the screens.
+#[derive(Clone, Debug)]
+pub struct HsFixture {
+    pub date: Date,
+    pub home: usize,
+    pub away: usize,
+    /// A playoff game (rounds are filled in as the field is set).
+    pub playoff: bool,
+}
+
+impl World {
+    /// A school's regular season this year (empty before the schedule is
+    /// made in the summer).
+    pub fn hs_fixtures(&self, h: usize) -> Vec<HsFixture> {
+        let Some(hs) = self.hs_season.as_ref() else { return Vec::new() };
+        let mut out = Vec::new();
+        for g in hs.groups.iter().filter(|g| g.schools.contains(&h)) {
+            let weeks = &hs.states[g.state].weeks;
+            for (k, week) in g.schedule.iter().enumerate() {
+                if let (Some(&(home, away)), Some(&date)) =
+                    (week.iter().find(|&&(a, b)| a == h || b == h), weeks.get(k))
+                {
+                    out.push(HsFixture { date, home, away, playoff: false });
+                }
+            }
+        }
+        out.sort_by_key(|f| f.date);
+        out
+    }
+
+    /// A school's classification this season: its name and every school's
+    /// (school, wins, losses), best first.
+    pub fn hs_standings(&self, h: usize) -> Option<(String, Vec<HsStanding>)> {
+        let hs = self.hs_season.as_ref()?;
+        let g = hs.groups.iter().find(|g| g.schools.contains(&h))?;
+        let mut rows: Vec<(usize, u32, u32)> = g
+            .schools
+            .iter()
+            .filter(|&&s| hs.results.get(s).is_some_and(|r| r.roster > 0))
+            .map(|&s| (s, hs.results[s].wins, hs.results[s].losses))
+            .collect();
+        rows.sort_by_key(|&(_, wn, l)| (std::cmp::Reverse(wn), l));
+        Some((format!("{} class {}", self.states[g.state].code, g.class + 1), rows))
+    }
+
+    /// A school's record this season, if its season has started.
+    pub fn hs_record(&self, h: usize) -> Option<(u32, u32)> {
+        let r = self.hs_season.as_ref()?.results.get(h)?;
+        Some((r.wins, r.losses))
     }
 }
