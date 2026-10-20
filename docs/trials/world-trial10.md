@@ -10,7 +10,7 @@ Nothing in this trial was fixed. The numbered list at the end waits for Cain's y
 
 ## The world file
 
-The world after the history (February 2026) is the first save: `/mnt/project-files/afm/worlds/world-2026-seed2026.afmworld`.
+The world after the history (February 2026) is the first save: `/mnt/project-files/afm/worlds/world-2026-seed2026.afmworld.001` to `.005` (the shared folder drops files near 2 GB, so it is split in 450 MB parts with a `.sha256` of the whole; the game's importer joins them).
 
 - 1.98 GB, written in 63 s (format 1: `crates/afm-engine/src/save.rs`).
 - Loaded with `world_file` in 73 s at 3.84 GB: 851,571 people, 28,576 alumni, 72,436 coaches, 14,078 high schools, 899 programs, 693,332 people with high school lines.
