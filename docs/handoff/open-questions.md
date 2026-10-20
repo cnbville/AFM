@@ -91,7 +91,7 @@ From `docs/decisions.md` "Still open":
 `docs/design/player-model-decisions.md` items 6-13 were never answered directly. What settled each one later:
 - **6. How much potential can move:** settled by the breakout rule (5b, 5c) and the volatility feedback.
 - **7. What drives development:** partly settled (coaching, coachability, background, playing time). The full list is open.
-- **8. How often development runs:** designed in section 6b (`docs/design/training.md`, topics 12 and 15): Claude's pick is every block and every week of the season, waiting for Cain (choice 1).
+- **8. How often development runs:** designed in section 6b (`docs/design/training.md`, topics 12 and 15): every block and every week of the season (Cain agreed 2026-10-20).
 - **9. Ageing:** partly settled by retirement by position, running QBs fading early and Derrick Henry outliers. The base curve is Claude's.
 - **10. Injuries:** settled by Q39 and section 3 topic 6.
 - **11. The pipeline:** settled by Q9 and Q13 (a full simulated world).
@@ -146,7 +146,7 @@ Done since the specs were written (the specs still say "not done"):
 | Better visuals, maybe 3D | "I am potentially intrested in better visuals so leave room for htat ." | [T13] 2026-10-13 17:50 |
 | Press conferences and player talks | Q43: a news inbox now, these later | Roadmap section 11 |
 | Full club finances | Q28: owner budgets now, full finances later | Roadmap section 11 |
-| Deeper training design | "in the training aspect i see sooooo much realism, potential in there." | [T00] 2026-10-11 19:31; designed in `docs/design/training.md` (2026-10-20), three choices open |
+| Deeper training design | "in the training aspect i see sooooo much realism, potential in there." | [T00] 2026-10-11 19:31; designed in `docs/design/training.md` (2026-10-20), choices confirmed |
 | Possible release beyond personal use | "no itention of releasing it as an steam game" (for now) | [T00] 2026-10-11 18:42 |
 
 ---
