@@ -286,7 +286,7 @@ pub(crate) fn start(w: &mut World) {
             roles.push((i, PlayingTime::Rotation));
         }
     }
-    super::people::camp_mood(w, &roles);
+    super::people::college_camp_mood(w, &roles);
     season::develop(w, &roles);
     season::record_lineups(w);
     let results = season::college_results(w);

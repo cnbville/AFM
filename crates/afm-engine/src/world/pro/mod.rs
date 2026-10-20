@@ -1922,8 +1922,9 @@ fn season_end(w: &mut World, d: Date) {
                 let list = w.clubs[t].depth.get(pos.index()).cloned().unwrap_or_default();
                 for (slot, i) in list.into_iter().enumerate() {
                     let Some(c) = w.people[i].pro.as_mut() else { continue };
-                    // A futures deal signed in January is for next season.
-                    if c.contract.as_ref().is_some_and(|k| k.signed > year)
+                    // A futures deal signed in January is for next season
+                    // (an extension signed now for next season is not).
+                    if c.contract.as_ref().is_some_and(|k| k.kind == money::Kind::Future && k.signed > year)
                         || c.seasons.last().is_some_and(|s| s.year == year && s.ps_weeks > 8)
                     {
                         continue;

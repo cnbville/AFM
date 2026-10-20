@@ -185,13 +185,37 @@ fn people_live() {
         m.year, m.trouble, m.suspensions, m.poached, m.settlements
     );
     assert!((15..=150).contains(&m.trouble), "{} cases in {}", m.trouble, m.year);
-    // Fix list S6.3: no player is paid more than half the cap in a year.
+    // Fix list S6.3: no player is paid more than half the cap in a year
+    // (real highs are about 35-38%: Prescott 2024, Rodgers 2018).
     let cap = money::price_cap(w.year - 1);
-    for p in w.people.iter() {
-        if let Some(s) = p.pro.as_ref().and_then(|c| c.seasons.iter().find(|s| s.year == w.year - 1)) {
-            assert!(s.pay <= 0.5 * cap, "{} paid {:.0} against a cap of {:.0}", p.name, s.pay, cap);
-        }
+    let mut paid: Vec<(f64, usize)> = w
+        .people
+        .iter()
+        .enumerate()
+        .filter_map(|(i, p)| p.pro.as_ref()?.seasons.iter().find(|s| s.year == w.year - 1).map(|s| (s.pay, i)))
+        .collect();
+    paid.sort_by(|a, b| b.0.total_cmp(&a.0));
+    for &(pay, i) in paid.iter().take(3) {
+        let p = &w.people[i];
+        let k = p.pro.as_ref().and_then(|c| c.contract.as_ref());
+        let years: Vec<_> = k.map_or(Vec::new(), |k| {
+            k.years
+                .iter()
+                .filter(|y| y.year >= w.year - 2)
+                .map(|y| (y.year, y.base.round(), y.bonus_paid.round()))
+                .collect()
+        });
+        let last = p.notes.iter().rev().take(4).cloned().collect::<Vec<_>>();
+        eprintln!(
+            "paid {:.1}% of the cap: {} {:?}, signed {:?}, years {years:?}, notes {last:?}",
+            100.0 * pay / cap,
+            p.name,
+            k.map(|k| k.kind),
+            k.map(|k| k.signed)
+        );
     }
+    let (top, i) = paid[0];
+    assert!(top <= 0.5 * cap, "{} paid {top:.0} against a cap of {cap:.0}", w.people[i].name);
 }
 
 #[test]
@@ -200,14 +224,12 @@ fn clubs_scout_and_draft_from_their_own_boards() {
     use afm_engine::world::pro::scouts::Role;
     let w = &*WORLD;
     // Section 7: every club has a director, national and area scouts, and
-    // its files hold only the coming draft class (the last rush cleared
-    // the rest; the world ends in February, after the fall's school calls).
-    let class: std::collections::HashSet<u32> = w
-        .people
-        .iter()
-        .filter(|p| matches!(p.stage, afm_engine::world::Stage::College | afm_engine::world::Stage::Declared))
-        .map(|p| p.player.id)
-        .collect();
+    // its files hold only the coming draft class: none on a pro (the last
+    // rush cleared them; the world ends in February, after the fall's
+    // school calls, and seniors who have left football since keep a file
+    // until the rush).
+    let pros: std::collections::HashSet<u32> =
+        w.people.iter().filter(|p| p.pro.is_some()).map(|p| p.player.id).collect();
     for t in active_teams(w.year) {
         let s = &w.clubs[t].scouts;
         assert_eq!(s.iter().filter(|x| x.role == Role::Director).count(), 1, "the {} directors", w.nfl[t].name);
@@ -215,7 +237,7 @@ fn clubs_scout_and_draft_from_their_own_boards() {
         assert!((5..=10).contains(&s.iter().filter(|x| x.role == Role::Area).count()));
         let files = &w.clubs[t].files;
         assert!(!files.is_empty(), "the {} have no files on the coming class", w.nfl[t].name);
-        assert!(files.keys().all(|id| class.contains(id)), "the {} kept files on a past class", w.nfl[t].name);
+        assert!(!files.keys().any(|id| pros.contains(id)), "the {} kept files on a past class", w.nfl[t].name);
     }
     // The last draft: looks filed, players signed in the rush, picks
     // explained from each club's own board.

@@ -331,14 +331,12 @@ fn starter_bars(w: &World, roster: &[usize]) -> [f64; crate::positions::POSITION
     bars
 }
 
-/// Fall camp's mood read for high school and college players (topics 3
-/// and 4), from the roles the staffs just set: then each program's room
-/// votes its captains and settles its mood. Called before the year's
-/// development lands, which reads it.
-pub(crate) fn camp_mood(w: &mut World, roles: &[(usize, PlayingTime)]) {
-    staff_support(w);
+/// College fall camp's mood read (topics 3 and 4), from the roles the
+/// staffs just set: then each program's room votes its captains and
+/// settles its mood. Called before the year's development lands, which
+/// reads it.
+pub(crate) fn college_camp_mood(w: &mut World, roles: &[(usize, PlayingTime)]) {
     let role_of: std::collections::HashMap<usize, PlayingTime> = roles.iter().copied().collect();
-    // College rooms.
     for k in 0..w.programs.len() {
         let roster = w.programs[k].roster.clone();
         if roster.is_empty() {
@@ -368,8 +366,15 @@ pub(crate) fn camp_mood(w: &mut World, roles: &[(usize, PlayingTime)]) {
         }
         settle_room(w, Room::College(k), &roster);
     }
-    // High school players: their own mood only (no rooms kept).
-    for s in 0..w.high_schools.len() {
+}
+
+/// A state's high school camp: each player's own mood only (no rooms
+/// kept), for that state's schools. The bug check of build 9 found one
+/// read of every school and every college room for each of the 51
+/// states, 22 seconds a season.
+pub(crate) fn hs_camp_mood(w: &mut World, schools: &[usize], roles: &[(usize, PlayingTime)]) {
+    let role_of: std::collections::HashMap<usize, PlayingTime> = roles.iter().copied().collect();
+    for &s in schools {
         let roster = w.high_schools[s].roster.clone();
         if roster.is_empty() {
             continue;
@@ -398,7 +403,8 @@ pub(crate) fn camp_mood(w: &mut World, roles: &[(usize, PlayingTime)]) {
 
 /// NFL camp's mood read (topics 3 and 4): role against his own view, last
 /// season's record, his pay against his market (greed weights it), the
-/// room; then each club's captains and team mood.
+/// room; then each club's captains and team mood. The year's support
+/// staff turnover runs here, once (NFL camp opens before college camp).
 pub(crate) fn pro_mood(w: &mut World) {
     staff_support(w);
     let year = w.year;

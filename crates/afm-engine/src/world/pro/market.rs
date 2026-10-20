@@ -1422,10 +1422,11 @@ pub(crate) fn extension_talks(w: &mut World, d: Date, deadline: bool) {
                 return None;
             }
             // One extension a league year (trial 7 finding 11): a deal
-            // extended this year (it starts next year) is settled; the
+            // extended this year (it starts next year, or this year when
+            // it replaced a tag) or starting this year is settled; the
             // summer's later talks used to extend a one-year extension
             // again.
-            if k.kind == money::Kind::Extension && k.signed > year {
+            if k.kind == money::Kind::Extension && k.signed >= year {
                 return None;
             }
             let left = k.last_year() - year;
@@ -1477,17 +1478,26 @@ pub(crate) fn extension_talks(w: &mut World, d: Date, deadline: bool) {
 }
 
 /// An extension: this year's pay stays, the new deal starts next league
-/// year, and the old deal's later bonus money rides along.
+/// year, and the old deal's later bonus money rides along. A tagged
+/// player's long-term deal replaces the tag instead and starts this
+/// season (real: the tender is withdrawn; the bug check of build 9
+/// found the tag's salary paid on top of the new deal's bonus, 51% of
+/// the cap in one season).
 fn extend(w: &mut World, i: usize, o: &Offer, d: Date) {
     let year = w.year;
-    let terms = terms_for(w, i, o, year + 1);
-    let mut new = money::build(o.team, money::Kind::Extension, year + 1, &terms);
+    let tagged =
+        w.people[i].pro.as_ref().and_then(|c| c.contract.as_ref()).is_some_and(|k| {
+            matches!(k.kind, money::Kind::Franchise | money::Kind::Transition) && k.last_year() == year
+        });
+    let start = if tagged { year } else { year + 1 };
+    let terms = terms_for(w, i, o, start);
+    let mut new = money::build(o.team, money::Kind::Extension, start, &terms);
     let name = w.nfl[o.team].name;
     let p = &mut w.people[i];
     let c = p.pro.as_mut().unwrap();
     let old = c.contract.take().unwrap();
-    let mut years: Vec<money::Year> = old.years.iter().copied().filter(|y| y.year <= year).collect();
-    let later: f64 = old.years.iter().filter(|y| y.year > year).map(|y| y.proration).sum();
+    let mut years: Vec<money::Year> = old.years.iter().copied().filter(|y| y.year < start).collect();
+    let later: f64 = old.years.iter().filter(|y| y.year >= start).map(|y| y.proration).sum();
     if let Some(y1) = new.years.first_mut() {
         y1.proration += later;
     }
@@ -1507,7 +1517,15 @@ fn extend(w: &mut World, i: usize, o: &Offer, d: Date) {
     c.contract = Some(new);
     c.paid = true;
     let age = p.row_age();
-    p.note(format!("Extended by the {name} at {age}: {} at ${:.2}M a year.", count(o.years, "more year"), apy / 1e6));
+    p.note(if tagged {
+        format!(
+            "Signed a long-term deal with the {name} at {age}, replacing the tag: {} at ${:.2}M a year.",
+            count(o.years, "year"),
+            apy / 1e6
+        )
+    } else {
+        format!("Extended by the {name} at {age}: {} at ${:.2}M a year.", count(o.years, "more year"), apy / 1e6)
+    });
     if apy > money::price_cap(year) * 0.06 {
         let who = super::describe(w, i);
         post(

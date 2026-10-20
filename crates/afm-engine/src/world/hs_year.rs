@@ -410,7 +410,7 @@ fn start_state(w: &mut World, s: usize) {
     }
     super::clock::timed("hs reconsider", || season::reconsider_positions(w, &who));
     let roles = super::clock::timed("hs roles", || season::hs_roles(w, &schools));
-    super::clock::timed("hs mood", || super::people::camp_mood(w, &roles));
+    super::clock::timed("hs mood", || super::people::hs_camp_mood(w, &schools, &roles));
     super::clock::timed("hs develop", || season::develop(w, &roles));
     let people = &w.people;
     let mut res: Vec<(usize, TeamResult)> = Vec::with_capacity(schools.len());
