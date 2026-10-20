@@ -5,7 +5,7 @@ The design for section 10 (roadmap: dense FM-style screens with a modern finish,
 How this doc works:
 - Section 8 (`docs/design/first-playable.md`) already settled the app (Tauri, HTML screens drawn by the Mac's WebKit, the engine on its own thread) and lists every screen a full year needs at each level (its topic 5). This section designs how those screens look and work. It re-asks neither.
 - Each topic says what exists: **Built** is in the code, **Decided** is confirmed design, **New** is what this section adds.
-- Real life is the default. For a UI, "real life" means two things: how real football staffs see their information (depth boards, call sheets, the All-22, Next Gen Stats, a draft war room), and the conventions of the management games Cain plays (Football Manager). Where those settle it, it's written in. Taste choices nobody can settle for Cain are listed at the end with Claude's picks; the doc is written on the picks until he answers.
+- Real life is the default. For a UI, "real life" means two things: how real football staffs see their information (depth boards, call sheets, the All-22, Next Gen Stats, a draft war room), and the conventions of the management games Cain plays (Football Manager). Where those settle it, it's written in. Taste choices nobody can settle for Cain are listed at the end. Showtime settled two of them, and Cain agreed to Claude's picks for the other three on 2026-10-20 (19:07, "agree on all").
 - The mock-up of the key screens is the "AFM screens mock" canvas (https://claude.ai/artifact/7CdxyHAryWF24XyA7pvdqF). Round 2 (2026-10-20) draws eight screens on Showtime: home, roster, player page, Game Center, the 2D replay, the recruiting board, early signing day with the reveal, and a talk with a player. Round 3 (the same afternoon) works in Cain's comments on the canvas and his ask for a pass-over ("do a pass-over, i want ultra depth in certain aspects, especially scouting"): every screen got deeper, and three scouting screens were added: a recruit's full scouting file, the scouting department, and the NFL seat's draft board.
 
 Topic order: 1 the window, 2 the look (Showtime), 3 tables, 4 showing what your staff knows, 5 the player page, 6 people and your own profile, 7 your team's screens by seat, 8 inbox, news, talks and press, 9 the big-moment screens, 10 stats, game pages and history, 11 charts, 12 the 2D view, 13 faces and photos on screen, 14 speed and memory, 15 comfort and accessibility, 16 what section 10 builds and when.
@@ -20,7 +20,7 @@ Topic order: 1 the window, 2 the look (Showtime), 3 tables, 4 showing what your 
 - **New:** the frame every screen sits in.
 
 ### The design
-- **The frame, on the pick (choice 1):** a left sidebar in Showtime's frosted `chrome` with your team's mark on top and every area of your job, one click each; Showtime's blurred top bar with back and forward, the screen's breadcrumb, a search box, the date and the Continue button at the top right; the screen itself fills the rest. The sidebar shows only what your seat has: the NFL seat shows Cap and Trades, the college seat Recruiting and NIL, the high school seat Your school and Feeder area.
+- **The frame (choice 1, decided):** a left sidebar in Showtime's frosted `chrome` with your team's mark on top and every area of your job, one click each; Showtime's blurred top bar with back and forward, the screen's breadcrumb, a search box, the date and the Continue button at the top right; the screen itself fills the rest. The sidebar shows only what your seat has: the NFL seat shows Cap and Trades, the college seat Recruiting and NIL, the high school seat Your school and Feeder area.
 - **Back and forward behave like a browser,** with the Mac trackpad swipe and the mouse's back button. Every screen keeps its sort, filters, tab and scroll when you come back to it. (FM26's reset selections were one of its main complaints.)
 - **Search everything** (⌘K): any player, coach, team, school, town, game, record or screen by name, with level and position shown so the 40 people named Jalen Williams can be told apart. It also searches the text of your own notes (topic 5).
 - **Right-click on any name** gives the actions that fit: open, add to "my players", compare, scout, offer, talk, trade for, make an offer, add to the shortlist.
@@ -263,7 +263,7 @@ Where the game view's waiting items would sit (not asked here, still with Cain i
 ### The design
 - **Watch mode is full screen:** the sidebar goes away, the field sits in a room lit by both teams' colours, and the situation bar, playback bar, play-by-play line and side panels are glass over it.
 - **The field from above,** drawn to scale with real markings by level (high school, college and NFL hash marks differ: NFL hashes are 18 ft 6 in apart, college 40 ft, high school 53 ft 4 in), the end zones in the home team's colours and name, the line of scrimmage and the line to gain.
-- **Players are numbered dots** in team colours (choice 4), the way FM's 2D and Next Gen Stats draw them. The ball carrier gets a ring, the ball its own small marker with its height shown by size while in the air.
+- **Players are numbered dots** in team colours (choice 4, decided), the way FM's 2D and Next Gen Stats draw them. The ball carrier gets a ring, the ball its own small marker with its height shown by size while in the air.
 - **The camera** follows the ball at a sideline height that shows all 22 by default (the coaches' All-22 view), with a tight view on the ball and an end-zone view, and free zoom.
 - **Playback:** play, pause, step a tenth of a second at a time, slow motion, replay the play, next and previous play. The engine's ten frames a second are smoothed to the screen's 60.
 - **Next Gen tiles** beside the field update live while a play runs: the target's separation, the ball carrier's speed, time to throw.
@@ -324,7 +324,7 @@ Where the game view's waiting items would sit (not asked here, still with Cain i
 - **Decided:** playable early with plain screens, then depth and polish while playing (Q50, option A). Section 8 builds plain, dense text screens with no art; section 10 brings the finish and the 2D view (section 8 topic 5).
 
 ### The design
-- **Showtime, the frame, the table component and the range meters** (topics 1-4) are the base every screen uses. On the pick (choice 5), section 8's screens are built on them from the start, so the first playable already looks like this and nothing is restyled later. Section 8's "plain screens, no art" then means no faces, no 2D view and no charts yet, not a grey look.
+- **Showtime, the frame, the table component and the range meters** (topics 1-4) are the base every screen uses. Decided (choice 5): section 8's screens are built on them from the start, so the first playable already looks like this and nothing is restyled later. Section 8's "plain screens, no art" then means no faces, no 2D view and no charts yet, not a grey look.
 - **Section 10's own build** then adds what the first playable leaves out: the charts (topic 11), the 2D view (topic 12), faces in the screens (topic 13), the reveals and the full shows' finish (topic 9), the maps (topic 7), and the play designer's drawing (topic 7).
 - **Section 9** designs and builds game day control into the panel the 2D view keeps for it.
 
@@ -332,10 +332,10 @@ Where the game view's waiting items would sit (not asked here, still with Cain i
 
 ## Choices for Cain
 
-Round 1 was posted in the thread on 2026-10-20 with Claude's picks. Cain answered with his Showtime design system (11:08), which settles two of them. The doc is written on the picks for the rest until Cain answers.
+Round 1 was posted in the thread on 2026-10-20 with Claude's picks. Cain answered with his Showtime design system (11:08), which settles two of them. He agreed to the picks for the other three at 19:07 ("agree on all"). All five are decided.
 
-1. **How you move around the game.** A left sidebar in Showtime's chrome with everything one click away, like FM24 (pick), or Showtime's top bar with section tabs and no sidebar. Proposed, not confirmed.
+1. **How you move around the game.** **Decided:** a left sidebar in Showtime's frosted chrome with everything one click away, like FM24, not Showtime's top bar with section tabs (Cain, 2026-10-20 19:07). The game has far more areas than a TV app, and the sidebar always shows where you are.
 2. ~~The default theme.~~ **Settled by Showtime:** dark is the main theme, light is opt-in (Cain, 2026-10-20 11:08).
 3. ~~Your team's colours on the screens.~~ **Settled by Showtime:** the subject's colours light every screen (Cain, 2026-10-20 11:08).
-4. **Players in the 2D view.** Numbered dots like FM's 2D and Next Gen Stats (pick), or small top-down figures with helmets. Proposed, not confirmed.
-5. **Section 8 builds its screens on Showtime from the start** (pick), or plain screens first and Showtime in section 10. Proposed, not confirmed.
+4. **Players in the 2D view.** **Decided:** numbered dots like FM's 2D and Next Gen Stats, not small top-down figures (Cain, 2026-10-20 19:07). Dots stay readable when 22 players bunch up; figures can come later.
+5. **Decided: section 8 builds its screens on Showtime from the start**, not plain screens first with Showtime in section 10 (Cain, 2026-10-20 19:07). Nothing has to be restyled later.
