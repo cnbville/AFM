@@ -550,3 +550,24 @@ fn a_history_through_the_expansion_years_runs() {
         assert!(m.scout_looks > 0, "no scouting in {}", m.year);
     }
 }
+
+/// Section 8, choice 2: the history's last seasons play high school games
+/// on the match engine (here only 2025, the test world's engine year). The
+/// players' lines and the state record books come from them.
+#[test]
+fn high_school_games_run_on_the_engine() {
+    use afm_engine::world::records::{Book, Scope};
+    let w = &*WORLD;
+    let last = w.log_history.iter().find(|l| l.year == 2025).expect("the 2025 season");
+    assert!(last.hs_engine_games > 1000, "{} high school engine games", last.hs_engine_games);
+    let t = &last.hs_totals;
+    let points = t.points_for as f64 / t.games.max(1) as f64;
+    let plays = t.plays as f64 / t.games.max(1) as f64;
+    assert!((8.0..35.0).contains(&points) && (40.0..75.0).contains(&plays), "{points:.1} points, {plays:.1} plays");
+    let with = w.people.iter().filter(|p| p.hs_lines.iter().any(|l| l.year == 2025)).count();
+    assert!(with > 50_000, "{with} players with a 2025 line");
+    let books = w.stats.books.keys().filter(|k| matches!(k.0, Scope::State(_)) && k.1 == Book::Season(0)).count();
+    assert!(books >= 45, "{books} states with a passing yards book");
+    let earlier = w.log_history.iter().filter(|l| l.year < 2025).map(|l| l.hs_engine_games).sum::<u32>();
+    assert_eq!(earlier, 0, "seasons before engine_from stay on the stand-in");
+}
