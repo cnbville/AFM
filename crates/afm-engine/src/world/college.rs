@@ -286,6 +286,7 @@ pub(crate) fn start(w: &mut World) {
             roles.push((i, PlayingTime::Rotation));
         }
     }
+    super::people::college_camp_mood(w, &roles);
     season::develop(w, &roles);
     season::record_lineups(w);
     let results = season::college_results(w);
@@ -2981,6 +2982,21 @@ pub(crate) fn lean_checkpoint(w: &mut World, check: LeanCheck) {
                     } else if g == 0 && p.last_role != Some(PlayingTime::Redshirt) {
                         lean_push(p, date, "no snaps by midseason", 1.15);
                     }
+                }
+                // Section 6 topics 1 and 3: his mood and his loyalty.
+                if p.mood < -0.15 {
+                    lean_push(p, date, "unhappy at the school", (1.0 - 0.6 * p.mood as f64).min(1.6));
+                } else if p.mood > 0.3 {
+                    lean_push(p, date, "happy at the school", 0.85);
+                }
+                let loyal = p.player.personality.traits.z(crate::player::Trait::Loyalty);
+                if loyal.abs() > 0.3 {
+                    lean_push(
+                        p,
+                        date,
+                        if loyal > 0.0 { "loyal to the program" } else { "no deep ties to the program" },
+                        1.0 - 0.2 * loyal,
+                    );
                 }
                 if p.cal.lean >= 0.3 && !p.cal.whispered && (p.stars >= 3 || p.transfers > 0) {
                     p.cal.whispered = true;

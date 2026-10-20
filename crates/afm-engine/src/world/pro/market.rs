@@ -54,9 +54,10 @@ pub fn goals(w: &World, i: usize) -> Goals {
         role: clamp(k(4) + 0.1 * comp, 0.05, 1.0),
         city: k(5),
         home: clamp(0.3 * k(6) + 0.5 * p.stay_home, 0.0, 1.0),
-        loyalty: clamp(k(7) + 0.15 * love, 0.05, 1.0),
-        greed: clamp(k(8) - 0.15 * love, 0.05, 1.0),
-        temper: k(9),
+        // Section 6 topic 1: loyalty, greed and temper are his personality's.
+        loyalty: clamp(0.5 + 0.45 * per.traits.z(crate::player::Trait::Loyalty) + 0.05 * k(7), 0.05, 1.0),
+        greed: clamp(0.5 + 0.45 * per.traits.z(crate::player::Trait::Greed) + 0.05 * k(8), 0.05, 1.0),
+        temper: clamp(0.5 + 0.45 * per.traits.z(crate::player::Trait::Temper) + 0.05 * k(9), 0.05, 1.0),
         alone: key_uniform(w.options.seed as u64 ^ 0xA10E, id) < 0.003,
     }
 }
@@ -401,7 +402,8 @@ pub(crate) fn worth(w: &World, t: usize, i: usize) -> (f64, f64) {
     }
     // Topic 8: fit in this team's systems.
     let fits = super::super::systems::fits(&p.player, pos, &w.system_norms);
-    view += 2.0 * super::super::systems::fit_to(&fits, pos, &w.clubs[t].installed);
+    view +=
+        2.0 * w.clubs[t].office.power.fit_weight() * super::super::systems::fit_to(&fits, pos, &w.clubs[t].installed);
     // The age curve over a deal.
     let end = prime_end(pos);
     if age >= end {
@@ -591,6 +593,8 @@ pub(crate) fn score(w: &World, i: usize, o: &Offer, ideal: &Ideal, own: Option<u
     };
     let trust = p.pro.as_ref().map_or(1.0, |c| c.trust);
     let loyal_q = if own == Some(o.team) { 0.9 + 0.25 * trust } else { 1.0 };
+    // Section 6 topic 2: a grudge against the team, or a coach he played for.
+    let ties_q = super::super::people::ties_q(w, i, o.team);
     let parts = [
         (g.money * 1.6, money_q),
         (g.security, gtd_q),
@@ -600,6 +604,7 @@ pub(crate) fn score(w: &World, i: usize, o: &Offer, ideal: &Ideal, own: Option<u
         (g.city * 0.4, city_q),
         (g.home * 0.4, home_q),
         (g.loyalty * 0.6, loyal_q),
+        (0.4, ties_q),
     ];
     let wsum: f64 = parts.iter().map(|x| x.0).sum();
     let s = parts.iter().map(|x| x.0 * x.1).sum::<f64>() / wsum.max(1e-6);
@@ -1012,7 +1017,38 @@ pub(crate) fn tags_and_tenders(w: &mut World, d: Date) {
         return;
     }
     let top = top_cap_hits(w);
-    let qb_price = tag_at(&top, Position::QB, true, year);
+    // The 2011 CBA's tag formula reads five years of top cap numbers as a
+    // share of each year's cap (fix list S6.3: the tags ran far over real).
+    let cap = money::price_cap(year);
+    let shares: Vec<[f64; 2]> = top
+        .iter()
+        .map(|l| {
+            let f = money::tag_price(l, true, 0.0, 0, 0.0) / cap;
+            let t = money::tag_price(l, false, 0.0, 0, 0.0) / cap;
+            [f, t]
+        })
+        .collect();
+    w.market.tag_shares.push((year, shares));
+    w.market.tag_shares.retain(|(y, _)| *y > year - 5);
+    let bases: Vec<[f64; 2]> = Position::ALL
+        .iter()
+        .map(|&pos| {
+            let one = |k: usize| {
+                let hist: Vec<f64> = w.market.tag_shares.iter().map(|(_, v)| v[pos.index()][k]).collect();
+                let share = if year >= 2011 {
+                    hist.iter().sum::<f64>() / hist.len().max(1) as f64
+                } else {
+                    *hist.last().unwrap_or(&0.0)
+                };
+                // A position with too few paid veterans in the world still
+                // has a real market (the floor sits well under the top five).
+                (share * cap).max(cap * money::top5_share(pos) * 0.45)
+            };
+            [one(0), one(1)]
+        })
+        .collect();
+    let base = |pos: Position, franchise: bool| bases[pos.index()][usize::from(!franchise)];
+    let qb_price = base(Position::QB, true);
     // The best expiring players first; one tag a team a year from 2011, a
     // franchise and a transition tag before (from memory, to check).
     let mut list = expiring(w);
@@ -1028,11 +1064,8 @@ pub(crate) fn tags_and_tenders(w: &mut World, d: Date) {
         let own = c.contract.as_ref().map_or(0.0, |k| k.cap_hit(year - 1));
         if accrued >= money::ufa_seasons(year) {
             let times = c.tags;
-            let franchise =
-                money::tag_price(&top[pos.index()], true, own, times, if times >= 2 { qb_price } else { 0.0 })
-                    .max(money::price_cap(year) * money::top5_share(pos) * 0.85);
-            let transition = money::tag_price(&top[pos.index()], false, own, times, 0.0)
-                .max(money::price_cap(year) * money::top5_share(pos) * 0.72);
+            let franchise = money::tag_repeat(base(pos, true), own, times, if times >= 2 { qb_price } else { 0.0 });
+            let transition = money::tag_repeat(base(pos, false), own, times, 0.0);
             // A one-year tag carries no long-term risk and keeps a core
             // player from walking, so a team pays up to half again its
             // long-term number for it (proposed, not confirmed).
@@ -1143,11 +1176,6 @@ fn top_cap_hits(w: &World) -> Vec<Vec<f64>> {
         l.truncate(10);
     }
     v
-}
-
-fn tag_at(top: &[Vec<f64>], pos: Position, franchise: bool, year: i32) -> f64 {
-    money::tag_price(&top[pos.index()], franchise, 0.0, 0, 0.0)
-        .max(money::price_cap(year) * money::top5_share(pos) * 0.85)
 }
 
 /// The league year opens (March): contracts that ran out end. A void year
@@ -1394,10 +1422,11 @@ pub(crate) fn extension_talks(w: &mut World, d: Date, deadline: bool) {
                 return None;
             }
             // One extension a league year (trial 7 finding 11): a deal
-            // extended this year (it starts next year) is settled; the
+            // extended this year (it starts next year, or this year when
+            // it replaced a tag) or starting this year is settled; the
             // summer's later talks used to extend a one-year extension
             // again.
-            if k.kind == money::Kind::Extension && k.signed > year {
+            if k.kind == money::Kind::Extension && k.signed >= year {
                 return None;
             }
             let left = k.last_year() - year;
@@ -1449,29 +1478,54 @@ pub(crate) fn extension_talks(w: &mut World, d: Date, deadline: bool) {
 }
 
 /// An extension: this year's pay stays, the new deal starts next league
-/// year, and the old deal's later bonus money rides along.
+/// year, and the old deal's later bonus money rides along. A tagged
+/// player's long-term deal replaces the tag instead and starts this
+/// season (real: the tender is withdrawn; the bug check of build 9
+/// found the tag's salary paid on top of the new deal's bonus, 51% of
+/// the cap in one season).
 fn extend(w: &mut World, i: usize, o: &Offer, d: Date) {
     let year = w.year;
-    let terms = terms_for(w, i, o, year + 1);
-    let mut new = money::build(o.team, money::Kind::Extension, year + 1, &terms);
+    let tagged =
+        w.people[i].pro.as_ref().and_then(|c| c.contract.as_ref()).is_some_and(|k| {
+            matches!(k.kind, money::Kind::Franchise | money::Kind::Transition) && k.last_year() == year
+        });
+    let start = if tagged { year } else { year + 1 };
+    let terms = terms_for(w, i, o, start);
+    let mut new = money::build(o.team, money::Kind::Extension, start, &terms);
     let name = w.nfl[o.team].name;
     let p = &mut w.people[i];
     let c = p.pro.as_mut().unwrap();
     let old = c.contract.take().unwrap();
-    let mut years: Vec<money::Year> = old.years.iter().copied().filter(|y| y.year <= year).collect();
-    let later: f64 = old.years.iter().filter(|y| y.year > year).map(|y| y.proration).sum();
+    let mut years: Vec<money::Year> = old.years.iter().copied().filter(|y| y.year < start).collect();
+    let later: f64 = old.years.iter().filter(|y| y.year >= start).map(|y| y.proration).sum();
     if let Some(y1) = new.years.first_mut() {
         y1.proration += later;
     }
+    // The new bonus is paid now, at signing, in this league year (fix list
+    // S6.3: the old deal's bonuses were paid already and are not paid again).
+    let bonus = new.years.first().map_or(0.0, |y| y.bonus_paid);
+    if let Some(now) = years.iter_mut().rev().find(|y| y.year == year && !y.void) {
+        now.bonus_paid += bonus;
+        if let Some(y1) = new.years.first_mut() {
+            y1.bonus_paid = 0.0;
+        }
+    }
     years.append(&mut new.years);
     new.years = years;
-    new.signing_bonus += old.signing_bonus;
     new.option = old.option;
     let apy = o.apy;
     c.contract = Some(new);
     c.paid = true;
     let age = p.row_age();
-    p.note(format!("Extended by the {name} at {age}: {} at ${:.2}M a year.", count(o.years, "more year"), apy / 1e6));
+    p.note(if tagged {
+        format!(
+            "Signed a long-term deal with the {name} at {age}, replacing the tag: {} at ${:.2}M a year.",
+            count(o.years, "year"),
+            apy / 1e6
+        )
+    } else {
+        format!("Extended by the {name} at {age}: {} at ${:.2}M a year.", count(o.years, "more year"), apy / 1e6)
+    });
     if apy > money::price_cap(year) * 0.06 {
         let who = super::describe(w, i);
         post(
@@ -1526,7 +1580,9 @@ pub(crate) fn holdouts(w: &mut World, d: Date, report_day: bool) {
             let g = goals(w, i);
             let age = w.people[i].player.age;
             let leverage = if age <= 29 { 1.0 } else { 0.6 };
-            let push = g.greed * (under / 3.0).min(1.0) * leverage - 0.3 * g.loyalty * c.trust + 0.1 * g.temper;
+            let mood = w.people[i].mood as f64;
+            let push =
+                g.greed * (under / 3.0).min(1.0) * leverage - 0.3 * g.loyalty * c.trust + 0.1 * g.temper - 0.15 * mood;
             if push < 0.3 {
                 continue;
             }
@@ -2035,6 +2091,18 @@ pub struct MarketYear {
     pub june1: u32,
     pub futures: u32,
     pub waiver_claims: u32,
+    /// Practice squad players signed to another team's 53, and injury
+    /// settlements at cutdown (section 5 leftovers).
+    pub poached: u32,
+    pub settlements: u32,
+    /// Off-field cases opened and league suspensions handed out (section 6).
+    pub trouble: u32,
+    pub suspensions: u32,
+    /// Section 7: trades between clubs on draft day, undrafted signings in
+    /// the rush and the looks the clubs' scouts filed on the class.
+    pub draft_trades: u32,
+    pub udfa_signed: u32,
+    pub scout_looks: u32,
     pub holdouts: u32,
     pub holdins: u32,
     pub bluffs: u32,
@@ -2088,6 +2156,11 @@ pub struct Market {
     /// Someone went on waivers since the last claims pass, so `claims`
     /// skips its daily scan of everyone when nobody did.
     pub waivers: bool,
+    /// Each year's franchise and transition tag shares of the cap by
+    /// position (the 2011 formula's five-year history).
+    pub tag_shares: Vec<(i32, Vec<[f64; 2]>)>,
+    /// Off-field cases waiting on the league's ruling (section 6 topic 7).
+    pub cases: Vec<super::super::people::Case>,
 }
 
 impl Market {

@@ -413,6 +413,16 @@ impl Coach {
         &self.ability
     }
 
+    /// His eye for players (section 7, topic 14): how well he judges a
+    /// recruit, 1-20 (hidden). Keyed by the coach, so no draw moves; it
+    /// leans on his recruiting and his teaching (proposed, not confirmed).
+    pub fn evaluation(&self) -> f64 {
+        let a = &self.ability;
+        let teach = a.teaching.iter().sum::<f64>() / GROUP_COUNT as f64;
+        let own = super::season::key_normal(0xE7A1, self.id as u64);
+        crate::rng::clamp(10.0 + 0.3 * (a.recruiting - 10.0) + 0.3 * (teach - 10.0) + 3.0 * own, 1.0, 20.0)
+    }
+
     /// His coaching style (tendencies, "Your coaching style"). An AI coach's
     /// comes from his personality and ability, so programs get identities:
     /// risk is the aggressiveness his play calling already uses (ambition),

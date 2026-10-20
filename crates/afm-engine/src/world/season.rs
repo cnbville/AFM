@@ -416,12 +416,25 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         };
         let role = if p.stage == Stage::PrepSchool { PlayingTime::Rotation } else { role };
         let pers = &p.player.personality;
+        // Section 6 topic 7: professionalism and temper join effort and
+        // coachability; a good room and a strict head coach lower it.
+        let tr = &pers.traits;
         let trouble_p = base_trouble
-            * clamp(1.0 + (10.0 - pers.work_ethic) * 0.12 + (10.0 - pers.coachability) * 0.06, 0.25, 3.0)
+            * clamp(
+                1.0 + (10.0 - pers.work_ethic) * 0.07 + (10.0 - pers.coachability) * 0.04
+                    - 0.5 * tr.z(crate::player::Trait::Professionalism)
+                    + 0.3 * tr.z(crate::player::Trait::Temper),
+                0.25,
+                3.0,
+            )
             * background::trouble_multiplier(&p.player, &p.bg);
         let mut trouble = None;
         if p.rng.chance(trouble_p) {
             p.incident = true;
+            let nil = year >= 2021u64;
+            let kind = super::people::amateur_kind(&mut p.rng, p.stage == Stage::College, nil);
+            let age = p.player.age;
+            p.note(format!("Off-field trouble at {age}: {kind}."));
             trouble = Some(
                 if p.stage == Stage::College
                     && (p.on_notice || p.rng.chance(crate::career::PIPELINE.college_trouble.dismissal_share))
@@ -440,7 +453,10 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         let mut academic_sit = false;
         if p.stage == Stage::College && trouble.is_none() {
             let prog = &programs[p.college.unwrap_or(0)];
-            let support = clamp(0.3 + 0.7 * prog.facilities, 0.0, 1.0);
+            // Academic support (section 6 topic 10): the academic staff's
+            // head beside the facilities.
+            let acad = super::people::Support::z(prog.support.academic.rating);
+            let support = clamp(0.3 + 0.5 * prog.facilities + 0.2 * (0.5 + 0.5 * acad), 0.0, 1.0);
             if p.academic_redshirt {
                 academic_sit = true;
                 p.academic_redshirt = false;
@@ -459,6 +475,11 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             p.bg.gpa = clamp(p.bg.gpa + effort + p.rng.normal(0.0, 0.1), 0.0, 4.0);
         }
         let role = if academic_sit { PlayingTime::Redshirt } else { role };
+        // Section 6: his mood and his room's, his strength and medical staff.
+        let prog = (p.stage == Stage::College).then(|| &programs[p.college.unwrap_or(0)]);
+        let room = prog.map_or(0.0, |g| g.team_mood);
+        let morale = super::people::morale(p, room);
+        let (physical, medical) = super::people::support_ctx(prog.map(|g| &g.support), &p.player.personality);
         let ctx = SeasonContext {
             trouble,
             adjustment: p.pending_dip.take().unwrap_or(0.0),
@@ -467,6 +488,9 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             style,
             scheme,
             tend_centre: centres.get(level, p.player.position),
+            morale,
+            physical,
+            medical,
             ..SeasonContext::new(level, clamp(coaching, 1.0, 20.0), role)
         };
         develop_season(&mut p.player, &ctx, &mut p.rng);

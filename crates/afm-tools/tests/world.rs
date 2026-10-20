@@ -123,6 +123,7 @@ fn the_nfl_lives() {
         assert!((45..=95).contains(&held), "the {} hold {held} players", w.nfl[t].name);
     }
     // The hard cap holds on opening day, and teams spend most of it.
+    // Every year once the spin-up's first classes are seniors.
     for m in w.market.years.iter().filter(|m| money::capped(m.year) && m.cap_use[1] > 0.0) {
         assert!(m.cap_use[2] <= 1.001, "{}: a team at {:.3} of the cap on opening day", m.year, m.cap_use[2]);
         assert!(m.cap_use[1] >= 0.8, "{}: the median team at {:.3} of the cap", m.year, m.cap_use[1]);
@@ -143,4 +144,190 @@ fn the_nfl_lives() {
     assert!(m.signed_new >= 50, "{} free agents changed teams in {}", m.signed_new, m.year);
     assert!(m.trades >= 1, "no trades in {}", m.year);
     assert!(m.futures >= 100, "{} reserve/future deals in {}", m.futures, m.year);
+}
+
+#[test]
+fn people_live() {
+    use afm_engine::player::Trait;
+    use afm_engine::world::franchise::active_teams;
+    use afm_engine::world::pro::money;
+    let w = &*WORLD;
+    // Section 6: every club and FBS program has its support heads and captains.
+    for t in active_teams(w.year) {
+        let c = &w.clubs[t];
+        assert!(c.support.strength.rating > 0 && c.support.medical.rating > 0, "the {} lack staff", w.nfl[t].name);
+        // Six voted; one who has left since the vote is off the list.
+        assert!((3..=6).contains(&c.captains.len()), "the {} have {} captains", w.nfl[t].name, c.captains.len());
+        assert!(
+            c.captains.iter().all(|&i| w.people[i].pro.is_some()),
+            "the {} captains point at non-pros",
+            w.nfl[t].name
+        );
+    }
+    let fbs: Vec<_> = w.programs.iter().filter(|p| p.division == Division::FBS && p.plays(w.year)).collect();
+    assert!(fbs.iter().all(|p| p.support.academic.rating > 0));
+    assert!(fbs.iter().filter(|p| p.captains.len() >= 3).count() * 10 >= fbs.len() * 9);
+    // Traits average near 10 with a real spread.
+    let traits: Vec<f64> =
+        w.people.iter().take(50_000).map(|p| p.player.personality.traits.get(Trait::Professionalism)).collect();
+    let mean = traits.iter().sum::<f64>() / traits.len() as f64;
+    assert!((9.0..12.0).contains(&mean), "professionalism averages {mean:.2}");
+    // Moods spread both ways among college players.
+    let moods: Vec<f32> = w.people.iter().filter(|p| p.college.is_some() && p.pro.is_none()).map(|p| p.mood).collect();
+    let low = moods.iter().filter(|&&m| m < -0.2).count() as f64 / moods.len() as f64;
+    let high = moods.iter().filter(|&&m| m > 0.2).count() as f64 / moods.len() as f64;
+    eprintln!("college moods: {:.1}% low, {:.1}% high of {}", 100.0 * low, 100.0 * high, moods.len());
+    assert!(low > 0.015 && high > 0.015, "moods {low:.3} low, {high:.3} high");
+    // Pros get into trouble at about the real rate, and some are suspended.
+    let m = w.market.years.iter().find(|m| m.year == w.year - 1).unwrap();
+    eprintln!(
+        "{}: {} cases, {} suspensions, {} poached, {} settlements",
+        m.year, m.trouble, m.suspensions, m.poached, m.settlements
+    );
+    assert!((15..=150).contains(&m.trouble), "{} cases in {}", m.trouble, m.year);
+    // Fix list S6.3: no player is paid more than half the cap in a year
+    // (real highs are about 35-38%: Prescott 2024, Rodgers 2018).
+    let cap = money::price_cap(w.year - 1);
+    let mut paid: Vec<(f64, usize)> = w
+        .people
+        .iter()
+        .enumerate()
+        .filter_map(|(i, p)| p.pro.as_ref()?.seasons.iter().find(|s| s.year == w.year - 1).map(|s| (s.pay, i)))
+        .collect();
+    paid.sort_by(|a, b| b.0.total_cmp(&a.0));
+    for &(pay, i) in paid.iter().take(3) {
+        let p = &w.people[i];
+        let k = p.pro.as_ref().and_then(|c| c.contract.as_ref());
+        let years: Vec<_> = k.map_or(Vec::new(), |k| {
+            k.years
+                .iter()
+                .filter(|y| y.year >= w.year - 2)
+                .map(|y| (y.year, y.base.round(), y.bonus_paid.round()))
+                .collect()
+        });
+        let last = p.notes.iter().rev().take(4).cloned().collect::<Vec<_>>();
+        eprintln!(
+            "paid {:.1}% of the cap: {} {:?}, signed {:?}, years {years:?}, notes {last:?}",
+            100.0 * pay / cap,
+            p.name,
+            k.map(|k| k.kind),
+            k.map(|k| k.signed)
+        );
+    }
+    let (top, i) = paid[0];
+    assert!(top <= 0.5 * cap, "{} paid {top:.0} against a cap of {cap:.0}", w.people[i].name);
+}
+
+#[test]
+fn clubs_scout_and_draft_from_their_own_boards() {
+    use afm_engine::world::franchise::active_teams;
+    use afm_engine::world::pro::scouts::Role;
+    let w = &*WORLD;
+    // Section 7: every club has a director, national and area scouts, and
+    // its files hold only the coming draft class: none on a pro (the last
+    // rush cleared them; the world ends in February, after the fall's
+    // school calls, and seniors who have left football since keep a file
+    // until the rush).
+    let pros: std::collections::HashSet<u32> =
+        w.people.iter().filter(|p| p.pro.is_some()).map(|p| p.player.id).collect();
+    for t in active_teams(w.year) {
+        let s = &w.clubs[t].scouts;
+        assert_eq!(s.iter().filter(|x| x.role == Role::Director).count(), 1, "the {} directors", w.nfl[t].name);
+        assert!(s.iter().filter(|x| x.role == Role::National).count() >= 1);
+        assert!((5..=10).contains(&s.iter().filter(|x| x.role == Role::Area).count()));
+        let files = &w.clubs[t].files;
+        assert!(!files.is_empty(), "the {} have no files on the coming class", w.nfl[t].name);
+        assert!(!files.keys().any(|id| pros.contains(id)), "the {} kept files on a past class", w.nfl[t].name);
+    }
+    // The last draft: looks filed, players signed in the rush, picks
+    // explained from each club's own board.
+    let m = w.market.years.iter().rev().find(|m| m.udfa_signed > 0).expect("no undrafted signings");
+    eprintln!(
+        "{}: {} looks, {} draft-day trades, {} undrafted signed",
+        m.year, m.scout_looks, m.draft_trades, m.udfa_signed
+    );
+    assert!(m.scout_looks > 1_000, "{} looks in {}", m.scout_looks, m.year);
+    let own = w.people.iter().filter(|p| p.notes.iter().any(|n| n.contains("their board grade"))).count();
+    assert!(own > 0, "no pick names its board");
+}
+
+/// A seed gives the same world on any number of cores (bug check, build
+/// 9): two small worlds built on one core and on four match person by
+/// person, draft pick by draft pick and in the NFL's money.
+#[test]
+fn a_seed_gives_the_same_world_on_any_core_count() {
+    use std::hash::{Hash, Hasher};
+    let build = |threads: usize| {
+        let pool = rayon::ThreadPoolBuilder::new().num_threads(threads).build().unwrap();
+        pool.install(|| {
+            let w = World::new(WorldOptions {
+                seed: 11,
+                scale: 0.05,
+                history_years: 2,
+                engine_from: Some(2100),
+                ..Default::default()
+            });
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            for p in &w.people {
+                p.player.id.hash(&mut h);
+                p.player.overall().to_bits().hash(&mut h);
+                p.mood.to_bits().hash(&mut h);
+                (p.stage as u8).hash(&mut h);
+                p.college.hash(&mut h);
+                p.pro.as_ref().map(|c| (c.team, c.contract.as_ref().map(|k| k.apy().to_bits()))).hash(&mut h);
+            }
+            for c in &w.clubs {
+                c.captains.hash(&mut h);
+                c.scouts.len().hash(&mut h);
+            }
+            for m in &w.market.years {
+                (m.year, m.signed_new, m.trades, m.draft_trades, m.udfa_signed, m.trouble).hash(&mut h);
+            }
+            (h.finish(), w.people.len())
+        })
+    };
+    let (one, n) = build(1);
+    let (four, m) = build(4);
+    eprintln!("{n} people, hashes {one:x} and {four:x}");
+    assert_eq!(n, m);
+    assert_eq!(one, four, "the same seed built a different world on 1 and 4 cores");
+}
+
+/// The history's franchise changes (trial 9 crashed in 1995, when the new
+/// Panthers and Jaguars had a draft but no scouts) and every era of the
+/// history the 3-year world doesn't reach: a small world from 1990 to
+/// 2010 on the quick stand-in, through the expansion of 1995, the Browns'
+/// move to Baltimore (1996), their return (1999), the Texans (2002) and
+/// the uncapped year (2010). Every club that picks has a department,
+/// every look in a file names someone who exists, and the returning
+/// Browns hired a new department.
+#[test]
+fn a_history_through_the_expansion_years_runs() {
+    use afm_engine::world::pro::scouts::{GM, Role};
+    let w = World::new(WorldOptions {
+        seed: 5,
+        scale: 0.05,
+        history_years: 9,
+        start_year: 2011,
+        engine_from: Some(2100),
+        ..Default::default()
+    });
+    for (t, c) in w.clubs.iter().enumerate() {
+        if !afm_engine::world::franchise::active(t, w.year) {
+            continue;
+        }
+        let name = &w.nfl[t].name;
+        assert!(c.scouts.iter().any(|s| s.role == Role::Director), "{name} have no scouting director");
+        for (id, looks) in &c.files {
+            for l in looks {
+                assert!(l.who >= GM || (l.who as usize) < c.scouts.len(), "{name}: a look at {id} by scout {}", l.who);
+            }
+        }
+    }
+    // The Browns (7) went dark in 1996 and came back in 1999.
+    assert!(w.clubs[7].scouts.iter().all(|s| s.since >= 1998), "the returning Browns kept scouts from before 1998");
+    // Every year once the spin-up's first classes are seniors.
+    for m in w.market.years.iter().filter(|m| (1995..=2010).contains(&m.year)) {
+        assert!(m.scout_looks > 0, "no scouting in {}", m.year);
+    }
 }

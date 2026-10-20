@@ -321,6 +321,20 @@ fn main() {
             w.alumni[k].pick.is_none()
                 && career(k).is_some_and(|c| c.seasons.iter().map(|s| s.starts).sum::<u32>() >= 32)
         });
+        // Build 9 (sections 6 and 7): draft-day trades, undrafted rush
+        // signings, suspensions and captains.
+        let noted = |k: usize, text: &str| {
+            w.people
+                .iter()
+                .find(|q| q.pro.as_ref().and_then(|c| c.alumnus) == Some(k))
+                .map_or(&w.alumni[k].notes, |q| &q.notes)
+                .iter()
+                .any(|n| n.contains(text))
+        };
+        extra("Traded up for on draft day", 3, &|k| noted(k, "traded up to pick"));
+        extra("Undrafted rush signing", 3, &|k| noted(k, "as an undrafted free agent"));
+        extra("Suspended", 3, &|k| noted(k, "Suspended"));
+        extra("Off-field trouble, no suspension", 2, &|k| noted(k, "ended without a suspension"));
         let cards: Vec<serde_json::Value> =
             picked.iter().map(|(k, tag)| afm_tools::dashboard::card(&w, *k, tag)).collect();
         std::fs::write(&path, serde_json::to_string(&cards).unwrap()).unwrap();
@@ -1906,6 +1920,7 @@ fn nfl_league(w: &World, years: u32) {
             m.carryover[2]
         );
     }
+    sections_6_and_7(w, first);
     // Who holds the rosters now.
     let (mut drafted, mut undrafted, mut generated, mut ipp, mut held) = (0, 0, 0, 0, 0);
     let mut ages = Vec::new();
@@ -2019,4 +2034,153 @@ fn nfl_league(w: &World, years: u32) {
         .filter(|p| p.stage == Stage::Pro && p.pro.as_ref().is_some_and(|c| matches!(c.status, Status::Other(_))))
         .count();
     println!("\nUnsigned pros now: {unsigned}; in other leagues: {other}.");
+}
+
+/// Build 9's world side, measured (sections 6 and 7): each year's draft-day
+/// trades, undrafted signings, scouting looks, poaching, injury
+/// settlements, elevations and off-field cases; then moods, captains,
+/// support staffs and scouting departments now.
+fn sections_6_and_7(w: &World, first: i32) {
+    use afm_engine::player::Trait;
+    use afm_engine::world::pro::scouts::Role;
+    println!("\n## Sections 6 and 7, the world side (build 9)");
+    println!(
+        "| year | draft trades | undrafted signed | scout looks | poached | injury settlements | elevations | trouble cases | suspensions |"
+    );
+    println!("|---|---|---|---|---|---|---|---|---|");
+    for m in w.market.years.iter().filter(|m| m.year >= first) {
+        let elev: u32 = w
+            .people
+            .iter()
+            .filter_map(|p| p.pro.as_ref())
+            .flat_map(|c| c.seasons.iter().filter(|s| s.year == m.year))
+            .map(|s| s.elevations)
+            .sum::<u32>()
+            + w.alumni
+                .iter()
+                .filter_map(|a| a.pro.as_ref())
+                .flat_map(|c| c.seasons.iter().filter(|s| s.year == m.year))
+                .map(|s| s.elevations)
+                .sum::<u32>();
+        println!(
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} |",
+            m.year,
+            m.draft_trades,
+            m.udfa_signed,
+            m.scout_looks,
+            m.poached,
+            m.settlements,
+            elev,
+            m.trouble,
+            m.suspensions
+        );
+    }
+    // Moods now, by level.
+    let band = |v: &[f32]| {
+        let n = v.len().max(1) as f64;
+        let low = v.iter().filter(|&&m| m < -0.2).count() as f64 / n;
+        let high = v.iter().filter(|&&m| m > 0.2).count() as f64 / n;
+        let mean = v.iter().map(|&m| m as f64).sum::<f64>() / n;
+        format!(
+            "{} players, mean {mean:+.2}, {:.1}% low (under -0.2), {:.1}% high (over 0.2)",
+            v.len(),
+            100.0 * low,
+            100.0 * high
+        )
+    };
+    let college: Vec<f32> = w.people.iter().filter(|p| p.stage == Stage::College).map(|p| p.mood).collect();
+    let nfl: Vec<f32> = w
+        .people
+        .iter()
+        .filter(|p| p.pro.as_ref().is_some_and(|c| c.team.is_some() && c.held()))
+        .map(|p| p.mood)
+        .collect();
+    println!("\nMoods now: college {}; NFL {}.", band(&college), band(&nfl));
+    let mut why = [0usize; 9];
+    for p in w.people.iter().filter(|p| p.stage == Stage::College || p.pro.as_ref().is_some_and(|c| c.held())) {
+        why[(p.mood_why as usize).min(8)] += 1;
+    }
+    let names = ["settled", "role", "happy with role", "losing", "winning", "coach", "life", "room", "money"];
+    println!(
+        "Main reasons: {}.",
+        names.iter().zip(why.iter()).map(|(n, c)| format!("{n} {c}")).collect::<Vec<_>>().join(", ")
+    );
+    let trust: Vec<f64> = w.people.iter().filter(|p| p.stage == Stage::College).map(|p| p.trust as f64).collect();
+    println!("College trust in the head coach: mean {:.2}.", trust.iter().sum::<f64>() / trust.len().max(1) as f64);
+    // Rooms.
+    let year = w.year;
+    let fbs: Vec<&afm_engine::world::program::Program> =
+        w.programs.iter().filter(|p| p.division == Division::FBS && p.plays(year)).collect();
+    let mut rooms: Vec<(f32, &str)> = fbs.iter().map(|p| (p.team_mood, p.real_name.as_str())).collect();
+    rooms.sort_by(|a, b| a.0.total_cmp(&b.0));
+    if let (Some(lo), Some(hi)) = (rooms.first(), rooms.last()) {
+        println!(
+            "FBS rooms: team mood {:+.2} ({}) to {:+.2} ({}); captains per program {:.1}.",
+            lo.0,
+            lo.1,
+            hi.0,
+            hi.1,
+            fbs.iter().map(|p| p.captains.len()).sum::<usize>() as f64 / fbs.len().max(1) as f64
+        );
+    }
+    let mut cap_lines = Vec::new();
+    for t in afm_engine::world::franchise::active_teams(year).into_iter().take(4) {
+        let c = &w.clubs[t];
+        let names: Vec<String> = c
+            .captains
+            .iter()
+            .map(|&i| {
+                let p = &w.people[i];
+                format!(
+                    "{} ({}, leadership {:.0})",
+                    p.name,
+                    p.player.position.name(),
+                    p.player.personality.traits.get(Trait::Leadership)
+                )
+            })
+            .collect();
+        cap_lines.push(format!("- {} (team mood {:+.2}): {}", w.nfl[t].name, c.team_mood, names.join(", ")));
+    }
+    println!("NFL captains (first four clubs):\n{}", cap_lines.join("\n"));
+    // Support staffs and scouting departments.
+    let mean = |v: &[f64]| v.iter().sum::<f64>() / v.len().max(1) as f64;
+    let support: Vec<f64> = w
+        .clubs
+        .iter()
+        .flat_map(|c| [c.support.strength.rating, c.support.medical.rating, c.support.analytics.rating])
+        .filter(|&r| r > 0)
+        .map(|r| r as f64)
+        .collect();
+    let college_support: Vec<f64> = fbs
+        .iter()
+        .flat_map(|p| {
+            [p.support.strength.rating, p.support.medical.rating, p.support.analytics.rating, p.support.academic.rating]
+        })
+        .map(|r| r as f64)
+        .collect();
+    println!(
+        "Support heads: NFL mean {:.1} of 20 ({} posts), FBS mean {:.1} ({} posts).",
+        mean(&support),
+        support.len(),
+        mean(&college_support),
+        college_support.len()
+    );
+    let mut sizes = Vec::new();
+    let mut judge = Vec::new();
+    for t in afm_engine::world::franchise::active_teams(year) {
+        let s = &w.clubs[t].scouts;
+        let area = s.iter().filter(|x| x.role == Role::Area).count();
+        let nat = s.iter().filter(|x| x.role == Role::National).count();
+        sizes.push((area, nat));
+        judge.extend(s.iter().map(|x| x.judge as f64));
+    }
+    let areas: Vec<f64> = sizes.iter().map(|x| x.0 as f64).collect();
+    println!(
+        "Scouting departments: area scouts {:.1} a club ({}-{}), national scouts {:.1}, judging mean {:.1}.",
+        mean(&areas),
+        sizes.iter().map(|x| x.0).min().unwrap_or(0),
+        sizes.iter().map(|x| x.0).max().unwrap_or(0),
+        mean(&sizes.iter().map(|x| x.1 as f64).collect::<Vec<_>>()),
+        mean(&judge)
+    );
 }

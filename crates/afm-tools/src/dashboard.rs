@@ -118,6 +118,11 @@ pub fn card(w: &World, k: usize, tag: &str) -> Value {
         "background": a.background_summary, "notes": notes, "pro": pro,
         "personality": {"work_ethic": p.personality.work_ethic.round(), "coachability": p.personality.coachability.round(),
             "competitiveness": p.personality.competitiveness.round(), "love_of_game": p.personality.love_of_game.round()},
+        // Section 6: the 8 traits, and his mood and trust if he is still active.
+        "traits": afm_engine::player::Trait::ALL.iter().map(|&t| json!([format!("{t:?}"), p.personality.traits.get(t)])).collect::<Vec<_>>(),
+        "mood": live.map(|q| (q.mood as f64 * 100.0).round() / 100.0),
+        "trust": live.map(|q| (q.trust as f64 * 100.0).round() / 100.0),
+        "mood_why": live.map(|q| afm_engine::world::people::Why::from_u8(q.mood_why).words()),
         "bloom": (p.bloom * 10.0).round() / 10.0, "injury": p.injury_proneness.round(),
         "attributes": attrs, "seasons": seasons, "college_stats": college_stats(w, p.id)
     })

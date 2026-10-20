@@ -15,6 +15,8 @@ pub mod leagues;
 pub mod market;
 pub mod money;
 pub mod office;
+pub mod scouts;
+pub mod squad;
 pub mod trades;
 
 use super::season::{key_normal, key_uniform};
@@ -61,6 +63,8 @@ pub struct ProSeason {
     /// 1 first team, 2 second team.
     pub all_pro: u8,
     pub awards: Vec<&'static str>,
+    /// Game-day elevations from the practice squad (2020 on).
+    pub elevations: u32,
     /// His statistics (filled by the engine games).
     pub stats: crate::game::stats::StatLine,
 }
@@ -130,6 +134,13 @@ pub struct ProCareer {
     pub ipp: bool,
     /// Spring snaps abroad (an NFL Europe allocation), as a share of a season.
     pub spring_snaps: f64,
+    /// Section 6 topic 2: grudges against teams that cut or traded him
+    /// (team, strength 1-20), fading each year.
+    pub grudges: Vec<(u8, u8)>,
+    /// Section 6 topic 7: games left on a league suspension, and paid
+    /// leave on the commissioner exempt list (weeks).
+    pub suspended: u32,
+    pub exempt: u32,
 }
 
 impl ProCareer {
@@ -168,6 +179,9 @@ impl ProCareer {
             on_waivers: false,
             ipp: false,
             spring_snaps: 0.0,
+            grudges: Vec::new(),
+            suspended: 0,
+            exempt: 0,
         }
     }
 
@@ -188,6 +202,14 @@ impl ProCareer {
 /// depth chart and its books.
 #[derive(Clone, Debug, Default)]
 pub struct Club {
+    /// Section 6: the support staff's heads, the room's mood and captains.
+    pub support: super::people::Support,
+    pub team_mood: f32,
+    pub captains: Vec<usize>,
+    /// Section 7: its personnel department and its file on each draft
+    /// prospect (by player id), kept from the fall to the undrafted rush.
+    pub scouts: Vec<scouts::Scout>,
+    pub files: std::collections::HashMap<u32, Vec<scouts::Look>>,
     /// Everyone on its books: roster, practice squad and reserve lists.
     pub roster: Vec<usize>,
     /// The depth chart at each position, best first (the active roster).
@@ -219,6 +241,8 @@ pub enum DeadWhy {
     Released,
     /// Guaranteed pay owed once a waived player clears waivers.
     Waived,
+    /// An injury settlement for a player cut while hurt.
+    Settlement,
     /// A roster deal replaced by a practice squad deal at cutdown.
     PracticeSquad,
     Retired,
@@ -263,11 +287,20 @@ pub(crate) fn remap_people(w: &mut World, map: &[Option<usize>]) {
     let at = |i: usize| map.get(i).copied().flatten();
     for c in w.clubs.iter_mut() {
         c.office.owner.pet = c.office.owner.pet.and_then(at);
+        c.captains = c.captains.iter().filter_map(|&i| at(i)).collect();
+    }
+    // College captains are held by place too (bug check, build 9: they
+    // pointed at other people from signing day to the next camp).
+    for prog in w.programs.iter_mut() {
+        prog.captains = prog.captains.iter().filter_map(|&i| at(i)).collect();
     }
     let book = &mut w.market.picks;
     book.cfa.retain_mut(|x| at(x.1).map(|i| x.1 = i).is_some());
     w.market.pending.retain_mut(|x| at(x.person).map(|i| x.person = i).is_some());
     w.market.sheets.retain_mut(|x| at(x.person).map(|i| x.person = i).is_some());
+    // Off-field cases wait weeks for a ruling, across signing day (bug
+    // check, build 9: a ruling landed on whoever took his place).
+    w.market.cases.retain_mut(|x| at(x.person).map(|i| x.person = i).is_some());
 }
 
 /// Rebuilds every club's list from the people (after the yearly compaction
@@ -521,6 +554,7 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
     );
     let family = super::background::generate_family(&bg, Some(structure), &mut rng);
     super::background::apply_background(&mut player, &mut bg, &family, &mut rng);
+    super::people::sync_new(&mut player, &bg, &family);
     let ethnicity = super::ethnicity::player_ethnicity(state, z, &mut rng);
     let year = w.year;
     // His college: an FBS program by its prestige, a few from below.
@@ -572,6 +606,10 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
         childhood_team: None,
         cal: PersonCal::default(),
         pro: None,
+        mood: 0.0,
+        mood_why: 0,
+        trust: 0.6,
+        trust_in: u32::MAX,
     }
 }
 
@@ -729,8 +767,8 @@ pub(crate) fn undrafted_team(w: &World, i: usize) -> usize {
 }
 
 /// An undrafted player signs with a team in the rush.
-pub(crate) fn join_undrafted(w: &mut World, i: usize, t: usize, year: i32, wanted: f64) {
-    let terms = money::undrafted_terms(year, wanted);
+pub(crate) fn join_undrafted(w: &mut World, i: usize, t: usize, year: i32, terms: &money::Terms) {
+    let terms = *terms;
     let mut c = ProCareer::new(Some(t), Status::Roster, year);
     c.contract = Some(money::build(t, money::Kind::Undrafted, year, &terms));
     c.alumnus = w.recording.then(|| w.alumni.len().saturating_sub(1));
@@ -1050,6 +1088,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
     // calls, the unsigned veteran's week (topic 1.3).
     if d >= y.cutdown.date && d.weekday() == crate::calendar::Weekday::Tue && d <= y.super_bowl {
         super::clock::timed("pro heal", || heal_week(w));
+        changed |= super::clock::timed("pro poach", || squad::poach(w, d));
         changed |= super::clock::timed("pro street", || street_signings(w, d, true));
         changed |= super::clock::timed("pro fill", || fill_roster(w, d));
         super::clock::timed("pro unsigned", || unsigned_week(w, d));
@@ -1057,6 +1096,10 @@ pub(crate) fn day(w: &mut World, d: Date) {
         // Injuries heal in the offseason too (they only healed in season,
         // so a late-season injury lasted into the next season).
         super::clock::timed("pro heal", || offseason_heal(w));
+    }
+    // Off-field trouble and the league's rulings, every Tuesday (section 6).
+    if d.weekday() == crate::calendar::Weekday::Tue {
+        super::clock::timed("pro trouble", || super::people::pro_trouble_week(w, d));
     }
     // The Hall of Fame class is named the Saturday before the Super Bowl.
     if d == y.super_bowl.add(-1) {
@@ -1177,6 +1220,10 @@ pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: b
     } else {
         c.contract = None;
     }
+    // A veteran cut before his deal ran out can hold it against the team
+    // (section 6 topic 2): it hurts more the longer he was there.
+    let years_there = c.seasons.iter().filter(|s| s.team == Some(t)).count() as f64;
+    let expired = c.contract.as_ref().is_none_or(|k| k.last_year() < year);
     c.status = Status::FreeAgent;
     c.team = None;
     c.weeks_unsigned = 0;
@@ -1187,6 +1234,9 @@ pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: b
     c.wants_out = false;
     c.ideal = None;
     w.clubs[t].roster.retain(|&x| x != i);
+    if !expired && years_there >= 2.0 && !matches!(cause, DeadWhy::Retired) {
+        super::people::grudge(&mut w.people[i], t, (years_there / 4.0).min(1.0));
+    }
     let id = w.people[i].player.id;
     w.clubs[t].add_dead(year, dead.0.max(0.0), id, cause);
     w.clubs[t].add_dead(year + 1, dead.1, id, cause);
@@ -1336,6 +1386,7 @@ pub(crate) fn sign(w: &mut World, i: usize, t: usize, d: Date, apy: f64, years: 
 /// on a new team adjust.
 fn camp(w: &mut World, d: Date) {
     super::coach::set_freedom_norms(w);
+    super::people::pro_mood(w);
     let year = w.year;
     let league_strength = {
         let teams: Vec<f64> =
@@ -1403,6 +1454,14 @@ fn camp(w: &mut World, d: Date) {
             }
             None => (None, None),
         };
+        // Section 6: his mood and the room's, his strength and medical staff.
+        let (morale, physical, medical) = {
+            let p = &w.people[i];
+            let room = team.map_or(0.0, |t| w.clubs[t].team_mood);
+            let support = team.map(|t| &w.clubs[t].support);
+            let (ph, me) = super::people::support_ctx(support, &p.player.personality);
+            (super::people::morale(p, room), ph, me)
+        };
         let p = &mut w.people[i];
         let mut adjustment = 0.0;
         if team.is_some() && (first || new_team) && role != PlayingTime::Unsigned {
@@ -1442,6 +1501,9 @@ fn camp(w: &mut World, d: Date) {
             style,
             scheme,
             tend_centre: centres.get(Level::NFL, p.player.position),
+            morale,
+            physical,
+            medical,
             ..crate::development::SeasonContext::new(Level::NFL, clamp(coaching, 1.0, 20.0), role)
         };
         crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);
@@ -1651,6 +1713,7 @@ fn cutdown(w: &mut World, d: Date) {
             p.note(format!("Cut from the {name}'s roster at {age}, he stayed on the practice squad."));
         }
         for i in cut {
+            squad::settle_injury(w, t, i);
             release(w, i, d, "cut at the final cutdown");
         }
     }
@@ -1859,8 +1922,9 @@ fn season_end(w: &mut World, d: Date) {
                 let list = w.clubs[t].depth.get(pos.index()).cloned().unwrap_or_default();
                 for (slot, i) in list.into_iter().enumerate() {
                     let Some(c) = w.people[i].pro.as_mut() else { continue };
-                    // A futures deal signed in January is for next season.
-                    if c.contract.as_ref().is_some_and(|k| k.signed > year)
+                    // A futures deal signed in January is for next season
+                    // (an extension signed now for next season is not).
+                    if c.contract.as_ref().is_some_and(|k| k.kind == money::Kind::Future && k.signed > year)
                         || c.seasons.last().is_some_and(|s| s.year == year && s.ps_weeks > 8)
                     {
                         continue;
@@ -1878,9 +1942,7 @@ fn season_end(w: &mut World, d: Date) {
         let c = p.pro.as_mut().unwrap();
         let held = c.held();
         let squad = c.status == Status::PracticeSquad;
-        let pay = c.contract.as_ref().map_or(0.0, |k| {
-            k.year(year).map_or(0.0, |x| x.cash()) + if k.signed == year { k.signing_bonus } else { 0.0 }
-        });
+        let pay = c.contract.as_ref().map_or(0.0, |k| k.year(year).map_or(0.0, |x| x.cash()));
         if let Some(t) = c.team {
             match w.clubs[t].cash.last_mut() {
                 Some(x) if x.0 == year => x.1 += pay,

@@ -213,6 +213,9 @@ pub struct Agent {
     pub fit: u8,
     pub gap_y: f64,
     pub misfit: bool,
+    /// A combination block (fix list S6.1): the linebacker he climbs to
+    /// once the down lineman is controlled.
+    pub climb: Option<usize>,
     /// Ratings with fatigue, injury and momentum in.
     pub r: [f64; ATTRIBUTE_COUNT],
     /// How tired he is coming into the snap, 0-1 (old habits come back).
@@ -268,6 +271,7 @@ impl Agent {
             fit: 0,
             gap_y: 0.0,
             misfit: false,
+            climb: None,
             r,
             tired,
             beat_by: None,
@@ -307,6 +311,7 @@ impl Agent {
             fit: self.fit,
             gap_y: self.gap_y,
             misfit: self.misfit,
+            climb: self.climb,
             r: self.r,
             tired: self.tired,
             beat_by: self.beat_by,
@@ -1024,14 +1029,15 @@ impl<'a> Sim<'a> {
         // A focused lineman reacts to the snap cue sooner.
         let focus = clamp(1.0 - 0.05 * (self.trait20(b, Attr::Concentration) - 10.0), 0.5, 1.5);
         let silent = if bl.side == 0 && self.t < 1.0 { SILENT_COUNT * self.cond.crowd * focus } else { 0.0 };
-        // A run block starts with the defender a little ahead, then the
-        // blocker's get-off against the defender's read decides who has
-        // the first leverage. It started with the blocker well ahead, -0.3, and the
-        // world's FBS rosters ran 5.9 yards a carry with backs falling
-        // forward; at 0.15 they run 5.08 (real 5.12) with plays wiped out
-        // by a penalty no longer counted (trial 8 item 7; proposed, not
-        // confirmed).
-        let w0 = if pass { -0.42 } else { 0.15 }
+        // A run block starts even, then the blocker's get-off against the
+        // defender's read decides who has the first leverage. It started
+        // with the blocker well ahead, -0.3, then the defender a little
+        // ahead, 0.15 (trial 8 item 7), which bought the right yards a
+        // carry with too many stuffs. With double teams holding the down
+        // linemen (fix list S6.1) an even start gives the world's FBS
+        // rosters 5.02 a carry (real 5.12) with fewer stuffs (proposed,
+        // not confirmed).
+        let w0 = if pass { -0.42 } else { 0.0 }
             + 0.006 * (get_off + silent - set)
             + self.front_fit(de.label, pass)
             + 0.18 * gauss(self.rng);
@@ -1551,8 +1557,12 @@ impl<'a> Sim<'a> {
             let gain = dir.x * goal;
             let edge = p.y.min(WIDTH - p.y);
             let mut sideline = if edge < 1.0 { 3.0 * (1.0 - edge) } else { 0.0 };
-            let near_edge = me.pos.y.min(WIDTH - me.pos.y) < 6.0;
-            if near_edge && threat > 0.5 {
+            // Within ten yards of the sideline he reads the angle sooner
+            // (six yards and a threat of 0.5 ended 1.6% of NFL plays out
+            // of bounds, real 10.7%; fix list S6.2, proposed, not
+            // confirmed).
+            let near_edge = me.pos.y.min(WIDTH - me.pos.y) < 10.0;
+            if near_edge && threat > 0.3 {
                 let outward = if me.pos.y < MID { -dir.y } else { dir.y };
                 // Out of bounds when no gain is left: most backs take the
                 // sideline rather than a hit for nothing, one who avoids
@@ -1560,7 +1570,7 @@ impl<'a> Sim<'a> {
                 // not confirmed: real backs end 4.2% of carries out of
                 // bounds, the engine's ended 0.7%).
                 let step = (0.5 - 0.6 * contact).max(0.0);
-                sideline -= 6.0 * step * outward.max(0.0);
+                sideline -= 10.0 * step * outward.max(0.0);
                 sideline += 1.5 * contact.max(0.0) * outward.max(0.0);
             }
             let lateral = dir.y.abs() * 0.9 * bounce;
@@ -2005,6 +2015,22 @@ impl<'a> Sim<'a> {
         let y = self.agents[c].pos.y + fall.y;
         if y <= 0.0 || y >= WIDTH {
             self.out_of_bounds = true;
+        } else {
+            // Caught within six yards of the sideline, the tackler often
+            // drives him out rather than take him down in bounds, surely
+            // inside a yard and a half, more when the pile is going that
+            // way (fix list S6.2: with the wider step-out above, NFL
+            // plays out of bounds 1.6% to 5.3%, real 10.7%; completions
+            // 4.2% to 13.9%, real 20.7%; proposed, not confirmed).
+            let edge = y.min(WIDTH - y);
+            if edge < 6.0 {
+                let out = if y < MID { -1.0 } else { 1.0 };
+                let push = if fall.len() > 0.05 { (fall.y * out / fall.len()).max(0.0) } else { 0.0 };
+                let chance = ((6.0 - edge) / 4.5).min(1.0) * (0.5 + 0.5 * push);
+                if self.rng.chance(chance) {
+                    self.out_of_bounds = true;
+                }
+            }
         }
     }
 

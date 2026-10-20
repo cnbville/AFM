@@ -8,7 +8,7 @@ use super::market::{consensus, post};
 use super::{ProCareer, Status};
 use crate::calendar::{Date, Kind, Loudness};
 use crate::positions::Position;
-use crate::rng::Rng;
+use crate::rng::{Rng, clamp};
 use crate::world::World;
 use crate::world::season::key_uniform;
 
@@ -69,6 +69,13 @@ pub(crate) fn day(w: &mut World, d: Date) {
                 if c.status == Status::Other(k as u8) {
                     c.status = Status::FreeAgent;
                     c.sharpness = 1.0;
+                    // A season of real snaps for his development (section 5
+                    // leftover; the games themselves are not on the engine):
+                    // the CFL's 18 games are about a full NFL season, a
+                    // spring league's ten about half (proposed, not confirmed:
+                    // he starts most games there).
+                    let len = (l.ends as f64 - l.opens as f64 + 1.0).max(1.0);
+                    c.spring_snaps = c.spring_snaps.max(clamp(0.11 * len, 0.3, 0.8));
                     c.weeks_unsigned = 0;
                     let p = &mut w.people[i];
                     let age = p.row_age();

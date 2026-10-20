@@ -39,8 +39,12 @@ pub(crate) struct Side {
 pub(crate) fn actives(w: &World, t: usize) -> Vec<(usize, bool)> {
     let limit = w.rules.nfl_actives as usize;
     let club = &w.clubs[t];
-    let healthy =
-        |i: &&usize| w.people[**i].pro.as_ref().is_some_and(|c| c.status == Status::Roster && c.out_weeks == 0);
+    let healthy = |i: &&usize| {
+        w.people[**i]
+            .pro
+            .as_ref()
+            .is_some_and(|c| c.status == Status::Roster && c.out_weeks == 0 && crate::world::people::available(c))
+    };
     let lists: Vec<Vec<usize>> = Position::ALL
         .iter()
         .map(|p| club.depth.get(p.index()).map_or(Vec::new(), |d| d.iter().filter(healthy).copied().collect()))
@@ -85,6 +89,7 @@ pub(crate) fn actives(w: &World, t: usize) -> Vec<(usize, bool)> {
         depth += 1;
     }
     out.truncate(limit);
+    super::squad::elevate(w, t, &mut out);
     out
 }
 
@@ -114,7 +119,10 @@ pub(crate) fn preseason_side(w: &World, t: usize, week: usize, weeks: usize) -> 
     for pos in Position::ALL {
         let s = depth_slots(pos);
         for (k, &i) in club.depth.get(pos.index()).map_or(&[][..], |d| d.as_slice()).iter().enumerate() {
-            let ok = w.people[i].pro.as_ref().is_some_and(|c| c.status == Status::Roster && c.out_weeks == 0);
+            let ok = w.people[i]
+                .pro
+                .as_ref()
+                .is_some_and(|c| c.status == Status::Roster && c.out_weeks == 0 && crate::world::people::available(c));
             if !ok || (k < s.starters && !rehearsal) {
                 continue;
             }
@@ -211,7 +219,10 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
     // NFL budget buys a full one, a cheap owner a little less (proposed,
     // not confirmed).
     let eye = |c: Option<usize>| ab(c.or(tm.head_coach)).map_or(10.0, |a| a.scheme);
-    let budget = clamp(0.85 + 0.015 * (tm.owner - 10.0), 0.7, 1.0);
+    // Section 6 topic 10: the analytics and quality-control head's work
+    // takes the budget's place.
+    let analytics = crate::world::people::Support::z(club.support.analytics.rating);
+    let budget = clamp(0.85 + 0.15 * analytics, 0.7, 1.0);
     let film_study = clamp(0.35 * (eye(tm.oc) + eye(tm.dc)) + 7.0 * budget, 1.0, 20.0);
     let dc = tm.dc.or(tm.head_coach);
     let aware = players.iter().map(|p| p.a(Attr::FootballIq)).sum::<f64>() / players.len().max(1) as f64;
@@ -399,6 +410,12 @@ pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[
         if let Some(c) = w.clubs.get_mut(t) {
             c.film.add(&r.film[side]);
         }
+        // Every practice squad player dressed for the game used one of his
+        // elevations, whether he played a snap or not (bug check, build 9:
+        // only those with a stat line counted).
+        for &(i, _) in sides[side].who.values() {
+            super::squad::count_elevation(w, i);
+        }
         for (&id, l) in &r.stats.players[side] {
             let Some(&(i, starter)) = sides[side].who.get(&id) else { continue };
             let Some(c) = w.people[i].pro.as_mut() else { continue };
@@ -427,7 +444,11 @@ pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[
             continue;
         }
         let Some(&(i, _)) = sides[inj.side].who.get(&inj.id) else { continue };
-        let weeks = inj.weeks.ceil().max(1.0) as u32;
+        // The medical staff's head: a good one brings a player back sooner
+        // (section 6 topic 10; proposed, not confirmed: up to 12%).
+        let t = teams[inj.side];
+        let med = w.clubs.get(t).map_or(0.0, |c| crate::world::people::Support::z(c.support.medical.rating));
+        let weeks = (inj.weeks * (1.0 - 0.12 * med)).ceil().max(1.0) as u32;
         let ir = weeks >= ir_minimum(year);
         let Some(c) = w.people[i].pro.as_mut() else { continue };
         c.out_weeks = c.out_weeks.max(weeks);

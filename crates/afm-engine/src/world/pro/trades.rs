@@ -177,6 +177,11 @@ const SURPLUS: [(f64, f64); 14] = [
     (400.0, 60.0),
 ];
 
+/// A pick's points on a GM's own chart (draft-day trades, section 7).
+pub(crate) fn chart(classic: bool, pick: f64) -> f64 {
+    if classic { chart_at(&CLASSIC, pick) } else { chart_at(&SURPLUS, pick) }
+}
+
 fn chart_at(table: &[(f64, f64)], pick: f64) -> f64 {
     let p = pick.max(1.0);
     for k in 1..table.len() {

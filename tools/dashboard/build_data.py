@@ -1651,6 +1651,82 @@ def tend_view(run):
     return out
 
 
+
+# Section 6 traits in the raw export's order (`Trait::ALL`).
+TRAITS = ["Ambition", "Loyalty", "Greed", "Temper", "Ego", "Leadership", "Professionalism", "Adaptability"]
+WHY = ["settled", "role", "happy with role", "losing", "winning", "coach", "life", "room", "money"]
+
+
+def people_view(run):
+    """Build 9, sections 6 and 7 in the world: the yearly counts (draft-day
+    trades, undrafted signings, scouting looks, poaching, settlements,
+    off-field cases, suspensions), moods and their reasons by level, the
+    8 traits by age, rooms and captains, support staffs, scouting
+    departments, and how far each pick strayed from the public board."""
+    market = opt_jl(run, "nfl_market")
+    if not market or "draft_trades" not in market[-1]:
+        return None
+    out = {}
+    keys = ["draft_trades", "udfa_signed", "scout_looks", "poached", "settlements", "trouble", "suspensions"]
+    out["years"] = [[m["year"]] + [m.get(k, 0) for k in keys] for m in market if m.get("scout_looks", 0) or m.get("trouble", 0)]
+    out["year_keys"] = keys
+    # Moods and traits, college players (people) and active pros.
+    groups = {"College": [], "NFL": []}
+    for q in run.people:
+        if q.get("stage") == "College" and "mood" in q:
+            groups["College"].append(q)
+    for q in opt_jl(run, "pros"):
+        if "mood" in q and q.get("team"):
+            groups["NFL"].append(q)
+    moods = {}
+    for g, rows in groups.items():
+        ms = [q["mood"] for q in rows]
+        if not ms:
+            continue
+        hist = Counter(max(-10, min(9, int((m + 1.0) * 10) - 10)) for m in ms)
+        why = Counter(WHY[min(q.get("mood_why", 0), 8)] for q in rows)
+        moods[g] = {"n": len(ms), "mean": r(sum(ms) / len(ms), 2), "low": pct(sum(m < -0.2 for m in ms), len(ms)),
+                    "high": pct(sum(m > 0.2 for m in ms), len(ms)),
+                    "hist": [[r(b / 10 + 0.05, 2), hist.get(b, 0)] for b in range(-10, 10)],
+                    "why": sorted(why.items(), key=lambda x: -x[1]),
+                    "trust": r(sum(q.get("coach_trust", 0) for q in rows) / len(rows), 2)}
+    out["moods"] = moods
+    # Traits by age (maturing) among everyone with detail.
+    by_age = defaultdict(lambda: [[] for _ in TRAITS])
+    for g, rows in groups.items():
+        for q in rows:
+            t = (q.get("detail") or {}).get("personality", {}).get("traits")
+            if not t:
+                continue
+            for k, (_, v) in enumerate(t):
+                by_age[q["age"]][k].append(v)
+    out["traits"] = TRAITS
+    out["trait_age"] = [[a] + [r(sum(v) / len(v), 2) if v else None for v in by_age[a]] + [len(by_age[a][0])] for a in sorted(by_age) if len(by_age[a][0]) >= 30]
+    # Rooms: FBS programs and NFL clubs.
+    progs = [p for p in run.programs if p.get("div") == "FBS" and "team_mood" in p and p.get("roster_size", 0) > 0]
+    out["rooms_fbs"] = sorted([[p["name"], p["team_mood"], p["captains"], *p["support"]] for p in progs], key=lambda x: x[1])
+    clubs = opt_jl(run, "nfl_clubs")
+    out["clubs"] = [[c["team"], c.get("power"), c.get("team_mood"), ", ".join(c.get("captains", [])), *c.get("support", [0, 0, 0]),
+                     sum(1 for x in c.get("scouts", []) if x["role"] == "Area"), sum(1 for x in c.get("scouts", []) if x["role"] == "National"),
+                     r(sum(x["judge"] for x in c.get("scouts", [])) / max(1, len(c.get("scouts", []))), 1)] for c in clubs if c.get("scouts")]
+    out["biases"] = sorted(Counter(x["bias"] for c in clubs for x in c.get("scouts", [])).items(), key=lambda x: -x[1])
+    # Boards against the public: each pick's place against his public rank.
+    rx = re.compile(r"their board grade ([\d.]+), public ([\d.]+) \((\d+)")
+    strays = defaultdict(list)
+    for a in run.alumni:
+        pk = a.get("pick")
+        if not pk:
+            continue
+        for n in a.get("notes", []):
+            m = rx.search(n)
+            if m:
+                rnd = min(7, (pk - 1) // 32 + 1)
+                strays[rnd].append(pk - int(m.group(3)))
+                break
+    out["strays"] = [[k, len(v), r(sum(abs(x) for x in v) / len(v), 1), pct(sum(x < -32 for x in v), len(v)), pct(sum(x > 32 for x in v), len(v))] for k, v in sorted(strays.items())]
+    return out
+
+
 def build(run, real):
     print(f"seed {run.seed}: {len(run.games)} games, {len(run.alumni)} alumni, {len(run.people)} people", file=sys.stderr)
     profiles = team_profiles(run)
@@ -1664,7 +1740,7 @@ def build(run, real):
         "records": recs, "names": names(run), "anomalies": anomalies(run, real, recs, coach, life),
         "explorer": explorer(run, profiles), "programs": program_pages(run), "players": player_pages(run),
         "calendar": calendar_view(run, real), "slumps": slumps(run), "nfl": nfl_view(run, real),
-        "tend": tend_view(run),
+        "tend": tend_view(run), "people": people_view(run),
     }
     return data
 
