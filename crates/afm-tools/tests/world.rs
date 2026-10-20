@@ -185,6 +185,15 @@ fn people_live() {
         m.year, m.trouble, m.suspensions, m.poached, m.settlements
     );
     assert!((15..=150).contains(&m.trouble), "{} cases in {}", m.trouble, m.year);
+    // Trial 9 bugs: camp injuries all went to reserve, so nobody hurt was
+    // ever cut and settled (0-1 a year); NFL moods leaned sour because pay
+    // was read against a line from the top five's pay, not the market.
+    let settled: u32 = w.market.years.iter().map(|m| m.settlements).sum();
+    let nfl: Vec<f32> = w.people.iter().filter(|p| p.pro.as_ref().is_some_and(|c| c.held())).map(|p| p.mood).collect();
+    let nfl_mean = nfl.iter().sum::<f32>() / nfl.len().max(1) as f32;
+    eprintln!("injury settlements in the history: {settled}; NFL mood mean {nfl_mean:+.3} of {}", nfl.len());
+    assert!(settled >= 5, "{settled} injury settlements");
+    assert!(nfl_mean > -0.05, "NFL moods average {nfl_mean:+.3}");
     // Fix list S6.3: no player is paid more than half the cap in a year
     // (real highs are about 35-38%: Prescott 2024, Rodgers 2018).
     let cap = money::price_cap(w.year - 1);
@@ -249,6 +258,69 @@ fn clubs_scout_and_draft_from_their_own_boards() {
     assert!(m.scout_looks > 1_000, "{} looks in {}", m.scout_looks, m.year);
     let own = w.people.iter().filter(|p| p.notes.iter().any(|n| n.contains("their board grade"))).count();
     assert!(own > 0, "no pick names its board");
+    // Trial 9 bugs. The rush fills the room clubs have (one round of calls
+    // signed about 180 a year; real about 500).
+    assert!(m.udfa_signed >= 300, "{} undrafted signed in {}", m.udfa_signed, m.year);
+    // A prospect goes to one combine (the invite stayed on, and veterans
+    // "tested among the best" every year).
+    let combines = |p: &afm_engine::world::Person| p.notes.iter().filter(|n| n.contains("at the combine at")).count();
+    let again = w.people.iter().filter(|p| combines(p) > 1).count();
+    assert_eq!(again, 0, "{again} players went to the combine twice");
+    // Moving up on draft day costs a pick that fits the move (the search
+    // for a future pick started at round 1).
+    for tr in w.market.picks.trades.iter().filter(|t| t.player == u32::MAX) {
+        let pick: u32 = tr
+            .text
+            .split("trade up to pick ")
+            .nth(1)
+            .and_then(|x| x.split(' ').next())
+            .and_then(|x| x.parse().ok())
+            .unwrap_or(0);
+        assert!(!(pick > 64 && tr.text.contains("round 1 pick")), "{}", tr.text);
+    }
+    // A deal signed this league year isn't extended the same year, and a
+    // tag is replaced only by a long-term deal.
+    for p in w.people.iter().filter(|p| p.pro.is_some()) {
+        for pair in p.notes.windows(2) {
+            // Spring market deals, so both notes fall in one league year.
+            let spring = ["(after a week", "(the offer met", "(before free agency)", "(agreed in the tampering"]
+                .iter()
+                .any(|x| pair[0].contains(x));
+            let signed =
+                spring && (pair[0].starts_with("Signed with the ") || pair[0].starts_with("Re-signed with the "));
+            let at = |n: &str, from: &str| n.strip_prefix(from).and_then(|x| x.split(':').next()).map(str::to_string);
+            let a = at(&pair[0], "Signed with the ").or_else(|| at(&pair[0], "Re-signed with the "));
+            let b = at(&pair[1], "Extended by the ");
+            assert!(
+                !(signed && a.is_some() && a.map(|x| x.split(" (").next().unwrap().to_string()) == b),
+                "{}: {pair:?}",
+                p.name
+            );
+        }
+        assert!(!p.notes.iter().any(|n| n.contains("replacing the tag: 1 year")), "{}", p.name);
+    }
+}
+
+/// Trial 9 bug: once the classes were full, 5-stars who waited for
+/// February had no Division I offer left and signed with one junior
+/// college, 12-20 a class from 2027. A Division I staff makes room for one.
+#[test]
+fn five_stars_find_division_one_places() {
+    let w = &*WORLD;
+    let mut at_juco: std::collections::BTreeMap<(i32, usize), u32> = Default::default();
+    let first = |path: &[usize]| path.first().copied().filter(|&c| w.programs[c].division == Division::JUCO);
+    for p in w.people.iter().filter(|p| p.stars == 5) {
+        if let Some(c) = first(&p.path) {
+            *at_juco.entry((p.class_of, c)).or_default() += 1;
+        }
+    }
+    for a in w.alumni.iter().filter(|a| a.stars == 5) {
+        if let Some(c) = first(&a.colleges) {
+            *at_juco.entry((a.class_of, c)).or_default() += 1;
+        }
+    }
+    eprintln!("5-stars who began at a junior college, by class and school: {at_juco:?}");
+    assert!(at_juco.values().all(|&n| n <= 2), "{at_juco:?}");
 }
 
 /// A seed gives the same world on any number of cores (bug check, build

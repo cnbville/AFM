@@ -1238,9 +1238,9 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
         }
         let coach = &w.coaches[c];
         let text = if o.role == Role::HeadCoach {
-            format!("{name} hire {} ({from}).", coach.name)
+            format!("{name} hires {} ({from}).", coach.name)
         } else {
-            format!("{name} hire {} as {} ({from}).", coach.name, o.role.name())
+            format!("{name} hires {} as {} ({from}).", coach.name, o.role.name())
         };
         w.news.push(NewsItem {
             date: None,
@@ -1424,7 +1424,7 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
                 p,
                 NewsKind::CoachExtended,
                 format!(
-                    "{name} give head coach {coach_name} a contract extension and a vote of confidence after two tough seasons."
+                    "{name} gives head coach {coach_name} a contract extension and a vote of confidence after two tough seasons."
                 ),
             );
         }
@@ -1443,14 +1443,14 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
         let seasons = news::count(tenure as u64, "season");
         let text = match why {
             "fired" if buyout >= 1.0e6 => format!(
-                "{name} fire head coach {coach_name} after {seasons}; the buyout is about ${:.1} million.",
+                "{name} fires head coach {coach_name} after {seasons}; the buyout is about ${:.1} million.",
                 buyout / 1.0e6
             ),
-            "fired" => format!("{name} fire head coach {coach_name} after {seasons}."),
+            "fired" => format!("{name} fires head coach {coach_name} after {seasons}."),
             "not retained when his contract ran out" => {
-                format!("{name} let head coach {coach_name}'s contract run out after {seasons}.")
+                format!("{name} lets head coach {coach_name}'s contract run out after {seasons}.")
             }
-            _ => format!("{name} fire head coach {coach_name} after his prove-it season ({seasons} in all)."),
+            _ => format!("{name} fires head coach {coach_name} after his prove-it season ({seasons} in all)."),
         };
         college_news(w, p, NewsKind::CoachFired, text);
         super::recruiting::decommit_after_firing(w, p);
@@ -1469,7 +1469,7 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
                 w,
                 p,
                 NewsKind::CoachExtended,
-                format!("{name} extend head coach {coach_name}'s contract through the {through} season."),
+                format!("{name} extends head coach {coach_name}'s contract through the {through} season."),
             );
         }
     }
@@ -1552,7 +1552,7 @@ fn fire_in_season(w: &mut World, p: usize, c: usize) {
         p,
         NewsKind::CoachFired,
         format!(
-            "{name} fire head coach {coach_name} {} games into his {} season ({}-{}). {interim} is the interim head coach.{money}",
+            "{name} fires head coach {coach_name} {} games into his {} season ({}-{}). {interim} is the interim head coach.{money}",
             t.games(),
             ordinal(tenure.max(1) as u32),
             t.wins,

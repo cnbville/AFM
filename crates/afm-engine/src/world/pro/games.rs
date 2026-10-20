@@ -384,13 +384,23 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
         let Some(c) = w.people[i].pro.as_mut() else { continue };
         c.out_weeks = c.out_weeks.max(weeks);
         if weeks >= 6 {
-            c.status = Status::Reserve;
-            c.pup = false;
+            // A vested veteran goes straight to injured reserve; anyone else
+            // hurt before the cutdown must be waived/injured first (real
+            // rule), so the cutdown decides: kept, he goes to reserve after
+            // it; not kept, he is released with an injury settlement
+            // (trial 9: every camp injury went to reserve, so settlements
+            // almost never happened).
+            let vested = c.accrued >= 4;
+            if vested {
+                c.status = Status::Reserve;
+                c.pup = false;
+            }
             let p = &mut w.people[i];
             let age = p.row_age();
             p.note(format!(
-                "Hurt in the preseason at {age} ({}, about {weeks} weeks): injured reserve.",
-                inj.kind.name()
+                "Hurt in the preseason at {age} ({}, about {weeks} weeks){}.",
+                inj.kind.name(),
+                if vested { ": injured reserve" } else { "" }
             ));
         }
     }

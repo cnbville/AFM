@@ -6,7 +6,7 @@
 //! publishes is Claude's, proposed, not confirmed.
 
 use super::background::{Background, Family};
-use super::pro::{self, Status, market, money};
+use super::pro::{self, Status, market};
 use super::season::{key_normal, key_uniform};
 use super::{Person, Stage, World};
 use crate::calendar::{Date, Kind, Loudness};
@@ -429,7 +429,6 @@ pub(crate) fn pro_mood(w: &mut World) {
         let coach = w.nfl[t].head_coach;
         let motivation = coach.map_or(10.0, |c| w.coaches[c].ability().motivation);
         let room = w.clubs[t].team_mood as f64;
-        let cap = money::price_cap(year);
         for &i in &roster {
             let p = &w.people[i];
             let c = p.pro.as_ref().unwrap();
@@ -449,10 +448,15 @@ pub(crate) fn pro_mood(w: &mut World) {
                 }
             };
             // Pay against what he thinks he is worth: the league's read of
-            // him on the pay ladder (a star on a rookie deal feels it).
+            // him on the pay ladder, the price the market itself sets (a
+            // star on a rookie deal feels it; a backup on the minimum is
+            // paid what his place on the ladder pays). Trial 9: a straight
+            // line from the top five's pay put most of the league under
+            // its worth, and NFL moods averaged -0.10.
             let apy = c.contract.as_ref().map_or(0.0, |k| k.apy());
-            let worth =
-                cap * money::top5_share(p.player.position) * clamp((market::consensus(w, i) - 60.0) / 30.0, 0.02, 1.0);
+            let pos = p.player.position;
+            let view = market::market_grade(w, pos, market::consensus(w, i));
+            let worth = market::market_price(year, pos, view, c.accrued);
             let money = if worth <= 0.0 { 0.0 } else { clamp(apy / worth - 1.0, -1.0, 0.5) };
             let amb = p.player.personality.traits.z(Trait::Ambition);
             let parts = Parts {

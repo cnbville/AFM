@@ -1648,7 +1648,11 @@ fn cutdown(w: &mut World, d: Date) {
             if w.clubs[t].office.owner.pet == Some(i) {
                 bias += 10.0;
             }
-            keep.push((i, seen + protection + if starter { 3.0 } else { 0.0 } + youth - cost + bias));
+            // Hurt in camp and not vested (`games::record_preseason`): a
+            // borderline player out for half the season loses his place
+            // (proposed, not confirmed: 2 points).
+            let hurt = if c.out_weeks >= 6 { 2.0 } else { 0.0 };
+            keep.push((i, seen + protection + if starter { 3.0 } else { 0.0 } + youth - cost + bias - hurt));
         }
         keep.sort_by(|a, b| b.1.total_cmp(&a.1));
         // Each position's share of the limit first, then the best of the rest.
@@ -1677,7 +1681,11 @@ fn cutdown(w: &mut World, d: Date) {
             }
             let c = w.people[i].pro.as_ref().unwrap();
             let seasons = c.seasons.iter().filter(|s| s.games > 0).count() as u32;
-            let eligible = seasons <= 2 && c.ps_seasons < 3 && w.people[i].player.age <= 26 && v >= cut_line - 7.0;
+            let eligible = seasons <= 2
+                && c.ps_seasons < 3
+                && w.people[i].player.age <= 26
+                && v >= cut_line - 7.0
+                && c.out_weeks == 0;
             if squad.len() < ps && eligible {
                 squad.push(i);
             } else {
@@ -1685,7 +1693,20 @@ fn cutdown(w: &mut World, d: Date) {
             }
         }
         for i in chosen {
-            w.people[i].pro.as_mut().unwrap().status = Status::Roster;
+            // Kept while hurt in camp: injured reserve once the cutdown is done.
+            let name = w.nfl[t].name;
+            let p = &mut w.people[i];
+            let c = p.pro.as_mut().unwrap();
+            c.status = Status::Roster;
+            if c.out_weeks >= 6 {
+                let weeks = c.out_weeks;
+                c.status = Status::Reserve;
+                c.pup = false;
+                let age = p.row_age();
+                p.note(format!(
+                    "Placed on injured reserve by the {name} at {age} after the cutdown (about {weeks} weeks)."
+                ));
+            }
         }
         for i in squad {
             // A practice squad deal replaces his roster contract (real: a
@@ -1707,10 +1728,10 @@ fn cutdown(w: &mut World, d: Date) {
                 c.ps_seasons += 1;
             }
             c.status = Status::PracticeSquad;
-            let name = w.nfl[t].name;
+            let name = possessive(w.nfl[t].name);
             let p = &mut w.people[i];
             let age = p.row_age();
-            p.note(format!("Cut from the {name}'s roster at {age}, he stayed on the practice squad."));
+            p.note(format!("Cut from the {name} roster at {age}, he stayed on the practice squad."));
         }
         for i in cut {
             squad::settle_injury(w, t, i);
@@ -1994,6 +2015,11 @@ fn season_end(w: &mut World, d: Date) {
 /// The usual age a player walks away at each position (the class model's).
 fn retire_age(pos: Position) -> f64 {
     crate::career::retire_age(pos)
+}
+
+/// A team's possessive: "the Jaguars' camp", "the Washington Football Team's roster".
+pub fn possessive(name: &str) -> String {
+    if name.ends_with('s') { format!("{name}'") } else { format!("{name}'s") }
 }
 
 /// A short line on a pro for news and pages.

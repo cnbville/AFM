@@ -198,7 +198,7 @@ fn pathway(w: &mut World, d: Date) {
         p.path.clear();
         p.notes.clear();
         let name = w.nfl[t].name;
-        p.note(format!("Came from {country} ({sport}) through the International Player Pathway at {age}: on the {name}'s practice squad (generated player)."));
+        p.note(format!("Came from {country} ({sport}) through the International Player Pathway at {age}: on the {} practice squad (generated player).", super::possessive(name)));
         let mut c = ProCareer::new(Some(t), Status::PracticeSquad, year);
         c.ipp = true;
         c.ps_seasons = 1;
