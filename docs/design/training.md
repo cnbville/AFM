@@ -1,8 +1,8 @@
 # Section 6b: training
 
-Design written 2026-10-20 (thread "Section 6b design: training"), the way sections 6, 7 and 8 were: what is built and decided first, then each topic as the finished real-life design. Real life is the default (project ground rule). Numbers no source publishes are marked "proposed, not confirmed". Three choices real life can't settle are at the end, waiting for Cain. Design only: nothing here is built yet.
+Design written 2026-10-20 (thread "Section 6b design: training"), the way sections 6, 7 and 8 were: what is built and decided first, then each topic as the finished real-life design. Real life is the default (project ground rule). Numbers no source publishes are marked "proposed, not confirmed". Three choices real life can't settle are at the end; Cain agreed to all three on 2026-10-20. Design only: nothing here is built yet.
 
-Topic order: 0 what exists, 1 the practice day, 2 the week, 3 the year and its rules, 4 the time budget, 5 the individual plan, 6 who teaches, 7 load, fatigue and practice injuries, 8 practice as something you watch, 9 the offseason on their own (calendar parked item 1), 10 high school, 11 the AI's training, 12 how growth lands, 13 what you see, 14 what the build must prove, 15 the three open choices.
+Topic order: 0 what exists, 1 the practice day, 2 the week, 3 the year and its rules, 4 the time budget, 5 the individual plan, 6 who teaches, 7 load, fatigue and practice injuries, 8 practice as something you watch, 9 the offseason on their own (calendar parked item 1), 10 high school, 11 the AI's training, 12 how growth lands, 13 what you see, 14 what the build must prove, 15 the three choices (confirmed).
 
 ## Topic 0. What exists
 
@@ -102,7 +102,7 @@ Position coaches give each player one or two points of emphasis for a block ("fi
 
 ### The design
 Each player's plan, set by his position coach (and the strength coach for the body part) unless you set it, holds:
-- **A main focus:** one attribute or skill family (hand use, release, ball skills, reading the defense, tackling form, ball security, a kicker's directional punting). The focus gets the larger share of his individual periods, so it grows faster and the rest of his technique a little slower (proposed, not confirmed: up to about 1.5 times its share, see open choice 2).
+- **A main focus:** one attribute or skill family (hand use, release, ball skills, reading the defense, tackling form, ball security, a kicker's directional punting). The focus gets the larger share of his individual periods, so it grows faster and the rest of his technique a little slower (up to about 1.5 times its share, choice 2, confirmed).
 - **A habit to work on** (tendencies, decided): one tendency coached toward a target, at the built coaching pull times the extra time spent on it, with obedience and coachability deciding how much sticks. A slow back who bounces can be drilled to hit the hole.
 - **A position move,** learning a new spot or a second one (the built position change, now learned over practice time, so a move in spring is ready for camp and one in October isn't).
 - **A body plan:** a weight target (your rulebook's, decided in people topic 8) with the dietitian, strength or speed emphasis, and a real rate (proposed, not confirmed: about 1 to 2 pounds a week at most when gaining with a nutrition plan, most college freshmen linemen gaining 10 to 25 pounds in a year). Weight changes the body numbers as built (`body.rs`): heavier is stronger and slower.
@@ -146,7 +146,7 @@ Position coaches teach their group in individual periods; coordinators run group
 Camp is when jobs are won: beat writers post daily "camp observations" of one-on-ones and team periods, a backup who keeps winning gets more reps with the ones, coaches grade every practice snap on film, and "practice players" who don't carry it to games are a known type. NFL camps are open to fans on some days and Hard Knocks shows one team's camp.
 
 ### The design
-- **Team, group and one-on-one reps are real battles.** Where the practice snaps run on the match engine (open choice 3), each rep is a play with the period's gear and contact rules (thud: the play ends at contact, no tackle to the ground), so practice wins and losses come from the same attributes as games. Where they don't, the same numbers come from a model fitted to the engine.
+- **Team, group and one-on-one reps are real battles.** Where the practice snaps run on the match engine (choice 3, confirmed), each rep is a play with the period's gear and contact rules (thud: the play ends at contact, no tackle to the ground), so practice wins and losses come from the same attributes as games. Where they don't, the same numbers come from a model fitted to the engine.
 - **The staff grade practice.** Each position coach grades his players' practice reps through his eye (scouting topic 1, built daily read), and the grades feed the depth chart battle in camp: a player who wins reps earns more reps with the ones. Practice grades carry noise from a few reps, as the play designer's practice read does.
 - **Practice players and gamers.** Consistency and temperament (hidden traits) and his mood make some players better in practice than in games and some the other way, so the staff's practice grades can mislead.
 - **You can watch any period** in the 2D view (section 10) or read its summary: the period's reps, who won the one-on-ones, the coach's notes, the injuries.
@@ -198,8 +198,8 @@ Every staff has its own way: Saban's process, Belichick's situations, Carroll's 
 One yearly checkpoint at fall camp (college) and at each level's season start, plus spring breakouts and bowl practices.
 
 ### The design
-- **Growth lands as the work happens** (open choice 1): each block's and each week's practice adds its growth to the attributes it worked, by the rules of the built step (ceilings, age windows, coaching, coachability, work ethic, form, injuries, playing time read as real reps and snaps).
-- **The yearly calibration stays.** The staff's default plan of an average staff gives the same year's growth in expectation as today's yearly step, so the real-world checks (`national_class.rs`, the draft, the level ratings) still hold. Training choices move a player around that (open choice 2).
+- **Growth lands as the work happens** (choice 1, confirmed): each block's and each week's practice adds its growth to the attributes it worked, by the rules of the built step (ceilings, age windows, coaching, coachability, work ethic, form, injuries, playing time read as real reps and snaps).
+- **The yearly calibration stays.** The staff's default plan of an average staff gives the same year's growth in expectation as today's yearly step, so the real-world checks (`national_class.rs`, the draft, the level ratings) still hold. Training choices move a player around that (choice 2, confirmed).
 - **The yearly events keep their place:** ceiling drift and the body that stops growing at the year's turn, ageing in the offseason, form drawn for the season, breakouts showing in spring, camp or a hot season, slumps in season.
 - **Game snaps still teach most** of the mental and technique skills, as built; practice adds what the reps and the teaching give.
 - **Potential stays hidden.** Training moves current ratings toward ceilings; it moves ceilings only through the built drift (coaching, work ethic, playing time).
@@ -218,16 +218,16 @@ One yearly checkpoint at fall camp (college) and at each level's season start, p
 Match and development checks only, no world runs (Cain's trial rule), each timed:
 1. **The default plan keeps the calibration:** a national class on the default plans lands on today's yearly growth and the real checks in `national_class.rs`.
 2. **Each period grows only what it works:** a block of individual line periods grows linemen's technique and not their reading; Phase 1 grows only the body.
-3. **Choices move growth within the agreed size** (open choice 2) and never past ceilings.
+3. **Choices move growth within the agreed size** (choice 2, confirmed) and never past ceilings.
 4. **The trade-offs show through the battles:** more install raises the plan's prep and lowers technique growth; more live contact raises tackling growth and injuries; a heavy Thursday lowers Sunday energy.
 5. **Practice injuries land on the real split:** the practice share of injuries and the camp peak against the NCAA ISP and the NFL's camp counts, and a load spike raises soft-tissue injuries.
 6. **The rules hold:** no illegal period saves, and each level and era's counts (padded practices, contact sessions, hours) are never passed by the AI.
 7. **The habit focus coaches a tendency down** at the expected speed with obedience.
 
-## Topic 15. The three open choices
+## Topic 15. The three choices (confirmed)
 
-These are the only points real life and earlier decisions leave open. Each waits for Cain. Proposed, not confirmed until answered.
+Cain, 2026-10-20 10:31: "agree to all".
 
-1. **How often growth lands.** Pick: every block and every week of the season, for every player in the world, so the AI and you train by the same step (cost proposed: a few seconds a season on 4 cores, since a step is 67 numbers a player). The other way is one step per block (five a year), cheaper and coarser.
-2. **How much a plan can move a year's growth.** Nobody publishes this. Pick: the best realistic plan against a poor one moves a young player's year by at most about 15% either way, less than the gap between a great and a poor coach (built: about 25% either way), and a main focus grows its skill up to about 1.5 times its share while the rest pay for it.
-3. **Which practice snaps run on the match engine.** Pick: your team's and every college and NFL team's team and group periods (about 6 more minutes a season on 4 cores, proposed); high school teams other than yours use a model fitted to the engine (all high schools on the engine would add about 30 minutes a season on top of the 10-12 their games already take).
+1. **How often growth lands:** every block and every week of the season, for every player in the world, so the AI and you train by the same step (a few seconds a season on 4 cores, to be timed in the build).
+2. **How much a plan can move a year's growth:** the best realistic plan against a poor one moves a young player's year by at most about 15% either way, less than the gap between a great and a poor coach (built: about 25% either way). A main focus grows its skill up to about 1.5 times its share, and the rest of his skills pay for it.
+3. **Which practice snaps run on the match engine:** your team's and every college and NFL team's team and group periods (about 6 more minutes a season on 4 cores, to be timed in the build). High school teams other than yours use a model fitted to the engine.
