@@ -631,7 +631,7 @@ pub fn roster(w: &World, t: TeamRef) -> Value {
         .into_iter()
         .map(|k| (w.people[k].player.position.index(), row(w, k, t, own, reader)))
         .collect();
-    rows.sort_by(|a, b| a.0.cmp(&b.0));
+    rows.sort_by_key(|x| x.0);
     json!({ "team": team_brief(w, t), "mine": own, "rows": rows.into_iter().map(|r| r.1).collect::<Vec<_>>() })
 }
 
@@ -713,7 +713,7 @@ pub fn standings(w: &World, args: &Value) -> Value {
                 let mut teams: Vec<(usize, (u32, u32, u32))> =
                     (0..cf.len()).filter(|&t| cf[t] * 4 + dv[t] % 4 == d || dv[t] == d).map(|t| (t, w.nfl_record(t))).collect();
                 teams.dedup_by_key(|x| x.0);
-                teams.sort_by(|a, b| (b.1.0 * 2 + b.1.2).cmp(&(a.1.0 * 2 + a.1.2)));
+                teams.sort_by_key(|x| std::cmp::Reverse(x.1.0 * 2 + x.1.2));
                 json!({ "name": names[d], "teams": teams.iter().map(|(t, r)| json!({ "team": team_brief(w, TeamRef::Nfl(*t)), "w": r.0, "l": r.1, "t": r.2 })).collect::<Vec<_>>() })
             })
             .collect();
@@ -1032,7 +1032,7 @@ pub fn game(w: &World, k: usize) -> Result<Value, String> {
     let s = &g.stats;
     let top = possession(s);
     let mut sides = Vec::new();
-    for side in 0..2 {
+    for (side, &top) in top.iter().enumerate() {
         let t = &s.team[side];
         let mut passing = Vec::new();
         let mut rushing = Vec::new();
@@ -1065,7 +1065,7 @@ pub fn game(w: &World, k: usize) -> Result<Value, String> {
             "totals": {
                 "plays": t.plays, "yards": t.yards.round(), "pass": t.pass_yards.round(), "rush": t.rush_yards.round(),
                 "first_downs": t.first_downs, "turnovers": t.turnovers, "penalties": t.penalties, "pen_yds": t.penalty_yds.round(),
-                "third": format!("{}/{}", t.third_conv, t.third_att), "top": format!("{}:{:02}", (top[side] / 60.0) as u32, (top[side] % 60.0) as u32),
+                "third": format!("{}/{}", t.third_conv, t.third_att), "top": format!("{}:{:02}", (top / 60.0) as u32, (top % 60.0) as u32),
             },
             "passing": passing, "rushing": rushing, "receiving": receiving, "defense": defense.into_iter().take(14).collect::<Vec<_>>(),
         }));
@@ -1152,7 +1152,8 @@ fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u32) -> Stri
             format!("{} scrambles for {}", r.carrier.or(r.passer).map(name).unwrap_or_default(), gain(yds))
         }
         PlayType::Sack => {
-            let by: Vec<String> = if r.sackers.is_empty() { &r.tacklers } else { &r.sackers }.iter().map(|&i| name(i)).collect();
+            let by: Vec<String> =
+                if r.sackers.is_empty() { &r.tacklers } else { &r.sackers }.iter().map(|&i| name(i)).collect();
             let by = if by.is_empty() { String::new() } else { format!(" by {}", by.join(" and ")) };
             format!("{} sacked{by} for {}", r.passer.map(name).unwrap_or_default(), gain(yds))
         }
@@ -1175,16 +1176,32 @@ fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u32) -> Stri
         PlayType::FieldGoal => {
             let k = r.kicker.map(name).unwrap_or_default();
             let dist = r.kick_distance.round() as i32;
-            let res = if r.blocked { "BLOCKED" } else if r.kick_good { "good" } else { "no good" };
+            let res = if r.blocked {
+                "BLOCKED"
+            } else if r.kick_good {
+                "good"
+            } else {
+                "no good"
+            };
             format!("{k} {dist}-yard field goal is {res}")
         }
         PlayType::ExtraPoint => {
             let k = r.kicker.map(name).unwrap_or_default();
-            let res = if r.blocked { "BLOCKED" } else if r.kick_good { "good" } else { "no good" };
+            let res = if r.blocked {
+                "BLOCKED"
+            } else if r.kick_good {
+                "good"
+            } else {
+                "no good"
+            };
             format!("{k} extra point is {res}")
         }
         PlayType::NoPlay => {
-            let fouls: Vec<String> = r.penalties.iter().map(|(f, _, id, y, _)| format!("{} on {}, {} yards", f.name(), name(*id), y.round())).collect();
+            let fouls: Vec<String> = r
+                .penalties
+                .iter()
+                .map(|(f, _, id, y, _)| format!("{} on {}, {} yards", f.name(), name(*id), y.round()))
+                .collect();
             format!("Penalty before the snap: {}", fouls.join("; "))
         }
         other => format!("{other:?}: {}", gain(yds)),
@@ -1197,7 +1214,13 @@ fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u32) -> Stri
     }
     if r.kind != PlayType::NoPlay {
         for (f, _, id, y, accepted) in &r.penalties {
-            t.push_str(&format!(". Flag: {} on {}, {} yards{}", f.name(), name(*id), y.round(), if *accepted { "" } else { ", declined" }));
+            t.push_str(&format!(
+                ". Flag: {} on {}, {} yards{}",
+                f.name(),
+                name(*id),
+                y.round(),
+                if *accepted { "" } else { ", declined" }
+            ));
         }
     }
     if r.turnover && !r.interception {

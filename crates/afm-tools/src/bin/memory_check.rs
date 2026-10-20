@@ -27,7 +27,8 @@ fn main() {
         std::mem::size_of::<afm_engine::player::SeasonRecord>()
     );
     let t = Instant::now();
-    let opts = WorldOptions { seed, history_years: years, keep_game_log: false, scale, engine_from, ..Default::default() };
+    let opts =
+        WorldOptions { seed, history_years: years, keep_game_log: false, scale, engine_from, ..Default::default() };
     let mut w = World::new_watched(opts, year_line);
     println!(
         "history of {years} years built in {:.0}s: heap {:.2} GB, resident {}",

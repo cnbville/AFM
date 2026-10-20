@@ -70,6 +70,17 @@ impl Game {
                 self.save_path = None;
                 Ok(json!({ "built": true }))
             }
+            "import_world" => {
+                // Copies a world file into the library, where it stays for every new career.
+                let path = PathBuf::from(args.get("path").and_then(Value::as_str).ok_or("Missing path.")?);
+                files::read_meta(&path)?;
+                let name = path.file_name().ok_or("Not a file.")?;
+                let to = self.home.join("worlds").join(name);
+                if to != path {
+                    std::fs::copy(&path, &to).map_err(|e| format!("Could not copy the world: {e}"))?;
+                }
+                Ok(serde_json::json!({ "path": to.to_string_lossy() }))
+            }
             "open_world" | "load" => {
                 let path = args.get("path").and_then(Value::as_str).ok_or("Missing path.")?;
                 self.world = Some(setup::read(path)?);

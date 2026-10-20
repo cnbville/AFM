@@ -1,0 +1,26 @@
+[package]
+name = "afm-app"
+description = "AFM's desktop app: the screens in app/ui on Tauri, the engine on its own thread (section 8, topic 9)."
+version = "0.2.0"
+edition = "2024"
+publish = false
+
+# Kept out of the engine's workspace: CI builds it on macOS only.
+[workspace]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+afm-game = { path = "../../crates/afm-game" }
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde_json = "1"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
+# The engine runs optimised even in a dev build.
+[profile.dev.package."*"]
+opt-level = 3

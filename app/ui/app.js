@@ -225,8 +225,8 @@ screens.start = async () => {
       <p class="sub" style="max-width:56ch;margin-top:14px">Pick a world from the library: each one is a whole football country with 30 years of history behind it, on the morning after the Super Bowl. Take any high school, college or NFL job in it.</p></div>
       <div class="st-glass st-panel"><h2>The world library <small>${esc(lib.home)}/worlds</small></h2>
         <div class="library">${lib.worlds.map((w) => item(w, "world")).join("") || '<div class="empty">No worlds yet. Put a world file (.afmworld) in the folder above, or open one by its path below.</div>'}</div>
-        <div class="filters"><div class="field" style="flex:1"><label>Open a world file by its path</label><input id="wpath" placeholder="/Users/you/Downloads/afm-world-2026.afmworld"></div>
-        <button class="st-btn glass" data-act="openpath" style="align-self:end">Open</button></div>
+        <div class="filters"><div class="field" style="flex:1"><label>Import a world file: it is copied into your library and opened</label><input id="wpath" placeholder="/Users/you/Downloads/afm-world-2026.afmworld"></div>
+        <button class="st-btn glass" data-act="openpath" style="align-self:end">Open</button>${window.__TAURI__ && window.__TAURI__.dialog ? '<button class="st-btn primary" data-act="pickworld" style="align-self:end">Choose a file…</button>' : ""}</div>
       </div>
       <div class="st-glass st-panel"><h2>Your saves <small>${esc(lib.home)}/saves</small></h2>
         <div class="library">${lib.saves.map((w) => item(w, "save")).join("") || '<div class="empty">No saves yet.</div>'}</div>
@@ -613,14 +613,22 @@ document.addEventListener("click", async (ev) => {
       try { const r = await api("bug", { note, screen: S.route }); toast("Bug pack saved in " + r.folder); } catch (e) { toast(e.message); }
       break;
     }
+    case "pickworld":
     case "openworld":
     case "openpath":
     case "loadsave": {
-      const path = d.path || $("#wpath").value.trim();
+      let path = d.path || ($("#wpath") ? $("#wpath").value.trim() : "");
+      if (d.act === "pickworld") {
+        path = await window.__TAURI__.dialog.open({ multiple: false, filters: [{ name: "AFM world or save", extensions: ["afmworld", "afmsave"] }] });
+      }
       if (!path) break;
-      showBusy(d.act === "loadsave" ? "Loading your save…" : "Opening the world…");
+      if (d.act !== "openworld" && /\.afmworld$/i.test(path)) {
+        try { path = (await api("import_world", { path })).path; toast("Added to your world library."); } catch (e) { toast(e.message); break; }
+      }
+      const isSave = d.act === "loadsave" || /\.afmsave$/i.test(path);
+      showBusy(isSave ? "Loading your save…" : "Opening the world… a full world takes about a minute.");
       try {
-        S.status = await api(d.act === "loadsave" ? "load" : "open_world", { path });
+        S.status = await api(isSave ? "load" : "open_world", { path });
         hideBusy();
         if (S.status.mine) go("home"); else go("setup");
       } catch (e) { hideBusy(); toast(e.message); }

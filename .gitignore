@@ -6,3 +6,7 @@ target/
 .claude/worktrees/
 __pycache__/
 *.pyc
+
+# The desktop app
+app/src-tauri/target/
+app/src-tauri/gen/
