@@ -18,7 +18,7 @@ async function api(cmd, args = {}) {
 // ---------- small helpers ----------
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const money = (v) => (v == null ? "" : v >= 1e6 ? "$" + (v / 1e6).toFixed(1) + "M" : "$" + Math.round(v / 1e3) + "k");
+const money = (v) => (v == null ? "" : (v < 0 ? "-" : "") + (Math.abs(v) >= 1e6 ? "$" + (Math.abs(v) / 1e6).toFixed(1) + "M" : "$" + Math.round(Math.abs(v) / 1e3) + "k"));
 function toast(text) {
   const t = document.createElement("div");
   t.className = "st-toast";
@@ -113,6 +113,8 @@ const I = {
   back: '<path d="M15 5l-7 7 7 7"/>',
   fwd: '<path d="M9 5l7 7-7 7"/>',
   team: '<path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/>',
+  recruit: '<path d="M4 20V6l8-3 8 3v14M9 20v-6h6v6M8 9h.01M16 9h.01"/>',
+  money: '<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9v6M18 9v6"/>',
   train: '<path d="M3 10v4M6 7v10M18 7v10M21 10v4M6 12h12"/>',
 };
 const icon = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${I[k] || ""}</svg>`;
@@ -129,6 +131,8 @@ function frame(content, crumb) {
     ["roster", "Squad", "squad"],
     ["depth", "Depth chart", "depth"],
     ["training", "Training", "train"],
+    ...(me && me.ref.kind !== "nfl" ? [["recruiting", "Recruiting", "recruit"]] : []),
+    ...(me && me.ref.kind === "nfl" ? [["contracts", "Contracts", "money"]] : []),
     ["schedule", "Schedule", "sched"],
     ["games", "Game pages", "game"],
     ["standings", "Standings", "table"],
@@ -368,6 +372,49 @@ screens.training = async () => {
     ${table("training", cols, x.rows, { groupBy: (r) => r.pos })}</div></div>`;
 };
 
+screens.recruiting = async () => {
+  const x = await api("recruiting");
+  setColors(x.team.colors);
+  const college = x.level === "college";
+  const cols = [
+    { k: "name", t: "Name", l: true, f: (r) => playerLink(r.id, r.name) },
+    { k: "pos", t: "Pos", l: true },
+    { k: "class", t: "Class", l: true },
+    { k: "stars", t: "★", f: (r) => (r.stars ? "★".repeat(r.stars) : "-") },
+    { k: "ht", t: "Ht", div: true, v: (r) => r.ht },
+    { k: "wt", t: "Wt" },
+    { k: college ? "school" : "home", t: college ? "High school" : "Hometown", l: true, f: (r) => esc(college ? `${r.school} · ${r.home}` : r.home) },
+    { k: "rank", t: "Where it stands", l: true, div: true, v: (r) => -r.rank, f: (r) => (r.rank <= 1 ? `<b>${esc(r.recruit)}</b>` : esc(r.recruit)) },
+    { k: "offers", t: "Offers" },
+    ...(college ? [{ k: "elsewhere", t: "Committed elsewhere", l: true, f: (r) => esc(r.elsewhere || "") }] : [{ k: "offer_list", t: "Who offered", l: true, f: (r) => esc((r.offer_list || []).join(", ")) }]),
+  ];
+  const signed = x.rows.filter((r) => r.rank <= 1).length;
+  const sub = college
+    ? `Every high schooler your program has offered, visited, or who committed to you. Your recruiting staff runs the board for now; ${signed} committed or signed.`
+    : `Your players with college interest: who offered, and where they stand. ${signed} committed or signed.`;
+  return `<div class="film"><div class="pad"><div class="h1">Recruiting</div><p class="sub">${sub}</p>${table("recruiting", cols, x.rows, { sort: "rank", empty: "Nobody yet." })}</div></div>`;
+};
+
+screens.contracts = async () => {
+  const x = await api("contracts");
+  setColors(x.team.colors);
+  const cols = [
+    { k: "name", t: "Name", l: true, f: (r) => playerLink(r.id, r.name) },
+    { k: "pos", t: "Pos", l: true },
+    { k: "age", t: "Age" },
+    { k: "ovr", t: "Rating", v: (r) => mid(r.ovr), f: (r) => range(r.ovr) },
+    { k: "cap_hit", t: `${x.year} cap hit`, div: true, f: (r) => money(r.cap_hit) },
+    { k: "apy", t: "A year", f: (r) => money(r.apy) },
+    { k: "total", t: "Total", f: (r) => money(r.total) },
+    { k: "guaranteed", t: "Guaranteed", f: (r) => money(r.guaranteed) },
+    { k: "through", t: "Through" },
+  ];
+  const room = x.cap - x.committed - x.dead;
+  return `<div class="film"><div class="pad"><div class="h1">Contracts</div>
+    <p class="sub">Your cap manager runs the books for now. Cap ${money(x.cap)} · contracts ${money(x.committed)} · dead money ${money(x.dead)} · <b>room ${money(room)}</b></p>
+    ${table("contracts", cols, x.rows, { sort: "cap_hit" })}</div></div>`;
+};
+
 screens.depth = async () => {
   const x = await api("depth");
   setColors(x.team.colors);
@@ -545,7 +592,7 @@ screens.you = async () => {
 };
 
 // ---------- render ----------
-const CRUMBS = { home: "Home", inbox: "Inbox", news: "News", calendar: "Calendar", roster: "Squad", depth: "Depth chart", training: "Training", player: "Player", schedule: "Schedule", games: "Game pages", game: "Game", standings: "Standings", staff: "Staff", coach: "Coach", team: "Team", search: "Search", you: "Your profile" };
+const CRUMBS = { home: "Home", inbox: "Inbox", news: "News", calendar: "Calendar", roster: "Squad", depth: "Depth chart", training: "Training", recruiting: "Recruiting", contracts: "Contracts", player: "Player", schedule: "Schedule", games: "Game pages", game: "Game", standings: "Standings", staff: "Staff", coach: "Coach", team: "Team", search: "Search", you: "Your profile" };
 
 async function render(scroll) {
   const r = S.route;

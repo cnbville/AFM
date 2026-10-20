@@ -1420,3 +1420,129 @@ pub fn set_focus(w: &mut World, args: &Value) -> Result<Value, String> {
     w.set_focus(id, focus);
     Ok(json!({ "id": id, "focus": focus.map(|a| a.key()) }))
 }
+
+/// Recruiting as it stands (the AI's recruiting staff runs it for now):
+/// for a college, every high schooler your program has offered, visited,
+/// or who committed or signed with you; for a high school, your players
+/// with college interest. Your staff knows only what is public about
+/// another team's player: stars, body, where he is from.
+pub fn recruiting(w: &World) -> Value {
+    let Some(t) = mine(w) else { return json!({ "rows": [] }) };
+    let reader = reader_key(w);
+    let mut rows: Vec<Value> = Vec::new();
+    match t {
+        TeamRef::College(prog) => {
+            for (k, p) in w.people.iter().enumerate() {
+                if !matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) {
+                    continue;
+                }
+                let signed = p.cal.signed.is_some_and(|s| s.program == prog);
+                let committed = p.cal.commit.is_some_and(|c| c.0 == prog);
+                let offered = p.cal.offers.contains(&prog) || p.cal.early_offers.iter().any(|o| o.0 == prog);
+                let official = p.cal.visits.iter().any(|v| v.0 == prog && v.2 == afm_engine::world::Visit::Official);
+                let visited = p.cal.visits.iter().any(|v| v.0 == prog);
+                if !(signed || committed || offered || visited) || p.player.age > 19 {
+                    continue;
+                }
+                let status = if signed {
+                    "Signed with you"
+                } else if committed {
+                    "Committed to you"
+                } else if offered && official {
+                    "Offered, official visit"
+                } else if offered {
+                    "Offered"
+                } else {
+                    "Visited"
+                };
+                let elsewhere = p.cal.commit.filter(|c| c.0 != prog).map(|c| w.program_name(c.0).to_string());
+                let mut v = row(w, k, t, false, reader);
+                v["recruit"] = json!(status);
+                v["rank"] = json!(if signed {
+                    0
+                } else if committed {
+                    1
+                } else if official {
+                    2
+                } else if offered {
+                    3
+                } else {
+                    4
+                });
+                v["elsewhere"] = json!(elsewhere);
+                v["offers"] = json!(p.cal.offers.len());
+                v["school"] = json!(w.school_name(p.hs));
+                rows.push(v);
+            }
+        }
+        TeamRef::HighSchool(h) => {
+            for k in roster_people(w, t) {
+                let p = &w.people[k];
+                if p.cal.offers.is_empty()
+                    && p.cal.early_offers.is_empty()
+                    && p.cal.commit.is_none()
+                    && p.cal.signed.is_none()
+                {
+                    continue;
+                }
+                let mut v = row(w, k, t, true, reader);
+                let status = match (p.cal.signed, p.cal.commit) {
+                    (Some(s), _) => format!("Signed with {}", w.program_name(s.program)),
+                    (_, Some(c)) => format!("Committed to {}", w.program_name(c.0)),
+                    _ => "Uncommitted".to_string(),
+                };
+                let mut offers: Vec<usize> = p.cal.offers.clone();
+                offers.extend(p.cal.early_offers.iter().map(|o| o.0));
+                offers.dedup();
+                v["recruit"] = json!(status);
+                v["rank"] = json!(if p.cal.signed.is_some() {
+                    0
+                } else if p.cal.commit.is_some() {
+                    1
+                } else {
+                    3
+                });
+                v["offers"] = json!(offers.len());
+                v["offer_list"] =
+                    json!(offers.iter().take(8).map(|&o| w.program_name(o).to_string()).collect::<Vec<_>>());
+                v["school"] = json!(w.school_name(h));
+                rows.push(v);
+            }
+        }
+        TeamRef::Nfl(_) => {}
+    }
+    json!({ "team": team_brief(w, t), "level": t.json()["kind"], "rows": rows })
+}
+
+/// Your club's contracts this league year (the cap manager runs them for now).
+pub fn contracts(w: &World) -> Value {
+    let Some(t @ TeamRef::Nfl(club)) = mine(w) else { return json!({ "rows": [] }) };
+    let reader = reader_key(w);
+    let mut total = 0.0;
+    let rows: Vec<Value> = roster_people(w, t)
+        .into_iter()
+        .filter_map(|k| {
+            let p = &w.people[k];
+            let c = p.pro.as_ref()?.contract.as_ref()?;
+            if c.team != club {
+                return None;
+            }
+            let hit = c.cap_hit(w.year);
+            total += hit;
+            let mut v = row(w, k, t, true, reader);
+            v["cap_hit"] = json!(hit.round());
+            v["apy"] = json!(c.apy().round());
+            v["total"] = json!(c.total().round());
+            v["guaranteed"] = json!(c.guaranteed().round());
+            v["through"] = json!(c.last_year());
+            v["kind"] = json!(format!("{:?}", c.kind));
+            Some(v)
+        })
+        .collect();
+    let dead: f64 = w.clubs.get(club).map_or(0.0, |c| c.dead_in(w.year));
+    json!({
+        "team": team_brief(w, t), "rows": rows, "year": w.year,
+        "cap": afm_engine::world::pro::money::price_cap(w.year).round(),
+        "committed": total.round(), "dead": dead.round(),
+    })
+}

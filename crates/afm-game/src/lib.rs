@@ -137,6 +137,8 @@ impl Game {
             "depth" => Ok(views::depth(self.w()?)),
             "set_depth" => views::set_depth(self.wm()?, args),
             "training" => Ok(views::training(self.w()?)),
+            "recruiting" => Ok(views::recruiting(self.w()?)),
+            "contracts" => Ok(views::contracts(self.w()?)),
             "set_focus" => views::set_focus(self.wm()?, args),
             "player" => views::player(self.w()?, id()?),
             "coach" => views::coach(self.w()?, num("id").ok_or("Missing id.")? as usize),
