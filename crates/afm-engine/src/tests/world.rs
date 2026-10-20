@@ -511,3 +511,52 @@ fn a_big_deal_pays_no_more_than_a_real_first_year() {
     s.limit_first_year(0.38 * cap);
     assert_eq!(s.bonus_share, 0.3);
 }
+
+#[test]
+fn a_player_hurt_in_camp_goes_on_reserve_or_is_settled_with() {
+    // Trial 9 bug 7: every camp injury of six weeks or more went to reserve
+    // before the cutdown, so nobody hurt was ever cut and settled with (12
+    // in 50 years). Now a club keeps a hurt player it wants on reserve,
+    // settles with the others, and never puts one on its practice squad.
+    // Camp injuries are too rare for the test world to show it (trial 9
+    // finding 13), so here a whole club is hurt and must cut down to 40.
+    use crate::world::franchise::active;
+    use crate::world::pro::{self, Status};
+    use crate::world::{World, WorldOptions};
+    let mut w = World::empty(WorldOptions { scale: 0.001, ..Default::default() });
+    w.rules.nfl_roster = 40;
+    let t = (0..w.clubs.len()).find(|&t| active(t, w.year) && w.clubs[t].roster.len() > 45).unwrap();
+    let roster: Vec<usize> = w.clubs[t]
+        .roster
+        .iter()
+        .copied()
+        .filter(|&i| w.people[i].pro.as_ref().unwrap().status == Status::Roster)
+        .collect();
+    for &i in &roster {
+        w.people[i].pro.as_mut().unwrap().out_weeks = 8;
+    }
+    let d = w.today;
+    pro::cutdown(&mut w, d);
+    let (mut reserve, mut settled) = (0, 0);
+    for &i in &roster {
+        let p = &w.people[i];
+        let c = p.pro.as_ref().unwrap();
+        assert_ne!(c.status, Status::PracticeSquad, "{} hurt on the practice squad", p.name);
+        if c.team == Some(t) {
+            assert_eq!(c.status, Status::Reserve, "{} kept hurt but not on reserve", p.name);
+            reserve += 1;
+        } else {
+            assert!(
+                p.notes.iter().any(|n| n.contains("with an injury settlement")),
+                "{} cut hurt, not settled",
+                p.name
+            );
+            settled += 1;
+        }
+    }
+    assert!(
+        reserve == 40 && settled == roster.len() - 40,
+        "{reserve} on reserve, {settled} settled of {}",
+        roster.len()
+    );
+}

@@ -189,8 +189,9 @@ fn people_live() {
     // ever cut and settled (0-1 a year); NFL moods leaned sour because pay
     // was read against a line from the top five's pay, not the market.
     // Camp injuries are rare (about two a year of six weeks or more in
-    // trial 9), so the check is on each one: a player hurt in camp who
-    // was not put on reserve and was cut at the cutdown was settled with.
+    // trial 9, finding 13), so the check is on each one: a player hurt in
+    // camp who was not put on reserve and was cut at the cutdown was
+    // settled with.
     let settled: u32 = w.market.years.iter().map(|m| m.settlements).sum();
     let (mut hurt, mut cut_hurt) = (0, 0);
     for p in w.people.iter().filter(|p| p.pro.is_some()) {
@@ -220,7 +221,35 @@ fn people_live() {
         "camp injuries not on reserve: {hurt}, cut {cut_hurt}; settlements in the history: {settled}; NFL mood mean {nfl_mean:+.3}, money the main reason for {money_why} of {}",
         nfl.len()
     );
-    assert!(settled >= 1, "{settled} injury settlements");
+    // (The cutdown itself is proved on a whole hurt club in the engine's
+    // unit tests: `a_player_hurt_in_camp_goes_on_reserve_or_is_settled_with`.)
+    // A pro's pay is read against the market's price for him, so the
+    // middle of the league is paid about what it thinks it is worth; the
+    // old line from the top five's pay put most of it below (the old read
+    // is printed beside the new one).
+    let ratio = |old: bool| {
+        let mut r: Vec<f64> = nfl
+            .iter()
+            .filter_map(|p| {
+                let i = w.people.iter().position(|q| std::ptr::eq(q, *p))?;
+                let (apy, worth) = afm_engine::world::people::pay_and_worth(w, i)?;
+                let worth = if old {
+                    let read = afm_engine::world::pro::market::consensus(w, i);
+                    money::price_cap(w.year)
+                        * money::top5_share(p.player.position)
+                        * ((read - 60.0) / 30.0).clamp(0.02, 1.0)
+                } else {
+                    worth
+                };
+                (apy > 0.0 && worth > 0.0).then_some(apy / worth)
+            })
+            .collect();
+        r.sort_by(f64::total_cmp);
+        r[r.len() / 2]
+    };
+    let (new, old) = (ratio(false), ratio(true));
+    eprintln!("NFL pay against worth, the middle player: {new:.2} (the old line read {old:.2})");
+    assert!((0.8..=1.25).contains(&new), "the middle NFL player is paid {new:.2} of his worth");
     assert!(nfl_mean > -0.2, "NFL moods average {nfl_mean:+.3}");
     // Fix list S6.3: no player is paid more than half the cap in a year
     // (real highs are about 35-38%: Prescott 2024, Rodgers 2018).

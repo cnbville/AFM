@@ -250,7 +250,7 @@ fn honors(w: &World, i: usize) -> f64 {
 
 /// The league's consensus read of a player, on the rating scale: his tape
 /// and his numbers half and half, his name a little.
-pub(crate) fn consensus(w: &World, i: usize) -> f64 {
+pub fn consensus(w: &World, i: usize) -> f64 {
     let ovr = w.people[i].player.overall();
     let prod = production(w, i).map_or(0.0, |(e, t)| clamp(0.5 * e + 0.5 * t - ovr, -6.0, 6.0));
     ovr + 0.3 * prod + 0.5 * honors(w, i).min(4.0)

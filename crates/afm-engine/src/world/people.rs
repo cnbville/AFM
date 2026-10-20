@@ -405,6 +405,21 @@ pub(crate) fn hs_camp_mood(w: &mut World, schools: &[usize], roles: &[(usize, Pl
 /// season's record, his pay against his market (greed weights it), the
 /// room; then each club's captains and team mood. The year's support
 /// staff turnover runs here, once (NFL camp opens before college camp).
+/// A pro's pay a year against what he thinks he is worth: the league's
+/// read of him on the pay ladder, the price the market itself sets (a star
+/// on a rookie deal feels it; a backup on the minimum is paid what his
+/// place on the ladder pays). Trial 9 bug 6: a straight line from the top
+/// five's pay put most of the league under its worth, and NFL moods
+/// averaged -0.10.
+pub fn pay_and_worth(w: &World, i: usize) -> Option<(f64, f64)> {
+    let p = &w.people[i];
+    let c = p.pro.as_ref()?;
+    let apy = c.contract.as_ref().map_or(0.0, |k| k.apy());
+    let pos = p.player.position;
+    let view = market::market_grade(w, pos, market::consensus(w, i));
+    Some((apy, market::market_price(w.year, pos, view, c.accrued)))
+}
+
 pub(crate) fn pro_mood(w: &mut World) {
     staff_support(w);
     let year = w.year;
@@ -447,16 +462,7 @@ pub(crate) fn pro_mood(w: &mut World) {
                     }
                 }
             };
-            // Pay against what he thinks he is worth: the league's read of
-            // him on the pay ladder, the price the market itself sets (a
-            // star on a rookie deal feels it; a backup on the minimum is
-            // paid what his place on the ladder pays). Trial 9: a straight
-            // line from the top five's pay put most of the league under
-            // its worth, and NFL moods averaged -0.10.
-            let apy = c.contract.as_ref().map_or(0.0, |k| k.apy());
-            let pos = p.player.position;
-            let view = market::market_grade(w, pos, market::consensus(w, i));
-            let worth = market::market_price(year, pos, view, c.accrued);
+            let (apy, worth) = pay_and_worth(w, i).unwrap_or((0.0, 0.0));
             let money = if worth <= 0.0 { 0.0 } else { clamp(apy / worth - 1.0, -1.0, 0.5) };
             let amb = p.player.personality.traits.z(Trait::Ambition);
             let parts = Parts {

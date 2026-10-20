@@ -1582,7 +1582,7 @@ fn preseason_week(w: &mut World, d: Date, week: usize, weeks: usize) {
 /// rookie who plays as well. Each position keeps its share of the era's
 /// roster limit, the best of the rest fill it; young players close to the
 /// line go to the practice squad and the rest are released.
-fn cutdown(w: &mut World, d: Date) {
+pub(crate) fn cutdown(w: &mut World, d: Date) {
     let year = w.year;
     let limit = w.rules.nfl_roster as usize;
     let ps = w.rules.nfl_practice_squad as usize;
