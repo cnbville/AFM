@@ -325,6 +325,10 @@ The design is in `docs/design/first-playable.md`.
 - **The app on Tauri** (choice 3, 09:00: "If that's truly the best option and won't lag due to rust engine"), after asking what Football Manager runs on (Sports Interactive's own C++; FM26's front end on Unity).
 - Cain asked for a fresh thread to run a world with high school on the engine for 12 years once the trial 9 fixes thread is done.
 
+## 16. Section 6b: training (thread "Section 6b design: training", 2026-10-20)
+
+The design is in `docs/design/training.md`. Cain said "okay let's go" (09:04, in the section 8 thread) to designing 6b next. Written the section 6-8 way: real life is the default, built on Q42, calendar topics 2, 6 and 7, plays and tactics topics 4, 5 and 8, the tendencies' "work on a habit" and practice contact, people topics 1-3, 6, 8, 10 and 15, scouting topic 1 and section 8 topic 6. Three choices wait for Cain (topic 15): how often growth lands, how much a plan can move a year's growth, and which practice snaps run on the match engine. Calendar parked item 1 (watching offseason work) is designed in topic 9. A fact to correct in the build: college camp is up to 25 practices in 29 days (2021 model), not 29 practices.
+
 ---
 
 ## Superseded decisions

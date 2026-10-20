@@ -258,5 +258,5 @@ Decisions:
 
 - **Still to check:** the latest date a player can withdraw from the NFL draft and keep his college eligibility (topic 3).
 - **Chances for each off-field change** (topic 11) are not set yet: proposed, not confirmed. Ask Raichel when building.
-- **Parked:** offseason work monitoring (likely 6b) and an NCAA coach career.
+- **Parked:** offseason work monitoring (designed in section 6b, `docs/design/training.md` topic 9) and an NCAA coach career (now decided: your career at every level, decisions section 12).
 - **Where the build goes in the order:** ask Raichel.
