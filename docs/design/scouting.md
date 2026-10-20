@@ -34,7 +34,7 @@ Topic order:
 
 ### The design
 **Every staff keeps a file on each player it looks at.** An NFL club, a college staff and a high school coach each hold their own files. A file is the staff's whole knowledge of the player:
-- A read of each of the 67 visible attributes, shown as a range (Q18), like "12-15". An attribute nobody has seen yet shows as unknown.
+- A read of each of the 67 visible attributes, shown as a range (Q18) on the 1-99 scale, like "62-70" (corrected 2026-10-20, `docs/design/screens.md` topic 4). An attribute nobody has seen yet shows as unknown.
 - Measurables: exact where the staff measured them (an all-star weigh-in, the combine, a camp with lasers), "listed" where it only has the school's word (school listings run tall and heavy, a real habit).
 - The position he fits now and the one he could play (built: `athlete::better_position`), with the reason.
 - A grade in the staff's own words, tied to a role at its level ("a year-one starter", "a backup with starter traits", "a camp body"; for a recruit "a Power Four starter", "an FCS player"), and a level-relative read (built: "89 among seniors").
@@ -171,7 +171,7 @@ An assignment costs time. A scout pulled onto single players leaves holes in his
 | Background check | | Character, trouble, the people around him |
 | Medicals | | Topic 6 |
 
-Proposed, not confirmed: how much each look narrows each attribute group. The build sets them so a well-scouted senior's ranges end about two to three points wide on the 1-20 scale, a lightly seen small-school player's five or more.
+Proposed, not confirmed: how much each look narrows each attribute group. The build sets them so a well-scouted senior's ranges end about 6-8 points wide on the 1-99 scale, a lightly seen small-school player's 15 or more (corrected from a 1-20 wording on 2026-10-20: attributes are 1-99, `docs/design/screens.md` topic 4).
 
 **Tests measure the test.** A 40 time comes from speed, acceleration, body and the day, plus pre-draft training (a few hundredths of a second, more for a hard worker at a good testing camp), plus the timing: electronic at the combine, hand-timed and faster at pro days. Staffs that read tests well (the athletic read rating) discount the right amounts. Proposed, not confirmed: pre-draft training worth up to 0.05 seconds in the 40, pro day times about 0.05 faster than combine times.
 

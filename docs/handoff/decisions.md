@@ -329,6 +329,10 @@ The design is in `docs/design/first-playable.md`.
 
 The design is in `docs/design/training.md`. Cain said "okay let's go" (09:04, in the section 8 thread) to designing 6b next. Written the section 6-8 way: real life is the default, built on Q42, calendar topics 2, 6 and 7, plays and tactics topics 4, 5 and 8, the tendencies' "work on a habit" and practice contact, people topics 1-3, 6, 8, 10 and 15, scouting topic 1 and section 8 topic 6. Cain agreed to all three choices of topic 15 (10:31: "agree to all"): growth lands every block and every week of the season for every player; a plan moves a young player's year by at most about 15% either way, and a main focus grows up to 1.5 times its share; practice snaps of your team and every college and NFL team run on the match engine, other high schools on a fitted model. Design done. Calendar parked item 1 (watching offseason work) is designed in topic 9. A fact to correct in the build: college camp is up to 25 practices in 29 days (2021 model), not 29 practices.
 
+## 17. Section 10: screens and the 2D view (thread "Design the UI", 2026-10-20)
+
+The design is in `docs/design/screens.md`, with a mock-up canvas of the key screens. Cain asked (10:41): "wanna design the UI while we wait for trial 9 fixes are complete ?". Written on top of section 8 (Tauri, the screen list) without re-asking it. Real life is read as how football staffs see their information (depth boards, call sheets, the All-22, Next Gen Stats, the war room) plus FM's conventions. Found in the audit: the scouting doc wrote attribute ranges on a 1-20 scale; attributes are 1-99 (2026-10-10), so ranges are on 1-99, corrected there. Five taste choices wait on Cain (navigation, default theme, team colours, dots in the 2D view, section 8 building on this frame); all proposed, not confirmed.
+
 ---
 
 ## Superseded decisions
