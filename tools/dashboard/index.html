@@ -846,7 +846,7 @@ function buildPages(p) {
 }
 
 /* ---------- Verdict: positives, negatives and bugs, suggestions ---------- */
-const VERDICT_KEY = "afm-lab-answers";
+const VERDICT_KEY = "afm-lab-answers-trial10";
 function loadAnswers() { try { return JSON.parse(localStorage.getItem(VERDICT_KEY) || "{}"); } catch (e) { return {}; } }
 function saveAnswers(a) { try { localStorage.setItem(VERDICT_KEY, JSON.stringify(a)); } catch (e) {} }
 function verdictItem(n, cls) {
