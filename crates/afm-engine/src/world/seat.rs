@@ -12,7 +12,7 @@ use super::World;
 
 /// One of your team's games, kept whole for its game page: the box score,
 /// every play with the caller's reasons, and each side's name that day.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SeatGame {
     pub date: Date,
     pub level: crate::calendar::Level,
@@ -186,7 +186,7 @@ impl World {
 }
 
 /// You, as the setup builds you (section 8, topic 2; people topic 15).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct You {
     pub name: String,
     pub age: u32,
@@ -207,7 +207,7 @@ pub struct You {
 }
 
 /// Where you start (section 8, topic 2).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub enum Job {
     HighSchool(usize),
     College(usize),
@@ -257,7 +257,7 @@ impl World {
 /// Your career (section 8): who you are, your coach in the world, where you
 /// started and your own notes on people (screens topic 5: private, they
 /// change nothing in the world and follow the person through his career).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Career {
     pub you: You,
     pub coach: usize,
@@ -269,7 +269,7 @@ pub struct Career {
 }
 
 /// One of your notes: the game date it was written and its text.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Note {
     pub date: Date,
     pub text: String,
@@ -307,5 +307,17 @@ impl World {
     pub fn your_ability(&self) -> Option<&super::coach::Ability> {
         let c = self.career.as_ref()?;
         self.coaches.get(c.coach).map(|co| co.ability())
+    }
+}
+
+impl World {
+    /// Fills in, after a file loads, what the file's game didn't keep
+    /// (section 8, the world importer): a world built before section 8 has
+    /// no seat, no career and no kept games, which load as empty, and its
+    /// people list gets the same room rule as a running world.
+    pub fn after_load(&mut self) {
+        let room = self.people.len() + self.people.len() / 3;
+        self.people.shrink_to(room);
+        self.seat_games.retain(|g| g.teams.iter().all(|&t| t < self.programs.len().max(self.nfl.len())));
     }
 }

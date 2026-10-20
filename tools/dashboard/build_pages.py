@@ -96,6 +96,24 @@ TEND_JS = (
 )
 END_NEW2 = "${statT}${proT}${tendT}`;"
 
+# High school seasons (section 8, choice 2): played on the match engine for
+# the history's last 12 seasons; earlier seasons used the stand-in.
+HS_JS = (
+    'const hsT=c.hs&&c.hs.length?`<div class="box scroll" style="margin-top:12px"><h2>High school</h2><table>'
+    '<tr><th class="n">Year</th><th>School</th><th>Pos</th><th class="n">G</th><th class="n">Cmp/Att</th><th class="n">Pass yds</th>'
+    '<th class="n">TD</th><th class="n">INT</th><th class="n">Car</th><th class="n">Rush yds</th><th class="n">TD</th>'
+    '<th class="n">Rec</th><th class="n">Rec yds</th><th class="n">TD</th><th class="n">Tkl</th><th class="n">TFL</th>'
+    '<th class="n">Sacks</th><th class="n">INT</th><th class="n">PBU</th><th class="n">FG</th></tr>'
+    '${c.hs.map(s=>`<tr><td class="n">${s.year}</td><td>${s.school}</td><td>${s.pos}</td><td class="n">${s.games}</td>'
+    '<td class="n">${s.cmp}/${s.att}</td><td class="n">${s.pass_yds}</td><td class="n">${s.pass_td}</td><td class="n">${s.int}</td>'
+    '<td class="n">${s.rush}</td><td class="n">${s.rush_yds}</td><td class="n">${s.rush_td}</td><td class="n">${s.rec}</td>'
+    '<td class="n">${s.rec_yds}</td><td class="n">${s.rec_td}</td><td class="n">${s.tackles}</td><td class="n">${s.tfl}</td>'
+    '<td class="n">${s.sacks}</td><td class="n">${s.ints}</td><td class="n">${s.pbus}</td><td class="n">${s.fg}/${s.fga}</td></tr>`).join("")}'
+    '</table><p style="color:var(--mute);font-size:12px">His varsity seasons from the match engine (2014 on).'
+    ' Earlier high school seasons used the stand-in and kept no stats.</p></div>`:"";\n  '
+)
+END_NEW3 = "${statT}${hsT}${proT}${tendT}`;"
+
 # Mirrors `Tend::ALL` (crates/afm-engine/src/tendencies.rs): label, owners, ends.
 TENDS = [
     ("Bounces runs", {"RB"}, "hits the called hole", "bounces runs"),
@@ -201,8 +219,10 @@ def show_events(line, whole):
         line = line.replace(PRO_OLD, PRO_JS + PRO_OLD)
     if PRO_OLD in line and "const tendT=" not in whole:
         line = line.replace(PRO_OLD, TEND_JS + PRO_OLD)
-    if END_NEW2 not in line:
-        line = line.replace(END_OLD, END_NEW2).replace(END_NEW, END_NEW2)
+    if PRO_OLD in line and "const hsT=" not in whole:
+        line = line.replace(PRO_OLD, HS_JS + PRO_OLD)
+    if END_NEW3 not in line:
+        line = line.replace(END_OLD, END_NEW3).replace(END_NEW2, END_NEW3).replace(END_NEW, END_NEW3)
     return line
 
 

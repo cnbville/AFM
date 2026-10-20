@@ -67,6 +67,13 @@ fn a_college_career_plays_through_its_first_games() {
         ok(&mut g, cmd, json!({}));
     }
     assert!(!ok(&mut g, "search", json!({ "q": "test coach" }))["coaches"].as_array().unwrap().is_empty());
+    // Save and load: the loaded career plays on.
+    let saved = ok(&mut g, "save", json!({ "name": "test career" }));
+    let path = saved["saved"].as_str().unwrap().to_string();
+    ok(&mut g, "load", json!({ "path": path }));
+    assert_eq!(ok(&mut g, "player", json!({ "id": id }))["notes"].as_array().unwrap().len(), 1);
+    ok(&mut g, "continue", json!({ "max_days": 10 }));
+    assert_eq!(ok(&mut g, "library", json!({}))["saves"].as_array().unwrap().len(), 1);
     println!("career test in {:.0}s", t.elapsed().as_secs_f64());
     let _ = std::fs::remove_dir_all(dir);
 }

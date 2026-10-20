@@ -20,7 +20,7 @@ use crate::calendar::rules::conference_rules;
 use crate::calendar::{Date, Loudness, YearDates};
 
 /// What a game is for.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum GameKind {
     Regular,
     ConferenceTitle,
@@ -35,7 +35,7 @@ pub enum GameKind {
 }
 
 /// Why a game matters beyond the standings (A40, A41).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Tag {
     /// A listed rivalry, with its trophy and all-time record.
     Rivalry,
@@ -71,15 +71,16 @@ impl Tag {
 }
 
 /// A neutral site.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Site {
     pub state: usize,
-    pub town: &'static str,
+    #[serde(deserialize_with = "crate::save::leaked")]
+    pub town: crate::save::Text,
     pub indoor: bool,
 }
 
 /// What happened in a game.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Played {
     pub score: [u32; 2],
     pub home_won: bool,
@@ -96,7 +97,7 @@ pub struct Played {
     pub cancelled: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Game {
     pub date: Date,
     /// Kickoff on Eastern time (hour, minute).
@@ -114,13 +115,15 @@ pub struct Game {
     /// The home side's homecoming (A27).
     pub homecoming: bool,
     /// A bowl or playoff game's name.
-    pub name: Option<&'static str>,
+    #[serde(deserialize_with = "crate::save::leaked")]
+    pub name: Option<crate::save::Text>,
     pub tags: Vec<Tag>,
     pub loud: Loudness,
     /// Each side's own stakes (T8.1): home, away. A game can be huge for one
     /// team (a sixth win for a bowl, a coach's job) and not for the nation.
     pub huge_for: [bool; 2],
     /// Why the game is loud, in plain words (part B 22).
+    #[serde(deserialize_with = "crate::save::leaked")]
     pub why: Vec<&'static str>,
     pub played: Option<Played>,
 }

@@ -23,7 +23,7 @@ use crate::world::{Stage, World};
 /// through what he does): the weights he puts on each part of an offer,
 /// and the traits that drive holdouts and disputes. Drawn once from his
 /// id and personality, so they never change.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Goals {
     pub money: f64,
     pub security: f64,
@@ -66,7 +66,7 @@ pub fn goals(w: &World, i: usize) -> Goals {
 /// one-man shops to giants; size brings leverage and information. His
 /// honesty sets how often he claims interest that isn't there; GMs learn
 /// it from dealing with him, and that history carries across his clients.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Agent {
     pub name: String,
     pub agency: String,
@@ -460,7 +460,7 @@ pub(crate) fn worth(w: &World, t: usize, i: usize) -> (f64, f64) {
 
 /// What a player wants (topic 5 question 3): a hidden package built from his
 /// own weights. Read only through tells, his agent and sit-downs.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Ideal {
     pub apy: f64,
     /// Practical guarantee as a share of the total.
@@ -472,7 +472,7 @@ pub struct Ideal {
 }
 
 /// An offer on the table.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Offer {
     pub team: usize,
     pub apy: f64,
@@ -485,7 +485,7 @@ pub struct Offer {
 /// A deal agreed and not yet signed: the seven-day window after an offer
 /// at 85% of his ideal (another team can still sway him), or a verbal
 /// agreement in the tampering window, which waits for the new league year.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Pending {
     pub person: usize,
     pub offer: Offer,
@@ -495,7 +495,7 @@ pub struct Pending {
 }
 
 /// An RFA offer sheet waiting on the old team (five days to match).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Sheet {
     pub person: usize,
     pub offer: Offer,
@@ -1581,7 +1581,7 @@ fn extend(w: &mut World, i: usize, o: &Offer, d: Date) {
 }
 
 /// Holding out or holding in (topic 3 question 4).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Hold {
     #[default]
     None,
@@ -2123,7 +2123,7 @@ pub(crate) fn cash_floor(w: &mut World, d: Date) {
 // --- Books for trials ------------------------------------------------------------------------------------------------
 
 /// The market's year in numbers (trial tooling and the Debug Lab).
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct MarketYear {
     pub year: i32,
     pub ufa: u32,
@@ -2198,7 +2198,7 @@ pub struct MarketYear {
 }
 
 /// The league's market state.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Market {
     pub agents: Vec<Agent>,
     pub pending: Vec<Pending>,

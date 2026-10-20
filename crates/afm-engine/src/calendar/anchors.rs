@@ -13,7 +13,7 @@
 use super::date::{Date, Moment, Weekday};
 
 /// When a year's college postseason format is used (topic 11).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum CfbPostseason {
     /// Bowls only; the champion is the final AP poll's No. 1 (before 1998).
     PollsOnly,
@@ -26,7 +26,7 @@ pub enum CfbPostseason {
 }
 
 /// Every anchor date of one football year.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct YearDates {
     pub season: i32,
     /// The day after the previous Super Bowl: the year's first day.

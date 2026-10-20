@@ -550,3 +550,73 @@ fn a_history_through_the_expansion_years_runs() {
         assert!(m.scout_looks > 0, "no scouting in {}", m.year);
     }
 }
+
+/// Section 8, choice 2: the history's last seasons play high school games
+/// on the match engine (here only 2025, the test world's engine year). The
+/// players' lines and the state record books come from them.
+#[test]
+fn high_school_games_run_on_the_engine() {
+    use afm_engine::world::records::{Book, Scope};
+    let w = &*WORLD;
+    let last = w.log_history.iter().find(|l| l.year == 2025).expect("the 2025 season");
+    assert!(last.hs_engine_games > 1000, "{} high school engine games", last.hs_engine_games);
+    let t = &last.hs_totals;
+    let points = t.points_for as f64 / t.games.max(1) as f64;
+    let plays = t.plays as f64 / t.games.max(1) as f64;
+    assert!((8.0..35.0).contains(&points) && (40.0..75.0).contains(&plays), "{points:.1} points, {plays:.1} plays");
+    let with = w.people.iter().filter(|p| p.hs_lines.iter().any(|l| l.year == 2025)).count();
+    assert!(with > 50_000, "{with} players with a 2025 line");
+    let books = w.stats.books.keys().filter(|k| matches!(k.0, Scope::State(_)) && k.1 == Book::Season(0)).count();
+    assert!(books >= 45, "{books} states with a passing yards book");
+    let earlier = w.log_history.iter().filter(|l| l.year < 2025).map(|l| l.hs_engine_games).sum::<u32>();
+    assert_eq!(earlier, 0, "seasons before engine_from stay on the stand-in");
+}
+
+/// Save and load (section 8): a world written to a file and read back plays
+/// its next season exactly as the original does, so nothing that drives
+/// results is left out of the file.
+#[test]
+fn a_saved_world_plays_on_identically() {
+    use afm_engine::save::{read_meta, read_world, write_world};
+    let opts = WorldOptions { seed: 13, scale: 0.05, history_years: 1, engine_from: Some(2026), ..Default::default() };
+    let mut a = World::new(opts);
+    let path = std::env::temp_dir().join(format!("afm-save-test-{}.afmworld", std::process::id()));
+    write_world(&a, &path, "test", "test").expect("write the world");
+    let meta = read_meta(&path).expect("read the header");
+    assert_eq!((meta.seed, meta.history_years, meta.start_year), (13, 1, 2026));
+    let mut b = read_world(&path).expect("read the world");
+    let _ = std::fs::remove_file(&path);
+    a.advance_year();
+    b.advance_year();
+    let print = |w: &World| {
+        let people: Vec<String> = w
+            .people
+            .iter()
+            .map(|p| {
+                format!(
+                    "{} {} {:?} {:.6} {} {:?}",
+                    p.player.id,
+                    p.name,
+                    p.stage,
+                    p.player.overall(),
+                    p.player.age,
+                    p.college
+                )
+            })
+            .collect();
+        let programs: Vec<String> =
+            w.programs.iter().map(|p| format!("{} {:?} {:.6}", p.real_name, p.head_coach, p.prestige)).collect();
+        let coaches: Vec<String> = w.coaches.iter().map(|c| format!("{} {} {}", c.name, c.wins, c.losses)).collect();
+        format!(
+            "{:?}\n{}\n{}\n{}\n{:?}\n{}",
+            w.today,
+            people.join("\n"),
+            programs.join("\n"),
+            coaches.join("\n"),
+            w.log_history.last(),
+            w.alumni.len()
+        )
+    };
+    let (pa, pb) = (print(&a), print(&b));
+    assert!(pa == pb, "the loaded world played its next season differently");
+}

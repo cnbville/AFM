@@ -7,10 +7,10 @@
 
 use std::fmt;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Date(pub i32);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Weekday {
     Mon,
     Tue,
@@ -128,7 +128,7 @@ impl fmt::Display for Date {
 }
 
 /// A moment: a date and minutes after midnight Eastern.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Moment {
     pub date: Date,
     pub minute: u16,

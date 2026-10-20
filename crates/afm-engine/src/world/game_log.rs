@@ -14,7 +14,7 @@ use crate::game::{GameStats, PlayRecord, PlayType, TeamStats};
 pub type Situ = [f64; 8];
 
 /// One college game, as the box score's team totals.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct GameSummary {
     pub year: i32,
     pub division: Division,
@@ -33,15 +33,17 @@ pub struct GameSummary {
     pub overtime: bool,
     /// Why the game mattered (its tags, part D 40), how loud it was, and
     /// snaps a man from another position group had to play (fix list 3.6).
+    #[serde(deserialize_with = "crate::save::leaked")]
     pub tags: Vec<&'static str>,
-    pub loud: &'static str,
+    #[serde(deserialize_with = "crate::save::leaked")]
+    pub loud: crate::save::Text,
     pub emergency_snaps: u32,
     /// A game between programs of different divisions (an FBS buy game).
     pub cross: bool,
 }
 
 /// A player's season at one program: the headline counting stats.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct PlayerSeason {
     pub program: usize,
     /// His listed position at the end of the season.
@@ -75,7 +77,7 @@ pub struct PlayerSeason {
     pub graded: u32,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct GameLog {
     pub games: Vec<GameSummary>,
     /// (season, player id) to his season totals.

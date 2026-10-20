@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use super::sim::{FoulKind, Injury, Move};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum PlayType {
     Run,
     Pass,
@@ -24,7 +24,7 @@ pub enum PlayType {
 }
 
 /// One play in the log (8.1, 8.2).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PlayRecord {
     pub n: u32,
     pub quarter: u8,
@@ -40,7 +40,8 @@ pub struct PlayRecord {
     pub kind: PlayType,
     pub call: String,
     /// The play caller's reason (plays and tactics topic 6.6).
-    pub call_why: &'static str,
+    #[serde(deserialize_with = "crate::save::leaked")]
+    pub call_why: crate::save::Text,
     pub defense_call: String,
     pub personnel: String,
     pub box_count: u8,
@@ -48,7 +49,8 @@ pub struct PlayRecord {
     pub play_action: bool,
     pub coverage_man: bool,
     /// The route the target ran.
-    pub route: &'static str,
+    #[serde(deserialize_with = "crate::save::leaked")]
+    pub route: crate::save::Text,
     pub yards: f64,
     pub first_down: bool,
     pub touchdown: bool,
@@ -229,7 +231,7 @@ impl PlayRecord {
 
 /// One player's line for a game, a season or a career (8.3). Everything is
 /// a count or a sum, so lines add up; rates are worked out when read.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct StatLine {
     pub games: u32,
     pub snaps_off: u32,
@@ -568,7 +570,7 @@ pub fn expected_completion(air: f64, sep: f64, pressured: bool) -> f64 {
 }
 
 /// A team's game (8.3, team and unit).
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct TeamStats {
     pub points: i32,
     pub plays: u32,
@@ -607,7 +609,7 @@ pub struct TeamStats {
 /// The whole game: final score, team totals, every player's line, and the
 /// play log with its whys (8.8: box score, drive chart, win probability,
 /// play by play).
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct GameStats {
     pub score: [i32; 2],
     pub quarters: Vec<[i32; 2]>,

@@ -22,7 +22,7 @@ macro_rules! stats {
     ($($name:ident),* $(,)?) => {
         /// The numbers kept for every season: the classic box score and the
         /// advanced stats the percentiles, footprints and records read.
-        #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
         pub enum Stat { $($name),* }
         impl Stat {
             pub const ALL: &'static [Stat] = &[$(Stat::$name),*];
@@ -216,7 +216,7 @@ pub fn from_line(l: &StatLine) -> [f32; STAT_COUNT] {
 }
 
 /// One player's season at one program.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SeasonRecord {
     pub id: u32,
     pub year: i16,
@@ -231,6 +231,7 @@ pub struct SeasonRecord {
     /// His opponents' average strength against his division's average, in
     /// rating points: what the opponent-adjusted view reads.
     pub sos: f32,
+    #[serde(with = "serde_big_array::BigArray")]
     pub s: [f32; STAT_COUNT],
 }
 
@@ -244,7 +245,7 @@ impl SeasonRecord {
 /// The rates percentiles and footprints read, each with the volume that
 /// makes a season count (proposed, not confirmed: about a third of a
 /// starter's season at that job).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Metric {
     PasserRating,
     EpaPerDropback,
@@ -408,17 +409,17 @@ pub fn headline_metrics(pos: Position) -> &'static [Metric] {
 }
 
 /// Where a record book applies.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub enum Scope {
     Division(Division),
     Conference(Division, String),
-    /// A state's high schools (team records only: high school games still
-    /// run on the stand-in, which keeps no player stats).
+    /// A state's high schools: team records, and players' records from
+    /// the seasons played on the match engine.
     State(usize),
 }
 
 /// Which list.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub enum Book {
     Season(usize),
     Career(usize),
@@ -443,7 +444,7 @@ impl Book {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct RecordEntry {
     pub value: f64,
     /// The player, or 0 for a program's streak.
@@ -460,18 +461,19 @@ pub struct RecordEntry {
 
 /// What a player was honored with, kept for his record and the Hall of
 /// Fame ballot.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Honors {
     pub name: String,
     pub pos: Option<Position>,
     /// First-team All-America seasons and the division.
     pub all_america: Vec<(i32, Division)>,
     pub all_conference: u32,
+    #[serde(deserialize_with = "crate::save::leaked")]
     pub awards: Vec<(i32, &'static str)>,
     pub inducted: Option<i32>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct HallEntry {
     pub year: i32,
     pub name: String,
@@ -483,7 +485,7 @@ pub struct HallEntry {
 
 /// A coach's unit numbers for the season (world item 5), and how the
 /// buzz from them reads (offense or defense percentile in his division).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct UnitBuzz {
     pub year: i32,
     pub coach: usize,
@@ -494,7 +496,7 @@ pub struct UnitBuzz {
     pub why: String,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct StatBook {
     /// Every player season, oldest first.
     pub seasons: Vec<SeasonRecord>,
@@ -504,6 +506,7 @@ pub struct StatBook {
     pub year_index: Vec<(i32, usize)>,
     /// (year, division, position) to each stat's per-game mean among the
     /// season's regulars: what the era-adjusted view divides by.
+    #[serde(with = "crate::save::big_values")]
     pub norms: HashMap<(i32, Division, Position), [f32; STAT_COUNT]>,
     /// Record books: the best ten in a division, five in a conference.
     pub books: HashMap<(Scope, Book), Vec<RecordEntry>>,
@@ -604,7 +607,7 @@ pub fn footprint_text(r: &SeasonRecord) -> Vec<String> {
 
 /// One in-season line for the book: his program, his listed position, his
 /// summed game lines and his opponents' strength.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct BookLine {
     pub program: usize,
     pub pos: Option<Position>,
@@ -792,6 +795,11 @@ fn place(list: &mut Vec<RecordEntry>, e: RecordEntry, n: usize) -> bool {
     list.insert(pos, e);
     list.truncate(n);
     pos == 0 && was_best.is_some()
+}
+
+/// Puts an entry on a state's list (the best ten, like a division's).
+pub(crate) fn place_entry(list: &mut Vec<RecordEntry>, e: RecordEntry) {
+    place(list, e, DIVISION_TOP);
 }
 
 /// Puts a running streak or career on its list, in place of its own

@@ -13,7 +13,7 @@ use super::playbook::FAMILY_COUNT;
 use super::rules::{TRAIT_STEP, trait_norm};
 
 /// A player as the match engine sees him on game day.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct GamePlayer {
     pub id: u32,
     /// Listed position.
@@ -191,7 +191,7 @@ impl GamePlayer {
 }
 
 /// Offensive systems (topic 3).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum OffScheme {
     WestCoast,
     AirRaid,
@@ -223,14 +223,14 @@ impl OffScheme {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Front {
     FourThree,
     ThreeFour,
 }
 
 /// Coverage family a defensive coordinator leans on.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Shell {
     /// Single-high Cover 3 (Seattle).
     Cover3,
@@ -242,7 +242,7 @@ pub enum Shell {
     Cover2,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Caller {
     /// Play-calling quality, 1-20 (hidden ability): the mean of his skills.
     pub skill: f64,
@@ -272,7 +272,7 @@ impl Caller {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Staff {
     pub offense: Caller,
     pub defense: Caller,
@@ -330,7 +330,7 @@ impl Staff {
 }
 
 /// A team for one game.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct GameTeam {
     pub name: String,
     pub players: Vec<GamePlayer>,
@@ -351,6 +351,7 @@ pub struct GameTeam {
     /// Your own depth chart (section 8, topic 6): at each position you
     /// ordered, the player ids you listed, best first. Empty for every AI
     /// team, whose staff orders it.
+    #[serde(default)]
     pub order: Vec<(Position, Vec<u32>)>,
 }
 
@@ -471,7 +472,7 @@ pub fn prep_week(days: Option<i32>) -> f64 {
 }
 
 /// The depth chart: players (indexes into `players`) in order at each spot.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Depth {
     pub at: [Vec<usize>; POSITION_COUNT],
     /// Kickoff kickers, best leg first (fix list 1.8). With three or four

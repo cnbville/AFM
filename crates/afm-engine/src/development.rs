@@ -9,13 +9,13 @@ use crate::player::{DevelopmentEvent as Ev, Events, Level, Player, PlayingTime, 
 use crate::positions::{overall_for, weight};
 use crate::rng::{Rng, clamp, round_half_up};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Trouble {
     Suspended,
     Dismissed,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SeasonContext {
     pub level: Level,
     /// Quality of the player's coaching staff, 1-20.
@@ -174,7 +174,7 @@ fn playing_time_potential(pt: PlayingTime) -> f64 {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(not(feature = "debug"), allow(dead_code))]
 pub struct SeasonReport {
     pub overall_before: f64,

@@ -21,7 +21,7 @@ use super::anchors::{CfbPostseason, cfb_postseason, nfl_regular_weeks};
 use crate::rng::Rng;
 
 /// How players change schools in an era.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum TransferRule {
     /// Before the portal: a transfer needs his school's release and sits a year.
     Permission,
@@ -35,7 +35,7 @@ pub enum TransferRule {
     January,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct RuleBook {
     pub season: i32,
     // --- NFL ---
@@ -257,7 +257,7 @@ impl RuleBook {
 }
 
 /// The 12 agreed off-field changes (topic 11, confirmed 2026-10-14).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Change {
     EighteenGames,
     NewCba,
@@ -327,7 +327,7 @@ impl Change {
 /// Raichel was asked for them on 2026-10-14 and has not answered). Each is
 /// the chance the change is put forward in a year; passing it is a separate
 /// real vote where one exists.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct ChangeOdds {
     /// 18 games, only inside a new CBA (from the 2031 league year).
     pub eighteen_games_in_cba: f64,
@@ -366,7 +366,7 @@ pub const CHANGE_ODDS: ChangeOdds = ChangeOdds {
 };
 
 /// One change that happened, for the news and the trial.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct AppliedChange {
     pub change: Change,
     pub season: i32,
@@ -374,7 +374,7 @@ pub struct AppliedChange {
 }
 
 /// The state of the 12 changes in a world.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct ChangeState {
     pub applied: Vec<AppliedChange>,
     pub eighteen: Option<i32>,

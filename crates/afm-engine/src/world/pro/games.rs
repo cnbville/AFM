@@ -26,7 +26,7 @@ pub(crate) const NFL_SEASON_SNAPS: u32 = 1000;
 
 /// A team ready for one game: the engine's side and, for each player, his
 /// person and whether he starts.
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Side {
     pub team: GameTeam,
     pub who: HashMap<u32, (usize, bool)>,

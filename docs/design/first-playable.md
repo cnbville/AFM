@@ -100,6 +100,7 @@ Topic order: 1 the world you start in, 2 starting your career, 3 save and load, 
 ### What exists
 - **Built:** the trial's player pages (cards) and the Debug Lab show what text screens need, from the world's own data; the game hides true potential (`debug` feature off).
 - **Decided:** a dense FM look, plain screens first (Q45, Q50). Every written line comes from section 6's huge line bank (people topic 5).
+- **Decided (section 10, Cain 2026-10-20):** these screens are built on Showtime (`ui/showtime/`) from the start, with a left sidebar. "Plain" means no faces, 2D view or charts yet, not a grey look (`screens.md`, topic 16 and choice 5).
 - **New:** which screens the first playable needs to play a whole year at each level.
 
 ### The design

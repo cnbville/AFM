@@ -15,7 +15,7 @@ use crate::player::{Level, Personality};
 use crate::positions::{POSITION_COUNT, Position};
 use crate::rng::{Rng, clamp, round_half_up};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 #[repr(u8)]
 pub enum Tend {
     // Ball carriers: anyone with the ball.
@@ -213,7 +213,7 @@ pub fn level_sd(level: Level) -> f64 {
 }
 
 /// A player's tendencies.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Tendencies {
     /// What he does now, 1-20.
     pub v: [f32; TEND_COUNT],
@@ -387,7 +387,7 @@ pub fn misfit(t: Tend, value: f64, a: &Attributes, level: Level) -> f64 {
 /// A staff's style (the "Your coaching style" part of the spec): each
 /// setting 1-20 from one end to the other. Tempo and run-pass mix are game
 /// plan settings, not here.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Style {
     /// Conservative (1) to aggressive (20): Jim Tressel against Bruce Arians.
     pub risk: f64,
@@ -477,7 +477,7 @@ pub fn scheme_target(t: Tend, off: OffScheme, front: Front) -> Option<f64> {
 // ------------------------------------------------------- yearly change
 
 /// What one year brings to his habits (topic 3).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct YearCtx {
     pub level: Level,
     /// His position coach's teaching, 1-20 (the blend development uses).
@@ -669,11 +669,12 @@ pub fn word(value: f64) -> &'static str {
 /// A staff's read of one tendency (topic 4.1): a range on the 1-20 scale
 /// plus a word. It narrows with film and the staff's quality: a junior with
 /// 8 games on tape might read 12-17, your own starter after a season 15-16.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TendRead {
     pub low: u8,
     pub high: u8,
-    pub word: &'static str,
+    #[serde(deserialize_with = "crate::save::leaked")]
+    pub word: crate::save::Text,
 }
 
 pub fn scout(value: f64, games: f64, accuracy: f64, rng: &mut Rng) -> TendRead {
@@ -692,7 +693,7 @@ pub fn scout(value: f64, games: f64, accuracy: f64, rng: &mut Rng) -> TendRead {
 
 /// A coach's instruction to one player (topic 4.3), each a real coaching
 /// instruction with what it must move in the engine.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Instruction {
     /// Kick returners: take a knee if he catches it deeper than this many
     /// yards in the end zone.
@@ -750,7 +751,7 @@ impl Instruction {
 }
 
 /// A player's instructions: at most a few, as real coaches give them.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Orders(pub Vec<Instruction>);
 
 impl Orders {

@@ -21,7 +21,7 @@ use crate::world::season::key_uniform;
 use std::collections::HashMap;
 
 /// A compensatory pick (end of rounds 3-7).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct CompPick {
     pub year: i32,
     pub team: usize,
@@ -33,7 +33,7 @@ pub struct CompPick {
     pub kind: CompKind,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum CompKind {
     FreeAgency,
     Supplemental,
@@ -41,7 +41,7 @@ pub enum CompKind {
 }
 
 /// A trade on the books.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Trade {
     pub date: Date,
     pub buyer: usize,
@@ -54,7 +54,7 @@ pub struct Trade {
 }
 
 /// Who owns each pick and which compensatory picks exist.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct PickBook {
     /// (draft year, round, original team) → owner, for traded picks.
     pub owner: HashMap<(i32, u32, usize), usize>,
@@ -243,7 +243,7 @@ fn player_points(w: &World, t: usize, i: usize) -> f64 {
 /// When a trade window opens: the offseason's (the new league year,
 /// before the draft, camp, cutdown week), each week of the season before
 /// the deadline, and deadline week.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) enum Window {
     Offseason,
     Season,

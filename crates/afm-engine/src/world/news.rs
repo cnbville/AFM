@@ -8,7 +8,7 @@ pub(crate) fn count<N: Into<u64>>(n: N, noun: &str) -> String {
     if n == 1 { format!("1 {noun}") } else { format!("{n} {noun}s") }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Channel {
     /// A message from the program's own staff (seen by that program's coach).
     Inbox,
@@ -18,7 +18,7 @@ pub enum Channel {
     GradeArrow,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum NewsKind {
     NilWarning {
         level: u32,
@@ -39,7 +39,7 @@ pub enum NewsKind {
     Realignment,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct NewsItem {
     /// The day it came out (section 4); stamped by the clock.
     pub date: Option<crate::calendar::Date>,

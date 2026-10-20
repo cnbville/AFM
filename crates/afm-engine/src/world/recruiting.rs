@@ -725,7 +725,7 @@ pub(crate) fn advisory_grades(w: &mut World) {
 /// from December (part D 17), the rest by the hard deadline, when seniors'
 /// college careers end too; a few withdraw after the advisory read, by the
 /// NCAA's date.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) enum Declare {
     /// A day before the deadline: those whose own day it is.
     Soft,
@@ -1490,7 +1490,7 @@ fn ordinal_rank(rank: usize) -> String {
 
 // --- Recruiting ---------------------------------------------------------------------
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
 struct Recruit {
     person: usize,
     /// How good his film is, in rating points, aligned by position.
@@ -1510,7 +1510,7 @@ const JUCO_OUT_OF_STATE_OFFERS: usize = 15;
 /// 2.0-2.299 is an academic redshirt (he can sign, get aid and practice, but
 /// not play in year one); under 2.0 he can't enroll. Division II: 2.2 and a
 /// 2.0 partial qualifier. Junior colleges take anyone.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) enum Eligibility {
     Qualifier,
     AcademicRedshirt,
@@ -1615,7 +1615,7 @@ fn specialist_scholarships(pos: Position) -> f64 {
 
 /// A staff's class plan (fix list 1.1, 1.2, 1.6): how many it signs at each
 /// position this year, on scholarship and as walk-ons, and the room it has.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 struct ClassPlan {
     scholarship: [usize; POSITION_COUNT],
     walk_on: [usize; POSITION_COUNT],
@@ -1800,7 +1800,7 @@ fn counted_rosters(w: &World, season: i32) -> Vec<usize> {
 /// When the staff reads its roster for a signing stage (T5.2): what this
 /// season still adds to everyone's count, whether the winter portal is still
 /// ahead, and the most seasons a player gets.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 struct RosterRead {
     stage: SignStage,
     /// Seasons a player gets (five under the five-in-five change).
@@ -2319,6 +2319,7 @@ const FIT_EVAL: f64 = 0.3;
 /// The room is live (dynasty item 11.2): a recruit who commits, or a
 /// transfer who lands, joins it at once, so the next recruit at his position
 /// sees him. A recruit who flips leaves it again.
+#[derive(serde::Serialize, serde::Deserialize)]
 struct RosterView {
     /// Per program and position: (overall, college seasons played, person) of each player.
     players: Vec<Vec<Vec<(f64, u32, usize)>>>,
@@ -2996,7 +2997,7 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
 /// or, before it, January enrollees signing aid agreements, and February
 /// signing day. Each stage runs the same matching on the recruits still
 /// unsigned; only the recruits whose own timing (T5.2) has come decide.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) enum SignStage {
     /// A commitment wave before the senior season ends (T5.2): 0 to 3.
     Summer(u8),
@@ -3625,7 +3626,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     // deviation better than the best left at an open spot at a top program,
     // a full one at the bottom (proposed, not confirmed), and at most two
     // over the plan at a spot. Specialists follow the plan exactly.
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
     struct Held {
         program: usize,
         /// His utility for it without the position room, which can change
@@ -3930,7 +3931,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     // deep down their boards (places nobody takes), the rest of every board
     // is read at once on all cores. The offers themselves go out in order,
     // so the results are the same.
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
     struct Fixed {
         offer: f64,
         scholarship: f64,
@@ -4695,7 +4696,7 @@ pub(crate) fn enroll(w: &mut World, early: bool) {
 // --- The transfer portal (T3) ---------------------------------------------------------
 
 /// Why a player leaves (T3).
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, serde::Serialize, serde::Deserialize)]
 enum Why {
     PlayingTime,
     CoachingChange,
@@ -4753,6 +4754,7 @@ impl Why {
 
 /// The market a window opens: every program's room without this window's
 /// entrants, updated as each one lands (11.2, 11.16, fix list 1.10).
+#[derive(serde::Serialize, serde::Deserialize)]
 pub(crate) struct PortalMarket {
     /// The offseason it belongs to (the season just played) and the season the entrants play next.
     label: i32,
@@ -4773,7 +4775,7 @@ pub(crate) struct PortalMarket {
 /// A playoff team's entrant on hold (T3): the day the window would have
 /// given him, his extra days after the last game (0-4), and the days he
 /// takes to decide once in.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 struct Held {
     person: usize,
     program: usize,

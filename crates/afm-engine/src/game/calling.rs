@@ -15,7 +15,7 @@ use crate::rng::{Rng, clamp};
 
 /// What a team has shown this season (topics 5.1 and 7.1): the trail the
 /// other staff studies.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Film {
     pub off_snaps: f32,
     pub def_snaps: f32,
@@ -146,7 +146,7 @@ impl Film {
 /// A staff's matchup plan for one opponent (topic 5.4): their corner to
 /// attack, their receiver to bracket, whether to spy their quarterback.
 /// Player indexes are into the other team's players.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Plan {
     pub target_cb: Option<usize>,
     pub bracket: Option<usize>,
@@ -161,7 +161,7 @@ pub struct Plan {
 /// against route jumpers, kicking short of the goal line to a returner who
 /// brings everything out, draws against edges who rush upfield. Each is
 /// 0-1: how much the staff leans on it.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct VsHabits {
     pub hard_count: f64,
     pub double_moves: f64,
@@ -178,7 +178,7 @@ pub fn read_habit(true_mean: f64, film_study: f64, rng: &mut Rng) -> f64 {
 }
 
 /// What a coordinator has learned about this game.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Memory {
     pub run_epa: f64,
     pub runs: f64,
@@ -331,7 +331,7 @@ pub fn quick_check(togo: f64) -> usize {
 }
 
 /// The game situation a call is made in.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Situation {
     pub down: u8,
     pub togo: f64,
@@ -385,7 +385,7 @@ impl Situation {
 }
 
 /// What the offense has to call with.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct OffCtx {
     pub has_fb: bool,
     pub te_count: usize,
@@ -1242,7 +1242,7 @@ pub fn shell_mix(shell: Shell) -> [(Coverage, f64); COVERAGE_COUNT] {
 
 /// What the defense sees of the offense's quarterback and receivers before
 /// the call (topic 5.4).
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct DefCtx {
     /// The quarterback's running threat, 0-1.
     pub qb_run: f64,
@@ -1493,7 +1493,7 @@ pub fn make_plan(
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum FourthDown {
     Go,
     Punt,

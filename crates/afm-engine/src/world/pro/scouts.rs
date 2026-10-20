@@ -29,7 +29,7 @@ use crate::world::{Stage, World};
 
 // --- The department ---------------------------------------------------------------------
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Role {
     /// The director of college scouting: reads the top of the board.
     Director,
@@ -42,7 +42,7 @@ pub enum Role {
 
 /// A scout's hidden lean (topic 2): it moves his reads by up to about a
 /// third of a typical misread, never decides them.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[repr(u8)]
 pub enum Bias {
     /// Loves size for the position.
@@ -66,7 +66,7 @@ const BIASES: [Bias; 7] =
 
 /// A member of a club's personnel department (topic 2), rated 1-20 like
 /// every staff member (hidden).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Scout {
     pub name: String,
     pub role: Role,
@@ -92,7 +92,7 @@ pub struct Scout {
 }
 
 /// What kind of look a file entry is (topic 4).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[repr(u8)]
 pub enum LookKind {
     /// An area scout's fall school call: film, practice and the people
@@ -117,7 +117,7 @@ pub enum LookKind {
 
 /// One look in a file: by whom (a scout's place in the department, or one
 /// of the codes below), what kind and when.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Look {
     pub who: u8,
     pub kind: LookKind,
@@ -395,7 +395,7 @@ impl LookKind {
 
 /// How a person looks at players: his ratings for this player's group,
 /// his say in the room, and his lean.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
 struct Eye {
     key: u64,
     judge: f64,
@@ -504,7 +504,7 @@ impl Ctx {
 /// A club's read of one prospect: its grade on the December scale (before
 /// the position alignment), how sure it is (the grade's variance) and its
 /// character read (in standard deviations of risk; above zero is worse).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Read {
     pub grade: f64,
     pub var: f64,
@@ -1074,7 +1074,7 @@ pub(crate) fn spring(w: &mut World) {
 
 /// A club's board: its grade of each prospect on the aligned scale, and
 /// its do-not-draft list.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Board {
     pub grade: HashMap<usize, f64>,
     pub dnd: HashSet<usize>,
@@ -1263,7 +1263,7 @@ pub(crate) fn trade_on_clock(
 
 /// An undrafted player's deal from the rush: the club, its signing bonus
 /// and the base salary it guarantees (outside the bonus pool).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Offer {
     pub team: usize,
     pub bonus: f64,

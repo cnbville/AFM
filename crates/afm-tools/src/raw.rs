@@ -87,6 +87,20 @@ fn player_detail(p: &afm_engine::player::Player) -> Value {
 
 /// A player's 15 tendencies: key, what he does now, and the number before
 /// coaching moved it.
+/// One high school season as JSON (section 8, choice 2).
+pub fn hs_line(l: &afm_engine::world::hs_year::HsLine) -> Value {
+    use afm_engine::world::hs_year::HsStat as S;
+    json!({
+        "year": l.year, "school": l.school, "pos": l.pos.to_string(), "games": l.games,
+        "att": l.get(S::Att), "cmp": l.get(S::Cmp), "pass_yds": l.get(S::PassYds), "pass_td": l.get(S::PassTd), "int": l.get(S::Int),
+        "rush": l.get(S::Rush), "rush_yds": l.get(S::RushYds), "rush_td": l.get(S::RushTd),
+        "rec": l.get(S::Rec), "rec_yds": l.get(S::RecYds), "rec_td": l.get(S::RecTd),
+        "tackles": l.get(S::Tackles), "tfl": l.get(S::Tfl), "sacks": l.get(S::Sacks), "ints": l.get(S::Ints), "pbus": l.get(S::Pbus),
+        "fg": l.get(S::FgMade), "fga": l.get(S::FgAtt), "xp": l.get(S::XpMade),
+        "snaps_off": l.get(S::SnapsOff), "snaps_def": l.get(S::SnapsDef),
+    })
+}
+
 fn tend_row(t: &afm_engine::tendencies::Tendencies) -> Value {
     json!(Tend::ALL.iter().map(|&k| json!([k.key(), r1(t.get(k)), r1(t.was[k.index()] as f64)])).collect::<Vec<_>>())
 }
@@ -549,6 +563,9 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
             "spring_notices": l.spring_notices, "spring_breakouts": l.spring_breakouts, "spring_fizzles": l.spring_fizzles,
             "hs_games": l.hs_games, "hs_forfeits": l.hs_forfeits, "hs_no_contests": l.hs_no_contests, "hs_grade_outs": l.hs_grade_outs,
             "hs_homecomings": l.hs_homecomings, "hs_senior_nights": l.hs_senior_nights, "hs_all_state": l.hs_all_state,
+            "hs_engine_games": l.hs_engine_games, "hs_team_games": l.hs_totals.games, "hs_points": l.hs_totals.points_for,
+            "hs_plays": l.hs_totals.plays, "hs_yards": r1(l.hs_totals.yards), "hs_pass_yards": r1(l.hs_totals.pass_yards),
+            "hs_rush_yards": r1(l.hs_totals.rush_yards), "hs_turnovers": l.hs_totals.turnovers,
             "heat_days": l.heat_limited_days, "commits": l.commits, "commits_by_month": l.commits_by_month, "decommits": l.decommits,
             "flips": l.flips, "signed_early": l.signed_early, "signed_late": l.signed_late, "signed_by_division": l.signed_by_division,
             "official_visits": l.official_visits, "unofficial_visits": l.unofficial_visits, "drop_ins": l.drop_ins,
@@ -599,10 +616,23 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
         f.put(json!({
             "id": h.id, "name": h.name, "state": STATE_CENTERS[h.state].0, "town": h.town, "class": h.classification,
             "enrollment": h.enrollment, "private": h.private, "prestige": r2(h.prestige), "titles": h.state_titles,
-            "seasons": h.seasons.iter().filter(|s| s.year >= first).map(|s| json!([s.year, s.wins, s.losses, s.state_title])).collect::<Vec<_>>(),
+            "seasons": h.seasons.iter().filter(|s| s.year >= first).map(|s| json!([s.year, s.wins, s.losses, s.state_title, s.points[0], s.points[1]])).collect::<Vec<_>>(),
         }));
     }
     counts.push(("high schools".into(), f.n));
+    // High school stat lines (section 8, choice 2) of everyone who went on:
+    // prep school, college, the draft pool and the pros.
+    let mut f = Lines::new(dir, "hs_lines.jsonl");
+    for p in &w.people {
+        if p.hs_lines.is_empty() || matches!(p.stage, Stage::HighSchool | Stage::Done) {
+            continue;
+        }
+        f.put(json!({
+            "id": p.player.id, "name": p.name, "stage": format!("{:?}", p.stage),
+            "lines": p.hs_lines.iter().map(hs_line).collect::<Vec<_>>(),
+        }));
+    }
+    counts.push(("high school lines".into(), f.n));
     let mut f = Lines::new(dir, "nfl_champions.jsonl");
     for &(year, t) in &w.nfl_champions {
         f.put(json!({"year": year, "team": club(t, year)}));

@@ -26,7 +26,7 @@ pub const FRONTS: [Front; 2] = [Front::FourThree, Front::ThreeFour];
 pub const SHELLS: [Shell; 4] = [Shell::Cover3, Shell::Quarters, Shell::ManPressure, Shell::Cover2];
 
 /// The three kinds of system, in the order of a fit array's slots.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Kind {
     Offense,
     Front,
@@ -44,14 +44,14 @@ impl Kind {
 }
 
 /// What a coach knows of each system, 0-1 (hidden).
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Systems {
     pub know: [f64; 11],
 }
 
 /// A program's systems this season and how much of each side's playbook
 /// its players already know (1 once a system has had a full year).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Installed {
     /// Slots into `OFFENSES`, `FRONTS` and `SHELLS`.
     pub off: usize,

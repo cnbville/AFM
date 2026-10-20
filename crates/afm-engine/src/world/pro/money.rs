@@ -63,7 +63,7 @@ pub fn practice_squad_week(year: i32) -> f64 {
     minimum(year, 0) / 17.0 * 0.28
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Kind {
     Rookie,
     Undrafted,
@@ -81,7 +81,7 @@ pub enum Kind {
 }
 
 /// One league year of a contract.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Year {
     pub year: i32,
     pub base: f64,
@@ -121,7 +121,7 @@ impl Year {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Contract {
     pub team: usize,
     pub kind: Kind,
@@ -193,7 +193,7 @@ impl Contract {
 }
 
 /// What a deal is made of, before it is laid out by year.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Terms {
     pub years: u32,
     /// New money a year.
@@ -540,7 +540,7 @@ pub fn tag_repeat(base: f64, own: f64, times: u32, qb_price: f64) -> f64 {
 
 /// A restricted free agent's tender (2025 shares of the cap: first round
 /// $7.46M, second $5.35M, the original round $3.26M).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Tender {
     First,
     Second,

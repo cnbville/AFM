@@ -27,7 +27,7 @@ use crate::game::{Conditions, GameTeam, Venue, quick_game_in};
 use crate::player::PlayingTime;
 use crate::rng::clamp;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum PollKind {
     CoachesPreseason,
     ApPreseason,
@@ -57,7 +57,7 @@ impl PollKind {
 }
 
 /// A ranking release: the top 25 FBS teams, best first.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Poll {
     pub date: Date,
     pub kind: PollKind,
@@ -65,7 +65,7 @@ pub struct Poll {
 }
 
 /// A player's season stat line, kept for the award picks.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Line {
     pub program: usize,
     pub games: u32,
@@ -93,7 +93,7 @@ pub struct Line {
 }
 
 /// A single-elimination bracket in standard seeding order.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Bracket {
     pub division: Division,
     /// Teams by bracket slot; None is a bye.
@@ -101,6 +101,7 @@ pub(crate) struct Bracket {
     /// Each round's dates, games alternating between them.
     pub dates: Vec<Vec<Date>>,
     /// Each round's game names (the bowls hosting playoff games), if any.
+    #[serde(deserialize_with = "crate::save::leaked")]
     pub names: Vec<Vec<&'static str>>,
     /// Rounds from this one on are at neutral sites.
     pub neutral_from: usize,
@@ -139,6 +140,7 @@ impl Bracket {
     }
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
 pub(crate) struct CollegeSeason {
     pub year: i32,
     pub games: Vec<Game>,
@@ -155,6 +157,7 @@ pub(crate) struct CollegeSeason {
     /// stats record (section 3, topic 8).
     pub book: HashMap<u32, super::records::BookLine>,
     /// Players who sit out games from now on, and why.
+    #[serde(deserialize_with = "crate::save::leaked")]
     pub out: HashMap<u32, &'static str>,
     pub polls: Vec<Poll>,
     pub brackets: Vec<Bracket>,
@@ -164,6 +167,7 @@ pub(crate) struct CollegeSeason {
     /// Regular-season wins and losses already credited to head coaches.
     pub credited: Vec<(u32, u32)>,
     /// Award winners: (award, player id, program).
+    #[serde(deserialize_with = "crate::save::leaked")]
     pub awards: Vec<(&'static str, u32, usize)>,
     /// Teams in a bowl or playoff game.
     pub bowl_teams: HashSet<usize>,
@@ -180,7 +184,7 @@ pub(crate) struct CollegeSeason {
 /// A rivalry's record over the world's history (A28): wins by its first
 /// and second listed programs, the first season counted, and the trophy's
 /// holder (the last rivalry game's winner).
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Series {
     pub wins: [u32; 2],
     pub ties: u32,
@@ -2859,7 +2863,7 @@ pub(crate) fn all_played(w: &World) -> bool {
 
 /// The days the lean toward the portal is read and moved (T3: it runs from
 /// what happens, not once a year).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) enum LeanCheck {
     /// Fall camp: his place on the depth chart, how far he is from home.
     FallCamp,

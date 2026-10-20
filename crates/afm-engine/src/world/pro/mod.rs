@@ -28,7 +28,7 @@ use crate::positions::{POSITION_COUNT, Position};
 use crate::rng::{Rng, clamp, round_half_up};
 
 /// Where a pro is.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Status {
     /// On a team's roster: the offseason roster, then the 53.
     Roster,
@@ -42,7 +42,7 @@ pub enum Status {
 }
 
 /// One pro season: where he played, how much and what he earned.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct ProSeason {
     pub year: i32,
     pub team: Option<usize>,
@@ -62,6 +62,7 @@ pub struct ProSeason {
     pub pro_bowl: bool,
     /// 1 first team, 2 second team.
     pub all_pro: u8,
+    #[serde(deserialize_with = "crate::save::leaked")]
     pub awards: Vec<&'static str>,
     /// Game-day elevations from the practice squad (2020 on).
     pub elevations: u32,
@@ -70,7 +71,7 @@ pub struct ProSeason {
 }
 
 /// A pro's career.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct ProCareer {
     pub team: Option<usize>,
     pub status: Status,
@@ -200,7 +201,7 @@ impl ProCareer {
 
 /// A franchise's football side beyond the league table: who it holds, its
 /// depth chart and its books.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Club {
     /// Section 6: the support staff's heads, the room's mood and captains.
     pub support: super::people::Support,
@@ -233,7 +234,7 @@ pub struct Club {
 }
 
 /// Why a team carries dead money.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum DeadWhy {
     /// A cap casualty: released to clear room.
     CapCut,
@@ -256,7 +257,7 @@ pub enum DeadWhy {
 
 /// One dead-money charge, as real cap pages list them: the league year it
 /// lands on, the amount and the player it is for.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct DeadCharge {
     pub year: i32,
     pub amount: f64,
@@ -590,6 +591,7 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
         nil_income: 0.0,
         pending_dip: None,
         last_role: None,
+        hs_lines: Vec::new(),
         last_snaps: 0,
         college_snaps: 0,
         last_performance: None,

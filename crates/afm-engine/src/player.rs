@@ -6,7 +6,7 @@ use crate::attributes::{ATTRIBUTE_PROFILES, Attr, Attributes, MAX_RATING, MIN_RA
 use crate::positions::{Position, elite_shape_overall, elite_shape_value, overall_for};
 use crate::rng::{Rng, clamp, round_half_up};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub enum Level {
     HS,
     FBS,
@@ -31,7 +31,7 @@ impl Level {
 }
 
 /// Hidden personality traits on Football Manager's 1-20 scale.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Personality {
     /// Effort in training: speeds growth, slows decline, pushes potential up.
     pub work_ethic: f64,
@@ -49,7 +49,7 @@ pub struct Personality {
 /// the four above, 1-20 each, stored as one byte. Drawn at 14 with real
 /// correlations (Big Five meta-analyses, about 0.2-0.4; the sizes are
 /// proposed, not confirmed) and maturing with age and events.
-#[derive(Clone, Copy, Debug, PartialEq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Default, serde::Serialize, serde::Deserialize)]
 pub struct Traits {
     /// Pushes for more: a bigger stage, a starting job, the big contract.
     pub ambition: u8,
@@ -70,7 +70,7 @@ pub struct Traits {
 }
 
 /// One of the traits, as a number for the code that reads them.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Trait {
     Ambition,
     Loyalty,
@@ -183,7 +183,7 @@ pub(crate) fn keyed_normal(a: u64, b: u64) -> f64 {
 
 /// Practice squad players train all year without playing; an unsigned free
 /// agent trains on his own while he waits for a call.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum PlayingTime {
     Starter,
     Rotation,
@@ -206,7 +206,7 @@ impl PlayingTime {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[repr(u8)]
 pub enum DevelopmentEvent {
     GrowthSpurt,
@@ -288,7 +288,7 @@ impl DevelopmentEvent {
 }
 
 /// A season's events, as a small bit set.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Events(u32);
 
 impl Events {
@@ -312,7 +312,7 @@ impl Events {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SeasonRecord {
     pub age: u32,
     pub level: Level,
@@ -360,7 +360,7 @@ pub struct SeasonRecord {
     pub situation: Option<f64>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Player {
     pub id: u32,
     pub position: Position,
@@ -402,7 +402,7 @@ pub struct Player {
 /// lean were hidden here before 2026-10-18 and are visible attributes now.
 /// They come from the player's own id stream, so adding them changed no
 /// other draw.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct GameTraits {
     /// How often he plays to his ratings, game to game (form) and snap to snap.
     pub consistency: f64,
@@ -463,7 +463,7 @@ pub fn talent_from_z(z: f64) -> f64 {
     45.0 + 6.5 * z + 2.75 * tail * tail
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct ProspectOptions {
     pub id: Option<u32>,
     pub position: Option<Position>,

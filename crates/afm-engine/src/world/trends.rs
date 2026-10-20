@@ -13,7 +13,7 @@ use crate::game::playbook::{FAMILY_COUNT, Family};
 use crate::rng::clamp;
 
 /// One division's season.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Trend {
     pub year: i32,
     pub division: Division,
