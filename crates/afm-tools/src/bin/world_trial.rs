@@ -206,13 +206,15 @@ fn main() {
         std::env::var("AFM_DASH").is_ok() || std::env::var("AFM_CARDS").is_ok() || std::env::var("AFM_RAW").is_ok();
     // AFM_SCALE=0.05: a small world, for quick checks of the tooling only.
     let scale = std::env::var("AFM_SCALE").ok().and_then(|v| v.parse().ok()).unwrap_or(1.0);
-    let mut w = World::new(WorldOptions {
-        seed,
-        history_years: years,
-        engine_from,
-        keep_game_log,
-        scale,
-        ..Default::default()
+    // Each season's build time and memory, as it comes.
+    let opts = WorldOptions { seed, history_years: years, engine_from, keep_game_log, scale, ..Default::default() };
+    let mut w = World::new_watched(opts, |w, secs| {
+        let hs = w.log_history.last().map_or(0, |l| l.hs_engine_games);
+        eprintln!(
+            "season {}: {secs:.0}s, {hs} high school engine games, memory {}",
+            w.year - 1,
+            afm_tools::memory_text()
+        );
     });
     let future: u32 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(0);
     let built = t.elapsed().as_secs_f64();
@@ -937,7 +939,7 @@ fn stat_book(w: &World) {
     let mut hs: Vec<_> = b
         .books
         .iter()
-        .filter(|(k, _)| matches!(k.0, Scope::State(_)))
+        .filter(|(k, _)| matches!(k.0, Scope::State(_)) && k.1 == Book::WinStreak)
         .flat_map(|(k, v)| v.iter().map(move |e| (k.0.clone(), e)))
         .collect();
     // Ties by name: the books are a hash map, read in no set order.
@@ -951,6 +953,50 @@ fn stat_book(w: &World) {
         })
         .collect();
     println!("### Longest high school winning streaks: {}", row.join("; "));
+    // High school player records across the states (section 8, choice 2:
+    // the engine seasons only). Real national single-season marks: passing
+    // about 6,000 yards, rushing about 4,500.
+    println!("### High school single-season and career bests across the states (engine seasons)");
+    for (k, st) in RECORD_STATS.iter().enumerate().take(12) {
+        for bk in [Book::Season(k), Book::Career(k)] {
+            let mut all: Vec<_> = b
+                .books
+                .iter()
+                .filter(|(key, _)| matches!(key.0, Scope::State(_)) && key.1 == bk)
+                .flat_map(|(key, v)| v.iter().map(move |e| (key.0.clone(), e)))
+                .collect();
+            if all.is_empty() {
+                continue;
+            }
+            all.sort_by(|a, b| b.1.value.total_cmp(&a.1.value).then_with(|| a.1.name.cmp(&b.1.name)));
+            let row: Vec<String> = all
+                .iter()
+                .take(3)
+                .map(|(sc, e)| {
+                    let stc = if let Scope::State(s) = sc { afm_engine::world::geo::STATE_CENTERS[*s].0 } else { "" };
+                    format!("{:.0} {} {stc} {}", e.value, e.name, e.year)
+                })
+                .collect();
+            let _ = st;
+            println!("- {}: {}", bk.name(), row.join("; "));
+        }
+    }
+    println!("### High school engine games by season (a team game)");
+    for l in w.log_history.iter().filter(|l| l.hs_engine_games > 0) {
+        let t = &l.hs_totals;
+        let n = t.games.max(1) as f64;
+        println!(
+            "- {}: {} games, {:.1} points, {:.1} plays, {:.0} yards ({:.0} passing, {:.0} rushing), {:.2} turnovers",
+            l.year,
+            l.hs_engine_games,
+            t.points_for as f64 / n,
+            t.plays as f64 / n,
+            t.yards / n,
+            t.pass_yards / n,
+            t.rush_yards / n,
+            t.turnovers as f64 / n
+        );
+    }
     println!("### Hidden-gem footprints by season (flagged seasons: stats / testing)");
     for &(year, _) in b.year_index.iter().rev().take(5) {
         let recs = b.year(year);

@@ -587,6 +587,7 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
         nil_income: 0.0,
         pending_dip: None,
         last_role: None,
+        hs_lines: Vec::new(),
         last_snaps: 0,
         college_snaps: 0,
         last_performance: None,

@@ -21,7 +21,7 @@ pub mod franchise;
 pub mod game_log;
 pub mod geo;
 pub mod high_school;
-mod hs_year;
+pub mod hs_year;
 pub mod names;
 pub mod ncaa;
 pub mod news;
@@ -66,6 +66,12 @@ pub struct WorldOptions {
     /// history included, so the history comes from the same football as the
     /// save (Raichel, 2026-10-14). A year is for quick checks only.
     pub engine_from: Option<i32>,
+    /// How many of the history's last seasons play their high school games
+    /// on the match engine (section 8, choice 2; Cain 2026-10-20: the last
+    /// 12, "for now"). Every season after the history does too. Earlier
+    /// seasons, and every season with this None, use the stand-in. A
+    /// season before `engine_from` stays on the stand-in as well.
+    pub hs_engine_years: Option<u32>,
     /// Trial tooling: keep every college game's box score totals and each
     /// player's season totals in `World::game_log` (history years only).
     pub keep_game_log: bool,
@@ -80,6 +86,7 @@ impl Default for WorldOptions {
             start_year: 2026,
             names: NameMode::Real,
             engine_from: None,
+            hs_engine_years: Some(12),
             keep_game_log: false,
         }
     }
@@ -149,6 +156,9 @@ pub struct Person {
     pub nil_income: f64,
     pub pending_dip: Option<f64>,
     pub last_role: Option<PlayingTime>,
+    /// His high school seasons' stat lines, from the seasons played on the
+    /// match engine (section 8, choice 2).
+    pub hs_lines: Vec<hs_year::HsLine>,
     /// Offensive and defensive snaps in his last college season and in his
     /// whole college career (dynasty item 3: backups' garbage-time snaps
     /// count as game experience).
@@ -622,6 +632,10 @@ pub struct CalendarLog {
     pub spring_breakouts: u32,
     pub spring_fizzles: u32,
     pub hs_games: u32,
+    /// High school games played on the match engine, and their team totals
+    /// (each game counted once per team).
+    pub hs_engine_games: u32,
+    pub hs_totals: program::SeasonTotals,
     pub hs_forfeits: u32,
     pub hs_no_contests: u32,
     pub hs_grade_outs: u32,
@@ -710,13 +724,21 @@ impl World {
     /// Builds the world and its hidden history. The save then starts at
     /// `options.start_year`.
     pub fn new(options: WorldOptions) -> World {
+        World::new_watched(options, |_, _| {})
+    }
+
+    /// `new`, calling `each` after every season with the world and the
+    /// season's seconds (tools time the build year by year).
+    pub fn new_watched(options: WorldOptions, mut each: impl FnMut(&World, f64)) -> World {
         let mut w = World::empty(options);
         // Older high school classes already in school when the clock starts.
         for age in [17, 16, 15] {
             w.add_class_aged(age);
         }
         for _ in 0..SPIN_UP_YEARS {
+            let t = std::time::Instant::now();
             w.advance_year();
+            each(&w, t.elapsed().as_secs_f64());
         }
         w.recording = true;
         for p in w.programs.iter_mut() {
@@ -724,7 +746,9 @@ impl World {
         }
         program::seed_pipelines(&mut w);
         for _ in 0..w.options.history_years {
+            let t = std::time::Instant::now();
             w.advance_year();
+            each(&w, t.elapsed().as_secs_f64());
         }
         w
     }
@@ -1011,6 +1035,7 @@ impl World {
                     nil_income: 0.0,
                     pending_dip: None,
                     last_role: None,
+                    hs_lines: Vec::new(),
                     last_snaps: 0,
                     college_snaps: 0,
                     last_performance: None,
