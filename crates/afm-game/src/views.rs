@@ -76,7 +76,7 @@ pub fn team_colors(w: &World, t: TeamRef) -> [String; 2] {
 
 fn team_brief(w: &World, t: TeamRef) -> Value {
     let [c1, c2] = team_colors(w, t);
-    json!({ "ref": t.json(), "name": team_name(w, t), "colors": [c1, c2] })
+    json!({ "ref": t.json(), "name": team_name(w, t), "colors": [c1, c2], "mine": is_mine(w, t) })
 }
 
 fn record_text(w: &World, t: TeamRef) -> String {
@@ -159,7 +159,14 @@ fn class_text(w: &World, p: &Person) -> String {
 }
 
 fn level_of(w: &World, p: &Person) -> Level {
-    p.level(&w.programs)
+    match p.stage {
+        Stage::Pro => Level::NFL,
+        Stage::Declared | Stage::Done => match p.college {
+            Some(c) if p.stage == Stage::Declared => afm_engine::world::division_level(w.programs[c].division),
+            _ => p.player.history.last().map_or(Level::HS, |h| h.level),
+        },
+        _ => p.level(&w.programs),
+    }
 }
 
 fn hometown(w: &World, p: &Person) -> String {
@@ -449,19 +456,105 @@ pub fn news(w: &World, args: &Value) -> Value {
 /// Your level's year: every dated moment from today to the end of the
 /// football year, yours marked.
 pub fn calendar(w: &World) -> Value {
+    use afm_engine::calendar::{Level, YearDates};
     let seat = w.seat;
-    let items: Vec<Value> = w
-        .calendar
-        .events
-        .range(w.today..)
-        .flat_map(|(d, evs)| evs.iter().map(move |e| (d, e)))
-        .filter(|(_, e)| e.loud >= Loudness::Big)
-        .take(400)
-        .map(|(d, e)| {
-            json!({ "date": date_text(*d), "text": e.text, "loud": e.loud.name(), "mine": seat.is_some_and(|s| s.cares(e)) })
-        })
+    let level = seat.map(|s| s.level);
+    let mut items: Vec<(Date, String, &str, bool)> = Vec::new();
+    // The year's fixed dates, for this season and the next.
+    for year in [w.year, w.year + 1] {
+        let y = YearDates::new(year);
+        let mut add = |d: Date, text: String, lv: Level| {
+            let everyone = matches!(text.as_str(), "Super Bowl" | "NFL draft, round 1" | "National championship game");
+            if everyone || level.is_none_or(|l| l == lv) {
+                items.push((d, text, "date", false));
+            }
+        };
+        add(y.super_bowl, "Super Bowl".into(), Level::Nfl);
+        add(y.combine_start, "NFL combine".into(), Level::Nfl);
+        add(y.league_year.date, "The NFL's new league year: free agency opens".into(), Level::Nfl);
+        add(y.draft[0].date, "NFL draft, round 1".into(), Level::Nfl);
+        add(y.draft[1].date, "NFL draft, rounds 2 and 3".into(), Level::Nfl);
+        add(y.draft[2].date, "NFL draft, rounds 4 to 7".into(), Level::Nfl);
+        add(y.otas.0, "Organized team activities start".into(), Level::Nfl);
+        add(y.minicamp.0, "Mandatory minicamp".into(), Level::Nfl);
+        add(y.rookies_report, "Rookies report to camp".into(), Level::Nfl);
+        add(y.veterans_report, "Veterans report to camp".into(), Level::Nfl);
+        add(y.cutdown.date, "Cutdown day: 90 to 53".into(), Level::Nfl);
+        add(y.nfl_kickoff, "NFL kickoff game".into(), Level::Nfl);
+        add(y.trade_deadline.date, "NFL trade deadline".into(), Level::Nfl);
+        add(y.black_monday, "Black Monday".into(), Level::Nfl);
+        add(y.wild_card, "NFL wild card round".into(), Level::Nfl);
+        add(y.spring_practice.0, "Spring practice opens".into(), Level::College);
+        add(y.spring_game, "Spring game".into(), Level::College);
+        add(y.media_days.0, "Conference media days".into(), Level::College);
+        add(y.fall_camp, "Fall camp opens".into(), Level::College);
+        add(y.portal_open, "Transfer portal opens".into(), Level::College);
+        add(y.portal_close, "Transfer portal closes".into(), Level::College);
+        add(y.rivalry_week, "Rivalry week".into(), Level::College);
+        add(y.conference_championships, "Conference championships".into(), Level::College);
+        add(y.selection_day, "Playoff selection day".into(), Level::College);
+        add(y.heisman, "Heisman ceremony".into(), Level::College);
+        add(y.cfp_first_round.0, "College Football Playoff, first round".into(), Level::College);
+        add(y.title_game, "National championship game".into(), Level::College);
+        add(y.declare_deadline, "Deadline to declare for the NFL draft".into(), Level::College);
+        if let Some(d) = y.early_signing {
+            add(d, "Early signing period opens".into(), Level::College);
+        }
+        add(y.signing_day, "National signing day".into(), Level::College);
+        add(y.hs_school_start, "High school year starts".into(), Level::HighSchool);
+        add(y.official_visits_from, "Official visits open for juniors".into(), Level::HighSchool);
+        add(y.all_american_bowl, "All-American Bowl".into(), Level::HighSchool);
+        add(y.signing_day, "National signing day".into(), Level::HighSchool);
+    }
+    // Your games.
+    if let Some(t) = mine(w) {
+        for g in schedule_rows(w, t) {
+            items.push((g.0, g.1, "game", true));
+        }
+    }
+    // Moments already set for days ahead.
+    for (d, evs) in w.calendar.events.range(w.today..) {
+        for e in evs.iter().filter(|e| e.loud >= Loudness::Big) {
+            items.push((*d, e.text.to_string(), e.loud.name(), seat.is_some_and(|s| s.cares(e))));
+        }
+    }
+    items.retain(|x| x.0 >= w.today);
+    items.sort_by_key(|x| x.0);
+    items.dedup_by(|a, b| a.0 == b.0 && a.1 == b.1);
+    let items: Vec<Value> = items
+        .into_iter()
+        .take(160)
+        .map(|(d, text, loud, mine)| json!({ "date": date_text(d), "in": w.today.days_to(d), "text": text, "loud": loud, "mine": mine }))
         .collect();
     json!({ "items": items })
+}
+
+/// Your team's games ahead as (date, text).
+fn schedule_rows(w: &World, t: TeamRef) -> Vec<(Date, String)> {
+    match t {
+        TeamRef::College(p) => w
+            .college_fixtures(Some(p))
+            .into_iter()
+            .filter(|f| f.score.is_none())
+            .map(|f| {
+                let home = f.home == p;
+                let opp = if home { f.away } else { f.home };
+                let at = if home || f.neutral { "vs" } else { "at" };
+                (f.date, format!("{at} {}", team_name(w, TeamRef::College(opp))))
+            })
+            .collect(),
+        TeamRef::Nfl(c) => w
+            .nfl_fixtures(Some(c))
+            .into_iter()
+            .filter(|f| !f.played)
+            .filter_map(|f| {
+                let home = f.home == c;
+                let opp = if home { f.away } else { f.home };
+                Some((f.when?, format!("{} {}", if home { "vs" } else { "at" }, w.nfl_team_name(opp))))
+            })
+            .collect(),
+        TeamRef::HighSchool(_) => Vec::new(),
+    }
 }
 
 pub fn team(w: &World, t: TeamRef) -> Value {
@@ -937,6 +1030,7 @@ pub fn game(w: &World, k: usize) -> Result<Value, String> {
     let g = w.seat_games().get(k).ok_or("That game is not kept.")?;
     let name = |id: u32| -> String { person_index(w, id).map_or(format!("#{id}"), |i| w.people[i].name.clone()) };
     let s = &g.stats;
+    let top = possession(s);
     let mut sides = Vec::new();
     for side in 0..2 {
         let t = &s.team[side];
@@ -971,7 +1065,7 @@ pub fn game(w: &World, k: usize) -> Result<Value, String> {
             "totals": {
                 "plays": t.plays, "yards": t.yards.round(), "pass": t.pass_yards.round(), "rush": t.rush_yards.round(),
                 "first_downs": t.first_downs, "turnovers": t.turnovers, "penalties": t.penalties, "pen_yds": t.penalty_yds.round(),
-                "third": format!("{}/{}", t.third_conv, t.third_att), "top": format!("{}:{:02}", (t.time_of_possession / 60.0) as u32, (t.time_of_possession % 60.0) as u32),
+                "third": format!("{}/{}", t.third_conv, t.third_att), "top": format!("{}:{:02}", (top[side] / 60.0) as u32, (top[side] % 60.0) as u32),
             },
             "passing": passing, "rushing": rushing, "receiving": receiving, "defense": defense.into_iter().take(14).collect::<Vec<_>>(),
         }));
@@ -1010,6 +1104,25 @@ fn spot_text(to_goal: f64) -> String {
     }
 }
 
+/// Time of possession from the game clock: each snap's team holds the ball
+/// until the next snap (or the end of the quarter). The engine's own total
+/// counts only the seconds the ball is live.
+fn possession(s: &afm_engine::game::stats::GameStats) -> [f64; 2] {
+    use afm_engine::game::stats::PlayType;
+    let mut top = [0.0; 2];
+    for (i, r) in s.plays.iter().enumerate() {
+        if matches!(r.kind, PlayType::Kickoff) || r.offense > 1 {
+            continue;
+        }
+        let end = match s.plays.get(i + 1) {
+            Some(n) if n.quarter == r.quarter => n.clock,
+            _ => 0.0,
+        };
+        top[r.offense] += (r.clock - end).max(0.0);
+    }
+    top
+}
+
 fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u32) -> String) -> String {
     use afm_engine::game::stats::PlayType;
     let yds = r.yards.round() as i32;
@@ -1038,16 +1151,54 @@ fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u32) -> Stri
         PlayType::Scramble => {
             format!("{} scrambles for {}", r.carrier.or(r.passer).map(name).unwrap_or_default(), gain(yds))
         }
-        PlayType::Sack => format!(
-            "{} sacked by {} for {}",
-            r.passer.map(name).unwrap_or_default(),
-            r.sackers.iter().map(|&i| name(i)).collect::<Vec<_>>().join(" and "),
-            gain(yds)
-        ),
+        PlayType::Sack => {
+            let by: Vec<String> = if r.sackers.is_empty() { &r.tacklers } else { &r.sackers }.iter().map(|&i| name(i)).collect();
+            let by = if by.is_empty() { String::new() } else { format!(" by {}", by.join(" and ")) };
+            format!("{} sacked{by} for {}", r.passer.map(name).unwrap_or_default(), gain(yds))
+        }
+        PlayType::Kickoff | PlayType::Punt => {
+            let what = if r.kind == PlayType::Punt { "punts" } else { "kicks off" };
+            let k = r.kicker.map(name).unwrap_or_default();
+            let dist = r.kick_distance.round() as i32;
+            if r.blocked {
+                format!("{k} {what}: BLOCKED")
+            } else if r.touchback {
+                format!("{k} {what} {dist} yards, touchback")
+            } else if r.fair_catch {
+                format!("{k} {what} {dist} yards, fair catch by {}", r.returner.map(name).unwrap_or_default())
+            } else if let Some(ret) = r.returner {
+                format!("{k} {what} {dist} yards, {} returns it {}", name(ret), gain(r.return_yards.round() as i32))
+            } else {
+                format!("{k} {what} {dist} yards")
+            }
+        }
+        PlayType::FieldGoal => {
+            let k = r.kicker.map(name).unwrap_or_default();
+            let dist = r.kick_distance.round() as i32;
+            let res = if r.blocked { "BLOCKED" } else if r.kick_good { "good" } else { "no good" };
+            format!("{k} {dist}-yard field goal is {res}")
+        }
+        PlayType::ExtraPoint => {
+            let k = r.kicker.map(name).unwrap_or_default();
+            let res = if r.blocked { "BLOCKED" } else if r.kick_good { "good" } else { "no good" };
+            format!("{k} extra point is {res}")
+        }
+        PlayType::NoPlay => {
+            let fouls: Vec<String> = r.penalties.iter().map(|(f, _, id, y, _)| format!("{} on {}, {} yards", f.name(), name(*id), y.round())).collect();
+            format!("Penalty before the snap: {}", fouls.join("; "))
+        }
         other => format!("{other:?}: {}", gain(yds)),
     };
+    if r.nullified {
+        t = format!("No play ({t})");
+    }
     if r.touchdown {
         t.push_str(", TOUCHDOWN");
+    }
+    if r.kind != PlayType::NoPlay {
+        for (f, _, id, y, accepted) in &r.penalties {
+            t.push_str(&format!(". Flag: {} on {}, {} yards{}", f.name(), name(*id), y.round(), if *accepted { "" } else { ", declined" }));
+        }
     }
     if r.turnover && !r.interception {
         t.push_str(", turnover");

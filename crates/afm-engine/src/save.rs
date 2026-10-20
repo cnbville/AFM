@@ -49,7 +49,7 @@ pub fn write_world(w: &World, path: &Path, commit: &str, written: &str) -> std::
         start_year: w.options.start_year,
         commit: commit.to_string(),
         written: written.to_string(),
-        world_date: format!("{:?}", w.today),
+        world_date: w.today.to_string(),
     };
     let file = std::fs::File::create(path)?;
     let mut out = std::io::BufWriter::new(file);
