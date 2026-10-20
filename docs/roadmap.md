@@ -217,7 +217,7 @@ The order below is **confirmed** (Raichel, 2026-10-11: "ok to all"): world, matc
 | 6 | People | Designed (2026-10-19), not built |
 | 6b | Training (deep) | Not designed |
 | 7 | Scouting, recruiting and draft | Designed (2026-10-19), not built |
-| 8 | First playable | Not designed |
+| 8 | First playable | Design started 2026-10-20 (`docs/design/first-playable.md`) |
 | 9 | Game day control | Not designed |
 | 10 | Screens and 2D view | Not designed |
 | 11 | Later | Not started |
@@ -230,7 +230,7 @@ Cain: "is it to late to pivot to an game where i can play as a CFB and HS coach 
 
 What a coach career at high school and college still needs (checked in the code on 2026-10-18):
 - **High school games are a stand-in.** `world/hs_year.rs` decides each game by comparing the two teams' starters, plus home field and luck: no plays, no player stats. The state record books keep team records only (`world/records.rs`). Q13 already says every high school plays full games, so moving them onto the engine is a build task, not a design question. The catch is speed: about 90,000 high school games a year, against a college load that already takes about 2 minutes a season on 4 cores. The build must time it on Cain's 8 GB M1.
-- **The engine can already play high school games** (its own rules and overtime, `game/rules.rs`; `match_check -- hs`), but they run long: 83 plays a team, well above real games with 12-minute quarters, and there is no real high school play-by-play to check against (`docs/match-engine.md`).
+- **The engine can already play high school games** (its own rules and overtime, `game/rules.rs`; `match_check -- hs`), which ran long at 83 plays a team until trial 8's clock fix brought them to 51.3 (`match_check`), and there is no real high school play-by-play to check against (`docs/match-engine.md`).
 - **A high school has one coach.** Each school has a head coach (`world/high_school.rs`) and no staff. Real staffs have coordinators and position coaches, many of them teachers at the school.
 - **The high school job has no employer side.** High school pay ($50-160k) and the climb to college on buzz exist. There is no principal or athletic director, booster club, teaching load or job security yet.
 - **College is simulated in full, but only by the AI.** Games on the engine with stats and the stat book; staffs of 11 (head coach, two coordinators, 8 position coaches); recruiting boards, visits and offers; the portal; NIL with collectives and revenue sharing; roster limits by era; the coaching carousel and firing. None of it has a place for your own choices yet: your recruiting board, offers and visits, your NIL and revenue-sharing budget, portal calls, scholarships and the depth chart.
@@ -238,7 +238,7 @@ What a coach career at high school and college still needs (checked in the code 
 
 **The first playable opens all three levels at once (Cain, 2026-10-18 21:07):** "okay then we'll do all at once, update the existing roadmap". Asked whether to open NFL and college first and add high school later, Cain chose all three, so the first career is the real one. The high school work this adds to the road to the first playable:
 1. Every high school game on the engine. Timed 2026-10-18: 2,000 high school engine games take 16 s on 4 cores (`match_check -- hs 2000`; FBS 14.6 s), so about 90,000 games a year add roughly 12 minutes of simulation per season.
-2. High school games at real length (83 plays a team now, too many for 12-minute quarters).
+2. High school games at real length (51.3 plays a team since trial 8's clock fix, down from 83; to check against real team totals, `docs/design/first-playable.md` topic 7).
 3. A high school coaching staff (designed in `docs/design/people.md`, topic 10).
 4. The school's side of the job: principal or athletic director, boosters, job security (with section 6's job security design).
 5. The high school seat and its screens (with sections 8 and 10).
@@ -296,6 +296,7 @@ Your scouting staff and assignments, reports with hidden potential, vague outloo
 ### Section 8. First playable
 
 New-game setup (team choice, name toggle, your background and editable starting stats), save and load, and plain text screens. Raichel starts playing and debugging here.
+- **Design started 2026-10-20** in `docs/design/first-playable.md` (thread "let's get started planning section 8"): 11 topics written as the real-life design on top of sections 5 to 7, and four choices waiting on Cain (how a new game gets its history, how much high school history runs on the engine, the UI technology, what section 8 builds).
 - The team choice covers every high school, college and NFL team: all three levels open at once (Cain, 2026-10-18), with the high school work listed under "Your career at every level".
 
 ### Section 9. Game day control
