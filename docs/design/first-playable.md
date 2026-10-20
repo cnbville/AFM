@@ -7,7 +7,7 @@ How this doc works:
 - Each topic says what exists: **Built** is in the code, **Decided** is confirmed design not built yet, **New** is what this section adds.
 - Real life is the default (Cain, 2026-10-16). Numbers no source publishes are Claude's picks, marked **proposed, not confirmed**.
 - Sections 5, 6 and 7 are settled designs (`docs/design/team-management.md`, `docs/design/people.md`, `docs/design/scouting.md`). This section adds the screens and choices on top of them and re-asks nothing in them.
-- Four choices were Cain's (listed at the end); 1 and 4 are confirmed, 2 and 3 wait for him. The doc is written on Claude's picks until he answers.
+- Four choices were Cain's (listed at the end); all four are confirmed (2026-10-20).
 
 Topic order: 1 the world you start in, 2 starting your career, 3 save and load, 4 the clock on screen, 5 the first playable's screens, 6 your choices against the AI's, 7 the high school seat, 8 memory and speed on the M1, 9 the app (UI technology), 10 debugging in play, 11 what section 8 builds and what stays later.
 
@@ -20,7 +20,7 @@ Topic order: 1 the world you start in, 2 starting your career, 3 save and load, 
 - **Decided:** 30 years of hidden history (2026-10-11). College history on the engine (Raichel, 2026-10-14). Every high school plays full games (Q13). A save starts the day after the Super Bowl (Q41, calendar topic 1). The real/fictional name toggle before a save starts (Q11).
 - **New:** how a new game gets its history, and whether the high school history runs on the engine (waiting on Cain, choices 1 and 2).
 
-### The design (on Claude's picks)
+### The design (confirmed)
 **A world library.** The game keeps ready-built worlds, each one a save on the morning after the 2026 Super Bowl with its history done. Starting a career picks a world from the library and loads it, as fast as a save loads. "Build a new world" runs in the background, or overnight, and adds a world to the library when it's done. Any number of careers can start from one world, so a world can be replayed with a different team or background.
 - The library shows each world's headline story in words, never its hidden numbers: the reigning champions, the dynasties of its history, the hottest coaching names, the top recruits of the 2026 and 2027 classes. You pick a world the way you'd pick a starting database in FM.
 - The first worlds are built before the first playable ships and come with it (a build step, timed).
@@ -184,7 +184,7 @@ Plain, dense text screens: tables, lists and words, no art yet (section 10 bring
 - **Decided:** a desktop app over the Rust engine (Q49), for Cain's own computer (Q6). Better visuals later, so the engine keeps full player positions for a 2D or 3D view (2026-10-13).
 - **New:** the technology (waiting on Cain, choice 3).
 
-### The design (on Claude's pick)
+### The design (confirmed)
 **Tauri.** The engine runs inside the app in Rust, with no server and no copy of the world. The screens are HTML drawn by the Mac's own WebKit, so the app is about 15 MB and the screens take about 150-300 MB. One build makes a universal app for Apple Silicon and Intel.
 - The Debug Lab and the player pages are HTML already, so the first plain screens reuse their tables and layouts.
 - Dense sortable tables, filters and right-click menus are what HTML does best. The 2D replays (section 10) fit a canvas; the faces show as images.
@@ -224,6 +224,6 @@ Section 8 builds everything your own seat touches in a first season at each leve
 Posted in the thread on 2026-10-20 with Claude's picks. The doc is written on the picks until Cain answers.
 
 1. **How a new game gets its history.** A: a world library with background builds; B: build on your Mac every time (about 45-60 minutes, a guess); C: the quick stand-in for the history. **Confirmed: A** (Cain, 2026-10-20 08:51).
-2. **How many years of high school history run on the engine.** All 36 (about 7 more hours per world), the last 12 (about 2.4 hours; every player in college or the NFL in 2026 has real high school lines), or none. Claude's pick: the last 12.
-3. **The UI technology.** Claude's pick: Tauri.
+2. **How many years of high school history run on the engine.** All 36 (about 7 more hours per world), the last 12 (about 2.4 hours; every player in college or the NFL in 2026 has real high school lines), or none. **Confirmed: the last 12, "for now"** (Cain, 2026-10-20 09:00: "12 (for neow)").
+3. **The UI technology.** **Confirmed: Tauri** (Cain, 2026-10-20 09:00: "If that's truly the best option and won't lag due to rust engine"). On lag: the engine runs in its own thread, so screens never wait on it; a screen asks only for the rows it shows; the only waits are simulated days, which any UI would have.
 4. **What section 8 builds.** Everything your seat touches in a first season, as in topic 11. **Confirmed: yes** (Cain, 2026-10-20 08:51).
