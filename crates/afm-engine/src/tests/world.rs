@@ -498,17 +498,18 @@ fn a_big_deal_pays_no_more_than_a_real_first_year() {
     t.ramp = 0.06;
     let gtd = t.guaranteed();
     assert!(t.first_year_cash() > 0.5 * cap);
-    t.limit_first_year(0.38 * cap);
+    t.limit_first_year(money::FIRST_YEAR_MAX * cap);
     assert!((t.guaranteed() - gtd).abs() < 1.0, "the guarantee changed");
     let k = money::build(0, money::Kind::Veteran, 2025, &t);
     let y1 = &k.years[0];
     let cash = y1.pay() + y1.bonus_paid;
-    assert!(cash <= 0.38 * cap + 1.0 && cash > 0.37 * cap, "year one {:.1}% of the cap", 100.0 * cash / cap);
+    let max = money::FIRST_YEAR_MAX * cap;
+    assert!(cash <= max + 1.0 && cash > max - 0.01 * cap, "year one {:.1}% of the cap", 100.0 * cash / cap);
     assert!((k.total() - t.total()).abs() < 1.0, "the money changed");
     // A deal under the line is left alone.
     let mut s = money::Terms::flat(4, 20.0e6);
     s.bonus_share = 0.3;
-    s.limit_first_year(0.38 * cap);
+    s.limit_first_year(money::FIRST_YEAR_MAX * cap);
     assert_eq!(s.bonus_share, 0.3);
 }
 

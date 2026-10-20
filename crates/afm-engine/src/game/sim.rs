@@ -1034,10 +1034,14 @@ impl<'a> Sim<'a> {
         // with the blocker well ahead, -0.3, then the defender a little
         // ahead, 0.15 (trial 8 item 7), which bought the right yards a
         // carry with too many stuffs. With double teams holding the down
-        // linemen (fix list S6.1) an even start gives the world's FBS
-        // rosters 5.02 a carry (real 5.12) with fewer stuffs (proposed,
-        // not confirmed).
-        let w0 = if pass { -0.42 } else { 0.0 }
+        // linemen (fix list S6.1) an even start gave the world's FBS
+        // rosters 5.02 a carry in a check but 4.85 in the world (real
+        // 5.12), and NFL rosters 3.99 (real 4.50). Trial 9 finding 2: the
+        // blocker a little ahead, -0.1, with the defenders' read timed
+        // against the level (scrimmage.rs), gives 5.24 and 4.32 on the
+        // world's rosters, about 5.05 and 4.45 in the world (proposed, not
+        // confirmed).
+        let w0 = if pass { -0.42 } else { -0.1 }
             + 0.006 * (get_off + silent - set)
             + self.front_fit(de.label, pass)
             + 0.18 * gauss(self.rng);
@@ -2065,14 +2069,20 @@ impl<'a> Sim<'a> {
     }
 
     /// Injury risk from a hit (topic 6): force, fatigue, his proneness and
-    /// the turf.
+    /// the turf. Trial 9 finding 13: at 0.0042 a hit, injuries costing a
+    /// week or more came to 0.20 a team game in the NFL and 0.17 in FBS,
+    /// against about 1.0 and 0.9 real (NFL game-status reports 2012-2025,
+    /// about 0.42 episodes a regular's season; NCAA surveillance, 32.1 game
+    /// injuries per 1,000 exposures, half past a week:
+    /// `docs/research/development-and-injuries.md`); harder hits at the
+    /// higher level keep the NFL above college.
     pub fn injury_check(&mut self, i: usize, force: f64, share: f64) {
         let gp = self.player(i);
         let gp_recovery = gp.traits.recovery;
         let prone = 0.55 + gp.injury_proneness / 18.0;
         let tough = gp.trait20(Attr::Toughness, self.level);
         let turf = if self.cond.turf { 1.12 } else { 1.0 };
-        let p = self.injury_scale * 0.0042 * share * (force / 1700.0).powf(1.6) * prone * turf;
+        let p = self.injury_scale * 0.022 * share * (force / 1700.0).powf(1.6) * prone * turf;
         if !self.rng.chance(p) {
             return;
         }

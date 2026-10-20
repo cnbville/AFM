@@ -18,6 +18,8 @@ fn rosters_and_staffs_are_full() {
     let w = &*WORLD;
     let fbs: Vec<_> = w.programs.iter().filter(|p| p.division == Division::FBS).collect();
     let avg = fbs.iter().map(|p| p.roster.len()).sum::<usize>() as f64 / fbs.len() as f64;
+    let walk_ons = fbs.iter().flat_map(|p| p.roster.iter()).filter(|&&i| w.people[i].walk_on).count();
+    eprintln!("FBS rosters average {avg:.1}, walk-ons {:.1} a roster", walk_ons as f64 / fbs.len() as f64);
     assert!((80.0..=105.0).contains(&avg), "FBS rosters average {avg:.0}");
     // A head job is empty only while its search runs (part D 18); the
     // world stops in February, when the last links of the carousel's
@@ -56,6 +58,17 @@ fn the_draft_comes_mostly_from_fbs() {
     // 3-year world runs high: 11.5-12.7% on seeds 7-9 before the coaching
     // market build (2026-10-15), 12.5-13.0% after it, so the bound is 14%.
     assert!((0.02..0.14).contains(&share(Division::FCS)), "FCS share {:.2}", share(Division::FCS));
+    // Round one by position (trial 9 finding 8; real 2000-2025: receivers
+    // 13.4%, edge rushers 16.8%, tackles 12.1%, corners 11.9%), printed:
+    // three drafts are too few to hold to a band.
+    let first: Vec<_> = picks.iter().filter(|a| a.pick.is_some_and(|k| k <= 32)).collect();
+    let mut by: std::collections::BTreeMap<String, usize> = Default::default();
+    for a in &first {
+        *by.entry(format!("{:?}", a.position)).or_default() += 1;
+    }
+    let shares: Vec<String> =
+        by.iter().map(|(p, n)| format!("{p} {:.1}%", 100.0 * *n as f64 / first.len() as f64)).collect();
+    eprintln!("round one: {}", shares.join(", "));
 }
 
 #[test]
@@ -139,6 +152,61 @@ fn the_nfl_lives() {
             assert!(of(CompKind::FreeAgency).filter(|c| c.team == t).count() <= 4, "{y}");
         }
     }
+    // Trades, poaching and elevations by year (trial 9 findings 5, 10, 11).
+    for m in &w.market.years {
+        let elevations: u32 = w
+            .people
+            .iter()
+            .filter_map(|p| p.pro.as_ref())
+            .flat_map(|c| c.seasons.iter().filter(|s| s.year == m.year))
+            .map(|s| s.elevations)
+            .sum();
+        let ir: usize = w
+            .people
+            .iter()
+            .filter_map(|p| p.pro.as_ref())
+            .filter(|c| c.seasons.iter().any(|s| s.year == m.year && s.ir_weeks > 0))
+            .count();
+        eprintln!(
+            "{}: {} trades ({} in season, {} at the deadline), funnel {:?}; {} poached, {} signed up; {} elevations; {} on injured reserve",
+            m.year,
+            m.trades,
+            m.season_trades,
+            m.deadline_trades,
+            m.trade_funnel,
+            m.poached,
+            m.signed_up,
+            elevations,
+            ir
+        );
+    }
+    // Trial 9 findings 5, 10, 11 and 13 over the capped years: trades in
+    // season as well as at the deadline (here 12-37 a year), practice
+    // squad players poached and signed up, and in the year the NFL plays
+    // on the engine, two elevations a game in use and injuries that put
+    // players on reserve (here 478 and 212).
+    let capped: Vec<_> = w.market.years.iter().filter(|m| m.year >= 2012).collect();
+    let trades: u32 = capped.iter().map(|m| m.trades).sum();
+    assert!(trades as usize >= 10 * capped.len(), "{trades} trades in {} years", capped.len());
+    assert!(capped.iter().map(|m| m.season_trades).sum::<u32>() > 0, "no trades in season");
+    assert!(capped.iter().map(|m| m.poached).sum::<u32>() > 0, "nobody poached");
+    assert!(capped.iter().map(|m| m.signed_up).sum::<u32>() > 0, "no squad player signed up");
+    let engine_year = w.year - 1;
+    let elevated: u32 = w
+        .people
+        .iter()
+        .filter_map(|p| p.pro.as_ref())
+        .flat_map(|c| c.seasons.iter().filter(|s| s.year == engine_year))
+        .map(|s| s.elevations)
+        .sum();
+    assert!(elevated >= 150, "{elevated} elevations in {engine_year}");
+    let reserve = w
+        .people
+        .iter()
+        .filter_map(|p| p.pro.as_ref())
+        .filter(|c| c.seasons.iter().any(|s| s.year == engine_year && s.ir_weeks > 0))
+        .count();
+    assert!(reserve >= 100, "{reserve} players on reserve in {engine_year}");
     // A full league year moves players: free agents to new teams, trades.
     let m = w.market.years.iter().find(|m| m.year == w.year - 1).unwrap();
     assert!(m.signed_new >= 50, "{} free agents changed teams in {}", m.signed_new, m.year);
@@ -196,7 +264,11 @@ fn people_live() {
     let (mut hurt, mut cut_hurt) = (0, 0);
     for p in w.people.iter().filter(|p| p.pro.is_some()) {
         for (k, n) in p.notes.iter().enumerate() {
-            let Some(rest) = n.strip_prefix("Hurt in the preseason at ") else { continue };
+            let Some(rest) =
+                n.strip_prefix("Hurt in the preseason at ").or_else(|| n.strip_prefix("Hurt in camp practice at "))
+            else {
+                continue;
+            };
             if n.ends_with(": injured reserve.") {
                 continue;
             }
@@ -217,10 +289,15 @@ fn people_live() {
         w.people.iter().filter(|p| p.pro.as_ref().is_some_and(|c| c.held())).collect();
     let nfl_mean = nfl.iter().map(|p| p.mood).sum::<f32>() / nfl.len().max(1) as f32;
     let money_why = nfl.iter().filter(|p| p.mood_why == afm_engine::world::people::Why::Money as u8).count();
+    let happy_role = nfl.iter().filter(|p| p.mood_why == afm_engine::world::people::Why::HappyRole as u8).count();
     eprintln!(
-        "camp injuries not on reserve: {hurt}, cut {cut_hurt}; settlements in the history: {settled}; NFL mood mean {nfl_mean:+.3}, money the main reason for {money_why} of {}",
+        "camp injuries not on reserve: {hurt}, cut {cut_hurt}; settlements in the history: {settled}; NFL mood mean {nfl_mean:+.3}, money the main reason for {money_why} of {}, happy with role {happy_role}",
         nfl.len()
     );
+    // Trial 9 finding 9: a starter playing the role he expects is content
+    // with it (10 of 2,141 NFL players in trial 9; 418 of 2,375 here).
+    assert!(happy_role * 20 >= nfl.len(), "happy with role: {happy_role} of {}", nfl.len());
+    assert!(nfl_mean > -0.05, "NFL mood mean {nfl_mean:+.3}");
     // (The cutdown itself is proved on a whole hurt club in the engine's
     // unit tests: `a_player_hurt_in_camp_goes_on_reserve_or_is_settled_with`.)
     // A veteran's pay is read against the market's price for him, and a

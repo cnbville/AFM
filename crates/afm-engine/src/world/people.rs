@@ -478,12 +478,19 @@ pub(crate) fn pro_mood(w: &mut World) {
             let (apy, worth) = pay_and_worth(w, i).unwrap_or((0.0, 0.0));
             let money = if worth <= 0.0 { 0.0 } else { clamp(apy / worth - 1.0, -1.0, 0.5) };
             let amb = p.player.personality.traits.z(Trait::Ambition);
+            // A rookie taken after round 2, or undrafted, knows he is
+            // earning his place, as a college freshman under four stars
+            // does; and a role at least as big as he thinks he deserves is
+            // a lift, not nothing. Trial 9 finding 9: an NFL starter's role
+            // part could not go above zero, and 10 of 2,141 NFL players
+            // were happy with their role against 13,168 in college
+            // (proposed, not confirmed: the 0.3 and the 0.2).
+            let earning = c.first_year == year && c.draft.is_none_or(|d| d.1 >= 3);
+            let exp = expected(self_view(p), bars[p.player.position.index()]) - if earning { 0.3 } else { 0.0 };
+            let got = role_value(role);
+            let lift = if got >= exp { 0.2 } else { 0.0 };
             let parts = Parts {
-                role: clamp(
-                    (role_value(role) - expected(self_view(p), bars[p.player.position.index()])) * (0.8 + 0.4 * amb),
-                    -1.0,
-                    1.0,
-                ),
+                role: clamp((got - exp + lift) * (0.8 + 0.4 * amb), -1.0, 1.0),
                 win,
                 money,
                 life: 0.5 * (p.bg.stability - 10.0) / 10.0,
