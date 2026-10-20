@@ -1173,6 +1173,7 @@ pub(crate) fn trade_on_clock(
     slot: usize,
     left: &[usize],
     value: &dyn Fn(usize, usize) -> Option<f64>,
+    promised: &[(usize, u32)],
 ) -> Option<Swap> {
     let seller = board[slot].0;
     if seller >= w.clubs.len() {
@@ -1231,17 +1232,24 @@ pub(crate) fn trade_on_clock(
         Some(q) => Some(Extra::Slot(q)),
         None => {
             // The cheapest of next year's picks that covers the gap: the
-            // latest round worth enough (trial 9: the search ran from round
-            // 1, so moving up ten places in round 7 cost a first).
+            // latest round worth enough, or one round dearer if the buyer
+            // has already dealt that one, never more (trial 9: the search
+            // ran from round 1, so moving up ten places in round 7 cost a
+            // first; the test world then had a first paid to move up
+            // twelve places in round 3, with the rounds between not his to
+            // give). A pick promised earlier in this draft isn't his to
+            // give again.
             let year = w.year + 1;
-            (1..=7u32)
-                .rev()
-                .find(|&r| {
-                    let mid = ((r - 1) as usize * teams + teams / 2) as f64;
-                    super::trades::chart(sg.classic_chart, mid) * 0.85 >= 0.9 * gap
-                        && w.market.picks.owner_of(year, r, buyer) == buyer
-                })
-                .map(Extra::Future)
+            let covers = |r: u32| {
+                let mid = ((r - 1) as usize * teams + teams / 2) as f64;
+                super::trades::chart(sg.classic_chart, mid) * 0.85 >= 0.9 * gap
+            };
+            (1..=7u32).rev().find(|&r| covers(r)).and_then(|cheapest| {
+                (cheapest.saturating_sub(1).max(1)..=cheapest)
+                    .rev()
+                    .find(|&r| w.market.picks.owner_of(year, r, buyer) == buyer && !promised.contains(&(buyer, r)))
+                    .map(Extra::Future)
+            })
         }
     };
     // A swap worth almost nothing on the chart needs nothing added.

@@ -1196,7 +1196,8 @@ pub(crate) fn draft(w: &mut World) {
         let left: Vec<usize> = pool.iter().take(300).map(|x| x.0).collect();
         // A trade on the clock (topic 11), from each GM's chart, his tier
         // and a rival's need.
-        if let Some(sw) = super::pro::scouts::trade_on_clock(w, &board, slot, &left, &value) {
+        let promised: Vec<(usize, u32)> = swaps.iter().filter_map(|s| s.4.map(|r| (s.0, r))).collect();
+        if let Some(sw) = super::pro::scouts::trade_on_clock(w, &board, slot, &left, &value, &promised) {
             board[slot].0 = sw.buyer;
             board[sw.their_slot].0 = sw.seller;
             let mut what = format!("pick {}", sw.their_slot + 1);
