@@ -217,7 +217,7 @@ The order below is **confirmed** (Raichel, 2026-10-11: "ok to all"): world, matc
 | 6 | People | Designed (2026-10-19), not built |
 | 6b | Training (deep) | Not designed |
 | 7 | Scouting, recruiting and draft | Designed (2026-10-19), not built |
-| 8 | First playable | Design started 2026-10-20 (`docs/design/first-playable.md`) |
+| 8 | First playable | Designed (2026-10-20, `docs/design/first-playable.md`), not built |
 | 9 | Game day control | Not designed |
 | 10 | Screens and 2D view | Not designed |
 | 11 | Later | Not started |
@@ -296,7 +296,7 @@ Your scouting staff and assignments, reports with hidden potential, vague outloo
 ### Section 8. First playable
 
 New-game setup (team choice, name toggle, your background and editable starting stats), save and load, and plain text screens. Raichel starts playing and debugging here.
-- **Design started 2026-10-20** in `docs/design/first-playable.md` (thread "let's get started planning section 8"): 11 topics written as the real-life design on top of sections 5 to 7, and four choices waiting on Cain (how a new game gets its history, how much high school history runs on the engine, the UI technology, what section 8 builds).
+- **Design started 2026-10-20** in `docs/design/first-playable.md` (thread "let's get started planning section 8"): 11 topics written as the real-life design on top of sections 5 to 7, with Cain's four choices made the same day: a world library, high school history on the engine for the last 12 years, the app on Tauri, and everything your seat touches built in section 8.
 - The team choice covers every high school, college and NFL team: all three levels open at once (Cain, 2026-10-18), with the high school work listed under "Your career at every level".
 
 ### Section 9. Game day control

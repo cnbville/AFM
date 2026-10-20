@@ -321,7 +321,9 @@ The design is in `docs/design/first-playable.md`.
 
 - **A world library** (choice 1, 08:51: "A"): the game keeps ready-built worlds saved at February 2026; a career loads one, and new worlds build in the background or overnight. Asked whether every world would then have the same results ("it sounds to me like you're expecting every world to have the same individual game results ?"), the answer: no, each seed is a different world, and each career gets fresh randomness from its first day.
 - **Section 8 builds everything your seat touches in a first season** (choice 4, 08:51: "Yes"), including build 9's later-build parts listed in topic 11.
-- Still open: how many years of high school history run on the engine (choice 2) and the UI technology (choice 3; Cain asked what Football Manager runs on).
+- **High school history on the engine for the last 12 years** (choice 2, 09:00: "12 (for neow)"), after asking "7 HOURS ?" about all 36 (a one-time build per library world). Cain asked whether coaching ratings still develop in the earlier years: yes, only high school box scores and stat lines are missing there.
+- **The app on Tauri** (choice 3, 09:00: "If that's truly the best option and won't lag due to rust engine"), after asking what Football Manager runs on (Sports Interactive's own C++; FM26's front end on Unity).
+- Cain asked for a fresh thread to run a world with high school on the engine for 12 years once the trial 9 fixes thread is done.
 
 ---
 
