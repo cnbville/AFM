@@ -24,7 +24,20 @@ jobs:
           node-version: 22
       - name: Build the app
         working-directory: app/src-tauri
-        run: npx --yes @tauri-apps/cli@^2 build --target universal-apple-darwin
+        run: npx --yes @tauri-apps/cli@^2 build --target universal-apple-darwin --bundles app
+      # hdiutil on the hosted runners sometimes fails with "Resource busy", so
+      # the .dmg is made here with retries instead of by Tauri's bundler.
+      - name: Make the dmg
+        working-directory: app/src-tauri/target/universal-apple-darwin/release/bundle
+        run: |
+          mkdir -p dmg stage
+          cp -R macos/AFM.app stage/
+          ln -s /Applications stage/Applications
+          for i in 1 2 3 4 5; do
+            hdiutil create -volname AFM -srcfolder stage -ov -format UDZO dmg/AFM_universal.dmg && exit 0
+            sleep $((i * 10))
+          done
+          exit 1
       - uses: actions/upload-artifact@v4
         with:
           name: AFM-mac
