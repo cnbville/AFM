@@ -691,11 +691,12 @@ document.addEventListener("click", async (ev) => {
     case "loadsave": {
       let path = d.path || ($("#wpath") ? $("#wpath").value.trim() : "");
       if (d.act === "pickworld") {
-        path = await window.__TAURI__.dialog.open({ multiple: false, filters: [{ name: "AFM world or save", extensions: ["afmworld", "afmsave"] }] });
+        path = await window.__TAURI__.dialog.open({ multiple: false, filters: [{ name: "AFM world or save", extensions: ["afmworld", "afmsave", "001"] }] });
       }
       if (!path) break;
-      if (d.act !== "openworld" && /\.afmworld$/i.test(path)) {
-        try { path = (await api("import_world", { path })).path; toast("Added to your world library."); } catch (e) { toast(e.message); break; }
+      if (d.act !== "openworld" && /\.afmworld(\.001)?$/i.test(path)) {
+        showBusy("Adding the world to your library…");
+        try { path = (await api("import_world", { path })).path; toast("Added to your world library."); } catch (e) { hideBusy(); toast(e.message); break; }
       }
       const isSave = d.act === "loadsave" || /\.afmsave$/i.test(path);
       showBusy(isSave ? "Loading your save…" : "Opening the world… a full world takes about a minute.");

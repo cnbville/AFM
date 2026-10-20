@@ -5,7 +5,7 @@
 //! older file load into a newer game: what a newer game added fills in at
 //! load (`World::after_load`).
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use afm_engine::world::World;
 use serde_json::Value;
@@ -32,6 +32,43 @@ pub fn read_meta(path: &Path) -> Result<Value, String> {
         m.world_date = afm_engine::calendar::Date(n).to_string();
     }
     serde_json::to_value(m).map_err(|e| e.to_string())
+}
+
+/// Copies a world file into the library folder and checks it opens. A world
+/// split into parts (`name.afmworld.001`, `.002`, ...) is joined back into
+/// `name.afmworld` when the first part is given.
+pub fn import_world(path: &Path, worlds: &Path) -> Result<PathBuf, String> {
+    let name = path.file_name().and_then(|n| n.to_str()).ok_or("Not a file.")?;
+    let to = match name.strip_suffix(".001") {
+        Some(whole) => {
+            let to = worlds.join(whole);
+            let mut out = std::fs::File::create(&to).map_err(|e| format!("Could not write the world: {e}"))?;
+            for i in 1.. {
+                let part = path.with_file_name(format!("{whole}.{i:03}"));
+                if !part.exists() {
+                    break;
+                }
+                let mut f =
+                    std::fs::File::open(&part).map_err(|e| format!("Could not read {}: {e}", part.display()))?;
+                std::io::copy(&mut f, &mut out).map_err(|e| format!("Could not join the world: {e}"))?;
+            }
+            drop(out);
+            if let Err(e) = read_meta(&to) {
+                let _ = std::fs::remove_file(&to);
+                return Err(e);
+            }
+            to
+        }
+        None => {
+            read_meta(path)?;
+            let to = worlds.join(name);
+            if to != path {
+                std::fs::copy(path, &to).map_err(|e| format!("Could not copy the world: {e}"))?;
+            }
+            to
+        }
+    };
+    Ok(to)
 }
 
 /// The time now as `YYYY-MM-DD HH:MM UTC`.

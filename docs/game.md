@@ -7,7 +7,7 @@ Built 2026-10-20/21 overnight (thread "Build the program", PR #75), from `docs/d
 - **On a Mac:** download the `AFM-mac` artifact from the latest "Mac app" workflow run on GitHub (Actions tab), open the `.dmg` and drag AFM to Applications. The app isn't signed with an Apple developer ID, so the first time macOS asks: right-click AFM, choose Open, then Open again (or System Settings, Privacy and Security, Open Anyway). It is one universal app for Apple silicon (the M1) and Intel Macs.
 - **In a browser** (any machine with Rust): `cargo run --release --bin afm_play`, then open http://127.0.0.1:7700. Arguments: port, the screens folder (`app/ui`), the game folder.
 - **The game folder** holds `worlds/` (the library), `saves/` and `bugs/`. On a Mac it is `~/Library/Application Support/AFM`, elsewhere `~/.afm`; `AFM_HOME` overrides it.
-- **Importing a world:** on the start screen, "Choose a file…" (or paste its path and press Open). An `.afmworld` file is copied into the library and opened; from then on it is listed under "The world library", and every career started from it begins on the same February morning with fresh randomness. Dropping the file into `worlds/` by hand works too.
+- **Importing a world:** on the start screen, "Choose a file…" (or paste its path and press Open). An `.afmworld` file is copied into the library and opened; from then on it is listed under "The world library", and every career started from it begins on the same February morning with fresh randomness. Dropping the file into `worlds/` by hand works too. A world split into parts (`name.afmworld.001`, `.002`, ...) is imported by choosing the `.001` part: the game joins the parts back into one file.
 
 ## The parts
 
