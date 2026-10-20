@@ -315,6 +315,14 @@ The design is in `docs/design/scouting.md`, 18 topics in five parts (how anyone 
 - **Real life went straight in,** per section 13's rule. No open choices: unpublished numbers are marked "proposed, not confirmed" for the next trial.
 - **Parked trial 7 items** (round 1 positions, the 5-star draft rate, trade volume) are measured after section 7 is built, not tuned in the design.
 
+## 15. Section 8: the first playable (thread "let's get started planning section 8", 2026-10-20)
+
+The design is in `docs/design/first-playable.md`.
+
+- **A world library** (choice 1, 08:51: "A"): the game keeps ready-built worlds saved at February 2026; a career loads one, and new worlds build in the background or overnight. Asked whether every world would then have the same results ("it sounds to me like you're expecting every world to have the same individual game results ?"), the answer: no, each seed is a different world, and each career gets fresh randomness from its first day.
+- **Section 8 builds everything your seat touches in a first season** (choice 4, 08:51: "Yes"), including build 9's later-build parts listed in topic 11.
+- Still open: how many years of high school history run on the engine (choice 2) and the UI technology (choice 3; Cain asked what Football Manager runs on).
+
 ---
 
 ## Superseded decisions

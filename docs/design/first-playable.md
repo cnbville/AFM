@@ -7,7 +7,7 @@ How this doc works:
 - Each topic says what exists: **Built** is in the code, **Decided** is confirmed design not built yet, **New** is what this section adds.
 - Real life is the default (Cain, 2026-10-16). Numbers no source publishes are Claude's picks, marked **proposed, not confirmed**.
 - Sections 5, 6 and 7 are settled designs (`docs/design/team-management.md`, `docs/design/people.md`, `docs/design/scouting.md`). This section adds the screens and choices on top of them and re-asks nothing in them.
-- Three choices are Cain's and wait for him (listed at the end). The doc is written on Claude's picks until he answers.
+- Four choices were Cain's (listed at the end); 1 and 4 are confirmed, 2 and 3 wait for him. The doc is written on Claude's picks until he answers.
 
 Topic order: 1 the world you start in, 2 starting your career, 3 save and load, 4 the clock on screen, 5 the first playable's screens, 6 your choices against the AI's, 7 the high school seat, 8 memory and speed on the M1, 9 the app (UI technology), 10 debugging in play, 11 what section 8 builds and what stays later.
 
@@ -211,7 +211,7 @@ Plain, dense text screens: tables, lists and words, no art yet (section 10 bring
 ### What exists
 - Build 9 split sections 6 and 7 into what it built, what comes with section 8, and later builds (`docs/design/build9-plan.md`).
 
-### The design (on Claude's pick, choice 4)
+### The design (confirmed, choice 4)
 Section 8 builds everything your own seat touches in a first season at each level, so the first career is the real job:
 - Everything build 9 marked "with section 8".
 - From build 9's later builds, the parts your seat touches: every assistant coach as a person and high school staffs (people topic 10); assistants' contracts, coaches' agents and permission rules (topic 11); bosses as people and coaches' families and health (topics 12 and 13); reporters and stories for press conferences (topic 9); friends, mentors and family ties (topic 2); team rules for AI teams (topic 8); area recruiters and camps as looks, character and medical reads at full detail, potential words, look-backs, pro scouting, the portal and JUCO, the high school coach's side and the "my players" list (scouting).
@@ -223,7 +223,7 @@ Section 8 builds everything your own seat touches in a first season at each leve
 
 Posted in the thread on 2026-10-20 with Claude's picks. The doc is written on the picks until Cain answers.
 
-1. **How a new game gets its history.** A: a world library with background builds; B: build on your Mac every time (about 45-60 minutes, a guess); C: the quick stand-in for the history. Claude's pick: A.
+1. **How a new game gets its history.** A: a world library with background builds; B: build on your Mac every time (about 45-60 minutes, a guess); C: the quick stand-in for the history. **Confirmed: A** (Cain, 2026-10-20 08:51).
 2. **How many years of high school history run on the engine.** All 36 (about 7 more hours per world), the last 12 (about 2.4 hours; every player in college or the NFL in 2026 has real high school lines), or none. Claude's pick: the last 12.
 3. **The UI technology.** Claude's pick: Tauri.
-4. **What section 8 builds.** Everything your seat touches in a first season, as in topic 11. Claude's pick: yes.
+4. **What section 8 builds.** Everything your seat touches in a first season, as in topic 11. **Confirmed: yes** (Cain, 2026-10-20 08:51).
