@@ -238,7 +238,7 @@ impl Agent {
         // Fatigue lowers speed, strength and sharpness (topic 2).
         let tired = 1.0 - energy;
         let mut r = [0.0; ATTRIBUTE_COUNT];
-        for (i, v) in gp.attrs.0.iter().copied().enumerate() {
+        for (i, v) in gp.attrs.values().enumerate() {
             let fat = 1.0 - Attr::ALL[i].profile().fatigue * tired;
             r[i] = clamp(v * fat + edge, 1.0, 99.0);
         }
@@ -750,7 +750,7 @@ impl<'a> Sim<'a> {
             return v;
         }
         let base = gp.tend.get(t);
-        let was = gp.tend.was[t.index()];
+        let was = gp.tend.was[t.index()] as f64;
         let poise = gp.trait20(Attr::Composure, self.level);
         let stress = clamp(self.mood.stakes[a.side] + 0.8 * a.tired + 0.05 * (10.0 - poise), 0.0, 1.0);
         let gamble = if t.gamble() { self.mood.gamble[a.side] } else { 0.0 };

@@ -20,14 +20,14 @@ fn peaks_speed_in_the_mid_20s_and_awareness_around_30() {
                 develop_season(&mut p, &ctx, &mut rng)
             };
             let age = p.age as f64;
-            if p.attributes[Attr::Speed] > best_speed.0 {
-                best_speed = (p.attributes[Attr::Speed], age);
+            if p.attributes.get(Attr::Speed) > best_speed.0 {
+                best_speed = (p.attributes.get(Attr::Speed), age);
             }
-            if p.attributes[Attr::FootballIq] > best_awareness.0 {
-                best_awareness = (p.attributes[Attr::FootballIq], age);
+            if p.attributes.get(Attr::FootballIq) > best_awareness.0 {
+                best_awareness = (p.attributes.get(Attr::FootballIq), age);
             }
             if p.age == 33 {
-                speed_loss_by_33.push(best_speed.0 - p.attributes[Attr::Speed]);
+                speed_loss_by_33.push(best_speed.0 - p.attributes.get(Attr::Speed));
             }
         }
         speed_peak.push(best_speed.1);
@@ -129,9 +129,9 @@ fn takes_explosiveness_away_with_a_major_injury() {
     let mut healthy = Vec::new();
     for mut p in prospects(3000, "injury", 3.0) {
         career(&mut p, &mut rng, 23, |_| {});
-        let before = p.attributes[Attr::Speed];
+        let before = p.attributes.get(Attr::Speed);
         let report = develop_season(&mut p, &context_for(23), &mut rng);
-        let change = p.attributes[Attr::Speed] - before;
+        let change = p.attributes.get(Attr::Speed) - before;
         if report.events.has(Ev::MajorInjury) {
             hurt.push(change);
         } else {
@@ -203,7 +203,7 @@ fn keeps_every_rating_within_1_99_and_current_at_or_below_its_ceiling() {
                 develop_season(&mut p, &ctx, &mut rng)
             };
             for k in Attr::ALL {
-                let (a, c) = (p.attributes[k], p.ceilings[k]);
+                let (a, c) = (p.attributes.get(k), p.ceilings.get(k));
                 assert!(
                     a >= MIN_RATING && c <= MAX_RATING && a <= c,
                     "{} {} at age {}: {a} / {c}",

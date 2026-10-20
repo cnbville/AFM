@@ -191,7 +191,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     let position = player.position;
     let overall_before = player.overall();
     let potential_before = player.potential();
-    let speed_before = player.attributes[Attr::Speed];
+    let speed_before = player.attributes.get(Attr::Speed);
     let mut events = Events::default();
     let age = player.age as f64;
     let pt = ctx.playing_time;
@@ -212,8 +212,8 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         let age_hit = injury_age_hit(age - 1.0);
         for key in Attr::ALL {
             if key.profile().injury_sensitive {
-                let room = (player.ceilings[key] - player.attributes[key]).max(0.0);
-                player.attributes[key] += room.min(rng.range(1.5, 5.0) * age_hit);
+                let room = (player.ceilings.get(key) - player.attributes.get(key)).max(0.0);
+                player.attributes.add(key, room.min(rng.range(1.5, 5.0) * age_hit));
             }
         }
     }
@@ -294,9 +294,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
                     if !key.profile().injury_sensitive {
                         continue;
                     }
-                    player.attributes[key] -= rng.range(now.0, now.1) * age_hit;
+                    player.attributes.add(key, -(rng.range(now.0, now.1) * age_hit));
                     if lasting.1 > 0.0 {
-                        player.ceilings[key] -= rng.range(lasting.0, lasting.1) * age_hit;
+                        player.ceilings.add(key, -(rng.range(lasting.0, lasting.1) * age_hit));
                     }
                 }
                 player.injury_proneness = (player.injury_proneness + 1.0).min(20.0);
@@ -318,7 +318,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             if key.profile().group != AttributeGroup::Physical {
                 continue;
             }
-            player.ceilings[key] = player.ceilings[key].min(player.attributes[key] + rng.range(0.0, 2.0));
+            player.ceilings.set(key, player.ceilings.get(key).min(player.attributes.get(key) + rng.range(0.0, 2.0)));
         }
     }
 
@@ -424,7 +424,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         let size = if player.position.is_specialist() { 0.5 } else { 1.0 };
         for key in Attr::ALL {
             if key.profile().group != AttributeGroup::Physical {
-                late_loss[key] += size * rng.range(2.0, 6.0);
+                late_loss.add(key, size * rng.range(2.0, 6.0));
             }
         }
     } else if rng.chance(stagnation_chance) {
@@ -439,7 +439,8 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // player, about 6% for the laxest, about 1% for the most driven.
     if (18.0..=32.0).contains(&age) {
         let lax = clamp(
-            1.0 + 0.12 * (10.0 - personality.work_ethic) + 0.06 * (10.0 - player.attributes[Attr::Discipline] / 5.0),
+            1.0 + 0.12 * (10.0 - personality.work_ethic)
+                + 0.06 * (10.0 - player.attributes.get(Attr::Discipline) / 5.0),
             0.3,
             2.5,
         );
@@ -447,8 +448,8 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             events.add(Ev::WeightGain);
             player.body.weight += rng.range(8.0, 25.0);
             for key in [Attr::Speed, Attr::Acceleration, Attr::Agility] {
-                player.attributes[key] -= rng.range(1.0, 3.0);
-                player.ceilings[key] -= rng.range(0.5, 2.0);
+                player.attributes.add(key, -(rng.range(1.0, 3.0)));
+                player.ceilings.add(key, -(rng.range(0.5, 2.0)));
             }
         }
     }
@@ -463,7 +464,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         events.add(Ev::PoorCoaching);
         for key in Attr::ALL {
             if key.profile().group == AttributeGroup::Technical && weight(position, key) > 0.0 {
-                late_loss[key] += rng.range(1.0, 3.0);
+                late_loss.add(key, rng.range(1.0, 3.0));
             }
         }
     }
@@ -501,14 +502,14 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             if stalled && d > 0.0 && physical {
                 d = 0.0;
             }
-            let current = player.ceilings[key];
-            delta[key] = clamp(current + d, MIN_RATING, MAX_RATING) - current;
+            let current = player.ceilings.get(key);
+            delta.set(key, clamp(current + d, MIN_RATING, MAX_RATING) - current);
         }
         // A potential shift can move at most one band per checkpoint: no overnight stars.
         let shift = overall_for(position, &delta);
         let scale = if shift.abs() > MAX_POTENTIAL_SHIFT { MAX_POTENTIAL_SHIFT / shift.abs() } else { 1.0 };
         for i in 0..ATTRIBUTE_COUNT {
-            player.ceilings.0[i] += delta.0[i] * scale;
+            player.ceilings.set_at(i, player.ceilings.at(i) + delta.at(i) * scale);
         }
     }
     // Reading defenses, poise and route timing keep deepening with real snaps
@@ -527,8 +528,8 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
                 continue;
             }
             let learned = rng.range(0.0, 1.2) * profile.experience * snaps_share * snaps_factor;
-            player.ceilings[key] += learned;
-            player.attributes[key] += learned * 0.8;
+            player.ceilings.add(key, learned);
+            player.attributes.add(key, learned * 0.8);
         }
     }
     if breakout_lift > 0.0 {
@@ -536,7 +537,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             if weight(position, key) == 0.0 || (stalled && key.profile().group == AttributeGroup::Physical) {
                 continue;
             }
-            player.ceilings[key] = (player.ceilings[key] + breakout_lift * rng.range(0.6, 1.2)).min(MAX_RATING);
+            player.ceilings.set(key, (player.ceilings.get(key) + breakout_lift * rng.range(0.6, 1.2)).min(MAX_RATING));
         }
     }
 
@@ -561,7 +562,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         let profile = &ATTRIBUTE_PROFILES[key.index()];
         let age_factor = growth_age_factor(development_age, profile.growth_window);
         settling[key.index()] = age_factor <= 0.01;
-        let gap = player.ceilings[key] - player.attributes[key];
+        let gap = player.ceilings.get(key) - player.attributes.get(key);
         if gap <= 0.0 || age_factor <= 0.01 {
             continue;
         }
@@ -595,12 +596,13 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         // Proportional growth plus a fixed step, so a well-developed player can
         // actually reach his ceiling instead of creeping towards it forever.
         // Even a monster year adds at most about a dozen points to one attribute.
-        player.attributes[key] +=
-            gap.min(gap * rate + FINISHING_STEP * rate).min(MAX_YEARLY_GAIN) + rng.normal(0.0, 0.5);
+        player
+            .attributes
+            .add(key, gap.min(gap * rate + FINISHING_STEP * rate).min(MAX_YEARLY_GAIN) + rng.normal(0.0, 0.5));
     }
 
     for key in Attr::ALL {
-        player.attributes[key] -= late_loss[key];
+        player.attributes.add(key, -(late_loss.get(key)));
     }
 
     // --- Ageing ----------------------------------------------------------------
@@ -622,8 +624,8 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             * decline_resistance
             * rng.log_normal(0.3)
             * if physical { wear_mult } else { 1.0 };
-        player.attributes[key] -= loss;
-        player.ceilings[key] -= loss;
+        player.attributes.add(key, -(loss));
+        player.ceilings.add(key, -(loss));
     }
 
     // --- Old skills fade (fix list 3.8) ------------------------------------------
@@ -645,27 +647,29 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
                 .map(|h| weight(h.1, key))
                 .fold(0.0, f64::max);
             if old >= 0.04 {
-                player.attributes[key] -= OLD_SKILL_FADE;
-                player.ceilings[key] -= OLD_SKILL_FADE;
+                player.attributes.add(key, -(OLD_SKILL_FADE));
+                player.ceilings.add(key, -(OLD_SKILL_FADE));
             }
         }
     }
 
     // --- Tidy up ---------------------------------------------------------------
     for i in 0..ATTRIBUTE_COUNT {
-        let (attr, ceil) = (&mut player.attributes.0[i], &mut player.ceilings.0[i]);
+        let (mut attr, mut ceil) = (player.attributes.at(i), player.ceilings.at(i));
         // Once an attribute has stopped growing or started to decline, the ceiling
         // above it is out of reach: veterans don't keep upside they can't use.
         // (A healing injury keeps its room: the rehab loss comes back next year.)
-        if settling[i] && *ceil > *attr && !(rehab && Attr::ALL[i].profile().injury_sensitive) {
-            *ceil = *attr + (*ceil - *attr) / 2.0;
+        if settling[i] && ceil > attr && !(rehab && Attr::ALL[i].profile().injury_sensitive) {
+            ceil = attr + (ceil - attr) / 2.0;
         }
-        *ceil = clamp(*ceil, MIN_RATING, MAX_RATING);
-        *attr = clamp(*attr, MIN_RATING, MAX_RATING);
+        ceil = clamp(ceil, MIN_RATING, MAX_RATING);
+        attr = clamp(attr, MIN_RATING, MAX_RATING);
         // Over-performing a ceiling means the ceiling was wrong, not the player.
-        if *attr > *ceil {
-            *ceil = *attr;
+        if attr > ceil {
+            ceil = attr;
         }
+        player.attributes.set_at(i, attr);
+        player.ceilings.set_at(i, ceil);
     }
 
     // His habits (tendencies topic 3): results, coaching, the staff's
@@ -686,7 +690,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         scheme: ctx.scheme,
         played,
         major_injury: events.has(Ev::MajorInjury),
-        speed_lost: (speed_before - player.attributes[Attr::Speed]).max(0.0),
+        speed_lost: (speed_before - player.attributes.get(Attr::Speed)).max(0.0),
         centre: ctx.tend_centre,
     };
     crate::tendencies::develop_year(&mut player.tend, &player.attributes, &personality, player.age, &year, player.id);
@@ -782,8 +786,8 @@ pub fn extra_practices(player: &mut Player, practices: u32, coaching: f64, rng: 
         if weight(position, key) == 0.0 {
             continue;
         }
-        let room = (player.ceilings[key] - player.attributes[key]).max(0.0);
-        player.attributes[key] += room * rate * rng.range(0.5, 1.5);
+        let room = (player.ceilings.get(key) - player.attributes.get(key)).max(0.0);
+        player.attributes.add(key, room * rate * rng.range(0.5, 1.5));
     }
     player.overall() - before
 }
@@ -798,8 +802,8 @@ pub fn spring_jump(player: &mut Player, share: f64, rng: &mut Rng) -> f64 {
         if weight(position, key) == 0.0 {
             continue;
         }
-        let room = (player.ceilings[key] - player.attributes[key]).max(0.0);
-        player.attributes[key] += room * clamp(share * rng.range(0.7, 1.3), 0.0, 0.9);
+        let room = (player.ceilings.get(key) - player.attributes.get(key)).max(0.0);
+        player.attributes.add(key, room * clamp(share * rng.range(0.7, 1.3), 0.0, 0.9));
     }
     player.overall() - before
 }

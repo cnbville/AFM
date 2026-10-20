@@ -1047,7 +1047,7 @@ fn readiness(p: &Player, group: AttributeGroup) -> f64 {
             continue;
         }
         let weight = raw_weight(p.position, key) + 0.2;
-        sum += weight * (p.attributes[key] / p.ceilings[key].max(1.0)).min(1.0);
+        sum += weight * (p.attributes.get(key) / p.ceilings.get(key).max(1.0)).min(1.0);
         w += weight;
     }
     if w > 0.0 { sum / w } else { 0.8 }
@@ -2007,7 +2007,9 @@ fn add_wear(r: &mut CareerRecord, role: PlayingTime, scale: f64) {
 
 fn is_running_qb(p: &Player) -> bool {
     p.position == Position::QB
-        && (p.attributes[Attr::Speed] + p.attributes[Attr::Acceleration] + p.attributes[Attr::Agility]) / 3.0 >= 78.0
+        && (p.attributes.get(Attr::Speed) + p.attributes.get(Attr::Acceleration) + p.attributes.get(Attr::Agility))
+            / 3.0
+            >= 78.0
 }
 
 /// Retirement: each position has a typical age to walk away, moved by his

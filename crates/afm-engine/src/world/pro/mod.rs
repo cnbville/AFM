@@ -530,15 +530,18 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
     let peak = rating + head;
     let pot = crate::positions::overall_for(pos, &player.ceilings).max(1.0);
     for a in crate::attributes::Attr::ALL {
-        player.ceilings[a] = clamp(player.ceilings[a] * peak / pot, 20.0, 99.0);
+        player.ceilings.set(a, clamp(player.ceilings.get(a) * peak / pot, 20.0, 99.0));
     }
     for _ in 0..3 {
         let now = player.overall().max(1.0);
         for a in crate::attributes::Attr::ALL {
-            player.attributes[a] = clamp(
-                if now > 0.0 { player.attributes[a].max(1.0) * rating / now } else { rating },
-                20.0,
-                player.ceilings[a],
+            player.attributes.set(
+                a,
+                clamp(
+                    if now > 0.0 { player.attributes.get(a).max(1.0) * rating / now } else { rating },
+                    20.0,
+                    player.ceilings.get(a),
+                ),
             );
         }
     }

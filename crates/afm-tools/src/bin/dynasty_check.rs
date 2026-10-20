@@ -50,7 +50,8 @@ fn boost(t: &GameTeam, positions: &[Position], by: f64) -> GameTeam {
     for &(pos, n) in STARTERS.iter().filter(|(p, _)| positions.contains(p)) {
         for &i in depth.list(pos).iter().take(n) {
             for &a in &attrs {
-                t.players[i].attrs[a] = (t.players[i].attrs[a] + by).min(99.0);
+                let v = (t.players[i].attrs.get(a) + by).min(99.0);
+                t.players[i].attrs.set(a, v);
             }
         }
     }

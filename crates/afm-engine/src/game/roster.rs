@@ -96,7 +96,7 @@ impl GamePlayer {
 
     #[inline]
     pub fn a(&self, a: Attr) -> f64 {
-        self.attrs[a]
+        self.attrs.get(a)
     }
 
     pub fn overall_at(&self, pos: Position) -> f64 {
@@ -173,7 +173,7 @@ impl GamePlayer {
     /// Instructions are checked where they apply.
     pub fn tend_now(&self, t: crate::tendencies::Tend, gamble: f64, stakes: f64, energy: f64, level: Level) -> f64 {
         let base = self.tend.get(t);
-        let was = self.tend.was[t.index()];
+        let was = self.tend.was[t.index()] as f64;
         let stress = clamp(stakes + 0.8 * (1.0 - energy) + 0.05 * (10.0 - self.composure(level)), 0.0, 1.0);
         let g = if t.gamble() { gamble } else { 0.0 };
         clamp(base + stress * (was - base) / 3.0 + g, 1.0, 20.0)

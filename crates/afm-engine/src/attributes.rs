@@ -7,8 +7,6 @@
 //! engine (`docs/design/attributes.md`). Five more are hidden: consistency,
 //! injury proneness, recovery, longevity and temperament (`player.rs`).
 
-use std::ops::{Index, IndexMut};
-
 pub const MIN_RATING: f64 = 1.0;
 pub const MAX_RATING: f64 = 99.0;
 
@@ -566,33 +564,55 @@ pub const ATTRIBUTE_PROFILES: [AttributeProfile; ATTRIBUTE_COUNT] = [
     mental(0.6, 0.1, (14.0, 23.0), 0.3, 0.4, 32.0, 0.5, 0.06), // physicality
 ];
 
-/// One value per attribute.
+/// One value per attribute. Stored as 4-byte numbers (section 8, memory):
+/// a rating needs no more than f32's 7 digits, and the 67 of them for every
+/// player and his ceilings were 0.45 GB of a full world as 8-byte numbers.
+/// Reads and writes go through f64, so every formula keeps working in f64.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Attributes(pub [f64; ATTRIBUTE_COUNT]);
+pub struct Attributes([f32; ATTRIBUTE_COUNT]);
 
 impl Attributes {
     pub const fn filled(value: f64) -> Self {
-        Attributes([value; ATTRIBUTE_COUNT])
+        Attributes([value as f32; ATTRIBUTE_COUNT])
+    }
+
+    #[inline]
+    pub fn get(&self, a: Attr) -> f64 {
+        self.0[a as usize] as f64
+    }
+
+    #[inline]
+    pub fn set(&mut self, a: Attr, v: f64) {
+        self.0[a as usize] = v as f32;
+    }
+
+    /// Adds `d` to one attribute.
+    #[inline]
+    pub fn add(&mut self, a: Attr, d: f64) {
+        let i = a as usize;
+        self.0[i] = (self.0[i] as f64 + d) as f32;
+    }
+
+    /// Every value, in `Attr` order.
+    #[inline]
+    pub fn values(&self) -> impl Iterator<Item = f64> + '_ {
+        self.0.iter().map(|&v| v as f64)
+    }
+
+    /// The value at a raw index (`Attr as usize`).
+    #[inline]
+    pub fn at(&self, i: usize) -> f64 {
+        self.0[i] as f64
+    }
+
+    #[inline]
+    pub fn set_at(&mut self, i: usize, v: f64) {
+        self.0[i] = v as f32;
     }
 }
 
 impl Default for Attributes {
     fn default() -> Self {
         Attributes::filled(MIN_RATING)
-    }
-}
-
-impl Index<Attr> for Attributes {
-    type Output = f64;
-    #[inline]
-    fn index(&self, a: Attr) -> &f64 {
-        &self.0[a as usize]
-    }
-}
-
-impl IndexMut<Attr> for Attributes {
-    #[inline]
-    fn index_mut(&mut self, a: Attr) -> &mut f64 {
-        &mut self.0[a as usize]
     }
 }

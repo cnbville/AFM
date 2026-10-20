@@ -44,7 +44,7 @@ fn main() {
             let b = body_now(&r.player);
             body[k].0 += b.height;
             body[k].1 += b.weight;
-            lift[k].0 += r.player.attributes[Attr::Strength];
+            lift[k].0 += r.player.attributes.get(Attr::Strength);
             lift[k].1 += b.arm;
             lift[k].2 += combine(&r.player, &mut rng).bench;
         }

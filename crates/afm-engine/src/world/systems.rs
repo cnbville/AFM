@@ -200,7 +200,7 @@ fn overlap(kind: Kind, a: usize, b: usize) -> f64 {
 /// attributes; body weight for a two-gap nose).
 fn score(p: &Player, pos: Position, slot: usize) -> f64 {
     use Position as P;
-    let a = |x: Attr| p.attributes[x];
+    let a = |x: Attr| p.attributes.get(x);
     let mix = |w: &[(Attr, f64)]| w.iter().map(|&(x, v)| a(x) * v).sum::<f64>();
     let heavy = clamp((p.body.weight - 250.0) / 1.2, 20.0, 99.0);
     match (pos, slot) {

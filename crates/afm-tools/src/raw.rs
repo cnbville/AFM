@@ -68,7 +68,7 @@ fn team_stats(t: &afm_engine::game::stats::TeamStats) -> Value {
 fn player_detail(p: &afm_engine::player::Player) -> Value {
     let ceil = debug::ceilings(p);
     json!({
-        "attrs": afm_engine::attributes::Attr::ALL.iter().map(|&t| json!([format!("{t:?}"), r1(p.attributes[t]), r1(ceil[t])])).collect::<Vec<_>>(),
+        "attrs": afm_engine::attributes::Attr::ALL.iter().map(|&t| json!([format!("{t:?}"), r1(p.attributes.get(t)), r1(ceil.get(t))])).collect::<Vec<_>>(),
         "seasons": p.history.iter().map(|h| json!({
             "age": h.age, "level": h.level.name(), "pos": h.position.name(), "role": h.playing_time.name(),
             "start": r1(h.overall_start), "end": r1(h.overall), "perf": h.performance.map(r1),
@@ -88,7 +88,7 @@ fn player_detail(p: &afm_engine::player::Player) -> Value {
 /// A player's 15 tendencies: key, what he does now, and the number before
 /// coaching moved it.
 fn tend_row(t: &afm_engine::tendencies::Tendencies) -> Value {
-    json!(Tend::ALL.iter().map(|&k| json!([k.key(), r1(t.get(k)), r1(t.was[k.index()])])).collect::<Vec<_>>())
+    json!(Tend::ALL.iter().map(|&k| json!([k.key(), r1(t.get(k)), r1(t.was[k.index()] as f64)])).collect::<Vec<_>>())
 }
 
 /// Where a person plays now, for the tendency tables: high school, his
@@ -113,7 +113,8 @@ pub fn tend_summary(w: &World) -> Value {
         let rows = by.entry(g).or_insert_with(|| vec![Vec::new(); Tend::ALL.len()]);
         for &k in &Tend::ALL {
             if k.owned_by(q.player.position) {
-                rows[k.index()].push((q.player.tend.get(k), q.player.tend.v[k.index()] - q.player.tend.was[k.index()]));
+                rows[k.index()]
+                    .push((q.player.tend.get(k), (q.player.tend.v[k.index()] - q.player.tend.was[k.index()]) as f64));
             }
         }
     }
@@ -375,7 +376,7 @@ pub fn write_raw(w: &World, dir: &str, seed: u32, years: u32) -> String {
         f.put(json!({
             "id": q.player.id, "lvl": g, "pos": q.player.position.name(), "age": q.player.age, "stars": q.stars,
             "ovr": r1(q.player.overall()), "v": Tend::ALL.iter().map(|&k| r1(t.get(k))).collect::<Vec<_>>(),
-            "was": t.was.iter().map(|&x| r1(x)).collect::<Vec<_>>(), "dip": r1(t.contact_dip),
+            "was": t.was.iter().map(|&x| r1(x as f64)).collect::<Vec<_>>(), "dip": r1(t.contact_dip as f64),
         }));
     }
     counts.push(("tendency rows".into(), f.n));

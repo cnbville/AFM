@@ -499,12 +499,14 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
             let scale = talent / elite_shape_overall(position);
             let mut ceilings = Attributes::default();
             for key in Attr::ALL {
-                ceilings[key] =
-                    clamp(elite_shape_value(position, key) * scale + rng.normal(0.0, 4.0), MIN_RATING, MAX_RATING);
+                ceilings.set(
+                    key,
+                    clamp(elite_shape_value(position, key) * scale + rng.normal(0.0, 4.0), MIN_RATING, MAX_RATING),
+                );
             }
             let potential = overall_for(position, &ceilings);
             // His build: how his strength and speed ceilings sit against his position's norm.
-            let dev = |a: Attr| (ceilings[a] - elite_shape_value(position, a) * scale) / 4.0;
+            let dev = |a: Attr| (ceilings.get(a) - elite_shape_value(position, a) * scale) / 4.0;
             let body = crate::body::adult_body(id, position, potential, dev(Attr::Strength), dev(Attr::Speed));
             (position, ceilings, body, rng.normal(0.0, 1.0))
         }
@@ -513,7 +515,7 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
     let bloom = clamp(rng.normal(0.0, 1.1), -2.5, 3.0);
     let mut attributes = Attributes::default();
     for key in Attr::ALL {
-        let ceiling = ceilings[key];
+        let ceiling = ceilings.get(key);
         let profile = &ATTRIBUTE_PROFILES[key.index()];
         // Early bloomers arrive more physically mature; late bloomers less so.
         let maturity = clamp(
@@ -523,7 +525,7 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
         );
         // Even the most gifted 14-year-old is still a boy: soften the top end.
         let raw = ceiling * maturity;
-        attributes[key] = clamp(if raw > 40.0 { 40.0 + (raw - 40.0) * 0.5 } else { raw }, MIN_RATING, ceiling);
+        attributes.set(key, clamp(if raw > 40.0 { 40.0 + (raw - 40.0) * 0.5 } else { raw }, MIN_RATING, ceiling));
     }
     // Talent is what he can become at the spot that suits him best.
     let original_potential = overall_for(position, &ceilings);
@@ -539,7 +541,8 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
         traits: Traits::default(),
     };
     let mut personality = personality;
-    let key = (id as u64) << 20 ^ personality.work_ethic.to_bits() ^ attributes[Attr::Speed].to_bits().rotate_left(17);
+    let key =
+        (id as u64) << 20 ^ personality.work_ethic.to_bits() ^ attributes.get(Attr::Speed).to_bits().rotate_left(17);
     personality.traits = Traits::draw(key, &personality);
     let tend = crate::tendencies::Tendencies::at_14(id, &ceilings, body.weight, body.height, &personality);
     Player {

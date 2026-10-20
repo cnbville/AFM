@@ -216,32 +216,32 @@ pub fn level_sd(level: Level) -> f64 {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Tendencies {
     /// What he does now, 1-20.
-    pub v: [f64; TEND_COUNT],
+    pub v: [f32; TEND_COUNT],
     /// The number before coaching moved it: a coached-down habit leaves a
     /// trace he slips back toward under stress (topic 3.7).
-    pub was: [f64; TEND_COUNT],
+    pub was: [f32; TEND_COUNT],
     /// Contact willingness he lost after a major injury, coming back over a
     /// season or two (topic 3.6).
-    pub contact_dip: f64,
+    pub contact_dip: f32,
 }
 
 impl Default for Tendencies {
     fn default() -> Tendencies {
-        Tendencies { v: [MID; TEND_COUNT], was: [MID; TEND_COUNT], contact_dip: 0.0 }
+        Tendencies { v: [MID as f32; TEND_COUNT], was: [MID as f32; TEND_COUNT], contact_dip: 0.0 }
     }
 }
 
 impl Tendencies {
     #[inline]
     pub fn get(&self, t: Tend) -> f64 {
-        let v = self.v[t.index()];
-        if t == Tend::Contact { clamp(v - self.contact_dip, 1.0, 20.0) } else { v }
+        let v = self.v[t.index()] as f64;
+        if t == Tend::Contact { clamp(v - self.contact_dip as f64, 1.0, 20.0) } else { v }
     }
 
     pub fn set(&mut self, t: Tend, x: f64) {
         let x = clamp(x, 1.0, 20.0);
-        self.v[t.index()] = x;
-        self.was[t.index()] = x;
+        self.v[t.index()] = x as f32;
+        self.was[t.index()] = x as f32;
     }
 
     /// Where a 14-year-old starts (topic 3.1): mostly who he is, drawn at
@@ -253,14 +253,14 @@ impl Tendencies {
         let raw = Tendencies::drawn(id, ceilings, weight, height, pers);
         let mut t = Tendencies::default();
         for k in Tend::ALL {
-            t.set(k, round_half_up(raw.v[k.index()] - CENTER_14[k.index()]));
+            t.set(k, round_half_up(raw.v[k.index()] as f64 - CENTER_14[k.index()]));
         }
         t
     }
 
     fn drawn(id: u32, ceilings: &Attributes, weight: f64, height: f64, pers: &Personality) -> Tendencies {
         let mut r = Rng::new(id ^ 0x7E4D_3C21);
-        let c = |a: Attr| (ceilings[a] - 70.0) / 12.0;
+        let c = |a: Attr| (ceilings.get(a) - 70.0) / 12.0;
         let lean = |x: f64| clamp(x, -3.0, 3.0);
         let compete = (pers.competitiveness - 10.0) / 3.5;
         let disc = c(Attr::Discipline);
@@ -312,7 +312,7 @@ impl Tendencies {
             Level::HS => &CENTER_HS,
         };
         for k in Tend::ALL {
-            t.set(k, round_half_up(MID + (base.v[k.index()] - MID) * squeeze - center[k.index()]));
+            t.set(k, round_half_up(MID + (base.v[k.index()] as f64 - MID) * squeeze - center[k.index()]));
         }
         t
     }
@@ -347,26 +347,30 @@ pub fn ideal(t: Tend, a: &Attributes, level: Level) -> Option<f64> {
     let rel = |x: f64| (x - norm) / 6.0;
     let v = match t {
         Tend::Bounce => {
-            MID + 1.8 * rel(0.4 * a[Attr::Speed] + 0.3 * a[Attr::Acceleration] + 0.3 * a[Attr::Elusiveness])
-                + 0.6 * rel(a[Attr::BallCarrierVision])
+            MID + 1.8 * rel(0.4 * a.get(Attr::Speed) + 0.3 * a.get(Attr::Acceleration) + 0.3 * a.get(Attr::Elusiveness))
+                + 0.6 * rel(a.get(Attr::BallCarrierVision))
         }
-        Tend::Patience => MID + 1.2 * rel(a[Attr::BallCarrierVision]) - 1.2 * rel(a[Attr::Acceleration]),
-        Tend::Scramble => MID + 2.0 * rel(0.6 * a[Attr::Speed] + 0.4 * a[Attr::ThrowOnMove]),
+        Tend::Patience => MID + 1.2 * rel(a.get(Attr::BallCarrierVision)) - 1.2 * rel(a.get(Attr::Acceleration)),
+        Tend::Scramble => MID + 2.0 * rel(0.6 * a.get(Attr::Speed) + 0.4 * a.get(Attr::ThrowOnMove)),
         Tend::Gunslinger => {
-            MID + 1.2 * rel(0.4 * a[Attr::MediumAccuracy] + 0.3 * a[Attr::ArmStrength] + 0.3 * a[Attr::Anticipation])
-                - 0.6 * rel(a[Attr::Decisions]).min(0.0)
+            MID + 1.2
+                * rel(0.4 * a.get(Attr::MediumAccuracy)
+                    + 0.3 * a.get(Attr::ArmStrength)
+                    + 0.3 * a.get(Attr::Anticipation))
+                - 0.6 * rel(a.get(Attr::Decisions)).min(0.0)
         }
-        Tend::Hold => MID + 1.2 * rel(0.5 * a[Attr::PocketPresence] + 0.5 * a[Attr::Strength]),
+        Tend::Hold => MID + 1.2 * rel(0.5 * a.get(Attr::PocketPresence) + 0.5 * a.get(Attr::Strength)),
         Tend::ReturnRisk => {
-            MID + 1.5 * rel(0.4 * a[Attr::Speed] + 0.3 * a[Attr::BallCarrierVision] + 0.3 * a[Attr::Elusiveness])
+            MID + 1.5
+                * rel(0.4 * a.get(Attr::Speed) + 0.3 * a.get(Attr::BallCarrierVision) + 0.3 * a.get(Attr::Elusiveness))
         }
-        Tend::Upfield => MID + 1.5 * rel(0.5 * a[Attr::Speed] + 0.5 * a[Attr::Flexibility]),
-        Tend::SnapTiming => MID + 1.5 * rel(a[Attr::Anticipation]) - 0.5,
-        Tend::Strip => MID + 1.2 * rel(0.5 * a[Attr::Tackling] + 0.5 * a[Attr::HandUse]),
-        Tend::BigHit => MID + 1.5 * rel(a[Attr::Tackling]) - 0.5,
-        Tend::Downhill => MID + 1.5 * rel(a[Attr::PlayRecognition]),
-        Tend::JumpRoutes => MID + 1.5 * rel(0.6 * a[Attr::Anticipation] + 0.4 * a[Attr::PlayRecognition]) - 0.5,
-        Tend::Reach => MID + 1.2 * rel(a[Attr::BallSecurity]) - 1.0,
+        Tend::Upfield => MID + 1.5 * rel(0.5 * a.get(Attr::Speed) + 0.5 * a.get(Attr::Flexibility)),
+        Tend::SnapTiming => MID + 1.5 * rel(a.get(Attr::Anticipation)) - 0.5,
+        Tend::Strip => MID + 1.2 * rel(0.5 * a.get(Attr::Tackling) + 0.5 * a.get(Attr::HandUse)),
+        Tend::BigHit => MID + 1.5 * rel(a.get(Attr::Tackling)) - 0.5,
+        Tend::Downhill => MID + 1.5 * rel(a.get(Attr::PlayRecognition)),
+        Tend::JumpRoutes => MID + 1.5 * rel(0.6 * a.get(Attr::Anticipation) + 0.4 * a.get(Attr::PlayRecognition)) - 0.5,
+        Tend::Reach => MID + 1.2 * rel(a.get(Attr::BallSecurity)) - 1.0,
         Tend::Contact | Tend::HandsUp => return None,
     };
     Some(clamp(v, 1.0, 20.0))
@@ -560,7 +564,7 @@ pub fn develop_year(t: &mut Tendencies, a: &Attributes, pers: &Personality, age:
     let settle = clamp((26.5 - age as f64) / 4.5, 0.12, 1.0);
     // Football IQ sets how fast results teach (topic 3.3).
     let iq = crate::game::rules::trait_norm(ctx.level, Attr::FootballIq);
-    let learn = clamp(1.0 + (a[Attr::FootballIq] - iq) / 25.0, 0.4, 1.6) * ctx.played;
+    let learn = clamp(1.0 + (a.get(Attr::FootballIq) - iq) / 25.0, 0.4, 1.6) * ctx.played;
     // Coaching a hurtful habit down (topic 3.4): about 3 a year for a strong
     // coach (16+) with a coachable player (15+), about 1.5 for an average
     // pair, nothing (or worse) under 8.
@@ -568,7 +572,7 @@ pub fn develop_year(t: &mut Tendencies, a: &Attributes, pers: &Personality, age:
     let mould = ctx.style.map_or(1.0, |s| s.mould_factor());
     for k in Tend::ALL {
         let i = k.index();
-        let v = t.v[i];
+        let v = t.v[i] as f64;
         let mut natural = 0.0;
         let mut coached = 0.0;
         if let Some(id) = ideal(k, a, ctx.level) {
@@ -607,17 +611,17 @@ pub fn develop_year(t: &mut Tendencies, a: &Attributes, pers: &Personality, age:
             dv -= 0.25 * ctx.speed_lost;
         }
         let nv = clamp(v + dv, 1.0, 20.0);
-        t.v[i] = nv;
+        t.v[i] = nv as f32;
         // The coached part leaves a trace: the old number keeps only the
         // moves he made on his own.
-        let traced = coached != 0.0 || (t.was[i] - v).abs() > 0.01;
-        t.was[i] = if traced { clamp(t.was[i] + natural * settle, 1.0, 20.0) } else { nv };
+        let traced = coached != 0.0 || (t.was[i] as f64 - v).abs() > 0.01;
+        t.was[i] = if traced { clamp(t.was[i] as f64 + natural * settle, 1.0, 20.0) as f32 } else { nv as f32 };
     }
     // A major injury: contact willingness dips a season or two and mostly
     // comes back (topic 3.6).
     t.contact_dip *= 0.4;
     if ctx.major_injury {
-        t.contact_dip += r.range(2.0, 4.0);
+        t.contact_dip += r.range(2.0, 4.0) as f32;
     }
     if t.contact_dip < 0.1 {
         t.contact_dip = 0.0;

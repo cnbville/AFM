@@ -684,7 +684,7 @@ fn main() {
                     if p.position == Position::RB {
                         p.tend.set(Tend::Bounce, b);
                         for a in [Attr::Speed, Attr::Acceleration, Attr::Elusiveness] {
-                            p.attrs[a] = (p.attrs[a] + add).clamp(1.0, 99.0);
+                            p.attrs.set(a, (p.attrs.get(a) + add).clamp(1.0, 99.0));
                         }
                     }
                 };
@@ -731,7 +731,7 @@ fn main() {
                         p.orders = Orders(vec![ins]);
                     }
                     if let Some(d) = disc {
-                        p.attrs[Attr::Discipline] = d;
+                        p.attrs.set(Attr::Discipline, d);
                     }
                 }
             };

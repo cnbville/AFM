@@ -900,7 +900,7 @@ fn spring_mix(w: &World, i: usize, teaching: f64, open: bool) -> f64 {
         if crate::positions::weight(pos, key) == 0.0 {
             continue;
         }
-        room += (p.player.ceilings[key] - p.player.attributes[key]).max(0.0);
+        room += (p.player.ceilings.get(key) - p.player.attributes.get(key)).max(0.0);
         n += 1.0;
     }
     let room = room / f64::max(n, 1.0);

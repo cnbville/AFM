@@ -78,7 +78,7 @@ fn world_rosters(path: &str, level: Level, seed: u32) -> (Vec<afm_engine::game::
                 let pos = Position::ALL.into_iter().find(|x| format!("{x:?}") == p["pos"].as_str().unwrap_or(""))?;
                 let mut attrs = Attributes::default();
                 for a in Attr::ALL {
-                    attrs[a] = p["attrs"][format!("{a:?}")].as_f64().unwrap_or(40.0);
+                    attrs.set(a, p["attrs"][format!("{a:?}")].as_f64().unwrap_or(40.0));
                 }
                 let mut tend = [10.5; TEND_COUNT];
                 for (i, td) in Tend::ALL.into_iter().enumerate() {
@@ -139,7 +139,7 @@ fn main() {
                     .iter()
                     .map(|p| {
                         let attrs: serde_json::Map<String, Value> =
-                            Attr::ALL.into_iter().map(|a| (format!("{a:?}"), p.attrs[a].into())).collect();
+                            Attr::ALL.into_iter().map(|a| (format!("{a:?}"), p.attrs.get(a).into())).collect();
                         let tend: serde_json::Map<String, Value> =
                             Tend::ALL.into_iter().map(|td| (td.key().to_string(), p.tend.get(td).into())).collect();
                         serde_json::json!({"pos": format!("{:?}", p.position), "attrs": attrs, "tend": tend})
@@ -165,7 +165,7 @@ fn main() {
             for t in teams.iter_mut() {
                 for p in t.players.iter_mut().filter(|p| Some(p.position) == pos) {
                     for a in afm_engine::attributes::Attr::ALL {
-                        p.attrs[a] = (p.attrs[a] + add).clamp(1.0, 99.0);
+                        p.attrs.set(a, (p.attrs.get(a) + add).clamp(1.0, 99.0));
                     }
                     for r in p.spot_r.iter_mut() {
                         *r += add;
@@ -187,7 +187,7 @@ fn main() {
             if let Some(i) = best {
                 let p = &mut t.players[i];
                 for a in afm_engine::attributes::Attr::ALL {
-                    p.attrs[a] = (p.attrs[a] + add).min(99.0);
+                    p.attrs.set(a, (p.attrs.get(a) + add).min(99.0));
                 }
                 for r in p.spot_r.iter_mut() {
                     *r += add;

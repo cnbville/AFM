@@ -55,7 +55,7 @@ pub fn adjust(home: &GameTeam, away: &GameTeam) -> Option<(GameTeam, GameTeam)> 
         for p in t.iter().flat_map(|t| &t.players) {
             let e = sum.entry(p.position).or_insert(([0.0; ATTRIBUTE_COUNT], 0.0));
             for k in 0..ATTRIBUTE_COUNT {
-                e.0[k] += p.attrs.0[k];
+                e.0[k] += p.attrs.at(k);
             }
             e.1 += 1.0;
         }
@@ -64,7 +64,7 @@ pub fn adjust(home: &GameTeam, away: &GameTeam) -> Option<(GameTeam, GameTeam)> 
             let (s, n) = sum[&p.position];
             for k in 0..ATTRIBUTE_COUNT {
                 let m = s[k] / n;
-                p.attrs.0[k] = m + f * (p.attrs.0[k] - m);
+                p.attrs.set_at(k, m + f * (p.attrs.at(k) - m));
             }
         }
     }

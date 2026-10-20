@@ -910,6 +910,33 @@ impl World {
 }
 
 impl World {
+    /// Memory tooling: the people list's spare capacity, then drops one
+    /// part of every person by name (`memory_check`).
+    #[cfg(feature = "debug")]
+    pub fn debug_people_capacity(&self) -> (usize, usize) {
+        (self.people.len(), self.people.capacity())
+    }
+
+    #[cfg(feature = "debug")]
+    pub fn debug_drop_people_part(&mut self, part: &str) {
+        for p in self.people.iter_mut() {
+            match part {
+                "story" => p.bg.story = Vec::new(),
+                "name" => p.name = String::new(),
+                "position history" => p.player.position_history = Vec::new(),
+                "college staff" => p.college_staff = Vec::new(),
+                "path" => p.path = Vec::new(),
+                "calendar lists" => {
+                    p.cal.lean_events = Vec::new();
+                    p.cal.offers = Vec::new();
+                    p.cal.visits = Vec::new();
+                    p.cal.early_offers = Vec::new();
+                }
+                _ => {}
+            }
+        }
+    }
+
     /// A program as the match engine sees it today (trial tooling only).
     #[cfg(feature = "debug")]
     pub fn debug_game_team(&self, prog: usize) -> Option<crate::game::GameTeam> {
@@ -1038,6 +1065,9 @@ impl World {
             })
             .collect();
         let start = self.people.len();
+        // Grow by exactly the class (section 8, memory): doubling a list of
+        // 850,000 people reserved room for two million.
+        self.people.reserve_exact(new.len());
         self.people.extend(new);
         self.draw_home_ties(start);
         self.place_new_class(start);
@@ -1203,6 +1233,11 @@ impl World {
             .collect();
         let mut stays = map.iter();
         self.people.retain(|_| stays.next().is_some_and(|m| m.is_some()));
+        // Hand back the room of everyone who left, keeping a third more for
+        // next year's class and the year's pros, so the list never doubles
+        // (section 8, memory: it held room for 2.0 million people).
+        let room = self.people.len() + self.people.len() / 3;
+        self.people.shrink_to(room);
         self.announcements.clear();
         pro::remap_people(self, &map);
         pro::rebuild(self);
