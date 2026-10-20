@@ -204,7 +204,7 @@ pub fn position_nil_max(pos: Position) -> f64 {
 // --- Rogue boosters and the NCAA (11.6) ----------------------------------------------------
 
 /// A program's standing with the NCAA, and its yearly record for trials.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct ProgramEra {
     /// A rogue booster paying recruits under the table (hidden), before NIL.
     pub rogue: Option<RogueBooster>,
@@ -238,7 +238,7 @@ impl ProgramEra {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct RogueBooster {
     pub since: i32,
     /// What he is willing to pay a year, in dollars.
@@ -247,7 +247,7 @@ pub struct RogueBooster {
     pub(crate) targets: Vec<(usize, f64)>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Payment {
     pub year: i32,
     pub player: u32,
@@ -256,7 +256,7 @@ pub struct Payment {
     pub position_coach: Option<usize>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Case {
     pub year: i32,
     /// What investigators found within four years: dollars and players.
@@ -269,7 +269,7 @@ pub struct Case {
     pub show_cause: Option<(usize, u32, bool)>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct EraYear {
     pub season: i32,
     pub limit: u32,

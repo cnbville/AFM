@@ -5,7 +5,7 @@
 use super::geom::{V2, WIDTH, v2};
 
 /// Offensive spots on one snap. Linemen are left tackle to right tackle.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum ORole {
     QB,
     RB,
@@ -38,7 +38,7 @@ impl ORole {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Personnel {
     /// 1 back, 1 tight end, 3 receivers.
     P11,
@@ -69,7 +69,7 @@ impl Personnel {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Backfield {
     UnderCenter,
     Shotgun,
@@ -80,7 +80,7 @@ pub enum Backfield {
 /// one side, a bunch (three in a cluster, which picks man defenders), a
 /// stack (one behind the other), empty (the back split out) or a wing (a
 /// tight end or back off the line outside the end man).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Set {
     Doubles,
     Trips,
@@ -101,7 +101,7 @@ impl Set {
 /// Motion before the snap (topic 3.1): a jet man crossing at speed, an
 /// orbit behind the quarterback, a receiver moving across the formation, or
 /// a late shift of the strength.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Motion {
     None,
     Jet,
@@ -116,7 +116,7 @@ impl Motion {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Formation {
     pub personnel: Personnel,
     pub backfield: Backfield,
@@ -256,7 +256,7 @@ pub fn align(f: &Formation, role: ORole, los: f64, ball_y: f64) -> V2 {
 }
 
 /// Routes (topic 3). Depths in yards past the line.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Route {
     Block,
     /// Block first; release to a checkdown if nobody comes.
@@ -378,7 +378,7 @@ impl Route {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Drop {
     /// Three-step or catch-and-throw from the gun.
     Quick,
@@ -394,7 +394,7 @@ pub enum Drop {
     Bubble,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Protection {
     /// Five linemen, the back checks before releasing.
     Standard,
@@ -416,7 +416,7 @@ pub struct PassConcept {
     pub depth: PassDepth,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum PassDepth {
     Screen,
     Quick,
@@ -798,7 +798,7 @@ pub fn route_for(c: &PassConcept, role: ORole) -> Route {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum RunConcept {
     InsideZone,
     OutsideZone,
@@ -949,7 +949,7 @@ impl RunConcept {
 /// Concept families (topic 4.1): players learn parts, not plays, and what
 /// they know of a family carries to every play built from it and across
 /// systems that share it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Family {
     InsideZone,
     OutsideZone,
@@ -1036,7 +1036,7 @@ pub fn call_family(k: PlayKind) -> Family {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum PlayKind {
     Run(RunConcept),
     Pass(usize),
@@ -1058,7 +1058,7 @@ impl PlayKind {
 }
 
 /// The offense's call.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct OffCall {
     pub formation: Formation,
     pub kind: PlayKind,
@@ -1070,7 +1070,8 @@ pub struct OffCall {
     /// one of the two at the line.
     pub alt: Option<PlayKind>,
     /// Why the caller chose it (topic 6.6), in a few words.
-    pub why: &'static str,
+    #[serde(deserialize_with = "crate::save::leaked")]
+    pub why: crate::save::Text,
 }
 
 impl OffCall {
@@ -1091,7 +1092,7 @@ impl OffCall {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Coverage {
     Cover0,
     Cover1,
@@ -1161,7 +1162,7 @@ impl Coverage {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum DefPersonnel {
     Base,
     Nickel,
@@ -1169,7 +1170,7 @@ pub enum DefPersonnel {
     GoalLine,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Pressure {
     /// Four rushers.
     Four,
@@ -1206,7 +1207,7 @@ impl Pressure {
 /// (wide nine); odd: a nose on the center and five-techniques; tite: a nose
 /// and two four-i's (closes the B gaps against inside runs); bear: the
 /// center and both guards covered, so nobody climbs free.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum FrontLook {
     Over,
     Under,
@@ -1226,7 +1227,7 @@ impl FrontLook {
 /// (T-E), the end crashes in and the tackle loops out (E-T), or the two
 /// tackles twist. A line that passes it off cleanly stops it; one that
 /// doesn't leaves the looper free.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Stunt {
     None,
     TackleEnd,
@@ -1240,7 +1241,7 @@ impl Stunt {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DefCall {
     pub personnel: DefPersonnel,
     pub coverage: Coverage,

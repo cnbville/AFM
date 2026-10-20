@@ -99,7 +99,7 @@ pub(crate) fn ties_q(w: &World, i: usize, t: usize) -> f64 {
 
 /// The head of a support department: named, rated 1-20 (hidden), and how
 /// long he has been there.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Staffer {
     pub name: String,
     pub rating: u8,
@@ -110,7 +110,7 @@ pub struct Staffer {
 /// medical (the head athletic trainer), analytics and quality control,
 /// and academics (college). Their assistants are counted in their rating
 /// through the budget.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Support {
     pub strength: Staffer,
     pub medical: Staffer,
@@ -189,7 +189,7 @@ pub(crate) fn support_ctx(s: Option<&Support>, pers: &Personality) -> (f64, f64)
 // --- Topic 3: mood and trust --------------------------------------------------------------
 
 /// The main reason behind a mood (`Person::mood_why`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[repr(u8)]
 pub enum Why {
     Settled = 0,
@@ -502,7 +502,7 @@ pub(crate) fn pro_mood(w: &mut World) {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
 enum Room {
     College(usize),
     Club(usize),
@@ -587,7 +587,7 @@ pub(crate) fn morale(p: &Person, room: f32) -> f64 {
 // --- Topic 7: off-field trouble for pros ---------------------------------------------------
 
 /// The kinds of trouble (topic 7), in the real mix.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Trouble {
     Dui,
     Assault,
@@ -615,7 +615,7 @@ impl Trouble {
 }
 
 /// A case waiting on the league's ruling.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Case {
     pub person: usize,
     pub kind: Trouble,

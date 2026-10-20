@@ -175,7 +175,7 @@ pub fn retire_age(pos: Position) -> f64 {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub enum CollegeLevel {
     SmallCollege,
     FCS,
@@ -220,7 +220,7 @@ fn competition_discount(level: Option<CollegeLevel>) -> f64 {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum TransferReason {
     Standout,
     PlayingTime,
@@ -229,7 +229,7 @@ pub enum TransferReason {
     DismissedSerious,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum PortalOutcome {
     Up,
     Sideways,
@@ -237,13 +237,13 @@ pub enum PortalOutcome {
     None,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ProExit {
     Retired,
     Unsigned,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Transfer {
     pub age: u32,
     pub from: CollegeLevel,
@@ -251,7 +251,7 @@ pub struct Transfer {
     pub reason: TransferReason,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PortalEntry {
     pub age: u32,
     pub from: CollegeLevel,
@@ -259,7 +259,7 @@ pub struct PortalEntry {
     pub outcome: PortalOutcome,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CareerRecord {
     pub player: Player,
     pub initial_overall: f64,
@@ -345,7 +345,7 @@ pub struct CohortResult {
     pub teams: Vec<Team>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct CohortOptions {
     pub size: usize,
     pub seed: Seed,
@@ -980,7 +980,7 @@ fn percentile(sorted: &[f64], q: f64) -> f64 {
 
 // --- First-year adjustment ---------------------------------------------------
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Step {
     HsToFbs,
     HsToFcs,
@@ -1053,7 +1053,7 @@ fn readiness(p: &Player, group: AttributeGroup) -> f64 {
     if w > 0.0 { sum / w } else { 0.8 }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Adjustment {
     pub dip: f64,
     pub step: Step,
@@ -2207,7 +2207,7 @@ fn trouble_chance(p: &Player) -> f64 {
         * clamp(1.0 + (10.0 - pers.work_ethic) * 0.12 + (10.0 - pers.coachability) * 0.06, 0.25, 3.0)
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 struct DraftScore {
     score: f64,
     overall_seen: f64,

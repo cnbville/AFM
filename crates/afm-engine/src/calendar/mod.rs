@@ -21,7 +21,7 @@ pub use rules::{Change, ChangeState, RuleBook};
 
 /// The NCAA's FBS recruiting periods (topic 5): what college coaches may do
 /// with a recruit on a given day.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Period {
     /// In-person contact allowed, on and off campus.
     Contact,

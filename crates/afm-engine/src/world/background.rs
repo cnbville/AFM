@@ -8,7 +8,7 @@ use crate::player::Player;
 use crate::rng::{Rng, clamp};
 
 /// Who raised him (1.3).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum FamilyStructure {
     TwoParents,
     SingleParent,
@@ -28,7 +28,7 @@ impl FamilyStructure {
 }
 
 /// Who makes his big football decisions (topic 5).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Decider {
     Himself,
     Parent,
@@ -38,7 +38,7 @@ pub enum Decider {
 }
 
 /// How a parent shows up around his football (topic 5). Scouts pick this up.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ParentStyle {
     CalmPrivate,
     LoudAtGames,
@@ -47,7 +47,7 @@ pub enum ParentStyle {
 }
 
 /// Football bloodline (topic 5): noteworthy, never a driver.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Bloodline {
     None,
     CollegePlayer,
@@ -55,7 +55,7 @@ pub enum Bloodline {
 }
 
 /// What the decider wants from a school. Weights sum to 1.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Wants {
     pub money: f64,
     pub close_to_home: f64,
@@ -81,7 +81,7 @@ impl Wants {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Family {
     pub structure: FamilyStructure,
     pub decider: Decider,
@@ -101,7 +101,7 @@ pub struct Family {
 }
 
 /// The six parts of a hidden background (1.1-1.6), plus mental health.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Background {
     /// Household money, 0 (poverty) to 1 (wealthy). Decides trainers, camps, travel ball.
     pub money: f64,
@@ -138,7 +138,7 @@ pub fn drive(p: &Player) -> f64 {
 }
 
 /// Inputs from the world that shape a new background.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct BackgroundSeed {
     /// The area's typical household money, 0-1.
     pub area_money: f64,
@@ -311,7 +311,7 @@ pub fn apply_background(p: &mut Player, bg: &mut Background, family: &Family, rn
 }
 
 /// The two risk recipes from 1.2, each 0-1. Worth noticing, never decisive.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Risk {
     /// High potential + bad surroundings + a bad family structure.
     pub disaster: f64,
@@ -350,7 +350,7 @@ pub fn quit_chance(p: &Player, bg: &Background) -> f64 {
 }
 
 /// A yearly family or life event, "a bit more than rarely" (1.7, topic 5).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum LifeEvent {
     FamilyMove,
     JobLoss,

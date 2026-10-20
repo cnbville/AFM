@@ -22,7 +22,7 @@ use crate::rng::{Rng, clamp};
 use crate::tendencies::Tend;
 
 /// Defensive spots. "L" is the offense's left (higher y).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum DSlot {
     LE,
     RE,
@@ -115,7 +115,7 @@ pub struct Snap<'a> {
 
 /// What the plan and the game so far bring to one snap (plays and tactics
 /// topics 2-7).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Tactics {
     /// What the defense believes this look means (topic 7.2): how much more
     /// often the offense runs from it than overall, and how sure it is (0-1).
@@ -168,7 +168,7 @@ impl Default for Tactics {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Result {
     Run,
     Complete,
@@ -181,7 +181,7 @@ pub enum Result {
 }
 
 /// What happened on the snap.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SnapResult {
     pub result: Result,
     /// Where the ball ended, x in the offense's frame.
@@ -204,7 +204,8 @@ pub struct SnapResult {
     pub pbu: Option<u32>,
     pub air_yards: f64,
     /// The route the target ran (empty when nobody was targeted).
-    pub route: &'static str,
+    #[serde(deserialize_with = "crate::save::leaked")]
+    pub route: crate::save::Text,
     pub yac: f64,
     pub before_contact: f64,
     pub time_to_throw: f64,

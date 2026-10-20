@@ -52,7 +52,7 @@ pub(crate) fn advance_year(w: &mut World) {
 }
 
 /// Which day of a portal window it is: the windows by era (T3, T11).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) enum PortalWindow {
     Winter,
     Spring,

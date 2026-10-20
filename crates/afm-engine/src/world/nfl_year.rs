@@ -28,7 +28,7 @@ const HOME: f64 = 0.2;
 /// About one game in 300 ends tied.
 const TIE: f64 = 0.003;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub(crate) struct NflSeason {
     pub year: i32,
     /// Conference (0 AFC, 1 NFC) and division (0-7, AFC East first) per team.
@@ -81,7 +81,7 @@ pub(crate) struct NflSeason {
 
 /// A game's place on the calendar (T1.2, T2): the kickoff in Eastern time,
 /// its TV window, and a neutral site abroad.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Slot {
     pub at: Moment,
     pub window: Window,
@@ -89,7 +89,7 @@ pub(crate) struct Slot {
     pub played: bool,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) enum Window {
     /// Sunday at 1pm or in the late afternoon.
     Sunday,

@@ -17,7 +17,7 @@ const TALENT_CSV: &str = include_str!("../../../../data/real-world/talent_by_sta
 const NFL_TEAMS_CSV: &str = include_str!("../../../../data/real-world/nfl_teams.csv");
 
 /// A college's division in the data.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub enum Division {
     FBS,
     FCS,
@@ -62,7 +62,7 @@ impl Division {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum AcademicTier {
     Aau,
     R1,
@@ -70,7 +70,7 @@ pub enum AcademicTier {
     Other,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct CollegeRow {
     pub name: String,
     pub division: Division,
@@ -84,7 +84,7 @@ pub struct CollegeRow {
     pub academic_tier: AcademicTier,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct StateRow {
     pub code: String,
     pub governing_body: String,
@@ -98,7 +98,7 @@ pub struct StateRow {
     pub top_hometowns: Vec<String>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct NflTeamRow {
     pub name: String,
     pub city: String,
@@ -167,7 +167,7 @@ pub const HISTORY_LAST: i32 = 2025;
 
 /// One span of a program's past (1984-2025) that differs from its 2026 row:
 /// its division and conference in those seasons, or no team at all.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct HistoryRow {
     pub name: String,
     pub first: i32,
@@ -201,7 +201,7 @@ pub static COLLEGE_HISTORY: LazyLock<Vec<HistoryRow>> = LazyLock::new(|| {
 /// A listed rivalry's real past (`rivalries.csv`, part B 28-30): the
 /// seasons it was played and its all-time record and trophy holder after
 /// 1983 and after 1995. Wins are [first listed, second listed].
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct RivalryPast {
     pub first: i32,
     /// The last season played, when the series has ended for now.

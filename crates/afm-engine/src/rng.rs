@@ -6,7 +6,7 @@
 
 use std::f64::consts::PI;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Rng {
     a: u32,
     b: u32,
@@ -16,7 +16,7 @@ pub struct Rng {
 }
 
 /// A seed: a number or a label (hashed).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum Seed {
     Number(u32),
     Label(String),

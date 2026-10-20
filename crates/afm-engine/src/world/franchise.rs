@@ -18,7 +18,7 @@ pub const NFC_CENTRAL: u8 = 5;
 pub const NFC_SOUTH: u8 = 6;
 pub const NFC_WEST: u8 = 7;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Roof {
     Open,
     Dome,
@@ -27,13 +27,16 @@ pub enum Roof {
 
 /// One stretch of a franchise's life with the same name, home, division
 /// and stadium roof.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Era {
     pub from: i32,
     pub to: i32,
-    pub name: &'static str,
-    pub city: &'static str,
-    pub state: &'static str,
+    #[serde(deserialize_with = "crate::save::leaked")]
+    pub name: crate::save::Text,
+    #[serde(deserialize_with = "crate::save::leaked")]
+    pub city: crate::save::Text,
+    #[serde(deserialize_with = "crate::save::leaked")]
+    pub state: crate::save::Text,
     pub div: u8,
     pub roof: Roof,
 }

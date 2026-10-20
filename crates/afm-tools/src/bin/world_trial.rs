@@ -217,6 +217,26 @@ fn main() {
         );
     });
     let future: u32 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(0);
+    // AFM_WORLD=path: the world at the save's start, as a file the game
+    // imports (`afm_engine::save`), written before any future season.
+    if let Ok(path) = std::env::var("AFM_WORLD") {
+        let s = Instant::now();
+        let commit = std::process::Command::new("git")
+            .args(["rev-parse", "HEAD"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map_or_else(|| "unknown".to_string(), |c| c.trim().to_string());
+        let written = std::env::var("AFM_WRITTEN").unwrap_or_default();
+        afm_engine::save::write_world(&w, std::path::Path::new(&path), &commit, &written)
+            .expect("write the world file");
+        let mb = std::fs::metadata(&path).map_or(0.0, |m| m.len() as f64 / 1e6);
+        eprintln!(
+            "world file {path}: {mb:.0} MB in {:.0}s, memory {}",
+            s.elapsed().as_secs_f64(),
+            afm_tools::memory_text()
+        );
+    }
     let built = t.elapsed().as_secs_f64();
     // Memory (trial 8 finding 11), with the game log on or off: the log is
     // trial tooling only, so the world's own budget is read without it.

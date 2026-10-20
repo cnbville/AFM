@@ -81,7 +81,7 @@ impl<'a> GameSetup<'a> {
 
 /// A finished game: the stats database for it, the injuries, how each
 /// freelancer's trust moved, and tracking for recorded plays.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct GameResult {
     pub stats: GameStats,
     pub injuries: Vec<(usize, Injury)>,
@@ -395,7 +395,7 @@ impl<'a> Side<'a> {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 enum Next {
     Kickoff { team: usize, from: f64, onside: bool },
     Pat(usize),
@@ -2726,7 +2726,7 @@ pub fn quick_game_with(
 /// Where a game is played and what it asks of each team (section 4 and
 /// trial 4 topic 3): the weather, the crowd and altitude in `cond`, a
 /// neutral site, each team's road wear and how unused it is to the cold.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Venue {
     pub cond: Conditions,
     /// No home crowd.

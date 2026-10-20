@@ -12,7 +12,7 @@ use std::ops::{Index, IndexMut};
 pub const MIN_RATING: f64 = 1.0;
 pub const MAX_RATING: f64 = 99.0;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 #[repr(u8)]
 pub enum Attr {
     // physical
@@ -144,7 +144,7 @@ pub enum Attr {
 pub const ATTRIBUTE_COUNT: usize = 67;
 
 /// The groups a player's page shows (the proposal's nine, hidden aside).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Category {
     Physical,
     Passing,
@@ -409,14 +409,14 @@ pub const ATTRIBUTE_LABELS: [&str; ATTRIBUTE_COUNT] = [
 
 /// How an attribute develops: physical ones grow with the body, technical
 /// ones with coaching and reps, mental ones with games.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum AttributeGroup {
     Physical,
     Technical,
     Mental,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct AttributeProfile {
     pub group: AttributeGroup,
     /// Share of the eventual ceiling a typical 14-year-old already has.
@@ -567,8 +567,8 @@ pub const ATTRIBUTE_PROFILES: [AttributeProfile; ATTRIBUTE_COUNT] = [
 ];
 
 /// One value per attribute.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Attributes(pub [f64; ATTRIBUTE_COUNT]);
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Attributes(#[serde(with = "serde_big_array::BigArray")] pub [f64; ATTRIBUTE_COUNT]);
 
 impl Attributes {
     pub const fn filled(value: f64) -> Self {

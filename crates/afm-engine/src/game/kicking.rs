@@ -31,7 +31,7 @@ pub struct KickTeams<'a> {
     pub kick_deep: f64,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct KickResult {
     /// Where the receiving team takes over, yards from its own goal line.
     pub spot: f64,
@@ -85,7 +85,7 @@ fn pressure_factor(kicker: &GamePlayer, pressure: f64, level: Level) -> f64 {
     1.0 + pressure * clamp(1.15 - c / 15.0, 0.0, 1.0) * 0.9
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct FieldGoal {
     pub made: bool,
     pub blocked: bool,

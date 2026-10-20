@@ -571,3 +571,52 @@ fn high_school_games_run_on_the_engine() {
     let earlier = w.log_history.iter().filter(|l| l.year < 2025).map(|l| l.hs_engine_games).sum::<u32>();
     assert_eq!(earlier, 0, "seasons before engine_from stay on the stand-in");
 }
+
+/// Save and load (section 8): a world written to a file and read back plays
+/// its next season exactly as the original does, so nothing that drives
+/// results is left out of the file.
+#[test]
+fn a_saved_world_plays_on_identically() {
+    use afm_engine::save::{read_meta, read_world, write_world};
+    let opts = WorldOptions { seed: 13, scale: 0.05, history_years: 1, engine_from: Some(2026), ..Default::default() };
+    let mut a = World::new(opts);
+    let path = std::env::temp_dir().join(format!("afm-save-test-{}.afmworld", std::process::id()));
+    write_world(&a, &path, "test", "test").expect("write the world");
+    let meta = read_meta(&path).expect("read the header");
+    assert_eq!((meta.seed, meta.history_years, meta.start_year), (13, 1, 2026));
+    let mut b = read_world(&path).expect("read the world");
+    let _ = std::fs::remove_file(&path);
+    a.advance_year();
+    b.advance_year();
+    let print = |w: &World| {
+        let people: Vec<String> = w
+            .people
+            .iter()
+            .map(|p| {
+                format!(
+                    "{} {} {:?} {:.6} {} {:?}",
+                    p.player.id,
+                    p.name,
+                    p.stage,
+                    p.player.overall(),
+                    p.player.age,
+                    p.college
+                )
+            })
+            .collect();
+        let programs: Vec<String> =
+            w.programs.iter().map(|p| format!("{} {:?} {:.6}", p.real_name, p.head_coach, p.prestige)).collect();
+        let coaches: Vec<String> = w.coaches.iter().map(|c| format!("{} {} {}", c.name, c.wins, c.losses)).collect();
+        format!(
+            "{:?}\n{}\n{}\n{}\n{:?}\n{}",
+            w.today,
+            people.join("\n"),
+            programs.join("\n"),
+            coaches.join("\n"),
+            w.log_history.last(),
+            w.alumni.len()
+        )
+    };
+    let (pa, pb) = (print(&a), print(&b));
+    assert!(pa == pb, "the loaded world played its next season differently");
+}

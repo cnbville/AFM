@@ -307,7 +307,7 @@ pub(crate) fn set_nfl_coaching(w: &mut World) {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Opening {
     employer: Employer,
     role: Role,
@@ -923,7 +923,7 @@ fn hire_all(w: &mut World, mut queue: Vec<Opening>, moved: &mut HashSet<usize>, 
 }
 
 /// A college coaching search under way (part D 18): it decides on its own day.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Search {
     opening: Opening,
     decide_on: crate::calendar::Date,
@@ -1715,7 +1715,7 @@ fn ad_turnover(w: &mut World) {
 /// Which carousel runs: college jobs the Sunday after rivalry week, NFL jobs
 /// on Black Monday, high school jobs in late January. A move can open a job
 /// at any level, and that job is filled the same day.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) enum Scope {
     College,
     /// Black Monday: NFL firings and retirements; the seats stay open.

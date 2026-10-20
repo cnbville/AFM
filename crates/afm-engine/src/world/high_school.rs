@@ -16,7 +16,7 @@ pub const NATIONAL_POWERHOUSES: [&str; 8] = [
     "St. Thomas Aquinas",
 ];
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct HsSeason {
     pub year: i32,
     pub wins: u32,
@@ -28,7 +28,7 @@ pub struct HsSeason {
     pub points: [u32; 2],
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct HighSchool {
     pub id: usize,
     pub state: usize,
@@ -66,7 +66,7 @@ impl HighSchool {
 
 /// How a state's transfer rule treats a transfer without a family move: the
 /// share of a varsity season he sits. Read from the rule's summary in the data.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TransferRule {
     pub sit_out: f64,
     /// A one-time free transfer exists.
@@ -93,7 +93,7 @@ pub fn transfer_rule(summary: &str) -> TransferRule {
     TransferRule { sit_out, free_once }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
 enum Area {
     UrbanCore,
     Suburb,

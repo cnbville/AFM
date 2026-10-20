@@ -4,7 +4,7 @@
 use crate::attributes::Attr;
 use crate::player::Level;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Overtime {
     /// NFL regular season: one 10-minute period, both teams get the ball
     /// (2025 rule), ties allowed.
@@ -17,7 +17,7 @@ pub enum Overtime {
     HighSchool,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Rules {
     pub level: Level,
     /// Seconds per quarter.
@@ -52,7 +52,7 @@ pub struct Rules {
     pub down_on_fall: bool,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum FirstDownStop {
     Never,
     LastTwoMinutes,

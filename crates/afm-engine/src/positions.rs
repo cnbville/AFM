@@ -4,7 +4,7 @@ use std::sync::LazyLock;
 
 use crate::attributes::{ATTRIBUTE_COUNT, Attr, Attributes};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 #[repr(u8)]
 pub enum Position {
     QB,

@@ -37,7 +37,7 @@ use crate::rng::clamp;
 const HS_SPREAD: f64 = 3.5;
 
 /// One state's season dates for a year.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) struct StateSeason {
     pub start: Date,
     pub finals: Date,
@@ -51,7 +51,7 @@ pub(crate) struct StateSeason {
 }
 
 /// A classification inside a state: its schools play each other.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 struct Group {
     state: usize,
     class: u32,
@@ -63,7 +63,7 @@ struct Group {
 }
 
 /// A high school player's counting stats, in the order `HsLine::s` keeps them.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum HsStat {
     SnapsOff,
     SnapsDef,
@@ -113,7 +113,7 @@ const HS_BOOKS: [(HsStat, usize); 12] = [
 /// One high school season on his record (section 8, choice 2): what a
 /// player page, a state record book and college scouting read. Compact,
 /// since nearly every player in the world has some.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct HsLine {
     pub year: i16,
     pub school: u32,
@@ -130,7 +130,7 @@ impl HsLine {
 }
 
 /// A season's line while it is played.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 struct HsAcc {
     school: u32,
     pos: Position,
@@ -173,7 +173,7 @@ struct HsPlayed {
     lines: [Vec<(usize, [i32; HS_STAT_COUNT], bool)>; 2],
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) struct HsSeasonState {
     pub states: Vec<StateSeason>,
     pub results: Vec<TeamResult>,

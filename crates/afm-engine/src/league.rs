@@ -48,7 +48,7 @@ pub const NFL_TEAM_NAMES: [&str; 32] = [
 /// players who rotate in on most snaps (third receiver, nickel corner, a
 /// rotational pass rusher), and the total kept on the roster. One kicker,
 /// one punter and one long snapper (fix list 1.11).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct DepthSlots {
     pub starters: usize,
     pub rotation: usize,
@@ -77,7 +77,7 @@ pub fn depth_slots(pos: Position) -> DepthSlots {
 pub const PRACTICE_SQUAD: usize = 16;
 
 /// A player on a depth chart: a background veteran, or one of the class (with its record index).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Member {
     pub rating: f64,
     pub age: u32,
@@ -98,10 +98,11 @@ impl Member {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Team {
     pub id: usize,
-    pub name: &'static str,
+    #[serde(deserialize_with = "crate::save::leaked")]
+    pub name: crate::save::Text,
     /// Front office judgment (the GM), 1-20: how clearly the team sees players.
     pub draft_skill: f64,
     /// Owner, 1-20: patience, spending and stability.

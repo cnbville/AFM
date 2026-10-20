@@ -34,7 +34,7 @@ static SIZES: LazyLock<[(f64, f64, f64, f64); POSITION_COUNT]> = LazyLock::new(|
     out
 });
 
-#[derive(Clone, Copy, Debug, PartialEq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Default, serde::Serialize, serde::Deserialize)]
 pub struct Body {
     /// Inches.
     pub height: f64,
@@ -141,7 +141,7 @@ pub fn body_now(p: &Player) -> Body {
 
 /// One day of testing. None for a drill the position doesn't run
 /// (kickers skip the agility drills).
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Combine {
     /// 40-yard dash, seconds.
     pub forty: f64,
