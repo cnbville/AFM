@@ -22,7 +22,7 @@ Topic order: 1 the window, 2 the look (Showtime), 3 tables, 4 showing what your 
 ### The design
 - **The frame, on the pick (choice 1):** a left sidebar in Showtime's frosted `chrome` with your team's mark on top and every area of your job, one click each; Showtime's blurred top bar with back and forward, the screen's breadcrumb, a search box, the date and the Continue button at the top right; the screen itself fills the rest. The sidebar shows only what your seat has: the NFL seat shows Cap and Trades, the college seat Recruiting and NIL, the high school seat Your school and Feeder area.
 - **Back and forward behave like a browser,** with the Mac trackpad swipe and the mouse's back button. Every screen keeps its sort, filters, tab and scroll when you come back to it. (FM26's reset selections were one of its main complaints.)
-- **Search everything** (⌘K): any player, coach, team, school, town, game, record or screen by name, with level and position shown so the 40 people named Jalen Williams can be told apart.
+- **Search everything** (⌘K): any player, coach, team, school, town, game, record or screen by name, with level and position shown so the 40 people named Jalen Williams can be told apart. It also searches the text of your own notes (topic 5).
 - **Right-click on any name** gives the actions that fit: open, add to "my players", compare, scout, offer, talk, trade for, make an offer, add to the shortlist.
 - **Pinned items** sit under Continue: things that must be answered (section 8 topic 4) with their deadlines.
 - **Size.** Laid out for Cain's 13-inch MacBook (1440 by 900 points, the M1 Air's default), working down to 1280 by 800 and up to a full external screen. Any page can open in its own window (⌘-click), so a player page can sit beside the depth chart on a second screen.
@@ -75,7 +75,7 @@ How the pieces map:
 Every list in the game is one table component, so it works the same everywhere:
 - **Sort** by any column (click; shift-click for a second sort).
 - **Columns:** pick any column from a grouped list (bio, body, attributes, stats by season or career, contract, scouting, recruiting). Save the set as a named **view** ("Pass rushers", "Cap sheet"), like FM's custom views; each table remembers its last view.
-- **Filters:** quick chips at the top (position, level, class, injured, on my list) and a filter builder for anything else, with AND and OR, that also builds the custom searches. A search can be saved and turned into a watch: the inbox tells you when a new player matches.
+- **Filters:** quick chips at the top (position, level, class, injured, on my list, has my note) and a filter builder for anything else, with AND and OR, that also builds the custom searches. A search can be saved and turned into a watch: the inbox tells you when a new player matches.
 - **Select rows** to compare (up to five side by side), add to a list, or act on them.
 - **Stat columns** show per game, per snap, totals or ranks; any stat cell opens its leaderboard.
 - **Big tables only draw the rows on screen** (topic 14), so a leaderboard of every high school back in the country scrolls as fast as a roster.
@@ -109,7 +109,7 @@ Every list in the game is one table component, so it works the same everywhere:
 - **New:** the layout.
 
 ### The design
-**The hero** opens his page, lit by his team's colours (a recruit's by his high school's), with his jersey number as the giant outlined numeral behind his name. A smaller version of it stays on every tab: the face (or your photo, on a portrait card in the hero), name, position (with his position history on hover), number, team, class or years in the league, age, hometown, height and weight, the level rating, your staff's role tier and potential words, his status (injured, suspended, on the portal, a free agent), and the actions (talk, scout, offer, add to my players, compare). Under the face: "Change photo", "Copy AI prompt", and "New team photo" when media day shot one.
+**The hero** opens his page, lit by his team's colours (a recruit's by his high school's), with his jersey number as the giant outlined numeral behind his name. A smaller version of it stays on every tab: the face (or your photo, on a portrait card in the hero), name, position (with his position history on hover), number, team, class or years in the league, age, hometown, height and weight, the level rating, your staff's role tier and potential words, his status (injured, suspended, on the portal, a free agent), and the actions (talk, scout, offer, add to my players, notes, compare). Under the face: "Change photo", "Copy AI prompt", and "New team photo" when media day shot one.
 
 **Tabs:**
 1. **Overview:** your staff's summary in words, the attribute groups at a glance, this season's stats, recent form, his mood in your staff's words with its top reason, the latest news about him.
@@ -120,6 +120,8 @@ Every list in the game is one table component, so it works the same everywhere:
 6. **Tendencies:** the 15 tendencies as ranges with their words, and your instructions to him.
 7. **Contract** (pros) or **Recruiting** (recruits) or **School** (high school): what applies to his level.
 8. **History with you** (when he's on "my players"): when you first saw him, your grades then, what the public said, every talk.
+
+**Your own notes** (Cain, 2026-10-20, on the mock: "Need a notes button so i can manually write notes"). A Notes button sits in the hero's actions on every player's page, with the number of notes you have on him. It opens a panel at the side, so his attributes stay readable while you write. You type plain text and save it; the note takes the game's date and week, and the list runs newest first. You can edit or delete any note. Notes are private and only for you: your staff and the AI never read them, and they change nothing in the world. They belong to your save and follow the person, so a note on a high school junior is still on his page when he is an NFL veteran or a coach. Also proposed, not confirmed: the same Notes button on coaches, staff, teams, schools and games; a small note mark by his name in every table, on boards and on the depth chart; the "has my note" filter chip (topic 3) and the search through notes (topic 1); and his notes shown on the "History with you" timeline.
 
 Where the game view's waiting items would sit (not asked here, still with Cain in the Bird's-eye game view thread): an earned nickname in the header under his name and in the news and play-by-play (brainstorm items 4-20).
 
