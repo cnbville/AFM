@@ -36,8 +36,19 @@ pub fn read_meta(path: &Path) -> Result<Value, String> {
 
 /// Copies a world file into the library folder and checks it opens. A world
 /// split into parts (`name.afmworld.001`, `.002`, ...) is joined back into
-/// `name.afmworld` when the first part is given.
+/// `name.afmworld` when the first part, or the folder holding them, is given.
 pub fn import_world(path: &Path, worlds: &Path) -> Result<PathBuf, String> {
+    // A folder holding the world (whole or in parts) imports as its world file.
+    if path.is_dir() {
+        let mut found: Vec<PathBuf> = std::fs::read_dir(path)
+            .map_err(|e| format!("Could not read the folder: {e}"))?
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.to_str().is_some_and(|s| s.ends_with(".afmworld") || s.ends_with(".afmworld.001")))
+            .collect();
+        found.sort();
+        let file = found.into_iter().next().ok_or("No world file in that folder.")?;
+        return import_world(&file, worlds);
+    }
     let name = path.file_name().and_then(|n| n.to_str()).ok_or("Not a file.")?;
     let to = match name.strip_suffix(".001") {
         Some(whole) => {

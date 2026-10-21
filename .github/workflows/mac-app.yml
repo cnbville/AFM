@@ -7,6 +7,8 @@ on:
   pull_request:
     paths: ["app/**", "crates/afm-engine/**", "crates/afm-game/**", ".github/workflows/mac-app.yml"]
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   mac:
     runs-on: macos-14
@@ -43,3 +45,15 @@ jobs:
           name: AFM-mac
           path: app/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
           if-no-files-found: error
+      # On main, the dmg is also put on a release, so the newest app always has
+      # one plain download link: github.com/cnbville/AFM/releases/latest.
+      - name: Publish the release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="app-${{ github.run_number }}"
+          gh release create "$tag" app/src-tauri/target/universal-apple-darwin/release/bundle/dmg/AFM_universal.dmg \
+            --repo "${{ github.repository }}" --target "${{ github.sha }}" --latest \
+            --title "AFM for Mac (build ${{ github.run_number }})" \
+            --notes "The game for macOS, one app for Apple silicon and Intel. Unsigned: the first time, right-click AFM and choose Open."
