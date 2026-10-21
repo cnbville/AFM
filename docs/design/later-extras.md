@@ -88,7 +88,7 @@ No open questions in this topic.
 - **Runs well on both Macs:** three.js inside the Tauri window (Safari's WebGL 2 on the Mac). One shared low-polygon body, scaled per player, with a high and a low detail version; the crowd drawn as cheap cards; shadows only from the main light. A quality setting (Auto, Low, Medium, High) where Auto picks Low on Intel graphics. Proposed, not confirmed: 60 frames a second on the M1 at High, 30 or more on an Intel Mac at Low, and under 300 MB extra memory while watching. The 3D view loads only when you open it and frees its memory when you leave, so it doesn't add to the season's memory (the 5.1 GB against the 4 GB budget is already on the final build list).
 - **Before it ships**, the build posts one short clip and a still of the same play in 3D for Cain's ok, the way the faces are checked (final build list F14).
 
-- **Film-room tools** (real ones every staff's video software has; added 2026-10-21 after Cain asked how B could be better, proposed, not confirmed until he has seen them):
+- **Film-room tools** (real ones every staff's video software has; added 2026-10-21 after Cain asked how B could be better; Cain 21:31: "agreed on all"):
   1. Draw on the film: circles, arrows and lines on a paused frame, saved with the clip.
   2. Cut-ups: every snap that matches a filter (down and distance, field zone, formation, personnel, play, one player) played back to back, built from your staff's tags (section 9, topic 1).
   3. Isolate one player: the camera locks on him for the whole snap, like watching only your left tackle.
@@ -172,7 +172,7 @@ No open questions in this topic.
 
 ## Choices for Cain
 
-1. **Which view a watched game opens in.** **Answered:** the coaches' 3D (the mock-up's B) and the 2D dots (D), with one switch between them, a button or the V key, even mid-play (Cain, 2026-10-21 21:29: "Ooooh i love B & D, i'd love to be able to switch between them"). Reading of his answer, proposed, not confirmed: the view opens in whichever you used last; the broadcast camera (A) stays one of the 3D cameras.
+1. **Which view a watched game opens in.** **Answered:** the coaches' 3D (the mock-up's B) and the 2D dots (D), with one switch between them, a button or the V key, even mid-play (Cain, 2026-10-21 21:29: "Ooooh i love B & D, i'd love to be able to switch between them"). It opens in whichever you used last, and the broadcast camera (A) stays one of the 3D cameras (agreed, Cain 21:31: "agreed on all").
 2. **What the 2D view shows by default: figures or dots.** **Answered:** dots (D, same message). Figures (C) stay a setting.
 3. **Whether the import also offers a NewGAN-style pool.** You drop a folder of unnamed photos sorted into heritage subfolders, and the game gives a fitting one to each player who has no photo of yours, for life, as NewGAN does. **Answered: no, not for now** (Cain, 2026-10-21 21:08: "No not for now").
 
