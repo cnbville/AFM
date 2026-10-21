@@ -9,6 +9,7 @@
 
 pub mod colors;
 pub mod files;
+pub mod jobs;
 pub mod reads;
 pub mod setup;
 pub mod views;
@@ -25,6 +26,8 @@ pub struct Game {
     pub home: PathBuf,
     /// The save file this career was last saved to or loaded from.
     pub save_path: Option<PathBuf>,
+    /// A world being built or downloaded beside the game.
+    pub job: jobs::Shared,
 }
 
 pub type Reply = Result<Value, String>;
@@ -34,7 +37,7 @@ impl Game {
         for d in ["worlds", "saves", "bugs"] {
             let _ = std::fs::create_dir_all(home.join(d));
         }
-        Game { world: None, home, save_path: None }
+        Game { world: None, home, save_path: None, job: Default::default() }
     }
 
     fn w(&self) -> Result<&World, String> {
@@ -70,6 +73,20 @@ impl Game {
                 self.save_path = None;
                 Ok(json!({ "built": true }))
             }
+            // A full world built on this machine, into the library (hours).
+            "build_world_file" => {
+                let seed = num("seed").unwrap_or(2026) as u32;
+                let years = num("history_years").unwrap_or(30).clamp(1, 60) as u32;
+                let scale = args.get("scale").and_then(Value::as_f64).unwrap_or(1.0);
+                Ok(json!({ "name": jobs::build(&self.job, &self.home.join("worlds"), seed, years, scale)? }))
+            }
+            "online_worlds" => jobs::online(&self.home.join("worlds")),
+            "download_world" => {
+                let tag = args.get("tag").and_then(Value::as_str).ok_or("Missing tag.")?;
+                jobs::download(&self.job, &self.home.join("worlds"), tag)?;
+                Ok(json!({ "started": true }))
+            }
+            "job" => Ok(jobs::status(&self.job)),
             "import_world" => {
                 // Copies a world file into the library, where it stays for every new career.
                 let path = PathBuf::from(args.get("path").and_then(Value::as_str).ok_or("Missing path.")?);

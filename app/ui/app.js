@@ -220,8 +220,37 @@ function table(key, cols, rows, opts = {}) {
 // ---------- screens ----------
 const screens = {};
 
+// The worlds page and a world being built or downloaded, on the start screen.
+let jobPoll = null;
+function jobPanel(j) {
+  if (!j) return "";
+  const pct = Math.round((j.done || 0) * 100);
+  const min = Math.round((j.seconds || 0) / 60);
+  const what = j.kind === "build" ? "Building" : "Downloading";
+  const line = j.error ? `<span style="color:var(--accent)">${esc(j.error)}</span>` : esc(j.text);
+  return `<div class="st-glass st-panel" id="jobpanel"><h2>${j.finished ? (j.error ? "Stopped" : "Ready") : what} · ${esc(j.name)} <small>${pct}% · ${min} min</small></h2>
+    <div class="st-bar" style="width:100%"><i style="width:${pct}%"></i></div><p class="sub" style="margin-top:8px">${line}</p></div>`;
+}
+function watchJob() {
+  clearInterval(jobPoll);
+  jobPoll = setInterval(async () => {
+    if (!S.route || S.route.screen !== "start") return clearInterval(jobPoll);
+    let j = null;
+    try { j = await api("job"); } catch (e) { return; }
+    const el = $("#jobpanel");
+    if (el && j) el.outerHTML = jobPanel(j);
+    if (!j || j.finished) { clearInterval(jobPoll); go("start"); }
+  }, 2000);
+}
+
 screens.start = async () => {
   const lib = await api("library");
+  const job = await api("job").catch(() => null);
+  let online = null, offline = "";
+  try { online = await api("online_worlds"); } catch (e) { offline = e.message; }
+  if (job && !job.finished) setTimeout(watchJob, 0);
+  const onlineRows = online ? online.worlds.map((w) => `<div class="libitem"><div><b>${esc(w.title || w.name)}</b><br><small>${esc(w.name)} · ${w.mb} MB · ${esc((w.date || "").slice(0, 10))}</small></div>
+    ${w.have ? '<span class="st-pill">In your library</span>' : `<button class="st-btn small primary" data-act="download" data-tag="${esc(w.tag)}">Download</button>`}</div>`).join("") : "";
   const item = (x, kind) => `<div class="libitem"><div><b>${esc(x.name)}</b><br><small>${x.meta ? esc(`Seed ${x.meta.seed} · ${x.meta.history_years} year${x.meta.history_years === 1 ? "" : "s"} of history · ${x.meta.world_date}`) : ""} · ${x.mb} MB</small></div>
     <button class="st-btn small ${kind === "world" ? "primary" : "glass"}" data-act="${kind === "world" ? "openworld" : "loadsave"}" data-path="${esc(x.path)}">${kind === "world" ? "Start a career here" : "Load"}</button></div>`;
   return `<div class="st-room" style="min-height:100vh"><i></i><i></i><i></i>
@@ -234,12 +263,21 @@ screens.start = async () => {
         <div class="filters"><div class="field" style="flex:1"><label>Import a world file: it is copied into your library and opened</label><input id="wpath" placeholder="/Users/you/Downloads/afm-world-2026.afmworld"></div>
         <button class="st-btn glass" data-act="openpath" style="align-self:end">Open</button>${window.__TAURI__ && window.__TAURI__.dialog ? '<button class="st-btn glass" data-act="pickfolder" style="align-self:end">Choose a world folder…</button><button class="st-btn primary" data-act="pickworld" style="align-self:end">Choose a file…</button>' : ""}</div>
       </div>
+      ${job ? jobPanel(job) : ""}
+      <div class="st-glass st-panel"><h2>Get a world <small>ready-built worlds; one click downloads one into your library</small></h2>
+        <div class="library">${online ? (onlineRows || '<div class="empty">No worlds on the worlds page yet.</div>') : `<div class="empty">The worlds page can't be reached right now: ${esc(offline)}</div>`}</div>
+      </div>
       <div class="st-glass st-panel"><h2>Your saves <small>${esc(lib.home)}/saves</small></h2>
         <div class="library">${lib.saves.map((w) => item(w, "save")).join("") || '<div class="empty">No saves yet.</div>'}</div>
       </div>
-      <div class="st-glass st-panel"><h2>Build a test world <small>small and quick, for trying the game; a full world takes hours</small></h2>
+      <div class="st-glass st-panel"><h2>Build a world on this Mac <small>a full world with 30 years of history; it takes 2-3 hours and you can keep the game open</small></h2>
+        <div class="filters"><div class="field"><label>Seed</label><input id="fseed" value="${Math.floor(Math.random() * 90000) + 10000}" style="width:110px"></div>
+        <div class="field"><label>Years of history</label><input id="fyears" value="30" style="width:80px"></div>
+        <button class="st-btn glass" data-act="buildfull" style="align-self:end">Build</button></div>
+      </div>
+      <div class="st-glass st-panel"><h2>Build a test world <small>small and quick, for trying the game; it isn't kept in the library</small></h2>
         <div class="filters"><div class="field"><label>Seed</label><input id="tseed" value="2026" style="width:110px"></div>
-        <div class="field"><label>Size</label><select id="tscale"><option value="0.03">3% (about 2 minutes)</option><option value="0.1">10%</option><option value="1">Full (hours)</option></select></div>
+        <div class="field"><label>Size</label><select id="tscale"><option value="0.03">3% (about 2 minutes)</option><option value="0.1">10%</option></select></div>
         <button class="st-btn glass" data-act="buildtest" style="align-self:end">Build</button></div>
       </div>
     </div></div>`;
@@ -709,6 +747,14 @@ document.addEventListener("click", async (ev) => {
       } catch (e) { hideBusy(); toast(e.message); }
       break;
     }
+    case "download": {
+      try { await api("download_world", { tag: d.tag }); go("start"); } catch (e) { toast(e.message); }
+      break;
+    }
+    case "buildfull": {
+      try { await api("build_world_file", { seed: Number($("#fseed").value) || 2026, history_years: Number($("#fyears").value) || 30 }); go("start"); } catch (e) { toast(e.message); }
+      break;
+    }
     case "buildtest": {
       showBusy("Building a test world… a small one takes a couple of minutes.");
       try {
@@ -810,14 +856,28 @@ document.addEventListener("keydown", (ev) => {
 });
 window.addEventListener("mouseup", (ev) => { if (ev.button === 3) goBack(); if (ev.button === 4) goFwd(); });
 
+// One busy box at a time: a second call changes its words. It counts the
+// seconds, and after five minutes says what to do if nothing comes back.
+let busyTimer = null;
 function showBusy(text) {
-  const o = document.createElement("div");
-  o.className = "overlay";
-  o.id = "busy";
-  o.innerHTML = `<div class="box"><b>${esc(text)}</b><div class="st-bar" style="width:100%"><i style="width:30%;animation:st-scan 1.1s ease-in-out infinite alternate"></i></div></div>`;
-  document.body.appendChild(o);
+  let o = $("#busy");
+  if (!o) {
+    o = document.createElement("div");
+    o.className = "overlay";
+    o.id = "busy";
+    document.body.appendChild(o);
+  }
+  const t0 = Date.now();
+  o.innerHTML = `<div class="box"><b>${esc(text)}</b><div class="st-bar" style="width:100%"><i style="width:30%;animation:st-scan 1.1s ease-in-out infinite alternate"></i></div><small class="busy-time"></small></div>`;
+  clearInterval(busyTimer);
+  busyTimer = setInterval(() => {
+    const el = o.querySelector(".busy-time");
+    if (!el || !o.isConnected) return clearInterval(busyTimer);
+    const s = Math.round((Date.now() - t0) / 1000);
+    el.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` + (s > 300 ? " · This is taking much longer than it should. If nothing changes in a few minutes, quit AFM (⌘Q), open it again and report the bug." : "");
+  }, 1000);
 }
-function hideBusy() { const o = $("#busy"); if (o) o.remove(); }
+function hideBusy() { clearInterval(busyTimer); document.querySelectorAll("#busy").forEach((o) => o.remove()); }
 
 // ---------- start ----------
 (async () => {
