@@ -228,7 +228,7 @@ fn main() {
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .map_or_else(|| "unknown".to_string(), |c| c.trim().to_string());
         let written = std::env::var("AFM_WRITTEN").unwrap_or_default();
-        afm_engine::save::write_world(&w, std::path::Path::new(&path), &commit, &written)
+        afm_engine::save::write_world(&w, std::path::Path::new(&path), &commit, &written, None)
             .expect("write the world file");
         let mb = std::fs::metadata(&path).map_or(0.0, |m| m.len() as f64 / 1e6);
         eprintln!(

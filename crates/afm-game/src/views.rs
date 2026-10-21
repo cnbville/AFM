@@ -74,7 +74,7 @@ pub fn team_colors(w: &World, t: TeamRef) -> [String; 2] {
     }
 }
 
-fn team_brief(w: &World, t: TeamRef) -> Value {
+pub(crate) fn team_brief(w: &World, t: TeamRef) -> Value {
     let [c1, c2] = team_colors(w, t);
     json!({ "ref": t.json(), "name": team_name(w, t), "colors": [c1, c2], "mine": is_mine(w, t) })
 }
@@ -82,7 +82,7 @@ fn team_brief(w: &World, t: TeamRef) -> Value {
 /// A team's record and which season it is: this season's once it has
 /// played, before that last season's ("9-8 in 2025"). On the new football
 /// year's first day, before it plays, the season held is still last year's.
-fn season_record(w: &World, t: TeamRef) -> (String, String) {
+pub(crate) fn season_record(w: &World, t: TeamRef) -> (String, String) {
     let now = "this season".to_string();
     match t {
         TeamRef::Nfl(i) => {
@@ -121,6 +121,100 @@ fn season_record(w: &World, t: TeamRef) -> (String, String) {
             },
         },
     }
+}
+
+/// A high school's class in its state's own words: most states number
+/// their classes with A's, the biggest highest (Texas 6A down to 1A); Ohio,
+/// Michigan, Wisconsin and California play in divisions, the biggest first
+/// (proposed, not confirmed).
+pub(crate) fn hs_class(w: &World, s: usize) -> String {
+    let h = &w.high_schools[s];
+    let st = &w.states[h.state];
+    let classes = st.schools.iter().map(|&k| w.high_schools[k].classification).max().unwrap_or(0) + 1;
+    if ["OH", "MI", "WI", "CA"].contains(&st.code.as_str()) {
+        format!("Division {}", h.classification + 1)
+    } else {
+        format!("{}A", classes - h.classification.min(classes - 1))
+    }
+}
+
+/// The NFL division a club plays in.
+pub(crate) fn nfl_division(w: &World, t: usize) -> Option<&'static str> {
+    const NAMES: [&str; 8] =
+        ["AFC East", "AFC North", "AFC South", "AFC West", "NFC East", "NFC North", "NFC South", "NFC West"];
+    let (cf, dv) = w.nfl_alignment()?;
+    let d = if *dv.get(t)? >= 4 { dv[t] } else { cf.get(t)? * 4 + dv[t] };
+    NAMES.get(d).copied()
+}
+
+/// Where a team plays, in a line: "Big 12 · FBS", "NFC North", "Texas 5A".
+pub(crate) fn team_line(w: &World, t: TeamRef) -> String {
+    match t {
+        TeamRef::College(i) => format!("{} · {}", w.programs[i].conference, w.programs[i].division.name()),
+        TeamRef::Nfl(i) => nfl_division(w, i).unwrap_or("NFL").to_string(),
+        TeamRef::HighSchool(i) => {
+            let st = w.high_schools[i].state;
+            format!("{} {}", state_name(&w.states[st].code), hs_class(w, i))
+        }
+    }
+}
+
+/// A state's name from its postal code.
+pub(crate) fn state_name(code: &str) -> &str {
+    const S: [(&str, &str); 51] = [
+        ("AL", "Alabama"),
+        ("AK", "Alaska"),
+        ("AZ", "Arizona"),
+        ("AR", "Arkansas"),
+        ("CA", "California"),
+        ("CO", "Colorado"),
+        ("CT", "Connecticut"),
+        ("DE", "Delaware"),
+        ("DC", "District of Columbia"),
+        ("FL", "Florida"),
+        ("GA", "Georgia"),
+        ("HI", "Hawaii"),
+        ("ID", "Idaho"),
+        ("IL", "Illinois"),
+        ("IN", "Indiana"),
+        ("IA", "Iowa"),
+        ("KS", "Kansas"),
+        ("KY", "Kentucky"),
+        ("LA", "Louisiana"),
+        ("ME", "Maine"),
+        ("MD", "Maryland"),
+        ("MA", "Massachusetts"),
+        ("MI", "Michigan"),
+        ("MN", "Minnesota"),
+        ("MS", "Mississippi"),
+        ("MO", "Missouri"),
+        ("MT", "Montana"),
+        ("NE", "Nebraska"),
+        ("NV", "Nevada"),
+        ("NH", "New Hampshire"),
+        ("NJ", "New Jersey"),
+        ("NM", "New Mexico"),
+        ("NY", "New York"),
+        ("NC", "North Carolina"),
+        ("ND", "North Dakota"),
+        ("OH", "Ohio"),
+        ("OK", "Oklahoma"),
+        ("OR", "Oregon"),
+        ("PA", "Pennsylvania"),
+        ("RI", "Rhode Island"),
+        ("SC", "South Carolina"),
+        ("SD", "South Dakota"),
+        ("TN", "Tennessee"),
+        ("TX", "Texas"),
+        ("UT", "Utah"),
+        ("VT", "Vermont"),
+        ("VA", "Virginia"),
+        ("WA", "Washington"),
+        ("WV", "West Virginia"),
+        ("WI", "Wisconsin"),
+        ("WY", "Wyoming"),
+    ];
+    S.iter().find(|x| x.0 == code).map_or(code, |x| x.1)
 }
 
 fn record_text(w: &World, t: TeamRef) -> String {
@@ -427,7 +521,7 @@ pub fn home(w: &World) -> Value {
             TeamRef::College(i) => format!("{} · {}", w.programs[i].division.name(), w.programs[i].conference),
             TeamRef::HighSchool(i) => {
                 let s = &w.high_schools[i];
-                format!("{} high school · class {}", w.states[s.state].code, s.classification + 1)
+                format!("{} high school · {}", w.states[s.state].code, hs_class(w, s.id))
             }
         });
         v
@@ -768,7 +862,7 @@ fn schedule_rows(w: &World, t: TeamRef) -> Vec<(Date, String)> {
 }
 
 /// How far an NFL season went, by `NflTeamSeason::round`.
-const NFL_ROUNDS: [&str; 6] = [
+pub(crate) const NFL_ROUNDS: [&str; 6] = [
     "",
     "Lost in the wild card round",
     "Lost in the divisional round",
@@ -845,7 +939,7 @@ pub fn team(w: &World, t: TeamRef) -> Value {
         }
         TeamRef::HighSchool(i) => {
             let s = &w.high_schools[i];
-            v["level"] = json!(format!("High school · {} class {}", w.states[s.state].code, s.classification + 1));
+            v["level"] = json!(format!("High school · {} {}", w.states[s.state].code, hs_class(w, i)));
             v["place"] = json!(format!("{}, {}", s.town, w.states[s.state].code));
             v["enrollment"] = json!(s.enrollment);
             v["titles"] = json!(s.state_titles);
@@ -867,7 +961,7 @@ pub fn team(w: &World, t: TeamRef) -> Value {
     v
 }
 
-fn prestige_words(rel: f64) -> &'static str {
+pub(crate) fn prestige_words(rel: f64) -> &'static str {
     match rel {
         r if r > 0.85 => "A blue blood",
         r if r > 0.65 => "A national power",
@@ -1060,7 +1154,7 @@ pub fn standings(w: &World, args: &Value) -> Value {
     })
 }
 
-fn reputation_words(r: f64) -> &'static str {
+pub(crate) fn reputation_words(r: f64) -> &'static str {
     match r {
         x if x >= 16.0 => "One of the best in the game",
         x if x >= 13.0 => "Highly regarded",
@@ -1081,7 +1175,7 @@ fn came_up(w: &World, c: usize) -> String {
 /// A coach's record in the job he holds: a head coach's games there (from
 /// the first season of kept records), none for an assistant, whose job has
 /// no record of its own.
-fn job_record(w: &World, c: usize) -> String {
+pub(crate) fn job_record(w: &World, c: usize) -> String {
     let Some(j) = w.coaches[c].job.filter(|j| j.role == Role::HeadCoach) else { return "-".into() };
     let (wn, l) = w.stint_record(c);
     let kept_from = w.options.start_year - w.options.history_years as i32;
@@ -1751,6 +1845,12 @@ pub fn you(w: &World) -> Value {
         "scheme": ab.scheme, "game_management": ab.game_management, "motivation": ab.motivation,
         "discipline": ab.discipline, "recruiting": ab.recruiting, "network": ab.network,
         "relationships": ab.relationships,
+        "extra": w.your_extra().map(|x| json!({
+            "play_calling": x.play_calling, "adaptation": x.adaptation,
+            "evaluation": x.evaluation, "negotiating": x.negotiating,
+        })),
+        "profile": y.profile,
+        "home_state": w.states.get(y.home_state).map(|s| state_name(&s.code)),
         "style": { "risk": y.style.risk, "freedom": y.style.freedom, "physical": y.style.physical, "ball_hunting": y.style.ball_hunting, "mould": y.style.mould },
         "history": coach(w, c.coach).map(|v| v["history"].clone()).unwrap_or(Value::Null),
     })

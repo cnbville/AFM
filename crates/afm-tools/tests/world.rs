@@ -581,7 +581,7 @@ fn a_saved_world_plays_on_identically() {
     let opts = WorldOptions { seed: 13, scale: 0.05, history_years: 1, engine_from: Some(2026), ..Default::default() };
     let mut a = World::new(opts);
     let path = std::env::temp_dir().join(format!("afm-save-test-{}.afmworld", std::process::id()));
-    write_world(&a, &path, "test", "test").expect("write the world");
+    write_world(&a, &path, "test", "test", None).expect("write the world");
     let meta = read_meta(&path).expect("read the header");
     assert_eq!((meta.seed, meta.history_years, meta.start_year), (13, 1, 2026));
     let mut b = read_world(&path).expect("read the world");

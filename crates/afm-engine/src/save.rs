@@ -43,10 +43,22 @@ pub struct WorldMeta {
     /// world file.
     #[serde(default)]
     pub career: Option<String>,
+    /// What the game's opening and library pages show about the file
+    /// without loading it (the world's story, your team, the headlines),
+    /// written by the game.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub card: Option<serde_json::Value>,
 }
 
-/// Writes the world to `path` (see the module notes for the format).
-pub fn write_world(w: &World, path: &Path, commit: &str, written: &str) -> std::io::Result<()> {
+/// Writes the world to `path` (see the module notes for the format), with
+/// the game's card for it in the header.
+pub fn write_world(
+    w: &World,
+    path: &Path,
+    commit: &str,
+    written: &str,
+    card: Option<serde_json::Value>,
+) -> std::io::Result<()> {
     let meta = WorldMeta {
         seed: w.options.seed,
         history_years: w.options.history_years,
@@ -63,6 +75,7 @@ pub fn write_world(w: &World, path: &Path, commit: &str, written: &str) -> std::
             });
             team.map_or(c.you.name.clone(), |t| format!("{}, {t}", c.you.name))
         }),
+        card,
     };
     let file = std::fs::File::create(path)?;
     let mut out = std::io::BufWriter::new(file);

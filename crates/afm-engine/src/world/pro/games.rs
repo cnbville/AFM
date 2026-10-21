@@ -199,15 +199,17 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
         let id = who.unwrap_or(usize::MAX) as u64;
         let spread = |k: u64, sd: f64| if who.is_some() { sd * key_normal(k, id) } else { 0.0 };
         let fit = 0.7 + 0.3 * know;
-        let reading =
-            a.map_or(10.0, |a| clamp(0.7 * a.scheme + 0.3 * a.game_management + spread(0x5EAD, 2.0), 1.0, 20.0));
-        let situational =
-            a.map_or(10.0, |a| clamp(0.7 * a.game_management + 0.3 * a.scheme + spread(0x517A, 2.0), 1.0, 20.0));
-        let creativity = a.map_or(10.0, |a| clamp(a.scheme + spread(0xC4EA, 3.0), 1.0, 20.0));
+        let base = a.map_or(10.0, |a| 0.6 * a.scheme + 0.4 * a.game_management);
+        let (shift, adaptation) = crate::world::season::your_calls(w, who, base, a.map_or(10.0, |a| a.game_management));
+        let reading = a
+            .map_or(10.0, |a| clamp(0.7 * a.scheme + 0.3 * a.game_management + spread(0x5EAD, 2.0) + shift, 1.0, 20.0));
+        let situational = a
+            .map_or(10.0, |a| clamp(0.7 * a.game_management + 0.3 * a.scheme + spread(0x517A, 2.0) + shift, 1.0, 20.0));
+        let creativity = a.map_or(10.0, |a| clamp(a.scheme + spread(0xC4EA, 3.0) + shift, 1.0, 20.0));
         let nerve = clamp(0.04 * (temper - 10.0) + spread(0x4E4E, 0.4), -1.0, 1.0);
         Caller {
-            skill: a.map_or(10.0, |a| 0.6 * a.scheme + 0.4 * a.game_management) * fit,
-            adaptation: a.map_or(10.0, |a| a.game_management),
+            skill: (base + shift) * fit,
+            adaptation,
             aggressiveness: temper,
             reading: reading * fit,
             situational,

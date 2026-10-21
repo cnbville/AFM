@@ -22,15 +22,43 @@ fn a_college_career_plays_through_its_first_games() {
     let fresh = ok(&mut g, "save", json!({ "name": "fresh world" }))["saved"].as_str().unwrap().to_string();
     let setup = ok(&mut g, "setup", json!({}));
     assert!(setup["backgrounds"].as_array().unwrap().len() >= 10);
+    assert_eq!(setup["ratings"].as_array().unwrap().len(), 19);
+    // The new-career pages' data: towns, coaches on your road, the job file.
+    assert!(!ok(&mut g, "towns", json!({ "state": "TX" }))["towns"].as_array().unwrap().is_empty());
+    let bg = setup["backgrounds"].as_array().unwrap().iter().find(|b| b["key"] == "college_assistant").unwrap();
+    // Two points moved from negotiating (the last rating) to play calling.
+    let mut ratings: Vec<f64> = bg["ratings"].as_array().unwrap().iter().map(|x| x.as_f64().unwrap()).collect();
+    let pc = setup["ratings"].as_array().unwrap().iter().position(|r| r["key"] == "play_calling").unwrap();
+    ratings[pc] += 2.0;
+    ratings[18] -= 2.0;
+    let like = ok(&mut g, "similar", json!({ "background": "college_assistant", "ratings": ratings }));
+    assert!(!like["coaches"].as_array().unwrap().is_empty(), "{like}");
     let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));
-    let job = jobs["jobs"][0]["ref"].clone();
+    let file = &jobs["jobs"][0];
+    for k in ["line", "record", "stadium", "nil", "coach", "ad", "expectation", "grades", "calendar"] {
+        assert!(!file[k].is_null(), "the job file has {k}: {file}");
+    }
+    let job = file["ref"].clone();
     ok(
         &mut g,
         "start_career",
-        json!({ "name": "Test Coach", "age": 41, "background": "college_assistant", "job": job, "seed": 99 }),
+        json!({
+            "name": "Test Coach", "age": 41, "background": "college_assistant", "job": job, "seed": 99,
+            "ratings": ratings, "home_state": "TX",
+            "profile": { "born": "1985-03-14", "hometown": "Austin", "alma_mater": "Texas Tech", "children": [{ "name": "Jake", "born": 2012 }] },
+        }),
     );
     let home = ok(&mut g, "home", json!({}));
     assert!(home["team"]["name"].is_string(), "{home}");
+    let you = ok(&mut g, "you", json!({}));
+    assert_eq!(you["extra"]["play_calling"].as_f64(), Some(ratings[pc]), "{you}");
+    assert_eq!(you["extra"]["negotiating"].as_f64(), Some(ratings[18]), "{you}");
+    assert_eq!(you["profile"]["hometown"], "Austin");
+    assert_eq!(you["profile"]["children"][0][0], "Jake");
+    // The save's card: the world's story and your team, without loading it.
+    let card = ok(&mut g, "card", json!({}));
+    assert!(!card["world"]["story"].as_array().unwrap().is_empty(), "{card}");
+    assert!(card["seat"]["team"]["name"].is_string(), "{card}");
     let roster = ok(&mut g, "roster", json!({}));
     let rows = roster["rows"].as_array().unwrap();
     assert!(rows.len() > 40, "{} players", rows.len());
@@ -91,7 +119,18 @@ fn a_college_career_plays_through_its_first_games() {
     ok(&mut g, "load", json!({ "path": path }));
     assert_eq!(ok(&mut g, "player", json!({ "id": id }))["notes"].as_array().unwrap().len(), 1);
     ok(&mut g, "continue", json!({ "max_days": 10 }));
-    assert_eq!(ok(&mut g, "library", json!({}))["saves"].as_array().unwrap().len(), 2);
+    let lib = ok(&mut g, "library", json!({}));
+    assert_eq!(lib["saves"].as_array().unwrap().len(), 2);
+    assert!(lib["saves"].as_array().unwrap().iter().any(|s| s["card"]["seat"].is_object()), "{lib}");
+    // Rename and delete a save, in the saves folder only.
+    let renamed = ok(&mut g, "rename_save", json!({ "path": path, "name": "renamed career" }))["path"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert!(renamed.ends_with("renamed career.afmsave"), "{renamed}");
+    assert!(g.call("delete_save", &json!({ "path": "/etc/hosts" })).is_err());
+    ok(&mut g, "delete_save", json!({ "path": renamed }));
+    assert_eq!(ok(&mut g, "library", json!({}))["saves"].as_array().unwrap().len(), 1);
     println!("college career in {:.0}s", t.elapsed().as_secs_f64());
     // The same world from a high school job: a staff of teacher-coaches,
     // your games on the engine with their pages, the schedule and standings.

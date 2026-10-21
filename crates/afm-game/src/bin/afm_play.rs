@@ -44,6 +44,7 @@ fn main() {
                     Some("woff2") => "font/woff2",
                     Some("ttf") => "font/ttf",
                     Some("png") => "image/png",
+                    Some("jpg" | "jpeg") => "image/jpeg",
                     _ => "application/octet-stream",
                 };
                 let resp = tiny_http::Response::from_data(bytes)

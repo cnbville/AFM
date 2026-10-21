@@ -20,7 +20,8 @@ pub fn write_world(w: &World, path: &Path) -> Result<(), String> {
     let written = now_utc();
     // Written to a temporary file first, so a failed save never breaks the old one.
     let tmp = path.with_extension("partial");
-    afm_engine::save::write_world(w, &tmp, env!("CARGO_PKG_VERSION"), &written).map_err(|e| e.to_string())?;
+    let card = Some(crate::cards::card(w));
+    afm_engine::save::write_world(w, &tmp, env!("CARGO_PKG_VERSION"), &written, card).map_err(|e| e.to_string())?;
     std::fs::rename(&tmp, path).map_err(|e| e.to_string())
 }
 

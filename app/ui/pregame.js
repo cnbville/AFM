@@ -1,0 +1,961 @@
+// The pages before a career (Cain, 2026-10-21, first-play notes A and B):
+// the opening screen, Load game and the six steps of a new career (World,
+// You, Background, Ratings, Style, Job), in one FM-style look of their own
+// (pregame.css). Showtime starts once you take the job. Buttons here carry
+// `data-pg`; app.js's helpers (api, go, render, dialogs) do the rest.
+"use strict";
+
+// What these pages fetched, kept while you move between them.
+// `loaded`: the library world open in the game with no career yet.
+const PG = { loaded: null, lib: null, hello: null, online: null, offline: "", onlineAsked: false, opts: null, jobs: {}, towns: {}, similar: {}, jobPoll: null };
+
+// ---------- small helpers ----------
+function pgMark(team, big) {
+  const c = team && team.colors ? team.colors : ["#2a2f37", "#eceef1"];
+  return `<span class="pg-mk ${big ? "big" : ""}" style="background:${esc(c[0])};color:${esc(c[1])}">${esc(initials(team && team.name) || "?")}</span>`;
+}
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const size = (mb) => (mb >= 1000 ? (mb / 1000).toFixed(2) + " GB" : Math.max(1, Math.round(mb)) + " MB");
+const yrs = (n) => `${n} year${n === 1 ? "" : "s"}`;
+// When a file was saved, in your own time: "Today, 11:42", "19 Oct, 16:05".
+function savedText(secs) {
+  if (!secs) return "";
+  const d = new Date(secs * 1000), now = new Date();
+  const hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(now) - day(d)) / 864e5);
+  if (diff === 0) return `Today, ${hm}`;
+  if (diff === 1) return `Yesterday, ${hm}`;
+  return `${d.getDate()} ${MONTHS[d.getMonth()]}${d.getFullYear() !== now.getFullYear() ? " " + d.getFullYear() : ""}, ${hm}`;
+}
+// "2026-10-21 14:03 UTC" -> "21 Oct 2026".
+function builtText(written) {
+  const m = String(written || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}` : "";
+}
+const money0 = (v) => (v == null ? "" : v >= 1e6 ? "$" + (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? "$" + Math.round(v / 1e3) + "k" : "$" + Math.round(v));
+const thousands = (v) => (v == null ? "" : Number(v).toLocaleString("en-US"));
+const isMac = () => !!(window.__TAURI__ && window.__TAURI__.core);
+function worldTitle(x) {
+  const m = x && x.meta;
+  return m ? `World ${m.start_year}` : (x && x.name) || "A world";
+}
+function bar(share) {
+  return `<span class="pg-bar"><i style="width:${Math.round(Math.max(0, Math.min(1, share)) * 100)}%"></i></span>`;
+}
+
+// The top bar and the stadium band every page but the opening shares.
+function pgPage({ steps = "", right = "", kicker, title, lede = "", body, foot }) {
+  return `<div class="pg">
+    <header class="pg-top"><button class="pg-logo" data-pg="home" title="Back to the opening screen">AFM</button>
+      ${steps || '<span style="flex:1"></span>'}<span class="pg-date">${esc(right)}</span></header>
+    <div class="pg-main" data-keep="main">
+      <section class="pg-band"><div class="pg-kicker">${esc(kicker)}</div><h1>${esc(title)}</h1>${lede ? `<p class="pg-lede">${esc(lede)}</p>` : ""}</section>
+      ${body}
+    </div>
+    <footer class="pg-foot">${foot}</footer>
+  </div>`;
+}
+
+// ---------- the opening screen ----------
+screens.start = async () => {
+  const [lib, hello] = await Promise.all([api("library"), PG.hello ? Promise.resolve(PG.hello) : api("hello")]);
+  PG.lib = lib;
+  PG.hello = hello;
+  const open = S.status && S.status.mine;
+  const last = lib.saves[0];
+  // The card the menu shows: the career you have open, else your newest save.
+  let card = null, cont = "", savedLine = "";
+  if (open) {
+    card = await api("card").catch(() => null);
+    savedLine = S.savedOn ? (S.savedOn === S.status.today ? "Saved today" : `Last saved ${S.savedOn}`) : "Not saved yet";
+  } else if (last) {
+    card = last.card;
+    savedLine = "Saved " + savedText(last.modified).replace(/^(Today|Yesterday)/, (x) => x.toLowerCase());
+  }
+  const seat = card && card.seat;
+  if (open || last) {
+    const name = seat ? seat.team.name : open ? S.status.mine.name : (last.meta && last.meta.career) || last.name;
+    const role = seat ? `${seat.role}` : "Head coach";
+    const sub = seat ? [seat.line, seat.record, seat.next ? "next: " + seat.next : ""].filter(Boolean).join(" · ") : (last && last.meta ? last.meta.career || "" : "");
+    const team = seat ? seat.team : open ? S.status.mine : { name, colors: null };
+    cont = `<button class="pg-mi on" data-pg="continue">Continue</button>
+      <button class="pg-save" data-pg="continue">
+        <div class="t">${pgMark(team)}<div><b>${esc(name)} · ${esc(role)}</b><small>${esc(sub)}</small></div></div>
+        <div class="w"><span>${esc(seat ? seat.date : open ? S.status.today : last.meta ? last.meta.world_date : "")}</span><span>${esc(savedLine)}</span></div>
+      </button>`;
+  }
+  // Around football: the headlines of that card's world, else the library's.
+  const src = card || (lib.worlds[0] && lib.worlds[0].card);
+  const news = src && src.headlines && src.headlines.length
+    ? `<div class="pg-news"><div class="h">Around football · ${esc(src.month || "")}</div>${src.headlines.map((h) => `<div class="i">${esc(h)}</div>`).join("")}</div>`
+    : "";
+  const wsrc = src && src.world;
+  const info = wsrc
+    ? `World ${wsrc.first + wsrc.history_years} · seed ${wsrc.seed} · ${yrs(wsrc.history_years)} of history`
+    : lib.worlds.length ? `${lib.worlds.length} world${lib.worlds.length === 1 ? "" : "s"} in your library` : "No world in your library yet";
+  return `<div class="pg-stage">
+    <div class="pg-wordmark"><b>AFM</b><span>American Football Manager</span></div>
+    <nav class="pg-menu" aria-label="Main menu">
+      ${cont}
+      <button class="pg-mi ${cont ? "" : "on"}" data-pg="new">New career</button>
+      <button class="pg-mi" data-pg="load">Load game</button>
+      <div style="height:10px"></div>
+      <button class="pg-mi quiet" data-pg="settings">Settings</button>
+      ${isMac() && window.__TAURI__.process ? '<button class="pg-mi quiet" data-pg="quit">Quit</button>' : ""}
+    </nav>
+    <div class="pg-bottom">
+      <div class="pg-info"><span>${esc(info)}</span><span>Version ${esc(hello.version)}${isMac() ? " · Mac" : ""}</span></div>
+      ${news}
+    </div>
+  </div>`;
+};
+
+// ---------- Load game ----------
+screens.load = async () => {
+  const lib = await api("library");
+  PG.lib = lib;
+  const st = keep("load", { sel: null });
+  const saves = lib.saves;
+  if (!saves.find((x) => x.path === st.sel)) st.sel = saves[0] ? saves[0].path : null;
+  const cur = saves.find((x) => x.path === st.sel);
+  const seatOf = (x) => (x.card && x.card.seat) || null;
+  const worldOf = (x) => {
+    const w = x.card && x.card.world;
+    return w ? `World ${w.first + w.history_years} · ${w.names} names` : x.meta ? `World ${x.meta.start_year} · seed ${x.meta.seed}` : "";
+  };
+  const rows = saves.map((x) => {
+    const s = seatOf(x);
+    return `<tr data-pg="pick-save" data-path="${esc(x.path)}" class="${x.path === st.sel ? "sel" : ""}">
+      <td style="font-weight:600">${esc(x.name)}</td>
+      <td>${s ? pgMark(s.team) + esc(s.team.name) : esc(x.meta && x.meta.career ? x.meta.career.split(", ").slice(1).join(", ") : "")}</td>
+      <td>${esc(s ? s.date : x.meta ? x.meta.world_date : "")}</td>
+      <td class="n">${esc(s ? s.record : "")}</td>
+      <td class="pg-dim">${esc(worldOf(x))}</td>
+      <td class="n pg-dim">${esc(savedText(x.modified))}</td></tr>`;
+  }).join("");
+  const s = cur && seatOf(cur);
+  const side = cur
+    ? `<aside class="pg-aside"><div class="pg-panel">
+        <div class="pg-filehead">${pgMark(s ? s.team : { name: cur.name }, true)}<div><b>${esc(s ? s.team.name : cur.name)}</b><small>${esc(s ? `${s.role} · ${s.line}` : cur.meta ? cur.meta.career || "" : "")}</small></div></div>
+        <div class="pg-kv">
+          <span>Coach</span><span>${esc(s ? s.coach : cur.meta && cur.meta.career ? cur.meta.career.split(", ")[0] : "")}</span>
+          <span>In the game</span><span>${esc(s ? s.date : cur.meta ? cur.meta.world_date : "")}</span>
+          ${s ? `<span>This season</span><span>${esc(s.record)}</span><span>Next</span><span>${esc(s.next || "-")}</span>` : ""}
+          <span>World</span><span>${esc(worldOf(cur))}</span>
+          <span>Saved</span><span>${esc(savedText(cur.modified))}</span>
+          <span>Size</span><span>${esc(size(cur.mb))}</span>
+        </div>
+        <div class="pg-acts-row"><button class="pg-btn s" data-pg="rename-save">Rename</button><button class="pg-btn s" data-pg="delete-save">Delete…</button></div>
+      </div></aside>`
+    : "";
+  const body = `<div class="pg-body"><div class="pg-col"><div class="pg-panel">
+      <div class="pg-ph"><span>Saves <small>· ${saves.length}</small></span><span class="pg-acts"><button class="pg-btn s" data-pg="open-save-file">Open a save file…</button>${isMac() ? '<button class="pg-btn s" data-pg="reveal-saves">Show in Finder</button>' : ""}</span></div>
+      ${saves.length ? `<div class="pg-tbl" data-keep="saves"><table><thead><tr><th>Career</th><th>Team</th><th>In the game</th><th class="n">Season</th><th>World</th><th class="n">Saved</th></tr></thead><tbody>${rows}</tbody></table></div>`
+        : `<div class="pg-empty">No saves yet. During a career, Save in the sidebar keeps it here (${esc(lib.home)}/saves).</div>`}
+    </div></div>${side}</div>`;
+  return pgPage({
+    right: "Your saves",
+    kicker: "Load game",
+    title: "Pick up where you left off",
+    body,
+    foot: `<button class="pg-btn" data-pg="home">Back</button><span class="pg-sum">${cur ? esc(`${cur.name} · ${s ? s.date : cur.meta ? cur.meta.world_date : ""}`) : ""}</span><button class="pg-btn p" data-pg="load-save" ${cur ? "" : "disabled"}>Load</button>`,
+  });
+};
+
+async function openSave(path) {
+  if (!(await leaveCareer())) return;
+  showBusy("Loading your save…");
+  try {
+    S.status = await api("load", { path });
+    PG.loaded = null;
+    hideBusy();
+    S.savedOn = S.status.today;
+    S.lastSaveName = path.split(/[\\/]/).pop().replace(/\.afmsave$/i, "");
+    S.keep = {};
+    if (S.status.mine) enterCareer(); else { S.keep.setup = newSetup(); S.keep.setup.loaded = path; go("setup"); }
+  } catch (e) { hideBusy(); toast(e.message); }
+}
+
+// ---------- a new career ----------
+const STEPS = ["World", "You", "Background", "Ratings", "Style", "Job"];
+function newSetup() {
+  const y = new Date().getFullYear();
+  // A world already open with no career goes on from it without reopening.
+  const open = S.status && !S.status.mine && PG.loaded ? PG.loaded : null;
+  return {
+    step: 1, reached: 1, world: open, loaded: open,
+    first: "", last: "", born: `${y - 42}-06-15`, eth: "white",
+    hometown: "", state: "TX", high_school: "", alma_mater: "", college_years: "", degree: "",
+    status: "Married", spouse: "", roots: "", children: [],
+    height: "6 ft 1", build: "Athletic", hair: "Short, dark", facial_hair: "Clean-shaven", photo: null,
+    bg: "college_assistant", ratings: null, ratingsFor: null,
+    style: { risk: 2, freedom: 2, physical: 2, ball_hunting: 2, mould: 2 },
+    level: "college", job: null, q: "",
+    f: { college: { div: "FBS", conf: null }, nfl: { conf: null, div: null }, hs: { state: null, cls: null } },
+    sort: { k: null, desc: true },
+  };
+}
+const setupState = () => (S.keep.setup ??= newSetup());
+
+function stepsBar(st) {
+  return `<nav class="pg-steps" aria-label="New career steps">${STEPS.map((n, i) => {
+    const k = i + 1;
+    const cls = k === st.step ? "on" : k < st.step || k <= st.reached ? "done" : "";
+    return `<button class="pg-step ${cls}" data-pg="step" data-k="${k}" ${k <= st.reached ? "" : "disabled"}><i>${k}</i>${n}</button>`;
+  }).join("")}</nav>`;
+}
+function setupPage(st, { title, lede, body, sum, next, nextOk = true, extra = "" }) {
+  const back = st.step === 1 ? `<button class="pg-btn" data-pg="home">Back</button>` : `<button class="pg-btn" data-pg="step" data-k="${st.step - 1}">Back</button>`;
+  return pgPage({
+    steps: stepsBar(st),
+    right: (PG.opts && PG.opts.today) || "",
+    kicker: `New career · Step ${st.step} of 6`,
+    title, lede, body,
+    foot: `${back}${extra}<span class="pg-sum">${sum}</span><button class="pg-btn p" data-pg="${st.step === 6 ? "take" : "next"}" ${nextOk ? "" : "disabled"}>${esc(next)}</button>`,
+  });
+}
+
+screens.setup = async () => {
+  const st = setupState();
+  // Every step after the first needs its world open, with no career yet.
+  const ready = st.loaded && S.status && !S.status.mine;
+  if (st.step > 1 && !ready) st.step = 1;
+  if (st.step > 1 && !PG.opts) PG.opts = await api("setup");
+  return [null, stepWorld, stepYou, stepBackground, stepRatings, stepStyle, stepJob][st.step](st);
+};
+
+// Step 1: the world.
+async function stepWorld(st) {
+  const lib = await api("library");
+  PG.lib = lib;
+  const job = await api("job").catch(() => null);
+  if (job && !job.finished) watchBuild();
+  if (!PG.onlineAsked) {
+    PG.onlineAsked = true;
+    api("online_worlds").then((o) => { PG.online = o; }, (e) => { PG.offline = e.message; })
+      .finally(() => { if (S.route.screen === "setup" && setupState().step === 1) render(); });
+  }
+  const worlds = lib.worlds.slice();
+  const test = st.loaded === "test";
+  if (!st.world || (st.world !== "test" && !worlds.find((x) => x.path === st.world))) st.world = test ? "test" : worlds[0] ? worlds[0].path : null;
+  const champ = (list) => (list && list.length ? `${esc(list[0][0])} <span class="pg-dim">${list[0][1]}</span>` : '<span class="pg-dim">-</span>');
+  const rows = worlds.map((x) => {
+    const w = x.card && x.card.world, m = x.meta || {};
+    const years = w ? `${yrs(w.history_years)}, ${w.first}-${w.last}` : m.history_years ? yrs(m.history_years) : "";
+    return `<tr data-pg="pick-world" data-path="${esc(x.path)}" class="${x.path === st.world ? "sel" : ""}">
+      <td><b>${esc(worldTitle(x))}</b> <span class="pg-dim">· seed ${esc(m.seed)}</span></td><td>${esc(years)}</td><td>${esc(w ? w.starts : m.world_date || "")}</td>
+      <td>${w ? champ(w.sb) : '<span class="pg-dim">read when it first opens</span>'}</td><td>${w ? champ(w.nc) : ""}</td>
+      <td class="n">${esc(size(x.mb))}</td><td class="n">${esc(builtText(m.written))}</td></tr>`;
+  });
+  if (test) rows.push(`<tr data-pg="pick-world" data-path="test" class="${st.world === "test" ? "sel" : ""}"><td><b>Test world</b> <span class="pg-dim">· small, not kept</span></td><td>2 years</td><td>${esc(S.status ? S.status.today : "")}</td><td class="pg-dim">-</td><td class="pg-dim">-</td><td class="n pg-dim">in memory</td><td class="n"></td></tr>`);
+  const online = PG.online ? PG.online.worlds.filter((o) => !o.have) : [];
+  for (const o of online) {
+    rows.push(`<tr><td><b>${esc(o.title || o.name)}</b> <span class="pg-tag">ONLINE</span></td><td colspan="4" class="pg-dim">Ready-built on the worlds page: download it into your library</td><td class="n">${esc(size(o.mb))}</td><td class="n"><button class="pg-btn s" data-pg="download" data-tag="${esc(o.tag)}">Download</button></td></tr>`);
+  }
+  const sel = worlds.find((x) => x.path === st.world);
+  const wc = sel && sel.card && sel.card.world;
+  const story = st.world === "test"
+    ? `<div class="pg-empty">A small test world for trying the game: two years of history at a fraction of the size. It isn't kept in the library.</div>`
+    : wc ? `<div class="pg-story">${wc.story.map(([k, v]) => `<div><span>${esc(k)}</span><span>${esc(v)}</span></div>`).join("")}</div>`
+    : sel ? `<div class="pg-empty">This world's story is read the first time it opens, and kept from then on.</div>` : "";
+  const progress = job ? buildPanel(job) : "";
+  const offline = !PG.online && PG.offline ? `<div class="pg-empty" title="${esc(PG.offline)}">The worlds to download can't be listed right now, so only the worlds on this computer show.</div>` : "";
+  const names = wc ? wc.names : "real";
+  const body = `<div class="pg-body"><div class="pg-col">
+      <div class="pg-panel"><div class="pg-ph"><span>World library <small>· ${worlds.length} world${worlds.length === 1 ? "" : "s"}</small></span>
+        <span class="pg-acts"><button class="pg-btn s" data-pg="import">${isMac() ? "Import a world folder…" : "Import from a path…"}</button><button class="pg-btn s" data-pg="build">Build a new world</button></span></div>
+        ${rows.length ? `<div class="pg-tbl" data-keep="worlds"><table><thead><tr><th>World</th><th>History</th><th>Starts</th><th>Super Bowl champions</th><th>National champions</th><th class="n">Size</th><th class="n">Built</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`
+          : `<div class="pg-empty">Your library is empty. Download a ready-built world below, import a world folder, or build one.</div>`}
+        ${progress}${offline}
+      </div>
+      ${story ? `<div class="pg-panel"><div class="pg-ph"><span>The world's story ${wc ? `<small>· what ${yrs(wc.history_years)} left behind</small>` : ""}</span></div>${story}</div>` : ""}
+    </div>
+    <aside class="pg-aside">
+      <div class="pg-panel"><div class="pg-ph"><span>Names</span><small>fixed for the whole career</small></div>
+        <div class="pg-pad"><div class="pg-seg" role="group" aria-label="Names"><button class="${names === "real" ? "on" : ""}" ${names === "real" ? "" : "disabled"}>Real names</button><button class="${names === "fictional" ? "on" : ""}" ${names === "fictional" ? "" : "disabled"}>Fictional names</button></div>
+        <p class="pg-note">${names === "real"
+          ? "The real NFL clubs, real colleges and their real people. Towns are real; high schools and their players are generated either way. A world's names are set when it is built, so a fictional career needs a world built with fictional names."
+          : "Every college and its people carry made-up names. Towns stay real; high schools are generated either way."}</p></div></div>
+      <div class="pg-panel"><div class="pg-ph"><span>Your new career</span></div>
+        <div class="pg-kv"><span>World</span><span>${esc(st.world === "test" ? "Test world" : sel ? worldTitle(sel) : "-")}</span><span>Names</span><span>${names === "real" ? "Real names" : "Fictional names"}</span>
+        <span>You</span><span class="pg-dim">step 2</span><span>Background</span><span class="pg-dim">step 3</span><span>Job</span><span class="pg-dim">step 6</span></div></div>
+    </aside></div>`;
+  return setupPage(st, {
+    title: "Choose your world",
+    lede: "Each world is a whole football country with its history behind it, stopped on the morning after the Super Bowl. Every career you start from it plays out fresh from that morning.",
+    body,
+    sum: esc(st.world === "test" ? "Test world" : sel ? `${worldTitle(sel)} · ${names === "real" ? "Real names" : "Fictional names"}` : "Pick a world"),
+    next: "Next: You",
+    nextOk: !!st.world,
+  });
+}
+
+function buildPanel(j) {
+  const pct = Math.round((j.done || 0) * 100);
+  const min = Math.round((j.seconds || 0) / 60);
+  const what = j.finished ? (j.error ? "Stopped" : "Ready") : j.kind === "build" ? "Building" : "Downloading";
+  const stop = j.finished || j.stopping ? "" : `<button class="pg-btn s" data-pg="jobstop">Stop</button>`;
+  return `<div class="pg-pad" id="pg-job" style="border-top:1px solid var(--pg-line)"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><b>${esc(what)} · ${esc(j.name)} <span class="pg-dim">${pct}% · ${min} min</span></b>${stop}</div>
+    <div class="pg-meter"><i style="width:${pct}%"></i></div><p class="pg-note" ${j.error ? 'style="color:#ff9c90"' : ""}>${esc(j.error || j.text)}</p></div>`;
+}
+function watchBuild() {
+  clearInterval(PG.jobPoll);
+  PG.jobPoll = setInterval(async () => {
+    if (S.route.screen !== "setup" || setupState().step !== 1) return clearInterval(PG.jobPoll);
+    let j = null;
+    try { j = await api("job"); } catch (e) { return; }
+    const el = $("#pg-job");
+    if (el && j) el.outerHTML = buildPanel(j);
+    if (!j || j.finished) { clearInterval(PG.jobPoll); PG.online = null; PG.onlineAsked = false; render(); }
+  }, 2000);
+}
+
+// Step 2: you.
+const HEIGHTS = Array.from({ length: 15 }, (_, i) => `${Math.floor((66 + i) / 12)} ft ${(66 + i) % 12}`);
+const BUILDS = ["Lean", "Athletic", "Average", "Stocky", "Heavy", "Former lineman, still big", "Former linebacker, a little heavier", "Former receiver, still lean"];
+const HAIR = ["Short, dark", "Short, greying at the sides", "Grey", "White", "Thinning", "Shaved", "Bald", "Longer, swept back", "Close-cropped", "Curly"];
+const FACIAL = ["Clean-shaven", "Stubble", "Moustache", "Goatee", "Trimmed beard", "Full beard", "Grey beard"];
+const HERITAGE = [["white", "White"], ["black", "Black"], ["hispanic", "Hispanic"], ["polynesian", "Polynesian"], ["asian", "Asian"]];
+function ageOn(born, today) {
+  const m = String(born || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const t = String(today || "").match(/(\d+) (\w{3}) (\d{4})$/);
+  const ty = t ? Number(t[3]) : new Date().getFullYear(), tm = t ? MONTHS.indexOf(t[2]) + 1 : 1, td = t ? Number(t[1]) : 1;
+  return ty - Number(m[1]) - ((tm < Number(m[2]) || (tm === Number(m[2]) && td < Number(m[3]))) ? 1 : 0);
+}
+// A child's school year from his age (US schools, a February date).
+function schoolYear(age) {
+  if (age < 5) return "Not in school yet";
+  if (age === 5) return "Kindergarten";
+  const g = age - 5;
+  if (g <= 8) return `${g}${g === 1 ? "st" : g === 2 ? "nd" : g === 3 ? "rd" : "th"} grade${g === 8 ? ", starts high school in the fall" : ""}`;
+  if (g <= 12) return ["Freshman", "Sophomore", "Junior", "Senior"][g - 9] + " in high school" + (g === 12 ? ": a move this year is hardest" : "");
+  return age <= 22 ? "College age" : "Grown up";
+}
+const fullName = (st) => `${st.first.trim()} ${st.last.trim()}`.trim();
+function youSummary(st) {
+  const age = ageOn(st.born, PG.opts && PG.opts.today);
+  const state = PG.opts ? (PG.opts.states.find((s) => s.code === st.state) || {}).name : st.state;
+  return [fullName(st) || "Your name", age != null ? String(age) : "", st.hometown ? `${st.hometown}, ${state}` : state, st.alma_mater].filter(Boolean).map(esc).join(" · ");
+}
+async function stepYou(st) {
+  const o = PG.opts;
+  const towns = (PG.towns[st.state] ??= await api("towns", { state: st.state }).catch(() => ({ towns: [] })));
+  const town = towns.towns.find((t) => t.town.toLowerCase() === st.hometown.trim().toLowerCase());
+  const age = ageOn(st.born, o.today);
+  const f = (id, label, input, cls = "", small = "") => `<div class="pg-f ${cls}"><label for="pg-${id}">${label}</label>${input}${small ? `<small>${small}</small>` : ""}</div>`;
+  const inp = (k, ph = "", list = "") => `<input id="pg-${k}" data-f="${k}" value="${esc(st[k])}" placeholder="${esc(ph)}" autocomplete="off" ${list ? `list="${list}"` : ""}>`;
+  const sel = (k, opts) => `<select id="pg-${k}" data-f="${k}">${opts.map((x) => { const [v, t] = Array.isArray(x) ? x : [x, x]; return `<option value="${esc(v)}" ${v === st[k] ? "selected" : ""}>${esc(t)}</option>`; }).join("")}</select>`;
+  const kids = st.children.map((c, i) => {
+    const a = Math.max(0, o.year - c.born);
+    return `<div><input data-kid="${i}" data-kf="name" value="${esc(c.name)}" placeholder="Name"><input data-kid="${i}" data-kf="age" type="number" min="0" max="40" value="${a}"><span class="pg-dim">${esc(schoolYear(a))}</span><button class="x" data-pg="kid-del" data-i="${i}" aria-label="Remove">×</button></div>`;
+  }).join("");
+  const body = `<div class="pg-body"><div class="pg-col">
+      <div class="pg-panel"><div class="pg-ph"><span>Who you are</span></div><div class="pg-grid">
+        ${f("first", "First name", inp("first", "First name"), !st.first.trim() && st.tried ? "bad" : "")}
+        ${f("last", "Last name", inp("last", "Last name"), !st.last.trim() && st.tried ? "bad" : "")}
+        ${f("born", "Date of birth", `<input id="pg-born" data-f="born" type="date" value="${esc(st.born)}" min="1945-01-01" max="2001-12-31">`, "", age != null ? `<span id="pg-age">${age} years old</span>` : '<span id="pg-age"></span>')}
+        ${f("eth", "Heritage", sel("eth", HERITAGE))}
+      </div></div>
+      <div class="pg-panel"><div class="pg-ph"><span>Where you're from</span><small>people from your home area and your school know your name</small></div><div class="pg-grid">
+        ${f("hometown", "Hometown", inp("hometown", "Your hometown", "pg-towns"))}
+        ${f("state", "State", sel("state", o.states.map((s) => [s.code, s.name])))}
+        ${f("high_school", "High school", inp("high_school", "Your high school", "pg-schools"), "w2", town ? `One of the world's ${town.schools.length} school${town.schools.length === 1 ? "" : "s"} in ${esc(town.town)}` : "Pick your hometown to see its schools")}
+        ${f("alma_mater", "Alma mater", inp("alma_mater", "Where you went to college", "pg-programs"), "w2", "Where you went to college, played or not")}
+        ${f("college_years", "Years there", inp("college_years", "2001-2004"))}
+        ${f("degree", "Degree", inp("degree", "Kinesiology"))}
+      </div></div>
+      <div class="pg-panel"><div class="pg-ph"><span>Family</span><small>a move is easier on a family with young children than with a high school senior</small></div><div class="pg-grid">
+        ${f("status", "Status", sel("status", ["Married", "Single", "Divorced", "Widowed"]))}
+        ${f("spouse", "Spouse", `<input id="pg-spouse" data-f="spouse" value="${esc(st.spouse)}" placeholder="${st.status === "Married" ? "Your spouse's name" : ""}" ${st.status === "Married" ? "" : "disabled"}>`)}
+        ${f("roots", "Where your roots are", inp("roots", "Both sets of parents in your hometown"), "w2")}
+      </div>
+      <div class="pg-kids" style="border-top:1px solid var(--pg-line)"><div class="h"><span>Children</span><span>Age</span><span>In school</span><span></span></div>${kids || '<div><span class="pg-dim">No children</span></div>'}</div>
+      <div class="pg-acts-row" style="padding-top:12px"><button class="pg-btn s" data-pg="kid-add">Add a child</button></div></div>
+    </div>
+    <aside class="pg-aside">
+      <div class="pg-panel"><div class="pg-ph"><span>Your photo</span><small>optional</small></div><div class="pg-pad">
+        <div style="display:flex;gap:14px;align-items:center">
+          <div class="pg-photo ${st.photo ? "has" : ""}" style="${st.photo ? `background-image:url(${st.photo})` : ""}">${st.photo ? "" : '<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#5F6670" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>'}</div>
+          <div style="display:grid;gap:8px"><button class="pg-btn s" data-pg="photo">${st.photo ? "Change the photo…" : "Add a photo…"}</button>${st.photo ? '<button class="pg-btn s" data-pg="photo-del">Remove it</button>' : ""}<button class="pg-btn s" data-pg="prompt">Copy AI prompt</button></div>
+        </div>
+        <input type="file" id="pg-photo-file" accept="image/*" hidden>
+        <p class="pg-note">Copy AI prompt writes a portrait prompt from your looks below, for any image tool. Your photo stays with you through every media day.</p>
+      </div></div>
+      <div class="pg-panel"><div class="pg-ph"><span>Looks</span></div><div class="pg-grid two">
+        ${f("height", "Height", sel("height", HEIGHTS))}${f("build", "Build", sel("build", BUILDS))}
+        ${f("hair", "Hair", sel("hair", HAIR))}${f("facial_hair", "Facial hair", sel("facial_hair", FACIAL))}
+      </div></div>
+    </aside></div>
+    <datalist id="pg-towns">${towns.towns.map((t) => `<option value="${esc(t.town)}">`).join("")}</datalist>
+    <datalist id="pg-schools">${(town ? town.schools : []).map((s) => `<option value="${esc(s)}">`).join("")}</datalist>
+    <datalist id="pg-programs">${o.programs.map((p) => `<option value="${esc(p)}">`).join("")}</datalist>`;
+  return setupPage(st, {
+    title: "You",
+    lede: "The man the players, boosters and press will meet. Where you grew up and where you played decide who already knows you, and your family moves with you, or doesn't, every time you take a new job.",
+    body, sum: `<span id="pg-yousum">${youSummary(st)}</span>`, next: "Next: Background",
+  });
+}
+
+// Step 3: the road into coaching. The words for each road (people topic 15).
+const ROADS = {
+  nfl_star: { road: "A decade in the league with All-Pro years, then straight into coaching.", like: "Deion Sanders, Mike Vrabel", knows: "Old teammates and coaches across the NFL, agents, and every recruit's parents.", greet: "Boosters and recruits are thrilled from day one. The media asks whether you can coach.", coached: "A short apprenticeship, then a head job." },
+  nfl_pro_bowl: { road: "A long NFL career with Pro Bowls, then a few years as an assistant.", like: "Mike Singletary", knows: "NFL teammates and coaches, a good number of agents.", greet: "Respected for what you did on the field. Boosters want quick results.", coached: "A few years as an NFL position coach." },
+  nfl_starter: { road: "Several years starting in the NFL, then the assistant ladder.", like: "Dan Campbell", knows: "Teammates and coaches from your NFL clubs.", greet: "Players listen because you played. Big-program boosters need convincing.", coached: "Position coach, then coordinator." },
+  nfl_journeyman: { road: "Seven clubs in nine years, learning every room you sat in.", like: "Doug Pederson", knows: "Coaches from many NFL staffs, a wide spread of people.", greet: "Little known. A big program's boosters and press start skeptical.", coached: "Quality control, then position coach." },
+  college_player: { road: "Played in college, then worked up from graduate assistant.", like: "Kirby Smart, Sean McVay", knows: "Your college teammates and the staff that coached you.", greet: "Unproven. A blue blood's boosters, media and recruits start skeptical.", coached: "Graduate assistant, then a small-college position coach." },
+  never_played: { road: "No playing career past high school; you got in through the X's and O's.", like: "Mike Leach", knows: "Few people. The coaches you learned from.", greet: "Unproven, and you never played. The most skeptical start in the game.", coached: "Lower-division coordinator, a long climb." },
+  hs_coach: { road: "Years running a high school program, then the jump to college.", like: "Gus Malzahn", knows: "High school coaches in your state and the college recruiters who visited.", greet: "Unproven at this level. High school coaches in your state open their doors.", coached: "Head coach of a high school program." },
+  college_assistant: { road: "The usual road: position coach, then coordinator, recruiting your areas.", like: "Kirby Smart, Dabo Swinney", knows: "College staffs you worked on, high school coaches in your recruiting areas.", greet: "Little known to fans. Recruits in your areas already know you.", coached: "Position coach, then coordinator, on college staffs." },
+  nfl_assistant: { road: "Years on NFL staffs, ending as a coordinator.", like: "Sean McDermott", knows: "NFL coaches, GMs and scouts from the staffs you were on.", greet: "Respected for your scheme. College boosters doubt your recruiting.", coached: "NFL position coach, then coordinator." },
+  scout: { road: "Years on the road grading players, then into the front office.", like: "John Schneider (most GMs start here)", knows: "Scouts, GMs, agents and the college staffs you visited.", greet: "Unproven as a coach. Agents and personnel people take your calls.", coached: "Area scout, then director of college scouting." },
+  analytics: { road: "From the numbers side: game-day decisions, roster value, the data room.", like: "Paul DePodesta (Browns, 2016)", knows: "Front-office people around the league.", greet: "Unproven, and old-school boosters and media won't trust it.", coached: "Director of football analytics." },
+};
+const repWord = (r) => (r >= 16 ? "One of the best in the game" : r >= 13 ? "Highly regarded" : r >= 10 ? "Respected" : r >= 7 ? "Little known" : "Unproven");
+function stepBackground(st) {
+  const o = PG.opts;
+  const bg = o.backgrounds.find((b) => b.key === st.bg) || o.backgrounds[0];
+  const r = ROADS[bg.key] || {};
+  const rows = o.backgrounds.map((b) => `<tr data-pg="pick-bg" data-k="${b.key}" class="${b.key === bg.key ? "sel" : ""}">
+    <td style="font-weight:600">${esc(b.name)}</td><td>${bar(b.reputation / 20)}${esc(repWord(b.reputation))}</td><td class="n">${b.pool}</td>
+    <td class="pg-dim">${esc(b.strongest)}</td><td>${b.ex_pro ? '<span class="pg-tag pro">NFL</span>' : ""}</td></tr>`).join("");
+  const played = bg.ex_pro
+    ? `${st.alma_mater || "College"}${st.college_years ? ", " + st.college_years : ""}, then the NFL`
+    : bg.key === "never_played" ? `High school only${st.high_school ? ", at " + st.high_school : ""}` : `${st.alma_mater || "College"}${st.college_years ? ", " + st.college_years : ""}`;
+  const body = `<div class="pg-body"><div class="pg-col"><div class="pg-panel"><div class="pg-ph"><span>Eleven roads</span><small>click a row</small></div>
+      <div class="pg-tbl"><table><thead><tr><th>Road</th><th>Reputation</th><th class="n">Rating points</th><th>Strongest at</th><th>Played in the NFL</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>
+    <aside class="pg-aside">
+      <div class="pg-panel"><div class="pg-ph"><span>${esc(bg.name)}</span></div><div class="pg-kv">
+        <span>The road</span><span>${esc(r.road)}</span><span>Like</span><span>${esc(r.like)}</span>
+        <span>Reputation</span><span>${esc(repWord(bg.reputation))}</span><span>Rating points</span><span>${bg.pool}, spread in the next step</span>
+        <span>Knows you</span><span>${esc(r.knows)}</span><span>At a big job</span><span>${esc(r.greet)}</span></div></div>
+      <div class="pg-panel"><div class="pg-ph"><span>Where the world places you</span><small>from your profile</small></div><div class="pg-kv">
+        <span>Played</span><span>${esc(played)}</span><span>Coached</span><span>${esc(r.coached)}</span></div></div>
+    </aside></div>`;
+  return setupPage(st, {
+    title: "Your road into coaching",
+    lede: "The road sets your reputation, the points you spread over your ratings in the next step, and who in the world already knows you. Real head coaches came up every one of these ways.",
+    body, sum: esc(`${bg.name} · ${repWord(bg.reputation)} · ${bg.pool} rating points`), next: "Next: Ratings",
+  });
+}
+
+// Step 4: the ratings. What each drives and how it grows (people topic 15).
+const TEACH = (pos) => [`How fast your ${pos} grow, in practice and in film`, "Coaching the group yourself, a strong position coach beside you"];
+const RATING_TEXT = {
+  qb: TEACH("quarterbacks"), rb: TEACH("running backs"), wr: TEACH("receivers and tight ends"), ol: TEACH("offensive linemen"),
+  dl: TEACH("defensive linemen"), lb: TEACH("linebackers"), db: TEACH("corners and safeties"), st: TEACH("specialists and coverage units"),
+  scheme: ["How well your system fits together and wins its battles", "Years running it, clinics, a sharp coordinator"],
+  game_management: ["Clock, timeouts, fourth downs, two-point calls", "Head coaching games"],
+  play_calling: ["Picking the right call for the down, distance and defense, when you call the plays", "Calling plays yourself"],
+  adaptation: ["Seeing what the opponent does and answering it by halftime", "Calling plays yourself"],
+  motivation: ["Effort, belief and how a team plays when it is behind", "Talks that land, winning"],
+  discipline: ["Penalties, missed assignments, trouble off the field", "Holding to your rules"],
+  relationships: ["Trust from players, staff and bosses", "Keeping your word, time with people"],
+  recruiting: ["Visits, home visits, closing on signing day", "Recruiting yourself; fades in the NFL"],
+  evaluation: ["Judging what a player is now and what he can become: how sure your reads are", "Watching film and players in person"],
+  network: ["Who returns your call: coaches, GMs, agents, high school coaches", "Every job and every staff you work on"],
+  negotiating: ["Reading agents' bluffs and floors in contract talks (the NFL for now)", "Doing deals"],
+};
+const vcls = (v) => "pg-v " + (v <= 5 ? "c1" : v <= 10 ? "c2" : v <= 15 ? "c3" : "c4");
+function bgRatings(st) {
+  const bg = PG.opts.backgrounds.find((b) => b.key === st.bg) || PG.opts.backgrounds[0];
+  if (!st.ratings || st.ratingsFor !== bg.key) { st.ratings = bg.ratings.slice(); st.ratingsFor = bg.key; }
+  return bg;
+}
+async function stepRatings(st) {
+  const o = PG.opts;
+  const bg = bgRatings(st);
+  const spent = st.ratings.reduce((a, b) => a + b, 0);
+  const left = bg.pool - spent;
+  let group = "", body = "";
+  o.ratings.forEach((r, i) => {
+    if (r.group !== group) { group = r.group; body += `<tr class="g"><td colspan="5">${esc(group)}</td></tr>`; }
+    const v = st.ratings[i];
+    const [drives, grows] = RATING_TEXT[r.key] || ["", ""];
+    body += `<tr><td style="font-weight:600">${esc(r.name)}</td><td><span class="${vcls(v)}" id="pg-v${i}">${v}</span></td>
+      <td><span class="pg-pm"><button data-pg="rate" data-i="${i}" data-d="-1" aria-label="Lower ${esc(r.name)}" ${v <= 1 ? "disabled" : ""}>−</button><button data-pg="rate" data-i="${i}" data-d="1" aria-label="Raise ${esc(r.name)}" ${v >= 20 || left <= 0 ? "disabled" : ""}>+</button></span></td>
+      <td class="d">${esc(drives)}</td><td class="d">${esc(grows)}</td></tr>`;
+  });
+  const top = o.ratings.map((r, i) => [r.name, st.ratings[i]]).sort((a, b) => b[1] - a[1]).slice(0, 3).map((x) => `${x[0]} ${x[1]}`).join(" · ");
+  const at = (k) => st.ratings[o.ratings.findIndex((r) => r.key === k)];
+  const teach = st.ratings.slice(0, 8).reduce((a, b) => a + b, 0) / 8;
+  const read = at("recruiting") >= 15 ? "High school coaches in your areas already call you a closer."
+    : at("play_calling") >= 15 ? "Staffs around the game study your play calling."
+    : teach >= 14 ? "Known on staffs as a teacher: players get better in your rooms."
+    : at("scheme") >= 15 ? "Your scheme is known: other staffs copy your playbook."
+    : at("evaluation") >= 15 ? "Personnel people trust your eye for a player."
+    : at("motivation") >= 15 ? "Players say they'd run through a wall for you."
+    : "A coach few fans have heard of. Results will write your name.";
+  const key = `${bg.key}|${st.ratings.slice(0, 8).join(",")}`;
+  const like = (PG.similar[key] ??= await api("similar", { background: bg.key, ratings: st.ratings }).catch(() => ({ coaches: [] })));
+  const pageBody = `<div class="pg-body"><div class="pg-col"><div class="pg-panel">
+      <div class="pg-ph"><span>${esc(bg.name)} <small>· the road's lean to start</small></span><button class="pg-btn s" data-pg="rate-reset">Reset to the road's lean</button></div>
+      <div class="pg-tbl pg-ratings"><table><thead><tr><th>Rating</th><th>Value</th><th></th><th>What it drives</th><th>Grows by</th></tr></thead><tbody>${body}</tbody></table></div></div></div>
+    <aside class="pg-aside">
+      <div class="pg-panel"><div class="pg-ph"><span>Points</span><small>of ${bg.pool}</small></div><div class="pg-pad">
+        <div style="display:flex;align-items:baseline;gap:10px"><span class="pg-big" style="color:${left === 0 ? "var(--pg-fg)" : left < 0 ? "#ff9c90" : "var(--pg-amber)"}">${left}</span><span style="font-size:13px;color:var(--pg-fg2)">points left</span></div>
+        <div class="pg-meter"><i style="width:${Math.min(100, Math.round((spent / bg.pool) * 100))}%"></i></div>
+        <p class="pg-note">Every rating is 1-20 on the same scale as every coach in the world. Once you're in the job they grow by doing it, and each point costs more the higher it gets; at the start every point costs the same.</p></div></div>
+      <div class="pg-panel"><div class="pg-ph"><span>How the world reads you</span></div><div class="pg-pad" style="gap:6px">
+        <span style="font-size:16px;font-weight:700">${esc(repWord(bg.reputation))}</span><span style="color:var(--pg-fg2);font-size:13px;line-height:1.5">${esc(read)}</span>
+        <span class="pg-note">Nobody sees these numbers but you: the world reads your reputation and what you do.</span></div></div>
+      <div class="pg-panel"><div class="pg-ph"><span>Coaches in the world on your road</span></div><div class="pg-like">
+        ${like.coaches.length ? like.coaches.map((c) => `<div><span><b>${esc(c.name)}</b>, ${c.age}</span><small>${esc(c.job)} · ${esc(c.came_up)} · ${esc(c.reputation.toLowerCase())}</small></div>`).join("") : '<div><small>Nobody in this world came up quite your way.</small></div>'}</div></div>
+    </aside></div>`;
+  return setupPage(st, {
+    title: "Your ratings",
+    lede: "Spread your road's points over the ratings every coach in the world has. You see your own numbers; everyone else sees only your reputation.",
+    body: pageBody, sum: esc(`Strongest: ${top}`), next: "Next: Style",
+    nextOk: left >= 0,
+  });
+}
+
+// Step 5: your coaching style (tendencies, "Your coaching style").
+const STYLE_SETS = [
+  { key: "risk", name: "Risk", poles: "Jim Tressel punting from midfield against Bruce Arians's \"no risk it, no biscuit\"",
+    labels: ["Very safe", "Conservative", "Balanced", "Aggressive", "Very aggressive"],
+    low: "Punts on fourth and two at midfield, plays for field position, returners take a knee.", mid: "Goes for it when the down, distance and score say so.",
+    high: "Goes for it on fourth and short in his own half, takes deep shots, returners bring kicks out." },
+  { key: "freedom", name: "Structure or freedom", poles: "Bill Belichick's \"do your job\" against the Ravens letting Ed Reed freelance",
+    labels: ["Do your job", "Strict", "Earned", "Loose", "Freelance"],
+    low: "Every player in his gap and his route. Instructions are followed more often.", mid: "Veterans earn some freedom; young players stay on script.",
+    high: "Safeties jump routes, backs bounce runs, quarterbacks scramble. Bigger plays both ways." },
+  { key: "physical", name: "Physical or protective", poles: "Pete Carroll's rugby-style shoulder tackling against Jim Harbaugh's physical culture",
+    labels: ["Protective", "Careful", "Normal", "Tough", "Physical"],
+    low: "Less live contact in practice, sure tackles over big hits, fewer practice injuries.", mid: "The usual contact for your level.",
+    high: "Live hitting in practice, players look for the big hit. Tougher teams, more injuries." },
+  { key: "ball_hunting", name: "Ball hunting or sound", poles: "A wrap-up defense that keeps everything in front against Lovie Smith's punch-out Bears",
+    labels: ["Sound", "Wrap up", "Balanced", "Opportunist", "Ball hunting"],
+    low: "Wrap up and keep the play in front. Fewer takeaways, fewer missed tackles.", mid: "Punch at the ball when it is safe to.",
+    high: "Strips, jumped routes, hands up at the line. More takeaways and more missed tackles." },
+  { key: "mould", name: "Mould or adapt", poles: "A system staff that coaches every habit against Andy Reid building around Patrick Mahomes",
+    labels: ["Adapt to him", "Flexible", "Halfway", "System", "Mould him"],
+    low: "Builds around what each player already does. Fit counts less on your boards; habits change slowly.", mid: "Meets players halfway.",
+    high: "Coaches every habit toward your system, twice as fast. Fit counts more on your boards." },
+];
+// The five steps of each scale on the 1-20 style scale every coach has.
+const STYLE_VALUES = [2, 6, 10, 14, 18];
+function pressLabel(p) {
+  return p.risk >= 3 && p.ball_hunting >= 3 ? "A gambler on fourth down and on defense"
+    : p.freedom <= 1 && p.mould >= 3 ? "A system coach: everyone does his job"
+    : p.physical >= 3 ? "A tough, physical program"
+    : p.risk <= 1 ? "Plays the percentages, wins the field position game"
+    : p.freedom >= 3 ? "A players' coach who lets them play"
+    : "Balanced: no label yet";
+}
+function stepStyle(st) {
+  const p = st.style;
+  const sets = STYLE_SETS.map((s) => `<div class="pg-set"><div><h3>${esc(s.name)}</h3><div class="poles">${esc(s.poles)}</div></div>
+    <div class="pg-scale" role="group" aria-label="${esc(s.name)}">${s.labels.map((l, j) => `<button class="${p[s.key] === j ? "on" : ""}" data-pg="style" data-k="${s.key}" data-j="${j}">${esc(l)}</button>`).join("")}</div>
+    <div class="pg-eff">${esc(p[s.key] <= 1 ? s.low : p[s.key] >= 3 ? s.high : s.mid)}</div></div>`).join("");
+  const body = `<div class="pg-body"><div class="pg-col"><div class="pg-panel">${sets}</div></div>
+    <aside class="pg-aside">
+      <div class="pg-panel"><div class="pg-ph"><span>What the press will call you</span></div><div class="pg-pad" style="gap:6px">
+        <span style="font-size:16px;font-weight:700">${esc(pressLabel(p))}</span><span class="pg-note">The media's name for you comes from what you do, not from these settings. This is where your choices point.</span></div></div>
+      <div class="pg-panel"><div class="pg-ph"><span>Also shaping your team</span></div><div class="pg-kv">
+        <span>Your schemes</span><span>Set in your playbook once you have the job. A timing offense or an attacking front pulls habits as much as one of these settings.</span>
+        <span>Coordinators</span><span>Each brings his own style to his side of the ball. The unit lands two-thirds of the way toward yours.</span>
+        <span>Tempo, run or pass</span><span>Game plan settings, chosen week by week.</span></div></div>
+    </aside></div>`;
+  return setupPage(st, {
+    title: "Your coaching style",
+    lede: "How your team plays and which habits you coach into players. Every setting is a real philosophy with winners at both ends; none is better. Players drift toward your style over a season, faster with a coach who moulds.",
+    body, sum: esc(STYLE_SETS.map((s) => s.labels[p[s.key]]).join(" · ")), next: "Next: Job",
+  });
+}
+
+// Step 6: the job.
+const LEVELS = [["nfl", "NFL"], ["college", "College"], ["hs", "High school"]];
+const DIVS = ["FBS", "FCS", "Division II", "Division III", "NAIA", "JUCO"];
+function jobFilters(st, all) {
+  const lv = st.level, f = st.f[lv];
+  const count = (pred) => all.filter(pred).length;
+  const btn = (key, val, label, n) => `<button class="${f[key] === val ? "on" : ""}" data-pg="jf" data-key="${key}" data-v="${esc(val ?? "")}"><span>${esc(label)}</span>${n != null ? `<small>${n}</small>` : ""}</button>`;
+  let html = "";
+  if (lv === "college") {
+    const divs = DIVS.filter((d) => all.some((j) => j.division === d));
+    const inDiv = all.filter((j) => j.division === f.div);
+    const confs = [...new Set(inDiv.map((j) => j.conference))].sort();
+    html = `<h4>Division</h4>${divs.map((d) => btn("div", d, d, count((j) => j.division === d))).join("")}
+      <h4>Conference</h4>${btn("conf", null, "All", inDiv.length)}${confs.map((c) => btn("conf", c, c, inDiv.filter((j) => j.conference === c).length)).join("")}`;
+  } else if (lv === "nfl") {
+    const divs = [...new Set(all.map((j) => j.division).filter(Boolean))].sort();
+    html = `<h4>Conference</h4>${btn("conf", null, "Both", all.length)}${["AFC", "NFC"].map((c) => btn("conf", c, c, count((j) => j.conference === c))).join("")}
+      <h4>Division</h4>${btn("div", null, "All", null)}${divs.filter((d) => !f.conf || d.startsWith(f.conf)).map((d) => btn("div", d, d, count((j) => j.division === d))).join("")}`;
+  } else {
+    const states = [...new Set(all.map((j) => j.state))].sort((a, b) => STATE_NAMES[a] < STATE_NAMES[b] ? -1 : 1);
+    const inState = all.filter((j) => !f.state || j.state === f.state);
+    const classes = [...new Set(inState.map((j) => j.class))].sort((a, b) => (parseInt(b) || 0) - (parseInt(a) || 0) || a.localeCompare(b));
+    html = `<h4>State</h4>${btn("state", null, "Every state", all.length)}${states.map((s) => btn("state", s, STATE_NAMES[s] || s, count((j) => j.state === s))).join("")}
+      <h4>Class</h4>${btn("cls", null, "All", inState.length)}${classes.map((c) => btn("cls", c, c, inState.filter((j) => j.class === c).length)).join("")}`;
+  }
+  return `<nav class="pg-panel pg-filters" aria-label="Filters">
+    <div class="pg-seg">${LEVELS.map(([k, t]) => `<button class="${lv === k ? "on" : ""}" data-pg="level" data-k="${k}">${t}</button>`).join("")}</div>
+    <input class="pg-search" id="pg-q" value="${esc(st.q)}" placeholder="Find a team, town or state" aria-label="Find a team" autocomplete="off">
+    <div class="pg-flt" data-keep="flt">${html}</div></nav>`;
+}
+const JOB_COLS = {
+  college: [["name", "Program"], ["record", "2025", "n"], ["prestige", "Prestige"], ["stadium", "Stadium", "n"], ["nil", "NIL budget", "n"], ["coach", "Head coach now"]],
+  nfl: [["name", "Club"], ["record", "2025", "n"], ["playoffs", "Playoffs"], ["titles", "Super Bowls", "n"], ["cap_room", "Cap room", "n"], ["coach", "Head coach now"]],
+  hs: [["name", "School"], ["record", "2025", "n"], ["prestige", "Prestige"], ["class", "Class"], ["enrollment", "Enrollment", "n"], ["coach", "Head coach now"]],
+};
+const winPct = (r) => { const m = String(r || "").match(/^(\d+)-(\d+)/); return m ? Number(m[1]) / Math.max(1, Number(m[1]) + Number(m[2])) : -1; };
+function jobSortValue(j, k) {
+  if (k === "record") return winPct(j.record);
+  if (k === "coach") return j.coach ? j.coach.name : "";
+  if (k === "name" || k === "class" || k === "playoffs") return String(j[k] || "");
+  return Number(j[k] || 0);
+}
+function jobCell(j, k) {
+  switch (k) {
+    case "name": return `<td style="font-weight:600">${pgMark(j)}${esc(j.name)}</td>`;
+    case "record": return `<td class="n">${esc(j.record)}</td>`;
+    case "prestige": return `<td>${bar(j.prestige)}<span class="pg-dim">${esc(j.prestige_word)}</span></td>`;
+    case "stadium": return `<td class="n">${thousands(j.stadium)}</td>`;
+    case "nil": return `<td class="n">${j.nil ? money0(j.nil) : '<span class="pg-dim">-</span>'}</td>`;
+    case "playoffs": return `<td class="pg-dim">${esc(j.playoffs || "Missed the playoffs")}</td>`;
+    case "titles": return `<td class="n">${j.titles || '<span class="pg-dim">-</span>'}</td>`;
+    case "cap_room": return `<td class="n">${money(j.cap_room)}</td>`;
+    case "class": return `<td>${esc(j.class)}</td>`;
+    case "enrollment": return `<td class="n">${thousands(j.enrollment)}</td>`;
+    case "coach": return `<td class="pg-dim">${j.coach ? esc(j.coach.name) : "Open"}</td>`;
+  }
+  return "<td></td>";
+}
+function jobFile(st, j) {
+  if (!j) return `<aside class="pg-panel pg-jobfile"><div class="pg-empty">Pick a job to read its file: last season, the coach you'd replace, your boss and what he expects.</div></aside>`;
+  const c = j.coach;
+  const replace = c ? `${c.name}, ${c.record} in ${c.seasons} season${c.seasons === 1 ? "" : "s"}. He goes to the coaching market.` : "Nobody: the job is open.";
+  let kv = `<span>2025</span><span>${esc(j.record)}${j.playoffs ? " · " + esc(j.playoffs) : ""}</span>`;
+  if (st.level === "college") {
+    kv += `<span>Stadium</span><span>${thousands(j.stadium)} seats</span><span>NIL budget</span><span>${j.nil ? money0(j.nil) + " a year" : "-"}</span>
+      <span>Titles</span><span>${j.titles ? `${j.titles} national` : "No national titles"}</span>
+      <span>You replace</span><span>${esc(replace)}</span><span>Your boss</span><span>${j.ad ? `${esc(j.ad.name)}, athletic director since ${j.ad.since}` : "The athletic director's job is open"}</span>`;
+  } else if (st.level === "nfl") {
+    kv += `<span>Super Bowls</span><span>${j.titles ? `${j.titles}, the last in ${j.last_title}` : "None yet"}</span><span>Cap room</span><span>${money(j.cap_room)} for ${esc(PG.opts.year)}</span>
+      <span>You replace</span><span>${esc(replace)}</span><span>Your boss</span><span>The owner. In the NFL you are head coach and GM; ${esc(j.gm.name)} has run the personnel side since ${j.gm.since}.</span>`;
+  } else {
+    kv += `<span>Class</span><span>${esc(j.class)} · ${thousands(j.enrollment)} students${j.private ? " · private" : ""}</span><span>State titles</span><span>${j.titles || "None"}</span>
+      <span>You replace</span><span>${esc(replace)}</span><span>Your boss</span><span>The principal and the school board; most high school head coaches also teach.</span>`;
+  }
+  kv += `<span>Expectation</span><span>${esc(j.expectation)}</span><span>The calendar</span><span>${esc(j.calendar)}</span>`;
+  const grades = j.grades ? `<div class="pg-grades-h">What recruits see · program grades</div><div class="pg-grades">${j.grades.map(([n, v]) => `<div><span>${esc(n[0].toUpperCase() + n.slice(1))}</span><b>${v}</b></div>`).join("")}</div>` : "";
+  return `<aside class="pg-panel pg-jobfile"><div class="pg-filehead">${pgMark(j, true)}<div><b>${esc(j.name)}</b><small>${esc(j.city || j.town ? `${j.city || j.town + ", " + j.state} · ${j.line}` : j.line)}</small></div></div>
+    <div class="pg-kv">${kv}</div>${grades}</aside>`;
+}
+async function stepJob(st) {
+  const lv = st.level;
+  const data = (PG.jobs[lv] ??= await api("jobs", { level: lv }));
+  const all = data.jobs;
+  const f = st.f[lv];
+  if (lv === "hs" && f.state === null && !f.touched) f.state = st.state;
+  const q = st.q.trim().toLowerCase();
+  const hay = (j) => `${j.name} ${j.sub} ${STATE_NAMES[j.state] || ""} ${j.city || ""} ${j.town || ""}`.toLowerCase();
+  let list = all.filter((j) => {
+    if (q) return hay(j).includes(q);
+    if (lv === "college") return j.division === f.div && (!f.conf || j.conference === f.conf);
+    if (lv === "nfl") return (!f.conf || j.conference === f.conf) && (!f.div || j.division === f.div);
+    return (!f.state || j.state === f.state) && (!f.cls || j.class === f.cls);
+  });
+  if (st.sort.k) {
+    const k = st.sort.k, dir = st.sort.desc ? -1 : 1;
+    list = list.slice().sort((a, b) => { const x = jobSortValue(a, k), y = jobSortValue(b, k); return (x < y ? -1 : x > y ? 1 : 0) * dir; });
+  }
+  const shown = list.slice(0, 400);
+  const cols = JOB_COLS[lv];
+  const cur = st.job && st.job.kind === lv ? all.find((j) => j.ref.id === st.job.id) : null;
+  const what = q ? `${list.length} match "${esc(st.q.trim())}"` : lv === "college" ? `${esc(f.conf || f.div)}` : lv === "nfl" ? esc(f.div || f.conf || "The NFL") : esc(f.state ? `${STATE_NAMES[f.state] || f.state}${f.cls ? " " + f.cls : ""}` : "Every state");
+  const sortedBy = st.sort.k ? (cols.find((c) => c[0] === st.sort.k) || [, ""])[1].toLowerCase() : "prestige";
+  const table = `<div class="pg-panel pg-jobtable"><div class="pg-ph"><span>${what} <small>· ${list.length} head coaching job${list.length === 1 ? "" : "s"} · sorted by ${esc(sortedBy)}${list.length > shown.length ? ` · showing the first ${shown.length}: narrow it with the filters or a search` : ""}</small></span></div>
+    ${shown.length ? `<div class="pg-tbl dense" data-keep="jobs"><table><thead><tr>${cols.map(([k, t, n]) => `<th class="${n || ""} ${st.sort.k === k ? "sorted" : ""}" data-pg="jsort" data-k="${k}">${t}${st.sort.k === k ? (st.sort.desc ? " ▾" : " ▴") : ""}</th>`).join("")}</tr></thead>
+    <tbody>${shown.map((j) => `<tr data-pg="pick-job" data-kind="${j.ref.kind}" data-id="${j.ref.id}" class="${cur && cur.ref.id === j.ref.id ? "sel" : ""}">${cols.map(([k]) => jobCell(j, k)).join("")}</tr>`).join("")}</tbody></table></div>`
+      : `<div class="pg-empty">No job matches. Try a team, a town, a state or its code (Texas or TX).</div>`}</div>`;
+  const body = `<div class="pg-jobs">${jobFilters(st, all)}${table}${jobFile(st, cur)}</div>`;
+  return setupPage(st, {
+    title: "Your job",
+    lede: "Every head coaching job in the world is open. The coach you replace goes to the coaching market, and his staff stays under contract until you decide.",
+    body,
+    sum: cur ? esc(`${cur.name} · head coach · ${cur.expectation}`) : "Pick a job to take it.",
+    next: "Take the job", nextOk: !!cur,
+  });
+}
+
+// ---------- actions ----------
+async function openWorldFor(st) {
+  if (st.world === "test") return true;
+  if (st.loaded === st.world && S.status && !S.status.mine) return true;
+  if (!(await leaveCareer())) return false;
+  showBusy("Opening the world… a full world takes about a minute.");
+  try {
+    S.status = await api("open_world", { path: st.world });
+    hideBusy();
+    S.savedOn = null;
+    st.loaded = st.world;
+    PG.loaded = st.world;
+    PG.opts = null; PG.jobs = {}; PG.towns = {}; PG.similar = {};
+    PG.lib = null;
+    return true;
+  } catch (e) { hideBusy(); toast(e.message); return false; }
+}
+function toStep(st, k) {
+  st.step = k;
+  st.reached = Math.max(st.reached, k);
+  render();
+}
+function readPhoto(file) {
+  return new Promise((done, fail) => {
+    const r = new FileReader();
+    r.onerror = () => fail(new Error("Could not read that picture."));
+    r.onload = () => {
+      const img = new Image();
+      img.onerror = () => fail(new Error("That file isn't a picture AFM can read."));
+      img.onload = () => {
+        // A 4:5 portrait, cropped from the middle, about 25 KB.
+        const W = 320, H = 400, c = document.createElement("canvas");
+        c.width = W; c.height = H;
+        const k = Math.max(W / img.width, H / img.height);
+        const w = img.width * k, h = img.height * k;
+        c.getContext("2d").drawImage(img, (W - w) / 2, (H - h) / 3, w, h);
+        done(c.toDataURL("image/jpeg", 0.85));
+      };
+      img.src = r.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+function aiPrompt(st) {
+  const age = ageOn(st.born, PG.opts && PG.opts.today) || 42;
+  const her = (HERITAGE.find((h) => h[0] === st.eth) || [, ""])[1].toLowerCase();
+  return `Professional head-and-shoulders portrait photograph of a ${age}-year-old ${her} American football head coach, ${st.height.replace(" ft ", "'")}" tall, ${st.build.toLowerCase()} build, ${st.hair.toLowerCase()} hair, ${st.facial_hair.toLowerCase()}. He wears a plain team quarter-zip and stands on a practice field on media day. Soft natural daylight, 85 mm lens, f/2.8, realistic skin texture, a calm, confident expression with a slight smile. No logos, no text, no watermark. Portrait 4:5.`;
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch (e) { /* the old way below */ }
+  const t = document.createElement("textarea");
+  t.value = text; document.body.appendChild(t); t.select();
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+  t.remove();
+  return ok;
+}
+function startArgs(st) {
+  const o = PG.opts;
+  const style = {};
+  for (const s of STYLE_SETS) style[s.key] = STYLE_VALUES[st.style[s.key]];
+  return {
+    name: fullName(st), age: ageOn(st.born, o.today) || 42, home_state: st.state, ethnicity: st.eth, background: st.bg,
+    ratings: st.ratings, style, job: st.job,
+    profile: {
+      born: st.born, hometown: st.hometown, high_school: st.high_school, alma_mater: st.alma_mater, college_years: st.college_years, degree: st.degree,
+      status: st.status, spouse: st.status === "Married" ? st.spouse : "", roots: st.roots, children: st.children.filter((c) => c.name.trim()),
+      height: st.height, build: st.build, hair: st.hair, facial_hair: st.facial_hair, photo: st.photo,
+    },
+  };
+}
+
+document.addEventListener("click", async (ev) => {
+  const a = ev.target.closest("[data-pg]");
+  if (!a || a.disabled) return;
+  const d = a.dataset;
+  const st = S.route.screen === "setup" ? setupState() : null;
+  switch (d.pg) {
+    case "home": go("start", {}, false); break;
+    case "continue": {
+      if (S.status && S.status.mine) { enterCareer(); break; }
+      const last = PG.lib && PG.lib.saves[0];
+      if (last) openSave(last.path);
+      break;
+    }
+    case "new": {
+      if (S.status && S.status.mine && !(await leaveCareer())) break;
+      S.keep.setup = newSetup();
+      go("setup", {}, false);
+      break;
+    }
+    case "load": go("load", {}, false); break;
+    case "settings": {
+      const h = PG.hello || {};
+      const lib = PG.lib || (await api("library"));
+      const { f, answer } = dialog(`<b>Settings</b><div class="pg-kv" style="padding:0"><span>Version</span><span>${esc(h.version || "")}</span><span>Game folder</span><span style="word-break:break-all">${esc(lib.home)}</span><span>Worlds</span><span>${lib.worlds.length}</span><span>Saves</span><span>${lib.saves.length}</span></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${isMac() ? '<button type="button" class="pg-btn s" data-pg="reveal-home">Show the game folder</button>' : ""}${isMac() && window.__TAURI__.updater ? '<button type="button" class="pg-btn s" data-pg="update-now">Check for updates</button>' : ""}</div>`, "Close", () => true);
+      f.querySelector("[data-dlg=no]").remove();
+      await answer;
+      break;
+    }
+    case "reveal-home": api("reveal", { path: (PG.lib || (await api("library"))).home }).catch((e) => toast(e.message)); break;
+    case "update-now": toast("Looking for a newer version…"); checkUpdate().then(() => { if (!updating) toast("AFM is up to date."); }); break;
+    case "quit": {
+      if (!(await leaveCareer())) break;
+      try { await window.__TAURI__.process.exit(0); } catch (e) { toast("Quit with ⌘Q."); }
+      break;
+    }
+    // Load game.
+    case "pick-save": S.keep.load.sel = d.path; render(); break;
+    case "load-save": if (S.keep.load && S.keep.load.sel) openSave(S.keep.load.sel); break;
+    case "open-save-file": {
+      const path = isMac() && window.__TAURI__.dialog
+        ? await window.__TAURI__.dialog.open({ multiple: false, filters: [{ name: "AFM save", extensions: ["afmsave"] }] })
+        : await ask("Open a save file", { placeholder: "/Users/you/Downloads/my career.afmsave", ok: "Open" });
+      if (path) openSave(path);
+      break;
+    }
+    case "reveal-saves": api("reveal", { path: S.keep.load && S.keep.load.sel }).catch((e) => toast(e.message)); break;
+    case "rename-save": {
+      const sel = S.keep.load && S.keep.load.sel;
+      if (!sel) break;
+      const old = sel.split(/[\\/]/).pop().replace(/\.afmsave$/i, "");
+      const name = await ask("Rename the save", { value: old, ok: "Rename" });
+      if (!name || name === old) break;
+      try { const r = await api("rename_save", { path: sel, name }); S.keep.load.sel = r.path; render(); } catch (e) { toast(e.message); }
+      break;
+    }
+    case "delete-save": {
+      const sel = S.keep.load && S.keep.load.sel;
+      if (!sel) break;
+      const ok = await sure(`Delete ${sel.split(/[\\/]/).pop()}?`, "The save file is removed from your saves folder. This can't be undone.", "Delete it");
+      if (!ok) break;
+      try { await api("delete_save", { path: sel }); S.keep.load.sel = null; render(); } catch (e) { toast(e.message); }
+      break;
+    }
+    // The new career.
+    case "step": if (st) { const k = Number(d.k); if (k > 1 && !(await openWorldFor(st))) break; toStep(st, k); } break;
+    case "next": {
+      if (!st) break;
+      if (st.step === 1) { if (!st.world || !(await openWorldFor(st))) break; }
+      if (st.step === 2 && (!st.first.trim() || !st.last.trim())) { st.tried = true; toast("Give your first and last name first."); render(); break; }
+      toStep(st, st.step + 1);
+      break;
+    }
+    case "pick-world": st.world = d.path; render(); break;
+    case "import": {
+      const path = isMac() && window.__TAURI__.dialog
+        ? await window.__TAURI__.dialog.open({ directory: true, multiple: false })
+        : await ask("Import a world", { placeholder: "/Users/you/Downloads/world-2026-seed2026", ok: "Import", note: "A world folder (whole or in parts) or an .afmworld file. It is copied into your library." });
+      if (!path) break;
+      showBusy("Adding the world to your library…");
+      try { const r = await api("import_world", { path }); hideBusy(); st.world = r.path; toast("Added to your world library."); render(); } catch (e) { hideBusy(); toast(e.message); }
+      break;
+    }
+    case "build": {
+      const seed = Math.floor(Math.random() * 90000) + 10000;
+      const { f, answer } = dialog(`<b>Build a new world</b><small class="sub">A full world is a whole football country with its history, kept in your library: it takes 2-3 hours and up to about 6.5 GB of memory at its peak, and you can keep using AFM. A test world is small and quick, for trying the game, and isn't kept.</small>
+        <div class="pg-grid two" style="padding:0"><div class="pg-f"><label>Kind</label><select name="kind"><option value="full">A full world</option><option value="test">A test world (about 2 minutes)</option></select></div>
+        <div class="pg-f"><label>Seed</label><input name="seed" value="${seed}"></div><div class="pg-f"><label>Years of history (full)</label><input name="years" value="30"></div>
+        <div class="pg-f"><label>Size (test)</label><select name="scale"><option value="0.03">3%</option><option value="0.1">10%</option></select></div></div>`, "Build", (f) => ({ kind: f.elements.kind.value, seed: Number(f.elements.seed.value) || seed, years: Number(f.elements.years.value) || 30, scale: Number(f.elements.scale.value) || 0.03 }));
+      f.elements.kind.focus();
+      const v = await answer;
+      if (!v) break;
+      if (v.kind === "full") {
+        try { await api("build_world_file", { seed: v.seed, history_years: Math.max(1, Math.min(60, v.years)) }); render(); } catch (e) { toast(e.message); }
+        break;
+      }
+      if (!(await leaveCareer())) break;
+      showBusy("Building a test world… a small one takes a couple of minutes.");
+      try {
+        await api("build_world", { seed: v.seed, scale: v.scale, history_years: 2, engine_from: 2026 });
+        S.status = await api("status");
+        hideBusy();
+        S.savedOn = null;
+        st.world = "test"; st.loaded = "test"; PG.loaded = "test";
+        PG.opts = null; PG.jobs = {}; PG.towns = {}; PG.similar = {};
+        render();
+      } catch (e) { hideBusy(); toast(e.message); }
+      break;
+    }
+    case "download": try { await api("download_world", { tag: d.tag }); render(); } catch (e) { toast(e.message); } break;
+    case "jobstop": try { const j = await api("job_stop"); const el = $("#pg-job"); if (el && j) el.outerHTML = buildPanel(j); } catch (e) { toast(e.message); } break;
+    case "kid-add": st.children.push({ name: "", born: PG.opts.year - 8 }); render(); break;
+    case "kid-del": st.children.splice(Number(d.i), 1); render(); break;
+    case "photo": $("#pg-photo-file").click(); break;
+    case "photo-del": st.photo = null; render(); break;
+    case "prompt": {
+      const text = aiPrompt(st);
+      if (await copyText(text)) toast("Copied the portrait prompt: paste it into any image tool.");
+      else await ask("Your portrait prompt", { value: text, long: true, ok: "Done", note: "Copy it from here." });
+      break;
+    }
+    case "pick-bg": st.bg = d.k; render(); break;
+    case "rate": {
+      const bg = bgRatings(st);
+      const i = Number(d.i), step = Number(d.d);
+      const left = bg.pool - st.ratings.reduce((x, y) => x + y, 0);
+      const v = st.ratings[i] + step;
+      if (v < 1 || v > 20 || (step > 0 && left <= 0)) break;
+      st.ratings[i] = v;
+      render();
+      break;
+    }
+    case "rate-reset": st.ratingsFor = null; render(); break;
+    case "style": st.style[d.k] = Number(d.j); render(); break;
+    case "level": st.level = d.k; st.sort = { k: null, desc: true }; render(); break;
+    case "jf": {
+      const f = st.f[st.level];
+      f[d.key] = d.v || null;
+      f.touched = true;
+      if (d.key === "div" && st.level === "college") f.conf = null;
+      if (d.key === "conf" && st.level === "nfl") f.div = null;
+      if (d.key === "state") f.cls = null;
+      st.q = "";
+      render();
+      break;
+    }
+    case "jsort": {
+      const k = d.k;
+      st.sort = st.sort.k === k ? { k, desc: !st.sort.desc } : { k, desc: !["name", "coach", "class"].includes(k) };
+      render();
+      break;
+    }
+    case "pick-job": st.job = { kind: d.kind, id: Number(d.id) }; render(); break;
+    case "take": {
+      if (!st.job) break;
+      const spent = st.ratings ? st.ratings.reduce((x, y) => x + y, 0) : 0;
+      const bg = bgRatings(st);
+      if (spent > bg.pool) { toast(`${spent - bg.pool} rating points over: take some back first.`); toStep(st, 4); break; }
+      showBusy("Taking the job…");
+      try {
+        S.status = await api("start_career", startArgs(st));
+        hideBusy();
+        S.savedOn = null;
+        S.lastSaveName = null;
+        S.keep = {};
+        PG.opts = null; PG.jobs = {}; PG.loaded = null;
+        enterCareer();
+      } catch (e) { hideBusy(); toast(e.message); }
+      break;
+    }
+  }
+});
+
+// Typing on the You step keeps what you type without drawing the page again.
+document.addEventListener("input", (ev) => {
+  const el = ev.target;
+  if (!outside(S.route) || S.route.screen !== "setup") return;
+  const st = setupState();
+  if (el.dataset.f) {
+    st[el.dataset.f] = el.value;
+    if (el.dataset.f === "born") { const a = ageOn(el.value, PG.opts && PG.opts.today); const t = $("#pg-age"); if (t) t.textContent = a != null ? `${a} years old` : ""; }
+    const s = $("#pg-yousum");
+    if (s) s.innerHTML = youSummary(st);
+  } else if (el.dataset.kid !== undefined) {
+    const c = st.children[Number(el.dataset.kid)];
+    if (!c) return;
+    if (el.dataset.kf === "name") c.name = el.value;
+    else { const a = Math.max(0, Math.min(40, Number(el.value) || 0)); c.born = PG.opts.year - a; el.nextElementSibling.textContent = schoolYear(a); }
+  } else if (el.id === "pg-q") {
+    st.q = el.value;
+    clearTimeout(PG.qt);
+    PG.qt = setTimeout(async () => { await render(); const i = $("#pg-q"); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 250);
+  }
+});
+document.addEventListener("change", async (ev) => {
+  const el = ev.target;
+  if (!outside(S.route) || S.route.screen !== "setup") return;
+  const st = setupState();
+  if (["state", "status", "hometown"].includes(el.dataset.f)) {
+    if (el.dataset.f === "state") { st.high_school = ""; st.f.hs.state = null; st.f.hs.touched = false; }
+    render();
+  }
+  if (el.id === "pg-photo-file" && el.files && el.files[0]) {
+    try { st.photo = await readPhoto(el.files[0]); render(); } catch (e) { toast(e.message); }
+  }
+});
