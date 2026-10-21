@@ -35,6 +35,28 @@ impl Weekday {
 const MONTHS: [&str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 impl Date {
+    /// No date yet: a birth date an older world file didn't have, filled
+    /// on load (`World::after_load`).
+    pub const UNSET: Date = Date(i32::MIN);
+
+    /// `UNSET`, for `#[serde(default = ...)]` on fields added after a world
+    /// file was written.
+    pub fn unset() -> Date {
+        Date::UNSET
+    }
+
+    pub fn is_set(self) -> bool {
+        self != Date::UNSET
+    }
+
+    /// Whole years from a birth date (`self`) to `on`: his age that day. A
+    /// February 29 birthday comes on March 1 in other years.
+    pub fn years_to(self, on: Date) -> u32 {
+        let (by, bm, bd) = self.parts();
+        let (y, m, d) = on.parts();
+        (y - by - i32::from((m, d) < (bm, bd))).max(0) as u32
+    }
+
     /// The date for a year, month (1-12) and day (1-31).
     pub fn ymd(y: i32, m: u32, d: u32) -> Date {
         // Howard Hinnant's days_from_civil.

@@ -16,7 +16,7 @@ pub mod weather;
 
 pub use anchors::{CfbPostseason, YearDates};
 pub use date::{Date, Moment, Weekday};
-pub use events::{Calendar, Event, Kind, Level, Loudness, Pending};
+pub use events::{Calendar, Event, GameLevel, GameRef, Kind, Level, Loudness, Pending, Ref, Span, Spans};
 pub use rules::{Change, ChangeState, RuleBook};
 
 /// The NCAA's FBS recruiting periods (topic 5): what college coaches may do

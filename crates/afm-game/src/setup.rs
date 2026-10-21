@@ -397,7 +397,7 @@ pub fn jobs(w: &World, level: &str) -> Value {
     let coach = |c: Option<usize>| {
         c.and_then(|c| w.coaches.get(c).map(|co| (c, co))).map(|(c, co)| {
             let years = co.job.map_or(0, |j| (w.year - j.since).max(0));
-            json!({ "name": co.name, "age": co.age, "record": job_record(w, c), "seasons": years, "id": c })
+            json!({ "name": co.name, "age": co.age_on(w.today), "record": job_record(w, c), "seasons": years, "id": c })
         })
     };
     let base = |t: TeamRef| {
@@ -570,7 +570,7 @@ pub fn similar(w: &World, args: &Value) -> Value {
             };
             let role = j.role.name();
             json!({
-                "id": c, "name": co.name, "age": co.age,
+                "id": c, "name": co.name, "age": co.age_on(w.today),
                 "job": format!("{}{}, {at}", role[..1].to_uppercase(), &role[1..]),
                 "came_up": format!("came up coaching {}", Group::ALL[co.came_up as usize].name()),
                 "reputation": crate::views::reputation_words(co.reputation),

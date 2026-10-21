@@ -3,6 +3,13 @@
 //! heap after the history and after each future season, then weighs each
 //! of the world's stores by dropping it, biggest first.
 //! Usage: memory_check [seed] [history_years] [future_years] [scale]
+//!
+//! In a season (final build, the 4 GB budget): `memory_check file.afmworld
+//! [month-day]` opens a world file as the game does, plays day by day to
+//! that day (default 09-06, the first college Saturday's week), prints the
+//! memory every two weeks, then weighs the stores, the season's own first.
+//! `AFM_SEASON_TO=09-06` does the same after a world built here (a small
+//! one for quick before-and-after checks).
 
 use std::time::Instant;
 
@@ -11,6 +18,9 @@ use afm_engine::world::{World, WorldOptions};
 fn main() {
     afm_tools::count_heap();
     let args: Vec<String> = std::env::args().collect();
+    if let Some(path) = args.get(1).filter(|a| a.ends_with(".afmworld")) {
+        return in_season(path, args.get(2).map(String::as_str).unwrap_or("09-06"));
+    }
     let seed: u32 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(2026);
     let years: u32 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(30);
     let future: u32 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(0);
@@ -41,6 +51,75 @@ fn main() {
         w.advance_year();
         year_line(&w, s.elapsed().as_secs_f64());
     }
+    if let Ok(until) = std::env::var("AFM_SEASON_TO") {
+        into_season(&mut w, &until);
+    }
+    weigh_all(w, t);
+}
+
+/// A world file opened as the game opens it, then played day by day into
+/// the season: memory every two weeks, then each store weighed.
+fn in_season(path: &str, until: &str) {
+    let t = Instant::now();
+    let mut w = afm_engine::save::read_world(std::path::Path::new(path)).expect("read the world");
+    w.after_load();
+    println!(
+        "opened {path} in {:.0}s on {}: heap {:.2} GB, resident {}",
+        t.elapsed().as_secs_f64(),
+        w.today,
+        afm_tools::heap_gb(),
+        afm_tools::memory_text()
+    );
+    into_season(&mut w, until);
+    weigh_all(w, t);
+}
+
+/// Plays day by day to `until` (month-day) in the world's season, then
+/// weighs the season's own stores.
+fn into_season(w: &mut World, until: &str) {
+    let (m, d) = until.split_once('-').map_or((9, 6), |(m, d)| (m.parse().unwrap_or(9), d.parse().unwrap_or(6)));
+    let stop = afm_engine::calendar::Date::ymd(w.year, m, d);
+    let s = Instant::now();
+    let mut k = 0;
+    while w.today < stop {
+        w.advance_day();
+        k += 1;
+        if k % 14 == 0 || w.today >= stop {
+            println!(
+                "{}: heap {:.2} GB, resident {}, events this year {}",
+                w.today,
+                afm_tools::heap_gb(),
+                afm_tools::memory_text(),
+                w.calendar.events.values().map(Vec::len).sum::<usize>()
+            );
+        }
+    }
+    println!("played {k} days in {:.0}s", s.elapsed().as_secs_f64());
+    let mut rows: Vec<(String, f64)> = Vec::new();
+    for store in [
+        "college season",
+        "last college season",
+        "high school season",
+        "NFL season",
+        "portal market",
+        "calendar: this year's events",
+        "calendar: past years' moments",
+        "your games",
+        "people: high school lines",
+    ] {
+        let before = afm_tools::heap_gb();
+        w.debug_drop_season_store(store);
+        rows.push((store.to_string(), before - afm_tools::heap_gb()));
+    }
+    rows.sort_by(|a, b| b.1.total_cmp(&a.1));
+    println!("\n| the season's stores | GB |\n|---|---|");
+    for (name, gb) in &rows {
+        println!("| {name} | {gb:.3} |");
+    }
+}
+
+/// Each store weighed by dropping it, biggest first.
+fn weigh_all(mut w: World, t: Instant) {
     println!(
         "people {}, alumni {}, coaches {}, high schools {}, programs {}, news {}",
         w.people.len(),

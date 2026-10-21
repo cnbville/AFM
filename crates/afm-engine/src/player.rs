@@ -67,6 +67,12 @@ pub struct Traits {
     pub professionalism: u8,
     /// Handles a new city, scheme, coach, level or culture.
     pub adaptability: u8,
+    /// Aura (final build F15): charisma, camera presence and style. Hidden
+    /// like the rest; ads, NIL brand deals, endorsements and followers come
+    /// from it times his fame (`world::aura`), never from it alone, and
+    /// never his pay. 0 only in an older world file, until it loads.
+    #[serde(default)]
+    pub aura: u8,
 }
 
 /// One of the traits, as a number for the code that reads them.
@@ -153,16 +159,30 @@ impl Traits {
         let lz = zs(loyalty as f64);
         let ego = mix(&[(-0.3, co), (-0.2, lz), (0.2, cp)], 5);
         let ez = zs(ego as f64);
+        let leadership = mix(&[(0.2, cp), (0.2, we), (0.15, ez)], 6);
         Traits {
             ambition: mix(&[(0.3, cp)], 1),
             loyalty,
             greed: mix(&[(-0.2, love)], 3),
             temper: mix(&[(-0.25, lz), (0.2, ez)], 4),
             ego,
-            leadership: mix(&[(0.2, cp), (0.2, we), (0.15, ez)], 6),
+            leadership,
             professionalism: mix(&[(0.35, we)], 7),
             adaptability: mix(&[(0.2, co)], 8),
+            aura: Traits::aura_at_14(n(9), ego, leadership),
         }
+    }
+
+    /// Aura at 14 (F15) from a standard normal draw `own`: a small link to
+    /// ego (0.15: swagger reads on camera) and leadership (0.2: a room
+    /// follows him), the rest his own (Claude's pick, final build). The
+    /// 1-20 spread of the other traits.
+    pub fn aura_at_14(own: f64, ego: u8, leadership: u8) -> u8 {
+        let zs = |v: u8| (v as f64 - 10.0) / 3.5;
+        let parts = [(0.15, zs(ego)), (0.2, zs(leadership))];
+        let r: f64 = parts.iter().map(|x| x.0 * x.0).sum();
+        let z = parts.iter().map(|x| x.0 * x.1).sum::<f64>() + (1.0 - r).sqrt() * own;
+        clamp(round_half_up(10.0 + 3.5 * z), 1.0, 20.0) as u8
     }
 }
 

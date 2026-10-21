@@ -388,6 +388,14 @@ pub struct You {
     pub profile: Profile,
 }
 
+impl You {
+    /// Your birth date from your profile, when you gave one.
+    pub fn born_date(&self) -> Option<Date> {
+        let (y, m, d) = self.profile.born?;
+        ((1..=12).contains(&m) && (1..=31).contains(&d)).then(|| Date::ymd(y, m, d))
+    }
+}
+
 /// Your profile (people topics 13 and 15). Kept and shown on your page; the
 /// world reads none of it yet beyond your home state.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -506,6 +514,16 @@ pub struct HsAssistant {
     /// Hidden teaching ability, 1-20 on every coach's scale.
     pub teaching: f64,
     pub since: i32,
+    /// His birth date (final build A1).
+    #[serde(default = "crate::calendar::Date::unset")]
+    pub born: Date,
+}
+
+impl HsAssistant {
+    /// His age on day `d`.
+    pub fn age_on(&self, d: Date) -> u32 {
+        if self.born.is_set() { self.born.years_to(d) } else { self.age }
+    }
 }
 
 /// Subjects high school coaches teach (proposed, not confirmed: weighted
@@ -552,9 +570,11 @@ impl World {
             (None, 2),
             (None, 5),
         ];
+        let seed = self.options.seed as u64 ^ 0x45AF_0B0D ^ (h as u64) << 20;
         order[..n]
             .iter()
-            .map(|&(coordinator, group)| {
+            .enumerate()
+            .map(|(k, &(coordinator, group))| {
                 let eth = super::ethnicity::coach_ethnicity(super::ethnicity::CoachPool::HighSchool, year, &mut rng);
                 let age = 24 + (rng.next() * 34.0) as u32;
                 let name = super::names::person_name(eth, year - age as i32, &mut rng);
@@ -570,6 +590,7 @@ impl World {
                     stipend: (2500.0 + 5500.0 * rich + 1500.0 * lead + rng.normal(0.0, 800.0)).max(1000.0) as u32,
                     teaching: crate::rng::clamp(mean + lead + rng.normal(0.0, 2.5), 1.0, 20.0),
                     since: year - (rng.next() * 8.0) as i32,
+                    born: super::birth::birthday_at(seed, k as u64, year, age),
                 }
             })
             .collect()
@@ -651,5 +672,10 @@ impl World {
         let room = self.people.len() + self.people.len() / 3;
         self.people.shrink_to(room);
         self.seat_games.retain(|g| g.teams.iter().all(|&t| t < self.programs.len().max(self.nfl.len())));
+        // What a newer game adds, filled the same way every time (final
+        // build): birth dates and classes (A1, A2), Aura, followers and
+        // brand money (F15).
+        super::birth::fill_missing(self);
+        super::aura::fill_missing(self);
     }
 }

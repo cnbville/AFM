@@ -90,6 +90,99 @@ pub enum Kind {
     News,
 }
 
+/// What a name in a line of text points at (final build L2): the screens
+/// turn each into a link.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub enum Ref {
+    /// A player, by his id (`Player::id`): in the world or its alumni.
+    Player(u32),
+    /// A coach, by his id (`Coach::id`).
+    Coach(u32),
+    /// A college program.
+    Program(u32),
+    /// A high school.
+    School(u32),
+    /// An NFL club.
+    Club(u32),
+    /// A game: its level, day and home team.
+    Game(GameRef),
+    /// A record book: the division (`Division` as a number), the book (0 a
+    /// season, 1 a career, 2 a streak, 3 a program's winning streak) and
+    /// the stat or streak.
+    Record { division: u8, book: u8, stat: u8 },
+}
+
+/// A game an event names: its level, day and home team (a program, a high
+/// school or an NFL club by id).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub struct GameRef {
+    pub level: GameLevel,
+    pub date: Date,
+    pub home: u32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub enum GameLevel {
+    College,
+    Nfl,
+    HighSchool,
+}
+
+/// A stretch of a line's text that names something (byte offsets).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Span {
+    pub at: u16,
+    pub len: u16,
+    pub to: Ref,
+}
+
+/// The refs of a line, kept small: most lines name one to three things.
+pub type Spans = Box<[Span]>;
+
+fn no_spans(s: &Spans) -> bool {
+    s.is_empty()
+}
+
+/// Where `name` stands in `text` for a new span: its first whole-word
+/// occurrence after the spans already marked (names are linked in the
+/// order the line reads), else its first free one anywhere. None when the
+/// name isn't there.
+pub fn find_span(text: &str, spans: &[Span], name: &str) -> Option<(usize, usize)> {
+    if name.is_empty() || name.len() > u16::MAX as usize || text.len() > u16::MAX as usize {
+        return None;
+    }
+    let cursor = spans.iter().map(|s| (s.at + s.len) as usize).max().unwrap_or(0);
+    let free = |at: usize| {
+        let end = at + name.len();
+        let before = text[..at].chars().next_back();
+        let after = text[end..].chars().next();
+        !before.is_some_and(char::is_alphanumeric)
+            && !after.is_some_and(char::is_alphanumeric)
+            && spans.iter().all(|s| end <= s.at as usize || at >= (s.at + s.len) as usize)
+    };
+    let all: Vec<usize> = text.match_indices(name).map(|(i, _)| i).collect();
+    all.iter().copied().find(|&at| at >= cursor && free(at)).or_else(|| all.into_iter().find(|&at| free(at))).map(|at| (at, name.len()))
+}
+
+/// Adds a span for `name` (see `find_span`); a name not in the text adds nothing.
+pub fn add_span(text: &str, spans: Spans, name: &str, to: Ref) -> Spans {
+    match find_span(text, &spans, name) {
+        Some((at, len)) => {
+            let mut v = spans.into_vec();
+            v.push(Span { at: at as u16, len: len as u16, to });
+            v.sort_by_key(|s| s.at);
+            v.into_boxed_slice()
+        }
+        None => spans,
+    }
+}
+
+/// The spans of `text` moved by `by` bytes, for a line quoted inside a
+/// longer one ("Ten years ago today: ...").
+pub fn shift_spans(spans: &[Span], by: usize) -> Spans {
+    spans.iter().filter(|s| s.at as usize + by + s.len as usize <= u16::MAX as usize).map(|s| Span { at: s.at + by as u16, ..*s }).collect()
+}
+
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Event {
     pub when: Moment,
@@ -116,6 +209,10 @@ pub struct Event {
     /// it stops only a manager it is about.
     #[serde(default)]
     pub regular: bool,
+    /// The people, teams, games and records the text names, as spans of it
+    /// (final build L2). Older files have none.
+    #[serde(default, skip_serializing_if = "no_spans")]
+    pub refs: Spans,
 }
 
 impl Event {
@@ -133,6 +230,20 @@ impl Event {
             memorable: false,
             season: None,
             regular: false,
+            refs: Spans::default(),
+        }
+    }
+    /// Marks `name` in the text as naming `to` (L2). Link names in the
+    /// order the line reads them; a name not in the text is skipped.
+    pub fn link(mut self, name: &str, to: Ref) -> Event {
+        self.refs = add_span(&self.text, std::mem::take(&mut self.refs), name, to);
+        self
+    }
+    /// The same, for a name that may be missing.
+    pub fn link_opt(self, name: Option<&str>, to: Ref) -> Event {
+        match name {
+            Some(n) => self.link(n, to),
+            None => self,
         }
     }
     pub fn memorable(mut self) -> Event {

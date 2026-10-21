@@ -41,7 +41,7 @@ pub(crate) fn high_school_transfers(w: &mut World) {
     let mut by_state: Vec<Vec<usize>> = vec![Vec::new(); 51];
     for i in 0..n {
         let p = &w.people[i];
-        if p.stage == Stage::HighSchool && (15..=17).contains(&p.player.age) {
+        if p.stage == Stage::HighSchool && (15..=17).contains(&p.grade_age()) {
             by_state[p.home_state].push(i);
         }
     }
@@ -168,7 +168,7 @@ pub(crate) fn high_school_transfers(w: &mut World) {
     // to 30% a year for the most homesick).
     for i in 0..n {
         let p = &w.people[i];
-        if p.stage != Stage::HighSchool || p.player.age > 17 || !boarding(&w.high_schools[p.hs]) {
+        if p.stage != Stage::HighSchool || p.grade_age() > 17 || !boarding(&w.high_schools[p.hs]) {
             continue;
         }
         let homesick = clamp((p.family.own_wants.close_to_home - 0.12) * 2.5, 0.0, 0.3);
@@ -193,7 +193,7 @@ pub(crate) fn high_school_transfers(w: &mut World) {
     for i in 0..n {
         let p = &w.people[i];
         if p.stage != Stage::HighSchool
-            || !(16..=17).contains(&p.player.age)
+            || !(16..=17).contains(&p.grade_age())
             || p.last_role != Some(PlayingTime::Backup)
         {
             continue;
@@ -225,15 +225,19 @@ pub(crate) fn high_school_transfers(w: &mut World) {
     }
     // Reclassifying: a few repeat a year or finish early to time their college entry.
     for p in w.people.iter_mut() {
-        if p.stage != Stage::HighSchool || p.player.age != 16 {
+        if p.stage != Stage::HighSchool || p.grade_age() != 16 {
             continue;
         }
         let r = p.rng.next();
         if r < 0.004 && p.player.overall() > 52.0 {
             p.class_of -= 1;
+            p.old_for_class -= 1;
+            p.class_place = super::birth::ClassPlace::ReclassifiedUp as u8;
             p.note("Reclassified to graduate a year early.");
         } else if r > 0.995 {
             p.class_of += 1;
+            p.old_for_class += 1;
+            p.class_place = super::birth::ClassPlace::ReclassifiedDown as u8;
             p.note("Reclassified to repeat a year of high school.");
         }
     }

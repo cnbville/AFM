@@ -539,7 +539,7 @@ fn start_state(w: &mut World, s: usize) {
     for &h in &schools {
         for &i in &w.high_schools[h].roster {
             let p = &w.people[i];
-            who[i] = p.stage == Stage::HighSchool && p.player.age > 14;
+            who[i] = p.stage == Stage::HighSchool && p.grade_age() > 14;
         }
     }
     super::clock::timed("hs reconsider", || season::reconsider_positions(w, &who));
@@ -790,9 +790,10 @@ fn hs_team(w: &World, h: usize, week: usize) -> Option<(GameTeam, Vec<(u32, usiz
             && !p.cal.trouble
             && grades.is_none_or(|g| g.get(&i).is_none_or(|m| m >> week & 1 == 0))
     };
-    let older = school.roster.iter().filter(|&&i| ok(i) && w.people[i].player.age > 14).count();
+    // Freshmen by grade, not age (A2: a boy held back is a freshman at 15).
+    let older = school.roster.iter().filter(|&&i| ok(i) && w.people[i].grade_age() > 14).count();
     let dressed: Vec<usize> =
-        school.roster.iter().copied().filter(|&i| ok(i) && (older < 30 || w.people[i].player.age > 14)).collect();
+        school.roster.iter().copied().filter(|&i| ok(i) && (older < 30 || w.people[i].grade_age() > 14)).collect();
     if dressed.len() < HS_DRESS_MIN {
         return None;
     }
@@ -800,8 +801,9 @@ fn hs_team(w: &World, h: usize, week: usize) -> Option<(GameTeam, Vec<(u32, usiz
     let players: Vec<GamePlayer> = dressed
         .iter()
         .map(|&i| {
+            // Years of high school football: his grade, not his age.
+            let years = w.people[i].grade_age().saturating_sub(14) as f64;
             let p = &w.people[i].player;
-            let years = p.age.saturating_sub(14) as f64;
             GamePlayer::from_player(p, clamp(0.72 + 0.04 * years, 0.0, 0.9), 0.7 * years)
         })
         .collect();
@@ -847,7 +849,7 @@ fn hs_team(w: &World, h: usize, week: usize) -> Option<(GameTeam, Vec<(u32, usiz
         .filter(|&&i| {
             let p = &w.people[i];
             matches!(p.player.position, Position::OT | Position::IOL)
-                && p.player.age >= 17
+                && p.grade_age() >= 17
                 && p.last_role == Some(PlayingTime::Starter)
         })
         .count()
@@ -1450,7 +1452,7 @@ fn hs_spring_candidates(w: &World) -> Vec<(usize, f64, bool)> {
         .par_iter()
         .enumerate()
         .filter_map(|(i, p)| {
-            if p.stage != Stage::HighSchool || !(15..=16).contains(&p.player.age) || spring_steps(p) >= 2 {
+            if p.stage != Stage::HighSchool || !(15..=16).contains(&p.grade_age()) || spring_steps(p) >= 2 {
                 return None;
             }
             let school = &w.high_schools[p.hs];

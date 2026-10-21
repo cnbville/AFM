@@ -302,6 +302,10 @@ pub struct Coach {
     /// Your own coach's four extra ratings; None for every AI coach.
     #[serde(default)]
     pub(crate) yours: Option<Yours>,
+    /// His birth date (final build A1): the age every screen shows. `age`
+    /// is his season age, the one his yearly step reads.
+    #[serde(default = "crate::calendar::Date::unset")]
+    pub born: crate::calendar::Date,
 }
 
 /// A college head coach's contract (trial 4 topic 4): the last season it
@@ -436,10 +440,15 @@ pub fn generate_coach(
         style_set: None,
         freedom_norm: 0.0,
         yours: None,
+        born: crate::calendar::Date::UNSET,
     }
 }
 
 impl Coach {
+    /// His age on day `d`, from his birth date (A1).
+    pub fn age_on(&self, d: crate::calendar::Date) -> u32 {
+        if self.born.is_set() { self.born.years_to(d) } else { self.age }
+    }
     /// Development quality he gives one position group, 1-20, as a head coach
     /// who also teaches it himself (high school) or with coordinators.
     pub(crate) fn teaching(&self, g: Group) -> f64 {

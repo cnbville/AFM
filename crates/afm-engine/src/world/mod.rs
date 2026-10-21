@@ -11,7 +11,9 @@
 //! Game results here are a stand-in until the match engine (section 3): each
 //! game is decided from the two teams' starters, with home field and luck.
 
+pub mod aura;
 pub mod background;
+pub mod birth;
 pub(crate) mod clock;
 pub mod coach;
 pub(crate) mod college;
@@ -205,6 +207,26 @@ pub struct Person {
     /// coach starts it fresh).
     pub trust: f32,
     pub trust_in: u32,
+    /// His birth date (final build A1): every age a screen shows comes from
+    /// it and the day. `player.age` is his season age (`birth::season_age`).
+    #[serde(default = "crate::calendar::Date::unset")]
+    pub born: crate::calendar::Date,
+    /// Years older than his class's on-time boys (A2): a late school start,
+    /// a repeated grade or a hold-back make it 1; a high school
+    /// reclassification moves it a year either way.
+    #[serde(default)]
+    pub old_for_class: i8,
+    /// Why he sits in his class (`birth::ClassPlace` as a byte).
+    #[serde(default)]
+    pub class_place: u8,
+    /// Followers across his social media accounts (F15, X6): fame times
+    /// Aura, from the era such accounts existed (`world::aura`).
+    #[serde(default)]
+    pub followers: u32,
+    /// This year's money from ads, NIL brand deals or endorsements, in
+    /// dollars (F15): fame times Aura (`world::aura`).
+    #[serde(default)]
+    pub brand: f32,
 }
 
 /// The draft staffs' read of a player in December (T3.1, T3.2): his consensus
@@ -367,6 +389,19 @@ impl Person {
     pub fn note(&mut self, s: impl Into<String>) {
         self.notes.push(s.into());
     }
+    /// His age on day `d`, from his birth date (A1).
+    pub fn age_on(&self, d: crate::calendar::Date) -> u32 {
+        if self.born.is_set() { self.born.years_to(d) } else { self.player.age }
+    }
+    /// The season age of his class's on-time boys: what high school grade
+    /// he is in (14 a freshman, 17 a senior), whatever his own age (A2).
+    pub fn grade_age(&self) -> u32 {
+        (self.player.age as i32 - self.old_for_class as i32).max(0) as u32
+    }
+    /// Why he sits in his class (A2).
+    pub fn class_place(&self) -> birth::ClassPlace {
+        birth::ClassPlace::from_u8(self.class_place)
+    }
     /// The age on his latest season row. A row covers the season and the
     /// offseason after it, so every note about either gives this age and a
     /// page reads one age per season (D5, F15). Steps toward a season not
@@ -440,6 +475,9 @@ pub struct Alumnus {
     pub player: Option<Box<crate::player::Player>>,
     /// His pro career, written when he retires (section 5).
     pub pro: Option<Box<pro::ProCareer>>,
+    /// His birth date (final build A1).
+    #[serde(default = "crate::calendar::Date::unset")]
+    pub born: crate::calendar::Date,
 }
 
 impl Alumnus {
@@ -482,6 +520,7 @@ impl Alumnus {
             college_staff: p.college_staff.clone(),
             player: (pick.is_some() || p.stars >= 4).then(|| Box::new(p.player.clone())),
             pro: None,
+            born: p.born,
         }
     }
 }
@@ -1014,6 +1053,25 @@ impl World {
         }
     }
 
+    /// Memory tooling: drops one of the season's own stores by name, the
+    /// ones that grow from the first day of a football year
+    /// (`memory_check` in a season).
+    #[cfg(feature = "debug")]
+    pub fn debug_drop_season_store(&mut self, store: &str) {
+        match store {
+            "college season" => self.college = None,
+            "last college season" => self.college_prev = None,
+            "high school season" => self.hs_season = None,
+            "NFL season" => self.nfl_season = None,
+            "portal market" => self.portal_market = None,
+            "calendar: this year's events" => self.calendar.events = Default::default(),
+            "calendar: past years' moments" => self.calendar.history = Vec::new(),
+            "your games" => self.seat_games = Vec::new(),
+            "people: high school lines" => self.people.iter_mut().for_each(|p| p.hs_lines = Vec::new()),
+            _ => {}
+        }
+    }
+
     /// A program as the match engine sees it today (trial tooling only).
     #[cfg(feature = "debug")]
     pub fn debug_game_team(&self, prog: usize) -> Option<crate::game::GameTeam> {
@@ -1060,6 +1118,7 @@ impl World {
         self.next_person += kids.len() as u32;
         let schools = &self.high_schools;
         let states = &self.states;
+        let world_seed = self.options.seed as u64;
         let new: Vec<Person> = kids
             .par_iter()
             .enumerate()
@@ -1067,14 +1126,15 @@ impl World {
                 let mut rng = Rng::new(seed);
                 let culture = states[s].culture;
                 let z = rng.normal(culture, 1.0);
+                let id = first_id + k as u32;
+                // A1, A2: his birthday, and whether he is a year older than
+                // his class (keyed draws: his own stream is untouched).
+                let place = birth::older_for_class(world_seed, id, schools[hs].area_money, z);
+                let older = u32::from(place != birth::ClassPlace::OnTime);
+                let born = birth::birthday(world_seed, id, year, age, place);
                 let mut player = generate_prospect(
                     &mut rng,
-                    ProspectOptions {
-                        id: Some(first_id + k as u32),
-                        talent_z: Some(z),
-                        age: Some(age),
-                        ..Default::default()
-                    },
+                    ProspectOptions { id: Some(id), talent_z: Some(z), age: Some(age + older), ..Default::default() },
                 );
                 let school = &schools[hs];
                 let (mut bg, structure) = generate_background(
@@ -1094,7 +1154,7 @@ impl World {
                     + 0.012 * (player.personality.work_ethic - 10.0)
                     + 0.04 * (bg.home_stability - 0.5);
                 Person {
-                    name: names::person_name(ethnicity, year - age as i32, &mut rng),
+                    name: names::person_name(ethnicity, year - (age + older) as i32, &mut rng),
                     ethnicity,
                     player,
                     rng,
@@ -1139,6 +1199,11 @@ impl World {
                     mood_why: 0,
                     trust: 0.6,
                     trust_in: u32::MAX,
+                    born,
+                    old_for_class: older as i8,
+                    class_place: place as u8,
+                    followers: 0,
+                    brand: 0.0,
                 }
             })
             .collect();

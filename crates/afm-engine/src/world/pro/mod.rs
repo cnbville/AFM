@@ -615,6 +615,12 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
         mood_why: 0,
         trust: 0.6,
         trust_in: u32::MAX,
+        // A1: his birthday for his age now (keyed: no stream moves).
+        born: super::birth::birthday_at(w.options.seed as u64, id as u64, year, age),
+        old_for_class: 0,
+        class_place: 0,
+        followers: 0,
+        brand: 0.0,
     }
 }
 
@@ -2050,7 +2056,7 @@ pub fn possessive(name: &str) -> String {
 pub fn describe(w: &World, i: usize) -> String {
     let p = &w.people[i];
     let team = p.pro.as_ref().and_then(|c| c.team).map_or("free agent", |t| w.nfl[t].name);
-    format!("{} ({}, {}, {})", p.name, p.player.position, p.player.age, team)
+    format!("{} ({}, {}, {})", p.name, p.player.position, p.age_on(w.today), team)
 }
 
 #[allow(dead_code)]

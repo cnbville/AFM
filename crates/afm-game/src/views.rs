@@ -52,6 +52,13 @@ pub fn mine(w: &World) -> Option<TeamRef> {
     })
 }
 
+/// A birth date: "Mar 14, 2008".
+pub fn born_text(d: Date) -> String {
+    let (y, m, day) = d.parts();
+    const M: [&str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    format!("{} {day}, {y}", M[(m - 1) as usize])
+}
+
 pub fn date_text(d: Date) -> String {
     let (y, m, day) = d.parts();
     const M: [&str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -410,7 +417,7 @@ fn row(w: &World, k: usize, t: TeamRef, own: bool, reader: u64) -> Value {
         "name": p.name,
         "pos": pos.name(),
         "group": unit(pos),
-        "age": p.player.age,
+        "age": p.age_on(w.today),
         "class": class_text(w, p),
         "ht": ft_in(p.player.body.height),
         "wt": p.player.body.weight.round(),
@@ -1188,7 +1195,7 @@ fn coach_row(w: &World, c: usize, role: &str) -> Value {
         "id": c,
         "name": co.name,
         "role": role,
-        "age": co.age,
+        "age": co.age_on(w.today),
         "reputation": reputation_words(co.reputation),
         "came_up": came_up(w, c),
         "record": job_record(w, c),
@@ -1242,7 +1249,7 @@ pub fn staff(w: &World, t: TeamRef) -> Value {
                         None => g.coach_title().to_string(),
                     };
                     rows.push(json!({
-                        "id": null, "name": a.name, "role": role, "age": a.age,
+                        "id": null, "name": a.name, "role": role, "age": a.age_on(w.today),
                         "reputation": "Local",
                         "came_up": a.subject.as_ref().map_or("Walk-on coach (doesn't teach)".to_string(), |s| format!("Teaches {s}")),
                         "record": "", "since": a.since, "pay": a.stipend, "you": false,
@@ -1292,7 +1299,7 @@ pub fn coach(w: &World, c: usize) -> Result<Value, String> {
         .collect();
     let mentor = co.mentor.and_then(|m| w.coaches.get(m)).map(|m| json!({ "id": m.id, "name": m.name }));
     Ok(json!({
-        "id": c, "name": co.name, "age": co.age, "reputation": reputation_words(co.reputation),
+        "id": c, "name": co.name, "age": co.age_on(w.today), "born": co.born.is_set().then(|| born_text(co.born)), "reputation": reputation_words(co.reputation),
         "came_up": came_up(w, c), "ex_pro": co.ex_pro, "job": job, "history": history,
         "mentor": mentor, "titles": co.career_titles,
         "you": w.career.as_ref().is_some_and(|k| k.coach == c),
@@ -1777,7 +1784,7 @@ pub fn search(w: &World, q: &str) -> Value {
         .take(60)
         .map(|&(_, _, _, k)| {
             let p = &w.people[k];
-            json!({ "id": p.player.id, "name": p.name, "pos": p.player.position.name(), "age": p.player.age, "where": where_now(w, p), "level": if p.stage == Stage::Done { "Retired" } else { level_words(level_of(w, p)) } })
+            json!({ "id": p.player.id, "name": p.name, "pos": p.player.position.name(), "age": p.age_on(w.today), "where": where_now(w, p), "level": if p.stage == Stage::Done { "Retired" } else { level_words(level_of(w, p)) } })
         })
         .collect();
     let brief = |t: TeamRef| {
@@ -1844,7 +1851,7 @@ pub fn you(w: &World) -> Value {
         profile["photo"] = Value::Null;
     }
     json!({
-        "name": y.name, "age": co.age, "reputation": reputation_words(co.reputation),
+        "name": y.name, "age": co.age_on(w.today), "born": co.born.is_set().then(|| born_text(co.born)), "reputation": reputation_words(co.reputation),
         "record": format!("{wn}-{l}"), "titles": co.career_titles,
         "started": date_text(c.started), "road": y.road,
         "teaching": Group::ALL.iter().map(|g| json!({ "group": g.coach_title(), "value": (ab.teaching[*g as usize] * 10.0).round() / 10.0 })).collect::<Vec<_>>(),
@@ -1942,7 +1949,7 @@ pub fn recruiting(w: &World) -> Value {
                 let offered = p.cal.offers.contains(&prog) || p.cal.early_offers.iter().any(|o| o.0 == prog);
                 let official = p.cal.visits.iter().any(|v| v.0 == prog && v.2 == afm_engine::world::Visit::Official);
                 let visited = p.cal.visits.iter().any(|v| v.0 == prog);
-                if !(signed || committed || offered || visited) || p.player.age > 19 {
+                if !(signed || committed || offered || visited) || p.grade_age() > 19 {
                     continue;
                 }
                 let status = if signed {

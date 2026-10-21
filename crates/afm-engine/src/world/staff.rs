@@ -32,6 +32,8 @@ fn new_coach(w: &mut World, tier: CoachTier, age: u32, pool: CoachPool) -> usize
     c.sportsmanship =
         clamp(10.0 + 3.5 * super::season::key_normal(w.options.seed as u64 ^ 0x5B0C, id as u64), 1.0, 20.0);
     c.systems = super::systems::draw(id, c.came_up, c.ability.scheme, w.options.seed as u64);
+    // A1: his birthday for his age now (keyed: no stream moves).
+    c.born = super::birth::birthday_at(w.options.seed as u64 ^ 0xC0AC, id as u64, w.year, age);
     w.coaches.push(c);
     id
 }
@@ -2295,6 +2297,10 @@ pub fn take_seat(w: &mut World, you: &super::seat::You, employer: Employer) -> u
         c.came_up = Group::ALL[g];
     }
     c.systems = super::systems::draw(id, c.came_up, c.ability.scheme, w.options.seed as u64);
+    // Your birth date from your profile, or one for your age.
+    c.born = you.born_date().unwrap_or_else(|| {
+        super::birth::birthday_at(w.options.seed as u64 ^ 0xC0AC, id as u64, w.year, you.age)
+    });
     w.coaches.push(c);
     hire(w, id, employer, Role::HeadCoach);
     id
