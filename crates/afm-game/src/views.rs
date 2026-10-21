@@ -1837,6 +1837,12 @@ pub fn you(w: &World) -> Value {
     let Some(ab) = w.your_ability() else { return Value::Null };
     let y = &c.you;
     let (wn, l) = w.career_record(c.coach);
+    // A photo is shown only if it is a plain JPEG (a shared save can't
+    // carry anything else into the page).
+    let mut profile = serde_json::to_value(&y.profile).unwrap_or(Value::Null);
+    if !y.profile.photo.as_deref().is_some_and(crate::setup::photo_ok) {
+        profile["photo"] = Value::Null;
+    }
     json!({
         "name": y.name, "age": co.age, "reputation": reputation_words(co.reputation),
         "record": format!("{wn}-{l}"), "titles": co.career_titles,
@@ -1848,12 +1854,23 @@ pub fn you(w: &World) -> Value {
         "extra": w.your_extra().map(|x| json!({
             "play_calling": x.play_calling, "adaptation": x.adaptation,
             "evaluation": x.evaluation, "negotiating": x.negotiating,
+            "calls": calls_text(x.calls_offense, x.calls_defense),
         })),
-        "profile": y.profile,
+        "profile": profile,
         "home_state": w.states.get(y.home_state).map(|s| state_name(&s.code)),
         "style": { "risk": y.style.risk, "freedom": y.style.freedom, "physical": y.style.physical, "ball_hunting": y.style.ball_hunting, "mould": y.style.mould },
         "history": coach(w, c.coach).map(|v| v["history"].clone()).unwrap_or(Value::Null),
     })
+}
+
+/// Who calls your plays, in words.
+fn calls_text(offense: bool, defense: bool) -> &'static str {
+    match (offense, defense) {
+        (true, true) => "Both sides",
+        (true, false) => "The offense",
+        (false, true) => "The defense",
+        (false, false) => "Your coordinators call both sides",
+    }
 }
 
 #[allow(dead_code)]

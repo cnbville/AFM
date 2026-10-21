@@ -44,7 +44,7 @@ fn a_college_career_plays_through_its_first_games() {
         "start_career",
         json!({
             "name": "Test Coach", "age": 41, "background": "college_assistant", "job": job, "seed": 99,
-            "ratings": ratings, "home_state": "TX",
+            "ratings": ratings, "home_state": "TX", "calls": "defense",
             "profile": { "born": "1985-03-14", "hometown": "Austin", "alma_mater": "Texas Tech", "children": [{ "name": "Jake", "born": 2012 }] },
         }),
     );
@@ -53,6 +53,7 @@ fn a_college_career_plays_through_its_first_games() {
     let you = ok(&mut g, "you", json!({}));
     assert_eq!(you["extra"]["play_calling"].as_f64(), Some(ratings[pc]), "{you}");
     assert_eq!(you["extra"]["negotiating"].as_f64(), Some(ratings[18]), "{you}");
+    assert_eq!(you["extra"]["calls"], "The defense", "{you}");
     assert_eq!(you["profile"]["hometown"], "Austin");
     assert_eq!(you["profile"]["children"][0][0], "Jake");
     // The save's card: the world's story and your team, without loading it.

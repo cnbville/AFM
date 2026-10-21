@@ -62,10 +62,10 @@ pub fn read(path: &str) -> Result<World, String> {
     let p = Path::new(path);
     if path.ends_with(".afmworld")
         && w.career.is_none()
-        && !crate::cards::beside(p).exists()
-        && crate::files::read_meta(p).ok().is_some_and(|m| m.get("card").is_none_or(Value::is_null))
+        && let Ok(meta) = crate::files::read_meta(p)
+        && crate::cards::read(p, &meta).is_null()
     {
-        let _ = std::fs::write(crate::cards::beside(p), crate::cards::card(&w).to_string());
+        crate::cards::write_beside(p, &w, &meta);
     }
     Ok(w)
 }
@@ -89,11 +89,28 @@ pub fn rename_save(g: &Game, args: &Value) -> Result<Value, String> {
         return Err("Give the save a name.".into());
     }
     let to = from.with_file_name(format!("{name}.afmsave"));
-    if to.exists() && to != from {
+    if to.exists() && !same_file(&to, &from) {
         return Err(format!("There is already a save called {name}."));
     }
     std::fs::rename(&from, &to).map_err(|e| format!("Could not rename the save: {e}"))?;
     Ok(json!({ "path": to.display().to_string() }))
+}
+
+/// Whether two paths are one file: on a Mac's disk a rename that only
+/// changes letter case finds the old file under the new name.
+fn same_file(a: &Path, b: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        match (a.metadata(), b.metadata()) {
+            (Ok(x), Ok(y)) => x.dev() == y.dev() && x.ino() == y.ino(),
+            _ => false,
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        a.to_string_lossy().eq_ignore_ascii_case(&b.to_string_lossy())
+    }
 }
 
 /// Deletes a save (the load page asks first).
@@ -103,9 +120,16 @@ pub fn delete_save(g: &Game, args: &Value) -> Result<Value, String> {
     Ok(json!({ "deleted": true }))
 }
 
-/// Shows a file in Finder (or the folder in the system's file browser).
+/// Shows a file in Finder (or the folder in the system's file browser):
+/// only the game folder and what is in it, else the saves folder.
 pub fn reveal(g: &Game, args: &Value) -> Result<Value, String> {
-    let p = args.get("path").and_then(Value::as_str).map_or_else(|| g.home.join("saves"), PathBuf::from);
+    let home = g.home.canonicalize().map_err(|e| e.to_string())?;
+    let p = args
+        .get("path")
+        .and_then(Value::as_str)
+        .and_then(|p| PathBuf::from(p).canonicalize().ok())
+        .filter(|p| p.starts_with(&home))
+        .unwrap_or_else(|| home.join("saves"));
     let r = if cfg!(target_os = "macos") {
         std::process::Command::new("open").arg("-R").arg(&p).spawn()
     } else if cfg!(target_os = "windows") {
@@ -113,7 +137,8 @@ pub fn reveal(g: &Game, args: &Value) -> Result<Value, String> {
     } else {
         std::process::Command::new("xdg-open").arg(if p.is_dir() { &p } else { p.parent().unwrap_or(&p) }).spawn()
     };
-    r.map_err(|e| format!("Could not open the folder: {e}"))?;
+    let mut child = r.map_err(|e| format!("Could not open the folder: {e}"))?;
+    std::thread::spawn(move || child.wait());
     Ok(json!({ "shown": p.display().to_string() }))
 }
 
@@ -564,6 +589,14 @@ fn text(args: &Value, k: &str, max: usize) -> String {
 }
 
 /// Your profile from the setup's You step.
+/// A photo the page made: a small base64 JPEG and nothing else, so a save
+/// passed around can't carry anything into the page.
+pub(crate) fn photo_ok(s: &str) -> bool {
+    s.len() < 400_000
+        && s.strip_prefix("data:image/jpeg;base64,")
+            .is_some_and(|b| b.bytes().all(|c| c.is_ascii_alphanumeric() || matches!(c, b'+' | b'/' | b'=')))
+}
+
 fn profile(args: &Value) -> Profile {
     let p = args.get("profile").cloned().unwrap_or(json!({}));
     let born = p.get("born").and_then(Value::as_str).and_then(|d| {
@@ -587,11 +620,7 @@ fn profile(args: &Value) -> Profile {
         })
         .unwrap_or_default();
     // A photo is a small JPEG the page made; anything else is dropped.
-    let photo = p
-        .get("photo")
-        .and_then(Value::as_str)
-        .filter(|s| s.starts_with("data:image/jpeg;base64,") && s.len() < 400_000)
-        .map(str::to_string);
+    let photo = p.get("photo").and_then(Value::as_str).filter(|s| photo_ok(s)).map(str::to_string);
     Profile {
         born,
         hometown: text(&p, "hometown", 60),
@@ -649,6 +678,18 @@ pub fn start(w: &mut World, args: &Value) -> Result<(), String> {
         _ => Ethnicity::White,
     };
     let profile = profile(args);
+    // Who calls the plays: the page's choice, else the side you came up
+    // teaching (a quarterbacks man calls the offense, a secondary man the
+    // defense, a special teams man hands both to his coordinators).
+    let top = (0..GROUP_COUNT).max_by(|&x, &y| teaching[x].total_cmp(&teaching[y]).then(y.cmp(&x))).unwrap_or(0);
+    let side = if top < 4 {
+        "offense"
+    } else if top < GROUP_COUNT - 1 {
+        "defense"
+    } else {
+        "none"
+    };
+    let calls = args.get("calls").and_then(Value::as_str).unwrap_or(side);
     // Your age from your date of birth, on today's date.
     let age = match profile.born {
         Some((y, m, d)) => {
@@ -691,6 +732,8 @@ pub fn start(w: &mut World, args: &Value) -> Result<(), String> {
             adaptation: at("adaptation"),
             evaluation: at("evaluation"),
             negotiating: at("negotiating"),
+            calls_offense: matches!(calls, "offense" | "both"),
+            calls_defense: matches!(calls, "defense" | "both"),
         },
         profile,
     };

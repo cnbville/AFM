@@ -602,8 +602,8 @@ screens.you = async () => {
   const kids = (p.children || []).map(([n, b]) => `${n}, ${Math.max(0, Number(String(S.status && S.status.today).slice(-4)) - b)}`).join("; ");
   const family = [p.status, p.status === "Married" && p.spouse ? `to ${p.spouse}` : ""].filter(Boolean).join(" ") + (kids ? `; children: ${kids}` : "");
   const looks = [p.height, p.build, p.hair && p.hair + " hair", p.facial_hair].filter(Boolean).join(", ").toLowerCase();
-  return `<div class="pad"><div style="display:flex;gap:18px;align-items:center">${p.photo ? `<img src="${p.photo}" alt="" style="width:88px;height:110px;object-fit:cover;border-radius:14px">` : ""}<div><div class="st-label">Head coach since ${esc(y.started)}</div><div class="h1">${esc(y.name)}</div></div></div>
-    <div class="kv"><dt>Age</dt><dd>${y.age}</dd>${y.road ? `<dt>Came up as</dt><dd>${esc(y.road)}</dd>` : ""}<dt>Reputation</dt><dd>${esc(y.reputation)}</dd><dt>Record</dt><dd>${esc(y.record)}</dd><dt>Titles</dt><dd>${y.titles}</dd>
+  return `<div class="pad"><div style="display:flex;gap:18px;align-items:center">${p.photo ? `<img src="${esc(p.photo)}" alt="" style="width:88px;height:110px;object-fit:cover;border-radius:14px">` : ""}<div><div class="st-label">Head coach since ${esc(y.started)}</div><div class="h1">${esc(y.name)}</div></div></div>
+    <div class="kv"><dt>Age</dt><dd>${y.age}</dd>${y.road ? `<dt>Came up as</dt><dd>${esc(y.road)}</dd>` : ""}<dt>Reputation</dt><dd>${esc(y.reputation)}</dd><dt>Record</dt><dd>${esc(y.record)}</dd><dt>Titles</dt><dd>${y.titles}</dd>${x && x.calls ? `<dt>Calls the plays</dt><dd>${esc(x.calls)}</dd>` : ""}
     ${from ? `<dt>From</dt><dd>${esc(from)}${p.high_school ? ` · ${esc(p.high_school)}` : ""}</dd>` : ""}${school.trim() ? `<dt>College</dt><dd>${esc(school)}</dd>` : ""}${family.trim() ? `<dt>Family</dt><dd>${esc(family)}${p.roots ? ` · roots: ${esc(p.roots)}` : ""}</dd>` : ""}${looks ? `<dt>Looks</dt><dd>${esc(looks)}</dd>` : ""}</div>
     <div class="grid2"><div class="panel"><h2>Teaching <small>your own ratings, 1-20; nobody else sees them</small></h2>${y.teaching.map((t) => row(t.group, t.value)).join("")}</div>
     <div class="panel"><h2>The rest</h2>${[["Scheme", y.scheme], ["Game management", y.game_management], ...(x ? [["Play calling", x.play_calling], ["In-game adaptation", x.adaptation]] : []), ["Motivation", y.motivation], ["Discipline", y.discipline], ["Relationships", y.relationships], ["Recruiting", y.recruiting], ...(x ? [["Evaluation", x.evaluation]] : []), ["Network", y.network], ...(x ? [["Negotiating", x.negotiating]] : [])].map(([t, v]) => row(t, v)).join("")}</div></div>
@@ -806,8 +806,10 @@ document.addEventListener("keydown", (ev) => {
   if ((ev.metaKey || ev.ctrlKey) && ev.key === "k") { ev.preventDefault(); const q = $("#q"); if (q) q.focus(); }
   if (ev.target.id === "q" && ev.key === "Enter" && ev.target.value.trim().length > 1) go("search", { q: ev.target.value.trim() });
   if (ev.key === " " && ev.target === document.body && S.status && S.status.mine && !outside(S.route)) { ev.preventDefault(); cont(); }
-  if (ev.altKey && ev.key === "ArrowLeft") goBack();
-  if (ev.altKey && ev.key === "ArrowRight") goFwd();
+  // Option+arrows move by a word inside a text field on a Mac.
+  const typing = ev.target.closest && ev.target.closest("input, textarea, select, [contenteditable]");
+  if (ev.altKey && !typing && ev.key === "ArrowLeft") goBack();
+  if (ev.altKey && !typing && ev.key === "ArrowRight") goFwd();
 });
 window.addEventListener("mouseup", (ev) => { if (ev.button === 3) goBack(); if (ev.button === 4) goFwd(); });
 
@@ -815,6 +817,7 @@ window.addEventListener("mouseup", (ev) => { if (ev.button === 3) goBack(); if (
 // seconds, and after five minutes says what to do if nothing comes back.
 let busyTimer = null;
 function showBusy(text) {
+  if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
   let o = $("#busy");
   if (!o) {
     o = document.createElement("div");
@@ -894,8 +897,8 @@ async function checkUpdate() {
   const T = window.__TAURI__;
   if (!T || !T.updater || updating) return;
   let up = null;
-  try { up = await T.updater.check(); } catch (e) { console.warn("update check", e); return; }
-  if (!up) return;
+  try { up = await T.updater.check(); } catch (e) { console.warn("update check", e); return false; }
+  if (!up) return null;
   updating = true;
   let got = 0, total = 0;
   updateBar(`<b>Updating AFM to version ${esc(up.version)}…</b><small id="upmb"></small>`);
@@ -911,9 +914,11 @@ async function checkUpdate() {
     updateBar(`<b>The update didn't install.</b><small>${esc(e.message || e)}. AFM tries again next time it starts.</small><button class="st-btn small glass" data-act="updclose">Close</button>`);
     return;
   }
-  const busy = S.status && S.status.mine;
+  // A career open, or a world being built or downloaded: never cut off.
+  const working = await api("job").then((j) => !!(j && !j.finished), () => false);
+  const busy = (S.status && S.status.mine) || working;
   if (!busy) return T.process.relaunch();
-  updateBar(`<b>Version ${esc(up.version)} is installed.</b><small>Save your career, then restart to use it.</small><button class="st-btn small primary" data-act="updrestart">Restart now</button>`);
+  updateBar(`<b>Version ${esc(up.version)} is installed.</b><small>${working ? "Restart once the world you're building or downloading is ready." : "Save your career, then restart to use it."}</small><button class="st-btn small primary" data-act="updrestart">Restart now</button>`);
 }
 document.addEventListener("click", (ev) => {
   const a = ev.target.closest("[data-act=updrestart],[data-act=updclose]");

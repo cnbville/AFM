@@ -751,6 +751,17 @@ pub(crate) fn coach_caller(w: &World, who: Option<usize>, slot: usize) -> Caller
     }
 }
 
+/// Who calls a side's plays (plays and tactics topic 6.1): its coordinator,
+/// or the head coach without one; you, as head coach, when you call that
+/// side yourself.
+pub(crate) fn play_caller(w: &World, coordinator: Option<usize>, head: Option<usize>, offense: bool) -> Option<usize> {
+    let yours = head.and_then(|h| w.coaches[h].yours);
+    match yours {
+        Some(y) if (if offense { y.calls_offense } else { y.calls_defense }) => head,
+        _ => coordinator.or(head),
+    }
+}
+
 /// Your own play calling and in-game adaptation (people topic 15) when you
 /// call the plays: they take the place of what an AI coach's scheme and
 /// game management give, and his four calling skills move with your
@@ -826,18 +837,20 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
     // A caller runs a system he knows less well worse (S4): his calling
     // skill scales with what he knows of the installed system.
     let caller = |c: Option<usize>, slot: usize| coach_caller(w, c.or(prog.head_coach), slot);
+    let (oc_call, dc_call) =
+        (play_caller(w, prog.oc, prog.head_coach, true), play_caller(w, prog.dc, prog.head_coach, false));
     // Film study (topic 5.1): the coordinators' eye and the quality-control
     // staff a budget buys (proposed, not confirmed).
     let eye = |c: Option<usize>| ab(c.or(prog.head_coach)).map_or(9.0, |a| a.scheme);
     let film_study = clamp(0.35 * (eye(prog.oc) + eye(prog.dc)) + 7.0 * prog.facilities, 1.0, 20.0);
-    let dc = prog.dc.or(prog.head_coach);
+    let dc = dc_call;
     // The install (T6.2): the staff sizes the weekly plan to what its
     // players can absorb; a poor staff misjudges it, an aggressive one puts
     // in more (proposed, not confirmed).
     let aware = players.iter().map(|p| p.a(Attr::FootballIq)).sum::<f64>() / players.len().max(1) as f64;
     let install = {
-        let oc = caller(prog.oc, inst.off);
-        let who = prog.oc.or(prog.head_coach).unwrap_or(usize::MAX) as u64;
+        let oc = caller(oc_call, inst.off);
+        let who = oc_call.unwrap_or(usize::MAX) as u64;
         let miss = 0.15 * (1.0 - oc.skill / 20.0).max(0.0) * key_normal(0x1257 ^ w.year as u64, who);
         clamp(crate::game::roster::absorb(aware) + miss + 0.01 * (oc.aggressiveness - 10.0), 0.35, 1.0)
     };
@@ -845,8 +858,8 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
         prog.real_name.clone(),
         players,
         GameStaff {
-            offense: caller(prog.oc, inst.off),
-            defense: caller(prog.dc, 7 + inst.shell),
+            offense: caller(oc_call, inst.off),
+            defense: caller(dc_call, 7 + inst.shell),
             game_management: hc.map_or(9.0, |a| a.game_management),
             strictness: hc.map_or(10.0, |a| a.discipline),
             off_scheme: inst.offense(),

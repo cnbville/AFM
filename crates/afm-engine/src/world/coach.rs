@@ -122,11 +122,24 @@ pub struct Yours {
     pub adaptation: f64,
     pub evaluation: f64,
     pub negotiating: f64,
+    /// You call your offense's or your defense's plays yourself as head
+    /// coach (plays and tactics topic 6.1); otherwise the coordinator does.
+    #[serde(default)]
+    pub calls_offense: bool,
+    #[serde(default)]
+    pub calls_defense: bool,
 }
 
 impl Default for Yours {
     fn default() -> Yours {
-        Yours { play_calling: 10.0, adaptation: 10.0, evaluation: 10.0, negotiating: 10.0 }
+        Yours {
+            play_calling: 10.0,
+            adaptation: 10.0,
+            evaluation: 10.0,
+            negotiating: 10.0,
+            calls_offense: false,
+            calls_defense: false,
+        }
     }
 }
 

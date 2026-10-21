@@ -31,12 +31,25 @@ pub fn beside(path: &Path) -> PathBuf {
     PathBuf::from(s)
 }
 
-/// A file's card: from its header, else from beside it.
+/// A file's card: from its header, else from beside it, if the card beside
+/// it was made for this very file (a world replaced under the same name, or
+/// a card cut short, reads as none and is made again).
 pub fn read(path: &Path, meta: &Value) -> Value {
     match meta.get("card") {
         Some(c) if !c.is_null() => c.clone(),
-        _ => std::fs::read(beside(path)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or(Value::Null),
+        _ => std::fs::read(beside(path))
+            .ok()
+            .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
+            .filter(|c| c.get("for").is_some_and(|f| Some(f) == meta.get("written")))
+            .unwrap_or(Value::Null),
     }
+}
+
+/// Writes the card beside a file, marked with the file it was made for.
+pub fn write_beside(path: &Path, w: &World, meta: &Value) {
+    let mut c = card(w);
+    c["for"] = meta.get("written").cloned().unwrap_or(Value::Null);
+    let _ = std::fs::write(beside(path), c.to_string());
 }
 
 fn month_text(d: Date) -> String {
@@ -149,12 +162,14 @@ fn world_part(w: &World) -> Value {
         }
         story.push(("The NFL".into(), line));
     }
-    let hs = match o.hs_engine_years {
-        Some(n) if n > 0 => {
-            let from = (last - n as i32 + 1).max(first);
+    // The years the engine played high school games: the last n before the
+    // start, never before the history or before the engine itself began.
+    let hs_from = o.hs_engine_years.map(|n| (o.start_year - n as i32).max(first).max(o.engine_from.unwrap_or(first)));
+    let hs = match hs_from {
+        Some(from) if from <= last => {
             format!(
                 "{} years of Friday nights on the match engine, {from}-{last}: every college and NFL player who came through them has a real high school stat line.",
-                number_word(last as u32 - from as u32 + 1)
+                number_word((last - from + 1) as u32)
             )
         }
         _ => {
