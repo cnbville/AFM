@@ -1,6 +1,6 @@
 # Section 9: game day control (design)
 
-Status: designed 2026-10-21 in the thread "Section 9 design: game day control". Not built. All 12 topics were posted the same day. Cain answered questions 1 and 4 to 6; questions 2 and 3 (the tape's hints: how many, and which first) wait for him. Topics posted without a question stand as proposed, not confirmed: Cain raised nothing on them.
+Status: designed 2026-10-21 in the thread "Section 9 design: game day control". Not built. All 12 topics were posted the same day. Cain answered every question: 1 to 3 (his 19:33 answer covers the tape's hints) and 4 to 6. Topics posted without a question stand as proposed, not confirmed: Cain raised nothing on them.
 
 Labels:
 - **Confirmed**: Cain answered it.
@@ -63,15 +63,15 @@ Question 1: "When you watch another team's game back, should it show only what g
 - Other teams' games show the dots, the results and your staff's tags, labelled as your staff's and with their mistakes. The true calls and the engine's reasons show only on your own games and in debug tools.
 - The tape gives its own hints and tips, whatever the scouting staff's rating (below).
 
-### The tape's own hints and tips (Cain's ask, confirmed; the details proposed, not confirmed)
-Claude read "despite scouting ranking" as: no rating decides the hints, neither the staff's nor the user's own.
+### The tape's own hints and tips (Cain's ask, confirmed)
+Cain's 19:33 answer settles questions 2 and 3 (he said so at 20:01: "i already answered those and you mentioned agreeing"): the tape gives **some** hints and tips, **the same whatever the scouting staff's rating**. No rating decides them, neither the staff's nor the user's own, and they don't depend on what the staff's report already has.
 - **Hints come from your film time.** "Study the tape" on any of the opponent's games uses film time from your week (people topic 5's time budget) and gives that tape's hints at once, each linked to the snaps that show it. Watching in 2D is for seeing the evidence.
 - **A hint is what the tape really shows, with the count** ("on 3rd and 7 or longer they showed two deep safeties on 9 of 11 snaps, and rotated one down at the snap on 7"). Always true to that tape, but one game is a small sample: a habit can be noise or opponent-specific.
 - **Kinds:** formation and personnel tells; player tells (plays topic 7.4: a back's depth, a lineman leaning on his hand, a safety creeping down, a QB staring at his first read); habits by situation; weaknesses in the battles ("lost 6 of 8 reps to speed rushes"); special teams; the head coach's habits.
 - **The tip is the textbook answer** ("outside leverage on 3rd down gives up the slant"). It never promises the play works: the battles decide, and a good opposing coach breaks his habits (plays topic 5.6) or uses one as bait.
 - **Your finds are yours:** they sit in the opponent report under your name, apart from your staff's lines, and one click adds a hint to the game plan.
 - **AI coaches don't get hints:** their staffs read film through their ratings, as built. The hints stand in for a human's trained eye on a film of moving dots.
-- Waiting on Cain: question 2 (how many hints per tape; pick: the three strongest, a habit seen on several tapes merging into one stronger hint, so up to about 12 a week) and question 3 (which first; pick: what the staff's report doesn't already have).
+- **Some, the strongest:** each tape studied gives its strongest few hints (most snaps, clearest split, biggest effect on yards); a habit seen on several tapes becomes one stronger hint. Proposed, not confirmed: three per tape to start, so up to about 12 in a week of four tapes, tuned in play. Claude had first proposed giving the hints the staff's report lacked first; that would tie the hints to the staff, which Cain's answer rules out.
 
 ---
 
