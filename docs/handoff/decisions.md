@@ -358,6 +358,20 @@ The design is in `docs/design/game-day.md`: 12 topics, written as the real-life 
 
 ---
 
+## 17b. Section 10 follow-up (thread "Section 10: UI and screens", 2026-10-21)
+
+- **Claude's picks in `screens.md` confirmed** (Cain, 20:18, "yes"): every item marked "proposed, not confirmed" there is now confirmed (one rating red, notes beyond players, six squad views, stale after 1 September, made-up service names, tier names, the talk screen's tabs, the success rule, the speed targets and the rest).
+- **Linking** (Cain, 20:18): "What seperates a game from a excel sheet into a a game is intuitiveness, it should be extremely calming and soothing navigating through the UI. Calming doesn't mean barebones... i want intuitive linking, i should be able to somehow go from depth chart to a progress screen back to the chart. I want you to make sure that every page has relevant hyperlinks, without becoming chaotic." Written up as `screens.md` topic 17 (rules and a link map per screen) and a Development tab on the player page (training topic 13's content).
+- **Full screens** (Cain, 20:20): "i still want the screens filled, it just has to be intuitive, aeshetical and luxury. Don't take this as an excuse to add less feature or data into screens." Topic 17's rule 0.
+
+## 19. Dynamic Links (thread "Section 10: UI and screens", 2026-10-21)
+
+The design is in `docs/design/dynamic-links.md`. Design only; Cain: "dynamic links is an new feature i want to implement later" (20:26).
+- **What it is** (20:26): "I want to make Geneticall traits important in this game, it's what could give a 2* a serious scholarship to a SEC Team because they see a physical freak." (20:32): "I just want to add a realistic dynamic to the gamne where people who are genetically gifted do get an edge."
+- **No limits** (20:36, "you're not thinking of placing limits right ?"): links cap nothing; the hidden ceilings that move every year stay as they are.
+- **Many small links that stack** (20:40): "instead having one genetic freak trait, i want to have multiple smaller ones, which could be stacked up on each other... size, reach, jumping could get like a Highpointer trait".
+- **Agreed on all** (20:47): how a link works (2-4 body traits against the position's combine numbers, the weakest part sets its strength, smooth from about the top 30% to full near the top 5%, an edge only in its own situations, links stack, they change over a career, staffs name and value them, opponents plan for them); the 12 links (Highpointer, Burner, Sudden, Low center of gravity, Battering ram, Length, Big man who moves, Anchor, Get-off, Bend, Lungs, Pocket frame); 13 a full link is worth about 5 rating points in its situations; 14 body traits only, skills decide how well he uses the gift; 15 two links in the same situation: the stronger in full, the other at half. Built later, after the physics gaps the doc lists.
+
 ## Superseded decisions
 
 | Old | Replaced by | When |
@@ -403,10 +417,3 @@ The design is in `docs/design/game-day.md`: 12 topics, written as the real-life 
 [T19]: transcripts/19-calendar-spec-to-github.md
 [T20]: transcripts/20-account-move-handoff.md
 [RM]: raichel-messages.md
-
-## 17b. Section 10 follow-up (thread "Section 10: UI and screens", 2026-10-21)
-
-- **Claude's picks in `screens.md` confirmed** (Cain, 20:18, "yes"): every item marked "proposed, not confirmed" there is now confirmed (one rating red, notes beyond players, six squad views, stale after 1 September, made-up service names, tier names, the talk screen's tabs, the success rule, the speed targets and the rest).
-- **Linking** (Cain, 20:18): "What seperates a game from a excel sheet into a a game is intuitiveness, it should be extremely calming and soothing navigating through the UI. Calming doesn't mean barebones... i want intuitive linking, i should be able to somehow go from depth chart to a progress screen back to the chart. I want you to make sure that every page has relevant hyperlinks, without becoming chaotic." Written up as `screens.md` topic 17 (rules and a link map per screen) and a Development tab on the player page (training topic 13's content).
-- **Full screens** (Cain, 20:20): "i still want the screens filled, it just has to be intuitive, aeshetical and luxury. Don't take this as an excuse to add less feature or data into screens." Topic 17's rule 0.
-
