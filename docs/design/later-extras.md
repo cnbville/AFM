@@ -2,7 +2,7 @@
 
 Designed 2026-10-21 in the thread "Section 11 design: later extras". Cain: "let's design them i want the next build to be final (afterwards we'll tune and fix but i want all features applied as we designed)". Design only; everything here goes into the final build.
 
-Five topics: 1 full club finances at every level, 2 a 3D game view, 3 player figures in the 2D view, 4 importing a folder of photos, 5 build 9's "still later" leftovers. Real life is written in as the default. Numbers no source publishes are marked "proposed, not confirmed". The three choices real life can't settle are at the end; choice 3 is answered, choices 1 and 2 wait on the mock-ups.
+Five topics: 1 full club finances at every level, 2 a 3D game view, 3 player figures in the 2D view, 4 importing a folder of photos, 5 build 9's "still later" leftovers. Real life is written in as the default. Numbers no source publishes are marked "proposed, not confirmed". The three choices real life can't settle are at the end, all answered.
 
 Not in this section, and why:
 - **Press conferences and player talks** moved into section 6 on 2026-10-18 (`docs/design/people.md`, topic 5 talks and topic 9 press conferences). The old roadmap and open-questions lines that still put them here are fixed.
@@ -83,12 +83,18 @@ No open questions in this topic.
 - **The field and stadium are generated from the real venue:** capacity, shape (bowl, horseshoe, one side, two sides), dome, retractable roof or open, grass or turf, the real hash marks and markings by level, the end zones in the home team's colours and name. High schools get bleachers, a press box, a scoreboard and a track where it has one. The crowd fills the seats to the game's attendance (topic 1), so empty seats show.
 - **Weather and light come from the day:** day, dusk or night under lights from the kickoff time, rain, snow building on the field, wind in the flags and the goalpost streamers.
 - **The other people on the field:** the officials for the level and era in their real spots, throwing flags when the engine calls a penalty, the chain crew moving with the line to gain, and the sidelines with players and coaches.
-- **Cameras:** the high sideline TV camera by default, the All-22 sideline and end-zone angles, the skycam behind the offense, a low sideline angle, and free orbit. Big plays get an automatic replay from a second angle (you can turn it off).
+- **Cameras:** the coaches' All-22 camera high behind the offense by default (choice 1, the mock-up's B), the All-22 sideline angle, the high sideline TV camera (the mock-up's A), the skycam, a low sideline angle, a camera that isolates one player, and free orbit. Big plays get an automatic replay from a second angle (you can turn it off).
 - **Overlays in 3D** are drawn on the turf: route trails, separation rings, the line of scrimmage and the line to gain, the pocket clock, the coverage shell before the snap.
 - **Runs well on both Macs:** three.js inside the Tauri window (Safari's WebGL 2 on the Mac). One shared low-polygon body, scaled per player, with a high and a low detail version; the crowd drawn as cheap cards; shadows only from the main light. A quality setting (Auto, Low, Medium, High) where Auto picks Low on Intel graphics. Proposed, not confirmed: 60 frames a second on the M1 at High, 30 or more on an Intel Mac at Low, and under 300 MB extra memory while watching. The 3D view loads only when you open it and frees its memory when you leave, so it doesn't add to the season's memory (the 5.1 GB against the 4 GB budget is already on the final build list).
 - **Before it ships**, the build posts one short clip and a still of the same play in 3D for Cain's ok, the way the faces are checked (final build list F14).
 
-One question at the end (choice 1): which view a watched game opens in.
+- **Film-room tools** (real ones every staff's video software has; added 2026-10-21 after Cain asked how B could be better, proposed, not confirmed until he has seen them):
+  1. Draw on the film: circles, arrows and lines on a paused frame, saved with the clip.
+  2. Cut-ups: every snap that matches a filter (down and distance, field zone, formation, personnel, play, one player) played back to back, built from your staff's tags (section 9, topic 1).
+  3. Isolate one player: the camera locks on him for the whole snap, like watching only your left tackle.
+  4. Your position coaches' grades on the film: each player's grade for that snap (assignment, technique, effort), with loafs flagged, from the next-day grading (section 9, after the game).
+
+Choice 1 answered: the coaches' 3D view (B) and the 2D dots (D), with one switch between them.
 
 ---
 
@@ -105,7 +111,7 @@ One question at the end (choice 1): which view a watched game opens in.
 - **Readable when they bunch:** the number badge stays the same size at every zoom, figures get thinner outlines when packed, and the ball carrier keeps his ring.
 - **Both stay:** figures and dots are one setting apart, and every overlay works on both.
 
-One question at the end (choice 2): which one the 2D view shows by default.
+Choice 2 answered: dots by default (D); figures stay a setting.
 
 ---
 
@@ -166,8 +172,8 @@ No open questions in this topic.
 
 ## Choices for Cain
 
-1. **Which view a watched game opens in.** 2D is the coach's view: everything in section 9 and the overlays is designed on it, and it shows all 22 at once. 3D is the TV view and looks best for big plays. You can switch at any time either way. My pick: 2D, with each big play's replay in 3D.
-2. **What the 2D view shows by default: figures or dots.** Dots read best when 22 players bunch up; figures show who is blocking, tackling or down at a glance. My pick: figures, with dots one click away.
+1. **Which view a watched game opens in.** **Answered:** the coaches' 3D (the mock-up's B) and the 2D dots (D), with one switch between them, a button or the V key, even mid-play (Cain, 2026-10-21 21:29: "Ooooh i love B & D, i'd love to be able to switch between them"). Reading of his answer, proposed, not confirmed: the view opens in whichever you used last; the broadcast camera (A) stays one of the 3D cameras.
+2. **What the 2D view shows by default: figures or dots.** **Answered:** dots (D, same message). Figures (C) stay a setting.
 3. **Whether the import also offers a NewGAN-style pool.** You drop a folder of unnamed photos sorted into heritage subfolders, and the game gives a fitting one to each player who has no photo of yours, for life, as NewGAN does. **Answered: no, not for now** (Cain, 2026-10-21 21:08: "No not for now").
 
 Choices 1 and 2: Cain asked to see them first (21:08: "give me 2 different 3-d mockups ... just so i get the idea", "Also mock up"). The mock-up page shows one play four ways from the same frames: broadcast 3D, coaches' 3D, 2D figures and 2D dots (https://claude.ai/artifact/CteVV5nFKW8TmDigAqe3hR).
