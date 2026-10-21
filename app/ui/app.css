@@ -209,6 +209,11 @@ a { color: inherit; }
 .notes .note small { color: var(--fg3); display: flex; justify-content: space-between; }
 
 /* ---------- setup ---------- */
+.page-scroll { height: 100vh; overflow-y: auto; overflow-x: hidden; }
+/* The room clips its glow without becoming a scroll box, so the action bar can stick. */
+.page-scroll > .st-room { overflow: clip; }
+.setup-actions { position: sticky; bottom: 16px; z-index: 5; display: flex; gap: 12px; justify-content: flex-end; align-items: center; padding: 12px 16px; border-radius: 20px; background: color-mix(in oklab, var(--raised) 85%, transparent); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); box-shadow: var(--shadow-sheet); }
+.setup-actions .sub { margin-right: auto; }
 .setup { max-width: 1100px; margin: 0 auto; padding: 40px 26px 80px; display: grid; gap: 22px; }
 .field { display: grid; gap: 6px; }
 .field label { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--fg3); }

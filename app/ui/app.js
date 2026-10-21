@@ -313,7 +313,7 @@ screens.setup = async () => {
       <div class="search" style="margin:0"><input id="s-q" value="${esc(st.q)}" placeholder="Find a team"></div><span class="sub">${jobs.jobs.length} jobs</span></div>
       <div class="jobs">${jl.map((j) => `<button class="job" data-act="job" data-kind="${j.ref.kind}" data-id="${j.ref.id}" aria-pressed="${st.job && st.job.kind === j.ref.kind && st.job.id === j.ref.id}">${mark(j, 30)}<span><b>${esc(j.name)}</b><small>${esc(j.sub)}</small></span></button>`).join("")}</div>
     </div>
-    <div style="display:flex;gap:12px;justify-content:flex-end"><button class="st-btn glass" data-act="tostart">Back</button><button class="st-btn primary" data-act="begin" ${st.job ? "" : "disabled"}>Take the job</button></div>
+    <div class="setup-actions"><span class="sub">${st.job ? (() => { const j = jobs.jobs.find((x) => x.ref.kind === st.job.kind && x.ref.id === st.job.id); return j ? `<b>${esc(j.name)}</b> · ${esc(j.sub)}` : ""; })() : "Pick a job above to take it."}</span><button class="st-btn glass" data-act="tostart">Back</button><button class="st-btn primary" data-act="begin" ${st.job ? "" : "disabled"}>Take the job</button></div>
   </div></div>`;
 };
 
@@ -637,11 +637,21 @@ async function render(scroll) {
   const app = $("#app");
   try {
     if (r.screen === "start" || r.screen === "setup") {
-      app.innerHTML = await screens[r.screen](r.args);
+      // The window itself never scrolls (body.st), so these full pages
+      // scroll in their own box.
+      // Re-rendering the same page (a job or road picked) keeps its place.
+      const same = app.dataset.page === r.screen;
+      const keepTop = same && $(".page-scroll") ? $(".page-scroll").scrollTop : 0;
+      const keepJobs = same && $(".jobs") ? $(".jobs").scrollTop : 0;
+      app.innerHTML = `<div class="page-scroll">${await screens[r.screen](r.args)}</div>`;
+      app.dataset.page = r.screen;
+      if (keepTop) $(".page-scroll").scrollTop = keepTop;
+      if (keepJobs && $(".jobs")) $(".jobs").scrollTop = keepJobs;
       return;
     }
     if (!S.status) S.status = await api("status");
     const html = await screens[r.screen](r.args);
+    app.dataset.page = "";
     const me = S.status && S.status.mine;
     app.innerHTML = frame(html, `${me ? esc(me.name) + " · " : ""}<b>${CRUMBS[r.screen] || ""}</b>`);
     if (scroll) $(".view").scrollTop = scroll;
