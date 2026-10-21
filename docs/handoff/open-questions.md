@@ -144,8 +144,8 @@ Done since the specs were written (the specs still say "not done"):
 | Watching players' offseason work | "i'm interested in building an creative way wherre we can see and montiors player work in the off-season. We'll come to that later though." | [T16] 2026-10-14 08:40; designed in `docs/design/training.md` topic 9 (2026-10-20) |
 | A playable NCAA coach career | "i want to build the dynamics into the game for realism and potentially a feature where i become an NCAA coach." | [T16] 2026-10-14 11:57; Q4 "NFL for now, leave room for updates" |
 | Better visuals, maybe 3D | "I am potentially intrested in better visuals so leave room for htat ." | [T13] 2026-10-13 17:50 |
-| Press conferences and player talks | Q43: a news inbox now, these later | Roadmap section 11 |
-| Full club finances | Q28: owner budgets now, full finances later | Roadmap section 11 |
+| Press conferences and player talks | Q43: a news inbox now, these later | Designed in section 6 (`docs/design/people.md`, topics 5 and 9), moved there 2026-10-18 |
+| Full club finances | Q28: owner budgets now, full finances later | Designed 2026-10-21 in `docs/design/later-extras.md`, topic 1 |
 | Deeper training design | "in the training aspect i see sooooo much realism, potential in there." | [T00] 2026-10-11 19:31; designed in `docs/design/training.md` (2026-10-20), choices confirmed |
 | Possible release beyond personal use | "no itention of releasing it as an steam game" (for now) | [T00] 2026-10-11 18:42 |
 

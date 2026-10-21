@@ -220,7 +220,7 @@ The order below is **confirmed** (Raichel, 2026-10-11: "ok to all"): world, matc
 | 8 | First playable | Designed (2026-10-20, `docs/design/first-playable.md`), not built |
 | 9 | Game day control | Not designed |
 | 10 | Screens and 2D view | Design written (2026-10-20, `docs/design/screens.md`, on Showtime), three choices with Cain |
-| 11 | Later | Not started |
+| 11 | Later | Designed 2026-10-21 (`docs/design/later-extras.md`), not built |
 
 Status updated 2026-10-18. `CLAUDE.md` ("Next job") has the detail.
 
@@ -316,4 +316,5 @@ Dense FM-style screens with a modern finish, player cards, the news inbox, histo
 
 ### Section 11. Later
 
-Press conferences and player talks, full club finances, and anything else Raichel adds. The college coaching mode moved out of here into the main build on 2026-10-18.
+Full club finances at every level, a 3D game view, player figures in the 2D view, importing a folder of photos, and build 9's "still later" leftovers (other leagues on the engine, the supplemental draft, prospects' own choices, smokescreens and mocks, quarterback-receiver chemistry, social media and NIL from followers). Press conferences and player talks moved into section 6 on 2026-10-18 (`docs/design/people.md`, topics 5 and 9). The college coaching mode moved out of here into the main build on 2026-10-18.
+- **Design written 2026-10-21** in `docs/design/later-extras.md` (thread "Section 11 design: later extras") so the final build has every feature. Three choices wait on Cain (the view a watched game opens in, figures or dots by default, a photo pool). Not built.
