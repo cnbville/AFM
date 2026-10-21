@@ -520,7 +520,11 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         // is settled when it ends, by the games he played (the 2018 rule).
         p.cal.academic_sit = academic_sit;
         p.cal.trouble = trouble.is_some();
-        if p.stage == Stage::College && !academic_sit {
+        // From 2026-27 Division I has no redshirts (five years to play five,
+        // S11): every year on the roster counts, settled January 2.
+        let five = p.stage == Stage::College
+            && super::eligibility::five_in_five(year as i32, programs[p.college.unwrap_or(0)].division);
+        if p.stage == Stage::College && !academic_sit && !five {
             if role == PlayingTime::Redshirt {
                 p.redshirt_used = true;
             } else if trouble.is_none() {

@@ -1,15 +1,20 @@
 //! Weather from the date and the place (A34-A38).
 //!
-//! Each state has the climate normals of its main football town: monthly
-//! mean highs and lows, days with measurable precipitation, mean wind and a
-//! midsummer dew point. A day's weather is drawn from those normals, the same
-//! for every game in that state that day, so September heat in the South and
-//! December cold in the North come from the calendar.
+//! Each town the world plays football in has its own NOAA 1991-2020 climate
+//! normals (U-e, final build): monthly mean highs and lows and days with
+//! measurable precipitation, from the nearest station with a full record
+//! (`data/real-world/town_climate.csv`, built by
+//! `data/real-world/scripts/town_climate.py` from NOAA's monthly normals on
+//! its open data bucket). Wind and the midsummer dew point, which the
+//! monthly normals don't carry, come from each state's main football town.
+//! A town not in the table uses its state's main town. A day's weather is
+//! drawn from the normals with a day-to-day swing shared by the whole state
+//! (weather systems are regional), so a September Friday is hotter in
+//! Brownsville than in Amarillo on the same front.
 //!
-//! Source and doubt: NOAA's 1991-2020 normals could not be downloaded (the
-//! network refuses www.ncei.noaa.gov), so these are researched values written
-//! from the published normals for each city, rounded. They should be checked
-//! against the NOAA files when the network allows (logged as a doubt).
+//! The state rows below were written from the published normals of each
+//! state's main town before the NOAA files could be read; the town table
+//! now overrides their highs, lows and wet days wherever a town is listed.
 
 use super::date::Date;
 
@@ -498,6 +503,77 @@ pub fn climate(code: &str) -> &'static Climate {
     CLIMATES.iter().find(|c| c.state == code).unwrap_or(&CLIMATES[42])
 }
 
+/// One town's NOAA 1991-2020 monthly normals: mean highs and lows (F) and
+/// days with 0.01 inch of precipitation or more.
+#[derive(Clone, Copy, Debug)]
+pub struct TownNormals {
+    pub high: [f32; 12],
+    pub low: [f32; 12],
+    pub wet_days: [f32; 12],
+}
+
+const TOWN_CSV: &str = include_str!("../../../../data/real-world/town_climate.csv");
+
+/// Every listed town's normals, keyed by a hash of state code and town name.
+static TOWNS: std::sync::LazyLock<std::collections::HashMap<u64, TownNormals>> =
+    std::sync::LazyLock::new(|| {
+        let mut map = std::collections::HashMap::new();
+        for line in TOWN_CSV.lines().skip(1) {
+            let cols = split_csv(line);
+            if cols.len() < 41 {
+                continue;
+            }
+            let num = |k: usize| cols[k].parse::<f32>().unwrap_or(0.0);
+            let mut t = TownNormals { high: [0.0; 12], low: [0.0; 12], wet_days: [0.0; 12] };
+            for m in 0..12 {
+                t.high[m] = num(5 + m);
+                t.low[m] = num(17 + m);
+                t.wet_days[m] = num(29 + m);
+            }
+            map.insert(town_key(cols[0], cols[1]), t);
+        }
+        map
+    });
+
+/// Splits one CSV line, keeping quoted commas inside their field.
+fn split_csv(line: &'static str) -> Vec<&'static str> {
+    let mut out = Vec::new();
+    let mut start = 0;
+    let mut quoted = false;
+    for (k, ch) in line.char_indices() {
+        match ch {
+            '"' => quoted = !quoted,
+            ',' if !quoted => {
+                out.push(line[start..k].trim_matches('"'));
+                start = k + 1;
+            }
+            _ => {}
+        }
+    }
+    out.push(line[start..].trim_matches('"'));
+    out
+}
+
+/// A stable 64-bit key for a state and town (FNV-1a over both names).
+fn town_key(code: &str, town: &str) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in code.bytes().chain(std::iter::once(b'|')).chain(town.bytes()) {
+        h ^= b as u64;
+        h = h.wrapping_mul(0x0000_0100_0000_01B3);
+    }
+    h
+}
+
+/// A town's normals, if the table lists it.
+pub fn town_normals(code: &str, town: &str) -> Option<&'static TownNormals> {
+    TOWNS.get(&town_key(code, town))
+}
+
+/// How many towns have their own normals.
+pub fn towns_listed() -> usize {
+    TOWNS.len()
+}
+
 /// A state's yearly chance that a hurricane or tropical storm reaches its
 /// football towns in season (part B 13): Florida most years apart,
 /// Louisiana every five, Texas and North Carolina every six or seven, the
@@ -687,8 +763,10 @@ fn normal(a: u64, b: u64) -> f64 {
     (-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos()
 }
 
-/// The climate normals for a date, interpolated between mid-month values.
-fn normals(c: &Climate, d: Date) -> (f64, f64, f64, f64) {
+/// The climate normals for a date, interpolated between mid-month values:
+/// the town's own NOAA normals where listed, else its state's main town;
+/// the dew point always from the state.
+fn normals(c: &Climate, town: Option<&TownNormals>, d: Date) -> (f64, f64, f64, f64) {
     let (_, m, day) = d.parts();
     let m0 = m as usize - 1;
     let (a, b, f) = if day >= 15 {
@@ -696,27 +774,47 @@ fn normals(c: &Climate, d: Date) -> (f64, f64, f64, f64) {
     } else {
         ((m0 + 11) % 12, m0, (day as f64 + 15.0) / 30.0)
     };
+    let (high, low, wet) = match town {
+        Some(t) => (t.high.map(f64::from), t.low.map(f64::from), t.wet_days.map(f64::from)),
+        None => (c.high, c.low, c.wet_days),
+    };
     let lerp = |v: &[f64; 12]| v[a] + (v[b] - v[a]) * f;
-    let wet = lerp(&c.wet_days) / 30.4;
+    let wet_share = lerp(&wet) / 30.4;
     // Dew points track the season: midsummer value, falling about 0.9 F per F
     // of mean temperature below July's.
-    let mean = (lerp(&c.high) + lerp(&c.low)) / 2.0;
-    let july = (c.high[6] + c.low[6]) / 2.0;
+    let mean = (lerp(&high) + lerp(&low)) / 2.0;
+    let july = (high[6] + low[6]) / 2.0;
     let dew = c.july_dew - 0.9 * (july - mean).max(0.0);
-    (lerp(&c.high), lerp(&c.low), wet, dew)
+    (lerp(&high), lerp(&low), wet_share, dew)
 }
 
-/// The usual afternoon high in a state on a date (climate normals): what a
-/// team from there is used to playing in.
+/// The usual afternoon high in a state on a date (its main town's climate
+/// normals): what a team from there is used to playing in.
 pub fn usual_high(code: &str, d: Date) -> f64 {
-    normals(climate(code), d).0
+    normals(climate(code), None, d).0
 }
 
-/// The weather in a state at a date and local hour, drawn from its normals
-/// with a day-to-day swing shared by every place in the state.
+/// The usual afternoon high in a town on a date (its own normals where
+/// listed): what a team from there is used to playing in.
+pub fn usual_high_in(code: &str, town: &str, d: Date) -> f64 {
+    normals(climate(code), town_normals(code, town), d).0
+}
+
+/// The weather in a state at a date and local hour, drawn from its main
+/// town's normals with a day-to-day swing shared by every place in the state.
 pub fn weather_at(seed: u64, state: usize, code: &str, d: Date, hour: u32) -> Weather {
+    draw(seed, state, code, None, d, hour)
+}
+
+/// The weather in a town at a date and local hour: its own normals, with
+/// the state's shared day-to-day swing.
+pub fn weather_in(seed: u64, state: usize, code: &str, town: &str, d: Date, hour: u32) -> Weather {
+    draw(seed, state, code, town_normals(code, town), d, hour)
+}
+
+fn draw(seed: u64, state: usize, code: &str, town: Option<&TownNormals>, d: Date, hour: u32) -> Weather {
     let c = climate(code);
-    let (high, low, wet, dew) = normals(c, d);
+    let (high, low, wet, dew) = normals(c, town, d);
     let key = seed ^ ((state as u64) << 40);
     let day = d.0 as u64;
     // Day-to-day anomalies are wider in winter and inland.

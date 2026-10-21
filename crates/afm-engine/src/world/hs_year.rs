@@ -747,7 +747,7 @@ fn play_week(w: &mut World, s: usize, k: usize, d: Date) {
     w.log.hs_no_contests += no_contests;
     w.log.hs_homecomings += homecomings;
     w.log.hs_senior_nights += senior_nights;
-    let played = engine_games(w, s, k, &engine, &wx, false, seed ^ 0x55);
+    let played = engine_games(w, s, k, &engine, (d, &wx), false, seed ^ 0x55);
     let hs = w.hs_season.as_mut().unwrap();
     for (&(h, a, key), _) in engine.iter().zip(played).filter(|x| x.1.is_none()) {
         let p =
@@ -867,15 +867,18 @@ pub(crate) fn seat_team(w: &World, h: usize) -> Option<GameTeam> {
 }
 
 /// Plays a state's engine games for one week (regular week `week`, or a
-/// playoff round) and files the results and lines. Returns whether each
-/// home team won, or None where a school too short to dress a team leaves
-/// the game to the stand-in.
+/// playoff round) and files the results and lines. Each game is played in
+/// its home town's weather (U-e: the town's own climate normals, with the
+/// state's shared swing for the day); a final at a neutral site plays in
+/// the state's weather (`state_wx`). Returns whether each home team won, or
+/// None where a school too short to dress a team leaves the game to the
+/// stand-in.
 fn engine_games(
     w: &mut World,
     s: usize,
     week: usize,
     games: &[(usize, usize, u64)],
-    wx: &crate::calendar::weather::Weather,
+    (day, state_wx): (Date, &crate::calendar::weather::Weather),
     final_game: bool,
     seed: u64,
 ) -> Vec<Option<bool>> {
@@ -895,6 +898,14 @@ fn engine_games(
             let (home, hid) = hs_team(world, h, week)?;
             let (away, aid) = hs_team(world, a, week)?;
             let school = &world.high_schools[h];
+            let code = world.states[s].code.as_str();
+            let town_wx;
+            let wx = if final_game {
+                state_wx
+            } else {
+                town_wx = crate::calendar::weather::weather_in(world.options.seed as u64, s, code, &school.town, day, 19);
+                &town_wx
+            };
             // The crowd: a big school's Friday night is louder (proposed, not confirmed).
             let crowd = clamp(0.2 + 0.3 * (school.enrollment as f64 / 2500.0).sqrt() + 0.1 * school.prestige, 0.1, 0.7);
             let cond = crate::game::Conditions {
@@ -1054,11 +1065,11 @@ fn play_round(w: &mut World, s: usize, r: usize, d: Date) {
     let engine: Vec<(usize, usize, u64)> = pairs.iter().map(|&(_, a, b, key)| (a, b, key)).collect();
     let seat = w.seat_school();
     let played = if hs.on_engine {
-        engine_games(w, s, week, &engine, &wx, r == last, seed)
+        engine_games(w, s, week, &engine, (d, &wx), r == last, seed)
     } else if let Some(k) = seat.and_then(|x| engine.iter().position(|&(a, b, _)| a == x || b == x)) {
         // Your school's playoff game runs on the engine even in a stand-in season.
         let mut v = vec![None; pairs.len()];
-        v[k] = engine_games(w, s, week, &engine[k..k + 1], &wx, r == last, seed)[0];
+        v[k] = engine_games(w, s, week, &engine[k..k + 1], (d, &wx), r == last, seed)[0];
         v
     } else {
         vec![None; pairs.len()]

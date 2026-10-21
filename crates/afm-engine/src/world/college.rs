@@ -344,12 +344,13 @@ fn conditions(w: &World, g: &Game, k: usize) -> (Venue, Played, Option<Severe>) 
     let code = w.states[state].code.as_str();
     let local = (g.kickoff.0 as i32 - et_offset(code)).clamp(9, 23) as u32;
     let seed = w.options.seed as u64;
-    let mut wx = if indoor { weather::indoors() } else { weather::weather_at(seed, state, code, g.date, local) };
-    // A landfall reaches only the coastal plain (part B 41).
     let city = match g.site {
         Some(s) => s.town,
         None => home.city.as_str(),
     };
+    // The town's own climate (U-e), with the state's swing for the day.
+    let mut wx = if indoor { weather::indoors() } else { weather::weather_in(seed, state, code, city, g.date, local) };
+    // A landfall reaches only the coastal plain (part B 41).
     if wx.severe == Some(Severe::Hurricane) && !weather::hurricane_reaches(code, city) {
         wx.severe = None;
     }
@@ -391,7 +392,7 @@ fn conditions(w: &World, g: &Game, k: usize) -> (Venue, Played, Option<Severe>) 
         let usual = if INDOOR_PROGRAMS.contains(&p.real_name.as_str()) {
             72.0
         } else {
-            weather::usual_high(&w.states[p.state].code, g.date)
+            weather::usual_high_in(&w.states[p.state].code, &p.city, g.date)
         };
         clamp((usual - wx.temperature - 15.0) / 25.0, 0.0, 1.0) * clamp((45.0 - wx.temperature) / 15.0, 0.0, 1.0)
     });
@@ -446,6 +447,11 @@ pub(crate) fn held_redshirts(w: &World, cs: &CollegeSeason) -> HashSet<u32> {
     let four = w.rules.four_game_redshirt;
     let mut held = HashSet::new();
     for prog in &w.programs {
+        // Five years to play five (S11): every year counts, so nobody is
+        // held out to save one.
+        if super::eligibility::five_in_five(w.year, prog.division) {
+            continue;
+        }
         let mut able = [0usize; crate::positions::POSITION_COUNT];
         let mut planned: Vec<(crate::positions::Position, f64, u32)> = Vec::new();
         for &i in &prog.roster {
@@ -1959,11 +1965,11 @@ pub(crate) fn selection_day(w: &mut World) {
 }
 
 /// Whether this season is a player's last in college: the season in play
-/// counts (unless January 2 settles otherwise), so four seasons (five under
-/// the five-in-five change) or five years since high school end it.
-pub(crate) fn last_season(p: &super::Person, season: i32, five_in_five: bool) -> bool {
-    let limit = if five_in_five { 5 } else { 4 };
-    p.college_seasons + p.cal.count_pending as u32 >= limit || season + 1 - p.class_of >= 5
+/// counts (unless January 2 settles otherwise), so his seasons (four, five
+/// at Division I from 2026-27) or his five-year clock end it.
+pub(crate) fn last_season(p: &super::Person, division: Division, season: i32) -> bool {
+    let limit = super::eligibility::seasons_allowed(season, division);
+    p.college_seasons + p.cal.count_pending as u32 >= limit || season >= super::eligibility::clock_last(p)
 }
 
 /// Bowl opt-outs (topic 3.2): players with high draft grades skip minor
@@ -1975,7 +1981,6 @@ pub(crate) fn last_season(p: &super::Person, season: i32, five_in_five: bool) ->
 fn opt_outs(w: &mut World) {
     let Some(cs) = w.college.as_ref() else { return };
     let season = cs.year;
-    let five = w.changes.rules(season + 1).five_in_five;
     // A yearly ramp (part D 19): a handful before 2016 (Christian
     // McCaffrey and Leonard Fournette made it news that year), then rising
     // every year into the 2020s (proposed, not confirmed: the shares of the
@@ -2011,7 +2016,7 @@ fn opt_outs(w: &mut World) {
         let Some(c) = p.college else { continue };
         let Some(&(kind, major, game_day)) = first.get(&c) else { continue };
         let Some(read) = p.cal.draft_read else { continue };
-        let senior = last_season(p, season, five);
+        let senior = last_season(p, w.programs[c].division, season);
         if !senior && p.cal.declare_plan != Some(true) {
             continue;
         }
@@ -2650,8 +2655,17 @@ pub(crate) fn finish(w: &mut World) {
 /// 2018 any game a redshirt played cost him the year. A season without a
 /// game is never a season of competition: a player who never got in uses
 /// his redshirt year if he still has it, in every era.
+///
+/// The long roads (A3, `eligibility.rs`): a season an injury ended early,
+/// with no more than three games or 30% of his team's played, is a medical
+/// hardship and doesn't count; two seasons lost to injury earn a sixth year
+/// on the clock. The 2020 season counted for nobody and added a year to
+/// everyone's clock. From 2026-27 Division I counts every year on a roster
+/// (five years to play five, S11): no redshirts, no hardship waivers.
 pub(crate) fn settle_eligibility(w: &mut World) {
+    use super::eligibility as el;
     let Some(cs) = w.college.as_ref() else { return };
+    let season = cs.year;
     let four = w.rules.four_game_redshirt;
     let on_engine = cs.on_engine;
     let games: HashMap<u32, u32> = cs.snaps.iter().map(|(&id, s)| (id, s.1)).collect();
@@ -2659,23 +2673,65 @@ pub(crate) fn settle_eligibility(w: &mut World) {
     // The team he played his games for: a December transfer has moved on by now.
     let prog_of: HashMap<u32, usize> = cs.lines.iter().map(|(&id, l)| (id, l.program)).collect();
     let seed = w.options.seed as u64 ^ ((cs.year as u64) << 24) ^ 0x5E77;
+    let programs = &w.programs;
     let mut kept = 0u32;
+    let mut hardships = 0u32;
+    let mut sixth = 0u32;
     for p in w.people.iter_mut() {
         if !matches!(p.stage, Stage::College | Stage::Declared) {
             continue;
         }
         let played = games.get(&p.player.id).copied().unwrap_or(0);
+        let team = prog_of
+            .get(&p.player.id)
+            .copied()
+            .or(p.college)
+            .and_then(|c| team_games.get(c).copied())
+            .unwrap_or(played);
+        let division = el::division_of(p, programs);
+        // The 2020 COVID year: nobody's season counted, and every clock
+        // gained a year (the NCAA's blanket waiver for fall athletes).
+        if season == el::COVID_SEASON {
+            p.cal.count_pending = false;
+            if !p.roads.covid {
+                p.roads.covid = true;
+                p.roads.clock_bonus = p.roads.clock_bonus.saturating_add(1);
+                let age = p.row_age();
+                p.note(format!(
+                    "At {age} the NCAA's COVID waiver gave him the 2020 season back and a year on his clock."
+                ));
+            }
+            continue;
+        }
+        // Five years to play five (Division I from 2026-27): every year on a
+        // roster is one of his five, played or not, hurt or not.
+        if el::five_in_five(season, division) {
+            p.cal.count_pending = false;
+            p.college_seasons += 1;
+            continue;
+        }
         // A redshirt from fall camp who got into games: past four (any game
         // before 2018) the season counts after all.
         if !p.cal.count_pending {
             let camp_redshirt = p.last_role == Some(PlayingTime::Redshirt) && !p.cal.academic_sit && p.redshirt_used;
+            // A redshirt year an injury took is a season lost to it (toward a sixth year).
+            if camp_redshirt && el::hurt_most_of_season(p) {
+                p.roads.injury_seasons = p.roads.injury_seasons.saturating_add(1);
+            }
             if !camp_redshirt || played == 0 {
                 continue;
             }
             let age = p.row_age();
             let games = if played == 1 { "game" } else { "games" };
             let burned = !four || played > 4;
-            if burned {
+            let hardship = burned && played <= el::hardship_games(team) && el::hurt_most_of_season(p);
+            if hardship {
+                // Hurt early after a few games: a medical hardship keeps the year.
+                hardships += 1;
+                p.note(format!(
+                    "Played in {played} {games} at {age} before an injury ended his season; a medical hardship waiver kept his redshirt year."
+                ));
+            } else if burned {
                 p.redshirt_used = false;
                 p.college_seasons += 1;
                 p.note(format!("Played in {played} {games} at {age}, which cost him his redshirt year."));
@@ -2685,30 +2741,53 @@ pub(crate) fn settle_eligibility(w: &mut World) {
                     "Played in {played} {games} at {age} and kept his redshirt year under the four-game rule."
                 ));
             }
-            let team = prog_of
-                .get(&p.player.id)
-                .copied()
-                .or(p.college)
-                .and_then(|c| team_games.get(c).copied())
-                .unwrap_or(played);
-            played_as_redshirt(p, played, team, burned, seed);
+            played_as_redshirt(p, played, team, burned && !hardship, seed);
             continue;
         }
         p.cal.count_pending = false;
+        let hurt = el::hurt_most_of_season(p);
         if on_engine && !p.redshirt_used && (played == 0 || four && played <= 4) {
             p.redshirt_used = true;
             if four {
                 kept += 1;
             }
+            if hurt {
+                p.roads.injury_seasons = p.roads.injury_seasons.saturating_add(1);
+            }
             if p.cal.redshirt_trick {
                 let age = p.row_age();
                 p.note(format!("Stopped playing after four games at {age} to keep his redshirt year."));
             }
+        } else if on_engine && hurt && played <= el::hardship_games(team) {
+            // A medical hardship (Bylaw 12.8.4): hurt in the first half of
+            // the season with three games or 30% played at most.
+            hardships += 1;
+            p.roads.injury_seasons = p.roads.injury_seasons.saturating_add(1);
+            let age = p.row_age();
+            let g = if played == 1 { "game" } else { "games" };
+            p.note(format!(
+                "An injury ended his season at {age} after {played} {g}; a medical hardship waiver gave him the season back."
+            ));
         } else {
             p.college_seasons += 1;
         }
+        // A sixth year (Bylaw 12.8.1.7): his clock runs out with a season
+        // still unplayed after two seasons lost to injury.
+        if !p.roads.sixth
+            && p.roads.injury_seasons >= 2
+            && season >= el::clock_last(p)
+            && p.college_seasons < el::seasons_allowed(season, division)
+        {
+            p.roads.sixth = true;
+            p.roads.clock_bonus = p.roads.clock_bonus.saturating_add(1);
+            sixth += 1;
+            let age = p.row_age();
+            p.note(format!("At {age} the NCAA granted him a sixth year after two seasons lost to injury."));
+        }
     }
     w.log.four_game_redshirts += kept;
+    w.log.medical_hardships += hardships;
+    w.log.sixth_years += sixth;
 }
 
 /// A camp redshirt who got into games (F1): his season row counts them.
@@ -3145,7 +3224,6 @@ pub(crate) fn spring_term_check(w: &mut World) {
 /// decide the fall. Junior college players are judged by their own rules.
 fn fall_term_check(w: &mut World) {
     let season = w.year;
-    let five = w.changes.rules(season + 1).five_in_five;
     let seed = w.options.seed as u64 ^ ((season as u64) << 24) ^ 0xFA11_7E2A;
     let playing: Vec<bool> = match w.college.as_ref() {
         Some(cs) => (0..w.programs.len()).map(|t| still_playing(cs, t)).collect(),
@@ -3171,7 +3249,7 @@ fn fall_term_check(w: &mut World) {
             }
             p.cal.fall_ineligible = true;
             let (age, gpa) = (p.row_age(), p.bg.gpa);
-            let what = match (playing[c], !last_season(p, season, five)) {
+            let what = match (playing[c], !last_season(p, prog.division, season)) {
                 (true, true) => "for the postseason and spring practice ",
                 (true, false) => "for the postseason ",
                 (false, true) => "for spring practice ",
@@ -3195,20 +3273,22 @@ fn fall_term_check(w: &mut World) {
 pub(crate) fn december_graduation(w: &mut World) {
     fall_term_check(w);
     let year = w.year;
-    let five = w.changes.rules(year + 1).five_in_five;
     let seed = w.options.seed as u64 ^ (year as u64) << 20 ^ 0xDEC6;
+    let programs = &w.programs;
     for p in w.people.iter_mut() {
         // December is for the early finishers (part B 36): a good student
         // in his fourth fall, or a fifth-year senior finishing his degree.
         // Proposed, not confirmed: a third of the first, half of the second.
-        let years = year + 1 - p.class_of;
+        // Years away on a mission or in the service don't count (A3).
+        let years = super::eligibility::school_year(p, year);
         let early = years == 4 && p.bg.gpa >= 3.0 && key_uniform(seed, p.player.id as u64) < 0.35;
         let fifth = years >= 5 && p.bg.gpa >= 2.3 && key_uniform(seed ^ 5, p.player.id as u64) < 0.5;
         if p.stage == Stage::College && (early || fifth) && p.college.is_some() && !p.cal.graduated {
             p.cal.graduated = true;
             let age = p.row_age();
             // The year to use anywhere only when he has a season left.
-            if last_season(p, year, five) {
+            let division = super::eligibility::division_of(p, programs);
+            if last_season(p, division, year) {
                 p.note(format!("Graduated in December at {age}."));
             } else {
                 p.note(format!("Graduated in December at {age} with a year of eligibility to use anywhere."));
@@ -3230,7 +3310,7 @@ pub(crate) fn may_graduation(w: &mut World) {
         if p.stage != Stage::College || p.cal.graduated || p.college.is_none() {
             continue;
         }
-        let years = year - p.class_of;
+        let years = super::eligibility::school_year(p, year) - 1;
         let chance = match years {
             ..=3 => 0.0,
             4 => clamp(0.45 + 0.25 * (p.bg.gpa - 2.0), 0.0, 0.9) * (p.bg.gpa >= 2.0) as u8 as f64,

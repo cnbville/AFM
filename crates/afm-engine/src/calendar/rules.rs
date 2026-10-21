@@ -248,8 +248,11 @@ impl RuleBook {
             revenue_sharing: if season >= 2025 { Some(20.5e6 * 1.04f64.powi(season - 2025)) } else { None },
             early_signing: season + 1 >= 2018,
             junior_officials: season >= 2018,
-            four_game_redshirt: season >= 2018,
-            five_in_five: false,
+            // The four-game redshirt (2018) ends with redshirts themselves
+            // when Division I moves to five years to play five (S11: adopted
+            // by the Division I Cabinet on June 23-24, 2026, for 2026-27).
+            four_game_redshirt: (2018..crate::world::eligibility::FIVE_IN_FIVE_FROM).contains(&season),
+            five_in_five: season >= crate::world::eligibility::FIVE_IN_FIVE_FROM,
             test_scores: season < 2020,
             breakaway: false,
         }
@@ -315,7 +318,7 @@ impl Change {
             Change::BiggerCfp => "the CFP management committee (conference commissioners)",
             Change::ConferenceSwitch => "a school accepts a conference's invitation",
             Change::Breakaway => "the SEC and Big Ten leave the CFP for their own postseason",
-            Change::FiveInFive => "an NCAA Division I Council vote",
+            Change::FiveInFive => "the NCAA Division I Cabinet's vote of June 23-24, 2026 (real; in force from 2026-27)",
             Change::RevenueCap => "the House settlement's yearly review or a court ruling",
             Change::HsNil => "a state association or legislature vote",
             Change::HsTransferRules => "a state association vote",
@@ -358,7 +361,8 @@ pub const CHANGE_ODDS: ChangeOdds = ChangeOdds {
     bigger_cfp: 0.25,
     conference_switch: 0.10,
     breakaway: 0.02,
-    five_in_five: 0.08,
+    // Real since June 2026 (S11): in the rule book, never rolled.
+    five_in_five: 0.0,
     revenue_cap_ruling: 0.10,
     hs_nil_per_state: 0.06,
     hs_transfer_per_state: 0.02,
@@ -549,18 +553,8 @@ impl ChangeState {
             out.push((Change::Breakaway, "The SEC and Big Ten break away and crown their own champion.".into()));
             self.applied.push(AppliedChange { change: Change::Breakaway, season, detail: "own postseason".into() });
         }
-        if self.five_in_five.is_none() && rng.chance(odds.five_in_five) {
-            self.five_in_five = Some(season);
-            out.push((
-                Change::FiveInFive,
-                "The NCAA moves to five years to play five: the redshirt year is gone.".into(),
-            ));
-            self.applied.push(AppliedChange {
-                change: Change::FiveInFive,
-                season,
-                detail: "Division I Council vote".into(),
-            });
-        }
+        // Five years to play five is no longer a possible change: it became
+        // real in June 2026 (S11) and is in every rule book from 2026-27.
         if rng.chance(odds.revenue_cap_ruling) {
             let up = rng.chance(0.65);
             let f = if up { rng.range(1.05, 1.25) } else { rng.range(0.8, 0.95) };

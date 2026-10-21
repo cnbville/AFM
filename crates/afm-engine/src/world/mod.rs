@@ -16,6 +16,7 @@ pub(crate) mod clock;
 pub mod coach;
 pub(crate) mod college;
 pub mod data;
+pub mod eligibility;
 pub mod ethnicity;
 pub mod franchise;
 pub mod game_log;
@@ -109,6 +110,10 @@ pub enum Stage {
     Pro,
     /// Left football.
     Done,
+    /// Away from football for a while with his clock stopped: a church
+    /// mission or a military term (A3, final build). `Person::roads.away`
+    /// says which, when he comes back and to which program.
+    Away,
 }
 
 /// One state's football setting.
@@ -205,6 +210,11 @@ pub struct Person {
     /// coach starts it fresh).
     pub trust: f32,
     pub trust_in: u32,
+    /// His road through college (A3, S11): years away, years added to his
+    /// clock, the COVID year, seasons lost to injury, a mission or a
+    /// military term in progress.
+    #[serde(default)]
+    pub roads: eligibility::Roads,
 }
 
 /// The draft staffs' read of a player in December (T3.1, T3.2): his consensus
@@ -724,6 +734,26 @@ pub struct CalendarLog {
     pub nfl_preseason_games: u32,
     /// Huge games per NFL team in the season (the stakes test).
     pub nfl_huge_by_team: Vec<u32>,
+    /// The long roads (A3, final build): medical hardship waivers, sixth
+    /// years, COVID-year players who came back and who didn't, missions and
+    /// military terms begun, players back from either, and players who moved
+    /// up two levels or from NAIA and Division III.
+    #[serde(default)]
+    pub medical_hardships: u32,
+    #[serde(default)]
+    pub sixth_years: u32,
+    #[serde(default)]
+    pub covid_returns: u32,
+    #[serde(default)]
+    pub covid_declined: u32,
+    #[serde(default)]
+    pub missions: u32,
+    #[serde(default)]
+    pub enlisted: u32,
+    #[serde(default)]
+    pub returned: u32,
+    #[serde(default)]
+    pub moved_up_far: u32,
 }
 
 /// Where the manager works (N58): his level, and his NFL team or college
@@ -1139,6 +1169,7 @@ impl World {
                     mood_why: 0,
                     trust: 0.6,
                     trust_in: u32::MAX,
+                    roads: eligibility::Roads::default(),
                 }
             })
             .collect();
@@ -1301,7 +1332,12 @@ impl World {
             .map(|p| {
                 let stays = matches!(
                     p.stage,
-                    Stage::HighSchool | Stage::College | Stage::PrepSchool | Stage::Declared | Stage::Pro
+                    Stage::HighSchool
+                        | Stage::College
+                        | Stage::PrepSchool
+                        | Stage::Declared
+                        | Stage::Pro
+                        | Stage::Away
                 );
                 stays.then(|| {
                     next += 1;
