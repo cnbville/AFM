@@ -1,6 +1,6 @@
-# Section 9: game day control (design in progress)
+# Section 9: game day control (design)
 
-Status: design started 2026-10-21 in the thread "Section 9 design: game day control". Not built. Topics go one at a time with Cain; this file records each one as it is settled.
+Status: designed 2026-10-21 in the thread "Section 9 design: game day control". Not built. All 12 topics were posted the same day. Cain answered questions 1 and 4 to 6; questions 2 and 3 (the tape's hints: how many, and which first) wait for him. Topics posted without a question stand as proposed, not confirmed: Cain raised nothing on them.
 
 Labels:
 - **Confirmed**: Cain answered it.
@@ -104,17 +104,23 @@ Claude read "despite scouting ranking" as: no rating decides the hints, neither 
 
 ---
 
-## Topic 4. Calling plays live (proposed, not confirmed; posted 2026-10-21 with questions 4-6)
+## Topic 4. Calling plays live (proposed 2026-10-21; questions 4 to 6 answered by Cain)
 
 - **Who holds the call sheet is a real staff choice per side:** you or your coordinator. It can change mid-season (Matt Nagy gave the Bears' play calling to Bill Lazor in 2020) and is part of hiring, since coordinators ask for it (people topic 11). At a high school with coordinators, they can call too (AFM 0.2.23 has the head coach call both sides there for now).
 - **A stopped snap shows what the sideline knows:** down, distance, clock, score, win probability; the personnel they sent on; what your booth saw on the last snap ("Cover 3, the Mike blitzed"); what the report says they do here.
 - **The call:** the play caller's choice drawn up with his reason and how it has worked today. Accept it, send it back (his next choice from the same box), or pick any play from the sheet; off the sheet is allowed, less practiced. Defense and special teams the same. When you are the play caller, your coordinator suggests from the booth and you decide.
 - **The call reaches the field the real way:** NFL and college, one radio helmet per side, cut off with 15 seconds on the play clock; high school, hand signals and wristbands that the other bench can steal (topic 1). The QB checks at the line by his freedom (plays topic 3.3); the check shows in the play-by-play.
 - **Overruling costs something:** a coordinator often sent back loses trust in you, a proud one faster (people topic 10).
-- Waiting on Cain:
-  - Question 4, which snaps stop for you (the game view thread's item 4). Pick: situations you choose, starting with 3rd down, 4th down, red zone, goal line and the two-minute drill, with a key to take over any other snap; "every snap" and "only when I take over" as options.
-  - Question 5, whether the game waits for your call or runs the real play clock. Pick: it waits, as Football Manager does; your thinking time never runs the game clock, only tempo does.
-  - Question 6, who calls the snaps that don't stop for you when you are the play caller. Pick: your own play calling and in-game adaptation ratings, as AFM 0.2.23 built.
+### Cain's answers (2026-10-21 19:55)
+- **Question 4, which snaps stop for you (confirmed, a choice).** Cain: "agreed in general, but also allow a mode where this is not the case so that players feel incentivised to try to clall plays and learn. It should be a choose". So you choose:
+  - **Your situations:** the snaps in the situations you pick stop for you, starting with 3rd down, 4th down, red zone, goal line and the two-minute drill, plus a key to take over any other snap.
+  - **Every snap:** every snap stops, so calling plays yourself is how you play and learn. Claude's reading (proposed, not confirmed): after each snap the play-by-play shows your call beside the one your play caller would have made and his reason, the topic 11 comparison snap by snap.
+  This also answers the game view thread's item 4.
+- **Question 5, the time you get for a call (confirmed, a choice).** Cain: "Also a choice, if i want realism mode i get 25 secs, if i want learning i should be able to pause as long as i want". So you choose:
+  - **Realism:** 25 seconds for your call, the time a real play caller has between the 40-second play clock starting and the radio cutting out at 15. Claude's reading (proposed, not confirmed): longer at the real stoppages (timeouts, quarter breaks, TV timeouts), shorter when your own tempo is up, and when the time runs out the play caller's call goes in (your coordinator's, or your ratings' when you call that side).
+  - **Learning:** the game waits as long as you want.
+  - Claude's reading (proposed, not confirmed): questions 4 and 5 are two separate choices, so you can call every snap under the real clock, as a play-calling head coach really does, or take your time on a few situations. Either can be changed between snaps. Neither changes the rewards: only the battles decide (plays topic 6.4).
+- **Question 6, the snaps that don't stop for you when you are the play caller (confirmed).** Cain: "my ratings". Your own play calling and in-game adaptation ratings make those calls, as AFM 0.2.23 built.
 
 ## Topic 5. Between plays (proposed, not confirmed; no question)
 
@@ -128,7 +134,7 @@ Claude read "despite scouting ranking" as: no rating decides the hints, neither 
 
 - **The choices:** 4th downs, two-point tries, onside kicks by each level's rules (the NFL's must be declared; since 2025 a trailing team may try one at any time), kneels and spikes, accepting or declining penalties, an intentional safety (the Ravens to close out Super Bowl XLVII), letting them score (the Patriots let Ahmad Bradshaw in during Super Bowl XLVI; he tried to stop at the 1 and fell in). AI coaches keep deciding them as now.
 - **Advice:** the analytics staff gives each choice's win probability ("go: 61%, kick: 57%"), as accurate as the analyst (Q37); the coordinator may disagree out loud. A high school usually has no analyst: your gut and your chart (Kevin Kelley at Pulaski Academy never punted).
-- **What stops for you:** these decisions in the situations of question 4; the rest follow the plan's charts or your staff.
+- **What stops for you:** these decisions, in the snaps that stop for you (question 4); the rest follow the plan's charts or your staff.
 - **Replay challenges by level:** NFL two per game, a third if both succeed, a lost one costs a timeout, and the booth reviews scoring plays, turnovers and the last two minutes; college, the booth may review any play, plus one coach's challenge per game since 2006; high school, no replay almost anywhere. Your replay assistant upstairs watches the TV angle and says "throw it" or "don't", as good as he is. NFL coaches win about 4 challenges in 10 (37% in 2019, 46% in 2015, Football Zebras).
 - **Officials who really make mistakes** (new engine work): bad spots, catches, fumbles ruled down, feet in bounds, the ball crossing the goal line, at rates from real reversal data, each crew different (match engine topic 4).
 
@@ -167,10 +173,10 @@ Claude read "despite scouting ranking" as: no rating decides the hints, neither 
 - **Why the calls worked** (plays topic 6.6): each call's result with its reason, and your own calls against your coordinator's.
 - The film goes to every future opponent (plays topic 7.7); the injured get their scans.
 
-## Topic 12. Your play-calling rating and replays (proposed, not confirmed; no question beyond question 6)
+## Topic 12. Your play-calling rating and replays (proposed, not confirmed; question 6 confirmed)
 
 - **A snap you call yourself is all yours:** your rating plays no part; only the battles decide (plays topic 6.4).
-- **Your ratings call the rest** on a side you call (question 6); they grow by doing the job (people topic 15).
+- **Your ratings call the rest** on a side you call (question 6, confirmed: "my ratings"); they grow by doing the job (people topic 15).
 - **The world judges your play calling by results:** your unit's numbers build your name as a play caller (coach buzz, built), so a great caller gets the offers.
 - **A game you called replays exactly:** its seed plus every input you made (calls, timeouts, substitutions, challenges, notes; a few kilobytes), so the 2D replay and the play-by-play match what happened. If the app closes mid-game, the game resumes at the same snap.
 - **Engine work** (no question): `play_game` plays a whole game in one loop; it must pause between snaps and take outside calls and actions, with the day's other games running in the background.

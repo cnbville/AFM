@@ -305,6 +305,7 @@ New-game setup (team choice, name toggle, your background and editable starting 
 
 Game plans, live play calling (play by play), in-game decisions (halftime, timeouts, fourth downs, two-point tries) and staff analytics advice. A watched game takes about 15 minutes.
 - Every level's own rules apply on game day (the engine already has them). Your high school games need the engine first (see "Your career at every level").
+- **Design written 2026-10-21** in `docs/design/game-day.md` (thread "Section 9 design: game day control"): 12 topics, from the opponent report and the tape's own hints through the game plan, game morning, live calling, between plays, in-game decisions and replay challenges, injuries, the sideline, halftime, watching, after the game and your play-calling rating. Cain's choices the same day: other teams' tape shows only film and your staff's tags, with hints of its own; which snaps stop for you and the time you get for a call are both your choice (realism or learning); your own ratings call the snaps you don't take when you call a side. Waiting: how many tape hints and which first. Not built.
 
 ### Section 10. Screens and 2D view
 

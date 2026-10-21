@@ -347,6 +347,15 @@ The design is in `docs/design/screens.md`, with a mock-up canvas of the key scre
 - **A pass-over with depth, especially scouting** (Cain, 13:32: "do a pass-over, i want ultra depth in certain aspects, especially scouting"). Every screen of the mock got deeper (Game Center with eight tabs from one play log, the 2D replay's read step by step, signing day hour by hour, the talk's move previews and promises), and three scouting screens were added: a recruit's full scouting file, the scouting department, and the NFL seat's draft board. The design behind them is section 7's (`scouting.md`); how they lay it out is in `screens.md` topics 7, 8, 9, 10 and 12, with Claude's picks marked proposed, not confirmed. The real 2026 NCAA rules the screens use were checked on the web: 33 fall evaluation days for a whole FBS staff, only the head coach and 10 assistants off campus, the July 2026 plan for 17 recruiters and 50 days still pending.
 - **Choices 1, 4 and 5** (19:07, "agree on all", answering the three picks as listed in the thread at 19:05): a left sidebar in Showtime's frosted chrome, not Showtime's top bar with tabs; numbered dots in the 2D view, not top-down figures; and section 8 builds its screens on Showtime from day one. All five of round 1's choices are now decided.
 
+## 18. Section 9: game day control (thread "Section 9 design: game day control", 2026-10-21)
+
+The design is in `docs/design/game-day.md`: 12 topics, written as the real-life design on top of match engine topic 9 (9.1 live calling, 9.2 replays), plays and tactics topics 3 to 7, Q33-Q40, tendencies, people topics 5, 10 and 15, scouting (advance scouting was left to section 9), training topic 2 and screens topic 12. Topics without an open question were posted for Cain to flag; he raised nothing on them.
+- **Other teams' games show only what film shows** (question 1, 19:33: "Yes and since this is still a a game despite the ultra-realism the tape should provide some hints/tips despite scouting ranking."): the dots, the results and your staff's tags with their mistakes; true calls and reasons only on your own games and in debug tools. The tape gives its own hints and tips whatever the staff's (or your own) rating. Questions 2 (how many hints per tape) and 3 (which hints first) wait for Cain.
+- **Cain, 19:44: "why aren't you contuining if you hve no questions"**: topics with no open question go straight on to the next, in the same reply.
+- **Which snaps stop for you is a choice** (question 4, 19:55: "agreed in general, but also allow a mode where this is not the case so that players feel incentivised to try to clall plays and learn. It should be a choose"): your situations (3rd down, 4th down, red zone, goal line, two-minute, plus a take-over key) or every snap. This answers the game view thread's item 4.
+- **The time for your call is a choice** (question 5, 19:55: "Also a choice, if i want realism mode i get 25 secs, if i want learning i should be able to pause as long as i want").
+- **Your own ratings call the snaps that don't stop for you on a side you call** (question 6, 19:55: "my ratings"), as AFM 0.2.23 built.
+
 ---
 
 ## Superseded decisions
