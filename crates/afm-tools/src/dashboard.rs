@@ -63,7 +63,7 @@ pub fn card(w: &World, k: usize, tag: &str) -> Value {
     let ceil = debug::ceilings(p);
     let attrs: Vec<Value> = afm_engine::attributes::Attr::ALL
         .iter()
-        .map(|&t| json!([format!("{t:?}"), p.attributes[t].round(), ceil[t].round()]))
+        .map(|&t| json!([format!("{t:?}"), p.attributes.get(t).round(), ceil.get(t).round()]))
         .collect();
     let seasons: Vec<Value> = p
         .history

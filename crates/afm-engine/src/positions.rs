@@ -924,7 +924,7 @@ static DERIVED: LazyLock<Derived> = LazyLock::new(|| {
             weights[pos.index()][a.index()] = w / total;
         }
         for &(a, v) in p.elite_shape {
-            elite_shape[pos.index()][a] = v;
+            elite_shape[pos.index()].set(a, v);
         }
     }
     for pos in Position::ALL {
@@ -937,7 +937,7 @@ static DERIVED: LazyLock<Derived> = LazyLock::new(|| {
 fn dot(w: &[f64; ATTRIBUTE_COUNT], a: &Attributes) -> f64 {
     let mut sum = 0.0;
     for i in 0..ATTRIBUTE_COUNT {
-        sum += w[i] * a.0[i];
+        sum += w[i] * a.at(i);
     }
     sum
 }
@@ -955,7 +955,7 @@ pub fn weight(position: Position, attr: Attr) -> f64 {
 }
 
 pub fn elite_shape_value(position: Position, attr: Attr) -> f64 {
-    DERIVED.elite_shape[position.index()][attr]
+    DERIVED.elite_shape[position.index()].get(attr)
 }
 
 /// Overall an "elite shape" player would have; used to scale talent into ceilings.

@@ -91,12 +91,12 @@ fn main() {
     let mut base = t.players.iter().find(|p| p.position == Position::WR).unwrap().clone();
     base.weight = weight;
     for a in [Attr::Speed, Attr::Acceleration, Attr::Agility] {
-        base.attrs[a] = 75.0;
+        base.attrs.set(a, 75.0);
     }
     let with = |acc: f64, agi: f64| {
         let mut p = base.clone();
-        p.attrs[Attr::Acceleration] += acc;
-        p.attrs[Attr::Agility] += agi;
+        p.attrs.add(Attr::Acceleration, acc);
+        p.attrs.add(Attr::Agility, agi);
         p
     };
     let (s0, c0) = (shuttle(&base), cone(&base));

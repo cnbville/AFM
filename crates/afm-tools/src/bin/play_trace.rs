@@ -28,7 +28,7 @@ fn main() {
                 if !only.is_empty() && !only.contains(&format!("{at:?}")) {
                     continue;
                 }
-                p.attrs[at] = (p.attrs[at] + by).min(99.0);
+                p.attrs.set(at, (p.attrs.get(at) + by).min(99.0));
             }
         }
     }
@@ -47,7 +47,7 @@ fn main() {
                 .unwrap_or(1);
             for p in t.players.iter_mut().filter(|p| format!("{:?}", p.position) == pos).take(n) {
                 for at in afm_engine::attributes::Attr::ALL {
-                    p.attrs[at] = (p.attrs[at] + by).min(99.0);
+                    p.attrs.set(at, (p.attrs.get(at) + by).min(99.0));
                 }
             }
         }

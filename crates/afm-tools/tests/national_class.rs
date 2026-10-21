@@ -112,8 +112,16 @@ fn rarely_drafts_d2_players_and_never_before_day_3() {
 
 #[test]
 fn drafts_imperfectly_without_wild_first_round_reaches() {
-    // Real drafts take 1-3 first-rounders a year from outside the consensus top 50.
-    assert!(s().draft.first_rounders_outside_top50 <= 5);
+    // Real drafts take 1-3 first-rounders a year from outside the consensus
+    // top 50. One class swings from 1 to 8 by seed (measured 2026-10-21 on
+    // six seeds), so the band is read on the average of five classes.
+    let mut n = s().draft.first_rounders_outside_top50 as f64;
+    for seed in ["reach-1", "reach-2", "reach-3", "reach-4"] {
+        n += summarize(&simulate_cohort(CohortOptions::new(250_000, seed))).draft.first_rounders_outside_top50 as f64;
+    }
+    let mean = n / 5.0;
+    println!("first-rounders from outside the top 50: {mean:.1} a class");
+    assert!(mean > 0.5 && mean <= 5.0, "first-rounders from outside the top 50: {mean:.1} a class");
 }
 
 #[test]

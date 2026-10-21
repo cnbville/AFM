@@ -934,7 +934,7 @@ pub(crate) fn combine(w: &mut World) {
     super::pro::scouts::combine(w, &invited);
     let test = |p: &Person| {
         let a = &p.player.attributes;
-        (a[Attr::Speed] + a[Attr::Acceleration] + a[Attr::Agility] + a[Attr::Strength]) / 4.0
+        (a.get(Attr::Speed) + a.get(Attr::Acceleration) + a.get(Attr::Agility) + a.get(Attr::Strength)) / 4.0
     };
     let mut by_pos: std::collections::HashMap<Position, Vec<f64>> = std::collections::HashMap::new();
     for &i in &invited {
@@ -2473,8 +2473,8 @@ fn camp_rankings(
             .max_by(|&a, &b| {
                 let f = |i: usize| {
                     let p = &w.people[i].player;
-                    p.attributes[crate::attributes::Attr::LongSnapping]
-                        + 0.1 * p.attributes[crate::attributes::Attr::FootballIq]
+                    p.attributes.get(crate::attributes::Attr::LongSnapping)
+                        + 0.1 * p.attributes.get(crate::attributes::Attr::FootballIq)
                 };
                 f(a).total_cmp(&f(b))
             });

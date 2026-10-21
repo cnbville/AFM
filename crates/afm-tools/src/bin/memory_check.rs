@@ -16,8 +16,19 @@ fn main() {
     let future: u32 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(0);
     // A share of the real size, for quick checks only.
     let scale: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(1.0);
+    // AFM_ENGINE_FROM=year plays the history's games on the stand-in before
+    // that year: quick checks only, the people stores are the same size.
+    let engine_from = std::env::var("AFM_ENGINE_FROM").ok().and_then(|v| v.parse().ok());
+    println!(
+        "sizes: person {} B, player {} B, attributes {} B, season record {} B",
+        std::mem::size_of::<afm_engine::world::Person>(),
+        std::mem::size_of::<afm_engine::player::Player>(),
+        std::mem::size_of::<afm_engine::attributes::Attributes>(),
+        std::mem::size_of::<afm_engine::player::SeasonRecord>()
+    );
     let t = Instant::now();
-    let opts = WorldOptions { seed, history_years: years, keep_game_log: false, scale, ..Default::default() };
+    let opts =
+        WorldOptions { seed, history_years: years, keep_game_log: false, scale, engine_from, ..Default::default() };
     let mut w = World::new_watched(opts, year_line);
     println!(
         "history of {years} years built in {:.0}s: heap {:.2} GB, resident {}",
@@ -46,6 +57,11 @@ fn main() {
         f(w);
         rows.push((name.to_string(), before - afm_tools::heap_gb()));
     };
+    let (len, cap) = w.debug_people_capacity();
+    println!("people list: {len} people, room for {cap}");
+    for part in ["story", "name", "position history", "college staff", "path", "calendar lists"] {
+        weigh(&format!("people: {part}"), &mut w, &|w| w.debug_drop_people_part(part));
+    }
     weigh("people: notes", &mut w, &|w| w.people.iter_mut().for_each(|p| p.notes = Vec::new()));
     weigh("people: season records", &mut w, &|w| w.people.iter_mut().for_each(|p| p.player.history = Vec::new()));
     weigh("people: pro careers", &mut w, &|w| w.people.iter_mut().for_each(|p| p.pro = None));

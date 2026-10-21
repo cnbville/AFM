@@ -123,7 +123,7 @@ pub fn body_now(p: &Player) -> Body {
     let age = p.age as f64;
     let grown = clamp((age - 13.0 - 0.6 * p.bloom) / 6.0, 0.0, 1.0);
     let filled = clamp((age - 13.0 - 0.5 * p.bloom) / 9.0, 0.0, 1.0);
-    let strength = p.attributes[Attr::Strength] / p.ceilings[Attr::Strength].max(1.0);
+    let strength = p.attributes.get(Attr::Strength) / p.ceilings.get(Attr::Strength).max(1.0);
     let height = a.height - (1.0 - grown) * 4.0;
     let weight = a.weight * (0.7 + 0.25 * filled + 0.05 * clamp(strength, 0.0, 1.0));
     let k = height / a.height;
@@ -161,7 +161,7 @@ pub struct Combine {
 /// Coefficients fitted to the real position averages (nflverse, 2000-2025).
 pub fn combine(p: &Player, rng: &mut Rng) -> Combine {
     let b = body_now(p);
-    let at = |a: Attr| p.attributes[a];
+    let at = |a: Attr| p.attributes.get(a);
     let (speed, accel, agility, strength, jumping) =
         (at(Attr::Speed), at(Attr::Acceleration), at(Attr::Agility), at(Attr::Strength), at(Attr::Jumping));
     let w = b.weight - 220.0;

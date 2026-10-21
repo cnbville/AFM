@@ -20,14 +20,14 @@ fn peaks_speed_in_the_mid_20s_and_awareness_around_30() {
                 develop_season(&mut p, &ctx, &mut rng)
             };
             let age = p.age as f64;
-            if p.attributes[Attr::Speed] > best_speed.0 {
-                best_speed = (p.attributes[Attr::Speed], age);
+            if p.attributes.get(Attr::Speed) > best_speed.0 {
+                best_speed = (p.attributes.get(Attr::Speed), age);
             }
-            if p.attributes[Attr::FootballIq] > best_awareness.0 {
-                best_awareness = (p.attributes[Attr::FootballIq], age);
+            if p.attributes.get(Attr::FootballIq) > best_awareness.0 {
+                best_awareness = (p.attributes.get(Attr::FootballIq), age);
             }
             if p.age == 33 {
-                speed_loss_by_33.push(best_speed.0 - p.attributes[Attr::Speed]);
+                speed_loss_by_33.push(best_speed.0 - p.attributes.get(Attr::Speed));
             }
         }
         speed_peak.push(best_speed.1);
@@ -129,9 +129,9 @@ fn takes_explosiveness_away_with_a_major_injury() {
     let mut healthy = Vec::new();
     for mut p in prospects(3000, "injury", 3.0) {
         career(&mut p, &mut rng, 23, |_| {});
-        let before = p.attributes[Attr::Speed];
+        let before = p.attributes.get(Attr::Speed);
         let report = develop_season(&mut p, &context_for(23), &mut rng);
-        let change = p.attributes[Attr::Speed] - before;
+        let change = p.attributes.get(Attr::Speed) - before;
         if report.events.has(Ev::MajorInjury) {
             hurt.push(change);
         } else {
@@ -203,7 +203,7 @@ fn keeps_every_rating_within_1_99_and_current_at_or_below_its_ceiling() {
                 develop_season(&mut p, &ctx, &mut rng)
             };
             for k in Attr::ALL {
-                let (a, c) = (p.attributes[k], p.ceilings[k]);
+                let (a, c) = (p.attributes.get(k), p.ceilings.get(k));
                 assert!(
                     a >= MIN_RATING && c <= MAX_RATING && a <= c,
                     "{} {} at age {}: {a} / {c}",
@@ -288,4 +288,40 @@ fn an_early_enrollees_spring_step_opens_his_first_college_row() {
     let first = &p.history[1];
     assert_eq!(first.spring_open, Some(gain));
     assert!((first.spring_gain.unwrap() - gain - 1.5).abs() < 1e-9);
+}
+
+/// Section 6b topic 5, choice 2: a plan's main focus grows up to about 1.5
+/// times its share, the rest of his skills of that kind pay for it, and his
+/// year as a whole moves well inside 15% either way.
+#[test]
+fn a_training_focus_grows_its_skill_and_costs_the_rest_a_little() {
+    let mut rng = Rng::new("focus");
+    let (mut plain_focus, mut with_focus, mut plain_all, mut with_all) = (0.0, 0.0, 0.0, 0.0);
+    for p in prospects(400, "focus", 1.0) {
+        let mut ctx = context_for(19);
+        let key = Attr::ALL
+            .into_iter()
+            .filter(|&a| a.profile().group == crate::attributes::AttributeGroup::Technical)
+            .max_by(|&a, &b| {
+                crate::positions::weight(p.position, a).total_cmp(&crate::positions::weight(p.position, b))
+            })
+            .unwrap();
+        let mut a = p.clone();
+        let mut b = p.clone();
+        let mut ra = rng.clone();
+        let mut rb = rng.clone();
+        develop_season(&mut a, &ctx, &mut ra);
+        ctx.focus = Some(key);
+        develop_season(&mut b, &ctx, &mut rb);
+        rng.next();
+        plain_focus += a.attributes.get(key) - p.attributes.get(key);
+        with_focus += b.attributes.get(key) - p.attributes.get(key);
+        plain_all += Attr::ALL.iter().map(|&k| a.attributes.get(k) - p.attributes.get(k)).sum::<f64>();
+        with_all += Attr::ALL.iter().map(|&k| b.attributes.get(k) - p.attributes.get(k)).sum::<f64>();
+    }
+    let lift = with_focus / plain_focus;
+    let year = with_all / plain_all;
+    println!("focus lift {lift:.3}, the year {year:.3}");
+    assert!(lift > 1.15 && lift < 1.55, "focus lift {lift:.2}");
+    assert!((year - 1.0).abs() < 0.15, "the year moves {year:.3}");
 }

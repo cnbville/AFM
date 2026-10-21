@@ -1,0 +1,45 @@
+name: Mac app
+# Builds AFM for macOS (Apple silicon and Intel in one app) and keeps the
+# .dmg as the run's download (section 8, topic 9).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths: ["app/**", "crates/afm-engine/**", "crates/afm-game/**", ".github/workflows/mac-app.yml"]
+  workflow_dispatch:
+jobs:
+  mac:
+    runs-on: macos-14
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build the app
+        working-directory: app/src-tauri
+        run: npx --yes @tauri-apps/cli@^2 build --target universal-apple-darwin --bundles app
+      # hdiutil on the hosted runners sometimes fails with "Resource busy", so
+      # the .dmg is made here with retries instead of by Tauri's bundler.
+      - name: Make the dmg
+        working-directory: app/src-tauri/target/universal-apple-darwin/release/bundle
+        run: |
+          mkdir -p dmg stage
+          cp -R macos/AFM.app stage/
+          ln -s /Applications stage/Applications
+          for i in 1 2 3 4 5; do
+            hdiutil create -volname AFM -srcfolder stage -ov -format UDZO dmg/AFM_universal.dmg && exit 0
+            sleep $((i * 10))
+          done
+          exit 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AFM-mac
+          path: app/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          if-no-files-found: error

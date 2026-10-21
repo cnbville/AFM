@@ -192,7 +192,7 @@ fn lean(spot: Spot) -> &'static [(Attr, f64)] {
 const LEAN: f64 = 0.35;
 
 fn lean_value(spot: Spot, a: &Attributes, weight: f64) -> f64 {
-    let v: f64 = lean(spot).iter().map(|&(x, w)| a[x] * w).sum();
+    let v: f64 = lean(spot).iter().map(|&(x, w)| a.get(x) * w).sum();
     // A nose tackle's size: 330 pounds counts like a 90.
     if spot == Spot::NT { 0.8 * v + 0.2 * ((weight - 240.0) / 1.0).clamp(20.0, 99.0) } else { v }
 }
@@ -203,12 +203,12 @@ pub fn spot_rating(spot: Spot, a: &Attributes, weight: f64) -> f64 {
         // The fullback is a blocker who catches: half a tight end's game,
         // half lead blocking.
         Spot::FB => {
-            let lead = 0.35 * a[BlockingInSpace]
-                + 0.15 * a[RunBlocking]
-                + 0.15 * a[Strength]
-                + 0.1 * a[Anchor]
-                + 0.05 * a[LegDrive]
-                + 0.2 * a[Catching];
+            let lead = 0.35 * a.get(BlockingInSpace)
+                + 0.15 * a.get(RunBlocking)
+                + 0.15 * a.get(Strength)
+                + 0.1 * a.get(Anchor)
+                + 0.05 * a.get(LegDrive)
+                + 0.2 * a.get(Catching);
             0.5 * overall_for(Position::TE, a) + 0.5 * lead
         }
         _ => {

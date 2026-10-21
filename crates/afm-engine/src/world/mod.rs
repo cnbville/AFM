@@ -33,7 +33,8 @@ pub mod records;
 pub(crate) mod recruiting;
 pub mod schedule;
 pub(crate) mod season;
-mod staff;
+pub mod seat;
+pub mod staff;
 pub mod systems;
 pub mod trends;
 
@@ -417,11 +418,13 @@ pub struct Alumnus {
     pub pick: Option<u32>,
     pub position: crate::positions::Position,
     pub overall: f64,
+    #[cfg_attr(not(feature = "debug"), allow(dead_code))]
     pub(crate) potential: f64,
     pub juco: bool,
     pub left_football: bool,
     /// His high school class (year of his last high school spring).
     pub class_of: i32,
+    #[cfg_attr(not(feature = "debug"), allow(dead_code))]
     pub(crate) visibility: f64,
     pub steered: bool,
     pub background_summary: String,
@@ -618,6 +621,19 @@ pub struct World {
     /// 9.9), and how new each family is to its defenses now (9.5).
     pub trends: Vec<trends::Trend>,
     pub(crate) novelty: [[f64; crate::game::playbook::FAMILY_COUNT]; data::DIVISION_COUNT],
+    /// Your team's games kept whole for their game pages (section 8).
+    #[serde(default)]
+    pub seat_games: Vec<seat::SeatGame>,
+    /// Your depth chart where you set one (section 8, topic 6).
+    #[serde(default)]
+    pub seat_depth: Vec<(crate::positions::Position, Vec<u32>)>,
+    /// Your players' plan focus (section 6b topic 5): player id and
+    /// attribute index.
+    #[serde(default)]
+    pub seat_focus: Vec<(u32, u8)>,
+    /// Your career once it has started: you, your coach id, your notes.
+    #[serde(default)]
+    pub career: Option<seat::Career>,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -886,6 +902,10 @@ impl World {
             seat: None,
             trends: Vec::new(),
             novelty: [[0.0; crate::game::playbook::FAMILY_COUNT]; data::DIVISION_COUNT],
+            seat_games: Vec::new(),
+            seat_depth: Vec::new(),
+            seat_focus: Vec::new(),
+            career: None,
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);
@@ -945,6 +965,33 @@ impl World {
 }
 
 impl World {
+    /// Memory tooling: the people list's spare capacity, then drops one
+    /// part of every person by name (`memory_check`).
+    #[cfg(feature = "debug")]
+    pub fn debug_people_capacity(&self) -> (usize, usize) {
+        (self.people.len(), self.people.capacity())
+    }
+
+    #[cfg(feature = "debug")]
+    pub fn debug_drop_people_part(&mut self, part: &str) {
+        for p in self.people.iter_mut() {
+            match part {
+                "story" => p.bg.story = Vec::new(),
+                "name" => p.name = String::new(),
+                "position history" => p.player.position_history = Vec::new(),
+                "college staff" => p.college_staff = Vec::new(),
+                "path" => p.path = Vec::new(),
+                "calendar lists" => {
+                    p.cal.lean_events = Vec::new();
+                    p.cal.offers = Vec::new();
+                    p.cal.visits = Vec::new();
+                    p.cal.early_offers = Vec::new();
+                }
+                _ => {}
+            }
+        }
+    }
+
     /// A program as the match engine sees it today (trial tooling only).
     #[cfg(feature = "debug")]
     pub fn debug_game_team(&self, prog: usize) -> Option<crate::game::GameTeam> {
@@ -1074,6 +1121,9 @@ impl World {
             })
             .collect();
         let start = self.people.len();
+        // Grow by exactly the class (section 8, memory): doubling a list of
+        // 850,000 people reserved room for two million.
+        self.people.reserve_exact(new.len());
         self.people.extend(new);
         self.draw_home_ties(start);
         self.place_new_class(start);
@@ -1239,6 +1289,11 @@ impl World {
             .collect();
         let mut stays = map.iter();
         self.people.retain(|_| stays.next().is_some_and(|m| m.is_some()));
+        // Hand back the room of everyone who left, keeping a third more for
+        // next year's class and the year's pros, so the list never doubles
+        // (section 8, memory: it held room for 2.0 million people).
+        let room = self.people.len() + self.people.len() / 3;
+        self.people.shrink_to(room);
         self.announcements.clear();
         pro::remap_people(self, &map);
         pro::rebuild(self);

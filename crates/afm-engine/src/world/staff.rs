@@ -2252,3 +2252,45 @@ pub(crate) fn credit_teaching(w: &mut World) {
         }
     }
 }
+
+/// You take a head coaching job (section 8, topic 2): the coach you replace
+/// leaves into the market like any fired coach, you join the world as a
+/// coach on the same scale as every other, with your ratings, reputation
+/// and style, and his staff stays under contract until you decide.
+/// Returns your coach id.
+pub fn take_seat(w: &mut World, you: &super::seat::You, employer: Employer) -> usize {
+    let tier = match employer {
+        Employer::HighSchool(_) => CoachTier::HighSchool,
+        Employer::College(p) => tier_of(w.programs[p].division),
+        Employer::Nfl(_) => CoachTier::Nfl,
+    };
+    let old = match employer {
+        Employer::HighSchool(s) => w.high_schools[s].coach,
+        Employer::College(p) => w.programs[p].head_coach,
+        Employer::Nfl(t) => w.nfl[t].head_coach,
+    };
+    if let Some(c) = old {
+        leave(w, c, "fired");
+    }
+    let id = w.coaches.len();
+    let mut c = generate_coach(id, you.name.clone(), you.ethnicity, tier, you.age, &mut w.rng);
+    c.ability.teaching = you.teaching;
+    c.ability.scheme = you.scheme;
+    c.ability.game_management = you.game_management;
+    c.ability.motivation = you.motivation;
+    c.ability.discipline = you.discipline;
+    c.ability.recruiting = you.recruiting;
+    c.ability.network = you.network;
+    c.ability.relationships = you.relationships;
+    c.reputation = you.reputation;
+    c.ex_pro = you.ex_pro;
+    c.home_state = Some(you.home_state);
+    c.style_set = Some(you.style);
+    c.sportsmanship = 12.0;
+    // You keep learning like any coach, to the edge of a long career.
+    c.learning_ceiling = 20.0;
+    c.systems = super::systems::draw(id, c.came_up, c.ability.scheme, w.options.seed as u64);
+    w.coaches.push(c);
+    hire(w, id, employer, Role::HeadCoach);
+    id
+}

@@ -734,8 +734,10 @@ pub fn continue_until_needed(w: &mut World, max_days: u32) -> Date {
     };
     for _ in 0..max_days {
         let d = w.today;
+        let kept = w.seat_games.last().map(|g| (g.date, g.teams));
         advance_day(w);
-        if w.calendar.on(d).iter().any(stops) {
+        // Your own game day always stops, as a manager's match day does.
+        if w.calendar.on(d).iter().any(stops) || w.seat_games.last().map(|g| (g.date, g.teams)) != kept {
             return d;
         }
     }

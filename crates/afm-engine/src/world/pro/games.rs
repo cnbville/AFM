@@ -158,7 +158,7 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
         let experience =
             p.college_snaps as f64 / crate::world::season::SEASON_SNAPS as f64 + pro_snaps(p) / NFL_SEASON_SNAPS as f64;
         let mut g = GamePlayer::from_player(&p.player, know, experience);
-        let iq = 0.5 * (p.player.attributes[Attr::FootballIq] + p.player.attributes[Attr::PlayRecognition]);
+        let iq = 0.5 * (p.player.attributes.get(Attr::FootballIq) + p.player.attributes.get(Attr::PlayRecognition));
         let mind = clamp(0.92 + 0.08 * (iq - 60.0) / 25.0, 0.82, 1.04);
         for f in Family::ALL {
             let (use_, top) = if f.offense() { (fam[f as usize], top_off) } else { (fam[f as usize], top_def) };
@@ -253,6 +253,9 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
         },
     );
     team.give_orders(crate::player::Level::NFL);
+    if w.seat_club(t) {
+        team.order = w.seat_depth.clone();
+    }
     team.film = club.film.clone();
     team.line_chem = 0.25 + 0.15 * back as f64;
     Some(Side { team, who })
@@ -412,6 +415,7 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
 /// player out for a long spell goes on injured reserve).
 pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[Side; 2], opp_z: [f64; 2]) {
     let year = w.year;
+    w.keep_seat_game(crate::calendar::Level::Nfl, teams, &r.stats);
     if w.options.keep_game_log && w.recording {
         w.game_log.add_nfl(year, teams, &r.stats);
     }

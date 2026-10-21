@@ -112,13 +112,13 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
                 _ => 0.95,
             };
             for a in Attr::ALL {
-                p.attributes[a] = clamp(p.ceilings[a] * share, MIN_RATING, MAX_RATING);
+                p.attributes.set(a, clamp(p.ceilings.get(a) * share, MIN_RATING, MAX_RATING));
             }
             // A snapper is as good as his snap: set it so his rating fits the level.
             if pos == Position::LS {
                 let w = crate::positions::weight(Position::LS, Attr::LongSnapping);
-                let rest = overall_for(Position::LS, &p.attributes) - w * p.attributes[Attr::LongSnapping];
-                p.attributes[Attr::LongSnapping] = clamp((target - rest) / w, MIN_RATING, MAX_RATING);
+                let rest = overall_for(Position::LS, &p.attributes) - w * p.attributes.get(Attr::LongSnapping);
+                p.attributes.set(Attr::LongSnapping, clamp((target - rest) / w, MIN_RATING, MAX_RATING));
             }
             // Habits at the level's spread (tendencies topic 3.2).
             p.tend = crate::tendencies::Tendencies::at_level(
@@ -214,8 +214,8 @@ pub fn team_from_ratings(name: &str, level: Level, list: &[RatedPlayer], scheme:
         p.age = 19 + (k % 4) as u32;
         p.attributes = rp.attrs;
         p.ceilings = rp.attrs;
-        p.tend.v = rp.tend;
-        p.tend.was = rp.tend;
+        p.tend.v = rp.tend.map(|x| x as f32);
+        p.tend.was = rp.tend.map(|x| x as f32);
         raw.push((p, 0.86, 1.0 + (k % 3) as f64));
     }
     finish_team(name, level, raw, &mut rng, seed, scheme)

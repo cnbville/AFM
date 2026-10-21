@@ -274,8 +274,8 @@ pub fn apply_background(p: &mut Player, bg: &mut Background, family: &Family, rn
         // Hardship as fuel: a little extra toughness and hunger.
         p.personality.competitiveness = clamp(p.personality.competitiveness + h * rng.range(0.0, 1.5), 1.0, 20.0);
         let fuel = h * rng.range(0.0, 2.0);
-        p.ceilings[Attr::Toughness] = clamp(p.ceilings[Attr::Toughness] + fuel, 1.0, 99.0);
-        p.ceilings[Attr::Competitiveness] = clamp(p.ceilings[Attr::Competitiveness] + 0.5 * fuel, 1.0, 99.0);
+        p.ceilings.set(Attr::Toughness, clamp(p.ceilings.get(Attr::Toughness) + fuel, 1.0, 99.0));
+        p.ceilings.set(Attr::Competitiveness, clamp(p.ceilings.get(Attr::Competitiveness) + 0.5 * fuel, 1.0, 99.0));
     } else if d < -0.2 {
         bg.stability = clamp(bg.stability - h * rng.range(0.0, 2.5), 1.0, 20.0);
     }
@@ -287,23 +287,27 @@ pub fn apply_background(p: &mut Player, bg: &mut Background, family: &Family, rn
         if profile.group == crate::attributes::AttributeGroup::Physical {
             continue;
         }
-        let room = p.ceilings[key] - p.attributes[key];
+        let room = p.ceilings.get(key) - p.attributes.get(key);
         // Arrives rawer or more polished: up to 6% of the gap.
-        p.attributes[key] = clamp(p.attributes[key] - 0.12 * raw * room, 1.0, p.ceilings[key]);
+        p.attributes.set(key, clamp(p.attributes.get(key) - 0.12 * raw * room, 1.0, p.ceilings.get(key)));
         // Hidden upside: up to about 1.5 points either way.
-        p.ceilings[key] = clamp(p.ceilings[key] + 3.0 * raw * rng.range(0.3, 1.0), 1.0, 99.0);
+        p.ceilings.set(key, clamp(p.ceilings.get(key) + 3.0 * raw * rng.range(0.3, 1.0), 1.0, 99.0));
     }
     match family.bloodline {
         Bloodline::NflPlayer => {
             for key in [Attr::Strength, Attr::Speed, Attr::FootballIq] {
-                p.ceilings[key] = clamp(p.ceilings[key] + rng.range(0.0, 2.5), 1.0, 99.0);
+                p.ceilings.set(key, clamp(p.ceilings.get(key) + rng.range(0.0, 2.5), 1.0, 99.0));
             }
-            p.attributes[Attr::FootballIq] =
-                clamp(p.attributes[Attr::FootballIq] + 2.0, 1.0, p.ceilings[Attr::FootballIq]);
+            p.attributes.set(
+                Attr::FootballIq,
+                clamp(p.attributes.get(Attr::FootballIq) + 2.0, 1.0, p.ceilings.get(Attr::FootballIq)),
+            );
         }
         Bloodline::CollegePlayer => {
-            p.attributes[Attr::FootballIq] =
-                clamp(p.attributes[Attr::FootballIq] + 1.0, 1.0, p.ceilings[Attr::FootballIq]);
+            p.attributes.set(
+                Attr::FootballIq,
+                clamp(p.attributes.get(Attr::FootballIq) + 1.0, 1.0, p.ceilings.get(Attr::FootballIq)),
+            );
         }
         Bloodline::None => {}
     }

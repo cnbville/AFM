@@ -481,7 +481,7 @@ impl Ctx {
         let mut h = vec![Vec::new(); POSITION_COUNT];
         for &i in people {
             let p = &w.people[i].player;
-            h[p.position.index()].push((p.body.height, p.body.weight, p.attributes[Attr::Speed]));
+            h[p.position.index()].push((p.body.height, p.body.weight, p.attributes.get(Attr::Speed)));
         }
         let ms = |v: &[f64]| {
             let n = v.len().max(1) as f64;
@@ -571,7 +571,7 @@ pub(crate) fn read(w: &World, t: usize, i: usize, looks: &[Look], ctx: &Ctx) -> 
     let (hm, hs, wm, ws) = ctx.size[k];
     let z_size = clamp(0.5 * (p.player.body.height - hm) / hs + 0.5 * (p.player.body.weight - wm) / ws, -1.5, 1.5);
     let (sm, ss) = ctx.speed[k];
-    let z_speed = clamp((p.player.attributes[Attr::Speed] - sm) / ss, -1.5, 1.5);
+    let z_speed = clamp((p.player.attributes.get(Attr::Speed) - sm) / ss, -1.5, 1.5);
     let z_ath = z_speed;
 
     // The people who looked, with their looks counted by category.

@@ -134,7 +134,7 @@ fn background_marks_are_noteworthy_not_driving() {
         } else if hardship(&bg) < 0.3 {
             grit_easy.push(bg.grit);
         }
-        assert!(p.ceilings[Attr::Speed] <= 99.0);
+        assert!(p.ceilings.get(Attr::Speed) <= 99.0);
     }
     let gap = mean(&poor) - mean(&rich);
     // Kids without resources keep a little more hidden upside: small, not decisive.
