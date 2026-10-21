@@ -11,6 +11,16 @@ pub mod cards;
 pub mod colors;
 pub mod files;
 pub mod jobs;
+pub mod lane_core;
+pub mod lane_faces;
+pub mod lane_frontoffice;
+pub mod lane_gameday;
+pub mod lane_money;
+pub mod lane_people;
+pub mod lane_scouting;
+pub mod lane_stories;
+pub mod lane_training;
+pub mod lane_views;
 pub mod reads;
 pub mod setup;
 pub mod views;
@@ -181,7 +191,28 @@ impl Game {
                 views::player(w, pid)
             }
             "bug" => setup::bug_pack(self, args),
-            _ => Err(format!("Unknown command: {cmd}")),
+            _ => {
+                // The final build's lanes each answer their own commands.
+                type Lane = fn(&mut Game, &str, &Value) -> Option<Reply>;
+                const LANES: [Lane; 10] = [
+                    lane_core::call,
+                    lane_gameday::call,
+                    lane_money::call,
+                    lane_people::call,
+                    lane_scouting::call,
+                    lane_stories::call,
+                    lane_frontoffice::call,
+                    lane_training::call,
+                    lane_faces::call,
+                    lane_views::call,
+                ];
+                for lane in LANES {
+                    if let Some(r) = lane(self, cmd, args) {
+                        return r;
+                    }
+                }
+                Err(format!("Unknown command: {cmd}"))
+            }
         }
     }
 }
