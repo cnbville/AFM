@@ -1,0 +1,12 @@
+# Lane 13: Game views (gated visuals)
+
+Read first: `CLAUDE.md`, `../plan.md` (your files: `crates/afm-game/src/lane_views.rs`, `app/ui/screens/views.js/.css`, `app/ui/screens/views/` for assets, plus engine output hooks), `../list.md` (X2, X3, X8), `docs/design/later-extras.md` topics 2 and 3 (main spec), `docs/design/screens.md` (the 2D view topic, look), `docs/design/game-day.md` (watching), `docs/match-engine.md` (tracked plays, the frames: `game/geom.rs`, `sim.rs`), `../game-view.md`. Mock-ups B (3D coaches' view) and D (2D dots): https://claude.ai/artifact/CteVV5nFKW8TmDigAqe3hR (later-extras.md describes them if unreachable). Work in progress: `claude/final-wip-lane13`.
+
+- Engine output only: add facing, action and ball height to the play frames as OUTPUT ONLY, so every seed gives identical results (prove with a test comparing results with and without frames). Keep frames only for games a screen will show (yours, a watched game), never stored for the world.
+- X3 2D view: dots by default (numbers, team colours, ball, line of scrimmage, first-down line, route trails), top-down player figures sized by body as a setting; play, pause, scrub, speed, step snap by snap.
+- X2 3D coaches' view (mock-up B): WebGL with three.js vendored into `app/ui/screens/views/` so the Mac app works offline; bodies from the player model; a generated stadium from the real venue (capacity, shape, surface); weather and light; officials and chain crew; cameras: coaches' end zone, All-22 sideline, broadcast; quality settings for an 8 GB M1 and an Intel Mac (60 fps high on M1, 30 low on Intel). One switch between 3D and 2D (a button or V, even mid-play); the screen opens in whichever was used last. GATED: the 3D view sits behind a setting OFF by default until Cain okays a clip.
+- X8 four film-room tools in the coaches' view: drawing on a paused frame, cut-ups by tag filter, isolate-one-player camera, the position coaches' snap grades on the film.
+- The game page's Watch tab, and a live view during game day (Lane 2 owns the game day loop and exposes each snap's frames per step; plug in once their PR is on main; until then work from finished games' frames).
+- A clip for Cain: record the 3D view of a few snaps with Playwright (headless WebGL via SwiftShader is fine) to .webm or GIF under `docs/final-build/media/` (under ~10 MB), plus a 2D screenshot. Mention the paths in your report.
+
+Never block the UI thread with frame decoding. Look at the clip critically and make it beautiful. Update `docs/game.md` and `docs/match-engine.md`.

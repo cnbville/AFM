@@ -1,0 +1,9 @@
+# Lane 7: Scouting and draft
+
+Read first: `CLAUDE.md`, `../plan.md` (your files: `crates/afm-game/src/lane_scouting.rs`, `app/ui/screens/scouting.js/.css`, plus engine modules), `../list.md` (X5, the Scouting lines, draft board and war room, big moments), `docs/design/scouting.md` (section 7, main spec), `docs/design/later-extras.md` topic 5, `docs/design/build9-plan.md` (scouting leftovers, now in scope), `docs/world-model.md`, `docs/design/screens.md`, `docs/game.md`. Work in progress: `claude/final-wip-lane7` (little).
+
+- Build 9's scouting leftovers: college personnel staffs and public evaluators, minicamp tryouts, area recruiters and camps, full character and medical reads, potential words, look-backs, pro scouting, portal and JUCO evaluation, the HS coach's side.
+- X5: prospects' pre-draft choices (declare, return, bowl opt-outs, workouts), smokescreens, mock drafts, the supplemental draft (through 2019), QB-receiver and secondary chemistry, social media with NIL from followers (follower growth from Lane 1's Aura x fame once it's on main; build against a function you can switch if not yet).
+- Your side: the scouting file (7 tabs), the scouting department (areas, assignments, evaluation days, look-backs), the draft board, the war room and the live draft (your pick, trades on the clock, the clock), the undrafted rush, the pre-draft season, pro scouting screens. Staff reads only: never true ratings or potential (words and ranges).
+
+Football Manager's scouting depth and a real war room's tension, calm and dense, every name a link. Store reports compactly (only what the staff holds); in-season memory must not grow noticeably. In the browser: an NFL pre-draft season and full draft; college recruit and portal scouting; the HS side. Update `docs/world-model.md` and `docs/game.md`.
