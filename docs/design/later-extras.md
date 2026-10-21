@@ -2,7 +2,7 @@
 
 Designed 2026-10-21 in the thread "Section 11 design: later extras". Cain: "let's design them i want the next build to be final (afterwards we'll tune and fix but i want all features applied as we designed)". Design only; everything here goes into the final build.
 
-Five topics: 1 full club finances at every level, 2 a 3D game view, 3 player figures in the 2D view, 4 importing a folder of photos, 5 build 9's "still later" leftovers. Real life is written in as the default. Numbers no source publishes are marked "proposed, not confirmed". The three choices real life can't settle are at the end.
+Five topics: 1 full club finances at every level, 2 a 3D game view, 3 player figures in the 2D view, 4 importing a folder of photos, 5 build 9's "still later" leftovers. Real life is written in as the default. Numbers no source publishes are marked "proposed, not confirmed". The three choices real life can't settle are at the end; choice 3 is answered, choices 1 and 2 wait on the mock-ups.
 
 Not in this section, and why:
 - **Press conferences and player talks** moved into section 6 on 2026-10-18 (`docs/design/people.md`, topic 5 talks and topic 9 press conferences). The old roadmap and open-questions lines that still put them here are fixed.
@@ -129,7 +129,7 @@ One question at the end (choice 2): which one the 2D view shows by default.
 - **The same rules as one photo:** copied into the save's folder, never sent anywhere, media day keeps it, "Back to generated face" undoes it per player, and "Undo this import" undoes the whole batch.
 - **Export for a batch, the other way round:** "Export AI prompts" on a roster page writes a folder of text files, one per player, each named by his id and holding his "Copy AI prompt" text. You make the pictures, save each under the same name, and import the folder: every file matches by id.
 
-One question at the end (choice 3): whether a NewGAN-style pool of unnamed photos is also offered.
+No pool of unnamed photos for now (choice 3, Cain: "No not for now").
 
 ---
 
@@ -168,4 +168,6 @@ No open questions in this topic.
 
 1. **Which view a watched game opens in.** 2D is the coach's view: everything in section 9 and the overlays is designed on it, and it shows all 22 at once. 3D is the TV view and looks best for big plays. You can switch at any time either way. My pick: 2D, with each big play's replay in 3D.
 2. **What the 2D view shows by default: figures or dots.** Dots read best when 22 players bunch up; figures show who is blocking, tackling or down at a glance. My pick: figures, with dots one click away.
-3. **Whether the import also offers a NewGAN-style pool.** You drop a folder of unnamed photos sorted into heritage subfolders (named after the game's heritage groups), and the game gives a fitting one to each player who has no photo of yours, for life, as NewGAN does. It would show photos instead of the game's own drawn faces for those players. My pick: yes, as an option that's off until you use it.
+3. **Whether the import also offers a NewGAN-style pool.** You drop a folder of unnamed photos sorted into heritage subfolders, and the game gives a fitting one to each player who has no photo of yours, for life, as NewGAN does. **Answered: no, not for now** (Cain, 2026-10-21 21:08: "No not for now").
+
+Choices 1 and 2: Cain asked to see them first (21:08: "give me 2 different 3-d mockups ... just so i get the idea", "Also mock up"). The mock-up page shows one play four ways from the same frames: broadcast 3D, coaches' 3D, 2D figures and 2D dots (https://claude.ai/artifact/CteVV5nFKW8TmDigAqe3hR).
