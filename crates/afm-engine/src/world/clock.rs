@@ -730,9 +730,7 @@ fn anniversaries(w: &mut World, d: Date) {
 pub fn continue_until_needed(w: &mut World, max_days: u32) -> Date {
     // N58 (Cain): Big moments that matter to the manager, Huge ones anywhere.
     let seat = w.seat;
-    let stops = |e: &Event| {
-        e.needs_decision || e.loud == Loudness::Huge || (e.loud == Loudness::Big && seat.is_none_or(|s| s.cares(e)))
-    };
+    let stops = |e: &Event| e.needs_decision || huge_for(seat, e) || (e.loud == Loudness::Big && cares(seat, e));
     for i in 0..max_days {
         let d = w.today;
         // The morning of your game, or of a day you decide things on: stop
@@ -751,13 +749,26 @@ pub fn continue_until_needed(w: &mut World, max_days: u32) -> Date {
     w.today
 }
 
+fn cares(seat: Option<super::Seat>, e: &Event) -> bool {
+    seat.is_none_or(|s| s.cares(e))
+}
+
+/// A huge moment anywhere (N58): the draft, cutdown day, the deadlines, the
+/// playoffs and the title games. A regular-season game is huge only for its
+/// own teams (topic 8), so another level's rivalry game or season-deciding
+/// game is not one for you.
+fn huge_for(seat: Option<super::Seat>, e: &Event) -> bool {
+    e.loud == Loudness::Huge && (!e.regular || cares(seat, e))
+}
+
 /// T10: holiday mode to a chosen date. Staff run things; it always stops for
 /// a huge moment. Returns the day it stopped on.
 pub fn holiday_to(w: &mut World, until: Date) -> Date {
+    let seat = w.seat;
     while w.today < until {
         let d = w.today;
         advance_day(w);
-        if w.calendar.on(d).iter().any(|e| e.loud == Loudness::Huge) {
+        if w.calendar.on(d).iter().any(|e| huge_for(seat, e)) {
             return d;
         }
     }

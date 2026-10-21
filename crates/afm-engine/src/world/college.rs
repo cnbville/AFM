@@ -966,6 +966,9 @@ fn result_event(w: &mut World, k: usize) {
     if title {
         e = e.memorable();
     }
+    if g.kind == GameKind::Regular {
+        e = e.regular();
+    }
     w.calendar.post(e);
 }
 

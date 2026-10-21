@@ -155,9 +155,12 @@ impl World {
                     self.high_schools.get(h).and_then(|s| s.seasons.last()).is_some_and(|s| s.year == self.year);
                 if filed { (0, 0) } else { self.hs_record(h).unwrap_or((0, 0)) }
             }
+            // Only this football year's season: after the Super Bowl the
+            // season held is last year's, its bowl games his predecessor's.
             Some(Employer::College(p)) => self
                 .college
                 .as_ref()
+                .filter(|cs| cs.year == self.year)
                 .and_then(|cs| Some((cs.results.get(p)?, cs.credited.get(p)?)))
                 .map_or((0, 0), |(r, k)| (r.wins.saturating_sub(k.0), r.losses.saturating_sub(k.1))),
             Some(Employer::Nfl(t)) => match self.nfl_season.as_ref() {

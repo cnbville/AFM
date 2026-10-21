@@ -267,7 +267,9 @@ pub fn start(w: &mut World, args: &Value) -> Result<(), String> {
     let bg_key = args.get("background").and_then(Value::as_str).unwrap_or("college_assistant");
     let b = BACKGROUNDS.iter().find(|b| b.key == bg_key).ok_or("No such background.")?;
     let base = starting_ratings(b);
-    let pool: f64 = base.iter().sum();
+    // The pool as the setup page shows it (whole points); the page lets you
+    // spend up to half a point over, its slider step.
+    let pool: f64 = base.iter().sum::<f64>().round();
     let mut r: Vec<f64> = args
         .get("ratings")
         .and_then(Value::as_array)
@@ -279,7 +281,7 @@ pub fn start(w: &mut World, args: &Value) -> Result<(), String> {
     }
     // The pool is the limit: more than it buys is scaled back.
     let spent: f64 = r.iter().sum();
-    if spent > pool + 0.01 {
+    if spent > pool + 0.5 + 1e-9 {
         let k = pool / spent;
         r.iter_mut().for_each(|x| *x = (*x * k).clamp(1.0, 20.0));
     }

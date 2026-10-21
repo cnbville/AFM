@@ -670,8 +670,10 @@ pub(crate) fn fill_league(w: &mut World) {
     let mut asks: Vec<f64> = made
         .iter()
         .map(|(p, team, rating)| match team {
-            Some(_) => (cap * money::market_share(p.player.position, *rating))
-                .max(money::minimum(year, p.player.age.saturating_sub(22))),
+            Some(_) => (cap
+                * money::market_share(p.player.position, *rating)
+                * market::decline(p.player.position, p.player.age))
+            .max(money::minimum(year, p.player.age.saturating_sub(22))),
             None => 0.0,
         })
         .collect();
@@ -1294,8 +1296,10 @@ fn ask(w: &World, i: usize, year: i32, d: Date) -> (f64, u32) {
     let weeks = (w.dates.league_year.date.days_to(d).max(0) / 7) as u32 + c.map_or(0, |c| c.weeks_unsigned);
     let min = money::minimum(year, accrued);
     let rel = market::market_grade(w, p.player.position, g);
-    let price =
-        money::price_cap(year) * money::market_share(p.player.position, rel) * (1.0 - 0.04 * weeks as f64).max(0.0);
+    let price = money::price_cap(year)
+        * money::market_share(p.player.position, rel)
+        * market::decline(p.player.position, p.player.age)
+        * (1.0 - 0.04 * weeks as f64).max(0.0);
     (price.max(min), money::usual_years(p.player.position, g, p.player.age))
 }
 

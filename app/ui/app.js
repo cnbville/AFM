@@ -664,7 +664,7 @@ screens.staff = async (a) => {
 
 screens.coach = async (a) => {
   const c = await api("coach", { id: a.id });
-  return `<div class="pad"><div class="st-label">${c.job ? `${esc(c.job.role)} · ${esc(c.job.name)} since ${c.job.since} · ${esc(c.job.record)}` : "Out of work"}</div><div class="h1">${esc(c.name)}${c.you ? ' <span class="st-pill gold">You</span>' : ""}</div>
+  return `<div class="pad"><div class="st-label">${c.job ? `${esc(c.job.role)} · ${esc(c.job.name)} since ${c.job.since}${c.job.record ? ` · ${esc(c.job.record)}` : ""}` : "Out of work"}</div><div class="h1">${esc(c.name)}${c.you ? ' <span class="st-pill gold">You</span>' : ""}</div>
     <div class="kv"><dt>Age</dt><dd>${c.age}</dd><dt>Reputation</dt><dd>${esc(c.reputation)}</dd><dt>Came up as</dt><dd>${esc(c.came_up)}</dd><dt>Played pro</dt><dd>${c.ex_pro ? "Yes" : "No"}</dd><dt>Titles</dt><dd>${c.titles}</dd>${c.mentor ? `<dt>Learned under</dt><dd><a class="link" data-go="coach" data-id="${c.mentor.id}">${esc(c.mentor.name)}</a></dd>` : ""}</div>
     ${tbl(["Where", "Role", "Years", "Record", "How it ended"], c.history.map((h) => [esc(h.where), h.role, `${h.from}-${h.to}`, h.record, h.ended]))}</div>`;
 };

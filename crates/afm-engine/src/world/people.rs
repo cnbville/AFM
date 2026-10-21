@@ -426,7 +426,7 @@ pub fn pay_and_worth(w: &World, i: usize) -> Option<(f64, f64)> {
     }
     let pos = p.player.position;
     let view = market::market_grade(w, pos, market::consensus(w, i));
-    Some((apy, market::market_price(w.year, pos, view, c.accrued)))
+    Some((apy, market::market_price(w.year, pos, view, c.accrued, p.player.age)))
 }
 
 /// NFL camp's mood read (topics 3 and 4): role against his own view, last
