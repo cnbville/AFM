@@ -357,8 +357,19 @@ pub(crate) fn set_ladders(w: &mut World) {
     w.market.teams = super::super::franchise::active_teams(year).len();
 }
 
-pub(crate) fn market_price(year: i32, pos: Position, view: f64, accrued: u32) -> f64 {
-    (money::price_cap(year) * money::market_share(pos, view)).max(money::minimum(year, accrued))
+/// What a veteran of this grade costs a year on the open market at his age.
+pub(crate) fn market_price(year: i32, pos: Position, view: f64, accrued: u32, age: u32) -> f64 {
+    (money::price_cap(year) * money::market_share(pos, view) * decline(pos, age)).max(money::minimum(year, accrued))
+}
+
+/// Past his position's prime a team pays for the decline it expects over
+/// the deal: about 4% less a year past it, to 60% (real: Cousins at 35 at
+/// about 88% of the top five's pay, Brees at 39 and Rodgers at 38 near the
+/// top of the market, Brady at 43 at 70%; most players that old have lost
+/// grade as well, so their price falls further).
+pub(crate) fn decline(pos: Position, age: u32) -> f64 {
+    let past = age.saturating_sub(prime_end(pos));
+    (1.0 - 0.04 * past as f64).max(0.6)
 }
 
 /// The age a position's prime ends at (the class model's decline).
@@ -425,7 +436,7 @@ pub(crate) fn worth(w: &World, t: usize, i: usize) -> (f64, f64) {
     }
     let accrued = c.map_or(0, |c| c.accrued);
     let rel = market_grade(w, pos, view);
-    let mut apy = market_price(year, pos, rel, accrued);
+    let mut apy = market_price(year, pos, rel, accrued, age);
     // Where he would play here.
     let slots = depth_slots(pos);
     let better =
@@ -515,7 +526,7 @@ pub(crate) fn ideal(w: &World, i: usize, d: Date) -> Ideal {
     let view = market_grade(w, p.player.position, consensus(w, i));
     let accrued = c.map_or(0, |c| c.accrued);
     let agent = c.and_then(|c| c.agent).map_or(8.0, |a| w.market.agents[a].skill);
-    let apy = market_price(year, p.player.position, view, accrued)
+    let apy = market_price(year, p.player.position, view, accrued, p.player.age)
         * (1.0 + 0.2 * (g.money - 0.5))
         * (1.0 + 0.004 * (agent - 10.0));
     let base = if view >= 85.0 {
@@ -1611,7 +1622,7 @@ pub(crate) fn holdouts(w: &mut World, d: Date, report_day: bool) {
             let Some(k) = c.contract.as_ref() else { continue };
             let seasons = c.seasons.iter().filter(|s| s.games > 0).count();
             let view = market_grade(w, w.people[i].player.position, consensus(w, i));
-            let market = market_price(year, w.people[i].player.position, view, c.accrued);
+            let market = market_price(year, w.people[i].player.position, view, c.accrued, w.people[i].player.age);
             let under = market / k.apy().max(1.0);
             // Stars only, far under their market (real: a handful a year,
             // Aiyuk and Lamb in 2024).

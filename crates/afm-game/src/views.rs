@@ -138,7 +138,9 @@ pub fn roster_people(w: &World, t: TeamRef) -> Vec<usize> {
         TeamRef::College(i) => w.programs[i].roster.clone(),
         TeamRef::HighSchool(i) => w.high_schools[i].roster.clone(),
     };
-    v.retain(|&k| k < w.people.len());
+    // A player who walked away from football (or whose playing days ended)
+    // stays on the list until the roster is rebuilt; he is not on the team.
+    v.retain(|&k| w.people.get(k).is_some_and(|p| p.stage != Stage::Done));
     v
 }
 
@@ -537,18 +539,24 @@ fn about_us(names: &[String], e: &afm_engine::calendar::Event) -> bool {
     people.iter().any(|n| named(n, false)) || (e.level == CalLevel::HighSchool && named(school, true))
 }
 
-pub fn inbox(w: &World, days: i32) -> Value {
+/// Whether a calendar line is about your own team: your program or club,
+/// at any loudness, or a high school seat's school and players by name.
+fn yours_test(w: &World) -> impl Fn(&afm_engine::calendar::Event) -> bool + use<> {
     let seat = w.seat;
     let names = hs_names(w);
-    // Yours: anything about your program or club, at any loudness, and your
-    // players by name. Around you: your level's big moments and huge ones
-    // anywhere (the rest is in the news).
-    let yours = |e: &afm_engine::calendar::Event| {
+    move |e| {
         seat.is_some_and(|s| {
             (s.level == CalLevel::College && e.program.is_some() && e.program == s.program)
                 || (e.nfl_team.is_some() && e.nfl_team == s.nfl_team)
         }) || about_us(&names, e)
-    };
+    }
+}
+
+pub fn inbox(w: &World, days: i32) -> Value {
+    let seat = w.seat;
+    // Yours: anything about your team. Around you: your level's big moments
+    // and huge ones anywhere (the rest is in the news).
+    let yours = yours_test(w);
     let from = w.today.add(-days);
     let mut items: Vec<(Date, Value)> = w
         .calendar
@@ -596,16 +604,15 @@ pub fn news(w: &World, args: &Value) -> Value {
         _ => None,
     };
     let mut items: Vec<Value> = Vec::new();
-    // A high school coach's own level is his state's schools and his players.
-    let names = hs_names(w);
-    // High school lines name their state by its code ("TX high school poll").
+    // Yours: your team, and for a high school coach his state's high school
+    // lines too ("TX high school poll").
+    let yours = yours_test(w);
     let state = match mine(w) {
         Some(TeamRef::HighSchool(h)) => w.high_schools.get(h).map(|s| format!("{} ", w.states[s.state].code)),
         _ => None,
     };
-    let ours = |e: &afm_engine::calendar::Event| match &state {
-        Some(code) => about_us(&names, e) || (e.level == CalLevel::HighSchool && e.text.contains(code.as_str())),
-        None => w.seat.is_some_and(|s| s.cares(e)),
+    let ours = |e: &afm_engine::calendar::Event| {
+        yours(e) || state.as_ref().is_some_and(|code| e.level == CalLevel::HighSchool && e.text.contains(code.as_str()))
     };
     // The calendar's small lines are the news wire.
     for (d, evs) in w.calendar.events.range(..=w.today).rev() {
@@ -619,11 +626,24 @@ pub fn news(w: &World, args: &Value) -> Value {
             }
         }
     }
+    // The news desk's stories: a college program's, or the NFL's (a story
+    // with no program, except the FBS diversity report).
+    let my_club = match mine(w) {
+        Some(TeamRef::Nfl(t)) => Some(format!("The {} ", w.nfl[t].name)),
+        _ => None,
+    };
     for n in w.news.iter().rev() {
-        if mine_only && my_prog != n.program {
+        let college = n.program.is_some() || matches!(n.kind, afm_engine::world::news::NewsKind::DiversityReport);
+        let yours = match (&my_club, my_prog) {
+            (_, Some(p)) => n.program == Some(p),
+            (Some(club), None) => !college && n.text.starts_with(club.as_str()),
+            _ => false,
+        };
+        if mine_only && !yours {
             continue;
         }
-        items.push(json!({ "date": n.date.map(date_text), "text": n.text, "level": "College", "loud": "Small" }));
+        let level = if college { "College" } else { "Nfl" };
+        items.push(json!({ "date": n.date.map(date_text), "text": n.text, "level": level, "loud": "Small" }));
         if items.len() >= limit {
             break;
         }
@@ -1058,9 +1078,18 @@ fn came_up(w: &World, c: usize) -> String {
     }
 }
 
+/// A coach's record in the job he holds: a head coach's games there (from
+/// the first season of kept records), none for an assistant, whose job has
+/// no record of its own.
+fn job_record(w: &World, c: usize) -> String {
+    let Some(j) = w.coaches[c].job.filter(|j| j.role == Role::HeadCoach) else { return "-".into() };
+    let (wn, l) = w.stint_record(c);
+    let kept_from = w.options.start_year - w.options.history_years as i32;
+    if j.since < kept_from { format!("{wn}-{l} (since {kept_from})") } else { format!("{wn}-{l}") }
+}
+
 fn coach_row(w: &World, c: usize, role: &str) -> Value {
     let co = &w.coaches[c];
-    let (wn, l) = w.stint_record(c);
     json!({
         "id": c,
         "name": co.name,
@@ -1068,7 +1097,7 @@ fn coach_row(w: &World, c: usize, role: &str) -> Value {
         "age": co.age,
         "reputation": reputation_words(co.reputation),
         "came_up": came_up(w, c),
-        "record": format!("{wn}-{l}"),
+        "record": job_record(w, c),
         "since": co.job.map(|j| j.since),
         "ex_pro": co.ex_pro,
         "you": w.career.as_ref().is_some_and(|k| k.coach == c),
@@ -1139,8 +1168,8 @@ pub fn coach(w: &World, c: usize) -> Result<Value, String> {
             Employer::Nfl(t) => (TeamRef::Nfl(t), w.nfl_team_name(t)),
             Employer::HighSchool(s) => (TeamRef::HighSchool(s), w.school_name(s).to_string()),
         };
-        let (wn, l) = w.stint_record(c);
-        json!({ "team": team.json(), "name": name, "role": j.role.name(), "since": j.since, "record": format!("{wn}-{l}") })
+        let record = (j.role == Role::HeadCoach).then(|| job_record(w, c));
+        json!({ "team": team.json(), "name": name, "role": j.role.name(), "since": j.since, "record": record })
     });
     // Records are kept from the first season of recorded history: a job
     // that began before it counts its games from then.
@@ -1155,8 +1184,16 @@ pub fn coach(w: &World, c: usize) -> Result<Value, String> {
                 Employer::Nfl(t) => w.nfl_team_name(t),
                 Employer::HighSchool(h) => w.school_name(h).to_string(),
             };
-            let since = if s.from < kept_from && s.to >= kept_from { format!(" (since {kept_from})") } else { String::new() };
-            json!({ "where": name, "role": s.role.name(), "from": s.from, "to": s.to, "record": format!("{}-{}{since}", s.wins, s.losses), "ended": s.ended })
+            // Only a head coach's job has a record, and only its seasons
+            // from the first kept one.
+            let record = if s.role != Role::HeadCoach || s.to < kept_from {
+                "-".to_string()
+            } else if s.from < kept_from {
+                format!("{}-{} (since {kept_from})", s.wins, s.losses)
+            } else {
+                format!("{}-{}", s.wins, s.losses)
+            };
+            json!({ "where": name, "role": s.role.name(), "from": s.from, "to": s.to, "record": record, "ended": s.ended })
         })
         .collect();
     let mentor = co.mentor.and_then(|m| w.coaches.get(m)).map(|m| json!({ "id": m.id, "name": m.name }));
@@ -1269,7 +1306,8 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
         .map(|h| {
             let team = match h.level {
                 Level::HS => w.high_schools.get(p.hs).map(|s| w.school_name(s.id).to_string()),
-                Level::NFL => h.team.map(|t| w.nfl_team_name(t)),
+                // A pro season with no club: unsigned all year.
+                Level::NFL => Some(h.team.map_or("Unsigned".to_string(), |t| w.nfl_team_name(t))),
                 _ => {
                     k += 1;
                     (p.college_staff.len() == college_rows)
@@ -1468,20 +1506,23 @@ fn spot_text(to_goal: f64) -> String {
 }
 
 /// Time of possession from the game clock: each snap's team holds the ball
-/// until the next snap (or the end of the quarter). The engine's own total
-/// counts only the seconds the ball is live.
+/// until the next snap (or the end of the quarter), a kickoff's receiving
+/// team from the kick. The engine's own total counts only the seconds the
+/// ball is live.
 fn possession(s: &afm_engine::game::stats::GameStats) -> [f64; 2] {
     use afm_engine::game::stats::PlayType;
     let mut top = [0.0; 2];
     for (i, r) in s.plays.iter().enumerate() {
-        if matches!(r.kind, PlayType::Kickoff) || r.offense > 1 {
+        if r.offense > 1 {
             continue;
         }
         let end = match s.plays.get(i + 1) {
             Some(n) if n.quarter == r.quarter => n.clock,
             _ => 0.0,
         };
-        top[r.offense] += (r.clock - end).max(0.0);
+        // A kickoff's seconds belong to the team that receives it.
+        let side = if matches!(r.kind, PlayType::Kickoff) { 1 - r.offense } else { r.offense };
+        top[side] += (r.clock - end).max(0.0);
     }
     top
 }

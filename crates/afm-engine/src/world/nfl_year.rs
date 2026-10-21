@@ -2020,7 +2020,7 @@ fn stakes(w: &mut World, k: usize, d: Date) {
                 t,
             )
         };
-        w.calendar.post(Event::new(at.date, Level::Nfl, Kind::Game, loud, text).team(team).at(at));
+        w.calendar.post(Event::new(at.date, Level::Nfl, Kind::Game, loud, text).team(team).at(at).regular());
     }
 }
 

@@ -112,6 +112,10 @@ pub struct Event {
     /// own: a February signing day after the Super Bowl belongs to the
     /// class's season, like that day's date line.
     pub season: Option<i32>,
+    /// A regular-season game: huge only for the teams in it (topic 8), so
+    /// it stops only a manager it is about.
+    #[serde(default)]
+    pub regular: bool,
 }
 
 impl Event {
@@ -128,10 +132,15 @@ impl Event {
             text: text.into(),
             memorable: false,
             season: None,
+            regular: false,
         }
     }
     pub fn memorable(mut self) -> Event {
         self.memorable = true;
+        self
+    }
+    pub fn regular(mut self) -> Event {
+        self.regular = true;
         self
     }
     pub fn at(mut self, when: Moment) -> Event {
