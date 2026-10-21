@@ -171,8 +171,9 @@ struct HsPlayed {
     score: [u32; 2],
     team: [crate::game::stats::TeamStats; 2],
     lines: [Vec<(usize, [i32; HS_STAT_COUNT], bool)>; 2],
-    /// The whole game, kept only for your school's game page.
-    full: Option<crate::game::stats::GameStats>,
+    /// The whole game, kept only for your school's game page, with its
+    /// setup for watching it back.
+    full: Option<(crate::game::stats::GameStats, Option<Box<crate::game::ReplaySetup>>)>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -916,7 +917,11 @@ fn engine_games(
             setup.cond = cond;
             setup.neutral = final_game;
             setup.playoff = week >= world.hs_season.as_ref().unwrap().states[s].weeks.len();
-            let r = crate::game::play_game(&setup);
+            // Your school's game keeps its setup for the film; Friday night
+            // under the lights (7 pm).
+            setup.keep = seat.is_some_and(|x| x == h || x == a);
+            setup.kickoff = 19.0;
+            let mut r = crate::game::play_game(&setup);
             let lines = [(0usize, &hid), (1usize, &aid)].map(|(side, ids)| {
                 ids.iter()
                     .filter_map(|&(id, i)| {
@@ -927,7 +932,8 @@ fn engine_games(
                     .collect()
             });
             let [ha, hb] = r.stats.score;
-            let full = seat.is_some_and(|x| x == h || x == a).then(|| r.stats.clone());
+            let replay = r.replay.take();
+            let full = seat.is_some_and(|x| x == h || x == a).then(|| (r.stats.clone(), replay));
             Some(HsPlayed { score: [ha.max(0) as u32, hb.max(0) as u32], team: r.stats.team.clone(), lines, full })
         })
         .collect();
@@ -955,8 +961,8 @@ fn engine_games(
                 }
             }
         }
-        if let Some(full) = g.full.as_ref() {
-            w.keep_seat_game(Level::HighSchool, [h, a], full);
+        if let Some((full, replay)) = g.full.as_ref() {
+            w.keep_seat_game(Level::HighSchool, [h, a], full, replay.as_deref());
         }
         w.log.hs_engine_games += 1;
         w.log.hs_totals.add(&g.team[0], &g.team[1]);

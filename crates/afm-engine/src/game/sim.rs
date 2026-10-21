@@ -626,12 +626,25 @@ impl Mood {
     }
 }
 
-/// One frame of tracking for the 2D view (topic 9.3): every player and the ball.
+/// One frame of tracking for the 2D and 3D views (topic 9.3): every player
+/// and the ball. The poses, the ball's height and who holds it are view
+/// output only (`pose.rs`); the engine never reads them.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Frame {
     pub t: f64,
     pub ball: V2,
     pub players: Vec<(u32, f32, f32)>,
+    /// Each player's facing and action, in the order of `players`.
+    #[serde(default)]
+    pub poses: Vec<super::pose::Pose>,
+    /// The ball's height above the turf, yards.
+    #[serde(default)]
+    pub ball_z: f32,
+    #[serde(default)]
+    pub ball_mode: super::pose::BallMode,
+    /// Who holds the ball (an index into `players`), or `pose::NONE`.
+    #[serde(default)]
+    pub holder: u8,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -2144,14 +2157,14 @@ impl<'a> Sim<'a> {
         line
     }
 
+    /// Keeps this tick for the views when the play is recorded. Output
+    /// only: nothing here moves a player or draws a number.
     pub fn record_frame(&mut self) {
-        let ball = self.ball_pos();
-        if let Some(fr) = &mut self.record {
-            fr.push(Frame {
-                t: self.t,
-                ball,
-                players: self.agents.iter().map(|a| (a.id, a.pos.x as f32, a.pos.y as f32)).collect(),
-            });
+        if let Some(fr) = self.record.take() {
+            let f = super::pose::frame(self, &fr);
+            let mut fr = fr;
+            fr.push(f);
+            self.record = Some(fr);
         }
     }
 

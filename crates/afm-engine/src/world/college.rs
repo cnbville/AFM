@@ -395,7 +395,7 @@ fn conditions(w: &World, g: &Game, k: usize) -> (Venue, Played, Option<Severe>) 
         };
         clamp((usual - wx.temperature - 15.0) / 25.0, 0.0, 1.0) * clamp((45.0 - wx.temperature) / 15.0, 0.0, 1.0)
     });
-    let venue = Venue { cond, neutral, wear, cold_unused };
+    let venue = Venue { cond, neutral, wear, cold_unused, kickoff: local as f32, indoor, keep: false };
     let mut played = Played {
         temperature: wx.temperature,
         wind: wx.wind,
@@ -570,7 +570,9 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
         .iter()
         .map(|&k| {
             let g = &cs.games[k];
-            let (venue, played, _) = conditions(w, g, k);
+            let (mut venue, played, _) = conditions(w, g, k);
+            // Your game keeps its setup, so its film can be watched back.
+            venue.keep = w.seat_plays(crate::calendar::Level::College, [g.home, g.away]);
             // The days each side had to prepare (T6.2).
             let week = |me: usize| {
                 let last = cs
@@ -650,7 +652,7 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
         };
         played.home_won = home_won;
         if let Some(r) = &r {
-            w.keep_seat_game(crate::calendar::Level::College, [home, away], &r.stats);
+            w.keep_seat_game(crate::calendar::Level::College, [home, away], &r.stats, r.replay.as_deref());
         }
         let cs = w.college.as_mut().unwrap();
         // Records.

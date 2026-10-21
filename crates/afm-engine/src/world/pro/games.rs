@@ -326,7 +326,15 @@ pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bo
         };
         clamp((usual - wx.temperature - 15.0) / 25.0, 0.0, 1.0) * clamp((45.0 - wx.temperature) / 15.0, 0.0, 1.0)
     };
-    Venue { cond, neutral, wear: [wear_of(home), wear_of(away)], cold_unused: [cold_of(home), cold_of(away)] }
+    Venue {
+        cond,
+        neutral,
+        wear: [wear_of(home), wear_of(away)],
+        cold_unused: [cold_of(home), cold_of(away)],
+        kickoff: at.minute as f32 / 60.0 - et_offset(code) as f32,
+        indoor: neutral || closed,
+        keep: w.seat_plays(crate::calendar::Level::Nfl, [home, away]),
+    }
 }
 
 /// One NFL game to play: home, away, kickoff, a neutral site, how much it
@@ -419,7 +427,7 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
 /// player out for a long spell goes on injured reserve).
 pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[Side; 2], opp_z: [f64; 2]) {
     let year = w.year;
-    w.keep_seat_game(crate::calendar::Level::Nfl, teams, &r.stats);
+    w.keep_seat_game(crate::calendar::Level::Nfl, teams, &r.stats, r.replay.as_deref());
     if w.options.keep_game_log && w.recording {
         w.game_log.add_nfl(year, teams, &r.stats);
     }
