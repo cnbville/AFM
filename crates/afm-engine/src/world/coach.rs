@@ -111,6 +111,38 @@ impl Ability {
     }
 }
 
+/// The four ratings only your own coach has as numbers (people topic 15):
+/// play calling and in-game adaptation, evaluation and negotiating, 1-20.
+/// An AI coach's come from his other ratings: calling from scheme and game
+/// management, his eye from recruiting and teaching, and his club's GM does
+/// the haggling.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Yours {
+    pub play_calling: f64,
+    pub adaptation: f64,
+    pub evaluation: f64,
+    pub negotiating: f64,
+    /// You call your offense's or your defense's plays yourself as head
+    /// coach (plays and tactics topic 6.1); otherwise the coordinator does.
+    #[serde(default)]
+    pub calls_offense: bool,
+    #[serde(default)]
+    pub calls_defense: bool,
+}
+
+impl Default for Yours {
+    fn default() -> Yours {
+        Yours {
+            play_calling: 10.0,
+            adaptation: 10.0,
+            evaluation: 10.0,
+            negotiating: 10.0,
+            calls_offense: false,
+            calls_defense: false,
+        }
+    }
+}
+
 /// Personality, 1-20 each.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CoachPersonality {
@@ -267,6 +299,9 @@ pub struct Coach {
     /// The average discipline of the head coaches at his level, less the
     /// middle (`set_freedom_norms`): freedom is read against it.
     pub freedom_norm: f64,
+    /// Your own coach's four extra ratings; None for every AI coach.
+    #[serde(default)]
+    pub(crate) yours: Option<Yours>,
 }
 
 /// A college head coach's contract (trial 4 topic 4): the last season it
@@ -400,6 +435,7 @@ pub fn generate_coach(
         stat_buzz: 0.0,
         style_set: None,
         freedom_norm: 0.0,
+        yours: None,
     }
 }
 
@@ -418,6 +454,9 @@ impl Coach {
     /// recruit, 1-20 (hidden). Keyed by the coach, so no draw moves; it
     /// leans on his recruiting and his teaching (proposed, not confirmed).
     pub fn evaluation(&self) -> f64 {
+        if let Some(y) = self.yours {
+            return y.evaluation;
+        }
         let a = &self.ability;
         let teach = a.teaching.iter().sum::<f64>() / GROUP_COUNT as f64;
         let own = super::season::key_normal(0xE7A1, self.id as u64);
@@ -479,6 +518,14 @@ impl Coach {
             let room = (ceiling - *v).max(0.0);
             *v = clamp(*v + learn * (room / 6.0).min(1.0) + rng.normal(0.0, 0.15), 1.0, 20.0);
         }
+        // Your own four grow the same way, without a draw, so no other
+        // coach's stream moves.
+        if let Some(y) = self.yours.as_mut() {
+            for v in [&mut y.play_calling, &mut y.adaptation, &mut y.evaluation, &mut y.negotiating] {
+                let room = (ceiling - *v).max(0.0);
+                *v = clamp(*v + learn * (room / 6.0).min(1.0), 1.0, 20.0);
+            }
+        }
         // Age takes the edge off every coach, at his ceiling or not (11.14):
         // the energy for the road and for teenagers goes first, then the
         // sideline sharpness; what he knows about teaching holds longest, and
@@ -500,6 +547,11 @@ impl Coach {
             }
             for t in a.teaching.iter_mut() {
                 *t = clamp(*t - 0.4 * d, 1.0, 20.0);
+            }
+            // Sideline sharpness goes with game management.
+            if let Some(y) = self.yours.as_mut() {
+                y.adaptation = clamp(y.adaptation - 0.8 * d, 1.0, 20.0);
+                y.play_calling = clamp(y.play_calling - 0.4 * d, 1.0, 20.0);
             }
         }
         if age >= 58.0 {

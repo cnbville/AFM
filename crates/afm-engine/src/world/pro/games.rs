@@ -199,15 +199,17 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
         let id = who.unwrap_or(usize::MAX) as u64;
         let spread = |k: u64, sd: f64| if who.is_some() { sd * key_normal(k, id) } else { 0.0 };
         let fit = 0.7 + 0.3 * know;
-        let reading =
-            a.map_or(10.0, |a| clamp(0.7 * a.scheme + 0.3 * a.game_management + spread(0x5EAD, 2.0), 1.0, 20.0));
-        let situational =
-            a.map_or(10.0, |a| clamp(0.7 * a.game_management + 0.3 * a.scheme + spread(0x517A, 2.0), 1.0, 20.0));
-        let creativity = a.map_or(10.0, |a| clamp(a.scheme + spread(0xC4EA, 3.0), 1.0, 20.0));
+        let base = a.map_or(10.0, |a| 0.6 * a.scheme + 0.4 * a.game_management);
+        let (shift, adaptation) = crate::world::season::your_calls(w, who, base, a.map_or(10.0, |a| a.game_management));
+        let reading = a
+            .map_or(10.0, |a| clamp(0.7 * a.scheme + 0.3 * a.game_management + spread(0x5EAD, 2.0) + shift, 1.0, 20.0));
+        let situational = a
+            .map_or(10.0, |a| clamp(0.7 * a.game_management + 0.3 * a.scheme + spread(0x517A, 2.0) + shift, 1.0, 20.0));
+        let creativity = a.map_or(10.0, |a| clamp(a.scheme + spread(0xC4EA, 3.0) + shift, 1.0, 20.0));
         let nerve = clamp(0.04 * (temper - 10.0) + spread(0x4E4E, 0.4), -1.0, 1.0);
         Caller {
-            skill: a.map_or(10.0, |a| 0.6 * a.scheme + 0.4 * a.game_management) * fit,
-            adaptation: a.map_or(10.0, |a| a.game_management),
+            skill: (base + shift) * fit,
+            adaptation,
             aggressiveness: temper,
             reading: reading * fit,
             situational,
@@ -224,11 +226,13 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
     let analytics = crate::world::people::Support::z(club.support.analytics.rating);
     let budget = clamp(0.85 + 0.15 * analytics, 0.7, 1.0);
     let film_study = clamp(0.35 * (eye(tm.oc) + eye(tm.dc)) + 7.0 * budget, 1.0, 20.0);
-    let dc = tm.dc.or(tm.head_coach);
+    let oc_call = crate::world::season::play_caller(w, tm.oc, tm.head_coach, true);
+    let dc_call = crate::world::season::play_caller(w, tm.dc, tm.head_coach, false);
+    let dc = dc_call;
     let aware = players.iter().map(|p| p.a(Attr::FootballIq)).sum::<f64>() / players.len().max(1) as f64;
     let install = {
-        let oc = caller(tm.oc, inst.off);
-        let who = tm.oc.or(tm.head_coach).unwrap_or(usize::MAX) as u64;
+        let oc = caller(oc_call, inst.off);
+        let who = oc_call.unwrap_or(usize::MAX) as u64;
         let miss = 0.15 * (1.0 - oc.skill / 20.0).max(0.0) * key_normal(0x1257 ^ w.year as u64, who);
         clamp(crate::game::roster::absorb(aware) + miss + 0.01 * (oc.aggressiveness - 10.0), 0.35, 1.0)
     };
@@ -236,8 +240,8 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
         tm.name.to_string(),
         players,
         GameStaff {
-            offense: caller(tm.oc, inst.off),
-            defense: caller(tm.dc, 7 + inst.shell),
+            offense: caller(oc_call, inst.off),
+            defense: caller(dc_call, 7 + inst.shell),
             game_management: hc.map_or(10.0, |a| a.game_management),
             strictness: hc.map_or(10.0, |a| a.discipline),
             off_scheme: inst.offense(),

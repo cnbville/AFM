@@ -104,9 +104,9 @@ const S = {
 };
 const keep = (k, d) => (S.keep[k] ??= d);
 
-// The start and setup pages sit outside a career: back and forward move
+// The opening, load and new-career pages sit outside a career: back and forward move
 // between the career's screens only, so they never lead out of it.
-const outside = (r) => r.screen === "start" || r.screen === "setup";
+const outside = (r) => r.screen === "start" || r.screen === "setup" || r.screen === "load";
 function go(screen, args = {}, push = true) {
   if (push && !(outside(S.route) && !outside({ screen }))) {
     S.back.push({ ...S.route, scroll: $(".view") ? $(".view").scrollTop : 0 });
@@ -266,113 +266,8 @@ function table(key, cols, rows, opts = {}) {
 // ---------- screens ----------
 const screens = {};
 
-// The worlds page and a world being built or downloaded, on the start screen.
-let jobPoll = null;
-function jobPanel(j) {
-  if (!j) return "";
-  const pct = Math.round((j.done || 0) * 100);
-  const min = Math.round((j.seconds || 0) / 60);
-  const what = j.kind === "build" ? "Building" : "Downloading";
-  const line = j.error ? `<span style="color:var(--accent)">${esc(j.error)}</span>` : esc(j.text);
-  const stop = j.finished || j.stopping ? "" : `<button class="st-btn small glass" data-act="jobstop">Stop</button>`;
-  return `<div class="st-glass st-panel" id="jobpanel"><h2>${j.finished ? (j.error ? "Stopped" : "Ready") : what} · ${esc(j.name)} <small>${pct}% · ${min} min</small></h2>
-    <div class="st-bar" style="width:100%"><i style="width:${pct}%"></i></div><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:8px"><p class="sub">${line}</p>${stop}</div></div>`;
-}
-function watchJob() {
-  clearInterval(jobPoll);
-  jobPoll = setInterval(async () => {
-    if (!S.route || S.route.screen !== "start") return clearInterval(jobPoll);
-    let j = null;
-    try { j = await api("job"); } catch (e) { return; }
-    const el = $("#jobpanel");
-    if (el && j) el.outerHTML = jobPanel(j);
-    if (!j || j.finished) { clearInterval(jobPoll); go("start"); }
-  }, 2000);
-}
-
-screens.start = async () => {
-  const lib = await api("library");
-  const job = await api("job").catch(() => null);
-  let online = null, offline = "";
-  try { online = await api("online_worlds"); } catch (e) { offline = e.message; }
-  if (job && !job.finished) setTimeout(watchJob, 0);
-  const onlineRows = online ? online.worlds.map((w) => `<div class="libitem"><div><b>${esc(w.title || w.name)}</b><br><small>${esc(w.name)} · ${w.mb} MB · ${esc((w.date || "").slice(0, 10))}</small></div>
-    ${w.have ? '<span class="st-pill">In your library</span>' : `<button class="st-btn small primary" data-act="download" data-tag="${esc(w.tag)}">Download</button>`}</div>`).join("") : "";
-  const item = (x, kind) => `<div class="libitem"><div><b>${esc(x.name)}</b><br><small>${x.meta ? esc(kind === "save" ? `${x.meta.career || "A career"} · ${x.meta.world_date} · saved ${String(x.meta.written || "").slice(0, 16).replace("T", " ")}` : `Seed ${x.meta.seed} · ${x.meta.history_years} year${x.meta.history_years === 1 ? "" : "s"} of history · ${x.meta.world_date}`) : ""} · ${x.mb} MB</small></div>
-    <button class="st-btn small ${kind === "world" ? "primary" : "glass"}" data-act="${kind === "world" ? "openworld" : "loadsave"}" data-path="${esc(x.path)}">${kind === "world" ? "Start a career here" : "Load"}</button></div>`;
-  const open = S.status && S.status.mine;
-  const resume = open
-    ? `<div class="st-glass st-panel"><h2>Your career <small>${esc(S.status.today)}</small></h2><div class="libitem"><div><b>${esc(open.name)}</b><br><small>${esc(S.status.you ? "Coach " + S.status.you : "")} · ${S.savedOn ? "last saved " + esc(S.savedOn) : "not saved yet"}</small></div><button class="st-btn small primary" data-act="resume">Back to your career</button></div></div>`
-    : "";
-  return `<div class="st-room" style="min-height:100vh"><i></i><i></i><i></i>
-    <div class="setup">
-      ${resume}
-      <div><div class="st-kicker" style="letter-spacing:.4em">American Football Manager</div>
-      <h1 class="st-wide" style="font-size:clamp(46px,7vw,96px);line-height:.9;margin-top:10px">Your career<br>starts in February.</h1>
-      <p class="sub" style="max-width:56ch;margin-top:14px">Pick a world from the library: each one is a whole football country with 30 years of history behind it, on the morning after the Super Bowl. Take any high school, college or NFL job in it.</p></div>
-      <div class="st-glass st-panel"><h2>The world library <small>${esc(lib.home)}/worlds</small></h2>
-        <div class="library">${lib.worlds.map((w) => item(w, "world")).join("") || '<div class="empty">No worlds yet. Put a world file (.afmworld) in the folder above, or open one by its path below.</div>'}</div>
-        <div class="filters"><div class="field" style="flex:1"><label>Import a world file: it is copied into your library and opened</label><input id="wpath" placeholder="/Users/you/Downloads/afm-world-2026.afmworld"></div>
-        <button class="st-btn glass" data-act="openpath" style="align-self:end">Open</button>${window.__TAURI__ && window.__TAURI__.dialog ? '<button class="st-btn glass" data-act="pickfolder" style="align-self:end">Choose a world folder…</button><button class="st-btn primary" data-act="pickworld" style="align-self:end">Choose a file…</button>' : ""}</div>
-      </div>
-      ${job ? jobPanel(job) : ""}
-      <div class="st-glass st-panel"><h2>Get a world <small>ready-built worlds; one click downloads one into your library</small></h2>
-        <div class="library">${online ? (onlineRows || '<div class="empty">No worlds on the worlds page yet.</div>') : `<div class="empty">The worlds page can't be reached right now: ${esc(offline)}</div>`}</div>
-      </div>
-      <div class="st-glass st-panel"><h2>Your saves <small>${esc(lib.home)}/saves</small></h2>
-        <div class="library">${lib.saves.map((w) => item(w, "save")).join("") || '<div class="empty">No saves yet.</div>'}</div>
-      </div>
-      <div class="st-glass st-panel"><h2>Build a world on this Mac <small>a full world with 30 years of history; it takes 2-3 hours and you can keep the game open</small></h2>
-        <div class="filters"><div class="field"><label>Seed</label><input id="fseed" value="${Math.floor(Math.random() * 90000) + 10000}" style="width:110px"></div>
-        <div class="field"><label>Years of history</label><input id="fyears" value="30" style="width:80px"></div>
-        <button class="st-btn glass" data-act="buildfull" style="align-self:end">Build</button></div>
-      </div>
-      <div class="st-glass st-panel"><h2>Build a test world <small>small and quick, for trying the game; it isn't kept in the library</small></h2>
-        <div class="filters"><div class="field"><label>Seed</label><input id="tseed" value="2026" style="width:110px"></div>
-        <div class="field"><label>Size</label><select id="tscale"><option value="0.03">3% (about 2 minutes)</option><option value="0.1">10%</option></select></div>
-        <button class="st-btn glass" data-act="buildtest" style="align-self:end">Build</button></div>
-      </div>
-    </div></div>`;
-};
-
-const overText = (spent, pool) => `${Math.round(spent - pool)} points over: take some back before you take the job.`;
-screens.setup = async () => {
-  const o = await api("setup");
-  const st = keep("setup", { level: "college", job: null, bg: "college_assistant", ratings: null, style: {}, name: "", age: 42, state: "TX", eth: "white", q: "" });
-  const bg = o.backgrounds.find((b) => b.key === st.bg) || o.backgrounds[0];
-  if (!st.ratings || st.ratingsFor !== bg.key) { st.ratings = bg.ratings.slice(); st.ratingsFor = bg.key; }
-  st.pool = bg.pool;
-  const spent = st.ratings.reduce((a, b) => a + b, 0);
-  const jobs = await api("jobs", { level: st.level });
-  const q = st.q.trim().toLowerCase();
-  // A team's name, its town, its state's code or the state's name.
-  const hay = (j) => `${j.name} ${j.sub} ${STATE_NAMES[(j.sub.match(/, ([A-Z]{2})\b/) || [])[1]] || ""}`.toLowerCase();
-  const found = jobs.jobs.filter((j) => !q || hay(j).includes(q));
-  const jl = found;
-  return `<div class="st-room" style="min-height:100vh"><i></i><i></i><i></i><div class="setup">
-    <div><div class="st-label">New career · ${esc(o.today)}</div><h1 class="st-wide" style="font-size:54px;line-height:.95;margin-top:6px">Who are you, coach?</h1></div>
-    <div class="st-glass st-panel"><h2>You</h2><div class="fields">
-      <div class="field"><label>Name</label><input id="s-name" value="${esc(st.name)}" placeholder="Your name"></div>
-      <div class="field"><label>Age</label><input id="s-age" type="number" min="25" max="75" value="${st.age}"></div>
-      <div class="field"><label>Home state</label><select id="s-state">${o.states.map((s) => `<option ${s === st.state ? "selected" : ""}>${s}</option>`).join("")}</select></div>
-      <div class="field"><label>Background (heritage)</label><select id="s-eth">${["white", "black", "hispanic", "polynesian", "asian"].map((e) => `<option value="${e}" ${e === st.eth ? "selected" : ""}>${e[0].toUpperCase() + e.slice(1)}</option>`).join("")}</select></div>
-    </div></div>
-    <div class="st-glass st-panel"><h2>Your road into coaching <small>sets your reputation and your pool of rating points</small></h2>
-      <div class="st-chips" style="flex-wrap:wrap">${o.backgrounds.map((b) => `<button data-act="bg" data-k="${b.key}" aria-pressed="${b.key === bg.key}">${esc(b.name)}</button>`).join("")}</div>
-      <div class="pool">Pool: <b class="${spent > bg.pool + 0.5 ? "over" : ""}">${spent.toFixed(0)} of ${bg.pool}</b> points spent. Spread them where you are strong; each rating is 1-20 on the same scale as every coach in the world. <span class="overmsg">${spent > bg.pool + 0.5 ? overText(spent, bg.pool) : ""}</span></div>
-      <div style="display:grid;gap:10px">${o.rating_names.map((n, i) => `<div class="slider"><span>${esc(n)}</span><input type="range" min="1" max="20" step="0.5" value="${st.ratings[i]}" data-rate="${i}"><b>${st.ratings[i].toFixed(1)}</b></div>`).join("")}</div>
-    </div>
-    <div class="st-glass st-panel"><h2>Your coaching style <small>how your team plays and how you coach habits</small></h2>
-      ${o.style.map((s) => `<div class="slider"><span>${esc(s.name)}</span><input type="range" min="1" max="20" step="1" value="${st.style[s.key] ?? 10}" data-style="${s.key}"><b>${st.style[s.key] ?? 10}</b><div class="ends"><span>${esc(s.low)}</span><span>${esc(s.high)}</span></div></div>`).join("")}
-    </div>
-    <div class="st-glass st-panel"><h2>Your job <small>every head coaching job is open; the coach you replace goes to the market</small></h2>
-      <div class="filters"><div class="seg">${[["nfl", "NFL"], ["college", "College"], ["hs", "High school"]].map(([k, t]) => `<button data-act="level" data-k="${k}" aria-pressed="${st.level === k}">${t}</button>`).join("")}</div>
-      <div class="search" style="margin:0"><input id="s-q" value="${esc(st.q)}" placeholder="Find a team, town or state"></div><span class="sub">${q ? `${found.length} of ${jobs.jobs.length} jobs` : `${jobs.jobs.length} jobs`}</span></div>
-      <div class="jobs">${jl.map((j) => `<button class="job" data-act="job" data-kind="${j.ref.kind}" data-id="${j.ref.id}" aria-pressed="${st.job && st.job.kind === j.ref.kind && st.job.id === j.ref.id}">${mark(j, 30)}<span><b>${esc(j.name)}</b><small>${esc(j.sub)}</small></span></button>`).join("") || `<div class="empty">No job matches "${esc(st.q)}". Try a team, a town, a state or its code (Texas or TX).</div>`}</div>
-    </div>
-    <div class="setup-actions"><span class="sub">${st.job ? (() => { const j = jobs.jobs.find((x) => x.ref.kind === st.job.kind && x.ref.id === st.job.id); return j ? `<b>${esc(j.name)}</b> · ${esc(j.sub)}` : ""; })() : "Pick a job above to take it."}</span><button class="st-btn glass" data-act="tostart">Back</button><button class="st-btn primary" data-act="begin" ${st.job ? "" : "disabled"}>Take the job</button></div>
-  </div></div>`;
-};
+// The opening screen, Load game and the new career's six steps are in
+// pregame.js, in their own look.
 
 screens.home = async () => {
   const h = await api("home");
@@ -700,10 +595,18 @@ screens.you = async () => {
   const y = await api("you");
   if (!y) return `<div class="pad"><div class="h1">No career yet</div></div>`;
   const row = (t, v) => `<div class="attr"><span>${esc(t)}</span><span class="rg"><span class="t"><i style="left:0;width:${(v / 20) * 100}%;background:${rateColor(v * 5)}"></i></span><b>${v.toFixed(1)}</b></span></div>`;
-  return `<div class="pad"><div class="st-label">Head coach since ${esc(y.started)}</div><div class="h1">${esc(y.name)}</div>
-    <div class="kv"><dt>Age</dt><dd>${y.age}</dd>${y.road ? `<dt>Came up as</dt><dd>${esc(y.road)}</dd>` : ""}<dt>Reputation</dt><dd>${esc(y.reputation)}</dd><dt>Record</dt><dd>${esc(y.record)}</dd><dt>Titles</dt><dd>${y.titles}</dd></div>
+  const x = y.extra;
+  const p = y.profile || {};
+  const from = [p.hometown, y.home_state].filter(Boolean).join(", ");
+  const school = [p.alma_mater, p.college_years].filter(Boolean).join(", ") + (p.degree ? ` (${p.degree})` : "");
+  const kids = (p.children || []).map(([n, b]) => `${n}, ${Math.max(0, Number(String(S.status && S.status.today).slice(-4)) - b)}`).join("; ");
+  const family = [p.status, p.status === "Married" && p.spouse ? `to ${p.spouse}` : ""].filter(Boolean).join(" ") + (kids ? `; children: ${kids}` : "");
+  const looks = [p.height, p.build, p.hair && p.hair + " hair", p.facial_hair].filter(Boolean).join(", ").toLowerCase();
+  return `<div class="pad"><div style="display:flex;gap:18px;align-items:center">${p.photo ? `<img src="${esc(p.photo)}" alt="" style="width:88px;height:110px;object-fit:cover;border-radius:14px">` : ""}<div><div class="st-label">Head coach since ${esc(y.started)}</div><div class="h1">${esc(y.name)}</div></div></div>
+    <div class="kv"><dt>Age</dt><dd>${y.age}</dd>${y.road ? `<dt>Came up as</dt><dd>${esc(y.road)}</dd>` : ""}<dt>Reputation</dt><dd>${esc(y.reputation)}</dd><dt>Record</dt><dd>${esc(y.record)}</dd><dt>Titles</dt><dd>${y.titles}</dd>${x && x.calls ? `<dt>Calls the plays</dt><dd>${esc(x.calls)}</dd>` : ""}
+    ${from ? `<dt>From</dt><dd>${esc(from)}${p.high_school ? ` · ${esc(p.high_school)}` : ""}</dd>` : ""}${school.trim() ? `<dt>College</dt><dd>${esc(school)}</dd>` : ""}${family.trim() ? `<dt>Family</dt><dd>${esc(family)}${p.roots ? ` · roots: ${esc(p.roots)}` : ""}</dd>` : ""}${looks ? `<dt>Looks</dt><dd>${esc(looks)}</dd>` : ""}</div>
     <div class="grid2"><div class="panel"><h2>Teaching <small>your own ratings, 1-20; nobody else sees them</small></h2>${y.teaching.map((t) => row(t.group, t.value)).join("")}</div>
-    <div class="panel"><h2>The rest</h2>${[["Scheme", y.scheme], ["Game management", y.game_management], ["Motivation", y.motivation], ["Discipline", y.discipline], ["Recruiting", y.recruiting], ["Network", y.network], ["Relationships", y.relationships]].map(([t, v]) => row(t, v)).join("")}</div></div>
+    <div class="panel"><h2>The rest</h2>${[["Scheme", y.scheme], ["Game management", y.game_management], ...(x ? [["Play calling", x.play_calling], ["In-game adaptation", x.adaptation]] : []), ["Motivation", y.motivation], ["Discipline", y.discipline], ["Relationships", y.relationships], ["Recruiting", y.recruiting], ...(x ? [["Evaluation", x.evaluation]] : []), ["Network", y.network], ...(x ? [["Negotiating", x.negotiating]] : [])].map(([t, v]) => row(t, v)).join("")}</div></div>
     ${y.style ? `<div class="panel"><h2>Your coaching style <small>how your team plays and how you coach habits, 1-20</small></h2>${STYLE.map(([k, t, lo, hi]) => `<div class="attr"><span>${esc(t)} <small class="sub">${esc(lo)} to ${esc(hi)}</small></span><span class="rg"><span class="t"><i style="left:0;width:${(y.style[k] / 20) * 100}%;background:${rateColor(y.style[k] * 5)}"></i></span><b>${Math.round(y.style[k])}</b></span></div>`).join("")}</div>` : ""}
     ${y.history && y.history.length ? `<div class="panel"><h2>Your jobs</h2>${tbl(["Where", "Role", "Years", "Record"], y.history.map((h) => [esc(h.where), h.role, `${h.from}-${h.to}`, h.record]))}</div>` : ""}</div>`;
 };
@@ -717,18 +620,15 @@ async function render(scroll) {
   const n = ++S.drawn;
   try {
     if (outside(r)) {
-      // The window itself never scrolls (body.st), so these full pages
-      // scroll in their own box.
+      // These pages lay themselves out to the window (pregame.css) and
+      // scroll inside; drawn again (a row picked), each box keeps its place.
       const html = await screens[r.screen](r.args);
       if (n !== S.drawn) return;
-      // Re-rendering the same page (a job or road picked) keeps its place.
-      const same = app.dataset.page === r.screen;
-      const keepTop = same && $(".page-scroll") ? $(".page-scroll").scrollTop : 0;
-      const keepJobs = same && $(".jobs") ? $(".jobs").scrollTop : 0;
-      app.innerHTML = `<div class="page-scroll">${html}</div>`;
-      app.dataset.page = r.screen;
-      if (keepTop) $(".page-scroll").scrollTop = keepTop;
-      if (keepJobs && $(".jobs")) $(".jobs").scrollTop = keepJobs;
+      const page = r.screen + (r.screen === "setup" && S.keep.setup ? S.keep.setup.step : "");
+      const kept = app.dataset.page === page ? [...app.querySelectorAll("[data-keep]")].map((el) => [el.dataset.keep, el.scrollTop]) : [];
+      app.innerHTML = html;
+      app.dataset.page = page;
+      for (const [k, t] of kept) { const el = app.querySelector(`[data-keep="${k}"]`); if (el) el.scrollTop = t; }
       return;
     }
     if (!S.status) S.status = await api("status");
@@ -822,7 +722,6 @@ document.addEventListener("click", async (ev) => {
     go(d.go, args);
     return;
   }
-  const st = S.keep.setup;
   switch (d.act) {
     case "back": goBack(); break;
     case "fwd": goFwd(); break;
@@ -853,81 +752,6 @@ document.addEventListener("click", async (ev) => {
       if (!note) break;
       showBusy("Saving the bug report…");
       try { const r = await api("bug", { note, screen: S.route }); hideBusy(); toast("Bug report saved in " + r.folder); } catch (e) { hideBusy(); toast(e.message); }
-      break;
-    }
-    case "pickworld":
-    case "pickfolder":
-    case "openworld":
-    case "openpath":
-    case "loadsave": {
-      let path = d.path || ($("#wpath") ? $("#wpath").value.trim() : "");
-      if (d.act === "pickworld") {
-        path = await window.__TAURI__.dialog.open({ multiple: false, filters: [{ name: "AFM world or save", extensions: ["afmworld", "afmsave", "001"] }] });
-      }
-      if (d.act === "pickfolder") path = await window.__TAURI__.dialog.open({ directory: true, multiple: false });
-      if (!path) break;
-      if (!(await leaveCareer())) break;
-      if (d.act !== "openworld" && (d.act === "pickfolder" || /\.afmworld(\.001)?$/i.test(path) || !/\.afm(world|save)$/i.test(path))) {
-        showBusy("Adding the world to your library…");
-        try { path = (await api("import_world", { path })).path; toast("Added to your world library."); } catch (e) { hideBusy(); toast(e.message); break; }
-      }
-      const isSave = d.act === "loadsave" || /\.afmsave$/i.test(path);
-      showBusy(isSave ? "Loading your save…" : "Opening the world… a full world takes about a minute.");
-      try {
-        S.status = await api(isSave ? "load" : "open_world", { path });
-        hideBusy();
-        S.savedOn = isSave ? S.status.today : null;
-        S.lastSaveName = isSave ? path.split(/[\\/]/).pop().replace(/\.afmsave$/i, "") : null;
-        S.keep = {};
-        if (S.status.mine) enterCareer(); else go("setup");
-      } catch (e) { hideBusy(); toast(e.message); }
-      break;
-    }
-    case "download": {
-      try { await api("download_world", { tag: d.tag }); go("start"); } catch (e) { toast(e.message); }
-      break;
-    }
-    case "buildfull": {
-      const years = Number($("#fyears").value) || 30;
-      const open = S.status && S.status.mine;
-      const ok = await sure(`Build a ${years}-year world on this Mac?`, `It takes about ${years >= 20 ? "2-3 hours" : "an hour or less"} and up to about 6.5 GB of memory at its peak, on top of the game.${open ? " With a career open as well, an 8 GB Mac runs short: save and close the career first, or build overnight." : ""} You can keep playing, and stop it from this page.`, "Build it");
-      if (!ok) break;
-      try { await api("build_world_file", { seed: Number($("#fseed").value) || 2026, history_years: years }); go("start"); } catch (e) { toast(e.message); }
-      break;
-    }
-    case "jobstop": {
-      try { const j = await api("job_stop"); const el = $("#jobpanel"); if (el && j) el.outerHTML = jobPanel(j); } catch (e) { toast(e.message); }
-      break;
-    }
-    case "buildtest": {
-      if (!(await leaveCareer())) break;
-      showBusy("Building a test world… a small one takes a couple of minutes.");
-      try {
-        S.status = await api("build_world", { seed: Number($("#tseed").value) || 2026, scale: Number($("#tscale").value), history_years: 2, engine_from: 2026 }).then(() => api("status"));
-        hideBusy();
-        S.savedOn = null;
-        S.keep = {};
-        go("setup");
-      } catch (e) { hideBusy(); toast(e.message); }
-      break;
-    }
-    case "tostart": go("start"); break;
-    case "bg": st.bg = d.k; render(); break;
-    case "level": st.level = d.k; st.job = null; render(); break;
-    case "job": st.job = { kind: d.kind, id: Number(d.id) }; render(); break;
-    case "begin": {
-      readSetup();
-      if (!st.name || !st.name.trim()) { toast("Give your name first."); $("#s-name").focus(); break; }
-      const spent = st.ratings.reduce((a, b) => a + b, 0);
-      if (spent > st.pool + 0.5) { toast(overText(spent, st.pool)); $(".pool").scrollIntoView({ block: "center" }); break; }
-      showBusy("Taking the job…");
-      try {
-        S.status = await api("start_career", { name: st.name, age: Number(st.age), home_state: st.state, ethnicity: st.eth, background: st.bg, ratings: st.ratings, style: st.style, job: st.job });
-        hideBusy();
-        S.savedOn = null;
-        S.lastSaveName = null;
-        enterCareer();
-      } catch (e) { hideBusy(); toast(e.message); }
       break;
     }
     case "rf": { const f = S.keep["roster:" + routeKey()]; f[d.f] = d.v; render($(".view").scrollTop); break; }
@@ -964,38 +788,6 @@ function routeKey() {
   const a = S.route.args;
   return a.kind ? a.kind + a.id : "mine";
 }
-function readSetup() {
-  const st = S.keep.setup;
-  if (!st || !$("#s-name")) return;
-  st.name = $("#s-name").value;
-  st.age = $("#s-age").value;
-  st.state = $("#s-state").value;
-  st.eth = $("#s-eth").value;
-}
-document.addEventListener("input", (ev) => {
-  const el = ev.target;
-  const st = S.keep.setup;
-  if (el.dataset.rate !== undefined) {
-    st.ratings[Number(el.dataset.rate)] = Number(el.value);
-    el.nextElementSibling.textContent = Number(el.value).toFixed(1);
-    const spent = st.ratings.reduce((a, b) => a + b, 0);
-    const b = document.querySelector(".pool b");
-    if (b) {
-      b.textContent = b.textContent.replace(/^[\d.]+/, spent.toFixed(0));
-      b.classList.toggle("over", spent > st.pool + 0.5);
-    }
-    const m = document.querySelector(".pool .overmsg");
-    if (m) m.textContent = spent > st.pool + 0.5 ? overText(spent, st.pool) : "";
-  } else if (el.dataset.style !== undefined) {
-    st.style[el.dataset.style] = Number(el.value);
-    el.nextElementSibling.textContent = el.value;
-  } else if (el.id === "s-q") {
-    readSetup();
-    st.q = el.value;
-    clearTimeout(S.qt);
-    S.qt = setTimeout(async () => { await render(); const i = $("#s-q"); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 250);
-  }
-});
 document.addEventListener("change", (ev) => {
   if (ev.target.dataset.act === "conf") go("standings", { conference: ev.target.value });
   if (ev.target.dataset.act === "focus") {
@@ -1009,15 +801,15 @@ document.addEventListener("change", (ev) => {
       })
       .catch((e) => toast(e.message));
   }
-  if (["s-name", "s-age", "s-state", "s-eth"].includes(ev.target.id)) readSetup();
 });
 document.addEventListener("keydown", (ev) => {
   if ((ev.metaKey || ev.ctrlKey) && ev.key === "k") { ev.preventDefault(); const q = $("#q"); if (q) q.focus(); }
   if (ev.target.id === "q" && ev.key === "Enter" && ev.target.value.trim().length > 1) go("search", { q: ev.target.value.trim() });
-  if (ev.target.id === "wpath" && ev.key === "Enter" && ev.target.value.trim()) { const b = $('[data-act="openpath"]'); if (b) b.click(); }
-  if (ev.key === " " && ev.target === document.body && S.status && S.status.mine) { ev.preventDefault(); cont(); }
-  if (ev.altKey && ev.key === "ArrowLeft") goBack();
-  if (ev.altKey && ev.key === "ArrowRight") goFwd();
+  if (ev.key === " " && ev.target === document.body && S.status && S.status.mine && !outside(S.route)) { ev.preventDefault(); cont(); }
+  // Option+arrows move by a word inside a text field on a Mac.
+  const typing = ev.target.closest && ev.target.closest("input, textarea, select, [contenteditable]");
+  if (ev.altKey && !typing && ev.key === "ArrowLeft") goBack();
+  if (ev.altKey && !typing && ev.key === "ArrowRight") goFwd();
 });
 window.addEventListener("mouseup", (ev) => { if (ev.button === 3) goBack(); if (ev.button === 4) goFwd(); });
 
@@ -1025,6 +817,7 @@ window.addEventListener("mouseup", (ev) => { if (ev.button === 3) goBack(); if (
 // seconds, and after five minutes says what to do if nothing comes back.
 let busyTimer = null;
 function showBusy(text) {
+  if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
   let o = $("#busy");
   if (!o) {
     o = document.createElement("div");
@@ -1049,7 +842,7 @@ function hideBusy() { clearInterval(busyTimer); document.querySelectorAll("#busy
 // asked in the page. `ask` gives the text typed, or null; `sure` true or false.
 function dialog(html, ok, onOk) {
   const o = document.createElement("div");
-  o.className = "overlay";
+  o.className = "overlay" + (outside(S.route) ? " pg-dlg" : "");
   o.innerHTML = `<form class="box ask">${html}<div class="ask-actions"><button type="button" class="st-btn glass" data-dlg="no">Cancel</button><button type="submit" class="st-btn primary">${esc(ok)}</button></div></form>`;
   document.body.appendChild(o);
   const f = o.querySelector("form");
@@ -1104,8 +897,8 @@ async function checkUpdate() {
   const T = window.__TAURI__;
   if (!T || !T.updater || updating) return;
   let up = null;
-  try { up = await T.updater.check(); } catch (e) { console.warn("update check", e); return; }
-  if (!up) return;
+  try { up = await T.updater.check(); } catch (e) { console.warn("update check", e); return false; }
+  if (!up) return null;
   updating = true;
   let got = 0, total = 0;
   updateBar(`<b>Updating AFM to version ${esc(up.version)}…</b><small id="upmb"></small>`);
@@ -1121,9 +914,11 @@ async function checkUpdate() {
     updateBar(`<b>The update didn't install.</b><small>${esc(e.message || e)}. AFM tries again next time it starts.</small><button class="st-btn small glass" data-act="updclose">Close</button>`);
     return;
   }
-  const busy = S.status && S.status.mine;
+  // A career open, or a world being built or downloaded: never cut off.
+  const working = await api("job").then((j) => !!(j && !j.finished), () => false);
+  const busy = (S.status && S.status.mine) || working;
   if (!busy) return T.process.relaunch();
-  updateBar(`<b>Version ${esc(up.version)} is installed.</b><small>Save your career, then restart to use it.</small><button class="st-btn small primary" data-act="updrestart">Restart now</button>`);
+  updateBar(`<b>Version ${esc(up.version)} is installed.</b><small>${working ? "Restart once the world you're building or downloading is ready." : "Save your career, then restart to use it."}</small><button class="st-btn small primary" data-act="updrestart">Restart now</button>`);
 }
 document.addEventListener("click", (ev) => {
   const a = ev.target.closest("[data-act=updrestart],[data-act=updclose]");
@@ -1140,7 +935,7 @@ setInterval(checkUpdate, 3 * 3600 * 1000);
     const h = await api("hello");
     if (h.loaded) {
       S.status = await api("status");
-      go(S.status.mine ? "home" : "setup", {}, false);
+      go(S.status.mine ? "home" : "start", {}, false);
     } else go("start", {}, false);
   } catch (e) {
     $("#app").innerHTML = `<div class="setup"><div class="h1">AFM can't reach the game</div><p class="sub">${esc(e.message || e)}</p></div>`;

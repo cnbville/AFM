@@ -126,7 +126,7 @@ pub fn build_world_file(
     each(0, 0);
     let part = to.with_extension("afmworld.part");
     let commit = option_env!("AFM_COMMIT").unwrap_or(env!("CARGO_PKG_VERSION"));
-    afm_engine::save::write_world(&w, &part, commit, &files::now_utc())
+    afm_engine::save::write_world(&w, &part, commit, &files::now_utc(), Some(crate::cards::card(&w)))
         .and_then(|_| std::fs::rename(&part, &to))
         .map_err(|e| format!("Could not write the world: {e}"))?;
     Ok(to)

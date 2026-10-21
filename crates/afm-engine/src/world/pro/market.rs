@@ -948,7 +948,10 @@ fn bluff(w: &mut World, i: usize, o: Offer, ideal: &Ideal, former: Option<usize>
         return (o, score(w, i, &o, ideal, former));
     }
     w.market.year_mut(year).bluffs += 1;
-    let gm = w.clubs[o.team].office.gm.skill;
+    // At your club you are the GM (people topic 15): your negotiating
+    // reads the bluff in his place.
+    let yours = w.seat.filter(|s| s.nfl_team == Some(o.team)).and(w.career.as_ref());
+    let gm = yours.and_then(|c| w.coaches[c.coach].yours).map_or(w.clubs[o.team].office.gm.skill, |y| y.negotiating);
     let rel = w.market.agents[a].rel[o.team];
     let read = clamp(0.3 + 0.03 * (gm - 10.0) - 0.4 * rel.min(0.0) - 0.1 * rel.max(0.0), 0.05, 0.9);
     let called = key_uniform(w.options.seed as u64 ^ 0xB1F0 ^ d.0 as u64, id) < read;

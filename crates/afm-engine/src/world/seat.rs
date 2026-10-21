@@ -379,6 +379,40 @@ pub struct You {
     /// your coach page says you came up as.
     #[serde(default)]
     pub road: String,
+    /// Play calling, in-game adaptation, evaluation and negotiating.
+    #[serde(default)]
+    pub yours: super::coach::Yours,
+    /// Who you are away from the ratings (people topic 15, first-playable
+    /// topic 2): where you're from, your school, family and looks.
+    #[serde(default)]
+    pub profile: Profile,
+}
+
+/// Your profile (people topics 13 and 15). Kept and shown on your page; the
+/// world reads none of it yet beyond your home state.
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct Profile {
+    /// Date of birth: year, month, day.
+    pub born: Option<(i32, u32, u32)>,
+    pub hometown: String,
+    pub high_school: String,
+    /// Where you went to college, played or not.
+    pub alma_mater: String,
+    pub college_years: String,
+    pub degree: String,
+    /// Married, single, divorced or widowed.
+    pub status: String,
+    pub spouse: String,
+    pub roots: String,
+    /// Each child's name and year of birth.
+    pub children: Vec<(String, i32)>,
+    pub height: String,
+    pub build: String,
+    pub hair: String,
+    pub facial_hair: String,
+    /// Your own photo as a JPEG data URL, small (about 320 by 400).
+    pub photo: Option<String>,
 }
 
 /// Where you start (section 8, topic 2).
@@ -598,6 +632,13 @@ impl World {
     pub fn your_ability(&self) -> Option<&super::coach::Ability> {
         let c = self.career.as_ref()?;
         self.coaches.get(c.coach).map(|co| co.ability())
+    }
+
+    /// Your play calling, adaptation, evaluation and negotiating as they are
+    /// now (they grow like your other ratings).
+    pub fn your_extra(&self) -> Option<super::coach::Yours> {
+        let c = self.career.as_ref()?;
+        self.coaches.get(c.coach).and_then(|co| co.yours)
     }
 }
 

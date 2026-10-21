@@ -7,6 +7,7 @@
 //! ranges, potential as words, coaches as reputation (scouting topic 1,
 //! Q46). The engine's `debug` feature is never on in this crate.
 
+pub mod cards;
 pub mod colors;
 pub mod files;
 pub mod jobs;
@@ -110,7 +111,12 @@ impl Game {
                 self.save_path = Some(path.clone());
                 Ok(json!({ "saved": path.display().to_string() }))
             }
+            "rename_save" => setup::rename_save(self, args),
+            "delete_save" => setup::delete_save(self, args),
+            "reveal" => setup::reveal(self, args),
             "setup" => Ok(setup::options(self.w()?)),
+            "similar" => Ok(setup::similar(self.w()?, args)),
+            "towns" => Ok(setup::towns(self.w()?, args.get("state").and_then(Value::as_str).unwrap_or("TX"))),
             "jobs" => Ok(setup::jobs(self.w()?, args.get("level").and_then(Value::as_str).unwrap_or("college"))),
             "start_career" => {
                 let w = self.wm()?;
@@ -118,6 +124,7 @@ impl Game {
                 Ok(views::status(w))
             }
             "status" => Ok(views::status(self.w()?)),
+            "card" => Ok(cards::card(self.w()?)),
             "continue" => {
                 let max = num("max_days").unwrap_or(400) as u32;
                 let w = self.wm()?;

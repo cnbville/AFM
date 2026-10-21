@@ -2286,6 +2286,7 @@ pub fn take_seat(w: &mut World, you: &super::seat::You, employer: Employer) -> u
     c.ex_pro = you.ex_pro;
     c.home_state = Some(you.home_state);
     c.style_set = Some(you.style);
+    c.yours = Some(you.yours);
     c.sportsmanship = 12.0;
     // You keep learning like any coach, to the edge of a long career.
     c.learning_ceiling = 20.0;
