@@ -889,6 +889,56 @@ function showBusy(text) {
 }
 function hideBusy() { clearInterval(busyTimer); document.querySelectorAll("#busy").forEach((o) => o.remove()); }
 
+// ---------- updates ----------
+// The desktop app updates itself: at start, and every few hours while it runs,
+// it asks the public downloads page for a newer build, downloads it in the
+// background and installs it. With no career open it restarts on its own;
+// with one open it asks first, so nothing unsaved is lost.
+let updating = false;
+function updateBar(html) {
+  let b = $("#updatebar");
+  if (!b) {
+    b = document.createElement("div");
+    b.id = "updatebar";
+    b.className = "updatebar";
+    document.body.appendChild(b);
+  }
+  b.innerHTML = html;
+}
+async function checkUpdate() {
+  const T = window.__TAURI__;
+  if (!T || !T.updater || updating) return;
+  let up = null;
+  try { up = await T.updater.check(); } catch (e) { console.warn("update check", e); return; }
+  if (!up) return;
+  updating = true;
+  let got = 0, total = 0;
+  updateBar(`<b>Updating AFM to version ${esc(up.version)}…</b><small id="upmb"></small>`);
+  try {
+    await up.downloadAndInstall((ev) => {
+      if (ev.event === "Started") total = ev.data.contentLength || 0;
+      if (ev.event === "Progress") got += ev.data.chunkLength || 0;
+      const el = $("#upmb");
+      if (el && total) el.textContent = `${Math.round(got / 1e6)} of ${Math.round(total / 1e6)} MB`;
+    });
+  } catch (e) {
+    updating = false;
+    updateBar(`<b>The update didn't install.</b><small>${esc(e.message || e)}. AFM tries again next time it starts.</small><button class="st-btn small glass" data-act="updclose">Close</button>`);
+    return;
+  }
+  const busy = S.status && S.status.mine;
+  if (!busy) return T.process.relaunch();
+  updateBar(`<b>Version ${esc(up.version)} is installed.</b><small>Save your career, then restart to use it.</small><button class="st-btn small primary" data-act="updrestart">Restart now</button>`);
+}
+document.addEventListener("click", (ev) => {
+  const a = ev.target.closest("[data-act=updrestart],[data-act=updclose]");
+  if (!a) return;
+  if (a.dataset.act === "updrestart") window.__TAURI__.process.relaunch();
+  else { const b = $("#updatebar"); if (b) b.remove(); }
+});
+setTimeout(checkUpdate, 3000);
+setInterval(checkUpdate, 3 * 3600 * 1000);
+
 // ---------- start ----------
 (async () => {
   try {

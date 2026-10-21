@@ -262,3 +262,8 @@ a { color: inherit; }
 .teamcell { display: inline-flex; align-items: center; gap: 10px; }
 .tbl tr.mine td { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 .tbl select.focus { background: transparent; color: var(--fg); border: 1px solid var(--hair); border-radius: 8px; padding: 4px 8px; font: inherit; max-width: 260px; }
+
+/* The app's own update, bottom right. */
+.updatebar { position: fixed; right: 18px; bottom: 18px; z-index: 60; display: grid; gap: 6px; max-width: 340px; padding: 14px 16px; border-radius: 18px; background: var(--raised); box-shadow: var(--shadow-sheet); font-size: 13px; }
+.updatebar small { color: var(--fg3); }
+.updatebar .st-btn { justify-self: start; }

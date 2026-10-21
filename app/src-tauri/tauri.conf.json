@@ -11,12 +11,14 @@
     "windows": [
       {
         "title": "AFM",
-        "width": 1440,
-        "height": 900,
-        "minWidth": 1100,
-        "minHeight": 700,
+        "width": 1280,
+        "height": 800,
+        "minWidth": 1024,
+        "minHeight": 640,
         "resizable": true,
-        "backgroundColor": "#0b0b0d"
+        "backgroundColor": "#0b0b0d",
+        "maximized": true,
+        "center": true
       }
     ],
     "security": {
@@ -40,6 +42,14 @@
     "macOS": {
       "minimumSystemVersion": "11.0",
       "signingIdentity": "-"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "",
+      "endpoints": [
+        "https://github.com/cnbville/afm-worlds/releases/download/app-latest/latest.json"
+      ]
     }
   }
 }

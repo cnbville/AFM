@@ -15,6 +15,8 @@ tauri-build = { version = "2", features = [] }
 afm-game = { path = "../../crates/afm-game" }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 serde_json = "1"
 
 [profile.release]
