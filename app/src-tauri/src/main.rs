@@ -27,6 +27,10 @@ fn main() {
     let game = Game::new(afm_game::default_home());
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        // Updates itself from the public downloads page (`plugins.updater` in
+        // tauri.conf.json; the screens check at start, app.js `checkUpdate`).
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(Engine(Arc::new(Mutex::new(game))))
         .invoke_handler(tauri::generate_handler![call])
         .run(tauri::generate_context!())

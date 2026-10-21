@@ -1,0 +1,30 @@
+name: Set up updates
+# Run once: makes the key that signs the app's updates and keeps it in this
+# repository (secret TAURI_SIGNING_PRIVATE_KEY, public half in the variable
+# TAURI_UPDATER_PUBKEY), so the key never leaves GitHub. The installed app
+# trusts only updates signed with it, so a key that exists is never replaced.
+# Needs the WORLDS_TOKEN secret with Secrets and Variables write access to
+# this repository.
+on:
+  workflow_dispatch:
+jobs:
+  keys:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Make the signing key
+        env:
+          GH_TOKEN: ${{ secrets.WORLDS_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ -n "$(gh variable list --repo "$REPO" | grep '^TAURI_UPDATER_PUBKEY')" ]; then
+            echo "Updates are already set up; the key stays as it is."
+            exit 0
+          fi
+          npx --yes @tauri-apps/cli@2 signer generate --ci -p "" -w key > /dev/null
+          gh secret set TAURI_SIGNING_PRIVATE_KEY --repo "$REPO" < key
+          gh variable set TAURI_UPDATER_PUBKEY --repo "$REPO" --body "$(cat key.pub)"
+          rm -f key key.pub
+          echo "Done: the next build on main publishes a signed update."
