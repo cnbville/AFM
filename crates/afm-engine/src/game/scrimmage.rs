@@ -1391,8 +1391,10 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         }
     }
     let _ = (throw_start, thrown_from);
+    // A ball thrown away is meant for nobody: no target (not the passer).
     if res.throw_away {
         res.result = Result::Incomplete;
+        res.target = None;
     }
     let goal_line = 100.0;
     if res.turnover {
@@ -3420,9 +3422,14 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
         sim.agents[d].down_until = t + 0.6;
         return;
     }
-    // Sacked. Strip sacks come from the blind side.
-    sim.notes.sackers =
-        tacklers.iter().take(2).filter(|&&k| sim.agents[k].pos.dist(me) < 1.1).map(|&k| sim.agents[k].id).collect();
+    // Sacked. Strip sacks come from the blind side. The man who brings him
+    // down always gets the sack; a second rusher on him shares it.
+    sim.notes.sackers = tacklers
+        .iter()
+        .take(2)
+        .filter(|&&k| k == d || sim.agents[k].pos.dist(me) < 1.1)
+        .map(|&k| sim.agents[k].id)
+        .collect();
     sim.notes.hits.push(sim.agents[d].id);
     let force = sim.agents[d].mass * sim.agents[d].vel.len();
     let carry = sim.agents[qb].a(Attr::BallSecurity);

@@ -2042,7 +2042,13 @@ impl<'a> Game<'a> {
         r.pbu = res.pbu;
         r.tacklers = res.notes.tacklers.clone();
         r.missed_tackles = res.notes.missed.clone();
-        r.sackers = res.notes.sackers.clone();
+        // A sack with no rusher on the quarterback (he went down in the
+        // pocket to a tackle) goes to the man who tackled him.
+        r.sackers = if res.notes.sackers.is_empty() && res.result == R::Sack {
+            res.notes.tacklers.iter().take(1).copied().collect()
+        } else {
+            res.notes.sackers.clone()
+        };
         r.hits = res.notes.hits.clone();
         r.pressures = res.notes.pressures.iter().map(|p| p.0).collect();
         r.forced_fumble = res.notes.forced_fumble;

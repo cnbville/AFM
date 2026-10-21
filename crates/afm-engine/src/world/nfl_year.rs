@@ -79,6 +79,21 @@ pub(crate) struct NflSeason {
     pub early_flexes: u32,
 }
 
+/// One NFL team's season in the book.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct NflTeamSeason {
+    pub year: i32,
+    pub team: usize,
+    pub wins: u32,
+    pub losses: u32,
+    pub ties: u32,
+    /// The head coach who finished the regular season.
+    pub coach: Option<usize>,
+    /// 0 out of the playoffs; the round it went out in, 1 wild card to 4
+    /// the Super Bowl; 5 the champion.
+    pub round: u32,
+}
+
 /// A game's place on the calendar (T1.2, T2): the kickoff in Eastern time,
 /// its TV window, and a neutral site abroad.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -87,6 +102,10 @@ pub(crate) struct Slot {
     pub window: Window,
     pub site: Option<String>,
     pub played: bool,
+    /// Home and away points, for a game played on the engine (the stand-in
+    /// draws only a winner).
+    #[serde(default)]
+    pub score: Option<[u32; 2]>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1302,7 +1321,7 @@ fn real_schedule(w: &World, season: i32, n_weeks: usize) -> Option<WeekSlots> {
             }
         };
         weeks.get_mut(k)?.push((home, away));
-        slots[k].push(Slot { at, window, site, played: false });
+        slots[k].push(Slot { at, window, site, played: false, score: None });
     }
     (weeks.iter().map(|v| v.len()).sum::<usize>() > 0).then_some((weeks, slots))
 }
@@ -1474,7 +1493,7 @@ fn formula_slots(w: &mut World, season: i32, seed: u64) {
         let mut slot: Vec<Option<Slot>> = vec![None; games.len()];
         let mut set = |taken: &mut Vec<bool>, g: usize, at: Moment, window: Window, site: Option<String>| {
             taken[g] = true;
-            slot[g] = Some(Slot { at, window, site, played: false });
+            slot[g] = Some(Slot { at, window, site, played: false, score: None });
         };
         // The best game still open, by appeal; `pred` limits the choice.
         let best = |taken: &Vec<bool>, pred: &dyn Fn(&(usize, usize)) -> bool| -> Option<usize> {
@@ -1865,6 +1884,7 @@ fn play_day(w: &mut World, d: Date) {
         let (u, p, tie) = match &outcomes[n] {
             Some((r, _)) => {
                 let [x, y] = r.stats.score;
+                s.slots[k][g].score = Some([x.max(0) as u32, y.max(0) as u32]);
                 played.push(([h, a], [s.z[a], s.z[h]]));
                 (if x > y { 0.0 } else { 1.0 }, 0.5, x == y)
             }
@@ -2014,6 +2034,18 @@ fn black_monday(w: &mut World, d: Date) {
         return;
     }
     let s = s.clone();
+    // The season's book, under the coach who finished it.
+    for t in (0..n).filter(|&t| s.active[t]) {
+        w.nfl_seasons.push(NflTeamSeason {
+            year: s.year,
+            team: t,
+            wins: s.wins[t],
+            losses: s.losses[t],
+            ties: s.ties[t],
+            coach: w.nfl[t].head_coach,
+            round: 0,
+        });
+    }
     for t in (0..n).filter(|&t| s.active[t]) {
         let games = (s.wins[t] + s.losses[t] + s.ties[t]).max(1);
         let share = (s.wins[t] as f64 + 0.5 * s.ties[t] as f64) / games as f64;
@@ -2108,6 +2140,9 @@ fn play_round(w: &mut World, round: u32, d: Date) {
     s.champion = Some(champ);
     s.runner_up = Some(loser);
     s.final_order = Some(order_from(&s));
+    for r in w.nfl_seasons.iter_mut().rev().take_while(|r| r.year == s.year) {
+        r.round = s.out_round.get(r.team).copied().unwrap_or(0);
+    }
     *w.nfl_season.as_mut().unwrap() = s;
     w.log.nfl_games += 1;
     super_bowl_book(w, champ, loser, d);

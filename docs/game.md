@@ -23,7 +23,15 @@ Built 2026-10-20/21 overnight (thread "Build the program", PR #75), from `docs/d
 ## What a career has now
 
 - **Setup:** your name, age, home state and heritage; 11 roads into coaching, each with a reputation, a pool of rating points and a starting spread; your 15 ratings on the 1-20 scale every coach uses; your five style sliders; any head coaching job at any NFL club, college program or high school.
-- **Continue** runs day by day and stops on a decision, a huge moment anywhere, a big one at your level or for your team, and **your own game day**, which opens that game's page.
+- **Continue** runs day by day and stops on a decision, a huge moment anywhere, a big one at your level or for your team, and **your own game day**, which opens that game's page. It also stops **the morning of** your game day and of your level's decision days (NFL: the tag deadline, the new league year, the draft, cutdown day, the trade deadline; college: the early signing day, signing day, the portal opening), before the day is played; the note says which morning. The top bar names your next game.
+- **The main menu** (sidebar) goes back to the start screen. Closing a career that is open asks first and says how long since you saved; Back never leaves the game.
+- **Questions in the game's own dialogs:** the Mac app's window (WKWebView through Tauri) has no `prompt` or `confirm`, so saving, a bug report, closing a career and building a world ask in the page itself. Saving and a bug report show their progress, and errors come through as plain words.
+- **Records:** your team's record, your own record (career and at this job) and every staff record come from the season's results. From the new football year's first day (the day after the Super Bowl) to the next kickoff, home and the team page show last season's record as "9-8 in 2025".
+- **Inbox:** what is about you (your program, club or school, and you), your decisions, huge moments, the big ones you care about, the final of each of your games and your college staff's own messages, newest first. News has the same "yours" rule.
+- **Depth chart:** the order the engine plays next game (your order first, then the staff's), with the injured and the suspended listed after the starters, not as starters; an NFL club's list leaves out its practice squad.
+- **NFL screens:** the schedule shows each final score and the kickoff time ("1:00 ET"); the team page keeps a book of seasons (record, head coach, how far it went) from this world's next season on, and its Super Bowls. Contracts count the cap as the league does: before the season only the top 51 contracts (the rule of 51) plus dead money, with last year's carryover added to the room; players in their last year carry a "Free agent soon" tag.
+- **College jobs:** the job list holds every program that plays this year and can dress a team (22 players or more), and searching by state name works ("Texas").
+- **Saves** are named after the career ("Name, Team"), with the world date and when you saved. **Build a world on this Mac** asks first, with the time and memory it takes, and has a Stop button.
 - **Screens:** home, inbox, news (everything or yours), calendar (your games, your level's fixed dates and the big moments ahead), squad (unit, class and injured filters, sortable, grouped by position), depth chart, training, recruiting (a college's offers, visits, commitments and signings; a high school's players with college interest), contracts (an NFL club's books against the cap), schedule, game pages (box score and play by play with each call and its reason), standings, staff, coach pages, team pages, player pages (overview, attributes, career, tendencies, recruiting, your notes), search, your profile, save, a bug pack.
 - **What you see is your staff's read:** your own players' ratings as ranges whose width comes from the coach who reads them; other teams' players show only what is public. Potential appears only as words. Hidden coach ability is never shown, except your own ratings.
 - **High school seat:** your school's games always run on the engine (even in a stand-in season) with full game pages; the schedule, your classification's standings, and a staff of teacher-coaches sized by enrollment who teach your players (below).
@@ -53,6 +61,7 @@ The 30-year world for first saves (seed 2026, `afm/worlds/` in the project folde
 
 - Staff read widths: the range around the true rating narrows as the reading coach's eye rises (`reads.rs`).
 - The 11 backgrounds' reputations, pools and spreads (`setup.rs`).
+- Which decision days get a morning stop (the NFL's five and college's three above, `World::morning_stop`), and a sack with no rusher on the quarterback credited to the man who tackled him.
 - High school staffs: two assistants plus one per 400 students (3 to 15), ability around what the school's resources buy, a stipend of about $2,500-8,000, 85% teach (weighted toward PE and history); a group is taught by its own coach, or by the coordinator of its side at 1.5 points less.
 - The training focus's cost: each other skill of the same kind gives up 3.5% at full coachability; how much of a plan sticks rises with coachability (60% to 100%).
 - Time of possession on game pages is taken from the snap clock (the engine's own total counts only live-ball seconds).
@@ -61,9 +70,11 @@ The 30-year world for first saves (seed 2026, `afm/worlds/` in the project folde
 ## Doubts
 
 - Memory in season is 5.1 GB, over the agreed 4 GB budget (opening is under it at 3.3 GB). The season's stores (game logs, the year's records) grow from the first day; compacting them is the next memory step. An 8 GB M1 runs it, with little room for other apps.
-- Continue stops on the morning after your game, not before kickoff, because the world plays the whole day in one step. The game page opens at once.
+- Continue stops the morning of your game, then plays the whole day in one step and opens the game page; there is no stop at kickoff itself.
 
 - Storing ratings as 4-byte floats changes results per seed slightly (rounding), so a seed no longer rebuilds a pre-build world exactly. Accepted because the section 8 build changes the world anyway.
 - Season records are still 8-byte; compacting old seasons (topic 8) isn't done.
 - Your school's games run on the engine in a stand-in season while its opponents' other games don't; their records are mixed (the engine's scoring is close to the stand-in's odds).
-- Continue stops for every huge moment anywhere (calendar N58), so a high school coach still stops on ranked college games in November.
+- Continue stops for every huge moment anywhere (calendar N58), so a high school or NFL coach still stops on ranked college rivalry games in November.
+- Engine stats: a throwaway is no longer a target for any receiver, and a sack with no rusher on the quarterback (he went down to a tackle) goes to the tackler, so the box score's sacks match the play by play.
+- Free-agent prices ignore age: a 37-year-old quarterback can still ask about $64M a year. A pricing change is a proposal for Cain, not built.

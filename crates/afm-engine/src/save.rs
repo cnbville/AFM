@@ -39,6 +39,10 @@ pub struct WorldMeta {
     pub commit: String,
     pub written: String,
     pub world_date: String,
+    /// A save's career: you and your team ("Pat Tester, Allen"); none in a
+    /// world file.
+    #[serde(default)]
+    pub career: Option<String>,
 }
 
 /// Writes the world to `path` (see the module notes for the format).
@@ -50,6 +54,15 @@ pub fn write_world(w: &World, path: &Path, commit: &str, written: &str) -> std::
         commit: commit.to_string(),
         written: written.to_string(),
         world_date: w.today.to_string(),
+        career: w.career.as_ref().map(|c| {
+            let team = w.seat.and_then(|s| match s.level {
+                crate::calendar::Level::Nfl => s.nfl_team.map(|t| w.nfl_team_name(t)),
+                crate::calendar::Level::College => s.program.map(|p| w.program_name(p).to_string()),
+                crate::calendar::Level::HighSchool => s.program.map(|h| w.school_name(h).to_string()),
+                _ => None,
+            });
+            team.map_or(c.you.name.clone(), |t| format!("{}, {t}", c.you.name))
+        }),
     };
     let file = std::fs::File::create(path)?;
     let mut out = std::io::BufWriter::new(file);

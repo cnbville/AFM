@@ -63,14 +63,21 @@ fn a_college_career_plays_through_its_first_games() {
     let tid = tr["rows"][0]["id"].as_u64().unwrap();
     ok(&mut g, "set_focus", json!({ "id": tid, "key": key }));
     assert_eq!(ok(&mut g, "training", json!({}))["rows"][0]["focus"].as_str(), Some(key.as_str()));
-    // Play into the season: Continue until your team has a kept game; the
-    // day it is played, Continue stops and names it.
+    // Play into the season: Continue until your team has a kept game. It
+    // stops the morning of the game, before kickoff, and again once it is
+    // played, naming it.
     let mut steps = 0;
     let mut stopped_on_game = false;
+    let mut game_morning = false;
     while ok(&mut g, "games", json!({}))["games"].as_array().unwrap().is_empty() && steps < 400 {
-        stopped_on_game |= ok(&mut g, "continue", json!({ "max_days": 300 }))["game"].is_object();
+        let r = ok(&mut g, "continue", json!({ "max_days": 300 }));
+        stopped_on_game |= r["game"].is_object();
+        game_morning |= r["morning"] == json!(true)
+            && r["why"][0]["text"].as_str().is_some_and(|t| t.starts_with("Game day"))
+            && ok(&mut g, "games", json!({}))["games"].as_array().unwrap().is_empty();
         steps += 1;
     }
+    assert!(game_morning, "Continue stops the morning of your game");
     assert!(stopped_on_game, "Continue stops on your game day");
     let game = ok(&mut g, "game", json!({ "index": 0 }));
     assert!(game["plays"].as_array().unwrap().len() > 80, "a whole game's plays");

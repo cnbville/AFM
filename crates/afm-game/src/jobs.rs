@@ -35,6 +35,27 @@ pub struct Job {
     pub error: Option<String>,
     /// The world file, once it is in the library.
     pub path: Option<String>,
+    /// Stop was pressed: the job ends at its next step (a build after the
+    /// season it is on, a download within a second).
+    pub stopping: bool,
+}
+
+const STOPPED: &str = "Stopped. Nothing was added to your library.";
+
+fn stopping(shared: &Shared) -> bool {
+    shared.lock().ok().and_then(|g| g.as_ref().map(|j| j.stopping)).unwrap_or(false)
+}
+
+/// Asks the running job to stop.
+pub fn stop(shared: &Shared) -> Value {
+    set(shared, |j| {
+        if !j.finished {
+            j.stopping = true;
+            j.text =
+                if j.kind == "build" { "Stopping after the season it is on…".into() } else { "Stopping…".into() };
+        }
+    });
+    status(shared)
 }
 
 pub type Shared = Arc<Mutex<Option<Job>>>;
@@ -92,14 +113,15 @@ pub fn build_world_file(
     seed: u32,
     years: u32,
     scale: f64,
-    mut each: impl FnMut(u32, i32),
+    mut each: impl FnMut(u32, i32) -> bool,
 ) -> Result<PathBuf, String> {
     let to = worlds.join(format!("{}.afmworld", world_name(seed, years)));
     let mut seasons = 0;
-    let w = World::new_watched(WorldOptions { seed, history_years: years, scale, ..Default::default() }, |w, _| {
+    let w = World::new_stoppable(WorldOptions { seed, history_years: years, scale, ..Default::default() }, |w, _| {
         seasons += 1;
-        each(seasons, w.year - 1);
-    });
+        each(seasons, w.year - 1)
+    })
+    .ok_or(STOPPED)?;
     // Seasons done: 0 says the world is being written.
     each(0, 0);
     let part = to.with_extension("afmworld.part");
@@ -129,11 +151,12 @@ pub fn build(shared: &Shared, worlds: &Path, seed: u32, years: u32, scale: f64) 
                 if n == 0 {
                     j.done = 0.98;
                     j.text = "Writing the world file…".into();
-                } else {
+                } else if !j.stopping {
                     j.done = 0.95 * weight(n) / weight(all);
                     j.text = format!("Season {year} done ({n} of {all})");
                 }
             });
+            !stopping(&shared)
         });
         finish(&shared, t, r);
     });
@@ -221,6 +244,9 @@ pub fn download(shared: &Shared, worlds: &Path, tag: &str) -> Result<(), String>
                 let mut from = get(url)?.into_reader();
                 let mut out = std::fs::File::create(dir.join(name)).map_err(|e| e.to_string())?;
                 loop {
+                    if stopping(&shared) {
+                        return Err(STOPPED.into());
+                    }
                     let n = from.read(&mut buf).map_err(|e| format!("The download broke off: {e}"))?;
                     if n == 0 {
                         break;

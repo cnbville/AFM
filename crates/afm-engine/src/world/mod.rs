@@ -26,6 +26,7 @@ pub mod names;
 pub mod ncaa;
 pub mod news;
 mod nfl_year;
+pub use nfl_year::NflTeamSeason;
 pub mod people;
 pub mod pro;
 pub mod program;
@@ -604,6 +605,10 @@ pub struct World {
     pub(crate) portal_market: Option<recruiting::PortalMarket>,
     /// Super Bowl champions by season.
     pub nfl_champions: Vec<(i32, usize)>,
+    /// Every NFL team's season: record, head coach and how far it went
+    /// (kept from the build that added it; older files start empty).
+    #[serde(default)]
+    pub nfl_seasons: Vec<nfl_year::NflTeamSeason>,
     /// Conference moves announced, to take effect next season (program, conference).
     pub(crate) realign: Vec<(usize, String)>,
     /// College coaching searches under way, each deciding on its own day (part D 18).
@@ -731,10 +736,12 @@ pub struct Seat {
 }
 
 impl Seat {
-    /// Whether a moment matters to him: his own team, or his level.
+    /// Whether a moment matters to him: his own team, or his level. An
+    /// event's program is a college program, so it is his own only when he
+    /// coaches in college (a high school seat keeps its school there).
     pub fn cares(&self, e: &crate::calendar::Event) -> bool {
         e.level == self.level
-            || (e.program.is_some() && e.program == self.program)
+            || (self.level == crate::calendar::Level::College && e.program.is_some() && e.program == self.program)
             || (e.nfl_team.is_some() && e.nfl_team == self.nfl_team)
     }
 }
@@ -757,6 +764,16 @@ impl World {
     /// `new`, calling `each` after every season with the world and the
     /// season's seconds (tools time the build year by year).
     pub fn new_watched(options: WorldOptions, mut each: impl FnMut(&World, f64)) -> World {
+        World::new_stoppable(options, |w, s| {
+            each(w, s);
+            true
+        })
+        .expect("never stopped")
+    }
+
+    /// `new_watched`, where `each` says whether to go on: false stops the
+    /// build after that season and gives nothing (the game's Stop button).
+    pub fn new_stoppable(options: WorldOptions, mut each: impl FnMut(&World, f64) -> bool) -> Option<World> {
         let mut w = World::empty(options);
         // Older high school classes already in school when the clock starts.
         for age in [17, 16, 15] {
@@ -765,7 +782,9 @@ impl World {
         for _ in 0..SPIN_UP_YEARS {
             let t = std::time::Instant::now();
             w.advance_year();
-            each(&w, t.elapsed().as_secs_f64());
+            if !each(&w, t.elapsed().as_secs_f64()) {
+                return None;
+            }
         }
         w.recording = true;
         for p in w.programs.iter_mut() {
@@ -775,9 +794,11 @@ impl World {
         for _ in 0..w.options.history_years {
             let t = std::time::Instant::now();
             w.advance_year();
-            each(&w, t.elapsed().as_secs_f64());
+            if !each(&w, t.elapsed().as_secs_f64()) {
+                return None;
+            }
         }
-        w
+        Some(w)
     }
 
     /// The world with programs, schools and staffs but no players or history yet.
@@ -895,6 +916,7 @@ impl World {
             announcements: Vec::new(),
             portal_market: None,
             nfl_champions: Vec::new(),
+            nfl_seasons: Vec::new(),
             realign: Vec::new(),
             searches: Vec::new(),
             moved_cycle: std::collections::HashSet::new(),

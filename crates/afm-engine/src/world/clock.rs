@@ -725,15 +725,22 @@ fn anniversaries(w: &mut World, d: Date) {
 /// that needs a decision, a big moment that matters to the manager (his
 /// team or his level) or a huge moment anywhere (T8: a big moment stops the
 /// game and shows its own screen, such as free agency opening). Returns the
-/// day it stopped on.
+/// day it stopped on: a day played (today is the morning after), or the
+/// morning of your game or a decision day, not yet played (today).
 pub fn continue_until_needed(w: &mut World, max_days: u32) -> Date {
     // N58 (Cain): Big moments that matter to the manager, Huge ones anywhere.
     let seat = w.seat;
     let stops = |e: &Event| {
         e.needs_decision || e.loud == Loudness::Huge || (e.loud == Loudness::Big && seat.is_none_or(|s| s.cares(e)))
     };
-    for _ in 0..max_days {
+    for i in 0..max_days {
         let d = w.today;
+        // The morning of your game, or of a day you decide things on: stop
+        // before it plays, so you get there first. Pressed that morning,
+        // Continue plays it.
+        if i > 0 && w.morning_stop(d).is_some() {
+            return d;
+        }
         let kept = w.seat_games.last().map(|g| (g.date, g.teams));
         advance_day(w);
         // Your own game day always stops, as a manager's match day does.
