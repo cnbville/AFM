@@ -14,6 +14,7 @@ fn main() {
         if n > 0 {
             eprintln!("season {year} done ({n}), {:.0}s", t.elapsed().as_secs_f64());
         }
+        true
     })
     .unwrap_or_else(|e| panic!("{e}"));
     eprintln!("{} written in {:.0}s", to.display(), t.elapsed().as_secs_f64());

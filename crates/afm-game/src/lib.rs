@@ -87,6 +87,7 @@ impl Game {
                 Ok(json!({ "started": true }))
             }
             "job" => Ok(jobs::status(&self.job)),
+            "job_stop" => Ok(jobs::stop(&self.job)),
             "import_world" => {
                 // Copies a world file into the library, where it stays for every new career.
                 let path = PathBuf::from(args.get("path").and_then(Value::as_str).ok_or("Missing path.")?);

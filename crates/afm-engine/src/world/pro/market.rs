@@ -1834,6 +1834,12 @@ pub(crate) fn clear_room(w: &mut World, t: usize, d: Date, before_league_year: b
             if k.team != t || w.clubs[t].office.owner.pet == Some(i) || kept.contains(&i) {
                 return None;
             }
+            // A deal signed this league year stays before it opens: a team
+            // doesn't guarantee a player money in February to cut him in
+            // March (real; it restructures or cuts someone else).
+            if before_league_year && k.signed >= year {
+                return None;
+            }
             let save = k.cut_savings(year, d, split);
             let (_, walk) = worth(w, t, i);
             let surplus = walk - k.cap_hit(year);

@@ -2289,6 +2289,10 @@ pub fn take_seat(w: &mut World, you: &super::seat::You, employer: Employer) -> u
     c.sportsmanship = 12.0;
     // You keep learning like any coach, to the edge of a long career.
     c.learning_ceiling = 20.0;
+    // You came up coaching the group you teach best.
+    if let Some(g) = (0..Group::ALL.len()).max_by(|&a, &b| you.teaching[a].total_cmp(&you.teaching[b])) {
+        c.came_up = Group::ALL[g];
+    }
     c.systems = super::systems::draw(id, c.came_up, c.ability.scheme, w.options.seed as u64);
     w.coaches.push(c);
     hire(w, id, employer, Role::HeadCoach);

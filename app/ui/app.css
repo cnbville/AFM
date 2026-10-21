@@ -51,8 +51,10 @@ a { color: inherit; }
 .side {
   position: relative; z-index: 3; display: flex; flex-direction: column; gap: 4px; padding: 14px 10px;
   background: var(--chrome); backdrop-filter: saturate(1.6) blur(var(--blur-md)); -webkit-backdrop-filter: saturate(1.6) blur(var(--blur-md));
-  box-shadow: 1px 0 0 var(--hair); overflow-y: auto;
+  box-shadow: 1px 0 0 var(--hair); overflow: hidden;
 }
+/* The screens list scrolls on a short window; Save game and the rest stay in view below it. */
+.side .navs { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; margin: 0 -4px; padding: 0 4px; }
 .side .brand { display: flex; align-items: center; gap: 12px; padding: 6px 8px 14px; }
 .side .brand .st-mark { --s: 40px; }
 .side .brand b { display: block; font-size: 14px; font-stretch: 110%; line-height: 1.1; }
@@ -60,12 +62,12 @@ a { color: inherit; }
 .side .sec { margin: 12px 10px 4px; }
 .side button.nav {
   display: flex; align-items: center; gap: 10px; border: 0; background: none; text-align: left;
-  padding: 8px 10px; border-radius: 10px; color: var(--fg2); font-weight: 600; font-size: 13.5px; width: 100%;
+  padding: 7px 10px; border-radius: 10px; color: var(--fg2); font-weight: 600; font-size: 13.5px; width: 100%; flex: none;
 }
 .side button.nav:hover { background: var(--fill-1); color: var(--fg); }
 .side button.nav[aria-current="true"] { background: var(--fill-2); color: var(--fg); box-shadow: inset 3px 0 0 var(--accent); }
 .side button.nav svg { width: 17px; height: 17px; flex: none; opacity: 0.85; }
-.side .foot { margin-top: auto; display: grid; gap: 6px; padding-top: 12px; }
+.side .foot { display: grid; gap: 2px; padding-top: 8px; border-top: 1px solid var(--hair); }
 
 .main { position: relative; display: flex; flex-direction: column; min-width: 0; height: 100vh; }
 .topbar {
@@ -138,6 +140,7 @@ a { color: inherit; }
 .tbl tbody tr.grouprow td { background: transparent; color: var(--fg3); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; padding-top: 16px; }
 .tbl td .name { font-weight: 700; color: var(--fg); }
 .tbl td .muted { color: var(--fg3); }
+.tbl tr.deep td { opacity: 0.55; }
 .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; background: var(--fg3); }
 .dot.bad { background: var(--live); }
 .dot.good { background: var(--good); }
@@ -161,13 +164,17 @@ a { color: inherit; }
 .rg b { font-size: 12px; font-weight: 700; text-align: left; font-variant-numeric: tabular-nums; }
 .rg.ns .t { background: repeating-linear-gradient(90deg, var(--fill-2) 0 4px, transparent 4px 8px); }
 .rg.ns b { color: var(--fg3); font-weight: 500; }
+:root[data-theme="light"] .rg .t { background: rgba(0,0,0,.12); }
+:root[data-theme="light"] .rg .t i { box-shadow: inset 0 0 0 1px rgba(60,30,10,.35); }
 .attr { display: grid; grid-template-columns: minmax(0, 1fr) 190px; align-items: center; gap: 10px; padding: 5px 2px; border-bottom: 1px solid var(--hair); font-size: 13px; }
 .attr .rg { grid-template-columns: 130px 52px; }
 .attrs { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 0 26px; }
 .opinion { color: var(--fg3); font-size: 12px; margin-top: -6px; }
 
 /* ---------- heroes: team, player, game ---------- */
-.hero { position: relative; isolation: isolate; overflow: hidden; border-radius: 0 0 28px 28px; color: #fff; min-height: 300px; display: flex; align-items: flex-end; }
+.hero { position: relative; isolation: isolate; overflow: hidden; border-radius: 0 0 28px 28px; color: #fff; min-height: 300px; display: flex; align-items: flex-end;
+  /* The hero's art is always dark, in the light theme too, so its buttons keep the dark theme's colours. */
+  --fg: #f4f5f7; --fg2: #c4c8d0; --fg3: #8d929c; --on-fg: #08090c; --fill-1: rgba(255,255,255,.06); --fill-2: rgba(255,255,255,.14); --fill-3: rgba(255,255,255,.22); --hair: rgba(255,255,255,.10); }
 .hero .art { position: absolute; inset: 0; z-index: -2;
   background:
     radial-gradient(70% 90% at 80% 20%, color-mix(in oklab, var(--accent) 75%, transparent) 0%, transparent 62%),
@@ -241,15 +248,28 @@ a { color: inherit; }
 .score .side-name { font-size: 22px; font-weight: 800; font-stretch: 115%; }
 .score .pts { font-size: 64px; font-stretch: 68%; font-weight: 900; line-height: .85; font-variant-numeric: tabular-nums; }
 .pbp td { white-space: normal; text-align: left; }
+/* The play by play scrolls in its own box, so its column names stay on top. */
+.tbl.pbp { max-height: calc(100vh - var(--topbar) - 120px); }
+/* So do the long tables: their column names stay on top, and a table wider
+   than the window shows its sideways scrollbar in view. */
+.tbl.box { max-height: calc(100vh - var(--topbar) - 150px); }
+/* Long lists in a cell wrap instead of pushing the table off the panel. */
+.tbl td.wrap { white-space: normal; min-width: 200px; }
 .pbp td.why { color: var(--fg3); font-size: 12px; }
 .q { color: var(--fg3); }
 
 /* ---------- busy overlay and toasts ---------- */
-.toasts { position: fixed; right: 22px; bottom: 22px; display: grid; gap: 8px; z-index: 90; }
+/* Toasts sit in the corner, never over the sidebar, and clicks go through. */
+.toasts { position: fixed; right: 22px; bottom: 22px; display: grid; justify-items: end; gap: 8px; z-index: 90; max-width: min(460px, calc(100vw - 300px)); pointer-events: none; }
+.toasts .st-toast { max-height: 7.5em; overflow: hidden; line-height: 1.45; }
 .overlay { position: fixed; inset: 0; z-index: 85; display: grid; place-items: center; background: var(--scrim); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .overlay .box { background: var(--raised); border-radius: 24px; padding: 24px 28px; display: grid; gap: 12px; min-width: 320px; box-shadow: var(--shadow-sheet); }
 .overlay .busy-time { color: var(--fg3); font-size: 12px; max-width: 46ch; }
 .stopbox { display: grid; gap: 6px; }
+.overlay .box.ask { width: min(460px, calc(100vw - 48px)); }
+.overlay .box.ask input, .overlay .box.ask textarea { border: 1px solid var(--hair); background: var(--fill-1); color: var(--fg); border-radius: 12px; padding: 10px 12px; font: inherit; resize: vertical; }
+.ask-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.pool .overmsg { color: var(--live); font-weight: 600; }
 
 @media (max-width: 1100px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
 .tbl tbody tr:has([data-go]) { cursor: pointer; }

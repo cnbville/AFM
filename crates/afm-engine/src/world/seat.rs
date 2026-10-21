@@ -62,6 +62,127 @@ impl World {
         }
     }
 
+    /// The depth chart your team would take into a game today, built the
+    /// way the engine builds it on game day: per position, player ids in
+    /// order, with players from another spot where the staff would use
+    /// them (a two-way high schooler, a corner at receiver) and your own
+    /// order first where you set one. None while your team can't dress a
+    /// game team.
+    pub fn seat_game_depth(&self) -> Option<Vec<(Position, Vec<u32>)>> {
+        use crate::calendar::Level as Cal;
+        let seat = self.seat?;
+        let (team, level) = match seat.level {
+            Cal::HighSchool => (super::hs_year::seat_team(self, seat.program?)?, crate::player::Level::HS),
+            Cal::Nfl => (super::pro::games::game_side(self, seat.nfl_team?)?.team, crate::player::Level::NFL),
+            _ => {
+                let prog = self.programs.get(seat.program?)?;
+                (super::season::game_team(self, prog)?, super::division_level(prog.division))
+            }
+        };
+        let margin = crate::game::GameSetup::new(&team, &team, level, 0).two_way_margin[0];
+        let d = crate::game::roster::depth_chart(&team, margin);
+        Some(
+            Position::ALL.iter().map(|&pos| (pos, d.list(pos).iter().map(|&i| team.players[i].id).collect())).collect(),
+        )
+    }
+
+    /// What waits for you on the morning of `d`, before the day plays: your
+    /// team's game, or a dated day at your level when you decide things
+    /// (the tag deadline, free agency, the draft, cutdown, signing day).
+    /// Continue stops that morning, and the next Continue plays the day.
+    pub fn morning_stop(&self, d: Date) -> Option<String> {
+        use crate::calendar::Level;
+        let s = self.seat?;
+        let game = match s.level {
+            Level::College => s.program.and_then(|p| {
+                let f = self
+                    .college_fixtures(Some(p))
+                    .into_iter()
+                    .find(|f| f.date == d && f.score.is_none() && !f.cancelled)?;
+                let opp = if f.home == p { f.away } else { f.home };
+                Some(format!(
+                    "Game day: {} {}",
+                    if f.home == p || f.neutral { "vs" } else { "at" },
+                    self.program_name(opp)
+                ))
+            }),
+            Level::Nfl => s.nfl_team.and_then(|t| {
+                let f = self.nfl_fixtures(Some(t)).into_iter().find(|f| f.when == Some(d) && !f.played)?;
+                let opp = if f.home == t { f.away } else { f.home };
+                Some(format!("Game day: {} the {}", if f.home == t { "vs" } else { "at" }, self.nfl_team_name(opp)))
+            }),
+            Level::HighSchool => s.program.and_then(|h| {
+                let f = self.hs_fixtures(h).into_iter().find(|f| f.date == d)?;
+                let opp = if f.home == h { f.away } else { f.home };
+                Some(format!("Game day: {} {}", if f.home == h { "vs" } else { "at" }, self.school_name(opp)))
+            }),
+            _ => None,
+        };
+        if game.is_some() {
+            return game;
+        }
+        let y = &self.dates;
+        let days: Vec<(Date, &str)> = match s.level {
+            Level::Nfl => vec![
+                (y.tag_deadline.date, "The franchise tag deadline is today."),
+                (y.league_year.date, "The new league year opens today, and free agency with it."),
+                (y.draft[0].date, "The draft opens tonight."),
+                (y.cutdown.date, "Cutdown day: rosters go to 53 today."),
+                (y.trade_deadline.date, "The trade deadline is today."),
+            ],
+            Level::College => [
+                y.early_signing.map(|e| (e, "The early signing period opens today.")),
+                Some((y.signing_day, "National signing day.")),
+                Some((y.portal_open, "The transfer portal opens today.")),
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
+            _ => Vec::new(),
+        };
+        days.into_iter().find(|x| x.0 == d).map(|x| x.1.to_string())
+    }
+
+    /// A coach's record in his current job, with this season's games that
+    /// aren't in it yet: a head coach's season goes into his record when it
+    /// is booked at its end.
+    pub fn stint_record(&self, c: usize) -> (u32, u32) {
+        use super::coach::{Employer, Role};
+        let Some(co) = self.coaches.get(c) else { return (0, 0) };
+        let live = match co.job.filter(|j| j.role == Role::HeadCoach).map(|j| j.employer) {
+            Some(Employer::HighSchool(h)) => {
+                let filed =
+                    self.high_schools.get(h).and_then(|s| s.seasons.last()).is_some_and(|s| s.year == self.year);
+                if filed { (0, 0) } else { self.hs_record(h).unwrap_or((0, 0)) }
+            }
+            Some(Employer::College(p)) => self
+                .college
+                .as_ref()
+                .and_then(|cs| Some((cs.results.get(p)?, cs.credited.get(p)?)))
+                .map_or((0, 0), |(r, k)| (r.wins.saturating_sub(k.0), r.losses.saturating_sub(k.1))),
+            Some(Employer::Nfl(t)) => match self.nfl_season.as_ref() {
+                Some(s) if !s.booked => {
+                    let (wn, l, _) = self.nfl_record(t);
+                    (wn, l)
+                }
+                _ => (0, 0),
+            },
+            None => (0, 0),
+        };
+        (co.wins + live.0, co.losses + live.1)
+    }
+
+    /// His whole record as a head coach: every finished head coaching job
+    /// and the one he holds.
+    pub fn career_record(&self, c: usize) -> (u32, u32) {
+        let Some(co) = self.coaches.get(c) else { return (0, 0) };
+        let past = co.history.iter().filter(|s| s.role == super::coach::Role::HeadCoach);
+        let (pw, pl) = past.fold((0, 0), |a, s| (a.0 + s.wins, a.1 + s.losses));
+        let now =
+            if co.job.is_some_and(|j| j.role == super::coach::Role::HeadCoach) { self.stint_record(c) } else { (0, 0) };
+        (pw + now.0, pl + now.1)
+    }
+
     /// Sets (or with None clears) a player's plan focus.
     pub fn set_focus(&mut self, player: u32, focus: Option<crate::attributes::Attr>) {
         self.seat_focus.retain(|(id, _)| *id != player);
@@ -126,6 +247,8 @@ pub struct Fixture {
     pub why: Vec<&'static str>,
     /// Home and away points, once played.
     pub score: Option<[u32; 2]>,
+    /// Called off: a hurricane, or a team too short to dress.
+    pub cancelled: bool,
 }
 
 /// An NFL game on this season's schedule.
@@ -135,7 +258,11 @@ pub struct NflFixture {
     pub home: usize,
     pub away: usize,
     pub when: Option<Date>,
+    /// Kickoff, minutes after midnight Eastern.
+    pub minute: Option<u16>,
     pub played: bool,
+    /// Home and away points, for a game played on the engine.
+    pub score: Option<[u32; 2]>,
 }
 
 impl World {
@@ -165,8 +292,14 @@ impl World {
                 neutral: g.site.is_some(),
                 why: g.why.clone(),
                 score: g.played.filter(|p| !p.cancelled).map(|p| p.score),
+                cancelled: g.played.is_some_and(|p| p.cancelled),
             })
             .collect()
+    }
+
+    /// The NFL season's year, if one is under way or just finished.
+    pub fn nfl_season_year(&self) -> Option<i32> {
+        self.nfl_season.as_ref().map(|s| s.year)
     }
 
     /// The college season's year, if one is under way or just finished.
@@ -205,7 +338,9 @@ impl World {
                     home: h,
                     away: a,
                     when: slot.map(|x| x.at.date),
+                    minute: slot.map(|x| x.at.minute),
                     played: slot.is_some_and(|x| x.played),
+                    score: slot.and_then(|x| x.score),
                 });
             }
         }
@@ -237,6 +372,10 @@ pub struct You {
     pub network: f64,
     pub relationships: f64,
     pub style: crate::tendencies::Style,
+    /// Your road into coaching, in words ("Scout or personnel man"): what
+    /// your coach page says you came up as.
+    #[serde(default)]
+    pub road: String,
 }
 
 /// Where you start (section 8, topic 2).

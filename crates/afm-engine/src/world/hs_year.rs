@@ -780,12 +780,15 @@ const HS_DRESS_MIN: usize = 18;
 fn hs_team(w: &World, h: usize, week: usize) -> Option<(GameTeam, Vec<(u32, usize)>)> {
     use super::systems::Installed;
     let school = &w.high_schools[h];
-    let hs = w.hs_season.as_ref().unwrap();
+    let grades = w.hs_season.as_ref().map(|hs| &hs.grade_weeks);
+    // A player suspended for the season sits, as in college (his status
+    // line says so).
     let ok = |i: usize| {
         let p = &w.people[i];
         p.stage == Stage::HighSchool
             && p.last_role != Some(PlayingTime::Redshirt)
-            && hs.grade_weeks.get(&i).is_none_or(|m| m >> week & 1 == 0)
+            && !p.cal.trouble
+            && grades.is_none_or(|g| g.get(&i).is_none_or(|m| m >> week & 1 == 0))
     };
     let older = school.roster.iter().filter(|&&i| ok(i) && w.people[i].player.age > 14).count();
     let dressed: Vec<usize> =
@@ -851,6 +854,16 @@ fn hs_team(w: &World, h: usize, week: usize) -> Option<(GameTeam, Vec<(u32, usiz
         .min(5);
     team.line_chem = 0.25 + 0.15 * line_vets as f64;
     Some((team, ids))
+}
+
+/// Your school's game team for its next game (the week after the last one
+/// played; the first week before the season), for the depth chart screen.
+pub(crate) fn seat_team(w: &World, h: usize) -> Option<GameTeam> {
+    let week = w.hs_season.as_ref().map_or(0, |hs| {
+        let st = &hs.states[w.high_schools[h].state];
+        st.weeks.iter().chain(&st.rounds).filter(|&&d| d < w.today).count()
+    });
+    hs_team(w, h, week).map(|t| t.0)
 }
 
 /// Plays a state's engine games for one week (regular week `week`, or a
@@ -1813,8 +1826,11 @@ impl World {
     /// made in the summer).
     pub fn hs_fixtures(&self, h: usize) -> Vec<HsFixture> {
         let Some(hs) = self.hs_season.as_ref() else { return Vec::new() };
+        let Some(state) = self.high_schools.get(h).map(|s| s.state) else { return Vec::new() };
         let mut out = Vec::new();
-        for g in hs.groups.iter().filter(|g| g.schools.contains(&h)) {
+        // A game is filed under the home team's classification, so a road
+        // game at a school of another class is in that class's group.
+        for g in hs.groups.iter().filter(|g| g.state == state) {
             let weeks = &hs.states[g.state].weeks;
             for (k, week) in g.schedule.iter().enumerate() {
                 if let (Some(&(home, away)), Some(&date)) =
@@ -1843,9 +1859,16 @@ impl World {
         Some((format!("{} class {}", self.states[g.state].code, g.class + 1), rows))
     }
 
-    /// A school's record this season, if its season has started.
+    /// A school's record this season, if its season has started. On the
+    /// new football year's first day, before that day runs, the season held
+    /// is still last year's, which is not this season's record.
     pub fn hs_record(&self, h: usize) -> Option<(u32, u32)> {
-        let r = self.hs_season.as_ref()?.results.get(h)?;
+        let hs = self.hs_season.as_ref()?;
+        let st = hs.states.get(self.high_schools.get(h)?.state)?;
+        if st.start.year() < self.year {
+            return None;
+        }
+        let r = hs.results.get(h)?;
         Some((r.wins, r.losses))
     }
 }

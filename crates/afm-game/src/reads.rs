@@ -85,8 +85,17 @@ pub fn potential_words(
 ) -> serde_json::Value {
     let mut rng = afm_engine::rng::Rng::new((reader as u32) ^ p.id.wrapping_mul(0x9E37) ^ season as u32);
     let o = potential_outlook(p, ScoutOptions { accuracy: eye, level }, &mut rng);
+    // The lowest tiers say where he is headed from where he already is: a
+    // college player is past high school, a pro past college.
+    use afm_engine::scouting::PotentialTier as T;
+    let tier = match (o.tier, level) {
+        (T::HighSchool, l) if l.is_college() => "a small-college player at best, with no NFL future",
+        (T::College, l) if l.is_college() => "a solid college player; the NFL is a long shot",
+        (T::HighSchool | T::College, afm_engine::player::Level::NFL) => "may not stick on an NFL roster",
+        (t, _) => t.phrase(),
+    };
     serde_json::json!({
-        "tier": o.tier.phrase(),
+        "tier": tier,
         "sure": format!("{:?}", o.confidence),
         "hints": o.hints.iter().map(|h| h.phrase()).collect::<Vec<_>>(),
     })

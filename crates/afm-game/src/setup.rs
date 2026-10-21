@@ -235,14 +235,18 @@ pub fn jobs(w: &World, level: &str) -> Value {
         _ => w
             .programs
             .iter()
+            // A program that plays this year, with enough players to dress
+            // a team: one that can't is cancelled every game day.
             .filter(|p| {
-                p.base.is_some() && p.division != afm_engine::world::data::Division::JUCO
-                    || p.division == afm_engine::world::data::Division::JUCO
+                (p.base.is_some() && p.division != afm_engine::world::data::Division::JUCO
+                    || p.division == afm_engine::world::data::Division::JUCO)
+                    && p.plays(w.year)
+                    && p.roster.len() >= 22
             })
             .map(|p| {
                 item(
                     TeamRef::College(p.id),
-                    format!("{} · {}", p.division.name(), p.conference),
+                    format!("{} · {} · {}, {}", p.division.name(), p.conference, p.city, w.states[p.state].code),
                     p.division as usize as f64 * 10.0 - p.prestige,
                 )
             })
@@ -312,6 +316,7 @@ pub fn start(w: &mut World, args: &Value) -> Result<(), String> {
         recruiting: r[GROUP_COUNT + 4],
         network: r[GROUP_COUNT + 5],
         relationships: r[GROUP_COUNT + 6],
+        road: b.name.to_string(),
         style: Style {
             risk: f(&s, "risk", 10.0).clamp(1.0, 20.0),
             freedom: f(&s, "freedom", 10.0).clamp(1.0, 20.0),
