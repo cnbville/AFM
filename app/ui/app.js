@@ -232,7 +232,7 @@ screens.start = async () => {
       <div class="st-glass st-panel"><h2>The world library <small>${esc(lib.home)}/worlds</small></h2>
         <div class="library">${lib.worlds.map((w) => item(w, "world")).join("") || '<div class="empty">No worlds yet. Put a world file (.afmworld) in the folder above, or open one by its path below.</div>'}</div>
         <div class="filters"><div class="field" style="flex:1"><label>Import a world file: it is copied into your library and opened</label><input id="wpath" placeholder="/Users/you/Downloads/afm-world-2026.afmworld"></div>
-        <button class="st-btn glass" data-act="openpath" style="align-self:end">Open</button>${window.__TAURI__ && window.__TAURI__.dialog ? '<button class="st-btn primary" data-act="pickworld" style="align-self:end">Choose a file…</button>' : ""}</div>
+        <button class="st-btn glass" data-act="openpath" style="align-self:end">Open</button>${window.__TAURI__ && window.__TAURI__.dialog ? '<button class="st-btn glass" data-act="pickfolder" style="align-self:end">Choose a world folder…</button><button class="st-btn primary" data-act="pickworld" style="align-self:end">Choose a file…</button>' : ""}</div>
       </div>
       <div class="st-glass st-panel"><h2>Your saves <small>${esc(lib.home)}/saves</small></h2>
         <div class="library">${lib.saves.map((w) => item(w, "save")).join("") || '<div class="empty">No saves yet.</div>'}</div>
@@ -686,6 +686,7 @@ document.addEventListener("click", async (ev) => {
       break;
     }
     case "pickworld":
+    case "pickfolder":
     case "openworld":
     case "openpath":
     case "loadsave": {
@@ -693,8 +694,9 @@ document.addEventListener("click", async (ev) => {
       if (d.act === "pickworld") {
         path = await window.__TAURI__.dialog.open({ multiple: false, filters: [{ name: "AFM world or save", extensions: ["afmworld", "afmsave", "001"] }] });
       }
+      if (d.act === "pickfolder") path = await window.__TAURI__.dialog.open({ directory: true, multiple: false });
       if (!path) break;
-      if (d.act !== "openworld" && /\.afmworld(\.001)?$/i.test(path)) {
+      if (d.act !== "openworld" && (d.act === "pickfolder" || /\.afmworld(\.001)?$/i.test(path) || !/\.afm(world|save)$/i.test(path))) {
         showBusy("Adding the world to your library…");
         try { path = (await api("import_world", { path })).path; toast("Added to your world library."); } catch (e) { hideBusy(); toast(e.message); break; }
       }
