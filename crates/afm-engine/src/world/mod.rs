@@ -18,6 +18,7 @@ pub(crate) mod college;
 pub mod data;
 pub mod ethnicity;
 pub mod franchise;
+pub mod front_office;
 pub mod game_log;
 pub mod geo;
 pub mod high_school;
@@ -639,6 +640,10 @@ pub struct World {
     /// Your career once it has started: you, your coach id, your notes.
     #[serde(default)]
     pub career: Option<seat::Career>,
+    /// Your front office: who has each duty and each level's desk (final
+    /// build, lane 10).
+    #[serde(default)]
+    pub front_office: front_office::FrontOffice,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -928,6 +933,7 @@ impl World {
             seat_depth: Vec::new(),
             seat_focus: Vec::new(),
             career: None,
+            front_office: Default::default(),
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);

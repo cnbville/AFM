@@ -172,6 +172,8 @@ pub(crate) fn advance_day(w: &mut World) {
 
     // --- The NFL year (T2, A1-A17): its own dated steps -----------------------------
     timed("nfl", || nfl_year::day(w, d));
+    // Your front office's day: reminders, answers, calls (lane 10).
+    super::front_office::day(w, d);
 
     // --- Spring: college spring practice and high school spring ball (T4.1) ----------
     if d == y.spring_practice.0 {

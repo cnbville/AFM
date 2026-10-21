@@ -168,6 +168,18 @@ pub(crate) fn poach(w: &mut World, d: Date) -> bool {
         let mut squad: Vec<usize> =
             w.clubs[t].roster.iter().copied().filter(|&i| healthy(w, i, Status::PracticeSquad)).collect();
         squad.sort_by(|&a, &b| super::grade(w, t, b).total_cmp(&super::grade(w, t, a)));
+        // Your four are the ones you protect (lane 10).
+        if let Some(mine) = crate::world::front_office::roster::protected(w, t) {
+            let mut kept = 0;
+            for i in squad {
+                if mine.contains(&w.people[i].player.id) && kept < protect {
+                    kept += 1;
+                } else {
+                    open.push((t, i));
+                }
+            }
+            continue;
+        }
         for i in squad.into_iter().skip(protect) {
             open.push((t, i));
         }
@@ -189,6 +201,10 @@ pub(crate) fn poach(w: &mut World, d: Date) -> bool {
     let upside = |w: &World, i: usize| 0.6 * (26.0 - w.people[i].player.age as f64).clamp(0.0, 4.0);
     let mut changed = false;
     for &t in &teams {
+        // Your call-ups and signings are yours (lane 10).
+        if crate::world::front_office::yours(w, t, crate::world::front_office::Duty::PracticeSquad) {
+            continue;
+        }
         for _ in 0..3 {
             if super::count(w, t, Status::Roster) >= limit {
                 break;
@@ -337,6 +353,9 @@ pub(crate) fn refill_squads(w: &mut World, d: Date) -> bool {
     let pay = money::practice_squad_week(year) * weeks_left;
     let mut changed = false;
     for t in super::super::franchise::active_teams(year) {
+        if crate::world::front_office::yours(w, t, crate::world::front_office::Duty::PracticeSquad) {
+            continue;
+        }
         while super::count(w, t, Status::PracticeSquad) < size {
             let Some(k) = (0..pool.len())
                 .filter(|&k| free(w, pool[k]) && squad_room(w, t, pool[k]))
