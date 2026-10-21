@@ -1,0 +1,46 @@
+name: Build a world
+# Builds a full world on GitHub's machines and publishes it on the public
+# worlds page (github.com/cnbville/afm-worlds), where the game's library
+# downloads it in one click (Cain 2026-10-21). A 30-year world takes about
+# three hours. Needs the WORLDS_TOKEN secret: a token that may write to
+# cnbville/afm-worlds.
+on:
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: "Seed"
+        default: "2026"
+      years:
+        description: "Years of history"
+        default: "30"
+jobs:
+  world:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build the world
+        env:
+          AFM_COMMIT: ${{ github.sha }}
+        run: |
+          mkdir -p out
+          cargo run --release --bin afm_world -- "${{ inputs.seed }}" "${{ inputs.years }}" out
+          ls -la out
+      # A release file may be at most 2 GB, so a bigger world goes up in parts
+      # (name.afmworld.001, .002, ...), which the game joins.
+      - name: Publish it on the worlds page
+        env:
+          GH_TOKEN: ${{ secrets.WORLDS_TOKEN }}
+        run: |
+          cd out
+          f=$(ls *.afmworld)
+          if [ "$(stat -c %s "$f")" -gt 2000000000 ]; then
+            split -b 1900M -d -a 3 --numeric-suffixes=1 "$f" "$f."
+            rm "$f"
+          fi
+          sha=$(echo "${{ github.sha }}" | cut -c1-7)
+          gh release create "${f%.afmworld}-$sha" ./*.afmworld* --repo cnbville/afm-worlds \
+            --title "Seed ${{ inputs.seed }}, ${{ inputs.years }} years of history (game $sha)" \
+            --notes "Built $(date -u +%Y-%m-%d) by the AFM game at commit ${{ github.sha }}."

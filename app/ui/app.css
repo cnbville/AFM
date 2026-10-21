@@ -243,6 +243,7 @@ a { color: inherit; }
 .toasts { position: fixed; right: 22px; bottom: 22px; display: grid; gap: 8px; z-index: 90; }
 .overlay { position: fixed; inset: 0; z-index: 85; display: grid; place-items: center; background: var(--scrim); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .overlay .box { background: var(--raised); border-radius: 24px; padding: 24px 28px; display: grid; gap: 12px; min-width: 320px; box-shadow: var(--shadow-sheet); }
+.overlay .busy-time { color: var(--fg3); font-size: 12px; max-width: 46ch; }
 .stopbox { display: grid; gap: 6px; }
 
 @media (max-width: 1100px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
