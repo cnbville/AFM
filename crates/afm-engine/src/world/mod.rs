@@ -16,6 +16,7 @@ pub(crate) mod clock;
 pub mod coach;
 pub(crate) mod college;
 pub mod data;
+pub mod desk;
 pub mod ethnicity;
 pub mod franchise;
 pub mod game_log;

@@ -457,6 +457,7 @@ impl World {
             seed: career_seed,
             notes: Vec::new(),
             hs_staff: Vec::new(),
+            desk: Default::default(),
         });
         if let Job::HighSchool(h) = job {
             let staff = self.hire_hs_staff(h);
@@ -486,6 +487,10 @@ pub struct Career {
     /// Your high school staff, when you coach a high school.
     #[serde(default)]
     pub hs_staff: Vec<HsAssistant>,
+    /// Your desk: mail, notes on anything, "my players", watches (the
+    /// final build's inbox and screens, `desk.rs`).
+    #[serde(default)]
+    pub desk: super::desk::Desk,
 }
 
 /// A high school assistant (people topic 10): most teach at the school and
@@ -598,15 +603,25 @@ impl World {
 pub struct Note {
     pub date: Date,
     pub text: String,
+    /// The page it was written on ("Player page · Jalen Carter", "Depth
+    /// chart"); empty for notes from before the final build.
+    #[serde(default)]
+    pub page: String,
 }
 
 impl World {
     pub fn add_note(&mut self, player: u32, text: String) {
+        self.add_note_from(player, text, String::new());
+    }
+
+    /// A note on a player, with the page it was written on.
+    pub fn add_note_from(&mut self, player: u32, text: String, page: String) {
         let date = self.today;
         let Some(c) = self.career.as_mut() else { return };
+        let note = Note { date, text, page };
         match c.notes.iter_mut().find(|(id, _)| *id == player) {
-            Some((_, list)) => list.push(Note { date, text }),
-            None => c.notes.push((player, vec![Note { date, text }])),
+            Some((_, list)) => list.push(note),
+            None => c.notes.push((player, vec![note])),
         }
     }
 
