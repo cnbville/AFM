@@ -18,7 +18,12 @@ use serde_json::{Value, json};
 use crate::views::{TeamRef, date_text, mine, team_brief};
 use crate::{Game, Reply};
 
-const COMMANDS: [&str; 5] = ["money_books", "money_league", "money_ask_facility", "money_hs_act", "money_card"];
+mod leagues;
+
+pub(crate) use leagues::{career_rows as other_career_rows, team as league_team};
+
+const COMMANDS: [&str; 7] =
+    ["money_books", "money_league", "money_ask_facility", "money_hs_act", "money_card", "leagues", "league_team"];
 
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     if !COMMANDS.contains(&cmd) {
@@ -37,6 +42,11 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             _ => Err("Only a college head coach asks his athletic director for a building.".into()),
         },
         "money_hs_act" => hs_act(w, args),
+        "leagues" => Ok(leagues::leagues(w, args)),
+        "league_team" => match args.get("id").and_then(Value::as_u64) {
+            Some(id) => leagues::team(w, id as usize),
+            None => Err("Missing the team.".into()),
+        },
         _ => Err("Unknown command.".into()),
     })
 }

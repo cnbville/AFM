@@ -49,7 +49,7 @@ fn employer_state(w: &World, e: Employer) -> Option<usize> {
     match e {
         Employer::HighSchool(s) => Some(w.high_schools[s].state),
         Employer::College(p) => Some(w.programs[p].state),
-        Employer::Nfl(_) => None,
+        Employer::Nfl(_) | Employer::Other(_) => None,
     }
 }
 
@@ -120,6 +120,7 @@ pub(crate) fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) 
                 Role::PositionCoach(_) => {}
             }
         }
+        Employer::Other(f) => super::pro::other::seat(w, f, role, coach),
     }
     // A college head coach signs a contract (trial 4 topic 4): paid by the
     // job, a little more for a bigger name.
@@ -138,6 +139,7 @@ pub(crate) fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) 
     let boss = match employer {
         Employer::College(p) => w.programs[p].head_coach,
         Employer::Nfl(t) => w.nfl[t].head_coach,
+        Employer::Other(f) => super::pro::other::head_coach(w, f),
         Employer::HighSchool(_) => None,
     };
     if role != Role::HeadCoach
@@ -211,6 +213,7 @@ pub(crate) fn leave(w: &mut World, coach: usize, why: &'static str) {
                 }
             }
         }
+        Employer::Other(f) => super::pro::other::unseat(w, f, coach),
     }
     if market::is_you(w, coach) {
         market::left(w, why);
@@ -352,6 +355,7 @@ fn employer_prestige(w: &World, e: Employer) -> f64 {
             base + 0.45 * w.programs[p].prestige
         }
         Employer::Nfl(_) => 1.0,
+        Employer::Other(f) => super::pro::other::prestige(f),
     }
 }
 
@@ -469,6 +473,10 @@ pub(crate) fn salary(w: &World, e: Employer, role: Role) -> f64 {
             let era = clamp(1.0 + 0.035 * (2024 - w.year) as f64, 1.0, 2.0);
             (pick([(5.0e6, 14.0e6), (1.2e6, 4.0e6), (0.5e6, 1.2e6)]), owner, era)
         }
+        Employer::Other(f) => {
+            let x = super::pro::other::salary(f, role, w.year);
+            ((x, x), 0.0, 1.0)
+        }
     };
     lo * (hi / lo).powf(clamp(x, 0.0, 1.0)) * era
 }
@@ -505,6 +513,11 @@ fn hotness(w: &World, c: usize) -> f64 {
             if coach.titles > 0 {
                 h += 2.0;
             }
+        }
+        // A winner in another league is a name (Marc Trestman's Grey Cups).
+        Employer::Other(f) => {
+            let ws = w.others.teams.get(f).and_then(|t| t.win_share.last().copied()).unwrap_or(0.5) as f64;
+            h += 4.0 * (ws - 0.5) + if coach.titles > 0 { 1.5 } else { 0.0 };
         }
         Employer::HighSchool(_) => {}
     }
@@ -549,6 +562,7 @@ fn employer_title(w: &World, e: Employer) -> String {
         Employer::HighSchool(h) => format!("{} High School", w.high_schools[h].name),
         Employer::College(p) => w.programs[p].name(w.options.names).to_string(),
         Employer::Nfl(t) => format!("the {}", w.nfl[t].name),
+        Employer::Other(f) => format!("the {}", super::pro::other::name(f, w.year)),
     }
 }
 
@@ -726,7 +740,7 @@ fn retirement_news(w: &mut World, c: usize, job: Job, why: &str) {
             let item = story(w, NewsKind::CoachLeft, None, Some(t), &[c], text);
             w.news.push(item);
         }
-        Employer::HighSchool(_) => {}
+        Employer::HighSchool(_) | Employer::Other(_) => {}
     }
 }
 
@@ -751,7 +765,7 @@ fn departure_news(w: &mut World, c: usize, job: Job, o: Opening, why: &str) {
             let item = story(w, NewsKind::CoachLeft, None, Some(t), &[c], text);
             w.news.push(item);
         }
-        Employer::HighSchool(_) => {}
+        Employer::HighSchool(_) | Employer::Other(_) => {}
     }
 }
 
@@ -879,6 +893,8 @@ pub(crate) fn carousel(w: &mut World, scope: Scope) {
             Employer::Nfl(t) => nfl_firing(w, c, t, tenure, &mut openings),
             Employer::College(p) => college_review(w, c, p, job, &mut openings),
             Employer::HighSchool(s) => hs_review(w, c, s, tenure, &mut openings),
+            // The other leagues' owners review at their own season's end.
+            Employer::Other(_) => {}
         }
     }
     if scope == Scope::College {
@@ -936,6 +952,23 @@ pub(crate) fn carousel(w: &mut World, scope: Scope) {
     let buzz = buzz_list(w);
     let mut moved: HashSet<usize> = HashSet::new();
     hire_all(w, openings, &mut moved, &buzz);
+    set_nfl_coaching(w);
+}
+
+/// The other leagues' empty seats filled through the market before a
+/// season (final build X7): their coaches come from, and go back to, the
+/// NFL's and the colleges' pools.
+pub(crate) fn fill_others(w: &mut World, jobs: Vec<(Employer, Role)>) {
+    if jobs.is_empty() {
+        return;
+    }
+    let queue: Vec<Opening> = jobs
+        .into_iter()
+        .map(|(employer, role)| Opening { employer, role, prestige: employer_prestige(w, employer) })
+        .collect();
+    let buzz = buzz_list(w);
+    let mut moved: HashSet<usize> = HashSet::new();
+    hire_all(w, queue, &mut moved, &buzz);
     set_nfl_coaching(w);
 }
 
@@ -1065,8 +1098,9 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
         Employer::HighSchool(s) => (w.high_schools[s].prestige, true),
         Employer::College(p) => (w.programs[p].prestige, false),
         Employer::Nfl(_) => (1.0, false),
+        Employer::Other(f) => (super::pro::other::prestige(f), false),
     };
-    let nfl = matches!(o.employer, Employer::Nfl(_));
+    let nfl = matches!(o.employer, Employer::Nfl(_) | Employer::Other(_));
     // An NFL team doesn't recruit and is its own exposure: it pays for teaching.
     let needs = if nfl {
         HiringNeeds { network: 0.0, teaching: 0.6, recruiting: 0.0 }
@@ -1076,6 +1110,7 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
     let hiring_hc = match o.employer {
         Employer::College(p) if o.role != Role::HeadCoach => w.programs[p].head_coach,
         Employer::Nfl(t) if o.role != Role::HeadCoach => w.nfl[t].head_coach,
+        Employer::Other(f) if o.role != Role::HeadCoach => super::pro::other::head_coach(w, f),
         _ => None,
     };
     // Nobody sees a coach's teaching directly (note 15B). A school reads
@@ -1201,6 +1236,10 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
         let own = match o.employer {
             Employer::College(p) => [w.programs[p].oc, w.programs[p].dc],
             Employer::Nfl(t) => [w.nfl[t].oc, w.nfl[t].dc],
+            Employer::Other(f) => [
+                super::pro::other::slot(w, f, Role::OffensiveCoordinator),
+                super::pro::other::slot(w, f, Role::DefensiveCoordinator),
+            ],
             Employer::HighSchool(_) => [None, None],
         };
         hired = own
@@ -1243,6 +1282,7 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
                 Employer::HighSchool(_) => CoachTier::HighSchool,
                 Employer::College(p) => tier_of(w.programs[p].division),
                 Employer::Nfl(_) => CoachTier::Nfl,
+                Employer::Other(_) => CoachTier::Fcs,
             };
             // A head job goes to a long-time assistant; assistant jobs go younger.
             let (lo, hi) = match (o.role, o.employer) {
@@ -1278,6 +1318,7 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
         Employer::College(q) => format!("from {}", w.programs[q].name(w.options.names)),
         Employer::HighSchool(h) => format!("from {} High School football", w.high_schools[h].name),
         Employer::Nfl(u) => format!("from the {}", w.nfl[u].name),
+        Employer::Other(u) => format!("from the {}", super::pro::other::name(u, year)),
     });
     let from = if why.is_empty() { from } else { format!("{from}: {why}") };
     if w.recording
@@ -2070,6 +2111,59 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
                 .filter(|c| !moved.contains(c))
                 .collect();
             pool.extend(hottest(w, &college, if head { 8 } else { 5 }));
+            // A winner in another league (Marc Trestman from the CFL to the
+            // Bears in 2013; proposed: the two hottest head coaches there).
+            let other: Vec<usize> = (0..super::pro::other::FRANCHISES)
+                .filter_map(|f| super::pro::other::head_coach(w, f))
+                .filter(|c| !moved.contains(c) && !barred(w, *c))
+                .collect();
+            pool.extend(hottest(w, &other, 2));
+        }
+        Employer::Other(f) => {
+            // The league's own coordinators and head coaches, out-of-work NFL
+            // and college coaches (Bob Stoops in the XFL), FBS and FCS
+            // coordinators and FCS head coaches for a head job; the same
+            // side of the ball for a coordinator job.
+            let head = o.role == Role::HeadCoach;
+            let side = o.role.offense();
+            let k = super::pro::other::league_of(f);
+            for g in 0..super::pro::other::FRANCHISES {
+                if g == f || super::pro::other::league_of(g) != k {
+                    continue;
+                }
+                for r in [Role::OffensiveCoordinator, Role::DefensiveCoordinator] {
+                    if let Some(c) = super::pro::other::slot(w, g, r)
+                        && (head || r.offense() == side)
+                        && !moved.contains(&c)
+                    {
+                        pool.push(c);
+                    }
+                }
+            }
+            for c in w.coaches.iter().filter(|c| c.job.is_none() && !c.retired && c.age < 68) {
+                let fits = c.history.iter().any(|s| {
+                    matches!(s.employer, Employer::Nfl(_) | Employer::College(_) | Employer::Other(_))
+                        && (s.role == Role::HeadCoach || (!head && s.role.offense() == side))
+                });
+                if fits && !moved.contains(&c.id) {
+                    pool.push(c.id);
+                }
+            }
+            let college: Vec<usize> = w
+                .programs
+                .iter()
+                .filter(|p| matches!(p.division, Division::FBS | Division::FCS))
+                .flat_map(|p| match o.role {
+                    Role::OffensiveCoordinator => vec![p.oc],
+                    Role::DefensiveCoordinator => vec![p.dc],
+                    _ if p.division == Division::FCS => vec![p.head_coach, p.oc, p.dc],
+                    _ => vec![p.oc, p.dc],
+                })
+                .flatten()
+                .filter(|c| !moved.contains(c) && !barred(w, *c))
+                .collect();
+            pool.extend(hottest(w, &college, if head { 8 } else { 6 }));
+            sample(w, &college, 10, &mut pool);
         }
     }
     // Unemployed coaches still looking. A former college head coach doesn't take a high school job.
@@ -2345,7 +2439,7 @@ pub fn take_seat_as(w: &mut World, you: &super::seat::You, employer: Option<Empl
     let tier = match employer {
         Some(Employer::HighSchool(_)) => CoachTier::HighSchool,
         Some(Employer::College(p)) => tier_of(w.programs[p].division),
-        Some(Employer::Nfl(_)) => CoachTier::Nfl,
+        Some(Employer::Nfl(_)) | Some(Employer::Other(_)) => CoachTier::Nfl,
         None if you.ex_pro => CoachTier::Nfl,
         None => CoachTier::HighSchool,
     };
@@ -2412,6 +2506,7 @@ pub(crate) fn holder(w: &World, e: Employer, r: Role) -> Option<usize> {
         Employer::HighSchool(s) => (r == Role::HeadCoach).then_some(w.high_schools[s].coach).flatten(),
         Employer::College(p) => slot(&w.programs[p], r),
         Employer::Nfl(t) => nfl_slot(&w.nfl[t], r),
+        Employer::Other(f) => super::pro::other::slot(w, f, r),
     }
 }
 

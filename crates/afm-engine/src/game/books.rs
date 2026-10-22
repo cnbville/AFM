@@ -506,7 +506,7 @@ fn cfl(year: i32, code: &mut Code) -> Rules {
     }
     code.warning = 180.0;
     code.late_every_play = true;
-    code.pass_lean = -0.10;
+    code.pass_lean = -0.16;
     code.timeouts_per_game = year >= 2013;
     code.challenges = match year {
         ..=2006 => 0,

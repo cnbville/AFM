@@ -7,6 +7,7 @@ mod foundations;
 mod front_office;
 mod game_stats;
 mod kick_units;
+mod leagues;
 mod level_rating;
 mod links;
 mod live_game;

@@ -564,11 +564,7 @@ pub fn similar(w: &World, args: &Value) -> Value {
         .map(|&(_, c)| {
             let co = &w.coaches[c];
             let j = co.job.expect("filtered on a job");
-            let at = match j.employer {
-                Employer::HighSchool(s) => w.school_name(s).to_string(),
-                Employer::College(p) => w.program_name(p).to_string(),
-                Employer::Nfl(t) => w.nfl_team_name(t),
-            };
+            let at = crate::views::employer_name(w, j.employer);
             let role = j.role.name();
             json!({
                 "id": c, "name": co.name, "age": co.age_on(w.today),

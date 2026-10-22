@@ -79,6 +79,54 @@ pub(crate) fn team_brief(w: &World, t: TeamRef) -> Value {
     json!({ "ref": t.json(), "name": team_name(w, t), "colors": [c1, c2], "mine": is_mine(w, t) })
 }
 
+/// The screens' team for an employer: none for a club in another league.
+pub(crate) fn employer_ref(e: Employer) -> Option<TeamRef> {
+    match e {
+        Employer::HighSchool(s) => Some(TeamRef::HighSchool(s)),
+        Employer::College(p) => Some(TeamRef::College(p)),
+        Employer::Nfl(t) => Some(TeamRef::Nfl(t)),
+        Employer::Other(_) => None,
+    }
+}
+
+/// A club in another league, as a team link: its name this year and
+/// colours. The team screen opens its league page.
+pub(crate) fn other_brief(w: &World, fr: usize) -> Value {
+    let name = afm_engine::world::pro::other::name(fr, w.year);
+    json!({ "ref": { "kind": "other", "id": fr }, "name": name, "colors": colors::other(name, fr), "mine": false })
+}
+
+/// Any employer as a team link.
+pub(crate) fn employer_brief(w: &World, e: Employer) -> Value {
+    match (employer_ref(e), e) {
+        (Some(t), _) => team_brief(w, t),
+        (None, Employer::Other(f)) => other_brief(w, f),
+        (None, _) => Value::Null,
+    }
+}
+
+/// An employer's name: the program, the club or the school.
+pub(crate) fn employer_name(w: &World, e: Employer) -> String {
+    match e {
+        Employer::College(p) => w.program_name(p).to_string(),
+        Employer::Nfl(t) => w.nfl_team_name(t),
+        Employer::HighSchool(h) => w.school_name(h).to_string(),
+        Employer::Other(f) => afm_engine::world::pro::other::name(f, w.year).to_string(),
+    }
+}
+
+/// An employer's line under its name (conference, division, state, league).
+pub(crate) fn employer_line(w: &World, e: Employer) -> String {
+    match (employer_ref(e), e) {
+        (Some(t), _) => team_line(w, t),
+        (None, Employer::Other(f)) => {
+            let k = afm_engine::world::pro::other::league_of(f);
+            afm_engine::world::pro::other::league_name(k, w.year).to_string()
+        }
+        (None, _) => String::new(),
+    }
+}
+
 /// A team's record and which season it is: this season's once it has
 /// played, before that last season's ("9-8 in 2025"). On the new football
 /// year's first day, before it plays, the season held is still last year's.
@@ -408,6 +456,10 @@ pub(crate) fn level_of(w: &World, p: &Person) -> Level {
 }
 
 pub(crate) fn hometown(w: &World, p: &Person) -> String {
+    // A Canadian in the CFL grew up across the border.
+    if let Some(&school) = w.others.nationals.get(&p.player.id) {
+        return afm_engine::world::pro::other::national_home(p.player.id, school);
+    }
     let s = w.high_schools.get(p.hs);
     match s {
         Some(s) => format!("{}, {}", s.town, w.states.get(s.state).map_or("", |x| x.code.as_str())),
@@ -727,7 +779,17 @@ pub(crate) fn where_now(w: &World, p: &Person) -> String {
         Stage::HighSchool | Stage::PrepSchool => w.school_name(p.hs).to_string(),
         Stage::College => p.college.map_or("College".into(), |c| w.program_name(c).to_string()),
         Stage::Declared => "Draft pool".into(),
-        Stage::Pro => p.pro.as_ref().and_then(|c| c.team).map_or("Free agent".into(), |t| w.nfl_team_name(t)),
+        Stage::Pro => match p.pro.as_ref().map(|c| (c.team, c.status)) {
+            Some((Some(t), _)) => w.nfl_team_name(t),
+            Some((None, afm_engine::world::pro::Status::Other(k))) => {
+                use afm_engine::world::pro::other;
+                match w.others.team_of(p.player.id as usize) {
+                    Some(fr) => format!("{} ({})", other::name(fr, w.year), other::league_short(k)),
+                    None => format!("Between teams ({})", other::league_short(k)),
+                }
+            }
+            _ => "Free agent".into(),
+        },
         Stage::Done => "Out of football".into(),
     }
 }
@@ -1600,13 +1662,10 @@ pub fn staff(w: &World, t: TeamRef) -> Value {
 pub fn coach(w: &World, c: usize) -> Result<Value, String> {
     let co = w.coaches.get(c).ok_or("No such coach.")?;
     let job = co.job.map(|j| {
-        let (team, name) = match j.employer {
-            Employer::College(p) => (TeamRef::College(p), w.program_name(p).to_string()),
-            Employer::Nfl(t) => (TeamRef::Nfl(t), w.nfl_team_name(t)),
-            Employer::HighSchool(s) => (TeamRef::HighSchool(s), w.school_name(s).to_string()),
-        };
+        let team = employer_brief(w, j.employer);
+        let name = employer_name(w, j.employer);
         let record = (j.role == Role::HeadCoach).then(|| job_record(w, c));
-        json!({ "team": team.json(), "name": name, "role": j.role.name(), "since": j.since, "record": record })
+        json!({ "team": team["ref"], "name": name, "role": j.role.name(), "since": j.since, "record": record })
     });
     // Records are kept from the first season of recorded history: a job
     // that began before it counts its games from then.
@@ -1616,11 +1675,7 @@ pub fn coach(w: &World, c: usize) -> Result<Value, String> {
         .iter()
         .rev()
         .map(|s| {
-            let name = match s.employer {
-                Employer::College(p) => w.program_name(p).to_string(),
-                Employer::Nfl(t) => w.nfl_team_name(t),
-                Employer::HighSchool(h) => w.school_name(h).to_string(),
-            };
+            let name = employer_name(w, s.employer);
             // Only a head coach's job has a record, and only its seasons
             // from the first kept one.
             let record = if s.role != Role::HeadCoach || s.to < kept_from {
@@ -1820,14 +1875,21 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
         "age": p.age_on(w.today),
         "born": born_text(p.born),
         "class": class_text(w, p),
-        "team": team.map(|t| team_brief(w, t)),
+        // A player in another league links to his club there.
+        "team": team.map(|t| team_brief(w, t)).or_else(|| {
+            matches!(p.pro.as_ref().map(|c| c.status), Some(afm_engine::world::pro::Status::Other(_)))
+                .then(|| w.others.team_of(k))
+                .flatten()
+                .map(|fr| other_brief(w, fr))
+        }),
         "where": where_now(w, p),
         "followers": (p.followers > 0).then_some(p.followers),
         "brand": (p.brand >= 1000.0).then_some((p.brand as f64 / 1000.0).round() * 1000.0),
         "on_camera": afm_engine::world::fame::aura_read(p, if own { 13.0 } else { 9.0 }, reader),
         "mine": own,
         "home": hometown(w, p),
-        "high_school": w.high_schools.get(p.hs).map(|s| w.school_name(s.id).to_string()),
+        "high_school": w.high_schools.get(p.hs).filter(|_| !w.others.national(p.player.id)).map(|s| w.school_name(s.id).to_string()),
+        "national": w.others.nationals.get(&p.player.id).map(|&s| afm_engine::world::pro::other::U_SPORTS.get(s as usize).copied().unwrap_or("")),
         "ht": ft_in(p.player.body.height),
         "wt": p.player.body.weight.round(),
         "arm": p.player.body.arm,
@@ -2259,11 +2321,7 @@ pub fn search(w: &World, q: &str) -> Value {
         .filter(|c| !c.retired && c.name.to_lowercase().contains(&q))
         .take(20)
         .map(|c| {
-            let at = c.job.map(|j| match j.employer {
-                Employer::College(p) => w.program_name(p).to_string(),
-                Employer::Nfl(t) => w.nfl_team_name(t),
-                Employer::HighSchool(h) => w.school_name(h).to_string(),
-            });
+            let at = c.job.map(|j| employer_name(w, j.employer));
             json!({ "id": c.id, "name": c.name, "role": c.job.map(|j| j.role.name()), "at": at })
         })
         .collect();

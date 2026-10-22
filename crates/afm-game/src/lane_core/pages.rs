@@ -482,6 +482,13 @@ fn seasons(w: &World, k: usize) -> Vec<Value> {
             }));
         }
     }
+    // Seasons in the other leagues (the CFL, arena football, the spring
+    // leagues), in the order played.
+    let others = crate::lane_money::other_career_rows(w, k);
+    if !others.is_empty() {
+        v.extend(others);
+        v.sort_by_key(|r| r["year"].as_i64().unwrap_or(0));
+    }
     v
 }
 
@@ -666,7 +673,11 @@ pub fn profile(w: &World, id: u32) -> Result<Value, String> {
     v["listed"] = json!(desk::is_listed(w, id));
     v["career_story"] = json!(stories);
     v["initials"] = json!(p.name.split_whitespace().filter_map(|s| s.chars().next()).take(2).collect::<String>());
-    v["colors"] = json!(team.map(|t| views::team_colors(w, t)));
+    v["colors"] = match team {
+        Some(t) => json!(views::team_colors(w, t)),
+        // A club in another league lights the page in its colours.
+        None => v["team"]["colors"].clone(),
+    };
     v["level_name"] = json!(p.player.history.last().map(|h| level_name(h.level)));
     v["positions_detail"] = json!(
         p.player
@@ -734,6 +745,20 @@ pub fn peek(w: &World, args: &Value) -> Result<Value, String> {
                     .map(|c| c.name.clone()),
             });
             v["next"] = views::next_game(w, t).unwrap_or(Value::Null);
+            Ok(v)
+        }
+        // A club in another league (later extras X7).
+        "other" => {
+            let fr = num.ok_or("Missing id.")? as usize;
+            let t = crate::lane_money::league_team(w, fr)?;
+            let mut v = t["team"].clone();
+            v["kind"] = json!("team");
+            v["line"] =
+                json!(format!("{} · {}", t["league"]["name"].as_str().unwrap_or(""), t["city"].as_str().unwrap_or("")));
+            v["record"] =
+                t["record"]["text"].as_str().map_or(Value::Null, |r| json!(format!("{r} in {}", t["record"]["year"])));
+            v["coach"] = t["staff"].get(0).map_or(Value::Null, |c| c["name"].clone());
+            v["next"] = t["upcoming"].get(0).cloned().unwrap_or(Value::Null);
             Ok(v)
         }
         "game" => {

@@ -733,6 +733,9 @@ pub struct World {
     /// build, lane 10).
     #[serde(default)]
     pub front_office: front_office::FrontOffice,
+    /// The other pro leagues as full leagues (final build X7).
+    #[serde(default)]
+    pub others: pro::other::Others,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -1027,6 +1030,7 @@ impl World {
             gameday: Default::default(),
             finance: finance::Finance::default(),
             front_office: Default::default(),
+            others: Default::default(),
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);

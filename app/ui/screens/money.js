@@ -279,3 +279,137 @@ Object.assign(CORE_MORE, {
     try { const r = await api("money_hs_act", { what: el.dataset.what, key: el.dataset.key || "" }); toast(r.text); refresh(el); } catch (e) { toast(e.message); }
   },
 });
+
+/* ---------- the other leagues (later extras X7) ----------
+ *   leagues       A league's season: the table (each division), the weeks'
+ *                 scores and the playoffs, its champions by year, its rule
+ *                 book in plain lines, its teams and, for the CFL, the
+ *                 draft. Args {league, year}; the last one picked stays.
+ *   league_team   A club in another league: its staff, its roster with the
+ *                 Canadians marked, this season's games and the next ones,
+ *                 its seasons. Args {id}. A team link of kind "other"
+ *                 opens it (the team screen hands over).
+ */
+I.globe = '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>';
+navAdd({ go: "leagues", label: "Other leagues", icon: "globe", sec: "world", after: "standings" });
+Object.assign(CRUMBS, { leagues: "Other leagues", league_team: "Club" });
+GOTO.leagues = () => [["Standings", "standings"], ["History", "history"], ["League money", "money_league"]];
+
+const lgRecord = (r) => `${r.w}-${r.l}${r.t ? "-" + r.t : ""}`;
+screens.leagues = async (a) => {
+  const K = keep("leagues", { league: null, year: null });
+  if (a.league != null) { if (a.league !== K.league) K.year = null; K.league = a.league; }
+  if (a.year != null) K.year = a.year;
+  let tab = tabOf("lgtab", ["Season", "Champions", "Teams", "Rules", "Draft"], a);
+  const x = await api("leagues", { ...(K.league != null ? { league: K.league } : {}), ...(K.year != null ? { year: K.year } : {}) });
+  if (!x.league) return `<div class="pad">${pageHead({ title: "Other leagues" })}<div class="empty">${esc(x.note || "No other league has played yet.")}</div></div>`;
+  K.league = x.league.k;
+  if (tab === "Draft" && x.league.k !== 0) tab = "Season";
+  title(x.league.name, x.year ? String(x.year) : "");
+  const chips = `<div class="lg-switch">${x.leagues.map((l) => linkTo("leagues", { league: l.k }, `<b>${esc(l.short)}</b><small>${esc(l.name)}${l.from ? ` · ${l.from}${l.to && l.to !== l.from ? "-" + l.to : ""}` : ""}${l.now ? " · playing now" : ""}</small>`, `lg-chip${l.k === x.league.k ? " on" : ""}`)).join("")}</div>`;
+  const years = x.years.length ? `<select class="ssel" data-act="lgyear" aria-label="Season">${x.years.map((y) => `<option value="${y}" ${y === x.year ? "selected" : ""}>${y}</option>`).join("")}</select>` : "";
+  const s = x.season;
+  let body = "";
+  if (tab === "Season") {
+    if (!s) body = '<div class="empty">No season to show yet: the league opens camp three weeks before its first game.</div>';
+    else {
+      const divs = [...new Set(s.table.map((r) => r.division))];
+      const cfl = x.league.k === 0;
+      const cols = [
+        { k: "team", t: "Team", l: true, f: (r) => teamChip(r.team, 20), v: (r) => r.team.name },
+        { k: "rec", t: "W-L", f: (r) => `<b>${lgRecord(r)}</b>`, v: (r) => r.pct },
+        ...(cfl ? [{ k: "pts", t: "Pts", tip: "Points in the standings: two a win, one a tie" }] : [{ k: "pct", t: "Pct", f: (r) => r.pct.toFixed(3).replace(/^0/, "") }]),
+        { k: "pf", t: "PF", tip: "Points for" },
+        { k: "pa", t: "PA", tip: "Points against" },
+        { k: "diff", t: "Diff", f: (r) => (r.pf - r.pa > 0 ? "+" : "") + (r.pf - r.pa), v: (r) => r.pf - r.pa },
+      ];
+      const tables = divs.map((d) => `<section class="panel"><h2>${esc(d || "Standings")}</h2>${table(`lg:${x.league.k}:${s.year}:${d}`, cols, s.table.filter((r) => r.division === d), { tools: false })}</section>`).join("");
+      const weeks = s.weeks.length
+        ? s.weeks.map((wk) => `<div class="lg-week"><div class="st-label">${esc(wk.label)}</div>${wk.games.map((g) => {
+            const hw = g.score[0] > g.score[1], aw = g.score[1] > g.score[0];
+            return `<div class="lg-game"><span class="${aw ? "win" : ""}">${teamChip(g.away, 16)}<b>${g.score[1]}</b></span><span class="${hw ? "win" : ""}">${teamChip(g.home, 16)}<b>${g.score[0]}</b></span></div>`;
+          }).join("")}</div>`).join("")
+        : '<div class="empty">The scores of seasons before the last two aren\'t kept: the table and the champion are.</div>';
+      body = `<p class="lg-status"><b>${esc(s.status)}</b></p><div class="${divs.length > 1 ? "grid2" : ""}">${tables}</div><section class="panel" style="margin-top:18px"><h2>Results <small>newest first</small></h2><div class="lg-weeks">${weeks}</div></section>`;
+    }
+  } else if (tab === "Champions") {
+    const cols = [
+      { k: "year", t: "Season" },
+      { k: "champion", t: "Champion", l: true, f: (r) => (r.champion ? teamChip(r.champion, 18) : `<span class="muted">${esc(r.note || "None")}</span>`), v: (r) => (r.champion ? r.champion.name : "") },
+      { k: "score", t: "Final", f: (r) => esc(r.score || "") },
+      { k: "runner_up", t: "Runner-up", l: true, f: (r) => teamChip(r.runner_up, 18), v: (r) => (r.runner_up ? r.runner_up.name : "") },
+    ];
+    const titles = {};
+    for (const c of x.champions) if (c.champion) titles[c.champion.name] = (titles[c.champion.name] || 0) + 1;
+    const top = Object.entries(titles).sort((p, q) => q[1] - p[1]).slice(0, 6);
+    const most = top.length ? `<div class="st-tiles">${top.map(([n, c]) => mnTile(c, n)).join("")}</div>` : "";
+    body = `${most ? `<section class="panel"><h2>Most titles <small>in this world</small></h2>${most}</section>` : ""}<section class="panel" style="margin-top:18px"><h2>${esc(x.format ? x.format.title : "Title game")} by year</h2>${x.champions.length ? table("lgchamps", cols, x.champions, { tools: false }) : '<div class="empty">No season finished yet.</div>'}</section>`;
+  } else if (tab === "Teams") {
+    const cols = [
+      { k: "team", t: "Team", l: true, f: (r) => teamChip(r.team, 20), v: (r) => r.team.name },
+      { k: "division", t: "Division", l: true },
+      { k: "coach", t: "Head coach", l: true, f: (r) => (r.coach ? coachLink(r.coach.id, r.coach.name) : '<span class="muted">Open</span>'), v: (r) => (r.coach ? r.coach.name : "") },
+      { k: "titles", t: "Titles" },
+    ];
+    body = `<section class="panel"><h2>The ${x.year || ""} teams</h2>${x.teams.length ? table("lgteams", cols, x.teams, { tools: false }) : '<div class="empty">No teams this season.</div>'}</section>`;
+  } else if (tab === "Rules") {
+    const f = x.format;
+    const fmt = f ? `<div class="kv">${[["Season", `${f.games} games from ${esc(f.start)}`], ["Playoffs", esc(f.playoffs)], ["Title game", esc(f.title)], ["Roster", `${f.roster} players`]].map(([k, v]) => `<div class="kvline"><span>${k}</span><b>${v}</b></div>`).join("")}</div>` : "";
+    body = `<div class="grid2"><section class="panel"><h2>How the game differs <small>${x.year || ""} rule book</small></h2><ul class="lg-rules">${x.rules.map((r) => `<li>${esc(r)}</li>`).join("")}</ul></section><section class="panel"><h2>The season</h2>${fmt}${x.league.k === 0 ? '<p class="sub">The ratio: at least 21 Canadians on a 46-man roster (20 of 42 before 2014), seven of them starting.</p>' : ""}</section></div>`;
+  } else {
+    const cols = [
+      { k: "pick", t: "Pick" },
+      { k: "round", t: "Rd" },
+      { k: "team", t: "Team", l: true, f: (r) => teamChip(r.team, 18), v: (r) => r.team.name },
+      { k: "player", t: "Player", l: true, f: (r) => (r.player.id != null ? playerLink(r.player.id, r.player.name) : `${esc(r.player.name)} <small class="muted">retired</small>`), v: (r) => r.player.name },
+      { k: "pos", t: "Pos", f: (r) => esc(r.player.pos), v: (r) => r.player.pos },
+      { k: "school", t: "School", l: true },
+    ];
+    body = x.league.k !== 0
+      ? '<div class="empty">Only the CFL holds a draft: the other leagues sign their players from the street, and the spring leagues held theirs before the world began.</div>'
+      : `<section class="panel"><h2>The ${x.year} CFL draft <small>Canadians from U Sports and American colleges, eight rounds</small></h2>${x.draft.length ? table("lgdraft", cols, x.draft, { tools: false }) : '<div class="empty">No draft held that year in this world.</div>'}</section>`;
+  }
+  const lgTabs = ["Season", "Champions", "Teams", "Rules", ...(x.league.k === 0 ? ["Draft"] : [])];
+  return `<div class="pad lg">${pageHead({ kicker: "Other leagues", title: esc(x.league.name), sub: "Full leagues on the engine under their own rule books: their players, coaches and champions live in the same world as yours.", actions: years, goto: gotoFor("leagues", a, x) })}${chips}${tabs("lgtab", lgTabs, tab)}<div class="tabbody">${body}</div></div>`;
+};
+
+screens.league_team = async (a) => {
+  const x = await api("league_team", { id: Number(a.id) });
+  const t = x.team;
+  setColors(t.colors);
+  title(t.name, x.league.short);
+  const cfl = x.league.k === 0;
+  const staff = x.staff.length ? `<div class="items">${x.staff.map((c) => `<div class="item"><span class="when">${esc(c.role)}</span><span>${coachLink(c.id, c.name)} <small class="muted">age ${c.age}</small></span></div>`).join("")}</div>` : '<div class="empty">No staff named: the club hires before camp.</div>';
+  const cols = [
+    { k: "name", t: "Name", l: true, f: (r) => playerLink(r.id, r.name) + (r.national ? ' <span class="st-pill" title="Canadian: counts toward the ratio">CAN</span>' : ""), v: (r) => r.name },
+    { k: "pos", t: "Pos" },
+    { k: "age", t: "Age" },
+    { k: "college", t: "College", l: true, f: (r) => esc(r.college || ""), v: (r) => r.college || "" },
+    { k: "nfl_years", t: "NFL yrs", tip: "Accrued NFL seasons" },
+    { k: "line", t: "This season", l: true, wrap: true, f: (r) => esc(r.line || ""), v: (r) => r.line || "" },
+  ];
+  const roster = x.roster.length ? table("lgroster", cols, x.roster, { groupBy: (r) => r.pos }) : '<div class="empty">No one under contract: the roster fills at camp.</div>';
+  const games = x.games.length ? `<div class="items">${x.games.slice().reverse().map((g) => `<div class="item"><span class="when">${g.round ? `Playoffs ${g.round}` : `Week ${g.week}`}</span><span>${g.home ? "vs" : "at"} ${teamA(g.opp)} · <b>${esc(g.result)}</b></span></div>`).join("")}</div>` : '<div class="empty">No games yet this season.</div>';
+  const next = x.upcoming.length ? `<div class="items">${x.upcoming.map((g) => `<div class="item"><span class="when">${esc(g.date)}</span><span>${g.home ? "vs" : "at"} ${teamA(g.opp)}</span></div>`).join("")}</div>` : "";
+  const seasons = x.seasons.length ? table("lgseasons", [{ k: "year", t: "Season" }, { k: "record", t: "Record", l: true }, { k: "note", t: "", l: true }], x.seasons, { tools: false }) : '<div class="empty">No season finished in this world yet.</div>';
+  const rec = x.record ? `<span><b>${esc(x.record.text)}</b> in ${x.record.year} · ${x.record.pf}-${x.record.pa} points</span>` : "";
+  return `<div class="hero" style="--c1:${t.colors[0]};--c2:${t.colors[1] || t.colors[0]}"><div class="art"></div><div class="st-outline">${esc(initials(t.name))}</div><div class="copy"><div class="st-label">${esc(x.league.name)}${x.division ? " · " + esc(x.division) : ""}</div><h1>${esc(t.name)}</h1>
+    <div class="meta">${rec}<span>${esc(x.city)}</span>${x.titles ? `<span>${x.titles} title${x.titles > 1 ? "s" : ""}</span>` : ""}${cfl ? `<span>${x.nationals} Canadians</span>` : ""}${x.playing ? "" : "<span>Not playing this year</span>"}</div>
+    <div class="st-actions">${linkTo("leagues", { league: x.league.k }, "The league", "st-btn glass")}</div></div></div>
+    <div class="pad">${gotoLine([["The league", "leagues", { league: x.league.k }], ["Champions", "leagues", { league: x.league.k, tab: "Champions" }]])}<div class="grid2"><div class="col"><section class="panel"><h2>Staff</h2>${staff}<p class="sub">Head coach pay in this league: about ${mn$(x.pay)} a year.</p></section><section class="panel"><h2>This season</h2>${games}${next ? `<h2 style="margin-top:14px">Next</h2>${next}` : ""}</section></div>
+    <div class="col"><section class="panel"><h2>Seasons</h2>${seasons}</section></div></div>
+    <section class="panel" style="margin-top:18px"><h2>Roster <small>${x.roster.length} players${cfl ? ` · ${x.nationals} Canadians` : ""}</small></h2>${roster}</section></div>`;
+};
+
+// A team link of kind "other" opens the club's page.
+{
+  const teamScreen = screens.team;
+  screens.team = async (a) => (a && a.kind === "other" ? screens.league_team(a) : teamScreen(a));
+}
+document.addEventListener("change", (ev) => {
+  const t = ev.target;
+  if (t.dataset && t.dataset.act === "lgyear") {
+    keep("leagues", {}).year = Number(t.value);
+    go("leagues", { ...S.route.args, year: Number(t.value) }, false);
+  }
+});

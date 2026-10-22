@@ -15,6 +15,7 @@ pub mod leagues;
 pub mod market;
 pub mod money;
 pub mod office;
+pub mod other;
 pub mod scouts;
 pub mod squad;
 pub mod trades;
@@ -142,6 +143,10 @@ pub struct ProCareer {
     /// leave on the commissioner exempt list (weeks).
     pub suspended: u32,
     pub exempt: u32,
+    /// His seasons in the other leagues (final build X7): the CFL, arena
+    /// football, the spring leagues.
+    #[serde(default)]
+    pub other: Vec<other::OtherSeason>,
 }
 
 impl ProCareer {
@@ -183,6 +188,7 @@ impl ProCareer {
             grudges: Vec::new(),
             suspended: 0,
             exempt: 0,
+            other: Vec::new(),
         }
     }
 
@@ -345,6 +351,11 @@ pub(crate) fn remap_people(w: &mut World, map: &[Option<usize>]) {
     // Off-field cases wait weeks for a ruling, across signing day (bug
     // check, build 9: a ruling landed on whoever took his place).
     w.market.cases.retain_mut(|x| at(x.person).map(|i| x.person = i).is_some());
+    // The other leagues' rosters (later extras X7), and the Canadians still
+    // in football (people are kept in id order).
+    w.others.remap(map);
+    let people = &w.people;
+    w.others.nationals.retain(|id, _| people.binary_search_by_key(id, |p| p.player.id).is_ok());
 }
 
 /// Rebuilds every club's list from the people (after the yearly compaction

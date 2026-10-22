@@ -178,6 +178,33 @@ pub fn college(real_name: &str, id: usize) -> [String; 2] {
     find(COLLEGE, real_name).unwrap_or_else(|| school_pair(0xC0 ^ id as u64))
 }
 
+/// Other leagues' clubs by name: the CFL's and the best known of the rest.
+const OTHER: &[(&str, &str, &str)] = &[
+    ("BC Lions", "#F15A22", "#000000"),
+    ("Calgary Stampeders", "#C8102E", "#000000"),
+    ("Edmonton Eskimos", "#2B5134", "#FFB819"),
+    ("Edmonton Elks", "#2B5134", "#FFB819"),
+    ("Saskatchewan Roughriders", "#00633E", "#A5ACAF"),
+    ("Winnipeg Blue Bombers", "#041E42", "#B9975B"),
+    ("Hamilton Tiger-Cats", "#FFB819", "#000000"),
+    ("Toronto Argonauts", "#0C2340", "#6CACE4"),
+    ("Ottawa Rough Riders", "#C8102E", "#000000"),
+    ("Ottawa Renegades", "#CE1126", "#000000"),
+    ("Ottawa Redblacks", "#C8102E", "#000000"),
+    ("Montreal Alouettes", "#002D72", "#C8102E"),
+    ("Amsterdam Admirals", "#F47920", "#00205B"),
+    ("Los Angeles KISS", "#000000", "#A5ACAF"),
+    ("San Antonio Brahmas", "#000000", "#C99700"),
+    ("DC Defenders", "#C8102E", "#041E42"),
+    ("Birmingham Stallions", "#9E1B32", "#FFB81C"),
+];
+
+/// A club in another league: its real colours when known, else a pair
+/// fixed by its franchise.
+pub fn other(name: &str, fr: usize) -> [String; 2] {
+    find(OTHER, name).unwrap_or_else(|| school_pair(0x07 ^ (fr as u64) << 12))
+}
+
 pub fn high_school(id: usize) -> [String; 2] {
     school_pair(0x45 ^ (id as u64) << 8)
 }

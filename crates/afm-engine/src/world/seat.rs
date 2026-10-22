@@ -227,6 +227,14 @@ impl World {
                 }
                 _ => (0, 0),
             },
+            // The other leagues' seasons are booked when they end.
+            Some(Employer::Other(f)) => self
+                .others
+                .live
+                .iter()
+                .flat_map(|l| l.table.iter())
+                .find(|r| r.fr as usize == f)
+                .map_or((0, 0), |r| (r.w as u32, r.l as u32)),
             None => (0, 0),
         };
         (co.wins + live.0, co.losses + live.1)

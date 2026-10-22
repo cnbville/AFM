@@ -566,7 +566,7 @@ pub fn start_talk(w: &mut World, id: u32, subject: Subject) -> Result<u32, Strin
     s.stops = false;
     s.place = match team {
         Team::High(_) => "The coaches' office, after school".into(),
-        Team::Nfl(_) => "Your office at the facility".into(),
+        Team::Nfl(_) | Team::Other(_) => "Your office at the facility".into(),
         Team::College(_) => "Your office in the football building".into(),
     };
     Ok(scene::add(w, s))
@@ -1170,6 +1170,7 @@ pub fn start_team_talk(w: &mut World) -> Result<u32, String> {
     s.place = match team {
         Team::High(_) => "The field house".into(),
         Team::Nfl(_) => "The team auditorium".into(),
+        Team::Other(_) => "The team room".into(),
         Team::College(_) => "The team room".into(),
     };
     Ok(scene::add(w, s))
@@ -1284,7 +1285,7 @@ pub fn team_mood(w: &World, team: Team) -> f32 {
     match team {
         Team::College(p) => w.programs[p].team_mood,
         Team::Nfl(t) => w.clubs.get(t).map_or(0.0, |c| c.team_mood),
-        Team::High(_) => {
+        Team::High(_) | Team::Other(_) => {
             let r = team.roster(w);
             r.iter().map(|&i| w.people[i].mood).sum::<f32>() / r.len().max(1) as f32
         }

@@ -220,7 +220,7 @@ pub(crate) fn buyout(w: &mut World, employer: crate::world::coach::Employer, amo
                 c.now.l[nfl::COACHES] += amount as f32;
             }
         }
-        Employer::HighSchool(_) => {}
+        Employer::HighSchool(_) | Employer::Other(_) => {}
     }
 }
 
