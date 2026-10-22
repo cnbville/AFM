@@ -45,6 +45,12 @@ Built 2026-10-20/21 overnight (thread "Build the program", PR #75), from `docs/d
 - **High school seat:** your school's games always run on the engine (even in a stand-in season) with full game pages; the schedule, your classification's standings, and a staff of teacher-coaches sized by enrollment who teach your players (below).
 - **Training (6b topic 5, part):** a main focus per player. The focus grows up to half as fast again (1.5 times its share at full coachability) and his other skills of the same kind pay for it. Measured (`a_training_focus_grows_its_skill_and_costs_the_rest_a_little`, 400 players): the focus grows 1.29 times as fast and the year as a whole moves 1.2%, inside choice 2's 15%.
 
+## Final build lane 1 (2026-10-22)
+
+- **Ages come from birthdays.** Every age on a screen (squads, player pages, coaches, staff, your profile, the job lists) is counted from the person's date of birth on today's date, so a player turns 18 on his birthday, not at the end of a season. The player page shows the date ("Born 14 March 2009 (17)"). Some seniors are 18 all year and a few turn 19: about 1 boy in 10 was held back a grade (`docs/world-model.md`, "Final build lane 1").
+- **Every name in a line is a link.** Inbox, news, Home and calendar lines link each player, coach, college, high school and NFL club they name, and your game results open their game page. A game you didn't keep opens the home team's schedule.
+- **A player's public face:** the player page shows his followers, the ads and deals reported for him a year, and your staff's word for how he comes across on camera. His Aura itself is never shown.
+
 ## Memory (step 1)
 
 Ratings and tendencies are stored as 4-byte floats instead of 8, and the people list keeps a third spare instead of doubling. On a 4-year quick world: a person went from 2,408 to 1,752 bytes; heap 5.60 to 4.59 GB, resident 4.09 to 3.53 GB, peak 6.08 to 4.99 GB. 

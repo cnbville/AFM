@@ -18,6 +18,7 @@ pub(crate) mod college;
 pub mod data;
 pub mod desk;
 pub mod ethnicity;
+pub mod fame;
 pub mod franchise;
 pub mod game_log;
 pub mod geo;
@@ -142,6 +143,19 @@ pub struct Person {
     pub college: Option<usize>,
     /// Year of his last high school season's spring (his class).
     pub class_of: i32,
+    /// His date of birth (A1): every age the game shows counts from it. A
+    /// class runs from September to August birthdays; a boy born a year
+    /// before his class was held back (A2, `calendar::born`).
+    #[serde(default = "crate::calendar::born::unknown")]
+    pub born: crate::calendar::Date,
+    /// Social media followers, all platforms (`fame`): public, they grow
+    /// with fame and Aura from the late 2000s.
+    #[serde(default)]
+    pub followers: u32,
+    /// His yearly money from ads, brand NIL deals and endorsements, in
+    /// dollars (`fame::brand_money`), last set at the year's book.
+    #[serde(default)]
+    pub brand: f32,
     /// The recruiting services' stars (their latest rating). They rate
     /// kickers, punters and long snappers 3 stars at most.
     pub stars: u8,
@@ -394,6 +408,41 @@ impl Person {
     }
 }
 
+/// The key a person's birthday is drawn from: his world's seed and his id.
+pub(crate) fn born_key(seed: u32, id: u32) -> u64 {
+    ((seed as u64) << 32 | id as u64) ^ 0xB0E5_DA7E_0000_0000
+}
+
+impl Person {
+    /// His age on a day, from his date of birth (A1). A person from an
+    /// older world file without one yet uses the engine's age.
+    pub fn age_on(&self, d: crate::calendar::Date) -> u32 {
+        if self.born == crate::calendar::born::UNKNOWN {
+            self.player.age
+        } else {
+            crate::calendar::born::age_on(self.born, d)
+        }
+    }
+
+    /// Years older than his class (A2): 1 when he was held back or started
+    /// school late, -1 when he is a year young, 0 on time. Reclassifying
+    /// moves his class and so this too.
+    pub fn years_off_class(&self) -> i32 {
+        if self.born == crate::calendar::born::UNKNOWN {
+            0
+        } else {
+            self.class_of - crate::calendar::born::class_of_birth(self.born)
+        }
+    }
+
+    /// His age as his grade counts it: the engine age of an on-time
+    /// classmate (14 a freshman, 17 a senior through the season). High
+    /// school steps that go by grade read this, not his real age.
+    pub fn school_age(&self) -> u32 {
+        (self.player.age as i32 - self.years_off_class()).max(0) as u32
+    }
+}
+
 pub fn division_level(d: Division) -> Level {
     match d {
         Division::FBS => Level::FBS,
@@ -426,6 +475,9 @@ pub struct Alumnus {
     pub left_football: bool,
     /// His high school class (year of his last high school spring).
     pub class_of: i32,
+    /// His date of birth (A1).
+    #[serde(default = "crate::calendar::born::unknown")]
+    pub born: crate::calendar::Date,
     #[cfg_attr(not(feature = "debug"), allow(dead_code))]
     pub(crate) visibility: f64,
     pub steered: bool,
@@ -474,6 +526,7 @@ impl Alumnus {
             juco: p.juco,
             left_football,
             class_of: p.class_of,
+            born: p.born,
             visibility: p.visibility,
             steered: p.notes.iter().any(|n| n.contains("more than his own")),
             background_summary,
@@ -1059,6 +1112,7 @@ impl World {
         }
         let first_id = self.next_person;
         self.next_person += kids.len() as u32;
+        let seed_world = self.options.seed;
         let schools = &self.high_schools;
         let states = &self.states;
         let new: Vec<Person> = kids
@@ -1068,14 +1122,14 @@ impl World {
                 let mut rng = Rng::new(seed);
                 let culture = states[s].culture;
                 let z = rng.normal(culture, 1.0);
+                let id = first_id + k as u32;
+                // His birthday, and whether he is a year older or younger
+                // than his class (A1, A2): keyed, so no draw moves.
+                let (born, years) = crate::calendar::born::schoolboy(born_key(seed_world, id), age, year);
+                let age = (age as i32 + years).max(13) as u32;
                 let mut player = generate_prospect(
                     &mut rng,
-                    ProspectOptions {
-                        id: Some(first_id + k as u32),
-                        talent_z: Some(z),
-                        age: Some(age),
-                        ..Default::default()
-                    },
+                    ProspectOptions { id: Some(id), talent_z: Some(z), age: Some(age), ..Default::default() },
                 );
                 let school = &schools[hs];
                 let (mut bg, structure) = generate_background(
@@ -1105,7 +1159,10 @@ impl World {
                     hs,
                     stage: Stage::HighSchool,
                     college: None,
-                    class_of: year + 18 - age as i32,
+                    class_of: year + 18 - age as i32 + years,
+                    born,
+                    followers: 0,
+                    brand: 0.0,
                     stars: 0,
                     camp_stars: 0,
                     visibility: 0.0,

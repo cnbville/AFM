@@ -5,13 +5,14 @@
 //! `[[t:college:45|Iowa]]` a team, `[[g:3|the 31-17 win]]` one of your kept
 //! games, `[[d:2026-03-14|Sat 14 Mar]]` a day on the calendar and
 //! `[[s:standings?conference=SEC|9-3]]` a screen. Text written by the game
-//! is linked when it is written (mail); the calendar's lines are linked when
-//! a screen shows them, by finding the names of the teams and people in
-//! them (`Linker`).
+//! is linked when it is written (mail). The calendar's lines and the news
+//! desk's stories store the ids behind their names (L2, `Ref`): those are
+//! linked exactly, and any name still plain is found by its words when a
+//! screen shows the line (`Linker`).
 
 use std::collections::HashMap;
 
-use afm_engine::calendar::{Date, Event};
+use afm_engine::calendar::{Date, Event, Level, Link, Ref};
 use afm_engine::world::{Stage, World};
 
 use crate::views::TeamRef;
@@ -279,13 +280,70 @@ impl<'a> Linker<'a> {
     /// The line with its teams and people linked. `ctx` are teams the
     /// line is known to be about (the event's program or club).
     pub fn link(&self, text: &str, ctx: &[TeamRef]) -> String {
-        let ws = words(text);
-        // Teams first: the longest name starting at each word.
+        self.link_refs(text, &[], ctx)
+    }
+
+    /// The line linked from the ids it stores first (exact), then by the
+    /// names still plain.
+    pub fn link_refs(&self, text: &str, refs: &[Ref], ctx: &[TeamRef]) -> String {
+        let w = self.w;
         let mut spans: Vec<(usize, usize, String)> = Vec::new();
         let mut ctx: Vec<TeamRef> = ctx.to_vec();
+        for r in refs {
+            let (a, b) = (r.at as usize, r.at as usize + r.len as usize);
+            if b > text.len() || !text.is_char_boundary(a) || !text.is_char_boundary(b) {
+                continue;
+            }
+            if spans.iter().any(|x| a < x.1 && b > x.0) {
+                continue;
+            }
+            let label = &text[a..b];
+            let team = |t: TeamRef, ctx: &mut Vec<TeamRef>| {
+                if !ctx.contains(&t) {
+                    ctx.push(t);
+                }
+                team_as(t, label)
+            };
+            let m = match r.to {
+                Link::Person(id) if crate::views::person_index(w, id).is_some() => player(id, label),
+                Link::Coach(c) if (c as usize) < w.coaches.len() => coach(c as usize, label),
+                Link::Program(p) if (p as usize) < w.programs.len() => team(TeamRef::College(p as usize), &mut ctx),
+                Link::School(h) if (h as usize) < w.high_schools.len() => {
+                    team(TeamRef::HighSchool(h as usize), &mut ctx)
+                }
+                Link::Club(t) if (t as usize) < w.nfl.len() => team(TeamRef::Nfl(t as usize), &mut ctx),
+                Link::Game(date, level, home) => {
+                    let home = home as usize;
+                    // Your own kept game opens its game page; another
+                    // team's game opens the home team's schedule.
+                    let kept =
+                        w.seat_games().iter().position(|g| g.date == date && g.level == level && g.teams[0] == home);
+                    let kind = match level {
+                        Level::Nfl if home < w.nfl.len() => Some("nfl"),
+                        Level::College if home < w.programs.len() => Some("college"),
+                        Level::HighSchool if home < w.high_schools.len() => Some("hs"),
+                        _ => None,
+                    };
+                    match (kept, kind) {
+                        (Some(k), _) => game(k, label),
+                        (None, Some(kind)) => screen(&format!("schedule?kind={kind}&id={home}"), label),
+                        _ => continue,
+                    }
+                }
+                _ => continue,
+            };
+            spans.push((a, b, m));
+        }
+        let ws = words(text);
+        // Teams first: the longest name starting at each word.
+        let covered = |a: usize, b: usize, spans: &[(usize, usize, String)]| spans.iter().any(|x| a < x.1 && b > x.0);
         let mut i = 0;
         while i < ws.len() {
             let (s, e) = ws[i];
+            if covered(s, e, &spans) {
+                i += 1;
+                continue;
+            }
             let first = &text[s..e];
             let mut hit = None;
             if let Some(list) = self.teams.get(first) {
@@ -309,7 +367,7 @@ impl<'a> Linker<'a> {
                     }
                 }
             }
-            if let Some((end, t)) = hit {
+            if let Some((end, t)) = hit.filter(|&(end, _)| !covered(s, end, &spans)) {
                 spans.push((s, end, team_as(t, &text[s..end])));
                 if !ctx.contains(&t) {
                     ctx.push(t);
@@ -322,7 +380,6 @@ impl<'a> Linker<'a> {
             }
         }
         // Then people: the longest run of capitalised words that names one.
-        let covered = |a: usize, b: usize, spans: &[(usize, usize, String)]| spans.iter().any(|x| a < x.1 && b > x.0);
         let mut i = 0;
         while i < ws.len() {
             let mut done = false;
@@ -380,7 +437,7 @@ impl<'a> Linker<'a> {
         {
             ctx.push(TeamRef::Nfl(t));
         }
-        self.link(&e.text, &ctx)
+        self.link_refs(&e.text, &e.refs, &ctx)
     }
 }
 

@@ -539,7 +539,7 @@ fn start_state(w: &mut World, s: usize) {
     for &h in &schools {
         for &i in &w.high_schools[h].roster {
             let p = &w.people[i];
-            who[i] = p.stage == Stage::HighSchool && p.player.age > 14;
+            who[i] = p.stage == Stage::HighSchool && p.school_age() > 14;
         }
     }
     super::clock::timed("hs reconsider", || season::reconsider_positions(w, &who));
@@ -790,9 +790,9 @@ fn hs_team(w: &World, h: usize, week: usize) -> Option<(GameTeam, Vec<(u32, usiz
             && !p.cal.trouble
             && grades.is_none_or(|g| g.get(&i).is_none_or(|m| m >> week & 1 == 0))
     };
-    let older = school.roster.iter().filter(|&&i| ok(i) && w.people[i].player.age > 14).count();
+    let older = school.roster.iter().filter(|&&i| ok(i) && w.people[i].school_age() > 14).count();
     let dressed: Vec<usize> =
-        school.roster.iter().copied().filter(|&i| ok(i) && (older < 30 || w.people[i].player.age > 14)).collect();
+        school.roster.iter().copied().filter(|&i| ok(i) && (older < 30 || w.people[i].school_age() > 14)).collect();
     if dressed.len() < HS_DRESS_MIN {
         return None;
     }
@@ -847,7 +847,7 @@ fn hs_team(w: &World, h: usize, week: usize) -> Option<(GameTeam, Vec<(u32, usiz
         .filter(|&&i| {
             let p = &w.people[i];
             matches!(p.player.position, Position::OT | Position::IOL)
-                && p.player.age >= 17
+                && p.school_age() >= 17
                 && p.last_role == Some(PlayingTime::Starter)
         })
         .count()
@@ -1003,7 +1003,11 @@ fn poll(w: &mut World, s: usize, d: Date, which: &str) {
         return;
     }
     let text = format!("{which} {} high school poll: {}.", w.states[s].code, top.join(", "));
-    w.calendar.post(Event::new(d, Level::HighSchool, Kind::Poll, Loudness::Small, text));
+    let mut e = Event::new(d, Level::HighSchool, Kind::Poll, Loudness::Small, text);
+    for &(_, h) in teams.iter().take(5) {
+        e = e.hs_link(h, w.school_name(h));
+    }
+    w.calendar.post(e);
 }
 
 /// The playoff field: each classification's best, as many as its rounds
@@ -1450,7 +1454,7 @@ fn hs_spring_candidates(w: &World) -> Vec<(usize, f64, bool)> {
         .par_iter()
         .enumerate()
         .filter_map(|(i, p)| {
-            if p.stage != Stage::HighSchool || !(15..=16).contains(&p.player.age) || spring_steps(p) >= 2 {
+            if p.stage != Stage::HighSchool || !(15..=16).contains(&p.school_age()) || spring_steps(p) >= 2 {
                 return None;
             }
             let school = &w.high_schools[p.hs];
@@ -1499,7 +1503,8 @@ fn notices(w: &mut World, cands: &[(usize, f64, bool)], d: Date, college: bool) 
         if college && p.stars >= 4 {
             let text = format!("Spring practice: {} is turning heads.", p.name);
             let prog = p.college;
-            let mut e = Event::new(d, Level::College, Kind::Breakout, Loudness::Small, text);
+            let mut e =
+                Event::new(d, Level::College, Kind::Breakout, Loudness::Small, text).person(p.player.id, &p.name);
             if let Some(c) = prog {
                 e = e.program(c);
             }
@@ -1561,7 +1566,8 @@ fn jumps(w: &mut World, cands: &[(usize, f64, bool)], d: Date, college: bool) {
         if college && (p.stars >= 4 || gain >= 4.0) {
             let text = format!("{} breaks out in spring practice (+{gain:.1}).", p.name);
             let prog = p.college;
-            let mut e = Event::new(d, Level::College, Kind::Breakout, Loudness::Medium, text);
+            let mut e =
+                Event::new(d, Level::College, Kind::Breakout, Loudness::Medium, text).person(p.player.id, &p.name);
             if let Some(c) = prog {
                 e = e.program(c);
             }

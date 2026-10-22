@@ -8,6 +8,7 @@
 //! periods. The world (`world::clock`) runs on it one day at a time.
 
 pub mod anchors;
+pub mod born;
 pub mod data;
 pub mod date;
 pub mod events;
@@ -16,7 +17,7 @@ pub mod weather;
 
 pub use anchors::{CfbPostseason, YearDates};
 pub use date::{Date, Moment, Weekday};
-pub use events::{Calendar, Event, Kind, Level, Loudness, Pending};
+pub use events::{Calendar, Event, Kind, Level, Link, Loudness, Pending, Ref};
 pub use rules::{Change, ChangeState, RuleBook};
 
 /// The NCAA's FBS recruiting periods (topic 5): what college coaches may do

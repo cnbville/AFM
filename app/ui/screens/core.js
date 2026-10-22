@@ -1201,8 +1201,9 @@ function readCard(p) {
   const who = p.mine ? "Your position coach" : "Your scouts";
   return `<div class="readcard"><div class="rc-top"><div><div class="st-label">${esc(who)}'s read</div><div class="rc-tier">${pot ? esc(pot.tier) : p.ovr ? "Rated, not projected" : "Not scouted"}</div></div>${p.level_rating ? `<div class="lvl"><b>${esc(p.level_rating.split(" ")[0])}</b><small>${esc(p.level_rating.split(" ").slice(1).join(" "))}</small></div>` : ""}</div>
     ${pot ? `<p class="sub">Staff ${esc(words(pot.sure))}.${pot.hints && pot.hints.length ? " " + pot.hints.map(esc).join(". ") + "." : ""}</p>` : `<p class="sub">${p.ovr ? "Your staff rates what he is now; nobody has projected what he could become." : "Nobody on your staff has seen him. Only his measurables and public profile are known."}</p>`}
-    <div class="kv"><dt>Rating now</dt><dd>${range(p.ovr, who.toLowerCase())}</dd><dt>Mood</dt><dd>${esc(p.mood)}</dd><dt>Status</dt><dd>${esc(p.status || "Available")}</dd></div></div>`;
+    <div class="kv"><dt>Rating now</dt><dd>${range(p.ovr, who.toLowerCase())}</dd><dt>Mood</dt><dd>${esc(p.mood)}</dd><dt>Status</dt><dd>${esc(p.status || "Available")}</dd>${p.born ? `<dt>Born</dt><dd>${esc(p.born)} <small class="sub">(${p.age})</small></dd>` : ""}${p.on_camera ? `<dt>On camera</dt><dd>${esc(p.on_camera)}</dd>` : ""}${p.followers ? `<dt>Followers</dt><dd>${fans(p.followers)}</dd>` : ""}${p.brand ? `<dt>Ads and deals</dt><dd>${money(p.brand)} <small class="sub">a year, reported</small></dd>` : ""}</div></div>`;
 }
+const fans = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e4 ? Math.round(n / 1e3) + "k" : n.toLocaleString());
 const PT = {
   Overview: (p) => {
     const last = p.seasons[p.seasons.length - 1];
@@ -1410,12 +1411,19 @@ const FEEDS = [["beat", "Beat writers"], ["national", "National"], ["recruits", 
 screens.news = async (a) => {
   const N = keep("newsfeed", { kind: "beat", chain: null });
   if (a.kind) N.kind = a.kind;
-  const x = await api("feed", { kind: N.kind, chain: N.chain || undefined, limit: 120 });
+  let x = await api("feed", { kind: N.kind, chain: N.chain || undefined, limit: 120 });
+  // A quiet feed you didn't pick yourself: open the first one with stories.
+  if (!x.rows.length && !a.kind && !N.chain) {
+    for (const [k] of FEEDS.filter(([k]) => k !== N.kind)) {
+      const y = await api("feed", { kind: k, limit: 120 });
+      if (y.rows.length) { N.kind = k; x = y; break; }
+    }
+  }
   title("News");
   const seg = FEEDS.map(([k, t]) => `<button data-act="newskind" data-v="${k}" aria-pressed="${N.kind === k}">${t}</button>`).join("");
   const rows = x.rows.map((r) => `<article class="story ${r.mine ? "mine" : ""} loud-${esc(r.loud || "small")}"><div class="story-art">${posterScene(r.scene || "news", (S.status && S.status.mine && S.status.mine.colors) || ["#3b4252", "#1c1f27"])}</div><div class="story-copy"><div class="story-meta"><span class="st-label">${esc(r.kind)}</span><span class="cert cert-${esc((r.certainty || "").toLowerCase())}" title="How sure the source is">${esc(r.certainty || "")}</span><span class="muted">${esc(r.source || "")} · ${esc(r.date)}</span></div><p>${rich(r.text)}</p>${r.chain ? `<a class="link small" data-act="newschain" data-k="${esc(r.chain.key)}">${r.chain.count} more in this story</a>` : ""}</div></article>`).join("");
   const chain = N.chain ? `<div class="chainbar">Following one story <a class="link" data-act="newschain" data-k="">Show everything</a></div>` : "";
-  return `<div class="pad">${pageHead({ kicker: "Rumours are marked as rumours", title: "News", actions: `<div class="seg">${seg}</div>` })}${chain}<div class="stories">${rows || '<div class="empty">Nothing in this feed yet.</div>'}</div></div>`;
+  return `<div class="pad">${pageHead({ kicker: "Rumours are marked as rumours", title: "News", actions: `<div class="seg">${seg}</div>` })}${chain}<div class="stories">${rows || `<div class="empty">${N.kind === "beat" ? "Your beat writers haven't filed anything yet." : "Nothing in this feed yet."}</div>`}</div></div>`;
 };
 GOTO.news = () => [["Inbox", "inbox"], ["Calendar", "calendar"], ["Standings", "standings"]];
 

@@ -201,7 +201,7 @@ pub(crate) fn reconsider_positions(w: &mut World, who: &[bool]) {
                 return None;
             }
             let (eye, margin) = match p.stage {
-                Stage::HighSchool if p.player.age > 14 => (r.hs_eye(p.hs), 0.03),
+                Stage::HighSchool if p.school_age() > 14 => (r.hs_eye(p.hs), 0.03),
                 Stage::College => {
                     let c = p.college?;
                     let prog = &r.programs[c];

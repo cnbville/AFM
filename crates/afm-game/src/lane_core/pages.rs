@@ -1044,7 +1044,7 @@ pub fn history(w: &World, args: &Value) -> Value {
             let lk = Linker::new(w, &names.iter().map(String::as_str).collect::<Vec<_>>(), false);
             json!({ "year": year, "rows": w.news.iter().rev().filter(|n| n.year == year && matches!(n.kind, afm_engine::world::news::NewsKind::CoachHired | afm_engine::world::news::NewsKind::CoachFired | afm_engine::world::news::NewsKind::CoachLeft | afm_engine::world::news::NewsKind::CoachExtended)).take(300).map(|n| json!({
                 "date": n.date.map(d_text), "kind": format!("{:?}", n.kind).replace("Coach", ""),
-                "text": lk.link(&n.text, &n.program.map(TeamRef::College).into_iter().collect::<Vec<_>>()),
+                "text": lk.link_refs(&n.text, &n.refs, &n.program.map(TeamRef::College).into_iter().collect::<Vec<_>>()),
             })).collect::<Vec<_>>() })
         }
         "drafts" => {
