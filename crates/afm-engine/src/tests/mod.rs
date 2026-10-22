@@ -2,6 +2,7 @@
 //! national class lives in afm-tools (it needs the debug summary).
 
 mod development;
+mod faces;
 mod game_stats;
 mod kick_units;
 mod level_rating;

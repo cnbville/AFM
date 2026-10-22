@@ -22,6 +22,7 @@ pub mod game_log;
 pub mod geo;
 pub mod high_school;
 pub mod hs_year;
+pub mod looks;
 pub mod names;
 pub mod ncaa;
 pub mod news;
@@ -205,6 +206,11 @@ pub struct Person {
     /// coach starts it fresh).
     pub trust: f32,
     pub trust_in: u32,
+    /// His face recipe (faces F3): one number his genes, looks and
+    /// headshots are read from (`looks.rs`). 0 in a world written before
+    /// faces, until `World::faces_after_load` sets it.
+    #[serde(default)]
+    pub looks: looks::Looks,
 }
 
 /// The draft staffs' read of a player in December (T3.1, T3.2): his consensus
@@ -639,6 +645,10 @@ pub struct World {
     /// Your career once it has started: you, your coach id, your notes.
     #[serde(default)]
     pub career: Option<seat::Career>,
+    /// 1 once the world has faces (looks numbers and the three Asian
+    /// groups); 0 in an older file until `faces_after_load` runs.
+    #[serde(default)]
+    pub faces_version: u8,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -928,6 +938,7 @@ impl World {
             seat_depth: Vec::new(),
             seat_focus: Vec::new(),
             career: None,
+            faces_version: 1,
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);
@@ -1060,6 +1071,7 @@ impl World {
         self.next_person += kids.len() as u32;
         let schools = &self.high_schools;
         let states = &self.states;
+        let world_seed = self.options.seed;
         let new: Vec<Person> = kids
             .par_iter()
             .enumerate()
@@ -1139,6 +1151,7 @@ impl World {
                     mood_why: 0,
                     trust: 0.6,
                     trust_in: u32::MAX,
+                    looks: looks::Looks::new(world_seed, first_id + k as u32),
                 }
             })
             .collect();

@@ -8,6 +8,14 @@
 //! and the real shares in FBS (NCAA 2023: 48.9% Black). Because those shares
 //! differ by level, the draw leans on how far the player will go; his ratings
 //! never depend on it.
+//!
+//! Asian Americans are three groups (faces item F4, so a face matches its
+//! name): East Asian (Chinese, Korean, Japanese), Southeast Asian
+//! (Vietnamese, Filipino, Hmong, Cambodian, Mien) and South Asian. Polynesian
+//! is its own group. The split rides on the same draw as before: the old
+//! Asian share is cut into three pieces at the end of the list, so one
+//! uniform number still picks every other group exactly as it did, and every
+//! seed's White, Black, Hispanic and Polynesian players stay who they were.
 
 use super::geo;
 use crate::rng::Rng;
@@ -20,14 +28,34 @@ pub enum Ethnicity {
     Hispanic,
     /// Samoan, Tongan, Hawaiian and other Pacific Islanders.
     Polynesian,
-    Asian,
+    /// Chinese, Korean and Japanese families. A world written before the
+    /// split stored "Asian", which loads here and is split again by surname
+    /// in `World::faces_after_load`.
+    #[serde(alias = "Asian")]
+    EastAsian,
+    /// Vietnamese, Filipino, Hmong, Cambodian and Mien families.
+    SoutheastAsian,
+    /// Indian, Pakistani, Bangladeshi, Nepali and Sri Lankan families.
+    SouthAsian,
 }
 
-pub const ETHNICITY_COUNT: usize = 5;
+pub const ETHNICITY_COUNT: usize = 7;
+
+/// The three Asian groups' shares of Asian Americans (Census 2023, from the
+/// faces research `asian-faces.md`): East 38.5%, Southeast 35.1%, South 26.4%.
+pub const ASIAN_SPLIT: [f64; 3] = [0.385, 0.351, 0.264];
 
 impl Ethnicity {
-    pub const ALL: [Ethnicity; ETHNICITY_COUNT] =
-        [Ethnicity::White, Ethnicity::Black, Ethnicity::Hispanic, Ethnicity::Polynesian, Ethnicity::Asian];
+    pub const ALL: [Ethnicity; ETHNICITY_COUNT] = [
+        Ethnicity::White,
+        Ethnicity::Black,
+        Ethnicity::Hispanic,
+        Ethnicity::Polynesian,
+        Ethnicity::EastAsian,
+        Ethnicity::SoutheastAsian,
+        Ethnicity::SouthAsian,
+    ];
+    pub const ASIAN: [Ethnicity; 3] = [Ethnicity::EastAsian, Ethnicity::SoutheastAsian, Ethnicity::SouthAsian];
 
     pub fn name(self) -> &'static str {
         match self {
@@ -35,8 +63,65 @@ impl Ethnicity {
             Ethnicity::Black => "Black",
             Ethnicity::Hispanic => "Hispanic",
             Ethnicity::Polynesian => "Polynesian",
-            Ethnicity::Asian => "Asian",
+            Ethnicity::EastAsian => "East Asian",
+            Ethnicity::SoutheastAsian => "Southeast Asian",
+            Ethnicity::SouthAsian => "South Asian",
         }
+    }
+
+    /// The key the screens and the face renderer use.
+    pub fn key(self) -> &'static str {
+        match self {
+            Ethnicity::White => "white",
+            Ethnicity::Black => "black",
+            Ethnicity::Hispanic => "hispanic",
+            Ethnicity::Polynesian => "polynesian",
+            Ethnicity::EastAsian => "east_asian",
+            Ethnicity::SoutheastAsian => "southeast_asian",
+            Ethnicity::SouthAsian => "south_asian",
+        }
+    }
+
+    pub fn from_key(k: &str) -> Option<Ethnicity> {
+        Some(match k {
+            "white" => Ethnicity::White,
+            "black" => Ethnicity::Black,
+            "hispanic" => Ethnicity::Hispanic,
+            "polynesian" => Ethnicity::Polynesian,
+            // The setup page's single Asian choice before the split.
+            "east_asian" | "asian" => Ethnicity::EastAsian,
+            "southeast_asian" => Ethnicity::SoutheastAsian,
+            "south_asian" => Ethnicity::SouthAsian,
+            _ => return None,
+        })
+    }
+
+    pub fn is_asian(self) -> bool {
+        matches!(self, Ethnicity::EastAsian | Ethnicity::SoutheastAsian | Ethnicity::SouthAsian)
+    }
+}
+
+/// Each Asian group's share of a state's Asian children (East, Southeast,
+/// South). Where a state's mix is far from the nation's: Japanese and
+/// Filipino Hawaii, Filipino Nevada and Alaska, Hmong Minnesota and
+/// Wisconsin, Vietnamese and Indian Texas, Indian New Jersey (Census ACS
+/// shares as Claude knows them, rounded; proposed, not confirmed).
+fn asian_split(code: &str) -> [f64; 3] {
+    match code {
+        "HI" => [0.42, 0.55, 0.03],
+        "AK" => [0.30, 0.65, 0.05],
+        "NV" => [0.30, 0.58, 0.12],
+        "CA" => [0.37, 0.42, 0.21],
+        "WA" | "OR" => [0.40, 0.38, 0.22],
+        "TX" => [0.27, 0.37, 0.36],
+        "NJ" => [0.30, 0.17, 0.53],
+        "NY" => [0.45, 0.10, 0.45],
+        "MN" => [0.22, 0.55, 0.23],
+        "WI" => [0.18, 0.62, 0.20],
+        "IL" | "MD" | "GA" => [0.35, 0.25, 0.40],
+        "VA" => [0.30, 0.35, 0.35],
+        "PA" | "MA" | "CT" => [0.45, 0.18, 0.37],
+        _ => ASIAN_SPLIT,
     }
 }
 
@@ -105,7 +190,7 @@ fn participation(e: Ethnicity) -> f64 {
         Ethnicity::Black => 1.5,
         Ethnicity::Hispanic => 0.65,
         Ethnicity::Polynesian => 2.5,
-        Ethnicity::Asian => 0.3,
+        Ethnicity::EastAsian | Ethnicity::SoutheastAsian | Ethnicity::SouthAsian => 0.3,
     }
 }
 
@@ -118,7 +203,7 @@ fn level_lean(e: Ethnicity) -> f64 {
         Ethnicity::Black => 0.95,
         Ethnicity::Hispanic => -0.6,
         Ethnicity::Polynesian => 0.95,
-        Ethnicity::Asian => -0.6,
+        Ethnicity::EastAsian | Ethnicity::SoutheastAsian | Ethnicity::SouthAsian => -0.6,
     }
 }
 
@@ -126,7 +211,8 @@ fn shares(state: usize) -> [f64; ETHNICITY_COUNT] {
     let code = geo::STATE_CENTERS[state].0;
     let row = STATE_SHARES.iter().find(|r| r.0 == code).copied().unwrap_or(("", 0.12, 0.2, 0.04, 0.002));
     let (_, b, h, a, pi) = row;
-    [(1.0 - b - h - a - pi).max(0.02), b, h, pi, a]
+    let [e, se, so] = asian_split(code);
+    [(1.0 - b - h - a - pi).max(0.02), b, h, pi, a * e, a * se, a * so]
 }
 
 /// A high school player's ethnicity. `talent_z` is his talent draw; the lean
@@ -158,15 +244,30 @@ pub fn coach_ethnicity(kind: CoachPool, year: i32, rng: &mut Rng) -> Ethnicity {
         let color = 0.27 + 0.23 * ((year - 1990) as f64 / 25.0).clamp(0.0, 1.0);
         [1.0 - color, 0.82 * color, 0.08 * color, 0.06 * color, 0.04 * color]
     };
-    let w: [f64; ETHNICITY_COUNT] = match kind {
+    let w: [f64; 5] = match kind {
         CoachPool::Entering => entering(year),
         CoachPool::HighSchool => [0.78, 0.16, 0.04, 0.01, 0.01],
         CoachPool::CollegeHead1990 => [0.96, 0.03, 0.005, 0.004, 0.001],
         // The staffs already in place when the world starts (proposed, not confirmed).
         CoachPool::CollegeAssistant1990 => [0.8, 0.17, 0.015, 0.01, 0.005],
     };
-    let entries: Vec<(Ethnicity, f64)> = Ethnicity::ALL.iter().copied().zip(w).collect();
-    rng.weighted(&entries)
+    rng.weighted(&with_asian_split(w))
+}
+
+/// Weights over White, Black, Hispanic, Polynesian and Asian, with the Asian
+/// weight cut into its three groups at the end (the national split): one
+/// draw picks every other group exactly as the five-group list did.
+pub fn with_asian_split(w: [f64; 5]) -> [(Ethnicity, f64); ETHNICITY_COUNT] {
+    let [e, se, so] = ASIAN_SPLIT;
+    [
+        (Ethnicity::White, w[0]),
+        (Ethnicity::Black, w[1]),
+        (Ethnicity::Hispanic, w[2]),
+        (Ethnicity::Polynesian, w[3]),
+        (Ethnicity::EastAsian, w[4] * e),
+        (Ethnicity::SoutheastAsian, w[4] * se),
+        (Ethnicity::SouthAsian, w[4] * so),
+    ]
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -194,4 +295,39 @@ pub fn hiring_bias(e: Ethnicity, year: i32, prestige: f64) -> f64 {
     let eased = 4.2 - 0.08 * (year.clamp(2005, 2016) - 2005) as f64;
     let base = (eased - 0.05 * (year - 2026).max(0) as f64).max(0.3);
     base * (0.5 + prestige.clamp(0.0, 1.0))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The split keeps every seed's White, Black, Hispanic and Polynesian
+    /// players: the old five-group draw, with Asian as one, picks the same.
+    #[test]
+    fn the_asian_split_leaves_every_other_draw_unchanged() {
+        for state in 0..51 {
+            let s = shares(state);
+            for seed in 0..400u32 {
+                let z = (seed % 7) as f64 * 0.5;
+                let mut a = Rng::new(seed ^ ((state as u32) << 20));
+                let mut b = a.clone();
+                let new = player_ethnicity(state, z, &mut a);
+                let up = (z - 1.0).max(0.0);
+                let w = |k: usize, e: Ethnicity| s[k] * participation(e) * (level_lean(e) * up).exp();
+                let old: Vec<(usize, f64)> = vec![
+                    (0, w(0, Ethnicity::White)),
+                    (1, w(1, Ethnicity::Black)),
+                    (2, w(2, Ethnicity::Hispanic)),
+                    (3, w(3, Ethnicity::Polynesian)),
+                    (4, w(4, Ethnicity::EastAsian) + w(5, Ethnicity::SoutheastAsian) + w(6, Ethnicity::SouthAsian)),
+                ];
+                let was = b.weighted(&old);
+                assert_eq!(was == 4, new.is_asian(), "state {state} seed {seed}");
+                if was < 4 {
+                    assert_eq!(new as usize, was);
+                }
+                assert_eq!(a.next_u32(), b.next_u32());
+            }
+        }
+    }
 }

@@ -82,6 +82,7 @@ impl Game {
                     ..Default::default()
                 }));
                 self.save_path = None;
+                lane_faces::on_open(self);
                 Ok(json!({ "built": true }))
             }
             // A full world built on this machine, into the library (hours).
@@ -109,6 +110,7 @@ impl Game {
                 let path = args.get("path").and_then(Value::as_str).ok_or("Missing path.")?;
                 self.world = Some(setup::read(path)?);
                 self.save_path = (cmd == "load").then(|| PathBuf::from(path));
+                lane_faces::on_open(self);
                 Ok(views::status(self.w()?))
             }
             "save" => {
@@ -118,6 +120,7 @@ impl Game {
                     None => self.save_path.clone().ok_or("Name the save first.")?,
                 };
                 setup::write(self.w()?, &path)?;
+                lane_faces::on_save(&self.home, self.save_path.as_deref(), &path);
                 self.save_path = Some(path.clone());
                 Ok(json!({ "saved": path.display().to_string() }))
             }

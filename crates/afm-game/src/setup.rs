@@ -93,6 +93,7 @@ pub fn rename_save(g: &Game, args: &Value) -> Result<Value, String> {
         return Err(format!("There is already a save called {name}."));
     }
     std::fs::rename(&from, &to).map_err(|e| format!("Could not rename the save: {e}"))?;
+    crate::lane_faces::on_rename(&from, &to);
     Ok(json!({ "path": to.display().to_string() }))
 }
 
@@ -117,6 +118,7 @@ fn same_file(a: &Path, b: &Path) -> bool {
 pub fn delete_save(g: &Game, args: &Value) -> Result<Value, String> {
     let p = save_in(g, args.get("path").and_then(Value::as_str).ok_or("Missing path.")?)?;
     std::fs::remove_file(&p).map_err(|e| format!("Could not delete the save: {e}"))?;
+    crate::lane_faces::on_delete(&p);
     Ok(json!({ "deleted": true }))
 }
 
@@ -670,13 +672,7 @@ pub fn start(w: &mut World, args: &Value) -> Result<(), String> {
     let s = args.get("style").cloned().unwrap_or(json!({}));
     let state = args.get("home_state").and_then(Value::as_str).unwrap_or("TX");
     let home_state = w.states.iter().position(|x| x.code == state).unwrap_or(0);
-    let ethnicity = match args.get("ethnicity").and_then(Value::as_str).unwrap_or("white") {
-        "black" => Ethnicity::Black,
-        "hispanic" => Ethnicity::Hispanic,
-        "polynesian" => Ethnicity::Polynesian,
-        "asian" => Ethnicity::Asian,
-        _ => Ethnicity::White,
-    };
+    let ethnicity = args.get("ethnicity").and_then(Value::as_str).and_then(Ethnicity::from_key).unwrap_or(Ethnicity::White);
     let profile = profile(args);
     // Who calls the plays: the page's choice, else the side you came up
     // teaching (a quarterbacks man calls the offense, a secondary man the
