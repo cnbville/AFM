@@ -16,6 +16,7 @@ pub(crate) mod clock;
 pub mod coach;
 pub(crate) mod college;
 pub mod data;
+pub mod desk;
 pub mod ethnicity;
 pub mod fame;
 pub mod franchise;

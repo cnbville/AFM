@@ -64,12 +64,46 @@ The 30-year world for first saves (seed 2026, `afm/worlds/` in the project folde
 | Continue from 9 February to the first game (stops on 24 April and 2, 4 and 6 September) | 148 s | 5.10 GB, peak 5.17 GB |
 | Save | 74 s | 5.10 GB |
 
+## The screens' core (final build, lane 9)
+
+The shell and the core screens of section 10, on Showtime. The game side is `crates/afm-game/src/lane_core.rs` with `lane_core/` (`desk.rs` the inbox and your desk, `mail.rs` who writes what, `links.rs` the link markup, `pages.rs` the pages' data, `tables.rs` the big tables, `people.rs` the named people around you). The world side is `crates/afm-engine/src/world/desk.rs` (kept in the save: mail, notes, my players, watches, contacts, big moments). The page side is `app/ui/screens/core.js` and `core.css`, with the shell in `app.js`.
+
+- **Mail is written each morning** for the days the clock just ran (`lane_core::after_days`, after Continue, a day, a holiday, a load). It is built from the calendar's events and from people's own records, because the calendar posts only the loud recruiting moves. At most the last 30 days are filed, and anything older than 30 days clears unless saved, so the desk stays small (about 100 letters).
+- **Letterheads by sender:** your school or club (crest in its colours), the conference or league office (seal), the national paper and the local paper (masthead, clips in columns), an email (header rows), a staff memo (typed). Each letter rises off a paper stack over the blurred inbox; Newer and Older (or ← →) turn the page.
+- **Who writes:** the athletic director or general manager or principal (welcome, staff changes, a letter after three straight losses with "Answer by"), the conference office (realignment in your conference, 10h1), the compliance office or league office (windows and deadlines at your level), personnel (each commitment, the week's offers and visits, signing days, the portal), communications (postgame notes with the box, morning clips of your team and your rivals, 10h5), the trainer (the NFL's Wednesday injury report), the chief of staff (Monday's "Your people" memo, 10h3), the national paper's front page (huge news at your own level). A high school seat gets colleges' offer emails for its players from the position coach who offered, and the player's own commit email.
+- **Answers do what they say:** a call or a note to a player raises his mood (and his trust in you, if you are his coach), "add to my players" adds them, and every answer is logged on the player's "History with you" tab.
+- **Inbox screen:** a one-line list under day headings, unread bold with a dot and the count in the sidebar, All/Unread/Read, the keyword menu (Your job, Your players, Recruiting, Portal, Injuries, Money, Spring practice, Draft and NFL, Staff, Your people, Media, League), full-text search top right, stars and the Saved mails button, the Notes panel, Mark all read, "Clears in N d" in a letter's last ten days.
+- **Lower divisions (10h2):** in December and April a college seat gets watch lists of standout players below its own division (the portal season).
+- **Home:** the rotating hero (8 seconds, team colours, dots and arrows, holds on hover, stops under reduced motion), storyline posters with a drawn scene per kind, the next seven days, your boss's latest word, your team in words, tracked players with how the read moved, Around football filtered to what concerns you, the newest mail.
+- **Linking (L1-L8):** every line the engine writes carries link markup (`[[p:id|name]]`, teams, coaches, games, days, screens) that `rich()` turns into links; hover cards on any name; shift-click opens the page beside the screen, ⌘-click its own window; right-click a name for a menu; a "Go to" line under each heading; the trail of where you came from in the top bar; tabs kept in the route so Back returns to them.
+- **The player page:** a hero with his jersey number, the face slot (Lane 12 fills it), his position history on hover and his level rating ("76 among FBS players"); tabs Overview (your staff's read, the five mental attributes that matter at his position, measurables with where each was taken, where else he could play), Attributes (a group menu), Reports, Stats (seasons, game logs and home/away splits from your kept games), Career, History with you, Tendencies, Recruiting, Contract, Notes (edit in place). Other lanes add tabs through `PLAYER_TABS` (Lane 11's Development tab sits after Stats).
+- **Tables (S8):** click to sort, shift-click a second sort, Columns, saved views, the filter builder, "On my list" and "Has my note" chips, compare up to five, CSV (into the game folder's `exports`), arrow keys and Enter. Leaderboards and the player finder are paged by the game: it sorts every row and the page draws only what is in view.
+- **My players (S5):** add or remove anywhere; the list shows your read now against when you added him. A search in the finder can be saved as a watch; every Monday personnel writes who is new.
+- **Search (S6):** ⌘K finds players, coaches, teams and schools, towns (opens the finder on that hometown), your kept games, records, screens, your notes and your mail.
+- **Also:** news feeds (beat writers, national, recruiting, your level, fans) with how sure each line is and story chains; the calendar as a month with your games and scores; standings with playoff brackets; the coach page (jobs, coaching tree, players he developed, notes); your profile (contract, tree, the job market); the team page; History (champions, record books, NFL records, Halls of Fame, awards, the coaching carousel, drafts); the big moments (a commitment, a signing, a title, your hiring) full screen; holiday mode; Settings (theme, text size, reduced motion, hover cards and their delay, the keys).
+
+### Decided in the final build (Claude's pick)
+
+- Mail is composed when the clock moves and stored in the save, not rebuilt on each look: letters keep their wording and answers once read. Weighed against rebuilding from events each time, which would drop answered state.
+- Made-up names for the papers ("The National Football Daily"; a local masthead per town) and for staff the world doesn't keep (communications, personnel, compliance, the chief of staff, a commissioner), seeded so they stay the same.
+- What each answer does is small and honest (mood +0.03 to +0.08, trust +0.01 to +0.03, only toward your own coach), so talking can't outweigh playing time.
+- The front page carries only huge news at your own level (and the world's); other levels wait on the News screen (10h5).
+- "Your rivals" for clips: a college's named rivalries, an NFL club's division, a high school's district group.
+- Every game of yours makes the morning clips, with the result first.
+- ⌘-click in the Mac app opens the page wide beside the screen (the app has one window); in a browser it opens a real window.
+- A player with a note stays on "My players" until the note is deleted.
+- Watches run on Mondays and report only players the search hadn't found before.
+- The level rating counts only what your staff can read.
+- A high school bracket shows your own road through the playoffs: the engine keeps who is still alive, not each round's pairings.
+- Jersey numbers follow position rules (a quarterback 1-19, a lineman 50-79 and so on), seeded per player, until the world keeps real numbers.
+- Measurables show where each was taken (his school's listed roster, his team's spring measurements, the combine); arms, hands and wingspan in eighths of an inch as the combine writes them; drills only for players who were tested.
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The choice screens where the AI still decides for your team: recruiting board and offers, the portal and NIL; contracts, the cap, free agency, trades and waivers; the draft board and war room; game plans, playbook and installs; talks; team rules; press conferences; bosses and goals; hiring and firing staff; scouting assignments.
 - Training beyond the focus: the practice day and week, the time budget, a habit to work on, body plans, position moves, practice injuries, growth landing every week (choice 1) and practice snaps on the engine (choice 3).
 - High school: varsity, JV and freshman squads, the principal and AD as people, the booster club, your teaching job. AI high schools still have no staff people (the built stand-in from resources stays).
-- Starting without a job and assistant jobs ("Start without a job" is in the mock-up, not built); "People you know" on the You step; a fictional-names world (the World step shows the world's own names; names are fixed when a world is built, and NFL clubs have no fictional names yet); your family and looks in the world after setup (they are kept on your profile and shown on your page, nothing reads them yet); the inbox's pinned answers; holiday mode on screen; faces, the 2D view and charts (section 10).
+- Starting without a job and assistant jobs ("Start without a job" is in the mock-up, not built); "People you know" on the You step; a fictional-names world (the World step shows the world's own names; names are fixed when a world is built, and NFL clubs have no fictional names yet); your family and looks in the world after setup (they are kept on your profile and shown on your page, nothing reads them yet); the 2D view (section 10).
 
 ## Proposed, not confirmed
 

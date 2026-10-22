@@ -217,11 +217,11 @@ pub(crate) fn state_name(code: &str) -> &str {
     S.iter().find(|x| x.0 == code).map_or(code, |x| x.1)
 }
 
-fn record_text(w: &World, t: TeamRef) -> String {
+pub(crate) fn record_text(w: &World, t: TeamRef) -> String {
     season_record(w, t).0
 }
 
-fn record_note(w: &World, t: TeamRef) -> String {
+pub(crate) fn record_note(w: &World, t: TeamRef) -> String {
     season_record(w, t).1
 }
 
@@ -238,14 +238,14 @@ pub fn roster_people(w: &World, t: TeamRef) -> Vec<usize> {
     v
 }
 
-fn is_mine(w: &World, t: TeamRef) -> bool {
+pub(crate) fn is_mine(w: &World, t: TeamRef) -> bool {
     mine(w) == Some(t)
 }
 
 /// The eye of the coach who reads a player on your staff (1-20): his
 /// position coach, else the coordinator, else you. Used only to size the
 /// range, never shown.
-fn eye_for(w: &World, t: TeamRef, pos: Position) -> f64 {
+pub(crate) fn eye_for(w: &World, t: TeamRef, pos: Position) -> f64 {
     let g = Group::of(pos);
     let coach = match t {
         TeamRef::College(i) => {
@@ -261,12 +261,12 @@ fn eye_for(w: &World, t: TeamRef, pos: Position) -> f64 {
     coach.and_then(|c| w.coaches.get(c)).map_or(10.0, |c| c.evaluation())
 }
 
-fn reader_key(w: &World) -> u64 {
+pub(crate) fn reader_key(w: &World) -> u64 {
     w.career.as_ref().map_or(0x5EED, |c| c.seed as u64 ^ (c.coach as u64) << 32)
 }
 
 /// His class or years, in the words of his level.
-fn class_text(w: &World, p: &Person) -> String {
+pub(crate) fn class_text(w: &World, p: &Person) -> String {
     match p.stage {
         Stage::HighSchool | Stage::PrepSchool => {
             // The football year turns after the Super Bowl, the school year
@@ -292,7 +292,7 @@ fn class_text(w: &World, p: &Person) -> String {
     }
 }
 
-fn level_of(w: &World, p: &Person) -> Level {
+pub(crate) fn level_of(w: &World, p: &Person) -> Level {
     match p.stage {
         Stage::Pro => Level::NFL,
         Stage::Declared | Stage::Done => match p.college {
@@ -303,7 +303,7 @@ fn level_of(w: &World, p: &Person) -> Level {
     }
 }
 
-fn hometown(w: &World, p: &Person) -> String {
+pub(crate) fn hometown(w: &World, p: &Person) -> String {
     let s = w.high_schools.get(p.hs);
     match s {
         Some(s) => format!("{}, {}", s.town, w.states.get(s.state).map_or("", |x| x.code.as_str())),
@@ -311,7 +311,7 @@ fn hometown(w: &World, p: &Person) -> String {
     }
 }
 
-fn status_text(w: &World, p: &Person) -> String {
+pub(crate) fn status_text(w: &World, p: &Person) -> String {
     if let Some(c) = &p.pro {
         use afm_engine::world::pro::Status;
         let s = match c.status {
@@ -346,7 +346,7 @@ fn status_text(w: &World, p: &Person) -> String {
 /// (by day), then the last stage's, best first, then the school he
 /// committed or signed with if it isn't among them (its scholarship came
 /// with the commitment). A walk-on place is no offer.
-fn offers_of(p: &Person) -> Vec<usize> {
+pub(crate) fn offers_of(p: &Person) -> Vec<usize> {
     let mut early = p.cal.early_offers.clone();
     early.sort_by_key(|o| o.1);
     let mut v: Vec<usize> = Vec::new();
@@ -359,7 +359,7 @@ fn offers_of(p: &Person) -> Vec<usize> {
     v
 }
 
-fn level_words(l: Level) -> &'static str {
+pub(crate) fn level_words(l: Level) -> &'static str {
     match l {
         Level::HS => "High school",
         Level::FBS => "FBS",
@@ -369,7 +369,7 @@ fn level_words(l: Level) -> &'static str {
     }
 }
 
-fn role_words(r: PlayingTime) -> &'static str {
+pub(crate) fn role_words(r: PlayingTime) -> &'static str {
     match r {
         PlayingTime::Starter => "Starter",
         PlayingTime::Rotation => "Rotation",
@@ -380,15 +380,19 @@ fn role_words(r: PlayingTime) -> &'static str {
     }
 }
 
-fn person_index(w: &World, id: u32) -> Option<usize> {
-    w.people.iter().position(|p| p.player.id == id)
+pub(crate) fn person_index(w: &World, id: u32) -> Option<usize> {
+    // People are kept in id order: ids are handed out in turn
+    // (`next_person`) and people are only ever appended or retained, so a
+    // binary search finds anyone at once (a scan took seconds on a full
+    // world's leaderboards).
+    w.people.binary_search_by_key(&id, |p| p.player.id).ok()
 }
 
-fn ft_in(inches: f64) -> String {
+pub(crate) fn ft_in(inches: f64) -> String {
     afm_engine::body::height_text(inches)
 }
 
-fn mood_words(p: &Person) -> &'static str {
+pub(crate) fn mood_words(p: &Person) -> &'static str {
     match p.mood {
         m if m > 0.5 => "Very happy",
         m if m > 0.15 => "Happy",
@@ -398,7 +402,7 @@ fn mood_words(p: &Person) -> &'static str {
     }
 }
 
-fn row(w: &World, k: usize, t: TeamRef, own: bool, reader: u64) -> Value {
+pub(crate) fn row(w: &World, k: usize, t: TeamRef, own: bool, reader: u64) -> Value {
     let p = &w.people[k];
     let pos = p.player.position;
     let eye = if own { eye_for(w, t, pos) } else { 10.0 };
@@ -424,7 +428,7 @@ fn row(w: &World, k: usize, t: TeamRef, own: bool, reader: u64) -> Value {
     })
 }
 
-fn unit(pos: Position) -> &'static str {
+pub(crate) fn unit(pos: Position) -> &'static str {
     if pos.is_specialist() {
         "ST"
     } else if matches!(pos, Position::QB | Position::RB | Position::WR | Position::TE | Position::OT | Position::IOL) {
@@ -455,13 +459,16 @@ pub fn status(w: &World) -> Value {
         "mine": mine(w).map(|t| team_brief(w, t)),
         "you": w.career.as_ref().map(|c| c.you.name.clone()),
         "next": next,
-        "pinned": pinned(w),
+        "pinned": pinned(w).into_iter().chain(crate::lane_core::desk::pinned(w)).collect::<Vec<_>>(),
         "names": format!("{:?}", w.options.names),
+        "unread": crate::lane_core::desk::unread(w),
+        "reveals": w.career.as_ref().map_or(0, |c| c.desk.reveals.len()),
+        "my_players": w.career.as_ref().map_or(0, |c| c.desk.listed.len()),
     })
 }
 
 /// The next dated moments on your calendar (for the Continue bar).
-fn next_dates(w: &World, n: usize) -> Vec<Value> {
+pub(crate) fn next_dates(w: &World, n: usize) -> Vec<Value> {
     let seat = w.seat;
     w.calendar
         .events
@@ -473,7 +480,7 @@ fn next_dates(w: &World, n: usize) -> Vec<Value> {
         .collect()
 }
 
-fn pinned(w: &World) -> Vec<Value> {
+pub(crate) fn pinned(w: &World) -> Vec<Value> {
     let seat = w.seat;
     w.calendar
         .events
@@ -537,7 +544,7 @@ pub fn home(w: &World) -> Value {
     })
 }
 
-fn next_game(w: &World, t: TeamRef) -> Option<Value> {
+pub(crate) fn next_game(w: &World, t: TeamRef) -> Option<Value> {
     match t {
         TeamRef::College(i) => w
             .college_fixtures(Some(i))
@@ -581,7 +588,7 @@ fn next_game(w: &World, t: TeamRef) -> Option<Value> {
 }
 
 /// The players on your "my players" list: everyone you have a note on.
-fn followed(w: &World) -> Vec<Value> {
+pub(crate) fn followed(w: &World) -> Vec<Value> {
     let Some(c) = &w.career else { return Vec::new() };
     c.notes
         .iter()
@@ -594,7 +601,7 @@ fn followed(w: &World) -> Vec<Value> {
         .collect()
 }
 
-fn where_now(w: &World, p: &Person) -> String {
+pub(crate) fn where_now(w: &World, p: &Person) -> String {
     match p.stage {
         Stage::HighSchool | Stage::PrepSchool => w.school_name(p.hs).to_string(),
         Stage::College => p.college.map_or("College".into(), |c| w.program_name(c).to_string()),
@@ -607,7 +614,7 @@ fn where_now(w: &World, p: &Person) -> String {
 /// For a high school seat, the names that make a moment yours: your
 /// school's and your players' (the calendar files a moment under a college
 /// program or an NFL club, never a high school).
-fn hs_names(w: &World) -> Vec<String> {
+pub(crate) fn hs_names(w: &World) -> Vec<String> {
     let Some(t @ TeamRef::HighSchool(h)) = mine(w) else { return Vec::new() };
     let mut v: Vec<String> = roster_people(w, t).iter().map(|&k| w.people[k].name.clone()).collect();
     v.push(w.school_name(h).to_string());
@@ -618,7 +625,7 @@ fn hs_names(w: &World) -> Vec<String> {
 /// players by full name anywhere, or his school in a high school line (a
 /// school named Allen is not every college player called Allen, nor Allen
 /// East).
-fn about_us(names: &[String], e: &afm_engine::calendar::Event) -> bool {
+pub(crate) fn about_us(names: &[String], e: &afm_engine::calendar::Event) -> bool {
     let Some((school, people)) = names.split_last() else { return false };
     let named = |n: &str, whole: bool| {
         e.text.match_indices(n).any(|(i, _)| {
@@ -635,7 +642,7 @@ fn about_us(names: &[String], e: &afm_engine::calendar::Event) -> bool {
 
 /// Whether a calendar line is about your own team: your program or club,
 /// at any loudness, or a high school seat's school and players by name.
-fn yours_test(w: &World) -> impl Fn(&afm_engine::calendar::Event) -> bool + use<> {
+pub(crate) fn yours_test(w: &World) -> impl Fn(&afm_engine::calendar::Event) -> bool + use<> {
     let seat = w.seat;
     let names = hs_names(w);
     move |e| {
@@ -878,19 +885,18 @@ pub fn news(w: &World, args: &Value) -> Value {
 
 /// Your level's year: every dated moment from today to the end of the
 /// football year, yours marked.
-pub fn calendar(w: &World) -> Value {
+/// The football year's fixed dates at your level (and the few everyone
+/// watches) for the given seasons: the calendar list and the month grid.
+pub(crate) fn fixed_dates(w: &World, years: &[i32]) -> Vec<(Date, String)> {
     use afm_engine::calendar::{Level, YearDates};
-    let seat = w.seat;
-    let level = seat.map(|s| s.level);
-    type Line<'a> = (Date, String, &'a str, bool, Vec<Ref>, Option<usize>, Option<usize>);
-    let mut items: Vec<Line> = Vec::new();
-    // The year's fixed dates, for this season and the next.
-    for year in [w.year, w.year + 1] {
+    let level = w.seat.map(|s| s.level);
+    let mut items: Vec<(Date, String)> = Vec::new();
+    for &year in years {
         let y = YearDates::new(year);
         let mut add = |d: Date, text: String, lv: Level| {
             let everyone = matches!(text.as_str(), "Super Bowl" | "NFL draft, round 1" | "National championship game");
             if everyone || level.is_none_or(|l| l == lv) {
-                items.push((d, text, "date", false, Vec::new(), None, None));
+                items.push((d, text));
             }
         };
         add(y.super_bowl, "Super Bowl".into(), Level::Nfl);
@@ -930,6 +936,16 @@ pub fn calendar(w: &World) -> Value {
         add(y.all_american_bowl, "All-American Bowl".into(), Level::HighSchool);
         add(y.signing_day, "National signing day".into(), Level::HighSchool);
     }
+    items
+}
+
+pub fn calendar(w: &World) -> Value {
+    let seat = w.seat;
+    type Line<'a> = (Date, String, &'a str, bool, Vec<Ref>, Option<usize>, Option<usize>);
+    let mut items: Vec<Line> = fixed_dates(w, &[w.year, w.year + 1])
+        .into_iter()
+        .map(|(d, t)| (d, t, "date", false, Vec::new(), None, None))
+        .collect();
     // Your games.
     if let Some(t) = mine(w) {
         for g in schedule_rows(w, t) {
@@ -969,7 +985,7 @@ pub fn calendar(w: &World) -> Value {
 }
 
 /// Your team's games ahead as (date, text).
-fn schedule_rows(w: &World, t: TeamRef) -> Vec<(Date, String, Vec<Ref>)> {
+pub(crate) fn schedule_rows(w: &World, t: TeamRef) -> Vec<(Date, String, Vec<Ref>)> {
     match t {
         TeamRef::College(p) => w
             .college_fixtures(Some(p))
@@ -1321,7 +1337,7 @@ pub(crate) fn reputation_words(r: f64) -> &'static str {
 }
 
 /// What a coach came up as: his first group, or for you, your road in.
-fn came_up(w: &World, c: usize) -> String {
+pub(crate) fn came_up(w: &World, c: usize) -> String {
     match &w.career {
         Some(k) if k.coach == c && !k.you.road.is_empty() => k.you.road.clone(),
         _ => w.coaches[c].came_up.coach_title().to_string(),
@@ -1338,7 +1354,7 @@ pub(crate) fn job_record(w: &World, c: usize) -> String {
     if j.since < kept_from { format!("{wn}-{l} (since {kept_from})") } else { format!("{wn}-{l}") }
 }
 
-fn coach_row(w: &World, c: usize, role: &str) -> Value {
+pub(crate) fn coach_row(w: &World, c: usize, role: &str) -> Value {
     let co = &w.coaches[c];
     json!({
         "id": c,
@@ -1667,7 +1683,7 @@ fn born_text(d: Date) -> Option<String> {
     })
 }
 
-fn team_of(w: &World, p: &Person) -> Option<TeamRef> {
+pub(crate) fn team_of(w: &World, p: &Person) -> Option<TeamRef> {
     match p.stage {
         Stage::HighSchool | Stage::PrepSchool => Some(TeamRef::HighSchool(p.hs)),
         Stage::College => p.college.map(TeamRef::College),
@@ -1770,7 +1786,7 @@ pub fn game(w: &World, k: usize) -> Result<Value, String> {
     )
 }
 
-fn spot_text(to_goal: f64) -> String {
+pub(crate) fn spot_text(to_goal: f64) -> String {
     let y = to_goal.round() as i32;
     if y == 50 {
         "50".into()
@@ -1785,7 +1801,7 @@ fn spot_text(to_goal: f64) -> String {
 /// until the next snap (or the end of the quarter), a kickoff's receiving
 /// team from the kick. The engine's own total counts only the seconds the
 /// ball is live.
-fn possession(s: &afm_engine::game::stats::GameStats) -> [f64; 2] {
+pub(crate) fn possession(s: &afm_engine::game::stats::GameStats) -> [f64; 2] {
     use afm_engine::game::stats::PlayType;
     let mut top = [0.0; 2];
     for (i, r) in s.plays.iter().enumerate() {
@@ -1803,7 +1819,7 @@ fn possession(s: &afm_engine::game::stats::GameStats) -> [f64; 2] {
     top
 }
 
-fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u32) -> String) -> String {
+pub(crate) fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u32) -> String) -> String {
     use afm_engine::game::stats::PlayType;
     let yds = r.yards.round() as i32;
     let gain = |y: i32| {
@@ -2046,7 +2062,7 @@ pub fn you(w: &World) -> Value {
 }
 
 /// Who calls your plays, in words.
-fn calls_text(offense: bool, defense: bool) -> &'static str {
+pub(crate) fn calls_text(offense: bool, defense: bool) -> &'static str {
     match (offense, defense) {
         (true, true) => "Both sides",
         (true, false) => "The offense",
