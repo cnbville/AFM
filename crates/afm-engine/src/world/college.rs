@@ -291,6 +291,12 @@ pub(crate) fn start(w: &mut World) {
         }
     }
     super::people::college_camp_mood(w, &roles);
+    // Missionaries and servicemen age a year away from the game (A3).
+    for (i, p) in w.people.iter().enumerate() {
+        if p.stage == Stage::Away {
+            roles.push((i, PlayingTime::Unsigned));
+        }
+    }
     season::develop(w, &roles);
     season::record_lineups(w);
     let results = season::college_results(w);

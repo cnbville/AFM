@@ -289,6 +289,10 @@ fn class_text(w: &World, p: &Person) -> String {
             if y == 0 { "Rookie".into() } else { format!("{y} yrs") }
         }
         Stage::Done => "Retired".into(),
+        Stage::Away => match p.roads.away.map(|a| a.kind) {
+            Some(afm_engine::world::eligibility::AwayKind::Military) => "Serving".into(),
+            _ => "On mission".into(),
+        },
     }
 }
 
@@ -601,6 +605,13 @@ fn where_now(w: &World, p: &Person) -> String {
         Stage::Declared => "Draft pool".into(),
         Stage::Pro => p.pro.as_ref().and_then(|c| c.team).map_or("Free agent".into(), |t| w.nfl_team_name(t)),
         Stage::Done => "Out of football".into(),
+        Stage::Away => match p.roads.away {
+            Some(a) => {
+                let held = a.program.map(|c| format!(", {} holds his place", w.program_name(c as usize))).unwrap_or_default();
+                format!("Away on {} until the summer of {}{held}", a.kind.name(), a.until)
+            }
+            None => "Away from football".into(),
+        },
     }
 }
 

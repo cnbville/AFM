@@ -418,6 +418,9 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 )
             }
             Stage::PrepSchool => (Level::HS, 12.0, 0.05, 0.01),
+            // A mission or a military term (A3): no coaching and no games, a
+            // year older; he keeps himself in what shape he can.
+            Stage::Away => (Level::SmallCollege, 2.0, 0.0, 0.002),
             _ => return,
         };
         let role = if p.stage == Stage::PrepSchool { PlayingTime::Rotation } else { role };

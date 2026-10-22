@@ -218,6 +218,7 @@ pub(crate) fn advance_day(w: &mut World) {
         }
     }
     if d == y.summer_enrollment {
+        super::eligibility::summer_roads(w);
         recruiting::enroll(w, false);
     }
     if d == hs_transfer_day(&y) {

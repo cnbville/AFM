@@ -4983,6 +4983,7 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
         }
     }
     let mut entrants: Vec<(usize, Why)> = Vec::new();
+    let mut moved_up_far = 0u32;
     let mut steered_stays: Vec<usize> = Vec::new();
     // A coach-change window is only for the players whose head coach left.
     let new_coach: Vec<bool> = w.programs.iter().map(|p| p.hc_changed == w.year).collect();
@@ -5071,19 +5072,28 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
         }
         let pos = p.player.position;
         let perf = p.last_performance.unwrap_or(0.0);
-        let up = match div {
-            Division::FCS => Some(Division::FBS),
-            Division::D2 => Some(Division::FCS),
-            _ => None,
+        // The levels a standout can move up to, highest first (A3): an FCS
+        // star to FBS; a Division II star straight to FBS (Ali Marpet and
+        // Shaquille Leonard went to the NFL from D2, Jaxon Smith-Njigba's
+        // kind of jump rarer) or to FCS; NAIA and Division III standouts to
+        // FCS or Division II (Division III to Division I needs no waiver).
+        let ups: &[Division] = match div {
+            Division::FCS => &[Division::FBS],
+            Division::D2 => &[Division::FBS, Division::FCS],
+            Division::NAIA | Division::D3 => &[Division::FCS, Division::D2],
+            _ => &[],
         };
         // Standouts below FBS get noticed; richer programs quietly reach out first (never punished).
-        if let Some(up) = up
-            && perf - competition_discount(div) + competition_discount(up) >= median(up, pos) + 1.0
+        if let Some(&up) =
+            ups.iter().find(|&&up| perf - competition_discount(div) + competition_discount(up) >= median(up, pos) + 1.0)
         {
             let tampered = w.programs[c].collective.budget < 2.0e6;
             let chance = PIPELINE.transfer_chance * if tampered { 1.6 } else { 1.0 } * era;
             if u < chance {
                 entrants.push((i, Why::MoveUp));
+                if up as usize + 1 < div as usize || matches!(div, Division::NAIA | Division::D3) {
+                    moved_up_far += 1;
+                }
                 continue;
             }
         }
@@ -5111,6 +5121,7 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
             entrants.push((i, Why::Money));
         }
     }
+    w.log.moved_up_far += moved_up_far;
     // Friends leaving (T3): a teammate from his high school going makes it easier to go.
     let mut gone_from: std::collections::HashSet<(usize, usize)> = std::collections::HashSet::new();
     for &(i, _) in &entrants {

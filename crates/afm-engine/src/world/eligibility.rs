@@ -61,6 +61,7 @@ pub const COVID_SEASON: i32 = 2020;
 
 /// What a two-year mission or a military term is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[repr(u8)]
 pub enum AwayKind {
     Mission,
     Military,
@@ -81,8 +82,10 @@ impl AwayKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Away {
     pub kind: AwayKind,
-    pub until: i32,
-    pub program: Option<usize>,
+    /// The summer he comes back.
+    pub until: i16,
+    /// The program holding his place (index into the world's programs).
+    pub program: Option<u16>,
 }
 
 /// A player's road through college: what moved his clock and why. Every
@@ -247,4 +250,170 @@ pub fn mission_from_high_school(year: i32) -> f64 {
 /// Whether a stage holds a person away from football for now.
 pub fn is_away(p: &Person) -> bool {
     p.stage == Stage::Away
+}
+
+/// Of the unsigned graduates good enough to have played somewhere, the
+/// share who enlist each year, and of those the share who come back to
+/// walk on after a four-year term (Claude's picks, proposed in the final
+/// build): about 3% of young men enlist out of high school (the services'
+/// own accession counts against graduating classes), and a few in four of
+/// the athletes among them try to play again on the GI Bill.
+const ENLIST: f64 = 0.03;
+const VETERAN_RETURNS: f64 = 0.25;
+
+/// The summer roads (A3), run on the day signees arrive for summer school:
+/// missionaries and veterans come home, Latter-day Saint signees and
+/// first-year players leave on missions, and a few unsigned graduates
+/// enlist. Each road's chance is drawn from the player's id on its own
+/// stream, so nothing else in the world moves.
+pub(crate) fn summer_roads(w: &mut super::World) {
+    use super::season::key_uniform;
+    let year = w.year;
+    let seed = w.options.seed as u64 ^ ((year as u64) << 24) ^ 0xA3_5A3;
+    let today = w.today;
+    // Coming home first: a held place becomes a signing, so enrolment takes him in.
+    let mut walkers: Vec<usize> = Vec::new();
+    for (i, p) in w.people.iter_mut().enumerate() {
+        if p.stage != Stage::Away {
+            continue;
+        }
+        let Some(a) = p.roads.away else {
+            p.stage = Stage::Done;
+            continue;
+        };
+        if (a.until as i32) > year {
+            continue;
+        }
+        p.roads.away = None;
+        w.log.returned += 1;
+        let age = p.row_age();
+        match a.program.map(|c| c as usize).filter(|&c| w.programs[c].plays(year)) {
+            Some(c) => {
+                p.cal.signed = Some(super::Signed { program: c, walk_on: p.walk_on, date: today, early_enrollee: false });
+                let name = &w.programs[c].real_name;
+                p.note(format!("Home from {} at {age}, he joined {name}, which had held his place.", a.kind.name()));
+            }
+            None => {
+                p.stage = Stage::Done;
+                walkers.push(i);
+            }
+        }
+    }
+    // Home without a place: he walks on at the best program in his home
+    // state where he would make the two-deep's back half, as a 21- to
+    // 23-year-old freshman.
+    for i in walkers {
+        let state = w.high_schools[w.people[i].hs].state;
+        let ovr = w.people[i].player.overall();
+        let mut best: Option<(Division, usize)> = None;
+        for (j, prog) in w.programs.iter().enumerate() {
+            if prog.state != state || !prog.plays(year) || prog.division == Division::JUCO {
+                continue;
+            }
+            let mut r: Vec<f64> = prog
+                .roster
+                .iter()
+                .filter(|&&k| w.people[k].stage == Stage::College)
+                .map(|&k| w.people[k].player.overall())
+                .collect();
+            if r.is_empty() {
+                continue;
+            }
+            r.sort_by(|a, b| a.total_cmp(b));
+            let bar = r[r.len() * 2 / 5];
+            if ovr >= bar && best.is_none_or(|(d, _)| (prog.division as usize) < d as usize) {
+                best = Some((prog.division, j));
+            }
+        }
+        let p = &mut w.people[i];
+        let age = p.row_age();
+        match best {
+            Some((_, j)) => {
+                p.stage = Stage::College;
+                p.college = Some(j);
+                p.path.push(j);
+                p.walk_on = true;
+                p.note(format!("Walked on at {} at {age}, older than every freshman around him.", w.programs[j].real_name));
+                w.log.tryouts += 1;
+            }
+            None => p.note(format!("Back home at {age}, he found no team with a place for him.")),
+        }
+    }
+    // Leaving: missions from signees and first-year players, enlistment
+    // from the unsigned graduates near the top of their state.
+    let mut top: Vec<Vec<(f64, usize)>> = vec![Vec::new(); w.states.len()];
+    for (i, p) in w.people.iter().enumerate() {
+        if p.stage == Stage::Done && p.class_of == year && p.path.is_empty() && p.college.is_none() && p.pro.is_none() {
+            top[w.high_schools[p.hs].state].push((p.player.overall(), i));
+        }
+    }
+    let mut unsigned: Vec<usize> = Vec::new();
+    for list in top.iter_mut() {
+        list.sort_by(|a, b| b.0.total_cmp(&a.0));
+        unsigned.extend(list.iter().take(40).map(|x| x.1));
+    }
+    let m = mission_chance(year);
+    let h = mission_from_high_school(year);
+    for i in 0..w.people.len() {
+        let p = &w.people[i];
+        let state = w.states[w.high_schools[p.hs].state].code.as_str();
+        let u = key_uniform(seed, p.player.id as u64);
+        // Top recruits serve less often: the money and the draft clock weigh more.
+        let star = if p.stars >= 4 { 0.4 } else { 1.0 };
+        let signee = p.stage == Stage::HighSchool && p.class_of == year && p.cal.signed.is_some();
+        let first_year = p.stage == Stage::College
+            && school_year(p, year) == 2
+            && p.roads.away_years == 0
+            && p.college.is_some_and(|c| w.programs[c].division != Division::JUCO);
+        if !(signee || first_year) || !latter_day_saint(p, state, w.options.seed as u64) {
+            continue;
+        }
+        let chance = if signee { m * h } else { m * (1.0 - h) / (1.0 - m * h) } * star;
+        if u >= chance {
+            continue;
+        }
+        let program = if signee { p.cal.signed.map(|s| s.program) } else { p.college };
+        let p = &mut w.people[i];
+        if let Some(s) = p.cal.signed {
+            p.walk_on = s.walk_on;
+        }
+        p.stage = Stage::Away;
+        p.cal.signed = None;
+        p.college = None;
+        p.roads.away_years = p.roads.away_years.saturating_add(2);
+        p.roads.away = Some(Away { kind: AwayKind::Mission, until: (year + 2) as i16, program: program.map(|c| c as u16) });
+        w.log.missions += 1;
+        let age = p.row_age();
+        let name = program.map_or("", |c| w.programs[c].real_name.as_str());
+        p.note(if signee {
+            format!("Left at {age} on a two-year church mission before enrolling; {name} held his place.")
+        } else {
+            format!("Left {name} at {age} after his first year for a two-year church mission; his place is held.")
+        });
+    }
+    for i in unsigned {
+        let p = &w.people[i];
+        let u = key_uniform(seed ^ 0x5E_4D1, p.player.id as u64);
+        let state = w.states[w.high_schools[p.hs].state].code.as_str();
+        let lds = latter_day_saint(p, state, w.options.seed as u64);
+        let p = &mut w.people[i];
+        let age = p.row_age();
+        if lds && u < m {
+            // A Latter-day Saint nobody signed can still serve and walk on after.
+            p.stage = Stage::Away;
+            p.roads.away_years = p.roads.away_years.saturating_add(2);
+            p.roads.away = Some(Away { kind: AwayKind::Mission, until: (year + 2) as i16, program: None });
+            w.log.missions += 1;
+            p.note(format!("Left at {age} on a two-year church mission, meaning to walk on when he got home."));
+        } else if u < ENLIST * VETERAN_RETURNS {
+            p.stage = Stage::Away;
+            p.roads.away_years = p.roads.away_years.saturating_add(4);
+            p.roads.away = Some(Away { kind: AwayKind::Military, until: (year + 4) as i16, program: None });
+            w.log.enlisted += 1;
+            p.note(format!("Enlisted at {age} for a four-year term, meaning to play again after it."));
+        } else if u < ENLIST {
+            p.note(format!("Enlisted in the military at {age}."));
+        }
+    }
+    w.rebuild_rosters();
 }
