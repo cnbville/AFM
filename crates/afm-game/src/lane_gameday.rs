@@ -345,8 +345,13 @@ fn hub(w: &World) -> Value {
             v
         })
         .collect();
-    // Who is out: your staff's list and theirs as public.
+    // Who is out: your staff's list and theirs as public. Injury reports
+    // come out in game week; months ahead there's nothing to report.
+    let game_week = w.today.days_to(n.date) <= 7;
     let out_of = |tr: TeamRef| -> Vec<Value> {
+        if !game_week {
+            return Vec::new();
+        }
         let r = views::roster(w, tr);
         r["rows"]
             .as_array()

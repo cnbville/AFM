@@ -284,7 +284,7 @@ function frame(content, crumb) {
       <div class="brand">${me ? mark(me) : '<span class="st-mark">AFM</span>'}<div><b>${esc(me ? me.name : "AFM")}</b><small>${esc(st.you ? "Coach " + st.you : "American Football Manager")}</small></div></div>
       <nav class="navs">${navHtml}</nav>
       <div class="foot">
-        <button class="nav save" data-act="save" title="Save game (⌘S)">${icon("save")}<span>Save game</span></button>
+        <button class="nav save" data-act="save" title="Save game (⌘S)">${icon("save")}<span>Save</span></button>
         <button class="nav ico" data-act="holiday" title="Holiday" aria-label="Holiday">${icon("sun")}</button>
         <button class="nav ico" data-nav="settings" title="Settings" aria-label="Settings" aria-current="${S.route.screen === "settings"}">${icon("gear")}</button>
         <button class="nav ico" data-act="bug" title="Report a bug" aria-label="Report a bug">${icon("bug")}</button>

@@ -71,9 +71,9 @@ a { color: inherit; }
 .side button.nav:hover { background: var(--fill-1); color: var(--fg); }
 .side button.nav[aria-current="true"] { background: var(--fill-2); color: var(--fg); box-shadow: inset 3px 0 0 var(--accent); }
 .side button.nav svg { width: 17px; height: 17px; flex: none; opacity: 0.85; }
-/* Save game keeps its words; holiday, settings, bugs and the menu sit beside it as icons. */
+/* Save keeps its word; holiday, settings, bugs and the menu sit beside it as icons. */
 .side .foot { display: flex; gap: 2px; padding-top: 8px; border-top: 1px solid var(--hair); }
-.side .foot button.nav.save { flex: 1; min-width: 0; width: auto; white-space: nowrap; }
+.side .foot button.nav.save { flex: 1; min-width: 0; width: auto; white-space: nowrap; overflow: hidden; }
 .side .foot button.nav.ico { width: 34px; padding: 7px 0; justify-content: center; }
 
 .main { position: relative; display: flex; flex-direction: column; min-width: 0; height: 100vh; }
