@@ -914,6 +914,7 @@ fn engine_games(
             );
             setup.rules = rules;
             setup.cond = cond;
+            setup.year = world.year;
             setup.neutral = final_game;
             setup.playoff = week >= world.hs_season.as_ref().unwrap().states[s].weeks.len();
             let r = crate::game::play_game(&setup);
@@ -957,6 +958,7 @@ fn engine_games(
         }
         if let Some(full) = g.full.as_ref() {
             w.keep_seat_game(Level::HighSchool, [h, a], full);
+            super::stories::hs_game(w, [h, a], full);
         }
         w.log.hs_engine_games += 1;
         w.log.hs_totals.add(&g.team[0], &g.team[1]);

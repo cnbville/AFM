@@ -1506,22 +1506,7 @@ pub enum FourthDown {
 pub fn fourth_down(staff: &Staff, sit: &Situation, fg_make: f64, rng: &mut Rng) -> FourthDown {
     let y = sit.yardline_100;
     let togo = sit.togo;
-    // Real NFL fourth-down conversion by distance (about 70% on 4th and 1,
-    // 50% on 4th and 5, 33% on 4th and 10).
-    let conv = clamp(0.70 * (-0.085 * (togo - 1.0)).exp(), 0.12, 0.75);
-    let ep = tables::expected_points;
-    let after_score = 0.95;
-    let go_ok = if togo >= y { 6.95 - after_score } else { ep(1, 10.0_f64.min(y - togo), y - togo) };
-    let go_fail = -ep(1, 10.0, 100.0 - y);
-    let ev_go = conv * go_ok + (1.0 - conv) * go_fail;
-    let net = 41.0;
-    // Where the opponent starts, as their distance to the goal.
-    let land = y - net;
-    let opp_punt = if land < 0.0 { 80.0 } else { 100.0 - land.max(8.0) };
-    let ev_punt = -ep(1, 10.0, opp_punt.min(99.0));
-    // A miss gives them the ball at the spot of the kick (or the 20).
-    let opp_miss = (100.0 - y - 7.0).min(80.0);
-    let ev_fg = fg_make * (3.0 - after_score) + (1.0 - fg_make) * -ep(1, 10.0, opp_miss.max(1.0));
+    let (ev_go, ev_punt, ev_fg) = fourth_values(y, togo, fg_make);
     let mut ev_go_adj = ev_go;
     // The scoreboard late: a team that must score goes; a team ahead plays it safe.
     let late = sit.quarter >= 4 && sit.game_left < 300.0;
@@ -1553,6 +1538,28 @@ pub fn fourth_down(staff: &Staff, sit: &Situation, fg_make: f64, rng: &mut Rng) 
     } else {
         best_kick.0
     }
+}
+
+/// Expected points of going for it, punting and kicking on fourth down from
+/// the real EP table (also the morning-after grades' bot).
+pub fn fourth_values(y: f64, togo: f64, fg_make: f64) -> (f64, f64, f64) {
+    // Real NFL fourth-down conversion by distance (about 70% on 4th and 1,
+    // 50% on 4th and 5, 33% on 4th and 10).
+    let conv = clamp(0.70 * (-0.085 * (togo - 1.0)).exp(), 0.12, 0.75);
+    let ep = tables::expected_points;
+    let after_score = 0.95;
+    let go_ok = if togo >= y { 6.95 - after_score } else { ep(1, 10.0_f64.min(y - togo), y - togo) };
+    let go_fail = -ep(1, 10.0, 100.0 - y);
+    let ev_go = conv * go_ok + (1.0 - conv) * go_fail;
+    let net = 41.0;
+    // Where the opponent starts, as their distance to the goal.
+    let land = y - net;
+    let opp_punt = if land < 0.0 { 80.0 } else { 100.0 - land.max(8.0) };
+    let ev_punt = -ep(1, 10.0, opp_punt.min(99.0));
+    // A miss gives them the ball at the spot of the kick (or the 20).
+    let opp_miss = (100.0 - y - 7.0).min(80.0);
+    let ev_fg = fg_make * (3.0 - after_score) + (1.0 - fg_make) * -ep(1, 10.0, opp_miss.max(1.0));
+    (ev_go, ev_punt, ev_fg)
 }
 
 /// Go for two after a touchdown (the chart, plus the coach's lean and how

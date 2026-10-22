@@ -1,0 +1,621 @@
+name,mascot,color
+Air Force,Falcons,Blue
+Akron,Zips,Blue
+Alabama,Crimson Tide,Crimson
+Appalachian State,Mountaineers,Black
+Arizona,Wildcats,Red
+Arizona State,Sun Devils,Maroon
+Arkansas,Razorbacks,Cardinal
+Arkansas State,Red Wolves,Scarlet
+Army,Black Knights,Black
+Auburn,Tigers,Orange
+Ball State,Cardinals,Cardinal
+Baylor,Bears,Green
+Boise State,Broncos,Blue
+Boston College,Eagles,Maroon
+Bowling Green,Falcons,Orange
+Buffalo,Bulls,Blue
+BYU,Cougars,Blue
+California,Golden Bears,Blue
+Central Michigan,Chippewas,Maroon
+Charlotte,49ers,Green
+Cincinnati,Bearcats,Red
+Clemson,Tigers,Orange
+Coastal Carolina,Chanticleers,Teal
+Colorado,Buffaloes,Gold
+Colorado State,Rams,Green
+Delaware,Blue Hens,Blue
+Duke,Blue Devils,Blue
+East Carolina,Pirates,Purple
+Eastern Michigan,Eagles,Green
+Florida Atlantic,Owls,Blue
+FIU,Panthers,Blue
+Florida,Gators,Orange
+Florida State,Seminoles,Garnet
+Fresno State,Bulldogs,Red
+Georgia,Bulldogs,Red
+Georgia Southern,Eagles,Blue
+Georgia State,Panthers,Blue
+Georgia Tech,Yellow Jackets,Gold
+Hawaii,Rainbow Warriors,Green
+Houston,Cougars,Red
+Illinois,Fighting Illini,Orange
+Indiana,Hoosiers,Crimson
+Iowa,Hawkeyes,Gold
+Iowa State,Cyclones,Cardinal
+Jacksonville State,Gamecocks,Red
+James Madison,Dukes,Purple
+Kansas,Jayhawks,Blue
+Kansas State,Wildcats,Purple
+Kennesaw State,Owls,Gold
+Kent State,Golden Flashes,Navy
+Kentucky,Wildcats,Blue
+Liberty,Flames,Red
+Louisiana,Ragin' Cajuns,Red
+Louisiana Tech,Bulldogs,Blue
+Louisville,Cardinals,Red
+LSU,Tigers,Purple
+Marshall,Thundering Herd,Green
+Maryland,Terrapins,Red
+Memphis,Tigers,Blue
+Miami (FL),Hurricanes,Orange
+Miami (OH),RedHawks,Red
+Michigan,Wolverines,Maize
+Michigan State,Spartans,Green
+Middle Tennessee,Blue Raiders,Blue
+Minnesota,Golden Gophers,Maroon
+Mississippi State,Bulldogs,Maroon
+Missouri,Tigers,Gold
+Missouri State,Bears,Maroon
+Navy,Midshipmen,Navy
+NC State,Wolfpack,Red
+Nebraska,Cornhuskers,Scarlet
+Nevada,Wolf Pack,Blue
+New Mexico,Lobos,Cherry
+New Mexico State,Aggies,Crimson
+North Carolina,Tar Heels,Carolina Blue
+North Dakota State,Bison,Green
+North Texas,Mean Green,Green
+Northern Illinois,Huskies,Red
+Northwestern,Wildcats,Purple
+Notre Dame,Fighting Irish,Gold
+Ohio,Bobcats,Green
+Ohio State,Buckeyes,Scarlet
+Oklahoma,Sooners,Crimson
+Oklahoma State,Cowboys,Orange
+Old Dominion,Monarchs,Blue
+Ole Miss,Rebels,Red
+Oregon,Ducks,Green
+Oregon State,Beavers,Orange
+Penn State,Nittany Lions,Blue
+Pittsburgh,Panthers,Blue
+Purdue,Boilermakers,Gold
+Rice,Owls,Blue
+Rutgers,Scarlet Knights,Scarlet
+Sacramento State,Hornets,Green
+Sam Houston,Bearkats,Orange
+San Diego State,Aztecs,Red
+San Jose State,Spartans,Blue
+SMU,Mustangs,Red
+South Alabama,Jaguars,Blue
+South Carolina,Gamecocks,Garnet
+South Florida,Bulls,Green
+Southern Miss,Golden Eagles,Gold
+Stanford,Cardinal,Cardinal
+Syracuse,Orange,Orange
+TCU,Horned Frogs,Purple
+Temple,Owls,Cherry
+Tennessee,Volunteers,Orange
+Texas,Longhorns,Burnt Orange
+Texas A&M,Aggies,Maroon
+Texas State,Bobcats,Maroon
+Texas Tech,Red Raiders,Red
+Toledo,Rockets,Blue
+Troy,Trojans,Cardinal
+Tulane,Green Wave,Green
+Tulsa,Golden Hurricane,Blue
+UAB,Blazers,Green
+UCF,Knights,Gold
+UCLA,Bruins,Blue
+UConn,Huskies,Navy
+ULM,Warhawks,Maroon
+UMass,Minutemen,Maroon
+UNLV,Rebels,Scarlet
+USC,Trojans,Cardinal
+Utah,Utes,Red
+Utah State,Aggies,Navy
+UTEP,Miners,Orange
+UTSA,Roadrunners,Orange
+Vanderbilt,Commodores,Gold
+Virginia,Cavaliers,Orange
+Virginia Tech,Hokies,Maroon
+Wake Forest,Demon Deacons,Black
+Washington,Huskies,Purple
+Washington State,Cougars,Crimson
+West Virginia,Mountaineers,Gold
+Western Kentucky,Hilltoppers,Red
+Western Michigan,Broncos,Brown
+Wisconsin,Badgers,Cardinal
+Wyoming,Cowboys,Brown
+Abilene Christian,Wildcats,Purple
+Alabama A&M,Bulldogs,Maroon
+Alabama State,Hornets,Gold
+Albany,Great Danes,Purple
+Alcorn State,Braves,Purple
+Arkansas-Pine Bluff,Golden Lions,Gold
+Austin Peay,Governors,Red
+Bethune-Cookman,Wildcats,Maroon
+Brown,Bears,Brown
+Bryant,Bulldogs,Black
+Bucknell,Bison,Orange
+Butler,Bulldogs,Blue
+Cal Poly,Mustangs,Green
+Campbell,Fighting Camels,Orange
+Central Arkansas,Bears,Purple
+Central Connecticut,Blue Devils,Blue
+Charleston Southern,Buccaneers,Blue
+Chattanooga,Mocs,Navy
+Chicago State,Cougars,Green
+The Citadel,Bulldogs,Blue
+Colgate,Raiders,Maroon
+Columbia,Lions,Light Blue
+Cornell,Big Red,Red
+Dartmouth,Big Green,Green
+Davidson,Wildcats,Red
+Dayton,Flyers,Red
+Delaware State,Hornets,Red
+Drake,Bulldogs,Blue
+Duquesne,Dukes,Red
+East Tennessee State,Buccaneers,Blue
+East Texas A&M,Lions,Blue
+Eastern Illinois,Panthers,Blue
+Eastern Kentucky,Colonels,Maroon
+Eastern Washington,Eagles,Red
+Elon,Phoenix,Maroon
+Florida A&M,Rattlers,Orange
+Fordham,Rams,Maroon
+Furman,Paladins,Purple
+Gardner-Webb,Runnin' Bulldogs,Red
+Georgetown,Hoyas,Blue
+Grambling State,Tigers,Gold
+Hampton,Pirates,Blue
+Harvard,Crimson,Crimson
+Holy Cross,Crusaders,Purple
+Houston Christian,Huskies,Blue
+Howard,Bison,Blue
+Idaho,Vandals,Gold
+Idaho State,Bengals,Orange
+Illinois State,Redbirds,Red
+Incarnate Word,Cardinals,Red
+Indiana State,Sycamores,Blue
+Jackson State,Tigers,Blue
+Lafayette,Leopards,Maroon
+Lamar,Cardinals,Red
+Lehigh,Mountain Hawks,Brown
+Lindenwood,Lions,Black
+LIU,Sharks,Blue
+Maine,Black Bears,Blue
+Marist,Red Foxes,Red
+McNeese,Cowboys,Blue
+Mercer,Bears,Orange
+Merrimack,Warriors,Blue
+Mississippi Valley State,Delta Devils,Green
+Monmouth,Hawks,Blue
+Montana,Grizzlies,Maroon
+Montana State,Bobcats,Blue
+Morehead State,Eagles,Blue
+Morgan State,Bears,Blue
+Murray State,Racers,Navy
+New Hampshire,Wildcats,Blue
+Nicholls,Colonels,Red
+Norfolk State,Spartans,Green
+North Alabama,Lions,Purple
+North Carolina A&T,Aggies,Blue
+North Carolina Central,Eagles,Maroon
+North Dakota,Fighting Hawks,Green
+Northern Arizona,Lumberjacks,Blue
+Northern Colorado,Bears,Blue
+Northern Iowa,Panthers,Purple
+Northwestern State,Demons,Purple
+Penn,Quakers,Red
+Portland State,Vikings,Green
+Prairie View A&M,Panthers,Purple
+Presbyterian,Blue Hose,Blue
+Princeton,Tigers,Orange
+Rhode Island,Rams,Blue
+Richmond,Spiders,Red
+Robert Morris,Colonials,Blue
+Sacred Heart,Pioneers,Red
+St. Thomas (MN),Tommies,Purple
+Samford,Bulldogs,Red
+San Diego,Toreros,Blue
+South Carolina State,Bulldogs,Garnet
+South Dakota,Coyotes,Red
+South Dakota State,Jackrabbits,Blue
+Southeast Missouri State,Redhawks,Red
+Southeastern Louisiana,Lions,Green
+Southern,Jaguars,Blue
+Southern Illinois,Salukis,Maroon
+Southern Utah,Thunderbirds,Red
+Stephen F. Austin,Lumberjacks,Purple
+Stetson,Hatters,Green
+Stonehill,Skyhawks,Purple
+Stony Brook,Seawolves,Red
+Tarleton State,Texans,Purple
+Tennessee State,Tigers,Blue
+Tennessee Tech,Golden Eagles,Purple
+Texas Southern,Tigers,Maroon
+Towson,Tigers,Gold
+UC Davis,Aggies,Blue
+UT Martin,Skyhawks,Orange
+Utah Tech,Trailblazers,Red
+UTRGV,Vaqueros,Orange
+Valparaiso,Beacons,Brown
+Villanova,Wildcats,Blue
+VMI,Keydets,Red
+Wagner,Seahawks,Green
+Weber State,Wildcats,Purple
+Western Carolina,Catamounts,Purple
+Western Illinois,Leathernecks,Purple
+William & Mary,Tribe,Green
+Wofford,Terriers,Gold
+Yale,Bulldogs,Blue
+Youngstown State,Penguins,Red
+Mercyhurst,Lakers,Green
+New Haven,Chargers,Blue
+West Florida,Argonauts,Blue
+West Georgia,Wolves,Red
+Adams State,Grizzlies,Green
+Albany State,Golden Rams,Blue
+American International,Yellow Jackets,Gold
+Angelo State,Rams,Blue
+Arkansas Tech,Wonder Boys,Green
+Arkansas-Monticello,Boll Weevils,Green
+Ashland,Eagles,Purple
+Assumption,Greyhounds,Blue
+Augustana (SD),Vikings,Blue
+Bemidji State,Beavers,Green
+Benedict,Tigers,Purple
+Bentley,Falcons,Blue
+Black Hills State,Yellow Jackets,Green
+Bluefield State,Big Blues,Blue
+Bowie State,Bulldogs,Black
+PennWest California,Vulcans,Red
+Carson-Newman,Eagles,Orange
+Catawba,Indians,Blue
+Central Missouri,Mules,Red
+Central Oklahoma,Bronchos,Blue
+Central State (OH),Marauders,Maroon
+Central Washington,Wildcats,Red
+Charleston (WV),Golden Eagles,Gold
+PennWest Clarion,Golden Eagles,Blue
+Clark Atlanta,Panthers,Red
+Colorado Mesa,Mavericks,Maroon
+Colorado Mines,Orediggers,Blue
+CSU Pueblo,ThunderWolves,Red
+Bloomsburg,Huskies,Maroon
+Lock Haven,Bald Eagles,Crimson
+Concord,Mountain Lions,Maroon
+Delta State,Statesmen,Green
+East Stroudsburg,Warriors,Red
+Eastern New Mexico,Greyhounds,Green
+PennWest Edinboro,Fighting Scots,Red
+Elizabeth City State,Vikings,Blue
+Emory & Henry,Wasps,Blue
+Emporia State,Hornets,Gold
+Fairmont State,Falcons,Maroon
+Fayetteville State,Broncos,Blue
+Ferris State,Bulldogs,Crimson
+Findlay,Oilers,Orange
+Fort Hays State,Tigers,Gold
+Fort Lewis,Skyhawks,Blue
+Fort Valley State,Wildcats,Blue
+Frostburg State,Bobcats,Red
+Gannon,Golden Knights,Maroon
+Glenville State,Pioneers,Blue
+Grand Valley State,Lakers,Blue
+Harding,Bisons,Black
+Henderson State,Reddies,Red
+Hillsdale,Chargers,Blue
+IUP,Crimson Hawks,Crimson
+Indianapolis,Greyhounds,Crimson
+Kentucky State,Thorobreds,Green
+Kentucky Wesleyan,Panthers,Purple
+Kutztown,Golden Bears,Maroon
+Lenoir-Rhyne,Bears,Red
+Lincoln (MO),Blue Tigers,Blue
+Lincoln (PA),Lions,Orange
+Livingstone,Blue Bears,Blue
+Mars Hill,Lions,Blue
+McKendree,Bearcats,Purple
+Michigan Tech,Huskies,Gold
+Midwestern State,Mustangs,Maroon
+Miles,Golden Bears,Purple
+Millersville,Marauders,Black
+Minnesota Duluth,Bulldogs,Maroon
+Minnesota State,Mavericks,Purple
+Minnesota State Moorhead,Dragons,Red
+Minot State,Beavers,Red
+Missouri S&T,Miners,Green
+Missouri Southern,Lions,Green
+Missouri Western,Griffons,Black
+Morehouse,Maroon Tigers,Maroon
+Nebraska-Kearney,Lopers,Blue
+New Mexico Highlands,Cowboys,Purple
+Newberry,Wolves,Scarlet
+UNC Pembroke,Braves,Black
+North Greenville,Crusaders,Red
+Northeastern State,RiverHawks,Green
+Northern Michigan,Wildcats,Green
+Northern State,Wolves,Maroon
+Northwest Missouri State,Bearcats,Green
+Northwestern Oklahoma State,Rangers,Red
+Northwood,Timberwolves,Blue
+Ohio Dominican,Panthers,Black
+Oklahoma Baptist,Bison,Green
+Ouachita Baptist,Tigers,Purple
+Pace,Setters,Blue
+Pittsburg State,Gorillas,Crimson
+Roosevelt,Lakers,Green
+Saginaw Valley State,Cardinals,Red
+Saint Anselm,Hawks,Blue
+Savannah State,Tigers,Blue
+Seton Hill,Griffins,Crimson
+Shepherd,Rams,Blue
+Shippensburg,Raiders,Red
+Sioux Falls,Cougars,Purple
+Slippery Rock,The Rock,Green
+South Dakota Mines,Hardrockers,Blue
+Southeastern Oklahoma State,Savage Storm,Blue
+Southern Arkansas,Muleriders,Blue
+Southern Connecticut,Owls,Blue
+Southern Nazarene,Crimson Storm,Crimson
+Southwest Baptist,Bearcats,Purple
+Southwestern Oklahoma State,Bulldogs,Blue
+Sul Ross State,Lobos,Red
+Texas A&M-Kingsville,Javelinas,Blue
+Thomas More,Saints,Blue
+Tiffin,Dragons,Green
+Truman,Bulldogs,Purple
+Tusculum,Pioneers,Orange
+Tuskegee,Golden Tigers,Crimson
+UT Permian Basin,Falcons,Orange
+UVA Wise,Cavaliers,Red
+Valdosta State,Blazers,Red
+Virginia State,Trojans,Orange
+Virginia Union,Panthers,Maroon
+Washburn,Ichabods,Blue
+Wayne State (MI),Warriors,Green
+Wayne State (NE),Wildcats,Black
+West Alabama,Tigers,Red
+West Chester,Golden Rams,Purple
+West Texas A&M,Buffaloes,Maroon
+West Virginia State,Yellow Jackets,Gold
+West Virginia Wesleyan,Bobcats,Orange
+Western Colorado,Mountaineers,Crimson
+Western New Mexico,Mustangs,Purple
+Western Oregon,Wolves,Red
+Wheeling,Cardinals,Red
+William Jewell,Cardinals,Red
+Wingate,Bulldogs,Blue
+Winona State,Warriors,Purple
+Winston-Salem State,Rams,Red
+Adrian,Bulldogs,Gold
+Albion,Britons,Purple
+Albright,Lions,Red
+Alfred,Saxons,Purple
+Allegheny,Gators,Blue
+Alma,Scots,Maroon
+Amherst,Mammoths,Purple
+Augustana (IL),Vikings,Blue
+Baldwin Wallace,Yellow Jackets,Gold
+Bates,Bobcats,Garnet
+Beloit,Buccaneers,Blue
+Bethel (MN),Royals,Blue
+Brockport,Golden Eagles,Green
+Buena Vista,Beavers,Blue
+Cal Lutheran,Kingsmen,Purple
+Calvin,Knights,Maroon
+Capital,Crusaders,Purple
+Carleton,Knights,Maroon
+Carnegie Mellon,Tartans,Cardinal
+Carroll (WI),Pioneers,Orange
+Carthage,Firebirds,Red
+Case Western Reserve,Spartans,Blue
+Catholic,Cardinals,Red
+Central (IA),Dutch,Red
+Centre,Colonels,Gold
+Chapman,Panthers,Red
+Chicago,Maroons,Maroon
+Christopher Newport,Captains,Blue
+Coast Guard,Bears,Blue
+Coe,Kohawks,Crimson
+Colby,Mules,Blue
+TCNJ,Lions,Blue
+Concordia-Moorhead,Cobbers,Maroon
+Cortland,Red Dragons,Red
+Delaware Valley,Aggies,Green
+Denison,Big Red,Red
+DePauw,Tigers,Gold
+Dickinson,Red Devils,Red
+Dubuque,Spartans,Blue
+Elmhurst,Bluejays,Blue
+Franklin & Marshall,Diplomats,Blue
+Gettysburg,Bullets,Orange
+Grinnell,Pioneers,Red
+Grove City,Wolverines,Red
+Gustavus Adolphus,Gusties,Gold
+Hamilton,Continentals,Blue
+Hampden-Sydney,Tigers,Garnet
+Hardin-Simmons,Cowboys,Purple
+Heidelberg,Student Princes,Red
+Hobart,Statesmen,Orange
+Hope,Flying Dutchmen,Orange
+Illinois Wesleyan,Titans,Green
+Ithaca,Bombers,Blue
+John Carroll,Blue Streaks,Blue
+Johns Hopkins,Blue Jays,Blue
+Kalamazoo,Hornets,Orange
+Kenyon,Owls,Purple
+Knox,Prairie Fire,Purple
+Lake Forest,Foresters,Red
+Lawrence,Vikings,Blue
+Linfield,Wildcats,Purple
+Loras,Duhawks,Purple
+Luther,Norse,Blue
+Macalester,Scots,Orange
+Mary Hardin-Baylor,Crusaders,Purple
+MIT,Engineers,Cardinal
+Middlebury,Panthers,Blue
+Millikin,Big Blue,Blue
+Millsaps,Majors,Purple
+Monmouth (IL),Fighting Scots,Red
+Mount Union,Purple Raiders,Purple
+Muhlenberg,Mules,Cardinal
+North Central (IL),Cardinals,Cardinal
+Oberlin,Yeomen,Crimson
+Ohio Northern,Polar Bears,Orange
+Ohio Wesleyan,Battling Bishops,Red
+Otterbein,Cardinals,Cardinal
+Pomona-Pitzer,Sagehens,Blue
+Puget Sound,Loggers,Maroon
+Randolph-Macon,Yellow Jackets,Gold
+Rhodes,Lynx,Cardinal
+Ripon,Red Hawks,Red
+Rochester,Yellowjackets,Gold
+Rose-Hulman,Fightin' Engineers,Red
+Rowan,Profs,Brown
+RPI,Engineers,Cardinal
+St. John Fisher,Cardinals,Cardinal
+Saint John's (MN),Johnnies,Red
+St. Lawrence,Saints,Scarlet
+St. Norbert,Green Knights,Green
+St. Olaf,Oles,Gold
+Salisbury,Sea Gulls,Maroon
+Sewanee,Tigers,Purple
+Springfield,Pride,Maroon
+Susquehanna,River Hawks,Orange
+Trinity (CT),Bantams,Blue
+Trinity (TX),Tigers,Maroon
+Tufts,Jumbos,Blue
+Union (NY),Garnet Chargers,Garnet
+Ursinus,Bears,Red
+Wabash,Little Giants,Scarlet
+Wartburg,Knights,Orange
+Washington & Jefferson,Presidents,Red
+Washington and Lee,Generals,Blue
+WashU,Bears,Red
+Wesleyan (CT),Cardinals,Cardinal
+Wheaton (IL),Thunder,Orange
+Whitworth,Pirates,Crimson
+Widener,Pride,Blue
+Wilkes,Colonels,Blue
+Williams,Ephs,Purple
+Wisconsin-Eau Claire,Blugolds,Blue
+Wisconsin-La Crosse,Eagles,Maroon
+Wisconsin-Oshkosh,Titans,Gold
+Wisconsin-Platteville,Pioneers,Blue
+Wisconsin-River Falls,Falcons,Red
+Wisconsin-Stevens Point,Pointers,Purple
+Wisconsin-Stout,Blue Devils,Blue
+Wisconsin-Whitewater,Warhawks,Purple
+Wittenberg,Tigers,Red
+Wooster,Fighting Scots,Gold
+WPI,Engineers,Crimson
+Merchant Marine,Mariners,Blue
+Bridgewater State,Bears,Red
+Montclair State,Red Hawks,Red
+Kean,Cougars,Blue
+Salve Regina,Seahawks,Blue
+Huntingdon,Hawks,Scarlet
+Berry,Vikings,Blue
+Hendrix,Warriors,Orange
+McMurry,War Hawks,Maroon
+Southwestern (TX),Pirates,Gold
+Whittier,Poets,Purple
+Redlands,Bulldogs,Maroon
+La Verne,Leopards,Green
+Lewis & Clark,Pioneers,Orange
+Willamette,Bearcats,Red
+Pacific (OR),Boxers,Red
+Hanover,Panthers,Red
+Anderson (IN),Ravens,Orange
+Augsburg,Auggies,Maroon
+Hamline,Pipers,Red
+Bethany (WV),Bison,Green
+Westminster (PA),Titans,Blue
+Waynesburg,Yellow Jackets,Orange
+Saint Vincent,Bearcats,Green
+Geneva,Golden Tornadoes,Gold
+Lycoming,Warriors,Blue
+Misericordia,Cougars,Blue
+Lebanon Valley,Flying Dutchmen,Blue
+Moravian,Greyhounds,Blue
+Norwich,Cadets,Maroon
+Plymouth State,Panthers,Green
+Western New England,Golden Bears,Blue
+Curry,Colonels,Purple
+Maine Maritime,Mariners,Blue
+UMass Dartmouth,Corsairs,Blue
+Fitchburg State,Falcons,Green
+Worcester State,Lancers,Blue
+Stevenson,Mustangs,Green
+McDaniel,Green Terror,Green
+Gallaudet,Bison,Blue
+Buffalo State,Bengals,Orange
+Guilford,Quakers,Crimson
+Roanoke,Maroons,Maroon
+Maryville (TN),Scots,Orange
+Eureka,Red Devils,Red
+Cornell (IA),Rams,Purple
+Westminster (MO),Blue Jays,Blue
+Wilmington (OH),Quakers,Green
+Morningside,Mustangs,Maroon
+Northwestern (IA),Red Raiders,Red
+Carroll (MT),Fighting Saints,Purple
+College of Idaho,Coyotes,Purple
+Georgetown (KY),Tigers,Orange
+Lindsey Wilson,Blue Raiders,Blue
+Southern Oregon,Raiders,Red
+Dickinson State,Blue Hawks,Blue
+Baker,Wildcats,Orange
+Arizona Cardinals,Cardinals,Red
+Atlanta Falcons,Falcons,Red
+Baltimore Ravens,Ravens,Purple
+Buffalo Bills,Bills,Blue
+Carolina Panthers,Panthers,Black
+Chicago Bears,Bears,Navy
+Cincinnati Bengals,Bengals,Orange
+Cleveland Browns,Browns,Orange
+Dallas Cowboys,Cowboys,Blue
+Denver Broncos,Broncos,Orange
+Detroit Lions,Lions,Blue
+Green Bay Packers,Packers,Green
+Houston Texans,Texans,Navy
+Indianapolis Colts,Colts,Blue
+Jacksonville Jaguars,Jaguars,Teal
+Kansas City Chiefs,Chiefs,Red
+Las Vegas Raiders,Raiders,Silver
+Los Angeles Chargers,Chargers,Powder Blue
+Los Angeles Rams,Rams,Blue
+Miami Dolphins,Dolphins,Aqua
+Minnesota Vikings,Vikings,Purple
+New England Patriots,Patriots,Navy
+New Orleans Saints,Saints,Gold
+New York Giants,Giants,Blue
+New York Jets,Jets,Green
+Philadelphia Eagles,Eagles,Green
+Pittsburgh Steelers,Steelers,Black
+San Francisco 49ers,49ers,Red
+Seattle Seahawks,Seahawks,Navy
+Tampa Bay Buccaneers,Buccaneers,Red
+Tennessee Titans,Titans,Navy
+Washington Commanders,Commanders,Burgundy
+Oakland Raiders,Raiders,Silver
+Los Angeles Raiders,Raiders,Silver
+San Diego Chargers,Chargers,Powder Blue
+St. Louis Rams,Rams,Navy
+Houston Oilers,Oilers,Light Blue
+Tennessee Oilers,Oilers,Light Blue
+Washington Redskins,Washington,Burgundy
+Washington Football Team,Washington,Burgundy

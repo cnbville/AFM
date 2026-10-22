@@ -476,6 +476,8 @@ pub(crate) fn advance_day(w: &mut World) {
     // the training blocks of every level (T7).
     timed("rhythm", || rhythm(w, d, &y));
     nfl_year::training_blocks(w, d, &y);
+    // The stories around the day's football (final build lane 8).
+    timed("stories", || super::stories::day(w, d));
 
     // News items of the day get the day's date.
     for n in w.news.iter_mut().rev() {

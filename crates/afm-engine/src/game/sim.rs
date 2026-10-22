@@ -418,6 +418,8 @@ pub enum FoulKind {
     /// A lineman more than the level's limit downfield when a pass is
     /// thrown past the line (an RPO thrown late).
     IneligibleDownfield,
+    /// Taunting or an excessive celebration.
+    UnsportsmanlikeConduct,
 }
 
 impl FoulKind {
@@ -437,6 +439,7 @@ impl FoulKind {
             FoulKind::IllegalFormation => "illegal formation",
             FoulKind::IntentionalGrounding => "intentional grounding",
             FoulKind::IneligibleDownfield => "ineligible man downfield",
+            FoulKind::UnsportsmanlikeConduct => "unsportsmanlike conduct",
         }
     }
     /// Yards, and whether it is an automatic first down for the offense.
@@ -452,6 +455,7 @@ impl FoulKind {
             | FoulKind::IllegalFormation
             | FoulKind::IneligibleDownfield => (5.0, false),
             FoulKind::IntentionalGrounding => (10.0, false),
+            FoulKind::UnsportsmanlikeConduct => (15.0, false),
         }
     }
 }

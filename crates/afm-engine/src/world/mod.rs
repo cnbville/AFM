@@ -36,6 +36,7 @@ pub mod schedule;
 pub(crate) mod season;
 pub mod seat;
 pub mod staff;
+pub mod stories;
 pub mod systems;
 pub mod trends;
 
@@ -639,6 +640,10 @@ pub struct World {
     /// Your career once it has started: you, your coach id, your notes.
     #[serde(default)]
     pub career: Option<seat::Career>,
+    /// The stories around the football (final build lane 8): traditions,
+    /// media, nicknames, your decisions graded, your career's story.
+    #[serde(default)]
+    pub stories: stories::Stories,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -928,6 +933,7 @@ impl World {
             seat_depth: Vec::new(),
             seat_focus: Vec::new(),
             career: None,
+            stories: stories::Stories::default(),
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);

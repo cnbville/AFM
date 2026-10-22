@@ -395,7 +395,7 @@ fn conditions(w: &World, g: &Game, k: usize) -> (Venue, Played, Option<Severe>) 
         };
         clamp((usual - wx.temperature - 15.0) / 25.0, 0.0, 1.0) * clamp((45.0 - wx.temperature) / 15.0, 0.0, 1.0)
     });
-    let venue = Venue { cond, neutral, wear, cold_unused };
+    let venue = Venue { cond, neutral, wear, cold_unused, year: w.year };
     let mut played = Played {
         temperature: wx.temperature,
         wind: wx.wind,
@@ -777,6 +777,14 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
         }
         let _ = division;
         result_event(w, k);
+        // The stories around the game (final build lane 8): the world's
+        // read before kickoff, from the season's strengths.
+        let pre = {
+            let cs = w.college.as_ref().unwrap();
+            let adv = if j.neutral { 0.0 } else { 0.8 };
+            win_chance(cs.results[home].strength, cs.results[away].strength, COLLEGE_SPREAD, adv)
+        };
+        super::stories::college_game(w, k, r.as_ref().map(|r| &r.stats), pre);
     }
     advance_brackets(w);
 }

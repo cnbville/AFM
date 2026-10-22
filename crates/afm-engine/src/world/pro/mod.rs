@@ -1919,6 +1919,7 @@ fn unsigned_week(w: &mut World, d: Date) {
 /// He walks away: his career is written into his alumni record and he
 /// leaves the league.
 pub(crate) fn retire(w: &mut World, i: usize, d: Date, why: &str) {
+    crate::world::stories::careers::retired(w, i);
     if w.people[i].pro.as_ref().is_some_and(|c| !c.seasons.is_empty()) {
         honors::hall_case(w, i);
     }
@@ -2030,7 +2031,9 @@ fn season_end(w: &mut World, d: Date) {
         let chance =
             (0.008 + 0.5 / (1.0 + (-(age - typical) / 1.3).exp())) * standing + (age - typical - 4.0).max(0.0) * 0.08;
         let roll = key_uniform(w.options.seed as u64 ^ 0x2E71 ^ (year as u64) << 32, p.player.id as u64);
-        if roll < chance {
+        // A star who announced this as his last season keeps his word.
+        let farewell = w.stories.careers.farewell_due(p.player.id, year);
+        if roll < chance || farewell {
             retire(w, i, d, "end of the season");
         }
     }

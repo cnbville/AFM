@@ -326,7 +326,13 @@ pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bo
         };
         clamp((usual - wx.temperature - 15.0) / 25.0, 0.0, 1.0) * clamp((45.0 - wx.temperature) / 15.0, 0.0, 1.0)
     };
-    Venue { cond, neutral, wear: [wear_of(home), wear_of(away)], cold_unused: [cold_of(home), cold_of(away)] }
+    Venue {
+        cond,
+        neutral,
+        wear: [wear_of(home), wear_of(away)],
+        cold_unused: [cold_of(home), cold_of(away)],
+        year: w.year,
+    }
 }
 
 /// One NFL game to play: home, away, kickoff, a neutral site, how much it
@@ -420,6 +426,12 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
 pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[Side; 2], opp_z: [f64; 2]) {
     let year = w.year;
     w.keep_seat_game(crate::calendar::Level::Nfl, teams, &r.stats);
+    // The stories around the game (final build lane 8): the home side's
+    // chance from the two strengths read at kickoff, and whether the
+    // regular season is over.
+    let postseason = w.nfl_season.as_ref().is_some_and(|s| s.booked);
+    let pre = 1.0 / (1.0 + (-(1.1 * (opp_z[1] - opp_z[0]) + 0.1)).exp());
+    crate::world::stories::nfl_game(w, teams, &r.stats, postseason, pre);
     if w.options.keep_game_log && w.recording {
         w.game_log.add_nfl(year, teams, &r.stats);
     }
