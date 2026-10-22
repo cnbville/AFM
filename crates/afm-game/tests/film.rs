@@ -16,10 +16,20 @@ fn ok(g: &mut Game, cmd: &str, args: Value) -> Value {
 fn a_kept_game_plays_back_as_film() {
     let dir = std::env::temp_dir().join(format!("afm-film-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
-    let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));
-    let job = jobs["jobs"][0]["ref"].clone();
-    ok(&mut g, "start_career", json!({ "name": "Film Coach", "age": 44, "background": "college_assistant", "job": job, "seed": 5, "home_state": "TX" }));
+    // A saved career with a game kept loads straight in (quick runs while
+    // building the views); otherwise a small world and a college job.
+    if let Ok(p) = std::env::var("AFM_FILM_LOAD") {
+        ok(&mut g, "load", json!({ "path": p }));
+    } else {
+        ok(&mut g, "build_world", json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+        let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));
+        let job = jobs["jobs"][0]["ref"].clone();
+        ok(
+            &mut g,
+            "start_career",
+            json!({ "name": "Film Coach", "age": 44, "background": "college_assistant", "job": job, "seed": 5, "home_state": "TX" }),
+        );
+    }
     let mut tries = 0;
     while ok(&mut g, "games", json!({}))["games"].as_array().unwrap().is_empty() {
         ok(&mut g, "continue", json!({ "max_days": 400 }));
@@ -64,7 +74,13 @@ fn a_kept_game_plays_back_as_film() {
             for k in 0..ids {
                 let x = fr[6 + k * 5].as_f64().unwrap();
                 let y = fr[7 + k * 5].as_f64().unwrap();
-                assert!((-15.0..=135.0).contains(&x) && (-6.0..=60.0).contains(&y), "play {n}: a man at ({x}, {y})");
+                assert!(
+                    (-15.0..=135.0).contains(&x) && (-6.0..=60.0).contains(&y),
+                    "play {n} ({}, {}) at {} s: a man at ({x}, {y})",
+                    p["kind"],
+                    p["text"],
+                    fr[0]
+                );
             }
         }
         graded += clip["grades"].as_object().unwrap().len();
