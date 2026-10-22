@@ -7,8 +7,11 @@
 //! their own playoffs. Opt-outs (topic 3.2) and the four-game redshirt rule
 //! (2018 on) are decided on their days.
 //!
-//! Rankings and award picks are placeholders built from results and stats
-//! until the voter mechanics are designed (proposed, not confirmed).
+//! The polls are voted by their real electorates (`voters.rs`, `polls.rs`):
+//! the AP panel, the Coaches Poll panel, the Harris panel (2005-2013), the
+//! BCS standings with their computers and the playoff committee; the
+//! Heisman by its 870 media voters, former winners and the fan vote. The
+//! position awards are still read from stats and film (Claude's pick).
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -40,6 +43,10 @@ pub enum PollKind {
     Cfp,
     /// The final poll after the bowls.
     Final,
+    /// The Harris Interactive poll, the BCS's human poll from 2005 to 2013.
+    Harris,
+    /// The Coaches Poll's final ballot after the bowls (made public).
+    CoachesFinal,
 }
 
 impl PollKind {
@@ -52,6 +59,8 @@ impl PollKind {
             PollKind::Bcs => "BCS standings",
             PollKind::Cfp => "CFP rankings",
             PollKind::Final => "final AP poll",
+            PollKind::Harris => "Harris poll",
+            PollKind::CoachesFinal => "final Coaches Poll",
         }
     }
 }
@@ -62,6 +71,12 @@ pub struct Poll {
     pub date: Date,
     pub kind: PollKind,
     pub top: Vec<usize>,
+    /// Each ranked team's points (voters' polls; the BCS average times
+    /// 10,000), and first-place votes.
+    #[serde(default)]
+    pub points: Vec<u32>,
+    #[serde(default)]
+    pub firsts: Vec<u16>,
 }
 
 /// A player's season stat line, kept for the award picks.
@@ -179,6 +194,9 @@ pub(crate) struct CollegeSeason {
     pub rivalry_of: HashMap<(usize, usize), (usize, usize)>,
     /// The Commander-in-Chief's Trophy's holder, carried from season to season.
     pub academy_holder: Option<usize>,
+    /// This season's Heisman vote, top ten (kept with the season).
+    #[serde(default)]
+    pub heisman_vote: Vec<HeismanRow>,
 }
 
 /// A rivalry's record over the world's history (A28): wins by its first
@@ -248,6 +266,7 @@ pub(crate) fn new_season(w: &World) -> CollegeSeason {
         series,
         rivalry_of,
         academy_holder: w.college_prev.as_ref().and_then(|c| c.academy_holder),
+        heisman_vote: Vec::new(),
     }
 }
 
@@ -1040,58 +1059,18 @@ fn projected_or(cs: &CollegeSeason, t: usize) -> f64 {
     if r.preseason > 0.0 { r.preseason } else { 50.0 }
 }
 
-/// Releases a poll (A18).
+/// Releases a poll (A18): the voters' ballots for the AP, Coaches and
+/// Harris polls, the BCS standings or the committee's ranking.
 pub(crate) fn release_poll(w: &mut World, date: Date, kind: PollKind) {
     if w.college.is_none() {
         return;
     }
-    let top: Vec<usize> = match kind {
-        PollKind::CoachesPreseason | PollKind::ApPreseason => {
-            let mut v: Vec<(usize, f64)> = w
-                .programs
-                .iter()
-                .filter(|p| p.division == Division::FBS && !p.roster.is_empty())
-                .map(|p| (p.id, projected_strength(w, p.id) + 2.0 * p.prestige))
-                .collect();
-            v.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
-            v.into_iter().take(25).map(|x| x.0).collect()
-        }
-        PollKind::Coaches => {
-            // Placeholder voters (proposed, not confirmed): the same read of
-            // results as the AP voters, with their own small differences.
-            let seed = w.options.seed as u64 ^ (date.0 as u64) << 20 ^ 0xC0AC;
-            let mut v = ranking(w, Division::FBS);
-            let sd = 0.04 * v.first().map_or(1.0, |x| x.1 - v.get(25).map_or(x.1 - 1.0, |y| y.1)).abs().max(0.1);
-            for x in v.iter_mut() {
-                x.1 += sd * key_normal(seed, x.0 as u64);
-            }
-            v.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
-            v.into_iter().take(25).map(|x| x.0).collect()
-        }
-        _ => ranking(w, Division::FBS).into_iter().take(25).map(|x| x.0).collect(),
+    let rel = match kind {
+        PollKind::Bcs => super::polls::bcs(w),
+        PollKind::Cfp => super::polls::committee(w, date),
+        _ => super::polls::vote(w, date, kind),
     };
-    let mut top = top;
-    // When a title game decided it (the BCS and playoff eras), the national
-    // champion is first in the final poll.
-    if kind == PollKind::Final
-        && w.rules.cfb_postseason != CfbPostseason::PollsOnly
-        && let Some(c) = w.college.as_ref().and_then(|cs| cs.champions[0])
-    {
-        top.retain(|&t| t != c);
-        top.insert(0, c);
-        // The title game's loser is second (part D 25), as voters rank it.
-        let runner_up = w.college.as_ref().and_then(|cs| {
-            cs.games
-                .iter()
-                .find(|g| g.kind == GameKind::Title && g.division == Division::FBS && g.involves(c))
-                .and_then(|g| g.played.as_ref().map(|_| if g.home == c { g.away } else { g.home }))
-        });
-        if let Some(r) = runner_up {
-            top.retain(|&t| t != r);
-            top.insert(1, r);
-        }
-        top.truncate(25);
-    }
+    let super::polls::Release { top, points, firsts } = rel;
     if top.is_empty() {
         return;
     }
@@ -1101,16 +1080,55 @@ pub(crate) fn release_poll(w: &mut World, date: Date, kind: PollKind) {
         PollKind::ApPreseason | PollKind::Cfp | PollKind::Bcs => Loudness::Medium,
         _ => Loudness::Small,
     };
-    let text = format!(
-        "{}: 1. {}, 2. {}, 3. {}, 4. {}.",
-        kind.name(),
-        w.programs[top[0]].real_name,
-        w.programs[top.get(1).copied().unwrap_or(top[0])].real_name,
-        w.programs[top.get(2).copied().unwrap_or(top[0])].real_name,
-        w.programs[top.get(3).copied().unwrap_or(top[0])].real_name
-    );
+    // "1. Georgia (52), 2. Ohio State (8), ...": first-place votes in brackets.
+    let named: Vec<String> = top
+        .iter()
+        .take(4)
+        .enumerate()
+        .map(|(k, &t)| match firsts.get(k) {
+            Some(&f) if f > 0 => format!("{}. {} ({f})", k + 1, w.programs[t].real_name),
+            _ => format!("{}. {}", k + 1, w.programs[t].real_name),
+        })
+        .collect();
+    let text = format!("{}: {}.", kind.name(), named.join(", "));
     w.calendar.post(Event::new(date, CalLevel::College, Kind::Poll, loud, text));
-    w.college.as_mut().unwrap().polls.push(Poll { date, kind, top });
+    w.college.as_mut().unwrap().polls.push(Poll { date, kind, top, points, firsts });
+}
+
+/// The order selection day reads by era: the committee's ranking (2014
+/// on), the BCS standings (1998-2013) or the AP poll (before), each with
+/// the teams below its top 25 in order of the power rating.
+fn selection_order(w: &World) -> Vec<usize> {
+    let kind = match w.rules.cfb_postseason {
+        CfbPostseason::PollsOnly => PollKind::Ap,
+        CfbPostseason::Bcs => PollKind::Bcs,
+        _ => PollKind::Cfp,
+    };
+    let mut order: Vec<usize> = w
+        .college
+        .as_ref()
+        .and_then(|cs| cs.polls.iter().rev().find(|p| p.kind == kind))
+        .map(|p| p.top.clone())
+        .unwrap_or_default();
+    for (t, _) in ranking(w, Division::FBS) {
+        if !order.contains(&t) {
+            order.push(t);
+        }
+    }
+    order
+}
+
+/// The latest AP rank of each ranked team (the Heisman and award voters'
+/// read of team success), or the power order before any poll.
+fn ap_ranks(w: &World) -> HashMap<usize, usize> {
+    let poll = w
+        .college
+        .as_ref()
+        .and_then(|cs| cs.polls.iter().rev().find(|p| matches!(p.kind, PollKind::Ap | PollKind::Final)));
+    match poll {
+        Some(p) => p.top.iter().enumerate().map(|(k, &t)| (t, k + 1)).collect(),
+        None => ranking(w, Division::FBS).into_iter().take(25).enumerate().map(|(k, (t, _))| (t, k + 1)).collect(),
+    }
 }
 
 /// The latest poll's rank of a team (1-25).
@@ -1728,7 +1746,7 @@ pub(crate) fn selection_day(w: &mut World) {
     let season = cs.year;
     let rules = w.rules.clone();
     let y = w.dates.clone();
-    let ranked: Vec<usize> = ranking(w, Division::FBS).into_iter().map(|x| x.0).collect();
+    let ranked: Vec<usize> = selection_order(w);
     let pos: HashMap<usize, usize> = ranked.iter().enumerate().map(|(k, &t)| (t, k)).collect();
     let cs = w.college.as_ref().unwrap();
     let eligible = |t: usize| !cs.banned[t];
@@ -2240,24 +2258,63 @@ fn show_pick(
         .map(|(_, _, i)| i)
 }
 
-/// The Heisman finalists, the ceremony, the awards show and All-America
-/// teams on their days (A25). Placeholder picks: season stats and team
-/// success (proposed, not confirmed).
-pub(crate) fn awards(w: &mut World, which: &'static str) {
-    let Some(cs) = w.college.as_ref() else { return };
-    if !cs.started {
-        return;
+/// One candidate's place in the Heisman vote: points (3 for a first-place
+/// vote, 2 for a second, 1 for a third) and how many of each.
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct HeismanRow {
+    pub id: u32,
+    pub program: u16,
+    pub points: u32,
+    pub first: u16,
+    pub second: u16,
+    pub third: u16,
+    pub finalist: bool,
+}
+
+/// "2,190".
+fn thousands(n: u32) -> String {
+    let s = n.to_string();
+    let mut out = String::new();
+    for (k, c) in s.chars().enumerate() {
+        if k > 0 && (s.len() - k) % 3 == 0 {
+            out.push(',');
+        }
+        out.push(c);
     }
-    let rank: HashMap<usize, usize> =
-        ranking(w, Division::FBS).into_iter().enumerate().map(|(k, (t, _))| (t, k + 1)).collect();
-    let by_id: HashMap<u32, usize> = w.people.iter().enumerate().map(|(i, p)| (p.player.id, i)).collect();
-    // The Heisman race: each candidate's production against the mean of the
-    // season's ten best of his kind, weighted by how voters treat his kind
-    // and by his team's ranking. A full season (six games or more) makes a
-    // candidate, and a former winner is held to a higher bar (part B 15:
-    // 0.7): nobody has won twice since Archie Griffin (1974-75). Claude's
-    // picks, proposed, not confirmed.
-    let candidates: Vec<(u32, usize, usize, f64, f64, usize)> = cs
+    out
+}
+
+/// A Heisman candidate as the voters read him.
+struct Candidate {
+    id: u32,
+    program: usize,
+    /// Production against the season's ten best of his kind, weighted by
+    /// how voters treat his kind (the QB and RB lean).
+    read: f64,
+    /// His team's ranking and record.
+    team: f64,
+    /// Preseason hype: last season's numbers, a finalist's return, stars.
+    hype: f64,
+    /// Signature wins: his team's wins over ranked teams, a title.
+    sig: f64,
+    region: u8,
+    brand: f64,
+    /// A former winner, held to a higher bar.
+    former: bool,
+}
+
+/// The Heisman ballots (the Heisman Trust's electorate): 870 media voters,
+/// 145 in each of six regions, every living former winner and one fan
+/// ballot (from 2007); each names three players, 3-2-1. Voters lean to
+/// their own region's players, to quarterbacks and backs, to players on
+/// winning teams, to big wins and big numbers and to the names hyped in
+/// August. Finalists: the top three and anyone else with 250 points or
+/// more, up to six (real fields run three to six). Weights are Claude's
+/// pick.
+fn heisman_vote(w: &World, rank: &HashMap<usize, usize>, by_id: &HashMap<u32, usize>) -> Vec<HeismanRow> {
+    let cs = w.college.as_ref().unwrap();
+    let year = cs.year;
+    let raw: Vec<(u32, usize, usize, f64, f64, usize)> = cs
         .lines
         .iter()
         .filter(|(_, l)| w.programs[l.program].division == Division::FBS && l.games >= 6)
@@ -2269,7 +2326,7 @@ pub(crate) fn awards(w: &mut World, which: &'static str) {
         })
         .collect();
     let mut best: [Vec<f64>; 4] = Default::default();
-    for c in &candidates {
+    for c in &raw {
         best[c.2].push(c.4);
     }
     let bar: Vec<f64> = best
@@ -2280,56 +2337,188 @@ pub(crate) fn awards(w: &mut World, which: &'static str) {
             (top.iter().sum::<f64>() / top.len().max(1) as f64).max(1.0)
         })
         .collect();
-    let mut scored: Vec<(f64, u32, usize)> = candidates
+    let prev = w.college_prev.as_ref();
+    let mut cands: Vec<Candidate> = raw
         .iter()
         .map(|&(id, i, kind, weight, prod, prog)| {
-            let team = rank.get(&prog).map_or(0.8, |&r| 1.3 - 0.02 * r.min(25) as f64);
-            let former = w.people[i].notes.iter().any(|n| n.starts_with("Won the Heisman Trophy"));
-            let s = weight * prod / bar[kind] * team * if former { 0.7 } else { 1.0 };
-            (s, id, i)
+            let p = &w.people[i];
+            let res = &cs.results[prog];
+            let team = rank.get(&prog).map_or(0.0, |&r| (26 - r.min(25)) as f64 / 25.0) - 0.06 * res.losses as f64;
+            let last = prev
+                .and_then(|c| c.lines.get(&id))
+                .map_or(0.0, |l| (weight * production(l, p.player.position) / bar[kind]).clamp(0.0, 1.4));
+            let was_finalist = prev.is_some_and(|c| c.heisman_vote.iter().any(|r| r.id == id && r.finalist));
+            let hype = last + if was_finalist { 0.4 } else { 0.0 } + 0.05 * (p.stars as f64 - 3.0).max(0.0);
+            let big_wins = cs
+                .games
+                .iter()
+                .filter(|g| {
+                    g.involves(prog) && g.played.is_some_and(|x| !x.cancelled && x.home_won == (g.home == prog))
+                })
+                .filter_map(|g| rank.get(&if g.home == prog { g.away } else { g.home }))
+                .map(|&r| if r <= 10 { 0.15 } else { 0.1 })
+                .sum::<f64>();
+            let sig = big_wins + if res.conference_title { 0.1 } else { 0.0 };
+            let code = &w.states[w.programs[prog].state].code;
+            Candidate {
+                id,
+                program: prog,
+                read: weight * prod / bar[kind],
+                team,
+                hype,
+                sig,
+                region: super::voters::heisman_region(code),
+                brand: w.programs[prog].prestige,
+                former: p.notes.iter().any(|n| n.starts_with("Won the Heisman Trophy")),
+            }
         })
         .collect();
-    scored.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
-    // Teammates split the vote (part D 24): each teammate below a school's
-    // best candidate loses a fifth more (proposed, not confirmed).
-    let mut seen: HashMap<usize, i32> = HashMap::new();
-    for e in scored.iter_mut() {
-        let prog = w.people[e.2].college.unwrap_or(usize::MAX);
-        let k = seen.entry(prog).or_insert(0);
-        e.0 *= 0.8f64.powi(*k);
-        *k += 1;
+    // The serious candidates: no ballot reaches deeper.
+    let base = |c: &Candidate| c.read + 0.5 * c.team + 0.2 * c.hype + c.sig;
+    cands.sort_by(|a, b| base(b).total_cmp(&base(a)).then(a.id.cmp(&b.id)));
+    cands.truncate(30);
+    if cands.is_empty() {
+        return Vec::new();
     }
-    scored.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
-    let date = w.today;
-    match which {
-        "finalists" => {
-            let names: Vec<String> = scored
-                .iter()
-                .take(4)
-                .map(|&(_, _, i)| {
-                    let p = &w.people[i];
-                    format!("{} ({}, {})", p.name, p.player.position, w.program_name(p.college.unwrap_or(0)))
-                })
-                .collect();
-            for &(_, _, i) in scored.iter().take(4) {
-                let age = w.people[i].row_age();
-                w.people[i].note(format!("A Heisman Trophy finalist at {age}."));
-            }
-            if !names.is_empty() {
-                let text = format!("Heisman finalists: {}.", names.join(", "));
-                w.calendar.post(Event::new(date, CalLevel::College, Kind::Award, Loudness::Medium, text));
+    let key = super::voters::heisman_key(w.options.seed, year);
+    let mut tally: Vec<(u32, u16, u16, u16)> = vec![(0, 0, 0, 0); cands.len()];
+    let cast = |scores: Vec<f64>, tally: &mut Vec<(u32, u16, u16, u16)>| {
+        let mut order: Vec<usize> = (0..scores.len()).collect();
+        order.sort_by(|&a, &b| scores[b].total_cmp(&scores[a]).then(a.cmp(&b)));
+        for (k, &c) in order.iter().take(3).enumerate() {
+            tally[c].0 += 3 - k as u32;
+            match k {
+                0 => tally[c].1 += 1,
+                1 => tally[c].2 += 1,
+                _ => tally[c].3 += 1,
             }
         }
-        "heisman" => {
-            if let Some(&(_, id, i)) = scored.first() {
-                let c = w.people[i].college.unwrap_or(0);
-                let text = format!("{} of {} wins the Heisman Trophy.", w.people[i].name, w.program_name(c));
-                let age = w.people[i].row_age();
-                w.people[i].note(format!("Won the Heisman Trophy at {age}."));
-                w.calendar
-                    .post(Event::new(date, CalLevel::College, Kind::Award, Loudness::Big, text).program(c).memorable());
-                w.college.as_mut().unwrap().awards.push(("Heisman Trophy", id, c));
+    };
+    let f = super::voters::Traits::f;
+    for v in &w.voters.heisman {
+        let scores = cands
+            .iter()
+            .map(|c| {
+                c.read * (0.75 + 0.5 * f(v.stats))
+                    + c.team * (0.3 + 0.5 * f(v.team))
+                    + c.hype * 0.35 * f(v.hype)
+                    + c.sig * 0.6
+                    + if c.region == v.region { 0.22 * (0.5 + f(v.homer)) } else { 0.0 }
+                    - if c.former { 0.3 } else { 0.0 }
+                    + 0.13 * key_normal(key ^ (v.id as u64) << 20, c.id as u64)
+            })
+            .collect();
+        cast(scores, &mut tally);
+    }
+    // The living former winners (the world's own, before this season).
+    let mut formers: Vec<u32> = w
+        .stats
+        .honors
+        .iter()
+        .filter(|(_, h)| h.awards.iter().any(|&(y, a)| a == "Heisman Trophy" && y < year))
+        .map(|(&id, _)| id)
+        .collect();
+    formers.sort();
+    for id in formers {
+        let scores = cands
+            .iter()
+            .map(|c| {
+                c.read + 0.55 * c.team + 0.1 * c.hype + 0.6 * c.sig - if c.former { 0.3 } else { 0.0 }
+                    + 0.12 * key_normal(key ^ 0xF0F0 ^ (id as u64) << 24, c.id as u64)
+            })
+            .collect();
+        cast(scores, &mut tally);
+    }
+    // The fan vote (one ballot since 2007): the names and the numbers.
+    if year >= 2007 {
+        let scores = cands.iter().map(|c| c.read + 0.6 * c.brand + 0.4 * c.hype + 0.3 * c.team).collect();
+        cast(scores, &mut tally);
+    }
+    let mut rows: Vec<HeismanRow> = cands
+        .iter()
+        .zip(&tally)
+        .filter(|(_, t)| t.0 > 0)
+        .map(|(c, t)| HeismanRow {
+            id: c.id,
+            program: c.program as u16,
+            points: t.0,
+            first: t.1,
+            second: t.2,
+            third: t.3,
+            finalist: false,
+        })
+        .collect();
+    rows.sort_by(|a, b| b.points.cmp(&a.points).then(b.first.cmp(&a.first)).then(a.id.cmp(&b.id)));
+    rows.truncate(10);
+    for (k, r) in rows.iter_mut().enumerate() {
+        r.finalist = k < 3 || (k < 6 && r.points >= 250);
+    }
+    rows
+}
+
+/// The Heisman finalists, the ceremony, the awards show and All-America
+/// teams on their days (A25). The Heisman is voted (`heisman_vote`); the
+/// position awards are read from stats and film (Claude's pick).
+pub(crate) fn awards(w: &mut World, which: &'static str) {
+    let Some(cs) = w.college.as_ref() else { return };
+    if !cs.started {
+        return;
+    }
+    super::voters::ensure(w);
+    let rank = ap_ranks(w);
+    let by_id: HashMap<u32, usize> = w.people.iter().enumerate().map(|(i, p)| (p.player.id, i)).collect();
+    let date = w.today;
+    let cs = w.college.as_ref().unwrap();
+    match which {
+        "finalists" | "heisman" => {
+            if which == "finalists" || cs.heisman_vote.is_empty() {
+                let vote = heisman_vote(w, &rank, &by_id);
+                w.college.as_mut().unwrap().heisman_vote = vote;
             }
+            let vote = w.college.as_ref().unwrap().heisman_vote.clone();
+            let person = |r: &HeismanRow| by_id.get(&r.id).copied();
+            if which == "finalists" {
+                let mut names = Vec::new();
+                for r in vote.iter().filter(|r| r.finalist) {
+                    let Some(i) = person(r) else { continue };
+                    let p = &w.people[i];
+                    names.push(format!("{} ({}, {})", p.name, p.player.position, w.program_name(r.program as usize)));
+                    let age = w.people[i].row_age();
+                    w.people[i].note(format!("A Heisman Trophy finalist at {age}."));
+                }
+                if !names.is_empty() {
+                    let text = format!("Heisman finalists: {}.", names.join(", "));
+                    w.calendar.post(Event::new(date, CalLevel::College, Kind::Award, Loudness::Medium, text));
+                }
+                return;
+            }
+            let Some(win) = vote.first().copied() else { return };
+            let Some(i) = person(&win) else { return };
+            let c = win.program as usize;
+            let mut text = format!(
+                "{} of {} wins the Heisman Trophy with {} points and {} first-place votes",
+                w.people[i].name,
+                w.program_name(c),
+                thousands(win.points),
+                thousands(win.first as u32)
+            );
+            for (k, r) in vote.iter().enumerate().skip(1).take(2) {
+                if let Some(j) = person(r) {
+                    let place = if k == 1 { "second" } else { "third" };
+                    text.push_str(&format!(
+                        "; {} ({}) {place} with {}",
+                        w.people[j].name,
+                        w.program_name(r.program as usize),
+                        thousands(r.points)
+                    ));
+                }
+            }
+            text.push('.');
+            let age = w.people[i].row_age();
+            w.people[i].note(format!("Won the Heisman Trophy at {age}, with {} points.", thousands(win.points)));
+            w.calendar
+                .post(Event::new(date, CalLevel::College, Kind::Award, Loudness::Big, text).program(c).memorable());
+            w.college.as_mut().unwrap().awards.push(("Heisman Trophy", win.id, c));
         }
         "show" => {
             use crate::positions::Position::*;
@@ -2509,17 +2698,29 @@ pub(crate) fn finish(w: &mut World) {
     if cs.finished || !cs.started {
         return;
     }
-    // In the polls-only era the final poll picks the champion.
+    let date = w.today;
+    release_poll(w, date, PollKind::Final);
+    release_poll(w, date, PollKind::CoachesFinal);
+    // In the polls-only era the final AP poll picks the champion; a
+    // different No. 1 in the coaches' final poll splits the title (1997).
     if w.rules.cfb_postseason == CfbPostseason::PollsOnly {
-        let top = ranking(w, Division::FBS).first().map(|x| x.0);
-        if let Some(t) = top {
+        let cs = w.college.as_ref().unwrap();
+        let first = |k: PollKind| cs.polls.iter().rev().find(|p| p.kind == k).and_then(|p| p.top.first().copied());
+        let ap = first(PollKind::Final).or_else(|| ranking(w, Division::FBS).first().map(|x| x.0));
+        let coaches = first(PollKind::CoachesFinal);
+        if let Some(t) = ap {
+            if let Some(c) = coaches.filter(|&c| c != t) {
+                let text = format!(
+                    "{} finish No. 1 in the final Coaches Poll: a split national title with {}.",
+                    w.programs[c].real_name, w.programs[t].real_name
+                );
+                w.calendar.post(Event::new(date, CalLevel::College, Kind::Poll, Loudness::Big, text).program(c));
+            }
             let cs = w.college.as_mut().unwrap();
             cs.results[t].national_title = true;
             cs.champions[0] = Some(t);
         }
     }
-    let date = w.today;
-    release_poll(w, date, PollKind::Final);
     let year = w.college.as_ref().unwrap().year;
     update_records(w, year);
     // The season's awards go on each winner's record, then the season

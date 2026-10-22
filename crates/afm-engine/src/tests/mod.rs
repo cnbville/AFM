@@ -5,6 +5,7 @@ mod development;
 mod game_stats;
 mod kick_units;
 mod level_rating;
+mod polls;
 mod scouting;
 mod tactics;
 mod tendencies;
