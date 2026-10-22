@@ -1180,7 +1180,7 @@ fn decide_to_declare(
         stay.push(("room to raise his stock".into(), -(0.12 * (headroom - 3.0)).min(1.2)));
     }
     let last = college[college.len() - 1];
-    if last.performance.is_some_and(|perf| perf < last.overall_start - 3.0) {
+    if last.performance.get().is_some_and(|perf| perf < last.overall_start - 3.0) {
         stay.push(("a bad final year to make up for".into(), -0.5));
     }
     let likely_team = if projected_pick >= 1 && projected_pick <= draft_slots {
@@ -1781,7 +1781,7 @@ fn simulate_league_years(
             let row = r.player.history.last_mut().unwrap();
             row.depth = Some(depth);
             if let Some(t) = team {
-                row.situation = Some(round_half_up(situation * 100.0) / 100.0);
+                row.situation = Some(round_half_up(situation * 100.0) / 100.0).into();
                 row.team = Some(t);
             }
             let perf = row.performance;
@@ -1804,7 +1804,7 @@ fn simulate_league_years(
             } else {
                 s.unsigned_years += 1;
             }
-            s.last_perf = perf;
+            s.last_perf = perf.get();
             s.first_year = false;
             s.new_team = false;
             if retires(s, r, &report, rng) {

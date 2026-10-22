@@ -1199,6 +1199,7 @@ fn file_lines(w: &mut World, s: usize) {
             games: e.games,
             s: e.s.map(|v| v.clamp(i16::MIN as i32, i16::MAX as i32) as i16),
         };
+        w.people[i].hs_lines.reserve_exact(1);
         w.people[i].hs_lines.push(line);
         if !w.recording {
             continue;

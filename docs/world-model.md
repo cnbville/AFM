@@ -403,8 +403,19 @@ Built overnight for the final build (`docs/final-build/briefs/lane1-foundations.
 - Filled for every line the engine writes that names a person, game or team: games and scores, polls, awards, records, signings, commitments, offers, visits, decommitments, the portal, declarations and withdrawals, draft picks and trades, NFL signings, tags, extensions, suspensions, Pro Bowls and All-Pros, Halls of Fame, hires, firings and extensions of coaches. "On this day" lines carry the old line's links.
 - The game crate cuts a line into parts (`calendar::events::segments`) and links the program or club a line is filed under even when its writer didn't name it.
 
+### Memory compaction
+
+The game holds the whole world in memory. In season it now fits the agreed 4 GB (measured in `docs/game.md`, "Memory (final build lane 1)"). Every change keeps the same results per seed: the values are the same bits, only how they are kept changed.
+
+- A player's season rows (`player::SeasonRecord`) keep their optional numbers (performance, the first-year dip, the spring gains, the pro situation) as `OptF64`: 8 bytes, with "none" as a NaN that no rating ever is. A row is 136 bytes, not 176, and is written to files as before.
+- Season rows, high school lines, notes, position changes and college staff rows grow by exactly one. Before, a list doubled its room when it filled, so a world of three million rows held room for twice that.
+- A stat book row (`records::SeasonRecord`) keeps only the numbers that aren't zero (`records::StatSet`: a bit per stat and the values in order). A lineman's row has no passing or kicking numbers. The book went from 0.60 to 0.28 GB. It is written as the full list, so world files keep their shape.
+- Last year's college season keeps only what the next year reads (its results, the rivalry series and the academy trophy) once the new season starts. Its games, rosters and stat lines went with it before.
+- The new class of 14-year-olds is built straight into the people list's room, in order, not in a list of its own first.
+
 ### Decided in the final build (Claude's pick)
 
+- Memory: kept every value's type (an 8-byte float stays 8 bytes) so no result moves, and compacted how values are held instead; the game hands freed pages back to the system after a load and after each Continue (`afm-game/src/memory.rs`).
 - Held-back rates by birth month (8-19%) and young-for-class rates (0.3-2.2%): weighed NCES retention (about 10% of high schoolers have repeated a grade) against kindergarten redshirting (summer boys most); a boy is held back at most one year.
 - Old world files get no held-back boys: a birthday inside each person's own class keeps every grade, roster and result the file had; held-back boys come with every class built after.
 - Aura's links (ego 0.2, leadership 0.15), its growth (8% a year from 15 to 27, +10% at a big program, +15% in a pro's first three seasons) and its multiplier on fame; fame's weights by stage, role, position, market and honors; the money and follower scales above. Weighed against real off-field money (Forbes 2024), On3's NIL valuations and the follower counts of real stars and backups.

@@ -1,6 +1,7 @@
 //! Engine tests, ported from the TypeScript model. Calibration of a whole
 //! national class lives in afm-tools (it needs the debug summary).
 
+mod compact;
 mod development;
 mod foundations;
 mod game_stats;

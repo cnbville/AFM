@@ -184,6 +184,27 @@ pub(crate) struct CollegeSeason {
 /// A rivalry's record over the world's history (A28): wins by its first
 /// and second listed programs, the first season counted, and the trophy's
 /// holder (the last rivalry game's winner).
+/// Last year's season once the new one starts (memory): the next year
+/// reads only its results (the coaches' and programs' book on signing day),
+/// its rivalry series and the academy trophy, so the games, rosters, stat
+/// lines and polls are let go instead of riding through the whole season.
+pub(crate) fn keep_for_next_year(c: &mut CollegeSeason) {
+    c.games = Vec::new();
+    c.teams = Vec::new();
+    c.coaches = Vec::new();
+    c.banned = Vec::new();
+    c.snaps = HashMap::new();
+    c.lines = HashMap::new();
+    c.book = HashMap::new();
+    c.out = HashMap::new();
+    c.polls = Vec::new();
+    c.brackets = Vec::new();
+    c.credited = Vec::new();
+    c.awards = Vec::new();
+    c.bowl_teams = HashSet::new();
+    c.rivalry_of = HashMap::new();
+}
+
 #[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Series {
     pub wins: [u32; 2],
@@ -2832,7 +2853,7 @@ fn played_as_redshirt(p: &mut super::Person, played: u32, team_games: u32, burne
         p.last_role = Some(PlayingTime::Backup);
     }
     let perf = clamp((camp + h.overall) / 2.0 + play, crate::attributes::MIN_RATING, crate::attributes::MAX_RATING);
-    h.performance = Some(perf);
+    h.performance = Some(perf).into();
     p.last_performance = Some(perf);
     // An injury this year cost him games he could have played (the yearly
     // step's ranges), at most the games his team played without him.
