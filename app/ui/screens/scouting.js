@@ -225,7 +225,7 @@ function scFileSummary(f) {
   const b = f.board || {};
   const reads = [
     b.rank ? `<li><b>Your board: No. ${b.rank}</b>${b.tier ? `, tier ${b.tier}` : ""}.</li>` : "",
-    b.public ? `<li><b>The public: No. ${b.public}.</b> ${b.rank ? (Math.abs(b.public - b.rank) >= Math.max(12, Math.round(b.rank * 0.35)) ? (b.public > b.rank ? "You are out on a limb: higher on him than the public." : "You are out on a limb: lower on him than the public.") : "Close to your own order." : ""}</li>` : "",
+    b.public ? `<li><b>The public: No. ${b.public}.</b> ${b.rank ? (Math.abs(b.public - b.rank) >= Math.max(12, Math.round(b.rank * 0.35)) ? (b.public > b.rank ? "You are out on a limb: higher on him than the public." : "You are out on a limb: lower on him than the public.") : "Close to your own order.") : ""}</li>` : "",
     f.stars ? `<li><b>The services: ${f.stars}★.</b> ${s.role ? `Your staff: ${esc(s.role).toLowerCase()}.` : ""}</li>` : "",
     f.choices && f.choices.length ? `<li><b>His choices:</b> ${esc(f.choices.join(", "))}.</li>` : "",
   ].filter(Boolean).join("");
@@ -313,7 +313,7 @@ function scFileMed(f) {
     ? tbl(["Where", "Date", "40", "Bench", "Vertical", "Broad", "3-cone", "Shuttle"], f.tests.map((t) => [esc(t.where), t.date, t.forty ? t.forty.toFixed(2) : "-", t.bench, t.vertical ? t.vertical.toFixed(1) : "-", t.broad, t.cone ? t.cone.toFixed(2) : "-", t.shuttle ? t.shuttle.toFixed(2) : "-"]))
     : scEmpty("He hasn't tested in front of your staff: no combine, pro day or camp in the file.");
   return `<div class="grid2"><div style="display:grid;gap:18px"><div class="panel warm"><h2>Medical <small>${m && m.examined ? "examined by your doctors" : "records and film only"}</small></h2>
-      ${m ? `<div class="sc-medbig"><b class="st-wide">${esc(m.words)}</b><span class="sub">of: cleared, minor concern, major concern, failed</span></div>${(m.notes || []).length ? `<div class="items">${m.notes.map((x) => `<div class="item story"><span>${esc(x)}</span></div>`).join("")}</div>` : ""}${m.examined ? "" : '<div class="sc-flagline"><span class="st-pill">No exam</span><span class="st-pill">No imaging</span><span class="sub">A recheck or the combine puts your own doctors' hands on him.</span></div>'}` : scEmpty("No medical read yet.")}</div>
+      ${m ? `<div class="sc-medbig"><b class="st-wide">${esc(m.words)}</b><span class="sub">of: cleared, minor concern, major concern, failed</span></div>${(m.notes || []).length ? `<div class="items">${m.notes.map((x) => `<div class="item story"><span>${esc(x)}</span></div>`).join("")}</div>` : ""}${m.examined ? "" : '<div class="sc-flagline"><span class="st-pill">No exam</span><span class="st-pill">No imaging</span><span class="sub">A recheck or the combine puts your own doctors’ hands on him.</span></div>'}` : scEmpty("No medical read yet.")}</div>
     <div class="panel warm"><h2>Measured and timed</h2>${tests}</div></div>
     <div class="panel warm"><h2>Academics <small>${a.transcript ? "from his transcript" : "from what people say: no transcript yet"}</small></h2>
       <div class="st-tiles"><div><b>${a.gpa[0].toFixed(1)}-${a.gpa[1].toFixed(1)}</b><small>core GPA, your read</small></div>${a.test ? `<div><b>${a.test}</b><small>test score</small></div>` : ""}<div><b class="sc-tile-w">${esc(a.eligible)}</b><small>eligibility</small></div></div>

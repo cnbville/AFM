@@ -190,9 +190,13 @@ pub fn sees(kind: Kind, a: Attr) -> Option<f64> {
         }
     };
     match kind {
-        Kind::Film | Kind::HsFilm | Kind::CollegeFilm | Kind::ProFilm | Kind::CrossCheck | Kind::Director | Kind::Gm => {
-            film(8.0, 7.0, 7.5)
-        }
+        Kind::Film
+        | Kind::HsFilm
+        | Kind::CollegeFilm
+        | Kind::ProFilm
+        | Kind::CrossCheck
+        | Kind::Director
+        | Kind::Gm => film(8.0, 7.0, 7.5),
         Kind::Coach => film(8.0, 6.5, 7.5),
         Kind::School => {
             if mental {
@@ -546,7 +550,8 @@ pub fn read(
         for a in Attr::ALL {
             let k = a.index();
             if let Some(sd) = measures(l.kind, a)
-                && (readers[l.reader].link == Link::Event || matches!(l.kind, Kind::Camp | Kind::Workout | Kind::LocalDay | Kind::Tryout))
+                && (readers[l.reader].link == Link::Event
+                    || matches!(l.kind, Kind::Camp | Kind::Workout | Kind::LocalDay | Kind::Tryout))
             {
                 if meas[k].is_none_or(|m| sd < m.0) {
                     meas[k] = Some((sd, l.kind));
@@ -596,7 +601,8 @@ pub fn read(
             };
             let sd = sharp(skill) * best[r][k] * vis;
             let c = cat_index(cat) as u64;
-            let lean = 0.7 * key_normal(rd.key ^ 0x1EA4 ^ c << 56, id) + 0.714 * key_normal(rd.key ^ 0xA77 ^ (k as u64) << 50, id);
+            let lean = 0.7 * key_normal(rd.key ^ 0x1EA4 ^ c << 56, id)
+                + 0.714 * key_normal(rd.key ^ 0xA77 ^ (k as u64) << 50, id);
             let yr = if r < 64 { year[r] } else { w.year as u64 };
             let noise = key_normal(rd.key ^ 0x0153 ^ (k as u64) << 50 ^ yr << 40, id);
             let nn = n as f64;
@@ -938,7 +944,12 @@ pub fn hints(w: &World, i: usize, readers: &[Reader], looks: &[Evidence]) -> Vec
     let small = p.player.body.weight < size.2 - size.3;
     let mut facts: Vec<(bool, &'static str, &'static str, u64)> = vec![
         (young && p.player.bloom >= 1.0, "still growing into his body", "looks physically mature already", 1),
-        (young && p.player.bloom <= -1.0, "an early bloomer: physically mature already", "still growing into his body", 2),
+        (
+            young && p.player.bloom <= -1.0,
+            "an early bloomer: physically mature already",
+            "still growing into his body",
+            2,
+        ),
         (young && p.player.has_had(E::BodyStalled), "his body may be done growing", "still growing into his body", 3),
         (body_gap >= 15.0, "a frame to add 20 pounds", "maxed out on his frame", 4),
         (per.work_ethic >= 15.0, "a tireless worker", "questions about his work ethic", 5),
@@ -966,13 +977,17 @@ pub fn hints(w: &World, i: usize, readers: &[Reader], looks: &[Evidence]) -> Vec
             12,
         ),
         (
-            matches!(p.player.position, Position::EDGE | Position::LB) && small && p.player.attributes.get(Attr::FinesseRush) >= 65.0,
+            matches!(p.player.position, Position::EDGE | Position::LB)
+                && small
+                && p.player.attributes.get(Attr::FinesseRush) >= 65.0,
             "wins with bend and speed for his size: production should carry up",
             "a tweener without a position",
             13,
         ),
         (
-            p.player.position == Position::QB && p.player.attributes.get(Attr::Speed) >= 80.0 && p.player.attributes.get(Attr::ShortAccuracy) < 55.0,
+            p.player.position == Position::QB
+                && p.player.attributes.get(Attr::Speed) >= 80.0
+                && p.player.attributes.get(Attr::ShortAccuracy) < 55.0,
             "a safety's body playing quarterback",
             "a pocket passer",
             14,
@@ -1016,7 +1031,11 @@ pub fn comparison(w: &World, i: usize, eye: f64, file: &FileRead) -> Option<(Str
     // His style as the staff reads it: each seen attribute's distance from
     // his own average, by position weight.
     let mean_seen = {
-        let v: Vec<f64> = Attr::ALL.iter().filter(|a| file.attrs[a.index()].seen && weight(pos, **a) > 0.0).map(|a| file.attrs[a.index()].centre).collect();
+        let v: Vec<f64> = Attr::ALL
+            .iter()
+            .filter(|a| file.attrs[a.index()].seen && weight(pos, **a) > 0.0)
+            .map(|a| file.attrs[a.index()].centre)
+            .collect();
         if v.len() < 6 {
             return None;
         }
@@ -1025,7 +1044,8 @@ pub fn comparison(w: &World, i: usize, eye: f64, file: &FileRead) -> Option<(Str
     let shape = |get: &dyn Fn(Attr) -> f64, mean: f64| -> Vec<f64> {
         Attr::ALL.iter().map(|&a| if weight(pos, a) > 0.0 { get(a) - mean } else { 0.0 }).collect()
     };
-    let mine = shape(&|a: Attr| if file.attrs[a.index()].seen { file.attrs[a.index()].centre } else { mean_seen }, mean_seen);
+    let mine =
+        shape(&|a: Attr| if file.attrs[a.index()].seen { file.attrs[a.index()].centre } else { mean_seen }, mean_seen);
     let h = p.player.body.height;
     let wt = p.player.body.weight;
     let noise_sd = 0.6 * sharp(eye);
@@ -1035,7 +1055,8 @@ pub fn comparison(w: &World, i: usize, eye: f64, file: &FileRead) -> Option<(Str
             return;
         }
         let m: f64 = {
-            let v: Vec<f64> = Attr::ALL.iter().filter(|&&a| weight(pos, a) > 0.0).map(|&a| pl.attributes.get(a)).collect();
+            let v: Vec<f64> =
+                Attr::ALL.iter().filter(|&&a| weight(pos, a) > 0.0).map(|&a| pl.attributes.get(a)).collect();
             v.iter().sum::<f64>() / v.len().max(1) as f64
         };
         let theirs = shape(&|a: Attr| pl.attributes.get(a), m);
@@ -1051,7 +1072,8 @@ pub fn comparison(w: &World, i: usize, eye: f64, file: &FileRead) -> Option<(Str
     // from the record.
     for q in w.people.iter() {
         if q.stage == crate::world::Stage::Pro && q.pro.as_ref().is_some_and(|c| c.accrued >= 3) {
-            let team = q.pro.as_ref().and_then(|c| c.team).map_or_else(|| "the NFL".to_string(), |t| w.nfl_team_name(t));
+            let team =
+                q.pro.as_ref().and_then(|c| c.team).map_or_else(|| "the NFL".to_string(), |t| w.nfl_team_name(t));
             consider(&q.player, &q.name, team, Some(q.player.id));
         }
     }

@@ -1128,7 +1128,12 @@ pub(crate) fn boards(w: &World, pool: &[(usize, f64)], align: &crate::level_rati
 }
 
 /// One club's board (your war room's, on its screens), the same way.
-pub(crate) fn board_for(w: &World, t: usize, pool: &[(usize, f64)], align: &crate::level_rating::PositionAligner) -> Board {
+pub(crate) fn board_for(
+    w: &World,
+    t: usize,
+    pool: &[(usize, f64)],
+    align: &crate::level_rating::PositionAligner,
+) -> Board {
     let people: Vec<usize> = pool.iter().map(|x| x.0).collect();
     let ctx = Ctx::new(w, &people);
     let r: HashMap<usize, Read> = match w.clubs.get(t) {

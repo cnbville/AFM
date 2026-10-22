@@ -65,7 +65,8 @@ fn hold(w: &mut World, d: Date) {
                 continue;
             }
             let read = ov
-                + 4.0 * (crate::world::season::key_normal(0x5A9 ^ (t as u64) << 20, id as u64))
+                + 4.0
+                    * (crate::world::season::key_normal(0x5A9 ^ (t as u64) << 20, id as u64))
                     * (1.4 - 0.04 * w.clubs[t].office.gm.skill);
             let round = if Some(t) == seat {
                 w.scouting.pro.supp_bids.iter().find(|b| b.0 == id).map_or(0, |b| b.1)
@@ -103,7 +104,11 @@ fn hold(w: &mut World, d: Date) {
                     year + 1
                 ));
                 let _ = pick;
-                let terms = crate::world::pro::money::undrafted_offer(year, crate::world::pro::money::price_cap(year) * 0.004 / round as f64, 0.0);
+                let terms = crate::world::pro::money::undrafted_offer(
+                    year,
+                    crate::world::pro::money::price_cap(year) * 0.004 / round as f64,
+                    0.0,
+                );
                 crate::world::pro::join_undrafted(w, i, t, year, &terms);
                 let text = format!(
                     "Supplemental draft: the {} take {name} ({school}) and give up their {} round {round} pick.",

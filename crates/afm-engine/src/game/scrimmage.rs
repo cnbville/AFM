@@ -514,9 +514,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             | crate::positions::Position::TE
             | crate::positions::Position::RB
             | crate::positions::Position::CB
-            | crate::positions::Position::S => {
-                1.0 - 0.45 * (sim.player(i).chem - super::roster::TYPICAL_CHEM) as f64
-            }
+            | crate::positions::Position::S => 1.0 - 0.45 * (sim.player(i).chem - super::roster::TYPICAL_CHEM) as f64,
             _ => 1.0,
         };
         let p = ((1.0 - know) * 0.05 + (60.0 - iq).max(0.0) * 0.0006 + noise + check + install + lapse).max(0.0)

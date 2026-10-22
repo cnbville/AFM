@@ -1287,8 +1287,12 @@ pub(crate) fn draft_step(w: &mut World, run: &mut DraftRun, seat: Option<usize>,
     let t = run.board[slot].0;
     let found = match choice {
         Some(i) => run.pool.iter().position(|x| x.0 == i).map(|idx| {
-            let (_, pv, need, g) = draft_value(w, run, t, i, pick)
-                .unwrap_or((0.0, 0.0, 0.0, run.boards.get(t).and_then(|b| b.grade.get(&i).copied()).unwrap_or(0.0)));
+            let (_, pv, need, g) = draft_value(w, run, t, i, pick).unwrap_or((
+                0.0,
+                0.0,
+                0.0,
+                run.boards.get(t).and_then(|b| b.grade.get(&i).copied()).unwrap_or(0.0),
+            ));
             (idx, 0.0, pv, need, g)
         }),
         None => {
@@ -1533,8 +1537,7 @@ pub(crate) fn draft_end(
                     _ => Loudness::Small,
                 };
                 let text = format!("Pick {pk}: the {team} take {} ({}, {school}).", p.name, p.player.position);
-                let mut e =
-                    Event::new(when.date, CalLevel::Nfl, Kind::DraftPick, loud, text).at(when).program(c);
+                let mut e = Event::new(when.date, CalLevel::Nfl, Kind::DraftPick, loud, text).at(when).program(c);
                 if pk == 1 {
                     e = e.memorable();
                 }

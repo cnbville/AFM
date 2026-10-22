@@ -52,13 +52,17 @@ pub struct LiveDraft {
     pub revealed: Option<(u32, u32)>,
 }
 
+/// One pick on the record: pick, round, club, player id, name, position,
+/// school, why.
+pub type PickLine = (u32, u32, usize, u32, String, String, String, String);
+
 /// The war room's last draft, kept for its page and the look-back.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct DraftRecord {
     pub year: i32,
     pub team: usize,
     /// Every pick: pick, round, club, player id, name, position, school, why.
-    pub picks: Vec<(u32, u32, usize, u32, String, String, String, String)>,
+    pub picks: Vec<PickLine>,
     pub trades: Vec<String>,
     /// The rush: player id, name, club, bonus, whether you'd called him.
     pub rush: Vec<(u32, String, usize, f64, bool)>,
@@ -106,16 +110,20 @@ pub(crate) fn start(w: &mut World, run: &mut DraftRun) -> bool {
             l.run.public_rank.iter().map(|(&i, &r)| (w.people[i].player.id, r)).collect();
         super::lookback::snapshot(w, &grades, &public);
     }
-    let text = format!(
-        "The {} draft is on. Your war room is open: the picks run to your turn and wait for you.",
-        w.year
-    );
+    let text =
+        format!("The {} draft is on. Your war room is open: the picks run to your turn and wait for you.", w.year);
     let d = w.today;
     w.calendar.post(
-        crate::calendar::Event::new(d, crate::calendar::Level::Nfl, crate::calendar::Kind::DraftPick, crate::calendar::Loudness::Huge, text)
-            .team(team)
-            .decision()
-            .rule("Your war room"),
+        crate::calendar::Event::new(
+            d,
+            crate::calendar::Level::Nfl,
+            crate::calendar::Kind::DraftPick,
+            crate::calendar::Loudness::Huge,
+            text,
+        )
+        .team(team)
+        .decision()
+        .rule("Your war room"),
     );
     advance(w, Until::Yours);
     true
@@ -180,7 +188,10 @@ fn push_feed(w: &World, l: &mut LiveDraft, swaps_before: usize) {
             round,
             team: s.0,
             player: None,
-            text: format!("Trade: the {} move up to pick {} with the {}, giving {}.", w.nfl[s.0].name, s.2, w.nfl[s.1].name, s.3),
+            text: format!(
+                "Trade: the {} move up to pick {} with the {}, giving {}.",
+                w.nfl[s.0].name, s.2, w.nfl[s.1].name, s.3
+            ),
         });
     }
     if let Some(&(i, pick, t, ref why)) = l.run.picked.last()
@@ -230,16 +241,13 @@ pub fn staff_choice(w: &World, l: &LiveDraft) -> Option<u32> {
     let grades = grades(w, l);
     let order = super::board::ordered(w, &grades);
     let pick = l.run.next;
-    order
-        .into_iter()
-        .filter(|id| !w.scouting.board.is_dnd(*id))
-        .find(|id| {
-            l.run
-                .pool
-                .iter()
-                .find(|x| w.people[x.0].player.id == *id)
-                .is_some_and(|x| recruiting::draft_value(w, &l.run, l.team, x.0, pick).is_some())
-        })
+    order.into_iter().filter(|id| !w.scouting.board.is_dnd(*id)).find(|id| {
+        l.run
+            .pool
+            .iter()
+            .find(|x| w.people[x.0].player.id == *id)
+            .is_some_and(|x| recruiting::draft_value(w, &l.run, l.team, x.0, pick).is_some())
+    })
 }
 
 /// Your club's grade of every player left (player id to the aligned grade).
@@ -248,9 +256,9 @@ pub fn grades(w: &World, l: &LiveDraft) -> std::collections::HashMap<u32, f64> {
     l.run
         .pool
         .iter()
-        .filter_map(|&(i, public)| {
+        .map(|&(i, public)| {
             let g = b.and_then(|b| b.grade.get(&i).copied()).unwrap_or(public);
-            Some((w.people[i].player.id, g))
+            (w.people[i].player.id, g)
         })
         .collect()
 }
@@ -509,7 +517,7 @@ pub fn rush(w: &mut World) -> Result<DraftRecord, String> {
     }
     let called: std::collections::HashSet<usize> = mine.iter().map(|x| x.0).collect();
     let year = l.run.year;
-    let picks: Vec<(u32, u32, usize, u32, String, String, String, String)> = l
+    let picks: Vec<PickLine> = l
         .run
         .picked
         .iter()
@@ -545,8 +553,8 @@ pub fn default_pfa(w: &World, l: &LiveDraft) -> Vec<(u32, u32, u32)> {
     let grades = grades(w, l);
     let order = super::board::ordered(w, &grades);
     let room = w.rules.nfl_offseason as usize;
-    let have = w.clubs.get(l.team).map_or(0, |c| c.roster.len())
-        + l.run.picked.iter().filter(|x| x.2 == l.team).count();
+    let have =
+        w.clubs.get(l.team).map_or(0, |c| c.roster.len()) + l.run.picked.iter().filter(|x| x.2 == l.team).count();
     let n = room.saturating_sub(have).clamp(4, 20);
     let pool = crate::world::pro::scouts::udfa_pool(l.run.year);
     let min_pay = crate::world::pro::money::minimum(l.run.year, 0);

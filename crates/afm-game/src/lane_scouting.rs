@@ -79,7 +79,12 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "board_list" => (|| {
             let pid = id()?;
             let w = game.wm()?;
-            board_list(w, pid, num("list").unwrap_or(0) as u8, args.get("on").and_then(Value::as_bool).unwrap_or(true))?;
+            board_list(
+                w,
+                pid,
+                num("list").unwrap_or(0) as u8,
+                args.get("on").and_then(Value::as_bool).unwrap_or(true),
+            )?;
             draft_board(w)
         })(),
         "draft_live" => (|| war_room(game.w()?))(),
@@ -175,14 +180,22 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
 
 // --- Shared pieces -------------------------------------------------------------------------
 
-const REGION_NAMES: [&str; 8] =
-    ["Northeast", "Mid-Atlantic", "Deep South", "Midwest", "Plains", "Texas and Louisiana", "Mountain West", "West Coast"];
+const REGION_NAMES: [&str; 8] = [
+    "Northeast",
+    "Mid-Atlantic",
+    "Deep South",
+    "Midwest",
+    "Plains",
+    "Texas and Louisiana",
+    "Mountain West",
+    "West Coast",
+];
 
 fn staff_of(w: &World) -> Result<readers::Staff, String> {
     readers::seat_staff(w).ok_or_else(|| "Start a career first.".to_string())
 }
 
-fn person<'a>(w: &'a World, id: u32) -> Result<(usize, &'a Person), String> {
+fn person(w: &World, id: u32) -> Result<(usize, &Person), String> {
     let i = sc::place(w, id).ok_or("That player is no longer in football.")?;
     Ok((i, &w.people[i]))
 }
@@ -190,7 +203,9 @@ fn person<'a>(w: &'a World, id: u32) -> Result<(usize, &'a Person), String> {
 /// Where a player is now, in a few words.
 fn school_of(w: &World, p: &Person) -> String {
     match p.stage {
-        Stage::HighSchool | Stage::PrepSchool => w.high_schools.get(p.hs).map_or(String::new(), |s| w.school_name(s.id).to_string()),
+        Stage::HighSchool | Stage::PrepSchool => {
+            w.high_schools.get(p.hs).map_or(String::new(), |s| w.school_name(s.id).to_string())
+        }
         Stage::College | Stage::Declared => p.college.map_or(String::new(), |c| w.program_name(c).to_string()),
         Stage::Pro => p.pro.as_ref().and_then(|c| c.team).map_or("Free agent".into(), |t| w.nfl_team_name(t)),
         _ => p.college.map_or(String::new(), |c| w.program_name(c).to_string()),
@@ -486,7 +501,9 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
                         return json!({ "name": file::TRAIT_NAMES[k], "word": "Not read yet" });
                     }
                     let main = looks.get(t.main);
-                    let (src, shade) = main.map_or(("our staff", file::Shade::True), |l| lines::note_source(l.kind, key, id as u64 ^ k as u64));
+                    let (src, shade) = main.map_or(("our staff", file::Shade::True), |l| {
+                        lines::note_source(l.kind, key, id as u64 ^ k as u64)
+                    });
                     json!({
                         "name": file::TRAIT_NAMES[k],
                         "word": lines::trait_word(k, t.centre),
@@ -553,9 +570,19 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
     // Board flags.
     let b = &w.scouting.board;
     let our_rank = b.order.iter().position(|&x| x == id);
-    let public_rank = if matches!(p.stage, Stage::Declared | Stage::College) { board::public_ranks(w).get(&id).copied() } else { None };
-    let lists: Vec<&str> =
-        w.scouting.predraft.lists.iter().filter(|x| x.0 == id).map(|x| predraft::LIST_NAMES[(x.1 as usize).min(3)]).collect();
+    let public_rank = if matches!(p.stage, Stage::Declared | Stage::College) {
+        board::public_ranks(w).get(&id).copied()
+    } else {
+        None
+    };
+    let lists: Vec<&str> = w
+        .scouting
+        .predraft
+        .lists
+        .iter()
+        .filter(|x| x.0 == id)
+        .map(|x| predraft::LIST_NAMES[(x.1 as usize).min(3)])
+        .collect();
     let followers = w.scouting.social.followers.get(&id).copied();
     let choices = w.scouting.predraft.choices.get(&id).map_or(Vec::new(), |&c| predraft::choice_words(c));
     let (lh, lw) = file::listed(&p.player);
@@ -709,23 +736,42 @@ fn staff_people(w: &World, staff: readers::Staff) -> Vec<(u32, String, String, V
     match staff {
         readers::Staff::Club(t) => {
             if let Some(c) = w.clubs.get(t) {
-                let areas = c.scouts.iter().filter(|s| s.role == afm_engine::world::pro::scouts::Role::Area).count().max(1);
+                let areas =
+                    c.scouts.iter().filter(|s| s.role == afm_engine::world::pro::scouts::Role::Area).count().max(1);
                 for (k, s) in c.scouts.iter().enumerate() {
                     let (job, area) = match s.role {
-                        afm_engine::world::pro::scouts::Role::Director => ("Director of college scouting".to_string(), "Top of the board".to_string()),
-                        afm_engine::world::pro::scouts::Role::National => ("National scout".to_string(), "Cross-checks".to_string()),
+                        afm_engine::world::pro::scouts::Role::Director => {
+                            ("Director of college scouting".to_string(), "Top of the board".to_string())
+                        }
+                        afm_engine::world::pro::scouts::Role::National => {
+                            ("National scout".to_string(), "Cross-checks".to_string())
+                        }
                         afm_engine::world::pro::scouts::Role::Area => {
-                            let regions: Vec<&str> =
-                                (0..8u8).filter(|r| (*r as usize) % areas == s.region as usize).map(|r| REGION_NAMES[r as usize]).collect();
+                            let regions: Vec<&str> = (0..8u8)
+                                .filter(|r| (*r as usize) % areas == s.region as usize)
+                                .map(|r| REGION_NAMES[r as usize])
+                                .collect();
                             ("Area scout".to_string(), regions.join(", "))
                         }
                     };
-                    v.push((k as u32, s.name.clone(), job, json!({ "area": area, "since": s.since, "age": w.year - s.born })));
+                    v.push((
+                        k as u32,
+                        s.name.clone(),
+                        job,
+                        json!({ "area": area, "since": s.since, "age": w.year - s.born }),
+                    ));
                 }
                 let tm = &w.nfl[t];
-                for (c, job) in [(tm.head_coach, "Head coach"), (tm.oc, "Offensive coordinator"), (tm.dc, "Defensive coordinator")] {
+                for (c, job) in
+                    [(tm.head_coach, "Head coach"), (tm.oc, "Offensive coordinator"), (tm.dc, "Defensive coordinator")]
+                {
                     if let Some(c) = c {
-                        v.push((readers::COACH + c as u32, w.coaches[c].name.clone(), job.into(), json!({ "coach": c })));
+                        v.push((
+                            readers::COACH + c as u32,
+                            w.coaches[c].name.clone(),
+                            job.into(),
+                            json!({ "coach": c }),
+                        ));
                     }
                 }
                 for (k, s) in w.scouting.pro.scouts.iter().enumerate() {
@@ -762,7 +808,12 @@ fn staff_people(w: &World, staff: readers::Staff) -> Vec<(u32, String, String, V
                     .find(|a| a.0 == c)
                     .map(|a| a.1.iter().filter_map(|&s| w.states.get(s as usize).map(|x| x.code.to_string())).collect())
                     .unwrap_or_default();
-                v.push((readers::COACH + c as u32, w.coaches[c].name.clone(), job, json!({ "coach": c, "area": area.join(", ") })));
+                v.push((
+                    readers::COACH + c as u32,
+                    w.coaches[c].name.clone(),
+                    job,
+                    json!({ "coach": c, "area": area.join(", ") }),
+                ));
             }
             for (k, p) in readers::personnel(w, prog).into_iter().enumerate() {
                 v.push((readers::PERSONNEL + k as u32, p.name, p.job.to_string(), json!({ "since": p.since })));
@@ -770,7 +821,12 @@ fn staff_people(w: &World, staff: readers::Staff) -> Vec<(u32, String, String, V
         }
         readers::Staff::School(h) => {
             if let Some(c) = w.high_schools.get(h).and_then(|s| s.coach) {
-                v.push((readers::COACH + c as u32, w.coaches[c].name.clone(), "Head coach".into(), json!({ "coach": c })));
+                v.push((
+                    readers::COACH + c as u32,
+                    w.coaches[c].name.clone(),
+                    "Head coach".into(),
+                    json!({ "coach": c }),
+                ));
             }
             if let Some(car) = &w.career {
                 for (k, a) in car.hs_staff.iter().enumerate() {
@@ -883,12 +939,16 @@ fn staff_people_name(w: &World, staff: readers::Staff, who: u32) -> String {
 
 fn target_words(w: &World, t: dept::Target) -> String {
     match t {
-        dept::Target::Player(id) => sc::place(w, id).map_or("A player".into(), |i| format!("See {} again", w.people[i].name)),
+        dept::Target::Player(id) => {
+            sc::place(w, id).map_or("A player".into(), |i| format!("See {} again", w.people[i].name))
+        }
         dept::Target::Region(r) => match w.seat.map(|s| s.level) {
             Some(CalLevel::Nfl) => REGION_NAMES.get(r as usize).map_or("A region".into(), |s| format!("The {s}")),
             _ => w.states.get(r as usize).map_or("A state".into(), |s| s.code.to_string()),
         },
-        dept::Target::Group(g) => format!("Every {} in the class", Group::ALL[(g as usize).min(7)].name().to_lowercase()),
+        dept::Target::Group(g) => {
+            format!("Every {} in the class", Group::ALL[(g as usize).min(7)].name().to_lowercase())
+        }
         dept::Target::CrossCheck => "Cross-check the top of the board".into(),
     }
 }
@@ -910,7 +970,9 @@ fn instruction_choices() -> Vec<(&'static str, dept::Instruction)> {
 fn assign_targets(w: &World, staff: readers::Staff) -> Vec<Value> {
     let mut v = vec![json!({ "key": "cross", "words": "Cross-check the top of the board" })];
     for (g, gr) in Group::ALL.iter().enumerate() {
-        v.push(json!({ "key": format!("group{g}"), "words": format!("Every {} in the class", gr.name().to_lowercase()) }));
+        v.push(
+            json!({ "key": format!("group{g}"), "words": format!("Every {} in the class", gr.name().to_lowercase()) }),
+        );
     }
     match staff {
         readers::Staff::Club(_) => {
@@ -978,8 +1040,16 @@ pub fn public_boards(w: &World) -> Value {
         .enumerate()
         .filter(|(_, d)| d.active(year))
         .map(|(k, d)| {
-            let board: Vec<Value> = s.boards.iter().find(|b| b.0 as usize == k).map_or(Vec::new(), |b| b.2.iter().take(32).filter_map(|&id| name(id)).collect());
-            let mock: Vec<Value> = s.mocks.iter().find(|m| m.0 as usize == k).map_or(Vec::new(), |m| m.2.iter().take(32).filter_map(|&id| name(id)).collect());
+            let board: Vec<Value> = s
+                .boards
+                .iter()
+                .find(|b| b.0 as usize == k)
+                .map_or(Vec::new(), |b| b.2.iter().take(32).filter_map(|&id| name(id)).collect());
+            let mock: Vec<Value> = s
+                .mocks
+                .iter()
+                .find(|m| m.0 as usize == k)
+                .map_or(Vec::new(), |m| m.2.iter().take(32).filter_map(|&id| name(id)).collect());
             json!({
                 "k": k,
                 "name": d.name,
@@ -995,11 +1065,18 @@ pub fn public_boards(w: &World) -> Value {
         })
         .collect();
     let consensus: Vec<Value> = s.weekly.last().map_or(Vec::new(), |c| c.1.iter().filter_map(|&id| name(id)).collect());
-    let prev: HashMap<u32, usize> = s.weekly.iter().rev().nth(1).map_or(HashMap::new(), |c| c.1.iter().enumerate().map(|(k, &id)| (id, k)).collect());
-    let moves: Vec<Value> = s
+    let prev: HashMap<u32, usize> = s
         .weekly
-        .last()
-        .map_or(Vec::new(), |c| c.1.iter().enumerate().map(|(k, id)| prev.get(id).map_or(json!(null), |&p| json!(p as i64 - k as i64))).collect());
+        .iter()
+        .rev()
+        .nth(1)
+        .map_or(HashMap::new(), |c| c.1.iter().enumerate().map(|(k, &id)| (id, k)).collect());
+    let moves: Vec<Value> = s.weekly.last().map_or(Vec::new(), |c| {
+        c.1.iter()
+            .enumerate()
+            .map(|(k, id)| prev.get(id).map_or(json!(null), |&p| json!(p as i64 - k as i64)))
+            .collect()
+    });
     json!({
         "draft_year": s.year,
         "desks": desks,
@@ -1016,7 +1093,10 @@ pub fn public_boards(w: &World) -> Value {
 // --- The draft board (screens topic 6, scouting topic 9) ---------------------------------
 
 fn my_club(w: &World) -> Result<usize, String> {
-    w.seat.filter(|s| s.level == CalLevel::Nfl).and_then(|s| s.nfl_team).ok_or_else(|| "Only an NFL club keeps a draft board.".into())
+    w.seat
+        .filter(|s| s.level == CalLevel::Nfl)
+        .and_then(|s| s.nfl_team)
+        .ok_or_else(|| "Only an NFL club keeps a draft board.".into())
 }
 
 pub fn draft_board(w: &World) -> Reply {
@@ -1026,7 +1106,11 @@ pub fn draft_board(w: &World) -> Reply {
     let public = board::public_ranks(w);
     let teams = afm_engine::world::franchise::active_teams(w.year).len().max(1);
     let b = &w.scouting.board;
-    let taken: HashSet<u32> = w.scouting.live.as_ref().map_or(HashSet::new(), |l| l.run.picked.iter().map(|x| w.people[x.0].player.id).collect());
+    let taken: HashSet<u32> = w
+        .scouting
+        .live
+        .as_ref()
+        .map_or(HashSet::new(), |l| l.run.picked.iter().map(|x| w.people[x.0].player.id).collect());
     let best_mock = &w.scouting.public.best_mock;
     let rows: Vec<Value> = order
         .iter()
@@ -1049,14 +1133,22 @@ pub fn draft_board(w: &World) -> Reply {
             r["taken"] = json!(taken.contains(&id));
             r["mock"] = json!(best_mock.get(&id));
             r["group"] = json!(Group::of(p.player.position).name());
-            r["choices"] = json!(w.scouting.predraft.choices.get(&id).map_or(Vec::new(), |&c| predraft::choice_words(c)));
+            r["choices"] =
+                json!(w.scouting.predraft.choices.get(&id).map_or(Vec::new(), |&c| predraft::choice_words(c)));
             Some(r)
         })
         .collect();
     // Your picks this draft.
     let year = w.year;
     let picks: Vec<Value> = match &w.scouting.live {
-        Some(l) => l.run.board.iter().enumerate().filter(|(_, s)| s.0 == t).map(|(k, s)| json!({ "pick": k + 1, "round": s.1 })).collect(),
+        Some(l) => l
+            .run
+            .board
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| s.0 == t)
+            .map(|(k, s)| json!({ "pick": k + 1, "round": s.1 }))
+            .collect(),
         None => afm_engine::world::pro::trades::owned_picks(w, t, year)
             .into_iter()
             .map(|(round, from)| json!({ "round": round, "from": from.map(|f| w.nfl_team_name(f)) }))
@@ -1082,7 +1174,10 @@ pub fn draft_board(w: &World) -> Reply {
 }
 
 fn director_name(w: &World, t: usize) -> Option<String> {
-    w.clubs.get(t).and_then(|c| c.scouts.iter().find(|s| s.role == afm_engine::world::pro::scouts::Role::Director)).map(|s| s.name.clone())
+    w.clubs
+        .get(t)
+        .and_then(|c| c.scouts.iter().find(|s| s.role == afm_engine::world::pro::scouts::Role::Director))
+        .map(|s| s.name.clone())
 }
 
 fn undrafted_pool(w: &World) -> f64 {
@@ -1164,7 +1259,11 @@ fn board_list(w: &mut World, id: u32, list: u8, on: bool) -> Result<(), String> 
         let d = w.today;
         if list == predraft::LIST_WORKOUT || list == predraft::LIST_MEDICAL {
             let who = match list {
-                predraft::LIST_WORKOUT => w.seat.and_then(|s| s.nfl_team).and_then(|t| w.nfl[t].head_coach).map_or(afm_engine::world::pro::scouts::HC as u32, |c| readers::COACH + c as u32),
+                predraft::LIST_WORKOUT => w
+                    .seat
+                    .and_then(|s| s.nfl_team)
+                    .and_then(|t| w.nfl[t].head_coach)
+                    .map_or(afm_engine::world::pro::scouts::HC as u32, |c| readers::COACH + c as u32),
                 _ => readers::MEDICAL,
             };
             let kind = if list == predraft::LIST_WORKOUT { Kind::Workout } else { Kind::Medical };
@@ -1265,7 +1364,9 @@ pub fn war_room(w: &World) -> Reply {
         .enumerate()
         .skip(next.saturating_sub(1))
         .take(12)
-        .map(|(k, s)| json!({ "pick": k + 1, "round": s.1, "team": team_brief(w, TeamRef::Nfl(s.0)), "mine": s.0 == t }))
+        .map(
+            |(k, s)| json!({ "pick": k + 1, "round": s.1, "team": team_brief(w, TeamRef::Nfl(s.0)), "mine": s.0 == t }),
+        )
         .collect();
     let staff_pick = live::staff_choice(w, l).and_then(|id| sc::place(w, id)).map(|i| row(w, i));
     let offers: Vec<Value> = l.offers.iter().enumerate().map(|(k, o)| offer_json(w, l, o, k)).collect();
@@ -1296,7 +1397,9 @@ pub fn war_room(w: &World) -> Reply {
         let reach = pub_rank as i64 - pk as i64 > (pk as i64 / 3).max(10);
         let good = (pk as i64 - pub_rank as i64) > 5;
         let desk = w.scouting.desks.iter().find(|d| d.active(run.year) && d.kind == public::DeskKind::Analyst);
-        r["take"] = json!(desk.map(|d| json!({ "who": d.name, "outlet": d.outlet, "says": lines::pick_take(good, reach, d.key, id as u64) })));
+        r["take"] = json!(desk.map(
+            |d| json!({ "who": d.name, "outlet": d.outlet, "says": lines::pick_take(good, reach, d.key, id as u64) })
+        ));
         Some(r)
     });
     Ok(json!({
@@ -1390,7 +1493,13 @@ pub fn draft_record(w: &World) -> Value {
         mine.iter()
             .filter_map(|m| {
                 let pk = m["pick"].as_u64()? as f64;
-                let rank = w.scouting.records.drafts.iter().find(|g| g.year == r.year && Some(g.id) == m["id"].as_u64().map(|x| x as u32))?.public? as f64;
+                let rank = w
+                    .scouting
+                    .records
+                    .drafts
+                    .iter()
+                    .find(|g| g.year == r.year && Some(g.id) == m["id"].as_u64().map(|x| x as u32))?
+                    .public? as f64;
                 Some(((pk - rank) / pk.max(8.0)).clamp(-2.0, 2.0))
             })
             .sum::<f64>(),
@@ -1465,7 +1574,9 @@ pub fn predraft_view(w: &World) -> Reply {
         ["Top-30 visits deadline", date_text(dates.draft[0].date.add(-10))],
         ["The draft", date_text(dates.draft[0].date)],
     ]);
-    Ok(json!({ "choices": choices, "leaks": leaks, "refuses": refuses, "lists": lists, "calendar": cal, "board": draft_board(w)? }))
+    Ok(
+        json!({ "choices": choices, "leaks": leaks, "refuses": refuses, "lists": lists, "calendar": cal, "board": draft_board(w)? }),
+    )
 }
 
 // --- Pro scouting (scouting topic 13) ----------------------------------------------------
@@ -1493,7 +1604,13 @@ pub fn pro_scouting(w: &World, args: &Value) -> Reply {
             .map(|&i| {
                 let mut r = row(w, i);
                 r["read"] = brief_read(w, staff, w.people[i].player.id);
-                r["contract"] = json!(w.people[i].pro.as_ref().and_then(|c| c.contract.as_ref()).map(|k| json!({ "apy": k.apy().round(), "through": k.last_year() })));
+                r["contract"] = json!(
+                    w.people[i]
+                        .pro
+                        .as_ref()
+                        .and_then(|c| c.contract.as_ref())
+                        .map(|k| json!({ "apy": k.apy().round(), "through": k.last_year() }))
+                );
                 r
             })
             .collect()
@@ -1503,7 +1620,9 @@ pub fn pro_scouting(w: &World, args: &Value) -> Reply {
         .people
         .iter()
         .enumerate()
-        .filter(|(_, p)| p.stage == Stage::Pro && p.pro.as_ref().is_some_and(|c| c.team.is_none()) && p.player.age <= 33)
+        .filter(|(_, p)| {
+            p.stage == Stage::Pro && p.pro.as_ref().is_some_and(|c| c.team.is_none()) && p.player.age <= 33
+        })
         .filter_map(|(i, p)| readers::read(w, staff, p.player.id).map(|(_, _, f)| (f.now.0, i)))
         .collect();
     street.sort_by(|a, b| b.0.total_cmp(&a.0));
@@ -1553,8 +1672,11 @@ pub fn pro_scouting(w: &World, args: &Value) -> Reply {
         .take(20)
         .map(|s| json!({ "year": s.year, "id": s.player, "name": s.name, "team": s.team.map(|t| team_brief(w, TeamRef::Nfl(t))), "round": s.round }))
         .collect();
-    let clubs: Vec<Value> =
-        afm_engine::world::franchise::active_teams(w.year).into_iter().filter(|&c| c != t).map(|c| team_brief(w, TeamRef::Nfl(c))).collect();
+    let clubs: Vec<Value> = afm_engine::world::franchise::active_teams(w.year)
+        .into_iter()
+        .filter(|&c| c != t)
+        .map(|c| team_brief(w, TeamRef::Nfl(c)))
+        .collect();
     Ok(json!({
         "scouts": scouts,
         "clubs": clubs,
@@ -1572,7 +1694,11 @@ pub fn pro_scouting(w: &World, args: &Value) -> Reply {
 // --- College: recruit and portal scouting (scouting topics 15, 17) -----------------------
 
 pub fn recruit_scouting(w: &World, args: &Value) -> Reply {
-    let prog = w.seat.filter(|s| s.level == CalLevel::College).and_then(|s| s.program).ok_or("Only a college staff scouts recruits.")?;
+    let prog = w
+        .seat
+        .filter(|s| s.level == CalLevel::College)
+        .and_then(|s| s.program)
+        .ok_or("Only a college staff scouts recruits.")?;
     let staff = readers::Staff::Program(prog);
     let what = args.get("list").and_then(Value::as_str).unwrap_or("board");
     let season = w.dates.season;
@@ -1588,7 +1714,11 @@ pub fn recruit_scouting(w: &World, args: &Value) -> Reply {
             .people
             .iter()
             .enumerate()
-            .filter(|(_, p)| p.juco && p.stage == Stage::College && p.college.is_some_and(|c| w.programs[c].division == afm_engine::world::data::Division::JUCO))
+            .filter(|(_, p)| {
+                p.juco
+                    && p.stage == Stage::College
+                    && p.college.is_some_and(|c| w.programs[c].division == afm_engine::world::data::Division::JUCO)
+            })
             .map(|(i, _)| i)
             .collect::<Vec<_>>(),
         _ => dept::watch(w, prog),
@@ -1634,8 +1764,15 @@ pub fn hs_side(w: &World) -> Reply {
             let mut r = row(w, i);
             let id = p.player.id;
             r["read"] = brief_read(w, staff, id);
-            r["offers"] = json!(p.cal.offers.iter().map(|&o| json!({ "id": o, "name": w.program_name(o) })).collect::<Vec<_>>());
-            r["visits"] = json!(p.cal.visits.iter().map(|v| json!({ "id": v.0, "name": w.program_name(v.0), "date": date_text(v.1) })).collect::<Vec<_>>());
+            r["offers"] =
+                json!(p.cal.offers.iter().map(|&o| json!({ "id": o, "name": w.program_name(o) })).collect::<Vec<_>>());
+            r["visits"] = json!(
+                p.cal
+                    .visits
+                    .iter()
+                    .map(|v| json!({ "id": v.0, "name": w.program_name(v.0), "date": date_text(v.1) }))
+                    .collect::<Vec<_>>()
+            );
             r["committed"] = json!(p.cal.commit.map(|c| w.program_name(c.0).to_string()));
             r["signed"] = json!(p.cal.signed.as_ref().map(|s| w.program_name(s.program).to_string()));
             r["promoted"] = json!(w.scouting.hs.promoted.iter().filter(|x| x.id == id).count());

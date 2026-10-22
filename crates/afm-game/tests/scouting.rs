@@ -22,7 +22,11 @@ fn an_nfl_war_room_runs_the_draft() {
     ok(&mut g, "build_world", json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let fresh = ok(&mut g, "save", json!({ "name": "fresh" }))["saved"].as_str().unwrap().to_string();
     let job = ok(&mut g, "jobs", json!({ "level": "nfl" }))["jobs"][0]["ref"].clone();
-    ok(&mut g, "start_career", json!({ "name": "Test GM", "age": 45, "background": "nfl_assistant", "job": job, "seed": 3 }));
+    ok(
+        &mut g,
+        "start_career",
+        json!({ "name": "Test GM", "age": 45, "background": "nfl_assistant", "job": job, "seed": 3 }),
+    );
     // The department and the public's word.
     let dept = ok(&mut g, "scouting", json!({}));
     assert!(dept["people"].as_array().unwrap().len() >= 8, "{}", dept["people"]);
@@ -49,7 +53,11 @@ fn an_nfl_war_room_runs_the_draft() {
     if file["seen"].as_bool().unwrap() {
         assert!(file["summary"]["role"].is_string(), "{}", file["summary"]);
         assert!(!file["looks"].as_array().unwrap().is_empty());
-        let any_range = file["groups"].as_array().unwrap().iter().any(|g| g["attrs"].as_array().unwrap().iter().any(|a| a["read"].is_array()));
+        let any_range = file["groups"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|g| g["attrs"].as_array().unwrap().iter().any(|a| a["read"].is_array()));
         assert!(any_range, "some ratings read");
     }
     // To draft day: Continue stops when the war room opens.
@@ -118,7 +126,11 @@ fn an_nfl_war_room_runs_the_draft() {
     // A college staff: the recruit board with reads, the portal, a file.
     ok(&mut g, "load", json!({ "path": fresh }));
     let job = ok(&mut g, "jobs", json!({ "level": "college" }))["jobs"][0]["ref"].clone();
-    ok(&mut g, "start_career", json!({ "name": "Test Coach", "age": 41, "background": "college_assistant", "job": job, "seed": 9 }));
+    ok(
+        &mut g,
+        "start_career",
+        json!({ "name": "Test Coach", "age": 41, "background": "college_assistant", "job": job, "seed": 9 }),
+    );
     ok(&mut g, "holiday", json!({ "days": 40 }));
     let rec = ok(&mut g, "recruit_scouting", json!({}));
     let rows = rec["rows"].as_array().unwrap();
@@ -138,7 +150,11 @@ fn an_nfl_war_room_runs_the_draft() {
     // A high school coach: your players, the colleges calling, a call made.
     ok(&mut g, "load", json!({ "path": fresh }));
     let hs = ok(&mut g, "jobs", json!({ "level": "hs" }))["jobs"][0]["ref"].clone();
-    ok(&mut g, "start_career", json!({ "name": "Test Coach", "age": 35, "background": "hs_coach", "job": hs, "seed": 5 }));
+    ok(
+        &mut g,
+        "start_career",
+        json!({ "name": "Test Coach", "age": 35, "background": "hs_coach", "job": hs, "seed": 5 }),
+    );
     let side = ok(&mut g, "hs_side", json!({}));
     let players = side["players"].as_array().unwrap();
     assert!(!players.is_empty());

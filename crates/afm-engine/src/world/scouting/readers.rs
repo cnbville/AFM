@@ -8,10 +8,10 @@
 use super::file::{Evidence, Link, Reader};
 use super::{Kind, SeatLook};
 use crate::rng::{Rng, clamp};
-use crate::world::{Stage, World};
 use crate::world::coach::{GROUP_COUNT, Group};
 use crate::world::pro::scouts::{self, DC, EVENT, GM, HC, OC, Role};
 use crate::world::season::key_uniform;
+use crate::world::{Stage, World};
 
 /// Whose files: an NFL club, a college program or a high school.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -191,7 +191,7 @@ pub fn reader(w: &World, staff: Staff, who: u32, group: usize) -> Option<Reader>
     match staff {
         Staff::Club(t) => club_reader(w, t, who, group),
         Staff::Program(prog) => {
-            if who >= PERSONNEL && who < HS_ASSISTANT {
+            if (PERSONNEL..HS_ASSISTANT).contains(&who) {
                 let k = (who - PERSONNEL) as usize;
                 let p = personnel(w, prog).into_iter().nth(k)?;
                 Some(Reader {
@@ -220,7 +220,7 @@ pub fn reader(w: &World, staff: Staff, who: u32, group: usize) -> Option<Reader>
             }
         }
         Staff::School(_) => {
-            if who >= HS_ASSISTANT && who < COACH {
+            if (HS_ASSISTANT..COACH).contains(&who) {
                 let k = (who - HS_ASSISTANT) as usize;
                 let a = w.career.as_ref()?.hs_staff.get(k)?;
                 let job = match a.coordinator {
@@ -327,7 +327,7 @@ fn club_reader(w: &World, t: usize, who: u32, group: usize) -> Option<Reader> {
             let s = &club.support.analytics;
             Some(staffer_reader(&s.name, "Director of analytics", s.rating, t as u64 ^ 0xA7A))
         }
-        x if x >= PRO_SCOUT && x < PERSONNEL => {
+        x if (PRO_SCOUT..PERSONNEL).contains(&x) => {
             let k = (x - PRO_SCOUT) as usize;
             let s = w.scouting.pro.scouts.get(k)?;
             Some(scout_reader(s, group, "Pro scout"))
@@ -448,7 +448,8 @@ pub fn norms(w: &World, i: usize) -> super::file::Norms {
     let prog = p.college.map(|c| &w.programs[c]);
     let size = crate::body::combine_size(p.player.position);
     let z_size = clamp(
-        0.5 * (p.player.body.height - size.0) / size.1.max(0.5) + 0.5 * (p.player.body.weight - size.2) / size.3.max(1.0),
+        0.5 * (p.player.body.height - size.0) / size.1.max(0.5)
+            + 0.5 * (p.player.body.weight - size.2) / size.3.max(1.0),
         -1.5,
         1.5,
     );

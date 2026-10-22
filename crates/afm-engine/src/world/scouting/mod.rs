@@ -173,13 +173,21 @@ impl Kind {
     /// camp or measured, interview.
     pub fn chip(self) -> u8 {
         match self {
-            Kind::Film | Kind::CrossCheck | Kind::Director | Kind::Gm | Kind::HsFilm | Kind::CollegeFilm | Kind::ProFilm => {
-                CHIP_FILM
-            }
+            Kind::Film
+            | Kind::CrossCheck
+            | Kind::Director
+            | Kind::Gm
+            | Kind::HsFilm
+            | Kind::CollegeFilm
+            | Kind::ProFilm => CHIP_FILM,
             Kind::School | Kind::Practice | Kind::Game | Kind::AllStar | Kind::Coach => CHIP_LIVE,
-            Kind::Combine | Kind::ProDay | Kind::Camp | Kind::Showcase | Kind::Workout | Kind::LocalDay | Kind::Tryout => {
-                CHIP_CAMP
-            }
+            Kind::Combine
+            | Kind::ProDay
+            | Kind::Camp
+            | Kind::Showcase
+            | Kind::Workout
+            | Kind::LocalDay
+            | Kind::Tryout => CHIP_CAMP,
             Kind::Interview
             | Kind::Visit
             | Kind::JuniorDay
@@ -202,9 +210,13 @@ impl Kind {
             Kind::School | Kind::Practice | Kind::Game | Kind::AllStar | Kind::Coach | Kind::Workout | Kind::Tryout => {
                 "Live and school"
             }
-            Kind::Film | Kind::CrossCheck | Kind::Director | Kind::Gm | Kind::HsFilm | Kind::CollegeFilm | Kind::ProFilm => {
-                "Film and charting"
-            }
+            Kind::Film
+            | Kind::CrossCheck
+            | Kind::Director
+            | Kind::Gm
+            | Kind::HsFilm
+            | Kind::CollegeFilm
+            | Kind::ProFilm => "Film and charting",
             Kind::Combine
             | Kind::ProDay
             | Kind::Camp

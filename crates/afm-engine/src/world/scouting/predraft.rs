@@ -160,7 +160,10 @@ fn choose(w: &mut World, d: Date) {
             && r.round == 1
             && r.score >= 85.0
             && ego > 1.0
-            && matches!(p.family.decider, super::super::background::Decider::Parent | super::super::background::Decider::Handler)
+            && matches!(
+                p.family.decider,
+                super::super::background::Decider::Parent | super::super::background::Decider::Handler
+            )
             && let Some(&t) = order.first()
             && t < w.nfl.len()
             && w.nfl[t].strength() < 72.0
@@ -229,9 +232,7 @@ fn leaks(w: &mut World, d: Date) {
             let p = &w.people[i];
             let text = format!(
                 "Per sources, {} ({}) has visited the {}, who are said to be very interested.",
-                p.name,
-                p.player.position,
-                w.nfl[l.team].name
+                p.name, p.player.position, w.nfl[l.team].name
             );
             w.calendar.post(Event::new(d, Level::Nfl, CalKind::Transfer, Loudness::Small, text).team(l.team));
         }

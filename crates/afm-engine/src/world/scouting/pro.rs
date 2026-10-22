@@ -210,7 +210,9 @@ pub(crate) fn minicamp_tryouts(w: &mut World, unsigned: &[usize], boards: &[Boar
                 let team = w.nfl[t].name;
                 let p = &mut w.people[i];
                 p.stage = Stage::Pro;
-                p.note(format!("Went undrafted, earned a contract with the {team} at their rookie minicamp on a tryout."));
+                p.note(format!(
+                    "Went undrafted, earned a contract with the {team} at their rookie minicamp on a tryout."
+                ));
                 let terms = crate::world::pro::money::undrafted_offer(year, 0.0, 0.0);
                 crate::world::pro::join_undrafted(w, i, t, year, &terms);
                 if w.recording {

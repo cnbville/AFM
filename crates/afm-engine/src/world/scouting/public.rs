@@ -163,7 +163,9 @@ pub fn desk_grade(w: &World, desk: &Desk, i: usize, week: i32) -> Option<f64> {
     let lean = key_normal(desk.key ^ 0x1EA4, id);
     let noise = key_normal(desk.key ^ 0x0153 ^ (week as u64) << 30, id);
     let mut g = r.score + 3.5 * sd * (0.8 * lean + 0.35 * noise);
-    let big = p.college.is_some_and(|c| w.programs[c].division == crate::world::data::Division::FBS && w.programs[c].prestige >= 60.0);
+    let big = p
+        .college
+        .is_some_and(|c| w.programs[c].division == crate::world::data::Division::FBS && w.programs[c].prestige >= 60.0);
     let size = crate::body::combine_size(p.player.position);
     let z_size = clamp((p.player.body.weight - size.2) / size.3.max(1.0), -1.5, 1.5);
     g += match desk.lean {
@@ -184,7 +186,8 @@ pub fn prospects(w: &World) -> Vec<usize> {
         .filter(|&i| {
             let p = &w.people[i];
             p.cal.draft_read.is_some()
-                && (p.stage == Stage::Declared || (p.stage == Stage::College && dy - p.class_of >= 4 && w.today.parts().1 >= 8))
+                && (p.stage == Stage::Declared
+                    || (p.stage == Stage::College && dy - p.class_of >= 4 && w.today.parts().1 >= 8))
         })
         .collect()
 }
@@ -214,7 +217,8 @@ pub fn mock(w: &World, desk: &Desk, pool: &[usize], week: i32, picks: usize) -> 
     if order.is_empty() {
         return Vec::new();
     }
-    let mut cands: Vec<(f64, usize)> = pool.iter().filter_map(|&i| desk_grade(w, desk, i, week).map(|g| (g, i))).collect();
+    let mut cands: Vec<(f64, usize)> =
+        pool.iter().filter_map(|&i| desk_grade(w, desk, i, week).map(|g| (g, i))).collect();
     cands.sort_by(|a, b| b.0.total_cmp(&a.0));
     cands.truncate(picks * 3);
     let mut out = Vec::new();
@@ -224,7 +228,8 @@ pub fn mock(w: &World, desk: &Desk, pool: &[usize], week: i32, picks: usize) -> 
             .iter()
             .enumerate()
             .map(|(j, &(g, i))| {
-                let need = if t < w.nfl.len() { crate::career::need(&w.nfl[t], w.people[i].player.position) } else { 0.0 };
+                let need =
+                    if t < w.nfl.len() { crate::career::need(&w.nfl[t], w.people[i].player.position) } else { 0.0 };
                 (j, g + 0.8 * need)
             })
             .max_by(|a, b| a.1.total_cmp(&b.1))
@@ -328,7 +333,13 @@ fn risers_and_fallers(w: &mut World, d: Date, top: &[u32]) {
             "Draft stock: {} ({}, {school}) climbs {up} places on the public boards to No. {rank}.",
             p.name, p.player.position
         );
-        let mut e = crate::calendar::Event::new(d, crate::calendar::Level::Nfl, crate::calendar::Kind::News, crate::calendar::Loudness::Small, text);
+        let mut e = crate::calendar::Event::new(
+            d,
+            crate::calendar::Level::Nfl,
+            crate::calendar::Kind::News,
+            crate::calendar::Loudness::Small,
+            text,
+        );
         if let Some(c) = p.college {
             e = e.program(c);
         }
@@ -388,7 +399,9 @@ pub fn service_read(w: &World, desk: &Desk, i: usize) -> (u8, f64) {
     g += match desk.lean {
         Lean::BigPrograms if big_camp => 1.2,
         Lean::Viral if p.player.attributes.get(crate::attributes::Attr::Speed) >= 80.0 => 1.0,
-        Lean::Size => 0.5 * clamp((p.player.body.weight - crate::body::combine_size(p.player.position).2) / 20.0, -1.0, 1.0),
+        Lean::Size => {
+            0.5 * clamp((p.player.body.weight - crate::body::combine_size(p.player.position).2) / 20.0, -1.0, 1.0)
+        }
         _ => 0.0,
     };
     // Stars stay within one of the shared read (services agree on most kids).

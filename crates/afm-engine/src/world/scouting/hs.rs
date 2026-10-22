@@ -71,7 +71,8 @@ pub fn promote(w: &mut World, id: u32, program: Option<usize>, strength: u8) -> 
         return Err("You made that call this month already.".into());
     }
     let strength = strength.min(2);
-    let to = program.map_or_else(|| "every staff that recruits your area".to_string(), |c| w.program_name(c).to_string());
+    let to =
+        program.map_or_else(|| "every staff that recruits your area".to_string(), |c| w.program_name(c).to_string());
     let text = format!("You called {to} about {}: \"{}.\"", p.name, STRENGTHS[strength as usize]);
     w.scouting.hs.promoted.push(Promo { id, program, date: d, strength, settled: None });
     w.calendar.post(Event::new(d, Level::HighSchool, CalKind::News, Loudness::Small, text.clone()));

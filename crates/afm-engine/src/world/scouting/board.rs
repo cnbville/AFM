@@ -107,11 +107,7 @@ pub fn limb(ours: usize, public: Option<usize>) -> i8 {
     let Some(p) = public else { return 0 };
     let r = ours + 1;
     let d = p as i64 + 1 - r as i64;
-    if d.unsigned_abs() as f64 >= (12.0f64).max((r as f64 * 0.35).round()) {
-        if d > 0 { 1 } else { -1 }
-    } else {
-        0
-    }
+    if d.unsigned_abs() as f64 >= (12.0f64).max((r as f64 * 0.35).round()) { if d > 0 { 1 } else { -1 } } else { 0 }
 }
 
 /// Your board in order: (player id, your club's grade on the aligned scale)
@@ -143,8 +139,10 @@ pub fn seat_grades(w: &World) -> HashMap<u32, f64> {
         return HashMap::new();
     }
     let pool = super::public::prospects(w);
-    let raw: Vec<(crate::positions::Position, f64)> =
-        pool.iter().filter_map(|&i| w.people[i].cal.draft_read.map(|r| (w.people[i].player.position, r.grade))).collect();
+    let raw: Vec<(crate::positions::Position, f64)> = pool
+        .iter()
+        .filter_map(|&i| w.people[i].cal.draft_read.map(|r| (w.people[i].player.position, r.grade)))
+        .collect();
     if raw.is_empty() {
         return HashMap::new();
     }
@@ -155,10 +153,7 @@ pub fn seat_grades(w: &World) -> HashMap<u32, f64> {
         .collect();
     aligned.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
     let b = crate::world::pro::scouts::board_for(w, t, &aligned, &align);
-    aligned
-        .iter()
-        .map(|&(i, g)| (w.people[i].player.id, b.grade.get(&i).copied().unwrap_or(g)))
-        .collect()
+    aligned.iter().map(|&(i, g)| (w.people[i].player.id, b.grade.get(&i).copied().unwrap_or(g))).collect()
 }
 
 /// The public's rank of each prospect (player id to rank from 0): the

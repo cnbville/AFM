@@ -136,7 +136,7 @@ pub fn watch(w: &World, prog: usize) -> Vec<usize> {
     let mut scored: Vec<(f64, usize)> = Vec::new();
     for (i, q) in w.people.iter().enumerate() {
         let recruit = matches!(q.stage, Stage::HighSchool | Stage::PrepSchool)
-            && q.class_of >= season + 1
+            && q.class_of > season
             && q.class_of <= season + 2
             && q.player.age >= 15;
         let portal = q.stage == Stage::College && q.cal.lean > 0.99 && q.college != Some(prog);
@@ -196,7 +196,9 @@ fn nfl_day(w: &mut World, t: usize, d: Date) {
                     && let Some(i) = super::place(w, id)
                     && matches!(w.people[i].stage, Stage::College | Stage::Declared)
                 {
-                    let kind = if m >= 9 { crate::world::pro::scouts::LookKind::School } else {
+                    let kind = if m >= 9 {
+                        crate::world::pro::scouts::LookKind::School
+                    } else {
                         crate::world::pro::scouts::LookKind::Film
                     };
                     club_look(w, t, id, who as u8, kind, d);
@@ -222,7 +224,9 @@ fn nfl_day(w: &mut World, t: usize, d: Date) {
         .iter()
         .filter_map(|i| if let Instruction::Focus(g) = i { Some(*g) } else { None })
         .collect();
-    if let Some(dir) = w.clubs.get(t).and_then(|c| c.scouts.iter().position(|s| s.role == crate::world::pro::scouts::Role::Director)) {
+    if let Some(dir) =
+        w.clubs.get(t).and_then(|c| c.scouts.iter().position(|s| s.role == crate::world::pro::scouts::Role::Director))
+    {
         for g in focus {
             let ids = top_of_group(w, g, 80);
             let k = (week as usize * 5) % ids.len().max(1);
@@ -308,7 +312,8 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
         // the staff's limit; your assignments first, then the coordinator's
         // asks, then the top of the board nobody has seen in person.
         let fall = period == Period::Evaluation && matches!(d.parts().1, 9..=11);
-        let spring = period == Period::Contact && d.parts().1 == 4 || (d.parts().1 == 5 && period == Period::Quiet && d.parts().2 <= 23);
+        let spring = period == Period::Contact && d.parts().1 == 4
+            || (d.parts().1 == 5 && period == Period::Quiet && d.parts().2 <= 23);
         if (fall && (wd == Weekday::Thu || wd == Weekday::Fri)) || (spring && wd == Weekday::Thu) {
             let (lim_fall, lim_spring) = eval_limits(season);
             let (_, used_f, used_s) = w.scouting.dept.eval_days;
@@ -328,7 +333,8 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
                         picks.push((a.who, i));
                     }
                 }
-                let asks: Vec<u32> = w.scouting.dept.asks.iter().filter(|a| a.1 == Kind::Practice).map(|a| a.0).collect();
+                let asks: Vec<u32> =
+                    w.scouting.dept.asks.iter().filter(|a| a.1 == Kind::Practice).map(|a| a.0).collect();
                 for id in asks {
                     if let Some(i) = super::place(w, id)
                         && let Some(c) = evaluator_for(w, prog, i)
@@ -346,7 +352,8 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
                     }
                     let id = w.people[i].player.id;
                     let seen = w.scouting.dept.looks.get(&id).is_some_and(|v| {
-                        v.iter().any(|l| matches!(l.kind, Kind::Practice | Kind::Game | Kind::Camp) && l.date >= seen_since)
+                        v.iter()
+                            .any(|l| matches!(l.kind, Kind::Practice | Kind::Game | Kind::Camp) && l.date >= seen_since)
                     });
                     if !seen && let Some(c) = evaluator_for(w, prog, i) {
                         picks.push((COACH + c as u32, i));
@@ -454,12 +461,8 @@ pub fn recruiter_for(w: &World, prog: usize, i: usize) -> Option<usize> {
 /// Prunes looks of players nobody will read again (signed elsewhere and
 /// gone, out of football), each new football year.
 pub(crate) fn prune(w: &mut World) {
-    let keep: std::collections::HashSet<u32> = w
-        .people
-        .iter()
-        .filter(|p| !matches!(p.stage, Stage::Done))
-        .map(|p| p.player.id)
-        .collect();
+    let keep: std::collections::HashSet<u32> =
+        w.people.iter().filter(|p| !matches!(p.stage, Stage::Done)).map(|p| p.player.id).collect();
     let mine: std::collections::HashSet<u32> = w.scouting.dept.my_players.iter().map(|f| f.id).collect();
     w.scouting.dept.looks.retain(|id, _| keep.contains(id) || mine.contains(id));
     w.scouting.dept.looks.shrink_to_fit();

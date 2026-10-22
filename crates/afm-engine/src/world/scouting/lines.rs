@@ -33,11 +33,29 @@ pub fn trait_word(k: usize, c: f64) -> &'static str {
     const W: [[&str; 5]; 13] = [
         ["won't put the work in", "needs a push", "does what's asked", "a hard worker", "first in, last out"],
         ["tunes coaches out", "hard to coach", "takes coaching", "soaks up coaching", "a coach's dream"],
-        ["shies from the fight", "competes in spurts", "competes", "a fierce competitor", "hates to lose more than he loves to win"],
-        ["football is a job to him", "questions about his love of it", "likes the game", "loves the game", "lives for football"],
+        [
+            "shies from the fight",
+            "competes in spurts",
+            "competes",
+            "a fierce competitor",
+            "hates to lose more than he loves to win",
+        ],
+        [
+            "football is a job to him",
+            "questions about his love of it",
+            "likes the game",
+            "loves the game",
+            "lives for football",
+        ],
         ["content where he is", "modest goals", "wants to get better", "driven", "wants to be the best ever"],
         ["out the door at the first chance", "loyal to himself first", "loyal", "very loyal", "loyal to a fault"],
-        ["money barely matters", "money isn't his driver", "wants to be paid fairly", "money matters a lot", "follows the money"],
+        [
+            "money barely matters",
+            "money isn't his driver",
+            "wants to be paid fairly",
+            "money matters a lot",
+            "follows the money",
+        ],
         ["never loses his cool", "even-tempered", "can flare up", "a short fuse", "explodes"],
         ["humble", "quiet confidence", "confident", "a big personality", "it's all about him"],
         ["a follower", "leads by example only", "leads when asked", "a leader", "a leader of men"],
@@ -190,10 +208,7 @@ pub fn trait_note(k: usize, centre: f64, shade: super::file::Shade, key: u64, id
             "The one-on-ones get heated when he's in them.",
             "Plays the scout team like it's a playoff game.",
         ],
-        (2, _, true) => &[
-            "Disappears when a game turns against his team.",
-            "Lets the hard reps go to someone else.",
-        ],
+        (2, _, true) => &["Disappears when a game turns against his team.", "Lets the hard reps go to someone else."],
         (3, true, _) => &[
             "Watches film on the bus and talks football at dinner.",
             "Would play for nothing; he says so and means it.",
@@ -206,7 +221,9 @@ pub fn trait_note(k: usize, centre: f64, shade: super::file::Shade, key: u64, id
             "Asked about our depth chart before he asked about our scheme.",
             "Talks about the Hall of Fame, and doesn't sound like he's joking.",
         ],
-        (5, true, _) => &["Turned down a bigger offer to stay with his teammates.", "Still close with his youth coach."],
+        (5, true, _) => {
+            &["Turned down a bigger offer to stay with his teammates.", "Still close with his youth coach."]
+        }
         (5, _, true) => &["Left his last school without telling the coaches.", "Always looking at the next place."],
         (6, true, _) => &[
             "Asked about NIL money in the first ten minutes.",
@@ -290,7 +307,10 @@ pub fn family_notes(p: &crate::world::Person, key: u64) -> Vec<String> {
                 id,
             ),
             ParentStyle::CalmPrivate => pick(
-                &["A calm, private family; they let the coaches coach.", "Quiet parents who sit at the 30 every Friday."],
+                &[
+                    "A calm, private family; they let the coaches coach.",
+                    "Quiet parents who sit at the 30 every Friday.",
+                ],
                 key ^ 0xFA3,
                 id,
             ),

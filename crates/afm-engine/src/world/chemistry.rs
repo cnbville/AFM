@@ -38,7 +38,11 @@ fn seasons_together(w: &World, a: &Person, b: &Person, unit: Unit) -> f64 {
             (Some(ca), Some(cb)) => ca
                 .seasons
                 .iter()
-                .filter(|s| s.year < w.year && s.team.is_some() && cb.seasons.iter().any(|t| t.year == s.year && t.team == s.team))
+                .filter(|s| {
+                    s.year < w.year
+                        && s.team.is_some()
+                        && cb.seasons.iter().any(|t| t.year == s.year && t.team == s.team)
+                })
                 .count() as f64,
             _ => 0.0,
         },
@@ -60,7 +64,8 @@ fn chem_of(years: f64) -> f32 {
 /// Sets each passer's, receiver's and defensive back's chemistry on a game
 /// team from its people.
 pub(crate) fn apply(w: &World, team: &mut GameTeam, unit: Unit) {
-    let person = |g: &GamePlayer| super::scouting::place(w, g.id).map(|i| &w.people[i]).filter(|p| p.stage != Stage::Done);
+    let person =
+        |g: &GamePlayer| super::scouting::place(w, g.id).map(|i| &w.people[i]).filter(|p| p.stage != Stage::Done);
     let by_exp = |pos: &[Position]| {
         let mut v: Vec<usize> = (0..team.players.len()).filter(|&k| pos.contains(&team.players[k].position)).collect();
         v.sort_by(|&a, &b| team.players[b].experience.total_cmp(&team.players[a].experience).then(a.cmp(&b)));

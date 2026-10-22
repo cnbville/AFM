@@ -149,8 +149,7 @@ pub(crate) fn board_owners(w: &World, year: i32, board: &mut Vec<(usize, u32)>, 
         };
     }
     // A pick given up in a supplemental draft is gone from the board.
-    let lost: Vec<(u32, usize)> =
-        w.market.picks.forfeited.iter().filter(|f| f.0 == year).map(|f| (f.1, f.2)).collect();
+    let lost: Vec<(u32, usize)> = w.market.picks.forfeited.iter().filter(|f| f.0 == year).map(|f| (f.1, f.2)).collect();
     if !lost.is_empty() {
         board.retain(|s| s.1 & COMP != 0 || !lost.contains(&(s.1, s.0)));
     }
