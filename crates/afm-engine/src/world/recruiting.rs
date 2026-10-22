@@ -1212,7 +1212,8 @@ pub(crate) fn draft_begin(w: &mut World) -> DraftRun {
     pool.sort_by(|a, b| b.1.total_cmp(&a.1));
     // Each club picks from its own board, read from its own scouts' files
     // (section 7, topic 9); the public grade only fills in what it barely saw.
-    let boards = super::pro::scouts::boards(w, &pool, &align);
+    let mut boards = super::pro::scouts::boards(w, &pool, &align);
+    super::scouting::predraft::on_boards(w, &board, &mut boards);
     let public_rank = super::pro::scouts::public_ranks(&pool);
     DraftRun { year: draft_year, board, pool, boards, public_rank, next: 1, ..Default::default() }
 }
@@ -3302,6 +3303,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     let schools = &w.high_schools;
     let coaches = &w.coaches;
     let programs = &w.programs;
+    // Your calls to colleges as a high school coach (section 7, topic 16).
+    let promos = super::scouting::hs::promos(w);
     let recruits: Vec<Recruit> = candidates
         .par_iter()
         .map(|&i| {
@@ -3349,7 +3352,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     + traffic
                     + viral
                     + bloodline
-                    + honors,
+                    + honors
+                    + promos.get(&p.player.id).copied().unwrap_or(0.0),
                 0.0,
                 1.0,
             );

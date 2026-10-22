@@ -12,6 +12,7 @@
 //! game is decided from the two teams' starters, with home field and luck.
 
 pub mod background;
+pub(crate) mod chemistry;
 pub(crate) mod clock;
 pub mod coach;
 pub(crate) mod college;

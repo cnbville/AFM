@@ -189,6 +189,15 @@ pub fn prospects(w: &World) -> Vec<usize> {
         .collect()
 }
 
+/// The latest consensus top 50 for the coming draft.
+pub fn consensus(w: &World) -> Option<Vec<u32>> {
+    let s = &w.scouting.public;
+    if s.year != draft_year(w) {
+        return None;
+    }
+    s.weekly.last().map(|x| x.1.clone())
+}
+
 /// A desk's big board: the top 100 by its read.
 pub fn big_board(w: &World, desk: &Desk, pool: &[usize], week: i32) -> Vec<u32> {
     let mut v: Vec<(f64, u32)> =

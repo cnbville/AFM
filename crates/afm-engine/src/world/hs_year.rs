@@ -853,6 +853,7 @@ fn hs_team(w: &World, h: usize, week: usize) -> Option<(GameTeam, Vec<(u32, usiz
         .count()
         .min(5);
     team.line_chem = 0.25 + 0.15 * line_vets as f64;
+    super::chemistry::apply(w, &mut team, super::chemistry::Unit::HighSchool);
     Some((team, ids))
 }
 

@@ -39,6 +39,52 @@ pub struct PreDraft {
     pub leaks: Vec<Leak>,
     /// Visits a prospect turned down: (player id, club).
     pub declined: Vec<(u32, usize)>,
+    /// Your war room's lists: (player id, list): top-30 visits, combine
+    /// interviews, private workouts, medical rechecks.
+    #[serde(default)]
+    pub lists: Vec<(u32, u8)>,
+}
+
+/// Your war room's lists.
+pub const LIST_VISIT: u8 = 0;
+pub const LIST_INTERVIEW: u8 = 1;
+pub const LIST_WORKOUT: u8 = 2;
+pub const LIST_MEDICAL: u8 = 3;
+pub const LIST_NAMES: [&str; 4] = ["Top-30 visits", "Combine interviews", "Private workouts", "Medical rechecks"];
+/// Each list's limit (real: 30 visits; 60 interviews to 2019, 45 from 2020).
+pub fn list_cap(list: u8, year: i32) -> usize {
+    match list {
+        LIST_VISIT => 30,
+        LIST_INTERVIEW => {
+            if year >= 2020 {
+                45
+            } else {
+                60
+            }
+        }
+        _ => 40,
+    }
+}
+
+/// Your list of one kind, when `t` is your club.
+pub fn seat_list(w: &World, t: usize, list: u8) -> Vec<u32> {
+    if w.seat.and_then(|s| s.nfl_team) != Some(t) {
+        return Vec::new();
+    }
+    w.scouting.predraft.lists.iter().filter(|x| x.1 == list).map(|x| x.0).collect()
+}
+
+/// Whether a prospect's camp turns down a club's top-30 visit: a sure
+/// first-rounder with a big ego and a club far from his likely pick
+/// (proposed, not confirmed: about one visit in eight for such players).
+pub fn declines(w: &World, i: usize, t: usize) -> bool {
+    let p = &w.people[i];
+    let Some(r) = p.cal.draft_read else { return false };
+    if r.round != 1 || r.score < 80.0 {
+        return false;
+    }
+    let ego = p.player.personality.traits.z(Trait::Ego);
+    key_uniform(0xDEC1 ^ (t as u64) << 32 ^ w.year as u64, p.player.id as u64) < 0.08 + 0.05 * ego.max(0.0)
 }
 
 impl PreDraft {
@@ -229,6 +275,38 @@ pub fn leak_pull(w: &World, team: usize, id: u32, slot_of: &dyn Fn(usize) -> Opt
         }
     }
     pull.min(2.0)
+}
+
+/// Draft morning: what the spring's leaks and refusals did to the clubs'
+/// boards. A club a prospect refused passes on him (it takes his camp at
+/// its word, as the Colts didn't in 1983 and the Chargers didn't in 2004:
+/// Claude's pick, a trade on the clock still can move him); a club that
+/// believes a rival behind it wants a player moves him up a little.
+pub(crate) fn on_boards(w: &World, slots: &[(usize, u32)], boards: &mut [crate::world::pro::scouts::Board]) {
+    let pd = &w.scouting.predraft;
+    if pd.leaks.is_empty() && pd.refuses.is_empty() {
+        return;
+    }
+    let places = super::places(w);
+    let first = |t: usize| slots.iter().position(|s| s.0 == t);
+    for &(id, t) in &pd.refuses {
+        if let (Some(&i), Some(b)) = (places.get(&id), boards.get_mut(t)) {
+            b.dnd.insert(i);
+        }
+    }
+    let ids: std::collections::HashSet<u32> = pd.leaks.iter().map(|l| l.player).collect();
+    for (t, b) in boards.iter_mut().enumerate() {
+        let Some(mine) = first(t) else { continue };
+        for &id in &ids {
+            let Some(&i) = places.get(&id) else { continue };
+            let pull = leak_pull(w, t, id, &first, mine);
+            if pull > 0.0
+                && let Some(g) = b.grade.get_mut(&i)
+            {
+                *g += pull;
+            }
+        }
+    }
 }
 
 /// Whether a prospect refuses a club (his camp said so).

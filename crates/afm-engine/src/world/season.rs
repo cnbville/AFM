@@ -882,6 +882,7 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
     }
     team.film = prog.film.clone();
     team.line_chem = line_chem;
+    super::chemistry::apply(w, &mut team, super::chemistry::Unit::College);
     team.novelty = super::trends::team_novelty(w, prog.division, &prog.film);
     Some(team)
 }

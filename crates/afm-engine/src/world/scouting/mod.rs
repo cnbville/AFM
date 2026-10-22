@@ -340,10 +340,15 @@ pub(crate) fn after_draft(w: &mut crate::world::World, board: &[(usize, u32)], t
 
 /// One player's place by id.
 pub fn place(w: &crate::world::World, id: u32) -> Option<usize> {
-    w.people.iter().position(|p| p.player.id == id)
+    // People are kept in the order they were made, so ids rise along the
+    // list; a binary search finds him, the scan is a fallback.
+    match w.people.binary_search_by_key(&id, |p| p.player.id) {
+        Ok(i) => Some(i),
+        Err(_) => w.people.iter().position(|p| p.player.id == id),
+    }
 }
 
 /// The people list's place for each player id.
-pub(crate) fn places(w: &crate::world::World) -> HashMap<u32, usize> {
+pub fn places(w: &crate::world::World) -> HashMap<u32, usize> {
     w.people.iter().enumerate().map(|(i, p)| (p.player.id, i)).collect()
 }

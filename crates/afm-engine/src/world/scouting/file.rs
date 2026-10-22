@@ -1104,3 +1104,9 @@ pub fn trait_word(k: usize, centre: f64) -> &'static str {
 pub fn matters(pos: Position, a: Attr) -> f64 {
     weight(pos, a)
 }
+
+/// His grade point average (the transcript's number; screens show it as a
+/// range unless the staff has his transcript).
+pub fn gpa(p: &crate::world::Person) -> f64 {
+    p.bg.gpa
+}

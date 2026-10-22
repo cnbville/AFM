@@ -506,7 +506,22 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         } else {
             off_call
         };
-        let p = ((1.0 - know) * 0.05 + (60.0 - iq).max(0.0) * 0.0006 + noise + check + install + lapse).max(0.0) * call;
+        // Chemistry (X5): a receiver new to his quarterback misreads more
+        // sight adjustments and option routes, a secondary new to each
+        // other blows more hand-offs (up to about a fifth either way).
+        let chem = match sim.player(i).position {
+            crate::positions::Position::WR
+            | crate::positions::Position::TE
+            | crate::positions::Position::RB
+            | crate::positions::Position::CB
+            | crate::positions::Position::S => {
+                1.0 - 0.45 * (sim.player(i).chem - super::roster::TYPICAL_CHEM) as f64
+            }
+            _ => 1.0,
+        };
+        let p = ((1.0 - know) * 0.05 + (60.0 - iq).max(0.0) * 0.0006 + noise + check + install + lapse).max(0.0)
+            * call
+            * chem;
         if sim.rng.chance(p) {
             sim.agents[i].bust = true;
             let id = sim.agents[i].id;
@@ -2921,7 +2936,10 @@ fn quarterback(
     {
         // Throwing on the break is anticipation (half its first size, see
         // footwork above).
-        let delay = clamp(0.25 - 0.0025 * (sim.agents[qb].a(Attr::Anticipation) - 50.0), 0.0, 0.6);
+        // Chemistry (X5): he lets it go on timing to a receiver he knows,
+        // and waits a beat on one he doesn't.
+        let timing = 0.12 * (super::roster::TYPICAL_CHEM - sim.player(r).chem) as f64;
+        let delay = clamp(0.25 - 0.0025 * (sim.agents[qb].a(Attr::Anticipation) - 50.0) + timing, 0.0, 0.6);
         ps.commit = Some((r, t + delay + release, t + 0.6 * release));
     }
     if !screen && let Some((r, at, hurried)) = ps.commit {
@@ -3190,6 +3208,8 @@ fn throw(
     sd *= 1.0 + 0.08 * s.cond.cold_unused;
     let consistency = sim.player(qb).traits.consistency;
     sd *= 1.15 - 0.015 * consistency;
+    // Chemistry (X5): ball placement where his man expects it.
+    sd *= 1.0 - 0.12 * (sim.player(r).chem - super::roster::TYPICAL_CHEM) as f64;
     let along = (target - q).norm();
     let across = along.perp();
     // Depth is judged less well the farther downfield (the miss grows along

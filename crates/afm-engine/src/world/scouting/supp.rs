@@ -35,7 +35,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
 /// Who is eligible: college players three years out of high school who
 /// lost their eligibility this year (dismissed, or academically ineligible
 /// for the fall) and are still in the world.
-fn eligible(w: &World) -> Vec<usize> {
+pub fn eligible(w: &World) -> Vec<usize> {
     (0..w.people.len())
         .filter(|&i| {
             let p = &w.people[i];

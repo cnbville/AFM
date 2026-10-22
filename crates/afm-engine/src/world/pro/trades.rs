@@ -104,6 +104,25 @@ pub(crate) fn give_pick(w: &mut World, from: usize, to: usize, year: i32, round:
 /// The draft board with owners: each (original team, round) slot handed to
 /// the pick's owner, and this year's compensatory picks in place of the
 /// keyed ones once free agency has awarded any.
+/// A club's picks in a draft: (round, the club it came from when traded
+/// in), its own and comp picks included, forfeited ones left out.
+pub fn owned_picks(w: &World, t: usize, year: i32) -> Vec<(u32, Option<usize>)> {
+    let book = &w.market.picks;
+    let rounds = super::super::franchise::draft_rounds(year);
+    let mut v = Vec::new();
+    for round in 1..=rounds {
+        for orig in super::super::franchise::active_teams(year) {
+            if book.owner_of(year, round, orig) == t && !book.forfeited.contains(&(year, round, orig)) {
+                v.push((round, (orig != t).then_some(orig)));
+            }
+        }
+        for c in book.comp.iter().filter(|c| c.year == year && c.round == round && c.owner == t) {
+            v.push((round, (c.team != t).then_some(c.team)));
+        }
+    }
+    v
+}
+
 pub(crate) fn board_owners(w: &World, year: i32, board: &mut Vec<(usize, u32)>, base: &[usize]) {
     let comp: Vec<&CompPick> = w.market.picks.comp.iter().filter(|c| c.year == year).collect();
     if !comp.is_empty() {

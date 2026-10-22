@@ -100,6 +100,12 @@ pub(crate) fn start(w: &mut World, run: &mut DraftRun) -> bool {
     };
     w.scouting.live = Some(live);
     w.scouting.board.for_year(w.year);
+    if let Some(l) = &w.scouting.live {
+        let grades = grades(w, l);
+        let public: std::collections::HashMap<u32, usize> =
+            l.run.public_rank.iter().map(|(&i, &r)| (w.people[i].player.id, r)).collect();
+        super::lookback::snapshot(w, &grades, &public);
+    }
     let text = format!(
         "The {} draft is on. Your war room is open: the picks run to your turn and wait for you.",
         w.year

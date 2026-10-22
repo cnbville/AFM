@@ -51,7 +51,20 @@ pub struct GamePlayer {
     /// instructions to him.
     pub tend: crate::tendencies::Tendencies,
     pub orders: crate::tendencies::Orders,
+    /// Chemistry with his unit, 0-1 (X5): a receiver's with his starting
+    /// quarterback, a quarterback's with his top targets, a defensive
+    /// back's with the starting secondary. 0.45 is typical and changes
+    /// nothing (`world::chemistry`).
+    #[serde(default = "typical_chem")]
+    pub chem: f32,
 }
+
+fn typical_chem() -> f32 {
+    TYPICAL_CHEM
+}
+
+/// The chemistry where nothing changes.
+pub const TYPICAL_CHEM: f32 = 0.45;
 
 impl GamePlayer {
     /// `knowledge` is his grasp of this team's playbook (0-1) and
@@ -80,6 +93,7 @@ impl GamePlayer {
             spot_r: Spot::ALL.map(|s| spot_rating(s, &p.attributes, b.weight)),
             tend: p.tend,
             orders: Default::default(),
+            chem: TYPICAL_CHEM,
         }
     }
 

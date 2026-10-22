@@ -503,6 +503,7 @@ fn transfer_rule_of(w: &World, season: i32) -> TransferRule {
 /// A new football year begins (the day after the Super Bowl).
 fn year_start(w: &mut World) {
     let year = w.year;
+    super::scouting::dept::prune(w);
     w.rules = w.changes.rules(year);
     // Conference moves announced last year take effect.
     for (p, conf) in std::mem::take(&mut w.realign) {

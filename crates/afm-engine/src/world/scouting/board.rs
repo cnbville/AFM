@@ -129,3 +129,51 @@ pub fn ordered(w: &World, grades: &HashMap<u32, f64>) -> Vec<u32> {
     }
     out
 }
+
+/// Your club's grade of every prospect in the coming draft (player id to
+/// the aligned grade): the live draft's boards while it runs, otherwise
+/// your club's board built now from its files the way draft morning builds
+/// it (the declared class, plus the seniors in the fall).
+pub fn seat_grades(w: &World) -> HashMap<u32, f64> {
+    if let Some(l) = &w.scouting.live {
+        return super::live::grades(w, l);
+    }
+    let Some(t) = w.seat.and_then(|s| s.nfl_team) else { return HashMap::new() };
+    if t >= w.clubs.len() {
+        return HashMap::new();
+    }
+    let pool = super::public::prospects(w);
+    let raw: Vec<(crate::positions::Position, f64)> =
+        pool.iter().filter_map(|&i| w.people[i].cal.draft_read.map(|r| (w.people[i].player.position, r.grade))).collect();
+    if raw.is_empty() {
+        return HashMap::new();
+    }
+    let align = crate::level_rating::PositionAligner::new(&raw);
+    let mut aligned: Vec<(usize, f64)> = pool
+        .iter()
+        .filter_map(|&i| w.people[i].cal.draft_read.map(|r| (i, align.align(w.people[i].player.position, r.grade))))
+        .collect();
+    aligned.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+    let b = crate::world::pro::scouts::board_for(w, t, &aligned, &align);
+    aligned
+        .iter()
+        .map(|&(i, g)| (w.people[i].player.id, b.grade.get(&i).copied().unwrap_or(g)))
+        .collect()
+}
+
+/// The public's rank of each prospect (player id to rank from 0): the
+/// latest consensus board, else the services' grade order.
+pub fn public_ranks(w: &World) -> HashMap<u32, usize> {
+    if let Some(l) = &w.scouting.live {
+        return l.run.public_rank.iter().map(|(&i, &r)| (w.people[i].player.id, r)).collect();
+    }
+    let top = super::public::consensus(w).unwrap_or_default();
+    let mut v: Vec<(f64, u32)> = super::public::prospects(w)
+        .into_iter()
+        .filter_map(|i| w.people[i].cal.draft_read.map(|r| (r.grade, w.people[i].player.id)))
+        .collect();
+    v.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+    let mut order = top.clone();
+    order.extend(v.into_iter().map(|x| x.1).filter(|id| !top.contains(id)));
+    order.into_iter().enumerate().map(|(k, id)| (id, k)).collect()
+}

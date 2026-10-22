@@ -981,7 +981,10 @@ pub(crate) fn combine(w: &mut World, invited: &[usize]) {
     for t in clubs(w) {
         if workouts {
             for &i in invited {
-                file(w, t, i, EVENT, LookKind::Combine, date);
+                // A prospect whose camp keeps him out of the workouts tests at his pro day.
+                if !skips(w, i) {
+                    file(w, t, i, EVENT, LookKind::Combine, date);
+                }
             }
         }
         let mut list: Vec<(usize, f64)> = invited
@@ -989,11 +992,26 @@ pub(crate) fn combine(w: &mut World, invited: &[usize]) {
             .map(|&i| (i, r[t].get(&i).map_or(w.people[i].cal.draft_read.map_or(0.0, |x| x.grade), |x| x.grade)))
             .collect();
         list.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+        // Your war room's own interview list goes first.
+        let mine = super::super::scouting::predraft::seat_list(w, t, super::super::scouting::predraft::LIST_INTERVIEW);
+        if !mine.is_empty() {
+            let pick: Vec<usize> =
+                mine.iter().filter_map(|id| invited.iter().copied().find(|&i| w.people[i].player.id == *id)).collect();
+            list.retain(|x| !pick.contains(&x.0));
+            for (k, i) in pick.into_iter().enumerate() {
+                list.insert(k, (i, 0.0));
+            }
+        }
         let d = director(&w.clubs[t].scouts);
         for &(i, _) in list.iter().take(interviews) {
             file(w, t, i, d, LookKind::Interview, date);
         }
     }
+    super::super::scouting::predraft::combine_moments(w, invited);
+}
+
+fn skips(w: &World, i: usize) -> bool {
+    w.scouting.predraft.has(w.people[i].player.id, super::super::scouting::predraft::SKIP_COMBINE)
 }
 
 /// A program's pro day: the prospects the combine didn't test (or every
@@ -1016,7 +1034,7 @@ pub(crate) fn pro_day(w: &mut World, program: usize, date: Date) {
     let r = reads(w, &here);
     for t in clubs(w) {
         for &i in &here {
-            let tested = workouts && w.people[i].cal.combine_invite;
+            let tested = workouts && w.people[i].cal.combine_invite && !skips(w, i);
             if !tested {
                 file(w, t, i, EVENT, LookKind::ProDay, date);
             }
@@ -1064,7 +1082,18 @@ pub(crate) fn spring(w: &mut World) {
         // above it to two rounds below.
         let first = order.as_ref().and_then(|o| o.iter().position(|&x| x == t)).unwrap_or(16);
         let from = first.saturating_sub(10);
-        for &(i, _) in list.iter().skip(from).take(30) {
+        let mine = super::super::scouting::predraft::seat_list(w, t, super::super::scouting::predraft::LIST_VISIT);
+        let visits: Vec<usize> = if mine.is_empty() {
+            list.iter().skip(from).take(30).map(|x| x.0).collect()
+        } else {
+            mine.iter().filter_map(|&id| super::super::scouting::place(w, id)).take(30).collect()
+        };
+        for i in visits {
+            // A top prospect's camp turns some visits down (the club's
+            // file gets no visit).
+            if super::super::scouting::predraft::declines(w, i, t) {
+                continue;
+            }
             file(w, t, i, GM, LookKind::Visit, date.add(-10));
         }
     }
@@ -1296,7 +1325,7 @@ pub struct Offer {
 /// The bonus pool per club for undrafted rookies (real: about $75,000 in
 /// 2011, rising with the rookie pool, about $92,000 in 2016). Before 2011
 /// there was no pool; clubs spent about the same (proposed, not confirmed).
-pub(crate) fn udfa_pool(year: i32) -> f64 {
+pub fn udfa_pool(year: i32) -> f64 {
     75_000.0 * money::price_cap(year) / money::price_cap(2011)
 }
 

@@ -8,7 +8,7 @@
 use super::file::{Evidence, Link, Reader};
 use super::{Kind, SeatLook};
 use crate::rng::{Rng, clamp};
-use crate::world::World;
+use crate::world::{Stage, World};
 use crate::world::coach::{GROUP_COUNT, Group};
 use crate::world::pro::scouts::{self, DC, EVENT, GM, HC, OC, Role};
 use crate::world::season::key_uniform;
@@ -378,6 +378,7 @@ pub fn evidence(w: &World, staff: Staff, id: u32) -> (Vec<Reader>, Vec<Evidence>
     if let Some(v) = w.scouting.dept.looks.get(&id) {
         raw.extend(v.iter().map(|l: &SeatLook| (l.who, l.kind, l.date)));
     }
+    raw.extend(own_roster(w, staff, i));
     raw.sort_by_key(|x| x.2);
     let mut codes: Vec<u32> = Vec::new();
     let mut readers: Vec<Reader> = Vec::new();
@@ -399,6 +400,45 @@ pub fn evidence(w: &World, staff: Staff, id: u32) -> (Vec<Reader>, Vec<Evidence>
         looks.push(Evidence { reader: r, kind, date });
     }
     (readers, looks, codes)
+}
+
+/// Your own players: your staff sees them every day (practice and games),
+/// which nothing stores; the file reads the last eight weeks of it, one
+/// practice look a week by his position coach and one by you, and his
+/// games in season.
+fn own_roster(w: &World, staff: Staff, i: usize) -> Vec<(u32, Kind, crate::calendar::Date)> {
+    let p = &w.people[i];
+    let (mine, coach) = match staff {
+        Staff::Club(t) => {
+            let on = p.stage == Stage::Pro && p.pro.as_ref().is_some_and(|c| c.team == Some(t));
+            (on, w.nfl[t].head_coach)
+        }
+        Staff::Program(prog) => {
+            let on = p.stage == Stage::College && p.college == Some(prog);
+            let g = Group::of(p.player.position) as usize;
+            let pc = w.programs[prog].position_coaches.get(g).copied().flatten();
+            (on, pc.or(w.programs[prog].head_coach))
+        }
+        Staff::School(h) => (matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) && p.hs == h, None),
+    };
+    if !mine {
+        return Vec::new();
+    }
+    let today = w.today;
+    let mut v = Vec::new();
+    for k in 0..8 {
+        let d = today.add(-7 * k - 1);
+        if let Some(c) = coach {
+            v.push((COACH + c as u32, Kind::Practice, d));
+        }
+        if let Some(y) = you(w) {
+            v.push((COACH + y as u32, Kind::Practice, d.add(-1)));
+        }
+        if matches!(d.parts().1, 9..=12) {
+            v.push((coach.or(you(w)).map_or(EVENT as u32, |c| COACH + c as u32), Kind::Game, d.add(-2)));
+        }
+    }
+    v
 }
 
 /// The context a read's biases react to.
