@@ -1107,6 +1107,31 @@ fn special_teams(w: &World) {
         }
         let mut sizes: Vec<u32> = teams.iter().map(|&t| counts[t].iter().sum()).collect();
         sizes.sort();
+        // The fall roster: this squad plus the signed class still to enrol
+        // and the players away on missions whose place is held (the world
+        // stands in February, between seasons).
+        let mut fall = vec![0u32; w.programs.len()];
+        for p in &w.people {
+            let c = match p.stage {
+                Stage::College => p.college,
+                Stage::HighSchool | Stage::PrepSchool => p.cal.signed.map(|s| s.program),
+                _ => None,
+            };
+            if let Some(t) = c
+                && w.programs[t].division == d
+            {
+                fall[t] += 1;
+            }
+        }
+        let mut fall: Vec<u32> = teams.iter().map(|&t| fall[t]).collect();
+        fall.sort();
+        println!(
+            "- {} fall roster with the signed class: median {} ({}-{})",
+            d.name(),
+            fall[fall.len() / 2],
+            fall[fall.len() / 10],
+            fall[fall.len() * 9 / 10]
+        );
         let n = teams.len() as f64;
         let none = |pos: Position| teams.iter().filter(|&&t| counts[t][pos.index()] == 0).count();
         let per = |pos: Position| teams.iter().map(|&t| counts[t][pos.index()]).sum::<u32>() as f64 / n;
