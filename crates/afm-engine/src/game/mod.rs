@@ -12,6 +12,7 @@ pub mod flow;
 pub mod garbage;
 pub mod geom;
 pub mod kicking;
+pub mod live;
 pub mod playbook;
 pub mod roster;
 pub mod rules;
@@ -22,7 +23,7 @@ pub mod synthetic;
 pub mod tables;
 
 pub use calling::Film;
-pub use flow::{GameResult, GameSetup, Venue, play_game, quick_game, quick_game_in, quick_game_with};
+pub use flow::{GameResult, GameSetup, Venue, play_game, play_game_ctl, quick_game, quick_game_in, quick_game_with};
 pub use roster::{Caller, Front, GamePlayer, GameTeam, OffScheme, Shell, Staff};
 pub use rules::Rules;
 pub use sim::Conditions;

@@ -210,6 +210,10 @@ pub struct SnapResult {
     pub before_contact: f64,
     pub time_to_throw: f64,
     pub separation: f64,
+    /// Across the field: where the ball was snapped and where the throw
+    /// arrived (0 to 53.3, the offense's left high), for the pass chart.
+    #[serde(default)]
+    pub throw_y: Option<(f32, f32)>,
     pub throw_away: bool,
     pub drop: bool,
     pub pressured: bool,
@@ -373,6 +377,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         before_contact: 0.0,
         time_to_throw: 0.0,
         separation: 0.0,
+        throw_y: None,
         throw_away: false,
         drop: false,
         pressured: false,
@@ -1276,6 +1281,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             let meant = batted.map_or(to, |b| b.1);
             catch_x = meant.x;
             res.air_yards = meant.x - los;
+            res.throw_y = Some((sim.mood.snap_y as f32, meant.y as f32));
             if let Job::Route { name, .. } = sim.agents[tgt].job {
                 res.route = name;
             }

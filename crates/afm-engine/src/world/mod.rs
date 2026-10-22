@@ -25,6 +25,7 @@ pub mod game_log;
 pub mod geo;
 pub mod high_school;
 pub mod hs_year;
+pub mod live_seat;
 pub mod names;
 pub mod ncaa;
 pub mod news;
@@ -40,6 +41,7 @@ pub(crate) mod season;
 pub mod seat;
 pub mod staff;
 pub mod systems;
+pub mod tape;
 pub mod trends;
 
 use rayon::prelude::*;
@@ -704,6 +706,14 @@ pub struct World {
     /// contracts and your network (`folk`).
     #[serde(default)]
     pub folk: folk::Folk,
+    /// Your game being played live today (section 9): the day books it
+    /// when it runs.
+    #[serde(default)]
+    pub live: Option<live_seat::LiveSeat>,
+    /// Game day (section 9): your settings, the tapes of your coming
+    /// opponents, what you have studied.
+    #[serde(default)]
+    pub gameday: live_seat::GameDay,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -994,6 +1004,8 @@ impl World {
             seat_depth: Vec::new(),
             seat_focus: Vec::new(),
             career: None,
+            live: None,
+            gameday: Default::default(),
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);

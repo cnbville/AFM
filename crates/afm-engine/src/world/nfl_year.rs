@@ -2424,6 +2424,61 @@ pub(crate) fn playoff_field(s: &NflSeason) -> Vec<(usize, usize)> {
     v
 }
 
+/// Your club's game today, as the day builds its fixture (section 9): the
+/// regular season, a playoff round or the Super Bowl.
+pub(crate) fn seat_fixture(w: &World, t: usize) -> Option<Fixture> {
+    let d = w.today;
+    let s = w.nfl_season.as_ref()?;
+    if !s.started {
+        return None;
+    }
+    for (k, week) in s.slots.iter().enumerate() {
+        for (g, x) in week.iter().enumerate() {
+            let (h, a) = s.weeks[k][g];
+            if x.at.date == d && !x.played && (h == t || a == t) {
+                let seed = w.options.seed as u64 ^ (w.year as u64) << 24 ^ (k as u64) << 10 ^ 0x4E47;
+                let loud = if x.window.prime() { 0.04 } else { 0.0 };
+                return Some(Fixture {
+                    home: h,
+                    away: a,
+                    at: x.at,
+                    neutral: x.site.is_some(),
+                    loud,
+                    seed: seed ^ (h as u64) << 8 ^ a as u64,
+                });
+            }
+        }
+    }
+    for &(round, c, hi, lo, at) in &s.round_games {
+        if at.date == d && (hi == t || lo == t) {
+            let seed = w.options.seed as u64 ^ (w.year as u64) << 24 ^ (round as u64) << 4 ^ 0x504F ^ c as u64;
+            return Some(Fixture {
+                home: hi,
+                away: lo,
+                at,
+                neutral: false,
+                loud: 0.1,
+                seed: seed ^ (hi as u64) << 8 ^ lo as u64,
+            });
+        }
+    }
+    if d == w.dates.super_bowl && s.booked {
+        let (a, b) = (s.alive[0].first().copied()?, s.alive[1].first().copied()?);
+        if a == t || b == t {
+            let seed = w.options.seed as u64 ^ (w.year as u64) << 24 ^ 4u64 << 4 ^ 0x504F;
+            return Some(Fixture {
+                home: a,
+                away: b,
+                at: Moment::at(d, 18, 30),
+                neutral: true,
+                loud: 0.0,
+                seed: seed ^ 0x5B,
+            });
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
