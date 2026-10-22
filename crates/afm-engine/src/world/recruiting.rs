@@ -2140,6 +2140,30 @@ fn service_stars(specialist: &[bool], quotas: &[(u8, usize)]) -> Vec<u8> {
     out
 }
 
+/// How far the recruiting services' read of a kid's upside sits from the
+/// truth, the same at every look (A12, final build). Two real causes:
+/// physical maturity, since the services rank what a body does at 17 and
+/// an older kid in his class (a late-summer birthday held back, or simply
+/// born in September) looks a year further along than he will end up
+/// (the relative-age effect in recruiting rankings); and the services'
+/// own shared misreads of a kid (the camp circuit, one big offer, a level
+/// of competition). Claude's pick, proposed in the final build: 1.6
+/// points of upside per year older than the middle of his class, and a
+/// lasting misread of 3.4 points (one standard deviation), sized so about
+/// 62% of 5-stars are drafted, as in real classes.
+fn service_bias(p: &Person, world_seed: u64) -> f64 {
+    let older = if p.born == crate::calendar::born::UNKNOWN {
+        0.0
+    } else {
+        let start = crate::calendar::Date::ymd(p.class_of - 19, 9, 1);
+        ((start.0 - p.born.0) as f64 / 365.25 + 0.5).clamp(-1.5, 1.5)
+    };
+    SERVICE_MATURITY * older + SERVICE_MISREAD * key_normal(world_seed ^ 0x5E2_B1A5, p.player.id as u64)
+}
+
+const SERVICE_MATURITY: f64 = 1.6;
+const SERVICE_MISREAD: f64 = 3.4;
+
 /// The stars staffs recruit a player on (fix list 1.5): the services' for
 /// most, the camps' own for a kicker, punter or long snapper.
 fn recruiting_stars(p: &Person) -> u8 {
@@ -2545,7 +2569,9 @@ fn camp_rankings(
         let p = &w.people[i];
         let spot = if p.player.position.kicks() {
             p.player.position
-        } else if snapper.get(&p.hs) == Some(&i) && p.stars == 0 {
+        } else if snapper.get(&p.hs) == Some(&i) && p.stars == 0 && p.player.body.weight <= crate::athlete::LS_MAX_WEIGHT {
+            // A 300-pound center who snaps on Fridays projects as a
+            // lineman; the camps rank snappers with a snapper's build.
             Position::LS
         } else {
             continue;
@@ -3367,12 +3393,17 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     // instead of starting over (part B 6). A junior college mover is a new
     // evaluation. Each read uses the recruit's own random stream, so it runs
     // on all cores.
+    let world_seed = w.options.seed as u64;
     let persons = super::pick_mut(&mut w.people, pool.iter().map(|r| r.person));
     persons.into_par_iter().zip(pool.par_iter_mut()).for_each(|(p, r)| {
         let rep = scout_player(&p.player, ScoutOptions { accuracy: 12.0, level: Level::HS }, &mut p.rng);
+        // What the services misread about a kid stays misread look after
+        // look (A12): their errors are shared and lasting, not fresh noise
+        // that averages away.
+        let seen = rep.potential + service_bias(p, world_seed);
         r.projection = match p.cal.service_read {
-            Some(prev) if !r.juco_mover => prev + 0.5 * (rep.potential - prev),
-            _ => rep.potential,
+            Some(prev) if !r.juco_mover => prev + 0.5 * (seen - prev),
+            _ => seen,
         };
         p.cal.service_read = Some(r.projection);
         p.visibility = r.visibility;

@@ -13,7 +13,7 @@ Everything below that Raichel has not answered is marked **proposed, not confirm
 
 ## Programs (topics 2, 6, 7)
 
-- Real colleges from `data/real-world/colleges.csv`: 138 FBS, 127 FCS (Chicago State, with no team, is left out), 160 D2. JUCO programs are placeholders ("TX Junior College 1") until the real list is researched (waits on realism question 1).
+- Real colleges from `data/real-world/colleges.csv`: 138 FBS, 127 FCS (Chicago State, with no team, is left out), 160 D2. The real junior colleges (113, NJCAA and California's CCCAA), Division III and the NAIA come from `data/real-world/colleges_lower.csv`.
 - Prestige comes from history, recent results, the head coach, facilities, NIL, fans and TV, and conference (topic 7). Recruits read it relative to their division, so a strong D2 school does not out-pull an FBS one.
 - 12 EA-style grades. Steady ones move about 15% of the way to their target each year (tradition, academics, facilities, atmosphere, campus life, brand exposure). Fast ones move about 80% (title chances, playing time, coach prestige, NIL, pro pipeline). Conference strength moves only on realignment (Raichel confirmed the split). Two straight titles take a C- program to about B+.
 - NIL collectives have budgets that follow results and booster mood, with booster departures. A falling collective sends warnings through the inbox, the news and a falling arrow on the NIL grade, getting louder each year (Raichel's follow-up answer 4).
@@ -469,6 +469,47 @@ The world side of the people leftovers from build 9 and your own side of section
 - At a club the general manager runs the roster review and the flight-risk list (his pro scouts beside him).
 - Scenes kept: the newest 80; the people log: the newest 600 lines.
 
+## Final build lane 5: world fixes (2026-10-22)
+
+### Eligibility by era and the long roads (S11, A3)
+- `world/eligibility.rs` holds every college player's clock. Through 2025-26: four seasons inside five years from his first full-time enrolment. A season he never played in is a redshirt.
+- **Five years to play five (S11).** Real: the Division I Cabinet adopted it on June 23-24, 2026, for 2026-27. From the 2026 season FBS and FCS players get five seasons in five years. Redshirts, the four-game rule and hardship waivers end there; every year on a roster counts. Division II, the NAIA and junior colleges keep the old rules. It is in the rule book from 2026, no longer a possible change.
+- **Medical hardship.** An injury that ends his season after no more than three games or 30% of his team's, whichever is more, gives the season back. Two seasons lost to injury (a hardship or a hurt redshirt year) earn a sixth year when the clock runs out with a season unplayed.
+- **The 2020 COVID year.** Nobody's 2020 season counted and every clock gained a year. A senior whose extra year is all he has left decides at the declaration deadline whether to use it: starters 60%, rotation 45%, backups 25%, the rest 12% (Claude's pick inside the AP's count of about 8 a FBS team). A 2020 senior back in 2021 didn't count against the scholarship limits that year (the NCAA's exemption).
+- **Missions.** A Latter-day Saint (keyed from his home state's share: Utah 42%, Idaho 19%, Wyoming 9%, under 2% in most states; about a third of Pacific Islander families) may serve two years: as a signee before enrolling (the school holds his place) or after his first college year. 40% of members with a place served before October 2012, 45% after the age dropped to 18, 30% in the NIL era; before 2012 most went after a season, after it most at 18. Top recruits serve less. An unsigned member near the top of his state can serve and walk on when he gets home.
+- **Military service.** About 3% of the unsigned graduates near the top of their state enlist; a quarter of those (Claude's pick) mean to play again and walk on after a four-year term, at 22 or 23.
+- **Away from football** is its own stage: no games and no coaching, a year older each fall; the clock stops while he is away. His page says where he is and which school holds his place. On his return a held place becomes a signing; otherwise he walks on at the best program in his home state where he would make the back half of the two-deep.
+- **Moving up from below.** A Division II standout can go straight to FBS, and NAIA and Division III standouts can move up to FCS or Division II (`portal_open`; Division III to Division I needs no waiver). JUCO, prep school and FCS-to-FBS were built before.
+- Counted each year in the calendar log: medical hardships, sixth years, COVID returns and declines, missions, enlistments, returns, far moves up.
+
+### Real towns (final build)
+- Every generated high school sits in a real town (`data/real-world/hs_towns.csv`, built by `data/real-world/scripts/hs_towns.py` from the 2010 Census by ZIP code). Each state gets its towns biggest first until its programs have a place each, with a tenth to spare, so hamlets without a school stay out. A city takes about one school per 35,000 people, at most 40.
+- A county names its schools for its towns: Big Horn County, Wyoming now has Lovell, Greybull, Burlington and Basin, not five Big Horns. A city's first school is "{Town} High"; the others take a side of town (North, South, Central) or a person (Lincoln, Washington, Lamar), each once.
+- The town sets the area: a dense city's schools are urban or suburban (a big city mixes both), a town of 2,500 or more is a small town, a village is rural. Its median household income moves the area's money halfway.
+- Schools in one county share a recruiting area (area pipelines and nearby non-district games).
+
+### Town weather (U-e)
+- Each town has its own NOAA 1991-2020 normals (mean highs and lows, days with measurable rain), from the nearest station with a full record; a first-order station within 15 miles wins (`data/real-world/town_climate.csv`, 12,029 towns: every school town, college, NFL city and neutral site; `scripts/town_climate.py`). Wind and the midsummer dew point still come from the state's main town. The day's swing is shared by the state, so a September Friday is hotter in Brownsville than in Amarillo on the same front. A neutral-site final plays in the state's weather. Stored as bytes (about 430 KB).
+
+### High school playoffs by state (U-d)
+- Each state plays its real format (`data/real-world/hs_playoff_formats.csv`, `world/hs_playoffs.rs`; researched in `docs/research/hs-playoff-formats.md`): its own classes and sizes, who qualifies (the top N of each district, district champions first, the best by the state's own rating, or everyone, as in Indiana and Minnesota), field size per bracket, byes for the top seeds when a field isn't a power of two, and a late start for small brackets so every final lands on the state's finals day.
+- Ratings as the states use them: winning percentage, wins then opponents' wins (Illinois, Wisconsin), RPI shares (North Carolina, Georgia), power points (Ohio's Harbin points, New Jersey, Michigan) and computer rankings (MaxPreps, CalPreps).
+- Private schools by state: Louisiana's Select and Non-Select brackets, New Jersey's Non-Public groups, Georgia's private bracket, Alabama's and Tennessee's private classes, Illinois' 1.65 enrollment multiplier, Connecticut's play-up rule after a semifinal, Wisconsin's tournament performance factor, California's competitive-equity divisions (section champions placed by strength) and Open Divisions (California, Florida with its two pools of four, Arizona).
+- Classes are re-formed each year by the state's rules. A school's season keeps its playoff wins and whether it reached the last four.
+- Ten states' rows are filled from brackets and memory and marked `inferred` (the association handbooks couldn't be read); see the research file.
+
+### High school dynasties (A11)
+- Mater Dei won 248 straight in trial 10 (real record: De La Salle, 151). Real powerhouses lose because they play each other. A state's private powerhouses play in one league of their own when there are three or more (California's Trinity League, the Catholic leagues), whatever their class, and a big-name program (prestige 0.6 and up) books its non-district games against the biggest names free in the state, not the school down the road. The playoff formats above add the rest: California's champions meet by strength in the Open Division.
+
+### Long snappers
+- The snapping camps rank only a snapper's build (265 lb at most): a 300-pound center who snaps on Fridays projects as a lineman. A long snapper plays at 220-265 lb (real FBS and NFL snappers: about 6'2", 235-250), and old saves bring their snappers into that range on load.
+
+### Recruiting services' misreads (A12)
+- Trial 10: 87.6% of 5-stars drafted (real about 62%), 4-stars 35.4% (real about 20-25%), 3-stars 4.0% (real about 5-6%). The services' read moved halfway to each new look, and each look's error was fresh, so their errors averaged away: the rankings knew too much. Now each kid carries a lasting misread (one standard deviation 3.4 points of upside) and a maturity bias (1.6 points per year older than the middle of his class: September birthdays and kids held back look further along at 17 than they end up).
+
+### Draft early entry
+- Checked against sources: the NFL's early-entry deadline is January 15 (2018, 2024 and 2025 drafts) and January 14 for the 2026 draft; NCAA Bylaw 12.2.4.2.4 lets an undrafted player keep his eligibility if he withdraws in writing within 72 hours after it. The calendar now uses January 14 for 2026; the withdrawal stays the deadline plus three days.
+
 ## Poll and award voters (final build)
 
 The polls and the Heisman are voted by people, not read from a formula (`world/voters.rs`, `world/polls.rs`; section 6 topic 9).
@@ -520,7 +561,6 @@ The polls and the Heisman are voted by people, not read from a formula (`world/v
 - Firing patience by tenure: 10% in year one, 40% in year two, 75% in year three, full after that.
 - Head coaches from FBS or FCS don't drop to high school jobs.
 - 4% of recruits follow an older brother to his school.
-- Placeholder JUCO programs in 12 states.
 - A junior college makes at most 15 out-of-state offers a year (Mississippi and Kansas JUCO leagues cap out-of-state players; the exact number is a guess).
 - No athletic scholarships: Pioneer League schools cost the family tuition, the Ivy League gives need-based aid only. Both lower a recruit's interest.
 - After three seasons, a head coach under .400 over two years is much more likely to be fired, whatever the roster he inherited.

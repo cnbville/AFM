@@ -705,6 +705,12 @@ impl World {
         super::folk::after_load(self);
         // A world file from before the poll and award voters gets them now.
         super::voters::ensure(self);
+        // Long snappers made before the final build at a lineman's weight
+        // play at a snapper's (the 307-pound snapper).
+        for p in self.people.iter_mut().filter(|p| p.player.position == crate::positions::Position::LS) {
+            p.player.body.weight =
+                p.player.body.weight.clamp(crate::athlete::LS_MIN_WEIGHT, crate::athlete::LS_MAX_WEIGHT);
+        }
     }
 
     /// What a world file from before the final build lacks (lane 1): birth

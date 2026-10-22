@@ -92,6 +92,7 @@ Started 2026-10-14 for open realism question Q2 (`docs/handoff/open-questions.md
 
 - Full field sizes or selection rules are missing for Arkansas, New Mexico, Rhode Island, New Hampshire, Montana, North Dakota, Kentucky (per district), Oklahoma (per district), Maryland (2025) and Pennsylvania (state field).
 - Washington DC (DCSAA) was not found.
+- **Final build (2026-10-22):** the game now plays each state's format from `data/real-world/hs_playoff_formats.csv` (`world/hs_playoffs.rs`). The association sites can't be reached from the build machine and a web search on 2026-10-22 found no handbook text for these states, so their rows are filled from the published brackets and memory and carry `inferred` in the file's status column: Arkansas (top 4 per conference), Kentucky (top 4 of each district, sister districts; RPI reseeding from 2027 per WYMT, May 2026), Oklahoma (top 4 per district), Maryland (public MPSSAA classes plus the private MIAA), Montana, New Hampshire, New Mexico, North Dakota, Rhode Island, DC (four-team brackets). Pennsylvania is partly confirmed: the state bracket takes district champions only and the biggest districts enter later (TribLive, March 2024). Swap any row for the handbook's numbers when they are read; the code needs no change.
 - Several rows read the field size off a bracket rather than a rule (MS, SC, KS). These are marked "inferred".
 
 ## Proposals for Raichel (Claude's ideas, proposed, not confirmed)

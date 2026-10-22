@@ -37,7 +37,7 @@ ND,AAA;AA;A;9-man,,,,,top,12;8;16;16,power,,partly inferred,"AAA 6 East and 6 We
 OH,Division I;Division II;Division III;Division IV;Division V;Division VI;Division VII,72;107;107;107;107;107;107,,,,top,48,power,,published,"Top 12 per region (4 regions) by computer ratings; top 4 per region bye; Division I is the 72 largest"
 OK,6A-I;6A-II;5A;4A;3A;2A-I;2A-II;A-I;A-II;B-I;B-II;C,,,,,district:4,16;16;16;32;32;32;32;32;32;32;32;16,winpct,,inferred,"Top 4 per district (memory)"
 OR,6A;5A;4A;3A;2A;1A,,,,,champ+top,16,rpi:40/40/20,,partly inferred,"6A: 7 league champions plus the next 9 for the title (8 more in the Columbia Cup); other classes inferred"
-PA,6A;5A;4A;3A;2A;1A,,,,,champ+top,32,winpct,,inferred,"District playoffs feed the state bracket; one bracket of 32 per class stands for both (memory)"
+PA,6A;5A;4A;3A;2A;1A,,,,,champ+top,8;12;12;16;16;12,winpct,,partly inferred,"The state bracket takes district champions only (district playoffs first); bigger districts enter later (WPIAL 6A at the quarterfinals; TribLive, March 2024). Field per class read from the 2024-25 brackets: 6A about 8, smaller classes 12-16 (inferred)"
 RI,Division 1;Division 2;Division 3;Division 4,,,,,top,8,winpct,,inferred,"Eight per division (memory); Division 1 Bowl not modelled"
 SC,5A Division I;5A Division II;4A;3A;2A;1A,,SCISA 4A;SCISA 3A;SCISA 2A,,,district:4,24;24;32;32;32;32;8;8;8,winpct,,partly inferred,"Upper and Lower State halves; 5A seeds 1-12 per half (top 4 byes); private schools play in the SCISA"
 SD,11AAA;11AA;11A;11B;9AA;9A;9B,,,,,top,8;8;8;16;16;16;16,power,,published,"Seed points"
