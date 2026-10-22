@@ -788,6 +788,7 @@ fn hs_team(w: &World, h: usize, week: usize) -> Option<(GameTeam, Vec<(u32, usiz
         p.stage == Stage::HighSchool
             && p.last_role != Some(PlayingTime::Redshirt)
             && !p.cal.trouble
+            && !super::folk::rules::sitting(w, p.player.id, w.today)
             && grades.is_none_or(|g| g.get(&i).is_none_or(|m| m >> week & 1 == 0))
     };
     let older = school.roster.iter().filter(|&&i| ok(i) && w.people[i].school_age() > 14).count();

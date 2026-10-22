@@ -5043,8 +5043,13 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
             continue;
         }
         let Some(c) = p.college else { continue };
+        // Your own hire opens a window for your program alone (takeover
+        // T-B): only that program's players, whatever the year's coach list
+        // says.
         if which == PortalWindow::CoachChange
-            && (!new_coach[c] || !p.cal.lean_events.iter().any(|e| e.1 == "his head coach is gone"))
+            && (w.folk.window_only.is_some_and(|x| x != c)
+                || (!new_coach[c] && w.folk.window_only != Some(c))
+                || !p.cal.lean_events.iter().any(|e| e.1 == "his head coach is gone"))
         {
             continue;
         }

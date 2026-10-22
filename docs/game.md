@@ -98,11 +98,29 @@ The shell and the core screens of section 10, on Showtime. The game side is `cra
 - Jersey numbers follow position rules (a quarterback 1-19, a lineman 50-79 and so on), seeded per player, until the world keeps real numbers.
 - Measurables show where each was taken (his school's listed roster, his team's spring measurements, the combine); arms, hands and wingspan in eighths of an inch as the combine writes them; drills only for players who were tested.
 
+## People (final build, lane 6)
+
+Section 6 on your side. The world side is `world/folk/` (`docs/world-model.md`, "Section 6, people: the final build"); the game side `crates/afm-game/src/lane_people.rs` (27 `people_*` commands); the screens `app/ui/screens/people.js` and `people.css`, built on lane 9's helpers (page heads, tabs, tables, the Go-to line, hover links).
+
+- **The meeting room** (`people_scene`): every meeting, talk, press conference and call plays in a calm room in your team's colours. Left, who is in the room: his face, his mood and its reasons, his file, your promises to him and who is in his ear (tabs), or a person's standing with you and what people say about them. Middle, the conversation, with your read of his tells and any papers on the table (the roster, the flight-risk list, the old coach's notes). Right, your moves. A move takes two steps: pick it (in a one-on-one, then its tone: calm, warm, firm or fiery), read what your staff expects and how sure they are, then say it, or take it back. Handing to your staff is always one click. When it ends, how it went, and the next meeting waiting.
+- **People hub** (`people`): Agenda (what waits for you as cards, what came of recent meetings, your boss and the season's goals, the promise ledger, what's coming, what was said), Takeover (the first two weeks, who might leave, the old staff, claims to check after spring), Room (every player's mood with your staff's words, trust in you, close friends, your line to his coach, Talk), Rules (each rule's strictness, rookie rituals at the NFL, the leadership council, who is sitting, your rulings for consistency), Boss (who he is and what people say, goals by season, what you asked for, meetings, ask for a meeting once a month), Network (contacts with warmth and favours, reach out by text, call or lunch, the favour ledger, who asked about you, clinics and all-star games), League (fines, ejections and suspensions by year, this season's rulings, cases in the courts) and Log (everything said, by topic). Your week's people hours sit in the head, with Team talk.
+- **Staff office** (`people_staff`): your assistants with salary, years, buyout and what's owed, raises and letting a coach go (you tell him yourself, in a scene); Hiring by role (your network first, then coaches out of work, then a rung down), your read of each candidate's teaching as a range, interview (a scene) and offer; support staff and the rest of the building.
+- **A person's page** (`people_cast`): bosses, boosters, reporters, the trainer and the rest: who they are, what people say, where you stand, a booster's business and wants, a reporter's outlet, beat, lean and sources, your meetings.
+- **The player page's People tab**: how he is and why (dated reasons), trust in you, sitting or a case, life at home, in his ear, close ties and his mentor, promises to him, Talk (seven subjects) and your line to his position coach.
+- **The inbox and Continue**: meetings that come to you send a letter from the person who would tell you (lane 9's inbox, `folk/letters.rs`); the welcome letter carries the takeover's schedule as a table of links; a meeting waiting today pins under Continue and Continue opens the room on its morning.
+
+### Decided in the final build (Claude's pick)
+
+- The room is always dark in the team's colours, like the live room, in both themes: a meeting is a place, not a page.
+- A one-on-one's move can be said in any of the four tones; the other scenes' answers keep the tone they are written in.
+- Your staff's expectation is shown only in one-on-ones (the other scenes' answers show what they tend to do).
+- A meeting set for a later day shows its date and place and can only be handed; it opens on its morning.
+
 ## Not built yet (section 8's design, for the next builds)
 
-- The choice screens where the AI still decides for your team: recruiting board and offers, the portal and NIL; contracts, the cap, free agency, trades and waivers; the draft board and war room; game plans, playbook and installs; talks; team rules; press conferences; bosses and goals; hiring and firing staff; scouting assignments.
+- The choice screens where the AI still decides for your team: recruiting board and offers, the portal and NIL; contracts, the cap, free agency, trades and waivers; the draft board and war room; game plans, playbook and installs; scouting assignments. (Talks, team rules, press conferences, bosses and goals and hiring and firing staff are built: "People" above.)
 - Training beyond the focus: the practice day and week, the time budget, a habit to work on, body plans, position moves, practice injuries, growth landing every week (choice 1) and practice snaps on the engine (choice 3).
-- High school: varsity, JV and freshman squads, the principal and AD as people, the booster club, your teaching job. AI high schools still have no staff people (the built stand-in from resources stays).
+- High school: varsity, JV and freshman squads, your teaching job. (The principal, the athletic director, the superintendent and the booster club are people now, and every AI high school's staff is drawn as people: "People" above.)
 - Starting without a job and assistant jobs ("Start without a job" is in the mock-up, not built); "People you know" on the You step; a fictional-names world (the World step shows the world's own names; names are fixed when a world is built, and NFL clubs have no fictional names yet); your family and looks in the world after setup (they are kept on your profile and shown on your page, nothing reads them yet); the 2D view (section 10).
 
 ## Proposed, not confirmed

@@ -19,6 +19,7 @@ pub mod data;
 pub mod desk;
 pub mod ethnicity;
 pub mod fame;
+pub mod folk;
 pub mod franchise;
 pub mod game_log;
 pub mod geo;
@@ -693,6 +694,11 @@ pub struct World {
     /// Your career once it has started: you, your coach id, your notes.
     #[serde(default)]
     pub career: Option<seat::Career>,
+    /// Section 6's people built in the final build (lane 6): the people
+    /// around a team, your meetings and talks, ties, lives, courts, staff
+    /// contracts and your network (`folk`).
+    #[serde(default)]
+    pub folk: folk::Folk,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -976,6 +982,7 @@ impl World {
             moved_cycle: std::collections::HashSet::new(),
             college_spread: season::COLLEGE_SPREAD,
             seat: None,
+            folk: Default::default(),
             trends: Vec::new(),
             novelty: [[0.0; crate::game::playbook::FAMILY_COUNT]; data::DIVISION_COUNT],
             seat_games: Vec::new(),

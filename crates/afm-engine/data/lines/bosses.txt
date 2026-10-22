@@ -1,0 +1,134 @@
+# The line bank: bosses (people topic 5; format in src/world/folk/voice.rs).
+
+# The boss: `ad college`, `owner nfl`, `principal hs`. Facts: BASE, boss
+# (his own name, avoid), and record at midseason, met at the review.
+
+# The preseason goals meeting. No record here.
+@key boss.goals.open
+Let's talk about this season. I want us on the same page before the first snap.
+I've got a few things written down. None of them should surprise you.
+Sit down. I want to go through what I expect this year, and I want you to push back if you think I'm wrong.
+Before camp gets going, I want our goals on paper. That way nobody's guessing in November. ~ ad
+I do this with every head coach I have. Basketball, baseball, you. It's not personal. ~ ad college
+I'll keep this short. I didn't buy this team to be patient. ~ owner impatient
+We're not doing a five-year plan. I've seen what those look like in this league. They look like a new coach in year three. ~ owner impatient
+I've read your plan. Now let me tell you mine. ~ owner ego
+My father ran this team on feel. I run it on expectations. Here are mine. ~ owner
+Coach, thank you for making the time. I know it's a busy week. I'd like to talk about the program, not just the scoreboard. ~ principal
+I'll be honest, I'm not a football person. But I know what this program means to our students, and there are a few things I care about. ~ principal
+The superintendent asks me to sit down with every head coach before the season. You're first, because you're the one people ask me about. ~ principal
+I'm not going to dance around it. Here's what I need. ~ impatient
+No pressure today. I just want us to agree on what a good year looks like. ~ patient
+You'll get the same list I'd give anybody in that chair, and you'll be judged by it. ~ blunt
+How's the family? Settled in? Good. Now let's talk about the fall. ~ warm
+Let's get to it. ~ cold
+We went {last_record} last year. Let's talk about what this year looks like.
+First of all, I love what I'm hearing from the building. Now here's the business part. ~ smooth
+Every year I put it in writing. It keeps both of us honest. ~ !impatient
+
+@key boss.goals.point
+What matters most to me is that we're a better team in November than we are in September.
+Above all, I don't want to read about our players in the paper for the wrong reasons.
+Beat {rival}, and a lot of other things get forgiven. ~ !nfl
+Graduation rates matter to me. They matter to the president even more. ~ ad college
+Fill the stadium. Empty seats cost us more than you'd think. ~ tight !hs
+I want to be playing in January. Everything else is detail. ~ owner
+I won't wait three years for a contender. I've done that before, and I didn't like how it ended. ~ owner impatient
+Season ticket renewals go out in [February|March]. Give people a reason to sign. ~ owner
+Eligibility first. If a young man can't stay eligible, he isn't helping us or himself. ~ principal
+I care about the boys who'll never play a down after high school. What they learn from you matters more to me than the scoreboard. ~ principal patient
+Win some Friday nights. The town's happier when the team wins, and frankly, so is my phone. ~ hs
+The portal is going to test us. I'd like us not to lose more than we bring in. ~ ad college modern
+The collective and I need to be aligned with you. No surprises. ~ ad college nil
+I'll back you in public no matter what. In here, I'm going to be honest with you.
+Recruiting is how the boosters judge us in February. Don't make me defend a bad class. ~ college
+Whatever we do, I want our players to look like they want to be out there.
+I've let go of coaches who hit their numbers and were miserable to work with. Be somebody I want to keep. ~ blunt
+I'd rather build something that lasts than chase one good year. ~ patient
+I don't do moral victories. ~ impatient
+
+# The midseason check-in. Facts: BASE, record.
+@key boss.mid.open
+{record}. Talk to me. What do you see?
+We're {record}. I want your honest read, not the press conference version.
+Halfway home at {record}. What's working and what isn't?
+I've watched every game. I've got questions. Let's start with the lines. ~ impatient
+No agenda today. I just like to check in at the halfway point. How are the kids holding up? ~ patient !nfl
+I'm not worried about the record. I'd like to hear how the seniors are doing, and whether anybody's struggling in class. ~ principal patient
+{record}. I've got a lot of people asking me what that means. What does it mean? ~ owner
+I get calls too, Coach. Partners, sponsors, the league office. {record}. Tell me where this is going. ~ owner impatient
+I'm not here to talk X's and O's. I want to know how the boys are doing. Grades, attitude, all of it. ~ principal
+{record}. People stop me at the grocery store about it every week. How are you holding up? ~ hs
+The president asks me about us at every board meeting. {record}. Give me something to take upstairs. ~ ad college
+Sit down and close the door. How's the locker room?
+{record}, with the back half still to play. Tell me what you're worried about.
+I'll go first. I like some of what I see, and I don't like some of it. Your turn. ~ blunt
+Coach, good to see you. Everybody's talking about the team. {record}, and we're only halfway. ~ smooth
+{record}. Go. ~ cold
+I watch the gate as close as the scoreboard. {record}. Both matter. ~ tight !hs
+{record}. Explain to me what I'm watching every week. ~ hot
+
+# The end-of-season review, after he's read the goals. Facts: BASE, met.
+@key boss.review.good
+That's the year we talked about. Let's keep it going.
+You did what you said you'd do. That doesn't happen as often as you'd think in this chair.
+You hit {met} of the goals we put on paper. I'll take that every year.
+I knew it would come. I'm glad you didn't let anybody rush you. ~ patient
+Good. Now do it again, and do it better. ~ impatient
+My phone's been ringing for a different reason this year. I like this reason better. ~ owner
+Good year. Don't get comfortable. Comfortable is how this team lost a decade. ~ owner impatient
+The teachers have noticed a change in the boys this year, Coach. That's what I'll remember. ~ principal
+The president is going to like this one. So do I. ~ ad college
+Let's talk about an extension once the dust settles. ~ ad college
+Thank you. Seriously. That was fun to watch. ~ warm
+I don't hand out compliments, so listen. That was a good year. ~ blunt
+Renewals are up and the donors are happy. You did that. ~ tight !hs
+Good work. Same expectations next year. ~ cold
+I won't keep you long. You earned a week off. Take it.
+People were honking at me in the church parking lot. In a good way, for once. ~ hs
+I told the board you were the right hire. Thanks for making me look smart. ~ ego
+
+@key boss.review.mixed
+Some of it was what I wanted. Some of it wasn't.
+You got {met} of them. Let's talk about the rest.
+I'm not unhappy. I'm not satisfied, either. Help me understand what next year looks like.
+Every program has a year like this on the way up. I need to know we're on the way up. ~ patient
+Half a year isn't a year, Coach. I need the whole thing. ~ impatient
+Good enough to tease people and not good enough to matter. That's the worst place to be in this league. ~ owner
+My partners asked me if you're the guy. I told them yes. Don't make me change my answer. ~ owner impatient
+The boys carried themselves well, for the most part. There are a few things we need to talk about. ~ principal
+I don't judge a season by the scoreboard alone. But I can't ignore it, and neither can the board. ~ principal patient
+The boosters are split on you. I'm not. Yet. ~ ad college
+Some of this I can sell upstairs. Some of it I can't. ~ ad
+It wasn't good enough, and it wasn't a disaster. You get to pick which one next year looks like. ~ blunt
+I know it was a grind. I saw it on your face after the losses. Let's figure out what we fix. ~ warm
+Look, there's a lot to like. There's also a lot people are going to ask me about. ~ smooth
+The gate was flat. The donors were flat. I'd like next year not to be flat. ~ tight !hs
+I think you're the right coach. I need you to prove me right a little faster.
+Some goals met, some missed. I'll want your plan for the misses by the end of the month. ~ cold
+
+@key boss.review.bad
+I'm going to be honest with you. This isn't what we talked about.
+Sit down. This is going to be a hard conversation for both of us.
+We put the goals on paper before the season. You read them. I read them. What happened? ~ impatient
+I don't pay for effort. I pay for results, and I didn't get them. ~ owner impatient
+I'll be talking with my partners this week. You'll hear from me. ~ owner impatient
+Three people asked me this week if I'm making a change. I didn't have an answer for any of them. Give me one. ~ owner
+That's my family's name on this team, Coach. Do you understand what this year looked like from my seat? ~ owner hot
+I'm not making any decisions today. But I need to see a real plan from you, and I need to see it soon. ~ patient
+Coach, I know you care about these boys. I also know the board is going to ask me hard questions. Help me answer them. ~ principal
+This doesn't change how I see you as a person, Coach. But the program has to be better, and I'll need to see how. ~ principal patient
+I've taken more calls from parents this fall than in any year I've had this job. ~ principal !patient
+I've got boosters calling me. I've got the president calling me. And I have nothing to tell either of them. ~ ad college
+I stuck my neck out for you. This year, I felt it. ~ ad impatient
+I'm not going to pretend. That was a bad year. Some of it's on all of us, but most of it's on you. ~ blunt
+You know why you're here. ~ cold
+I hate this part of the job. I'd hate it more if I wasn't straight with you. ~ warm
+Do you know what it's like to sit up there and watch that? ~ hot
+We had empty seats in November. Empty seats. I can't sell that. ~ tight !hs
+Next year can't look like this one. I need you to hear me say that.
+Patience is something I had in August. ~ impatient
+I've got to explain this year to a lot of people. Right now, I can't.
+The fans are angry. Some of the board is angry. I'm disappointed, and that's worse.
+We need to talk about your staff.
+Your buyout came up in a meeting last week. I didn't bring it up. I'd like to never hear it again. ~ ad college

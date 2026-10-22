@@ -31,6 +31,7 @@ fn healthy(w: &World, i: usize, status: Status) -> bool {
         .pro
         .as_ref()
         .is_some_and(|c| c.status == status && c.out_weeks == 0 && crate::world::people::available(c))
+        && !crate::world::folk::rules::sitting(w, w.people[i].player.id, w.today)
 }
 
 fn elevations_used(w: &World, i: usize) -> u32 {

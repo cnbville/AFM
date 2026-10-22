@@ -476,6 +476,8 @@ pub(crate) fn advance_day(w: &mut World) {
     // the training blocks of every level (T7).
     timed("rhythm", || rhythm(w, d, &y));
     nfl_year::training_blocks(w, d, &y);
+    // Section 6's people (lane 6): ties, lives, courts, staffs and your agenda.
+    timed("people", || super::folk::day(w, d));
 
     // News items of the day get the day's date.
     for n in w.news.iter_mut().rev() {
