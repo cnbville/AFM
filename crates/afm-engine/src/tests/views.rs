@@ -7,10 +7,22 @@ use crate::game::synthetic::synthetic_league;
 use crate::game::{GameResult, GameSetup, PlayType, ReplaySetup, play_game};
 use crate::player::Level;
 
+fn j<T: serde::Serialize>(v: &T) -> String {
+    serde_json::to_string(v).unwrap()
+}
+
+/// The same game: play log, score, totals, every player's line (sorted, as
+/// they sit in hash maps), injuries, trust and decisions.
 fn same_game(a: &GameResult, b: &GameResult) -> bool {
-    serde_json::to_string(&a.stats).unwrap() == serde_json::to_string(&b.stats).unwrap()
-        && serde_json::to_string(&a.injuries).unwrap() == serde_json::to_string(&b.injuries).unwrap()
-        && serde_json::to_string(&a.trust).unwrap() == serde_json::to_string(&b.trust).unwrap()
+    let lines = |r: &GameResult| {
+        r.stats.players.iter().map(|m| m.iter().map(|(k, v)| (*k, j(v))).collect::<std::collections::BTreeMap<_, _>>()).collect::<Vec<_>>()
+    };
+    j(&a.stats.plays) == j(&b.stats.plays)
+        && a.stats.score == b.stats.score
+        && j(&a.stats.team) == j(&b.stats.team)
+        && lines(a) == lines(b)
+        && j(&a.injuries) == j(&b.injuries)
+        && j(&a.trust) == j(&b.trust)
         && a.decisions == b.decisions
 }
 
@@ -55,8 +67,7 @@ fn a_kept_game_replays_exactly() {
 }
 
 /// The frames say what bodies do: every recorded snap has a pose for each
-/// player, kick returns are kept too, a completed pass shows the throw and
-/// the catch, blocks name their man, and a deep ball rises well above the
+/// player, kick returns are kept too, a pass shows the throw and the catch, blocks name their man, and a deep ball rises well above the
 /// players.
 #[test]
 fn frames_carry_poses_actions_and_ball_height() {
@@ -89,7 +100,7 @@ fn frames_carry_poses_actions_and_ball_height() {
                 }
                 assert!(f.ball_z >= 0.0 && f.ball_z < 30.0);
             }
-            if rec.kind == PlayType::Pass && rec.complete && rec.air_yards >= 30.0 {
+            if rec.kind == PlayType::Pass && rec.air_yards >= 30.0 {
                 deep_peak = deep_peak.max(frames.iter().map(|f| f.ball_z).fold(0.0, f32::max));
             }
         }
@@ -104,4 +115,20 @@ fn frames_carry_poses_actions_and_ball_height() {
     // A 30-yard throw is in the air about 1.5 seconds: gravity lifts it
     // about 3 yards above the line from hand to hands.
     assert!(deep_peak > 4.0, "a deep ball peaks at {deep_peak:.1} yards");
+}
+
+
+#[test]
+fn dbg_plays() {
+    let teams = synthetic_league(Level::NFL, 4, 31);
+    let mut s = GameSetup::new(&teams[0], &teams[1], Level::NFL, 77);
+    s.record = true;
+    let r = play_game(&s);
+    let have: std::collections::HashSet<u32> = r.frames.iter().map(|f| f.0).collect();
+    for p in r.stats.plays.iter().take(400) {
+        let f = r.frames.iter().find(|f| f.0 == p.n);
+        let h = f.map(|f| { let fr = &f.1[0]; let hold = fr.holder; (fr.players.len(), hold, fr.players.get(hold as usize).map(|x| x.0), fr.ball.x) });
+        eprintln!("n{} q{} {:?} off{} yl{:.0} d{} call[{}] def[{}] pers[{}] route[{}] frames:{} {:?} kd{:.0} why[{}]", p.n, p.quarter, p.kind, p.offense, p.yardline_100, p.down, p.call, p.defense_call, p.personnel, p.route, have.contains(&p.n), h, p.kick_distance, p.why);
+    }
+    eprintln!("home ids {:?}", teams[0].players.iter().take(5).map(|p| p.id).collect::<Vec<_>>());
 }

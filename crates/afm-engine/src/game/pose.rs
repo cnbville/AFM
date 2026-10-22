@@ -226,11 +226,11 @@ pub(crate) fn frame(sim: &Sim, prev: &[Frame]) -> Frame {
                 face = (sim.agents[e.defender].pos - a.pos).norm();
                 Act::Block
             }
-        } else if sim.fight.contains(&i) {
-            if let Ball::Held(c) = sim.ball {
-                with = c as u8;
-                face = (sim.agents[c].pos - a.pos).norm();
-            }
+        } else if sim.fight.contains(&i)
+            && let Ball::Held(c) = sim.ball
+        {
+            with = c as u8;
+            face = (sim.agents[c].pos - a.pos).norm();
             Act::Tackle
         } else if scored && a.side == sim.carrier_side {
             Act::Celebrate
