@@ -231,14 +231,71 @@ pub struct SeasonRecord {
     /// His opponents' average strength against his division's average, in
     /// rating points: what the opponent-adjusted view reads.
     pub sos: f32,
-    #[serde(with = "serde_big_array::BigArray")]
-    pub s: [f32; STAT_COUNT],
+    pub s: StatSet,
 }
 
 impl SeasonRecord {
     #[inline]
     pub fn get(&self, k: Stat) -> f64 {
-        self.s[k as usize] as f64
+        self.s.get(k as usize) as f64
+    }
+}
+
+/// A season's numbers kept compactly (memory, final build lane 1): a
+/// lineman's row has no passing or kicking numbers, so only the numbers
+/// that aren't zero are stored, with a bit per stat saying which. Every
+/// value reads back bit for bit (a -0.0 is kept), and the row is written
+/// and read as the full list, so world files keep their shape. The
+/// book holds over two million rows, each a full array before.
+#[derive(Clone, Default)]
+pub struct StatSet {
+    mask: u128,
+    v: Box<[f32]>,
+}
+
+const _: () = assert!(STAT_COUNT <= 128, "a StatSet keeps one bit per stat");
+
+impl StatSet {
+    #[inline]
+    pub fn get(&self, k: usize) -> f32 {
+        let bit = 1u128 << k;
+        if self.mask & bit == 0 { 0.0 } else { self.v[(self.mask & (bit - 1)).count_ones() as usize] }
+    }
+
+    pub fn to_array(&self) -> [f32; STAT_COUNT] {
+        std::array::from_fn(|k| self.get(k))
+    }
+}
+
+impl From<[f32; STAT_COUNT]> for StatSet {
+    fn from(a: [f32; STAT_COUNT]) -> Self {
+        let mut mask = 0u128;
+        let mut v = Vec::new();
+        for (k, x) in a.iter().enumerate() {
+            if x.to_bits() != 0 {
+                mask |= 1 << k;
+                v.push(*x);
+            }
+        }
+        StatSet { mask, v: v.into_boxed_slice() }
+    }
+}
+
+impl std::fmt::Debug for StatSet {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.to_array().fmt(f)
+    }
+}
+
+impl serde::Serialize for StatSet {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        serde_big_array::BigArray::serialize(&self.to_array(), s)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for StatSet {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        <[f32; STAT_COUNT] as serde_big_array::BigArray<'de, f32>>::deserialize(d).map(StatSet::from)
     }
 }
 
@@ -680,7 +737,7 @@ pub(crate) fn season_records(w: &World, year: i32, book: &HashMap<u32, BookLine>
                 games: l.games.min(255) as u8,
                 footprint: 0,
                 sos: (l.opp_strength / l.games as f64 - avg) as f32,
-                s: from_line(&l.line),
+                s: from_line(&l.line).into(),
             })
         })
         .collect();
@@ -763,7 +820,7 @@ fn norms(w: &mut World, year: i32, recs: &[SeasonRecord]) {
         }
         let e = sums.entry((r.division, r.pos)).or_insert(([0.0; STAT_COUNT], 0.0));
         for k in 0..STAT_COUNT {
-            e.0[k] += r.s[k] as f64 / r.games as f64;
+            e.0[k] += r.s.get(k) as f64 / r.games as f64;
         }
         e.1 += 1.0;
     }

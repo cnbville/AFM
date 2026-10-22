@@ -64,6 +64,27 @@ The 30-year world for first saves (seed 2026, `afm/worlds/` in the project folde
 | Continue from 9 February to the first game (stops on 24 April and 2, 4 and 6 September) | 148 s | 5.10 GB, peak 5.17 GB |
 | Save | 74 s | 5.10 GB |
 
+## Memory (final build lane 1)
+
+In-season memory is under the agreed 4 GB: 3.81 GB at every stop from the first September stop to the first game, against 5.09 GB before. Results per seed are the same (how it was checked is below). Measured with `memory_season` (`crates/afm-game/src/bin/memory_season.rs`: opens a world file as the game does, starts a career at Iowa and presses Continue to the first game, then weighs each store) on the 30-year world for first saves, on a 4-core Linux machine, 2026-10-22:
+
+| Stop | Before | After |
+|---|---|---|
+| Open | 3.36 GB | 2.99 GB |
+| 10 February | 3.38 GB | 2.89 GB |
+| 24 April | 3.50 GB | 2.91 GB |
+| 2, 4 and 5 September | 5.09 GB | 3.81 GB |
+| Highest at any moment | 5.09 GB | 4.00 GB |
+
+What changed (how each works is in `docs/world-model.md`, "Memory compaction"):
+
+- Season rows grow by exactly one row and are 136 bytes, not 176: 0.99 to 0.44 GB in September.
+- The stat book keeps only each row's non-zero numbers: 0.60 to 0.28 GB.
+- Last year's college season drops its games, rosters and lines once the new one starts: 0.09 GB.
+- The game hands freed pages back to the system after a load and after each Continue (`memory.rs`): about 0.2 GB in season.
+
+Same results: a small world (seed 2026, scale 0.05, the history and a season to come, `memory_check 2026 3 1 0.05`) built from main and from this build gives the same fingerprint, a hash of every person's season rows, ratings, stage and school, every alumnus, coach and news line (`memory_check` prints it). World files keep their shape: the new code opens the old world file, and writes the same bytes for every changed field (`tests/compact.rs`).
+
 ## The screens' core (final build, lane 9)
 
 The shell and the core screens of section 10, on Showtime. The game side is `crates/afm-game/src/lane_core.rs` with `lane_core/` (`desk.rs` the inbox and your desk, `mail.rs` who writes what, `links.rs` the link markup, `pages.rs` the pages' data, `tables.rs` the big tables, `people.rs` the named people around you). The world side is `crates/afm-engine/src/world/desk.rs` (kept in the save: mail, notes, my players, watches, contacts, big moments). The page side is `app/ui/screens/core.js` and `core.css`, with the shell in `app.js`.
@@ -139,10 +160,11 @@ Section 6 on your side. The world side is `world/folk/` (`docs/world-model.md`, 
 
 ## Doubts
 
-- Memory in season is 5.1 GB, over the agreed 4 GB budget (opening is under it at 3.3 GB). The season's stores (game logs, the year's records) grow from the first day; compacting them is the next memory step. An 8 GB M1 runs it, with little room for other apps.
+- Memory in season is 3.8 GB, under the agreed 4 GB, with a brief high of 4.0 GB in the summer (see "Memory (final build lane 1)"). Measured on Linux; a Mac's allocator keeps and returns memory differently, so the Mac figure may differ a little.
+- Continuing the same career twice from the same world file can give different results: the season isn't fully repeatable run to run (seen while measuring memory, before the compaction as well). A world built from a seed is repeatable.
 - Continue stops the morning of your game, then plays the whole day in one step and opens the game page; there is no stop at kickoff itself.
 
 - Storing ratings as 4-byte floats changes results per seed slightly (rounding), so a seed no longer rebuilds a pre-build world exactly. Accepted because the section 8 build changes the world anyway.
-- Season records are still 8-byte; compacting old seasons (topic 8) isn't done.
+- Season records keep 8-byte values (an exact-size list of 136-byte rows since the final build); making the values 4-byte would move results per seed, so it waits for a build that may move them.
 - Your school's games run on the engine in a stand-in season while its opponents' other games don't; their records are mixed (the engine's scoring is close to the stand-in's odds).
 - Engine stats: a throwaway is no longer a target for any receiver, and a sack with no rusher on the quarterback (he went down to a tackle) goes to the tackler, so the box score's sacks match the play by play.

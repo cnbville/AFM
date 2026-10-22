@@ -405,6 +405,7 @@ pub fn set_position(p: &mut Player, pos: Position) {
         return;
     }
     p.position = pos;
+    p.position_history.reserve_exact(1);
     p.position_history.push((p.age, pos));
     // His spot at the new position: where he suits best (a staff sets the
     // whole room's spots each spring).

@@ -586,7 +586,7 @@ pub(crate) fn draft_reads(w: &mut World) {
                     games: 0,
                     footprint: f,
                     sos: 0.0,
-                    s: [0.0; super::records::STAT_COUNT],
+                    s: Default::default(),
                 };
                 why.extend(super::records::footprint_text(&probe));
             }

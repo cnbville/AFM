@@ -21,6 +21,7 @@ pub mod lane_scouting;
 pub mod lane_stories;
 pub mod lane_training;
 pub mod lane_views;
+pub mod memory;
 pub mod reads;
 pub mod setup;
 pub mod views;
@@ -110,6 +111,7 @@ impl Game {
                 self.world = Some(setup::read(path)?);
                 self.save_path = (cmd == "load").then(|| PathBuf::from(path));
                 lane_core::after_days(self.wm()?);
+                memory::hand_back();
                 Ok(views::status(self.w()?))
             }
             "save" => {
@@ -143,6 +145,7 @@ impl Game {
                 let from = w.today;
                 let stopped = w.continue_until_needed(max);
                 lane_core::after_days(w);
+                memory::hand_back();
                 Ok(views::stopped(w, from, stopped))
             }
             "day" => {
