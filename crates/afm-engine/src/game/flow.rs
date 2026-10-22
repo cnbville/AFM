@@ -759,6 +759,7 @@ impl<'a> Game<'a> {
             def_ease: self.sides[1 - o].coach.read.ease,
             def_concede: self.sides[1 - o].coach.read.concede,
             college: self.rules().level != Level::NFL,
+            lean: self.rules().code.pass_lean,
         }
     }
 
@@ -1049,7 +1050,8 @@ impl<'a> Game<'a> {
                     made[team] += 1;
                     self.add_points(team, 2);
                 }
-                r.why = format!("Overtime shootout, round {round}: {}. {}", if good { "good" } else { "no good" }, r.why);
+                r.why =
+                    format!("Overtime shootout, round {round}: {}. {}", if good { "good" } else { "no good" }, r.why);
                 self.stats.plays.push(r);
                 // Decided inside the regulation rounds once one side can't
                 // catch up with the tries it has left.
@@ -1212,7 +1214,10 @@ impl<'a> Game<'a> {
             self.running = false;
             self.after_turnover = false;
             self.must_go = true;
-            self.log(team, format!("Fourth and {:.0} from its own {:.0} in place of an onside kick.", alt.togo, alt.from));
+            self.log(
+                team,
+                format!("Fourth and {:.0} from its own {:.0} in place of an onside kick.", alt.togo, alt.from),
+            );
             self.take_ball(team, alt.from, self.rules().downs(), alt.togo);
             return;
         }
@@ -1300,7 +1305,10 @@ impl<'a> Game<'a> {
             // the end zone comes out to the 40.
             let single = kr.touchback && self.rouge(team, &mut r);
             r.why = if single {
-                format!("Single: the kickoff isn't brought out of the end zone. {} ball at its {:.0}.", "The receiving team's", self.x)
+                format!(
+                    "Single: the kickoff isn't brought out of the end zone. {} ball at its {:.0}.",
+                    "The receiving team's", self.x
+                )
             } else if kr.touchback && code.rouge != Rouge::None {
                 format!("The kickoff goes through the end zone: no single, the ball at the {:.0}.", self.x)
             } else if kr.touchback {
@@ -1691,7 +1699,13 @@ impl<'a> Game<'a> {
             if choice == FourthDown::Punt
                 && (!code.punting || code.no_punt_past_50 && yl < goal() / 2.0 && self.half_left() > 120.0)
             {
-                choice = if make > 0.35 && fg_dist <= kicker_range + 3.0 { FourthDown::FieldGoal } else { FourthDown::Go };
+                choice =
+                    if make > 0.35 && fg_dist <= kicker_range + 3.0 { FourthDown::FieldGoal } else { FourthDown::Go };
+            }
+            // Arena football goes for it on fourth and short unless the kick
+            // through its narrow posts is close to sure.
+            if !code.punting && choice == FourthDown::FieldGoal && self.togo <= 4.0 && make < 0.85 && !self.ot {
+                choice = FourthDown::Go;
             }
             if must_go || self.ot && matches!(self.rules().overtime, Overtime::Aaf | Overtime::Xfl2001) {
                 choice = FourthDown::Go;
@@ -2063,7 +2077,10 @@ impl<'a> Game<'a> {
                 r.why = format!("Punt of {:.0} yards into the end zone: a single.", kr.distance);
             } else {
                 spot = self.x;
-                r.why = format!("Punt of {:.0} yards through the end zone: no single, the ball at the {:.0}.", kr.distance, spot);
+                r.why = format!(
+                    "Punt of {:.0} yards through the end zone: no single, the ball at the {:.0}.",
+                    kr.distance, spot
+                );
             }
         }
         // The XFL's and the UFL's punts: into the end zone, or out of bounds
@@ -2113,8 +2130,11 @@ impl<'a> Game<'a> {
         line(o.pick(Position::IOL, 3, &mut used), &[ORole::LG, ORole::C, ORole::RG], &mut off);
         let backs: Vec<ORole> = roles.iter().copied().filter(|r| r.is_back() && *r != ORole::FB).collect();
         add(o.pick(Position::RB, backs.len(), &mut used), &backs, &mut off);
-        let wrs: Vec<ORole> =
-            roles.iter().copied().filter(|r| matches!(r, ORole::X | ORole::Z | ORole::Slot | ORole::Slot2 | ORole::Slot3)).collect();
+        let wrs: Vec<ORole> = roles
+            .iter()
+            .copied()
+            .filter(|r| matches!(r, ORole::X | ORole::Z | ORole::Slot | ORole::Slot2 | ORole::Slot3))
+            .collect();
         add(o.pick(Position::WR, wrs.len(), &mut used), &wrs, &mut off);
         let tes: Vec<ORole> =
             roles.iter().copied().filter(|r| matches!(r, ORole::TE | ORole::TE2 | ORole::TE3)).collect();
@@ -2442,7 +2462,8 @@ impl<'a> Game<'a> {
         let d = 1 - o;
         let sit = self.situation();
         call.formation.personnel = call.formation.personnel.for_players(self.rules().code.players);
-        let dcall = self.legal_defense(dcall.unwrap_or(DefCall::new(DefPersonnel::Base, Coverage::Cover3, Pressure::Four)));
+        let dcall =
+            self.legal_defense(dcall.unwrap_or(DefCall::new(DefPersonnel::Base, Coverage::Cover3, Pressure::Four)));
         self.sides[d].frozen = self.no_huddle;
         let (off, def) = self.lineup(&call, &dcall);
         self.sides[d].frozen = false;
@@ -3253,9 +3274,19 @@ impl<'a> Game<'a> {
             stop = false;
             ready = None;
         }
-        if code.late_every_play && (self.quarter == 2 || self.quarter >= 4) && self.half_left() <= code.warning {
-            stop = true;
-            ready = None;
+        // The CFL: before the three-minute warning a stopped clock starts
+        // again on the referee's whistle (after an incomplete pass or a
+        // play out of bounds too); after it the clock stops after every
+        // play, starting on the whistle after a play in bounds and on the
+        // snap after one that would have stopped it anyway.
+        if code.late_every_play && !turnover && !scored_td && !safety && !accepted_pen {
+            let late = (self.quarter == 2 || self.quarter >= 4) && self.half_left() <= code.warning;
+            if !late && stop && ready.is_none() {
+                ready = Some(BALL_SPOTTED);
+            } else if late && !stop {
+                stop = true;
+                ready = Some(BALL_SPOTTED);
+            }
         }
         self.running = !stop || ready.is_some();
         self.after_snap_clock(&r, ready);
@@ -3334,6 +3365,9 @@ impl<'a> Game<'a> {
                 huddle + self.rng.range(-3.0, 3.0)
             }
         };
+        // The other leagues' play clocks (X7): the CFL's 20 seconds from
+        // the whistle, the spring leagues' 25 from the ready signal.
+        let gap = if self.rules().code.american() { gap } else { gap.min(self.rules().play_clock - 1.0) };
         self.pace = gap / 37.5;
         self.tick((gap - ready.unwrap_or(0.0)).max(0.0));
     }
@@ -4321,6 +4355,25 @@ pub fn quick_game_in(
     s.wear = venue.wear;
     s.cold_unused = venue.cold_unused;
     s.context = context;
+    play_game(&s)
+}
+
+/// A quick game under another league's rule book (X7): pro players, the
+/// book's field, rules and clock.
+pub fn quick_game_book(
+    home: &GameTeam,
+    away: &GameTeam,
+    book: super::books::Book,
+    year: i32,
+    seed: u64,
+    venue: Venue,
+) -> GameResult {
+    let mut s = GameSetup::new(home, away, Level::NFL, seed);
+    s.rules = Rules::for_book(book, year);
+    s.cond = venue.cond;
+    s.neutral = venue.neutral;
+    s.wear = venue.wear;
+    s.cold_unused = venue.cold_unused;
     play_game(&s)
 }
 

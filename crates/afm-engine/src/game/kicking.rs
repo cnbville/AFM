@@ -268,6 +268,10 @@ pub fn kickoff(
         res.duration = hang;
         return res;
     }
+    // Arena football: a kick into the rebound nets stays live and comes
+    // back into the end zone, and the returner brings it out.
+    let land_x =
+        if rules.code.arena_kickoff && land_x < back_line() + 0.5 { back_line() + rng.range(1.0, 4.0) } else { land_x };
     if land_x < back_line() + 0.5 {
         res.touchback = true;
         res.spot = rules.kickoff_touchback;
@@ -286,7 +290,7 @@ pub fn kickoff(
     let ordered = rp.orders.kneel_depth().filter(|_| rp.follows(k.mood.strict[1], level, rng));
     // The order only adds kneels: deeper than his depth he takes the knee
     // whatever he thinks of his chances.
-    let kneel = land_x < 0.0 && {
+    let kneel = land_x < 0.0 && !rules.code.arena_kickoff && {
         // He weighs where he thinks he will get to against the touchback;
         // good judgment makes it a sharper call.
         let expected = land_x + 22.0 + 0.1 * (rp.a(Attr::Speed) - 70.0) + 0.9 * (risk - MID_T);
@@ -425,7 +429,11 @@ pub fn punt(
         if cover_gap < 0.5 * rules.code.halo && rng.chance(0.25) {
             no_yards = if rules.code.book == super::books::Book::Cfl { 15.0 } else { 5.0 };
         }
-        cover_gap = cover_gap.max(rules.code.halo);
+        // He has his halo when it comes down, and the cover men, held off
+        // until he touches it, are still closing when he starts to run
+        // (real CFL punt returns about 10 yards against the NFL's 9.5 on
+        // returned ones; Claude's reading).
+        cover_gap = cover_gap.max(rules.code.halo) + 0.5 * rules.code.halo;
     }
     let returner = &k.ret[k.ret_on[0]];
     let judgment = returner.a(Attr::Decisions);

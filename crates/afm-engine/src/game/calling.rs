@@ -378,6 +378,8 @@ pub struct Situation {
     pub def_concede: bool,
     /// Below the NFL: calls start from the real college habits.
     pub college: bool,
+    /// The league's lean toward passing (the other leagues' books, X7).
+    pub lean: f64,
 }
 
 impl Situation {
@@ -453,7 +455,7 @@ pub fn call_offense(staff: &Staff, mem: &Memory, sit: &Situation, ctx: &OffCtx, 
     // Pressure changes coaches (topic 6.5): behind late a gambler throws
     // more, a tight one sticks to the run.
     let agg = c.aggressiveness + 4.0 * c.nerve * sit.pressure();
-    p_pass += scheme.pass_lean() + 0.006 * (agg - 10.0);
+    p_pass += scheme.pass_lean() + 0.006 * (agg - 10.0) + sit.lean;
     // In-game learning (topic 3.2): lean toward what has worked, faster
     // and more accurately for a sharp coordinator.
     if mem.runs + mem.passes >= 8.0 {

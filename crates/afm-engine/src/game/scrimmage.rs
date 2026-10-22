@@ -365,9 +365,10 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     };
     // The CFL's fifth receiver reads as the tight end in a set without one.
     let find = |r: ORole| {
-        role_of.iter().position(|x| *x == Some(r)).or_else(|| {
-            if r == ORole::TE { role_of.iter().position(|x| *x == Some(ORole::Slot3)) } else { None }
-        })
+        role_of
+            .iter()
+            .position(|x| *x == Some(r))
+            .or_else(|| if r == ORole::TE { role_of.iter().position(|x| *x == Some(ORole::Slot3)) } else { None })
     };
     let qb = find(ORole::QB).unwrap_or(0);
     let center = find(ORole::C).unwrap_or(0);
@@ -3304,8 +3305,11 @@ impl<'s> Predict<'s> {
                     let v = a.vel;
                     let dir = if v.len() > 0.5 { v.norm() } else { v2(1.0, 0.0) };
                     let me = a.pos;
-                    let dir =
-                        if me.y < 4.0 && dir.y < 0.0 || me.y > width() - 4.0 && dir.y > 0.0 { v2(1.0, 0.0) } else { dir };
+                    let dir = if me.y < 4.0 && dir.y < 0.0 || me.y > width() - 4.0 && dir.y > 0.0 {
+                        v2(1.0, 0.0)
+                    } else {
+                        dir
+                    };
                     a.steer(dir.scale(route_pace(a)));
                     a.pos = a.pos + a.vel.scale(DT);
                 }

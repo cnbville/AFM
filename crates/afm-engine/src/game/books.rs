@@ -91,6 +91,29 @@ impl Book {
     }
 }
 
+impl Book {
+    /// Real points a team game in the league, near the book's sample
+    /// season, for `match_check`: the CFL about 24 (2022-25), arena about
+    /// 52 (the AFL 2011-19), the spring leagues about 20-21, the USFL of
+    /// the 1980s about 23 (season totals; Claude's reading, not checked
+    /// line by line, see `docs/match-engine.md`).
+    pub fn real_points(self) -> Option<f64> {
+        Some(match self {
+            Book::American => return None,
+            Book::Cfl => 24.0,
+            Book::Arena => 52.0,
+            Book::NflEurope => 21.0,
+            Book::Xfl2001 => 20.0,
+            Book::Xfl => 20.5,
+            Book::Aaf => 20.2,
+            Book::Usfl1983 => 23.5,
+            Book::Usfl2022 => 20.4,
+            Book::Ufl2009 => 21.0,
+            Book::Ufl => 20.5,
+        })
+    }
+}
+
 /// The rouge (CFL): a single point when a kick goes dead in the receiving
 /// team's end zone or through it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -215,6 +238,10 @@ pub struct Code {
     pub timeouts_per_game: bool,
     /// Coaches' challenges a game.
     pub challenges: u8,
+    /// How much more (or less) the league's play callers throw than the
+    /// NFL's habits by down and distance say: arena offenses throw about
+    /// three plays in four, the CFL's a little under three in five.
+    pub pass_lean: f64,
     /// Players go both ways (arena football's ironman rule, to 2006).
     pub ironman: bool,
 }
@@ -255,6 +282,7 @@ impl Default for Code {
             running_clock: 0.0,
             timeouts_per_game: false,
             challenges: 0,
+            pass_lean: 0.0,
             ironman: false,
         }
     }
@@ -478,6 +506,7 @@ fn cfl(year: i32, code: &mut Code) -> Rules {
     }
     code.warning = 180.0;
     code.late_every_play = true;
+    code.pass_lean = -0.10;
     code.timeouts_per_game = year >= 2013;
     code.challenges = match year {
         ..=2006 => 0,
@@ -496,9 +525,10 @@ fn cfl(year: i32, code: &mut Code) -> Rules {
     // two-point convert required after a touchdown from 2010.
     r.overtime = Overtime::Cfl { two_from: 2010 };
     r.timeouts = if year >= 2013 { 2 } else { 1 };
-    // 20 seconds from the referee's signal (about 27 from the whistle); a
-    // 35-second clock from the end of the play from 2026.
-    r.play_clock = if year >= 2026 { 35.0 } else { 27.0 };
+    // 20 seconds from the referee's whistle, which comes about ten after
+    // the play (about 30 from its end); a 35-second clock from the end of
+    // the play from 2026.
+    r.play_clock = if year >= 2026 { 35.0 } else { 30.0 };
     r.down_on_fall = true;
     r
 }
@@ -510,21 +540,17 @@ fn arena(year: i32, code: &mut Code) -> Rules {
     // 8-yard end zones, goalposts 9 feet wide at the end line and rebound
     // nets beside them.
     code.players = 8;
-    code.field = Field {
-        length: 50.0,
-        width: 85.0 / 3.0,
-        end_zone: 8.0,
-        downs: 4,
-        posts: 1.5,
-        post_depth: 8.0,
-        nets: true,
-    };
+    code.field =
+        Field { length: 50.0, width: 85.0 / 3.0, end_zone: 8.0, downs: 4, posts: 1.5, post_depth: 8.0, nets: true };
     code.waggle = Waggle::One;
     code.punting = false;
     code.drop_kick = true;
     code.try_kick = Some(3.0);
     code.try_plays = [None, Some(3.0), None];
     code.arena_kickoff = true;
+    // A kick over the side walls comes to the receiving 20.
+    code.kick_out_spot = 20.0;
+    code.pass_lean = 0.28;
     code.max_rushers = 4;
     code.man_only = true;
     code.warning = 0.0;

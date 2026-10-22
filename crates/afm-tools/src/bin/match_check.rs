@@ -108,6 +108,11 @@ fn world_rosters(path: &str, level: Level, seed: u32) -> (Vec<afm_engine::game::
     (teams, sched)
 }
 
+/// Team games in `games` games.
+fn n_games(games: usize) -> f64 {
+    2.0 * games as f64
+}
+
 fn main() {
     // AFM_QBSTATS=1: how the quarterbacks chose their throws (debug).
     let qb_stats = std::env::var("AFM_QBSTATS").is_ok();
@@ -117,6 +122,13 @@ fn main() {
         Some("hs") => Level::HS,
         _ => Level::NFL,
     };
+    // Another league's rule book (X7): `cfl`, `arena`, `nfle`, `xfl2001`,
+    // `xfl`, `aaf`, `usfl1983`, `usfl`, `ufl2009`, `ufl`, with NFL-level
+    // players; AFM_BOOK_YEAR picks the season (else the book's sample).
+    let book = args.get(1).and_then(|k| afm_engine::game::books::Book::from_key(k)).map(|b| {
+        let y = std::env::var("AFM_BOOK_YEAR").ok().and_then(|y| y.parse().ok()).unwrap_or(b.sample_year());
+        (b, y)
+    });
     let games: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(200);
     let seed: u32 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
     let pbp = args.get(4).is_some_and(|s| s == "pbp");
@@ -212,7 +224,11 @@ fn main() {
                 wear: [0.0, 0.012],
                 ..Venue::default()
             };
-            quick_game_in(&teams[h], &teams[a], level, seed as u64 * 1_000_003 + g as u64, Default::default(), venue)
+            let seed = seed as u64 * 1_000_003 + g as u64;
+            match book {
+                Some((b, y)) => afm_engine::game::quick_game_book(&teams[h], &teams[a], b, y, seed, venue),
+                None => quick_game_in(&teams[h], &teams[a], level, seed, Default::default(), venue),
+            }
         })
         .collect();
     let secs = t0.elapsed().as_secs_f64();
@@ -751,6 +767,12 @@ fn main() {
     println!("{} games at {:?} in {:.1}s ({:.1} ms/game)", games, level, secs, secs * 1000.0 / games as f64);
     println!("{:<28} {:>9} {:>9}", "per team game", "engine", "NFL");
     let f = |k: &str| pt[k].as_f64();
+    if let Some((b, y)) = book {
+        println!("rule book {} {y}: real points a team game {:.1}", b.key(), b.real_points().unwrap_or(0.0));
+        row("points (league)", mean, b.real_points());
+        let singles = results.iter().flat_map(|r| r.stats.plays.iter()).filter(|p| p.single).count();
+        row("singles (rouge)", singles as f64 / n_games(games), None);
+    }
     row("points", mean, real["points_per_team_game"].as_f64());
     row("points sd", sd, real["points_sd"].as_f64());
     row("games decided by <= 8", close / games as f64, real["share_games_decided_by_8_or_less"].as_f64());
