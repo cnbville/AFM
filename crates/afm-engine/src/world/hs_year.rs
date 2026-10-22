@@ -788,6 +788,7 @@ fn hs_team(w: &World, h: usize, week: usize) -> Option<(GameTeam, Vec<(u32, usiz
         p.stage == Stage::HighSchool
             && p.last_role != Some(PlayingTime::Redshirt)
             && !p.cal.trouble
+            && !super::folk::rules::sitting(w, p.player.id, w.today)
             && grades.is_none_or(|g| g.get(&i).is_none_or(|m| m >> week & 1 == 0))
     };
     let older = school.roster.iter().filter(|&&i| ok(i) && w.people[i].school_age() > 14).count();
@@ -1284,6 +1285,7 @@ fn file_lines(w: &mut World, s: usize) {
             games: e.games,
             s: e.s.map(|v| v.clamp(i16::MIN as i32, i16::MAX as i32) as i16),
         };
+        w.people[i].hs_lines.reserve_exact(1);
         w.people[i].hs_lines.push(line);
         if !w.recording {
             continue;

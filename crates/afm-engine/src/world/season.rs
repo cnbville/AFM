@@ -397,6 +397,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             }
             Stage::College => {
                 let prog = &programs[p.college.unwrap_or(0)];
+                p.college_staff.reserve_exact(1);
                 p.college_staff.push((year as i32, prog.id, prog.head_coach, prog.position_coaches[group as usize]));
                 let hc = prog.head_coach.map_or(9.0, |c| coaches[c].teaching(group));
                 let coord = if group.offense() { prog.oc } else { prog.dc };
@@ -505,7 +506,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             crate::development::open_row_with_spring_step(&mut p.player, gain);
         }
         p.last_role = Some(role);
-        p.last_performance = p.player.history.last().and_then(|h| h.performance);
+        p.last_performance = p.player.history.last().and_then(|h| h.performance.get());
         p.sit_out = 0.0;
         // JUCO classes: transferable credits and grades build back, or don't.
         if p.stage == Stage::College
@@ -792,7 +793,7 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
         .roster
         .iter()
         .map(|&i| &w.people[i])
-        .filter(|p| p.stage == Stage::College)
+        .filter(|p| p.stage == Stage::College && !super::folk::rules::sitting(w, p.player.id, w.today))
         .map(|p| {
             // This season counts as one (settled when it ends).
             let seasons = (p.college_seasons + p.cal.count_pending as u32) as f64;

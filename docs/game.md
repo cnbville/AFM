@@ -96,6 +96,27 @@ The 30-year world for first saves (seed 2026, `afm/worlds/` in the project folde
 | Continue from 9 February to the first game (stops on 24 April and 2, 4 and 6 September) | 148 s | 5.10 GB, peak 5.17 GB |
 | Save | 74 s | 5.10 GB |
 
+## Memory (final build lane 1)
+
+In-season memory is under the agreed 4 GB: 3.81 GB at every stop from the first September stop to the first game, against 5.09 GB before. Results per seed are the same (how it was checked is below). Measured with `memory_season` (`crates/afm-game/src/bin/memory_season.rs`: opens a world file as the game does, starts a career at Iowa and presses Continue to the first game, then weighs each store) on the 30-year world for first saves, on a 4-core Linux machine, 2026-10-22:
+
+| Stop | Before | After |
+|---|---|---|
+| Open | 3.36 GB | 2.99 GB |
+| 10 February | 3.38 GB | 2.89 GB |
+| 24 April | 3.50 GB | 2.91 GB |
+| 2, 4 and 5 September | 5.09 GB | 3.81 GB |
+| Highest at any moment | 5.09 GB | 4.00 GB |
+
+What changed (how each works is in `docs/world-model.md`, "Memory compaction"):
+
+- Season rows grow by exactly one row and are 136 bytes, not 176: 0.99 to 0.44 GB in September.
+- The stat book keeps only each row's non-zero numbers: 0.60 to 0.28 GB.
+- Last year's college season drops its games, rosters and lines once the new one starts: 0.09 GB.
+- The game hands freed pages back to the system after a load and after each Continue (`memory.rs`): about 0.2 GB in season.
+
+Same results: a small world (seed 2026, scale 0.05, the history and a season to come, `memory_check 2026 3 1 0.05`) built from main and from this build gives the same fingerprint, a hash of every person's season rows, ratings, stage and school, every alumnus, coach and news line (`memory_check` prints it). World files keep their shape: the new code opens the old world file, and writes the same bytes for every changed field (`tests/compact.rs`).
+
 ## The screens' core (final build, lane 9)
 
 The shell and the core screens of section 10, on Showtime. The game side is `crates/afm-game/src/lane_core.rs` with `lane_core/` (`desk.rs` the inbox and your desk, `mail.rs` who writes what, `links.rs` the link markup, `pages.rs` the pages' data, `tables.rs` the big tables, `people.rs` the named people around you). The world side is `crates/afm-engine/src/world/desk.rs` (kept in the save: mail, notes, my players, watches, contacts, big moments). The page side is `app/ui/screens/core.js` and `core.css`, with the shell in `app.js`.
@@ -130,11 +151,29 @@ The shell and the core screens of section 10, on Showtime. The game side is `cra
 - Jersey numbers follow position rules (a quarterback 1-19, a lineman 50-79 and so on), seeded per player, until the world keeps real numbers.
 - Measurables show where each was taken (his school's listed roster, his team's spring measurements, the combine); arms, hands and wingspan in eighths of an inch as the combine writes them; drills only for players who were tested.
 
+## People (final build, lane 6)
+
+Section 6 on your side. The world side is `world/folk/` (`docs/world-model.md`, "Section 6, people: the final build"); the game side `crates/afm-game/src/lane_people.rs` (27 `people_*` commands); the screens `app/ui/screens/people.js` and `people.css`, built on lane 9's helpers (page heads, tabs, tables, the Go-to line, hover links).
+
+- **The meeting room** (`people_scene`): every meeting, talk, press conference and call plays in a calm room in your team's colours. Left, who is in the room: his face, his mood and its reasons, his file, your promises to him and who is in his ear (tabs), or a person's standing with you and what people say about them. Middle, the conversation, with your read of his tells and any papers on the table (the roster, the flight-risk list, the old coach's notes). Right, your moves. A move takes two steps: pick it (in a one-on-one, then its tone: calm, warm, firm or fiery), read what your staff expects and how sure they are, then say it, or take it back. Handing to your staff is always one click. When it ends, how it went, and the next meeting waiting.
+- **People hub** (`people`): Agenda (what waits for you as cards, what came of recent meetings, your boss and the season's goals, the promise ledger, what's coming, what was said), Takeover (the first two weeks, who might leave, the old staff, claims to check after spring), Room (every player's mood with your staff's words, trust in you, close friends, your line to his coach, Talk), Rules (each rule's strictness, rookie rituals at the NFL, the leadership council, who is sitting, your rulings for consistency), Boss (who he is and what people say, goals by season, what you asked for, meetings, ask for a meeting once a month), Network (contacts with warmth and favours, reach out by text, call or lunch, the favour ledger, who asked about you, clinics and all-star games), League (fines, ejections and suspensions by year, this season's rulings, cases in the courts) and Log (everything said, by topic). Your week's people hours sit in the head, with Team talk.
+- **Staff office** (`people_staff`): your assistants with salary, years, buyout and what's owed, raises and letting a coach go (you tell him yourself, in a scene); Hiring by role (your network first, then coaches out of work, then a rung down), your read of each candidate's teaching as a range, interview (a scene) and offer; support staff and the rest of the building.
+- **A person's page** (`people_cast`): bosses, boosters, reporters, the trainer and the rest: who they are, what people say, where you stand, a booster's business and wants, a reporter's outlet, beat, lean and sources, your meetings.
+- **The player page's People tab**: how he is and why (dated reasons), trust in you, sitting or a case, life at home, in his ear, close ties and his mentor, promises to him, Talk (seven subjects) and your line to his position coach.
+- **The inbox and Continue**: meetings that come to you send a letter from the person who would tell you (lane 9's inbox, `folk/letters.rs`); the welcome letter carries the takeover's schedule as a table of links; a meeting waiting today pins under Continue and Continue opens the room on its morning.
+
+### Decided in the final build (Claude's pick)
+
+- The room is always dark in the team's colours, like the live room, in both themes: a meeting is a place, not a page.
+- A one-on-one's move can be said in any of the four tones; the other scenes' answers keep the tone they are written in.
+- Your staff's expectation is shown only in one-on-ones (the other scenes' answers show what they tend to do).
+- A meeting set for a later day shows its date and place and can only be handed; it opens on its morning.
+
 ## Not built yet (section 8's design, for the next builds)
 
-- The choice screens where the AI still decides for your team: recruiting board and offers, the portal and NIL; contracts, the cap, free agency, trades and waivers; the draft board and war room; game plans, playbook and installs; talks; team rules; press conferences; bosses and goals; hiring and firing staff; scouting assignments.
+- The choice screens where the AI still decides for your team: recruiting board and offers, the portal and NIL; contracts, the cap, free agency, trades and waivers; the draft board and war room; game plans, playbook and installs; scouting assignments. (Talks, team rules, press conferences, bosses and goals and hiring and firing staff are built: "People" above.)
 - Training beyond the focus: the practice day and week, the time budget, a habit to work on, body plans, position moves, practice injuries, growth landing every week (choice 1) and practice snaps on the engine (choice 3).
-- High school: varsity, JV and freshman squads, the principal and AD as people, the booster club, your teaching job. AI high schools still have no staff people (the built stand-in from resources stays).
+- High school: varsity, JV and freshman squads, your teaching job. (The principal, the athletic director, the superintendent and the booster club are people now, and every AI high school's staff is drawn as people: "People" above.)
 - Starting without a job and assistant jobs ("Start without a job" is in the mock-up, not built); "People you know" on the You step; a fictional-names world (the World step shows the world's own names; names are fixed when a world is built, and NFL clubs have no fictional names yet); your family and looks in the world after setup (they are kept on your profile and shown on your page, nothing reads them yet); the 2D view (section 10).
 
 ## Proposed, not confirmed
@@ -153,10 +192,11 @@ The shell and the core screens of section 10, on Showtime. The game side is `cra
 
 ## Doubts
 
+- Memory in season is 3.8 GB, under the agreed 4 GB, with a brief high of 4.0 GB in the summer (see "Memory (final build lane 1)"). Measured on Linux; a Mac's allocator keeps and returns memory differently, so the Mac figure may differ a little.
+- Continuing the same career twice from the same world file can give different results: the season isn't fully repeatable run to run (seen while measuring memory, before the compaction as well). A world built from a seed is repeatable.
 - Game day (lane 2): the first game of a season has no opponent film (last season's tapes aren't kept), so its report and film room are empty until they play. In one browser game an FCS team drew 16 accepted flags against Alabama: the engine's discipline against a much better level may run hot (not measured).
-- Memory in season is 5.1 GB, over the agreed 4 GB budget (opening is under it at 3.3 GB). The season's stores (game logs, the year's records) grow from the first day; compacting them is the next memory step. An 8 GB M1 runs it, with little room for other apps.
 
 - Storing ratings as 4-byte floats changes results per seed slightly (rounding), so a seed no longer rebuilds a pre-build world exactly. Accepted because the section 8 build changes the world anyway.
-- Season records are still 8-byte; compacting old seasons (topic 8) isn't done.
+- Season records keep 8-byte values (an exact-size list of 136-byte rows since the final build); making the values 4-byte would move results per seed, so it waits for a build that may move them.
 - Your school's games run on the engine in a stand-in season while its opponents' other games don't; their records are mixed (the engine's scoring is close to the stand-in's odds).
 - Engine stats: a throwaway is no longer a target for any receiver, and a sack with no rusher on the quarterback (he went down to a tackle) goes to the tackler, so the box score's sacks match the play by play.

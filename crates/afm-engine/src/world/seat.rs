@@ -95,6 +95,10 @@ impl World {
     pub fn morning_stop(&self, d: Date) -> Option<String> {
         use crate::calendar::Level;
         let s = self.seat?;
+        // A dated meeting waiting for you (people, takeover item 1).
+        if let Some(m) = super::folk::scene::due(self, d) {
+            return Some(m);
+        }
         let game = match s.level {
             Level::College => s.program.and_then(|p| {
                 let f = self
@@ -473,6 +477,8 @@ impl World {
         self.seat_depth.clear();
         self.seat_games.clear();
         self.seat_focus.clear();
+        // Your first two weeks: the meetings of a new job (takeover).
+        super::folk::takeover::begin(self);
         id
     }
 }
@@ -696,6 +702,7 @@ impl World {
         self.people.shrink_to(room);
         self.seat_games.retain(|g| g.teams.iter().all(|&t| t < self.programs.len().max(self.nfl.len())));
         self.fill_final_build_fields();
+        super::folk::after_load(self);
     }
 
     /// What a world file from before the final build lacks (lane 1): birth

@@ -1,1 +1,165 @@
-/* Lane styles: people (docs/final-build/plan.md). */
+/* Lane styles: people (docs/final-build/plan.md).
+   Lane 6, section 6 on your side: the people hub, the meeting room, a
+   person's page, the staff office and the player's People tab. The room is
+   always dark in the team's colours (screens topic 8, like the live room);
+   everything else reads Showtime's tokens, so the light theme follows. */
+
+/* ---------- the hub ---------- */
+.pp-week { display: grid; grid-template-columns: auto auto auto; align-items: baseline; column-gap: 8px; row-gap: 5px; padding: 8px 14px; border-radius: 14px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--hair); }
+.pp-week b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.pp-week small { color: var(--fg3); font-size: 12px; }
+.pp-bar { grid-column: 1 / -1; height: 4px; border-radius: 4px; background: var(--fill-2); overflow: hidden; }
+.pp-bar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--gold)); transition: width .4s var(--ease); }
+
+.pp-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.pp-cards.slim { grid-template-columns: 1fr; gap: 8px; }
+.pp-card { position: relative; display: grid; gap: 8px; align-content: start; padding: 14px 16px; border-radius: 18px; cursor: pointer; background: linear-gradient(160deg, var(--fill-1), transparent 80%); box-shadow: inset 0 0 0 1px var(--hair); transition: background .2s var(--ease), box-shadow .2s var(--ease), transform .2s var(--ease); }
+.pp-card:hover { background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--warm-hair); transform: translateY(-1px); }
+.pp-card.now { box-shadow: inset 3px 0 0 var(--live), inset 0 0 0 1px color-mix(in oklab, var(--live) 30%, transparent); background: linear-gradient(160deg, color-mix(in oklab, var(--live) 9%, transparent), transparent 80%); }
+.pp-card.done { opacity: .86; }
+.pp-card.done:hover { opacity: 1; }
+.pp-card h3 { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.3; }
+.pp-cards.slim .pp-card { padding: 10px 14px; border-radius: 14px; }
+.pp-cards.slim .pp-card h3 { font-size: 13.5px; }
+.pp-card-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.pp-card-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--fg3); font-size: 12px; }
+.pp-card-meta:empty { display: none; }
+.pp-whos { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12.5px; }
+.pp-who small, .pp-person-row small { color: var(--fg3); font-size: 11.5px; }
+.pp-out { display: grid; gap: 4px; padding-top: 6px; border-top: 1px solid var(--hair); }
+.pp-out p { margin: 0; font-size: 12.5px; color: var(--fg2); line-height: 1.45; }
+.pp-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pp-acts .link { margin-left: 4px; }
+.pp-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vertical-align: 0; box-shadow: 0 0 0 3px color-mix(in oklab, currentColor 6%, transparent); }
+.pp-mood { margin: 0; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pp-h3 { margin: 6px 0 0; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--fg3); }
+
+/* Your rules: one card a rule, its strictness on the right. */
+.pp-rules { display: grid; gap: 8px; }
+.pp-rule { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 10px 14px; border-radius: 14px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--hair); }
+.pp-rule p { margin: 3px 0 0; }
+.pp-rule.on { box-shadow: inset 3px 0 0 var(--gold), inset 0 0 0 1px var(--hair); }
+
+/* A person around a team. */
+.pp-person-top { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center; }
+.pp-person-top p { margin: 0; }
+.pp-rep { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 5px; }
+.pp-rep li { position: relative; padding-left: 16px; font-size: 13.5px; line-height: 1.45; color: var(--fg2); }
+.pp-rep li::before { content: ""; position: absolute; left: 2px; top: .62em; width: 6px; height: 1px; background: var(--gold); }
+
+.pp-subjects { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ---------- the meeting room ---------- */
+.pp-room { --c1: #2b3140; --c2: #11141b; min-height: calc(100vh - var(--topbar)); display: grid; grid-template-rows: auto 1fr; color: #f4f1ea;
+  background:
+    radial-gradient(60% 50% at 12% 0%, color-mix(in oklab, var(--c1) 55%, transparent), transparent 72%),
+    radial-gradient(50% 40% at 100% 100%, color-mix(in oklab, var(--c2) 40%, transparent), transparent 70%),
+    linear-gradient(172deg, color-mix(in oklab, var(--c1) 26%, #0b0b0e), #07070a 78%); }
+.pp-room .muted, .pp-room small { color: rgba(244, 241, 234, .58); }
+.pp-room .st-label { color: rgba(244, 241, 234, .6); }
+.pp-room .link, .pp-room a { color: #fff; }
+.pp-room .link:hover { text-decoration-color: color-mix(in oklab, var(--c1) 50%, #fff); }
+.pp-roomhead { padding: 32px 34px 16px; display: grid; gap: 6px; }
+.pp-roomhead h1 { margin: 0; font-size: clamp(28px, 3.4vw, 46px); line-height: 1.02; letter-spacing: -.025em; font-weight: 800; max-width: 26ch; }
+.pp-roomteam { font-size: 13px; color: rgba(244, 241, 234, .72); }
+.pp-stage { display: grid; grid-template-columns: 280px minmax(0, 1fr) 360px; gap: 22px; padding: 6px 34px 34px; align-items: start; }
+.pp-stage.done { grid-template-columns: 280px minmax(0, 1fr); }
+
+/* Who's in the room. */
+.pp-side { position: sticky; top: 16px; display: grid; gap: 14px; align-content: start; padding: 16px; border-radius: 22px; background: rgba(255, 255, 255, .045); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); backdrop-filter: blur(18px); }
+.pp-sidehead { display: grid; gap: 10px; justify-items: start; }
+.pp-sidehead p { margin: 0; }
+.pp-sidehead .bigline { font-size: 18px; }
+.pp-sidetabs { width: 100%; border-color: rgba(255, 255, 255, .12); }
+.pp-sidetabs button { flex: 1; padding: 5px 6px; font-size: 11.5px; color: rgba(244, 241, 234, .7); border-right-color: rgba(255, 255, 255, .12); }
+.pp-sidetabs button[aria-pressed="true"] { background: rgba(255, 255, 255, .12); color: #fff; }
+.pp-sidebody { display: grid; gap: 10px; font-size: 13px; }
+.pp-sidebody p { margin: 0; line-height: 1.45; }
+.pp-side .items { gap: 0; }
+.pp-side .item { grid-template-columns: 56px minmax(0, 1fr); padding: 5px 4px; font-size: 12.5px; }
+.pp-side .item:hover { background: rgba(255, 255, 255, .05); }
+.pp-side .kv { font-size: 12.5px; }
+.pp-side .kv dt { color: rgba(244, 241, 234, .55); }
+.pp-sidesec { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, .08); }
+.pp-person-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+
+/* The conversation. */
+.pp-talk { display: grid; gap: 14px; align-content: start; max-width: 760px; width: 100%; justify-self: center; padding-bottom: 40px; }
+.pp-n { margin: 4px 0; font-size: 14px; line-height: 1.6; font-style: italic; color: rgba(244, 241, 234, .66); }
+.pp-say { display: grid; gap: 4px; padding: 14px 18px; border-radius: 20px; max-width: 88%; background: rgba(255, 255, 255, .06); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07); animation: pp-in .35s var(--ease) both; }
+.pp-say b { font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: rgba(244, 241, 234, .62); }
+.pp-say p { margin: 0; font-size: 15.5px; line-height: 1.55; }
+.pp-say.them { justify-self: start; border-top-left-radius: 6px; }
+.pp-say.other { justify-self: start; border-top-left-radius: 6px; background: rgba(255, 255, 255, .035); }
+.pp-say.other p { font-size: 14.5px; color: rgba(244, 241, 234, .86); }
+.pp-say.you { justify-self: end; border-top-right-radius: 6px; background: linear-gradient(150deg, color-mix(in oklab, var(--c1) 58%, #000), color-mix(in oklab, var(--c1) 30%, #000)); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--c1) 55%, #fff 8%); }
+.pp-say.you b { color: rgba(255, 255, 255, .72); }
+.pp-tell { font-style: normal; font-size: 12.5px; color: color-mix(in oklab, var(--gold) 80%, #fff); padding-top: 2px; }
+.pp-tell::before { content: "Your read · "; color: rgba(244, 241, 234, .5); }
+@keyframes pp-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* Papers on the table (the roster, the old coach's notes, a deal). */
+.pp-doc { display: grid; gap: 8px; padding: 16px 18px; border-radius: 18px; background: rgba(250, 246, 236, .06); box-shadow: inset 0 0 0 1px rgba(250, 246, 236, .1); }
+.pp-doc h3 { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: rgba(244, 241, 234, .75); }
+.pp-doc p { margin: 0; }
+.pp-doc .tbl { background: transparent; max-height: 340px; overflow: auto; }
+.pp-doc .tbl table { color: #f4f1ea; }
+.pp-doc .tbl th { color: rgba(244, 241, 234, .55); background: rgba(12, 12, 16, .85); }
+.pp-doc .tbl td { border-color: rgba(255, 255, 255, .06); }
+
+/* How it ended. */
+.pp-end { display: grid; gap: 8px; padding: 18px 20px; border-radius: 20px; background: linear-gradient(160deg, color-mix(in oklab, var(--gold) 14%, transparent), rgba(255, 255, 255, .03)); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--gold) 30%, transparent); animation: pp-in .4s var(--ease) both; }
+.pp-end p { margin: 0; font-size: 14.5px; line-height: 1.55; }
+.pp-end .pp-acts { padding-top: 6px; }
+
+/* Your moves. */
+.pp-moves { position: sticky; top: 16px; display: grid; gap: 12px; align-content: start; padding: 16px; border-radius: 22px; background: rgba(10, 10, 14, .5); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .09); backdrop-filter: blur(22px); max-height: calc(100vh - var(--topbar) - 32px); overflow-y: auto; }
+.pp-movelist { display: grid; gap: 6px; }
+.pp-move { display: grid; gap: 4px; width: 100%; text-align: left; padding: 11px 13px; border: 0; border-radius: 14px; cursor: pointer; font: inherit; color: #f4f1ea; background: rgba(255, 255, 255, .05); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07); transition: background .15s var(--ease), box-shadow .15s var(--ease), transform .15s var(--ease); }
+.pp-move:hover { background: rgba(255, 255, 255, .1); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); transform: translateX(-2px); }
+.pp-move.on { background: color-mix(in oklab, var(--c1) 40%, rgba(255, 255, 255, .06)); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--c1) 60%, #fff 10%); }
+.pp-move.end { background: transparent; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); }
+.pp-move.end .pp-mv { color: rgba(244, 241, 234, .6); }
+.pp-mv { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: rgba(244, 241, 234, .7); }
+.pp-lab { font-size: 13.5px; line-height: 1.45; }
+.pp-tone { font-style: normal; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; padding: 1px 7px; border-radius: 999px; text-transform: lowercase; background: rgba(255, 255, 255, .08); color: rgba(244, 241, 234, .75); }
+.pp-tone.calm { background: rgba(120, 170, 220, .18); color: #b9d6f2; }
+.pp-tone.warm { background: rgba(230, 170, 90, .18); color: #f2cf9c; }
+.pp-tone.firm { background: rgba(200, 200, 210, .14); color: #e1e1e8; }
+.pp-tone.fiery { background: rgba(230, 80, 60, .2); color: #f6a597; }
+.pp-confirm { display: grid; gap: 12px; animation: pp-in .25s var(--ease) both; }
+.pp-quote { margin: 0; padding: 12px 14px; border-radius: 14px; font-size: 15px; line-height: 1.5; background: rgba(255, 255, 255, .06); box-shadow: inset 3px 0 0 var(--gold); }
+.pp-tones { display: grid; gap: 6px; }
+.pp-tones .seg { border-color: rgba(255, 255, 255, .14); }
+.pp-tones .seg button { flex: 1; color: rgba(244, 241, 234, .72); border-right-color: rgba(255, 255, 255, .14); }
+.pp-tones .seg button[aria-pressed="true"] { background: rgba(255, 255, 255, .14); color: #fff; }
+.pp-read { display: grid; gap: 4px; padding: 11px 13px; border-radius: 14px; background: color-mix(in oklab, var(--gold) 9%, rgba(255, 255, 255, .03)); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--gold) 26%, transparent); }
+.pp-read p { margin: 0; font-size: 13.5px; line-height: 1.5; }
+.pp-movefoot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, .08); }
+.pp-room .st-btn.glass { color: #f4f1ea; background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); }
+.pp-room .st-btn.glass:hover { background: rgba(255, 255, 255, .14); }
+.pp-room .empty { color: rgba(244, 241, 234, .55); }
+
+/* ---------- smaller windows ---------- */
+@media (max-width: 1280px) {
+  .pp-stage { grid-template-columns: 240px minmax(0, 1fr) 320px; gap: 16px; padding: 6px 22px 28px; }
+  .pp-roomhead { padding: 26px 22px 12px; }
+}
+@media (max-width: 1080px) {
+  .pp-stage, .pp-stage.done { grid-template-columns: minmax(0, 1fr); }
+  .pp-side, .pp-moves { position: static; max-height: none; }
+  .pp-moves { order: 3; }
+  .pp-side { order: 1; }
+  .pp-talk { order: 2; }
+  .pp-say { max-width: 100%; }
+}
+@media (max-width: 640px) {
+  .pp-stage { padding: 4px 16px 24px; }
+  .pp-roomhead { padding: 20px 16px 10px; }
+  .pp-rule { grid-template-columns: 1fr; }
+  .pp-cards { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pp-say, .pp-end, .pp-confirm { animation: none; }
+  .pp-card, .pp-move { transition: none; }
+}

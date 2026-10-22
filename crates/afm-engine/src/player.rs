@@ -330,6 +330,78 @@ impl Events {
     }
 }
 
+/// An optional rating-sized number in 8 bytes instead of 16 (section 8,
+/// memory): "none" is a NaN, every real value is kept bit for bit. Written
+/// and read as a plain `Option<f64>`, so world files keep their shape.
+#[derive(Clone, Copy)]
+pub struct OptF64(f64);
+
+impl Default for OptF64 {
+    fn default() -> Self {
+        OptF64::NONE
+    }
+}
+
+impl OptF64 {
+    pub const NONE: OptF64 = OptF64(f64::NAN);
+
+    #[inline]
+    pub fn get(self) -> Option<f64> {
+        let v = self.0;
+        (!v.is_nan()).then_some(v)
+    }
+    #[inline]
+    pub fn is_some(self) -> bool {
+        !self.0.is_nan()
+    }
+    #[inline]
+    pub fn is_none(self) -> bool {
+        self.0.is_nan()
+    }
+    #[inline]
+    pub fn unwrap_or(self, d: f64) -> f64 {
+        self.get().unwrap_or(d)
+    }
+}
+
+impl From<Option<f64>> for OptF64 {
+    /// A NaN value (never a real rating) would read back as none.
+    #[inline]
+    fn from(v: Option<f64>) -> Self {
+        OptF64(v.unwrap_or(f64::NAN))
+    }
+}
+
+impl PartialEq for OptF64 {
+    fn eq(&self, o: &Self) -> bool {
+        self.get() == o.get()
+    }
+}
+
+impl PartialEq<Option<f64>> for OptF64 {
+    fn eq(&self, o: &Option<f64>) -> bool {
+        self.get() == *o
+    }
+}
+
+impl std::fmt::Debug for OptF64 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.get().fmt(f)
+    }
+}
+
+impl serde::Serialize for OptF64 {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        self.get().serialize(s)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for OptF64 {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        Option::<f64>::deserialize(d).map(OptF64::from)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SeasonRecord {
     pub age: u32,
@@ -346,7 +418,7 @@ pub struct SeasonRecord {
     /// On-field level shown that season: his rating during the season plus form,
     /// slumps and breakouts. None for a season without games (a redshirt year or
     /// one lost to suspension or dismissal).
-    pub performance: Option<f64>,
+    pub performance: OptF64,
     /// 1-99 for the rating he played the season at, placed against his own
     /// position and then ranked nationally: high schoolers against everyone their
     /// age, college players against all FBS players, pros simply their overall
@@ -360,22 +432,22 @@ pub struct SeasonRecord {
     /// Games missed through injury.
     pub games_missed: u32,
     /// Size of his first-year dip after a step up (0 = ready at once, 1 = a very hard first year).
-    pub adjustment: Option<f64>,
+    pub adjustment: OptF64,
     /// Overall gained in spring breakouts on this row (section 4, T4.1):
     /// one in the offseason after the season is already in `overall`, so the
     /// next row starts where this one ends; an early enrollee's step before
     /// his first college season is in the row's rise (`spring_open`).
-    pub spring_gain: Option<f64>,
+    pub spring_gain: OptF64,
     /// The part of `spring_gain` an early enrollee took in his first college
     /// spring, before this row's season (F2): the row starts before it, so
     /// the rating he played the season at is `overall_start` plus this.
-    pub spring_open: Option<f64>,
+    pub spring_open: OptF64,
     /// Pro team he spent the season with (index into the league).
     pub team: Option<usize>,
     /// Depth chart spot, e.g. "WR2", "practice squad" or "free agent".
     pub depth: Option<String>,
     /// How his pro surroundings helped (+) or hurt (-) him that season, -1 to 1.
-    pub situation: Option<f64>,
+    pub situation: OptF64,
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]

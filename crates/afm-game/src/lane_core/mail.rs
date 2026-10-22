@@ -492,6 +492,15 @@ fn welcome(w: &World, me: TeamRef, mails: &mut Vec<Mail>, reveals: &mut Vec<Reve
         "My door is open. I would rather hear about a problem from you in March than read about it in November."
             .to_string(),
     ];
+    // The takeover's first two weeks (people, lane 6), set by the staff.
+    let plan = afm_engine::world::folk::letters::takeover_schedule(w);
+    if !plan.is_empty() {
+        m.body.insert(
+            3,
+            "The staff has set your first two weeks below: the team first, then the staff, the leaders and the people around the program. Anything you can't get to, they will cover and tell you how it went. [[s:people?tab=Takeover|The takeover file]] keeps it all in one place.".to_string(),
+        );
+        m.table = plan;
+    }
     m.attach = vec!["Employment agreement (signed copy)".into(), "Football staff directory".into()];
     m.loud = 2;
     m.about = Some((ABOUT_TEAM, team_code(me)));

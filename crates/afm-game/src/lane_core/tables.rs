@@ -283,7 +283,7 @@ fn lines(w: &World, scope: &str, year: i32, state: Option<usize>) -> Vec<Line> {
                     pos: r.pos,
                     team: Some(TeamRef::College(r.program as usize)),
                     games: r.games,
-                    s: r.s,
+                    s: r.s.to_array(),
                 })
                 .collect()
         }

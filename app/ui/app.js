@@ -313,7 +313,7 @@ function pinnedHtml(st) {
   const list = (st.pinned || []).slice(0, 4);
   if (!list.length) return "";
   return `<div class="pinned">${list.map((p) => {
-    const open = p.mail != null ? `data-act="openmail" data-id="${p.mail}"` : p.go ? `data-go="${esc(p.go)}"` : "";
+    const open = p.mail != null ? `data-act="openmail" data-id="${p.mail}"` : p.go ? `data-go="${esc(p.go)}"${p.id != null ? ` data-id="${p.id}"` : ""}` : "";
     return `<button class="pin" ${open}><span class="pdot"></span><span class="ptxt"><b>${esc(p.text)}</b><small>${esc(p.rule || "Needs your answer")}</small></span><span class="when">${esc(p.by ? "Answer by " + p.by : p.date || "")}</span></button>`;
   }).join("")}</div>`;
 }
@@ -627,6 +627,8 @@ async function cont() {
       toast(r.morning ? `${r.today}, morning${why ? ": " + why : ""}` : `${r.days} day${r.days === 1 ? "" : "s"} played, to ${r.today}. On ${r.stopped_on}${why ? ": " + why : ""}`);
       // A live day (signing day, the draft, cutdown day) opens its room.
       if (r.studio && screens.studio && !moved) go("studio", r.studio);
+      // A meeting this morning opens its room (people).
+      else if (r.meeting != null && screens.people_scene && !moved) go("people_scene", { id: r.meeting });
       else if (moved || S.route.screen === "home") render();
       else go("home", {}, { root: true });
     }

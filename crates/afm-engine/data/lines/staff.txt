@@ -1,0 +1,30 @@
+# The line bank: staff (people topic 5; format in src/world/folk/voice.rs).
+
+# A candidate for your staff sits down to interview. Facts: role, team,
+# came_up (the group he came up coaching: "quarterbacks", "offensive line",
+# "defensive backs"...). No BASE facts here.
+@key staff.interview.open
+Thanks for having me. I've spent the last two weeks on your film, and I've got some thoughts on what the {role} job looks like here.
+I'll tell you up front: I want this job. {team} is a place I've had my eye on for a long time.
+I came up coaching the {came_up}. Everything I believe about football starts there.
+I brought my install. It's not a sales pitch. It's how I'd run the room on day one.
+I've got a lot of respect for what you're building at {team}. I'd like to be part of it.
+My background's the {came_up}. That's where I learned how to teach.
+Whoever you hire as {role} is going to spend more time with your players than you will. I want to be the one you trust with that.
+I'm not going to pretend this is the last job I'll ever want. But I'll give you everything I've got while I'm here. ~ climber
+I've had a couple of other calls this cycle. This is the one I wanted. ~ climber
+I want to call plays by the time I'm thirty-five. I'd rather learn how under you than anybody else on my list. ~ climber young
+I know I'm young for this job. I also know nobody you talk to this week will outwork me. ~ young
+I've been on four staffs. I don't need to learn on your dime. ~ old
+I'm not here to climb anywhere. I'm here to coach, and I'm good at it. ~ old !climber
+When I sign on with a head coach, I stay. Ask anybody I've worked for. ~ loyal
+I'll be honest, I'm intense. My guys either love me or they get better. Usually both. ~ hot
+I'm not a yeller. I teach. My guys know exactly why they're doing what they're doing. ~ calm
+I played in the league for a while. I can tell a kid what it takes because I've had to do it. ~ expro
+My rooms start on time and they run on detail. You won't have to check on my guys. ~ strict
+Before we talk scheme, you should know I recruit people, not prospects. Kids pick coaches. ~ warm !nfl
+I've been in this league long enough to know the difference between a scheme and a roster. Let me show you how I'd fit both. ~ nfl
+I've coached high school ball my whole career. I know every coach in this part of the state, and they know me. ~ hs
+I've already got a list of guys in the portal who'd fit what you do. ~ college modern
+Let's skip the small talk. Ask me what you want to know. ~ cold
+Appreciate y'all having me. I'll try not to talk your ear off, but I'm not making any promises. ~ south

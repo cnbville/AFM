@@ -19,6 +19,7 @@ pub mod data;
 pub mod desk;
 pub mod ethnicity;
 pub mod fame;
+pub mod folk;
 pub mod franchise;
 pub mod game_log;
 pub mod geo;
@@ -382,7 +383,12 @@ impl PersonCal {
 
 impl Person {
     pub fn note(&mut self, s: impl Into<String>) {
-        self.notes.push(s.into());
+        // Exact room, for the note and the list (memory: notes are kept
+        // for every person, and a formatted line carries spare room).
+        let mut s: String = s.into();
+        s.shrink_to_fit();
+        self.notes.reserve_exact(1);
+        self.notes.push(s);
     }
     /// The age on his latest season row. A row covers the season and the
     /// offseason after it, so every note about either gives this age and a
@@ -695,6 +701,11 @@ pub struct World {
     /// Your career once it has started: you, your coach id, your notes.
     #[serde(default)]
     pub career: Option<seat::Career>,
+    /// Section 6's people built in the final build (lane 6): the people
+    /// around a team, your meetings and talks, ties, lives, courts, staff
+    /// contracts and your network (`folk`).
+    #[serde(default)]
+    pub folk: folk::Folk,
     /// Your game being played live today (section 9): the day books it
     /// when it runs.
     #[serde(default)]
@@ -986,6 +997,7 @@ impl World {
             moved_cycle: std::collections::HashSet::new(),
             college_spread: season::COLLEGE_SPREAD,
             seat: None,
+            folk: Default::default(),
             trends: Vec::new(),
             novelty: [[0.0; crate::game::playbook::FAMILY_COUNT]; data::DIVISION_COUNT],
             seat_games: Vec::new(),
@@ -1080,6 +1092,22 @@ impl World {
         }
     }
 
+    /// Memory tooling (`memory_season`): drops one of the world's inner
+    /// stores by name, so a tool can weigh it. Never called by the game.
+    #[doc(hidden)]
+    pub fn memory_drop_store(&mut self, name: &str) {
+        match name {
+            "college season" => self.college = None,
+            "last college season" => self.college_prev = None,
+            "high school season" => self.hs_season = None,
+            "NFL season" => self.nfl_season = None,
+            "portal market" => self.portal_market = None,
+            "announcements" => self.announcements = Vec::new(),
+            "searches" => self.searches = Vec::new(),
+            _ => {}
+        }
+    }
+
     /// A program as the match engine sees it today (trial tooling only).
     #[cfg(feature = "debug")]
     pub fn debug_game_team(&self, prog: usize) -> Option<crate::game::GameTeam> {
@@ -1127,96 +1155,93 @@ impl World {
         let seed_world = self.options.seed;
         let schools = &self.high_schools;
         let states = &self.states;
-        let new: Vec<Person> = kids
-            .par_iter()
-            .enumerate()
-            .map(|(k, &(s, hs, seed))| {
-                let mut rng = Rng::new(seed);
-                let culture = states[s].culture;
-                let z = rng.normal(culture, 1.0);
-                let id = first_id + k as u32;
-                // His birthday, and whether he is a year older or younger
-                // than his class (A1, A2): keyed, so no draw moves.
-                let (born, years) = crate::calendar::born::schoolboy(born_key(seed_world, id), age, year);
-                let age = (age as i32 + years).max(13) as u32;
-                let mut player = generate_prospect(
-                    &mut rng,
-                    ProspectOptions { id: Some(id), talent_z: Some(z), age: Some(age), ..Default::default() },
-                );
-                let school = &schools[hs];
-                let (mut bg, structure) = generate_background(
-                    BackgroundSeed {
-                        area_money: school.area_money,
-                        area_safety: school.area_safety,
-                        school_resources: school.resources,
-                    },
-                    &mut rng,
-                );
-                let family = generate_family(&bg, Some(structure), &mut rng);
-                apply_background(&mut player, &mut bg, &family, &mut rng);
-                people::sync_new(&mut player, &bg, &family);
-                let ethnicity = ethnicity::player_ethnicity(s, z, &mut rng);
-                // Grades drift through high school: effort pushes them up.
-                let gpa_trend = rng.normal(0.0, 0.07)
-                    + 0.012 * (player.personality.work_ethic - 10.0)
-                    + 0.04 * (bg.home_stability - 0.5);
-                Person {
-                    name: names::person_name(ethnicity, year - age as i32, &mut rng),
-                    ethnicity,
-                    player,
-                    rng,
-                    bg,
-                    family,
-                    home_state: s,
-                    hs,
-                    stage: Stage::HighSchool,
-                    college: None,
-                    class_of: year + 18 - age as i32 + years,
-                    born,
-                    followers: 0,
-                    brand: 0.0,
-                    stars: 0,
-                    camp_stars: 0,
-                    visibility: 0.0,
-                    college_seasons: 0,
-                    redshirt_used: false,
-                    sit_out: 0.0,
-                    steered: false,
-                    nil_income: 0.0,
-                    pending_dip: None,
-                    last_role: None,
-                    hs_lines: Vec::new(),
-                    last_snaps: 0,
-                    college_snaps: 0,
-                    last_performance: None,
-                    transfers: 0,
-                    juco: false,
-                    path: Vec::new(),
-                    on_notice: false,
-                    gpa_trend,
-                    gpa_at_signing: None,
-                    academic_redshirt: false,
-                    walk_on: false,
-                    transfer_from: None,
-                    college_staff: Vec::new(),
-                    incident: false,
-                    notes: Vec::new(),
-                    stay_home: 0.0,
-                    childhood_team: None,
-                    cal: PersonCal::default(),
-                    pro: None,
-                    mood: 0.0,
-                    mood_why: 0,
-                    trust: 0.6,
-                    trust_in: u32::MAX,
-                }
-            })
-            .collect();
         let start = self.people.len();
         // Grow by exactly the class (section 8, memory): doubling a list of
-        // 850,000 people reserved room for two million.
-        self.people.reserve_exact(new.len());
-        self.people.extend(new);
+        // 850,000 people reserved room for two million. The class is built
+        // straight into that room, in order, not in a list of its own first
+        // (final build: 0.45 GB less at the peak of the summer).
+        self.people.reserve_exact(kids.len());
+        self.people.par_extend(kids.par_iter().enumerate().map(|(k, &(s, hs, seed))| {
+            let mut rng = Rng::new(seed);
+            let culture = states[s].culture;
+            let z = rng.normal(culture, 1.0);
+            let id = first_id + k as u32;
+            // His birthday, and whether he is a year older or younger
+            // than his class (A1, A2): keyed, so no draw moves.
+            let (born, years) = crate::calendar::born::schoolboy(born_key(seed_world, id), age, year);
+            let age = (age as i32 + years).max(13) as u32;
+            let mut player = generate_prospect(
+                &mut rng,
+                ProspectOptions { id: Some(id), talent_z: Some(z), age: Some(age), ..Default::default() },
+            );
+            let school = &schools[hs];
+            let (mut bg, structure) = generate_background(
+                BackgroundSeed {
+                    area_money: school.area_money,
+                    area_safety: school.area_safety,
+                    school_resources: school.resources,
+                },
+                &mut rng,
+            );
+            let family = generate_family(&bg, Some(structure), &mut rng);
+            apply_background(&mut player, &mut bg, &family, &mut rng);
+            people::sync_new(&mut player, &bg, &family);
+            let ethnicity = ethnicity::player_ethnicity(s, z, &mut rng);
+            // Grades drift through high school: effort pushes them up.
+            let gpa_trend = rng.normal(0.0, 0.07)
+                + 0.012 * (player.personality.work_ethic - 10.0)
+                + 0.04 * (bg.home_stability - 0.5);
+            Person {
+                name: names::person_name(ethnicity, year - age as i32, &mut rng),
+                ethnicity,
+                player,
+                rng,
+                bg,
+                family,
+                home_state: s,
+                hs,
+                stage: Stage::HighSchool,
+                college: None,
+                class_of: year + 18 - age as i32 + years,
+                born,
+                followers: 0,
+                brand: 0.0,
+                stars: 0,
+                camp_stars: 0,
+                visibility: 0.0,
+                college_seasons: 0,
+                redshirt_used: false,
+                sit_out: 0.0,
+                steered: false,
+                nil_income: 0.0,
+                pending_dip: None,
+                last_role: None,
+                hs_lines: Vec::new(),
+                last_snaps: 0,
+                college_snaps: 0,
+                last_performance: None,
+                transfers: 0,
+                juco: false,
+                path: Vec::new(),
+                on_notice: false,
+                gpa_trend,
+                gpa_at_signing: None,
+                academic_redshirt: false,
+                walk_on: false,
+                transfer_from: None,
+                college_staff: Vec::new(),
+                incident: false,
+                notes: Vec::new(),
+                stay_home: 0.0,
+                childhood_team: None,
+                cal: PersonCal::default(),
+                pro: None,
+                mood: 0.0,
+                mood_why: 0,
+                trust: 0.6,
+                trust_in: u32::MAX,
+            }
+        }));
         self.draw_home_ties(start);
         self.place_new_class(start);
     }
