@@ -144,6 +144,12 @@ fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) {
 pub(crate) fn leave(w: &mut World, coach: usize, why: &'static str) {
     let year = w.year;
     let Some(job) = w.coaches[coach].job.take() else { return };
+    // A coach fired with years left: his buyout lands on the books.
+    if why.starts_with("fired")
+        && let Some(k) = w.coaches[coach].contract
+    {
+        super::finance::buyout(w, job.employer, k.buyout(year));
+    }
     w.coaches[coach].contract = None;
     let c = &mut w.coaches[coach];
     c.history.push(Stint {
@@ -1357,7 +1363,8 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
     };
     let direction = 0.5 * roster_dir + 0.5 * class_dir;
     let buyout = coach.contract.map_or(0.0, |k| k.buyout(year));
-    let money = athletic_budget(prog) + prog.collective.boosters();
+    let money = super::finance::college::athletic_budget(w, p).unwrap_or_else(|| athletic_budget(prog))
+        + prog.collective.boosters();
     let expired = coach.contract.is_some_and(|k| k.through <= year);
     let sd = clamp(0.06 - 0.003 * (judgement - 10.0), 0.02, 0.1);
     let mut read = -(1.5 * last + 0.7 * before) + w.rng.normal(0.0, sd);
@@ -1511,7 +1518,8 @@ pub(crate) fn in_season_firings(w: &mut World) {
             continue;
         }
         let buyout = coach.contract.map_or(0.0, |k| k.buyout(year));
-        let money = athletic_budget(prog) + prog.collective.boosters();
+        let money = super::finance::college::athletic_budget(w, p).unwrap_or_else(|| athletic_budget(prog))
+            + prog.collective.boosters();
         let afford = clamp(1.2 - buyout / (0.2 * money).max(1.0), 0.15, 1.0);
         let chance = 0.35 * afford * era * (0.6 + 0.8 * prog.prestige) * if tenure == 2 { 0.5 } else { 1.0 };
         fired.push((p, c, chance));
@@ -2052,7 +2060,7 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
         let win = if t.games() > 0 { t.win_pct() } else { 0.5 };
         let hc_rep = w.programs[i].head_coach.map_or(8.0, |c| w.coaches[c].reputation);
         let mut rng = w.rng.fork();
-        let (recording, year) = (w.recording, w.year);
+        let recording = w.recording;
         let p = &mut w.programs[i];
         let scale = match p.division {
             Division::FBS => 1.0,
@@ -2083,7 +2091,7 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
                 1.0,
             );
             let fan_target =
-                clamp(0.4 * p.tradition + 0.4 * p.recent + 0.2 * (p.stadium as f64 / 110_000.0).sqrt(), 0.0, 1.0);
+                clamp(0.4 * p.tradition + 0.4 * p.recent + 0.2 * (p.crowd_seats() as f64 / 110_000.0).sqrt(), 0.0, 1.0);
             p.fans = 0.93 * p.fans + 0.07 * fan_target;
             let nil_share = clamp((p.collective.boosters() / 25.0e6).sqrt(), 0.0, 1.0);
             let fac_target = clamp(scale * (0.3 + 0.4 * p.fans) + 0.3 * nil_share, 0.0, 1.0);
@@ -2093,18 +2101,14 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
             let gap = fac_target - p.facilities;
             let booster = p.collective.big_booster.is_some();
             let chance = clamp(0.03 + 0.6 * gap.max(0.0) + if booster { 0.05 } else { 0.0 }, 0.0, 0.4);
+            // Before recorded history a project lands at once; in recorded
+            // years the books run real projects (later extras topic 1,
+            // `finance::college`). The draws stay so nothing else moves.
             if gap > 0.02 && rng.chance(chance) {
                 let step = clamp(gap + rng.range(0.0, 0.08), 0.04, 0.2);
-                p.facilities = clamp(p.facilities + step, 0.02, 1.0);
-                let cause = if booster && rng.chance(0.6) {
-                    "paid for by a big booster"
-                } else if win >= 0.7 {
-                    "after a winning run filled the budget"
-                } else {
-                    "a school budget decision"
-                };
-                if recording {
-                    p.story.push((year, format!("New football facilities ({cause}).")));
+                let _booster_paid = booster && rng.chance(0.6);
+                if !recording {
+                    p.facilities = clamp(p.facilities + step, 0.02, 1.0);
                 }
             }
         }
@@ -2159,7 +2163,7 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
             0.6 * p.fans + 0.2 * p.tradition + if p.power_four() { 0.2 } else { 0.0 };
         raw[i][GradeCat::ConferenceStrength as usize] = conf_strength(p);
         raw[i][GradeCat::StadiumAtmosphere as usize] =
-            (p.stadium as f64).sqrt() * (0.5 + p.fans) * (0.7 + 0.3 * p.recent);
+            (p.crowd_seats() as f64).sqrt() * (0.5 + p.fans) * (0.7 + 0.3 * p.recent);
         raw[i][GradeCat::CampusLife as usize] = (p.enrollment as f64).ln() + 0.3 * academics;
     }
     for division in Division::ALL {

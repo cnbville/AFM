@@ -363,7 +363,7 @@ fn conditions(w: &World, g: &Game, k: usize) -> (Venue, Played, Option<Severe>) 
     // Real home edges are about 2 points at every level, so small crowds
     // still count (proposed, not confirmed).
     let crowd = clamp(
-        0.3 + 0.45 * (home.stadium as f64 / 100_000.0).sqrt()
+        0.3 + 0.45 * (home.crowd_seats() as f64 / 100_000.0).sqrt()
             + if local >= 18 { 0.08 } else { 0.0 }
             + if g.rivalry.is_some() { 0.05 } else { 0.0 }
             + if g.huge_for[0] { 0.05 } else { 0.0 },
@@ -555,6 +555,8 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
         return;
     }
     stakes_for_day(w, &idx);
+    // The books hang a line on every FBS and FCS game (C8).
+    super::finance::college::pregame(w, &idx);
     let cs = w.college.as_ref().unwrap();
     let capped = if cs.on_engine { held_redshirts(w, cs) } else { HashSet::new() };
     let seed = w.options.seed as u64 ^ ((cs.year as u64) << 32) ^ ((date.0 as u64) << 8);
@@ -778,6 +780,8 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
         let _ = division;
         result_event(w, k);
     }
+    // The gate, the guarantees and the lines settled (later extras topic 1, C8).
+    super::finance::college::played(w, &idx);
     advance_brackets(w);
 }
 

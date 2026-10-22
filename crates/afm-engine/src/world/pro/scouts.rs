@@ -253,7 +253,7 @@ pub(crate) fn staff(w: &mut World, turnover: bool, draft_year: i32) {
             continue;
         }
         let owner = w.nfl[t].owner;
-        let budget = clamp(0.55 + 0.03 * (owner - 10.0), 0.3, 1.0);
+        let budget = crate::world::finance::nfl::spend_level(w, t);
         let (areas, nationals) = sizes(year, owner);
         let mut kept: Vec<Scout> = Vec::new();
         for s in std::mem::take(&mut w.clubs[t].scouts) {

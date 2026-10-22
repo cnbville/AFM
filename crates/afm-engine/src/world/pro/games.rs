@@ -275,7 +275,12 @@ pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bo
     let code = era.map_or("NY", |e| e.state);
     let state = geo::state_index(code).unwrap_or(0);
     let local = (at.minute / 60) as i32 - et_offset(code);
-    let roof = era.map_or(franchise::Roof::Open, |e| e.roof);
+    // Its stadium's roof: the real one through today, a new stadium's after.
+    let roof = if neutral {
+        era.map_or(franchise::Roof::Open, |e| e.roof)
+    } else {
+        crate::world::finance::nfl::roof(w, home, year)
+    };
     let outside = weather_at(seed, state, code, at.date, local.clamp(9, 23) as u32);
     let closed = match roof {
         franchise::Roof::Dome => true,

@@ -630,6 +630,8 @@ pub(crate) fn score(w: &World, i: usize, o: &Offer, ideal: &Ideal, own: Option<u
         (g.home * 0.4, home_q),
         (g.loyalty * 0.6, loyal_q),
         (0.4, ties_q),
+        // The NFLPA report card (P1): players read how a club treats them.
+        (0.35, crate::world::finance::nfl::card_pull(w, o.team)),
     ];
     let wsum: f64 = parts.iter().map(|x| x.0).sum();
     let s = parts.iter().map(|x| x.0 * x.1).sum::<f64>() / wsum.max(1e-6);

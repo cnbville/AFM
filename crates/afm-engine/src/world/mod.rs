@@ -17,6 +17,7 @@ pub mod coach;
 pub(crate) mod college;
 pub mod data;
 pub mod ethnicity;
+pub mod finance;
 pub mod franchise;
 pub mod game_log;
 pub mod geo;
@@ -639,6 +640,9 @@ pub struct World {
     /// Your career once it has started: you, your coach id, your notes.
     #[serde(default)]
     pub career: Option<seat::Career>,
+    /// Every club's books, projects, report cards and lines (later extras topic 1).
+    #[serde(default)]
+    pub finance: finance::Finance,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -928,6 +932,7 @@ impl World {
             seat_depth: Vec::new(),
             seat_focus: Vec::new(),
             career: None,
+            finance: finance::Finance::default(),
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);

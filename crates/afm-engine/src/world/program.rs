@@ -396,6 +396,17 @@ impl Program {
         !self.dark.iter().any(|&(a, b)| (a..=b).contains(&year))
     }
 
+    /// The seats its crowds are read from: the stadium, capped by the level
+    /// it plays at now (a Division II school in a 22,000-seat city stadium
+    /// draws like a Division II school).
+    pub fn crowd_seats(&self) -> u32 {
+        self.stadium.min(match self.division {
+            Division::FBS => 110_000,
+            Division::FCS => 25_000,
+            _ => 10_000,
+        })
+    }
+
     /// Its real division and conference in a season (college history):
     /// None when it fielded no team. Seasons before the history starts read
     /// as its first year; from 2026 on its own row stands, and the world's
@@ -467,18 +478,19 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
     let state = geo::state_index(&row.state).unwrap_or(0);
     // A shared or oversized stadium (Winston-Salem State plays in a 22,000-seat
     // city stadium) says little about a small program's crowds: cap by level.
-    let stadium = row
-        .stadium_capacity
-        .unwrap_or(match row.division {
-            Division::FBS => 30000,
-            Division::FCS => 12000,
-            _ => 4000,
-        })
-        .min(match row.division {
-            Division::FBS => 110_000,
-            Division::FCS => 25_000,
-            _ => 10_000,
-        });
+    // The real seats are kept (a school that moves up plays in them: UCF's
+    // 45,000 seats were there in its Division II years, A4); what its crowds
+    // can be read from is capped by the level it plays at (`crowd_seats`).
+    let seats = row.stadium_capacity.unwrap_or(match row.division {
+        Division::FBS => 30000,
+        Division::FCS => 12000,
+        _ => 4000,
+    });
+    let stadium = seats.min(match row.division {
+        Division::FBS => 110_000,
+        Division::FCS => 25_000,
+        _ => 10_000,
+    });
     let scale = division_scale(row.division);
     let p4 = matches!(row.conference.as_str(), "SEC" | "Big Ten" | "Big 12" | "ACC") || row.name == "Notre Dame";
     let titles = row.national_titles as f64;
@@ -505,7 +517,7 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
         state,
         enrollment: row.enrollment,
         academic_tier: row.academic_tier,
-        stadium,
+        stadium: seats,
         tradition,
         recent,
         facilities,
@@ -740,57 +752,6 @@ pub fn update_collective(p: &mut Program, win_pct: f64, next: i32, rng: &mut Rng
     level
 }
 
-/// A school accepts a stronger conference's invitation (topic 11, change 7):
-/// one of the top Group of Five programs joins the power conference with the
-/// most members in its state (the smallest one on a tie). The move is
-/// announced now and takes effect next season. Proposed, not confirmed.
-pub(crate) fn realign_one(w: &mut super::World, rng: &mut Rng) {
-    let p4 = |c: &str| matches!(c, "SEC" | "Big Ten" | "Big 12" | "ACC");
-    let mut g5: Vec<(f64, usize)> = w
-        .programs
-        .iter()
-        .filter(|p| p.division == Division::FBS && !p4(&p.conference) && !p.conference.contains("Independent"))
-        .filter(|p| !w.realign.iter().any(|r| r.0 == p.id))
-        .map(|p| (p.prestige + rng.normal(0.0, 0.05), p.id))
-        .collect();
-    g5.sort_by(|a, b| b.0.total_cmp(&a.0));
-    let Some(&(_, pick)) = g5.iter().take(5).nth(rng.int(0, 4.min(g5.len() as i32 - 1)) as usize) else { return };
-    let state = w.programs[pick].state;
-    let mut best: Option<(i32, i32, String)> = None;
-    for conf in ["SEC", "Big Ten", "Big 12", "ACC"] {
-        let members: Vec<&Program> = w.programs.iter().filter(|p| p.conference == conf).collect();
-        let here = members.iter().filter(|p| p.state == state).count() as i32;
-        let key = (here, -(members.len() as i32), conf.to_string());
-        if best.as_ref().is_none_or(|b| (key.0, key.1) > (b.0, b.1)) {
-            best = Some(key);
-        }
-    }
-    let Some((_, _, conf)) = best else { return };
-    let season = w.year;
-    let from = w.programs[pick].conference.clone();
-    let name = w.programs[pick].real_name.clone();
-    w.realign.push((pick, conf.clone()));
-    let text = format!("{name} accepts an invitation to leave the {from} for the {conf}, from next season.");
-    w.programs[pick].story.push((season, text.clone()));
-    w.log.rule_changes.push(text.clone());
-    w.changes.applied.push(crate::calendar::rules::AppliedChange {
-        change: crate::calendar::Change::ConferenceSwitch,
-        season,
-        detail: format!("{name}: {from} to {conf}"),
-    });
-    let today = w.today;
-    w.calendar.post(
-        crate::calendar::Event::new(
-            today,
-            crate::calendar::Level::College,
-            crate::calendar::Kind::RuleChange,
-            crate::calendar::Loudness::Big,
-            text,
-        )
-        .program(pick),
-    );
-}
-
 /// A level's name in a season's own words: Division I-A and I-AA until the
 /// 2006 renaming to FBS and FCS.
 pub fn division_era_name(d: Division, season: i32) -> &'static str {
@@ -883,7 +844,13 @@ pub(crate) fn apply_history(w: &mut super::World) {
             Division::FCS => Loudness::Medium,
             _ => Loudness::Small,
         };
-        w.calendar.post(Event::new(today, Level::College, Kind::RuleChange, loud, text).program(i));
+        if was {
+            // A move takes effect on 1 July, and is news that day (conference moves 1a).
+            let day = super::finance::college::officially(&text).unwrap_or(text);
+            super::finance::college::post_move(w, i, season, day, d.min(old_d));
+        } else {
+            w.calendar.post(Event::new(today, Level::College, Kind::RuleChange, loud, text).program(i));
+        }
     }
 }
 
