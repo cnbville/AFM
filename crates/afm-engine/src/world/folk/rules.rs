@@ -309,7 +309,7 @@ pub fn sitting(w: &World, id: u32, d: Date) -> bool {
 fn after_games(w: &World, team: Team, n: u8) -> Date {
     let games = super::facts::team_games(w, team);
     let today = w.today;
-    games.iter().map(|g| g.0).filter(|&d| d >= today).nth(n.max(1) as usize - 1).map_or(today.add(7 * n as i32), |d| d)
+    games.iter().map(|g| g.0).filter(|&d| d >= today).nth(n.max(1) as usize - 1).unwrap_or(today.add(7 * n as i32))
 }
 
 /// How likely a player is to break a rule this week (topic 8):
