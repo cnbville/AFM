@@ -506,6 +506,7 @@ fn year_start(w: &mut World) {
     super::program::apply_history(w);
     w.college_prev = w.college.take();
     w.college = Some(college::new_season(w));
+    super::hs_playoffs::reclassify(w);
     w.hs_season = Some(hs_year::new_season(w));
     w.nfl_season = Some(nfl_year::new_season(w));
     super::franchise::year_start(w);

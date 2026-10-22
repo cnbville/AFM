@@ -26,6 +26,12 @@ pub struct HsSeason {
     pub coach: Option<usize>,
     /// Points scored and allowed, from engine seasons (zero on the stand-in).
     pub points: [u32; 2],
+    /// Playoff games won (U-d; Wisconsin's tournament performance factor).
+    #[serde(default)]
+    pub playoff_wins: u8,
+    /// Reached the last four of its bracket (U-d; Connecticut's play-up rule).
+    #[serde(default)]
+    pub semifinal: bool,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -141,7 +147,10 @@ pub fn generate_state_schools(
             Area::SmallTown => (rng.range(0.3, 0.6), rng.range(0.55, 0.9)),
             Area::Rural => (rng.range(0.2, 0.55), rng.range(0.6, 0.95)),
         };
-        let private = if real { rng.chance(0.45) } else { rng.chance(0.12) };
+        // A real school is private by what it is (its name says so); the draw
+        // stays so the rest of the stream does not move.
+        let draw = if real { rng.chance(0.45) } else { rng.chance(0.12) };
+        let private = if real { super::hs_playoffs::real_private(&row.powerhouses[k].0) } else { draw };
         let enrollment = (match area {
             Area::UrbanCore | Area::Suburb => 1400.0,
             Area::SmallTown => 600.0,

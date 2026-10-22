@@ -21,6 +21,7 @@ pub mod franchise;
 pub mod game_log;
 pub mod geo;
 pub mod high_school;
+pub mod hs_playoffs;
 pub mod hs_year;
 pub mod names;
 pub mod ncaa;
