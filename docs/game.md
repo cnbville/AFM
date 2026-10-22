@@ -42,7 +42,7 @@ Built 2026-10-20/21 overnight (thread "Build the program", PR #75), from `docs/d
 - **Saves** are named after the career ("Name, Team"), with the world date and when you saved. **Build a world on this Mac** asks first, with the time and memory it takes, and has a Stop button.
 - **Screens:** home, inbox, news (everything or yours), calendar (your games, your level's fixed dates and the big moments ahead), squad (unit, class and injured filters, sortable, grouped by position), depth chart, training, recruiting (a college's offers, visits, commitments and signings; a high school's players with college interest), contracts (an NFL club's books against the cap), schedule, game pages (box score and play by play with each call and its reason), standings, staff, coach pages, team pages, player pages (overview, attributes, career, tendencies, recruiting, your notes), search, your profile, save, a bug pack.
 - **What you see is your staff's read:** your own players' ratings as ranges whose width comes from the coach who reads them; other teams' players show only what is public. Potential appears only as words. Hidden coach ability is never shown, except your own ratings.
-- **High school seat:** your school's games always run on the engine (even in a stand-in season) with full game pages; the schedule, your classification's standings, and a staff of teacher-coaches sized by enrollment who teach your players (below).
+- **High school seat:** every high school game in a live save runs on the engine, yours with full game pages (the others keep only each player's season line, as the history does); the schedule, your classification's standings, and a staff of teacher-coaches sized by enrollment who teach your players (below).
 - **Training (6b topic 5, part):** a main focus per player. The focus grows up to half as fast again (1.5 times its share at full coachability) and his other skills of the same kind pay for it. Measured (`a_training_focus_grows_its_skill_and_costs_the_rest_a_little`, 400 players): the focus grows 1.29 times as fast and the year as a whole moves 1.2%, inside choice 2's 15%.
 
 ## Memory (step 1)
@@ -86,5 +86,4 @@ The 30-year world for first saves (seed 2026, `afm/worlds/` in the project folde
 
 - Storing ratings as 4-byte floats changes results per seed slightly (rounding), so a seed no longer rebuilds a pre-build world exactly. Accepted because the section 8 build changes the world anyway.
 - Season records are still 8-byte; compacting old seasons (topic 8) isn't done.
-- Your school's games run on the engine in a stand-in season while its opponents' other games don't; their records are mixed (the engine's scoring is close to the stand-in's odds).
 - Engine stats: a throwaway is no longer a target for any receiver, and a sack with no rusher on the quarterback (he went down to a tackle) goes to the tackler, so the box score's sacks match the play by play.

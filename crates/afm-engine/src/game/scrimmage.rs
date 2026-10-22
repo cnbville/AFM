@@ -3067,7 +3067,7 @@ fn quarterback(
         return Some(throw(sim, ps, qb, r, p, flight, pressure, s));
     }
     // Nothing open: scramble, throw it away, or hold it.
-    let speed = sim.agents[qb].a(Attr::Speed);
+    let speed = sim.agents[qb].a(Attr::Speed) + if sim.level == crate::player::Level::HS { knob("K_SCR", 0.0) } else { 0.0 };
     // A way out: to one side or the other no free defender is within three
     // yards, and nobody has hold of him. Rushers locked on blockers are
     // what he slides around (it used to need an empty box straight ahead,

@@ -1137,7 +1137,8 @@ impl<'a> Sim<'a> {
         // against the level (scrimmage.rs), gives 5.24 and 4.32 on the
         // world's rosters, about 5.05 and 4.45 in the world (proposed, not
         // confirmed).
-        let w0 = if pass { -0.42 } else { -0.1 }
+        let hs = self.level == crate::player::Level::HS;
+        let w0 = if pass { -0.42 + if hs { knob("K_PW", 0.0) } else { 0.0 } } else { -0.1 + if hs { knob("K_RW", 0.0) } else { 0.0 } }
             + 0.006 * (get_off + silent - set)
             + self.front_fit(de.label, pass)
             + 0.18 * gauss(self.rng);

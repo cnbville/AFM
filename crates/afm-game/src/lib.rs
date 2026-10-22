@@ -74,12 +74,17 @@ impl Game {
                 let years = num("history_years").unwrap_or(30) as u32;
                 let scale = args.get("scale").and_then(Value::as_f64).unwrap_or(1.0);
                 let engine_from = num("engine_from").map(|y| y as i32);
+                let d = WorldOptions::default();
+                // How many history seasons play high school on the engine
+                // (quick checks pass 0; live seasons always do).
+                let hs_engine_years = num("hs_engine_years").map_or(d.hs_engine_years, |n| Some(n as u32));
                 self.world = Some(World::new(WorldOptions {
                     seed,
                     history_years: years,
                     scale,
                     engine_from,
-                    ..Default::default()
+                    hs_engine_years,
+                    ..d
                 }));
                 self.save_path = None;
                 Ok(json!({ "built": true }))
