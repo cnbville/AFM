@@ -415,6 +415,7 @@ fn take(w: &mut World, from: usize, t: usize, i: usize, d: Date, pay: f64) {
         w,
         d,
         Some(t),
+        Some(i),
         crate::calendar::Loudness::Small,
         crate::calendar::Kind::Signing,
         format!("{who} is signed off the {} practice squad by the {b}.", super::possessive(a)),

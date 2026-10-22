@@ -759,7 +759,7 @@ pub(crate) fn pro_trouble_week(w: &mut World, d: Date) {
         }
         if w.recording {
             let who = pro::describe(w, i);
-            market::post(w, d, team, Loudness::Medium, Kind::News, format!("{who}: {}.", kind.words()));
+            market::post(w, d, team, Some(i), Loudness::Medium, Kind::News, format!("{who}: {}.", kind.words()));
         }
     }
     // The rulings due today.
@@ -831,6 +831,7 @@ fn rule(w: &mut World, d: Date, case: &Case) {
         w,
         d,
         team,
+        Some(i),
         Loudness::Medium,
         Kind::News,
         format!("{who} is suspended {games} games ({}).", case.kind.words()),

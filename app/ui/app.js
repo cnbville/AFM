@@ -289,11 +289,25 @@ screens.home = async () => {
     </div></div>`;
 };
 
+// A line's text with every name it links (L2): the engine sends `parts`,
+// plain `{t}` or a link `{t, go, kind, id, index}` that opens on click.
+function lineHtml(e) {
+  // A name ending in Jr. at the end of a line: one period.
+  const fix = (t) => String(t || "").replace(/\b(Jr|Sr)\.\./g, "$1.");
+  if (!Array.isArray(e.parts) || !e.parts.length) return esc(fix(e.text));
+  const attr = (k, v) => (v == null ? "" : ` data-${k}="${esc(v)}"`);
+  return e.parts.map((p, i) => {
+    const t = i === e.parts.length - 1 ? fix(p.t) : p.t;
+    if (!p.go) return esc(t);
+    const cls = p.go === "player" ? "link name" : "link";
+    return `<a class="${cls}" data-go="${p.go}"${attr("kind", p.kind)}${attr("id", p.id)}${attr("index", p.index)}>${esc(t)}</a>`;
+  }).join("");
+}
+
 function itemRow(e) {
   const cls = `${(e.loud || "").toLowerCase()} ${e.decision ? "decision" : ""}`;
-  // A name ending in Jr. at the end of a line: one period.
-  e = { ...e, text: String(e.text || "").replace(/\b(Jr|Sr)\.\./g, "$1.") };
-  return `<div class="item ${cls}"><span class="when">${esc(e.date || "")}</span><span>${e.loud === "Big" || e.loud === "Huge" ? "<b>" + esc(e.text) + "</b>" : esc(e.text)}${e.rule ? ` <small class="sub">· ${esc(e.rule)}</small>` : ""}</span></div>`;
+  const text = lineHtml(e);
+  return `<div class="item ${cls}"><span class="when">${esc(e.date || "")}</span><span>${e.loud === "Big" || e.loud === "Huge" ? "<b>" + text + "</b>" : text}${e.rule ? ` <small class="sub">· ${esc(e.rule)}</small>` : ""}</span></div>`;
 }
 
 screens.inbox = async () => {
@@ -309,7 +323,7 @@ screens.news = async () => {
 screens.calendar = async () => {
   const x = await api("calendar");
   const tag = { game: "Your game", date: "Date", huge: "Huge", big: "Big" };
-  return `<div class="pad"><div class="h1">Calendar</div><p class="sub">Your games, the year's fixed dates at your level and the big moments already set. Yours are in bold.</p><div class="panel"><div class="items">${x.items.map((e) => `<div class="item cal"><span class="when">${esc(e.date)}<br><small>${e.in === 0 ? "today" : "in " + e.in + " d"}</small></span><span>${e.mine ? "<b>" + esc(e.text) + "</b>" : esc(e.text)}</span><span class="st-chip ${e.loud}">${tag[e.loud] || ""}</span></div>`).join("") || '<div class="empty">Nothing set yet.</div>'}</div></div></div>`;
+  return `<div class="pad"><div class="h1">Calendar</div><p class="sub">Your games, the year's fixed dates at your level and the big moments already set. Yours are in bold.</p><div class="panel"><div class="items">${x.items.map((e) => `<div class="item cal"><span class="when">${esc(e.date)}<br><small>${e.in === 0 ? "today" : "in " + e.in + " d"}</small></span><span>${e.mine ? "<b>" + lineHtml(e) + "</b>" : lineHtml(e)}</span><span class="st-chip ${e.loud}">${tag[e.loud] || ""}</span></div>`).join("") || '<div class="empty">Nothing set yet.</div>'}</div></div></div>`;
 };
 
 const CLASSES = ["Fr", "So", "Jr", "Sr"];
@@ -447,7 +461,7 @@ screens.player = async (a) => {
     const phys = p.groups.find((g) => g.name === "Physical");
     body = `<div class="grid2"><div class="panel"><h2>Your staff's read</h2>
       ${p.potential ? `<div style="font-size:20px;font-weight:800">${esc(p.potential.tier)}</div><div class="sub">Staff ${esc(p.potential.sure.replace(/([A-Z])/g, " $1").trim().toLowerCase())}.${p.potential.hints.length ? " " + p.potential.hints.map(esc).join(". ") + "." : ""}</div>` : `<div class="sub">Your staff hasn't scouted him. Only his measurables and his public profile are known.</div>`}
-      <div class="kv"><dt>Rating now</dt><dd>${range(p.ovr)}</dd><dt>Mood</dt><dd>${esc(p.mood)}</dd><dt>Status</dt><dd>${esc(p.status || "Available")}</dd></div></div>
+      <div class="kv"><dt>Rating now</dt><dd>${range(p.ovr)}</dd><dt>Mood</dt><dd>${esc(p.mood)}</dd><dt>Status</dt><dd>${esc(p.status || "Available")}</dd>${p.born ? `<dt>Born</dt><dd>${esc(p.born)} <small class="sub">(${p.age})</small></dd>` : ""}<dt>On camera</dt><dd>${esc(p.on_camera)}</dd>${p.followers ? `<dt>Followers</dt><dd>${p.followers >= 1e6 ? (p.followers / 1e6).toFixed(1) + "M" : p.followers >= 1e4 ? Math.round(p.followers / 1e3) + "k" : p.followers.toLocaleString()}</dd>` : ""}${p.brand ? `<dt>Ads and deals</dt><dd>${money(p.brand)} <small class="sub">a year, reported</small></dd>` : ""}</div></div>
       <div class="panel"><h2>Physical <small>Opinion: ${esc(who)}</small></h2>${phys.attrs.map((x) => `<div class="attr"><span>${esc(x.label)}</span>${range(x.read)}</div>`).join("")}</div></div>
       ${p.stories.length ? `<div class="panel"><h2>What happened</h2><div class="items">${p.stories.map((s) => `<div class="item story"><span>${esc(s)}</span></div>`).join("")}</div></div>` : ""}`;
   } else if (tab.t === "Attributes") {
