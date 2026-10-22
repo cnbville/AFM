@@ -258,7 +258,18 @@ fn hub(w: &World) -> Value {
     let mut calling = calling_record(w);
     let Some(n) = next_game(w) else {
         calling["season_over"] = json!(true);
-        return json!({ "has_game": false, "why": "No game left on your schedule.", "me": views::team_brief(w, me), "settings": settings, "rules": rules, "calling": calling });
+        // Between seasons: say when the next games come, not just that
+        // none are left.
+        let why = if matches!(level, CalLevel::Nfl) && w.today < w.dates.schedule_release {
+            format!(
+                "Your season is over. The league releases the {} schedule on {}; your next game shows here from then.",
+                w.dates.season,
+                views::date_text(w.dates.schedule_release)
+            )
+        } else {
+            "Your season is over. Your next game shows here once next season's schedule is set.".to_string()
+        };
+        return json!({ "has_game": false, "why": why, "me": views::team_brief(w, me), "settings": settings, "rules": rules, "calling": calling });
     };
     let opp = team_ref(level, n.opp);
     let names = names(w, &[me, opp]);
