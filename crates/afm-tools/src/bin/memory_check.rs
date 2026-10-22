@@ -50,6 +50,9 @@ fn main() {
         w.programs.len(),
         w.news.len()
     );
+    // The same seed must give the same world whatever the stores' layout:
+    // a hash of what the years produced (compare it across builds).
+    println!("fingerprint {:016x}", fingerprint(&w));
     // Parts first (inside the stores), then whole stores.
     let mut rows: Vec<(String, f64)> = Vec::new();
     let mut weigh = |name: &str, w: &mut World, f: &dyn Fn(&mut World)| {
@@ -108,4 +111,27 @@ fn year_line(w: &World, secs: f64) {
         per(hs.plays as f64),
         per(hs.yards),
     );
+}
+
+/// A hash of what the world's years produced: every person's season rows,
+/// ratings, stage and school, every alumnus, coach and news line.
+fn fingerprint(w: &World) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    for p in &w.people {
+        p.name.hash(&mut h);
+        format!("{:?}", p.player.history).hash(&mut h);
+        format!("{:?}{:?}{:?}{}", p.stage, p.college, p.player.position, p.hs).hash(&mut h);
+        format!("{:?}", p.player.attributes).hash(&mut h);
+    }
+    for a in &w.alumni {
+        a.name.hash(&mut h);
+    }
+    for c in &w.coaches {
+        format!("{}{:?}", c.name, c.history.len()).hash(&mut h);
+    }
+    for n in &w.news {
+        n.text.hash(&mut h);
+    }
+    h.finish()
 }

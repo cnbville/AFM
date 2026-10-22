@@ -352,7 +352,7 @@ pub(crate) fn season_honors(w: &mut World, d: Date) {
         },
         &|_, r| r,
     );
-    let mut lines: Vec<(usize, String, Loudness)> = Vec::new();
+    let mut lines: Vec<(usize, String, Loudness, u32, String)> = Vec::new();
     for (k, award) in [
         (mvp, "MVP"),
         (opoy, "Offensive Player of the Year"),
@@ -370,7 +370,13 @@ pub(crate) fn season_honors(w: &mut World, d: Date) {
         let s = w.people[c.i].pro.as_mut().unwrap().season_mut(year);
         s.awards.push(award);
         let loud = if award == "MVP" { Loudness::Big } else { Loudness::Medium };
-        lines.push((c.team, format!("{name} ({}, {}) is the NFL's {award}.", c.pos, w.nfl[c.team].name), loud));
+        lines.push((
+            c.team,
+            format!("{name} ({}, {}) is the NFL's {award}.", c.pos, w.nfl[c.team].name),
+            loud,
+            c.id,
+            name,
+        ));
     }
     for k in pro_bowl {
         let c = &cands[k];
@@ -389,8 +395,10 @@ pub(crate) fn season_honors(w: &mut World, d: Date) {
         let which = if team == 1 { "first" } else { "second" };
         w.people[c.i].note(format!("Named {which}-team All-Pro at {age}."));
     }
-    for (t, text, loud) in lines {
-        w.calendar.post(Event::new(d, Level::Nfl, Kind::News, loud, text).team(t));
+    for (t, text, loud, id, name) in lines {
+        w.calendar.post(
+            Event::new(d, Level::Nfl, Kind::News, loud, text).team(t).person(id, &name).club_link(t, w.nfl[t].name),
+        );
     }
     season_records(w, d);
 }
@@ -419,7 +427,11 @@ fn season_records(w: &mut World, d: Date) {
                 let kind = if r.career { "career" } else { "single-season" };
                 w.nfl_book.broken.push((year, format!("{kind} {}", r.stat), name.clone(), v));
                 if !(r.world && r.holder == name) {
-                    posts.push(format!("{name} sets the NFL {kind} record for {}: {v:.0}.", r.stat));
+                    posts.push((
+                        format!("{name} sets the NFL {kind} record for {}: {v:.0}.", r.stat),
+                        id,
+                        name.clone(),
+                    ));
                 }
                 r.value = v;
                 r.holder = name.clone();
@@ -428,8 +440,8 @@ fn season_records(w: &mut World, d: Date) {
             }
         }
     }
-    for text in posts {
-        w.calendar.post(Event::new(d, Level::Nfl, Kind::News, Loudness::Big, text));
+    for (text, id, name) in posts {
+        w.calendar.post(Event::new(d, Level::Nfl, Kind::News, Loudness::Big, text).person(id, &name));
     }
 }
 
@@ -461,7 +473,7 @@ pub(crate) fn super_bowl_mvp(
         c.season_mut(year).awards.push("Super Bowl MVP");
     }
     let text = format!("{name} is the Super Bowl MVP.");
-    w.calendar.post(Event::new(d, Level::Nfl, Kind::News, Loudness::Big, text).team(team));
+    w.calendar.post(Event::new(d, Level::Nfl, Kind::News, Loudness::Big, text).team(team).person(id, &name));
 }
 
 /// A retiring player's Hall of Fame case: his honors, titles and seasons
@@ -525,15 +537,21 @@ pub(crate) fn hall_vote(w: &mut World, d: Date) {
         }
     }
     let mut names = Vec::new();
+    let mut linked = Vec::new();
     class.sort_unstable_by(|a, b| b.cmp(a));
     for &k in &class {
         let c = w.nfl_book.candidates.remove(k);
         names.push(format!("{} ({})", c.name, c.pos));
+        linked.push((c.id, c.name.clone()));
         w.nfl_book.hall.push((year, c.id, c.name, c.pos, c.why));
     }
     if !names.is_empty() {
         let text = format!("Pro Football Hall of Fame class: {}.", names.join(", "));
-        w.calendar.post(Event::new(d, Level::Nfl, Kind::News, Loudness::Big, text).memorable());
+        let mut e = Event::new(d, Level::Nfl, Kind::News, Loudness::Big, text).memorable();
+        for (id, name) in &linked {
+            e = e.person(*id, name);
+        }
+        w.calendar.post(e);
     }
     let _ = Status::Roster;
 }

@@ -386,6 +386,7 @@ pub(crate) fn trade_window(w: &mut World, d: Date, window: Window) {
                 w,
                 d,
                 Some(seller),
+                Some(i),
                 Loudness::Medium,
                 Kind::Transfer,
                 format!("A trade for {who} is voided after a failed physical."),
@@ -494,7 +495,8 @@ fn execute(
     let from = w.nfl[seller].name;
     let what: Vec<String> = picks.iter().map(|&(y, r, _)| format!("a {y} round {r} pick")).collect();
     let text = format!("The {from} trade {who} to the {to} for {}.", what.join(" and "));
-    post(w, d, Some(buyer), if fair >= 82.0 { Loudness::Big } else { Loudness::Medium }, Kind::Transfer, text.clone());
+    let loud = if fair >= 82.0 { Loudness::Big } else { Loudness::Medium };
+    post(w, d, Some(buyer), Some(i), loud, Kind::Transfer, text.clone());
     let my = w.market.year_mut(year);
     my.trades += 1;
     my.picks_traded += picks.len() as u32;
@@ -525,7 +527,15 @@ fn shopping_rumor(w: &mut World, i: usize, seller: usize, d: Date) {
     let age = p.row_age();
     p.note(format!("Learned at {age} that the {name} had been shopping him."));
     let who = super::describe(w, i);
-    post(w, d, Some(seller), Loudness::Small, Kind::News, format!("Reports: the {name} have been shopping {who}."));
+    post(
+        w,
+        d,
+        Some(seller),
+        Some(i),
+        Loudness::Small,
+        Kind::News,
+        format!("Reports: the {name} have been shopping {who}."),
+    );
 }
 
 // --- Compensatory picks ------------------------------------------------------------------------------------
@@ -708,6 +718,7 @@ pub(crate) fn award_comp_picks(w: &mut World, d: Date) {
     post(
         w,
         d,
+        None,
         None,
         Loudness::Small,
         Kind::Date,

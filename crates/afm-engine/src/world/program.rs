@@ -706,7 +706,9 @@ pub fn fade_pipelines(p: &mut Program, year: i32) {
 /// One year of a collective's money. Losing seasons shrink donations; a big
 /// booster can walk away. `next` is the offseason the new NIL budget pays
 /// for. Returns the warning level (0 = none).
-pub fn update_collective(p: &mut Program, win_pct: f64, next: i32, rng: &mut Rng) -> u32 {
+/// `walk` adds to the big booster's chance of leaving (his patience with
+/// your own program, `folk::boss::booster_push`).
+pub fn update_collective(p: &mut Program, win_pct: f64, next: i32, walk: f64, rng: &mut Rng) -> u32 {
     let before = p.collective.boosters();
     let mood = (win_pct - 0.5) * 0.18 + (p.prestige - 0.5) * 0.04;
     // Donations follow results, and drift back toward what the brand can raise.
@@ -721,7 +723,7 @@ pub fn update_collective(p: &mut Program, win_pct: f64, next: i32, rng: &mut Rng
     c.base += 0.08 * (target - c.base);
     let mut booster_left = false;
     if let Some(b) = c.big_booster {
-        let leave = 0.025 + if win_pct < 0.4 { 0.04 } else { 0.0 };
+        let leave = (0.025 + if win_pct < 0.4 { 0.04 } else { 0.0 } + walk).max(0.0);
         if rng.chance(leave) {
             c.big_booster = None;
             booster_left = true;

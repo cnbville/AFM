@@ -126,6 +126,27 @@ pub struct PlayRecord {
     pub emergency: bool,
     /// What the players' tendencies did (`docs/design/tendencies.md`).
     pub tend: super::sim::TendNotes,
+    /// Game day (section 9): you called the offense (1) or the defense (2).
+    #[serde(default)]
+    pub yours: u8,
+    /// Your call was off the week's sheet (less practiced).
+    #[serde(default)]
+    pub off_sheet: bool,
+    /// The staff's call you replaced.
+    #[serde(default)]
+    pub staff_call: String,
+    /// A close call by the officials, and any review of it.
+    #[serde(default)]
+    pub officiating: Option<super::live::Officiating>,
+    /// Across the field: the snap and where the throw arrived (0 to 53.3,
+    /// the offense's left high), for the pass chart.
+    #[serde(default)]
+    pub throw_y: Option<(f32, f32)>,
+    /// A 4th down weighed by the model at the snap: the true win chance of
+    /// going, punting and kicking (0 out of range), and the chance to
+    /// convert.
+    #[serde(default)]
+    pub fourth: Option<[f32; 4]>,
 }
 
 impl PlayRecord {
@@ -209,6 +230,12 @@ impl PlayRecord {
             garbage: [0, 0],
             emergency: false,
             tend: Default::default(),
+            yours: 0,
+            off_sheet: false,
+            staff_call: String::new(),
+            officiating: None,
+            throw_y: None,
+            fourth: None,
         }
     }
 
@@ -1010,9 +1037,13 @@ impl GameStats {
             grade(l, -1.5);
             if r.fumble_lost {
                 self.team[team].fumbles_lost += 1;
+                self.team[team].turnovers += 1;
             }
         }
-        if r.turnover {
+        // A turnover in the box score is an interception or a lost fumble
+        // (above); a missed field goal, a turnover on downs or an onside
+        // kick hands the ball over without being one.
+        if r.interception {
             self.team[o].turnovers += 1;
         }
         for &(id, won) in &r.freelance {

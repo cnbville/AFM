@@ -789,7 +789,7 @@ pub(crate) fn sign_offer(w: &mut World, i: usize, o: &Offer, d: Date, kind: mone
             apy * years as f64 / 1e6,
             gtd / 1e6
         );
-        post(w, d, Some(t), loud, Kind::Signing, text);
+        post(w, d, Some(t), Some(i), loud, Kind::Signing, text);
     }
 }
 
@@ -1160,6 +1160,7 @@ pub(crate) fn tags_and_tenders(w: &mut World, d: Date) {
                 w,
                 d,
                 Some(t),
+                Some(i),
                 Loudness::Medium,
                 Kind::Signing,
                 format!("{who} gets the {what} tag (${:.1}M).", price / 1e6),
@@ -1352,6 +1353,7 @@ pub(crate) fn offer_sheets(w: &mut World, d: Date) {
                 w,
                 d,
                 Some(old),
+                Some(i),
                 Loudness::Medium,
                 Kind::Signing,
                 format!("{who} signs an offer sheet with the {to}."),
@@ -1589,6 +1591,7 @@ fn extend(w: &mut World, i: usize, o: &Offer, d: Date) {
             w,
             d,
             Some(o.team),
+            Some(i),
             Loudness::Medium,
             Kind::Signing,
             format!("{who} signs an extension: {}, ${:.1}M.", count(o.years, "year"), apy * o.years as f64 / 1e6),
@@ -1669,6 +1672,7 @@ pub(crate) fn holdouts(w: &mut World, d: Date, report_day: bool) {
                 w,
                 d,
                 Some(t),
+                Some(i),
                 Loudness::Medium,
                 Kind::News,
                 format!("{who} {} for a new contract.", if out { "holds out" } else { "holds in" }),
@@ -1699,7 +1703,7 @@ pub(crate) fn holdouts(w: &mut World, d: Date, report_day: bool) {
             if (w.clubs[t].office.mode == Mode::Rebuild || c.trust < 0.5) && !c.wants_out {
                 c.wants_out = true;
                 let who = super::describe(w, i);
-                post(w, d, Some(t), Loudness::Medium, Kind::News, format!("{who} requests a trade."));
+                post(w, d, Some(t), Some(i), Loudness::Medium, Kind::News, format!("{who} requests a trade."));
             }
         }
     }
@@ -2132,6 +2136,7 @@ pub(crate) fn cash_floor(w: &mut World, d: Date) {
             w,
             d,
             Some(t),
+            None,
             Loudness::Small,
             Kind::News,
             format!(
@@ -2260,10 +2265,27 @@ impl Market {
     }
 }
 
-pub(crate) fn post(w: &mut World, d: Date, team: Option<usize>, loud: Loudness, kind: Kind, text: String) {
+/// Posts an NFL market line about the person `who` (an index in the people
+/// list), if any: his name and every club the line names are linked (L2).
+pub(crate) fn post(
+    w: &mut World,
+    d: Date,
+    team: Option<usize>,
+    who: Option<usize>,
+    loud: Loudness,
+    kind: Kind,
+    text: String,
+) {
     let mut e = Event::new(d, CalLevel::Nfl, kind, loud, text);
     if let Some(t) = team {
         e = e.team(t);
+    }
+    if let Some(k) = who {
+        let p = &w.people[k];
+        e = e.person(p.player.id, &p.name);
+    }
+    for (t, club) in w.nfl.iter().enumerate() {
+        e = e.club_link(t, club.name);
     }
     w.calendar.post(e);
 }

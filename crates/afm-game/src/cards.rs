@@ -206,7 +206,7 @@ fn seat_part(w: &World) -> Value {
         "line": views::team_line(w, t),
         "record": if note == "this season" { record } else { format!("{record} {note}") },
         "next": next,
-        "coach": format!("{}, {}", c.you.name, coach.map_or(c.you.age, |k| k.age)),
+        "coach": format!("{}, {}", c.you.name, coach.map_or(c.you.age_on(w.today), |k| k.age_on(w.today))),
         "date": views::date_text(w.today),
         "road": c.you.road,
     })

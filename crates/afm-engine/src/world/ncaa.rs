@@ -512,13 +512,17 @@ fn ncaa_case(w: &mut World, j: usize) {
             paid.len(),
             money / 1e3
         );
-        w.news.push(NewsItem {
-            date: None,
-            year,
-            kind: NewsKind::NcaaPenalty,
-            channel: Channel::News,
-            program: Some(j),
-            text,
-        });
+        w.news.push(
+            NewsItem {
+                date: None,
+                year,
+                kind: NewsKind::NcaaPenalty,
+                channel: Channel::News,
+                program: Some(j),
+                text,
+                refs: Vec::new(),
+            }
+            .link(crate::calendar::Link::Program(j as u32), &name),
+        );
     }
 }

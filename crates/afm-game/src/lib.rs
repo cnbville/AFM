@@ -21,6 +21,7 @@ pub mod lane_scouting;
 pub mod lane_stories;
 pub mod lane_training;
 pub mod lane_views;
+pub mod memory;
 pub mod reads;
 pub mod setup;
 pub mod views;
@@ -109,6 +110,8 @@ impl Game {
                 let path = args.get("path").and_then(Value::as_str).ok_or("Missing path.")?;
                 self.world = Some(setup::read(path)?);
                 self.save_path = (cmd == "load").then(|| PathBuf::from(path));
+                lane_core::after_days(self.wm()?);
+                memory::hand_back();
                 Ok(views::status(self.w()?))
             }
             "save" => {
@@ -131,6 +134,7 @@ impl Game {
             "start_career" => {
                 let w = self.wm()?;
                 setup::start(w, args)?;
+                lane_core::after_days(w);
                 Ok(views::status(w))
             }
             "status" => Ok(views::status(self.w()?)),
@@ -140,12 +144,15 @@ impl Game {
                 let w = self.wm()?;
                 let from = w.today;
                 let stopped = w.continue_until_needed(max);
+                lane_core::after_days(w);
+                memory::hand_back();
                 Ok(views::stopped(w, from, stopped))
             }
             "day" => {
                 let w = self.wm()?;
                 let from = w.today;
                 w.advance_day();
+                lane_core::after_days(w);
                 Ok(views::stopped(w, from, from))
             }
             "holiday" => {
@@ -153,6 +160,7 @@ impl Game {
                 let w = self.wm()?;
                 let from = w.today;
                 let stopped = w.holiday_to(from.add(days));
+                lane_core::after_days(w);
                 Ok(views::stopped(w, from, stopped))
             }
             "home" => Ok(views::home(self.w()?)),
