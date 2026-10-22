@@ -5,7 +5,7 @@
 use super::calling::{self, FourthDown, Memory, Situation};
 use super::experiment;
 use super::garbage;
-use super::geom::{MID, v2};
+use super::geom::{FieldGuard, goal, mid, v2};
 use super::kicking::{self, KickTeams};
 use super::playbook::*;
 use super::roster::*;
@@ -444,6 +444,8 @@ struct Game<'a> {
 
 /// Play a game.
 pub fn play_game(setup: &GameSetup) -> GameResult {
+    // The field this game is played on (the other leagues' books, X7).
+    let _field = FieldGuard::set(setup.rules.code.field);
     let mut rng = Rng::new(((setup.seed >> 32) as u32) ^ (setup.seed as u32) ^ 0x9E37_79B9);
     let crew = Crew::draw(&mut rng);
     let t = setup.rules.timeouts;
@@ -520,7 +522,7 @@ pub fn play_game(setup: &GameSetup) -> GameResult {
         x: 25.0,
         down: 1,
         togo: 10.0,
-        ball_y: MID,
+        ball_y: mid(),
         next: Next::Scrimmage,
         over: false,
         receive_first: 0,
@@ -629,9 +631,9 @@ impl<'a> Game<'a> {
     fn situation(&self) -> Situation {
         let o = self.poss;
         Situation {
-            down: self.down,
+            down: nfl_down(self.down),
             togo: self.togo,
-            yardline_100: 100.0 - self.x,
+            yardline_100: if self.rules().code.american() { goal() - self.x } else { (goal() - self.x).min(99.0) },
             score_diff: self.diff(o),
             quarter: self.quarter,
             half_left: self.half_left(),
@@ -710,10 +712,10 @@ impl<'a> Game<'a> {
         let mut r = PlayRecord::new(self.n, self.quarter, self.clock, self.poss, kind);
         r.down = self.down;
         r.togo = self.togo;
-        r.yardline_100 = 100.0 - self.x;
+        r.yardline_100 = goal() - self.x;
         r.score = [self.stats.team[0].points, self.stats.team[1].points];
-        r.ep_before = tables::expected_points(self.down.max(1), self.togo, 100.0 - self.x);
-        r.wp_before = tables::win_probability(self.diff(self.poss), self.game_left(), 100.0 - self.x);
+        r.ep_before = ep_at(self.down.max(1), self.togo, goal() - self.x);
+        r.wp_before = wp_at(self.diff(self.poss), self.game_left(), goal() - self.x);
         r.after_turnover = self.after_turnover;
         r.garbage = [self.sides[0].coach.read.step, self.sides[1].coach.read.step];
         r
@@ -837,7 +839,7 @@ impl<'a> Game<'a> {
         self.x = if self.rules().overtime == Overtime::HighSchool { 90.0 } else { 75.0 };
         self.down = 1;
         self.togo = 10.0;
-        self.ball_y = MID;
+        self.ball_y = mid();
         self.next = Next::Scrimmage;
         for s in self.sides.iter_mut() {
             s.timeouts = 1;
@@ -916,7 +918,7 @@ impl<'a> Game<'a> {
             })
             .collect();
         pool.sort_by(|&a, &b| score[b].total_cmp(&score[a]));
-        on.extend(pool.into_iter().take(11 - on.len()));
+        on.extend(pool.into_iter().take(self.rules().code.players as usize - on.len()));
         on
     }
 
@@ -974,7 +976,7 @@ impl<'a> Game<'a> {
         self.after_turnover = false;
         if kr.recovered_by_kicking {
             self.poss = team;
-            self.x = if onside { 100.0 - kr.spot } else { kr.spot };
+            self.x = if onside { goal() - kr.spot } else { kr.spot };
             r.turnover = true;
             r.why = if onside {
                 "Onside kick recovered by the kicking team.".into()
@@ -994,7 +996,7 @@ impl<'a> Game<'a> {
             return;
         } else {
             self.poss = rec;
-            self.x = kr.spot.clamp(1.0, 99.0);
+            self.x = kr.spot.clamp(1.0, goal() - 1.0);
             r.why = if kr.touchback {
                 "Touchback.".to_string()
             } else if onside {
@@ -1004,8 +1006,8 @@ impl<'a> Game<'a> {
             };
         }
         self.down = 1;
-        self.togo = 10.0f64.min(100.0 - self.x);
-        self.ball_y = MID;
+        self.togo = 10.0f64.min(goal() - self.x);
+        self.ball_y = mid();
         self.next = Next::Scrimmage;
         self.drive_start_poss = self.poss;
         self.stats.team[self.poss].drives += 1;
@@ -1029,7 +1031,7 @@ impl<'a> Game<'a> {
         let two = forced_two
             || (!easing && calling::go_for_two(&staff, diff, self.quarter, self.game_left(), xp_make, &mut self.rng));
         if two {
-            self.x = 100.0 - self.rules().two_point_from;
+            self.x = goal() - self.rules().two_point_from;
             self.down = 1;
             self.togo = self.rules().two_point_from;
             let res = self.snap_play(true);
@@ -1043,7 +1045,7 @@ impl<'a> Game<'a> {
             self.stats.plays.push(r);
         } else {
             let mut r = self.new_record(PlayType::ExtraPoint);
-            let dist = self.rules().xp_from + 17.0;
+            let dist = self.rules().xp_from + kick_add();
             let fg = self.kick(team, dist, 0.1, &mut r);
             if fg {
                 self.add_points(team, 1);
@@ -1125,9 +1127,9 @@ impl<'a> Game<'a> {
         let o = self.poss;
         let sit = self.situation();
         let staff = self.sides[o].team.staff;
-        let yl = 100.0 - self.x;
+        let yl = goal() - self.x;
         // End of half: kick it if in range, else take a shot.
-        let fg_dist = yl + 17.0;
+        let fg_dist = yl + kick_add();
         let kicker_range = self.kicker_range(o);
         let half_end = !self.ot && (self.quarter == 2 || self.quarter == 4) && self.half_left() <= 6.0;
         if half_end && fg_dist <= kicker_range && (self.quarter == 2 || self.diff(o) <= 0 && self.diff(o) >= -3) {
@@ -1146,7 +1148,7 @@ impl<'a> Game<'a> {
             return;
         }
         // Fourth down.
-        if self.down == 4 && !(self.ot && self.rules().overtime != Overtime::NflPeriod && false) {
+        if self.down == self.rules().downs() && !(self.ot && self.rules().overtime != Overtime::NflPeriod && false) {
             let make = self.fg_make_estimate(o, fg_dist);
             let mut choice = calling::fourth_down(&staff, &sit, make, &mut self.rng);
             if self.ot && self.rules().overtime != Overtime::NflPeriod && choice == FourthDown::Punt {
@@ -1173,7 +1175,7 @@ impl<'a> Game<'a> {
             && sit.hurry()
             && self.half_left() < 30.0
             && self.sides[o].timeouts == 0
-            && self.down < 4
+            && self.down < self.rules().downs()
             && self.half_left() > 3.0
         {
             let call =
@@ -1229,7 +1231,7 @@ impl<'a> Game<'a> {
         let acc = super::kicking::fg_accuracy(p, dist);
         let range = 38.0 + 0.3 * p.a(Attr::KickPower);
         let sd = (2.95 + 0.012 * (dist - 30.0)) * (1.82f64 - 0.0105 * acc).max(0.55);
-        let half = (3.083 / dist).atan().to_degrees();
+        let half = (super::geom::field().posts / dist).atan().to_degrees();
         let z = half / sd;
         let p_line = 1.0 - 2.0 * (1.0 - phi(z));
         let p_range = phi((range - dist) / 3.0);
@@ -1245,7 +1247,7 @@ impl<'a> Game<'a> {
         if self.quarter == 4 {
             // A beaten team that has given up doesn't spend its timeouts.
             let opp_to = if self.sides[1 - o].coach.read.concede { 0.0 } else { self.sides[1 - o].timeouts as f64 };
-            let downs = (4 - self.down + 1) as f64;
+            let downs = (self.rules().downs() - self.down + 1) as f64;
             let need = self.game_left() + opp_to * 38.0;
             return need <= downs * 39.0 && self.game_left() < 160.0;
         }
@@ -1285,9 +1287,9 @@ impl<'a> Game<'a> {
             self.end_drive_score();
         } else {
             // The other team takes over at the spot of the kick (or the 20).
-            let spot = (100.0 - (self.x - 7.0)).max(20.0);
+            let spot = (goal() - (self.x - 7.0)).max(20.0);
             r.turnover = true;
-            r.epa = -tables::expected_points(1, 10.0, 100.0 - spot) - r.ep_before;
+            r.epa = -ep_at(1, 10.0, goal() - spot) - r.ep_before;
             self.stats.book(&r);
             self.stats.plays.push(r);
             self.change_possession(spot, false);
@@ -1309,9 +1311,9 @@ impl<'a> Game<'a> {
     fn change_possession(&mut self, x_new: f64, turnover: bool) {
         let old = self.poss;
         self.poss = 1 - old;
-        self.x = x_new.clamp(1.0, 99.0);
+        self.x = x_new.clamp(1.0, goal() - 1.0);
         self.down = 1;
-        self.togo = 10.0f64.min(100.0 - self.x);
+        self.togo = 10.0f64.min(goal() - self.x);
         self.running = false;
         self.after_turnover = turnover;
         self.next = Next::Scrimmage;
@@ -1416,19 +1418,19 @@ impl<'a> Game<'a> {
             return;
         }
         if kr.recovered_by_kicking {
-            r.epa = tables::expected_points(1, 10.0, 100.0 - kr.spot) - r.ep_before;
+            r.epa = ep_at(1, 10.0, goal() - kr.spot) - r.ep_before;
             self.stats.book(&r);
             self.stats.plays.push(r);
-            self.x = kr.spot.clamp(1.0, 99.0);
+            self.x = kr.spot.clamp(1.0, goal() - 1.0);
             self.down = 1;
-            self.togo = 10.0f64.min(100.0 - self.x);
+            self.togo = 10.0f64.min(goal() - self.x);
             self.next = Next::Scrimmage;
             return;
         }
-        r.epa = -tables::expected_points(1, 10.0, 100.0 - kr.spot.clamp(1.0, 99.0)) - r.ep_before;
+        r.epa = -ep_at(1, 10.0, goal() - kr.spot.clamp(1.0, goal() - 1.0)) - r.ep_before;
         self.stats.book(&r);
         self.stats.plays.push(r);
-        self.ball_y = MID;
+        self.ball_y = mid();
         self.change_possession(kr.spot, false);
     }
 
@@ -1465,7 +1467,7 @@ impl<'a> Game<'a> {
         let backs: Vec<ORole> = roles.iter().copied().filter(|r| r.is_back() && *r != ORole::FB).collect();
         add(o.pick(Position::RB, backs.len(), &mut used), &backs, &mut off);
         let wrs: Vec<ORole> =
-            roles.iter().copied().filter(|r| matches!(r, ORole::X | ORole::Z | ORole::Slot | ORole::Slot2)).collect();
+            roles.iter().copied().filter(|r| matches!(r, ORole::X | ORole::Z | ORole::Slot | ORole::Slot2 | ORole::Slot3)).collect();
         add(o.pick(Position::WR, wrs.len(), &mut used), &wrs, &mut off);
         let tes: Vec<ORole> =
             roles.iter().copied().filter(|r| matches!(r, ORole::TE | ORole::TE2 | ORole::TE3)).collect();
@@ -1940,19 +1942,19 @@ impl<'a> Game<'a> {
             r.penalties.push((f.kind, team, f.player, y, true));
             r.yards = -y;
         } else {
-            let y = yds.min((100.0 - self.x) / 2.0);
+            let y = yds.min((goal() - self.x) / 2.0);
             self.x += y;
             self.togo -= y;
             r.penalties.push((f.kind, team, f.player, y, true));
             r.yards = y;
             if self.togo <= 0.0 {
                 self.down = 1;
-                self.togo = 10.0f64.min(100.0 - self.x);
+                self.togo = 10.0f64.min(goal() - self.x);
                 r.first_down = true;
             }
         }
         r.why = format!("{} on #{} before the snap.", f.kind.name(), f.player);
-        r.epa = tables::expected_points(self.down, self.togo, 100.0 - self.x) - r.ep_before;
+        r.epa = ep_at(self.down, self.togo, goal() - self.x) - r.ep_before;
         self.edge_hit(team, f.player, -1.0);
         self.stats.book(&r);
         // A running clock starts again on the ready signal once the penalty
@@ -2115,7 +2117,7 @@ impl<'a> Game<'a> {
         let mut scored_td = res.touchdown;
         let mut turnover = res.turnover;
         let mut safety = res.safety;
-        let ep = |down: u8, togo: f64, x: f64| tables::expected_points(down, togo, 100.0 - x.clamp(1.0, 99.0));
+        let ep = |down: u8, togo: f64, x: f64| ep_at(down, togo, goal() - x.clamp(1.0, goal() - 1.0));
         if let (Some(of), Some(df)) = (off_foul.as_ref(), def_foul.as_ref()) {
             replay = true;
             new_x = los;
@@ -2132,7 +2134,7 @@ impl<'a> Game<'a> {
                 FoulKind::PassInterference => {
                     let spot_dist = (f.at - los).max(1.0);
                     let lim = if self.rules().level == Level::NFL { spot_dist } else { spot_dist.min(15.0) };
-                    (los + lim).min(99.0)
+                    (los + lim).min(goal() - 1.0)
                 }
                 FoulKind::RoughingPasser | FoulKind::FaceMask | FoulKind::UnnecessaryRoughness
                     if !turnover && gain > 0.0 =>
@@ -2141,16 +2143,16 @@ impl<'a> Game<'a> {
                 }
                 _ => los + yds,
             };
-            let pen_x = if pen_x >= 100.0 { los + (100.0 - los) / 2.0 } else { pen_x };
+            let pen_x = if pen_x >= goal() { los + (goal() - los) / 2.0 } else { pen_x };
             // The offense takes the better of the play and the penalty.
             let play_val = if scored_td {
                 7.0
             } else if turnover {
-                -ep(1, 10.0, 100.0 - new_x)
+                -ep(1, 10.0, goal() - new_x)
             } else {
                 self.value_after(gain, new_x)
             };
-            let pen_val = ep(1, 10.0f64.min(100.0 - pen_x), pen_x);
+            let pen_val = ep(1, 10.0f64.min(goal() - pen_x), pen_x);
             let accept = pen_val > play_val;
             r.penalties.push((f.kind, d, f.player, if accept { pen_x - los } else { 0.0 }, accept));
             if accept {
@@ -2177,7 +2179,7 @@ impl<'a> Game<'a> {
             let play_val = if scored_td {
                 7.0
             } else if turnover {
-                -ep(1, 10.0, 100.0 - new_x)
+                -ep(1, 10.0, goal() - new_x)
             } else {
                 self.value_after(gain, new_x)
             };
@@ -2285,9 +2287,9 @@ impl<'a> Game<'a> {
         r.safety = safety;
         // Spot near the hash.
         let h = self.rules().hash;
-        self.ball_y = clamp(res.spot_y, MID - h, MID + h);
+        self.ball_y = clamp(res.spot_y, mid() - h, mid() + h);
         if accepted_pen {
-            self.ball_y = MID;
+            self.ball_y = mid();
         }
         // Why (topic 1): the chain that decided it.
         r.why = self.why(&r, &res, label, &call, &dcall, accepted_pen);
@@ -2402,7 +2404,7 @@ impl<'a> Game<'a> {
         }
         if turnover {
             // The other team's ball where it ended (in its own frame).
-            let their_x = 100.0 - new_x;
+            let their_x = goal() - new_x;
             let their_x = if their_x <= 0.0 { 20.0 } else { their_x };
             r.epa = -ep(1, 10.0, their_x) - r.ep_before;
             self.stats.book(&r);
@@ -2410,10 +2412,10 @@ impl<'a> Game<'a> {
             return r;
         }
         if replay {
-            self.x = new_x.clamp(1.0, 99.0);
+            self.x = new_x.clamp(1.0, goal() - 1.0);
             self.togo = (self.togo + (los - self.x)).max(0.5);
-            if self.togo > 100.0 - self.x {
-                self.togo = 100.0 - self.x;
+            if self.togo > goal() - self.x {
+                self.togo = goal() - self.x;
             }
             r.epa = ep(self.down, self.togo, self.x) - r.ep_before;
             self.stats.book(&r);
@@ -2421,10 +2423,10 @@ impl<'a> Game<'a> {
             self.after_snap_clock(&r, ready);
             return r;
         }
-        self.x = new_x.clamp(0.5, 99.5);
+        self.x = new_x.clamp(0.5, goal() - 0.5);
         if first_down {
             self.down = 1;
-            self.togo = 10.0f64.min(100.0 - self.x);
+            self.togo = 10.0f64.min(goal() - self.x);
             // The clock stops to set the chains and starts again on the
             // ready signal.
             let chains = match self.rules().first_down_stop {
@@ -2439,12 +2441,12 @@ impl<'a> Game<'a> {
         } else {
             self.down = self.down + 1 + lose_down as u8;
             self.togo -= new_x - los;
-            if self.down > 4 {
+            if self.down > self.rules().downs() {
                 // Turnover on downs.
-                r.epa = -ep(1, 10.0, 100.0 - self.x) - r.ep_before;
+                r.epa = -ep(1, 10.0, goal() - self.x) - r.ep_before;
                 self.stats.book(&r);
-                self.ball_y = MID;
-                self.change_possession(100.0 - self.x, false);
+                self.ball_y = mid();
+                self.change_possession(goal() - self.x, false);
                 return r;
             }
         }
@@ -2524,26 +2526,26 @@ impl<'a> Game<'a> {
     }
 
     fn value_after(&self, gain: f64, new_x: f64) -> f64 {
-        let ep = |down: u8, togo: f64, x: f64| tables::expected_points(down, togo, 100.0 - x.clamp(1.0, 99.0));
+        let ep = |down: u8, togo: f64, x: f64| ep_at(down, togo, goal() - x.clamp(1.0, goal() - 1.0));
         if gain >= self.togo {
-            ep(1, 10.0f64.min(100.0 - new_x), new_x)
-        } else if self.down >= 4 {
-            -ep(1, 10.0, 100.0 - new_x)
+            ep(1, 10.0f64.min(goal() - new_x), new_x)
+        } else if self.down >= self.rules().downs() {
+            -ep(1, 10.0, goal() - new_x)
         } else {
             ep(self.down + 1, self.togo - gain, new_x)
         }
     }
 
     fn estimate_epa(&self, r: &PlayRecord, new_x: f64, first: bool, turnover: bool, td: bool) -> f64 {
-        let ep = |down: u8, togo: f64, x: f64| tables::expected_points(down, togo, 100.0 - x.clamp(1.0, 99.0));
+        let ep = |down: u8, togo: f64, x: f64| ep_at(down, togo, goal() - x.clamp(1.0, goal() - 1.0));
         let after = if td {
             6.95
         } else if turnover {
-            -ep(1, 10.0, 100.0 - new_x)
+            -ep(1, 10.0, goal() - new_x)
         } else if first {
             ep(1, 10.0, new_x)
-        } else if self.down >= 4 {
-            -ep(1, 10.0, 100.0 - new_x)
+        } else if self.down >= self.rules().downs() {
+            -ep(1, 10.0, goal() - new_x)
         } else {
             ep(self.down + 1, (self.togo - (new_x - self.x)).max(1.0), new_x)
         };
@@ -2698,6 +2700,34 @@ pub(crate) fn kick_unit_men(team: &GameTeam, out: &[usize]) -> [usize; 3] {
     [side.fg_kicker(), side.punter(), side.snapper()]
 }
 
+/// Expected points from the real NFL table for a down, distance and the
+/// yards to the goal on this game's field: three-down football reads its
+/// first down as the NFL's second (two plays left to make ten), and another
+/// field's yards as their share of a 100-yard one. The American field
+/// passes straight through.
+pub(crate) fn ep_at(down: u8, togo: f64, yards_to_goal: f64) -> f64 {
+    tables::expected_points(nfl_down(down), togo, super::geom::to_100(yards_to_goal))
+}
+
+/// Win probability from the real NFL table, on this game's field.
+pub(crate) fn wp_at(diff: i32, left: f64, yards_to_goal: f64) -> f64 {
+    tables::win_probability(diff, left, super::geom::to_100(yards_to_goal))
+}
+
+/// The NFL down a down reads as: the same in four-down football; in the
+/// CFL's three downs the first is the NFL's second, the third its fourth.
+pub(crate) fn nfl_down(down: u8) -> u8 {
+    let f = super::geom::field();
+    if f.downs >= 4 || down == 0 { down } else { (down + 4 - f.downs).min(4) }
+}
+
+/// Yards a kick travels past the line of scrimmage to the goalposts: the
+/// seven-yard hold and the posts behind the goal line (17 on the American
+/// field, 7 in the CFL to 2026).
+pub(crate) fn kick_add() -> f64 {
+    7.0 + super::geom::field().post_depth
+}
+
 /// Standard normal CDF.
 fn phi(x: f64) -> f64 {
     crate::athlete::phi(x)
@@ -2785,7 +2815,7 @@ fn bare_game<'a>(setup: &'a GameSetup, off: &'a GameTeam, def: &'a GameTeam, los
         x: los,
         down: 1,
         togo: 10.0,
-        ball_y: MID,
+        ball_y: mid(),
         next: Next::Scrimmage,
         over: false,
         receive_first: 0,
@@ -2858,7 +2888,7 @@ fn orole_spot(r: ORole) -> Spot {
         ORole::QB => Spot::QB,
         ORole::RB => Spot::RB,
         ORole::FB => Spot::FB,
-        ORole::X | ORole::Z | ORole::Slot | ORole::Slot2 => Spot::WR,
+        ORole::X | ORole::Z | ORole::Slot | ORole::Slot2 | ORole::Slot3 => Spot::WR,
         ORole::TE | ORole::TE2 | ORole::TE3 => Spot::TE,
         ORole::LT => Spot::LT,
         ORole::RT => Spot::RT,

@@ -1,10 +1,8 @@
 //! One snap from scrimmage: alignment, assignments, then the tracked play
 //! (topics 1-3). The offense goes toward +x from `los`.
 
-use super::geom::{DT, MID, V2, WIDTH, v2};
+use super::geom::{DT, V2, end_line, goal, mid, v2, width};
 
-/// The back of the end zone the offense attacks.
-const END_LINE: f64 = 110.0;
 /// Extra bust chance per road offensive player per snap at full crowd
 /// noise (trial 4 topic 3).
 const NOISE_BUSTS: f64 = 0.03;
@@ -69,7 +67,7 @@ pub fn orole_label(r: ORole) -> &'static str {
         ORole::QB => "QB",
         ORole::RB => "RB",
         ORole::FB => "FB",
-        ORole::X | ORole::Z | ORole::Slot | ORole::Slot2 => "WR",
+        ORole::X | ORole::Z | ORole::Slot | ORole::Slot2 | ORole::Slot3 => "WR",
         ORole::TE | ORole::TE2 | ORole::TE3 => "TE",
         ORole::LT => "LT",
         ORole::LG => "LG",
@@ -346,7 +344,12 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         level: s.rules.level,
         mood: super::sim::Mood { line: Some(s.los + s.togo), snap_y: s.ball_y, ..s.mood },
     };
-    let find = |r: ORole| role_of.iter().position(|x| *x == Some(r));
+    // The CFL's fifth receiver reads as the tight end in a set without one.
+    let find = |r: ORole| {
+        role_of.iter().position(|x| *x == Some(r)).or_else(|| {
+            if r == ORole::TE { role_of.iter().position(|x| *x == Some(ORole::Slot3)) } else { None }
+        })
+    };
     let qb = find(ORole::QB).unwrap_or(0);
     let center = find(ORole::C).unwrap_or(0);
     sim.ball = Ball::Held(qb);
@@ -1297,7 +1300,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                     sim.progress = to.x;
                     // A catch at the sideline or the end line needs his feet
                     // in (topic 5).
-                    if to.y < 0.6 || to.y > WIDTH - 0.6 || to.x > END_LINE - 0.6 {
+                    if to.y < 0.6 || to.y > width() - 0.6 || to.x > end_line() - 0.6 {
                         let feet = s.rules.feet_inbounds as f64;
                         let aw = 0.6 * sim.agents[tgt].a(Attr::BodyControl) + 0.4 * sim.agents[tgt].a(Attr::FootballIq);
                         if !sim.rng.chance(clamp(0.35 + 0.006 * aw - 0.15 * (feet - 1.0), 0.1, 0.95)) {
@@ -1396,7 +1399,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         res.result = Result::Incomplete;
         res.target = None;
     }
-    let goal_line = 100.0;
+    let goal_line = goal();
     if res.turnover {
         // A return the other way.
         res.spot = sim.progress;
@@ -1460,7 +1463,7 @@ fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2>
     let mut right: Vec<V2> = Vec::new();
     for (i, r) in roles.iter().enumerate() {
         if let Some(r) = r
-            && matches!(r, ORole::X | ORole::Z | ORole::Slot | ORole::Slot2)
+            && matches!(r, ORole::X | ORole::Z | ORole::Slot | ORole::Slot2 | ORole::Slot3)
         {
             if agents[i].pos.y > by { left.push(agents[i].pos) } else { right.push(agents[i].pos) }
         }
@@ -1493,7 +1496,8 @@ fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2>
     s.defense
         .iter()
         .map(|(d, _)| {
-            let dl = los + 0.9;
+            // A yard further off in the CFL.
+            let dl = los + 0.9 + s.rules.code.line_off;
             match d {
                 DSlot::LE | DSlot::RE => {
                     let side = if *d == DSlot::LE { 1.0 } else { -1.0 };
@@ -1548,14 +1552,14 @@ fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2>
                 }
                 DSlot::FS => {
                     if two_high {
-                        v2(los + 12.5, MID - 9.0 * st)
+                        v2(los + 12.5, mid() - 9.0 * st)
                     } else {
                         v2(los + 13.0, by)
                     }
                 }
                 DSlot::SS => {
                     if two_high {
-                        v2(los + 12.5, MID + 9.0 * st)
+                        v2(los + 12.5, mid() + 9.0 * st)
                     } else {
                         v2(los + 7.5, by + st * 4.5)
                     }
@@ -1587,7 +1591,7 @@ fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2>
         .map(|p: V2| {
             // Near the goal line the defense tightens: corners and
             // linebackers come up, safeties sit at the back of the end zone.
-            let room = END_LINE - los;
+            let room = end_line() - los;
             let depth = p.x - los;
             let cap = if depth < 9.0 { 1.0 + 0.25 * room } else { 0.75 * room };
             v2(los + depth.min(cap), p.y)
@@ -1685,16 +1689,17 @@ fn assign_defense(
     // Near the goal the field shrinks: deep zones sit at the back of the end
     // zone and the underneath ones squeeze down with them.
     let zone = |spot: V2, deep: bool, width: f64| {
-        let room = 108.0 - los;
-        let x = if deep { spot.x.min(108.0) } else { spot.x.min(los + 0.55 * room) };
+        let back = end_line() - 2.0;
+        let room = back - los;
+        let x = if deep { spot.x.min(back) } else { spot.x.min(los + 0.55 * room) };
         Job::Zone { spot: v2(x, spot.y), deep, width, matched: false }
     };
-    let side_y = |side: f64, from_sideline: f64| if side > 0.0 { WIDTH - from_sideline } else { from_sideline };
+    let side_y = |side: f64, from_sideline: f64| if side > 0.0 { width() - from_sideline } else { from_sideline };
     let deep_third = |side: f64| zone(v2(los + 16.0, side_y(side, 9.5)), true, 14.0);
-    let deep_mid = zone(v2(los + 17.0, by * 0.5 + MID * 0.5), true, 18.0);
-    let deep_half = |side: f64| zone(v2(los + 16.0, MID + side * 9.5), true, 26.0);
+    let deep_mid = zone(v2(los + 17.0, by * 0.5 + mid() * 0.5), true, 18.0);
+    let deep_half = |side: f64| zone(v2(los + 16.0, mid() + side * 9.5), true, 26.0);
     let quarter_out = |side: f64| zone(v2(los + 13.0, side_y(side, 9.0)), true, 13.0);
-    let quarter_in = |side: f64| zone(v2(los + 13.0, MID + side * 4.5), true, 13.0);
+    let quarter_in = |side: f64| zone(v2(los + 13.0, mid() + side * 4.5), true, 13.0);
     let curl_flat = |side: f64| zone(v2(los + 9.0, by + side * 10.0), false, 12.0);
     // The flat: from the sideline to about the numbers (it sat on the
     // numbers, right on top of the outside receiver's hitch).
@@ -2230,7 +2235,7 @@ fn run_blocking(sim: &mut Sim, off_n: usize, roles: &[Option<ORole>], rc: RunCon
                 }
                 sim.agents[i].job = Job::RunBlock { target: t, pull: true };
             }
-            Some(ORole::X | ORole::Z | ORole::Slot | ORole::Slot2) => {
+            Some(ORole::X | ORole::Z | ORole::Slot | ORole::Slot2 | ORole::Slot3) => {
                 let me = sim.agents[i].pos;
                 let t = (off_n..n)
                     .filter(|&d| !taken[d] && sim.agents[d].pos.dist(me) < 9.0)
@@ -2274,7 +2279,7 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
         for k in 0..8 {
             let cand = v2(
                 clamp(me.x + 3.0 * ((k % 3) as f64 - 1.0), s.los + 2.0, s.los + 25.0),
-                clamp(me.y + 4.0 * ((k / 3) as f64 - 1.0) + (q.y - me.y) * 0.2, 2.0, WIDTH - 2.0),
+                clamp(me.y + 4.0 * ((k / 3) as f64 - 1.0) + (q.y - me.y) * 0.2, 2.0, width() - 2.0),
             );
             let space = (sim.agents.len() / 2..sim.agents.len())
                 .filter(|&d| sim.agents[d].side == 1)
@@ -2324,7 +2329,7 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
         let dir = if v.len() > 0.5 { v.norm() } else { v2(1.0, 0.0) };
         let me = sim.agents[i].pos;
         // Running out of room: he turns up the sideline.
-        let dir = if me.y < 4.0 && dir.y < 0.0 || me.y > WIDTH - 4.0 && dir.y > 0.0 { v2(1.0, 0.0) } else { dir };
+        let dir = if me.y < 4.0 && dir.y < 0.0 || me.y > width() - 4.0 && dir.y > 0.0 { v2(1.0, 0.0) } else { dir };
         let vm = route_pace(&sim.agents[i]);
         sim.steer(i, dir.scale(vm));
     }
@@ -2348,7 +2353,7 @@ fn route_step(a: &Agent, pts: &[V2], next: usize, settle: bool) -> (V2, f64, boo
     let switch = 0.6 + 0.012 * rr;
     let done = a.pos.dist(target) < switch;
     // He keeps a couple of yards of room at the sideline.
-    let target = v2(target.x, clamp(target.y, 2.5, WIDTH - 2.5));
+    let target = v2(target.x, clamp(target.y, 2.5, width() - 2.5));
     let urg = if next + 1 == pts.len() && settle { 0.85 } else { 1.0 };
     let dist = a.pos.dist(target);
     // Before the break of a route that stops (hitch, curl, comeback) he
@@ -2490,7 +2495,7 @@ pub(crate) fn escort(sim: &mut Sim, i: usize) {
 /// Two-minute drill: get what you can, then get out of bounds.
 fn hurry_run(sim: &mut Sim, c: usize) {
     let me = sim.agents[c].pos;
-    let side = if me.y > MID { 1.0 } else { -1.0 };
+    let side = if me.y > mid() { 1.0 } else { -1.0 };
     let near = (0..sim.agents.len())
         .filter(|&d| sim.agents[d].side != sim.agents[c].side && sim.agents[d].up(sim.t))
         .map(|d| sim.agents[d].pos.dist(me))
@@ -2990,8 +2995,8 @@ fn quarterback(
     if away {
         qb_why(7, s.dcall.coverage);
         // Throw it away (outside the pocket it is legal past the line).
-        let side = if me.y > MID { 1.0 } else { -1.0 };
-        let to = v2(los + 3.0, if side > 0.0 { WIDTH + 2.0 } else { -2.0 });
+        let side = if me.y > mid() { 1.0 } else { -1.0 };
+        let to = v2(los + 3.0, if side > 0.0 { width() + 2.0 } else { -2.0 });
         // A smart passer throws it near someone (decisions, football IQ).
         let sense = 0.5 * sim.agents[qb].a(Attr::Decisions) + 0.5 * aw;
         if !outside && sim.rng.chance(0.08 * clamp(1.0 - 0.02 * (sense - 60.0), 0.4, 1.8)) {
@@ -3080,7 +3085,7 @@ impl<'s> Predict<'s> {
         let Job::Route { pts, settle, .. } = &self.sim.agents[self.r].job else {
             let a = &self.sim.agents[self.r];
             let p = a.pos + a.vel.scale(dt);
-            return v2(p.x.min(109.0), clamp(p.y, 1.5, WIDTH - 1.5));
+            return v2(p.x.min(end_line() - 1.0), clamp(p.y, 1.5, width() - 1.5));
         };
         let steps = (dt / DT).round() as usize;
         while self.spots.len() <= steps {
@@ -3100,7 +3105,7 @@ impl<'s> Predict<'s> {
                     let dir = if v.len() > 0.5 { v.norm() } else { v2(1.0, 0.0) };
                     let me = a.pos;
                     let dir =
-                        if me.y < 4.0 && dir.y < 0.0 || me.y > WIDTH - 4.0 && dir.y > 0.0 { v2(1.0, 0.0) } else { dir };
+                        if me.y < 4.0 && dir.y < 0.0 || me.y > width() - 4.0 && dir.y > 0.0 { v2(1.0, 0.0) } else { dir };
                     a.steer(dir.scale(route_pace(a)));
                     a.pos = a.pos + a.vel.scale(DT);
                 }
@@ -3108,7 +3113,7 @@ impl<'s> Predict<'s> {
             self.spots.push(self.a.pos);
         }
         let p = self.spots[steps];
-        v2(p.x.min(109.0), clamp(p.y, 1.5, WIDTH - 1.5))
+        v2(p.x.min(end_line() - 1.0), clamp(p.y, 1.5, width() - 1.5))
     }
 }
 
@@ -3165,7 +3170,7 @@ fn throw(
     // He leaves his man room to catch it in bounds (aim points stay a yard
     // and a half inside the lines; they used to sit on them, and a third of
     // wide-open quick outs sailed out of bounds).
-    target.y = clamp(target.y, 1.5, WIDTH - 1.5);
+    target.y = clamp(target.y, 1.5, width() - 1.5);
     let moving = sim.agents[qb].vel.len() > 3.0;
     let poise = sim.agents[qb].a(Attr::Composure);
     // Error grows gently as accuracy falls: real completion rates drop only a
@@ -3817,7 +3822,7 @@ fn cover(
     cover_inner(sim, i, job, s, qb, pass, trail, vel_trail);
     // The end line: nobody covers anything behind it.
     let a = &mut sim.agents[i];
-    let back = END_LINE - 0.7;
+    let back = end_line() - 0.7;
     if (a.pos.x - back) * sim.goal > 0.0 && a.vel.x * sim.goal > 0.0 {
         a.vel.x = 0.0;
     }
@@ -4171,7 +4176,7 @@ fn catch_point(
     let reach = 1.3 + 0.4 * (dd - 1.5).clamp(0.0, 4.0);
     // Past the end line is out of bounds too (it used to be caught there,
     // and red zone passes went for touchdowns half again as often as real).
-    if to.y < -0.5 || to.y > WIDTH + 0.5 || to.x > END_LINE + 0.5 || dr > radius + reach {
+    if to.y < -0.5 || to.y > width() + 0.5 || to.x > end_line() + 0.5 || dr > radius + reach {
         // Off target. A defender in the way may still pick it.
         if let Some(d) = dbest {
             let da = &sim.agents[d];
@@ -4259,7 +4264,7 @@ fn catch_point(
         p *= 1.0 - 0.32 * (1.0 - dd / 1.4) * (1.25 - fight / 100.0);
         // Over the middle with a hitter arriving, one who avoids contact
         // short-arms it (tendencies: contact willingness).
-        let middle = (to.y - MID).abs() < 9.0;
+        let middle = (to.y - mid()).abs() < 9.0;
         if middle {
             p *= 1.0 - 0.12 * (1.0 - dd / 1.4) * (-sim.lean(r, Tend::Contact)).max(0.0);
         }
