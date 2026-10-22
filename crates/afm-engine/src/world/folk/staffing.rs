@@ -184,7 +184,7 @@ pub fn drawn_staff(w: &World, team: Team) -> Vec<Drawn> {
     let mut v = Vec::new();
     match team {
         Team::Nfl(t) => {
-            let base = pay(w, Employer::Nfl(t), Role::PositionCoach(Group::Qb));
+            let base = pay(w, Employer::Nfl(t), Role::PositionCoach(Group::QB));
             for (k, (title, _)) in NFL_ROOMS.iter().enumerate() {
                 let key = team.key() << 16 ^ 0xA55 ^ k as u64;
                 v.push(draw_person(w, key, title, base * if k >= 9 { 0.6 } else { 1.0 }, None));
@@ -212,10 +212,10 @@ pub fn drawn_staff(w: &World, team: Team) -> Vec<Drawn> {
             }
             let s = &w.high_schools[h];
             let n = (2 + s.enrollment / 400).clamp(3, 15) as usize;
-            let gen = w.folk.hs_staffs.terms.iter().find(|x| x.0 == h as u32).map_or(0, |x| x.1);
+            let term = w.folk.hs_staffs.terms.iter().find(|x| x.0 == h as u32).map_or(0, |x| x.1);
             const SUBJ: [&str; 6] = ["physical education", "history", "health", "math", "science", "special education"];
             for k in 0..n {
-                let key = team.key() << 16 ^ 0x45 ^ (k as u64) ^ (gen as u64) << 8;
+                let key = team.key() << 16 ^ 0x45 ^ (k as u64) ^ (term as u64) << 8;
                 let title = match k {
                     0 => "Offensive coordinator".to_string(),
                     1 => "Defensive coordinator".to_string(),
@@ -497,10 +497,11 @@ fn interview_open(w: &mut World, s: &mut Scene) {
             None => "He's been out of work since the last carousel.".into(),
         }
     ));
+    let name = co.name.clone();
     let mut pen = scene::pen(w, s, 1);
     let line = pen.line(&["staff.interview.open"], &spk, &f);
     pen.put(w);
-    s.them(&co.name.clone(), if line.is_empty() { format!("I've studied your film. Here's how I'd run the {}.", role.name()) } else { line }, None);
+    s.them(&name, if line.is_empty() { format!("I've studied your film. Here's how I'd run the {}.", role.name()) } else { line }, None);
     s.pick(60, "Ask about his scheme and how he'd use your players", "Ask", "calm", "The most telling question.");
     s.pick(61, "Ask how he'd handle your most difficult player", "Ask", "firm", "How he handles people.");
     s.pick(62, "Ask where he recruits and who he'd bring", "Ask", "calm", "His ties and his tree.");

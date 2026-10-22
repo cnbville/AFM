@@ -51,6 +51,31 @@ pub struct Ties {
     pub list: Vec<Tie>,
     /// The year the last fall's ties were drawn.
     pub drawn: i32,
+    /// (player id, tie) sorted, built on first use after a change (never
+    /// saved): free agency asks about friends for every offer.
+    #[serde(skip)]
+    index: std::sync::OnceLock<Vec<(u32, u32)>>,
+}
+
+impl Ties {
+    /// Every tie a player is part of.
+    pub fn of_id(&self, id: u32) -> impl Iterator<Item = &Tie> {
+        let ix = self.index.get_or_init(|| {
+            let mut v = Vec::with_capacity(self.list.len() * 2);
+            for (k, t) in self.list.iter().enumerate() {
+                v.push((t.a, k as u32));
+                v.push((t.b, k as u32));
+            }
+            v.sort_unstable();
+            v
+        });
+        let lo = ix.partition_point(|x| x.0 < id);
+        ix[lo..].iter().take_while(move |x| x.0 == id).map(move |x| &self.list[x.1 as usize])
+    }
+
+    fn changed(&mut self) {
+        self.index = std::sync::OnceLock::new();
+    }
 }
 
 /// Close friends of a player (ids), strongest first.
@@ -58,9 +83,8 @@ pub fn friends(w: &World, id: u32) -> Vec<u32> {
     let mut v: Vec<(u32, u8)> = w
         .folk
         .ties
-        .list
-        .iter()
-        .filter(|t| t.kind == Kind::Friend && (t.a == id || t.b == id) && t.strength >= 35)
+        .of_id(id)
+        .filter(|t| t.kind == Kind::Friend && t.strength >= 35)
         .map(|t| (if t.a == id { t.b } else { t.a }, t.strength))
         .collect();
     v.sort_by_key(|x| std::cmp::Reverse(x.1));
@@ -71,9 +95,7 @@ pub fn friends(w: &World, id: u32) -> Vec<u32> {
 pub fn of(w: &World, id: u32) -> Vec<(u32, String)> {
     w.folk
         .ties
-        .list
-        .iter()
-        .filter(|t| t.a == id || t.b == id)
+        .of_id(id)
         .map(|t| {
             let other = if t.a == id { t.b } else { t.a };
             let close = if t.strength >= 70 { "very close" } else if t.strength >= 45 { "close" } else { "friendly" };
@@ -90,7 +112,7 @@ pub fn of(w: &World, id: u32) -> Vec<(u32, String)> {
 
 /// A player's mentor, when he has one on the roster.
 pub fn mentor_of(w: &World, id: u32) -> Option<u32> {
-    w.folk.ties.list.iter().find(|t| t.kind == Kind::Mentor && t.b == id && t.together).map(|t| t.a)
+    w.folk.ties.of_id(id).find(|t| t.kind == Kind::Mentor && t.b == id && t.together).map(|t| t.a)
 }
 
 /// The rosters ties are drawn on: every college program and NFL club, and
@@ -198,7 +220,7 @@ fn draw(w: &mut World) {
             if let (Some(v), Some(y)) = (vet, young) {
                 let lead = w.people[v].player.personality.traits.get(Trait::Leadership);
                 let (a, b) = (w.people[v].player.id, w.people[y].player.id);
-                if lead >= 13.0 && !w.folk.ties.list.iter().any(|t| t.kind == Kind::Mentor && t.b == b) {
+                if lead >= 13.0 && !w.folk.ties.of_id(b).any(|t| t.kind == Kind::Mentor && t.b == b) {
                     new.push(Tie { a, b, kind: Kind::Mentor, strength: 50, since: year as i16, together: true });
                 }
             }
@@ -212,7 +234,7 @@ fn draw(w: &mut World) {
             let last = p.name.split_whitespace().last().unwrap_or("");
             if let Some(&j) = live.iter().find(|&&j| j != i && w.people[j].hs == p.hs && w.people[j].name.ends_with(last) && w.people[j].class_of < p.class_of) {
                 let (a, b) = (w.people[j].player.id, p.player.id);
-                if !w.folk.ties.list.iter().any(|t| t.kind == Kind::Family && t.b == b) {
+                if !w.folk.ties.of_id(b).any(|t| t.kind == Kind::Family && t.b == b) {
                     new.push(Tie { a, b, kind: Kind::Family, strength: 90, since: year as i16, together: true });
                 }
             }
@@ -234,6 +256,7 @@ fn draw(w: &mut World) {
     }
     w.folk.ties.list.retain(|t| t.strength >= 15 && (on_team.contains_key(&t.a) || on_team.contains_key(&t.b) || t.kind == Kind::Family));
     w.folk.ties.list.extend(new);
+    w.folk.ties.changed();
     w.folk.ties.drawn = year;
 }
 
@@ -286,7 +309,7 @@ fn your_week(w: &mut World, d: Date) {
     }
     if d.day() <= 7 {
         for &id in &roster {
-            let n = w.folk.ties.list.iter().filter(|t| t.kind == Kind::Friend && t.together && t.strength >= 45 && (t.a == id || t.b == id)).count();
+            let n = w.folk.ties.of_id(id).filter(|t| t.kind == Kind::Friend && t.together && t.strength >= 45).count();
             if n >= 2 {
                 talks::mood_event(w, id, Reason::FriendsHere, 0.015 * n.min(4) as f32);
             }
@@ -337,8 +360,12 @@ fn portal_pull(w: &mut World, d: Date) {
 /// How many close friends a player has on an NFL club's roster (free
 /// agency's pull, `people::ties_q`).
 pub fn friends_on(w: &World, id: u32, t: usize) -> usize {
-    let roster: Vec<u32> = w.clubs.get(t).map_or(Vec::new(), |c| c.roster.iter().map(|&i| w.people[i].player.id).collect());
-    friends(w, id).iter().filter(|f| roster.contains(f)).count()
+    let fr = friends(w, id);
+    if fr.is_empty() {
+        return 0;
+    }
+    let Some(club) = w.clubs.get(t) else { return 0 };
+    fr.iter().filter(|&&f| super::person(w, f).is_some_and(|j| club.roster.contains(&j))).count()
 }
 
 pub(crate) fn day(w: &mut World, d: Date) {

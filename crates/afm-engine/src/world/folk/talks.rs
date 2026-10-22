@@ -439,9 +439,10 @@ pub fn reasons(w: &World, id: u32) -> Vec<(Date, String, f32)> {
 }
 
 /// After a mood read (`people.rs`), what's left of the dated reasons is
-/// added back: the read blends 30% of the old mood, so 70% returns.
-pub(crate) fn reapply(w: &mut World) {
-    if w.folk.moods.is_empty() {
+/// added back for the people that read covered (`read`, sorted person
+/// indexes): the read blends 30% of the old mood, so 70% returns.
+pub(crate) fn reapply(w: &mut World, read: &[usize]) {
+    if w.folk.moods.is_empty() || read.is_empty() {
         return;
     }
     let ids: Vec<(u32, f32)> = w.folk.moods.iter().map(|x| (x.0, residual(w, x.0))).collect();
@@ -449,7 +450,9 @@ pub(crate) fn reapply(w: &mut World) {
         if r.abs() < 0.01 {
             continue;
         }
-        if let Some(i) = super::person(w, id) {
+        if let Some(i) = super::person(w, id)
+            && read.binary_search(&i).is_ok()
+        {
             let p = &mut w.people[i];
             p.mood = (p.mood + 0.7 * r).clamp(-1.0, 1.0);
         }
@@ -1256,7 +1259,7 @@ fn carry_lines(w: &mut World) {
             }
             Line::Watch => {
                 let p = &w.people[i];
-                let noticed = super::roll(w, 0x5117 ^ w.today.0 as u64, id as u64) < 0.4 + 0.5 * q;
+                let noticed = super::roll(w, 0x5117 ^ w.today.0 as u64, id as u64) < 0.4 + 0.5 * q as f64;
                 if p.mood < -0.3 && noticed && !w.folk.scenes.iter().any(|s| !s.done && s.kind == Kind::StaffLine && s.a == id as u64) {
                     let name = p.name.clone();
                     let mut s = Scene::new(Kind::StaffLine, w.today, format!("{name} is slipping"));

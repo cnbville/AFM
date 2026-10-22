@@ -475,6 +475,8 @@ impl World {
         self.seat_depth.clear();
         self.seat_games.clear();
         self.seat_focus.clear();
+        // Your first two weeks: the meetings of a new job (takeover).
+        super::folk::takeover::begin(self);
         id
     }
 }

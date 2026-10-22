@@ -620,7 +620,7 @@ pub(crate) fn team_effect(w: &mut World, team: Team, msg: Message, tone: Tone, w
     let (mut up, mut down, mut gone) = (0, 0, 0);
     let today = w.today;
     for i in roster {
-        let tie = tie_to_old(w, i, old);
+        let tie = tie_to_old(w, i, old) as f64;
         let p = &w.people[i];
         let t = &p.player.personality.traits;
         let z = |tr: Trait| (t.get(tr) - 10.0) / 10.0;
@@ -641,7 +641,7 @@ pub(crate) fn team_effect(w: &mut World, team: Team, msg: Message, tone: Tone, w
         };
         // A player who wants a reason to stay hears one; the room's mood leans.
         let noise = (super::roll(w, 0x7E4E, p.player.id as u64 ^ today.0 as u64) as f32 - 0.5) * 0.04;
-        let dt = (d + noise) * weight;
+        let dt = (d as f32 + noise) * weight;
         let lean_f = if msg == Message::Purge && (tie > 0.35 || z(Trait::Professionalism) < -0.2) {
             1.25 + 0.4 * tie as f64
         } else if dt > 0.03 {
@@ -833,11 +833,11 @@ fn holdover_open(w: &mut World, s: &mut Scene, team: Team) {
     let role = facts::coach_role(w, c);
     let years = coach.job.map_or(0, |j| w.year - j.since);
     let mentor_old = old.is_some_and(|o| coach.mentor == Some(o));
+    let name = coach.name.clone();
     s.who.push(Who::Coach(c));
-    let mut pen = scene::pen(w, s, 1);
     let spk = Speaker::coach(w, c);
     let mut f = base_facts(w, team);
-    f.set("name", coach.name.split_whitespace().next().unwrap_or("").to_string());
+    f.set("name", name.split_whitespace().next().unwrap_or("").to_string());
     f.set("role", role.clone());
     f.set("years", years.to_string());
     s.narrate(format!(
@@ -854,9 +854,10 @@ fn holdover_open(w: &mut World, s: &mut Scene, team: Team) {
             "He wasn't the old coach's hire from his own tree, which may help him."
         }
     ));
+    let mut pen = scene::pen(w, s, 1);
     let pitch = pen.line(&["takeover.holdover.pitch", "?takeover.holdover.detail"], &spk, &f);
     pen.put(w);
-    s.them(&coach.name.clone(), if pitch.is_empty() { format!("I know these kids, Coach. I'd like the chance to keep coaching them.") } else { pitch }, Some(holdover_tell(w, c)));
+    s.them(&name, if pitch.is_empty() { format!("I know these kids, Coach. I'd like the chance to keep coaching them.") } else { pitch }, Some(holdover_tell(w, c)));
     // His angle on his own players (item 3): he oversells them.
     let claim = oversell(w, team, c);
     if let Some((i, text)) = claim {
@@ -899,7 +900,7 @@ fn oversell(w: &World, team: Team, c: usize) -> Option<(usize, String)> {
     let job = co.job?;
     let groups: Vec<crate::world::coach::Group> = match job.role {
         crate::world::coach::Role::OffensiveCoordinator => crate::world::coach::Group::ALL.iter().copied().filter(|g| g.offense()).collect(),
-        crate::world::coach::Role::DefensiveCoordinator => crate::world::coach::Group::ALL.iter().copied().filter(|g| !g.offense() && !g.special()).collect(),
+        crate::world::coach::Role::DefensiveCoordinator => crate::world::coach::Group::ALL.iter().copied().filter(|g| !g.offense() && *g != crate::world::coach::Group::Specialists).collect(),
         crate::world::coach::Role::PositionCoach(g) => vec![g],
         _ => return None,
     };
@@ -987,7 +988,7 @@ fn holdover_room(w: &mut World, s: &mut Scene, team: Team) {
 /// how his players grew, how he recruits, how long he lasts.
 fn staff_word(w: &World, c: usize) -> String {
     let co = &w.coaches[c];
-    let teach = co.units.iter().map(|u| u.developed()).sum::<f64>();
+    let teach = co.units.iter().map(|u| u.growth_read()).sum::<f64>();
     let recruit_ties = co.ties.values().filter(|&&v| v > 0.4).count();
     let mut words: Vec<&str> = Vec::new();
     if teach > 1.5 {
@@ -1057,7 +1058,7 @@ fn holdover_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
                 let keep = code == 33 && {
                     let co = &w.coaches[c];
                     let ties = co.ties.values().filter(|&&v| v > 0.4).count();
-                    ties >= 3 || co.units.iter().map(|u| u.developed()).sum::<f64>() > 1.0
+                    ties >= 3 || co.units.iter().map(|u| u.growth_read()).sum::<f64>() > 1.0
                 };
                 if !keep {
                     gone.push(w.coaches[c].name.clone());
@@ -2137,7 +2138,8 @@ fn old_coach_open(w: &mut World, s: &mut Scene, team: Team) {
         return;
     };
     s.who.push(Who::Coach(o));
-    let co = &w.coaches[o];
+    let name = w.coaches[o].name.clone();
+    let temper = w.coaches[o].personality.temper;
     s.narrate(format!(
         "{} still teaches here. His coaching stipend wasn't renewed; his classroom is twenty steps from your office. Half the town still calls him Coach.",
         coach_link(w, o)
@@ -2147,8 +2149,7 @@ fn old_coach_open(w: &mut World, s: &mut Scene, team: Team) {
     let f = base_facts(w, team);
     let line = pen.line(&["takeover.oldcoach.greet"], &spk, &f);
     pen.put(w);
-    let name = co.name.clone();
-    s.them(&name, if line.is_empty() { "Come on in. I figured you'd stop by eventually.".to_string() } else { line }, Some(if co.personality.temper >= 13.0 { "He doesn't get up from his desk.".into() } else { "He shakes your hand like he means it.".into() }));
+    s.them(&name, if line.is_empty() { "Come on in. I figured you'd stop by eventually.".to_string() } else { line }, Some(if temper >= 13.0 { "He doesn't get up from his desk.".into() } else { "He shakes your hand like he means it.".into() }));
     s.pick(160, "Ask him to help with the program, any way he wants.", "Hand him something", "warm", "His people warm to you; he's around the program.");
     s.pick(161, "Tell him you respect what he built and leave it there.", "Praise", "calm", "Polite distance.");
     s.pick(162, "Make clear it's your program now.", "Tell him straight", "firm", "A line drawn; his loyalists hear about it by dinner.");

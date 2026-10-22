@@ -2956,7 +2956,7 @@ pub(crate) enum LeanCheck {
     EarlySigning,
 }
 
-fn lean_push(p: &mut super::Person, date: Date, why: &'static str, factor: f64) {
+pub(crate) fn lean_push(p: &mut super::Person, date: Date, why: &'static str, factor: f64) {
     p.cal.lean *= factor;
     p.cal.lean_events.push((date, why, factor));
 }

@@ -792,7 +792,7 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
         .roster
         .iter()
         .map(|&i| &w.people[i])
-        .filter(|p| p.stage == Stage::College)
+        .filter(|p| p.stage == Stage::College && !super::folk::rules::sitting(w, p.player.id, w.today))
         .map(|p| {
             // This season counts as one (settled when it ends).
             let seasons = (p.college_seasons + p.cal.count_pending as u32) as f64;

@@ -31,7 +31,6 @@ pub mod talks;
 pub mod ties;
 pub mod voice;
 
-use std::collections::HashMap;
 
 use super::World;
 use crate::calendar::{Date, Event, Kind, Level, Loudness};
@@ -333,6 +332,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
     talks::day(w, d);
     boss::day(w, d);
     network::day(w, d);
+    press::day(w, d);
     if w.seat.is_some() {
         takeover::day(w, d);
         scene::day(w, d);
@@ -375,13 +375,13 @@ pub(crate) fn roll_n(w: &World, a: u64, b: u64) -> f64 {
 
 /// Person index by player id (scenes hold ids, which outlive the list's
 /// yearly compaction).
+/// The list grows in id order and its compaction keeps that order, so a
+/// binary search finds nearly everyone; the scan is the safety net.
 pub fn person(w: &World, id: u32) -> Option<usize> {
+    if let Ok(i) = w.people.binary_search_by_key(&id, |p| p.player.id) {
+        return Some(i);
+    }
     w.people.iter().position(|p| p.player.id == id)
-}
-
-/// A map from player id to person index for a set of people.
-pub(crate) fn index_of(w: &World, list: &[usize]) -> HashMap<u32, usize> {
-    list.iter().map(|&i| (w.people[i].player.id, i)).collect()
 }
 
 /// "a" or "an" before a word.

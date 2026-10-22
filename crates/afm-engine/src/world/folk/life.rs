@@ -220,7 +220,8 @@ fn players_week(w: &mut World, d: Date) {
     let in_season_nfl = d > w.dates.nfl_kickoff && d <= w.dates.super_bowl;
     let offseason = !in_season_nfl;
     let seat = Team::seat(w);
-    let mine: Vec<usize> = seat.map_or(Vec::new(), |t| t.roster(w));
+    let mut mine: Vec<usize> = seat.map_or(Vec::new(), |t| t.roster(w));
+    mine.sort_unstable();
     let mut hits: Vec<(usize, Event)> = Vec::new();
     let all = [
         Event::Birth,
@@ -235,7 +236,7 @@ fn players_week(w: &mut World, d: Date) {
     for i in 0..w.people.len() {
         let p = &w.people[i];
         let pro = p.stage == Stage::Pro && p.pro.as_ref().is_some_and(|c| c.team.is_some());
-        if !pro && !mine.contains(&i) {
+        if !pro && mine.binary_search(&i).is_err() {
             continue;
         }
         let id = p.player.id as u64;
@@ -276,7 +277,7 @@ fn players_week(w: &mut World, d: Date) {
         if let Some(days) = away {
             w.folk.out.push((id, d.add(days), format!("away: he {}", e.words())));
         }
-        if mine.contains(&i) && (told || matches!(e, Event::Birth | Event::Wedding | Event::Death)) {
+        if mine.binary_search(&i).is_ok() && (told || matches!(e, Event::Birth | Event::Wedding | Event::Death)) {
             let text = format!("{} {}.", w.people[i].name, e.words());
             super::post_mine(w, d, Loudness::Small, false, "people: life", &text);
             super::note(w, "talk", player_link(w, i), format!("He {}.", e.words()), None);
@@ -380,7 +381,7 @@ fn opinions_week(w: &mut World, d: Date) {
         let id = p.player.id;
         let weeks = p.pro.as_ref().map_or(0, |c| c.out_weeks);
         let college_hurt = p.player.history.last().is_some_and(|h| {
-            h.events.iter().any(|e| matches!(e, crate::development::DevelopmentEvent::MajorInjury { .. }))
+            h.events.iter().any(|e| matches!(e, crate::player::DevelopmentEvent::MajorInjury))
         }) && p.stage != Stage::Pro
             && d.days_to(w.dates.fall_camp).abs() < 4;
         if weeks < 4 && !college_hurt {
@@ -696,9 +697,48 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
     }
 }
 
+/// Weekly: a player you brought back early gets hurt again more often for
+/// eight weeks (proposed, not confirmed: 8% a week against about 2% for a
+/// healed player, the soft-tissue reinjury studies' rough ratio).
+fn rushed_week(w: &mut World, d: Date) {
+    let list = w.folk.rushed.clone();
+    for (id, when) in list {
+        if when.days_to(d) > 56 {
+            continue;
+        }
+        let Some(i) = super::person(w, id) else { continue };
+        let back = w.people[i].pro.as_ref().is_some_and(|c| c.out_weeks == 0);
+        if !back || super::roll(w, 0x8E1A ^ d.0 as u64, id as u64) >= 0.08 {
+            continue;
+        }
+        let weeks = 2 + (super::roll(w, 0x8E1B ^ d.0 as u64, id as u64) * 5.0) as u32;
+        if let Some(c) = w.people[i].pro.as_mut() {
+            c.out_weeks = weeks;
+        }
+        w.folk.rushed.retain(|x| x.0 != id);
+        let name = w.people[i].name.clone();
+        let age = w.people[i].row_age();
+        w.people[i].note(format!("At {age} he was hurt again after coming back early ({weeks} weeks)."));
+        talks::mood_event(w, id, Reason::Talk, -0.06);
+        let link = player_link(w, i);
+        super::post_mine(
+            w,
+            d,
+            crate::calendar::Loudness::Medium,
+            false,
+            "Injury",
+            &format!("{name} is hurt again after coming back early. He's out {weeks} more weeks."),
+        );
+        super::note(w, "injury", "Trainer".into(), format!("{link} re-injured the same area. Out {weeks} weeks."), None);
+    }
+}
+
 pub(crate) fn day(w: &mut World, d: Date) {
     match d.weekday() {
-        Weekday::Thu => players_week(w, d),
+        Weekday::Thu => {
+            players_week(w, d);
+            rushed_week(w, d);
+        }
         Weekday::Fri => coaches_week(w, d),
         Weekday::Wed if w.seat.is_some() => {
             opinions_week(w, d);

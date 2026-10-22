@@ -410,7 +410,7 @@ fn trips_day(w: &mut World, d: Date) {
     }
 }
 
-fn trip_open(w: &mut World, s: &mut Scene) {
+fn trip_open(_w: &mut World, s: &mut Scene) {
     let t = Trip::from(s.a);
     s.narrate(match t {
         Trip::Afca => "Every coach in the country is in one hotel for three days: the job fair, the lobby, the hospitality suites. Half the hiring of the year happens here, at the bar.".to_string(),
@@ -489,7 +489,7 @@ fn allstar_day(w: &mut World, d: Date) {
     let (when, game) = match team.level() {
         Level::Nfl => (w.dates.senior_bowl.add(-30), "the Senior Bowl"),
         Level::College => (w.dates.shrine_bowl.add(-30), "the East-West Shrine Bowl"),
-        Level::HighSchool => (w.dates.all_american_bowl.add(-30), "the state all-star game"),
+        _ => (w.dates.all_american_bowl.add(-30), "the state all-star game"),
     };
     if d != when || w.folk.network.allstar.iter().any(|x| x.0 == w.year) {
         return;

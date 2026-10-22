@@ -741,7 +741,7 @@ fn ritual_open(w: &mut World, s: &mut Scene) {
             "Freshmen carry equipment, sing in front of the team and get the freshman haircut before the first game. Some of the older players want a night of their own on top of it.",
             "It's how it's always been. The freshmen expect it.",
         ),
-        Level::HighSchool => (
+        _ => (
             "Freshmen and sophomores carry the water and the bags, and the seniors want a night at the lake for 'team bonding'.",
             "Everybody did it when we were freshmen.",
         ),
@@ -1022,7 +1022,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
         let camp = match team.level() {
             Level::Nfl => w.dates.rookies_report.add(3),
             Level::College => w.dates.fall_camp.add(2),
-            Level::HighSchool => w.dates.hs_school_start.add(-14),
+            _ => w.dates.hs_school_start.add(-14),
         };
         if d == camp && w.folk.rules.rituals != 0 {
             let mut s = Scene::new(Kind::Ritual, d, "The rookies and the veterans");

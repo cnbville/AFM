@@ -320,7 +320,7 @@ fn q_fallback(w: &World, q: Q, f: &Facts, team: Team) -> String {
         Q::Rival => format!("It's {} week. What does this game mean to you?", get("rival")),
         Q::HotSeat => format!("You're {}. Are you worried about your job?", get("record")),
         Q::Trouble => format!("Can you address the situation with {}?", get("player")),
-        Q::Recruiting => format!("How do you plan to recruit the state of {}?", team.state(w).and_then(|s| w.states.get(s)).map_or("this", |s| s.name.as_str())),
+        Q::Recruiting => format!("How do you plan to recruit the state of {}?", team.state(w).and_then(|s| w.states.get(s)).map_or("this", |s| super::facts::state_name(&s.code))),
         Q::Player => format!("What have you seen from {} this week?", get("player")),
     }
 }

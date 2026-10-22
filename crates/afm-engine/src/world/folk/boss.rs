@@ -198,7 +198,7 @@ fn draft_goals(w: &World, team: Team) -> Vec<GoalKind> {
             v.push(GoalKind::Recruiting(if avg_wp > 0.6 { 3 } else { 6 }));
             v.push(GoalKind::Grades);
         }
-        Level::HighSchool => {
+        _ => {
             v.push(GoalKind::Wins(need.clamp(3, 10)));
             if avg_wp > 0.55 {
                 v.push(GoalKind::Postseason);
@@ -253,6 +253,20 @@ fn meeting_open(w: &mut World, s: &mut Scene) {
             s.pick(32, "\"The injuries have killed us.\"", "Deflect", "calm", "He hears an excuse unless it's plainly true.");
         }
         2 => review_open(w, s, team, &b, &mut pen, &mut f),
+        3 => {
+            // You asked for the meeting: he gives you the time and waits.
+            s.narrate(format!(
+                "{} {}",
+                b.link(),
+                if b.patience <= 7.0 {
+                    format!("checks {} watch as you sit down. You asked for this one.", b.his())
+                } else {
+                    format!("closes the door behind you. You asked for the time; {} gave it.", b.he())
+                }
+            ));
+            s.them(&b.name, if b.warmth >= 13.0 { "Come on in. What's on your mind?" } else { "You wanted to see me." }, Some(boss_tell(&b, trust(w, team))));
+            add_ask_picks(w, s, team);
+        }
         _ => {
             let goals = draft_goals(w, team);
             let season = goal_season(w, team);
@@ -262,7 +276,7 @@ fn meeting_open(w: &mut World, s: &mut Scene) {
                 match level {
                     Level::Nfl => "has his notes for the season ahead.",
                     Level::College => "goes through what he expects this season.",
-                    Level::HighSchool => "goes through what the school expects of the program.",
+                    _ => "goes through what the school expects of the program.",
                 }
             ));
             let line = pen.line(&["boss.goals.open", "?boss.goals.point"], &spk, &f);
@@ -381,12 +395,12 @@ pub fn goal_met(w: &World, team: Team, k: GoalKind, season: i32) -> bool {
         GoalKind::BeatRival => want_met(w, Want::BeatRival),
         GoalKind::Recruiting(n) => match team {
             Team::College(p) => {
-                let conf = w.programs[p].conference;
+                let conf = &w.programs[p].conference;
                 let mut scores: Vec<(usize, f64)> = w
                     .programs
                     .iter()
                     .enumerate()
-                    .filter(|(_, q)| q.conference == conf)
+                    .filter(|(_, q)| &q.conference == conf)
                     .filter_map(|(k, q)| q.class_scores.iter().find(|x| x.0 == season).map(|x| (k, x.1)))
                     .collect();
                 scores.sort_by(|a, b| b.1.total_cmp(&a.1));
@@ -501,6 +515,29 @@ fn meeting_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         _ => {}
     }
     s.end();
+}
+
+/// You ask your boss for a meeting (topic 12): once a month at most; the
+/// ask itself costs nothing but an hour.
+pub fn request_meeting(w: &mut World) -> Result<u32, String> {
+    let team = Team::seat(w).ok_or("You have no job.")?;
+    let today = w.today;
+    if w.folk.scenes.iter().any(|s| s.kind == Kind::BossMeeting && s.c == 3 && s.date.days_to(today) < 30) {
+        return Err("You saw him less than a month ago. Asking again this soon reads as needy.".into());
+    }
+    if !super::talks::spend(w, 1.0) {
+        return Err("No hours left this week.".into());
+    }
+    let mut s = Scene::new(Kind::BossMeeting, today, "You asked for a meeting");
+    s.c = 3;
+    s.team = Some(team);
+    s.stops = false;
+    s.place = match team.level() {
+        Level::Nfl => "The owner's suite".into(),
+        Level::College => "The athletic director's office".into(),
+        _ => "The principal's office".into(),
+    };
+    Ok(scene::add(w, s))
 }
 
 /// You ask for something (topic 12): his answer reads his money, his trust
@@ -623,7 +660,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
     let (pre, mid, post) = match team.level() {
         Level::Nfl => (w.dates.minicamp.1.add(2), w.dates.nfl_weeks.get(8).copied().unwrap_or(w.dates.nfl_kickoff.add(60)), w.dates.black_monday.add(2)),
         Level::College => (w.dates.fall_camp.add(-10), w.dates.cfb_weeks.get(6).copied().unwrap_or(w.dates.fall_camp.add(70)).add(2), w.dates.bowl_season.1.add(4)),
-        Level::HighSchool => (w.dates.hs_school_start.add(-12), w.dates.hs_school_start.add(45), w.dates.december_graduation.add(-5)),
+        _ => (w.dates.hs_school_start.add(-12), w.dates.hs_school_start.add(45), w.dates.december_graduation.add(-5)),
     };
     let which = if d == pre {
         Some((0, "The season's goals"))
@@ -646,7 +683,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
         s.place = match team.level() {
             Level::Nfl => "The owner's suite".into(),
             Level::College => "The athletic director's office".into(),
-            Level::HighSchool => "The principal's office".into(),
+            _ => "The principal's office".into(),
         };
         scene::add(w, s);
     }

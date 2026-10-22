@@ -826,9 +826,16 @@ pub(crate) fn carousel(w: &mut World, scope: Scope) {
             continue;
         }
         let age = w.coaches[c].age;
-        let retire = age >= 60 && w.rng.chance(clamp(0.04 + 0.03 * (age as f64 - 60.0), 0.0, 1.0));
+        // A serious health scare this year pushes him toward the door
+        // (section 6, coaches' lives).
+        let scare = super::folk::life::retire_push(w, c);
+        let retire = age >= 60 && w.rng.chance(clamp(0.04 + 0.03 * (age as f64 - 60.0) + scare * 0.5, 0.0, 1.0));
         // Before 60, his health or burnout (11.15).
-        let early = if age < 60 { early_exit(w, c, job) } else { None };
+        let early = if age < 60 {
+            early_exit(w, c, job).or_else(|| (scare > 0.0 && w.rng.chance(0.25 * scare)).then_some("retired for his health"))
+        } else {
+            None
+        };
         if retire || early.is_some() {
             let why = early.unwrap_or("retired");
             leave(w, c, why);
@@ -1360,6 +1367,8 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
     let expired = coach.contract.is_some_and(|k| k.through <= year);
     let sd = clamp(0.06 - 0.003 * (judgement - 10.0), 0.02, 0.1);
     let mut read = -(1.5 * last + 0.7 * before) + w.rng.normal(0.0, sd);
+    // Your own boss's trust in you and last year's goals (section 6).
+    read += super::folk::boss::review_push(w, c);
     read -= if tenure <= 3 { 0.1 } else { 0.04 } * direction;
     if tenure >= 3 {
         read += (0.3 + 0.5 * prestige) * (0.4 - wp2).max(0.0);
@@ -2186,7 +2195,8 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
         let win = if results[i].games() > 0 { results[i].win_pct() } else { 0.5 };
         let before = w.programs[i].collective.boosters();
         let mut rng: Rng = w.rng.fork();
-        let level = program::update_collective(&mut w.programs[i], win, year + 1, &mut rng);
+        let walk = super::folk::boss::booster_push(w, i);
+        let level = program::update_collective(&mut w.programs[i], win, year + 1, walk, &mut rng);
         let p = &w.programs[i];
         // Collectives exist from July 2021 (11.5).
         if w.recording && level > 0 && p.division != Division::JUCO && super::ncaa::nil_era(year) {

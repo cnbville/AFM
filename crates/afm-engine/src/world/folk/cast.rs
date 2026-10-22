@@ -250,7 +250,7 @@ impl Cast {
         self.r.key(self.term)
     }
     pub fn link(&self) -> String {
-        format!("[[x:{}|{}]]", self.r.token(), self.name)
+        format!("[[s:people_cast?tok={}|{}]]", self.r.token(), self.name)
     }
     /// "the athletic director, [[x..|Mike Bobinski]]"
     pub fn first(&self) -> &str {
@@ -276,6 +276,42 @@ impl Cast {
     /// -1 to 1 around 10.
     pub fn z(v: f64) -> f64 {
         (v - 10.0) / 10.0
+    }
+
+    /// What people around the building say about him: words for his
+    /// strongest traits, never numbers (the screens show these).
+    pub fn reputation(&self) -> Vec<&'static str> {
+        let mut v: Vec<(f64, &'static str)> = Vec::new();
+        let mut put = |x: f64, hi: &'static str, lo: &'static str| {
+            if x >= 14.0 {
+                v.push((x - 10.0, hi));
+            } else if x <= 7.0 && !lo.is_empty() {
+                v.push((10.0 - x, lo));
+            }
+        };
+        put(self.ego, "Likes to be seen with the program", "Never makes it about himself");
+        put(self.temper, "Has a temper the staff works around", "Hard to rattle");
+        put(self.patience, "Gives a plan time to work", "Not a patient man");
+        put(self.judgement, "Shrewd; people trust his reads", "Has backed the wrong people before");
+        put(self.meddling, "Wants a say in football decisions", "Leaves the football to the football people");
+        put(self.warmth, "Easy to like", "Keeps people at arm's length");
+        put(self.honesty, "Tells you where you stand", "Says one thing in the room and another outside it");
+        put(self.tight, "Watches every dollar", "Spends when he believes in something");
+        v.sort_by(|a, b| b.0.total_cmp(&a.0));
+        let mut out: Vec<&'static str> = v.into_iter().take(4).map(|x| x.1).collect();
+        if self.she {
+            for s in out.iter_mut() {
+                *s = match *s {
+                    "Never makes it about himself" => "Never makes it about herself",
+                    "Not a patient man" => "Not a patient woman",
+                    x => x,
+                };
+            }
+        }
+        if out.is_empty() {
+            out.push("No strong reputation either way");
+        }
+        out
     }
 }
 
