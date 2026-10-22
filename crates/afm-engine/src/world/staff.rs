@@ -1649,6 +1649,11 @@ fn buyout_share(w: &World, p: usize) -> f64 {
 /// confirmed, from the Knight Commission and USA Today finance data): FBS
 /// $30-250 million, FCS $8-35 million, Division II $3-10 million, junior
 /// colleges $1-3 million, by prestige.
+/// A program's athletic budget a year, every sport (people screens read it).
+pub(crate) fn program_budget(prog: &program::Program) -> f64 {
+    athletic_budget(prog)
+}
+
 fn athletic_budget(prog: &program::Program) -> f64 {
     let (lo, hi): (f64, f64) = match prog.division {
         Division::FBS => (30.0e6, 250.0e6),
