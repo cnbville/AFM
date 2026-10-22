@@ -155,6 +155,10 @@ fn hs_transfer_day(y: &YearDates) -> Date {
 pub(crate) fn advance_day(w: &mut World) {
     let d = w.today;
     let y = w.dates.clone();
+    // A live game left from a day gone by (called off, or never booked).
+    if w.live.as_ref().is_some_and(|l| l.date < d) {
+        w.live = None;
+    }
     if d == y.start {
         year_start(w);
     }
