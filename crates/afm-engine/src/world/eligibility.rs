@@ -213,7 +213,7 @@ fn lds_share(state: &str, polynesian: bool) -> f64 {
         "CA" | "NE" | "ND" | "SD" | "KS" | "OK" | "TX" | "MO" | "VA" | "AR" => 0.015,
         _ => 0.008,
     };
-    if polynesian { (base * 2.0).max(0.33) } else { base }
+    if polynesian { (base * 2.0_f64).max(0.33) } else { base }
 }
 
 /// Whether a person is a Latter-day Saint: a fixed draw against his home
