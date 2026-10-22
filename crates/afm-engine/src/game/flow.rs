@@ -157,7 +157,7 @@ impl<'a> Side<'a> {
         Side {
             team,
             depth,
-            energy: vec![1.0; n],
+            energy: vec![team.prep.fresh.clamp(0.5, 1.0); n],
             edge: vec![0.0; n],
             trust: team.players.iter().map(|p| p.trust).collect(),
             out: vec![false; n],
@@ -238,6 +238,62 @@ impl<'a> Side<'a> {
     /// A coverage or return unit's men at a spot (part C 3): the backups
     /// first, as real units are mostly backups and young players, then the
     /// starters when the backups run out.
+    /// Your package for a board (section 6b): the players you put on it,
+    /// in slot order, who can go.
+    fn package(&self, board: u8) -> Vec<usize> {
+        let Some(ids) = self.team.prep.package(board) else { return Vec::new() };
+        ids.iter()
+            .filter_map(|&id| self.team.players.iter().position(|p| p.id == id))
+            .filter(|&i| !self.out[i] && !self.benched[i])
+            .collect()
+    }
+
+    /// A unit with your package's men on it: `keep` stays (the kicker, the
+    /// punter), then your men, then the staff's own choice fills the rest.
+    fn with_package(&self, board: u8, keep: &[usize], default: Vec<usize>) -> Vec<usize> {
+        let mine = self.package(board);
+        if mine.is_empty() {
+            return default;
+        }
+        let n = default.len();
+        let mut out: Vec<usize> = keep.to_vec();
+        for i in mine.into_iter().chain(default) {
+            if out.len() >= n {
+                break;
+            }
+            if !out.contains(&i) {
+                out.push(i);
+            }
+        }
+        out
+    }
+
+    /// Picks at a position with your package's men first (a safety you
+    /// listed as the nickel plays there).
+    fn pick_pref(&self, pos: Position, n: usize, used: &mut Vec<usize>, board: Option<u8>) -> Vec<usize> {
+        let Some(b) = board else { return self.pick(pos, n, used) };
+        let Some(ids) = self.team.prep.package(b) else { return self.pick(pos, n, used) };
+        let slots = crate::training::seat::Board::ALL.get(b as usize).map_or(&[][..], |x| x.slots());
+        let mut out = Vec::new();
+        for (k, &id) in ids.iter().enumerate() {
+            if out.len() >= n || slots.get(k).is_none_or(|s| s.1 != pos) {
+                continue;
+            }
+            if let Some(i) = self.team.players.iter().position(|p| p.id == id)
+                && !self.out[i]
+                && !self.benched[i]
+                && !used.contains(&i)
+            {
+                out.push(i);
+                used.push(i);
+            }
+        }
+        if out.len() < n {
+            out.extend(self.pick(pos, n - out.len(), used));
+        }
+        out
+    }
+
     fn cover_pick(&self, pos: Position, n: usize, used: &mut Vec<usize>) -> Vec<usize> {
         let list: Vec<usize> = self
             .depth
@@ -1036,7 +1092,17 @@ impl<'a> Game<'a> {
             .collect();
         pool.sort_by(|&a, &b| score[b].total_cmp(&score[a]));
         on.extend(pool.into_iter().take(11 - on.len()));
-        on
+        // Your kickoff units (section 6b): your returner first on a return.
+        if receiving {
+            let mine = side.package(4);
+            match mine.first() {
+                Some(&kr) => side.with_package(4, &[kr], on),
+                None => on,
+            }
+        } else {
+            let k = on[0];
+            side.with_package(5, &[k], on)
+        }
     }
 
     fn kickoff(&mut self, team: usize, from: f64, onside: bool) {
@@ -1264,6 +1330,11 @@ impl<'a> Game<'a> {
             .chain(side.pick(Position::OT, 2, &mut used))
             .chain(side.pick(Position::TE, 3, &mut used))
             .collect();
+        // Your field goal unit (section 6b): your wall around the snapper.
+        let protect_on: Vec<usize> = {
+            let wall = side.with_package(8, &[sn], protect_on);
+            wall.into_iter().filter(|&i| i != k && i != h).take(9).collect()
+        };
         let opp = &self.sides[1 - team];
         let mut used2 = Vec::new();
         let rush_on: Vec<usize> = opp
@@ -1644,6 +1715,9 @@ impl<'a> Game<'a> {
         kick_on.extend(side.cover_pick(Position::LB, 3, &mut used));
         kick_on.extend(side.cover_pick(Position::TE, 2, &mut used));
         kick_on.extend(side.cover_pick(Position::IOL, 2, &mut used));
+        // Your punt team (section 6b): your men around the punter.
+        let mut kick_on: Vec<usize> = side.with_package(7, &[p], kick_on).into_iter().filter(|&i| i != sn).collect();
+        kick_on.truncate(10);
         // The long snapper is the unit's center and covers down the middle lane.
         kick_on.insert(5.min(kick_on.len()), sn);
         let opp = &self.sides[d];
@@ -1655,6 +1729,11 @@ impl<'a> Game<'a> {
         ret_on.extend(opp.cover_pick(Position::S, 1, &mut used2));
         ret_on.extend(opp.cover_pick(Position::DT, 2, &mut used2));
         ret_on.extend(opp.cover_pick(Position::EDGE, 2, &mut used2));
+        // Your punt return team, your returner first.
+        let ret_on = match opp.package(6).first() {
+            Some(&r) => opp.with_package(6, &[r], ret_on),
+            None => ret_on,
+        };
         let kt = KickTeams {
             kick: &side.team.players,
             ret: &opp.team.players,
@@ -1763,17 +1842,19 @@ impl<'a> Game<'a> {
                 }
             }
         };
-        add(o.pick(Position::QB, 1, &mut used), &[ORole::QB], &mut off);
-        line(o.pick(Position::OT, 2, &mut used), &[ORole::LT, ORole::RT], &mut off);
-        line(o.pick(Position::IOL, 3, &mut used), &[ORole::LG, ORole::C, ORole::RG], &mut off);
+        // Your goal line offense (section 6b) inside the 3 with heavy personnel.
+        let gl = (self.situation().yardline_100 <= 3.0 && call.formation.personnel.wide_receivers() <= 1).then_some(3u8);
+        add(o.pick_pref(Position::QB, 1, &mut used, gl), &[ORole::QB], &mut off);
+        line(o.pick_pref(Position::OT, 2, &mut used, gl), &[ORole::LT, ORole::RT], &mut off);
+        line(o.pick_pref(Position::IOL, 3, &mut used, gl), &[ORole::LG, ORole::C, ORole::RG], &mut off);
         let backs: Vec<ORole> = roles.iter().copied().filter(|r| r.is_back() && *r != ORole::FB).collect();
-        add(o.pick(Position::RB, backs.len(), &mut used), &backs, &mut off);
+        add(o.pick_pref(Position::RB, backs.len(), &mut used, gl), &backs, &mut off);
         let wrs: Vec<ORole> =
             roles.iter().copied().filter(|r| matches!(r, ORole::X | ORole::Z | ORole::Slot | ORole::Slot2)).collect();
         add(o.pick(Position::WR, wrs.len(), &mut used), &wrs, &mut off);
         let tes: Vec<ORole> =
             roles.iter().copied().filter(|r| matches!(r, ORole::TE | ORole::TE2 | ORole::TE3)).collect();
-        add(o.pick(Position::TE, tes.len(), &mut used), &tes, &mut off);
+        add(o.pick_pref(Position::TE, tes.len(), &mut used, gl), &tes, &mut off);
         if roles.contains(&ORole::FB) {
             match o.pick_fb(&mut used) {
                 Some(i) => off.push((ORole::FB, i)),
@@ -1852,7 +1933,13 @@ impl<'a> Game<'a> {
         let mut def = Vec::new();
         for pos in [Position::EDGE, Position::DT, Position::LB, Position::CB, Position::S] {
             let want: Vec<DSlot> = slots.iter().filter(|s| s.1 == pos).map(|s| s.0).collect();
-            let got = d.pick(pos, want.len(), &mut dused);
+            let board = match dcall.personnel {
+                DefPersonnel::Nickel => Some(0),
+                DefPersonnel::Dime => Some(1),
+                DefPersonnel::GoalLine => Some(2),
+                _ => None,
+            };
+            let got = d.pick_pref(pos, want.len(), &mut dused, board);
             let spots: Vec<Spot> = want.iter().map(|&s| dslot_spot(s)).collect();
             let order = best_order(&got, &spots, &|i, sp| d.at_spot(i, sp));
             for (k, i) in order.into_iter().enumerate() {
@@ -1971,6 +2058,12 @@ impl<'a> Game<'a> {
     }
 
     fn snap_play(&mut self, two_point: bool) -> PlayRecord {
+        self.snap_play_as(two_point, None)
+    }
+
+    /// A snap with the call held to a run or a pass (`run`), as a practice
+    /// period asks for: inside run is all runs, seven on seven all passes.
+    fn snap_play_as(&mut self, two_point: bool, run: Option<bool>) -> PlayRecord {
         let o = self.poss;
         let sit = self.situation();
         let staff_o = self.sides[o].team.staff;
@@ -1987,6 +2080,20 @@ impl<'a> Game<'a> {
             plan: self.sides[o].team.plan().0,
         };
         let mut call = calling::call_offense(&staff_o, &self.sides[o].mem, &sit, &ctx, &mut self.rng);
+        if let Some(want) = run {
+            for _ in 0..8 {
+                if call.kind.is_run() == want {
+                    break;
+                }
+                call = calling::call_offense(&staff_o, &self.sides[o].mem, &sit, &ctx, &mut self.rng);
+            }
+        }
+        // Your call sheet (section 6b): the coordinator calls the week's
+        // plays for the situation, run or pass as he read it.
+        let ran = self.stats.plays.iter().filter(|r| r.offense == o).count() as u32;
+        if let Some(c) = sheet_call(&self.sides[o].team.prep, &sit, &call, ran, &mut self.rng) {
+            call = c;
+        }
         if two_point && matches!(call.kind, PlayKind::Pass(_)) && self.rng.chance(0.3) {
             call.kind = PlayKind::Pass(0);
         }
@@ -3984,6 +4091,51 @@ pub fn trace_kickoff(off: &GameTeam, def: &GameTeam, level: Level, seed: u64, tr
     (g.stats.plays.pop().expect("a kickoff record"), g.x)
 }
 
+/// A practice snap's situation (training topic 8): the down, distance and
+/// spot the period sets, the time left in the half for two-minute work,
+/// and whether the period is all runs or all passes.
+#[derive(Clone, Copy, Debug)]
+pub struct PracticeSnap {
+    pub down: u8,
+    pub togo: f64,
+    pub yardline_100: f64,
+    pub half_left: f64,
+    pub run: Option<bool>,
+}
+
+/// Practice snaps on the engine (training topic 8, choice 3): `off`'s
+/// offense against `def`'s defense, each snap called by the two staffs for
+/// its situation as on game day (the week's call sheet included). Every
+/// snap starts fresh: practice has its own fatigue and injuries (the
+/// training model), so the engine's are cleared between snaps. The plays
+/// come back booked, with their grades, in a game's stats.
+pub fn practice_snaps(off: &GameTeam, def: &GameTeam, level: Level, snaps: &[PracticeSnap], seed: u64) -> GameStats {
+    let setup = GameSetup::new(off, def, level, seed);
+    let mut g = bare_game(&setup, off, def, 35.0, seed);
+    let fresh: [Vec<f64>; 2] = [g.sides[0].energy.clone(), g.sides[1].energy.clone()];
+    let mut stats = GameStats::default();
+    for (k, s) in snaps.iter().enumerate() {
+        for (side, e) in g.sides.iter_mut().zip(fresh.iter()) {
+            side.energy.clone_from(e);
+            side.out.iter_mut().for_each(|o| *o = false);
+            side.hurt.iter_mut().for_each(|h| *h = None);
+        }
+        g.rng = Rng::new((seed as u32) ^ (k as u32).wrapping_mul(0x9E37_79B9));
+        g.poss = 0;
+        g.x = clamp(100.0 - s.yardline_100, 1.0, 99.0);
+        g.down = s.down.clamp(1, 4);
+        g.togo = s.togo.clamp(1.0, 30.0).min(s.yardline_100);
+        g.quarter = if s.half_left < 900.0 { 2 } else { 1 };
+        g.clock = s.half_left.min(900.0);
+        g.ball_y = MID;
+        g.stats.plays.clear();
+        let r = g.snap_play_as(false, s.run);
+        stats.book(&r);
+        stats.plays.push(r);
+    }
+    stats
+}
+
 /// The depth-chart spot an offensive role asks for.
 fn orole_spot(r: ORole) -> Spot {
     match r {
@@ -4029,4 +4181,32 @@ fn same_group(pos: Position, sp: Spot) -> bool {
 /// option game key on it (proposed, not confirmed).
 fn qb_run(p: &GamePlayer) -> f64 {
     clamp((0.6 * p.a(Attr::Speed) + 0.4 * p.a(Attr::Elusiveness) - 68.0) / 20.0, 0.0, 1.0)
+}
+
+/// The call sheet's play for this snap (section 6b, read by game day):
+/// the situation's plays of the kind the coordinator chose, with how
+/// closely he sticks to the sheet. None leaves his own call.
+fn sheet_call(prep: &super::roster::Prep, sit: &Situation, own: &OffCall, plays: u32, rng: &mut Rng) -> Option<OffCall> {
+    if prep.sheet.is_empty() || !rng.chance(prep.stick) {
+        return None;
+    }
+    let mut want = crate::training::seat::sheet_situation(sit.down, sit.togo, sit.yardline_100, sit.half_left);
+    if plays < 15 {
+        want.insert(0, 0);
+    }
+    for k in want {
+        let Some((_, list)) = prep.sheet.iter().find(|(s, l)| *s == k && !l.is_empty()) else { continue };
+        let fit: Vec<&(Personnel, Backfield, Set, PlayKind)> =
+            list.iter().filter(|x| x.3.is_run() == own.kind.is_run()).collect();
+        let pool: Vec<&(Personnel, Backfield, Set, PlayKind)> = if fit.is_empty() { list.iter().collect() } else { fit };
+        let &&(pers, back, set, kind) = rng.pick(&pool);
+        let mut f = own.formation;
+        f.personnel = pers;
+        f.backfield = back;
+        f.set = set;
+        let mut c = OffCall::new(f, kind, own.dir, own.tempo);
+        c.why = "on the call sheet";
+        return Some(c);
+    }
+    None
 }

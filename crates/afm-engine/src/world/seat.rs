@@ -61,6 +61,18 @@ impl World {
     /// built with the fictional league option).
     pub fn conference_name(&self, real: &str) -> String {
         if self.options.fictional_league { super::names::fictional_conference(real) } else { real.to_string() }
+    /// Your team as the engine would dress it today, with its level.
+    pub fn seat_game_team(&self) -> Option<(crate::game::GameTeam, crate::player::Level)> {
+        use crate::calendar::Level as Cal;
+        let seat = self.seat?;
+        Some(match seat.level {
+            Cal::HighSchool => (super::hs_year::seat_team(self, seat.program?)?, crate::player::Level::HS),
+            Cal::Nfl => (super::pro::games::game_side(self, seat.nfl_team?)?.team, crate::player::Level::NFL),
+            _ => {
+                let prog = self.programs.get(seat.program?)?;
+                (super::season::game_team(self, prog)?, super::division_level(prog.division))
+            }
+        })
     }
 
     /// Your depth chart order at a position (player ids, best first).
@@ -78,16 +90,7 @@ impl World {
     /// order first where you set one. None while your team can't dress a
     /// game team.
     pub fn seat_game_depth(&self) -> Option<Vec<(Position, Vec<u32>)>> {
-        use crate::calendar::Level as Cal;
-        let seat = self.seat?;
-        let (team, level) = match seat.level {
-            Cal::HighSchool => (super::hs_year::seat_team(self, seat.program?)?, crate::player::Level::HS),
-            Cal::Nfl => (super::pro::games::game_side(self, seat.nfl_team?)?.team, crate::player::Level::NFL),
-            _ => {
-                let prog = self.programs.get(seat.program?)?;
-                (super::season::game_team(self, prog)?, super::division_level(prog.division))
-            }
-        };
+        let (team, level) = self.seat_game_team()?;
         let margin = crate::game::GameSetup::new(&team, &team, level, 0).two_way_margin[0];
         let d = crate::game::roster::depth_chart(&team, margin);
         Some(
@@ -921,5 +924,7 @@ impl World {
         if fresh {
             super::fame::fill(self);
         }
+        // Your designed plays become concepts again (section 6b).
+        self.training.register_designs();
     }
 }

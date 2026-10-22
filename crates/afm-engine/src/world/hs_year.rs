@@ -950,6 +950,7 @@ pub(crate) fn squad_team(
     team.give_orders(crate::player::Level::HS);
     if varsity && w.seat_school() == Some(h) {
         team.order = w.seat_order();
+        crate::training::seat::prepare(w, &mut team);
     }
     // Line chemistry: upperclassmen up front have played together.
     let line_vets = dressed

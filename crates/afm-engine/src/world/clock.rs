@@ -498,6 +498,10 @@ pub(crate) fn advance_day(w: &mut World) {
     // Section 6's people (lane 6): ties, lives, courts, staffs and your agenda.
     timed("people", || super::folk::day(w, d));
     timed("scouting", || super::scouting::day(w, d));
+    // Section 6b: every team's training week, and the growth it earned.
+    if d.weekday() == Weekday::Mon {
+        timed("training", || crate::training::week::monday(w, d));
+    }
 
     // News items of the day get the day's date.
     for n in w.news.iter_mut().rev() {

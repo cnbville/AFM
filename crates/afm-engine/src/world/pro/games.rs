@@ -260,6 +260,7 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
     team.give_orders(crate::player::Level::NFL);
     if w.seat_club(t) {
         team.order = w.seat_order();
+        crate::training::seat::prepare(w, &mut team);
     }
     team.film = club.film.clone();
     team.line_chem = 0.25 + 0.15 * back as f64;
@@ -558,6 +559,9 @@ pub(crate) fn practice_injuries(w: &mut World, d: crate::calendar::Date) {
         let med = crate::world::people::Support::z(w.clubs[t].support.medical.rating);
         let name = w.nfl[t].name;
         let roster = w.clubs[t].roster.clone();
+        // The week's practice plan (section 6b): more padded and full-speed
+        // work than an average staff's raises the risk, less lowers it.
+        let plan = w.training.club_risk.get(t).map_or(1.0, |&r| r as f64);
         for i in roster {
             let p = &w.people[i];
             let Some(c) = p.pro.as_ref() else { continue };
@@ -567,7 +571,10 @@ pub(crate) fn practice_injuries(w: &mut World, d: crate::calendar::Date) {
             let prone = 0.55 + p.player.injury_proneness / 18.0;
             let age = 1.0 + 0.03 * (p.player.age as f64 - 26.0).max(0.0);
             let spec = if p.player.position.is_specialist() { 0.25 } else { 1.0 };
-            if key_uniform(seed, p.player.id as u64) >= base * prone * age * spec {
+            // A sudden jump in load (topic 7): soft tissue gives.
+            let spike = p.player.train.spike();
+            let load = if spike > 1.3 { 1.0 + 0.8 * (spike - 1.3) } else { 1.0 };
+            if key_uniform(seed, p.player.id as u64) >= base * prone * age * spec * plan * load {
                 continue;
             }
             let mut rng = crate::rng::Rng::new((seed as u32) ^ p.player.id.wrapping_mul(0x9E37_79B1));
