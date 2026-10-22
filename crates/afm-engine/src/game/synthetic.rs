@@ -45,7 +45,8 @@ fn nfl_offset(pos: Position) -> f64 {
     }
 }
 
-fn z_for(talent: f64) -> f64 {
+/// The talent draw (z) that gives a player this overall ceiling.
+pub fn z_for(talent: f64) -> f64 {
     let (mut lo, mut hi) = (-4.0, 6.0);
     for _ in 0..50 {
         let m = 0.5 * (lo + hi);

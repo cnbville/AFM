@@ -151,6 +151,9 @@ pub struct Plan {
     pub target_cb: Option<usize>,
     pub bracket: Option<usize>,
     pub spy: bool,
+    /// Their pass rusher to slide to, chip and double (A8).
+    #[serde(default)]
+    pub help_on: Option<usize>,
     /// Moves against the other team's tendencies (tendencies topic 4.4),
     /// each 0-1 by how sure the staff is.
     pub vs: VsHabits,
@@ -1460,6 +1463,10 @@ fn pick_front(
     weigh(rng, &w)
 }
 
+/// How much better than our tackles (rating points, as the staff sees
+/// it) a rusher must be before the plan slides to him (A8, Claude's pick).
+const HELP_GAP: f64 = 3.0;
+
 /// A staff's matchup plan (topic 5.4), made at the start of the game from
 /// what its scouts see of the other team's starters: rating estimates with
 /// an error that shrinks with film study.
@@ -1469,6 +1476,8 @@ pub fn make_plan(
     their_wrs: &[(usize, f64)],
     our_cbs: &[f64],
     their_qb_run: f64,
+    their_rushers: &[(usize, f64)],
+    our_blockers: &[f64],
     rng: &mut Rng,
 ) -> Plan {
     let err = 0.8 * (20.0 - own.film_study).max(1.0);
@@ -1485,12 +1494,20 @@ pub fn make_plan(
         let our = our_cbs.iter().copied().fold(0.0, f64::max);
         best.filter(|b| b.1 - our > 5.0).map(|b| b.0)
     };
-    Plan {
-        target_cb,
-        bracket,
-        spy: their_qb_run > 0.6 && rng.chance(0.4 + 0.03 * own.defense.reading),
-        vs: VsHabits::default(),
-    }
+    let spy = their_qb_run > 0.6 && rng.chance(0.4 + 0.03 * own.defense.reading);
+    // Help against their best rusher (A8): every staff slides to a rusher
+    // its tackles can't handle alone, the more clearly he is better than
+    // the men who'd block him. Read from film like the rest of the plan.
+    let help_on = {
+        let best = their_rushers.iter().map(|&(i, v)| (i, seen(v, rng))).max_by(|a, b| a.1.total_cmp(&b.1));
+        let ours = if our_blockers.is_empty() {
+            0.0
+        } else {
+            our_blockers.iter().sum::<f64>() / our_blockers.len() as f64
+        };
+        best.filter(|b| b.1 - ours > HELP_GAP).map(|b| b.0)
+    };
+    Plan { target_cb, bracket, spy, help_on, vs: VsHabits::default() }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

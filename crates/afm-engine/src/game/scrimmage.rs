@@ -18,6 +18,7 @@ use super::roster::GamePlayer;
 use super::rules::Rules;
 use super::sim::*;
 use crate::attributes::Attr;
+use crate::links::Link;
 use crate::rng::{Rng, clamp};
 use crate::tendencies::Tend;
 
@@ -132,6 +133,10 @@ pub struct Tactics {
     /// the receiver the defense brackets (an offense player index), topic 5.4.
     pub target_cb: Option<usize>,
     pub bracket: Option<usize>,
+    /// The pass rusher the offense slides its protection to, chips and
+    /// doubles (A8; a defense player index).
+    #[serde(default)]
+    pub help_on: Option<usize>,
     /// The offensive line's chemistry, 0-1 (topic 4.9).
     pub chem: f64,
     /// How new the called family still is to defenses (topic 9), 0-1.
@@ -158,6 +163,7 @@ impl Default for Tactics {
             fooled: false,
             target_cb: None,
             bracket: None,
+            help_on: None,
             chem: 0.6,
             novelty: 0.0,
             family: Family::Quick,
@@ -245,6 +251,13 @@ struct Pass {
     /// The lineman who got a hand up and batted the ball at the line, and
     /// where the throw was meant to go (its air yards count as thrown).
     batted: Option<(usize, V2)>,
+    /// The receiver he chose because of a size mismatch (D2): a jump ball
+    /// or a back-shoulder throw put high, where only his man can reach.
+    jump_r: Option<usize>,
+    /// The thrown ball: whether it is a jump ball, and how high it arrives
+    /// at the catch point, inches off the ground (D1).
+    jump_ball: bool,
+    ball_h: f64,
 }
 
 /// Debug counts of how throws were chosen: on reads 1-4+, any open man
@@ -341,6 +354,8 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         lane: None,
         bites: Vec::new(),
         two_gap: s.two_gap,
+        help_on: None,
+        chip: None,
         gap_run: None,
         stunt: None,
         level: s.rules.level,
@@ -639,6 +654,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 commit: None,
                 why: 0,
                 batted: None,
+                jump_r: None,
+                jump_ball: false,
+                ball_h: 0.0,
             });
             if c.drop == Drop::Screen {
                 sim.screen = pass.as_ref().and_then(|ps| ps.reads.first().copied());
@@ -646,9 +664,28 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             assign_defense(&mut sim, s, off_n, &slot_of, &role_of, true);
             pass_protection(&mut sim, off_n);
             stunt_pickup(&mut sim, s.tac.chem);
+            slide_to(&mut sim, s, off_n);
             // The matchup plan (topic 5.4): the quarterback looks first at
             // the receiver on the corner the staff wants to attack, when that
             // man is in the progression.
+            // Feed the best receiver (A9): real staffs build the plan around
+            // their best target. The bigger his edge over the others in the
+            // progression, the more often the play's first look is his.
+            let mut fed = false;
+            if let Some(ps) = pass.as_mut()
+                && ps.reads.len() > 1
+                && !matches!(c.drop, Drop::Screen | Drop::Bubble)
+            {
+                let rate = |sim: &Sim, r: usize| sim.player(r).spot_r[crate::spots::Spot::WR.index()];
+                let mut by: Vec<(usize, f64)> = ps.reads.iter().enumerate().map(|(k, &r)| (k, rate(&sim, r))).collect();
+                by.sort_by(|a, b| b.1.total_cmp(&a.1));
+                let gap = by[0].1 - by[1].1;
+                if by[0].0 > 0 && sim.rng.chance(clamp(FEED_BASE + FEED_PER_POINT * gap, 0.0, FEED_MAX)) {
+                    let r = ps.reads.remove(by[0].0);
+                    ps.reads.insert(0, r);
+                    fed = true;
+                }
+            }
             if let (Some(cb), Some(ps)) = (s.tac.target_cb, pass.as_mut())
                 && let Some(d) = (off_n..sim.agents.len()).find(|&k| sim.agents[k].p == cb)
             {
@@ -660,6 +697,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 };
                 if let Some(k) = on.and_then(|r| ps.reads.iter().position(|&x| x == r))
                     && k > 0
+                    && !fed
                     && sim.rng.chance(0.5)
                 {
                     let r = ps.reads.remove(k);
@@ -800,6 +838,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     sim.record_frame();
     while sim.t < max_t && !sim.dead {
         sim.t += DT;
+        sim.link_speeds();
         let t = sim.t;
         for i in 0..sim.agents.len() {
             trail[i].push(sim.agents[i].pos);
@@ -943,6 +982,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                                     commit: None,
                                     why: 0,
                                     batted: None,
+                                    jump_r: None,
+                                    jump_ball: false,
+                                    ball_h: 0.0,
                                 });
                                 sim.agents[qb].job = Job::Passer;
                                 continue;
@@ -1031,15 +1073,22 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                             if let Some(d) = threat {
                                 sim.agents[i].job = Job::PassBlock { target: Some(d) };
                             } else {
-                                // Help the nearest teammate's block.
+                                // Help the nearest teammate's block; the rusher
+                                // the plan slides to (A8) from farther, and
+                                // before anyone else.
+                                let star = sim.help_on;
                                 let help = sim
                                     .eng
                                     .iter()
                                     .enumerate()
                                     .filter(|(_, e)| !e.over && e.pass && e.helper.is_none())
-                                    .map(|(k, e)| (k, sim.agents[e.defender].pos.dist(me)))
-                                    .filter(|&(_, d)| d < 2.5)
-                                    .min_by(|a, b| a.1.total_cmp(&b.1));
+                                    .map(|(k, e)| {
+                                        let d = sim.agents[e.defender].pos.dist(me);
+                                        (k, d, Some(e.defender) == star)
+                                    })
+                                    .filter(|&(_, d, s)| d < if s { 4.5 } else { 2.5 })
+                                    .min_by(|a, b| b.2.cmp(&a.2).then(a.1.total_cmp(&b.1)))
+                                    .map(|(k, d, _)| (k, d));
                                 if let Some((k, d)) = help {
                                     if d < 1.4 {
                                         let def = sim.eng[k].defender;
@@ -1262,7 +1311,8 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 }
                 None => {
                     let touch = sim.agents[qb].a(Attr::Touch);
-                    catch_point(&mut sim, tgt, to, from, release, touch, s, &trail)
+                    let high = pass.as_ref().map_or((0.0, false), |ps| (ps.ball_h, ps.jump_ball));
+                    catch_point(&mut sim, tgt, to, from, release, touch, s, &trail, high)
                 }
             };
             res.target = Some(sim.agents[tgt].id);
@@ -1960,8 +2010,16 @@ fn assign_defense(
         if let Job::Man { target, .. } = sim.agents[i].job {
             let (d, r) = (&sim.agents[i], &sim.agents[target]);
             if d.pos.x - los < 2.0 {
-                let rel = 0.55 * r.a(Attr::Release) + 0.25 * r.a(Attr::Agility) + 0.2 * r.a(Attr::Strength);
-                let jam = 0.55 * d.a(Attr::Press) + 0.25 * d.a(Attr::Strength) + 0.2 * d.a(Attr::Agility);
+                // Dynamic Links at the line: Length lands the jam (or keeps
+                // the receiver's frame clean), Sudden slips it.
+                let rel = 0.55 * r.a(Attr::Release)
+                    + 0.25 * r.a(Attr::Agility)
+                    + 0.2 * r.a(Attr::Strength)
+                    + sim.link(target, &[Link::Sudden, Link::Length]);
+                let jam = 0.55 * d.a(Attr::Press)
+                    + 0.25 * d.a(Attr::Strength)
+                    + 0.2 * d.a(Attr::Agility)
+                    + sim.link(i, &[Link::Length, Link::Sudden]);
                 let x = rel - jam + 9.0 * gauss(sim.rng);
                 if x < -9.0 {
                     if let Job::Route { release_delay, .. } = &mut sim.agents[target].job {
@@ -2041,6 +2099,47 @@ fn pass_protection(sim: &mut Sim, off_n: usize) {
         }
     }
 }
+
+/// Help on their best rusher (A8): when the plan names him and he rushes,
+/// the protection slides his way, so a lineman with no man of his own (or
+/// a back or tight end kept in) doubles him, and a back releasing on his
+/// side chips him on the way out. Real coaches do this every week against
+/// a dominant rusher; it frees others to win their one-on-ones.
+fn slide_to(sim: &mut Sim, s: &Snap, off_n: usize) {
+    let Some(star) = s.tac.help_on.and_then(|p| (off_n..sim.agents.len()).find(|&k| sim.agents[k].p == p)) else {
+        return;
+    };
+    if !matches!(sim.agents[star].job, Job::Rush { .. }) {
+        return;
+    }
+    sim.help_on = Some(star);
+    let sy = sim.agents[star].pos.y;
+    // A spare blocker on his side moves toward him at the snap.
+    let spare = (0..off_n)
+        .filter(|&i| matches!(sim.agents[i].job, Job::PassBlock { target: None }) && !sim.agents[i].bust)
+        .min_by(|&a, &b| (sim.agents[a].pos.y - sy).abs().total_cmp(&(sim.agents[b].pos.y - sy).abs()));
+    if spare.is_none() {
+        // No spare man: a back or tight end releasing on his side chips him
+        // first (a beat later into his route).
+        if let Some(b) = (0..off_n)
+            .filter(|&i| {
+                matches!(sim.agents[i].label, "RB" | "FB" | "TE")
+                    && matches!(sim.agents[i].job, Job::Route { .. })
+                    && (sim.agents[i].pos.y - sy).abs() < 5.0
+            })
+            .min_by(|&a, &b| (sim.agents[a].pos.y - sy).abs().total_cmp(&(sim.agents[b].pos.y - sy).abs()))
+            && let Job::Route { release_delay, .. } = &mut sim.agents[b].job
+        {
+            *release_delay += CHIP_TIME;
+            sim.chip = Some((b, star));
+        }
+    }
+}
+
+/// How long a chip holds a back or tight end before he releases, and how
+/// much ground it costs the rusher in his block (block-win units).
+const CHIP_TIME: f64 = 0.6;
+const CHIP_W: f64 = 0.25;
 
 /// A stunt against the protection (topic 4.9): the blocker whose man
 /// leaves takes the looper, and his neighbour takes the penetrator. A line
@@ -2252,6 +2351,26 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
     let Job::Route { ref pts, next, settle, release_delay, .. } = sim.agents[i].job else { return };
     let n_pts = pts.len();
     if t < release_delay {
+        // The chip (A8): he hits the rusher the plan slides to on his way
+        // out, knocking him off his path, then releases.
+        if let Some((b, d)) = sim.chip
+            && b == i
+        {
+            let dp = sim.agents[d].pos;
+            if sim.agents[i].pos.dist(dp) < 1.3 {
+                if let Some(k) = sim.agents[d].engaged {
+                    sim.eng[k].w -= CHIP_W * clamp(0.6 + sim.agents[i].a(Attr::PassBlocking) / 150.0, 0.6, 1.3);
+                }
+                sim.agents[d].vel = sim.agents[d].vel.scale(0.5);
+                sim.chip = None;
+                if let Job::Route { release_delay, .. } = &mut sim.agents[i].job {
+                    *release_delay = t + 0.15;
+                }
+            } else {
+                sim.go_to(i, dp, 1.0);
+            }
+            return;
+        }
         // A back checks for blitzers before he releases.
         if let Some(r) = blitz_threat(sim, i, qb) {
             sim.agents[i].job = Job::PassBlock { target: Some(r) };
@@ -2734,7 +2853,7 @@ fn quarterback(
         ps.read_since = t;
     }
     let decide = sim.agents[qb].a(Attr::Decisions);
-    let poise = sim.agents[qb].a(Attr::Composure);
+    let poise = sim.level_read(qb, Attr::Composure);
     // His internal clock (topic 1): even in a clean pocket he gets the ball
     // out by a little over three seconds, to the checkdown if nothing else.
     // A quick mind gets rid of it sooner; a slow one hangs on, as lower
@@ -2789,7 +2908,10 @@ fn quarterback(
             READ_NEED + caution - 0.18 * tired.max(0.0) - 0.44 * panic + if ps.read == 0 { 0.1 } else { 0.0 },
         )
     };
-    let noise = (1.6 - 0.017 * pro(iq)).max(0.2) * (1.0 + 0.6 * panic) * (1.0 - 0.15 * (s.tac.pre_read - PRE_READ))
+    // Pocket frame (Dynamic Links): seeing over the line, a read about as
+    // clean as five football IQ points give.
+    let iq_seen = iq + sim.link(qb, &[Link::PocketFrame]);
+    let noise = (1.6 - 0.017 * pro(iq_seen)).max(0.2) * (1.0 + 0.6 * panic) * (1.0 - 0.15 * (s.tac.pre_read - PRE_READ))
         + if s.tac.fooled { 0.2 } else { 0.0 };
     let mut best: Option<(usize, f64, V2, f64)> = None;
     for &r in if screen { &[][..] } else { &cand[..] } {
@@ -2802,7 +2924,10 @@ fn quarterback(
             continue;
         }
         let (w, p, flight) = window(sim, qb, r);
-        let seen = w + noise * gauss(sim.rng);
+        // A covered big receiver can still be open up high (D2): a jump
+        // ball or a back-shoulder throw where only he can reach it.
+        let size = size_window(sim, qb, r, p, w, s);
+        let seen = w + size + noise * gauss(sim.rng);
         // A deep ball needs less room: an incompletion there costs a down,
         // but a catch is worth a chunk, so real quarterbacks give their man
         // a chance at a contested ball far more readily than underneath.
@@ -2820,6 +2945,9 @@ fn quarterback(
         if seen > need && best.is_none_or(|b| seen_pref > b.1) {
             best = Some((r, seen_pref, p, flight));
             ps.why = if over { 4 } else { ps.read.min(3) };
+            // Thrown up high only because of the size: he puts it where
+            // only his man can get it.
+            ps.jump_r = (size > 0.0 && seen - size <= need).then_some(r);
         }
     }
     if screen {
@@ -3052,6 +3180,65 @@ fn window(sim: &Sim, qb: usize, r: usize) -> (f64, V2, f64) {
     (w.min(8.0), p, flight)
 }
 
+/// His highest reach at the catch point, inches off the ground (D1): his
+/// standing reach (shoulder height plus arm length, the shoulder raised)
+/// plus the jump he has left. His vertical is the combine's read of his
+/// jumping and burst for his weight; running full speed costs about a third
+/// of it (he can't gather), and a man who can't see the ball can't time it.
+/// Highpointer adds the timing at the top (five jumping points).
+pub(crate) fn high_reach(sim: &Sim, i: usize, sees_ball: bool) -> f64 {
+    let gp = sim.player(i);
+    let a = &sim.agents[i];
+    let standing = 0.82 * gp.height + gp.arm + 4.0;
+    let burst = a.a(Attr::Jumping).max(0.95 * a.a(Attr::Acceleration));
+    let vert = (20.9 + 0.182 * (burst + gp.links.edge(&[Link::Highpointer])) - 0.035 * (gp.weight - 220.0)).max(8.0);
+    let pace = clamp(a.vel.len() / a.vmax0.max(a.vmax).max(1.0), 0.0, 1.0);
+    standing + vert * (1.0 - 0.35 * pace * pace) * if sees_ball { 1.0 } else { 0.6 }
+}
+
+/// A size mismatch the quarterback sees (D2): his covered receiver is
+/// still open up high, for a jump ball or a back-shoulder throw, when he
+/// reaches clearly higher than the man on him. Only on the throws a ball
+/// can be put up on: down the field on vertical and breaking routes, and
+/// anything but the flat in the red zone. It counts as extra room, about
+/// 0.07 of a yard per inch of reach past two, for a quarterback who reads
+/// it (football IQ and decisions) and trusts his man's hands (contested
+/// catches). Returns the yards of room it is worth to him.
+fn size_window(sim: &Sim, qb: usize, r: usize, p: V2, w: f64, s: &Snap) -> f64 {
+    if !(-2.5..1.6).contains(&w) {
+        return 0.0;
+    }
+    let Job::Route { name, .. } = sim.agents[r].job else { return 0.0 };
+    let depth = (p.x - s.los) * sim.goal;
+    let red_zone = s.los + depth >= 88.0;
+    let vertical = matches!(name, "go" | "fade" | "seam" | "post" | "corner" | "wheel" | "comeback" | "out" | "dig");
+    let short_stuff = matches!(name, "flat" | "swing" | "check-release" | "screen" | "bubble" | "drag");
+    if short_stuff || !(vertical && depth >= 8.0 || red_zone && depth >= 2.0) {
+        return 0.0;
+    }
+    // The man on him: the nearest defender to the spot.
+    let Some(d) = (0..sim.agents.len())
+        .filter(|&d| sim.agents[d].side == 1 && sim.agents[d].up(sim.t))
+        .min_by(|&a, &b| sim.agents[a].pos.dist(p).total_cmp(&sim.agents[b].pos.dist(p)))
+    else {
+        return 0.0;
+    };
+    if sim.agents[d].pos.dist(p) > 3.0 {
+        return 0.0;
+    }
+    // A trailing defender with his back to the throw can't time his jump:
+    // the back-shoulder throw.
+    let sees = sim.agents[d].face.dot((sim.agents[qb].pos - sim.agents[d].pos).norm()) > 0.0;
+    let adv = high_reach(sim, r, true) - high_reach(sim, d, sees);
+    if adv <= 2.0 {
+        return 0.0;
+    }
+    let q = &sim.agents[qb];
+    let sense = clamp(0.6 + 0.01 * (0.5 * q.a(Attr::FootballIq) + 0.5 * q.a(Attr::Decisions) - 50.0), 0.4, 1.2);
+    let hands = clamp(0.6 + sim.agents[r].a(Attr::ContestedCatch) / 150.0, 0.6, 1.3);
+    (0.07 * (adv - 2.0)).min(1.2) * sense * hands
+}
+
 /// Where a receiver will be: the quarterback knows his route and how his
 /// man runs it, so he plays the route forward with the receiver's own
 /// speed, acceleration and cutting. The route is played forward once and
@@ -3167,12 +3354,12 @@ fn throw(
     // wide-open quick outs sailed out of bounds).
     target.y = clamp(target.y, 1.5, WIDTH - 1.5);
     let moving = sim.agents[qb].vel.len() > 3.0;
-    let poise = sim.agents[qb].a(Attr::Composure);
+    let poise = sim.level_read(qb, Attr::Composure);
     // Error grows gently as accuracy falls: real completion rates drop only a
     // few points from the NFL to college and high school, where receivers
     // and coverage are just as far behind (proposed, not confirmed).
     let down = ((target.x - q.x) * sim.goal).max(0.0);
-    let mut sd = aim_sd(acc, dist, down);
+    let mut sd = aim_sd(acc, dist, down) * if sim.level == crate::player::Level::HS { knob("K_SD", 1.0) } else { 1.0 };
     // Pressure in his face throws him off: completions under pressure ran
     // 53% in the NFL against 49% real, so the effect is about two thirds
     // stronger than it was (proposed, not confirmed).
@@ -3190,6 +3377,9 @@ fn throw(
     sd *= 1.0 + 0.08 * s.cond.cold_unused;
     let consistency = sim.player(qb).traits.consistency;
     sd *= 1.15 - 0.015 * consistency;
+    if knob("K_DIAG", 0.0) > 0.0 {
+        eprintln!("DIAG base {:.3} sd {:.3} acc {:.1} press {:.2} moving {} poise {:.1} dist {:.1}", aim_sd(acc, dist, down), sd, acc, pressure, moving as u8, poise, dist);
+    }
     let along = (target - q).norm();
     let across = along.perp();
     // Depth is judged less well the farther downfield (the miss grows along
@@ -3236,6 +3426,19 @@ fn throw(
         qb_why(ps.why, s.dcall.coverage);
     }
     let height = if ps.batted.is_some() { 4.0 } else { 2.0 + 0.08 * dist };
+    // How high it arrives (D1): a jump ball is put up where only his man
+    // reaches, just under his high point, and misses high or low with the
+    // placement; a long ball comes down over his head; the rest come in at
+    // the chest.
+    ps.jump_ball = ps.jump_r == Some(r) && ps.batted.is_none();
+    let rec_h = sim.player(r).height;
+    ps.ball_h = if ps.jump_ball {
+        high_reach(sim, r, true) - 4.0 + (2.0 + 6.0 * sd).min(9.0) * gauss(sim.rng)
+    } else if down >= 20.0 && flight > 1.2 {
+        0.95 * rec_h + 6.0
+    } else {
+        0.72 * rec_h
+    };
     sim.ball = Ball::Air { from: q, to, release: t, arrive, target: Some(r), height };
     // The defense reacts to the throw (topic 2.1): those watching the
     // quarterback see it at once; a man with his back turned reacts when the
@@ -3302,8 +3505,11 @@ fn throw(
 fn batter(sim: &mut Sim, qb: usize, along: V2, dist: f64) -> Option<usize> {
     let q = sim.agents[qb].pos;
     let t = sim.t;
+    // Pocket frame (Dynamic Links): a big quarterback's high release, about
+    // what five quick-release points save.
     let passer = clamp(
-        1.0 - 0.06 * (sim.player(qb).height - 75.0) - 0.008 * (sim.agents[qb].a(Attr::QuickRelease) - 60.0),
+        1.0 - 0.06 * (sim.player(qb).height - 75.0)
+            - 0.008 * (sim.agents[qb].a(Attr::QuickRelease) + sim.link(qb, &[Link::PocketFrame]) - 60.0),
         0.4,
         1.8,
     );
@@ -3324,7 +3530,8 @@ fn batter(sim: &mut Sim, qb: usize, along: V2, dist: f64) -> Option<usize> {
             1.0 + 0.015 * (a.a(Attr::Jumping) - 60.0)
                 + 0.08 * (gp.arm - 33.5)
                 + 0.06 * (gp.height - 75.0)
-                + 0.01 * (a.a(Attr::Anticipation) - 60.0),
+                + 0.01 * (a.a(Attr::Anticipation) - 60.0)
+                + 0.015 * sim.link(d, &[Link::Length]),
             0.3,
             2.0,
         );
@@ -3337,6 +3544,15 @@ fn batter(sim: &mut Sim, qb: usize, along: V2, dist: f64) -> Option<usize> {
     }
     None
 }
+
+/// Feeding the best receiver (A9): the chance his first look goes to the
+/// best receiver in the progression when he isn't already first, by how
+/// much better he is (rating points). Real top receivers draw 25-30% of
+/// their team's targets; the engine gave the best one too few (Claude's
+/// pick, set by `match_check`).
+const FEED_BASE: f64 = 0.1;
+const FEED_PER_POINT: f64 = 0.02;
+const FEED_MAX: f64 = 0.55;
 
 /// The base chance a lineman square in the lane bats the ball.
 const BAT: f64 = 0.17;
@@ -3412,8 +3628,13 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
     let grabbing = sim.agents[d].engaged.is_some();
     // Escape: a mobile, strong quarterback slips some.
     let (q, r) = (&sim.agents[qb], &sim.agents[d]);
-    let esc = 0.4 * q.a(Attr::Elusiveness) + 0.3 * q.a(Attr::Agility) + 0.3 * q.a(Attr::Strength);
-    let tk = 0.6 * r.a(Attr::Tackling) + 0.2 * r.a(Attr::Strength) + 0.2 * r.a(Attr::Agility);
+    // Dynamic Links: Pocket frame shrugs off the arm tackle; Length wraps
+    // him up from farther.
+    let esc = 0.4 * q.a(Attr::Elusiveness)
+        + 0.3 * q.a(Attr::Agility)
+        + 0.3 * q.a(Attr::Strength)
+        + if grabbing { sim.link(qb, &[Link::PocketFrame]) } else { 0.0 };
+    let tk = 0.6 * r.a(Attr::Tackling) + 0.2 * r.a(Attr::Strength) + 0.2 * r.a(Attr::Agility) + sim.link(d, &[Link::Length]);
     let seen = sim.sees(qb, r.pos);
     let logit = -2.4 + (esc - tk) / 12.0 + if seen { 0.0 } else { -1.0 } + if grabbing { 1.2 } else { 0.0 };
     if sim.rng.chance(1.0 / (1.0 + (-logit).exp())) {
@@ -4086,7 +4307,9 @@ fn catch_point(
     touch: f64,
     s: &Snap,
     trail: &[Vec<V2>],
+    high: (f64, bool),
 ) -> Catch {
+    let (ball_h, jump_ball) = high;
     // Through the lane: a short, flat ball passes defenders on its way. One
     // with his eyes on the quarterback can get a hand to it, and now and
     // then he catches it (undercut routes, tipped balls).
@@ -4136,6 +4359,8 @@ fn catch_point(
         + 0.004 * (ra.a(Attr::Jumping) - 50.0)
         + 0.02 * (gp_arm - 32.0)
         + 0.0015 * (ra.a(Attr::BodyControl) - 60.0);
+    // His high point (D1): a ball put over his reach sails past him.
+    let rec_reach = high_reach(sim, r, true);
     // Nearest defender to the ball.
     let mut dd = f64::INFINITY;
     let mut dbest = None;
@@ -4171,7 +4396,11 @@ fn catch_point(
     let reach = 1.3 + 0.4 * (dd - 1.5).clamp(0.0, 4.0);
     // Past the end line is out of bounds too (it used to be caught there,
     // and red zone passes went for touchdowns half again as often as real).
-    if to.y < -0.5 || to.y > WIDTH + 0.5 || to.x > END_LINE + 0.5 || dr > radius + reach {
+    if knob("K_DIAG", 0.0) > 0.0 {
+        eprintln!("CATCH dr {:.3} radius {:.3} reach {:.3} dd {:.2} vel {:.2} vmax {:.2}", dr, radius, reach, dd, ra.vel.len(), ra.vmax);
+    }
+    let over_him = jump_ball && ball_h > rec_reach + 2.0;
+    if to.y < -0.5 || to.y > WIDTH + 0.5 || to.x > END_LINE + 0.5 || dr > radius + reach || over_him {
         // Off target. A defender in the way may still pick it.
         if let Some(d) = dbest {
             let da = &sim.agents[d];
@@ -4183,6 +4412,7 @@ fn catch_point(
         return Catch::Incomplete { drop: false, pbu: None, sep };
     }
     // Contest at the catch point.
+    let (mut va_all, mut hp_r_all) = (0.0, 0.0);
     if let Some(d) = dbest {
         let da = sim.agents[d].clone();
         let reacted = sim.t >= da.ball_react;
@@ -4190,10 +4420,30 @@ fn catch_point(
         // point at speed, square to the ball: more reach, and a real chance
         // to pick it (proposed, not confirmed).
         let broke = sim.notes.tend.jump == Some((da.id, true));
+        // His reach to the ball: height, jump and arms (D1: the arms were
+        // left out, so a long corner played like a short-armed one).
         let d_reach = 1.05
             + 0.012 * (sim.player(d).height - 72.0)
             + 0.004 * (da.a(Attr::Jumping) - 50.0)
+            + 0.02 * (sim.player(d).arm - 31.5)
             + if broke { 0.6 } else { 0.0 };
+        // Size at the catch point (D1): each man's highest reach is his
+        // standing reach plus the jump he has left at his speed, against
+        // how high the ball arrives. On a ball at the chest it hardly
+        // matters; on a ball up high the longer man wins it more often,
+        // and a ball over the defender's reach is one he can't play.
+        let sees_ball = da.face.dot((from - da.pos).norm()) > 0.0;
+        let def_reach = high_reach(sim, d, sees_ball || broke);
+        let up_high = clamp((ball_h - 72.0) / 30.0, 0.0, 1.0);
+        let va = clamp((rec_reach - def_reach) / 10.0, -1.5, 1.5) * up_high;
+        let over_def = ball_h > def_reach + 2.0;
+        // Highpointer on both sides: the timing at the top (five contested
+        // catch points, only on a ball up high).
+        let hp_d = sim.player(d).links.edge(&[Link::Highpointer]) * up_high;
+        let hp_r = sim.player(r).links.edge(&[Link::Highpointer]) * up_high;
+        let size_on_def = (-0.5 * va).exp() * if over_def { 0.3 } else { 1.0 };
+        va_all = va;
+        hp_r_all = hp_r;
         if dd < d_reach && reacted {
             let cov = da.a(Attr::ManCoverage).max(da.a(Attr::ZoneCoverage));
             let closeness = 1.0 - dd / d_reach;
@@ -4201,12 +4451,12 @@ fn catch_point(
             if dd < dr - 0.15 {
                 // Playing the ball: a facing defender has a real chance; one
                 // trailing with his back turned mostly plays through the hands.
-                let sees_ball = da.face.dot((from - da.pos).norm()) > 0.0;
                 let p_int = clamp(
                     0.22 * closeness
                         * (0.45 + da.a(Attr::Catching) / 110.0)
                         * if sees_ball || broke { 1.0 } else { 0.45 }
-                        * if broke { 3.5 } else { 1.0 },
+                        * if broke { 3.5 } else { 1.0 }
+                        * size_on_def,
                     0.0,
                     0.7,
                 );
@@ -4221,8 +4471,9 @@ fn catch_point(
                 closeness
                     * (0.42
                         + 0.004 * (cov - 60.0)
-                        + 0.003 * (da.a(Attr::ContestedCatch) - 60.0)
-                        + 0.003 * (da.a(Attr::Jumping) - 60.0)),
+                        + 0.003 * (da.a(Attr::ContestedCatch) + hp_d - 60.0)
+                        + 0.003 * (da.a(Attr::Jumping) - 60.0))
+                    * size_on_def,
                 0.0,
                 0.75,
             );
@@ -4249,13 +4500,21 @@ fn catch_point(
     // confirmed.)
     // Body control keeps a ball away from his frame in his hands.
     if reach > 0.9 {
-        let adjust = clamp(1.0 - 0.005 * (ra.a(Attr::BodyControl) - 60.0), 0.75, 1.25);
+        // Length (Dynamic Links): the catch window, five body control
+        // points on a ball away from his frame.
+        let bc = ra.a(Attr::BodyControl) + sim.player(r).links.edge(&[Link::Length]);
+        let adjust = clamp(1.0 - 0.005 * (bc - 60.0), 0.75, 1.25);
         p *= 1.0 - 0.6 * adjust * clamp((reach - 0.9) / 1.6, 0.0, 1.0);
     }
     // Catching in a crowd is its own skill: contested catches, with the
     // strength and jump to win the ball.
     if dd < 1.4 {
-        let fight = 0.5 * ra.a(Attr::ContestedCatch) + 0.25 * ra.a(Attr::Strength) + 0.25 * ra.a(Attr::Jumping);
+        // The size edge at the top (D1) counts like eighteen points of the
+        // fight per ten inches of reach, on a ball up high.
+        let fight = 0.5 * (ra.a(Attr::ContestedCatch) + hp_r_all)
+            + 0.25 * ra.a(Attr::Strength)
+            + 0.25 * ra.a(Attr::Jumping)
+            + 18.0 * va_all;
         p *= 1.0 - 0.32 * (1.0 - dd / 1.4) * (1.25 - fight / 100.0);
         // Over the middle with a hitter arriving, one who avoids contact
         // short-arms it (tendencies: contact willingness).

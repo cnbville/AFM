@@ -1501,7 +1501,17 @@ struct Recruit {
     gpa: f64,
     juco_mover: bool,
     viral: bool,
+    /// His physical gifts as measured (Dynamic Links, D3), in full links.
+    #[serde(default)]
+    gift: f64,
 }
+
+/// What a full link is worth to a college staff, in film standard
+/// deviations (D3; real staffs offer the freak before the services rank
+/// him: about half a standard deviation for one full link, Claude's pick).
+const STAFF_GIFT: f64 = 0.5;
+/// What the services give the same gift, once they have seen him test.
+const SERVICE_GIFT: f64 = 0.15;
 
 /// Out-of-state offers a junior college makes in a year (proposed, not confirmed).
 const JUCO_OUT_OF_STATE_OFFERS: usize = 15;
@@ -3253,7 +3263,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 0.0,
                 1.0,
             );
-            Recruit { person: i, film, projection: 0.0, visibility, gpa: p.bg.gpa, juco_mover, viral: went_viral }
+            let gift = crate::links::gift(&crate::links::links_of(&p.player));
+            Recruit { person: i, film, projection: 0.0, visibility, gpa: p.bg.gpa, juco_mover, viral: went_viral, gift }
         })
         .collect();
     pool.extend(recruits);
@@ -3310,7 +3321,13 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     let rate_now = matches!(stage, SignStage::Summer(_)) || rating;
     if rate_now {
         let mut by_star: Vec<usize> = seniors.clone();
-        let star_score = |r: &Recruit| 0.25 * r.film + 0.75 * r.projection - 12.0 * (1.0 - r.visibility).powi(2);
+        // The services rank mostly from film and their projection; they
+        // see a kid's measurables only once he has tested at their camps,
+        // so they fall behind on a physical freak (D3).
+        let star_score = |r: &Recruit| {
+            0.25 * r.film + 0.75 * r.projection - 12.0 * (1.0 - r.visibility).powi(2)
+                + SERVICE_GIFT * all_mean_sd.1 * r.gift * r.visibility
+        };
         by_star.sort_by(|&a, &b| star_score(&pool[b]).total_cmp(&star_score(&pool[a])));
         let specialist: Vec<bool> =
             by_star.iter().map(|&k| w.people[pool[k].person].player.position.is_specialist()).collect();
@@ -3433,6 +3450,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         grows_out: bool,
         film: f64,
         proj: f64,
+        gift: f64,
         id: u64,
         pos: Position,
         juco_mover: bool,
@@ -3470,6 +3488,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 },
                 film: r.film,
                 proj: r.projection,
+                gift: r.gift,
                 id: p.player.id as u64,
                 pos: p.player.position,
                 juco_mover: r.juco_mover,
@@ -3578,6 +3597,13 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 // confirmed).
                 let mut eval = 0.6 * (c.film + read(1)) + 0.4 * (c.proj + read(2));
                 eval += FIT_EVAL * all_mean_sd.1 * super::systems::fit_to(&c.fit, c.pos, &prog.installed);
+                // Traits that can't be coached (D3): a staff that has seen
+                // him test (its own camp, a visit, his tape's numbers) pays
+                // for size, length, speed and burst, as real staffs do
+                // first. A staff with a better eye for athletes sees it
+                // truer; it is why a 2-star freak draws an SEC offer before
+                // his stars catch up.
+                eval += STAFF_GIFT * all_mean_sd.1 * c.gift * clamp(0.6 + 0.04 * (pe - 10.0), 0.3, 1.0);
                 // A borderline student can lose his eligibility in college. Strong
                 // academic support takes that risk more easily, and so does a
                 // coach who has to win now.
