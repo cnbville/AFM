@@ -1,1 +1,179 @@
-# The line bank: press (people topic 5; format in src/world/folk/voice.rs).
+# The line bank: press (people topic 9; format in src/world/folk/voice.rs).
+
+# ---------------------------------------------------------------------------
+# Reporters' questions (folk/press.rs). The asker may have no tags at all, so
+# most versions are untagged. {score} is your score first, so it reads oddly
+# after a loss: used once. {player} in a battle question can be the wrong
+# man (it's set by trouble, injury or the key player), so battle never uses it.
+
+@key press.q.vision
+Coach, welcome to {town}. What should {team} fans expect in year one?
+You've been on the job about forty-eight hours. What's the first thing you want to change?
+What does a {team} team look like under you? Offense, defense, the whole picture.
+This team went {last_record} last year. Is this a rebuild, or do you expect to win right away?
+What sold you on this job?
+How long does it take to build what you want to build here? Be honest.
+Are you going to call your own plays?
+Have you started putting a staff together? Is anybody from the old staff staying?
+What does a successful first season look like? Is there a number?
+You're going to get asked about {rival} a lot. Have you circled that one yet?
+Fans here have heard a lot of promises. Why should they believe this time is different? ~ blunt
+What's your timeline? Because people around here don't tend to be patient. ~ blunt
+I've covered this program for a long time. What do you know about it that the last few guys didn't? ~ old
+What did the administration tell you they expect? ~ college
+How are you going to approach the portal and NIL in your first year? ~ college nil
+What did ownership tell you they expect, and how soon? ~ nfl
+Do you have final say on the 53, or does that sit with the general manager? ~ nfl
+What do you want the people of {town} to know about you? ~ hs
+Friday nights are a big deal in {town}. What kind of team are people going to see? ~ hs
+
+@key press.q.oldcoach
+How do you follow what {old} built here?
+{old} is still well thought of in this town. Have you talked to him?
+What's your relationship with {old}, if you have one?
+Some of {old_last}'s players were very loyal to him. How do you win that locker room over?
+Are you keeping anything {old_last} did, or is it a clean slate?
+{old_last} won a lot of games here. Is that a shadow or a standard?
+How much of {old_last}'s staff are you keeping, and how did you decide?
+{old_last} ran a very different system. How long does the changeover take?
+The last staff recruited this roster. How much of it fits what you want to do?
+Does it help or hurt, following {old}?
+There were a lot of questions about how things ended for {old_last}. Did any of that give you pause? ~ blunt
+What did {old_last} get wrong? ~ blunt
+Have you sat down with {old_last} yet? A lot of people in this town played for him. ~ hs
+
+@key press.q.battle
+Where does the quarterback competition stand?
+Is there a timeline for naming a starter at quarterback?
+Are you leaning one way at quarterback, or is it truly fifty-fifty?
+Would you consider playing two quarterbacks?
+What separates the two quarterbacks right now?
+How are you splitting the first-team reps at quarterback?
+What do you need to see to make a decision at quarterback?
+Does it hurt the offense not to have one guy taking all the reps?
+Will you announce a starter, or are we finding out at kickoff?
+Will you name a quarterback before the opener?
+Do the players know who the starting quarterback is, even if we don't? ~ blunt
+Is it a problem that you haven't named a quarterback yet? ~ impatient
+Is the starting job really open, or is this a camp competition for the cameras? ~ nfl
+If you name a starter, are you worried about losing the other guy to the portal? ~ college nil
+
+@key press.q.lastgame
+Walk us through the {result} against {opp}.
+Your first thoughts on the {opp} game?
+What's your biggest takeaway from {opp}?
+How do you evaluate the {result}?
+Where did the game turn, in your view?
+How did the offensive line hold up against the {opp} front?
+What did you tell the team in the locker room after the {result}?
+How much of the {result} was scheme, and how much was execution?
+Any calls against {opp} you'd like to have back?
+Two-part question. What went right against {opp}, and what's going to keep you up at night?
+How would you grade the effort against {opp}?
+Was the {result} more about your team or more about {opp}?
+It finished {score}. Did that reflect the game you saw?
+What did you see from the defense that you liked, and what didn't you like? ~ patient
+I'll just ask it. Was that good enough? ~ blunt
+What did you tell the kids after the {result} Friday? ~ hs
+
+@key press.q.injury
+What's the latest on {player}?
+Any update on {player}? Is he going to be available this week?
+Is {player} going to practice this week?
+How long are you going to be without {player}?
+Can you characterize {player}'s injury at all?
+Is {player} day to day, or is it more than that?
+Does {player} need surgery?
+Who steps in for {player} if he can't go?
+How did the team react when {player} went down?
+Any injury updates you can give us?
+How's the health of this team going into the week?
+Is {player} trending toward Sunday? ~ nfl
+Are you considering putting {player} on IR? ~ nfl
+What will {player}'s status be on the injury report this week? ~ nfl
+Is {player} going to be ready for Friday, Coach? ~ hs
+
+@key press.q.rival
+What does {rivalry} mean to you, now that you're on this side of it?
+Do you prepare differently for {rival} week?
+The series is {series}. How much do you talk about that history with the players?
+How much are you leaning on the guys who've played in this game before?
+Have you heard from the fans about {rival} yet? What are they telling you?
+Is beating {rival} the measure of a season here?
+Are you careful what you say this week, knowing it could end up on a bulletin board across the way?
+Some coaches say it's just another game. Is {rivalry} just another game?
+What do you know about {rivalry} now that you didn't know when you took this job?
+Have the older guys told the young ones what this game is like?
+How much do you want this one, personally?
+Does what's happened in this series lately change how you prepare?
+It's a division game. How much does that change the week? ~ nfl
+The whole town is going to be there Friday. How do you keep the kids from getting too high? ~ hs
+
+@key press.q.hotseat
+You're {record}. Are you worried about your job?
+At {record}, what do you say to the fans calling for a change?
+Do you still have the locker room?
+How do you keep the players believing at {record}?
+Is this the toughest stretch of your career?
+Are you considering any staff changes in-season?
+There's a lot of noise out there about your future. Do you hear it?
+Have you thought about giving up play-calling duties?
+Have you talked to your boss about where things stand?
+Do you believe you're still the right person for this job? ~ blunt
+Is {record} on the players or on the coaching? ~ blunt
+Talk radio's been rough on you this week. Does that reach the building?
+There's a lot on social media about your job status. Do the players see that? ~ modern
+Have you spoken with the athletic director this week? ~ college
+What's the message to recruits watching a {record} season? ~ college
+Has ownership given you any vote of confidence? ~ nfl
+Folks in {town} are talking, Coach. What do you say to them? ~ hs
+
+@key press.q.trouble
+Can you address the situation with {player}?
+What is {player}'s status with the team right now?
+Is {player} suspended?
+When did you learn about what happened with {player}?
+Will {player} play this week?
+Does {player} have a future here?
+What are the facts as you understand them with {player}?
+Is there anything you can tell us about the charges against {player}?
+What do you say to people who think you're protecting {player}?
+How does something like this happen on a team with your rules?
+Have you spoken with {player} since the arrest?
+Is this a pattern with {player}, or a one-time thing? ~ blunt
+Is the university handling {player}'s case, or are you? ~ college
+Has the league reached out to you about {player}? ~ nfl
+Has {player} been in school this week? ~ hs
+
+@key press.q.recruiting
+How do you plan to recruit this state?
+The best players in this state have been leaving for years. How do you keep them home?
+Have you been on the phone with the high school coaches yet?
+What's the recruiting footprint going to look like? In-state first, or national?
+You've got a short window before signing day. Can you hold this class together?
+Some of the commits are wavering after the coaching change. Have you talked to them?
+Are you keeping anybody on staff for their recruiting ties?
+Will you go to the junior college ranks to fill holes early?
+Do you have the facilities to win recruiting battles, or is that a conversation with your boss?
+Is there a high school in {town} you're going to be spending a lot of time at?
+What do you tell a kid who grew up dreaming about playing somewhere else?
+The recruiting sites had last year's class near the bottom of the league. Does that matter to you? ~ !pre2000
+How much of this roster is going to come from the portal, and how much from high school? ~ nil
+How does NIL factor into your pitch here? ~ nil
+With revenue sharing, can this school compete with the big budgets for top recruits? ~ nil blunt
+
+@key press.q.player
+What have you seen from {player} this week?
+How has {player} handled the attention lately?
+Is {player} playing his best football right now?
+What's {player} doing in practice that we don't see on game day?
+How do you keep {player} from getting complacent?
+Is {player} a leader in that locker room?
+What does {player} still need to improve on?
+Where does {player} rank among the players you've coached?
+Has {player} earned more on his plate this week?
+What's one thing {player} does that doesn't show up in the box score?
+Did {player}'s week of practice look any different from last week?
+Is {player} a first-round talent? ~ college
+There's talk about {player}'s contract. Is that a distraction? ~ nfl
+Colleges are starting to come through for {player}. How's he handling recruiting? ~ hs

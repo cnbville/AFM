@@ -514,7 +514,11 @@ pub fn stopped(w: &World, from: Date, at: Date) -> Value {
         let g = &games[k];
         json!({ "index": k, "text": format!("{} {} at {} {}", g.names[1], g.stats.score[1], g.names[0], g.stats.score[0]) })
     });
-    json!({ "from": date_text(from), "days": from.days_to(w.today), "stopped_on": date_text(at), "morning": morning.is_some(), "today": date_text(w.today), "why": why, "game": game, "status": status(w) })
+    // A meeting waiting this morning (people): the screens open it.
+    let meeting = morning.as_ref().and_then(|_| {
+        w.folk.scenes.iter().filter(|s| !s.done && s.stops && s.date == at).map(|s| s.id).min()
+    });
+    json!({ "from": date_text(from), "days": from.days_to(w.today), "stopped_on": date_text(at), "morning": morning.is_some(), "today": date_text(w.today), "why": why, "game": game, "meeting": meeting, "status": status(w) })
 }
 
 pub fn home(w: &World) -> Value {

@@ -24,8 +24,9 @@ use serde_json::{Value, json};
 use crate::views::date_text;
 use crate::{Game, Reply};
 
-const COMMANDS: [&str; 26] = [
+const COMMANDS: [&str; 27] = [
     "people_agenda",
+    "people_expect",
     "people_scene",
     "people_answer",
     "people_hand",
@@ -66,6 +67,15 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             let code = num(args, "code")? as u32;
             folk::scene::answer(w, id, code)?;
             scene(w, id)
+        })(),
+        "people_expect" => (|| {
+            let id = num(args, "id")? as u32;
+            let code = num(args, "code")? as u32;
+            let s = w.folk.scenes.iter().find(|s| s.id == id).ok_or("No such meeting.")?;
+            Ok(match talks::expect(w, s, code) {
+                Some((what, sure, who)) => json!({ "what": what, "sure": sure, "who": who }),
+                None => Value::Null,
+            })
         })(),
         "people_hand" => (|| {
             let id = num(args, "id")? as u32;
@@ -428,6 +438,26 @@ fn player(w: &World, id: u32) -> Reply {
         .collect();
     let (_, worry) = talks::concern(w, i);
     let trust = (Some(p.trust_in) == you).then_some(p.trust);
+    // In his ear (screens topic 8): who he listens to, each with how sure
+    // your staff is about it.
+    let mut ear: Vec<Value> = Vec::new();
+    for (o, words) in ties::of(w, id) {
+        if let Some(j) = folk::person(w, o) {
+            let sure = if words.starts_with("very close") || words == "family" || words.contains("mentor") { "Sure" } else { "Likely" };
+            ear.push(json!({ "who": folk::player_link(w, j), "what": cap(&words), "sure": sure }));
+        }
+    }
+    let parent = talks::parent_word(w, i);
+    let style = talks::parent_voice(w, i);
+    if p.stage != afm_engine::world::Stage::Pro || p.player.age < 25 {
+        ear.push(json!({ "who": cap(parent), "what": style.0, "sure": style.1 }));
+    }
+    if p.pro.as_ref().is_some_and(|c| c.agent.is_some()) {
+        ear.push(json!({ "who": "His agent", "what": "Talks to him about his next deal more than you do", "sure": "Sure" }));
+    }
+    if p.stage == afm_engine::world::Stage::College && p.cal.lean > 0.25 {
+        ear.push(json!({ "who": "Outside voices", "what": "People around him are telling him to look at the portal", "sure": "Likely" }));
+    }
     Ok(json!({
         "id": id,
         "mine": mine,
@@ -444,6 +474,7 @@ fn player(w: &World, id: u32) -> Reply {
         // Your staff's sense of what's on his mind, only for your own players
         // (what your position coach would tell you).
         "staffSays": if mine { Some(cap(&worry)) } else { None },
+        "ear": ear,
         "subjects": Subject::ALL.iter().map(|s| json!({ "key": s.key(), "name": cap(s.name()) })).collect::<Vec<_>>(),
         "hours": talks::hours_left(w),
     }))

@@ -20,6 +20,7 @@ pub mod boss;
 pub mod cast;
 pub mod courts;
 pub mod facts;
+pub mod letters;
 pub mod life;
 pub mod network;
 pub mod press;

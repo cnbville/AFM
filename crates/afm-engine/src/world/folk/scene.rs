@@ -242,6 +242,7 @@ pub fn add(w: &mut World, mut s: Scene) -> u32 {
         let text = format!("{}: {}", s.kind.name(), super::plain(&s.title));
         super::post_mine(w, s.date, Loudness::Medium, true, "people: meeting", &text);
     }
+    super::letters::for_scene(w, &s);
     w.folk.scenes.push(s);
     // Keep the newest scenes; drop old finished ones first.
     if w.folk.scenes.len() > 80 {
@@ -291,10 +292,21 @@ pub fn answer(w: &mut World, id: u32, code: u32) -> Result<Scene, String> {
         s.opened = true;
         dispatch_open(w, &mut s);
     }
-    if !s.picks.iter().any(|p| p.code == code) {
+    // A talk's move may be said in any tone (screens topic 8).
+    let talk = matches!(s.kind, Kind::OneOnOne);
+    let Some(mut picked) = s
+        .picks
+        .iter()
+        .find(|p| p.code == code)
+        .or_else(|| s.picks.iter().find(|p| talk && super::talks::same_move(p.code, code)))
+        .cloned()
+    else {
         return Err("That answer isn't on the table.".into());
+    };
+    if picked.code != code {
+        picked.tone = super::takeover::Tone::from(code % 10).name().to_string();
+        picked.code = code;
     }
-    let picked = s.picks.iter().find(|p| p.code == code).cloned().unwrap_or_default();
     s.picks.clear();
     dispatch_answer(w, &mut s, code, &picked);
     s.step = s.step.saturating_add(1);

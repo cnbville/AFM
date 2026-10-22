@@ -217,7 +217,8 @@ fn ask_next(w: &mut World, s: &mut Scene, team: Team, k: u8) {
         f.set("player", w.people[i].name.clone());
     }
     if let Some((won, us, them, opp)) = facts::last_game(w, team) {
-        f.set("score", format!("{us}-{them}"));
+        // Said the way a score is said: the winner's number first.
+        f.set("score", format!("{}-{}", us.max(them), us.min(them)));
         f.set("opp", opp.name(w));
         f.set("result", if won { "win" } else { "loss" });
     }

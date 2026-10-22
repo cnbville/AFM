@@ -736,6 +736,62 @@ fn landing(w: &World, i: usize, m: Move, t: Tone, subject: Subject, revealed: bo
     ((dt + tt) * ear + noise, (dm + tm) * ear + noise)
 }
 
+/// What your staff expects a move to do before you say it (screens topic
+/// 8: a move takes two steps). Their read of him is only as good as the
+/// position coach's feel for people and how long you've had him: a weak
+/// staff can be confidently wrong. Returns (what they expect, how sure, who
+/// says it), or None for a scene that isn't a one-on-one.
+pub fn expect(w: &World, s: &Scene, code: u32) -> Option<(String, String, String)> {
+    if s.kind != Kind::OneOnOne || s.done {
+        return None;
+    }
+    let (m, t) = decode(code)?;
+    let id = s.a as u32;
+    let i = super::person(w, id)?;
+    let subject = Subject::from_u64(s.b);
+    let revealed = s.c & 1 == 1;
+    let (dt, dm) = landing(w, i, m, t, subject, revealed, s.id as u64 ^ (s.step as u64) << 8);
+    let rel = position_coach_rel(w, i) as f32;
+    let you = w.career.as_ref().map_or(10.0, |c| c.you.relationships) as f32;
+    let known = w.folk.mine.since.map_or(0, |d| d.days_to(w.today)) as f32 / 180.0;
+    let q = (0.45 * rel / 20.0 + 0.35 * you / 20.0 + 0.2 * known.min(1.0)).clamp(0.1, 1.0);
+    // Their error: steady for this move in this talk, bigger for a weak staff.
+    let err = super::roll_n(w, 0xE7EC ^ s.id as u64 ^ (code as u64) << 16, id as u64) as f32 * 0.09 * (1.0 - q);
+    let seen = dt + dm + err;
+    let what = match seen {
+        x if x > 0.14 => "He'll take it well. It should help with him.",
+        x if x > 0.05 => "It should land. Not a big swing either way.",
+        x if x > -0.03 => "Hard to say. It may not move him at all.",
+        x if x > -0.1 => "Careful. He may not like hearing it.",
+        _ => "It'll hurt. Expect him to take it badly.",
+    };
+    let risk = match m {
+        Move::Promise => " It's a promise: it goes in the ledger and he'll hold you to it.",
+        Move::Criticize if dt + dm < 0.0 => " Criticism in private still travels in a locker room.",
+        Move::Warn => " If he breaks the rule again, you'll have to follow through.",
+        _ => "",
+    };
+    let sure = match q {
+        x if x >= 0.75 => "They're sure",
+        x if x >= 0.55 => "Fairly sure",
+        x if x >= 0.4 => "A guess",
+        _ => "A guess, and they don't know him well",
+    };
+    let who = w.people[i]
+        .college_staff
+        .last()
+        .and_then(|x| x.3)
+        .filter(|&c| c < w.coaches.len())
+        .map_or_else(|| "Your staff".to_string(), |c| format!("{} ({})", super::coach_link(w, c), super::facts::coach_role(w, c)));
+    Some((format!("{what}{risk}"), sure.to_string(), who))
+}
+
+/// Whether a code is a talk move with another tone than the one offered
+/// (you may say any listed move in any of the four tones).
+pub(crate) fn same_move(a: u32, b: u32) -> bool {
+    (100..190).contains(&a) && (100..190).contains(&b) && (a - 100) / 10 == (b - 100) / 10
+}
+
 /// Your read of a reaction: what you catch depends on your relationships
 /// rating and how long you've known him (topic 5's tells).
 fn read_tell(w: &World, i: usize, sign: i32) -> Option<String> {
@@ -1066,6 +1122,18 @@ pub fn mood_words(m: f32) -> &'static str {
 // Parents (topic 5: the people around him).
 
 /// Who calls for a player's family.
+/// His parents as a voice in his ear (screens topic 8): what they're like
+/// and how sure your staff is of it.
+pub fn parent_voice(w: &World, i: usize) -> (&'static str, &'static str) {
+    use crate::world::background::ParentStyle;
+    match w.people[i].family.parent_style {
+        ParentStyle::LoudAtGames => ("Loud at games, and he hears every word of it", "Sure"),
+        ParentStyle::SocialMedia => ("Posts about him online; that feed is part of his ear", "Sure"),
+        ParentStyle::CalmPrivate => ("Quiet support at home", "Likely"),
+        ParentStyle::Absent => ("Not much of a voice in his life", "A guess"),
+    }
+}
+
 pub fn parent_word(w: &World, i: usize) -> &'static str {
     use crate::world::background::FamilyStructure as F;
     match w.people[i].family.structure {

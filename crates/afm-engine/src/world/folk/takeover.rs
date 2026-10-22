@@ -95,6 +95,7 @@ pub fn begin(w: &mut World) {
         s.team = Some(team);
         ids.push(scene::add(w, s));
     }
+    super::letters::takeover_memo(w, team, &ids);
     if let Some(t) = w.folk.takeover.as_mut() {
         t.scenes = ids;
     }
