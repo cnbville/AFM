@@ -415,7 +415,18 @@ pub fn punt(
         .map(|&i| &k.ret[i])
         .map(|p| 0.4 * p.a(Attr::Press) + 0.3 * p.a(Attr::Strength) + 0.3 * p.a(Attr::Speed))
         .fold(0.0, f64::max);
-    let cover_gap = clamp(4.6 - 1.6 * (hang - 4.2) - 0.08 * (gunner - jammer) + rng.normal(0.0, 2.0), 0.0, 15.0);
+    let mut cover_gap = clamp(4.6 - 1.6 * (hang - 4.2) - 0.08 * (gunner - jammer) + rng.normal(0.0, 2.0), 0.0, 15.0);
+    // No fair catch (the CFL, the XFL of 2001): the cover men must give the
+    // returner his halo until he touches the ball; one who gets there
+    // first draws "no yards", 15 yards on the kicking team (5 in the XFL).
+    let no_fc = !rules.code.fair_catch;
+    let mut no_yards = 0.0;
+    if no_fc {
+        if cover_gap < 0.5 * rules.code.halo && rng.chance(0.25) {
+            no_yards = if rules.code.book == super::books::Book::Cfl { 15.0 } else { 5.0 };
+        }
+        cover_gap = cover_gap.max(rules.code.halo);
+    }
     let returner = &k.ret[k.ret_on[0]];
     let judgment = returner.a(Attr::Decisions);
     // Returner risk (tendencies): a risk-taker fields punts he could let
@@ -435,6 +446,15 @@ pub fn punt(
         if !field {
             let roll = rng.normal(2.0, 7.0);
             let end = land_x - roll;
+            // A live punt (the XFL of 2001): past 25 yards it is anybody's
+            // ball once it hits the ground.
+            if rules.code.punt_live && end > 0.0 && rng.chance(0.08) {
+                res.recovered_by_kicking = true;
+                res.spot = goal() - end;
+                res.distance = from - end;
+                res.duration = hang + 2.0;
+                return res;
+            }
             if end <= 0.0 {
                 res.touchback = true;
                 res.spot = rules.touchback;
@@ -452,7 +472,7 @@ pub fn punt(
     // back and muffs more doing it.
     let fc = if safe { 0.99 } else { clamp(0.95 - 0.004 * (judgment - 50.0) - 0.3 * lean, 0.45, 0.99) };
     let reach = if safe { 7.0 } else { 5.0 - 1.5 * lean };
-    if cover_gap < reach && rng.chance(fc) || cover_gap < 1.5 {
+    if !no_fc && (cover_gap < reach && rng.chance(fc) || cover_gap < 1.5) {
         res.fair_catch = true;
         res.spot = land_x.max(1.0);
         res.inside20 = res.spot <= 20.0;
@@ -494,6 +514,9 @@ pub fn punt(
         false,
         Some(cover_gap),
     );
+    if no_yards > 0.0 && !res.return_td && !res.recovered_by_kicking {
+        res.spot = (res.spot + no_yards).min(goal() - 1.0);
+    }
     res.inside20 = res.spot <= 20.0;
     res
 }

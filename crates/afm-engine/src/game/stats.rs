@@ -95,6 +95,9 @@ pub struct PlayRecord {
     pub return_yards: f64,
     pub kick_good: bool,
     pub touchback: bool,
+    /// A single (the CFL's rouge) scored on this kick.
+    #[serde(default)]
+    pub single: bool,
     pub fair_catch: bool,
     pub inside20: bool,
     pub blocked: bool,
@@ -210,6 +213,7 @@ impl PlayRecord {
             return_yards: 0.0,
             kick_good: false,
             touchback: false,
+            single: false,
             fair_catch: false,
             inside20: false,
             blocked: false,
