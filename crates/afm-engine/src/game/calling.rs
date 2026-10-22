@@ -308,6 +308,29 @@ impl Memory {
         }
     }
 
+    /// Film studied with your own eyes (game day topic 1): every snap of
+    /// it read as it really was, no cap and no count error.
+    pub fn study(&mut self, f: &Film) {
+        for c in 0..COVERAGE_COUNT {
+            self.cov_seen[c] += f.cov[c] as f64;
+        }
+        for k in 0..6 {
+            self.fronts_seen[k] += f.fronts[k] as f64;
+        }
+        self.blitzes += f.blitz as f64;
+        self.snaps_seen += f.def_snaps as f64;
+        for (a, b) in self.opp_look.iter_mut().zip(&f.look) {
+            a[0] += b[0] as f64;
+            a[1] += b[1] as f64;
+        }
+        for (a, b) in self.opp_concepts.iter_mut().zip(&f.concepts) {
+            *a += *b as f64;
+        }
+        self.opp_pass += f.by_down.iter().map(|x| x[0] as f64).sum::<f64>();
+        self.opp_plays += f.off_snaps as f64;
+        self.film += f.off_snaps as f64;
+    }
+
     fn rate(&self, x: f64) -> f64 {
         (x + 1.0) / (self.snaps_seen + 4.0)
     }
@@ -1568,6 +1591,26 @@ pub fn fourth_down(staff: &Staff, sit: &Situation, fg_make: f64, rng: &mut Rng) 
     } else {
         best_kick.0
     }
+}
+
+/// The numbers behind a fourth down, for the analytics staff (game day
+/// topic 6): the chance to convert and the expected points of going,
+/// punting and kicking, from the same real tables `fourth_down` uses.
+pub fn fourth_values(sit: &Situation, fg_make: f64) -> (f64, f64, f64, f64) {
+    let y = sit.yardline_100;
+    let togo = sit.togo;
+    let conv = clamp(0.70 * (-0.085 * (togo - 1.0)).exp(), 0.12, 0.75);
+    let ep = tables::expected_points;
+    let after_score = 0.95;
+    let go_ok = if togo >= y { 6.95 - after_score } else { ep(1, 10.0_f64.min(y - togo), y - togo) };
+    let go_fail = -ep(1, 10.0, 100.0 - y);
+    let ev_go = conv * go_ok + (1.0 - conv) * go_fail;
+    let land = y - 41.0;
+    let opp_punt = if land < 0.0 { 80.0 } else { 100.0 - land.max(8.0) };
+    let ev_punt = -ep(1, 10.0, opp_punt.min(99.0));
+    let opp_miss = (100.0 - y - 7.0).min(80.0);
+    let ev_fg = fg_make * (3.0 - after_score) + (1.0 - fg_make) * -ep(1, 10.0, opp_miss.max(1.0));
+    (conv, ev_go, ev_punt, ev_fg)
 }
 
 /// Go for two after a touchdown (the chart, plus the coach's lean and how

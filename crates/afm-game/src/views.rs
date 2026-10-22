@@ -1853,7 +1853,8 @@ pub(crate) fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u
             if r.throw_away && !r.interception {
                 format!("{qb} throws it away")
             } else if r.interception {
-                format!("{qb} pass intended for {to} is INTERCEPTED")
+                let by = r.interceptor.map(|i| format!(" by {}", name(i))).unwrap_or_default();
+                format!("{qb} pass intended for {to} is INTERCEPTED{by}")
             } else if r.complete {
                 format!("{qb} pass to {to} ({}) for {}", r.route, gain(yds))
             } else {
@@ -1917,6 +1918,26 @@ pub(crate) fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u
                 .collect();
             format!("Penalty before the snap: {}", fouls.join("; "))
         }
+        PlayType::TwoPoint => {
+            // The try as the play it was, then whether it counted.
+            let mut snap = r.clone();
+            snap.kind = if !r.sackers.is_empty() {
+                PlayType::Sack
+            } else if r.target.is_some() || r.throw_away || r.interception {
+                PlayType::Pass
+            } else if r.carrier.is_some() && r.carrier == r.passer {
+                PlayType::Scramble
+            } else {
+                PlayType::Run
+            };
+            snap.touchdown = false;
+            snap.first_down = false;
+            snap.turnover = false;
+            snap.fumbled = None;
+            snap.penalties.clear();
+            let what = play_text(&snap, name);
+            format!("Two-point try: {what}, {}", if r.touchdown { "GOOD" } else { "no good" })
+        }
         other => format!("{other:?}: {}", gain(yds)),
     };
     if r.nullified {
@@ -1927,7 +1948,7 @@ pub(crate) fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u
         let fell = if r.fumble_lost { "the defense recovers" } else { "his team keeps it" };
         t.push_str(&format!(". {} FUMBLES{forced}, {fell}", name(f)));
     }
-    if r.touchdown {
+    if r.touchdown && r.kind != PlayType::TwoPoint {
         t.push_str(if r.defense_td { ", returned for a TOUCHDOWN" } else { ", TOUCHDOWN" });
     }
     if r.safety {
@@ -1944,9 +1965,11 @@ pub(crate) fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u
             ));
         }
     }
-    if r.turnover && !r.interception && r.fumbled.is_none() && !r.defense_td {
-        let scrimmage = matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble);
-        t.push_str(if scrimmage && r.down == 4 { ", turnover on downs" } else { ", turnover" });
+    // A missed field goal or a punt hands the ball over without being a
+    // turnover; a snap that does is one on downs.
+    let scrimmage = matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble);
+    if r.turnover && scrimmage && !r.interception && r.fumbled.is_none() && !r.defense_td {
+        t.push_str(if r.down == 4 { ", turnover on downs" } else { ", turnover" });
     }
     if r.first_down && !r.touchdown {
         t.push_str(", first down");

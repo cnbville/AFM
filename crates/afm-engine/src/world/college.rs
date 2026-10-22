@@ -641,6 +641,8 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
             division_level(d)
         })
         .collect();
+    // Your game, played live on the game day screens (section 9).
+    let live = w.live_result(CalLevel::College);
     let outcomes: Vec<Option<crate::game::GameResult>> = jobs
         .par_iter()
         .zip(levels.par_iter())
@@ -649,12 +651,18 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
             if a.players.len() < 30 || b.players.len() < 30 {
                 return None;
             }
+            if let Some((t, r)) = &live
+                && *t == [cs.games[j.k].home, cs.games[j.k].away]
+            {
+                return Some(r.clone());
+            }
             let s = seed.wrapping_mul(1_000_003).wrapping_add(j.k as u64);
             Some(quick_game_in(a, b, level, s, j.context, j.venue))
         })
         .collect();
     let recording_log = w.options.keep_game_log && w.recording;
     let year = cs.year;
+    let watch = w.tape_watch(CalLevel::College);
     for (j, r) in jobs.into_iter().zip(outcomes) {
         let k = j.k;
         let mut played = j.played;
@@ -682,7 +690,10 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
         };
         played.home_won = home_won;
         if let Some(r) = &r {
-            w.keep_seat_game(crate::calendar::Level::College, [home, away], &r.stats);
+            w.keep_seat_game(CalLevel::College, [home, away], &r.stats);
+            if let Some(o) = &watch {
+                w.keep_tape(o, CalLevel::College, [home, away], &r.stats, &r.film);
+            }
         }
         let cs = w.college.as_mut().unwrap();
         // Records.
@@ -1167,11 +1178,35 @@ pub(crate) fn rank_of(cs: &CollegeSeason, t: usize) -> Option<usize> {
 /// One game's stakes for the day: the game, its tags, how loud, which side
 /// is on the line and why.
 type StakeUpdate = (usize, Vec<Tag>, Loudness, [bool; 2], Vec<&'static str>);
+/// A news line the stakes post: the school, the text and the coach it names.
+type StakeNote = (usize, String, u32, String);
 
 fn stakes_for_day(w: &mut World, idx: &[usize]) {
-    let Some(cs) = w.college.as_ref() else { return };
+    let (updates, notes) = stakes_of(w, idx);
+    let cs = w.college.as_mut().unwrap();
+    for (k, tags, loud, huge_for, why) in updates {
+        cs.games[k].tags = tags;
+        cs.games[k].loud = loud;
+        cs.games[k].huge_for = huge_for;
+        cs.games[k].why = why;
+    }
+    let d = w.today;
+    for (t, text, id, name) in notes {
+        w.calendar.post(
+            Event::new(d, CalLevel::College, Kind::News, Loudness::Small, text)
+                .program(t)
+                .person(id, &name)
+                .school_link(t, &w.programs[t].real_name),
+        );
+    }
+}
+
+/// The day's stakes without touching the world (the game day screens read
+/// your game's on its morning).
+fn stakes_of(w: &World, idx: &[usize]) -> (Vec<StakeUpdate>, Vec<StakeNote>) {
+    let Some(cs) = w.college.as_ref() else { return Default::default() };
     let mut updates: Vec<StakeUpdate> = Vec::new();
-    let mut notes: Vec<(usize, String, u32, String)> = Vec::new();
+    let mut notes: Vec<StakeNote> = Vec::new();
     // Each team's own race (T8.1): the fewest conference losses in its
     // conference, and the regular-season games it has left.
     let mut conf_best: HashMap<&str, u32> = HashMap::new();
@@ -1381,22 +1416,7 @@ fn stakes_for_day(w: &mut World, idx: &[usize]) {
         }
         updates.push((k, tags, loud, huge_for, why));
     }
-    let cs = w.college.as_mut().unwrap();
-    for (k, tags, loud, huge_for, why) in updates {
-        cs.games[k].tags = tags;
-        cs.games[k].loud = loud;
-        cs.games[k].huge_for = huge_for;
-        cs.games[k].why = why;
-    }
-    let d = w.today;
-    for (t, text, id, name) in notes {
-        w.calendar.post(
-            Event::new(d, CalLevel::College, Kind::News, Loudness::Small, text)
-                .program(t)
-                .person(id, &name)
-                .school_link(t, &w.programs[t].real_name),
-        );
-    }
+    (updates, notes)
 }
 
 /// A season line's value for a school record (A40), in `RECORD_STATS` order.
@@ -3348,6 +3368,66 @@ pub(crate) fn may_graduation(w: &mut World) {
         n += 1;
     }
     w.log.graduates += n;
+}
+
+/// Your college game today as the day will play it (section 9): both
+/// teams as they dress, the venue, each coach's read of the season and the
+/// game's seed. None when your program has no game today on the engine.
+pub(crate) fn seat_setup(w: &World, p: usize) -> Option<super::live_seat::SeatSetup> {
+    let date = w.today;
+    let cs = w.college.as_ref()?;
+    if !cs.on_engine {
+        return None;
+    }
+    let k = cs.games.iter().position(|g| g.date == date && g.involves(p) && g.played.is_none())?;
+    // The day's stakes first: they make the crowd.
+    let mut game = cs.games[k].clone();
+    if let Some((_, tags, loud, huge_for, why)) = stakes_of(w, &[k]).0.pop() {
+        (game.tags, game.loud, game.huge_for, game.why) = (tags, loud, huge_for, why);
+    }
+    let g = &game;
+    if w.programs[g.home].roster.len() < 22 || w.programs[g.away].roster.len() < 22 {
+        return None;
+    }
+    let (venue, _, _) = conditions(w, g, k);
+    let capped = held_redshirts(w, cs);
+    let week = |me: usize| {
+        let last =
+            cs.games.iter().filter(|o| o.involves(me) && o.played.is_some() && o.date < date).map(|o| o.date).max();
+        crate::game::roster::prep_week(last.map(|d| date.0 - d.0))
+    };
+    let strip = |t: &GameTeam, me: usize| {
+        let mut t = t.clone();
+        t.players.retain(|p| !cs.out.contains_key(&p.id) && !capped.contains(&p.id));
+        t.week = week(me);
+        t
+    };
+    let home = strip(cs.teams.get(g.home)?.as_ref()?, g.home);
+    let away = strip(cs.teams.get(g.away)?.as_ref()?, g.away);
+    if home.players.len() < 30 || away.players.len() < 30 {
+        return None;
+    }
+    let context = [(g.home, g.away), (g.away, g.home)]
+        .map(|(me, opp)| season::game_context(&cs.coaches, g.division, &cs.results, me, opp));
+    let level = division_level(w.programs[g.home].division.min(w.programs[g.away].division));
+    let seed = (w.options.seed as u64 ^ ((cs.year as u64) << 32) ^ ((date.0 as u64) << 8))
+        .wrapping_mul(1_000_003)
+        .wrapping_add(k as u64);
+    let mut setup = crate::game::GameSetup::new(&home, &away, level, seed);
+    setup.cond = venue.cond;
+    setup.neutral = venue.neutral;
+    setup.wear = venue.wear;
+    setup.cold_unused = venue.cold_unused;
+    setup.context = context;
+    let params = crate::game::live::Params::of(&setup);
+    Some(super::live_seat::SeatSetup {
+        level: CalLevel::College,
+        teams: [g.home, g.away],
+        names: [w.program_name(g.home).to_string(), w.program_name(g.away).to_string()],
+        home,
+        away,
+        params,
+    })
 }
 
 #[cfg(test)]
