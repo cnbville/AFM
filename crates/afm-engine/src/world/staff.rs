@@ -832,7 +832,8 @@ pub(crate) fn carousel(w: &mut World, scope: Scope) {
         let retire = age >= 60 && w.rng.chance(clamp(0.04 + 0.03 * (age as f64 - 60.0) + scare * 0.5, 0.0, 1.0));
         // Before 60, his health or burnout (11.15).
         let early = if age < 60 {
-            early_exit(w, c, job).or_else(|| (scare > 0.0 && w.rng.chance(0.25 * scare)).then_some("retired for his health"))
+            early_exit(w, c, job)
+                .or_else(|| (scare > 0.0 && w.rng.chance(0.25 * scare)).then_some("retired for his health"))
         } else {
             None
         };

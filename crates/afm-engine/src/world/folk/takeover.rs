@@ -80,22 +80,27 @@ pub fn begin(w: &mut World) {
     w.folk.goals.clear();
     w.folk.asks.clear();
     w.folk.cases.clear();
-    w.folk.takeover =
-        Some(Takeover { team: Some(team), started: Some(d0), old_coach: old, fit, ..Default::default() });
+    w.folk.takeover = Some(Takeover { team: Some(team), started: Some(d0), old_coach: old, fit, ..Default::default() });
     first_impressions(w, team, old, fit);
     if let Team::College(p) = team {
         coach_change_window(w, p, d0);
     }
     let plan = schedule(w, team, d0);
     let mut ids = Vec::new();
+    w.folk.hush = true;
     for (k, kind, a, title, place) in plan {
         let mut s = Scene::new(kind, day_at(d0, k), title);
         s.place = place;
         s.a = a;
         s.team = Some(team);
+        if matches!(kind, Kind::Booster)
+            && let Some(c) = booster_of(w, &s, team)
+        {
+            booster_label(&mut s, team, &c);
+        }
         ids.push(scene::add(w, s));
     }
-    super::letters::takeover_memo(w, team, &ids);
+    w.folk.hush = false;
     if let Some(t) = w.folk.takeover.as_mut() {
         t.scenes = ids;
     }
@@ -197,7 +202,8 @@ pub fn tie_to_old(w: &World, i: usize, old: Option<usize>) -> f32 {
     let years = p.college_staff.iter().filter(|x| x.2 == Some(o)).count() as f32;
     let recruited = p.college_staff.first().is_some_and(|x| x.2 == Some(o));
     let pro = p.pro.as_ref().is_some_and(|c| c.seasons.len() >= 2) as u8 as f32;
-    ((0.18 * years + if recruited { 0.3 } else { 0.0 } + 0.2 * pro) * (0.6 + 0.04 * p.player.personality.traits.get(Trait::Loyalty) as f32))
+    ((0.18 * years + if recruited { 0.3 } else { 0.0 } + 0.2 * pro)
+        * (0.6 + 0.04 * p.player.personality.traits.get(Trait::Loyalty) as f32))
         .clamp(0.0, 1.0)
 }
 
@@ -253,16 +259,63 @@ fn schedule(w: &World, team: Team, _d0: Date) -> Vec<(i32, Kind, u64, String, St
     match team {
         Team::College(p) => {
             let building = football_building(w, p);
-            v.push((0, Kind::TeamMeeting, 0, format!("Your first team meeting at {name}"), format!("{building}, the team room, 7:30 p.m.")));
-            v.push((1, Kind::HireReaction, 0, "How the world took your hire".into(), "Your new office, before the press conference".into()));
-            v.push((1, Kind::PressIntro, 0, format!("Introduced as {name}'s head coach"), format!("{building}, the media room, 11 a.m.")));
-            v.push((1, Kind::BossFirst, 0, "The athletic director's goals".into(), "The athletic director's office, 3 p.m.".into()));
+            v.push((
+                0,
+                Kind::TeamMeeting,
+                0,
+                format!("Your first team meeting at {name}"),
+                format!("{building}, the team room, 7:30 p.m."),
+            ));
+            v.push((
+                1,
+                Kind::HireReaction,
+                0,
+                "How the world took your hire".into(),
+                "Your new office, before the press conference".into(),
+            ));
+            v.push((
+                1,
+                Kind::PressIntro,
+                0,
+                format!("Introduced as {name}'s head coach"),
+                format!("{building}, the media room, 11 a.m."),
+            ));
+            v.push((
+                1,
+                Kind::BossFirst,
+                0,
+                "The athletic director's goals".into(),
+                "The athletic director's office, 3 p.m.".into(),
+            ));
             let staff = facts::assistants(w, team);
-            for (c, role) in staff.iter().filter(|x| matches!(x.1, crate::world::coach::Role::OffensiveCoordinator | crate::world::coach::Role::DefensiveCoordinator)) {
-                v.push((2, Kind::Holdover, *c as u64, format!("Meeting the {}", role.name()), format!("{building}, your office")));
+            for (c, role) in staff.iter().filter(|x| {
+                matches!(
+                    x.1,
+                    crate::world::coach::Role::OffensiveCoordinator | crate::world::coach::Role::DefensiveCoordinator
+                )
+            }) {
+                v.push((
+                    2,
+                    Kind::Holdover,
+                    *c as u64,
+                    format!("Meeting the {}", role.name()),
+                    format!("{building}, your office"),
+                ));
             }
-            v.push((3, Kind::Holdover, u64::MAX, "The holdover position coaches".into(), format!("{building}, the staff room")));
-            v.push((3, Kind::StaffReport, 0, "The state of the team".into(), format!("{building}, the staff room, film on")));
+            v.push((
+                3,
+                Kind::Holdover,
+                u64::MAX,
+                "The holdover position coaches".into(),
+                format!("{building}, the staff room"),
+            ));
+            v.push((
+                3,
+                Kind::StaffReport,
+                0,
+                "The state of the team".into(),
+                format!("{building}, the staff room, film on"),
+            ));
             v.push((4, Kind::Leaders, 0, "The captains and the room".into(), "Your office, one at a time".into()));
             v.push((4, Kind::Trainer, 0, "The trainer's report".into(), "The training room".into()));
             v.push((5, Kind::Academic, 0, "The academic and conduct report".into(), "The academic center".into()));
@@ -279,13 +332,31 @@ fn schedule(w: &World, team: Team, _d0: Date) -> Vec<(i32, Kind, u64, String, St
         Team::Nfl(_) => {
             v.push((0, Kind::BossFirst, 0, "The owner's goals".into(), "The owner's suite at the facility".into()));
             v.push((0, Kind::HireReaction, 0, "How the world took your hire".into(), "Your new office".into()));
-            v.push((1, Kind::PressIntro, 0, format!("Introduced as the {name}' head coach"), "The facility's auditorium, noon".into()));
-            v.push((1, Kind::Gm, 0, "Sitting down with the general manager".into(), "The general manager's office".into()));
+            v.push((
+                1,
+                Kind::PressIntro,
+                0,
+                format!("Introduced as the {name}' head coach"),
+                "The facility's auditorium, noon".into(),
+            ));
+            v.push((
+                1,
+                Kind::Gm,
+                0,
+                "Sitting down with the general manager".into(),
+                "The general manager's office".into(),
+            ));
             let staff = facts::assistants(w, team);
             for (c, role) in &staff {
                 v.push((2, Kind::Holdover, *c as u64, format!("Meeting the {}", role.name()), "Your office".into()));
             }
-            v.push((3, Kind::StaffReport, 0, "The roster review with the pro scouts".into(), "The draft room, film on".into()));
+            v.push((
+                3,
+                Kind::StaffReport,
+                0,
+                "The roster review with the pro scouts".into(),
+                "The draft room, film on".into(),
+            ));
             v.push((4, Kind::Trainer, 0, "The trainer's report".into(), "The training room".into()));
             v.push((4, Kind::Academic, 0, "The conduct report".into(), "The security director's office".into()));
             v.push((5, Kind::Leaders, 0, "Calling the team's leaders".into(), "Your office, on the phone".into()));
@@ -293,20 +364,68 @@ fn schedule(w: &World, team: Team, _d0: Date) -> Vec<(i32, Kind, u64, String, St
             v.push((6, Kind::Booster, 0, String::new(), String::new()));
             v.push((7, Kind::Media, 0, "The beat reporters".into(), "The communications office".into()));
             v.push((8, Kind::Tour, 0, format!("The {name} up close"), "The facility and the stadium".into()));
-            v.push((8, Kind::Plan, 0, "The calendar to the draft".into(), "The general manager and the cap manager".into()));
+            v.push((
+                8,
+                Kind::Plan,
+                0,
+                "The calendar to the draft".into(),
+                "The general manager and the cap manager".into(),
+            ));
             // The first full team meeting waits for the offseason program.
             let days = w.today.days_to(w.dates.offseason_new_coach).max(9);
-            v.push((days, Kind::TeamMeeting, 0, "Your first team meeting".into(), "The team auditorium, the first day of the offseason program".into()));
+            v.push((
+                days,
+                Kind::TeamMeeting,
+                0,
+                "Your first team meeting".into(),
+                "The team auditorium, the first day of the offseason program".into(),
+            ));
         }
         Team::High(h) => {
             let school = name.clone();
-            v.push((0, Kind::BossFirst, 0, "The principal and the athletic director".into(), format!("{school}, the principal's office, 7:15 a.m.")));
+            v.push((
+                0,
+                Kind::BossFirst,
+                0,
+                "The principal and the athletic director".into(),
+                format!("{school}, the principal's office, 7:15 a.m."),
+            ));
             v.push((0, Kind::HireReaction, 0, "How the town took your hire".into(), "The front office".into()));
-            v.push((1, Kind::PressIntro, 0, "The local paper's interview".into(), format!("{school}, the field house")));
-            v.push((1, Kind::TeamMeeting, 0, "Your first athletics period".into(), format!("{school}, the field house, sixth period")));
-            v.push((2, Kind::Holdover, u64::MAX, "The holdover staff".into(), format!("{school}, the coaches' office")));
-            v.push((2, Kind::OldCoach, 0, "The old coach, down the hall".into(), format!("{school}, his classroom after school")));
-            v.push((3, Kind::StaffReport, 0, "The state of the team".into(), "The coaches' office, last fall's film on".into()));
+            v.push((
+                1,
+                Kind::PressIntro,
+                0,
+                "The local paper's interview".into(),
+                format!("{school}, the field house"),
+            ));
+            v.push((
+                1,
+                Kind::TeamMeeting,
+                0,
+                "Your first athletics period".into(),
+                format!("{school}, the field house, sixth period"),
+            ));
+            v.push((
+                2,
+                Kind::Holdover,
+                u64::MAX,
+                "The holdover staff".into(),
+                format!("{school}, the coaches' office"),
+            ));
+            v.push((
+                2,
+                Kind::OldCoach,
+                0,
+                "The old coach, down the hall".into(),
+                format!("{school}, his classroom after school"),
+            ));
+            v.push((
+                3,
+                Kind::StaffReport,
+                0,
+                "The state of the team".into(),
+                "The coaches' office, last fall's film on".into(),
+            ));
             v.push((3, Kind::Leaders, 0, "The seniors who lead".into(), "The weight room".into()));
             v.push((4, Kind::Academic, 0, "Grades and eligibility".into(), "The counselor's office".into()));
             v.push((4, Kind::Trainer, 0, "Who's hurt".into(), "The training room".into()));
@@ -317,7 +436,13 @@ fn schedule(w: &World, team: Team, _d0: Date) -> Vec<(i32, Kind, u64, String, St
                 v.push((6, Kind::Booster, k as u64, String::new(), String::new()));
             }
             v.push((7, Kind::Parents, 0, "The parents' meeting".into(), format!("{school}, the cafeteria, 7 p.m.")));
-            v.push((8, Kind::Feeder, 0, "The feeder tour".into(), format!("The middle schools and the youth league around {town}")));
+            v.push((
+                8,
+                Kind::Feeder,
+                0,
+                "The feeder tour".into(),
+                format!("The middle schools and the youth league around {town}"),
+            ));
             v.push((9, Kind::Media, 0, "Who covers you".into(), "The front office".into()));
             v.push((9, Kind::Plan, 0, "The plan to the season".into(), "The athletic director's office".into()));
             let _ = h;
@@ -404,10 +529,7 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
         Kind::Booster => {
             if let Some(c) = booster_of(w, s, team) {
                 w.folk.mine.nudge(c.key(), -0.08);
-                s.outcome.push(format!(
-                    "{} took the meeting with {who} instead of you, and noticed.",
-                    c.name
-                ));
+                s.outcome.push(format!("{} took the meeting with {who} instead of you, and noticed.", c.name));
             }
         }
         Kind::Holdover => {
@@ -415,7 +537,9 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
         }
         Kind::FlightRisks => {
             let n = w.folk.takeover.as_ref().map_or(0, |t| t.risks.len());
-            for id in w.folk.takeover.as_ref().map(|t| t.risks.iter().map(|r| r.0).collect::<Vec<_>>()).unwrap_or_default() {
+            for id in
+                w.folk.takeover.as_ref().map(|t| t.risks.iter().map(|r| r.0).collect::<Vec<_>>()).unwrap_or_default()
+            {
                 if let Some(i) = super::person(w, id) {
                     position_coach_word(w, i);
                 }
@@ -537,12 +661,16 @@ fn team_meeting_open(w: &mut World, s: &mut Scene, team: Team) {
                 "A lot of them came here for {}: you can pick out the ones who are still wearing his last bowl gear.",
                 coach_link(w, o)
             ),
-            (Some(o), k) if k > 0 => format!("Some of them were close to {}, and they sit together near the back.", coach_link(w, o)),
+            (Some(o), k) if k > 0 =>
+                format!("Some of them were close to {}, and they sit together near the back.", coach_link(w, o)),
             _ => "Nobody here owes the last staff much.".to_string(),
         }
     ));
     if let Some(&c) = captains.first() {
-        s.narrate(format!("{} sits in the front row, arms folded. Everyone else watches him as much as you.", player_link(w, c)));
+        s.narrate(format!(
+            "{} sits in the front row, arms folded. Everyone else watches him as much as you.",
+            player_link(w, c)
+        ));
     }
     let open = pen.line(&["takeover.meeting.you_open"], &you, &f);
     if !open.is_empty() {
@@ -554,11 +682,41 @@ fn team_meeting_open(w: &mut World, s: &mut Scene, team: Team) {
 }
 
 fn add_message_picks(s: &mut Scene) {
-    s.pick(10, "Every job is open. The depth chart starts over today.", "Challenge", "firm", "Competitors and backups lift; entrenched starters bristle.");
-    s.pick(11, "I'm not here to erase what was built. I'm here to finish it.", "Praise", "warm", "Loyal players and the old coach's people warm to you; ambitious ones hear nothing new.");
-    s.pick(12, "We win now. The standard here is a championship, starting this year.", "Promise", "fiery", "Lifts the room for now and raises the bar you'll be judged by.");
-    s.pick(13, "Some of you won't be here when we play. Find out tonight if you want this.", "Warn", "fiery", "Clears out players who won't buy in. Some leave; the rest know where they stand.");
-    s.pick(14, "Who I am, how we'll work, and when practice starts. That's it.", "Tell him straight", "calm", "Little lift and little risk: they judge you by the first workout.");
+    s.pick(
+        10,
+        "Every job is open. The depth chart starts over today.",
+        "Challenge",
+        "firm",
+        "Competitors and backups lift; entrenched starters bristle.",
+    );
+    s.pick(
+        11,
+        "I'm not here to erase what was built. I'm here to finish it.",
+        "Praise",
+        "warm",
+        "Loyal players and the old coach's people warm to you; ambitious ones hear nothing new.",
+    );
+    s.pick(
+        12,
+        "We win now. The standard here is a championship, starting this year.",
+        "Promise",
+        "fiery",
+        "Lifts the room for now and raises the bar you'll be judged by.",
+    );
+    s.pick(
+        13,
+        "Some of you won't be here when we play. Find out tonight if you want this.",
+        "Warn",
+        "fiery",
+        "Clears out players who won't buy in. Some leave; the rest know where they stand.",
+    );
+    s.pick(
+        14,
+        "Who I am, how we'll work, and when practice starts. That's it.",
+        "Tell him straight",
+        "calm",
+        "Little lift and little risk: they judge you by the first workout.",
+    );
 }
 
 fn team_meeting_answer(w: &mut World, s: &mut Scene, team: Team, code: u32, picked: &Pick) {
@@ -628,10 +786,14 @@ pub(crate) fn team_effect(w: &mut World, team: Team, msg: Message, tone: Tone, w
         let comp = (p.player.personality.competitiveness - 10.0) / 10.0;
         let starter = p.last_role == Some(PlayingTime::Starter);
         let mut d = match msg {
-            Message::Compete => 0.05 * comp + if starter { -0.04 - 0.04 * z(Trait::Ego) } else { 0.06 + 0.03 * z(Trait::Ambition) },
+            Message::Compete => {
+                0.05 * comp + if starter { -0.04 - 0.04 * z(Trait::Ego) } else { 0.06 + 0.03 * z(Trait::Ambition) }
+            }
             Message::Honour => 0.05 * tie + 0.03 * z(Trait::Loyalty) - 0.02 * z(Trait::Ambition),
             Message::WinNow => 0.05 + 0.03 * comp + 0.02 * z(Trait::Ego),
-            Message::Purge => 0.03 * comp - 0.06 * tie - 0.04 * z(Trait::Ego) - 0.03 * (1.0 - z(Trait::Professionalism)),
+            Message::Purge => {
+                0.03 * comp - 0.06 * tie - 0.04 * z(Trait::Ego) - 0.03 * (1.0 - z(Trait::Professionalism))
+            }
             Message::Plain => 0.01 + 0.02 * z(Trait::Professionalism),
         };
         d += match tone {
@@ -771,25 +933,28 @@ fn hire_reaction(w: &mut World, s: &mut Scene, team: Team) {
         _ => format!("\"A head-scratcher. Nobody on the shortlists had {you} on theirs.\""),
     };
     s.other("A national writer", why);
-    let road_line = if road.is_empty() {
-        String::new()
-    } else {
-        format!(" They wrote about your road: {}.", road.to_lowercase())
-    };
+    let road_line =
+        if road.is_empty() { String::new() } else { format!(" They wrote about your road: {}.", road.to_lowercase()) };
     let fan_words = match (fit, fans) {
         (f, x) if f > 0.2 && x > 0.6 => "The message boards are giddy: season ticket renewals jumped by lunchtime.",
         (f, _) if f > 0.2 => "Fans are pleased, if a little surprised.",
-        (f, x) if f < -0.3 && x > 0.6 => "The fan base is split, and the loudest voices are angry: \"We're supposed to be a destination job.\"",
+        (f, x) if f < -0.3 && x > 0.6 => {
+            "The fan base is split, and the loudest voices are angry: \"We're supposed to be a destination job.\""
+        }
         (f, _) if f < -0.3 => "Fans don't know much about you. They'll wait and see.",
         _ => "Fans are cautiously in: most want to see the first season.",
     };
     s.narrate(format!("{fan_words}{road_line}"));
     let recruits = match team {
         Team::Nfl(_) => match fit {
-            f if f > 0.2 => "Agents called the general manager to ask what you run. Free agents talk to each other about new coaches.",
+            f if f > 0.2 => {
+                "Agents called the general manager to ask what you run. Free agents talk to each other about new coaches."
+            }
             _ => "Agents are waiting to see your coordinators before they tell clients anything.",
         },
-        Team::High(_) => "Parents of next year's freshmen are asking the middle school coaches what kind of coach you are.",
+        Team::High(_) => {
+            "Parents of next year's freshmen are asking the middle school coaches what kind of coach you are."
+        }
         _ => match fit {
             f if f > 0.2 => "Recruits posted about you within hours. Two uncommitted ones followed your new account.",
             f if f > -0.2 => "Recruits are waiting for your first calls before they say anything public.",
@@ -809,7 +974,10 @@ fn hire_reaction(w: &mut World, s: &mut Scene, team: Team) {
 }
 
 fn local_paper(w: &World, team: Team) -> String {
-    cast::all(w, team, Role::Reporter).first().and_then(|c| c.reporter.as_ref().map(|r| r.outlet.clone())).unwrap_or_else(|| "local paper".into())
+    cast::all(w, team, Role::Reporter)
+        .first()
+        .and_then(|c| c.reporter.as_ref().map(|r| r.outlet.clone()))
+        .unwrap_or_else(|| "local paper".into())
 }
 
 // ---------------------------------------------------------------------------
@@ -858,7 +1026,15 @@ fn holdover_open(w: &mut World, s: &mut Scene, team: Team) {
     let mut pen = scene::pen(w, s, 1);
     let pitch = pen.line(&["takeover.holdover.pitch", "?takeover.holdover.detail"], &spk, &f);
     pen.put(w);
-    s.them(&name, if pitch.is_empty() { format!("I know these kids, Coach. I'd like the chance to keep coaching them.") } else { pitch }, Some(holdover_tell(w, c)));
+    s.them(
+        &name,
+        if pitch.is_empty() {
+            format!("I know these kids, Coach. I'd like the chance to keep coaching them.")
+        } else {
+            pitch
+        },
+        Some(holdover_tell(w, c)),
+    );
     // His angle on his own players (item 3): he oversells them.
     let claim = oversell(w, team, c);
     if let Some((i, text)) = claim {
@@ -876,9 +1052,27 @@ fn holdover_open(w: &mut World, s: &mut Scene, team: Team) {
             Some("He wants to keep his job: he sells his own players.".into()),
         );
     }
-    s.pick(20, "Keep him. Tell him he's coaching for his job this spring.", "Tell him straight", "firm", "He stays, knows where he stands, and works.");
-    s.pick(21, "Keep him, and say you want his read on the roster every week.", "Hand him something", "warm", "He stays and starts to trust you; his players notice.");
-    s.pick(22, "Thank him and let him go. You're bringing your own man.", "Tell him straight", "calm", "He's gone; you owe his contract, and his players feel it.");
+    s.pick(
+        20,
+        "Keep him. Tell him he's coaching for his job this spring.",
+        "Tell him straight",
+        "firm",
+        "He stays, knows where he stands, and works.",
+    );
+    s.pick(
+        21,
+        "Keep him, and say you want his read on the roster every week.",
+        "Hand him something",
+        "warm",
+        "He stays and starts to trust you; his players notice.",
+    );
+    s.pick(
+        22,
+        "Thank him and let him go. You're bringing your own man.",
+        "Tell him straight",
+        "calm",
+        "He's gone; you owe his contract, and his players feel it.",
+    );
 }
 
 fn holdover_tell(w: &World, c: usize) -> String {
@@ -900,8 +1094,14 @@ fn oversell(w: &World, team: Team, c: usize) -> Option<(usize, String)> {
     let co = &w.coaches[c];
     let job = co.job?;
     let groups: Vec<crate::world::coach::Group> = match job.role {
-        crate::world::coach::Role::OffensiveCoordinator => crate::world::coach::Group::ALL.iter().copied().filter(|g| g.offense()).collect(),
-        crate::world::coach::Role::DefensiveCoordinator => crate::world::coach::Group::ALL.iter().copied().filter(|g| !g.offense() && *g != crate::world::coach::Group::Specialists).collect(),
+        crate::world::coach::Role::OffensiveCoordinator => {
+            crate::world::coach::Group::ALL.iter().copied().filter(|g| g.offense()).collect()
+        }
+        crate::world::coach::Role::DefensiveCoordinator => crate::world::coach::Group::ALL
+            .iter()
+            .copied()
+            .filter(|g| !g.offense() && *g != crate::world::coach::Group::Specialists)
+            .collect(),
         crate::world::coach::Role::PositionCoach(g) => vec![g],
         _ => return None,
     };
@@ -910,7 +1110,9 @@ fn oversell(w: &World, team: Team, c: usize) -> Option<(usize, String)> {
         .iter()
         .copied()
         .filter(|&i| groups.contains(&crate::world::coach::Group::of(w.people[i].player.position)))
-        .filter(|&i| matches!(w.people[i].last_role, Some(PlayingTime::Backup | PlayingTime::Redshirt | PlayingTime::Rotation)))
+        .filter(|&i| {
+            matches!(w.people[i].last_role, Some(PlayingTime::Backup | PlayingTime::Redshirt | PlayingTime::Rotation))
+        })
         .max_by(|&a, &b| {
             let fa = w.people[a].stars as f64 + super::roll(w, c as u64, w.people[a].player.id as u64);
             let fb = w.people[b].stars as f64 + super::roll(w, c as u64, w.people[b].player.id as u64);
@@ -932,7 +1134,14 @@ fn holdover_room(w: &mut World, s: &mut Scene, team: Team) {
     let mut doc = Doc {
         title: "The holdover staff".into(),
         note: "Who's still here from the last staff, and what the building says about each.".into(),
-        cols: vec!["Coach".into(), "Job".into(), "Here since".into(), "Reputation".into(), "His tree".into(), "The word".into()],
+        cols: vec![
+            "Coach".into(),
+            "Job".into(),
+            "Here since".into(),
+            "Reputation".into(),
+            "His tree".into(),
+            "The word".into(),
+        ],
         rows: Vec::new(),
     };
     if let Team::High(_) = team {
@@ -960,8 +1169,20 @@ fn holdover_room(w: &mut World, s: &mut Scene, team: Team) {
             });
         }
         s.docs.push(doc);
-        s.pick(30, "Keep them all through spring ball and see who works.", "Listen", "calm", "Nobody's stipend changes; you learn who's good by doing.");
-        s.pick(31, "Tell them every stipend is open again in May.", "Warn", "firm", "They work harder this spring, and two of them stop smiling at you in the hallway.");
+        s.pick(
+            30,
+            "Keep them all through spring ball and see who works.",
+            "Listen",
+            "calm",
+            "Nobody's stipend changes; you learn who's good by doing.",
+        );
+        s.pick(
+            31,
+            "Tell them every stipend is open again in May.",
+            "Warn",
+            "firm",
+            "They work harder this spring, and two of them stop smiling at you in the hallway.",
+        );
         return;
     }
     s.who.push(Who::Group("The holdover position coaches".into()));
@@ -976,13 +1197,38 @@ fn holdover_room(w: &mut World, s: &mut Scene, team: Team) {
         let word = staff_word(w, *c);
         doc.rows.push(DocRow {
             pid: None,
-            cells: vec![coach_link(w, *c), role.name().into(), since.to_string(), super::rep_words(co.reputation).into(), tree.into(), word],
+            cells: vec![
+                coach_link(w, *c),
+                role.name().into(),
+                since.to_string(),
+                super::rep_words(co.reputation).into(),
+                tree.into(),
+                word,
+            ],
         });
     }
     s.docs.push(doc);
-    s.pick(32, "Keep the whole room through spring. Decide after.", "Listen", "calm", "Continuity for the players and recruits; you can still make changes from the staff screen.");
-    s.pick(33, "Keep the recruiters and the ones the players trust; let the rest go.", "Tell him straight", "firm", "The weakest go; you owe their contracts, and you hire to fill.");
-    s.pick(34, "Clean house. You're bringing your own staff.", "Tell him straight", "fiery", "Every holdover goes. The players close to them take it hard, and their recruits wobble.");
+    s.pick(
+        32,
+        "Keep the whole room through spring. Decide after.",
+        "Listen",
+        "calm",
+        "Continuity for the players and recruits; you can still make changes from the staff screen.",
+    );
+    s.pick(
+        33,
+        "Keep the recruiters and the ones the players trust; let the rest go.",
+        "Tell him straight",
+        "firm",
+        "The weakest go; you owe their contracts, and you hire to fill.",
+    );
+    s.pick(
+        34,
+        "Clean house. You're bringing your own staff.",
+        "Tell him straight",
+        "fiery",
+        "Every holdover goes. The players close to them take it hard, and their recruits wobble.",
+    );
 }
 
 /// What the building says about an assistant, from what anyone can see:
@@ -1022,15 +1268,29 @@ fn holdover_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
             if let Some(t) = w.folk.takeover.as_mut() {
                 t.kept.push(c);
             }
-            s.you(&scene::your_name(w), if code == 21 { "You stay. And I want your read on the roster every week." } else { "You stay. This spring is your interview." });
+            s.you(
+                &scene::your_name(w),
+                if code == 21 {
+                    "You stay. And I want your read on the roster every week."
+                } else {
+                    "You stay. This spring is your interview."
+                },
+            );
             let name = w.coaches[c].name.clone();
-            s.them(&name, if code == 21 { "You'll get it. Every week." } else { "That's fair. That's all I'm asking for." }, None);
+            s.them(
+                &name,
+                if code == 21 { "You'll get it. Every week." } else { "That's fair. That's all I'm asking for." },
+                None,
+            );
             s.outcome.push(format!("You kept {} on.", coach_link(w, c)));
         }
         22 => {
             let c = s.a as usize;
             let name = w.coaches[c].name.clone();
-            s.you(&scene::your_name(w), "I'm bringing my own man. I'll make sure you're paid and I'll make calls for you.");
+            s.you(
+                &scene::your_name(w),
+                "I'm bringing my own man. I'll make sure you're paid and I'll make calls for you.",
+            );
             s.them(&name, "I figured. Thanks for telling me to my face.", None);
             let out = super::staffing::fire(w, c, "let go by the new head coach");
             s.outcome.push(out);
@@ -1091,8 +1351,10 @@ fn staff_report(w: &mut World, s: &mut Scene, team: Team) {
         "{} puts last season's film on and walks you through the roster, position by position. {}",
         source.1,
         match team {
-            Team::Nfl(_) => "The pro scouts sit in: in the NFL the new staff grades the roster with them, before the combine.",
-            Team::College(_) => "Your read is wide on day one: film and what the holdovers say. Spring ball will sharpen it.",
+            Team::Nfl(_) =>
+                "The pro scouts sit in: in the NFL the new staff grades the roster with them, before the combine.",
+            Team::College(_) =>
+                "Your read is wide on day one: film and what the holdovers say. Spring ball will sharpen it.",
             Team::High(_) => "Most of it is last fall's film and what the old staff wrote on the board.",
         }
     ));
@@ -1107,8 +1369,16 @@ fn staff_report(w: &mut World, s: &mut Scene, team: Team) {
     }
     let mut doc = Doc {
         title: "Key players".into(),
-        note: "The best one or two at each position as your staff reads them now. Your read sharpens after spring ball.".into(),
-        cols: vec!["Pos".into(), "Player".into(), "Class".into(), "Last year".into(), "Leaves after this season".into()],
+        note:
+            "The best one or two at each position as your staff reads them now. Your read sharpens after spring ball."
+                .into(),
+        cols: vec![
+            "Pos".into(),
+            "Player".into(),
+            "Class".into(),
+            "Last year".into(),
+            "Leaves after this season".into(),
+        ],
         rows: Vec::new(),
     };
     let mut holes: Vec<String> = Vec::new();
@@ -1135,7 +1405,9 @@ fn staff_report(w: &mut World, s: &mut Scene, team: Team) {
     }
     s.docs.push(doc);
     if holes.is_empty() {
-        s.narrate("No position empties out when the seniors leave. The depth is the old staff's best work.".to_string());
+        s.narrate(
+            "No position empties out when the seniors leave. The depth is the old staff's best work.".to_string(),
+        );
     } else {
         s.narrate(format!(
             "The holes once this year's seniors leave: {}. That's where recruiting {} starts.",
@@ -1143,15 +1415,35 @@ fn staff_report(w: &mut World, s: &mut Scene, team: Team) {
             if matches!(team, Team::Nfl(_)) { "becomes free agency and the draft, and it" } else { "" }
         ));
     }
-    super::note(w, "roster", source.1.clone(), format!("Holes after this season: {}.", if holes.is_empty() { "none".into() } else { holes.join(", ") }), None);
-    s.pick(40, "Start the film study yourself tonight.", "Ask", "calm", "Your own eyes on the roster: your read starts sharper.");
-    s.pick(41, "Have the staff grade every player by Friday.", "Hand him something", "firm", "The staff's grades come in; your read leans on their eyes.");
+    super::note(
+        w,
+        "roster",
+        source.1.clone(),
+        format!("Holes after this season: {}.", if holes.is_empty() { "none".into() } else { holes.join(", ") }),
+        None,
+    );
+    s.pick(
+        40,
+        "Start the film study yourself tonight.",
+        "Ask",
+        "calm",
+        "Your own eyes on the roster: your read starts sharper.",
+    );
+    s.pick(
+        41,
+        "Have the staff grade every player by Friday.",
+        "Hand him something",
+        "firm",
+        "The staff's grades come in; your read leans on their eyes.",
+    );
 }
 
 fn report_source(w: &World, team: Team) -> (Who, String) {
     match team {
+        // At a club the general manager runs the roster review, his pro
+        // scouts beside him.
         Team::Nfl(_) => {
-            let c = cast::get(w, CastRef::new(team, Role::Personnel, 0));
+            let c = cast::get(w, CastRef::new(team, Role::Gm, 0));
             (Who::Cast(c.r.token()), format!("{}, the {}", c.link(), c.title.to_lowercase()))
         }
         _ => match facts::assistants(w, team).first() {
@@ -1208,13 +1500,17 @@ fn report_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
         70 => {
             w.folk.mine.hard = (w.folk.mine.hard - 0.05).max(-1.0);
             s.outcome.push("Nobody rushes back. The trainers heard you say it.".into());
-            if let Some(c) = cast::has(w, team, Role::Trainer).then(|| cast::get(w, CastRef::new(team, Role::Trainer, 0))) {
+            if let Some(c) =
+                cast::has(w, team, Role::Trainer).then(|| cast::get(w, CastRef::new(team, Role::Trainer, 0)))
+            {
                 w.folk.mine.nudge(c.key(), 0.1);
             }
         }
         71 => {
             s.outcome.push("You told the trainers you want your starters back for spring ball.".into());
-            if let Some(c) = cast::has(w, team, Role::Trainer).then(|| cast::get(w, CastRef::new(team, Role::Trainer, 0))) {
+            if let Some(c) =
+                cast::has(w, team, Role::Trainer).then(|| cast::get(w, CastRef::new(team, Role::Trainer, 0)))
+            {
                 w.folk.mine.nudge(c.key(), -0.08);
             }
             w.folk.pushed_rehab = true;
@@ -1232,7 +1528,10 @@ fn leaders(w: &mut World, s: &mut Scene, team: Team) {
     let old = w.folk.takeover.as_ref().and_then(|t| t.old_coach);
     s.who.push(Who::Group("The team's leaders".into()));
     s.narrate(match team {
-        Team::Nfl(_) => "You call the captains one by one. Most are home for the offseason; one picks up from a golf course.".to_string(),
+        Team::Nfl(_) => {
+            "You call the captains one by one. Most are home for the offseason; one picks up from a golf course."
+                .to_string()
+        }
         _ => "The captains and the voices of the room come by one at a time.".to_string(),
     });
     let mut doc = Doc {
@@ -1259,13 +1558,32 @@ fn leaders(w: &mut World, s: &mut Scene, team: Team) {
             "takeover.leader.waiting"
         };
         let line = pen.line(&[key], &spk, &f);
-        let words = if line.is_empty() { leader_fallback(tie, t.get(Trait::Ego), t.get(Trait::Leadership)) } else { format!("\"{line}\"") };
-        doc.rows.push(DocRow { pid: Some(p.player.id), cells: vec![player_link(w, i), p.player.position.name().into(), words.clone()] });
-        super::note(w, "room", player_link(w, i), words, if tie > 0.5 { Some("Close to the old coach.".into()) } else { None });
+        let words = if line.is_empty() {
+            leader_fallback(tie, t.get(Trait::Ego), t.get(Trait::Leadership))
+        } else {
+            format!("\"{line}\"")
+        };
+        doc.rows.push(DocRow {
+            pid: Some(p.player.id),
+            cells: vec![player_link(w, i), p.player.position.name().into(), words.clone()],
+        });
+        super::note(
+            w,
+            "room",
+            player_link(w, i),
+            words,
+            if tie > 0.5 { Some("Close to the old coach.".into()) } else { None },
+        );
     }
     pen.put(w);
     s.docs.push(doc);
-    s.pick(50, "Meet them together and ask them to carry the message.", "Hand him something", "warm", "Their trust in you rises a little.");
+    s.pick(
+        50,
+        "Meet them together and ask them to carry the message.",
+        "Hand him something",
+        "warm",
+        "Their trust in you rises a little.",
+    );
     s.pick(51, "Spend an afternoon with each one alone.", "Ask", "warm", "More trust, at the cost of an afternoon.");
 }
 
@@ -1293,7 +1611,10 @@ fn trainer(w: &mut World, s: &mut Scene, team: Team) {
         s.narrate(format!("{}, the {}, has the injury list printed out.", c.link(), c.title.to_lowercase()));
     } else {
         s.who.push(Who::Group("The team".into()));
-        s.narrate("There's no athletic trainer at this school. You ask the players who's hurt, and the honest ones tell you.".to_string());
+        s.narrate(
+            "There's no athletic trainer at this school. You ask the players who's hurt, and the honest ones tell you."
+                .to_string(),
+        );
     }
     let mut doc = Doc {
         title: "Who's hurt".into(),
@@ -1307,14 +1628,21 @@ fn trainer(w: &mut World, s: &mut Scene, team: Team) {
             if c.out_weeks == 0 && !c.pup {
                 continue;
             }
-            (if c.pup { "rehab, on the PUP list".to_string() } else { "injured".to_string() }, if c.out_weeks > 0 { format!("about {} weeks", c.out_weeks) } else { "by camp".into() })
+            (
+                if c.pup { "rehab, on the PUP list".to_string() } else { "injured".to_string() },
+                if c.out_weeks > 0 { format!("about {} weeks", c.out_weeks) } else { "by camp".into() },
+            )
         } else {
             let Some(h) = p.player.history.last() else { continue };
             use crate::player::DevelopmentEvent as Ev;
             if h.events.has(Ev::MajorInjury) {
                 let surgery = super::roll(w, 0x5E6, p.player.id as u64) < 0.4;
                 (
-                    if surgery { "a major injury; surgery still to come".into() } else { "rehab from a major injury".into() },
+                    if surgery {
+                        "a major injury; surgery still to come".into()
+                    } else {
+                        "rehab from a major injury".into()
+                    },
                     if surgery { "summer, maybe fall camp".into() } else { "late spring".into() },
                 )
             } else if h.events.has(Ev::ModerateInjury) && h.games_missed > 2 {
@@ -1323,15 +1651,30 @@ fn trainer(w: &mut World, s: &mut Scene, team: Team) {
                 continue;
             }
         };
-        doc.rows.push(DocRow { pid: Some(p.player.id), cells: vec![player_link(w, i), p.player.position.name().into(), what, back] });
+        doc.rows.push(DocRow {
+            pid: Some(p.player.id),
+            cells: vec![player_link(w, i), p.player.position.name().into(), what, back],
+        });
     }
     let n = doc.rows.len();
     if n == 0 {
         s.narrate("Nobody is hurt badly. A clean list in February is rare.".to_string());
     }
     s.docs.push(doc);
-    s.pick(70, "Nobody rushes back. Healthy for fall is the only goal.", "Tell him straight", "calm", "The trainers trust you; nobody is pushed.");
-    s.pick(71, "I want my starters back for spring ball if there's any way.", "Challenge", "firm", "Some come back sooner; the re-injury risk rises, and the trainers notice.");
+    s.pick(
+        70,
+        "Nobody rushes back. Healthy for fall is the only goal.",
+        "Tell him straight",
+        "calm",
+        "The trainers trust you; nobody is pushed.",
+    );
+    s.pick(
+        71,
+        "I want my starters back for spring ball if there's any way.",
+        "Challenge",
+        "firm",
+        "Some come back sooner; the re-injury risk rises, and the trainers notice.",
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -1347,7 +1690,11 @@ fn academic(w: &mut World, s: &mut Scene, team: Team) {
         }
         (Some(c), _) => {
             s.who.push(Who::Cast(c.r.token()));
-            s.narrate(format!("{}, the {}, brings the grade reports and the conduct file.", c.link(), c.title.to_lowercase()));
+            s.narrate(format!(
+                "{}, the {}, brings the grade reports and the conduct file.",
+                c.link(),
+                c.title.to_lowercase()
+            ));
         }
         _ => {}
     }
@@ -1362,7 +1709,10 @@ fn academic(w: &mut World, s: &mut Scene, team: Team) {
         let mut what: Vec<String> = Vec::new();
         if p.cal.academic_sit || p.cal.fall_ineligible || p.cal.spring_ineligible {
             what.push("academically ineligible".into());
-        } else if p.stage == Stage::College && super::roll(w, 0xAC4D, p.player.id as u64) < 0.08 + 0.02 * (10.0 - p.player.personality.traits.get(Trait::Professionalism)).max(0.0) {
+        } else if p.stage == Stage::College
+            && super::roll(w, 0xAC4D, p.player.id as u64)
+                < 0.08 + 0.02 * (10.0 - p.player.personality.traits.get(Trait::Professionalism)).max(0.0)
+        {
             what.push("below a 2.0 last term: on the watch list".into());
         } else if p.stage == Stage::HighSchool && p.gpa_trend < -0.15 {
             what.push("failing a class: no pass, no play if it holds".into());
@@ -1376,7 +1726,10 @@ fn academic(w: &mut World, s: &mut Scene, team: Team) {
             what.push(case);
         }
         if !what.is_empty() {
-            doc.rows.push(DocRow { pid: Some(p.player.id), cells: vec![player_link(w, i), p.player.position.name().into(), what.join("; ")] });
+            doc.rows.push(DocRow {
+                pid: Some(p.player.id),
+                cells: vec![player_link(w, i), p.player.position.name().into(), what.join("; ")],
+            });
         }
     }
     if doc.rows.is_empty() {
@@ -1384,7 +1737,13 @@ fn academic(w: &mut World, s: &mut Scene, team: Team) {
     }
     s.docs.push(doc);
     if !matches!(team, Team::Nfl(_)) {
-        s.pick(60, "Mandatory study hall for anyone under a 2.5, starting Monday.", "Tell him straight", "firm", "A team rule: fewer players lose eligibility; some resent the hours.");
+        s.pick(
+            60,
+            "Mandatory study hall for anyone under a 2.5, starting Monday.",
+            "Tell him straight",
+            "firm",
+            "A team rule: fewer players lose eligibility; some resent the hours.",
+        );
         s.pick(61, "Leave it with the academic staff.", "Listen", "calm", "Nothing changes.");
     } else {
         s.pick(62, "Noted. Keep me told before the league is.", "Listen", "calm", "You hear about trouble sooner.");
@@ -1405,7 +1764,8 @@ fn flight_risks(w: &mut World, s: &mut Scene, team: Team) {
         }
         let tie = tie_to_old(w, i, old) as f64;
         let t = &p.player.personality.traits;
-        let unhappy_role = matches!(p.last_role, Some(PlayingTime::Backup | PlayingTime::Rotation)) && t.get(Trait::Ambition) >= 12.0;
+        let unhappy_role =
+            matches!(p.last_role, Some(PlayingTime::Backup | PlayingTime::Rotation)) && t.get(Trait::Ambition) >= 12.0;
         let courted = p.stars >= 4 || p.last_performance.unwrap_or(0.0) > 70.0;
         let lean = p.cal.lean;
         let mut score = 0.0;
@@ -1466,7 +1826,12 @@ fn flight_risks(w: &mut World, s: &mut Scene, team: Team) {
         let p = &w.people[*i];
         doc.rows.push(DocRow {
             pid: Some(p.player.id),
-            cells: vec![player_link(w, *i), p.player.position.name().into(), facts::role_words(p.last_role).into(), why.clone()],
+            cells: vec![
+                player_link(w, *i),
+                p.player.position.name().into(),
+                facts::role_words(p.last_role).into(),
+                why.clone(),
+            ],
         });
     }
     let list: Vec<(u32, String)> = risks.iter().map(|(i, _, why)| (w.people[*i].player.id, why.clone())).collect();
@@ -1478,11 +1843,25 @@ fn flight_risks(w: &mut World, s: &mut Scene, team: Team) {
     }
     s.docs.push(doc);
     if risks.is_empty() {
-        s.narrate("Nobody stands out. Every coaching change costs somebody, but your staff can't name him.".to_string());
+        s.narrate(
+            "Nobody stands out. Every coaching change costs somebody, but your staff can't name him.".to_string(),
+        );
         s.pick(80, "Good. Keep your ears open.", "Listen", "calm", "Filed.");
     } else {
-        s.pick(81, format!("I'll meet each of them myself this week ({}).", risks.len().min(5)), "Ask", "warm", "One-on-ones on your calendar, before the window: what you say there moves each one.");
-        s.pick(82, "Have their position coaches talk to them.", "Hand him something", "calm", "A smaller push to stay, and no time from your week.");
+        s.pick(
+            81,
+            format!("I'll meet each of them myself this week ({}).", risks.len().min(5)),
+            "Ask",
+            "warm",
+            "One-on-ones on your calendar, before the window: what you say there moves each one.",
+        );
+        s.pick(
+            82,
+            "Have their position coaches talk to them.",
+            "Hand him something",
+            "calm",
+            "A smaller push to stay, and no time from your week.",
+        );
     }
 }
 
@@ -1550,11 +1929,17 @@ fn recruiting(w: &mut World, s: &mut Scene, team: Team) {
     match &c {
         Some(c) => {
             s.who.push(Who::Cast(c.r.token()));
-            s.narrate(format!("{}, the {}, has the board up: next year's commits and the top targets.", c.link(), c.title.to_lowercase()));
+            s.narrate(format!(
+                "{}, the {}, has the board up: next year's commits and the top targets.",
+                c.link(),
+                c.title.to_lowercase()
+            ));
         }
         None => {
             s.who.push(Who::Group("The recruiting coordinator".into()));
-            s.narrate("The recruiting coordinator has the board up: next year's commits and the top targets.".to_string());
+            s.narrate(
+                "The recruiting coordinator has the board up: next year's commits and the top targets.".to_string(),
+            );
         }
     }
     let old = w.folk.takeover.as_ref().and_then(|t| t.old_coach);
@@ -1570,7 +1955,8 @@ fn recruiting(w: &mut World, s: &mut Scene, team: Team) {
             continue;
         }
         let commit = pp.cal.commit.filter(|c| c.0 == p).is_some() && pp.cal.signed.is_none();
-        let target = !commit && pp.cal.offers.first() == Some(&p) && pp.cal.signed.is_none() && pp.class_of == w.year + 1;
+        let target =
+            !commit && pp.cal.offers.first() == Some(&p) && pp.cal.signed.is_none() && pp.class_of == w.year + 1;
         if !commit && !target {
             continue;
         }
@@ -1586,7 +1972,11 @@ fn recruiting(w: &mut World, s: &mut Scene, team: Team) {
                 player_link(w, i),
                 pp.player.position.name().into(),
                 "★".repeat(pp.stars as usize),
-                if commit { if shaky { "committed, wavering".into() } else { "committed".into() } } else { "top target".into() },
+                if commit {
+                    if shaky { "committed, wavering".into() } else { "committed".into() }
+                } else {
+                    "top target".into()
+                },
                 if shaky {
                     "the staff that recruited him is gone; other schools are calling his parents".into()
                 } else if commit {
@@ -1605,14 +1995,29 @@ fn recruiting(w: &mut World, s: &mut Scene, team: Team) {
     } else {
         "Nobody's wavering yet. The calls still matter: a commit who doesn't hear from you starts listening to others.".to_string()
     });
-    s.pick(90, "Call every commit yourself tonight, the wavering ones first.", "Praise", "warm", "Most of them stay solid; it costs your evening.");
-    s.pick(91, "Have the recruiting coordinator call; you'll call the top three.", "Hand him something", "calm", "The top names hear from you; the rest from staff.");
+    s.pick(
+        90,
+        "Call every commit yourself tonight, the wavering ones first.",
+        "Praise",
+        "warm",
+        "Most of them stay solid; it costs your evening.",
+    );
+    s.pick(
+        91,
+        "Have the recruiting coordinator call; you'll call the top three.",
+        "Hand him something",
+        "calm",
+        "The top names hear from you; the rest from staff.",
+    );
 }
 
 fn recruiting_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
     let n = recruiting_calls(w, team, code == 90);
     super::talks::charge(w, if code == 90 { 4.0 } else { 1.5 });
-    s.outcome.push(format!("{n} commits heard from {}.", if code == 90 { "you" } else { "your staff, the top three from you" }));
+    s.outcome.push(format!(
+        "{n} commits heard from {}.",
+        if code == 90 { "you" } else { "your staff, the top three from you" }
+    ));
     s.end();
 }
 
@@ -1626,7 +2031,9 @@ fn recruiting_calls(w: &mut World, team: Team, all_you: bool) -> usize {
     let mut list: Vec<usize> = (0..w.people.len())
         .filter(|&i| {
             let pp = &w.people[i];
-            matches!(pp.stage, Stage::HighSchool | Stage::PrepSchool) && pp.cal.commit.is_some_and(|c| c.0 == p) && pp.cal.signed.is_none()
+            matches!(pp.stage, Stage::HighSchool | Stage::PrepSchool)
+                && pp.cal.commit.is_some_and(|c| c.0 == p)
+                && pp.cal.signed.is_none()
         })
         .collect();
     list.sort_by(|&a, &b| w.people[b].stars.cmp(&w.people[a].stars));
@@ -1655,6 +2062,26 @@ fn booster_of(w: &World, s: &Scene, team: Team) -> Option<Cast> {
     cast::has(w, team, role).then(|| cast::get(w, CastRef::new(team, role, slot)))
 }
 
+/// A booster's meeting by his name, where you meet and who is there (set
+/// when the meeting is filed, so the schedule names him).
+fn booster_label(s: &mut Scene, team: Team, c: &cast::Cast) {
+    if s.title.is_empty() {
+        s.title = format!("Meeting {}", c.name);
+    }
+    if s.place.is_empty() {
+        s.place = match team {
+            Team::Nfl(_) => "The owner's box".into(),
+            Team::High(_) if c.r.role == Role::ClubPresident => "The concession stand office".into(),
+            Team::High(_) => format!("His business, {}", c.booster.as_ref().map_or("in town", |b| b.business.as_str())),
+            _ => format!("{}'s office downtown", c.last()),
+        };
+    }
+    let who = Who::Cast(c.r.token());
+    if !s.who.contains(&who) {
+        s.who.push(who);
+    }
+}
+
 fn booster_open(w: &mut World, s: &mut Scene, team: Team) {
     let Some(c) = booster_of(w, s, team) else {
         s.narrate("He cancelled. His assistant says he's traveling.");
@@ -1665,20 +2092,18 @@ fn booster_open(w: &mut World, s: &mut Scene, team: Team) {
         s.end();
         return;
     };
-    s.title = format!("Meeting {}", c.name);
-    s.place = match team {
-        Team::Nfl(_) => "The owner's box".into(),
-        Team::High(_) => {
-            if c.r.role == Role::ClubPresident { "The concession stand office".into() } else { format!("His business, {}", b.business) }
-        }
-        _ => format!("{}'s office downtown", c.last()),
-    };
-    s.who.push(Who::Cast(c.r.token()));
+    booster_label(s, team, &c);
     let old = w.folk.takeover.as_ref().and_then(|t| t.old_coach);
     let intro = match team {
-        Team::Nfl(_) => format!("{}, the {}. {}", c.link(), c.title.to_lowercase(), "In the NFL there are no boosters: the owner's family and partners have his ear."),
+        Team::Nfl(_) => format!(
+            "{}, the {}. {}",
+            c.link(),
+            c.title.to_lowercase(),
+            "In the NFL there are no boosters: the owner's family and partners have his ear."
+        ),
         _ => {
-            let given = if b.yearly > 0.0 { format!(" and gives about {} a year", money(b.yearly)) } else { String::new() };
+            let given =
+                if b.yearly > 0.0 { format!(" and gives about {} a year", money(b.yearly)) } else { String::new() };
             format!(
                 "{} made his money in {}. He gave {}{given}. {} is close to {}.",
                 c.link(),
@@ -1718,7 +2143,11 @@ fn booster_open(w: &mut World, s: &mut Scene, team: Team) {
             "boosters",
             format!("{}, booster", c.link()),
             format!("Wants {}.", wt.words()),
-            Some(format!("Gives {}; close to {}.", if b.yearly > 0.0 { money(b.yearly) + " a year" } else { "his time".into() }, b.close_to)),
+            Some(format!(
+                "Gives {}; close to {}.",
+                if b.yearly > 0.0 { money(b.yearly) + " a year" } else { "his time".into() },
+                b.close_to
+            )),
         );
     }
     pen.put(w);
@@ -1775,31 +2204,109 @@ fn want_fallback(w: &World, wt: Want, b: &cast::BoosterInfo) -> String {
 fn add_want_picks(s: &mut Scene, wt: Want) {
     match wt {
         Want::Access => {
-            s.pick(100, "You'll have your sideline pass, as long as I'm here.", "Promise", "warm", "He's happy; a promise logged. Keep it.");
-            s.pick(101, "The sideline is for the team. I'll find you a better seat.", "Tell him straight", "firm", "He respects it or he doesn't.");
+            s.pick(
+                100,
+                "You'll have your sideline pass, as long as I'm here.",
+                "Promise",
+                "warm",
+                "He's happy; a promise logged. Keep it.",
+            );
+            s.pick(
+                101,
+                "The sideline is for the team. I'll find you a better seat.",
+                "Tell him straight",
+                "firm",
+                "He respects it or he doesn't.",
+            );
         }
         Want::SayInHires | Want::SayOnPlayer => {
-            s.pick(100, "I'll keep you in the loop. You'll hear it from me first.", "Promise", "warm", "He feels heard; a promise you'll be asked to keep.");
-            s.pick(101, "Football decisions stay with me. That's not personal.", "Tell him straight", "firm", "Clean lines; a meddler takes it badly.");
+            s.pick(
+                100,
+                "I'll keep you in the loop. You'll hear it from me first.",
+                "Promise",
+                "warm",
+                "He feels heard; a promise you'll be asked to keep.",
+            );
+            s.pick(
+                101,
+                "Football decisions stay with me. That's not personal.",
+                "Tell him straight",
+                "firm",
+                "Clean lines; a meddler takes it badly.",
+            );
         }
         Want::NilDeals => {
-            s.pick(100, "Let's set it up through the collective, properly.", "Promise", "warm", "NIL money for your players through his company.");
-            s.pick(101, "I'll send you the players who fit. Their call, not mine.", "Listen", "calm", "He'll take it, maybe.");
+            s.pick(
+                100,
+                "Let's set it up through the collective, properly.",
+                "Promise",
+                "warm",
+                "NIL money for your players through his company.",
+            );
+            s.pick(
+                101,
+                "I'll send you the players who fit. Their call, not mine.",
+                "Listen",
+                "calm",
+                "He'll take it, maybe.",
+            );
         }
         Want::Clean => {
-            s.pick(100, "Nobody here embarrasses this school. You have my word.", "Promise", "firm", "He's with you. Every arrest is now a broken promise.");
-            s.pick(101, "Kids make mistakes. I'll handle them right, not hide them.", "Tell him straight", "calm", "An honest answer; he decides what he thinks of it.");
+            s.pick(
+                100,
+                "Nobody here embarrasses this school. You have my word.",
+                "Promise",
+                "firm",
+                "He's with you. Every arrest is now a broken promise.",
+            );
+            s.pick(
+                101,
+                "Kids make mistakes. I'll handle them right, not hide them.",
+                "Tell him straight",
+                "calm",
+                "An honest answer; he decides what he thinks of it.",
+            );
         }
         Want::Building => {
-            s.pick(100, "When the new building comes, I'll tell the AD where my vote is.", "Promise", "warm", "He opens his checkbook a little wider.");
-            s.pick(101, "Buildings are the AD's call. I'll be glad to show you the plans.", "Listen", "calm", "Polite; no promise.");
+            s.pick(
+                100,
+                "When the new building comes, I'll tell the AD where my vote is.",
+                "Promise",
+                "warm",
+                "He opens his checkbook a little wider.",
+            );
+            s.pick(
+                101,
+                "Buildings are the AD's call. I'll be glad to show you the plans.",
+                "Listen",
+                "calm",
+                "Polite; no promise.",
+            );
         }
         _ => {
-            s.pick(100, "That's the plan. You'll see it this fall.", "Promise", "fiery", "He leaves fired up, and holds you to it.");
-            s.pick(101, "It's a process. Give us two years and judge us then.", "Tell him straight", "calm", "Some boosters respect patience; others hear excuses.");
+            s.pick(
+                100,
+                "That's the plan. You'll see it this fall.",
+                "Promise",
+                "fiery",
+                "He leaves fired up, and holds you to it.",
+            );
+            s.pick(
+                101,
+                "It's a process. Give us two years and judge us then.",
+                "Tell him straight",
+                "calm",
+                "Some boosters respect patience; others hear excuses.",
+            );
         }
     }
-    s.pick(102, "Change the subject: ask about his business.", "Ask", "warm", "No promise either way; he likes being asked.");
+    s.pick(
+        102,
+        "Change the subject: ask about his business.",
+        "Ask",
+        "warm",
+        "No promise either way; he likes being asked.",
+    );
 }
 
 fn booster_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
@@ -1813,12 +2320,29 @@ fn booster_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
     let (dt, line, outcome) = match code {
         100 => {
             if let Some(wt) = want {
-                super::talks::promise(w, super::talks::PromiseTo::Cast(c.r, c.term), super::talks::PromiseKind::Booster(wt), 2);
+                super::talks::promise(
+                    w,
+                    super::talks::PromiseTo::Cast(c.r, c.term),
+                    super::talks::PromiseKind::Booster(wt),
+                    2,
+                );
             }
-            (0.15, "That's what I wanted to hear. You and I are going to get along.", format!("You promised {} {}.", c.name, want.map_or("your attention", |x| x.short())))
+            (
+                0.15,
+                "That's what I wanted to hear. You and I are going to get along.",
+                format!("You promised {} {}.", c.name, want.map_or("your attention", |x| x.short())),
+            )
         }
-        101 => (-0.05 - 0.1 * meddler.max(0.0), "Fair enough. We'll see how it goes.", format!("You told {} no, politely.", c.name)),
-        102 => (0.04, "Thirty years of it. Let me tell you how I started.", format!("You let {} talk about his business.", c.name)),
+        101 => (
+            -0.05 - 0.1 * meddler.max(0.0),
+            "Fair enough. We'll see how it goes.",
+            format!("You told {} no, politely.", c.name),
+        ),
+        102 => (
+            0.04,
+            "Thirty years of it. Let me tell you how I started.",
+            format!("You let {} talk about his business.", c.name),
+        ),
         _ => (0.06, "Glad to do it. Glad you're here.", format!("You thanked {}.", c.name)),
     };
     w.folk.mine.nudge(c.key(), dt);
@@ -1837,7 +2361,8 @@ fn booster_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
 // Item 19: the beat reporters.
 
 fn media_open(w: &mut World, s: &mut Scene, team: Team) {
-    let comms = if cast::has(w, team, Role::Comms) { Some(cast::get(w, CastRef::new(team, Role::Comms, 0))) } else { None };
+    let comms =
+        if cast::has(w, team, Role::Comms) { Some(cast::get(w, CastRef::new(team, Role::Comms, 0))) } else { None };
     let reporters = cast::all(w, team, Role::Reporter);
     match &comms {
         Some(c) => {
@@ -1849,7 +2374,14 @@ fn media_open(w: &mut World, s: &mut Scene, team: Team) {
     let mut doc = Doc {
         title: "Who covers you".into(),
         note: "The reporters on your team, with what your communications people say about each.".into(),
-        cols: vec!["Reporter".into(), "Outlet".into(), "Beat".into(), "Leaning".into(), "Sources".into(), "The word".into()],
+        cols: vec![
+            "Reporter".into(),
+            "Outlet".into(),
+            "Beat".into(),
+            "Leaning".into(),
+            "Sources".into(),
+            "The word".into(),
+        ],
         rows: Vec::new(),
     };
     for r in &reporters {
@@ -1873,14 +2405,39 @@ fn media_open(w: &mut World, s: &mut Scene, team: Team) {
         };
         doc.rows.push(DocRow {
             pid: None,
-            cells: vec![r.link(), info.outlet.clone(), r.title.split(',').next().unwrap_or("").to_string(), lean.into(), info.sources.join(", "), word.into()],
+            cells: vec![
+                r.link(),
+                info.outlet.clone(),
+                r.title.split(',').next().unwrap_or("").to_string(),
+                lean.into(),
+                info.sources.join(", "),
+                word.into(),
+            ],
         });
         super::note(w, "media", r.link(), format!("{}: {}", info.outlet, word), None);
     }
     s.docs.push(doc);
-    s.pick(110, "Open door: practices open for twenty minutes, I return calls.", "Praise", "warm", "Reporters treat you softer; more gets out.");
-    s.pick(111, "Closed practices, injuries on the report only, nothing off the record.", "Tell him straight", "firm", "Less leaks; the coverage is harder on you.");
-    s.pick(112, "Fair to all, a little more for the beat writer who's straight with us.", "Hand him something", "calm", "The beat writer gets the scoops; the rest notice.");
+    s.pick(
+        110,
+        "Open door: practices open for twenty minutes, I return calls.",
+        "Praise",
+        "warm",
+        "Reporters treat you softer; more gets out.",
+    );
+    s.pick(
+        111,
+        "Closed practices, injuries on the report only, nothing off the record.",
+        "Tell him straight",
+        "firm",
+        "Less leaks; the coverage is harder on you.",
+    );
+    s.pick(
+        112,
+        "Fair to all, a little more for the beat writer who's straight with us.",
+        "Hand him something",
+        "calm",
+        "The beat writer gets the scoops; the rest notice.",
+    );
 }
 
 fn media_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
@@ -1932,13 +2489,23 @@ fn tour(w: &mut World, s: &mut Scene, team: Team) {
     for se in &seasons {
         doc.rows.push(DocRow {
             pid: None,
-            cells: vec![se.year.to_string(), format!("{}-{}", se.wins, se.losses), se.coach.map_or(String::new(), |c| coach_link(w, c)), se.note.clone()],
+            cells: vec![
+                se.year.to_string(),
+                format!("{}-{}", se.wins, se.losses),
+                se.coach.map_or(String::new(), |c| coach_link(w, c)),
+                se.note.clone(),
+            ],
         });
     }
     s.docs.push(doc);
     let you = w.career.as_ref().map_or(0, |c| c.coach);
     if let Some((o, why, from, to)) = facts::predecessor(w, team, you) {
-        let (wins, losses) = w.coaches[o].history.iter().rev().find(|x| x.employer == team.employer()).map_or((0, 0), |x| (x.wins, x.losses));
+        let (wins, losses) = w.coaches[o]
+            .history
+            .iter()
+            .rev()
+            .find(|x| x.employer == team.employer())
+            .map_or((0, 0), |x| (x.wins, x.losses));
         s.narrate(format!(
             "Your predecessor, {}, coached here from {from} to {to} and went {wins}-{losses}. {}.",
             coach_link(w, o),
@@ -1947,13 +2514,20 @@ fn tour(w: &mut World, s: &mut Scene, team: Team) {
     }
     if let Some((r, game, a, b)) = facts::rival(w, team) {
         if a + b > 0 {
-            s.narrate(format!("The rival is {}: {game}. {} leads the series {}-{}.", r.link(w), if a >= b { team.name(w) } else { r.name(w) }, a.max(b), a.min(b)));
+            s.narrate(format!(
+                "The rival is {}: {game}. {} leads the series {}-{}.",
+                r.link(w),
+                if a >= b { team.name(w) } else { r.name(w) },
+                a.max(b),
+                a.min(b)
+            ));
         } else {
             s.narrate(format!("The game people here care about most is against {}.", r.link(w)));
         }
     }
     s.narrate(facts::facilities_words(w, team));
-    let mut money = Doc { title: "The money".into(), note: String::new(), cols: vec!["".into(), "".into()], rows: Vec::new() };
+    let mut money =
+        Doc { title: "The money".into(), note: String::new(), cols: vec!["".into(), "".into()], rows: Vec::new() };
     for (k, v) in facts::money_words(w, team) {
         money.rows.push(DocRow { pid: None, cells: vec![k, v] });
     }
@@ -1965,7 +2539,14 @@ fn tour(w: &mut World, s: &mut Scene, team: Team) {
             .take(12)
             .map(|f| {
                 let opp = if f.home == p { f.away } else { f.home };
-                (f.date, format!("{} {}", if f.home == p { "vs" } else { "at" }, crate::world::folk::Team::College(opp).link(w)))
+                (
+                    f.date,
+                    format!(
+                        "{} {}",
+                        if f.home == p { "vs" } else { "at" },
+                        crate::world::folk::Team::College(opp).link(w)
+                    ),
+                )
             })
             .collect::<Vec<_>>(),
         Team::Nfl(t) => w
@@ -2020,7 +2601,13 @@ fn plan(w: &mut World, s: &mut Scene, team: Team) {
         rows: due.iter().map(|(d, t)| DocRow { pid: None, cells: vec![d.pretty(), t.clone()] }).collect(),
     });
     for (d, t) in due.iter().take(6) {
-        super::note(w, "plan", host.as_ref().map_or("Your staff".into(), |h| h.link()), format!("{}: {t}", d.pretty()), None);
+        super::note(
+            w,
+            "plan",
+            host.as_ref().map_or("Your staff".into(), |h| h.link()),
+            format!("{}: {t}", d.pretty()),
+            None,
+        );
     }
     s.pick(130, "Put it on my calendar.", "Listen", "calm", "Your calendar has the dates.");
 }
@@ -2030,7 +2617,11 @@ fn plan(w: &mut World, s: &mut Scene, team: Team) {
 
 fn parents_open(w: &mut World, s: &mut Scene, team: Team) {
     let roster = team.roster(w);
-    let loud: Vec<usize> = roster.iter().copied().filter(|&i| w.people[i].family.parent_style == crate::world::background::ParentStyle::LoudAtGames).collect();
+    let loud: Vec<usize> = roster
+        .iter()
+        .copied()
+        .filter(|&i| w.people[i].family.parent_style == crate::world::background::ParentStyle::LoudAtGames)
+        .collect();
     s.who.push(Who::Group("The parents".into()));
     s.narrate(format!(
         "About {} parents in the cafeteria, more than the team has players on some nights. The booster club set out cookies.",
@@ -2044,14 +2635,36 @@ fn parents_open(w: &mut World, s: &mut Scene, team: Team) {
         let kid = w.people[i].name.split_whitespace().next().unwrap_or("").to_string();
         s.them(
             &format!("{}'s father", kid),
-            if line.is_empty() { format!("My son started two years for the last coach. Is that going to change?") } else { line },
+            if line.is_empty() {
+                format!("My son started two years for the last coach. Is that going to change?")
+            } else {
+                line
+            },
             Some("A few parents nod. They've been talking about this in the parking lot.".into()),
         );
     }
     pen.put(w);
-    s.pick(140, "Every position is open. The best player plays, and I'll tell your son why.", "Tell him straight", "firm", "Fair-minded parents like it; the ones with starters worry.");
-    s.pick(141, "Your sons are in good hands. My door is open, any time.", "Praise", "warm", "Parents warm to you; they'll use that door.");
-    s.pick(142, "Playing time is between me and the player. Not the parents.", "Warn", "firm", "A line drawn; the loud ones go to the principal.");
+    s.pick(
+        140,
+        "Every position is open. The best player plays, and I'll tell your son why.",
+        "Tell him straight",
+        "firm",
+        "Fair-minded parents like it; the ones with starters worry.",
+    );
+    s.pick(
+        141,
+        "Your sons are in good hands. My door is open, any time.",
+        "Praise",
+        "warm",
+        "Parents warm to you; they'll use that door.",
+    );
+    s.pick(
+        142,
+        "Playing time is between me and the player. Not the parents.",
+        "Warn",
+        "firm",
+        "A line drawn; the loud ones go to the principal.",
+    );
 }
 
 fn parents_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
@@ -2060,11 +2673,24 @@ fn parents_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
     let mut complaints = 0;
     for i in roster {
         let style = w.people[i].family.parent_style;
-        let loud = style == crate::world::background::ParentStyle::LoudAtGames || style == crate::world::background::ParentStyle::SocialMedia;
+        let loud = style == crate::world::background::ParentStyle::LoudAtGames
+            || style == crate::world::background::ParentStyle::SocialMedia;
         let d: f32 = match code {
-            140 => if loud { -0.01 } else { 0.03 },
+            140 => {
+                if loud {
+                    -0.01
+                } else {
+                    0.03
+                }
+            }
             141 => 0.03,
-            _ => if loud { -0.04 } else { 0.0 },
+            _ => {
+                if loud {
+                    -0.04
+                } else {
+                    0.0
+                }
+            }
         };
         let p = &mut w.people[i];
         p.trust = (p.trust + d).clamp(0.0, 1.0);
@@ -2117,10 +2743,16 @@ fn feeder(w: &mut World, s: &mut Scene, team: Team) {
             _ if p.player.personality.competitiveness >= 14.0 => "the toughest kid in the league",
             _ => "a good athlete who loves it",
         };
-        doc.rows.push(DocRow { pid: Some(p.player.id), cells: vec![player_link(w, i), p.player.position.name().into(), say.into()] });
+        doc.rows.push(DocRow {
+            pid: Some(p.player.id),
+            cells: vec![player_link(w, i), p.player.position.name().into(), say.into()],
+        });
     }
     if doc.rows.is_empty() {
-        s.narrate(format!("{} runs the youth league; he says next year's group is thin, and the one after it better.", youth.link()));
+        s.narrate(format!(
+            "{} runs the youth league; he says next year's group is thin, and the one after it better.",
+            youth.link()
+        ));
     } else {
         s.docs.push(doc);
     }
@@ -2128,7 +2760,13 @@ fn feeder(w: &mut World, s: &mut Scene, team: Team) {
         w.folk.mine.nudge(c.key(), 0.05);
     }
     w.folk.mine.nudge(youth.key(), 0.05);
-    s.pick(150, "Offer to run a clinic for the youth coaches this summer.", "Hand him something", "warm", "Ties with the feeder coaches; a day of your summer.");
+    s.pick(
+        150,
+        "Offer to run a clinic for the youth coaches this summer.",
+        "Hand him something",
+        "warm",
+        "Ties with the feeder coaches; a day of your summer.",
+    );
     s.pick(151, "Thank them and ask for their film.", "Ask", "calm", "Filed.");
 }
 
@@ -2150,10 +2788,30 @@ fn old_coach_open(w: &mut World, s: &mut Scene, team: Team) {
     let f = base_facts(w, team);
     let line = pen.line(&["takeover.oldcoach.greet"], &spk, &f);
     pen.put(w);
-    s.them(&name, if line.is_empty() { "Come on in. I figured you'd stop by eventually.".to_string() } else { line }, Some(if temper >= 13.0 { "He doesn't get up from his desk.".into() } else { "He shakes your hand like he means it.".into() }));
-    s.pick(160, "Ask him to help with the program, any way he wants.", "Hand him something", "warm", "His people warm to you; he's around the program.");
+    s.them(
+        &name,
+        if line.is_empty() { "Come on in. I figured you'd stop by eventually.".to_string() } else { line },
+        Some(if temper >= 13.0 {
+            "He doesn't get up from his desk.".into()
+        } else {
+            "He shakes your hand like he means it.".into()
+        }),
+    );
+    s.pick(
+        160,
+        "Ask him to help with the program, any way he wants.",
+        "Hand him something",
+        "warm",
+        "His people warm to you; he's around the program.",
+    );
     s.pick(161, "Tell him you respect what he built and leave it there.", "Praise", "calm", "Polite distance.");
-    s.pick(162, "Make clear it's your program now.", "Tell him straight", "firm", "A line drawn; his loyalists hear about it by dinner.");
+    s.pick(
+        162,
+        "Make clear it's your program now.",
+        "Tell him straight",
+        "firm",
+        "A line drawn; his loyalists hear about it by dinner.",
+    );
 }
 
 fn old_coach_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
@@ -2176,11 +2834,15 @@ fn old_coach_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
         }
     }
     let name = w.coaches[o].name.clone();
-    s.them(&name, match code {
-        160 => "I'd like that. These kids matter to me.",
-        161 => "Appreciate it. Good luck, Coach.",
-        _ => "Understood. It's yours.",
-    }, None);
+    s.them(
+        &name,
+        match code {
+            160 => "I'd like that. These kids matter to me.",
+            161 => "Appreciate it. Good luck, Coach.",
+            _ => "Understood. It's yours.",
+        },
+        None,
+    );
     s.outcome.push(match code {
         160 => format!("You asked {name} to stay around the program."),
         161 => format!("You paid your respects to {name}."),
@@ -2206,8 +2868,10 @@ fn gm_open(w: &mut World, s: &mut Scene, team: Team) {
         gm.link(),
         gm.since,
         match power {
-            Some(crate::world::pro::office::Power::Coach) => "Here the head coach has the final say on the roster, and he knows it came with your hire.",
-            Some(crate::world::pro::office::Power::Owner) => "The owner has the final say here, and both of you know it.",
+            Some(crate::world::pro::office::Power::Coach) =>
+                "Here the head coach has the final say on the roster, and he knows it came with your hire.",
+            Some(crate::world::pro::office::Power::Owner) =>
+                "The owner has the final say here, and both of you know it.",
             _ => "He has the final say on the roster; your say is your voice in the room.",
         }
     ));
@@ -2219,8 +2883,20 @@ fn gm_open(w: &mut World, s: &mut Scene, team: Team) {
             _ => "somewhere in between: compete and get younger",
         }
     ));
-    s.pick(170, "Tell him you want a say on every 53-man decision.", "Challenge", "firm", "He gives a little and remembers it.");
-    s.pick(171, "Tell him you'll coach who he gives you, and tell him what you need.", "Praise", "warm", "He trusts you; you live with his roster.");
+    s.pick(
+        170,
+        "Tell him you want a say on every 53-man decision.",
+        "Challenge",
+        "firm",
+        "He gives a little and remembers it.",
+    );
+    s.pick(
+        171,
+        "Tell him you'll coach who he gives you, and tell him what you need.",
+        "Praise",
+        "warm",
+        "He trusts you; you live with his roster.",
+    );
     s.pick(172, "Ask him which three players he'd never trade.", "Ask", "calm", "You learn who he believes in.");
 }
 
@@ -2232,11 +2908,15 @@ fn gm_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
         _ => 0.05,
     };
     w.folk.mine.nudge(gm.key(), d);
-    s.them(&gm.name, match code {
-        170 => "You'll be in the room. The decisions are mine; that's how the owner set it up.",
-        171 => "That's how this works best. Tell me what you need and I'll go get it.",
-        _ => "Ask me again after the draft. But you can guess the first one.",
-    }, None);
+    s.them(
+        &gm.name,
+        match code {
+            170 => "You'll be in the room. The decisions are mine; that's how the owner set it up.",
+            171 => "That's how this works best. Tell me what you need and I'll go get it.",
+            _ => "Ask me again after the draft. But you can guess the first one.",
+        },
+        None,
+    );
     s.outcome.push("You sat down with your general manager.".into());
     s.end();
 }
@@ -2256,7 +2936,11 @@ pub(crate) fn check_claims(w: &mut World) {
         let Some(i) = super::person(w, id) else { continue };
         let p = &w.people[i];
         let held = matches!(p.last_role, Some(PlayingTime::Starter)) || p.cal.spring_notice;
-        let text = if held == (sign > 0) { "It held up: he played like it this spring." } else { "It didn't hold up: he still looks like a backup." };
+        let text = if held == (sign > 0) {
+            "It held up: he played like it this spring."
+        } else {
+            "It didn't hold up: he still looks like a backup."
+        };
         let name = player_link(w, i);
         if let Some(e) = w.folk.log.iter_mut().find(|e| e.source.contains(&who) && e.text.contains(&name)) {
             e.check = Some(text.to_string());

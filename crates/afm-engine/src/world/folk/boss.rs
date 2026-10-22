@@ -170,7 +170,11 @@ fn draft_goals(w: &World, team: Team) -> Vec<GoalKind> {
     let level = team.level();
     let last = facts::seasons(w, team, 3);
     let games = last.last().map_or(12, |s| s.wins + s.losses).max(10) as f64;
-    let avg_wp = if last.is_empty() { 0.5 } else { last.iter().map(|s| s.wins as f64 / (s.wins + s.losses).max(1) as f64).sum::<f64>() / last.len() as f64 };
+    let avg_wp = if last.is_empty() {
+        0.5
+    } else {
+        last.iter().map(|s| s.wins as f64 / (s.wins + s.losses).max(1) as f64).sum::<f64>() / last.len() as f64
+    };
     let b = boss(w, team);
     let mut v = Vec::new();
     // Wins: a little above the last three years' average, by his patience.
@@ -209,7 +213,12 @@ fn draft_goals(w: &World, team: Team) -> Vec<GoalKind> {
     if b.honesty >= 12.0 || level == Level::HighSchool {
         v.push(GoalKind::Clean);
     }
-    if facts::rival(w, team).is_some() && (b.ego >= 12.0 || cast::all(w, team, Role::Booster).iter().any(|c| c.booster.as_ref().is_some_and(|x| x.wants.contains(&Want::BeatRival)))) {
+    if facts::rival(w, team).is_some()
+        && (b.ego >= 12.0
+            || cast::all(w, team, Role::Booster)
+                .iter()
+                .any(|c| c.booster.as_ref().is_some_and(|x| x.wants.contains(&Want::BeatRival))))
+    {
         v.push(GoalKind::BeatRival);
     }
     if level != Level::HighSchool && b.tight >= 13.0 {
@@ -247,10 +256,32 @@ fn meeting_open(w: &mut World, s: &mut Scene) {
             f.set("record", format!("{wn}-{l}"));
             s.narrate(format!("{} wants a word at the midpoint. You're {wn}-{l}.", b.link()));
             let line = pen.line(&["boss.mid.open"], &spk, &f);
-            s.them(&b.name, if line.is_empty() { format!("{wn} and {l}. Talk to me. What do you see?") } else { line }, Some(boss_tell(&b, trust(w, team))));
-            s.pick(30, "\"We're ahead of where I thought. Here's why.\"", "Tell him straight", "calm", "Honest about the good; he likes being told.");
-            s.pick(31, "\"I'm not happy either. Here's what changes.\"", "Take the blame", "firm", "Owning it builds trust when it's true.");
-            s.pick(32, "\"The injuries have killed us.\"", "Deflect", "calm", "He hears an excuse unless it's plainly true.");
+            s.them(
+                &b.name,
+                if line.is_empty() { format!("{wn} and {l}. Talk to me. What do you see?") } else { line },
+                Some(boss_tell(&b, trust(w, team))),
+            );
+            s.pick(
+                30,
+                "\"We're ahead of where I thought. Here's why.\"",
+                "Tell him straight",
+                "calm",
+                "Honest about the good; he likes being told.",
+            );
+            s.pick(
+                31,
+                "\"I'm not happy either. Here's what changes.\"",
+                "Take the blame",
+                "firm",
+                "Owning it builds trust when it's true.",
+            );
+            s.pick(
+                32,
+                "\"The injuries have killed us.\"",
+                "Deflect",
+                "calm",
+                "He hears an excuse unless it's plainly true.",
+            );
         }
         2 => review_open(w, s, team, &b, &mut pen, &mut f),
         3 => {
@@ -264,7 +295,11 @@ fn meeting_open(w: &mut World, s: &mut Scene) {
                     format!("closes the door behind you. You asked for the time; {} gave it.", b.he())
                 }
             ));
-            s.them(&b.name, if b.warmth >= 13.0 { "Come on in. What's on your mind?" } else { "You wanted to see me." }, Some(boss_tell(&b, trust(w, team))));
+            s.them(
+                &b.name,
+                if b.warmth >= 13.0 { "Come on in. What's on your mind?" } else { "You wanted to see me." },
+                Some(boss_tell(&b, trust(w, team))),
+            );
             add_ask_picks(w, s, team);
         }
         _ => {
@@ -280,7 +315,11 @@ fn meeting_open(w: &mut World, s: &mut Scene) {
                 }
             ));
             let line = pen.line(&["boss.goals.open", "?boss.goals.point"], &spk, &f);
-            s.them(&b.name, if line.is_empty() { "Here's what I need from you this year.".into() } else { line }, Some(boss_tell(&b, trust(w, team))));
+            s.them(
+                &b.name,
+                if line.is_empty() { "Here's what I need from you this year.".into() } else { line },
+                Some(boss_tell(&b, trust(w, team))),
+            );
             let mut doc = Doc {
                 title: format!("{}'s goals for {season}", b.first()),
                 note: "Set in this meeting. You can argue them down or take on more.".into(),
@@ -288,16 +327,31 @@ fn meeting_open(w: &mut World, s: &mut Scene) {
                 rows: Vec::new(),
             };
             for g in &goals {
-                doc.rows.push(DocRow { pid: None, cells: vec![super::takeover::cap_first(&g.words(level)), why_goal(w, team, *g)] });
+                doc.rows.push(DocRow {
+                    pid: None,
+                    cells: vec![super::takeover::cap_first(&g.words(level)), why_goal(w, team, *g)],
+                });
             }
             s.docs.push(doc);
             w.folk.goals.retain(|g| g.season != season);
             for g in goals {
                 w.folk.goals.push(Goal { kind: g, season, deal: 0, met: None, set_on: w.today });
             }
-            s.pick(20, "\"Done. I'd set them higher myself.\"", "Promise", "fiery", "He likes the ambition; the bar goes up and you'll be judged by it.");
+            s.pick(
+                20,
+                "\"Done. I'd set them higher myself.\"",
+                "Promise",
+                "fiery",
+                "He likes the ambition; the bar goes up and you'll be judged by it.",
+            );
             s.pick(21, "\"Those are fair. We'll get there.\"", "Praise", "calm", "Goals as set.");
-            s.pick(22, "\"The roster's young. Give me a year to build it.\"", "Tell him straight", "calm", "A lower bar now; a patient boss agrees, an impatient one remembers you asked.");
+            s.pick(
+                22,
+                "\"The roster's young. Give me a year to build it.\"",
+                "Tell him straight",
+                "calm",
+                "A lower bar now; a patient boss agrees, an impatient one remembers you asked.",
+            );
         }
     }
     pen.put(w);
@@ -305,7 +359,11 @@ fn meeting_open(w: &mut World, s: &mut Scene) {
 
 fn boss_tell(b: &Cast, t: f32) -> String {
     if t > 0.65 {
-        format!("{} leans back. {} is comfortable with you.", b.first(), b.he().to_string().to_uppercase().chars().next().map_or(String::new(), |c| c.to_string()) + &b.he()[1..])
+        format!(
+            "{} leans back. {} is comfortable with you.",
+            b.first(),
+            b.he().to_string().to_uppercase().chars().next().map_or(String::new(), |c| c.to_string()) + &b.he()[1..]
+        )
     } else if t < 0.35 {
         format!("{} doesn't sit down.", b.first())
     } else if b.temper >= 14.0 {
@@ -318,12 +376,20 @@ fn boss_tell(b: &Cast, t: f32) -> String {
 fn why_goal(w: &World, team: Team, g: GoalKind) -> String {
     let last = facts::seasons(w, team, 1);
     match g {
-        GoalKind::Wins(_) => last.last().map_or("The fans expect it.".into(), |s| format!("Last year was {}.", facts::season_words(s))),
+        GoalKind::Wins(_) => {
+            last.last().map_or("The fans expect it.".into(), |s| format!("Last year was {}.", facts::season_words(s)))
+        }
         GoalKind::Postseason => "The money and the fans follow the postseason.".into(),
         GoalKind::Title => "This program measures itself in titles.".into(),
-        GoalKind::BeatRival => facts::rival(w, team).map_or("It's the game people remember.".into(), |(r, game, a, b)| {
-            if a + b > 0 { format!("{} ({game}): the series is {a}-{b}.", r.name(w)) } else { format!("{} ({game}).", r.name(w)) }
-        }),
+        GoalKind::BeatRival => {
+            facts::rival(w, team).map_or("It's the game people remember.".into(), |(r, game, a, b)| {
+                if a + b > 0 {
+                    format!("{} ({game}): the series is {a}-{b}.", r.name(w))
+                } else {
+                    format!("{} ({game}).", r.name(w))
+                }
+            })
+        }
         GoalKind::Recruiting(_) => "The rankings are how the boosters judge a staff in February.".into(),
         GoalKind::Clean => "One arrest in the paper is a week of phone calls for him.".into(),
         GoalKind::Grades => "The academic people report to the board.".into(),
@@ -335,7 +401,12 @@ fn why_goal(w: &World, team: Team, g: GoalKind) -> String {
 fn review_open(w: &mut World, s: &mut Scene, team: Team, b: &Cast, pen: &mut super::voice::Pen, f: &mut Facts) {
     let level = team.level();
     let season = s.b as i32;
-    let mut doc = Doc { title: format!("The {season} review"), note: "What he set, and how it ended.".into(), cols: vec!["Goal".into(), "How it ended".into()], rows: Vec::new() };
+    let mut doc = Doc {
+        title: format!("The {season} review"),
+        note: "What he set, and how it ended.".into(),
+        cols: vec!["Goal".into(), "How it ended".into()],
+        rows: Vec::new(),
+    };
     let mut met = 0;
     let mut total = 0;
     let goals: Vec<Goal> = w.folk.goals.iter().filter(|g| g.season == season).cloned().collect();
@@ -343,7 +414,13 @@ fn review_open(w: &mut World, s: &mut Scene, team: Team, b: &Cast, pen: &mut sup
         let ok = goal_met(w, team, g.kind, season);
         total += 1;
         met += ok as u32;
-        doc.rows.push(DocRow { pid: None, cells: vec![super::takeover::cap_first(&g.kind.words(level)), if ok { "Met".into() } else { "Missed".into() }] });
+        doc.rows.push(DocRow {
+            pid: None,
+            cells: vec![
+                super::takeover::cap_first(&g.kind.words(level)),
+                if ok { "Met".into() } else { "Missed".into() },
+            ],
+        });
     }
     for g in w.folk.goals.iter_mut().filter(|g| g.season == season) {
         g.met = Some(goal_met_cached(&goals, g.kind));
@@ -354,7 +431,13 @@ fn review_open(w: &mut World, s: &mut Scene, team: Team, b: &Cast, pen: &mut sup
     w.folk.mine.nudge(b.key(), 0.25 * (share - 0.5));
     s.narrate(format!("{} has the season in front of {}: {met} of {total} goals met.", b.link(), b.him()));
     f.set("met", met.to_string());
-    let key = if share >= 0.67 { "boss.review.good" } else if share >= 0.34 { "boss.review.mixed" } else { "boss.review.bad" };
+    let key = if share >= 0.67 {
+        "boss.review.good"
+    } else if share >= 0.34 {
+        "boss.review.mixed"
+    } else {
+        "boss.review.bad"
+    };
     let spk = Speaker::cast(w, b);
     let line = pen.line(&[key], &spk, f);
     s.them(
@@ -408,8 +491,17 @@ pub fn goal_met(w: &World, team: Team, k: GoalKind, season: i32) -> bool {
             }
             _ => true,
         },
-        GoalKind::Clean => !w.folk.courts.closed.iter().chain(w.folk.courts.open.iter()).any(|c| c.opened.year() == season && team.roster(w).iter().any(|&i| w.people[i].player.id == c.id)),
-        GoalKind::Grades => team.roster(w).iter().filter(|&&i| w.people[i].cal.academic_sit || w.people[i].cal.fall_ineligible).count() <= 2,
+        GoalKind::Clean => !w
+            .folk
+            .courts
+            .closed
+            .iter()
+            .chain(w.folk.courts.open.iter())
+            .any(|c| c.opened.year() == season && team.roster(w).iter().any(|&i| w.people[i].player.id == c.id)),
+        GoalKind::Grades => {
+            team.roster(w).iter().filter(|&&i| w.people[i].cal.academic_sit || w.people[i].cal.fall_ineligible).count()
+                <= 2
+        }
         GoalKind::Develop => true,
         GoalKind::Crowds => s.wins * 2 >= s.losses * 2,
     }
@@ -428,7 +520,9 @@ pub fn want_met(w: &World, want: Want) -> bool {
                 g.stats.score[side] > g.stats.score[1 - side]
             })
         }
-        Want::Clean => w.folk.courts.open.iter().all(|c| !team.roster(w).iter().any(|&i| w.people[i].player.id == c.id)),
+        Want::Clean => {
+            w.folk.courts.open.iter().all(|c| !team.roster(w).iter().any(|&i| w.people[i].player.id == c.id))
+        }
         Want::WinNow => facts::seasons(w, team, 1).last().is_some_and(|s| s.wins > s.losses),
         Want::Access | Want::SayInHires | Want::SayOnPlayer | Want::OldSchool | Want::Building => true,
         Want::NilDeals => match team {
@@ -440,11 +534,24 @@ pub fn want_met(w: &World, want: Want) -> bool {
 
 fn add_ask_picks(w: &World, s: &mut Scene, team: Team) {
     let level = team.level();
-    for k in [AskKind::StaffMoney, AskKind::Facility, AskKind::RecruitingMoney, AskKind::NilMoney, AskKind::RosterSpots, AskKind::Extension] {
+    for k in [
+        AskKind::StaffMoney,
+        AskKind::Facility,
+        AskKind::RecruitingMoney,
+        AskKind::NilMoney,
+        AskKind::RosterSpots,
+        AskKind::Extension,
+    ] {
         if !k.at(level) || w.folk.asks.iter().any(|a| a.kind == k && a.date.days_to(w.today) < 300) {
             continue;
         }
-        s.pick(40 + k.code(), format!("Ask for {}", k.words()), "Ask", "calm", "His answer reads his money, his trust in you and his nature.");
+        s.pick(
+            40 + k.code(),
+            format!("Ask for {}", k.words()),
+            "Ask",
+            "calm",
+            "His answer reads his money, his trust in you and his nature.",
+        );
     }
     s.pick(49, "Nothing today. Thank him for his time.", "Praise", "warm", "Ends the meeting well.");
 }
@@ -487,10 +594,24 @@ fn meeting_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
                     g.kind = GoalKind::Wins(n.saturating_sub(2).max(2));
                 }
             }
-            w.folk.goals.retain(|g| !(g.season == season && patient && matches!(g.kind, GoalKind::Title | GoalKind::Postseason)));
+            w.folk.goals.retain(|g| {
+                !(g.season == season && patient && matches!(g.kind, GoalKind::Title | GoalKind::Postseason))
+            });
             w.folk.mine.nudge(b.key(), if patient { 0.0 } else { -0.05 });
-            s.them(&b.name, if patient { "All right. A year to build. But I want to see it moving." } else { "I didn't hire you to ask for time." }, None);
-            s.outcome.push(if patient { "He lowered the bar for this year.".to_string() } else { "He kept the bar where it was, and noted that you asked.".to_string() });
+            s.them(
+                &b.name,
+                if patient {
+                    "All right. A year to build. But I want to see it moving."
+                } else {
+                    "I didn't hire you to ask for time."
+                },
+                None,
+            );
+            s.outcome.push(if patient {
+                "He lowered the bar for this year.".to_string()
+            } else {
+                "He kept the bar where it was, and noted that you asked.".to_string()
+            });
             add_ask_picks(w, s, team);
             return;
         }
@@ -499,10 +620,21 @@ fn meeting_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
             s.them(&b.name, "Okay. Keep me posted. I don't want to read it in the paper first.", None);
         }
         32 => {
-            let hurt = team.roster(w).iter().filter(|&&i| w.people[i].pro.as_ref().is_some_and(|c| c.out_weeks > 0) || super::rules::sitting(w, w.people[i].player.id, w.today)).count();
+            let hurt = team
+                .roster(w)
+                .iter()
+                .filter(|&&i| {
+                    w.people[i].pro.as_ref().is_some_and(|c| c.out_weeks > 0)
+                        || super::rules::sitting(w, w.people[i].player.id, w.today)
+                })
+                .count();
             let true_excuse = hurt >= 5;
             w.folk.mine.nudge(b.key(), if true_excuse { 0.01 } else { -0.04 });
-            s.them(&b.name, if true_excuse { "I know. I've seen the injury list." } else { "Everybody has injuries." }, None);
+            s.them(
+                &b.name,
+                if true_excuse { "I know. I've seen the injury list." } else { "Everybody has injuries." },
+                None,
+            );
         }
         40..=45 => {
             ask(w, s, team, AskKind::from_code(code - 40));
@@ -551,8 +683,13 @@ fn ask(w: &mut World, s: &mut Scene, team: Team, k: AskKind) {
         Team::High(h) => w.high_schools[h].resources,
     };
     let goals_met = w.folk.goals.iter().filter(|g| g.met == Some(true)).count() as f64;
-    let p = (0.15 + 0.6 * (t - 0.4) + 0.2 * rich + 0.06 * goals_met - 0.03 * (b.tight - 10.0) + 0.02 * (b.warmth - 10.0)
-        - if k == AskKind::Extension && w.folk.mine.since.is_some_and(|d| d.days_to(w.today) < 500) { 0.3 } else { 0.0 })
+    let p = (0.15 + 0.6 * (t - 0.4) + 0.2 * rich + 0.06 * goals_met - 0.03 * (b.tight - 10.0)
+        + 0.02 * (b.warmth - 10.0)
+        - if k == AskKind::Extension && w.folk.mine.since.is_some_and(|d| d.days_to(w.today) < 500) {
+            0.3
+        } else {
+            0.0
+        })
     .clamp(0.03, 0.92);
     let yes = super::roll(w, 0xA5C0 ^ w.today.0 as u64, k.code() as u64) < p;
     let words = if yes {
@@ -618,7 +755,11 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
     let b = boss(w, team);
     w.folk.mine.nudge(b.key(), -0.06);
     s.handed = Some("nobody: you sent word you couldn't make it".into());
-    s.outcome.push(format!("You skipped the meeting with {}. {} didn't forget it.", b.name, super::takeover::cap_first(b.he())));
+    s.outcome.push(format!(
+        "You skipped the meeting with {}. {} didn't forget it.",
+        b.name,
+        super::takeover::cap_first(b.he())
+    ));
 }
 
 /// Your review read by the coaching carousel (`staff::college_review`): his
@@ -643,9 +784,17 @@ pub fn booster_push(w: &World, p: usize) -> f64 {
         return 0.0;
     }
     let team = Team::College(p);
-    let Some(big) = cast::all(w, team, Role::Booster).into_iter().find(|c| c.booster.as_ref().is_some_and(|b| b.big)) else { return 0.0 };
+    let Some(big) = cast::all(w, team, Role::Booster).into_iter().find(|c| c.booster.as_ref().is_some_and(|b| b.big))
+    else {
+        return 0.0;
+    };
     let t = w.folk.mine.trust_of(big.key()).unwrap_or(0.5) as f64;
-    let broken = w.folk.promises.iter().filter(|x| matches!(x.to, super::talks::PromiseTo::Cast(r, _) if r == big.r) && x.kept == Some(false)).count() as f64;
+    let broken = w
+        .folk
+        .promises
+        .iter()
+        .filter(|x| matches!(x.to, super::talks::PromiseTo::Cast(r, _) if r == big.r) && x.kept == Some(false))
+        .count() as f64;
     (0.08 * (0.5 - t) + 0.03 * broken).clamp(-0.02, 0.06)
 }
 
@@ -658,8 +807,16 @@ pub(crate) fn day(w: &mut World, d: Date) {
         return;
     }
     let (pre, mid, post) = match team.level() {
-        Level::Nfl => (w.dates.minicamp.1.add(2), w.dates.nfl_weeks.get(8).copied().unwrap_or(w.dates.nfl_kickoff.add(60)), w.dates.black_monday.add(2)),
-        Level::College => (w.dates.fall_camp.add(-10), w.dates.cfb_weeks.get(6).copied().unwrap_or(w.dates.fall_camp.add(70)).add(2), w.dates.bowl_season.1.add(4)),
+        Level::Nfl => (
+            w.dates.minicamp.1.add(2),
+            w.dates.nfl_weeks.get(8).copied().unwrap_or(w.dates.nfl_kickoff.add(60)),
+            w.dates.black_monday.add(2),
+        ),
+        Level::College => (
+            w.dates.fall_camp.add(-10),
+            w.dates.cfb_weeks.get(6).copied().unwrap_or(w.dates.fall_camp.add(70)).add(2),
+            w.dates.bowl_season.1.add(4),
+        ),
         _ => (w.dates.hs_school_start.add(-12), w.dates.hs_school_start.add(45), w.dates.december_graduation.add(-5)),
     };
     let which = if d == pre {

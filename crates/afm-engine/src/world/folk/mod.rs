@@ -32,7 +32,6 @@ pub mod talks;
 pub mod ties;
 pub mod voice;
 
-
 use super::World;
 use crate::calendar::{Date, Event, Kind, Level, Loudness};
 
@@ -289,6 +288,10 @@ pub struct Folk {
     pub media_policy: u8,
     /// The tones of your last team talks (a tone used too often wears out).
     pub mine_tones: Vec<u8>,
+    /// While a takeover files its meetings: they go out as one schedule on
+    /// the welcome letter, not as a letter each.
+    #[serde(skip)]
+    pub(crate) hush: bool,
     /// Your lines to the position coaches, by player id.
     pub lines: Vec<(u32, talks::Line)>,
     /// Players out by your discipline, a family leave or a rest: (id,

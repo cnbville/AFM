@@ -162,8 +162,10 @@ pub fn rival(w: &World, team: Team) -> Option<(Team, &'static str, u32, u32)> {
                 .filter(|&o| o != h)
                 .filter(|&o| w.high_schools[o].area == s.area)
                 .max_by(|&a, &b| {
-                    let fa = w.high_schools[a].prestige - 0.2 * (w.high_schools[a].classification as f64 - s.classification as f64).abs();
-                    let fb = w.high_schools[b].prestige - 0.2 * (w.high_schools[b].classification as f64 - s.classification as f64).abs();
+                    let fa = w.high_schools[a].prestige
+                        - 0.2 * (w.high_schools[a].classification as f64 - s.classification as f64).abs();
+                    let fb = w.high_schools[b].prestige
+                        - 0.2 * (w.high_schools[b].classification as f64 - s.classification as f64).abs();
                     fa.total_cmp(&fb)
                 })?;
             Some((Team::High(other), "the crosstown game", 0, 0))
@@ -218,11 +220,7 @@ pub fn hire_grade(f: f64) -> &'static str {
 /// The money in words, by level.
 pub fn money_words(w: &World, team: Team) -> Vec<(String, String)> {
     let m = |v: f64| {
-        if v >= 1e6 {
-            format!("${:.1} million", v / 1e6)
-        } else {
-            format!("${}k", (v / 1e3).round())
-        }
+        if v >= 1e6 { format!("${:.1} million", v / 1e6) } else { format!("${}k", (v / 1e3).round()) }
     };
     match team {
         Team::College(p) => {
@@ -241,7 +239,10 @@ pub fn money_words(w: &World, team: Team) -> Vec<(String, String)> {
                 ));
             }
             if w.year >= 2025 && prog.division == Division::FBS && prog.power_four() {
-                v.push(("Revenue sharing".into(), "about $20.5 million a year paid to players directly (House settlement)".into()));
+                v.push((
+                    "Revenue sharing".into(),
+                    "about $20.5 million a year paid to players directly (House settlement)".into(),
+                ));
             }
             let b = prog.collective.boosters();
             v.push((
@@ -276,12 +277,19 @@ pub fn money_words(w: &World, team: Team) -> Vec<(String, String)> {
                 (
                     "Budget".into(),
                     match s.resources {
-                        r if r > 0.7 => "a district that funds football well, plus a booster club that raises real money".into(),
-                        r if r > 0.4 => "the district's line item and what the booster club raises at the concession stand".into(),
+                        r if r > 0.7 => {
+                            "a district that funds football well, plus a booster club that raises real money".into()
+                        }
+                        r if r > 0.4 => {
+                            "the district's line item and what the booster club raises at the concession stand".into()
+                        }
                         _ => "thin: the booster club pays for meals and travel, and some years for helmets".into(),
                     },
                 ),
-                ("Coaching stipends".into(), "set by the district's schedule, on top of each coach's teaching salary".into()),
+                (
+                    "Coaching stipends".into(),
+                    "set by the district's schedule, on top of each coach's teaching salary".into(),
+                ),
             ]
         }
     }
@@ -434,9 +442,10 @@ pub fn leaving(w: &World, i: usize) -> bool {
     let p = &w.people[i];
     match p.stage {
         crate::world::Stage::College => p.college_seasons >= 3 && (p.redshirt_used || p.college_seasons >= 4),
-        crate::world::Stage::Pro => {
-            p.pro.as_ref().is_some_and(|c| c.contract.as_ref().is_none_or(|k| k.years.last().is_none_or(|y| y.year <= w.year)))
-        }
+        crate::world::Stage::Pro => p
+            .pro
+            .as_ref()
+            .is_some_and(|c| c.contract.as_ref().is_none_or(|k| k.years.last().is_none_or(|y| y.year <= w.year))),
         _ => p.class_of <= w.year,
     }
 }
@@ -505,9 +514,11 @@ pub fn team_games(w: &World, team: Team) -> Vec<(Date, Team, bool)> {
             .into_iter()
             .filter_map(|f| Some((f.when?, Team::Nfl(if f.home == t { f.away } else { f.home }), f.home == t)))
             .collect(),
-        Team::High(h) => {
-            w.hs_fixtures(h).into_iter().map(|f| (f.date, Team::High(if f.home == h { f.away } else { f.home }), f.home == h)).collect()
-        }
+        Team::High(h) => w
+            .hs_fixtures(h)
+            .into_iter()
+            .map(|f| (f.date, Team::High(if f.home == h { f.away } else { f.home }), f.home == h))
+            .collect(),
     };
     v.sort_by_key(|x| x.0);
     v
@@ -536,7 +547,11 @@ pub fn record_now(w: &World, team: Team) -> (u32, u32) {
         _ => w.dates.fall_camp,
     };
     let mut r = (0, 0);
-    for g in w.seat_games.iter().filter(|g| g.date >= start && g.teams.contains(&i) && (k == "nfl") == (g.level == Level::Nfl)) {
+    for g in w
+        .seat_games
+        .iter()
+        .filter(|g| g.date >= start && g.teams.contains(&i) && (k == "nfl") == (g.level == Level::Nfl))
+    {
         let side = if g.teams[0] == i { 0 } else { 1 };
         if g.stats.score[side] > g.stats.score[1 - side] {
             r.0 += 1;
@@ -550,16 +565,56 @@ pub fn record_now(w: &World, team: Team) -> (u32, u32) {
 /// A state's name from its postal code.
 pub fn state_name(code: &str) -> &'static str {
     const NAMES: [(&str, &str); 51] = [
-        ("AL", "Alabama"), ("AK", "Alaska"), ("AZ", "Arizona"), ("AR", "Arkansas"), ("CA", "California"),
-        ("CO", "Colorado"), ("CT", "Connecticut"), ("DE", "Delaware"), ("DC", "the District"), ("FL", "Florida"),
-        ("GA", "Georgia"), ("HI", "Hawaii"), ("ID", "Idaho"), ("IL", "Illinois"), ("IN", "Indiana"),
-        ("IA", "Iowa"), ("KS", "Kansas"), ("KY", "Kentucky"), ("LA", "Louisiana"), ("ME", "Maine"),
-        ("MD", "Maryland"), ("MA", "Massachusetts"), ("MI", "Michigan"), ("MN", "Minnesota"), ("MS", "Mississippi"),
-        ("MO", "Missouri"), ("MT", "Montana"), ("NE", "Nebraska"), ("NV", "Nevada"), ("NH", "New Hampshire"),
-        ("NJ", "New Jersey"), ("NM", "New Mexico"), ("NY", "New York"), ("NC", "North Carolina"), ("ND", "North Dakota"),
-        ("OH", "Ohio"), ("OK", "Oklahoma"), ("OR", "Oregon"), ("PA", "Pennsylvania"), ("RI", "Rhode Island"),
-        ("SC", "South Carolina"), ("SD", "South Dakota"), ("TN", "Tennessee"), ("TX", "Texas"), ("UT", "Utah"),
-        ("VT", "Vermont"), ("VA", "Virginia"), ("WA", "Washington"), ("WV", "West Virginia"), ("WI", "Wisconsin"),
+        ("AL", "Alabama"),
+        ("AK", "Alaska"),
+        ("AZ", "Arizona"),
+        ("AR", "Arkansas"),
+        ("CA", "California"),
+        ("CO", "Colorado"),
+        ("CT", "Connecticut"),
+        ("DE", "Delaware"),
+        ("DC", "the District"),
+        ("FL", "Florida"),
+        ("GA", "Georgia"),
+        ("HI", "Hawaii"),
+        ("ID", "Idaho"),
+        ("IL", "Illinois"),
+        ("IN", "Indiana"),
+        ("IA", "Iowa"),
+        ("KS", "Kansas"),
+        ("KY", "Kentucky"),
+        ("LA", "Louisiana"),
+        ("ME", "Maine"),
+        ("MD", "Maryland"),
+        ("MA", "Massachusetts"),
+        ("MI", "Michigan"),
+        ("MN", "Minnesota"),
+        ("MS", "Mississippi"),
+        ("MO", "Missouri"),
+        ("MT", "Montana"),
+        ("NE", "Nebraska"),
+        ("NV", "Nevada"),
+        ("NH", "New Hampshire"),
+        ("NJ", "New Jersey"),
+        ("NM", "New Mexico"),
+        ("NY", "New York"),
+        ("NC", "North Carolina"),
+        ("ND", "North Dakota"),
+        ("OH", "Ohio"),
+        ("OK", "Oklahoma"),
+        ("OR", "Oregon"),
+        ("PA", "Pennsylvania"),
+        ("RI", "Rhode Island"),
+        ("SC", "South Carolina"),
+        ("SD", "South Dakota"),
+        ("TN", "Tennessee"),
+        ("TX", "Texas"),
+        ("UT", "Utah"),
+        ("VT", "Vermont"),
+        ("VA", "Virginia"),
+        ("WA", "Washington"),
+        ("WV", "West Virginia"),
+        ("WI", "Wisconsin"),
         ("WY", "Wyoming"),
     ];
     NAMES.iter().find(|x| x.0 == code).map_or("this", |x| x.1)

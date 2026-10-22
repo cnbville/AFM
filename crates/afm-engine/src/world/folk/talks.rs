@@ -38,8 +38,15 @@ pub enum Subject {
 }
 
 impl Subject {
-    pub const ALL: [Subject; 7] =
-        [Subject::Role, Subject::Usage, Subject::Money, Subject::Behavior, Subject::Life, Subject::Team, Subject::Future];
+    pub const ALL: [Subject; 7] = [
+        Subject::Role,
+        Subject::Usage,
+        Subject::Money,
+        Subject::Behavior,
+        Subject::Life,
+        Subject::Team,
+        Subject::Future,
+    ];
     pub fn from_u64(v: u64) -> Subject {
         Subject::ALL.get(v as usize).copied().unwrap_or(Subject::Role)
     }
@@ -242,14 +249,17 @@ fn promise_due(w: &World, kind: PromiseKind, seasons: u8) -> Date {
         PromiseKind::Stay | PromiseKind::Raise => today.add(330),
         PromiseKind::Booster(_) => end(w).max(today.add(60)),
     };
-    base.add(365 * seasons.saturating_sub(1) as i32 * matches!(kind, PromiseKind::Booster(_) | PromiseKind::Stay) as i32)
+    base.add(
+        365 * seasons.saturating_sub(1) as i32 * matches!(kind, PromiseKind::Booster(_) | PromiseKind::Stay) as i32,
+    )
 }
 
 /// Checks the promises due today: kept ones build trust, broken ones cost
 /// it with him, his friends and (said in public) the room.
 fn check_promises(w: &mut World, d: Date) {
-    let due: Vec<usize> =
-        (0..w.folk.promises.len()).filter(|&k| w.folk.promises[k].kept.is_none() && w.folk.promises[k].due <= d).collect();
+    let due: Vec<usize> = (0..w.folk.promises.len())
+        .filter(|&k| w.folk.promises[k].kept.is_none() && w.folk.promises[k].due <= d)
+        .collect();
     for k in due {
         let p = w.folk.promises[k].clone();
         let kept = kept(w, &p);
@@ -308,11 +318,11 @@ fn kept(w: &World, p: &Promise) -> bool {
             match kind {
                 PromiseKind::Start => pp.last_role == Some(PlayingTime::Starter) || seat_starter(w, i),
                 PromiseKind::Snaps => matches!(pp.last_role, Some(PlayingTime::Starter | PlayingTime::Rotation)),
-                PromiseKind::Contract => pp
-                    .pro
-                    .as_ref()
-                    .and_then(|c| c.contract.as_ref())
-                    .is_some_and(|k| k.signed >= w.year && k.signed > p.made.year() - 1 && p.made.days_to(w.today) > 0),
+                PromiseKind::Contract => {
+                    pp.pro.as_ref().and_then(|c| c.contract.as_ref()).is_some_and(|k| {
+                        k.signed >= w.year && k.signed > p.made.year() - 1 && p.made.days_to(w.today) > 0
+                    })
+                }
                 _ => true,
             }
         }
@@ -607,7 +617,13 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
     f.set("subject", subject.name());
     let mut pen = scene::pen(w, s, 1);
     let key = format!("talk.open.{}", subject.key());
-    let tone = if mood < -0.2 { "talk.open.sour" } else if mood > 0.2 { "talk.open.good" } else { "talk.open.flat" };
+    let tone = if mood < -0.2 {
+        "talk.open.sour"
+    } else if mood > 0.2 {
+        "talk.open.good"
+    } else {
+        "talk.open.flat"
+    };
     let line = pen.line(&[tone, &key], &spk, &f);
     pen.put(w);
     let line = if line.is_empty() { open_fallback(subject, mood) } else { line };
@@ -618,7 +634,9 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
 
 fn open_fallback(subject: Subject, mood: f32) -> String {
     match (subject, mood < -0.2) {
-        (Subject::Role, true) => "You wanted to see me, Coach? If it's about the depth chart, I've got some things to say.".into(),
+        (Subject::Role, true) => {
+            "You wanted to see me, Coach? If it's about the depth chart, I've got some things to say.".into()
+        }
         (Subject::Role, false) => "You wanted to see me, Coach?".into(),
         (Subject::Future, _) => "I figured this was coming. You want to know if I'm staying.".into(),
         (Subject::Money, _) => "My people have been asking me questions I can't answer.".into(),
@@ -636,49 +654,163 @@ fn add_talk_picks(w: &World, s: &mut Scene, i: usize, subject: Subject, used: &[
     let nfl = p.stage == Stage::Pro;
     let mut add = |m: Move, t: Tone, label: String, hint: &str| {
         if !used.contains(&m) {
-            s.picks.push(Pick { label, mv: m.name().into(), tone: t.name().into(), hint: hint.into(), code: code_of(m, t) });
+            s.picks.push(Pick {
+                label,
+                mv: m.name().into(),
+                tone: t.name().into(),
+                hint: hint.into(),
+                code: code_of(m, t),
+            });
         }
     };
-    add(Move::Ask, Tone::Warm, "\"What's really going on with you?\"".into(), "He opens up if he trusts you; that's how you learn what you couldn't see.");
+    add(
+        Move::Ask,
+        Tone::Warm,
+        "\"What's really going on with you?\"".into(),
+        "He opens up if he trusts you; that's how you learn what you couldn't see.",
+    );
     match subject {
         Subject::Role | Subject::Usage => {
-            add(Move::Straight, Tone::Calm, if starter { "\"You're my starter. Here's what I need more of.\"".into() } else { "\"Here's where you are on the chart, and exactly why.\"".into() }, "Honesty costs mood now and builds trust.");
+            add(
+                Move::Straight,
+                Tone::Calm,
+                if starter {
+                    "\"You're my starter. Here's what I need more of.\"".into()
+                } else {
+                    "\"Here's where you are on the chart, and exactly why.\"".into()
+                },
+                "Honesty costs mood now and builds trust.",
+            );
             if !starter {
-                add(Move::Promise, Tone::Warm, "\"Keep working like this and the job is yours by the opener.\"".into(), "Lifts him now. Logged: break it and he, his friends and the room remember.");
+                add(
+                    Move::Promise,
+                    Tone::Warm,
+                    "\"Keep working like this and the job is yours by the opener.\"".into(),
+                    "Lifts him now. Logged: break it and he, his friends and the room remember.",
+                );
             } else {
-                add(Move::Promise, Tone::Warm, "\"We're going to get you the ball more.\"".into(), "Lifts him now. Logged and checked at the season's end.");
+                add(
+                    Move::Promise,
+                    Tone::Warm,
+                    "\"We're going to get you the ball more.\"".into(),
+                    "Lifts him now. Logged and checked at the season's end.",
+                );
             }
-            add(Move::Challenge, Tone::Firm, "\"Then take it. Make me play you.\"".into(), "A competitor rises to it; a fragile player sinks.");
+            add(
+                Move::Challenge,
+                Tone::Firm,
+                "\"Then take it. Make me play you.\"".into(),
+                "A competitor rises to it; a fragile player sinks.",
+            );
         }
         Subject::Money => {
             if nfl {
-                add(Move::Promise, Tone::Calm, "\"I'll get the general manager to sit down with your agent.\"".into(), "A contract talk, logged; it's kept if a new deal follows.");
+                add(
+                    Move::Promise,
+                    Tone::Calm,
+                    "\"I'll get the general manager to sit down with your agent.\"".into(),
+                    "A contract talk, logged; it's kept if a new deal follows.",
+                );
             } else {
-                add(Move::Promise, Tone::Calm, "\"I'll talk to the collective about you.\"".into(), "An NIL push, logged.");
+                add(
+                    Move::Promise,
+                    Tone::Calm,
+                    "\"I'll talk to the collective about you.\"".into(),
+                    "An NIL push, logged.",
+                );
             }
-            add(Move::Straight, Tone::Calm, "\"Play like it and the money follows. That's how this works.\"".into(), "Honest; a greedy player hears a no.");
+            add(
+                Move::Straight,
+                Tone::Calm,
+                "\"Play like it and the money follows. That's how this works.\"".into(),
+                "Honest; a greedy player hears a no.",
+            );
         }
         Subject::Behavior => {
-            add(Move::Warn, Tone::Firm, "\"Next time it's not a talk. You'll sit.\"".into(), "Lowers his trouble risk for a while; a hothead bristles.");
-            add(Move::Criticize, Tone::Fiery, "\"That's selfish, and the whole room saw it.\"".into(), "Lands as an insult on a big ego; a professional takes it.");
+            add(
+                Move::Warn,
+                Tone::Firm,
+                "\"Next time it's not a talk. You'll sit.\"".into(),
+                "Lowers his trouble risk for a while; a hothead bristles.",
+            );
+            add(
+                Move::Criticize,
+                Tone::Fiery,
+                "\"That's selfish, and the whole room saw it.\"".into(),
+                "Lands as an insult on a big ego; a professional takes it.",
+            );
         }
         Subject::Life => {
-            add(Move::Listen, Tone::Calm, "Say nothing. Let him talk.".into(), "Helps a player who needs to be heard; frustrates one who wants answers.");
-            add(Move::Hand, Tone::Warm, "\"Take the time you need. Your family comes first.\"".into(), "Time off from practice; the room sees how you treat people.");
+            add(
+                Move::Listen,
+                Tone::Calm,
+                "Say nothing. Let him talk.".into(),
+                "Helps a player who needs to be heard; frustrates one who wants answers.",
+            );
+            add(
+                Move::Hand,
+                Tone::Warm,
+                "\"Take the time you need. Your family comes first.\"".into(),
+                "Time off from practice; the room sees how you treat people.",
+            );
         }
         Subject::Team => {
-            add(Move::Hand, Tone::Warm, "\"I want you on the leadership council.\"".into(), "Leaders grow into it; others take it as a compliment.");
-            add(Move::Praise, Tone::Warm, "\"You're the kind of player this team needs more of.\"".into(), "Empty praise is spotted; earned praise lands.");
+            add(
+                Move::Hand,
+                Tone::Warm,
+                "\"I want you on the leadership council.\"".into(),
+                "Leaders grow into it; others take it as a compliment.",
+            );
+            add(
+                Move::Praise,
+                Tone::Warm,
+                "\"You're the kind of player this team needs more of.\"".into(),
+                "Empty praise is spotted; earned praise lands.",
+            );
         }
         Subject::Future => {
-            add(Move::Straight, Tone::Calm, "\"Here's what next year looks like for you here, honestly.\"".into(), "Trust now; a player buried on the chart may still go.");
-            add(Move::Promise, Tone::Warm, if nfl { "\"You're part of what we're building. I want you here long term.\"".into() } else { "\"Stay, and you'll start next year.\"".into() }, "Keeps him more often. Logged: a start next season.");
-            add(Move::Promise, Tone::Calm, "\"I'm not going anywhere. I'll be here.\"".into(), "Logged: you stay a year.");
-            add(Move::Challenge, Tone::Fiery, "\"If you want to run from competition, that's your call.\"".into(), "A competitor stays to prove you wrong; others take the door.");
+            add(
+                Move::Straight,
+                Tone::Calm,
+                "\"Here's what next year looks like for you here, honestly.\"".into(),
+                "Trust now; a player buried on the chart may still go.",
+            );
+            add(
+                Move::Promise,
+                Tone::Warm,
+                if nfl {
+                    "\"You're part of what we're building. I want you here long term.\"".into()
+                } else {
+                    "\"Stay, and you'll start next year.\"".into()
+                },
+                "Keeps him more often. Logged: a start next season.",
+            );
+            add(
+                Move::Promise,
+                Tone::Calm,
+                "\"I'm not going anywhere. I'll be here.\"".into(),
+                "Logged: you stay a year.",
+            );
+            add(
+                Move::Challenge,
+                Tone::Fiery,
+                "\"If you want to run from competition, that's your call.\"".into(),
+                "A competitor stays to prove you wrong; others take the door.",
+            );
         }
     }
-    add(Move::Praise, Tone::Warm, "\"I've noticed the work you're putting in.\"".into(), "Empty praise is spotted; earned praise lands.");
-    add(Move::Listen, Tone::Calm, "Hear him out. Promise nothing.".into(), "Helps one who needs to be heard; frustrates one who wants answers.");
+    add(
+        Move::Praise,
+        Tone::Warm,
+        "\"I've noticed the work you're putting in.\"".into(),
+        "Empty praise is spotted; earned praise lands.",
+    );
+    add(
+        Move::Listen,
+        Tone::Calm,
+        "Hear him out. Promise nothing.".into(),
+        "Helps one who needs to be heard; frustrates one who wants answers.",
+    );
     s.pick(900, "End the talk", "End", "calm", "Ends it here.");
 }
 
@@ -696,7 +828,10 @@ fn landing(w: &World, i: usize, m: Move, t: Tone, subject: Subject, revealed: bo
     let needs_ear = p.mood < -0.15 || shaky > 0.2 || real == Subject::Life;
     let (mut dt, mut dm): (f32, f32) = match m {
         Move::Ask => (0.04 + 0.04 * needs_ear as u8 as f32, 0.03 + 0.04 * needs_ear as u8 as f32),
-        Move::Straight => (0.07 + 0.03 * z(Trait::Professionalism), -0.04 - 0.05 * z(Trait::Ego).max(0.0) + 0.03 * z(Trait::Professionalism)),
+        Move::Straight => (
+            0.07 + 0.03 * z(Trait::Professionalism),
+            -0.04 - 0.05 * z(Trait::Ego).max(0.0) + 0.03 * z(Trait::Professionalism),
+        ),
         Move::Praise => {
             if earned {
                 (0.04, 0.09 + 0.04 * z(Trait::Ego).max(0.0))
@@ -705,7 +840,10 @@ fn landing(w: &World, i: usize, m: Move, t: Tone, subject: Subject, revealed: bo
             }
         }
         Move::Challenge => (0.02 + 0.06 * comp, 0.08 * comp - 0.1 * shaky.max(0.0)),
-        Move::Criticize => (-0.03 - 0.12 * z(Trait::Ego).max(0.0) + 0.04 * z(Trait::Professionalism), -0.08 - 0.06 * z(Trait::Ego).max(0.0)),
+        Move::Criticize => (
+            -0.03 - 0.12 * z(Trait::Ego).max(0.0) + 0.04 * z(Trait::Professionalism),
+            -0.08 - 0.06 * z(Trait::Ego).max(0.0),
+        ),
         Move::Promise => (0.05, 0.14),
         Move::Warn => (-0.02 - 0.05 * z(Trait::Temper).max(0.0), -0.04),
         Move::Hand => (0.06 + 0.06 * z(Trait::Leadership).max(0.0), 0.08),
@@ -725,7 +863,9 @@ fn landing(w: &World, i: usize, m: Move, t: Tone, subject: Subject, revealed: bo
     // fragile one; warmth helps the shaky; firmness suits professionals.
     let (tt, tm) = match t {
         Tone::Fiery => (0.02 * comp - 0.04 * z(Trait::Temper).max(0.0), 0.05 * comp - 0.07 * shaky.max(0.0)),
-        Tone::Warm => (0.02 + 0.02 * shaky.max(0.0) - 0.02 * z(Trait::Ego).max(0.0) * 0.5, 0.02 + 0.03 * shaky.max(0.0)),
+        Tone::Warm => {
+            (0.02 + 0.02 * shaky.max(0.0) - 0.02 * z(Trait::Ego).max(0.0) * 0.5, 0.02 + 0.03 * shaky.max(0.0))
+        }
         Tone::Firm => (0.02 * z(Trait::Professionalism), 0.0),
         Tone::Calm => (0.01 + 0.02 * z(Trait::Temper).max(0.0), 0.0),
     };
@@ -777,12 +917,10 @@ pub fn expect(w: &World, s: &Scene, code: u32) -> Option<(String, String, String
         x if x >= 0.4 => "A guess",
         _ => "A guess, and they don't know him well",
     };
-    let who = w.people[i]
-        .college_staff
-        .last()
-        .and_then(|x| x.3)
-        .filter(|&c| c < w.coaches.len())
-        .map_or_else(|| "Your staff".to_string(), |c| format!("{} ({})", super::coach_link(w, c), super::facts::coach_role(w, c)));
+    let who = w.people[i].college_staff.last().and_then(|x| x.3).filter(|&c| c < w.coaches.len()).map_or_else(
+        || "Your staff".to_string(),
+        |c| format!("{} ({})", super::coach_link(w, c), super::facts::coach_role(w, c)),
+    );
     Some((format!("{what}{risk}"), sure.to_string(), who))
 }
 
@@ -883,7 +1021,8 @@ fn one_on_one_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
             s.them(&name, if line.is_empty() { "I'm good, Coach. Really.".into() } else { line }, read_tell(w, i, -1));
         }
     } else {
-        let line = pen.line(&[&format!("talk.reply.{}.{outcome}", m.key()), &format!("?talk.close.{outcome}")], &spk, &f);
+        let line =
+            pen.line(&[&format!("talk.reply.{}.{outcome}", m.key()), &format!("?talk.close.{outcome}")], &spk, &f);
         let line = if line.is_empty() { reply_fallback(m, outcome) } else { line };
         let sign = match outcome {
             "good" => 1,
@@ -924,14 +1063,23 @@ fn one_on_one_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     }
     // Leaning to leave: what you said reaches the portal lean (T3).
     if w.people[i].stage == Stage::College && w.people[i].cal.lean > 0.0 && (dt + dm).abs() > 0.03 {
-        let f = if dt + dm > 0.0 { (1.0 - 1.2 * (dt + dm) as f64).max(0.7) } else { (1.0 - 1.2 * (dt + dm) as f64).min(1.3) };
+        let f = if dt + dm > 0.0 {
+            (1.0 - 1.2 * (dt + dm) as f64).max(0.7)
+        } else {
+            (1.0 - 1.2 * (dt + dm) as f64).min(1.3)
+        };
         let today = w.today;
         let p = &mut w.people[i];
         p.cal.lean *= f;
-        p.cal.lean_events.push((today, if f < 1.0 { "a talk with his head coach went well" } else { "a talk with his head coach went badly" }, f));
+        p.cal.lean_events.push((
+            today,
+            if f < 1.0 { "a talk with his head coach went well" } else { "a talk with his head coach went badly" },
+            f,
+        ));
     }
     s.c |= 1 << (2 + Move::ALL.iter().position(|x| *x == m).unwrap_or(0));
-    let all_used: Vec<Move> = Move::ALL.iter().enumerate().filter(|(k, _)| s.c & (1 << (2 + k)) != 0).map(|x| *x.1).collect();
+    let all_used: Vec<Move> =
+        Move::ALL.iter().enumerate().filter(|(k, _)| s.c & (1 << (2 + k)) != 0).map(|x| *x.1).collect();
     if s.step >= 3 || matches!(m, Move::Criticize) && outcome == "bad" {
         finish_talk(w, s, id);
     } else {
@@ -1006,7 +1154,11 @@ pub fn start_team_talk(w: &mut World) -> Result<u32, String> {
         return Ok(s.id);
     }
     let wk = week_start(w.today);
-    if w.folk.scenes.iter().any(|s| s.kind == Kind::TeamTalk && s.done && s.handed.is_none() && week_start(s.date) == wk) {
+    if w.folk
+        .scenes
+        .iter()
+        .any(|s| s.kind == Kind::TeamTalk && s.done && s.handed.is_none() && week_start(s.date) == wk)
+    {
         return Err("You already talked to the team this week. Say it too often and they stop hearing it.".into());
     }
     if !spend(w, 0.5) {
@@ -1032,14 +1184,12 @@ fn team_talk_open(w: &mut World, s: &mut Scene) {
     let mood = team_mood(w, team);
     s.who.push(Who::Group("The team".into()));
     s.narrate(match last {
-        Some((won, us, them, opp)) if won => format!(
-            "Monday after the {us}-{them} win over {}. The room is loose; somebody has music on.",
-            opp.link(w)
-        ),
-        Some((_, us, them, opp)) => format!(
-            "Monday after the {us}-{them} loss to {}. Nobody is talking much.",
-            opp.link(w)
-        ),
+        Some((won, us, them, opp)) if won => {
+            format!("Monday after the {us}-{them} win over {}. The room is loose; somebody has music on.", opp.link(w))
+        }
+        Some((_, us, them, opp)) => {
+            format!("Monday after the {us}-{them} loss to {}. Nobody is talking much.", opp.link(w))
+        }
         None => "No game to talk about yet. Everyone is waiting to hear what kind of week this is.".into(),
     });
     s.narrate(format!("The room's mood: {}.", mood_words(mood)));
@@ -1047,11 +1197,41 @@ fn team_talk_open(w: &mut World, s: &mut Scene) {
 }
 
 fn add_team_picks(s: &mut Scene) {
-    s.pick(200, "\"One play at a time. Do your job.\" (focus)", "Focus", "calm", "Steady and safe: small lift, little risk.");
-    s.pick(201, "\"Breathe. We're fine. Nothing changes.\" (calm)", "Reassure", "warm", "Settles a shaky room; a competitive room wants more.");
-    s.pick(202, "\"I want somebody to hit somebody this week.\" (fire)", "Fire", "fiery", "Lifts competitors; wears thin if you use it every week.");
-    s.pick(203, "\"That wasn't good enough, and you know it.\" (challenge)", "Challenge", "firm", "Hits the proud players where it should; the fragile sink.");
-    s.pick(204, "\"I believe in this group more than ever.\" (praise)", "Praise", "warm", "Lands after a win; rings hollow after a bad loss.");
+    s.pick(
+        200,
+        "\"One play at a time. Do your job.\" (focus)",
+        "Focus",
+        "calm",
+        "Steady and safe: small lift, little risk.",
+    );
+    s.pick(
+        201,
+        "\"Breathe. We're fine. Nothing changes.\" (calm)",
+        "Reassure",
+        "warm",
+        "Settles a shaky room; a competitive room wants more.",
+    );
+    s.pick(
+        202,
+        "\"I want somebody to hit somebody this week.\" (fire)",
+        "Fire",
+        "fiery",
+        "Lifts competitors; wears thin if you use it every week.",
+    );
+    s.pick(
+        203,
+        "\"That wasn't good enough, and you know it.\" (challenge)",
+        "Challenge",
+        "firm",
+        "Hits the proud players where it should; the fragile sink.",
+    );
+    s.pick(
+        204,
+        "\"I believe in this group more than ever.\" (praise)",
+        "Praise",
+        "warm",
+        "Lands after a win; rings hollow after a bad loss.",
+    );
 }
 
 fn team_talk_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
@@ -1092,7 +1272,10 @@ fn team_talk_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     } else {
         "They take it in. Practice will tell you more."
     });
-    s.outcome.push(format!("Your team talk: {up} lifted, {down} cooled{}.", if worn >= 2 { " (the tone is wearing thin)" } else { "" }));
+    s.outcome.push(format!(
+        "Your team talk: {up} lifted, {down} cooled{}.",
+        if worn >= 2 { " (the tone is wearing thin)" } else { "" }
+    ));
     s.end();
 }
 
@@ -1177,10 +1360,34 @@ fn parent_open(w: &mut World, s: &mut Scene) {
         },
         None,
     );
-    s.pick(300, "\"Playing time is earned at practice. Here's what he needs to do.\"", "Tell him straight", "calm", "Honest: a reasonable parent respects it; a loud one goes to the AD.");
-    s.pick(301, "\"I hear you. Let me look at it with his position coach.\"", "Listen", "warm", "Cools the call down; promises nothing.");
-    s.pick(302, "\"He'll get his chance. I promise you that.\"", "Promise", "warm", "Pleases the parent now; logged as a promise of snaps.");
-    s.pick(303, "\"I don't discuss playing time with parents.\"", "Warn", "firm", "Ends it; the parent may go above you.");
+    s.pick(
+        300,
+        "\"Playing time is earned at practice. Here's what he needs to do.\"",
+        "Tell him straight",
+        "calm",
+        "Honest: a reasonable parent respects it; a loud one goes to the AD.",
+    );
+    s.pick(
+        301,
+        "\"I hear you. Let me look at it with his position coach.\"",
+        "Listen",
+        "warm",
+        "Cools the call down; promises nothing.",
+    );
+    s.pick(
+        302,
+        "\"He'll get his chance. I promise you that.\"",
+        "Promise",
+        "warm",
+        "Pleases the parent now; logged as a promise of snaps.",
+    );
+    s.pick(
+        303,
+        "\"I don't discuss playing time with parents.\"",
+        "Warn",
+        "firm",
+        "Ends it; the parent may go above you.",
+    );
 }
 
 fn parent_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
@@ -1195,7 +1402,11 @@ fn parent_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         crate::world::background::ParentStyle::LoudAtGames | crate::world::background::ParentStyle::SocialMedia
     );
     let (dtrust, line, above) = match code {
-        300 => (0.03, if loud { "We'll see what the AD thinks about that." } else { "Okay. That's fair. I'll tell him." }, loud && super::roll(w, 0x9A2, id as u64) < 0.4),
+        300 => (
+            0.03,
+            if loud { "We'll see what the AD thinks about that." } else { "Okay. That's fair. I'll tell him." },
+            loud && super::roll(w, 0x9A2, id as u64) < 0.4,
+        ),
         301 => (0.04, "Thank you. That's all I'm asking.", false),
         302 => {
             promise(w, PromiseTo::Player(id), PromiseKind::Snaps, 0);
@@ -1211,7 +1422,13 @@ fn parent_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         let b = super::cast::get(w, super::cast::CastRef::new(team, boss, 0));
         w.folk.mine.nudge(b.key(), -0.02);
         s.outcome.push(format!("The parent went to {} about it.", b.link()));
-        super::note(w, "talk", b.link(), format!("Heard from {}'s family about playing time.", player_link(w, i)), None);
+        super::note(
+            w,
+            "talk",
+            b.link(),
+            format!("Heard from {}'s family about playing time.", player_link(w, i)),
+            None,
+        );
     }
     s.end();
 }
@@ -1251,7 +1468,8 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
                 mood_event(w, id, Reason::Talk, d);
             }
             s.handed = Some("his position coach".into());
-            s.outcome.push("His position coach talked to him instead. It's not the same as hearing it from you.".into());
+            s.outcome
+                .push("His position coach talked to him instead. It's not the same as hearing it from you.".into());
         }
         Kind::TeamMeeting | Kind::Parents | Kind::Holdover => super::takeover::hand(w, s),
         Kind::ParentCall => {
@@ -1271,7 +1489,12 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
 }
 
 fn position_coach_rel(w: &World, i: usize) -> f64 {
-    w.people[i].college_staff.last().and_then(|x| x.3).and_then(|c| w.coaches.get(c)).map_or(9.0, |c| c.ability().relationships)
+    w.people[i]
+        .college_staff
+        .last()
+        .and_then(|x| x.3)
+        .and_then(|c| w.coaches.get(c))
+        .map_or(9.0, |c| c.ability().relationships)
 }
 
 // ---------------------------------------------------------------------------
@@ -1328,7 +1551,10 @@ fn carry_lines(w: &mut World) {
             Line::Watch => {
                 let p = &w.people[i];
                 let noticed = super::roll(w, 0x5117 ^ w.today.0 as u64, id as u64) < 0.4 + 0.5 * q as f64;
-                if p.mood < -0.3 && noticed && !w.folk.scenes.iter().any(|s| !s.done && s.kind == Kind::StaffLine && s.a == id as u64) {
+                if p.mood < -0.3
+                    && noticed
+                    && !w.folk.scenes.iter().any(|s| !s.done && s.kind == Kind::StaffLine && s.a == id as u64)
+                {
                     let name = p.name.clone();
                     let mut s = Scene::new(Kind::StaffLine, w.today, format!("{name} is slipping"));
                     s.a = id as u64;
@@ -1355,9 +1581,19 @@ fn staff_line_open(w: &mut World, s: &mut Scene) {
     }
     let (_, words) = concern(w, i);
     s.narrate(format!("{coach} catches you after practice about {}.", player_link(w, i)));
-    s.them("Position coach", format!("You asked me to tell you if he was slipping. He is. Best I can tell, {words}."), None);
+    s.them(
+        "Position coach",
+        format!("You asked me to tell you if he was slipping. He is. Best I can tell, {words}."),
+        None,
+    );
     s.pick(400, "\"Send him to my office tomorrow.\"", "Ask", "warm", "A one-on-one on your calendar.");
-    s.pick(401, "\"Stay on him. You know him better than I do.\"", "Hand him something", "calm", "His coach keeps it; no time from your week.");
+    s.pick(
+        401,
+        "\"Stay on him. You know him better than I do.\"",
+        "Hand him something",
+        "calm",
+        "His coach keeps it; no time from your week.",
+    );
 }
 
 fn staff_line_answer(w: &mut World, s: &mut Scene, code: u32) {
@@ -1442,7 +1678,13 @@ fn exit_meetings(w: &mut World, d: Date) {
         Level::HighSchool => w.dates.december_graduation,
         _ => w.dates.bowl_season.1.add(2),
     };
-    if d < day || d >= day.add(7) || w.folk.scenes.iter().any(|s| s.kind == Kind::OneOnOne && s.title.starts_with("Exit meeting") && s.date.days_to(d) < 60) {
+    if d < day
+        || d >= day.add(7)
+        || w.folk
+            .scenes
+            .iter()
+            .any(|s| s.kind == Kind::OneOnOne && s.title.starts_with("Exit meeting") && s.date.days_to(d) < 60)
+    {
         return;
     }
     let roster = team.roster(w);
@@ -1453,7 +1695,10 @@ fn exit_meetings(w: &mut World, d: Date) {
         .map(|i| {
             let p = &w.people[i];
             let draft = p.cal.draft_read.map_or(0.0, |r| if r.round <= 3 { 1.0 } else { 0.3 });
-            let score = 3.0 * p.cal.lean + draft + if p.mood < -0.2 { 0.5 } else { 0.0 } + if p.last_role == Some(PlayingTime::Starter) { 0.3 } else { 0.0 };
+            let score = 3.0 * p.cal.lean
+                + draft
+                + if p.mood < -0.2 { 0.5 } else { 0.0 }
+                + if p.last_role == Some(PlayingTime::Starter) { 0.3 } else { 0.0 };
             (i, score)
         })
         .filter(|x| x.1 > 0.6)

@@ -43,7 +43,8 @@ function ppSceneCard(s, opts = {}) {
   const when = s.today ? '<span class="tag due">Today</span>' : s.late ? '<span class="tag due">Waiting</span>' : `<span class="tag soft">${esc(s.dateText)}</span>`;
   const state = s.done ? (s.handed ? `<span class="tag soft">Handed to ${esc(s.handed)}</span>` : '<span class="tag gold">Held</span>') : when;
   const out = s.done && s.outcome && s.outcome.length ? `<div class="pp-out">${s.outcome.slice(0, 2).map((o) => `<p>${rich(o)}</p>`).join("")}</div>` : "";
-  const acts = s.done || opts.noActs ? "" : `<div class="pp-acts"><button class="st-btn small primary" data-act="ppopen" data-id="${s.id}">${s.opened ? "Go back in" : s.stops ? "Hold it" : "Take it"}</button><button class="st-btn small glass" data-act="pphand" data-id="${s.id}" title="Your staff plays it the way they would">Hand to staff</button></div>`;
+  const hold = s.today || s.late || s.opened ? `<button class="st-btn small primary" data-act="ppopen" data-id="${s.id}">${s.opened ? "Go back in" : s.stops ? "Hold it" : "Take it"}</button>` : "";
+  const acts = s.done || opts.noActs ? "" : `<div class="pp-acts">${hold}<button class="st-btn small glass" data-act="pphand" data-id="${s.id}" title="Your staff plays it the way they would">Hand to staff</button></div>`;
   return `<article class="pp-card ${s.today ? "now" : ""} ${s.done ? "done" : ""}" data-act="ppopen" data-id="${s.id}">
     <div class="pp-card-top"><span class="st-label">${esc(s.kindName)}</span>${state}</div>
     <h3>${rich(s.title)}</h3>
@@ -74,7 +75,7 @@ screens.people = async (a) => {
   const pct = hrs.week ? Math.max(0, Math.min(100, (hrs.left / hrs.week) * 100)) : 0;
   const sub = `${esc(x.date)} · the room is <b>${esc(x.mood.words.toLowerCase())}</b> · ${rich(x.boss.link)}: ${esc(x.boss.words.toLowerCase())}`;
   const actions = `<div class="pp-week" title="Hours for people this week, beyond film and the game plan. They refill on Monday."><span class="st-label">Your week</span><b>${ppHours(hrs.left)}</b><small>of ${ppHours(hrs.week)} left</small><span class="pp-bar"><i style="width:${pct}%"></i></span></div>
-    <button class="st-btn small glass" data-act="ppteamtalk" title="Talk to the whole team (an hour)">${icon("talk")} Team talk</button>`;
+    <button class="st-btn small glass" data-act="ppteamtalk" title="Talk to the whole team (half an hour, once a week)">${icon("talk")} Team talk</button>`;
   return `<div class="pad">${pageHead({ kicker: rich(x.team.link), title: "People", sub, actions, goto: gotoFor("people", a, x) })}${tabs("pptab", tabList, tab)}<div class="tabbody">${body}</div></div>`;
 };
 GOTO.people = () => [["Staff office", "people_staff"], ["Squad", "roster"], ["Inbox", "inbox", { key: "Your people" }], ["Calendar", "calendar"], ["Your profile", "you"]];
@@ -240,7 +241,10 @@ screens.people_scene = async (a) => {
     : "";
   // Your moves.
   let moves = "";
-  if (!s.done) {
+  if (s.future) {
+    moves = `<aside class="pp-moves"><div class="st-label">On the calendar</div><p class="pp-quote">${esc(s.dateText)}${s.place ? ` · ${esc(s.place)}` : ""}</p><p class="muted small">It opens that morning, and Continue stops for it. Can't make it? Your staff will hold it the way they would and tell you how it went.</p>
+      <div class="pp-movefoot"><button class="st-btn small glass" data-act="pphand" data-id="${s.id}">Hand it to your staff</button></div></aside>`;
+  } else if (!s.done) {
     const talk = s.kind === "OneOnOne";
     const chosen = st.pick != null ? s.picks.find((p) => p.code === st.pick) || s.picks.find((p) => talk && p.code >= 100 && p.code < 190 && Math.floor((p.code - 100) / 10) === Math.floor((st.pick - 100) / 10)) : null;
     const list = s.picks.map((p) => {

@@ -134,7 +134,12 @@ pub fn ensure(w: &mut World) {
         .staff
         .deals
         .iter()
-        .map(|d| w.coaches.get(d.coach).and_then(|c| c.job).is_some_and(|j| j.role != Role::HeadCoach && !matches!(j.employer, Employer::HighSchool(_))))
+        .map(|d| {
+            w.coaches
+                .get(d.coach)
+                .and_then(|c| c.job)
+                .is_some_and(|j| j.role != Role::HeadCoach && !matches!(j.employer, Employer::HighSchool(_)))
+        })
         .collect();
     let mut k = 0;
     w.folk.staff.deals.retain(|_| {
@@ -198,7 +203,11 @@ pub fn drawn_staff(w: &World, team: Team) -> Vec<Drawn> {
             let gas = if fbs || prog.division == Division::FCS { 4 } else { 2 };
             for k in 0..analysts {
                 let key = team.key() << 16 ^ 0xA7A ^ k as u64;
-                let title = if w.year >= 2024 && w.today >= crate::calendar::Date::ymd(2024, 6, 1) && k < 4 && fbs { "On-field analyst" } else { "Analyst" };
+                let title = if w.year >= 2024 && w.today >= crate::calendar::Date::ymd(2024, 6, 1) && k < 4 && fbs {
+                    "On-field analyst"
+                } else {
+                    "Analyst"
+                };
                 v.push(draw_person(w, key, title, if fbs { 75_000.0 } else { 35_000.0 }, None));
             }
             for k in 0..gas {
@@ -234,7 +243,9 @@ pub fn drawn_staff(w: &World, team: Team) -> Vec<Drawn> {
 pub fn fire(w: &mut World, c: usize, why: &'static str) -> String {
     let Some(job) = w.coaches[c].job else { return String::new() };
     let year = w.year;
-    let owed = w.folk.staff.deal(c).map_or(0.0, |d| d.salary * (d.through - year + 1).max(0) as f64 * if d.buyout > 0.0 { d.buyout as f64 } else { 0.25 });
+    let owed = w.folk.staff.deal(c).map_or(0.0, |d| {
+        d.salary * (d.through - year + 1).max(0) as f64 * if d.buyout > 0.0 { d.buyout as f64 } else { 0.25 }
+    });
     let name = w.coaches[c].name.clone();
     // The room (topic 11): players in his group; a coach they loved costs
     // trust, one they blamed can lift it.
@@ -279,7 +290,11 @@ pub fn fire(w: &mut World, c: usize, why: &'static str) -> String {
     let text = format!(
         "{name} is out as {}{}{}.",
         job.role.name(),
-        if owed > 0.0 { format!("; you owe ${} of his deal", facts::thousands((owed / 1000.0) as u32) + ",000") } else { String::new() },
+        if owed > 0.0 {
+            format!("; you owe ${} of his deal", facts::thousands((owed / 1000.0) as u32) + ",000")
+        } else {
+            String::new()
+        },
         if hit >= 3 { format!(". {hit} of his players took it hard") } else { String::new() }
     );
     super::post_mine(w, w.today, Loudness::Small, false, "people: staff", &text);
@@ -326,8 +341,12 @@ pub fn candidates(w: &World, role: Role) -> Vec<Candidate> {
             continue;
         }
         let fits = match role {
-            Role::OffensiveCoordinator => co.came_up.offense() || co.job.is_some_and(|j| j.role == Role::OffensiveCoordinator),
-            Role::DefensiveCoordinator => !co.came_up.offense() || co.job.is_some_and(|j| j.role == Role::DefensiveCoordinator),
+            Role::OffensiveCoordinator => {
+                co.came_up.offense() || co.job.is_some_and(|j| j.role == Role::OffensiveCoordinator)
+            }
+            Role::DefensiveCoordinator => {
+                !co.came_up.offense() || co.job.is_some_and(|j| j.role == Role::DefensiveCoordinator)
+            }
             Role::PositionCoach(g) => co.came_up == g || co.job.is_some_and(|j| j.role == Role::PositionCoach(g)),
             Role::HeadCoach => false,
         };
@@ -356,17 +375,27 @@ pub fn candidates(w: &World, role: Role) -> Vec<Candidate> {
             Some(g) => co.ability().teaching[g as usize],
             None => {
                 let off = role == Role::OffensiveCoordinator;
-                Group::ALL.iter().filter(|g| g.offense() == off && **g != Group::Specialists).map(|g| co.ability().teaching[*g as usize]).sum::<f64>() / 3.0
+                Group::ALL
+                    .iter()
+                    .filter(|g| g.offense() == off && **g != Group::Specialists)
+                    .map(|g| co.ability().teaching[*g as usize])
+                    .sum::<f64>()
+                    / 3.0
             }
         } as f32;
         let interviewed = w.folk.staff.interviewed.iter().find(|x| x.0 == c).map(|x| x.2);
         let width = (5.5 - 4.0 * warm - if interviewed.is_some() { 1.5 } else { 0.0 }).max(1.2);
-        let bias = super::roll_n(w, 0x5EAD, c as u64) as f32 * width * 0.4 + interviewed.map_or(0.0, |r| (r - teach) * 0.3);
+        let bias =
+            super::roll_n(w, 0x5EAD, c as u64) as f32 * width * 0.4 + interviewed.map_or(0.0, |r| (r - teach) * 0.3);
         let mid = (teach + bias).clamp(1.0, 20.0);
         let read = ((mid - width / 2.0).max(1.0), (mid + width / 2.0).min(20.0));
         let now = match co.job {
-            Some(j) => format!("{}, {}", super::takeover::cap_first(j.role.name()), Team::from_employer(j.employer).name(w)),
-            None => co.history.last().map_or("Out of coaching".into(), |s| format!("Out of work (last: {}, {})", s.role.name(), Team::from_employer(s.employer).name(w))),
+            Some(j) => {
+                format!("{}, {}", super::takeover::cap_first(j.role.name()), Team::from_employer(j.employer).name(w))
+            }
+            None => co.history.last().map_or("Out of coaching".into(), |s| {
+                format!("Out of work (last: {}, {})", s.role.name(), Team::from_employer(s.employer).name(w))
+            }),
         };
         let asks = (base * (0.85 + 0.35 * co.reputation / 20.0) * if co.job.is_some() { 1.15 } else { 0.95 }).round();
         let known = if warm >= 0.6 {
@@ -376,18 +405,21 @@ pub fn candidates(w: &World, role: Role) -> Vec<Candidate> {
         } else {
             "A stranger: you know his name and his record".to_string()
         };
-        v.push((score, Candidate {
-            coach: c,
-            name: co.name.clone(),
-            age: co.age,
-            now,
-            rep: super::rep_words(co.reputation).to_string(),
-            came_up: co.came_up.name().to_string(),
-            known,
-            read,
-            asks,
-            blocked,
-        }));
+        v.push((
+            score,
+            Candidate {
+                coach: c,
+                name: co.name.clone(),
+                age: co.age,
+                now,
+                rep: super::rep_words(co.reputation).to_string(),
+                came_up: co.came_up.name().to_string(),
+                known,
+                read,
+                asks,
+                blocked,
+            },
+        ));
     }
     v.sort_by(|a, b| b.0.total_cmp(&a.0));
     v.into_iter().take(24).map(|x| x.1).collect()
@@ -501,7 +533,11 @@ fn interview_open(w: &mut World, s: &mut Scene) {
     let mut pen = scene::pen(w, s, 1);
     let line = pen.line(&["staff.interview.open"], &spk, &f);
     pen.put(w);
-    s.them(&name, if line.is_empty() { format!("I've studied your film. Here's how I'd run the {}.", role.name()) } else { line }, None);
+    s.them(
+        &name,
+        if line.is_empty() { format!("I've studied your film. Here's how I'd run the {}.", role.name()) } else { line },
+        None,
+    );
     s.pick(60, "Ask about his scheme and how he'd use your players", "Ask", "calm", "The most telling question.");
     s.pick(61, "Ask how he'd handle your most difficult player", "Ask", "firm", "How he handles people.");
     s.pick(62, "Ask where he recruits and who he'd bring", "Ask", "calm", "His ties and his tree.");
@@ -518,7 +554,8 @@ fn interview_answer(w: &mut World, s: &mut Scene, code: u32) {
     let text = match code {
         60 => {
             if read >= 13.0 {
-                "He goes to the whiteboard and doesn't stop for twenty minutes. Every answer has a clip behind it.".to_string()
+                "He goes to the whiteboard and doesn't stop for twenty minutes. Every answer has a clip behind it."
+                    .to_string()
             } else if read >= 9.0 {
                 "Solid, if familiar: the things every coach says, said well.".to_string()
             } else {
@@ -543,17 +580,34 @@ fn interview_answer(w: &mut World, s: &mut Scene, code: u32) {
             }
         }
         _ => {
-            let want = if co.personality.ambition >= 14.0 { "play calling, and a path to a head job" } else if co.personality.loyalty >= 14.0 { "years: he wants to stay somewhere" } else { "the market rate" };
+            let want = if co.personality.ambition >= 14.0 {
+                "play calling, and a path to a head job"
+            } else if co.personality.loyalty >= 14.0 {
+                "years: he wants to stay somewhere"
+            } else {
+                "the market rate"
+            };
             format!("He wants {want}.")
         }
     };
-    s.you(&scene::your_name(w), match code {
-        60 => "How would you use our players?",
-        61 => "What would you do with a difficult player?",
-        62 => "Where do you recruit?",
-        _ => "What will it take?",
-    });
-    s.them(&name, text, Some(if co.personality.ambition >= 14.0 { "Confident. Maybe more confident than his record.".into() } else { "Measured.".into() }));
+    s.you(
+        &scene::your_name(w),
+        match code {
+            60 => "How would you use our players?",
+            61 => "What would you do with a difficult player?",
+            62 => "Where do you recruit?",
+            _ => "What will it take?",
+        },
+    );
+    s.them(
+        &name,
+        text,
+        Some(if co.personality.ambition >= 14.0 {
+            "Confident. Maybe more confident than his record.".into()
+        } else {
+            "Measured.".into()
+        }),
+    );
     let k = Pick::default();
     let _ = k;
     // Each answer sharpens your read of him a little.
@@ -572,7 +626,12 @@ fn interview_answer(w: &mut World, s: &mut Scene, code: u32) {
         s.end();
     } else {
         let used = s.lines.iter().filter(|l| l.by == 1).count();
-        let all = [(60, "Ask about his scheme"), (61, "Ask about a difficult player"), (62, "Ask where he recruits"), (63, "Ask what he wants")];
+        let all = [
+            (60, "Ask about his scheme"),
+            (61, "Ask about a difficult player"),
+            (62, "Ask where he recruits"),
+            (63, "Ask what he wants"),
+        ];
         for (code2, label) in all.iter().skip(0) {
             if *code2 != code && s.picks.iter().all(|p| p.code != *code2) && used < 3 {
                 s.pick(*code2, *label, "Ask", "calm", "");
@@ -592,7 +651,13 @@ pub fn offer(w: &mut World, c: usize, role: Role, salary: f64, years: i32) -> Re
     }
     let co = w.coaches.get(c).ok_or("No such coach.")?.clone();
     let emp = team.employer();
-    let now = w.folk.staff.deal(c).map_or(if co.job.is_some() { pay(w, co.job.unwrap().employer, co.job.unwrap().role) } else { 0.0 }, |d| d.salary);
+    let now = w
+        .folk
+        .staff
+        .deal(c)
+        .map_or(if co.job.is_some() { pay(w, co.job.unwrap().employer, co.job.unwrap().role) } else { 0.0 }, |d| {
+            d.salary
+        });
     let same_level = co.job.is_some_and(|j| std::mem::discriminant(&j.employer) == std::mem::discriminant(&emp));
     let step = co.job.map_or(1.0, |j| match (j.role, role) {
         (Role::PositionCoach(_), Role::OffensiveCoordinator | Role::DefensiveCoordinator) => 1.0,
@@ -602,13 +667,19 @@ pub fn offer(w: &mut World, c: usize, role: Role, salary: f64, years: i32) -> Re
     if matches!(emp, Employer::Nfl(_)) && same_level && step <= 0.0 && co.job.is_some() {
         let blocks = super::roll(w, 0xB10C, c as u64 ^ w.today.0 as u64) < 0.7;
         if blocks {
-            return Ok(format!("{}'s club denied permission: a lateral move under contract can be blocked. He stays where he is.", co.name));
+            return Ok(format!(
+                "{}'s club denied permission: a lateral move under contract can be blocked. He stays where he is.",
+                co.name
+            ));
         }
     }
     if let Employer::HighSchool(_) = emp {
         let opening = super::roll(w, 0x7EAC, c as u64 ^ w.year as u64) < 0.55;
         if !opening {
-            return Ok(format!("The principal has no teaching opening in {}'s subject this year. The board won't approve a coaching-only hire.", co.name));
+            return Ok(format!(
+                "The principal has no teaching opening in {}'s subject this year. The board won't approve a coaching-only hire.",
+                co.name
+            ));
         }
     }
     let money = if now > 0.0 { (salary / now - 1.0).clamp(-0.5, 1.0) } else { 0.6 };
@@ -616,7 +687,8 @@ pub fn offer(w: &mut World, c: usize, role: Role, salary: f64, years: i32) -> Re
     let rep = facts::your_rep(w) / 20.0;
     let loyal = (co.personality.loyalty - 10.0) / 10.0;
     let years_v = 0.04 * (years - 1) as f64 * (1.0 + loyal.max(0.0));
-    let score = 0.8 * money + 0.5 * step + 0.4 * warm + 0.3 * (rep - 0.5) + years_v - if co.job.is_some() { 0.25 + 0.2 * loyal } else { -0.2 };
+    let score = 0.8 * money + 0.5 * step + 0.4 * warm + 0.3 * (rep - 0.5) + years_v
+        - if co.job.is_some() { 0.25 + 0.2 * loyal } else { -0.2 };
     let u = super::roll(w, 0x0FFE, c as u64 ^ w.today.0 as u64);
     // His team counters for a man it wants to keep.
     let counter = co.job.is_some() && co.reputation >= 11.0 && u < 0.4;
@@ -654,7 +726,13 @@ pub fn offer(w: &mut World, c: usize, role: Role, salary: f64, years: i32) -> Re
     w.folk.staff.deals.push(Deal { coach: c, salary, through: w.year + years.max(1) - 1, buyout: buy });
     w.folk.mine.set_trust(coach_key(c), 0.6 + 0.2 * warm as f32);
     super::network::touch(w, c, 0.15);
-    let text = format!("{} is your new {}: {} years at ${} a year.", co.name, role.name(), years.max(1), facts::thousands((salary / 1000.0) as u32) + ",000");
+    let text = format!(
+        "{} is your new {}: {} years at ${} a year.",
+        co.name,
+        role.name(),
+        years.max(1),
+        facts::thousands((salary / 1000.0) as u32) + ",000"
+    );
     super::post_mine(w, w.today, Loudness::Small, false, "people: staff", &text);
     Ok(text)
 }
@@ -672,7 +750,11 @@ pub fn raise(w: &mut World, c: usize, share: f64) -> Result<String, String> {
 /// Opens the conversation when you let a coach go.
 pub fn start_firing(w: &mut World, c: usize) -> Result<u32, String> {
     let team = Team::seat(w).ok_or("You have no team.")?;
-    let on = w.coaches.get(c).and_then(|x| x.job).is_some_and(|j| Team::from_employer(j.employer) == team && j.role != Role::HeadCoach);
+    let on = w
+        .coaches
+        .get(c)
+        .and_then(|x| x.job)
+        .is_some_and(|j| Team::from_employer(j.employer) == team && j.role != Role::HeadCoach);
     if !on {
         return Err("He isn't on your staff.".into());
     }
@@ -688,16 +770,40 @@ fn firing_open(w: &mut World, s: &mut Scene) {
     let c = s.a as usize;
     s.who.push(Who::Coach(c));
     let co = &w.coaches[c];
-    let owed = w.folk.staff.deal(c).map_or(0.0, |d| d.salary * (d.through - w.year + 1).max(0) as f64 * if d.buyout > 0.0 { d.buyout as f64 } else { 0.25 });
+    let owed = w.folk.staff.deal(c).map_or(0.0, |d| {
+        d.salary * (d.through - w.year + 1).max(0) as f64 * if d.buyout > 0.0 { d.buyout as f64 } else { 0.25 }
+    });
     s.narrate(format!(
         "{} knows why you called him in. {}",
         coach_link(w, c),
-        if owed > 0.0 { format!("Letting him go costs about ${} of his deal.", facts::thousands((owed / 1000.0) as u32) + ",000") } else { "His deal is year to year.".into() }
+        if owed > 0.0 {
+            format!("Letting him go costs about ${} of his deal.", facts::thousands((owed / 1000.0) as u32) + ",000")
+        } else {
+            "His deal is year to year.".into()
+        }
     ));
     let _ = co;
-    s.pick(70, "Tell him straight: it's the results", "Tell him straight", "calm", "He doesn't like it, but he respects it.");
-    s.pick(71, "Thank him, and offer to help him land somewhere", "Praise", "warm", "He leaves a friend; your network keeps him.");
-    s.pick(72, "Blame his unit in front of the staff", "Criticize", "fiery", "The staff sees you protect yourself; he holds a grudge.");
+    s.pick(
+        70,
+        "Tell him straight: it's the results",
+        "Tell him straight",
+        "calm",
+        "He doesn't like it, but he respects it.",
+    );
+    s.pick(
+        71,
+        "Thank him, and offer to help him land somewhere",
+        "Praise",
+        "warm",
+        "He leaves a friend; your network keeps him.",
+    );
+    s.pick(
+        72,
+        "Blame his unit in front of the staff",
+        "Criticize",
+        "fiery",
+        "The staff sees you protect yourself; he holds a grudge.",
+    );
     s.pick(73, "Change your mind: he stays", "Listen", "calm", "Nothing happens; he knows how close it was.");
 }
 
@@ -749,12 +855,17 @@ fn proposals_week(w: &mut World, d: Date) {
     for (c, role) in &staff {
         let Role::PositionCoach(g) = role else { continue };
         let eye = w.coaches[*c].ability().teaching[*g as usize];
-        let mut room: Vec<usize> = roster.iter().copied().filter(|&i| Group::of(w.people[i].player.position) == *g).collect();
+        let mut room: Vec<usize> =
+            roster.iter().copied().filter(|&i| Group::of(w.people[i].player.position) == *g).collect();
         room.sort_by(|&a, &b| w.people[b].player.overall().total_cmp(&w.people[a].player.overall()));
         let starter = room.iter().copied().find(|&i| w.people[i].last_role == Some(PlayingTime::Starter));
-        let young = room.iter().copied().find(|&i| w.people[i].last_role != Some(PlayingTime::Starter) && w.people[i].player.age <= 22);
+        let young = room
+            .iter()
+            .copied()
+            .find(|&i| w.people[i].last_role != Some(PlayingTime::Starter) && w.people[i].player.age <= 22);
         if let (Some(s0), Some(y)) = (starter, young) {
-            let gap = w.people[y].player.overall() - w.people[s0].player.overall() + super::roll_n(w, 0x961 ^ d.0 as u64, *c as u64) * (12.0 - 0.5 * eye).max(1.0);
+            let gap = w.people[y].player.overall() - w.people[s0].player.overall()
+                + super::roll_n(w, 0x961 ^ d.0 as u64, *c as u64) * (12.0 - 0.5 * eye).max(1.0);
             if gap > 1.0 && best.is_none_or(|b| gap > b.3) {
                 best = Some((*c, y, s0, gap));
             }
@@ -774,7 +885,11 @@ fn proposals_week(w: &mut World, d: Date) {
     }
     // 2. The trainer wants to hold a starter out a week (load and soft
     // tissue, topic 10).
-    if let Some(&i) = roster.iter().find(|&&i| w.people[i].last_role == Some(PlayingTime::Starter) && w.people[i].player.age >= 27 && super::roll(w, 0x962 ^ d.0 as u64, i as u64) < 0.05) {
+    if let Some(&i) = roster.iter().find(|&&i| {
+        w.people[i].last_role == Some(PlayingTime::Starter)
+            && w.people[i].player.age >= 27
+            && super::roll(w, 0x962 ^ d.0 as u64, i as u64) < 0.05
+    }) {
         s.title = format!("The trainer wants to rest {}", w.people[i].name);
         s.b = w.people[i].player.id as u64;
         s.c = 2;
@@ -795,10 +910,32 @@ fn proposal_open(w: &mut World, s: &mut Scene) {
             s.who.push(Who::Player(y));
             s.who.push(Who::Player(s0));
             s.narrate(format!("{} has the practice tape cued up.", coach_link(w, c)));
-            s.them(&w.coaches[c].name.clone(), format!("{} has passed {}. I'd start him this week.", w.people[yi].name, w.people[si].name), Some("He's sure. He's been sure before.".into()));
-            s.pick(75, format!("Do it: start {}", w.people[yi].name), "Hand him something", "firm", "Your depth chart changes. The young player lifts; the veteran stews.");
-            s.pick(76, "Give him more snaps, but keep the starter", "Listen", "calm", "A rotation: nobody's promised anything.");
-            s.pick(77, "No. The veteran earned it.", "Tell him straight", "calm", "Your coach is overruled; the veteran never knows.");
+            s.them(
+                &w.coaches[c].name.clone(),
+                format!("{} has passed {}. I'd start him this week.", w.people[yi].name, w.people[si].name),
+                Some("He's sure. He's been sure before.".into()),
+            );
+            s.pick(
+                75,
+                format!("Do it: start {}", w.people[yi].name),
+                "Hand him something",
+                "firm",
+                "Your depth chart changes. The young player lifts; the veteran stews.",
+            );
+            s.pick(
+                76,
+                "Give him more snaps, but keep the starter",
+                "Listen",
+                "calm",
+                "A rotation: nobody's promised anything.",
+            );
+            s.pick(
+                77,
+                "No. The veteran earned it.",
+                "Tell him straight",
+                "calm",
+                "Your coach is overruled; the veteran never knows.",
+            );
             let _ = player_link(w, yi);
         }
         2 => {
@@ -809,7 +946,11 @@ fn proposal_open(w: &mut World, s: &mut Scene) {
             };
             s.who.push(Who::Player(id));
             s.narrate(format!("The head trainer stops you in the hall about {}.", player_link(w, i)));
-            s.them("Head trainer", "His hamstring is tight and his numbers are down. A week off now saves us a month later.", None);
+            s.them(
+                "Head trainer",
+                "His hamstring is tight and his numbers are down. A week off now saves us a month later.",
+                None,
+            );
             s.pick(78, "Rest him", "Listen", "calm", "He sits a week. Lower risk of a soft-tissue injury.");
             s.pick(79, "He plays", "Tell him straight", "firm", "He plays; the risk is yours.");
         }
@@ -846,7 +987,9 @@ fn proposal_answer(w: &mut World, s: &mut Scene, code: u32) {
         }
         78 => {
             let id = s.b as u32;
-            let until = s.team.map_or(w.today.add(7), |t| facts::team_games(w, t).iter().map(|g| g.0).find(|&d| d >= w.today).unwrap_or(w.today.add(7)));
+            let until = s.team.map_or(w.today.add(7), |t| {
+                facts::team_games(w, t).iter().map(|g| g.0).find(|&d| d >= w.today).unwrap_or(w.today.add(7))
+            });
             w.folk.out.push((id, until, "rested by the trainer".into()));
             s.outcome.push("He sits this week.".into());
         }

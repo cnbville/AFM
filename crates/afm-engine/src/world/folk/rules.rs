@@ -321,7 +321,8 @@ fn risk(w: &World, i: usize, book: &Rulebook, room: f32, base: f32) -> f32 {
     let z = |x: Trait| t.z(x) as f32;
     let warned = w.folk.rules.warned.iter().any(|x| x.0 == p.player.id && x.1.days_to(w.today) < 60);
     let age = p.player.age as f32;
-    let f = (1.0 - 0.55 * z(Trait::Professionalism) + 0.25 * z(Trait::Temper) + 0.15 * z(Trait::Ego) - 0.35 * p.mood.min(0.0) * -1.0
+    let f = (1.0 - 0.55 * z(Trait::Professionalism) + 0.25 * z(Trait::Temper) + 0.15 * z(Trait::Ego)
+        - 0.35 * p.mood.min(0.0) * -1.0
         + 0.25 * (p.mood < -0.3) as u8 as f32
         - 0.2 * room)
         .clamp(0.2, 3.0)
@@ -339,7 +340,10 @@ fn your_week(w: &mut World, d: Date) {
     }
     let in_season = match level {
         Level::Nfl => d >= w.dates.veterans_report && d <= w.dates.super_bowl,
-        _ => d >= w.dates.fall_camp.add(-30) && d <= w.dates.bowl_season.1 || (d >= w.dates.spring_practice.0 && d <= w.dates.spring_game),
+        _ => {
+            d >= w.dates.fall_camp.add(-30) && d <= w.dates.bowl_season.1
+                || (d >= w.dates.spring_practice.0 && d <= w.dates.spring_game)
+        }
     };
     if !in_season {
         return;
@@ -356,7 +360,8 @@ fn your_week(w: &mut World, d: Date) {
     let roster = team.roster(w);
     // How much your staff sees (topic 8): your discipline and the position
     // coaches' relationships.
-    let you = w.career.as_ref().map(|c| c.coach).and_then(|c| w.coaches.get(c)).map_or(10.0, |c| c.ability().discipline);
+    let you =
+        w.career.as_ref().map(|c| c.coach).and_then(|c| w.coaches.get(c)).map_or(10.0, |c| c.ability().discipline);
     let see = (0.45 + 0.025 * you as f32).clamp(0.4, 0.95);
     let open = w.folk.cases.len();
     if open >= 3 {
@@ -412,7 +417,12 @@ fn your_week(w: &mut World, d: Date) {
         }
     }
     // A social media ban costs players NIL money from 2021 (topic 8/9).
-    if level == Level::College && w.year >= 2021 && book.strict(RuleKind::Social) >= 3 && d.weekday() == Weekday::Mon && d.day() <= 7 {
+    if level == Level::College
+        && w.year >= 2021
+        && book.strict(RuleKind::Social) >= 3
+        && d.weekday() == Weekday::Mon
+        && d.day() <= 7
+    {
         for &i in &team.roster(w) {
             if w.people[i].player.personality.traits.get(Trait::Greed) >= 13.0 {
                 talks::mood_event(w, w.people[i].player.id, Reason::Discipline, -0.04);
@@ -448,29 +458,91 @@ fn violation_open(w: &mut World, s: &mut Scene) {
         s.narrate(format!("Last time someone broke it, {who} got {}. The room remembers.", r.response.words(level)));
     }
     if star {
-        s.narrate(format!("He's a {} {}; the room is watching what you do.", if p.last_role == Some(PlayingTime::Starter) { "starter" } else { "big name" }, p.player.position.name()));
+        s.narrate(format!(
+            "He's a {} {}; the room is watching what you do.",
+            if p.last_role == Some(PlayingTime::Starter) { "starter" } else { "big name" },
+            p.player.position.name()
+        ));
     }
     let council = !w.folk.rules.council.is_empty();
     s.pick(500, "Talk to him and warn him", "Warn", "firm", "The lightest touch. Fair for a first small offense.");
     match level {
         Level::Nfl => {
             let fine = nfl_fine(w.year, kind);
-            s.pick(501, format!("Fine him (${}, the CBA schedule)", super::facts::thousands(fine as u32)), "Fine", "firm", "The standard answer in the league; warning letters come first for small things.");
-            s.pick(503, "Deactivate him for a game", "Bench", "firm", "Counts as discipline under the CBA. The union is told.");
-            s.pick(504, "Suspend him two weeks for conduct detrimental", "Suspend", "fiery", "Unpaid. Inside the four-week cap.");
-            s.pick(507, "Suspend him six weeks", "Suspend", "fiery", "Past the CBA's four weeks: he files a grievance and an arbitrator may overturn it.");
+            s.pick(
+                501,
+                format!("Fine him (${}, the CBA schedule)", super::facts::thousands(fine as u32)),
+                "Fine",
+                "firm",
+                "The standard answer in the league; warning letters come first for small things.",
+            );
+            s.pick(
+                503,
+                "Deactivate him for a game",
+                "Bench",
+                "firm",
+                "Counts as discipline under the CBA. The union is told.",
+            );
+            s.pick(
+                504,
+                "Suspend him two weeks for conduct detrimental",
+                "Suspend",
+                "fiery",
+                "Unpaid. Inside the four-week cap.",
+            );
+            s.pick(
+                507,
+                "Suspend him six weeks",
+                "Suspend",
+                "fiery",
+                "Past the CBA's four weeks: he files a grievance and an arbitrator may overturn it.",
+            );
             s.pick(505, "Release him", "Dismiss", "fiery", "Section 5's cap rules apply. Gone.");
         }
         _ => {
-            s.pick(502, "Five a.m. running and lost privileges", "Running", "firm", "The college and high school standard.");
-            s.pick(506, "Bench him for the start", "Bench", "firm", "He plays, but everyone sees him on the sideline first.");
+            s.pick(
+                502,
+                "Five a.m. running and lost privileges",
+                "Running",
+                "firm",
+                "The college and high school standard.",
+            );
+            s.pick(
+                506,
+                "Bench him for the start",
+                "Bench",
+                "firm",
+                "He plays, but everyone sees him on the sideline first.",
+            );
             s.pick(503, "Sit him for the next game", "Bench", "firm", "Real games missed.");
-            s.pick(504, "Suspend him for two games", "Suspend", "fiery", "A real price; the media hears 'violation of team rules'.");
-            s.pick(505, "Dismiss him from the team", "Dismiss", "fiery", if level == Level::College { "He can transfer. The room learns where the line is." } else { "He's off the team. His parents will call the principal." });
+            s.pick(
+                504,
+                "Suspend him for two games",
+                "Suspend",
+                "fiery",
+                "A real price; the media hears 'violation of team rules'.",
+            );
+            s.pick(
+                505,
+                "Dismiss him from the team",
+                "Dismiss",
+                "fiery",
+                if level == Level::College {
+                    "He can transfer. The room learns where the line is."
+                } else {
+                    "He's off the team. His parents will call the principal."
+                },
+            );
         }
     }
     if council {
-        s.pick(508, "Let the leadership council decide", "Council", "calm", "The players own it; they're often harder on teammates than you are.");
+        s.pick(
+            508,
+            "Let the leadership council decide",
+            "Council",
+            "calm",
+            "The players own it; they're often harder on teammates than you are.",
+        );
     }
 }
 
@@ -486,7 +558,10 @@ fn ordinal(n: usize) -> &'static str {
 
 fn is_star(w: &World, i: usize) -> bool {
     let p = &w.people[i];
-    p.last_role == Some(PlayingTime::Starter) && (p.stars >= 4 || p.player.position == crate::positions::Position::QB || p.pro.as_ref().is_some_and(|c| c.seasons.iter().any(|s| s.pro_bowl)))
+    p.last_role == Some(PlayingTime::Starter)
+        && (p.stars >= 4
+            || p.player.position == crate::positions::Position::QB
+            || p.pro.as_ref().is_some_and(|c| c.seasons.iter().any(|s| s.pro_bowl)))
 }
 
 fn violation_answer(w: &mut World, s: &mut Scene, code: u32) {
@@ -562,14 +637,23 @@ fn apply(w: &mut World, s: &mut Scene, id: u32, kind: RuleKind, resp: Response, 
     talks::mood_event(w, id, Reason::Discipline, dm);
     // A firm, fair answer from a respected coach raises professionalism
     // over time (topic 1).
-    if gap.abs() <= 1 && sev >= 1 && super::roll(w, 0xF41E, id as u64 ^ w.today.0 as u64) < 0.25 + 0.1 * coachable as f64 {
+    if gap.abs() <= 1
+        && sev >= 1
+        && super::roll(w, 0xF41E, id as u64 ^ w.today.0 as u64) < 0.25 + 0.1 * coachable as f64
+    {
         w.people[i].player.personality.traits.shift(Trait::Professionalism, 0.5);
     }
     // The room (topic 8): fair and consistent lifts trust across the roster;
     // a double standard costs it.
     if let Some(t) = team {
         let roster = t.roster(w);
-        let room_dt = if uneven > 0 { -0.015 * uneven.min(3) as f32 } else if gap.abs() <= 1 { 0.006 } else { -0.004 };
+        let room_dt = if uneven > 0 {
+            -0.015 * uneven.min(3) as f32
+        } else if gap.abs() <= 1 {
+            0.006
+        } else {
+            -0.004
+        };
         for j in roster {
             if j != i {
                 w.people[j].trust = (w.people[j].trust + room_dt).clamp(0.0, 1.0);
@@ -630,7 +714,13 @@ fn apply(w: &mut World, s: &mut Scene, id: u32, kind: RuleKind, resp: Response, 
     let mut pen = scene::pen(w, s, 3);
     let spk = super::voice::Speaker::player(w, i);
     let f = super::voice::Facts::new().with("coach", format!("Coach {}", scene::your_last(w)));
-    let key = if gap > 1 { "rules.react.harsh" } else if gap < -1 { "rules.react.soft" } else { "rules.react.fair" };
+    let key = if gap > 1 {
+        "rules.react.harsh"
+    } else if gap < -1 {
+        "rules.react.soft"
+    } else {
+        "rules.react.fair"
+    };
     let line = pen.line(&[key], &spk, &f);
     pen.put(w);
     if !staff && resp != Response::Dismiss {
@@ -645,8 +735,13 @@ fn apply(w: &mut World, s: &mut Scene, id: u32, kind: RuleKind, resp: Response, 
         );
     }
     // A public suspension reaches the news.
-    if sev >= 3 && let Some(t) = team {
-        let text = format!("{name} {} for a violation of team rules.", if level == Level::Nfl && matches!(resp, Response::BenchGame) { "is deactivated" } else { "is suspended" });
+    if sev >= 3
+        && let Some(t) = team
+    {
+        let text = format!(
+            "{name} {} for a violation of team rules.",
+            if level == Level::Nfl && matches!(resp, Response::BenchGame) { "is deactivated" } else { "is suspended" }
+        );
         super::post_mine(w, w.today, Loudness::Small, false, "people: discipline", &text);
         let _ = t;
     }
@@ -751,8 +846,20 @@ fn ritual_open(w: &mut World, s: &mut Scene) {
         let n = w.people[c].name.clone();
         s.them(&n, line, None);
     }
-    s.pick(600, "Fine, within limits: no money, no hands, nothing off campus", "Set limits", "firm", "The bonding without the risk; a few veterans grumble.");
-    s.pick(601, "It's your room. Keep it reasonable.", "Hand him something", "calm", "The veterans love it. Where it crosses the line depends on who's leading.");
+    s.pick(
+        600,
+        "Fine, within limits: no money, no hands, nothing off campus",
+        "Set limits",
+        "firm",
+        "The bonding without the risk; a few veterans grumble.",
+    );
+    s.pick(
+        601,
+        "It's your room. Keep it reasonable.",
+        "Hand him something",
+        "calm",
+        "The veterans love it. Where it crosses the line depends on who's leading.",
+    );
     s.pick(602, "None of it. Not on my team.", "Warn", "firm", "No risk at all. The veterans think you don't get it.");
 }
 
@@ -797,7 +904,8 @@ fn ritual_risk(w: &mut World, s: &mut Scene) {
         / leaders.len().max(1) as f32;
     let chance = (0.08 + 0.12 * bad).clamp(0.01, 0.3);
     if (super::roll(w, 0x4A21, w.year as u64) as f32) < chance {
-        let rookie = team.roster(w).into_iter().find(|&i| w.people[i].player.age <= 21 && w.people[i].bg.stability < 9.0);
+        let rookie =
+            team.roster(w).into_iter().find(|&i| w.people[i].player.age <= 21 && w.people[i].bg.stability < 9.0);
         if let Some(r) = rookie {
             let id = w.people[r].player.id;
             talks::mood_event(w, id, Reason::Room, -0.4);
@@ -886,7 +994,11 @@ fn league_week(w: &mut World, d: Date) {
                 let pos = p.player.position;
                 let hitter = matches!(
                     pos,
-                    crate::positions::Position::S | crate::positions::Position::CB | crate::positions::Position::LB | crate::positions::Position::EDGE | crate::positions::Position::DT
+                    crate::positions::Position::S
+                        | crate::positions::Position::CB
+                        | crate::positions::Position::LB
+                        | crate::positions::Position::EDGE
+                        | crate::positions::Position::DT
                 );
                 if !hitter {
                     continue;
@@ -897,7 +1009,13 @@ fn league_week(w: &mut World, d: Date) {
                     continue;
                 }
                 let kind = (super::roll(w, 0x41E1 ^ d.0 as u64, p.player.id as u64) * 3.0) as u8;
-                let prior = w.folk.discipline.recent.iter().filter(|f| f.id == p.player.id && f.date.year() >= year - 1).count();
+                let prior = w
+                    .folk
+                    .discipline
+                    .recent
+                    .iter()
+                    .filter(|f| f.id == p.player.id && f.date.year() >= year - 1)
+                    .count();
                 let amount = hit_fine(year, kind) * (1 + prior as u32).min(2);
                 let games = if prior >= 2 && kind == 2 { 1 } else { 0 };
                 let what = match kind {
@@ -905,7 +1023,16 @@ fn league_week(w: &mut World, d: Date) {
                     1 => "roughing the passer",
                     _ => "a hit on a defenseless player",
                 };
-                entries.push(Fine { date: d, id: p.player.id, level: Level::Nfl, what: what.into(), amount, games, appealed: false, reduced: false });
+                entries.push(Fine {
+                    date: d,
+                    id: p.player.id,
+                    level: Level::Nfl,
+                    what: what.into(),
+                    amount,
+                    games,
+                    appealed: false,
+                    reduced: false,
+                });
                 counts.0 += 1;
                 if games > 0 {
                     counts.1 += 1;
@@ -935,7 +1062,12 @@ fn league_week(w: &mut World, d: Date) {
                     let pp = &w.people[i];
                     pp.stage == Stage::College
                         && pp.last_role == Some(PlayingTime::Starter)
-                        && matches!(pp.player.position, crate::positions::Position::S | crate::positions::Position::CB | crate::positions::Position::LB)
+                        && matches!(
+                            pp.player.position,
+                            crate::positions::Position::S
+                                | crate::positions::Position::CB
+                                | crate::positions::Position::LB
+                        )
                 })
                 .collect();
             if pool.is_empty() {
@@ -943,7 +1075,16 @@ fn league_week(w: &mut World, d: Date) {
             }
             let k = (super::roll(w, 0x7A61 ^ d.0 as u64, p as u64) * pool.len() as f64) as usize;
             let id = w.people[pool[k.min(pool.len() - 1)]].player.id;
-            entries.push(Fine { date: d, id, level: Level::College, what: "ejected for targeting".into(), amount: 0, games: 0, appealed: false, reduced: false });
+            entries.push(Fine {
+                date: d,
+                id,
+                level: Level::College,
+                what: "ejected for targeting".into(),
+                amount: 0,
+                games: 0,
+                appealed: false,
+                reduced: false,
+            });
             counts.2 += 1;
         }
     }
@@ -957,7 +1098,16 @@ fn league_week(w: &mut World, d: Date) {
         if !r.is_empty() {
             let k = (super::roll(w, 0x4E6 ^ d.0 as u64, h as u64) * r.len() as f64) as usize;
             let id = w.people[r[k.min(r.len() - 1)]].player.id;
-            entries.push(Fine { date: d, id, level: Level::HighSchool, what: "ejected for fighting".into(), amount: 0, games: 1, appealed: false, reduced: false });
+            entries.push(Fine {
+                date: d,
+                id,
+                level: Level::HighSchool,
+                what: "ejected for fighting".into(),
+                amount: 0,
+                games: 1,
+                appealed: false,
+                reduced: false,
+            });
             counts.3 += 1;
         }
     }
@@ -969,13 +1119,22 @@ fn league_week(w: &mut World, d: Date) {
                 c.suspended += f.games as u32;
             }
         }
-        if f.level == Level::HighSchool && f.games > 0 && let Some(t) = seat {
+        if f.level == Level::HighSchool
+            && f.games > 0
+            && let Some(t) = seat
+        {
             let until = after_games(w, t, 1);
             w.folk.out.push((f.id, until, "ejected last week: out the next game by state rule".into()));
         }
         if mine.contains(&f.id) {
             let text = if f.amount > 0 {
-                format!("The league fined {} ${} for {}{}.", w.people[i].name, super::facts::thousands(f.amount), f.what, if f.games > 0 { format!(" and suspended him {} game", f.games) } else { String::new() })
+                format!(
+                    "The league fined {} ${} for {}{}.",
+                    w.people[i].name,
+                    super::facts::thousands(f.amount),
+                    f.what,
+                    if f.games > 0 { format!(" and suspended him {} game", f.games) } else { String::new() }
+                )
             } else {
                 format!("{} was {}.", w.people[i].name, f.what)
             };

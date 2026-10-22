@@ -38,11 +38,17 @@ pub enum Step {
     /// In court: the plea, the trial or the dismissal.
     Court,
     /// A league suspension under appeal to the hearing officer.
-    Appeal { games: u8 },
+    Appeal {
+        games: u8,
+    },
     /// A team suspension past the CBA cap, before an arbitrator.
-    Grievance { games: u8 },
+    Grievance {
+        games: u8,
+    },
     /// An on-field fine before the appeals officers (dollars).
-    FineAppeal { amount: u32 },
+    FineAppeal {
+        amount: u32,
+    },
     Closed,
 }
 
@@ -190,7 +196,8 @@ fn mirror(w: &mut World) {
 /// Opens a case for a college or high school player of yours whose trouble
 /// is a police matter (the season's roll, `amateur_kind`).
 pub(crate) fn amateur(w: &mut World, i: usize, what: &str) {
-    let police = what.contains("arrest") || what.contains("DUI") || what.contains("theft") || what.contains("drug case");
+    let police =
+        what.contains("arrest") || what.contains("DUI") || what.contains("theft") || what.contains("drug case");
     if !police {
         return;
     }
@@ -201,7 +208,16 @@ pub(crate) fn amateur(w: &mut World, i: usize, what: &str) {
     let today = w.today;
     let level = if w.people[i].stage == crate::world::Stage::College { Level::College } else { Level::HighSchool };
     let guilty = super::roll(w, 0xC0A7, id as u64 ^ today.0 as u64) < 0.5;
-    w.folk.courts.open.push(Case { id, level, what: what.to_string(), opened: today, next: today.add(20), step: Step::Arrest, guilty, outcome: None });
+    w.folk.courts.open.push(Case {
+        id,
+        level,
+        what: what.to_string(),
+        opened: today,
+        next: today.add(20),
+        step: Step::Arrest,
+        guilty,
+        outcome: None,
+    });
 }
 
 fn step(w: &mut World, d: Date) {
@@ -220,7 +236,10 @@ fn step(w: &mut World, d: Date) {
                 if !c.guilty && roll < 0.3 {
                     (None, Some(format!("Prosecutors declined to charge {name} ({}).", c.what)))
                 } else {
-                    (Some((Step::Charged, 30 + (roll * 60.0) as i32)), Some(format!("{name} is formally charged ({}).", c.what)))
+                    (
+                        Some((Step::Charged, 30 + (roll * 60.0) as i32)),
+                        Some(format!("{name} is formally charged ({}).", c.what)),
+                    )
                 }
             }
             Step::Charged => (Some((Step::Court, 30 + (roll * 90.0) as i32)), None),
@@ -257,7 +276,12 @@ fn step(w: &mut World, d: Date) {
                         pc.suspended = pc.suspended.saturating_sub(games as u32 - 4);
                         pc.earnings += 0.02 * (games as f64 - 4.0);
                     }
-                    (None, Some(format!("The arbitrator cut {name}'s team suspension to four weeks and awarded back pay.")))
+                    (
+                        None,
+                        Some(format!(
+                            "The arbitrator cut {name}'s team suspension to four weeks and awarded back pay."
+                        )),
+                    )
                 }
             }
             Step::FineAppeal { amount } => {

@@ -89,14 +89,22 @@ fn key_player(w: &World, team: Team) -> Option<usize> {
     let r = team.roster(w);
     r.iter()
         .copied()
-        .filter(|&i| w.people[i].last_role == Some(PlayingTime::Starter) && w.people[i].player.position == crate::positions::Position::QB)
+        .filter(|&i| {
+            w.people[i].last_role == Some(PlayingTime::Starter)
+                && w.people[i].player.position == crate::positions::Position::QB
+        })
         .max_by(|&a, &b| w.people[a].player.overall().total_cmp(&w.people[b].player.overall()))
-        .or_else(|| r.iter().copied().max_by(|&a, &b| super::takeover::standing(w, a).total_cmp(&super::takeover::standing(w, b))))
+        .or_else(|| {
+            r.iter()
+                .copied()
+                .max_by(|&a, &b| super::takeover::standing(w, a).total_cmp(&super::takeover::standing(w, b)))
+        })
 }
 
 /// A quarterback battle: two at the top within a couple of points.
 fn battle(w: &World, team: Team) -> Option<(usize, usize)> {
-    let mut qbs: Vec<usize> = team.roster(w).into_iter().filter(|&i| w.people[i].player.position == crate::positions::Position::QB).collect();
+    let mut qbs: Vec<usize> =
+        team.roster(w).into_iter().filter(|&i| w.people[i].player.position == crate::positions::Position::QB).collect();
     qbs.sort_by(|&a, &b| w.people[b].player.overall().total_cmp(&w.people[a].player.overall()));
     match qbs.as_slice() {
         [a, b, ..] if (w.people[*a].player.overall() - w.people[*b].player.overall()).abs() < 2.5 => Some((*a, *b)),
@@ -141,7 +149,9 @@ fn questions(w: &World, team: Team, occasion: i64) -> (Vec<Q>, u64) {
     if battle(w, team).is_some() && v.len() < 3 {
         v.push(Q::Battle);
     }
-    let hurt = team.roster(w).into_iter().find(|&i| w.people[i].last_role == Some(PlayingTime::Starter) && w.people[i].pro.as_ref().is_some_and(|c| c.out_weeks > 0));
+    let hurt = team.roster(w).into_iter().find(|&i| {
+        w.people[i].last_role == Some(PlayingTime::Starter) && w.people[i].pro.as_ref().is_some_and(|c| c.out_weeks > 0)
+    });
     if let Some(i) = hurt
         && v.len() < 3
     {
@@ -231,77 +241,244 @@ fn ask_next(w: &mut World, s: &mut Scene, team: Team, k: u8) {
         pen.put(w);
         if line.is_empty() { q_fallback(w, q, &f, team) } else { line }
     };
-    let name = r.as_ref().map_or_else(|| "A reporter".to_string(), |c| match &c.reporter {
-        Some(info) => format!("{}, {}", c.name, info.outlet),
-        None => c.name.clone(),
-    });
-    s.them(&name, text, r.as_ref().and_then(|c| c.reporter.as_ref()).map(|info| {
-        if info.lean < -0.3 {
-            "He's been hard on you in print.".to_string()
-        } else if info.leaks {
-            "He knows more than he's asking.".to_string()
-        } else {
-            "A fair question.".to_string()
-        }
-    }));
+    let name = r.as_ref().map_or_else(
+        || "A reporter".to_string(),
+        |c| match &c.reporter {
+            Some(info) => format!("{}, {}", c.name, info.outlet),
+            None => c.name.clone(),
+        },
+    );
+    s.them(
+        &name,
+        text,
+        r.as_ref().and_then(|c| c.reporter.as_ref()).map(|info| {
+            if info.lean < -0.3 {
+                "He's been hard on you in print.".to_string()
+            } else if info.leaks {
+                "He knows more than he's asking.".to_string()
+            } else {
+                "A fair question.".to_string()
+            }
+        }),
+    );
     let base = 100 * (k as u32 + 1);
     match q {
         Q::Vision => {
-            s.pick(base, "\"We're here to win championships. Not someday. Now.\"", "Promise", "fiery", "The room loves it. The bar you'll be judged by goes up.");
-            s.pick(base + 1, "\"It's a process. We'll build it the right way.\"", "Tell him straight", "calm", "Lowers what people expect of your first year.");
-            s.pick(base + 2, "\"I want a team this town is proud of, on and off the field.\"", "Praise", "warm", "Safe and warm; your boss likes it.");
+            s.pick(
+                base,
+                "\"We're here to win championships. Not someday. Now.\"",
+                "Promise",
+                "fiery",
+                "The room loves it. The bar you'll be judged by goes up.",
+            );
+            s.pick(
+                base + 1,
+                "\"It's a process. We'll build it the right way.\"",
+                "Tell him straight",
+                "calm",
+                "Lowers what people expect of your first year.",
+            );
+            s.pick(
+                base + 2,
+                "\"I want a team this town is proud of, on and off the field.\"",
+                "Praise",
+                "warm",
+                "Safe and warm; your boss likes it.",
+            );
         }
         Q::OldCoach => {
-            s.pick(base, "\"He built a lot here. I'm grateful for what he left.\"", "Praise", "warm", "His people warm to you.");
-            s.pick(base + 1, "\"That's the past. I'm here to talk about what's next.\"", "Deflect", "calm", "Clean break; his loyalists notice.");
+            s.pick(
+                base,
+                "\"He built a lot here. I'm grateful for what he left.\"",
+                "Praise",
+                "warm",
+                "His people warm to you.",
+            );
+            s.pick(
+                base + 1,
+                "\"That's the past. I'm here to talk about what's next.\"",
+                "Deflect",
+                "calm",
+                "Clean break; his loyalists notice.",
+            );
         }
         Q::Battle => {
             if let Some((a, b)) = battle(w, team) {
                 s.b = w.people[a].player.id as u64;
-                s.pick(base, format!("\"{} is our starter.\"", w.people[a].name), "Promise", "firm", "A public promise: break it and it costs double.");
-                s.pick(base + 1, format!("\"It's open. {} and {} will compete.\"", w.people[a].name, w.people[b].name), "Challenge", "calm", "Competitors lift; nobody's promised anything.");
-                s.pick(base + 2, "\"I'm not going to get into the depth chart.\"", "Deflect", "calm", "Gives the writers nothing.");
+                s.pick(
+                    base,
+                    format!("\"{} is our starter.\"", w.people[a].name),
+                    "Promise",
+                    "firm",
+                    "A public promise: break it and it costs double.",
+                );
+                s.pick(
+                    base + 1,
+                    format!("\"It's open. {} and {} will compete.\"", w.people[a].name, w.people[b].name),
+                    "Challenge",
+                    "calm",
+                    "Competitors lift; nobody's promised anything.",
+                );
+                s.pick(
+                    base + 2,
+                    "\"I'm not going to get into the depth chart.\"",
+                    "Deflect",
+                    "calm",
+                    "Gives the writers nothing.",
+                );
             }
         }
         Q::LastGame => {
             let won = facts::last_game(w, team).is_some_and(|x| x.0);
             if won {
-                s.pick(base, "\"That's on the players. They earned it.\"", "Praise", "warm", "The room hears you give them the credit.");
-                s.pick(base + 1, "\"We left a lot out there. We can play better.\"", "Challenge", "firm", "Keeps them hungry; some feel the win is never enough.");
+                s.pick(
+                    base,
+                    "\"That's on the players. They earned it.\"",
+                    "Praise",
+                    "warm",
+                    "The room hears you give them the credit.",
+                );
+                s.pick(
+                    base + 1,
+                    "\"We left a lot out there. We can play better.\"",
+                    "Challenge",
+                    "firm",
+                    "Keeps them hungry; some feel the win is never enough.",
+                );
             } else {
-                s.pick(base, "\"That's on me. I have to coach better.\"", "Take the blame", "calm", "Players respect it; your boss reads it either way.");
+                s.pick(
+                    base,
+                    "\"That's on me. I have to coach better.\"",
+                    "Take the blame",
+                    "calm",
+                    "Players respect it; your boss reads it either way.",
+                );
                 s.pick(base + 1, "\"We didn't execute. Simple as that.\"", "Deflect", "calm", "Neutral.");
                 if let Some(i) = sub {
-                    s.pick(base + 2, format!("\"{} has to play better. Period.\"", w.people[i].name), "Criticize", "fiery", "Public criticism counts double with him and the room.");
+                    s.pick(
+                        base + 2,
+                        format!("\"{} has to play better. Period.\"", w.people[i].name),
+                        "Criticize",
+                        "fiery",
+                        "Public criticism counts double with him and the room.",
+                    );
                 }
             }
         }
         Q::Injury => {
-            s.pick(base, "\"It's a high ankle. He'll miss a few weeks.\"", "Tell him straight", "calm", "Honest: the opponent knows too.");
-            s.pick(base + 1, "\"Day to day.\"", "Deflect", "calm", if team.level() == Level::Nfl { "The NFL fines clubs for injury reports that don't hold." } else { "Gives nothing away." });
+            s.pick(
+                base,
+                "\"It's a high ankle. He'll miss a few weeks.\"",
+                "Tell him straight",
+                "calm",
+                "Honest: the opponent knows too.",
+            );
+            s.pick(
+                base + 1,
+                "\"Day to day.\"",
+                "Deflect",
+                "calm",
+                if team.level() == Level::Nfl {
+                    "The NFL fines clubs for injury reports that don't hold."
+                } else {
+                    "Gives nothing away."
+                },
+            );
         }
         Q::Rival => {
-            s.pick(base, "\"We're going to go down there and beat them.\"", "Promise", "fiery", "Bulletin-board material. Your fans love it; their locker room will too.");
-            s.pick(base + 1, "\"They're a good football team. It'll be a great game.\"", "Praise", "calm", "Nothing for their locker room wall.");
+            s.pick(
+                base,
+                "\"We're going to go down there and beat them.\"",
+                "Promise",
+                "fiery",
+                "Bulletin-board material. Your fans love it; their locker room will too.",
+            );
+            s.pick(
+                base + 1,
+                "\"They're a good football team. It'll be a great game.\"",
+                "Praise",
+                "calm",
+                "Nothing for their locker room wall.",
+            );
         }
         Q::HotSeat => {
-            s.pick(base, "\"I'm not worried about my job. I'm worried about Saturday.\"", "Deflect", "calm", "The standard answer; nobody's convinced.");
-            s.pick(base + 1, "\"The people writing that have never coached a down.\"", "Fire back", "fiery", "Your players like the fight. The writers and your boss don't.");
-            s.pick(base + 2, "\"The record is the record. I own it.\"", "Take the blame", "firm", "Honest; your boss respects it more than the writers do.");
+            s.pick(
+                base,
+                "\"I'm not worried about my job. I'm worried about Saturday.\"",
+                "Deflect",
+                "calm",
+                "The standard answer; nobody's convinced.",
+            );
+            s.pick(
+                base + 1,
+                "\"The people writing that have never coached a down.\"",
+                "Fire back",
+                "fiery",
+                "Your players like the fight. The writers and your boss don't.",
+            );
+            s.pick(
+                base + 2,
+                "\"The record is the record. I own it.\"",
+                "Take the blame",
+                "firm",
+                "Honest; your boss respects it more than the writers do.",
+            );
         }
         Q::Trouble => {
-            s.pick(base, "\"We're aware of it. It's being handled internally.\"", "Deflect", "calm", "The standard line.");
-            s.pick(base + 1, "\"He's suspended indefinitely. We hold our players to a standard.\"", "Warn", "firm", "Firm in public; he hears it from the TV first.");
-            s.pick(base + 2, "\"He's a good kid. Let the process play out.\"", "Praise", "warm", "Loyal to him; the boss would rather you said less.");
+            s.pick(
+                base,
+                "\"We're aware of it. It's being handled internally.\"",
+                "Deflect",
+                "calm",
+                "The standard line.",
+            );
+            s.pick(
+                base + 1,
+                "\"He's suspended indefinitely. We hold our players to a standard.\"",
+                "Warn",
+                "firm",
+                "Firm in public; he hears it from the TV first.",
+            );
+            s.pick(
+                base + 2,
+                "\"He's a good kid. Let the process play out.\"",
+                "Praise",
+                "warm",
+                "Loyal to him; the boss would rather you said less.",
+            );
         }
         Q::Recruiting => {
-            s.pick(base, "\"We're going to build a fence around this state.\"", "Promise", "fiery", "High school coaches in the state like hearing it.");
-            s.pick(base + 1, "\"We'll recruit everywhere. Best players we can find.\"", "Tell him straight", "calm", "Neutral.");
+            s.pick(
+                base,
+                "\"We're going to build a fence around this state.\"",
+                "Promise",
+                "fiery",
+                "High school coaches in the state like hearing it.",
+            );
+            s.pick(
+                base + 1,
+                "\"We'll recruit everywhere. Best players we can find.\"",
+                "Tell him straight",
+                "calm",
+                "Neutral.",
+            );
         }
         Q::Player => {
             if let Some(i) = sub {
-                s.pick(base, format!("\"{} is one of the best players I've coached.\"", w.people[i].name), "Praise", "warm", "Public praise counts double; an ego grows.");
-                s.pick(base + 1, format!("\"{} knows what he has to do better.\"", w.people[i].name), "Challenge", "firm", "A public challenge, counted double.");
+                s.pick(
+                    base,
+                    format!("\"{} is one of the best players I've coached.\"", w.people[i].name),
+                    "Praise",
+                    "warm",
+                    "Public praise counts double; an ego grows.",
+                );
+                s.pick(
+                    base + 1,
+                    format!("\"{} knows what he has to do better.\"", w.people[i].name),
+                    "Challenge",
+                    "firm",
+                    "A public challenge, counted double.",
+                );
                 s.pick(base + 2, "\"I'm not going to single anyone out.\"", "Deflect", "calm", "Nothing either way.");
             } else {
                 s.pick(base, "\"It's a team game.\"", "Deflect", "calm", "Nothing either way.");
@@ -321,7 +498,10 @@ fn q_fallback(w: &World, q: Q, f: &Facts, team: Team) -> String {
         Q::Rival => format!("It's {} week. What does this game mean to you?", get("rival")),
         Q::HotSeat => format!("You're {}. Are you worried about your job?", get("record")),
         Q::Trouble => format!("Can you address the situation with {}?", get("player")),
-        Q::Recruiting => format!("How do you plan to recruit the state of {}?", team.state(w).and_then(|s| w.states.get(s)).map_or("this", |s| super::facts::state_name(&s.code))),
+        Q::Recruiting => format!(
+            "How do you plan to recruit the state of {}?",
+            team.state(w).and_then(|s| w.states.get(s)).map_or("this", |s| super::facts::state_name(&s.code))
+        ),
         Q::Player => format!("What have you seen from {} this week?", get("player")),
     }
 }
@@ -448,7 +628,12 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
                 let id = w.people[i].player.id;
                 w.people[i].trust = (w.people[i].trust - 0.1).max(0.0);
                 w.folk.out.retain(|x| x.0 != id);
-                let until = facts::team_games(w, team).iter().map(|g| g.0).filter(|&d| d >= w.today).nth(1).unwrap_or(w.today.add(14));
+                let until = facts::team_games(w, team)
+                    .iter()
+                    .map(|g| g.0)
+                    .filter(|&d| d >= w.today)
+                    .nth(1)
+                    .unwrap_or(w.today.add(14));
                 w.folk.out.push((id, until, "suspended indefinitely".into()));
                 w.folk.mine.hard = (w.folk.mine.hard + 0.1).min(1.0);
                 w.folk.mine.nudge(boss.key(), 0.03);
@@ -469,7 +654,9 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
             if let Some(i) = sub {
                 let id = w.people[i].player.id;
                 talks::mood_event(w, id, Reason::Praise, 0.16);
-                if w.people[i].player.personality.traits.get(Trait::Ego) >= 13.0 && super::roll(w, 0xE90, id as u64) < 0.2 {
+                if w.people[i].player.personality.traits.get(Trait::Ego) >= 13.0
+                    && super::roll(w, 0xE90, id as u64) < 0.2
+                {
                     w.people[i].player.personality.traits.shift(Trait::Ego, 0.5);
                 }
             }
@@ -511,7 +698,10 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
         super::post_mine(w, w.today.add(3), Loudness::Small, false, "league: media policy", &text);
         s.outcome.push(text);
     } else {
-        s.outcome.push("You skipped it. The communications office read a statement, and the writers filled the space themselves.".into());
+        s.outcome.push(
+            "You skipped it. The communications office read a statement, and the writers filled the space themselves."
+                .into(),
+        );
     }
 }
 
@@ -545,7 +735,11 @@ pub(crate) fn day(w: &mut World, d: Date) {
         _ => d.weekday() == Weekday::Mon,
     };
     if weekly {
-        let mut s = Scene::new(Kind::Press, d, if level == Level::HighSchool { "The local paper calls" } else { "Monday press availability" });
+        let mut s = Scene::new(
+            Kind::Press,
+            d,
+            if level == Level::HighSchool { "The local paper calls" } else { "Monday press availability" },
+        );
         s.c = 1;
         s.stops = false;
         s.team = Some(team);
@@ -562,9 +756,18 @@ pub(crate) fn day(w: &mut World, d: Date) {
             if sour.len() >= 4 && rt < 0.5 && super::roll(w, 0x1EA4 ^ d.0 as u64, 1) < 0.35 {
                 let who = player_link(w, sour[0]);
                 let outlet = r.reporter.as_ref().map_or(String::new(), |x| x.outlet.clone());
-                let text = format!("{} ({outlet}): sources describe growing frustration with the head coach inside the locker room.", r.name);
+                let text = format!(
+                    "{} ({outlet}): sources describe growing frustration with the head coach inside the locker room.",
+                    r.name
+                );
                 super::post_mine(w, d, Loudness::Medium, false, "media: report", &text);
-                super::note(w, "press", r.link(), format!("Reported frustration in the room; your staff thinks one source is close to {who}."), Some("He prints what his sources give him.".into()));
+                super::note(
+                    w,
+                    "press",
+                    r.link(),
+                    format!("Reported frustration in the room; your staff thinks one source is close to {who}."),
+                    Some("He prints what his sources give him.".into()),
+                );
                 let b = super::boss::boss(w, team);
                 w.folk.mine.nudge(b.key(), -0.03);
             }

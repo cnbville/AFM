@@ -313,7 +313,7 @@ function pinnedHtml(st) {
   const list = (st.pinned || []).slice(0, 4);
   if (!list.length) return "";
   return `<div class="pinned">${list.map((p) => {
-    const open = p.mail != null ? `data-act="openmail" data-id="${p.mail}"` : p.go ? `data-go="${esc(p.go)}"` : "";
+    const open = p.mail != null ? `data-act="openmail" data-id="${p.mail}"` : p.go ? `data-go="${esc(p.go)}"${p.id != null ? ` data-id="${p.id}"` : ""}` : "";
     return `<button class="pin" ${open}><span class="pdot"></span><span class="ptxt"><b>${esc(p.text)}</b><small>${esc(p.rule || "Needs your answer")}</small></span><span class="when">${esc(p.by ? "Answer by " + p.by : p.date || "")}</span></button>`;
   }).join("")}</div>`;
 }

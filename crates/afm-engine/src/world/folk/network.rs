@@ -72,10 +72,26 @@ fn add_contact(w: &mut World, c: usize, warmth: f32, how: String) {
     match w.folk.network.contacts.iter_mut().find(|x| x.coach == c) {
         Some(x) => x.warmth = (x.warmth + 0.5 * warmth).min(1.0),
         None => {
-            w.folk.network.contacts.push(Contact { coach: c, warmth: warmth.clamp(0.05, 1.0), met: today, how, last: None, recent: Vec::new(), balance: 0 });
+            w.folk.network.contacts.push(Contact {
+                coach: c,
+                warmth: warmth.clamp(0.05, 1.0),
+                met: today,
+                how,
+                last: None,
+                recent: Vec::new(),
+                balance: 0,
+            });
             if w.folk.network.contacts.len() > 220 {
                 // The coldest name drops off.
-                if let Some(k) = w.folk.network.contacts.iter().enumerate().min_by(|a, b| a.1.warmth.total_cmp(&b.1.warmth)).map(|x| x.0) {
+                if let Some(k) = w
+                    .folk
+                    .network
+                    .contacts
+                    .iter()
+                    .enumerate()
+                    .min_by(|a, b| a.1.warmth.total_cmp(&b.1.warmth))
+                    .map(|x| x.0)
+                {
                     w.folk.network.contacts.remove(k);
                 }
             }
@@ -115,7 +131,14 @@ pub fn build(w: &mut World) {
         .coaches
         .iter()
         .enumerate()
-        .filter(|(c, co)| *c != you && !co.retired && co.job.is_some() && (co.age as i64 - my_age).abs() <= 8 && co.home_state.is_some() && co.home_state == home)
+        .filter(|(c, co)| {
+            *c != you
+                && !co.retired
+                && co.job.is_some()
+                && (co.age as i64 - my_age).abs() <= 8
+                && co.home_state.is_some()
+                && co.home_state == home
+        })
         .map(|(c, _)| c)
         .collect();
     pool.sort_by(|&a, &b| super::roll(w, 0x0F1E, a as u64).total_cmp(&super::roll(w, 0x0F1E, b as u64)));
@@ -126,7 +149,14 @@ pub fn build(w: &mut World) {
     // A high school coach knows his area's coaches.
     if let Team::High(h) = team {
         let st = w.high_schools[h].state;
-        let near: Vec<usize> = w.high_schools.iter().enumerate().filter(|(k, s)| *k != h && s.state == st).filter_map(|(_, s)| s.coach).take(12).collect();
+        let near: Vec<usize> = w
+            .high_schools
+            .iter()
+            .enumerate()
+            .filter(|(k, s)| *k != h && s.state == st)
+            .filter_map(|(_, s)| s.coach)
+            .take(12)
+            .collect();
         for c in near {
             add_contact(w, c, 0.2, "coaches in your area".into());
         }
@@ -231,7 +261,8 @@ pub fn reach_out(w: &mut World, c: usize, how: How, why: Why, player: Option<u32
     if asking {
         dw -= 0.02;
     }
-    let yes_p = (0.2 + 0.7 * warm + 0.08 * balance as f32 + 0.02 * (rel - 10.0) - if needy { 0.25 } else { 0.0 }).clamp(0.02, 0.95);
+    let yes_p = (0.2 + 0.7 * warm + 0.08 * balance as f32 + 0.02 * (rel - 10.0) - if needy { 0.25 } else { 0.0 })
+        .clamp(0.02, 0.95);
     let yes = super::roll(w, 0x4E7 ^ today.0 as u64, c as u64) < yes_p as f64;
     let mut text = match how {
         How::Text => format!("You texted {name}."),
@@ -249,7 +280,10 @@ pub fn reach_out(w: &mut World, c: usize, how: How, why: Why, player: Option<u32
                 match pick {
                     Some(n) => {
                         add_contact(w, n, 0.3, format!("recommended by {name}"));
-                        text.push_str(&format!(" He gave you a name for your staff: {}. He'll take your call.", coach_link(w, n)));
+                        text.push_str(&format!(
+                            " He gave you a name for your staff: {}. He'll take your call.",
+                            coach_link(w, n)
+                        ));
                     }
                     None => text.push_str(" He couldn't think of anyone right now."),
                 }
@@ -272,7 +306,8 @@ pub fn reach_out(w: &mut World, c: usize, how: How, why: Why, player: Option<u32
         Why::Word => {
             let Some(pid) = player else { return Err("Which player?".into()) };
             let Some(i) = super::person(w, pid) else { return Err("No such player.".into()) };
-            let at_next = super::facts::team_of_coach(w, c).is_some_and(|t| matches!(t, Team::College(_) | Team::Nfl(_)));
+            let at_next =
+                super::facts::team_of_coach(w, c).is_some_and(|t| matches!(t, Team::College(_) | Team::Nfl(_)));
             if yes && at_next {
                 let p = &mut w.people[i];
                 p.visibility = (p.visibility + 0.12).min(1.0);
@@ -313,7 +348,9 @@ fn name_from(w: &World, c: usize) -> Option<usize> {
         .coaches
         .iter()
         .enumerate()
-        .filter(|(k, co)| *k != c && !co.retired && co.mentor == Some(c) && co.job.is_none_or(|j| j.role != Role::HeadCoach))
+        .filter(|(k, co)| {
+            *k != c && !co.retired && co.mentor == Some(c) && co.job.is_none_or(|j| j.role != Role::HeadCoach)
+        })
         .map(|(k, co)| (k, co.reputation))
         .collect();
     v.sort_by(|a, b| b.1.total_cmp(&a.1));
@@ -418,7 +455,13 @@ fn trip_open(_w: &mut World, s: &mut Scene) {
         Trip::Combine => "Agents, general managers, college coaches who came to watch their players: Indianapolis for a week.".to_string(),
         Trip::Clinic => "The clinic wants a speaker: an hour on your offense, then questions, then every high school coach in the room has your number.".to_string(),
     });
-    s.pick(90, format!("Go ({} hours of your week)", t.hours() as u32), "Go", "warm", "New contacts and old ones warmed; the week's people time goes with it.");
+    s.pick(
+        90,
+        format!("Go ({} hours of your week)", t.hours() as u32),
+        "Go",
+        "warm",
+        "New contacts and old ones warmed; the week's people time goes with it.",
+    );
     if t == Trip::Clinic {
         s.pick(91, "Go, and give the talk", "Go", "fiery", "More hours; every coach in the room learns your name.");
     }
@@ -454,7 +497,9 @@ fn trip_answer(w: &mut World, s: &mut Scene, code: u32) {
         })
         .map(|(c, _)| c)
         .collect();
-    pool.sort_by(|&a, &b| super::roll(w, 0x791 ^ w.year as u64, a as u64).total_cmp(&super::roll(w, 0x791 ^ w.year as u64, b as u64)));
+    pool.sort_by(|&a, &b| {
+        super::roll(w, 0x791 ^ w.year as u64, a as u64).total_cmp(&super::roll(w, 0x791 ^ w.year as u64, b as u64))
+    });
     let met: Vec<usize> = pool.into_iter().take(n).collect();
     let year = w.year;
     for &c in &met {
@@ -525,16 +570,27 @@ fn interest_week(w: &mut World, d: Date) {
     let rep = super::facts::your_rep(w);
     // Open head jobs this cycle: programs whose head coach left this year.
     let open: Vec<Team> = match team.level() {
-        Level::Nfl => (0..w.nfl.len()).filter(|&t| w.nfl[t].head_coach.is_none() && Team::Nfl(t) != team).map(Team::Nfl).collect(),
+        Level::Nfl => {
+            (0..w.nfl.len()).filter(|&t| w.nfl[t].head_coach.is_none() && Team::Nfl(t) != team).map(Team::Nfl).collect()
+        }
         _ => (0..w.programs.len())
-            .filter(|&p| w.programs[p].head_coach.is_none() && Team::College(p) != team && w.programs[p].division == crate::world::data::Division::FBS)
+            .filter(|&p| {
+                w.programs[p].head_coach.is_none()
+                    && Team::College(p) != team
+                    && w.programs[p].division == crate::world::data::Division::FBS
+            })
             .map(Team::College)
             .collect(),
     };
     let Some(&target) = open.iter().find(|t| {
         let size = super::facts::job_size(w, **t);
         let fits = rep / 20.0 >= 0.15 + 0.6 * size;
-        let warm = w.folk.network.contacts.iter().any(|x| x.warmth >= 0.45 && super::facts::team_of_coach(w, x.coach) == Some(**t));
+        let warm = w
+            .folk
+            .network
+            .contacts
+            .iter()
+            .any(|x| x.warmth >= 0.45 && super::facts::team_of_coach(w, x.coach) == Some(**t));
         fits || warm
     }) else {
         return;
@@ -548,9 +604,24 @@ fn interest_week(w: &mut World, d: Date) {
     s.stops = false;
     s.team = Some(team);
     s.place = "Your cell phone, a number you don't know".into();
-    s.narrate(format!("A search firm working for {} asks if you'd take a call about their head coaching job.", target.link(w)));
-    s.pick(97, "\"I'm listening.\"", "Listen", "calm", "Your name goes on their list. If it gets out, your boss and your players hear it.");
-    s.pick(98, "\"I'm happy where I am.\"", "Tell him straight", "firm", "They cross you off. Your boss would like to hear you said it.");
+    s.narrate(format!(
+        "A search firm working for {} asks if you'd take a call about their head coaching job.",
+        target.link(w)
+    ));
+    s.pick(
+        97,
+        "\"I'm listening.\"",
+        "Listen",
+        "calm",
+        "Your name goes on their list. If it gets out, your boss and your players hear it.",
+    );
+    s.pick(
+        98,
+        "\"I'm happy where I am.\"",
+        "Tell him straight",
+        "firm",
+        "They cross you off. Your boss would like to hear you said it.",
+    );
     scene::add(w, s);
     w.folk.network.interest.push((w.year, target, "asked about you".into()));
     if w.folk.network.interest.len() > 30 {
@@ -572,11 +643,21 @@ fn call_answer(w: &mut World, s: &mut Scene, code: u32) {
             }
             // A week with other staffs: new contacts.
             let you = w.career.as_ref().map(|c| c.coach);
-            let met: Vec<usize> = w.coaches.iter().enumerate().filter(|(c, co)| Some(*c) != you && !co.retired && co.job.is_some_and(|j| j.role == Role::HeadCoach)).map(|x| x.0).filter(|c| super::roll(w, 0xA12, *c as u64) < 0.01).take(5).collect();
+            let met: Vec<usize> = w
+                .coaches
+                .iter()
+                .enumerate()
+                .filter(|(c, co)| Some(*c) != you && !co.retired && co.job.is_some_and(|j| j.role == Role::HeadCoach))
+                .map(|x| x.0)
+                .filter(|c| super::roll(w, 0xA12, *c as u64) < 0.01)
+                .take(5)
+                .collect();
             for c in met {
                 add_contact(w, c, 0.2, "coached with you at an all-star game".into());
             }
-            s.outcome.push("You'll coach in the game. A week of practice, scouts everywhere, and your name in the program.".into());
+            s.outcome.push(
+                "You'll coach in the game. A week of practice, scouts everywhere, and your name in the program.".into(),
+            );
         }
         96 => s.outcome.push("You declined.".into()),
         97 => {
@@ -584,7 +665,15 @@ fn call_answer(w: &mut World, s: &mut Scene, code: u32) {
             s.outcome.push("They have your name.".into());
             if leak {
                 let target = s.b;
-                let what = w.folk.network.interest.iter().rev().find(|x| x.1.key() == target).map(|x| x.1.name(w)).unwrap_or_default();
+                let what = w
+                    .folk
+                    .network
+                    .interest
+                    .iter()
+                    .rev()
+                    .find(|x| x.1.key() == target)
+                    .map(|x| x.1.name(w))
+                    .unwrap_or_default();
                 let text = format!("Reports: your name is on {what}'s list.");
                 super::post_mine(w, w.today.add(2), Loudness::Medium, false, "media: coaching search", &text);
                 let b = super::boss::boss(w, team);
@@ -611,7 +700,14 @@ fn asks_week(w: &mut World, d: Date) {
     if w.folk.scenes.iter().any(|s| s.kind == Kind::ReachOut && s.date.days_to(d) < 21) {
         return;
     }
-    let pick = w.folk.network.contacts.iter().filter(|x| x.warmth >= 0.25).map(|x| x.coach).find(|&c| super::roll(w, 0xA5E ^ d.0 as u64, c as u64) < 0.04);
+    let pick = w
+        .folk
+        .network
+        .contacts
+        .iter()
+        .filter(|x| x.warmth >= 0.25)
+        .map(|x| x.coach)
+        .find(|&c| super::roll(w, 0xA5E ^ d.0 as u64, c as u64) < 0.04);
     let Some(c) = pick else { return };
     let what = (super::roll(w, 0xA5F ^ d.0 as u64, c as u64) * 3.0) as u64;
     let mut s = Scene::new(Kind::ReachOut, d, format!("{} calls with a favour", w.coaches[c].name));
@@ -628,7 +724,9 @@ fn ask_open(w: &mut World, s: &mut Scene) {
     s.who.push(Who::Coach(c));
     let name = w.coaches[c].name.clone();
     let line = match s.b {
-        0 => "My nephew wants to get into coaching. Any chance you have a graduate assistant spot, or even a volunteer job?",
+        0 => {
+            "My nephew wants to get into coaching. Any chance you have a graduate assistant spot, or even a volunteer job?"
+        }
         1 => "I'm running our clinic in the spring. Would you come talk for an hour? It'd mean a lot to my guys.",
         _ => "I've got a kid I think can play for you. Would you look at his film?",
     };

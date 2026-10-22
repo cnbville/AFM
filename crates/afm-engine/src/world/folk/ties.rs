@@ -98,7 +98,13 @@ pub fn of(w: &World, id: u32) -> Vec<(u32, String)> {
         .of_id(id)
         .map(|t| {
             let other = if t.a == id { t.b } else { t.a };
-            let close = if t.strength >= 70 { "very close" } else if t.strength >= 45 { "close" } else { "friendly" };
+            let close = if t.strength >= 70 {
+                "very close"
+            } else if t.strength >= 45 {
+                "close"
+            } else {
+                "friendly"
+            };
             let words = match t.kind {
                 Kind::Friend => format!("{close} since {}", t.since),
                 Kind::Mentor if t.a == id => format!("he mentors him (since {})", t.since),
@@ -146,7 +152,8 @@ fn draw(w: &mut World) {
     let mut new: Vec<Tie> = Vec::new();
     let mut deepen: Vec<usize> = Vec::new();
     for (r, roster) in rosters(w).iter().enumerate() {
-        let live: Vec<usize> = roster.iter().copied().filter(|&i| w.people.get(i).is_some_and(|p| p.stage != Stage::Done)).collect();
+        let live: Vec<usize> =
+            roster.iter().copied().filter(|&i| w.people.get(i).is_some_and(|p| p.stage != Stage::Done)).collect();
         for &i in &live {
             on_team.insert(w.people[i].player.id, r);
         }
@@ -156,8 +163,10 @@ fn draw(w: &mut World) {
             let p = &w.people[i];
             let id = p.player.id;
             let t = &p.player.personality.traits;
-            let social = (1.0 + 0.35 * t.z(Trait::Leadership) + 0.25 * t.z(Trait::Loyalty) - 0.25 * t.z(Trait::Ego) - 0.2 * t.z(Trait::Temper))
-                .clamp(0.3, 1.8);
+            let social = (1.0 + 0.35 * t.z(Trait::Leadership) + 0.25 * t.z(Trait::Loyalty)
+                - 0.25 * t.z(Trait::Ego)
+                - 0.2 * t.z(Trait::Temper))
+            .clamp(0.3, 1.8);
             let cap = (2.0 + 4.0 * (social - 0.3) / 1.5).round() as u8;
             if count.get(&id).copied().unwrap_or(0) >= cap.min(6) {
                 continue;
@@ -171,15 +180,19 @@ fn draw(w: &mut World) {
                 if jd < id {
                     continue;
                 }
-                let same_room = crate::world::coach::Group::of(p.player.position) == crate::world::coach::Group::of(q.player.position);
+                let same_room = crate::world::coach::Group::of(p.player.position)
+                    == crate::world::coach::Group::of(q.player.position);
                 let same_class = p.class_of == q.class_of;
                 let same_hs = p.hs == q.hs;
-                let near = same_room as u8 as f64 * 0.04 + same_class as u8 as f64 * 0.025 + same_hs as u8 as f64 * 0.35;
+                let near =
+                    same_room as u8 as f64 * 0.04 + same_class as u8 as f64 * 0.025 + same_hs as u8 as f64 * 0.35;
                 if near == 0.0 {
                     continue;
                 }
                 let tq = &q.player.personality.traits;
-                let social_q = (1.0 + 0.35 * tq.z(Trait::Leadership) + 0.25 * tq.z(Trait::Loyalty) - 0.25 * tq.z(Trait::Ego)).clamp(0.3, 1.8);
+                let social_q = (1.0 + 0.35 * tq.z(Trait::Leadership) + 0.25 * tq.z(Trait::Loyalty)
+                    - 0.25 * tq.z(Trait::Ego))
+                .clamp(0.3, 1.8);
                 let chance = near * social * social_q;
                 let u = crate::world::season::key_uniform(seed ^ id as u64, k as u64 ^ (jd as u64) << 20);
                 if u >= chance {
@@ -191,7 +204,14 @@ fn draw(w: &mut World) {
                         if count.get(&jd).copied().unwrap_or(0) >= 6 {
                             continue;
                         }
-                        new.push(Tie { a: id, b: jd, kind: Kind::Friend, strength: if same_hs { 55 } else { 38 }, since: year as i16, together: true });
+                        new.push(Tie {
+                            a: id,
+                            b: jd,
+                            kind: Kind::Friend,
+                            strength: if same_hs { 55 } else { 38 },
+                            since: year as i16,
+                            together: true,
+                        });
                         *count.entry(id).or_default() += 1;
                         *count.entry(jd).or_default() += 1;
                         idx.insert((id.min(jd), id.max(jd)), usize::MAX);
@@ -216,7 +236,8 @@ fn draw(w: &mut World) {
                     };
                     s(a).total_cmp(&s(b))
                 });
-            let young = group.iter().copied().filter(|&i| w.people[i].player.age <= 21).min_by_key(|&i| w.people[i].player.age);
+            let young =
+                group.iter().copied().filter(|&i| w.people[i].player.age <= 21).min_by_key(|&i| w.people[i].player.age);
             if let (Some(v), Some(y)) = (vet, young) {
                 let lead = w.people[v].player.personality.traits.get(Trait::Leadership);
                 let (a, b) = (w.people[v].player.id, w.people[y].player.id);
@@ -232,7 +253,12 @@ fn draw(w: &mut World) {
                 continue;
             }
             let last = p.name.split_whitespace().last().unwrap_or("");
-            if let Some(&j) = live.iter().find(|&&j| j != i && w.people[j].hs == p.hs && w.people[j].name.ends_with(last) && w.people[j].class_of < p.class_of) {
+            if let Some(&j) = live.iter().find(|&&j| {
+                j != i
+                    && w.people[j].hs == p.hs
+                    && w.people[j].name.ends_with(last)
+                    && w.people[j].class_of < p.class_of
+            }) {
                 let (a, b) = (w.people[j].player.id, p.player.id);
                 if !w.folk.ties.of_id(b).any(|t| t.kind == Kind::Family && t.b == b) {
                     new.push(Tie { a, b, kind: Kind::Family, strength: 90, since: year as i16, together: true });
@@ -254,7 +280,9 @@ fn draw(w: &mut World) {
             t.strength = (t.strength as f32 * 0.67) as u8;
         }
     }
-    w.folk.ties.list.retain(|t| t.strength >= 15 && (on_team.contains_key(&t.a) || on_team.contains_key(&t.b) || t.kind == Kind::Family));
+    w.folk.ties.list.retain(|t| {
+        t.strength >= 15 && (on_team.contains_key(&t.a) || on_team.contains_key(&t.b) || t.kind == Kind::Family)
+    });
     w.folk.ties.list.extend(new);
     w.folk.ties.changed();
     w.folk.ties.drawn = year;
@@ -263,7 +291,8 @@ fn draw(w: &mut World) {
 /// A mentor's year (topic 2): a good one raises his young player's
 /// professionalism; a bad one teaches bad habits.
 fn mentor_year(w: &mut World) {
-    let pairs: Vec<(u32, u32)> = w.folk.ties.list.iter().filter(|t| t.kind == Kind::Mentor && t.together).map(|t| (t.a, t.b)).collect();
+    let pairs: Vec<(u32, u32)> =
+        w.folk.ties.list.iter().filter(|t| t.kind == Kind::Mentor && t.together).map(|t| (t.a, t.b)).collect();
     if pairs.is_empty() {
         return;
     }

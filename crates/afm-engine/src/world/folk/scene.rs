@@ -288,6 +288,9 @@ pub fn answer(w: &mut World, id: u32, code: u32) -> Result<Scene, String> {
     if s.done {
         return Err("That meeting is over.".into());
     }
+    if s.date > w.today && !s.opened {
+        return Err(format!("That meeting is set for {}.", s.date.pretty()));
+    }
     if !s.opened {
         s.opened = true;
         dispatch_open(w, &mut s);
@@ -351,7 +354,11 @@ pub fn due(w: &World, d: Date) -> Option<String> {
     }
     let first = w.folk.scenes.iter().find(|s| !s.done && s.stops && s.date == d)?;
     let title = super::plain(&first.title);
-    Some(if n == 1 { format!("{}: {title}", first.kind.name()) } else { format!("{} meetings today, starting with {title}", n) })
+    Some(if n == 1 {
+        format!("{}: {title}", first.kind.name())
+    } else {
+        format!("{} meetings today, starting with {title}", n)
+    })
 }
 
 /// The end of a day: a meeting you didn't hold is handed to your staff; a

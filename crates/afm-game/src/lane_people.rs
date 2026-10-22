@@ -134,7 +134,9 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             let text = staffing::offer(w, c, r, salary, years)?;
             Ok(json!({ "text": text, "staff": staff(w) }))
         })(),
-        "people_fire" => num(args, "coach").and_then(|c| staffing::start_firing(w, c as usize).map(|sid| json!({ "scene": sid }))),
+        "people_fire" => {
+            num(args, "coach").and_then(|c| staffing::start_firing(w, c as usize).map(|sid| json!({ "scene": sid })))
+        }
         "people_raise" => (|| {
             let c = num(args, "coach")? as usize;
             let share = args.get("share").and_then(Value::as_f64).unwrap_or(0.1);
@@ -202,6 +204,24 @@ fn role_key(r: Role) -> String {
     }
 }
 
+/// A text without its link marks: "[[p:7|Jalen Carter]]" reads "Jalen Carter".
+pub(crate) fn plain(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(a) = rest.find("[[") {
+        out.push_str(&rest[..a]);
+        let Some(z) = rest[a..].find("]]") else {
+            out.push_str(&rest[a..]);
+            return out;
+        };
+        let inner = &rest[a + 2..a + z];
+        out.push_str(inner.rsplit_once('|').map_or(inner, |(_, n)| n));
+        rest = &rest[a + z + 2..];
+    }
+    out.push_str(rest);
+    out
+}
+
 fn cap(s: &str) -> String {
     let mut c = s.chars();
     c.next().map_or(String::new(), |f| f.to_uppercase().collect::<String>() + c.as_str())
@@ -255,10 +275,14 @@ fn warmth_words(t: f32) -> &'static str {
 fn who_json(w: &World, who: &Who) -> Value {
     match who {
         Who::Player(id) => match folk::person(w, *id) {
-            Some(i) => json!({ "kind": "player", "id": id, "link": folk::player_link(w, i), "pos": w.people[i].player.position.name() }),
+            Some(i) => {
+                json!({ "kind": "player", "id": id, "link": folk::player_link(w, i), "pos": w.people[i].player.position.name() })
+            }
             None => json!({ "kind": "player", "id": id, "link": "A former player" }),
         },
-        Who::Coach(c) => json!({ "kind": "coach", "id": c, "link": folk::coach_link(w, *c), "role": facts::coach_role(w, *c) }),
+        Who::Coach(c) => {
+            json!({ "kind": "coach", "id": c, "link": folk::coach_link(w, *c), "role": facts::coach_role(w, *c) })
+        }
         Who::Cast(tok) => match cast::from_token(w, tok) {
             Some(c) => json!({ "kind": "cast", "tok": tok, "link": c.link(), "role": c.title }),
             None => json!({ "kind": "cast", "tok": tok, "link": "" }),
@@ -289,9 +313,18 @@ fn scene_brief(w: &World, s: &Scene) -> Value {
 
 /// One scene, opened when you look at it.
 fn scene(w: &mut World, id: u32) -> Reply {
-    let s = folk::scene::open(w, id).ok_or("No such meeting.")?;
+    // A meeting set for a later day stays closed until its day.
+    let future = w.folk.scenes.iter().find(|s| s.id == id).is_some_and(|s| s.date > w.today && !s.opened);
+    let s = if future { w.folk.scenes.iter().find(|s| s.id == id).cloned() } else { folk::scene::open(w, id) }
+        .ok_or("No such meeting.")?;
     let mut v = scene_brief(w, &s);
-    v["lines"] = json!(s.lines);
+    v["future"] = json!(future);
+    v["lines"] = if future {
+        let at = if s.place.is_empty() { String::new() } else { format!(", {}", s.place) };
+        json!([{ "by": 0, "name": "", "text": format!("Set for {}{at}. Your staff has it on the calendar; it opens that morning.", date_text(s.date)), "tell": null }])
+    } else {
+        json!(s.lines)
+    };
     v["picks"] = json!(s.picks);
     v["docs"] = json!(s.docs);
     v["step"] = json!(s.step);
@@ -316,8 +349,7 @@ fn agenda(w: &World) -> Value {
     let level = team.level();
     let mut waiting: Vec<&Scene> = w.folk.scenes.iter().filter(|s| !s.done).collect();
     waiting.sort_by_key(|s| (s.date, s.id));
-    let recent: Vec<Value> =
-        w.folk.scenes.iter().rev().filter(|s| s.done).take(8).map(|s| scene_brief(w, s)).collect();
+    let recent: Vec<Value> = w.folk.scenes.iter().rev().filter(|s| s.done).take(8).map(|s| scene_brief(w, s)).collect();
     let b = boss::boss(w, team);
     let bt = boss::trust(w, team);
     let mood = talks::team_mood(w, team);
@@ -388,7 +420,11 @@ fn takeover(w: &World) -> Value {
     let risks: Vec<Value> = t
         .risks
         .iter()
-        .filter_map(|(id, why)| folk::person(w, *id).map(|i| json!({ "link": folk::player_link(w, i), "pos": w.people[i].player.position.name(), "why": why })))
+        .filter_map(|(id, why)| {
+            folk::person(w, *id).map(
+                |i| json!({ "link": folk::player_link(w, i), "pos": w.people[i].player.position.name(), "why": why }),
+            )
+        })
         .collect();
     let claims: Vec<Value> = t
         .claims
@@ -428,7 +464,12 @@ fn player(w: &World, id: u32) -> Reply {
         .filter_map(|(o, words)| folk::person(w, o).map(|j| json!({ "link": folk::player_link(w, j), "words": words })))
         .collect();
     let line = w.folk.lines.iter().find(|x| x.0 == id).map(|x| x.1.words());
-    let out = w.folk.out.iter().find(|x| x.0 == id && x.1 >= w.today).map(|x| format!("{} (through {})", x.2, date_text(x.1)));
+    let out = w
+        .folk
+        .out
+        .iter()
+        .find(|x| x.0 == id && x.1 >= w.today)
+        .map(|x| format!("{} (through {})", x.2, date_text(x.1)));
     let promises: Vec<Value> = w
         .folk
         .promises
@@ -443,7 +484,11 @@ fn player(w: &World, id: u32) -> Reply {
     let mut ear: Vec<Value> = Vec::new();
     for (o, words) in ties::of(w, id) {
         if let Some(j) = folk::person(w, o) {
-            let sure = if words.starts_with("very close") || words == "family" || words.contains("mentor") { "Sure" } else { "Likely" };
+            let sure = if words.starts_with("very close") || words == "family" || words.contains("mentor") {
+                "Sure"
+            } else {
+                "Likely"
+            };
             ear.push(json!({ "who": folk::player_link(w, j), "what": cap(&words), "sure": sure }));
         }
     }
@@ -453,7 +498,9 @@ fn player(w: &World, id: u32) -> Reply {
         ear.push(json!({ "who": cap(parent), "what": style.0, "sure": style.1 }));
     }
     if p.pro.as_ref().is_some_and(|c| c.agent.is_some()) {
-        ear.push(json!({ "who": "His agent", "what": "Talks to him about his next deal more than you do", "sure": "Sure" }));
+        ear.push(
+            json!({ "who": "His agent", "what": "Talks to him about his next deal more than you do", "sure": "Sure" }),
+        );
     }
     if p.stage == afm_engine::world::Stage::College && p.cal.lean > 0.25 {
         ear.push(json!({ "who": "Outside voices", "what": "People around him are telling him to look at the portal", "sure": "Likely" }));
@@ -524,7 +571,11 @@ fn rules(w: &World) -> Value {
         .filter(|k| k.at(level))
         .map(|k| json!({ "key": k.key(), "name": k.name(), "about": k.about(), "strict": book.strict(*k) }))
         .collect();
-    let council: Vec<Value> = book.council.iter().filter_map(|&id| folk::person(w, id).map(|i| json!({ "id": id, "link": folk::player_link(w, i) }))).collect();
+    let council: Vec<Value> = book
+        .council
+        .iter()
+        .filter_map(|&id| folk::person(w, id).map(|i| json!({ "id": id, "link": folk::player_link(w, i) })))
+        .collect();
     let rulings: Vec<Value> = book
         .rulings
         .iter()
@@ -545,7 +596,10 @@ fn rules(w: &World) -> Value {
         .out
         .iter()
         .filter(|x| x.1 >= w.today)
-        .filter_map(|x| folk::person(w, x.0).map(|i| json!({ "link": folk::player_link(w, i), "through": date_text(x.1), "why": x.2 })))
+        .filter_map(|x| {
+            folk::person(w, x.0)
+                .map(|i| json!({ "link": folk::player_link(w, i), "through": date_text(x.1), "why": x.2 }))
+        })
         .collect();
     json!({
         "level": level_key(level),
@@ -614,7 +668,20 @@ fn boss_page(w: &World) -> Value {
         .collect();
     let others: Vec<Value> = folk::takeover::roles_around(team)
         .into_iter()
-        .filter(|r| matches!(r, cast::Role::President | cast::Role::Superintendent | cast::Role::OwnerKin | cast::Role::TeamPresident | cast::Role::Gm | cast::Role::Principal | cast::Role::AthleticDirector | cast::Role::SchoolAd | cast::Role::Owner))
+        .filter(|r| {
+            matches!(
+                r,
+                cast::Role::President
+                    | cast::Role::Superintendent
+                    | cast::Role::OwnerKin
+                    | cast::Role::TeamPresident
+                    | cast::Role::Gm
+                    | cast::Role::Principal
+                    | cast::Role::AthleticDirector
+                    | cast::Role::SchoolAd
+                    | cast::Role::Owner
+            )
+        })
         .filter(|&r| r != cast::boss_role(team) && cast::has(w, team, r))
         .map(|r| {
             let c = cast::get(w, CastRef::new(team, r, 0));
@@ -691,7 +758,16 @@ fn cast_page(w: &World, tok: &str) -> Reply {
         .collect();
     v["scenes"] = json!(scenes);
     let name = c.name.clone();
-    v["log"] = json!(w.folk.log.iter().rev().filter(|e| e.source.contains(&name) || e.text.contains(&name)).take(20).map(log_entry).collect::<Vec<_>>());
+    v["log"] = json!(
+        w.folk
+            .log
+            .iter()
+            .rev()
+            .filter(|e| e.source.contains(&name) || e.text.contains(&name))
+            .take(20)
+            .map(log_entry)
+            .collect::<Vec<_>>()
+    );
     Ok(v)
 }
 
@@ -724,7 +800,8 @@ fn staff(w: &World) -> Value {
             })
         })
         .collect();
-    let openings: Vec<Value> = staffing::openings(w).into_iter().map(|r| json!({ "key": role_key(r), "name": cap(r.name()) })).collect();
+    let openings: Vec<Value> =
+        staffing::openings(w).into_iter().map(|r| json!({ "key": role_key(r), "name": cap(r.name()) })).collect();
     let support: Vec<Value> = staffing::drawn_staff(w, team)
         .into_iter()
         .map(|d| json!({ "name": d.name, "title": d.title, "age": d.age, "since": d.since, "subject": d.subject, "pay": money(d.pay) }))

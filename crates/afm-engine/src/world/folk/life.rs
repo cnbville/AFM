@@ -120,7 +120,8 @@ pub fn family(w: &World, c: usize) -> (bool, Vec<i32>) {
         }
     };
     let born_self = w.year - co.age as i32;
-    let kids = (0..n).map(|j| born_self + 27 + (super::roll(w, k, 3 + j) * 12.0) as i32).filter(|&y| y <= w.year).collect();
+    let kids =
+        (0..n).map(|j| born_self + 27 + (super::roll(w, k, 3 + j) * 12.0) as i32).filter(|&y| y <= w.year).collect();
     (married, kids)
 }
 
@@ -313,12 +314,21 @@ fn coaches_week(w: &mut World, d: Date) {
             continue;
         }
         let head = job.role == crate::world::coach::Role::HeadCoach;
-        if !head && !matches!(job.role, crate::world::coach::Role::OffensiveCoordinator | crate::world::coach::Role::DefensiveCoordinator) {
+        if !head
+            && !matches!(
+                job.role,
+                crate::world::coach::Role::OffensiveCoordinator | crate::world::coach::Role::DefensiveCoordinator
+            )
+        {
             continue;
         }
-        let stress = co.recent.last().map_or(0.0, |r| (-r).max(0.0)) + if co.wins + co.losses > 0 && co.losses > co.wins { 0.2 } else { 0.0 };
+        let stress = co.recent.last().map_or(0.0, |r| (-r).max(0.0))
+            + if co.wins + co.losses > 0 && co.losses > co.wins { 0.2 } else { 0.0 };
         let age = co.age as f64;
-        let base = 0.004 + 0.0006 * (age - 45.0).max(0.0) + 0.006 * stress + 0.002 * (co.personality.temper - 10.0).max(0.0) / 10.0;
+        let base = 0.004
+            + 0.0006 * (age - 45.0).max(0.0)
+            + 0.006 * stress
+            + 0.002 * (co.personality.temper - 10.0).max(0.0) / 10.0;
         if super::roll(w, 0xC0A1 ^ d.0 as u64, c as u64) < base / 52.0 {
             let u = super::roll(w, 0xC0A2 ^ d.0 as u64, c as u64);
             let kind = if u < 0.55 {
@@ -336,7 +346,11 @@ fn coaches_week(w: &mut World, d: Date) {
         let age = w.coaches[c].age;
         let (what, back, serious) = match kind {
             0 => ("was hospitalized with exhaustion and missed a few days", Some(d.add(5)), false),
-            1 => (if age >= 50 { "is on medical leave after a heart procedure" } else { "is on medical leave" }, Some(d.add(28 + (super::roll(w, 0xC0A3, c as u64) * 28.0) as i32)), false),
+            1 => (
+                if age >= 50 { "is on medical leave after a heart procedure" } else { "is on medical leave" },
+                Some(d.add(28 + (super::roll(w, 0xC0A3, c as u64) * 28.0) as i32)),
+                false,
+            ),
             _ => ("is stepping away for his health", None, true),
         };
         w.folk.life.health.push(Episode { coach: c, date: d, what: what.into(), back, serious });
@@ -358,12 +372,19 @@ fn coaches_week(w: &mut World, d: Date) {
 /// How much his health pushes a coach toward retiring this winter (read by
 /// the coaching carousel): a serious episode this year.
 pub fn retire_push(w: &World, c: usize) -> f64 {
-    w.folk.life.health.iter().filter(|e| e.coach == c && e.serious && e.date.year() >= w.year - 1).count().min(1) as f64 * 0.6
+    w.folk.life.health.iter().filter(|e| e.coach == c && e.serious && e.date.year() >= w.year - 1).count().min(1) as f64
+        * 0.6
 }
 
 /// A coach on leave today (the interim runs the team).
 pub fn on_leave(w: &World, c: usize) -> Option<String> {
-    w.folk.life.health.iter().rev().find(|e| e.coach == c && e.back.is_some_and(|b| b > w.today)).map(|e| e.what.clone())
+    w.folk
+        .life
+        .health
+        .iter()
+        .rev()
+        .find(|e| e.coach == c && e.back.is_some_and(|b| b > w.today))
+        .map(|e| e.what.clone())
 }
 
 // ---------------------------------------------------------------------------
@@ -380,9 +401,12 @@ fn opinions_week(w: &mut World, d: Date) {
         let p = &w.people[i];
         let id = p.player.id;
         let weeks = p.pro.as_ref().map_or(0, |c| c.out_weeks);
-        let college_hurt = p.player.history.last().is_some_and(|h| {
-            h.events.iter().any(|e| matches!(e, crate::player::DevelopmentEvent::MajorInjury))
-        }) && p.stage != Stage::Pro
+        let college_hurt = p
+            .player
+            .history
+            .last()
+            .is_some_and(|h| h.events.iter().any(|e| matches!(e, crate::player::DevelopmentEvent::MajorInjury)))
+            && p.stage != Stage::Pro
             && d.days_to(w.dates.fall_camp).abs() < 4;
         if weeks < 4 && !college_hurt {
             continue;
@@ -417,20 +441,43 @@ fn opinion_open(w: &mut World, s: &mut Scene) {
     s.who.push(Who::Player(id));
     let p = &w.people[i];
     let weeks = s.c;
-    let who = if p.pro.as_ref().is_some_and(|c| c.agent.is_some()) { "His agent" } else { super::talks::parent_word(w, i) };
+    let who =
+        if p.pro.as_ref().is_some_and(|c| c.agent.is_some()) { "His agent" } else { super::talks::parent_word(w, i) };
     let team = s.team.unwrap_or(Team::College(0));
     let trainer = super::cast::get(w, super::cast::CastRef::new(team, super::cast::Role::Trainer, 0));
     s.who.push(Who::Cast(trainer.r.token()));
     s.narrate(format!(
         "{} has the scans. {} {}",
         trainer.link(),
-        if weeks > 0 { format!("The team's estimate is {weeks} weeks.") } else { "The team's doctors want him to have the surgery now.".into() },
+        if weeks > 0 {
+            format!("The team's estimate is {weeks} weeks.")
+        } else {
+            "The team's doctors want him to have the surgery now.".into()
+        },
         format!("{who} wants an outside specialist to look at {} first.", player_link(w, i))
     ));
     s.them(&trainer.name, "Our doctors are as good as anyone's. But if it buys his trust, I won't fight it.", None);
-    s.pick(700, "Support the second opinion", "Praise", "warm", "Trust grows; the plan may change, and he may be out longer or shorter.");
-    s.pick(701, "Our doctors make the call", "Tell him straight", "firm", "The team's timeline holds; he and his camp take it as a no.");
-    s.pick(702, "Ask the trainer to bring him back early", "Challenge", "fiery", "He's back sooner, with a higher chance of reinjury. A trainer with good judgment pushes back.");
+    s.pick(
+        700,
+        "Support the second opinion",
+        "Praise",
+        "warm",
+        "Trust grows; the plan may change, and he may be out longer or shorter.",
+    );
+    s.pick(
+        701,
+        "Our doctors make the call",
+        "Tell him straight",
+        "firm",
+        "The team's timeline holds; he and his camp take it as a no.",
+    );
+    s.pick(
+        702,
+        "Ask the trainer to bring him back early",
+        "Challenge",
+        "fiery",
+        "He's back sooner, with a higher chance of reinjury. A trainer with good judgment pushes back.",
+    );
 }
 
 fn opinion_answer(w: &mut World, s: &mut Scene, code: u32) {
@@ -444,12 +491,20 @@ fn opinion_answer(w: &mut World, s: &mut Scene, code: u32) {
         700 => {
             let u = super::roll(w, 0x2A0C, id as u64);
             w.people[i].trust = (w.people[i].trust + 0.08).min(1.0);
-            let change = if u < 0.2 { -1 } else if u < 0.35 { 2 } else { 0 };
+            let change = if u < 0.2 {
+                -1
+            } else if u < 0.35 {
+                2
+            } else {
+                0
+            };
             if let Some(c) = w.people[i].pro.as_mut() {
                 c.out_weeks = (c.out_weeks as i32 + change).max(1) as u32;
             }
             s.outcome.push(match change {
-                -1 => format!("The specialist agreed and saw a quicker path: {name} is a week ahead of the first estimate."),
+                -1 => format!(
+                    "The specialist agreed and saw a quicker path: {name} is a week ahead of the first estimate."
+                ),
                 2 => format!("The specialist found more than the scans showed: {name} needs another two weeks."),
                 _ => format!("The specialist agreed with your doctors. {name} trusts the plan now."),
             });
@@ -473,7 +528,8 @@ fn opinion_answer(w: &mut World, s: &mut Scene, code: u32) {
                 w.folk.rushed.push((id, w.today));
                 let comp = w.people[i].player.personality.competitiveness;
                 talks::mood_event(w, id, Reason::Talk, if comp >= 14.0 { 0.04 } else { -0.08 });
-                s.outcome.push(format!("{name} will be back sooner than the doctors wanted. The risk is his, and yours."));
+                s.outcome
+                    .push(format!("{name} will be back sooner than the doctors wanted. The risk is his, and yours."));
             }
         }
     }
@@ -492,13 +548,19 @@ fn star_week(w: &mut World, d: Date) {
         return;
     }
     let roster = team.roster(w);
-    let star = roster.iter().copied().filter(|&i| {
-        let p = &w.people[i];
-        p.last_role == Some(PlayingTime::Starter)
-            && p.player.personality.traits.get(Trait::Ego) >= 14.0
-            && p.mood < -0.15
-            && (p.stars >= 5 || p.pro.as_ref().is_some_and(|c| c.seasons.iter().any(|s| s.pro_bowl || s.all_pro > 0)) || p.player.position == crate::positions::Position::QB)
-    }).max_by(|&a, &b| w.people[a].player.overall().total_cmp(&w.people[b].player.overall()));
+    let star = roster
+        .iter()
+        .copied()
+        .filter(|&i| {
+            let p = &w.people[i];
+            p.last_role == Some(PlayingTime::Starter)
+                && p.player.personality.traits.get(Trait::Ego) >= 14.0
+                && p.mood < -0.15
+                && (p.stars >= 5
+                    || p.pro.as_ref().is_some_and(|c| c.seasons.iter().any(|s| s.pro_bowl || s.all_pro > 0))
+                    || p.player.position == crate::positions::Position::QB)
+        })
+        .max_by(|&a, &b| w.people[a].player.overall().total_cmp(&w.people[b].player.overall()));
     let Some(i) = star else { return };
     if super::roll(w, 0x57A2 ^ d.0 as u64, i as u64) > 0.3 {
         return;
@@ -541,14 +603,38 @@ fn star_open(w: &mut World, s: &mut Scene) {
             },
             "With respect, Coach, this scheme isn't working and everybody in that room knows it.",
         ),
-        3 => ("He wants a new deal, or he wants out.".into(), "I've outplayed this contract. Either they pay me or I'd like to play somewhere that will."),
-        _ => ("He wants the ball more, and a say in the game plan.".into(), "I'm the best player on this team. I need the ball in my hands when it matters."),
+        3 => (
+            "He wants a new deal, or he wants out.".into(),
+            "I've outplayed this contract. Either they pay me or I'd like to play somewhere that will.",
+        ),
+        _ => (
+            "He wants the ball more, and a say in the game plan.".into(),
+            "I'm the best player on this team. I need the ball in my hands when it matters.",
+        ),
     };
     s.narrate(format!("{} closes the door behind him. {ask}", player_link(w, i)));
     s.them(&name, line, Some("He's said this to someone else first. You can tell.".into()));
-    s.pick(800, "Give him what he wants", "Promise", "warm", "He's happy; the room sees one rule for the star and one for everyone else.");
-    s.pick(801, "Meet him halfway: a voice, not a veto", "Hand him something", "calm", "Some of what he wants, on your terms. Most stars take it.");
-    s.pick(802, "Tell him the team doesn't work that way", "Tell him straight", "firm", "The room respects it if you're consistent; he may go public or ask out.");
+    s.pick(
+        800,
+        "Give him what he wants",
+        "Promise",
+        "warm",
+        "He's happy; the room sees one rule for the star and one for everyone else.",
+    );
+    s.pick(
+        801,
+        "Meet him halfway: a voice, not a veto",
+        "Hand him something",
+        "calm",
+        "Some of what he wants, on your terms. Most stars take it.",
+    );
+    s.pick(
+        802,
+        "Tell him the team doesn't work that way",
+        "Tell him straight",
+        "firm",
+        "The room respects it if you're consistent; he may go public or ask out.",
+    );
 }
 
 fn star_answer(w: &mut World, s: &mut Scene, code: u32) {
@@ -595,7 +681,8 @@ fn star_answer(w: &mut World, s: &mut Scene, code: u32) {
             w.folk.mine.hard = (w.folk.mine.hard + 0.08).min(1.0);
             let public = super::roll(w, 0x57A3, id as u64) < 0.25 + 0.25 * ego.max(0.0) as f64;
             if public {
-                let text = format!("{name} went public with his frustration after a closed-door meeting with his head coach.");
+                let text =
+                    format!("{name} went public with his frustration after a closed-door meeting with his head coach.");
                 super::post_mine(w, w.today.add(2), Loudness::Medium, false, "people: star", &text);
                 s.outcome.push(format!("You told {name} no. Two days later it was in the papers."));
             } else {
@@ -626,7 +713,13 @@ fn home_week(w: &mut World, d: Date) {
     let (title, about) = match pick {
         Some((name, born)) => {
             let age = w.year - born;
-            (format!("{name}'s big night"), format!("{name} ({age}) has a game of {} own on Friday night: the night before your game.", if age >= 14 { "their" } else { "their" }))
+            (
+                format!("{name}'s big night"),
+                format!(
+                    "{name} ({age}) has a game of {} own on Friday night: the night before your game.",
+                    if age >= 14 { "their" } else { "their" }
+                ),
+            )
         }
         None => ("Your anniversary".to_string(), "Your anniversary is Friday, the night before the game.".to_string()),
     };
@@ -639,8 +732,20 @@ fn home_week(w: &mut World, d: Date) {
 }
 
 fn home_open(_w: &mut World, s: &mut Scene) {
-    s.pick(850, "Be there. The staff can finish the game plan.", "Hand him something", "warm", "Four hours of your week go home. Your family remembers you came.");
-    s.pick(851, "Stay at the office. It's game week.", "Tell him straight", "calm", "The plan gets your eyes. Home gets a phone call.");
+    s.pick(
+        850,
+        "Be there. The staff can finish the game plan.",
+        "Hand him something",
+        "warm",
+        "Four hours of your week go home. Your family remembers you came.",
+    );
+    s.pick(
+        851,
+        "Stay at the office. It's game week.",
+        "Tell him straight",
+        "calm",
+        "The plan gets your eyes. Home gets a phone call.",
+    );
 }
 
 fn home_answer(w: &mut World, s: &mut Scene, code: u32) {
@@ -729,7 +834,13 @@ fn rushed_week(w: &mut World, d: Date) {
             "Injury",
             &format!("{name} is hurt again after coming back early. He's out {weeks} more weeks."),
         );
-        super::note(w, "injury", "Trainer".into(), format!("{link} re-injured the same area. Out {weeks} weeks."), None);
+        super::note(
+            w,
+            "injury",
+            "Trainer".into(),
+            format!("{link} re-injured the same area. Out {weeks} weeks."),
+            None,
+        );
     }
 }
 

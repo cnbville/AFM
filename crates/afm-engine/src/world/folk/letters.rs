@@ -34,7 +34,7 @@ fn person_of(w: &World, team: Team, role: Role) -> Option<cast::Cast> {
 /// Files the letter for a scene that comes to you.
 pub(crate) fn for_scene(w: &mut World, s: &Scene) {
     let Some(team) = s.team.or(Team::seat(w)) else { return };
-    if w.career.is_none() {
+    if w.career.is_none() || w.folk.hush {
         return;
     }
     let nfl = matches!(team, Team::Nfl(_));
@@ -42,11 +42,7 @@ pub(crate) fn for_scene(w: &mut World, s: &Scene) {
     let to = format!("{you}, Head Coach");
     let org = team.name(w);
     let open = format!("[[s:people_scene?id={}|{}]]", s.id, if s.stops { "Open the meeting" } else { "Open it" });
-    let when = if s.date > w.today {
-        format!(" on {}", s.date.pretty())
-    } else {
-        String::new()
-    };
+    let when = if s.date > w.today { format!(" on {}", s.date.pretty()) } else { String::new() };
     let player = s.who.iter().find_map(|x| match x {
         Who::Player(id) => Some(*id),
         _ => None,
@@ -212,58 +208,16 @@ pub(crate) fn for_scene(w: &mut World, s: &Scene) {
     c.desk.mails.sort_by_key(|m| (m.date, m.minute));
 }
 
-/// The takeover's schedule as one memo from your operations director: every
-/// meeting of the first two weeks, with a link to each.
-pub(crate) fn takeover_memo(w: &mut World, team: Team, ids: &[u32]) {
-    if w.career.is_none() {
-        return;
-    }
+/// The takeover's first two weeks as the welcome letter's table: every
+/// meeting with its day, a link to it and where it is (header row first).
+/// Empty when there is no takeover on file.
+pub fn takeover_schedule(w: &World) -> Vec<Vec<String>> {
+    let Some(t) = &w.folk.takeover else { return Vec::new() };
     let mut rows: Vec<Vec<String>> = vec![vec!["Day".into(), "Meeting".into(), "Where".into()]];
-    for id in ids {
+    for id in &t.scenes {
         if let Some(s) = w.folk.scenes.iter().find(|s| s.id == *id) {
             rows.push(vec![s.date.pretty(), format!("[[s:people_scene?id={}|{}]]", s.id, s.title), s.place.clone()]);
         }
     }
-    let r = if matches!(team, Team::Nfl(_)) { Role::ChiefOfStaff } else { Role::Ops };
-    let (from, role) = match person_of(w, team, r) {
-        Some(c) => (c.name.clone(), c.title.clone()),
-        None => ("The football office".to_string(), "Staff".to_string()),
-    };
-    let you = super::scene::your_name(w);
-    let org = team.name(w);
-    let mail = Mail {
-        id: 0xF01C_7A1E_0000_0000 ^ w.today.0 as u64,
-        date: w.today,
-        minute: 6 * 60 + 45,
-        head: Head::Memo,
-        org,
-        org_line: "Football office".into(),
-        from: from.clone(),
-        role,
-        to: format!("{you}, Head Coach"),
-        subject: "Your first two weeks".into(),
-        body: vec![
-            "Welcome, Coach. Here's the first two weeks as we've set them: the team first, then the staff, the leaders and the people around the program. Anything you can't get to, the staff will cover and I'll tell you how it went.".into(),
-            "[[s:people?tab=Takeover|The takeover file]] keeps it all in one place.".into(),
-        ],
-        table: rows,
-        attach: Vec::new(),
-        sign: from,
-        keys: JOB | PEOPLE,
-        about: None,
-        answers: Vec::new(),
-        answered: None,
-        answer_by: None,
-        read: false,
-        saved: false,
-        loud: 2,
-        ids: Vec::new(),
-        org_team: Some(team_code(team)),
-    };
-    if let Some(c) = w.career.as_mut()
-        && !c.desk.has(mail.id)
-    {
-        c.desk.mails.push(mail);
-        c.desk.mails.sort_by_key(|m| (m.date, m.minute));
-    }
+    if rows.len() == 1 { Vec::new() } else { rows }
 }

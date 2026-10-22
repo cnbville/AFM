@@ -338,9 +338,30 @@ const WOMEN_OLD: [&str; 24] = [
     "Julie", "Kathy",
 ];
 const WOMEN_MID: [&str; 24] = [
-    "Jennifer", "Amy", "Melissa", "Heather", "Stephanie", "Nicole", "Elizabeth", "Rebecca", "Kelly", "Christina",
-    "Amanda", "Jessica", "Sarah", "Erin", "Shannon", "Kristen", "Rachel", "Megan", "Andrea", "Emily", "Katie",
-    "Allison", "Lauren", "Courtney",
+    "Jennifer",
+    "Amy",
+    "Melissa",
+    "Heather",
+    "Stephanie",
+    "Nicole",
+    "Elizabeth",
+    "Rebecca",
+    "Kelly",
+    "Christina",
+    "Amanda",
+    "Jessica",
+    "Sarah",
+    "Erin",
+    "Shannon",
+    "Kristen",
+    "Rachel",
+    "Megan",
+    "Andrea",
+    "Emily",
+    "Katie",
+    "Allison",
+    "Lauren",
+    "Courtney",
 ];
 const WOMEN_YOUNG: [&str; 16] = [
     "Ashley", "Brittany", "Samantha", "Hannah", "Taylor", "Kayla", "Alexis", "Morgan", "Madison", "Haley", "Abby",
@@ -350,8 +371,10 @@ const WOMEN_BLACK: [&str; 16] = [
     "Tamika", "Keisha", "LaToya", "Monique", "Ebony", "Aisha", "Tasha", "Yolanda", "Crystal", "Erica", "Jasmine",
     "Kendra", "Tiffany", "Shonda", "Brandi", "Danielle",
 ];
-const WOMEN_HISPANIC: [&str; 12] =
-    ["Maria", "Rosa", "Ana", "Veronica", "Adriana", "Gabriela", "Elena", "Monica", "Claudia", "Yesenia", "Lucia", "Sofia"];
+const WOMEN_HISPANIC: [&str; 12] = [
+    "Maria", "Rosa", "Ana", "Veronica", "Adriana", "Gabriela", "Elena", "Monica", "Claudia", "Yesenia", "Lucia",
+    "Sofia",
+];
 
 /// A name: a man's from the world's name pools, a woman's from a short
 /// list by era and heritage with a surname from the same pools.
@@ -434,7 +457,9 @@ pub fn slots(w: &World, team: Team, role: Role) -> u8 {
             _ => 1,
         },
         (Team::Nfl(_), Role::Reporter) => 5 + (year >= 2016) as u8,
-        (Team::High(h), Role::Reporter) => 1 + (w.high_schools[h].prestige > 0.6 || w.high_schools[h].enrollment > 1800) as u8,
+        (Team::High(h), Role::Reporter) => {
+            1 + (w.high_schools[h].prestige > 0.6 || w.high_schools[h].enrollment > 1800) as u8
+        }
         (Team::High(h), Role::Feeder) => (1 + w.high_schools[h].enrollment / 900).min(3) as u8,
         _ => 1,
     }
@@ -457,7 +482,16 @@ pub fn has(w: &World, team: Team, role: Role) -> bool {
         }
         Team::Nfl(_) => matches!(
             role,
-            Owner | OwnerKin | TeamPresident | Gm | Reporter | Comms | Trainer | Strength | CapManager | Personnel
+            Owner
+                | OwnerKin
+                | TeamPresident
+                | Gm
+                | Reporter
+                | Comms
+                | Trainer
+                | Strength
+                | CapManager
+                | Personnel
                 | ChiefOfStaff
         ),
         Team::High(h) => match role {
@@ -664,7 +698,11 @@ fn title(w: &World, c: &Cast) -> String {
         (Team::College(_), Role::Academic) => "Director of academic support".into(),
         (Team::High(_), Role::Academic) => "School counselor".into(),
         (Team::High(h), Role::Trainer) => {
-            if hs_trainer(w, h) == 2 { "Athletic trainer".into() } else { "Athletic trainer (part time)".into() }
+            if hs_trainer(w, h) == 2 {
+                "Athletic trainer".into()
+            } else {
+                "Athletic trainer (part time)".into()
+            }
         }
         (Team::College(_), Role::Personnel) => "Director of player personnel".into(),
         (Team::Nfl(_), Role::Personnel) => "Director of college scouting".into(),
@@ -760,7 +798,8 @@ fn booster_info(w: &World, c: &Cast, rng: &mut Rng) -> BoosterInfo {
             if !nil && b.gift.contains("collective") {
                 b.gift = "the money behind the last stadium renovation".into();
             }
-            b.close_to = *rng.pick(&["the athletic director", "the president", "the board of trustees", "the governor"]);
+            b.close_to =
+                *rng.pick(&["the athletic director", "the president", "the board of trustees", "the governor"]);
         }
         Team::High(_) => {
             b.business = rng.pick(&HS_BUSINESS).to_string();
@@ -786,15 +825,17 @@ fn booster_info(w: &World, c: &Cast, rng: &mut Rng) -> BoosterInfo {
                     .to_string();
                 b.gift = "the booster club's money: meals, travel and equipment".into();
             }
-            b.close_to = *rng.pick(&["the principal", "the superintendent", "the school board", "the athletic director"]);
+            b.close_to =
+                *rng.pick(&["the principal", "the superintendent", "the school board", "the athletic director"]);
         }
         Team::Nfl(_) => {
-            b.business = if c.r.slot == 0 {
-                "the family business and the club".into()
+            b.business =
+                if c.r.slot == 0 { "the family business and the club".into() } else { rng.pick(&BUSINESS).to_string() };
+            b.gift = if c.r.slot == 0 {
+                "years in the building at his father's side".into()
             } else {
-                rng.pick(&BUSINESS).to_string()
+                "a share of the club".into()
             };
-            b.gift = if c.r.slot == 0 { "years in the building at his father's side".into() } else { "a share of the club".into() };
             b.close_to = "the owner";
         }
     }
@@ -851,7 +892,9 @@ fn reporter_info(w: &World, c: &Cast, rng: &mut Rng) -> ReporterInfo {
     let year = w.year;
     let town = c.r.team.town(w);
     let paper = |rng: &mut Rng| {
-        let kind = *rng.pick(&["Gazette", "Herald", "Courier", "Tribune", "Journal", "Times", "Register", "Star", "Press", "News"]);
+        let kind = *rng.pick(&[
+            "Gazette", "Herald", "Courier", "Tribune", "Journal", "Times", "Register", "Star", "Press", "News",
+        ]);
         if town.is_empty() { format!("the {kind}") } else { format!("the {town} {kind}") }
     };
     let k = c.r.slot;
@@ -861,7 +904,16 @@ fn reporter_info(w: &World, c: &Cast, rng: &mut Rng) -> ReporterInfo {
         ..Default::default()
     };
     r.leaks = rng.chance(0.25);
-    let src_all = ["agents", "boosters", "parents", "staff", "former players", "the AD's office", "high school coaches", "scouts"];
+    let src_all = [
+        "agents",
+        "boosters",
+        "parents",
+        "staff",
+        "former players",
+        "the AD's office",
+        "high school coaches",
+        "scouts",
+    ];
     let n = 2 + rng.int(0, 1) as usize;
     let mut srcs: Vec<&'static str> = Vec::new();
     while srcs.len() < n {
@@ -927,7 +979,14 @@ fn reporter_info(w: &World, c: &Cast, rng: &mut Rng) -> ReporterInfo {
         Team::High(_) => {
             let (outlet, beat) = match k {
                 0 => (paper(rng), "sports editor"),
-                _ => (if year >= 2004 { "MaxPreps and the Friday night radio show".into() } else { format!("the Friday night radio show in {town}") }, "Friday night voice"),
+                _ => (
+                    if year >= 2004 {
+                        "MaxPreps and the Friday night radio show".into()
+                    } else {
+                        format!("the Friday night radio show in {town}")
+                    },
+                    "Friday night voice",
+                ),
             };
             r.outlet = outlet;
             r.beat = beat;
