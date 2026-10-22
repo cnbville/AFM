@@ -19,25 +19,20 @@ const scCap = (s) => String(s || "").replace(/^./, (c) => c.toUpperCase());
 const scPlural = (n, one, many) => `${n} ${n === 1 ? one : many || one + "s"}`;
 const scTier = (t) => (Array.isArray(t) ? t : t && t.name ? (Array.isArray(t.name) ? t.name : [t.name, ""]) : ["", ""]);
 const scTeamOf = (kind, id, name) => ({ ref: { kind, id }, name });
-// The "Go to" line (screens topic 17, rule 5): three to five screens a coach
-// turns to next, always under the title on the right, never the screen you're on.
+// The "Go to" line (screens topic 17): core's gotoLine, never the screen
+// you're on. Each screen also registers its map in GOTO below.
 function scGoto(list) {
-  const items = list.filter((x) => x && x[0] !== S.route.screen).slice(0, 5);
-  if (!items.length) return "";
-  return `<nav class="sc-goto"><span class="st-label">Go to</span>${items
-    .map(([s, l, a]) => `<a class="link" data-go="${s}"${a && a.id != null ? ` data-id="${a.id}"` : ""}${a && a.kind ? ` data-kind="${a.kind}"` : ""}>${esc(l)}</a>`)
-    .join("")}</nav>`;
+  return gotoLine(list.filter((x) => x && x[0] !== S.route.screen).slice(0, 5).map(([scr, label, args]) => [label, scr, args || {}]));
 }
-function scHead(title, sub, goto) {
-  return `<div class="sc-head"><div class="sc-head-t"><div class="h1">${title}</div>${sub ? `<p class="sub">${sub}</p>` : ""}</div>${goto || ""}</div>`;
+function scHead(t, sub, goto, kicker) {
+  return pageHead({ kicker: kicker || "", title: t, sub: sub || "", goto: goto || "" });
 }
-function scTabs(key, tabs, def) {
-  const k = keep(key, { t: def || tabs[0][0] });
-  if (!tabs.some((t) => t[0] === k.t)) k.t = tabs[0][0];
-  return {
-    t: k.t,
-    html: `<div class="tabsline sc-tabs">${tabs.map(([v, label, n]) => `<button data-act="sc-tab" data-k="${key}" data-t="${esc(v)}" aria-selected="${v === k.t}">${esc(label)}${n != null ? ` <small>${n}</small>` : ""}</button>`).join("")}</div>`,
-  };
+// Tabs on core's tab bar: the tab is kept in the route, so Back returns to it.
+function scTabs(key, list) {
+  const names = list.map(([, label]) => label);
+  const cur = tabOf(key, names, S.route.args);
+  const hit = list.find(([, label]) => label === cur) || list[0];
+  return { t: hit[0], html: tabs(key, list.map(([, label, n]) => ({ name: label, badge: n == null ? "" : n })), cur) };
 }
 function scSeg(key, field, opts) {
   const k = S.keep[key];
@@ -85,26 +80,22 @@ Object.assign(I, {
   pro: '<path d="M4 19V9l8-5 8 5v10M9 19v-5h6v5"/><path d="M12 9v.01"/>',
   calls: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1z"/>',
 });
-// Called by frame() in app.js: the scouting section for your seat.
-function scoutNav(me) {
-  if (!me) return [];
-  const k = me.ref.kind;
-  if (k === "nfl")
-    return [
-      ["sec", "Scouting"],
-      ["scouting", "Scouting", "scout"],
-      ["draftboard", "Draft board", "board"],
-      ...(SC.live ? [["warroom", "War room · live", "room"]] : []),
-      ["proscout", "Pro scouting", "pro"],
-    ];
-  if (k === "college")
-    return [
-      ["sec", "Scouting"],
-      ["scouting", "Scouting", "scout"],
-      ["recruitboard", "Recruit board", "board"],
-    ];
-  return [["sec", "Scouting"], ["hsside", "College calls", "calls"]];
+I.clip = '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M8.5 10h7M8.5 14h7M8.5 18h4"/>';
+// The sidebar: a Scouting section for the NFL and college seats (between
+// your team and the world); a high school coach's calls sit with his team.
+if (!NAV_SECS.some(([k]) => k === "scout")) NAV_SECS.splice(NAV_SECS.findIndex(([k]) => k === "world"), 0, ["scout", "Scouting"]);
+navAdd({ go: "scouting", label: "Department", icon: "scout", sec: "scout", seats: ["nfl", "college"] });
+navAdd({ go: "draftboard", label: "Draft board", icon: "board", sec: "scout", seats: ["nfl"] });
+navAdd({ go: "predraft", label: "Pre-draft", icon: "clip", sec: "scout", seats: ["nfl"] });
+// The war room shows while the draft is live from your chair.
+{
+  const room = { go: "warroom", label: "War room", icon: "room", sec: "scout", badge: () => (S.status && S.status.draft_live ? "Live" : 0) };
+  Object.defineProperty(room, "seats", { get: () => (S.status && S.status.draft_live ? ["nfl"] : ["none"]), enumerable: true });
+  navAdd(room);
 }
+navAdd({ go: "proscout", label: "Pro scouting", icon: "pro", sec: "scout", seats: ["nfl"] });
+navAdd({ go: "recruitboard", label: "Recruit board", icon: "board", sec: "scout", seats: ["college"] });
+navAdd({ go: "hsside", label: "College calls", icon: "calls", sec: "team", seats: ["hs"], after: "recruiting" });
 Object.assign(CRUMBS, {
   scout: "Scouting file",
   scouting: "Scouting",
@@ -116,23 +107,17 @@ Object.assign(CRUMBS, {
   recruitboard: "Recruit board",
   hsside: "College calls",
 });
-// After Continue: when the draft goes live, the war room opens.
-const scContBase = cont;
-cont = async function () {
-  await scContBase();
-  if (scSeat() !== "nfl") return;
-  try {
-    const r = await api("draft_live");
-    const was = SC.live;
-    SC.live = !!r.live;
-    if (SC.live && S.route.screen !== "warroom") go("warroom");
-    else if (was !== SC.live) render(scScroll());
-  } catch (e) { /* no career */ }
-};
-// A saved career that opens mid-draft shows the war room in the sidebar.
-setTimeout(async () => {
-  try { if (scSeat() === "nfl") { SC.live = !!(await api("draft_live")).live; if (SC.live) render(scScroll()); } } catch (e) { /* not loaded */ }
-}, 1500);
+// Where each screen leads (topic 17).
+GOTO.scout = (a, f) => [["Player page", "player", { id: a.id }], f && f.team ? [f.team.name, "team", f.team.ref] : null, scSeat() === "nfl" ? ["Draft board", "draftboard"] : scSeat() === "college" ? ["Recruit board", "recruitboard"] : ["College calls", "hsside"], ["My players", "myplayers"]];
+GOTO.scouting = () => (scSeat() === "nfl" ? [["Draft board", "draftboard"], ["Pre-draft", "predraft"], ["Pro scouting", "proscout"], ["Staff", "staff"], ["My players", "myplayers"]] : [["Recruit board", "recruitboard"], ["Recruiting", "recruiting"], ["Staff", "staff"], ["My players", "myplayers"]]);
+GOTO.draftboard = () => [["Pre-draft", "predraft"], ["Department", "scouting"], ["Contracts", "contracts"], ["Squad", "roster"]];
+GOTO.predraft = () => [["Draft board", "draftboard"], ["Department", "scouting"], ["Calendar", "calendar"]];
+GOTO.warroom = () => [["Draft board", "draftboard"], ["Pre-draft", "predraft"], ["Squad", "roster"], ["Contracts", "contracts"]];
+GOTO.draftrecord = () => [["Squad", "roster"], ["Contracts", "contracts"], ["Draft board", "draftboard"], ["Pro scouting", "proscout"]];
+GOTO.proscout = () => [["Squad", "roster"], ["Contracts", "contracts"], ["Draft board", "draftboard"], ["Department", "scouting"]];
+GOTO.recruitboard = () => [["Recruiting", "recruiting"], ["Department", "scouting"], ["Squad", "roster"], ["My players", "myplayers"]];
+GOTO.hsside = () => [["Squad", "roster"], ["Recruiting", "recruiting"], ["Schedule", "schedule"], ["Calendar", "calendar"]];
+const scGo = (screen, args, data) => gotoFor(screen, args, data);
 
 // ---------- the scouting file (screens topic 7, scouting topics 1, 4-8) ----------
 const SC_CHIP = { film: "F", live: "L", camp: "C", talk: "T" };
@@ -201,20 +186,15 @@ screens.scout = async (a) => {
   else if (tab.t === "Character") body = scFileChar(f);
   else if (tab.t === "Medical") body = scFileMed(f);
   else body = scFileHist(f);
-  const goto = scGoto([
-    ["player", "Player page", { id: f.id }],
-    f.team ? ["team", f.team.name, { kind: f.team.ref.kind, id: f.team.ref.id }] : null,
-    seat === "nfl" ? ["draftboard", "Draft board"] : seat === "college" ? ["recruitboard", "Recruit board"] : ["hsside", "College calls"],
-    seat === "hs" ? null : ["scouting", "Scouting department"],
-    seat === "nfl" ? ["predraft", "Pre-draft"] : null,
-  ]);
+  const goto = scGo("scout", { id: f.id }, f);
+  title(f.name, "Scouting file");
   return `${hero}<div class="pad"><div class="sc-tabrow">${tab.html}${goto}</div>${body}</div>`;
 };
 
 function scFileSummary(f) {
   const s = f.summary;
   if (!s) {
-    return `<div class="panel warm sc-unseen"><h2>Your staff hasn't seen him</h2><p class="sub">No film, no live look, no call. Only his listed size and what the public says are known. ${f.can_ask.length ? "Ask for a look above and he goes on your staff's list." : "Your seat can't ask for a look at him."}</p>${f.stories.length ? `<div class="items">${f.stories.map((x) => `<div class="item story"><span>${esc(x)}</span></div>`).join("")}</div>` : ""}</div>`;
+    return `<div class="panel warm sc-unseen"><h2>Your staff hasn't seen him</h2><p class="sub">No film, no live look, no call. Only his listed size and what the public says are known. ${f.can_ask.length ? "Ask for a look above and he goes on your staff's list." : "Your seat can't ask for a look at him."}</p>${f.stories.length ? `<div class="items">${f.stories.map((x) => `<div class="item story"><span>${rich(x)}</span></div>`).join("")}</div>` : ""}</div>`;
   }
   const hints = s.hints.length
     ? s.hints.map((h) => `<div class="sc-hint"><span class="st-pill">Hint</span><p>${esc(h.text)}</p>${h.by ? `<small>Found by ${esc(h.by)}</small>` : ""}</div>`).join("")
@@ -230,7 +210,7 @@ function scFileSummary(f) {
     f.choices && f.choices.length ? `<li><b>His choices:</b> ${esc(f.choices.join(", "))}.</li>` : "",
   ].filter(Boolean).join("");
   const voices = f.voices.length
-    ? f.voices.map((v) => `<div class="sc-voice"><div><b>${esc(v.who)}</b><span>${esc(v.job)} · ${scPlural(v.looks, "look")}</span></div><p>“${esc(v.says)}”</p></div>`).join("")
+    ? f.voices.map((v) => `<div class="sc-voice"><div><b>${esc(v.who)}</b><span>${esc(v.job)} · ${scPlural(v.looks, "look")}</span></div><p>“${rich(v.says)}”</p></div>`).join("")
     : scEmpty("Nobody has three looks at him yet, so the room has no voices on him.");
   return `<div class="sc-sum">
     <div class="panel warm"><h2>Your staff's grade <small>${scPlural(f.looks_n, "look")} by ${scPlural(f.readers_n, "person", "people")}</small></h2>
@@ -242,7 +222,7 @@ function scFileSummary(f) {
       <div class="panel warm"><h2>Plays like a young</h2>${comp}</div></div>
     <div class="sc-col"><div class="panel warm"><h2>Your read and the public's</h2>${reads ? `<ul class="sc-ul">${reads}</ul>` : scEmpty("The public has no word on him.")}</div>
       <div class="panel warm"><h2>The room <small>everyone with three looks or more</small></h2>${voices}</div></div>
-  </div>${f.stories.length ? `<div class="panel warm"><h2>What happened</h2><div class="items">${f.stories.map((x) => `<div class="item story"><span>${esc(x)}</span></div>`).join("")}</div></div>` : ""}`;
+  </div>${f.stories.length ? `<div class="panel warm"><h2>What happened</h2><div class="items">${f.stories.map((x) => `<div class="item story"><span>${rich(x)}</span></div>`).join("")}</div></div>` : ""}`;
 }
 
 function scFileRatings(f) {
@@ -302,8 +282,8 @@ function scFileChar(f) {
   return `<div class="grid2"><div class="panel warm"><h2>Character <small>${rows.length} traits</small></h2>
     ${rows.length ? `<div class="sc-traits">${rows.map((c) => `<div class="sc-trait" title="${esc(c.note || "")}"><span>${esc(c.name)}</span><span>${c.word === "Not read yet" ? '<span class="muted">Not read yet</span>' : `<span class="dot ${c.good ? "good" : "warn"}"></span><b>${esc(c.word)}</b>`}</span><span class="muted">${esc(c.sure || "")}</span></div>`).join("")}</div>` : scEmpty("Your staff hasn't read his character yet: it takes calls, visits and time around him.")}</div>
     <div style="display:grid;gap:18px"><div class="panel warm"><h2>The notes <small>each says where it came from and how that source runs</small></h2>
-      ${seen.length ? seen.map((c) => `<article class="sc-note"><div><span class="st-label">${esc(c.name)}</span><span class="st-pill">${esc(scCap(c.shade))}</span></div><p>${esc(c.note)}</p><small>${esc(scCap(c.source))}${c.who ? ` · ${esc(c.who)}` : ""}</small></article>`).join("") : scEmpty("No notes yet.")}</div>
-    <div class="panel warm"><h2>His family</h2>${f.family.length ? `<div class="items">${f.family.map((x) => `<div class="item story"><span>${esc(x)}</span></div>`).join("")}</div>` : scEmpty("Nothing known about his family yet.")}</div></div></div>`;
+      ${seen.length ? seen.map((c) => `<article class="sc-note"><div><span class="st-label">${esc(c.name)}</span><span class="st-pill">${esc(scCap(c.shade))}</span></div><p>${rich(c.note)}</p><small>${esc(scCap(c.source))}${c.who ? ` · ${esc(c.who)}` : ""}</small></article>`).join("") : scEmpty("No notes yet.")}</div>
+    <div class="panel warm"><h2>His family</h2>${f.family.length ? `<div class="items">${f.family.map((x) => `<div class="item story"><span>${rich(x)}</span></div>`).join("")}</div>` : scEmpty("Nothing known about his family yet.")}</div></div></div>`;
 }
 
 function scFileMed(f) {
@@ -313,7 +293,7 @@ function scFileMed(f) {
     ? tbl(["Where", "Date", "40", "Bench", "Vertical", "Broad", "3-cone", "Shuttle"], f.tests.map((t) => [esc(t.where), t.date, t.forty ? t.forty.toFixed(2) : "-", t.bench, t.vertical ? t.vertical.toFixed(1) : "-", t.broad, t.cone ? t.cone.toFixed(2) : "-", t.shuttle ? t.shuttle.toFixed(2) : "-"]))
     : scEmpty("He hasn't tested in front of your staff: no combine, pro day or camp in the file.");
   return `<div class="grid2"><div style="display:grid;gap:18px"><div class="panel warm"><h2>Medical <small>${m && m.examined ? "examined by your doctors" : "records and film only"}</small></h2>
-      ${m ? `<div class="sc-medbig"><b class="st-wide">${esc(m.words)}</b><span class="sub">of: cleared, minor concern, major concern, failed</span></div>${(m.notes || []).length ? `<div class="items">${m.notes.map((x) => `<div class="item story"><span>${esc(x)}</span></div>`).join("")}</div>` : ""}${m.examined ? "" : '<div class="sc-flagline"><span class="st-pill">No exam</span><span class="st-pill">No imaging</span><span class="sub">A recheck or the combine puts your own doctors’ hands on him.</span></div>'}` : scEmpty("No medical read yet.")}</div>
+      ${m ? `<div class="sc-medbig"><b class="st-wide">${esc(m.words)}</b><span class="sub">of: cleared, minor concern, major concern, failed</span></div>${(m.notes || []).length ? `<div class="items">${m.notes.map((x) => `<div class="item story"><span>${rich(x)}</span></div>`).join("")}</div>` : ""}${m.examined ? "" : '<div class="sc-flagline"><span class="st-pill">No exam</span><span class="st-pill">No imaging</span><span class="sub">A recheck or the combine puts your own doctors’ hands on him.</span></div>'}` : scEmpty("No medical read yet.")}</div>
     <div class="panel warm"><h2>Measured and timed</h2>${tests}</div></div>
     <div class="panel warm"><h2>Academics <small>${a.transcript ? "from his transcript" : "from what people say: no transcript yet"}</small></h2>
       <div class="st-tiles"><div><b>${a.gpa[0].toFixed(1)}-${a.gpa[1].toFixed(1)}</b><small>core GPA, your read</small></div>${a.test ? `<div><b>${a.test}</b><small>test score</small></div>` : ""}<div><b class="sc-tile-w">${esc(a.eligible)}</b><small>eligibility</small></div></div>
@@ -333,7 +313,7 @@ function scFileHist(f) {
       ${f.followers ? `<dt>Followers</dt><dd>${esc(f.followers)}</dd>` : ""}
       ${f.nil ? `<dt>NIL a year</dt><dd>${money(f.nil)}</dd>` : ""}
       <dt>Home</dt><dd>${esc([f.high_school, f.hometown].filter(Boolean).join(", ") || "-")}</dd></dl></div>
-    ${f.stories.length ? `<div class="panel warm"><h2>What happened</h2><div class="items">${f.stories.map((x) => `<div class="item story"><span>${esc(x)}</span></div>`).join("")}</div></div>` : ""}</div></div>`;
+    ${f.stories.length ? `<div class="panel warm"><h2>What happened</h2><div class="items">${f.stories.map((x) => `<div class="item story"><span>${rich(x)}</span></div>`).join("")}</div></div>` : ""}</div></div>`;
 }
 
 // ---------- your department (screens topic 7, scouting topics 2-3, 8, 9, 14) ----------
@@ -398,7 +378,7 @@ screens.scouting = async () => {
   } else {
     body = scPublic(d.public, nfl);
   }
-  const goto = scGoto(nfl ? [["draftboard", "Draft board"], ["predraft", "Pre-draft"], ["proscout", "Pro scouting"], ["staff", "Staff"], ["calendar", "Calendar"]] : [["recruitboard", "Recruit board"], ["recruiting", "Recruiting"], ["staff", "Staff"], ["calendar", "Calendar"]]);
+  const goto = scGo("scouting");
   return `<div class="film">${hero}<div class="pad"><div class="sc-tabrow">${tab.html}${goto}</div>${body}</div></div>`;
 };
 
@@ -510,7 +490,7 @@ screens.draftboard = async () => {
     main = scPublic(await api("public_boards"), true);
   }
   const side = tab.t === "Public" ? "" : await scBoardSide(selRow, x);
-  const goto = scGoto([x.live ? ["warroom", "War room"] : null, ["predraft", "Pre-draft"], ["scouting", "Scouting department"], ["contracts", "Contracts"], ["roster", "Squad"]]);
+  const goto = scGoto([x.live ? ["warroom", "War room"] : null, ["predraft", "Pre-draft"], ["scouting", "Department"], ["contracts", "Contracts"], ["roster", "Squad"]]);
   return `<div class="film">${hero}<div class="pad"><div class="sc-tabrow">${tab.html}${goto}</div>${side ? `<div class="sc-boardgrid"><div class="sc-boardmain">${main}</div>${side}</div>` : main}</div></div>`;
 };
 
@@ -578,7 +558,7 @@ screens.predraft = async () => {
   setColors(x.board.team.colors);
   const top = x.board.rows.filter((r) => !r.taken).slice(0, 80);
   const listPanel = (l) => `<div class="panel warm"><h2>${esc(l.name)} <small>${l.rows.length} of ${l.cap}</small></h2>${l.rows.length ? `<div class="items">${l.rows.map((r) => `<div class="item sc-li"><span class="when">${esc(r.pos)}</span><span>${scName(r.id, r.name)} <small class="sub">· ${esc(r.school)}</small>${r.declined ? ' <span class="st-pill gold">Declined your visit</span>' : ""}</span><button class="sc-mini" data-act="sc-list" data-id="${r.id}" data-list="${l.k}" data-on="0" title="Take him off">✕</button></div>`).join("")}</div>` : scEmpty("Nobody yet. Add players from the draft board.")}</div>`;
-  return `<div class="film"><div class="pad">${scHead("The pre-draft season", "Visits, interviews, workouts and rechecks; who's staying in school; and the smoke every club blows before the draft.", scGoto([["draftboard", "Draft board"], ["scouting", "Scouting department"], x.board.live ? ["warroom", "War room"] : null, ["calendar", "Calendar"]]))}
+  return `<div class="film"><div class="pad">${scHead("The pre-draft season", "Visits, interviews, workouts and rechecks; who's staying in school; and the smoke every club blows before the draft.", scGoto([x.board.live ? ["warroom", "War room"] : null, ["draftboard", "Draft board"], ["scouting", "Department"], ["calendar", "Calendar"]]))}
     <div class="sc-cal">${x.calendar.map(([t, d]) => `<div class="st-glass"><span class="st-label">${esc(t)}</span><b>${esc(d)}</b></div>`).join("")}</div>
     <div class="grid2"><div class="sc-lists4">${x.lists.map(listPanel).join("")}</div>
     <div style="display:grid;gap:18px"><div class="panel warm"><h2>Plant a story <small>the media listens to clubs</small></h2>
@@ -595,9 +575,11 @@ screens.predraft = async () => {
 screens.warroom = async () => {
   const w = await api("draft_live");
   SC.live = !!w.live;
+  if (S.status) S.status.draft_live = SC.live;
+  title("War room");
   if (!w.live) {
     if (w.record) return screens.draftrecord({ record: w.record });
-    return `<div class="pad">${scHead("The war room", "It opens on draft night, when your club is on the clock or the first round starts.", scGoto([["draftboard", "Draft board"], ["predraft", "Pre-draft"], ["calendar", "Calendar"]]))}</div>`;
+    return `<div class="pad">${scHead("The war room", "It opens on draft night, when your club is on the clock or the first round starts.", scGo("predraft"))}</div>`;
   }
   const otc = w.on_the_clock || w.team;
   setColors((otc && otc.colors) || w.team.colors);
@@ -649,7 +631,7 @@ screens.warroom = async () => {
     ? `<div class="st-moment fixed sc-reveal" data-act="sc-unreveal"><div class="st-reveal"><div class="st-kicker">The pick is in</div><div class="st-outline">${w.revealed.pick}</div><div class="st-reveal-sub">${esc(w.revealed.pos)} · ${esc(w.revealed.school)}</div><h2>${esc(w.revealed.name)}</h2>${w.revealed.take ? `<div class="st-verdict"><span><b style="font-size:13px;font-stretch:100%;color:#fff">${esc(w.revealed.take.who)}, ${esc(w.revealed.take.outlet)}</b><br>“${esc(w.revealed.take.says)}”</span></div>` : ""}<button class="st-btn primary" data-act="sc-unreveal">Back to the board</button></div></div>`
     : "";
   return `<div class="sc-war-room st-room"><i></i><i></i><i></i><div class="sc-war-in">
-    <div class="sc-war-top"><div><span class="st-label">${esc(w.team.name)} war room · ${w.year} NFL Draft</span><div class="sc-mine-slots">${mine}</div></div>${scGoto([["draftboard", "Draft board"], ["predraft", "Pre-draft"], ["roster", "Squad"], ["contracts", "Contracts"]])}</div>
+    <div class="sc-war-top"><div><span class="st-label">${esc(w.team.name)} war room · ${w.year} NFL Draft</span><div class="sc-mine-slots">${mine}</div></div>${scGo("warroom")}</div>
     ${nowCard}${actions}
     <div class="sc-war">
       <div class="st-glass sc-wcol"><div class="sc-wcol-h"><h2>Your board <small>${w.board.length} left on it</small></h2><select class="sc-sel" data-act="sc-wargroup"><option value="All">Every position</option>${posList.map((p) => `<option ${k.group === p ? "selected" : ""}>${esc(p)}</option>`).join("")}</select></div>
@@ -689,7 +671,7 @@ screens.draftrecord = async (a) => {
   let body;
   if (tab.t === "Class") {
     body = `<div class="sc-class">${r.mine.map((p) => `<div class="sc-classcard st-glass"><div class="st-outline">${p.pick}</div><span class="st-label">Round ${p.round} · pick ${p.pick}</span><b>${playerLink(p.id, p.name)}</b><span>${esc(p.pos)} · ${esc(p.school)}</span>${p.why ? `<p class="sc-dim">${esc(p.why)}</p>` : ""}<a class="link sc-dim" data-go="scout" data-id="${p.id}">Scouting file</a></div>`).join("") || scEmpty("You made no picks.")}</div>
-      ${r.trades.length ? `<div class="panel warm"><h2>Trades on the day</h2><div class="items">${r.trades.map((t) => `<div class="item story"><span>${esc(typeof t === "string" ? t : JSON.stringify(t))}</span></div>`).join("")}</div></div>` : ""}`;
+      ${r.trades.length ? `<div class="panel warm"><h2>Trades on the day</h2><div class="items">${r.trades.map((t) => `<div class="item story"><span>${rich(typeof t === "string" ? t : t.text || "")}</span></div>`).join("")}</div></div>` : ""}`;
   } else if (tab.t === "Rush") {
     body = table("sc-rush", [
       { k: "name", t: "Name", l: true, f: (x) => playerLink(x.id, x.name) },
@@ -715,7 +697,7 @@ screens.draftrecord = async (a) => {
     ], r.all, { sort: "pick" });
   }
   void k;
-  return `<div class="film">${hero}<div class="pad"><div class="sc-tabrow">${tab.html}${scGoto([["roster", "Squad"], ["contracts", "Contracts"], ["draftboard", "Draft board"], ["proscout", "Pro scouting"]])}</div>${body}</div></div>`;
+  return `<div class="film">${hero}<div class="pad"><div class="sc-tabrow">${tab.html}${scGo("draftrecord")}</div>${body}</div></div>`;
 };
 
 // ---------- pro scouting (scouting topic 13) ----------
@@ -748,7 +730,7 @@ screens.proscout = async () => {
   } else {
     body = `<div class="sc-cards3">${x.scouts.map((s) => `<div class="panel warm"><h2>${esc(s.name)} <small>${esc(s.job)}</small></h2><span class="st-label">Covers</span><div class="sc-clubs">${s.clubs.map((c) => `<button class="sc-clubchip" data-act="sc-proclubgo" data-id="${c.ref.id}">${mark(c, 20)} ${esc(c.name)}</button>`).join("") || '<span class="sc-dim">The whole league</span>'}</div></div>`).join("")}</div>`;
   }
-  return `<div class="film"><div class="pad">${scHead("Pro scouting", "Your pro personnel staff's reads on every club's players and on the street.", scGoto([["roster", "Squad"], ["contracts", "Contracts"], ["draftboard", "Draft board"], ["scouting", "Scouting department"]]))}<div class="sc-tabrow">${tab.html}</div>${body}</div></div>`;
+  return `<div class="film"><div class="pad">${scHead("Pro scouting", "Your pro personnel staff's reads on every club's players and on the street.", scGo("proscout"))}<div class="sc-tabrow">${tab.html}</div>${body}</div></div>`;
 };
 
 // ---------- a college's recruit, portal and JUCO boards (scouting topics 15, 17) ----------
@@ -778,7 +760,7 @@ screens.recruitboard = async () => {
     { k: "offers", t: "Offers" },
     { k: "x", t: "", f: (r) => `<button class="sc-mini wide" data-act="sc-follow" data-id="${r.id}" data-on="${r.followed ? 0 : 1}">${r.followed ? "Following" : "Follow"}</button>` },
   ];
-  return `<div class="film">${hero}<div class="pad"><div class="sc-tabrow"><div class="tabsline sc-tabs">${lists.map(([v, t]) => `<button data-act="sc-seg" data-k="sc-rb" data-f="list" data-v="${v}" aria-selected="${k.list === v}">${t}</button>`).join("")}</div>${scGoto([["recruiting", "Recruiting"], ["scouting", "Scouting department"], ["roster", "Squad"], ["calendar", "Calendar"]])}</div>
+  return `<div class="film">${hero}<div class="pad"><div class="sc-tabrow"><div class="tabsline sc-tabs">${lists.map(([v, t]) => `<button data-act="sc-seg" data-k="sc-rb" data-f="list" data-v="${v}" aria-selected="${k.list === v}">${t}</button>`).join("")}</div>${scGo("recruitboard")}</div>
     <div class="filters"><div class="field"><label>Position</label><select data-act="sc-rbf" data-f="pos"><option value="All">Every position</option>${poss.map((p) => `<option ${k.pos === p ? "selected" : ""}>${esc(p)}</option>`).join("")}</select></div>${k.list === "board" && classes.length > 1 ? `<div class="field"><label>Class</label><select data-act="sc-rbf" data-f="cls"><option value="All">Every class</option>${classes.map((c) => `<option ${String(k.cls) === String(c) ? "selected" : ""}>${c}</option>`).join("")}</select></div>` : ""}<span class="sub">${k.list === "board" ? "The players your staff watches, with its read on each. Ask for a look from his file." : k.list === "portal" ? "Players in the transfer portal from other programs." : "Junior college players who could come to you."}</span></div>
     ${table("sc-rbt-" + k.list, cols, rows, { empty: k.list === "portal" ? "Nobody in the portal right now. It opens after the season and in the spring." : "Nobody on this list yet." })}</div></div>`;
 };
@@ -801,7 +783,7 @@ screens.hsside = async () => {
     { k: "offers", t: "Colleges", l: true, div: true, wrap: true, v: (r) => r.offers.length + (r.committed ? 50 : 0) + (r.signed ? 100 : 0), f: pcell },
     { k: "visits", t: "Visits", v: (r) => r.visits.length, f: (r) => (r.visits.length ? `<span title="${esc(r.visits.map((v) => v.name + " " + v.date).join(", "))}">${r.visits.length}</span>` : '<span class="muted">-</span>') },
     { k: "promoted", t: "Your calls" },
-    { k: "x", t: "", f: (r) => `<button class="st-btn small glass" data-act="sc-promote" data-id="${r.id}" data-name="${esc(r.name)}">Call a college</button>` },
+    { k: "x", t: "", f: (r) => (r.signed ? "" : `<button class="st-btn small glass" data-act="sc-promote" data-id="${r.id}" data-name="${esc(r.name)}">Call a college</button>`) },
   ], x.players, { sort: "class_of", empty: "No players on your roster." });
   const credit = (c) => `<span class="sc-credit"><span class="t"><i style="width:${Math.round(c.credit * 100)}%"></i></span><span>${esc(c.credit_words)}</span></span>`;
   const k = keep("sc-hs", { pid: null });
@@ -813,7 +795,7 @@ screens.hsside = async () => {
       <div class="field"><label>What you say</label><select id="sc-strength">${x.strengths.map((s, i) => `<option value="${i}">${esc(s)}</option>`).join("")}</select></div></div>
       <div class="sc-row2"><button class="st-btn small primary" data-act="sc-promotego" data-id="${pick.id}">Make the call</button><button class="st-btn small glass" data-act="sc-promote" data-id="">Cancel</button></div></div>`
     : "";
-  return `<div class="film"><div class="pad">${scHead("Your players and colleges", "Who's calling about your players, how much each staff trusts your word, and the calls you make for your kids.", scGoto([["roster", "Squad"], ["recruiting", "Recruiting"], ["schedule", "Schedule"], ["calendar", "Calendar"]]))}
+  return `<div class="film"><div class="pad">${scHead("Your players and colleges", "Who's calling about your players, how much each staff trusts your word, and the calls you make for your kids.", scGo("hsside"))}
     ${callBox}${players}
     <div class="grid2"><div class="panel warm"><h2>College staffs that come to you <small>${x.colleges.length}</small></h2>${x.colleges.length ? `<div class="tbl"><table><thead><tr><th class="l">Program</th><th>Offers to your kids</th><th class="l">Your word with them</th></tr></thead><tbody>${x.colleges.map((c) => `<tr><td class="l"><span class="teamcell">${mark(c.team, 22)} ${teamLink(c.team)}</span></td><td>${c.offers}</td><td class="l">${credit(c)}</td></tr>`).join("")}</tbody></table></div>` : scEmpty("No college staff has come by yet.")}</div>
     <div class="panel warm"><h2>Your calls <small>${x.calls.length}</small></h2>${x.calls.length ? `<div class="items">${x.calls.map((c) => `<div class="item"><span class="when">${esc(c.date)}</span><span>${scName(c.player.id, c.player.name)} to ${esc(c.to)}: “${esc(c.said)}”${c.settled ? ` <span class="st-pill ${/right/.test(c.settled) ? "good" : "gold"}">${esc(c.settled)}</span>` : ' <small class="muted">· settled in two seasons</small>'}</span></div>`).join("")}</div>` : scEmpty("You haven't called anyone yet.")}</div></div>
@@ -841,7 +823,6 @@ document.addEventListener("click", async (ev) => {
   const d = el.dataset;
   const id = d.id !== undefined && d.id !== "" ? Number(d.id) : null;
   switch (d.act) {
-    case "sc-tab": S.keep[d.k].t = d.t; render(); break;
     case "sc-seg": {
       const v = d.v === "true" ? true : d.v === "false" ? false : d.v;
       S.keep[d.k][d.f] = v;
@@ -866,7 +847,7 @@ document.addEventListener("click", async (ev) => {
     case "sc-attr": keep("sc-rat", { all: false, sel: null }).sel = d.key; scRedraw(); break;
     case "sc-instr": if (await scDo("scout_instruct", { key: d.key, on: d.on === "1" })) scRedraw(); break;
     case "sc-desk": keep("sc-pub", { desk: null }).desk = Number(d.k); scRedraw(); break;
-    case "sc-pick": S.keep["sc-board"].sel = id; S.keep["sc-boardtab"].t = "Vertical"; render(); break;
+    case "sc-pick": S.keep["sc-board"].sel = id; scTabTo("sc-boardtab", "The board"); render(); break;
     case "sc-move": if (await scDo("board_move", { id, to: Number(d.to) })) scRedraw(); break;
     case "sc-moveto": {
       const v = await ask("Move him on your board", { value: d.rank, ok: "Move", note: "The rank he should have. Everyone below moves down one." });
@@ -941,11 +922,11 @@ document.addEventListener("click", async (ev) => {
       showBusy("The phones are ringing: the undrafted rush…");
       const r = await scDo("draft_rush", {});
       hideBusy();
-      if (r) { SC.live = false; SC.clock = null; go("draftrecord"); }
+      if (r) { SC.live = false; SC.clock = null; if (S.status) S.status.draft_live = false; go("draftrecord"); }
       break;
     }
     case "sc-tryout": if (await scDo("tryout", { id }, "He's in for a tryout on Tuesday.")) scRedraw(); break;
-    case "sc-proclubgo": keep("sc-pro", { club: null }).club = id; S.keep["sc-protab"] = { t: "Club" }; render(); break;
+    case "sc-proclubgo": keep("sc-pro", { club: null }).club = id; scTabTo("sc-protab", "A club's roster"); render(); break;
     case "sc-promote": keep("sc-hs", { pid: null }).pid = id; scRedraw(); break;
     case "sc-promotego": {
       const prog = $("#sc-prog"), str = $("#sc-strength");
@@ -957,6 +938,10 @@ document.addEventListener("click", async (ev) => {
     }
   }
 }, true);
+function scTabTo(key, label) {
+  keep(key, { t: label }).t = label;
+  S.route.args = { ...S.route.args, tab: label };
+}
 function scAfterPick(r) {
   SC.quote = null;
   if (r.revealed) SC.reveal = `${r.revealed.pick}-${r.revealed.id}`;
@@ -974,4 +959,18 @@ document.addEventListener("change", async (ev) => {
     case "sc-rbf": S.keep["sc-rb"][d.f] = el.value; scRedraw(); break;
     case "sc-wargroup": keep("sc-war", { group: "All" }).group = el.value; scRedraw(); break;
   }
+});
+
+// ---------- the player page's Scouting tab ----------
+// Your staff's file in short on every player page; the full file is one click on.
+PLAYER_TABS.push({
+  name: "Scouting",
+  after: "Reports",
+  show: (p) => p.stage !== "Done",
+  draw: async (p) => {
+    let f = null;
+    try { f = await api("scout_file", { id: p.id }); } catch (e) { return scEmpty("No scouting file on him."); }
+    const head = `<div class="sc-ptab-h"><span class="sub">${scPlural(f.looks_n, "look")} by ${scPlural(f.readers_n, "person", "people")} on your staff${f.board && f.board.rank ? ` · No. ${f.board.rank} on your board` : ""}</span>${linkTo("scout", { id: p.id }, "Open the full scouting file", "st-btn small primary")}</div>`;
+    return head + scFileSummary(f);
+  },
 });

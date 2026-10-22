@@ -626,7 +626,8 @@ async function cont() {
       // day just played, and you are on the morning after it.
       toast(r.morning ? `${r.today}, morning${why ? ": " + why : ""}` : `${r.days} day${r.days === 1 ? "" : "s"} played, to ${r.today}. On ${r.stopped_on}${why ? ": " + why : ""}`);
       // A live day (signing day, the draft, cutdown day) opens its room.
-      if (r.studio && screens.studio && !moved) go("studio", r.studio);
+      // A room with its own screen (the war room) opens that screen.
+      if (r.studio && !moved && (screens[r.studio.screen] || screens.studio)) go(screens[r.studio.screen] ? r.studio.screen : "studio", r.studio);
       // A meeting this morning opens its room (people).
       else if (r.meeting != null && screens.people_scene && !moved) go("people_scene", { id: r.meeting });
       else if (moved || S.route.screen === "home") render();

@@ -21,12 +21,24 @@ fn an_nfl_war_room_runs_the_draft() {
     let mut g = Game::new(dir.clone());
     ok(&mut g, "build_world", json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let fresh = ok(&mut g, "save", json!({ "name": "fresh" }))["saved"].as_str().unwrap().to_string();
-    let job = ok(&mut g, "jobs", json!({ "level": "nfl" }))["jobs"][0]["ref"].clone();
-    ok(
-        &mut g,
-        "start_career",
-        json!({ "name": "Test GM", "age": 45, "background": "nfl_assistant", "job": job, "seed": 3 }),
-    );
+    // A small world's draft has only a few picks: take a job at a club
+    // that holds one this spring.
+    let jobs = ok(&mut g, "jobs", json!({ "level": "nfl" }))["jobs"].as_array().unwrap().clone();
+    let mut has_pick = false;
+    for j in &jobs {
+        ok(&mut g, "load", json!({ "path": fresh }));
+        let job = j["ref"].clone();
+        ok(
+            &mut g,
+            "start_career",
+            json!({ "name": "Test GM", "age": 45, "background": "nfl_assistant", "job": job, "seed": 3 }),
+        );
+        if !ok(&mut g, "draft_board", json!({}))["picks"].as_array().unwrap().is_empty() {
+            has_pick = true;
+            break;
+        }
+    }
+    assert!(has_pick, "no open NFL job holds a pick in {} jobs", jobs.len());
     // The department and the public's word.
     let dept = ok(&mut g, "scouting", json!({}));
     assert!(dept["people"].as_array().unwrap().len() >= 8, "{}", dept["people"]);
@@ -50,6 +62,9 @@ fn an_nfl_war_room_runs_the_draft() {
     // His file: ranges, looks with who took them, character in words.
     let file = ok(&mut g, "scout_file", json!({ "id": top }));
     assert!(file["followed"].as_bool().unwrap());
+    // One list: following from the file puts him on the core My players.
+    let mine = ok(&mut g, "my_players", json!({}));
+    assert!(mine["rows"].as_array().unwrap().iter().any(|r| r["id"].as_u64() == Some(top)), "{}", mine["rows"]);
     if file["seen"].as_bool().unwrap() {
         assert!(file["summary"]["role"].is_string(), "{}", file["summary"]);
         assert!(!file["looks"].as_array().unwrap().is_empty());
@@ -69,9 +84,10 @@ fn an_nfl_war_room_runs_the_draft() {
     let room = ok(&mut g, "draft_live", json!({}));
     assert!(room["live"].as_bool().unwrap(), "the war room opened ({steps} steps)");
     println!("to the draft in {:.0}s", t.elapsed().as_secs_f64());
-    // Continue doesn't move past an open war room.
+    // Continue doesn't move past an open war room, and sends you to it.
     let before = ok(&mut g, "status", json!({}));
-    ok(&mut g, "continue", json!({ "max_days": 5 }));
+    let r = ok(&mut g, "continue", json!({ "max_days": 5 }));
+    assert_eq!(r["studio"]["screen"], json!("warroom"));
     assert_eq!(ok(&mut g, "status", json!({}))["date"], before["date"]);
     // The pre-draft page and the public's boards are there.
     ok(&mut g, "predraft", json!({}));
@@ -87,6 +103,7 @@ fn an_nfl_war_room_runs_the_draft() {
     );
     assert!(room["staff_pick"].is_object());
     let first_pick = room["next"].as_u64().unwrap();
+    let slots = room["slots"].as_u64().unwrap() as usize;
     let choice = room["board"][0]["id"].as_u64().unwrap();
     let room = ok(&mut g, "draft_pick", json!({ "id": choice }));
     assert_eq!(room["revealed"]["id"].as_u64(), Some(choice));
@@ -111,7 +128,8 @@ fn an_nfl_war_room_runs_the_draft() {
     assert!(room["rush"].as_bool().unwrap(), "every pick is in");
     let rec = ok(&mut g, "draft_rush", json!({}));
     assert!(rec["mine"].as_array().unwrap().iter().any(|p| p["id"].as_u64() == Some(choice)), "{}", rec["mine"]);
-    assert!(rec["all"].as_array().unwrap().len() > 100);
+    // Every pick is in the record (a small world's draft has only a few).
+    assert_eq!(rec["all"].as_array().unwrap().len(), slots, "{}", rec["all"]);
     assert!(!ok(&mut g, "draft_live", json!({}))["live"].as_bool().unwrap());
     // The world carries on after the draft.
     ok(&mut g, "continue", json!({ "max_days": 30 }));
@@ -158,7 +176,8 @@ fn an_nfl_war_room_runs_the_draft() {
     let side = ok(&mut g, "hs_side", json!({}));
     let players = side["players"].as_array().unwrap();
     assert!(!players.is_empty());
-    let pid = players[0]["id"].as_u64().unwrap();
+    // A player still unsigned (seniors sign in the winter).
+    let pid = players.iter().find(|p| p["signed"].is_null()).expect("an unsigned player")["id"].as_u64().unwrap();
     let r = ok(&mut g, "promote", json!({ "id": pid, "strength": 1 }));
     assert_eq!(r["hs"]["calls"].as_array().unwrap().len(), 1);
     println!("scouting test in {:.0}s", t.elapsed().as_secs_f64());

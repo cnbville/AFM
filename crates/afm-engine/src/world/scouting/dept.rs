@@ -463,7 +463,10 @@ pub fn recruiter_for(w: &World, prog: usize, i: usize) -> Option<usize> {
 pub(crate) fn prune(w: &mut World) {
     let keep: std::collections::HashSet<u32> =
         w.people.iter().filter(|p| !matches!(p.stage, Stage::Done)).map(|p| p.player.id).collect();
-    let mine: std::collections::HashSet<u32> = w.scouting.dept.my_players.iter().map(|f| f.id).collect();
+    let mut mine: std::collections::HashSet<u32> = w.scouting.dept.my_players.iter().map(|f| f.id).collect();
+    if let Some(c) = &w.career {
+        mine.extend(c.desk.listed.iter().map(|l| l.id));
+    }
     w.scouting.dept.looks.retain(|id, _| keep.contains(id) || mine.contains(id));
     w.scouting.dept.looks.shrink_to_fit();
 }

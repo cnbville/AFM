@@ -32,6 +32,11 @@ pub mod ncaa;
 pub mod news;
 mod nfl_year;
 pub use nfl_year::NflTeamSeason;
+
+/// Last season's draft order once the season has ended (for the coming draft).
+pub(crate) fn nfl_year_order(w: &World) -> Option<Vec<usize>> {
+    nfl_year::draft_order(w)
+}
 pub mod people;
 pub mod pro;
 pub mod program;

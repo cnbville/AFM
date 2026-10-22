@@ -464,6 +464,8 @@ pub fn status(w: &World) -> Value {
         "unread": crate::lane_core::desk::unread(w),
         "reveals": w.career.as_ref().map_or(0, |c| c.desk.reveals.len()),
         "my_players": w.career.as_ref().map_or(0, |c| c.desk.listed.len()),
+        // The draft live from your chair: the sidebar shows the war room.
+        "draft_live": w.scouting.live.is_some(),
     })
 }
 
@@ -524,7 +526,9 @@ pub fn stopped(w: &World, from: Date, at: Date) -> Value {
     let meeting = morning
         .as_ref()
         .and_then(|_| w.folk.scenes.iter().filter(|s| !s.done && s.stops && s.date == at).map(|s| s.id).min());
-    json!({ "from": date_text(from), "days": from.days_to(w.today), "stopped_on": date_text(at), "morning": morning.is_some(), "today": date_text(w.today), "why": why, "game": game, "meeting": meeting, "status": status(w) })
+    // The draft live from your chair (scouting): the screens open the war room.
+    let studio = w.scouting.live.as_ref().map(|_| json!({ "screen": "warroom" }));
+    json!({ "from": date_text(from), "days": from.days_to(w.today), "stopped_on": date_text(at), "morning": morning.is_some(), "today": date_text(w.today), "why": why, "game": game, "meeting": meeting, "studio": studio, "status": status(w) })
 }
 
 pub fn home(w: &World) -> Value {

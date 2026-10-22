@@ -307,9 +307,6 @@ pub struct Scouting {
     /// The grades kept for look-backs.
     #[serde(default)]
     pub records: lookback::Records,
-    /// Social media accounts and followers (people topic 9).
-    #[serde(default)]
-    pub social: social::Social,
     /// Your side as a high school coach (topic 17).
     #[serde(default)]
     pub hs: hs::HsSide,
@@ -324,7 +321,6 @@ pub(crate) fn day(w: &mut crate::world::World, d: Date) {
     public::day(w, d);
     predraft::day(w, d);
     supp::day(w, d);
-    social::day(w, d);
     if w.seat.is_some() {
         dept::day(w, d);
         pro::day(w, d);

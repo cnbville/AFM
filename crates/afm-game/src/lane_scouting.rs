@@ -53,9 +53,9 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             let pid = id()?;
             let w = game.wm()?;
             w.scouting.dept.my_players.retain(|f| f.id != pid);
-            Ok(my_players(w))
+            crate::lane_core::desk::list_remove(w, pid);
+            scout_file(w, pid)
         })(),
-        "my_players" => (|| Ok(my_players(game.w()?)))(),
         "public_boards" => (|| Ok(public_boards(game.w()?)))(),
         "draft_board" => (|| draft_board(game.w()?))(),
         "board_move" => (|| {
@@ -344,8 +344,10 @@ const CATS: [Category; 8] = [
     Category::Mental,
 ];
 
+/// One "My players" list (the core desk's): following from a scouting file
+/// puts him on it, with why and your staff's grade that day kept here.
 fn is_followed(w: &World, id: u32) -> bool {
-    w.scouting.dept.my_players.iter().any(|f| f.id == id)
+    w.career.as_ref().is_some_and(|c| c.desk.is_listed(id))
 }
 
 /// A short read of a player for a list row: the now range, the role words
@@ -583,7 +585,7 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
         .filter(|x| x.0 == id)
         .map(|x| predraft::LIST_NAMES[(x.1 as usize).min(3)])
         .collect();
-    let followers = w.scouting.social.followers.get(&id).copied();
+    let followers = Some(p.followers).filter(|&f| f > 0);
     let choices = w.scouting.predraft.choices.get(&id).map_or(Vec::new(), |&c| predraft::choice_words(c));
     let (lh, lw) = file::listed(&p.player);
     let measured = looks.iter().any(|l| matches!(l.kind, Kind::Combine | Kind::ProDay | Kind::Camp | Kind::Showcase));
@@ -633,6 +635,8 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
         },
         "choices": choices,
         "followers": followers.map(social::words),
+        "aura": seen.then(|| afm_engine::world::fame::aura_read(p, rds.iter().map(|r| r.character).fold(6.0f64, f64::max), key)),
+        "brand": if p.brand > 0.0 { Some(p.brand.round()) } else { None },
         "followers_n": followers,
         "nil": if p.nil_income > 0.0 { Some(p.nil_income.round()) } else { None },
         "can_ask": ask_kinds(w, p),
@@ -696,6 +700,7 @@ fn follow(w: &mut World, id: u32, why: &str) -> Result<(), String> {
     let first = read["role"].as_str().unwrap_or("Not seen").to_string();
     let public = if p.stars > 0 { format!("{}-star", p.stars) } else { String::from("Unranked") };
     let d = w.today;
+    w.scouting.dept.my_players.retain(|f| f.id != id);
     w.scouting.dept.my_players.push(dept::Followed {
         id,
         since: d,
@@ -703,24 +708,34 @@ fn follow(w: &mut World, id: u32, why: &str) -> Result<(), String> {
         first_read: first,
         public_then: public,
     });
+    crate::lane_core::desk::list_add(w, id, 0);
     Ok(())
 }
 
+/// The department's view of My players: the core list, with why you
+/// followed him and your staff's grade then where the scouting file kept it.
 fn my_players(w: &World) -> Value {
     let Ok(staff) = staff_of(w) else { return json!({ "rows": [] }) };
-    let rows: Vec<Value> = w
-        .scouting
-        .dept
-        .my_players
+    let Some(c) = &w.career else { return json!({ "rows": [] }) };
+    let rows: Vec<Value> = c
+        .desk
+        .listed
         .iter()
-        .filter_map(|f| {
-            let i = sc::place(w, f.id)?;
+        .filter_map(|l| {
+            let i = sc::place(w, l.id)?;
+            let f = w.scouting.dept.my_players.iter().find(|f| f.id == l.id);
             let mut r = row(w, i);
-            r["since"] = json!(date_text(f.since));
-            r["why"] = json!(f.why);
-            r["first"] = json!(f.first_read);
-            r["public_then"] = json!(f.public_then);
-            r["read"] = brief_read(w, staff, f.id);
+            r["since"] = json!(date_text(l.since));
+            r["why"] = json!(f.map_or("Added to My players", |f| f.why.as_str()));
+            r["first"] = json!(f.map_or_else(
+                || if l.read.1 > 0 { format!("{}-{}", l.read.0, l.read.1) } else { "Not seen".into() },
+                |f| f.first_read.clone()
+            ));
+            r["public_then"] = json!(f.map_or_else(
+                || if l.stars > 0 { format!("{}-star", l.stars) } else { "Unranked".into() },
+                |f| f.public_then.clone()
+            ));
+            r["read"] = brief_read(w, staff, l.id);
             r["where"] = json!(school_of(w, &w.people[i]));
             Some(r)
         })
@@ -1139,21 +1154,13 @@ pub fn draft_board(w: &World) -> Reply {
         })
         .collect();
     // Your picks this draft.
-    let year = w.year;
-    let picks: Vec<Value> = match &w.scouting.live {
-        Some(l) => l
-            .run
-            .board
-            .iter()
-            .enumerate()
-            .filter(|(_, s)| s.0 == t)
-            .map(|(k, s)| json!({ "pick": k + 1, "round": s.1 }))
-            .collect(),
-        None => afm_engine::world::pro::trades::owned_picks(w, t, year)
-            .into_iter()
-            .map(|(round, from)| json!({ "round": round, "from": from.map(|f| w.nfl_team_name(f)) }))
-            .collect(),
-    };
+    let year = public::draft_year(w);
+    let picks: Vec<Value> = board::coming_slots(w)
+        .iter()
+        .enumerate()
+        .filter(|(_, s)| s.0 == t)
+        .map(|(k, s)| json!({ "pick": k + 1, "round": s.1 }))
+        .collect();
     let tiers: Vec<Value> = board::TIERS.iter().enumerate().map(|(k, n)| json!({ "tier": k + 1, "name": n })).collect();
     let groups: Vec<&str> = Group::ALL.iter().map(|g| g.name()).collect();
     Ok(json!({
@@ -1186,7 +1193,7 @@ fn undrafted_pool(w: &World) -> f64 {
 
 fn board_move(w: &mut World, id: u32, args: &Value) -> Result<(), String> {
     my_club(w)?;
-    let year = w.year;
+    let year = public::draft_year(w);
     let grades = board::seat_grades(w);
     if !grades.contains_key(&id) {
         return Err("He isn't on your board.".into());
@@ -1211,7 +1218,7 @@ fn board_move(w: &mut World, id: u32, args: &Value) -> Result<(), String> {
 
 fn board_dnd(w: &mut World, id: u32, on: bool, why: &str) -> Result<(), String> {
     my_club(w)?;
-    let year = w.year;
+    let year = public::draft_year(w);
     w.scouting.board.for_year(year);
     let b = &mut w.scouting.board;
     b.dnd.retain(|x| x.0 != id);
@@ -1225,7 +1232,7 @@ fn board_dnd(w: &mut World, id: u32, on: bool, why: &str) -> Result<(), String> 
 
 fn board_pfa(w: &mut World, id: u32, args: &Value) -> Result<(), String> {
     my_club(w)?;
-    let year = w.year;
+    let year = public::draft_year(w);
     w.scouting.board.for_year(year);
     let on = args.get("on").and_then(Value::as_bool).unwrap_or(true);
     let bonus = args.get("bonus").and_then(Value::as_u64).unwrap_or(0) as u32;

@@ -172,3 +172,24 @@ pub fn public_ranks(w: &World) -> HashMap<u32, usize> {
     order.extend(v.into_iter().map(|x| x.1).filter(|id| !top.contains(id)));
     order.into_iter().enumerate().map(|(k, id)| (id, k)).collect()
 }
+
+/// The coming draft's slots as they stand today: (club, round) by pick,
+/// the way draft morning sets them (last season's order, traded picks to
+/// their owners, comp picks), sized to the world. Before the season ends
+/// the order is the clubs' current one.
+pub fn coming_slots(w: &World) -> Vec<(usize, u32)> {
+    if let Some(l) = &w.scouting.live {
+        return l.run.board.clone();
+    }
+    let year = super::public::draft_year(w);
+    let seed = w.options.seed as u64;
+    let order = if year == w.year { crate::world::nfl_year_order(w) } else { None };
+    let base: Vec<usize> = order
+        .unwrap_or_else(|| crate::world::franchise::active_teams(year))
+        .into_iter()
+        .filter(|&t| crate::world::franchise::active(t, year))
+        .collect();
+    let mut board = crate::world::franchise::draft_board(year, &base, w.options.scale, seed);
+    crate::world::pro::trades::board_owners(w, year, &mut board, &base);
+    board
+}

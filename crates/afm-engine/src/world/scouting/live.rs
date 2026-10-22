@@ -90,7 +90,8 @@ pub(crate) fn start(w: &mut World, run: &mut DraftRun) -> bool {
     let Some(team) = w.seat.filter(|s| s.level == crate::calendar::Level::Nfl).and_then(|s| s.nfl_team) else {
         return false;
     };
-    if !run.board.iter().any(|s| s.0 == team) && run.board.is_empty() {
+    // A club without a pick this year watches the draft on television.
+    if !run.board.iter().any(|s| s.0 == team) {
         return false;
     }
     let live = LiveDraft {
