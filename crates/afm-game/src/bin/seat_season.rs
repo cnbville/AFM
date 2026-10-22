@@ -136,8 +136,23 @@ fn resident_gb() -> f64 {
 
 /// The screens every stop opens, with no arguments (your own team).
 const SCREENS: &[&str] = &[
-    "status", "home", "inbox", "news", "calendar", "team", "roster", "schedule", "standings", "staff", "depth",
-    "training", "recruiting", "contracts", "games", "you", "card",
+    "status",
+    "home",
+    "inbox",
+    "news",
+    "calendar",
+    "team",
+    "roster",
+    "schedule",
+    "standings",
+    "staff",
+    "depth",
+    "training",
+    "recruiting",
+    "contracts",
+    "games",
+    "you",
+    "card",
 ];
 
 fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)]) {
@@ -230,8 +245,7 @@ fn main() {
         }
         let level = if seat == "hs" { "hs" } else { seat.as_str() };
         let jobs = run.call(&mut g, "jobs", json!({ "level": level })).unwrap_or(json!({}));
-        let Some(job) = jobs["jobs"].as_array().and_then(|a| a.get(a.len().min(3).saturating_sub(1))).cloned()
-        else {
+        let Some(job) = jobs["jobs"].as_array().and_then(|a| a.get(a.len().min(3).saturating_sub(1))).cloned() else {
             println!("{seat}: no jobs listed");
             total_errors += 1;
             continue;
@@ -301,7 +315,8 @@ fn main() {
             println!("  SLOW {s}");
         }
         total_errors += run.errors.len();
-        report.push(json!({ "seat": seat, "stops": stops, "calls": run.calls, "secs": secs, "longest_continue": longest,
+        report
+            .push(json!({ "seat": seat, "stops": stops, "calls": run.calls, "secs": secs, "longest_continue": longest,
             "peak_gb": peak, "errors": run.errors, "smells": run.smells, "slow": run.slow }));
     }
     if let Ok(p) = std::env::var("AFM_SEAT_OUT") {
