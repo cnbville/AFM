@@ -509,7 +509,11 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
             let their_wrs = rated(them, Position::WR, 3, Spot::WR);
             let our_cbs: Vec<f64> = rated(me, Position::CB, 2, Spot::CB).iter().map(|x| x.1).collect();
             let qb_run = them.depth.list(Position::QB).first().map_or(0.0, |&i| qb_run(&them.team.players[i]));
-            calling::make_plan(&me.team.staff, &their_cbs, &their_wrs, &our_cbs, qb_run, &mut prep)
+            // Their rushers on our pass blockers (A8).
+            let mut rushers = rated(them, Position::EDGE, 2, Spot::EDGE);
+            rushers.extend(rated(them, Position::DT, 2, Spot::DT));
+            let our_ol: Vec<f64> = rated(me, Position::OT, 2, Spot::LT).iter().map(|x| x.1).collect();
+            calling::make_plan(&me.team.staff, &their_cbs, &their_wrs, &our_cbs, qb_run, &rushers, &our_ol, &mut prep)
         })
         .collect();
     sides[0].mem.plan = plans[0];
@@ -2228,6 +2232,7 @@ impl<'a> Game<'a> {
             fooled,
             target_cb: self.sides[o].mem.plan.target_cb,
             bracket: self.sides[d].mem.plan.bracket,
+            help_on: self.sides[o].mem.plan.help_on,
             chem: self.sides[o].team.line_chem,
             novelty: self.sides[o].team.novelty[fam as usize],
             family: fam,
@@ -2287,7 +2292,9 @@ impl<'a> Game<'a> {
         // Fatigue (topic 6).
         for &(side, p, work) in &res.work {
             let team = if side == 0 { o } else { d };
-            let st = self.sides[team].team.players[p].a(Attr::Stamina);
+            // Lungs (Dynamic Links): five stamina points of wind.
+            let gp = &self.sides[team].team.players[p];
+            let st = gp.a(Attr::Stamina) + gp.links.edge(&[crate::links::Link::Lungs]);
             let wear = 1.0 + self.s.wear[team];
             self.sides[team].energy[p] = (self.sides[team].energy[p] - 0.041 * drain(st, work) * wear).max(0.25);
         }
@@ -2295,7 +2302,9 @@ impl<'a> Game<'a> {
             let on: Vec<usize> =
                 if t == o { off.iter().map(|x| x.1).collect() } else { def.iter().map(|x| x.1).collect() };
             for i in 0..self.sides[t].energy.len() {
-                let rec = self.pace * if on.contains(&i) { RECOVER_ON_FIELD } else { RECOVER_ON_BENCH };
+                // Lungs: he gets his wind back sooner (a full link a tenth faster).
+                let lungs = 1.0 + 0.1 * self.sides[t].team.players[i].links.share(&[crate::links::Link::Lungs]);
+                let rec = self.pace * lungs * if on.contains(&i) { RECOVER_ON_FIELD } else { RECOVER_ON_BENCH };
                 self.sides[t].energy[i] = (self.sides[t].energy[i] + rec).min(1.0);
             }
         }

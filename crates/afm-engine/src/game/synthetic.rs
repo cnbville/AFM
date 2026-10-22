@@ -45,7 +45,8 @@ fn nfl_offset(pos: Position) -> f64 {
     }
 }
 
-fn z_for(talent: f64) -> f64 {
+/// The talent draw (z) that gives a player this overall ceiling.
+pub fn z_for(talent: f64) -> f64 {
     let (mut lo, mut hi) = (-4.0, 6.0);
     for _ in 0..50 {
         let m = 0.5 * (lo + hi);
@@ -241,7 +242,11 @@ pub fn synthetic_league(level: Level, n: usize, seed: u32) -> Vec<GameTeam> {
     };
     (0..n)
         .map(|k| {
-            let q = rng.normal(0.0, 2.5);
+            // High school teams differ far more than college or pro ones (a
+            // powerhouse against a small town's team): real high school
+            // winners average a 26-point margin (MaxPreps, 5.2 million
+            // games). A team's quality spreads 6 points there (A7).
+            let q = rng.normal(0.0, if level == Level::HS { 6.0 } else { 2.5 });
             let s = *rng.pick(schemes);
             synthetic_team(&format!("Team {}", k + 1), level, q, s, seed.wrapping_add(k as u32 * 7919))
         })

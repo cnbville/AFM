@@ -136,15 +136,32 @@ fn game_day_from_the_morning_to_the_game_page() {
     let tapes = hub["tapes"].as_array().unwrap().clone();
     assert!(!tapes.is_empty(), "the opponent's film is in the film room: {}", hub["tapes"]);
     assert!(!hub["report"]["sections"].as_array().unwrap().is_empty(), "{}", hub["report"]);
-    let hub = ok(&mut g, "gameday_study", tapes[0]["key"].clone());
-    let studied = &hub["tapes"][0];
-    assert_eq!(studied["studied"], true);
-    let hints = studied["hints"].as_array().unwrap();
-    assert!(!hints.is_empty() && hints.len() <= 3, "{hints:?}");
-    // A hint the plan can act on ("for your eyes" ones only inform).
-    let Some(h) = hints.iter().find(|h| h["plan"] == true) else { panic!("no hint the plan answers: {hints:?}") };
-    let mut add = studied["key"].clone();
-    add["key"] = h["key"].clone();
+    // Study the tapes until one shows a hint the plan can act on ("for
+    // your eyes" ones only inform; which kinds a tape shows depends on what
+    // happened in that game).
+    let mut seen = Vec::new();
+    let mut pick = None;
+    for tape in &tapes {
+        let hub = ok(&mut g, "gameday_study", tape["key"].clone());
+        let studied = hub["tapes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|x| x["key"] == tape["key"])
+            .expect("the tape studied")
+            .clone();
+        assert_eq!(studied["studied"], true);
+        let hints = studied["hints"].as_array().unwrap();
+        assert!(!hints.is_empty() && hints.len() <= 3, "{hints:?}");
+        if let Some(h) = hints.iter().find(|h| h["plan"] == true) {
+            pick = Some((studied["key"].clone(), h["key"].clone()));
+            break;
+        }
+        seen.extend(hints.iter().cloned());
+    }
+    let Some((tape, hint)) = pick else { panic!("no hint the plan answers on {} tapes: {seen:?}", tapes.len()) };
+    let mut add = tape;
+    add["key"] = hint;
     add["add"] = json!(true);
     let hub = ok(&mut g, "gameday_hint", add);
     assert!(hub["finds"].as_array().unwrap().iter().any(|f| f["added"] == true), "{}", hub["finds"]);

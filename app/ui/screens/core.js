@@ -1206,6 +1206,13 @@ function measurablesHtml(p) {
   if (!p.measurables.length) return "";
   return `<div class="meas">${p.measurables.map((m) => `<div><b>${esc(m.value)}</b><small>${esc(m.label)}</small><em>${esc(m.at || "")}</em></div>`).join("")}</div>`;
 }
+// Dynamic Links: the physical gifts your staff sees, strongest first, each
+// named by its measured numbers (or a film guess) and where it helps.
+function linksHtml(p) {
+  if (!p.links || !p.links.length) return "";
+  const src = p.links.some((l) => !l.measured) ? "a read from film and his frame until he tests" : "measured";
+  return `<div class="panel"><h2>Dynamic Links <small>physical gifts your staff sees · ${esc(src)}</small></h2><div class="items">${p.links.map((l) => `<div class="item" title="${esc(l.edge)}"><span class="when"><span class="tag ${l.strength === "full" ? "gold" : "soft"}">${esc(l.strength)}</span></span><span><b>${esc(l.name)}</b> <small class="muted">${esc(l.numbers)}</small><br><small class="sub">${esc(l.edge)}</small></span></div>`).join("")}</div></div>`;
+}
 function readCard(p) {
   const pot = p.potential;
   const who = p.mine ? "Your position coach" : "Your scouts";
@@ -1223,6 +1230,7 @@ const PT = {
     return `<div class="grid2"><div class="panel">${readCard(p)}</div>
       <div class="panel"><h2>Five that matter at ${esc(p.pos)} <small>the mental side</small></h2>${p.key_mental.map((a) => `<div class="attr"><span>${esc(a.label)}</span>${range(a.read)}</div>`).join("") || '<div class="empty">Not seen.</div>'}</div></div>
       ${p.measurables.length ? `<div class="panel"><h2>Measurables <small>where each was taken</small></h2>${measurablesHtml(p)}</div>` : ""}
+      ${linksHtml(p)}
       <div class="grid2">${last ? `<div class="panel"><h2>Latest season <small>${esc(last.year)} · ${esc(last.level)}</small></h2><p class="bigline">${esc(last.line)}</p>${last.team ? `<p class="sub">${teamChip(last.team, 18)} · ${last.games} games</p>` : ""}</div>` : ""}${fit}</div>
       ${p.stories.length ? `<div class="panel"><h2>What happened</h2><div class="items">${p.stories.slice(0, 8).map((s) => `<div class="item story"><span>${rich(s)}</span></div>`).join("")}</div></div>` : ""}`;
   },

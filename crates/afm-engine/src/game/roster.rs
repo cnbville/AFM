@@ -51,6 +51,10 @@ pub struct GamePlayer {
     /// instructions to him.
     pub tend: crate::tendencies::Tendencies,
     pub orders: crate::tendencies::Orders,
+    /// His Dynamic Links today (`links.rs`): each a modest edge in its own
+    /// situations.
+    #[serde(default)]
+    pub links: crate::links::Links,
 }
 
 impl GamePlayer {
@@ -80,6 +84,7 @@ impl GamePlayer {
             spot_r: Spot::ALL.map(|s| spot_rating(s, &p.attributes, b.weight)),
             tend: p.tend,
             orders: Default::default(),
+            links: crate::links::measure(p.position, &b, &p.attributes, p.game.recovery),
         }
     }
 
