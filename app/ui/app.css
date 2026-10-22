@@ -117,7 +117,16 @@ a { color: inherit; }
     linear-gradient(180deg, #120d0a 0%, var(--ground) 70%);
   opacity: 0.9;
 }
-:root[data-theme="light"] .film::before { opacity: 0.18; }
+:root[data-theme="light"] .film::before {
+  opacity: 1;
+  background:
+    radial-gradient(60% 50% at 18% 0%, color-mix(in oklab, var(--accent) 14%, transparent) 0%, transparent 70%),
+    radial-gradient(50% 40% at 100% 10%, color-mix(in oklab, var(--accent-2) 9%, transparent) 0%, transparent 70%),
+    linear-gradient(180deg, #f8f4ef 0%, var(--ground) 70%);
+}
+/* Heroes stay dark in both themes: their glass buttons stay light. */
+:is(.hcar, .hero, .phero) .st-btn.glass { color: #fff; background: rgba(255, 255, 255, 0.14); }
+:is(.hcar, .hero, .phero) .st-btn.glass:hover { background: rgba(255, 255, 255, 0.24); }
 
 /* ---------- the dense table (screens topic 3) ---------- */
 .tbl { overflow: auto; border-radius: 18px; }

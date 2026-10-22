@@ -114,7 +114,7 @@ pub fn dashboard(w: &World) -> Value {
             "title": format!("{} {}", if home { "vs" } else { "at" }, opp["name"].as_str().unwrap_or("")),
             "sub": format!("{} · {}", g["date"].as_str().unwrap_or(""), g["name"].as_str().unwrap_or(if home { "Home" } else { "Away" })),
             "colors": opp["colors"],
-            "go": { "screen": "team", "args": opp["ref"] },
+            "go": { "screen": "team", "args": opp["ref"], "label": "Scout them" },
             "stat": rec,
             "stat_label": views::record_note(w, me),
         }));
@@ -131,7 +131,7 @@ pub fn dashboard(w: &World) -> Value {
             "title": format!("{} {us}, {} {them}", g.names[side], g.names[1 - side]),
             "sub": if us > them { "A win. The film is ready." } else if us < them { "A loss. The film is ready." } else { "A tie." },
             "colors": colors,
-            "go": { "screen": "game", "args": { "index": k } },
+            "go": { "screen": "game", "args": { "index": k }, "label": "Game page" },
             "stat": format!("{us}-{them}"),
             "stat_label": if us > them { "Won" } else { "Lost" },
         }));
@@ -161,7 +161,7 @@ pub fn dashboard(w: &World) -> Value {
                 "title": format!("{} commitments", class.len()),
                 "sub": format!("Average {stars:.2} stars"),
                 "colors": colors,
-                "go": { "screen": "recruiting", "args": {} },
+                "go": { "screen": "recruiting", "args": {}, "label": "Recruiting board" },
                 "stat": class.len(),
                 "stat_label": "Committed",
             }));
@@ -173,7 +173,7 @@ pub fn dashboard(w: &World) -> Value {
         "title": team_name,
         "sub": views::team_line(w, me),
         "colors": colors,
-        "go": { "screen": "team", "args": me.json() },
+        "go": { "screen": "team", "args": me.json(), "label": "Team page" },
         "stat": rec,
         "stat_label": views::record_note(w, me),
     }));
