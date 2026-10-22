@@ -29,6 +29,18 @@ page.on("response", async (r) => {
   } else if (r.status() >= 400) problems.push(`[${where}] ${r.status()} ${r.url()}`);
 });
 
+// Count the game's calls in flight, so a screenshot waits for its screen.
+await page.addInitScript(() => {
+  const f = window.fetch.bind(window);
+  window.__inflight = 0;
+  window.fetch = async (...a) => { window.__inflight++; try { return await f(...a); } finally { window.__inflight--; } };
+});
+const settle = async (ms = 150) => {
+  await page.waitForTimeout(ms);
+  await page.waitForFunction(() => (window.__inflight || 0) === 0, null, { timeout: 20000 }).catch(() => {});
+  await page.waitForTimeout(150);
+};
+
 const api = (cmd, args = {}) => page.evaluate(async ([c, a]) => {
   const r = await fetch("/api/" + c, { method: "POST", body: JSON.stringify(a) });
   return r.json();
@@ -48,6 +60,16 @@ if (r.err) { console.log("start_career:", r.err); process.exit(2); }
 await page.evaluate(() => (typeof enterCareer === "function" ? enterCareer() : null));
 await page.waitForTimeout(1200);
 
+// Big moments and open letters cover the page: close them first.
+const clear = async () => {
+  for (let k = 0; k < 6; k++) {
+    const b = await page.$("[data-act=revealnext], [data-act=revealclose], [data-act=letterclose], .reveal-room button");
+    if (!b) break;
+    await b.click({ timeout: 2000 }).catch(() => {});
+    await page.waitForTimeout(300);
+  }
+  await page.keyboard.press("Escape").catch(() => {});
+};
 const shot = async (name) => {
   const f = `${out}/${seat}-${name.replace(/[^a-z0-9_-]+/gi, "_")}.png`;
   await page.screenshot({ path: f, fullPage: false });
@@ -55,14 +77,16 @@ const shot = async (name) => {
 const linksPer = Number(process.env.AFM_LINKS || 6);
 const seen = new Set();
 for (let round = 0; round < rounds; round++) {
-  const nav = await page.$$eval("aside [data-go], nav [data-go]", (els) =>
-    [...new Set(els.map((e) => e.getAttribute("data-go")))]);
+  const nav = await page.$$eval("aside.side [data-go], aside.side [data-nav]", (els) =>
+    [...new Set(els.map((e) => e.getAttribute("data-nav") || e.getAttribute("data-go")))]);
   for (const screen of nav) {
     where = `r${round}:${screen}`;
-    const el = await page.$(`aside [data-go="${screen}"], nav [data-go="${screen}"]`);
+    await clear();
+    const el = await page.$(`aside.side [data-nav="${screen}"], aside.side [data-go="${screen}"]`);
     if (!el) continue;
-    await el.click().catch((e) => problems.push(`[${where}] click: ${e.message}`));
-    await page.waitForTimeout(700);
+    await clear();
+    await el.click({ timeout: 5000 }).catch((e) => problems.push(`[${where}] click: ${e.message.split("\n")[0]}`));
+    await settle(300);
     if (!seen.has(screen)) { await shot(`${screen}`); seen.add(screen); }
     // Follow a few links on the screen, then come back.
     const n = await page.$$eval(".view [data-go], main [data-go]", (els) => els.length).catch(() => 0);
@@ -72,12 +96,15 @@ for (let round = 0; round < rounds; round++) {
       if (!pick) break;
       const go = await pick.getAttribute("data-go");
       where = `r${round}:${screen}>${go}`;
+      await clear();
       await pick.click({ timeout: 3000 }).catch(() => {});
-      await page.waitForTimeout(500);
+      await settle(200);
       if (!seen.has(go)) { await shot(go); seen.add(go); }
-      await page.goBack().catch(() => {});
-      await page.evaluate(() => (typeof goBack === "function" ? goBack() : null)).catch(() => {});
-      await page.waitForTimeout(300);
+      // The game's own Back (the browser's would leave the app).
+      await clear();
+      const back = await page.$("[data-act=back]");
+      if (back) await back.click({ timeout: 2000 }).catch(() => {});
+      await settle(100);
     }
   }
   // Continue (space bar) a few times between rounds.
@@ -91,6 +118,7 @@ for (let round = 0; round < rounds; round++) {
     const close = await page.$(".st-dialog button, dialog button");
     if (close) await close.click().catch(() => {});
   }
+  await clear();
   await shot(`after-continue-${round}`);
 }
 await browser.close();
