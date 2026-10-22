@@ -298,8 +298,29 @@ fn main() {
             run.errors.push("no game of yours was played in the run, so save and load was not tested".into());
         }
         let secs = t.elapsed().as_secs_f64();
+        // Your games in the run and how they went: a season with too few
+        // games is a bug the call checks alone don't see.
+        let (games, won, lost) = g.world.as_ref().map_or((0, 0, 0), |w| {
+            let Some((_, me)) = w.seat_team() else { return (0, 0, 0) };
+            let mine: Vec<_> = w.seat_games().iter().filter(|x| x.date.0 >= begin.0).collect();
+            let won = mine
+                .iter()
+                .filter(|x| {
+                    let side = usize::from(x.teams[1] == me);
+                    x.stats.score[side] > x.stats.score[1 - side]
+                })
+                .count();
+            let lost = mine
+                .iter()
+                .filter(|x| {
+                    let side = usize::from(x.teams[1] == me);
+                    x.stats.score[side] < x.stats.score[1 - side]
+                })
+                .count();
+            (mine.len(), won, lost)
+        });
         println!(
-            "\n== {seat}: {} at {}: {stops} stops, {} calls, {secs:.0}s, longest Continue {longest:.1}s, resident peak {peak:.2} GB",
+            "\n== {seat}: {} at {}: {stops} stops, {} calls, {secs:.0}s, longest Continue {longest:.1}s, resident peak {peak:.2} GB; your games {games} ({won}-{lost})",
             job["name"].as_str().unwrap_or("?"),
             jobs["level"].as_str().unwrap_or(level),
             run.calls
@@ -318,7 +339,7 @@ fn main() {
         total_errors += run.errors.len();
         report
             .push(json!({ "seat": seat, "stops": stops, "calls": run.calls, "secs": secs, "longest_continue": longest,
-            "peak_gb": peak, "errors": run.errors, "smells": run.smells, "slow": run.slow }));
+            "peak_gb": peak, "games": games, "won": won, "lost": lost, "errors": run.errors, "smells": run.smells, "slow": run.slow }));
     }
     if let Ok(p) = std::env::var("AFM_SEAT_OUT") {
         let _ = std::fs::write(p, serde_json::to_string_pretty(&report).unwrap_or_default());

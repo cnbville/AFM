@@ -1652,6 +1652,7 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
         "mine": own,
         "home": hometown(w, p),
         "high_school": w.high_schools.get(p.hs).map(|s| w.school_name(s.id).to_string()),
+        "high_school_id": w.high_schools.get(p.hs).map(|_| p.hs),
         "ht": ft_in(p.player.body.height),
         "wt": p.player.body.weight.round(),
         "arm": p.player.body.arm,
