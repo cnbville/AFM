@@ -228,7 +228,7 @@ pub fn drawn_staff(w: &World, team: Team) -> Vec<Drawn> {
                 let title = match k {
                     0 => "Offensive coordinator".to_string(),
                     1 => "Defensive coordinator".to_string(),
-                    _ => format!("{}", Group::ALL[(k + 1) % 7].coach_title().replace(" coach", " coach").to_string()),
+                    _ => Group::ALL[(k + 1) % 7].coach_title().to_string(),
                 };
                 let subj = SUBJ[(super::roll(w, key, 9) * SUBJ.len() as f64) as usize % SUBJ.len()].to_string();
                 v.push(draw_person(w, key, &title, 2_500.0 + 3_500.0 * s.resources, Some(subj)));
@@ -632,7 +632,7 @@ fn interview_answer(w: &mut World, s: &mut Scene, code: u32) {
             (62, "Ask where he recruits"),
             (63, "Ask what he wants"),
         ];
-        for (code2, label) in all.iter().skip(0) {
+        for (code2, label) in all.iter() {
             if *code2 != code && s.picks.iter().all(|p| p.code != *code2) && used < 3 {
                 s.pick(*code2, *label, "Ask", "calm", "");
             }
@@ -651,13 +651,7 @@ pub fn offer(w: &mut World, c: usize, role: Role, salary: f64, years: i32) -> Re
     }
     let co = w.coaches.get(c).ok_or("No such coach.")?.clone();
     let emp = team.employer();
-    let now = w
-        .folk
-        .staff
-        .deal(c)
-        .map_or(if co.job.is_some() { pay(w, co.job.unwrap().employer, co.job.unwrap().role) } else { 0.0 }, |d| {
-            d.salary
-        });
+    let now = w.folk.staff.deal(c).map_or(co.job.map_or(0.0, |j| pay(w, j.employer, j.role)), |d| d.salary);
     let same_level = co.job.is_some_and(|j| std::mem::discriminant(&j.employer) == std::mem::discriminant(&emp));
     let step = co.job.map_or(1.0, |j| match (j.role, role) {
         (Role::PositionCoach(_), Role::OffensiveCoordinator | Role::DefensiveCoordinator) => 1.0,

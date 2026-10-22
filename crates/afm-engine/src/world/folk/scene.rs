@@ -239,7 +239,7 @@ pub fn add(w: &mut World, mut s: Scene) -> u32 {
     s.team = s.team.or(Team::seat(w));
     let id = s.id;
     if s.stops {
-        let text = format!("{}: {}", s.kind.name(), super::plain(&s.title));
+        let text = cal_text(&s);
         super::post_mine(w, s.date, Loudness::Medium, true, "people: meeting", &text);
     }
     super::letters::for_scene(w, &s);
@@ -255,10 +255,26 @@ pub fn add(w: &mut World, mut s: Scene) -> u32 {
     id
 }
 
+/// A scene's line on the calendar: its title, after the kind of meeting
+/// when the title alone doesn't say it ("Team meeting: Your first athletics
+/// period", but "The trainer's report" alone).
+fn cal_text(s: &Scene) -> String {
+    let title = super::plain(&s.title);
+    let kind = s.kind.name();
+    let last = kind.rsplit(' ').next().unwrap_or(kind).trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase();
+    if title.is_empty() {
+        kind.to_string()
+    } else if title.to_lowercase().contains(&last) {
+        title
+    } else {
+        format!("{kind}: {title}")
+    }
+}
+
 /// Clears the calendar's "waiting on you" mark for a scene once it is held
 /// or handed.
 fn clear_mark(w: &mut World, s: &Scene) {
-    let text = super::plain(&format!("{}: {}", s.kind.name(), s.title));
+    let text = cal_text(s);
     if let Some(list) = w.calendar.events.get_mut(&s.date) {
         for e in list.iter_mut().filter(|e| e.needs_decision && e.text == text) {
             e.needs_decision = false;
@@ -354,11 +370,7 @@ pub fn due(w: &World, d: Date) -> Option<String> {
     }
     let first = w.folk.scenes.iter().find(|s| !s.done && s.stops && s.date == d)?;
     let title = super::plain(&first.title);
-    Some(if n == 1 {
-        format!("{}: {title}", first.kind.name())
-    } else {
-        format!("{} meetings today, starting with {title}", n)
-    })
+    Some(if n == 1 { cal_text(first) } else { format!("{} meetings today, starting with {title}", n) })
 }
 
 /// The end of a day: a meeting you didn't hold is handed to your staff; a

@@ -60,7 +60,7 @@ screens.people = async (a) => {
   const list = PP_TABS_ALL.filter((t) => t !== "Takeover" || x.takeover);
   const tab = tabOf("pptab", list, a);
   title("People", tab);
-  const waiting = x.waiting.length;
+  const waiting = x.waiting.filter((s) => s.today || s.late).length;
   const tabList = list.map((t) => (t === "Agenda" && waiting ? { name: t, badge: waiting } : t));
   let body = "";
   if (tab === "Agenda") body = ppAgenda(x);
@@ -81,9 +81,12 @@ screens.people = async (a) => {
 GOTO.people = () => [["Staff office", "people_staff"], ["Squad", "roster"], ["Inbox", "inbox", { key: "Your people" }], ["Calendar", "calendar"], ["Your profile", "you"]];
 
 function ppAgenda(x) {
-  const waiting = x.waiting.length
-    ? `<div class="pp-cards">${x.waiting.map((s) => ppSceneCard(s)).join("")}</div>`
-    : '<div class="empty">Nothing is waiting for you. Your door is open: talk to a player from his page, or call a team talk.</div>';
+  const now = x.waiting.filter((s) => s.today || s.late);
+  const ahead = x.waiting.filter((s) => !s.today && !s.late);
+  const waiting = now.length
+    ? `<div class="pp-cards">${now.map((s) => ppSceneCard(s)).join("")}</div>`
+    : '<div class="empty">Nothing is waiting for you today. Your door is open: talk to a player from his page, or call a team talk.</div>';
+  const later = ahead.length ? `<section class="panel"><h2>On the calendar <small>${ahead.length} set</small></h2><div class="pp-cards slim">${ahead.map((s) => ppSceneCard(s)).join("")}</div></section>` : "";
   const recent = x.recent.length ? `<div class="pp-cards slim">${x.recent.map((s) => ppSceneCard(s, { noActs: true })).join("")}</div>` : '<div class="empty">No meetings yet.</div>';
   const goals = x.goals.length
     ? `<div class="items">${x.goals.map((g) => `<div class="item"><span class="when">${g.season}</span><span>${esc(g.words)} ${g.met === true ? '<span class="tag gold">Met</span>' : g.met === false ? '<span class="tag due">Missed</span>' : ""}</span></div>`).join("")}</div>`
@@ -94,7 +97,7 @@ function ppAgenda(x) {
   const due = x.due.length ? `<div class="items">${x.due.map((d) => `<div class="item"><span class="when">${esc(d.date)}</span><span>${rich(d.text)}</span></div>`).join("")}</div>` : '<div class="empty">Nothing dated ahead.</div>';
   const log = x.log.length ? `<div class="items">${x.log.map((e) => `<div class="item"><span class="when">${esc(e.date || "")}</span><span><b>${rich(e.source)}</b> ${rich(e.text)}</span></div>`).join("")}</div>` : '<div class="empty">Nothing said yet.</div>';
   return `<div class="grid2">
-    <div class="col"><section class="panel"><h2>Waiting for you <small>${x.waiting.length}</small></h2>${waiting}</section>
+    <div class="col"><section class="panel"><h2>Waiting for you <small>${now.length || ""}</small></h2>${waiting}</section>${later}
       <section class="panel"><h2>Lately <small>what came of it</small></h2>${recent}</section></div>
     <div class="col">
       <section class="panel"><h2>Your boss <small>${esc(x.boss.title)}</small></h2><p class="bigline">${rich(x.boss.link)}</p><p class="muted">${esc(x.boss.words)}</p>${goals}<div class="pp-acts"><button class="st-btn small glass" data-act="ppbossmeet">Ask for a meeting</button><a class="link small" data-act="pptabgo" data-t="Boss">The full file</a></div></section>
@@ -129,7 +132,7 @@ async function ppRoom() {
     { k: "pos", t: "Pos" },
     { k: "age", t: "Age" },
     { k: "mood", t: "Mood", l: true, f: (x) => `${ppMoodDot(x.mood)} ${esc(x.moodWords)}`, v: (x) => x.mood },
-    { k: "why", t: "What your staff hears", l: true, wrap: true },
+    { k: "why", t: "What your staff hears", l: true, wrap: true, f: (x) => esc(ppCap(x.why)) },
     { k: "trust", t: "Trust in you", l: true, f: (x) => (x.trust == null ? '<span class="muted">Not yet</span>' : esc(ppTrust(x.trust))), v: (x) => x.trust ?? -1 },
     { k: "friends", t: "Close friends", tip: "Close friends on the roster" },
     { k: "line", t: "Your line to his coach", l: true, f: (x) => esc(x.line ? ppCap(x.line) : "") },
@@ -400,7 +403,7 @@ Object.assign(CORE_MORE, {
   ppopen: (el, ev) => { if (ev && ev.target.closest("[data-act]") !== el) return; go("people_scene", { id: Number(el.dataset.id) }); },
   pphand: async (el, ev) => {
     if (ev) ev.stopPropagation();
-    try { await api("people_hand", { id: Number(el.dataset.id) }); toast("Handed to your staff."); if (S.route.screen === "people_scene") refresh(); else refresh(el); } catch (e) { toast(e.message); }
+    try { await api("people_hand", { id: Number(el.dataset.id) }); S.status = await api("status"); toast("Handed to your staff."); if (S.route.screen === "people_scene") refresh(); else refresh(el); } catch (e) { toast(e.message); }
   },
   pppick: (el) => { const st = keep("ppscene:" + el.dataset.id, {}); st.pick = Number(el.dataset.code); st.tone = el.dataset.tone; refresh(el); },
   ppunpick: (el) => { const st = keep("ppscene:" + el.dataset.id, {}); st.pick = null; st.tone = null; refresh(el); },
@@ -408,7 +411,15 @@ Object.assign(CORE_MORE, {
   ppsay: async (el) => {
     const id = Number(el.dataset.id);
     el.disabled = true;
-    try { await api("people_answer", { id, code: Number(el.dataset.code) }); const st = keep("ppscene:" + id, {}); st.pick = null; st.tone = null; refresh(el); } catch (e) { toast(e.message); el.disabled = false; }
+    try {
+      const r = await api("people_answer", { id, code: Number(el.dataset.code) });
+      const st = keep("ppscene:" + id, {});
+      st.pick = null;
+      st.tone = null;
+      // A finished meeting leaves the pins under Continue.
+      if (r.done) S.status = await api("status");
+      refresh(el);
+    } catch (e) { toast(e.message); el.disabled = false; }
   },
   ppsidetab: (el) => { keep("ppside", { t: "Now" }).t = el.dataset.v; refresh(el); },
   pptabgo: (el) => { keep("pptab", {}).t = el.dataset.t; go("people", { tab: el.dataset.t }, false); },

@@ -325,7 +325,23 @@ fn scene(w: &mut World, id: u32) -> Reply {
     } else {
         json!(s.lines)
     };
-    v["picks"] = json!(s.picks);
+    // A move's name speaks to whoever is across from you: "Tell them
+    // straight" to the team, "Tell her straight" to the principal.
+    let them = match s.who.first() {
+        Some(Who::Group(_)) | None => "them",
+        Some(Who::Cast(tok)) if cast::from_token(w, tok).is_some_and(|c| c.she) => "her",
+        _ => "him",
+    };
+    let picks: Vec<Value> = s
+        .picks
+        .iter()
+        .map(|p| {
+            let mut v = json!(p);
+            v["mv"] = json!(p.mv.replace(" him ", &format!(" {them} ")));
+            v
+        })
+        .collect();
+    v["picks"] = json!(picks);
     v["docs"] = json!(s.docs);
     v["step"] = json!(s.step);
     v["hours"] = json!(talks::hours_left(w));

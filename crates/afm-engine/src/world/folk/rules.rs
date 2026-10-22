@@ -322,7 +322,7 @@ fn risk(w: &World, i: usize, book: &Rulebook, room: f32, base: f32) -> f32 {
     let warned = w.folk.rules.warned.iter().any(|x| x.0 == p.player.id && x.1.days_to(w.today) < 60);
     let age = p.player.age as f32;
     let f = (1.0 - 0.55 * z(Trait::Professionalism) + 0.25 * z(Trait::Temper) + 0.15 * z(Trait::Ego)
-        - 0.35 * p.mood.min(0.0) * -1.0
+        - 0.35 * p.mood.min(0.0)
         + 0.25 * (p.mood < -0.3) as u8 as f32
         - 0.2 * room)
         .clamp(0.2, 3.0)
@@ -1113,11 +1113,11 @@ fn league_week(w: &mut World, d: Date) {
     }
     for f in entries {
         let Some(i) = super::person(w, f.id) else { continue };
-        if f.level == Level::Nfl {
-            if let Some(c) = w.people[i].pro.as_mut() {
-                c.earnings = (c.earnings - f.amount as f64 / 1.0e6).max(0.0);
-                c.suspended += f.games as u32;
-            }
+        if f.level == Level::Nfl
+            && let Some(c) = w.people[i].pro.as_mut()
+        {
+            c.earnings = (c.earnings - f.amount as f64 / 1.0e6).max(0.0);
+            c.suspended += f.games as u32;
         }
         if f.level == Level::HighSchool
             && f.games > 0

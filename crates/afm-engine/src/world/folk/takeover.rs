@@ -174,15 +174,24 @@ fn first_impressions(w: &mut World, team: Team, old: Option<usize>, fit: f32) {
         let tie = tie_to_old(w, i, old);
         let p = &mut w.people[i];
         let loyal = p.player.personality.traits.get(Trait::Loyalty) as f32;
+        let ego = p.player.personality.traits.get(Trait::Ego) as f32;
         p.trust_in = you;
-        p.trust = (0.5 + 0.12 * fit - tie * (0.12 + 0.012 * (loyal - 10.0))).clamp(0.15, 0.85);
+        // Most of a room waits to see; the old coach's loyal men and the
+        // big egos start further back, a big name a little ahead.
+        p.trust = (0.5 + 0.05 * fit - tie * (0.1 + 0.01 * (loyal - 10.0)) - 0.004 * (ego - 10.0)).clamp(0.15, 0.85);
     }
-    // The people around the team.
+    // The people around the team. The boss who hired you backs his hire
+    // at the start (a reach of a hire leaves him waiting to see).
+    let hirer = super::boss::boss(w, team).key();
     for role in roles_around(team) {
         for c in cast::all(w, team, role) {
             let loyal = c.booster.as_ref().map_or(0.3, |b| b.loyal_old) as f32;
             let warm = Cast::z(c.warmth) as f32;
-            let t = 0.5 + 0.15 * fit - 0.18 * loyal * old.is_some() as u8 as f32 + 0.06 * warm;
+            let t = if c.key() == hirer {
+                0.56 + 0.08 * fit + 0.04 * warm
+            } else {
+                0.5 + 0.15 * fit - 0.18 * loyal * old.is_some() as u8 as f32 + 0.06 * warm
+            };
             w.folk.mine.set_trust(c.key(), t);
         }
     }
@@ -806,7 +815,7 @@ pub(crate) fn team_effect(w: &mut World, team: Team, msg: Message, tone: Tone, w
         let noise = (super::roll(w, 0x7E4E, p.player.id as u64 ^ today.0 as u64) as f32 - 0.5) * 0.04;
         let dt = (d as f32 + noise) * weight;
         let lean_f = if msg == Message::Purge && (tie > 0.35 || z(Trait::Professionalism) < -0.2) {
-            1.25 + 0.4 * tie as f64
+            1.25 + 0.4 * tie
         } else if dt > 0.03 {
             0.95
         } else if dt < -0.03 {
@@ -1029,7 +1038,7 @@ fn holdover_open(w: &mut World, s: &mut Scene, team: Team) {
     s.them(
         &name,
         if pitch.is_empty() {
-            format!("I know these kids, Coach. I'd like the chance to keep coaching them.")
+            "I know these kids, Coach. I'd like the chance to keep coaching them.".to_string()
         } else {
             pitch
         },
@@ -2636,7 +2645,7 @@ fn parents_open(w: &mut World, s: &mut Scene, team: Team) {
         s.them(
             &format!("{}'s father", kid),
             if line.is_empty() {
-                format!("My son started two years for the last coach. Is that going to change?")
+                "My son started two years for the last coach. Is that going to change?".to_string()
             } else {
                 line
             },

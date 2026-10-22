@@ -608,15 +608,13 @@ pub fn get(w: &World, r: CastRef) -> Cast {
                 age = (year - d.born).max(30) as u32;
             }
         }
-        (Team::Nfl(t), Role::OwnerKin) => {
-            // The heir carries the family name; a partner is his own man.
-            if r.slot == 0 {
-                let owner = get(w, CastRef::new(Team::Nfl(t), Role::Owner, 0));
-                let first_name = name.split_whitespace().next().unwrap_or("Sam").to_string();
-                name = format!("{first_name} {}", owner.last());
-                eth = owner.eth;
-                age = (owner.age as i32 - 28 + rng.int(0, 6)).max(28) as u32;
-            }
+        // The heir carries the family name; a partner is his own man.
+        (Team::Nfl(t), Role::OwnerKin) if r.slot == 0 => {
+            let owner = get(w, CastRef::new(Team::Nfl(t), Role::Owner, 0));
+            let first_name = name.split_whitespace().next().unwrap_or("Sam").to_string();
+            name = format!("{first_name} {}", owner.last());
+            eth = owner.eth;
+            age = (owner.age as i32 - 28 + rng.int(0, 6)).max(28) as u32;
         }
         _ => {}
     }

@@ -246,6 +246,10 @@ impl Mine {
     }
 }
 
+/// One dated mood reason: the day, the reason's code and its size in
+/// hundredths.
+pub type MoodNote = (Date, u8, i8);
+
 /// The people store (one per world).
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
@@ -274,7 +278,7 @@ pub struct Folk {
     pub courts: courts::Courts,
     pub discipline: rules::LeagueBook,
     /// Your players' dated mood reasons this season (topic 3), by player id.
-    pub moods: Vec<(u32, Vec<(Date, u8, i8)>)>,
+    pub moods: Vec<(u32, Vec<MoodNote>)>,
     /// Your hire's coaching-change window (T-B): program, opens, closes.
     pub window: Option<(usize, Date, Date)>,
     /// While the window opens: the portal runs for this program alone.

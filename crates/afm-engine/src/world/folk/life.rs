@@ -446,15 +446,15 @@ fn opinion_open(w: &mut World, s: &mut Scene) {
     let team = s.team.unwrap_or(Team::College(0));
     let trainer = super::cast::get(w, super::cast::CastRef::new(team, super::cast::Role::Trainer, 0));
     s.who.push(Who::Cast(trainer.r.token()));
+    let estimate = if weeks > 0 {
+        format!("The team's estimate is {weeks} weeks.")
+    } else {
+        "The team's doctors want him to have the surgery now.".into()
+    };
     s.narrate(format!(
-        "{} has the scans. {} {}",
+        "{} has the scans. {estimate} {who} wants an outside specialist to look at {} first.",
         trainer.link(),
-        if weeks > 0 {
-            format!("The team's estimate is {weeks} weeks.")
-        } else {
-            "The team's doctors want him to have the surgery now.".into()
-        },
-        format!("{who} wants an outside specialist to look at {} first.", player_link(w, i))
+        player_link(w, i)
     ));
     s.them(&trainer.name, "Our doctors are as good as anyone's. But if it buys his trust, I won't fight it.", None);
     s.pick(
@@ -715,10 +715,7 @@ fn home_week(w: &mut World, d: Date) {
             let age = w.year - born;
             (
                 format!("{name}'s big night"),
-                format!(
-                    "{name} ({age}) has a game of {} own on Friday night: the night before your game.",
-                    if age >= 14 { "their" } else { "their" }
-                ),
+                format!("{name} ({age}) has a game of {} own on Friday night: the night before your game.", "their"),
             )
         }
         None => ("Your anniversary".to_string(), "Your anniversary is Friday, the night before the game.".to_string()),

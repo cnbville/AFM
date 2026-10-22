@@ -125,7 +125,7 @@ pub(crate) fn for_scene(w: &mut World, s: &Scene) {
         Kind::ParentCall => {
             let name = player.and_then(|id| super::person(w, id)).map(|i| {
                 let n = &w.people[i].name;
-                let last = n.split_whitespace().filter(|x| !matches!(*x, "Jr." | "II" | "III" | "IV")).last().unwrap_or(n);
+                let last = n.split_whitespace().rfind(|x| !matches!(*x, "Jr." | "II" | "III" | "IV")).unwrap_or(n);
                 format!("The {last} family")
             });
             (

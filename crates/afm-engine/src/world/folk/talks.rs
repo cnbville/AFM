@@ -218,10 +218,10 @@ pub fn promise(w: &mut World, to: PromiseTo, kind: PromiseKind, seasons: u8) {
     };
     w.folk.promises.retain(|p| !(p.to == to && p.kind == kind && p.kept.is_none()));
     w.folk.promises.push(Promise { to, kind, made: today, due, public: false, kept: None, who });
-    if w.folk.promises.len() > 120 {
-        if let Some(k) = w.folk.promises.iter().position(|p| p.kept.is_some()) {
-            w.folk.promises.remove(k);
-        }
+    if w.folk.promises.len() > 120
+        && let Some(k) = w.folk.promises.iter().position(|p| p.kept.is_some())
+    {
+        w.folk.promises.remove(k);
     }
 }
 
