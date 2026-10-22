@@ -328,6 +328,11 @@ function crumbHtml() {
     if (r.root) break;
   }
   const label = (r) => esc(r.title || CRUMBS[r.screen] || r.screen);
+  // A page opened from itself, or twice in a row, shows once.
+  const key = (r) => r.screen + JSON.stringify(r.args || {});
+  for (let i = trail.length - 1; i >= 0; i--) {
+    if (key(trail[i].r) === key(S.route) || (i > 0 && key(trail[i].r) === key(trail[i - 1].r))) trail.splice(i, 1);
+  }
   const steps = trail.map((t) => `<a class="link" data-act="crumb" data-n="${t.n}">${label(t.r)}</a>`);
   steps.push(`<b>${label({ ...S.route, title: S.title })}</b>`);
   return steps.join('<span class="sep">›</span>');

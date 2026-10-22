@@ -713,7 +713,8 @@ pub fn peek(w: &World, args: &Value) -> Result<Value, String> {
                 json!({ "kind": "coach", "id": c, "name": v["name"], "age": v["age"], "reputation": v["reputation"], "job": v["job"], "titles": v["titles"], "came_up": v["came_up"] }),
             )
         }
-        "team" => {
+        // A team's hover card comes asked by the team's own kind.
+        "team" | "nfl" | "college" | "hs" => {
             let t = TeamRef::from_args(w, args)?;
             let mut v = views::team_brief(w, t);
             v["kind"] = json!("team");

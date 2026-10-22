@@ -381,7 +381,11 @@ pub(crate) fn role_words(r: PlayingTime) -> &'static str {
 }
 
 pub(crate) fn person_index(w: &World, id: u32) -> Option<usize> {
-    w.people.iter().position(|p| p.player.id == id)
+    // People are kept in id order: ids are handed out in turn
+    // (`next_person`) and people are only ever appended or retained, so a
+    // binary search finds anyone at once (a scan took seconds on a full
+    // world's leaderboards).
+    w.people.binary_search_by_key(&id, |p| p.player.id).ok()
 }
 
 pub(crate) fn ft_in(inches: f64) -> String {

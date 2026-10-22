@@ -527,7 +527,7 @@ document.addEventListener("mouseover", (ev) => {
     let x = PEEK.cache.get(ck);
     if (!x) {
       try {
-        x = await api("peek", k.kind === "team" ? { kind: "team", ...{ kind: k.tkind, id: Number(k.id) } } : { kind: k.kind, id: Number(k.id) });
+        x = await api("peek", k.kind === "team" ? { kind: k.tkind, id: Number(k.id) } : { kind: k.kind, id: Number(k.id) });
         if (k.kind === "team") x.kind = "team";
         PEEK.cache.set(ck, x);
       } catch (e) { return; }
@@ -740,7 +740,7 @@ function letterHtml(m) {
     : "";
   const formal = !["email", "memo", "paper"].includes(m.head);
   const body = paper
-    ? `<div class="clips">${m.body.map((l, i) => (i === 0 ? `<p class="clip-intro">${rich(l)}</p>` : `<article class="clip"><span class="clip-src">${esc(m.org)}</span><p>${rich(l)}</p></article>`)).join("")}</div>`
+    ? `<div class="clips">${m.body.map((l, i) => (i === 0 ? `<p class="clip-intro">${rich(l)}</p>` : `<article class="clip"><p>${rich(l)}</p></article>`)).join("")}</div>`
     : m.body.map((l) => `<p>${rich(l)}</p>`).join("");
   const sign = m.head === "paper" ? `<p class="lt-sign small muted">${esc(m.sign || "")}</p>` : `<div class="lt-sign">${m.sign ? `<p>${esc(m.sign)}</p>` : ""}${m.head === "email" ? "" : `<p class="sig">${esc(m.from)}</p><small>${esc(m.role)}</small>`}</div>`;
   return `<div class="lt-paper head-${m.head}">${letterHead(m)}${formal ? `<div class="lt-to"><small>To</small> ${esc(m.to)}</div><div class="lt-subject">${esc(m.subject)}</div>` : m.head === "paper" ? `<div class="lt-subject paper">${esc(m.subject)}</div>` : ""}<div class="lt-body">${body}${tableHtml}</div>${sign}${m.attach && m.attach.length ? `<div class="lt-attach">${m.attach.map((a) => `<span class="att">${icon("note")}${esc(a)}</span>`).join("")}</div>` : ""}</div>`;

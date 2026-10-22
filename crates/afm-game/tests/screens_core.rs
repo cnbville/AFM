@@ -36,6 +36,9 @@ fn the_desk_files_answers_and_clears_its_mail() {
     // Saved mail survives the 30-day clearing; the rest goes.
     ok(&mut g, "mail_set", json!({ "id": id, "saved": true }));
     ok(&mut g, "holiday", json!({ "days": 45 }));
+    // Every page finds people by binary search on their id (`person_index`).
+    let w = g.world.as_ref().unwrap();
+    assert!(w.people.windows(2).all(|p| p[0].player.id < p[1].player.id), "people stay in id order");
     let mail = ok(&mut g, "mail", json!({}));
     let rows = mail["rows"].as_array().unwrap();
     assert!(rows.iter().any(|r| r["id"] == id.as_str()), "the saved welcome letter stays");
