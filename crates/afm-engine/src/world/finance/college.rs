@@ -89,6 +89,7 @@ pub struct Season {
 
 /// One athletic department.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct Dept {
     pub years: Vec<Book<N>>,
     pub seasons: Vec<Season>,
@@ -115,6 +116,8 @@ pub struct Dept {
     pub home_games: u8,
     pub sellouts: u8,
     pub attendance: u32,
+    /// The money year you last asked the athletic director for a facility.
+    pub asked: i32,
 }
 
 impl Dept {
@@ -1263,7 +1266,7 @@ pub fn ask_facility(w: &mut World, p: usize) -> Result<String, String> {
     if w.finance.projects.iter().any(|x| x.owner == Owner::College(p) && !x.done) {
         return Err("A project is already under way.".into());
     }
-    if w.finance.projects.iter().any(|x| x.owner == Owner::College(p) && x.asked && x.started == year) {
+    if w.finance.college.get(p).is_some_and(|d| d.asked == year) {
         return Err("You asked this year already.".into());
     }
     let prog = &w.programs[p];
@@ -1279,20 +1282,7 @@ pub fn ask_facility(w: &mut World, p: usize) -> Result<String, String> {
     let name = prog.name(w.options.names).to_string();
     if draw(w, 0xA5C0, p as u64, year) >= yes {
         // Remember the ask, so it can't be asked again this year.
-        w.finance.projects.push(Project {
-            owner: Owner::College(p),
-            kind: ProjectKind::Facility,
-            name: "(turned down)".into(),
-            cost: 0.0,
-            public: 0.0,
-            pledged: 0.0,
-            started: year,
-            opens: year,
-            capacity: 0,
-            step: 0.0,
-            done: true,
-            asked: true,
-        });
+        w.finance.college[p].asked = year;
         let why = if reserves < 0.0 {
             "The department ran in the red last year."
         } else if wp < 0.45 {

@@ -2,10 +2,11 @@
 //! football budget on a real school's lines (the district's allocation and
 //! the coaches' stipends, the gate, the state association's playoff share,
 //! pay-to-play fees where a state allows them, the booster club), kept for
-//! this year and the last. At your own school the booster club's account
-//! is yours: fundraisers fill it, purchases spend it, the equipment budget
-//! comes from the district and helmets follow the real rules (reconditioned
-//! and recertified every two years, retired at ten).
+//! this year and the last. At your own school you run part of it: the
+//! fundraisers you organise fill the booster club's account (the club
+//! itself, its president and its year are the front office's school desk),
+//! the district's equipment budget is yours to spend once its running
+//! costs are paid, and you can ask the district for more once a year.
 
 use super::data::{FUNDRAISERS, PURCHASES, hs_index, pay_to_play_share};
 use super::{Book, Line, Spread, dollars, draw, month_share};
@@ -71,25 +72,31 @@ pub struct Running {
     pub ends: Date,
 }
 
-/// Your high school's own money: the booster account, the equipment budget
-/// and the helmets (the seat only).
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+/// Your high school's own money (the seat only): the district's equipment
+/// budget and what you spent of it, the fundraisers you run, and your one
+/// ask of the district a year.
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct Seat {
     pub school: usize,
-    pub booster: f32,
+    /// What you ran and bought, newest last.
     pub ledger: Vec<Entry>,
     pub running: Vec<Running>,
     /// Fundraisers and purchases already done this money year.
     pub done: Vec<String>,
     /// The money year you last asked the district for more.
     pub asked: i32,
-    /// The equipment budget the district gives you this year, and spent.
+    /// The equipment budget the district gives you this year; its running
+    /// costs (pads, balls, tape, the trainer's kit) as they are paid; what
+    /// you bought with the rest.
     pub equipment: f32,
-    pub equipment_spent: f32,
-    /// The year the oldest helmets were bought, and last recertified.
-    pub helmets: i32,
-    pub recert: i32,
+    pub running_costs: f32,
+    pub bought: f32,
 }
+
+/// The share of the equipment budget the running costs take (proposed, not
+/// confirmed: coaches' accounts put the yearly basics at about 60-70%).
+pub const RUNNING_SHARE: f32 = 0.65;
 
 /// A school's assistants and what they cost (your own staff at your school).
 fn staff(w: &World, h: usize) -> (usize, f64) {
@@ -175,9 +182,7 @@ pub(crate) fn open(w: &mut World) {
     open_seat(w);
 }
 
-/// Your booster account when you take a high school job: the club's
-/// balance carried from before you, the district's equipment budget and
-/// the helmets' ages.
+/// Your money at a new high school job: the district's equipment budget.
 pub(crate) fn open_seat(w: &mut World) {
     let Some(h) = w.seat_school() else {
         w.finance.seat_hs = None;
@@ -186,26 +191,8 @@ pub(crate) fn open_seat(w: &mut World) {
     if w.finance.seat_hs.as_ref().is_some_and(|s| s.school == h) {
         return;
     }
-    let s = &w.high_schools[h];
-    let idx = hs_index(w.year);
-    let booster = ((1_500.0 + 25_000.0 * s.area_money * (0.3 + s.prestige))
-        * idx
-        * (0.4 + draw(w, 0x45B0, h as u64, w.year))) as f32;
     let equipment = w.finance.hs.get(h).map(|x| x.budget.l[EQUIPMENT]).unwrap_or(0.0);
-    let helmets = w.year - (draw(w, 0x45E1, h as u64, w.year) * 9.0) as i32;
-    let recert = w.year - 1 - (draw(w, 0x45E2, h as u64, w.year) * 2.0) as i32;
-    w.finance.seat_hs = Some(Seat {
-        school: h,
-        booster,
-        ledger: vec![Entry { date: w.today, what: "Balance when you took over".into(), amount: booster }],
-        running: Vec::new(),
-        done: Vec::new(),
-        asked: 0,
-        equipment,
-        equipment_spent: 0.0,
-        helmets,
-        recert,
-    });
+    w.finance.seat_hs = Some(Seat { school: h, equipment, ..Seat::default() });
 }
 
 /// The month's accruals for every school.
@@ -238,7 +225,8 @@ pub(crate) fn month(w: &mut World, m: u32) {
     }
     if let Some(seat) = w.finance.seat_hs.as_mut() {
         let part = if matches!(m, 8..=11) { 0.2 } else { 0.2 / 8.0 };
-        seat.equipment_spent += seat.equipment * part * 0.85;
+        seat.running_costs =
+            (seat.running_costs + seat.equipment * part * RUNNING_SHARE).min(seat.equipment * RUNNING_SHARE);
     }
 }
 
@@ -262,18 +250,12 @@ pub(crate) fn money_year(w: &mut World) {
     if w.seat_school().is_some() && w.finance.seat_hs.as_ref().is_none_or(|s| Some(s.school) != w.seat_school()) {
         open_seat(w);
     }
-    let year = w.year;
     let equipment = w.seat_school().and_then(|h| w.finance.hs.get(h)).map(|x| x.budget.l[EQUIPMENT]);
     if let (Some(seat), Some(eq)) = (w.finance.seat_hs.as_mut(), equipment) {
         seat.done.clear();
         seat.equipment = eq;
-        seat.equipment_spent = 0.0;
-        // The booster club's yearly giving lands in the account too.
-        let h = seat.school;
-        let gift = w.finance.hs.get(h).map(|x| x.budget.l[BOOSTER]).unwrap_or(0.0) * 0.6;
-        seat.booster += gift;
-        seat.ledger.push(Entry { date: w.today, what: format!("Booster club dues and pledges, {year}"), amount: gift });
-        trim(seat);
+        seat.running_costs = 0.0;
+        seat.bought = 0.0;
     }
 }
 
@@ -289,10 +271,9 @@ fn note(w: &mut World, h: usize, loud: Loudness, text: String) {
     w.calendar.post(e);
 }
 
-/// Dated steps at your school: fundraisers finishing, the helmet check on
-/// 1 August and the athletic director's fix on 15 August.
+/// Dated steps at your school: a new job's books, fundraisers finishing.
 pub(crate) fn dated(w: &mut World, d: Date) {
-    if w.finance.seat_hs.as_ref().is_some_and(|s| Some(s.school) != w.seat_school()) {
+    if w.finance.seat_hs.as_ref().map(|s| s.school) != w.seat_school() {
         open_seat(w);
     }
     let Some(seat) = w.finance.seat_hs.as_ref() else { return };
@@ -301,63 +282,6 @@ pub(crate) fn dated(w: &mut World, d: Date) {
     for key in due {
         finish_fundraiser(w, h, &key);
     }
-    let (_, m, day) = d.parts();
-    let Some((helmets, recerted)) = w.finance.seat_hs.as_ref().map(|s| (s.helmets, s.recert)) else { return };
-    let year = w.year;
-    let old = year - helmets >= 10;
-    let recert = year - recerted >= 2;
-    if m == 8 && day == 1 {
-        if old {
-            note(
-                w,
-                h,
-                Loudness::Big,
-                format!(
-                    "Equipment: your oldest helmets were bought in {}. Helmets past ten years can't be reconditioned or recertified (NOCSAE), so they must be replaced before the first game. A full set costs about {}.",
-                    helmets,
-                    dollars(price("helmets", year))
-                ),
-            );
-        } else if recert {
-            note(
-                w,
-                h,
-                Loudness::Medium,
-                format!(
-                    "Equipment: the helmets are due for reconditioning and recertification before the first game (about {}).",
-                    dollars(price("recert", year))
-                ),
-            );
-        }
-    }
-    if m == 8 && day == 15 {
-        if old || recert {
-            let key = if old { "helmets" } else { "recert" };
-            let cost = price(key, year) as f32;
-            if let Some(seat) = w.finance.seat_hs.as_mut() {
-                seat.equipment_spent += cost;
-                if old {
-                    seat.helmets = year;
-                }
-                seat.recert = year;
-            }
-            let what = if old { "replaced the expired helmets" } else { "had the helmets recertified" };
-            note(
-                w,
-                h,
-                Loudness::Medium,
-                format!(
-                    "Your athletic director {what} from the equipment budget ({}). It leaves less for the rest of the year.",
-                    dollars(cost as f64)
-                ),
-            );
-        }
-    }
-}
-
-fn price(key: &str, year: i32) -> f64 {
-    let p = PURCHASES.iter().find(|p| p.key == key).map(|p| p.price).unwrap_or(0.0);
-    p * hs_index(year)
 }
 
 /// What a fundraiser brings in at a school this year: the town's money,
@@ -369,6 +293,15 @@ pub fn fundraiser_take(w: &World, h: usize, key: &str) -> Option<(f64, f64)> {
     Some((mean * 0.75, mean * 1.25))
 }
 
+/// Money into the booster club's account: the school's book, and the club's
+/// own ledger on the front office's school desk.
+fn credit_boosters(w: &mut World, h: usize, what: &str, x: f64) {
+    if let Some(s) = w.finance.hs.get_mut(h) {
+        s.now.l[BOOSTER] += x as f32;
+    }
+    booster_desk(w, what, x);
+}
+
 fn finish_fundraiser(w: &mut World, h: usize, key: &str) {
     let Some((lo, hi)) = fundraiser_take(w, h, key) else { return };
     let k = FUNDRAISERS.iter().position(|f| f.key == key).unwrap_or(0) as u64;
@@ -377,21 +310,22 @@ fn finish_fundraiser(w: &mut World, h: usize, key: &str) {
     let today = w.today;
     if let Some(seat) = w.finance.seat_hs.as_mut() {
         seat.running.retain(|r| r.key != key);
-        seat.booster += take as f32;
-        seat.ledger.push(Entry { date: today, what: name.to_string(), amount: take as f32 });
+        seat.ledger.push(Entry {
+            date: today,
+            what: format!("{name}: raised for the booster club"),
+            amount: take as f32,
+        });
         trim(seat);
     }
-    if let Some(s) = w.finance.hs.get_mut(h) {
-        s.now.l[BOOSTER] += take as f32;
-    }
+    credit_boosters(w, h, name, take);
     note(w, h, Loudness::Medium, format!("{name} is in: {} for the booster club.", dollars(take)));
 }
 
-/// Starts a fundraiser at your school (one of each a year, two at once).
+/// Starts a fundraiser at your school (each once a year, two at once).
 pub fn start_fundraiser(w: &mut World, key: &str) -> Result<String, String> {
     let f = FUNDRAISERS.iter().find(|f| f.key == key).ok_or("No such fundraiser.")?;
     let today = w.today;
-    let seat = w.finance.seat_hs.as_mut().ok_or("Only a high school coach runs the booster club.")?;
+    let seat = w.finance.seat_hs.as_mut().ok_or("Only a high school head coach runs fundraisers.")?;
     if seat.done.iter().any(|k| k == key) {
         return Err(format!("You already ran the {} this year.", f.name.to_lowercase()));
     }
@@ -409,35 +343,34 @@ pub fn start_fundraiser(w: &mut World, key: &str) -> Result<String, String> {
     ))
 }
 
-/// Buys something from the booster account.
+/// What is left of the equipment budget to spend once the running costs
+/// for the year are set aside.
+pub fn equipment_left(seat: &Seat) -> f32 {
+    seat.equipment * (1.0 - RUNNING_SHARE) - seat.bought
+}
+
+/// Buys something with the equipment budget (each once a year).
 pub fn buy(w: &mut World, key: &str) -> Result<String, String> {
     let p = PURCHASES.iter().find(|p| p.key == key).ok_or("No such purchase.")?;
     let year = w.year;
     let cost = (p.price * hs_index(year)) as f32;
     let today = w.today;
-    let seat = w.finance.seat_hs.as_mut().ok_or("Only a high school coach runs the booster club.")?;
+    let seat = w.finance.seat_hs.as_mut().ok_or("Only a high school head coach spends the equipment budget.")?;
     if seat.done.iter().any(|k| k == key) {
-        return Err(format!("{} already bought this year.", p.name));
+        return Err(format!("{}: already bought this year.", p.name));
     }
-    if seat.booster < cost {
+    let left = equipment_left(seat);
+    if left < cost {
         return Err(format!(
-            "The booster account has {}; this costs {}.",
-            dollars(seat.booster as f64),
+            "The equipment budget has {} left after the year's basics; this costs {}. Ask the district, or put it on the booster club's wish list.",
+            dollars(left.max(0.0) as f64),
             dollars(cost as f64)
         ));
     }
-    seat.booster -= cost;
+    seat.bought += cost;
     seat.done.push(key.to_string());
     seat.ledger.push(Entry { date: today, what: p.name.to_string(), amount: -cost });
     trim(seat);
-    match key {
-        "helmets" => {
-            seat.helmets = year;
-            seat.recert = year;
-        }
-        "recert" => seat.recert = year,
-        _ => {}
-    }
     let h = seat.school;
     if let Some(s) = w.finance.hs.get_mut(h) {
         s.now.l[PURCHASES_LINE] += cost;
@@ -451,29 +384,58 @@ pub fn buy(w: &mut World, key: &str) -> Result<String, String> {
 
 /// Asks the district for more equipment money (once a year): a richer
 /// district, a winning program and a big school make a yes likelier.
-pub fn ask_district(w: &mut World) -> Result<String, String> {
+/// Returns the answer in words, and whether it was yes.
+pub fn ask_district(w: &mut World) -> Result<(bool, String), String> {
     let year = w.year;
-    let seat = w.finance.seat_hs.as_ref().ok_or("Only a high school coach asks the district.")?;
+    let seat = w.finance.seat_hs.as_ref().ok_or("Only a high school head coach asks the district.")?;
     if seat.asked == year {
-        return Err("You already asked the district this year; the answer stands.".into());
+        return Err("You already asked the district this year; the answer stands until next spring.".into());
     }
     let h = seat.school;
     let s = &w.high_schools[h];
-    let last = s.seasons.last();
-    let win = last.map(|x| x.wins as f64 / (x.wins + x.losses).max(1) as f64).unwrap_or(0.5);
+    let win = s.seasons.last().map_or(0.5, |x| x.wins as f64 / (x.wins + x.losses).max(1) as f64);
     let chance = (0.15 + 0.35 * s.area_money + 0.25 * win + 0.15 * s.prestige).clamp(0.05, 0.85);
     let yes = draw(w, 0x45A5, h as u64, year) < chance;
     let more = (seat.equipment as f64 * (0.15 + 0.2 * draw(w, 0x45A6, h as u64, year))) as f32;
+    let today = w.today;
     let seat = w.finance.seat_hs.as_mut().ok_or("No seat.")?;
     seat.asked = year;
-    if yes {
-        seat.equipment += more;
-        if let Some(b) = w.finance.hs.get_mut(h) {
-            b.budget.l[EQUIPMENT] += more;
-            b.budget.l[DISTRICT] += more;
-        }
-        Ok(format!("The district said yes: {} more for equipment this year.", dollars(more as f64)))
-    } else {
-        Err("The district said no: the budget is set, and other programs are asking too. Try the booster club.".into())
+    if !yes {
+        let why = if s.area_money < 0.35 {
+            "the district is cutting everywhere this year"
+        } else if win < 0.4 {
+            "the board wants to see the program turn first"
+        } else {
+            "the budget is set and every program is asking"
+        };
+        return Ok((false, format!("The district said no: {why}. The booster club is the other way.")));
     }
+    seat.equipment += more;
+    seat.ledger.push(Entry { date: today, what: "The district added to the equipment budget".into(), amount: more });
+    trim(seat);
+    if let Some(b) = w.finance.hs.get_mut(h) {
+        b.budget.l[EQUIPMENT] += more;
+        b.budget.l[DISTRICT] += more;
+    }
+    Ok((true, format!("The district said yes: {} more for equipment this year.", dollars(more as f64))))
 }
+
+/// Your school's money as the screens show it.
+pub fn seat_json(w: &World) -> Option<serde_json::Value> {
+    let seat = w.finance.seat_hs.as_ref()?;
+    let names = |k: &str| FUNDRAISERS.iter().find(|f| f.key == k).map(|f| f.name).unwrap_or("");
+    Some(serde_json::json!({
+        "equipment": seat.equipment.round(),
+        "running_costs": seat.running_costs.round(),
+        "basics": (seat.equipment * RUNNING_SHARE).round(),
+        "bought": seat.bought.round(),
+        "left": equipment_left(seat).round(),
+        "asked": seat.asked == w.year,
+        "done": seat.done,
+        "running": seat.running.iter().map(|r| serde_json::json!({ "key": r.key, "name": names(&r.key), "ends": r.ends.pretty() })).collect::<Vec<_>>(),
+        "ledger": seat.ledger.iter().rev().take(40).map(|e| serde_json::json!({ "date": e.date.pretty(), "what": e.what, "amount": e.amount.round() })).collect::<Vec<_>>(),
+    }))
+}
+
+// Front office's booster club takes the money (wired when its desk lands).
+fn booster_desk(_w: &mut World, _what: &str, _x: f64) {}

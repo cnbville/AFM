@@ -258,6 +258,11 @@ pub struct Fixture {
     pub score: Option<[u32; 2]>,
     /// Called off: a hurricane, or a team too short to dress.
     pub cancelled: bool,
+    /// The betting line (C8): the home side's spread and the total. The
+    /// books post a game's line in its own week; none below FCS.
+    pub line: Option<[f32; 2]>,
+    /// The crowd, once played (later extras topic 1).
+    pub attendance: u32,
 }
 
 /// An NFL game on this season's schedule.
@@ -272,6 +277,10 @@ pub struct NflFixture {
     pub played: bool,
     /// Home and away points, for a game played on the engine.
     pub score: Option<[u32; 2]>,
+    /// The betting line (C8), once the week's lines are out.
+    pub line: Option<[f32; 2]>,
+    /// The crowd, once played (later extras topic 1).
+    pub attendance: u32,
 }
 
 impl World {
@@ -302,6 +311,13 @@ impl World {
                 why: g.why.clone(),
                 score: g.played.filter(|p| !p.cancelled).map(|p| p.score),
                 cancelled: g.played.is_some_and(|p| p.cancelled),
+                // The week's lines are out from the Sunday before.
+                line: g.line.or_else(|| {
+                    (g.played.is_none() && g.date >= self.today && g.date <= self.today.add(6))
+                        .then(|| super::finance::lines::college(self, g.home, g.away, g.site.is_some()))
+                        .flatten()
+                }),
+                attendance: g.attendance,
             })
             .collect()
     }
@@ -350,6 +366,8 @@ impl World {
                     minute: slot.map(|x| x.at.minute),
                     played: slot.is_some_and(|x| x.played),
                     score: slot.and_then(|x| x.score),
+                    line: slot.and_then(|x| x.line),
+                    attendance: slot.map_or(0, |x| x.attendance),
                 });
             }
         }

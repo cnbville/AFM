@@ -460,6 +460,35 @@ pub fn pay_to_play_share(state: &str) -> f64 {
     }
 }
 
+/// Private schools, whose athletic departments don't publish their NCAA
+/// reports (state open-records laws reach only public universities): the
+/// FBS's private schools, and the Ivy and Patriot leagues (all private but
+/// William & Mary).
+pub fn private_school(name: &str, conference: &str) -> bool {
+    const FBS: [&str; 18] = [
+        "Baylor",
+        "Boston College",
+        "BYU",
+        "Duke",
+        "Liberty",
+        "Miami (FL)",
+        "Northwestern",
+        "Notre Dame",
+        "Rice",
+        "SMU",
+        "Stanford",
+        "Syracuse",
+        "TCU",
+        "Tulane",
+        "Tulsa",
+        "USC",
+        "Vanderbilt",
+        "Wake Forest",
+    ];
+    FBS.contains(&name)
+        || matches!(conference, "Ivy League" | "Ivy" | "Patriot League" | "Patriot") && name != "William & Mary"
+}
+
 /// Fundraisers a high school staff runs (what real booster clubs do), with
 /// what each takes in a good community (2024 dollars) and the weeks of a
 /// coach's time it eats.
@@ -517,8 +546,11 @@ pub const FUNDRAISERS: [Fundraiser; 6] = [
     },
 ];
 
-/// What a high school program can buy (2024 prices from equipment
-/// catalogs, proposed, not confirmed), and what it does for the program.
+/// What a high school head coach buys with the district's equipment
+/// budget beyond the year's basics (2024 prices from equipment catalogs,
+/// proposed, not confirmed), and what it does for the program. Helmets and
+/// their reconditioning, the film subscription and the big projects are
+/// the booster club's (the front office's school desk).
 #[derive(Clone, Copy, Debug)]
 pub struct Purchase {
     pub key: &'static str,
@@ -529,41 +561,41 @@ pub struct Purchase {
     pub resources: f64,
 }
 
-pub const PURCHASES: [Purchase; 7] = [
+pub const PURCHASES: [Purchase; 6] = [
     Purchase {
-        key: "helmets",
-        name: "New helmets (a full set)",
-        what: "Replaces every helmet past ten years or failing recertification.",
-        price: 32_000.0,
-        resources: 0.0,
-    },
-    Purchase {
-        key: "recert",
-        name: "Recondition and recertify helmets",
-        what: "NOCSAE reconditioning, about $50 a helmet; due every year or two.",
-        price: 4_000.0,
-        resources: 0.0,
-    },
-    Purchase {
-        key: "video",
-        name: "Film system",
-        what: "A sideline camera tower, end-zone camera and a film-sharing subscription.",
-        price: 9_500.0,
-        resources: 0.035,
+        key: "bags",
+        name: "Tackling wheels, shields and bags",
+        what: "Safer tackling and block-shedding drills for every group.",
+        price: 4_500.0,
+        resources: 0.008,
     },
     Purchase {
         key: "sled",
-        name: "Blocking sleds and bags",
-        what: "A seven-man sled, chutes and tackling wheels.",
-        price: 7_000.0,
-        resources: 0.015,
+        name: "A seven-man blocking sled",
+        what: "The line's daily work: fits, drive and footwork together.",
+        price: 6_500.0,
+        resources: 0.01,
     },
     Purchase {
-        key: "weights",
-        name: "Weight room upgrade",
-        what: "Racks, platforms and bars for a full team lift.",
-        price: 28_000.0,
-        resources: 0.04,
+        key: "headsets",
+        name: "Sideline headsets",
+        what: "Coaches in the press box talk to the sideline on every snap.",
+        price: 5_500.0,
+        resources: 0.006,
+    },
+    Purchase {
+        key: "jugs",
+        name: "A JUGS passing and kicking machine",
+        what: "Extra catches for receivers and returners, punts on demand.",
+        price: 3_200.0,
+        resources: 0.005,
+    },
+    Purchase {
+        key: "heat",
+        name: "Heat safety kit",
+        what: "Cold-water tubs, a wet-bulb monitor and misting fans for August.",
+        price: 4_000.0,
+        resources: 0.004,
     },
     Purchase {
         key: "uniforms",
@@ -571,13 +603,6 @@ pub const PURCHASES: [Purchase; 7] = [
         what: "Home and away sets; the town notices.",
         price: 16_000.0,
         resources: 0.005,
-    },
-    Purchase {
-        key: "meals",
-        name: "Team meals for the season",
-        what: "A pregame meal every Friday.",
-        price: 6_000.0,
-        resources: 0.01,
     },
 ];
 

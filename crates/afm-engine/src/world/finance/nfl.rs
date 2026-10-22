@@ -797,7 +797,7 @@ fn renew(w: &mut World, t: usize) {
 /// brand and a new stadium.
 pub fn value_of(w: &World, t: usize, year: i32) -> f64 {
     let c = &w.finance.nfl[t];
-    let rev = c.years.last().map_or_else(|| Club::revenue(&c.budget) + c.budget.l[TICKETS] as f64 * 0.0, Club::revenue);
+    let rev = c.years.last().map_or_else(|| Club::revenue(&c.budget), Club::revenue);
     let rev = if rev <= 0.0 { data::league_revenue(year) / 32.0 } else { rev };
     rev * data::value_multiple(year) * (0.84 + 0.32 * data::BRAND[t]) * (1.0 + 0.2 * c.home.premium(year))
 }

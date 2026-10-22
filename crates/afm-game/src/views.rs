@@ -776,6 +776,11 @@ pub fn inbox(w: &World, days: i32) -> Value {
         .rev()
         .flat_map(|(d, evs)| evs.iter().rev().map(move |e| (d, e)))
         .filter(|(_, e)| {
+            // Conference moves reach the coaches they matter to (1b): FBS
+            // moves every college coach, lower ones only their own level.
+            if let Some(reach) = afm_engine::world::finance::college::move_reaches(w, e) {
+                return reach || yours(e);
+            }
             e.needs_decision
                 || yours(e)
                 || e.loud == Loudness::Huge
@@ -1198,6 +1203,7 @@ pub fn schedule(w: &World, t: TeamRef) -> Value {
                         "conf": g.conference,
                         "why": g.why,
                         "result": result.or(called_off),
+                        "line": line_json(g.line, home, g.score, g.attendance),
                     })
                 })
                 .collect()
@@ -1241,6 +1247,7 @@ pub fn schedule(w: &World, t: TeamRef) -> Value {
                     "opp": team_brief(w, TeamRef::Nfl(opp)),
                     "at": if home { "vs" } else { "at" },
                     "result": result,
+                    "line": line_json(g.line, home, score, g.attendance),
                 })
             })
             .collect(),
@@ -1281,6 +1288,38 @@ pub fn schedule(w: &World, t: TeamRef) -> Value {
         .map(|(k, g)| json!({ "index": k, "date": date_text(g.date), "home": g.names[0], "away": g.names[1], "score": g.stats.score }))
         .collect();
     json!({ "team": team_brief(w, t), "games": games, "box_scores": if is_mine(w, t) { kept } else { Vec::new() } })
+}
+
+/// A game's betting line from one side (C8): the spread as that team
+/// sees it ("-3.5" favored, "+3.5" the underdog, "Pick"), the total, how
+/// the game went against it, and the crowd once played.
+pub(crate) fn line_json(line: Option<[f32; 2]>, home: bool, score: Option<[u32; 2]>, crowd: u32) -> Value {
+    let Some([spread, total]) = line else {
+        return if crowd > 0 { json!({ "crowd": crowd }) } else { Value::Null };
+    };
+    let mine = if home { spread } else { -spread };
+    let text = if mine == 0.0 { "Pick".to_string() } else { format!("{mine:+.1}") };
+    let against = score.map(|[h, a]| {
+        let margin = if home { h as f32 - a as f32 } else { a as f32 - h as f32 };
+        let cover = margin + mine;
+        let ou = (h + a) as f32;
+        let side = if ou > total {
+            "over"
+        } else if ou < total {
+            "under"
+        } else {
+            "push on the total"
+        };
+        let ats = if cover > 0.0 {
+            "Covered"
+        } else if cover < 0.0 {
+            "Didn't cover"
+        } else {
+            "Push"
+        };
+        format!("{ats}, {side}")
+    });
+    json!({ "spread": text, "total": total, "against": against, "crowd": if crowd > 0 { Some(crowd) } else { None } })
 }
 
 pub fn standings(w: &World, args: &Value) -> Value {
@@ -1478,7 +1517,18 @@ pub fn coach(w: &World, c: usize) -> Result<Value, String> {
         "came_up": came_up(w, c), "ex_pro": co.ex_pro, "job": job, "history": history,
         "mentor": mentor, "titles": co.career_titles,
         "you": w.career.as_ref().is_some_and(|k| k.coach == c),
+        "ats": ats_text(w, c),
     }))
+}
+
+/// A head coach's record against the spread (C8), from the games the
+/// books hung a line on: "34-28-2 against the spread".
+pub(crate) fn ats_text(w: &World, c: usize) -> Option<String> {
+    let [cov, miss, push] = afm_engine::world::finance::lines::ats(w, c);
+    (cov + miss + push > 0).then(|| {
+        let pct = 100.0 * cov as f64 / (cov + miss).max(1) as f64;
+        format!("{cov}-{miss}-{push} against the spread ({pct:.0}% covers)")
+    })
 }
 
 /// Your depth chart: the order the engine will play, position by position,
@@ -1791,9 +1841,35 @@ pub fn game(w: &World, k: usize) -> Result<Value, String> {
             })
         })
         .collect();
-    Ok(
-        json!({ "date": date_text(g.date), "quarters": s.quarters, "overtime": s.overtime, "sides": sides, "plays": plays }),
-    )
+    // The line the books hung on it and the crowd (C8, later extras topic 1).
+    let (spread, crowd) = kept_line(w, g);
+    let score = [s.score[0].max(0) as u32, s.score[1].max(0) as u32];
+    let mut line = line_json(spread, true, Some(score), crowd);
+    if let Some(l) = spread {
+        line["words"] = json!(afm_engine::world::finance::lines::words(l, &g.names[0], &g.names[1]));
+    }
+    Ok(json!({
+        "date": date_text(g.date), "quarters": s.quarters, "overtime": s.overtime, "sides": sides, "plays": plays,
+        "line": line,
+    }))
+}
+
+/// A kept game's line (home side's spread first) and its crowd.
+fn kept_line(w: &World, g: &afm_engine::world::seat::SeatGame) -> (Option<[f32; 2]>, u32) {
+    let [h, a] = g.teams;
+    match g.level {
+        CalLevel::College => w
+            .college_fixtures(Some(h))
+            .into_iter()
+            .find(|f| f.date == g.date && f.home == h && f.away == a)
+            .map_or((None, 0), |f| (f.line, f.attendance)),
+        CalLevel::Nfl => w
+            .nfl_fixtures(Some(h))
+            .into_iter()
+            .find(|f| f.when == Some(g.date) && f.home == h && f.away == a)
+            .map_or((None, 0), |f| (f.line, f.attendance)),
+        _ => (None, 0),
+    }
 }
 
 pub(crate) fn spot_text(to_goal: f64) -> String {
