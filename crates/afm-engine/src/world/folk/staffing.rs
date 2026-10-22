@@ -98,6 +98,25 @@ fn pay(w: &World, e: Employer, r: Role) -> f64 {
     crate::world::staff::salary(w, e, r)
 }
 
+/// An assistant deal's usual length in years and its buyout share: power
+/// conference coordinators three years with half owed, their position
+/// coaches two with 30%, other colleges a year at a time, the NFL two or
+/// three years.
+fn deal_terms(w: &World, c: usize, e: Employer, r: Role) -> (i32, f32) {
+    match e {
+        Employer::Nfl(_) => (2 + (super::roll(w, 0xDEA1, c as u64) < 0.4) as i32, 0.0),
+        Employer::College(p) => {
+            let big = w.programs[p].division == Division::FBS && w.programs[p].power_four();
+            match (big, r) {
+                (true, Role::OffensiveCoordinator | Role::DefensiveCoordinator) => (3, 0.5),
+                (true, _) => (2, 0.3),
+                _ => (1, 0.0),
+            }
+        }
+        Employer::HighSchool(_) => (1, 0.0),
+    }
+}
+
 /// Fills a deal for every assistant who lacks one (old worlds, new hires).
 pub fn ensure(w: &mut World) {
     let year = w.year;
@@ -111,20 +130,12 @@ pub fn ensure(w: &mut World) {
         let base = pay(w, job.employer, job.role);
         let rep = w.coaches[c].reputation;
         let salary = (base * (0.8 + 0.4 * rep / 20.0)).round();
-        let (years, buyout) = match job.employer {
-            Employer::Nfl(_) => (2 + (super::roll(w, 0xDEA1, c as u64) < 0.4) as i32, 0.0),
-            Employer::College(p) => {
-                let big = w.programs[p].division == Division::FBS && w.programs[p].power_four();
-                match (big, job.role) {
-                    (true, Role::OffensiveCoordinator | Role::DefensiveCoordinator) => (3, 0.5),
-                    (true, _) => (2, 0.3),
-                    _ => (1, 0.0),
-                }
-            }
-            Employer::HighSchool(_) => (1, 0.0),
-        };
-        let left = (job.since + years - 1 - year).max(0);
-        add.push(Deal { coach: c, salary, through: year + left, buyout });
+        let (years, buyout) = deal_terms(w, c, job.employer, job.role);
+        // A coach who has stayed past his first deal signed again on the
+        // same terms each time it ran out, so the current one ends where
+        // its cycle does (not this season for everyone).
+        let cycles = (year - job.since).max(0) / years + 1;
+        add.push(Deal { coach: c, salary, through: (job.since + years * cycles - 1).max(year), buyout });
         have.insert(c);
     }
     w.folk.staff.deals.extend(add);
@@ -1045,9 +1056,22 @@ pub(crate) fn day(w: &mut World, d: Date) {
     if d == w.dates.signing_day && w.folk.staff.renewed < w.year {
         w.folk.staff.renewed = w.year;
         let year = w.year;
-        for dl in w.folk.staff.deals.iter_mut() {
+        // A deal that ran out is signed again for its usual length.
+        let lengths: Vec<i32> = w
+            .folk
+            .staff
+            .deals
+            .iter()
+            .map(|dl| {
+                w.coaches
+                    .get(dl.coach)
+                    .and_then(|co| co.job)
+                    .map_or(1, |j| deal_terms(w, dl.coach, j.employer, j.role).0)
+            })
+            .collect();
+        for (dl, years) in w.folk.staff.deals.iter_mut().zip(lengths) {
             if dl.through < year {
-                dl.through = year;
+                dl.through = year + years - 1;
                 dl.salary = (dl.salary * 1.03).round();
             }
         }

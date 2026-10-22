@@ -1058,6 +1058,10 @@
   // ======================================================================
   CRUMBS.gameday = "Game day";
   CRUMBS.live = "Live";
+  // The week before a game is when the film and the plan get done, so the
+  // game day screen has its own sidebar line, not only the morning's stop.
+  I.gameday = '<circle cx="6.5" cy="17" r="2.5"/><path d="M15 4l5 5M20 4l-5 5M8.5 15c2.5-4.5 5.5-6.5 9.5-6.5M15.5 6.5l2.5 2-2 2.5"/>';
+  navAdd({ go: "gameday", label: "Game day", icon: "gameday", sec: "team", after: "schedule" });
   const baseCont = cont;
   cont = async function () {
     if (S.busy) return;

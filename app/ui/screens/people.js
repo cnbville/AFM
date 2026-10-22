@@ -24,8 +24,14 @@
 
 I.people = '<circle cx="8" cy="8" r="3"/><circle cx="16.5" cy="9" r="2.5"/><path d="M2.5 19c.6-3.6 2.8-5.5 5.5-5.5s4.9 1.9 5.5 5.5M14 14.2c.8-.4 1.6-.6 2.5-.6 2.3 0 4.2 1.6 4.8 4.9"/>';
 I.talk = '<path d="M4 5h16v10H9l-5 4z"/>';
-navAdd({ go: "people", label: "People", icon: "people", sec: "team", after: "staff" });
-navAdd({ go: "people_staff", label: "Staff office", icon: "staff", sec: "team", after: "people", seats: ["college", "nfl", "hs"] });
+// One sidebar line for your staff: the office lists them and runs deals and
+// hiring; the plain staff list stays for other teams and links from here.
+{
+  const i = NAV.findIndex((n) => n.go === "staff");
+  if (i >= 0) NAV.splice(i, 1);
+}
+navAdd({ go: "people_staff", label: "Staff", icon: "staff", sec: "team", after: "games" });
+navAdd({ go: "people", label: "People", icon: "people", sec: "team", after: "people_staff" });
 Object.assign(CRUMBS, { people: "People", people_scene: "Meeting", people_cast: "Person", people_staff: "Staff office" });
 
 const PP_TONES = [["calm", "Calm"], ["warm", "Warm"], ["firm", "Firm"], ["fiery", "Fiery"]];
@@ -365,7 +371,7 @@ screens.people_staff = async (a) => {
   }
   return `<div class="pad">${pageHead({ kicker: rich(x.team.link), title: "Staff office", sub: "Deals, raises, letting a coach go, and who you could hire.", goto: gotoFor("people_staff", a, x) })}${tabs("pstab", list, tab)}<div class="tabbody">${body}</div></div>`;
 };
-GOTO.people_staff = () => [["Staff", "staff"], ["People", "people"], ["Network", "people", { tab: "Network" }], ["Your profile", "you"]];
+GOTO.people_staff = () => [["Staff list", "staff"], ["People", "people"], ["Network", "people", { tab: "Network" }], ["Your profile", "you"]];
 {
   const was = GOTO.staff;
   GOTO.staff = (a, d) => [...(was ? was(a, d) : []), ["Staff office", "people_staff"], ["People", "people"]];

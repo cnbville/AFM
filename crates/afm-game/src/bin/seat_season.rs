@@ -49,8 +49,9 @@ fn smell(cmd: &str, v: &Value, path: &str, out: &mut BTreeSet<String>) {
         Value::String(s) => {
             let low = s.to_lowercase();
             for bad in ["nan", "undefined", "infinity", "todo", "placeholder", "lorem", "built later", "coming soon"] {
-                let hit = if bad == "nan" {
-                    low.split(|c: char| !c.is_alphanumeric()).any(|w| w == "nan")
+                // Whole words for these two: "Loreman" is a real surname.
+                let hit = if bad == "nan" || bad == "lorem" {
+                    low.split(|c: char| !c.is_alphanumeric()).any(|w| w == bad)
                 } else {
                     low.contains(bad)
                 };

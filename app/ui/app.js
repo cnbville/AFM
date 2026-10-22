@@ -284,11 +284,11 @@ function frame(content, crumb) {
       <div class="brand">${me ? mark(me) : '<span class="st-mark">AFM</span>'}<div><b>${esc(me ? me.name : "AFM")}</b><small>${esc(st.you ? "Coach " + st.you : "American Football Manager")}</small></div></div>
       <nav class="navs">${navHtml}</nav>
       <div class="foot">
-        <button class="nav" data-act="save">${icon("save")}Save game</button>
-        <button class="nav" data-act="holiday">${icon("sun")}Holiday</button>
-        <button class="nav" data-nav="settings">${icon("gear")}Settings</button>
-        <button class="nav" data-act="bug">${icon("bug")}Report a bug</button>
-        <button class="nav" data-act="menu">${icon("menu")}Main menu</button>
+        <button class="nav save" data-act="save" title="Save game (⌘S)">${icon("save")}<span>Save</span></button>
+        <button class="nav ico" data-act="holiday" title="Holiday" aria-label="Holiday">${icon("sun")}</button>
+        <button class="nav ico" data-nav="settings" title="Settings" aria-label="Settings" aria-current="${S.route.screen === "settings"}">${icon("gear")}</button>
+        <button class="nav ico" data-act="bug" title="Report a bug" aria-label="Report a bug">${icon("bug")}</button>
+        <button class="nav ico" data-act="menu" title="Main menu" aria-label="Main menu">${icon("menu")}</button>
       </div>
     </aside>
     <section class="main">
@@ -761,6 +761,8 @@ document.addEventListener("keydown", (ev) => {
   // ⌘[ and ⌘] go back and forward (topic 15).
   if ((ev.metaKey || ev.ctrlKey) && ev.key === "[" && inCareer) { ev.preventDefault(); goBack(); return; }
   if ((ev.metaKey || ev.ctrlKey) && ev.key === "]" && inCareer) { ev.preventDefault(); goFwd(); return; }
+  // ⌘S saves, as the sidebar's Save game does.
+  if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "s" && inCareer) { ev.preventDefault(); const b = $('[data-act="save"]'); if (b) b.click(); return; }
   if (ev.key === " " && ev.target === document.body && inCareer && !document.querySelector(".overlay, .letter-room, .st-moment.fixed")) { ev.preventDefault(); cont(); return; }
   // Option+arrows move by a word inside a text field on a Mac.
   if (ev.altKey && !typing && ev.key === "ArrowLeft" && inCareer) goBack();

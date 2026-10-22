@@ -80,6 +80,10 @@ fn kicker(e: &Event) -> &'static str {
         Kind::Practice => "Practice",
         Kind::Whisper => "Word is",
         Kind::Window | Kind::Deadline => "Calendar",
+        // Your own meetings, talks and pressers (people's dated slots) and
+        // the week's rhythm.
+        Kind::Slot => "Your day",
+        Kind::Rhythm => "The week",
         _ => "News",
     }
 }

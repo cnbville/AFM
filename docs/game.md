@@ -193,7 +193,7 @@ Section 6 on your side. The world side is `world/folk/` (`docs/world-model.md`, 
 ## Doubts
 
 - Memory in season is 3.8 GB, under the agreed 4 GB, with a brief high of 4.0 GB in the summer (see "Memory (final build lane 1)"). Measured on Linux; a Mac's allocator keeps and returns memory differently, so the Mac figure may differ a little.
-- Continuing the same career twice from the same world file can give different results: the season isn't fully repeatable run to run (seen while measuring memory, before the compaction as well). A world built from a seed is repeatable.
+- Continuing the same career twice from the same world file gives the same season: scores, players, news and the depth chart match stop for stop (checked 2026-10-22 on college, NFL and high school seats). An earlier note here said it didn't; the memory check's fingerprint printed each box score's player lines in hash map order, which changes run to run. The fingerprint now sorts them by player id.
 - Game day (lane 2): the first game of a season has no opponent film (last season's tapes aren't kept), so its report and film room are empty until they play. In one browser game an FCS team drew 16 accepted flags against Alabama: the engine's discipline against a much better level may run hot (not measured).
 
 - Storing ratings as 4-byte floats changes results per seed slightly (rounding), so a seed no longer rebuilds a pre-build world exactly. Accepted because the section 8 build changes the world anyway.
