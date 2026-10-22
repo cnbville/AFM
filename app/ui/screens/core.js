@@ -1108,6 +1108,8 @@ function mailRow(m) {
     <span class="mtags">${tag}${clears}${(m.keys || []).slice(0, 2).map((k) => `<span class="tag key">${esc(k)}</span>`).join("")}</span>
     <span class="mtime">${esc(m.time)}</span></div>`;
 }
+// What a hero slide's button opens, in words.
+const SLIDE_GO = { game: "Game page", games: "Game pages", schedule: "Schedule", player: "Player page", team: "Team page", coach: "Coach page", standings: "Standings", inbox: "Read it", news: "News", calendar: "Calendar", roster: "Squad", recruiting: "Recruiting", history: "History", leaders: "Leaderboards" };
 screens.home = async () => {
   const x = await api("dashboard");
   S.status = x.status;
@@ -1116,7 +1118,7 @@ screens.home = async () => {
   title("Home");
   const slides = x.slides.map((s, i) => {
     const c = s.colors || x.team.colors;
-    const goBtn = s.go ? linkTo(s.go.screen, s.go.args || {}, "Open", "st-btn glass small") : "";
+    const goBtn = s.go ? linkTo(s.go.screen, s.go.args || {}, esc(s.go.label || SLIDE_GO[s.go.screen] || "Open"), "st-btn glass small") : "";
     const long = s.stat != null && String(s.stat).length > 6 ? " long" : "";
     return `<div class="hs ${i === 0 ? "on" : ""}${long}" style="--c1:${c[0]};--c2:${c[1] || c[0]}"><div class="hs-art">${posterScene(s.kind === "team" ? "game" : s.kind, c)}</div><div class="hs-copy"><div class="st-label">${esc(s.kicker)}</div><h2>${rich(s.title)}</h2><div class="hs-sub">${rich(s.sub || "")}</div><div class="st-actions">${goBtn}</div></div>${s.stat != null ? `<div class="hs-stat"><b>${esc(s.stat)}</b><small>${esc(s.stat_label || "")}</small></div>` : ""}</div>`;
   }).join("");
