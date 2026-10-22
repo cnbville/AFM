@@ -5,6 +5,7 @@
 //! calling plays, and a full play log from which every stat is computed.
 //! See `docs/design/match-engine.md` and `docs/match-engine.md`.
 
+pub mod books;
 pub mod calling;
 pub mod designer;
 pub mod experiment;
@@ -25,6 +26,7 @@ pub mod tables;
 pub use calling::Film;
 pub use flow::{GameResult, GameSetup, Venue, play_game, play_game_ctl, quick_game, quick_game_in, quick_game_with};
 pub use roster::{Caller, Front, GamePlayer, GameTeam, OffScheme, Shell, Staff};
+pub use books::Book;
 pub use rules::Rules;
 pub use sim::Conditions;
 pub use stats::{GameStats, PlayRecord, PlayType, StatLine, TeamStats};

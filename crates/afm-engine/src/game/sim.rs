@@ -4,7 +4,7 @@
 //! what he can see, blocks are running battles, and tackles are fights
 //! that play out step by step.
 
-use super::geom::{DT, MID, V2, WIDTH, v2};
+use super::geom::{DT, V2, back_line, end_line, goal, mid, v2, width};
 use super::roster::GamePlayer;
 use crate::attributes::{ATTRIBUTE_COUNT, Attr};
 use crate::player::Level;
@@ -631,7 +631,7 @@ pub struct Mood {
 
 impl Default for Mood {
     fn default() -> Mood {
-        Mood { gamble: [0.0; 2], stakes: [0.0; 2], strict: [10.0; 2], line: None, snap_y: MID }
+        Mood { gamble: [0.0; 2], stakes: [0.0; 2], strict: [10.0; 2], line: None, snap_y: mid() }
     }
 }
 
@@ -1653,7 +1653,7 @@ impl<'a> Sim<'a> {
                 let read = 0.8 * (1.0 - 0.008 * vision).max(0.2);
                 let mut pick = (f64::INFINITY, a.y);
                 for (y, lean) in lanes {
-                    let y = clamp(y, 1.0, WIDTH - 1.0);
+                    let y = clamp(y, 1.0, width() - 1.0);
                     let cost = crowd(v2(self.los + 0.5 * goal, y), run) + lean + read * gauss(self.rng);
                     if cost < pick.0 {
                         pick = (cost, y);
@@ -1681,15 +1681,15 @@ impl<'a> Sim<'a> {
                 threat += reach * (lead / 0.35).exp().min(6.0);
             }
             let gain = dir.x * goal;
-            let edge = p.y.min(WIDTH - p.y);
+            let edge = p.y.min(width() - p.y);
             let mut sideline = if edge < 1.0 { 3.0 * (1.0 - edge) } else { 0.0 };
             // Within ten yards of the sideline he reads the angle sooner
             // (six yards and a threat of 0.5 ended 1.6% of NFL plays out
             // of bounds, real 10.7%; fix list S6.2, proposed, not
             // confirmed).
-            let near_edge = me.pos.y.min(WIDTH - me.pos.y) < 10.0;
+            let near_edge = me.pos.y.min(width() - me.pos.y) < 10.0;
             if near_edge && threat > 0.3 {
-                let outward = if me.pos.y < MID { -dir.y } else { dir.y };
+                let outward = if me.pos.y < mid() { -dir.y } else { dir.y };
                 // Out of bounds when no gain is left: most backs take the
                 // sideline rather than a hit for nothing, one who avoids
                 // contact sooner, one who seeks it turns up (base proposed,
@@ -1777,7 +1777,7 @@ impl<'a> Sim<'a> {
             let fwd = clamp(1.5 + 0.04 * (feet - 50.0), 0.8, 3.5);
             let run_x = (cv.x * self.goal).max(0.5);
             let t_meet = ahead / (run_x + fwd);
-            let y_aim = clamp(cp.y + cv.y * t_meet, 0.5, WIDTH - 0.5);
+            let y_aim = clamp(cp.y + cv.y * t_meet, 0.5, width() - 0.5);
             let me = a.pos;
             let lateral = clamp((y_aim - me.y) * 4.0, -a.vmax, a.vmax);
             let want = v2(-self.goal * fwd, lateral);
@@ -2086,7 +2086,7 @@ impl<'a> Sim<'a> {
             return false;
         }
         let x = self.agents[c].pos.x;
-        let lines = [self.mood.line, Some(100.0)];
+        let lines = [self.mood.line, Some(goal())];
         let Some(line) = lines
             .into_iter()
             .flatten()
@@ -2179,7 +2179,7 @@ impl<'a> Sim<'a> {
         // Taken down at the sideline, he lands out of bounds if the fall
         // crosses the line (the clock stops; proposed, not confirmed).
         let y = self.agents[c].pos.y + fall.y;
-        if y <= 0.0 || y >= WIDTH {
+        if y <= 0.0 || y >= width() {
             self.out_of_bounds = true;
         } else {
             // Caught within six yards of the sideline, the tackler often
@@ -2188,9 +2188,9 @@ impl<'a> Sim<'a> {
             // way (fix list S6.2: with the wider step-out above, NFL
             // plays out of bounds 1.6% to 5.3%, real 10.7%; completions
             // 4.2% to 13.9%, real 20.7%; proposed, not confirmed).
-            let edge = y.min(WIDTH - y);
+            let edge = y.min(width() - y);
             if edge < 6.0 {
-                let out = if y < MID { -1.0 } else { 1.0 };
+                let out = if y < mid() { -1.0 } else { 1.0 };
                 let push = if fall.len() > 0.05 { (fall.y * out / fall.len()).max(0.0) } else { 0.0 };
                 let chance = ((6.0 - edge) / 4.5).min(1.0) * (0.5 + 0.5 * push);
                 if self.rng.chance(chance) {
@@ -2224,7 +2224,7 @@ impl<'a> Sim<'a> {
         let side = if self.rng.chance(wsum[0] / (wsum[0] + wsum[1]).max(1e-9)) { 0 } else { 1 };
         let who = best[side].1;
         self.notes.recovered = Some((side, self.agents[who].id));
-        let spot = v2(spot.x.clamp(-9.9, 109.9), spot.y.clamp(0.1, WIDTH - 0.1));
+        let spot = v2(spot.x.clamp(back_line() + 0.1, end_line() - 0.1), spot.y.clamp(0.1, width() - 0.1));
         self.dead = true;
         self.ball = Ball::Dead(spot);
         self.progress = if side == self.agents[c].side { p.x } else { spot.x };
@@ -2318,7 +2318,7 @@ impl<'a> Sim<'a> {
     pub fn check_carrier(&mut self, c: usize) -> bool {
         let a = &self.agents[c];
         let p = a.pos;
-        if p.y <= 0.0 || p.y >= WIDTH {
+        if p.y <= 0.0 || p.y >= width() {
             // Stepped out with a tackler closing (contact willingness).
             let side = a.side;
             self.notes.tend.stepped_out =
@@ -2327,17 +2327,17 @@ impl<'a> Sim<'a> {
             self.dead = true;
             let x = if (p.x - self.progress) * self.goal > 0.0 { p.x } else { self.progress };
             self.progress = x;
-            self.ball = Ball::Dead(v2(x, p.y.clamp(0.0, WIDTH)));
+            self.ball = Ball::Dead(v2(x, p.y.clamp(0.0, width())));
             return true;
         }
-        let goal_line = if self.goal > 0.0 { 100.0 } else { 0.0 };
+        let goal_line = if self.goal > 0.0 { goal() } else { 0.0 };
         if (p.x - goal_line) * self.goal >= 0.0 {
             self.progress = goal_line;
             self.dead = true;
             self.ball = Ball::Dead(p);
             return true;
         }
-        if p.x > 110.0 || p.x < -10.0 {
+        if p.x > end_line() || p.x < back_line() {
             self.dead = true;
             self.out_of_bounds = true;
             self.ball = Ball::Dead(p);
@@ -2352,7 +2352,7 @@ impl<'a> Sim<'a> {
     }
 
     pub fn mid() -> f64 {
-        MID
+        mid()
     }
 }
 
