@@ -305,9 +305,10 @@ fn main() {
     if pbp {
         for p in &results[0].stats.plays {
             println!(
-                "Q{} {:>5.0} {} {}&{:.0} at {:.0} | {:?} {} | {} | {:+.1} yds air {:.0} ttt {:.1} EPA {:+.2} | {}",
+                "Q{} {:>5.0} {:?} {} {}&{:.0} at {:.0} | {:?} {} | {} | {:+.1} yds air {:.0} ttt {:.1} EPA {:+.2} | {}",
                 p.quarter,
                 p.clock,
+                p.score,
                 p.offense,
                 p.down,
                 p.togo,
