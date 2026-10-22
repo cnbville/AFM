@@ -37,6 +37,8 @@ impl World {
         if !mine || seat.level != level {
             return;
         }
+        // The day booked your game: a live game of it is over.
+        self.live_booked(level, teams);
         let names = match level {
             crate::calendar::Level::Nfl => teams.map(|t| self.nfl_team_name(t)),
             crate::calendar::Level::HighSchool => teams.map(|h| self.school_name(h).to_string()),
