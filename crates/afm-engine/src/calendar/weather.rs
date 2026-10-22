@@ -507,9 +507,9 @@ pub fn climate(code: &str) -> &'static Climate {
 /// days with 0.01 inch of precipitation or more.
 #[derive(Clone, Copy, Debug)]
 pub struct TownNormals {
-    pub high: [f32; 12],
-    pub low: [f32; 12],
-    pub wet_days: [f32; 12],
+    pub high: [i8; 12],
+    pub low: [i8; 12],
+    pub wet_days: [i8; 12],
 }
 
 const TOWN_CSV: &str = include_str!("../../../../data/real-world/town_climate.csv");
@@ -523,8 +523,9 @@ static TOWNS: std::sync::LazyLock<std::collections::HashMap<u64, TownNormals>> =
             if cols.len() < 41 {
                 continue;
             }
-            let num = |k: usize| cols[k].parse::<f32>().unwrap_or(0.0);
-            let mut t = TownNormals { high: [0.0; 12], low: [0.0; 12], wet_days: [0.0; 12] };
+            // Whole degrees and days fit a byte (12,000 towns in 430 KB).
+            let num = |k: usize| cols[k].parse::<f32>().unwrap_or(0.0).round().clamp(-128.0, 127.0) as i8;
+            let mut t = TownNormals { high: [0; 12], low: [0; 12], wet_days: [0; 12] };
             for m in 0..12 {
                 t.high[m] = num(5 + m);
                 t.low[m] = num(17 + m);

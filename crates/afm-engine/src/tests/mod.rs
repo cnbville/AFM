@@ -5,6 +5,7 @@ mod compact;
 mod development;
 mod foundations;
 mod game_stats;
+mod hs_playoffs;
 mod kick_units;
 mod level_rating;
 mod live_game;

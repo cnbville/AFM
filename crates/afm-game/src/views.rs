@@ -130,6 +130,10 @@ pub(crate) fn season_record(w: &World, t: TeamRef) -> (String, String) {
 pub(crate) fn hs_class(w: &World, s: usize) -> String {
     let h = &w.high_schools[s];
     let st = &w.states[h.state];
+    // The state's own class names (U-d), as its format lists them.
+    if let Some(name) = afm_engine::world::hs_playoffs::format(&st.code).class_label(h.classification) {
+        return name.to_string();
+    }
     let classes = st.schools.iter().map(|&k| w.high_schools[k].classification).max().unwrap_or(0) + 1;
     if ["OH", "MI", "WI", "CA"].contains(&st.code.as_str()) {
         format!("Division {}", h.classification + 1)

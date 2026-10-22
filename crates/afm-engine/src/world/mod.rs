@@ -25,6 +25,7 @@ pub mod franchise;
 pub mod game_log;
 pub mod geo;
 pub mod high_school;
+pub mod hs_playoffs;
 pub mod hs_year;
 pub mod live_seat;
 pub mod names;
@@ -964,7 +965,8 @@ impl World {
         let year = options.start_year - options.history_years as i32 - SPIN_UP_YEARS as i32;
         let mut areas: Vec<(usize, String)> = Vec::new();
         for s in high_schools.iter_mut() {
-            let key = (s.state, s.town.clone());
+            // Schools in one county share a recruiting area (final build).
+            let key = (s.state, if s.county.is_empty() { s.town.clone() } else { format!("{} County", s.county) });
             s.area = match areas.iter().position(|a| *a == key) {
                 Some(k) => k,
                 None => {

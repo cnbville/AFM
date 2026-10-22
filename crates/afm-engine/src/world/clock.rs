@@ -516,6 +516,7 @@ fn year_start(w: &mut World) {
     if let Some(prev) = w.college_prev.as_mut() {
         college::keep_for_next_year(prev);
     }
+    super::hs_playoffs::reclassify(w);
     w.hs_season = Some(hs_year::new_season(w));
     w.nfl_season = Some(nfl_year::new_season(w));
     super::franchise::year_start(w);

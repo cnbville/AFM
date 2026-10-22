@@ -285,11 +285,44 @@ pub fn high_school_name(town: &str, k: usize, private: bool, rng: &mut Rng) -> S
     if private {
         return if rng.chance(0.5) { format!("{} ({town})", rng.pick(&SAINTS)) } else { format!("{town} Christian") };
     }
+    // A town's first school is its own; a city's others are named for a
+    // side of town or, as often in real big districts (Lincoln, Jefferson,
+    // Lamar, Madison), for a person, each name used once.
     match k {
         0 => format!("{town} High"),
-        _ => format!("{town} {}", MASCOT_WORDS[(k - 1) % MASCOT_WORDS.len()]),
+        _ if k % 2 == 1 && (k - 1) / 2 < MASCOT_WORDS.len() => format!("{town} {}", MASCOT_WORDS[(k - 1) / 2]),
+        _ if k % 2 == 0 && k / 2 - 1 < NAMESAKES.len() => format!("{} ({town})", NAMESAKES[k / 2 - 1]),
+        _ => format!("{town} {} {}", MASCOT_WORDS[k % MASCOT_WORDS.len()], NAMESAKES[k % NAMESAKES.len()]),
     }
 }
+
+/// The people big-city high schools are most often named for.
+const NAMESAKES: [&str; 24] = [
+    "Lincoln",
+    "Washington",
+    "Jefferson",
+    "Roosevelt",
+    "Kennedy",
+    "Madison",
+    "Franklin",
+    "Wilson",
+    "Douglass",
+    "King",
+    "Edison",
+    "Hamilton",
+    "Monroe",
+    "Grant",
+    "Marshall",
+    "Jackson",
+    "Adams",
+    "Truman",
+    "Carver",
+    "Eisenhower",
+    "Lamar",
+    "Austin",
+    "Mann",
+    "Whitman",
+];
 
 /// The fictional name for a real program, stable for a given world seed.
 pub fn fictional_program_name(city: &str, index: usize, seed: u32) -> String {

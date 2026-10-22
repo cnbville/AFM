@@ -33,6 +33,7 @@ fn main() {
         }
     }
     println!("NFL champions: {:?}", w.nfl_champions);
+    hs_dynasties(&w);
     for (k, n) in w.calendar.counts.iter() {
         println!("count {k:?}: {n}");
     }
@@ -100,5 +101,34 @@ fn print_log(l: &CalendarLog) {
     ];
     for (k, v) in rows {
         println!("  {k:<40} {v}");
+    }
+}
+
+/// High school dynasties (A11): the longest winning streaks across the
+/// states (real record: De La Salle's 151, 1992-2004) and the best programs'
+/// records over the history.
+fn hs_dynasties(w: &World) {
+    use afm_engine::world::records::{Book, Scope};
+    let mut hs: Vec<_> = w
+        .stats
+        .books
+        .iter()
+        .filter(|(k, _)| matches!(k.0, Scope::State(_)) && k.1 == Book::WinStreak)
+        .flat_map(|(k, v)| v.iter().map(move |e| (k.0.clone(), e)))
+        .collect();
+    hs.sort_by(|a, b| b.1.value.total_cmp(&a.1.value).then_with(|| a.1.name.cmp(&b.1.name)));
+    println!("=== longest high school winning streaks ===");
+    for (sc, e) in hs.iter().take(10) {
+        let st = if let Scope::State(s) = sc { afm_engine::world::geo::STATE_CENTERS[*s].0 } else { "" };
+        println!("{:>4.0} {} {st} {}-{}{}", e.value, e.name, e.from, e.year, if e.live { " running" } else { "" });
+    }
+    println!("=== most state titles ===");
+    let mut by: Vec<_> = w.high_schools.iter().filter(|h| !h.seasons.is_empty()).collect();
+    by.sort_by_key(|h| std::cmp::Reverse(h.seasons.iter().filter(|s| s.state_title).count()));
+    for h in by.iter().take(10) {
+        let (wn, l): (u32, u32) = h.seasons.iter().fold((0, 0), |a, s| (a.0 + s.wins, a.1 + s.losses));
+        let titles = h.seasons.iter().filter(|s| s.state_title).count();
+        let st = afm_engine::world::geo::STATE_CENTERS[h.state].0;
+        println!("{titles:>3} titles {wn}-{l} {} ({}) {st} class {}", h.name, h.town, h.classification + 1);
     }
 }

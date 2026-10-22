@@ -120,6 +120,9 @@ def towns():
             m = re.search(r"\(([^)]+)\)", p)
             if m:
                 out.add((r["state"].strip(), m.group(1).strip()))
+    # The generated schools' real towns (`hs_towns.csv`, final build).
+    for r in csv.DictReader(open(os.path.join(DATA, "hs_towns.csv"), encoding="utf-8")):
+        out.add((r["state"].strip(), r["town"].strip()))
     for r in csv.DictReader(open(os.path.join(DATA, "nfl_teams.csv"), encoding="utf-8")):
         out.add((r["state"].strip(), r["city"].strip()))
     for m in re.finditer(r'e\(\s*\w+,\s*\w+,\s*"[^"]+",\s*"([^"]+)",\s*"([A-Z]{2})"', open(FRANCHISE).read()):
@@ -131,6 +134,9 @@ def towns():
 
 def city_coords(path):
     c = {}
+    # The school towns carry their own population-weighted centres.
+    for r in csv.DictReader(open(os.path.join(DATA, "hs_towns.csv"), encoding="utf-8")):
+        c[(r["state"], r["town"].lower())] = (float(r["lat"]), float(r["lon"]))
     for r in csv.DictReader(open(path, encoding="utf-8")):
         key = (r["STATE_CODE"], r["CITY"].lower())
         c.setdefault(key, (float(r["LATITUDE"]), float(r["LONGITUDE"])))
@@ -182,7 +188,8 @@ def main():
         if at is None:
             missing.append(f"{town}, {state}")
             continue
-        ranked = sorted(stations, key=lambda s: miles(at, s["at"]))
+        near = [s for s in stations if abs(s["at"][0] - at[0]) < 1.5 and abs(s["at"][1] - at[1]) < 2.0] or stations
+        ranked = sorted(near, key=lambda s: miles(at, s["at"]))
         best = ranked[0]
         for s in ranked[:25]:
             d = miles(at, s["at"])
