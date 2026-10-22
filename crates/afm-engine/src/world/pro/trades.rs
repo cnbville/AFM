@@ -65,6 +65,10 @@ pub struct PickBook {
     pub cfa: Vec<(i32, usize, usize, usize, f64)>,
     /// Minority coaches hired away as head coaches: (year, old team, offseasons there).
     pub diversity: Vec<(i32, usize, u32)>,
+    /// Picks forfeited for a supplemental draft choice: (draft year, round,
+    /// original team).
+    #[serde(default)]
+    pub forfeited: Vec<(i32, u32, usize)>,
 }
 
 impl PickBook {
@@ -74,6 +78,15 @@ impl PickBook {
 }
 
 /// Hands over a pick (an offer sheet's compensation, a trade).
+/// A club gives up its own pick in a round of a coming draft (a
+/// supplemental draft choice): the pick it holds in that round, its own or
+/// one it acquired.
+pub(crate) fn forfeit_pick(w: &mut World, team: usize, year: i32, round: u32) {
+    let teams = super::super::franchise::active_teams(year);
+    let orig = teams.iter().copied().find(|&o| w.market.picks.owner_of(year, round, o) == team).unwrap_or(team);
+    w.market.picks.forfeited.push((year, round, orig));
+}
+
 pub(crate) fn give_pick(w: &mut World, from: usize, to: usize, year: i32, round: u32) {
     // The giver's own pick in that round if he still has it, else one he
     // holds from another team.
@@ -115,6 +128,12 @@ pub(crate) fn board_owners(w: &World, year: i32, board: &mut Vec<(usize, u32)>, 
             let n = ((full.len() as f64 * scale).round() as usize).max(1);
             (0..n).map(|i| full[((i as f64 / scale) as usize).min(full.len() - 1)]).collect()
         };
+    }
+    // A pick given up in a supplemental draft is gone from the board.
+    let lost: Vec<(u32, usize)> =
+        w.market.picks.forfeited.iter().filter(|f| f.0 == year).map(|f| (f.1, f.2)).collect();
+    if !lost.is_empty() {
+        board.retain(|s| s.1 & COMP != 0 || !lost.contains(&(s.1, s.0)));
     }
     for slot in board.iter_mut() {
         if slot.1 & COMP != 0 {

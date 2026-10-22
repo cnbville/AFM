@@ -33,6 +33,7 @@ pub mod program;
 pub mod records;
 pub(crate) mod recruiting;
 pub mod schedule;
+pub mod scouting;
 pub(crate) mod season;
 pub mod seat;
 pub mod staff;
@@ -639,6 +640,11 @@ pub struct World {
     /// Your career once it has started: you, your coach id, your notes.
     #[serde(default)]
     pub career: Option<seat::Career>,
+    /// Scouting and the draft (section 7, final build lane 7): public
+    /// boards and mocks, your department's looks, your draft board, the live
+    /// draft, the pre-draft season, pro scouting, look-backs, followers.
+    #[serde(default)]
+    pub scouting: scouting::Scouting,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -928,6 +934,7 @@ impl World {
             seat_depth: Vec::new(),
             seat_focus: Vec::new(),
             career: None,
+            scouting: Default::default(),
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);

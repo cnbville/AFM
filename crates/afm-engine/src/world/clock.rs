@@ -153,6 +153,11 @@ fn hs_transfer_day(y: &YearDates) -> Date {
 
 /// Day `d` of football year `y`.
 pub(crate) fn advance_day(w: &mut World) {
+    // A war room left open (a day passed without finishing the draft): the
+    // staff finish it on the board.
+    if w.scouting.live.is_some() {
+        super::scouting::live::finish(w);
+    }
     let d = w.today;
     let y = w.dates.clone();
     if d == y.start {
@@ -476,6 +481,7 @@ pub(crate) fn advance_day(w: &mut World) {
     // the training blocks of every level (T7).
     timed("rhythm", || rhythm(w, d, &y));
     nfl_year::training_blocks(w, d, &y);
+    timed("scouting", || super::scouting::day(w, d));
 
     // News items of the day get the day's date.
     for n in w.news.iter_mut().rev() {
@@ -733,6 +739,10 @@ pub fn continue_until_needed(w: &mut World, max_days: u32) -> Date {
     let stops = |e: &Event| e.needs_decision || huge_for(seat, e) || (e.loud == Loudness::Big && cares(seat, e));
     for i in 0..max_days {
         let d = w.today;
+        // The draft is live in your war room: nothing moves until it's done.
+        if w.scouting.live.is_some() {
+            return d;
+        }
         // The morning of your game, or of a day you decide things on: stop
         // before it plays, so you get there first. Pressed that morning,
         // Continue plays it.
