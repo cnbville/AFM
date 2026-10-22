@@ -185,6 +185,13 @@ function mnCollege(x, b, tab) {
 }
 
 // ---------- high school ----------
+// The booster club's account (kept on the school page's desk).
+function mnBoosters(k) {
+  if (!k) return "";
+  return `<section class="panel"><h2>The booster club's account <small>${mnN(k.members)} members</small></h2>
+    <div class="st-tiles">${mnTile(mn$(k.balance), "in the bank")}${mnTile(mn$(k.raised), "raised this year")}${mnTile(mn$(k.spent), "spent this year")}</div>
+    <p class="sub">${k.fundraised ? `${mn$(k.fundraised)} of it from your team's fundraisers.` : "Your team's fundraisers pay into this account."} The club spends it on meals, helmets, buses and the projects on your wish list.</p></section>`;
+}
 function mnHs(x, b, tab) {
   if (!x.own) return `<section class="panel"><h2>${esc(x.team.name)}</h2><div class="kv"><dt>Students</dt><dd>${mnN(b.enrollment)}</dd><dt>A Friday crowd</dt><dd>about ${mnN(b.crowd)}</dd><dt>Pay to play</dt><dd>${b.fee ? mn$(b.fee) + " a player" : "No fee"}</dd></div><p class="sub">A school's books aren't published: this is what the town knows.</p></section>`;
   const s = b.seat || {};
@@ -194,7 +201,7 @@ function mnHs(x, b, tab) {
     const tiles = `<div class="st-tiles">${mnTile(mn$(sum(inc, "budget")), "football's money this year")}${mnTile(mn$(s.left), "equipment budget left to spend")}${mnTile(mnN(b.crowd), "a Friday crowd")}${mnTile(b.fee ? mn$(b.fee) : "None", "pay to play, a player")}</div>`;
     const last = b.last ? `<section class="panel"><h2>Last year <small>${b.last.year}-${String(b.last.year + 1).slice(2)}</small></h2>${mnShare(b.last.lines.filter((l) => l.income).map((l, i) => ({ name: l.name, value: l.amount, color: MN_C[i] })))}</section>` : "";
     return `${tiles}<div class="grid2" style="margin-top:18px"><div class="col"><section class="panel"><h2>Money in <small>budget and so far</small></h2>${mnMeters(inc, { note: "in so far" })}</section>${last}</div>
-      <div class="col"><section class="panel"><h2>Money out</h2>${mnMeters(out)}</section><section class="panel"><h2>Who pays for what</h2><p class="sub">The district pays the coaches' stipends, buses, officials and the field. The gate goes to the athletic fund and the state association splits playoff gates. The booster club pays for meals, helmets and the projects on your wish list.</p>${linkTo("school", {}, "The booster club and the people you answer to", "gochip")}</section></div></div>`;
+      <div class="col"><section class="panel"><h2>Money out</h2>${mnMeters(out)}</section>${mnBoosters(b.boosters)}<section class="panel"><h2>Who pays for what</h2><p class="sub">The district pays the coaches' stipends, buses, officials and the field. The gate goes to the athletic fund and the state association splits playoff gates. The booster club pays for meals, helmets and the projects on your wish list.</p>${linkTo("school", {}, "The booster club and the people you answer to", "gochip")}</section></div></div>`;
   }
   if (tab === "Equipment") {
     const pct = s.equipment ? Math.min(100, ((s.basics + s.bought) / s.equipment) * 100) : 0;

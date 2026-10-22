@@ -298,6 +298,15 @@ fn hs_books(w: &World, h: usize, own: bool) -> Value {
             v["last"] = json!({ "year": s.last.year, "lines": last });
         }
         v["seat"] = hs::seat_json(w).unwrap_or(Value::Null);
+        // The booster club's account, kept on the front office's school desk.
+        let b = &w.front_office.school.boosters;
+        if w.front_office.school.school == Some(h) {
+            v["boosters"] = json!({
+                "balance": r0(b.balance), "members": b.members,
+                "raised": r0(b.raised.iter().sum::<f64>() + b.fundraised), "fundraised": r0(b.fundraised),
+                "spent": r0(b.spent.iter().sum::<f64>()),
+            });
+        }
         v["fundraisers"] = json!(
             data::FUNDRAISERS
                 .iter()

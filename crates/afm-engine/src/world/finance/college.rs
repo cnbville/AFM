@@ -281,8 +281,11 @@ pub(crate) fn open(w: &mut World) {
         depts.push(d);
     }
     w.finance.college = depts;
+    // The money year runs July to June: before 1 July the books open on
+    // the year that ends then.
+    let fy = if w.today < w.dates.money_year { year - 1 } else { year };
     for p in 0..n {
-        open_year(w, p, year);
+        open_year(w, p, fy);
     }
     if year >= 2026 {
         open_deals(w, year);
@@ -721,6 +724,7 @@ pub(crate) fn played(w: &mut World, idx: &[usize]) {
             }
         }
         if let Some(line) = line {
+            super::lines::learn(w, Level::College, [home, away], line, pl.score);
             let coach = |p: usize| w.programs[p].sideline.or(w.programs[p].head_coach);
             let names = [
                 w.programs[home].name(w.options.names).to_string(),

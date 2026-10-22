@@ -136,6 +136,9 @@ pub struct Boosters {
     /// This football year's money in: membership, the golf tournament,
     /// program ads and banners, concessions, the banquet.
     pub raised: [f64; 5],
+    /// This football year's team fundraisers (the discount cards, the car
+    /// wash, the lift-a-thon you run from the finances screen).
+    pub fundraised: f64,
     /// This football year's money out: equipment, meals, travel, projects.
     pub spent: [f64; 4],
     /// Each line of the year's books: date, what, amount (+ in, - out).
@@ -1555,6 +1558,16 @@ fn money_in(w: &mut World, d: Date, k: usize, what: String, x: f64) {
     b.ledger.push((d, what, x));
 }
 
+/// A team fundraiser's take, paid into the booster club's account
+/// (`finance::hs`): on its ledger with the year's other money in.
+pub(crate) fn fundraiser_in(w: &mut World, what: &str, x: f64) {
+    let d = w.today;
+    let b = &mut w.front_office.school.boosters;
+    b.fundraised += x;
+    b.balance += x;
+    b.ledger.push((d, what.to_string(), x));
+}
+
 fn money_out(w: &mut World, d: Date, k: usize, what: String, x: f64) {
     let b = &mut w.front_office.school.boosters;
     b.spent[k] += x;
@@ -1873,6 +1886,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
         desk.sent.retain(|x| x.0 >= year - 1);
         let b = &mut desk.boosters;
         b.raised = [0.0; 5];
+        b.fundraised = 0.0;
         b.spent = [0.0; 4];
         b.ledger.clear();
         sync_people(w, h);

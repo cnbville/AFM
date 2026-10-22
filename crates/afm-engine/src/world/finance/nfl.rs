@@ -622,7 +622,9 @@ pub(crate) fn demand(w: &World, t: usize, opp: usize, d: Date, preseason: bool, 
     let opp_brand = data::BRAND.get(opp).copied().unwrap_or(0.5);
     let (wins, losses, _) = w.nfl_record(t);
     let wp = if wins + losses > 0 { wins as f64 / (wins + losses) as f64 - 0.5 } else { 0.0 };
-    // Older eras sold fewer seats: more blackouts in the 1980s and 1990s.
+    // Older eras sold fewer seats: more blackouts in the 1980s and 1990s
+    // (a third of games in the mid-1980s, about one in ten in the 2000s,
+    // 16 in 2011 and none in 2014), and from the 2000s most games sell out.
     let era = clamp((year - 1984) as f64 / 30.0, 0.0, 1.0);
     let price_rel = c.price as f64 / data::nfl_ticket(year).max(1.0);
     let late = d.month() == 12 || d.month() == 1;
@@ -645,7 +647,7 @@ pub(crate) fn demand(w: &World, t: usize, opp: usize, d: Date, preseason: bool, 
                 | "Landover"
                 | "Washington"
         );
-    let mut x = 0.885 + 0.055 * era + 0.06 * brand + 0.07 * fans + 0.025 * market + 0.03 * opp_brand + 0.16 * wp
+    let mut x = 0.915 + 0.1 * era + 0.06 * brand + 0.07 * fans + 0.025 * market + 0.03 * opp_brand + 0.16 * wp
         - 0.05 * (price_rel - 1.0)
         - if cold { 0.02 } else { 0.0 }
         - if c.moving.is_some() { 0.08 } else { 0.0 };
@@ -664,12 +666,22 @@ pub(crate) fn gate(w: &mut World, t: usize, opp: usize, d: Date, preseason: bool
     let x = demand(w, t, opp, d, preseason, playoff);
     let c = &w.finance.nfl[t];
     let cap = c.home.capacity.max(20_000) as f64;
-    let sold_out = x >= 1.0;
-    let att = if sold_out { cap * (1.0 + 0.015 * (x - 1.0).min(1.0)) } else { cap * x.max(0.35) };
     // The blackout rule (1973-2014): a game not sold out 72 hours before
     // kickoff is off local TV. From 2012 a club could set its bar at 85%.
+    // A club a few thousand seats short bought them up itself, or a local
+    // sponsor did, to keep the game on TV.
+    let rule = !preseason && (1973..=2014).contains(&year);
     let bar = if year >= 2012 { 0.85 } else { 1.0 };
-    let blackout = !preseason && (1973..=2014).contains(&year) && x < bar;
+    let bought = rule && x < bar && x >= bar - 0.05;
+    let sold_out = x >= 1.0 || bought && bar >= 1.0;
+    let att = if x >= 1.0 {
+        cap * (1.0 + 0.015 * (x - 1.0).min(1.0))
+    } else if bought {
+        cap * x.max(bar)
+    } else {
+        cap * x.max(0.35)
+    };
+    let blackout = rule && x < bar - 0.05;
     let g = Gate { date: d, opp: opp as u8, attendance: att as u32, sold_out, blackout, preseason, playoff };
     let price = c.price as f64
         * if preseason {

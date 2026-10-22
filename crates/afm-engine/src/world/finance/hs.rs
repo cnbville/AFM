@@ -172,10 +172,12 @@ fn budget(w: &World, h: usize) -> Book<N> {
 /// Opens every school's books (the first day or an older file).
 pub(crate) fn open(w: &mut World) {
     let n = w.high_schools.len();
+    // The school year's money runs July to June, as a college's does.
+    let fy = if w.today < w.dates.money_year { w.year - 1 } else { w.year };
     let schools: Vec<School> = (0..n)
         .map(|h| {
             let b = budget(w, h);
-            School { now: Book::new(w.year), budget: b, last: Book::default(), fee: fee(w, h), crowd: crowd(w, h) }
+            School { now: Book::new(fy), budget: b, last: Book::default(), fee: fee(w, h), crowd: crowd(w, h) }
         })
         .collect();
     w.finance.hs = schools;
@@ -299,7 +301,9 @@ fn credit_boosters(w: &mut World, h: usize, what: &str, x: f64) {
     if let Some(s) = w.finance.hs.get_mut(h) {
         s.now.l[BOOSTER] += x as f32;
     }
-    booster_desk(w, what, x);
+    if w.front_office.school.school == Some(h) {
+        crate::world::front_office::school::fundraiser_in(w, what, x);
+    }
 }
 
 fn finish_fundraiser(w: &mut World, h: usize, key: &str) {
@@ -436,6 +440,3 @@ pub fn seat_json(w: &World) -> Option<serde_json::Value> {
         "ledger": seat.ledger.iter().rev().take(40).map(|e| serde_json::json!({ "date": e.date.pretty(), "what": e.what, "amount": e.amount.round() })).collect::<Vec<_>>(),
     }))
 }
-
-// Front office's booster club takes the money (wired when its desk lands).
-fn booster_desk(_w: &mut World, _what: &str, _x: f64) {}

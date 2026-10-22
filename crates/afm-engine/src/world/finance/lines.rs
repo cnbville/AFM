@@ -16,6 +16,48 @@ use crate::world::data::Division;
 const NFL_SD: f64 = 13.5;
 const COLLEGE_SD: f64 = 16.0;
 
+/// What the market has learned of a team from its games against the line:
+/// the points it beat the line by, summed, and the games. A team the
+/// numbers misread keeps covering (or missing) until the line moves with
+/// it; last season's lesson counts half, and nothing older.
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct Form {
+    pub year: i32,
+    pub sum: f32,
+    pub n: f32,
+}
+
+pub(crate) fn form_key(level: Level, t: usize) -> u32 {
+    (if level == Level::Nfl { 0 } else { 1 << 20 }) | t as u32
+}
+
+/// The points a team's line moves for what the market has learned
+/// (shrunk toward nothing over its first games).
+fn form(w: &World, level: Level, t: usize) -> f64 {
+    let Some(f) = w.finance.form.get(&form_key(level, t)) else { return 0.0 };
+    let (sum, n) = match w.year - f.year {
+        0 => (f.sum, f.n),
+        1 => (0.5 * f.sum, 0.5 * f.n),
+        _ => return 0.0,
+    };
+    sum as f64 / (n as f64 + 4.0)
+}
+
+/// A finished game teaches the market: each side's margin against the line.
+pub(crate) fn learn(w: &mut World, level: Level, teams: [usize; 2], line: [f32; 2], score: [u32; 2]) {
+    let cover = score[0] as f32 - score[1] as f32 + line[0];
+    let year = w.year;
+    for (t, x) in [(teams[0], cover), (teams[1], -cover)] {
+        let f = w.finance.form.entry(form_key(level, t)).or_default();
+        if f.year != year {
+            let keep = if f.year == year - 1 { 0.5 } else { 0.0 };
+            *f = Form { year, sum: f.sum * keep, n: f.n * keep };
+        }
+        f.sum += x;
+        f.n += 1.0;
+    }
+}
+
 fn half(x: f64) -> f32 {
     ((x * 2.0).round() / 2.0) as f32
 }
@@ -23,7 +65,7 @@ fn half(x: f64) -> f32 {
 /// An NFL line: (home spread, total) from the win chance and both
 /// teams' scoring so far, with a little market noise.
 pub(crate) fn nfl(w: &World, p_home: f64, home: usize, away: usize) -> [f32; 2] {
-    let margin = NFL_SD * probit(p_home);
+    let margin = NFL_SD * probit(p_home) + form(w, Level::Nfl, home) - form(w, Level::Nfl, away);
     let noise = 0.6 * draw_normal(w, 0x11E5, (home as u64) << 8 ^ away as u64, w.year);
     let spread = half(-(margin + noise));
     let (pf_h, pa_h, n_h) = nfl_points(w, home);
@@ -67,7 +109,7 @@ pub(crate) fn college(w: &World, home: usize, away: usize, neutral: bool) -> Opt
     let (rh, ra) = (cs.results.get(home)?, cs.results.get(away)?);
     let adv = if neutral { 0.0 } else { 0.8 };
     let p = crate::world::season::win_chance(rh.strength, ra.strength, w.college_spread.max(0.5), adv);
-    let margin = COLLEGE_SD * probit(p);
+    let margin = COLLEGE_SD * probit(p) + form(w, Level::College, home) - form(w, Level::College, away);
     let key = (home as u64) << 16 ^ away as u64;
     let spread = half(-(margin + 0.8 * draw_normal(w, 0xC11E, key, w.year)));
     let avg = if dh == Division::FBS || da == Division::FBS { 27.5 } else { 26.0 };

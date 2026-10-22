@@ -381,6 +381,11 @@ pub fn small_curve(year: i32) -> f64 {
 pub fn conference_payout(conf: &str, division: super::super::data::Division, year: i32) -> f64 {
     use super::super::data::Division;
     let (m, power) = conference_2024(conf);
+    // The Pac-12 after 2023: ten schools left, the two that stayed lived on
+    // the old league's money, and from 2026 it is a rebuilt league of
+    // Mountain West schools with a smaller TV deal, about twice the
+    // Mountain West's.
+    let (m, power) = if matches!(conf, "Pac-12") && year >= 2024 { (9.0, false) } else { (m, power) };
     let base = if m > 0.0 {
         m
     } else {
@@ -394,7 +399,15 @@ pub fn conference_payout(conf: &str, division: super::super::data::Division, yea
     };
     // Notre Dame's NBC deal and its playoff access (about $25M in 2024).
     let base = if conf == "Independent" && division == Division::FBS { base.max(2.5) } else { base };
-    base * 1e6 * if power { power_curve(year) } else { small_curve(year) }
+    // The ACC's and the Big 12's deals don't grow like the SEC's and the
+    // Big Ten's new ones (the ACC's ESPN deal runs flat to 2036, the Big
+    // 12's new deal from 2025 pays about what the old one did).
+    let curve = match conf {
+        _ if !power => small_curve(year),
+        "ACC" | "Big 12" if year > 2024 => power_curve(2024) * 1.04f64.powi(year - 2024),
+        _ => power_curve(year),
+    };
+    base * 1e6 * curve
 }
 
 /// The NCAA's yearly distributions to a Division I school (basketball

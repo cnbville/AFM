@@ -42,6 +42,9 @@ pub struct Finance {
     pub deals: Vec<college::Deal>,
     /// Head coaches' records against the spread: coach id, [covers, misses, pushes].
     pub ats: HashMap<usize, [u16; 3]>,
+    /// What the betting market has learned of each team from its games
+    /// against the line (`lines::Form`), by `lines::form_key`.
+    pub form: HashMap<u32, lines::Form>,
     /// The NFLPA's team report cards (P1): one row a club a year.
     pub cards: Vec<nfl::Card>,
     /// The league's whole revenue by year (dollars), for the public numbers.

@@ -358,19 +358,23 @@ pub(crate) fn set_ladders(w: &mut World) {
     w.market.teams = super::super::franchise::active_teams(year).len();
 }
 
-/// What a veteran of this grade costs a year on the open market at his age.
+/// What a veteran of this grade costs a year on the open market at his age,
+/// never past the position's record deal.
 pub(crate) fn market_price(year: i32, pos: Position, view: f64, accrued: u32, age: u32) -> f64 {
-    (money::price_cap(year) * money::market_share(pos, view) * decline(pos, age)).max(money::minimum(year, accrued))
+    let price = money::price_cap(year) * money::market_share(pos, view).min(money::top5_share(pos) * 1.08);
+    (price * decline(pos, age)).max(money::minimum(year, accrued))
 }
 
 /// Past his position's prime a team pays for the decline it expects over
-/// the deal: about 4% less a year past it, to 60% (real: Cousins at 35 at
-/// about 88% of the top five's pay, Brees at 39 and Rodgers at 38 near the
-/// top of the market, Brady at 43 at 70%; most players that old have lost
-/// grade as well, so their price falls further).
+/// the deal: about 4% less a year for three years past it, then 9% a year
+/// as the cliff nears, to 40% (real: Cousins at 35 at about 88% of the top
+/// five's pay, Brees at 39 and Rivers at 38 at about 70%; at 40 about half,
+/// and a 40-year-old who has lost a step gets a one-year backup's deal, as
+/// Flacco did at 39 and Rodgers a short one at 41; Brady at 43 at 70% after
+/// a title is the rare exception).
 pub(crate) fn decline(pos: Position, age: u32) -> f64 {
-    let past = age.saturating_sub(prime_end(pos));
-    (1.0 - 0.04 * past as f64).max(0.6)
+    let past = age.saturating_sub(prime_end(pos)) as f64;
+    (1.0 - 0.04 * past - 0.05 * (past - 3.0).max(0.0)).max(0.4)
 }
 
 /// The age a position's prime ends at (the class model's decline).
@@ -527,9 +531,13 @@ pub(crate) fn ideal(w: &World, i: usize, d: Date) -> Ideal {
     let view = market_grade(w, p.player.position, consensus(w, i));
     let accrued = c.map_or(0, |c| c.accrued);
     let agent = c.and_then(|c| c.agent).map_or(8.0, |a| w.market.agents[a].skill);
-    let apy = market_price(year, p.player.position, view, accrued, p.player.age)
+    // His money goal and his agent move the ask, never past the record
+    // deal at his position (moved for his age as the price is).
+    let pos = p.player.position;
+    let apy = (market_price(year, pos, view, accrued, p.player.age)
         * (1.0 + 0.2 * (g.money - 0.5))
-        * (1.0 + 0.004 * (agent - 10.0));
+        * (1.0 + 0.004 * (agent - 10.0)))
+        .min(money::record_apy(year, pos) * decline(pos, p.player.age));
     let base = if view >= 85.0 {
         0.55
     } else if view >= 78.0 {

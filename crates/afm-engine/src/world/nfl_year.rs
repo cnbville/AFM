@@ -1856,6 +1856,7 @@ fn hang_lines(w: &mut World, k: usize) {
 /// the spread, and an upset by the line in the news.
 fn settle_line(w: &mut World, h: usize, a: usize, line: Option<[f32; 2]>, score: Option<[u32; 2]>) {
     let (Some(line), Some(score)) = (line, score) else { return };
+    super::finance::lines::learn(w, Level::Nfl, [h, a], line, score);
     let coaches = [w.nfl[h].head_coach, w.nfl[a].head_coach];
     let names = [w.nfl[h].name.to_string(), w.nfl[a].name.to_string()];
     super::finance::lines::settle(w, Level::Nfl, line, score, coaches, names, (Some(h), None));
