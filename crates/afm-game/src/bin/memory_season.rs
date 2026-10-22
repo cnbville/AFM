@@ -194,8 +194,16 @@ fn fingerprint(w: &World) -> u64 {
     for n in &w.news {
         format!("{n:?}").hash(&mut h);
     }
+    // The box score keeps player lines in a hash map, whose print order
+    // changes run to run, so the lines go in by player id.
     for g in &w.seat_games {
-        format!("{g:?}").hash(&mut h);
+        format!("{:?}{:?}{:?}{:?}", g.date, g.teams, g.stats.score, g.stats.quarters).hash(&mut h);
+        format!("{:?}{:?}", g.stats.team, g.stats.plays).hash(&mut h);
+        for side in &g.stats.players {
+            let mut lines: Vec<_> = side.iter().collect();
+            lines.sort_by_key(|(id, _)| **id);
+            format!("{lines:?}").hash(&mut h);
+        }
     }
     format!("{:?}", w.seat_depth).hash(&mut h);
     h.finish()
