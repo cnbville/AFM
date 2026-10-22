@@ -31,6 +31,7 @@ fn healthy(w: &World, i: usize, status: Status) -> bool {
         .pro
         .as_ref()
         .is_some_and(|c| c.status == status && c.out_weeks == 0 && crate::world::people::available(c))
+        && !crate::world::folk::rules::sitting(w, w.people[i].player.id, w.today)
 }
 
 fn elevations_used(w: &World, i: usize) -> u32 {
@@ -415,6 +416,7 @@ fn take(w: &mut World, from: usize, t: usize, i: usize, d: Date, pay: f64) {
         w,
         d,
         Some(t),
+        Some(i),
         crate::calendar::Loudness::Small,
         crate::calendar::Kind::Signing,
         format!("{who} is signed off the {} practice squad by the {b}.", super::possessive(a)),

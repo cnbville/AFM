@@ -184,6 +184,27 @@ pub(crate) struct CollegeSeason {
 /// A rivalry's record over the world's history (A28): wins by its first
 /// and second listed programs, the first season counted, and the trophy's
 /// holder (the last rivalry game's winner).
+/// Last year's season once the new one starts (memory): the next year
+/// reads only its results (the coaches' and programs' book on signing day),
+/// its rivalry series and the academy trophy, so the games, rosters, stat
+/// lines and polls are let go instead of riding through the whole season.
+pub(crate) fn keep_for_next_year(c: &mut CollegeSeason) {
+    c.games = Vec::new();
+    c.teams = Vec::new();
+    c.coaches = Vec::new();
+    c.banned = Vec::new();
+    c.snaps = HashMap::new();
+    c.lines = HashMap::new();
+    c.book = HashMap::new();
+    c.out = HashMap::new();
+    c.polls = Vec::new();
+    c.brackets = Vec::new();
+    c.credited = Vec::new();
+    c.awards = Vec::new();
+    c.bowl_teams = HashSet::new();
+    c.rivalry_of = HashMap::new();
+}
+
 #[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Series {
     pub wins: [u32; 2],
@@ -516,6 +537,7 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
         let later =
             w.dates.cfb_weeks.iter().copied().find(|&d| d > date && !busy.contains(&d) && d <= w.dates.fbs_regular_end);
         let name = format!("{} at {}", w.programs[b].real_name, w.programs[a].real_name);
+        let (an, bn) = (w.programs[a].real_name.clone(), w.programs[b].real_name.clone());
         let cs = w.college.as_mut().unwrap();
         match later {
             Some(d) => {
@@ -525,13 +547,23 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
                 }
                 cs.games[k].tags.retain(|_| true);
                 let text = format!("{name} is moved to {} because of a hurricane.", d.pretty());
-                w.calendar.post(Event::new(date, CalLevel::College, Kind::Weather, Loudness::Medium, text).program(a));
+                w.calendar.post(
+                    Event::new(date, CalLevel::College, Kind::Weather, Loudness::Medium, text)
+                        .program(a)
+                        .school_link(b, &bn)
+                        .school_link(a, &an),
+                );
                 w.log.weather_moves += 1;
             }
             None => {
                 cs.games[k].played = Some(Played { cancelled: true, moved: true, ..Played::default() });
                 let text = format!("{name} is cancelled because of a hurricane: a no contest.");
-                w.calendar.post(Event::new(date, CalLevel::College, Kind::Weather, Loudness::Medium, text).program(a));
+                w.calendar.post(
+                    Event::new(date, CalLevel::College, Kind::Weather, Loudness::Medium, text)
+                        .program(a)
+                        .school_link(b, &bn)
+                        .school_link(a, &an),
+                );
                 w.log.weather_cancels += 1;
             }
         }
@@ -962,7 +994,12 @@ fn result_event(w: &mut World, k: usize) {
     };
     let date = g.date;
     let title = g.kind == GameKind::Title && g.division == Division::FBS;
-    let mut e = Event::new(date, CalLevel::College, Kind::Game, loud, text).program(wi);
+    let score = format!("{ws}-{ls}");
+    let mut e = Event::new(date, CalLevel::College, Kind::Game, loud, text)
+        .program(wi)
+        .school_link(wi, &w.programs[wi].real_name)
+        .school_link(li, &w.programs[li].real_name)
+        .game_link(date, CalLevel::College, g.home, &score);
     if title {
         e = e.memorable();
     }
@@ -1109,7 +1146,11 @@ pub(crate) fn release_poll(w: &mut World, date: Date, kind: PollKind) {
         w.programs[top.get(2).copied().unwrap_or(top[0])].real_name,
         w.programs[top.get(3).copied().unwrap_or(top[0])].real_name
     );
-    w.calendar.post(Event::new(date, CalLevel::College, Kind::Poll, loud, text));
+    let mut e = Event::new(date, CalLevel::College, Kind::Poll, loud, text);
+    for &t in top.iter().take(4) {
+        e = e.school_link(t, &w.programs[t].real_name);
+    }
+    w.calendar.post(e);
     w.college.as_mut().unwrap().polls.push(Poll { date, kind, top });
 }
 
@@ -1130,7 +1171,7 @@ type StakeUpdate = (usize, Vec<Tag>, Loudness, [bool; 2], Vec<&'static str>);
 fn stakes_for_day(w: &mut World, idx: &[usize]) {
     let Some(cs) = w.college.as_ref() else { return };
     let mut updates: Vec<StakeUpdate> = Vec::new();
-    let mut notes: Vec<(usize, String)> = Vec::new();
+    let mut notes: Vec<(usize, String, u32, String)> = Vec::new();
     // Each team's own race (T8.1): the fewest conference losses in its
     // conference, and the regular-season games it has left.
     let mut conf_best: HashMap<&str, u32> = HashMap::new();
@@ -1230,6 +1271,8 @@ fn stakes_for_day(w: &mut World, idx: &[usize]) {
                                     "{} needs {need} {stat} to break {}'s single-season record ({:.0}, {} in {}).",
                                     p.name, w.programs[t].real_name, rec.value, rec.holder, rec.year
                                 ),
+                                p.player.id,
+                                p.name.clone(),
                             ));
                         }
                     }
@@ -1346,8 +1389,13 @@ fn stakes_for_day(w: &mut World, idx: &[usize]) {
         cs.games[k].why = why;
     }
     let d = w.today;
-    for (t, text) in notes {
-        w.calendar.post(Event::new(d, CalLevel::College, Kind::News, Loudness::Small, text).program(t));
+    for (t, text, id, name) in notes {
+        w.calendar.post(
+            Event::new(d, CalLevel::College, Kind::News, Loudness::Small, text)
+                .program(t)
+                .person(id, &name)
+                .school_link(t, &w.programs[t].real_name),
+        );
     }
 }
 
@@ -1393,7 +1441,13 @@ fn update_records(w: &mut World, year: i32) {
                 "{holder} finishes with {v:.0} {stat}, {} single-season record.",
                 crate::text::with_article(&w.programs[prog].real_name)
             );
-            w.calendar.post(Event::new(d, CalLevel::College, Kind::News, Loudness::Small, text).program(prog));
+            let mut e = Event::new(d, CalLevel::College, Kind::News, Loudness::Small, text)
+                .program(prog)
+                .school_link(prog, &w.programs[prog].real_name);
+            if names.contains_key(&id) {
+                e = e.person(id, &holder);
+            }
+            w.calendar.post(e);
         }
         w.programs[prog].season_records[k] = Some(super::program::SeasonRecord { value: v, holder, year });
     }
@@ -1554,7 +1608,11 @@ fn pick_division_playoff(w: &mut World, division: Division) {
         w.programs[seeds[0]].real_name
     );
     let date = w.today;
-    w.calendar.post(Event::new(date, CalLevel::College, Kind::Date, Loudness::Small, text));
+    let top = seeds[0];
+    w.calendar.post(
+        Event::new(date, CalLevel::College, Kind::Date, Loudness::Small, text)
+            .school_link(top, &w.programs[top].real_name),
+    );
     let b = Bracket::new(division, &seeds, dates, neutral_from);
     w.college.as_mut().unwrap().brackets.push(b);
     advance_brackets(w);
@@ -1945,7 +2003,15 @@ pub(crate) fn selection_day(w: &mut World) {
     // Nothing to announce while the world spins up and rosters fill.
     if n_bowls > 0 || !brackets.is_empty() {
         let text = format!("Selection day: {n_bowls} bowls filled.{field_text}");
-        w.calendar.post(Event::new(w.today, CalLevel::College, Kind::Date, Loudness::Big, text));
+        let mut e = Event::new(w.today, CalLevel::College, Kind::Date, Loudness::Big, text);
+        for b in brackets.first().iter() {
+            for (&t, &seed) in b.seed.iter() {
+                if seed <= 4 {
+                    e = e.school_link(t, &w.programs[t].real_name);
+                }
+            }
+        }
+        w.calendar.post(e);
     }
     let cs = w.college.as_mut().unwrap();
     for g in games {
@@ -2056,7 +2122,12 @@ fn opt_outs(w: &mut World) {
             if w.people[i].cal.draft_read.is_some_and(|r| r.round == 1) { Loudness::Medium } else { Loudness::Small };
         let why = if senior { "to prepare for the draft" } else { "and will enter the NFL draft" };
         let text = format!("{name} of {} opts out of the postseason {why}.", w.programs[c].real_name);
-        w.calendar.post(Event::new(date, CalLevel::College, Kind::News, loud, text).program(c));
+        w.calendar.post(
+            Event::new(date, CalLevel::College, Kind::News, loud, text)
+                .program(c)
+                .person(id, &name)
+                .school_link(c, &w.programs[c].real_name),
+        );
         w.college.as_mut().unwrap().out.insert(id, "opted out");
     }
 }
@@ -2317,7 +2388,13 @@ pub(crate) fn awards(w: &mut World, which: &'static str) {
             }
             if !names.is_empty() {
                 let text = format!("Heisman finalists: {}.", names.join(", "));
-                w.calendar.post(Event::new(date, CalLevel::College, Kind::Award, Loudness::Medium, text));
+                let mut e = Event::new(date, CalLevel::College, Kind::Award, Loudness::Medium, text);
+                for &(_, _, i) in scored.iter().take(4) {
+                    let p = &w.people[i];
+                    let c = p.college.unwrap_or(0);
+                    e = e.person(p.player.id, &p.name).school_link(c, w.program_name(c));
+                }
+                w.calendar.post(e);
             }
         }
         "heisman" => {
@@ -2326,8 +2403,14 @@ pub(crate) fn awards(w: &mut World, which: &'static str) {
                 let text = format!("{} of {} wins the Heisman Trophy.", w.people[i].name, w.program_name(c));
                 let age = w.people[i].row_age();
                 w.people[i].note(format!("Won the Heisman Trophy at {age}."));
-                w.calendar
-                    .post(Event::new(date, CalLevel::College, Kind::Award, Loudness::Big, text).program(c).memorable());
+                let name = w.people[i].name.clone();
+                w.calendar.post(
+                    Event::new(date, CalLevel::College, Kind::Award, Loudness::Big, text)
+                        .program(c)
+                        .memorable()
+                        .person(id, &name)
+                        .school_link(c, w.program_name(c)),
+                );
                 w.college.as_mut().unwrap().awards.push(("Heisman Trophy", id, c));
             }
         }
@@ -2369,17 +2452,23 @@ pub(crate) fn awards(w: &mut World, which: &'static str) {
                 }
             }
             let mut lines = Vec::new();
+            let mut linked = Vec::new();
             for (award, i) in picks {
                 let c = w.people[i].college.unwrap_or(0);
                 let id = w.people[i].player.id;
                 let age = w.people[i].row_age();
                 w.people[i].note(format!("Won the {award} at {age}."));
                 lines.push(format!("{} {} ({})", award, w.people[i].name, w.program_name(c)));
+                linked.push((id, w.people[i].name.clone(), c));
                 w.college.as_mut().unwrap().awards.push((award, id, c));
             }
             if !lines.is_empty() {
                 let text = format!("College football awards: {}.", lines.join("; "));
-                w.calendar.post(Event::new(date, CalLevel::College, Kind::Award, Loudness::Medium, text));
+                let mut e = Event::new(date, CalLevel::College, Kind::Award, Loudness::Medium, text);
+                for (id, name, c) in &linked {
+                    e = e.person(*id, name).school_link(*c, w.program_name(*c));
+                }
+                w.calendar.post(e);
             }
         }
         _ => {}
@@ -2580,19 +2669,27 @@ pub(crate) fn finish(w: &mut World) {
             let Some(c) = *champ else { continue };
             let division = Division::ALL[d];
             let name = w.programs[c].name(w.options.names).to_string();
-            w.news.push(NewsItem {
-                date: None,
-                year,
-                kind: NewsKind::NationalTitle,
-                channel: Channel::News,
-                program: Some(c),
-                text: format!("{name} wins the {} national title.", division.name()),
-            });
+            w.news.push(
+                NewsItem {
+                    date: None,
+                    year,
+                    kind: NewsKind::NationalTitle,
+                    channel: Channel::News,
+                    program: Some(c),
+                    text: format!("{name} wins the {} national title.", division.name()),
+                    refs: Vec::new(),
+                }
+                .link(crate::calendar::Link::Program(c as u32), &name),
+            );
         }
     }
     if let Some(c) = champions[0] {
         let text = format!("{} wins the national title.", w.programs[c].real_name);
-        w.calendar.post(Event::new(date, CalLevel::College, Kind::Game, Loudness::Huge, text).program(c));
+        w.calendar.post(
+            Event::new(date, CalLevel::College, Kind::Game, Loudness::Huge, text)
+                .program(c)
+                .school_link(c, &w.programs[c].real_name),
+        );
     }
     // Snaps become game experience.
     let on_engine = w.college.as_ref().unwrap().on_engine;
@@ -2756,7 +2853,7 @@ fn played_as_redshirt(p: &mut super::Person, played: u32, team_games: u32, burne
         p.last_role = Some(PlayingTime::Backup);
     }
     let perf = clamp((camp + h.overall) / 2.0 + play, crate::attributes::MIN_RATING, crate::attributes::MAX_RATING);
-    h.performance = Some(perf);
+    h.performance = Some(perf).into();
     p.last_performance = Some(perf);
     // An injury this year cost him games he could have played (the yearly
     // step's ranges), at most the games his team played without him.
@@ -2880,7 +2977,7 @@ pub(crate) enum LeanCheck {
     EarlySigning,
 }
 
-fn lean_push(p: &mut super::Person, date: Date, why: &'static str, factor: f64) {
+pub(crate) fn lean_push(p: &mut super::Person, date: Date, why: &'static str, factor: f64) {
     p.cal.lean *= factor;
     p.cal.lean_events.push((date, why, factor));
 }
@@ -3019,7 +3116,12 @@ pub(crate) fn lean_checkpoint(w: &mut World, check: LeanCheck) {
                     "Whispers say {} ({}) could look elsewhere after the season.",
                     w.people[i].name, w.programs[c].real_name
                 );
-                w.calendar.post(Event::new(date, CalLevel::College, Kind::Whisper, Loudness::Small, text).program(c));
+                let p = &w.people[i];
+                let e = Event::new(date, CalLevel::College, Kind::Whisper, Loudness::Small, text)
+                    .program(c)
+                    .person(p.player.id, &p.name)
+                    .school_link(c, &w.programs[c].real_name);
+                w.calendar.post(e);
                 w.log.whispers += 1;
             }
         }

@@ -231,14 +231,71 @@ pub struct SeasonRecord {
     /// His opponents' average strength against his division's average, in
     /// rating points: what the opponent-adjusted view reads.
     pub sos: f32,
-    #[serde(with = "serde_big_array::BigArray")]
-    pub s: [f32; STAT_COUNT],
+    pub s: StatSet,
 }
 
 impl SeasonRecord {
     #[inline]
     pub fn get(&self, k: Stat) -> f64 {
-        self.s[k as usize] as f64
+        self.s.get(k as usize) as f64
+    }
+}
+
+/// A season's numbers kept compactly (memory, final build lane 1): a
+/// lineman's row has no passing or kicking numbers, so only the numbers
+/// that aren't zero are stored, with a bit per stat saying which. Every
+/// value reads back bit for bit (a -0.0 is kept), and the row is written
+/// and read as the full list, so world files keep their shape. The
+/// book holds over two million rows, each a full array before.
+#[derive(Clone, Default)]
+pub struct StatSet {
+    mask: u128,
+    v: Box<[f32]>,
+}
+
+const _: () = assert!(STAT_COUNT <= 128, "a StatSet keeps one bit per stat");
+
+impl StatSet {
+    #[inline]
+    pub fn get(&self, k: usize) -> f32 {
+        let bit = 1u128 << k;
+        if self.mask & bit == 0 { 0.0 } else { self.v[(self.mask & (bit - 1)).count_ones() as usize] }
+    }
+
+    pub fn to_array(&self) -> [f32; STAT_COUNT] {
+        std::array::from_fn(|k| self.get(k))
+    }
+}
+
+impl From<[f32; STAT_COUNT]> for StatSet {
+    fn from(a: [f32; STAT_COUNT]) -> Self {
+        let mut mask = 0u128;
+        let mut v = Vec::new();
+        for (k, x) in a.iter().enumerate() {
+            if x.to_bits() != 0 {
+                mask |= 1 << k;
+                v.push(*x);
+            }
+        }
+        StatSet { mask, v: v.into_boxed_slice() }
+    }
+}
+
+impl std::fmt::Debug for StatSet {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.to_array().fmt(f)
+    }
+}
+
+impl serde::Serialize for StatSet {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        serde_big_array::BigArray::serialize(&self.to_array(), s)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for StatSet {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        <[f32; STAT_COUNT] as serde_big_array::BigArray<'de, f32>>::deserialize(d).map(StatSet::from)
     }
 }
 
@@ -481,6 +538,9 @@ pub struct HallEntry {
     pub division: Division,
     pub programs: Vec<usize>,
     pub why: String,
+    /// Who it is, for links (L2): a player's id, or a coach's index.
+    #[serde(default)]
+    pub who: Option<u32>,
 }
 
 /// A coach's unit numbers for the season (world item 5), and how the
@@ -677,7 +737,7 @@ pub(crate) fn season_records(w: &World, year: i32, book: &HashMap<u32, BookLine>
                 games: l.games.min(255) as u8,
                 footprint: 0,
                 sos: (l.opp_strength / l.games as f64 - avg) as f32,
-                s: from_line(&l.line),
+                s: from_line(&l.line).into(),
             })
         })
         .collect();
@@ -760,7 +820,7 @@ fn norms(w: &mut World, year: i32, recs: &[SeasonRecord]) {
         }
         let e = sums.entry((r.division, r.pos)).or_insert(([0.0; STAT_COUNT], 0.0));
         for k in 0..STAT_COUNT {
-            e.0[k] += r.s[k] as f64 / r.games as f64;
+            e.0[k] += r.s.get(k) as f64 / r.games as f64;
         }
         e.1 += 1.0;
     }
@@ -817,7 +877,7 @@ fn record_books(w: &mut World, year: i32, start: usize) {
     let by_id: HashMap<u32, usize> = w.people.iter().enumerate().map(|(i, p)| (p.player.id, i)).collect();
     let n = w.stats.seasons.len();
     let established = w.stats.year_index.len() > 10;
-    let mut news: Vec<(Division, Book, String, f64, usize)> = Vec::new();
+    let mut news: Vec<(Division, Book, String, f64, usize, u32)> = Vec::new();
     for k in start..n {
         let r = w.stats.seasons[k].clone();
         let prog = r.program as usize;
@@ -844,7 +904,7 @@ fn record_books(w: &mut World, year: i32, start: usize) {
                 };
                 let list = w.stats.books.entry((Scope::Division(r.division), Book::Season(j))).or_default();
                 if place(list, e.clone(), DIVISION_TOP) {
-                    news.push((r.division, Book::Season(j), name.clone(), v, prog));
+                    news.push((r.division, Book::Season(j), name.clone(), v, prog, r.id));
                 }
                 if !conf.is_empty() {
                     let key = (Scope::Conference(r.division, conf.clone()), Book::Season(j));
@@ -866,19 +926,24 @@ fn record_books(w: &mut World, year: i32, start: usize) {
                 let held = list.first().is_some_and(|x| x.id == r.id);
                 list.retain(|x| x.id != r.id);
                 if place(list, e, DIVISION_TOP) && !held {
-                    news.push((r.division, Book::Career(j), name.clone(), totals[j], prog));
+                    news.push((r.division, Book::Career(j), name.clone(), totals[j], prog, r.id));
                 }
             }
         }
     }
     let date = w.today;
-    for (d, b, name, v, prog) in news {
+    for (d, b, name, v, prog, id) in news {
         w.stats.broken.push((year, d, b, name.clone(), v));
         if w.recording && established {
             let text =
                 format!("{name} of {} sets the {} record for {}: {v:.0}.", w.program_name(prog), d.name(), b.name());
             let loud = if d == Division::FBS { Loudness::Big } else { Loudness::Medium };
-            w.calendar.post(Event::new(date, CalLevel::College, Kind::News, loud, text).program(prog));
+            w.calendar.post(
+                Event::new(date, CalLevel::College, Kind::News, loud, text)
+                    .program(prog)
+                    .person(id, &name)
+                    .school_link(prog, w.program_name(prog)),
+            );
         }
     }
 }
@@ -1121,7 +1186,15 @@ fn hall_of_fame(w: &mut World, year: i32) {
         for (_, id, d, programs, why) in list.into_iter().take(n) {
             let h = w.stats.honors.get_mut(&id).unwrap();
             h.inducted = Some(year);
-            inducted.push(HallEntry { year, name: h.name.clone(), coach: false, division: d, programs, why });
+            inducted.push(HallEntry {
+                year,
+                name: h.name.clone(),
+                coach: false,
+                division: d,
+                programs,
+                why,
+                who: Some(id),
+            });
         }
     }
     // Coaches: retired three seasons, 100 games and a .600 record as a
@@ -1161,7 +1234,15 @@ fn hall_of_fame(w: &mut World, year: i32) {
     coaches.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
     let n_coach = (2.0 * scale).round().max(1.0) as usize;
     for (_, c, d, programs, why) in coaches.into_iter().take(n_coach) {
-        inducted.push(HallEntry { year, name: w.coaches[c].name.clone(), coach: true, division: d, programs, why });
+        inducted.push(HallEntry {
+            year,
+            name: w.coaches[c].name.clone(),
+            coach: true,
+            division: d,
+            programs,
+            why,
+            who: Some(c as u32),
+        });
     }
     if inducted.is_empty() {
         return;
@@ -1172,7 +1253,14 @@ fn hall_of_fame(w: &mut World, year: i32) {
         inducted.len(),
         names.join(", ")
     );
-    w.calendar.post(Event::new(w.today, CalLevel::College, Kind::Award, Loudness::Medium, text));
+    let mut e = Event::new(w.today, CalLevel::College, Kind::Award, Loudness::Medium, text);
+    for h in inducted.iter().take(6) {
+        if let Some(who) = h.who {
+            let to = if h.coach { crate::calendar::Link::Coach(who) } else { crate::calendar::Link::Person(who) };
+            e = e.link(to, &h.name);
+        }
+    }
+    w.calendar.post(e);
     w.stats.hall.extend(inducted);
 }
 
