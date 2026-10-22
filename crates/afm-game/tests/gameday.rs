@@ -141,7 +141,8 @@ fn game_day_from_the_morning_to_the_game_page() {
     assert_eq!(studied["studied"], true);
     let hints = studied["hints"].as_array().unwrap();
     assert!(!hints.is_empty() && hints.len() <= 3, "{hints:?}");
-    let h = &hints[0];
+    // A hint the plan can act on ("for your eyes" ones only inform).
+    let Some(h) = hints.iter().find(|h| h["plan"] == true) else { panic!("no hint the plan answers: {hints:?}") };
     let mut add = studied["key"].clone();
     add["key"] = h["key"].clone();
     add["add"] = json!(true);

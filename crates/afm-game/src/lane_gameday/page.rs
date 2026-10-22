@@ -604,8 +604,9 @@ fn stars(s: &GameStats, names: &Names, sides: &[String; 2]) -> Vec<Value> {
                 score += l.rush_yds / 10.0 + 6.0 * l.rush_td as f64;
                 if l.rush >= 5 || l.rush_td > 0 {
                     line.push(format!(
-                        "{} carries, {:.0} yds{}",
+                        "{} {}, {:.0} yds{}",
                         l.rush,
+                        if l.rush == 1 { "carry" } else { "carries" },
                         l.rush_yds,
                         if l.rush_td > 0 { format!(", {} TD", l.rush_td) } else { String::new() }
                     ));
@@ -615,8 +616,9 @@ fn stars(s: &GameStats, names: &Names, sides: &[String; 2]) -> Vec<Value> {
                 score += l.rec_yds / 10.0 + 6.0 * l.rec_td as f64;
                 if l.rec >= 3 || l.rec_td > 0 {
                     line.push(format!(
-                        "{} catches, {:.0} yds{}",
+                        "{} {}, {:.0} yds{}",
                         l.rec,
+                        if l.rec == 1 { "catch" } else { "catches" },
                         l.rec_yds,
                         if l.rec_td > 0 { format!(", {} TD", l.rec_td) } else { String::new() }
                     ));

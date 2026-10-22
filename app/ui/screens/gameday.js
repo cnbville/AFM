@@ -138,7 +138,7 @@
       .join("");
     const mine = h.out_mine.length ? `<div class="panel warm"><h2>Your injury report <small>${h.out_mine.length}</small></h2><div class="gd-lines">${h.out_mine.map((l) => `<div class="gd-line"><span>${linkFirst(l.text, l.id)}</span></div>`).join("")}</div></div>` : "";
     return `<div class="gd-staff"><div><div class="st-label">Your staff's report on ${esc(h.opp.name)}</div>
-        <div class="sub">From ${r.games} game${r.games === 1 ? "" : "s"} of film, ${r.snaps} snaps tagged by ${esc(r.staff)}.${r.thin ? " Early in the season the report is thin: read every line as a small sample." : ""}</div></div>
+        <div class="sub">${r.games ? `From ${r.games} game${r.games === 1 ? "" : "s"} of film, ${r.snaps} snaps tagged by ${esc(r.staff)}.${r.thin ? " Early in the season the report is thin: read every line as a small sample." : ""}` : `No film of ${esc(h.opp.name)} this season yet: they haven't played. The report fills in from their games, tagged by ${esc(r.staff)}.`}</div></div>
         <a class="link gd-side-link" data-act="gd-tab" data-t="Film room">Study their tapes yourself →</a></div>
       ${finds}
       <div class="gd-report">${sections || '<div class="panel warm"><div class="empty">No film of them yet this season. The report fills in once they play.</div></div>'}${mine}</div>`;

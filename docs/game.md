@@ -153,6 +153,7 @@ The shell and the core screens of section 10, on Showtime. The game side is `cra
 
 ## Doubts
 
+- Game day (lane 2): the first game of a season has no opponent film (last season's tapes aren't kept), so its report and film room are empty until they play. In one browser game an FCS team drew 16 accepted flags against Alabama: the engine's discipline against a much better level may run hot (not measured).
 - Memory in season is 5.1 GB, over the agreed 4 GB budget (opening is under it at 3.3 GB). The season's stores (game logs, the year's records) grow from the first day; compacting them is the next memory step. An 8 GB M1 runs it, with little room for other apps.
 
 - Storing ratings as 4-byte floats changes results per seed slightly (rounding), so a seed no longer rebuilds a pre-build world exactly. Accepted because the section 8 build changes the world anyway.
