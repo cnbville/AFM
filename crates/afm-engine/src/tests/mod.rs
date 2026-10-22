@@ -4,6 +4,7 @@
 mod compact;
 mod development;
 mod foundations;
+mod front_office;
 mod game_stats;
 mod kick_units;
 mod level_rating;

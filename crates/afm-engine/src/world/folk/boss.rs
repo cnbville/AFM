@@ -64,7 +64,7 @@ impl GoalKind {
             GoalKind::Clean => "keep the program out of trouble".into(),
             GoalKind::Grades => match level {
                 Level::College => "keep the academic progress rate up".into(),
-                _ => "keep every player eligible".into(),
+                _ => "keep the players eligible: two at most ruled out for grades".into(),
             },
             GoalKind::Develop => "develop the young players".into(),
             GoalKind::Crowds => "fill the stadium".into(),
@@ -422,10 +422,10 @@ fn review_open(w: &mut World, s: &mut Scene, team: Team, b: &Cast, pen: &mut sup
             ],
         });
     }
+    let ended: Vec<(GoalKind, bool)> = goals.iter().map(|g| (g.kind, goal_met(w, team, g.kind, season))).collect();
     for g in w.folk.goals.iter_mut().filter(|g| g.season == season) {
-        g.met = Some(goal_met_cached(&goals, g.kind));
+        g.met = ended.iter().find(|x| x.0 == g.kind).map(|x| x.1);
     }
-    let _ = &goals;
     s.docs.push(doc);
     let share = if total == 0 { 0.5 } else { met as f32 / total as f32 };
     w.folk.mine.nudge(b.key(), 0.25 * (share - 0.5));
@@ -459,10 +459,6 @@ fn review_open(w: &mut World, s: &mut Scene, team: Team, b: &Cast, pen: &mut sup
     add_ask_picks(w, s, team);
 }
 
-fn goal_met_cached(goals: &[Goal], k: GoalKind) -> bool {
-    goals.iter().any(|g| g.kind == k && g.met == Some(true))
-}
-
 /// Whether a goal was met in a season, from the world's record.
 pub fn goal_met(w: &World, team: Team, k: GoalKind, season: i32) -> bool {
     let s = facts::seasons(w, team, 6).into_iter().find(|s| s.year == season);
@@ -472,7 +468,12 @@ pub fn goal_met(w: &World, team: Team, k: GoalKind, season: i32) -> bool {
         GoalKind::Postseason => match team {
             Team::College(_) => s.wins >= 6,
             Team::Nfl(_) => !s.note.is_empty(),
-            Team::High(_) => s.wins >= 7,
+            // Your own school knows whether it made the field; the record
+            // stands in for anyone else's.
+            Team::High(h) => {
+                let desk = &w.front_office.school;
+                if desk.school == Some(h) && desk.year == season { desk.in_playoffs } else { s.wins >= 7 }
+            }
         },
         GoalKind::Title => s.note.contains("champion") || s.note.contains("won"),
         GoalKind::BeatRival => want_met(w, Want::BeatRival),
@@ -499,7 +500,13 @@ pub fn goal_met(w: &World, team: Team, k: GoalKind, season: i32) -> bool {
             .chain(w.folk.courts.open.iter())
             .any(|c| c.opened.year() == season && team.roster(w).iter().any(|&i| w.people[i].player.id == c.id)),
         GoalKind::Grades => {
-            team.roster(w).iter().filter(|&&i| w.people[i].cal.academic_sit || w.people[i].cal.fall_ineligible).count()
+            team.roster(w)
+                .iter()
+                .filter(|&&i| {
+                    let c = &w.people[i].cal;
+                    c.academic_sit || c.fall_ineligible || c.hs_grade_out > 0
+                })
+                .count()
                 <= 2
         }
         GoalKind::Develop => true,

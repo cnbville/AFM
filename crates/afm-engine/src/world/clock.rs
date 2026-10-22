@@ -179,6 +179,8 @@ pub(crate) fn advance_day(w: &mut World) {
 
     // --- The NFL year (T2, A1-A17): its own dated steps -----------------------------
     timed("nfl", || nfl_year::day(w, d));
+    // Your front office's day: reminders, answers, calls (lane 10).
+    super::front_office::day(w, d);
 
     // --- Spring: college spring practice and high school spring ball (T4.1) ----------
     if d == y.spring_practice.0 {
@@ -390,6 +392,11 @@ pub(crate) fn advance_day(w: &mut World) {
     // --- The offseason's windows (T3): portal, draft deadlines, enrollment ----------
     let season = w.year;
     let rule = w.rules.transfer;
+    // The season's eligibility settles before a window that opens the same
+    // day reads it (lane 10: a burned redshirt counted only after).
+    if d == Date::ymd(season + 1, 1, 2) {
+        college::settle_eligibility(w);
+    }
     for (open, close, which) in portal_windows(season, rule) {
         if which == PortalWindow::Winter && d == open {
             recruiting::portal_open(w, which, close);
@@ -404,9 +411,6 @@ pub(crate) fn advance_day(w: &mut World) {
     // Entrants decide on their own days (T3, T9).
     if !w.portal_pending.is_empty() {
         timed("portal day", || recruiting::portal_day(w, false));
-    }
-    if d == Date::ymd(season + 1, 1, 2) {
-        college::settle_eligibility(w);
     }
     // Early entrants announce on their own days (part D 17).
     if d > y.fbs_regular_end && d < y.declare_deadline {

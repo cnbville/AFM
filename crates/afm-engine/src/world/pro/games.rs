@@ -259,7 +259,7 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
     );
     team.give_orders(crate::player::Level::NFL);
     if w.seat_club(t) {
-        team.order = w.seat_depth.clone();
+        team.order = w.seat_order();
     }
     team.film = club.film.clone();
     team.line_chem = 0.25 + 0.15 * back as f64;

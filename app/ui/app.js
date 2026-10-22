@@ -37,7 +37,8 @@ const money = (v) => (v == null ? "" : (v < 0 ? "-" : "") + (Math.abs(v) >= 1e6 
 function toast(text) {
   const t = document.createElement("div");
   t.className = "st-toast";
-  t.textContent = text;
+  // A name ending "Jr." closes its own sentence.
+  t.textContent = String(text).replace(/\b(Jr|Sr)\.\./g, "$1.");
   $("#toasts").appendChild(t);
   setTimeout(() => t.remove(), 4200);
 }
@@ -271,7 +272,7 @@ function frame(content, crumb) {
   const me = st.mine;
   const seat = seatKind();
   const navHtml = NAV_SECS.map(([sec, name]) => {
-    const items = NAV.filter((n) => n.sec === sec && (!n.seats || !seat || n.seats.includes(seat)) && screens[n.go]);
+    const items = NAV.filter((n) => n.sec === sec && (!n.seats || !seat || n.seats.includes(seat)) && (!n.show || n.show()) && screens[n.go]);
     if (!items.length) return "";
     return (name ? `<div class="sec st-label">${name}</div>` : "") + items.map((n) => {
       const b = n.badge ? n.badge() : 0;
@@ -393,7 +394,7 @@ screens.training = async () => {
     { k: "class", t: "Class", l: true, v: (r) => classRank(r.class) },
     { k: "age", t: "Age" },
     { k: "ovr", t: "Rating", div: true, v: (r) => mid(r.ovr), f: (r) => range(r.ovr) },
-    { k: "focus", t: "Main focus", l: true, div: true, v: (r) => r.focus || "", f: (r) => `<select class="focus" data-act="focus" data-id="${r.id}"><option value="">Balanced (the staff's plan)</option>${r.options.map((o) => `<option value="${o.key}" ${o.key === r.focus ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>` },
+    { k: "focus", t: "Main focus", l: true, div: true, v: (r) => r.focus || "", f: (r) => `<select class="focus" data-act="focus" data-id="${r.id}" ${r.may_plan === false ? `disabled title="${esc(S.status && S.status.seat && S.status.seat.boss ? S.status.seat.boss.name : "The head coach")} plans him: your job covers ${esc(S.status && S.status.seat ? S.status.seat.controls : "")}"` : ""}><option value="">Balanced (the staff's plan)</option>${r.options.map((o) => `<option value="${o.key}" ${o.key === r.focus ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>` },
   ];
   return `<div class="film"><div class="pad"><div class="h1">Training</div>
     <p class="sub">Each player's plan for the year. A main focus gets the bigger share of his individual periods: it grows up to half as fast again, and his other skills of the same kind a little slower. How much sticks depends on how coachable he is. Growth lands when his year's development does. <span id="focuscount">${set} of ${x.rows.length} players have a focus.</span></p>
@@ -448,17 +449,21 @@ screens.depth = async () => {
   setColors(x.team.colors);
   const pos = keep("depthpos", { p: "QB" });
   const cur = x.positions.find((p) => p.pos === pos.p) || x.positions[0];
+  // An assistant sets only his own job's positions (lane 10); the rest are the head coach's.
+  const ctl = cur.controls !== false;
+  const seat = S.status && S.status.seat;
+  const boss = seat && seat.boss ? seat.boss.name : "the head coach";
   const rows = cur.players.map((r, i) => {
     const n = i < cur.starters ? `<b>${i + 1}</b>` : `<span class="muted">${i + 1}</span>`;
     const where = r.here ? esc(r.pos) : `<span class="st-pill gold" title="Listed at ${esc(r.pos)}: the staff plays him here too">${esc(r.pos)}</span>`;
     const deep = i >= cur.listed ? ' class="deep"' : "";
     return `<tr${deep}><td class="l">${n}</td><td class="l">${playerLink(r.id, r.name)}</td><td class="l">${where}</td><td class="l">${esc(r.class)}</td><td>${range(r.ovr)}</td><td class="l">${esc(r.status)}</td>
-      <td><button class="st-btn small glass" data-act="dmove" data-i="${i}" data-d="-1" ${i === 0 ? "disabled" : ""}>Up</button> <button class="st-btn small glass" data-act="dmove" data-i="${i}" data-d="1" ${i === cur.players.length - 1 ? "disabled" : ""}>Down</button></td></tr>`;
+      <td><button class="st-btn small glass" data-act="dmove" data-i="${i}" data-d="-1" ${i === 0 || !ctl ? "disabled" : ""}>Up</button> <button class="st-btn small glass" data-act="dmove" data-i="${i}" data-d="1" ${i === cur.players.length - 1 || !ctl ? "disabled" : ""}>Down</button></td></tr>`;
   }).join("");
   return `<div class="film"><div class="pad">
     <div class="h1">Depth chart</div><p class="sub">The order your team plays on game day, as the staff will dress it: a player listed at another spot shows where they would use him too, as small schools play their best athletes both ways. Where you set an order, the engine plays yours. Players in grey after the line aren't in the game-day list.</p>
-    <div class="tabsline">${x.positions.map((p) => `<button data-act="dpos" data-p="${p.pos}" aria-selected="${p.pos === cur.pos}">${p.pos}${p.set_by_you ? " ●" : ""}</button>`).join("")}</div>
-    <div class="panel warm"><h2>${esc(cur.pos)} <small>${cur.starters} start · ${cur.set_by_you ? "your order" : "the staff's order"}</small></h2>
+    <div class="tabsline">${x.positions.map((p) => `<button data-act="dpos" data-p="${p.pos}" aria-selected="${p.pos === cur.pos}"${p.controls === false ? ` style="opacity:.5" title="${esc(boss)}'s call"` : ""}>${p.pos}${p.set_by_you ? " ●" : ""}</button>`).join("")}</div>
+    <div class="panel warm"><h2>${esc(cur.pos)} <small>${cur.starters} start · ${cur.set_by_you ? "your order" : !ctl ? `${esc(boss)}'s call: your job covers ${esc(seat.controls)}` : seat && !seat.head ? `the staff's order · you propose it, ${esc(boss)} has the last word` : "the staff's order"}</small></h2>
     <div class="tbl"><table><thead><tr><th class="l">#</th><th class="l">Name</th><th class="l">Listed at</th><th class="l">Class</th><th>Rating</th><th class="l">Status</th><th>Move</th></tr></thead><tbody>
     ${rows || `<tr><td class="l" colspan="7"><div class="empty">Nobody on the roster plays ${esc(cur.pos)}. On game day the staff gives the job to the best fit they have.</div></td></tr>`}
     </tbody></table></div>
@@ -704,7 +709,7 @@ document.addEventListener("click", async (ev) => {
     case "theme": prefs.theme = prefs.theme === "light" ? "" : "light"; savePrefs(); applyPrefs(); break;
     case "save": {
       if (S.busy) break;
-      const name = await ask("Save your career", { value: S.lastSaveName || `${S.status && S.status.mine ? S.status.mine.name : "career"} ${S.status ? S.status.season : ""}`, ok: "Save", note: "A save with the same name is replaced." });
+      const name = await ask("Save your career", { value: S.lastSaveName || `${S.status && S.status.mine ? S.status.mine.name : (S.status && S.status.you) || "career"} ${S.status ? S.status.season : ""}`, ok: "Save", note: "A save with the same name is replaced." });
       if (!name) break;
       showBusy("Saving your career… a full world takes about a minute.");
       try {
@@ -739,7 +744,9 @@ document.addEventListener("click", async (ev) => {
         const i = Number(d.i), j = i + Number(d.d);
         [ids[i], ids[j]] = [ids[j], ids[i]];
       } else ids = [];
-      await api("set_depth", { pos: cur.pos, ids });
+      // An assistant's order is a proposal: the head coach's answer, if any.
+      const r = await api("set_depth", { pos: cur.pos, ids });
+      if (r && r.note) toast(r.note);
       refresh(el);
       break;
     }
@@ -765,7 +772,8 @@ document.addEventListener("change", (ev) => {
 });
 document.addEventListener("keydown", (ev) => {
   const typing = ev.target.closest && ev.target.closest("input, textarea, select, [contenteditable]");
-  const inCareer = S.status && S.status.mine && !outside(S.route);
+  // A career with no job yet still runs its days (lane 10).
+  const inCareer = S.status && (S.status.mine || S.status.you) && !outside(S.route);
   if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "k") { ev.preventDefault(); if (typeof openFind === "function") openFind(); else { const q = $("#q"); if (q) q.focus(); } return; }
   // ⌘[ and ⌘] go back and forward (topic 15).
   if ((ev.metaKey || ev.ctrlKey) && ev.key === "[" && inCareer) { ev.preventDefault(); goBack(); return; }
@@ -779,7 +787,7 @@ document.addEventListener("keydown", (ev) => {
 });
 // The mouse's back and forward buttons.
 window.addEventListener("mouseup", (ev) => {
-  if (!(S.status && S.status.mine) || outside(S.route)) return;
+  if (!(S.status && (S.status.mine || S.status.you)) || outside(S.route)) return;
   if (ev.button === 3) { ev.preventDefault(); goBack(); }
   if (ev.button === 4) { ev.preventDefault(); goFwd(); }
 });
@@ -797,7 +805,7 @@ window.addEventListener("mouseup", (ev) => {
     return false;
   };
   window.addEventListener("wheel", (ev) => {
-    if (!(S.status && S.status.mine) || outside(S.route)) return;
+    if (!(S.status && (S.status.mine || S.status.you)) || outside(S.route)) return;
     if (Math.abs(ev.deltaX) < Math.abs(ev.deltaY) * 1.6 || ev.ctrlKey) return;
     if (scrollsX(ev.target)) return;
     const now = performance.now();
@@ -879,7 +887,7 @@ function sure(title, note, ok = "Go on") {
 }
 // Before anything that closes the career you have open.
 function leaveCareer() {
-  if (!(S.status && S.status.mine)) return Promise.resolve(true);
+  if (!(S.status && S.status.you)) return Promise.resolve(true);
   const since = S.savedOn ? (S.savedOn === S.status.today ? "You saved today." : `Your last save was on ${S.savedOn}; the days since then are lost.`) : "You haven't saved this career yet: all of it is lost.";
   return sure("Close the career you have open?", `${since} Save first from the sidebar if you want to keep it.`, "Close it");
 }
@@ -923,7 +931,7 @@ async function checkUpdate() {
   }
   // A career open, or a world being built or downloaded: never cut off.
   const working = await api("job").then((j) => !!(j && !j.finished), () => false);
-  const busy = (S.status && S.status.mine) || working;
+  const busy = (S.status && S.status.you) || working;
   if (!busy) return T.process.relaunch();
   updateBar(`<b>Version ${esc(up.version)} is installed.</b><small>${working ? "Restart once the world you're building or downloading is ready." : "Save your career, then restart to use it."}</small><button class="st-btn small primary" data-act="updrestart">Restart now</button>`);
 }
@@ -957,8 +965,9 @@ function routeFromHash() {
     if (h.loaded) {
       S.status = await api("status");
       const r = routeFromHash();
-      if (S.status.mine && r && r.screen) { S.route = { screen: r.screen, args: r.args, root: true }; render(); return; }
-      go(S.status.mine ? "home" : "start", {}, { push: false, root: true });
+      const inCareer = S.status.mine || S.status.you;
+      if (inCareer && r && r.screen) { S.route = { screen: r.screen, args: r.args, root: true }; render(); return; }
+      go(inCareer ? "home" : "start", {}, { push: false, root: true });
     } else go("start", {}, false);
   } catch (e) {
     $("#app").innerHTML = `<div class="setup"><div class="h1">AFM can't reach the game</div><p class="sub">${esc(e.message || e)}</p></div>`;

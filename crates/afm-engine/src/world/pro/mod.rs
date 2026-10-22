@@ -265,11 +265,54 @@ pub struct DeadCharge {
     pub why: DeadWhy,
 }
 
+/// A deal that ran out but still spreads bonus over void years: a new deal
+/// that replaces it before the league year voids it can't make that bonus
+/// vanish, so it lands on this year's cap at once as dead money.
+pub(crate) fn settle_ended(w: &mut World, i: usize) {
+    let year = w.year;
+    let id = w.people[i].player.id;
+    let Some(k) = w.people[i].pro.as_mut().and_then(|c| c.contract.as_mut()) else { return };
+    if k.last_year() >= year {
+        return;
+    }
+    let mut dead = 0.0;
+    for y in k.years.iter_mut().filter(|y| y.year >= year) {
+        dead += y.proration;
+        y.proration = 0.0;
+    }
+    let t = k.team;
+    if let Some(club) = w.clubs.get_mut(t) {
+        club.add_dead(year, dead, id, DeadWhy::Voided);
+    }
+}
+
+/// What a deal that ran out still spreads over later void years: it lands
+/// on this year's cap on top of this year's own share when the league year
+/// voids it, or when a new deal replaces it first.
+pub fn void_ahead(w: &World, i: usize) -> f64 {
+    let year = w.year;
+    w.people[i]
+        .pro
+        .as_ref()
+        .and_then(|c| c.contract.as_ref())
+        .filter(|k| k.last_year() < year)
+        .map_or(0.0, |k| k.years.iter().filter(|y| y.year > year).map(|y| y.proration).sum())
+}
+
+/// The same for a whole club: the void years still to land on this year's
+/// cap at the new league year.
+pub fn voids_ahead(w: &World, t: usize) -> f64 {
+    if w.today >= w.dates.league_year.date {
+        return 0.0;
+    }
+    w.clubs[t].roster.iter().map(|&i| void_ahead(w, i)).sum()
+}
+
 impl Club {
     pub fn dead_in(&self, year: i32) -> f64 {
         self.dead.iter().filter(|d| d.year == year).map(|d| d.amount).sum()
     }
-    fn add_dead(&mut self, year: i32, amount: f64, player: u32, why: DeadWhy) {
+    pub(crate) fn add_dead(&mut self, year: i32, amount: f64, player: u32, why: DeadWhy) {
         if amount > 0.0 {
             self.dead.push(DeadCharge { year, amount, player, why });
         }
@@ -344,7 +387,7 @@ pub(crate) fn grade(w: &World, t: usize, i: usize) -> f64 {
 /// Orders a team's active players at each position by its view of them:
 /// last year's starter keeps the job unless clearly beaten, and staffs lean
 /// from a fading veteran to the younger man (as the class model's camp).
-fn order_depth(w: &mut World, t: usize) {
+pub(crate) fn order_depth(w: &mut World, t: usize) {
     let mut depth: Vec<Vec<(usize, f64)>> = vec![Vec::new(); POSITION_COUNT];
     for &i in &w.clubs[t].roster {
         let p = &w.people[i];
@@ -424,7 +467,7 @@ pub(crate) fn mirror(w: &mut World) {
 }
 
 /// Players a team holds with a status.
-fn count(w: &World, t: usize, status: Status) -> usize {
+pub(crate) fn count(w: &World, t: usize, status: Status) -> usize {
     w.clubs[t].roster.iter().filter(|&&i| w.people[i].pro.as_ref().is_some_and(|c| c.status == status)).count()
 }
 
@@ -503,6 +546,23 @@ pub fn space(w: &World, t: usize, year: i32) -> f64 {
 
 /// See `space`.
 const IN_SEASON_RESERVE: f64 = 0.05;
+
+/// The room the league's rules leave a team: `space` without the reserve
+/// the AI's cap managers keep for the season. Your own moves are checked
+/// against this (the league stops you only at the cap); the reserve is a
+/// staff's prudence, shown to you as advice.
+pub fn cap_room(w: &World, t: usize, year: i32) -> f64 {
+    space(w, t, year) + season_reserve(w, year)
+}
+
+/// What `space` holds back for the season in a league year.
+pub fn season_reserve(w: &World, year: i32) -> f64 {
+    if money::cap_books(year) && (year > w.year || (year == w.year && w.today < w.dates.nfl_kickoff)) {
+        money::price_cap(year) * IN_SEASON_RESERVE
+    } else {
+        0.0
+    }
+}
 
 // --- Joining the league ------------------------------------------------------------------
 
@@ -987,6 +1047,11 @@ pub(crate) fn day(w: &mut World, d: Date) {
     let y = w.dates.clone();
     let mut changed = false;
     super::clock::timed("pro leagues", || leagues::day(w, d));
+    // The books closed in January: from the day after the Super Bowl each
+    // club knows the room it carries into the new league year.
+    if d == y.start {
+        set_carryover(w);
+    }
     if d == y.tag_window_open {
         // The year's pay ladders: the veterans by position after last season.
         market::set_ladders(w);
@@ -1208,7 +1273,7 @@ pub(crate) fn release(w: &mut World, i: usize, d: Date, why: &str) {
 
 /// From June 1 to the Super Bowl a release splits its dead money over
 /// two league years by itself (real).
-pub(crate) fn after_june1(w: &World, d: Date) -> bool {
+pub fn after_june1(w: &World, d: Date) -> bool {
     d >= w.dates.june_1 && d < w.dates.super_bowl
 }
 
@@ -1220,6 +1285,7 @@ pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: b
     let year = w.year;
     let june1 = june1 || after_june1(w, d);
     let waive = waivers && market::waivable(w, i, d);
+    let id_of = w.people[i].player.id;
     let Some(c) = w.people[i].pro.as_mut() else { return };
     let Some(t) = c.team else { return };
     let mut dead = (0.0, 0.0);
@@ -1232,6 +1298,7 @@ pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: b
     if waive {
         c.on_waivers = true;
         w.market.waivers = true;
+        super::front_office::roster::waived(&mut w.front_office, id_of, d);
         if let Some(k) = c.contract.as_mut() {
             for y in k.years.iter_mut().filter(|y| y.year >= year) {
                 y.proration = 0.0;
@@ -1291,7 +1358,7 @@ fn set_carryover(w: &mut World) {
 /// The ask comes down the longer nobody calls: about 4% a week from the
 /// opening of the league year, and in season for each week unsigned
 /// (proposed, not confirmed until topic 5's market replaces it).
-fn ask(w: &World, i: usize, year: i32, d: Date) -> (f64, u32) {
+pub(crate) fn ask(w: &World, i: usize, year: i32, d: Date) -> (f64, u32) {
     let p = &w.people[i];
     let c = p.pro.as_ref();
     let accrued = c.map_or(0, |c| c.accrued);
@@ -1333,7 +1400,10 @@ fn street_signings(w: &mut World, d: Date, in_season: bool) -> bool {
         let (price, years) = ask(w, i, year, d);
         let mut best: Option<(usize, f64)> = None;
         for t in 0..w.clubs.len() {
-            if !super::franchise::active(t, year) || w.clubs[t].roster.len() >= limit + if in_season { 20 } else { 0 } {
+            if !super::franchise::active(t, year)
+                || w.clubs[t].roster.len() >= limit + if in_season { 20 } else { 0 }
+                || super::front_office::yours(w, t, super::front_office::Duty::FreeAgency)
+            {
                 continue;
             }
             let active = count(w, t, Status::Roster);
@@ -1597,6 +1667,128 @@ fn preseason_week(w: &mut World, d: Date, week: usize, weeks: usize) {
     w.log.nfl_preseason_games += pairs.len() as u32;
 }
 
+/// How a club's staff ranks its players for the cut to 53 (see
+/// `cutdown`), best first: (person, score).
+pub(crate) fn cut_scores(w: &World, t: usize) -> Vec<(usize, f64)> {
+    let year = w.year;
+    let mut keep: Vec<(usize, f64)> = Vec::new();
+    for &i in &w.clubs[t].roster {
+        let p = &w.people[i];
+        let c = p.pro.as_ref().unwrap();
+        if c.status == Status::Reserve {
+            continue;
+        }
+        let pos = p.player.position;
+        let seasons = c.seasons.iter().filter(|s| s.games > 0).count() as u32;
+        let first = c.seasons.iter().all(|s| s.year == year);
+        let adjusting = if first {
+            -4.0
+        } else if c.new_team {
+            -1.0
+        } else {
+            0.0
+        };
+        let camp = 0.2 * adjusting + (p.player.personality.competitiveness - 10.0) * 0.03;
+        // The preseason tape (proposed, not confirmed: a grade 10 points
+        // above average over a full game's snaps is worth 1.5 points).
+        let (g, n) = c.preseason;
+        let tape = if n > 0.0 { clamp(0.15 * (g / n - 60.0) * (n / 60.0).min(1.0), -3.0, 3.0) } else { 0.0 };
+        let seen = grade(w, t, i) + camp + tape - 3.0 * (1.0 - c.sharpness);
+        let round = c.draft.map_or(9, |x| x.1);
+        let protection = if seasons + c.ps_seasons < 3 && round <= 8 {
+            crate::career::PIPELINE.rookie_protection[round as usize]
+        } else {
+            0.0
+        };
+        let starter = c.seasons.iter().any(|s| s.year == year - 1 && s.team == Some(t) && s.starts >= 8);
+        let youth = if pos.is_specialist() { 0.0 } else { 0.3 * (27.0 - p.player.age as f64) };
+        let ovr = p.player.overall();
+        let cost = if seasons >= 4 && ovr < crate::career::NFL_LEVELS.starter {
+            (0.5 * (seasons as f64 - 3.0)).min(3.0)
+        } else {
+            0.0
+        };
+        // The GM's biases (3.1 sunk cost, 3.2 impatience, 3.3 "not my
+        // guy") and the owner's pet (3.12).
+        let gm = &w.clubs[t].office.gm;
+        let mut bias = 0.0;
+        if c.contract
+            .as_ref()
+            .is_some_and(|k| k.team == t && k.signed >= gm.since && k.apy() > money::price_cap(year) * 0.03)
+        {
+            bias += 2.0 * gm.sunk_cost;
+        }
+        if let Some((dy, r, _, dt)) = c.draft
+            && dt == t
+        {
+            if r <= 3 && seasons >= 2 && ovr < crate::career::NFL_LEVELS.starter {
+                bias -= 2.0 * gm.impatience;
+            }
+            if dy < gm.since {
+                bias -= 2.0 * gm.not_my_guy;
+            }
+        }
+        if w.clubs[t].office.owner.pet == Some(i) {
+            bias += 10.0;
+        }
+        // Hurt in camp and not vested (`games::record_preseason`): a
+        // borderline player out for half the season loses his place
+        // (proposed, not confirmed: 2 points).
+        let hurt = if c.out_weeks >= 6 { 2.0 } else { 0.0 };
+        keep.push((i, seen + protection + if starter { 3.0 } else { 0.0 } + youth - cost + bias - hurt));
+    }
+    keep.sort_by(|a, b| b.1.total_cmp(&a.1));
+    keep
+}
+
+/// The staff's cut from its ranking (see `cutdown`): the 53 kept, the
+/// practice squad and the players released.
+pub(crate) fn cut_split(w: &World, keep: &[(usize, f64)]) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
+    let year = w.year;
+    let limit = w.rules.nfl_roster as usize;
+    let ps = w.rules.nfl_practice_squad as usize;
+    // Each position's share of the limit first, then the best of the rest.
+    let mut chosen: Vec<usize> = Vec::new();
+    for pos in Position::ALL {
+        let s = depth_slots(pos);
+        let quota = (s.starters + s.rotation).max(s.roster * limit / 53);
+        chosen.extend(keep.iter().filter(|x| w.people[x.0].player.position == pos).take(quota).map(|x| x.0));
+    }
+    for &(i, _) in keep {
+        if chosen.len() >= limit {
+            break;
+        }
+        if !chosen.contains(&i) {
+            chosen.push(i);
+        }
+    }
+    let cut_line = keep.iter().filter(|x| chosen.contains(&x.0)).map(|x| x.1).fold(f64::MAX, f64::min);
+    // The practice squad: young players with at most two seasons on a
+    // roster, close to the line (the era's size; none before 1989),
+    // and from 2014 a few veterans in the places the rules open to
+    // them (`squad::veteran_places`).
+    let (places, most) = squad::veteran_places(year);
+    let mut squad: Vec<usize> = Vec::new();
+    let mut cut: Vec<usize> = Vec::new();
+    let mut vets = 0;
+    for &(i, v) in keep {
+        if chosen.contains(&i) {
+            continue;
+        }
+        let c = w.people[i].pro.as_ref().unwrap();
+        let young = squad::squad_eligible(c, w.people[i].player.age);
+        let vet = !young && vets < places && c.accrued <= most;
+        let eligible = (young || vet) && v >= cut_line - 7.0 && c.out_weeks == 0;
+        if squad.len() < ps && eligible {
+            squad.push(i);
+            vets += usize::from(vet);
+        } else {
+            cut.push(i);
+        }
+    }
+    (chosen, squad, cut)
+}
+
 /// Cutdown day (the class model's camp battle, on people): everyone at a
 /// position is ranked on what the staff sees (its read of him, rust and a
 /// first camp at the level), a rookie deal buys early picks patience
@@ -1607,117 +1799,17 @@ fn preseason_week(w: &mut World, d: Date, week: usize, weeks: usize) {
 /// line go to the practice squad and the rest are released.
 pub(crate) fn cutdown(w: &mut World, d: Date) {
     let year = w.year;
-    let limit = w.rules.nfl_roster as usize;
-    let ps = w.rules.nfl_practice_squad as usize;
     for t in 0..w.clubs.len() {
         if !super::franchise::active(t, year) {
             continue;
         }
-        let mut keep: Vec<(usize, f64)> = Vec::new();
-        for &i in &w.clubs[t].roster {
-            let p = &w.people[i];
-            let c = p.pro.as_ref().unwrap();
-            if c.status == Status::Reserve {
-                continue;
-            }
-            let pos = p.player.position;
-            let seasons = c.seasons.iter().filter(|s| s.games > 0).count() as u32;
-            let first = c.seasons.iter().all(|s| s.year == year);
-            let adjusting = if first {
-                -4.0
-            } else if c.new_team {
-                -1.0
-            } else {
-                0.0
-            };
-            let camp = 0.2 * adjusting + (p.player.personality.competitiveness - 10.0) * 0.03;
-            // The preseason tape (proposed, not confirmed: a grade 10 points
-            // above average over a full game's snaps is worth 1.5 points).
-            let (g, n) = c.preseason;
-            let tape = if n > 0.0 { clamp(0.15 * (g / n - 60.0) * (n / 60.0).min(1.0), -3.0, 3.0) } else { 0.0 };
-            let seen = grade(w, t, i) + camp + tape - 3.0 * (1.0 - c.sharpness);
-            let round = c.draft.map_or(9, |x| x.1);
-            let protection = if seasons + c.ps_seasons < 3 && round <= 8 {
-                crate::career::PIPELINE.rookie_protection[round as usize]
-            } else {
-                0.0
-            };
-            let starter = c.seasons.iter().any(|s| s.year == year - 1 && s.team == Some(t) && s.starts >= 8);
-            let youth = if pos.is_specialist() { 0.0 } else { 0.3 * (27.0 - p.player.age as f64) };
-            let ovr = p.player.overall();
-            let cost = if seasons >= 4 && ovr < crate::career::NFL_LEVELS.starter {
-                (0.5 * (seasons as f64 - 3.0)).min(3.0)
-            } else {
-                0.0
-            };
-            // The GM's biases (3.1 sunk cost, 3.2 impatience, 3.3 "not my
-            // guy") and the owner's pet (3.12).
-            let gm = &w.clubs[t].office.gm;
-            let mut bias = 0.0;
-            if c.contract
-                .as_ref()
-                .is_some_and(|k| k.team == t && k.signed >= gm.since && k.apy() > money::price_cap(year) * 0.03)
-            {
-                bias += 2.0 * gm.sunk_cost;
-            }
-            if let Some((dy, r, _, dt)) = c.draft
-                && dt == t
-            {
-                if r <= 3 && seasons >= 2 && ovr < crate::career::NFL_LEVELS.starter {
-                    bias -= 2.0 * gm.impatience;
-                }
-                if dy < gm.since {
-                    bias -= 2.0 * gm.not_my_guy;
-                }
-            }
-            if w.clubs[t].office.owner.pet == Some(i) {
-                bias += 10.0;
-            }
-            // Hurt in camp and not vested (`games::record_preseason`): a
-            // borderline player out for half the season loses his place
-            // (proposed, not confirmed: 2 points).
-            let hurt = if c.out_weeks >= 6 { 2.0 } else { 0.0 };
-            keep.push((i, seen + protection + if starter { 3.0 } else { 0.0 } + youth - cost + bias - hurt));
-        }
-        keep.sort_by(|a, b| b.1.total_cmp(&a.1));
-        // Each position's share of the limit first, then the best of the rest.
-        let mut chosen: Vec<usize> = Vec::new();
-        for pos in Position::ALL {
-            let s = depth_slots(pos);
-            let quota = (s.starters + s.rotation).max(s.roster * limit / 53);
-            chosen.extend(keep.iter().filter(|x| w.people[x.0].player.position == pos).take(quota).map(|x| x.0));
-        }
-        for &(i, _) in &keep {
-            if chosen.len() >= limit {
-                break;
-            }
-            if !chosen.contains(&i) {
-                chosen.push(i);
-            }
-        }
-        let cut_line = keep.iter().filter(|x| chosen.contains(&x.0)).map(|x| x.1).fold(f64::MAX, f64::min);
-        // The practice squad: young players with at most two seasons on a
-        // roster, close to the line (the era's size; none before 1989),
-        // and from 2014 a few veterans in the places the rules open to
-        // them (`squad::veteran_places`).
-        let (places, most) = squad::veteran_places(year);
-        let mut squad: Vec<usize> = Vec::new();
-        let mut cut: Vec<usize> = Vec::new();
-        let mut vets = 0;
-        for &(i, v) in &keep {
-            if chosen.contains(&i) {
-                continue;
-            }
-            let c = w.people[i].pro.as_ref().unwrap();
-            let young = squad::squad_eligible(c, w.people[i].player.age);
-            let vet = !young && vets < places && c.accrued <= most;
-            let eligible = (young || vet) && v >= cut_line - 7.0 && c.out_weeks == 0;
-            if squad.len() < ps && eligible {
-                squad.push(i);
-                vets += usize::from(vet);
-            } else {
-                cut.push(i);
-            }
+        let keep = cut_scores(w, t);
+        // Your cut is yours (lane 10): your plan, and the staff's for
+        // whatever you left open.
+        let (chosen, squad, cut) =
+            super::front_office::roster::seat_cutdown(w, t, &keep).unwrap_or_else(|| cut_split(w, &keep));
+        if super::front_office::club(w) == Some(t) {
+            tell_cutdown(w, d, &chosen, &squad, &cut);
         }
         for i in chosen {
             // Kept while hurt in camp: injured reserve once the cutdown is done.
@@ -1765,6 +1857,38 @@ pub(crate) fn cutdown(w: &mut World, d: Date) {
             release(w, i, d, "cut at the final cutdown");
         }
     }
+}
+
+/// Your cutdown in one line (lane 10): how many went where, which of them
+/// were your calls, and the best players let go, linked.
+fn tell_cutdown(w: &mut World, d: Date, chosen: &[usize], squad: &[usize], cut: &[usize]) {
+    use super::front_office::roster::Cut;
+    let plan = &w.front_office.roster.plan;
+    let yours = |list: &[usize], c: Cut| {
+        list.iter().filter(|&&i| plan.iter().any(|x| x.0 == w.people[i].player.id && x.1 == c)).count()
+    };
+    let calls = [yours(chosen, Cut::Keep), yours(squad, Cut::Squad), yours(cut, Cut::Release)];
+    let mut best: Vec<usize> = cut.to_vec();
+    best.sort_by(|&a, &b| market::consensus(w, b).total_cmp(&market::consensus(w, a)));
+    best.truncate(3);
+    let names: Vec<String> = best.iter().map(|&i| describe(w, i)).collect();
+    let mut text = format!("Your 53 is set: {} cut and {} kept on the practice squad.", cut.len(), squad.len());
+    let n: usize = calls.iter().sum();
+    if n > 0 {
+        text += &format!(
+            " Your own calls: {} kept, {} to the squad, {} cut; the staff made the rest.",
+            calls[0], calls[1], calls[2]
+        );
+    } else {
+        text += " Your staff made every call.";
+    }
+    if !names.is_empty() {
+        text += &format!(
+            " Among those let go: {}. Those with fewer than four seasons are on waivers until noon tomorrow; the veterans are free agents now.",
+            names.join(", ")
+        );
+    }
+    super::front_office::tell_about(w, d, text, false, &best);
 }
 
 /// Black Monday for the front offices (topic 7): the fans' verdict on the

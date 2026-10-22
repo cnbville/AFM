@@ -3086,10 +3086,10 @@ pub(crate) fn lean_checkpoint(w: &mut World, check: LeanCheck) {
                 lean_push(
                     p,
                     date,
-                    if buried >= 1.0 { "good enough to start elsewhere" } else { "well down the depth chart" },
+                    if buried >= 1.0 { "good enough to start elsewhere" } else { "no starting job waiting elsewhere" },
                     buried,
                 );
-                lean_push(p, date, "his competitiveness", comp);
+                lean_push(p, date, if comp >= 1.0 { "his competitiveness" } else { "content where he is" }, comp);
                 // Far from home with a family that wanted him close: homesickness.
                 let miles = geo::miles(p.home_state, programs[c].state);
                 if miles > 900.0 && p.family.own_wants.close_to_home > 0.25 {
