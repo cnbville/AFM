@@ -34,6 +34,7 @@ pub mod news;
 mod nfl_year;
 pub use nfl_year::NflTeamSeason;
 pub mod people;
+pub(crate) mod polls;
 pub mod pro;
 pub mod program;
 pub mod records;
@@ -45,6 +46,7 @@ pub mod staff;
 pub mod systems;
 pub mod tape;
 pub mod trends;
+pub mod voters;
 
 use rayon::prelude::*;
 
@@ -725,6 +727,10 @@ pub struct World {
     /// opponents, what you have studied.
     #[serde(default)]
     pub gameday: live_seat::GameDay,
+    /// The poll and award voters (section 6 topic 9), each with his
+    /// latest ballot; older files build them on load.
+    #[serde(default)]
+    pub voters: voters::Voters,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -1012,6 +1018,7 @@ impl World {
             changes,
             college: None,
             college_prev: None,
+            voters: Default::default(),
             hs_season: None,
             nfl_season: None,
             market: Default::default(),

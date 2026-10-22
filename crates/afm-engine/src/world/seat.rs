@@ -703,6 +703,8 @@ impl World {
         self.seat_games.retain(|g| g.teams.iter().all(|&t| t < self.programs.len().max(self.nfl.len())));
         self.fill_final_build_fields();
         super::folk::after_load(self);
+        // A world file from before the poll and award voters gets them now.
+        super::voters::ensure(self);
     }
 
     /// What a world file from before the final build lacks (lane 1): birth
