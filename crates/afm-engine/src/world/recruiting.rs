@@ -3315,7 +3315,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 0.0,
                 1.0,
             );
-            let gift = crate::links::gift(&crate::links::links_of(&p.player));
+            let gift = crate::links::gift(&crate::links::projected(&p.player));
             Recruit { person: i, film, projection: 0.0, visibility, gpa: p.bg.gpa, juco_mover, viral: went_viral, gift }
         })
         .collect();
@@ -3655,7 +3655,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 // first. A staff with a better eye for athletes sees it
                 // truer; it is why a 2-star freak draws an SEC offer before
                 // his stars catch up.
-                eval += STAFF_GIFT * all_mean_sd.1 * c.gift * clamp(0.6 + 0.04 * (pe - 10.0), 0.3, 1.0);
+                let gift_seen = (c.gift + 0.25 * key_normal(pk ^ 0x61F7, c.id)).max(0.0);
+                eval += STAFF_GIFT * all_mean_sd.1 * gift_seen * clamp(0.6 + 0.04 * (pe - 10.0), 0.3, 1.0);
                 // A borderline student can lose his eligibility in college. Strong
                 // academic support takes that risk more easily, and so does a
                 // coach who has to win now.

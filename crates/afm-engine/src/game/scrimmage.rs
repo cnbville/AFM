@@ -2853,7 +2853,7 @@ fn quarterback(
         ps.read_since = t;
     }
     let decide = sim.agents[qb].a(Attr::Decisions);
-    let poise = sim.level_read(qb, Attr::Composure);
+    let poise = sim.agents[qb].a(Attr::Composure);
     // His internal clock (topic 1): even in a clean pocket he gets the ball
     // out by a little over three seconds, to the checkdown if nothing else.
     // A quick mind gets rid of it sooner; a slow one hangs on, as lower
@@ -2911,8 +2911,9 @@ fn quarterback(
     // Pocket frame (Dynamic Links): seeing over the line, a read about as
     // clean as five football IQ points give.
     let iq_seen = iq + sim.link(qb, &[Link::PocketFrame]);
-    let noise = (1.6 - 0.017 * pro(iq_seen)).max(0.2) * (1.0 + 0.6 * panic) * (1.0 - 0.15 * (s.tac.pre_read - PRE_READ))
-        + if s.tac.fooled { 0.2 } else { 0.0 };
+    let noise =
+        (1.6 - 0.017 * pro(iq_seen)).max(0.2) * (1.0 + 0.6 * panic) * (1.0 - 0.15 * (s.tac.pre_read - PRE_READ))
+            + if s.tac.fooled { 0.2 } else { 0.0 };
     let mut best: Option<(usize, f64, V2, f64)> = None;
     for &r in if screen { &[][..] } else { &cand[..] } {
         if !sim.agents[r].up(t) || matches!(sim.agents[r].job, Job::PassBlock { .. } | Job::RunBlock { .. }) {
@@ -3067,7 +3068,11 @@ fn quarterback(
         return Some(throw(sim, ps, qb, r, p, flight, pressure, s));
     }
     // Nothing open: scramble, throw it away, or hold it.
-    let speed = sim.agents[qb].a(Attr::Speed) + if sim.level == crate::player::Level::HS { knob("K_SCR", 0.0) } else { 0.0 };
+    // Read on the passer's scale (`pro`, A7): what he decides to do when
+    // nothing is open faces no rating on the other side, so a high school
+    // quarterback's choice to run or throw it away isn't held to the pros'
+    // numbers (he ran at a quarter of the NFL's rate and took the sack).
+    let speed = pro(sim.agents[qb].a(Attr::Speed));
     // A way out: to one side or the other no free defender is within three
     // yards, and nobody has hold of him. Rushers locked on blockers are
     // what he slides around (it used to need an empty box straight ahead,
@@ -3114,7 +3119,9 @@ fn quarterback(
     let away = (over || pressure > 0.6)
         && (outside || !blocked_throw)
         && (imminent || t > clock + 0.5)
-        && sim.rng.chance(0.3 * (0.06 + 0.003 * sim.agents[qb].a(Attr::Decisions) + if outside { 0.12 } else { 0.0 }));
+        && sim
+            .rng
+            .chance(0.3 * (0.06 + 0.003 * pro(sim.agents[qb].a(Attr::Decisions)) + if outside { 0.12 } else { 0.0 }));
     if away {
         qb_why(7, s.dcall.coverage);
         // Throw it away (outside the pocket it is legal past the line).
@@ -3354,12 +3361,12 @@ fn throw(
     // wide-open quick outs sailed out of bounds).
     target.y = clamp(target.y, 1.5, WIDTH - 1.5);
     let moving = sim.agents[qb].vel.len() > 3.0;
-    let poise = sim.level_read(qb, Attr::Composure);
+    let poise = sim.agents[qb].a(Attr::Composure);
     // Error grows gently as accuracy falls: real completion rates drop only a
     // few points from the NFL to college and high school, where receivers
     // and coverage are just as far behind (proposed, not confirmed).
     let down = ((target.x - q.x) * sim.goal).max(0.0);
-    let mut sd = aim_sd(acc, dist, down) * if sim.level == crate::player::Level::HS { knob("K_SD", 1.0) } else { 1.0 };
+    let mut sd = aim_sd(acc, dist, down);
     // Pressure in his face throws him off: completions under pressure ran
     // 53% in the NFL against 49% real, so the effect is about two thirds
     // stronger than it was (proposed, not confirmed).
@@ -3377,9 +3384,6 @@ fn throw(
     sd *= 1.0 + 0.08 * s.cond.cold_unused;
     let consistency = sim.player(qb).traits.consistency;
     sd *= 1.15 - 0.015 * consistency;
-    if knob("K_DIAG", 0.0) > 0.0 {
-        eprintln!("DIAG base {:.3} sd {:.3} acc {:.1} press {:.2} moving {} poise {:.1} dist {:.1}", aim_sd(acc, dist, down), sd, acc, pressure, moving as u8, poise, dist);
-    }
     let along = (target - q).norm();
     let across = along.perp();
     // Depth is judged less well the farther downfield (the miss grows along
@@ -3634,7 +3638,8 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
         + 0.3 * q.a(Attr::Agility)
         + 0.3 * q.a(Attr::Strength)
         + if grabbing { sim.link(qb, &[Link::PocketFrame]) } else { 0.0 };
-    let tk = 0.6 * r.a(Attr::Tackling) + 0.2 * r.a(Attr::Strength) + 0.2 * r.a(Attr::Agility) + sim.link(d, &[Link::Length]);
+    let tk =
+        0.6 * r.a(Attr::Tackling) + 0.2 * r.a(Attr::Strength) + 0.2 * r.a(Attr::Agility) + sim.link(d, &[Link::Length]);
     let seen = sim.sees(qb, r.pos);
     let logit = -2.4 + (esc - tk) / 12.0 + if seen { 0.0 } else { -1.0 } + if grabbing { 1.2 } else { 0.0 };
     if sim.rng.chance(1.0 / (1.0 + (-logit).exp())) {
@@ -4296,6 +4301,20 @@ enum Catch {
     Intercepted(usize),
 }
 
+/// A defender's hands on a ball he can play, read half against his level
+/// (A10): the throws at a lower level are already worse, so a high school
+/// ball hawk is a ball hawk among high school passers. Read raw, high
+/// school defenses picked off 1.5% of throws against the NFL's 2.3%, where
+/// real high school passers throw more interceptions, not fewer.
+fn ball_hands(sim: &Sim, d: usize) -> f64 {
+    use super::rules::trait_norm;
+    let gap = trait_norm(crate::player::Level::NFL, Attr::Catching) - trait_norm(sim.level, Attr::Catching);
+    sim.agents[d].a(Attr::Catching) + HANDS_LEVEL * gap
+}
+
+/// The share of the level gap a defender's hands are read against (A10).
+const HANDS_LEVEL: f64 = 0.5;
+
 /// The ball arrives (topic 1): who can get to it, and who catches it.
 #[allow(clippy::too_many_arguments)]
 fn catch_point(
@@ -4339,7 +4358,7 @@ fn catch_point(
             let p_touch = 0.6 * (1.0 - gap / 1.1) * (0.5 + cov / 200.0) * if eyes { 1.0 } else { 0.35 };
             if sim.rng.chance(p_touch) {
                 let id = a.id;
-                if sim.rng.chance(0.3 * a.a(Attr::Catching) / 70.0) {
+                if sim.rng.chance(0.3 * ball_hands(sim, d) / 70.0) {
                     return Catch::Intercepted(d);
                 }
                 let sep = sim.agents[r].pos.dist(dp);
@@ -4354,11 +4373,16 @@ fn catch_point(
     let dr = ra.pos.dist(to);
     // His catch radius: frame, jump and reach, and body control to adjust
     // to a ball off his frame (proposed, not confirmed).
+    // His jump and body control count on the passer's scale (`pro`, A7):
+    // below the pro range the gap narrows, as nothing on the other side of
+    // this test (the coverage) is read the same way. A high school
+    // receiver's radius was a third smaller than a pro's, and 41% of high
+    // school throws missed their man (22% in the NFL).
     let radius = 0.95
         + 0.015 * (gp_h - 72.0)
-        + 0.004 * (ra.a(Attr::Jumping) - 50.0)
+        + 0.004 * (pro(ra.a(Attr::Jumping)) - 50.0)
         + 0.02 * (gp_arm - 32.0)
-        + 0.0015 * (ra.a(Attr::BodyControl) - 60.0);
+        + 0.0015 * (pro(ra.a(Attr::BodyControl)) - 60.0);
     // His high point (D1): a ball put over his reach sails past him.
     let rec_reach = high_reach(sim, r, true);
     // Nearest defender to the ball.
@@ -4396,16 +4420,13 @@ fn catch_point(
     let reach = 1.3 + 0.4 * (dd - 1.5).clamp(0.0, 4.0);
     // Past the end line is out of bounds too (it used to be caught there,
     // and red zone passes went for touchdowns half again as often as real).
-    if knob("K_DIAG", 0.0) > 0.0 {
-        eprintln!("CATCH dr {:.3} radius {:.3} reach {:.3} dd {:.2} vel {:.2} vmax {:.2}", dr, radius, reach, dd, ra.vel.len(), ra.vmax);
-    }
     let over_him = jump_ball && ball_h > rec_reach + 2.0;
     if to.y < -0.5 || to.y > WIDTH + 0.5 || to.x > END_LINE + 0.5 || dr > radius + reach || over_him {
         // Off target. A defender in the way may still pick it.
         if let Some(d) = dbest {
             let da = &sim.agents[d];
             let rd = 1.0 + 0.01 * (da.a(Attr::Jumping) - 50.0);
-            if dd < rd * 0.8 && sim.rng.chance(0.18 * da.a(Attr::Catching) / 70.0) {
+            if dd < rd * 0.8 && sim.rng.chance(0.18 * ball_hands(sim, d) / 70.0) {
                 return Catch::Intercepted(d);
             }
         }
@@ -4453,7 +4474,7 @@ fn catch_point(
                 // trailing with his back turned mostly plays through the hands.
                 let p_int = clamp(
                     0.22 * closeness
-                        * (0.45 + da.a(Attr::Catching) / 110.0)
+                        * (0.45 + ball_hands(sim, d) / 110.0)
                         * if sees_ball || broke { 1.0 } else { 0.45 }
                         * if broke { 3.5 } else { 1.0 }
                         * size_on_def,
@@ -4539,7 +4560,7 @@ fn catch_point(
         // A ball off his hands can pop up to a defender close by.
         if let Some(d) = dbest
             && dd < 3.0
-            && sim.rng.chance(0.13 * (1.0 - dd / 3.0) * (0.5 + sim.agents[d].a(Attr::Catching) / 100.0))
+            && sim.rng.chance(0.13 * (1.0 - dd / 3.0) * (0.5 + ball_hands(sim, d) / 100.0))
         {
             return Catch::Intercepted(d);
         }

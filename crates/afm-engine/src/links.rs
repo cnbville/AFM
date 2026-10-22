@@ -121,9 +121,7 @@ impl Link {
             Link::Sudden => {
                 "Changing direction without slowing: separation at the break, making the first man miss, mirroring a route."
             }
-            Link::LowCenter => {
-                "Hard to knock over: staying up through contact, the low man winning leverage."
-            }
+            Link::LowCenter => "Hard to knock over: staying up through contact, the low man winning leverage.",
             Link::BatteringRam => {
                 "Contact at speed: breaking arm tackles, wearing a defense down late; on defense, the thumper's hits."
             }
@@ -135,13 +133,28 @@ impl Link {
             }
             Link::Anchor => "The bull rush and double teams, on both sides; short-yardage push.",
             Link::GetOff => "The first step off the snap.",
-            Link::Bend => {
-                "Dipping under the tackle's hands around the corner without slowing; a tight turn at speed."
-            }
+            Link::Bend => "Dipping under the tackle's hands around the corner without slowing; a tight turn at speed.",
             Link::Lungs => "Staying fresh late in drives and games, fewer breaks, the fourth quarter.",
-            Link::PocketFrame => {
-                "Seeing over the line, fewer batted passes, shrugging off arm tackles in the pocket."
-            }
+            Link::PocketFrame => "Seeing over the line, fewer batted passes, shrugging off arm tackles in the pocket.",
+        }
+    }
+
+    /// How a staff that hasn't measured him describes it from film. Film
+    /// can be wrong: this is a guess until he tests.
+    pub fn film(self) -> &'static str {
+        match self {
+            Link::Highpointer => "plays above the rim",
+            Link::Burner => "pulls away from pursuit",
+            Link::Sudden => "changes direction without slowing",
+            Link::LowCenter => "hard to knock off his feet",
+            Link::BatteringRam => "runs through arm tackles",
+            Link::Length => "long arms on tape",
+            Link::BigMover => "moves like a smaller man",
+            Link::Anchor => "doesn't give ground",
+            Link::GetOff => "first off the ball",
+            Link::Bend => "dips under the hands at the corner",
+            Link::Lungs => "still going in the fourth quarter",
+            Link::PocketFrame => "sees over the line, hard to bring down",
         }
     }
 
@@ -198,8 +211,7 @@ impl Links {
 
     /// The links he has, strongest first.
     pub fn list(&self) -> Vec<(Link, f64)> {
-        let mut v: Vec<(Link, f64)> =
-            Link::ALL.iter().map(|&l| (l, self.get(l))).filter(|x| x.1 > 0.0).collect();
+        let mut v: Vec<(Link, f64)> = Link::ALL.iter().map(|&l| (l, self.get(l))).filter(|x| x.1 > 0.0).collect();
         v.sort_by(|a, b| b.1.total_cmp(&a.1));
         v
     }
@@ -319,15 +331,8 @@ static COMBINE: LazyLock<[Combine; POSITION_COUNT]> = LazyLock::new(|| {
 /// The athletic traits the combine has no test for, read against the
 /// position's combine class as the game makes it: draft prospects at about
 /// 22, near their grown ratings (the player model's own calibration).
-const NORM_ATTRS: [Attr; 7] = [
-    Attr::Acceleration,
-    Attr::Agility,
-    Attr::Balance,
-    Attr::Strength,
-    Attr::Flexibility,
-    Attr::Jumping,
-    Attr::Stamina,
-];
+const NORM_ATTRS: [Attr; 7] =
+    [Attr::Acceleration, Attr::Agility, Attr::Balance, Attr::Strength, Attr::Flexibility, Attr::Jumping, Attr::Stamina];
 
 static NORMS: LazyLock<[[(f64, f64); NORM_ATTRS.len()]; POSITION_COUNT]> = LazyLock::new(|| {
     use crate::player::{ProspectOptions, generate_prospect};
@@ -441,6 +446,19 @@ pub fn links_of(p: &Player) -> Links {
     measure(p.position, &body_now(p), &p.attributes, p.game.recovery)
 }
 
+/// The links a staff projects for a young player (D3): his frame grown and
+/// his athletic traits at what they can become. College staffs recruit the
+/// frame and the testing numbers a kid will have at 22, not the ones he has
+/// at 16, so a link that is rare in high school today can still be seen
+/// coming. (A world's evaluator reads it through its own noise.)
+pub fn projected(p: &Player) -> Links {
+    let mut grown = p.ceilings;
+    for a in Attr::ALL {
+        grown.set(a, 0.96 * p.ceilings.get(a));
+    }
+    measure(p.position, &p.body, &grown, p.game.recovery)
+}
+
 /// A player's links at another position (a position move reads him
 /// against that position's combine).
 pub fn links_at(p: &Player, pos: Position) -> Links {
@@ -520,7 +538,8 @@ fn shuttle(attrs: &Attributes, weight: f64) -> f64 {
 }
 
 fn cone(attrs: &Attributes, weight: f64) -> f64 {
-    let bend = 0.55 * attrs.get(Attr::Agility) + 0.25 * attrs.get(Attr::Acceleration) + 0.2 * attrs.get(Attr::Flexibility);
+    let bend =
+        0.55 * attrs.get(Attr::Agility) + 0.25 * attrs.get(Attr::Acceleration) + 0.2 * attrs.get(Attr::Flexibility);
     7.58 - 0.007 * bend + 0.0062 * (weight - 220.0)
 }
 

@@ -503,3 +503,16 @@ The world side of the people leftovers from build 9 and your own side of section
 
 - Realism questions 2-7 from the spec's open questions (asked one at a time in the build thread): classifications and playoffs, every college level (D3, NAIA), realignment, the coaching carousel, NFL franchise traits, shifting talent geography. Question 1 (all real programs) was asked first.
 - Real towns for generated high schools would need a census town list; the data has each state's top hometowns only.
+
+## Physical gifts in evaluation (final build, lane 3, D3)
+
+Real staffs pay first for what can't be coached: size, length, speed and burst. The world now does too, through the Dynamic Links (`links.rs`, how each works on the field in `docs/match-engine.md`).
+
+- **College staffs** (`recruiting.rs`) add a recruit's projected gifts to their evaluation: the links his grown frame and athletic traits project to (`links::projected`), read through a little noise, worth about half a film standard deviation for one full link and less for each more (`links::gift`), scaled by the position coach's athletic eye. This is how a 2-star physical freak draws an SEC offer before his stars catch up.
+- **The services** give the same gift only 0.15 of a standard deviation, and only as far as he is visible (camps, exposure), so their stars lag behind the staffs on a freak.
+- **NFL clubs** (`pro/scouts.rs`) add 2 grade points for one full measured link once he has tested (the combine or a pro day), half that on a film guess. A link without skills still grades on his skills first: the workout warrior.
+- **Your staff's read** of a player's links is on his page (`reads::links`): your own players measured with the numbers ("6'4", 33 3/4" arms, 38" vertical"), pros and combine invites with their public numbers, others as a guess from film; a boy still growing is read by what his frame projects to, in words only, so his ceiling stays hidden.
+
+### Decided in the final build (Claude's pick)
+- A full link is worth 0.5 film standard deviations to a college staff and 0.15 to the services; 2 grade points to an NFL club once measured, 1 before.
+- College staffs recruit the projected link (grown frame and traits); measured today a high school link is almost never there, since boys' athletic ratings sit far below their grown ones.

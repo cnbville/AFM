@@ -7,6 +7,7 @@ mod foundations;
 mod game_stats;
 mod kick_units;
 mod level_rating;
+mod links;
 mod scouting;
 mod tactics;
 mod tendencies;

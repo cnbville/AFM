@@ -825,14 +825,6 @@ impl<'a> Sim<'a> {
     /// A trait-like rating of agent `i` on the 1-20 scale, against the level
     /// (see `GamePlayer::trait20`).
     #[inline]
-    /// A trait-like rating read against his level, on the NFL's scale
-    /// (A7): a poised high school quarterback is poised among high school
-    /// players. At the NFL it is the rating itself.
-    pub fn level_read(&self, i: usize, a: Attr) -> f64 {
-        use super::rules::trait_norm;
-        self.agents[i].a(a) - trait_norm(self.level, a) + trait_norm(crate::player::Level::NFL, a)
-    }
-
     pub fn trait20(&self, i: usize, a: Attr) -> f64 {
         self.player(i).trait20(a, self.level)
     }
@@ -1137,8 +1129,7 @@ impl<'a> Sim<'a> {
         // against the level (scrimmage.rs), gives 5.24 and 4.32 on the
         // world's rosters, about 5.05 and 4.45 in the world (proposed, not
         // confirmed).
-        let hs = self.level == crate::player::Level::HS;
-        let w0 = if pass { -0.42 + if hs { knob("K_PW", 0.0) } else { 0.0 } } else { -0.1 + if hs { knob("K_RW", 0.0) } else { 0.0 } }
+        let w0 = if pass { -0.42 } else { -0.1 }
             + 0.006 * (get_off + silent - set)
             + self.front_fit(de.label, pass)
             + 0.18 * gauss(self.rng);
@@ -1899,8 +1890,10 @@ impl<'a> Sim<'a> {
             + 0.3 * r.a(Attr::Agility)
             + 0.2 * r.a(Attr::Speed)
             + self.link(c, &[Link::Sudden]);
-        let tackle =
-            0.6 * d.a(Attr::Tackling) + 0.2 * d.a(Attr::Agility) + 0.2 * d.a(Attr::Pursuit) + self.link(i, &[Link::Sudden]);
+        let tackle = 0.6 * d.a(Attr::Tackling)
+            + 0.2 * d.a(Attr::Agility)
+            + 0.2 * d.a(Attr::Pursuit)
+            + self.link(i, &[Link::Sudden]);
         // Out of control when arriving too fast, behind when chasing.
         let angle = if head_on > 0.5 {
             -0.3
@@ -2382,9 +2375,4 @@ pub fn injury_weeks(kind: InjuryKind, rng: &mut Rng) -> f64 {
     };
     let u = rng.next();
     lo + (hi - lo) * u * u
-}
-
-/// TEMPORARY tuning knob (removed before merge).
-pub fn knob(name: &str, d: f64) -> f64 {
-    std::env::var(name).ok().and_then(|v| v.parse().ok()).unwrap_or(d)
 }

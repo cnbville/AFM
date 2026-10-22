@@ -1470,6 +1470,7 @@ const HELP_GAP: f64 = 3.0;
 /// A staff's matchup plan (topic 5.4), made at the start of the game from
 /// what its scouts see of the other team's starters: rating estimates with
 /// an error that shrinks with film study.
+#[allow(clippy::too_many_arguments)]
 pub fn make_plan(
     own: &Staff,
     their_cbs: &[(usize, f64)],
@@ -1500,11 +1501,8 @@ pub fn make_plan(
     // the men who'd block him. Read from film like the rest of the plan.
     let help_on = {
         let best = their_rushers.iter().map(|&(i, v)| (i, seen(v, rng))).max_by(|a, b| a.1.total_cmp(&b.1));
-        let ours = if our_blockers.is_empty() {
-            0.0
-        } else {
-            our_blockers.iter().sum::<f64>() / our_blockers.len() as f64
-        };
+        let ours =
+            if our_blockers.is_empty() { 0.0 } else { our_blockers.iter().sum::<f64>() / our_blockers.len() as f64 };
         best.filter(|b| b.1 - ours > HELP_GAP).map(|b| b.0)
     };
     Plan { target_cb, bracket, spy, help_on, vs: VsHabits::default() }
