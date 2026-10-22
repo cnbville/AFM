@@ -1,0 +1,109 @@
+# The line bank: room (people topic 5; format in src/world/folk/voice.rs).
+
+# ---------------------------------------------------------------------------
+# A player's reaction when you hand down discipline (folk/rules.rs). The line
+# never knows the rule or the penalty, so it names neither.
+
+@key rules.react.harsh
+That's a lot for what I did, Coach.
+For that? Come on.
+Other guys have done worse and got nothing.
+You're making an example out of me.
+I said I was sorry. I don't know what else you want.
+It was one time, Coach. One time.
+That's not fair, and you know it isn't.
+If it was a starter, you'd let it go. ~ !ego
+This is about more than what I did, isn't it? ~ hot
+So that's how it's gonna be here. ~ hot
+Okay. You're the boss. ~ quiet
+I'll take it. But that's too much, {coach}. ~ pro
+I've never been in trouble before. Not once. ~ humble
+My agent's going to hear about this. ~ nfl
+I'm gonna have to call my dad. ~ hs young
+
+@key rules.react.fair
+Yes sir. Understood.
+That's fair. I messed up.
+I knew the rule. That's on me.
+I'll take it. Won't happen again.
+No argument from me, Coach.
+Yeah. I had that coming.
+Fair enough. I'll get it right.
+Rules are rules. ~ pro
+I let the guys down. I'll own it. ~ leader
+Understood. I'll tell the guys myself. ~ leader
+Yes sir. ~ quiet
+I know, I know. I'll be there. ~ young loose
+My mom's gonna be worse than you, Coach. ~ hs young
+
+@key rules.react.soft
+That's it?
+Okay. Thank you, Coach.
+I thought it'd be worse, honestly.
+I appreciate that. I won't make you regret it.
+Yes sir. Lesson learned.
+I owe you one, Coach.
+Alright. That I can live with.
+Appreciate the break. I won't need another one.
+Thank you. I know you could've done more. ~ humble
+Cool. We good, then. ~ ego
+Told you it wasn't a big deal. ~ ego loose
+Bet. ~ young modern
+
+# ---------------------------------------------------------------------------
+# The parents' meeting: a loud father on his son's playing time (folk/takeover.rs,
+# parents_open). Parents carry no level tag, so no version is tagged by level.
+
+@key parents.playing_time
+I'll just ask what everybody's thinking. Are the kids who played for {old_last} going to get a fair shot?
+My son started two years for the last staff. Is that going to change?
+How are you deciding who plays? Because some of us have been watching these kids since Pop Warner.
+My boy's been in the weight room at six every morning since June. Does that count for anything?
+I want to know how the depth chart gets made. Is it film, is it practice, or is it who you know?
+Are you going to play the seniors? Some of these kids have waited their turn.
+My son's being recruited. He needs film. Is he going to get snaps or not?
+With respect, we've seen coaches come in and play their own guys. What makes you different?
+I'm not one of those parents. I just want to know my kid's going to get a fair look.
+Are you going to play kids both ways? Because my son can go both ways.
+Some of us drive two hours to away games. We'd like to see our kids on the field when we get there.
+How do you pick between a junior who's earned it and a sophomore who's better?
+Who do we talk to when we have a problem with playing time? You, or the AD?
+I'll be honest with you, {coach}. I'm going to be calling you about playing time. Might as well know that now.
+Last year there were kids playing because of who their daddy was. Is that going to stop? ~ south
+I'll say it plain, Coach. My boy's better than the kid that started over him, and everybody in this cafeteria knows it. ~ texas
+
+# ---------------------------------------------------------------------------
+# A parent calls about his son (folk/talks.rs, parent_open). The caller can
+# be a father, a mother, a grandmother or a guardian, so nobody names
+# himself or herself. Loud or online parents only; high school and college.
+
+@key parents.call.open
+Coach, I'm calling about {name}. Do you have a minute?
+{coach}, this is about {name}.
+I'm not one to call coaches. But I need to understand what's going on with {name}.
+I need somebody to explain to me why {name} isn't playing.
+Coach, I'll keep it short. {name} is miserable, and I want to know why.
+I'm calling because {name} won't. He'd never complain, so I'm doing it.
+{name} gave up a lot to come to {team}. I need to know he's going to get a fair shot.
+I want to be respectful, {coach}. But I have real questions about how {name} is being used.
+I counted {name}'s snaps last game. I didn't need both hands.
+{name} comes home and doesn't say a word. That's not the kid I raised.
+I've watched every snap {name} has played since he was eight years old. ~ loud
+I've held my tongue all season. I'm done holding it. ~ loud
+People keep asking me why {name} isn't starting, and I don't have an answer for them. ~ online
+I've seen what people are posting about {name}. I want to hear it from you. ~ online modern
+
+@key parents.call.point
+He's worked too hard to sit and watch.
+Every coach he's ever had has played him.
+And I'm not the only one asking.
+I'm not asking for favors. I'm asking for fair.
+He doesn't know I'm calling, and I'd like to keep it that way.
+I just want to know what he needs to do. Give me something I can tell him.
+If he's not in your plans, tell us now so we can make other plans.
+People are coming to see him play, and they can't see him from the bench.
+{friend} is out there every week, and those two have done the same work since middle school.
+We didn't send him to {team} to stand on the sideline.
+I know that boy. Something's wrong.
+I've been to every game. Every single one. ~ loud
+People have been posting about it, and frankly, they're not wrong. ~ online modern

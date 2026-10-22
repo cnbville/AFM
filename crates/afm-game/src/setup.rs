@@ -353,7 +353,7 @@ pub fn towns(w: &World, state: &str) -> Value {
 
 /// What the boss expects from a new head coach, in words, from how big the
 /// job is at its level and how last season went (proposed, not confirmed).
-fn college_expectation(rel: f64) -> &'static str {
+pub(crate) fn college_expectation(rel: f64) -> &'static str {
     match rel {
         r if r > 0.85 => "Win the conference and reach the playoff. Anything less is a down year.",
         r if r > 0.65 => "Contend for the conference title and reach the playoff within two years.",
@@ -363,7 +363,7 @@ fn college_expectation(rel: f64) -> &'static str {
     }
 }
 
-fn nfl_expectation(wins: u32, round: u32, patience: f64) -> String {
+pub(crate) fn nfl_expectation(wins: u32, round: u32, patience: f64) -> String {
     let base = match (wins, round) {
         (_, r) if r >= 3 => "Win the Super Bowl: the roster is built for now.",
         (w, _) if w >= 11 => "Win in the playoffs: the roster is built to contend.",
@@ -379,7 +379,7 @@ fn nfl_expectation(wins: u32, round: u32, patience: f64) -> String {
     format!("{base}{owner}")
 }
 
-fn hs_expectation(prestige: f64, titles: u32) -> &'static str {
+pub(crate) fn hs_expectation(prestige: f64, titles: u32) -> &'static str {
     match prestige {
         p if p > 0.8 || titles >= 5 => "Win the state title. The town expects a deep playoff run every year.",
         p if p > 0.6 => "Make the playoffs and win a round or two.",
@@ -397,7 +397,7 @@ pub fn jobs(w: &World, level: &str) -> Value {
     let coach = |c: Option<usize>| {
         c.and_then(|c| w.coaches.get(c).map(|co| (c, co))).map(|(c, co)| {
             let years = co.job.map_or(0, |j| (w.year - j.since).max(0));
-            json!({ "name": co.name, "age": co.age, "record": job_record(w, c), "seasons": years, "id": c })
+            json!({ "name": co.name, "age": co.age_on(w.today), "record": job_record(w, c), "seasons": years, "id": c })
         })
     };
     let base = |t: TeamRef| {
@@ -570,7 +570,7 @@ pub fn similar(w: &World, args: &Value) -> Value {
             };
             let role = j.role.name();
             json!({
-                "id": c, "name": co.name, "age": co.age,
+                "id": c, "name": co.name, "age": co.age_on(w.today),
                 "job": format!("{}{}, {at}", role[..1].to_uppercase(), &role[1..]),
                 "came_up": format!("came up coaching {}", Group::ALL[co.came_up as usize].name()),
                 "reputation": crate::views::reputation_words(co.reputation),
@@ -707,6 +707,14 @@ pub fn start(w: &mut World, args: &Value) -> Result<(), String> {
             .trim()
             .to_string(),
         age: age.clamp(25.0, 75.0) as u32,
+        born: match profile.born {
+            Some((y, m, d)) => afm_engine::calendar::Date::ymd(y, m, d),
+            None => afm_engine::calendar::born::birth_date(
+                w.options.seed as u64 ^ 0x70_0B0E,
+                age.clamp(25.0, 75.0) as u32,
+                w.year,
+            ),
+        },
         ethnicity,
         home_state,
         ex_pro: b.ex_pro,

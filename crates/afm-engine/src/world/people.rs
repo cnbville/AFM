@@ -92,7 +92,10 @@ pub(crate) fn ties_q(w: &World, i: usize, t: usize) -> f64 {
     let tm = &w.nfl[t];
     let staff = [tm.head_coach, tm.oc, tm.dc];
     let knew = p.college_staff.iter().any(|&(_, _, hc, pc)| staff.iter().any(|&s| s.is_some() && (s == hc || s == pc)));
-    (1.0 - 0.015 * grudge) * if knew { 1.08 } else { 1.0 }
+    // A close friend already there pulls a little (section 6, ties;
+    // proposed, not confirmed: 4% a friend, two at most).
+    let friends = super::folk::ties::friends_on(w, p.player.id, t).min(2) as f64;
+    (1.0 - 0.015 * grudge) * if knew { 1.08 } else { 1.0 } * (1.0 + 0.04 * friends)
 }
 
 // --- Topic 10: support staff --------------------------------------------------------------
@@ -366,6 +369,9 @@ pub(crate) fn college_camp_mood(w: &mut World, roles: &[(usize, PlayingTime)]) {
         }
         settle_room(w, Room::College(k), &roster);
     }
+    let mut read_ids: Vec<usize> = role_of.keys().copied().collect();
+    read_ids.sort_unstable();
+    super::folk::talks::reapply(w, &read_ids);
 }
 
 /// A state's high school camp: each player's own mood only (no rooms
@@ -374,6 +380,7 @@ pub(crate) fn college_camp_mood(w: &mut World, roles: &[(usize, PlayingTime)]) {
 /// states, 22 seconds a season.
 pub(crate) fn hs_camp_mood(w: &mut World, schools: &[usize], roles: &[(usize, PlayingTime)]) {
     let role_of: std::collections::HashMap<usize, PlayingTime> = roles.iter().copied().collect();
+    let mut read_ids = Vec::new();
     for &s in schools {
         let roster = w.high_schools[s].roster.clone();
         if roster.is_empty() {
@@ -397,8 +404,11 @@ pub(crate) fn hs_camp_mood(w: &mut World, schools: &[usize], roles: &[(usize, Pl
                 room: 0.0,
             };
             read(&mut w.people[i], coach, motivation, parts);
+            read_ids.push(i);
         }
     }
+    read_ids.sort_unstable();
+    super::folk::talks::reapply(w, &read_ids);
 }
 
 /// A pro's pay a year against what he thinks he is worth: the league's
@@ -436,6 +446,7 @@ pub fn pay_and_worth(w: &World, i: usize) -> Option<(f64, f64)> {
 pub(crate) fn pro_mood(w: &mut World) {
     staff_support(w);
     let year = w.year;
+    let mut read_ids = Vec::new();
     for t in 0..w.clubs.len() {
         if !super::franchise::active(t, year) {
             continue;
@@ -498,8 +509,11 @@ pub(crate) fn pro_mood(w: &mut World) {
             };
             read(&mut w.people[i], coach, motivation, parts);
         }
+        read_ids.extend_from_slice(&roster);
         settle_room(w, Room::Club(t), &roster);
     }
+    read_ids.sort_unstable();
+    super::folk::talks::reapply(w, &read_ids);
 }
 
 #[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
@@ -759,7 +773,7 @@ pub(crate) fn pro_trouble_week(w: &mut World, d: Date) {
         }
         if w.recording {
             let who = pro::describe(w, i);
-            market::post(w, d, team, Loudness::Medium, Kind::News, format!("{who}: {}.", kind.words()));
+            market::post(w, d, team, Some(i), Loudness::Medium, Kind::News, format!("{who}: {}.", kind.words()));
         }
     }
     // The rulings due today.
@@ -811,6 +825,8 @@ fn rule(w: &mut World, d: Date, case: &Case) {
     }
     c.suspended += games;
     let team = c.team;
+    super::folk::courts::suspension(w, i, games, case.kind.words(), matches!(case.kind, Trouble::Ped | Trouble::Drugs));
+    let Some(c) = w.people[i].pro.as_mut() else { return };
     if let Some(k) = c.contract.as_mut()
         && let Some(y) = k.years.iter_mut().find(|y| y.year == year && !y.void)
     {
@@ -831,6 +847,7 @@ fn rule(w: &mut World, d: Date, case: &Case) {
         w,
         d,
         team,
+        Some(i),
         Loudness::Medium,
         Kind::News,
         format!("{who} is suspended {games} games ({}).", case.kind.words()),

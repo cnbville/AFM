@@ -71,10 +71,10 @@ fn player_detail(p: &afm_engine::player::Player) -> Value {
         "attrs": afm_engine::attributes::Attr::ALL.iter().map(|&t| json!([format!("{t:?}"), r1(p.attributes.get(t)), r1(ceil.get(t))])).collect::<Vec<_>>(),
         "seasons": p.history.iter().map(|h| json!({
             "age": h.age, "level": h.level.name(), "pos": h.position.name(), "role": h.playing_time.name(),
-            "start": r1(h.overall_start), "end": r1(h.overall), "perf": h.performance.map(r1),
+            "start": r1(h.overall_start), "end": r1(h.overall), "perf": h.performance.get().map(r1),
             "lr": h.level_rating, "lr_end": h.level_rating_end, "pot": r1(debug::season_potential(h)),
             "ev": h.events.iter().map(|e| e.name()).collect::<Vec<_>>(), "missed": h.games_missed, "coach": r1(h.coaching),
-            "dip": h.adjustment, "spring": h.spring_gain.map(r1), "spring_open": h.spring_open.map(r1)
+            "dip": h.adjustment, "spring": h.spring_gain.get().map(r1), "spring_open": h.spring_open.get().map(r1)
         })).collect::<Vec<_>>(),
         "positions": p.position_history.iter().map(|(age, pos)| json!([age, pos.name()])).collect::<Vec<_>>(),
         "personality": {"work_ethic": r1(p.personality.work_ethic), "coachability": r1(p.personality.coachability),

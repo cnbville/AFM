@@ -1,7 +1,14 @@
-// AFM's screens (section 8 topic 5, section 10 topics 1-5). One page: a
-// frosted sidebar, a top bar with the date and Continue, and the screen.
-// Every name is a link; back and forward work like a browser and each
-// screen keeps its sort and filters when you come back.
+// AFM's shell (section 8 topic 5, section 10 topics 1-5 and 17): one page,
+// a frosted sidebar, a top bar with the clickable path you took, search,
+// the date and Continue, the pinned must-answer items under it, and the
+// screen. Back and forward work like a browser (buttons, ⌘[ ⌘], the
+// mouse's back button and a two-finger swipe); each screen keeps its tab,
+// sort, filters and scroll when you come back to it.
+//
+// The shared components every screen uses (tables, rich text with links,
+// hover cards, the page beside, right-click actions, page heads with their
+// "Go to" line, tabs, the letter, charts, reveals) are in screens/core.js,
+// documented at its top. This file is the frame and the router.
 "use strict";
 
 // ---------- talking to the game ----------
@@ -36,6 +43,8 @@ function toast(text) {
 }
 function setColors(c) {
   if (!c) return;
+  // A page drawn in the panel beside the screen never re-lights the screen.
+  if (S.besideDrawing) return;
   document.documentElement.style.setProperty("--accent", c[0]);
   document.documentElement.style.setProperty("--accent-2", c[1] || c[0]);
 }
@@ -46,12 +55,15 @@ function mark(team, size) {
   const c = team && team.colors ? team.colors : ["#444", "#222"];
   return `<span class="st-mark" style="background:${c[0]};${size ? `--s:${size}px;` : ""}box-shadow:inset 0 0 0 2px ${c[1]}55">${esc(initials(team && team.name))}</span>`;
 }
-function teamLink(t) {
+function teamLink(t, text) {
   if (!t) return "";
-  return `<a class="link" data-go="team" data-kind="${t.ref.kind}" data-id="${t.ref.id}">${esc(t.name)}</a>`;
+  return `<a class="link" data-go="team" data-kind="${t.ref.kind}" data-id="${t.ref.id}">${esc(text ?? t.name)}</a>`;
 }
-function playerLink(id, name) {
-  return `<a class="link name" data-go="player" data-id="${id}">${esc(name)}</a>`;
+function playerLink(id, name, tab) {
+  return `<a class="link name" data-go="player" data-id="${id}"${tab ? ` data-tab="${esc(tab)}"` : ""}>${esc(name)}</a>`;
+}
+function coachLink(id, name) {
+  return id == null ? esc(name) : `<a class="link name" data-go="coach" data-id="${id}">${esc(name)}</a>`;
 }
 // The rating colour: white low, red high (screens topic 4).
 function rateColor(v) {
@@ -60,11 +72,14 @@ function rateColor(v) {
   const c = a.map((x, i) => Math.round(x + (b[i] - x) * t));
   return `rgb(${c[0]},${c[1]},${c[2]})`;
 }
-function range(r) {
-  if (!r) return `<span class="rg ns"><span class="t"></span><b>Not seen</b></span>`;
+// A staff read as a bar spanning low to high, with the numbers (topic 4).
+// `who` names whose read it is for the hover.
+function range(r, who) {
+  if (!r) return `<span class="rg ns" title="Nobody on your staff has seen this"><span class="t"></span><b>Not seen</b></span>`;
   const [lo, hi] = r;
-  const mid = (lo + hi) / 2;
-  return `<span class="rg" title="Your staff's read: ${lo} to ${hi}"><span class="t"><i style="left:${lo}%;width:${Math.max(2, hi - lo)}%;background:${rateColor(mid)}"></i></span><b>${lo}-${hi}</b></span>`;
+  const m = (lo + hi) / 2;
+  const tip = `Your staff's read: ${lo} to ${hi}${who ? ` · ${who}` : ""}. A narrow bar is a sure read; a wide one says your staff isn't sure.`;
+  return `<span class="rg" title="${esc(tip)}"><span class="t"><i style="left:${lo}%;width:${Math.max(2, hi - lo)}%;background:${rateColor(m)}"></i></span><b>${lo}-${hi}</b></span>`;
 }
 // "minorInjury" -> "minor injury"
 const words = (s) => String(s).replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
@@ -87,6 +102,25 @@ function classRank(c) {
 // or a sack to one decimal.
 const num = (v) => (typeof v === "number" && !Number.isInteger(v) ? v.toFixed(1) : v);
 
+// ---------- per-viewer settings (topic 15): kept in this browser ----------
+const prefs = (() => {
+  let p = {};
+  try { p = JSON.parse(localStorage.getItem("afm.prefs") || "{}") || {}; } catch (e) { p = {}; }
+  return p;
+})();
+function savePrefs() {
+  try { localStorage.setItem("afm.prefs", JSON.stringify(prefs)); } catch (e) { /* private window: kept for this session */ }
+}
+function applyPrefs() {
+  const h = document.documentElement;
+  h.dataset.theme = prefs.theme === "light" ? "light" : "";
+  const z = Math.max(0.9, Math.min(1.3, Number(prefs.textSize) || 1));
+  h.style.setProperty("--zoom", String(z));
+  document.body && (document.body.style.zoom = z === 1 ? "" : String(z));
+  const reduce = prefs.motion === "reduce" || (prefs.motion !== "full" && window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  h.classList.toggle("calm", !!reduce);
+}
+
 // ---------- state ----------
 const S = {
   status: null,
@@ -101,37 +135,63 @@ const S = {
   // Each render's number: a slow screen that finishes after a newer one
   // never draws over it.
   drawn: 0,
+  // What the screen being drawn calls itself, for the path (L7).
+  title: null,
+  // The page shown beside the screen (L6): {screen, args} or null.
+  beside: null,
+  besideDrawing: false,
 };
 const keep = (k, d) => (S.keep[k] ??= d);
 
 // The opening, load and new-career pages sit outside a career: back and forward move
 // between the career's screens only, so they never lead out of it.
 const outside = (r) => r.screen === "start" || r.screen === "setup" || r.screen === "load";
-function go(screen, args = {}, push = true) {
+// go(screen, args, push) keeps its old third argument (false: don't add to
+// history); an object can say {root: true} for a sidebar click, which
+// starts a new path in the breadcrumb.
+function go(screen, args = {}, opt = true) {
+  const o = typeof opt === "object" ? opt : { push: opt };
+  const push = o.push !== false;
   if (push && !(outside(S.route) && !outside({ screen }))) {
     S.back.push({ ...S.route, scroll: $(".view") ? $(".view").scrollTop : 0 });
+    if (S.back.length > 120) S.back.shift();
     S.fwd = [];
   }
-  S.route = { screen, args };
+  S.route = { screen, args, root: !!o.root };
   render();
 }
 // Into a career (taken, loaded or resumed): its history starts here.
 function enterCareer() {
   S.back = [];
   S.fwd = [];
-  go("home", {}, false);
+  go("home", {}, { push: false, root: true });
 }
 function goBack() {
   if (!S.back.length) return;
-  S.fwd.push(S.route);
+  S.fwd.push({ ...S.route, scroll: $(".view") ? $(".view").scrollTop : 0 });
   S.route = S.back.pop();
   render(S.route.scroll);
 }
 function goFwd() {
   if (!S.fwd.length) return;
-  S.back.push(S.route);
+  S.back.push({ ...S.route, scroll: $(".view") ? $(".view").scrollTop : 0 });
   S.route = S.fwd.pop();
-  render();
+  render(S.route.scroll);
+}
+// Back several steps at once (a breadcrumb click).
+function goBackTo(n) {
+  if (n <= 0) return;
+  let r = S.route;
+  for (let i = 0; i < n && S.back.length; i++) {
+    S.fwd.push({ ...r, scroll: i === 0 && $(".view") ? $(".view").scrollTop : r.scroll });
+    r = S.back.pop();
+  }
+  S.route = r;
+  render(r.scroll);
+}
+// A screen names itself for the path: title("Jalen Carter", "Development").
+function title(t, sub) {
+  S.title = sub ? `${t} · ${sub}` : t;
 }
 
 // ---------- icons ----------
@@ -157,161 +217,132 @@ const I = {
   train: '<path d="M3 10v4M6 7v10M18 7v10M21 10v4M6 12h12"/>',
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
   theme: '<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor"/>',
+  star: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
+  list: '<path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',
+  trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0z M8 6H5a3 3 0 0 0 3 4 M16 6h3a3 3 0 0 1-3 4 M12 13v4 M8 20h8 M9 17h6"/>',
+  history: '<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4M12 8v4l3 2"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.2 5.6l2.1 2.1M17.7 16.3l2.1 2.1M2.5 12h3M18.5 12h3M4.2 18.4l2.1-2.1M17.7 7.7l2.1-2.1"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
+  note: '<path d="M5 3h10l4 4v14H5z M15 3v4h4 M8 11h8M8 15h8M8 19h5"/>',
+  leader: '<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>',
+  bracket: '<path d="M3 5h5v4h4 M3 13h5V9 M3 15h5v4h4 M3 23h5v-4 M12 7v14 M12 14h9"/>',
 };
 const icon = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${I[k] || ""}</svg>`;
+
+// ---------- the sidebar (topic 1): every area of your job, by seat ----------
+// Other lanes add their screens with navAdd({go, label, icon, sec, seats,
+// after}); seats lists "college", "nfl", "hs" (all when left out).
+const NAV = [
+  { go: "home", label: "Home", icon: "home", sec: "top" },
+  { go: "inbox", label: "Inbox", icon: "inbox", sec: "top", badge: () => (S.status && S.status.unread) || 0 },
+  { go: "calendar", label: "Calendar", icon: "cal", sec: "top" },
+  { go: "myplayers", label: "My players", icon: "star", sec: "top" },
+  { go: "roster", label: "Squad", icon: "squad", sec: "team" },
+  { go: "depth", label: "Depth chart", icon: "depth", sec: "team" },
+  { go: "training", label: "Training", icon: "train", sec: "team" },
+  { go: "recruiting", label: "Recruiting", icon: "recruit", sec: "team", seats: ["college", "hs"] },
+  { go: "contracts", label: "Contracts", icon: "money", sec: "team", seats: ["nfl"] },
+  { go: "schedule", label: "Schedule", icon: "sched", sec: "team" },
+  { go: "games", label: "Game pages", icon: "game", sec: "team" },
+  { go: "staff", label: "Staff", icon: "staff", sec: "team" },
+  { go: "news", label: "News", icon: "news", sec: "world" },
+  { go: "standings", label: "Standings", icon: "table", sec: "world" },
+  { go: "leaders", label: "Leaderboards", icon: "leader", sec: "world" },
+  { go: "history", label: "History", icon: "history", sec: "world" },
+  { go: "team", label: "Team history", icon: "team", sec: "world" },
+  { go: "you", label: "Your profile", icon: "you", sec: "world" },
+];
+const NAV_SECS = [["top", ""], ["team", "Your team"], ["world", "World"]];
+function navAdd(item) {
+  const i = NAV.findIndex((n) => n.go === item.go);
+  if (i >= 0) { NAV[i] = { ...NAV[i], ...item }; return; }
+  const at = item.after ? NAV.findIndex((n) => n.go === item.after) : -1;
+  if (at >= 0) NAV.splice(at + 1, 0, item); else NAV.push(item);
+}
+function seatKind() {
+  const me = S.status && S.status.mine;
+  return me ? me.ref.kind : null;
+}
 
 // ---------- the frame ----------
 function frame(content, crumb) {
   const st = S.status || {};
   const me = st.mine;
-  const nav = [
-    ["home", "Home", "home"],
-    ["inbox", "Inbox", "inbox"],
-    ["calendar", "Calendar", "cal"],
-    ["sec", "Your team"],
-    ["roster", "Squad", "squad"],
-    ["depth", "Depth chart", "depth"],
-    ["training", "Training", "train"],
-    ...(me && me.ref.kind !== "nfl" ? [["recruiting", "Recruiting", "recruit"]] : []),
-    ...(me && me.ref.kind === "nfl" ? [["contracts", "Contracts", "money"]] : []),
-    ["schedule", "Schedule", "sched"],
-    ["games", "Game pages", "game"],
-    ["standings", "Standings", "table"],
-    ["staff", "Staff", "staff"],
-    ["sec", "World"],
-    ["news", "News", "news"],
-    ["team", me ? "Team history" : "Team", "team"],
-    ["you", "Your profile", "you"],
-  ];
-  const navHtml = nav
-    .map((n) =>
-      n[0] === "sec"
-        ? `<div class="sec st-label">${n[1]}</div>`
-        : `<button class="nav" data-go="${n[0]}" aria-current="${S.route.screen === n[0]}">${icon(n[2])}${n[1]}</button>`,
-    )
-    .join("");
+  const seat = seatKind();
+  const navHtml = NAV_SECS.map(([sec, name]) => {
+    const items = NAV.filter((n) => n.sec === sec && (!n.seats || !seat || n.seats.includes(seat)) && screens[n.go]);
+    if (!items.length) return "";
+    return (name ? `<div class="sec st-label">${name}</div>` : "") + items.map((n) => {
+      const b = n.badge ? n.badge() : 0;
+      return `<button class="nav" data-nav="${n.go}" aria-current="${S.route.screen === n.go}">${icon(n.icon)}<span>${esc(n.label)}</span>${b ? `<em class="badge">${b > 99 ? "99+" : b}</em>` : ""}</button>`;
+    }).join("");
+  }).join("");
   const next = st.next && st.next[0];
-  const pinned = (st.pinned || [])
-    .map((p) => `<button class="st-banner"><span class="st-mark" style="background:var(--live)">!</span><span><b>${esc(p.text)}</b><small>${esc(p.rule || "Needs your answer")}</small></span><span class="when">${esc(p.date)}</span></button>`)
-    .join("");
   return `<div class="frame">
     <aside class="side">
       <div class="brand">${me ? mark(me) : '<span class="st-mark">AFM</span>'}<div><b>${esc(me ? me.name : "AFM")}</b><small>${esc(st.you ? "Coach " + st.you : "American Football Manager")}</small></div></div>
       <nav class="navs">${navHtml}</nav>
       <div class="foot">
-        <button class="nav" data-act="save">${icon("save")}Save game</button>
-        <button class="nav" data-act="menu">${icon("menu")}Main menu</button>
-        <button class="nav" data-act="bug">${icon("bug")}Report a bug</button>
-        <button class="nav" data-act="theme">${icon("theme")}Light or dark</button>
+        <button class="nav save" data-act="save" title="Save game (⌘S)">${icon("save")}<span>Save</span></button>
+        <button class="nav ico" data-act="holiday" title="Holiday" aria-label="Holiday">${icon("sun")}</button>
+        <button class="nav ico" data-nav="settings" title="Settings" aria-label="Settings" aria-current="${S.route.screen === "settings"}">${icon("gear")}</button>
+        <button class="nav ico" data-act="bug" title="Report a bug" aria-label="Report a bug">${icon("bug")}</button>
+        <button class="nav ico" data-act="menu" title="Main menu" aria-label="Main menu">${icon("menu")}</button>
       </div>
     </aside>
     <section class="main">
       <header class="topbar">
-        <button class="st-icon-btn" data-act="back" title="Back">${icon("back")}</button>
-        <button class="st-icon-btn" data-act="fwd" title="Forward">${icon("fwd")}</button>
-        <div class="crumb">${crumb || ""}</div>
-        <div class="search"><input id="q" placeholder="Search players, coaches, teams (⌘K)" autocomplete="off"></div>
+        <button class="st-icon-btn" data-act="back" title="Back (⌘[)" ${S.back.length ? "" : "disabled"}>${icon("back")}</button>
+        <button class="st-icon-btn" data-act="fwd" title="Forward (⌘])" ${S.fwd.length ? "" : "disabled"}>${icon("fwd")}</button>
+        <nav class="crumb" aria-label="Where you are">${crumb || ""}</nav>
+        <div class="search"><span class="sicon">${icon("search")}</span><input id="q" placeholder="Search anything" autocomplete="off" spellcheck="false"><kbd>⌘K</kbd></div>
         <div class="datebox"><b>${esc(st.today || "")}</b><small>${next ? esc(`${next.text.slice(0, 60)}${next.text.length > 60 ? "…" : ""} · ${next.in === 0 ? "today" : next.in === 1 ? "tomorrow" : "in " + next.in + " d"}`) : ""}</small></div>
-        <button class="st-btn primary continue ${S.busy ? "busy" : ""}" data-act="continue">${S.busy ? "Playing…" : "Continue"}</button>
+        <button class="st-btn primary continue ${S.busy ? "busy" : ""}" data-act="continue" title="Continue (space)">${S.busy ? "Playing…" : "Continue"}</button>
         ${S.busy ? '<div class="progress"><i></i></div>' : ""}
       </header>
-      ${pinned ? `<div class="pinned">${pinned}</div>` : ""}
+      ${pinnedHtml(st)}
       <div class="view">${content}</div>
     </section>
   </div>`;
 }
 
-// ---------- the table component (screens topic 3) ----------
-// cols: [{k, t, l (left), div (group start), v: row => sort value, f: row => html}]
-function table(key, cols, rows, opts = {}) {
-  const s = keep("sort:" + key, { k: opts.sort || null, dir: -1 });
-  let list = rows.slice();
-  if (s.k) {
-    const c = cols.find((c) => c.k === s.k);
-    if (c) {
-      const v = c.v || ((r) => r[c.k]);
-      list.sort((a, b) => {
-        const x = v(a), y = v(b);
-        if (typeof x === "string" || typeof y === "string") return String(x).localeCompare(String(y)) * -s.dir;
-        return ((x ?? -1e9) - (y ?? -1e9)) * s.dir;
-      });
-    }
+// Things that must be answered sit under Continue with their deadlines
+// (topic 1); each opens its decision.
+function pinnedHtml(st) {
+  const list = (st.pinned || []).slice(0, 4);
+  if (!list.length) return "";
+  return `<div class="pinned">${list.map((p) => {
+    const open = p.mail != null ? `data-act="openmail" data-id="${p.mail}"` : p.go ? `data-go="${esc(p.go)}"${p.id != null ? ` data-id="${p.id}"` : ""}` : "";
+    return `<button class="pin" ${open}><span class="pdot"></span><span class="ptxt"><b>${esc(p.text)}</b><small>${esc(p.rule || "Needs your answer")}</small></span><span class="when">${esc(p.by ? "Answer by " + p.by : p.date || "")}</span></button>`;
+  }).join("")}</div>`;
+}
+
+// The path you took since your last sidebar click, each step a link (L7).
+function crumbHtml() {
+  const trail = [];
+  for (let i = S.back.length - 1; i >= 0 && trail.length < 5; i--) {
+    const r = S.back[i];
+    if (outside(r)) break;
+    trail.unshift({ r, n: S.back.length - i });
+    if (r.root) break;
   }
-  const groups = opts.groups
-    ? `<tr class="groups">${opts.groups.map((g) => `<th colspan="${g.span}" class="${g.div ? "div" : ""}">${esc(g.t)}${g.who ? ` <span>· ${esc(g.who)}</span>` : ""}</th>`).join("")}</tr>`
-    : "";
-  // Words sort A to Z on the first click, numbers highest first; the arrow
-  // shows the order on screen.
-  const text = (c) => typeof (c.v || ((r) => r[c.k]))(rows[0] || {}) === "string";
-  const arrow = (c) => (s.k !== c.k ? "" : (text(c) ? s.dir > 0 : s.dir < 0) ? "sorted-desc" : "sorted-asc");
-  const head = cols
-    .map((c) => `<th data-sort="${key}|${c.k}" class="${c.l ? "l" : ""} ${c.div ? "div" : ""} ${arrow(c)}" title="${esc(c.tip || c.t)}">${esc(c.t)}</th>`)
-    .join("");
-  let body = "";
-  let lastGroup = null;
-  for (const r of list) {
-    if (opts.groupBy && !s.k) {
-      const g = opts.groupBy(r);
-      if (g !== lastGroup) {
-        body += `<tr class="grouprow"><td class="l" colspan="${cols.length}">${esc(g)}</td></tr>`;
-        lastGroup = g;
-      }
-    }
-    body += `<tr>${cols.map((c) => `<td class="${c.l ? "l" : ""} ${c.div ? "div" : ""} ${c.wrap ? "wrap" : ""}">${c.f ? c.f(r) : esc(num(r[c.k]))}</td>`).join("")}</tr>`;
+  const label = (r) => esc(r.title || CRUMBS[r.screen] || r.screen);
+  // A page opened from itself, or twice in a row, shows once.
+  const key = (r) => r.screen + JSON.stringify(r.args || {});
+  for (let i = trail.length - 1; i >= 0; i--) {
+    if (key(trail[i].r) === key(S.route) || (i > 0 && key(trail[i].r) === key(trail[i - 1].r))) trail.splice(i, 1);
   }
-  if (!list.length) body = `<tr><td class="l" colspan="${cols.length}"><div class="empty">${esc(opts.empty || "Nothing here yet.")}</div></td></tr>`;
-  return `<div class="tbl warm box"><table><thead>${groups}<tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+  const steps = trail.map((t) => `<a class="link" data-act="crumb" data-n="${t.n}">${label(t.r)}</a>`);
+  steps.push(`<b>${label({ ...S.route, title: S.title })}</b>`);
+  return steps.join('<span class="sep">›</span>');
 }
 
 // ---------- screens ----------
 const screens = {};
+const CRUMBS = { home: "Home", inbox: "Inbox", news: "News", calendar: "Calendar", roster: "Squad", depth: "Depth chart", training: "Training", recruiting: "Recruiting", contracts: "Contracts", player: "Player", schedule: "Schedule", games: "Game pages", game: "Game", standings: "Standings", staff: "Staff", coach: "Coach", team: "Team", search: "Search", you: "Your profile", myplayers: "My players", leaders: "Leaderboards", history: "History", settings: "Settings", compare: "Compare", studio: "Live" };
 
-// The opening screen, Load game and the new career's six steps are in
-// pregame.js, in their own look.
-
-screens.home = async () => {
-  const h = await api("home");
-  if (!h.team) return `<div class="pad"><div class="h1">No team yet</div></div>`;
-  setColors(h.team.colors);
-  const ng = h.next_game;
-  const inbox = (h.inbox || []).slice(0, 14).map(itemRow).join("") || '<div class="empty">Quiet so far.</div>';
-  const news = (h.news || []).slice(0, 14).map(itemRow).join("");
-  const followed = (h.followed || []).map((p) => `<div class="item"><span class="when">${esc(p.pos)}</span><span>${playerLink(p.id, p.name)} <span class="sub">· ${esc(p.where)}</span><br><small class="sub">${esc(p.note || "")}</small></span></div>`).join("") || '<div class="empty">Write a note on any player and he shows up here.</div>';
-  return `<div class="hero"><div class="art"></div><div class="st-outline">${esc(h.status.season)}</div>
-    <div class="copy"><div class="st-label" style="color:rgba(255,255,255,.7)">${esc(h.team.level)}</div>
-    <h1>${esc(h.team.name)}</h1>
-    <div class="meta"><span><b>${esc(h.team.record)}</b> ${esc(h.team.record_note || "this season")}</span>${ng ? `<span>Next: <b>${ng.home ? "vs" : "at"} ${esc(ng.opp.name)}</b> · ${esc(ng.date || "")}${ng.in != null ? ` (in ${ng.in} days)` : ""}</span>` : ""}</div>
-    <div class="st-actions"><button class="st-btn glass" data-go="roster">Squad</button><button class="st-btn glass" data-go="depth">Depth chart</button><button class="st-btn glass" data-go="schedule">Schedule</button></div></div></div>
-    <div class="pad"><div class="grid2">
-      <div class="panel"><h2>Inbox <small>what needs you and what concerns your team</small></h2><div class="items">${inbox}</div></div>
-      <div style="display:grid;gap:18px"><div class="panel"><h2>My players <small>players you keep notes on</small></h2><div class="items">${followed}</div></div>
-      <div class="panel"><h2>Around football</h2><div class="items">${news}</div></div></div>
-    </div></div>`;
-};
-
-function itemRow(e) {
-  const cls = `${(e.loud || "").toLowerCase()} ${e.decision ? "decision" : ""}`;
-  // A name ending in Jr. at the end of a line: one period.
-  e = { ...e, text: String(e.text || "").replace(/\b(Jr|Sr)\.\./g, "$1.") };
-  return `<div class="item ${cls}"><span class="when">${esc(e.date || "")}</span><span>${e.loud === "Big" || e.loud === "Huge" ? "<b>" + esc(e.text) + "</b>" : esc(e.text)}${e.rule ? ` <small class="sub">· ${esc(e.rule)}</small>` : ""}</span></div>`;
-}
-
-screens.inbox = async () => {
-  const x = await api("inbox", { days: 120 });
-  return `<div class="pad"><div class="h1">Inbox</div><div class="panel"><div class="items">${x.items.map(itemRow).join("") || '<div class="empty">Nothing yet.</div>'}</div></div></div>`;
-};
-screens.news = async () => {
-  const k = keep("news", { mine: false });
-  const x = await api("news", { limit: 300, mine: k.mine });
-  return `<div class="pad"><div class="h1">News</div><div class="seg"><button data-act="newsmine" data-v="0" aria-pressed="${!k.mine}">Everything</button><button data-act="newsmine" data-v="1" aria-pressed="${k.mine}">Your team and level</button></div>
-    <div class="panel"><div class="items">${x.items.map(itemRow).join("")}</div></div></div>`;
-};
-screens.calendar = async () => {
-  const x = await api("calendar");
-  const tag = { game: "Your game", date: "Date", huge: "Huge", big: "Big" };
-  return `<div class="pad"><div class="h1">Calendar</div><p class="sub">Your games, the year's fixed dates at your level and the big moments already set. Yours are in bold.</p><div class="panel"><div class="items">${x.items.map((e) => `<div class="item cal"><span class="when">${esc(e.date)}<br><small>${e.in === 0 ? "today" : "in " + e.in + " d"}</small></span><span>${e.mine ? "<b>" + esc(e.text) + "</b>" : esc(e.text)}</span><span class="st-chip ${e.loud}">${tag[e.loud] || ""}</span></div>`).join("") || '<div class="empty">Nothing set yet.</div>'}</div></div></div>`;
-};
-
+// ---------- your team's screens (section 8; Lanes 10, 11 and 2 deepen them) ----------
 const CLASSES = ["Fr", "So", "Jr", "Sr"];
 const STATE_NAMES = { AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California", CO: "Colorado", CT: "Connecticut", DE: "Delaware", DC: "District of Columbia", FL: "Florida", GA: "Georgia", HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa", KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland", MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri", MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey", NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont", VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming" };
 screens.roster = async (a) => {
@@ -435,50 +466,6 @@ screens.depth = async () => {
   </div></div>`;
 };
 
-screens.player = async (a) => {
-  const p = await api("player", { id: a.id });
-  if (p.team) setColors(p.team.colors);
-  const tab = keep("ptab", { t: "Overview" });
-  const tabs = ["Overview", "Attributes", "Career", ...(p.tendencies.length ? ["Tendencies"] : []), ...(p.pro ? ["Contract"] : []), ...(p.offers.length ? ["Recruiting"] : [])];
-  if (!tabs.includes(tab.t)) tab.t = "Overview";
-  const who = p.mine ? "your position coach" : "public measurables only";
-  let body = "";
-  if (tab.t === "Overview") {
-    const phys = p.groups.find((g) => g.name === "Physical");
-    body = `<div class="grid2"><div class="panel"><h2>Your staff's read</h2>
-      ${p.potential ? `<div style="font-size:20px;font-weight:800">${esc(p.potential.tier)}</div><div class="sub">Staff ${esc(p.potential.sure.replace(/([A-Z])/g, " $1").trim().toLowerCase())}.${p.potential.hints.length ? " " + p.potential.hints.map(esc).join(". ") + "." : ""}</div>` : `<div class="sub">Your staff hasn't scouted him. Only his measurables and his public profile are known.</div>`}
-      <div class="kv"><dt>Rating now</dt><dd>${range(p.ovr)}</dd><dt>Mood</dt><dd>${esc(p.mood)}</dd><dt>Status</dt><dd>${esc(p.status || "Available")}</dd></div></div>
-      <div class="panel"><h2>Physical <small>Opinion: ${esc(who)}</small></h2>${phys.attrs.map((x) => `<div class="attr"><span>${esc(x.label)}</span>${range(x.read)}</div>`).join("")}</div></div>
-      ${p.stories.length ? `<div class="panel"><h2>What happened</h2><div class="items">${p.stories.map((s) => `<div class="item story"><span>${esc(s)}</span></div>`).join("")}</div></div>` : ""}`;
-  } else if (tab.t === "Attributes") {
-    body = p.groups.map((g) => `<div class="panel"><h2>${esc(g.name)}</h2><div class="opinion">Opinion: ${esc(p.mine ? "your coaches" : g.name === "Physical" ? "public measurables" : "not seen by your staff")}</div><div class="attrs">${g.attrs.map((x) => `<div class="attr"><span>${esc(x.label)}</span>${range(x.read)}</div>`).join("")}</div></div>`).join("");
-  } else if (tab.t === "Career") {
-    body = table("pcareer", [
-      { k: "age", t: "Age" }, { k: "level", t: "Level", l: true }, { k: "pos", t: "Pos", l: true }, { k: "role", t: "Role", l: true },
-      { k: "team", t: "Team", l: true }, { k: "missed", t: "Missed" }, { k: "events", t: "What happened", l: true, f: (r) => esc((r.events || []).map(words).join(", ")) },
-    ], p.history);
-  } else if (tab.t === "Tendencies") {
-    body = `<div class="panel"><h2>Tendencies <small>how often he tries things, not how well</small></h2><div class="attrs">${p.tendencies.map((t) => `<div class="attr"><span>${esc(t.label)}</span>${range(t.read)}</div>`).join("")}</div></div>`;
-  } else if (tab.t === "Contract") {
-    const c = p.pro.contract;
-    body = `<div class="panel"><h2>Contract</h2>${c ? `<div class="st-tiles"><div><b>${money(c.apy)}</b><small>a year</small></div><div><b>${money(c.total)}</b><small>${c.years} years total</small></div><div><b>${money(c.guaranteed)}</b><small>guaranteed</small></div><div><b>${money(c.cap_hit)}</b><small>cap hit this year</small></div><div><b>${c.through}</b><small>through</small></div></div>` : '<div class="empty">No contract.</div>'}
-      <div class="kv"><dt>Drafted</dt><dd>${esc(p.pro.draft || "Undrafted")}</dd><dt>Accrued seasons</dt><dd>${p.pro.accrued}</dd><dt>Career earnings</dt><dd>${money(p.pro.earnings)}</dd></div></div>`;
-  } else if (tab.t === "Recruiting") {
-    body = `<div class="panel"><h2>Offers <small>${p.offers.length}</small></h2><div class="items">${p.offers.map((o) => `<div class="item"><span class="when"></span><span>${esc(o)}</span></div>`).join("")}</div></div>`;
-  }
-  const notes = S.notesOpen
-    ? `<aside class="notes"><div style="display:flex;justify-content:space-between;align-items:center"><b>Your notes on ${esc(p.name)}</b><button class="st-btn small glass" data-act="notes">Close</button></div>
-      <div style="display:grid;gap:8px"><textarea id="note" placeholder="Only you see your notes. They stay with him for his whole career."></textarea><button class="st-btn small primary" data-act="addnote" data-id="${p.id}">Save note</button></div>
-      <div class="list">${p.notes.map((n) => `<div class="note"><small><span>${esc(n.date)}</span><a class="link" data-act="delnote" data-id="${p.id}" data-k="${n.k}">Delete</a></small>${esc(n.text)}</div>`).join("") || '<div class="empty">No notes yet.</div>'}</div></aside>`
-    : "";
-  return `<div class="hero small"><div class="art"></div><div class="st-outline">${esc(p.pos)}</div><div class="copy">
-    <div class="st-label" style="color:rgba(255,255,255,.7)">${esc(p.pos)} · ${esc(p.class)} · ${p.team ? teamLink(p.team) : esc(p.where)}</div>
-    <h1>${esc(p.name)}</h1>
-    <div class="meta"><span>Age <b>${p.age}</b></span><span><b>${esc(p.ht)}</b>, <b>${p.wt}</b> lb</span><span>${esc(p.home)}</span>${p.high_school ? `<span>${esc(p.high_school)}</span>` : ""}${p.stars ? `<span>${"★".repeat(p.stars)}</span>` : ""}${p.status ? `<span class="st-pill live">${esc(p.status)}</span>` : ""}</div>
-    <div class="st-actions"><button class="st-btn glass" data-act="notes">Notes${p.notes.length ? ` (${p.notes.length})` : ""}</button><button class="st-btn glass" title="A placeholder for now" disabled>Dynamic Links</button></div></div></div>
-    <div class="pad"><div class="tabsline">${tabs.map((t) => `<button data-act="ptab" data-t="${t}" aria-selected="${t === tab.t}">${t}</button>`).join("")}</div>${body}</div>${notes}`;
-};
-
 screens.schedule = async (a) => {
   const x = await api("schedule", a.kind ? { kind: a.kind, id: a.id } : {});
   setColors(x.team.colors);
@@ -532,15 +519,6 @@ function tbl(head, rows) {
   return `<div class="tbl"><table><thead><tr>${head.map((h, i) => `<th class="${i ? "" : "l"}">${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => `<td class="${i ? "" : "l"}">${i ? esc(num(c)) : c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
 }
 
-screens.standings = async (a) => {
-  const x = await api("standings", a.conference ? { conference: a.conference } : {});
-  const groups = x.groups.map((g) => `<div class="panel warm"><h2>${esc(g.name)}</h2><div class="tbl"><table><thead><tr><th class="l">Team</th>${g.teams[0] && g.teams[0].cw != null ? "<th>Conf</th>" : ""}<th>Overall</th></tr></thead><tbody>${g.teams
-    .map((t) => `<tr class="${t.team.mine ? "mine" : ""}"><td class="l"><span class="teamcell">${mark(t.team, 22)} ${teamLink(t.team)}</span></td>${t.cw != null ? `<td>${t.cw}-${t.cl}</td>` : ""}<td><b>${t.w}-${t.l}${t.t ? "-" + t.t : ""}</b></td></tr>`)
-    .join("")}</tbody></table></div></div>`).join("");
-  const confs = x.conferences ? `<div class="field" style="max-width:320px"><label>Conference</label><select data-act="conf">${x.conferences.map((c) => `<option ${x.groups[0] && c === x.groups[0].name ? "selected" : ""}>${esc(c)}</option>`).join("")}</select></div>` : "";
-  return `<div class="film"><div class="pad"><div class="h1">Standings</div>${confs}<div class="${x.groups.length > 1 ? "grid2" : ""}">${groups || '<div class="empty">No standings until the season starts.</div>'}</div></div></div>`;
-};
-
 screens.staff = async (a) => {
   const x = await api("staff", a.kind ? { kind: a.kind, id: a.id } : {});
   setColors(x.team.colors);
@@ -557,63 +535,7 @@ screens.staff = async (a) => {
   return `<div class="film"><div class="pad"><div class="h1">${esc(x.team.name)} staff</div><p class="sub">Their ability isn't shown: you see what their work and their name say.</p>${table("staff", cols, x.rows)}</div></div>`;
 };
 
-screens.coach = async (a) => {
-  const c = await api("coach", { id: a.id });
-  return `<div class="pad"><div class="st-label">${c.job ? `${esc(c.job.role)} · ${esc(c.job.name)} since ${c.job.since}${c.job.record ? ` · ${esc(c.job.record)}` : ""}` : "Out of work"}</div><div class="h1">${esc(c.name)}${c.you ? ' <span class="st-pill gold">You</span>' : ""}</div>
-    <div class="kv"><dt>Age</dt><dd>${c.age}</dd><dt>Reputation</dt><dd>${esc(c.reputation)}</dd><dt>Came up as</dt><dd>${esc(c.came_up)}</dd><dt>Played pro</dt><dd>${c.ex_pro ? "Yes" : "No"}</dd><dt>Titles</dt><dd>${c.titles}</dd>${c.mentor ? `<dt>Learned under</dt><dd><a class="link" data-go="coach" data-id="${c.mentor.id}">${esc(c.mentor.name)}</a></dd>` : ""}</div>
-    ${tbl(["Where", "Role", "Years", "Record", "How it ended"], c.history.map((h) => [esc(h.where), h.role, `${h.from}-${h.to}`, h.record, h.ended]))}</div>`;
-};
-
-screens.team = async (a) => {
-  const t = await api("team", a.kind ? { kind: a.kind, id: a.id } : {});
-  setColors(t.colors);
-  const pro = t.ref.kind === "nfl";
-  const seasons = t.seasons && t.seasons.length
-    ? pro
-      ? tbl(["Season", "Record", "Head coach", "Playoffs"], t.seasons.map((s) => [String(s.year), s.record, s.coach || "", s.note]))
-      : tbl(["Season", "Record", "Coach", "Points", "Titles"], t.seasons.map((s) => [String(s.year), s.record, s.coach || "", s.g ? `${s.pf}-${s.pa}` : "", [s.conf ? "Conference" : "", s.nat ? (t.ref.kind === "hs" ? "State" : "National") : ""].filter(Boolean).join(", ")]))
-    : "";
-  const noSeasons = pro ? "The league's book of seasons starts with this world's next season." : "No seasons kept.";
-  const q = `data-kind="${t.ref.kind}" data-id="${t.ref.id}"`;
-  return `<div class="hero"><div class="art"></div><div class="st-outline">${esc(initials(t.name))}</div><div class="copy"><div class="st-label" style="color:rgba(255,255,255,.7)">${esc(t.level)}</div><h1>${esc(t.name)}</h1>
-    <div class="meta"><span><b>${esc(t.record)}</b> ${esc(t.record_note || "this season")}</span>${t.place ? `<span>${esc(t.place)}</span>` : ""}${t.prestige ? `<span>${esc(t.prestige)}</span>` : ""}${t.stadium ? `<span>${Number(t.stadium).toLocaleString()} seats</span>` : ""}</div>
-    <div class="st-actions"><button class="st-btn glass" data-go="roster" ${q}>Roster</button><button class="st-btn glass" data-go="schedule" ${q}>Schedule</button><button class="st-btn glass" data-go="staff" ${q}>Staff</button></div></div></div>
-    <div class="pad"><div class="panel"><h2>Seasons</h2>${seasons || `<div class="empty">${noSeasons}</div>`}</div></div>`;
-};
-
-screens.search = async (a) => {
-  const x = await api("search", { q: a.q });
-  const none = (what) => `<div class="empty">No ${what} match "${esc(a.q)}".</div>`;
-  return `<div class="pad"><div class="h1">Search: ${esc(a.q)}</div><div class="grid2">
-    <div class="panel"><h2>Players <small>${x.players.length === 60 ? "the first 60" : x.players.length}</small></h2>${x.players.length ? tbl(["Name", "Pos", "Age", "Level", "Where"], x.players.map((p) => [playerLink(p.id, p.name), p.pos, p.age, p.level, p.where])) : none("players")}</div>
-    <div style="display:grid;gap:18px"><div class="panel"><h2>Teams</h2><div class="items">${x.teams.map((t) => `<div class="item"><span class="when">${mark(t, 22)}</span><span>${teamLink(t)}<br><small class="sub">${esc(t.sub || "")}</small></span></div>`).join("") || none("teams")}</div></div>
-    <div class="panel"><h2>Coaches</h2><div class="items">${x.coaches.map((c) => `<div class="item"><span class="when">${esc(c.role || "Out of work")}</span><span><a class="link" data-go="coach" data-id="${c.id}">${esc(c.name)}</a>${c.at ? ` <small class="sub">· ${esc(c.at)}</small>` : ""}</span></div>`).join("") || none("coaches")}</div></div></div></div></div>`;
-};
-
-const STYLE = [["risk", "Risk", "Conservative", "Aggressive"], ["freedom", "Structure or freedom", "Do your job", "Freelance"], ["physical", "Physical", "Protective", "Physical"], ["ball_hunting", "Ball hunting", "Sound", "Ball hunting"], ["mould", "Mould or adapt", "Adapt to him", "Mould him"]];
-screens.you = async () => {
-  const y = await api("you");
-  if (!y) return `<div class="pad"><div class="h1">No career yet</div></div>`;
-  const row = (t, v) => `<div class="attr"><span>${esc(t)}</span><span class="rg"><span class="t"><i style="left:0;width:${(v / 20) * 100}%;background:${rateColor(v * 5)}"></i></span><b>${v.toFixed(1)}</b></span></div>`;
-  const x = y.extra;
-  const p = y.profile || {};
-  const from = [p.hometown, y.home_state].filter(Boolean).join(", ");
-  const school = [p.alma_mater, p.college_years].filter(Boolean).join(", ") + (p.degree ? ` (${p.degree})` : "");
-  const kids = (p.children || []).map(([n, b]) => `${n}, ${Math.max(0, Number(String(S.status && S.status.today).slice(-4)) - b)}`).join("; ");
-  const family = [p.status, p.status === "Married" && p.spouse ? `to ${p.spouse}` : ""].filter(Boolean).join(" ") + (kids ? `; children: ${kids}` : "");
-  const looks = [p.height, p.build, p.hair && p.hair + " hair", p.facial_hair].filter(Boolean).join(", ").toLowerCase();
-  return `<div class="pad"><div style="display:flex;gap:18px;align-items:center">${p.photo ? `<img src="${esc(p.photo)}" alt="" style="width:88px;height:110px;object-fit:cover;border-radius:14px">` : ""}<div><div class="st-label">Head coach since ${esc(y.started)}</div><div class="h1">${esc(y.name)}</div></div></div>
-    <div class="kv"><dt>Age</dt><dd>${y.age}</dd>${y.road ? `<dt>Came up as</dt><dd>${esc(y.road)}</dd>` : ""}<dt>Reputation</dt><dd>${esc(y.reputation)}</dd><dt>Record</dt><dd>${esc(y.record)}</dd><dt>Titles</dt><dd>${y.titles}</dd>${x && x.calls ? `<dt>Calls the plays</dt><dd>${esc(x.calls)}</dd>` : ""}
-    ${from ? `<dt>From</dt><dd>${esc(from)}${p.high_school ? ` · ${esc(p.high_school)}` : ""}</dd>` : ""}${school.trim() ? `<dt>College</dt><dd>${esc(school)}</dd>` : ""}${family.trim() ? `<dt>Family</dt><dd>${esc(family)}${p.roots ? ` · roots: ${esc(p.roots)}` : ""}</dd>` : ""}${looks ? `<dt>Looks</dt><dd>${esc(looks)}</dd>` : ""}</div>
-    <div class="grid2"><div class="panel"><h2>Teaching <small>your own ratings, 1-20; nobody else sees them</small></h2>${y.teaching.map((t) => row(t.group, t.value)).join("")}</div>
-    <div class="panel"><h2>The rest</h2>${[["Scheme", y.scheme], ["Game management", y.game_management], ...(x ? [["Play calling", x.play_calling], ["In-game adaptation", x.adaptation]] : []), ["Motivation", y.motivation], ["Discipline", y.discipline], ["Relationships", y.relationships], ["Recruiting", y.recruiting], ...(x ? [["Evaluation", x.evaluation]] : []), ["Network", y.network], ...(x ? [["Negotiating", x.negotiating]] : [])].map(([t, v]) => row(t, v)).join("")}</div></div>
-    ${y.style ? `<div class="panel"><h2>Your coaching style <small>how your team plays and how you coach habits, 1-20</small></h2>${STYLE.map(([k, t, lo, hi]) => `<div class="attr"><span>${esc(t)} <small class="sub">${esc(lo)} to ${esc(hi)}</small></span><span class="rg"><span class="t"><i style="left:0;width:${(y.style[k] / 20) * 100}%;background:${rateColor(y.style[k] * 5)}"></i></span><b>${Math.round(y.style[k])}</b></span></div>`).join("")}</div>` : ""}
-    ${y.history && y.history.length ? `<div class="panel"><h2>Your jobs</h2>${tbl(["Where", "Role", "Years", "Record"], y.history.map((h) => [esc(h.where), h.role, `${h.from}-${h.to}`, h.record]))}</div>` : ""}</div>`;
-};
-
 // ---------- render ----------
-const CRUMBS = { home: "Home", inbox: "Inbox", news: "News", calendar: "Calendar", roster: "Squad", depth: "Depth chart", training: "Training", recruiting: "Recruiting", contracts: "Contracts", player: "Player", schedule: "Schedule", games: "Game pages", game: "Game", standings: "Standings", staff: "Staff", coach: "Coach", team: "Team", search: "Search", you: "Your profile" };
-
 async function render(scroll) {
   const r = S.route;
   const app = $("#app");
@@ -632,19 +554,30 @@ async function render(scroll) {
       return;
     }
     if (!S.status) S.status = await api("status");
+    if (!screens[r.screen]) { S.route = { screen: "home", args: {} }; return render(); }
+    S.title = null;
     const html = await screens[r.screen](r.args);
     // A newer screen was asked for while this one loaded: it draws instead.
     if (n !== S.drawn) return;
+    r.title = S.title || CRUMBS[r.screen] || r.screen;
     app.dataset.page = "";
-    const me = S.status && S.status.mine;
-    app.innerHTML = frame(html, `${me ? esc(me.name) + " · " : ""}<b>${CRUMBS[r.screen] || ""}</b>`);
+    const keepY = scroll ?? null;
+    app.innerHTML = frame(html, crumbHtml());
+    if (S.beside) drawBeside(true);
+    if (typeof afterRender === "function") afterRender();
     fitBoxes();
-    if (scroll) $(".view").scrollTop = scroll;
+    if (keepY) $(".view").scrollTop = keepY;
   } catch (e) {
     console.error(e);
     toast(e.message || String(e));
     if (!app.innerHTML) app.innerHTML = frame(`<div class="pad"><div class="h1">Something went wrong</div><p class="sub">${esc(e.message || e)}</p></div>`);
   }
+}
+// Draws the screen again where it is (a tab, a filter): a control inside
+// the page beside redraws that page only.
+function refresh(el) {
+  if (el && el.closest && el.closest(".beside")) return drawBeside();
+  return render($(".view") ? $(".view").scrollTop : 0);
 }
 
 // A long table scrolls in its own box that ends at the window's bottom
@@ -654,7 +587,7 @@ function fitBoxes() {
   const v = $(".view");
   if (!v) return;
   const vr = v.getBoundingClientRect();
-  for (const b of document.querySelectorAll(".tbl.box, .tbl.pbp")) {
+  for (const b of document.querySelectorAll(".view .tbl.box, .view .tbl.pbp")) {
     const top = b.getBoundingClientRect().top - vr.top + v.scrollTop;
     const h = top < v.clientHeight - 300 ? v.clientHeight - top - 20 : v.clientHeight - 40;
     b.style.maxHeight = `${Math.max(260, Math.round(h))}px`;
@@ -662,6 +595,7 @@ function fitBoxes() {
 }
 window.addEventListener("resize", fitBoxes);
 
+// ---------- Continue ----------
 async function cont() {
   if (S.busy) return;
   S.busy = true;
@@ -671,11 +605,14 @@ async function cont() {
   if (b) { b.classList.add("busy"); b.textContent = "Playing…"; }
   const top = $(".topbar");
   if (top && !top.querySelector(".progress")) top.insertAdjacentHTML("beforeend", '<div class="progress"><i></i></div>');
+  document.documentElement.classList.add("running");
   const from = S.route;
   try {
     const r = await api("continue", { max_days: 400 });
     S.status = r.status;
     S.busy = false;
+    document.documentElement.classList.remove("running");
+    if (typeof peekForget === "function") peekForget();
     // A screen picked while the days played: you stay there.
     const moved = S.route !== from;
     const whys = r.why.map((w) => w.text);
@@ -688,49 +625,74 @@ async function cont() {
       // A morning stop is today, before it plays; any other stop is the
       // day just played, and you are on the morning after it.
       toast(r.morning ? `${r.today}, morning${why ? ": " + why : ""}` : `${r.days} day${r.days === 1 ? "" : "s"} played, to ${r.today}. On ${r.stopped_on}${why ? ": " + why : ""}`);
-      if (moved || S.route.screen === "home") render();
-      else go("home");
+      // A live day (signing day, the draft, cutdown day) opens its room.
+      if (r.studio && screens.studio && !moved) go("studio", r.studio);
+      // A meeting this morning opens its room (people).
+      else if (r.meeting != null && screens.people_scene && !moved) go("people_scene", { id: r.meeting });
+      else if (moved || S.route.screen === "home") render();
+      else go("home", {}, { root: true });
     }
+    if (typeof showReveals === "function") showReveals(r.status && r.status.reveals);
   } catch (e) {
     S.busy = false;
+    document.documentElement.classList.remove("running");
     toast(e.message);
     render();
   }
 }
 
 // ---------- events ----------
+// A link's arguments: data-kind, data-id, data-index, data-tab, and any
+// data-args JSON.
+function linkArgs(d) {
+  const args = {};
+  if (d.args) { try { Object.assign(args, JSON.parse(d.args)); } catch (e) { /* plain link */ } }
+  if (d.kind) args.kind = d.kind;
+  if (d.id !== undefined && d.id !== "") args.id = Number(d.id);
+  if (d.index !== undefined) args.index = Number(d.index);
+  if (d.tab) args.tab = d.tab;
+  return args;
+}
 document.addEventListener("click", async (ev) => {
-  let el = ev.target.closest("[data-go],[data-act],[data-sort],input,select,textarea");
+  let el = ev.target.closest("[data-go],[data-act],[data-sort],[data-nav],input,select,textarea,label");
   // A click anywhere on a table row opens its first link, as in FM.
-  if (!el) { const tr = ev.target.closest(".tbl tbody tr"); el = tr && tr.querySelector("[data-go]"); }
-  if (!el || !el.dataset || (!el.dataset.go && !el.dataset.act && !el.dataset.sort)) return;
+  if (!el) { const tr = ev.target.closest(".tbl tbody tr"); el = tr && !tr.classList.contains("grouprow") && tr.querySelector("[data-go]"); }
+  if (!el || !el.dataset || (!el.dataset.go && !el.dataset.act && !el.dataset.sort && !el.dataset.nav)) return;
   const d = el.dataset;
+  if (d.nav) {
+    if (typeof closeBeside === "function") closeBeside();
+    go(d.nav, {}, { root: true });
+    return;
+  }
   if (d.sort) {
     const [key, k] = d.sort.split("|");
     const s = keep("sort:" + key, { k: null, dir: -1 });
-    // Highest first, then lowest first, then back to the table's own order.
-    if (s.k !== k) { s.k = k; s.dir = -1; } else if (s.dir < 0) s.dir = 1; else s.k = null;
-    render($(".view") && $(".view").scrollTop);
+    if (ev.shiftKey && s.k && s.k !== k) {
+      // Shift-click: a second sort, inside the first.
+      if (s.k2 !== k) { s.k2 = k; s.dir2 = -1; } else if (s.dir2 < 0) s.dir2 = 1; else s.k2 = null;
+    } else if (s.k !== k) { s.k = k; s.dir = -1; s.k2 = null; } else if (s.dir < 0) s.dir = 1; else { s.k = null; s.k2 = null; }
+    refresh(el);
     return;
   }
   if (d.go) {
-    const args = {};
-    if (d.kind) args.kind = d.kind;
-    if (d.id !== undefined) args.id = Number(d.id);
-    if (d.index !== undefined) args.index = Number(d.index);
+    ev.preventDefault();
+    const args = linkArgs(d);
     if (d.go === "player") S.notesOpen = false;
+    // Shift-click: the page beside this one (L6); ⌘-click: its own window.
+    if (ev.shiftKey && typeof openBeside === "function") { openBeside(d.go, args); return; }
+    if ((ev.metaKey || ev.ctrlKey) && typeof openWindow === "function") { openWindow(d.go, args); return; }
+    if (el.closest(".beside") && typeof closeBeside === "function") closeBeside();
+    if (typeof peekHide === "function") peekHide();
     go(d.go, args);
     return;
   }
+  if (typeof coreAct === "function" && (await coreAct(d.act, el, ev))) return;
   switch (d.act) {
     case "back": goBack(); break;
     case "fwd": goFwd(); break;
+    case "crumb": goBackTo(Number(d.n)); break;
     case "continue": cont(); break;
-    case "theme": {
-      const h = document.documentElement;
-      h.dataset.theme = h.dataset.theme === "light" ? "" : "light";
-      break;
-    }
+    case "theme": prefs.theme = prefs.theme === "light" ? "" : "light"; savePrefs(); applyPrefs(); break;
     case "save": {
       if (S.busy) break;
       const name = await ask("Save your career", { value: S.lastSaveName || `${S.status && S.status.mine ? S.status.mine.name : "career"} ${S.status ? S.status.season : ""}`, ok: "Save", note: "A save with the same name is replaced." });
@@ -754,21 +716,11 @@ document.addEventListener("click", async (ev) => {
       try { const r = await api("bug", { note, screen: S.route }); hideBusy(); toast("Bug report saved in " + r.folder); } catch (e) { hideBusy(); toast(e.message); }
       break;
     }
-    case "rf": { const f = S.keep["roster:" + routeKey()]; f[d.f] = d.v; render($(".view").scrollTop); break; }
-    case "rinj": { const f = S.keep["roster:" + routeKey()]; f.injured = !f.injured; render(); break; }
-    case "ptab": S.keep.ptab.t = d.t; render(); break;
-    case "gtab": S.keep.gtab.t = d.t; render(); break;
-    case "notes": S.notesOpen = !S.notesOpen; render($(".view").scrollTop); break;
-    case "addnote": {
-      const text = $("#note").value.trim();
-      if (!text) break;
-      await api("note_add", { id: Number(d.id), text });
-      render($(".view").scrollTop);
-      break;
-    }
-    case "delnote": await api("note_delete", { id: Number(d.id), note: Number(d.k) }); render($(".view").scrollTop); break;
-    case "newsmine": S.keep.news.mine = d.v === "1"; render(); break;
-    case "dpos": S.keep.depthpos.p = d.p; render(); break;
+    case "rf": { const f = S.keep["roster:" + routeKey()]; f[d.f] = d.v; refresh(el); break; }
+    case "rinj": { const f = S.keep["roster:" + routeKey()]; f.injured = !f.injured; refresh(el); break; }
+    case "gtab": S.keep.gtab.t = d.t; S.route.args.tab = d.t; refresh(el); break;
+    case "newsmine": S.keep.news.mine = d.v === "1"; refresh(el); break;
+    case "dpos": S.keep.depthpos.p = d.p; S.route.args.pos = d.p; refresh(el); break;
     case "dmove":
     case "dreset": {
       const x = await api("depth");
@@ -779,7 +731,7 @@ document.addEventListener("click", async (ev) => {
         [ids[i], ids[j]] = [ids[j], ids[i]];
       } else ids = [];
       await api("set_depth", { pos: cur.pos, ids });
-      render($(".view").scrollTop);
+      refresh(el);
       break;
     }
   }
@@ -789,7 +741,7 @@ function routeKey() {
   return a.kind ? a.kind + a.id : "mine";
 }
 document.addEventListener("change", (ev) => {
-  if (ev.target.dataset.act === "conf") go("standings", { conference: ev.target.value });
+  if (ev.target.dataset.act === "conf") go("standings", { ...S.route.args, conference: ev.target.value }, false);
   if (ev.target.dataset.act === "focus") {
     api("set_focus", { id: Number(ev.target.dataset.id), key: ev.target.value })
       .then(() => {
@@ -803,15 +755,61 @@ document.addEventListener("change", (ev) => {
   }
 });
 document.addEventListener("keydown", (ev) => {
-  if ((ev.metaKey || ev.ctrlKey) && ev.key === "k") { ev.preventDefault(); const q = $("#q"); if (q) q.focus(); }
-  if (ev.target.id === "q" && ev.key === "Enter" && ev.target.value.trim().length > 1) go("search", { q: ev.target.value.trim() });
-  if (ev.key === " " && ev.target === document.body && S.status && S.status.mine && !outside(S.route)) { ev.preventDefault(); cont(); }
-  // Option+arrows move by a word inside a text field on a Mac.
   const typing = ev.target.closest && ev.target.closest("input, textarea, select, [contenteditable]");
-  if (ev.altKey && !typing && ev.key === "ArrowLeft") goBack();
-  if (ev.altKey && !typing && ev.key === "ArrowRight") goFwd();
+  const inCareer = S.status && S.status.mine && !outside(S.route);
+  if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "k") { ev.preventDefault(); if (typeof openFind === "function") openFind(); else { const q = $("#q"); if (q) q.focus(); } return; }
+  // ⌘[ and ⌘] go back and forward (topic 15).
+  if ((ev.metaKey || ev.ctrlKey) && ev.key === "[" && inCareer) { ev.preventDefault(); goBack(); return; }
+  if ((ev.metaKey || ev.ctrlKey) && ev.key === "]" && inCareer) { ev.preventDefault(); goFwd(); return; }
+  // ⌘S saves, as the sidebar's Save game does.
+  if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "s" && inCareer) { ev.preventDefault(); const b = $('[data-act="save"]'); if (b) b.click(); return; }
+  if (ev.key === " " && ev.target === document.body && inCareer && !document.querySelector(".overlay, .letter-room, .st-moment.fixed")) { ev.preventDefault(); cont(); return; }
+  // Option+arrows move by a word inside a text field on a Mac.
+  if (ev.altKey && !typing && ev.key === "ArrowLeft" && inCareer) goBack();
+  if (ev.altKey && !typing && ev.key === "ArrowRight" && inCareer) goFwd();
 });
-window.addEventListener("mouseup", (ev) => { if (ev.button === 3) goBack(); if (ev.button === 4) goFwd(); });
+// The mouse's back and forward buttons.
+window.addEventListener("mouseup", (ev) => {
+  if (!(S.status && S.status.mine) || outside(S.route)) return;
+  if (ev.button === 3) { ev.preventDefault(); goBack(); }
+  if (ev.button === 4) { ev.preventDefault(); goFwd(); }
+});
+// A two-finger swipe left or right on the trackpad goes back or forward,
+// as in Safari, unless what is under the pointer scrolls sideways.
+(() => {
+  let acc = 0, t0 = 0, fired = 0;
+  const scrollsX = (el) => {
+    for (let e = el; e && e !== document.body; e = e.parentElement) {
+      if (e.scrollWidth > e.clientWidth + 2) {
+        const o = getComputedStyle(e).overflowX;
+        if (o === "auto" || o === "scroll") return true;
+      }
+    }
+    return false;
+  };
+  window.addEventListener("wheel", (ev) => {
+    if (!(S.status && S.status.mine) || outside(S.route)) return;
+    if (Math.abs(ev.deltaX) < Math.abs(ev.deltaY) * 1.6 || ev.ctrlKey) return;
+    if (scrollsX(ev.target)) return;
+    const now = performance.now();
+    if (now - t0 > 260) acc = 0;
+    t0 = now;
+    acc += ev.deltaX;
+    if (now - fired < 700) return;
+    const hint = $("#swipehint") || document.body.appendChild(Object.assign(document.createElement("div"), { id: "swipehint", className: "swipehint" }));
+    hint.className = "swipehint " + (acc < 0 ? "l" : "r");
+    hint.style.opacity = String(Math.min(1, Math.abs(acc) / 160));
+    clearTimeout(hint._t);
+    hint._t = setTimeout(() => (hint.style.opacity = "0"), 220);
+    if (Math.abs(acc) > 160) {
+      fired = now;
+      const dir = acc;
+      acc = 0;
+      hint.style.opacity = "0";
+      if (dir < 0) goBack(); else goFwd();
+    }
+  }, { passive: true });
+})();
 
 // One busy box at a time: a second call changes its words. It counts the
 // seconds, and after five minutes says what to do if nothing comes back.
@@ -930,12 +928,28 @@ setTimeout(checkUpdate, 3000);
 setInterval(checkUpdate, 3 * 3600 * 1000);
 
 // ---------- start ----------
+// A page opened in its own window (⌘-click) carries its route in the
+// address: #player?id=12&tab=Stats.
+function routeFromHash() {
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (!h) return null;
+  const [screen, q] = h.split("?");
+  const args = {};
+  for (const kv of (q || "").split("&").filter(Boolean)) {
+    const [k, v] = kv.split("=");
+    args[k] = /^-?\d+$/.test(v) ? Number(v) : v;
+  }
+  return { screen, args };
+}
 (async () => {
+  applyPrefs();
   try {
     const h = await api("hello");
     if (h.loaded) {
       S.status = await api("status");
-      go(S.status.mine ? "home" : "start", {}, false);
+      const r = routeFromHash();
+      if (S.status.mine && r && r.screen) { S.route = { screen: r.screen, args: r.args, root: true }; render(); return; }
+      go(S.status.mine ? "home" : "start", {}, { push: false, root: true });
     } else go("start", {}, false);
   } catch (e) {
     $("#app").innerHTML = `<div class="setup"><div class="h1">AFM can't reach the game</div><p class="sub">${esc(e.message || e)}</p></div>`;
