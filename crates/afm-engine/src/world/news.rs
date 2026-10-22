@@ -49,6 +49,17 @@ pub struct NewsItem {
     /// The program or school it is about (college program id, if any).
     pub program: Option<usize>,
     pub text: String,
+    /// The names in `text` the screens link (L2, `calendar::events`).
+    #[serde(default)]
+    pub refs: Vec<crate::calendar::Ref>,
+}
+
+impl NewsItem {
+    /// Links `name` in the text to `to` (L2).
+    pub fn link(mut self, to: crate::calendar::Link, name: &str) -> NewsItem {
+        crate::calendar::events::add_ref(&mut self.refs, &self.text, to, name);
+        self
+    }
 }
 
 /// The three NIL warning messages for a collective that is drying up.
@@ -88,6 +99,7 @@ pub fn nil_warnings(
             channel: Channel::Inbox,
             program: Some(program),
             text: inbox,
+            refs: Vec::new(),
         },
         NewsItem {
             date: None,
@@ -96,7 +108,9 @@ pub fn nil_warnings(
             channel: Channel::News,
             program: Some(program),
             text: news,
-        },
+            refs: Vec::new(),
+        }
+        .link(crate::calendar::Link::Program(program as u32), name),
         NewsItem {
             date: None,
             year,
@@ -104,6 +118,7 @@ pub fn nil_warnings(
             channel: Channel::GradeArrow,
             program: Some(program),
             text: format!("NIL grade trending down ({})", "↓".repeat(level.min(3) as usize)),
+            refs: Vec::new(),
         },
     ]
 }

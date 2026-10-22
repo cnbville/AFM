@@ -67,6 +67,11 @@ pub struct Traits {
     pub professionalism: u8,
     /// Handles a new city, scheme, coach, level or culture.
     pub adaptability: u8,
+    /// Aura (F15): charisma, camera presence and style. Hidden; with fame
+    /// it decides ads, brand NIL deals, endorsements and follower growth
+    /// (`world::fame`). Not in `Trait::ALL`, so no trait list shows it.
+    #[serde(default)]
+    pub aura: u8,
 }
 
 /// One of the traits, as a number for the code that reads them.
@@ -153,16 +158,29 @@ impl Traits {
         let lz = zs(loyalty as f64);
         let ego = mix(&[(-0.3, co), (-0.2, lz), (0.2, cp)], 5);
         let ez = zs(ego as f64);
+        let leadership = mix(&[(0.2, cp), (0.2, we), (0.15, ez)], 6);
         Traits {
             ambition: mix(&[(0.3, cp)], 1),
             loyalty,
             greed: mix(&[(-0.2, love)], 3),
             temper: mix(&[(-0.25, lz), (0.2, ez)], 4),
             ego,
-            leadership: mix(&[(0.2, cp), (0.2, we), (0.15, ez)], 6),
+            leadership,
             professionalism: mix(&[(0.35, we)], 7),
             adaptability: mix(&[(0.2, co)], 8),
+            aura: Traits::draw_aura(key, ego, leadership),
         }
+    }
+
+    /// Aura at 14 (F15), keyed like the rest (salt 9): a small link to ego
+    /// and leadership (proposed correlations 0.2 and 0.15; swagger and a
+    /// presence people follow both read on camera), the rest his own.
+    pub fn draw_aura(key: u64, ego: u8, leadership: u8) -> u8 {
+        let zs = |v: u8| (v as f64 - 10.0) / 3.5;
+        let parts = [(0.2, zs(ego)), (0.15, zs(leadership))];
+        let r: f64 = parts.iter().map(|x| x.0 * x.0).sum();
+        let z = parts.iter().map(|x| x.0 * x.1).sum::<f64>() + (1.0 - r).sqrt() * keyed_normal(key, 9);
+        clamp(round_half_up(10.0 + 3.5 * z), 1.0, 20.0) as u8
     }
 }
 

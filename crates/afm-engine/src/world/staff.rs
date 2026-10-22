@@ -22,11 +22,17 @@ fn tier_of(d: Division) -> CoachTier {
     }
 }
 
+/// The key a coach's birthday is drawn from (keyed, no stream consumed).
+pub(crate) fn coach_born_key(seed: u32, id: usize) -> u64 {
+    super::born_key(seed, id as u32) ^ 0x0C0A_C400
+}
+
 fn new_coach(w: &mut World, tier: CoachTier, age: u32, pool: CoachPool) -> usize {
     let id = w.coaches.len();
     let ethnicity = coach_ethnicity(pool, w.year, &mut w.rng);
     let name = names::person_name(ethnicity, w.year - age as i32, &mut w.rng);
     let mut c = generate_coach(id, name, ethnicity, tier, age, &mut w.rng);
+    c.born = crate::calendar::born::birth_date(coach_born_key(w.options.seed, id), age, w.year);
     // Sportsmanship from a keyed draw, so the world's own stream is untouched
     // (spread like the other personality traits; proposed, not confirmed).
     c.sportsmanship =
@@ -378,10 +384,29 @@ fn excuse(w: &World, p: usize) -> f64 {
     clamp(((picks - 3.0) / 5.0).max((young_share - 0.35) / 0.3), 0.0, 1.0)
 }
 
-fn college_news(w: &mut World, p: usize, kind: NewsKind, text: String) {
+fn college_news(w: &mut World, p: usize, coaches: &[usize], kind: NewsKind, text: String) {
     if w.recording {
-        w.news.push(NewsItem { date: None, year: w.year, kind, channel: Channel::News, program: Some(p), text });
+        let item = story(w, kind, Some(p), None, coaches, text);
+        w.news.push(item);
     }
+}
+
+/// A news desk story with its names linked (L2): the program or NFL club
+/// it is about and the coaches it names.
+fn story(w: &World, kind: NewsKind, p: Option<usize>, t: Option<usize>, coaches: &[usize], text: String) -> NewsItem {
+    use crate::calendar::Link;
+    let mut item =
+        NewsItem { date: None, year: w.year, kind, channel: Channel::News, program: p, text, refs: Vec::new() };
+    for &c in coaches {
+        item = item.link(Link::Coach(c as u32), &w.coaches[c].name);
+    }
+    if let Some(p) = p {
+        item = item.link(Link::Program(p as u32), w.program_name(p));
+    }
+    if let Some(t) = t {
+        item = item.link(Link::Club(t as u32), w.nfl[t].name);
+    }
+    item
 }
 
 /// A high school coach so dominant that colleges notice (note 5): a state
@@ -678,16 +703,12 @@ fn retirement_news(w: &mut World, c: usize, job: Job, why: &str) {
     match job.employer {
         Employer::College(p) => {
             w.programs[p].story.push((year, format!("Head coach {name} {why} at {age}.")));
-            college_news(w, p, NewsKind::CoachLeft, text);
+            college_news(w, p, &[c], NewsKind::CoachLeft, text);
         }
-        Employer::Nfl(_) => w.news.push(NewsItem {
-            date: None,
-            year,
-            kind: NewsKind::CoachLeft,
-            channel: Channel::News,
-            program: None,
-            text,
-        }),
+        Employer::Nfl(t) => {
+            let item = story(w, NewsKind::CoachLeft, None, Some(t), &[c], text);
+            w.news.push(item);
+        }
         Employer::HighSchool(_) => {}
     }
 }
@@ -707,16 +728,12 @@ fn departure_news(w: &mut World, c: usize, job: Job, o: Opening, why: &str) {
     match job.employer {
         Employer::College(p) => {
             w.programs[p].story.push((year, format!("Head coach {name} left for {dest}{role} ({why}).")));
-            college_news(w, p, NewsKind::CoachLeft, text);
+            college_news(w, p, &[c], NewsKind::CoachLeft, text);
         }
-        Employer::Nfl(_) => w.news.push(NewsItem {
-            date: None,
-            year,
-            kind: NewsKind::CoachLeft,
-            channel: Channel::News,
-            program: None,
-            text,
-        }),
+        Employer::Nfl(t) => {
+            let item = story(w, NewsKind::CoachLeft, None, Some(t), &[c], text);
+            w.news.push(item);
+        }
         Employer::HighSchool(_) => {}
     }
 }
@@ -755,14 +772,8 @@ fn nfl_firing(w: &mut World, c: usize, t: usize, tenure: i32, openings: &mut Vec
                 seasons_text(tenure),
                 games - wins
             );
-            w.news.push(NewsItem {
-                date: None,
-                year: w.year,
-                kind: NewsKind::CoachFired,
-                channel: Channel::News,
-                program: None,
-                text,
-            });
+            let item = story(w, NewsKind::CoachFired, None, Some(t), &[c], text);
+            w.news.push(item);
         }
         // A new head coach brings his own coordinators (proposed: each kept 30% of the time).
         for role in [Role::OffensiveCoordinator, Role::DefensiveCoordinator] {
@@ -1217,14 +1228,8 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
         && o.role == Role::HeadCoach
     {
         let text = format!("The {} hire {} as head coach ({from}).", w.nfl[t].name, w.coaches[c].name);
-        w.news.push(NewsItem {
-            date: None,
-            year,
-            kind: NewsKind::CoachHired,
-            channel: Channel::News,
-            program: None,
-            text,
-        });
+        let item = story(w, NewsKind::CoachHired, None, Some(t), &[c], text);
+        w.news.push(item);
     }
     if w.recording
         && let Employer::College(p) = o.employer
@@ -1242,14 +1247,8 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
         } else {
             format!("{name} hires {} as {} ({from}).", coach.name, o.role.name())
         };
-        w.news.push(NewsItem {
-            date: None,
-            year,
-            kind: NewsKind::CoachHired,
-            channel: Channel::News,
-            program: Some(p),
-            text,
-        });
+        let item = story(w, NewsKind::CoachHired, Some(p), None, &[c], text);
+        w.news.push(item);
     }
     // A new head coach usually brings his own coordinators and many of his
     // own position coaches; one promoted from the staff keeps more of it.
@@ -1422,6 +1421,7 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
             college_news(
                 w,
                 p,
+                &[c],
                 NewsKind::CoachExtended,
                 format!(
                     "{name} gives head coach {coach_name} a contract extension and a vote of confidence after two tough seasons."
@@ -1452,7 +1452,7 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
             }
             _ => format!("{name} fires head coach {coach_name} after his prove-it season ({seasons} in all)."),
         };
-        college_news(w, p, NewsKind::CoachFired, text);
+        college_news(w, p, &[c], NewsKind::CoachFired, text);
         super::recruiting::decommit_after_firing(w, p);
         return;
     }
@@ -1468,6 +1468,7 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
             college_news(
                 w,
                 p,
+                &[c],
                 NewsKind::CoachExtended,
                 format!("{name} extends head coach {coach_name}'s contract through the {through} season."),
             );
@@ -1547,9 +1548,11 @@ fn fire_in_season(w: &mut World, p: usize, c: usize) {
     });
     let money =
         if buyout >= 1.0e6 { format!(" The buyout is about ${:.1} million.", buyout / 1.0e6) } else { String::new() };
+    let named: Vec<usize> = std::iter::once(c).chain(w.programs[p].sideline).collect();
     college_news(
         w,
         p,
+        &named,
         NewsKind::CoachFired,
         format!(
             "{name} fires head coach {coach_name} {} games into his {} season ({}-{}). {interim} is the interim head coach.{money}",
@@ -1794,14 +1797,8 @@ pub(crate) fn diversity_report(w: &mut World) {
         "Diversity report: {of_color} of {total} FBS head coaches are coaches of color ({}).",
         if parts.is_empty() { "none".to_string() } else { parts.join(", ") }
     );
-    w.news.push(NewsItem {
-        date: None,
-        year: w.year,
-        kind: NewsKind::DiversityReport,
-        channel: Channel::News,
-        program: None,
-        text,
-    });
+    let item = story(w, NewsKind::DiversityReport, None, None, &[], text);
+    w.news.push(item);
 }
 
 /// Who a search looks at for an opening.
@@ -2274,6 +2271,7 @@ pub fn take_seat(w: &mut World, you: &super::seat::You, employer: Employer) -> u
     }
     let id = w.coaches.len();
     let mut c = generate_coach(id, you.name.clone(), you.ethnicity, tier, you.age, &mut w.rng);
+    c.born = you.born;
     c.ability.teaching = you.teaching;
     c.ability.scheme = you.scheme;
     c.ability.game_management = you.game_management;

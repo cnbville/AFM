@@ -220,6 +220,7 @@ fn pathway(w: &mut World, d: Date) {
         w,
         d,
         None,
+        None,
         Loudness::Small,
         Kind::News,
         format!("{n} players join practice squads through the International Player Pathway."),

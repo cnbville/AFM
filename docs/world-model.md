@@ -371,6 +371,45 @@ New counters in `MarketYear`: `signed_up`, `season_trades`, `trade_funnel`. New 
 - **What holds it** (heap dropped per store, which counts reserved but untouched memory too, so the parts add to more than resident): the 848,563 people in football now (high school, college, the draft pool and the NFL; anyone who leaves football is dropped each year, a 4- or 5-star and every pro kept as an alumnus record) 4.63 GB for the people themselves, 0.64 GB for their season records and 0.11 GB for their notes; the stat book 0.61 GB; coaches 0.12 GB (76,829); alumni 0.25 GB (31,892); everything else under 0.05 GB each. A person is 2,408 bytes before anything he points to; his player is 1,544 of them, and the 67 attributes 536 (one 8-byte number each).
 - **Budget (proposed, not confirmed): 4 GB resident for a 30-year history and a 20-year save**, so the game fits beside macOS and its screens on Cain's 8 GB M1. Getting there is section 8's first build step, before save and load, which would write the same data. The cuts, about 1.5 GB in all, each measured with `memory_check`: attributes and the other ratings as 4-byte numbers (about 0.45 GB); the person's own fields packed the same way (about 0.5 GB); season records and the stat book in compact rows (about 0.6 GB); and the people list trimmed to its size after each year's compaction.
 
+## Final build lane 1: foundations (2026-10-22)
+
+Built overnight for the final build (`docs/final-build/briefs/lane1-foundations.md`). Every new stored field is `#[serde(default)]`, and an older world file fills them when it loads (`World::fill_final_build_fields`, called from `after_load`).
+
+### Birth dates (A1)
+
+- Every person has a date of birth: players (`Person::born`), coaches (`Coach::born`), you (`You::born`, from the setup page), your high school assistants and alumni records. Every age a screen shows counts from it on today's date (`Person::age_on`, `Coach::age_on`, `You::age_on`). The engine's whole-year `age` stays for the yearly development step: it is the age a person carries through a season.
+- A school class runs from September to August birthdays: the class of 2030 is born 1 September 2011 to 31 August 2012 (`calendar/born.rs`). A boy whose engine age is `a` in the season of year `y` is born between 1 September `y - a - 1` and 31 August `y - a`.
+- Birthdays follow the real births per month (CDC natality: a late-summer peak, a spring low).
+- Every draw is keyed by the world's seed and the person's id, so adding birthdays moved no other draw.
+
+### Held back and young for the class (A2)
+
+- About 1 boy in 10 is a year older than his class (held back a grade or started school late) and about 1 in 120 a year younger. Summer birthdays are held back most (15-19%), fall birthdays least (4-6%), as academic redshirting runs in real schools (Deming and Dynarski 2008; NCES). Measured over 200,000 boys: 9.7% held back, 0.8% young.
+- A held-back boy is generated a year older (his body and skills at 15 as a freshman), keeps his class, and is 18 as a senior's season starts; a fall-born held-back boy turns 19 in his senior year.
+- High school steps that go by grade (freshmen dress last, spring ball, the portal of high school transfers, junior moves, line veterans) read `Person::school_age`, the age an on-time classmate has, never his real age. Reclassifying moves his class and so his grade (`Person::years_off_class` is his class against his birthday's class); a boy already a year old for his class never reclassifies down again.
+
+### Aura and fame (F15, F16, X6)
+
+- **Aura** is a hidden 1-20 trait (`Traits::aura`): charisma, camera presence and style. Drawn at 14 on its own key with a small link to ego (0.2) and leadership (0.15); measured correlations about 0.2 and 0.15. It grows a little: about one point between 15 and 27 on average, more with media training at a big program (prestige above 0.5, from 2000) or in a pro's first three seasons. It is not in `Trait::ALL`, so no trait list shows it. The game crate shows only a scouted word (`fame::aura_read`: "A natural in front of a camera" to "Shy of the cameras").
+- **Fame** (`fame::fame`, 0-1) is what the public knows: his stage (a recruit's stars, an FBS program's prestige, the NFL), how well he plays (his season's level rating), his role, his position (quarterback 1.0, backs and receivers 0.8, guards and tackles 0.35, a long snapper 0.15), his market (a club's TV households: New York about +10%, Green Bay -15%) and his honors (Pro Bowls, All-Pro, all-state).
+- **`fame::aura_appeal(person, fame)`** is what brands and audiences see: fame times Aura (0.4 at Aura 1, 0.85 at 10, 1.6 at 20), scaled to 0-1. Aura multiplies fame and never replaces it: a backup with Aura 20 stays below a star with Aura 5. **Other lanes call this** for ads, sponsors, documentaries and anything else that follows a public face.
+- **`fame::brand_money`** is the year's ads, brand NIL deals and endorsements: in the NFL about $50 million at the very top (Patrick Mahomes earned about $60 million off the field in 2024), low six figures for an average starter, little for a backup, the market a third of today's in 1996. In college, brand deals only from July 2021, up to about $2.5 million; the collectives' payouts stay separate and the brand money comes on top of them on 1 July (`recruiting::nil_payouts`). High schoolers' deals are not modelled.
+- **Followers** (`Person::followers`, public) move each year toward what fame and Aura hold (an elite NFL star about 5 million, a backup about 40,000, a 5-star recruit about 100,000), from nothing before 2006 to the platforms' full reach by 2016; they fall slowly when a player fades. Set at the February book (`fame::year_book`, with `people::year_book`), along with `Person::brand`.
+- **No quarterback pay premium for looks or Aura (F16):** contracts read football only. Nothing in the sim reads a face.
+
+### Linked names (L2)
+
+- Calendar events and news desk stories keep the ids of the names in their text: `Event::refs` and `NewsItem::refs`, each a byte range of the text and a `Link` (a player by id, a coach, a college program, a high school, an NFL club, or a game by its day, level and home team). The format and the builders (`person`, `coach_link`, `school_link`, `hs_link`, `club_link`, `game_link`, `NewsItem::link`) are described at the top of `calendar/events.rs`; every lane that writes a line naming someone adds its refs there.
+- Filled for every line the engine writes that names a person, game or team: games and scores, polls, awards, records, signings, commitments, offers, visits, decommitments, the portal, declarations and withdrawals, draft picks and trades, NFL signings, tags, extensions, suspensions, Pro Bowls and All-Pros, Halls of Fame, hires, firings and extensions of coaches. "On this day" lines carry the old line's links.
+- The game crate cuts a line into parts (`calendar::events::segments`) and links the program or club a line is filed under even when its writer didn't name it.
+
+### Decided in the final build (Claude's pick)
+
+- Held-back rates by birth month (8-19%) and young-for-class rates (0.3-2.2%): weighed NCES retention (about 10% of high schoolers have repeated a grade) against kindergarten redshirting (summer boys most); a boy is held back at most one year.
+- Old world files get no held-back boys: a birthday inside each person's own class keeps every grade, roster and result the file had; held-back boys come with every class built after.
+- Aura's links (ego 0.2, leadership 0.15), its growth (8% a year from 15 to 27, +10% at a big program, +15% in a pro's first three seasons) and its multiplier on fame; fame's weights by stage, role, position, market and honors; the money and follower scales above. Weighed against real off-field money (Forbes 2024), On3's NIL valuations and the follower counts of real stars and backups.
+- Followers and brand money are set once a year, at the February book, not week by week, to keep memory and the clock's speed as they are.
+
 ## Proposed, not confirmed (Claude's own picks in the build)
 
 - Build 10 (trial 9 findings, 2026-10-20): the 5-point style band; the walk-on weighing (the main signing's scholarship cost); the squad reads (a point for the playbook, upside 0.6 a year under 26, a point and 56 to poach, the street's 3 points of rust); the two-year sign-up deal; the elevation order and the special teams swap's one-point margin; the bonus at 55% of the guarantee capped at 35% of the deal; the restructure line at 26%; the draft position values sized to the round one gaps; the role lift (0.2) and the late rookie's 0.3; the trade call rates (0.45 a window, 0.1 a season week); the practice injury rates (1.55% and 0.9% a week), mix and lengths; the engine's run and injury values in `docs/match-engine.md`.

@@ -41,7 +41,7 @@ pub(crate) fn high_school_transfers(w: &mut World) {
     let mut by_state: Vec<Vec<usize>> = vec![Vec::new(); 51];
     for i in 0..n {
         let p = &w.people[i];
-        if p.stage == Stage::HighSchool && (15..=17).contains(&p.player.age) {
+        if p.stage == Stage::HighSchool && (15..=17).contains(&p.school_age()) {
             by_state[p.home_state].push(i);
         }
     }
@@ -168,7 +168,7 @@ pub(crate) fn high_school_transfers(w: &mut World) {
     // to 30% a year for the most homesick).
     for i in 0..n {
         let p = &w.people[i];
-        if p.stage != Stage::HighSchool || p.player.age > 17 || !boarding(&w.high_schools[p.hs]) {
+        if p.stage != Stage::HighSchool || p.school_age() > 17 || !boarding(&w.high_schools[p.hs]) {
             continue;
         }
         let homesick = clamp((p.family.own_wants.close_to_home - 0.12) * 2.5, 0.0, 0.3);
@@ -225,14 +225,15 @@ pub(crate) fn high_school_transfers(w: &mut World) {
     }
     // Reclassifying: a few repeat a year or finish early to time their college entry.
     for p in w.people.iter_mut() {
-        if p.stage != Stage::HighSchool || p.player.age != 16 {
+        if p.stage != Stage::HighSchool || p.school_age() != 16 {
             continue;
         }
         let r = p.rng.next();
         if r < 0.004 && p.player.overall() > 52.0 {
             p.class_of -= 1;
             p.note("Reclassified to graduate a year early.");
-        } else if r > 0.995 {
+        } else if r > 0.995 && p.years_off_class() <= 0 {
+            // Never twice: a boy already a year old for his class stays put.
             p.class_of += 1;
             p.note("Reclassified to repeat a year of high school.");
         }
@@ -755,7 +756,7 @@ pub(crate) fn declarations(w: &mut World, phase: Declare) {
     let deadline = w.dates.declare_deadline;
     let advisory = Date::ymd(year, 12, 16);
     let seed = w.options.seed as u64 ^ ((year as u64) << 16) ^ 0xDEC1;
-    let mut events: Vec<(usize, String, Loudness)> = Vec::new();
+    let mut events: Vec<(usize, String, Loudness, u32, String)> = Vec::new();
     for i in 0..w.people.len() {
         let p = &w.people[i];
         match phase {
@@ -829,6 +830,8 @@ pub(crate) fn declarations(w: &mut World, phase: Declare) {
                     c,
                     format!("{} of {} declares for the NFL draft ({proj}).", p.name, w.programs[c].real_name),
                     loud,
+                    p.player.id,
+                    p.name.clone(),
                 ));
             }
             Declare::Withdraw => {
@@ -861,17 +864,21 @@ pub(crate) fn declarations(w: &mut World, phase: Declare) {
                             c,
                             format!("{} withdraws from the draft and returns to {}.", p.name, w.programs[c].real_name),
                             Loudness::Small,
+                            p.player.id,
+                            p.name.clone(),
                         ));
                     }
                 }
             }
         }
     }
-    for (c, text, loud) in events {
+    for (c, text, loud, id, name) in events {
         w.calendar.post(
             Event::new(date, CalLevel::College, Kind::DraftChoice, loud, text)
                 .program(c)
-                .rule("NFL: underclassman deadline"),
+                .rule("NFL: underclassman deadline")
+                .person(id, &name)
+                .school_link(c, &w.programs[c].real_name),
         );
     }
     if phase == Declare::Withdraw {
@@ -959,8 +966,10 @@ pub(crate) fn combine(w: &mut World) {
         }
     }
     if let Some(&i) = risers.first() {
-        let text = format!("{} lights up the combine.", w.people[i].name);
-        w.calendar.post(Event::new(w.today, CalLevel::Nfl, Kind::News, Loudness::Small, text));
+        let p = &w.people[i];
+        let text = format!("{} lights up the combine.", p.name);
+        let e = Event::new(w.today, CalLevel::Nfl, Kind::News, Loudness::Small, text).person(p.player.id, &p.name);
+        w.calendar.post(e);
     }
 }
 
@@ -1342,7 +1351,12 @@ pub(crate) fn draft(w: &mut World) {
         let my = w.market.year_mut(draft_year);
         my.draft_trades += 1;
         let loud = if pick <= 10 { Loudness::Medium } else { Loudness::Small };
-        w.calendar.post(Event::new(night.date, CalLevel::Nfl, Kind::Transfer, loud, text).team(buyer));
+        w.calendar.post(
+            Event::new(night.date, CalLevel::Nfl, Kind::Transfer, loud, text)
+                .team(buyer)
+                .club_link(buyer, w.nfl[buyer].name)
+                .club_link(seller, w.nfl[seller].name),
+        );
     }
     // The undrafted rush (topic 12): each club calls the best left on its
     // own board with its bonus pool; each player picks his path.
@@ -1435,12 +1449,16 @@ pub(crate) fn draft(w: &mut World) {
                     _ => Loudness::Small,
                 };
                 let text = format!("Pick {pk}: the {team} take {} ({}, {school}).", p.name, p.player.position);
-                let mut e = Event::new(when.date, CalLevel::Nfl, Kind::DraftPick, loud, text).at(when).program(c);
+                let mut e = Event::new(when.date, CalLevel::Nfl, Kind::DraftPick, loud, text)
+                    .at(when)
+                    .program(c)
+                    .person(p.player.id, &p.name)
+                    .school_link(c, &school);
                 if pk == 1 {
                     e = e.memorable();
                 }
                 if let Some(t) = team_id {
-                    e = e.team(t);
+                    e = e.team(t).club_link(t, team);
                 }
                 events.push(e);
             }
@@ -1733,7 +1751,11 @@ pub(crate) fn camp_walk_ons(w: &mut World) {
         w.log.walk_on_scholarships += 1;
         if fbs && w.recording && p.last_role == Some(PlayingTime::Starter) {
             let text = format!("{name} puts former walk-on {} ({}) on scholarship.", p.name, p.player.position);
-            w.calendar.post(Event::new(w.today, CalLevel::College, Kind::Signing, Loudness::Small, text).program(j));
+            let e = Event::new(w.today, CalLevel::College, Kind::Signing, Loudness::Small, text)
+                .program(j)
+                .person(p.player.id, &p.name)
+                .school_link(j, &name);
+            w.calendar.post(e);
         }
     }
     // Open tryouts: the best new graduates in each state who never signed.
@@ -2620,7 +2642,7 @@ pub(crate) fn early_offers(w: &mut World, d: Date, class_of: i32, pass: usize) {
     let np = progs.len().max(1) as f64;
     let pct: Vec<(usize, f64)> = progs.iter().enumerate().map(|(k, &(_, j))| (j, 1.0 - k as f64 / np)).collect();
     let seed = w.options.seed as u64 ^ (d.0 as u64) << 18 ^ 0xE0FF;
-    let mut posts: Vec<(usize, String)> = Vec::new();
+    let mut posts: Vec<(usize, String, u32, String)> = Vec::new();
     for (r, &(i, _)) in ranked.iter().enumerate() {
         let want = (most * (-(r as f64) / (scale_r * scale)).exp()).floor() as usize;
         let have = w.people[i].cal.early_offers.len();
@@ -2664,12 +2686,21 @@ pub(crate) fn early_offers(w: &mut World, d: Date, class_of: i32, pass: usize) {
             let school = w.programs[top].real_name.clone();
             p.note(format!("At {age} he got his first scholarship offer, from {school}, as a {grade}."));
             if (r as f64) < 100.0 * scale {
-                posts.push((top, format!("{school} offers {grade} {pos} {name}, his first scholarship offer.")));
+                posts.push((
+                    top,
+                    format!("{school} offers {grade} {pos} {name}, his first scholarship offer."),
+                    p.player.id,
+                    name.clone(),
+                ));
             }
         }
     }
-    for (j, text) in posts {
-        w.calendar.post(Event::new(d, CalLevel::Recruiting, Kind::Offer, Loudness::Small, text).program(j));
+    for (j, text, id, name) in posts {
+        let e = Event::new(d, CalLevel::Recruiting, Kind::Offer, Loudness::Small, text)
+            .program(j)
+            .person(id, &name)
+            .school_link(j, &w.programs[j].real_name);
+        w.calendar.post(e);
     }
 }
 
@@ -2719,11 +2750,19 @@ pub(crate) fn decommit_after_firing(w: &mut World, prog: usize) {
         p.note(format!("At {age} he reopened his recruitment when {school} fired its head coach."));
         w.log.decommits += 1;
         if stars >= 4 {
-            posts.push(format!("{stars}-star {pos} {name} decommits from {school} after the coach's firing."));
+            posts.push((
+                format!("{stars}-star {pos} {name} decommits from {school} after the coach's firing."),
+                p.player.id,
+                name.clone(),
+            ));
         }
     }
-    for text in posts {
-        w.calendar.post(Event::new(d, CalLevel::Recruiting, Kind::Commitment, Loudness::Small, text).program(prog));
+    for (text, id, name) in posts {
+        let e = Event::new(d, CalLevel::Recruiting, Kind::Commitment, Loudness::Small, text)
+            .program(prog)
+            .person(id, &name)
+            .school_link(prog, &w.programs[prog].real_name);
+        w.calendar.post(e);
     }
 }
 
@@ -2795,7 +2834,11 @@ pub(crate) fn class_rankings_news(w: &mut World, sign_year: i32, label: &str) {
     let text =
         format!("{label}: the services' top recruiting classes are 1. {}, 2. {}, 3. {}.", names[0], names[1], names[2]);
     let d = w.today;
-    w.calendar.post(Event::new(d, CalLevel::Recruiting, Kind::Signing, Loudness::Big, text).program(scores[0].1));
+    let mut e = Event::new(d, CalLevel::Recruiting, Kind::Signing, Loudness::Big, text).program(scores[0].1);
+    for &(_, j, _) in scores.iter().take(3) {
+        e = e.school_link(j, &w.programs[j].real_name);
+    }
+    w.calendar.post(e);
 }
 
 /// The day's commitment announcements (T5.2): the verbal commitments
@@ -2830,7 +2873,12 @@ pub(crate) fn announce_commitments(w: &mut World, d: Date) {
         if stars >= 4 {
             let text = format!("{stars}-star {} {name} commits to {prog_name}.", w.people[i].player.position);
             let loud = if stars == 5 { Loudness::Medium } else { Loudness::Small };
-            w.calendar.post(Event::new(d, CalLevel::Recruiting, Kind::Commitment, loud, text).program(j));
+            let id = w.people[i].player.id;
+            let e = Event::new(d, CalLevel::Recruiting, Kind::Commitment, loud, text)
+                .program(j)
+                .person(id, &name)
+                .school_link(j, &prog_name);
+            w.calendar.post(e);
         }
     }
 }
@@ -2972,6 +3020,8 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
                         posts.push((
                             j,
                             format!("{stars}-star {name} takes an official visit to {}.", w.programs[j].real_name),
+                            p.player.id,
+                            name.clone(),
                         ));
                     }
                 }
@@ -2983,11 +3033,13 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
     w.log.official_visits += off;
     w.log.unofficial_visits += unoff;
     w.log.drop_ins += drops;
-    for (j, text) in posts {
+    for (j, text, id, name) in posts {
         w.calendar.post(
             Event::new(d, CalLevel::Recruiting, Kind::Visit, Loudness::Small, text)
                 .program(j)
-                .rule("NCAA: official visits"),
+                .rule("NCAA: official visits")
+                .person(id, &name)
+                .school_link(j, &w.programs[j].real_name),
         );
     }
 }
@@ -4463,9 +4515,13 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                         } else {
                             format!("{name} flips from {from} to {prog_name}.")
                         };
+                        let id = w.people[i].player.id;
+                        let name = w.people[i].name.clone();
                         w.calendar.post(
                             Event::new(today, CalLevel::Recruiting, Kind::Commitment, Loudness::Medium, text)
-                                .program(j),
+                                .program(j)
+                                .person(id, &name)
+                                .school_link(j, &prog_name),
                         );
                     }
                 }
@@ -4590,7 +4646,13 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 if stars_n >= 4 && !r.juco_mover {
                     let text = format!("{stars_n}-star {} {name} signs with {prog_name}.", w.people[i].player.position);
                     let loud = if stars_n == 5 { Loudness::Medium } else { Loudness::Small };
-                    w.calendar.post(Event::new(today, CalLevel::Recruiting, Kind::Signing, loud, text).program(j));
+                    let id = w.people[i].player.id;
+                    w.calendar.post(
+                        Event::new(today, CalLevel::Recruiting, Kind::Signing, loud, text)
+                            .program(j)
+                            .person(id, &name)
+                            .school_link(j, &prog_name),
+                    );
                 }
             }
             None => {
@@ -4806,7 +4868,12 @@ fn enter_portal(w: &mut World, i: usize, c: usize, entered: Date, decide_by: Dat
     let text = format!("{} ({}, {}) enters the transfer portal.", p.name, p.player.position, w.programs[c].real_name);
     let loud =
         if p.stars >= 4 && p.last_role == Some(PlayingTime::Starter) { Loudness::Medium } else { Loudness::Small };
-    Some(Event::new(entered, CalLevel::College, Kind::Transfer, loud, text).program(c))
+    Some(
+        Event::new(entered, CalLevel::College, Kind::Transfer, loud, text)
+            .program(c)
+            .person(p.player.id, &p.name)
+            .school_link(c, &w.programs[c].real_name),
+    )
 }
 
 /// Adds one to a day's count (part B 20).
@@ -5524,6 +5591,9 @@ pub(crate) fn nil_payouts(w: &mut World) {
             if money > 250_000.0 && p.nil_income <= 250_000.0 {
                 p.cal.payday = true;
             }
+            // Collectives pay most of it (about 82%); brand deals, which
+            // follow fame and Aura (F15), come on top.
+            let money = money + p.brand as f64;
             p.nil_income = money;
             // The top earners on a team: payouts can bring jealousy, complacency or pressure.
             if k < 3 && money > 250_000.0 {
