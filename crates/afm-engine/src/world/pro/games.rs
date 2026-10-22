@@ -44,6 +44,7 @@ pub(crate) fn actives(w: &World, t: usize) -> Vec<(usize, bool)> {
             .pro
             .as_ref()
             .is_some_and(|c| c.status == Status::Roster && c.out_weeks == 0 && crate::world::people::available(c))
+            && !crate::world::folk::rules::sitting(w, w.people[**i].player.id, w.today)
     };
     let lists: Vec<Vec<usize>> = Position::ALL
         .iter()
@@ -119,10 +120,10 @@ pub(crate) fn preseason_side(w: &World, t: usize, week: usize, weeks: usize) -> 
     for pos in Position::ALL {
         let s = depth_slots(pos);
         for (k, &i) in club.depth.get(pos.index()).map_or(&[][..], |d| d.as_slice()).iter().enumerate() {
-            let ok = w.people[i]
-                .pro
-                .as_ref()
-                .is_some_and(|c| c.status == Status::Roster && c.out_weeks == 0 && crate::world::people::available(c));
+            let ok =
+                w.people[i].pro.as_ref().is_some_and(|c| {
+                    c.status == Status::Roster && c.out_weeks == 0 && crate::world::people::available(c)
+                }) && !crate::world::folk::rules::sitting(w, w.people[i].player.id, w.today);
             if !ok || (k < s.starters && !rehearsal) {
                 continue;
             }
@@ -358,13 +359,42 @@ pub(crate) fn play(w: &World, games: &[Fixture]) -> Vec<Option<(GameResult, [Sid
             Some((a, b, venue(w, g.home, g.away, g.at, g.neutral, g.loud), g.seed))
         })
         .collect();
+    // Your game, played live on the game day screens (section 9).
+    let live = w.live_result(crate::calendar::Level::Nfl);
     jobs.into_par_iter()
-        .map(|j| {
+        .zip(games.par_iter())
+        .map(|(j, g)| {
             let (a, b, v, seed) = j?;
+            if let Some((t, r)) = &live
+                && *t == [g.home, g.away]
+            {
+                return Some((r.clone(), [a, b]));
+            }
             let r = quick_game_in(&a.team, &b.team, crate::player::Level::NFL, seed, Default::default(), v);
             Some((r, [a, b]))
         })
         .collect()
+}
+
+/// Your NFL game today as the day will play it (section 9).
+pub(crate) fn seat_setup(w: &World, f: &Fixture) -> Option<super::super::live_seat::SeatSetup> {
+    let a = game_side(w, f.home)?;
+    let b = game_side(w, f.away)?;
+    let v = venue(w, f.home, f.away, f.at, f.neutral, f.loud);
+    let mut setup = crate::game::GameSetup::new(&a.team, &b.team, crate::player::Level::NFL, f.seed);
+    setup.cond = v.cond;
+    setup.neutral = v.neutral;
+    setup.wear = v.wear;
+    setup.cold_unused = v.cold_unused;
+    let params = crate::game::live::Params::of(&setup);
+    Some(super::super::live_seat::SeatSetup {
+        level: crate::calendar::Level::Nfl,
+        teams: [f.home, f.away],
+        names: [w.nfl_team_name(f.home), w.nfl_team_name(f.away)],
+        home: a.team,
+        away: b.team,
+        params,
+    })
 }
 
 /// A preseason game: no stats on the season, but the staff's camp read
@@ -421,6 +451,9 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
 pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[Side; 2], opp_z: [f64; 2]) {
     let year = w.year;
     w.keep_seat_game(crate::calendar::Level::Nfl, teams, &r.stats);
+    if let Some(o) = w.tape_watch(crate::calendar::Level::Nfl) {
+        w.keep_tape(&o, crate::calendar::Level::Nfl, teams, &r.stats, &r.film);
+    }
     if w.options.keep_game_log && w.recording {
         w.game_log.add_nfl(year, teams, &r.stats);
     }

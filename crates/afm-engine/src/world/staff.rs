@@ -22,11 +22,17 @@ fn tier_of(d: Division) -> CoachTier {
     }
 }
 
+/// The key a coach's birthday is drawn from (keyed, no stream consumed).
+pub(crate) fn coach_born_key(seed: u32, id: usize) -> u64 {
+    super::born_key(seed, id as u32) ^ 0x0C0A_C400
+}
+
 fn new_coach(w: &mut World, tier: CoachTier, age: u32, pool: CoachPool) -> usize {
     let id = w.coaches.len();
     let ethnicity = coach_ethnicity(pool, w.year, &mut w.rng);
     let name = names::person_name(ethnicity, w.year - age as i32, &mut w.rng);
     let mut c = generate_coach(id, name, ethnicity, tier, age, &mut w.rng);
+    c.born = crate::calendar::born::birth_date(coach_born_key(w.options.seed, id), age, w.year);
     // Sportsmanship from a keyed draw, so the world's own stream is untouched
     // (spread like the other personality traits; proposed, not confirmed).
     c.sportsmanship =
@@ -60,7 +66,7 @@ fn nfl_slot(team: &crate::league::Team, role: Role) -> Option<usize> {
     }
 }
 
-fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) {
+pub(crate) fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) {
     let year = w.year;
     if w.coaches[coach].home_state.is_none() {
         // His family roots (11.13): most coaches start out near home
@@ -378,10 +384,29 @@ fn excuse(w: &World, p: usize) -> f64 {
     clamp(((picks - 3.0) / 5.0).max((young_share - 0.35) / 0.3), 0.0, 1.0)
 }
 
-fn college_news(w: &mut World, p: usize, kind: NewsKind, text: String) {
+fn college_news(w: &mut World, p: usize, coaches: &[usize], kind: NewsKind, text: String) {
     if w.recording {
-        w.news.push(NewsItem { date: None, year: w.year, kind, channel: Channel::News, program: Some(p), text });
+        let item = story(w, kind, Some(p), None, coaches, text);
+        w.news.push(item);
     }
+}
+
+/// A news desk story with its names linked (L2): the program or NFL club
+/// it is about and the coaches it names.
+fn story(w: &World, kind: NewsKind, p: Option<usize>, t: Option<usize>, coaches: &[usize], text: String) -> NewsItem {
+    use crate::calendar::Link;
+    let mut item =
+        NewsItem { date: None, year: w.year, kind, channel: Channel::News, program: p, text, refs: Vec::new() };
+    for &c in coaches {
+        item = item.link(Link::Coach(c as u32), &w.coaches[c].name);
+    }
+    if let Some(p) = p {
+        item = item.link(Link::Program(p as u32), w.program_name(p));
+    }
+    if let Some(t) = t {
+        item = item.link(Link::Club(t as u32), w.nfl[t].name);
+    }
+    item
 }
 
 /// A high school coach so dominant that colleges notice (note 5): a state
@@ -402,7 +427,7 @@ fn hs_buzz(w: &World, c: usize) -> bool {
 /// biggest, by prestige. NFL teams pay by owner, and the NFL paid about twice
 /// what college did in the 1990s, until top college pay caught up by the
 /// mid-2010s.
-fn salary(w: &World, e: Employer, role: Role) -> f64 {
+pub(crate) fn salary(w: &World, e: Employer, role: Role) -> f64 {
     let pick = |r: [(f64, f64); 3]| match role {
         Role::HeadCoach => r[0],
         Role::OffensiveCoordinator | Role::DefensiveCoordinator => r[1],
@@ -678,16 +703,12 @@ fn retirement_news(w: &mut World, c: usize, job: Job, why: &str) {
     match job.employer {
         Employer::College(p) => {
             w.programs[p].story.push((year, format!("Head coach {name} {why} at {age}.")));
-            college_news(w, p, NewsKind::CoachLeft, text);
+            college_news(w, p, &[c], NewsKind::CoachLeft, text);
         }
-        Employer::Nfl(_) => w.news.push(NewsItem {
-            date: None,
-            year,
-            kind: NewsKind::CoachLeft,
-            channel: Channel::News,
-            program: None,
-            text,
-        }),
+        Employer::Nfl(t) => {
+            let item = story(w, NewsKind::CoachLeft, None, Some(t), &[c], text);
+            w.news.push(item);
+        }
         Employer::HighSchool(_) => {}
     }
 }
@@ -707,16 +728,12 @@ fn departure_news(w: &mut World, c: usize, job: Job, o: Opening, why: &str) {
     match job.employer {
         Employer::College(p) => {
             w.programs[p].story.push((year, format!("Head coach {name} left for {dest}{role} ({why}).")));
-            college_news(w, p, NewsKind::CoachLeft, text);
+            college_news(w, p, &[c], NewsKind::CoachLeft, text);
         }
-        Employer::Nfl(_) => w.news.push(NewsItem {
-            date: None,
-            year,
-            kind: NewsKind::CoachLeft,
-            channel: Channel::News,
-            program: None,
-            text,
-        }),
+        Employer::Nfl(t) => {
+            let item = story(w, NewsKind::CoachLeft, None, Some(t), &[c], text);
+            w.news.push(item);
+        }
         Employer::HighSchool(_) => {}
     }
 }
@@ -755,14 +772,8 @@ fn nfl_firing(w: &mut World, c: usize, t: usize, tenure: i32, openings: &mut Vec
                 seasons_text(tenure),
                 games - wins
             );
-            w.news.push(NewsItem {
-                date: None,
-                year: w.year,
-                kind: NewsKind::CoachFired,
-                channel: Channel::News,
-                program: None,
-                text,
-            });
+            let item = story(w, NewsKind::CoachFired, None, Some(t), &[c], text);
+            w.news.push(item);
         }
         // A new head coach brings his own coordinators (proposed: each kept 30% of the time).
         for role in [Role::OffensiveCoordinator, Role::DefensiveCoordinator] {
@@ -815,9 +826,17 @@ pub(crate) fn carousel(w: &mut World, scope: Scope) {
             continue;
         }
         let age = w.coaches[c].age;
-        let retire = age >= 60 && w.rng.chance(clamp(0.04 + 0.03 * (age as f64 - 60.0), 0.0, 1.0));
+        // A serious health scare this year pushes him toward the door
+        // (section 6, coaches' lives).
+        let scare = super::folk::life::retire_push(w, c);
+        let retire = age >= 60 && w.rng.chance(clamp(0.04 + 0.03 * (age as f64 - 60.0) + scare * 0.5, 0.0, 1.0));
         // Before 60, his health or burnout (11.15).
-        let early = if age < 60 { early_exit(w, c, job) } else { None };
+        let early = if age < 60 {
+            early_exit(w, c, job)
+                .or_else(|| (scare > 0.0 && w.rng.chance(0.25 * scare)).then_some("retired for his health"))
+        } else {
+            None
+        };
         if retire || early.is_some() {
             let why = early.unwrap_or("retired");
             leave(w, c, why);
@@ -1217,14 +1236,8 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
         && o.role == Role::HeadCoach
     {
         let text = format!("The {} hire {} as head coach ({from}).", w.nfl[t].name, w.coaches[c].name);
-        w.news.push(NewsItem {
-            date: None,
-            year,
-            kind: NewsKind::CoachHired,
-            channel: Channel::News,
-            program: None,
-            text,
-        });
+        let item = story(w, NewsKind::CoachHired, None, Some(t), &[c], text);
+        w.news.push(item);
     }
     if w.recording
         && let Employer::College(p) = o.employer
@@ -1242,14 +1255,8 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
         } else {
             format!("{name} hires {} as {} ({from}).", coach.name, o.role.name())
         };
-        w.news.push(NewsItem {
-            date: None,
-            year,
-            kind: NewsKind::CoachHired,
-            channel: Channel::News,
-            program: Some(p),
-            text,
-        });
+        let item = story(w, NewsKind::CoachHired, Some(p), None, &[c], text);
+        w.news.push(item);
     }
     // A new head coach usually brings his own coordinators and many of his
     // own position coaches; one promoted from the staff keeps more of it.
@@ -1361,6 +1368,8 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
     let expired = coach.contract.is_some_and(|k| k.through <= year);
     let sd = clamp(0.06 - 0.003 * (judgement - 10.0), 0.02, 0.1);
     let mut read = -(1.5 * last + 0.7 * before) + w.rng.normal(0.0, sd);
+    // Your own boss's trust in you and last year's goals (section 6).
+    read += super::folk::boss::review_push(w, c);
     read -= if tenure <= 3 { 0.1 } else { 0.04 } * direction;
     if tenure >= 3 {
         read += (0.3 + 0.5 * prestige) * (0.4 - wp2).max(0.0);
@@ -1422,6 +1431,7 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
             college_news(
                 w,
                 p,
+                &[c],
                 NewsKind::CoachExtended,
                 format!(
                     "{name} gives head coach {coach_name} a contract extension and a vote of confidence after two tough seasons."
@@ -1452,7 +1462,7 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
             }
             _ => format!("{name} fires head coach {coach_name} after his prove-it season ({seasons} in all)."),
         };
-        college_news(w, p, NewsKind::CoachFired, text);
+        college_news(w, p, &[c], NewsKind::CoachFired, text);
         super::recruiting::decommit_after_firing(w, p);
         return;
     }
@@ -1468,6 +1478,7 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
             college_news(
                 w,
                 p,
+                &[c],
                 NewsKind::CoachExtended,
                 format!("{name} extends head coach {coach_name}'s contract through the {through} season."),
             );
@@ -1547,9 +1558,11 @@ fn fire_in_season(w: &mut World, p: usize, c: usize) {
     });
     let money =
         if buyout >= 1.0e6 { format!(" The buyout is about ${:.1} million.", buyout / 1.0e6) } else { String::new() };
+    let named: Vec<usize> = std::iter::once(c).chain(w.programs[p].sideline).collect();
     college_news(
         w,
         p,
+        &named,
         NewsKind::CoachFired,
         format!(
             "{name} fires head coach {coach_name} {} games into his {} season ({}-{}). {interim} is the interim head coach.{money}",
@@ -1646,6 +1659,11 @@ fn buyout_share(w: &World, p: usize) -> f64 {
 /// confirmed, from the Knight Commission and USA Today finance data): FBS
 /// $30-250 million, FCS $8-35 million, Division II $3-10 million, junior
 /// colleges $1-3 million, by prestige.
+/// A program's athletic budget a year, every sport (people screens read it).
+pub(crate) fn program_budget(prog: &program::Program) -> f64 {
+    athletic_budget(prog)
+}
+
 fn athletic_budget(prog: &program::Program) -> f64 {
     let (lo, hi): (f64, f64) = match prog.division {
         Division::FBS => (30.0e6, 250.0e6),
@@ -1794,14 +1812,8 @@ pub(crate) fn diversity_report(w: &mut World) {
         "Diversity report: {of_color} of {total} FBS head coaches are coaches of color ({}).",
         if parts.is_empty() { "none".to_string() } else { parts.join(", ") }
     );
-    w.news.push(NewsItem {
-        date: None,
-        year: w.year,
-        kind: NewsKind::DiversityReport,
-        channel: Channel::News,
-        program: None,
-        text,
-    });
+    let item = story(w, NewsKind::DiversityReport, None, None, &[], text);
+    w.news.push(item);
 }
 
 /// Who a search looks at for an opening.
@@ -2184,7 +2196,8 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
         let win = if results[i].games() > 0 { results[i].win_pct() } else { 0.5 };
         let before = w.programs[i].collective.boosters();
         let mut rng: Rng = w.rng.fork();
-        let level = program::update_collective(&mut w.programs[i], win, year + 1, &mut rng);
+        let walk = super::folk::boss::booster_push(w, i);
+        let level = program::update_collective(&mut w.programs[i], win, year + 1, walk, &mut rng);
         let p = &w.programs[i];
         // Collectives exist from July 2021 (11.5).
         if w.recording && level > 0 && p.division != Division::JUCO && super::ncaa::nil_era(year) {
@@ -2274,6 +2287,7 @@ pub fn take_seat(w: &mut World, you: &super::seat::You, employer: Employer) -> u
     }
     let id = w.coaches.len();
     let mut c = generate_coach(id, you.name.clone(), you.ethnicity, tier, you.age, &mut w.rng);
+    c.born = you.born;
     c.ability.teaching = you.teaching;
     c.ability.scheme = you.scheme;
     c.ability.game_management = you.game_management;

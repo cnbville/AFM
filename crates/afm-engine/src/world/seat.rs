@@ -37,6 +37,8 @@ impl World {
         if !mine || seat.level != level {
             return;
         }
+        // The day booked your game: a live game of it is over.
+        self.live_booked(level, teams);
         let names = match level {
             crate::calendar::Level::Nfl => teams.map(|t| self.nfl_team_name(t)),
             crate::calendar::Level::HighSchool => teams.map(|h| self.school_name(h).to_string()),
@@ -93,6 +95,10 @@ impl World {
     pub fn morning_stop(&self, d: Date) -> Option<String> {
         use crate::calendar::Level;
         let s = self.seat?;
+        // A dated meeting waiting for you (people, takeover item 1).
+        if let Some(m) = super::folk::scene::due(self, d) {
+            return Some(m);
+        }
         let game = match s.level {
             Level::College => s.program.and_then(|p| {
                 let f = self
@@ -361,6 +367,9 @@ impl World {
 pub struct You {
     pub name: String,
     pub age: u32,
+    /// Your date of birth (A1), from the setup page.
+    #[serde(default = "crate::calendar::born::unknown")]
+    pub born: crate::calendar::Date,
     pub ethnicity: super::ethnicity::Ethnicity,
     pub home_state: usize,
     pub ex_pro: bool,
@@ -457,6 +466,7 @@ impl World {
             seed: career_seed,
             notes: Vec::new(),
             hs_staff: Vec::new(),
+            desk: Default::default(),
         });
         if let Job::HighSchool(h) = job {
             let staff = self.hire_hs_staff(h);
@@ -467,6 +477,8 @@ impl World {
         self.seat_depth.clear();
         self.seat_games.clear();
         self.seat_focus.clear();
+        // Your first two weeks: the meetings of a new job (takeover).
+        super::folk::takeover::begin(self);
         id
     }
 }
@@ -486,6 +498,10 @@ pub struct Career {
     /// Your high school staff, when you coach a high school.
     #[serde(default)]
     pub hs_staff: Vec<HsAssistant>,
+    /// Your desk: mail, notes on anything, "my players", watches (the
+    /// final build's inbox and screens, `desk.rs`).
+    #[serde(default)]
+    pub desk: super::desk::Desk,
 }
 
 /// A high school assistant (people topic 10): most teach at the school and
@@ -495,6 +511,9 @@ pub struct Career {
 pub struct HsAssistant {
     pub name: String,
     pub age: u32,
+    /// His date of birth (A1): the age the game shows counts from it.
+    #[serde(default = "crate::calendar::born::unknown")]
+    pub born: crate::calendar::Date,
     /// Offensive or defensive coordinator, or a position group's coach.
     pub coordinator: Option<bool>,
     /// The group he coaches (`coach::Group` as an index).
@@ -506,6 +525,26 @@ pub struct HsAssistant {
     /// Hidden teaching ability, 1-20 on every coach's scale.
     pub teaching: f64,
     pub since: i32,
+}
+
+impl You {
+    /// Your age on a day, from your date of birth (A1).
+    pub fn age_on(&self, d: crate::calendar::Date) -> u32 {
+        crate::calendar::born::age_or(self.born, d, self.age)
+    }
+}
+
+impl HsAssistant {
+    /// His age on a day, from his date of birth (A1).
+    pub fn age_on(&self, d: crate::calendar::Date) -> u32 {
+        crate::calendar::born::age_or(self.born, d, self.age)
+    }
+}
+
+/// The key a high school assistant's birthday is drawn from: his name and
+/// the year he was hired (keyed, no stream consumed).
+pub(crate) fn assistant_born_key(name: &str, year: i32) -> u64 {
+    name.bytes().fold(0xA551_57A0_u64 ^ year as u64, |k, b| k.wrapping_mul(0x100_0000_01B3) ^ b as u64)
 }
 
 /// Subjects high school coaches teach (proposed, not confirmed: weighted
@@ -562,6 +601,7 @@ impl World {
                 let subject = (rng.next() > 0.15).then(|| SUBJECTS[(rng.next() * 10.0) as usize % 10].to_string());
                 let lead = if coordinator.is_some() { 1.0 } else { 0.0 };
                 HsAssistant {
+                    born: crate::calendar::born::birth_date(assistant_born_key(&name, year), age, year),
                     name,
                     age,
                     coordinator,
@@ -598,15 +638,25 @@ impl World {
 pub struct Note {
     pub date: Date,
     pub text: String,
+    /// The page it was written on ("Player page · Jalen Carter", "Depth
+    /// chart"); empty for notes from before the final build.
+    #[serde(default)]
+    pub page: String,
 }
 
 impl World {
     pub fn add_note(&mut self, player: u32, text: String) {
+        self.add_note_from(player, text, String::new());
+    }
+
+    /// A note on a player, with the page it was written on.
+    pub fn add_note_from(&mut self, player: u32, text: String, page: String) {
         let date = self.today;
         let Some(c) = self.career.as_mut() else { return };
+        let note = Note { date, text, page };
         match c.notes.iter_mut().find(|(id, _)| *id == player) {
-            Some((_, list)) => list.push(Note { date, text }),
-            None => c.notes.push((player, vec![Note { date, text }])),
+            Some((_, list)) => list.push(note),
+            None => c.notes.push((player, vec![note])),
         }
     }
 
@@ -652,5 +702,53 @@ impl World {
         self.people.shrink_to(room);
         self.seat_games.retain(|g| g.teams.iter().all(|&t| t < self.programs.len().max(self.nfl.len())));
         super::scouting::after_load(self);
+        self.fill_final_build_fields();
+        super::folk::after_load(self);
+    }
+
+    /// What a world file from before the final build lacks (lane 1): birth
+    /// dates (A1), Aura (F15), followers and brand money. Every value is
+    /// keyed by the world's seed and the person's id, so the same file
+    /// always fills the same way. Old files get no held-back boys (A2): a
+    /// birthday inside each person's own class keeps every grade as it was.
+    pub(crate) fn fill_final_build_fields(&mut self) {
+        use crate::calendar::born;
+        let seed = self.options.seed;
+        let year = self.year;
+        let mut fresh = false;
+        for p in self.people.iter_mut() {
+            if p.born == born::UNKNOWN {
+                p.born = born::for_class(super::born_key(seed, p.player.id), p.class_of);
+            }
+            let t = &mut p.player.personality.traits;
+            if t.aura == 0 {
+                t.aura = crate::player::Traits::draw_aura(
+                    super::born_key(seed, p.player.id) ^ 0xA07A,
+                    t.ego.max(1),
+                    t.leadership.max(1),
+                );
+                fresh = true;
+            }
+        }
+        for a in self.alumni.iter_mut().filter(|a| a.born == born::UNKNOWN) {
+            let key = super::born_key(seed, a.year as u32) ^ a.name.len() as u64;
+            a.born = born::for_class(key, a.class_of);
+        }
+        for c in self.coaches.iter_mut().filter(|c| c.born == born::UNKNOWN) {
+            c.born = born::birth_date(super::staff::coach_born_key(seed, c.id), c.age, year);
+        }
+        if let Some(career) = self.career.as_mut() {
+            let you = &mut career.you;
+            if you.born == born::UNKNOWN {
+                you.born = born::birth_date(seed as u64 ^ 0x70_0B0E, you.age, year);
+            }
+            for a in career.hs_staff.iter_mut().filter(|a| a.born == born::UNKNOWN) {
+                a.born = born::birth_date(assistant_born_key(&a.name, a.since), a.age, a.since.max(year - 40));
+            }
+        }
+        // Followers and brand money as the year's book would have left them.
+        if fresh {
+            super::fame::fill(self);
+        }
     }
 }

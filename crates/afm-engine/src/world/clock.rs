@@ -160,6 +160,10 @@ pub(crate) fn advance_day(w: &mut World) {
     }
     let d = w.today;
     let y = w.dates.clone();
+    // A live game left from a day gone by (called off, or never booked).
+    if w.live.as_ref().is_some_and(|l| l.date < d) {
+        w.live = None;
+    }
     if d == y.start {
         year_start(w);
     }
@@ -481,6 +485,8 @@ pub(crate) fn advance_day(w: &mut World) {
     // the training blocks of every level (T7).
     timed("rhythm", || rhythm(w, d, &y));
     nfl_year::training_blocks(w, d, &y);
+    // Section 6's people (lane 6): ties, lives, courts, staffs and your agenda.
+    timed("people", || super::folk::day(w, d));
     timed("scouting", || super::scouting::day(w, d));
 
     // News items of the day get the day's date.
@@ -513,6 +519,9 @@ fn year_start(w: &mut World) {
     super::program::apply_history(w);
     w.college_prev = w.college.take();
     w.college = Some(college::new_season(w));
+    if let Some(prev) = w.college_prev.as_mut() {
+        college::keep_for_next_year(prev);
+    }
     w.hs_season = Some(hs_year::new_season(w));
     w.nfl_season = Some(nfl_year::new_season(w));
     super::franchise::year_start(w);
@@ -598,6 +607,7 @@ fn signing_day_and_book(w: &mut World, season: i32) {
     staff::update_programs(w, &results);
     w.life_events();
     super::people::year_book(w);
+    super::fame::year_book(w);
     w.compact();
     w.rebuild_rosters();
     w.year = keep;
@@ -701,7 +711,7 @@ fn rhythm(w: &mut World, d: Date, y: &YearDates) {
 /// ten, fifteen... years ago, as news lines only (never a stakes factor).
 fn anniversaries(w: &mut World, d: Date) {
     let (y, m, day) = d.parts();
-    let found: Vec<(i32, Level, String)> = w
+    let found: Vec<(i32, Level, String, Vec<crate::calendar::Ref>)> = w
         .calendar
         .history
         .iter()
@@ -709,10 +719,10 @@ fn anniversaries(w: &mut World, d: Date) {
         .filter_map(|e| {
             let (ey, em, ed) = e.when.date.parts();
             let ago = y - ey;
-            (em == m && ed == day && ago > 0 && ago % 5 == 0).then(|| (ago, e.level, e.text.clone()))
+            (em == m && ed == day && ago > 0 && ago % 5 == 0).then(|| (ago, e.level, e.text.clone(), e.refs.clone()))
         })
         .collect();
-    for (ago, level, text) in found {
+    for (ago, level, text, refs) in found {
         let words = match ago {
             5 => "Five".to_string(),
             10 => "Ten".to_string(),
@@ -724,7 +734,11 @@ fn anniversaries(w: &mut World, d: Date) {
             n => n.to_string(),
         };
         let line = format!("{words} years ago today: {text}");
-        w.calendar.post(Event::new(d, level, Kind::Anniversary, Loudness::Small, line));
+        // The old line's links move with its words (L2).
+        let shift = (line.len() - text.len()) as u16;
+        let mut e = Event::new(d, level, Kind::Anniversary, Loudness::Small, line);
+        e.refs = refs.into_iter().map(|r| crate::calendar::Ref { at: r.at + shift, ..r }).collect();
+        w.calendar.post(e);
     }
 }
 

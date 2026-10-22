@@ -287,7 +287,7 @@ fn an_early_enrollees_spring_step_opens_his_first_college_row() {
     crate::development::record_spring_step(&mut p, 1.5);
     let first = &p.history[1];
     assert_eq!(first.spring_open, Some(gain));
-    assert!((first.spring_gain.unwrap() - gain - 1.5).abs() < 1e-9);
+    assert!((first.spring_gain.get().unwrap() - gain - 1.5).abs() < 1e-9);
 }
 
 /// Section 6b topic 5, choice 2: a plan's main focus grows up to about 1.5

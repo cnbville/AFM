@@ -5,7 +5,7 @@
 use crate::attributes::{
     ATTRIBUTE_COUNT, ATTRIBUTE_PROFILES, Attr, AttributeGroup, Attributes, MAX_RATING, MIN_RATING,
 };
-use crate::player::{DevelopmentEvent as Ev, Events, Level, Player, PlayingTime, SeasonRecord};
+use crate::player::{DevelopmentEvent as Ev, Events, Level, OptF64, Player, PlayingTime, SeasonRecord};
 use crate::positions::{overall_for, weight};
 use crate::rng::{Rng, clamp, round_half_up};
 
@@ -716,6 +716,8 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         events.remove(Ev::Breakout);
     }
     // He improves (or fades) through the year, so he plays the season between his two ratings.
+    // One row more, not double the room (memory: a world holds two million rows).
+    player.history.reserve_exact(1);
     player.history.push(SeasonRecord {
         position: player.position,
         age: player.age,
@@ -725,21 +727,21 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         overall: overall_after,
         potential: potential_after,
         performance: if no_games {
-            None
+            OptF64::NONE
         } else {
-            Some(clamp((overall_before + overall_after) / 2.0 + performance, MIN_RATING, MAX_RATING))
+            Some(clamp((overall_before + overall_after) / 2.0 + performance, MIN_RATING, MAX_RATING)).into()
         },
         level_rating: None,
         level_rating_end: None,
         coaching: ctx.coaching,
         events,
         games_missed,
-        adjustment: if dip > 0.0 { Some(round_half_up(dip * 100.0) / 100.0) } else { None },
-        spring_gain: None,
-        spring_open: None,
+        adjustment: if dip > 0.0 { Some(round_half_up(dip * 100.0) / 100.0).into() } else { OptF64::NONE },
+        spring_gain: OptF64::NONE,
+        spring_open: OptF64::NONE,
         team: None,
         depth: None,
-        situation: None,
+        situation: OptF64::NONE,
     });
     player.age += 1;
     SeasonReport { overall_before, overall_after, potential_before, potential_after, events, games_missed }
@@ -829,8 +831,8 @@ pub fn spring_jump(player: &mut Player, share: f64, rng: &mut Rng) -> f64 {
 pub fn open_row_with_spring_step(player: &mut Player, gain: f64) {
     if let Some(h) = player.history.last_mut() {
         h.overall_start -= gain;
-        h.spring_gain = Some(h.spring_gain.unwrap_or(0.0) + gain);
-        h.spring_open = Some(h.spring_open.unwrap_or(0.0) + gain);
+        h.spring_gain = Some(h.spring_gain.unwrap_or(0.0) + gain).into();
+        h.spring_open = Some(h.spring_open.unwrap_or(0.0) + gain).into();
         h.events.add(Ev::SpringBreakout);
     }
 }
@@ -841,7 +843,7 @@ pub fn open_row_with_spring_step(player: &mut Player, gain: f64) {
 pub fn record_spring_step(player: &mut Player, gain: f64) {
     if let Some(h) = player.history.last_mut() {
         h.overall += gain;
-        h.spring_gain = Some(h.spring_gain.unwrap_or(0.0) + gain);
+        h.spring_gain = Some(h.spring_gain.unwrap_or(0.0) + gain).into();
         h.events.add(Ev::SpringBreakout);
     }
 }
