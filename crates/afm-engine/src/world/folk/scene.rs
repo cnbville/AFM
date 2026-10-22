@@ -45,6 +45,10 @@ pub enum Kind {
     ParentCall,
     Proposal,
     JobCall,
+    Leaders,
+    FlightRisks,
+    Gm,
+    Family,
 }
 
 impl Kind {
@@ -81,7 +85,11 @@ impl Kind {
             Kind::Ritual => "Rookie ritual",
             Kind::ParentCall => "A parent calls",
             Kind::Proposal => "Staff proposal",
-            Kind::JobCall => "A call about a job",
+            Kind::JobCall => "A call",
+            Kind::Leaders => "The leaders of the room",
+            Kind::FlightRisks => "Who might leave",
+            Kind::Gm => "The general manager",
+            Kind::Family => "At home",
         }
     }
 }
@@ -386,7 +394,7 @@ fn dispatch_open(w: &mut World, s: &mut Scene) {
         Kind::Discipline | Kind::Ritual => super::rules::open(w, s),
         Kind::ReachOut | Kind::Trip | Kind::JobCall => super::network::open(w, s),
         Kind::Interview | Kind::Firing | Kind::Proposal => super::staffing::open(w, s),
-        Kind::StarPower | Kind::SecondOpinion => super::life::open(w, s),
+        Kind::StarPower | Kind::SecondOpinion | Kind::Family => super::life::open(w, s),
         _ => super::takeover::open(w, s),
     }
 }
@@ -401,7 +409,7 @@ fn dispatch_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         Kind::Discipline | Kind::Ritual => super::rules::answer(w, s, code, picked),
         Kind::ReachOut | Kind::Trip | Kind::JobCall => super::network::answer(w, s, code, picked),
         Kind::Interview | Kind::Firing | Kind::Proposal => super::staffing::answer(w, s, code, picked),
-        Kind::StarPower | Kind::SecondOpinion => super::life::answer(w, s, code, picked),
+        Kind::StarPower | Kind::SecondOpinion | Kind::Family => super::life::answer(w, s, code, picked),
         _ => super::takeover::answer(w, s, code, picked),
     }
 }
@@ -416,7 +424,7 @@ fn dispatch_hand(w: &mut World, s: &mut Scene) {
         Kind::Discipline | Kind::Ritual => super::rules::hand(w, s),
         Kind::ReachOut | Kind::Trip | Kind::JobCall => super::network::hand(w, s),
         Kind::Interview | Kind::Firing | Kind::Proposal => super::staffing::hand(w, s),
-        Kind::StarPower | Kind::SecondOpinion => super::life::hand(w, s),
+        Kind::StarPower | Kind::SecondOpinion | Kind::Family => super::life::hand(w, s),
         _ => super::takeover::hand(w, s),
     }
 }

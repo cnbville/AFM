@@ -66,7 +66,7 @@ fn nfl_slot(team: &crate::league::Team, role: Role) -> Option<usize> {
     }
 }
 
-fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) {
+pub(crate) fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) {
     let year = w.year;
     if w.coaches[coach].home_state.is_none() {
         // His family roots (11.13): most coaches start out near home
@@ -427,7 +427,7 @@ fn hs_buzz(w: &World, c: usize) -> bool {
 /// biggest, by prestige. NFL teams pay by owner, and the NFL paid about twice
 /// what college did in the 1990s, until top college pay caught up by the
 /// mid-2010s.
-fn salary(w: &World, e: Employer, role: Role) -> f64 {
+pub(crate) fn salary(w: &World, e: Employer, role: Role) -> f64 {
     let pick = |r: [(f64, f64); 3]| match role {
         Role::HeadCoach => r[0],
         Role::OffensiveCoordinator | Role::DefensiveCoordinator => r[1],

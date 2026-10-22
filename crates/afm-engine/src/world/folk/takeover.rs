@@ -113,9 +113,7 @@ pub fn begin(w: &mut World) {
 /// players (15 days, starting five days after the hire, from 2025; 30 days
 /// in the 2022-24 windows era) and pushes the "his head coach is gone" lean.
 fn coach_change_window(w: &mut World, p: usize, d0: Date) {
-    use crate::world::high_school::TransferRule as _Unused;
-    let _ = std::marker::PhantomData::<_Unused>;
-    let rule = w.changes.rules(w.year).transfer;
+    let rule = w.rules.transfer;
     let days = match rule {
         crate::calendar::rules::TransferRule::Windows => Some(30),
         crate::calendar::rules::TransferRule::January => Some(15),
@@ -976,7 +974,7 @@ fn holdover_room(w: &mut World, s: &mut Scene, team: Team) {
         let word = staff_word(w, *c);
         doc.rows.push(DocRow {
             pid: None,
-            cells: vec![coach_link(w, *c), role.name().into(), since.to_string(), crate::world::folk::rep_words(co.reputation).into(), tree.into(), word],
+            cells: vec![coach_link(w, *c), role.name().into(), since.to_string(), super::rep_words(co.reputation).into(), tree.into(), word],
         });
     }
     s.docs.push(doc);
@@ -1196,7 +1194,7 @@ fn report_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
                 let p = &mut w.people[c];
                 p.trust = (p.trust + 0.07).min(1.0);
             }
-            w.folk.hours += 3.0;
+            super::talks::charge(w, 3.0);
             s.outcome.push("You met each leader alone. It took an afternoon and they noticed.".into());
         }
         60 => {
@@ -1611,7 +1609,7 @@ fn recruiting(w: &mut World, s: &mut Scene, team: Team) {
 
 fn recruiting_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
     let n = recruiting_calls(w, team, code == 90);
-    w.folk.hours += if code == 90 { 4.0 } else { 1.5 };
+    super::talks::charge(w, if code == 90 { 4.0 } else { 1.5 });
     s.outcome.push(format!("{n} commits heard from {}.", if code == 90 { "you" } else { "your staff, the top three from you" }));
     s.end();
 }
@@ -2284,4 +2282,13 @@ pub(crate) fn day(w: &mut World, d: Date) {
     }
     let _ = Level::College;
     let _ = Pen::loose;
+}
+
+/// The first letter in capitals.
+pub fn cap_first(s: &str) -> String {
+    let mut c = s.chars();
+    match c.next() {
+        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+        None => String::new(),
+    }
 }

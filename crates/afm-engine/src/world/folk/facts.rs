@@ -484,3 +484,65 @@ pub fn assistants(w: &World, team: Team) -> Vec<(usize, Role)> {
     let _ = Employer::College(0);
     v
 }
+
+/// Whether he is gone before next season starts: leaving after this one,
+/// or already out of football.
+pub fn leaving_now(w: &World, i: usize) -> bool {
+    w.people[i].stage == crate::world::Stage::Done || (leaving(w, i) && w.people[i].stage != crate::world::Stage::Pro)
+}
+
+/// A team's games this season: (date, opponent, at home).
+pub fn team_games(w: &World, team: Team) -> Vec<(Date, Team, bool)> {
+    let mut v: Vec<(Date, Team, bool)> = match team {
+        Team::College(p) => w
+            .college_fixtures(Some(p))
+            .into_iter()
+            .filter(|f| !f.cancelled)
+            .map(|f| (f.date, Team::College(if f.home == p { f.away } else { f.home }), f.home == p))
+            .collect(),
+        Team::Nfl(t) => w
+            .nfl_fixtures(Some(t))
+            .into_iter()
+            .filter_map(|f| Some((f.when?, Team::Nfl(if f.home == t { f.away } else { f.home }), f.home == t)))
+            .collect(),
+        Team::High(h) => {
+            w.hs_fixtures(h).into_iter().map(|f| (f.date, Team::High(if f.home == h { f.away } else { f.home }), f.home == h)).collect()
+        }
+    };
+    v.sort_by_key(|x| x.0);
+    v
+}
+
+/// Your team's last game kept whole: (won, our points, theirs, opponent).
+pub fn last_game(w: &World, team: Team) -> Option<(bool, i32, i32, Team)> {
+    let (k, i) = team.parts();
+    let g = w.seat_games.iter().rev().find(|g| g.teams.contains(&i) && (k == "nfl") == (g.level == Level::Nfl))?;
+    let side = if g.teams[0] == i { 0 } else { 1 };
+    let (us, them) = (g.stats.score[side], g.stats.score[1 - side]);
+    let opp = g.teams[1 - side];
+    let o = match team {
+        Team::College(_) => Team::College(opp),
+        Team::Nfl(_) => Team::Nfl(opp),
+        Team::High(_) => Team::High(opp),
+    };
+    Some((us > them, us, them, o))
+}
+
+/// Your team's record this season from the games kept whole.
+pub fn record_now(w: &World, team: Team) -> (u32, u32) {
+    let (k, i) = team.parts();
+    let start = match team.level() {
+        Level::Nfl => w.dates.preseason[2].add(3),
+        _ => w.dates.fall_camp,
+    };
+    let mut r = (0, 0);
+    for g in w.seat_games.iter().filter(|g| g.date >= start && g.teams.contains(&i) && (k == "nfl") == (g.level == Level::Nfl)) {
+        let side = if g.teams[0] == i { 0 } else { 1 };
+        if g.stats.score[side] > g.stats.score[1 - side] {
+            r.0 += 1;
+        } else {
+            r.1 += 1;
+        }
+    }
+    r
+}

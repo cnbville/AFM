@@ -19,6 +19,7 @@
 pub mod boss;
 pub mod cast;
 pub mod courts;
+pub mod facts;
 pub mod life;
 pub mod network;
 pub mod press;
@@ -275,6 +276,32 @@ pub struct Folk {
     pub discipline: rules::LeagueBook,
     /// Your players' dated mood reasons this season (topic 3), by player id.
     pub moods: Vec<(u32, Vec<(Date, u8, i8)>)>,
+    /// Your hire's coaching-change window (T-B): program, opens, closes.
+    pub window: Option<(usize, Date, Date)>,
+    /// While the window opens: the portal runs for this program alone.
+    pub window_only: Option<usize>,
+    /// The trainer's report: you pushed rehab to be ready for spring.
+    pub pushed_rehab: bool,
+    /// The recruiting coordinator's calls to wobbling commits: program, day,
+    /// and whether you made them all yourself.
+    pub commit_calls: Option<(usize, Date, bool)>,
+    /// Your stance with the press: 0 open door, 1 closed, 2 fair to all.
+    pub media_policy: u8,
+    /// The tones of your last team talks (a tone used too often wears out).
+    pub mine_tones: Vec<u8>,
+    /// Your lines to the position coaches, by player id.
+    pub lines: Vec<(u32, talks::Line)>,
+    /// Players out by your discipline, a family leave or a rest: (id,
+    /// through, why).
+    pub out: Vec<(u32, Date, String)>,
+    /// Benched for the start of the next game.
+    pub benched: Vec<(u32, Date)>,
+    /// Players you brought back early from an injury (P3), and when.
+    pub rushed: Vec<(u32, Date)>,
+    /// Bulletin-board material you handed a rival: who and when.
+    pub bulletin: Option<(Team, Date)>,
+    /// "A fence around the state": the state and when you said it.
+    pub fence: Option<(usize, Date)>,
 }
 
 /// Fills what a world built before this build lacks (an old world or save
@@ -284,6 +311,12 @@ pub fn after_load(w: &mut World) {
         w.folk.base = w.options.seed.rotate_left(7) ^ 0xF01C_5EED;
     }
     staffing::ensure(w);
+    if w.seat.is_some() && w.folk.mine.team.is_none() {
+        // A save from before this build: you're at your job already, so
+        // the people start from where you are without the first weeks.
+        w.folk.mine = Mine { team: Team::seat(w), since: Some(w.today.add(-60)), ..Default::default() };
+        network::build(w);
+    }
 }
 
 /// One day on the clock: the world's people (weekly and yearly steps) and
@@ -369,4 +402,16 @@ pub fn count_words(n: usize) -> String {
 /// A record in words: "9-4".
 pub fn record(w: u32, l: u32) -> String {
     format!("{w}-{l}")
+}
+
+/// A coach's reputation in words (1-20, public).
+pub fn rep_words(r: f64) -> &'static str {
+    match r {
+        x if x >= 17.0 => "one of the best in the game",
+        x if x >= 14.0 => "highly regarded",
+        x if x >= 11.0 => "well regarded",
+        x if x >= 8.0 => "solid",
+        x if x >= 5.0 => "little known",
+        _ => "unproven",
+    }
 }
