@@ -775,6 +775,14 @@ pub(crate) fn yours_test(w: &World) -> impl Fn(&afm_engine::calendar::Event) -> 
     }
 }
 
+/// Your own day's lines (meetings, talks, your staff's news): `Slot` lines
+/// about your team. A high school line carries no team, and the world posts
+/// one only for a high school seat, so every one is yours.
+pub(crate) fn my_slot_test(w: &World) -> impl Fn(&afm_engine::calendar::Event) -> bool + use<> {
+    let yours = yours_test(w);
+    move |e| e.kind == afm_engine::calendar::Kind::Slot && (e.level == CalLevel::HighSchool || yours(e))
+}
+
 /// Turns the linked names of lines into the screens' parts (L2): plain text
 /// `{t}`, or a link `{t, go, kind?, id?, index?}` that `app.js` opens. A
 /// person is linked while he is in the world; a game opens its game page
@@ -1074,14 +1082,15 @@ pub fn calendar(w: &World) -> Value {
             items.push((g.0, g.1, "game", true, g.2, None, None));
         }
     }
-    // Moments already set for days ahead.
+    // Moments already set for days ahead, and your own meetings.
+    let my_slot = my_slot_test(w);
     for (d, evs) in w.calendar.events.range(w.today..) {
-        for e in evs.iter().filter(|e| e.loud >= Loudness::Big) {
+        for e in evs.iter().filter(|e| e.loud >= Loudness::Big || e.loud >= Loudness::Medium && my_slot(e)) {
             items.push((
                 *d,
                 e.text.to_string(),
                 e.loud.name(),
-                seat.is_some_and(|s| s.cares(e)),
+                my_slot(e) || seat.is_some_and(|s| s.cares(e)),
                 e.refs.clone(),
                 e.program,
                 e.nfl_team,
@@ -1778,6 +1787,7 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
         "mine": own,
         "home": hometown(w, p),
         "high_school": w.high_schools.get(p.hs).map(|s| w.school_name(s.id).to_string()),
+        "high_school_id": w.high_schools.get(p.hs).map(|_| p.hs),
         "ht": ft_in(p.player.body.height),
         "wt": p.player.body.weight.round(),
         "arm": p.player.body.arm,

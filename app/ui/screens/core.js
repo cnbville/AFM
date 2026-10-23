@@ -1296,6 +1296,9 @@ function playerTabs(p) {
   }
   return list;
 }
+// A school named for its town reads as the town on its own ("Prattville,
+// AL · Prattville"): say it's the high school.
+const hsName = (n) => (/\b(High|Academy|School|Prep|Institute|Catholic|Christian|Military)\b/i.test(n) ? n : `${n} High`);
 screens.player = async (a) => {
   const p = await api("profile", { id: a.id });
   const c = p.colors || ["#2a2f3a", "#111"];
@@ -1315,7 +1318,7 @@ screens.player = async (a) => {
     <div class="phero-in">${face({ ...p, colors: c }, 132)}<div class="copy">
       <div class="st-label"><span class="pos" title="${esc(posHist || p.pos)}">${esc(p.pos)}</span> · ${esc(p.class)} · ${p.team ? teamA(p.team) : esc(p.where)}</div>
       <h1>${esc(p.name)}</h1>
-      <div class="meta"><span>Age <b>${p.age}</b></span><span><b>${esc(p.ht)}</b>, <b>${p.wt}</b> lb</span><span>${esc(p.home)}</span>${p.high_school ? `<span>${esc(p.high_school)}</span>` : ""}${p.stars ? `<span>${stars(p.stars)}</span>` : ""}${p.status ? `<span class="st-pill live">${esc(p.status)}</span>` : ""}${lr}</div>
+      <div class="meta"><span>Age <b>${p.age}</b></span><span><b>${esc(p.ht)}</b>, <b>${p.wt}</b> lb</span><span>${esc(p.home)}</span>${p.high_school ? `<span>${p.high_school_id != null ? `<a class="link team" data-go="team" data-kind="hs" data-id="${p.high_school_id}">${esc(hsName(p.high_school))}</a>` : esc(hsName(p.high_school))}</span>` : ""}${p.stars ? `<span>${stars(p.stars)}</span>` : ""}${p.status ? `<span class="st-pill live">${esc(p.status)}</span>` : ""}${lr}</div>
       <div class="st-actions">${listBtn}<button class="st-btn glass" data-act="pnote" data-id="${p.id}" data-name="${esc(p.name)}">${icon("note")} Add a note</button><button class="st-btn glass" data-act="pcmp" data-id="${p.id}">Compare</button></div></div></div></div>
     <div class="pad">${gotoFor("player", a, p)}${tabs("ptab", list, tab)}<div class="tabbody">${body}</div></div>`;
 };

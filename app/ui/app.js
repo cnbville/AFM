@@ -228,6 +228,7 @@ const I = {
   note: '<path d="M5 3h10l4 4v14H5z M15 3v4h4 M8 11h8M8 15h8M8 19h5"/>',
   leader: '<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>',
   bracket: '<path d="M3 5h5v4h4 M3 13h5V9 M3 15h5v4h4 M3 23h5v-4 M12 7v14 M12 14h9"/>',
+  fold: '<path d="M8 10l4 4 4-4"/>',
 };
 const icon = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${I[k] || ""}</svg>`;
 
@@ -274,10 +275,15 @@ function frame(content, crumb) {
   const navHtml = NAV_SECS.map(([sec, name]) => {
     const items = NAV.filter((n) => n.sec === sec && (!n.seats || !seat || n.seats.includes(seat)) && (!n.show || n.show()) && screens[n.go]);
     if (!items.length) return "";
-    return (name ? `<div class="sec st-label">${name}</div>` : "") + items.map((n) => {
+    // A named section folds away on a click of its name (kept between
+    // sessions); the section of the screen you're on stays open.
+    const here = items.some((n) => n.go === S.route.screen);
+    const shut = !!name && !here && (prefs.navShut || []).includes(sec);
+    const head = name ? `<button class="sec st-label" data-act="navsec" data-sec="${sec}" aria-expanded="${!shut}">${name}${icon("fold")}</button>` : "";
+    return head + `<div class="navgrp" data-sec="${sec}"${shut ? " hidden" : ""}>${items.map((n) => {
       const b = n.badge ? n.badge() : 0;
       return `<button class="nav" data-nav="${n.go}" aria-current="${S.route.screen === n.go}">${icon(n.icon)}<span>${esc(n.label)}</span>${b ? `<em class="badge">${b > 99 ? "99+" : b}</em>` : ""}</button>`;
-    }).join("");
+    }).join("")}</div>`;
   }).join("");
   const next = st.next && st.next[0];
   return `<div class="frame">
@@ -698,6 +704,17 @@ document.addEventListener("click", async (ev) => {
     case "crumb": goBackTo(Number(d.n)); break;
     case "continue": cont(); break;
     case "theme": prefs.theme = prefs.theme === "light" ? "" : "light"; savePrefs(); applyPrefs(); break;
+    case "navsec": {
+      const grp = el.nextElementSibling;
+      const open = grp && grp.hidden;
+      if (grp) grp.hidden = !open;
+      el.setAttribute("aria-expanded", String(!!open));
+      const shut = new Set(prefs.navShut || []);
+      if (open) shut.delete(d.sec); else shut.add(d.sec);
+      prefs.navShut = [...shut];
+      savePrefs();
+      break;
+    }
     case "save": {
       if (S.busy) break;
       const name = await ask("Save your career", { value: S.lastSaveName || `${S.status && S.status.mine ? S.status.mine.name : (S.status && S.status.you) || "career"} ${S.status ? S.status.season : ""}`, ok: "Save", note: "A save with the same name is replaced." });
