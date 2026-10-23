@@ -322,7 +322,22 @@
   // The field as paint. The 3D view asks for the grass as it is under the
   // sun (`natural`): less of the screen's saturated green, so lit and tone
   // mapped it still reads as turf.
-  function paintField(film, opts = {}) {
+  // A team's monogram for the midfield mark, the way real fields carry one:
+// an NFL club's city (KC, NY, SF, a lone C for Chicago), a college's own
+// acronym (UCLA, LSU) or its block letter (M, O), a high school's initials.
+function monogram(name, level) {
+  const words = String(name || "").split(/\s+/).filter(Boolean);
+  if (level === "nfl" && words.length > 1) words.pop();
+  const caps = (w) => /^[A-Z&]{2,4}$/.test(w);
+  if (words.length === 1 && caps(words[0])) return words[0].replace(/&/g, "");
+  const kept = words.filter((w) => /^[A-Z]/.test(w) && !/^(State|University|High|School|HS|Academy|Prep)$/.test(w));
+  const use = kept.length ? kept : words;
+  if (!use.length) return "";
+  if (use.length === 1) return use[0][0].toUpperCase();
+  return use.map((w) => (caps(w) ? w.replace(/&/g, "") : w[0].toUpperCase())).join("").slice(0, 3);
+}
+
+function paintField(film, opts = {}) {
     const ix = film.ix, v = ix.venue, home = ix.teams[0], u = film.uni[0];
     const nat = !!opts.natural;
     const W = (FIELD_W + 2 * MARGIN_X) * PX, H = (FIELD_H + 2 * MARGIN_Y) * PX;
@@ -458,8 +473,8 @@
         g.restore();
       }
     }
-    // The midfield mark: the home team's initials in a ring.
-    const ini = String(home.short || home.name).replace(/[^A-Z]/g, "").slice(0, 3) || String(home.name).slice(0, 2).toUpperCase();
+    // The midfield mark: the home team's monogram in a ring.
+    const ini = monogram(home.name, ix.level);
     g.save();
     g.translate(X(60), Y(mid));
     g.fillStyle = mixHex(home.colors[0], "#000", 0.1);
@@ -470,8 +485,8 @@
     g.fill();
     g.stroke();
     g.fillStyle = nameColor;
-    g.font = `900 ${3.4 * PX}px Archivo, "Arial Black", sans-serif`;
-    g.fillText(ini, 0, 0.2 * PX);
+    g.font = `900 ${[3.6, 3.6, 3.0, 2.4][ini.length - 1] * PX}px Archivo, "Arial Black", sans-serif`;
+    g.fillText(ini, 0, 0.2 * PX, 7 * PX);
     g.restore();
     // The team areas: between the 25s (the 32s in the NFL), the coaching
     // box in front, the benches behind. Home on the near side.
