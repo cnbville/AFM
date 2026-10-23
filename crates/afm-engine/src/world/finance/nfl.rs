@@ -662,6 +662,10 @@ pub(crate) fn demand(w: &World, t: usize, opp: usize, d: Date, preseason: bool, 
 
 /// A home game is played: its gate, the blackout check and the money.
 pub(crate) fn gate(w: &mut World, t: usize, opp: usize, d: Date, preseason: bool, playoff: bool) -> Gate {
+    // A season played without the books open (a bare test season): no gate.
+    if t >= w.finance.nfl.len() {
+        return Gate { date: d, opp: opp as u8, attendance: 0, sold_out: false, blackout: false, preseason, playoff };
+    }
     let year = w.year;
     let x = demand(w, t, opp, d, preseason, playoff);
     let c = &w.finance.nfl[t];
