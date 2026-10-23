@@ -226,7 +226,7 @@ fn main() {
             };
             let seed = seed as u64 * 1_000_003 + g as u64;
             match book {
-                Some((b, y)) => afm_engine::game::quick_game_book(&teams[h], &teams[a], b, y, seed, venue),
+                Some((b, y)) => afm_engine::game::quick_game_book(&teams[h], &teams[a], b, y, seed, venue, false),
                 None => quick_game_in(&teams[h], &teams[a], level, seed, Default::default(), venue),
             }
         })

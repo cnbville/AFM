@@ -1169,14 +1169,36 @@ fn side(w: &World, k: u8, fr: usize, year: i32) -> Option<Side> {
     let mut who = HashMap::new();
     let mut players = Vec::new();
     let mut nationals: HashSet<u32> = HashSet::new();
+    // A spring league's teams meet in a three-week camp, most of them new
+    // to each other and to the playbook: they know less of it than a club
+    // whose players come back (proposed, not confirmed: 0.9 of the CFL's
+    // and arena football's knowledge, which keep their players year on
+    // year).
+    let camp = if matches!(k, CFL | AFL1 | AFL2) { 1.0 } else { 0.9 };
+    let mut line_back = 0;
     for &i in &team.roster {
         let p = &w.people[i as usize];
         let Some(c) = p.pro.as_ref() else { continue };
         if c.out_weeks > 0 || p.stage != Stage::Pro {
             continue;
         }
-        let here = c.other.iter().filter(|s| s.team as usize == fr).count() as f64;
-        let know = clamp(0.84 + 0.04 * here, 0.0, 0.95);
+        // Seasons in this playbook, as the NFL counts them (`pro::games`):
+        // with this team, this one counted, read through his football mind.
+        let before = c.other.iter().filter(|s| s.team as usize == fr && s.year < year).count();
+        let here = before as f64 + 1.0;
+        let iq = 0.5
+            * (p.player.attributes.get(crate::attributes::Attr::FootballIq)
+                + p.player.attributes.get(crate::attributes::Attr::PlayRecognition));
+        let mind = clamp(0.92 + 0.08 * (iq - 60.0) / 25.0, 0.82, 1.04);
+        let know = clamp(0.82 + 0.05 * here, 0.0, 0.97) * 0.92 * camp * mind;
+        // Linemen who started up front here last season (the NFL's rule).
+        if matches!(p.player.position, Position::OT | Position::IOL)
+            && c.other
+                .iter()
+                .any(|s| s.team as usize == fr && s.year == year - 1 && s.games > 0 && 2 * s.starts >= s.games)
+        {
+            line_back += 1;
+        }
         let experience = p.college_snaps as f64 / crate::world::season::SEASON_SNAPS as f64
             + c.seasons.iter().map(|s| (s.snaps[0] + s.snaps[1]) as f64).sum::<f64>() / 1000.0
             + c.other.iter().map(|s| s.games as f64).sum::<f64>() / 18.0;
@@ -1205,6 +1227,9 @@ fn side(w: &World, k: u8, fr: usize, year: i32) -> Option<Side> {
     staff.year = year;
     let mut t = GameTeam::new(name(fr, year).to_string(), players, staff);
     t.give_orders(crate::player::Level::NFL);
+    // A line that played together last year (the NFL's rule); a new
+    // team's line has just met.
+    t.line_chem = 0.25 + 0.15 * line_back.min(5) as f64;
     if k == CFL {
         t.order = ratio_starters(&t.players, &nationals, ratio(year).1);
     }
@@ -1312,7 +1337,7 @@ fn play_week(w: &mut World, d: Date, li: usize, f: &Format) {
             let (Some(Some(sh)), Some(Some(sa))) = (sides.get(&h), sides.get(&a)) else { return None };
             // A title game is at a neutral site (the Grey Cup's host city).
             let venue = Venue { neutral: round > 0 && last_round(f, &w.others.live[li]), ..Venue::default() };
-            Some(crate::game::quick_game_book(&sh.team, &sa.team, bk, year, seed ^ g as u64 * 7919, venue))
+            Some(crate::game::quick_game_book(&sh.team, &sa.team, bk, year, seed ^ g as u64 * 7919, venue, round > 0))
         })
         .collect();
     for (g, r) in results.into_iter().enumerate() {

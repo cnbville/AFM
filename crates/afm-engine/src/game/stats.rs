@@ -1102,7 +1102,8 @@ impl GameStats {
                     let l = self.line(d, pr);
                     l.pr += 1;
                     l.pr_yds += r.return_yards;
-                    l.pr_td += r.touchdown as u32;
+                    // A muff the punting team scores on isn't his touchdown.
+                    l.pr_td += (r.touchdown && !r.turnover) as u32;
                 }
                 self.team[o].punts += 1;
             }
@@ -1116,7 +1117,7 @@ impl GameStats {
                     let l = self.line(d, kr);
                     l.kr += 1;
                     l.kr_yds += r.return_yards;
-                    l.kr_td += r.touchdown as u32;
+                    l.kr_td += (r.touchdown && !r.turnover) as u32;
                 }
             }
             _ => {}

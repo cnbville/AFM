@@ -316,6 +316,36 @@ Section 6 on your side. The world side is `world/folk/` (`docs/world-model.md`, 
 - Your staff's expectation is shown only in one-on-ones (the other scenes' answers show what they tend to do).
 - A meeting set for a later day shows its date and place and can only be handed; it opens on its morning.
 
+## Money and the other leagues (final build, lane 4)
+
+The game side is `crates/afm-game/src/lane_money.rs` (`money_books`, `money_league`, `money_card`, `money_ask_facility`, `money_hs_act`) and `lane_money/leagues.rs` (`leagues`, `league_team`). The screens are `app/ui/screens/money.js` and `money.css`, on lane 9's helpers. The world side is in `docs/world-model.md`, "Money and the other leagues".
+
+- **Finances** (team section of the sidebar, `money`): what your seat can see of your own club's books, and what is published about anyone else's.
+  - **NFL head coach:** Overview, Football budget, Gate and Report card. You see your club's published numbers and the football budgets you spend (coaches, scouting, medical, travel, player amenities). The owner keeps the rest of the books. Another club shows its estimates, stadium, gate and card.
+  - **College head coach:** Overview, Football budget, Department and Gate. Football's lines are on one tab, the athletic department's published report on another. Once a year, Ask for a building puts a facility project to your AD. A private school publishes only its federal (EADA) totals.
+  - **High school head coach:** Overview, Equipment, Fundraisers and Ledger. You see your program's money in full. You spend the equipment budget item by item, run the booster club's fundraisers, and ask the district for more once a year. Another high school's books aren't published.
+- **League money** (`money_league`): every NFL club's and every college's revenue, expenses, the university's support and the crowd, as sortable tables. Each conference's media deal is shown with its end year.
+- **Report cards:** the NFLPA's grades on your club's page and its Finances tab. Every club's card is public in 2023-24. From 2025 you see only your own.
+- **Betting lines:** your schedule and game pages show each game's spread and over/under, and after the game whether you covered and whether it went over. A coach's page shows his record against the spread.
+- **Conference moves:** your inbox shows the moves your seat would hear about, on 1 July, the day each takes effect (`docs/world-model.md`, 1a and 1b).
+- **Other leagues** (world section of the sidebar, `leagues`): pick a league and a year.
+  - **Season:** the standings by division, the weeks' scores and the playoffs.
+  - **Champions:** every title game by year.
+  - **Teams:** every club with its seasons.
+  - **Rules:** the year's rule book in plain words.
+  - **Draft (the CFL only):** each year's picks with their U Sports schools.
+- **An other-league club's page** (`league_team`, also through any team link): its staff, roster (nationals marked under the CFL), seasons, games and upcoming schedule, record and pay.
+- **Player pages:** a player's other-league seasons sit in his Stats with his college and NFL lines, sorted by year. "Now" names his club when he plays in another league. A Canadian's hometown and school come from his U Sports program.
+- **Coach pages:** an other-league job shows as the club and league, in his history and in the coach search.
+
+Your own career can't take an other-league job yet (`docs/world-model.md`, "The other leagues as full leagues").
+
+### Decided in the final build (Claude's pick)
+
+- **Who sees what:** what each seat sees of the books follows what is really published. NFL clubs publish nothing but the Packers' report, so another club is estimated. Public colleges publish their NCAA report and private ones only the federal totals. High schools publish nothing.
+- **The high school ledger** keeps the last 200 entries.
+- **Equipment:** the equipment budget's running costs are paid first, and you spend what's left.
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The choice screens where the AI still decides for your team: the draft board and war room; game plans, playbook and installs; scouting assignments. (The NFL, college and high school front offices and the setup leftovers are built: "Your front office" above. Talks, team rules, press conferences, bosses and goals and hiring and firing staff are built: "People" above.)

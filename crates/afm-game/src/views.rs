@@ -783,7 +783,7 @@ pub(crate) fn where_now(w: &World, p: &Person) -> String {
             Some((Some(t), _)) => w.nfl_team_name(t),
             Some((None, afm_engine::world::pro::Status::Other(k))) => {
                 use afm_engine::world::pro::other;
-                match w.others.team_of(p.player.id as usize) {
+                match person_index(w, p.player.id).and_then(|i| w.others.team_of(i)) {
                     Some(fr) => format!("{} ({})", other::name(fr, w.year), other::league_short(k)),
                     None => format!("Between teams ({})", other::league_short(k)),
                 }

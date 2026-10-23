@@ -69,7 +69,7 @@ fn the_cfl_and_arena_books_score_like_their_leagues() {
         let mut pts = 0.0;
         for g in 0..games {
             let (h, a) = (2 * (g % 4), 2 * (g % 4) + 1);
-            let r = quick_game_book(&teams[h], &teams[a], book, year, 4_400_017 + g as u64, Venue::default());
+            let r = quick_game_book(&teams[h], &teams[a], book, year, 4_400_017 + g as u64, Venue::default(), false);
             pts += (r.stats.score[0] + r.stats.score[1]) as f64;
         }
         let per = pts / (2 * games) as f64;

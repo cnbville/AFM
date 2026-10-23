@@ -1276,9 +1276,23 @@ impl<'a> Game<'a> {
         }
         self.running = false;
         self.after_turnover = false;
-        if kr.recovered_by_kicking {
+        let kick_x = if onside { goal() - kr.spot } else { kr.spot };
+        if kr.recovered_by_kicking && kick_x >= goal() {
+            // Fumbled in the returner's own end zone and recovered there by
+            // the kicking team: their touchdown.
             self.poss = team;
-            self.x = if onside { goal() - kr.spot } else { kr.spot };
+            r.touchdown = true;
+            r.turnover = true;
+            r.why = "Fumbled in the end zone and recovered by the kicking team for a touchdown.".into();
+            self.stats.book(&r);
+            self.stats.plays.push(r);
+            self.add_points(team, 6);
+            self.next = Next::Pat(team);
+            self.drive_start_poss = team;
+            return;
+        } else if kr.recovered_by_kicking {
+            self.poss = team;
+            self.x = kick_x.clamp(1.0, goal() - 1.0);
             r.turnover = true;
             r.why = if onside {
                 "Onside kick recovered by the kicking team.".into()
@@ -1614,11 +1628,11 @@ impl<'a> Game<'a> {
         };
         let own = yours_fourth.is_some() || yours_call.is_some();
         if let Some(f) = yours_fourth.filter(|f| *f != FourthDown::Go) {
-            let yl = 100.0 - self.x;
+            let yl = goal() - self.x;
             if f == FourthDown::Punt {
                 self.punt();
             } else {
-                self.field_goal(yl + 17.0);
+                self.field_goal(yl + kick_add());
             }
             return;
         }
@@ -2051,6 +2065,21 @@ impl<'a> Game<'a> {
             self.poss = d;
             self.drive_start_poss = o;
             self.next = Next::Pat(d);
+            return;
+        }
+        if kr.recovered_by_kicking && kr.spot >= goal() {
+            // Muffed in the returner's end zone and recovered there by the
+            // punting team: their touchdown.
+            r.touchdown = true;
+            r.turnover = true;
+            r.why = format!("{} Muffed in the end zone and recovered by the punting team for a touchdown.", r.why);
+            r.epa = 6.95 - r.ep_before;
+            self.stats.book(&r);
+            self.stats.plays.push(r);
+            self.add_points(o, 6);
+            self.poss = o;
+            self.drive_start_poss = o;
+            self.next = Next::Pat(o);
             return;
         }
         if kr.recovered_by_kicking {
@@ -3570,7 +3599,7 @@ impl<'a> Game<'a> {
     }
 
     fn stop_ctx(&self) -> StopCtx {
-        let yl = 100.0 - self.x;
+        let yl = goal() - self.x;
         StopCtx {
             down: self.down,
             yardline_100: yl,
@@ -3617,7 +3646,7 @@ impl<'a> Game<'a> {
     pub(crate) fn view(&self) -> View {
         let len = 4.0 * self.rules().quarter;
         let o = self.poss;
-        let ep = tables::expected_points(self.down.max(1), self.togo, 100.0 - self.x);
+        let ep = tables::expected_points(self.down.max(1), self.togo, goal() - self.x);
         let lead = self.diff(0) as f64;
         let left = if self.ot { 300.0f64.min(self.clock) } else { self.game_left() };
         let wp_home = if self.over {
@@ -3671,8 +3700,8 @@ impl<'a> Game<'a> {
         };
         let o = self.poss;
         if ask == Ask::Snap {
-            let yl = 100.0 - self.x;
-            let dist = yl + 17.0;
+            let yl = goal() - self.x;
+            let dist = yl + kick_add();
             if dist <= self.kicker_range(o) + 6.0 {
                 p.fg_make = Some(self.fg_make_estimate(o, dist));
             }
@@ -3992,7 +4021,8 @@ impl<'a> Game<'a> {
 
     /// What a ruling is worth to the offense, in expected points.
     fn ruling_value(&self, r: &SnapResult) -> f64 {
-        let ep = |down: u8, togo: f64, x: f64| tables::expected_points(down, togo, 100.0 - x.clamp(1.0, 99.0));
+        // The tables are in yards to the goal on any field.
+        let ep = |down: u8, togo: f64, x: f64| tables::expected_points(down, togo, goal() - x.clamp(1.0, goal() - 1.0));
         if r.touchdown && !r.turnover {
             return 6.95;
         }
@@ -4000,14 +4030,14 @@ impl<'a> Game<'a> {
             return -6.95;
         }
         if r.turnover {
-            return -tables::expected_points(1, 10.0, r.spot.clamp(1.0, 99.0));
+            return -tables::expected_points(1, 10.0, r.spot.clamp(1.0, goal() - 1.0));
         }
         let spot = if r.result == scrimmage::Result::Incomplete { self.x } else { r.spot };
         let line = self.x + self.togo;
         if spot >= line {
-            ep(1, 10.0f64.min(100.0 - spot), spot)
+            ep(1, 10.0f64.min(goal() - spot), spot)
         } else if self.down >= 4 {
-            -tables::expected_points(1, 10.0, spot.clamp(1.0, 99.0))
+            -tables::expected_points(1, 10.0, spot.clamp(1.0, goal() - 1.0))
         } else {
             ep(self.down + 1, line - spot, spot)
         }
@@ -4041,12 +4071,12 @@ impl<'a> Game<'a> {
             alt.notes.recovered = None;
             let ahead =
                 if truth.result == R::Complete { truth.air_yards + 1.0 } else { truth.before_contact.max(0.0) + 1.5 };
-            alt.spot = (los + ahead).clamp(los - 10.0, 99.4);
+            alt.spot = (los + ahead).clamp(los - 10.0, (goal() - 0.6).max(los - 10.0));
             Some((CloseCall::Fumble, 0.5, false))
         } else if truth.touchdown && !truth.turnover && !truth.defense_td {
             alt.touchdown = false;
-            alt.spot = 99.4;
-            Some((CloseCall::GoalLine, if los >= 95.0 { 0.2 } else { 0.05 }, true))
+            alt.spot = goal() - 0.6;
+            Some((CloseCall::GoalLine, if los >= goal() - 5.0 { 0.2 } else { 0.05 }, true))
         } else if truth.result == R::Complete {
             alt.result = R::Incomplete;
             alt.spot = los;
@@ -4066,18 +4096,18 @@ impl<'a> Game<'a> {
         } else if truth.result == R::Incomplete && !truth.throw_away && truth.target.is_some() {
             alt.result = R::Complete;
             alt.carrier = truth.target;
-            alt.spot = (los + truth.air_yards).min(100.0);
-            alt.touchdown = alt.spot >= 100.0;
+            alt.spot = (los + truth.air_yards).min(goal());
+            alt.touchdown = alt.spot >= goal();
             alt.yac = 0.0;
             Some((CloseCall::Catch, 0.05, false))
-        } else if !truth.touchdown && !truth.turnover && (98.5..100.0).contains(&truth.spot) {
+        } else if !truth.touchdown && !truth.turnover && (goal() - 1.5..goal()).contains(&truth.spot) {
             alt.touchdown = true;
-            alt.spot = 100.0;
+            alt.spot = goal();
             Some((CloseCall::GoalLine, 0.25, false))
         } else if matches!(truth.result, R::Run | R::Complete | R::Scramble)
             && !truth.turnover
             && (truth.spot - line).abs() < 0.5
-            && line < 100.0
+            && line < goal()
         {
             // A spot against the line to gain matters most on 3rd and 4th
             // down, but a first down is a first down on any.
@@ -4367,9 +4397,12 @@ pub fn quick_game_book(
     year: i32,
     seed: u64,
     venue: Venue,
+    playoff: bool,
 ) -> GameResult {
     let mut s = GameSetup::new(home, away, Level::NFL, seed);
     s.rules = Rules::for_book(book, year);
+    // A playoff game plays its overtime out: no ties.
+    s.playoff = playoff;
     s.cond = venue.cond;
     s.neutral = venue.neutral;
     s.wear = venue.wear;
