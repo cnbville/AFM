@@ -39,3 +39,36 @@ fn player_lines_stay_on_their_own_team() {
         assert!(ints >= 20, "{level:?}: only {ints} interceptions in 60 games");
     }
 }
+
+/// Chemistry (X5): the same offense completes more with its receivers in
+/// step with the quarterback than with a cold group, by a few points, and a
+/// cold secondary gives up more. Typical chemistry changes nothing.
+#[test]
+fn chemistry_moves_completions_a_little() {
+    use crate::positions::Position;
+    let level = Level::NFL;
+    let teams = synthetic_league(level, 2, 31);
+    let with = |chem: f32, pos: &[Position], t: &crate::game::roster::GameTeam| {
+        let mut t = t.clone();
+        for p in t.players.iter_mut().filter(|p| pos.contains(&p.position) || p.position == Position::QB) {
+            p.chem = chem;
+        }
+        t
+    };
+    let rate = |off: &crate::game::roster::GameTeam, def: &crate::game::roster::GameTeam| {
+        let (mut c, mut a) = (0u32, 0u32);
+        for g in 0..120u64 {
+            let res = quick_game(off, def, level, 91_000 + g);
+            for r in res.stats.plays.iter().filter(|r| r.offense == 0 && r.target.is_some()) {
+                a += 1;
+                c += r.complete as u32;
+            }
+        }
+        c as f64 / a.max(1) as f64
+    };
+    let recv = [Position::WR, Position::TE, Position::RB];
+    let warm = rate(&with(0.95, &recv, &teams[0]), &teams[1]);
+    let cold = rate(&with(0.05, &recv, &teams[0]), &teams[1]);
+    let gap = warm - cold;
+    assert!(gap > 0.01 && gap < 0.08, "warm {warm:.3} cold {cold:.3}");
+}

@@ -1576,6 +1576,25 @@ fn trial1_notes(w: &World, years: u32) {
     if let Some(a) = w.alumni.iter().filter(|a| a.pick == Some(1)).max_by_key(|a| a.year) {
         println!("last number 1 pick: {} ({}), {}", a.name, a.position.name(), a.notes.last().unwrap());
     }
+    // Specialists (lane 7: a punter once went 10th in a test world). Real
+    // 2000-2025 (nflverse): 2.15 kickers, 1.96 punters and 0.35 long
+    // snappers a year, one kicker in round one, no punter before pick 70.
+    let drafts = drafted.iter().map(|a| a.year).collect::<std::collections::BTreeSet<_>>().len().max(1) as f64;
+    for (pos, real) in [
+        (afm_engine::positions::Position::K, 2.15),
+        (afm_engine::positions::Position::P, 1.96),
+        (afm_engine::positions::Position::LS, 0.35),
+    ] {
+        let mut picks: Vec<u32> = drafted.iter().filter(|a| a.position == pos).filter_map(|a| a.pick).collect();
+        picks.sort_unstable();
+        println!(
+            "- {} drafted: {:.2} a year (real {real}), earliest pick {}, median {}",
+            pos.name(),
+            picks.len() as f64 / drafts,
+            picks.first().map_or("-".into(), |p| p.to_string()),
+            picks.get(picks.len() / 2).map_or("-".into(), |p| p.to_string())
+        );
+    }
 
     // 8. Measurables and combine.
     println!("\n### 8. Measurables and combine (drafted players, sim vs real combine averages)");

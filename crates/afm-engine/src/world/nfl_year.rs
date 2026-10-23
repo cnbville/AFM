@@ -2425,7 +2425,11 @@ fn super_bowl_book(w: &mut World, champ: usize, loser: usize, d: Date) {
 /// The draft order for this April, from last season (T2); None before the
 /// first season has been played on the clock.
 pub(crate) fn draft_order(w: &World) -> Option<Vec<usize>> {
-    w.nfl_season.as_ref().and_then(|s| s.last_order.clone())
+    let s = w.nfl_season.as_ref()?;
+    // The morning a football year opens (the day after the Super Bowl,
+    // before that day runs, as a new career starts) the season on hand is
+    // still last year's: its final order is this April's.
+    if s.year < w.year { s.final_order.clone().filter(|_| s.booked) } else { s.last_order.clone() }
 }
 
 impl World {
