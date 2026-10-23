@@ -801,8 +801,9 @@ fn staff_read(w: &World, i: usize) -> f64 {
 /// The staff's squads at a school: every senior and junior on varsity
 /// (a junior below the three-deep goes to JV), a sophomore in the two-deep
 /// and a freshman who starts move up, the rest play JV and freshman ball,
-/// varsity at most 72. A JV or freshman team short of 22 isn't fielded and
-/// its players go up a team. Players who left football are left out.
+/// varsity at most 72. A freshman team short of 22 isn't fielded and its
+/// players go up a team; a short JV takes the freshmen in, or goes up too.
+/// Players who left football are left out.
 pub fn staff_squads(w: &World, h: usize) -> Vec<(usize, Squad)> {
     let roster: Vec<usize> =
         w.high_schools[h].roster.iter().copied().filter(|&i| w.people[i].stage == Stage::HighSchool).collect();
@@ -865,11 +866,22 @@ pub fn staff_squads(w: &World, h: usize) -> Vec<(usize, Squad)> {
 }
 
 /// A team too small to dress (under 22) is folded into the team above it.
+/// A short JV first takes the freshmen in, one sub-varsity team as most
+/// schools of that size run, rather than swelling the varsity past its 72.
 fn settle(w: &World, out: &mut [(usize, Squad)]) {
     let n = |out: &[(usize, Squad)], s: Squad| out.iter().filter(|x| x.1 == s).count();
+    let Some(first) = out.first() else { return };
+    let jv = fields(w, w.people[first.0].hs).0;
     if n(out, Squad::Freshman) > 0 && n(out, Squad::Freshman) < 22 {
-        let to = if fields(w, w.people[out[0].0].hs).0 { Squad::Jv } else { Squad::Varsity };
+        let to = if jv { Squad::Jv } else { Squad::Varsity };
         out.iter_mut().filter(|x| x.1 == Squad::Freshman).for_each(|x| x.1 = to);
+    }
+    if jv
+        && (1..22).contains(&n(out, Squad::Jv))
+        && n(out, Squad::Freshman) > 0
+        && n(out, Squad::Jv) + n(out, Squad::Freshman) >= 22
+    {
+        out.iter_mut().filter(|x| x.1 == Squad::Freshman).for_each(|x| x.1 = Squad::Jv);
     }
     if n(out, Squad::Jv) > 0 && n(out, Squad::Jv) < 22 {
         out.iter_mut().filter(|x| x.1 == Squad::Jv).for_each(|x| x.1 = Squad::Varsity);
