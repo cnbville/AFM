@@ -38,3 +38,41 @@ fn leaves_the_pro_game_on_the_absolute_scale() {
     let (_, scale) = setup();
     assert_eq!(level_rating(73.4, Level::NFL, Some(&scale)), 73);
 }
+
+#[test]
+fn a_draft_board_puts_the_best_punter_in_the_fourth_round_not_the_top_20() {
+    use crate::level_rating::PositionAligner;
+    use crate::positions::Position;
+    // A class of 2,600: every position on its own spread, kickers and
+    // punters scored on their leg, higher than the rest.
+    let mut rng = Rng::new("draft-scale");
+    let mut samples: Vec<(Position, f64)> = Vec::new();
+    for pos in Position::ALL {
+        let (n, mid) = match pos {
+            Position::K | Position::P | Position::LS => (60, 70.0),
+            _ => (230, 52.0),
+        };
+        samples.extend((0..n).map(|_| (pos, rng.normal(mid, 8.0))));
+    }
+    let slots = 257;
+    let rank_of_best = |a: &PositionAligner, pos: Position| {
+        let best = samples.iter().filter(|s| s.0 == pos).map(|&(p, x)| a.align(p, x)).fold(f64::MIN, f64::max);
+        samples.iter().filter(|&&(p, x)| a.align(p, x) > best).count() + 1
+    };
+    let plain = PositionAligner::new(&samples);
+    assert!(rank_of_best(&plain, Position::P) <= 40, "lined up, the best punter is near the top");
+    let draft = PositionAligner::for_draft(&samples, slots);
+    let k = rank_of_best(&draft, Position::K);
+    let p = rank_of_best(&draft, Position::P);
+    let ls = rank_of_best(&draft, Position::LS);
+    assert!((100..=135).contains(&k), "best kicker at {k}");
+    assert!((115..=145).contains(&p), "best punter at {p}");
+    assert!((165..=200).contains(&ls), "best long snapper at {ls}");
+    // However high a club reads a kicker, he grades no higher than the
+    // class's grade at the 18% mark (about pick 46).
+    let high = draft.align(Position::K, 120.0);
+    let capped = samples.iter().filter(|&&(p, x)| draft.align(p, x) > high).count() + 1;
+    assert!((35..=60).contains(&capped), "a kicker read at 120 grades at {capped}");
+    // Everyone else keeps his place.
+    assert_eq!(draft.align(Position::QB, 60.0), plain.align(Position::QB, 60.0));
+}

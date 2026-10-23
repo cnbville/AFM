@@ -153,6 +153,11 @@ fn hs_transfer_day(y: &YearDates) -> Date {
 
 /// Day `d` of football year `y`.
 pub(crate) fn advance_day(w: &mut World) {
+    // A war room left open (a day passed without finishing the draft): the
+    // staff finish it on the board.
+    if w.scouting.live.is_some() {
+        super::scouting::live::finish(w);
+    }
     let d = w.today;
     let y = w.dates.clone();
     // A live game left from a day gone by (called off, or never booked).
@@ -492,6 +497,7 @@ pub(crate) fn advance_day(w: &mut World) {
     nfl_year::training_blocks(w, d, &y);
     // Section 6's people (lane 6): ties, lives, courts, staffs and your agenda.
     timed("people", || super::folk::day(w, d));
+    timed("scouting", || super::scouting::day(w, d));
 
     // News items of the day get the day's date.
     for n in w.news.iter_mut().rev() {
@@ -513,6 +519,7 @@ fn transfer_rule_of(w: &World, season: i32) -> TransferRule {
 /// A new football year begins (the day after the Super Bowl).
 fn year_start(w: &mut World) {
     let year = w.year;
+    super::scouting::dept::prune(w);
     w.rules = w.changes.rules(year);
     // Conference moves announced last year take effect.
     for (p, conf) in std::mem::take(&mut w.realign) {
@@ -759,6 +766,10 @@ pub fn continue_until_needed(w: &mut World, max_days: u32) -> Date {
     let stops = |e: &Event| e.needs_decision || huge_for(seat, e) || (e.loud == Loudness::Big && cares(seat, e));
     for i in 0..max_days {
         let d = w.today;
+        // The draft is live in your war room: nothing moves until it's done.
+        if w.scouting.live.is_some() {
+            return d;
+        }
         // The morning of your game, or of a day you decide things on: stop
         // before it plays, so you get there first. Pressed that morning,
         // Continue plays it.

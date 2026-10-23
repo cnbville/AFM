@@ -43,6 +43,37 @@ impl Run {
     }
 }
 
+/// The draft in your war room, as a person runs it: your first pick from
+/// the top of your board, the staff's after that, a trade call taken if one
+/// comes, then the undrafted rush.
+fn draft(run: &mut Run, g: &mut Game) {
+    let mut first = true;
+    let mut traded = false;
+    for _ in 0..400 {
+        let Some(room) = run.call(g, "draft_live", json!({})) else { return };
+        if !room["live"].as_bool().unwrap_or(false) {
+            return;
+        }
+        if room["rush"].as_bool().unwrap_or(false) {
+            run.call(g, "draft_rush", json!({}));
+            run.call(g, "draft_record", json!({}));
+            return;
+        }
+        if !room["on_clock"].as_bool().unwrap_or(false) {
+            run.call(g, "draft_go", json!({ "until": "yours" }));
+        } else if first && let Some(id) = room["board"][0]["id"].as_u64() {
+            first = false;
+            run.call(g, "draft_pick", json!({ "id": id }));
+        } else if !traded && room["offers"].as_array().is_some_and(|o| !o.is_empty()) {
+            traded = true;
+            run.call(g, "draft_accept", json!({ "offer": 0 }));
+        } else {
+            run.call(g, "draft_auto", json!({}));
+        }
+    }
+    run.errors.push("the draft didn't finish in 400 steps".into());
+}
+
 /// Values a player should never see.
 fn smell(cmd: &str, v: &Value, path: &str, out: &mut BTreeSet<String>) {
     match v {
@@ -283,6 +314,11 @@ fn main() {
             peak = peak.max(resident_gb());
             if r.is_none() {
                 break;
+            }
+            // The draft live from your chair (lane 7): Continue stops in the war room.
+            if r.as_ref().is_some_and(|v| v["studio"]["screen"] == json!("warroom")) {
+                visit_all(&mut run, &mut g, &extra);
+                draft(&mut run, &mut g);
             }
             visit_all(&mut run, &mut g, &extra);
             // Save and reload once in season, after the first game.

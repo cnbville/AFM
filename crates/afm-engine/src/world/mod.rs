@@ -12,6 +12,7 @@
 //! game is decided from the two teams' starters, with home field and luck.
 
 pub mod background;
+pub(crate) mod chemistry;
 pub(crate) mod clock;
 pub mod coach;
 pub(crate) mod college;
@@ -34,6 +35,11 @@ pub mod ncaa;
 pub mod news;
 mod nfl_year;
 pub use nfl_year::NflTeamSeason;
+
+/// Last season's draft order once the season has ended (for the coming draft).
+pub(crate) fn nfl_year_order(w: &World) -> Option<Vec<usize>> {
+    nfl_year::draft_order(w)
+}
 pub mod people;
 pub(crate) mod polls;
 pub mod pro;
@@ -41,6 +47,7 @@ pub mod program;
 pub mod records;
 pub(crate) mod recruiting;
 pub mod schedule;
+pub mod scouting;
 pub(crate) mod season;
 pub mod seat;
 pub mod staff;
@@ -738,6 +745,11 @@ pub struct World {
     /// opponents, what you have studied.
     #[serde(default)]
     pub gameday: live_seat::GameDay,
+    /// Scouting and the draft (section 7, final build lane 7): public
+    /// boards and mocks, your department's looks, your draft board, the live
+    /// draft, the pre-draft season, pro scouting, look-backs, followers.
+    #[serde(default)]
+    pub scouting: scouting::Scouting,
     /// The poll and award voters (section 6 topic 9), each with his
     /// latest ballot; older files build them on load.
     #[serde(default)]
@@ -1060,6 +1072,7 @@ impl World {
             career: None,
             live: None,
             gameday: Default::default(),
+            scouting: Default::default(),
             front_office: Default::default(),
         };
         staff::staff_everyone(&mut w);

@@ -842,6 +842,7 @@ impl World {
         let room = self.people.len() + self.people.len() / 3;
         self.people.shrink_to(room);
         self.seat_games.retain(|g| g.teams.iter().all(|&t| t < self.programs.len().max(self.nfl.len())));
+        super::scouting::after_load(self);
         self.fill_final_build_fields();
         super::folk::after_load(self);
         // A world file from before the poll and award voters gets them now.

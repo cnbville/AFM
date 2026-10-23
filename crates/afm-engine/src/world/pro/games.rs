@@ -263,6 +263,7 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
     }
     team.film = club.film.clone();
     team.line_chem = 0.25 + 0.15 * back as f64;
+    super::super::chemistry::apply(w, &mut team, super::super::chemistry::Unit::Nfl);
     Some(Side { team, who })
 }
 
