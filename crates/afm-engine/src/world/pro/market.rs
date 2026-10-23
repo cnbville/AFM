@@ -8,7 +8,7 @@
 //! under the same rules a manager will. Sizes are Claude's, proposed, not
 //! confirmed, unless a comment names the real rule.
 
-use super::{DeadCharge, DeadWhy, Status, grade, money, office::Mode, release_with, space};
+use super::{DeadCharge, DeadWhy, Status, grade, money, office::Mode, payroll, release_with, space};
 use crate::calendar::{Date, Event, Kind, Level as CalLevel, Loudness};
 use crate::league::depth_slots;
 use crate::positions::Position;
@@ -1840,6 +1840,20 @@ pub(crate) fn cap_moves(w: &mut World, d: Date, before_league_year: bool) {
     }
 }
 
+/// What a deal puts on a later league year's books: its hit while it
+/// runs, and the year after its last, the void-year bonus that lands then
+/// (as `payroll` counts it).
+fn next_year_charge(k: &money::Contract, y: i32) -> f64 {
+    let last = k.last_year();
+    if last >= y {
+        k.cap_hit(y)
+    } else if last + 1 == y {
+        k.years.iter().filter(|x| x.year >= y).map(|x| x.proration).sum()
+    } else {
+        0.0
+    }
+}
+
 /// One team's cap moves (see `cap_moves`), clearing `extra` on top of its
 /// usual target: the price of a tag it means to place (trial 7 finding 6)
 /// or of a player it must sign. Without `cuts` it only restructures.
@@ -1879,6 +1893,10 @@ pub(crate) fn clear_room(w: &mut World, t: usize, d: Date, before_league_year: b
     core.sort_by(|a, b| b.1.total_cmp(&a.1));
     let mut done = 0;
     let mut kept = Vec::new();
+    // Next year's books: its contracts, the void years that land then and
+    // its dead money.
+    let next = year + 1;
+    let mut books_next = if before_league_year { payroll(w, t, next) } else { 0.0 };
     for (i, _) in core {
         if short <= 0.0 && !(habit > 0.7 && done < 2) {
             break;
@@ -1886,15 +1904,27 @@ pub(crate) fn clear_room(w: &mut World, t: usize, d: Date, before_league_year: b
         let keep = money::minimum(year, 4);
         // Before the league year a club converts only what its later books
         // can carry: no later year's hit past `money::CAP_HIT_MAX` of that
-        // year's cap (trial 9 finding 6: restructures stacked hits to 37%).
-        // On opening day it must get under whatever it costs.
+        // year's cap (trial 9 finding 6: restructures stacked hits to 37%),
+        // and no more pushed into next year than next year's cap leaves
+        // room for. A club already over next year's cap cuts instead (real:
+        // a team in cap trouble eats dead money now rather than push more
+        // forward). Without it a club restructured into void years every
+        // February until they landed at once: $206M of dead money, 74% of
+        // the cap, in a test world. On opening day it must get under
+        // whatever it costs.
         if before_league_year {
-            let mut trial = w.people[i].pro.as_ref().unwrap().contract.clone().unwrap();
+            let k = w.people[i].pro.as_ref().unwrap().contract.as_ref().unwrap();
+            let mut trial = k.clone();
             money::restructure(&mut trial, year, keep, voids);
             if trial.years.iter().any(|y| y.year > year && y.cap_hit() > money::price_cap(y.year) * money::CAP_HIT_MAX)
             {
                 continue;
             }
+            let pushed = next_year_charge(&trial, next) - next_year_charge(k, next);
+            if pushed > 0.0 && books_next + pushed > money::price_cap(next) {
+                continue;
+            }
+            books_next += pushed;
         }
         let saved = {
             let k = w.people[i].pro.as_mut().unwrap().contract.as_mut().unwrap();
