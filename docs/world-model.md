@@ -506,7 +506,7 @@ The world side of the people leftovers from build 9 and your own side of section
 - **A name stops growing at the top.** Since the fixed yardstick (11.9) a leader could read above 1.0 (Georgia 1.09 against Alabama's 0.90), and that edge entered every recruit's choice twice (the brand and the 5-star pull, cubed). A recruit now reads a brand at most at the old leader's size: a program that passes the biggest name of 30 years ago is one of the blue bloods, not a bigger one. Recent titles still count through the title-chances grade.
 - **Champions get courted, worn down and walk away.** Real dynasties end mostly with their coach. A head coach's national titles in his current job now: draw the NFL (owners' doubt about a college-only coach drops 1.5 points a title, to two; Saban, Meyer and Harbaugh were hired off college titles), add "nothing left to prove in college" to an NFL offer (+0.03 a title, to two), raise his burnout risk (half again per title, to three: Meyer stepped away after two titles in four years), and let him walk away on top at 55-59 (2% a year a title, to three: Osborne at 60, Stoops at 56). Coordinators of title teams were already the hottest names in searches (+4 a title in three years).
 - What was already there and kept: the 85 scholarship limit and 25 signees a year (105 and no cap from 2025), the portal's backups leaving for playing time (73% of entrants), early entry to the draft, staff raids, the NIL era's collectives and the head coach's own recruiting edge.
-- Measured: see "Final build lane 5 measurements" below.
+- Measured: see "Final build lane 5 measurements" below. Georgia's 7 in 15 years is one over the real most, and 6 different champions is two under, so dynasties are close to real but still a little strong.
 
 ### Long snappers
 - The snapping camps rank only a snapper's build (265 lb at most): a 300-pound center who snaps on Fridays projects as a lineman. A long snapper plays at 220-265 lb (real FBS and NFL snappers: about 6'2", 235-250), and old saves bring their snappers into that range on load.
@@ -516,6 +516,26 @@ The world side of the people leftovers from build 9 and your own side of section
 
 ### FBS rosters (A13)
 - Trial 10 read an FBS roster median of 86 (real about 105 under the House settlement's cap). The count was taken in the spring, after the seniors and early entrants left and before the signed class and the summer walk-ons arrived. Counted in the fall with the signed class, the median is 104 (98-111) at FBS and 104 at FCS, so nothing was missing; the trial report now prints both lines.
+
+### Final build lane 5 measurements
+One world, seed 2026, 15 years of history (2011-2025) after the 12 spin-up years, college games on the engine and high school games on the stand-in (`AFM_HS_ENGINE_YEARS=0 world_trial 2026 15`, 46 minutes on 4 cores). Before: trial 10 (seed 2026, 30 years, high school games on the engine from 2014). The engine physics lane (#97) merged after this world ran, so its changes are not in these numbers.
+
+| What | Trial 10 | Lane 5 | Real |
+|---|---|---|---|
+| 5-stars drafted (A12) | 87.6% | 64.6% (192 of 297) | about 62% |
+| 4-stars drafted | 35.4% | 21.3% | about 20-25% |
+| 3-stars drafted | 4.0% | 4.3% | about 5-6% |
+| Most national titles in any 15 years (A6) | Georgia 18 of 31 | Georgia 7 (2011-2025) | 6 |
+| Different champions in the last 15 years | 4 at most (4 in all 31 years) | 6 | 8 |
+| Unbeaten champions in the last 15 years | 12 | 6 | about half |
+| Leader's share of a class's 5-stars | 22% | 10-21%, most years 12-16% | 14% |
+| FBS roster median (A13) | 86 (spring count) | 106 in the fall with the signed class (96-113) | 105 |
+| Heisman winners at quarterback | | 13 of 15, backs 2 | 21 of 26, backs 3, receivers 2 |
+| Longest high school winning streak (A11) | 248 (Mater Dei, engine) | 46 (Hough, stand-in) | 151 (De La Salle) |
+
+- The 5-star rate took the misread at 9 points: a first try at 3.4 gave 84.5% on a 30-year stand-in world.
+- The high school streak was measured on the stand-in, which the scheduling changes feed the same way; a world with high school games on the engine costs about 11 minutes a season, and two machine restarts cut those runs short, so A11 on the engine is still to measure.
+- Checks: `seat_season` (small world: high school, college and NFL seats with 0 errors; the high school seat on the 30-year world: 9 games, 0 errors, peak 3.79 GB), `memory_season` on the 30-year world to the first game (3.99 GB; main 3.98 GB on the same world), `tools/seat-ui/crawl.mjs` on the 30-year world (high school 29 screens, college 32, NFL 32, 0 problems).
 
 ### Draft early entry
 - Checked against sources: the NFL's early-entry deadline is January 15 (2018, 2024 and 2025 drafts) and January 14 for the 2026 draft; NCAA Bylaw 12.2.4.2.4 lets an undrafted player keep his eligibility if he withdraws in writing within 72 hours after it. The calendar now uses January 14 for 2026; the withdrawal stays the deadline plus three days.
