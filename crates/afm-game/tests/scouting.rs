@@ -21,24 +21,39 @@ fn an_nfl_war_room_runs_the_draft() {
     let mut g = Game::new(dir.clone());
     ok(&mut g, "build_world", json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let fresh = ok(&mut g, "save", json!({ "name": "fresh" }))["saved"].as_str().unwrap().to_string();
-    // A small world's draft has only a few picks: take a job at a club
-    // that holds one this spring.
+    // A small world's draft keeps only a sample of the full order: take a
+    // job at the club with the earliest pick this spring. The later places
+    // shift when March's compensatory picks join the order; the first
+    // rounds' places don't.
     let jobs = ok(&mut g, "jobs", json!({ "level": "nfl" }))["jobs"].as_array().unwrap().clone();
-    let mut has_pick = false;
-    for j in &jobs {
-        ok(&mut g, "load", json!({ "path": fresh }));
-        let job = j["ref"].clone();
+    let start = |g: &mut Game, job: &Value| {
+        ok(g, "load", json!({ "path": fresh }));
         ok(
-            &mut g,
+            g,
             "start_career",
             json!({ "name": "Test GM", "age": 45, "background": "nfl_assistant", "job": job, "seed": 3 }),
         );
-        if !ok(&mut g, "draft_board", json!({}))["picks"].as_array().unwrap().is_empty() {
-            has_pick = true;
-            break;
+    };
+    let mut best: Option<(u64, Value)> = None;
+    for j in &jobs {
+        start(&mut g, &j["ref"]);
+        let picks = ok(&mut g, "draft_board", json!({}))["picks"].clone();
+        if let Some(pick) = picks[0]["pick"].as_u64()
+            && best.as_ref().is_none_or(|b| pick < b.0)
+        {
+            best = Some((pick, j["ref"].clone()));
+            if picks[0]["round"].as_u64().is_some_and(|r| r <= 2) {
+                break;
+            }
         }
     }
-    assert!(has_pick, "no open NFL job holds a pick in {} jobs", jobs.len());
+    let Some((_, job)) = best else { panic!("no open NFL job holds a pick in {} jobs", jobs.len()) };
+    start(&mut g, &job);
+    // The first morning (the day after the Super Bowl, before it runs)
+    // already reads this April's order.
+    let first_morning = ok(&mut g, "draft_board", json!({}))["picks"].clone();
+    ok(&mut g, "continue", json!({ "max_days": 1 }));
+    assert_eq!(ok(&mut g, "draft_board", json!({}))["picks"], first_morning, "the first morning's draft order");
     // The department and the public's word.
     let dept = ok(&mut g, "scouting", json!({}));
     assert!(dept["people"].as_array().unwrap().len() >= 8, "{}", dept["people"]);
