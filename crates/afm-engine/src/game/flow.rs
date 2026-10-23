@@ -1843,7 +1843,8 @@ impl<'a> Game<'a> {
             }
         };
         // Your goal line offense (section 6b) inside the 3 with heavy personnel.
-        let gl = (self.situation().yardline_100 <= 3.0 && call.formation.personnel.wide_receivers() <= 1).then_some(3u8);
+        let gl =
+            (self.situation().yardline_100 <= 3.0 && call.formation.personnel.wide_receivers() <= 1).then_some(3u8);
         add(o.pick_pref(Position::QB, 1, &mut used, gl), &[ORole::QB], &mut off);
         line(o.pick_pref(Position::OT, 2, &mut used, gl), &[ORole::LT, ORole::RT], &mut off);
         line(o.pick_pref(Position::IOL, 3, &mut used, gl), &[ORole::LG, ORole::C, ORole::RG], &mut off);
@@ -4186,7 +4187,13 @@ fn qb_run(p: &GamePlayer) -> f64 {
 /// The call sheet's play for this snap (section 6b, read by game day):
 /// the situation's plays of the kind the coordinator chose, with how
 /// closely he sticks to the sheet. None leaves his own call.
-fn sheet_call(prep: &super::roster::Prep, sit: &Situation, own: &OffCall, plays: u32, rng: &mut Rng) -> Option<OffCall> {
+fn sheet_call(
+    prep: &super::roster::Prep,
+    sit: &Situation,
+    own: &OffCall,
+    plays: u32,
+    rng: &mut Rng,
+) -> Option<OffCall> {
     if prep.sheet.is_empty() || !rng.chance(prep.stick) {
         return None;
     }
@@ -4198,7 +4205,8 @@ fn sheet_call(prep: &super::roster::Prep, sit: &Situation, own: &OffCall, plays:
         let Some((_, list)) = prep.sheet.iter().find(|(s, l)| *s == k && !l.is_empty()) else { continue };
         let fit: Vec<&(Personnel, Backfield, Set, PlayKind)> =
             list.iter().filter(|x| x.3.is_run() == own.kind.is_run()).collect();
-        let pool: Vec<&(Personnel, Backfield, Set, PlayKind)> = if fit.is_empty() { list.iter().collect() } else { fit };
+        let pool: Vec<&(Personnel, Backfield, Set, PlayKind)> =
+            if fit.is_empty() { list.iter().collect() } else { fit };
         let &&(pers, back, set, kind) = rng.pick(&pool);
         let mut f = own.formation;
         f.personnel = pers;

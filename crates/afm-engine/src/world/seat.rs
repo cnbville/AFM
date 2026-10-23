@@ -61,6 +61,8 @@ impl World {
     /// built with the fictional league option).
     pub fn conference_name(&self, real: &str) -> String {
         if self.options.fictional_league { super::names::fictional_conference(real) } else { real.to_string() }
+    }
+
     /// Your team as the engine would dress it today, with its level.
     pub fn seat_game_team(&self) -> Option<(crate::game::GameTeam, crate::player::Level)> {
         use crate::calendar::Level as Cal;
@@ -847,6 +849,8 @@ impl World {
         self.seat_games.retain(|g| g.teams.iter().all(|&t| t < self.programs.len().max(self.nfl.len())));
         super::scouting::after_load(self);
         self.fill_final_build_fields();
+        // Your designed plays become concepts again (section 6b).
+        self.training.register_designs();
         super::folk::after_load(self);
         // A world file from before the poll and award voters gets them now.
         super::voters::ensure(self);
@@ -924,7 +928,5 @@ impl World {
         if fresh {
             super::fame::fill(self);
         }
-        // Your designed plays become concepts again (section 6b).
-        self.training.register_designs();
     }
 }

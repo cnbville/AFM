@@ -632,8 +632,12 @@ fn staff_depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
     let has_legs = ps.iter().any(|p| p.position.kicks());
     let has_snapper = ps.iter().any(|p| p.position == Position::LS);
     let own = |pos: Position| -> Vec<(f64, usize)> {
-        let mut v: Vec<(f64, usize)> =
-            ps.iter().enumerate().filter(|(_, p)| p.position == pos).map(|(i, p)| (p.overall_at(pos) + p.impression, i)).collect();
+        let mut v: Vec<(f64, usize)> = ps
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| p.position == pos)
+            .map(|(i, p)| (p.overall_at(pos) + p.impression, i))
+            .collect();
         v.sort_by(|a, b| b.0.total_cmp(&a.0));
         v
     };

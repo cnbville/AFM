@@ -20,7 +20,14 @@ fn main() {
     let measured: usize = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(2);
     let t = std::time::Instant::now();
     let yearly_growth = std::env::var_os("AFM_YEARLY").is_some();
-    let w = World::new(WorldOptions { seed, scale, history_years: years, engine_from, yearly_growth, ..Default::default() });
+    let w = World::new(WorldOptions {
+        seed,
+        scale,
+        history_years: years,
+        engine_from,
+        yearly_growth,
+        ..Default::default()
+    });
     println!(
         "built in {:.0}s (scale {scale}, {years} years, seed {seed}, {})",
         t.elapsed().as_secs_f64(),

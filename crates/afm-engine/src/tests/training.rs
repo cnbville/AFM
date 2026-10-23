@@ -13,7 +13,7 @@ use crate::training::rules::{Block, Counts, Frame, Tier, block_limits, check_wee
 use crate::training::seat::{habit_rate, injury_chance, practice_rate};
 use crate::training::week::{block_of_week, books, team_week, work_out};
 use crate::training::work::{Role, freshness, late_load, prep_minutes, ratio, share, week_work};
-use crate::training::{FAMILIES, Family, close_year, cover, land, owe, settle};
+use crate::training::{FAMILIES, Family, close_year, cover, owe, settle};
 
 fn style(physical: f64, freedom: f64, risk: f64) -> Style {
     Style { physical, freedom, risk, ..Style::default() }
@@ -59,7 +59,11 @@ fn college_year(p: &mut Player, f: &Frame, y: &YearDates, plan: &dyn Fn(Date, &W
         fit(&mut mine, &bk);
         let camp = block == Block::Camp;
         let own = bk.iter().all(|b| !b.coaches);
-        let r = if own { [1.0; FAMILIES] } else { ratio(&week_work(&mine, Role::Starter, camp, 1.0), &week_work(&nk, Role::Starter, camp, 1.0)) };
+        let r = if own {
+            [1.0; FAMILIES]
+        } else {
+            ratio(&week_work(&mine, Role::Starter, camp, 1.0), &week_work(&nk, Role::Starter, camp, 1.0))
+        };
         let base = weekly_base(f, &weeks, block);
         let b = cover(&mut p.train, &base);
         let s = share(&b, &r, 1.0);
@@ -109,7 +113,7 @@ fn the_default_plan_keeps_the_yearly_growth() {
             gaps.push(b.overall() - a.overall());
             base.push(a.overall() - before);
             assert!(!b.train.pending());
-            assert!(b.attributes.values().iter().zip(b.ceilings.values().iter()).all(|(v, c)| v <= &(c + 1e-6)));
+            assert!(b.attributes.values().zip(b.ceilings.values()).all(|(v, c)| v <= c + 1e-6));
             p0 = a;
         }
     }
@@ -140,7 +144,11 @@ fn each_period_grows_only_what_it_works() {
     let day = |kind: Kind, contact: Contact| {
         let mut d = Day::default();
         for _ in 0..3 {
-            d.periods.push(Period { tempo: Tempo::Normal, who: Who::All, ..Period::new(kind, 20, Gear::Pads, contact) });
+            d.periods.push(Period {
+                tempo: Tempo::Normal,
+                who: Who::All,
+                ..Period::new(kind, 20, Gear::Pads, contact)
+            });
         }
         let mut wk = Week::default();
         wk.days[1] = d;
@@ -167,7 +175,11 @@ fn all_of(wk: &Week, kind: Kind) -> Week {
     for d in out.days.iter_mut() {
         for p in d.periods.iter_mut() {
             if p.kind.on_field() || matches!(p.kind, Kind::WeightRoom | Kind::Film | Kind::Meeting) {
-                let gear = if matches!(kind, Kind::WeightRoom | Kind::Film | Kind::Meeting | Kind::Conditioning) { Gear::None } else { p.gear };
+                let gear = if matches!(kind, Kind::WeightRoom | Kind::Film | Kind::Meeting | Kind::Conditioning) {
+                    Gear::None
+                } else {
+                    p.gear
+                };
                 let contact = if gear == Gear::None { Contact::Air } else { p.contact };
                 *p = Period { kind, gear, contact, ..*p };
             }
@@ -221,16 +233,19 @@ fn choices_move_a_year_within_the_agreed_size() {
         ("all weight room", Box::new(|_: Date, _: &Week, nk: &Week| all_of(nk, Kind::WeightRoom))),
         ("all film", Box::new(|_: Date, _: &Week, nk: &Week| all_of(nk, Kind::Film))),
         ("all individual", Box::new(|_: Date, _: &Week, nk: &Week| all_of(nk, Kind::Individual))),
-        ("all live team", Box::new(|_: Date, _: &Week, nk: &Week| {
-            let mut w = all_of(nk, Kind::Team);
-            for d in w.days.iter_mut() {
-                for p in d.periods.iter_mut().filter(|p| p.kind == Kind::Team) {
-                    p.gear = Gear::Pads;
-                    p.contact = Contact::Live;
+        (
+            "all live team",
+            Box::new(|_: Date, _: &Week, nk: &Week| {
+                let mut w = all_of(nk, Kind::Team);
+                for d in w.days.iter_mut() {
+                    for p in d.periods.iter_mut().filter(|p| p.kind == Kind::Team) {
+                        p.gear = Gear::Pads;
+                        p.contact = Contact::Live;
+                    }
                 }
-            }
-            w
-        })),
+                w
+            }),
+        ),
     ];
     let mut gains: Vec<(&str, f64)> = Vec::new();
     for (name, plan) in &plans {
@@ -241,7 +256,7 @@ fn choices_move_a_year_within_the_agreed_size() {
             open_year(&mut p, &mut Rng::new(format!("open{k}")));
             college_year(&mut p, &f, &y, plan.as_ref());
             assert!(
-                p.attributes.values().iter().zip(p.ceilings.values().iter()).all(|(v, c)| v <= &(c + 1e-6)),
+                p.attributes.values().zip(p.ceilings.values()).all(|(v, c)| v <= c + 1e-6),
                 "{name}: past a ceiling"
             );
             g.push(p.overall() - before);
@@ -301,7 +316,9 @@ fn the_trade_offs_show() {
     // A heavy Thursday.
     let gd = nk.days.iter().position(|d| d.game).unwrap();
     let mut heavy = nk.clone();
-    heavy.days[gd - 2].periods.push(Period { tempo: Tempo::Fast, ..Period::new(Kind::Scrimmage, 40, Gear::Pads, Contact::Live) });
+    heavy.days[gd - 2]
+        .periods
+        .push(Period { tempo: Tempo::Fast, ..Period::new(Kind::Scrimmage, 40, Gear::Pads, Contact::Live) });
     let base = late_load(&nk, gd, Role::Starter);
     assert_eq!(freshness(base, base), 1.0);
     let fresh = freshness(late_load(&heavy, gd, Role::Starter), base);
@@ -310,12 +327,13 @@ fn the_trade_offs_show() {
 
 /// Topic 14.5: practice injuries land on the real split. A college team's
 /// season on the neutral plan has most of its injuries in practice by
-/// count (NCAA ISP: about 55-60%), the most in camp, and a load spike
+/// count (NCAA ISP: about 55-60%), the most a week in camp, and a load spike
 /// raises the risk.
 #[test]
 fn practice_injuries_land_on_the_real_split() {
     let (y, f) = college_frame(2026);
     let mut by_block: Vec<(Block, f64)> = Vec::new();
+    let mut weeks: Vec<(Block, f64)> = Vec::new();
     let mut m = monday(f.start);
     let roster = 105.0;
     while m < f.end {
@@ -330,6 +348,10 @@ fn practice_injuries_land_on_the_real_split() {
                 Some(x) => x.1 += e,
                 None => by_block.push((block, e)),
             }
+            match weeks.iter_mut().find(|x| x.0 == block) {
+                Some(x) => x.1 += 1.0,
+                None => weeks.push((block, 1.0)),
+            }
         }
         m = m.add(7);
     }
@@ -342,9 +364,20 @@ fn practice_injuries_land_on_the_real_split() {
     let share = practice / (practice + games);
     println!("practice {practice:.1} (camp {camp:.1}), games {games:.1}: practice share {:.0}%", 100.0 * share);
     assert!(share > 0.5 && share < 0.75, "practice share {share:.2}");
-    for (b, e) in &by_block {
+    // The camp peak: camp weeks carry the most injuries a week (the ISP's
+    // preseason practice rate is about two and a half times the season's).
+    let per_week = |b: Block| {
+        let n = weeks.iter().find(|x| x.0 == b).map_or(1.0, |x| x.1);
+        by_block.iter().find(|x| x.0 == b).map_or(0.0, |x| x.1) / n
+    };
+    for (b, _) in &by_block {
         if *b != Block::Camp {
-            assert!(camp >= *e, "{b:?} {e:.1} above camp {camp:.1}");
+            assert!(
+                per_week(Block::Camp) >= 2.0 * per_week(*b),
+                "{b:?} {:.2} a week against camp {:.2}",
+                per_week(*b),
+                per_week(Block::Camp)
+            );
         }
     }
     let calm = injury_chance(Tier::College, Block::Camp, 5.0, 1.0, 10.5, 1.0, 1.0);

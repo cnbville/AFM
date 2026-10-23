@@ -60,8 +60,8 @@ fn per_minute(k: Kind, specialist: bool) -> [f64; FAMILIES] {
         };
     }
     match k {
-        Kind::WarmUp => [0.0, 0.15, 0.2, 0.05, 0.0, 0.0, 0.0],
-        Kind::Individual => [0.0, 0.1, 0.2, 1.0, 0.35, 0.0, 0.1],
+        Kind::WarmUp => [0.0, 0.15, 0.2, 0.0, 0.0, 0.0, 0.0],
+        Kind::Individual => [0.0, 0.1, 0.2, 1.0, 0.35, 0.0, 0.03],
         Kind::InsideRun => [0.0, 0.0, 0.3, 0.45, 1.0, 0.0, 0.4],
         Kind::SevenOnSeven => [0.0, 0.1, 0.35, 0.65, 0.2, 0.0, 0.6],
         Kind::OneOnOnes => [0.0, 0.1, 0.3, 0.8, 0.6, 0.0, 0.15],
@@ -71,7 +71,7 @@ fn per_minute(k: Kind, specialist: bool) -> [f64; FAMILIES] {
         Kind::SpecialTeams => [0.0, 0.05, 0.2, 0.15, 0.25, 0.0, 0.2],
         Kind::Walkthrough => [0.0, 0.0, 0.0, 0.15, 0.0, 0.0, 0.7],
         Kind::Conditioning => [0.0, 0.2, 1.2, 0.0, 0.0, 0.0, 0.0],
-        Kind::Speed => [0.0, 1.0, 0.3, 0.05, 0.0, 0.0, 0.0],
+        Kind::Speed => [0.0, 1.0, 0.3, 0.0, 0.0, 0.0, 0.0],
         Kind::WeightRoom => [1.0, 0.15, 0.1, 0.0, 0.0, 0.0, 0.0],
         Kind::Meeting => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.6],
         Kind::Film => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.9],
@@ -217,13 +217,22 @@ pub fn ratio(work: &[f64; FAMILIES], neutral: &[f64; FAMILIES]) -> [f64; FAMILIE
     r
 }
 
+/// Most a week's plan moves a family's growth either way (choice 2,
+/// confirmed: the best realistic plan against a poor one moves a young
+/// player's year by at most about 15%).
+pub const PLAN_REACH: f64 = 0.15;
+
 /// The growth share that lands this week: the calendar's reach moved by
-/// how much the week really worked, times his attendance.
+/// how much the week really worked, times his attendance. The move
+/// saturates toward `PLAN_REACH`, so a lopsided plan (all weight room)
+/// costs the families it skips about 15% and no more: the year still has
+/// its game snaps, its age and the body growing on its own.
 pub fn share(base: &[f64; FAMILIES], r: &[f64; FAMILIES], attend: f64) -> [f64; FAMILIES] {
     let mut s = [0.0; FAMILIES];
     for f in 0..FAMILIES {
         let pf = PRACTICE_DRIVEN[f];
-        s[f] = base[f] * (1.0 - pf + pf * clamp(r[f], 0.0, 1.8)) * attend;
+        let raw = pf * (clamp(r[f], 0.0, 1.8) - 1.0);
+        s[f] = base[f] * (1.0 + PLAN_REACH * (raw / PLAN_REACH).tanh()) * attend;
     }
     s
 }

@@ -5,8 +5,8 @@
 //! share one worked-out week, so a full world's Monday stays quick. Your
 //! own team runs its real plan (`seat::week`).
 
-use super::plan::{Slot, Template, Week, fit, neutral, styled, week_from};
-use super::rules::{BLOCKS, Block, Book, Frame, Tier, book, weekly_base};
+use super::plan::{Slot, Template, Week, fit, fit_block, neutral, styled, week_from};
+use super::rules::{BLOCKS, Block, Book, Counts, Frame, Tier, block_limits, book, weekly_base};
 use super::work::{ROLES, Role, ratio, week_load, week_work};
 use super::{FAMILIES, cover, owe, settle};
 use crate::calendar::{Date, YearDates};
@@ -65,15 +65,13 @@ impl Frames {
             .enumerate()
             .map(|(s, st)| {
                 let cal = crate::calendar::data::hs_calendar(&st.code);
-                let (start, finals) = w
-                    .hs_season
-                    .as_ref()
-                    .and_then(|h| h.states.get(s))
-                    .map(|x| (x.start, x.finals))
-                    .unwrap_or_else(|| {
-                        let (a, _, f) = crate::world::hs_year::state_season_dates(&st.code, y.season);
-                        (a, f)
-                    });
+                let (start, finals) =
+                    w.hs_season.as_ref().and_then(|h| h.states.get(s)).map(|x| (x.start, x.finals)).unwrap_or_else(
+                        || {
+                            let (a, _, f) = crate::world::hs_year::state_season_dates(&st.code, y.season);
+                            (a, f)
+                        },
+                    );
                 let f = Frame::high(y, start, finals, cal.spring_ball);
                 (f, f.weeks(), cal.state, cal.heat_rule)
             })
@@ -109,7 +107,15 @@ pub fn block_of_week(f: &Frame, monday: Date) -> Block {
 /// A style read in three steps (protective, middle, physical and so on),
 /// for sharing worked-out weeks.
 fn bucket(st: &Style) -> u8 {
-    let b = |v: f64| if v < 8.0 { 0u8 } else if v > 13.0 { 2 } else { 1 };
+    let b = |v: f64| {
+        if v < 8.0 {
+            0u8
+        } else if v > 13.0 {
+            2
+        } else {
+            1
+        }
+    };
     b(st.physical) * 9 + b(st.freedom) * 3 + b(st.risk)
 }
 
@@ -132,12 +138,63 @@ pub fn work_out(
 ) -> (TeamWeek, Week) {
     let block = block_of_week(f, monday);
     let bk = books(f, monday, state, heat);
-    let slot = Slot::of(block, !games.is_empty(), bowl);
-    let mut wk = week_from(slot, monday, games, &styled(tier, slot, style), &styled(tier, Slot::Bye, style));
-    fit(&mut wk, &bk);
-    let mut nk = week_from(slot, monday, games, &neutral(tier, slot), &neutral(tier, Slot::Bye));
-    fit(&mut nk, &bk);
+    let wk = staff_week(tier, f, monday, games, bowl, state, heat, &|s| styled(tier, s, style));
+    let nk = staff_week(tier, f, monday, games, bowl, state, heat, &|s| neutral(tier, s));
     (team_week(f, block, &bk, &wk, &nk), wk)
+}
+
+/// The games a staff plans an earlier week of the block around: one a
+/// week in season, on the level's usual day.
+fn usual_games(tier: Tier, block: Block, monday: Date) -> Vec<Date> {
+    if block != Block::Season {
+        return Vec::new();
+    }
+    vec![monday.add(match tier {
+        Tier::Pro => 6,
+        Tier::College => 5,
+        Tier::High => 4,
+    })]
+}
+
+/// A staff's week from its templates, fitted to the day's books and to
+/// what is left of the block's counts (the earlier weeks of the block
+/// rebuilt the same way), so the AI never passes a block's limits.
+#[allow(clippy::too_many_arguments)]
+pub fn staff_week(
+    tier: Tier,
+    f: &Frame,
+    monday: Date,
+    games: &[Date],
+    bowl: bool,
+    state: &str,
+    heat: bool,
+    tpl: &dyn Fn(Slot) -> Template,
+) -> Week {
+    let block = block_of_week(f, monday);
+    let build = |m: Date, g: &[Date]| {
+        let slot = Slot::of(block, !g.is_empty(), bowl);
+        let mut wk = week_from(slot, m, g, &tpl(slot), &tpl(Slot::Bye));
+        fit(&mut wk, &books(f, m, state, heat));
+        wk
+    };
+    let mut wk = build(monday, games);
+    let lim = block_limits(tier, block, f.season);
+    if lim == Counts::unlimited() {
+        return wk;
+    }
+    let mut used = Counts::default();
+    let mut m = monday;
+    while m.add(-7) >= f.start && block_of_week(f, m.add(-7)) == block {
+        m = m.add(-7);
+    }
+    while m < monday {
+        let mut before = build(m, &usual_games(tier, block, m));
+        fit_block(&mut before, &used, &lim);
+        used.add_week(&before);
+        m = m.add(7);
+    }
+    fit_block(&mut wk, &used, &lim);
+    wk
 }
 
 /// What a planned week gives each role against the neutral week.
@@ -183,11 +240,7 @@ pub fn own_ratio(p: &crate::player::Player, just_paid: bool) -> f64 {
 /// (proposed, not confirmed).
 pub fn attends(p: &crate::player::Player, key: u64) -> bool {
     let age = p.age as f64;
-    let chance = clamp(
-        0.9 + 0.015 * (p.personality.work_ethic - 10.0) - 0.04 * (age - 29.0).max(0.0),
-        0.45,
-        0.99,
-    );
+    let chance = clamp(0.9 + 0.015 * (p.personality.work_ethic - 10.0) - 0.04 * (age - 29.0).max(0.0), 0.45, 0.99);
     crate::world::season::key_uniform(key, p.id as u64) < chance
 }
 
@@ -243,7 +296,10 @@ pub(crate) fn monday(w: &mut World, d: Date) {
         .hs_season
         .as_ref()
         .map(|h| {
-            h.states.iter().map(|s| s.weeks.iter().chain(s.rounds.iter()).copied().filter(|&x| next(x)).collect()).collect()
+            h.states
+                .iter()
+                .map(|s| s.weeks.iter().chain(s.rounds.iter()).copied().filter(|&x| next(x)).collect())
+                .collect()
         })
         .unwrap_or_default();
     // Each team's week shape.
@@ -308,39 +364,44 @@ pub(crate) fn monday(w: &mut World, d: Date) {
     // sample of its week's team snaps (choice 3).
     let cap_of = |tw: &TeamWeek| if tw.own { 0 } else { super::practice::ai_cap(tw.block) };
     let wr: &World = w;
-    let timed = crate::world::clock::timed;
-    let mut ai: Vec<(Vec<usize>, super::practice::AiTeam)> = timed("training teams", || (0..wr.programs.len())
-        .into_par_iter()
-        .filter_map(|c| {
-            let tw = worked.get(&prog_key[c])?;
-            let cap = cap_of(tw);
-            if cap == 0 || wr.seat_program(c) || tw.battle.is_empty() {
-                return None;
-            }
-            let prog = &wr.programs[c];
-            let cached = wr.college.as_ref().and_then(|cs| cs.teams.get(c)).and_then(|t| t.clone());
-            let team = cached.or_else(|| crate::world::season::game_team(wr, prog))?;
-            let level = crate::world::division_level(prog.division);
-            Some((prog.roster.clone(), super::practice::AiTeam { team, level, snaps: tw.battle.clone(), cap }))
-        })
-        .collect());
-    ai.extend((0..wr.nfl.len().min(wr.clubs.len())).into_par_iter().filter_map(|t| {
-        let tw = worked.get(&club_key[t])?;
-        let cap = cap_of(tw);
-        if cap == 0 || wr.seat_club(t) || tw.battle.is_empty() {
-            return None;
-        }
-        let team = crate::world::pro::games::game_side(wr, t)?.team;
-        Some((
-            wr.clubs[t].roster.clone(),
-            super::practice::AiTeam { team, level: crate::player::Level::NFL, snaps: tw.battle.clone(), cap },
-        ))
-    }).collect::<Vec<_>>());
+    use crate::world::clock::timed;
+    let mut ai: Vec<(Vec<usize>, super::practice::AiTeam)> = timed("training teams", || {
+        (0..wr.programs.len())
+            .into_par_iter()
+            .filter_map(|c| {
+                let tw = worked.get(&prog_key[c])?;
+                let cap = cap_of(tw);
+                if cap == 0 || wr.seat_program(c) || tw.battle.is_empty() {
+                    return None;
+                }
+                let prog = &wr.programs[c];
+                let cached = wr.college.as_ref().and_then(|cs| cs.teams.get(c)).and_then(|t| t.clone());
+                let team = cached.or_else(|| crate::world::season::game_team(wr, prog))?;
+                let level = crate::world::division_level(prog.division);
+                Some((prog.roster.clone(), super::practice::AiTeam { team, level, snaps: tw.battle.clone(), cap }))
+            })
+            .collect()
+    });
+    ai.extend(
+        (0..wr.nfl.len().min(wr.clubs.len()))
+            .into_par_iter()
+            .filter_map(|t| {
+                let tw = worked.get(&club_key[t])?;
+                let cap = cap_of(tw);
+                if cap == 0 || wr.seat_club(t) || tw.battle.is_empty() {
+                    return None;
+                }
+                let team = crate::world::pro::games::game_side(wr, t)?.team;
+                Some((
+                    wr.clubs[t].roster.clone(),
+                    super::practice::AiTeam { team, level: crate::player::Level::NFL, snaps: tw.battle.clone(), cap },
+                ))
+            })
+            .collect::<Vec<_>>(),
+    );
     timed("training battles", || super::practice::world_battles(w, ai, seed ^ 0xBA77));
-    let school_snaps: Vec<usize> = school_key
-        .iter()
-        .map(|k| worked.get(k).filter(|tw| !tw.battle.is_empty()).map_or(0, cap_of))
-        .collect();
+    let school_snaps: Vec<usize> =
+        school_key.iter().map(|k| worked.get(k).filter(|tw| !tw.battle.is_empty()).map_or(0, cap_of)).collect();
     timed("training schools", || super::practice::school_grades(w, &school_snaps, seed ^ 0x5C4));
     // NFL clubs' practice risk for the week's practice injuries.
     w.training.club_risk = club_key.iter().map(|k| worked[k].risk as f32).collect();
@@ -397,7 +458,7 @@ pub(crate) fn monday(w: &mut World, d: Date) {
                 let tw = team.and_then(|t| club_key.get(t)).and_then(|k| worked.get(k));
                 (&frames.pro, &frames.pro_weeks, tw, *pro_role.get(&i).unwrap_or(&Role::Young))
             }
-            Stage::Done => return,
+            Stage::Done | Stage::Away => return,
         };
         let block = block_of_week(frame, d);
         let out = p.pro.as_ref().is_some_and(|c| c.out_weeks > 0);

@@ -186,8 +186,17 @@ impl Board {
         Board::FieldGoal,
     ];
     pub fn name(self) -> &'static str {
-        ["nickel", "dime", "goal_line_d", "goal_line_o", "kick_return", "kick_cover", "punt_return", "punt_cover", "field_goal"]
-            [self as usize]
+        [
+            "nickel",
+            "dime",
+            "goal_line_d",
+            "goal_line_o",
+            "kick_return",
+            "kick_cover",
+            "punt_return",
+            "punt_cover",
+            "field_goal",
+        ][self as usize]
     }
     pub fn label(self) -> &'static str {
         [
@@ -404,7 +413,11 @@ impl SeatTraining {
 
     /// Registers the saved designs as concepts (after a load).
     pub fn register_designs(&mut self) {
-        self.design_ids = self.designs.iter().map(|d| crate::game::playbook::register_concept(crate::game::designer::to_concept(&d.design))).collect();
+        self.design_ids = self
+            .designs
+            .iter()
+            .map(|d| crate::game::playbook::register_concept(crate::game::designer::to_concept(&d.design)))
+            .collect();
     }
 
     pub fn design_concept(&mut self, k: usize) -> Option<usize> {
@@ -511,13 +524,32 @@ pub fn planned(w: &World, st: &SeatTeam, monday: Date) -> PlannedWeek {
     let tpl = |s: Slot| super::week::template_of(&t.templates, st.tier, s, &st.style);
     let (mut wk, yours) = match &t.this_week {
         Some((m, wk)) if *m == monday => (wk.clone(), true),
-        _ => (
-            week_from(slot, monday, &games, &tpl(slot), &tpl(Slot::Bye)),
-            t.templates.iter().any(|(s, _)| *s == slot),
-        ),
+        _ => {
+            (week_from(slot, monday, &games, &tpl(slot), &tpl(Slot::Bye)), t.templates.iter().any(|(s, _)| *s == slot))
+        }
     };
     let before = wk.clone();
     fit(&mut wk, &bk);
+    // What is left of the block's counts (spring's 15 practices, the NFL's
+    // 14 padded practices in season).
+    let lim = block_limits(st.tier, block, st.frame.season);
+    let used = match t.counts {
+        Some((b, s, c)) if b == block && s == st.frame.season && !t.log.last().is_some_and(|l| l.monday == monday) => c,
+        Some((b, s, mut c)) if b == block && s == st.frame.season => {
+            // Re-planning the week already counted: take it back out.
+            if let Some(l) = t.log.last() {
+                let mut back = Counts::default();
+                back.add_week(&l.week);
+                c.practices = c.practices.saturating_sub(back.practices);
+                c.contact = c.contact.saturating_sub(back.contact);
+                c.padded = c.padded.saturating_sub(back.padded);
+                c.scrimmages = c.scrimmages.saturating_sub(back.scrimmages);
+            }
+            c
+        }
+        _ => Counts::default(),
+    };
+    super::plan::fit_block(&mut wk, &used, &lim);
     let mut fitted = Vec::new();
     if wk != before {
         for (k, (a, b)) in before.days.iter().zip(wk.days.iter()).enumerate() {
@@ -527,8 +559,8 @@ pub fn planned(w: &World, st: &SeatTeam, monday: Date) -> PlannedWeek {
             }
         }
     }
-    let mut nk = week_from(slot, monday, &games, &neutral(st.tier, slot), &neutral(st.tier, Slot::Bye));
-    fit(&mut nk, &bk);
+    let nk =
+        super::week::staff_week(st.tier, &st.frame, monday, &games, bowl, st.state, st.heat, &|s| neutral(st.tier, s));
     PlannedWeek { block, slot, books: bk, week: wk, neutral: nk, fitted, games, yours }
 }
 
@@ -732,7 +764,11 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
         p.player.train.add_load(load);
         let spike = p.player.train.spike();
         if spike > 1.45 && !hurt {
-            notes.push((id, "trainers", format!("load is up sharply this week ({:.1} times his usual): watch his reps", spike)));
+            notes.push((
+                id,
+                "trainers",
+                format!("load is up sharply this week ({:.1} times his usual): watch his reps", spike),
+            ));
         }
         if p.player.train.pending() {
             let b = cover(&mut p.player.train, &base);
@@ -753,13 +789,18 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
             // family that moved most, now and then.
             let mut by_f = [0.0; FAMILIES];
             for a in Attr::ALL {
-                by_f[family_of(a) as usize] += (p.player.attributes.get(a) - before.get(a)) * crate::positions::weight(p.player.position, a);
+                by_f[family_of(a) as usize] +=
+                    (p.player.attributes.get(a) - before.get(a)) * crate::positions::weight(p.player.position, a);
             }
-            let (fbest, vbest) = by_f.iter().enumerate().fold((0, 0.0), |acc, (f, &v)| if v > acc.1 { (f, v) } else { acc });
+            let (fbest, vbest) =
+                by_f.iter().enumerate().fold((0, 0.0), |acc, (f, &v)| if v > acc.1 { (f, v) } else { acc });
             let noise = crate::world::season::key_normal(seed ^ 0x40, id as u64);
             if vbest + 0.04 * noise > 0.12 && crate::world::season::key_uniform(seed ^ 0x41, id as u64) < 0.35 {
                 notes.push((id, "position", family_words(Family::ALL[fbest], true).to_string()));
-            } else if gain < 0.01 && role != Role::Starter && crate::world::season::key_uniform(seed ^ 0x42, id as u64) < 0.05 {
+            } else if gain < 0.01
+                && role != Role::Starter
+                && crate::world::season::key_uniform(seed ^ 0x42, id as u64) < 0.05
+            {
                 notes.push((id, "position", family_words(Family::ALL[fbest], false).to_string()));
             }
         }
@@ -788,7 +829,8 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
             let p = &mut w.people[i];
             let now = crate::body::body_now(&p.player).weight;
             let gap = target as f64 - now;
-            let rate = if gap > 0.0 { 1.5 } else { 1.2 } * clamp(0.7 + 0.03 * p.player.personality.work_ethic, 0.7, 1.3);
+            let rate =
+                if gap > 0.0 { 1.5 } else { 1.2 } * clamp(0.7 + 0.03 * p.player.personality.work_ethic, 0.7, 1.3);
             let step = gap.signum() * gap.abs().min(rate);
             if step.abs() > 0.05 {
                 body_change(&mut p.player, step);
@@ -907,15 +949,18 @@ pub fn body_change(p: &mut crate::player::Player, lbs: f64) {
 }
 
 /// A time-loss injury's chance per practice for an average player
-/// (proposed, not confirmed: the NCAA Injury Surveillance Program's
-/// practice rates, about 9.7 per 1000 exposures in preseason camp, 6 in
-/// spring and 3 in the season; high school about 40% of college).
+/// (proposed, not confirmed: set so a college season's practice share of
+/// injuries lands on the NCAA Injury Surveillance Program's split, about
+/// 55-62% of all injuries in practice by count with the most in preseason
+/// camp, on the engine's game injury rate; camp about three times the
+/// season's rate per practice, spring about twice; high school about 40%
+/// of college).
 pub fn practice_rate(tier: Tier, block: Block) -> f64 {
     let per = match block {
-        Block::Camp => 0.0097,
-        Block::Spring => 0.006,
-        Block::Season | Block::Postseason => 0.003,
-        _ => 0.002,
+        Block::Camp => 0.0037,
+        Block::Spring => 0.0023,
+        Block::Season | Block::Postseason => 0.00115,
+        _ => 0.0008,
     };
     per * if tier == Tier::High { 0.4 } else { 1.0 }
 }
@@ -928,7 +973,15 @@ pub fn soft_tissue(spike: f64) -> f64 {
 /// His chance of a practice injury over a week's `practices`: the block's
 /// rate, the week's contact against the neutral week's, his proneness
 /// (1-20), his exposure (a specialist's quarter) and his load spike.
-pub fn injury_chance(tier: Tier, block: Block, practices: f64, contact: f64, proneness: f64, exposure: f64, spike: f64) -> f64 {
+pub fn injury_chance(
+    tier: Tier,
+    block: Block,
+    practices: f64,
+    contact: f64,
+    proneness: f64,
+    exposure: f64,
+    spike: f64,
+) -> f64 {
     let prone = 0.42 + proneness / 18.0;
     1.0 - (1.0 - practice_rate(tier, block) * contact * prone * exposure * soft_tissue(spike).sqrt()).powf(practices)
 }
@@ -1005,7 +1058,12 @@ fn practice_injuries(
             d.add(day),
             id,
             "trainers",
-            format!("{name} hurt in practice: {}, out about {} day{}.", kind.name(), days, if days == 1 { "" } else { "s" }),
+            format!(
+                "{name} hurt in practice: {}, out about {} day{}.",
+                kind.name(),
+                days,
+                if days == 1 { "" } else { "s" }
+            ),
         );
         n += 1;
     }
@@ -1032,7 +1090,9 @@ fn install_week(w: &mut World, pw: &PlannedWeek) {
         for sp in plays {
             let f = match sp.play {
                 SheetKind::Run(r) => r.family() as u8,
-                SheetKind::Pass(k) => crate::game::playbook::pass_family(crate::game::playbook::pass_concept(k as usize)) as u8,
+                SheetKind::Pass(k) => {
+                    crate::game::playbook::pass_family(crate::game::playbook::pass_concept(k as usize)) as u8
+                }
                 SheetKind::Design(_) => continue,
             };
             if !fams.contains(&f) {
@@ -1040,7 +1100,8 @@ fn install_week(w: &mut World, pw: &PlannedWeek) {
             }
         }
     }
-    let designs: Vec<u16> = w.training.designs.iter().enumerate().filter(|(_, x)| x.installing).map(|(k, _)| k as u16).collect();
+    let designs: Vec<u16> =
+        w.training.designs.iter().enumerate().filter(|(_, x)| x.installing).map(|(k, _)| k as u16).collect();
     let keys: Vec<InstallKey> =
         fams.into_iter().map(InstallKey::Family).chain(designs.into_iter().map(InstallKey::Design)).collect();
     if keys.is_empty() {
@@ -1054,11 +1115,9 @@ fn install_week(w: &mut World, pw: &PlannedWeek) {
                 i.reps += reps;
                 i.level = (1.0 - (-(i.reps as f64) / 60.0).exp()) as f32;
             }
-            None => w.training.installs.push(Install {
-                key: k,
-                reps,
-                level: (1.0 - (-(reps as f64) / 60.0).exp()) as f32,
-            }),
+            None => {
+                w.training.installs.push(Install { key: k, reps, level: (1.0 - (-(reps as f64) / 60.0).exp()) as f32 })
+            }
         }
     }
 }
@@ -1067,10 +1126,8 @@ fn install_week(w: &mut World, pw: &PlannedWeek) {
 fn block_report(w: &mut World, st: &SeatTeam, d: Date, block: Block) {
     let mut lines = Vec::new();
     let logs: Vec<&WeekLog> = w.training.log.iter().filter(|l| l.block == Some(block)).collect();
-    let practices: usize = logs
-        .iter()
-        .map(|l| l.week.days.iter().filter(|x| x.periods.iter().any(|p| p.kind.on_field())).count())
-        .sum();
+    let practices: usize =
+        logs.iter().map(|l| l.week.days.iter().filter(|x| x.periods.iter().any(|p| p.kind.on_field())).count()).sum();
     let hurt: u32 = logs.iter().map(|l| l.injuries).sum();
     lines.push((
         "Head coach".to_string(),
@@ -1086,9 +1143,7 @@ fn block_report(w: &mut World, st: &SeatTeam, d: Date, block: Block) {
     let behind: Vec<String> = moved
         .iter()
         .rev()
-        .filter(|m| {
-            m.1 < 0.05 && w.people.iter().any(|p| p.player.id == m.0 && p.player.age <= 21)
-        })
+        .filter(|m| m.1 < 0.05 && w.people.iter().any(|p| p.player.id == m.0 && p.player.age <= 21))
         .take(3)
         .map(|m| name(m.0))
         .collect();
@@ -1096,14 +1151,24 @@ fn block_report(w: &mut World, st: &SeatTeam, d: Date, block: Block) {
         lines.push(("Position coaches".to_string(), format!("Not getting it yet: {}.", behind.join(", "))));
     }
     let flags = st.roster.iter().filter(|&&i| w.people[i].player.train.spike() > 1.4).count();
-    lines.push(("Trainers".to_string(), format!("{flags} players with a load spike; {} on the injury report.", w.training.hurt.iter().filter(|h| h.until > d).count())));
+    lines.push((
+        "Trainers".to_string(),
+        format!(
+            "{flags} players with a load spike; {} on the injury report.",
+            w.training.hurt.iter().filter(|h| h.until > d).count()
+        ),
+    ));
     let inst: Vec<String> = w
         .training
         .installs
         .iter()
         .filter(|i| matches!(i.key, InstallKey::Family(_)))
         .map(|i| match i.key {
-            InstallKey::Family(f) => format!("{} {:.0}%", crate::game::playbook::Family::ALL[f as usize % crate::game::playbook::FAMILY_COUNT].name(), i.level * 100.0),
+            InstallKey::Family(f) => format!(
+                "{} {:.0}%",
+                crate::game::playbook::Family::ALL[f as usize % crate::game::playbook::FAMILY_COUNT].name(),
+                i.level * 100.0
+            ),
             _ => String::new(),
         })
         .collect();
@@ -1164,7 +1229,13 @@ pub(crate) fn prepare(w: &World, team: &mut crate::game::GameTeam) {
             Some(Cal::HighSchool) => Tier::High,
             _ => Tier::College,
         };
-        let neutral_wk = week_from(Slot::Game, l.monday, &[l.monday.add(gd as i32)], &neutral(tier, Slot::Game), &neutral(tier, Slot::Bye));
+        let neutral_wk = week_from(
+            Slot::Game,
+            l.monday,
+            &[l.monday.add(gd as i32)],
+            &neutral(tier, Slot::Game),
+            &neutral(tier, Slot::Bye),
+        );
         let base = super::work::late_load(&neutral_wk, gd, Role::Starter);
         let fresh = super::work::freshness(late, base);
         prep.fresh = fresh;

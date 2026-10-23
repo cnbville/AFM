@@ -132,6 +132,12 @@ impl Kind {
         !matches!(self, Kind::WeightRoom | Kind::Meeting | Kind::Film | Kind::Recovery)
     }
 
+    /// A practice in the rule books' count: a ball and coaches on the
+    /// field, not a conditioning or speed session.
+    pub fn practice(self) -> bool {
+        self.on_field() && !matches!(self, Kind::Conditioning | Kind::Speed | Kind::WarmUp)
+    }
+
     /// Offense against defense.
     pub fn offense_against_defense(self) -> bool {
         matches!(
@@ -403,7 +409,8 @@ impl Slot {
             Block::Winter => Slot::Winter,
             Block::Summer => Slot::Summer,
             Block::Postseason if bowl => Slot::Bowl,
-            Block::Postseason => Slot::Winter,
+            // No bowl: December is finals and the players' own lifting.
+            Block::Postseason => Slot::Own,
             Block::Phase1 => Slot::Phase1,
             Block::Phase2 => Slot::Phase2,
             Block::Otas => Slot::Otas,
@@ -994,6 +1001,58 @@ pub fn fit(w: &mut Week, books: &[Book; 7]) {
             break;
         };
         w.days[i].periods.retain(|p| p.kind == Kind::Recovery);
+    }
+}
+
+/// Keeps a week inside what is left of its block's counts (topic 14.6):
+/// once the block's practices are used, a day keeps only its weight room,
+/// meetings and conditioning; once its scrimmages, contact or padded
+/// practices are used, those tone down (a scrimmage becomes a team
+/// period, live and thud become control, pads become shells).
+pub fn fit_block(w: &mut Week, used: &super::rules::Counts, lim: &super::rules::Counts) {
+    let mut c = *used;
+    for d in w.days.iter_mut() {
+        if d.rest() || !d.periods.iter().any(|p| p.kind.practice()) {
+            continue;
+        }
+        let room = lim.practices.saturating_sub(c.practices);
+        if room == 0 {
+            d.periods.retain(|p| !p.kind.practice());
+            d.second = false;
+            continue;
+        }
+        if d.second && room < 2 {
+            d.second = false;
+        }
+        c.practices += 1 + d.second as u16;
+        if d.periods.iter().any(|p| p.kind == Kind::Scrimmage) {
+            if c.scrimmages >= lim.scrimmages {
+                for p in d.periods.iter_mut().filter(|p| p.kind == Kind::Scrimmage) {
+                    p.kind = Kind::Team;
+                }
+            } else {
+                c.scrimmages += 1;
+            }
+        }
+        if d.periods.iter().any(|p| p.gear == Gear::Pads) {
+            if c.padded >= lim.padded {
+                for p in d.periods.iter_mut().filter(|p| p.gear == Gear::Pads) {
+                    p.gear = Gear::Shells;
+                    p.contact = p.contact.min(Gear::Shells.most_contact());
+                }
+            } else {
+                c.padded += 1;
+            }
+        }
+        if d.periods.iter().any(|p| p.contact >= Contact::Thud) {
+            if c.contact >= lim.contact {
+                for p in d.periods.iter_mut().filter(|p| p.contact >= Contact::Thud) {
+                    p.contact = Contact::Control;
+                }
+            } else {
+                c.contact += 1;
+            }
+        }
     }
 }
 

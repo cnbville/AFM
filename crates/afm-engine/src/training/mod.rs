@@ -238,6 +238,18 @@ fn quick_normal(rng: &mut Rng) -> f64 {
 /// focus. The noise comes from its own keyed stream, so nothing else in
 /// the world draws differently. Returns the overall gained.
 pub fn land(p: &mut Player, share: &[f64; FAMILIES], focus: Option<Attr>, key: u64) -> f64 {
+    let done: [f64; FAMILIES] = std::array::from_fn(|f| p.train.landed(Family::ALL[f]) - share[f]);
+    land_after(p, share, &done, focus, key)
+}
+
+/// `land` with the share of each family already landed given (`done`).
+pub fn land_after(
+    p: &mut Player,
+    share: &[f64; FAMILIES],
+    done: &[f64; FAMILIES],
+    focus: Option<Attr>,
+    key: u64,
+) -> f64 {
     if !p.train.pending() || share.iter().all(|&s| s <= 0.0) {
         return 0.0;
     }
@@ -254,7 +266,7 @@ pub fn land(p: &mut Player, share: &[f64; FAMILIES], focus: Option<Attr>, key: u
         let af = growth_age_factor(dev_age, a.profile().growth_window);
         let rate = g.rate(a, af);
         let noise = 0.5 * s.sqrt() * quick_normal(&mut rng);
-        grow_share(&mut attrs, &mut ceil, a, rate, s, noise);
+        grow_share(&mut attrs, &mut ceil, a, rate, s, done[family_of(a) as usize], noise);
     }
     p.attributes = attrs;
     p.ceilings = ceil;
@@ -308,7 +320,8 @@ pub fn close_year(p: &mut Player, focus: Option<Attr>) {
     for (f, r) in rest.iter_mut().enumerate() {
         *r = (1.0 - p.train.covered[f] as f64 / 10000.0).max(0.0);
     }
-    land(p, &rest, focus, 0xC105E);
+    let done: [f64; FAMILIES] = std::array::from_fn(|f| p.train.landed(Family::ALL[f]));
+    land_after(p, &rest, &done, focus, 0xC105E);
     let load = p.train.load;
     p.train = Train { load, ..Train::default() };
     let now = p.overall();
@@ -329,7 +342,7 @@ pub fn projected_overall(p: &Player) -> f64 {
         }
         let af = growth_age_factor(dev_age, a.profile().growth_window);
         let rate = g.rate(a, af);
-        grow_share(&mut attrs, &mut ceil, a, rate, 1.0, 0.0);
+        grow_share(&mut attrs, &mut ceil, a, rate, 1.0, 0.0, 0.0);
     }
     overall_for(p.position, &attrs)
 }
@@ -346,8 +359,10 @@ pub fn ahead(p: &Player) -> f64 {
     for (f, r) in rest.iter_mut().enumerate() {
         *r = (1.0 - q.train.covered[f] as f64 / 10000.0).max(0.0) + q.train.due[f] as f64 / 2000.0;
     }
+    let done: [f64; FAMILIES] =
+        std::array::from_fn(|f| q.train.landed(Family::ALL[f]) - q.train.due[f] as f64 / 2000.0);
     let before = q.overall();
-    land(&mut q, &rest, None, 1);
+    land_after(&mut q, &rest, &done, None, 1);
     q.overall() - before
 }
 

@@ -58,19 +58,8 @@ impl Block {
     ];
 
     pub fn name(self) -> &'static str {
-        [
-            "winter",
-            "spring",
-            "quiet",
-            "summer",
-            "camp",
-            "season",
-            "postseason",
-            "phase1",
-            "phase2",
-            "otas",
-            "break",
-        ][self as usize]
+        ["winter", "spring", "quiet", "summer", "camp", "season", "postseason", "phase1", "phase2", "otas", "break"]
+            [self as usize]
     }
 
     pub fn label(self, tier: Tier) -> &'static str {
@@ -519,7 +508,8 @@ pub fn book(tier: Tier, b: Block, season: i32, day: i32, state: &str, heat_rule:
                 if season >= 2022 {
                     k.back_to_back = false;
                     k.full_session = Some(75);
-                    k.rule = "NCAA 2022: 15 spring practices, no full contact on back-to-back days, 75 minutes a session";
+                    k.rule =
+                        "NCAA 2022: 15 spring practices, no full contact on back-to-back days, 75 minutes a session";
                 }
                 k.two_a_days = false;
             }
@@ -849,9 +839,14 @@ pub fn block_limits(tier: Tier, b: Block, season: i32) -> Counts {
 }
 
 impl Counts {
+    /// No limits at all.
+    pub fn unlimited() -> Counts {
+        Counts { practices: u16::MAX, contact: u16::MAX, padded: u16::MAX, scrimmages: u16::MAX }
+    }
+
     pub fn add_week(&mut self, w: &Week) {
         for d in &w.days {
-            if d.rest() || !d.periods.iter().any(|p| p.kind.on_field()) {
+            if d.rest() || !d.periods.iter().any(|p| p.kind.practice()) {
                 continue;
             }
             self.practices += 1 + d.second as u16;

@@ -158,16 +158,18 @@ pub(crate) fn declines(position: crate::positions::Position, longevity: f64, key
 }
 
 /// One installment of a year's growth (section 6b topic 12): `share` of
-/// the year for this attribute. The proportional part compounds so that
-/// shares adding to one give the yearly step's growth; the fixed step and
-/// the cap split by share; the noise keeps its yearly spread. Returns the
-/// rating points added.
+/// the year for this attribute, `done` the share already landed. The
+/// proportional part compounds on the gap plus the fixed steps already
+/// given, so shares adding to one give the yearly step's growth exactly;
+/// the fixed step and the cap split by share; the noise keeps its yearly
+/// spread. Returns the rating points added.
 pub(crate) fn grow_share(
     attrs: &mut crate::attributes::Attributes,
     ceilings: &mut crate::attributes::Attributes,
     key: Attr,
     rate: f64,
     share: f64,
+    done: f64,
     noise: f64,
 ) -> f64 {
     let gap = ceilings.get(key) - attrs.get(key);
@@ -175,7 +177,8 @@ pub(crate) fn grow_share(
         return 0.0;
     }
     let prop = 1.0 - (share * (1.0 - rate).ln()).exp();
-    let add = gap.min(gap * prop + FINISHING_STEP * rate * share).min(MAX_YEARLY_GAIN * share) + noise;
+    let given = FINISHING_STEP * rate * done.clamp(0.0, 1.0);
+    let add = gap.min((gap + given) * prop + FINISHING_STEP * rate * share).min(MAX_YEARLY_GAIN * share) + noise;
     let before = attrs.get(key);
     let attr = clamp(before + add, MIN_RATING, MAX_RATING);
     attrs.set(key, attr);
