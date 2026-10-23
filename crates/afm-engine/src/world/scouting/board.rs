@@ -146,7 +146,10 @@ pub fn seat_grades(w: &World) -> HashMap<u32, f64> {
     if raw.is_empty() {
         return HashMap::new();
     }
-    let align = crate::level_rating::PositionAligner::new(&raw);
+    let align = crate::level_rating::PositionAligner::for_draft(
+        &raw,
+        crate::world::recruiting::full_draft(w, coming_slots(w).len()),
+    );
     let mut aligned: Vec<(usize, f64)> = pool
         .iter()
         .filter_map(|&i| w.people[i].cal.draft_read.map(|r| (i, align.align(w.people[i].player.position, r.grade))))
@@ -165,7 +168,7 @@ pub fn public_ranks(w: &World) -> HashMap<u32, usize> {
     let top = super::public::consensus(w).unwrap_or_default();
     let mut v: Vec<(f64, u32)> = super::public::prospects(w)
         .into_iter()
-        .filter_map(|i| w.people[i].cal.draft_read.map(|r| (r.grade, w.people[i].player.id)))
+        .filter_map(|i| w.people[i].cal.draft_read.map(|r| (r.score, w.people[i].player.id)))
         .collect();
     v.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
     let mut order = top.clone();

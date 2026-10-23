@@ -1573,9 +1573,13 @@ pub fn predraft_view(w: &World) -> Reply {
         })
         .collect();
     let dates = &w.dates;
+    // This draft's January: the deadline and the Senior Bowl after last
+    // season when the draft is still ahead this spring.
+    let jan = (sc::public::draft_year(w) == w.year).then(|| afm_engine::calendar::YearDates::new(w.year - 1));
+    let jan = jan.as_ref().unwrap_or(dates);
     let cal = json!([
-        ["Declaration deadline", date_text(dates.declare_deadline)],
-        ["Senior Bowl", date_text(dates.senior_bowl)],
+        ["Declaration deadline", date_text(jan.declare_deadline)],
+        ["Senior Bowl", date_text(jan.senior_bowl)],
         ["Combine", date_text(dates.combine_start)],
         ["Pro days", "March to mid-April"],
         ["Top-30 visits deadline", date_text(dates.draft[0].date.add(-10))],
@@ -1622,21 +1626,27 @@ pub fn pro_scouting(w: &World, args: &Value) -> Reply {
             })
             .collect()
     });
-    // The street: unsigned pros worth a call, by your pro staff's read.
-    let mut street: Vec<(f64, usize)> = w
+    // The street: unsigned pros worth a call, your pro staff's reads
+    // first, then the ones nobody has looked at yet by what the league paid
+    // them (public: their contracts).
+    let mut street: Vec<(bool, f64, usize)> = w
         .people
         .iter()
         .enumerate()
         .filter(|(_, p)| {
             p.stage == Stage::Pro && p.pro.as_ref().is_some_and(|c| c.team.is_none()) && p.player.age <= 33
         })
-        .filter_map(|(i, p)| readers::read(w, staff, p.player.id).map(|(_, _, f)| (f.now.0, i)))
+        .map(|(i, p)| match readers::read(w, staff, p.player.id) {
+            Some((_, _, f)) => (true, f.now.0, i),
+            None => (false, p.pro.as_ref().map_or(0.0, |c| c.earnings), i),
+        })
         .collect();
-    street.sort_by(|a, b| b.0.total_cmp(&a.0));
+    street.sort_by(|a, b| b.0.cmp(&a.0).then(b.1.total_cmp(&a.1)));
     let street: Vec<Value> = street
         .into_iter()
-        .take(40)
-        .map(|(_, i)| {
+        .map(|x| x.2)
+        .take(60)
+        .map(|i| {
             let mut r = row(w, i);
             r["read"] = brief_read(w, staff, w.people[i].player.id);
             r["tried"] = json!(ps.tryouts.iter().any(|x| x.0 == w.people[i].player.id));

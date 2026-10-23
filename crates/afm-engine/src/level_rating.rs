@@ -119,6 +119,44 @@ pub fn build_level_scale(overalls: &[f64], pool: Pool, class_share: f64) -> Leve
 pub struct PositionAligner {
     maps: [Option<(f64, f64)>; POSITION_COUNT],
     all_mid: f64,
+    /// Kickers, punters and long snappers on a draft board (`for_draft`);
+    /// empty elsewhere.
+    #[serde(default)]
+    ladders: Vec<Ladder>,
+}
+
+/// A specialist position on a draft board: his grade read off his place in
+/// his position's class.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct Ladder {
+    position: Position,
+    /// (class grade, draft grade), best first.
+    rungs: Vec<(f64, f64)>,
+    /// How the grade moves past the rungs.
+    slope: f64,
+    /// The most any read of one is worth.
+    cap: f64,
+}
+
+impl Ladder {
+    /// Between two rungs a read falls between their grades; past either
+    /// end it moves at the slope.
+    fn read(&self, x: f64) -> f64 {
+        let r = &self.rungs;
+        let (first, last) = (r[0], r[r.len() - 1]);
+        let g = if x >= first.0 {
+            first.1 + (x - first.0) * self.slope
+        } else {
+            r.windows(2)
+                .find(|w| x >= w[1].0)
+                .map(|w| {
+                    let ((hi, ghi), (lo, glo)) = (w[0], w[1]);
+                    if hi - lo < 1e-9 { ghi } else { glo + (ghi - glo) * (x - lo) / (hi - lo) }
+                })
+                .unwrap_or(last.1 + (x - last.0) * self.slope)
+        };
+        g.min(self.cap)
+    }
 }
 
 impl PositionAligner {
@@ -140,11 +178,52 @@ impl PositionAligner {
             }
             maps[i] = Some((mid, (all_high - all_mid) / (high - mid)));
         }
-        PositionAligner { maps, all_mid }
+        PositionAligner { maps, all_mid, ladders: Vec::new() }
+    }
+
+    /// The draft board's scale: aligned like `new`, but a kicker, punter or
+    /// long snapper is worth the pick clubs take him at, not his standing
+    /// among his own. Lining up every position's best put the best punter
+    /// in the top 20. Each specialist position is read off its own class in
+    /// order instead: its best at the class's grade at 45% of the draft's
+    /// `slots` (kickers), 50% (punters) or 70% (long snappers), each next
+    /// one a quarter of the draft lower, the rest past the draft (Claude's
+    /// pick, logged). A read between two of his class falls between their
+    /// grades, so one great kicker doesn't push the rest out of the draft;
+    /// a read above the class's best rises at the position's usual slope to
+    /// at most the grade at 18% of the draft (kickers), 27% (punters) or 70%
+    /// (long snappers). Clubs then take them a round or two later than that,
+    /// only with a need: about two kickers and two punters a draft, as real
+    /// clubs do (2000-2025: one kicker in round one, no punter before pick
+    /// 70).
+    pub fn for_draft(samples: &[(Position, f64)], slots: usize) -> Self {
+        let mut a = Self::new(samples);
+        let mut all: Vec<f64> = samples.iter().filter(|s| !s.0.is_specialist()).map(|&(p, x)| a.align(p, x)).collect();
+        all.sort_unstable_by(|x, y| y.total_cmp(x));
+        if all.is_empty() {
+            return a;
+        }
+        let at = |share: f64| all[((slots as f64 * share).round() as usize).clamp(1, all.len()) - 1];
+        for (pos, first, rungs, cap) in
+            [(Position::K, 0.45, 4, 0.18), (Position::P, 0.50, 4, 0.27), (Position::LS, 0.70, 2, 0.70)]
+        {
+            let mut raw: Vec<f64> = samples.iter().filter(|s| s.0 == pos).map(|s| s.1).collect();
+            if raw.is_empty() {
+                continue;
+            }
+            raw.sort_unstable_by(|x, y| y.total_cmp(x));
+            let slope = a.maps[pos.index()].map_or(1.0, |m| m.1);
+            let rungs = raw.iter().take(rungs).enumerate().map(|(k, &x)| (x, at(first + 0.25 * k as f64))).collect();
+            a.ladders.push(Ladder { position: pos, rungs, slope, cap: at(cap) });
+        }
+        a
     }
 
     #[inline]
     pub fn align(&self, position: Position, overall: f64) -> f64 {
+        if let Some(l) = self.ladders.iter().find(|l| l.position == position) {
+            return l.read(overall);
+        }
         match self.maps[position.index()] {
             Some((mid, slope)) => self.all_mid + (overall - mid) * slope,
             None => overall,

@@ -347,11 +347,11 @@ fn rookie_cap_share(pick: u32) -> f64 {
     }
 }
 
-/// A flat discount on kickers, punters and long snappers on draft day, on
-/// top of the position value (which shrinks in later rounds). Sized so
-/// about two kickers and two punters a year are drafted, and a long snapper
-/// every two or three years (real 2000-2025, nflverse: 2.15, 1.96 and 0.35
-/// a year; proposed, not confirmed).
+/// A flat discount on kickers, punters and long snappers in the December
+/// read, on top of the position value (which shrinks in later rounds), so
+/// the public's boards and a specialist's own round read put them where the
+/// draft takes them (proposed, not confirmed). On draft day the board's
+/// own scale places them instead (`PositionAligner::for_draft`).
 fn specialist_draft_discount(pos: Position) -> f64 {
     match pos {
         Position::K | Position::P => 2.0,
@@ -1207,8 +1207,9 @@ pub(crate) fn draft_begin(w: &mut World) -> DraftRun {
     // Traded picks to their owners and free agency's compensatory picks.
     super::pro::trades::board_owners(w, draft_year, &mut board, &base);
     let declared_ids: Vec<usize> = declared.iter().map(|d| d.0).collect();
-    let align = crate::level_rating::PositionAligner::new(
+    let align = crate::level_rating::PositionAligner::for_draft(
         &declared_ids.iter().map(|&i| (w.people[i].player.position, grades[&i])).collect::<Vec<_>>(),
+        full_draft(w, board.len()),
     );
     let mut pool: Vec<(usize, f64)> = declared_ids
         .iter()
@@ -1225,6 +1226,14 @@ pub(crate) fn draft_begin(w: &mut World) -> DraftRun {
     super::scouting::predraft::on_boards(w, &board, &mut boards);
     let public_rank = super::pro::scouts::public_ranks(&pool);
     DraftRun { year: draft_year, board, pool, boards, public_rank, next: 1, ..Default::default() }
+}
+
+/// The draft's picks at full size: a small world's few picks stand for a
+/// whole draft, and its class is a bigger share of a full one than its
+/// picks are, so specialists are placed against the full draft (a small
+/// world's 13 picks once took a kicker 5th).
+pub(crate) fn full_draft(w: &World, slots: usize) -> usize {
+    (slots as f64 / w.options.scale.max(0.01)).round() as usize
 }
 
 /// A club's value of a prospect at a pick (value, position worth, need,
@@ -1249,6 +1258,10 @@ pub(crate) fn draft_value(w: &World, run: &DraftRun, t: usize, i: usize, pick: u
     if pos.is_specialist() && need_here <= 0.0 {
         return None;
     }
+    // Nor does a club take two at one specialist position in one draft.
+    if pos.is_specialist() && run.picked.iter().any(|x| x.2 == t && w.people[x.0].player.position == pos) {
+        return None;
+    }
     // The GM's style (trial 4 topic 6.5): some draft for need, some
     // take the best player left (proposed, not confirmed: a need weight
     // from 0.5 to 1.5, his own for his career).
@@ -1259,7 +1272,7 @@ pub(crate) fn draft_value(w: &World, run: &DraftRun, t: usize, i: usize, pick: u
     // At the very top any team without a franchise QB takes the best one.
     let top_qb = clamp(1.0 - (pick as f64 - 1.0) / 8.0, 0.0, 1.0);
     let qb_gate = if pos == Position::QB { clamp((need_here + 2.0) / 4.0, 0.2, 1.0).max(top_qb) } else { 1.0 };
-    let pv = draft_position_value(pos, g) * rf * qb_gate - specialist_draft_discount(pos);
+    let pv = draft_position_value(pos, g) * rf * qb_gate;
     // At the very top, a great player at a lesser position is worth less than
     // his grade says: a generational WR or safety rarely goes first.
     let lesser = !matches!(pos, Position::QB | Position::EDGE | Position::OT);
