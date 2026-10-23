@@ -238,3 +238,39 @@
 
 /* Toasts sit above the footer's buttons on these pages. */
 body:has(.pg) .toasts { bottom: 96px; }
+
+/* Lane 10: how you start (head coach, assistant, no job yet), the
+   assistant's staff jobs, your last stops and the people who know you. */
+.pg-modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 4px 32px 14px; }
+.pg-mode { all: unset; display: grid; gap: 4px; align-content: start; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--pg-line); background: var(--pg-panel); cursor: pointer; box-sizing: border-box; }
+.pg-mode b { font-size: 14px; font-weight: 800; }
+.pg-mode small { font-size: 12px; line-height: 1.4; color: var(--pg-fg3); }
+.pg-mode:hover { border-color: var(--pg-edge); }
+.pg-mode.on { border-color: var(--pg-amber); box-shadow: inset 3px 0 0 var(--pg-amber); background: #1b1f25; }
+.pg-mode:focus-visible, .pg-role:focus-visible { outline: 2px solid var(--pg-amber); outline-offset: -2px; }
+.pg-filters .pg-seg.two { grid-template-columns: 1fr 1fr; }
+.pg-roles { display: grid; gap: 4px; padding: 8px 10px 14px; }
+.pg-role { all: unset; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 8px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+.pg-role b { font-weight: 600; color: #d5d9df; }
+.pg-role small { color: var(--pg-fg3); font-size: 12px; text-align: right; }
+.pg-role:hover { background: #1a1f26; }
+.pg-role.on { background: #262c35; box-shadow: inset 3px 0 0 var(--pg-amber); }
+.pg-role.on b { color: #fff; font-weight: 700; }
+.pg-stops > .pg-stop { display: grid; grid-template-columns: 120px minmax(0, 1.6fr) minmax(0, 1.3fr) 76px 76px 36px; gap: 10px; padding: 8px 16px; border-bottom: 1px solid var(--pg-line2); align-items: center; font-size: 13px; }
+.pg-stops > .pg-stop.h { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--pg-fg3); }
+.pg-stop input, .pg-stop select { font-family: inherit; font-size: 13px; color: var(--pg-fg); background: var(--pg-field); border: 1px solid #2e343d; border-radius: 6px; min-height: 32px; padding: 0 8px; width: 100%; box-sizing: border-box; color-scheme: dark; min-width: 0; }
+.pg-stop input:focus, .pg-stop select:focus { outline: 2px solid var(--pg-amber); outline-offset: -1px; }
+.pg-stop.bad input[data-sf="name"] { border-color: #c0564b; }
+.pg-stop .x { all: unset; cursor: pointer; color: var(--pg-fg3); font-size: 18px; text-align: center; }
+.pg-stop .x:hover { color: var(--pg-fg); }
+.pg-kv .pg-warn { color: var(--pg-amber); }
+.pg-knownlist { border-top: 1px solid var(--pg-line); }
+.pg-known { display: grid; gap: 2px; padding: 9px 16px; border-bottom: 1px solid var(--pg-line2); font-size: 13px; }
+.pg-known:last-child { border-bottom: 0; }
+.pg-known > div { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.pg-known small { font-size: 12px; color: var(--pg-fg2); line-height: 1.4; }
+.pg-known small.pg-dim { color: var(--pg-fg3); }
+@media (max-width: 1100px) {
+  .pg-modes { grid-template-columns: 1fr; }
+  .pg-stops > .pg-stop { grid-template-columns: 100px minmax(0, 1fr) minmax(0, 1fr) 64px 64px 28px; gap: 6px; }
+}

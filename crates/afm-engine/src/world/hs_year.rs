@@ -138,7 +138,7 @@ struct HsAcc {
     s: [i32; HS_STAT_COUNT],
 }
 
-fn hs_counts(l: &crate::game::stats::StatLine) -> [i32; HS_STAT_COUNT] {
+pub(crate) fn hs_counts(l: &crate::game::stats::StatLine) -> [i32; HS_STAT_COUNT] {
     let mut s = [0; HS_STAT_COUNT];
     let mut set = |k: HsStat, v: f64| s[k as usize] = v.round() as i32;
     set(HsStat::SnapsOff, l.snaps_off as f64);
@@ -547,7 +547,9 @@ fn start_state(w: &mut World, s: usize) {
         }
     }
     super::clock::timed("hs reconsider", || season::reconsider_positions(w, &who));
-    let roles = super::clock::timed("hs roles", || season::hs_roles(w, &schools));
+    let mut roles = super::clock::timed("hs roles", || season::hs_roles(w, &schools));
+    // Your JV and freshman players get their own squad's game reps (lane 10).
+    super::front_office::school::squad_roles(w, &mut roles);
     super::clock::timed("hs mood", || super::people::hs_camp_mood(w, &schools, &roles));
     super::clock::timed("hs develop", || season::develop(w, &roles));
     let people = &w.people;
@@ -773,22 +775,52 @@ const HS_DRESS_MIN: usize = 18;
 /// experience grow with his years in the program (proposed, not confirmed).
 /// Also returns each player's id and person index.
 fn hs_team(w: &World, h: usize, week: usize) -> Option<(GameTeam, Vec<(u32, usize)>)> {
+    let school = &w.high_schools[h];
+    let ok = |i: usize| can_play(w, i, week);
+    let older = school.roster.iter().filter(|&&i| ok(i) && w.people[i].school_age() > 14).count();
+    // Your school dresses its varsity squad (lane 10: you or your staff
+    // decide who plays varsity, JV and freshman ball).
+    let squads = super::front_office::school::varsity_filter(w, h);
+    let dressed: Vec<usize> = school
+        .roster
+        .iter()
+        .copied()
+        .filter(|&i| {
+            ok(i)
+                && match &squads {
+                    Some(v) => v.contains(&i),
+                    None => older < 30 || w.people[i].school_age() > 14,
+                }
+        })
+        .collect();
+    squad_team(w, h, dressed, true)
+}
+
+/// Whether a high schooler may play in week `week` (regular weeks, then
+/// playoff rounds): not sitting a transfer, suspended or out for grades. A
+/// player suspended for the season sits, as in college (his status line
+/// says so).
+pub(crate) fn can_play(w: &World, i: usize, week: usize) -> bool {
+    let grades = w.hs_season.as_ref().map(|hs| &hs.grade_weeks);
+    let p = &w.people[i];
+    p.stage == Stage::HighSchool
+        && p.last_role != Some(PlayingTime::Redshirt)
+        && !p.cal.trouble
+        && !super::folk::rules::sitting(w, p.player.id, w.today)
+        && grades.is_none_or(|g| g.get(&i).is_none_or(|m| m >> week & 1 == 0))
+}
+
+/// A game team from the players given (a school's varsity, or your JV or
+/// freshman squad): the same build for each, with the school's head coach
+/// calling both sides. Your order is played only by your varsity.
+pub(crate) fn squad_team(
+    w: &World,
+    h: usize,
+    dressed: Vec<usize>,
+    varsity: bool,
+) -> Option<(GameTeam, Vec<(u32, usize)>)> {
     use super::systems::Installed;
     let school = &w.high_schools[h];
-    let grades = w.hs_season.as_ref().map(|hs| &hs.grade_weeks);
-    // A player suspended for the season sits, as in college (his status
-    // line says so).
-    let ok = |i: usize| {
-        let p = &w.people[i];
-        p.stage == Stage::HighSchool
-            && p.last_role != Some(PlayingTime::Redshirt)
-            && !p.cal.trouble
-            && !super::folk::rules::sitting(w, p.player.id, w.today)
-            && grades.is_none_or(|g| g.get(&i).is_none_or(|m| m >> week & 1 == 0))
-    };
-    let older = school.roster.iter().filter(|&&i| ok(i) && w.people[i].school_age() > 14).count();
-    let dressed: Vec<usize> =
-        school.roster.iter().copied().filter(|&i| ok(i) && (older < 30 || w.people[i].school_age() > 14)).collect();
     if dressed.len() < HS_DRESS_MIN {
         return None;
     }
@@ -834,8 +866,8 @@ fn hs_team(w: &World, h: usize, week: usize) -> Option<(GameTeam, Vec<(u32, usiz
         },
     );
     team.give_orders(crate::player::Level::HS);
-    if w.seat_school() == Some(h) {
-        team.order = w.seat_depth.clone();
+    if varsity && w.seat_school() == Some(h) {
+        team.order = w.seat_order();
     }
     // Line chemistry: upperclassmen up front have played together.
     let line_vets = dressed
@@ -1124,6 +1156,13 @@ fn seed_playoffs(w: &mut World, s: usize) {
         });
         seeds.truncate(field);
         g.alive = seeds;
+    }
+    // Your school's playoff goals read whether it made the field.
+    if let Some(me) = super::front_office::school::your_school(w)
+        && w.high_schools[me].state == s
+        && w.hs_alive(me)
+    {
+        w.front_office.school.in_playoffs = true;
     }
 }
 
@@ -1987,6 +2026,19 @@ impl World {
             .collect();
         rows.sort_by_key(|&(_, wn, l)| (std::cmp::Reverse(wn), l));
         Some((format!("{} class {}", self.states[g.state].code, g.class + 1), rows))
+    }
+
+    /// Whether a school is in its state's playoff field and still alive.
+    pub fn hs_alive(&self, h: usize) -> bool {
+        self.hs_season.as_ref().is_some_and(|hs| hs.groups.iter().any(|g| g.alive.contains(&h)))
+    }
+
+    /// A school's state season this year: its regular-season Fridays, its
+    /// playoff rounds and whether it is over.
+    pub fn hs_weeks(&self, h: usize) -> Option<(Vec<Date>, Vec<Date>, bool)> {
+        let hs = self.hs_season.as_ref()?;
+        let st = hs.states.get(self.high_schools.get(h)?.state)?;
+        Some((st.weeks.clone(), st.rounds.clone(), st.done))
     }
 
     /// A school's record this season, if its season has started. On the

@@ -1,0 +1,71 @@
+/* Front office: the school desk and the job market (lane 10).
+   Every colour comes from Showtime's tokens, so both themes follow. */
+
+/* People: the principal, the athletic director, the booster president. */
+.fs-people { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.fs-person, .fs-feeder, .fs-offer { background: var(--fill-1); border-radius: var(--radius-md); padding: 14px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.fs-person p, .fs-offer p { margin: 0; font-size: 13.5px; line-height: 1.45; }
+.fs-who { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.fs-who > div { display: grid; gap: 2px; min-width: 0; }
+.fs-who b { font-size: 14.5px; }
+.fs-who small { color: var(--fg3); font-size: 12px; }
+.fs-init { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 13px; letter-spacing: .02em; color: var(--on-fg); background: var(--accent); }
+.fs-feeder .fs-init { background: var(--fill-3); color: var(--fg); font-size: 11.5px; }
+.fs-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.fs-tag { font-size: 11.5px; color: var(--fg2); padding: 3px 9px; border-radius: var(--radius-full); box-shadow: inset 0 0 0 1px var(--hair); }
+/* A quiet warning: trust running out, a goal missed (no pulse, it isn't live). */
+.st-pill.fs-warn { background: color-mix(in oklab, var(--live) 18%, transparent); color: color-mix(in oklab, var(--live) 60%, var(--fg)); }
+
+/* Goals and reviews. */
+.fs-goals, .fs-reviews { display: grid; gap: 6px; }
+.fs-goal { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--fill-1); }
+.fs-goal > div { display: grid; gap: 2px; min-width: 0; }
+.fs-goal b { font-size: 13.5px; font-weight: 600; }
+.fs-goal small { color: var(--fg3); font-size: 12px; }
+.fs-review { display: grid; gap: 4px; font-size: 13px; padding: 8px 12px; border-left: 2px solid var(--hair); }
+.fs-review b { font-size: 13px; }
+
+/* Money in and out, hours: a label, a bar and a figure. */
+.fs-flow { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(80px, 2fr) 72px; align-items: center; gap: 10px; font-size: 13px; }
+.fs-flow > span:first-child { color: var(--fg2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fs-flow .t { height: 8px; border-radius: var(--radius-full); background: var(--fill-2); overflow: hidden; }
+.fs-flow .t i { display: block; height: 100%; border-radius: inherit; background: var(--fg3); }
+.fs-flow .t i.acc { background: var(--accent); }
+.fs-flow b { text-align: right; font-variant-numeric: tabular-nums; }
+.fs-hours { display: grid; gap: 8px; }
+.fs-in { color: color-mix(in oklab, var(--good) 70%, var(--fg)); font-variant-numeric: tabular-nums; }
+.fs-out { color: color-mix(in oklab, var(--live) 70%, var(--fg)); font-variant-numeric: tabular-nums; }
+
+/* Squads: the move picker in a table row. */
+.fs-move { border: 1px solid var(--hair); background: var(--fill-1); color: var(--fg); border-radius: 8px; padding: 3px 6px; font: inherit; font-size: 12px; }
+.fs-move option { background: var(--raised); }
+
+/* Feeders. */
+.fs-feeders { display: grid; gap: 10px; }
+.fs-feeder .sub { font-size: 13px; }
+.fs-names { font-size: 13px; line-height: 1.6; }
+.fs-names .st-label { margin-right: 6px; }
+
+/* The job market. */
+.fs-offers { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.fs-offer { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 40%, transparent); }
+.fs-offer .st-tiles b { font-size: 26px; }
+.fs-checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px 14px; }
+.fs-check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; cursor: pointer; }
+.fs-check input { accent-color: var(--accent); width: 15px; height: 15px; }
+.fs-q { border: 1px solid var(--hair); background: var(--fill-1); color: var(--fg); border-radius: 10px; padding: 6px 10px; font: inherit; font-size: 13px; min-width: 200px; flex: 1; }
+.fs-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; align-items: start; }
+.fs-states { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 13px; }
+.fs-states .st-label { margin-right: 4px; }
+.fs-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border-radius: var(--radius-full); background: var(--fill-2); font-size: 12.5px; font-weight: 600; }
+.fs-chip button { border: 0; background: none; color: var(--fg3); font-size: 15px; line-height: 1; padding: 0 5px; cursor: pointer; border-radius: 50%; }
+.fs-chip button:hover { color: var(--fg); background: var(--fill-3); }
+.fs-cycle { display: grid; gap: 8px; margin-top: 10px; }
+.fs-cycle > div { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 12px; font-size: 13px; color: var(--fg2); }
+.fs-cycle b { color: var(--fg); }
+.teamcell small { font-size: 11.5px; }
+
+@media (max-width: 720px) {
+  .fs-flow { grid-template-columns: minmax(90px, 1fr) minmax(60px, 1.4fr) 64px; }
+  .fs-goal { flex-wrap: wrap; }
+}

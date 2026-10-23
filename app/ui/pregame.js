@@ -63,7 +63,8 @@ screens.start = async () => {
   const [lib, hello] = await Promise.all([api("library"), PG.hello ? Promise.resolve(PG.hello) : api("hello")]);
   PG.lib = lib;
   PG.hello = hello;
-  const open = S.status && S.status.mine;
+  // A career is open with or without a team (out of work is a career too).
+  const open = S.status && S.status.you;
   const last = lib.saves[0];
   // The card the menu shows: the career you have open, else your newest save.
   let card = null, cont = "", savedLine = "";
@@ -76,10 +77,11 @@ screens.start = async () => {
   }
   const seat = card && card.seat;
   if (open || last) {
-    const name = seat ? seat.team.name : open ? S.status.mine.name : (last.meta && last.meta.career) || last.name;
-    const role = seat ? `${seat.role}` : "Head coach";
-    const sub = seat ? [seat.line, seat.record, seat.next ? "next: " + seat.next : ""].filter(Boolean).join(" · ") : (last && last.meta ? last.meta.career || "" : "");
-    const team = seat ? seat.team : open ? S.status.mine : { name, colors: null };
+    const free = open && !S.status.mine;
+    const name = seat ? seat.team.name : free ? S.status.you : open ? S.status.mine.name : (last.meta && last.meta.career) || last.name;
+    const role = seat ? `${seat.role}` : free ? "Out of coaching" : "Head coach";
+    const sub = seat ? [seat.line, seat.record, seat.next ? "next: " + seat.next : ""].filter(Boolean).join(" · ") : free ? "Looking for a job" : (last && last.meta ? last.meta.career || "" : "");
+    const team = seat ? seat.team : free ? { name, colors: null } : open ? S.status.mine : { name, colors: null };
     cont = `<button class="pg-mi on" data-pg="continue">Continue</button>
       <button class="pg-save" data-pg="continue">
         <div class="t">${pgMark(team)}<div><b>${esc(name)} · ${esc(role)}</b><small>${esc(sub)}</small></div></div>
@@ -174,7 +176,7 @@ async function openSave(path) {
     S.savedOn = S.status.today;
     S.lastSaveName = path.split(/[\\/]/).pop().replace(/\.afmsave$/i, "");
     S.keep = {};
-    if (S.status.mine) enterCareer();
+    if (S.status.you) enterCareer();
     else {
       // A save with no career yet: a new career starts from it as it is.
       S.back = []; S.fwd = [];
@@ -190,7 +192,7 @@ const STEPS = ["World", "You", "Background", "Ratings", "Style", "Job"];
 function newSetup() {
   const y = new Date().getFullYear();
   // A world already open with no career goes on from it without reopening.
-  const open = S.status && !S.status.mine && PG.loaded ? PG.loaded : null;
+  const open = S.status && !S.status.you && PG.loaded ? PG.loaded : null;
   return {
     step: 1, reached: 1, world: open, loaded: open,
     first: "", last: "", born: `${y - 42}-06-15`, eth: "white",
@@ -200,6 +202,9 @@ function newSetup() {
     bg: "college_assistant", ratings: null, ratingsFor: null,
     style: { risk: 2, freedom: 2, physical: 2, ball_hunting: 2, mould: 2 },
     level: "college", job: null, q: "",
+    // Lane 10: your last stops, and the seat you start in (head coach, an
+    // assistant's role, or out of work at a level).
+    stops: [], mode: "head", role: null, freeLevel: "college",
     f: { college: { div: "FBS", conf: null }, nfl: { conf: null, div: null }, hs: { state: null, cls: null } },
     sort: { k: null, desc: true },
   };
@@ -227,7 +232,7 @@ function setupPage(st, { title, lede, body, sum, next, nextOk = true, extra = ""
 screens.setup = async () => {
   const st = setupState();
   // Every step after the first needs its world open, with no career yet.
-  const ready = st.loaded && S.status && !S.status.mine;
+  const ready = st.loaded && S.status && !S.status.you;
   if (st.step > 1 && !ready) st.step = 1;
   if (st.step > 1 && !PG.opts) PG.opts = await api("setup");
   return [null, stepWorld, stepYou, stepBackground, stepRatings, stepStyle, stepJob][st.step](st);
@@ -273,7 +278,7 @@ async function stepWorld(st) {
     : sel ? `<div class="pg-empty">This world's story is read the first time it opens, and kept from then on.</div>` : "";
   const progress = job ? buildPanel(job) : "";
   const offline = !PG.online && PG.offline ? `<div class="pg-empty" title="${esc(PG.offline)}">The worlds to download can't be listed right now, so only the worlds on this computer show.</div>` : "";
-  const names = wc ? wc.names : "real";
+  const names = wc ? wc.names : st.world === "test" && S.status && S.status.names ? String(S.status.names).toLowerCase() : "real";
   const body = `<div class="pg-body"><div class="pg-col">
       <div class="pg-panel"><div class="pg-ph"><span>World library <small>· ${worlds.length} world${worlds.length === 1 ? "" : "s"}</small></span>
         <span class="pg-acts">${isMac() ? '<button class="pg-btn s" data-pg="import">Import a world folder…</button><button class="pg-btn s" data-pg="import" data-file="1">Import a world file…</button>' : '<button class="pg-btn s" data-pg="import">Import from a path…</button>'}<button class="pg-btn s" data-pg="build">Build a new world</button></span></div>
@@ -287,8 +292,8 @@ async function stepWorld(st) {
       <div class="pg-panel"><div class="pg-ph"><span>Names</span><small>fixed for the whole career</small></div>
         <div class="pg-pad"><div class="pg-seg" role="group" aria-label="Names"><button class="${names === "real" ? "on" : ""}" ${names === "real" ? "" : "disabled"}>Real names</button><button class="${names === "fictional" ? "on" : ""}" ${names === "fictional" ? "" : "disabled"}>Fictional names</button></div>
         <p class="pg-note">${names === "real"
-          ? "The real NFL clubs, real colleges and their real people. Towns are real; high schools and their players are generated either way. A world's names are set when it is built, so a fictional career needs a world built with fictional names."
-          : "Every college and its people carry made-up names. Towns stay real; high schools are generated either way."}</p></div></div>
+          ? "The real NFL clubs, real colleges and their real conferences. Towns are real; high schools, players and coaches are generated either way. A world's names are set when it is built: Build a new world offers fictional names."
+          : "Every college, conference and NFL club carries a made-up name. The towns, the cities the clubs play in and the bowls stay real; high schools, players and coaches are generated either way."}</p></div></div>
       <div class="pg-panel"><div class="pg-ph"><span>Your new career</span></div>
         <div class="pg-kv"><span>World</span><span>${esc(st.world === "test" ? "Test world" : sel ? worldTitle(sel) : "-")}</span><span>Names</span><span>${names === "real" ? "Real names" : "Fictional names"}</span>
         <span>You</span><span class="pg-dim">step 2</span><span>Background</span><span class="pg-dim">step 3</span><span>Job</span><span class="pg-dim">step 6</span></div></div>
@@ -357,6 +362,48 @@ async function hometownOf(st) {
   return towns.towns.find((t) => t.town.toLowerCase() === st.hometown.trim().toLowerCase()) || null;
 }
 const schoolsHint = (town) => town ? `One of the world's ${town.schools.length} school${town.schools.length === 1 ? "" : "s"} in ${esc(town.town)}` : "Pick your hometown to see its schools";
+
+// Who in the world knows you (lane 10): the world's own history finds the
+// coaches who coached you in high school and college and the staffs you
+// were on, from what you write on the You and Background steps.
+const stateName = (code) => ((PG.opts && PG.opts.states.find((s) => s.code === code)) || {}).name || code;
+function stopArgs(st) {
+  return st.stops.filter((s) => s.id != null).map((s) => ({ employer: { kind: s.kind, id: s.id }, role: s.role === "played" ? "pc0" : s.role, from: Number(s.from), to: Number(s.to), playing: s.role === "played" }));
+}
+function knownArgs(st) {
+  return {
+    age: ageOn(st.born, PG.opts && PG.opts.today) || 42, home_state: st.state, background: st.bg,
+    profile: { born: st.born, high_school: st.high_school, alma_mater: st.alma_mater, college_years: st.college_years },
+    stops: stopArgs(st),
+  };
+}
+async function knownHtml(st, n) {
+  const args = knownArgs(st);
+  const key = JSON.stringify(args);
+  if (!PG.known || PG.known.key !== key) PG.known = { key, data: await api("people_you_know", args).catch(() => null) };
+  const x = PG.known.data;
+  if (!x) return `<div class="pg-ph"><span>People who know you</span></div><div class="pg-empty">The world can't be read right now.</div>`;
+  const f = x.found;
+  const where = [
+    f.high_school ? `<span>High school</span><span>${esc(f.high_school.name)}, ${esc(f.high_school.years)}</span>`
+      : st.high_school.trim() ? `<span>High school</span><span class="pg-warn">No ${esc(st.high_school.trim())} in the world's ${esc(stateName(st.state))}: pick one from the list</span>` : "",
+    f.college ? `<span>College</span><span>${esc(f.college.name)}, ${esc(f.college.years)} · ${f.played ? "played" : "a student"}</span>`
+      : st.alma_mater.trim() ? `<span>College</span><span class="pg-warn">${esc(st.alma_mater.trim())} isn't a college in the world: pick one from the list</span>` : "",
+    st.stops.length ? `<span>Stops</span><span>${st.stops.filter((s) => s.id != null).length} of ${st.stops.length} found</span>` : "",
+  ].join("");
+  const rows = x.known.slice(0, n).map((k) => `<div class="pg-known"><div><b>${esc(k.name)}</b><span class="pg-tag">${esc(k.close)}</span></div><small>${esc(k.how)}, ${esc(k.years)}</small><small class="pg-dim">Now: ${esc(k.now)}</small></div>`).join("");
+  const more = x.count > n ? `<div class="pg-empty" style="padding-top:8px">And ${x.count - n} more.</div>` : "";
+  return `<div class="pg-ph"><span>People who know you</span><small>${x.count ? `${x.count} in the world` : "nobody yet"}</small></div>
+    ${where ? `<div class="pg-kv">${where}</div>` : ""}
+    ${rows ? `<div class="pg-knownlist">${rows}</div>${more}` : `<div class="pg-empty">Name your high school and college as the world knows them, and your last stops on the Background step: the coaches who were there then know you, and a search calls them about you.</div>`}`;
+}
+async function refreshKnown() {
+  const el = $("#pg-known");
+  if (!el) return;
+  const html = await knownHtml(setupState(), Number(el.dataset.n) || 6);
+  const now = $("#pg-known");
+  if (now) now.innerHTML = html;
+}
 async function stepYou(st) {
   const o = PG.opts;
   const town = await hometownOf(st);
@@ -404,7 +451,8 @@ async function stepYou(st) {
       <div class="pg-panel"><div class="pg-ph"><span>Looks</span></div><div class="pg-grid two">
         ${f("height", "Height", sel("height", HEIGHTS))}${f("build", "Build", sel("build", BUILDS))}
         ${f("hair", "Hair", sel("hair", HAIR))}${f("facial_hair", "Facial hair", sel("facial_hair", FACIAL))}
-      </div></div>
+      </div><div class="pg-pad" style="padding-top:0"><p class="pg-note">Looks are for your photo and the press. What a room feels when you walk in is your presence: the world reads it from your road and how you deal with people, and nobody shows it to you as a number.</p></div></div>
+      <div class="pg-panel" id="pg-known" data-n="6">${await knownHtml(st, 6)}</div>
     </aside></div>
     <datalist id="pg-towns">${towns.towns.map((t) => `<option value="${esc(t.town)}">`).join("")}</datalist>
     <datalist id="pg-schools">${(town ? town.schools : []).map((s) => `<option value="${esc(s)}">`).join("")}</datalist>
@@ -431,8 +479,59 @@ const ROADS = {
   analytics: { road: "From the numbers side: game-day decisions, roster value, the data room.", like: "Paul DePodesta (Browns, 2016)", knows: "Front-office people around the league.", greet: "Unproven, and old-school boosters and media won't trust it.", coached: "Director of football analytics." },
 };
 const repWord = (r) => (r >= 16 ? "One of the best in the game" : r >= 13 ? "Highly regarded" : r >= 10 ? "Respected" : r >= 7 ? "Little known" : "Unproven");
-function stepBackground(st) {
+// Your last stops before this job (lane 10): the staffs you were on and,
+// on a playing road, the NFL clubs you played for. The coaches who were
+// there with you know you; a coaching stop goes on your record.
+const STOP_KINDS = [["college", "College"], ["nfl", "NFL"], ["hs", "High school"]];
+const STOP_ROLES = [["hc", "Head coach"], ["oc", "Offensive coordinator"], ["dc", "Defensive coordinator"], ["pc0", "Quarterbacks coach"], ["pc1", "Running backs coach"], ["pc2", "Wide receivers coach"], ["pc3", "Offensive line coach"], ["pc4", "Defensive line coach"], ["pc5", "Linebackers coach"], ["pc6", "Defensive backs coach"], ["pc7", "Special teams coordinator"]];
+const MAX_STOPS = 6;
+async function stopTeams(kind) {
+  return (PG.jobs[kind] ??= await api("jobs", { level: kind })).jobs;
+}
+async function findStop(s) {
+  const name = s.name.trim().toLowerCase();
+  if (!name) { s.id = null; return; }
+  const hit = (await stopTeams(s.kind)).find((j) => j.name.toLowerCase() === name);
+  s.id = hit ? hit.ref.id : null;
+  if (hit) s.name = hit.name;
+}
+function newStop(st) {
+  const bg = PG.opts.backgrounds.find((b) => b.key === st.bg) || {};
+  const last = st.stops[st.stops.length - 1];
+  const to = last ? Math.max(1970, Number(last.from) - 1) : PG.opts.year - 1;
+  const [kind, role] = bg.ex_pro && !st.stops.some((s) => s.role === "played") ? ["nfl", "played"] : bg.key === "nfl_assistant" || bg.key === "nfl_star" || bg.key === "nfl_pro_bowl" ? ["nfl", "pc0"] : bg.key === "hs_coach" ? ["hs", "hc"] : ["college", "pc0"];
+  return { kind, name: "", id: null, role, from: to - 3, to };
+}
+async function stopsPanel(st) {
+  const bg = PG.opts.backgrounds.find((b) => b.key === st.bg) || {};
+  const kinds = new Set(st.stops.map((s) => s.kind));
+  const lists = {};
+  for (const k of kinds) {
+    let l = await stopTeams(k);
+    // A high school stop lists your home state's schools (any other by name).
+    if (k === "hs") l = l.filter((j) => j.state === st.state);
+    lists[k] = l;
+  }
+  const opt = (v, t, cur) => `<option value="${esc(v)}" ${v === cur ? "selected" : ""}>${esc(t)}</option>`;
+  const rows = st.stops.map((s, i) => {
+    const roles = [...(s.kind === "nfl" && bg.ex_pro ? [["played", "Played there"]] : []), ...STOP_ROLES];
+    const bad = s.name.trim() && s.id == null;
+    return `<div class="pg-stop ${bad ? "bad" : ""}">
+      <select data-stop="${i}" data-sf="kind" aria-label="Level">${STOP_KINDS.map(([v, t]) => opt(v, t, s.kind)).join("")}</select>
+      <input data-stop="${i}" data-sf="name" list="pg-stop-${s.kind}" value="${esc(s.name)}" placeholder="${s.kind === "nfl" ? "The club" : s.kind === "hs" ? "The school" : "The college"}" autocomplete="off" aria-label="Team">
+      <select data-stop="${i}" data-sf="role" aria-label="Job">${roles.map(([v, t]) => opt(v, t, s.role)).join("")}</select>
+      <input data-stop="${i}" data-sf="from" type="number" min="1970" max="${PG.opts.year}" value="${esc(s.from)}" aria-label="From">
+      <input data-stop="${i}" data-sf="to" type="number" min="1970" max="${PG.opts.year}" value="${esc(s.to)}" aria-label="To">
+      <button class="x" data-pg="stop-del" data-i="${i}" aria-label="Remove">×</button></div>`;
+  }).join("");
+  const lists_html = Object.entries(lists).map(([k, l]) => `<datalist id="pg-stop-${k}">${l.map((j) => `<option value="${esc(j.name)}">`).join("")}</datalist>`).join("");
+  return `<div class="pg-panel"><div class="pg-ph"><span>Where you've been</span><small>your last stops before this job, newest first · optional</small></div>
+    ${rows ? `<div class="pg-stops"><div class="pg-stop h"><span>Level</span><span>Team</span><span>Job</span><span>From</span><span>To</span><span></span></div>${rows}</div>` : `<div class="pg-empty">No stops: the world knows you from your road, your high school and your college. Add the staffs you were on${bg.ex_pro ? " and the NFL clubs you played for" : ""}, and the coaches who were there with you know you.</div>`}
+    <div class="pg-acts-row" style="padding-top:12px"><button class="pg-btn s" data-pg="stop-add" ${st.stops.length >= MAX_STOPS ? "disabled" : ""}>Add a stop</button>${st.stops.some((s) => s.name.trim() && s.id == null) ? '<span class="pg-note" style="align-self:center;color:var(--pg-amber)">A team not in the world is left out: pick one from the list.</span>' : ""}</div>${lists_html}</div>`;
+}
+async function stepBackground(st) {
   const o = PG.opts;
+  const stops = await stopsPanel(st);
   const bg = o.backgrounds.find((b) => b.key === st.bg) || o.backgrounds[0];
   const r = ROADS[bg.key] || {};
   const rows = o.backgrounds.map((b) => `<tr data-pg="pick-bg" data-k="${b.key}" class="${b.key === bg.key ? "sel" : ""}">
@@ -442,7 +541,7 @@ function stepBackground(st) {
     ? `${st.alma_mater || "College"}${st.college_years ? ", " + st.college_years : ""}, then the NFL`
     : bg.key === "never_played" ? `High school only${st.high_school ? ", at " + st.high_school : ""}` : `${st.alma_mater || "College"}${st.college_years ? ", " + st.college_years : ""}`;
   const body = `<div class="pg-body"><div class="pg-col"><div class="pg-panel"><div class="pg-ph"><span>Eleven roads</span><small>click a row</small></div>
-      <div class="pg-tbl"><table><thead><tr><th>Road</th><th>Reputation</th><th class="n">Rating points</th><th>Strongest at</th><th>Played in the NFL</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>
+      <div class="pg-tbl"><table><thead><tr><th>Road</th><th>Reputation</th><th class="n">Rating points</th><th>Strongest at</th><th>Played in the NFL</th></tr></thead><tbody>${rows}</tbody></table></div></div>${stops}</div>
     <aside class="pg-aside">
       <div class="pg-panel"><div class="pg-ph"><span>${esc(bg.name)}</span></div><div class="pg-kv">
         <span>The road</span><span>${esc(r.road)}</span><span>Like</span><span>${esc(r.like)}</span>
@@ -450,6 +549,7 @@ function stepBackground(st) {
         <span>Knows you</span><span>${esc(r.knows)}</span><span>At a big job</span><span>${esc(r.greet)}</span></div></div>
       <div class="pg-panel"><div class="pg-ph"><span>Where the world places you</span><small>from your profile</small></div><div class="pg-kv">
         <span>Played</span><span>${esc(played)}</span><span>Coached</span><span>${esc(r.coached)}</span></div></div>
+      <div class="pg-panel" id="pg-known" data-n="10">${await knownHtml(st, 10)}</div>
     </aside></div>`;
   return setupPage(st, {
     title: "Your road into coaching",
@@ -625,12 +725,17 @@ function jobFilters(st, all) {
   } else {
     const states = [...new Set(all.map((j) => j.state))].sort((a, b) => STATE_NAMES[a] < STATE_NAMES[b] ? -1 : 1);
     const inState = all.filter((j) => !f.state || j.state === f.state);
-    const classes = [...new Set(inState.map((j) => j.class))].sort((a, b) => (parseInt(b) || 0) - (parseInt(a) || 0) || a.localeCompare(b));
+    // Biggest class first, in each state's own names (6A Division I, Class AA, Group 5).
+    const rank = {};
+    for (const j of inState) rank[j.class] = Math.min(rank[j.class] ?? 99, j.class_rank ?? 99);
+    const classes = Object.keys(rank).sort((a, b) => rank[a] - rank[b] || a.localeCompare(b));
     html = `<h4>State</h4>${btn("state", null, "Every state", all.length)}${states.map((s) => btn("state", s, STATE_NAMES[s] || s, count((j) => j.state === s))).join("")}
       <h4>Class</h4>${btn("cls", null, "All", inState.length)}${classes.map((c) => btn("cls", c, c, inState.filter((j) => j.class === c).length)).join("")}`;
   }
+  // An assistant's seat is on a college or NFL staff (lane 10).
+  const levels = st.mode === "assistant" ? LEVELS.filter(([k]) => k !== "hs") : LEVELS;
   return `<nav class="pg-panel pg-filters" aria-label="Filters">
-    <div class="pg-seg">${LEVELS.map(([k, t]) => `<button class="${lv === k ? "on" : ""}" data-pg="level" data-k="${k}">${t}</button>`).join("")}</div>
+    <div class="pg-seg ${levels.length === 2 ? "two" : ""}">${levels.map(([k, t]) => `<button class="${lv === k ? "on" : ""}" data-pg="level" data-k="${k}">${t}</button>`).join("")}</div>
     <input class="pg-search" id="pg-q" value="${esc(st.q)}" placeholder="Find a team, town or state" aria-label="Find a team" autocomplete="off">
     <div class="pg-flt" data-keep="flt">${html}</div></nav>`;
 }
@@ -683,9 +788,66 @@ function jobFile(st, j) {
   return `<aside class="pg-panel pg-jobfile"><div class="pg-filehead">${pgMark(j, true)}<div><b>${esc(j.name)}</b><small>${esc(j.city || j.town ? `${j.city || j.town + ", " + j.state} · ${j.line}` : j.line)}</small></div></div>
     <div class="pg-kv">${kv}</div>${grades}</aside>`;
 }
+// The three ways in (lane 10): a head job, an assistant's job on a staff,
+// or no job yet, hired through the market like any other coach.
+const MODES = [
+  ["head", "Head coach", "Any head job in the world. The coach you replace goes to the market."],
+  ["assistant", "Assistant", "A coordinator or position coach on a college or NFL staff, under a head coach who has the last word."],
+  ["free", "No job yet", "Start out of work. Searches call you when your name fits, and teams judge you like any candidate."],
+];
+function modesBar(st) {
+  return `<div class="pg-modes" role="group" aria-label="How you start">${MODES.map(([k, t, d]) => `<button class="pg-mode ${st.mode === k ? "on" : ""}" data-pg="mode" data-k="${k}"><b>${esc(t)}</b><small>${esc(d)}</small></button>`).join("")}</div>`;
+}
+// The assistant's file: the staff's jobs, who holds each, and your boss.
+function assistantFile(st, j) {
+  if (!j) return `<aside class="pg-panel pg-jobfile"><div class="pg-empty">Pick a staff to read its jobs: who holds each now, and the head coach you would work for.</div></aside>`;
+  const c = j.coach;
+  const cur = j.roles.find((r) => r.key === st.role);
+  const ctl = !cur ? "" : cur.key === "oc" ? "the offense" : cur.key === "dc" ? "the defense" : cur.title.replace(/ coach$/, "").replace(/ coordinator$/, "").toLowerCase();
+  const roles = j.roles.map((r) => `<button class="pg-role ${r.key === st.role ? "on" : ""}" data-pg="role" data-k="${r.key}"><b>${esc(r.title)}</b><small>${r.holder ? esc(r.holder) + " now" : "Open"}</small></button>`).join("");
+  return `<aside class="pg-panel pg-jobfile"><div class="pg-filehead">${pgMark(j, true)}<div><b>${esc(j.name)}</b><small>${esc(j.line)}</small></div></div>
+    <div class="pg-kv"><span>${PG.opts.year - 1}</span><span>${esc(j.record)}</span><span>Head coach</span><span>${c ? `${esc(c.name)}, ${esc(c.record)} in ${c.seasons} season${c.seasons === 1 ? "" : "s"}` : "The job is open: a search fills it, and the new man decides whether you stay"}</span>
+    ${cur ? `<span>You run</span><span>${esc(ctl[0].toUpperCase() + ctl.slice(1))}: the depth chart and the players' plans. ${c ? esc(c.name.split(" ").slice(-1)[0]) : "The head coach"} reads your order against his own and can overrule it.</span><span>You replace</span><span>${cur.holder ? `${esc(cur.holder)}. He goes to the coaching market.` : "Nobody: the job is open."}</span>` : ""}</div>
+    <div class="pg-grades-h">The staff's jobs · pick yours</div><div class="pg-roles">${roles}</div></aside>`;
+}
+// No job yet: the level you want, and how the market works there.
+const FREE_TEXT = {
+  nfl: ["NFL staffs are set by February. Openings come when coaches leave in the spring and summer; the big round is Black Monday, after the last regular-season Sunday, with head coaches hired in January and their coordinators within weeks.", "An NFL search wants coordinators and head coaches with records. Without one, a college or high school job first is the usual road."],
+  college: ["Head coaches are fired from late October; searches run through the bowls into January, and new head coaches hire their staffs from December to February. You start in February, after the big moves: openings come back through the spring as assistants move up or leave.", "A position coach's job is the first rung; a coordinator's needs a record or someone on the staff who knows you. Your agent shops you to FBS and FCS staffs; the Job market screen widens or narrows that any day."],
+  hs: ["Principals and boards decide on their coaches after the season, and most openings are posted and filled from January to April, so February is the busy time. You look in your home state first: change that on the Job market screen any day.", "High school jobs pay a teacher's salary plus a stipend; most head coaches teach a subject at the school."],
+};
+function stepFree(st) {
+  const lv = st.freeLevel || "college";
+  const [when, rung] = FREE_TEXT[lv];
+  const body = `${modesBar(st)}<div class="pg-body"><div class="pg-col">
+      <div class="pg-panel"><div class="pg-ph"><span>Where you want to coach</span><small>the jobs you let it be known you want</small></div>
+        <div class="pg-pad"><div class="pg-seg" style="justify-self:start">${LEVELS.map(([k, t]) => `<button class="${lv === k ? "on" : ""}" data-pg="free-level" data-k="${k}">${t}</button>`).join("")}</div>
+        <p class="pg-note">${esc(when)}</p><p class="pg-note">${esc(rung)}</p></div></div>
+      <div class="pg-panel"><div class="pg-ph"><span>How the market works</span></div><div class="pg-story">
+        <div><span>Who calls</span><span>A search reads every name: the coaches who put theirs in and the ones known to want that kind of job. It judges you as it judges them, by your record, your reputation, your ratings as people around football see them, and who on the hiring side knows you.</span></div>
+        <div><span>Your name in</span><span>On the Job market screen you put your name in for any opening and say which jobs you'd take and where. Your agent and your friends spread the word.</span></div>
+        <div><span>Offers</span><span>An offer waits a few days for your answer, a high school one a little longer. Turn it down and the job goes to the next name. While you hold three offers, searches pass you by.</span></div>
+        <div><span>Your family</span><span>A job in another state moves your family, or doesn't. A move is easier with young children than with a high school senior.</span></div>
+        <div><span>The days</span><span>Continue runs the world on while you wait: every game, signing and hiring goes on without you.</span></div>
+      </div></div></div>
+    <aside class="pg-aside"><div class="pg-panel" id="pg-known" data-n="10">${PG.knownHtml || ""}</div></aside></div>`;
+  return body;
+}
 async function stepJob(st) {
+  if (st.mode === "free") {
+    PG.knownHtml = await knownHtml(st, 10);
+    return setupPage(st, {
+      title: "Your job",
+      lede: "Start without a team, the way most careers start between jobs: your name goes on the coaching market, and the searches decide whether to call.",
+      body: stepFree(st),
+      sum: esc(`No job yet · looking for ${{ nfl: "an NFL job", college: "a college job", hs: "a high school head job" }[st.freeLevel || "college"]}`),
+      next: "Start without a job",
+    });
+  }
+  if (st.mode === "assistant" && st.level === "hs") st.level = "college";
   const lv = st.level;
-  const data = (PG.jobs[lv] ??= await api("jobs", { level: lv }));
+  const assistant = st.mode === "assistant";
+  const data = assistant ? (PG.jobs["a:" + lv] ??= await api("assistant_jobs", { level: lv })) : (PG.jobs[lv] ??= await api("jobs", { level: lv }));
   const all = data.jobs;
   const f = st.f[lv];
   if (lv === "hs" && f.state === null && !f.touched) f.state = st.state;
@@ -706,24 +868,31 @@ async function stepJob(st) {
   const cur = st.job && st.job.kind === lv ? all.find((j) => j.ref.id === st.job.id) : null;
   const what = q ? `${list.length} match "${esc(st.q.trim())}"` : lv === "college" ? `${esc(f.conf || DIV_NAMES[f.div] || f.div)}` : lv === "nfl" ? esc(f.div || f.conf || "The NFL") : esc(f.state ? `${STATE_NAMES[f.state] || f.state}${f.cls ? " " + f.cls : ""}` : "Every state");
   const sortedBy = st.sort.k ? (cols.find((c) => c[0] === st.sort.k) || [, ""])[1].toLowerCase() : "prestige";
-  const table = `<div class="pg-panel pg-jobtable"><div class="pg-ph"><span>${what} <small>· ${list.length} head coaching job${list.length === 1 ? "" : "s"} · sorted by ${esc(sortedBy)}${list.length > shown.length ? ` · showing the first ${shown.length}: narrow it with the filters or a search` : ""}</small></span></div>
-    ${shown.length ? `<div class="pg-tbl dense" data-keep="jobs"><table><thead><tr>${cols.map(([k, t, n]) => `<th class="${n || ""} ${st.sort.k === k ? "sorted" : ""}" data-pg="jsort" data-k="${k}">${t}${st.sort.k === k ? (st.sort.desc ? " ▾" : " ▴") : ""}</th>`).join("")}</tr></thead>
+  const kind = assistant ? `staff${list.length === 1 ? "" : "s"}` : `head coaching job${list.length === 1 ? "" : "s"}`;
+  const head = (k, t) => (assistant && k === "coach" ? "Head coach" : t);
+  const table = `<div class="pg-panel pg-jobtable"><div class="pg-ph"><span>${what} <small>· ${list.length} ${kind} · sorted by ${esc(sortedBy)}${list.length > shown.length ? ` · showing the first ${shown.length}: narrow it with the filters or a search` : ""}</small></span></div>
+    ${shown.length ? `<div class="pg-tbl dense" data-keep="jobs"><table><thead><tr>${cols.map(([k, t, n]) => `<th class="${n || ""} ${st.sort.k === k ? "sorted" : ""}" data-pg="jsort" data-k="${k}">${head(k, t)}${st.sort.k === k ? (st.sort.desc ? " ▾" : " ▴") : ""}</th>`).join("")}</tr></thead>
     <tbody>${shown.map((j) => `<tr data-pg="pick-job" data-kind="${j.ref.kind}" data-id="${j.ref.id}" class="${cur && cur.ref.id === j.ref.id ? "sel" : ""}">${cols.map(([k]) => jobCell(j, k)).join("")}</tr>`).join("")}</tbody></table></div>`
       : `<div class="pg-empty">No job matches. Try a team, a town, a state or its code (Texas or TX).</div>`}</div>`;
-  const body = `<div class="pg-jobs">${jobFilters(st, all)}${table}${jobFile(st, cur)}</div>`;
+  const role = assistant && cur ? cur.roles.find((r) => r.key === st.role) : null;
+  const body = `${modesBar(st)}<div class="pg-jobs">${jobFilters(st, all)}${table}${assistant ? assistantFile(st, cur) : jobFile(st, cur)}</div>`;
   return setupPage(st, {
     title: "Your job",
-    lede: "Every head coaching job in the world is open. The coach you replace goes to the coaching market, and his staff stays under contract until you decide.",
+    lede: assistant
+      ? "Every coordinator's and position coach's job on a college or NFL staff is yours to take. You run what your job runs; the head coach runs the rest and has the last word."
+      : "Every head coaching job in the world is open. The coach you replace goes to the coaching market, and his staff stays under contract until you decide.",
     body,
-    sum: cur ? esc(`${cur.name} · head coach · ${cur.expectation}`) : "Pick a job to take it.",
-    next: "Take the job", nextOk: !!cur,
+    sum: assistant
+      ? cur ? esc(role ? `${role.title} · ${cur.name}${cur.coach ? " · under " + cur.coach.name : ""}` : `${cur.name} · pick a job on the staff`) : "Pick a staff, then your job on it."
+      : cur ? esc(`${cur.name} · head coach · ${cur.expectation}`) : "Pick a job to take it.",
+    next: "Take the job", nextOk: assistant ? !!role : !!cur,
   });
 }
 
 // ---------- actions ----------
 async function openWorldFor(st) {
   if (st.world === "test") return true;
-  if (st.loaded === st.world && S.status && !S.status.mine) return true;
+  if (st.loaded === st.world && S.status && !S.status.you) return true;
   if ($("#busy") || !(await leaveCareer())) return false;
   showBusy("Opening the world… a full world takes about a minute.");
   try {
@@ -732,7 +901,7 @@ async function openWorldFor(st) {
     S.savedOn = null;
     st.loaded = st.world;
     PG.loaded = st.world;
-    PG.opts = null; PG.jobs = {}; PG.towns = {}; PG.similar = {};
+    PG.opts = null; PG.jobs = {}; PG.towns = {}; PG.similar = {}; PG.known = null;
     PG.lib = null;
     // The closed career's screens are gone: Back can't lead to them.
     S.back = []; S.fwd = [];
@@ -802,15 +971,15 @@ document.addEventListener("click", async (ev) => {
   switch (d.pg) {
     case "home": go("start", {}, false); break;
     case "continue": {
-      if (S.status && S.status.mine) { enterCareer(); break; }
+      if (S.status && S.status.you) { enterCareer(); break; }
       const last = PG.lib && PG.lib.saves[0];
       if (last) openSave(last.path);
       break;
     }
     case "new": {
-      if (S.status && S.status.mine && !(await leaveCareer())) break;
+      if (S.status && S.status.you && !(await leaveCareer())) break;
       const was = S.keep.setup;
-      const same = was && !(S.status && S.status.mine) && (was.loaded ? was.loaded === PG.loaded : !PG.loaded);
+      const same = was && !(S.status && S.status.you) && (was.loaded ? was.loaded === PG.loaded : !PG.loaded);
       if (!same) S.keep.setup = newSetup();
       go("setup", {}, false);
       break;
@@ -886,24 +1055,25 @@ document.addEventListener("click", async (ev) => {
       const { f, answer } = dialog(`<b>Build a new world</b><small class="sub">A full world is a whole football country with its history, kept in your library: it takes 2-3 hours and up to about 6.5 GB of memory at its peak, and you can keep using AFM. A test world is small and quick, for trying the game, and isn't kept.</small>
         <div class="pg-grid two" style="padding:0"><div class="pg-f"><label>Kind</label><select name="kind"><option value="full">A full world</option><option value="test">A test world (about 2 minutes)</option></select></div>
         <div class="pg-f"><label>Seed</label><input name="seed" value="${seed}"></div><div class="pg-f"><label>Years of history (full)</label><input name="years" value="30"></div>
-        <div class="pg-f"><label>Size (test)</label><select name="scale"><option value="0.03">3%</option><option value="0.1">10%</option></select></div></div>`, "Build", (f) => ({ kind: f.elements.kind.value, seed: Number(f.elements.seed.value) || seed, years: Number(f.elements.years.value) || 30, scale: Number(f.elements.scale.value) || 0.03 }));
+        <div class="pg-f"><label>Size (test)</label><select name="scale"><option value="0.03">3%</option><option value="0.1">10%</option></select></div>
+        <div class="pg-f" style="grid-column:1/-1"><label>Names</label><select name="names"><option value="real">Real names: the real clubs, colleges and conferences</option><option value="fictional">Fictional names: made-up colleges, conferences and NFL clubs in the real cities</option></select></div></div>`, "Build", (f) => ({ kind: f.elements.kind.value, seed: Number(f.elements.seed.value) || seed, years: Number(f.elements.years.value) || 30, scale: Number(f.elements.scale.value) || 0.03, names: f.elements.names.value }));
       f.elements.kind.focus();
       const v = await answer;
       if (!v) break;
       if (v.kind === "full") {
-        try { await api("build_world_file", { seed: v.seed, history_years: Math.max(1, Math.min(60, v.years)) }); render(); } catch (e) { toast(e.message); }
+        try { await api("build_world_file", { seed: v.seed, history_years: Math.max(1, Math.min(60, v.years)), names: v.names }); render(); } catch (e) { toast(e.message); }
         break;
       }
       if ($("#busy") || !(await leaveCareer())) break;
       showBusy("Building a test world… a small one takes a couple of minutes.");
       try {
-        await api("build_world", { seed: v.seed, scale: v.scale, history_years: 2, engine_from: 2026 });
+        await api("build_world", { seed: v.seed, scale: v.scale, history_years: 2, engine_from: 2026, names: v.names });
         S.status = await api("status");
         hideBusy();
         S.savedOn = null;
         st.world = "test"; st.loaded = "test"; PG.loaded = "test";
         S.back = []; S.fwd = [];
-        PG.opts = null; PG.jobs = {}; PG.towns = {}; PG.similar = {};
+        PG.opts = null; PG.jobs = {}; PG.towns = {}; PG.similar = {}; PG.known = null;
         render();
       } catch (e) { hideBusy(); toast(e.message); }
       break;
@@ -953,20 +1123,30 @@ document.addEventListener("click", async (ev) => {
     }
     case "pick-job": st.job = { kind: d.kind, id: Number(d.id) }; render(); break;
     case "calls": st.calls = d.k; render(); break;
+    // Lane 10: the seat you start in, and your last stops.
+    case "mode": st.mode = d.k; st.sort = { k: null, desc: true }; render(); break;
+    case "role": st.role = d.k; render(); break;
+    case "free-level": st.freeLevel = d.k; render(); break;
+    case "stop-add": if (st.stops.length < MAX_STOPS) { st.stops.push(newStop(st)); render(); } break;
+    case "stop-del": st.stops.splice(Number(d.i), 1); render(); break;
     case "take": {
-      if (!st.job) break;
+      if (st.mode !== "free" && !st.job) break;
+      if (st.mode === "assistant" && !st.role) break;
       const bg = bgRatings(st);
       const spent = st.ratings ? st.ratings.reduce((x, y) => x + y, 0) : 0;
       if (spent > bg.pool) { toast(`${spent - bg.pool} rating points over: take some back first.`); toStep(st, 4); break; }
       if ($("#busy")) break;
-      showBusy("Taking the job…");
+      showBusy(st.mode === "free" ? "Putting your name about…" : "Taking the job…");
       try {
-        S.status = await api("start_career", startArgs(st));
+        // Every seat starts through the front office's setup (lane 10):
+        // the people who know you and your last stops come with you.
+        const job = st.mode === "free" ? {} : { job: st.job };
+        S.status = await api("start_career_seat", { ...startArgs(st), ...job, start: st.mode, role: st.role, level: st.freeLevel, stops: stopArgs(st) });
         hideBusy();
         S.savedOn = null;
         S.lastSaveName = null;
         S.keep = {};
-        PG.opts = null; PG.jobs = {}; PG.loaded = null;
+        PG.opts = null; PG.jobs = {}; PG.loaded = null; PG.known = null;
         enterCareer();
       } catch (e) { hideBusy(); toast(e.message); }
       break;
@@ -993,6 +1173,10 @@ document.addEventListener("input", (ev) => {
     st.q = el.value;
     clearTimeout(PG.qt);
     PG.qt = setTimeout(async () => { await render(); const i = $("#pg-q"); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 250);
+  } else if (el.dataset.stop !== undefined && ["name", "from", "to"].includes(el.dataset.sf)) {
+    // A stop keeps what you type; it is looked up when you leave the box.
+    const s = st.stops[Number(el.dataset.stop)];
+    if (s) s[el.dataset.sf] = el.value;
   }
 });
 document.addEventListener("change", async (ev) => {
@@ -1007,6 +1191,25 @@ document.addEventListener("change", async (ev) => {
   }
   if (["state", "status"].includes(el.dataset.f)) {
     if (el.dataset.f === "state") { st.high_school = ""; st.f.hs.state = null; st.f.hs.touched = false; }
+    render();
+  }
+  // Your schools and years decide who knows you (lane 10).
+  if (["high_school", "alma_mater", "college_years", "born"].includes(el.dataset.f)) refreshKnown();
+  if (el.dataset.stop !== undefined) {
+    const s = st.stops[Number(el.dataset.stop)];
+    if (!s) return;
+    const k = el.dataset.sf;
+    s[k] = el.value;
+    if (k === "kind") {
+      s.name = ""; s.id = null;
+      if (s.role === "played" && s.kind !== "nfl") s.role = "pc0";
+    }
+    if (k === "from" || k === "to") {
+      const y = PG.opts.year, v = Math.max(1970, Math.min(y, Math.round(Number(s[k]) || y - 1)));
+      s[k] = v;
+      if (Number(s.from) > Number(s.to)) [s.from, s.to] = [s.to, s.from];
+    }
+    if (k === "name") await findStop(s);
     render();
   }
   if (el.id === "pg-photo-file" && el.files && el.files[0]) {

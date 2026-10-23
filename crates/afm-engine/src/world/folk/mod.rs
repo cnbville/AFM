@@ -313,10 +313,16 @@ pub struct Folk {
 
 /// Fills what a world built before this build lacks (an old world or save
 /// opens with an empty store), then the yearly pieces.
-pub fn after_load(w: &mut World) {
+/// The stable seed the people are drawn from, set once (anyone who reads a
+/// cast person before the first day's people step sets it the same way).
+pub fn ensure_base(w: &mut World) {
     if w.folk.base == 0 {
         w.folk.base = w.options.seed.rotate_left(7) ^ 0xF01C_5EED;
     }
+}
+
+pub fn after_load(w: &mut World) {
+    ensure_base(w);
     staffing::ensure(w);
     if w.seat.is_some() && w.folk.mine.team.is_none() {
         // A save from before this build: you're at your job already, so
@@ -329,9 +335,7 @@ pub fn after_load(w: &mut World) {
 /// One day on the clock: the world's people (weekly and yearly steps) and
 /// your own agenda.
 pub(crate) fn day(w: &mut World, d: Date) {
-    if w.folk.base == 0 {
-        w.folk.base = w.options.seed.rotate_left(7) ^ 0xF01C_5EED;
-    }
+    ensure_base(w);
     staffing::day(w, d);
     ties::day(w, d);
     life::day(w, d);

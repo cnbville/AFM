@@ -1,0 +1,169 @@
+/* Front office: the college desk (lane 10). The recruiting board, a
+   recruit's file, finding recruits, visits, the portal and NIL, on
+   Showtime: the program's light in the hero, the warm film room below. */
+
+/* ---------- the hero over every desk screen ---------- */
+.fc-hero { min-height: 232px; align-items: stretch; }
+.fc-hero .copy { padding: 34px 28px 22px; align-content: end; max-width: none; flex: 1; min-width: 0; }
+.fc-hero h1 { font-size: clamp(36px, 4.2vw, 56px); font-stretch: 118%; }
+.fc-hero .st-outline { left: 220px; right: auto; top: -40px; font-size: clamp(200px, 24vw, 300px); }
+.fc-hero .meta { font-size: 13.5px; max-width: 80ch; }
+.fc-hero .meta span + span::before { content: "·"; margin-right: 10px; color: rgba(255, 255, 255, 0.5); }
+.fc-hero .link { color: inherit; }
+.fc-heroline { font-size: 15px; color: rgba(255, 255, 255, 0.88); max-width: 70ch; }
+.fc-heropanel { align-self: center; flex: none; width: min(560px, 46%); margin: 18px 24px 18px 0; padding: 14px 16px; gap: 11px; }
+.fc-heropanel h2 small { color: rgba(255, 255, 255, 0.66); }
+.fc-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.fc-tiles b { font-size: 30px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc-tile { cursor: pointer; }
+.fc-tile:hover { background: var(--fill-2) !important; }
+.fc-open { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.fc-open .st-label { color: rgba(255, 255, 255, 0.78); margin-right: 4px; }
+.fc-open button.st-pill { border: 0; cursor: pointer; }
+.fc-open button.st-pill:hover { background: var(--fill-3); }
+@media (max-width: 1180px) {
+  .fc-hero { flex-direction: column; }
+  .fc-heropanel { width: auto; margin: 0 24px 20px; align-self: stretch; }
+}
+
+/* ---------- the bar under the title: tabs or a label left, Go to right ---------- */
+.fc-pad { padding-top: 14px !important; }
+.fc-bar { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; flex-wrap: wrap; min-height: 40px; }
+.fc-bar .h1 { margin-top: 4px; }
+.fc-tabs { flex: 1; min-width: 320px; }
+.fc-tabs button small { color: var(--fg3); font-weight: 500; margin-left: 2px; }
+.fc-bar .goto { margin-left: auto; padding-bottom: 8px; }
+.fc-note { margin-left: auto; font-size: 12.5px; }
+
+/* ---------- who runs a duty ---------- */
+.fc-duty { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 16px; border-radius: 16px; background: color-mix(in oklab, var(--gold) 10%, var(--raised)); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--gold) 22%, transparent); font-size: 13.5px; }
+.fc-duty b { font-weight: 700; }
+.fc-dutyrow { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 10px 2px; border-bottom: 1px solid var(--hair); }
+.fc-dutyrow:last-child { border-bottom: 0; }
+.fc-dutyrow small { display: block; margin-top: 2px; max-width: 62ch; }
+
+/* ---------- the shelf of top targets ---------- */
+.fc-shelf { padding: 0; gap: 2px; }
+.fc-shelf .st-shelf-head { justify-content: flex-start; gap: 14px; }
+.fc-shelf .st-shelf-head h2 { font-size: 20px; }
+.fc-shelf .st-rail { gap: 14px; padding: 10px 2px 12px; }
+.fc-ranked > .st-outline { font-size: 112px; margin-right: -22px; }
+.fc-poster { width: 150px; }
+.fc-poster[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--fg), var(--shadow-float); transform: scale(1.03); }
+.fc-poster .st-poster-cap { padding: 40px 12px 12px; gap: 2px; }
+.fc-poster .st-poster-cap b { font-size: 15px; }
+.fc-poster .st-poster-cap small { line-height: 1.25; }
+.fc-poster::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 4px; background: var(--hs2); opacity: 0.9; }
+.fc-hsmark { position: absolute; right: 10px; top: 8px; left: auto !important; font-size: 64px !important; letter-spacing: -0.03em; -webkit-text-stroke-color: rgba(255, 255, 255, 0.3) !important; }
+.fc-cap-stars { color: #fff !important; font-weight: 700; }
+.fc-cap-int { color: rgba(255, 255, 255, 0.85) !important; font-style: italic; }
+.fc-cap-int.good { color: #9ff0b4 !important; }
+.fc-cap-int.bad { color: #ffb3c1 !important; }
+.fc-cap-int.warn { color: #ffe680 !important; }
+.fc-yourtime { color: var(--gold); font-size: 12px; }
+.fc-poster .fc-yourtime { position: absolute; right: 12px; top: 10px; font-size: 14px; text-shadow: 0 0 8px rgba(0, 0, 0, 0.6); }
+
+/* ---------- a recruit's file ---------- */
+.fc-file { display: grid; grid-template-columns: 300px minmax(0, 1fr) 380px; border-radius: 28px; overflow: hidden; min-height: 380px; }
+.fc-idroom { display: flex; padding: 18px; min-width: 0; }
+.fc-idroom > .st-outline { position: absolute; right: -4px; bottom: -18px; z-index: 0; font-size: 190px; letter-spacing: -0.04em; -webkit-text-stroke-color: rgba(255, 255, 255, 0.2); }
+.fc-id { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.fc-id .st-label { color: rgba(255, 255, 255, 0.8); }
+.fc-id h2 { font-size: 30px; line-height: 1; font-weight: 800; letter-spacing: -0.03em; color: #fff; text-shadow: 0 2px 14px rgba(0, 0, 0, 0.35); }
+.fc-id h2 .link { color: inherit; }
+.fc-id b { font-size: 15px; color: #fff; }
+.fc-id b .link { color: inherit; }
+.fc-town { font-size: 13px; color: rgba(255, 255, 255, 0.82); }
+.fc-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.fc-idkv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; margin: 6px 0 0; font-size: 12.5px; color: rgba(255, 255, 255, 0.86); }
+.fc-idkv dt { color: rgba(255, 255, 255, 0.6); }
+.fc-idkv dd { margin: 0; }
+.fc-meas { margin-top: auto; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 12px; align-items: baseline; padding: 8px 12px; border-radius: 12px; background: rgba(0, 0, 0, 0.3); font-size: 12.5px; color: rgba(255, 255, 255, 0.8); max-width: 230px; }
+.fc-meas b.st-cond { font-size: 18px; }
+.fc-mid { padding: 16px 22px; display: flex; flex-direction: column; gap: 14px; min-width: 0; border-right: 1px solid var(--warm-hair); }
+.fc-right { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; background: rgba(0, 0, 0, 0.12); }
+:root[data-theme="light"] .fc-right { background: rgba(120, 80, 30, 0.04); }
+.fc-block { display: grid; gap: 8px; }
+.fc-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.fc-h .link { font-size: 12.5px; color: var(--fg2); }
+.fc-read { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.fc-read .rg { grid-template-columns: 150px 56px; }
+.fc-read .rg .t { height: 8px; }
+.fc-read .rg b { font-size: 16px; }
+.fc-read > div:last-child { display: grid; gap: 1px; }
+.fc-read > div:last-child b { font-size: 14.5px; }
+.fc-hints { display: flex; flex-wrap: wrap; gap: 6px; }
+.fc-hints .st-fact { padding: 4px 10px; font-size: 12px; }
+.fc-interest { display: flex; align-items: center; gap: 2px; font-size: 18px; font-stretch: 108%; }
+.fc-interest b { font-weight: 800; }
+.fc-interest.good b { color: color-mix(in oklab, var(--good) 55%, var(--fg)); }
+.fc-interest.bad b { color: color-mix(in oklab, var(--live) 50%, var(--fg)); }
+.fc-interest.warn b { color: color-mix(in oklab, var(--gold) 55%, var(--fg)); }
+.fc-schools { display: grid; gap: 4px; }
+.fc-school { display: grid; grid-template-columns: 18px 28px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 12px; font-size: 13px; }
+.fc-school:hover { background: var(--fill-1); }
+.fc-school.yours { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.fc-school .fc-n { color: var(--fg3); font-stretch: 68%; font-weight: 800; font-size: 16px; text-align: right; }
+.fc-school b { display: block; font-size: 13.5px; }
+.fc-school small { color: var(--fg3); font-size: 12px; }
+.fc-next { margin-top: auto; display: flex; gap: 14px; align-items: baseline; padding-top: 10px; border-top: 1px solid var(--warm-hair); font-size: 13.5px; }
+.fc-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.fc-nil { display: grid; gap: 6px; padding-top: 6px; }
+.fc-moneyin { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--fg2); }
+.fc-moneyin input { width: 84px; border: 1px solid var(--hair); background: var(--fill-1); color: var(--fg); border-radius: 10px; padding: 6px 8px; font: inherit; font-variant-numeric: tabular-nums; text-align: right; }
+.fc-moneyin.small input { width: 68px; padding: 4px 6px; border-radius: 8px; }
+.fc-moneyin input:focus { outline: none; border-color: var(--edge); background: var(--fill-2); }
+.fc-vopts { display: grid; gap: 2px; }
+.fc-vopt { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--warm-hair); font-size: 13px; }
+.fc-vopt:last-child { border-bottom: 0; }
+.fc-vopt small { font-size: 12px; }
+.fc-vset { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.fc-vdone { flex: 1; display: flex; align-items: center; gap: 6px; color: var(--fg); }
+.fc-vset select, .fc-select { min-width: 0; flex: 1; border: 1px solid var(--hair); background: var(--fill-1); color: var(--fg); border-radius: 10px; padding: 6px 8px; font: inherit; font-size: 12.5px; }
+.fc-select { flex: none; padding: 6px 10px; }
+.fc-vset select option, .fc-select option { background: var(--raised); }
+.fc-family .kv { font-size: 13px; }
+.fc-vitem { grid-template-columns: 92px minmax(0, 1fr) auto; align-items: center; }
+@media (max-width: 1280px) {
+  .fc-file { grid-template-columns: 260px minmax(0, 1fr); }
+  .fc-right { grid-column: 1 / -1; border-top: 1px solid var(--warm-hair); }
+}
+
+/* ---------- the full board ---------- */
+.fc-stars { color: var(--gold); letter-spacing: -1px; font-size: 12px; }
+.fc-stars i { font-style: normal; color: var(--fill-3); }
+.fc-rowacts { display: inline-flex; align-items: center; gap: 6px; }
+.fc-ib { width: 24px; height: 24px; border-radius: 8px; border: 0; background: var(--fill-1); color: var(--fg2); font-size: 10px; display: inline-grid; place-items: center; padding: 0; }
+.fc-ib:hover { background: var(--fill-2); color: var(--fg); }
+.fc-ib.on { color: var(--gold); background: color-mix(in oklab, var(--gold) 16%, transparent); }
+.tbl td .st-btn.small { padding: 4px 10px; font-size: 12px; border-radius: 9px; }
+.fc-search { border: 1px solid var(--hair); background: var(--fill-1); color: var(--fg); border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 12.5px; width: 180px; outline: none; }
+.fc-search:focus { border-color: var(--edge); background: var(--fill-2); }
+
+/* ---------- the NCAA calendar strip ---------- */
+.fc-ncaa { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px 12px; }
+.fc-week { display: grid; gap: 3px; }
+.fc-week small { color: var(--fg3); font-size: 11px; }
+.fc-week > div { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.fc-week i, .fc-legend i { display: grid; place-items: center; height: 20px; border-radius: 5px; font-style: normal; font-size: 10px; font-variant-numeric: tabular-nums; color: rgba(255, 255, 255, 0.85); }
+.p-contact { background: color-mix(in oklab, var(--good) 52%, #10301a); }
+.p-evaluation { background: color-mix(in oklab, var(--gold) 45%, #2a2008); }
+.p-quiet { background: rgba(120, 150, 210, 0.35); }
+.p-dead { background: rgba(255, 255, 255, 0.07); color: var(--fg3) !important; }
+.fc-week i.past { opacity: 0.3; }
+.fc-week i.today { box-shadow: 0 0 0 2px var(--fg); }
+.fc-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--fg2); }
+.fc-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.fc-legend i { width: 14px; height: 14px; }
+.fc-rules { font-size: 12.5px; margin-top: 4px; }
+.fc-rules dt { white-space: nowrap; }
+
+/* ---------- NIL ---------- */
+.fc-ledger .item { font-size: 13.5px; }
+.fc-over { color: var(--live); }
+
+/* NIL: the money at the top, four panels across; the roster's deals below at full width. */
+.fc-nilgrid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.fc-nilgrid > :first-child { grid-row: span 2; }
+.fc-nilgrid > :last-child { grid-column: span 2; }
+@media (max-width: 1200px) { .fc-nilgrid { grid-template-columns: minmax(0, 1fr); } .fc-nilgrid > :first-child { grid-row: auto; } .fc-nilgrid > :last-child { grid-column: auto; } }

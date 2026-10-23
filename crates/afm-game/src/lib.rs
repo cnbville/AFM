@@ -75,6 +75,8 @@ impl Game {
                 let years = num("history_years").unwrap_or(30) as u32;
                 let scale = args.get("scale").and_then(Value::as_f64).unwrap_or(1.0);
                 let engine_from = num("engine_from").map(|y| y as i32);
+                // Fictional names (lane 10): colleges, conferences and NFL nicknames; towns stay real.
+                let fictional = args.get("names").and_then(Value::as_str) == Some("fictional");
                 let d = WorldOptions::default();
                 // How many history seasons play high school on the engine
                 // (quick checks pass 0; live seasons always do).
@@ -84,6 +86,12 @@ impl Game {
                     history_years: years,
                     scale,
                     engine_from,
+                    names: if fictional {
+                        afm_engine::world::names::NameMode::Fictional
+                    } else {
+                        afm_engine::world::names::NameMode::Real
+                    },
+                    fictional_league: fictional,
                     hs_engine_years,
                     ..d
                 }));
@@ -95,7 +103,9 @@ impl Game {
                 let seed = num("seed").unwrap_or(2026) as u32;
                 let years = num("history_years").unwrap_or(30).clamp(1, 60) as u32;
                 let scale = args.get("scale").and_then(Value::as_f64).unwrap_or(1.0);
-                Ok(json!({ "name": jobs::build(&self.job, &self.home.join("worlds"), seed, years, scale)? }))
+                let fictional = args.get("names").and_then(Value::as_str) == Some("fictional");
+                let worlds = self.home.join("worlds");
+                Ok(json!({ "name": jobs::build_named(&self.job, &worlds, seed, years, scale, fictional)? }))
             }
             "online_worlds" => jobs::online(&self.home.join("worlds")),
             "download_world" => {

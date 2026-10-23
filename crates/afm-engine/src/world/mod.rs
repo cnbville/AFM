@@ -21,6 +21,7 @@ pub mod ethnicity;
 pub mod fame;
 pub mod folk;
 pub mod franchise;
+pub mod front_office;
 pub mod game_log;
 pub mod geo;
 pub mod high_school;
@@ -68,6 +69,11 @@ pub struct WorldOptions {
     /// The year the save starts.
     pub start_year: i32,
     pub names: NameMode,
+    /// A fictional league as well (lane 10, the setup's fictional option):
+    /// NFL nicknames and conference names on the screens are fictional too,
+    /// over the fictional college and high school names `names` gives.
+    #[serde(default)]
+    pub fictional_league: bool,
     /// The first season whose college games run on the match engine (item 12).
     /// None, the game's setting, plays every college game on the engine,
     /// history included, so the history comes from the same football as the
@@ -93,6 +99,7 @@ impl Default for WorldOptions {
             history_years: 30,
             start_year: 2026,
             names: NameMode::Real,
+            fictional_league: false,
             engine_from: None,
             hs_engine_years: Some(12),
             keep_game_log: false,
@@ -362,6 +369,9 @@ pub enum Visit {
     Unofficial,
     /// A staff member watches him at his high school in an evaluation week.
     DropIn,
+    /// The head coach in his family's living room, in a contact period
+    /// (lane 10: your own home visits).
+    Home,
 }
 
 impl PersonCal {
@@ -715,6 +725,10 @@ pub struct World {
     /// opponents, what you have studied.
     #[serde(default)]
     pub gameday: live_seat::GameDay,
+    /// Your front office: who has each duty and each level's desk (final
+    /// build, lane 10).
+    #[serde(default)]
+    pub front_office: front_office::FrontOffice,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -1007,6 +1021,7 @@ impl World {
             career: None,
             live: None,
             gameday: Default::default(),
+            front_office: Default::default(),
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);
