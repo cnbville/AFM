@@ -349,6 +349,9 @@ const BIG_NAME: f64 = 0.6;
 /// about 5 to 8; proposed, not confirmed: 7, fewer when the season is short).
 const DISTRICT_SIZE: usize = 7;
 
+/// Each week's games (home, away), by week.
+type WeekPairs = Vec<Vec<(usize, usize)>>;
+
 /// A state's regular season, week by week, as (home, away) games, from its
 /// classifications (class number and schools) and each school's area (part
 /// B 40). Each classification splits into districts of nearby schools
@@ -372,7 +375,7 @@ pub(crate) fn state_schedule(
     power: &dyn Fn(usize) -> (f64, bool),
     n_weeks: usize,
     seed: u64,
-) -> (Vec<Vec<(usize, usize)>>, Vec<Vec<usize>>) {
+) -> (WeekPairs, Vec<Vec<usize>>) {
     const FREE: usize = usize::MAX;
     let ids: Vec<usize> = classes.iter().flat_map(|c| c.1.iter().copied()).collect();
     let class_of: Vec<u32> = classes.iter().flat_map(|c| std::iter::repeat_n(c.0, c.1.len())).collect();
@@ -468,9 +471,10 @@ pub(crate) fn state_schedule(
                 let rank = |b: &&usize| ((area_of[**b] != area_of[a]) as u32, class_of[**b].abs_diff(class_of[a]));
                 // A big name books the biggest free name in the state.
                 let b = if prestige[a] >= BIG_NAME {
-                    order[x + 1..].iter().filter(open).max_by(|&&p, &&q| {
-                        prestige[p].total_cmp(&prestige[q]).then(shuffle[q].total_cmp(&shuffle[p]))
-                    })
+                    order[x + 1..]
+                        .iter()
+                        .filter(open)
+                        .max_by(|&&p, &&q| prestige[p].total_cmp(&prestige[q]).then(shuffle[q].total_cmp(&shuffle[p])))
                 } else {
                     let near = order[x + 1..].iter().take(200).filter(open).min_by_key(rank);
                     near.or_else(|| order[x + 1..].iter().filter(open).min_by_key(rank))
@@ -1072,7 +1076,8 @@ fn engine_games(
             let wx = if final_game {
                 state_wx
             } else {
-                town_wx = crate::calendar::weather::weather_in(world.options.seed as u64, s, code, &school.town, day, 19);
+                town_wx =
+                    crate::calendar::weather::weather_in(world.options.seed as u64, s, code, &school.town, day, 19);
                 &town_wx
             };
             let cond = hs_conditions(world, h, wx, seed, key);
@@ -1461,7 +1466,9 @@ fn all_state(w: &mut World, s: usize, d: Date) {
                 p.cal.all_state = p.cal.all_state.max(team);
                 let age = p.player.age - 1;
                 let which = if team == 2 { "first-team" } else { "second-team" };
-                let cl = super::hs_playoffs::format(&code).class_label(class).map_or_else(|| format!("class {}", class + 1), str::to_string);
+                let cl = super::hs_playoffs::format(&code)
+                    .class_label(class)
+                    .map_or_else(|| format!("class {}", class + 1), str::to_string);
                 p.note(format!("Named {which} all-state ({code} {cl}) at {age}."));
                 named += 1;
             }

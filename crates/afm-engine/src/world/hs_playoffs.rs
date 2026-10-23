@@ -33,7 +33,10 @@ pub enum PrivateRule {
     /// (largest first), whatever its group in the season.
     NonPublic(Vec<String>),
     /// Georgia: private schools in this class and below play one bracket.
-    Private { from: u32, label: String },
+    Private {
+        from: u32,
+        label: String,
+    },
     /// Illinois: a private school's enrollment counts this much more when
     /// the classes are formed.
     Multiplier(f64),
@@ -140,7 +143,11 @@ fn parse_rating(s: &str) -> Rating {
             Some(w) => {
                 let v: Vec<f64> = w.split('/').filter_map(|x| x.parse().ok()).collect();
                 let t = v.iter().sum::<f64>().max(1.0);
-                Rating::Rpi(v.first().unwrap_or(&40.0) / t, v.get(1).unwrap_or(&40.0) / t, v.get(2).unwrap_or(&20.0) / t)
+                Rating::Rpi(
+                    v.first().unwrap_or(&40.0) / t,
+                    v.get(1).unwrap_or(&40.0) / t,
+                    v.get(2).unwrap_or(&20.0) / t,
+                )
             }
             None => Rating::WinPct,
         },
@@ -450,7 +457,9 @@ pub(crate) fn rate(r: Rating, h: usize, opps: &[Vec<(u32, bool)>], results: &[Te
     let wp = t.win_pct();
     match r {
         Rating::WinPct => wp + 0.01 * owp(h, opps, results),
-        Rating::Wins => t.wins as f64 + 0.001 * opps[h].iter().map(|&(x, _)| results[x as usize].wins).sum::<u32>() as f64,
+        Rating::Wins => {
+            t.wins as f64 + 0.001 * opps[h].iter().map(|&(x, _)| results[x as usize].wins).sum::<u32>() as f64
+        }
         Rating::Rpi(a, b, c) => {
             let o = &opps[h];
             let oo = if o.is_empty() {

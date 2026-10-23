@@ -797,6 +797,11 @@ pub fn holiday_to(w: &mut World, until: Date) -> Date {
     w.today
 }
 
+/// The BCS read the Harris poll as its human poll from 2005 to 2013.
+fn harris_year(w: &World) -> bool {
+    w.rules.cfb_postseason == crate::calendar::CfbPostseason::Bcs && (2005..=2013).contains(&w.year)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -870,9 +875,4 @@ mod tests {
         assert_eq!(w.event_history[1].0, season + 1);
         assert_eq!(texts(1), ["next year's news"]);
     }
-}
-
-/// The BCS read the Harris poll as its human poll from 2005 to 2013.
-fn harris_year(w: &World) -> bool {
-    w.rules.cfb_postseason == crate::calendar::CfbPostseason::Bcs && (2005..=2013).contains(&w.year)
 }

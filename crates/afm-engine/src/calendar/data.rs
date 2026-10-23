@@ -289,7 +289,7 @@ pub const HS_CALENDARS: [HsCalendar; 51] = [
     hs!("MS", 8, 21, 10, 11, 6, 12, 5, true, Semester, true),
     hs!("MO", 8, 21, 9, 10, 30, 12, 5, false, Semester, false),
     hs!("MT", 8, 28, 8, 10, 30, 11, 21, false, Semester, false),
-    hs!("NE", 8, 28, 8, 10, 30, 11, 21, false, Semester, false),
+    hs!("NE", 8, 28, 8, 10, 23, 11, 21, false, Semester, false),
     hs!("NV", 8, 21, 9, 10, 30, 11, 21, false, Semester, false),
     hs!("NH", 9, 4, 8, 11, 6, 11, 28, false, Semester, false),
     hs!("NJ", 8, 28, 8, 10, 30, 11, 29, false, Semester, true),

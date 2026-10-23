@@ -291,7 +291,7 @@ pub fn high_school_name(town: &str, k: usize, private: bool, rng: &mut Rng) -> S
     match k {
         0 => format!("{town} High"),
         _ if k % 2 == 1 && (k - 1) / 2 < MASCOT_WORDS.len() => format!("{town} {}", MASCOT_WORDS[(k - 1) / 2]),
-        _ if k % 2 == 0 && k / 2 - 1 < NAMESAKES.len() => format!("{} ({town})", NAMESAKES[k / 2 - 1]),
+        _ if k.is_multiple_of(2) && k / 2 - 1 < NAMESAKES.len() => format!("{} ({town})", NAMESAKES[k / 2 - 1]),
         _ => format!("{town} {} {}", MASCOT_WORDS[k % MASCOT_WORDS.len()], NAMESAKES[k % NAMESAKES.len()]),
     }
 }

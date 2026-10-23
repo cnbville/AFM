@@ -87,7 +87,8 @@ fn field_sizes_and_private_rules_per_state() {
 
 #[test]
 fn real_powerhouses_are_private_by_name() {
-    for n in ["Mater Dei", "St. John Bosco", "IMG Academy", "Bishop Gorman", "De La Salle", "Brother Martin", "Trinity"] {
+    for n in ["Mater Dei", "St. John Bosco", "IMG Academy", "Bishop Gorman", "De La Salle", "Brother Martin", "Trinity"]
+    {
         assert!(real_private(n), "{n}");
     }
     for n in ["Duncanville", "Buford", "Mater Academy East Las Vegas", "Edna Karr", "Imhotep Charter", "Allen"] {

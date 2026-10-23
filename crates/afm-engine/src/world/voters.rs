@@ -703,7 +703,7 @@ pub(crate) fn ensure(w: &mut World) {
 
 /// A coach's voting habits, read from his id (nothing stored).
 pub(crate) fn coach_traits(seed: u32, coach: u32) -> Traits {
-    Traits::keyed(seed as u64 ^ 0xC0AC_4E5, coach as u64, COACH_MEANS)
+    Traits::keyed(seed as u64 ^ 0x0C0A_C4E5, coach as u64, COACH_MEANS)
 }
 
 /// The Heisman voters' own randomness for a season.

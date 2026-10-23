@@ -794,8 +794,7 @@ pub(crate) fn declarations(w: &mut World, phase: Declare) {
                     && p.cal.declare_plan != Some(true)
                     && super::eligibility::on_covid_year(p, division, year);
                 let declines = covid_choice
-                    && key_uniform(seed ^ 0xC0_71D, p.player.id as u64)
-                        >= super::eligibility::covid_return_chance(p);
+                    && key_uniform(seed ^ 0xC0_71D, p.player.id as u64) >= super::eligibility::covid_return_chance(p);
                 if covid_choice && !declines {
                     w.log.covid_returns += 1;
                     let p = &mut w.people[i];
@@ -1898,7 +1897,7 @@ fn leaving(
         // Junior college players move up or stop after two seasons.
         return if seasons >= 2 { 1.0 } else { 0.0 };
     }
-    if seasons >= limit || draft_year - 1 >= super::eligibility::clock_last(p) {
+    if seasons >= limit || draft_year > super::eligibility::clock_last(p) {
         return 1.0;
     }
     let early = if draft_year - p.class_of >= 3 {
@@ -2331,9 +2330,13 @@ fn utility_fit(
     let academics = g(GradeCat::Academics) * (0.5 + 0.5 * clamp((p.bg.gpa - 2.5) / 1.5, 0.0, 1.0));
     let development = (g(GradeCat::ProPipeline) + g(GradeCat::CoachPrestige)) / 2.0;
     // Every recruit wants the biggest name he can get at a level; how much
-    // more depends on what he (or his decider) wants.
+    // more depends on what he (or his decider) wants. A name stops growing
+    // at the biggest in the sport (A6): a program that passes the leader of
+    // 30 years ago is one of the blue bloods, not a bigger one, so a run of
+    // titles can't lift it clear of the rest of the elite.
+    let brand = prog.prestige_rel.min(1.0);
     let mut u = 1.6 * level_value(prog.division) * (0.5 + wants.prestige + wants.development)
-        + (0.25 + wants.prestige) * prog.prestige_rel * (0.4 + 0.6 * level_value(prog.division))
+        + (0.25 + wants.prestige) * brand * (0.4 + 0.6 * level_value(prog.division))
         + 0.1 * g(GradeCat::Facilities)
         + wants.prestige * prestige
         + money_w * money * 1.5
@@ -2371,7 +2374,7 @@ fn utility_fit(
     // win titles and fill first rounds (about 15-17 sign one a year, real
     // 2024-25, 247Sports; dynasty item 11.1, proposed, not confirmed).
     if p.stars == 5 {
-        u += FIVE_STAR_PULL * prog.prestige_rel.powi(3) * level_value(prog.division);
+        u += FIVE_STAR_PULL * brand.powi(3) * level_value(prog.division);
     }
     u
 }
@@ -2569,7 +2572,10 @@ fn camp_rankings(
         let p = &w.people[i];
         let spot = if p.player.position.kicks() {
             p.player.position
-        } else if snapper.get(&p.hs) == Some(&i) && p.stars == 0 && p.player.body.weight <= crate::athlete::LS_MAX_WEIGHT {
+        } else if snapper.get(&p.hs) == Some(&i)
+            && p.stars == 0
+            && p.player.body.weight <= crate::athlete::LS_MAX_WEIGHT
+        {
             // A 300-pound center who snaps on Fridays projects as a
             // lineman; the camps rank snappers with a snapper's build.
             Position::LS
@@ -5128,7 +5134,7 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
             // Proposed, not confirmed: his lean, plus a small base for a
             // starter below FBS.
             let left = p.college_seasons < super::eligibility::seasons_allowed(label + 1, div)
-                && label + 1 <= super::eligibility::clock_last(p);
+                && label < super::eligibility::clock_last(p);
             if !p.cal.may_graduate || !left || div == Division::JUCO || p.cal.declare_plan == Some(true) {
                 continue;
             }
@@ -5437,7 +5443,11 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
     for i in due {
         let Some(entry) = w.people[i].cal.portal else { continue };
         let why = Why::from_reason(entry.why);
-        let c = w.people[i].college.unwrap();
+        // Someone who left college meanwhile is out of the market.
+        let Some(c) = w.people[i].college else {
+            w.people[i].cal.portal = None;
+            continue;
+        };
         let from = w.programs[c].division;
         let pos = w.people[i].player.position;
         let role = w.people[i].last_role;

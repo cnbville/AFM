@@ -628,7 +628,8 @@ pub(crate) fn where_now(w: &World, p: &Person) -> String {
         Stage::Done => "Out of football".into(),
         Stage::Away => match p.roads.away {
             Some(a) => {
-                let held = a.program.map(|c| format!(", {} holds his place", w.program_name(c as usize))).unwrap_or_default();
+                let held =
+                    a.program.map(|c| format!(", {} holds his place", w.program_name(c as usize))).unwrap_or_default();
                 format!("Away on {} until the summer of {}{held}", a.kind.name(), a.until)
             }
             None => "Away from football".into(),

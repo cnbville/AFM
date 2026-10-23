@@ -318,7 +318,9 @@ impl Change {
             Change::BiggerCfp => "the CFP management committee (conference commissioners)",
             Change::ConferenceSwitch => "a school accepts a conference's invitation",
             Change::Breakaway => "the SEC and Big Ten leave the CFP for their own postseason",
-            Change::FiveInFive => "the NCAA Division I Cabinet's vote of June 23-24, 2026 (real; in force from 2026-27)",
+            Change::FiveInFive => {
+                "the NCAA Division I Cabinet's vote of June 23-24, 2026 (real; in force from 2026-27)"
+            }
             Change::RevenueCap => "the House settlement's yearly review or a court ruling",
             Change::HsNil => "a state association or legislature vote",
             Change::HsTransferRules => "a state association vote",

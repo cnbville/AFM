@@ -515,26 +515,25 @@ pub struct TownNormals {
 const TOWN_CSV: &str = include_str!("../../../../data/real-world/town_climate.csv");
 
 /// Every listed town's normals, keyed by a hash of state code and town name.
-static TOWNS: std::sync::LazyLock<std::collections::HashMap<u64, TownNormals>> =
-    std::sync::LazyLock::new(|| {
-        let mut map = std::collections::HashMap::new();
-        for line in TOWN_CSV.lines().skip(1) {
-            let cols = split_csv(line);
-            if cols.len() < 41 {
-                continue;
-            }
-            // Whole degrees and days fit a byte (12,000 towns in 430 KB).
-            let num = |k: usize| cols[k].parse::<f32>().unwrap_or(0.0).round().clamp(-128.0, 127.0) as i8;
-            let mut t = TownNormals { high: [0; 12], low: [0; 12], wet_days: [0; 12] };
-            for m in 0..12 {
-                t.high[m] = num(5 + m);
-                t.low[m] = num(17 + m);
-                t.wet_days[m] = num(29 + m);
-            }
-            map.insert(town_key(cols[0], cols[1]), t);
+static TOWNS: std::sync::LazyLock<std::collections::HashMap<u64, TownNormals>> = std::sync::LazyLock::new(|| {
+    let mut map = std::collections::HashMap::new();
+    for line in TOWN_CSV.lines().skip(1) {
+        let cols = split_csv(line);
+        if cols.len() < 41 {
+            continue;
         }
-        map
-    });
+        // Whole degrees and days fit a byte (12,000 towns in 430 KB).
+        let num = |k: usize| cols[k].parse::<f32>().unwrap_or(0.0).round().clamp(-128.0, 127.0) as i8;
+        let mut t = TownNormals { high: [0; 12], low: [0; 12], wet_days: [0; 12] };
+        for m in 0..12 {
+            t.high[m] = num(5 + m);
+            t.low[m] = num(17 + m);
+            t.wet_days[m] = num(29 + m);
+        }
+        map.insert(town_key(cols[0], cols[1]), t);
+    }
+    map
+});
 
 /// Splits one CSV line, keeping quoted commas inside their field.
 fn split_csv(line: &'static str) -> Vec<&'static str> {

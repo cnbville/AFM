@@ -2378,7 +2378,7 @@ fn thousands(n: u32) -> String {
     let s = n.to_string();
     let mut out = String::new();
     for (k, c) in s.chars().enumerate() {
-        if k > 0 && (s.len() - k) % 3 == 0 {
+        if k > 0 && (s.len() - k).is_multiple_of(3) {
             out.push(',');
         }
         out.push(c);
@@ -3006,12 +3006,8 @@ pub(crate) fn settle_eligibility(w: &mut World) {
             continue;
         }
         let played = games.get(&p.player.id).copied().unwrap_or(0);
-        let team = prog_of
-            .get(&p.player.id)
-            .copied()
-            .or(p.college)
-            .and_then(|c| team_games.get(c).copied())
-            .unwrap_or(played);
+        let team =
+            prog_of.get(&p.player.id).copied().or(p.college).and_then(|c| team_games.get(c).copied()).unwrap_or(played);
         let division = el::division_of(p, programs);
         // The 2020 COVID year: nobody's season counted, and every clock
         // gained a year (the NCAA's blanket waiver for fall athletes).

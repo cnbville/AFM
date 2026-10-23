@@ -1436,12 +1436,7 @@ impl World {
             .map(|p| {
                 let stays = matches!(
                     p.stage,
-                    Stage::HighSchool
-                        | Stage::College
-                        | Stage::PrepSchool
-                        | Stage::Declared
-                        | Stage::Pro
-                        | Stage::Away
+                    Stage::HighSchool | Stage::College | Stage::PrepSchool | Stage::Declared | Stage::Pro | Stage::Away
                 );
                 stays.then(|| {
                     next += 1;

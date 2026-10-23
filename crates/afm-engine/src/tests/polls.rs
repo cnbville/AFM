@@ -18,10 +18,13 @@ fn season(year: i32) -> World {
     let mut cs = college::new_season(&w);
     cs.games.clear();
     cs.started = true;
-    for p in w.programs.iter_mut().filter(|p| p.division == Division::FBS) {
+    // Names and August views spread as in a real season (an even field
+    // would make any one team an outlier on every read).
+    for (k, p) in w.programs.iter_mut().filter(|p| p.division == Division::FBS).enumerate() {
+        let f = ((k * 37) % 101) as f64 / 100.0;
         p.roster = vec![0];
-        p.prestige = 0.4;
-        cs.results[p.id].preseason = 50.0;
+        p.prestige = 0.2 + 0.6 * f;
+        cs.results[p.id].preseason = 30.0 + 40.0 * f;
     }
     w.college = Some(cs);
     voters::ensure(&mut w);
@@ -55,6 +58,25 @@ fn game(w: &mut World, date: Date, winner: usize, loser: usize, by: u32, winner_
         }
     }
     cs.games.push(g);
+}
+
+/// Every FBS team not in `busy` plays a team from below in each of the
+/// first `weeks` weeks: two wins in three by 10, a loss by 7 in the third,
+/// so the board has real records around the featured teams.
+fn everyone_plays(w: &mut World, weeks: usize, busy: &[usize]) {
+    let fcs = below_fbs(w);
+    let start = w.dates.cfb_weeks[0];
+    let teams = fbs(w);
+    for k in 0..weeks {
+        let d = start.add(7 * k as i32);
+        for (j, &t) in teams.iter().enumerate().filter(|&(_, t)| !busy.contains(t)) {
+            if (j + k).is_multiple_of(3) {
+                game(w, d, fcs, t, 7, true);
+            } else {
+                game(w, d, t, fcs, 10, true);
+            }
+        }
+    }
 }
 
 fn rank(release: &polls::Release, t: usize) -> Option<usize> {
@@ -160,12 +182,25 @@ fn coaches_lean_to_their_own_team() {
         w.programs[t].head_coach = Some(k);
     }
     let start = w.dates.cfb_weeks[0];
-    // Two even 3-0 teams; only one's coach is on the panel.
+    // Two even 3-0 teams, the same name and August view; only one's coach
+    // is on the panel. Everyone else is 2-1 or 1-2 against the same
+    // opponents.
     let (a, b) = (teams[0], teams[100]);
+    for t in [a, b] {
+        w.programs[t].prestige = 0.6;
+        w.college.as_mut().unwrap().results[t].preseason = 60.0;
+    }
     let fcs = below_fbs(&w);
     for k in 0..3 {
         game(&mut w, start.add(7 * k), a, fcs, 14, true);
         game(&mut w, start.add(7 * k), b, fcs, 14, true);
+        for (j, &t) in teams.iter().enumerate().filter(|&(_, &t)| t != a && t != b) {
+            if (j + k as usize).is_multiple_of(3) {
+                game(&mut w, start.add(7 * k), fcs, t, 3, true);
+            } else {
+                game(&mut w, start.add(7 * k), t, fcs, 3, true);
+            }
+        }
     }
     polls::vote(&mut w, start.add(15), PollKind::Coaches);
     let seat = w.voters.coaches.iter().find(|s| s.program as usize == a).unwrap();
@@ -194,6 +229,7 @@ fn the_committee_recuses_and_reads_the_whole_season() {
     let (bama, clemson) = (id(&w, "Alabama"), id(&w, "Clemson"));
     let others: Vec<usize> = fbs(&w).into_iter().filter(|&t| t != bama && t != clemson).collect();
     let start = w.dates.cfb_weeks[0];
+    everyone_plays(&mut w, 10, &[bama, clemson]);
     for k in 0..10 {
         let d = start.add(7 * k as i32);
         game(&mut w, d, bama, others[k], 14, k % 2 == 0);
@@ -227,6 +263,7 @@ fn the_bcs_standings_combine_polls_and_computers() {
     let teams = fbs(&w);
     let start = w.dates.cfb_weeks[0];
     let (a, b) = (teams[3], teams[4]);
+    everyone_plays(&mut w, 8, &[a, b]);
     for k in 0..8 {
         let d = start.add(7 * k as i32);
         game(&mut w, d, a, teams[10 + k], 17, true);

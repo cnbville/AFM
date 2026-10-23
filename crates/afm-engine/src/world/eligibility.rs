@@ -177,9 +177,7 @@ pub fn covid_return_chance(p: &Person) -> f64 {
 /// Whether he is a 2020 senior back for his COVID year in 2021, when the
 /// NCAA left such players out of the scholarship limits for that year.
 pub fn covid_senior(p: &Person, season: i32) -> bool {
-    season == COVID_SEASON + 1
-        && p.roads.covid
-        && (p.college_seasons + 1 >= 4 || COVID_SEASON >= clock_last(p) - 1)
+    season == COVID_SEASON + 1 && p.roads.covid && (p.college_seasons + 1 >= 4 || COVID_SEASON >= clock_last(p) - 1)
 }
 
 /// Whether a season's injury took most of it: a major injury, or half the
@@ -289,7 +287,8 @@ pub(crate) fn summer_roads(w: &mut super::World) {
         let age = p.row_age();
         match a.program.map(|c| c as usize).filter(|&c| w.programs[c].plays(year)) {
             Some(c) => {
-                p.cal.signed = Some(super::Signed { program: c, walk_on: p.walk_on, date: today, early_enrollee: false });
+                p.cal.signed =
+                    Some(super::Signed { program: c, walk_on: p.walk_on, date: today, early_enrollee: false });
                 let name = &w.programs[c].real_name;
                 p.note(format!("Home from {} at {age}, he joined {name}, which had held his place.", a.kind.name()));
             }
@@ -333,7 +332,10 @@ pub(crate) fn summer_roads(w: &mut super::World) {
                 p.college = Some(j);
                 p.path.push(j);
                 p.walk_on = true;
-                p.note(format!("Walked on at {} at {age}, older than every freshman around him.", w.programs[j].real_name));
+                p.note(format!(
+                    "Walked on at {} at {age}, older than every freshman around him.",
+                    w.programs[j].real_name
+                ));
                 w.log.tryouts += 1;
             }
             None => p.note(format!("Back home at {age}, he found no team with a place for him.")),
@@ -361,9 +363,11 @@ pub(crate) fn summer_roads(w: &mut super::World) {
         // Top recruits serve less often: the money and the draft clock weigh more.
         let star = if p.stars >= 4 { 0.4 } else { 1.0 };
         let signee = p.stage == Stage::HighSchool && p.class_of == year && p.cal.signed.is_some();
+        // A player in the transfer portal is moving schools, not leaving.
         let first_year = p.stage == Stage::College
             && school_year(p, year) == 2
             && p.roads.away_years == 0
+            && p.cal.portal.is_none()
             && p.college.is_some_and(|c| w.programs[c].division != Division::JUCO);
         if !(signee || first_year) || !latter_day_saint(p, state, w.options.seed as u64) {
             continue;
@@ -381,7 +385,8 @@ pub(crate) fn summer_roads(w: &mut super::World) {
         p.cal.signed = None;
         p.college = None;
         p.roads.away_years = p.roads.away_years.saturating_add(2);
-        p.roads.away = Some(Away { kind: AwayKind::Mission, until: (year + 2) as i16, program: program.map(|c| c as u16) });
+        p.roads.away =
+            Some(Away { kind: AwayKind::Mission, until: (year + 2) as i16, program: program.map(|c| c as u16) });
         w.log.missions += 1;
         let age = p.row_age();
         let name = program.map_or("", |c| w.programs[c].real_name.as_str());

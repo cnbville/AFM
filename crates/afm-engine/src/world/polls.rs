@@ -90,8 +90,11 @@ fn zscore(v: &mut [f64]) {
     let n = v.len().max(1) as f64;
     let m = v.iter().sum::<f64>() / n;
     let sd = (v.iter().map(|x| (x - m).powi(2)).sum::<f64>() / n).sqrt();
+    // Capped at three standard deviations: one number far from the rest
+    // (a lone big name, an early week when few teams have played) can't
+    // swamp every other part of a ballot.
     for x in v.iter_mut() {
-        *x = if sd > 1e-9 { (*x - m) / sd } else { 0.0 };
+        *x = if sd > 1e-9 { ((*x - m) / sd).clamp(-3.0, 3.0) } else { 0.0 };
     }
 }
 
@@ -185,8 +188,11 @@ pub(crate) fn evidence(w: &World) -> Ev {
     }
     // The power rating: margin (capped at 24) plus the opponent's rating,
     // averaged; a team below FBS counts 18 points worse than average.
+    // Each step moves halfway to the new average, so a schedule that splits
+    // into two sides (early weeks, a team whose foes played only it)
+    // settles instead of swinging between two answers.
     let mut r = vec![0.0; n];
-    for _ in 0..20 {
+    for _ in 0..30 {
         let mut next: Vec<f64> = (0..n)
             .map(|i| {
                 let l = &games[i];
@@ -203,12 +209,34 @@ pub(crate) fn evidence(w: &World) -> Ev {
         for v in next.iter_mut() {
             *v -= mean;
         }
-        r = next;
+        for (x, v) in r.iter_mut().zip(next) {
+            *x = 0.5 * *x + 0.5 * v;
+        }
     }
-    let strength = |o: usize| if o == usize::MAX { 0.06 } else { 1.0 / (1.0 + (-r[o] / 7.0).exp()) };
-    for l in games.iter_mut() {
-        for g in l.iter_mut() {
-            g.s = strength(g.opp);
+    // Who a team played, as voters judge it: the power rating once the
+    // opponent has a few games, its August standing before (a week-one
+    // loss to a preseason top-five team is a good loss).
+    let mut pre_z: Vec<f64> = members
+        .iter()
+        .map(|&p| {
+            let res = &cs.results[p];
+            if res.preseason > 0.0 { res.preseason } else { super::college::projected_strength(w, p) }
+        })
+        .collect();
+    let pre_raw = pre_z.clone();
+    zscore(&mut pre_z);
+    let strength = |o: usize| {
+        if o == usize::MAX {
+            return 0.06;
+        }
+        let g = games[o].len() as f64;
+        let sure = g / (g + 2.0);
+        sure / (1.0 + (-r[o] / 7.0).exp()) + (1.0 - sure) / (1.0 + (-1.2 * pre_z[o]).exp())
+    };
+    let s_of: Vec<Vec<f64>> = games.iter().map(|l| l.iter().map(|g| strength(g.opp)).collect()).collect();
+    for (l, s) in games.iter_mut().zip(s_of) {
+        for (g, v) in l.iter_mut().zip(s) {
+            g.s = v;
         }
     }
     let avg_games = (games.iter().map(|l| l.len()).sum::<usize>() as f64 / n.max(1) as f64).max(1.0);
@@ -229,7 +257,10 @@ pub(crate) fn evidence(w: &World) -> Ev {
         let m = if l.is_empty() {
             0.0
         } else {
-            l.iter().map(|g| g.margin.clamp(-35, 35) as f64).sum::<f64>() / l.len() as f64
+            // A win over a team from below counts as the power rating
+            // reads it: 18 points are expected (voters shrug at cupcakes).
+            l.iter().map(|g| g.margin.clamp(-35, 35) as f64 - if g.opp == usize::MAX { 18.0 } else { 0.0 }).sum::<f64>()
+                / l.len() as f64
         };
         let e = if tot.plays > 0 && tot.plays_allowed > 0 {
             8.0 * (tot.yards / tot.plays as f64 - tot.yards_allowed / tot.plays_allowed as f64)
@@ -248,7 +279,7 @@ pub(crate) fn evidence(w: &World) -> Ev {
         eye.push(e);
         margin.push(m);
         sos.push(if l.is_empty() { 0.5 } else { l.iter().map(|g| g.s).sum::<f64>() / l.len() as f64 });
-        pre.push(if res.preseason > 0.0 { res.preseason } else { super::college::projected_strength(w, p) });
+        pre.push(pre_raw[i]);
         brand.push(prog.prestige);
         t.push(TeamEv {
             team: p,
@@ -341,10 +372,15 @@ fn fresh(ev: &Ev, v: &Voter, week: u64) -> Vec<f64> {
         .map(|i| {
             let t = &ev.t[i];
             let games = (t.wins + t.losses) as f64;
+            // The ratings read from games say little after one or two of
+            // them (one game, a third; eight, four fifths); what happened
+            // (the résumé) counts in full.
+            let sure = games / (games + 2.0);
             let mut f = t.r * (0.8 + 0.4 * res)
-                + t.power * (0.45 + 0.5 * (1.0 - res))
-                + t.eye * 0.35 * (1.3 - res)
-                + t.margin * 0.45 * tf(tr.margin)
+                + sure
+                    * (t.power * (0.45 + 0.5 * (1.0 - res))
+                        + t.eye * 0.35 * (1.3 - res)
+                        + t.margin * 0.45 * tf(tr.margin))
                 + t.pre * 1.2 * 0.8f64.powf(games)
                 + t.brand * 0.35 * tf(tr.brand);
             if t.g5 {
@@ -397,18 +433,36 @@ fn head_to_head(ev: &Ev, order: &mut Vec<usize>) {
     }
 }
 
+/// Places on a ballot per unit of a result's weight (`shift_since`): a
+/// one-score road loss to a top-25 team weighs about 0.8, a win 0.12-0.37.
+const PLACES: f64 = 8.0;
+
 /// A voter's ballot of 25 (member indices): his fresh read held toward
 /// last week's ballot after this week's results moved each team.
 fn ballot(ev: &Ev, v: &Voter, fresh: &[f64], prev: &[usize], shift: &[f64]) -> Vec<usize> {
-    let lam = if prev.is_empty() { 0.0 } else { 0.35 + 0.45 * tf(v.traits.anchor) };
+    // Early in the year a game or two says little, and voters hold their
+    // August order more (real week-one polls barely move but for losses):
+    // half the gap to a full hold after one game, fading as games pile up.
+    let played = ev.games.iter().map(|l| l.len()).sum::<usize>() as f64 / ev.games.len().max(1) as f64;
+    let early = 0.5 * 0.7f64.powf((played - 1.0).max(0.0));
+    let lam = if prev.is_empty() {
+        0.0
+    } else {
+        let base = 0.35 + 0.45 * tf(v.traits.anchor);
+        base + (1.0 - base) * early
+    };
     let mut sorted = fresh.to_vec();
     sorted.sort_by(|a, b| b.total_cmp(a));
     // A team new to his ballot has to push its way on.
     let mut s: Vec<f64> = fresh.iter().map(|f| f - if prev.is_empty() { 0.0 } else { 0.25 }).collect();
+    // Voters move teams places on last week's ballot: a close road loss
+    // to a good team costs about six or seven, a bad late loss ten or more,
+    // a good win a place or two (`PLACES` a unit of `shift_since`).
+    let last = sorted.len().saturating_sub(1) as f64;
     for (k, &i) in prev.iter().enumerate() {
         if i < s.len() && k < sorted.len() {
-            let prior = sorted[k] + shift[i];
-            s[i] = lam * prior + (1.0 - lam) * fresh[i];
+            let at = (k as f64 - PLACES * shift[i]).round().clamp(0.0, last) as usize;
+            s[i] = lam * sorted[at] + (1.0 - lam) * fresh[i];
         }
     }
     let mut order: Vec<usize> = (0..s.len()).collect();
@@ -981,7 +1035,12 @@ pub(crate) fn committee(w: &mut World, date: Date) -> Release {
             listed[i] += 1;
         }
     }
-    let mut left: Vec<usize> = (0..n).filter(|&i| listed[i] >= 3).collect();
+    // Teams listed by three or more members stay under consideration; a
+    // team most members are recused from needs the same share of the
+    // members free to list it, so the absent votes don't count against it.
+    let free = |i: usize| recused.iter().filter(|r| !r[i]).count();
+    let need = |i: usize| (3 * free(i)).div_ceil(members.len()).max(1) as u32;
+    let mut left: Vec<usize> = (0..n).filter(|&i| listed[i] >= need(i)).collect();
     let mean_eval = |i: usize| evals.iter().map(|e| e[i]).sum::<f64>() / evals.len() as f64;
     let mut placed: Vec<usize> = Vec::new();
     let mut carry: Vec<usize> = Vec::new();
@@ -993,8 +1052,12 @@ pub(crate) fn committee(w: &mut World, date: Date) -> Release {
                 votes[i] += 1;
             }
         }
+        // Votes count as a share of the members free to vote for a team.
+        let share = |i: usize| votes[i] as f64 / free(i).max(1) as f64;
         let mut pick = left.clone();
-        pick.sort_by(|&a, &b| votes[b].cmp(&votes[a]).then(mean_eval(b).total_cmp(&mean_eval(a))).then(a.cmp(&b)));
+        pick.sort_by(|&a, &b| {
+            share(b).total_cmp(&share(a)).then(mean_eval(b).total_cmp(&mean_eval(a))).then(a.cmp(&b))
+        });
         pick.truncate(need);
         left.retain(|i| !pick.contains(i));
         let pool: Vec<usize> = carry.iter().copied().chain(pick).collect();
