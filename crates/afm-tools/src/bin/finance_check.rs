@@ -84,11 +84,14 @@ fn nfl_report(w: &World) {
     println!("projects: NFL {nfl_p}, college {col_p}; report cards {}", w.finance.cards.len());
 }
 
+/// A school's year: revenue, university support, crowd a game, guarantees in.
+type Row = (f64, f64, f64, f64);
+
 fn college_report(w: &World) {
     println!(
         "\n== College (real 2023: SEC schools about $150-250M, Big Ten similar; G5 $40-70M with big university support; FCS $15-35M; FBS attendance about 41,000 a game)"
     );
-    let mut by_tier: std::collections::BTreeMap<(i32, String), Vec<(f64, f64, f64, f64)>> = Default::default();
+    let mut by_tier: std::collections::BTreeMap<(i32, String), Vec<Row>> = Default::default();
     for (p, d) in w.finance.college.iter().enumerate() {
         let prog = &w.programs[p];
         for (b, s) in d.years.iter().zip(&d.seasons) {
@@ -110,7 +113,7 @@ fn college_report(w: &World) {
     println!("year tier            n   revenue/school  university support  attendance  guarantees in");
     for ((y, t), rows) in &by_tier {
         let n = rows.len() as f64;
-        let avg = |f: &dyn Fn(&(f64, f64, f64, f64)) -> f64| rows.iter().map(f).sum::<f64>() / n;
+        let avg = |f: &dyn Fn(&Row) -> f64| rows.iter().map(f).sum::<f64>() / n;
         println!(
             "{y} {t:<14} {:>4}  {:>14}  {:>18}  {:>10.0}  {:>13}",
             rows.len(),

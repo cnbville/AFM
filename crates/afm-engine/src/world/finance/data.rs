@@ -133,6 +133,7 @@ pub struct Stint {
     pub cost: f64,
 }
 
+#[allow(clippy::too_many_arguments)]
 const fn s(
     team: usize,
     from: i32,

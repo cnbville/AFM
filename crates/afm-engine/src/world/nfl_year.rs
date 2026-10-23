@@ -1824,7 +1824,7 @@ fn preseason_gates(w: &mut World, k: usize, d: Date) {
     if n < 2 {
         return;
     }
-    for i in (0..n).filter(|i| (i + k) % 2 == 0) {
+    for i in (0..n).filter(|i| (i + k).is_multiple_of(2)) {
         let opp = teams[(i + 1 + 2 * k) % n];
         if opp != teams[i] {
             super::finance::nfl::gate(w, teams[i], opp, d, true, false);

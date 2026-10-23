@@ -1337,7 +1337,7 @@ fn play_week(w: &mut World, d: Date, li: usize, f: &Format) {
             let (Some(Some(sh)), Some(Some(sa))) = (sides.get(&h), sides.get(&a)) else { return None };
             // A title game is at a neutral site (the Grey Cup's host city).
             let venue = Venue { neutral: round > 0 && last_round(f, &w.others.live[li]), ..Venue::default() };
-            Some(crate::game::quick_game_book(&sh.team, &sa.team, bk, year, seed ^ g as u64 * 7919, venue, round > 0))
+            Some(crate::game::quick_game_book(&sh.team, &sa.team, bk, year, seed ^ (g as u64 * 7919), venue, round > 0))
         })
         .collect();
     for (g, r) in results.into_iter().enumerate() {
