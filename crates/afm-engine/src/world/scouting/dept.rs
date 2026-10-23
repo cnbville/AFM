@@ -396,7 +396,8 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
         }
     }
     // Visits the recruits took with you become looks (junior days,
-    // officials, unofficials): the family, the kid on campus.
+    // officials, unofficials, your home visits): the family, the kid on
+    // campus.
     let today_visits: Vec<(u32, Kind)> = w
         .people
         .iter()
@@ -409,6 +410,7 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
                         crate::world::Visit::Official => Kind::Official,
                         crate::world::Visit::Unofficial => Kind::Unofficial,
                         crate::world::Visit::DropIn => Kind::Practice,
+                        crate::world::Visit::Home => Kind::HomeVisit,
                     },
                 )
             })

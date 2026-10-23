@@ -456,6 +456,7 @@ pub fn jobs(w: &World, level: &str) -> Value {
                     let code = &w.states[s.state].code;
                     j["state"] = json!(code);
                     j["class"] = json!(crate::views::hs_class(w, s.id));
+                    j["class_rank"] = json!(s.classification);
                     j["town"] = json!(s.town);
                     j["prestige"] = json!((s.prestige * 100.0).round() / 100.0);
                     j["prestige_word"] = json!(prestige_words(s.prestige));
@@ -494,7 +495,7 @@ pub fn jobs(w: &World, level: &str) -> Value {
                         .collect();
                     grades.sort_by(|a, b| b.1.total_cmp(&a.1));
                     j["division"] = json!(p.division.name());
-                    j["conference"] = json!(p.conference);
+                    j["conference"] = json!(w.conference_name(&p.conference));
                     j["city"] = json!(format!("{}, {}", p.city, w.states[p.state].code));
                     j["state"] = json!(w.states[p.state].code);
                     j["prestige"] = json!((p.prestige_rel * 100.0).round() / 100.0);
@@ -510,7 +511,7 @@ pub fn jobs(w: &World, level: &str) -> Value {
                     j["sub"] = json!(format!(
                         "{} · {} · {}, {}",
                         p.division.name(),
-                        p.conference,
+                        w.conference_name(&p.conference),
                         p.city,
                         w.states[p.state].code
                     ));
@@ -644,6 +645,36 @@ pub fn start(w: &mut World, args: &Value) -> Result<(), String> {
     if w.career.is_some() {
         return Err("This world already has a career. Open a library world to start another.".into());
     }
+    let you = you_from(w, args)?;
+    let t = crate::views::TeamRef::from_args(w, args.get("job").unwrap_or(&Value::Null))?;
+    let job = match t {
+        TeamRef::Nfl(i) => Job::Nfl(i),
+        TeamRef::College(i) => Job::College(i),
+        TeamRef::HighSchool(i) => Job::HighSchool(i),
+    };
+    let seed = career_seed(args);
+    w.start_career(&you, job, seed);
+    Ok(())
+}
+
+/// The career's seed: the page's, else one from the clock.
+pub(crate) fn career_seed(args: &Value) -> u32 {
+    args.get("seed").and_then(Value::as_u64).map(|s| s as u32).unwrap_or_else(|| {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(7, |d| d.subsec_nanos() ^ d.as_secs() as u32)
+    })
+}
+
+/// Whether a road played in college: every road but the one that never
+/// played past high school, as the Background step places you (most
+/// assistants, scouts and even analysts played somewhere).
+pub(crate) fn played_college(background: &str) -> bool {
+    BACKGROUNDS.iter().any(|b| b.key == background && b.key != "never_played")
+}
+
+/// You, from the setup's answers.
+pub(crate) fn you_from(w: &World, args: &Value) -> Result<You, String> {
     let bg_key = args.get("background").and_then(Value::as_str).unwrap_or("college_assistant");
     let b = BACKGROUNDS.iter().find(|b| b.key == bg_key).ok_or("No such background.")?;
     let base = starting_ratings(b);
@@ -744,20 +775,10 @@ pub fn start(w: &mut World, args: &Value) -> Result<(), String> {
             calls_defense: matches!(calls, "defense" | "both"),
         },
         profile,
+        // Read from your road and your people ratings when the career starts.
+        aura: 0.0,
     };
-    let t = crate::views::TeamRef::from_args(w, args.get("job").unwrap_or(&Value::Null))?;
-    let job = match t {
-        TeamRef::Nfl(i) => Job::Nfl(i),
-        TeamRef::College(i) => Job::College(i),
-        TeamRef::HighSchool(i) => Job::HighSchool(i),
-    };
-    let seed = args.get("seed").and_then(Value::as_u64).map(|s| s as u32).unwrap_or_else(|| {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(7, |d| d.subsec_nanos() ^ d.as_secs() as u32)
-    });
-    w.start_career(&you, job, seed);
-    Ok(())
+    Ok(you)
 }
 
 /// "Report a bug" (section 8, topic 10): the save as it is now, your note

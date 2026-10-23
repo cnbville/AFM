@@ -460,7 +460,9 @@ pub fn slots(w: &World, team: Team, role: Role) -> u8 {
         (Team::High(h), Role::Reporter) => {
             1 + (w.high_schools[h].prestige > 0.6 || w.high_schools[h].enrollment > 1800) as u8
         }
-        (Team::High(h), Role::Feeder) => (1 + w.high_schools[h].enrollment / 900).min(3) as u8,
+        // One feeder middle school per 600 students, up to four: the same
+        // schools the school and feeders page lists (`front_office::school::feeders`).
+        (Team::High(h), Role::Feeder) => (1 + w.high_schools[h].enrollment / 600).clamp(1, 4) as u8,
         _ => 1,
     }
 }

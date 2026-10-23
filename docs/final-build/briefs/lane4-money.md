@@ -11,3 +11,8 @@ Two PRs are fine: finances first, other leagues second.
 - X7: the other leagues on the engine with their real rule books (CFL, Arena, NFL Europe, XFL, AAF, USFL, UFL) as full leagues in their real years, a Canadian national pool for the CFL ratio, their coaching jobs in the carousel and the job list.
 
 Books compact (yearly lines, not daily); in-season memory must not grow noticeably; say what you added. Check every seat (HS, college, NFL) in the browser. Update `docs/world-model.md` and `docs/game.md`.
+
+Found by other lanes and the build thread (2026-10-22), yours to fix:
+- Free agents ask too much: quarterbacks at $64-80M a year, a 40-year-old quarterback at $46M (front office, PR #98). Real top QB deals are about $55-60M a year (2025-26), and a 40-year-old gets a short, cheap deal.
+- The trade chart rates veterans above picks (front office): check against how real clubs value picks and players.
+- Every portal player gets the same usual NIL figure (front office): NIL should follow his market (position, stats, fame, the school).

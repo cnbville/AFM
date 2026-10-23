@@ -63,7 +63,17 @@ a { color: inherit; }
 .side .brand .st-mark { --s: 40px; }
 .side .brand b { display: block; font-size: 14px; font-stretch: 110%; line-height: 1.1; }
 .side .brand small { color: var(--fg3); font-size: 11px; }
-.side .sec { margin: 12px 10px 4px; }
+.side .sec {
+  display: flex; align-items: center; justify-content: space-between; margin: 12px 0 4px; padding: 0 10px; flex: none;
+  border: 0; background: none; cursor: pointer; text-align: left; width: 100%;
+  font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--fg3);
+}
+.side .sec:hover { color: var(--fg2); }
+.side .sec svg { width: 14px; height: 14px; opacity: 0; transition: opacity .15s, transform .2s; }
+.side .sec:hover svg, .side .sec:focus-visible svg, .side .sec[aria-expanded="false"] svg { opacity: .7; }
+.side .sec[aria-expanded="false"] svg { transform: rotate(-90deg); }
+.side .navgrp { display: flex; flex-direction: column; gap: 2px; }
+.side .navgrp[hidden] { display: none; }
 .side button.nav {
   display: flex; align-items: center; gap: 10px; border: 0; background: none; text-align: left;
   padding: 7px 10px; border-radius: 10px; color: var(--fg2); font-weight: 600; font-size: 13.5px; width: 100%; flex: none;
