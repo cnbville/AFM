@@ -95,6 +95,9 @@ pub struct PlayRecord {
     pub return_yards: f64,
     pub kick_good: bool,
     pub touchback: bool,
+    /// A single (the CFL's rouge) scored on this kick.
+    #[serde(default)]
+    pub single: bool,
     pub fair_catch: bool,
     pub inside20: bool,
     pub blocked: bool,
@@ -210,6 +213,7 @@ impl PlayRecord {
             return_yards: 0.0,
             kick_good: false,
             touchback: false,
+            single: false,
             fair_catch: false,
             inside20: false,
             blocked: false,
@@ -1102,7 +1106,8 @@ impl GameStats {
                     let l = self.line(d, pr);
                     l.pr += 1;
                     l.pr_yds += r.return_yards;
-                    l.pr_td += r.touchdown as u32;
+                    // A muff the punting team scores on isn't his touchdown.
+                    l.pr_td += (r.touchdown && !r.turnover) as u32;
                 }
                 self.team[o].punts += 1;
             }
@@ -1116,7 +1121,7 @@ impl GameStats {
                     let l = self.line(d, kr);
                     l.kr += 1;
                     l.kr_yds += r.return_yards;
-                    l.kr_td += r.touchdown as u32;
+                    l.kr_td += (r.touchdown && !r.turnover) as u32;
                 }
             }
             _ => {}

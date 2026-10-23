@@ -397,10 +397,14 @@ pub fn restructure(c: &mut Contract, y: i32, keep: f64, add_void: u32) -> f64 {
 // --- Market prices ---------------------------------------------------------------------
 
 /// The top five veteran deals at each position as a share of the cap
-/// (2025-26, OverTheCap averages; shared with the draft board).
+/// (2025-26, OverTheCap averages; shared with the draft board). The
+/// quarterbacks' is the top five's pay against the cap they're paid under
+/// (2025: Prescott $60M, Allen, Burrow, Lawrence and Love $55M, on a
+/// $279.2M cap), not the share each deal had the year it was signed (0.234
+/// read a 2026 top five at $70M).
 pub fn top5_share(pos: Position) -> f64 {
     match pos {
-        Position::QB => 0.234,
+        Position::QB => 0.2,
         Position::EDGE => 0.158,
         Position::WR => 0.136,
         Position::DT => 0.117,
@@ -415,6 +419,14 @@ pub fn top5_share(pos: Position) -> f64 {
         Position::P => 0.015,
         Position::LS => 0.007,
     }
+}
+
+/// The most a deal at a position pays a year: a new record sits a little
+/// above the top five's average (2024-25: Prescott at 1.07 times the
+/// quarterbacks' top five, Parsons 1.12 times the edge rushers', Chase
+/// 1.12 times the receivers'). No ask or offer goes past it.
+pub fn record_apy(year: i32, pos: Position) -> f64 {
+    price_cap(year) * top5_share(pos) * 1.08
 }
 
 /// What a veteran of this grade costs a year on the open market, as a share

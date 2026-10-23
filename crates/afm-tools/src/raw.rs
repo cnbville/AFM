@@ -32,6 +32,7 @@ fn employer(w: &World, e: Employer) -> Value {
             json!({"hs": w.high_schools[h].name, "state": STATE_CENTERS[w.high_schools[h].state].0})
         }
         Employer::Nfl(_) => json!({"nfl": true}),
+        Employer::Other(f) => json!({"other": afm_engine::world::pro::other::name(f, w.year)}),
     }
 }
 

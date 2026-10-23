@@ -213,7 +213,12 @@ fn office(w: &World) -> Result<Value, String> {
         "boosters": {
             "members": b.members,
             "balance": b.balance,
-            "raised": IN.iter().zip(b.raised).map(|(n, x)| json!({ "what": n, "x": x })).collect::<Vec<_>>(),
+            "raised": IN
+                .iter()
+                .zip(b.raised)
+                .chain(std::iter::once((&"Team fundraisers", b.fundraised)))
+                .map(|(n, x)| json!({ "what": n, "x": x }))
+                .collect::<Vec<_>>(),
             "spent": OUT.iter().zip(b.spent).map(|(n, x)| json!({ "what": n, "x": x })).collect::<Vec<_>>(),
             "ledger": b.ledger.iter().rev().take(40).map(|(dt, t, x)| json!({ "date": date_text(*dt), "what": t, "x": x })).collect::<Vec<_>>(),
             "projects": projects,

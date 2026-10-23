@@ -467,7 +467,7 @@ pub fn goal_met(w: &World, team: Team, k: GoalKind, season: i32) -> bool {
         GoalKind::Wins(n) => s.wins >= n as u32,
         GoalKind::Postseason => match team {
             Team::College(_) => s.wins >= 6,
-            Team::Nfl(_) => !s.note.is_empty(),
+            Team::Nfl(_) | Team::Other(_) => !s.note.is_empty(),
             // Your own school knows whether it made the field; the record
             // stands in for anyone else's.
             Team::High(h) => {
@@ -687,6 +687,7 @@ fn ask(w: &mut World, s: &mut Scene, team: Team, k: AskKind) {
     let rich = match team {
         Team::College(p) => (crate::world::staff::program_budget(&w.programs[p]) / 80.0e6).min(1.5),
         Team::Nfl(_) => 1.0,
+        Team::Other(_) => 0.4,
         Team::High(h) => w.high_schools[h].resources,
     };
     let goals_met = w.folk.goals.iter().filter(|g| g.met == Some(true)).count() as f64;

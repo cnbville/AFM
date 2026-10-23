@@ -97,7 +97,8 @@ pub struct Hint {
 }
 
 /// The strongest hints of one tape on the team at `side` (0 home, 1 away):
-/// three per tape (proposed, not confirmed; game-day.md topic 1).
+/// three per tape, at most two of them notes the plan can't answer
+/// (proposed, not confirmed; game-day.md topic 1).
 pub fn hints(t: &Tape, side: u8, n: &Names) -> Vec<Hint> {
     let mut all = Vec::new();
     let off: Vec<usize> = (0..t.snaps.len()).filter(|&k| t.snaps[k].off == side && scrimmage(&t.snaps[k])).collect();
@@ -666,6 +667,14 @@ pub fn hints(t: &Tape, side: u8, n: &Names) -> Vec<Hint> {
         }
     }
     all.sort_by(|a, b| b.strength.total_cmp(&a.strength).then(a.key.cmp(&b.key)));
+    // At most two "for your eyes" notes, so a tape whose strongest finds
+    // are all lost battles still shows the best one the plan can answer.
+    let mut notes = 0;
+    all.retain(|h| {
+        let note = h.effect == Effect::Note;
+        notes += note as u32;
+        !note || notes <= 2
+    });
     all.truncate(3);
     all
 }

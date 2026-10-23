@@ -154,6 +154,11 @@ pub(crate) fn staff_support(w: &mut World) {
             _ => 0.5,
         };
         let budget = clamp(0.25 + 0.75 * prog.facilities, 0.0, 1.0) * div;
+        // What the football budget actually buys, from the books.
+        let budget = match super::finance::college::football_level(w, k) {
+            Some(l) => 0.6 * budget + 0.4 * l.max(0.0).sqrt(),
+            None => budget,
+        };
         let s = &mut w.programs[k].support;
         for post in [&mut s.strength, &mut s.medical, &mut s.analytics, &mut s.academic] {
             let leave = 0.12 + if post.rating >= 15 { 0.15 * (1.0 - budget) } else { 0.0 };
@@ -166,7 +171,7 @@ pub(crate) fn staff_support(w: &mut World) {
         if !super::franchise::active(t, year) {
             continue;
         }
-        let budget = clamp(0.55 + 0.03 * (w.nfl[t].owner - 10.0), 0.3, 1.0);
+        let budget = super::finance::nfl::spend_level(w, t);
         let s = &mut w.clubs[t].support;
         for post in [&mut s.strength, &mut s.medical, &mut s.analytics] {
             let leave = 0.1 + if post.rating >= 15 { 0.1 * (1.0 - budget) } else { 0.0 };

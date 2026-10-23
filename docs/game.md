@@ -74,7 +74,7 @@ Built 2026-10-22 from `docs/design/game-day.md` (all 12 topics, Cain's answers t
 - **Saving mid-game is supported:** the save keeps the live game (its seed and your answers), and loading resumes at the same snap. Weighed against blocking a save during a game; the design asks for it (topic 12).
 - **The week's work counts when you hand the game off:** the plan, the film you studied and your game rules apply to a game your staff coaches, as they would in real life. A game with none of it plays exactly as the morning built it (the identity test).
 - **Film time:** 12 hours a week for a college or NFL head coach, 6 at a high school, scaled by the days since your last game (half a week to 1.4 weeks); a tape takes 3 hours. Weighed a flat count of tapes; time follows people topic 5's budget.
-- **Three hints a tape**, merged by habit across tapes (the design's proposal).
+- **Three hints a tape**, merged by habit across tapes (the design's proposal); at most two of them "for your eyes" notes, so a tape whose strongest finds are all lost battles still shows the best one the plan can answer (lane 7, found when a test world's only tape showed three).
 - **The staff's tagging error** (3% to 22% of tags wrong by film study) and its tagged share (55% to 100%); the report's "sure" words come from the tagged sample (sure at 40 snaps, fairly sure at 15).
 - **The 4th-down charts** use the engine's own win chance (`live::win_prob`) on its expected points; aggressive goes within two points of win chance, conservative needs four. College and high school overtime have no punts, so the staff decides there.
 - **The two-point chart** is Dick Vermeil's, in the 4th quarter only.
@@ -120,7 +120,7 @@ Every choice the AI made for your team is yours now, on the league's real rules,
 
 Final build lane 10 (`world/front_office/school.rs`, the game's `lane_frontoffice/school.rs`, the screens in `app/ui/screens/fo-school.js`). Everything here is your school's alone: AI schools keep the built model, and every draw is keyed by the career, so no other draw in the world moves. Commands: `school_office`, `school_squads`, `school_area`, `set_squad`, `reset_squads`, `squads_owner`, `squad_suggestion`, `booster_wish`; screens School office, Squads, and School and feeders.
 
-- **Squads.** A school fields a JV team from about 450 students and a freshman team from about 1,100, each only with 22 players to dress; a smaller school plays everyone on varsity. Your staff makes the lists the way real staffs do: every senior and junior on varsity (a junior below the three-deep goes to JV), a sophomore in the two-deep and a freshman who starts move up, the rest play JV and freshman ball, varsity at most 72. A team short of 22 is folded into the one above. On the Squads screen you set them yourself or leave them with the staff. Seniors can't play JV and only freshmen play on the freshman team (most state associations' rules).
+- **Squads.** A school fields a JV team from about 450 students and a freshman team from about 1,100, each only with 22 players to dress; a smaller school plays everyone on varsity. Your staff makes the lists the way real staffs do: every senior and junior on varsity (a junior below the three-deep goes to JV), a sophomore in the two-deep and a freshman who starts move up, the rest play JV and freshman ball, varsity at most 72. A team short of 22 is folded into the one above, except that a short JV first takes the freshmen in (one sub-varsity team, as most schools of that size run), so the varsity doesn't swell past 72. On the Squads screen you set them yourself or leave them with the staff. Seniors can't play JV and only freshmen play on the freshman team (most state associations' rules).
 - **JV and freshman games.** Each week's JV and freshman games are played the Thursday before the varsity's Friday, against the same school, each at the other site, on the engine with 10-minute quarters and the running clock. They have box scores, best lines and season lines on the Squads screen; nothing else in the world reads them, so the memory gate holds (a season keeps about 20 small games).
 - **Moving up.** Your staff watches the tape: after two games, a JV or freshman player whose read reaches the varsity's last man in the two-deep at his spot is ready. With the squads in your hands that is a suggestion (Move him, Leave him); with the staff's, they move him. After the last regular-season Thursday the best JV sophomores and juniors dress for the varsity's last game and the playoffs.
 - **Reps.** The staff's squads change nobody's development, so your school grows its players as any other does. A player you keep off varsity who would start there gets a JV starter's reps instead of a varsity starter's.
@@ -337,9 +337,60 @@ The stories around the football on your side. The world side is `world/stories/`
 - Lists that link names (nicknames, units, named plays, rings, moves) read the world's names once per page, not once per line: the Nicknames tab took 1.5 s on a small world before.
 - Plaques print one year for a one-season stint ("2019"), a range for more; an NFL opponent in a nickname's moment is its city ("against Chicago"), the way broadcasts say it.
 
+## Money and the other leagues (final build, lane 4)
+
+The game side is `crates/afm-game/src/lane_money.rs` (`money_books`, `money_league`, `money_card`, `money_ask_facility`, `money_hs_act`) and `lane_money/leagues.rs` (`leagues`, `league_team`). The screens are `app/ui/screens/money.js` and `money.css`, on lane 9's helpers. The world side is in `docs/world-model.md`, "Money and the other leagues".
+
+- **Finances** (team section of the sidebar, `money`): what your seat can see of your own club's books, and what is published about anyone else's.
+  - **NFL head coach:** Overview, Football budget, Gate and Report card. You see your club's published numbers and the football budgets you spend (coaches, scouting, medical, travel, player amenities). The owner keeps the rest of the books. Another club shows its estimates, stadium, gate and card.
+  - **College head coach:** Overview, Football budget, Department and Gate. Football's lines are on one tab, the athletic department's published report on another. Once a year, Ask for a building puts a facility project to your AD. A private school publishes only its federal (EADA) totals. "What TV pays for you" is your pull priced at your conference deal's rate (`college::media_worth`); a school above its conference's average pull is worth more than the deal pays it, which is what realignment chases.
+  - **High school head coach:** Overview, Equipment, Fundraisers and Ledger. You see your program's money in full. You spend the equipment budget item by item, run the booster club's fundraisers, and ask the district for more once a year. Another high school's books aren't published.
+- **League money** (`money_league`): every NFL club's and every college's revenue, expenses, the university's support and the crowd, as sortable tables. Each conference's media deal is shown with its end year.
+- **Report cards:** the NFLPA's grades on your club's page and its Finances tab. Every club's card is public in 2023-24. From 2025 you see only your own; another club shows its last published card (2024), with a note that the newer ones stayed inside the union.
+- **Betting lines:** your schedule and game pages show each game's spread and over/under, and after the game whether you covered and whether it went over. A coach's page shows his record against the spread.
+- **Conference moves:** your inbox shows the moves your seat would hear about, on 1 July, the day each takes effect (`docs/world-model.md`, 1a and 1b).
+- **Other leagues** (world section of the sidebar, `leagues`): pick a league and a year.
+  - **Season:** the standings by division, the weeks' scores and the playoffs.
+  - **Champions:** every title game by year.
+  - **Teams:** every club with its seasons.
+  - **Rules:** the year's rule book in plain words.
+  - **Draft (the CFL only):** each year's picks with their U Sports schools.
+- **An other-league club's page** (`league_team`, also through any team link): its staff, roster (nationals marked under the CFL), seasons, games and upcoming schedule, record and pay.
+- **Player pages:** a player's other-league seasons sit in his Stats with his college and NFL lines, sorted by year. "Now" names his club when he plays in another league. A Canadian's hometown and school come from his U Sports program.
+- **Coach pages:** an other-league job shows as the club and league, in his history and in the coach search.
+
+Your own career can't take an other-league job yet (`docs/world-model.md`, "The other leagues as full leagues").
+
+### Decided in the final build (Claude's pick)
+
+- **Who sees what:** what each seat sees of the books follows what is really published. NFL clubs publish nothing but the Packers' report, so another club is estimated. Public colleges publish their NCAA report and private ones only the federal totals. High schools publish nothing.
+- **The high school ledger** keeps the last 200 entries.
+- **Equipment:** the equipment budget's running costs are paid first, and you spend what's left.
+- **Your school's books open on your first morning** (and on the first day of a new high school job), so the Equipment and Fundraisers tabs work before the money year turns in July.
+
+## Scouting and the draft (final build, lane 7)
+
+Section 7 on your side. The world side is `world/scouting/` (`docs/world-model.md`, "Section 7, scouting and the draft: the final build"); the game side `crates/afm-game/src/lane_scouting.rs`; the screens `app/ui/screens/scouting.js` and `scouting.css`, on lane 9's helpers (page heads, the Go-to map, tabs, tables, rich links). The sidebar has a Scouting section for the NFL and college seats; a high school coach's College calls sit with his team.
+
+- **The scouting file** (`scout`, command `scout_file`): every player's file as your staff knows him. The hero sets the public (stars, public rank, followers, NIL) apart from your staff (role, how sure, looks and readers). Tabs: Summary (the grade, floor and ceiling in words, best at and watch, hints with who found them, a comparison from your world's history, your read against the public's, the room's voices), Ratings (each attribute a range with the kinds of look behind it; click one for each reader's own range), Looks (who looked, when, how), Tendencies (ranges on 1-20), Character (traits in words with each note's source), Medical and academics (the medical word, tests timed in front of you, GPA range) and History. Ask for a new look (`scout_ask`, what your seat's rules allow) and Follow (`follow`, `unfollow`: the core My players list). Every player page has a Scouting tab with the summary and a link to the full file.
+- **The department** (`scouting`): your people with what they cover, their looks this year, an assignment each (`scout_assign`) and their look-back record; standing instructions and a focus (`scout_instruct`); asks waiting and the days on the road; My players with the read then and now; most seen; look-backs (draft and recruiting classes three years on); the public's desks with boards, mocks and how last year's mocks scored. At a college the evaluation days show as squares.
+- **The draft board** (`draftboard`, `draft_board`): your board in tiers with the public's rank, the best mock's pick, "out on a limb" marks, lists and players taken; by position; your lists (do not draft with why, priority free agents with bonus, top-30 visits, combine interviews, workouts, medical rechecks with their caps); the public's boards. The side panel shows the file in short and your calls: tier, move, lists, do not draft, priority free agent (`board_move`, `board_dnd`, `board_pfa`, `board_list`).
+- **Pre-draft** (`predraft`): the calendar, your four lists, leaking real interest or planting a smokescreen (`leak`), what's out there, who declared or went back to school, and who won't play for whom.
+- **The war room** (`warroom`, `draft_live`): Continue stops and opens it when the draft comes and your club holds a pick, and the sidebar shows it while it's live. The club on the clock with a cosmetic clock you can pause or speed up, your board with each player's last shot, the picks as they come, trade calls when you're on the clock (`draft_accept`), the price of moving up to any pick (`draft_quote`, `draft_trade_up`), the room's voices, and Draft, Let the staff pick, Let the clock run out, Sim to my pick, Next pick, Finish the round (`draft_pick`, `draft_auto`, `draft_timeout`, `draft_go`). Each pick is revealed with an analyst's take.
+- **The undrafted rush and the record** (`draftrecord`, `draft_rush`, `draft_record`): after the last pick the rush runs in the same room; the record shows your class, every rush signing with bonus and how many clubs called, minicamp tryouts and every pick, with the analysts' grade.
+- **Pro scouting** (`proscout`, `pro_scouting`): the street with your reads and Tuesday tryouts (`tryout`), any club's roster through your pro staff's eyes with contracts, tryouts held, the supplemental draft with your bids (`supp_bid`) and the pro staff with their clubs.
+- **The recruit board** (`recruitboard`, `recruit_scouting`): a college's recruit board, the transfer portal and JUCO, each with your read, outlook, looks, offers and where he stands with you, the evaluation days used, and Follow.
+- **College calls** (`hsside`, `hs_side`, `promote`): a high school coach's players with your read and the colleges after them, the staffs that come to you with your credit with each, and your calls with how each settled.
+
+### Decided in the final build (Claude's pick)
+
+- Clicking a name on a scouting screen opens his scouting file; the player page is one link on (the file's Go-to line and the hero's button).
+- The war room's clock is cosmetic and never picks for you: when it runs out, Let the clock run out appears, and the pick waits for you.
+- The rooms (department, board, war room, record) are dark in your team's colours in both themes, like the live rooms; the other scouting screens follow the theme.
+
 ## Not built yet (section 8's design, for the next builds)
 
-- The choice screens where the AI still decides for your team: the draft board and war room; game plans, playbook and installs; scouting assignments. (The NFL, college and high school front offices and the setup leftovers are built: "Your front office" above. Talks, team rules, press conferences, bosses and goals and hiring and firing staff are built: "People" above.)
+- The choice screens where the AI still decides for your team: game plans, playbook and installs. (The NFL, college and high school front offices and the setup leftovers are built: "Your front office" above. Scouting, the draft board, the war room and the recruit board are built: "Scouting and the draft" above. Talks, team rules, press conferences, bosses and goals and hiring and firing staff are built: "People" above.)
 - Training beyond the focus: the practice day and week, the time budget, a habit to work on, body plans, position moves, practice injuries, growth landing every week (choice 1) and practice snaps on the engine (choice 3).
 - The inbox's pinned answers; holiday mode on screen; faces, the 2D view and charts (section 10).
 

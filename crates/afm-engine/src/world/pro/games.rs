@@ -263,6 +263,7 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
     }
     team.film = club.film.clone();
     team.line_chem = 0.25 + 0.15 * back as f64;
+    super::super::chemistry::apply(w, &mut team, super::super::chemistry::Unit::Nfl);
     Some(Side { team, who })
 }
 
@@ -273,13 +274,19 @@ pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bo
     let year = w.year;
     let seed = w.options.seed as u64;
     let era = franchise::era(home, year.min(franchise::PRESENT));
-    let code = era.map_or("NY", |e| e.state);
+    // The club's town: its own after a move (later extras topic 1).
+    let (town, st) = crate::world::finance::nfl::city(w, home, year);
+    let code = if st.is_empty() { "NY" } else { st.as_str() };
     let state = geo::state_index(code).unwrap_or(0);
     let local = (at.minute / 60) as i32 - et_offset(code);
-    let roof = era.map_or(franchise::Roof::Open, |e| e.roof);
+    // Its stadium's roof: the real one through today, a new stadium's after.
+    let roof = if neutral {
+        era.map_or(franchise::Roof::Open, |e| e.roof)
+    } else {
+        crate::world::finance::nfl::roof(w, home, year)
+    };
     // The stadium town's own climate (U-e), with the state's swing for the day.
-    let city = era.map_or("", |e| e.city);
-    let outside = weather_in(seed, state, code, city, at.date, local.clamp(9, 23) as u32);
+    let outside = weather_in(seed, state, code, &town, at.date, local.clamp(9, 23) as u32);
     let closed = match roof {
         franchise::Roof::Dome => true,
         franchise::Roof::Retractable => outside.temperature < 55.0 || outside.rain || outside.wind > 15.0,

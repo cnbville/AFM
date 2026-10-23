@@ -482,6 +482,9 @@ pub fn has(w: &World, team: Team, role: Role) -> bool {
                 _ => false,
             }
         }
+        // An other-league club: an owner, a general manager, a writer and the
+        // trainers, no cap office or personnel department.
+        Team::Other(_) => matches!(role, Owner | Gm | Reporter | Comms | Trainer | Strength),
         Team::Nfl(_) => matches!(
             role,
             Owner
@@ -828,7 +831,7 @@ fn booster_info(w: &World, c: &Cast, rng: &mut Rng) -> BoosterInfo {
             b.close_to =
                 *rng.pick(&["the principal", "the superintendent", "the school board", "the athletic director"]);
         }
-        Team::Nfl(_) => {
+        Team::Nfl(_) | Team::Other(_) => {
             b.business =
                 if c.r.slot == 0 { "the family business and the club".into() } else { rng.pick(&BUSINESS).to_string() };
             b.gift = if c.r.slot == 0 {
@@ -976,6 +979,14 @@ fn reporter_info(w: &World, c: &Cast, rng: &mut Rng) -> ReporterInfo {
                 r.leaks = false;
             }
         }
+        Team::Other(_) => {
+            let (outlet, beat) = match k {
+                0 | 1 => (paper(rng), "beat writer"),
+                _ => (format!("sports radio in {town}"), "radio host"),
+            };
+            r.outlet = outlet;
+            r.beat = beat;
+        }
         Team::High(_) => {
             let (outlet, beat) = match k {
                 0 => (paper(rng), "sports editor"),
@@ -1009,7 +1020,7 @@ pub fn all(w: &World, team: Team, role: Role) -> Vec<Cast> {
 pub fn boss_role(team: Team) -> Role {
     match team {
         Team::College(_) => Role::AthleticDirector,
-        Team::Nfl(_) => Role::Owner,
+        Team::Nfl(_) | Team::Other(_) => Role::Owner,
         Team::High(_) => Role::Principal,
     }
 }

@@ -253,7 +253,7 @@ pub(crate) fn staff(w: &mut World, turnover: bool, draft_year: i32) {
             continue;
         }
         let owner = w.nfl[t].owner;
-        let budget = clamp(0.55 + 0.03 * (owner - 10.0), 0.3, 1.0);
+        let budget = crate::world::finance::nfl::spend_level(w, t);
         let (areas, nationals) = sizes(year, owner);
         let mut kept: Vec<Scout> = Vec::new();
         for s in std::mem::take(&mut w.clubs[t].scouts) {
@@ -991,7 +991,10 @@ pub(crate) fn combine(w: &mut World, invited: &[usize]) {
     for t in clubs(w) {
         if workouts {
             for &i in invited {
-                file(w, t, i, EVENT, LookKind::Combine, date);
+                // A prospect whose camp keeps him out of the workouts tests at his pro day.
+                if !skips(w, i) {
+                    file(w, t, i, EVENT, LookKind::Combine, date);
+                }
             }
         }
         let mut list: Vec<(usize, f64)> = invited
@@ -999,11 +1002,26 @@ pub(crate) fn combine(w: &mut World, invited: &[usize]) {
             .map(|&i| (i, r[t].get(&i).map_or(w.people[i].cal.draft_read.map_or(0.0, |x| x.grade), |x| x.grade)))
             .collect();
         list.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+        // Your war room's own interview list goes first.
+        let mine = super::super::scouting::predraft::seat_list(w, t, super::super::scouting::predraft::LIST_INTERVIEW);
+        if !mine.is_empty() {
+            let pick: Vec<usize> =
+                mine.iter().filter_map(|id| invited.iter().copied().find(|&i| w.people[i].player.id == *id)).collect();
+            list.retain(|x| !pick.contains(&x.0));
+            for (k, i) in pick.into_iter().enumerate() {
+                list.insert(k, (i, 0.0));
+            }
+        }
         let d = director(&w.clubs[t].scouts);
         for &(i, _) in list.iter().take(interviews) {
             file(w, t, i, d, LookKind::Interview, date);
         }
     }
+    super::super::scouting::predraft::combine_moments(w, invited);
+}
+
+fn skips(w: &World, i: usize) -> bool {
+    w.scouting.predraft.has(w.people[i].player.id, super::super::scouting::predraft::SKIP_COMBINE)
 }
 
 /// A program's pro day: the prospects the combine didn't test (or every
@@ -1026,7 +1044,7 @@ pub(crate) fn pro_day(w: &mut World, program: usize, date: Date) {
     let r = reads(w, &here);
     for t in clubs(w) {
         for &i in &here {
-            let tested = workouts && w.people[i].cal.combine_invite;
+            let tested = workouts && w.people[i].cal.combine_invite && !skips(w, i);
             if !tested {
                 file(w, t, i, EVENT, LookKind::ProDay, date);
             }
@@ -1074,7 +1092,18 @@ pub(crate) fn spring(w: &mut World) {
         // above it to two rounds below.
         let first = order.as_ref().and_then(|o| o.iter().position(|&x| x == t)).unwrap_or(16);
         let from = first.saturating_sub(10);
-        for &(i, _) in list.iter().skip(from).take(30) {
+        let mine = super::super::scouting::predraft::seat_list(w, t, super::super::scouting::predraft::LIST_VISIT);
+        let visits: Vec<usize> = if mine.is_empty() {
+            list.iter().skip(from).take(30).map(|x| x.0).collect()
+        } else {
+            mine.iter().filter_map(|&id| super::super::scouting::place(w, id)).take(30).collect()
+        };
+        for i in visits {
+            // A top prospect's camp turns some visits down (the club's
+            // file gets no visit).
+            if super::super::scouting::predraft::declines(w, i, t) {
+                continue;
+            }
             file(w, t, i, GM, LookKind::Visit, date.add(-10));
         }
     }
@@ -1085,11 +1114,15 @@ pub(crate) fn spring(w: &mut World) {
 /// A club's board: its grade of each prospect on the aligned scale, and
 /// its do-not-draft list.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
-pub(crate) struct Board {
+pub struct Board {
     pub grade: HashMap<usize, f64>,
     pub dnd: HashSet<usize>,
     /// How many of the prospects it had a file on.
     pub filed: usize,
+    /// Its character read of each filed prospect (standard deviations of
+    /// risk; above zero is worse), for the war room's character line.
+    #[serde(default)]
+    pub risk: HashMap<usize, f32>,
 }
 
 /// Each club's board from its own files (topic 9): its read of each
@@ -1101,43 +1134,66 @@ pub(crate) struct Board {
 pub(crate) fn boards(w: &World, pool: &[(usize, f64)], align: &crate::level_rating::PositionAligner) -> Vec<Board> {
     let people: Vec<usize> = pool.iter().map(|x| x.0).collect();
     let r = reads(w, &people);
+    (0..w.nfl.len()).into_par_iter().map(|t| board_from(w, t, pool, align, r.get(t))).collect()
+}
+
+/// One club's board (your war room's, on its screens), the same way.
+pub(crate) fn board_for(
+    w: &World,
+    t: usize,
+    pool: &[(usize, f64)],
+    align: &crate::level_rating::PositionAligner,
+) -> Board {
+    let people: Vec<usize> = pool.iter().map(|x| x.0).collect();
+    let ctx = Ctx::new(w, &people);
+    let r: HashMap<usize, Read> = match w.clubs.get(t) {
+        Some(c) => people
+            .iter()
+            .filter_map(|&i| c.files.get(&w.people[i].player.id).map(|f| (i, read(w, t, i, f, &ctx))))
+            .collect(),
+        None => HashMap::new(),
+    };
+    board_from(w, t, pool, align, Some(&r))
+}
+
+fn board_from(
+    w: &World,
+    t: usize,
+    pool: &[(usize, f64)],
+    align: &crate::level_rating::PositionAligner,
+    r: Option<&HashMap<usize, Read>>,
+) -> Board {
     let seed = w.options.seed as u64 ^ (w.year as u64) << 24;
-    (0..w.nfl.len())
-        .into_par_iter()
-        .map(|t| {
-            let mut b = Board::default();
-            if t >= w.clubs.len() {
-                return b;
-            }
-            let trust_public = 1.5 - w.clubs[t].office.gm.overconfidence;
-            for &(i, public) in pool {
-                let p = &w.people[i];
-                let id = p.player.id as u64;
-                match r[t].get(&i) {
-                    Some(x) => {
-                        b.filed += 1;
-                        let own = align.align(p.player.position, x.grade);
-                        let v_own = 1.0 / x.var.max(0.25);
-                        let v_pub = trust_public / 16.0;
-                        let mut g = (v_own * own + v_pub * public) / (v_own + v_pub);
-                        // His character as the club reads it (section 6
-                        // traits): a real worry costs up to a few points.
-                        g -= 1.0 * (x.risk - 0.5).max(0.0);
-                        if x.risk >= 2.5
-                            || (flags(p) >= crate::career::PIPELINE.red_flag_discount.dismissed && x.risk >= 1.0)
-                        {
-                            b.dnd.insert(i);
-                        }
-                        b.grade.insert(i, g);
-                    }
-                    None => {
-                        b.grade.insert(i, public + 3.0 * key_normal(seed ^ (t as u64) << 40 ^ 0xB0A2, id));
-                    }
+    let mut b = Board::default();
+    if t >= w.clubs.len() {
+        return b;
+    }
+    let trust_public = 1.5 - w.clubs[t].office.gm.overconfidence;
+    for &(i, public) in pool {
+        let p = &w.people[i];
+        let id = p.player.id as u64;
+        match r.and_then(|r| r.get(&i)) {
+            Some(x) => {
+                b.filed += 1;
+                let own = align.align(p.player.position, x.grade);
+                let v_own = 1.0 / x.var.max(0.25);
+                let v_pub = trust_public / 16.0;
+                let mut g = (v_own * own + v_pub * public) / (v_own + v_pub);
+                // His character as the club reads it (section 6
+                // traits): a real worry costs up to a few points.
+                g -= 1.0 * (x.risk - 0.5).max(0.0);
+                if x.risk >= 2.5 || (flags(p) >= crate::career::PIPELINE.red_flag_discount.dismissed && x.risk >= 1.0) {
+                    b.dnd.insert(i);
                 }
+                b.grade.insert(i, g);
+                b.risk.insert(i, x.risk as f32);
             }
-            b
-        })
-        .collect()
+            None => {
+                b.grade.insert(i, public + 3.0 * key_normal(seed ^ (t as u64) << 40 ^ 0xB0A2, id));
+            }
+        }
+    }
+    b
 }
 
 /// Draft-day news on the player's side: a slide far below where the public
@@ -1163,14 +1219,14 @@ pub(crate) fn note_slide(w: &mut World, i: usize, public_rank: usize, pick: u32)
 /// values picks. `value(team, person)` is a club's value of a prospect at
 /// this pick, or None if it won't take him. Returns the buyer, the swapped
 /// slot and what was added.
-pub(crate) struct Swap {
+pub struct Swap {
     pub buyer: usize,
     pub seller: usize,
     pub their_slot: usize,
     pub extra: Option<Extra>,
 }
 
-pub(crate) enum Extra {
+pub enum Extra {
     /// A later slot in this draft.
     Slot(usize),
     /// Next year's pick in this round.
@@ -1184,9 +1240,10 @@ pub(crate) fn trade_on_clock(
     left: &[usize],
     value: &dyn Fn(usize, usize) -> Option<f64>,
     promised: &[(usize, u32)],
+    skip: Option<usize>,
 ) -> Option<Swap> {
     let seller = board[slot].0;
-    if seller >= w.clubs.len() {
+    if seller >= w.clubs.len() || skip == Some(seller) {
         return None;
     }
     let teams = super::super::franchise::active_teams(w.year).len().max(1);
@@ -1222,7 +1279,7 @@ pub(crate) fn trade_on_clock(
     let mut seen: Vec<usize> = vec![seller];
     for k in slot + 1..(slot + 13).min(board.len()) {
         let c = board[k].0;
-        if seen.contains(&c) || c >= w.clubs.len() {
+        if seen.contains(&c) || c >= w.clubs.len() || skip == Some(c) {
             continue;
         }
         seen.push(c);
@@ -1274,7 +1331,7 @@ pub(crate) fn trade_on_clock(
 /// An undrafted player's deal from the rush: the club, its signing bonus
 /// and the base salary it guarantees (outside the bonus pool).
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
-pub(crate) struct Offer {
+pub struct Offer {
     pub team: usize,
     pub bonus: f64,
     pub guarantee: f64,
@@ -1283,7 +1340,7 @@ pub(crate) struct Offer {
 /// The bonus pool per club for undrafted rookies (real: about $75,000 in
 /// 2011, rising with the rookie pool, about $92,000 in 2016). Before 2011
 /// there was no pool; clubs spent about the same (proposed, not confirmed).
-pub(crate) fn udfa_pool(year: i32) -> f64 {
+pub fn udfa_pool(year: i32) -> f64 {
     75_000.0 * money::price_cap(year) / money::price_cap(2011)
 }
 
@@ -1298,7 +1355,15 @@ pub(crate) fn udfa_pool(year: i32) -> f64 {
 /// until its room is full or its board runs out (trial 9: one round of
 /// calls left most of the room empty, about 180 signings a year against
 /// about 500 real). `room[t]` is each club's room left.
-pub(crate) fn rush(w: &World, boards: &[Board], left: &[usize], room: &mut [usize]) -> Vec<(usize, Offer)> {
+/// `seat` holds your club and the offers your war room made: your club
+/// calls only those players, once, with those terms.
+pub(crate) fn rush(
+    w: &World,
+    boards: &[Board],
+    left: &[usize],
+    room: &mut [usize],
+    seat: Option<&(usize, Vec<(usize, Offer)>)>,
+) -> Vec<(usize, Offer)> {
     let year = w.year;
     let pool = udfa_pool(year);
     let floor = 0.00002 * money::price_cap(year);
@@ -1328,6 +1393,23 @@ pub(crate) fn rush(w: &World, boards: &[Board], left: &[usize], room: &mut [usiz
         let mut best_grade: HashMap<usize, f64> = HashMap::new();
         for &t in &teams {
             if room[t] == 0 {
+                continue;
+            }
+            if let Some((st, mine)) = seat
+                && *st == t
+            {
+                // Your calls go out once, on the first ring.
+                if cursor[t] == 0 {
+                    cursor[t] = usize::MAX / 2;
+                    for &(i, o) in mine {
+                        if !taken.contains(&i) && left.contains(&i) {
+                            offers.entry(i).or_default().push(o);
+                            let g = boards[t].grade.get(&i).copied().unwrap_or(50.0);
+                            let e = best_grade.entry(i).or_insert(g);
+                            *e = e.max(g);
+                        }
+                    }
+                }
                 continue;
             }
             let mut calls: Vec<(usize, usize, f64)> = Vec::new();

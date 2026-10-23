@@ -41,6 +41,8 @@ pub enum Team {
     College(usize),
     Nfl(usize),
     High(usize),
+    /// A team in another pro league (by franchise, `pro::other`).
+    Other(usize),
 }
 
 impl Team {
@@ -59,6 +61,7 @@ impl Team {
             Team::College(p) => w.program_name(p).to_string(),
             Team::Nfl(t) => w.nfl_team_name(t),
             Team::High(h) => w.school_name(h).to_string(),
+            Team::Other(f) => super::pro::other::name(f, w.year).to_string(),
         }
     }
 
@@ -74,6 +77,7 @@ impl Team {
             Team::College(p) => ("college", p),
             Team::Nfl(t) => ("nfl", t),
             Team::High(h) => ("hs", h),
+            Team::Other(f) => ("other", f),
         }
     }
 
@@ -82,13 +86,14 @@ impl Team {
             Team::College(p) => 0x1_0000_0000 | p as u64,
             Team::Nfl(t) => 0x2_0000_0000 | t as u64,
             Team::High(h) => 0x3_0000_0000 | h as u64,
+            Team::Other(f) => 0x4_0000_0000 | f as u64,
         }
     }
 
     pub fn level(self) -> Level {
         match self {
             Team::College(_) => Level::College,
-            Team::Nfl(_) => Level::Nfl,
+            Team::Nfl(_) | Team::Other(_) => Level::Nfl,
             Team::High(_) => Level::HighSchool,
         }
     }
@@ -99,6 +104,7 @@ impl Team {
             Team::College(p) => super::coach::Employer::College(p),
             Team::Nfl(t) => super::coach::Employer::Nfl(t),
             Team::High(h) => super::coach::Employer::HighSchool(h),
+            Team::Other(f) => super::coach::Employer::Other(f),
         }
     }
 
@@ -107,6 +113,7 @@ impl Team {
             super::coach::Employer::College(p) => Team::College(p),
             super::coach::Employer::Nfl(t) => Team::Nfl(t),
             super::coach::Employer::HighSchool(h) => Team::High(h),
+            super::coach::Employer::Other(f) => Team::Other(f),
         }
     }
 
@@ -116,6 +123,7 @@ impl Team {
             Team::College(p) => w.programs.get(p)?.head_coach,
             Team::Nfl(t) => w.nfl.get(t)?.head_coach,
             Team::High(h) => w.high_schools.get(h)?.coach,
+            Team::Other(f) => super::pro::other::head_coach(w, f),
         }
     }
 
@@ -126,6 +134,15 @@ impl Team {
             Team::College(p) => &w.programs[p].roster,
             Team::Nfl(t) => w.clubs.get(t).map_or(&[], |c| &c.roster),
             Team::High(h) => &w.high_schools[h].roster,
+            Team::Other(f) => {
+                return w.others.teams.get(f).map_or(Vec::new(), |t| {
+                    t.roster
+                        .iter()
+                        .map(|&k| k as usize)
+                        .filter(|&k| w.people.get(k).is_some_and(|p| p.stage != super::Stage::Done))
+                        .collect()
+                });
+            }
         };
         v.iter().copied().filter(|&k| w.people.get(k).is_some_and(|p| p.stage != super::Stage::Done)).collect()
     }
@@ -136,6 +153,7 @@ impl Team {
             Team::College(p) => Some(w.programs[p].state),
             Team::High(h) => Some(w.high_schools[h].state),
             Team::Nfl(t) => super::franchise::era(t, w.year).and_then(|e| super::geo::state_index(e.state)),
+            Team::Other(_) => None,
         }
     }
 
@@ -145,6 +163,7 @@ impl Team {
             Team::College(p) => w.programs[p].city.clone(),
             Team::High(h) => w.high_schools[h].town.clone(),
             Team::Nfl(t) => super::franchise::era(t, w.year).map_or_else(String::new, |e| e.city.to_string()),
+            Team::Other(f) => super::pro::other::city(f, w.year).to_string(),
         }
     }
 }
@@ -358,7 +377,7 @@ pub(crate) fn post_mine(w: &mut World, d: Date, loud: Loudness, decision: bool, 
     match t {
         Team::College(p) => e = e.program(p),
         Team::Nfl(n) => e = e.team(n),
-        Team::High(_) => {}
+        Team::High(_) | Team::Other(_) => {}
     }
     if decision {
         e = e.decision();
