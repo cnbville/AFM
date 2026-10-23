@@ -779,6 +779,53 @@ The stories around the football: creative additions C1-C17, the NFL items P5-P7 
   - **People:** the CFL drafted 72 nationals a year. 808 players had other-league seasons, and 205 of them played in the NFL afterwards. 221 coaches held other-league seats in January 2025, and 87 of those with a stint behind them were in the NFL or college.
 - **Spring league scoring** is the open gap. A just-met line and a short camp's playbook took only 1-3 points off. The engine's NFL already scores about 22% over real on synthetic rosters, and the spring leagues run about 10-15% past that. Real spring leagues were held down by quarterbacks far below the NFL's; in the world their passers come from the same street as everyone else.
 
+## Section 6b, training: the final build (lane 11, 2026-10-23)
+
+Training is built whole from `docs/design/training.md` for every player in the world, AI teams and yours by the same step (`crates/afm-engine/src/training/`).
+
+### How growth lands (topics 12 and 15)
+- **The year is decided, then landed by the week.** The yearly checkpoint still runs `develop_season`, but with the world's training on (`WorldOptions::yearly_growth` off) it stores the year's growth as a small `Train` record (34 bytes a player): what each of seven families (technique, mental, strength, speed and movement, conditioning, football IQ, the body) owes, how much has landed, the week's load, the practice grade and the plan's position. `week::monday` lands each AI player's share every Monday from the daily clock; `seat::week` lands your team's from your own week. `close_year` lands anything left at the next checkpoint, so nothing is lost when a season ends early.
+- **The landing matches the yearly step.** `grow_share` lands a share with the step's own finishing curve (the gap to the ceiling, the finishing step, the yearly cap), so a year landed in 40-odd shares lands where one step would (the proof: 2.63 a year either way, 0.03 apart).
+- **A week's work moves the share.** `work::week_work` counts each period's minutes by family (individual periods teach technique, team periods football IQ, the weight room the body, a walkthrough the mind at almost no load). A family's share is moved by the week's minutes against the staff's neutral week, saturating at 15% either way (`PLAN_REACH`, choice 2): the hardest realistic plan gives about 1% more a year, an all-weight-room plan about 8% less, and nobody grows past his ceiling.
+- **The main focus** takes the bigger share of a player's individual periods inside his family; how much sticks rises with coachability. A habit focus coaches one tendency toward a target at the tendency layer's coaching speed (a strong teacher about 3 points a year, an average one about 1.2).
+
+### The week, the block and the rules (topics 1-4)
+- **Blocks by level** (`rules::Block`): the NFL's phase 1, phase 2, OTAs, minicamp, camp, the season and the playoffs; college winter, spring, summer, camp, the season and bowl practice; high school's offseason program, summer, camp and the season, each with its era's limits (the NCAA's 20-hour rule and 8-hour winter week, spring's 15 sessions with 12 in contact and 3 scrimmages, the 25 camp practices in 29 days from 2021 and two-a-days before 2017; the 2011 CBA's 14 padded practices in season and no padded OTAs; each state's camp acclimatization and contact minutes).
+- **Every day keeps its rule.** `fit` keeps a day legal (gear, contact, minutes, coaches allowed) and `fit_block` keeps a block inside its counts (extra practices dropped, scrimmages turned into team periods, pads into shells, thud and live into control). The AI's week (`staff_week`) rebuilds the block's earlier weeks so its counts are right on any day. Six eras on every level pass the rules check with no breach.
+- **Your week** is your staff's week (from the head coach's style: physical, freedom, risk) until you change a period; a saved week outside the rules is refused unless you push it.
+- **Rule cases:** a pushed week can come out: a staff member or a player reports it (the NFL 30%, college 20%, high school 15% a pushed week). The penalty is the real one for the level: lost OTA weeks and fines in the NFL, a Level III then Level II violation with practice time cut at college, a warning then probation from a state association. Lost practices come off the block's limit.
+
+### Load, fatigue and practice injuries (topic 7)
+- Each week's load (minutes times the period's intensity, contact and tempo) feeds a four-week chronic load; a jump above 1.45 times the chronic is a load spike, which raises soft-tissue injury odds and makes the trainers limit him.
+- Practice injuries at the real split: about 60% of injuries in practice and camp the peak (more than twice any other block's weekly rate); rates a week of camp 0.37%, spring 0.23%, season and postseason 0.115%, other blocks 0.08%, high school 0.4 times those. Heat illness on hot camp days at high school; the non-football injury list in the offseason.
+- The late week's load sets game-day freshness: a heavy Thursday lowers Sunday's energy.
+
+### Practice on the engine (topics 8 and 15)
+- Team and group periods of every college and NFL team, and yours at every level, run real snaps on the match engine (`practice.rs`): one-on-ones, inside run, seven-on-seven and team periods give each player a practice grade (mean about 62, spread about 6). Grades feed the depth chart's impression, the position coaches' notes and the camp news. High school teams other than yours use a model fitted to the engine (the grade from the overall against the position group, with the measured spread).
+
+### The offseason on their own (topic 9)
+- Outside the blocks a staff can coach, players work on their own: effort from work ethic, professionalism, the contract year (higher) and a fresh big contract (lower). The world sees it through real signs: the NFL's facility log, a workout clip, the strength coach, a trainer, a teammate or the agent; college strength staff numbers; high school summer weights and 7-on-7.
+- **Report day:** a player back from the summer is weighed and tested against where he left.
+- **Other sports (high school):** about 42% of high school players play basketball, wrestling, track or baseball (chosen by body); in its season football work gives way to that sport's.
+
+### What you see (topic 13)
+- Words and ranges only: the position coach's growth read ("coming on fast" to "slipping", seen through his eye with his own lean), practice grades in words, load in words with the trainers' flags, staff notes, block reports from each department head, the install words. No growth number and no ceiling.
+
+### Plans, installs and the depth chart's packages
+- **The season's lean** (run or pass, up to 20 points) and how closely the play caller sticks to your call sheet; **the call sheet** of ten situations (opening script to two-minute), up to twelve plays each, read by the engine as the play caller's first choices (`Prep::sheet`, `stick`).
+- **Installs:** the card's families and the designs you tick share the week's team, seven-on-seven, situation and walkthrough reps (1.5 reps a minute); a design is known at 1 - e^(-reps/60) and goes into games from 35%.
+- **The play designer** (`game/designer.rs`): formation, routes, reads, protection and drop; legal checks per level; the coordinator's review on save; a saved design is a numbered concept like any other.
+- **Packages:** nickel, dime, goal line on both sides and the five kicking units, your players in slot order; the engine plays them first and fills the rest itself.
+
+### Decided in the final build (Claude's pick)
+- The seven training families and the minutes each period gives them; `PLAN_REACH` 0.15 with a tanh saturation; the focus's in-family share.
+- The rule-case detection rates (30%, 20%, 15% a pushed week) and the practices each penalty takes away (NFL 1 in season, 3 out; college 3 then 6; high school 2).
+- The practice injury rates above, the 1.45 load-spike line and the four-week chronic load.
+- The other sports' 42% and their seasons (basketball November to February, wrestling November to February, track March to May, baseball March to May).
+- Own-time effort: about 3% of players slack badly (`fail_chance`).
+- Install speed: 60 reps to know a play well, 35% before a design is called in games.
+- Your position coaches' package proposals: the best staff read at the slot's position; on kicking units backups first (a starter counts 18 points less), quarterbacks and specialists never on them, linemen only on the field goal, speed counting a little, and returners by speed, agility and ball security among receivers, backs and defensive backs.
+
 ## Proposed, not confirmed (Claude's own picks in the build)
 
 - Lane 4 (money and the other leagues, final build): every "proposed, not confirmed" figure in `finance/data.rs` (the media deal raises, the report card weights and the owners' response, the blackout and renewal curves, the ticket and seat donation levels, the high school fee shares and fundraiser takes, the sale rate past the record); realignment's pace (about four moves a year in waves); the betting market's learning rate; the other leagues' coach pay and job pull, the national pool's size and split (three in ten from American colleges), the spring camp's 0.9 playbook knowledge, the CFL's pass lean (-0.16) and arena's (+0.28); the portal NIL production swing (0.6-1.6 times); the rebuild third and the contender's 1.15.

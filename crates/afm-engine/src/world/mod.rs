@@ -102,6 +102,11 @@ pub struct WorldOptions {
     /// Trial tooling: keep every college game's box score totals and each
     /// player's season totals in `World::game_log` (history years only).
     pub keep_game_log: bool,
+    /// Trial tooling: the old yearly growth (everything at the
+    /// checkpoint) instead of growth landing week by week (section 6b,
+    /// choice 1), to measure one against the other.
+    #[serde(default)]
+    pub yearly_growth: bool,
 }
 
 impl Default for WorldOptions {
@@ -116,6 +121,7 @@ impl Default for WorldOptions {
             engine_from: None,
             hs_engine_years: Some(12),
             keep_game_log: false,
+            yearly_growth: false,
         }
     }
 }
@@ -763,6 +769,10 @@ pub struct World {
     /// build, lane 10).
     #[serde(default)]
     pub front_office: front_office::FrontOffice,
+    /// Your team's training (section 6b): plans, logs, notes, installs,
+    /// the game plan, designs and packages.
+    #[serde(default)]
+    pub training: crate::training::seat::SeatTraining,
     /// The stories around the football (final build lane 8): traditions,
     /// media, nicknames, your decisions graded, your career's story.
     #[serde(default)]
@@ -1081,6 +1091,7 @@ impl World {
             seat_games: Vec::new(),
             seat_depth: Vec::new(),
             seat_focus: Vec::new(),
+            training: Default::default(),
             career: None,
             live: None,
             gameday: Default::default(),

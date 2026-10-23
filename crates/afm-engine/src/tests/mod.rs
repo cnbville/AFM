@@ -17,6 +17,7 @@ mod scouting;
 mod stories;
 mod tactics;
 mod tendencies;
+mod training;
 mod views;
 mod world;
 

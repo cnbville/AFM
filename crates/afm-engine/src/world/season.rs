@@ -197,7 +197,7 @@ pub(crate) fn reconsider_positions(w: &mut World, who: &[bool]) {
         .par_iter()
         .enumerate()
         .filter_map(|(i, p)| {
-            if !who[i] {
+            if !who[i] || r.training.position_set(p.player.id) {
                 return None;
             }
             let (eye, margin) = match p.stage {
@@ -374,6 +374,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
     let seat_staff: Option<(usize, [Option<f64>; super::coach::GROUP_COUNT])> =
         w.seat_school().map(|h| (h, super::coach::Group::ALL.map(|g| w.hs_staff_teaching(h, g))));
     let focus = w.focus_by_person();
+    let defer = !w.options.yearly_growth;
     let staff_of = |h: usize, g: Group| seat_staff.and_then(|(s, t)| if s == h { t[g as usize] } else { None });
     let (people, schools, programs, coaches) = (&mut w.people, &w.high_schools, &w.programs, &w.coaches);
     people.par_iter_mut().zip(role_of.par_iter()).enumerate().for_each(|(i, (p, role))| {
@@ -502,8 +503,12 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             physical,
             medical,
             focus: focus.get(&i).copied(),
+            defer,
             ..SeasonContext::new(level, clamp(coaching, 1.0, 20.0), role)
         };
+        // Last year's growth that the calendar never reached lands first
+        // (section 6b topic 12), so this row starts where he really is.
+        crate::training::close_year(&mut p.player, ctx.focus);
         develop_season(&mut p.player, &ctx, &mut p.rng);
         if let Some(gain) = p.cal.spring_gain_ahead.take() {
             crate::development::open_row_with_spring_step(&mut p.player, gain);
@@ -887,6 +892,7 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
     team.give_orders(division_level(prog.division));
     if w.seat_program(prog.id) {
         team.order = w.seat_order();
+        crate::training::seat::prepare(w, &mut team);
     }
     team.film = prog.film.clone();
     team.line_chem = line_chem;

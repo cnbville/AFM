@@ -181,6 +181,11 @@ const SCREENS: &[&str] = &[
     "staff",
     "depth",
     "training",
+    "practice",
+    "plans",
+    "designer",
+    "squad",
+    "boards",
     "recruiting",
     "contracts",
     "games",
@@ -239,6 +244,15 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)]) {
     for &p in players.iter().take(12) {
         run.call(g, "player", json!({ "id": p }));
     }
+    // Your own players' Development tab (lane 11).
+    if let Some(sq) = run.call(g, "squad", json!({})) {
+        for r in sq["rows"].as_array().into_iter().flatten().take(6) {
+            if let Some(i) = r["id"].as_u64() {
+                run.call(g, "player_dev", json!({ "id": i }));
+            }
+        }
+    }
+
     for &c in coaches.iter().take(6) {
         run.call(g, "coach", json!({ "id": c }));
     }

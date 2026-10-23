@@ -1942,7 +1942,7 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
 }
 
 /// A date of birth as the player page writes it: "14 March 2009".
-fn born_text(d: Date) -> Option<String> {
+pub(crate) fn born_text(d: Date) -> Option<String> {
     const MONTHS: [&str; 12] = [
         "January",
         "February",

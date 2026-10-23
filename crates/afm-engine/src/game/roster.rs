@@ -9,7 +9,7 @@ use crate::rng::clamp;
 use crate::spots::{self, SPOT_COUNT, Spot, fill_in, spot_rating};
 
 use super::calling::Film;
-use super::playbook::FAMILY_COUNT;
+use super::playbook::{Backfield, FAMILY_COUNT, Personnel, PlayKind, Set};
 use super::rules::{TRAIT_STEP, trait_norm};
 
 /// A player as the match engine sees him on game day.
@@ -61,6 +61,10 @@ pub struct GamePlayer {
     /// situations.
     #[serde(default)]
     pub links: crate::links::Links,
+    /// His practice grades as his staff read them, in rating points a
+    /// staff adds when it orders the depth chart (section 6b topic 8).
+    #[serde(default)]
+    pub impression: f64,
 }
 
 fn typical_chem() -> f32 {
@@ -99,6 +103,26 @@ impl GamePlayer {
             orders: Default::default(),
             chem: TYPICAL_CHEM,
             links: crate::links::measure(p.position, &b, &p.attributes, p.game.recovery),
+            impression: crate::training::impression(&p.train),
+        }
+    }
+
+    /// The week's growth reaches a kept game roster (section 6b): his
+    /// ratings, body and practice impression as they stand now.
+    pub fn refresh(&mut self, p: &Player) {
+        let b = body_now(p);
+        self.attrs = p.attributes;
+        self.height = b.height;
+        self.weight = b.weight;
+        self.arm = b.arm;
+        self.spot_r = Spot::ALL.map(|s| spot_rating(s, &p.attributes, b.weight));
+        self.tend = p.tend;
+        self.impression = crate::training::impression(&p.train);
+        self.links = crate::links::measure(p.position, &b, &p.attributes, p.game.recovery);
+        if self.position != p.position {
+            self.position = p.position;
+            self.spot = p.spot;
+            self.spots_played |= p.spot.bit();
         }
     }
 
@@ -372,6 +396,37 @@ pub struct GameTeam {
     /// team, whose staff orders it.
     #[serde(default)]
     pub order: Vec<(Position, Vec<u32>)>,
+    /// Your week of practice (section 6b): kickoff energy, packages and
+    /// the call sheet. Empty for AI teams.
+    #[serde(default)]
+    pub prep: Prep,
+}
+
+/// A call sheet play: the formation's personnel, backfield and set, and the play.
+pub type SheetCall = (Personnel, Backfield, Set, PlayKind);
+
+/// What your practice week sends into the game (section 6b): kickoff
+/// energy from the late week's load, your packages (board, player ids in
+/// slot order), and the call sheet (situation, plays) with how closely
+/// the coordinator sticks to it.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Prep {
+    pub fresh: f64,
+    pub packages: Vec<(u8, Vec<u32>)>,
+    pub sheet: Vec<(u8, Vec<SheetCall>)>,
+    pub stick: f64,
+}
+
+impl Default for Prep {
+    fn default() -> Prep {
+        Prep { fresh: 1.0, packages: Vec::new(), sheet: Vec::new(), stick: 0.0 }
+    }
+}
+
+impl Prep {
+    pub fn package(&self, board: u8) -> Option<&[u32]> {
+        self.packages.iter().find(|(b, ids)| *b == board && !ids.is_empty()).map(|(_, v)| v.as_slice())
+    }
 }
 
 /// A normal week's install, as a share of the playbook (proposed, not
@@ -390,6 +445,7 @@ impl GameTeam {
             novelty: [0.0; FAMILY_COUNT],
             week: 1.0,
             order: Vec::new(),
+            prep: Prep::default(),
         }
     }
 
@@ -579,8 +635,12 @@ fn staff_depth_chart(team: &GameTeam, two_way_margin: f64) -> Depth {
     let has_legs = ps.iter().any(|p| p.position.kicks());
     let has_snapper = ps.iter().any(|p| p.position == Position::LS);
     let own = |pos: Position| -> Vec<(f64, usize)> {
-        let mut v: Vec<(f64, usize)> =
-            ps.iter().enumerate().filter(|(_, p)| p.position == pos).map(|(i, p)| (p.overall_at(pos), i)).collect();
+        let mut v: Vec<(f64, usize)> = ps
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| p.position == pos)
+            .map(|(i, p)| (p.overall_at(pos) + p.impression, i))
+            .collect();
         v.sort_by(|a, b| b.0.total_cmp(&a.0));
         v
     };

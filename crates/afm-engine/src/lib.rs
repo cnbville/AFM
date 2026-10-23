@@ -29,6 +29,7 @@ pub mod scouting;
 pub mod spots;
 pub mod tendencies;
 pub mod text;
+pub mod training;
 pub mod world;
 
 #[cfg(feature = "debug")]

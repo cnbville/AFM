@@ -37,6 +37,10 @@ pub enum NewsKind {
     ConferenceTitle,
     StateTitle,
     Realignment,
+    /// Camp notes from the beat writers (section 6b topic 8).
+    Camp,
+    /// A team found practising past the rules (section 6b topic 3).
+    PracticeCase,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]

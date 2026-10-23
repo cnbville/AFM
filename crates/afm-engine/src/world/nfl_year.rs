@@ -2500,7 +2500,16 @@ pub(crate) fn training_blocks(w: &mut World, d: Date, y: &YearDates) {
             "NCAA: 8 hours a week",
             "College summer: 8 hours a week of required workouts, with film.",
         ),
-        (y.fall_camp, Level::College, "NCAA: 29 camp practices", "College fall camp: 29 practices before the opener."),
+        (
+            y.fall_camp,
+            Level::College,
+            if y.season >= 2021 { "NCAA: 25 camp practices in 29 days" } else { "NCAA: 29 camp practices" },
+            if y.season >= 2021 {
+                "College fall camp: up to 25 practices in the 29 days before the opener, 7 days of acclimatization."
+            } else {
+                "College fall camp: 29 practices before the opener."
+            },
+        ),
         (Date::ymd(y.season, 1, 15).max(y.start), Level::HighSchool, "", "High school offseason lifting and track."),
         (Date::ymd(y.season, 5, 1), Level::HighSchool, "", "High school spring ball, in the states that allow it."),
         (

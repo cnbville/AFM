@@ -58,6 +58,11 @@ pub struct SeasonContext {
     /// grows up to 1.5 times its share and his other skills pay for it
     /// (choice 2, confirmed); how much sticks follows his coachability.
     pub focus: Option<Attr>,
+    /// Section 6b topic 12 (choice 1, confirmed): the year's growth is
+    /// decided here and lands week by week as the training happens
+    /// (`training::land`), instead of all at once. Attributes that have
+    /// stopped growing or decline this year still settle at once.
+    pub defer: bool,
 }
 
 impl SeasonContext {
@@ -78,8 +83,109 @@ impl SeasonContext {
             physical: 0.0,
             medical: 0.0,
             focus: None,
+            defer: false,
         }
     }
+}
+
+/// What sets how fast he grows this year, besides each attribute's own
+/// profile and his age: the yearly step decides it, and the weekly landing
+/// (`training::land`) reads it back from his `Train`.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct GrowthCtx {
+    pub coaching_boost: f64,
+    pub snaps_mult: f64,
+    pub work_mult: f64,
+    pub form: f64,
+    pub growth_multiplier: f64,
+    pub morale_mult: f64,
+    pub physical_mult: f64,
+    pub hs: bool,
+    pub college: bool,
+    pub redshirt: bool,
+    pub focus: Option<Attr>,
+    pub focus_take: f64,
+}
+
+impl GrowthCtx {
+    /// The share of the gap to his ceiling an attribute closes in a full
+    /// year (the yearly step's rate, unchanged).
+    pub fn rate(&self, key: Attr, age_factor: f64) -> f64 {
+        let profile = &ATTRIBUTE_PROFILES[key.index()];
+        let coaching = self.coaching_boost.powf(profile.coachability);
+        let snaps = self.snaps_mult.powf(profile.experience);
+        let redshirt_lift = if self.redshirt && profile.group == AttributeGroup::Physical { 1.35 } else { 1.0 };
+        // College staffs teach the technique and the reads high school never did, so the raw catch up there.
+        let hs_lag = if self.hs {
+            if key == Attr::Strength { HS_STRENGTH_GROWTH } else { hs_group_growth(profile.group) }
+        } else if self.college && profile.group != AttributeGroup::Physical {
+            COLLEGE_TEACHING
+        } else {
+            1.0
+        };
+        let focus_mult = match self.focus {
+            Some(f) if f == key => 1.0 + 0.5 * self.focus_take,
+            Some(f) if key.profile().group == f.profile().group => 1.0 - 0.035 * self.focus_take,
+            _ => 1.0,
+        };
+        clamp(
+            profile.growth_rate
+                * age_factor
+                * coaching
+                * snaps
+                * self.work_mult
+                * self.form
+                * self.growth_multiplier
+                * redshirt_lift
+                * hs_lag
+                * self.morale_mult
+                * focus_mult
+                * if profile.group == AttributeGroup::Physical { self.physical_mult } else { 1.0 },
+            0.0,
+            0.5,
+        )
+    }
+}
+
+/// Whether an attribute is past its decline onset this year, by the
+/// ageing step's rule.
+pub(crate) fn declines(position: crate::positions::Position, longevity: f64, key: Attr, age: f64) -> bool {
+    let profile = key.profile();
+    let physical = profile.group == AttributeGroup::Physical;
+    let pos_offset = position.profile().aging_offset;
+    let onset = profile.decline_age + longevity + if physical { pos_offset.min(1.5) } else { pos_offset };
+    age + 1.0 - onset > 0.0
+}
+
+/// One installment of a year's growth (section 6b topic 12): `share` of
+/// the year for this attribute, `done` the share already landed. The
+/// proportional part compounds on the gap plus the fixed steps already
+/// given, so shares adding to one give the yearly step's growth exactly;
+/// the fixed step and the cap split by share; the noise keeps its yearly
+/// spread. Returns the rating points added.
+pub(crate) fn grow_share(
+    attrs: &mut crate::attributes::Attributes,
+    ceilings: &mut crate::attributes::Attributes,
+    key: Attr,
+    rate: f64,
+    share: f64,
+    done: f64,
+    noise: f64,
+) -> f64 {
+    let gap = ceilings.get(key) - attrs.get(key);
+    if gap <= 0.0 || share <= 0.0 || rate <= 0.0 {
+        return 0.0;
+    }
+    let prop = 1.0 - (share * (1.0 - rate).ln()).exp();
+    let given = FINISHING_STEP * rate * done.clamp(0.0, 1.0);
+    let add = gap.min((gap + given) * prop + FINISHING_STEP * rate * share).min(MAX_YEARLY_GAIN * share) + noise;
+    let before = attrs.get(key);
+    let attr = clamp(before + add, MIN_RATING, MAX_RATING);
+    attrs.set(key, attr);
+    if attr > ceilings.get(key) {
+        ceilings.set(key, attr);
+    }
+    attr - before
 }
 
 /// Potential is reported in bands of this many points (one half-star).
@@ -566,10 +672,19 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // The plan's focus (section 6b topic 5; proposed, not confirmed: the
     // share each other skill gives up so the year's total stays about even).
     let focus_take = clamp(0.6 + 0.02 * personality.coachability, 0.6, 1.0);
-    let focus_mult = |key: Attr| match ctx.focus {
-        Some(f) if f == key => 1.0 + 0.5 * focus_take,
-        Some(f) if key.profile().group == f.profile().group => 1.0 - 0.035 * focus_take,
-        _ => 1.0,
+    let g = GrowthCtx {
+        coaching_boost,
+        snaps_mult,
+        work_mult,
+        form,
+        growth_multiplier,
+        morale_mult,
+        physical_mult,
+        hs,
+        college,
+        redshirt: pt == PlayingTime::Redshirt,
+        focus: ctx.focus,
+        focus_take,
     };
     for key in Attr::ALL {
         let profile = &ATTRIBUTE_PROFILES[key.index()];
@@ -579,40 +694,26 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         if gap <= 0.0 || age_factor <= 0.01 {
             continue;
         }
-        let coaching = coaching_boost.powf(profile.coachability);
-        let snaps = snaps_mult.powf(profile.experience);
-        let redshirt_lift =
-            if pt == PlayingTime::Redshirt && profile.group == AttributeGroup::Physical { 1.35 } else { 1.0 };
-        // College staffs teach the technique and the reads high school never did, so the raw catch up there.
-        let hs_lag = if hs {
-            if key == Attr::Strength { HS_STRENGTH_GROWTH } else { hs_group_growth(profile.group) }
-        } else if college && profile.group != AttributeGroup::Physical {
-            COLLEGE_TEACHING
-        } else {
-            1.0
-        };
-        let rate = clamp(
-            profile.growth_rate
-                * age_factor
-                * coaching
-                * snaps
-                * work_mult
-                * form
-                * growth_multiplier
-                * redshirt_lift
-                * hs_lag
-                * morale_mult
-                * focus_mult(key)
-                * if profile.group == AttributeGroup::Physical { physical_mult } else { 1.0 },
-            0.0,
-            0.5,
-        );
+        let rate = g.rate(key, age_factor);
+        let noise = rng.normal(0.0, 0.5);
+        // Growth that lands through the year's training (choice 1): the
+        // draw is still taken, so every later draw is the one it was.
+        if ctx.defer
+            && crate::training::defers(player.position, key)
+            && !declines(player.position, player.longevity, key, age)
+        {
+            continue;
+        }
         // Proportional growth plus a fixed step, so a well-developed player can
         // actually reach his ceiling instead of creeping towards it forever.
         // Even a monster year adds at most about a dozen points to one attribute.
-        player
-            .attributes
-            .add(key, gap.min(gap * rate + FINISHING_STEP * rate).min(MAX_YEARLY_GAIN) + rng.normal(0.0, 0.5));
+        player.attributes.add(key, gap.min(gap * rate + FINISHING_STEP * rate).min(MAX_YEARLY_GAIN) + noise);
+    }
+    if ctx.defer {
+        let grade = player.train.grade;
+        player.train =
+            crate::training::Train::open(&g, player.age, development_age, player.position, player.train.load);
+        player.train.grade = grade;
     }
 
     for key in Attr::ALL {
@@ -709,7 +810,10 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     };
     crate::tendencies::develop_year(&mut player.tend, &player.attributes, &personality, player.age, &year, player.id);
 
-    let overall_after = player.overall();
+    // With growth landing through the year, the row's end is what the
+    // year's growth makes of him; `training::close_year` sets it to what
+    // really landed when the next checkpoint opens.
+    let overall_after = if ctx.defer { crate::training::projected_overall(player) } else { player.overall() };
     let potential_after = player.potential();
     // A big year on the field from a player whose rating still fell is a career year, not a breakout.
     if overall_after < overall_before {

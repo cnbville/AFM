@@ -484,6 +484,10 @@ pub struct Player {
     /// How often he picks each option the play gives him
     /// (`docs/design/tendencies.md`). Hidden: staffs see scouted reads.
     pub tend: crate::tendencies::Tendencies,
+    /// Section 6b: the year's growth still to land through training, and
+    /// how much of each family's year has landed (`training::Train`).
+    #[serde(default)]
+    pub train: crate::training::Train,
 }
 
 /// Hidden game-day traits on Football Manager's 1-20 scale (section 3). The
@@ -654,5 +658,6 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
         history: Vec::new(),
         game: GameTraits::for_id(id),
         tend,
+        train: Default::default(),
     }
 }
