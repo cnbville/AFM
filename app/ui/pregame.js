@@ -274,9 +274,11 @@ async function stepWorld(st) {
   });
   if (extra) rows.push(`<tr data-pg="pick-world" data-path="${esc(extra)}" class="${st.world === extra ? "sel" : ""}"><td><b>${esc(extra.split(/[\\/]/).pop())}</b> <span class="pg-dim">· open now</span></td><td colspan="6" class="pg-dim">A save with no career yet: a new career starts from it as it is.</td></tr>`);
   if (test) rows.push(`<tr data-pg="pick-world" data-path="test" class="${st.world === "test" ? "sel" : ""}"><td><b>Test world</b> <span class="pg-dim">· small, not kept</span></td><td>2 years</td><td>${esc(S.status ? S.status.today : "")}</td><td class="pg-dim">-</td><td class="pg-dim">-</td><td class="n pg-dim">in memory</td><td class="n"></td></tr>`);
-  const online = PG.online ? PG.online.worlds.filter((o) => !o.have && !worlds.some((x) => x.name === o.name)) : [];
+  // A newer build of a world you have shows too: downloading it replaces yours.
+  const online = PG.online ? PG.online.worlds.filter((o) => !o.have && (o.newer || !worlds.some((x) => x.name === o.name))) : [];
   for (const o of online) {
-    rows.push(`<tr><td><b>${esc(o.title || o.name)}</b> <span class="pg-tag">ONLINE</span></td><td colspan="4" class="pg-dim">Ready-built on the worlds page: download it into your library</td><td class="n">${esc(size(o.mb))}</td><td class="n"><button class="pg-btn s" data-pg="download" data-tag="${esc(o.tag)}">Download</button></td></tr>`);
+    const what = o.newer ? "A newer build of a world in your library, made by the current game: downloading it replaces yours (your saves keep their own copy)" : "Ready-built on the worlds page: download it into your library";
+    rows.push(`<tr><td><b>${esc(o.title || o.name)}</b> <span class="pg-tag">${o.newer ? "NEWER BUILD" : "ONLINE"}</span></td><td colspan="4" class="pg-dim">${what}</td><td class="n">${esc(size(o.mb))}</td><td class="n"><button class="pg-btn s" data-pg="download" data-tag="${esc(o.tag)}">${o.newer ? "Update" : "Download"}</button></td></tr>`);
   }
   const sel = worlds.find((x) => x.path === st.world);
   const wc = sel && sel.card && sel.card.world;
