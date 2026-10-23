@@ -18,6 +18,7 @@
     view: "2d", // the view the watch screen opens in: the last one used
     figures: false, // 2D: top-down figures instead of dots
     three: false, // the 3D coaches' view, off until Cain okays the clip
+    side: true, // the panel beside the film
     quality: "auto",
     cam2d: "all22",
     cam3d: "coaches",
@@ -130,7 +131,12 @@
       );
       p.catch(() => this.loading.delete(n));
       this.loading.set(n, p);
+      // Keep the last sixty snaps decoded; older ones load again if asked.
+      if (this.clips.size > 60) this.clips.delete(this.clips.keys().next().value);
       return p;
+    }
+    prefetch(ns) {
+      for (const n of ns) if (!this.clips.has(n) && !this.loading.has(n)) this.load(n).catch(() => {});
     }
   }
 
@@ -148,7 +154,8 @@
         walked[k * n + i] = walked[(k - 1) * n + i] + Math.hypot(f[b] - f[a], f[b + 1] - f[a + 1]);
       }
     }
-    const c = { ...raw, f, S, n, frames, t, walked, t0: t[0], t1: t[frames - 1] };
+    // c.n stays the play's number; c.men is how many men it tracks.
+    const c = { ...raw, f, S, men: n, frames, t, walked, t0: t[0], t1: t[frames - 1] };
     c.snapAt = 0;
     c.throwAt = null;
     c.catchAt = null;
@@ -187,7 +194,7 @@
     const k2 = Math.min(c.frames - 1, k + 1), S = c.S, f = c.f;
     const A = k * S, B = k2 * S;
     const L = (o) => f[A + o] + (f[B + o] - f[A + o]) * u;
-    out = out || { men: Array.from({ length: c.n }, () => ({})), ball: {} };
+    out = out || { men: Array.from({ length: c.men }, () => ({})), ball: {} };
     out.t = t;
     out.k = k;
     out.ball.x = L(1);
@@ -196,14 +203,14 @@
     const near = u < 0.5 ? A : B;
     out.ball.mode = f[near + 4];
     out.ball.holder = f[near + 5];
-    for (let i = 0; i < c.n; i++) {
+    for (let i = 0; i < c.men; i++) {
       const o = 6 + i * 5, m = out.men[i];
       m.x = L(o);
       m.y = L(o + 1);
       m.face = angLerp(f[A + o + 2], f[B + o + 2], u);
       m.act = f[near + o + 3];
       m.with = f[near + o + 4];
-      m.walked = c.walked[k * c.n + i] + (c.walked[k2 * c.n + i] - c.walked[k * c.n + i]) * u;
+      m.walked = c.walked[k * c.men + i] + (c.walked[k2 * c.men + i] - c.walked[k * c.men + i]) * u;
       const dt = Math.max(0.05, c.t[k2] - c.t[k]);
       m.speed = k2 > k ? Math.hypot(f[B + o] - f[A + o], f[B + o + 1] - f[A + o + 1]) / dt : 0;
       m.i = i;
@@ -312,8 +319,12 @@
   const PX = 24;
   const FIELD_W = 120, FIELD_H = 160 / 3;
   const MARGIN_X = 12, MARGIN_Y = 9;
-  function paintField(film) {
+  // The field as paint. The 3D view asks for the grass as it is under the
+  // sun (`natural`): less of the screen's saturated green, so lit and tone
+  // mapped it still reads as turf.
+  function paintField(film, opts = {}) {
     const ix = film.ix, v = ix.venue, home = ix.teams[0], u = film.uni[0];
+    const nat = !!opts.natural;
     const W = (FIELD_W + 2 * MARGIN_X) * PX, H = (FIELD_H + 2 * MARGIN_Y) * PX;
     const cv = document.createElement("canvas");
     cv.width = W;
@@ -323,7 +334,7 @@
     const turf = v.surface === "turf";
     const wet = v.rain, snow = v.snow;
     // Surround: a track at a high school that has one, else the apron.
-    g.fillStyle = turf ? "#1d4a2a" : "#22502b";
+    g.fillStyle = nat ? (turf ? "#3b5a3c" : "#44603a") : turf ? "#1d4a2a" : "#22502b";
     g.fillRect(0, 0, W, H);
     if (v.track) {
       g.fillStyle = "#7a3a2c";
@@ -339,14 +350,20 @@
         g.roundRect ? g.roundRect(X(-9 + o), Y(-8 + o), (FIELD_W + 18 - 2 * o) * PX, (FIELD_H + 16 - 2 * o) * PX, r - o * PX) : 0;
         g.stroke();
       }
-      g.fillStyle = turf ? "#1f5230" : "#2a5f31";
+      g.fillStyle = nat ? (turf ? "#3f603f" : "#4a663d") : turf ? "#1f5230" : "#2a5f31";
       g.fillRect(X(-5.5), Y(-4.5), (FIELD_W + 11) * PX, (FIELD_H + 9) * PX);
     }
     // The playing field: stripes every five yards.
     for (let i = 0; i < 24; i++) {
       const x0 = i * 5;
       const light = i % 2 === 0;
-      g.fillStyle = turf ? (light ? "#2b6e37" : "#276633") : light ? "#2f7a39" : "#2a6f34";
+      g.fillStyle = nat
+        ? turf
+          ? light ? "#4e7646" : "#476d41"
+          : light ? "#5a7d43" : "#51723d"
+        : turf
+          ? light ? "#2b6e37" : "#276633"
+          : light ? "#2f7a39" : "#2a6f34";
       g.fillRect(X(x0), Y(0), 5 * PX + 1, FIELD_H * PX);
     }
     if (!turf) {
@@ -547,15 +564,21 @@
         const s = Math.min(w / (FIELD_H + 8), h / 40);
         return { x: ball.x + dir * 8, y: FIELD_H / 2, scale: s, rot: dir > 0 ? -Math.PI / 2 : Math.PI / 2 };
       }
-      // All-22: the whole width of the field, all 22 men inside.
-      let lo = ball.x, hi = ball.x;
+      // All-22: all 22 men inside, from the widest split to the deepest
+      // safety, never tighter than a formation and its first steps.
+      let lo = ball.x, hi = ball.x, ylo = ball.y, yhi = ball.y;
       for (const m of st.men) {
         lo = Math.min(lo, m.x);
         hi = Math.max(hi, m.x);
+        ylo = Math.min(ylo, m.y);
+        yhi = Math.max(yhi, m.y);
       }
-      const span = Math.max(46, hi - lo + 14);
-      const s = Math.min(w / span, h / (FIELD_H + 10));
-      return { x: (lo + hi) / 2, y: FIELD_H / 2, scale: s, rot: 0 };
+      const span = Math.max(40, hi - lo + 14);
+      const across = Math.min(FIELD_H + 10, Math.max(32, yhi - ylo + 12));
+      const s = Math.min(w / span, h / across);
+      const half = h / s / 2;
+      const y = half >= FIELD_H / 2 + 5 ? FIELD_H / 2 : Math.max(half - 5, Math.min(FIELD_H + 5 - half, (ylo + yhi) / 2));
+      return { x: (lo + hi) / 2, y, scale: s, rot: 0 };
     }
     toScreen(x, y) {
       const c = this.cam, w = this.cv.width, h = this.cv.height;
@@ -699,7 +722,7 @@
     }
     trails(g, c, st, film, ys) {
       const elig = new Set([c.target, c.carrier, c.passer].filter((x) => x != null));
-      for (let i = 0; i < c.n; i++) {
+      for (let i = 0; i < c.men; i++) {
         const id = c.ids[i];
         const pl = film.players.get(id);
         if (!pl) continue;
@@ -945,9 +968,64 @@
     }
   }
 
+  // ---------------------------------------------------------------- drawings
+  // One drawing on the turf, in yards: a line, an arrow, a circle or a
+  // freehand stroke, about four pixels wide at any zoom, with a dark edge
+  // so it reads on grass and on paint.
+  const MARK_COLORS = ["#ffd60a", "#ff375f", "#ffffff", "#0a84ff"];
+  function drawMark(g, m, ys, alpha = 1) {
+    const pts = m.pts;
+    if (!pts || !pts.length) return;
+    g.save();
+    g.globalAlpha = alpha;
+    g.lineCap = "round";
+    g.lineJoin = "round";
+    const path = () => {
+      g.beginPath();
+      if (m.kind === 2) {
+        const [a, b] = [pts[0], pts[pts.length - 1]];
+        g.arc(a[0], a[1], Math.max(0.3, Math.hypot(b[0] - a[0], b[1] - a[1])), 0, Math.PI * 2);
+      } else if (m.kind === 3) {
+        g.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) {
+          const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+          g.quadraticCurveTo(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2);
+        }
+        const l = pts[pts.length - 1];
+        g.lineTo(l[0], l[1]);
+      } else {
+        g.moveTo(pts[0][0], pts[0][1]);
+        g.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
+      }
+    };
+    const w = Math.max(0.12, 4.2 * ys);
+    g.strokeStyle = "rgba(0,0,0,.45)";
+    g.lineWidth = w + 3 * ys;
+    path();
+    g.stroke();
+    g.strokeStyle = MARK_COLORS[m.color] || MARK_COLORS[0];
+    g.lineWidth = w;
+    path();
+    g.stroke();
+    if (m.kind === 1) {
+      // The arrowhead along the last stretch.
+      const a = pts[0], b = pts[pts.length - 1];
+      const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+      const L = Math.max(0.9, 16 * ys);
+      g.fillStyle = MARK_COLORS[m.color] || MARK_COLORS[0];
+      g.beginPath();
+      g.moveTo(b[0] + Math.cos(ang) * L * 0.35, b[1] + Math.sin(ang) * L * 0.35);
+      g.lineTo(b[0] + Math.cos(ang + 2.55) * L, b[1] + Math.sin(ang + 2.55) * L);
+      g.lineTo(b[0] + Math.cos(ang - 2.55) * L, b[1] + Math.sin(ang - 2.55) * L);
+      g.closePath();
+      g.fill();
+    }
+    g.restore();
+  }
+
   // ---------------------------------------------------------------- exports
   window.AFMViews = Object.assign(window.AFMViews || {}, {
-    SET, saveSettings, Film, decode, sample, at, angLerp, paintField, View2D, uniforms, ACT, ACT_WORDS,
+    SET, saveSettings, Film, decode, sample, at, angLerp, paintField, View2D, uniforms, ACT, ACT_WORDS, drawMark, MARK_COLORS,
     FIELD_W, FIELD_H, PX, MARGIN_X, MARGIN_Y, contrast, mixHex, lum, hex,
   });
 })();

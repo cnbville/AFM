@@ -20,6 +20,11 @@ pub use film::Film;
 
 /// The film being watched (one game at a time; freed when you leave).
 static FILM: Mutex<Option<Film>> = Mutex::new(None);
+/// The game you are playing live, as far as it has gone: built again when
+/// you have answered since (your answers so far are its key).
+static LIVE: Mutex<Option<(LiveKey, Film)>> = Mutex::new(None);
+
+type LiveKey = (u32, [usize; 2], usize, u32);
 
 fn game_index(args: &Value) -> Result<usize, String> {
     args.get("index").and_then(Value::as_u64).map(|v| v as usize).ok_or_else(|| "Missing index.".to_string())
@@ -38,6 +43,29 @@ fn with_film<T>(game: &Game, k: usize, f: impl FnOnce(&Film) -> Result<T, String
     f(slot.as_ref().unwrap())
 }
 
+/// The live game's film, played again only when the game has moved on.
+fn with_live<T>(
+    game: &Game,
+    f: impl FnOnce(&Film, &afm_engine::world::World) -> Result<T, String>,
+) -> Result<T, String> {
+    let w = game.world.as_ref().ok_or("No world is loaded.")?;
+    let l = w.live.as_ref().ok_or("No game is being played.")?;
+    let key: LiveKey = (l.date.0 as u32, l.teams, l.game.ctl.inputs.len(), l.game.ctl.frontier);
+    let mut slot = LIVE.lock().map_err(|_| "The film room is busy.".to_string())?;
+    if slot.as_ref().is_none_or(|x| x.0 != key) {
+        *slot = None;
+        *slot = Some((key, Film::open_live(w)?));
+    }
+    f(&slot.as_ref().unwrap().1, w)
+}
+
+fn plays_arg(args: &Value) -> Vec<u32> {
+    args.get("n")
+        .and_then(Value::as_array)
+        .map(|a| a.iter().filter_map(Value::as_u64).map(|v| v as u32).collect())
+        .unwrap_or_default()
+}
+
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     Some(match cmd {
         // The film's index: teams, venue, players, every play and its tags.
@@ -45,7 +73,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             let k = game_index(args)?;
             let w = game.world.as_ref().ok_or("No world is loaded.")?;
             let g = w.seat_games().get(k).ok_or("That game is not kept.")?;
-            with_film(game, k, |f| Ok(f.index(w, g, k)))
+            with_film(game, k, |f| Ok(f.index(w, Some(k), &g.marks)))
         })(),
         // One snap's frames, in the stadium's frame.
         "film_play" => (|| {
@@ -56,10 +84,22 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         // Several snaps at once (a cut-up loads ahead).
         "film_plays" => (|| {
             let k = game_index(args)?;
-            let ns: Vec<u32> =
-                args.get("n").and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_u64).map(|v| v as u32).collect()).unwrap_or_default();
+            let ns = plays_arg(args);
             with_film(game, k, |f| Ok(Value::Array(ns.iter().filter_map(|&n| f.play(n).ok()).collect())))
         })(),
+        // The game you are playing live: the index of every snap so far, and
+        // their film (the 2D view of the snap just played, and any before).
+        "film_live" => with_live(game, |f, w| Ok(f.index(w, None, &[]))),
+        "film_live_plays" => {
+            let ns = plays_arg(args);
+            with_live(game, |f, _| Ok(Value::Array(ns.iter().filter_map(|&n| f.play(n).ok()).collect())))
+        }
+        // Your position coaches' grade sheet for the whole game.
+        "film_grades" => (|| {
+            let k = game_index(args)?;
+            with_film(game, k, |f| Ok(f.grade_sheet()))
+        })(),
+        "film_live_grades" => with_live(game, |f, _| Ok(f.grade_sheet())),
         // Your drawings on the film, saved with the game.
         "film_marks" => (|| {
             let k = game_index(args)?;
@@ -95,6 +135,9 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         // Leaving the film room frees the film.
         "film_close" => {
             if let Ok(mut s) = FILM.lock() {
+                *s = None;
+            }
+            if let Ok(mut s) = LIVE.lock() {
                 *s = None;
             }
             Ok(json!({ "closed": true }))

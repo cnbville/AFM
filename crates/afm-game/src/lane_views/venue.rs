@@ -4,10 +4,9 @@
 //! Its light comes from the kickoff hour and the date, its weather from the
 //! day the game was played.
 
-use afm_engine::calendar::Level as CalLevel;
+use afm_engine::calendar::{Date, Level as CalLevel};
 use afm_engine::game::ReplaySetup;
 use afm_engine::world::World;
-use afm_engine::world::seat::SeatGame;
 use serde_json::{Value, json};
 
 const NFL_TEAMS_CSV: &str = include_str!("../../../../data/real-world/nfl_teams.csv");
@@ -52,9 +51,10 @@ fn csv_row(team: &str) -> Option<Vec<String>> {
     let head: Vec<String> = afm_engine::world::data::split_csv_line(lines.next()?);
     let col = |k: &str| head.iter().position(|h| h == k);
     let (t, st, roof, surf) = (col("team")?, col("stadium")?, col("roof")?, col("surface")?);
-    lines.map(afm_engine::world::data::split_csv_line).find(|r| r.get(t).is_some_and(|n| n == team)).map(|r| {
-        vec![r[st].clone(), r[roof].clone(), r[surf].clone()]
-    })
+    lines
+        .map(afm_engine::world::data::split_csv_line)
+        .find(|r| r.get(t).is_some_and(|n| n == team))
+        .map(|r| vec![r[st].clone(), r[roof].clone(), r[surf].clone()])
 }
 
 fn mix(mut x: u64) -> u64 {
@@ -77,10 +77,9 @@ fn sunset(month: u32) -> f64 {
 }
 
 /// The venue as the views draw it.
-pub fn venue(w: &World, g: &SeatGame, setup: &ReplaySetup) -> Value {
-    let home = g.teams[0];
+pub fn venue(w: &World, level: CalLevel, date: Date, home: usize, setup: &ReplaySetup) -> Value {
     let cond = setup.cond;
-    let (name, place, seats, shape, roof, surface, track, press_box, scoreboard) = match g.level {
+    let (name, place, seats, shape, roof, surface, track, press_box, scoreboard) = match level {
         CalLevel::Nfl => {
             let team = w.nfl_team_name(home);
             let row = csv_row(&team);
@@ -111,8 +110,9 @@ pub fn venue(w: &World, g: &SeatGame, setup: &ReplaySetup) -> Value {
             let k = home as u64 ^ 0x4853;
             // Home bleachers by enrollment: a few hundred seats at a small
             // school, ten thousand and more at the biggest Texas schools.
-            let n = (s.enrollment as f64 * (1.1 + 1.6 * s.resources.clamp(0.0, 1.0) + 1.4 * s.prestige.clamp(0.0, 1.0)))
-                .clamp(400.0, 14_000.0);
+            let n = (s.enrollment as f64
+                * (1.1 + 1.6 * s.resources.clamp(0.0, 1.0) + 1.4 * s.prestige.clamp(0.0, 1.0)))
+            .clamp(400.0, 14_000.0);
             let turf = unit(k ^ 1) < 0.15 + 0.6 * s.resources.clamp(0.0, 1.0);
             let state = afm_engine::world::geo::STATE_CENTERS.get(s.state).map_or("", |c| c.0);
             (
@@ -156,7 +156,7 @@ pub fn venue(w: &World, g: &SeatGame, setup: &ReplaySetup) -> Value {
             )
         }
     };
-    let (_, month, _) = g.date.parts();
+    let (_, month, _) = date.parts();
     let hour = if setup.kickoff > 0.0 { setup.kickoff as f64 } else { 13.0 };
     let set = sunset(month);
     let light = if setup.indoor {
@@ -172,7 +172,7 @@ pub fn venue(w: &World, g: &SeatGame, setup: &ReplaySetup) -> Value {
     let fill = if setup.neutral { 0.75 } else { (0.35 + 0.7 * cond.crowd).clamp(0.2, 1.0) };
     let officials = match setup.rules.level {
         afm_engine::player::Level::NFL => 7,
-        afm_engine::player::Level::FBS if g.date.year() >= 2023 => 8,
+        afm_engine::player::Level::FBS if date.year() >= 2023 => 8,
         afm_engine::player::Level::HS => 5,
         _ => 7,
     };

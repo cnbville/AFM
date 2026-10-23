@@ -240,7 +240,9 @@ pub(crate) fn frame(sim: &Sim, prev: &[Frame]) -> Frame {
         {
             face = (to - a.pos).norm();
             Act::Throw
-        } else if history(prev, i, 2).any(|x| x == Act::Throw) && history(prev, i, 3).filter(|x| *x == Act::Throw).count() < 3 {
+        } else if history(prev, i, 2).any(|x| x == Act::Throw)
+            && history(prev, i, 3).filter(|x| *x == Act::Throw).count() < 3
+        {
             Act::Throw
         } else if let Ball::Air { to, arrive, target, .. } = sim.ball
             && arrive - t <= 0.35

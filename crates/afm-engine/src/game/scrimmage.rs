@@ -1672,11 +1672,16 @@ fn route_job(a: &Agent, route: Route, los: f64, by: f64, hurry: bool) -> Job {
             r => r,
         };
     }
-    let (pts, settle) = match route {
+    let (mut pts, settle) = match route {
         Route::CheckRelease => (vec![a.pos + v2(1.5, 3.5 * out), a.pos + v2(4.0, 5.0 * out)], true),
         Route::Screen => (vec![a.pos + v2(0.5, 4.0 * out), a.pos + v2(0.5, 7.0 * out)], true),
         r => r.points(a.pos, los, out),
     };
+    // Near the goal line a route ends inside the back of the end zone: a
+    // go route becomes a fade to the back line, never a run through it.
+    for p in &mut pts {
+        p.x = p.x.min(END_LINE - 1.0);
+    }
     let delay = match route {
         Route::CheckRelease => 1.0,
         Route::Screen => 0.9,
@@ -2450,6 +2455,15 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
         let me = sim.agents[i].pos;
         // Running out of room: he turns up the sideline.
         let dir = if me.y < 4.0 && dir.y < 0.0 || me.y > WIDTH - 4.0 && dir.y > 0.0 { v2(1.0, 0.0) } else { dir };
+        // At the back of the end zone he can't go on (a man who steps out
+        // can't catch it): he slides along the end line toward the middle,
+        // under control.
+        if me.x > END_LINE - 2.5 && dir.x > 0.0 {
+            let across = if me.y < WIDTH / 2.0 { 1.0 } else { -1.0 };
+            let spot = v2(END_LINE - 1.5, clamp(me.y + across * 3.0, 2.0, WIDTH - 2.0));
+            sim.go_to(i, spot, 0.5);
+            return;
+        }
         let vm = route_pace(&sim.agents[i]);
         sim.steer(i, dir.scale(vm));
     }

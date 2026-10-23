@@ -36,8 +36,10 @@ fn a_kept_game_plays_back_as_film() {
         tries += 1;
         assert!(tries < 40, "no game was kept");
     }
-    if let Ok(p) = std::env::var("AFM_FILM_SAVE") {
+    let keep = std::env::var("AFM_FILM_SAVE").ok();
+    if let Some(p) = &keep {
         ok(&mut g, "save", json!({ "name": p }));
+        println!("saved under {}", dir.display());
     }
     let k = ok(&mut g, "games", json!({}))["games"][0]["index"].as_u64().unwrap();
     let t = std::time::Instant::now();
@@ -65,7 +67,7 @@ fn a_kept_game_plays_back_as_film() {
         let ids = clip["ids"].as_array().unwrap().len();
         assert_eq!(stride, 6 + ids * 5);
         let f = clip["f"].as_array().unwrap();
-        assert!(!f.is_empty() && f.len() % stride == 0, "play {n}: {} numbers", f.len());
+        assert!(!f.is_empty() && f.len().is_multiple_of(stride), "play {n}: {} numbers", f.len());
         let frames = f.len() / stride;
         assert!(frames >= 20, "play {n} ({}) has {frames} frames", p["kind"]);
         *kinds.entry(p["kind"].as_str().unwrap().to_string()).or_insert(0) += 1;
@@ -74,6 +76,30 @@ fn a_kept_game_plays_back_as_film() {
             for k in 0..ids {
                 let x = fr[6 + k * 5].as_f64().unwrap();
                 let y = fr[7 + k * 5].as_f64().unwrap();
+                if !((-15.0..=135.0).contains(&x) && (-6.0..=60.0).contains(&y)) {
+                    // Where this man went over the snap, and the ball.
+                    for f2 in f.chunks(stride).step_by(3) {
+                        eprintln!(
+                            "t {:.1} man ({:.1}, {:.1}) act {} ball ({:.1}, {:.1}, {:.1}) mode {} holder {}",
+                            f2[0].as_f64().unwrap(),
+                            f2[6 + k * 5].as_f64().unwrap(),
+                            f2[7 + k * 5].as_f64().unwrap(),
+                            f2[9 + k * 5],
+                            f2[1].as_f64().unwrap(),
+                            f2[2].as_f64().unwrap(),
+                            f2[3].as_f64().unwrap(),
+                            f2[4],
+                            f2[5]
+                        );
+                    }
+                    eprintln!(
+                        "man {} of {} ({}), clip {}",
+                        k,
+                        ids,
+                        clip["ids"][k],
+                        json!({ "los": clip["los"], "dir": clip["dir"], "team": clip["team"], "target": clip["target"], "carrier": clip["carrier"], "defender": clip["defender"] })
+                    );
+                }
                 assert!(
                     (-15.0..=135.0).contains(&x) && (-6.0..=60.0).contains(&y),
                     "play {n} ({}, {}) at {} s: a man at ({x}, {y})",
@@ -87,8 +113,14 @@ fn a_kept_game_plays_back_as_film() {
     }
     println!("kinds {kinds:?}, {graded} grades");
     assert!(graded > 500, "{graded} grades");
-    ok(&mut g, "film_marks", json!({ "index": k, "marks": [{ "play": plays[3]["n"], "t": 1.5, "kind": 1, "color": 0, "pts": [[40.0, 20.0], [50.0, 25.0]] }] }));
+    ok(
+        &mut g,
+        "film_marks",
+        json!({ "index": k, "marks": [{ "play": plays[3]["n"], "t": 1.5, "kind": 1, "color": 0, "pts": [[40.0, 20.0], [50.0, 25.0]] }] }),
+    );
     assert_eq!(ok(&mut g, "film", json!({ "index": k }))["marks"].as_array().unwrap().len(), 1);
     ok(&mut g, "film_close", json!({}));
-    let _ = std::fs::remove_dir_all(dir);
+    if keep.is_none() {
+        let _ = std::fs::remove_dir_all(dir);
+    }
 }

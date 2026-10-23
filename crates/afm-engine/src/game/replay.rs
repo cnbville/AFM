@@ -6,8 +6,8 @@
 //! replay is the same game, snap for snap.
 
 use super::flow::{GameResult, GameSetup, play_game, play_game_ctl};
-use super::live::{Control, StopMode};
 use super::garbage::Context;
+use super::live::{Control, StopMode};
 use super::roster::GameTeam;
 use super::rules::Rules;
 use super::sim::Conditions;

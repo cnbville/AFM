@@ -171,7 +171,8 @@ struct HsPlayed {
     lines: [Vec<(usize, [i32; HS_STAT_COUNT], bool)>; 2],
     /// The whole game, kept only for your school's game page (with its
     /// setup for watching it back) and your coming opponents' film.
-    full: Option<(crate::game::stats::GameStats, [crate::game::calling::Film; 2], Option<Box<crate::game::ReplaySetup>>)>,
+    full:
+        Option<(crate::game::stats::GameStats, [crate::game::calling::Film; 2], Option<Box<crate::game::ReplaySetup>>)>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]

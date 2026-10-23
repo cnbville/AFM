@@ -2,6 +2,7 @@
 //! poses, actions and ball height are output only, and a kept game plays
 //! again exactly from its seed.
 
+use crate::game::live::{Ask, Input, LiveGame, Params, Settings, StopMode};
 use crate::game::pose::{Act, BallMode, NONE};
 use crate::game::synthetic::synthetic_league;
 use crate::game::{GameResult, GameSetup, PlayType, ReplaySetup, play_game};
@@ -15,7 +16,11 @@ fn j<T: serde::Serialize>(v: &T) -> String {
 /// they sit in hash maps), injuries, trust and decisions.
 fn same_game(a: &GameResult, b: &GameResult) -> bool {
     let lines = |r: &GameResult| {
-        r.stats.players.iter().map(|m| m.iter().map(|(k, v)| (*k, j(v))).collect::<std::collections::BTreeMap<_, _>>()).collect::<Vec<_>>()
+        r.stats
+            .players
+            .iter()
+            .map(|m| m.iter().map(|(k, v)| (*k, j(v))).collect::<std::collections::BTreeMap<_, _>>())
+            .collect::<Vec<_>>()
     };
     j(&a.stats.plays) == j(&b.stats.plays)
         && a.stats.score == b.stats.score
@@ -67,7 +72,8 @@ fn a_kept_game_replays_exactly() {
 }
 
 /// The frames say what bodies do: every recorded snap has a pose for each
-/// player, kick returns are kept too, a pass shows the throw and the catch, blocks name their man, and a deep ball rises well above the
+/// player, kick returns are kept too, a pass shows the throw and the
+/// catch, blocks name their man, and a deep ball rises well above the
 /// players.
 #[test]
 fn frames_carry_poses_actions_and_ball_height() {
@@ -117,18 +123,40 @@ fn frames_carry_poses_actions_and_ball_height() {
     assert!(deep_peak > 4.0, "a deep ball peaks at {deep_peak:.1} yards");
 }
 
-
+/// A game you called live on game day keeps your answers with its setup,
+/// so its film is the game you played, every call of yours included.
 #[test]
-fn dbg_plays() {
-    let teams = synthetic_league(Level::NFL, 4, 31);
-    let mut s = GameSetup::new(&teams[0], &teams[1], Level::NFL, 77);
-    s.record = true;
-    let r = play_game(&s);
-    let have: std::collections::HashSet<u32> = r.frames.iter().map(|f| f.0).collect();
-    for p in r.stats.plays.iter().take(400) {
-        let f = r.frames.iter().find(|f| f.0 == p.n);
-        let h = f.map(|f| { let fr = &f.1[0]; let hold = fr.holder; (fr.players.len(), hold, fr.players.get(hold as usize).map(|x| x.0), fr.ball.x) });
-        eprintln!("n{} q{} {:?} off{} yl{:.0} d{} call[{}] def[{}] pers[{}] route[{}] frames:{} {:?} kd{:.0} why[{}]", p.n, p.quarter, p.kind, p.offense, p.yardline_100, p.down, p.call, p.defense_call, p.personnel, p.route, have.contains(&p.n), h, p.kick_distance, p.why);
+fn a_game_played_live_replays_with_your_calls() {
+    let teams = synthetic_league(Level::NFL, 4, 41);
+    let setup = GameSetup::new(&teams[0], &teams[1], Level::NFL, 5_150);
+    let settings = Settings { stop: StopMode::EverySnap, ..Settings::default() };
+    let mut live = LiveGame::new(teams[0].clone(), teams[1].clone(), Params::of(&setup), 1, settings);
+    let mut step = live.run();
+    let mut n = 0;
+    while let Some(p) = step.pending.clone() {
+        n += 1;
+        assert!(n < 2000, "the game never ends");
+        // Your own calls on the first half, the staff's after.
+        let input = match p.ask {
+            Ask::Snap if p.view.quarter <= 2 && p.staff_fourth.is_none() && !p.off_options.is_empty() => {
+                Input::Call { fourth: None, offense: Some(p.off_options[0]), defense: None }
+            }
+            Ask::Defense if p.view.quarter <= 2 && !p.def_options.is_empty() => {
+                Input::Call { fourth: None, offense: None, defense: Some(p.def_options[0]) }
+            }
+            _ => Input::Staff,
+        };
+        step = live.answer(input);
     }
-    eprintln!("home ids {:?}", teams[0].players.iter().take(5).map(|p| p.id).collect::<Vec<_>>());
+    let played = live.finish();
+    assert!(played.stats.plays.iter().filter(|p| p.yours != 0).count() > 20, "your calls are on the record");
+    let kept = played.replay.as_ref().expect("a finished live game keeps its setup");
+    let back = ReplaySetup::unpack(&kept.pack()).expect("unpacks");
+    assert!(back.live.is_some(), "the answers are kept");
+    assert!(same_game(&played, &back.play(false)), "the replay is a different game");
+    assert!(same_game(&played, &back.play(true)), "the film is a different game");
+    // Without the answers it is the staff's game, not the one you played.
+    let mut staff = back.clone();
+    staff.live = None;
+    assert!(!same_game(&played, &staff.play(false)));
 }

@@ -595,6 +595,7 @@
   function clearTimer() {
     if (LV.timer) clearInterval(LV.timer);
     LV.timer = null;
+    LV.hold = (LV.hold || 0) + 1;
   }
   const live = {
     // After the screen is drawn: the realism clock, watching, focus.
@@ -606,7 +607,15 @@
       if (LV.watch) {
         const last = st.plays[st.plays.length - 1];
         const wait = LV.watch.pace === "every" ? 900 : last && last.key ? 1700 : 160;
-        LV.timer = setTimeout(() => LV.watch && send({ kind: "staff", stop: "every" }), wait);
+        const step = () => LV.watch && S.route.screen === "live" && send({ kind: "staff", stop: "every" });
+        // The 2D view (lane 13) shows the snap first, then the next one goes.
+        const hold = window.AFMViews && window.AFMViews.liveHold ? window.AFMViews.liveHold(LV.watch.pace, !!(last && last.key)) : null;
+        if (hold) {
+          const tok = (LV.hold = (LV.hold || 0) + 1);
+          hold.then(() => tok === LV.hold && (LV.timer = setTimeout(step, 350)));
+          return;
+        }
+        LV.timer = setTimeout(step, wait);
         return;
       }
       if (st.settings.clock === "realism" && !["halftime", "toss"].includes(st.pending.ask)) {
@@ -844,7 +853,7 @@
         lastQ = p.q;
         const you = yoursOn(p, g.mine);
         const ofs = p.officiating ? `<div class="gp-ref">${esc(p.officiating.note)}${p.officiating.reviewed ? (p.officiating.overturned ? " · overturned on review" : " · stood after review") : ""}</div>` : "";
-        return `${sep}<tr id="gp-p${p.n}" class="${p.td ? "td" : ""} ${p.turnover ? "to" : ""}"><td class="l q">${esc(p.q)} ${esc(p.clock)}</td><td class="l q"><span class="gp-off" style="--c:${colorsOf(p.team === 0 ? g.home : g.away)[0]}"></span>${esc(initials(p.off))}</td><td class="l q">${esc(p.dd)}</td>
+        return `${sep}<tr id="gp-p${p.n}" class="${p.td ? "td" : ""} ${p.turnover ? "to" : ""}"><td class="l q"><a class="vw-pbp" data-vwgo="${p.n}" title="Watch this snap" aria-label="Watch this snap">▶</a>${esc(p.q)} ${esc(p.clock)}</td><td class="l q"><span class="gp-off" style="--c:${colorsOf(p.team === 0 ? g.home : g.away)[0]}"></span>${esc(initials(p.off))}</td><td class="l q">${esc(p.dd)}</td>
           <td class="l gp-text">${linkNames(p.text, p.who)}${you ? ' <span class="lv-yours">Your call</span>' : ""}${ofs}</td>
           <td class="l gp-why">${p.call ? `<b>${esc(p.call)}</b>` : ""}${p.defense ? `<span>vs ${esc(p.defense)}</span>` : ""}${p.look ? `<span>${esc(p.look)}</span>` : ""}${p.why ? `<em>${esc(p.why)}</em>` : ""}${you && p.staff_call ? `<span>Your staff's call: ${esc(p.staff_call)}</span>` : ""}</td>
           <td class="${p.epa > 0 ? "up" : p.epa < 0 ? "down" : ""}">${p.kind === "Kickoff" || p.kind === "ExtraPoint" ? "" : sign(p.epa)}</td><td>${pct(p.wp_home + (p.swing || 0))}</td></tr>`;
@@ -862,7 +871,7 @@
             <span class="gp-off big" style="--c:${colorsOf(p.team === 0 ? g.home : g.away)[0]}"></span>
             <div><div class="gp-kp-text">${linkNames(p.text, p.who)}</div><div class="gp-kp-why">${p.dd ? esc(p.dd) + " · " : ""}${esc(p.call || p.kind)}${p.defense ? " vs " + esc(p.defense) : ""}${p.why ? " · " + esc(p.why) : ""}</div></div>
             <div class="gp-kp-n"><b class="${swing > 0 ? "up" : "down"}">${sign(100 * swing, 0)}%</b><small>${esc(g.mine != null ? "your" : g.home.name)} win chance</small></div>
-            <a class="link gp-kp-go" data-act="gp-play" data-n="${p.n}" title="This snap in the play by play">Snap ›</a></div>`;
+            <span class="gp-kp-links"><a class="link gp-kp-go" data-vwgo="${p.n}" title="Watch this snap">Watch ›</a><a class="link gp-kp-go" data-act="gp-play" data-n="${p.n}" title="This snap in the play by play">Snap ›</a></span></div>`;
         })
         .join("");
       const calls = g.calls ? `<div class="panel warm"><h2>Your calls and your staff's <small>EPA for your team, success by the 40/60/100 rule</small></h2><div class="tbl"><table><thead><tr><th class="l">Called by</th><th>Snaps</th><th>EPA a play</th><th>Success</th></tr></thead><tbody>${[["You", g.calls.yours], ["Your staff", g.calls.staff]].map(([t, x]) => `<tr><td class="l">${t}</td><td>${x.snaps}</td><td>${sign(x.epa)}</td><td>${x.success.toFixed(0)}%</td></tr>`).join("")}</tbody></table></div></div>` : "";

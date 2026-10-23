@@ -439,8 +439,15 @@ The coaches' call table (`call_values.csv`) was not rebuilt: rebuilt on this eng
 - Defenders' hands half against the level (all of it doubled high school interceptions past the real rate).
 - High school match checks use a team quality sd of 6.
 
-## Not built yet
-- The 2D replay view (section 10).
+## Frames for the views (final build, lane 13)
+
+The 2D and 3D game views (later extras topics 2 and 3) watch a game by playing it again from its seed with frames on. How the film room works on screen is in `docs/game.md`, "The film room".
+
+- **Frames are output only** (`pose.rs`). Each tracked tick (0.1 s) of a recorded play keeps every man's spot, his facing, his action (stance, run, block and the man he blocks, engaged, rush, cover, pocket, throw, catch, carry, tackle and whom, wrapped, fall, down, get up, celebrate, a fake or the mesh), the ball's spot, height (a pass's arc from release to the catch point, a kick's hang) and mode, and who holds it. They are read from the play as the engine already has it and never draw a number or change a player: `tests/views.rs` plays NFL, FBS and high school games with and without frames and gets the same game snap for snap.
+- **Frames only for a game a screen shows.** Nothing records frames during the world's games. A game of yours that you keep (the last 40) keeps its setup (`replay.rs`, `ReplaySetup`: both teams as dressed, the rules, the conditions, the seed, the kickoff hour and roof for the views), packed with MessagePack and zstd to about 50 KB. Watching plays it again with frames on.
+- **A game you called live replays with your calls.** The setup keeps the live game's answers (`Control`), so the replay makes your calls at the same snaps; the test plays a live game with calls in the first half and gets it back exactly, film and all, and a different game without the answers.
+- **An engine change makes old setups play a different game.** The film room checks the replay against the kept box score (score, plays, each play's kind and yards) and says the game can't be played back when they differ.
+- **Receivers near the goal line** (found by the film checks: a go route from the 10 ran through the back of the end zone, and a man was tracked 15 yards past the end line). A route's points now stop a yard inside the end line (a go route becomes a fade to the back line), and a receiver still running at the end line slides along it toward the middle of the field. This changes results slightly in the red zone.
 
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).

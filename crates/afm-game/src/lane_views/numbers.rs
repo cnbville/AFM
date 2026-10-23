@@ -87,7 +87,8 @@ pub fn assign(players: &[(u32, Position)], nfl: bool, year: i32) -> Vec<(u32, u8
                 options.push(n);
             }
         }
-        let n = options.iter().copied().find(|&n| !taken[n as usize]).or_else(|| (1..100u8).find(|&n| !taken[n as usize]));
+        let n =
+            options.iter().copied().find(|&n| !taken[n as usize]).or_else(|| (1..100u8).find(|&n| !taken[n as usize]));
         let n = n.unwrap_or(99);
         taken[n as usize] = true;
         out.push((id, n));
