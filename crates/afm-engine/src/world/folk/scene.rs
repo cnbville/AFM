@@ -271,6 +271,12 @@ fn cal_text(s: &Scene) -> String {
     }
 }
 
+/// The scene behind a line on your calendar (its day and text), so the
+/// screens can tell a press conference from a report or a one-on-one.
+pub fn kind_of_line(w: &World, d: Date, text: &str) -> Option<Kind> {
+    w.folk.scenes.iter().find(|s| s.date == d && cal_text(s) == text).map(|s| s.kind)
+}
+
 /// Clears the calendar's "waiting on you" mark for a scene once it is held
 /// or handed.
 fn clear_mark(w: &mut World, s: &Scene) {

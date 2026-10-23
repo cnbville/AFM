@@ -866,6 +866,36 @@ pub(crate) fn my_slot_test(w: &World) -> impl Fn(&afm_engine::calendar::Event) -
     move |e| e.kind == afm_engine::calendar::Kind::Slot && (e.level == CalLevel::HighSchool || yours(e))
 }
 
+/// What kind of line a calendar entry is, for its colour on screen (Cain,
+/// 2026-10-23: every kind looked the same): a talk with people, the media,
+/// a report to read, recruiting, a trip, your team's own business, a date on
+/// the league's year, a game, or the world's big news.
+pub(crate) fn tone(w: &World, d: Date, e: &afm_engine::calendar::Event) -> &'static str {
+    use afm_engine::calendar::Kind as K;
+    use afm_engine::world::folk::scene::{self, Kind as S};
+    let rule: &str = &e.rule;
+    match e.kind {
+        K::Game => "game",
+        K::Date | K::Window | K::Deadline => "date",
+        K::Offer | K::Visit | K::Commitment | K::Signing => "recruit",
+        K::Practice | K::Rhythm => "team",
+        K::Slot if rule.starts_with("media") || rule.contains("media policy") => "media",
+        K::Slot => match scene::kind_of_line(w, d, &e.text) {
+            Some(S::PressIntro | S::Press | S::Media | S::HireReaction) => "media",
+            Some(
+                S::StaffReport | S::Academic | S::Trainer | S::Plan | S::FlightRisks | S::SecondOpinion | S::Proposal,
+            ) => "report",
+            Some(S::Recruiting | S::ReachOut) => "recruit",
+            Some(S::Tour | S::Feeder | S::Trip) => "trip",
+            Some(_) => "talk",
+            None if rule == "people: meeting" => "talk",
+            None => "team",
+        },
+        _ if e.loud >= Loudness::Big => "world",
+        _ => "news",
+    }
+}
+
 /// Turns the linked names of lines into the screens' parts (L2): plain text
 /// `{t}`, or a link `{t, go, kind?, id?, index?}` that `app.js` opens. A
 /// person is linked while he is in the world; a game opens its game page
@@ -1159,15 +1189,15 @@ pub(crate) fn fixed_dates(w: &World, years: &[i32]) -> Vec<(Date, String)> {
 
 pub fn calendar(w: &World) -> Value {
     let seat = w.seat;
-    type Line<'a> = (Date, String, &'a str, bool, Vec<Ref>, Option<usize>, Option<usize>);
+    type Line<'a> = (Date, String, &'a str, bool, Vec<Ref>, Option<usize>, Option<usize>, &'static str);
     let mut items: Vec<Line> = fixed_dates(w, &[w.year, w.year + 1])
         .into_iter()
-        .map(|(d, t)| (d, t, "date", false, Vec::new(), None, None))
+        .map(|(d, t)| (d, t, "date", false, Vec::new(), None, None, "date"))
         .collect();
     // Your games.
     if let Some(t) = mine(w) {
         for g in schedule_rows(w, t) {
-            items.push((g.0, g.1, "game", true, g.2, None, None));
+            items.push((g.0, g.1, "game", true, g.2, None, None, "game"));
         }
     }
     // Moments already set for days ahead, and your own meetings.
@@ -1182,6 +1212,7 @@ pub fn calendar(w: &World) -> Value {
                 e.refs.clone(),
                 e.program,
                 e.nfl_team,
+                tone(w, *d, e),
             ));
         }
     }
@@ -1195,9 +1226,9 @@ pub fn calendar(w: &World) -> Value {
     let link = Linker::new(w, items.iter().flat_map(|x| x.4.iter()));
     let items: Vec<Value> = items
         .into_iter()
-        .map(|(d, text, loud, mine, refs, prog, club)| {
+        .map(|(d, text, loud, mine, refs, prog, club, tone)| {
             let parts = link.parts(w, &text, &refs, prog, club);
-            json!({ "date": date_text(d), "in": w.today.days_to(d), "text": text, "parts": parts, "loud": loud, "mine": mine })
+            json!({ "date": date_text(d), "in": w.today.days_to(d), "text": text, "parts": parts, "loud": loud, "mine": mine, "tone": tone })
         })
         .collect();
     json!({ "items": items })

@@ -441,9 +441,23 @@ html.reading .frame { filter: blur(10px) saturate(.8); transform: scale(.985); t
 .cal-game .st-mark { --s: 14px; font-size: 6px; flex: none; }
 .cal-wrap .muted.small { margin-top: 10px; }
 .cal-game.rL { background: color-mix(in oklab, var(--accent) 45%, #333); }
-.cal-e { font-size: 11px; line-height: 1.3; color: var(--fg2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cal-e.mine { color: var(--fg); font-weight: 700; }
-.cal-e.loud-huge { color: var(--gold); }
+/* Each kind of line has its colour: a bar on the left, and a tinted fill
+   when it is yours (Cain, 2026-10-23). */
+.t-talk { --tc: var(--tone-talk); } .t-media { --tc: var(--tone-media); } .t-report { --tc: var(--tone-report); }
+.t-recruit { --tc: var(--tone-recruit); } .t-trip { --tc: var(--tone-trip); } .t-team { --tc: var(--tone-team); }
+.t-game { --tc: color-mix(in oklab, var(--accent) 70%, #fff); } .t-date { --tc: var(--tone-date); } .t-world { --tc: var(--tone-world); }
+.t-news { --tc: var(--tone-news); }
+.cal-e { font-size: 11px; line-height: 1.3; font-weight: 500; color: var(--fg2); padding: 2px 6px; border-radius: 5px; box-shadow: inset 3px 0 0 var(--tc, var(--tone-news)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-e.mine { color: var(--fg); font-weight: 600; background: color-mix(in oklab, var(--tc) 22%, transparent); }
+.cal-e.t-world:not(.mine) { color: color-mix(in oklab, var(--tone-world) 80%, var(--fg)); }
+.cal-i { box-shadow: inset 3px 0 0 var(--tc, var(--hair)); border-radius: 4px 12px 12px 4px; }
+.cal-i .cal-k { display: block; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--tc); padding-top: 2px; }
+.cal-i .cal-t { color: var(--fg2); font-weight: 500; }
+.cal-i.mine .cal-t { color: var(--fg); font-weight: 600; }
+.cal-i .when small { color: var(--fg3); }
+.cal-key { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; font-size: 11.5px; color: var(--fg2); }
+.cal-key span { display: inline-flex; align-items: center; gap: 6px; }
+.cal-key i { width: 10px; height: 10px; border-radius: 3px; background: var(--tc); }
 .cal-more { font-size: 10.5px; color: var(--fg3); }
 
 /* ---------- brackets ---------- */

@@ -47,7 +47,8 @@ b.so-rank { color: var(--fg); font-size: 18px; }
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06), 0 18px 40px -24px rgba(0, 0, 0, .6); }
 .so-room .st-label { color: rgba(244, 241, 234, .66); }
 .so-room small, .so-room .muted { color: rgba(244, 241, 234, .55); }
-.so-room .link { color: #fff; }
+.so-room .link { color: #a9d2ff; text-decoration-color: rgba(169, 210, 255, .45); }
+.so-room .link:hover { color: #d4e8ff; }
 .so-shelf { display: grid; gap: 6px; padding-top: 6px; }
 .so-shelf-head { display: flex; align-items: baseline; gap: 8px; }
 .so-shelf-head small { font-variant-numeric: tabular-nums; }

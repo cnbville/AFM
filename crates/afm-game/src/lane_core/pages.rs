@@ -1614,12 +1614,12 @@ pub fn calendar_month(w: &World, args: &Value) -> Value {
             let fixed: Vec<Value> = dates
                 .iter()
                 .filter(|x| x.0 == d)
-                .map(|x| json!({ "text": x.1, "kind": "Date", "mine": false, "loud": "Medium" }))
+                .map(|x| json!({ "text": x.1, "kind": "Date", "mine": false, "loud": "Medium", "tone": "date" }))
                 .collect();
             days.push(json!({
                 "iso": iso(d), "day": d.day(), "in_month": d >= first && d < next, "today": d == w.today, "past": d < w.today,
                 "game": games.get(&d.0),
-                "items": fixed.iter().cloned().chain(evs.iter().take(4).map(|e| json!({ "text": tidy(&lk.event(e)), "kind": kicker(e), "mine": yours(e) || my_slot(e), "loud": e.loud.name() }))).collect::<Vec<_>>(),
+                "items": fixed.iter().cloned().chain(evs.iter().take(4).map(|e| json!({ "text": tidy(&lk.event(e)), "kind": kicker(e), "mine": yours(e) || my_slot(e), "loud": e.loud.name(), "tone": views::tone(w, d, e) }))).collect::<Vec<_>>(),
                 "more": evs.len().saturating_sub(4),
             }));
             d = d.add(1);
@@ -1636,8 +1636,8 @@ pub fn calendar_month(w: &World, args: &Value) -> Value {
         let lk = Linker::new(w, &texts, matches!(me, Some(TeamRef::HighSchool(_))));
         json!({
             "iso": iso(p), "pretty": p.pretty(), "in": w.today.days_to(p), "game": games.get(&p.0),
-            "items": dates.iter().filter(|x| x.0 == p).map(|x| json!({ "text": x.1, "kind": "Date", "mine": false, "loud": "Medium" }))
-                .chain(evs.iter().take(60).map(|e| json!({ "text": tidy(&lk.event(e)), "kind": kicker(e), "mine": yours(e) || my_slot(e), "loud": e.loud.name() }))).collect::<Vec<_>>(),
+            "items": dates.iter().filter(|x| x.0 == p).map(|x| json!({ "text": x.1, "kind": "Date", "mine": false, "loud": "Medium", "tone": "date" }))
+                .chain(evs.iter().take(60).map(|e| json!({ "text": tidy(&lk.event(e)), "kind": kicker(e), "mine": yours(e) || my_slot(e), "loud": e.loud.name(), "tone": views::tone(w, p, e) }))).collect::<Vec<_>>(),
             "kept": p >= w.today.add(-400),
         })
     });

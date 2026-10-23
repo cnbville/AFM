@@ -33,8 +33,29 @@
   --warm-glass: rgba(28, 22, 18, 0.82);
   --warm-hair: rgba(255, 214, 170, 0.09);
   --warm-zebra: rgba(255, 220, 180, 0.025);
+  /* Links, and the colour of each kind of calendar line. */
+  --link: #8cc2ff;
+  --link-hi: #b9daff;
+  --tone-talk: #6cb6ff;
+  --tone-media: #ff8f6b;
+  --tone-report: #b99dff;
+  --tone-recruit: #45d3a2;
+  --tone-trip: #f0c04a;
+  --tone-team: #9aa7b8;
+  --tone-date: #d9dde5;
+  --tone-world: var(--gold);
+  --tone-news: var(--fg3);
 }
 :root[data-theme="light"] {
+  --link: #1a5fb4;
+  --link-hi: #0b3f85;
+  --tone-talk: #1f6fd1;
+  --tone-media: #c4512b;
+  --tone-report: #6f4fd8;
+  --tone-recruit: #0f8a63;
+  --tone-trip: #9a6f00;
+  --tone-team: #5b6675;
+  --tone-date: #3a3f48;
   --warm-glass: rgba(255, 251, 246, 0.92);
   --warm-hair: rgba(80, 50, 20, 0.1);
   --warm-zebra: rgba(120, 80, 30, 0.035);
@@ -43,8 +64,14 @@
 html, body { height: 100%; margin: 0; }
 body.st { overflow: hidden; font-size: 14px; }
 a { color: inherit; }
-.link { cursor: pointer; text-decoration: none; border-bottom: 1px solid transparent; }
-.link:hover { border-bottom-color: currentColor; }
+/* Links look like links (Cain, 2026-10-23: names in a story or a meeting
+   read like the words around them). In running text a link has its own
+   tint and a fine underline; in tables, headings and on art it keeps the
+   text's colour and underlines on hover. */
+.link { cursor: pointer; color: var(--link); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; text-decoration-color: color-mix(in oklab, var(--link) 40%, transparent); transition: text-decoration-color .12s, color .12s; }
+.link:hover { color: var(--link-hi); text-decoration-color: currentColor; }
+.crumb .link, .tbl .link, h1 .link, h2 .link, h3 .link, .h1 .link, .bigline .link { color: inherit; text-decoration-color: transparent; }
+.crumb .link:hover, .tbl .link:hover, h1 .link:hover, h2 .link:hover, h3 .link:hover, .h1 .link:hover, .bigline .link:hover { color: var(--link-hi); text-decoration-color: currentColor; }
 
 /* ---------- the frame: frosted sidebar, blurred top bar ---------- */
 .frame { display: grid; grid-template-columns: var(--side) minmax(0, 1fr); height: 100vh; }

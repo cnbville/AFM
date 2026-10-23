@@ -1449,6 +1449,11 @@ screens.news = async (a) => {
 GOTO.news = () => [["Inbox", "inbox"], ["Calendar", "calendar"], ["Standings", "standings"]];
 
 // ---------- the calendar (section 4 on screen) ----------
+// Each kind of line has its own colour (Cain, 2026-10-23: a meeting, a
+// report, a press conference and a tour all looked the same).
+const CAL_TONES = [["talk", "Meetings and talks"], ["media", "Media"], ["report", "Reports to read"], ["recruit", "Recruiting"], ["trip", "Tours and trips"], ["team", "Your team"], ["game", "Games"], ["date", "League dates"], ["world", "Big news"]];
+const CAL_TONE_WORD = { talk: "Meeting", media: "Media", report: "Report", recruit: "Recruiting", trip: "Trip", team: "Your team", game: "Game", date: "Date", world: "Big news" };
+const calTone = (e) => `t-${esc(e.tone || "news")}`;
 screens.calendar = async (a) => {
   const C = keep("calmonth", {});
   if (a.day) { C.day = a.day; C.month = null; }
@@ -1459,16 +1464,16 @@ screens.calendar = async (a) => {
     const g = d.game;
     const res = g && g.score ? (g.score[0] > g.score[1] ? "W" : g.score[0] < g.score[1] ? "L" : "T") : "";
     const game = g ? `<div class="cal-game ${res ? "r" + res : ""}" title="${esc(g.at + " " + g.opp.name)}">${g.score ? `<b>${res} ${g.score[0]}-${g.score[1]}</b>` : ""}<span>${mark(g.opp, 14)} ${esc(g.at)} ${esc(g.opp.name)}</span></div>` : "";
-    return `<div class="cal-d ${d.in_month ? "" : "out"} ${d.today ? "today" : ""} ${d.past ? "past" : ""} ${C.day === d.iso ? "picked" : ""}" data-act="calday" data-iso="${d.iso}"><span class="cal-n">${d.day}</span>${game}${d.items.map((e) => `<div class="cal-e ${e.mine ? "mine" : ""} loud-${e.loud.toLowerCase()}" title="${esc(plainText(e.text))}">${esc(plainText(e.text))}</div>`).join("")}${d.more ? `<div class="cal-more">+${d.more} more</div>` : ""}</div>`;
+    return `<div class="cal-d ${d.in_month ? "" : "out"} ${d.today ? "today" : ""} ${d.past ? "past" : ""} ${C.day === d.iso ? "picked" : ""}" data-act="calday" data-iso="${d.iso}"><span class="cal-n">${d.day}</span>${game}${d.items.map((e) => `<div class="cal-e ${calTone(e)} ${e.mine ? "mine" : ""} loud-${e.loud.toLowerCase()}" title="${esc((CAL_TONE_WORD[e.tone] || e.kind) + ": " + plainText(e.text))}">${esc(plainText(e.text))}</div>`).join("")}${d.more ? `<div class="cal-more">+${d.more} more</div>` : ""}</div>`;
   };
   const grid = `<div class="cal-grid">${head}${x.weeks.flat().map(cell).join("")}</div>`;
   const d = x.day;
   const side = d
-    ? `<div class="panel"><h2>${esc(d.pretty)} <small>${d.in === 0 ? "today" : d.in > 0 ? "in " + d.in + " days" : -d.in + " days ago"}</small></h2>${d.game ? `<p class="bigline">${esc(d.game.at)} ${teamA(d.game.opp)}${d.game.score ? ` · ${d.game.score[0]}-${d.game.score[1]}` : ""}${d.game.page != null ? ` · <a class="link" data-go="game" data-index="${d.game.page}">game page</a>` : ""}</p>` : ""}${d.items.length ? `<div class="items">${d.items.map((e) => `<div class="item"><span class="when">${esc(e.kind)}</span><span>${e.mine ? "<b>" : ""}${rich(e.text)}${e.mine ? "</b>" : ""}</span></div>`).join("")}</div>` : `<div class="empty">${d.in > 0 ? "Nothing posted for this day yet." : "Nothing kept for this day."}</div>`}</div>`
+    ? `<div class="panel"><h2>${esc(d.pretty)} <small>${d.in === 0 ? "today" : d.in === 1 ? "tomorrow" : d.in === -1 ? "yesterday" : d.in > 0 ? "in " + d.in + " days" : -d.in + " days ago"}</small></h2>${d.game ? `<p class="bigline">${esc(d.game.at)} ${teamA(d.game.opp)}${d.game.score ? ` · ${d.game.score[0]}-${d.game.score[1]}` : ""}${d.game.page != null ? ` · <a class="link" data-go="game" data-index="${d.game.page}">game page</a>` : ""}</p>` : ""}${d.items.length ? `<div class="items">${d.items.map((e) => `<div class="item cal-i ${calTone(e)} ${e.mine ? "mine" : ""}"><span class="when cal-k">${esc(e.kind === "Your day" ? CAL_TONE_WORD[e.tone] || e.kind : e.kind)}</span><span class="cal-t">${rich(e.text)}</span></div>`).join("")}</div>` : `<div class="empty">${d.in > 0 ? "Nothing posted for this day yet." : "Nothing kept for this day."}</div>`}</div>`
     : "";
-  const ahead = (x.ahead || []).length ? `<div class="panel"><h2>Coming up</h2><div class="items">${x.ahead.map((e) => `<div class="item cal"><span class="when">${esc(e.date)}<br><small>${e.in === 0 ? "today" : "in " + e.in + " d"}</small></span><span>${e.mine ? "<b>" + esc(e.text) + "</b>" : esc(e.text)}</span></div>`).join("")}</div></div>` : "";
+  const ahead = (x.ahead || []).length ? `<div class="panel"><h2>Coming up</h2><div class="items">${x.ahead.map((e) => `<div class="item cal cal-i ${calTone(e)} ${e.mine ? "mine" : ""}"><span class="when">${esc(e.date)}<br><small>${e.in === 0 ? "today" : "in " + e.in + " d"}</small></span><span><span class="cal-k">${esc(CAL_TONE_WORD[e.tone] || "News")}</span><span class="cal-t">${esc(e.text)}</span></span></div>`).join("")}</div></div>` : "";
   return `<div class="pad">${pageHead({ kicker: `Today is ${esc(S.status ? S.status.today : x.today)}`, title: esc(x.title), actions: `<button class="st-icon-btn" data-act="calmove" data-v="${x.prev}" aria-label="Previous month">${icon("back")}</button><button class="st-btn small glass" data-act="calmove" data-v="">Today</button><button class="st-icon-btn" data-act="calmove" data-v="${x.next}" aria-label="Next month">${icon("fwd")}</button>` })}
-    <div class="cal-wrap"><div>${grid}<p class="muted small">Your games and the dates that concern you are in bold; big moments for everyone show too. Click a day for all of it.</p></div><div class="col">${side}${ahead}</div></div></div>`;
+    <div class="cal-wrap"><div>${grid}<div class="cal-key">${CAL_TONES.map(([k, t]) => `<span class="t-${k}"><i></i>${t}</span>`).join("")}</div><p class="muted small">Filled lines are yours; plain lines are the world's moments that matter to you. Click a day for all of it.</p></div><div class="col">${side}${ahead}</div></div></div>`;
 };
 GOTO.calendar = () => [["Schedule", "schedule"], ["Inbox", "inbox"], ["News", "news"]];
 

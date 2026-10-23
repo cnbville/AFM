@@ -57,8 +57,9 @@
     linear-gradient(172deg, color-mix(in oklab, var(--c1) 26%, #0b0b0e), #07070a 78%); }
 .pp-room .muted, .pp-room small { color: rgba(244, 241, 234, .58); }
 .pp-room .st-label { color: rgba(244, 241, 234, .6); }
-.pp-room .link, .pp-room a { color: #fff; }
-.pp-room .link:hover { text-decoration-color: color-mix(in oklab, var(--c1) 50%, #fff); }
+.pp-room .link, .pp-room a.link { color: #a9d2ff; font-style: normal; font-weight: 600; text-decoration-color: rgba(169, 210, 255, .45); }
+.pp-room .link:hover { color: #d4e8ff; text-decoration-color: currentColor; }
+.pp-room h1 .link, .pp-roomhead .link { color: inherit; font-weight: inherit; text-decoration-color: transparent; }
 .pp-roomhead { padding: 32px 34px 16px; display: grid; gap: 6px; }
 .pp-roomhead h1 { margin: 0; font-size: clamp(28px, 3.4vw, 46px); line-height: 1.02; letter-spacing: -.025em; font-weight: 800; max-width: 26ch; }
 .pp-roomteam { font-size: 13px; color: rgba(244, 241, 234, .72); }
