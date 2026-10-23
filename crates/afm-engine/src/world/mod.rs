@@ -17,6 +17,7 @@ pub mod coach;
 pub(crate) mod college;
 pub mod data;
 pub mod desk;
+pub mod eligibility;
 pub mod ethnicity;
 pub mod fame;
 pub mod folk;
@@ -25,6 +26,7 @@ pub mod front_office;
 pub mod game_log;
 pub mod geo;
 pub mod high_school;
+pub mod hs_playoffs;
 pub mod hs_year;
 pub mod live_seat;
 pub mod names;
@@ -33,6 +35,7 @@ pub mod news;
 mod nfl_year;
 pub use nfl_year::NflTeamSeason;
 pub mod people;
+pub(crate) mod polls;
 pub mod pro;
 pub mod program;
 pub mod records;
@@ -44,6 +47,7 @@ pub mod staff;
 pub mod systems;
 pub mod tape;
 pub mod trends;
+pub mod voters;
 
 use rayon::prelude::*;
 
@@ -122,6 +126,10 @@ pub enum Stage {
     Pro,
     /// Left football.
     Done,
+    /// Away from football for a while with his clock stopped: a church
+    /// mission or a military term (A3, final build). `Person::roads.away`
+    /// says which, when he comes back and to which program.
+    Away,
 }
 
 /// One state's football setting.
@@ -231,6 +239,11 @@ pub struct Person {
     /// coach starts it fresh).
     pub trust: f32,
     pub trust_in: u32,
+    /// His road through college (A3, S11): years away, years added to his
+    /// clock, the COVID year, seasons lost to injury, a mission or a
+    /// military term in progress.
+    #[serde(default)]
+    pub roads: eligibility::Roads,
 }
 
 /// The draft staffs' read of a player in December (T3.1, T3.2): his consensus
@@ -725,6 +738,10 @@ pub struct World {
     /// opponents, what you have studied.
     #[serde(default)]
     pub gameday: live_seat::GameDay,
+    /// The poll and award voters (section 6 topic 9), each with his
+    /// latest ballot; older files build them on load.
+    #[serde(default)]
+    pub voters: voters::Voters,
     /// Your front office: who has each duty and each level's desk (final
     /// build, lane 10).
     #[serde(default)]
@@ -814,6 +831,26 @@ pub struct CalendarLog {
     pub nfl_preseason_games: u32,
     /// Huge games per NFL team in the season (the stakes test).
     pub nfl_huge_by_team: Vec<u32>,
+    /// The long roads (A3, final build): medical hardship waivers, sixth
+    /// years, COVID-year players who came back and who didn't, missions and
+    /// military terms begun, players back from either, and players who moved
+    /// up two levels or from NAIA and Division III.
+    #[serde(default)]
+    pub medical_hardships: u32,
+    #[serde(default)]
+    pub sixth_years: u32,
+    #[serde(default)]
+    pub covid_returns: u32,
+    #[serde(default)]
+    pub covid_declined: u32,
+    #[serde(default)]
+    pub missions: u32,
+    #[serde(default)]
+    pub enlisted: u32,
+    #[serde(default)]
+    pub returned: u32,
+    #[serde(default)]
+    pub moved_up_far: u32,
 }
 
 /// Where the manager works (N58): his level, and his NFL team or college
@@ -949,7 +986,8 @@ impl World {
         let year = options.start_year - options.history_years as i32 - SPIN_UP_YEARS as i32;
         let mut areas: Vec<(usize, String)> = Vec::new();
         for s in high_schools.iter_mut() {
-            let key = (s.state, s.town.clone());
+            // Schools in one county share a recruiting area (final build).
+            let key = (s.state, if s.county.is_empty() { s.town.clone() } else { format!("{} County", s.county) });
             s.area = match areas.iter().position(|a| *a == key) {
                 Some(k) => k,
                 None => {
@@ -995,6 +1033,7 @@ impl World {
             changes,
             college: None,
             college_prev: None,
+            voters: Default::default(),
             hs_season: None,
             nfl_season: None,
             market: Default::default(),
@@ -1256,6 +1295,7 @@ impl World {
                 mood_why: 0,
                 trust: 0.6,
                 trust_in: u32::MAX,
+                roads: eligibility::Roads::default(),
             }
         }));
         self.draw_home_ties(start);
@@ -1412,7 +1452,7 @@ impl World {
             .map(|p| {
                 let stays = matches!(
                     p.stage,
-                    Stage::HighSchool | Stage::College | Stage::PrepSchool | Stage::Declared | Stage::Pro
+                    Stage::HighSchool | Stage::College | Stage::PrepSchool | Stage::Declared | Stage::Pro | Stage::Away
                 );
                 stays.then(|| {
                     next += 1;

@@ -12,7 +12,7 @@ use super::{Status, depth_slots};
 use crate::attributes::Attr;
 use crate::calendar::Moment;
 use crate::calendar::data::et_offset;
-use crate::calendar::weather::weather_at;
+use crate::calendar::weather::weather_in;
 use crate::game::playbook::{FAMILY_COUNT, Family};
 use crate::game::{Caller, Conditions, GamePlayer, GameResult, GameTeam, Staff as GameStaff, Venue, quick_game_in};
 use crate::positions::Position;
@@ -277,7 +277,9 @@ pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bo
     let state = geo::state_index(code).unwrap_or(0);
     let local = (at.minute / 60) as i32 - et_offset(code);
     let roof = era.map_or(franchise::Roof::Open, |e| e.roof);
-    let outside = weather_at(seed, state, code, at.date, local.clamp(9, 23) as u32);
+    // The stadium town's own climate (U-e), with the state's swing for the day.
+    let city = era.map_or("", |e| e.city);
+    let outside = weather_in(seed, state, code, city, at.date, local.clamp(9, 23) as u32);
     let closed = match roof {
         franchise::Roof::Dome => true,
         franchise::Roof::Retractable => outside.temperature < 55.0 || outside.rain || outside.wind > 15.0,
@@ -322,7 +324,7 @@ pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bo
         let e = franchise::era(t, year.min(franchise::PRESENT));
         let usual = match e {
             Some(e) if e.roof == franchise::Roof::Dome => 72.0,
-            Some(e) => crate::calendar::weather::usual_high(e.state, at.date),
+            Some(e) => crate::calendar::weather::usual_high_in(e.state, e.city, at.date),
             None => 60.0,
         };
         clamp((usual - wx.temperature - 15.0) / 25.0, 0.0, 1.0) * clamp((45.0 - wx.temperature) / 15.0, 0.0, 1.0)

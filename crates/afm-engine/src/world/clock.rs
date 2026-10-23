@@ -224,6 +224,7 @@ pub(crate) fn advance_day(w: &mut World) {
         }
     }
     if d == y.summer_enrollment {
+        super::eligibility::summer_roads(w);
         recruiting::enroll(w, false);
     }
     if d == hs_transfer_day(&y) {
@@ -280,6 +281,10 @@ pub(crate) fn advance_day(w: &mut World) {
         if let Some(k) = kind {
             college::release_poll(w, d, PollKind::Coaches);
             college::release_poll(w, d, k);
+            // The Harris poll (2005-2013) from the season's fifth week.
+            if harris_year(w) && y.cfb_weeks.len() > 4 && d > y.cfb_weeks[4] {
+                college::release_poll(w, d, PollKind::Harris);
+            }
             if w.rules.cfb_postseason == crate::calendar::CfbPostseason::Bcs && d >= y.cfb_weeks[0].add(7 * 7 + 1) {
                 college::release_poll(w, d, PollKind::Bcs);
             }
@@ -346,17 +351,18 @@ pub(crate) fn advance_day(w: &mut World) {
         staff::diversity_report(w);
     }
     if d == y.selection_day {
-        college::release_poll(
-            w,
-            d,
-            if w.rules.cfb_postseason == crate::calendar::CfbPostseason::Bcs {
-                PollKind::Bcs
-            } else if w.rules.cfb_postseason == crate::calendar::CfbPostseason::PollsOnly {
-                PollKind::Ap
-            } else {
-                PollKind::Cfp
-            },
-        );
+        // The human polls vote after the title games; the BCS standings
+        // read them, the committee ranks on its own.
+        college::release_poll(w, d, PollKind::Coaches);
+        college::release_poll(w, d, PollKind::Ap);
+        if harris_year(w) {
+            college::release_poll(w, d, PollKind::Harris);
+        }
+        match w.rules.cfb_postseason {
+            crate::calendar::CfbPostseason::Bcs => college::release_poll(w, d, PollKind::Bcs),
+            crate::calendar::CfbPostseason::PollsOnly => {}
+            _ => college::release_poll(w, d, PollKind::Cfp),
+        }
         timed("selection", || college::selection_day(w));
         college::lean_checkpoint(w, college::LeanCheck::Bowls);
     }
@@ -519,6 +525,8 @@ fn year_start(w: &mut World) {
     if let Some(prev) = w.college_prev.as_mut() {
         college::keep_for_next_year(prev);
     }
+    super::hs_playoffs::reclassify(w);
+    super::voters::year_start(w);
     w.hs_season = Some(hs_year::new_season(w));
     w.nfl_season = Some(nfl_year::new_season(w));
     super::franchise::year_start(w);
@@ -791,6 +799,11 @@ pub fn holiday_to(w: &mut World, until: Date) -> Date {
         }
     }
     w.today
+}
+
+/// The BCS read the Harris poll as its human poll from 2005 to 2013.
+fn harris_year(w: &World) -> bool {
+    w.rules.cfb_postseason == crate::calendar::CfbPostseason::Bcs && (2005..=2013).contains(&w.year)
 }
 
 #[cfg(test)]

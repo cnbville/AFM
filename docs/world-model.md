@@ -13,7 +13,7 @@ Everything below that Raichel has not answered is marked **proposed, not confirm
 
 ## Programs (topics 2, 6, 7)
 
-- Real colleges from `data/real-world/colleges.csv`: 138 FBS, 127 FCS (Chicago State, with no team, is left out), 160 D2. JUCO programs are placeholders ("TX Junior College 1") until the real list is researched (waits on realism question 1).
+- Real colleges from `data/real-world/colleges.csv`: 138 FBS, 127 FCS (Chicago State, with no team, is left out), 160 D2. The real junior colleges (113, NJCAA and California's CCCAA), Division III and the NAIA come from `data/real-world/colleges_lower.csv`.
 - Prestige comes from history, recent results, the head coach, facilities, NIL, fans and TV, and conference (topic 7). Recruits read it relative to their division, so a strong D2 school does not out-pull an FBS one.
 - 12 EA-style grades. Steady ones move about 15% of the way to their target each year (tradition, academics, facilities, atmosphere, campus life, brand exposure). Fast ones move about 80% (title chances, playing time, coach prestige, NIL, pro pipeline). Conference strength moves only on realignment (Raichel confirmed the split). Two straight titles take a C- program to about B+.
 - NIL collectives have budgets that follow results and booster mood, with booster departures. A falling collective sends warnings through the inbox, the news and a falling arrow on the NIL grade, getting louder each year (Raichel's follow-up answer 4).
@@ -469,6 +469,119 @@ The world side of the people leftovers from build 9 and your own side of section
 - At a club the general manager runs the roster review and the flight-risk list (his pro scouts beside him).
 - Scenes kept: the newest 80; the people log: the newest 600 lines.
 
+## Final build lane 5: world fixes (2026-10-22)
+
+### Eligibility by era and the long roads (S11, A3)
+- `world/eligibility.rs` holds every college player's clock. Through 2025-26: four seasons inside five years from his first full-time enrolment. A season he never played in is a redshirt.
+- **Five years to play five (S11).** Real: the Division I Cabinet adopted it on June 23-24, 2026, for 2026-27. From the 2026 season FBS and FCS players get five seasons in five years. Redshirts, the four-game rule and hardship waivers end there; every year on a roster counts. Division II, the NAIA and junior colleges keep the old rules. It is in the rule book from 2026, no longer a possible change.
+- **Medical hardship.** An injury that ends his season after no more than three games or 30% of his team's, whichever is more, gives the season back. Two seasons lost to injury (a hardship or a hurt redshirt year) earn a sixth year when the clock runs out with a season unplayed.
+- **The 2020 COVID year.** Nobody's 2020 season counted and every clock gained a year. A senior whose extra year is all he has left decides at the declaration deadline whether to use it: starters 60%, rotation 45%, backups 25%, the rest 12% (Claude's pick inside the AP's count of about 8 a FBS team). A 2020 senior back in 2021 didn't count against the scholarship limits that year (the NCAA's exemption).
+- **Missions.** A Latter-day Saint (keyed from his home state's share: Utah 42%, Idaho 19%, Wyoming 9%, under 2% in most states; about a third of Pacific Islander families) may serve two years: as a signee before enrolling (the school holds his place) or after his first college year. 40% of members with a place served before October 2012, 45% after the age dropped to 18, 30% in the NIL era; before 2012 most went after a season, after it most at 18. Top recruits serve less. An unsigned member near the top of his state can serve and walk on when he gets home.
+- **Military service.** About 3% of the unsigned graduates near the top of their state enlist; a quarter of those (Claude's pick) mean to play again and walk on after a four-year term, at 22 or 23.
+- **Away from football** is its own stage: no games and no coaching, a year older each fall; the clock stops while he is away. His page says where he is and which school holds his place. On his return a held place becomes a signing; otherwise he walks on at the best program in his home state where he would make the back half of the two-deep.
+- **Moving up from below.** A Division II standout can go straight to FBS, and NAIA and Division III standouts can move up to FCS or Division II (`portal_open`; Division III to Division I needs no waiver). JUCO, prep school and FCS-to-FBS were built before.
+- Counted each year in the calendar log: medical hardships, sixth years, COVID returns and declines, missions, enlistments, returns, far moves up.
+
+### Real towns (final build)
+- Every generated high school sits in a real town (`data/real-world/hs_towns.csv`, built by `data/real-world/scripts/hs_towns.py` from the 2010 Census by ZIP code). Each state gets its towns biggest first until its programs have a place each, with a tenth to spare, so hamlets without a school stay out. A city takes about one school per 35,000 people, at most 40.
+- A county names its schools for its towns: Big Horn County, Wyoming now has Lovell, Greybull, Burlington and Basin, not five Big Horns. A city's first school is "{Town} High"; the others take a side of town (North, South, Central) or a person (Lincoln, Washington, Lamar), each once.
+- The town sets the area: a dense city's schools are urban or suburban (a big city mixes both), a town of 2,500 or more is a small town, a village is rural. Its median household income moves the area's money halfway.
+- Schools in one county share a recruiting area (area pipelines and nearby non-district games).
+
+### Town weather (U-e)
+- Each town has its own NOAA 1991-2020 normals (mean highs and lows, days with measurable rain), from the nearest station with a full record; a first-order station within 15 miles wins (`data/real-world/town_climate.csv`, 12,029 towns: every school town, college, NFL city and neutral site; `scripts/town_climate.py`). Wind and the midsummer dew point still come from the state's main town. The day's swing is shared by the state, so a September Friday is hotter in Brownsville than in Amarillo on the same front. A neutral-site final plays in the state's weather. Stored as bytes (about 430 KB).
+
+### High school playoffs by state (U-d)
+- Each state plays its real format (`data/real-world/hs_playoff_formats.csv`, `world/hs_playoffs.rs`; researched in `docs/research/hs-playoff-formats.md`): its own classes and sizes, who qualifies (the top N of each district, district champions first, the best by the state's own rating, or everyone, as in Indiana and Minnesota), field size per bracket, byes for the top seeds when a field isn't a power of two, and a late start for small brackets so every final lands on the state's finals day.
+- Ratings as the states use them: winning percentage, wins then opponents' wins (Illinois, Wisconsin), RPI shares (North Carolina, Georgia), power points (Ohio's Harbin points, New Jersey, Michigan) and computer rankings (MaxPreps, CalPreps).
+- Private schools by state: Louisiana's Select and Non-Select brackets, New Jersey's Non-Public groups, Georgia's private bracket, Alabama's and Tennessee's private classes, Illinois' 1.65 enrollment multiplier, Connecticut's play-up rule after a semifinal, Wisconsin's tournament performance factor, California's competitive-equity divisions (section champions placed by strength) and Open Divisions (California, Florida with its two pools of four, Arizona).
+- Classes are re-formed each year by the state's rules. A school's season keeps its playoff wins and whether it reached the last four.
+- Ten states' rows are filled from brackets and memory and marked `inferred` (the association handbooks couldn't be read); see the research file.
+
+### High school dynasties (A11)
+- Mater Dei won 248 straight in trial 10 (real record: De La Salle, 151). Real powerhouses lose because they play each other. A state's private powerhouses play in one league of their own when there are three or more (California's Trinity League, the Catholic leagues), whatever their class, and a big-name program (prestige 0.6 and up) books its non-district games against the biggest names free in the state, not the school down the road. The playoff formats above add the rest: California's champions meet by strength in the Open Division.
+
+### College dynasties (A6)
+- Trial 10: Georgia won 18 and Texas 10 of 31 FBS titles, and 12 of the last 15 champions went unbeaten (real: no program more than 6 in 15 years, about half the champions unbeaten). Traced first: the engine's spread of results is real (`dynasty_check`, 600 games: a 7.5-point underdog wins 26%, a 4-point one 39%, a 2.5-point favourite 58%; real betting lines give about 25%, 37% and 57%), so schedule luck was not the gap. The talent was: weighting each starter by what a rating point is worth on the engine, the top program stood 20-30 points of margin above the tenth best (real SP+ about 10-15), 5-6 rating points better at every position, with 15-22 5-stars on its roster against 7-10 at the third best. The leader's share of a class's 5-stars was 22% (real 14%).
+- **A name stops growing at the top.** Since the fixed yardstick (11.9) a leader could read above 1.0 (Georgia 1.09 against Alabama's 0.90), and that edge entered every recruit's choice twice (the brand and the 5-star pull, cubed). A recruit now reads a brand at most at the old leader's size: a program that passes the biggest name of 30 years ago is one of the blue bloods, not a bigger one. Recent titles still count through the title-chances grade.
+- **Champions get courted, worn down and walk away.** Real dynasties end mostly with their coach. A head coach's national titles in his current job now: draw the NFL (owners' doubt about a college-only coach drops 1.5 points a title, to two; Saban, Meyer and Harbaugh were hired off college titles), add "nothing left to prove in college" to an NFL offer (+0.03 a title, to two), raise his burnout risk (half again per title, to three: Meyer stepped away after two titles in four years), and let him walk away on top at 55-59 (2% a year a title, to three: Osborne at 60, Stoops at 56). Coordinators of title teams were already the hottest names in searches (+4 a title in three years).
+- What was already there and kept: the 85 scholarship limit and 25 signees a year (105 and no cap from 2025), the portal's backups leaving for playing time (73% of entrants), early entry to the draft, staff raids, the NIL era's collectives and the head coach's own recruiting edge.
+- Measured: see "Final build lane 5 measurements" below. Georgia's 7 in 15 years is one over the real most, and 6 different champions is two under, so dynasties are close to real but still a little strong.
+
+### Long snappers
+- The snapping camps rank only a snapper's build (265 lb at most): a 300-pound center who snaps on Fridays projects as a lineman. A long snapper plays at 220-265 lb (real FBS and NFL snappers: about 6'2", 235-250), and old saves bring their snappers into that range on load.
+
+### Recruiting services' misreads (A12)
+- Trial 10: 87.6% of 5-stars drafted (real about 62%), 4-stars 35.4% (real about 20-25%), 3-stars 4.0% (real about 5-6%). The services' read moved halfway to each new look, and each look's error was fresh, so their errors averaged away: the rankings knew too much. Now each kid carries a lasting misread (one standard deviation 9 points of upside; a first try at 3.4 only got 5-stars to 84.5%) and a maturity bias (1.6 points per year older than the middle of his class: September birthdays and kids held back look further along at 17 than they end up).
+
+### FBS rosters (A13)
+- Trial 10 read an FBS roster median of 86 (real about 105 under the House settlement's cap). The count was taken in the spring, after the seniors and early entrants left and before the signed class and the summer walk-ons arrived. Counted in the fall with the signed class, the median is 104 (98-111) at FBS and 104 at FCS, so nothing was missing; the trial report now prints both lines.
+
+### Final build lane 5 measurements
+One world, seed 2026, 15 years of history (2011-2025) after the 12 spin-up years, college games on the engine and high school games on the stand-in (`AFM_HS_ENGINE_YEARS=0 world_trial 2026 15`, 46 minutes on 4 cores). Before: trial 10 (seed 2026, 30 years, high school games on the engine from 2014). The engine physics lane (#97) merged after this world ran, so its changes are not in these numbers.
+
+| What | Trial 10 | Lane 5 | Real |
+|---|---|---|---|
+| 5-stars drafted (A12) | 87.6% | 64.6% (192 of 297) | about 62% |
+| 4-stars drafted | 35.4% | 21.3% | about 20-25% |
+| 3-stars drafted | 4.0% | 4.3% | about 5-6% |
+| Most national titles in any 15 years (A6) | Georgia 18 of 31 | Georgia 7 (2011-2025) | 6 |
+| Different champions in the last 15 years | 4 at most (4 in all 31 years) | 6 | 8 |
+| Unbeaten champions in the last 15 years | 12 | 6 | about half |
+| Leader's share of a class's 5-stars | 22% | 10-21%, most years 12-16% | 14% |
+| FBS roster median (A13) | 86 (spring count) | 106 in the fall with the signed class (96-113) | 105 |
+| Heisman winners at quarterback | | 13 of 15, backs 2 | 21 of 26, backs 3, receivers 2 |
+| Longest high school winning streak (A11) | 248 (Mater Dei, engine) | 46 (Hough, stand-in) | 151 (De La Salle) |
+
+- The 5-star rate took the misread at 9 points: a first try at 3.4 gave 84.5% on a 30-year stand-in world.
+- The high school streak was measured on the stand-in, which the scheduling changes feed the same way; a world with high school games on the engine costs about 11 minutes a season, and two machine restarts cut those runs short, so A11 on the engine is still to measure.
+- Checks: `seat_season` (small world: high school, college and NFL seats with 0 errors; the high school seat on the 30-year world: 9 games, 0 errors, peak 3.79 GB), `memory_season` on the 30-year world to the first game (3.99 GB; main 3.98 GB on the same world), `tools/seat-ui/crawl.mjs` on the 30-year world (high school 29 screens, college 32, NFL 32, 0 problems).
+
+### Draft early entry
+- Checked against sources: the NFL's early-entry deadline is January 15 (2018, 2024 and 2025 drafts) and January 14 for the 2026 draft; NCAA Bylaw 12.2.4.2.4 lets an undrafted player keep his eligibility if he withdraws in writing within 72 hours after it. The calendar now uses January 14 for 2026; the withdrawal stays the deadline plus three days.
+
+## Poll and award voters (final build)
+
+The polls and the Heisman are voted by people, not read from a formula (`world/voters.rs`, `world/polls.rs`; section 6 topic 9).
+
+- **AP poll:** 62 sportswriters and broadcasters, each with a home state, an outlet (real papers, sites and networks) and seven habits stored as bytes: how much last week's ballot holds him, brand bias, résumé against eye test, margin, homer lean, attention and doubt about Group of Five teams. About four leave a year and are replaced. Names are drawn from the voter's id when shown.
+- **How a ballot is made:** one shared read of the season per release: record, who you beat and lost to (a loss weighs more against a weak team, at home, by a lot, and late in the year), a margin and schedule power rating, yards a play for and against (the eye test), the preseason view and the brand. Each voter weighs it his way, then holds toward last week's ballot after this week's results moved each team. A team that won the head-to-head moves above a close team it beat unless it has more losses. Points 25 to 1; ties broken by first-place votes.
+- **Preseason:** last season's final AP rank, what the roster brings back and the brand.
+- **Homers:** own state and conference count a little; half as much from 2007, when AP ballots went public.
+- **Coaches Poll:** 65 FBS head coaches, conferences in proportion, about two in three kept each year. Coaches watch less, lean harder on last week, and rank their own team and conference higher. If a coach is fired, his program's new head coach takes the ballot. A final Coaches Poll comes out after the bowls; its ballots are the public ones.
+- **Harris poll (2005-2013):** 114 voters, the BCS's human poll in those years.
+- **BCS standings (1998-2013):** from 2004, the average of the human poll's share (AP through 2004, Harris after), the coaches' share and the computers' share (six computers, highest and lowest dropped). Before 2004: poll ranks, computer ranks, schedule rank / 25, losses and (2001-2003) a quality-win deduction. The six computers are rebuilt from their published methods without margin: Colley, a Sagarin-style Elo-chess, Massey wins-only, Anderson & Hester, Billingsley and Wolfe (every division).
+- **Playoff committee (2014 on):** 13 members (five sitting ADs, two of the world's retired head coaches, a former first- or second-round pick, a former writer, four administrators), three-year terms, the first ones staggered. A member leaves the room for his own school (an AD's school, a coach's last head job, a player's college). It ranks by the protocol: lists of 30, then rounds of six ranked with three placed each, until 25. Members read the whole season with every week alike, strength of schedule, game control and conference titles. Close pairs are settled by head-to-head and common opponents. There is no preseason anchor. Weekly rankings on Tuesdays from the real first date. Selection day reads the committee's final ranking (BCS era: the BCS standings; before 1998: the AP poll), then the rest by power rating.
+- **Heisman:** 870 media voters (145 in each of six regions), the world's own former winners and one fan ballot (from 2007), ballots 3-2-1. Voters lean to their region's players, to quarterbacks and backs, to winning teams, to wins over ranked teams and to August hype (last season's numbers, a returning finalist). A former winner has a higher bar. Finalists: the top three and anyone else with 250 points, up to six. The news gives the points and first-place votes. The vote's top ten is kept with the season.
+- **Checks the tests forced (final build):** a recused committee member's school ranks by its share of the members who could vote, and a round places a team once three in every thirteen of those members back it. In the first weeks a voter holds his last ballot more (half of the weight in week one, fading by 0.7 a week), moves a team by places (about 8 for a full swing of the week's evidence) rather than starting over, and judges an opponent by its preseason view until it has played a few games. The margin and schedule rating is damped (half a step each of 30 rounds), every read is capped at three standard deviations, and a margin against a team from a lower division counts 18 points less. A preseason No. 1 that loses close in week one stays in the top ten.
+- **Polls-only era:** the final AP poll's No. 1 is the champion; a different No. 1 in the coaches' final poll is posted as a split title.
+- **Speed and memory:** a release is a few thousand small sums. Only each voter's latest ballot is kept (about 10 KB for every panel); polls keep their top 25 with points and first-place votes.
+- **Old world files:** the panels are built on load.
+
+## Decided in the final build (Claude's pick)
+
+- Poll voters: habits drawn per voter, weights for record, schedule, eye test and brand set so an unbeaten power team tops a two-loss name and a close early loss by a preseason No. 1 costs a few places, not the top ten. Weighed: real anchoring studies against keeping results first.
+- AP homer lean halved from 2007 (ballots public). Weighed: the published evidence that the bias shrank, not vanished.
+- Coaches' own-team lean worth a few places near the top; a fired coach's ballot goes to his successor. Weighed: Kotchen and Potoski's finding against a lean big enough to look silly.
+- The Harris panel and the six BCS computers are built for 1998-2013, so the BCS reads its real parts. Weighed: more code against a BCS made of placeholders.
+- Committee recusal: an AD's school, a former coach's last head job, a former player's college. Weighed: the real policy (schools that pay you) against the cases the press reported.
+- Heisman finalists: top three plus anyone with 250 points, up to six.
+- Committee rounds with recusals: a team's support is its share of the members free to vote for it, and three in thirteen places it. Weighed: the real protocol (a recused member doesn't vote on his school) against a recusal costing a team votes.
+- Early-season holds: half of the weight on last week's ballot in week one, fading by 0.7 a week, moves by places, an opponent judged by its preseason view until about two games are in. Weighed: AP voters' real stickiness in September against a poll that forgets the preseason after one Saturday. Weighed: real fields of three to six.
+- The final AP and Coaches polls in the BCS and playoff eras still put the champion first and the title game's loser second on every ballot (part D 25).
+- Signature moments are read from the team's wins over ranked teams, since per-game player lines aren't kept.
+- Lane 5, long roads (A3): a 2020 senior's return by role (starters 60%, rotation 45%, backups 25%, the rest 12%), sized inside the AP's count of about 8 a FBS team. Weighed: the real count against returns that ignore who had a pro future.
+- Lane 5, missions: 40% of Latter-day Saints with a place served before October 2012, 45% after, 30% in the NIL era; top recruits serve 0.4 times as often. Weighed: BYU and Utah roster counts against the money a top recruit gives up.
+- Lane 5, military: 3% of unsigned graduates near the top of their state enlist and a quarter of those mean to play after a four-year term. Weighed: real service academies' and veterans' walk-on stories against a road nobody takes.
+- Lane 5, a returner with no place held walks on at the best program in his state where he would make the back half of the two-deep (40th percentile of its roster). Weighed: real returning missionaries walking on near home against a lottery.
+- Lane 5, real towns: one school per 35,000 people, at most 40 in a city, a tenth more towns than programs. Weighed: Houston ISD's 2.3 million people and about 40 high schools against cities swallowing whole states.
+- Lane 5, town weather: the nearest station with a full 1991-2020 record, a first-order station within 15 miles first; the day's swing shared by the state. Weighed: real microclimates against a separate weather draw per town.
+- Lane 5, high school leveler (A11): private powerhouses play one league when a state has three or more; programs of prestige 0.6 and up schedule the biggest names. Weighed: the Trinity League and the Catholic leagues against every powerhouse scheduling locals.
+- Lane 5, long snappers: 220-265 lb, and the snapping camps rank only that build. Weighed: real FBS and NFL snappers (about 235-250) against a lineman who snaps on Fridays.
+- Lane 5, recruiting services (A12): a lasting misread of one standard deviation 9 points of upside, and 1.6 points a year of maturity bias (3.4 tried first: 84.5% of 5-stars drafted on a 30-year stand-in world). Weighed: the real drafted rates by stars (about 62/22/6%) against rankings that knew too much.
+- Lane 5, HS playoff fields: Montana's Class C (8-man) field 16 and Nebraska's top two classes seeded 1-32 from October 23, from the 2025 brackets (the first rows didn't fit the states' calendars). Weighed: the published 2025 brackets against the older handbook rows.
+- Lane 5, dynasties (A6): a brand read at most at the old leader's size; a champion's NFL doubt down 1.5 a title, "nothing left to prove" +0.03 a title, burnout half again a title, walking away on top 2% a year a title at 55-59. Weighed: how real dynasties ended (Osborne, Stoops, Meyer, Saban, Carroll, Harbaugh) against capping titles or wins directly, which real life never does.
+
 ## Your front office in the world (final build, lane 10)
 
 `world/front_office/` holds your club's standing choices (`w.front_office`, saved with the world, every field defaulting so older worlds open). Each duty has an owner, you or your staff; the AI's own code asks `front_office::yours(w, team, duty)` and leaves alone what you keep, and your choices go through the market's own functions:
@@ -497,7 +610,7 @@ Your college program's recruiting choices are yours. The world decides on them w
 - **Randomness:** the desk's own draws (visit answers, a tampering leak) use `front_office::key`, the career's own stream. No other draw in the world moves.
 - **Saves:** every desk field is `#[serde(default)]`. The desk keeps person ids, since the world compacts people yearly. It prunes past visits and settled transfers at each new football year, and resets when you change programs (`ready`, which also seeds the board on your first day). After each signing day the board rolls to the next class (`roll_class`): a name from the class just signed stays until you have seen his news, then drops off.
 - **Your class plan** (`run_signing_stage`): with the board yours, the plan at each position is your offers there capped at the position's need, or at the commitments you hold there if more (`own_at[i].min(need.max(held))`), so a signing day never overfills a position.
-- **No portal entry without a season left** (`portal_open`, every path: the main rule, a dropped program, a dismissal and a teammate leaving in the winter window): `college::last_season` (seasons used plus the one pending, against the era's limit and the five-year clock) keeps a player whose eligibility is spent out of the portal. On January 2 `settle_eligibility` now runs before the portal windows. This is a world change for every program: in a test world the year's entrants fell from 6,505 to 5,646, all with a season to play.
+- **No portal entry without a season left** (`portal_open`, every path: the main rule, a dropped program, a dismissal and a teammate leaving in the winter window): `college::no_season_left` (seasons used plus the one pending, against next season's limit and the five-year clock) keeps a player whose eligibility is spent out of the portal. On January 2 `settle_eligibility` now runs before the portal windows. This is a world change for every program: in a test world the year's entrants fell from 6,505 to 5,646, all with a season to play.
 - **Text tidy** (`calendar::Event::new`): a sentence ending in a suffix ("Jr.", "Sr.") ends in one stop, not two; the game's toasts do the same.
 - **One set of school people** (`front_office::school::sync_people`): the desk's principal, athletic director, superintendent and booster club president are read from `folk::cast` when the desk opens, at each new football year and after a load (name, age, years, gender, patience), each with its cast key; their trust lives in `folk.mine` (seeded from the desk's own first read), so lane 6's meetings and the desk's review move one number. The principal's goals are `folk.goals` (the meeting's); the desk keeps the athletic director's numbers goal and the boosters' playoff goal (`set_goals`), judged with the principal's in `review`. `folk::cast::slots` gives a high school one feeder coach per 600 students up to four, the feeders the desk lists. `folk::ensure_base` sets the people seed for anyone who reads a person before the first day's people step.
 - **Lane 6 fixes found in the merge** (`folk::boss`): a season review marked every goal missed (it read the goals' marks from a copy taken before they were set); it now stores each goal's own result. At your school the playoffs goal reads whether the school made the field (`in_playoffs`, set in `seed_playoffs`), and the grades goal counts players out for grades (`hs_grade_out`) as well; its words say the bar ("two at most ruled out for grades").
@@ -526,7 +639,6 @@ Your college program's recruiting choices are yours. The world decides on them w
 - Firing patience by tenure: 10% in year one, 40% in year two, 75% in year three, full after that.
 - Head coaches from FBS or FCS don't drop to high school jobs.
 - 4% of recruits follow an older brother to his school.
-- Placeholder JUCO programs in 12 states.
 - A junior college makes at most 15 out-of-state offers a year (Mississippi and Kansas JUCO leagues cap out-of-state players; the exact number is a guess).
 - No athletic scholarships: Pioneer League schools cost the family tuition, the Ivy League gives need-based aid only. Both lower a recruit's interest.
 - After three seasons, a head coach under .400 over two years is much more likely to be fired, whatever the roster he inherited.
