@@ -125,6 +125,7 @@ fn bucket_style(k: u8) -> Style {
 
 /// Works out a week for a staff style and the week's games: the plan, the
 /// neutral plan, and what each role gets against it.
+#[allow(clippy::too_many_arguments)]
 pub fn work_out(
     tier: Tier,
     f: &Frame,

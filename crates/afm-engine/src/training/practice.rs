@@ -174,6 +174,7 @@ pub struct Battles {
 
 /// Runs a week's battles for a team. `starters` and `backups` are player
 /// ids by their role this week.
+#[allow(clippy::too_many_arguments)]
 pub fn run(
     team: &GameTeam,
     level: Level,

@@ -99,19 +99,24 @@ function periodEditor(p, k, i, x, allowed) {
 // The seven days side by side. `mode` is "week" or a template slot.
 function weekBoard(days, x, mode, info) {
   const edit = !!info.edit;
+  // The rule most days share is said once above the week; a day shows its
+  // own only when it differs (a game day, a dead day, a camp day).
+  const ruleCount = {};
+  for (const m of info.days || []) if (m && m.rule) ruleCount[m.rule] = (ruleCount[m.rule] || 0) + 1;
+  const common = Object.keys(ruleCount).sort((a, b) => ruleCount[b] - ruleCount[a])[0] || "";
   const cols = days.map((d, k) => {
     const f = trDayFacts(d);
     const meta = info.days ? info.days[k] : null;
-    const rule = meta && meta.rule ? `<div class="tr-rule" title="${esc(meta.rule)}">${esc(meta.rule)}</div>` : "";
+    const rule = meta && meta.rule && meta.rule !== common ? `<div class="tr-rule" title="${esc(meta.rule)}">${esc(meta.rule)}</div>` : "";
     const head = `<div class="tr-dh ${meta && meta.today ? "today" : ""} ${meta && meta.past ? "past" : ""}"><b>${esc(meta ? meta.weekday : DAY_SHORT[k])}</b><small>${esc(meta ? meta.date : "")}</small></div>`;
-    if (d.game) return `<div class="tr-day game">${head}<div class="tr-game">Game day</div>${rule}</div>`;
+    if (d.game) return `<div class="tr-day game ${meta && meta.today ? "today" : ""}">${head}<div class="tr-game">Game day</div>${rule}</div>`;
     const list = d.periods.map((p, i) => periodChip(p, k, i, edit, x)).join("");
     const empty = !d.periods.length ? `<div class="tr-off">${meta && meta.allowed && !meta.allowed.coaches ? "No coaches allowed" : "Day off"}</div>` : "";
     const sum = d.periods.length ? `<div class="tr-sum"><span>${f.min} min</span>${f.field ? `<span>${f.field} on the field</span>` : ""}${f.pads ? '<span class="pads">pads</span>' : ""}${f.full ? `<span class="hit">${f.full} full contact</span>` : ""}</div>` : "";
     const add = edit ? `<button class="tr-add" data-act="tr-padd" data-d="${k}">+ Period</button>` : "";
-    return `<div class="tr-day ${TR.sel && TR.sel.d === k ? "sel" : ""}">${head}${list}${empty}${add}${sum}${rule}</div>`;
+    return `<div class="tr-day ${TR.sel && TR.sel.d === k ? "sel" : ""} ${meta && meta.today ? "today" : ""}">${head}${list}${empty}${add}${sum}${rule}</div>`;
   }).join("");
-  return `<div class="tr-week">${cols}</div>`;
+  return `${common ? `<p class="tr-rules"><b>The rules this week</b> ${esc(common)}</p>` : ""}<div class="tr-week">${cols}</div>`;
 }
 function trDraft(x) {
   // The week you're editing stays in the page until you save or leave the week.
@@ -131,7 +136,7 @@ function weekTab(x) {
     <div><b>${esc(x.block_label)}</b><small>${esc(x.slot_label)}</small></div>
     ${x.counts.map((c) => `<div><b>${esc(c.split(" ")[0])}<i> / ${esc(c.split(" ")[2])}</i></b><small>${esc(c.split(" ").slice(3).join(" "))} this block</small></div>`).join("")}
     <div><b>${x.load.full}<i> / ${x.load.staff_full}</i></b><small>full-contact minutes, yours / the staff's</small></div>
-    <div><b>${x.prep.mine}<i> / ${x.prep.staff}</i></b><small>minutes on the plan</small></div>
+    <div><b>${x.prep.mine}<i> / ${x.prep.staff}</i></b><small title="Film, walkthroughs, team periods and situations, weighted by how much each readies the game plan">game plan minutes, yours / the staff's</small></div>
     ${x.fresh != null ? `<div><b>${x.fresh}%</b><small>fresh legs on game day</small></div>` : ""}</div>`;
   const breaches = x.breaches.length ? `<div class="panel tr-breach"><h2>Outside the rules <small>${x.breaches.length}</small></h2><div class="items">${x.breaches.map((b) => `<div class="item"><span class="when">${esc(b.day || "Block")}</span><span>${esc(b.text)}</span></div>`).join("")}</div></div>` : "";
   const status = own
@@ -200,9 +205,9 @@ function reportsTab(x) {
 screens.training = async (a) => {
   const x = await api("practice");
   setColors(x.team.colors);
-  title("Training", x.block_label);
   const list = ["This week", "Players", "Templates", "The year", "Reports"];
   const tab = tabOf("trtab", list, a);
+  title("Training", tab);
   const body = tab === "This week" ? weekTab(x) : tab === "Players" ? playersTab(x) : tab === "Templates" ? templatesTab(x) : tab === "The year" ? yearTab(x) : reportsTab(x);
   const head = pageHead({
     kicker: `${esc(trCap(x.tier))} · ${esc(x.block_label)} · week of ${esc(x.monday)}`,
@@ -271,7 +276,26 @@ function planTabHtml(x) {
     <div class="panel warm"><h2>${x.next ? "The next game" : "No game ahead"} <small>${esc(x.next_date || "")}</small></h2>
       ${x.next ? `<p class="bigline">${rich(typeof x.next === "string" ? x.next : x.next.text || "")}</p>` : '<p class="sub">The plan carries over to the next game on the schedule.</p>'}
       <p class="sub">The week's matchups (whose corner to throw at, bracketing, the spy) and your game rules are on the game day screen. The call sheet below is what your play caller has on his card.</p>
-      <div class="st-actions"><button class="st-btn small" data-go="gameday" data-tab="Game plan">The week's game plan</button><button class="st-btn small glass" data-go="designer">Draw a play</button></div></div></div>`;
+      <div class="st-actions"><button class="st-btn small" data-go="gameday" data-tab="Game plan">The week's game plan</button><button class="st-btn small glass" data-go="designer">Draw a play</button></div></div></div>
+    ${planGlance(x)}`;
+}
+function planGlance(x) {
+  // Where the plan stands: the card, what's going in, and this week's time for it.
+  const sits = x.sheet.filter((s) => s.plays.length).length;
+  const sharp = x.families.filter((f) => f.reps >= 26).length;
+  const going = x.designs.filter((d) => d.installing).length;
+  const p = x.pace;
+  const tiles = `<div class="st-tiles tr-tiles">
+    <div><b>${x.on_sheet}</b><small>plays on the call sheet${x.on_sheet ? `, in ${sits} of ${x.sheet.length} situations` : ": your play caller calls from his own read"}</small></div>
+    <div><b>${going}<i> / ${x.designs.length}</i></b><small>of your own plays going in</small></div>
+    <div><b>${sharp}<i> / ${x.families.length}</i></b><small>offensive families past the base playbook</small></div>
+    <div><b>${p.team_minutes}</b><small>team minutes this week</small></div>
+    <div><b>${p.reps_each || 0}</b><small>${p.keys ? `reps this week for each of the ${p.keys} things on the card` : "reps a week for each new thing"}</small></div></div>`;
+  const how = p.keys
+    ? `At this week's pace a new play is known in about ${p.to_know} ${p.to_know === 1 ? "week" : "weeks"}. More team periods or fewer things on the card make it quicker; a play your players don't know yet stays off the field.`
+    : "Put plays on the call sheet to give the team periods something to rep. Until then your players rep the base playbook.";
+  return `<div class="panel warm"><h2>Where the plan stands <small>from this week's practice</small></h2>${tiles}<p class="sub">${esc(how)}</p>
+    <div class="st-actions"><button class="st-btn small glass" data-act="tab" data-key="trplan" data-t="Call sheet">Call sheet</button><button class="st-btn small glass" data-act="tab" data-key="trplan" data-t="Installs">Installs</button><button class="st-btn small glass" data-go="training">This week's practice</button></div></div>`;
 }
 function sheetTabHtml(x) {
   const k = keep("trsheet", { sit: 0 });
@@ -320,7 +344,9 @@ const DES_W = 560, DES_H = 420, DES_Y = 30, DES_BACK = 12, DES_DEEP = 25;
 // The middle of the field is drawn wider (2 to 1 inside six yards) so the
 // line and the backs have room; outside it the field is close to scale.
 const bdSpread = (u, at, k, out) => Math.sign(u) * (Math.abs(u) <= at ? Math.abs(u) * k : at * k + (Math.abs(u) - at) * out);
-const desX = (y) => ((bdSpread(y, 6, 2, 0.75) + DES_Y) / (2 * DES_Y)) * DES_W;
+// The engine's y runs to the quarterback's left; drawn from behind the
+// offense, his left is the screen's left.
+const desX = (y) => ((DES_Y - bdSpread(y, 6, 2, 0.75)) / (2 * DES_Y)) * DES_W;
 const desY = (x) => ((DES_DEEP - x) / (DES_DEEP + DES_BACK)) * DES_H;
 function fieldSvg(geo, opts = {}) {
   const lines = [];
@@ -434,12 +460,21 @@ const BOARD_W = 640, BOARD_H = 380;
 // The board spreads the middle of the field (the line, the box) as the
 // designer does, so every spot's card has room.
 const bdX = (y) => ((bdSpread(y, 6, 2.2, 0.7) + 27) / 54) * 100;
-const bdY = (x) => ((21 - bdSpread(x, 8, 1.8, 0.9)) / 45) * 100;
-function slotCard(s, k, b, sel) {
+// Down the board in spread units (the line at 0); each board shows only
+// the depth its spots use, at the same scale across.
+const bdT = (x) => -bdSpread(x, 8, 1.8, 0.9);
+function bdFrame(slots) {
+  const ts = [0, ...slots.map((s) => bdT(s.x))];
+  const lo = Math.min(...ts) - 3.6, hi = Math.max(...ts) + 3.6;
+  const span = Math.max(18, hi - lo);
+  const top = (lo + hi) / 2 - span / 2;
+  return { top, span, y: (x) => ((bdT(x) - top) / span) * 100 };
+}
+function slotCard(s, k, b, sel, fr) {
   const p = s.player;
-  const prop = s.proposal && (!p || s.proposal.id !== p.id) ? `<em title="Your position coach would put ${esc(s.proposal.name)} here">Coach: ${esc(trLast(s.proposal.name))}</em>` : "";
+  const prop = s.fill ? `<em title="Nobody is listed for this spot; the engine sends the best man left in the room">next man up</em>` : s.proposal && (!p || s.proposal.id !== p.id) ? `<em title="Your position coach would put ${esc(s.proposal.name)} here">Coach: ${esc(trLast(s.proposal.name))}</em>` : "";
   const drag = s.controls ? 'draggable="true"' : "";
-  return `<div class="tr-slot ${sel ? "sel" : ""} ${p ? "" : "empty"} ${s.controls ? "" : "locked"} ${p && p.practice !== "full" ? "p-" + p.practice : ""}" style="left:${bdX(s.y)}%;top:${bdY(s.x)}%" data-act="tr-slot" data-k="${k}" data-board="${esc(b.key)}" ${drag} ${p ? `data-pid="${p.id}"` : ""}>
+  return `<div class="tr-slot ${sel ? "sel" : ""} ${p ? "" : "empty"} ${s.controls ? "" : "locked"} ${p && p.practice !== "full" ? "p-" + p.practice : ""}" style="left:${bdX(s.y)}%;top:${fr.y(s.x)}%" data-act="tr-slot" data-k="${k}" data-board="${esc(b.key)}" ${drag} ${p ? `data-pid="${p.id}"` : ""}>
     <small>${esc(s.slot)}</small><b>${p ? esc(trLast(p.name)) : "Open"}</b>${p ? `<span class="tr-sr">${p.ovr ? `${p.ovr[0]}-${p.ovr[1]}` : "?"}${p.pos !== s.pos ? ` · ${esc(p.pos)}` : ""}</span>` : ""}${prop}</div>`;
 }
 screens.depth = async (a) => {
@@ -457,6 +492,7 @@ screens.depth = async (a) => {
   }
   const b = x.boards.find((q) => q.label === tab) || x.boards[0];
   const sel = TR.pick && TR.pick.board === b.key ? TR.pick.k : null;
+  const fr = bdFrame(b.slots);
   const want = sel != null ? b.slots[sel] : null;
   const onBoard = new Set(b.slots.filter((s) => s.player).map((s) => s.player.id));
   // The pool: everyone, the slot's position first when a slot is picked.
@@ -467,7 +503,7 @@ screens.depth = async (a) => {
   const changes = b.slots.map((s) => (s.proposal && s.player && s.proposal.id !== s.player.id ? `<div class="item"><span class="when">${esc(s.slot)}</span><span>${playerLink(s.proposal.id, s.proposal.name)} over ${playerLink(s.player.id, s.player.name)} <small class="muted">${esc(s.proposal.practice === "full" ? s.proposal.class : s.proposal.practice)}</small></span></div>` : "")).join("");
   return `<div class="film"><div class="pad tr-pad">${head}${tabsHtml}
     <div class="tr-boardwrap"><div class="panel warm tr-boardp"><h2>${esc(b.label)} <small>${b.yours ? "your order" : b.kind === "package" ? "your position coaches' picks: set it to make it yours" : "your staff's order"}${locked ? " · some spots are the head coach's" : ""}</small></h2>
-      <div class="tr-board ${b.kind}" data-board="${esc(b.key)}"><div class="tr-los"></div>${b.slots.map((s, k) => slotCard(s, k, b, sel === k)).join("")}</div>
+      <div class="tr-board ${b.kind}" data-board="${esc(b.key)}" style="aspect-ratio:${(60 / fr.span).toFixed(3)};--yd:${((5 / fr.span) * 100).toFixed(2)}%"><div class="tr-los" style="top:${((-fr.top / fr.span) * 100).toFixed(2)}%"></div>${b.slots.map((s, k) => slotCard(s, k, b, sel === k, fr)).join("")}</div>
       <div class="st-actions">${props ? `<button class="st-btn small" data-act="tr-bprop" data-board="${esc(b.key)}">Use the coaches' picks</button>` : ""}${b.yours ? `<button class="st-btn small glass" data-act="tr-breset" data-board="${esc(b.key)}">Give it back to the staff</button>` : ""}${sel != null ? `<button class="st-btn small glass" data-act="tr-bclear" data-board="${esc(b.key)}" data-k="${sel}">Clear ${esc(want.slot)}</button>` : ""}</div>
       ${changes ? `<div class="tr-props"><div class="st-label">Your position coaches would change</div><div class="items">${changes}</div></div>` : ""}</div>
     <aside class="panel warm tr-pool"><h2>${want ? `For ${esc(want.slot)} <small>${esc(want.pos)}s first</small>` : "Players <small>drag onto a spot</small>"}</h2>${want ? `<label class="gd-check"><input type="checkbox" data-act="tr-poolall" ${keep("trpoolall", { v: false }).v ? "checked" : ""}> Everyone, not only ${esc(want.pos)}s</label>` : ""}<div class="tr-pplist">${poolHtml || '<div class="empty">Nobody at that position.</div>'}</div></aside></div></div></div>`;

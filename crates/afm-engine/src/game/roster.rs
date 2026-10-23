@@ -402,6 +402,9 @@ pub struct GameTeam {
     pub prep: Prep,
 }
 
+/// A call sheet play: the formation's personnel, backfield and set, and the play.
+pub type SheetCall = (Personnel, Backfield, Set, PlayKind);
+
 /// What your practice week sends into the game (section 6b): kickoff
 /// energy from the late week's load, your packages (board, player ids in
 /// slot order), and the call sheet (situation, plays) with how closely
@@ -410,7 +413,7 @@ pub struct GameTeam {
 pub struct Prep {
     pub fresh: f64,
     pub packages: Vec<(u8, Vec<u32>)>,
-    pub sheet: Vec<(u8, Vec<(Personnel, Backfield, Set, PlayKind)>)>,
+    pub sheet: Vec<(u8, Vec<SheetCall>)>,
     pub stick: f64,
 }
 

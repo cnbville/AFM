@@ -1067,7 +1067,7 @@ fn report_day(w: &mut World, st: &SeatTeam, d: Date, seed: u64) {
         } else {
             "reported in good shape"
         };
-        if effort > 1.1 || effort < 0.85 {
+        if !(0.85..=1.1).contains(&effort) {
             w.training.note(report, a.id, "strength", format!("[[p:{}|{name}]] {text}.", a.id));
         }
     }

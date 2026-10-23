@@ -6,7 +6,7 @@
 //! position coaches' proposals. Every rating here is your staff's read
 //! (a range or words), never a true number, and never a ceiling.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use afm_engine::attributes::Attr;
 use afm_engine::calendar::Date;
@@ -1330,7 +1330,9 @@ fn geometry(d: &Design) -> Value {
                 Some(rt) if !rt.blocks() => {
                     let out = if at.y >= ball { 1.0 } else { -1.0 };
                     let (pts, _) = rt.points(at, los, out);
-                    std::iter::once([0.0, at.y - ball]).chain(pts.iter().map(|p| [p.x - los, p.y - ball])).collect()
+                    std::iter::once([at.x - los, at.y - ball])
+                        .chain(pts.iter().map(|p| [p.x - los, p.y - ball]))
+                        .collect()
                 }
                 _ => Vec::new(),
             };
@@ -1416,7 +1418,7 @@ fn design_save(w: &mut World, args: &Value) -> Result<usize, String> {
     if !issues.is_empty() {
         return Err(format!("Not legal: {}.", issues.iter().map(|i| i.text()).collect::<Vec<_>>().join("; ")));
     }
-    let mut rng = afm_engine::rng::Rng::new((w.options.seed ^ w.today.0 as u32 ^ 0xDE5) as u32);
+    let mut rng = afm_engine::rng::Rng::new(w.options.seed ^ w.today.0 as u32 ^ 0xDE5);
     let review = reviewer(w).map_or_else(Vec::new, |c| designer::review(&d, &c, &mut rng));
     let replace = args.get("k").and_then(Value::as_u64).map(|v| v as usize).filter(|&k| k < w.training.designs.len());
     let saved = SavedDesign { design: d, saved: w.today, review, read: None, installing: true };
@@ -1547,9 +1549,9 @@ const BASE_O: [(&str, Position, f64, f64); 11] = [
     ("QB", Position::QB, -5.0, 0.0),
     ("RB", Position::RB, -7.5, 0.0),
     ("X", Position::WR, 0.0, -21.0),
-    ("Z", Position::WR, -1.0, 19.0),
-    ("SLOT", Position::WR, -1.0, 12.0),
-    ("TE", Position::TE, 0.0, 7.0),
+    ("Z", Position::WR, -1.0, 21.0),
+    ("SLOT", Position::WR, -1.8, 13.0),
+    ("TE", Position::TE, 0.0, 8.0),
     ("LT", Position::OT, 0.0, -4.4),
     ("LG", Position::IOL, 0.0, -2.2),
     ("C", Position::IOL, 0.0, 0.0),
@@ -1615,15 +1617,15 @@ fn package_spots(b: Board) -> Vec<(f64, f64)> {
             (6.0, 0.0),
         ],
         Board::GoalLineO => vec![
-            (-1.0, 0.0),
+            (-2.0, 0.0),
             (0.0, -4.4),
             (0.0, -2.2),
             (0.0, 0.0),
             (0.0, 2.2),
             (0.0, 4.4),
-            (0.0, -6.6),
-            (0.0, 6.6),
-            (-1.2, 10.5),
+            (0.0, -7.6),
+            (0.0, 7.6),
+            (-2.0, 11.0),
             (-4.0, 0.0),
             (-7.5, 0.0),
         ],
@@ -1738,18 +1740,58 @@ fn boards(w: &World, args: &Value) -> Reply {
     let staff_at = |pos: Position| -> Vec<u32> {
         staff_order.iter().find(|(p, _)| *p == pos).map(|(_, v)| v.clone()).unwrap_or_default()
     };
+    // A spot the order leaves empty (a thin room in February) shows the man
+    // the engine would send: the best free player in the position group,
+    // else the best on that side of the ball, else anyone.
+    let game_team = w.seat_game_team().map(|x| x.0);
+    let next_up = |pos: Position, taken: &HashSet<u32>| -> Option<usize> {
+        let gt = game_team.as_ref()?;
+        let free = |p: &&afm_engine::game::roster::GamePlayer| !taken.contains(&p.id) && by_id.contains_key(&p.id);
+        let best = |f: &dyn Fn(&afm_engine::game::roster::GamePlayer) -> bool| {
+            gt.players
+                .iter()
+                .filter(free)
+                .filter(|p| f(p))
+                .max_by(|a, b| a.overall_at(pos).total_cmp(&b.overall_at(pos)))
+        };
+        let off = |q: Position| {
+            matches!(q, Position::QB | Position::RB | Position::WR | Position::TE | Position::OT | Position::IOL)
+        };
+        let side = |q: Position| q.is_specialist() == pos.is_specialist() && off(q) == off(pos);
+        best(&|p| afm_engine::spots::group(p.position) == afm_engine::spots::group(pos))
+            .or_else(|| best(&|p| side(p.position)))
+            .or_else(|| best(&|_| true))
+            .and_then(|p| by_id.get(&p.id).copied())
+    };
     let base = |slots: &[(&str, Position, f64, f64)], key: &str, label: &str| {
         let mut used: HashMap<Position, usize> = HashMap::new();
+        let mut picks: Vec<(Option<usize>, Option<usize>)> = slots
+            .iter()
+            .map(|&(_, pos, _, _)| {
+                let k = used.entry(pos).or_insert(0);
+                let cur = order_at(pos).get(*k).and_then(|id| by_id.get(id)).copied();
+                let prop = staff_at(pos).get(*k).and_then(|id| by_id.get(id)).copied();
+                *k += 1;
+                (cur, prop)
+            })
+            .collect();
+        let mut filled = vec![false; slots.len()];
+        let mut taken: HashSet<u32> = picks.iter().filter_map(|x| x.0).map(|i| w.people[i].player.id).collect();
+        for (k, &(_, pos, _, _)) in slots.iter().enumerate() {
+            if picks[k].0.is_none()
+                && let Some(i) = next_up(pos, &taken)
+            {
+                taken.insert(w.people[i].player.id);
+                picks[k] = (Some(i), picks[k].1.or(Some(i)));
+                filled[k] = true;
+            }
+        }
         let list: Vec<Value> = slots
             .iter()
-            .map(|&(name, pos, x, y)| {
-                let k = used.entry(pos).or_insert(0);
-                let ord = order_at(pos);
-                let stf = staff_at(pos);
-                let cur = ord.get(*k).and_then(|id| by_id.get(id)).copied();
-                let prop = stf.get(*k).and_then(|id| by_id.get(id)).copied();
-                *k += 1;
-                json!({ "slot": name, "pos": pos.name(), "x": x, "y": y, "player": cur.map(who), "proposal": prop.map(who), "controls": w.controls(pos) })
+            .zip(picks)
+            .zip(filled)
+            .map(|((&(name, pos, x, y), (cur, prop)), fill)| {
+                json!({ "slot": name, "pos": pos.name(), "x": x, "y": y, "player": cur.map(who), "proposal": prop.map(who), "controls": w.controls(pos), "fill": fill })
             })
             .collect();
         let set_by_you = slots.iter().any(|s| w.seat_depth.iter().any(|(p, _)| *p == s.1));
@@ -1763,7 +1805,7 @@ fn boards(w: &World, args: &Value) -> Reply {
     for b in Board::ALL {
         let mine = w.training.package(b);
         let spots = package_spots(b);
-        let prop = proposal(w, t, b, &roster, &roles, reader);
+        let prop = proposal(w, t, b, &roster, &roles, reader, &staff_order);
         let list: Vec<Value> = b
             .slots()
             .iter()
@@ -1803,7 +1845,9 @@ fn proposal(
     roster: &[usize],
     roles: &HashMap<usize, Role>,
     reader: u64,
+    staff: &[(Position, Vec<u32>)],
 ) -> Vec<Option<usize>> {
+    let by_id: HashMap<u32, usize> = roster.iter().map(|&i| (w.people[i].player.id, i)).collect();
     let special =
         matches!(b, Board::KickReturn | Board::KickCover | Board::PuntReturn | Board::PuntCover | Board::FieldGoal);
     let mut used: Vec<usize> = Vec::new();
@@ -1857,6 +1901,20 @@ fn proposal(
                 })
                 .max_by(|a, b| a.1.total_cmp(&b.1))
                 .map(|x| x.0);
+            // No one listed at a kicking job: the engine's own pick, the
+            // best leg for the kick and anyone for the snap (its staff
+            // list); the holder is then the backup quarterback.
+            let best = best.or_else(|| {
+                if !pos.is_specialist() {
+                    return None;
+                }
+                if name == "H" {
+                    let qb = staff.iter().find(|(p, _)| *p == Position::QB)?;
+                    return qb.1.iter().skip(1).filter_map(|id| by_id.get(id).copied()).find(|i| !used.contains(i));
+                }
+                let list = staff.iter().find(|(p, _)| *p == pos)?;
+                list.1.iter().filter_map(|id| by_id.get(id).copied()).find(|i| !used.contains(i))
+            });
             if let Some(i) = best {
                 used.push(i);
             }
