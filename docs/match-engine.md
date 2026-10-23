@@ -496,6 +496,8 @@ The coaches' call table (`call_values.csv`) was not rebuilt: rebuilt on this eng
 
 **Measured** (`match_check <book> 300`, synthetic NFL-level rosters, points a team game against each league's real average): CFL 27.6 (24), arena 51.6 (52), NFL Europe 25.6 (21), XFL 2001 26.3 (20), XFL 2020/23 27.1 (20.5), AAF 27.4 (20.2), USFL 1983 24.7 (23.5), USFL 2022 27.5 (20.4), UFL 2009 25.3 (21), UFL 27.7 (20.5). The engine's NFL on the same rosters runs 21.9% over real points, 31% over passing yards and 12% over attempts, so the spring leagues are about 10% above that bias. Their real rosters were thinner at quarterback than synthetic NFL rosters; in the world (`leagues_check 2025 5`) the CFL scores 22-27 and arena 50-57, but the spring leagues still score 26-30 (`docs/world-model.md`, "The other leagues as full leagues").
 
+**Thin rosters:** an arena team dresses 20-odd men, so a blowout can pull nearly all of them. The pulled starters come back for a kick unit before it takes the field short, as they already did on offense and defense (`Side::kick_unit`); a test world once crashed on a kickoff with nobody to field it.
+
 **Known gaps:** CFL teams punt about 9.7 times a game (real about 6-7). The spring leagues run 14-18% more plays than real. The CFL's best passers throw for more than the league's real record (6,619 yards).
 
 ## Not built yet

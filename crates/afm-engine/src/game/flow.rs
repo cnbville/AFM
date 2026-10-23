@@ -172,6 +172,64 @@ impl<'a> Side<'a> {
         }
     }
 
+    /// A kick unit's `n` men: the returner or the kicker first, then the
+    /// backups who fit the job.
+    fn kick_unit(&self, receiving: bool, n: usize) -> Vec<usize> {
+        let ps = &self.team.players;
+        let mut used = Vec::new();
+        let mut on = Vec::new();
+        if receiving {
+            let rets = self.depth.kick_returners.iter().copied().filter(|&i| !self.out[i]).collect::<Vec<_>>();
+            on.extend(rets.iter().take(1));
+        } else {
+            on.push(self.kickoff_kicker());
+        }
+        used.extend(on.iter().copied());
+        // Coverage and return units: fast backups first.
+        let mut pool: Vec<usize> = (0..ps.len())
+            .filter(|&i| !self.out[i] && !used.contains(&i) && !ps[i].position.is_specialist() && !self.benched[i])
+            .collect();
+        let starters: Vec<usize> =
+            [Position::QB].iter().flat_map(|p| self.depth.list(*p).iter().take(1).copied()).collect();
+        pool.retain(|i| !starters.contains(i));
+        // A starter only beats a backup who is clearly worse (part C 3: real
+        // units are mostly backups and young players; proposed, not
+        // confirmed: a starter counts 10 points less).
+        // A return unit wants men who can block in space (tight ends,
+        // linebackers, fullbacks; under the 2025 NFL kickoff, bigger bodies
+        // in the setup zone); a coverage unit wants speed, tackling and the
+        // hands to get off a block (proposed, not confirmed: both used to
+        // pick by speed, tackling and blocking alike).
+        let score: Vec<f64> = (0..ps.len())
+            .map(|i| {
+                let p = &ps[i];
+                let skill = if receiving {
+                    0.3 * p.a(Attr::Speed) + 0.4 * p.a(Attr::BlockingInSpace) + 0.3 * p.a(Attr::Strength)
+                } else {
+                    0.4 * p.a(Attr::Speed) + 0.35 * p.a(Attr::Tackling) + 0.25 * p.a(Attr::BlockShedding)
+                };
+                skill - if self.starts(i) { 10.0 } else { 0.0 }
+            })
+            .collect();
+        pool.sort_by(|&a, &b| score[b].total_cmp(&score[a]));
+        on.extend(pool.into_iter().take(n - on.len()));
+        // A thin roster in a decided game (an arena team's 20-odd, a small
+        // school's): the pulled starters come back before a unit takes the
+        // field short, as they do on offense and defense, and a kick always
+        // has someone to field it.
+        if on.len() < n {
+            let mut back: Vec<usize> = (0..ps.len())
+                .filter(|&i| !self.out[i] && !on.contains(&i) && !ps[i].position.is_specialist())
+                .collect();
+            back.sort_by(|&a, &b| score[b].total_cmp(&score[a]));
+            on.extend(back.into_iter().take(n - on.len()));
+        }
+        if on.is_empty() {
+            on.push((0..ps.len()).find(|&i| !self.out[i]).unwrap_or(0));
+        }
+        on
+    }
+
     /// Rating points he gives up at a spot he doesn't know (3.3): footwork
     /// from the other side, the center's snap and calls, the middle
     /// linebacker's calls.
@@ -1126,46 +1184,7 @@ impl<'a> Game<'a> {
     // ------------------------------------------------------------ kickoffs
 
     fn kick_unit(&self, team: usize, receiving: bool) -> Vec<usize> {
-        let side = &self.sides[team];
-        let ps = &side.team.players;
-        let mut used = Vec::new();
-        let mut on = Vec::new();
-        if receiving {
-            let rets = side.depth.kick_returners.iter().copied().filter(|&i| !side.out[i]).collect::<Vec<_>>();
-            on.extend(rets.iter().take(1));
-        } else {
-            on.push(side.kickoff_kicker());
-        }
-        used.extend(on.iter().copied());
-        // Coverage and return units: fast backups first.
-        let mut pool: Vec<usize> = (0..ps.len())
-            .filter(|&i| !side.out[i] && !used.contains(&i) && !ps[i].position.is_specialist() && !side.benched[i])
-            .collect();
-        let starters: Vec<usize> =
-            [Position::QB].iter().flat_map(|p| side.depth.list(*p).iter().take(1).copied()).collect();
-        pool.retain(|i| !starters.contains(i));
-        // A starter only beats a backup who is clearly worse (part C 3: real
-        // units are mostly backups and young players; proposed, not
-        // confirmed: a starter counts 10 points less).
-        // A return unit wants men who can block in space (tight ends,
-        // linebackers, fullbacks; under the 2025 NFL kickoff, bigger bodies
-        // in the setup zone); a coverage unit wants speed, tackling and the
-        // hands to get off a block (proposed, not confirmed: both used to
-        // pick by speed, tackling and blocking alike).
-        let score: Vec<f64> = (0..ps.len())
-            .map(|i| {
-                let p = &ps[i];
-                let skill = if receiving {
-                    0.3 * p.a(Attr::Speed) + 0.4 * p.a(Attr::BlockingInSpace) + 0.3 * p.a(Attr::Strength)
-                } else {
-                    0.4 * p.a(Attr::Speed) + 0.35 * p.a(Attr::Tackling) + 0.25 * p.a(Attr::BlockShedding)
-                };
-                skill - if side.starts(i) { 10.0 } else { 0.0 }
-            })
-            .collect();
-        pool.sort_by(|&a, &b| score[b].total_cmp(&score[a]));
-        on.extend(pool.into_iter().take(self.rules().code.players as usize - on.len()));
-        on
+        self.sides[team].kick_unit(receiving, self.rules().code.players as usize)
     }
 
     fn kickoff(&mut self, team: usize, from: f64, onside: bool) {
@@ -3574,6 +3593,25 @@ pub(crate) fn kick_unit_men(team: &GameTeam, out: &[usize]) -> [usize; 3] {
         side.out[i] = true;
     }
     [side.fg_kicker(), side.punter(), side.snapper()]
+}
+
+/// A kick unit of `n` with some men hurt and some pulled in a decided game.
+#[cfg(test)]
+pub(crate) fn kick_unit_with(
+    team: &GameTeam,
+    out: &[usize],
+    benched: &[usize],
+    receiving: bool,
+    n: usize,
+) -> Vec<usize> {
+    let mut side = Side::new(team, 99.0, 3);
+    for &i in out {
+        side.out[i] = true;
+    }
+    for &i in benched {
+        side.benched[i] = true;
+    }
+    side.kick_unit(receiving, n)
 }
 
 // ------------------------------------------------------------ game day control
