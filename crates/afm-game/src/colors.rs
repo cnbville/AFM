@@ -1,6 +1,6 @@
 //! Team colours for Showtime's `accent` and `accent-2` (section 10, topic 2:
-//! the subject's own colours light the screen). Real colours for the NFL
-//! and the FBS programs best known for them; every other team gets a
+//! the subject's own colours light the screen). Real colours for the NFL,
+//! every FBS program and the best-known FCS ones; every other team gets a
 //! school pair drawn from the colours American schools really use, fixed
 //! by its id so it never changes.
 
@@ -139,6 +139,58 @@ const COLLEGE: &[(&str, &str, &str)] = &[
     ("North Dakota State", "#0A5640", "#FFC72A"),
     ("Montana", "#70002E", "#999999"),
     ("South Dakota State", "#0033A0", "#FFD100"),
+    // The rest of the FBS (the film room shows every opponent's field).
+    ("Akron", "#041E42", "#A89968"),
+    ("Arkansas State", "#CC092F", "#000000"),
+    ("Ball State", "#BA0C2F", "#FFFFFF"),
+    ("Bowling Green", "#FE5000", "#4F2C1D"),
+    ("Buffalo", "#005BBB", "#FFFFFF"),
+    ("Central Michigan", "#6A0032", "#FFC82E"),
+    ("Charlotte", "#005035", "#A49665"),
+    ("Coastal Carolina", "#006F71", "#A27752"),
+    ("Colorado State", "#1E4D2B", "#C8C372"),
+    ("Delaware", "#00539F", "#FFD200"),
+    ("East Carolina", "#592A8A", "#FDC82F"),
+    ("Eastern Michigan", "#006633", "#FFFFFF"),
+    ("Florida Atlantic", "#003366", "#CC0000"),
+    ("FIU", "#081E3F", "#B6862C"),
+    ("Georgia Southern", "#011E41", "#87714D"),
+    ("Georgia State", "#0039A6", "#FFFFFF"),
+    ("Jacksonville State", "#CC0000", "#FFFFFF"),
+    ("Kennesaw State", "#FDBB30", "#0B1315"),
+    ("Kent State", "#002664", "#EAAB00"),
+    ("Louisiana", "#CE181E", "#FFFFFF"),
+    ("Louisiana Tech", "#002F8B", "#E31B23"),
+    ("Miami (OH)", "#C3142D", "#FFFFFF"),
+    ("Middle Tennessee", "#0066CC", "#FFFFFF"),
+    ("Missouri State", "#5E0009", "#FFFFFF"),
+    ("Nevada", "#003366", "#807F84"),
+    ("New Mexico", "#BA0C2F", "#A7A8AA"),
+    ("New Mexico State", "#861F41", "#FFFFFF"),
+    ("North Texas", "#00853E", "#FFFFFF"),
+    ("Northern Illinois", "#BA0C2F", "#000000"),
+    ("Ohio", "#00694E", "#FFFFFF"),
+    ("Old Dominion", "#003057", "#7C878E"),
+    ("Rice", "#00205B", "#C1C6C8"),
+    ("Sacramento State", "#043927", "#C4B581"),
+    ("Sam Houston", "#F47321", "#FFFFFF"),
+    ("San Jose State", "#0055A2", "#E5A823"),
+    ("South Alabama", "#00205B", "#BF0D3E"),
+    ("South Florida", "#006747", "#CFC493"),
+    ("Southern Miss", "#000000", "#FFAB00"),
+    ("Temple", "#9D2235", "#FFFFFF"),
+    ("Texas State", "#501214", "#8D734A"),
+    ("Troy", "#8A2432", "#B3B5B8"),
+    ("UAB", "#1E6B52", "#F4C300"),
+    ("UConn", "#000E2F", "#FFFFFF"),
+    ("ULM", "#840029", "#BA9B37"),
+    ("UMass", "#881C1C", "#FFFFFF"),
+    ("Utah State", "#0F2439", "#FFFFFF"),
+    ("UTEP", "#FF8200", "#041E42"),
+    ("UTSA", "#0C2340", "#F15A22"),
+    ("Western Kentucky", "#C8102E", "#FFFFFF"),
+    ("Western Michigan", "#6C4023", "#B5A167"),
+    ("Wyoming", "#492F24", "#FFC425"),
 ];
 
 /// Pairs American school teams really wear, for teams without their own entry.

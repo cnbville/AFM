@@ -579,6 +579,12 @@ pub struct Params {
     pub context: [garbage::Context; 2],
     pub wear: [f64; 2],
     pub cold_unused: [f64; 2],
+    /// For the views only: the local kickoff hour and a roof over the
+    /// field (later extras topic 2).
+    #[serde(default)]
+    pub kickoff: f32,
+    #[serde(default)]
+    pub indoor: bool,
 }
 
 impl Params {
@@ -593,6 +599,8 @@ impl Params {
             context: s.context,
             wear: s.wear,
             cold_unused: s.cold_unused,
+            kickoff: s.kickoff,
+            indoor: s.indoor,
         }
     }
     pub fn setup<'a>(&self, home: &'a GameTeam, away: &'a GameTeam) -> GameSetup<'a> {
@@ -605,6 +613,8 @@ impl Params {
         s.context = self.context;
         s.wear = self.wear;
         s.cold_unused = self.cold_unused;
+        s.kickoff = self.kickoff;
+        s.indoor = self.indoor;
         s
     }
 }
@@ -635,7 +645,14 @@ impl LiveGame {
     /// Play from the kickoff with every answer so far, to the next point
     /// that waits for you (or the end).
     pub fn run(&mut self) -> Step {
-        let setup = self.params.setup(&self.home, &self.away);
+        self.run_keep(false)
+    }
+
+    /// A run; `keep` keeps the game's setup and your answers in the result
+    /// for its film (the finished game).
+    fn run_keep(&mut self, keep: bool) -> Step {
+        let mut setup = self.params.setup(&self.home, &self.away);
+        setup.keep = keep;
         let ctl = std::mem::take(&mut self.ctl);
         let (result, ctl, view) = super::flow::play_game_ctl(&setup, ctl);
         self.ctl = ctl;
@@ -661,6 +678,6 @@ impl LiveGame {
     pub fn finish(&mut self) -> GameResult {
         self.ctl.settings.stop = StopMode::Off;
         self.ctl.take_next = false;
-        self.run().result
+        self.run_keep(true).result
     }
 }

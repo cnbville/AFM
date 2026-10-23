@@ -21,21 +21,61 @@ pub struct SeatGame {
     pub teams: [usize; 2],
     pub names: [String; 2],
     pub stats: GameStats,
+    /// Everything that decided the game, packed (`ReplaySetup::pack`, about
+    /// 50 KB), so the film can be played again from its seed. Empty for a
+    /// game kept before the views were built.
+    #[serde(default)]
+    pub replay: Vec<u8>,
+    /// Your drawings on the film (film-room tool 1), saved with the clip.
+    #[serde(default)]
+    pub marks: Vec<FilmMark>,
 }
+
+/// A drawing on a paused frame of the film: a line, an arrow, a circle or
+/// a free hand, on the turf in field yards (x from the left end line of
+/// the field as the view shows it, 0-120; y across, 0-53.3), so it sits
+/// in the same spot in the 2D and 3D views and under every camera.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct FilmMark {
+    /// The play's number in the game's play log and the moment, seconds
+    /// into the snap.
+    pub play: u32,
+    pub t: f32,
+    /// 0 line, 1 arrow, 2 circle, 3 free hand.
+    pub kind: u8,
+    /// 0 yellow, 1 red, 2 white, 3 blue.
+    pub color: u8,
+    pub pts: Vec<(f32, f32)>,
+}
+
+/// Drawings kept per game at most (a heavy film session).
+pub const MARKS_PER_GAME: usize = 400;
 
 /// How many of your games are kept whole (about two seasons and a
 /// postseason); older ones keep their score in the season records.
 const KEEP_GAMES: usize = 40;
 
 impl World {
-    /// Keeps a game whole when it is your team's.
-    pub(crate) fn keep_seat_game(&mut self, level: crate::calendar::Level, teams: [usize; 2], stats: &GameStats) {
-        let Some(seat) = self.seat else { return };
+    /// Whether a game between these teams at this level is your team's.
+    pub(crate) fn seat_plays(&self, level: crate::calendar::Level, teams: [usize; 2]) -> bool {
+        let Some(seat) = self.seat else { return false };
         let mine = match level {
             crate::calendar::Level::Nfl => seat.nfl_team.is_some_and(|t| teams.contains(&t)),
             _ => seat.program.is_some_and(|p| teams.contains(&p)),
         };
-        if !mine || seat.level != level {
+        mine && seat.level == level
+    }
+
+    /// Keeps a game whole when it is your team's, with its setup packed for
+    /// watching it back.
+    pub(crate) fn keep_seat_game(
+        &mut self,
+        level: crate::calendar::Level,
+        teams: [usize; 2],
+        stats: &GameStats,
+        replay: Option<&crate::game::ReplaySetup>,
+    ) {
+        if !self.seat_plays(level, teams) {
             return;
         }
         // The day booked your game: a live game of it is over.
@@ -45,7 +85,16 @@ impl World {
             crate::calendar::Level::HighSchool => teams.map(|h| self.school_name(h).to_string()),
             _ => teams.map(|p| self.program_name(p).to_string()),
         };
-        self.seat_games.push(SeatGame { date: self.today, level, teams, names, stats: stats.clone() });
+        let replay = replay.map(|r| r.pack()).unwrap_or_default();
+        self.seat_games.push(SeatGame {
+            date: self.today,
+            level,
+            teams,
+            names,
+            stats: stats.clone(),
+            replay,
+            marks: Vec::new(),
+        });
         if self.seat_games.len() > KEEP_GAMES {
             let cut = self.seat_games.len() - KEEP_GAMES;
             self.seat_games.drain(..cut);
@@ -436,6 +485,18 @@ impl World {
     /// Your team's games kept whole, oldest first.
     pub fn seat_games(&self) -> &[SeatGame] {
         &self.seat_games
+    }
+
+    /// Your drawings on one of your games' film, replaced whole.
+    pub fn set_film_marks(&mut self, game: usize, marks: Vec<FilmMark>) -> bool {
+        match self.seat_games.get_mut(game) {
+            Some(g) => {
+                g.marks = marks;
+                g.marks.truncate(MARKS_PER_GAME);
+                true
+            }
+            None => false,
+        }
     }
 }
 

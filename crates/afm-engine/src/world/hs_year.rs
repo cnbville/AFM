@@ -169,8 +169,10 @@ struct HsPlayed {
     score: [u32; 2],
     team: [crate::game::stats::TeamStats; 2],
     lines: [Vec<(usize, [i32; HS_STAT_COUNT], bool)>; 2],
-    /// The whole game, kept only for your school's game page.
-    full: Option<(crate::game::stats::GameStats, [crate::game::calling::Film; 2])>,
+    /// The whole game, kept only for your school's game page (with its
+    /// setup for watching it back) and your coming opponents' film.
+    full:
+        Option<(crate::game::stats::GameStats, [crate::game::calling::Film; 2], Option<Box<crate::game::ReplaySetup>>)>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -1052,6 +1054,7 @@ pub(crate) fn seat_setup(w: &World, me: usize) -> Option<super::live_seat::SeatS
     setup.cond = hs_conditions(w, h, &wx, seed, key);
     setup.neutral = final_game;
     setup.playoff = playoff;
+    setup.kickoff = 19.0;
     let params = crate::game::live::Params::of(&setup);
     Some(super::live_seat::SeatSetup {
         level: Level::HighSchool,
@@ -1124,7 +1127,11 @@ fn engine_games(
             setup.year = world.year;
             setup.neutral = final_game;
             setup.playoff = week >= world.hs_season.as_ref().unwrap().states[s].weeks.len();
-            let r = match &live {
+            // Your school's game keeps its setup for the film; Friday night
+            // under the lights (7 pm).
+            setup.keep = seat.is_some_and(|x| x == h || x == a);
+            setup.kickoff = 19.0;
+            let mut r = match &live {
                 Some((t, r)) if *t == [h, a] => r.clone(),
                 _ => crate::game::play_game(&setup),
             };
@@ -1141,7 +1148,8 @@ fn engine_games(
             // Your game, and your coming opponents' film.
             let kept = seat.is_some_and(|x| x == h || x == a)
                 || watch.as_ref().is_some_and(|o| o.contains(&h) || o.contains(&a));
-            let full = kept.then(|| (r.stats.clone(), r.film.clone()));
+            let replay = r.replay.take();
+            let full = kept.then(|| (r.stats.clone(), r.film.clone(), replay));
             Ok(HsPlayed { score: [ha.max(0) as u32, hb.max(0) as u32], team: r.stats.team.clone(), lines, full })
         })
         .collect();
@@ -1181,8 +1189,8 @@ fn engine_games(
                 }
             }
         }
-        if let Some((full, film)) = g.full.as_ref() {
-            w.keep_seat_game(Level::HighSchool, [h, a], full);
+        if let Some((full, film, replay)) = g.full.as_ref() {
+            w.keep_seat_game(Level::HighSchool, [h, a], full, replay.as_deref());
             if let Some(o) = &watch {
                 w.keep_tape(o, Level::HighSchool, [h, a], full, film);
             }

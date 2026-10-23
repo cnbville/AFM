@@ -215,6 +215,15 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)]) {
                 let n = v["games"].as_array().map_or(0, Vec::len);
                 if n > 0 {
                     run.call(g, "game", json!({ "index": n - 1 }));
+                    // The game's film (lane 13): its index, a dozen snaps,
+                    // the grade sheet, then the film room closes.
+                    if let Some(f) = run.call(g, "film", json!({ "index": n - 1 })) {
+                        let ns: Vec<Value> =
+                            f["plays"].as_array().into_iter().flatten().step_by(12).map(|p| p["n"].clone()).collect();
+                        run.call(g, "film_plays", json!({ "index": n - 1, "n": ns }));
+                        run.call(g, "film_grades", json!({ "index": n - 1 }));
+                        run.call(g, "film_close", json!({}));
+                    }
                 }
             }
         }

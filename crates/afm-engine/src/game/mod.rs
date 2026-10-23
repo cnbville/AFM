@@ -15,6 +15,8 @@ pub mod geom;
 pub mod kicking;
 pub mod live;
 pub mod playbook;
+pub mod pose;
+pub mod replay;
 pub mod roster;
 pub mod rules;
 pub mod scrimmage;
@@ -28,6 +30,7 @@ pub use calling::Film;
 pub use flow::{
     GameResult, GameSetup, Venue, play_game, play_game_ctl, quick_game, quick_game_book, quick_game_in, quick_game_with,
 };
+pub use replay::ReplaySetup;
 pub use roster::{Caller, Front, GamePlayer, GameTeam, OffScheme, Shell, Staff};
 pub use rules::Rules;
 pub use sim::Conditions;
