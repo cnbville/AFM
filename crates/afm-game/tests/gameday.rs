@@ -136,13 +136,24 @@ fn game_day_from_the_morning_to_the_game_page() {
     let tapes = hub["tapes"].as_array().unwrap().clone();
     assert!(!tapes.is_empty(), "the opponent's film is in the film room: {}", hub["tapes"]);
     assert!(!hub["report"]["sections"].as_array().unwrap().is_empty(), "{}", hub["report"]);
-    let hub = ok(&mut g, "gameday_study", tapes[0]["key"].clone());
-    let studied = &hub["tapes"][0];
-    assert_eq!(studied["studied"], true);
-    let hints = studied["hints"].as_array().unwrap();
-    assert!(!hints.is_empty() && hints.len() <= 3, "{hints:?}");
-    // A hint the plan can act on ("for your eyes" ones only inform).
-    let Some(h) = hints.iter().find(|h| h["plan"] == true) else { panic!("no hint the plan answers: {hints:?}") };
+    // A hint the plan can act on ("for your eyes" ones only inform): study
+    // the tapes in order until one shows one (a tape's three strongest
+    // hints can all be battles).
+    let mut found = None;
+    let mut seen = Vec::new();
+    for tape in &tapes {
+        let hub = ok(&mut g, "gameday_study", tape["key"].clone());
+        let studied = hub["tapes"].as_array().unwrap().iter().find(|x| x["key"] == tape["key"]).unwrap().clone();
+        assert_eq!(studied["studied"], true);
+        let hints = studied["hints"].as_array().unwrap().clone();
+        assert!(!hints.is_empty() && hints.len() <= 3, "{hints:?}");
+        if let Some(h) = hints.iter().find(|h| h["plan"] == true) {
+            found = Some((studied.clone(), h.clone()));
+            break;
+        }
+        seen.extend(hints);
+    }
+    let Some((studied, h)) = found else { panic!("no hint the plan answers on any tape: {seen:?}") };
     let mut add = studied["key"].clone();
     add["key"] = h["key"].clone();
     add["add"] = json!(true);

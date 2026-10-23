@@ -73,7 +73,7 @@ Built 2026-10-22 from `docs/design/game-day.md` (all 12 topics, Cain's answers t
 - **Saving mid-game is supported:** the save keeps the live game (its seed and your answers), and loading resumes at the same snap. Weighed against blocking a save during a game; the design asks for it (topic 12).
 - **The week's work counts when you hand the game off:** the plan, the film you studied and your game rules apply to a game your staff coaches, as they would in real life. A game with none of it plays exactly as the morning built it (the identity test).
 - **Film time:** 12 hours a week for a college or NFL head coach, 6 at a high school, scaled by the days since your last game (half a week to 1.4 weeks); a tape takes 3 hours. Weighed a flat count of tapes; time follows people topic 5's budget.
-- **Three hints a tape**, merged by habit across tapes (the design's proposal).
+- **Three hints a tape**, merged by habit across tapes (the design's proposal); at most two of them "for your eyes" notes, so a tape whose strongest finds are all lost battles still shows the best one the plan can answer (lane 7, found when a test world's only tape showed three).
 - **The staff's tagging error** (3% to 22% of tags wrong by film study) and its tagged share (55% to 100%); the report's "sure" words come from the tagged sample (sure at 40 snaps, fairly sure at 15).
 - **The 4th-down charts** use the engine's own win chance (`live::win_prob`) on its expected points; aggressive goes within two points of win chance, conservative needs four. College and high school overtime have no punts, so the staff decides there.
 - **The two-point chart** is Dick Vermeil's, in the 4th quarter only.
