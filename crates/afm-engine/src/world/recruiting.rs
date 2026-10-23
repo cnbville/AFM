@@ -5151,10 +5151,33 @@ pub(crate) struct PortalMarket {
     backups_best: Vec<[f64; POSITION_COUNT]>,
     depth: Vec<Vec<Vec<f64>>>,
     adds: Vec<usize>,
+    /// Each program's NIL payroll weight without this window's entrants
+    /// (`nil_pool`), so an entrant's figure follows his market there.
+    #[serde(default)]
+    nil_pool: Vec<f64>,
     view: RosterView,
     /// Entrants from teams still alive for the title, on hold until their
     /// season is over (T3).
     held: Vec<Held>,
+}
+
+impl PortalMarket {
+    /// A program's NIL payroll weight (none kept in an older file's market).
+    fn pool(&self, j: usize) -> f64 {
+        self.nil_pool.get(j).copied().unwrap_or(0.0)
+    }
+}
+
+/// The role a transfer would have with `ahead` players better than him at
+/// a position with `slots` starting places.
+fn role_at(ahead: usize, slots: usize) -> PlayingTime {
+    if ahead < slots {
+        PlayingTime::Starter
+    } else if ahead < 2 * slots {
+        PlayingTime::Rotation
+    } else {
+        PlayingTime::Backup
+    }
 }
 
 /// A playoff team's entrant on hold (T3): the day the window would have
@@ -5647,6 +5670,7 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
         }
     }
     let view = RosterView::new(&w.programs, &w.people, &leaving);
+    let nil_pool: Vec<f64> = (0..pn).map(|j| nil_pool(w, j, &leaving)).collect();
     let mut market = PortalMarket {
         label,
         season: label + 1,
@@ -5657,6 +5681,7 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
         backups_best,
         depth,
         adds: vec![0; pn],
+        nil_pool,
         view,
         held,
     };
@@ -5787,8 +5812,12 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                         return None;
                     }
                     let p = &wr.people[i];
-                    let nil = o.nil.unwrap_or(wr.programs[j].collective.budget / 40.0);
                     let perf = perf - competition_discount(from) + competition_discount(d);
+                    let nil = o.nil.unwrap_or_else(|| {
+                        let ahead = mk.depth[j][k].iter().take_while(|&&v| v >= perf).count();
+                        let role = role_at(ahead, slots);
+                        portal_nil(&wr.programs[j], mk.pool(j), p, role, perf - median(d))
+                    });
                     let u = utility(&norms, p, &p.family.own_wants, &wr.programs[j], nil, 0.6)
                         + mk.view.fit(
                             j,
@@ -5832,15 +5861,9 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                     return None;
                 }
                 let p = &wr.people[i];
-                let u =
-                    utility(
-                        &norms,
-                        p,
-                        &p.family.own_wants,
-                        &wr.programs[j],
-                        wr.programs[j].collective.budget / 40.0,
-                        0.6,
-                    ) + mk.view.fit(j, i, p.player.position, &p.family.own_wants, perf, 3, 0.0, early_weight(p.stars));
+                let nil = portal_nil(&wr.programs[j], mk.pool(j), p, role_at(ahead, slots), perf - median(d));
+                let u = utility(&norms, p, &p.family.own_wants, &wr.programs[j], nil, 0.6)
+                    + mk.view.fit(j, i, p.player.position, &p.family.own_wants, perf, 3, 0.0, early_weight(p.stars));
                 Some((j, u))
             })
             .collect();
@@ -5945,6 +5968,44 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
     }
 }
 
+/// A player's weight in his collective's payroll: his role, his position
+/// and his stars (what `nil_payouts` splits a budget by on 1 July).
+fn nil_weight(role: Option<PlayingTime>, pos: Position, stars: u8) -> f64 {
+    let role = match role {
+        Some(PlayingTime::Starter) => 3.0,
+        Some(PlayingTime::Rotation) => 1.2,
+        _ => 0.3,
+    };
+    role * (1.0 + 0.25 * position_value(pos).max(-2.0)) * (1.0 + 0.1 * stars as f64)
+}
+
+/// A program's whole payroll weight (its roster by `nil_weight`).
+fn nil_pool(w: &World, j: usize, leaving: &std::collections::HashSet<usize>) -> f64 {
+    w.programs[j]
+        .roster
+        .iter()
+        .filter(|i| !leaving.contains(i))
+        .map(|&i| {
+            let p = &w.people[i];
+            nil_weight(p.last_role, p.player.position, p.stars)
+        })
+        .sum()
+}
+
+/// What a program's collective offers a transfer (11.16; final build: NIL
+/// follows his market). The yearly budget it pays its roster, split as it
+/// splits it on 1 July: by the role he would have there, his position and
+/// his stars, and moved by how he played against the level's starters at
+/// his position. A starting quarterback who played well draws seven
+/// figures at a big program; a backup lineman a few thousand. Proposed,
+/// not confirmed: production moves the figure 4% a point, from 0.6 to 1.6
+/// times.
+fn portal_nil(prog: &Program, pool: f64, p: &Person, role: PlayingTime, edge: f64) -> f64 {
+    let v = nil_weight(Some(role), p.player.position, p.stars);
+    let pool = if pool > 0.0 { pool } else { 120.0 };
+    prog.collective.budget * 0.6 * v / (pool + v) * clamp(1.0 + 0.04 * edge, 0.6, 1.6)
+}
+
 /// July 1, the new money year (T3, 11.5): each collective (and from 2025
 /// each school's revenue share) pays its roster; big money can backfire.
 pub(crate) fn nil_payouts(w: &mut World) {
@@ -5960,15 +6021,7 @@ pub(crate) fn nil_payouts(w: &mut World) {
         if roster.is_empty() {
             continue;
         }
-        let value = |p: &Person| {
-            let role = match p.last_role {
-                Some(PlayingTime::Starter) => 3.0,
-                Some(PlayingTime::Rotation) => 1.2,
-                _ => 0.3,
-            };
-            let pos = 1.0 + 0.25 * position_value(p.player.position).max(-2.0);
-            role * pos * (1.0 + 0.1 * p.stars as f64)
-        };
+        let value = |p: &Person| nil_weight(p.last_role, p.player.position, p.stars);
         let total: f64 = roster.iter().map(|&i| value(&w.people[i])).sum();
         let worth = |p: &Person| budget * value(p) / total.max(1e-9);
         let mut paid: Vec<(f64, usize)> = match deals.as_ref().filter(|d| d.0 == j) {

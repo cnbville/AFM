@@ -120,7 +120,7 @@ Every choice the AI made for your team is yours now, on the league's real rules,
 
 Final build lane 10 (`world/front_office/school.rs`, the game's `lane_frontoffice/school.rs`, the screens in `app/ui/screens/fo-school.js`). Everything here is your school's alone: AI schools keep the built model, and every draw is keyed by the career, so no other draw in the world moves. Commands: `school_office`, `school_squads`, `school_area`, `set_squad`, `reset_squads`, `squads_owner`, `squad_suggestion`, `booster_wish`; screens School office, Squads, and School and feeders.
 
-- **Squads.** A school fields a JV team from about 450 students and a freshman team from about 1,100, each only with 22 players to dress; a smaller school plays everyone on varsity. Your staff makes the lists the way real staffs do: every senior and junior on varsity (a junior below the three-deep goes to JV), a sophomore in the two-deep and a freshman who starts move up, the rest play JV and freshman ball, varsity at most 72. A team short of 22 is folded into the one above. On the Squads screen you set them yourself or leave them with the staff. Seniors can't play JV and only freshmen play on the freshman team (most state associations' rules).
+- **Squads.** A school fields a JV team from about 450 students and a freshman team from about 1,100, each only with 22 players to dress; a smaller school plays everyone on varsity. Your staff makes the lists the way real staffs do: every senior and junior on varsity (a junior below the three-deep goes to JV), a sophomore in the two-deep and a freshman who starts move up, the rest play JV and freshman ball, varsity at most 72. A team short of 22 is folded into the one above, except that a short JV first takes the freshmen in (one sub-varsity team, as most schools of that size run), so the varsity doesn't swell past 72. On the Squads screen you set them yourself or leave them with the staff. Seniors can't play JV and only freshmen play on the freshman team (most state associations' rules).
 - **JV and freshman games.** Each week's JV and freshman games are played the Thursday before the varsity's Friday, against the same school, each at the other site, on the engine with 10-minute quarters and the running clock. They have box scores, best lines and season lines on the Squads screen; nothing else in the world reads them, so the memory gate holds (a season keeps about 20 small games).
 - **Moving up.** Your staff watches the tape: after two games, a JV or freshman player whose read reaches the varsity's last man in the two-deep at his spot is ready. With the squads in your hands that is a suggestion (Move him, Leave him); with the staff's, they move him. After the last regular-season Thursday the best JV sophomores and juniors dress for the varsity's last game and the playoffs.
 - **Reps.** The staff's squads change nobody's development, so your school grows its players as any other does. A player you keep off varsity who would start there gets a JV starter's reps instead of a varsity starter's.
@@ -315,6 +315,37 @@ Section 6 on your side. The world side is `world/folk/` (`docs/world-model.md`, 
 - A one-on-one's move can be said in any of the four tones; the other scenes' answers keep the tone they are written in.
 - Your staff's expectation is shown only in one-on-ones (the other scenes' answers show what they tend to do).
 - A meeting set for a later day shows its date and place and can only be handed; it opens on its morning.
+
+## Money and the other leagues (final build, lane 4)
+
+The game side is `crates/afm-game/src/lane_money.rs` (`money_books`, `money_league`, `money_card`, `money_ask_facility`, `money_hs_act`) and `lane_money/leagues.rs` (`leagues`, `league_team`). The screens are `app/ui/screens/money.js` and `money.css`, on lane 9's helpers. The world side is in `docs/world-model.md`, "Money and the other leagues".
+
+- **Finances** (team section of the sidebar, `money`): what your seat can see of your own club's books, and what is published about anyone else's.
+  - **NFL head coach:** Overview, Football budget, Gate and Report card. You see your club's published numbers and the football budgets you spend (coaches, scouting, medical, travel, player amenities). The owner keeps the rest of the books. Another club shows its estimates, stadium, gate and card.
+  - **College head coach:** Overview, Football budget, Department and Gate. Football's lines are on one tab, the athletic department's published report on another. Once a year, Ask for a building puts a facility project to your AD. A private school publishes only its federal (EADA) totals. "What TV pays for you" is your pull priced at your conference deal's rate (`college::media_worth`); a school above its conference's average pull is worth more than the deal pays it, which is what realignment chases.
+  - **High school head coach:** Overview, Equipment, Fundraisers and Ledger. You see your program's money in full. You spend the equipment budget item by item, run the booster club's fundraisers, and ask the district for more once a year. Another high school's books aren't published.
+- **League money** (`money_league`): every NFL club's and every college's revenue, expenses, the university's support and the crowd, as sortable tables. Each conference's media deal is shown with its end year.
+- **Report cards:** the NFLPA's grades on your club's page and its Finances tab. Every club's card is public in 2023-24. From 2025 you see only your own; another club shows its last published card (2024), with a note that the newer ones stayed inside the union.
+- **Betting lines:** your schedule and game pages show each game's spread and over/under, and after the game whether you covered and whether it went over. A coach's page shows his record against the spread.
+- **Conference moves:** your inbox shows the moves your seat would hear about, on 1 July, the day each takes effect (`docs/world-model.md`, 1a and 1b).
+- **Other leagues** (world section of the sidebar, `leagues`): pick a league and a year.
+  - **Season:** the standings by division, the weeks' scores and the playoffs.
+  - **Champions:** every title game by year.
+  - **Teams:** every club with its seasons.
+  - **Rules:** the year's rule book in plain words.
+  - **Draft (the CFL only):** each year's picks with their U Sports schools.
+- **An other-league club's page** (`league_team`, also through any team link): its staff, roster (nationals marked under the CFL), seasons, games and upcoming schedule, record and pay.
+- **Player pages:** a player's other-league seasons sit in his Stats with his college and NFL lines, sorted by year. "Now" names his club when he plays in another league. A Canadian's hometown and school come from his U Sports program.
+- **Coach pages:** an other-league job shows as the club and league, in his history and in the coach search.
+
+Your own career can't take an other-league job yet (`docs/world-model.md`, "The other leagues as full leagues").
+
+### Decided in the final build (Claude's pick)
+
+- **Who sees what:** what each seat sees of the books follows what is really published. NFL clubs publish nothing but the Packers' report, so another club is estimated. Public colleges publish their NCAA report and private ones only the federal totals. High schools publish nothing.
+- **The high school ledger** keeps the last 200 entries.
+- **Equipment:** the equipment budget's running costs are paid first, and you spend what's left.
+- **Your school's books open on your first morning** (and on the first day of a new high school job), so the Equipment and Fundraisers tabs work before the money year turns in July.
 
 ## Scouting and the draft (final build, lane 7)
 

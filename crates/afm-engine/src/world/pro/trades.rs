@@ -242,16 +242,30 @@ pub(crate) fn pick_value(w: &World, t: usize, year: i32, round: u32, orig: usize
 /// cap cost, as a share of the cap (10,000 points for a full cap-year of
 /// surplus, so about two late firsts for a fifth of the cap). Proposed,
 /// not confirmed.
+///
+/// A club counts the seasons it will use him for its plan: a rebuilding
+/// club gets little from a veteran of 27 or more, who will be gone or past
+/// it before it wins again (a third of his surplus), so it doesn't spend
+/// picks on one and sells its own cheaply; a contender pays a little more
+/// for help this season. What he costs over his worth counts in full.
 pub(crate) fn player_points(w: &World, t: usize, i: usize) -> f64 {
     let year = w.year;
     let (_, apy) = worth(w, t, i);
     let Some(k) = w.people[i].pro.as_ref().and_then(|c| c.contract.as_ref()) else { return 0.0 };
-    let age = w.people[i].player.age;
+    let age = w.people[i].player.age as i32;
+    let mode = w.clubs[t].office.mode;
     let mut pts = 0.0;
     for y in year..=k.last_year() {
-        let decline = if age as i32 + (y - year) >= 30 { 0.88f64.powi(y - year) } else { 1.0 };
+        let decline = if age + (y - year) >= 30 { 0.88f64.powi(y - year) } else { 1.0 };
         let cost = k.year(y).map_or(0.0, |x| x.base + x.roster_bonus + x.workout + x.per_game);
-        pts += 10_000.0 * (apy * decline - cost) / money::price_cap(y);
+        let surplus = apy * decline - cost;
+        let used = match mode {
+            _ if surplus <= 0.0 => 1.0,
+            Mode::Rebuild if age + (y - year) >= 27 => 0.35,
+            Mode::Contend if y == year => 1.15,
+            _ => 1.0,
+        };
+        pts += 10_000.0 * surplus * used / money::price_cap(y);
     }
     pts
 }

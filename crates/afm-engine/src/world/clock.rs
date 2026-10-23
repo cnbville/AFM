@@ -175,6 +175,9 @@ pub(crate) fn advance_day(w: &mut World) {
         signing_day_and_book(w, p.season);
     }
 
+    // --- The books: every club's money, projects and the dated money days ------------
+    timed("money", || super::finance::day(w, d));
+
     anniversaries(w, d);
     timed("recruiting days", || recruiting::recruiting_day(w, d));
     recruiting::announce_commitments(w, d);
@@ -522,9 +525,7 @@ fn year_start(w: &mut World) {
     super::scouting::dept::prune(w);
     w.rules = w.changes.rules(year);
     // Conference moves announced last year take effect.
-    for (p, conf) in std::mem::take(&mut w.realign) {
-        w.programs[p].conference = conf;
-    }
+    super::finance::college::switch(w);
     // The real moves of the season (college history, through 2026).
     super::program::apply_history(w);
     w.college_prev = w.college.take();
@@ -662,10 +663,6 @@ fn college_changes(w: &mut World) {
                 });
                 w.calendar.post(Event::new(w.today, Level::HighSchool, Kind::RuleChange, Loudness::Small, text));
             }
-        }
-        // A program changes conference (realignment), rarely.
-        if rng.chance(odds.conference_switch) {
-            super::program::realign_one(w, &mut rng);
         }
     }
 }

@@ -56,6 +56,10 @@ fn employer_name(w: &World, e: Employer) -> String {
             format!("{} HS ({})", w.high_schools[h].name, STATE_CENTERS[w.high_schools[h].state].0)
         }
         Employer::Nfl(t) => format!("{} (NFL)", w.nfl[t].name),
+        Employer::Other(f) => {
+            use afm_engine::world::pro::other;
+            format!("{} ({})", other::name(f, w.year), other::league_short(other::league_of(f)))
+        }
     }
 }
 
@@ -1467,6 +1471,9 @@ fn trial1_notes(w: &World, years: u32) {
             Employer::HighSchool(_) => "HS".to_string(),
             Employer::College(p) => w.programs[p].division.name().to_string(),
             Employer::Nfl(_) => "NFL".to_string(),
+            Employer::Other(f) => {
+                afm_engine::world::pro::other::league_short(afm_engine::world::pro::other::league_of(f)).to_string()
+            }
         };
         let role = match r {
             Role::HeadCoach => "head coach",

@@ -227,6 +227,14 @@ impl World {
                 }
                 _ => (0, 0),
             },
+            // The other leagues' seasons are booked when they end.
+            Some(Employer::Other(f)) => self
+                .others
+                .live
+                .iter()
+                .flat_map(|l| l.table.iter())
+                .find(|r| r.fr as usize == f)
+                .map_or((0, 0), |r| (r.w as u32, r.l as u32)),
             None => (0, 0),
         };
         (co.wins + live.0, co.losses + live.1)
@@ -309,6 +317,11 @@ pub struct Fixture {
     pub score: Option<[u32; 2]>,
     /// Called off: a hurricane, or a team too short to dress.
     pub cancelled: bool,
+    /// The betting line (C8): the home side's spread and the total. The
+    /// books post a game's line in its own week; none below FCS.
+    pub line: Option<[f32; 2]>,
+    /// The crowd, once played (later extras topic 1).
+    pub attendance: u32,
 }
 
 /// An NFL game on this season's schedule.
@@ -323,6 +336,10 @@ pub struct NflFixture {
     pub played: bool,
     /// Home and away points, for a game played on the engine.
     pub score: Option<[u32; 2]>,
+    /// The betting line (C8), once the week's lines are out.
+    pub line: Option<[f32; 2]>,
+    /// The crowd, once played (later extras topic 1).
+    pub attendance: u32,
 }
 
 impl World {
@@ -353,6 +370,13 @@ impl World {
                 why: g.why.clone(),
                 score: g.played.filter(|p| !p.cancelled).map(|p| p.score),
                 cancelled: g.played.is_some_and(|p| p.cancelled),
+                // The week's lines are out from the Sunday before.
+                line: g.line.or_else(|| {
+                    (g.played.is_none() && g.date >= self.today && g.date <= self.today.add(6))
+                        .then(|| super::finance::lines::college(self, g.home, g.away, g.site.is_some()))
+                        .flatten()
+                }),
+                attendance: g.attendance,
             })
             .collect()
     }
@@ -401,6 +425,8 @@ impl World {
                     minute: slot.map(|x| x.at.minute),
                     played: slot.is_some_and(|x| x.played),
                     score: slot.and_then(|x| x.score),
+                    line: slot.and_then(|x| x.line),
+                    attendance: slot.map_or(0, |x| x.attendance),
                 });
             }
         }
@@ -603,6 +629,8 @@ impl World {
             }
             super::front_office::school::open(self, h);
         }
+        // Your school's money desk is open from your first morning.
+        super::finance::hs::open_seat(self);
         self.seat_depth.clear();
         self.seat_games.clear();
         self.seat_focus.clear();
@@ -875,6 +903,7 @@ impl World {
             c.family.since = year - 1;
             c.family.mood = 0.62;
         }
+        super::finance::after_load(self);
     }
 
     /// What a world file from before the final build lacks (lane 1): birth

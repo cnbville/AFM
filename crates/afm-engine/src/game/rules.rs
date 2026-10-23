@@ -15,6 +15,27 @@ pub enum Overtime {
     College,
     /// High school (NFHS "Kansas plan"): possessions from the 10.
     HighSchool,
+    /// The old NFL rule, kept by the leagues that played under it: a
+    /// 15-minute period, the first score wins, a tie in the regular season
+    /// if nobody scores (`books.rs`).
+    SuddenDeath,
+    /// CFL: each team gets a possession from the other's 35; from the
+    /// `two_from` season on a touchdown must be followed by a two-point
+    /// convert; at most two rounds in the regular season, then a tie.
+    Cfl { two_from: i32 },
+    /// A shootout of two-point plays (the XFL of 2020 and 2023, the USFL of
+    /// 2022-23, the UFL): `rounds` alternating tries from `from` yards,
+    /// then round by round until one team makes it and the other doesn't.
+    Shootout { rounds: u8, from: u8 },
+    /// Arena football: a 15-minute period in which each team gets one
+    /// possession; tied after that, the next score wins.
+    Arena,
+    /// AAF (2019): one round of possessions from the 10, a two-point try
+    /// after a touchdown, then a tie in the regular season.
+    Aaf,
+    /// XFL 2001: each team gets four downs from the 20 and only a
+    /// touchdown counts.
+    Xfl2001,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -50,6 +71,11 @@ pub struct Rules {
     /// A ball carrier who goes to the ground untouched is down (college and
     /// high school). In the NFL he can get up and keep running.
     pub down_on_fall: bool,
+    /// The other leagues' rule books (X7, `books.rs`): the field, players a
+    /// side, downs, kicking and scoring. The American levels keep the
+    /// default, which changes nothing.
+    #[serde(default)]
+    pub code: super::books::Code,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -80,6 +106,7 @@ impl Rules {
                 timeouts: 3,
                 play_clock: 40.0,
                 down_on_fall: false,
+                code: Default::default(),
             },
             Level::HS => Rules {
                 level,
@@ -99,6 +126,7 @@ impl Rules {
                 timeouts: 3,
                 play_clock: 40.0,
                 down_on_fall: true,
+                code: Default::default(),
             },
             // FBS, FCS, D2 and below play NCAA rules.
             _ => Rules {
@@ -119,6 +147,7 @@ impl Rules {
                 timeouts: 3,
                 play_clock: 40.0,
                 down_on_fall: true,
+                code: Default::default(),
             },
         }
     }

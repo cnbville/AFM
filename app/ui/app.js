@@ -61,6 +61,8 @@ function teamLink(t, text) {
   return `<a class="link" data-go="team" data-kind="${t.ref.kind}" data-id="${t.ref.id}">${esc(text ?? t.name)}</a>`;
 }
 function playerLink(id, name, tab) {
+  // Someone who left football and the world no longer keeps: his name only.
+  if (id == null) return esc(name);
   return `<a class="link name" data-go="player" data-id="${id}"${tab ? ` data-tab="${esc(tab)}"` : ""}>${esc(name)}</a>`;
 }
 function coachLink(id, name) {
@@ -477,13 +479,22 @@ screens.depth = async () => {
   </div></div>`;
 };
 
+// A schedule row's betting line (C8), from this team's side, and the crowd.
+function schedLine(l) {
+  if (!l) return "";
+  const parts = [];
+  if (l.spread) parts.push(`<b>${esc(l.spread)}</b> <span class="muted">O/U ${esc(l.total)}</span>`);
+  if (l.against) parts.push(`<small class="muted">${esc(l.against)}</small>`);
+  if (l.crowd) parts.push(`<small class="muted" title="Attendance">${Number(l.crowd).toLocaleString()}</small>`);
+  return parts.join(" · ");
+}
 screens.schedule = async (a) => {
   const x = await api("schedule", a.kind ? { kind: a.kind, id: a.id } : {});
   setColors(x.team.colors);
-  const games = x.games.map((g) => `<tr><td class="l">${esc(g.week ? "Wk " + g.week : "")} ${esc(g.date || "")}</td><td class="l">${esc(g.at)} ${teamLink(g.opp)}${g.name ? ` <span class="st-pill gold">${esc(g.name)}</span>` : ""}${g.conf ? ' <span class="muted">conf</span>' : ""}</td><td class="l muted">${esc((g.why || []).join(", "))}</td><td>${g.result ? `<b>${esc(g.result)}</b>` : '<span class="muted">' + esc(g.kick || "") + "</span>"}</td></tr>`).join("");
+  const games = x.games.map((g) => `<tr><td class="l">${esc(g.week ? "Wk " + g.week : "")} ${esc(g.date || "")}</td><td class="l">${esc(g.at)} ${teamLink(g.opp)}${g.name ? ` <span class="st-pill gold">${esc(g.name)}</span>` : ""}${g.conf ? ' <span class="muted">conf</span>' : ""}</td><td class="l muted">${esc((g.why || []).join(", "))}</td><td class="l">${schedLine(g.line)}</td><td>${g.result ? `<b>${esc(g.result)}</b>` : '<span class="muted">' + esc(g.kick || "") + "</span>"}</td></tr>`).join("");
   const kept = x.box_scores.map((g) => `<div class="item"><span class="when">${esc(g.date)}</span><span><a class="link" data-go="game" data-index="${g.index}">${esc(g.away)} ${g.score[1]} at ${esc(g.home)} ${g.score[0]}</a></span></div>`).join("");
   return `<div class="film"><div class="pad"><div class="h1">${esc(x.team.name)} schedule</div>
-    <div class="tbl warm"><table><thead><tr><th class="l">Date</th><th class="l">Opponent</th><th class="l">Why it matters</th><th>Result</th></tr></thead><tbody>${games || '<tr><td class="l" colspan="4"><div class="empty">The schedule comes out with the season.</div></td></tr>'}</tbody></table></div>
+    <div class="tbl warm"><table><thead><tr><th class="l">Date</th><th class="l">Opponent</th><th class="l">Why it matters</th><th class="l" title="Your side of the betting line, the total, and how the game went against it">Line</th><th>Result</th></tr></thead><tbody>${games || '<tr><td class="l" colspan="5"><div class="empty">The schedule comes out with the season.</div></td></tr>'}</tbody></table></div>
     ${kept ? `<div class="panel"><h2>Game pages <small>box score and every play</small></h2><div class="items">${kept}</div></div>` : ""}</div></div>`;
 };
 

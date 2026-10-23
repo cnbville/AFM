@@ -118,7 +118,7 @@ fn refs(v: &Value, players: &mut BTreeSet<u64>, coaches: &mut BTreeSet<u64>, tea
     match v {
         Value::Object(o) => {
             if let (Some(Value::String(k)), Some(Value::Number(i))) = (o.get("kind"), o.get("id"))
-                && matches!(k.as_str(), "nfl" | "college" | "hs")
+                && matches!(k.as_str(), "nfl" | "college" | "hs" | "other")
             {
                 teams.insert((k.clone(), i.as_u64().unwrap_or(0)));
             }
@@ -185,6 +185,8 @@ const SCREENS: &[&str] = &[
     "games",
     "you",
     "card",
+    "money_books",
+    "money_league",
 ];
 
 fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)]) {
@@ -223,16 +225,25 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)]) {
     }
     run.call(g, "news", json!({ "mine": true }));
     run.call(g, "search", json!({ "q": "a" }));
+    run.call(g, "money_league", json!({ "level": "college" }));
     for &p in players.iter().take(12) {
         run.call(g, "player", json!({ "id": p }));
     }
     for &c in coaches.iter().take(6) {
         run.call(g, "coach", json!({ "id": c }));
     }
-    for (k, i) in teams.iter().take(6) {
-        for s in ["team", "roster", "schedule", "staff"] {
+    // The other leagues (X7): every league's page, and their clubs named
+    // on the screens (a club's page is `league_team`).
+    for k in 0..afm_engine::world::pro::other::LEAGUE_COUNT {
+        run.call(g, "leagues", json!({ "league": k }));
+    }
+    for (k, i) in teams.iter().filter(|t| t.0 != "other").take(6) {
+        for s in ["team", "roster", "schedule", "staff", "money_books"] {
             run.call(g, s, json!({ "kind": k, "id": i }));
         }
+    }
+    for (_, i) in teams.iter().filter(|t| t.0 == "other").take(4) {
+        run.call(g, "league_team", json!({ "id": i }));
     }
 }
 

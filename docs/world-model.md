@@ -645,8 +645,93 @@ Your college program's recruiting choices are yours. The world decides on them w
 - **Lane 6 fixes found in the merge** (`folk::boss`): a season review marked every goal missed (it read the goals' marks from a copy taken before they were set); it now stores each goal's own result. At your school the playoffs goal reads whether the school made the field (`in_playoffs`, set in `seed_playoffs`), and the grades goal counts players out for grades (`hs_grade_out`) as well; its words say the bar ("two at most ruled out for grades").
 - **High school squads** (`front_office::school`): the staff's suggestions expire after 14 days (a call-up for the last game and the playoffs lasts the season), all clear when the season ends, and each names one player per position, skipping positions with a varsity suggestion already waiting.
 
+## Money and the other leagues (final build, lane 4)
+
+### Club finances at every level (later extras topic 1, X1)
+
+`world/finance/` keeps books for every NFL club, college athletic department and high school (`w.finance`, saved with the world; every field defaults, and `finance::after_load` opens the books of an older world on load). Each book is a fixed array of yearly lines in dollars (`Book<N>`, f32): the budget set when the money year opens, and what came in and went out so far. Games book on their days; everything else books on the first of each month by its real spread over the year (`month_share`). The NFL and college keep every closed year; a high school keeps this year and the last. The real figures behind every line, with their sources, are in `finance/data.rs`; anything no source publishes is marked "proposed, not confirmed" there.
+
+- **NFL** (`finance/nfl.rs`, the money year opens with the league year):
+  - **Revenue:** equal national money (TV and NFL Properties), then the club's local money from its market, stadium and fans: tickets, suites and club seats, concessions and parking, sponsors, naming rights, local radio, seat licenses, other stadium events, and the visiting gate pool.
+  - **Costs:** players' cash and benefits, coaches and football staff, scouting, medical, travel, player amenities, stadium operations, the business side, and stadium debt.
+  - **Attendance is a market** (`demand`, `gate`). Each game draws from the fans' mood, the club's pull, the opponent, the record, the weather, the kickoff and the price, and it sells out when demand passes the seats.
+  - **Season tickets** (A17's money side) renew from the fans' mood and the price change. A waiting list fills what is given up, and grows when demand runs past the seats.
+  - **Blackouts:** from 1973 to 2014 a home game that doesn't sell out is blacked out locally, and the news says so.
+  - **Stadiums:** they follow their real history to 2026. After that the world runs its own. In November a club whose stadium is past its prime asks for public money; a yes starts a new stadium or a rebuild. A string of no's opens the road to moving: at the March meeting 24 of 32 owners must agree, the club pays the relocation fee, plays out its lease, and moves when the new stadium opens (the Raiders' road, 2017-2020).
+  - **Values and owners:** Forbes-style values come from revenue times the era's multiple, with more for a big brand and a new stadium. About one club in forty is sold each year (the 2000-2025 record) or handed to the owner's family, at a price from the value. The Packers publish their books each July.
+  - **The owner's words:** the coach hears about money in words, never meters (`owner_words`). Your seat sees the published numbers and the football budgets it spends.
+- **The NFLPA's team report cards** (P1, `report_cards`): players grade their club on eleven parts of the survey (families, food, nutritionist, weight room, locker room, training room, training staff, strength staff, travel, the head coach, the owner) from what they live with. The grades are public in 2023 and 2024; from 2025, after an arbitrator's ruling, only the club's own players and the agents see them. Free agents and their agents read a club's card in the market's choice (`card_pull`, about 0.94-1.06). A bad card pushes an owner who cares about his name: money goes to food, travel and the family room at once, and a poor building starts a new training facility.
+- **College** (`finance/college.rs`, the money year runs July to June):
+  - **Revenue:** conference and playoff money, tickets with the priority-point seat donations, gifts, NCAA money, media rights and licensing, basketball and the other sports, and student fees with the university's support.
+  - **Costs:** football's coaches, staff, recruiting and travel, scholarships, revenue sharing from July 2025 and the House back damages, facility debt, guarantee games, bowl trips and the other sports.
+  - **Each game's gate** follows demand: fans, recent years, the opponent, the rivalry, homecoming, the record, the weather and the kickoff, capped by the seats.
+  - **Guarantee games** pay the visitors.
+  - **Spring renewals** carry the seat donation, and a bad season dents both.
+  - **Facility projects:** each July the ADs decide on them (an indoor field, a football building, a weight room or locker room), two or three years out. The facilities grade moves when one opens. As a head coach you can ask your AD once a year (`ask_facility`); he reads the department's money, the donors and your standing.
+  - **Media deals:** each conference's deal stands as it really did in 2026 (the SEC's to 2034, the Big Ten's to 2030, the Big 12's to 2031, the ACC's grant of rights to 2036). A deal that runs out is sold again for what its members are worth to the networks now (`media_value`: fans, name, wins and the home state's market).
+  - **Realignment by media money** (after 2026, `realign`): a conference adds a school that raises every member's share, a school goes where it is paid more after its exit fee, and a conference that falls under eight football members fills from below. Moves are announced in the summer and take effect the next season.
+- **High school** (`finance/hs.rs`): every school's football budget on a real school's lines.
+  - **Lines:** the district's allocation and the coaches' stipends, the gate, the state association's playoff share, pay-to-play fees where the state allows them (common in Ohio, Michigan and California, rare in Texas and the South), and the booster club.
+  - **At your own school:** the fundraisers you run fill the booster club's account (six kinds, each once a year, two at a time). The booster club itself, its president and its year are the front office's school desk. Once the running costs are paid, the district's equipment budget is yours to spend, and you can ask the district for more once a year.
+- **Coaches' buyouts** land on the employer's books (`finance::buyout`).
+
+### Betting lines (C8)
+
+`finance/lines.rs`: every NFL, FBS and FCS game gets a closing spread and an over/under. The market sets them from what the public can see: each team's strength as the world reads it, home field and the season's scoring. It learns each team's form from its games against the line (`Form`). Upsets are judged by the line, and each head coach keeps a record against the spread (`w.finance.ats`, shown on coach pages). Information only: nothing in the world reads a line.
+
+### UCF's stadium and the stadium data (A4)
+
+`program_from_row` keeps each school's real seats; the level's cap now applies only to what its crowds are read from (`crowd_seats`). UCF's 45,000 seats were there in its Division II years, so a school that moves up plays in them. Every school now keeps its real seats this way (Winston-Salem State's 22,000-seat city stadium, for one), while its crowds are read against its level's cap.
+
+### Conference moves (1a, 1b)
+
+- **1a:** a move is posted on 1 July, the day it takes effect ("officially leaves the Mountain West for the Pac-12 today", `college::post_move`, `officially`). Schedule membership still switches at the start of the football year. Older world files move the real moves' lines from the year's first day to 1 July on load (`redate_moves`).
+- **1b:** who sees a move in the inbox (`move_reaches`): an FBS move reaches every college coach; an FCS or lower move only a coach at that level; a high school or NFL coach none.
+
+### Front office findings (from lane 10)
+
+- **Free agents' asks:** an ask never passes the record deal at his position (`money::record_apy`: the top five's average times 1.08), moved for his age as the price is. Past his prime a player's price falls about 4% a year for three years, then 9% a year, down to 40% (Cousins at 35 near 88% of the top five, Brees and Rivers near 70% at 38-39, a 40-year-old about half). The quarterbacks' top-five share is now read against the cap they're paid under (0.2 in 2025), not the share each deal had when it was signed.
+- **Trade values by plan:** a club counts the seasons it will use a player. A rebuilding club gets a third of a veteran's surplus from the year he turns 27, so it doesn't spend picks on one and sells its own cheaply. A contender pays 1.15 times for help this season. What a player costs over his worth counts in full either way.
+- **Portal NIL by market:** a transfer's offer from a collective is its yearly budget split the way it splits it on 1 July: by the role he would have there, his position and his stars, against the roster's payroll weight without this window's entrants (`portal_nil`). How he played against the level's starters moves it 4% a point (0.6 to 1.6 times). A starting quarterback who played well draws seven figures at a big program; a backup lineman a few thousand.
+
+### The other leagues as full leagues (X7)
+
+`world/pro/other.rs` (`w.others`) runs every other pro league in its real years: the CFL, arena football (1987-2008 and 2010-2019), the World League and NFL Europe, the XFL of 2001, 2020 and 2023, the AAF (2019), the USFL of 1983-85 and 2022-23, and the UFL of 2009-12 and from 2024.
+
+- **The season:** each league plays its real teams by year (`teams_in`), and the divisions as they were (Winnipeg East or West by the year). A league opens camp 21 days before its season, plays weekly on an even schedule, holds its real playoffs and title game (the Grey Cup, the ArenaBowl, the World Bowl, the UFL title game), then closes. Seasons that really stopped stop where they did: the AAF after week 8 in 2019, the XFL after week 5 in 2020, the UFL after week 4 in 2012. The CFL's 2020 season isn't played, and 2021 has 14 games. Every game is on the engine under the league's own rule book (`docs/match-engine.md`, "The other leagues' rule books"). A playoff game plays its overtime out.
+- **Rosters:**
+  - **Who plays:** players from the street (unsigned pros), then generated players for the rest.
+  - **Spring rosters:** a spring team's players go back to the street at the season's end. CFL and arena players stay under contract.
+  - **Camp cuts:** each team cuts to its league's roster size by position.
+  - **Playbook and line:** a player knows the playbook by his seasons with the team and his football mind, as in the NFL. A spring team, met at a three-week camp, knows less. A line's chemistry counts the linemen who started there last season, as in the NFL, so a new team's line has just met.
+- **The CFL's ratio:**
+  - **Nationals:** the Canadian ("national") players come from U Sports programs and from American colleges (three in ten) and are known by id (`Others::nationals`).
+  - **Fill:** under the CFL each team fills its nationals first, by position share (most on the line, fewest at corner and quarterback).
+  - **Starters:** the coaches start at least seven: 7 to 2013, 7 of 21 dressed from 2014 (`ratio`, `ratio_starters`, which swaps the cheapest bench national in for the weakest import).
+  - **The draft:** on 1 May the CFL drafts its nationals (`Others::draft`, school by school).
+  - **Hometowns:** a national's hometown is a town in his school's province.
+- **Coaches:**
+  - **Hiring:** every head coach and coordinator seat is filled before camp through the world's coaching market (`carousel`, `staff::fill_others`): out-of-work coaches, NFL and college assistants who want a head job, and the league's own.
+  - **Staff:** each staff draws position coaches at the league's pay.
+  - **Moving on:** coaches come back to the NFL and college with the stint on their record (Marc Trestman's road). A folded franchise lets its staff go.
+  - **Pay and pull:** pay is proposed, not confirmed. A CFL head coach makes about $550,000 in 2026 money, a spring league's about $400,000 and arena football's about $110,000. As jobs they rate like a strong FCS job (the CFL), a little below (the spring leagues) and a small college (arena).
+- **Players' records:** each season is a line on the player's page (`OtherSeason`: games, starts, passing, rushing, receiving, tackles, sacks, interceptions, kicks and pay). The lines feed the NFL clubs' pro scouting.
+- **People:** the folk modules know the other leagues' clubs (`folk::Team::Other`): an owner and GM, a reporter, the trainers, the club's seasons and fixtures, so a coach there has a boss, a staff and a life like anyone else's. A coach's page shows the job, the league and the club.
+- **Memory:** rosters are people indices, remapped at the yearly compaction (`Others::remap`). Nationals and the draft are player ids. A season keeps its table, its games' scores and its champion.
+
+**Not built in this lane:** your own career can't take an other-league job. `market::interest_fits` keeps them for the world's coaches, and they don't show on the job market's list. A seat there needs its own game day, roster moves and screens.
+
+**Measured** (small worlds at scale 0.03, college on the stand-in, `leagues_check`):
+- **1996-2001:** every league reached a champion. The CFL scored 24-26 points a team game (real about 24), arena 46-53 (real about 52), NFL Europe 23-28 (real about 21), the 2001 XFL 26.9 (real about 20). 1,638 players had other-league seasons, and 169 of them played in the NFL afterwards. 112 coaches held other-league seats, and 22 who had moved on were in the NFL or college.
+- **2020-2024** (with the six spin-up years before, so 2012-2019 on the engine too):
+  - **Seasons:** every season reached its champion or stopped where it really stopped: the UFL after week 4 in 2012, the AAF after week 8, the XFL after week 5 in 2020. The CFL skipped 2020 and played 14 games in 2021.
+  - **Scoring against the real leagues:** the CFL 22.3-26.6 points a team game (real about 24), arena 49.5-57.1 (real about 52). The spring leagues ran high: the AAF 26.1 (real 20.2), the XFL 27.3 and 29.8 (real 20.5), the USFL 26.3-27.9 (real 20.4), the UFL of 2024 29.4 (real 20.5).
+  - **People:** the CFL drafted 72 nationals a year. 808 players had other-league seasons, and 205 of them played in the NFL afterwards. 221 coaches held other-league seats in January 2025, and 87 of those with a stint behind them were in the NFL or college.
+- **Spring league scoring** is the open gap. A just-met line and a short camp's playbook took only 1-3 points off. The engine's NFL already scores about 22% over real on synthetic rosters, and the spring leagues run about 10-15% past that. Real spring leagues were held down by quarterbacks far below the NFL's; in the world their passers come from the same street as everyone else.
+
 ## Proposed, not confirmed (Claude's own picks in the build)
 
+- Lane 4 (money and the other leagues, final build): every "proposed, not confirmed" figure in `finance/data.rs` (the media deal raises, the report card weights and the owners' response, the blackout and renewal curves, the ticket and seat donation levels, the high school fee shares and fundraiser takes, the sale rate past the record); realignment's pace (about four moves a year in waves); the betting market's learning rate; the other leagues' coach pay and job pull, the national pool's size and split (three in ten from American colleges), the spring camp's 0.9 playbook knowledge, the CFL's pass lean (-0.16) and arena's (+0.28); the portal NIL production swing (0.6-1.6 times); the rebuild third and the contender's 1.15.
 - Build 10 (trial 9 findings, 2026-10-20): the 5-point style band; the walk-on weighing (the main signing's scholarship cost); the squad reads (a point for the playbook, upside 0.6 a year under 26, a point and 56 to poach, the street's 3 points of rust); the two-year sign-up deal; the elevation order and the special teams swap's one-point margin; the bonus at 55% of the guarantee capped at 35% of the deal; the restructure line at 26%; the draft position values sized to the round one gaps; the role lift (0.2) and the late rookie's 0.3; the trade call rates (0.45 a window, 0.1 a season week); the practice injury rates (1.55% and 0.9% a week), mix and lengths; the engine's run and injury values in `docs/match-engine.md`.
 - Trial 9 fixes (2026-10-20): two over the class for a 5-star; the rush's room plus four calls a round and its bonus split; vested at four accrued seasons for camp reserve (the real vested line); the first-year cash line at 38% of the cap; three accrued seasons before a player on a rookie-scale, undrafted, future or practice squad deal reads his pay against the market.
 

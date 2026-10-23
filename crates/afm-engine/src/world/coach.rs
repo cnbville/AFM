@@ -190,6 +190,9 @@ pub enum Employer {
     HighSchool(usize),
     College(usize),
     Nfl(usize),
+    /// A team in another pro league (the CFL, arena football, the spring
+    /// leagues; final build X7), by its franchise in `world::pro::other`.
+    Other(usize),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -497,7 +500,7 @@ impl Coach {
         self.job.map(|j| match j.employer {
             Employer::HighSchool(_) => Level::HS,
             Employer::College(p) => super::division_level(programs[p].division),
-            Employer::Nfl(_) => Level::NFL,
+            Employer::Nfl(_) | Employer::Other(_) => Level::NFL,
         })
     }
 
