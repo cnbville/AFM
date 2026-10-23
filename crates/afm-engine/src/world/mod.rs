@@ -21,6 +21,7 @@ pub mod desk;
 pub mod eligibility;
 pub mod ethnicity;
 pub mod fame;
+pub mod finance;
 pub mod folk;
 pub mod franchise;
 pub mod front_office;
@@ -751,6 +752,9 @@ pub struct World {
     /// opponents, what you have studied.
     #[serde(default)]
     pub gameday: live_seat::GameDay,
+    /// Every club's books, projects, report cards and lines (later extras topic 1).
+    #[serde(default)]
+    pub finance: finance::Finance,
     /// Scouting and the draft (section 7, final build lane 7): public
     /// boards and mocks, your department's looks, your draft board, the live
     /// draft, the pre-draft season, pro scouting, look-backs, followers.
@@ -768,6 +772,9 @@ pub struct World {
     /// the game plan, designs and packages.
     #[serde(default)]
     pub training: crate::training::seat::SeatTraining,
+    /// The other pro leagues as full leagues (final build X7).
+    #[serde(default)]
+    pub others: pro::other::Others,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -1083,8 +1090,10 @@ impl World {
             career: None,
             live: None,
             gameday: Default::default(),
+            finance: finance::Finance::default(),
             scouting: Default::default(),
             front_office: Default::default(),
+            others: Default::default(),
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);

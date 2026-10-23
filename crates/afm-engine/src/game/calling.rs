@@ -378,6 +378,8 @@ pub struct Situation {
     pub def_concede: bool,
     /// Below the NFL: calls start from the real college habits.
     pub college: bool,
+    /// The league's lean toward passing (the other leagues' books, X7).
+    pub lean: f64,
 }
 
 impl Situation {
@@ -453,7 +455,7 @@ pub fn call_offense(staff: &Staff, mem: &Memory, sit: &Situation, ctx: &OffCtx, 
     // Pressure changes coaches (topic 6.5): behind late a gambler throws
     // more, a tight one sticks to the run.
     let agg = c.aggressiveness + 4.0 * c.nerve * sit.pressure();
-    p_pass += scheme.pass_lean() + 0.006 * (agg - 10.0);
+    p_pass += scheme.pass_lean() + 0.006 * (agg - 10.0) + sit.lean;
     // In-game learning (topic 3.2): lean toward what has worked, faster
     // and more accurately for a sharp coordinator.
     if mem.runs + mem.passes >= 8.0 {
@@ -1615,6 +1617,18 @@ pub fn fourth_values(sit: &Situation, fg_make: f64) -> (f64, f64, f64, f64) {
 
 /// Go for two after a touchdown (the chart, plus the coach's lean and how
 /// much he trusts his kicker).
+/// The three-point try, where a book has one (the XFL of 2020 and 2023 and
+/// the UFL's, from the 10 or the 8): late, when the score needs three
+/// (down three or ten, or up four or five to go up by a touchdown and
+/// more); early, now and then from an aggressive staff (about one try in
+/// ten in the XFL of 2020).
+pub fn go_for_three(staff: &Staff, diff_after_td: i32, quarter: u8, game_left: f64, rng: &mut Rng) -> bool {
+    let late = quarter >= 4 && game_left < 900.0;
+    let chart = late && matches!(diff_after_td, -3 | -10 | -11 | 4 | 5 | -17);
+    let lean = 0.05 + 0.01 * (staff.offense.aggressiveness - 10.0);
+    chart && rng.chance(0.7) || !late && rng.chance(lean.max(0.0))
+}
+
 pub fn go_for_two(staff: &Staff, diff_after_td: i32, quarter: u8, game_left: f64, xp_make: f64, rng: &mut Rng) -> bool {
     let late = quarter >= 4 && game_left < 900.0;
     let chart = late && matches!(diff_after_td, -2 | -5 | -10 | -13 | 1 | 4 | 5 | 12 | -16 | 8 | -9);

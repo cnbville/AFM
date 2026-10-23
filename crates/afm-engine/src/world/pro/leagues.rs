@@ -58,6 +58,14 @@ pub(crate) fn day(w: &mut World, d: Date) {
         if !plays(&l, year) {
             continue;
         }
+        // A league with its teams in the world runs its own season
+        // (`other`): camps, games, playoffs and the street at its end.
+        if super::other::full(k as u8, year) {
+            if d == Date::ymd(year, l.opens, 15) && (l.name == "NFL Europe" || l.name == "World League") {
+                allocate(w, d, &l);
+            }
+            continue;
+        }
         if d == Date::ymd(year, l.opens, 15) {
             sign_players(w, d, k as u8, &l);
             if l.name == "NFL Europe" || l.name == "World League" {
@@ -88,6 +96,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
     if d == w.dates.rookie_minicamp {
         pathway(w, d);
     }
+    super::other::day(w, d);
 }
 
 fn sign_players(w: &mut World, d: Date, k: u8, l: &League) {

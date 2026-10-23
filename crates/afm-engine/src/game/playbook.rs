@@ -2,7 +2,7 @@
 //! concepts, fronts, coverages and pressures. A play is a full set of
 //! assignments; the battles come out of them.
 
-use super::geom::{V2, WIDTH, v2};
+use super::geom::{V2, WIDTH, v2, width};
 
 /// Offensive spots on one snap. Linemen are left tackle to right tackle.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -24,6 +24,9 @@ pub enum ORole {
     C,
     RG,
     RT,
+    /// The fifth receiver of a CFL set (the inside slotback), added after
+    /// the American roles so saved plays keep their numbers.
+    Slot3,
 }
 
 impl ORole {
@@ -31,7 +34,10 @@ impl ORole {
         matches!(self, ORole::LT | ORole::LG | ORole::C | ORole::RG | ORole::RT)
     }
     pub fn is_receiver(self) -> bool {
-        matches!(self, ORole::X | ORole::Z | ORole::Slot | ORole::Slot2 | ORole::TE | ORole::TE2 | ORole::TE3)
+        matches!(
+            self,
+            ORole::X | ORole::Z | ORole::Slot | ORole::Slot2 | ORole::Slot3 | ORole::TE | ORole::TE2 | ORole::TE3
+        )
     }
     pub fn is_back(self) -> bool {
         matches!(self, ORole::RB | ORole::FB)
@@ -47,6 +53,15 @@ pub enum Personnel {
     P10,
     P22,
     P13,
+    /// The CFL's sets (12 a side, X7): one back and five receivers, one back
+    /// with a tight end and four receivers, two backs and four receivers.
+    Cfl10,
+    Cfl11,
+    Cfl21,
+    /// Arena football's (8 a side): a fullback and three receivers, or a
+    /// fullback, an end on the line and two receivers.
+    Arena,
+    ArenaTe,
 }
 
 impl Personnel {
@@ -59,10 +74,58 @@ impl Personnel {
             Personnel::P10 => &[RB, X, Z, Slot, Slot2],
             Personnel::P22 => &[RB, FB, X, TE, TE2],
             Personnel::P13 => &[RB, X, TE, TE2, TE3],
+            Personnel::Cfl10 => &[RB, X, Z, Slot, Slot2, Slot3],
+            Personnel::Cfl11 => &[RB, X, Z, Slot, Slot2, TE],
+            Personnel::Cfl21 => &[RB, FB, X, Z, Slot, Slot2],
+            Personnel::Arena => &[RB, X, Z, Slot],
+            Personnel::ArenaTe => &[RB, X, Z, TE],
         }
     }
     pub fn name(self) -> &'static str {
-        ["11", "12", "21", "10", "22", "13"][self as usize]
+        [
+            "11",
+            "12",
+            "21",
+            "10",
+            "22",
+            "13",
+            "5 receivers",
+            "tight end and 4 receivers",
+            "two backs",
+            "3 receivers",
+            "end and 2 receivers",
+        ][self as usize]
+    }
+    /// The American grouping a set reads as on film and in the tables: the
+    /// looks a defense keys on are the same (one back and spread sets, a
+    /// tight end, two backs).
+    pub fn base(self) -> Personnel {
+        match self {
+            Personnel::Cfl10 | Personnel::Arena => Personnel::P10,
+            Personnel::Cfl11 | Personnel::ArenaTe => Personnel::P11,
+            Personnel::Cfl21 => Personnel::P21,
+            p => p,
+        }
+    }
+    /// The set a league plays for the grouping a play caller asked for:
+    /// the CFL's twelfth man is a fifth receiver (a tight end or fullback
+    /// in heavier sets), arena football has a fullback and three receivers
+    /// (an end on the line for short yardage).
+    pub fn for_players(self, players: u8) -> Personnel {
+        match players {
+            12 => match self {
+                Personnel::P10 | Personnel::P11 => Personnel::Cfl10,
+                Personnel::P12 | Personnel::P13 => Personnel::Cfl11,
+                Personnel::P21 | Personnel::P22 => Personnel::Cfl21,
+                p => p,
+            },
+            8 => match self {
+                Personnel::P12 | Personnel::P13 | Personnel::P22 | Personnel::P21 => Personnel::ArenaTe,
+                Personnel::P10 | Personnel::P11 => Personnel::Arena,
+                p => p,
+            },
+            _ => self,
+        }
     }
     pub fn wide_receivers(self) -> usize {
         self.roles().iter().filter(|r| matches!(r, ORole::X | ORole::Z | ORole::Slot | ORole::Slot2)).count()
@@ -149,7 +212,7 @@ impl Formation {
     /// A key for the look the defense sees (tendencies, topic 7): personnel,
     /// backfield and set.
     pub fn look(&self) -> usize {
-        (self.personnel as usize * 3 + self.backfield as usize) * SET_COUNT + self.set as usize
+        (self.personnel.base() as usize * 3 + self.backfield as usize) * SET_COUNT + self.set as usize
     }
 }
 
@@ -157,7 +220,11 @@ pub const LOOK_COUNT: usize = 6 * 3 * SET_COUNT;
 
 /// Where a receiver lines up wide on a side, from the sideline in.
 fn wide_y(side: f64, ball_y: f64, from_sideline: f64) -> f64 {
-    let y = if side > 0.0 { WIDTH - from_sideline } else { from_sideline };
+    // On another league's field the splits keep their share of the width
+    // (the CFL's 65 yards spread them, arena's 28 squeeze them).
+    let w = width();
+    let from_sideline = if w == WIDTH { from_sideline } else { from_sideline * w / WIDTH };
+    let y = if side > 0.0 { w - from_sideline } else { from_sideline };
     // Never closer to the ball than 7 yards.
     if side > 0.0 { y.max(ball_y + 7.0) } else { y.min(ball_y - 7.0) }
 }
@@ -242,6 +309,11 @@ pub fn align(f: &Formation, role: ORole, los: f64, ball_y: f64) -> V2 {
         ORole::Slot => {
             let z = wide_y(s, ball_y, 9.0);
             v2(los - 1.0, ball_y + 0.45 * (z - ball_y) + 2.0 * s)
+        }
+        // The CFL's fifth receiver: a tight slot inside the strong slotback.
+        ORole::Slot3 => {
+            let z = wide_y(s, ball_y, 9.0);
+            v2(los - 1.0, ball_y + 0.22 * (z - ball_y) + 1.5 * s)
         }
         ORole::Slot2 => {
             if f.trips() {
@@ -367,7 +439,7 @@ impl Route {
                 // Receivers keep room to work at the sideline, as they are
                 // coached to (two and a half yards; it was one, and outs
                 // ended on the line).
-                v2(x, (start.y + dy * out).clamp(2.5, WIDTH - 2.5))
+                v2(x, (start.y + dy * out).clamp(2.5, width() - 2.5))
             })
             .collect();
         (pts, settle)
@@ -777,6 +849,12 @@ pub fn concept(name: &str) -> usize {
 pub fn route_for(c: &PassConcept, role: ORole) -> Route {
     if let Some(&(_, r)) = c.routes.iter().find(|(o, _)| *o == role) {
         return r;
+    }
+    // The CFL's fifth receiver runs the tight end's route in a set without
+    // one (the inside man's seam, sit or flat), else the second slot's.
+    if role == Slot3 {
+        let te = c.routes.iter().find(|(o, _)| *o == TE).or_else(|| c.routes.iter().find(|(o, _)| *o == Slot2));
+        return te.map_or(Seam, |&(_, r)| if r.blocks() { Seam } else { r });
     }
     match role {
         RB => match c.protection {

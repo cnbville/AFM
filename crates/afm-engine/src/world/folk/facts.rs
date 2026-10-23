@@ -72,6 +72,10 @@ pub fn seasons(w: &World, team: Team, n: usize) -> Vec<Season> {
                 },
             })
             .collect(),
+        Team::Other(f) => crate::world::pro::other::team_seasons(w, f)
+            .into_iter()
+            .map(|(year, wins, losses, note)| Season { year, wins, losses, coach: None, note })
+            .collect(),
     };
     out.sort_by_key(|s| s.year);
     let cut = out.len().saturating_sub(n);
@@ -170,6 +174,7 @@ pub fn rival(w: &World, team: Team) -> Option<(Team, &'static str, u32, u32)> {
                 })?;
             Some((Team::High(other), "the crosstown game", 0, 0))
         }
+        Team::Other(_) => None,
     }
 }
 
@@ -187,6 +192,7 @@ pub fn job_size(w: &World, team: Team) -> f64 {
             (lvl + 0.45 * prog.prestige).min(1.0)
         }
         Team::Nfl(_) => 0.9,
+        Team::Other(f) => 0.6 * crate::world::pro::other::prestige(f),
         Team::High(h) => 0.05 + 0.2 * w.high_schools[h].prestige,
     }
 }
@@ -271,6 +277,21 @@ pub fn money_words(w: &World, team: Team) -> Vec<(String, String)> {
             }
             v
         }
+        Team::Other(f) => {
+            let k = crate::world::pro::other::league_of(f);
+            vec![(
+                "Payroll".into(),
+                match k {
+                    crate::world::pro::other::CFL => {
+                        "a hard salary cap set by the league each year, and a ratio of Canadians to fill".into()
+                    }
+                    crate::world::pro::other::AFL1 | crate::world::pro::other::AFL2 => {
+                        "a small league-wide pay scale: most players earn a few hundred dollars a game".into()
+                    }
+                    _ => "league-set pay: the league owns the teams and signs the checks".into(),
+                },
+            )]
+        }
         Team::High(h) => {
             let s = &w.high_schools[h];
             vec![
@@ -312,6 +333,11 @@ pub fn facilities_words(w: &World, team: Team) -> String {
             format!("{words}{stadium}")
         }
         Team::Nfl(_) => "A modern facility with an indoor field, a full sports science department and a cafeteria run by a team dietitian.".into(),
+        Team::Other(f) => match crate::world::pro::other::league_of(f) {
+            crate::world::pro::other::CFL => "A stadium the club shares with the city, a practice field beside it and a weight room in the bowels of the stands.".into(),
+            crate::world::pro::other::AFL1 | crate::world::pro::other::AFL2 => "An indoor arena booked around hockey and concerts, and a practice field rented by the week.".into(),
+            _ => "A rented stadium for the spring and a practice site the league arranged, shared some weeks.".into(),
+        },
         Team::High(h) => match w.high_schools[h].resources {
             r if r > 0.75 => "A stadium the district built for football, turf, a field house and a weight room a small college would take.".into(),
             r if r > 0.5 => "Turf on the game field, a weight room shared with the other sports, and a field house that floods.".into(),
@@ -488,6 +514,13 @@ pub fn assistants(w: &World, team: Team) -> Vec<(usize, Role)> {
                 v.push((c, Role::DefensiveCoordinator));
             }
         }
+        Team::Other(f) => {
+            for role in [Role::OffensiveCoordinator, Role::DefensiveCoordinator] {
+                if let Some(c) = crate::world::pro::other::slot(w, f, role) {
+                    v.push((c, role));
+                }
+            }
+        }
         Team::High(_) => {}
     }
     let _ = Employer::College(0);
@@ -519,6 +552,9 @@ pub fn team_games(w: &World, team: Team) -> Vec<(Date, Team, bool)> {
             .into_iter()
             .map(|f| (f.date, Team::High(if f.home == h { f.away } else { f.home }), f.home == h))
             .collect(),
+        Team::Other(f) => {
+            crate::world::pro::other::fixtures(w, f).into_iter().map(|(d, o, home)| (d, Team::Other(o), home)).collect()
+        }
     };
     v.sort_by_key(|x| x.0);
     v
@@ -535,6 +571,8 @@ pub fn last_game(w: &World, team: Team) -> Option<(bool, i32, i32, Team)> {
         Team::College(_) => Team::College(opp),
         Team::Nfl(_) => Team::Nfl(opp),
         Team::High(_) => Team::High(opp),
+        // Other leagues' games aren't kept whole.
+        Team::Other(_) => return None,
     };
     Some((us > them, us, them, o))
 }

@@ -126,6 +126,13 @@ pub struct Game {
     #[serde(deserialize_with = "crate::save::leaked")]
     pub why: Vec<&'static str>,
     pub played: Option<Played>,
+    /// The betting line when it closed (C8): the home side's spread
+    /// (negative when favoured) and the total. Information only.
+    #[serde(default)]
+    pub line: Option<[f32; 2]>,
+    /// The crowd (later extras topic 1), once played.
+    #[serde(default)]
+    pub attendance: u32,
 }
 
 impl Game {
@@ -148,6 +155,8 @@ impl Game {
             huge_for: [false; 2],
             why: Vec::new(),
             played: None,
+            line: None,
+            attendance: 0,
         }
     }
     pub fn involves(&self, p: usize) -> bool {

@@ -12,7 +12,7 @@ use afm_engine::world::front_office::market::{self, Interest, Placement};
 use afm_engine::world::seat::{Job, Start};
 use serde_json::{Value, json};
 
-use crate::views::{TeamRef, date_text, team_brief};
+use crate::views::{TeamRef, date_text};
 use crate::{Game, Reply};
 
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
@@ -63,15 +63,7 @@ fn employer(w: &World, v: &Value) -> Result<Employer, String> {
 }
 
 fn employer_json(w: &World, e: Employer) -> Value {
-    team_brief(w, team_of(e))
-}
-
-fn team_of(e: Employer) -> TeamRef {
-    match e {
-        Employer::HighSchool(s) => TeamRef::HighSchool(s),
-        Employer::College(p) => TeamRef::College(p),
-        Employer::Nfl(t) => TeamRef::Nfl(t),
-    }
+    crate::views::employer_brief(w, e)
 }
 
 /// A role's key on the page: hc, oc, dc, or pc0-pc7 by group.
@@ -417,6 +409,7 @@ pub(crate) fn market_view(w: &World) -> Value {
         Employer::HighSchool(s) => w.high_schools[s].prestige * 0.35,
         Employer::College(p) => 0.2 + 0.5 * w.programs[p].prestige,
         Employer::Nfl(_) => 1.0,
+        Employer::Other(f) => afm_engine::world::pro::other::prestige(f),
     };
     let mut open: Vec<(f64, Value)> = market::openings(w)
         .into_iter()
@@ -427,7 +420,7 @@ pub(crate) fn market_view(w: &World) -> Value {
                 Role::PositionCoach(_) => 0.0,
                 _ => 0.05,
             };
-            let line = crate::views::team_line(w, team_of(o.employer));
+            let line = crate::views::employer_line(w, o.employer);
             (
                 prestige(o.employer) + rung,
                 json!({
@@ -452,7 +445,7 @@ pub(crate) fn market_view(w: &World) -> Value {
             json!({
                 "k": k,
                 "team": employer_json(w, o.employer),
-                "line": crate::views::team_line(w, team_of(o.employer)),
+                "line": crate::views::employer_line(w, o.employer),
                 "role": market::role_title(o.role),
                 "pay": o.pay,
                 "years": o.years,

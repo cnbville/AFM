@@ -8,6 +8,7 @@ mod front_office;
 mod game_stats;
 mod hs_playoffs;
 mod kick_units;
+mod leagues;
 mod level_rating;
 mod links;
 mod live_game;

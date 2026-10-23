@@ -136,6 +136,9 @@ pub struct Boosters {
     /// This football year's money in: membership, the golf tournament,
     /// program ads and banners, concessions, the banquet.
     pub raised: [f64; 5],
+    /// This football year's team fundraisers (the discount cards, the car
+    /// wash, the lift-a-thon you run from the finances screen).
+    pub fundraised: f64,
     /// This football year's money out: equipment, meals, travel, projects.
     pub spent: [f64; 4],
     /// Each line of the year's books: date, what, amount (+ in, - out).
@@ -798,8 +801,9 @@ fn staff_read(w: &World, i: usize) -> f64 {
 /// The staff's squads at a school: every senior and junior on varsity
 /// (a junior below the three-deep goes to JV), a sophomore in the two-deep
 /// and a freshman who starts move up, the rest play JV and freshman ball,
-/// varsity at most 72. A JV or freshman team short of 22 isn't fielded and
-/// its players go up a team. Players who left football are left out.
+/// varsity at most 72. A freshman team short of 22 isn't fielded and its
+/// players go up a team; a short JV takes the freshmen in, or goes up too.
+/// Players who left football are left out.
 pub fn staff_squads(w: &World, h: usize) -> Vec<(usize, Squad)> {
     let roster: Vec<usize> =
         w.high_schools[h].roster.iter().copied().filter(|&i| w.people[i].stage == Stage::HighSchool).collect();
@@ -862,11 +866,22 @@ pub fn staff_squads(w: &World, h: usize) -> Vec<(usize, Squad)> {
 }
 
 /// A team too small to dress (under 22) is folded into the team above it.
+/// A short JV first takes the freshmen in, one sub-varsity team as most
+/// schools of that size run, rather than swelling the varsity past its 72.
 fn settle(w: &World, out: &mut [(usize, Squad)]) {
     let n = |out: &[(usize, Squad)], s: Squad| out.iter().filter(|x| x.1 == s).count();
+    let Some(first) = out.first() else { return };
+    let jv = fields(w, w.people[first.0].hs).0;
     if n(out, Squad::Freshman) > 0 && n(out, Squad::Freshman) < 22 {
-        let to = if fields(w, w.people[out[0].0].hs).0 { Squad::Jv } else { Squad::Varsity };
+        let to = if jv { Squad::Jv } else { Squad::Varsity };
         out.iter_mut().filter(|x| x.1 == Squad::Freshman).for_each(|x| x.1 = to);
+    }
+    if jv
+        && (1..22).contains(&n(out, Squad::Jv))
+        && n(out, Squad::Freshman) > 0
+        && n(out, Squad::Jv) + n(out, Squad::Freshman) >= 22
+    {
+        out.iter_mut().filter(|x| x.1 == Squad::Freshman).for_each(|x| x.1 = Squad::Jv);
     }
     if n(out, Squad::Jv) > 0 && n(out, Squad::Jv) < 22 {
         out.iter_mut().filter(|x| x.1 == Squad::Jv).for_each(|x| x.1 = Squad::Varsity);
@@ -1555,6 +1570,16 @@ fn money_in(w: &mut World, d: Date, k: usize, what: String, x: f64) {
     b.ledger.push((d, what, x));
 }
 
+/// A team fundraiser's take, paid into the booster club's account
+/// (`finance::hs`): on its ledger with the year's other money in.
+pub(crate) fn fundraiser_in(w: &mut World, what: &str, x: f64) {
+    let d = w.today;
+    let b = &mut w.front_office.school.boosters;
+    b.fundraised += x;
+    b.balance += x;
+    b.ledger.push((d, what.to_string(), x));
+}
+
 fn money_out(w: &mut World, d: Date, k: usize, what: String, x: f64) {
     let b = &mut w.front_office.school.boosters;
     b.spent[k] += x;
@@ -1873,6 +1898,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
         desk.sent.retain(|x| x.0 >= year - 1);
         let b = &mut desk.boosters;
         b.raised = [0.0; 5];
+        b.fundraised = 0.0;
         b.spent = [0.0; 4];
         b.ledger.clear();
         sync_people(w, h);

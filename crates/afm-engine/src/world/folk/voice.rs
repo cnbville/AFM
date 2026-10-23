@@ -307,7 +307,7 @@ impl Speaker {
         }];
         tags.push(match c.r.team {
             super::Team::College(_) => "college",
-            super::Team::Nfl(_) => "nfl",
+            super::Team::Nfl(_) | super::Team::Other(_) => "nfl",
             super::Team::High(_) => "hs",
         });
         if c.she {
@@ -360,7 +360,7 @@ impl Speaker {
         if let Some(t) = super::Team::seat(w) {
             tags.push(match t {
                 super::Team::College(_) => "college",
-                super::Team::Nfl(_) => "nfl",
+                super::Team::Nfl(_) | super::Team::Other(_) => "nfl",
                 super::Team::High(_) => "hs",
             });
         }
