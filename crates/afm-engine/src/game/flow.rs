@@ -57,6 +57,13 @@ pub struct GameSetup<'a> {
     pub wear: [f64; 2],
     /// Per team, 0-1: how unused it is to this game's cold.
     pub cold_unused: [f64; 2],
+    /// Keep this game's setup in the result so it can be watched back
+    /// (your games; `replay.rs`).
+    pub keep: bool,
+    /// For the views only: the local kickoff hour (0 when unknown) and a
+    /// roof over the field.
+    pub kickoff: f32,
+    pub indoor: bool,
 }
 
 impl<'a> GameSetup<'a> {
@@ -79,6 +86,9 @@ impl<'a> GameSetup<'a> {
             context: [garbage::Context::default(); 2],
             wear: [0.0; 2],
             cold_unused: [0.0; 2],
+            keep: false,
+            kickoff: 0.0,
+            indoor: false,
         }
     }
 }
@@ -97,6 +107,10 @@ pub struct GameResult {
     pub decisions: Vec<(u32, usize, String)>,
     /// What each team showed on film this game (home, away).
     pub film: [calling::Film; 2],
+    /// The setup, when it was asked to be kept (`GameSetup::keep`), so the
+    /// game can be played again from its seed.
+    #[serde(skip)]
+    pub replay: Option<Box<super::replay::ReplaySetup>>,
     /// The coin toss: the winner and his choice (game day topic 3).
     #[serde(default)]
     pub toss: Option<(usize, TossChoice)>,
@@ -804,6 +818,12 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
         ctl.pending = None;
         ctl.pause_at = None;
     }
+    // Your game keeps its setup and, when you played it live, your answers,
+    // so its film plays again exactly (`replay.rs`).
+    if setup.keep && !g.paused {
+        let live = (ctl.team < 2).then(|| ctl.clone());
+        g.res.replay = Some(Box::new(super::replay::ReplaySetup::of(setup, live)));
+    }
     (g.res, ctl, view)
 }
 
@@ -1339,6 +1359,10 @@ impl<'a> Game<'a> {
             self.recording(),
             &mut self.rng,
         );
+        // The return's tracking, for the views (the returning team is side 0).
+        if let Some(f) = &kr.frames {
+            self.res.frames.push((r.n, f.clone()));
+        }
         r.kicker = Some(kt.kick[kick_on[0]].id);
         r.on_field = [kick_on.iter().map(|&i| kt.kick[i].id).collect(), ret_on.iter().map(|&i| kt.ret[i].id).collect()];
         r.kick_distance = kr.distance;
@@ -2123,6 +2147,9 @@ impl<'a> Game<'a> {
             self.recording(),
             &mut self.rng,
         );
+        if let Some(f) = &kr.frames {
+            self.res.frames.push((r.n, f.clone()));
+        }
         r.kicker = Some(kt.kick[p].id);
         r.on_field = [kick_on.iter().map(|&i| kt.kick[i].id).collect(), ret_on.iter().map(|&i| kt.ret[i].id).collect()];
         r.kick_distance = kr.distance;
@@ -4508,6 +4535,14 @@ pub struct Venue {
     pub neutral: bool,
     pub wear: [f64; 2],
     pub cold_unused: [f64; 2],
+    /// For the views only: the local kickoff hour and a roof over the field.
+    #[serde(default)]
+    pub kickoff: f32,
+    #[serde(default)]
+    pub indoor: bool,
+    /// Keep the setup for replays (your games).
+    #[serde(default)]
+    pub keep: bool,
 }
 
 /// A quick game at a venue.
@@ -4530,6 +4565,9 @@ pub fn quick_game_in(
     s.wear = venue.wear;
     s.cold_unused = venue.cold_unused;
     s.context = context;
+    s.keep = venue.keep;
+    s.kickoff = venue.kickoff;
+    s.indoor = venue.indoor;
     play_game(&s)
 }
 

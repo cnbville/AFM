@@ -190,6 +190,20 @@ fn main() {
             break;
         }
     }
+    // The film room (lane 13): what watching your last game back adds.
+    if let Some(k) = g.world.as_ref().and_then(|w| w.seat_games.len().checked_sub(1)) {
+        let before = heap_gb();
+        let t1 = Instant::now();
+        match g.call("film", &json!({ "index": k })) {
+            Ok(_) => {
+                let secs = t1.elapsed().as_secs_f64();
+                println!("  the film of your game: {:.0} MB, played back in {secs:.1}s", (heap_gb() - before) * 1000.0);
+                line("film open", &t);
+            }
+            Err(e) => println!("  film: {e}"),
+        }
+        let _ = g.call("film_close", &json!({}));
+    }
     println!("fingerprint {:016x}", fingerprint(g.world.as_ref().expect("world")));
     if weigh_at == "end" {
         weigh(g.world.as_mut().expect("world"));

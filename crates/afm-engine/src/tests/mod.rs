@@ -17,6 +17,7 @@ mod scouting;
 mod tactics;
 mod tendencies;
 mod training;
+mod views;
 mod world;
 
 use crate::development::{SeasonContext, develop_season};
