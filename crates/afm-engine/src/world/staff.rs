@@ -556,6 +556,18 @@ fn young_core(w: &World, p: usize) -> f64 {
     if starters == 0.0 { 0.0 } else { clamp((young / starters - 0.3) / 0.4, 0.0, 1.0) }
 }
 
+/// National titles a college head coach has won in his current job (A6):
+/// what draws the NFL, wears on him and lets him walk away on top.
+fn national_titles_here(w: &World, c: usize) -> u32 {
+    let Some(job) = w.coaches[c].job else { return 0 };
+    let Employer::College(p) = job.employer else { return 0 };
+    if job.role != Role::HeadCoach {
+        return 0;
+    }
+    w.programs[p].seasons.iter().filter(|s| s.year >= job.since && s.coach == Some(c) && s.national_title).count()
+        as u32
+}
+
 /// A short name for an employer in a story line.
 fn employer_title(w: &World, e: Employer) -> String {
     match e {
@@ -643,6 +655,13 @@ fn weigh_offer(w: &mut World, c: usize, o: Opening) -> Option<String> {
     let recruiter = (coach.ability().recruiting - 10.0) / 10.0;
     if to_nfl && !from_nfl {
         parts.push((0.04 * a - 0.02 * recruiter, "the NFL, where he always wanted to coach".to_string()));
+        // A national champion has nothing left to prove in college; the
+        // NFL is the test left (A6: Saban after the 2003 title, Carroll
+        // after two, Harbaugh after the 2023 one).
+        let won = national_titles_here(w, c).min(2) as f64;
+        if won > 0.0 {
+            parts.push((0.03 * won, "nothing left to prove in college".to_string()));
+        }
     } else if from_nfl && !to_nfl {
         parts.push((0.02 * recruiter, "a return to the college game".to_string()));
     }
@@ -699,7 +718,10 @@ fn early_exit(w: &mut World, c: usize, job: Job) -> Option<&'static str> {
     let pressure = employer_prestige(w, job.employer) * if job.role == Role::HeadCoach { 1.0 } else { 0.4 };
     let intensity = 1.0 + 0.04 * (coach.personality.temper - 10.0);
     let tenure = (w.year - job.since).clamp(0, 15) as f64;
-    let burnout = 0.008 * pressure * pressure * (tenure / 10.0) * intensity;
+    // Each title raises the bar he is judged by (A6: Meyer stepped away
+    // after two titles in four years, Stoops at 56 after 18 seasons).
+    let expectations = 1.0 + 0.5 * national_titles_here(w, c).min(3) as f64;
+    let burnout = 0.008 * pressure * pressure * (tenure / 10.0) * intensity * expectations;
     let roll = w.rng.next();
     if roll < health {
         Some("retired for his health")
@@ -728,6 +750,9 @@ fn retirement_news(w: &mut World, c: usize, job: Job, why: &str) {
         }
         "stepped away, burned out" => {
             format!("Head coach {name} steps away from coaching at {age}, worn out after {seasons} at {at}.")
+        }
+        "walked away on top" => {
+            format!("Head coach {name} walks away on top at {age}, a champion after {seasons} at {at}.")
         }
         _ => format!("Head coach {name} retires at {age} after {seasons} at {at}."),
     };
@@ -871,6 +896,16 @@ pub(crate) fn carousel(w: &mut World, scope: Scope) {
         } else {
             None
         };
+        // A coach who has won it all more than once can walk away on top in
+        // his late fifties (A6: Osborne at 60 after three titles in four
+        // years, Stoops at 56): 2% a year a title, to three. Keyed, so the
+        // world's shared stream doesn't move.
+        let on_top = !retire && early.is_none() && (55..60).contains(&age) && {
+            let won = national_titles_here(w, c);
+            let key = ((c as u64) << 16) | (year as u64 & 0xFFFF);
+            won >= 2 && super::season::key_uniform(w.options.seed as u64 ^ 0xA6_70B, key) < 0.02 * won.min(3) as f64
+        };
+        let early = if on_top { Some("walked away on top") } else { early };
         if retire || early.is_some() {
             let why = early.unwrap_or("retired");
             leave(w, c, why);
@@ -1184,7 +1219,11 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
             // head job, half for a coordinator job).
             let head = if o.role == Role::HeadCoach { 1.0 } else { 0.5 };
             if nfl && !has_coached(coach, true) {
-                s -= 4.0 * head;
+                // A national champion has shown he can build and run a team:
+                // owners doubt him less (A6; Saban, Meyer and Harbaugh were
+                // hired off college titles). 1.5 points a title, to two.
+                let champ = if o.role == Role::HeadCoach { national_titles_here(w, c).min(2) as f64 } else { 0.0 };
+                s -= (4.0 - 1.5 * champ) * head;
             } else if !nfl && !is_hs && !has_coached(coach, false) && !matches!(o.role, Role::PositionCoach(_)) {
                 s -= 2.0 * head;
             }

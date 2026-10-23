@@ -392,6 +392,7 @@ fn measurables(w: &World, k: usize) -> Vec<Value> {
     let at = match p.stage {
         Stage::HighSchool | Stage::PrepSchool => format!("{} roster, school-listed", w.school_name(p.hs)),
         Stage::College => format!("{} spring measurements", p.college.map_or("Team", |c| w.program_name(c))),
+        Stage::Away => format!("{} roster, school-listed, before he left", w.school_name(p.hs)),
         Stage::Declared | Stage::Pro | Stage::Done => {
             if p.pro.as_ref().and_then(|c| c.draft).is_some() || p.cal.combine_invite {
                 "NFL combine, Indianapolis".to_string()

@@ -872,6 +872,14 @@ impl World {
         self.seat_games.retain(|g| g.teams.iter().all(|&t| t < self.programs.len().max(self.nfl.len())));
         self.fill_final_build_fields();
         super::folk::after_load(self);
+        // A world file from before the poll and award voters gets them now.
+        super::voters::ensure(self);
+        // Long snappers made before the final build at a lineman's weight
+        // play at a snapper's (the 307-pound snapper).
+        for p in self.people.iter_mut().filter(|p| p.player.position == crate::positions::Position::LS) {
+            p.player.body.weight =
+                p.player.body.weight.clamp(crate::athlete::LS_MIN_WEIGHT, crate::athlete::LS_MAX_WEIGHT);
+        }
         // A career from before the lane-10 build: its school's people and
         // books are drawn now, its family settled where it is. The people
         // you answer to are the persons the meeting room knows.

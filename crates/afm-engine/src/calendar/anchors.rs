@@ -542,9 +542,18 @@ impl YearDates {
         // deadlines (Jan 6 soft, Jan 15 hard, 72 hours to withdraw; a later
         // opt-out Feb 7 for players on title-game teams). Era windows differ;
         // `rules.rs` holds them.
+        // The NFL sets the early-entry deadline each year: January 15 (2018,
+        // 2024 and 2025 drafts; SI, Dec 5, 2017; CBS Sports, Jan 2025) and
+        // January 14 for the 2026 draft (NFL.com's 2026 underclassmen
+        // tracker; the title game's players had until January 23, four days
+        // after it). NCAA Bylaw 12.2.4.2.4 keeps a player's eligibility if
+        // he withdraws in writing within 72 hours after that deadline and
+        // isn't drafted (the NCAA's enforcement letter of Nov 21, 2023,
+        // quoted by Georgia compliance), so `declare_withdraw` is the
+        // deadline plus three days (checked in the final build: right).
         let portal_open = Date::ymd(s + 1, 1, 2);
         let portal_close = Date::ymd(s + 1, 1, 16);
-        let declare_deadline = Date::ymd(s + 1, 1, 15);
+        let declare_deadline = if s + 1 == 2026 { Date::ymd(2026, 1, 14) } else { Date::ymd(s + 1, 1, 15) };
         // Early signing, by the season it falls in: the third Wednesday of
         // December from 2017 to 2023 (Dec 20, 2017 to Dec 20, 2023), the first
         // Wednesday from 2024 (adopted March 2024; Dec 4, 2024 and Dec 2, 2026).

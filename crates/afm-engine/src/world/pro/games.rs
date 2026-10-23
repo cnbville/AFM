@@ -12,7 +12,7 @@ use super::{Status, depth_slots};
 use crate::attributes::Attr;
 use crate::calendar::Moment;
 use crate::calendar::data::et_offset;
-use crate::calendar::weather::weather_at;
+use crate::calendar::weather::weather_in;
 use crate::game::playbook::{FAMILY_COUNT, Family};
 use crate::game::{Caller, Conditions, GamePlayer, GameResult, GameTeam, Staff as GameStaff, Venue, quick_game_in};
 use crate::positions::Position;
@@ -273,7 +273,9 @@ pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bo
     let year = w.year;
     let seed = w.options.seed as u64;
     let era = franchise::era(home, year.min(franchise::PRESENT));
-    let code = era.map_or("NY", |e| e.state);
+    // The club's town: its own after a move (later extras topic 1).
+    let (town, st) = crate::world::finance::nfl::city(w, home, year);
+    let code = if st.is_empty() { "NY" } else { st.as_str() };
     let state = geo::state_index(code).unwrap_or(0);
     let local = (at.minute / 60) as i32 - et_offset(code);
     // Its stadium's roof: the real one through today, a new stadium's after.
@@ -282,7 +284,8 @@ pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bo
     } else {
         crate::world::finance::nfl::roof(w, home, year)
     };
-    let outside = weather_at(seed, state, code, at.date, local.clamp(9, 23) as u32);
+    // The stadium town's own climate (U-e), with the state's swing for the day.
+    let outside = weather_in(seed, state, code, &town, at.date, local.clamp(9, 23) as u32);
     let closed = match roof {
         franchise::Roof::Dome => true,
         franchise::Roof::Retractable => outside.temperature < 55.0 || outside.rain || outside.wind > 15.0,
@@ -327,7 +330,7 @@ pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bo
         let e = franchise::era(t, year.min(franchise::PRESENT));
         let usual = match e {
             Some(e) if e.roof == franchise::Roof::Dome => 72.0,
-            Some(e) => crate::calendar::weather::usual_high(e.state, at.date),
+            Some(e) => crate::calendar::weather::usual_high_in(e.state, e.city, at.date),
             None => 60.0,
         };
         clamp((usual - wx.temperature - 15.0) / 25.0, 0.0, 1.0) * clamp((45.0 - wx.temperature) / 15.0, 0.0, 1.0)

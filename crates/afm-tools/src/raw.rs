@@ -113,7 +113,7 @@ fn tend_group(w: &World, q: &afm_engine::world::Person) -> Option<&'static str> 
         Stage::HighSchool | Stage::PrepSchool => Some("HS"),
         Stage::College => q.college.map(|c| w.programs[c].division.name()),
         Stage::Pro => Some(if q.pro.as_ref().is_some_and(|c| c.team.is_some()) { "NFL" } else { "Pro, no club" }),
-        Stage::Declared | Stage::Done => None,
+        Stage::Declared | Stage::Done | Stage::Away => None,
     }
 }
 

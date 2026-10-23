@@ -182,6 +182,10 @@ pub(crate) fn season_record(w: &World, t: TeamRef) -> (String, String) {
 pub(crate) fn hs_class(w: &World, s: usize) -> String {
     let h = &w.high_schools[s];
     let st = &w.states[h.state];
+    // The state's own class names (U-d), as its format lists them.
+    if let Some(name) = afm_engine::world::hs_playoffs::format(&st.code).class_label(h.classification) {
+        return name.to_string();
+    }
     let n = st.schools.iter().map(|&k| w.high_schools[k].classification).max().unwrap_or(0) as usize + 1;
     let k = (h.classification as usize).min(n - 1);
     // Where the school's class falls in a list of `len` names, biggest first.
@@ -441,6 +445,10 @@ pub(crate) fn class_text(w: &World, p: &Person) -> String {
             if y == 0 { "Rookie".into() } else { format!("{y} yr{}", if y == 1 { "" } else { "s" }) }
         }
         Stage::Done => "Retired".into(),
+        Stage::Away => match p.roads.away.map(|a| a.kind) {
+            Some(afm_engine::world::eligibility::AwayKind::Military) => "Serving".into(),
+            _ => "On mission".into(),
+        },
     }
 }
 
@@ -791,6 +799,14 @@ pub(crate) fn where_now(w: &World, p: &Person) -> String {
             _ => "Free agent".into(),
         },
         Stage::Done => "Out of football".into(),
+        Stage::Away => match p.roads.away {
+            Some(a) => {
+                let held =
+                    a.program.map(|c| format!(", {} holds his place", w.program_name(c as usize))).unwrap_or_default();
+                format!("Away on {} until the summer of {}{held}", a.kind.name(), a.until)
+            }
+            None => "Away from football".into(),
+        },
     }
 }
 
