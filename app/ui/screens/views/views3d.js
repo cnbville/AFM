@@ -841,6 +841,7 @@
       ovM.position.y = 0.03;
       ovM.renderOrder = 2;
       S.add(ovM);
+      this.ovM = ovM;
       // The line of scrimmage and the line to gain, on the turf under the men.
       const line = (color) => {
         const m = new T.Mesh(G.box, keep(new T.MeshBasicMaterial({ color, transparent: true, opacity: 0.88, depthWrite: false })));
@@ -1217,8 +1218,14 @@
       g.setTransform(px, 0, 0, px, MARGIN_X * px, MARGIN_Y * px);
       const ys = 1.4 / px;
       const p = this.player;
+      // An empty sheet is hidden rather than uploaded: a cleared canvas can
+      // reach the GPU late and leave the last snap's trails on the turf.
+      const marks = SET.marks && (p.drawing || p.marks.some((m) => m.play === c.n));
+      const trails = SET.trails && st.t > 0;
+      this.ovM.visible = !!(marks || trails);
+      if (!this.ovM.visible) return;
       p.drawMarks(g, ys, st.t);
-      if (SET.trails && st.t > 0) {
+      if (trails) {
         for (let i = 0; i < c.men; i++) {
           const id = c.ids[i];
           const pl = film.players.get(id);

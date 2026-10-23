@@ -162,8 +162,10 @@ if (process.env.AFM_CLIP !== "0" && process.env.AFM_REC !== "0") {
     AFMViews.SET.quality = "high";
     const p = AFMViews.active();
     if (p.view && p.view.setQuality) p.view.setQuality("high");
-    // The film alone, the panel folded away.
+    // The film alone: the panel folded away, the tools check's drawings
+    // hidden.
     if (AFMViews.SET.side !== false) p.toggleSide();
+    AFMViews.SET.marks = false;
   });
   await wait(1500);
   const picks = await page.evaluate(() => {
