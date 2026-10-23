@@ -4,6 +4,7 @@
 mod compact;
 mod development;
 mod foundations;
+mod front_office;
 mod game_stats;
 mod hs_playoffs;
 mod kick_units;

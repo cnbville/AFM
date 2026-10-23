@@ -215,6 +215,11 @@ pub struct Terms {
     pub void_years: u32,
     pub no_trade: bool,
     pub offsets: bool,
+    /// Year one's pay set low (real: a big signing bonus and a base near
+    /// the minimum in year one, the rest in the later years); 0 lays year
+    /// one out like the others.
+    #[serde(default)]
+    pub first_base: f64,
 }
 
 impl Terms {
@@ -234,6 +239,7 @@ impl Terms {
             void_years: 0,
             no_trade: false,
             offsets: false,
+            first_base: 0.0,
         }
     }
 
@@ -246,6 +252,10 @@ impl Terms {
     }
     /// Year one's share of the pay outside the bonus, as `build` ramps it.
     fn first_share(&self) -> f64 {
+        let pay = self.total() * (1.0 - self.bonus_share);
+        if self.first_base > 0.0 && self.years > 1 && pay > 0.0 {
+            return (self.first_base / pay).min(1.0);
+        }
         1.0 / (0..self.years.max(1) as i32).map(|k| (1.0 + self.ramp).powi(k)).sum::<f64>()
     }
     /// Year one's cash: the signing bonus and the first year's pay.
@@ -285,11 +295,18 @@ pub fn build(team: usize, kind: Kind, start: i32, t: &Terms) -> Contract {
     // Each year's pay, ramped: weights 1, 1+r, (1+r)^2 ...
     let w: Vec<f64> = (0..n).map(|k| (1.0 + t.ramp).powi(k as i32)).collect();
     let wsum: f64 = w.iter().sum();
+    // A low first year: its pay as written, the rest ramped over the others.
+    let first = (t.first_base > 0.0 && n > 1).then(|| t.first_base.min(pay));
+    let rest: f64 = w[1..].iter().sum();
     let mut years: Vec<Year> = Vec::with_capacity(n + t.void_years as usize);
     let mut left_g = total * t.base_guarantee;
     let mut left_i = total * t.injury_guarantee;
     for k in 0..n {
-        let yr_pay = pay * w[k] / wsum;
+        let yr_pay = match first {
+            Some(f) if k == 0 => f,
+            Some(f) => (pay - f) * w[k] / rest,
+            None => pay * w[k] / wsum,
+        };
         let roster = yr_pay * t.roster_share;
         let workout = yr_pay * t.workout_share;
         let per_game = yr_pay * t.per_game_share;
@@ -366,6 +383,8 @@ pub fn restructure(c: &mut Contract, y: i32, keep: f64, add_void: u32) -> f64 {
     c.years[k].base -= amount;
     c.years[k].bonus_paid += amount;
     c.years[k].guaranteed = c.years[k].guaranteed.max(0.0).min(c.years[k].base);
+    // The converted pay is a bonus now: an injury guarantee covers only the base left.
+    c.years[k].injury = c.years[k].injury.max(0.0).min(c.years[k].base - c.years[k].guaranteed);
     let spread: Vec<usize> = (k..c.years.len()).take(5).collect();
     for &j in &spread {
         c.years[j].proration += amount / spread.len() as f64;

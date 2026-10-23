@@ -2082,6 +2082,14 @@ pub(crate) fn last_season(p: &super::Person, division: Division, season: i32) ->
     p.college_seasons + p.cal.count_pending as u32 >= limit || season >= super::eligibility::clock_last(p)
 }
 
+/// Whether a player has no season left after `season` (the portal's check,
+/// lane 10): the season in play counts, read against next season's rules
+/// (a 2025 senior inside his five years gets a fifth under five-in-five).
+pub(crate) fn no_season_left(p: &super::Person, division: Division, season: i32) -> bool {
+    let limit = super::eligibility::seasons_allowed(season + 1, division);
+    p.college_seasons + p.cal.count_pending as u32 >= limit || season >= super::eligibility::clock_last(p)
+}
+
 /// Bowl opt-outs (topic 3.2): players with high draft grades skip minor
 /// bowls, rarely playoff games, from their draft read, personality and what
 /// is at stake. Only players headed to the draft opt out: a senior in his
@@ -3364,10 +3372,10 @@ pub(crate) fn lean_checkpoint(w: &mut World, check: LeanCheck) {
                 lean_push(
                     p,
                     date,
-                    if buried >= 1.0 { "good enough to start elsewhere" } else { "well down the depth chart" },
+                    if buried >= 1.0 { "good enough to start elsewhere" } else { "no starting job waiting elsewhere" },
                     buried,
                 );
-                lean_push(p, date, "his competitiveness", comp);
+                lean_push(p, date, if comp >= 1.0 { "his competitiveness" } else { "content where he is" }, comp);
                 // Far from home with a family that wanted him close: homesickness.
                 let miles = geo::miles(p.home_state, programs[c].state);
                 if miles > 900.0 && p.family.own_wants.close_to_home > 0.25 {

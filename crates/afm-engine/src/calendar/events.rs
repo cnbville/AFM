@@ -216,6 +216,9 @@ pub struct Event {
 
 impl Event {
     pub fn new(date: Date, level: Level, kind: Kind, loud: Loudness, text: impl Into<String>) -> Event {
+        // A name ending "Jr." closes its own sentence.
+        let text: String = text.into();
+        let text = if text.contains("..") { text.replace("Jr..", "Jr.").replace("Sr..", "Sr.") } else { text };
         Event {
             when: Moment { date, minute: 9 * 60 },
             level,
@@ -225,7 +228,7 @@ impl Event {
             rule: "",
             nfl_team: None,
             program: None,
-            text: text.into(),
+            text,
             memorable: false,
             season: None,
             regular: false,

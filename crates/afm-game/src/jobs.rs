@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+use afm_engine::world::names::NameMode;
 use afm_engine::world::{SPIN_UP_YEARS, World, WorldOptions};
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -113,11 +114,28 @@ pub fn build_world_file(
     seed: u32,
     years: u32,
     scale: f64,
+    each: impl FnMut(u32, i32) -> bool,
+) -> Result<PathBuf, String> {
+    build_world_file_named(worlds, seed, years, scale, false, each)
+}
+
+/// The same, with every name fictional when `fictional` (lane 10): the
+/// colleges, the high schools, the NFL's nicknames and the conferences.
+pub fn build_world_file_named(
+    worlds: &Path,
+    seed: u32,
+    years: u32,
+    scale: f64,
+    fictional: bool,
     mut each: impl FnMut(u32, i32) -> bool,
 ) -> Result<PathBuf, String> {
-    let to = worlds.join(format!("{}.afmworld", world_name(seed, years)));
+    let name = world_name(seed, years) + if fictional { "-fictional" } else { "" };
+    let to = worlds.join(format!("{name}.afmworld"));
     let mut seasons = 0;
-    let w = World::new_stoppable(WorldOptions { seed, history_years: years, scale, ..Default::default() }, |w, _| {
+    let names = if fictional { NameMode::Fictional } else { NameMode::Real };
+    let opts =
+        WorldOptions { seed, history_years: years, scale, names, fictional_league: fictional, ..Default::default() };
+    let w = World::new_stoppable(opts, |w, _| {
         seasons += 1;
         each(seasons, w.year - 1)
     })
@@ -135,7 +153,19 @@ pub fn build_world_file(
 /// Builds a full world on this machine, beside the game, into the library.
 /// A 30-year world takes hours and about 6.5 GB of memory at its peak.
 pub fn build(shared: &Shared, worlds: &Path, seed: u32, years: u32, scale: f64) -> Result<String, String> {
-    let name = world_name(seed, years);
+    build_named(shared, worlds, seed, years, scale, false)
+}
+
+/// `build`, with every name fictional when `fictional`.
+pub fn build_named(
+    shared: &Shared,
+    worlds: &Path,
+    seed: u32,
+    years: u32,
+    scale: f64,
+    fictional: bool,
+) -> Result<String, String> {
+    let name = world_name(seed, years) + if fictional { "-fictional" } else { "" };
     start(shared, "build", &name, "Starting the history…")?;
     let (shared, worlds) = (shared.clone(), worlds.to_path_buf());
     std::thread::spawn(move || {
@@ -145,7 +175,7 @@ pub fn build(shared: &Shared, worlds: &Path, seed: u32, years: u32, scale: f64) 
         let all = SPIN_UP_YEARS + years;
         let slow = years.min(12);
         let weight = |n: u32| n.min(all - slow) as f64 + 6.0 * n.saturating_sub(all - slow) as f64;
-        let r = build_world_file(&worlds, seed, years, scale, |n, year| {
+        let r = build_world_file_named(&worlds, seed, years, scale, fictional, |n, year| {
             set(&shared, |j| {
                 j.seconds = t.elapsed().as_secs_f64();
                 if n == 0 {

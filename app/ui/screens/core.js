@@ -199,8 +199,15 @@ function table(key, cols, rows, opts = {}) {
   const shown = cols.filter((c) => !st.hidden.includes(c.k));
   const list = sortRows(applyFilters(rows, cols, st), cols, s);
   const span = shown.length + (opts.select ? 1 : 0);
+  // A group spans the columns it names that are showing (hidden ones and
+  // all-hidden groups drop out, so the heads stay over their columns).
+  let at = 0;
   const groups = opts.groups
-    ? `<tr class="groups">${opts.select ? "<th></th>" : ""}${opts.groups.map((g) => `<th colspan="${g.span}" class="${g.div ? "div" : ""}">${esc(g.t)}${g.who ? ` <span>· ${esc(g.who)}</span>` : ""}</th>`).join("")}</tr>`
+    ? `<tr class="groups">${opts.select ? "<th></th>" : ""}${opts.groups.map((g) => {
+        const n = cols.slice(at, at + g.span).filter((c) => !st.hidden.includes(c.k)).length;
+        at += g.span;
+        return n ? `<th colspan="${n}" class="${g.div ? "div" : ""}">${esc(g.t)}${g.who ? ` <span>· ${esc(g.who)}</span>` : ""}</th>` : "";
+      }).join("")}</tr>`
     : "";
   const text = (c) => typeof cellValue(c, rows[0] || {}) === "string";
   const arrow = (c) => (s.k === c.k ? ((text(c) ? s.dir > 0 : s.dir < 0) ? "sorted-desc" : "sorted-asc") : s.k2 === c.k ? "sorted-2" : "");
@@ -1113,7 +1120,8 @@ const SLIDE_GO = { game: "Game page", games: "Game pages", schedule: "Schedule",
 screens.home = async () => {
   const x = await api("dashboard");
   S.status = x.status;
-  if (!x.team) return `<div class="pad">${pageHead({ title: "Home" })}</div>`;
+  // Out of work, home is the job market (lane 10, screens/fo-school.js).
+  if (!x.team) return S.status && S.status.you && screens.market ? screens.market() : `<div class="pad">${pageHead({ title: "Home" })}</div>`;
   setColors(x.team.colors);
   title("Home");
   const slides = x.slides.map((s, i) => {
@@ -1280,6 +1288,9 @@ function playerTabs(p) {
   }
   return list;
 }
+// A school named for its town reads as the town on its own ("Prattville,
+// AL · Prattville"): say it's the high school.
+const hsName = (n) => (/\b(High|Academy|School|Prep|Institute|Catholic|Christian|Military)\b/i.test(n) ? n : `${n} High`);
 screens.player = async (a) => {
   const p = await api("profile", { id: a.id });
   const c = p.colors || ["#2a2f3a", "#111"];
@@ -1299,7 +1310,7 @@ screens.player = async (a) => {
     <div class="phero-in">${face({ ...p, colors: c }, 132)}<div class="copy">
       <div class="st-label"><span class="pos" title="${esc(posHist || p.pos)}">${esc(p.pos)}</span> · ${esc(p.class)} · ${p.team ? teamA(p.team) : esc(p.where)}</div>
       <h1>${esc(p.name)}</h1>
-      <div class="meta"><span>Age <b>${p.age}</b></span><span><b>${esc(p.ht)}</b>, <b>${p.wt}</b> lb</span><span>${esc(p.home)}</span>${p.high_school ? `<span>${esc(p.high_school)}</span>` : ""}${p.stars ? `<span>${stars(p.stars)}</span>` : ""}${p.status ? `<span class="st-pill live">${esc(p.status)}</span>` : ""}${lr}</div>
+      <div class="meta"><span>Age <b>${p.age}</b></span><span><b>${esc(p.ht)}</b>, <b>${p.wt}</b> lb</span><span>${esc(p.home)}</span>${p.high_school ? `<span>${p.high_school_id != null ? `<a class="link team" data-go="team" data-kind="hs" data-id="${p.high_school_id}">${esc(hsName(p.high_school))}</a>` : esc(hsName(p.high_school))}</span>` : ""}${p.stars ? `<span>${stars(p.stars)}</span>` : ""}${p.status ? `<span class="st-pill live">${esc(p.status)}</span>` : ""}${lr}</div>
       <div class="st-actions">${listBtn}<button class="st-btn glass" data-act="pnote" data-id="${p.id}" data-name="${esc(p.name)}">${icon("note")} Add a note</button><button class="st-btn glass" data-act="pcmp" data-id="${p.id}">Compare</button></div></div></div></div>
     <div class="pad">${gotoFor("player", a, p)}${tabs("ptab", list, tab)}<div class="tabbody">${body}</div></div>`;
 };
@@ -1369,21 +1380,21 @@ screens.you = async (a) => {
     const yr = Number(String(S.status && S.status.today).slice(-4));
     const kids = (p.children || []).map(([n, b]) => `${n}, ${Math.max(0, yr - b)}`).join("; ");
     const family = [p.status, p.status === "Married" && p.spouse ? `to ${p.spouse}` : ""].filter(Boolean).join(" ") + (kids ? `; children: ${kids}` : "");
-    body = `<div class="grid2"><div class="panel"><h2>You</h2><div class="kv"><dt>Age</dt><dd>${y.age}</dd>${y.road ? `<dt>Came up as</dt><dd>${esc(y.road)}</dd>` : ""}<dt>Reputation</dt><dd>${esc(y.reputation)}${y.stock && y.stock !== y.reputation ? ` · <span class="muted">${esc(y.stock)}</span>` : ""}</dd><dt>Record</dt><dd>${esc(y.record)}</dd><dt>Titles</dt><dd>${y.titles}</dd>${x && x.calls ? `<dt>Calls the plays</dt><dd>${esc(x.calls)}</dd>` : ""}${from ? `<dt>From</dt><dd>${esc(from)}${p.high_school ? ` · ${esc(p.high_school)}` : ""}</dd>` : ""}${school.trim() ? `<dt>College</dt><dd>${esc(school)}</dd>` : ""}${family.trim() ? `<dt>Family</dt><dd>${esc(family)}</dd>` : ""}${y.mentor ? `<dt>Learned under</dt><dd>${coachLink(y.mentor.id, y.mentor.name)}${y.mentor.job ? ` <small class="muted">${esc(y.mentor.job.role)}, ${esc(y.mentor.job.name)}</small>` : ""}</dd>` : ""}</div></div>
+    body = `<div class="grid2"><div class="panel"><h2>You</h2><div class="kv"><dt>Age</dt><dd>${y.age}</dd>${y.road ? `<dt>Came up as</dt><dd>${esc(y.road)}</dd>` : ""}<dt>Reputation</dt><dd>${esc(y.reputation)}${y.stock && y.stock !== y.reputation ? ` · <span class="muted">${esc(y.stock)}</span>` : ""}</dd><dt>Record</dt><dd>${y.record === "0-0" && !(S.status && S.status.seat && S.status.seat.head) ? '<span class="sub">No games as a head coach yet</span>' : esc(y.record)}</dd><dt>Titles</dt><dd>${y.titles}</dd>${x && x.calls ? `<dt>Calls the plays</dt><dd>${esc(x.calls)}</dd>` : ""}${from ? `<dt>From</dt><dd>${esc(from)}${p.high_school ? ` · ${esc(p.high_school)}` : ""}</dd>` : ""}${school.trim() ? `<dt>College</dt><dd>${esc(school)}</dd>` : ""}${family.trim() ? `<dt>Family</dt><dd>${esc(family)}</dd>` : ""}${y.mentor ? `<dt>Learned under</dt><dd>${coachLink(y.mentor.id, y.mentor.name)}${y.mentor.job ? ` <small class="muted">${esc(y.mentor.job.role)}, ${esc(y.mentor.job.name)}</small>` : ""}</dd>` : ""}</div></div>
       <div class="panel"><h2>Teaching <small>your own ratings, 1-20; nobody else sees them</small></h2>${y.teaching.map((t) => row(cap(t.group), t.value)).join("")}</div></div>
       <div class="grid2"><div class="panel"><h2>The rest</h2>${[["Scheme", y.scheme], ["Game management", y.game_management], ...(x ? [["Play calling", x.play_calling], ["In-game adaptation", x.adaptation]] : []), ["Motivation", y.motivation], ["Discipline", y.discipline], ["Relationships", y.relationships], ["Recruiting", y.recruiting], ...(x ? [["Evaluation", x.evaluation]] : []), ["Network", y.network], ...(x ? [["Negotiating", x.negotiating]] : [])].filter((r) => r[1] != null).map(([t, v]) => row(t, v)).join("")}</div>
-      ${y.style ? `<div class="panel"><h2>Your coaching style <small>1-20</small></h2>${STYLE.map(([k, t, lo, hi]) => `<div class="attr"><span>${esc(t)} <small class="sub">${esc(lo)} to ${esc(hi)}</small></span><span class="rg"><span class="t"><i style="left:0;width:${(y.style[k] / 20) * 100}%;background:${rateColor(y.style[k] * 5)}"></i></span><b>${Math.round(y.style[k])}</b></span></div>`).join("")}</div>` : ""}</div>`;
+      ${y.style ? `<div class="panel"><h2>Your coaching style <small>1-20</small></h2>${STYLE.map(([k, t, lo, hi]) => `<div class="attr"><span>${esc(t)} <small class="sub">${esc(lo)} to ${esc(hi)}</small></span><span class="rg"><span class="t"><i style="left:0;width:${(y.style[k] / 20) * 100}%;background:${rateColor(y.style[k] * 5)}"></i></span><b>${Math.round(y.style[k])}</b></span></div>`).join("")}</div>` : ""}</div>${typeof youLife === "function" ? youLife(y) : ""}`;
   } else if (tab === "Contract") {
     const c = y.contract;
     body = c ? `<div class="panel"><h2>Your contract</h2><div class="st-tiles"><div><b>${money(c.salary)}</b><small>a year</small></div><div><b>${c.through}</b><small>through</small></div><div><b>${money(c.buyout)}</b><small>what firing you costs now</small></div><div><b>${Math.round((c.buyout_share || 0) * 100)}%</b><small>of what's left is guaranteed</small></div></div><p class="sub">Your boss reads your contract with your results: a big buyout buys patience, a small one doesn't.</p></div>` : '<div class="empty">No written contract: high school coaches work year to year.</div>';
   } else if (tab === "Coaching tree") {
     body = `<div class="panel"><h2>Coaches who learned under you</h2>${treeHtml(y.tree, "Nobody has come up under you yet. Assistants who work for you a few years join your tree when they move on.")}</div>`;
   } else if (tab === "Job market") {
-    body = `<div class="panel"><h2>Head jobs that opened <small>this year and last · your stock: ${esc(y.stock)}</small></h2>${y.market.length ? table("ymarket", [{ k: "team", t: "Job", l: true, f: (r) => teamChip(r.team, 18), v: (r) => r.team.name }, { k: "line", t: "Where", l: true }, { k: "prestige", t: "Program", l: true }, { k: "date", t: "Opened", l: true }, { k: "filled", t: "Filled by", l: true, f: (r) => (r.filled ? coachLink(r.filled.id, r.filled.name) : '<span class="tag due">Open</span>'), v: (r) => (r.filled ? r.filled.name : "") }], y.market, { tools: false }) : '<div class="empty">No head jobs have opened yet. Black Monday and the end of the college season move the carousel.</div>'}</div>`;
+    body = `${screens.market ? `<div class="sub" style="margin-bottom:12px">${linkTo("market", {}, "Open the job market", "st-btn small primary")} to apply, put your name in and answer offers.</div>` : ""}<div class="panel"><h2>Head jobs that opened <small>this year and last · your stock: ${esc(y.stock)}</small></h2>${y.market.length ? table("ymarket", [{ k: "team", t: "Job", l: true, f: (r) => teamChip(r.team, 18), v: (r) => r.team.name }, { k: "line", t: "Where", l: true }, { k: "prestige", t: "Program", l: true }, { k: "date", t: "Opened", l: true }, { k: "filled", t: "Filled by", l: true, f: (r) => (r.filled ? coachLink(r.filled.id, r.filled.name) : '<span class="tag due">Open</span>'), v: (r) => (r.filled ? r.filled.name : "") }], y.market, { tools: false }) : '<div class="empty">No head jobs have opened yet. Black Monday and the end of the college season move the carousel.</div>'}</div>`;
   } else {
     body = y.history && y.history.length ? table("yjobs", [{ k: "where", t: "Where", l: true }, { k: "role", t: "Role", l: true }, { k: "from", t: "From" }, { k: "to", t: "To" }, { k: "record", t: "Record", l: true }], y.history, { tools: false }) : '<div class="empty">This is your first job.</div>';
   }
-  return `<div class="pad">${pageHead({ kicker: `Head coach since ${esc(y.started)}`, title: esc(y.name), sub: esc(y.record) })}${gotoLine([["Your staff", "staff"], ["Your boss's letters", "inbox", { key: "Your job" }], ["Coaching carousel", "history", { tab: "Coaching carousel" }]])}${tabs("ytab", ["Profile", "Contract", "Coaching tree", "Job market", "Jobs"], tab)}<div class="tabbody">${body}</div></div>`;
+  return `<div class="pad">${pageHead({ kicker: esc(y.title || `Head coach since ${y.started}`), title: esc(y.name), sub: esc(y.record) })}${gotoLine([["Your staff", "staff"], ["Your boss's letters", "inbox", { key: "Your job" }], ["Coaching carousel", "history", { tab: "Coaching carousel" }]])}${tabs("ytab", ["Profile", "Contract", "Coaching tree", "Job market", "Jobs"], tab)}<div class="tabbody">${body}</div></div>`;
 };
 
 // ---------- the team page ----------

@@ -334,3 +334,235 @@ pub fn fictional_program_name(city: &str, index: usize, seed: u32) -> String {
         _ => format!("{city} A&M"),
     }
 }
+
+/// Every conference name the world's data carries, today's and history's,
+/// in order: the fictional names are dealt out by place in this list, so
+/// no two real conferences share a fictional one.
+const CONFERENCES: [&str; 131] = [
+    "ACC",
+    "ACFC",
+    "AIC",
+    "ARC",
+    "ASC",
+    "ASUN",
+    "American",
+    "American West",
+    "Appalachian",
+    "Atlantic 10",
+    "Big 12",
+    "Big East",
+    "Big Eight",
+    "Big Sky",
+    "Big South",
+    "Big Ten",
+    "Big West",
+    "CAA",
+    "CCIW",
+    "CIAA",
+    "CNE",
+    "CSFL",
+    "CUSA",
+    "Centennial",
+    "Colonial League",
+    "Conference Carolinas",
+    "ECFC",
+    "EFC",
+    "Empire 8",
+    "Freedom",
+    "Frontier",
+    "G-MAC",
+    "GAC",
+    "GLIAC",
+    "GLVC",
+    "GNAC",
+    "GPAC",
+    "GSC",
+    "Gateway",
+    "Great Lakes Football",
+    "Great West",
+    "Gulf Star",
+    "HAAC",
+    "HCAC",
+    "Heart",
+    "Heartland Collegiate",
+    "ICCAC",
+    "Independent",
+    "Ivy",
+    "KCAC",
+    "KJCCC",
+    "LSC",
+    "Landmark",
+    "Liberty",
+    "MAAC",
+    "MAC",
+    "MACCC",
+    "MASCAC",
+    "MCAC",
+    "MEAC",
+    "MEC",
+    "MIAA",
+    "MIAC",
+    "MIFC",
+    "MVFC",
+    "MWC",
+    "Metropolitan",
+    "Michigan IAA",
+    "Mid-Continent",
+    "Mid-South",
+    "Mid-States",
+    "Middle Atlantic",
+    "Missouri Valley",
+    "Mountain West",
+    "NACC",
+    "NCAC",
+    "NCC",
+    "NCFC Bay 6",
+    "NCFC Golden Coast",
+    "NCFC NorCal",
+    "NCFC Pacific 7",
+    "NCFC Valley",
+    "NE-10",
+    "NEC",
+    "NESCAC",
+    "NEWMAC",
+    "NIC",
+    "NJAC",
+    "NSIC",
+    "NWC",
+    "OAC",
+    "ODAC",
+    "OIC",
+    "OVC-Big South",
+    "Ohio Valley",
+    "PAC",
+    "PCAA",
+    "PFL",
+    "PSAC",
+    "Pac-10",
+    "Pac-12",
+    "Patriot",
+    "RMAC",
+    "SAA",
+    "SAC",
+    "SCAC",
+    "SCFA American Metro",
+    "SCFA American Pacific",
+    "SCFA National Central",
+    "SCFA National Northern",
+    "SCFA National Southern",
+    "SCIAC",
+    "SEC",
+    "SIAC",
+    "SWAC",
+    "SWC",
+    "SWJCFC",
+    "SoCon",
+    "Sooner",
+    "Southland",
+    "Sun",
+    "Sun Belt",
+    "TIAA",
+    "UAC",
+    "UMAC",
+    "USA South",
+    "WAC",
+    "WIAC",
+    "WVIAC",
+    "Western Football",
+    "Yankee",
+];
+
+/// The biggest conferences get names of their own; the rest are dealt
+/// from regions and kinds (Claude's pick, lane 10: a fictional world
+/// renames the leagues as well as the schools).
+const BIG_CONFERENCES: [(&str, &str); 17] = [
+    ("SEC", "Southern Union"),
+    ("Big Ten", "Midlands Conference"),
+    ("ACC", "Atlantic Seaboard Conference"),
+    ("Big 12", "Plains Twelve"),
+    ("Pac-12", "Pacific Rim Conference"),
+    ("Pac-10", "Pacific Rim Conference"),
+    ("Big East", "Eastern Collegiate League"),
+    ("American", "National Collegiate Conference"),
+    ("Mountain West", "Rocky Range Conference"),
+    ("MAC", "Lakes and Rivers Conference"),
+    ("Sun Belt", "Southern Coast Conference"),
+    ("CUSA", "Crossroads Conference"),
+    ("WAC", "Western Frontier Conference"),
+    ("SWC", "Southwest Union"),
+    ("Big Eight", "Prairie Eight"),
+    ("Ivy", "Old Colonies League"),
+    ("Independent", "Independent"),
+];
+
+const CONF_REGIONS: [&str; 27] = [
+    "Heartland",
+    "Coastal",
+    "Great Plains",
+    "Piedmont",
+    "Prairie",
+    "Lakeshore",
+    "Tidewater",
+    "Cascade",
+    "Bluegrass",
+    "Delta",
+    "Keystone",
+    "Gulf",
+    "High Plains",
+    "Ozark",
+    "Allegheny",
+    "Redwood",
+    "Granite",
+    "Sierra",
+    "Mesa",
+    "Riverland",
+    "Northwoods",
+    "Capital",
+    "Chesapeake",
+    "Cumberland",
+    "Great Rivers",
+    "Magnolia",
+    "Harbor",
+];
+
+const CONF_KINDS: [&str; 6] = [
+    "Conference",
+    "Athletic Conference",
+    "Football Conference",
+    "Intercollegiate Conference",
+    "Athletic Association",
+    "League",
+];
+
+/// A conference's name in a fictional world.
+pub fn fictional_conference(real: &str) -> String {
+    if let Some(x) = BIG_CONFERENCES.iter().find(|x| x.0 == real) {
+        return x.1.to_string();
+    }
+    let k = CONFERENCES.iter().position(|c| *c == real).unwrap_or_else(|| {
+        real.bytes().fold(7usize, |h, b| h.wrapping_mul(31).wrapping_add(b as usize)) % CONFERENCES.len()
+    });
+    // Stride through the grid so neighbours in the list differ in both parts.
+    let n = (k * 37) % (CONF_REGIONS.len() * CONF_KINDS.len());
+    format!("{} {}", CONF_REGIONS[n % CONF_REGIONS.len()], CONF_KINDS[n / CONF_REGIONS.len()])
+}
+
+#[cfg(test)]
+mod conference_tests {
+    use super::*;
+
+    #[test]
+    fn fictional_conferences_never_collide() {
+        let mut seen = std::collections::HashMap::new();
+        for c in CONFERENCES {
+            let f = fictional_conference(c);
+            if let Some(prev) = seen.insert(f.clone(), c) {
+                // The Pac-10 became the Pac-12: one league, one name.
+                assert!(
+                    matches!((prev, c), ("Pac-10", "Pac-12") | ("Pac-12", "Pac-10")),
+                    "{prev} and {c} are both {f}"
+                );
+            }
+        }
+    }
+}

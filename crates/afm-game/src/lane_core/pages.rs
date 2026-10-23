@@ -1520,6 +1520,7 @@ pub fn calendar_month(w: &World, args: &Value) -> Value {
     };
     let start = first.add(-(first.weekday() as i32));
     let yours = views::yours_test(w);
+    let my_slot = views::my_slot_test(w);
     // Your games this month, with the kept game's page when there is one.
     let me = views::mine(w);
     let mut games: HashMap<i32, Value> = HashMap::new();
@@ -1571,9 +1572,10 @@ pub fn calendar_month(w: &World, args: &Value) -> Value {
                 .calendar
                 .on(d)
                 .iter()
-                .filter(|e| !matches!(e.kind, Kind::Slot | Kind::Rhythm | Kind::Game))
+                .filter(|e| my_slot(e) || !matches!(e.kind, Kind::Slot | Kind::Rhythm | Kind::Game))
                 .filter(|e| {
                     yours(e)
+                        || my_slot(e)
                         || e.loud >= Loudness::Big
                         || matches!(e.kind, Kind::Date | Kind::Deadline | Kind::Window)
                             && e.loud >= Loudness::Medium
@@ -1590,7 +1592,7 @@ pub fn calendar_month(w: &World, args: &Value) -> Value {
             days.push(json!({
                 "iso": iso(d), "day": d.day(), "in_month": d >= first && d < next, "today": d == w.today, "past": d < w.today,
                 "game": games.get(&d.0),
-                "items": fixed.iter().cloned().chain(evs.iter().take(4).map(|e| json!({ "text": tidy(&lk.event(e)), "kind": kicker(e), "mine": yours(e), "loud": e.loud.name() }))).collect::<Vec<_>>(),
+                "items": fixed.iter().cloned().chain(evs.iter().take(4).map(|e| json!({ "text": tidy(&lk.event(e)), "kind": kicker(e), "mine": yours(e) || my_slot(e), "loud": e.loud.name() }))).collect::<Vec<_>>(),
                 "more": evs.len().saturating_sub(4),
             }));
             d = d.add(1);
@@ -1602,13 +1604,13 @@ pub fn calendar_month(w: &World, args: &Value) -> Value {
     }
     // The picked day in full.
     let day = picked.map(|p| {
-        let evs: Vec<&Event> = w.calendar.on(p).iter().filter(|e| !matches!(e.kind, Kind::Slot | Kind::Rhythm)).collect();
+        let evs: Vec<&Event> = w.calendar.on(p).iter().filter(|e| my_slot(e) || !matches!(e.kind, Kind::Slot | Kind::Rhythm)).collect();
         let texts: Vec<&str> = evs.iter().map(|e| e.text.as_str()).take(60).collect();
         let lk = Linker::new(w, &texts, matches!(me, Some(TeamRef::HighSchool(_))));
         json!({
             "iso": iso(p), "pretty": p.pretty(), "in": w.today.days_to(p), "game": games.get(&p.0),
             "items": dates.iter().filter(|x| x.0 == p).map(|x| json!({ "text": x.1, "kind": "Date", "mine": false, "loud": "Medium" }))
-                .chain(evs.iter().take(60).map(|e| json!({ "text": tidy(&lk.event(e)), "kind": kicker(e), "mine": yours(e), "loud": e.loud.name() }))).collect::<Vec<_>>(),
+                .chain(evs.iter().take(60).map(|e| json!({ "text": tidy(&lk.event(e)), "kind": kicker(e), "mine": yours(e) || my_slot(e), "loud": e.loud.name() }))).collect::<Vec<_>>(),
             "kept": p >= w.today.add(-400),
         })
     });

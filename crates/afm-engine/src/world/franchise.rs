@@ -174,6 +174,84 @@ pub fn era(team: usize, year: i32) -> Option<&'static Era> {
     ERAS.get(team)?.iter().find(|e| e.from <= year && year <= e.to)
 }
 
+/// Each franchise's fictional nicknames, one for each real nickname it
+/// has had in order (Claude's pick, lane 10: a fictional world keeps the
+/// real cities and moves and renames the clubs; Washington's interim
+/// "Football Team" stays as it was, a placeholder in real life too).
+const FICTIONAL: [&[&str]; 32] = [
+    &["Sidewinders"],
+    &["Firebirds"],
+    &["Ironclads"],
+    &["Blizzard"],
+    &["Copperheads"],
+    &["Hammers"],
+    &["Riverboats"],
+    &["Forge"],
+    &["Wranglers"],
+    &["Bighorns"],
+    &["Motormen"],
+    &["Northmen"],
+    &["Wildcatters"],
+    &["Racers"],
+    &["Barracudas"],
+    &["Monarchs"],
+    &["Outlaws"],
+    &["Breakers"],
+    &["Condors"],
+    &["Tarpons"],
+    &["Lumberjacks"],
+    &["Ironsides"],
+    &["Brigadiers"],
+    &["Knights"],
+    &["Skyliners"],
+    &["Liberty"],
+    &["Smelters"],
+    &["Argonauts"],
+    &["Orcas"],
+    &["Corsairs"],
+    &["Roughnecks", "Sentinels"],
+    &["Senators", "Football Team", "Admirals"],
+];
+
+/// A real club name's nickname and its place ("Washington Football Team":
+/// "Washington", "Football Team").
+fn split_name(name: &str) -> (&str, &str) {
+    let cut = if name.ends_with("Football Team") {
+        name.len() - "Football Team".len()
+    } else {
+        name.rfind(' ').map_or(0, |i| i + 1)
+    };
+    (name[..cut].trim_end(), &name[cut..])
+}
+
+/// The club's name in a fictional world: its real home that season and
+/// the fictional nickname for the real one it had.
+pub fn fictional_name(team: usize, year: i32) -> &'static str {
+    use std::collections::HashMap;
+    use std::sync::{Mutex, OnceLock};
+    static NAMES: OnceLock<Mutex<HashMap<(usize, i32), &'static str>>> = OnceLock::new();
+    let Some(eras) = ERAS.get(team) else { return name(team, year) };
+    let now = era(team, year).unwrap_or_else(|| eras.last().expect("every franchise has an era"));
+    let mut nicks: Vec<&str> = Vec::new();
+    for e in eras.iter().take_while(|e| e.from <= now.from) {
+        let n = split_name(e.name).1;
+        if nicks.last() != Some(&n) {
+            nicks.push(n);
+        }
+    }
+    let k = nicks.len().saturating_sub(1).min(FICTIONAL[team].len() - 1);
+    let map = NAMES.get_or_init(Default::default);
+    let mut map = map.lock().unwrap_or_else(|e| e.into_inner());
+    map.entry((team, now.from))
+        .or_insert_with(|| Box::leak(format!("{} {}", split_name(now.name).0, FICTIONAL[team][k]).into_boxed_str()))
+}
+
+/// The club's name in this world: real, or fictional when the world's
+/// option says so.
+pub fn shown_name(fictional: bool, team: usize, year: i32) -> &'static str {
+    if fictional { fictional_name(team, year) } else { name(team, year) }
+}
+
 /// Whether the franchise plays this season.
 pub fn active(team: usize, year: i32) -> bool {
     era(team, year).is_some()
@@ -305,7 +383,7 @@ pub(crate) fn year_start(w: &mut super::World) {
     let n = w.nfl.len().min(32);
     if year <= PRESENT {
         for t in 0..n {
-            w.nfl[t].name = name(t, year);
+            w.nfl[t].name = shown_name(w.options.fictional_league, t, year);
         }
     }
     // 1996 (real): Art Modell takes the Browns' players, front office and
@@ -451,6 +529,17 @@ fn expansion(w: &mut super::World, year: i32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fictional_clubs_keep_their_homes() {
+        assert_eq!(fictional_name(31, 2026), "Washington Admirals");
+        assert_eq!(fictional_name(31, 2021), "Washington Football Team");
+        assert_eq!(fictional_name(30, 1997), "Tennessee Roughnecks");
+        assert_eq!(fictional_name(30, 2005), "Tennessee Sentinels");
+        let now: std::collections::HashSet<&str> = (0..32).map(|t| fictional_name(t, 2026)).collect();
+        assert_eq!(now.len(), 32);
+        assert!((0..32).all(|t| fictional_name(t, 2026) != name(t, 2026)));
+    }
 
     #[test]
     fn drafts_have_their_real_rounds_and_size() {
