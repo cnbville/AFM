@@ -629,6 +629,8 @@ impl World {
             }
             super::front_office::school::open(self, h);
         }
+        // Your school's money desk is open from your first morning.
+        super::finance::hs::open_seat(self);
         self.seat_depth.clear();
         self.seat_games.clear();
         self.seat_focus.clear();

@@ -689,6 +689,7 @@ pub(crate) fn hired(w: &mut World, e: Employer, r: Role) {
     if let (Employer::HighSchool(s), Role::HeadCoach) = (e, r) {
         super::school::open(w, s);
     }
+    super::super::finance::hs::open_seat(w);
     move_family(w, e);
     let name = employer_name(w, e);
     post(w, today, level_of(e), format!("You start as {} at {name}.", r.name()), false);

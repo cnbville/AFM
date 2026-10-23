@@ -61,6 +61,8 @@ function teamLink(t, text) {
   return `<a class="link" data-go="team" data-kind="${t.ref.kind}" data-id="${t.ref.id}">${esc(text ?? t.name)}</a>`;
 }
 function playerLink(id, name, tab) {
+  // Someone who left football and the world no longer keeps: his name only.
+  if (id == null) return esc(name);
   return `<a class="link name" data-go="player" data-id="${id}"${tab ? ` data-tab="${esc(tab)}"` : ""}>${esc(name)}</a>`;
 }
 function coachLink(id, name) {

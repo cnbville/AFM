@@ -170,14 +170,16 @@ fn nfl_books(w: &World, t: usize, own: bool) -> Value {
 /// A club's latest NFLPA report card (P1): public in 2023 and 2024, the
 /// union's own after; your own club's card reaches you either way.
 fn card_json(w: &World, t: usize, own: bool) -> Value {
-    let Some(card) = nfl::card(w, t) else { return Value::Null };
+    let Some(latest) = nfl::card(w, t) else { return Value::Null };
+    // Another club's: the last published card, with a word on the newer
+    // ones the union keeps.
+    let card = if own { Some(latest) } else { nfl::public_card(w, t) };
+    let Some(card) = card else { return json!({ "year": latest.year, "hidden": true }) };
     let public = card.year <= data::CARDS_PUBLIC_TO;
-    if !public && !own {
-        return json!({ "year": card.year, "hidden": true });
-    }
     let n = w.finance.cards.iter().filter(|c| c.year == card.year).count();
     json!({
         "year": card.year, "rank": card.rank, "of": n, "public": public,
+        "newer_hidden": (latest.year > card.year).then_some(latest.year),
         "grades": data::CARD_PARTS.iter().zip(card.grades).map(|(part, g)| json!({ "part": part, "grade": data::GRADES[g as usize], "score": g })).collect::<Vec<_>>(),
     })
 }
@@ -253,7 +255,7 @@ fn college_books(w: &World, p: usize, own: bool) -> Value {
         "tier": TIERS[college::tier(w, p, year).min(3) as usize],
         "conference": prog.conference,
         "deal": deal.map(|x| json!({ "per_school": est(x.per_school as f64), "until": x.until })),
-        "media_value": est(college::media_value(w, p)),
+        "media_value": est(college::media_worth(w, p, year)),
         "report": last.filter(|_| closed).map(shown),
         "eada": last.map(|b| json!({ "year": b.year, "revenue": est(college::Dept::revenue(b)), "expenses": est(college::Dept::costs(b)) })),
         "stadium": { "seats": prog.stadium, "crowd_seats": prog.crowd_seats() },
@@ -406,7 +408,7 @@ fn league(w: &World, args: &Value) -> Value {
         .map(|(t, c)| {
             let b = c.years.last().unwrap();
             let s = c.seasons.last();
-            let card = nfl::card(w, t).filter(|x| x.year <= data::CARDS_PUBLIC_TO);
+            let card = nfl::public_card(w, t);
             json!({
                 "team": team_brief(w, TeamRef::Nfl(t)), "value": est(c.value as f64),
                 "revenue": est(nfl::Club::revenue(b)), "income": est(nfl::Club::revenue(b) - nfl::Club::costs(b)),

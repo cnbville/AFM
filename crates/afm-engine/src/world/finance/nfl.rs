@@ -1228,6 +1228,12 @@ pub fn card(w: &World, t: usize) -> Option<&Card> {
     w.finance.cards.iter().rev().find(|c| c.team as usize == t)
 }
 
+/// The latest card anyone outside the club could read (the 2023 and 2024
+/// surveys were published; later ones stay inside the union).
+pub fn public_card(w: &World, t: usize) -> Option<&Card> {
+    w.finance.cards.iter().rev().find(|c| c.team as usize == t && c.year <= data::CARDS_PUBLIC_TO)
+}
+
 /// How a free agent and his agent read a club's card, about 0.94-1.06
 /// (the agents see every card, public or not).
 pub(crate) fn card_pull(w: &World, t: usize) -> f64 {

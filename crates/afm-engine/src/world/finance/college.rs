@@ -188,6 +188,28 @@ pub fn media_value(w: &World, p: usize) -> f64 {
     (0.55 * prog.fans.powf(1.5) + 0.25 * prog.prestige + 0.2 * prog.tradition) * market
 }
 
+/// What the networks would pay a year for a school's pull alone, in
+/// dollars: its conference deal's price on pull (the average deal's for an
+/// independent), or below FBS and before the deals open, the conference
+/// payout shared by pull.
+pub fn media_worth(w: &World, p: usize, year: i32) -> f64 {
+    let prog = &w.programs[p];
+    let v = media_value(w, p);
+    let deals = &w.finance.deals;
+    if prog.division == Division::FBS && !deals.is_empty() {
+        let k = deals
+            .iter()
+            .find(|d| d.conference == prog.conference)
+            .map_or(deals.iter().map(|d| d.k as f64).sum::<f64>() / deals.len() as f64, |d| d.k as f64);
+        return k * v * 1.035f64.powi((year - 2026).max(0));
+    }
+    let m: Vec<usize> = (0..w.programs.len())
+        .filter(|&q| w.programs[q].conference == prog.conference && w.programs[q].division == prog.division)
+        .collect();
+    let mean = m.iter().map(|&q| media_value(w, q)).sum::<f64>() / m.len().max(1) as f64;
+    data::conference_payout(&prog.conference, prog.division, year) * v / mean.max(0.05)
+}
+
 /// A state's people in millions (2020 Census, rounded).
 fn state_people(code: &str) -> f64 {
     match code {

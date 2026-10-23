@@ -38,6 +38,8 @@ pub(crate) fn leagues(w: &World, args: &Value) -> Value {
             json!({
                 "k": k, "name": o::league_name(k, y), "short": o::league_short(k),
                 "now": o::full(k, w.year), "from": years.iter().min(), "to": years.iter().max(),
+                // In camp or playing its weeks today, or only due later this year.
+                "live": o_.live.iter().any(|l| l.league == k && !l.done), "this_year": w.year,
             })
         })
         .collect();
