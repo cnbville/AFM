@@ -15,3 +15,7 @@ Read first: `CLAUDE.md`, `../plan.md`, `../list.md` (A3, A6, A11, A12, A13; U-d,
 - Stale docs: `docs/handoff/open-questions.md` (mark what's since decided or built), the Dynamic Links lines saying "built later", the placeholder JUCO line, the GAN wording in `docs/design/faces.md` (faces are now 3D heads drawn by the game).
 
 Agreed fixes may change results per seed; nothing else does. Measure each fix on a short world (e.g. `cargo run --release --bin world_trial -- 2026 12`, or the faster settings in CLAUDE.md) and report before/after against the real targets. Parked tuning (NFL scoring, ypa) is not yours. Update `docs/world-model.md`.
+
+Found by the build thread (2026-10-22), yours to fix:
+- High school names repeat their county: one Wyoming county has Big Horn, Big Horn High, Big Horn West, Big Horn East, Big Horn South and Big Horn Christian (`names::high_school_name` names schools for the place with a direction word). Real counties have schools named for their towns (Lovell, Greybull, Burlington, Basin); use real town names per county where the data allows.
+- A 307-lb long snapper at Alabama (6'2 1/4"): real long snappers are about 6'2" and 240 lb. Check how long snappers are made and placed (a lineman moved to snapper keeps his weight; real snappers are their own specialists).

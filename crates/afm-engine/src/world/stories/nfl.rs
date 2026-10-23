@@ -69,6 +69,9 @@ pub struct Call {
     /// Win probability given up against the bot's call, in percentage
     /// points (0 when you made its call).
     pub cost: f32,
+    /// What your call gained on the next best one, in the same points.
+    #[serde(default)]
+    pub edge: f32,
     /// What happened ("converted", "stopped short", "good from 44").
     pub result: String,
 }
@@ -103,7 +106,7 @@ pub struct ScheduleStory {
     pub abroad: Option<String>,
     /// Each game's (date, opponent, window name) at release, updated by
     /// flexes.
-    pub(crate) games: Vec<(Date, u16, String)>,
+    pub games: Vec<(Date, u16, String)>,
 }
 
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -183,7 +186,7 @@ pub fn read(
     year: i32,
 ) -> (Choice, [f64; 3]) {
     let make = league_make(yardline + 17.0, level, year);
-    let (go, punt, fg) = crate::game::calling::fourth_values(yardline, togo, make);
+    let (_, go, punt, fg) = crate::game::calling::fourth_ev(yardline, togo, make);
     let late = quarter >= 4 && game_left < 300.0;
     let best = if late && lead < -3 {
         Choice::Go
@@ -230,15 +233,39 @@ pub(crate) fn grade(w: &mut World, ctx: &GameCtx, s: &GameStats) {
         }
         let lead = r.score[side] - r.score[1 - side];
         let left = (4 - r.quarter as i32).max(0) as f64 * qlen + r.clock;
-        let (best, ev) = read(r.yardline_100, r.togo, lead, r.quarter, left, ctx.level, year);
         let i = |c: Choice| match c {
             Choice::Go => 0,
             Choice::Punt => 1,
             Choice::FieldGoal => 2,
         };
-        let wp = |d: i32| crate::game::tables::win_probability(d, left, r.yardline_100);
-        let lever = ((wp(lead + 4) - wp(lead - 4)) / 8.0).max(0.004);
-        let cost = if chose == best { 0.0 } else { ((ev[i(best)] - ev[i(chose)]).max(0.0) * lever * 100.0) as f32 };
+        // The engine's own win probabilities for the snap (go, punt, kick,
+        // with his kicker's range) when the play carries them; otherwise the
+        // bot's expected points against how much a point is worth here.
+        let (best, cost, edge) = match r.fourth {
+            Some(v) => {
+                let wp = [v[0], v[1], if v[2] > 0.0 { v[2] } else { -1.0 }];
+                let best = [Choice::Go, Choice::Punt, Choice::FieldGoal]
+                    .into_iter()
+                    .max_by(|a, b| wp[i(*a)].total_cmp(&wp[i(*b)]))
+                    .unwrap_or(Choice::Punt);
+                let mine = wp[i(chose)].max(0.0);
+                let second = [Choice::Go, Choice::Punt, Choice::FieldGoal]
+                    .into_iter()
+                    .filter(|c| *c != chose)
+                    .map(|c| wp[i(c)])
+                    .fold(-1.0f32, f32::max);
+                (best, (wp[i(best)] - mine).max(0.0) * 100.0, (mine - second.max(0.0)).max(0.0) * 100.0)
+            }
+            None => {
+                let (best, ev) = read(r.yardline_100, r.togo, lead, r.quarter, left, ctx.level, year);
+                let wp = |d: i32| crate::game::tables::win_probability(d, left, r.yardline_100);
+                let lever = ((wp(lead + 4) - wp(lead - 4)) / 8.0).max(0.004);
+                let cost = ((ev[i(best)] - ev[i(chose)]).max(0.0) * lever * 100.0) as f32;
+                let second = (0..3).filter(|&k| k != i(chose)).map(|k| ev[k]).fold(f64::MIN, f64::max);
+                (best, cost, ((ev[i(chose)] - second).max(0.0) * lever * 100.0) as f32)
+            }
+        };
+        let cost = if chose == best { 0.0 } else { cost };
         let result = match chose {
             Choice::Go if r.touchdown => "touchdown".to_string(),
             Choice::Go if r.first_down => "converted".to_string(),
@@ -258,6 +285,7 @@ pub(crate) fn grade(w: &mut World, ctx: &GameCtx, s: &GameStats) {
             chose,
             bot: best,
             cost,
+            edge,
             result,
         });
     }
@@ -287,14 +315,7 @@ pub(crate) fn grade(w: &mut World, ctx: &GameCtx, s: &GameStats) {
             }
             _ => {
                 if let Some(c) = bold {
-                    let gain = {
-                        let lead = c.lead as i32;
-                        let left = (4 - c.quarter as i32).max(0) as f64 * qlen + c.clock as f64;
-                        let (_, ev) = read(c.yardline as f64, c.togo as f64, lead, c.quarter, left, ctx.level, year);
-                        let wp = |d: i32| crate::game::tables::win_probability(d, left, c.yardline as f64);
-                        let lever = ((wp(lead + 4) - wp(lead - 4)) / 8.0).max(0.004);
-                        (ev[0] - ev[1].max(ev[2])).max(0.1) * lever * 100.0
-                    };
+                    let gain = c.edge.max(0.1);
                     let f = f.set("wp", format!("{gain:.1} points of win probability"));
                     if let Some(t) = w.stories.line(seed, "grade.agree", &f, year) {
                         lines.push(t);
@@ -347,7 +368,7 @@ pub(crate) fn grade(w: &mut World, ctx: &GameCtx, s: &GameStats) {
         w.stories.later(tomorrow, e);
     }
     if let Some(t) = &boss_line {
-        let e = news(w, ctx.level, Loudness::Medium, Some(me), t.clone()).decision();
+        let e = news(w, ctx.level, Loudness::Medium, Some(me), t.clone());
         w.stories.later(tomorrow, e);
         lines.push(t.clone());
     }

@@ -119,11 +119,6 @@ fn fill_one(t: &str, f: &Fill, rng: &mut Rng, year: i32) -> Option<String> {
 }
 
 impl Bank {
-    /// Whether a key has any line for the year.
-    pub fn has(&self, key: &str, year: i32) -> bool {
-        self.keys.get(key).is_some_and(|v| v.iter().any(|l| year >= l.from && year <= l.to))
-    }
-
     /// Whether a name is one of the real legends the game never reuses.
     pub fn blocked(&self, name: &str) -> bool {
         let n = name.to_lowercase();

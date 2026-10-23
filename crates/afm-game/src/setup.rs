@@ -353,7 +353,7 @@ pub fn towns(w: &World, state: &str) -> Value {
 
 /// What the boss expects from a new head coach, in words, from how big the
 /// job is at its level and how last season went (proposed, not confirmed).
-fn college_expectation(rel: f64) -> &'static str {
+pub(crate) fn college_expectation(rel: f64) -> &'static str {
     match rel {
         r if r > 0.85 => "Win the conference and reach the playoff. Anything less is a down year.",
         r if r > 0.65 => "Contend for the conference title and reach the playoff within two years.",
@@ -363,7 +363,7 @@ fn college_expectation(rel: f64) -> &'static str {
     }
 }
 
-fn nfl_expectation(wins: u32, round: u32, patience: f64) -> String {
+pub(crate) fn nfl_expectation(wins: u32, round: u32, patience: f64) -> String {
     let base = match (wins, round) {
         (_, r) if r >= 3 => "Win the Super Bowl: the roster is built for now.",
         (w, _) if w >= 11 => "Win in the playoffs: the roster is built to contend.",
@@ -379,7 +379,7 @@ fn nfl_expectation(wins: u32, round: u32, patience: f64) -> String {
     format!("{base}{owner}")
 }
 
-fn hs_expectation(prestige: f64, titles: u32) -> &'static str {
+pub(crate) fn hs_expectation(prestige: f64, titles: u32) -> &'static str {
     match prestige {
         p if p > 0.8 || titles >= 5 => "Win the state title. The town expects a deep playoff run every year.",
         p if p > 0.6 => "Make the playoffs and win a round or two.",
@@ -397,7 +397,7 @@ pub fn jobs(w: &World, level: &str) -> Value {
     let coach = |c: Option<usize>| {
         c.and_then(|c| w.coaches.get(c).map(|co| (c, co))).map(|(c, co)| {
             let years = co.job.map_or(0, |j| (w.year - j.since).max(0));
-            json!({ "name": co.name, "age": co.age, "record": job_record(w, c), "seasons": years, "id": c })
+            json!({ "name": co.name, "age": co.age_on(w.today), "record": job_record(w, c), "seasons": years, "id": c })
         })
     };
     let base = |t: TeamRef| {
@@ -456,6 +456,7 @@ pub fn jobs(w: &World, level: &str) -> Value {
                     let code = &w.states[s.state].code;
                     j["state"] = json!(code);
                     j["class"] = json!(crate::views::hs_class(w, s.id));
+                    j["class_rank"] = json!(s.classification);
                     j["town"] = json!(s.town);
                     j["prestige"] = json!((s.prestige * 100.0).round() / 100.0);
                     j["prestige_word"] = json!(prestige_words(s.prestige));
@@ -494,7 +495,7 @@ pub fn jobs(w: &World, level: &str) -> Value {
                         .collect();
                     grades.sort_by(|a, b| b.1.total_cmp(&a.1));
                     j["division"] = json!(p.division.name());
-                    j["conference"] = json!(p.conference);
+                    j["conference"] = json!(w.conference_name(&p.conference));
                     j["city"] = json!(format!("{}, {}", p.city, w.states[p.state].code));
                     j["state"] = json!(w.states[p.state].code);
                     j["prestige"] = json!((p.prestige_rel * 100.0).round() / 100.0);
@@ -510,7 +511,7 @@ pub fn jobs(w: &World, level: &str) -> Value {
                     j["sub"] = json!(format!(
                         "{} · {} · {}, {}",
                         p.division.name(),
-                        p.conference,
+                        w.conference_name(&p.conference),
                         p.city,
                         w.states[p.state].code
                     ));
@@ -570,7 +571,7 @@ pub fn similar(w: &World, args: &Value) -> Value {
             };
             let role = j.role.name();
             json!({
-                "id": c, "name": co.name, "age": co.age,
+                "id": c, "name": co.name, "age": co.age_on(w.today),
                 "job": format!("{}{}, {at}", role[..1].to_uppercase(), &role[1..]),
                 "came_up": format!("came up coaching {}", Group::ALL[co.came_up as usize].name()),
                 "reputation": crate::views::reputation_words(co.reputation),
@@ -644,6 +645,36 @@ pub fn start(w: &mut World, args: &Value) -> Result<(), String> {
     if w.career.is_some() {
         return Err("This world already has a career. Open a library world to start another.".into());
     }
+    let you = you_from(w, args)?;
+    let t = crate::views::TeamRef::from_args(w, args.get("job").unwrap_or(&Value::Null))?;
+    let job = match t {
+        TeamRef::Nfl(i) => Job::Nfl(i),
+        TeamRef::College(i) => Job::College(i),
+        TeamRef::HighSchool(i) => Job::HighSchool(i),
+    };
+    let seed = career_seed(args);
+    w.start_career(&you, job, seed);
+    Ok(())
+}
+
+/// The career's seed: the page's, else one from the clock.
+pub(crate) fn career_seed(args: &Value) -> u32 {
+    args.get("seed").and_then(Value::as_u64).map(|s| s as u32).unwrap_or_else(|| {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(7, |d| d.subsec_nanos() ^ d.as_secs() as u32)
+    })
+}
+
+/// Whether a road played in college: every road but the one that never
+/// played past high school, as the Background step places you (most
+/// assistants, scouts and even analysts played somewhere).
+pub(crate) fn played_college(background: &str) -> bool {
+    BACKGROUNDS.iter().any(|b| b.key == background && b.key != "never_played")
+}
+
+/// You, from the setup's answers.
+pub(crate) fn you_from(w: &World, args: &Value) -> Result<You, String> {
     let bg_key = args.get("background").and_then(Value::as_str).unwrap_or("college_assistant");
     let b = BACKGROUNDS.iter().find(|b| b.key == bg_key).ok_or("No such background.")?;
     let base = starting_ratings(b);
@@ -707,6 +738,14 @@ pub fn start(w: &mut World, args: &Value) -> Result<(), String> {
             .trim()
             .to_string(),
         age: age.clamp(25.0, 75.0) as u32,
+        born: match profile.born {
+            Some((y, m, d)) => afm_engine::calendar::Date::ymd(y, m, d),
+            None => afm_engine::calendar::born::birth_date(
+                w.options.seed as u64 ^ 0x70_0B0E,
+                age.clamp(25.0, 75.0) as u32,
+                w.year,
+            ),
+        },
         ethnicity,
         home_state,
         ex_pro: b.ex_pro,
@@ -736,20 +775,10 @@ pub fn start(w: &mut World, args: &Value) -> Result<(), String> {
             calls_defense: matches!(calls, "defense" | "both"),
         },
         profile,
+        // Read from your road and your people ratings when the career starts.
+        aura: 0.0,
     };
-    let t = crate::views::TeamRef::from_args(w, args.get("job").unwrap_or(&Value::Null))?;
-    let job = match t {
-        TeamRef::Nfl(i) => Job::Nfl(i),
-        TeamRef::College(i) => Job::College(i),
-        TeamRef::HighSchool(i) => Job::HighSchool(i),
-    };
-    let seed = args.get("seed").and_then(Value::as_u64).map(|s| s as u32).unwrap_or_else(|| {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(7, |d| d.subsec_nanos() ^ d.as_secs() as u32)
-    });
-    w.start_career(&you, job, seed);
-    Ok(())
+    Ok(you)
 }
 
 /// "Report a bug" (section 8, topic 10): the save as it is now, your note

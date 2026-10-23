@@ -2,7 +2,7 @@
 //! as JSON from the world, showing only what your staff could know.
 
 use afm_engine::attributes::Category;
-use afm_engine::calendar::{Date, Level as CalLevel, Loudness};
+use afm_engine::calendar::{Date, Level as CalLevel, Link, Loudness, Ref};
 use afm_engine::player::{Level, PlayingTime};
 use afm_engine::positions::Position;
 use afm_engine::world::coach::{Employer, Group, Role};
@@ -123,18 +123,124 @@ pub(crate) fn season_record(w: &World, t: TeamRef) -> (String, String) {
     }
 }
 
-/// A high school's class in its state's own words: most states number
-/// their classes with A's, the biggest highest (Texas 6A down to 1A); Ohio,
-/// Michigan, Wisconsin and California play in divisions, the biggest first
-/// (proposed, not confirmed).
+/// A high school's class in its state's own words, from the state
+/// association's 2026 classes (`hs_states.csv`, biggest first): Texas's
+/// twelve are 6A Division I down to 1A Division II (TAPPS for a private
+/// school), Ohio plays Divisions I-VII, California Open and 1-AA to 7-A,
+/// Nebraska A to D-6, the 8-man and 6-man classes are the smallest. Where
+/// a state splits public and private schools (Alabama, Georgia, Louisiana,
+/// New Jersey, Tennessee) a private school takes its own class's name.
+/// The rest number their classes with A's, the biggest highest.
 pub(crate) fn hs_class(w: &World, s: usize) -> String {
     let h = &w.high_schools[s];
     let st = &w.states[h.state];
-    let classes = st.schools.iter().map(|&k| w.high_schools[k].classification).max().unwrap_or(0) + 1;
-    if ["OH", "MI", "WI", "CA"].contains(&st.code.as_str()) {
-        format!("Division {}", h.classification + 1)
-    } else {
-        format!("{}A", classes - h.classification.min(classes - 1))
+    // The state's own class names (U-d), as its format lists them.
+    if let Some(name) = afm_engine::world::hs_playoffs::format(&st.code).class_label(h.classification) {
+        return name.to_string();
+    }
+    let n = st.schools.iter().map(|&k| w.high_schools[k].classification).max().unwrap_or(0) as usize + 1;
+    let k = (h.classification as usize).min(n - 1);
+    // Where the school's class falls in a list of `len` names, biggest first.
+    let at = |len: usize| (k * len / n).min(len - 1);
+    let pick = |names: &[&str]| names[at(names.len())].to_string();
+    const ROMAN: [&str; 8] = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"];
+    let a = |len: usize| format!("{}A", len - at(len));
+    match st.code.as_str() {
+        "AK" | "VT" => format!("Division {}", ROMAN[at(3)]),
+        "AL" if h.private => pick(&["Private AA", "Private A"]),
+        "AL" | "FL" => a(6),
+        "AZ" => pick(&["Open", "6A", "5A", "4A", "3A", "2A", "1A", "8-player"]),
+        "AR" => pick(&["7A", "6A", "5A", "4A", "3A", "2A", "8-man"]),
+        "CA" => pick(&[
+            "Open Division",
+            "Division 1-AA",
+            "Division 1-A",
+            "Division 2-AA",
+            "Division 2-A",
+            "Division 3-AA",
+            "Division 3-A",
+            "Division 4-AA",
+            "Division 4-A",
+            "Division 5-AA",
+            "Division 5-A",
+            "Division 6-AA",
+            "Division 6-A",
+            "Division 7-AA",
+            "Division 7-A",
+        ]),
+        "CO" => pick(&["5A", "4A", "3A", "2A", "1A", "8-man", "6-man"]),
+        "CT" => pick(&["Class LL", "Class L", "Class MM", "Class M", "Class SS", "Class S"]),
+        "GA" if h.private => "A Private".into(),
+        "GA" => pick(&["7A", "6A", "5A", "4A", "3A", "2A", "A"]),
+        "HI" => pick(&["Open", "Division I", "Division II"]),
+        "IA" => pick(&["5A", "4A", "3A", "2A", "1A", "A", "8-player"]),
+        "KS" => pick(&["6A", "5A", "4A", "3A", "2A", "1A", "8-player Division I", "8-player Division II", "6-player"]),
+        "LA" => format!("{} Division {}", if h.private { "Select" } else { "Non-Select" }, ROMAN[at(4)]),
+        "ME" => pick(&["Class A", "Class B", "Class C", "Class D", "8-man Large", "8-man Small"]),
+        "MD" => pick(&["4A", "4A/3A", "3A", "2A", "2A/1A", "1A"]),
+        "NH" => format!("Division {}", ROMAN[at(4)]),
+        "MA" => format!("Division {}", at(8) + 1),
+        "RI" => format!("Division {}", at(4) + 1),
+        "MI" => pick(&[
+            "Division 1",
+            "Division 2",
+            "Division 3",
+            "Division 4",
+            "Division 5",
+            "Division 6",
+            "Division 7",
+            "Division 8",
+            "8-player Division 1",
+            "8-player Division 2",
+        ]),
+        "MN" => pick(&["6A", "5A", "4A", "3A", "2A", "1A", "9-player"]),
+        "MO" => pick(&["Class 6", "Class 5", "Class 4", "Class 3", "Class 2", "Class 1", "8-man"]),
+        "MT" => pick(&["Class AA", "Class A", "Class B", "Class C 8-player", "Class C 6-player"]),
+        "NE" => pick(&["Class A", "Class B", "Class C-1", "Class C-2", "Class D-1", "Class D-2", "Class D-6"]),
+        "NV" => pick(&["Open", "5A", "4A", "3A", "2A", "1A"]),
+        "NJ" if h.private => pick(&["Non-Public A", "Non-Public B"]),
+        "NJ" => format!("Group {}", 5 - at(5)),
+        "NM" => pick(&["6A", "5A", "4A", "3A", "2A", "8-man", "6-man"]),
+        "NY" => pick(&["Class AA", "Class A", "Class B", "Class C", "Class D"]),
+        "ND" => pick(&["Class AAA", "Class AA", "Class A", "9-man"]),
+        "OH" => format!("Division {}", ROMAN[at(7)]),
+        "OK" => pick(&["6A-I", "6A-II", "5A", "4A", "3A", "2A-I", "2A-II", "A-I", "A-II", "B-I", "B-II", "C"]),
+        "OR" => pick(&["6A", "5A", "4A", "3A", "2A", "1A 8-player", "1A 6-player"]),
+        "SC" => pick(&["4A", "3A", "2A", "1A Division I", "1A Division II"]),
+        "SD" => pick(&["11AAA", "11AA", "11A", "11B", "9AA", "9A", "9B"]),
+        "TN" if h.private => pick(&["Division II-AAA", "Division II-AA", "Division II-A"]),
+        "TN" => a(6),
+        "TX" if h.private => format!("TAPPS Division {}", ROMAN[at(4)]),
+        "TX" => pick(&[
+            "6A Division I",
+            "6A Division II",
+            "5A Division I",
+            "5A Division II",
+            "4A Division I",
+            "4A Division II",
+            "3A Division I",
+            "3A Division II",
+            "2A Division I",
+            "2A Division II",
+            "1A Division I",
+            "1A Division II",
+        ]),
+        "UT" => pick(&["6A", "5A", "4A", "3A", "2A", "1A", "8-player"]),
+        "VA" => format!("Class {}", 6 - at(6)),
+        "WA" => pick(&["4A", "3A", "2A", "1A", "2B", "1B"]),
+        "WV" => pick(&["Class AAAA", "Class AAA", "Class AA", "Class A"]),
+        "WI" => pick(&[
+            "Division 1",
+            "Division 2",
+            "Division 3",
+            "Division 4",
+            "Division 5",
+            "Division 6",
+            "Division 7",
+            "8-player",
+        ]),
+        "WY" => pick(&["4A", "3A", "2A", "1A 9-man", "1A 6-man"]),
+        _ => a(n),
     }
 }
 
@@ -150,7 +256,9 @@ pub(crate) fn nfl_division(w: &World, t: usize) -> Option<&'static str> {
 /// Where a team plays, in a line: "Big 12 · FBS", "NFC North", "Texas 5A".
 pub(crate) fn team_line(w: &World, t: TeamRef) -> String {
     match t {
-        TeamRef::College(i) => format!("{} · {}", w.programs[i].conference, w.programs[i].division.name()),
+        TeamRef::College(i) => {
+            format!("{} · {}", w.conference_name(&w.programs[i].conference), w.programs[i].division.name())
+        }
         TeamRef::Nfl(i) => nfl_division(w, i).unwrap_or("NFL").to_string(),
         TeamRef::HighSchool(i) => {
             let st = w.high_schools[i].state;
@@ -217,11 +325,11 @@ pub(crate) fn state_name(code: &str) -> &str {
     S.iter().find(|x| x.0 == code).map_or(code, |x| x.1)
 }
 
-fn record_text(w: &World, t: TeamRef) -> String {
+pub(crate) fn record_text(w: &World, t: TeamRef) -> String {
     season_record(w, t).0
 }
 
-fn record_note(w: &World, t: TeamRef) -> String {
+pub(crate) fn record_note(w: &World, t: TeamRef) -> String {
     season_record(w, t).1
 }
 
@@ -238,14 +346,14 @@ pub fn roster_people(w: &World, t: TeamRef) -> Vec<usize> {
     v
 }
 
-fn is_mine(w: &World, t: TeamRef) -> bool {
+pub(crate) fn is_mine(w: &World, t: TeamRef) -> bool {
     mine(w) == Some(t)
 }
 
 /// The eye of the coach who reads a player on your staff (1-20): his
 /// position coach, else the coordinator, else you. Used only to size the
 /// range, never shown.
-fn eye_for(w: &World, t: TeamRef, pos: Position) -> f64 {
+pub(crate) fn eye_for(w: &World, t: TeamRef, pos: Position) -> f64 {
     let g = Group::of(pos);
     let coach = match t {
         TeamRef::College(i) => {
@@ -261,12 +369,12 @@ fn eye_for(w: &World, t: TeamRef, pos: Position) -> f64 {
     coach.and_then(|c| w.coaches.get(c)).map_or(10.0, |c| c.evaluation())
 }
 
-fn reader_key(w: &World) -> u64 {
+pub(crate) fn reader_key(w: &World) -> u64 {
     w.career.as_ref().map_or(0x5EED, |c| c.seed as u64 ^ (c.coach as u64) << 32)
 }
 
 /// His class or years, in the words of his level.
-fn class_text(w: &World, p: &Person) -> String {
+pub(crate) fn class_text(w: &World, p: &Person) -> String {
     match p.stage {
         Stage::HighSchool | Stage::PrepSchool => {
             // The football year turns after the Super Bowl, the school year
@@ -286,13 +394,17 @@ fn class_text(w: &World, p: &Person) -> String {
         }
         Stage::Pro => {
             let y = p.pro.as_ref().map_or(0, |c| c.accrued);
-            if y == 0 { "Rookie".into() } else { format!("{y} yrs") }
+            if y == 0 { "Rookie".into() } else { format!("{y} yr{}", if y == 1 { "" } else { "s" }) }
         }
         Stage::Done => "Retired".into(),
+        Stage::Away => match p.roads.away.map(|a| a.kind) {
+            Some(afm_engine::world::eligibility::AwayKind::Military) => "Serving".into(),
+            _ => "On mission".into(),
+        },
     }
 }
 
-fn level_of(w: &World, p: &Person) -> Level {
+pub(crate) fn level_of(w: &World, p: &Person) -> Level {
     match p.stage {
         Stage::Pro => Level::NFL,
         Stage::Declared | Stage::Done => match p.college {
@@ -303,7 +415,7 @@ fn level_of(w: &World, p: &Person) -> Level {
     }
 }
 
-fn hometown(w: &World, p: &Person) -> String {
+pub(crate) fn hometown(w: &World, p: &Person) -> String {
     let s = w.high_schools.get(p.hs);
     match s {
         Some(s) => format!("{}, {}", s.town, w.states.get(s.state).map_or("", |x| x.code.as_str())),
@@ -311,7 +423,7 @@ fn hometown(w: &World, p: &Person) -> String {
     }
 }
 
-fn status_text(w: &World, p: &Person) -> String {
+pub(crate) fn status_text(w: &World, p: &Person) -> String {
     if let Some(c) = &p.pro {
         use afm_engine::world::pro::Status;
         let s = match c.status {
@@ -346,7 +458,7 @@ fn status_text(w: &World, p: &Person) -> String {
 /// (by day), then the last stage's, best first, then the school he
 /// committed or signed with if it isn't among them (its scholarship came
 /// with the commitment). A walk-on place is no offer.
-fn offers_of(p: &Person) -> Vec<usize> {
+pub(crate) fn offers_of(p: &Person) -> Vec<usize> {
     let mut early = p.cal.early_offers.clone();
     early.sort_by_key(|o| o.1);
     let mut v: Vec<usize> = Vec::new();
@@ -359,7 +471,7 @@ fn offers_of(p: &Person) -> Vec<usize> {
     v
 }
 
-fn level_words(l: Level) -> &'static str {
+pub(crate) fn level_words(l: Level) -> &'static str {
     match l {
         Level::HS => "High school",
         Level::FBS => "FBS",
@@ -369,7 +481,7 @@ fn level_words(l: Level) -> &'static str {
     }
 }
 
-fn role_words(r: PlayingTime) -> &'static str {
+pub(crate) fn role_words(r: PlayingTime) -> &'static str {
     match r {
         PlayingTime::Starter => "Starter",
         PlayingTime::Rotation => "Rotation",
@@ -380,15 +492,19 @@ fn role_words(r: PlayingTime) -> &'static str {
     }
 }
 
-fn person_index(w: &World, id: u32) -> Option<usize> {
-    w.people.iter().position(|p| p.player.id == id)
+pub(crate) fn person_index(w: &World, id: u32) -> Option<usize> {
+    // People are kept in id order: ids are handed out in turn
+    // (`next_person`) and people are only ever appended or retained, so a
+    // binary search finds anyone at once (a scan took seconds on a full
+    // world's leaderboards).
+    w.people.binary_search_by_key(&id, |p| p.player.id).ok()
 }
 
-fn ft_in(inches: f64) -> String {
+pub(crate) fn ft_in(inches: f64) -> String {
     afm_engine::body::height_text(inches)
 }
 
-fn mood_words(p: &Person) -> &'static str {
+pub(crate) fn mood_words(p: &Person) -> &'static str {
     match p.mood {
         m if m > 0.5 => "Very happy",
         m if m > 0.15 => "Happy",
@@ -398,7 +514,7 @@ fn mood_words(p: &Person) -> &'static str {
     }
 }
 
-fn row(w: &World, k: usize, t: TeamRef, own: bool, reader: u64) -> Value {
+pub(crate) fn row(w: &World, k: usize, t: TeamRef, own: bool, reader: u64) -> Value {
     let p = &w.people[k];
     let pos = p.player.position;
     let eye = if own { eye_for(w, t, pos) } else { 10.0 };
@@ -410,7 +526,7 @@ fn row(w: &World, k: usize, t: TeamRef, own: bool, reader: u64) -> Value {
         "name": p.name,
         "pos": pos.name(),
         "group": unit(pos),
-        "age": p.player.age,
+        "age": p.age_on(w.today),
         "class": class_text(w, p),
         "ht": ft_in(p.player.body.height),
         "wt": p.player.body.weight.round(),
@@ -424,7 +540,7 @@ fn row(w: &World, k: usize, t: TeamRef, own: bool, reader: u64) -> Value {
     })
 }
 
-fn unit(pos: Position) -> &'static str {
+pub(crate) fn unit(pos: Position) -> &'static str {
     if pos.is_specialist() {
         "ST"
     } else if matches!(pos, Position::QB | Position::RB | Position::WR | Position::TE | Position::OT | Position::IOL) {
@@ -454,14 +570,18 @@ pub fn status(w: &World) -> Value {
         "season": w.year,
         "mine": mine(w).map(|t| team_brief(w, t)),
         "you": w.career.as_ref().map(|c| c.you.name.clone()),
+        "seat": crate::lane_frontoffice::setup::seat_json(w),
         "next": next,
-        "pinned": pinned(w),
+        "pinned": pinned(w).into_iter().chain(crate::lane_core::desk::pinned(w)).collect::<Vec<_>>(),
         "names": format!("{:?}", w.options.names),
+        "unread": crate::lane_core::desk::unread(w),
+        "reveals": w.career.as_ref().map_or(0, |c| c.desk.reveals.len()),
+        "my_players": w.career.as_ref().map_or(0, |c| c.desk.listed.len()),
     })
 }
 
 /// The next dated moments on your calendar (for the Continue bar).
-fn next_dates(w: &World, n: usize) -> Vec<Value> {
+pub(crate) fn next_dates(w: &World, n: usize) -> Vec<Value> {
     let seat = w.seat;
     w.calendar
         .events
@@ -473,14 +593,25 @@ fn next_dates(w: &World, n: usize) -> Vec<Value> {
         .collect()
 }
 
-fn pinned(w: &World) -> Vec<Value> {
+pub(crate) fn pinned(w: &World) -> Vec<Value> {
     let seat = w.seat;
     w.calendar
         .events
         .range(w.today.add(-14)..=w.today)
         .flat_map(|(d, evs)| evs.iter().map(move |e| (d, e)))
-        .filter(|(_, e)| e.needs_decision && seat.is_some_and(|s| s.cares(e)))
+        .filter(|(_, e)| {
+            e.needs_decision
+                && e.rule != "people: meeting"
+                && e.rule != afm_engine::world::stories::ASK_RULE
+                && (seat.is_some_and(|s| s.cares(e)) || matches!(e.rule, "Your school" | "Your career"))
+        })
         .map(|(d, e)| json!({ "date": date_text(*d), "text": e.text, "rule": e.rule }))
+        .chain(
+            // A meeting that waits for you (people): it opens the room.
+            w.folk.scenes.iter().filter(|s| s.stops && !s.done && s.date <= w.today).map(|s| {
+                json!({ "date": date_text(s.date), "text": crate::lane_people::plain(&s.title), "rule": "A meeting waits for you", "go": "people_scene", "id": s.id })
+            }),
+        )
         .collect()
 }
 
@@ -507,7 +638,11 @@ pub fn stopped(w: &World, from: Date, at: Date) -> Value {
         let g = &games[k];
         json!({ "index": k, "text": format!("{} {} at {} {}", g.names[1], g.stats.score[1], g.names[0], g.stats.score[0]) })
     });
-    json!({ "from": date_text(from), "days": from.days_to(w.today), "stopped_on": date_text(at), "morning": morning.is_some(), "today": date_text(w.today), "why": why, "game": game, "status": status(w) })
+    // A meeting waiting this morning (people): the screens open it.
+    let meeting = morning
+        .as_ref()
+        .and_then(|_| w.folk.scenes.iter().filter(|s| !s.done && s.stops && s.date == at).map(|s| s.id).min());
+    json!({ "from": date_text(from), "days": from.days_to(w.today), "stopped_on": date_text(at), "morning": morning.is_some(), "today": date_text(w.today), "why": why, "game": game, "meeting": meeting, "status": status(w) })
 }
 
 pub fn home(w: &World) -> Value {
@@ -518,7 +653,9 @@ pub fn home(w: &World) -> Value {
         v["record_note"] = json!(record_note(w, t));
         v["level"] = json!(match t {
             TeamRef::Nfl(_) => "NFL".to_string(),
-            TeamRef::College(i) => format!("{} · {}", w.programs[i].division.name(), w.programs[i].conference),
+            TeamRef::College(i) => {
+                format!("{} · {}", w.programs[i].division.name(), w.conference_name(&w.programs[i].conference))
+            }
             TeamRef::HighSchool(i) => {
                 let s = &w.high_schools[i];
                 format!("{} high school · {}", w.states[s.state].code, hs_class(w, s.id))
@@ -537,7 +674,7 @@ pub fn home(w: &World) -> Value {
     })
 }
 
-fn next_game(w: &World, t: TeamRef) -> Option<Value> {
+pub(crate) fn next_game(w: &World, t: TeamRef) -> Option<Value> {
     match t {
         TeamRef::College(i) => w
             .college_fixtures(Some(i))
@@ -581,7 +718,7 @@ fn next_game(w: &World, t: TeamRef) -> Option<Value> {
 }
 
 /// The players on your "my players" list: everyone you have a note on.
-fn followed(w: &World) -> Vec<Value> {
+pub(crate) fn followed(w: &World) -> Vec<Value> {
     let Some(c) = &w.career else { return Vec::new() };
     c.notes
         .iter()
@@ -594,20 +731,28 @@ fn followed(w: &World) -> Vec<Value> {
         .collect()
 }
 
-fn where_now(w: &World, p: &Person) -> String {
+pub(crate) fn where_now(w: &World, p: &Person) -> String {
     match p.stage {
         Stage::HighSchool | Stage::PrepSchool => w.school_name(p.hs).to_string(),
         Stage::College => p.college.map_or("College".into(), |c| w.program_name(c).to_string()),
         Stage::Declared => "Draft pool".into(),
         Stage::Pro => p.pro.as_ref().and_then(|c| c.team).map_or("Free agent".into(), |t| w.nfl_team_name(t)),
         Stage::Done => "Out of football".into(),
+        Stage::Away => match p.roads.away {
+            Some(a) => {
+                let held =
+                    a.program.map(|c| format!(", {} holds his place", w.program_name(c as usize))).unwrap_or_default();
+                format!("Away on {} until the summer of {}{held}", a.kind.name(), a.until)
+            }
+            None => "Away from football".into(),
+        },
     }
 }
 
 /// For a high school seat, the names that make a moment yours: your
 /// school's and your players' (the calendar files a moment under a college
 /// program or an NFL club, never a high school).
-fn hs_names(w: &World) -> Vec<String> {
+pub(crate) fn hs_names(w: &World) -> Vec<String> {
     let Some(t @ TeamRef::HighSchool(h)) = mine(w) else { return Vec::new() };
     let mut v: Vec<String> = roster_people(w, t).iter().map(|&k| w.people[k].name.clone()).collect();
     v.push(w.school_name(h).to_string());
@@ -618,7 +763,7 @@ fn hs_names(w: &World) -> Vec<String> {
 /// players by full name anywhere, or his school in a high school line (a
 /// school named Allen is not every college player called Allen, nor Allen
 /// East).
-fn about_us(names: &[String], e: &afm_engine::calendar::Event) -> bool {
+pub(crate) fn about_us(names: &[String], e: &afm_engine::calendar::Event) -> bool {
     let Some((school, people)) = names.split_last() else { return false };
     let named = |n: &str, whole: bool| {
         e.text.match_indices(n).any(|(i, _)| {
@@ -635,7 +780,7 @@ fn about_us(names: &[String], e: &afm_engine::calendar::Event) -> bool {
 
 /// Whether a calendar line is about your own team: your program or club,
 /// at any loudness, or a high school seat's school and players by name.
-fn yours_test(w: &World) -> impl Fn(&afm_engine::calendar::Event) -> bool + use<> {
+pub(crate) fn yours_test(w: &World) -> impl Fn(&afm_engine::calendar::Event) -> bool + use<> {
     let seat = w.seat;
     let names = hs_names(w);
     move |e| {
@@ -643,7 +788,116 @@ fn yours_test(w: &World) -> impl Fn(&afm_engine::calendar::Event) -> bool + use<
             (s.level == CalLevel::College && e.program.is_some() && e.program == s.program)
                 || (e.nfl_team.is_some() && e.nfl_team == s.nfl_team)
         }) || about_us(&names, e)
+            || matches!(e.rule, "Your school" | "Your career")
     }
+}
+
+/// Your own day's lines (meetings, talks, your staff's news): `Slot` lines
+/// about your team. A high school line carries no team, and the world posts
+/// one only for a high school seat, so every one is yours.
+pub(crate) fn my_slot_test(w: &World) -> impl Fn(&afm_engine::calendar::Event) -> bool + use<> {
+    let yours = yours_test(w);
+    move |e| e.kind == afm_engine::calendar::Kind::Slot && (e.level == CalLevel::HighSchool || yours(e))
+}
+
+/// Turns the linked names of lines into the screens' parts (L2): plain text
+/// `{t}`, or a link `{t, go, kind?, id?, index?}` that `app.js` opens. A
+/// person is linked while he is in the world; a game opens its game page
+/// when you kept it, else the home team's schedule.
+struct Linker {
+    people: std::collections::HashSet<u32>,
+}
+
+impl Linker {
+    fn new<'a>(w: &World, refs: impl Iterator<Item = &'a Ref>) -> Linker {
+        let want: std::collections::HashSet<u32> = refs
+            .filter_map(|r| match r.to {
+                Link::Person(id) => Some(id),
+                _ => None,
+            })
+            .collect();
+        let people = if want.is_empty() {
+            Default::default()
+        } else {
+            w.people.iter().map(|p| p.player.id).filter(|id| want.contains(id)).collect()
+        };
+        Linker { people }
+    }
+
+    /// A line's parts. `program` and `club` are what the line is filed
+    /// under: their names are linked too when the writer didn't.
+    fn parts(&self, w: &World, text: &str, refs: &[Ref], program: Option<usize>, club: Option<usize>) -> Value {
+        let mut refs = refs.to_vec();
+        if let Some(p) = program.filter(|&p| p < w.programs.len()) {
+            for name in [w.program_name(p), w.programs[p].real_name.as_str()] {
+                afm_engine::calendar::events::add_ref(&mut refs, text, Link::Program(p as u32), name);
+            }
+        }
+        if let Some(t) = club.filter(|&t| t < w.nfl.len()) {
+            afm_engine::calendar::events::add_ref(&mut refs, text, Link::Club(t as u32), w.nfl[t].name);
+        }
+        refs.sort_by_key(|r| r.at);
+        let parts: Vec<Value> = afm_engine::calendar::events::segments(text, &refs)
+            .into_iter()
+            .map(|(t, to)| match to.and_then(|to| self.target(w, to)) {
+                Some(mut v) => {
+                    v["t"] = json!(t);
+                    v
+                }
+                None => json!({ "t": t }),
+            })
+            .collect();
+        json!(parts)
+    }
+
+    fn target(&self, w: &World, to: Link) -> Option<Value> {
+        Some(match to {
+            Link::Person(id) => {
+                if !self.people.contains(&id) {
+                    return None;
+                }
+                json!({ "go": "player", "id": id })
+            }
+            Link::Coach(c) if (c as usize) < w.coaches.len() => json!({ "go": "coach", "id": c }),
+            Link::Program(p) if (p as usize) < w.programs.len() => json!({ "go": "team", "kind": "college", "id": p }),
+            Link::School(h) if (h as usize) < w.high_schools.len() => json!({ "go": "team", "kind": "hs", "id": h }),
+            Link::Club(t) if (t as usize) < w.nfl.len() => json!({ "go": "team", "kind": "nfl", "id": t }),
+            Link::Game(date, level, home) => {
+                let home = home as usize;
+                let kept = w.seat_games().iter().position(|g| g.date == date && g.level == level && g.teams[0] == home);
+                match (kept, level) {
+                    (Some(k), _) => json!({ "go": "game", "index": k }),
+                    (None, CalLevel::Nfl) if home < w.nfl.len() => {
+                        json!({ "go": "schedule", "kind": "nfl", "id": home })
+                    }
+                    (None, CalLevel::College) if home < w.programs.len() => {
+                        json!({ "go": "schedule", "kind": "college", "id": home })
+                    }
+                    (None, CalLevel::HighSchool) if home < w.high_schools.len() => {
+                        json!({ "go": "schedule", "kind": "hs", "id": home })
+                    }
+                    _ => return None,
+                }
+            }
+            _ => return None,
+        })
+    }
+}
+
+/// The refs of a seat game's score line: both teams and the score.
+fn final_line(g: &afm_engine::world::seat::SeatGame) -> (String, Vec<Ref>) {
+    let [h, a] = g.stats.score;
+    let text = format!("Final: {} {a}, {} {h}.", g.names[1], g.names[0]);
+    let team = |k: usize| match g.level {
+        CalLevel::Nfl => Link::Club(g.teams[k] as u32),
+        CalLevel::HighSchool => Link::School(g.teams[k] as u32),
+        _ => Link::Program(g.teams[k] as u32),
+    };
+    let mut refs = Vec::new();
+    afm_engine::calendar::events::add_ref(&mut refs, &text, Link::Game(g.date, g.level, g.teams[0] as u32), "Final");
+    afm_engine::calendar::events::add_ref(&mut refs, &text, team(1), &g.names[1]);
+    afm_engine::calendar::events::add_ref(&mut refs, &text, team(0), &g.names[0]);
+    (text, refs)
 }
 
 pub fn inbox(w: &World, days: i32) -> Value {
@@ -652,7 +906,7 @@ pub fn inbox(w: &World, days: i32) -> Value {
     // and huge ones anywhere (the rest is in the news).
     let yours = yours_test(w);
     let from = w.today.add(-days);
-    let mut items: Vec<(Date, Value)> = w
+    let picked: Vec<(&Date, &afm_engine::calendar::Event)> = w
         .calendar
         .events
         .range(from..=w.today)
@@ -665,26 +919,37 @@ pub fn inbox(w: &World, days: i32) -> Value {
                 || (e.loud >= Loudness::Big && seat.is_none_or(|s| s.cares(e)))
         })
         .take(80)
+        .collect();
+    let staff: Vec<&afm_engine::world::news::NewsItem> = match mine(w) {
+        Some(TeamRef::College(p)) => {
+            w.news.iter().rev().filter(|n| n.program == Some(p) && n.date.is_none_or(|d| d >= from)).take(20).collect()
+        }
+        _ => Vec::new(),
+    };
+    let link =
+        Linker::new(w, picked.iter().flat_map(|(_, e)| e.refs.iter()).chain(staff.iter().flat_map(|n| n.refs.iter())));
+    let mut items: Vec<(Date, Value)> = picked
+        .into_iter()
         .map(|(d, e)| {
             let loud = if yours(e) { e.loud.max(Loudness::Medium) } else { e.loud };
-            (*d, json!({ "date": date_text(*d), "loud": loud.name(), "text": e.text, "rule": e.rule, "decision": e.needs_decision }))
+            let parts = link.parts(w, &e.text, &e.refs, e.program, e.nfl_team);
+            (*d, json!({ "date": date_text(*d), "loud": loud.name(), "text": e.text, "parts": parts, "rule": e.rule, "decision": e.needs_decision }))
         })
         .collect();
     // Your own games, won or lost.
     for g in w.seat_games().iter().filter(|g| g.date >= from) {
-        let [h, a] = g.stats.score;
-        let text = format!("Final: {} {a}, {} {h}.", g.names[1], g.names[0]);
+        let (text, refs) = final_line(g);
+        let parts = link.parts(w, &text, &refs, None, None);
         items.push((
             g.date,
-            json!({ "date": date_text(g.date), "loud": "Big", "text": text, "rule": "", "decision": false }),
+            json!({ "date": date_text(g.date), "loud": "Big", "text": text, "parts": parts, "rule": "", "decision": false }),
         ));
     }
     // Your staff's own messages to you (the program's inbox channel).
-    if let Some(TeamRef::College(p)) = mine(w) {
-        for n in w.news.iter().rev().filter(|n| n.program == Some(p) && n.date.is_none_or(|d| d >= from)).take(20) {
-            let d = n.date.unwrap_or(w.today);
-            items.push((d, json!({ "date": n.date.map(date_text), "loud": "Medium", "text": n.text, "rule": "", "decision": false })));
-        }
+    for n in staff {
+        let d = n.date.unwrap_or(w.today);
+        let parts = link.parts(w, &n.text, &n.refs, n.program, None);
+        items.push((d, json!({ "date": n.date.map(date_text), "loud": "Medium", "text": n.text, "parts": parts, "rule": "", "decision": false })));
     }
     items.sort_by_key(|x| std::cmp::Reverse(x.0));
     json!({ "items": items.into_iter().map(|x| x.1).collect::<Vec<_>>() })
@@ -709,56 +974,76 @@ pub fn news(w: &World, args: &Value) -> Value {
         yours(e) || state.as_ref().is_some_and(|code| e.level == CalLevel::HighSchool && e.text.contains(code.as_str()))
     };
     // The calendar's small lines are the news wire.
-    for (d, evs) in w.calendar.events.range(..=w.today).rev() {
-        for e in evs.iter().rev() {
-            if mine_only && !ours(e) {
-                continue;
-            }
-            items.push(json!({ "date": date_text(*d), "text": e.text, "level": format!("{:?}", e.level), "loud": e.loud.name() }));
-            if items.len() >= limit {
-                return json!({ "items": items });
-            }
-        }
-    }
-    // The news desk's stories: a college program's, or the NFL's (a story
-    // with no program, except the FBS diversity report).
+    let wire: Vec<(&Date, &afm_engine::calendar::Event)> = w
+        .calendar
+        .events
+        .range(..=w.today)
+        .rev()
+        .flat_map(|(d, evs)| evs.iter().rev().map(move |e| (d, e)))
+        .filter(|(_, e)| !mine_only || ours(e))
+        .take(limit)
+        .collect();
+    let desk_room = limit - wire.len();
     let my_club = match mine(w) {
         Some(TeamRef::Nfl(t)) => Some(format!("The {} ", w.nfl[t].name)),
         _ => None,
     };
-    for n in w.news.iter().rev() {
-        let college = n.program.is_some() || matches!(n.kind, afm_engine::world::news::NewsKind::DiversityReport);
-        let yours = match (&my_club, my_prog) {
-            (_, Some(p)) => n.program == Some(p),
-            (Some(club), None) => !college && n.text.starts_with(club.as_str()),
-            _ => false,
-        };
-        if mine_only && !yours {
-            continue;
-        }
+    // The news desk's stories: a college program's, or the NFL's (a story
+    // with no program, except the FBS diversity report).
+    let desk: Vec<(&afm_engine::world::news::NewsItem, bool)> = if desk_room == 0 {
+        Vec::new()
+    } else {
+        w.news
+            .iter()
+            .rev()
+            .map(|n| {
+                let college =
+                    n.program.is_some() || matches!(n.kind, afm_engine::world::news::NewsKind::DiversityReport);
+                (n, college)
+            })
+            .filter(|(n, college)| {
+                let yours = match (&my_club, my_prog) {
+                    (_, Some(p)) => n.program == Some(p),
+                    (Some(club), None) => !college && n.text.starts_with(club.as_str()),
+                    _ => false,
+                };
+                !mine_only || yours
+            })
+            .take(desk_room)
+            .collect()
+    };
+    let link = Linker::new(
+        w,
+        wire.iter().flat_map(|(_, e)| e.refs.iter()).chain(desk.iter().flat_map(|(n, _)| n.refs.iter())),
+    );
+    for (d, e) in wire {
+        let parts = link.parts(w, &e.text, &e.refs, e.program, e.nfl_team);
+        items.push(json!({ "date": date_text(*d), "text": e.text, "parts": parts, "level": format!("{:?}", e.level), "loud": e.loud.name() }));
+    }
+    for (n, college) in desk {
         let level = if college { "College" } else { "Nfl" };
-        items.push(json!({ "date": n.date.map(date_text), "text": n.text, "level": level, "loud": "Small" }));
-        if items.len() >= limit {
-            break;
-        }
+        let parts = link.parts(w, &n.text, &n.refs, n.program, None);
+        items.push(
+            json!({ "date": n.date.map(date_text), "text": n.text, "parts": parts, "level": level, "loud": "Small" }),
+        );
     }
     json!({ "items": items })
 }
 
 /// Your level's year: every dated moment from today to the end of the
 /// football year, yours marked.
-pub fn calendar(w: &World) -> Value {
+/// The football year's fixed dates at your level (and the few everyone
+/// watches) for the given seasons: the calendar list and the month grid.
+pub(crate) fn fixed_dates(w: &World, years: &[i32]) -> Vec<(Date, String)> {
     use afm_engine::calendar::{Level, YearDates};
-    let seat = w.seat;
-    let level = seat.map(|s| s.level);
-    let mut items: Vec<(Date, String, &str, bool)> = Vec::new();
-    // The year's fixed dates, for this season and the next.
-    for year in [w.year, w.year + 1] {
+    let level = w.seat.map(|s| s.level);
+    let mut items: Vec<(Date, String)> = Vec::new();
+    for &year in years {
         let y = YearDates::new(year);
         let mut add = |d: Date, text: String, lv: Level| {
             let everyone = matches!(text.as_str(), "Super Bowl" | "NFL draft, round 1" | "National championship game");
             if everyone || level.is_none_or(|l| l == lv) {
-                items.push((d, text, "date", false));
+                items.push((d, text));
             }
         };
         add(y.super_bowl, "Super Bowl".into(), Level::Nfl);
@@ -798,16 +1083,35 @@ pub fn calendar(w: &World) -> Value {
         add(y.all_american_bowl, "All-American Bowl".into(), Level::HighSchool);
         add(y.signing_day, "National signing day".into(), Level::HighSchool);
     }
+    items
+}
+
+pub fn calendar(w: &World) -> Value {
+    let seat = w.seat;
+    type Line<'a> = (Date, String, &'a str, bool, Vec<Ref>, Option<usize>, Option<usize>);
+    let mut items: Vec<Line> = fixed_dates(w, &[w.year, w.year + 1])
+        .into_iter()
+        .map(|(d, t)| (d, t, "date", false, Vec::new(), None, None))
+        .collect();
     // Your games.
     if let Some(t) = mine(w) {
         for g in schedule_rows(w, t) {
-            items.push((g.0, g.1, "game", true));
+            items.push((g.0, g.1, "game", true, g.2, None, None));
         }
     }
-    // Moments already set for days ahead.
+    // Moments already set for days ahead, and your own meetings.
+    let my_slot = my_slot_test(w);
     for (d, evs) in w.calendar.events.range(w.today..) {
-        for e in evs.iter().filter(|e| e.loud >= Loudness::Big) {
-            items.push((*d, e.text.to_string(), e.loud.name(), seat.is_some_and(|s| s.cares(e))));
+        for e in evs.iter().filter(|e| e.loud >= Loudness::Big || e.loud >= Loudness::Medium && my_slot(e)) {
+            items.push((
+                *d,
+                e.text.to_string(),
+                e.loud.name(),
+                my_slot(e) || seat.is_some_and(|s| s.cares(e)),
+                e.refs.clone(),
+                e.program,
+                e.nfl_team,
+            ));
         }
     }
     items.retain(|x| x.0 >= w.today);
@@ -816,16 +1120,20 @@ pub fn calendar(w: &World) -> Value {
     items.sort_by(|a, b| (a.0, !a.3, &a.1).cmp(&(b.0, !b.3, &b.1)));
     let mut seen = std::collections::HashSet::new();
     items.retain(|x| seen.insert((x.0, x.1.clone())));
+    items.truncate(160);
+    let link = Linker::new(w, items.iter().flat_map(|x| x.4.iter()));
     let items: Vec<Value> = items
         .into_iter()
-        .take(160)
-        .map(|(d, text, loud, mine)| json!({ "date": date_text(d), "in": w.today.days_to(d), "text": text, "loud": loud, "mine": mine }))
+        .map(|(d, text, loud, mine, refs, prog, club)| {
+            let parts = link.parts(w, &text, &refs, prog, club);
+            json!({ "date": date_text(d), "in": w.today.days_to(d), "text": text, "parts": parts, "loud": loud, "mine": mine })
+        })
         .collect();
     json!({ "items": items })
 }
 
 /// Your team's games ahead as (date, text).
-fn schedule_rows(w: &World, t: TeamRef) -> Vec<(Date, String)> {
+pub(crate) fn schedule_rows(w: &World, t: TeamRef) -> Vec<(Date, String, Vec<Ref>)> {
     match t {
         TeamRef::College(p) => w
             .college_fixtures(Some(p))
@@ -835,7 +1143,11 @@ fn schedule_rows(w: &World, t: TeamRef) -> Vec<(Date, String)> {
                 let home = f.home == p;
                 let opp = if home { f.away } else { f.home };
                 let at = if home || f.neutral { "vs" } else { "at" };
-                (f.date, format!("{at} {}", team_name(w, TeamRef::College(opp))))
+                let name = team_name(w, TeamRef::College(opp));
+                let text = format!("{at} {name}");
+                let mut refs = Vec::new();
+                afm_engine::calendar::events::add_ref(&mut refs, &text, Link::Program(opp as u32), &name);
+                (f.date, text, refs)
             })
             .collect(),
         TeamRef::Nfl(c) => w
@@ -845,7 +1157,11 @@ fn schedule_rows(w: &World, t: TeamRef) -> Vec<(Date, String)> {
             .filter_map(|f| {
                 let home = f.home == c;
                 let opp = if home { f.away } else { f.home };
-                Some((f.when?, format!("{} {}", if home { "vs" } else { "at" }, w.nfl_team_name(opp))))
+                let name = w.nfl_team_name(opp);
+                let text = format!("{} {name}", if home { "vs" } else { "at" });
+                let mut refs = Vec::new();
+                afm_engine::calendar::events::add_ref(&mut refs, &text, Link::Club(opp as u32), &name);
+                Some((f.when?, text, refs))
             })
             .collect(),
         TeamRef::HighSchool(h) => w
@@ -855,7 +1171,11 @@ fn schedule_rows(w: &World, t: TeamRef) -> Vec<(Date, String)> {
             .map(|f| {
                 let home = f.home == h;
                 let opp = if home { f.away } else { f.home };
-                (f.date, format!("{} {}", if home { "vs" } else { "at" }, w.school_name(opp)))
+                let name = w.school_name(opp);
+                let text = format!("{} {name}", if home { "vs" } else { "at" });
+                let mut refs = Vec::new();
+                afm_engine::calendar::events::add_ref(&mut refs, &text, Link::School(opp as u32), name);
+                (f.date, text, refs)
             })
             .collect(),
     }
@@ -880,7 +1200,7 @@ pub fn team(w: &World, t: TeamRef) -> Value {
     match t {
         TeamRef::College(i) => {
             let p = &w.programs[i];
-            v["level"] = json!(format!("{} · {}", p.division.name(), p.conference));
+            v["level"] = json!(format!("{} · {}", p.division.name(), w.conference_name(&p.conference)));
             v["place"] = json!(format!("{}, {}", p.city, w.states[p.state].code));
             v["stadium"] = json!(p.stadium);
             v["titles"] = json!(p.titles);
@@ -1102,7 +1422,13 @@ pub fn schedule(w: &World, t: TeamRef) -> Value {
 }
 
 pub fn standings(w: &World, args: &Value) -> Value {
-    let conf = args.get("conference").and_then(Value::as_str).map(str::to_string).or_else(|| match mine(w) {
+    // The page names conferences as this world shows them (fictional in a
+    // fictional league); the programs keep the real names.
+    let shown = args.get("conference").and_then(Value::as_str);
+    let real = shown.and_then(|s| {
+        w.programs.iter().map(|p| &p.conference).find(|c| w.conference_name(c) == s || c.as_str() == s).cloned()
+    });
+    let conf = real.or_else(|| match mine(w) {
         Some(TeamRef::College(p)) => Some(w.programs[p].conference.clone()),
         _ => None,
     });
@@ -1141,13 +1467,17 @@ pub fn standings(w: &World, args: &Value) -> Value {
         .map(|p| (p.id, w.college_record(p.id)))
         .collect();
     teams.sort_by(|a, b| (b.1.conf_wins, b.1.wins, a.1.conf_losses).cmp(&(a.1.conf_wins, a.1.wins, b.1.conf_losses)));
-    let mut confs: Vec<String> =
-        w.programs.iter().filter(|p| div.is_none_or(|d| p.division == d)).map(|p| p.conference.clone()).collect();
+    let mut confs: Vec<String> = w
+        .programs
+        .iter()
+        .filter(|p| div.is_none_or(|d| p.division == d))
+        .map(|p| w.conference_name(&p.conference))
+        .collect();
     confs.sort();
     confs.dedup();
     json!({
         "conferences": confs,
-        "groups": [{ "name": conf, "teams": teams.iter().map(|(p, r)| json!({
+        "groups": [{ "name": w.conference_name(&conf), "teams": teams.iter().map(|(p, r)| json!({
             "team": team_brief(w, TeamRef::College(*p)),
             "cw": r.conf_wins, "cl": r.conf_losses, "w": r.wins, "l": r.losses,
         })).collect::<Vec<_>>() }],
@@ -1165,7 +1495,7 @@ pub(crate) fn reputation_words(r: f64) -> &'static str {
 }
 
 /// What a coach came up as: his first group, or for you, your road in.
-fn came_up(w: &World, c: usize) -> String {
+pub(crate) fn came_up(w: &World, c: usize) -> String {
     match &w.career {
         Some(k) if k.coach == c && !k.you.road.is_empty() => k.you.road.clone(),
         _ => w.coaches[c].came_up.coach_title().to_string(),
@@ -1182,13 +1512,13 @@ pub(crate) fn job_record(w: &World, c: usize) -> String {
     if j.since < kept_from { format!("{wn}-{l} (since {kept_from})") } else { format!("{wn}-{l}") }
 }
 
-fn coach_row(w: &World, c: usize, role: &str) -> Value {
+pub(crate) fn coach_row(w: &World, c: usize, role: &str) -> Value {
     let co = &w.coaches[c];
     json!({
         "id": c,
         "name": co.name,
         "role": role,
-        "age": co.age,
+        "age": co.age_on(w.today),
         "reputation": reputation_words(co.reputation),
         "came_up": came_up(w, c),
         "record": job_record(w, c),
@@ -1242,7 +1572,7 @@ pub fn staff(w: &World, t: TeamRef) -> Value {
                         None => g.coach_title().to_string(),
                     };
                     rows.push(json!({
-                        "id": null, "name": a.name, "role": role, "age": a.age,
+                        "id": null, "name": a.name, "role": role, "age": a.age_on(w.today),
                         "reputation": "Local",
                         "came_up": a.subject.as_ref().map_or("Walk-on coach (doesn't teach)".to_string(), |s| format!("Teaches {s}")),
                         "record": "", "since": a.since, "pay": a.stipend, "you": false,
@@ -1292,7 +1622,7 @@ pub fn coach(w: &World, c: usize) -> Result<Value, String> {
         .collect();
     let mentor = co.mentor.and_then(|m| w.coaches.get(m)).map(|m| json!({ "id": m.id, "name": m.name }));
     Ok(json!({
-        "id": c, "name": co.name, "age": co.age, "reputation": reputation_words(co.reputation),
+        "id": c, "name": co.name, "age": co.age_on(w.today), "reputation": reputation_words(co.reputation),
         "came_up": came_up(w, c), "ex_pro": co.ex_pro, "job": job, "history": history,
         "mentor": mentor, "titles": co.career_titles,
         "you": w.career.as_ref().is_some_and(|k| k.coach == c),
@@ -1333,6 +1663,7 @@ pub fn depth(w: &World) -> Value {
             let yours = w.seat_depth.iter().any(|(p, _)| *p == pos);
             json!({
                 "pos": pos.name(),
+                "controls": w.controls(pos),
                 "starters": afm_engine::game::roster::starters(pos),
                 "set_by_you": yours,
                 "listed": dressed,
@@ -1355,8 +1686,11 @@ pub fn set_depth(w: &mut World, args: &Value) -> Result<Value, String> {
         .and_then(Value::as_array)
         .map(|a| a.iter().filter_map(Value::as_u64).map(|v| v as u32).collect())
         .unwrap_or_default();
-    w.set_seat_depth(pos, ids);
-    Ok(depth(w))
+    // An assistant proposes: the head coach can overrule him.
+    let note = w.propose_depth(pos, ids)?;
+    let mut v = depth(w);
+    v["note"] = json!(note);
+    Ok(v)
 }
 
 pub fn player(w: &World, id: u32) -> Result<Value, String> {
@@ -1459,13 +1793,18 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
         "name": p.name,
         "pos": pos.name(),
         "positions": p.player.position_history.iter().map(|(a, ps)| json!([a, ps.name()])).collect::<Vec<_>>(),
-        "age": p.player.age,
+        "age": p.age_on(w.today),
+        "born": born_text(p.born),
         "class": class_text(w, p),
         "team": team.map(|t| team_brief(w, t)),
         "where": where_now(w, p),
+        "followers": (p.followers > 0).then_some(p.followers),
+        "brand": (p.brand >= 1000.0).then_some((p.brand as f64 / 1000.0).round() * 1000.0),
+        "on_camera": afm_engine::world::fame::aura_read(p, if own { 13.0 } else { 9.0 }, reader),
         "mine": own,
         "home": hometown(w, p),
         "high_school": w.high_schools.get(p.hs).map(|s| w.school_name(s.id).to_string()),
+        "high_school_id": w.high_schools.get(p.hs).map(|_| p.hs),
         "ht": ft_in(p.player.body.height),
         "wt": p.player.body.weight.round(),
         "arm": p.player.body.arm,
@@ -1477,6 +1816,7 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
         "potential": potential,
         "groups": groups,
         "tendencies": tendencies,
+        "links": reads::links(&p.player, own, p.stage == Stage::Pro || p.cal.combine_invite, eye, reader),
         "history": history,
         "pro": pro,
         "offers": offers,
@@ -1485,7 +1825,29 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
     }))
 }
 
-fn team_of(w: &World, p: &Person) -> Option<TeamRef> {
+/// A date of birth as the player page writes it: "14 March 2009".
+fn born_text(d: Date) -> Option<String> {
+    const MONTHS: [&str; 12] = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+    ];
+    (d != afm_engine::calendar::born::UNKNOWN).then(|| {
+        let (y, m, day) = d.parts();
+        format!("{day} {} {y}", MONTHS[m as usize - 1])
+    })
+}
+
+pub(crate) fn team_of(w: &World, p: &Person) -> Option<TeamRef> {
     match p.stage {
         Stage::HighSchool | Stage::PrepSchool => Some(TeamRef::HighSchool(p.hs)),
         Stage::College => p.college.map(TeamRef::College),
@@ -1588,7 +1950,7 @@ pub fn game(w: &World, k: usize) -> Result<Value, String> {
     )
 }
 
-fn spot_text(to_goal: f64) -> String {
+pub(crate) fn spot_text(to_goal: f64) -> String {
     let y = to_goal.round() as i32;
     if y == 50 {
         "50".into()
@@ -1603,7 +1965,7 @@ fn spot_text(to_goal: f64) -> String {
 /// until the next snap (or the end of the quarter), a kickoff's receiving
 /// team from the kick. The engine's own total counts only the seconds the
 /// ball is live.
-fn possession(s: &afm_engine::game::stats::GameStats) -> [f64; 2] {
+pub(crate) fn possession(s: &afm_engine::game::stats::GameStats) -> [f64; 2] {
     use afm_engine::game::stats::PlayType;
     let mut top = [0.0; 2];
     for (i, r) in s.plays.iter().enumerate() {
@@ -1621,7 +1983,7 @@ fn possession(s: &afm_engine::game::stats::GameStats) -> [f64; 2] {
     top
 }
 
-fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u32) -> String) -> String {
+pub(crate) fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u32) -> String) -> String {
     use afm_engine::game::stats::PlayType;
     let yds = r.yards.round() as i32;
     let gain = |y: i32| {
@@ -1644,7 +2006,8 @@ fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u32) -> Stri
             if r.throw_away && !r.interception {
                 format!("{qb} throws it away")
             } else if r.interception {
-                format!("{qb} pass intended for {to} is INTERCEPTED")
+                let by = r.interceptor.map(|i| format!(" by {}", name(i))).unwrap_or_default();
+                format!("{qb} pass intended for {to} is INTERCEPTED{by}")
             } else if r.complete {
                 format!("{qb} pass to {to} ({}) for {}", r.route, gain(yds))
             } else {
@@ -1708,6 +2071,26 @@ fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u32) -> Stri
                 .collect();
             format!("Penalty before the snap: {}", fouls.join("; "))
         }
+        PlayType::TwoPoint => {
+            // The try as the play it was, then whether it counted.
+            let mut snap = r.clone();
+            snap.kind = if !r.sackers.is_empty() {
+                PlayType::Sack
+            } else if r.target.is_some() || r.throw_away || r.interception {
+                PlayType::Pass
+            } else if r.carrier.is_some() && r.carrier == r.passer {
+                PlayType::Scramble
+            } else {
+                PlayType::Run
+            };
+            snap.touchdown = false;
+            snap.first_down = false;
+            snap.turnover = false;
+            snap.fumbled = None;
+            snap.penalties.clear();
+            let what = play_text(&snap, name);
+            format!("Two-point try: {what}, {}", if r.touchdown { "GOOD" } else { "no good" })
+        }
         other => format!("{other:?}: {}", gain(yds)),
     };
     if r.nullified {
@@ -1718,7 +2101,7 @@ fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u32) -> Stri
         let fell = if r.fumble_lost { "the defense recovers" } else { "his team keeps it" };
         t.push_str(&format!(". {} FUMBLES{forced}, {fell}", name(f)));
     }
-    if r.touchdown {
+    if r.touchdown && r.kind != PlayType::TwoPoint {
         t.push_str(if r.defense_td { ", returned for a TOUCHDOWN" } else { ", TOUCHDOWN" });
     }
     if r.safety {
@@ -1735,9 +2118,11 @@ fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u32) -> Stri
             ));
         }
     }
-    if r.turnover && !r.interception && r.fumbled.is_none() && !r.defense_td {
-        let scrimmage = matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble);
-        t.push_str(if scrimmage && r.down == 4 { ", turnover on downs" } else { ", turnover" });
+    // A missed field goal or a punt hands the ball over without being a
+    // turnover; a snap that does is one on downs.
+    let scrimmage = matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble);
+    if r.turnover && scrimmage && !r.interception && r.fumbled.is_none() && !r.defense_td {
+        t.push_str(if r.down == 4 { ", turnover on downs" } else { ", turnover" });
     }
     if r.first_down && !r.touchdown {
         t.push_str(", first down");
@@ -1777,7 +2162,7 @@ pub fn search(w: &World, q: &str) -> Value {
         .take(60)
         .map(|&(_, _, _, k)| {
             let p = &w.people[k];
-            json!({ "id": p.player.id, "name": p.name, "pos": p.player.position.name(), "age": p.player.age, "where": where_now(w, p), "level": if p.stage == Stage::Done { "Retired" } else { level_words(level_of(w, p)) } })
+            json!({ "id": p.player.id, "name": p.name, "pos": p.player.position.name(), "age": p.age_on(w.today), "where": where_now(w, p), "level": if p.stage == Stage::Done { "Retired" } else { level_words(level_of(w, p)) } })
         })
         .collect();
     let brief = |t: TeamRef| {
@@ -1786,7 +2171,13 @@ pub fn search(w: &World, q: &str) -> Value {
             TeamRef::Nfl(_) => "NFL".to_string(),
             TeamRef::College(i) => {
                 let p = &w.programs[i];
-                format!("{} · {} · {}, {}", p.division.name(), p.conference, p.city, w.states[p.state].code)
+                format!(
+                    "{} · {} · {}, {}",
+                    p.division.name(),
+                    w.conference_name(&p.conference),
+                    p.city,
+                    w.states[p.state].code
+                )
             }
             TeamRef::HighSchool(i) => {
                 let s = &w.high_schools[i];
@@ -1844,7 +2235,7 @@ pub fn you(w: &World) -> Value {
         profile["photo"] = Value::Null;
     }
     json!({
-        "name": y.name, "age": co.age, "reputation": reputation_words(co.reputation),
+        "name": y.name, "age": co.age_on(w.today), "reputation": reputation_words(co.reputation),
         "record": format!("{wn}-{l}"), "titles": co.career_titles,
         "started": date_text(c.started), "road": y.road,
         "teaching": Group::ALL.iter().map(|g| json!({ "group": g.coach_title(), "value": (ab.teaching[*g as usize] * 10.0).round() / 10.0 })).collect::<Vec<_>>(),
@@ -1860,11 +2251,14 @@ pub fn you(w: &World) -> Value {
         "home_state": w.states.get(y.home_state).map(|s| state_name(&s.code)),
         "style": { "risk": y.style.risk, "freedom": y.style.freedom, "physical": y.style.physical, "ball_hunting": y.style.ball_hunting, "mould": y.style.mould },
         "history": coach(w, c.coach).map(|v| v["history"].clone()).unwrap_or(Value::Null),
+        "title": crate::lane_frontoffice::setup::title_line(w),
+        "family": crate::lane_frontoffice::setup::family_json(w),
+        "known": crate::lane_frontoffice::setup::known_json(w, 12),
     })
 }
 
 /// Who calls your plays, in words.
-fn calls_text(offense: bool, defense: bool) -> &'static str {
+pub(crate) fn calls_text(offense: bool, defense: bool) -> &'static str {
     match (offense, defense) {
         (true, true) => "Both sides",
         (true, false) => "The offense",
@@ -1896,6 +2290,8 @@ pub fn training(w: &World) -> Value {
                 .collect();
             opts.sort_by(|a, b| b.0.total_cmp(&a.0));
             v["focus"] = json!(w.focus_of(p.player.id).map(|a| a.key()));
+            // An assistant plans only his own job's players (lane 10).
+            v["may_plan"] = json!(w.may_plan(p.player.id));
             v["options"] = json!(
                 opts.iter().take(14).map(|(_, a)| json!({ "key": a.key(), "label": a.label() })).collect::<Vec<_>>()
             );
@@ -1917,6 +2313,9 @@ pub fn set_focus(w: &mut World, args: &Value) -> Result<Value, String> {
     let t = mine(w).ok_or("No career.")?;
     if !roster_people(w, t).iter().any(|&k| w.people[k].player.id == id) {
         return Err("He isn't on your team.".into());
+    }
+    if !w.may_plan(id) {
+        return Err(format!("His plan is the head coach's. Your job covers {}.", w.your_controls()));
     }
     w.set_focus(id, focus);
     Ok(json!({ "id": id, "focus": focus.map(|a| a.key()) }))

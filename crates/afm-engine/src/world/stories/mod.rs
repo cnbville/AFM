@@ -209,13 +209,51 @@ pub fn seat_coach(w: &World) -> Option<usize> {
     w.career.as_ref().map(|c| c.coach)
 }
 
-/// A person's index by player id.
+/// A person's index by player id (people are kept in id order).
 pub(crate) fn person_index(w: &World, id: u32) -> Option<usize> {
-    w.people.iter().position(|p| p.player.id == id)
+    w.people.binary_search_by_key(&id, |p| p.player.id).ok()
+}
+
+/// Answer codes on the stories' letters (`desk::Answer::act`, past the
+/// inbox's own): a pick is acted on the next morning, or as soon as a
+/// stories screen opens. The answer's target is the player's id (one-day
+/// contract) or the season (documentary).
+pub const ACT_ONE_DAY_YES: u8 = 60;
+/// The rule on the asks' calendar lines (the letter is the pin).
+pub const ASK_RULE: &str = "stories: ask";
+pub const ACT_ONE_DAY_NO: u8 = 61;
+pub const ACT_DOC_YES: u8 = 62;
+pub const ACT_DOC_NO: u8 = 63;
+
+/// Acts on the answers you gave on your desk's letters.
+pub fn desk_answers(w: &mut World) {
+    let Some(c) = w.career.as_ref() else { return };
+    let picks: Vec<(u8, u32)> = c
+        .desk
+        .mails
+        .iter()
+        .filter_map(|m| {
+            let a = m.answers.get(m.answered? as usize)?;
+            (ACT_ONE_DAY_YES..=ACT_DOC_NO).contains(&a.act).then_some((a.act, a.target))
+        })
+        .collect();
+    for (act, target) in picks {
+        if act <= ACT_ONE_DAY_NO {
+            if w.stories.careers.offer.is_some_and(|o| o.0 == target) {
+                let _ = careers::answer_one_day(w, act == ACT_ONE_DAY_YES);
+            }
+        } else if w.stories.media.doc_answer.is_none()
+            && w.stories.media.doc_offer.as_ref().is_some_and(|o| o.0 as u32 == target)
+        {
+            let _ = media::answer_doc(w, act == ACT_DOC_YES);
+        }
+    }
 }
 
 /// Once a day, after the day's games (called from the clock).
 pub(crate) fn day(w: &mut World, d: Date) {
+    // Your answers first, so a deadline today sees them.
+    desk_answers(w);
     // Dated posts whose day has come.
     if w.stories.pending.iter().any(|x| x.0 <= d) {
         let mut due = Vec::new();

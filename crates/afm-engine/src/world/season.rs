@@ -201,7 +201,7 @@ pub(crate) fn reconsider_positions(w: &mut World, who: &[bool]) {
                 return None;
             }
             let (eye, margin) = match p.stage {
-                Stage::HighSchool if p.player.age > 14 => (r.hs_eye(p.hs), 0.03),
+                Stage::HighSchool if p.school_age() > 14 => (r.hs_eye(p.hs), 0.03),
                 Stage::College => {
                     let c = p.college?;
                     let prog = &r.programs[c];
@@ -397,6 +397,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             }
             Stage::College => {
                 let prog = &programs[p.college.unwrap_or(0)];
+                p.college_staff.reserve_exact(1);
                 p.college_staff.push((year as i32, prog.id, prog.head_coach, prog.position_coaches[group as usize]));
                 let hc = prog.head_coach.map_or(9.0, |c| coaches[c].teaching(group));
                 let coord = if group.offense() { prog.oc } else { prog.dc };
@@ -418,6 +419,9 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 )
             }
             Stage::PrepSchool => (Level::HS, 12.0, 0.05, 0.01),
+            // A mission or a military term (A3): no coaching and no games, a
+            // year older; he keeps himself in what shape he can.
+            Stage::Away => (Level::SmallCollege, 2.0, 0.0, 0.002),
             _ => return,
         };
         let role = if p.stage == Stage::PrepSchool { PlayingTime::Rotation } else { role };
@@ -505,7 +509,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             crate::development::open_row_with_spring_step(&mut p.player, gain);
         }
         p.last_role = Some(role);
-        p.last_performance = p.player.history.last().and_then(|h| h.performance);
+        p.last_performance = p.player.history.last().and_then(|h| h.performance.get());
         p.sit_out = 0.0;
         // JUCO classes: transferable credits and grades build back, or don't.
         if p.stage == Stage::College
@@ -520,7 +524,11 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         // is settled when it ends, by the games he played (the 2018 rule).
         p.cal.academic_sit = academic_sit;
         p.cal.trouble = trouble.is_some();
-        if p.stage == Stage::College && !academic_sit {
+        // From 2026-27 Division I has no redshirts (five years to play five,
+        // S11): every year on the roster counts, settled January 2.
+        let five = p.stage == Stage::College
+            && super::eligibility::five_in_five(year as i32, programs[p.college.unwrap_or(0)].division);
+        if p.stage == Stage::College && !academic_sit && !five {
             if role == PlayingTime::Redshirt {
                 p.redshirt_used = true;
             } else if trouble.is_none() {
@@ -792,7 +800,7 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
         .roster
         .iter()
         .map(|&i| &w.people[i])
-        .filter(|p| p.stage == Stage::College)
+        .filter(|p| p.stage == Stage::College && !super::folk::rules::sitting(w, p.player.id, w.today))
         .map(|p| {
             // This season counts as one (settled when it ends).
             let seasons = (p.college_seasons + p.cal.count_pending as u32) as f64;
@@ -878,7 +886,7 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
     );
     team.give_orders(division_level(prog.division));
     if w.seat_program(prog.id) {
-        team.order = w.seat_depth.clone();
+        team.order = w.seat_order();
     }
     team.film = prog.film.clone();
     team.line_chem = line_chem;

@@ -244,6 +244,9 @@ pub struct Coach {
     pub name: String,
     pub ethnicity: Ethnicity,
     pub age: u32,
+    /// His date of birth (A1): the age the game shows counts from it.
+    #[serde(default = "crate::calendar::born::unknown")]
+    pub born: crate::calendar::Date,
     /// Hidden. The game shows reputation, never this.
     pub(crate) ability: Ability,
     /// How far his ability can still grow (hidden), 1-20.
@@ -407,6 +410,7 @@ pub fn generate_coach(
         name,
         ethnicity,
         age,
+        born: crate::calendar::born::UNKNOWN,
         ability,
         learning_ceiling,
         reputation,
@@ -500,6 +504,11 @@ impl Coach {
     /// One year of a coach's career: young coaches learn fast; old ones fall
     /// behind on schemes and lose sharpness. Working under a better head coach
     /// rubs off (his tree).
+    /// His age on a day, from his date of birth (A1).
+    pub fn age_on(&self, d: crate::calendar::Date) -> u32 {
+        crate::calendar::born::age_or(self.born, d, self.age)
+    }
+
     pub fn age_one_year(&mut self, mentor: Option<&Ability>, rng: &mut Rng) {
         self.age += 1;
         let age = self.age as f64;

@@ -164,7 +164,7 @@ const HS_TROPHIES: &[&str] = &[
     "the Cowbell",
     "the Anvil",
     "the Lantern",
-    "the Peace Pipe",
+    "the Old Canoe",
     "the Mule Shoe",
     "the Water Tower Trophy",
     "the Mailbox",
@@ -173,6 +173,51 @@ const HS_TROPHIES: &[&str] = &[
     "the Ship's Bell",
     "the Cornerstone Trophy",
 ];
+
+/// One of a program's rivalries as it stands: the real game's name and
+/// trophy, the all-time record from the program's side and who holds it.
+#[derive(Clone, Debug)]
+pub struct RivalryLine {
+    pub game: String,
+    pub trophy: Option<String>,
+    pub rival: usize,
+    /// Wins for the program, for the rival.
+    pub wins: [u32; 2],
+    pub ties: u32,
+    pub holder: Option<usize>,
+    /// The record is the real all-time one (else since `since`).
+    pub real: bool,
+    pub since: Option<i32>,
+}
+
+/// A college program's listed rivalries (A28), trophies first.
+pub fn college_rivalries(w: &World, p: usize) -> Vec<RivalryLine> {
+    let Some(cs) = w.college.as_ref().or(w.college_prev.as_ref()) else { return Vec::new() };
+    let year = w.year;
+    let mut out: Vec<RivalryLine> = cs
+        .rivalry_of
+        .iter()
+        .filter(|((a, b), _)| *a == p || *b == p)
+        .filter_map(|(&(a, b), &(r, first))| {
+            let s = cs.series.get(r)?;
+            let def = crate::calendar::data::RIVALRIES.get(r)?;
+            let rival = if a == p { b } else { a };
+            let wins = if first == p { s.wins } else { [s.wins[1], s.wins[0]] };
+            Some(RivalryLine {
+                game: def.name_in(year).to_string(),
+                trophy: def.trophy.map(str::to_string),
+                rival,
+                wins,
+                ties: s.ties,
+                holder: s.holder,
+                real: s.real,
+                since: s.since,
+            })
+        })
+        .collect();
+    out.sort_by(|x, y| y.trophy.is_some().cmp(&x.trophy.is_some()).then_with(|| x.game.cmp(&y.game)));
+    out
+}
 
 /// The rival of high school `h`: a school in its own town or area with the
 /// closest enrollment, else the nearest-sized school in its state and class.
@@ -878,6 +923,11 @@ fn yearly_honors(w: &mut World) {
         let name = a.name.clone();
         let years = club_years(w, id, team).unwrap_or_default();
         add.push(honor(t, HonorKind::RingOfHonor, id, &name, pos, Some(number_guess(id, Some(pos))), year, &years));
+    }
+    // A player you coached honored: a line on your career's story.
+    for h in &add {
+        let what = format!("{} at {}", h.kind.name(), super::team_name(w, h.team));
+        super::story::honor(w, h.player, &h.name, &what);
     }
     w.stories.traditions.honors.extend(add);
 }

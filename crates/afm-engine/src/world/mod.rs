@@ -16,18 +16,26 @@ pub(crate) mod clock;
 pub mod coach;
 pub(crate) mod college;
 pub mod data;
+pub mod desk;
+pub mod eligibility;
 pub mod ethnicity;
+pub mod fame;
+pub mod folk;
 pub mod franchise;
+pub mod front_office;
 pub mod game_log;
 pub mod geo;
 pub mod high_school;
+pub mod hs_playoffs;
 pub mod hs_year;
+pub mod live_seat;
 pub mod names;
 pub mod ncaa;
 pub mod news;
 mod nfl_year;
 pub use nfl_year::NflTeamSeason;
 pub mod people;
+pub(crate) mod polls;
 pub mod pro;
 pub mod program;
 pub mod records;
@@ -38,7 +46,9 @@ pub mod seat;
 pub mod staff;
 pub mod stories;
 pub mod systems;
+pub mod tape;
 pub mod trends;
+pub mod voters;
 
 use rayon::prelude::*;
 
@@ -64,6 +74,11 @@ pub struct WorldOptions {
     /// The year the save starts.
     pub start_year: i32,
     pub names: NameMode,
+    /// A fictional league as well (lane 10, the setup's fictional option):
+    /// NFL nicknames and conference names on the screens are fictional too,
+    /// over the fictional college and high school names `names` gives.
+    #[serde(default)]
+    pub fictional_league: bool,
     /// The first season whose college games run on the match engine (item 12).
     /// None, the game's setting, plays every college game on the engine,
     /// history included, so the history comes from the same football as the
@@ -71,9 +86,10 @@ pub struct WorldOptions {
     pub engine_from: Option<i32>,
     /// How many of the history's last seasons play their high school games
     /// on the match engine (section 8, choice 2; Cain 2026-10-20: the last
-    /// 12, "for now"). Every season after the history does too. Earlier
-    /// seasons, and every season with this None, use the stand-in. A
-    /// season before `engine_from` stays on the stand-in as well.
+    /// 12, "for now"). Every live season does too, whatever this is (final
+    /// build: every high school game in a live save). Earlier history
+    /// seasons, and every history season with this None, use the stand-in.
+    /// A season before `engine_from` stays on the stand-in as well.
     pub hs_engine_years: Option<u32>,
     /// Trial tooling: keep every college game's box score totals and each
     /// player's season totals in `World::game_log` (history years only).
@@ -88,6 +104,7 @@ impl Default for WorldOptions {
             history_years: 30,
             start_year: 2026,
             names: NameMode::Real,
+            fictional_league: false,
             engine_from: None,
             hs_engine_years: Some(12),
             keep_game_log: false,
@@ -110,6 +127,10 @@ pub enum Stage {
     Pro,
     /// Left football.
     Done,
+    /// Away from football for a while with his clock stopped: a church
+    /// mission or a military term (A3, final build). `Person::roads.away`
+    /// says which, when he comes back and to which program.
+    Away,
 }
 
 /// One state's football setting.
@@ -142,6 +163,19 @@ pub struct Person {
     pub college: Option<usize>,
     /// Year of his last high school season's spring (his class).
     pub class_of: i32,
+    /// His date of birth (A1): every age the game shows counts from it. A
+    /// class runs from September to August birthdays; a boy born a year
+    /// before his class was held back (A2, `calendar::born`).
+    #[serde(default = "crate::calendar::born::unknown")]
+    pub born: crate::calendar::Date,
+    /// Social media followers, all platforms (`fame`): public, they grow
+    /// with fame and Aura from the late 2000s.
+    #[serde(default)]
+    pub followers: u32,
+    /// His yearly money from ads, brand NIL deals and endorsements, in
+    /// dollars (`fame::brand_money`), last set at the year's book.
+    #[serde(default)]
+    pub brand: f32,
     /// The recruiting services' stars (their latest rating). They rate
     /// kickers, punters and long snappers 3 stars at most.
     pub stars: u8,
@@ -206,6 +240,11 @@ pub struct Person {
     /// coach starts it fresh).
     pub trust: f32,
     pub trust_in: u32,
+    /// His road through college (A3, S11): years away, years added to his
+    /// clock, the COVID year, seasons lost to injury, a mission or a
+    /// military term in progress.
+    #[serde(default)]
+    pub roads: eligibility::Roads,
 }
 
 /// The draft staffs' read of a player in December (T3.1, T3.2): his consensus
@@ -344,6 +383,9 @@ pub enum Visit {
     Unofficial,
     /// A staff member watches him at his high school in an evaluation week.
     DropIn,
+    /// The head coach in his family's living room, in a contact period
+    /// (lane 10: your own home visits).
+    Home,
 }
 
 impl PersonCal {
@@ -366,7 +408,12 @@ impl PersonCal {
 
 impl Person {
     pub fn note(&mut self, s: impl Into<String>) {
-        self.notes.push(s.into());
+        // Exact room, for the note and the list (memory: notes are kept
+        // for every person, and a formatted line carries spare room).
+        let mut s: String = s.into();
+        s.shrink_to_fit();
+        self.notes.reserve_exact(1);
+        self.notes.push(s);
     }
     /// The age on his latest season row. A row covers the season and the
     /// offseason after it, so every note about either gives this age and a
@@ -391,6 +438,41 @@ impl Person {
             (Stage::College, Some(c)) => division_level(programs[c].division),
             _ => Level::HS,
         }
+    }
+}
+
+/// The key a person's birthday is drawn from: his world's seed and his id.
+pub(crate) fn born_key(seed: u32, id: u32) -> u64 {
+    ((seed as u64) << 32 | id as u64) ^ 0xB0E5_DA7E_0000_0000
+}
+
+impl Person {
+    /// His age on a day, from his date of birth (A1). A person from an
+    /// older world file without one yet uses the engine's age.
+    pub fn age_on(&self, d: crate::calendar::Date) -> u32 {
+        if self.born == crate::calendar::born::UNKNOWN {
+            self.player.age
+        } else {
+            crate::calendar::born::age_on(self.born, d)
+        }
+    }
+
+    /// Years older than his class (A2): 1 when he was held back or started
+    /// school late, -1 when he is a year young, 0 on time. Reclassifying
+    /// moves his class and so this too.
+    pub fn years_off_class(&self) -> i32 {
+        if self.born == crate::calendar::born::UNKNOWN {
+            0
+        } else {
+            self.class_of - crate::calendar::born::class_of_birth(self.born)
+        }
+    }
+
+    /// His age as his grade counts it: the engine age of an on-time
+    /// classmate (14 a freshman, 17 a senior through the season). High
+    /// school steps that go by grade read this, not his real age.
+    pub fn school_age(&self) -> u32 {
+        (self.player.age as i32 - self.years_off_class()).max(0) as u32
     }
 }
 
@@ -426,6 +508,9 @@ pub struct Alumnus {
     pub left_football: bool,
     /// His high school class (year of his last high school spring).
     pub class_of: i32,
+    /// His date of birth (A1).
+    #[serde(default = "crate::calendar::born::unknown")]
+    pub born: crate::calendar::Date,
     #[cfg_attr(not(feature = "debug"), allow(dead_code))]
     pub(crate) visibility: f64,
     pub steered: bool,
@@ -474,6 +559,7 @@ impl Alumnus {
             juco: p.juco,
             left_football,
             class_of: p.class_of,
+            born: p.born,
             visibility: p.visibility,
             steered: p.notes.iter().any(|n| n.contains("more than his own")),
             background_summary,
@@ -640,6 +726,27 @@ pub struct World {
     /// Your career once it has started: you, your coach id, your notes.
     #[serde(default)]
     pub career: Option<seat::Career>,
+    /// Section 6's people built in the final build (lane 6): the people
+    /// around a team, your meetings and talks, ties, lives, courts, staff
+    /// contracts and your network (`folk`).
+    #[serde(default)]
+    pub folk: folk::Folk,
+    /// Your game being played live today (section 9): the day books it
+    /// when it runs.
+    #[serde(default)]
+    pub live: Option<live_seat::LiveSeat>,
+    /// Game day (section 9): your settings, the tapes of your coming
+    /// opponents, what you have studied.
+    #[serde(default)]
+    pub gameday: live_seat::GameDay,
+    /// The poll and award voters (section 6 topic 9), each with his
+    /// latest ballot; older files build them on load.
+    #[serde(default)]
+    pub voters: voters::Voters,
+    /// Your front office: who has each duty and each level's desk (final
+    /// build, lane 10).
+    #[serde(default)]
+    pub front_office: front_office::FrontOffice,
     /// The stories around the football (final build lane 8): traditions,
     /// media, nicknames, your decisions graded, your career's story.
     #[serde(default)]
@@ -729,6 +836,26 @@ pub struct CalendarLog {
     pub nfl_preseason_games: u32,
     /// Huge games per NFL team in the season (the stakes test).
     pub nfl_huge_by_team: Vec<u32>,
+    /// The long roads (A3, final build): medical hardship waivers, sixth
+    /// years, COVID-year players who came back and who didn't, missions and
+    /// military terms begun, players back from either, and players who moved
+    /// up two levels or from NAIA and Division III.
+    #[serde(default)]
+    pub medical_hardships: u32,
+    #[serde(default)]
+    pub sixth_years: u32,
+    #[serde(default)]
+    pub covid_returns: u32,
+    #[serde(default)]
+    pub covid_declined: u32,
+    #[serde(default)]
+    pub missions: u32,
+    #[serde(default)]
+    pub enlisted: u32,
+    #[serde(default)]
+    pub returned: u32,
+    #[serde(default)]
+    pub moved_up_far: u32,
 }
 
 /// Where the manager works (N58): his level, and his NFL team or college
@@ -864,7 +991,8 @@ impl World {
         let year = options.start_year - options.history_years as i32 - SPIN_UP_YEARS as i32;
         let mut areas: Vec<(usize, String)> = Vec::new();
         for s in high_schools.iter_mut() {
-            let key = (s.state, s.town.clone());
+            // Schools in one county share a recruiting area (final build).
+            let key = (s.state, if s.county.is_empty() { s.town.clone() } else { format!("{} County", s.county) });
             s.area = match areas.iter().position(|a| *a == key) {
                 Some(k) => k,
                 None => {
@@ -910,6 +1038,7 @@ impl World {
             changes,
             college: None,
             college_prev: None,
+            voters: Default::default(),
             hs_season: None,
             nfl_season: None,
             market: Default::default(),
@@ -927,12 +1056,16 @@ impl World {
             moved_cycle: std::collections::HashSet::new(),
             college_spread: season::COLLEGE_SPREAD,
             seat: None,
+            folk: Default::default(),
             trends: Vec::new(),
             novelty: [[0.0; crate::game::playbook::FAMILY_COUNT]; data::DIVISION_COUNT],
             seat_games: Vec::new(),
             seat_depth: Vec::new(),
             seat_focus: Vec::new(),
             career: None,
+            live: None,
+            gameday: Default::default(),
+            front_office: Default::default(),
             stories: stories::Stories::default(),
         };
         staff::staff_everyone(&mut w);
@@ -1020,6 +1153,22 @@ impl World {
         }
     }
 
+    /// Memory tooling (`memory_season`): drops one of the world's inner
+    /// stores by name, so a tool can weigh it. Never called by the game.
+    #[doc(hidden)]
+    pub fn memory_drop_store(&mut self, name: &str) {
+        match name {
+            "college season" => self.college = None,
+            "last college season" => self.college_prev = None,
+            "high school season" => self.hs_season = None,
+            "NFL season" => self.nfl_season = None,
+            "portal market" => self.portal_market = None,
+            "announcements" => self.announcements = Vec::new(),
+            "searches" => self.searches = Vec::new(),
+            _ => {}
+        }
+    }
+
     /// A program as the match engine sees it today (trial tooling only).
     #[cfg(feature = "debug")]
     pub fn debug_game_team(&self, prog: usize) -> Option<crate::game::GameTeam> {
@@ -1064,95 +1213,97 @@ impl World {
         }
         let first_id = self.next_person;
         self.next_person += kids.len() as u32;
+        let seed_world = self.options.seed;
         let schools = &self.high_schools;
         let states = &self.states;
-        let new: Vec<Person> = kids
-            .par_iter()
-            .enumerate()
-            .map(|(k, &(s, hs, seed))| {
-                let mut rng = Rng::new(seed);
-                let culture = states[s].culture;
-                let z = rng.normal(culture, 1.0);
-                let mut player = generate_prospect(
-                    &mut rng,
-                    ProspectOptions {
-                        id: Some(first_id + k as u32),
-                        talent_z: Some(z),
-                        age: Some(age),
-                        ..Default::default()
-                    },
-                );
-                let school = &schools[hs];
-                let (mut bg, structure) = generate_background(
-                    BackgroundSeed {
-                        area_money: school.area_money,
-                        area_safety: school.area_safety,
-                        school_resources: school.resources,
-                    },
-                    &mut rng,
-                );
-                let family = generate_family(&bg, Some(structure), &mut rng);
-                apply_background(&mut player, &mut bg, &family, &mut rng);
-                people::sync_new(&mut player, &bg, &family);
-                let ethnicity = ethnicity::player_ethnicity(s, z, &mut rng);
-                // Grades drift through high school: effort pushes them up.
-                let gpa_trend = rng.normal(0.0, 0.07)
-                    + 0.012 * (player.personality.work_ethic - 10.0)
-                    + 0.04 * (bg.home_stability - 0.5);
-                Person {
-                    name: names::person_name(ethnicity, year - age as i32, &mut rng),
-                    ethnicity,
-                    player,
-                    rng,
-                    bg,
-                    family,
-                    home_state: s,
-                    hs,
-                    stage: Stage::HighSchool,
-                    college: None,
-                    class_of: year + 18 - age as i32,
-                    stars: 0,
-                    camp_stars: 0,
-                    visibility: 0.0,
-                    college_seasons: 0,
-                    redshirt_used: false,
-                    sit_out: 0.0,
-                    steered: false,
-                    nil_income: 0.0,
-                    pending_dip: None,
-                    last_role: None,
-                    hs_lines: Vec::new(),
-                    last_snaps: 0,
-                    college_snaps: 0,
-                    last_performance: None,
-                    transfers: 0,
-                    juco: false,
-                    path: Vec::new(),
-                    on_notice: false,
-                    gpa_trend,
-                    gpa_at_signing: None,
-                    academic_redshirt: false,
-                    walk_on: false,
-                    transfer_from: None,
-                    college_staff: Vec::new(),
-                    incident: false,
-                    notes: Vec::new(),
-                    stay_home: 0.0,
-                    childhood_team: None,
-                    cal: PersonCal::default(),
-                    pro: None,
-                    mood: 0.0,
-                    mood_why: 0,
-                    trust: 0.6,
-                    trust_in: u32::MAX,
-                }
-            })
-            .collect();
         let start = self.people.len();
         // Grow by exactly the class (section 8, memory): doubling a list of
-        // 850,000 people reserved room for two million.
-        self.people.reserve_exact(new.len());
-        self.people.extend(new);
+        // 850,000 people reserved room for two million. The class is built
+        // straight into that room, in order, not in a list of its own first
+        // (final build: 0.45 GB less at the peak of the summer).
+        self.people.reserve_exact(kids.len());
+        self.people.par_extend(kids.par_iter().enumerate().map(|(k, &(s, hs, seed))| {
+            let mut rng = Rng::new(seed);
+            let culture = states[s].culture;
+            let z = rng.normal(culture, 1.0);
+            let id = first_id + k as u32;
+            // His birthday, and whether he is a year older or younger
+            // than his class (A1, A2): keyed, so no draw moves.
+            let (born, years) = crate::calendar::born::schoolboy(born_key(seed_world, id), age, year);
+            let age = (age as i32 + years).max(13) as u32;
+            let mut player = generate_prospect(
+                &mut rng,
+                ProspectOptions { id: Some(id), talent_z: Some(z), age: Some(age), ..Default::default() },
+            );
+            let school = &schools[hs];
+            let (mut bg, structure) = generate_background(
+                BackgroundSeed {
+                    area_money: school.area_money,
+                    area_safety: school.area_safety,
+                    school_resources: school.resources,
+                },
+                &mut rng,
+            );
+            let family = generate_family(&bg, Some(structure), &mut rng);
+            apply_background(&mut player, &mut bg, &family, &mut rng);
+            people::sync_new(&mut player, &bg, &family);
+            let ethnicity = ethnicity::player_ethnicity(s, z, &mut rng);
+            // Grades drift through high school: effort pushes them up.
+            let gpa_trend = rng.normal(0.0, 0.07)
+                + 0.012 * (player.personality.work_ethic - 10.0)
+                + 0.04 * (bg.home_stability - 0.5);
+            Person {
+                name: names::person_name(ethnicity, year - age as i32, &mut rng),
+                ethnicity,
+                player,
+                rng,
+                bg,
+                family,
+                home_state: s,
+                hs,
+                stage: Stage::HighSchool,
+                college: None,
+                class_of: year + 18 - age as i32 + years,
+                born,
+                followers: 0,
+                brand: 0.0,
+                stars: 0,
+                camp_stars: 0,
+                visibility: 0.0,
+                college_seasons: 0,
+                redshirt_used: false,
+                sit_out: 0.0,
+                steered: false,
+                nil_income: 0.0,
+                pending_dip: None,
+                last_role: None,
+                hs_lines: Vec::new(),
+                last_snaps: 0,
+                college_snaps: 0,
+                last_performance: None,
+                transfers: 0,
+                juco: false,
+                path: Vec::new(),
+                on_notice: false,
+                gpa_trend,
+                gpa_at_signing: None,
+                academic_redshirt: false,
+                walk_on: false,
+                transfer_from: None,
+                college_staff: Vec::new(),
+                incident: false,
+                notes: Vec::new(),
+                stay_home: 0.0,
+                childhood_team: None,
+                cal: PersonCal::default(),
+                pro: None,
+                mood: 0.0,
+                mood_why: 0,
+                trust: 0.6,
+                trust_in: u32::MAX,
+                roads: eligibility::Roads::default(),
+            }
+        }));
         self.draw_home_ties(start);
         self.place_new_class(start);
     }
@@ -1307,7 +1458,7 @@ impl World {
             .map(|p| {
                 let stays = matches!(
                     p.stage,
-                    Stage::HighSchool | Stage::College | Stage::PrepSchool | Stage::Declared | Stage::Pro
+                    Stage::HighSchool | Stage::College | Stage::PrepSchool | Stage::Declared | Stage::Pro | Stage::Away
                 );
                 stays.then(|| {
                     next += 1;

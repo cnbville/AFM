@@ -202,11 +202,18 @@ fn seat_part(w: &World) -> Value {
         .map(|x| format!("{}, {}", x["text"].as_str().unwrap_or(""), x["date"].as_str().unwrap_or("")));
     json!({
         "team": views::team_brief(w, t),
-        "role": if matches!(t, TeamRef::Nfl(_)) { "Head coach and GM" } else { "Head coach" },
+        // An assistant's card names his job (lane 10).
+        "role": match afm_engine::world::front_office::market::your_job(w) {
+            Some(j) if j.role != afm_engine::world::coach::Role::HeadCoach => {
+                afm_engine::world::front_office::market::role_title(j.role)
+            }
+            _ if matches!(t, TeamRef::Nfl(_)) => "Head coach and GM".to_string(),
+            _ => "Head coach".to_string(),
+        },
         "line": views::team_line(w, t),
         "record": if note == "this season" { record } else { format!("{record} {note}") },
         "next": next,
-        "coach": format!("{}, {}", c.you.name, coach.map_or(c.you.age, |k| k.age)),
+        "coach": format!("{}, {}", c.you.name, coach.map_or(c.you.age_on(w.today), |k| k.age_on(w.today))),
         "date": views::date_text(w.today),
         "road": c.you.road,
     })

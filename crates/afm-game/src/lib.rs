@@ -21,6 +21,7 @@ pub mod lane_scouting;
 pub mod lane_stories;
 pub mod lane_training;
 pub mod lane_views;
+pub mod memory;
 pub mod reads;
 pub mod setup;
 pub mod views;
@@ -74,12 +75,25 @@ impl Game {
                 let years = num("history_years").unwrap_or(30) as u32;
                 let scale = args.get("scale").and_then(Value::as_f64).unwrap_or(1.0);
                 let engine_from = num("engine_from").map(|y| y as i32);
+                // Fictional names (lane 10): colleges, conferences and NFL nicknames; towns stay real.
+                let fictional = args.get("names").and_then(Value::as_str) == Some("fictional");
+                let d = WorldOptions::default();
+                // How many history seasons play high school on the engine
+                // (quick checks pass 0; live seasons always do).
+                let hs_engine_years = num("hs_engine_years").map_or(d.hs_engine_years, |n| Some(n as u32));
                 self.world = Some(World::new(WorldOptions {
                     seed,
                     history_years: years,
                     scale,
                     engine_from,
-                    ..Default::default()
+                    names: if fictional {
+                        afm_engine::world::names::NameMode::Fictional
+                    } else {
+                        afm_engine::world::names::NameMode::Real
+                    },
+                    fictional_league: fictional,
+                    hs_engine_years,
+                    ..d
                 }));
                 self.save_path = None;
                 Ok(json!({ "built": true }))
@@ -89,7 +103,9 @@ impl Game {
                 let seed = num("seed").unwrap_or(2026) as u32;
                 let years = num("history_years").unwrap_or(30).clamp(1, 60) as u32;
                 let scale = args.get("scale").and_then(Value::as_f64).unwrap_or(1.0);
-                Ok(json!({ "name": jobs::build(&self.job, &self.home.join("worlds"), seed, years, scale)? }))
+                let fictional = args.get("names").and_then(Value::as_str) == Some("fictional");
+                let worlds = self.home.join("worlds");
+                Ok(json!({ "name": jobs::build_named(&self.job, &worlds, seed, years, scale, fictional)? }))
             }
             "online_worlds" => jobs::online(&self.home.join("worlds")),
             "download_world" => {
@@ -109,6 +125,8 @@ impl Game {
                 let path = args.get("path").and_then(Value::as_str).ok_or("Missing path.")?;
                 self.world = Some(setup::read(path)?);
                 self.save_path = (cmd == "load").then(|| PathBuf::from(path));
+                lane_core::after_days(self.wm()?);
+                memory::hand_back();
                 Ok(views::status(self.w()?))
             }
             "save" => {
@@ -131,6 +149,7 @@ impl Game {
             "start_career" => {
                 let w = self.wm()?;
                 setup::start(w, args)?;
+                lane_core::after_days(w);
                 Ok(views::status(w))
             }
             "status" => Ok(views::status(self.w()?)),
@@ -140,12 +159,15 @@ impl Game {
                 let w = self.wm()?;
                 let from = w.today;
                 let stopped = w.continue_until_needed(max);
+                lane_core::after_days(w);
+                memory::hand_back();
                 Ok(views::stopped(w, from, stopped))
             }
             "day" => {
                 let w = self.wm()?;
                 let from = w.today;
                 w.advance_day();
+                lane_core::after_days(w);
                 Ok(views::stopped(w, from, from))
             }
             "holiday" => {
@@ -153,6 +175,7 @@ impl Game {
                 let w = self.wm()?;
                 let from = w.today;
                 let stopped = w.holiday_to(from.add(days));
+                lane_core::after_days(w);
                 Ok(views::stopped(w, from, stopped))
             }
             "home" => Ok(views::home(self.w()?)),

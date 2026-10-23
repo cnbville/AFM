@@ -1,0 +1,176 @@
+# The line bank: boosters (people topic 5; format in src/world/folk/voice.rs).
+
+# A big booster's first meeting with you (college `booster`, high school
+# `booster hs`; at the NFL the owner's family, `kin nfl`). Facts: BASE.
+@key booster.greet
+{coach}. Glad to finally meet you. Sit down, sit down.
+So you're the one. Welcome to {town}.
+I told the AD you were my first choice. Don't make a liar out of me. ~ college !cold
+I've met every head coach this place has had since [the seventies|seventy-eight|the Carter administration]. You're the first one who came to my office instead of making me go to his. ~ old !nfl
+You probably know who I am. If you don't, you will. ~ ego
+Come in, come in. How's the family settling in? You find a house yet? ~ warm
+I've been at this a long time, Coach, so I'll skip the small talk. I like what I've heard. ~ old
+Coach, thanks for coming by. The boys have been talking about you all week. ~ hs
+Welcome to {town}, Coach. Everybody in town is going to want a piece of you. I wanted to get mine first. ~ hs
+My father speaks well of you. That doesn't happen often, so enjoy it. ~ kin
+Welcome to the family, {coach}. That's how we think of it around here, for better or worse. ~ kin
+I've sat in on more coaching searches than I'd like to admit. You were the one in the room who didn't oversell. ~ kin
+I'll be honest. You weren't my first pick. But you're the coach now, and I back the coach. ~ blunt !nfl
+Sit down. Can I get you something? Bourbon, water, a Coke? ~ south !nfl
+I had {old_last} in that same chair the week he got hired. Let's see if you last longer. ~ !nfl
+Coach! Great to have you. Everybody's buzzing about it. Everybody. ~ smooth
+Coach. Thanks for coming. ~ cold
+Welcome to Texas football, Coach. It's a little different down here. ~ texas !nfl
+Good to meet you, Coach. I've heard a lot. Some of it was even good.
+Come on in. Shut that door, would you?
+Coach. Have a seat. I've been looking forward to this. ~ !cold
+You look younger than you do on TV.
+
+@key booster.small
+I've had the same four seats on the fifty since [eighty-two|eighty-six|ninety-one]. My wife says I love them more than her. She's not wrong. ~ college !she
+Started the business out of my garage. Now we've got four hundred people on the payroll, and I still drive the same truck. ~ !nfl
+I went to school here on a partial scholarship. Everything I have, I owe to this place. ~ college
+I flew to every road game last year. Every one. ~ college
+My grandson plays a little linebacker at the high school. Nothing special, but he loves it. ~ old
+{old_last} was a good man. Couldn't win the big one, but a good man. ~ !nfl
+I haven't missed {rivalry} since I was nine years old. ~ !nfl
+We used to play in a stadium with bleachers you could fall through. Look at it now. ~ old !nfl
+My daughter married a kicker. I'm still not over it.
+I grew up in this building. Ball boy for three seasons. My father made me earn it. ~ kin !she
+Dad still watches every snap from the box. He'll call you after losses. Don't take it personally. ~ kin
+I played here in [eighty-eight|ninety-one|ninety-four]. Left guard. We lost the regional final on a fumble, and I still think about it. ~ hs !she
+We fed the team every Thursday night last year. Spaghetti, mostly. You wouldn't believe what those boys can eat. ~ hs
+The last coach never came by here. Not once. ~ !nfl
+Everybody in {town} is going to tell you they know more football than you do. Half of them will be me.
+I've got a place at the lake. You and your family are welcome anytime. ~ warm
+I sit on the board at the [hospital|bank|chamber of commerce]. If you need anything in this town, you call me before you call anybody else.
+This team has been in the family for [forty|fifty|sixty] years. We take that seriously, even when it doesn't look like it. ~ kin
+I've worked in every part of this building, from ticket sales to the cap office. I know where the money goes. ~ kin
+I don't usually get involved. Ask anybody. They'll laugh, but ask them.
+
+# His want, one by one. Facts: BASE, want (avoid), old_school.
+@key booster.want.rival
+I don't care what else happens. Beat {rival}.
+{series} all time. I'd like that number to look a lot better before they put me in the ground. ~ old
+You can lose a few others. Lose to {rival} and you'll hear about it at every gas station in the state. ~ college
+Every year that game decides who gets the kids in this state. Win it. ~ college
+The other games, I can be patient about. Not that one.
+{rivalry} is the only game people in this town still talk about in March.
+I've got friends over at {rival}. I'd like to stop hearing from them.
+Don't tell me you need three years to beat {rival}. Beat them this year. ~ impatient
+My father hated {rival}. I hate {rival}. My grandkids are learning. ~ old
+Beat {rival} and I'll be the first one in that locker room. Lose to them and I'll be the first one on the phone.
+You know how many people in this town work next to somebody from {rival}? The Monday after that game, half of them can't look each other in the eye. ~ hs
+I'll write a check for anything you need. Just win that one. ~ !tight
+
+@key booster.want.access
+I've stood on that sideline for twenty years. I'd like to keep doing it.
+When I call, I'd like a call back. Same day. That's all I ask.
+The last staff let me ride the team plane to road games. I'd hate for that to change. ~ college
+After a big win, I like to bring a couple of clients by the locker room. Nothing crazy. ~ college
+I'd like to know things before I read them online. ~ modern
+I've worked the chain gang on Friday nights for fifteen years. I'd like to keep my spot. ~ hs
+A seat in the coaches' box for home games. I won't say a word. I just like to listen. ~ college
+Have lunch with me once a month. That's it. I like to know what's going on.
+People in this town ask me how the team's doing. I'd like to have a real answer for them. ~ ego
+I don't need to be in the way. I need to be in the loop.
+Practice has always been open to me. I'd like it to stay that way. ~ meddler
+
+@key booster.want.hires
+When you hire your coordinators, I'd like to meet them first.
+I've got a guy. Coached at a couple of places in this conference. He'd be perfect on your staff. ~ college
+My nephew's been a GA for two years. He's ready. I'm just saying. ~ college
+I don't need a vote. I need a phone call before you announce anybody.
+I've already looked into a couple of the names going around for your staff. I've got opinions. ~ meddler
+The GM and I don't always see things the same way. When you build your staff, I'd like you to hear me out too. ~ kin
+My father trusts my read on people. Let me sit in on a couple of the coordinator interviews. ~ kin
+The JV job's open, right? My son-in-law teaches at the middle school. Good young man. ~ hs
+Keep the strength coach. The kids love him. Everybody loves him. ~ !nfl
+Hire somebody from around here. People here trust people from here. ~ !nfl
+I'm not going to tell you who to hire. I'll tell you who not to.
+
+@key booster.want.player
+There's a local kid I've watched since he was nine. He deserves a real look. ~ !nfl
+That kid from [out in the county|down the road|over on the east side]? Everybody's sleeping on him. Don't you. ~ !nfl
+I've got some thoughts on your quarterback situation. I'll keep them short. ~ !nfl
+The backup [running back|linebacker|receiver] should be playing. I know it, the fans know it.
+My [grandson|nephew|godson] is a heck of a [linebacker|safety|tight end]. Just watch his film. That's all I ask. ~ !nfl
+My father loves the kid from the third round. Find a way to get him on the field. ~ kin
+That veteran corner is done. Everybody upstairs can see it. I hope you can too. ~ kin
+My son worked his tail off all summer. I'm not asking for anything. I just want him seen. ~ hs
+Everybody in town knows the sophomore should be your quarterback. I'm just telling you what everybody knows. ~ hs
+We need more kids from this state on the roster. Our kids. ~ college
+Some of these transfers don't care about this place. Play the kids who grew up wanting to be here. ~ college modern
+Find a spot for a walk-on from {town}. You have no idea what that does for this town. ~ college
+The coordinator has the young receiver buried. I'd like to know why. ~ kin
+Play the young guys. People pay to see what's coming, not who we were last year.
+Everybody has a favorite. Mine isn't getting enough snaps, and I think you know who I mean.
+
+@key booster.want.nil
+My company wants players in its ads. That's real money, and it stays in the program. ~ nil
+The collective has money. What it needs is a coach who'll tell it where to spend it. ~ nil college
+I put [six|seven] figures into the collective last year. I want to know it's going to kids who stay. ~ nil college
+The portal's a market now. Tell me who you need and I'll make sure we're not outbid. ~ nil college
+I want our quarterback in a commercial for my company by August. Whoever he turns out to be. ~ nil college
+Everybody's paying players now. I'd rather we pay smart than pay loud. ~ nil
+There's money on the table, Coach. Point me at the kids and I'll take care of the rest. All above board. ~ nil
+The state lets the kids sign deals now. I'd like to put a couple of your seniors on a billboard out on the highway. ~ nil hs
+My shop could sponsor a few of the boys. Nothing big. Gas money and a picture in the window. ~ nil hs
+I don't want to fund a kid and watch him leave in December. Help me not do that. ~ nil college
+The collective's going to call you. When they do, I'd like a seat at that table. ~ nil college
+
+@key booster.want.clean
+Win, sure. But I won't read about this program in the police blotter. ~ !nfl
+We had an NCAA mess here [once|years ago]. I'm not living through another one. ~ college
+My name's on things around here. I won't have it next to a scandal. ~ !nfl
+I've got grandkids who wear this jersey to school. Give them something to be proud of. ~ old
+Run it right. I don't care how anybody else does it.
+My father cares how this team looks in the community more than people think. Don't make him regret this. ~ kin
+We had a bad offseason a few years back. Players in the news every week. I won't live through that again. ~ kin
+They're kids, Coach. I want them graduating, staying out of trouble and saying yes ma'am to their teachers. ~ hs
+I've seen what happens when somebody starts handing out cash in a parking lot. It never ends well. ~ college !nil
+Recruit the right kids. You can win with kids who go to class. ~ !nfl
+I'll be blunt. If you cheat, I'll be the first one calling for your head. ~ blunt
+Win however you want on the field. Off it, I'd like to never hear our name on the news. ~ nfl
+The league office has called this building more than I'd like over the years. I'd like that to stop. ~ kin
+I want to be proud of the people we put out there. That's all.
+
+@key booster.want.building
+The next building has a name on it. I'd like it to be mine.
+That indoor facility is twenty years old, and recruits notice. I'd like to fix that, and I'd like my name on the side when I do. ~ college
+Get us to a bowl and the money for a new football building gets a lot easier to raise. I'll chair the campaign. ~ college
+I've already talked to an architect. I just need a coach who'll tell the president it matters. ~ college
+My family's name is on the baseball stadium. Football should be next. ~ ego
+The weight room's an embarrassment. Show me plans and I'll write a check.
+Recruits tour our place and then they tour theirs. We need to win that tour. ~ college
+The field house has leaked for ten years. I'd like to build a new one, and I'd like it to say something on the front. ~ hs
+We're putting in turf. I've got half the money already. ~ hs
+When you're ready to talk facilities, come to me before you go to anybody else.
+
+@key booster.want.oldschool
+I went to {old_school}. Their best kids should hear from you before they hear from anybody else.
+{old_school} puts a real player out every year. You need to be the first offer he gets.
+The head coach at {old_school} is a friend of mine. Go see him. Stay for supper.
+Nobody from {old_school} has played here in [years|a decade|too long]. Fix that for me.
+We used to own this state. Every good kid within three hundred miles came here. I'd like that back.
+Recruit the state first. Then go wherever you want.
+When I played at {old_school}, a coach from here came to every game. That's how you got the good ones. ~ old
+Get in the high schools. Shake hands with the coaches. Eat in the cafeteria. The old way still works.
+There's a kid at {old_school} right now who'll be the best player in the state in two years. Don't let him get away.
+The fastest way to my checkbook runs through {old_school}.
+This state has more good players than people give it credit for, and too many of them are leaving. Stop that.
+Half the kids on {rival}'s two-deep grew up two hours from here. That eats at me.
+Recruit the kids whose fathers sat in these stands. It means something to them, and it means something to me.
+
+@key booster.want.winnow
+I'm not getting any younger. I want to see us win while I can still enjoy it.
+I've heard the two-year speech from three different coaches. I'm done hearing it. ~ impatient
+The money follows the wins. Always has.
+I'll get you whatever you need. But I need to see it on the field this fall.
+This town has waited long enough. Don't make it wait anymore. ~ !nfl
+My father is in his eighties. He'd like to see a Super Bowl before he goes. So would I. ~ kin
+We didn't hire you to rebuild. We hired you to play games in January. ~ kin
+Patience is for people with time. I don't have it. ~ impatient
+These seniors have waited four years. Give them a playoff run. ~ hs
+Don't talk to me about recruiting rankings. Talk to me about wins. ~ college
+I've buried a lot of friends who never saw us win it all. I'd like to see it. ~ old

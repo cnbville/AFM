@@ -193,8 +193,10 @@ pub struct Media {
     pub jerseys: Vec<(i16, bool, Vec<u32>)>,
     /// The video game's top-rated players each year: (year, title, id, rating).
     pub vg_top: Vec<(i16, String, u32, u8)>,
-    /// A pending offer to your club to be on the documentary (season, show).
+    /// An offer to your team to be on a documentary (season, show), and
+    /// your answer once given.
     pub doc_offer: Option<(i16, String)>,
+    pub doc_answer: Option<bool>,
     /// This season's video game ratings by player id (set each August).
     pub ratings: HashMap<u32, u8>,
 }
@@ -573,14 +575,48 @@ fn other_docs(w: &World, year: i32) -> Vec<(String, TeamKey, String)> {
 fn documentaries(w: &mut World, d: Date) {
     let year = w.year;
     let seed = w.options.seed;
+    // May 15: a series that wants your team asks first (from 2026; a club
+    // the league orders to do it has no say).
+    if d.month() == 5 && d.day() == 15 && year > 2025 && w.stories.once(21, year) {
+        offer_doc(w, year);
+    }
     if d.month() == 6 && d.day() == 1 && w.stories.once(20, year) {
         let mut picks: Vec<(String, TeamKey, String)> = Vec::new();
-        if year >= 2001 {
-            if let Some((t, how)) = hard_knocks(w, year) {
-                picks.push(("Hard Knocks".into(), TeamKey::Nfl(t as u16), how));
+        let me = super::seat_team(w);
+        // Your answer, or the owner's call when you gave none.
+        let offer = w.stories.media.doc_offer.clone().filter(|o| o.0 as i32 == year);
+        let said = offer.as_ref().map(|_| {
+            w.stories.media.doc_answer.unwrap_or_else(|| me.is_some_and(|t| key(year as u64, team_code(t) ^ 0x0FFE) < 0.5))
+        });
+        if let (Some((_, show)), Some(yes), Some(t)) = (&offer, said, me) {
+            if yes {
+                picks.push((show.clone(), t, "volunteered".into()));
+            } else {
+                let f = team_fill(w, t, Fill::new()).set("show", show.clone());
+                if let Some(text) = w.stories.line(seed, "doc.declined", &f, year) {
+                    let e = news(w, t.level(), Loudness::Medium, Some(t), text);
+                    post(w, e);
+                }
             }
         }
-        picks.extend(other_docs(w, year));
+        let taken_nfl = picks.iter().any(|p| matches!(p.1, TeamKey::Nfl(_)));
+        if year >= 2001 && !taken_nfl {
+            if let Some((t, how)) = hard_knocks(w, year) {
+                // A club that said no is only on the show if the league orders it.
+                let declined = said == Some(false) && me == Some(TeamKey::Nfl(t as u16));
+                if !declined || how == "forced" {
+                    picks.push(("Hard Knocks".into(), TeamKey::Nfl(t as u16), how));
+                }
+            }
+        }
+        for o in other_docs(w, year) {
+            let declined = said == Some(false) && me == Some(o.1);
+            if !declined && !picks.iter().any(|p| p.1 == o.1) {
+                picks.push(o);
+            }
+        }
+        w.stories.media.doc_offer = None;
+        w.stories.media.doc_answer = None;
         for (show, t, how) in picks {
             let f = team_fill(w, t, Fill::new()).set("show", show.clone());
             let k = if how == "forced" { "doc.forced" } else { "doc.announce" };
@@ -676,6 +712,63 @@ fn documentaries(w: &mut World, d: Date) {
             super::story::memento(w, super::story::MementoKind::Photo, format!("{} season, {year}", doc.show));
         }
     }
+}
+
+fn team_code(t: TeamKey) -> u64 {
+    match t {
+        TeamKey::Hs(h) => h as u64,
+        TeamKey::College(p) => 1 << 20 | p as u64,
+        TeamKey::Nfl(n) => 2 << 20 | n as u64,
+    }
+}
+
+/// The ask: Hard Knocks for an NFL club that would volunteer (a club the
+/// league would order on gets no ask), the college streaming series for a
+/// program it picked.
+fn offer_doc(w: &mut World, year: i32) {
+    let Some(me) = super::seat_team(w) else { return };
+    let show = match me {
+        TeamKey::Nfl(t) => {
+            let shown = w.stories.media.docs.iter().any(|d| d.show == "Hard Knocks" && d.team == me && d.year as i32 >= year - 10);
+            let pull = key(t as u64, year as u64 ^ 0xA5C) * (1.3 - market_rank(w, t as usize) as f64 / 40.0);
+            if shown || pull < 0.55 {
+                return;
+            }
+            "Hard Knocks".to_string()
+        }
+        TeamKey::College(p) => {
+            let picked = other_docs(w, year).into_iter().find(|o| o.1 == me);
+            let Some((show, _, _)) = picked else {
+                let _ = p;
+                return;
+            };
+            show
+        }
+        TeamKey::Hs(_) => return,
+    };
+    let name = super::team_name(w, me);
+    let who = if matches!(me, TeamKey::Nfl(_)) { "NFL Films" } else { "The streaming service" };
+    let text = format!(
+        "{who} wants {name} for {show} this summer: cameras in meetings, the locker room and your office from camp on. The answer is due by June 1; with none, the owner decides."
+    );
+    let e = news(w, me.level(), Loudness::Big, Some(me), text).decision().rule(super::ASK_RULE);
+    post(w, e);
+    w.stories.media.doc_offer = Some((year as i16, show));
+    w.stories.media.doc_answer = None;
+}
+
+/// Your answer to a documentary's ask.
+pub fn answer_doc(w: &mut World, yes: bool) -> Result<String, String> {
+    let Some((year, show)) = w.stories.media.doc_offer.clone() else { return Err("No series is asking.".into()) };
+    if year as i32 != w.year {
+        return Err("That ask has passed.".into());
+    }
+    w.stories.media.doc_answer = Some(yes);
+    Ok(if yes {
+        format!("You said yes to {show}. The crew arrives with camp; the first episode airs in August.")
+    } else {
+        format!("You said no to {show}. The series will look elsewhere.")
+    })
 }
 
 /// The tone of your words on camera: fiery for a demanding motivator,

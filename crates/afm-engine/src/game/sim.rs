@@ -227,6 +227,16 @@ pub struct Agent {
     /// him: he can't square that man up again before then.
     pub beat_by: Option<usize>,
     pub recover_at: f64,
+    /// His top speed before the situation (Dynamic Links: Burner adds to
+    /// it on deep routes, breakaways, returns and pursuit).
+    #[serde(default)]
+    pub vmax0: f64,
+    /// Burner's top-speed gain when it applies (a share of top speed) and
+    /// Bend's tighter turn at speed (0-1 of a full link).
+    #[serde(default)]
+    pub burner: f64,
+    #[serde(default)]
+    pub bend: f64,
 }
 
 impl Agent {
@@ -246,6 +256,10 @@ impl Agent {
             r[i] = clamp(v * fat + edge, 1.0, 99.0);
         }
         let vmax = gp.top_speed() * (1.0 - 0.08 * tired);
+        use crate::links::Link;
+        // Sudden (Dynamic Links): changing direction without slowing, five
+        // agility points' worth of cut (0.004 a point above 60).
+        let cut = gp.cut() + 0.02 * gp.links.share(&[Link::Sudden]);
         Agent {
             side,
             p,
@@ -257,7 +271,7 @@ impl Agent {
             vmax,
             accel: gp.accel() * (1.0 - 0.1 * tired),
             tau: gp.sprint_tau() * (1.0 + 0.1 * tired),
-            cut: gp.cut(),
+            cut,
             mass: gp.weight,
             job: Job::Idle,
             down_until: -1.0,
@@ -279,6 +293,9 @@ impl Agent {
             tired,
             beat_by: None,
             recover_at: 0.0,
+            vmax0: vmax,
+            burner: BURNER * gp.links.share(&[Link::Burner]),
+            bend: gp.links.share(&[Link::Bend]),
         }
     }
     /// How hard he can stop, yards per second squared: his grip and his
@@ -319,6 +336,9 @@ impl Agent {
             tired: self.tired,
             beat_by: self.beat_by,
             recover_at: self.recover_at,
+            vmax0: self.vmax0,
+            burner: self.burner,
+            bend: self.bend,
         }
     }
 
@@ -346,7 +366,9 @@ impl Agent {
         let down = a.brake() * DT;
         let par_c = par.clamp(-down, up);
         let pl = perp.len();
-        let side = a.accel * a.cut * DT * (1.0 + 0.25 * (1.0 - speed / a.vmax));
+        // Bend (Dynamic Links): a tight turn at speed, where a cut loses
+        // the most.
+        let side = a.accel * a.cut * DT * (1.0 + 0.25 * (1.0 - speed / a.vmax) + 0.04 * a.bend * speed / a.vmax);
         let perp_c = if pl > side { perp.scale(side / pl) } else { perp };
         a.vel = v + dir.scale(par_c) + perp_c;
         let s = a.vel.len();
@@ -697,6 +719,10 @@ pub struct Sim<'a> {
     /// The defense plays a two-gap front (a 3-4): its interior linemen
     /// read the block before they pick a gap (S9).
     pub two_gap: bool,
+    /// The rusher the protection slides to (A8), and a back or tight end
+    /// chipping him before his route, as agent indexes.
+    pub help_on: Option<usize>,
+    pub chip: Option<(usize, usize)>,
     /// On a designed run: Some(true) for a gap scheme (down blocks and a
     /// puller), Some(false) for a zone scheme, None otherwise.
     pub gap_run: Option<bool>,
@@ -729,6 +755,11 @@ pub const OPEN_REACH: f64 = 2.5;
 /// (proposed, not confirmed).
 const SILENT_COUNT: f64 = 24.0;
 
+/// Burner (Dynamic Links): a full link's top-speed gain where it applies,
+/// as five speed points take about 0.047 s off a forty (1.25% of top
+/// speed).
+pub const BURNER: f64 = 0.0125;
+
 /// Print plays as they run (debug tooling only).
 pub static TRACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
@@ -742,6 +773,13 @@ impl<'a> Sim<'a> {
     pub fn player(&self, i: usize) -> &GamePlayer {
         let a = &self.agents[i];
         &self.teams[a.side][a.p]
+    }
+
+    /// Agent `i`'s Dynamic Links edge in a situation the given links act
+    /// in, in rating points (a full link is five; stacked by `Links::edge`).
+    #[inline]
+    pub fn link(&self, i: usize, links: &[crate::links::Link]) -> f64 {
+        self.player(i).links.edge(links)
     }
 
     /// Agent `i`'s tendency this snap (tendencies topics 3.7, 3.8, 4.3): an
@@ -799,6 +837,43 @@ impl<'a> Sim<'a> {
         match self.ball {
             Ball::Held(i) => Some(i),
             _ => None,
+        }
+    }
+
+    /// Burner (Dynamic Links) where it acts, each tick: the carrier past
+    /// the line (breakaways and returns), a receiver on the deep part of
+    /// his route or running under a long ball, and a defender chasing from
+    /// behind (a beaten man's recovery and pursuit). Everywhere else he
+    /// runs at his own top speed.
+    pub fn link_speeds(&mut self) {
+        let carrier = self.carrier();
+        let goal = self.goal;
+        let los = self.los;
+        for i in 0..self.agents.len() {
+            let a = &self.agents[i];
+            if a.burner <= 0.0 {
+                continue;
+            }
+            let down = (a.pos.x - los) * if a.side == 0 { goal } else { -goal };
+            let on = match carrier {
+                Some(c) if c == i => down > 2.0 || a.side == self.carrier_side && a.label == "KR",
+                Some(c) if self.agents[c].side != a.side => {
+                    // Behind the runner, chasing him toward the goal.
+                    let cs = if self.agents[c].side == 0 { goal } else { -goal };
+                    (self.agents[c].pos.x - a.pos.x) * cs > 1.0
+                }
+                _ => match &a.job {
+                    Job::Route { .. } => down > 9.0,
+                    Job::Man { target, .. } => {
+                        let r = &self.agents[*target];
+                        let ahead = (r.pos.x - a.pos.x) * if r.side == 0 { goal } else { -goal };
+                        ahead > 0.5 && (r.pos.x - los).abs() > 9.0
+                    }
+                    _ => matches!(self.ball, Ball::Air { target: Some(tg), .. } if tg == i) && down > 9.0,
+                },
+            };
+            let vm = a.vmax0 * if on { 1.0 + a.burner } else { 1.0 };
+            self.agents[i].vmax = vm;
         }
     }
 
@@ -982,8 +1057,11 @@ impl<'a> Sim<'a> {
         let (ba, da) = (&self.agents[b], &self.agents[d]);
         // Getting hands on a man in space is its own skill (climbing to a
         // linebacker, a screen, a return wall).
-        let skill = 0.5 * ba.a(Attr::BlockingInSpace) + 0.5 * ba.a(Attr::Agility);
-        let slip = 0.5 * da.a(Attr::Agility) + 0.5 * da.a(Attr::BlockShedding);
+        // Dynamic Links: Big man who moves gets to the second level and
+        // pulls; a Sudden man slips the hands in space.
+        use crate::links::Link;
+        let skill = 0.5 * ba.a(Attr::BlockingInSpace) + 0.5 * ba.a(Attr::Agility) + self.link(b, &[Link::BigMover]);
+        let slip = 0.5 * da.a(Attr::Agility) + 0.5 * da.a(Attr::BlockShedding) + self.link(d, &[Link::Sudden]);
         // A defender running straight at him is easy to get hands on; one
         // crossing his face is not. Only the speed across counts.
         let u = if ba.vel.len() > 1.0 { ba.vel.norm() } else { (da.pos - ba.pos).norm() };
@@ -1024,13 +1102,20 @@ impl<'a> Sim<'a> {
         // knows the count.
         // Times the snap (tendencies): a man who guesses the count gets off
         // sooner on the snaps he guesses right (offside is the cost).
-        let get_off =
-            de.a(Attr::Acceleration) * 0.6 + de.a(Attr::Anticipation) * 0.4 + 12.0 * self.lean(d, Tend::SnapTiming);
+        // Dynamic Links: Get-off is the first step itself; Length lands the
+        // first hands (on both sides, the longer man's punch lands first).
+        use crate::links::Link;
+        let get_off = de.a(Attr::Acceleration) * 0.6
+            + de.a(Attr::Anticipation) * 0.4
+            + 12.0 * self.lean(d, Tend::SnapTiming)
+            + self.link(d, &[Link::GetOff])
+            + self.link(d, &[Link::Length]);
         let set = if pass {
             bl.a(Attr::PassBlocking) * 0.5 + bl.a(Attr::Agility) * 0.3 + bl.a(Attr::FootballIq) * 0.2
         } else {
             bl.a(Attr::RunBlocking) * 0.5 + bl.a(Attr::Acceleration) * 0.3 + bl.a(Attr::Strength) * 0.2
-        };
+        } + self.link(b, &[Link::GetOff])
+            + self.link(b, &[Link::Length]);
         // Silent count (trial 4 topic 3): a road line in a loud stadium
         // snaps on a visual cue, a beat late, and the defense times it.
         // A focused lineman reacts to the snap cue sooner.
@@ -1115,7 +1200,16 @@ impl<'a> Sim<'a> {
         let edge = matches!(a.job, Job::Rush { contain, .. } if contain != 0.0);
         let arc = if edge { 10.0 * self.lean(d, Tend::Upfield) } else { 0.0 };
         let hands = 2.5 * self.lean(d, Tend::HandsUp);
+        // Dynamic Links in the rush: Bend around the corner, Anchor's mass
+        // behind the bull rush, Big man who moves on the quick moves inside.
+        use crate::links::Link;
+        let gift = match mv {
+            Move::Speed => self.link(d, &[Link::Bend]),
+            Move::Power => self.link(d, &[Link::Anchor, Link::BatteringRam]),
+            Move::Finesse => self.link(d, &[Link::BigMover, Link::Sudden]),
+        };
         arc - hands
+            + gift
             + match mv {
                 Move::Speed => {
                     0.4 * a.a(Attr::FinesseRush)
@@ -1142,6 +1236,25 @@ impl<'a> Sim<'a> {
     }
 
     fn block_power(&self, b: usize, mv: Move, pass: bool) -> f64 {
+        self.block_base(b, mv, pass) + self.block_gift(b, mv, pass)
+    }
+
+    /// Dynamic Links in a block: Big man who moves in pass sets against
+    /// speed and in space, Anchor against power, Low center of gravity's
+    /// leverage in the run game.
+    fn block_gift(&self, b: usize, mv: Move, pass: bool) -> f64 {
+        use crate::links::Link;
+        if !pass {
+            return self.link(b, &[Link::LowCenter, Link::Anchor]);
+        }
+        match mv {
+            Move::Speed => self.link(b, &[Link::BigMover]),
+            Move::Power => self.link(b, &[Link::Anchor]),
+            Move::Finesse => self.link(b, &[Link::BigMover, Link::Length]),
+        }
+    }
+
+    fn block_base(&self, b: usize, mv: Move, pass: bool) -> f64 {
         let a = &self.agents[b];
         // How strong he plays: raw strength with his hands, balance and
         // mass, not the bench press alone.
@@ -1189,7 +1302,13 @@ impl<'a> Sim<'a> {
     /// strength, balance and mass, on the rating scale.
     fn anchor(&self, d: usize) -> f64 {
         let a = &self.agents[d];
-        0.6 * a.a(Attr::Anchor) + 0.2 * a.a(Attr::Strength) + 0.2 * a.a(Attr::Balance) + (a.mass - 300.0) * 0.08
+        // Anchor holds the double team; Big man who moves splits it.
+        use crate::links::Link;
+        0.6 * a.a(Attr::Anchor)
+            + 0.2 * a.a(Attr::Strength)
+            + 0.2 * a.a(Attr::Balance)
+            + (a.mass - 300.0) * 0.08
+            + self.link(d, &[Link::Anchor, Link::BigMover])
     }
 
     /// One tick of every block. Pass blocks drift toward the quarterback as
@@ -1706,7 +1825,12 @@ impl<'a> Sim<'a> {
             let free_reach = if d.engaged.is_none() && in_space { self.open_reach } else { 1.6 };
             // A sure tackler wraps from farther (wrap range and dives).
             let wrap = if free_reach > 1.6 { clamp(0.01 * (d.a(Attr::Tackling) - 60.0), -0.4, 0.4) } else { 0.0 };
-            let reach = free_reach + wrap + 0.03 * (self.player(i).arm - 32.0);
+            // Length (Dynamic Links): the long arms add tackling reach, about
+            // what five tackling points' wrap range gives.
+            let reach = free_reach
+                + wrap
+                + 0.03 * (self.player(i).arm - 32.0)
+                + 0.05 * self.player(i).links.share(&[crate::links::Link::Length]);
             // Closest approach over the last tick, so fast players can't
             // pass through each other between two samples.
             let rel = d.pos - self.agents[c].pos;
@@ -1763,8 +1887,17 @@ impl<'a> Sim<'a> {
         let closing = (d.vel - r.vel).len();
         let head_on = r.vel.norm().dot((d.pos - r.pos).norm());
         // Whiff: the runner's move against the tackler's technique.
-        let evade = 0.5 * r.a(Attr::Elusiveness) + 0.3 * r.a(Attr::Agility) + 0.2 * r.a(Attr::Speed);
-        let tackle = 0.6 * d.a(Attr::Tackling) + 0.2 * d.a(Attr::Agility) + 0.2 * d.a(Attr::Pursuit);
+        // Dynamic Links: Sudden makes the first man miss; a Sudden tackler
+        // mirrors the cut.
+        use crate::links::Link;
+        let evade = 0.5 * r.a(Attr::Elusiveness)
+            + 0.3 * r.a(Attr::Agility)
+            + 0.2 * r.a(Attr::Speed)
+            + self.link(c, &[Link::Sudden]);
+        let tackle = 0.6 * d.a(Attr::Tackling)
+            + 0.2 * d.a(Attr::Agility)
+            + 0.2 * d.a(Attr::Pursuit)
+            + self.link(i, &[Link::Sudden]);
         // Out of control when arriving too fast, behind when chasing.
         let angle = if head_on > 0.5 {
             -0.3
@@ -1796,8 +1929,9 @@ impl<'a> Sim<'a> {
             // A dive at his legs from the side or behind can still trip
             // him up or knock him off stride.
             // Balance keeps him on stride.
-            let trip =
-                if head_on < 0.3 { 0.72 } else { 0.88 } + clamp(0.002 * (r.a(Attr::Balance) - 60.0), -0.08, 0.08);
+            // Low center of gravity keeps him up through it.
+            let bal = r.a(Attr::Balance) + self.link(c, &[Link::LowCenter]);
+            let trip = if head_on < 0.3 { 0.72 } else { 0.88 } + clamp(0.002 * (bal - 60.0), -0.08, 0.08);
             self.agents[c].vel = self.agents[c].vel.scale(trip.min(0.96));
             return;
         }
@@ -1807,8 +1941,14 @@ impl<'a> Sim<'a> {
         // A blocked man's arm usually only grabs at a runner going full
         // speed: it slows him, but he runs through it.
         // His balance against the tackler's will to finish the hit.
+        // Low center of gravity and Battering ram run through the arm.
+        let gift = if r.vel.len() > 4.0 {
+            self.link(c, &[Link::LowCenter, Link::BatteringRam])
+        } else {
+            self.link(c, &[Link::LowCenter])
+        };
         let through = 0.6
-            * clamp(1.0 + 0.008 * (r.a(Attr::Balance) - 60.0), 0.75, 1.25)
+            * clamp(1.0 + 0.008 * (r.a(Attr::Balance) + gift - 60.0), 0.75, 1.25)
             * clamp(1.0 - 0.025 * (self.trait20(i, Attr::Physicality) - 10.0), 0.8, 1.2);
         if arm_only && r.vel.len() > 3.0 && self.rng.chance(through.min(0.9)) {
             self.agents[c].vel = self.agents[c].vel.scale(0.6);
@@ -1849,6 +1989,10 @@ impl<'a> Sim<'a> {
             self.fumble(c);
             return;
         }
+        // Battering ram wears a defense down: the man who takes him on
+        // feels it on the next snaps.
+        let ram = self.link(c, &[crate::links::Link::BatteringRam]);
+        self.agents[i].work += 2.0 * ram * share;
         // A runner who seeks contact takes more of it.
         self.injury_check(c, force, (1.0 + 0.4 * self.lean(c, Tend::Contact)).max(0.2));
         self.injury_check(i, force, 0.7);
@@ -1859,8 +2003,16 @@ impl<'a> Sim<'a> {
         // Taking hits wears a runner down.
         self.agents[c].work += DT * 30.0;
         let r = self.agents[c].clone();
+        // Dynamic Links: Low center of gravity stays up through contact
+        // (five balance points); Battering ram's mass at speed keeps the
+        // legs going (five strength points).
+        use crate::links::Link;
+        let low = self.link(c, &[Link::LowCenter]);
+        let ram = self.link(c, &[Link::BatteringRam]);
         // Pad level and leg drive keep him going; balance keeps him up.
         let resist = 1.0
+            + 0.003 * low
+            + 0.003 * ram
             + 0.003 * (r.a(Attr::Strength) - 60.0)
             + 0.005 * (r.a(Attr::LegDrive) - 60.0)
             + 0.003 * (r.a(Attr::Balance) - 60.0)
@@ -1872,8 +2024,9 @@ impl<'a> Sim<'a> {
         let mut hold = 0.0;
         for &i in &self.fight {
             let d = &self.agents[i];
+            // The thumper (Battering ram on defense): five tackling points.
             let f = 1.0
-                + 0.03 * (d.a(Attr::Tackling) - 60.0)
+                + 0.03 * (d.a(Attr::Tackling) + self.link(i, &[Link::BatteringRam]) - 60.0)
                 + 0.012 * (d.a(Attr::Strength) - 60.0)
                 + 0.01 * (self.trait20(i, Attr::Competitiveness) - 10.0)
                 - 0.12 * self.lean(i, Tend::Strip)
@@ -1887,8 +2040,14 @@ impl<'a> Sim<'a> {
         if n == 1 && t - self.fight_since > 0.15 {
             let i = self.fight[0];
             let d = &self.agents[i];
-            let tk = 0.6 * d.a(Attr::Tackling) + 0.4 * d.a(Attr::Strength) + (d.mass - 215.0) * 0.08;
-            let rb = 0.5 * r.a(Attr::Strength) + 0.5 * r.a(Attr::Elusiveness) + (r.mass - 215.0) * 0.08;
+            let tk = 0.6 * d.a(Attr::Tackling)
+                + 0.4 * d.a(Attr::Strength)
+                + (d.mass - 215.0) * 0.08
+                + self.link(i, &[Link::BatteringRam, Link::Length]);
+            let rb = 0.5 * r.a(Attr::Strength)
+                + 0.5 * r.a(Attr::Elusiveness)
+                + (r.mass - 215.0) * 0.08
+                + self.link(c, &[Link::BatteringRam, Link::LowCenter]);
             let p_break = 0.026 * (1.0 + (rb - tk) / 60.0).max(0.05);
             if self.rng.chance(p_break) {
                 if TRACE.load(std::sync::atomic::Ordering::Relaxed) {

@@ -14,6 +14,8 @@ use super::{Stage, World, names};
 use crate::player::PlayingTime;
 use crate::rng::{Rng, clamp};
 
+use super::front_office::{market, school};
+
 fn tier_of(d: Division) -> CoachTier {
     match d {
         Division::FBS => CoachTier::Fbs,
@@ -22,11 +24,17 @@ fn tier_of(d: Division) -> CoachTier {
     }
 }
 
+/// The key a coach's birthday is drawn from (keyed, no stream consumed).
+pub(crate) fn coach_born_key(seed: u32, id: usize) -> u64 {
+    super::born_key(seed, id as u32) ^ 0x0C0A_C400
+}
+
 fn new_coach(w: &mut World, tier: CoachTier, age: u32, pool: CoachPool) -> usize {
     let id = w.coaches.len();
     let ethnicity = coach_ethnicity(pool, w.year, &mut w.rng);
     let name = names::person_name(ethnicity, w.year - age as i32, &mut w.rng);
     let mut c = generate_coach(id, name, ethnicity, tier, age, &mut w.rng);
+    c.born = crate::calendar::born::birth_date(coach_born_key(w.options.seed, id), age, w.year);
     // Sportsmanship from a keyed draw, so the world's own stream is untouched
     // (spread like the other personality traits; proposed, not confirmed).
     c.sportsmanship =
@@ -60,7 +68,7 @@ fn nfl_slot(team: &crate::league::Team, role: Role) -> Option<usize> {
     }
 }
 
-fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) {
+pub(crate) fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) {
     let year = w.year;
     if w.coaches[coach].home_state.is_none() {
         // His family roots (11.13): most coaches start out near home
@@ -138,6 +146,12 @@ fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) {
     {
         w.coaches[coach].mentor = Some(hc);
     }
+    // Your seat follows your job; anyone else's hire may be news to you.
+    if market::is_you(w, coach) {
+        market::hired(w, employer, role);
+    } else {
+        market::someone_hired(w, coach, employer, role);
+    }
 }
 
 /// Ends a coach's current job and records the stint.
@@ -191,6 +205,9 @@ pub(crate) fn leave(w: &mut World, coach: usize, why: &'static str) {
                 }
             }
         }
+    }
+    if market::is_you(w, coach) {
+        market::left(w, why);
     }
 }
 
@@ -309,9 +326,9 @@ pub(crate) fn set_nfl_coaching(w: &mut World) {
 
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Opening {
-    employer: Employer,
-    role: Role,
-    prestige: f64,
+    pub(crate) employer: Employer,
+    pub(crate) role: Role,
+    pub(crate) prestige: f64,
 }
 
 fn employer_prestige(w: &World, e: Employer) -> f64 {
@@ -378,10 +395,29 @@ fn excuse(w: &World, p: usize) -> f64 {
     clamp(((picks - 3.0) / 5.0).max((young_share - 0.35) / 0.3), 0.0, 1.0)
 }
 
-fn college_news(w: &mut World, p: usize, kind: NewsKind, text: String) {
+fn college_news(w: &mut World, p: usize, coaches: &[usize], kind: NewsKind, text: String) {
     if w.recording {
-        w.news.push(NewsItem { date: None, year: w.year, kind, channel: Channel::News, program: Some(p), text });
+        let item = story(w, kind, Some(p), None, coaches, text);
+        w.news.push(item);
     }
+}
+
+/// A news desk story with its names linked (L2): the program or NFL club
+/// it is about and the coaches it names.
+fn story(w: &World, kind: NewsKind, p: Option<usize>, t: Option<usize>, coaches: &[usize], text: String) -> NewsItem {
+    use crate::calendar::Link;
+    let mut item =
+        NewsItem { date: None, year: w.year, kind, channel: Channel::News, program: p, text, refs: Vec::new() };
+    for &c in coaches {
+        item = item.link(Link::Coach(c as u32), &w.coaches[c].name);
+    }
+    if let Some(p) = p {
+        item = item.link(Link::Program(p as u32), w.program_name(p));
+    }
+    if let Some(t) = t {
+        item = item.link(Link::Club(t as u32), w.nfl[t].name);
+    }
+    item
 }
 
 /// A high school coach so dominant that colleges notice (note 5): a state
@@ -402,7 +438,7 @@ fn hs_buzz(w: &World, c: usize) -> bool {
 /// biggest, by prestige. NFL teams pay by owner, and the NFL paid about twice
 /// what college did in the 1990s, until top college pay caught up by the
 /// mid-2010s.
-fn salary(w: &World, e: Employer, role: Role) -> f64 {
+pub(crate) fn salary(w: &World, e: Employer, role: Role) -> f64 {
     let pick = |r: [(f64, f64); 3]| match role {
         Role::HeadCoach => r[0],
         Role::OffensiveCoordinator | Role::DefensiveCoordinator => r[1],
@@ -501,6 +537,18 @@ fn young_core(w: &World, p: usize) -> f64 {
     if starters == 0.0 { 0.0 } else { clamp((young / starters - 0.3) / 0.4, 0.0, 1.0) }
 }
 
+/// National titles a college head coach has won in his current job (A6):
+/// what draws the NFL, wears on him and lets him walk away on top.
+fn national_titles_here(w: &World, c: usize) -> u32 {
+    let Some(job) = w.coaches[c].job else { return 0 };
+    let Employer::College(p) = job.employer else { return 0 };
+    if job.role != Role::HeadCoach {
+        return 0;
+    }
+    w.programs[p].seasons.iter().filter(|s| s.year >= job.since && s.coach == Some(c) && s.national_title).count()
+        as u32
+}
+
 /// A short name for an employer in a story line.
 fn employer_title(w: &World, e: Employer) -> String {
     match e {
@@ -587,6 +635,13 @@ fn weigh_offer(w: &mut World, c: usize, o: Opening) -> Option<String> {
     let recruiter = (coach.ability().recruiting - 10.0) / 10.0;
     if to_nfl && !from_nfl {
         parts.push((0.04 * a - 0.02 * recruiter, "the NFL, where he always wanted to coach".to_string()));
+        // A national champion has nothing left to prove in college; the
+        // NFL is the test left (A6: Saban after the 2003 title, Carroll
+        // after two, Harbaugh after the 2023 one).
+        let won = national_titles_here(w, c).min(2) as f64;
+        if won > 0.0 {
+            parts.push((0.03 * won, "nothing left to prove in college".to_string()));
+        }
     } else if from_nfl && !to_nfl {
         parts.push((0.02 * recruiter, "a return to the college game".to_string()));
     }
@@ -643,7 +698,10 @@ fn early_exit(w: &mut World, c: usize, job: Job) -> Option<&'static str> {
     let pressure = employer_prestige(w, job.employer) * if job.role == Role::HeadCoach { 1.0 } else { 0.4 };
     let intensity = 1.0 + 0.04 * (coach.personality.temper - 10.0);
     let tenure = (w.year - job.since).clamp(0, 15) as f64;
-    let burnout = 0.008 * pressure * pressure * (tenure / 10.0) * intensity;
+    // Each title raises the bar he is judged by (A6: Meyer stepped away
+    // after two titles in four years, Stoops at 56 after 18 seasons).
+    let expectations = 1.0 + 0.5 * national_titles_here(w, c).min(3) as f64;
+    let burnout = 0.008 * pressure * pressure * (tenure / 10.0) * intensity * expectations;
     let roll = w.rng.next();
     if roll < health {
         Some("retired for his health")
@@ -673,21 +731,20 @@ fn retirement_news(w: &mut World, c: usize, job: Job, why: &str) {
         "stepped away, burned out" => {
             format!("Head coach {name} steps away from coaching at {age}, worn out after {seasons} at {at}.")
         }
+        "walked away on top" => {
+            format!("Head coach {name} walks away on top at {age}, a champion after {seasons} at {at}.")
+        }
         _ => format!("Head coach {name} retires at {age} after {seasons} at {at}."),
     };
     match job.employer {
         Employer::College(p) => {
             w.programs[p].story.push((year, format!("Head coach {name} {why} at {age}.")));
-            college_news(w, p, NewsKind::CoachLeft, text);
+            college_news(w, p, &[c], NewsKind::CoachLeft, text);
         }
-        Employer::Nfl(_) => w.news.push(NewsItem {
-            date: None,
-            year,
-            kind: NewsKind::CoachLeft,
-            channel: Channel::News,
-            program: None,
-            text,
-        }),
+        Employer::Nfl(t) => {
+            let item = story(w, NewsKind::CoachLeft, None, Some(t), &[c], text);
+            w.news.push(item);
+        }
         Employer::HighSchool(_) => {}
     }
 }
@@ -707,16 +764,12 @@ fn departure_news(w: &mut World, c: usize, job: Job, o: Opening, why: &str) {
     match job.employer {
         Employer::College(p) => {
             w.programs[p].story.push((year, format!("Head coach {name} left for {dest}{role} ({why}).")));
-            college_news(w, p, NewsKind::CoachLeft, text);
+            college_news(w, p, &[c], NewsKind::CoachLeft, text);
         }
-        Employer::Nfl(_) => w.news.push(NewsItem {
-            date: None,
-            year,
-            kind: NewsKind::CoachLeft,
-            channel: Channel::News,
-            program: None,
-            text,
-        }),
+        Employer::Nfl(t) => {
+            let item = story(w, NewsKind::CoachLeft, None, Some(t), &[c], text);
+            w.news.push(item);
+        }
         Employer::HighSchool(_) => {}
     }
 }
@@ -755,14 +808,8 @@ fn nfl_firing(w: &mut World, c: usize, t: usize, tenure: i32, openings: &mut Vec
                 seasons_text(tenure),
                 games - wins
             );
-            w.news.push(NewsItem {
-                date: None,
-                year: w.year,
-                kind: NewsKind::CoachFired,
-                channel: Channel::News,
-                program: None,
-                text,
-            });
+            let item = story(w, NewsKind::CoachFired, None, Some(t), &[c], text);
+            w.news.push(item);
         }
         // A new head coach brings his own coordinators (proposed: each kept 30% of the time).
         for role in [Role::OffensiveCoordinator, Role::DefensiveCoordinator] {
@@ -815,9 +862,30 @@ pub(crate) fn carousel(w: &mut World, scope: Scope) {
             continue;
         }
         let age = w.coaches[c].age;
-        let retire = age >= 60 && w.rng.chance(clamp(0.04 + 0.03 * (age as f64 - 60.0), 0.0, 1.0));
+        // You retire when you choose to: your health never ends your career.
+        // A serious health scare this year pushes anyone else toward the door
+        // (section 6, coaches' lives).
+        let you = market::is_you(w, c);
+        let scare = if you { 0.0 } else { super::folk::life::retire_push(w, c) };
+        let retire =
+            !you && age >= 60 && w.rng.chance(clamp(0.04 + 0.03 * (age as f64 - 60.0) + scare * 0.5, 0.0, 1.0));
         // Before 60, his health or burnout (11.15).
-        let early = if age < 60 { early_exit(w, c, job) } else { None };
+        let early = if age < 60 && !you {
+            early_exit(w, c, job)
+                .or_else(|| (scare > 0.0 && w.rng.chance(0.25 * scare)).then_some("retired for his health"))
+        } else {
+            None
+        };
+        // A coach who has won it all more than once can walk away on top in
+        // his late fifties (A6: Osborne at 60 after three titles in four
+        // years, Stoops at 56): 2% a year a title, to three. Keyed, so the
+        // world's shared stream doesn't move.
+        let on_top = !retire && early.is_none() && (55..60).contains(&age) && {
+            let won = national_titles_here(w, c);
+            let key = ((c as u64) << 16) | (year as u64 & 0xFFFF);
+            won >= 2 && super::season::key_uniform(w.options.seed as u64 ^ 0xA6_70B, key) < 0.02 * won.min(3) as f64
+        };
+        let early = if on_top { Some("walked away on top") } else { early };
         if retire || early.is_some() {
             let why = early.unwrap_or("retired");
             leave(w, c, why);
@@ -1010,7 +1078,18 @@ pub(crate) fn college_searches_day(w: &mut World, force: bool) {
 /// college head coach then picks his staff.
 fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[usize], queue: &mut Vec<Opening>) {
     let year = w.year;
-    let candidates = candidate_pool(w, o, moved, buzz);
+    let mut candidates = candidate_pool(w, o, moved, buzz);
+    // You are on the list when you put your name in or the job is the kind
+    // you let it be known you want; never otherwise (lane 10).
+    let me = market::me(w);
+    if let Some(m) = me {
+        candidates.retain(|&c| c != m);
+        if !moved.contains(&m) && market::candidate(w, o.employer, o.role) {
+            candidates.push(m);
+        }
+    }
+    let mut my_rng = me.map(|_| market::rng(w, o.employer, o.role));
+    let my_bonus = market::bonus(w, o.employer, o.role);
     let (needs_prestige, is_hs) = match o.employer {
         Employer::HighSchool(s) => (w.high_schools[s].prestige, true),
         Employer::College(p) => (w.programs[p].prestige, false),
@@ -1039,7 +1118,12 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
     let mut scored: Vec<(usize, f64)> = candidates
         .into_iter()
         .map(|c| {
-            let mut s = candidate_score(&w.coaches[c], needs, &mut w.rng);
+            // Your read comes from your own stream, so no world draw moves.
+            let rng: &mut Rng = match my_rng.as_mut() {
+                Some(r) if Some(c) == me => r,
+                _ => &mut w.rng,
+            };
+            let mut s = candidate_score(&w.coaches[c], needs, rng);
             let coach = &w.coaches[c];
             let a = *coach.ability();
             let seen = |g: Group, rng: &mut Rng| {
@@ -1056,7 +1140,7 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
                     let side: f64 = Group::ALL
                         .iter()
                         .filter(|g| g.offense() == off && **g != Group::Specialists)
-                        .map(|&g| seen(g, &mut w.rng))
+                        .map(|&g| seen(g, rng))
                         .sum::<f64>()
                         / 4.0;
                     s += 0.5 * side;
@@ -1067,7 +1151,7 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
                 // A position coach is judged on teaching his group, and on
                 // whether he came up coaching it or his record there stands out.
                 Role::PositionCoach(g) => {
-                    s += 0.8 * seen(g, &mut w.rng);
+                    s += 0.8 * seen(g, rng);
                     let u = coach.units[g as usize];
                     if coach.came_up == g {
                         s += 0.6;
@@ -1094,7 +1178,11 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
             // head job, half for a coordinator job).
             let head = if o.role == Role::HeadCoach { 1.0 } else { 0.5 };
             if nfl && !has_coached(coach, true) {
-                s -= 4.0 * head;
+                // A national champion has shown he can build and run a team:
+                // owners doubt him less (A6; Saban, Meyer and Harbaugh were
+                // hired off college titles). 1.5 points a title, to two.
+                let champ = if o.role == Role::HeadCoach { national_titles_here(w, c).min(2) as f64 } else { 0.0 };
+                s -= (4.0 - 1.5 * champ) * head;
             } else if !nfl && !is_hs && !has_coached(coach, false) && !matches!(o.role, Role::PositionCoach(_)) {
                 s -= 2.0 * head;
             }
@@ -1116,6 +1204,9 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
                 };
                 s -= rung * hiring_bias(w.coaches[c].ethnicity, year, needs_prestige);
             }
+            if Some(c) == me {
+                s += my_bonus;
+            }
             (c, s)
         })
         .collect();
@@ -1126,6 +1217,11 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
     // school calls the next ones (proposed, not confirmed: 20 calls).
     // Each one weighs the offer his own way (11.13).
     for &(c, _) in scored.iter().take(20) {
+        // You are their pick: the job waits for your answer.
+        if Some(c) == me {
+            market::offer(w, o.employer, o.role, o.prestige);
+            return;
+        }
         if let Some(reason) = weigh_offer(w, c, o) {
             hired = Some(c);
             why = reason;
@@ -1144,8 +1240,13 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
             .into_iter()
             .flatten()
             .filter(|c| !moved.contains(c))
+            .filter(|&c| Some(c) != me || market::would_hear(w, o.employer, o.role))
             .max_by(|&a, &b| w.coaches[a].reputation.total_cmp(&w.coaches[b].reputation));
         why = "the names outside said no".to_string();
+        if hired.is_some() && hired == me {
+            market::offer(w, o.employer, o.role, o.prestige);
+            return;
+        }
     }
     let c = match hired {
         Some(c) => {
@@ -1217,14 +1318,8 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
         && o.role == Role::HeadCoach
     {
         let text = format!("The {} hire {} as head coach ({from}).", w.nfl[t].name, w.coaches[c].name);
-        w.news.push(NewsItem {
-            date: None,
-            year,
-            kind: NewsKind::CoachHired,
-            channel: Channel::News,
-            program: None,
-            text,
-        });
+        let item = story(w, NewsKind::CoachHired, None, Some(t), &[c], text);
+        w.news.push(item);
     }
     if w.recording
         && let Employer::College(p) = o.employer
@@ -1242,14 +1337,8 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
         } else {
             format!("{name} hires {} as {} ({from}).", coach.name, o.role.name())
         };
-        w.news.push(NewsItem {
-            date: None,
-            year,
-            kind: NewsKind::CoachHired,
-            channel: Channel::News,
-            program: Some(p),
-            text,
-        });
+        let item = story(w, NewsKind::CoachHired, Some(p), None, &[c], text);
+        w.news.push(item);
     }
     // A new head coach usually brings his own coordinators and many of his
     // own position coaches; one promoted from the staff keeps more of it.
@@ -1258,10 +1347,15 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
     {
         let promoted = from_job.is_some_and(|(e, _)| e == o.employer);
         for role in college_roles().skip(1) {
-            let keep = match (promoted, role) {
+            let keep: f64 = match (promoted, role) {
                 (true, _) => 0.75,
                 (false, Role::PositionCoach(_)) => 0.5,
                 _ => 0.4,
+            };
+            // He keeps a man he knows: you, when he coached you or worked with you.
+            let keep: f64 = match slot(&w.programs[p], role) {
+                Some(a) if Some(a) == me => keep.max(market::known_by(w, c).map_or(0.0, |k| 0.45 + 0.5 * k)),
+                _ => keep,
             };
             if let Some(a) = slot(&w.programs[p], role)
                 && a != c
@@ -1278,6 +1372,18 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
 /// A high school's principal and boosters judge the coach on his record
 /// against expectation, with recency bias and three or four seasons' grace.
 fn hs_review(w: &mut World, c: usize, s: usize, tenure: i32, openings: &mut Vec<Opening>) {
+    // Your own school decides on the people you answer to: the principal's
+    // and the athletic director's trust, built through the year.
+    if market::is_you(w, c) {
+        if school::verdict(w, tenure) {
+            leave(w, c, "stipend not renewed");
+            w.coaches[c].recent.clear();
+            market::kept_teaching(w, s);
+            let prestige = employer_prestige(w, Employer::HighSchool(s));
+            openings.push(Opening { employer: Employer::HighSchool(s), role: Role::HeadCoach, prestige });
+        }
+        return;
+    }
     let coach = &w.coaches[c];
     let n = coach.recent.len();
     let last = if n >= 1 { coach.recent[n - 1] } else { 0.0 };
@@ -1361,6 +1467,8 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
     let expired = coach.contract.is_some_and(|k| k.through <= year);
     let sd = clamp(0.06 - 0.003 * (judgement - 10.0), 0.02, 0.1);
     let mut read = -(1.5 * last + 0.7 * before) + w.rng.normal(0.0, sd);
+    // Your own boss's trust in you and last year's goals (section 6).
+    read += super::folk::boss::review_push(w, c);
     read -= if tenure <= 3 { 0.1 } else { 0.04 } * direction;
     if tenure >= 3 {
         read += (0.3 + 0.5 * prestige) * (0.4 - wp2).max(0.0);
@@ -1422,6 +1530,7 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
             college_news(
                 w,
                 p,
+                &[c],
                 NewsKind::CoachExtended,
                 format!(
                     "{name} gives head coach {coach_name} a contract extension and a vote of confidence after two tough seasons."
@@ -1452,7 +1561,7 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
             }
             _ => format!("{name} fires head coach {coach_name} after his prove-it season ({seasons} in all)."),
         };
-        college_news(w, p, NewsKind::CoachFired, text);
+        college_news(w, p, &[c], NewsKind::CoachFired, text);
         super::recruiting::decommit_after_firing(w, p);
         return;
     }
@@ -1468,6 +1577,7 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
             college_news(
                 w,
                 p,
+                &[c],
                 NewsKind::CoachExtended,
                 format!("{name} extends head coach {coach_name}'s contract through the {through} season."),
             );
@@ -1547,9 +1657,11 @@ fn fire_in_season(w: &mut World, p: usize, c: usize) {
     });
     let money =
         if buyout >= 1.0e6 { format!(" The buyout is about ${:.1} million.", buyout / 1.0e6) } else { String::new() };
+    let named: Vec<usize> = std::iter::once(c).chain(w.programs[p].sideline).collect();
     college_news(
         w,
         p,
+        &named,
         NewsKind::CoachFired,
         format!(
             "{name} fires head coach {coach_name} {} games into his {} season ({}-{}). {interim} is the interim head coach.{money}",
@@ -1646,6 +1758,11 @@ fn buyout_share(w: &World, p: usize) -> f64 {
 /// confirmed, from the Knight Commission and USA Today finance data): FBS
 /// $30-250 million, FCS $8-35 million, Division II $3-10 million, junior
 /// colleges $1-3 million, by prestige.
+/// A program's athletic budget a year, every sport (people screens read it).
+pub(crate) fn program_budget(prog: &program::Program) -> f64 {
+    athletic_budget(prog)
+}
+
 fn athletic_budget(prog: &program::Program) -> f64 {
     let (lo, hi): (f64, f64) = match prog.division {
         Division::FBS => (30.0e6, 250.0e6),
@@ -1767,7 +1884,7 @@ pub(crate) fn age_coaches(w: &mut World) {
             *t *= 0.9;
             *t > 0.02
         });
-        if w.coaches[c].job.is_none() && w.coaches[c].age > 66 {
+        if w.coaches[c].job.is_none() && w.coaches[c].age > 66 && !market::is_you(w, c) {
             w.coaches[c].retired = true;
         }
     }
@@ -1794,14 +1911,8 @@ pub(crate) fn diversity_report(w: &mut World) {
         "Diversity report: {of_color} of {total} FBS head coaches are coaches of color ({}).",
         if parts.is_empty() { "none".to_string() } else { parts.join(", ") }
     );
-    w.news.push(NewsItem {
-        date: None,
-        year: w.year,
-        kind: NewsKind::DiversityReport,
-        channel: Channel::News,
-        program: None,
-        text,
-    });
+    let item = story(w, NewsKind::DiversityReport, None, None, &[], text);
+    w.news.push(item);
 }
 
 /// Who a search looks at for an opening.
@@ -2184,7 +2295,8 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
         let win = if results[i].games() > 0 { results[i].win_pct() } else { 0.5 };
         let before = w.programs[i].collective.boosters();
         let mut rng: Rng = w.rng.fork();
-        let level = program::update_collective(&mut w.programs[i], win, year + 1, &mut rng);
+        let walk = super::folk::boss::booster_push(w, i);
+        let level = program::update_collective(&mut w.programs[i], win, year + 1, walk, &mut rng);
         let p = &w.programs[i];
         // Collectives exist from July 2021 (11.5).
         if w.recording && level > 0 && p.division != Division::JUCO && super::ncaa::nil_era(year) {
@@ -2259,21 +2371,27 @@ pub(crate) fn credit_teaching(w: &mut World) {
 /// and style, and his staff stays under contract until you decide.
 /// Returns your coach id.
 pub fn take_seat(w: &mut World, you: &super::seat::You, employer: Employer) -> usize {
+    take_seat_as(w, you, Some(employer), Role::HeadCoach)
+}
+
+/// The same for any start (lane 10): a head job, an assistant's job (the
+/// man who held it is let go into the market) or none at all.
+pub fn take_seat_as(w: &mut World, you: &super::seat::You, employer: Option<Employer>, role: Role) -> usize {
     let tier = match employer {
-        Employer::HighSchool(_) => CoachTier::HighSchool,
-        Employer::College(p) => tier_of(w.programs[p].division),
-        Employer::Nfl(_) => CoachTier::Nfl,
+        Some(Employer::HighSchool(_)) => CoachTier::HighSchool,
+        Some(Employer::College(p)) => tier_of(w.programs[p].division),
+        Some(Employer::Nfl(_)) => CoachTier::Nfl,
+        None if you.ex_pro => CoachTier::Nfl,
+        None => CoachTier::HighSchool,
     };
-    let old = match employer {
-        Employer::HighSchool(s) => w.high_schools[s].coach,
-        Employer::College(p) => w.programs[p].head_coach,
-        Employer::Nfl(t) => w.nfl[t].head_coach,
-    };
-    if let Some(c) = old {
-        leave(w, c, "fired");
+    if let Some(e) = employer
+        && let Some(c) = holder(w, e, role)
+    {
+        leave(w, c, if role == Role::HeadCoach { "fired" } else { "let go by the new staff" });
     }
     let id = w.coaches.len();
     let mut c = generate_coach(id, you.name.clone(), you.ethnicity, tier, you.age, &mut w.rng);
+    c.born = you.born;
     c.ability.teaching = you.teaching;
     c.ability.scheme = you.scheme;
     c.ability.game_management = you.game_management;
@@ -2294,8 +2412,132 @@ pub fn take_seat(w: &mut World, you: &super::seat::You, employer: Employer) -> u
     if let Some(g) = (0..Group::ALL.len()).max_by(|&a, &b| you.teaching[a].total_cmp(&you.teaching[b])) {
         c.came_up = Group::ALL[g];
     }
+    if let Role::PositionCoach(g) = role {
+        c.came_up = g;
+    }
     c.systems = super::systems::draw(id, c.came_up, c.ability.scheme, w.options.seed as u64);
     w.coaches.push(c);
-    hire(w, id, employer, Role::HeadCoach);
+    if let Some(e) = employer {
+        hire(w, id, e, role);
+    }
+    set_nfl_coaching(w);
     id
+}
+
+// ---------------------------------------------------------------------------
+// Your side of the market (lane 10): the reads and moves `market` needs.
+// ---------------------------------------------------------------------------
+
+/// What a job pays a year: a high school job is the teaching salary and
+/// the coaching stipend together.
+pub(crate) fn pay_for(w: &World, e: Employer, r: Role) -> f64 {
+    match e {
+        Employer::HighSchool(s) => school::offer_pay(w, s),
+        _ => salary(w, e, r),
+    }
+}
+
+pub(crate) fn prestige_of(w: &World, e: Employer) -> f64 {
+    employer_prestige(w, e)
+}
+
+/// Who holds a job now.
+pub(crate) fn holder(w: &World, e: Employer, r: Role) -> Option<usize> {
+    match e {
+        Employer::HighSchool(s) => (r == Role::HeadCoach).then_some(w.high_schools[s].coach).flatten(),
+        Employer::College(p) => slot(&w.programs[p], r),
+        Employer::Nfl(t) => nfl_slot(&w.nfl[t], r),
+    }
+}
+
+/// Whether a job exists in the world and nobody holds it.
+pub(crate) fn open_slot(w: &World, e: Employer, r: Role) -> bool {
+    let real = match (e, r) {
+        (Employer::HighSchool(_), Role::HeadCoach) => true,
+        (Employer::HighSchool(_), _) => false,
+        (Employer::Nfl(_), Role::PositionCoach(_)) => false,
+        _ => true,
+    };
+    real && holder(w, e, r).is_none()
+}
+
+/// The college searches under way, with the day each decides.
+pub(crate) fn searches(w: &World) -> Vec<(Employer, Role, crate::calendar::Date)> {
+    w.searches.iter().map(|s| (s.opening.employer, s.opening.role, s.decide_on)).collect()
+}
+
+/// Seats nobody holds outside a search: a high school between carousels,
+/// an NFL staff between its firing and its hire, a college staff job.
+pub(crate) fn empty_seats(w: &World) -> Vec<(Employer, Role)> {
+    let mut out = Vec::new();
+    let cy = cycle_year(w);
+    for p in 0..w.programs.len() {
+        if !w.programs[p].plays(cy) && !w.programs[p].plays(cy + 1) {
+            continue;
+        }
+        for role in college_roles() {
+            if slot(&w.programs[p], role).is_none() {
+                out.push((Employer::College(p), role));
+            }
+        }
+    }
+    for t in 0..w.nfl.len() {
+        if !super::franchise::active(t, w.year) && !super::franchise::active(t, w.year + 1) {
+            continue;
+        }
+        for role in nfl_roles() {
+            if nfl_slot(&w.nfl[t], role).is_none() {
+                out.push((Employer::Nfl(t), role));
+            }
+        }
+    }
+    for (s, school) in w.high_schools.iter().enumerate() {
+        if school.coach.is_none() {
+            out.push((Employer::HighSchool(s), Role::HeadCoach));
+        }
+    }
+    out.retain(|&(e, r)| !market::offered(w, e, r));
+    out
+}
+
+/// Fills a job now: the search works down its list without you.
+pub(crate) fn fill_now(w: &mut World, e: Employer, r: Role, prestige: f64) {
+    if !open_slot(w, e, r) {
+        return;
+    }
+    let o = Opening { employer: e, role: r, prestige };
+    let buzz = buzz_list(w);
+    let mut moved = std::mem::take(&mut w.moved_cycle);
+    let mut queue = Vec::new();
+    fill_opening(w, o, &mut moved, &buzz, &mut queue);
+    hire_all(w, queue, &mut moved, &buzz);
+    w.moved_cycle = moved;
+    set_nfl_coaching(w);
+}
+
+/// You take a job: you leave yours (it is filled the way any job is) and
+/// start the new one.
+pub(crate) fn take_job(w: &mut World, e: Employer, r: Role) {
+    let Some(me) = market::me(w) else { return };
+    let old = w.coaches[me].job;
+    if old.is_some() {
+        leave(w, me, "left for another job");
+    }
+    hire(w, me, e, r);
+    w.moved_cycle.insert(me);
+    if let Some(j) = old {
+        market::passed_on(w, j.employer, j.role);
+        let o = Opening { employer: j.employer, role: j.role, prestige: employer_prestige(w, j.employer) };
+        departure_news(w, me, j, Opening { employer: e, role: r, prestige: 0.0 }, "his own choice");
+        match j.employer {
+            Employer::College(p) => {
+                if j.role == Role::HeadCoach {
+                    super::recruiting::decommit_after_firing(w, p);
+                }
+                schedule_search(w, o);
+            }
+            _ => fill_now(w, j.employer, j.role, o.prestige),
+        }
+    }
+    set_nfl_coaching(w);
 }

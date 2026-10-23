@@ -1495,4 +1495,3 @@ pub fn suggestions(w: &mut World, id: u32) -> Vec<String> {
     out
 }
 
-pub(crate) fn _unused(_: &World) {}

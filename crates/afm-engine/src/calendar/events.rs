@@ -4,6 +4,31 @@
 //! Every system posts into one calendar. The calendar keeps the events of the
 //! current football year and a trimmed record of past years (the loud ones),
 //! which the "on this day" anniversaries read (A42).
+//!
+//! ## Linked names (final build L2)
+//!
+//! A line's text stays plain English. Beside it, `refs` marks the spans that
+//! name someone or something the screens can open: a player, a coach, a
+//! college program, a high school, an NFL club or a game. Each `Ref` is a
+//! byte range of the text and its `Link`. Writers add them with the
+//! builders, which find the name in the text themselves:
+//!
+//! ```ignore
+//! let text = format!("{name} commits to {school}.");
+//! Event::new(d, Level::Recruiting, Kind::Commitment, Loudness::Small, text)
+//!     .person(player_id, &name)
+//!     .school_link(program, &school);
+//! ```
+//!
+//! `person` takes the player's id (it never changes, unlike his place in
+//! the people list), `coach_link` the coach's index, `school_link` a college
+//! program, `hs_link` a high school, `club_link` an NFL club and
+//! `game_link` a game (its day, level and home team). A name that isn't in
+//! the text is skipped, so a builder can never point at the wrong words. The
+//! same refs ride on `world::news::NewsItem` (`refs`, `link`). The game
+//! crate turns a line into parts with `segments` and the screens make each
+//! linked part a link. Every lane that writes a line naming a person, game
+//! or team adds its refs.
 
 use super::date::{Date, Moment};
 use std::collections::BTreeMap;
@@ -90,6 +115,74 @@ pub enum Kind {
     News,
 }
 
+/// What a linked name points at (L2).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub enum Link {
+    /// A player, by his player id.
+    Person(u32),
+    /// A coach, by his index in the world's coaches.
+    Coach(u32),
+    /// A college program.
+    Program(u32),
+    /// A high school.
+    School(u32),
+    /// An NFL club.
+    Club(u32),
+    /// A game: its day, its level (the event `Level`) and the home team's
+    /// index at that level.
+    Game(Date, Level, u32),
+}
+
+/// A linked span of a line: bytes `at..at + len` of its text name `to`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Ref {
+    pub at: u16,
+    pub len: u16,
+    pub to: Link,
+}
+
+/// Marks `name` in `text` as a link (L2): its first whole-word appearance
+/// not already linked. Nothing happens when the name isn't there.
+pub fn add_ref(refs: &mut Vec<Ref>, text: &str, to: Link, name: &str) {
+    if name.is_empty() || text.len() > u16::MAX as usize {
+        return;
+    }
+    for (at, _) in text.match_indices(name) {
+        let before = text[..at].chars().next_back();
+        let after = text[at + name.len()..].chars().next();
+        let whole = !before.is_some_and(char::is_alphanumeric) && !after.is_some_and(char::is_alphanumeric);
+        let end = at + name.len();
+        let taken = refs.iter().any(|r| at < r.at as usize + r.len as usize && (r.at as usize) < end);
+        if whole && !taken {
+            refs.push(Ref { at: at as u16, len: name.len() as u16, to });
+            refs.sort_by_key(|r| r.at);
+            return;
+        }
+    }
+}
+
+/// A line cut into its parts, in order: plain text, and linked names with
+/// what they point at.
+pub fn segments<'a>(text: &'a str, refs: &[Ref]) -> Vec<(&'a str, Option<Link>)> {
+    let mut out = Vec::new();
+    let mut at = 0;
+    for r in refs {
+        let (s, e) = (r.at as usize, r.at as usize + r.len as usize);
+        if s < at || e > text.len() || !text.is_char_boundary(s) || !text.is_char_boundary(e) {
+            continue;
+        }
+        if s > at {
+            out.push((&text[at..s], None));
+        }
+        out.push((&text[s..e], Some(r.to)));
+        at = e;
+    }
+    if at < text.len() {
+        out.push((&text[at..], None));
+    }
+    out
+}
+
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Event {
     pub when: Moment,
@@ -116,10 +209,16 @@ pub struct Event {
     /// it stops only a manager it is about.
     #[serde(default)]
     pub regular: bool,
+    /// The names in `text` the screens link (L2; see the module notes).
+    #[serde(default)]
+    pub refs: Vec<Ref>,
 }
 
 impl Event {
     pub fn new(date: Date, level: Level, kind: Kind, loud: Loudness, text: impl Into<String>) -> Event {
+        // A name ending "Jr." closes its own sentence.
+        let text: String = text.into();
+        let text = if text.contains("..") { text.replace("Jr..", "Jr.").replace("Sr..", "Sr.") } else { text };
         Event {
             when: Moment { date, minute: 9 * 60 },
             level,
@@ -129,11 +228,41 @@ impl Event {
             rule: "",
             nfl_team: None,
             program: None,
-            text: text.into(),
+            text,
             memorable: false,
             season: None,
             regular: false,
+            refs: Vec::new(),
         }
+    }
+    /// Links `name` in the text to `to` (L2).
+    pub fn link(mut self, to: Link, name: &str) -> Event {
+        add_ref(&mut self.refs, &self.text, to, name);
+        self
+    }
+    /// Links a player's name (by player id).
+    pub fn person(self, id: u32, name: &str) -> Event {
+        self.link(Link::Person(id), name)
+    }
+    /// Links a coach's name (by coach index).
+    pub fn coach_link(self, c: usize, name: &str) -> Event {
+        self.link(Link::Coach(c as u32), name)
+    }
+    /// Links a college program's name.
+    pub fn school_link(self, p: usize, name: &str) -> Event {
+        self.link(Link::Program(p as u32), name)
+    }
+    /// Links a high school's name.
+    pub fn hs_link(self, h: usize, name: &str) -> Event {
+        self.link(Link::School(h as u32), name)
+    }
+    /// Links an NFL club's name.
+    pub fn club_link(self, t: usize, name: &str) -> Event {
+        self.link(Link::Club(t as u32), name)
+    }
+    /// Links words naming a game (a score line, "the Rose Bowl").
+    pub fn game_link(self, date: Date, level: Level, home: usize, words: &str) -> Event {
+        self.link(Link::Game(date, level, home as u32), words)
     }
     pub fn memorable(mut self) -> Event {
         self.memorable = true;
@@ -210,6 +339,7 @@ pub struct Calendar {
 impl Calendar {
     pub fn post(&mut self, mut e: Event) {
         e.season = e.season.or(self.filing);
+        e.refs.shrink_to_fit();
         *self.counts.entry((e.level.name(), format!("{:?}", e.kind))).or_default() += 1;
         self.events.entry(e.when.date).or_default().push(e);
     }

@@ -281,7 +281,7 @@ fn one_day(w: &mut World, d: Date) {
             let me = TeamKey::Nfl(club as u16);
             let f = team_fill(w, me, Fill::new()).set("name", name.clone()).set("years", there.to_string());
             if let Some(text) = w.stories.line(seed, "oneday.offer", &f, year) {
-                let e = news(w, Level::Nfl, Loudness::Medium, Some(me), text).decision();
+                let e = news(w, Level::Nfl, Loudness::Medium, Some(me), text).decision().rule(super::ASK_RULE);
                 post(w, e);
             }
             w.stories.careers.offer = Some((id, club as u16, d));

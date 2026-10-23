@@ -155,6 +155,10 @@ fn hs_transfer_day(y: &YearDates) -> Date {
 pub(crate) fn advance_day(w: &mut World) {
     let d = w.today;
     let y = w.dates.clone();
+    // A live game left from a day gone by (called off, or never booked).
+    if w.live.as_ref().is_some_and(|l| l.date < d) {
+        w.live = None;
+    }
     if d == y.start {
         year_start(w);
     }
@@ -172,6 +176,8 @@ pub(crate) fn advance_day(w: &mut World) {
 
     // --- The NFL year (T2, A1-A17): its own dated steps -----------------------------
     timed("nfl", || nfl_year::day(w, d));
+    // Your front office's day: reminders, answers, calls (lane 10).
+    super::front_office::day(w, d);
 
     // --- Spring: college spring practice and high school spring ball (T4.1) ----------
     if d == y.spring_practice.0 {
@@ -218,6 +224,7 @@ pub(crate) fn advance_day(w: &mut World) {
         }
     }
     if d == y.summer_enrollment {
+        super::eligibility::summer_roads(w);
         recruiting::enroll(w, false);
     }
     if d == hs_transfer_day(&y) {
@@ -274,6 +281,10 @@ pub(crate) fn advance_day(w: &mut World) {
         if let Some(k) = kind {
             college::release_poll(w, d, PollKind::Coaches);
             college::release_poll(w, d, k);
+            // The Harris poll (2005-2013) from the season's fifth week.
+            if harris_year(w) && y.cfb_weeks.len() > 4 && d > y.cfb_weeks[4] {
+                college::release_poll(w, d, PollKind::Harris);
+            }
             if w.rules.cfb_postseason == crate::calendar::CfbPostseason::Bcs && d >= y.cfb_weeks[0].add(7 * 7 + 1) {
                 college::release_poll(w, d, PollKind::Bcs);
             }
@@ -340,17 +351,18 @@ pub(crate) fn advance_day(w: &mut World) {
         staff::diversity_report(w);
     }
     if d == y.selection_day {
-        college::release_poll(
-            w,
-            d,
-            if w.rules.cfb_postseason == crate::calendar::CfbPostseason::Bcs {
-                PollKind::Bcs
-            } else if w.rules.cfb_postseason == crate::calendar::CfbPostseason::PollsOnly {
-                PollKind::Ap
-            } else {
-                PollKind::Cfp
-            },
-        );
+        // The human polls vote after the title games; the BCS standings
+        // read them, the committee ranks on its own.
+        college::release_poll(w, d, PollKind::Coaches);
+        college::release_poll(w, d, PollKind::Ap);
+        if harris_year(w) {
+            college::release_poll(w, d, PollKind::Harris);
+        }
+        match w.rules.cfb_postseason {
+            crate::calendar::CfbPostseason::Bcs => college::release_poll(w, d, PollKind::Bcs),
+            crate::calendar::CfbPostseason::PollsOnly => {}
+            _ => college::release_poll(w, d, PollKind::Cfp),
+        }
         timed("selection", || college::selection_day(w));
         college::lean_checkpoint(w, college::LeanCheck::Bowls);
     }
@@ -383,6 +395,11 @@ pub(crate) fn advance_day(w: &mut World) {
     // --- The offseason's windows (T3): portal, draft deadlines, enrollment ----------
     let season = w.year;
     let rule = w.rules.transfer;
+    // The season's eligibility settles before a window that opens the same
+    // day reads it (lane 10: a burned redshirt counted only after).
+    if d == Date::ymd(season + 1, 1, 2) {
+        college::settle_eligibility(w);
+    }
     for (open, close, which) in portal_windows(season, rule) {
         if which == PortalWindow::Winter && d == open {
             recruiting::portal_open(w, which, close);
@@ -397,9 +414,6 @@ pub(crate) fn advance_day(w: &mut World) {
     // Entrants decide on their own days (T3, T9).
     if !w.portal_pending.is_empty() {
         timed("portal day", || recruiting::portal_day(w, false));
-    }
-    if d == Date::ymd(season + 1, 1, 2) {
-        college::settle_eligibility(w);
     }
     // Early entrants announce on their own days (part D 17).
     if d > y.fbs_regular_end && d < y.declare_deadline {
@@ -476,6 +490,8 @@ pub(crate) fn advance_day(w: &mut World) {
     // the training blocks of every level (T7).
     timed("rhythm", || rhythm(w, d, &y));
     nfl_year::training_blocks(w, d, &y);
+    // Section 6's people (lane 6): ties, lives, courts, staffs and your agenda.
+    timed("people", || super::folk::day(w, d));
     // The stories around the day's football (final build lane 8).
     timed("stories", || super::stories::day(w, d));
 
@@ -508,6 +524,11 @@ fn year_start(w: &mut World) {
     super::program::apply_history(w);
     w.college_prev = w.college.take();
     w.college = Some(college::new_season(w));
+    if let Some(prev) = w.college_prev.as_mut() {
+        college::keep_for_next_year(prev);
+    }
+    super::hs_playoffs::reclassify(w);
+    super::voters::year_start(w);
     w.hs_season = Some(hs_year::new_season(w));
     w.nfl_season = Some(nfl_year::new_season(w));
     super::franchise::year_start(w);
@@ -593,6 +614,7 @@ fn signing_day_and_book(w: &mut World, season: i32) {
     staff::update_programs(w, &results);
     w.life_events();
     super::people::year_book(w);
+    super::fame::year_book(w);
     w.compact();
     w.rebuild_rosters();
     w.year = keep;
@@ -696,7 +718,7 @@ fn rhythm(w: &mut World, d: Date, y: &YearDates) {
 /// ten, fifteen... years ago, as news lines only (never a stakes factor).
 fn anniversaries(w: &mut World, d: Date) {
     let (y, m, day) = d.parts();
-    let found: Vec<(i32, Level, String)> = w
+    let found: Vec<(i32, Level, String, Vec<crate::calendar::Ref>)> = w
         .calendar
         .history
         .iter()
@@ -704,10 +726,10 @@ fn anniversaries(w: &mut World, d: Date) {
         .filter_map(|e| {
             let (ey, em, ed) = e.when.date.parts();
             let ago = y - ey;
-            (em == m && ed == day && ago > 0 && ago % 5 == 0).then(|| (ago, e.level, e.text.clone()))
+            (em == m && ed == day && ago > 0 && ago % 5 == 0).then(|| (ago, e.level, e.text.clone(), e.refs.clone()))
         })
         .collect();
-    for (ago, level, text) in found {
+    for (ago, level, text, refs) in found {
         let words = match ago {
             5 => "Five".to_string(),
             10 => "Ten".to_string(),
@@ -719,7 +741,11 @@ fn anniversaries(w: &mut World, d: Date) {
             n => n.to_string(),
         };
         let line = format!("{words} years ago today: {text}");
-        w.calendar.post(Event::new(d, level, Kind::Anniversary, Loudness::Small, line));
+        // The old line's links move with its words (L2).
+        let shift = (line.len() - text.len()) as u16;
+        let mut e = Event::new(d, level, Kind::Anniversary, Loudness::Small, line);
+        e.refs = refs.into_iter().map(|r| crate::calendar::Ref { at: r.at + shift, ..r }).collect();
+        w.calendar.post(e);
     }
 }
 
@@ -775,6 +801,11 @@ pub fn holiday_to(w: &mut World, until: Date) -> Date {
         }
     }
     w.today
+}
+
+/// The BCS read the Harris poll as its human poll from 2005 to 2013.
+fn harris_year(w: &World) -> bool {
+    w.rules.cfb_postseason == crate::calendar::CfbPostseason::Bcs && (2005..=2013).contains(&w.year)
 }
 
 #[cfg(test)]

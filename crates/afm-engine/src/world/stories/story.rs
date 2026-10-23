@@ -232,7 +232,10 @@ pub(crate) fn after_game(w: &mut World, ctx: &GameCtx, s: &GameStats) {
     let them = s.score[1 - side];
     let score = format!("{us}-{them}");
     let opp_name = super::team_name(w, opp);
-    let ball = format!("{} {us}, {opp_name} {them}, {}", super::team_name(w, me), w.today.pretty());
+    let ball = match &ctx.name {
+        Some(game) => format!("{game}: {} {us}, {opp_name} {them}, {}", super::team_name(w, me), w.today.pretty()),
+        None => format!("{} {us}, {opp_name} {them}, {}", super::team_name(w, me), w.today.pretty()),
+    };
     w.stories.story.wins += 1;
     let n = w.stories.story.wins;
     let f = team_fill(w, me, Fill::new()).set("opp", opp_name.clone()).set("score", score.clone());

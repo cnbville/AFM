@@ -1,0 +1,618 @@
+# The line bank: players (people topic 5; format in src/world/folk/voice.rs).
+
+# ---------------------------------------------------------------------------
+# One-on-ones (folk/talks.rs). You always call him in. The opening is two
+# parts said as one line: his mood (talk.open.sour/good/flat), then the
+# subject (talk.open.<subject>). Mood parts stay short and never name a
+# subject; subject parts never assume a mood.
+
+@key talk.open.sour
+I'll be honest, Coach, I'm not in the best mood.
+Coach.
+You wanted to see me.
+[Yeah|Yep]. I'm here.
+I figured you'd call me in eventually.
+Okay. I'm listening. ~ calm
+Alright. Let's do it. ~ hot
+Let's just get it over with. ~ hot young
+Before you say anything, I've got some stuff too. ~ hot
+I got lift in [twenty minutes|half an hour], so. ~ young
+Can we make this quick? I got class. ~ college young
+Yes sir. ~ quiet
+I don't have a lot to say, Coach. But okay. ~ quiet
+I'm not in a great place right now. Just so you know. ~ humble
+Coach, I'm gonna keep it a hundred with you today. ~ young modern
+What's up. ~ loose
+My agent told me to come in here with an open mind. So. ~ nfl
+Shut the door if you want. I've heard it all before. ~ nfl vet
+Didn't think I'd be in here this [week|soon].
+
+@key talk.open.good
+Coach. Good timing, I was about to come find you.
+All these years in the league and I still get a little nervous when the head coach calls. What's up? ~ nfl vet
+Hey, Coach. What's going on?
+Coach! You wanted me?
+Good to see you, Coach. Been a good week.
+Hey. Want me to [close|get] the door?
+What's good, Coach? ~ young modern
+[Yes sir|Yessir]. What you need? ~ south
+Hey, Coach. Haven't been in this office since my [official visit|visit]. ~ college young
+Hey Coach. My mom says hi, by the way. ~ hs young
+Sorry, I'm here. Treatment ran long. ~ !hs
+Coach. Body feels good, head feels good. What's up? ~ vet
+You rang? ~ loose
+Coach, good to see you. What are we talking about? ~ pro
+I brought my notebook. Figured you'd want to go over something. ~ pro young
+Yes sir. I'm all ears. ~ humble
+Coach! [Man,|Hey,] that [lift|practice] this morning was crazy. ~ young competitor
+The head man wants to see me, huh? ~ ego loose
+
+@key talk.open.flat
+You wanted to see me, Coach?
+Hey, Coach.
+What's going on?
+Yes sir?
+You asked for me?
+They told me to come see you.
+Hey Coach. What's this about?
+Alright, Coach. What's up?
+Sorry, came straight from the weight room.
+Hey. Everything good?
+I got your text. ~ modern
+Here, Coach. ~ quiet
+Coach. I've got about twenty minutes before meetings. ~ nfl
+Hey Coach. I got study hall after this, but I'm good. ~ college young
+Is this a close-the-door kind of thing? ~ loose
+Hey Coach. My mom's picking me up in [ten|fifteen] minutes, so. ~ hs young
+
+@key talk.open.role
+Figured this was about the depth chart.
+Is this about where I'm at on the chart?
+If this is about playing time, I've been wanting to talk about that too.
+I want to know where I stand. Straight up.
+Is this about who's running with the ones?
+I'd rather hear it from you than [read it somewhere|hear it from the guys].
+I know what I'm doing out there. I just want to know what my role is.
+I've been wondering where I fit in all this. ~ quiet
+I've been doing everything you asked. I want to know if it's counting. ~ humble
+If this is about reps, I've been counting mine. ~ hot
+Let me guess. The depth chart. ~ ego
+Is it about who's starting? Because I've got thoughts on that. ~ competitor
+If it's about the two-deep, I've got some questions. ~ college
+If this is about Friday nights, I just want to know where I fit. ~ hs
+I'm a vet, Coach. I know how this works. Where am I at? ~ nfl vet
+Is this about the rotation? Because I know I can handle more. ~ nfl
+
+@key talk.open.usage
+Is this about the game plan?
+If this is about how I'm being used, I've got some thoughts on that.
+I've been watching the film. I see where I could help us more.
+I figured we'd talk about my snaps at some point.
+I'm just trying to understand what we're doing with me out there.
+Is this about the snap counts?
+My position coach told me to come see you about how we're using me.
+I'll play wherever you put me. I'd just like to know the why. ~ humble
+If this is about the scheme, I'm all the way in. I just want to make sure I fit in it. ~ pro
+Is it about the scheme? Because I don't think I'm being used right. ~ ego
+Am I part of the plan out there, or just a body? ~ ego hot
+I want more on my plate, Coach. I'm not gonna pretend I don't. ~ competitor ego
+I've got a contract year coming. How I'm used matters. ~ nfl
+I need tape, Coach. Real tape. That's what this is about for me. ~ !nfl
+
+@key talk.open.money
+This is kind of awkward, Coach. It's a money thing.
+I don't really know how to say this. Things are tight at home right now. ~ hs
+I know we're not supposed to talk about money. But we need to talk about money.
+My people keep asking me questions I don't have answers to.
+I'll be straight with you. It's about money.
+You know what I'm here about. ~ greedy
+It's not about being greedy, Coach. It's about what I'm worth. ~ greedy !hs
+This about my deal? ~ nfl
+My agent's been talking to the front office. I'm guessing that's why I'm here. ~ nfl
+I'll be honest, the contract's been on my mind every day. ~ nfl
+I'm outplaying my deal. Everybody in this building knows it. ~ nfl ego
+I'm in the last year, Coach. You know what that means for a guy like me. ~ nfl vet
+Is this about the collective? ~ college nil
+I'm gonna be honest, the NIL stuff has been in my head. ~ college nil young
+I've got people telling me I could be making [a lot|way] more somewhere else. ~ college nil
+Is this about my rev share number? ~ college nil
+My mom's behind on rent and I can't even get a job during the season. ~ college !nil
+There's guys around the program talking about agents. I wanted you to hear it from me first. ~ college !nil
+My mom keeps saying I need to get a job after school. ~ hs
+I might have to start working nights, Coach. We need the money at home. ~ hs
+
+@key talk.open.behavior
+I know why I'm in here.
+Whatever you heard, there's more to it.
+I already know, Coach.
+I figured I'd be hearing about it.
+I already talked to my position coach about it.
+If this is about the other night, I can explain. ~ young
+Before you start, it wasn't how it looked. ~ hot
+Who'd you hear it from? ~ hot
+Let me guess. Somebody told you something. ~ ego
+I'm not gonna make excuses. ~ pro
+Whatever it is, I'll own it. ~ leader
+Yes sir. I messed up. ~ humble
+I know, I know. I'm on thin ice. ~ loose
+Am I in trouble? ~ hs young
+My dad already got on me about it, if that helps. ~ hs young
+Is the league involved, or is this just between us? ~ nfl
+
+@key talk.open.life
+Is everything alright? You don't usually call me in.
+Somebody said you wanted to check on me.
+If this is about home, I'm handling it.
+I'm alright, Coach. Just been a lot going on.
+Is this about the family stuff?
+Haven't really been sleeping, if that's what this is about.
+Is {friend} the one who told you?
+Did my mom call you? ~ young !nfl
+Is this about my grades? ~ young !nfl
+Did the academic people say something? ~ college
+My wife said I should come talk to you. ~ nfl vet
+If you're asking how I'm doing, honestly, I don't really know. ~ shaky
+Did one of my teachers say something? ~ hs
+
+@key talk.open.team
+Is this about the locker room?
+You want to know how the room's doing.
+If you're asking about the room, I'll tell you. Just not names.
+Guys have been talking. I'm guessing you heard.
+The room's been weird, Coach. You probably know that.
+I figured you'd want to talk about the team at some point.
+Is this about {friend}? Because he's good, Coach.
+If it's about what happened in there, I wasn't the one who started it. ~ hot
+Is this a captain thing? ~ leader
+I've been wanting to talk to you about some of the young guys. ~ leader
+I'm not a snitch, Coach. Just so we're clear. ~ loose young
+You want the real answer on the room, or the one I'd give the media? ~ nfl vet
+Is it about the seniors? Because some of them aren't acting like it. ~ !nfl competitor
+
+@key talk.open.future
+I figured this was coming.
+You want to know what I'm doing next year.
+I've been thinking about my options. I won't lie to you.
+I just want to know what the plan is for me. Here, I mean.
+I know what people are saying. I haven't made up my mind.
+I'd rather do this face to face than have you hear it somewhere else.
+I've been praying on it, Coach. I'm not decided.
+Is this about the portal? ~ college nil
+I got my draft grade back from the league. I'm guessing you want to talk about it. ~ college
+My family wants to sit down with you about next year. ~ young !nfl
+I've been in this league long enough to know what these meetings are. ~ nfl vet
+I'm a free agent after this year, Coach. We both know that. ~ nfl
+Is this about recruiting? I've had a couple coaches come by the school. ~ hs
+My trainer says I should be getting more looks than I am. Is that what this is about? ~ hs modern
+
+# ---------------------------------------------------------------------------
+# He opens up: what's really on his mind, by his real concern. First person.
+# talk.reveal.team covers losing, distrust of a new staff and a sour room.
+
+@key talk.reveal.role
+I've been doing everything right, Coach. Every lift, every meeting. And I'm still watching.
+I feel like the decision got made before camp even started.
+Honestly? I don't know what else I'm supposed to do to get on the field.
+I see guys getting reps I earned, and nobody tells me why. That's what's eating me.
+It's not even the playing time. It's that nobody's told me where I stand.
+I don't even know what I'm unhappy about, Coach. I just know I am. ~ quiet
+I didn't come here to run scout team for four years. ~ college
+My family drives four hours to watch me stand on the sideline. ~ college
+My dad's in the stands every Friday and I'm standing next to you the whole game. That's hard, Coach. ~ hs
+I'm a starter in this league. I know I am. I'm just not being treated like one. ~ nfl ego
+I don't know how many years I've got left. I'd like to spend them on the field. ~ nfl vet
+
+@key talk.reveal.usage
+I watch the film and I see plays out there for me. They're just not getting called.
+I can do more than what we're asking me to do. That's all it is.
+When I get my snaps, I make plays. I just don't get enough of them.
+I do the dirty work every week and nobody sees it. I want to be seen.
+It's not about stats. Okay, it's a little about stats. ~ young loose
+You recruited me to do one thing and now I'm doing something else. ~ college
+Scouts watch the tape, Coach. If I'm not doing anything on the tape, I'm not going anywhere. ~ !nfl
+My numbers are down because of how we're using me, and the front office is going to pay me off those numbers. ~ nfl
+
+@key talk.reveal.money
+My mom's been working two jobs since I was little. I'm trying to help, and football takes all my time. ~ hs
+Gas, food, cleats, it all adds up. I don't want to keep asking my grandma. ~ hs
+We need it at home, Coach. That's all it is.
+I'm not trying to be greedy. I just don't want to get hurt and have nothing to show for it. ~ !hs
+I'm tired of being the guy everybody back home asks for money when I don't have any. ~ !nfl
+I've got a little brother at home and my mom's working doubles. Every dollar matters. ~ !nfl
+I'm one of the best players on this team and I'm getting paid like a guy fighting for a roster spot. ~ nfl
+I know what I'm worth. I've seen what guys with worse tape got this spring. ~ nfl
+My agent says I should hold in. I don't want to, but I'm listening to him. ~ nfl nil
+The collective is paying guys who don't play more than me. That's the truth of it. ~ college nil
+There's a school that'd double what I'm getting here. I haven't said yes. I haven't said no. ~ college nil
+I'm not trying to get a job, Coach. I have to. ~ hs
+
+@key talk.reveal.behavior
+I've been out a lot. I know. It's easier than sitting in my room thinking about everything.
+People keep telling me I'm a problem. After a while you just start acting like it.
+I've been running with some guys from back home. I know they're not good for me.
+Stuff at home has had me on edge. I took it out on the wrong people.
+I'm not trying to disrespect anybody. It just feels like nobody listens unless I'm loud.
+I've got a temper. I know that. It's been worse lately, and I don't really know why. ~ hot
+Honestly, I was bored. That's not an excuse. That's just the truth. ~ young loose
+I know I'm better than how I've been acting. I don't need you to tell me that. ~ ego
+
+@key talk.reveal.life
+It's home, Coach. I'm here, but my head's back there.
+My family's going through some things. I don't want to get into all of it, but it's heavy.
+I call home every night and hang up feeling worse.
+I haven't told anybody on the team. You're the first.
+It's my family. Football's the only part of my day that makes sense right now.
+I've been trying to keep it out of the building. It's getting harder. ~ pro
+I don't really talk about home stuff. But I guess I should. ~ quiet
+I'm a long way from home, Coach, and some days it feels farther. ~ college young
+Everybody back home thinks I've got it made. They don't know what it's like being this far away. ~ college young
+I've got people depending on me back home, and right now I can't fix any of it from here. ~ nfl
+
+@key talk.reveal.team
+It's the losing, but it's more than that. Guys are starting to look out for themselves.
+I'm still figuring out who I can trust in this building. That's the honest answer.
+Some guys in that room have checked out, Coach. I can feel it.
+It's a lot of new faces. New coaches, new guys. I don't know where I fit yet.
+The room's split. You know it, I know it, and I'm stuck in the middle.
+I don't trust that what gets said in here is what happens out there. Not yet.
+Nothing crazy. I just want to know everybody in there wants it as bad as I do.
+I'm tired of losing, and I'm tired of guys acting like it's okay. ~ competitor
+The young guys don't listen and the old guys don't care. Somebody's gotta say it. ~ leader
+The last staff told us a lot of things. I'm waiting to see if y'all are different. ~ south
+
+@key talk.reveal.future
+I want to know if I'm in the plans past this year. Nobody will tell me straight. ~ nfl
+I'm not getting any younger. If this isn't the place, I need to know before March. ~ nfl
+I don't know if this is the place for me anymore. Honestly.
+I love it here. I just don't know if here loves me back.
+I've got one shot at this, Coach. I can't spend it waiting.
+I keep thinking about what it'd look like somewhere I'd play right away. ~ !nfl
+I've been thinking about the portal. I haven't told anybody but my mom. ~ college nil
+I've talked to some people. Not schools, just people. About my options. ~ college
+My family thinks I should transfer closer to home. Part of me agrees. ~ college
+I'm trying to figure out if I'm a pro or if I need to get my degree and move on. ~ college
+I want to finish my career somewhere I'm wanted. ~ nfl vet
+I want to play in college, Coach. Nobody's really calling. I'm scared I waited too long. ~ hs
+
+# ---------------------------------------------------------------------------
+# He doesn't open up.
+
+@key talk.deflect
+I'm good, Coach. Really.
+Nothing. I'm straight.
+I'm good. Just tired.
+It's nothing I can't handle.
+Just a long week.
+I'm alright. Appreciate you asking, though.
+It's all good. I'll figure it out.
+I'd rather not get into it, if that's okay.
+Coach, I'm fine. Can we talk about football?
+Body's sore, that's all.
+It's personal, Coach. I'll be alright.
+Honestly, there's nothing to tell. ~ calm
+Nah, I'm good. ~ young
+Nothing's going on. I promise. ~ young
+I'm handling it. ~ ego
+I'm locked in. Don't worry about me. ~ competitor
+I just need to get back to work. ~ pro
+Why, somebody say something? ~ hot
+You know me, Coach. I'm always good. ~ loose
+Mm. I'm alright. ~ quiet
+
+# ---------------------------------------------------------------------------
+# His answer to your move, by how it landed (talk.reply.<move>.<outcome>).
+# Promise covers the depth chart, the ball, the collective, the agent, next
+# year and you staying. Hand is the leadership council or time at home, so
+# its lines fit both.
+
+@key talk.reply.ask.good
+Thanks for asking, Coach. Nobody really does.
+I didn't expect to say all that. But I'm glad I did.
+It feels good to say it out loud, honestly.
+Yeah. There's more, but that's the main thing.
+You really want to know? Alright. It's worse than I let on.
+Okay. Yeah. That's what's been going on.
+I appreciate that. For real. ~ young
+Nobody's asked me that since I got here. ~ quiet
+
+@key talk.reply.ask.bad
+It doesn't matter. Forget I said anything.
+I told you what I told you.
+I already told you, Coach.
+I don't know what else you want me to say.
+I'd rather keep the rest between me and my family.
+Can we move on?
+That's it. That's all there is. ~ quiet
+Why does it matter now? ~ hot
+I'm not doing this twice. ~ hot
+You're the head coach. You should already know. ~ ego
+
+@key talk.reply.ask.flat
+That's about it.
+Not much more to say, Coach.
+Yeah. That's where I'm at.
+Nothing else, really.
+I mean, that's it.
+That's pretty much everything.
+I've said what I needed to. ~ calm
+
+@key talk.reply.straight.good
+I appreciate you telling me straight.
+That's all I wanted. Just tell me the truth.
+Okay. I can work with that.
+Nobody's ever laid it out like that for me. Thank you.
+I don't love it. But I respect it.
+Now I know what I'm working with. That's fair.
+Good. I'd rather hear it from you than read it somewhere.
+Bet. At least I know where I stand. ~ young modern
+Fair enough. I'll get to work. ~ pro
+
+@key talk.reply.straight.bad
+Okay. I'll remember that.
+So that's it, then.
+Wow. Okay.
+I hear you. I don't agree, but I hear you.
+You could've told me that a month ago.
+Yeah. Okay. ~ quiet
+So I'm just a guy. Got it. ~ ego
+Must be nice to say that from that side of the desk. ~ hot
+That's not what I was told when I signed here. ~ college
+My agent's not gonna like hearing that. ~ nfl
+My dad's gonna want to hear that from you, not me. ~ hs
+
+@key talk.reply.straight.flat
+Okay.
+I hear you.
+Yes sir.
+Alright. If that's how it is.
+Understood.
+I figured as much.
+Okay. I'll think about it.
+
+@key talk.reply.praise.good
+Thank you. I needed to hear that this week.
+I'm just trying to do my part. But thank you.
+That means a lot coming from you, Coach.
+Thank you. I've been putting the time in.
+Appreciate you, Coach.
+[Means a lot|That means a lot], {coach}. ~ young
+I didn't know anybody noticed. ~ humble
+I know what I did out there. ~ ego !humble
+That's good to hear. I'm gonna keep stacking days. ~ young modern
+I'll take it. Still got a lot to clean up. ~ pro
+Thank you. My mom's gonna like hearing that. ~ hs
+
+@key talk.reply.praise.bad
+Okay. And?
+I appreciate it, but that doesn't really change anything, does it?
+Thanks. I guess.
+Okay, but that's not what I came in here to talk about.
+You say that, but nothing's changed.
+Everybody tells me that.
+Respectfully, I don't need to be told I'm working hard. I know I am. ~ ego
+Nice words. I need more than words. ~ hot
+That's what coaches say right before the bad news. ~ vet
+Cool. ~ young loose
+
+@key talk.reply.praise.flat
+Thanks, Coach.
+Appreciate it.
+Yes sir. Thank you.
+Okay. Thanks.
+I'll keep at it.
+Just doing my job. ~ pro
+Thanks. Trying to. ~ quiet
+
+@key talk.reply.challenge.good
+That's all I needed to hear.
+Alright. Tomorrow, then.
+Good. I play better when somebody tells me I can't.
+I'm not going anywhere, Coach. I'm going to win this.
+Yes sir. Put me with the ones and see what happens.
+You're gonna have to play me. I promise you that. ~ competitor
+Say less. ~ young nil
+Okay. Then I'm coming for it. ~ competitor
+
+@key talk.reply.challenge.bad
+I've been doing everything you asked, and it's still not enough?
+Okay, Coach. I'll keep running into the same wall.
+Yeah. Okay.
+That's easy to say when you're the one deciding.
+That's not fair, Coach, and you know it.
+I've been trying to do that since camp.
+I've been doing that. You just haven't been looking. ~ hot
+So it's on me. It's always on me. ~ shaky
+Whatever you say, Coach. ~ ego
+Okay. ~ quiet
+
+@key talk.reply.challenge.flat
+Yes sir.
+I'll be ready.
+We'll see.
+Alright. I hear you.
+I always compete, Coach.
+I'll keep working.
+Okay. Noted. ~ loose
+
+@key talk.reply.criticize.good
+You're right. It won't happen again.
+Yeah. I was out of line.
+I needed somebody to say it. You're right.
+That's on me. All of it.
+No excuses. I'll fix it. ~ pro
+I hear you. I'm embarrassed, honestly. ~ humble
+That's fair. I'll handle it with the guys myself. ~ leader
+Yes sir. I'll be better. ~ young
+
+@key talk.reply.criticize.bad
+You didn't even ask what happened.
+I've been busting my tail for this team, and that's what I get?
+Wow. Good to know where I stand.
+You don't know what I'm dealing with, Coach.
+So I'm the problem. Got it.
+Funny. Nobody said anything when somebody else did it.
+You're gonna talk to me like that? Okay. ~ hot
+I'm done talking. ~ hot
+I don't have anything to say to that. ~ quiet
+Selfish? I'm the reason we win games around here. ~ ego
+I'll be sure to tell my agent how you feel. ~ nfl ego
+
+@key talk.reply.criticize.flat
+Okay.
+I hear you, Coach.
+Yes sir.
+Alright. Noted.
+Fair enough.
+Understood.
+I got it. ~ young
+
+@key talk.reply.promise.good
+I'm holding you to that, Coach.
+That's what I needed to hear.
+Okay. I trust you.
+I won't make you regret it.
+I'm gonna remember you said that.
+Alright. Then I'm all in.
+For real? Okay. Okay. ~ young
+That means everything. My family's gonna be so happy. ~ young !nfl
+
+@key talk.reply.promise.bad
+I've heard that before.
+Coaches promise a lot of things.
+I'll believe it when I see it.
+Last guy said the same thing.
+I'd rather see it than hear it.
+Sure. ~ quiet
+Get it in writing, then. ~ nfl ego
+That's what they told me on my visit, too. ~ college
+
+@key talk.reply.promise.flat
+Okay. We'll see.
+I'll hold you to it.
+Alright, Coach.
+If you say so.
+Okay. Thank you.
+I hope so.
+We'll see how it plays out. ~ calm
+
+@key talk.reply.warn.good
+Yes sir. It won't come to that.
+Understood. You won't have to.
+I know. I'm done with that.
+Message received, Coach.
+I won't put you in that spot.
+That's fair. I'd do the same thing. ~ leader
+Okay. I'm locked in from here. ~ young
+My mom would kill me before you got the chance. ~ hs young
+
+@key talk.reply.warn.bad
+I heard you the first time.
+Yeah. I know where the door is.
+Understood.
+So it's like that.
+Do what you gotta do, Coach.
+Funny how it's never a warning for some guys.
+Sit me, then. ~ hot
+You threatening me now? ~ hot ego
+Got it. ~ quiet
+Other teams would love to have me, you know. ~ ego !hs
+
+@key talk.reply.warn.flat
+Yes sir. I hear you.
+Okay.
+Understood, Coach.
+Got it. Won't happen.
+Alright.
+I hear you.
+Noted. ~ vet
+
+@key talk.reply.hand.good
+I won't let you down, Coach.
+Thank you. I mean that.
+That means more than you know.
+I didn't expect that. Thank you.
+You didn't have to do that.
+I'm gonna remember this, Coach.
+Okay. I'll make it count.
+My mom's gonna cry when I tell her. ~ young !nfl
+
+@key talk.reply.hand.bad
+I don't need special treatment.
+I didn't ask for that.
+That's not what I needed from you.
+Feels like you're just trying to get me out of your office.
+I'd rather just play, Coach.
+Is that supposed to fix it? ~ hot
+Okay. Sure. ~ quiet
+
+@key talk.reply.hand.flat
+Okay. Thank you.
+Yes sir.
+Alright. If you think that's best.
+Appreciate it.
+I'll think about it.
+Sure, Coach.
+Okay. ~ quiet
+
+@key talk.reply.listen.good
+Thanks for just letting me talk.
+I needed that more than I thought.
+Nobody's let me get all that out before.
+Sorry. I didn't mean to unload on you like that.
+That's all I really needed. Somebody to listen.
+Okay. Yeah. I think I just needed to say it.
+I feel better. That's weird, but I do. ~ young
+
+@key talk.reply.listen.bad
+I thought you'd at least say something.
+Okay. I guess I'll handle it myself.
+So... are you going to do anything about it?
+You're just gonna sit there?
+Say something, Coach.
+This is what I mean. Nobody does anything.
+I didn't come in here to talk to a wall. ~ hot
+I need answers, not a nod. ~ competitor
+Cool. So nothing changes. ~ ego
+
+@key talk.reply.listen.flat
+So, yeah. That's it.
+Anyway.
+I don't know. That's kind of where I'm at.
+Okay. I guess that's all.
+I said what I came to say.
+Yeah. ~ quiet
+
+# ---------------------------------------------------------------------------
+# An optional closing sentence after his reply, by how it landed.
+
+@key talk.close.good
+I'll see you at practice, Coach.
+Back to work, then.
+Thanks for the time.
+Door's open both ways, right?
+Let's go win some games.
+Good talk, Coach.
+I'm good now. For real. ~ young
+I'll be in early tomorrow. ~ competitor
+I'm gonna go call my mom. ~ young !nfl
+Thanks for not making it weird. ~ young loose
+
+@key talk.close.bad
+Can I go?
+Are we done?
+I gotta get to treatment.
+Anything else?
+Got it. We're good.
+I'll be at practice. That's what you want, right?
+I'm gonna go. ~ hot
+I've got class, Coach. ~ !nfl
+
+@key talk.close.flat
+That it, Coach?
+I'll see you, Coach.
+I'm gonna head out.
+Anything else you need from me?
+See you on the field.
+Yes sir. I'll get out of your hair.
+I'll be around if you need me.
+Cool. Thanks, Coach. ~ young
