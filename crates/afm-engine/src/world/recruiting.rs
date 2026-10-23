@@ -2149,8 +2149,11 @@ fn service_stars(specialist: &[bool], quotas: &[(u8, usize)]) -> Vec<u8> {
 /// own shared misreads of a kid (the camp circuit, one big offer, a level
 /// of competition). Claude's pick, proposed in the final build: 1.6
 /// points of upside per year older than the middle of his class, and a
-/// lasting misread of 3.4 points (one standard deviation), sized so about
-/// 62% of 5-stars are drafted, as in real classes.
+/// lasting misread of 9 points (one standard deviation), sized so about
+/// 62% of 5-stars are drafted, as in real classes. A first try at 3.4
+/// moved the rate only from 87.6% to 84.5%: at the very top of a class of
+/// 250,000 the services need a lot of noise before a kid who won't make
+/// it ranks among the best 32.
 fn service_bias(p: &Person, world_seed: u64) -> f64 {
     let older = if p.born == crate::calendar::born::UNKNOWN {
         0.0
@@ -2162,7 +2165,7 @@ fn service_bias(p: &Person, world_seed: u64) -> f64 {
 }
 
 const SERVICE_MATURITY: f64 = 1.6;
-const SERVICE_MISREAD: f64 = 3.4;
+const SERVICE_MISREAD: f64 = 9.0;
 
 /// The stars staffs recruit a player on (fix list 1.5): the services' for
 /// most, the camps' own for a kicker, punter or long snapper.

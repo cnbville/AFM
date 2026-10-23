@@ -547,6 +547,68 @@ fn main() {
             println!("WARNING: no FBS national champion in {y}");
         }
     }
+    // Dynasties (A6) against real: no program more than 6 titles in 15
+    // years (Alabama 2009-2023), 8 champions in 2011-2025, about half the
+    // playoff-era champions unbeaten (6 of 12, 2014-2025).
+    let by_year: BTreeMap<i32, (String, u32)> = w
+        .programs
+        .iter()
+        .flat_map(|p| {
+            p.seasons
+                .iter()
+                .filter(|s| s.national_title && fbs_in(p, s.year))
+                .map(move |s| (s.year, (p.real_name.clone(), s.losses)))
+        })
+        .collect();
+    let title_years: Vec<i32> = by_year.keys().copied().collect();
+    let mut most = (0usize, String::new(), 0i32);
+    for (k, &y0) in title_years.iter().enumerate() {
+        let window: Vec<&String> = title_years[k..].iter().filter(|&&y| y < y0 + 15).map(|y| &by_year[y].0).collect();
+        for name in &window {
+            let n = window.iter().filter(|x| x == &name).count();
+            if n > most.0 {
+                most = (n, (*name).clone(), y0);
+            }
+        }
+    }
+    let last15: Vec<&(String, u32)> = by_year.values().rev().take(15).collect();
+    let mut distinct: Vec<&String> = last15.iter().map(|x| &x.0).collect();
+    distinct.sort();
+    distinct.dedup();
+    println!(
+        "Dynasty check: most titles in any 15 years {} ({} from {}; real 6); champions in the last 15 years {} (real 8); unbeaten champions {} of the last {} (real about half)",
+        most.0,
+        most.1,
+        most.2,
+        distinct.len(),
+        last15.iter().filter(|x| x.1 == 0).count(),
+        last15.len()
+    );
+    // The voted Heisman (section 6 topic 9) against real: 2000-2025, 21
+    // quarterbacks, 3 backs and 2 receivers of 26 winners.
+    let mut heisman: Vec<(i32, u32)> = w
+        .stats
+        .honors
+        .iter()
+        .flat_map(|(&id, h)| h.awards.iter().filter(|a| a.1 == "Heisman Trophy").map(move |a| (a.0, id)))
+        .collect();
+    heisman.sort();
+    let mut by_pos: BTreeMap<String, usize> = BTreeMap::new();
+    let mut shown = Vec::new();
+    for &(y, id) in &heisman {
+        let career = w.stats.career(id);
+        let Some(s) = career.iter().find(|s| s.year as i32 == y).or(career.last()) else { continue };
+        *by_pos.entry(format!("{:?}", s.pos)).or_default() += 1;
+        if y > w.year - 11 {
+            let name = w.stats.honors.get(&id).map_or("?", |h| h.name.as_str());
+            shown.push(format!("{y} {name} ({:?}, {})", s.pos, w.programs[s.program as usize].real_name));
+        }
+    }
+    println!(
+        "Heisman winners by position: {} (real 2000-2025: QB 21, RB 3, WR 2 of 26); last ten: {}",
+        by_pos.iter().map(|(k, v)| format!("{k} {v}")).collect::<Vec<_>>().join(", "),
+        shown.join("; ")
+    );
     for d in [Division::FCS, Division::D2, Division::NAIA, Division::D3] {
         let c: BTreeMap<String, usize> = w
             .programs
