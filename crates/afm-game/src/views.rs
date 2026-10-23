@@ -656,6 +656,7 @@ pub(crate) fn pinned(w: &World) -> Vec<Value> {
         .filter(|(_, e)| {
             e.needs_decision
                 && e.rule != "people: meeting"
+                && e.rule != afm_engine::world::stories::ASK_RULE
                 && (seat.is_some_and(|s| s.cares(e)) || matches!(e.rule, "Your school" | "Your career"))
         })
         .map(|(d, e)| json!({ "date": date_text(*d), "text": e.text, "rule": e.rule }))

@@ -1599,8 +1599,12 @@ pub fn fourth_down(staff: &Staff, sit: &Situation, fg_make: f64, rng: &mut Rng) 
 /// topic 6): the chance to convert and the expected points of going,
 /// punting and kicking, from the same real tables `fourth_down` uses.
 pub fn fourth_values(sit: &Situation, fg_make: f64) -> (f64, f64, f64, f64) {
-    let y = sit.yardline_100;
-    let togo = sit.togo;
+    fourth_ev(sit.yardline_100, sit.togo, fg_make)
+}
+
+/// `fourth_values` from the spot alone (yards to the goal, yards to go):
+/// also what the morning-after bots read your calls with (lane 8).
+pub fn fourth_ev(y: f64, togo: f64, fg_make: f64) -> (f64, f64, f64, f64) {
     let conv = clamp(0.70 * (-0.085 * (togo - 1.0)).exp(), 0.12, 0.75);
     let ep = tables::expected_points;
     let after_score = 0.95;

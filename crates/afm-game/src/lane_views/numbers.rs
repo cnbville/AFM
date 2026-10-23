@@ -1,6 +1,10 @@
-//! Jersey numbers for the game views: every player on a team gets one,
-//! inside his level's real numbering rules, never two alike on a team, and
-//! the same one every time you watch (his id picks it).
+//! Jersey numbers for the game views. A team's men wear the numbers its
+//! roster pages show (`afm_engine::world::stories::numbers`: the era's
+//! rules, retired numbers out); a man the team no longer lists (gone since
+//! the game) gets one here, inside his level's real numbering rules, from
+//! the numbers left, and the same one every time you watch (his id picks
+//! it). Never two alike on one side of the ball; a big college or high
+//! school roster doubles up across it, as real ones do.
 //!
 //! The rules: the NFL since 2021 (quarterbacks, kickers and punters 1-19;
 //! backs and receivers 1-49 and 80-89; the line 50-79; linemen on defense
@@ -9,7 +13,12 @@
 //! school (NCAA and NFHS rules): any number 0-99, but the five interior
 //! linemen of the offense must wear 50-79, so linemen do.
 
+use std::collections::HashMap;
+
+use afm_engine::calendar::Level as CalLevel;
 use afm_engine::positions::Position;
+use afm_engine::world::World;
+use afm_engine::world::stories::{TeamKey, numbers};
 
 /// Where a player's number most often comes from: ranges with weights, in
 /// the order real teams hand them out.
@@ -52,12 +61,51 @@ fn mix(mut x: u64) -> u64 {
     x ^ (x >> 33)
 }
 
+/// Which side of the ball a position plays (1 for the defense): the two
+/// men who share a number on a big roster are never on the field together.
+pub fn defense(pos: Position) -> usize {
+    matches!(pos, Position::EDGE | Position::DT | Position::LB | Position::CB | Position::S) as usize
+}
+
+/// A team's numbers in the film: the ones it wears on its roster pages
+/// now, and for anyone it no longer lists, one by the rules below from
+/// the numbers left.
+pub fn for_team(w: &World, cal: CalLevel, team: usize, players: &[(u32, Position)], year: i32) -> HashMap<u32, u8> {
+    let key = match cal {
+        CalLevel::Nfl => TeamKey::Nfl(team as u16),
+        CalLevel::HighSchool => TeamKey::Hs(team as u32),
+        _ => TeamKey::College(team as u32),
+    };
+    let worn = numbers::numbers(w, key);
+    let mut out: HashMap<u32, u8> = players.iter().filter_map(|(id, _)| worn.get(id).map(|&n| (*id, n))).collect();
+    let mut taken = [[false; 100]; 2];
+    for &n in &w.stories.traditions.retired_numbers(key) {
+        taken[0][n as usize] = true;
+        taken[1][n as usize] = true;
+    }
+    for &(id, pos) in players {
+        if let Some(&n) = out.get(&id) {
+            taken[defense(pos)][n as usize] = true;
+        }
+    }
+    let rest: Vec<(u32, Position)> = players.iter().filter(|(id, _)| !out.contains_key(id)).copied().collect();
+    out.extend(assign_with(&rest, cal == CalLevel::Nfl, year, taken));
+    out
+}
+
 /// Numbers for one team's players (id and position), stars first so the
 /// best players keep the numbers they would pick.
 pub fn assign(players: &[(u32, Position)], nfl: bool, year: i32) -> Vec<(u32, u8)> {
-    let mut taken = [false; 100];
+    assign_with(players, nfl, year, [[false; 100]; 2])
+}
+
+/// `assign` around the numbers already worn on each side of the ball. A
+/// number free on both sides comes first; past that a college or high
+/// school man shares one with a man on the other side of the ball.
+fn assign_with(players: &[(u32, Position)], nfl: bool, year: i32, mut taken: [[bool; 100]; 2]) -> Vec<(u32, u8)> {
     let mut out = Vec::with_capacity(players.len());
     for &(id, pos) in players {
+        let side = defense(pos);
         let rs = ranges(pos, nfl, year);
         let zero_ok = !nfl || year >= 2023;
         // His favourite range first (by the real shares), then the others.
@@ -87,10 +135,17 @@ pub fn assign(players: &[(u32, Position)], nfl: bool, year: i32) -> Vec<(u32, u8
                 options.push(n);
             }
         }
-        let n =
-            options.iter().copied().find(|&n| !taken[n as usize]).or_else(|| (1..100u8).find(|&n| !taken[n as usize]));
+        let free = |n: u8, t: &[[bool; 100]; 2]| !t[0][n as usize] && !t[1][n as usize];
+        let ours = |n: u8, t: &[[bool; 100]; 2]| !t[side][n as usize];
+        let n = options
+            .iter()
+            .copied()
+            .find(|&n| free(n, &taken))
+            .or_else(|| (1..100u8).find(|&n| free(n, &taken)))
+            .or_else(|| (!nfl).then(|| options.iter().copied().find(|&n| ours(n, &taken))).flatten())
+            .or_else(|| (0..100u8).find(|&n| ours(n, &taken)));
         let n = n.unwrap_or(99);
-        taken[n as usize] = true;
+        taken[side][n as usize] = true;
         out.push((id, n));
     }
     out
@@ -121,5 +176,21 @@ mod tests {
             }
         }
         assert_eq!(got, assign(&players, true, 2026), "the same numbers every time");
+    }
+
+    #[test]
+    fn a_big_college_roster_doubles_up_across_the_ball() {
+        let mut players = Vec::new();
+        for (k, pos) in Position::ALL.iter().enumerate() {
+            for j in 0..9 {
+                players.push((2000 + (k * 10 + j) as u32, *pos));
+            }
+        }
+        assert!(players.len() > 100);
+        let got = assign(&players, false, 2026);
+        let mut seen = std::collections::HashSet::new();
+        for (&(_, pos), &(_, n)) in players.iter().zip(&got) {
+            assert!(seen.insert((defense(pos), n)), "{n} twice on one side of the ball");
+        }
     }
 }

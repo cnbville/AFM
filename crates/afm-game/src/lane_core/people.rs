@@ -177,79 +177,21 @@ pub fn district(w: &World, h: usize) -> String {
     if code == "TX" { format!("{} Independent School District", s.town) } else { format!("{} Public Schools", s.town) }
 }
 
-/// The numbers a position may wear (the NFL's rules from 2021, college and
-/// high school's NFHS rules: linemen 50-79 to be ineligible receivers).
-fn number_range(pos: afm_engine::positions::Position, pro: bool) -> &'static [u8] {
-    use afm_engine::positions::Position as P;
-    const QB: [u8; 19] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
-    const SKILL: [u8; 35] = [
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-        31, 32, 33, 34, 35,
-    ];
-    const WR: [u8; 29] =
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89];
-    const TE: [u8; 14] = [80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 44, 45, 46, 49];
-    const OL: [u8; 30] = [
-        50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77,
-        78, 79,
-    ];
-    const DL: [u8; 24] =
-        [90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 50, 52, 55, 56, 58, 69, 70, 71, 72, 73, 75, 77, 78, 79];
-    const LB: [u8; 28] =
-        [40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 90, 91, 93, 94, 95, 1, 6, 9];
-    const DB: [u8; 39] = [
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-        31, 32, 33, 34, 35, 36, 37, 38, 39,
-    ];
-    const KP: [u8; 14] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 17, 19];
-    const LS: [u8; 10] = [40, 41, 42, 44, 46, 47, 48, 49, 59, 92];
-    let _ = pro;
-    match pos {
-        P::QB => &QB,
-        P::RB => &SKILL,
-        P::WR => &WR,
-        P::TE => &TE,
-        P::OT | P::IOL => &OL,
-        P::EDGE | P::DT => &DL,
-        P::LB => &LB,
-        P::CB | P::S => &DB,
-        P::K | P::P => &KP,
-        P::LS => &LS,
-    }
-}
-
-/// Each player's jersey number on a team: the senior men pick first, each
-/// takes the number his own stream prefers among those his position may
-/// wear and nobody has, so numbers hold as players come and go. Returns
-/// (person index, number).
+/// Each player's jersey number on a team, by the era's numbering rules
+/// with retired numbers out of circulation (the stories keep both:
+/// `afm_engine::world::stories::numbers`). Returns (person index, number).
 pub fn jerseys(w: &World, t: TeamRef) -> Vec<(usize, u8)> {
-    let mut people = crate::views::roster_people(w, t);
-    // Longest on the team first, then the oldest.
-    people.sort_by_key(|&k| {
-        let p = &w.people[k];
-        (std::cmp::Reverse(p.player.age), p.player.id)
-    });
-    let pro = matches!(t, TeamRef::Nfl(_));
-    let mut taken = [false; 100];
-    let mut out = Vec::with_capacity(people.len());
-    for k in people {
-        let p = &w.people[k];
-        let r = number_range(p.player.position, pro);
-        let start = (p.player.id.wrapping_mul(0x9E37_79B9) >> 7) as usize % r.len();
-        let mut pick = None;
-        for j in 0..r.len() {
-            let n = r[(start + j) % r.len()];
-            if !taken[n as usize] {
-                pick = Some(n);
-                break;
-            }
-        }
-        // A big roster runs out of a position's numbers: any free one.
-        let n = pick.or_else(|| (1..100u8).find(|&n| !taken[n as usize])).unwrap_or(0);
-        taken[n as usize] = true;
-        out.push((k, n));
-    }
-    out
+    use afm_engine::world::stories::{TeamKey, numbers};
+    let key = match t {
+        TeamRef::Nfl(i) => TeamKey::Nfl(i as u16),
+        TeamRef::College(i) => TeamKey::College(i as u32),
+        TeamRef::HighSchool(i) => TeamKey::Hs(i as u32),
+    };
+    let nums = numbers::numbers(w, key);
+    crate::views::roster_people(w, t)
+        .into_iter()
+        .filter_map(|k| nums.get(&w.people[k].player.id).map(|&n| (k, n)))
+        .collect()
 }
 
 /// One player's number on his team.

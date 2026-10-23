@@ -52,6 +52,7 @@ pub mod scouting;
 pub(crate) mod season;
 pub mod seat;
 pub mod staff;
+pub mod stories;
 pub mod systems;
 pub mod tape;
 pub mod trends;
@@ -762,6 +763,10 @@ pub struct World {
     /// build, lane 10).
     #[serde(default)]
     pub front_office: front_office::FrontOffice,
+    /// The stories around the football (final build lane 8): traditions,
+    /// media, nicknames, your decisions graded, your career's story.
+    #[serde(default)]
+    pub stories: stories::Stories,
     /// The other pro leagues as full leagues (final build X7).
     #[serde(default)]
     pub others: pro::other::Others,
@@ -1082,6 +1087,7 @@ impl World {
             finance: finance::Finance::default(),
             scouting: Default::default(),
             front_office: Default::default(),
+            stories: stories::Stories::default(),
             others: Default::default(),
         };
         staff::staff_everyone(&mut w);

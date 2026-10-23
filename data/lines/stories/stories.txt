@@ -1,0 +1,2458 @@
+# AFM story lines: news, inbox and feature text for the stories systems.
+# Format: see FORMAT.md. One template per line, [key] or [key@from-to] sections.
+
+# ---------------------------------------------------------------- field storming
+
+[storm.news]
+The clock hit zero and the walls came down: {crowd} fans poured onto the field after {team} beat {opp}, {score}.
+Security lost the race by about four seconds. {crowd} students flooded the turf as {team} finished off {opp}, {score}.
+{team} {score}, {opp} beaten, and the student section was on the 50-yard line before the officials could reach the tunnel.
+It took stadium crews nearly an hour to clear the field after {crowd} fans rushed it to celebrate {team}'s {score} upset of {rank} {opp}.
+One goalpost came down, then the other. {team}'s {score} win over {opp} ended with {crowd} people on the field and a crossbar headed down main street.
+{opp} players were escorted off through a corridor of state troopers while {crowd} {team} fans celebrated at midfield after a {score} final.
+The public address announcer asked fans to stay in the stands. Nobody listened. {team} {score}, and the field belonged to {crowd} of them.
+Freshmen who had never seen a win like it climbed the goalposts. Seniors who had waited four years cried at midfield. {team} beat {opp}, {score}.
+The quarterback disappeared into the crowd and came out ten minutes later without his helmet. {team} {score} over {opp}, and {crowd} fans on the field to see it.
+"I couldn't find my own sideline," a {team} lineman said after {crowd} fans swarmed the field following the {score} win over {opp}.
+The band kept playing the fight song from the stands because there was no room left on the field. {team} {score}, {opp} sent home.
+Ushers opened the field-level gates rather than fight it, and {crowd} fans streamed onto the turf after {team}'s {score} win over {opp}.
+The scoreboard still read {score} long after midnight, lit over a field covered in confetti, cups and {crowd} people who did not want to leave.
+{team} fans had not rushed a field in a long time, and they made up for it. {score} over {opp}, and {crowd} of them on the grass.
+Somebody's dad carried a piece of the goalpost out to the parking lot on his shoulder. {team} {score}, {opp} done, and {crowd} fans on the field.
+The temporary fencing lasted one play. When {team}'s final kneel-down sealed the {score} upset of {opp}, {crowd} fans went over and through it.
+A student in a chicken suit was the first one over the wall. Behind him came {crowd} more, and {team} had its {score} win over {rank} {opp}.
+{opp}'s coach shook hands at midfield for about five seconds before the crowd swallowed both benches. Final: {team} {score}.
+[storm.news@1996-2008]
+Photographers on the sideline held their cameras over their heads and hoped. {crowd} fans rushed the field after {team}'s {score} win over {opp}, and the picture ran on every front page in the state the next morning.
+The late local news led with it: {crowd} fans, a fallen goalpost and {team} {score} over {opp}.
+[storm.news@2009-]
+Phones up, walls down. Video of {crowd} fans sprinting onto the field after {team}'s {score} win over {opp} was everywhere within the hour.
+The drone shot was on every feed before the players reached the locker room: {crowd} people, one field, {team} {score} over {rank} {opp}.
+By midnight the clip of a {team} offensive tackle crowd-surfing across the 30-yard line had a million views. {team} beat {opp}, {score}.
+
+[storm.fine]
+The {conf} fined {team} {fine} for the field storming, the school's {n} offense under the league's crowd policy.
+It will cost {team} {fine}. The {conf} announced the fine Monday, the program's {n} violation of the conference's field-access rule.
+{team}'s athletic director called the {fine} fine "money we'd spend again," then walked it back in a statement an hour later. It was the school's {n} offense under {conf} policy.
+The {conf} office sent the bill on Monday: {fine}, the rate for a {n} offense.
+Under {conf} rules the fine climbs with every offense. For {team}, this was the {n}, and the price is {fine}.
+{team} will pay {fine} to the {conf}, which said the school did not keep the visiting team's path to the locker room clear. It is the {n} offense on the school's record.
+The {conf} fined {team} {fine}. School officials said the money will come from concessions revenue and that they will review the stadium's postgame security plan.
+"We understand the rule," {team}'s athletic director said of the {fine} fine, the school's {n} under the {conf} policy. "We also understand our students."
+Add {fine} to the price of the upset. The {conf} fined {team} for its {n} field-storming offense, and the commissioner's office said visiting players' safety "is not negotiable."
+{team} was fined {fine} by the {conf} on Monday. It was the school's {n} offense, and the league reminded it that the next one costs more.
+Nobody at {team} seemed surprised by the {fine} fine from the {conf}. The athletic department budgets for it now. This was its {n}.
+The {conf} announced a {fine} fine against {team}, whose fans reached the field before the visiting team had left it. It is the school's {n} offense.
+Boosters covered it within a day. The {conf}'s {fine} fine for {team}'s {n} field storming was paid by a group of former players, the school said.
+{team}'s president apologized to the visiting school in a letter released alongside the {conf}'s announcement of a {fine} fine, the {n} the school has drawn.
+The {conf} took some of the shine off Monday: {fine} for {team}, its {n} field-storming offense.
+A {fine} fine from the {conf} is the cost of Saturday night for {team}, plus a new set of goalposts. It is the school's {n} offense under the policy.
+[storm.fine@2009-]
+A {fine} fine from the {conf} landed on Monday, and {team} fans had an online fund going to pay it before lunch.
+Somebody made a T-shirt within hours of the {conf}'s {fine} fine: "WORTH IT." {team} drew the penalty for its {n} offense.
+
+[storm.no_fine]
+The {conf} has no fine for field storming, so {team} will pay nothing for Saturday night beyond the cost of a new goalpost.
+No fine is coming. The {conf} leaves crowd control to its schools, and {team} said it was satisfied with how the field was cleared.
+Unlike some leagues, the {conf} does not fine schools when fans rush the field. {team}'s only bill is for the sod.
+{team} will not be fined. The {conf} handbook says nothing about fans on the field, a gap the commissioner said the league "will look at in the spring."
+The {conf} office confirmed Monday that {team} faces no penalty for the field storming. The league has no policy to enforce.
+Field storming is free in the {conf}. {team} spent Monday replacing turf and fixing a scoreboard cable, not writing a check to the league.
+"There's no rule, so there's no fine," a {conf} spokesman said when asked about Saturday's scene at {team}.
+The visiting coach wanted a penalty. The {conf} has none to give, and {team} will not be punished for the field storming.
+{team} administrators met with campus police about Saturday's crowd, but the {conf}, which has no field-storming rule, never called.
+No fine from the {conf}, which leaves the question to each campus. {team} said it would add security staff at the next big home game.
+The new goalposts will cost {team} a few thousand dollars. The {conf} will cost it nothing; the league has no fine for rushing the field.
+In the {conf}, a field storming is a campus matter. {team} said nobody was arrested and nobody was hurt, and that was the end of it.
+The {conf} commissioner was asked twice about the scene at {team} and twice said the league has no policy on it. He did not say whether it should.
+Fans at {team} can thank the {conf} rule book, or the missing page in it. There will be no fine.
+{team} escaped a fine because the {conf} never wrote one. A few of the league's athletic directors said this week it may be time.
+
+[storm.hs]
+The whole town came down out of the bleachers when {team} finished off {opp}, {score}.
+Little brothers, grandmothers and the entire marching band: everybody in {team} colors was on the field after the {score} win over {opp}.
+The fire siren went off on the edge of town about the time the {team} students reached the 50-yard line. {team} {score}, {opp} beaten.
+Somebody tried to hoist the head coach onto his shoulders, then realized he could not hold him. {team} beat {opp}, {score}, and the field filled with fans.
+The visiting bleachers emptied quietly. The home side emptied onto the field. {team} {score} over {opp}.
+Parents poured through the gate behind the end zone after {team}'s {score} win over {opp}. The booster club ran out of hot chocolate twenty minutes later and nobody cared.
+It was a Friday night the diner will be talking about for a decade. {team} {score}, {opp} done, and half the county on the field.
+Students jumped the chain-link fence rather than wait for the gate. {team} beat {opp}, {score}.
+The kicker's mom was the first one on the field. She was not the last. {team} {score} over {opp}.
+{team} had not beaten {opp} in years. When it finally did, {score}, the stands were empty within a minute and the field was full.
+The lights stayed on an extra hour so families could take pictures on the field after {team}'s {score} win over {opp}.
+A cheerleader got lifted onto the crossbar and stayed there through the whole fight song. {team} {score}, {opp} beaten.
+Players found their parents somewhere around the 30. {team} {score} over {opp}, and the field turned into the biggest family reunion in town.
+"My whole graduating class was out there," said a former player who drove in from two hours away to see {team} beat {opp}, {score}.
+The principal gave up on announcements. {team} {score}, {opp} beaten, and the student body was on the field.
+[storm.hs@2009-]
+The video from the student section's phones made the late local news. {team} {score}, {opp} beaten, and fans everywhere.
+
+[storm.injury]
+A visiting player was knocked to the ground in the crush of fans at {team} and was attended to by trainers. The school said he was released after evaluation and apologized to his program.
+A fan was taken from the field on a stretcher after being trampled near the goalposts at {team}. Stadium officials said he was alert and was taken to a local hospital as a precaution.
+The celebration at {team} turned frightening for a few minutes when a student fell under the crowd near the north end zone. Police said she was treated and released.
+{team}'s athletic director issued a statement Sunday after an opposing player said he was shoved and struck by fans while leaving the field. The school said it is reviewing video.
+Medics needed several minutes to reach a fan who collapsed in the crowd at {team}. He was taken to the hospital in stable condition.
+The visiting head coach said one of his assistants was pushed into a railing as fans rushed the field at {team}. {team} said it has contacted the other school directly.
+Not everyone left {team}'s stadium celebrating. A visiting linebacker was knocked over in the crush and needed help getting to his feet; he was evaluated and cleared.
+A goalpost came down on a group of students at {team}. Two were taken to the hospital with injuries campus police described as not life-threatening.
+{team}'s president called the scene "a celebration that came too close to a tragedy" after a fan was injured near the tunnel.
+Several opposing players had to push their way to the locker room through fans at {team}. One was treated for a hand injury, the visiting school said.
+An older fan was knocked down near the front row as students rushed the field at {team}. Paramedics treated her and she went home that night.
+{team} said it would add barriers and staff at the field-level exits after a visiting player was hurt in the crowd. "We were lucky," a school official said.
+Campus police said a student broke his leg jumping from the wall onto the field at {team}. He is expected to make a full recovery.
+The mood at {team} was quieter on Sunday. A visiting player was recovering from a concussion after being knocked down in the crowd, and the school said it would cooperate with any review.
+"Somebody's going to get hurt," a visiting coach said last year about field stormings. At {team} on Saturday, somebody did: a visiting player was treated for a knee injury after fans knocked him down.
+
+# ---------------------------------------------------------------- the travelling pregame show
+
+[show.pick]
+{show} is headed to {town}. The show picked {team} and {opp} as its game of the week.
+Pack the poster board. {show} will broadcast from {town} on Saturday morning ahead of {team} against {opp}.
+For the first time this season, {show} goes to a game nobody circled in August: {opp} at {team}, live from {town}.
+{show} announced Saturday night that next week's broadcast will come from {town}, where {team} hosts {opp}.
+Hotels in {town} were sold out by Sunday morning, minutes after {show} named {team} and {opp} its game of the week.
+The {show} crew will set up in the middle of campus in {town}, and the line for the front row usually starts forming Friday afternoon.
+{team} against {opp} was not the biggest game on paper. {show} picked it anyway, and {town} is already getting ready.
+"{show} is coming" was the only thing anybody in {town} was talking about on Sunday. {team} hosts {opp}.
+{show} is going to {town} for {game}: {team} against {opp}.
+{game} gets the national stage. {show} will broadcast live from {town} before {team} and {opp} kick off.
+Every Saturday the show has to choose one campus. This week it is {town}, and {team} against {opp}.
+{show}'s producers said they picked {team} and {opp} because both seasons hang on it. The set goes up in {town} on Friday.
+A small campus, a big week. {show} picked {town}, where {team} plays {opp} in a game that will shape both seasons.
+{team} coaches spent part of Monday's staff meeting on logistics nobody planned for: {show} is coming to {town}, and so is everybody else.
+Students in {town} were camping out for {show} by Thursday night. {team} against {opp} is the game of the week.
+The trucks roll into {town} on Thursday, the stage goes up Friday and the crowd shows up before sunrise. {show} has its game: {team} and {opp}.
+It is official: {game}, {team} against {opp}, with {show} live from {town}.
+[show.pick@2009-]
+The mayor of {town} posted a welcome before the show had finished announcing it. {show} is coming for {team} and {opp}.
+
+[show.first_visit]
+{show} has never been to {town}. That changes Saturday, when the show sets up on campus for the first time in {team} history.
+First time. {show} will broadcast from {town} for the first time, and {team} fans have been asking for it for years.
+For a program that spent most of its history being overlooked, the arrival of {show} in {town} feels like a coronation.
+The {team} athletic department had to call another school to ask how to host it. {show} has never visited {town}.
+Longtime {team} fans remember the years when the show would not even mention them. On Saturday it broadcasts live from {town}, its first visit to campus.
+Local businesses in {town} put welcome signs in their windows on Monday. {show} is coming to {team} for the first time.
+"We've waited a long time for this," {team}'s athletic director said of {show}'s first visit to {town}.
+{show} has been to dozens of campuses. {town} was never one of them until now.
+A first for {team}: {show}, live from {town}. The school expects the biggest Saturday-morning crowd in its history.
+It took {show} a long time to find {town} on a map. It gets there Saturday, for {team}'s first turn as host.
+{town} has one main street and three hotels, and on Saturday it will have {show}. It is the show's first visit to {team}.
+Freshmen and alumni alike lined up on Friday for a spot behind the set. {show} is in {town} for the first time, and {team} wants to make it count.
+Nobody in {town} needs an alarm on Saturday. {show}'s first visit to {team} starts before sunrise.
+{team} printed shirts for the occasion with one word on the front: "FINALLY." {show} makes its first trip to {town} this week.
+The visit says something about how far {team} has come. {show} never had a reason to come to {town} before.
+
+[show.return]
+{show} is back at {team} for the first time in {years} years. It will be the show's visit No. {n} to campus.
+{show} returns to {team} on Saturday after {years} years away. The show has now come to campus {n} times.
+The last time {show} set up at {team} was {years} years ago. Visit No. {n} is Saturday.
+{years} years after its last trip, {show} is coming back to {team}. Count it as No. {n}.
+"It's been too long," {team}'s coach said of {show}'s return after {years} years, its visit No. {n}.
+The show knows the way. {show} returns to {team} for visit No. {n}, the first in {years} years.
+A wait of {years} years ends Saturday when {show} returns to {team}. The campus has now hosted the show {n} times.
+Old {team} signs are coming out of basements for {show}'s return, the first in {years} years and No. {n} overall.
+{show}'s producers called {team} "a place that always delivers." They return Saturday after {years} years, for visit No. {n}.
+The show's return to {team} after {years} years says plenty about this season. Visit No. {n} goes live Saturday morning.
+{team} has hosted {show} {n} times. The latest comes after a wait of {years} years.
+Same campus, new faces. {show} is back at {team} after {years} years, and this time it finds a contender.
+{show} makes stop No. {n} at {team} this weekend, ending a {years}-year wait.
+"WELCOME BACK," read the banner on the library steps. {show} returns to {team} after {years} years.
+{team} fans who were there for the last {show} visit, {years} years ago, are already telling the younger ones how it is done. This is visit No. {n}.
+
+[show.recruits]
+{team} has {n} recruits booked to visit this weekend, and the staff planned it that way around the national show.
+Recruiting coordinators love a television weekend. {team} will host {n} prospects for Saturday's game, many of them arriving in time for the morning broadcast.
+{n} recruits have visits set at {team} this weekend. The plan: put them behind the set at sunrise and let the crowd do the selling.
+With the national show in town, {team} has {n} prospects coming on visits. Nobody on staff pretends that is a coincidence.
+{team} coaches will have {n} recruits on campus Saturday, the biggest visit weekend of the year.
+The show brings the cameras and the cameras bring the recruits: {n} have booked visits to {team}.
+A {team} staffer said the phones have not stopped since the show's announcement. {n} recruits are now booked for the weekend.
+Parking passes, sideline passes, seats behind the band: {team}'s recruiting office is planning for {n} visiting prospects.
+For {n} recruits, the weekend at {team} starts at dawn with the national show and ends under the lights.
+{team} will show {n} prospects what a full stadium sounds like. The staff moved its big visit weekend to line up with the broadcast.
+Some of the {n} recruits visiting {team} this weekend were invited weeks ago. Others called as soon as the show announced its pick.
+{n} high school players will watch {team} from the sideline this weekend. The staff hopes several of them never leave.
+"Every kid wants to be on TV," a {team} assistant said. {n} recruits are booked for the weekend.
+[show.recruits@2009-]
+Expect posts. {n} recruits are visiting {team} this weekend, and the staff has a photographer lined up for each of them.
+{n} prospects will be at {team} this weekend, and by Saturday night their feeds will be full of the crowd, the show and the uniforms.
+
+[show.signs]
+Behind the set, a {team} student held a sign reading "I SKIPPED A CHEM LAB FOR THIS AND I'D DO IT AGAIN."
+The best sign of the morning: "{opp}'S OFFENSE IS LIKE MY LOVE LIFE: NO PROGRESS PAST MIDFIELD."
+A sign bobbing above the crowd at {team}: "MOM, SEND MONEY. AND FOOD. MOSTLY FOOD."
+"MY DOG COULD COVER {opp}'S RECEIVERS (HE IS A GOOD BOY)," read one poster behind the desk.
+One freshman held up "WILL TRADE ROOMMATE FOR TICKETS." His roommate was standing next to him.
+The camera kept finding a sign that read "I WOKE UP AT 4 A.M. AND I'M NOT EVEN A MORNING PERSON."
+"{opp} HAS MORE PUNTS THAN I HAVE FRIENDS," a {team} fan's sign said. The producers kept it in the shot.
+"MY PROFESSOR IS WATCHING. HI, PROFESSOR. I AM VERY SICK TODAY," read a sign in the second row.
+A grandmother in {team} gear held a sign that said "GRANDMA SAYS {opp} IS OVERRATED."
+"THIS IS MY THIRD SIGN. SECURITY TOOK THE FIRST TWO," read a piece of poster board near the front.
+The sign that got the biggest laugh on set: "ROSES ARE RED, {opp} IS DONE, WE'VE BEEN HERE SINCE 3 A.M. AND IT'S BEEN FUN."
+"{opp}'S BACKUP QUARTERBACK DID MY TAXES," read a sign that made one analyst laugh on air.
+"I DROVE NINE HOURS AND I STILL HAVE A PAPER DUE MONDAY," said a sign held by a {team} grad student.
+"{opp}'S LINE HAS MORE HOLES THAN MY SOCKS" got prime placement behind the host's chair.
+"PICK {team} OR WALK HOME," read a sign aimed straight at the analysts.
+A {team} student's sign: "MY GPA AND {opp}'S RUSHING AVERAGE ARE BOTH UNDER 2."
+"{opp} FANS THINK A FIRST DOWN IS A HOLIDAY," read a sign the director cut to twice.
+Somebody's little sister held the simplest sign of the day: "{team} IS MY FAVORITE AND {opp} IS NOT."
+[show.signs@1996-2008]
+"HI MOM, PLEASE TAPE THIS," read a sign near the front, held by a {team} sophomore.
+[show.signs@2012-]
+"{opp}'S DEFENSE LEFT ME ON READ," read a poster behind the desk.
+"TAG ME IF YOU SEE ME ON TV," read one sign. Thousands of people did.
+[show.signs@2013-]
+"SWIPE LEFT ON {opp}," read a sign the producers kept in frame for most of the second hour.
+[show.signs@2021-]
+"WILL BLOCK FOR NIL MONEY," read a sign held by a student who did not appear to play football.
+
+[show.picker]
+{name} was the guest picker and did not pretend to be neutral.
+The crowd chanted {name}'s name for five minutes before the final segment, and chanted louder when the pick came.
+{name} went with the home team, gave the crowd a fist pump and signed autographs for twenty minutes after the show.
+A guest picker's job is simple: pick the home team, hear the roar. {name} did it with a little extra drama, waiting until the last possible second.
+{name} picked against the home team. The boos lasted through the commercial break, and then {name} admitted it was a joke.
+{name} brought notes. The analysts were impressed until {name} admitted they had been written by the team's equipment manager.
+The guest picker was {name}, and it took about four seconds to see why: the whole campus stood up when the name was announced.
+{name} grew up a few miles from campus and called it the highlight of a life with plenty of highlights.
+{name} called the big game down to the final score, then admitted to guessing on all of it.
+"I had to be here," {name} said before making the pick. "I'd have stood in the back if they hadn't asked."
+{name} took the guest picker's chair, studied the cards like a final exam, then picked every game with the heart instead of the head.
+When the moment came, {name} gave a short speech about the town, the school and the people who built it. Then came the pick, and the crowd lost its mind.
+{name} got the loudest cheer of the morning, which says something with the band standing right behind the set.
+{name} was a nervous guest picker, laughed about it on air, and won the crowd anyway.
+Producers said {name} had asked to be a guest picker for years. It finally happened, and {name} picked an upset in nearly every other game just to keep things interesting.
+
+[show.headgear]
+The mascot head came out from under the desk, the crowd stood up, and {show} made it official: {team}.
+On {show}, the last pick of the morning comes with a costume change. The analyst put on the mascot head and picked {team}.
+The headgear went on and the crowd went off. {show} picked {team}.
+{show}'s final pick came with a mascot head and a two-minute ovation. {team} got the nod.
+He reached under the desk slowly, for drama, and pulled out the {team} mascot head. {show} has its pick.
+The analyst folded his hands, let the crowd beg, and then put on the {team} mascot head.
+A {team} pick from {show}, made the only way the show makes them: with a giant foam head.
+It took the analyst three tries to get the mascot head on straight. The crowd did not mind. {team} was the pick.
+The set crew had the {team} head ready and waiting, and {show} used it.
+The pick was {team}. The headgear was enormous. The noise was, by the show's own count, the loudest of the season.
+Some analysts make a show of thinking about it. Not this time: the {team} head went on before the host finished asking.
+{show} closed with the familiar ritual: one pick, one mascot head, one campus going wild. {team} it is.
+The analyst picked {team}, put the head on backward and took a bow anyway.
+Students behind the set had been chanting for an hour. When the {team} mascot head finally came out, {show} could not be heard over them.
+The last image of {show}'s broadcast was an analyst in a mascot head being mobbed by the {team} band.
+
+[show.upset]
+So much for the headgear. {show}'s pick lost.
+{show} picked {team}. {team} lost. The analysts will hear about it all week.
+The mascot head is going back in the box. {show}'s pick went down on Saturday night.
+The crowd behind {show}'s set got a morning to remember and an evening to forget.
+{show}'s morning pick did not survive the afternoon.
+A sign at the visitors' tailgate after the final whistle: "THANKS FOR THE PICK, {show}."
+{show} went with {team}. The scoreboard went the other way.
+The analyst who picked {team} was asked about it on air the next week and said only, "I stand by the headgear."
+Upset complete, and {show}'s pick on the wrong end of it.
+{show} will hear from the losing fan base on the way out of town. It picked {team}, and {team} did not hold up its end.
+Not the show's best day. The campus it visited lost, and the pick went with it.
+Students who spent the dawn behind {show}'s set spent the night watching their team lose. The pick looked good for about three quarters.
+The pick looked smart at halftime. By the fourth quarter it looked like a jinx. {show}'s choice lost.
+The curse of the visit struck again: {show}'s pick lost.
+{show} had {team} in a walk. {team} walked off the field a loser.
+
+# ---------------------------------------------------------------- uniforms
+
+[uniform.reveal]
+{team} revealed {set} on Tuesday. It debuts at a home game this fall.
+The secret is out: {team} will wear {set} this season.
+{team}'s equipment staff spent two years on it. The result is {set}.
+{team} showed off {set} at a summer fan event, and the line to buy the jersey started before the presentation ended.
+Players got their first look at {set} on Monday. "It goes hard," one {team} receiver said.
+The athletic department called it a tribute. Fans called it the best thing {team} has worn in years. It is {set}.
+{team} will add {set} to its rotation this fall. The school said the design started with its own players' suggestions.
+Recruits on campus for a summer cookout got the first look: {team} unveiled {set} in the locker room.
+Not everybody is sold. {team}'s new look, {set}, drew cheers from students and grumbles from longtime season-ticket holders.
+{team} unveiled {set} in a dark room with a fog machine and a hype video, and the reveal worked.
+Mannequins in the team store were wearing {set} by Wednesday morning, a day after {team} made it official.
+{team} has worn its traditional look for decades. This fall it will also wear {set}, at least once.
+Team photos in {set} went up on Monday. {team} will wear it for the first time in the season's biggest home game.
+"We wanted something the kids would remember," {team}'s athletic director said of {set}.
+A print shop in town leaked the design a week early. {team} confirmed it Tuesday: {set}.
+[uniform.reveal@1996-2008]
+{team} unveiled {set} at a press conference Tuesday, with two players in full uniform standing beside the athletic director.
+Photos of {set} ran on the front of Wednesday's sports section. {team} will wear it this fall.
+[uniform.reveal@2009-]
+{team}'s reveal video for {set} passed a million views in a day.
+The countdown clock on {team}'s social accounts ended at noon, and there it was: {set}.
+
+[uniform.pick]
+{team} will wear {set} against {opp}.
+It is an alternate week. {team} goes with {set} for {opp}.
+The equipment staff laid out {set} on Thursday. {team} wears it against {opp}.
+For {opp}, {team} is going with {set}.
+The players voted, and the vote was not close: {set} against {opp}.
+{team}'s uniform for the {opp} game is {set}, the school announced.
+Expect {set} when {team} takes the field against {opp}.
+Big game, big look. {team} will wear {set} for {opp}.
+{team} saved {set} for this one. {opp} comes to town Saturday.
+Seniors picked the uniform this week. Their choice for {opp}: {set}.
+Same opponent, new look. {team} will wear {set} against {opp}.
+{team} has worn {set} only a handful of times. It comes out again for {opp}.
+Recruits in town for the {opp} game will see {team} in {set}.
+{team}'s staff said {set} against {opp} was planned months ago. The players said they asked for it on Monday.
+The head coach said he does not pick uniforms. The players do, and they picked {set} for {opp}.
+[uniform.pick@2009-]
+{team}'s Thursday uniform post is out: {set} for {opp}.
+The equipment room's weekly reveal video shows {set}. {team} against {opp}, Saturday.
+
+[uniform.recruit_like@1996-2008]
+"Those are the best uniforms I've ever seen," {name} told a reporter after watching {team} play in {set}.
+{name} said the uniforms were part of the pitch. "When I saw {set}, I could see myself in it," he said of {team}.
+Asked what stood out on his visit to {team}, {name} did not mention the weight room. He mentioned {set}.
+{name} told his hometown paper that when {team} came out in {set}, "it looked like the NFL."
+{name} said he was still thinking about {set} on the drive home from {team}.
+"That's the one," {name} said after {team} showed him {set} in the locker room. "I want to wear that."
+A {team} coach said {name} asked to try on the jersey from {set} before he asked about the depth chart.
+"Recruits notice that stuff," {name} said after {team} showed off {set}.
+[uniform.recruit_like@2009-]
+{name} posted a photo of himself in {set} at {team} with three fire emojis.
+"Need these," {name} posted after {team} came out in {set}.
+{name} changed his profile picture to an edit of himself in {set} hours after {team}'s game.
+The graphic designers at {team} made {name} an edit in {set}. He posted it within minutes.
+{name} reposted {team}'s uniform reveal with one word: "Clean."
+"Them unis different," {name} wrote after watching {team} play in {set}.
+{name} replied to {team}'s uniform post: "I could get used to this."
+{name} posted a slow-motion clip of himself in {set} from his visit to {team}, and it drew more likes than anything he posted all year.
+{name} was asked online which school had the best uniforms. He answered with a photo of {team} in {set}.
+"Y'all see this?" {name} posted, with a picture of {team} in {set}.
+
+[uniform.recruit_meh@1996-2008]
+{name} was polite about {team}'s uniforms. "They're fine," he said, and changed the subject.
+Asked about {team}'s new look, {name} shrugged. "I'm not picking a school for the clothes."
+"I liked the old ones better," {name} told a reporter after his visit to {team}.
+{name} said the uniforms at {team} "don't move the needle" for him.
+{name} told his high school coach the {team} uniforms looked "like a practice jersey."
+"My mom liked them," {name} said of {team}'s uniforms. "I'm still deciding."
+{name} laughed when asked about the uniforms at {team}. "Coach asked me the same thing. I told him I'd rather talk about playing time."
+[uniform.recruit_meh@2009-]
+"Respectfully, no," {name} replied to {team}'s uniform post.
+{name} posted a ranking of the uniforms of every school recruiting him. {team} was last.
+{name} told his followers he would visit {team} "for the coaches, not the jerseys."
+A fan account asked {name} what he thought of {team}'s new look. He answered with a shrugging emoji.
+"Not a fan of the pants," {name} posted about {team}'s new set, which drew replies from half the {team} fan base.
+{name} said the {team} uniforms "look better on the website than in person."
+{name} deleted his post about {team}'s uniforms an hour later, but not before fans saw the word "ugly."
+{name} quietly unfollowed {team}'s equipment account after the uniform reveal. Fans noticed anyway.
+[uniform.recruit_meh@2020-]
+{name} quoted {team}'s uniform reveal with a single word: "Mid."
+
+[uniform.superstition]
+{team} is {w}-{l} in {set}, and nobody on the staff is in a hurry to wear it again.
+{team} is {w}-{l} all-time in {set}. The players have noticed.
+Superstition runs the equipment room at {team}: {set} is {w}-{l}, and it is back for the big one.
+The numbers behind the uniform: {w} wins, {l} losses. {team} wears {set} on Saturday anyway.
+Some {team} fans have started a petition to retire {set}, which is {w}-{l} since its debut.
+"It's just cloth," {team}'s coach said. It is cloth with a {w}-{l} record.
+{team} keeps going back to {set}, and with a {w}-{l} record in it, who could blame them.
+Seniors asked for {set} again. They know the record: {w}-{l}.
+The equipment manager does not wash the gloves on {set} weeks. {team} is {w}-{l} in it.
+Lucky? {team} is {w}-{l} in {set}. The coaching staff will not say the word.
+{set} is {w}-{l} for {team}, and the fans who think it is cursed are getting louder.
+Since its debut, {set} has gone {w}-{l} for {team}. That is the kind of record that keeps a uniform in rotation, or in storage.
+{team} has worn {set} into {w} wins and {l} losses, and the players can recite both numbers.
+The fan base is split on {set}. Half love the look. The other half love pointing at the {w}-{l} record.
+A {team} assistant swears the team plays faster in {set}. The record, {w}-{l}, backs him up or doesn't, depending on who you ask.
+
+[words.uniform.alt]
+an all-black set with a matte black helmet and a chrome facemask
+an all-{color} look with a gradient number font
+a white-on-white set with metallic {color} numbers
+a {color} jersey over gray pants with a carbon-fiber helmet decal
+a blackout set with the logo in gloss black on matte
+an all-white "ice" alternate with frosted helmets
+a camouflage-trim set for the military appreciation game
+a matte gray alternate with reflective numbers
+a {color} helmet with a hand-painted state flag on one side
+a jersey with the outline of the state worked into the sleeve stripes
+a pink-trim set for breast cancer awareness month
+an all-{color} set with a mirrored chrome helmet
+a modern cut with old-school block numbers and no sleeve stripes
+a charcoal "stealth" set with numbers you can barely see from the stands
+a set with the fight song's lyrics printed inside the collar
+a white helmet with a single oversized stripe
+a black helmet with a logo that turns {color} under the stadium lights
+an all-{color} set with claw marks raking down the sleeves
+a two-tone helmet split right down the middle
+a jersey with the campus bell tower stitched into the back of the collar
+a desert-sand alternate with brown accents
+an all-gray "concrete" set modeled on the old stadium's walls
+a hydro-dipped helmet in a lava pattern
+a {color} jersey with numbers outlined in brushed copper
+a white set with a script wordmark across the chest
+an all-black set with a {color} helmet stripe that looks wet under the lights
+a speckled granite-pattern helmet
+a jersey with the state license plate design worked into the numbers
+an anthracite set with neon {color} piping
+a helmet with the player's number on the back in the font from the old scoreboard
+a white jersey with oversized shoulder numbers and no stripes at all
+a midnight-blue set with constellations printed on the helmet
+a helmet with feather-pattern hydro graphics
+a rivalry-week set with the trophy's image inside the collar
+an all-white snow set with icy blue numbers
+a matte {color} helmet with a chrome logo
+a coal-black set with a helmet decal honoring the region's miners
+a red, white and blue set for the Veterans Day game
+a helmet with a logo drawn by a patient at the children's hospital
+a black-and-gold set modeled on the school's first band uniforms
+a set with a topographic map of campus printed down the pants stripe
+an all-{color} set with gloss-over-matte number trim
+a jersey with the campus coordinates printed below the collar
+a "lights out" set with reflective helmet stripes
+a chrome helmet that shifts color as it turns
+a set honoring local firefighters, with a decal of the town's first fire engine
+a gray-and-{color} set with a jagged mountain-range stripe
+a white helmet with a gold-leaf logo
+a set with the old campus oak silhouetted on the back of the helmet
+a {color} jersey with a wordmark lifted from a 1950s pennant
+a monochrome {color} set with a subtle state-map pattern in the jersey fabric
+an all-white set with a single {color} stripe running helmet to cleats
+
+[words.uniform.throwback]
+the {year} road whites with block numbers and plain gray facemasks
+a {year} throwback with a leather-look helmet
+the {year} home jerseys, down to the sleeve stripes and a mascot logo nobody has used since
+a {year} throwback with the old script wordmark
+the {year} set with no names on the back
+a {year} throwback in the brighter shade the school wore back then
+a tribute to the {year} conference champions
+the {year} jerseys, with numbers on the sides of the helmets
+a {year} throwback, complete with high white socks
+the {year} uniforms, rebuilt stitch by stitch from photos in the school archives
+a {year} throwback with the mascot as it looked in that year's yearbook
+the plain {year} look: a solid helmet with no logo
+the {year} road set with the oversized collar
+a {year} throwback with mesh-style jerseys
+the {year} uniforms that the old-timers still call the real ones
+a {year} throwback in heavyweight knit with sewn-on numbers
+the {year} helmets, with one stripe down the middle and nothing else
+a {year} throwback rebuilt from the program's only surviving game jersey
+the {year} set with shoulder stripes and a white facemask
+a tribute to the {year} team, with that season's captains' names inside the collar
+the {year} uniforms in the number font the school dropped a generation ago
+a {year} throwback with a helmet decal that had not been on a field in decades
+the {year} road jerseys from the team photo that hangs in the athletic offices
+a {year} throwback with a flat gray facemask and a helmet logo the size of a fist
+the {year} home set, matching pants and all
+
+[words.uniform.nfl_alt]
+the franchise's original throwback jerseys
+an all-white alternate with matching white pants
+the old road jerseys with block numbers
+a third jersey in a darker shade of the team color
+the throwback set from the franchise's first winning season
+a classic set with the old wordmark on the sleeves
+the alternate dark jerseys the fans voted for
+a third jersey with a modern number font
+the throwbacks with striped socks pulled to the knee
+the old home jersey with TV numbers on the shoulders
+the mono-color alternate the players asked for
+[words.uniform.nfl_alt@1996-2012]
+the throwback helmets with the franchise's first logo
+an alternate helmet in the team's third color
+[words.uniform.nfl_alt@2011-]
+the military appreciation set with camouflage trim
+[words.uniform.nfl_alt@2016-]
+the Color Rush set in one solid team color from helmet to socks
+an all-black Color Rush uniform
+the Color Rush whites with matching cleats
+a Color Rush look built for a Thursday night game
+[words.uniform.nfl_alt@2022-]
+the alternate helmet, back after years of the one-shell rule
+a throwback helmet with the original logo
+an all-black alternate helmet with a chrome facemask
+a white alternate helmet over the throwback jerseys
+
+# ---------------------------------------------------------------- retired numbers, rings of honor, statues
+
+[honor.retired_number]
+{team} will retire No. {num} for {name}, who wore it from {years}. Nobody will wear it again.
+No one at {team} will wear No. {num} again. The school retired it Saturday in honor of {name} ({years}).
+{name}'s No. {num} goes up on the stadium facade this fall, the latest number {team} has taken out of circulation.
+The equipment manager pulled the last No. {num} jersey from the rack and boxed it up. {team} has retired it for {name}, who wore it from {years}.
+{team} retired No. {num} on Saturday. {name}, who wore it from {years}, stood at midfield with his family while the crowd stood with him.
+"I didn't think a number could mean this much," {name} said when {team} retired his No. {num}.
+The list of retired numbers at {team} is short. Add {name}'s No. {num}, worn from {years}.
+{name} ({years}) is the newest name on {team}'s wall of retired numbers. His No. {num} is gone for good.
+Kids at {team}'s youth camp will no longer be fitted for No. {num}. The school retired it in honor of {name}.
+{team} made it official: No. {num} belongs to {name} forever. He wore it from {years}.
+A banner with {name}'s name and No. {num} was unveiled before kickoff. The ceremony ran long because the {team} crowd would not sit down.
+{team} had retired only a handful of numbers before this one. {name}'s No. {num}, from {years}, earned its place among them.
+{name} asked that his parents do the unveiling. {team}'s retirement of No. {num} began with his mother pulling the cover off the banner.
+{team} retired No. {num} for {name}, whose career there from {years} set the standard for everybody who came after.
+"That number is his," {team}'s athletic director said. No. {num} has been retired for {name}.
+{name} wore No. {num} at {team} from {years}. On Saturday the school made sure nobody else ever will.
+
+[honor.retired_jersey]
+{team} honored {name}'s No. {num} jersey on Saturday. The number stays in use, but it carries his name with it now.
+{name}'s No. {num} jersey now hangs in {team}'s stadium. The number remains available, and the program hopes the next player to wear it knows what that means.
+{team} does not retire numbers, but it honors jerseys. {name}'s No. {num} is the latest.
+A framed No. {num} jersey with {name}'s name went up on the press box wall at {team}. Players will still wear the number.
+The next {team} player to wear No. {num} will get a patch with {name}'s name on it. The school honored his jersey Saturday.
+{team} honored {name}'s No. {num} and kept it in circulation "for someone who earns it," the head coach said.
+"I want somebody to wear it," {name} said when {team} honored his jersey. "I want some kid to wear No. {num} and make it better."
+{name}'s jersey is the newest on {team}'s ring of honored numbers. No. {num} stays on the active roster.
+{team} hung {name}'s No. {num} jersey from the upper deck before kickoff. The number is not retired, and a freshman linebacker has already asked for it.
+Honored, not retired: {team} put {name}'s No. {num} on the wall and left it in the equipment room.
+{team} recognized {name} with an honored jersey, No. {num}, joining a list of former greats whose numbers live on with new players.
+{name}'s family was on the field when {team} unveiled his honored No. {num} jersey.
+From now on {team} will hand out No. {num} only by invitation. The school honored {name}'s jersey on Saturday.
+{name} had one request when {team} told him it would honor his No. {num}: keep handing it out.
+{team}'s tradition is to honor a jersey rather than retire it. {name}'s No. {num} joins the list.
+
+[honor.ring]
+{name} ({years}) will be inducted into {team}'s Ring of Honor this fall.
+{name}'s name goes up on the stadium facade Sunday, the newest addition to {team}'s Ring of Honor.
+{team} announced that {name}, who played for the club from {years}, will join its Ring of Honor.
+Painted letters six feet tall: {name} is the newest member of {team}'s Ring of Honor.
+{name} watched from a suite as his name was unveiled in {team}'s Ring of Honor at halftime. He played for the team from {years}.
+"When I was a kid I'd look up at those names," {name} said. Now his is up there in {team}'s Ring of Honor.
+{team}'s Ring of Honor adds {name}, whose years with the club ({years}) included some of its best.
+{name} becomes the latest player from the {years} teams to join {team}'s Ring of Honor.
+{team}'s owner called {name} personally to tell him. He enters the Ring of Honor this season.
+{team}'s Ring of Honor had room for one more name this year, and the committee did not need long: {name}.
+{name} said he cried when {team} called. He played there from {years}, and his name will hang over the field for good.
+{name}'s old teammates will be on hand when {team} inducts him into its Ring of Honor.
+A long wait ends for {name}. {team} will induct him into its Ring of Honor, years after his time there ({years}) ended.
+Fans voted and the club agreed. {name} will join {team}'s Ring of Honor.
+{name} joins {team}'s Ring of Honor at the home opener, in front of a crowd that still remembers.
+
+[honor.statue]
+A nine-foot bronze of {name} was unveiled Saturday at {site}. {team} commissioned it two years ago.
+{team} will put up a statue of {name} at {site}, the school announced.
+Bronze, mid-stride, at {site}: {team}'s statue of {name} was unveiled before the home opener.
+The sculptor studied hundreds of photos of {name} to get the pose right. {team}'s statue now stands at {site}.
+{name} touched the statue's hand, laughed and said it looked better than he did. It stands at {site}, and {team} fans were lining up for photos within the hour.
+{team} fans will walk past {name} on their way in from now on. His statue was unveiled at {site}.
+A statue of {name} is coming to {site}. {team} said the money was raised entirely by former teammates and fans.
+"Every kid who walks by it should know what he did," {team}'s coach said at the unveiling of {name}'s statue at {site}.
+The statue shows {name} the way people remember him best. It stands at {site}, and {team} lit it for the first time on Friday night.
+At {site}, a new landmark: a bronze {name}, unveiled by {team} in front of thousands.
+{name} brought his grandchildren to the unveiling at {site}. {team}'s statue of him is the first on the grounds in a generation.
+{team}'s newest statue honors {name}. It went up at {site} last week, and somebody had already rubbed the toe shiny by Saturday.
+The {team} statue of {name} is more than a likeness, the sculptor said. "It's a moment." It stands at {site}.
+Crowds gathered at {site} long before kickoff as {team} pulled the cover off a statue of {name}.
+{name} said he never wanted a statue. {team} built one anyway, at {site}, and he showed up to say thank you.
+
+[honor.hall]
+{name} will be inducted into the {team} Hall of Fame this fall.
+The {team} Hall of Fame class is out, and {name} is in it.
+{name} said the call from {team} was the best one he has received since signing day.
+{team} will induct {name} into its athletic Hall of Fame at a dinner in October, with recognition at a home game the next day.
+{name}'s plaque will join the {team} Hall of Fame wall this year.
+A {team} Hall of Fame spot for {name}, whose name is still all over the school's record book.
+"I'm going in with guys I looked up to," {name} said of his {team} Hall of Fame selection.
+{name} headlines this year's {team} Hall of Fame class.
+{team} has selected {name} for its Hall of Fame. His old position coach will introduce him at the induction.
+{name} was eligible for years before {team} finally called. He goes into the Hall of Fame this fall.
+Some honors take time. {name} is the newest member of the {team} Hall of Fame.
+The {team} Hall of Fame committee voted {name} in on the first ballot.
+{name}'s old coach and his college roommate will both be at the dinner when {team} inducts him into its Hall of Fame.
+{team} will honor its new Hall of Fame class, led by {name}, at halftime of the homecoming game.
+{name} said he would bring his old cleats to the {team} Hall of Fame induction. "They still fit," he said.
+
+[honor.ceremony]
+At halftime against {opp}, {team} honored {name}, and the visiting fans stood too.
+{name} walked to midfield at halftime of {team}'s game against {opp} and waved to a crowd on its feet.
+The halftime ceremony for {name} ran long. Nobody at {team}'s game against {opp} complained.
+{team} paused its game against {opp} at halftime to honor {name}. His old teammates surrounded him at midfield.
+Halftime belonged to {name}. {team} honored him in front of a full house before the second half against {opp}.
+{name} got the loudest cheer of the night at {team}'s game against {opp}, and he did not play a down.
+{team}'s players stayed on the field at halftime against {opp} to watch the ceremony for {name}. The coaches let them.
+A video tribute on the big screen, a walk to midfield, a crowd that would not sit down: {team} honored {name} at halftime against {opp}.
+{name}'s grandchildren held his hands at midfield as {team} honored him at halftime against {opp}.
+Even the {opp} sideline applauded when {team} honored {name}.
+The band spelled out {name}'s number on the field at halftime of {team} against {opp}.
+{name} took the microphone for about thirty seconds at halftime of the {opp} game. He thanked {team} fans, his family and "everybody who blocked for me."
+{team} honored {name} at halftime against {opp}, and the second half began with the home crowd still buzzing.
+Old film of {name} played on the scoreboard while he stood on the 50 at halftime against {opp}. The crowd watched the screen, then him, then the screen again.
+Halftime of {team}'s game against {opp} was a homecoming for {name}, honored in front of a crowd that never forgot him.
+
+[honor.ceremony_coach]
+{name}'s family asked for you by name. They would like you on the field when he is honored at halftime.
+Coach {coach}, the school is honoring {name} next month, and he has asked that you be there. Your travel is covered.
+{name} called the office himself. He wants his old coach at midfield when they honor him, and that means you.
+An invitation came in this morning: {name}'s ceremony is set, and you are the only coach on the guest list.
+"He's the reason I made it," {name} told the organizers. They want you standing next to him at halftime.
+{name} will be honored at halftime, and the planners asked whether you would say a few words for the video tribute.
+The ceremony for {name} has a spot reserved for you on the field. He asked for it.
+A handwritten note from {name} came with the official invitation: "Coach, it wouldn't be right without you there."
+Coach {coach}, {name}'s ceremony is this fall. They want you to present him.
+The school called to ask whether you have any old photos of {name}. They are building the tribute, and he wants you in it.
+You are invited to {name}'s ceremony. The organizers said he mentions you three times in his remarks.
+{name}'s ceremony falls during your season, but the organizers say they will work around your schedule if you can come.
+"Coach {coach} taught me how to be a pro," {name} told the committee. They have asked you to join him at midfield.
+You have been invited to {name}'s halftime ceremony. The organizers expect you to get nearly as big a cheer as he does.
+An invitation, a sideline pass and a request: {name} would like you to walk out with him.
+
+# ---------------------------------------------------------------- preseason magazines
+
+[mag.preview]
+{mag} put {team} at {rank} in its preseason rankings, on newsstands this week.
+{team} comes in at {rank} in {mag}'s preview, a spot the staff calls "about right, if we stay healthy."
+{rank}: that is where {mag} slots {team} this summer.
+{mag}'s preseason top 25 lands {team} at {rank}, on the strength of a deep group of returning starters.
+{team} at {rank}? {mag} thinks so, and players at summer workouts say they have seen why.
+{mag} ranked {team} {rank}. The coach said he has not read it. The players have.
+The new {mag} came out Tuesday with {team} at {rank} and a six-page breakdown of the depth chart.
+{mag} is higher on {team} than most, putting the program at {rank}.
+{mag} is lower on {team} than most, putting it at {rank}. Somebody has already pinned the page to the weight room wall.
+{team} checks in at {rank} in {mag}. The magazine's biggest question is at quarterback.
+Summer reading in {team}'s locker room: {mag}'s preview, with the program ranked {rank}.
+{mag}'s editors ranked {team} {rank} and called it one of the hardest teams in the country to read.
+Ranked {rank} by {mag}, {team} opens camp with expectations it has not carried in a while.
+{mag}'s preview has {team} at {rank}, and fans on the message boards have been arguing about it ever since.
+{team} lands at {rank} in this year's {mag}, which spends most of its {team} page on the lines.
+[mag.preview@2009-]
+{mag}'s preseason rankings went online at midnight, with {team} at {rank}. The message boards were on fire by 12:05.
+
+[mag.top]
+{mag} picks {team} No. 1 in its preseason rankings.
+The top spot in {mag}'s preseason top 25 belongs to {team}.
+{team} is {mag}'s preseason No. 1, and its coach spent the first day of camp telling players it means nothing.
+No. 1 in {mag}: {team}. The magazine called the roster "the most complete in the country."
+{mag} went with {team} at the top, the kind of ranking that comes with a target.
+"We didn't earn anything in August," {team}'s coach said of {mag}'s No. 1 ranking.
+{team} will start the season with {mag}'s No. 1 ranking and every opponent's best shot.
+{mag}'s editors say {team} has no real weakness. That is why it is their No. 1.
+The cover says it plainly: {team}, No. 1. {mag} is all in.
+{mag} put {team} at No. 1, with a two-page spread on why nobody else comes close.
+Being {mag}'s preseason No. 1 is a mixed blessing. Ask anybody who has been there. {team} is there now.
+{team} fans cleaned out the local bookstore's copies of {mag} within a day. Their team is the magazine's No. 1.
+{mag} picked {team} to win it all. Most of the players found out from their parents.
+Top of {mag}'s list: {team}. The magazine's pick to win the title is also its pick to handle the pressure.
+{mag} calls {team} the team to beat. Everybody else will spend the fall trying.
+
+[mag.cover]
+{name} is on the cover of {mag}'s preseason issue, in full {team} uniform.
+{mag} chose {name} for its cover, a choice that surprised nobody who watched {team} last fall.
+The newsstand edition of {mag} features {name} of {team}, mid-stride on the cover.
+{name} found out he was on the cover of {mag} from his mom, who bought four copies at the grocery store.
+{mag}'s regional cover in {team} country: {name}.
+{team}'s {name} is on one of {mag}'s covers this summer.
+"It's cool," {name} said of his {mag} cover. "My teammates won't let me hear the end of it."
+{mag} put {name} on the cover with a one-word headline. {team} fans have already framed it.
+{name} and {team} made the cover of {mag}, shot during spring practice in a borrowed studio.
+{name}'s face is on {mag} at every gas station in the state. {team} fans can't miss it.
+{mag} chose {name} as its cover star, calling the {team} player "the best in the country nobody outside the conference knows."
+The {team} sports information office ordered extra copies of {mag} for recruits. {name} is on the cover.
+{name} posed for {mag}'s cover in a {team} jersey and borrowed shoulder pads. The magazine is on stands this week.
+Cover boy: {name}. {mag}'s preseason issue goes with the {team} star.
+{name} said he would not read his {mag} cover story until after the season. His teammates have read it aloud to him twice.
+
+[mag.cover_you]
+One of your players made the cover of {mag}. The sports information office left extra copies on your desk.
+{mag} put one of yours on the cover. Expect the phones to ring and the target to grow.
+The {mag} preseason cover is a {team} player. His teammates have already taped it to his locker.
+Good news from {mag}: a {team} player is on the cover. Media relations wants to know if you will make him available for interviews.
+{mag} hits newsstands this week with a {team} player on the cover. Your recruiting staff says it is worth a dozen mailers.
+Your player is on the cover of {mag}. Your strength coach has already made a joke about the cover jinx. Twice.
+{mag} featured a {team} player on its cover. The marketing office wants to use the image on billboards, pending your approval.
+Heads up: {mag}'s cover is one of your players. Reporters will ask whether it goes to his head.
+A {team} player is on {mag}'s cover. His family called the office to thank the program.
+The new issue of {mag} is out with a {team} player on the front. The equipment room kept a copy for the wall.
+You have a cover star. {mag} chose a {team} player, and the team store is ordering copies to sell.
+{mag} wants a quote from you for its cover story. The deadline is Friday.
+Your player on {mag}'s cover means national attention all fall. Think about how you want to handle his media schedule.
+{mag}'s cover features one of your guys. Opposing coaches will have it on their bulletin boards by Monday.
+Congratulations are coming in from boosters: a {team} player made the cover of {mag}.
+
+[mag.allconf]
+{mag} named {name} to its preseason All-{conf} first team.
+{name} is a preseason All-{conf} pick in {mag}.
+{name} lands on {mag}'s preseason All-{conf} team.
+{mag} put {name} on its preseason All-{conf} first team, a nod to last season's tape.
+Add {mag}'s All-{conf} first team to {name}'s preseason list.
+{name} made {mag}'s second-team All-{conf} preseason squad.
+{mag}'s editors picked {name} for their preseason All-{conf} team and called him the league's most underrated player.
+Preseason honors keep coming for {name}, now on {mag}'s All-{conf} first team.
+{name} is one of the headliners on {mag}'s All-{conf} preseason team.
+{mag} likes {name}: preseason All-{conf}, first team.
+"Doesn't mean anything yet," {name} said of his spot on {mag}'s All-{conf} team.
+{mag}'s preseason All-{conf} team has {name} on it. The league's coaches vote next.
+{name} is on {mag}'s All-{conf} preseason list, which his coach said was earned in the weight room in January.
+{mag} slotted {name} onto its All-{conf} preseason first team.
+{name} is a {mag} preseason All-{conf} pick. Expect opponents to game-plan for him.
+
+[mag.snub]
+{name} was left off the preseason all-conference teams. He noticed.
+{name} has the list taped inside his locker at {team}. Every player picked ahead of him is highlighted.
+"I saw it," {name} said when asked about being left off the preseason lists. "That's all I'll say."
+Not one preseason magazine had {name} on its all-conference team. {team} coaches are counting on him to remember.
+{name} printed out the preseason all-conference team and stuck it on his bathroom mirror. "Every morning," he said.
+{team}'s coach said {name} was snubbed by the magazines. {name} said he would rather let it go, then mentioned it three more times.
+{name} heard about the snub from a teammate. The teammate regrets it, because {name} hasn't stopped running sprints since.
+The magazines left out {name} again. At {team}, nobody thinks it is an accident that he looks faster.
+"They don't watch film," {name} said of the preseason lists that left him off.
+{name} was not on a single preseason honors list. {team}'s staff thinks he is the best player at his position in the league.
+{name} kept it short: "Fine by me." He was left off every preseason magazine team, and {team} expects him to make them pay.
+The magazines skipped {name}. His mother wrote a letter to one of them. {name} wrote nothing and went back to the weight room.
+[mag.snub@1996-2008]
+{name} told the student paper he had read every preseason magazine at the bookstore without buying one. "None of them had me," he said.
+[mag.snub@2009-]
+{name} posted the preseason all-conference team without comment. Just a screenshot and a clock.
+{name} reposted a list of preseason snubs with his own name circled.
+{name}'s phone wallpaper is the preseason all-conference team, without his name on it.
+
+[mag.jinx]
+The cover jinx looks real at {team}: {name} was all over the summer magazines, and the team is {record}.
+{name} was on preseason covers. {team} is {record}. Fans have noticed the timing.
+Superstitious {team} fans have a theory about the {record} start, and it involves a magazine cover with {name} on it.
+{team} is {record}, and talk radio wants to blame {name}'s preseason cover.
+"I don't believe in that," {name} said of the cover jinx. {team} is {record}.
+From cover star to {record}: a rough fall for {name} and {team}.
+Three months ago {name} was smiling from newsstands. {team} is {record} now, and nobody is smiling.
+The cover jinx has a new chapter. {name}'s {team} is {record} at midseason.
+{team} is {record}, and somewhere a newsstand copy of {name}'s preseason cover is gathering dust.
+{name}'s preseason cover is now a punchline among {team} fans, who have watched a {record} first half.
+{team}'s coaches say the {record} start has nothing to do with a magazine. {name} just says he wants the first half back.
+{name} won't say the word. {team} is {record}, and the fans are saying it for him.
+A reader wrote in to suggest the magazines stop putting {team} players on the cover. {name}'s team is {record}.
+Cover jinx or bad luck, {team}'s {record} start has turned {name}'s summer glory into an uncomfortable question.
+[mag.jinx@2009-]
+A {team} fan account started a countdown to next summer's magazines. {name} was on this year's cover, and {team} is {record}.
+
+[mag.bold]
+{mag}'s bold pick: {team} at {rank}, well above anybody else's ranking.
+{mag} is going out on a limb with {team}, ranking it {rank}.
+Most previews have {team} unranked. {mag} has it at {rank}.
+{mag} calls {team} its sleeper and backs it with a {rank} ranking.
+The surprise of {mag}'s preseason poll: {team} at {rank}.
+{mag} made the call nobody else would, putting {team} at {rank} and predicting a breakout year.
+{team} at {rank}? {mag}'s editors know how it sounds. They wrote three pages explaining it.
+{mag}'s sleeper is {team}, ranked {rank} on the strength of a veteran offensive line.
+"Somebody has to be the sleeper," {mag}'s preview says. Its pick, {team}, comes in at {rank}.
+{team}'s coach thanked {mag} for the {rank} ranking, then told his players to throw it away.
+Bold or reckless: {mag} has {team} at {rank}.
+{mag} picks a sleeper every year. This year it is {team}, at {rank}.
+{team} fans can't remember the last time anyone ranked them {rank}. {mag} just did.
+If {team} pays off, {mag} will look like a genius. The magazine has the program at {rank}.
+{mag}'s preseason ranking includes one name that made readers check twice: {team}, at {rank}.
+
+# ---------------------------------------------------------------- documentary crews
+
+[doc.announce]
+{team} will be the featured team on {show} this summer.
+Cameras are coming. {team} has been chosen for {show}.
+{show} announced its next subject: {team}.
+{team} agreed to let {show} inside its building for the season.
+{show}'s crew moves into {team}'s facility next month. Every meeting room, every practice field.
+"We have nothing to hide," {team}'s head coach said of the team's turn on {show}.
+{team} is the next subject of {show}, and the front office has already handed the crew a list of rooms that are off limits.
+The players found out from the news like everybody else: {team} is on {show}.
+{team} will be on {show}. Its general manager called it "a chance to show people who we are."
+{show} picks {team}. Expect a lot of quarterback footage and at least one hard goodbye.
+Ticket sales barely moved. Team store traffic did. {team} is headed for {show}.
+A crew of about thirty will follow {team} for {show}.
+{team} becomes the latest team on {show}, and its youngest players are already being told to watch their language.
+{show}'s producers said they wanted a team with a story. They chose {team}.
+Microphones on the coaches, cameras in the cafeteria. {team} said yes to {show}.
+
+[doc.forced@2013-]
+{team} did not volunteer for {show}. The league chose it.
+Under the league's rules, {team} had no say. It will be featured on {show}.
+{team} is the latest club forced onto {show}, and its head coach did not hide how he felt about it.
+The league picked {team} for {show} after no team volunteered.
+"We'll make the best of it," {team}'s general manager said of the league's decision to put the club on {show}.
+{team} met every condition the league uses to choose, so it is going on {show} whether it likes it or not.
+Nobody asked {team} twice. The league assigned the club to {show}.
+{team}'s coach was asked whether he wanted to do {show}. "Doesn't matter," he said.
+{team} will be on {show}. The league made the call after the other eligible clubs begged off.
+The camera crews arrive at {team} by order of the league office. {show} is happening.
+{team} reportedly lobbied to get out of {show}. It lost.
+{team}'s owner said he was disappointed but would cooperate fully with {show}, which the league assigned to the club.
+The rules left only a few teams eligible for {show}, and {team} was the one that could not get out of it.
+{team} drew the short straw. The league named the club for {show}.
+"It was not our choice," a {team} spokesman said. "But it's our team, and we'll show it the right way."
+
+[doc.declined]
+{team} turned down {show}.
+{show}'s producers asked. {team} said no.
+{team} declined an invitation to be featured on {show}, saying it wanted to keep the focus on football.
+No cameras for {team}. The club passed on {show}.
+{team}'s coach said he respects {show} but "this isn't the year."
+{team} could say no to {show}, and it did.
+{show} will have to look elsewhere. {team} declined.
+{team} weighed the offer from {show} for a week before saying no. Some of the players were disappointed.
+A {team} spokesman confirmed the club declined {show}. "We have a young team and a lot of work to do."
+{team}'s front office was split on {show}. The head coach made the call: no.
+{show} wanted {team}. {team} wanted privacy.
+"We'll watch it on TV like everybody else," {team}'s quarterback joked after the club declined {show}.
+{team} said no to {show}, and the producers moved to the next name on their list.
+{team} declined {show}, preferring to build without an audience.
+Thanks, but no. {team} turned down a season on {show}.
+
+[doc.episode]
+Episode {n} of {show} belongs to {name}.
+{name} carried episode {n} of {show}, and {team} fans spent the next morning talking about him.
+In episode {n} of {show}, the cameras followed {name} from the training room to the field and back again.
+{show}'s episode {n} featured {name}'s first trip home since joining {team}.
+Episode {n} of {show} spent eleven minutes on {name}, and he made the most of every one.
+{name} is the star of {show}'s episode {n}, a portrait of a {team} player fighting for a roster spot.
+Episode {n}: {name}, a few cameras and the longest week of his {team} career.
+The best moment of {show} so far came in episode {n}, when {name} called his mother from the {team} parking lot.
+{show} episode {n} focused on {name}, whose locker room speeches have become a highlight of the series.
+{name} and a borrowed golf cart stole episode {n} of {show}.
+{team} fans got a look at {name}'s life away from the field in episode {n} of {show}.
+Episode {n} of {show} centered on {name}, and the {team} team store sold out of his jersey by Wednesday.
+{name} told the crew in episode {n} of {show} that he had not missed a practice since high school. {team} teammates laughed in the background.
+Viewers met {name} in episode {n} of {show}. They will not forget him.
+Episode {n} of {show} gave {name} the spotlight, and {team} coaches say it got his story right.
+
+[doc.quote.fiery]
+"Feelings don't make tackles. I don't care how you feel on Wednesday, I care what you put on film," you told the team in episode {n}.
+"That was the softest period of football I've seen since I got here, and I've watched a seventh-grade scrimmage," you said in episode {n}.
+"Nobody walks on my field. You walk in the parking lot. On the grass, you run," you shouted in episode {n}.
+"{opp} thinks we're a speed bump. Let's be a wall," you told the team before the {opp} game in episode {n}.
+"If you're tired, you're in the wrong building. The tired guys went home in July," you said in episode {n}.
+"Do it again. Do it again until it's boring. Boring wins," you barked during practice in episode {n}.
+"We are not going to lose a fight we start. You hear me? Not one," you told the defense in episode {n}.
+"I didn't come here to be liked. I came here to win, and you're going to like that a lot more," you said in episode {n}.
+"Every one of you has a job. Do yours and stop watching his," you told the offense in episode {n}.
+"That's three penalties on one drive. Three. I'm not paying for your mistakes with my season," you said in episode {n}.
+"We practice angry here. You want to be polite, join a book club," you said in episode {n}.
+"{name}, if you jog to that huddle one more time, you can jog right to the bench," you shouted in episode {n}.
+"Look at the scoreboard. Now look at each other. Which one of those is going to fix it?" you asked at halftime in episode {n}.
+"They came into our house and pushed us around for thirty minutes. That ends right now," you told the team at halftime in episode {n}.
+"Don't tell me about the heat. It's hot on their side too," you said in episode {n}.
+"I'll take eleven guys who want it over a whole roster that expects it," you said in episode {n}.
+"You think {opp} is watching film right now? They are. So why are you on your phone?" you said in episode {n}.
+"We do not flinch. Not when they score, not when the crowd gets loud, not when the refs blow it," you told the team in episode {n}.
+"Second effort is not extra. It's the job," you said in episode {n}.
+"Get off the ball! You're blocking like you're waiting for permission!" you yelled at the offensive line in episode {n}.
+"Somebody in this room is going to make a play that changes this season. I want everybody acting like it's going to be them," you said in episode {n}.
+"I don't want to hear 'my bad.' I want to never see it again," you said in episode {n}.
+"You don't get to be tired in the fourth quarter. That's what the offseason was for," you told the team in episode {n}.
+"{team} doesn't apologize for being physical. We don't apologize for anything," you said in episode {n}.
+"That's not effort. That's attendance," you told the scout team in episode {n}.
+"Win the next play. Not the game, the next play. Then do it again," you shouted from the sideline in episode {n}.
+"Pride is free. It's the only thing in this building that is, and some of you still won't pick it up," you said in episode {n}.
+"If you want to argue with the ref, earn a whistle first. Until then, line up," you said in episode {n}.
+"When we leave this field today, I want {opp} to feel it on Tuesday," you said in episode {n}.
+"Nobody is coming to save us. Look around. This is it. This is everybody," you said in episode {n}.
+
+[doc.quote.calm]
+"Breathe. We've been here before, and we know what to do," you told the team in episode {n}.
+"Nothing changes. Same plan, same calls, same guys. Just play," you said at halftime in episode {n}.
+"Mistakes happen. What matters is the next snap, and the next snap is clean," you told {name} on the sideline in episode {n}.
+"I don't need you to be great. I need you to be you, every play," you said in episode {n}.
+"The scoreboard takes care of itself when we take care of the details," you said in episode {n}.
+"Look at me. You're fine. Go do the thing you've done a thousand times," you told {name} before a late field goal in episode {n}.
+"We're not going to panic. Panic is for teams that didn't prepare," you said in episode {n}.
+"Win the week. Monday, Tuesday, Wednesday. Game day is just the test," you told the team in episode {n}.
+"One play doesn't define you. A thousand of them do," you told {name} in episode {n}.
+"Talk to each other. The answers are in this room," you said at halftime in episode {n}.
+"Slow is smooth and smooth is fast. Let's go be smooth," you said in episode {n}.
+"I trust you. That's why you're out there," you told {name} in episode {n}.
+"It's a long season. We don't win it in September and we don't lose it in September," you said in episode {n}.
+"Here's what we know, and here's what we're going to do about it," you began at halftime in episode {n}.
+"Get some water. Get your head right. We've got thirty minutes, and every one of them is ours," you said at halftime in episode {n}.
+"The noise doesn't matter. Their crowd can't tackle," you said before kickoff in episode {n}.
+"You don't have to make up the whole deficit on one play. Take what they give you," you told the offense in episode {n}.
+"Good teams lose quarters. Great teams don't lose their heads," you said in episode {n}.
+"Next man up. We prepared for this. Nothing about our plan changes," you told the team after an injury in episode {n}.
+"Sleep, eat, hydrate. Football is the easy part of your week," you told the newcomers in episode {n}.
+"Don't read the papers and don't read your phone. Read the defense," you said in episode {n}.
+"Pressure is a privilege. We get to play in a game like this," you said before facing {opp} in episode {n}.
+"I'm proud of how you prepared. Now let the preparation play," you told the team in episode {n}.
+"We're down a score with eight minutes left. That's plenty of time if we use it," you said on the headset in episode {n}.
+"Everybody in here has a role, and every role matters. The long snapper matters. The scout team matters," you said in episode {n}.
+"Win or lose, we'll know who we are by tonight. I already know who I hope we are," you said in episode {n}.
+"Football's going to humble you. Let it. Then get up," you told {name} in episode {n}.
+
+[doc.quote.funny]
+"If one more person asks me about the cameras, I'm making them run gassers too," you said in episode {n}.
+"I've seen better tackling at a family reunion. And my family doesn't tackle," you said in episode {n}.
+"{name}, that's the third time you've been offside. Do you need a calendar? A watch? A friend?" you said in episode {n}.
+"Gentlemen, the buffet is not a challenge. It's a buffet," you told the team in episode {n}.
+"I'm not mad. I'm just going to watch this film forty times tonight and think about my choices," you said in episode {n}.
+"Who taught you to backpedal like that? Write down his name. I want to send him a note," you told a cornerback in episode {n}.
+"The good news is we found a new way to lose a punt. The bad news is everything else," you said in episode {n}.
+"The hotel has asked me to remind you that the pool is not a hot tub," you told the team in episode {n}.
+"{name} said he'd run through a wall for me. I told him the door's right there. Use the door," you said in episode {n}.
+"Two rules at the team dinner: show up, and don't sit next to the special teams coach. He talks," you said in episode {n}.
+"Somebody turned in a playbook with a crossword in it. Finished it, too. Impressive. Also, you're fined," you said in episode {n}.
+"That's a great idea. Let's write it on a napkin and never look at it again," you said in a staff meeting in episode {n}.
+"My mother watches this show. Everybody wave to my mother. Now go hit somebody," you said in episode {n}.
+"I just beat our tight end to the water cooler. Me. Think about that," you said in episode {n}.
+"A fumble, a penalty and a timeout on one play. Truly special. Somebody get us a trophy," you said in episode {n}.
+"Hydrate. I don't care if you have to drink it out of the punter's helmet," you said in episode {n}.
+"{name} has the best hands on this team. He just keeps them in his pockets on game day," you said in episode {n}.
+"Our scouting report says {opp} is big, fast and mean. Ours says we have a great cafeteria," you joked in episode {n}.
+"The kicker is not a person. The kicker is a weather pattern. We plan around him," you said in episode {n}.
+"Celebrate with your teammates. Not with the cameraman. He didn't block anybody," you said in episode {n}.
+"If anybody needs me, I'll be in my office pretending that didn't happen," you said after practice in episode {n}.
+"We're going to run it again, and this time somebody is going to block the guy wearing the other color," you said in episode {n}.
+"No, we are not adding a play called 'Free Tacos.' I don't care how well it tested," you told the offense in episode {n}.
+"That's the worst snap I've seen since a youth flag game I refereed, and that center was six," you said in episode {n}.
+"The bus leaves at seven. Not seven-oh-one. The bus doesn't care about your hair," you said in episode {n}.
+"{name}, I appreciate the speech. Next time, stand on the chair before you start, not halfway through," you said in episode {n}.
+"Fun fact: you can't score if you don't have the ball. We should try having it more," you said at halftime in episode {n}.
+"I'm told the analytics people love this call. I'm told the analytics people have never been hit by a linebacker," you said in episode {n}.
+
+[doc.quote.emotional]
+"I've been doing this a long time, and I've never been prouder of a group than I am of you right now," you told the team in episode {n}.
+"{name} called his mother tonight and told her he made the team. Remember that's what this means to somebody," you said in episode {n}.
+"Some of you won't be here next week. That's the hardest part of this job, and I don't want you to think I don't feel it," you said in episode {n}.
+"Play this one for each other. Not for me, not for the fans. For the guy next to you," you told the team before facing {opp} in episode {n}.
+"When I was a kid, I'd have given anything to stand in a room like this. Don't waste it," you said in episode {n}.
+"{name}, look at me. You did everything I asked. Everything. That's not on you," you said in episode {n}.
+"I've seen football carry people through the worst weeks of their lives. Let it carry you through this one," you told the team in episode {n}.
+"You'll forget the score. You won't forget this locker room," you told the seniors in episode {n}.
+"Thank you for believing in what we were building when nobody else did," you said in episode {n}.
+"That's the best team win I've ever been part of. Nobody will ever take that away from you," you said in episode {n}.
+"Hug your mom tonight. Call your old coach. Somebody got you here," you told the team in episode {n}.
+"{name} got cut today, and he came by to thank me. Think about that. Be that kind of man," you said in episode {n}.
+"We're going to lose games. We're not going to lose each other," you said in episode {n}.
+"This is a family. I know that's a cliche. I don't care. It's true," you said in episode {n}.
+"Whatever happens out there, I'm proud to coach every one of you," you said in episode {n}.
+"It's okay to hurt. It means it mattered," you told the team after the loss to {opp} in episode {n}.
+"Years from now you'll be at somebody's wedding, and one of these guys will be standing next to you. That's what this is," you said in episode {n}.
+"{name} is going to be fine. He's going to be fine. Let's go play for him," you said after the injury in episode {n}.
+"I won't remember the wins. I'll remember the bus rides," you told the seniors in episode {n}.
+"A lot of people said {team} couldn't do this. Every one of you proved them wrong," you said in episode {n}.
+"You owe the game something. Pay it back by being great to the next kid who walks in here," you said in episode {n}.
+"I don't say it enough. I love this team," you said in episode {n}.
+"This is the hardest meeting I have every year. Thank you for everything you gave us," you told the players being let go in episode {n}.
+"Your name's going to be on a wall someday, {name}. Mark it down," you said in episode {n}.
+"Look around. Remember this. Not many people get a moment like this," you told the team after beating {opp} in episode {n}.
+"Football ends for everybody. The man you are when it does is the part that lasts," you said in episode {n}.
+
+[doc.breakout]
+{name} became the star of {show} without trying, and the fan mail started arriving at the team facility within a week.
+Fans who had never heard of {name} before {show} were wearing his jersey by the preseason finale.
+{name}'s locker room humor made him the breakout star of {show}. Local radio has had him on twice.
+Talk radio cannot stop playing clips of {name} from {show}.
+{show} turned {name} into a household name in a city that barely knew him in July.
+Every season {show} produces one fan favorite. This year it is {name}.
+"My mom is getting recognized at the grocery store," {name} said of his sudden {show} fame.
+[doc.breakout@2009-]
+{name} gained more than 100,000 followers in the week after {show}'s premiere.
+{show}'s breakout star is {name}, and his follower count tripled in three days.
+{name} became the face of {show}, and his phone has not stopped buzzing.
+Fans have adopted {name} as {show}'s unofficial mascot. His posts now draw more engagement than the team's account.
+{name}'s one-liners from {show} are already on T-shirts, and his following jumped from a few thousand to six figures.
+{name} was a name on a roster sheet two weeks ago. Now strangers quote him at gas stations. {show} did that.
+{name} is trending again after another scene-stealing moment on {show}.
+Clips of {name} on {show} have been viewed millions of times. Sponsors have started calling his agent.
+
+[doc.distraction]
+{name} has found the camera on {show}, and his teammates have found it annoying.
+Some players avoid the {show} crew. {name} seeks it out, and the locker room has noticed.
+"He knows where the cameras are at all times," one teammate said of {name}'s performance on {show}.
+{name} gave three speeches in one episode of {show}. Veterans in the room rolled their eyes during at least two of them.
+Coaches have quietly asked {name} to tone down the theatrics for {show}.
+{name}'s turn on {show} looks more like an audition than a camp battle, according to people around the team.
+Teammates have started calling {name} "Action," as in, he only starts working when somebody yells it. {show} has not helped.
+A veteran was caught on {show} telling {name} to "save it for the reunion special." It was the most-shared clip of the week.
+{name} wore sunglasses into a meeting room on {show}. The position coach made him take them off, on camera.
+The cameras love {name}. His position coach is less sure, and {show} caught that too.
+{name} has more screen time on {show} than the starting quarterback. Not everyone in the locker room is laughing.
+On {show}, {name} told the crew he was "the realest guy in this building." The building disagreed.
+Some of {name}'s teammates have started turning their backs when the {show} cameras walk in with him.
+{name} keeps finding reasons to be in the background of {show}'s interviews. The equipment staff counted seven in one day.
+{show} has turned {name} into a character. The question in the building is whether he still has time to be a player.
+
+[doc.cut]
+The knock on the door came on Tuesday. {show} filmed {name} being released by {team}.
+{show} kept its tradition: {name}'s final meeting with {team}, filmed from the corner of the room.
+"Coach wants to see you. Bring your playbook." {show}'s cameras caught {name} hearing the words every player dreads.
+{name} shook every hand on the way out. {show} filmed his last walk through {team}'s building.
+{name} got the call during breakfast. {show} was there when he hung up.
+{name} thanked the {team} staff, packed his locker and left. {show} let the silence run for almost a minute.
+The hardest scene of the season on {show}: {name} calling his family from the {team} parking lot after being cut.
+{show} showed {team} releasing {name}, and then showed the player who took his spot finding out.
+{name} said all the right things in front of {show}'s cameras. His hands were shaking.
+{team} cut {name}, and {show} captured it. "I'll be back," he told the man who delivered the news.
+The {show} crew followed {name} from the meeting room to his car. {team} had released him five minutes earlier.
+Viewers had grown attached to {name}. {show}'s final episode ended with {team} cutting him.
+{name} asked the {show} crew if he could take one last picture with the {team} logo. They filmed that too.
+The cut scene is a {show} tradition, and this year it was {name}. {team} released him on the final cut-down day.
+{name} kept his composure in the meeting. {show} caught the moment he reached his car.
+
+# ---------------------------------------------------------------- video game ratings
+
+[vg.release]
+{game} ratings are out, and {name} leads {team} at {rating} overall.
+{name} comes in at {rating} in {game}, the highest rating on {team}.
+{game} has {name} at {rating}. {team} fans already think it is too low.
+The {game} ratings reveal put {name} at {rating}, and {team}'s locker room had opinions by lunch.
+{name} is a {rating} in {game}, a number that will be argued about until the season starts.
+Ratings week: {game} gives {team}'s {name} a {rating}.
+{name}, {team}: {rating} overall in {game}.
+{game} made {name} the headline of {team}'s ratings with a {rating}.
+{rating}. That is what {game} thinks of {name}, and the {team} star has heard about it from every teammate.
+{team}'s best-rated player in {game} is {name}, at {rating}.
+{name} will be a popular pick in {game} this fall with a {rating} rating for {team}.
+Kids across the country will play as {name} this fall. {game} has the {team} player at {rating}.
+The ratings are out for {game}, and {name} at {rating} is {team}'s headline number.
+{name}'s {game} rating, {rating}, came up on the TVs in {team}'s players' lounge during lunch. The room had opinions.
+[vg.release@2009-]
+{game} posted {name}'s {rating} on its social accounts, and {team} fans filled the replies within minutes.
+{name} found out his {game} rating the way most players do now: a video crew handed him a card that said {rating} and filmed his face.
+
+[vg.club99@1996-2017]
+{name} has a 99 overall in {game}, a rating the series hands out to almost nobody.
+A perfect score: {game} rates {name} a 99.
+{name} gets the highest rating in {game}: 99.
+The developers of {game} gave {name} a 99. "I'll take it," he said.
+Ninety-nine. {game} has {name} at the top of the scale.
+{name}'s 99 in {game} makes him the most-picked player in the game before anyone has played it.
+{game} rates {name} a 99, and his teammates have demanded he buy dinner.
+[vg.club99@2018-]
+{name} is in the 99 Club. {game} made it official with a surprise visit to the facility.
+The 99 Club has a new member: {name}, according to {game}.
+{name} got the 99 Club treatment: a camera crew, a handshake and a {game} card with the number on it.
+{name} screamed when he saw it. {game} had him at 99.
+Teammates mobbed {name} in the locker room when {game} revealed his 99.
+"I didn't think it would ever happen," {name} said after joining {game}'s 99 Club.
+{name}'s 99 Club reveal for {game} was the most-watched clip of ratings week.
+{game}'s 99 Club is the most exclusive list in football video games, and {name} is on it.
+{name} got his 99 Club chain from the {game} crew during practice and wore it into the team meeting.
+
+[vg.react.angry@1996-2008]
+"{rating}? Somebody's not watching film," {name} told reporters.
+{name} said he had seen his {rating} rating and was "using it."
+"Tell them to come play against me," {name} said of his {rating} rating.
+{name} called his {rating} rating "disrespectful" and said he would prove it wrong in September.
+{name} was asked about his video game rating. "{rating}," he said, and walked off.
+{name} said he would call the game's developers himself about the {rating}.
+[vg.react.angry@2009-]
+"{rating}?? Bet," {name} posted.
+{name} posted his {rating} rating with a single word: "Disrespect."
+"I'm a {rating} and he's higher than me? Ok," {name} wrote.
+{name} tagged the game's account with a screenshot of his {rating} and a list of his stats from last season.
+{name} challenged the ratings adjuster to a one-on-one. The adjuster politely declined. The rating stays {rating}.
+"Fix my speed," {name} wrote under the {rating} reveal.
+{name} deleted the post, but not before everybody saw it: "{rating} is crazy."
+{name} filmed himself running a 40 in his driveway with the caption "{rating} though?"
+{name} posted his {rating} rating next to his stat line from last season and let the internet do the rest.
+"Y'all got me at {rating}. Okay. See you Week 1," {name} posted.
+
+[vg.react.funny@1996-2008]
+"{rating}? My mom's going to call them," {name} joked.
+{name} said his {rating} rating was fine, but his speed rating was "a typo."
+"I'd play as me at {rating}. I'm not proud," {name} said.
+{name} said he planned to play as himself at {rating} and "throw it to me every down."
+"{rating}. Tell my little brother. He's been beating me with me all summer," {name} said.
+[vg.react.funny@2009-]
+"{rating} is wild considering I'm a 99 at being on time," {name} posted.
+{name} posted his {rating} rating with the caption: "Mom said she's going to call."
+"At least my hair is a 99," {name} wrote under his {rating} reveal.
+{name} posted a video of himself playing as himself at {rating} and fumbling. "Accurate," he wrote.
+"The ratings guy must have seen me at the bowling alley," {name} posted about his {rating}.
+{name} answered his {rating} reveal with a photo of himself in middle school, in full pads, swimming in them.
+"{rating} overall, 100 snack awareness," {name} wrote.
+"Can't even be mad. I'd draft me at {rating} too," {name} posted.
+{name} asked his followers to "start a petition, but nicely" about his {rating}.
+"I've been a {rating} in real life since I was 12, honestly," {name} joked online.
+
+[vg.react.grateful@1996-2008]
+"When I was a kid I played that game every day. Now I'm in it," {name} said of his {rating} rating.
+{name} called his {rating} rating "an honor" and said he would buy copies for his younger cousins.
+"{rating}? I'll take it," {name} said, smiling.
+{name} said he called his high school coach after seeing his {rating} rating.
+"My dad and I used to play this together. Now I'm on the screen," {name} told reporters.
+[vg.react.grateful@2009-]
+"Little me would be losing his mind right now. {rating}," {name} posted.
+{name} thanked the developers for his {rating} and posted a photo of himself as a kid holding the game.
+"Blessed. {rating}. Thank you to everybody who helped me get here," {name} wrote.
+{name} posted a video of his parents reacting to his {rating} rating.
+"Being in the game at all is a dream. {rating} is a bonus," {name} posted.
+{name} said his {rating} rating made his younger brother "finally respect me."
+"I remember buying this game with my birthday money. Now I'm a {rating} in it," {name} wrote.
+{name} reposted his {rating} card with a thank-you to his offensive line.
+{name} called the {rating} rating "one of the coolest things that's ever happened to me" and pinned it to his profile.
+
+[vg.react.motivated@1996-2008]
+"{rating}. I'll be higher next year," {name} said.
+{name} said he would write {rating} on his wrist tape at practice.
+"A number's a number. I'll change it," {name} said of his {rating} rating.
+{name} said he planned to tape his {rating} rating inside his locker.
+"I'm not mad. I'm working," {name} said when asked about his {rating}.
+[vg.react.motivated@2009-]
+{name} made his {rating} rating his lock screen. "Daily reminder," he posted.
+"{rating} now. Watch what happens," {name} wrote.
+{name} posted a 5 a.m. workout video with a one-word caption: "{rating}."
+"Appreciate it. Not satisfied," {name} posted about his {rating}.
+{name} printed his {rating} rating, taped it to the weight room mirror and posted the photo.
+"Remember this number: {rating}. It won't be my number for long," {name} wrote.
+{name} posted his {rating} rating next to a calendar with the season opener circled.
+"Fuel," {name} posted, with a screenshot of his {rating}.
+{name} said the {rating} rating "is a starting point."
+"{rating} in August. Check back in November," {name} posted.
+
+[vg.college_back@2024-]
+{game} is back after more than a decade, and {team} players will see their own names on the backs of the jerseys.
+For the first time in over ten years, a college football video game is on shelves. {team}'s players got paid to be in it.
+{team} players opted in to {game} and received checks for their names and likenesses.
+The wait is over. {game} returns with real rosters, real names and {team} players paid for their spots.
+{team}'s locker room had one topic on Monday: {game}, and who got the best rating.
+A generation of {team} players grew up hearing about the old college games. Now they are in {game}.
+Every {team} player who opted in to {game} received the same payment and a copy of the game.
+{team} fans can finally play as their actual roster in {game}.
+"I didn't think I'd ever be in a college football game," a {team} senior said of {game}.
+Name, image and likeness rules made it possible. {game} pays players, and {team}'s are in it.
+{team} threw a {game} launch party in the student union, and the line wrapped around the building.
+{game} sold out at the store near {team}'s campus by noon on release day.
+Ratings in {game} are now a recruiting topic. {team} coaches say prospects ask about them on visits.
+{team}'s quarterback said he would play as himself "but only on easy."
+{game} brings the college game back with players named and paid. At {team}, it already feels like it never left.
+
+# ---------------------------------------------------------------- fantasy football
+
+[fantasy.pickup]
+Must-add: {name} of {team} put up {pts} fantasy points and is rostered in only {pct} of leagues.
+{name} ({team}) scored {pts} points on Sunday and is rostered in just {pct} of leagues. Spend the waiver priority.
+The Tuesday waiver headline is {name}: {pts} points, {pct} rostered and a role that looks real.
+If you are hurting at the position, {name} is your guy. {pts} points for {team} last week and still on the wire in most leagues ({pct} rostered).
+{name} went from waiver afterthought to {pts} points. Rostered in {pct} of leagues, he will not be by Wednesday.
+Blow the budget? Maybe. {name} scored {pts} for {team} and is rostered in {pct} of leagues.
+{name} was the name in every fantasy group chat Sunday night after a {pts}-point game for {team}.
+Fantasy managers who started {name} last week got {pts} points. Everybody else should grab him while he is rostered in only {pct} of leagues.
+{team}'s {name} is this week's top add after scoring {pts}. His roster rate, {pct}, is about to climb.
+Waiver wire watch: {name}, {pts} points, {pct} rostered. The usage was real, not a fluke.
+One big game can be a mirage. {name}'s {pts} points came on enough touches to trust. Add him; he is at {pct} rostered.
+{name} is the pickup of the week: {pts} points for {team} and available in most leagues ({pct} rostered).
+If {name} is somehow still on your wire, he will not be after Tuesday night. {pts} points and a growing role in {team}'s offense.
+Sell the bench, buy {name}. The {team} player scored {pts} and is rostered in just {pct} of leagues.
+{name} played every snap after the injury ahead of him and turned it into {pts} points. At {pct} rostered, he is the add of the week.
+[fantasy.pickup@1996-2008]
+Check the Tuesday stat pages and you will find {name}: {pts} points for {team}, and owned in only {pct} of leagues.
+[fantasy.pickup@2009-]
+Fantasy apps lit up with add alerts for {name} after his {pts}-point game for {team}. Rostered: {pct}.
+
+[fantasy.bust]
+{name} gave his fantasy managers {pts} points. Start him at your own risk this week.
+Bench him? {name} has been a fantasy bust, scoring {pts} for {team} last week.
+{name} scored {pts} points, and the fantasy groans could be heard from coast to coast.
+Fantasy disaster of the week: {name} of {team}, with {pts} points.
+{pts} points. That was {name}'s fantasy line on Sunday, and it cost a lot of people their matchup.
+If you started {name}, we are sorry. {pts} points for the {team} player.
+{name}'s managers are asking hard questions after a {pts}-point dud.
+{team}'s game plan had no room for {name}, who finished with {pts} fantasy points.
+{name} was an early pick in drafts this summer. On Sunday he was worth {pts} points.
+The {name} problem: the talent is there, the usage is not, and the line was {pts} points.
+{pts} points from {name}. Fantasy managers are trying to remember why they drafted him so high.
+{name} disappeared on Sunday, finishing with {pts} fantasy points for {team}.
+A rough week for {name} and everyone who started him: {pts} points.
+{name} saw the field, rarely saw the ball, and gave fantasy managers {pts} points.
+The week's biggest fantasy letdown: {name}, who managed {pts}. {team} went elsewhere with the ball.
+
+[fantasy.top]
+{name} was the top fantasy scorer of the week with {pts} points, the best line of any {pos}.
+{pts} points: {name} led all fantasy players this week.
+Fantasy MVP of the week: {name}, {pts} points.
+{name} won a lot of matchups by himself, putting up {pts} points to lead every {pos} in the league.
+Nobody scored more fantasy points this week than {name}. His {pts} led all players.
+If you had {name} in your lineup, you probably won. He scored {pts}.
+{name} put up {pts} fantasy points, the kind of week that wins leagues.
+Top of the fantasy board: {name}, {pts} points.
+{name} turned in a {pts}-point game, the week's best at {pos} and in the league.
+The top fantasy performer of the week was {name}, who scored {pts}.
+{pts} points for {name}. Managers who started him are already pricing trophy engraving.
+Week's best: {name} ({pos}), {pts} points.
+{name} posted the highest fantasy score of the week, {pts} points, and the managers who left him on the bench are not talking about it.
+{name} delivered a {pts}-point week. No other {pos} came close.
+Fantasy managers will be talking about {name}'s {pts} points for a while.
+
+[fantasy.season]
+{name} was the season's most valuable fantasy player, finishing with {pts} points.
+Fantasy championships were won with {name}. He finished the season with {pts} points, tops among every {pos}.
+The fantasy MVP of the season is {name}, who scored {pts}.
+If your team won its league, there is a good chance {name} was on it. He finished with {pts} points.
+{name} carried fantasy teams all the way to the title, finishing with {pts} points.
+Year-end fantasy leader: {name}, {pts} points.
+{name} was a league winner, the kind of {pos} who makes every other pick look smart. Final total: {pts}.
+{name} finished the fantasy season with {pts} points and a lot of grateful managers.
+Draft him early next year: {name} scored {pts} fantasy points this season.
+The season's fantasy trophy belongs, in spirit, to {name}. {pts} points.
+Fantasy managers who drafted {name} spent the whole season looking smart. He ended with {pts}.
+{pts} points across the season made {name} the best {pos} in fantasy football.
+Ask anyone holding a fantasy trophy this winter who won it for them. Many will say {name}, who finished with {pts}.
+{name} closed the season with {pts} fantasy points, the top mark at {pos}.
+From draft day to title week, {name} delivered: {pts} points.
+
+[fantasy.injury]
+Fantasy managers groaned as {name} limped off.
+{name}'s injury sent fantasy managers scrambling for the waiver wire.
+Bad news for anyone who drafted {name}: he is hurt, and the timeline is unclear.
+{name} is out. Somewhere a fantasy manager just threw a remote.
+A collective groan went up in fantasy leagues everywhere when {name} went down.
+The injury to {name} will ripple through thousands of fantasy leagues.
+{name}'s managers are refreshing the injury report every hour.
+With {name} hurt, fantasy managers need a plan B. Most do not have one.
+{name} left the game and did not return. Fantasy rosters across the country took the hit.
+The cart came out for {name}, and fantasy managers looked away.
+Losing {name} hurts his team. It might hurt fantasy managers more.
+{name}'s injury is the fantasy story of the week, and not in a good way.
+Find a backup. {name} is injured, and his managers will feel it.
+Fantasy managers who took {name} in the first round are drafting apology messages to their leagues.
+[fantasy.injury@2009-]
+Within minutes of {name} going down, fantasy apps were flooded with add requests for his backup.
+
+# ---------------------------------------------------------------- jersey sales
+
+[jersey.list]
+{name} of {team} ranks {rank} on the NFLPA's latest list of top-selling jerseys.
+The NFLPA's jersey sales list is out, and {name} is {rank}.
+{name}'s jersey ranks {rank} in sales, according to the players' union.
+{team} fans have spoken with their wallets. {name} is {rank} on the NFLPA's sales list.
+{name} jumped to {rank} on the NFLPA's jersey sales list, a sign of how fast his popularity has grown.
+Jersey sales are one measure of a star. {name} is {rank}.
+The NFLPA's list has {name} at {rank}, the highest of any {team} player.
+{name} is selling. The {team} star's jersey ranks {rank} on the union's list.
+You see a lot of {name} jerseys in {team}'s stadium. The NFLPA's numbers back it up: he is {rank}.
+{name}, {team}: {rank} in jersey sales this season.
+The jersey list has {name} at {rank}, ahead of several players with longer resumes.
+{name}'s marketing people will love the NFLPA's newest list, which has him at {rank}.
+{rank} on the sales list: {name}, whose {team} jersey is everywhere this fall.
+Players' union data puts {name} at {rank} in jersey sales.
+{team}'s {name} landed at {rank} in the latest jersey sales rankings.
+
+[jersey.rookie]
+{name} hasn't played a regular-season down, and his jersey is already {rank} on the NFLPA's sales list.
+{name} leads a strong rookie class on the jersey sales list at {rank}.
+{team} fans bought {name}'s jersey on draft night and haven't stopped. He is {rank} on the NFLPA's list.
+A rookie at {rank}: {name}'s jersey is one of the league's best sellers.
+{name} has been a pro for a few months. His jersey is {rank} in sales.
+Draft-night buyers pushed {name}'s jersey to {rank} on the NFLPA's list.
+{name} is the newest face in {team}'s team store, and the sales show it: {rank}.
+The NFLPA's numbers are in, and rookie {name} is {rank}.
+Rookie, {team}, {rank} in jersey sales: {name} is off to a fast start off the field.
+{name}'s jersey is selling like a veteran star's. The {team} rookie ranks {rank}.
+{name} saw his own jersey in the stands at his first preseason game. The sales list says he will see plenty more: {rank}.
+Rookies don't usually crack the list this early. {name} did, at {rank}.
+{team} printed more {name} jerseys than it had for any rookie in years, and the NFLPA list ({rank}) says it was right to.
+{name}'s rookie jersey ranks {rank}, and his teammates have started calling him "the merch guy."
+The hype around {name} has a number now: {rank} on the NFLPA's jersey sales list.
+
+[jersey.college@2021-]
+{name}'s name-and-likeness jersey ranks {rank} among college jerseys sold this season.
+{team} fans have a new favorite jersey: {name}'s, which is {rank} in college sales.
+Under the new NIL rules, {name} gets a cut of every {team} jersey with his name on it. It is {rank} in sales.
+{name} jerseys are flying off the shelves at {team}'s campus store, and the national numbers have him at {rank}.
+{rank} in college jersey sales: {name}, whose deal pays him for every one sold.
+{name}'s licensed jersey is {rank} in the country. {team}'s store sold out of size large in a week.
+The college jersey market has a new star. {name} of {team} is {rank}.
+College players can sell their own jerseys now. {name} is selling more than most, at {rank}.
+{name} posted a photo of a kid wearing his {team} jersey. His jersey is {rank} in sales.
+{team}'s bookstore restocked {name}'s jersey three times. National numbers put it at {rank}.
+{name}'s jersey ranks {rank} in college sales, a number his agent plans to bring up at the next negotiation.
+A college jersey with a name on the back, and money going to the player: {name}'s is {rank}.
+{name} sits {rank} in college jersey sales, ahead of several stars at bigger schools.
+{team} fans are buying {name}'s jersey at a pace that puts him {rank} nationally.
+The new era of college jerseys has {name} near the top, at {rank}.
+
+[jersey.nick]
+"{nick}" shirts are everywhere, and {name} is getting a cut of every one.
+{name}'s nickname is merchandise now. "{nick}" T-shirts are outselling his jersey.
+A local print shop made fifty "{nick}" shirts as a joke. It has sold thousands since, and {name} approved.
+Fans in the stands wore "{nick}" shirts on Sunday, and {name} said he spotted them during warmups.
+"{nick}" is printed on hats, hoodies and coffee mugs now. {name} says his mom owns all of them.
+The "{nick}" shirt is the hottest item at the team store. {name} admits he is still not used to the name.
+{name} never asked to be called "{nick}." Now it is on shirts.
+Students showed up in homemade "{nick}" shirts. A week later the official version was for sale.
+{name} wore his own "{nick}" shirt to the postgame press conference.
+A "{nick}" design is the best-selling shirt in the city this month, and {name} has asked for a few to send home.
+Shirts reading "{nick}" sold out at the stadium the first day. {name} said he would buy one himself if he could find one.
+{name}'s teammates showed up to practice wearing "{nick}" shirts. He took it well.
+"{nick}": a nickname on a shirt, and a whole fan base wearing it. {name} laughed when he saw it.
+The "{nick}" shirt is officially licensed now. {name} said the bootlegs were funnier.
+[jersey.nick@2009-]
+{name} launched his own "{nick}" merch line online, and the first run sold out in an hour.
+
+# ---------------------------------------------------------------- title parades
+
+[parade.news]
+{crowd} fans packed downtown {city} {weather} as {team} paraded its championship trophy through the streets.
+Confetti, double-decker buses and {crowd} people: {city} turned out for {team}.
+The parade route was three miles long. {team} needed more than three hours to reach the end of it.
+{team} brought the trophy home, and {city} brought {crowd} fans to meet it.
+Schools closed. Offices emptied. {crowd} people filled the streets of {city} for {team}'s parade.
+Fans climbed light poles and bus shelters in {city} to see {team} roll by {weather}.
+The {team} parade in {city} drew {crowd}, police said, many of whom had camped out overnight.
+{city} celebrated its champions {weather}. {team}'s parade ended with a rally that ran an hour past schedule.
+{crowd} people. One trophy. {team}'s championship parade turned downtown {city} into a sea of team colors.
+The trophy went from bus to bus, then into the crowd, then back again. {team}'s parade in {city} drew {crowd}.
+Players wore sunglasses and ski hats and sometimes both. {city} cheered {team} {weather}.
+{team}'s parade route through {city} was lined with {crowd} fans, some of whom had driven all night to be there.
+Downtown {city} has not been that loud in years. {team} rolled through on a fleet of buses with {crowd} watching.
+City crews spent the morning after {team}'s parade sweeping up confetti. They are still finding it in the storm drains.
+A parade for the ages in {city}: {crowd} fans, a trophy and {team} players who did not want it to end.
+Fans held handmade signs, babies in tiny jerseys and, in one case, a goat in a team scarf. {team}'s parade through {city} drew {crowd}.
+[parade.news@2009-]
+The livestream of {team}'s parade through {city} drew more viewers than some regular-season games. In person, {crowd} showed up {weather}.
+
+[parade.moment]
+{name} spent most of the {team} parade standing on top of the bus, waving a towel.
+{name} grabbed the microphone at the {team} rally and led the crowd in a chant that lasted five minutes.
+{name} jumped off the bus to hug a fan in a wheelchair, then sprinted to catch up.
+The loudest moment of the {team} parade came when {name} held the trophy over his head and pointed at the crowd.
+{name} rode the whole {team} parade with the trophy in his lap, like he was afraid somebody would take it.
+"We did it! We did it!" {name} kept shouting at the {team} rally, until he lost his voice.
+{name} asked the rally crowd for a moment of quiet for his late grandmother, then got them roaring again.
+{name} threw souvenir footballs into the crowd at the {team} parade until his arm gave out.
+{name} danced on the stage at the {team} rally, and his offensive linemen joined him. It was not pretty.
+{name}'s speech at the {team} rally was nine words long. The crowd chanted it for twenty minutes.
+A fan threw {name} a hat at the {team} parade. He caught it one-handed and put it on backward.
+{name} wore a championship belt to the {team} parade and refused to explain where it came from.
+{name} walked part of the {team} parade route instead of riding, shaking every hand he could reach.
+{name} told the {team} rally crowd the title was for "everybody who said we couldn't." The crowd took that personally, in a good way.
+{name} brought his old high school coach onto the {team} bus and made him hold the trophy.
+The image from the {team} parade: {name}, shirt off in the cold, holding the trophy over his head.
+
+[parade.coach]
+You will be on the lead bus. {city} expects {crowd} people for {team}'s parade, and they want to hear from you at the rally.
+The parade route is set: through downtown {city}, finishing at the rally stage. You are scheduled to speak last.
+{crowd} people showed up in {city}, and the moment everybody keeps replaying is you lifting the trophy from the front of the bus.
+The mayor of {city} wants to give you a key to the city at the end of the {team} parade.
+Your speech at the {team} rally drew the biggest roar of the day. Every station in {city} has played it since.
+You'll ride with the trophy on the lead bus through {city}. The route was planned for {crowd} people; police now expect more.
+Your family wants to ride with you at the {team} parade. The organizers have made room.
+The rally in {city} is yours to close. {team}'s staff suggests short and loud.
+Your toast at the {team} rally, "To the people of {city}," is on every highlight reel tonight.
+The players chanted your name at the {team} rally until you came back to the microphone, and {crowd} people joined in.
+Someone in the crowd in {city} held up a sign with your face on it. You signed it from the bus.
+Your speech at {team}'s rally ran four minutes. You thanked everybody but yourself, and {city} noticed.
+The {team} parade gave you a moment you won't forget: {crowd} people in {city} going quiet when you raised the trophy, then exploding.
+A reporter asked how it felt to see {crowd} people in {city}. You said, "Like we owe them another one."
+Your players emptied a water cooler over your head on the bus in {city}. In this weather, the equipment staff has a dry jacket waiting at the rally stage.
+
+[parade.hs]
+Fire trucks led {team}'s state champions down main street in {town}, sirens on.
+{town} shut down main street for {team}, and every storefront had a sign in the window.
+Half of {town} met {team}'s bus at the county line and escorted it home.
+Players rode on fire engines and hay wagons through {town}. Kids lined the curb with homemade signs.
+{town} gave {team} a parade, a pancake breakfast and a banner on the water tower.
+The sheriff's cruiser, two fire trucks and a convertible carrying the head coach: that was {team}'s parade in {town}, and it was perfect.
+Church bells rang across {town} as {team}'s championship parade went by.
+The diner in {town} gave free coffee to anyone wearing {team} colors on parade day. It ran out by nine.
+{team}'s seniors rode in the back of a pickup truck through {town} with the trophy between them.
+Main street in {town} is about four blocks long. {team}'s parade took an hour to cover it.
+Elementary kids in {town} were let out early to watch {team}'s parade. Most of them wore the jerseys of players they had watched every Friday all fall.
+A banner reading "STATE CHAMPS" now hangs over the main road into {town}. {team} unveiled it at the end of the parade.
+{town} turned out for {team}: tractors, fire trucks, the marching band and a grandmother in a lawn chair at every corner.
+When {team}'s parade ended at the courthouse in {town}, the mayor declared it {team} Day.
+The fire chief in {town} let the {team} quarterback ring the bell on the lead engine. He rang it for the whole parade.
+
+# ---------------------------------------------------------------- rings
+
+[ring.ceremony]
+{team} received its {year} championship rings on Thursday: {diamonds} diamonds and {detail}.
+The rings are in. {team}'s {year} title rings carry {diamonds} diamonds, with {detail}.
+Players gasped when the boxes opened. Each {team} ring holds {diamonds} diamonds and features {detail}.
+{team} handed out its {year} rings at a private dinner. The design includes {detail}, along with {diamonds} diamonds.
+{diamonds} diamonds, {detail}, and one very emotional room: {team} got its {year} rings.
+The {team} ring ceremony for the {year} champions was closed to the public. The photos were not: {diamonds} diamonds and {detail}.
+The {year} {team} rings were designed with input from the team captains. The result: {diamonds} diamonds and {detail}.
+Every {team} ring was handed out in person by the man at the top. The {year} rings have {diamonds} diamonds and {detail}.
+Each player found his {year} ring waiting at his locker. {team} went with {diamonds} diamonds and {detail}.
+{team}'s championship rings for {year} are among the biggest ever made, with {diamonds} diamonds and {detail}.
+"Heavy," one {team} lineman said, holding up his {year} ring. It has {diamonds} diamonds and {detail}.
+The jeweler said the {team} {year} ring took four months to design. Highlights: {diamonds} diamonds and {detail}.
+Former players, trainers and equipment staff all got {year} rings from {team}, each with {diamonds} diamonds and {detail}.
+{team} showed off its {year} rings on the big screen at the first home game. Fans got a close look at {detail}.
+Every {team} ring for {year} includes {detail}. The {diamonds} diamonds are just the start.
+
+[words.ring.detail]
+the score of the title game engraved inside the band
+each player's name and number on one side
+a removable top that reveals the trophy underneath
+the home stadium's outline in white gold
+the season's record spelled out in small rubies
+the home stadium's coordinates etched on the shank
+the training camp motto engraved inside the band
+a replica of the trophy in raised gold
+every playoff score listed down the side
+a single sapphire marking the comeback win
+the city skyline wrapped around the band
+"{year}" spelled out in diamonds across the top
+the team logo carved in onyx
+the head coach's favorite saying engraved under the stone
+the final play diagrammed inside the band
+each player's signature reproduced on the inner band
+a hidden compartment holding a sliver of game-ball leather
+the number of days from the first practice to the title game engraved on the side
+the logos of every playoff opponent they beat
+the state's outline in yellow gold
+a ring top shaped like the championship trophy
+the jersey number of a late teammate engraved inside
+"{team}" in raised letters across the top
+a halo of small diamonds around the logo
+a band of rubies, one for each playoff win
+the words "Next Play" engraved inside the band
+the final score set in tiny diamonds on the face
+a design that echoes the program's first championship ring
+the date of the title game set in tiny sapphires
+each player's hometown engraved below his name
+the season's slogan in raised script along the side
+a strip of black onyx for the losses that made them
+a tiny football in white gold set inside the logo
+the word "Together" engraved on the palm side
+the trophy, the logo and the year stacked in three tiers
+the regular-season record and the title game score on opposite shanks
+the fight song's opening line engraved around the inside of the band
+
+[ring.conf]
+{team} handed out {year} {conf} championship rings on Saturday, before the spring game.
+The {conf} title rings for {team}'s {year} champions arrived this week. Players wore them to class.
+{team}'s {year} {conf} championship rings feature the conference logo and the title game score.
+Rings for the {year} {conf} champions: {team} unveiled them at its football banquet.
+"This one's for the seniors," {team}'s coach said as he handed out the {year} {conf} championship rings.
+{team} players got their {year} {conf} rings at a team dinner. Several called their parents before dessert.
+The {conf} ring is the first title ring for most of {team}'s roster. {year} was a long time coming.
+{team}'s {year} {conf} rings are simpler than a national title ring, and players said they love them more for it.
+{team} gave its {year} {conf} championship rings to players, coaches, trainers and the bus driver.
+A {conf} championship ring for every player on {team}'s {year} roster, presented at the first home game of the next season.
+{team}'s {year} {conf} rings carry each player's name and number on the side.
+Former {team} players flew back to campus to receive their {year} {conf} rings in person.
+The {conf} title rings for {team} came in a wooden box with the season's results printed inside the lid.
+{team}'s {year} {conf} championship rings were revealed on the scoreboard during the spring game.
+{team} players chose the design of their {year} {conf} rings by vote. The winning design won by two votes.
+
+[ring.bowl_gift]
+{team} players will each receive {gift} from the {bowl}.
+The {bowl}'s gift package for {team}: {gift}, plus the usual hat and duffel bag.
+NCAA rules cap what a bowl can give. {team} players will get {gift} from the {bowl}.
+{team} players are headed to the {bowl}, and they will come home with {gift}.
+Bowl swag report: {team} players at the {bowl} receive {gift}.
+The {bowl} is giving {team} players {gift}, one of the more popular gifts of bowl season.
+{gift}: that's what {team} players get for making the {bowl}.
+{team}'s seniors called the {bowl}'s gift, {gift}, a nice touch. The freshmen said the same thing, louder.
+Every {team} player at the {bowl} will receive {gift}, the bowl announced.
+{team} players walked into the {bowl}'s welcome dinner and found {gift} waiting for them.
+The {bowl} kept it simple for {team}: {gift}.
+{team} players toured the {bowl}'s gift room and left with {gift}.
+Part of the reward for a long season: {team} players get {gift} from the {bowl}.
+The {bowl}'s gift to {team} players is {gift}. Several said they would give it to their parents.
+{team} will play in the {bowl}, and its players will take home {gift}.
+
+[words.bowl_gift]
+a shopping trip through a Best Buy gift suite
+a commemorative watch engraved with the bowl's logo
+a leather recliner shipped to the player's home
+a game-day duffel bag and a commemorative football
+a fishing rod and a tackle box
+a cowboy hat and a pair of boots
+a putter and a dozen golf balls
+a hard-sided cooler with the bowl's logo
+a leather jacket with the bowl's patch
+a high-end backpack
+a pair of sunglasses
+a gift card to a sporting goods store
+a video game console
+a framed bowl poster and a commemorative ball
+a bowl hoodie and a winter jacket
+a custom pair of cleats
+a beach cruiser bicycle
+a mini-fridge
+a portable grill
+a hand-tooled leather belt with a silver buckle
+a set of luggage
+a pair of noise-canceling headphones
+a bowl ring with the game's logo on the face
+[words.bowl_gift@1999-2008]
+a portable DVD player
+[words.bowl_gift@2000-2010]
+a digital camera
+[words.bowl_gift@2002-2012]
+an iPod
+[words.bowl_gift@2005-]
+a flat-screen TV from the gift suite
+[words.bowl_gift@2010-]
+a tablet computer
+[words.bowl_gift@2012-]
+a wireless speaker
+[words.bowl_gift@2016-]
+a smartwatch
+[words.bowl_gift@2019-]
+a massage gun
+
+[ring.sold]
+{name}'s {year} {team} championship ring sold at auction for {price}.
+A {team} title ring from {year}, engraved with the name {name}, went for {price} at an online auction.
+{name} needed the money. His {year} {team} ring sold for {price}.
+{name}'s {year} championship ring is gone. It sold at auction for {price}, according to the auction house.
+The {team} ring belonged to {name}, a member of the {year} team. The buyer paid {price}.
+{name}'s ring from {team}'s {year} title season sold for {price}, a sad footnote to a career that once looked bright.
+An auction house confirmed it sold {name}'s {year} {team} championship ring for {price}. {name} did not comment.
+{name}'s old {team} teammates went quiet when asked about his ring, which sold for {price}.
+{price}: that is what a stranger paid for {name}'s {year} {team} championship ring.
+Collectors bid for days on {name}'s {year} {team} ring. It sold for {price}.
+{name}'s {year} ring changed hands at {price}. {team} said it would not comment on a former player's private matters.
+A former teammate tried to buy back {name}'s {year} {team} ring. He was outbid at {price}.
+The listing called it "game-worn." It was {name}'s {year} {team} ring, and it sold for {price}.
+{name} once said his {year} ring was the only thing he would never sell. It sold this week for {price}.
+{name}'s money troubles led to the sale of his {year} {team} championship ring, which brought {price}.
+
+[ring.hs]
+{team} received its {year} state championship rings at a school assembly.
+The {year} {team} state title rings were paid for by the booster club and handed out at a Sunday dinner.
+{team}'s {year} state champions got their rings in the gym where the season began.
+Every player, manager and trainer on the {year} {team} team got a state championship ring.
+The {year} {team} rings arrived Thursday. A senior lineman wore his to his shift at the hardware store the same night.
+Rings for the {year} {team} champions were presented by the school's oldest living former coach.
+{team} parents held a fundraiser to pay for the {year} state title rings. They hit the goal in a week.
+{team}'s {year} rings have the outline of the state and each player's number.
+The {year} {team} ring ceremony ended with the team singing the school song, badly and loudly.
+{team}'s seniors from {year} came home from college to get their state championship rings.
+{team} handed out its {year} state championship rings at halftime of a basketball game, and the whole gym stood up.
+The art class designed the {year} {team} rings, and the jeweler did not change a thing.
+{team} players received their {year} rings and immediately compared sizes. The punter's was the biggest.
+A local jeweler made the {year} {team} state championship rings at cost.
+The {year} {team} champions got their rings on the field before the first game of the next season.
+
+# ---------------------------------------------------------------- retirement farewells
+
+[farewell.announce]
+{name} announced Wednesday that this will be his final season, closing a career of {years} seasons.
+After {years} seasons, {name} says this is it. The {team} star will retire at the end of the year.
+{name} told his {team} teammates first. Then he told everyone else: this season is his last.
+"I want to go out on my terms," {name} said, announcing his final season with {team}.
+{name}'s farewell season begins Sunday. He has played {years} seasons and says he has nothing left to prove.
+{name} called a press conference at {team}'s facility and said goodbye in advance. This season is his last.
+The farewell tour starts now. {name} said this will be his final season with {team}.
+{name} announced his retirement, effective at season's end, in a letter to {team} fans.
+{years} seasons, and one more to go. {name} will retire after this year.
+"My body told me," {name} said of his decision to make this his last season with {team}.
+{name} said he made the decision in the spring and wanted {team} fans to hear it before the season started.
+Every road stadium will be a goodbye for {name}, who has announced this season will be his last.
+{name} will retire after the season, {team} announced, ending a career that has run {years} seasons.
+{name} is calling it a career after this season. "It's time," he said.
+A {team} institution is leaving. {name} will retire at the end of the season after {years} seasons.
+
+[farewell.gift]
+Before {name}'s final game in their stadium, {opp} presented him with {gift}.
+{opp} said goodbye to an old rival with {gift}.
+{name}'s farewell tour stopped at {opp}, where the home team gave him {gift}.
+The {opp} owner walked to midfield before kickoff and handed {name} {gift}.
+{opp} fans booed {name} for years. On Sunday they applauded as their team gave him {gift}.
+{gift}, from {opp}, to the player who gave them years of trouble: {name}.
+{name} laughed when {opp} gave him {gift}. "They finally found a way to slow me down," he said.
+A farewell present from {opp}: {gift}. {name} said it would go somewhere special at home.
+{opp} honored {name} on his final visit with {gift} and a video tribute.
+{name} has collected gifts at every stop. {opp} gave him {gift}.
+{opp}'s captains presented {name} with {gift} at the coin toss.
+{name} received {gift} from {opp} and a standing ovation from a crowd that used to boo him.
+Rivals can be gracious. {opp} sent {name} off with {gift}.
+{name}'s last trip to {opp} came with {gift}, a handshake from the head coach and one last round of boos for old times' sake.
+{opp} kept the gift a secret until warmups: {gift}. {name} was visibly moved.
+
+[words.gift]
+a rocking chair painted in team colors
+a framed photo of his first game in their stadium
+a custom fishing rod with his number on the handle
+a pair of hand-tooled cowboy boots
+a donation in his name to the local children's hospital
+a check to his foundation
+a pair of seats from the home team's old stadium
+a framed jersey signed by the entire home roster
+a custom golf bag
+a surfboard painted with his number
+a case of wine from a local vineyard
+a guitar signed by a hometown band
+a framed city map with every touchdown he scored there marked on it
+a custom cowboy hat
+a cord of firewood and a hatchet
+a hand-carved wooden duck decoy
+a smoker grill and a year's supply of local barbecue sauce
+a crystal bowl engraved with his career numbers against them
+a hand-built cedar canoe
+a framed square of the old end zone turf
+a pair of custom cleats in the home team's colors
+a bottle of bourbon from a local distillery
+a hunting jacket
+a lifetime pass to the home team's stadium
+a painting of him by a local artist
+a framed letter from the home team's longtime equipment manager
+a pair of skis
+a set of steak knives with his number on the blades
+a scholarship in his name at a local high school
+a bench with his name on a plaque, placed outside the stadium
+a framed newspaper from his first game against them
+a mounted game ball from his best day in their building
+a pair of season tickets to the local symphony
+a commemorative plate made by a local potter
+a custom bicycle
+a quilt stitched by season-ticket holders
+a mailbox painted like a helmet
+a year's supply of the local bakery's cinnamon rolls
+a leather recliner
+a framed photo of his worst moment in their stadium, signed by the home team's defense
+a vintage pinball machine
+a pair of binoculars and a bird guide, for retirement
+a model ship in a bottle
+a donation to his high school's football program
+a tackle box filled with hand-tied local lures
+a framed set of tickets from every game he played there
+a hand-forged branding iron with his initials
+a pair of slippers in the home team's colors
+a set of golf lessons with the local club pro
+a key to the city
+a chainsaw with a bow on it
+a weekend at a lake cabin owned by the home team's founder's family
+a hand-drawn caricature by the stadium's longtime cartoonist
+a framed set of the home team's game notes describing every time he burned them
+
+[farewell.retire]
+{name} retired Thursday after {years} seasons.
+{name} is done. The {team} star announced his retirement after {years} seasons.
+"I gave it everything," {name} said, retiring after {years} seasons.
+{name} retired in a short statement released by {team}. He played {years} seasons.
+{name} walked to the podium, thanked his parents and his linemen, and retired after {years} seasons.
+{years} seasons, and now a life after football. {name} has retired.
+{name} announced his retirement on a Tuesday morning, with no warning and no regrets.
+{team}'s {name} has retired. "It's the right time," he said.
+{name}'s retirement ends a career of {years} seasons and leaves a hole in {team}'s lineup.
+{name} will not be back. He told {team} he is retiring after {years} seasons.
+{name} cried twice during his retirement press conference at {team}, once while thanking the equipment staff.
+After {years} seasons, {name} said his body had made the decision for him.
+{name} said goodbye to football in front of his family, his teammates and {team}'s front office.
+{name}'s retirement became official Wednesday, ending a {years}-season career.
+{name} retired with little fanfare, the way he played. {years} seasons, one statement, done.
+[farewell.retire@1996-2008]
+{name} called the beat writer he trusted most and told him first: after {years} seasons, he was done.
+[farewell.retire@2009-]
+{name} announced his retirement in a video posted to his own accounts, then turned off his phone.
+
+[farewell.tribute]
+"There will never be another one like him," you said of {name}.
+You called {name} "the best teammate I've ever coached" in a statement after his retirement.
+Asked about {name}'s retirement, you paused a long time before answering. "He made all of us better."
+Your tribute to {name} was short: "He showed up. Every day. That's the whole story."
+You told reporters {name} was "the standard" in your building and that the standard does not leave with him.
+You said the hardest part of losing {name} will be the meeting room. "He'd answer questions before I asked them."
+Coach {coach} on {name}: "I learned more from him than he ever learned from me."
+You said {name} changed how you coach his position. "I'll be stealing his habits for years."
+"Some players you coach. Some you just try to keep up with. {name} was the second kind," you said.
+You called {name} at home the night he retired. You told reporters only that you thanked him.
+"He never once asked for the ball. He just made it hard not to give it to him," you said of {name}.
+Your voice broke when you talked about {name}. "He's family. That's all."
+You said you hope {name} comes back some day as a coach. "He already coaches. He just doesn't get paid for it."
+Coach {coach} said {name} "did things on Wednesdays that nobody sees, and that's why he was great on game day."
+"Every young player in this league should study the way he prepared," you said of {name}.
+
+[farewell.last_game]
+{name} played his final game against {opp}, and the {team} crowd stood for every snap of his last series.
+{name}'s career ended against {opp}. He walked off slowly, helmet in hand, waving to all four sides of the stadium.
+The last snap of {name}'s career came against {opp}. He stayed on the field long after the {team} sideline emptied.
+{opp} players lined up to shake {name}'s hand after his final game. Several asked for his jersey.
+{name}'s final game for {team} ended with a hug from every teammate and a long look back at the field.
+{name} knelt in the end zone after his last game, against {opp}, and stayed there for a while.
+The {team} crowd chanted {name}'s name through the final minute against {opp}. He tapped his chest and pointed back at them.
+{name} wanted one more play against {opp}. {team}'s coach gave it to him.
+His last game looked a lot like his first: {name} played hard, said little and walked off as the {team} crowd cheered.
+{name} swapped jerseys with a young {opp} player after his final game. "He grew up watching me," {name} said.
+{name} played his last game for {team} against {opp}. He took off his cleats on the field and left them there.
+{team} let {name} lead the team out of the tunnel one last time before facing {opp}.
+The final whistle against {opp} ended {name}'s career. His family met him on the field.
+{name} took one last lap around the {team} stadium after the game against {opp}. Nobody in the stands left.
+{name} said after his last game, against {opp}, that he would miss the locker room more than the games.
+
+# ---------------------------------------------------------------- one-day contracts
+
+[oneday.sign]
+{name} signed a one-day contract with {team} so he could retire as a member of the club.
+{name} is a {team} player again, for one day. He signed a ceremonial contract and retired.
+{team} brought {name} back on a one-day deal so he could end his {years}-season career where it mattered most.
+One day, one contract, one last time in {team} colors: {name} has retired.
+{name} signed the contract at {team}'s facility, surrounded by former teammates, and then signed his retirement papers.
+{name} retires a member of {team}, signing a one-day contract after {years} seasons in the league.
+"This is home," {name} said after signing a one-day deal with {team}.
+{team} welcomed back {name} on a ceremonial one-day contract. He wore his old number to the press conference.
+{name}'s career is officially over, and it ended where he wanted it to: with {team}.
+The pen belonged to the team. The tears belonged to {name}. He signed a one-day contract with {team} and retired.
+{team}'s owner signed the paperwork next to {name}, who retires a member of the club.
+{name} played for other teams, but there was never any doubt where he wanted to retire. {team} made it official.
+{name} signed a one-day contract with {team} and stayed for practice, giving tips to the young players at his old position.
+After {years} seasons, {name} came home to {team} for one day, to say goodbye.
+{team} fans always thought of {name} as one of theirs. Now it is official: he signed a one-day contract to retire with the club.
+
+[oneday.quote]
+"I bled for this team. It was always going to end here," {name} said.
+"When I think about football, I think about {team}. That's where my heart is," {name} said.
+"I wore other jerseys, but this is the one that fit," {name} said.
+"My family grew up around this building. I wanted them to see me finish here," {name} said.
+"This is where I learned to be a pro," {name} said of {team}.
+"I didn't want to just fade away somewhere else. I wanted to come home," {name} said.
+"The fans here gave me everything. This is the least I can do," {name} said.
+"I never really left. I just played somewhere else for a while," {name} said.
+"Every great memory I have in football has this logo on it," {name} said.
+"I asked for this a long time ago. Thank you for saying yes," {name} told {team}'s owner.
+"One more day in this uniform. That's all I wanted," {name} said.
+"I'm a {team} guy. I always was," {name} said.
+"When they called me about this, I didn't even let them finish the sentence," {name} said.
+"There's a locker in this building I still think about," {name} said.
+"I wanted the last line of my career to say {team}," {name} said.
+
+[oneday.offer]
+{name} has asked to sign a one-day contract so he can retire as a member of {team}. It is a formality with no effect on the roster. Do you want to approve it?
+{name}'s agent called: his client would like to retire with {team}. The front office needs your answer.
+A request from {name}: one day, one contract, one last time with {team}. Your call.
+{name} wants to come home. He has asked to retire as a member of {team}. Will you sign off?
+The owner's office forwarded a letter from {name}. He would like to retire with {team} and asked for your blessing.
+{name} played some of his best years for {team}. He would like to end his career here on a one-day deal. Approve it?
+Media relations wants to plan a press conference if you approve {name}'s request to retire with {team}.
+{name} called personally. He wants to retire as a member of {team}, and he wanted to ask you himself.
+A ceremonial one-day contract for {name} needs your sign-off. Fans will love it, and it does not touch the cap.
+{name} has asked for a one-day contract with {team} so he can retire with the club he considers home. Say yes?
+{name}'s retirement could have a home: {team}. He has asked, and the decision is yours.
+{name} would like one last day in {team} colors. Do you want to bring him back to retire?
+{name} reached out through the alumni office. He would like to sign a one-day contract with {team} before the season starts.
+Former {team} player {name} has asked to retire with the club. Sign the paperwork, or politely pass?
+A good-news request: {name} wants to retire as a member of {team}. Approve the one-day contract?
+
+# ---------------------------------------------------------------- celebrations
+
+[words.celebration]
+the {last} Shuffle
+the {last} Lean
+the Mailbox Drop
+the {first} Two-Step
+the End Zone Bow
+the Lawnmower Pull
+the {last} Spin Cycle
+the Weather Report
+the Postman
+the Fishing Line
+the Corn Shuck
+the Oil Change
+the {first} Freeze
+the Rocking Chair
+the Tollbooth
+the {last} Wave
+the Paper Airplane
+the Bowling Ball
+the Lumberjack
+the Mic Check
+the Turnstile
+the {last} Limbo
+the Tractor Pull
+the Photo Finish
+the {first} Flip
+the Shopping Cart
+the Doorbell
+the {last} Stomp
+the Hot Sauce
+the Window Wash
+the Snowplow
+the Cash Register
+the {last} Shimmy
+the Combination Lock
+the Crab Walk
+the Two-Point Salute
+the Lighthouse
+the {first} Glide
+the Jackhammer
+the Paper Route
+the Bricklayer
+the Gas Pedal
+the {last} Lasso
+the Bank Vault
+the Thermostat
+the Zipper
+the Ref Handshake
+the Rooftop
+the Ice Fishing
+the Pinball
+the Weather Vane
+the {first} Fade
+the Coin Flip
+the Typewriter
+the {last} Bounce
+the Sprinkler
+the Free Throw
+the Tailgate
+the Satellite Dish
+the Parallel Park
+the Remote Control
+the {last} Lift
+the Rodeo Clown
+the Night Light
+
+[celebrate.signature]
+{name} broke out {celebration} again, and the crowd was ready for it.
+Touchdown, then {celebration}. {name} has done it after every score this season.
+{name}'s teammates joined him for {celebration} in the end zone.
+The cameras knew what was coming. {name} scored and went straight into {celebration}.
+{name} saved {celebration} for the home crowd, and the home crowd did it with him.
+{celebration} made another appearance. {name} has scored often enough this season to wear it out.
+{name} said {celebration} started as a joke in the locker room. Now it is a weekly tradition.
+{name} scored and gave the fans what they wanted: {celebration}.
+Kids in the front row were already doing {celebration} before {name} reached the end zone.
+The broadcast crew called it before he did it: "Here comes {celebration}." {name} did not disappoint.
+{name} pulled off {celebration} with a lineman as his partner. It needs work.
+Even the officials cracked a smile at {celebration}. {name} kept it short enough to stay legal.
+{name} did {celebration} facing the visiting sideline, which may have been the point.
+{celebration}, version two: {name} added a spin at the end.
+{name} found the end zone and then found the camera. {celebration}.
+
+[celebrate.flag]
+{name}'s celebration drew a flag for excessive celebration. {team} kicks off 15 yards back.
+Fifteen yards, enforced on the kickoff. {name}'s celebration cost {team} field position.
+{name} went to the ground in the end zone, and the officials reached for their flags. Unsportsmanlike conduct, 15 yards.
+The touchdown counted. So did the penalty. {name}'s celebration pushed {team}'s kickoff back.
+{team}'s coach was waiting for {name} on the sideline after the excessive celebration flag. The conversation was short.
+{name} had a choreographed routine. The officials had a flag.
+"That's on me," {name} said after his celebration cost {team} 15 yards.
+{name}'s celebration drew an unsportsmanlike conduct flag, and the kickoff that followed handed the other team a short field.
+Excessive celebration on {name}. {team} will kick off from deep in its own end.
+{name} used the ball as a prop. That is a flag every time, and {team} paid for it.
+{team} lost 15 yards on the kickoff after {name}'s celebration. The special teams coach did not look happy.
+A celebration, a flag and a long talk with the position coach: a full afternoon for {name}.
+{name}'s teammates tried to pull him away before the routine started. They were a second too late, and {team} was flagged.
+Flag on {name} for excessive celebration. The crowd booed the call; {team}'s coach did not.
+{name} said he did not know the rule. He knows it now, and {team} is out 15 yards.
+
+[celebrate.taunt_wipe@2011-]
+{name} high-stepped from the 5, and it cost him: the {yards}-yard touchdown came off the board.
+Under the college rule, a taunt before the goal line is a live-ball foul. {name}'s {yards}-yard touchdown was wiped out.
+{name} pointed at a defender at the 10, and the flag came out. {team}'s {yards}-yard score did not count.
+{name} looked back at the chasing defender before he crossed the goal line, and {team} lost a {yards}-yard touchdown.
+A {yards}-yard touchdown run became a penalty. {name} taunted before he reached the end zone.
+{team}'s coach could not believe it. {name} turned around at the 3 and waved, and the {yards}-yard touchdown came off the board.
+Taunting, live ball, enforced from the spot of the foul: {name}'s {yards}-yard touchdown is gone.
+{name} backpedaled the last ten yards. The officials called it taunting, and {team} lost a {yards}-yard score.
+Six points became a 15-yard penalty. {name}'s {yards}-yard touchdown was erased for taunting before the goal line.
+The replay showed it clearly. {name} saluted the crowd at the 8, and the {yards}-yard touchdown was taken away.
+{name}'s {yards}-yard catch-and-run ended with a finger wag and no points for {team}.
+"That's a lesson I'll never forget," {name} said after his {yards}-yard touchdown was wiped out for taunting.
+{team}'s kicker was already jogging out for the extra point. Instead, {name}'s {yards}-yard touchdown came off the board for taunting.
+{name} slowed to a walk at the 5 and held the ball out toward the defender. Officials flagged it, and the {yards}-yard touchdown came back.
+The rule is strict, and {name} found out how strict: a {yards}-yard touchdown erased for a gesture at the 10.
+
+[celebrate.copy]
+Kids at youth games across the country are doing {celebration}. {name} has seen the videos.
+{celebration} has spread to high school end zones, and the coaches are not thrilled.
+Fans in the stands do {celebration} after every {name} touchdown now.
+A youth team did {celebration} in unison after a score. {name} said it was the best thing he had seen all year.
+{name}'s {celebration} is the most copied move on playgrounds this fall.
+Even the team mascot does {celebration} now. {name} approved.
+{celebration} has made it to wedding receptions, {name} has been told.
+{name} said a teacher sent him a photo of her whole class doing {celebration}.
+Opponents have started doing {celebration} after their own scores, which {name} called "flattering, mostly."
+The local news ran a segment on {celebration}. {name} was not available to teach the anchor.
+Grandmothers, toddlers, the guy who sells peanuts: everybody in the stadium knows {celebration}. Thank {name}.
+A high school receiver did {celebration} after a score and drew a flag. {name} sent him a signed ball and an apology.
+{name} got a letter from an elementary school principal asking him to stop doing {celebration}, because the kids will not stop doing it at recess.
+{celebration} has its own T-shirt now, with {name}'s silhouette caught mid-move.
+[celebrate.copy@2009-]
+Videos of kids doing {celebration} keep landing in {name}'s mentions.
+[celebrate.copy@2018-]
+{celebration} is a dance trend now. {name}'s version has been copied in millions of short videos.
+
+[celebrate.rule@1996-2016]
+The league's celebration rules remain strict, and players and fans have a name for it: the "No Fun League."
+Another week, another 15-yard flag for a celebration. Critics call it the "No Fun League," and the label is sticking.
+NFL officials will flag any celebration that involves going to the ground or using the ball as a prop.
+Group celebrations are banned. The league says it wants players to celebrate "with dignity."
+A player was fined for a celebration that would draw a laugh at any high school game. The league's rules are clear: keep it short.
+The competition committee again declined to loosen the rules on end zone celebrations.
+Players say they will keep celebrating and keep paying the fines. The league says it will keep collecting.
+Callers to sports radio were using the phrase "No Fun League" again on Monday after another celebration flag.
+The league's rule against props in the end zone produced another fine this week. The player said it was worth every penny.
+Officials were told to call celebrations more strictly this season. Expect more flags, the league said.
+[celebrate.rule@2017-]
+The NFL loosened its celebration rules, allowing players to go to the ground, use the ball as a prop and celebrate as a group.
+Group celebrations are back. Players can choreograph end zone routines again without drawing a flag.
+The commissioner said the change came after talking with players: "We want them to show their personalities."
+Snow angels, team photos and fake bowling are now legal in NFL end zones. Taunting and anything violent or sexually suggestive still draw flags.
+The league's new celebration rules took effect this season, and the first week produced at least three choreographed group routines.
+Players had been asking for years. The NFL finally relaxed its celebration rules.
+Officials will still flag taunting, but celebrations aimed at teammates and fans are back on the menu.
+"Let them have fun," a league official said of the relaxed celebration rules.
+The end zone is a stage again. The NFL's new rules allow players to celebrate on the ground and with the ball.
+Under the new celebration rules, a touchdown can come with a team photo, a mock rowing race or a dance-off, and no flag.
+
+# ---------------------------------------------------------------- your decisions graded
+
+[grade.agree]
+{bot} signed off on {coach}'s fourth-down decision, which it said was worth {wp}.
+{coach} made the call and {bot} approved: the right choice by {wp}.
+The math liked {coach}'s call. {bot} estimated it gained {wp}.
+{bot}'s morning report gave {coach} a thumbs-up. The decision was worth {wp}.
+{coach} made the call the numbers wanted. {bot} put the edge at {wp}.
+Even the analytics crowd had nothing to complain about. {bot} said {coach}'s decision was correct by {wp}.
+{bot} said most coaches would have gotten it wrong. {coach} did not, and the decision was worth {wp}.
+Correct call, {bot} said: {coach} gained {wp} on the decision.
+{coach}'s biggest fourth-down choice graded out well in {bot}'s model, worth {wp}.
+The analytics people and the old-school people agreed for once. {bot} rated {coach}'s call a winner by {wp}.
+{bot} scored {coach}'s biggest decision of the game as a good one: {wp} gained.
+{coach} trusted his gut, and his gut matched the model. {bot}: right by {wp}.
+{bot} had no notes for {coach}. The call was right, and worth {wp}.
+A rare clean report card from {bot}: every big decision {coach} made matched the model, led by one worth {wp}.
+{coach} said he never checks the numbers. {bot} did, and called his decision the right one by {wp}.
+
+[grade.punt_wrong]
+{bot} says {coach} should have gone for it. The punt cost {team} {wp}.
+{coach} punted. {bot} did not approve: the decision cost {wp}.
+{bot}'s report on {coach}'s fourth-down punt: wrong call, {wp} lost.
+The punt was conservative, and {bot} says it was costly. {team} gave up {wp}.
+{coach} sent the punt team out on fourth-and-short. {bot} called it a mistake worth {wp}.
+{bot} flagged {coach}'s punt as the worst decision of the game, costing {team} {wp}.
+"Too timid," read the one-line summary from {bot}, which put the cost of {coach}'s punt at {wp}.
+Punting from near midfield cost {team} {wp}, according to {bot}. {coach} disagreed, without the math.
+{bot} counted the decision against {coach}: a punt that gave away {wp}.
+{coach}'s fourth-down punt cost {team} {wp}, {bot} said.
+The numbers wanted a go. {coach} wanted a punt. {bot} says {team} paid {wp} for it.
+{bot}'s morning report singled out one call: {coach}'s punt, which it said cost {wp}.
+{coach} played the field-position game. {bot} says {team} lost {wp} doing it.
+Analysts piled on after {bot} said {coach}'s punt cost {team} {wp}.
+{bot} keeps a running tally of {coach}'s punts. This week's added {wp} to the bill.
+
+[grade.kick_wrong]
+{bot} said {coach} should have gone for it instead of kicking the field goal, a choice that cost {wp}.
+Three points were not enough, according to {bot}. {coach}'s kick cost {wp}.
+{coach} kicked. {bot} called it the wrong decision by {wp}.
+{bot} graded the field goal try as a mistake: {wp} lost by settling.
+Settling for three cost {coach} {wp}, {bot} said.
+{bot}'s model wanted a shot at the touchdown. {coach} took the points and gave up {wp}.
+{bot}'s write-up was dry and blunt: the kick was wrong by {wp}.
+{coach}'s chip-shot decision cost {wp}, {bot} said.
+{bot} counted {coach}'s field goal as a mistake worth {wp}.
+Kicking on fourth-and-goal from the 2 cost {coach} {wp} by {bot}'s math.
+{bot} flagged the kick. {coach} said he would make the same call again. The model says the price was {wp}.
+Three points on the board, {wp} left on the table, by {bot}'s numbers.
+{bot} rated {coach}'s field goal try the costliest call of the game: {wp}.
+{coach} trusted his kicker. {bot} says he should have trusted his offense, by {wp}.
+A long field goal instead of a fourth-and-3? {bot} said it cost {coach} {wp}.
+
+[grade.go_wrong]
+For once, {bot} said a coach was too aggressive. {coach}'s fourth-down try cost {wp}.
+{bot} said {coach} should have punted. Going for it was wrong by {wp}.
+Even {bot} thought {coach}'s fourth-down try was too much. It put the cost at {wp}.
+{coach} went for it deep in his own territory, and {bot} said it cost {wp}.
+{bot} graded {coach}'s go-for-it call as wrong, costing {wp}.
+Aggressive is not always right. {bot} says {coach}'s fourth-down try cost {wp}.
+{coach} rolled the dice. {bot} said the odds were against him by {wp}.
+{bot}'s model wanted the field goal. {coach} went for it and gave up {wp}.
+"The numbers did not support it," {bot}'s report said of {coach}'s fourth-down attempt, which cost {wp}.
+It is rare for {bot} to scold a coach for going for it. {coach} managed it: {wp} lost.
+{coach}'s fourth-and-long try cost {wp}, {bot} said.
+{bot} said {coach} picked the wrong spot to be bold. The cost: {wp}.
+Going for it on fourth-and-7 from his own 40 cost {coach} {wp}, {bot} said.
+{bot}'s morning grade on {coach}: gutsy, wrong, {wp}.
+{coach} went for it in a spot {bot} said called for a kick. The model put the cost at {wp}.
+
+[grade.timeout]
+{coach} burned a timeout to avoid a delay of game early in the third quarter. He wanted it back late in the fourth.
+Critics questioned {coach}'s clock management after he called a timeout with 40 seconds left before halftime, then let the clock run anyway.
+{coach} used his last timeout on a challenge he lost, and the two-minute drill suffered for it.
+The timeout {coach} called before the opponent's field goal try did not ice anybody. The kick was good.
+{coach} sat on two timeouts while the clock ran out at the end of the first half. Analysts noticed.
+A wasted timeout on a substitution mix-up left {coach} with one in the final minutes.
+{coach} called timeout one snap too late, after the clock had already burned the time he needed.
+{coach}'s team went into the final drive with no timeouts, two of them spent on communication problems earlier in the half.
+{coach} called a timeout to set his defense, then lined up in the same look anyway.
+The clock management questions for {coach} started with a first-quarter timeout and ended with a fourth-quarter scramble.
+{coach} said he would make the same timeout decision again. Few people watching agreed.
+{coach} let 30 seconds tick off before calling timeout on the opponent's final drive, which left his own offense almost nothing.
+An early timeout to argue a spot cost {coach} late in the game.
+{coach} took a timeout with the play clock about to expire on a routine second-quarter third down. In the fourth quarter, he needed it.
+{coach}'s timeout use drew criticism on the postgame show. He went into the final minute with none left.
+
+[grade.critic.harsh]
+"{coach} coached scared," a columnist wrote after {team}'s loss to {opp}. "And scared lost."
+The morning show spent its first hour on {coach}'s decisions against {opp}. None of it was kind.
+A national analyst called {coach}'s game plan against {opp} "a museum piece."
+"How many times does {coach} have to punt from the 40 before somebody takes away his headset?" a caller asked on local radio.
+The column ran under the headline "{coach} Lost This One," and its writer spent 900 words on {team}'s game against {opp} to prove it.
+{coach} was the punchline on national television Monday, after a run of choices against {opp} that analysts called indefensible.
+"That was coaching malpractice," a former player said on a postgame show after {team}'s game against {opp}.
+{coach} heard about it all week. The talk shows replayed his decisions against {opp} like evidence at a trial.
+"{team} has the talent. It does not have the coaching," a columnist wrote after the {opp} game.
+The national shows were not gentle. One host held up a picture of {coach}'s play sheet and asked whether anyone had read it.
+"You can't win playing not to lose," a radio host said of {coach}'s approach against {opp}, for about the twelfth time that morning.
+A columnist counted {coach}'s questionable calls against {opp}. He ran out of space before he ran out of calls.
+[grade.critic.harsh@1996-2008]
+Callers jammed the lines at the sports station Monday morning, most of them with questions about {coach}'s decisions against {opp}.
+The Sunday paper's sports front ran a photo of {coach} with his hands on his hips and a headline asking what he was thinking against {opp}.
+[grade.critic.harsh@2009-]
+{coach}'s name trended for the wrong reasons after {team}'s game against {opp}.
+Screenshots of {coach}'s fourth-down decisions against {opp} circulated online with sarcastic captions all night.
+[grade.critic.harsh@2018-]
+A popular podcast spent forty minutes on {coach}'s choices against {opp}. The episode title was one word: "Why?"
+
+[grade.critic.fair]
+A columnist defended {coach}'s calls against {opp}, if not the results: "The decisions were defensible. The execution wasn't."
+Analysts were split on {coach}'s choices against {opp}. Most agreed the fourth-down call was close.
+"I'd have done it differently, but I understand why {coach} did it," a former coach said on a national show after {team} played {opp}.
+The local radio host gave {coach} a B-minus for game management against {opp}.
+One columnist called {coach}'s approach against {opp} "cautious, but not crazy."
+A national analyst said {team}'s problems against {opp} were mostly on the players, not on {coach}'s decisions.
+{coach}'s decisions against {opp} drew mixed reviews. The timeout before halftime got the most criticism; the two-point try got the most praise.
+"Hindsight makes everybody a genius," a talk show host said when callers piled on {coach} after the {opp} game.
+A film breakdown of {team} against {opp} found {coach}'s calls reasonable and his players' execution uneven.
+"Not his best day, not his worst," an analyst said of {coach}'s game against {opp}.
+{coach} got a fair hearing on the morning show, where the hosts walked through each decision against {opp} and agreed with about half.
+A columnist wrote that {team}'s game against {opp} came down to one call by {coach}, and that reasonable people could disagree on it.
+The analytics crowd and the old-school crowd both found something to like, and something to hate, in {coach}'s approach against {opp}.
+"He's learning," a former head coach said of {coach}'s game management against {opp}. "You can see it."
+[grade.critic.fair@2018-]
+A podcast panel argued about {coach}'s choices against {opp} for half an hour and ended in a 2-2 split.
+
+[grade.critic.praise]
+"That's how you coach a big game," a national analyst said of {coach}'s plan against {opp}.
+{coach} out-coached the other sideline, and nobody on Monday's shows argued otherwise. {team} beat {opp}.
+A columnist called {coach}'s fourth-down aggression against {opp} "the difference in the game."
+Talk radio, which had been rough on {coach}, spent Monday morning praising his decisions against {opp}.
+"Every button he pushed worked," an analyst said of {coach} after {team}'s game against {opp}.
+The national shows replayed {coach}'s decisive call against {opp} over and over, each time with a little more admiration.
+A former coach on a national broadcast called {coach}'s game plan against {opp} "a clinic."
+A columnist who had questioned {coach} all season wrote the column every coach wants: an apology. {team} beat {opp}.
+"He had them ready," a former player said of {coach} on the postgame show.
+{coach} won the chess match against {opp}, and the morning show hosts said so loudly.
+"That was gutsy and smart, which is a rare combination," an analyst said of {coach}'s late decision against {opp}.
+Every adjustment {coach} made at halftime against {opp} showed up on the scoreboard, a columnist wrote.
+{coach}'s calm late in the game against {opp} drew praise from analysts and opponents alike.
+[grade.critic.praise@1996-2008]
+The sports talk station's afternoon host opened his show with three words about {coach}: "Give him credit."
+[grade.critic.praise@2009-]
+"{coach} for president," read one of the more popular posts after {team}'s win over {opp}.
+[grade.critic.praise@2018-]
+A national podcast named {coach} its coach of the week after the {opp} game.
+
+[grade.boss]
+The owner stopped by this morning. He had read the analytics report on your fourth-down calls and wanted to "understand the thinking."
+Your general manager mentioned the morning grades in passing. "The numbers people have opinions," he said. "I'd like to hear yours."
+The athletic director forwarded you a column about your decisions with a one-line note: "Let's talk this week."
+{team}'s president asked whether you had seen the reports on your clock management. You have now.
+Your boss said he trusts your judgment but asked that you sit down with the analytics staff before the next game.
+The owner called. He was happy with the win but wanted to know why you punted from midfield.
+A note from the front office: the analytics department would like 15 minutes on your fourth-down philosophy.
+Your boss was blunt. "The fans are listening to talk radio. I'm listening to you. Make it make sense."
+The athletic director said boosters have been asking about your timeouts. He did not seem worried. Not yet.
+{team}'s owner sent you a printout of the morning grades with one call circled in red.
+Your general manager said he agreed with your calls Sunday and that you should ignore the noise.
+The athletic director praised your aggressive calls in a staff meeting and told the room he wants more of it.
+Your boss asked, lightly, whether you had considered hiring a game management assistant.
+{team}'s front office said nothing about the grades. Then the owner brought them up three times at lunch.
+The president of {team} caught you in the hallway: "Good call on fourth down. The numbers people loved it."
+
+# ---------------------------------------------------------------- schedule release and travel
+
+[sched.release]
+The schedule is out. {team} has {n} prime-time games and {short} short weeks.
+{team} will play {n} times in prime time this season, a vote of confidence from the league's schedule makers.
+{n} prime-time games and {short} short weeks: {team}'s schedule is a mix of spotlight and grind.
+{team}'s coaches circled the short weeks first. There are {short} of them. Then they counted the night games: {n}.
+The league likes {team}: {n} prime-time appearances this year.
+{team}'s schedule features {n} prime-time games, along with {short} short weeks the training staff is already planning around.
+Schedule release night brought good news for {team} fans who like late kickoffs. There are {n} of them.
+{team} drew {n} national television windows and {short} short weeks. The front office called it fair.
+{team} will have {short} short weeks to manage. The head coach said that was the first number he looked at.
+A prime-time-heavy year for {team}: {n} night games on the schedule.
+Fans in {team} colors will be up late {n} times this season.
+{team}'s schedule came out Thursday, and its {n} prime-time games were the talk of local radio by Friday morning.
+The schedule makers gave {team} {n} chances to play in front of the whole country.
+{team}'s strength coach is focused on the {short} short weeks. Everybody else is focused on the {n} prime-time games.
+{team}'s schedule: {n} prime-time games, {short} short weeks and a lot of people already arguing about the bye.
+[sched.release@2018-]
+{team}'s social media team unveiled the schedule with a video that took three months to make. It had {n} prime-time games in it.
+
+[sched.snub]
+{team} has no prime-time games this season. The league's message is not subtle.
+Zero. That is how many prime-time games {team} got.
+{team}'s schedule is all Sunday afternoons. The league does not think the team is a television draw.
+No night games for {team}. The players say they will earn them back.
+The schedule makers passed on {team}. Not a single prime-time slot.
+"We'll be home for dinner," {team}'s coach said dryly when asked about the lack of prime-time games.
+{team} fans who wanted to see their team on national TV will have to wait a year.
+{team} got shut out of prime time. The front office says it is the scoreboard's job to change that.
+No night games of any kind for {team}. The league expects its ratings elsewhere.
+A schedule with no spotlight: {team} will play every game in the afternoon.
+{team}'s players noticed the schedule. "Nobody wants to watch us. Fine," one said.
+The league's television partners did not pick {team} for a single night game.
+{team} has the kind of schedule a rebuilding team gets: early kickoffs and regional broadcasts.
+Prime time will go on without {team} this season.
+{team}'s coach said the snub would be on the bulletin board by Monday.
+
+[sched.flex_in@2006-]
+The league flexed {team} against {opp} into the {window} slot.
+{team} against {opp} is moving to {window}, the league announced.
+Flexed: {team} and {opp} take over the {window} slot.
+{team}'s game against {opp} got the call. It is the new {window} game.
+The league moved {team} against {opp} to {window}, where a playoff race deserves an audience.
+{team} earned the spotlight: its game against {opp} has been flexed to {window}.
+Fans with afternoon plans will have to change them. {team} against {opp} is now the {window} game.
+{team} and {opp} replace a fading matchup in the {window} slot.
+The {window} game has a new matchup: {team} against {opp}.
+{team}'s players found out at practice: the game against {opp} is moving to {window}.
+Prime time comes to {team} after all. {opp} is the opponent in the {window} slot.
+Flex scheduling brought {team} and {opp} into the {window} slot, and the stakes justify it.
+{team} against {opp} has been flexed into the {window} slot, the league's latest change to the late-season schedule.
+The league's broadcast partners wanted {team} and {opp}. They got them, in the {window} slot.
+{team} against {opp}, flexed to {window}. The playoff race made it an easy call.
+
+[sched.flex_out@2006-]
+{team} against {opp} has been flexed out of prime time.
+The league pulled {team}'s game against {opp} from prime time. It moves to Sunday afternoon.
+Bumped. {team} and {opp} lose their night slot to a matchup with playoff stakes.
+{team} against {opp} no longer looked like a prime-time game, and the league agreed.
+{team}'s night game against {opp} has been moved to the afternoon.
+Flexed out: {team} against {opp}, a game that looked better in May.
+{team} fans will watch the {opp} game in daylight after the league flexed it out of prime time.
+The league swapped out {team} against {opp} for a better matchup.
+A losing season costs a team its prime-time games. {team} against {opp} is now an afternoon kickoff.
+{team} lost its prime-time slot against {opp}. The players shrugged; the network did not.
+{team} against {opp} was flexed out of its night window and into a regional afternoon broadcast.
+The flex came early: {team} and {opp} will play Sunday afternoon instead of under the lights.
+{team}'s game against {opp} was moved out of prime time, a reflection of where both teams stand.
+"We'll play whenever," {team}'s coach said after the {opp} game was flexed to the afternoon.
+{team} against {opp} has been flexed out of its night slot, and the replacement game has playoff implications.
+
+[sched.short_week]
+{team} plays {opp} on {days} days' rest, and the coaches are already sleeping in the building.
+Short week: {team} has {days} days to get ready for {opp}.
+{days} days between games. {team} will hold walkthroughs instead of practices before facing {opp}.
+The turnaround is brutal. {team} plays {opp} after just {days} days.
+{team}'s training staff has {days} days to get bodies right for {opp}.
+A short week means a short game plan. {team} will keep it simple against {opp}, with {days} days to prepare.
+{team} landed home after midnight and has {days} days until {opp}.
+No full-pads practice this week. {team} faces {opp} after {days} days.
+{days} days, one film session a day and as much sleep as anybody can get: that is {team}'s plan for {opp}.
+Players hate the short week. {team} has {days} days to prepare for {opp}.
+{team}'s coaches started on {opp} before the last game ended. They have {days} days.
+The schedule gave {team} {days} days to recover and prepare for {opp}.
+Ice tubs, film and a walkthrough: {team} has {days} days before {opp}.
+Short week, long list. {team} faces {opp} on {days} days' rest.
+{team}'s quarterback said the short week against {opp} is "about the brain, not the body." He has {days} days.
+
+[sched.intl@2005-]
+{team} will play {opp} in {site} this season as part of the league's international series.
+{team} against {opp} is headed overseas, to {site}.
+The league announced that {team} and {opp} will play in {site}.
+Passports, please: {team} plays {opp} in {site}.
+{team} will take its game against {opp} to {site}, a trip the league hopes will grow its audience abroad.
+{site} gets {team} against {opp} this fall.
+{team} is going international, facing {opp} in {site}.
+The league's international schedule includes {team} against {opp} in {site}.
+{team} and {opp} will play in front of a foreign crowd in {site}.
+{team} players were already asking about the food in {site}. The game against {opp} is set.
+The {team} against {opp} game in {site} sold out within hours.
+{team} brings its game against {opp} to {site}, where the stands will be full of jerseys from every team in the league.
+A road trip like no other: {team} against {opp} in {site}.
+{site} will host {team} and {opp}, the league said, with kickoff in the morning back home.
+{team} and {opp} are the latest teams chosen for the league's international games, playing in {site}.
+
+[sched.home_given@2007-]
+{team} gave up a home game to play in {site}. Season-ticket holders are not happy.
+One fewer game at home: {team} will play in {site} instead.
+{team}'s season-ticket holders will get one fewer home game this year. The team is playing in {site}.
+"We pay for home games and get one fewer," a {team} season-ticket holder said of the move to {site}.
+Bars and restaurants near {team}'s stadium will lose a home game to {site}.
+{team} will play a home game in {site}. The team offered season-ticket holders a discount and a lottery for trips.
+Not everyone in {team}'s fan base cheered the news about {site}. Losing a home date stings.
+{team}'s owner said the trip to {site} "grows the brand." Fans said it shrinks the home schedule.
+A home game moved to {site} means one fewer Sunday of tailgating for {team} fans.
+{team} will be the home team in {site}. Back home, that means one fewer game.
+{team}'s players are excited about {site}. The fans who paid for that home game are less excited.
+{team} gave up a home date for {site}, and the radio callers spent the morning complaining.
+{team}'s stadium will sit dark one Sunday this fall while the team plays its home game in {site}.
+The league's international plans cost {team} a home game. The trip to {site} is set.
+{team} offered refunds for the game moved to {site}. Plenty of fans took them.
+
+[sched.travel@2005-]
+{team} will fly to {site} on Wednesday, a day earlier than usual, to adjust to the time difference.
+Sleep is the game plan. {team}'s staff built a body-clock schedule for the trip to {site}.
+{team} gets its bye week after the trip to {site}, the standard arrangement for international games.
+{team} players were handed sleep masks and a strict schedule for the flight to {site}.
+{team}'s sports science staff mapped every hour of the trip to {site}, down to when players are allowed coffee.
+{team} will practice in {site} on Thursday and Friday, then fly home to a bye week.
+Jet lag is the opponent before the opponent. {team} leaves for {site} early.
+{team}'s coach called the trip to {site} "a business trip, not a vacation."
+Players were told to stay awake on the flight to {site} and sleep when they land. Most of them failed.
+{team} will treat {site} like a road game in a different time zone, because it is one.
+{team} brought its own chef to {site}.
+Light therapy glasses and melatonin are part of {team}'s plan for {site}.
+The bye week after {site} gives {team} time to recover from the travel.
+{team} chose to fly to {site} late and stay on home time. The approach is a gamble.
+{team}'s equipment staff shipped 30,000 pounds of gear to {site} a week before the team arrived.
+
+[sched.imr@2022-]
+{team} has been granted international marketing rights in {country} under the league's program.
+{country} is {team}'s territory now, as far as the league's international marketing program is concerned.
+{team} can now sell merchandise, host events and build a fan base in {country}.
+The league awarded {team} marketing rights in {country}, a sign the club wants a global audience.
+{team} will run youth camps and fan events in {country} under its new international rights.
+{team} fans in {country} have a team of their own now, officially.
+{team} landed international marketing rights in {country}, joining a growing list of clubs abroad.
+{country} is open for {team}'s business. The club plans watch parties and a flag football league there.
+{team} said its rights in {country} come with a plan for a game there "in the next few years."
+{team} named a director for its new market in {country}.
+{team}'s jerseys will be sold in stores across {country} as part of its international rights.
+The league added {team} to its international program and assigned it {country}.
+{team} will promote itself in {country} under the league's marketing rights program, starting this year.
+{team}'s owners said {country} was their first choice when the league opened international markets.
+{team} has the rights in {country}, where its first official fan club was announced this week.
+
+# ---------------------------------------------------------------- career story page
+
+[story.hired]
+Hired as head coach of {team} in {year}.
+{year}: {team} hands you the keys.
+You took over at {team} in {year}, with a press conference and a lot of promises.
+In {year}, {team} gave you your shot as head coach.
+{team} named you head coach in {year}. Your first act was to call every player on the roster.
+Started at {team}, {year}.
+{year}. A new office at {team}, a staff to build and a fan base waiting to be convinced.
+You signed with {team} in {year} and slept in the office for the first week.
+{team} hired you in {year}, ahead of a field of more experienced names.
+{year}: introduced as head coach of {team}.
+The {team} job opened in {year}, and you got it.
+Your {team} era began in {year} with a handshake and a short speech.
+{year}: you took the {team} job and went to work the next morning.
+You came to {team} in {year} and told the players the past didn't matter.
+{team}, {year}: the first day on the job, and a parking spot with your name on it.
+
+[story.first_win]
+First win at {team}: {opp}.
+You won your first game at {team} against {opp}, and the players gave you the game ball.
+{opp} will always be your first win at {team}.
+The first one: {team} over {opp}.
+Your first win at {team} came against {opp}. You kept the game ball on your desk.
+{team} beat {opp} for your first win, and your phone did not stop buzzing all night.
+Win No. 1 at {team}: {opp}.
+Your first win at {team} was over {opp}. The locker room was louder than the score deserved.
+{opp}, beaten. Your first win as head coach of {team}.
+You went home after your first win at {team}, against {opp}, and watched the whole game again.
+A first win at {team}, against {opp}, and a lot of hugs on the field.
+{team} gave you your first win as its coach by beating {opp}.
+Your first victory at {team} came against {opp}. You thanked your staff before anyone else.
+Beating {opp} gave you your first win at {team}. It felt like more than one.
+First win at {team}, over {opp}. You let the players have the bus speakers all the way home.
+
+[story.milestone]
+Career win No. {n}, with {team}.
+You reached {n} career wins as {team}'s coach.
+Win No. {n} came at {team}, and your players knew before you did.
+{n} career wins. The {team} staff had a cake waiting in the locker room.
+Milestone: {n} wins, the latest at {team}.
+You picked up career win No. {n} with {team} and gave the game ball to your equipment manager.
+{n} wins and counting, at {team}.
+Career victory No. {n} came with {team}. The scoreboard flashed a message; you missed it.
+{team} got you to {n} career wins.
+{n} wins. You told reporters you would think about it in the offseason.
+Win {n} of your career came as head coach of {team}.
+{team}'s players presented you a ball marked with the number {n} after the win.
+Career win No. {n}. Your old coaches sent their congratulations.
+No. {n}: another milestone at {team}.
+You reached {n} career wins at {team} and spent the night answering messages from former players.
+
+[story.title]
+{year}: {what} with {team}.
+You won the {what} with {team} in {year}.
+{team}, {year}: {what}. You will never forget the final whistle.
+Champions. {team} won the {what} in {year}.
+The {year} {what} belongs to {team}, and to you.
+{team} claimed the {year} {what}, and your players made sure you held the trophy first.
+You and {team} won the {what} in {year}. The confetti was still in your hair the next morning.
+{year} {what}: {team}.
+A {what} for {team} in {year}, the biggest night of your career so far.
+You brought {team} the {what} in {year}.
+{team} won the {what} in {year}. You called your family from the field.
+{year}: the year {team} won the {what}.
+The {what} came to {team} in {year}, and the parade came after it.
+You coached {team} to the {what} in {year}.
+{team}, {what}, {year}. Nobody can take it away.
+
+[story.upset]
+{team} shocked {opp}, {score}.
+Nobody gave {team} a chance against {opp}. You won {score}.
+The upset: {team} {score} over {opp}.
+You beat {opp} {score} with a {team} roster that was supposed to lose big.
+{team} took down {opp}, {score}, and you stayed on the field long after it ended.
+Upset of {opp}, {score}. Your game plan was the talk of the week.
+{score} over {opp}: the win that put {team} on the map.
+{team} {score}, {opp} stunned. You told the players you had believed it all week.
+You called it a team win. Everyone else called it an upset. {team} {score} over {opp}.
+{opp} came in as a heavy favorite. {team} left with a {score} win.
+{team} beat {opp}, {score}, in one of the biggest upsets of your career.
+A {score} upset of {opp}, and a lot of people who had to rethink {team}.
+{team} {score} over {opp}. The kind of upset your players will tell their kids about.
+{opp} fell to your {team}, {score}.
+You out-coached {opp} in a {score} upset, and {team}'s season changed.
+
+[story.rivalry]
+{team} beat {opp} and took home the {trophy}.
+The {trophy} is yours. {team} beat {opp}.
+You brought the {trophy} back to {team} after beating {opp}.
+Rivalry win: {team} over {opp}, and the {trophy} goes in your trophy case.
+The {trophy} went back on display at {team} after a win over {opp}.
+{team} won the {trophy} game against {opp}. Your seniors carried the trophy around the field.
+Beat {opp}. Keep the {trophy}. Repeat.
+You won the {trophy} for {team}, and the town did not sleep.
+Against {opp}, with the {trophy} on the line, {team} won.
+The {trophy} is the one the fans care about most, and you won it by beating {opp}.
+{team} took the {trophy} from {opp}. You let the players hold it on the bus ride home.
+A rivalry win over {opp} and the {trophy} for {team}.
+You learned all about the {trophy} in your first week at {team}. You won it against {opp}.
+{team} beat {opp}, and the {trophy} came home with you.
+The {trophy} belongs to {team}. {opp} will have to wait another year.
+
+[story.rivalry_plain]
+{team} beat {opp}, {score}. The rivalry game is the one they remember.
+Rivalry week went to {team}: {score} over {opp}.
+You beat {opp}, {score}, and the whole state heard about it.
+The game circled on every calendar in {city} went to {team}, {score} over {opp}.
+A {score} win over {opp}. Nobody in {city} will let them hear the end of it this year.
+{team} {score}, {opp} beaten. Your seniors walked off the field with their helmets in the air.
+Beat {opp}. {score}. The fan base exhaled for the first time since August.
+You heard about the {opp} game on your first day at {team}. You won it, {score}.
+
+[story.big_win]
+{team} won the {game}, {score} over {opp}.
+The {game} went to {team}: {score} over {opp}.
+{score} over {opp} in the {game}. Your players doused you on the sideline.
+You won the {game}. {team} {score}, {opp} sent home.
+{team} beat {opp} in the {game}, {score}, and the trophy came home with the team.
+A postseason win: the {game}, {score} over {opp}.
+The {game} belongs to {team}. {score} over {opp}, and a happy flight home.
+{team} closed the {game} out, {score} over {opp}.
+
+[story.fired]
+Fired by {team}.
+{team} let you go.
+The call came on a Sunday: {team} was making a change.
+Your time at {team} ended in a meeting that lasted eleven minutes.
+{team} fired you. You thanked the players in a letter the next day.
+Dismissed by {team}.
+{team} decided to go in a different direction. You packed your office that night.
+The end at {team}: fired, with a buyout and a long drive home.
+You were fired by {team}, and some of your players came to your house to say goodbye.
+{team} moved on. You were told before the press release, barely.
+Fired at {team}. The fans who called for it got what they wanted.
+{team} made a coaching change, and the change was you.
+Your {team} tenure ended with a firing. You did not hold a press conference.
+{team} fired you after a season that did not meet expectations.
+{team}'s leadership told you it was over. You shook hands and left.
+
+[story.left]
+Left {team} for {new}.
+You took the job at {new}, leaving {team} behind.
+{new} came calling, and you left {team}.
+You said goodbye to {team} and hello to {new}.
+Off to {new}. You spent your last day at {team} saying goodbye to players.
+You left {team} for {new}, and {team} fans did not take it well.
+A bigger chance at {new}. You left {team}.
+{team} wanted you to stay. You chose {new}.
+You left {team} for {new} with a two-sentence statement and a handshake.
+The move from {team} to {new} was announced on a Tuesday.
+You left {team} on good terms. {new} made an offer you could not pass up.
+{new} hired you away from {team}.
+From {team} to {new}: a new chapter.
+You told your {team} players in person before you left for {new}.
+After building {team}, you took on {new}.
+
+[story.draftee]
+{team} drafted {name} ({pick}). You coached him.
+{name}, one of your players, was drafted by {team}: {pick}.
+Draft day: {name} to {team}, {pick}. You were on the phone with his family when it happened.
+{name} heard his name called by {team} ({pick}). He thanked you in his first interview.
+Another one of yours: {name}, {pick}, {team}.
+{team} took {name} ({pick}). You recruited him when nobody else would.
+{name} is going to {team} ({pick}). You watched the draft with your staff.
+Your former player {name} was picked by {team} ({pick}).
+{name} ({pick}, {team}) is a pro now. You sent him a message before the pick was announced.
+{team} selected {name} ({pick}). He wore the suit you once told him to buy.
+Draft: {name} to {team} ({pick}). Another name for the wall in your office.
+{name}, who played for you, went to {team} ({pick}).
+{team} made {name} a pro ({pick}). You heard it from a staff member who was in tears.
+{name}'s name was called by {team} ({pick}). You still have his recruiting file.
+{name} drafted by {team}, {pick}. Your pipeline to the pros grows.
+
+[story.honor]
+{name} won the {what} while playing for you.
+{name}: {what}. You were there to see him accept it.
+Your player {name} earned the {what}.
+{name} took home the {what} and thanked you in his speech.
+The {what} went to {name}, one of yours.
+{name} won the {what}. You called it the proudest night of your season.
+{what}: {name}. He told reporters you taught him how to work.
+You watched {name} accept the {what} from the front row.
+{name} won the {what}, and your recruiting pitch got a lot easier.
+{name} was named the winner of the {what}. You had predicted it in August.
+Another honor for your program: {name}, {what}.
+{name} earned the {what} under your coaching.
+{name} won the {what}. You gave him a day off from film.
+The {what} belongs to {name}. You said he deserved it more than anyone you have coached.
+{name} and the {what}: a highlight of your career, and his.
+
+[story.nickname]
+The fans started calling you "{nick}."
+A nickname that stuck: "{nick}."
+Somebody on talk radio called you "{nick}," and it never went away.
+"{nick}." The players said it behind your back. Then they started saying it to your face.
+You became "{nick}" to a whole fan base.
+The student section made signs: "{nick}." You pretended not to see them.
+Your nickname: "{nick}." You said you had been called worse.
+"{nick}" was printed on T-shirts by the end of the season.
+You picked up a nickname, "{nick}," from a local columnist.
+Players started calling you "{nick}" after a practice you would rather forget.
+"{nick}": the name your fans gave you.
+You heard "{nick}" chanted for the first time in the fourth quarter of a big win.
+"{nick}" started as a joke among your staff. Now everyone uses it.
+The broadcasters called you "{nick}" on national TV, and it stuck.
+"{nick}" is how people know you now.
+
+[story.losing_season]
+A {record} season at {team}. Your hardest year.
+{team} went {record}. You called it the worst season of your career.
+{record}. A losing season at {team}, and a long offseason after it.
+You finished {record} with {team}, and the fans let you hear about it.
+{team}, {record}: the year nothing went right.
+A {record} record at {team}. You told your staff everything would be on the table.
+{team} finished {record}. You did not sleep much that winter.
+{record} at {team}. The close games went the other way.
+A losing season, {record}, at {team}.
+{team}'s {record} season tested everything you believe about building a program.
+You went {record} with {team}. The rebuild started the next day.
+{record} at {team}: you took the blame in your season-ending press conference.
+The {record} season at {team} ended with a long meeting with your boss.
+{team} stumbled to {record}. You promised the fans it would not happen again.
+{record} at {team}. You stood behind your seniors on senior night anyway.
+
+# ---------------------------------------------------------------- extra pre-social-media reactions
+
+[uniform.recruit_like@1996-2008]
+{name} told his high school coach that {team} in {set} was "the best thing I saw all weekend, and I saw a lot."
+"I'd play in those tomorrow," {name} said after watching {team} warm up in {set}.
+
+[uniform.recruit_meh@1996-2008]
+{name} told the local paper he had not noticed {team}'s new uniforms. "I was watching the linebackers," he said.
+"Uniforms don't block for you," {name} said when asked about {team}'s new look.
+{name} said he respects {team}'s tradition, "but somebody should tell them the rest of the country got new uniforms."
+
+[vg.club99@1996-2017]
+Reporters asked {name} about his 99 in {game}. "Somebody over there knows ball," he said.
+{name} said his 99 in {game} made him the most popular player in his own family room.
+
+[vg.react.angry@1996-2008]
+{name} said a rating of {rating} "tells me who's been watching and who's been reading box scores."
+"I don't play video games, but I heard about the {rating}," {name} said. "I heard about it a lot."
+
+[vg.react.funny@1996-2008]
+"{rating}? That's about what I'd give myself on Mondays," {name} said with a laugh.
+{name} said he would not complain about a {rating} rating "until they put the guy who covers me in the game."
+"My roommate is a {rating} too, and he's a kicker," {name} joked. "So I don't know."
+
+[vg.react.grateful@1996-2008]
+{name} said he would mail a copy of the game, {rating} rating and all, to his old youth league coach.
+"I'm in the game. I'm a {rating}. A few years ago I was buying it at the mall," {name} said.
+{name} said seeing his {rating} rating was "one of those moments you know you made it."
+
+[vg.react.grateful@2009-]
+"Thank you for the {rating}. My little cousins are going to bully me with me," {name} posted.
+
+[vg.react.motivated@1996-2008]
+{name} said his position coach already brought up the {rating}. "He said I should be a few points higher by Christmas," {name} said.
+"I don't care about the number. I care about the next one," {name} said of his {rating}.

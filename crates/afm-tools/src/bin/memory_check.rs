@@ -77,6 +77,7 @@ fn main() {
     weigh("high schools", &mut w, &|w| w.high_schools = Vec::new());
     weigh("programs", &mut w, &|w| w.programs = Vec::new());
     weigh("news", &mut w, &|w| w.news = Vec::new());
+    weigh("stories", &mut w, &|w| w.stories = Default::default());
     weigh("stat book", &mut w, &|w| w.stats = Default::default());
     weigh("game log", &mut w, &|w| w.game_log = Default::default());
     weigh("recruiting log", &mut w, &|w| w.recruiting_log = Default::default());

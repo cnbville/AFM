@@ -153,7 +153,6 @@ impl Film {
     ) -> Film {
         let year = date.year();
         let level = setup.rules.level;
-        let nfl = level == afm_engine::player::Level::NFL;
         let people: HashMap<u32, usize> = {
             let want: std::collections::HashSet<u32> =
                 setup.home.players.iter().chain(&setup.away.players).map(|p| p.id).collect();
@@ -167,7 +166,7 @@ impl Film {
         let mut bodies = HashMap::new();
         for (side, team) in [&setup.home, &setup.away].into_iter().enumerate() {
             let list: Vec<(u32, Position)> = team.players.iter().map(|p| (p.id, p.position)).collect();
-            let nums: HashMap<u32, u8> = numbers::assign(&list, nfl, year).into_iter().collect();
+            let nums = numbers::for_team(w, cal, teams[side], &list, year);
             for p in &team.players {
                 let person = people.get(&p.id).map(|&i| &w.people[i]);
                 bodies.insert(

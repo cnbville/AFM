@@ -57,6 +57,9 @@ pub struct GameSetup<'a> {
     pub wear: [f64; 2],
     /// Per team, 0-1: how unused it is to this game's cold.
     pub cold_unused: [f64; 2],
+    /// The season, for rules that changed by era (celebrations); 0 reads
+    /// as today's rules.
+    pub year: i32,
     /// Keep this game's setup in the result so it can be watched back
     /// (your games; `replay.rs`).
     pub keep: bool,
@@ -86,6 +89,7 @@ impl<'a> GameSetup<'a> {
             context: [garbage::Context::default(); 2],
             wear: [0.0; 2],
             cold_unused: [0.0; 2],
+            year: 0,
             keep: false,
             kickoff: 0.0,
             indoor: false,
@@ -550,6 +554,9 @@ struct Game<'a> {
     tempo: Tempo,
     /// The coin toss and overtime toss draw here.
     toss_rng: Rng,
+    /// Yards the next kickoff moves back: an excessive celebration after a
+    /// touchdown is enforced on it.
+    kick_back: f64,
     /// A try after a touchdown is being played: untimed, and it scores
     /// only as a try (one, two or three points), never as a touchdown.
     trying: bool,
@@ -664,6 +671,7 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
         two_min_warned: false,
         pace: 1.0,
         no_huddle: false,
+        kick_back: 0.0,
         ot: false,
         ot_round: 0,
         ot_poss: [0, 0],
@@ -993,6 +1001,7 @@ impl<'a> Game<'a> {
                 self.quarter = 3;
                 self.clock = self.rules().quarter;
                 self.two_min_warned = false;
+                self.stats.timeouts_left[0] = [self.sides[0].timeouts, self.sides[1].timeouts];
                 // The CFL's timeouts are a game's, not a half's (from 2013).
                 let per_game = self.s.rules.code.timeouts_per_game;
                 for s in self.sides.iter_mut() {
@@ -1008,6 +1017,7 @@ impl<'a> Game<'a> {
                 self.next = Next::Kickoff { team: self.receive_first, from, onside: false };
             }
             4 => {
+                self.stats.timeouts_left[1] = [self.sides[0].timeouts, self.sides[1].timeouts];
                 if self.diff(0) != 0 {
                     self.over = true;
                 } else {
@@ -1569,7 +1579,7 @@ impl<'a> Game<'a> {
                 return;
             }
         }
-        let from = self.rules().kickoff_from;
+        let from = self.rules().kickoff_from - std::mem::take(&mut self.kick_back);
         self.next = Next::Kickoff { team, from, onside: false };
     }
 
@@ -3136,6 +3146,43 @@ impl<'a> Game<'a> {
         if accepted_pen && !late && !play_stops {
             ready = Some(self.rules().play_clock - ADMIN_PLAY_CLOCK);
         }
+        // A celebration (lane 8, C17), on its own keyed draw so no other
+        // play changes: from 2011 a college player who taunts or high-steps
+        // before the goal line has the touchdown taken off the board, the
+        // foul marked from that spot; any level flags an excessive
+        // celebration after the score, 15 yards on the kickoff (the NFL
+        // loosened its rule in 2017).
+        if scored_td && !turnover {
+            let scorer = r.carrier.or(if r.complete { r.target } else { None });
+            if let Some((ego, id)) = scorer
+                .and_then(|id| self.sides[o].team.players.iter().find(|p| p.id == id))
+                .map(|p| (p.personality.traits.ego as f64, p.id))
+            {
+                let showman = ((ego - 8.0).max(0.0) / 6.0).powi(2);
+                let u = |k: u64| crate::world::season::key_uniform(self.s.seed ^ 0xCE1E_B8A7, (self.n as u64) << 8 | k);
+                let year = if self.s.year == 0 { 2025 } else { self.s.year };
+                let college = matches!(self.rules().level, Level::FBS | Level::FCS | Level::SmallCollege);
+                let foul_at = 100.0 - (2.0 + 5.0 * u(1)).round();
+                if college && year >= 2011 && gain >= 15.0 && u(2) < 0.0012 * showman {
+                    scored_td = false;
+                    new_x = foul_at - 15.0;
+                    auto_first = true;
+                    r.penalties.push((FoulKind::UnsportsmanlikeConduct, o, id, -15.0, true));
+                    r.why = format!("{} Taunting before the goal line: the touchdown comes off the board.", r.why);
+                } else {
+                    let base = match self.rules().level {
+                        Level::NFL if year < 2017 => 0.012,
+                        Level::NFL => 0.004,
+                        Level::HS => 0.006,
+                        _ => 0.008,
+                    };
+                    if u(3) < base * showman {
+                        self.kick_back = 15.0;
+                        r.penalties.push((FoulKind::UnsportsmanlikeConduct, o, id, 15.0, true));
+                    }
+                }
+            }
+        }
         // Down and distance.
         let mut first_down = false;
         let fumble_lost = turnover && !r.interception;
@@ -4428,6 +4475,9 @@ pub struct Venue {
     pub neutral: bool,
     pub wear: [f64; 2],
     pub cold_unused: [f64; 2],
+    /// The season (0 for today's rules).
+    #[serde(default)]
+    pub year: i32,
     /// For the views only: the local kickoff hour and a roof over the field.
     #[serde(default)]
     pub kickoff: f32,
@@ -4457,6 +4507,7 @@ pub fn quick_game_in(
     s.neutral = venue.neutral;
     s.wear = venue.wear;
     s.cold_unused = venue.cold_unused;
+    s.year = venue.year;
     s.context = context;
     s.keep = venue.keep;
     s.kickoff = venue.kickoff;
@@ -4477,6 +4528,7 @@ pub fn quick_game_book(
 ) -> GameResult {
     let mut s = GameSetup::new(home, away, Level::NFL, seed);
     s.rules = Rules::for_book(book, year);
+    s.year = year;
     // A playoff game plays its overtime out: no ties.
     s.playoff = playoff;
     s.cond = venue.cond;
@@ -4516,6 +4568,7 @@ fn bare_game<'a>(setup: &'a GameSetup, off: &'a GameTeam, def: &'a GameTeam, los
         two_min_warned: false,
         pace: 1.0,
         no_huddle: false,
+        kick_back: 0.0,
         ot: false,
         ot_round: 0,
         ot_poss: [0, 0],
