@@ -47,14 +47,20 @@ fn a_kept_game_plays_back_as_film() {
     println!("film opened in {:.0} ms", t.elapsed().as_secs_f64() * 1000.0);
     let players = film["players"].as_array().unwrap();
     assert!(players.len() > 80, "{} players", players.len());
-    // Every man has a number, unique on his team.
-    for side in 0..2 {
-        let mut nums: Vec<u64> = players.iter().filter(|p| p[1] == side).map(|p| p[2].as_u64().unwrap()).collect();
-        let n = nums.len();
-        nums.sort();
-        nums.dedup();
-        assert_eq!(nums.len(), n, "two men share a number");
+    // Every man has a number. A college roster bigger than its numbers
+    // doubles up as real ones do, so the rule is the NCAA's: two men who
+    // share a number play on opposite sides of the ball, never both on the
+    // field for one scrimmage snap (checked on every play below).
+    let defense = ["EDGE", "DT", "LB", "CB", "S"];
+    let mut worn: std::collections::HashMap<(u64, u64, bool), u64> = Default::default();
+    let mut number = std::collections::HashMap::new();
+    for p in players {
+        let key = (p[1].as_u64().unwrap(), p[2].as_u64().unwrap(), defense.contains(&p[3].as_str().unwrap()));
+        assert!(key.1 <= 99, "{p}");
+        *worn.entry(key).or_default() += 1;
+        number.insert(p[0].as_u64().unwrap(), p[2].as_u64().unwrap());
     }
+    assert!(worn.values().all(|&n| n == 1), "two men on one side of the ball share a number");
     assert!(film["venue"]["seats"].as_u64().unwrap() > 1000, "{}", film["venue"]);
     let plays = film["plays"].as_array().unwrap();
     assert!(plays.len() > 100);
@@ -71,6 +77,15 @@ fn a_kept_game_plays_back_as_film() {
         let frames = f.len() / stride;
         assert!(frames >= 20, "play {n} ({}) has {frames} frames", p["kind"]);
         *kinds.entry(p["kind"].as_str().unwrap().to_string()).or_insert(0) += 1;
+        // A scrimmage snap's eleven never wear one number twice.
+        let kick = ["Kickoff", "Punt", "FieldGoal", "ExtraPoint"].contains(&p["kind"].as_str().unwrap());
+        for side in p["on"].as_array().unwrap().iter().filter(|_| !kick) {
+            let mut on: Vec<u64> = side.as_array().unwrap().iter().map(|id| number[&id.as_u64().unwrap()]).collect();
+            let men = on.len();
+            on.sort();
+            on.dedup();
+            assert_eq!(on.len(), men, "play {n}: two men on the field wear one number");
+        }
         // Every spot sits on or near the field, in the stadium's frame.
         for fr in f.chunks(stride) {
             for k in 0..ids {
