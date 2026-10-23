@@ -8,6 +8,7 @@ mod front_office;
 mod game_stats;
 mod kick_units;
 mod level_rating;
+mod links;
 mod live_game;
 mod scouting;
 mod tactics;

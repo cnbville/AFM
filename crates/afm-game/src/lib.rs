@@ -77,6 +77,10 @@ impl Game {
                 let engine_from = num("engine_from").map(|y| y as i32);
                 // Fictional names (lane 10): colleges, conferences and NFL nicknames; towns stay real.
                 let fictional = args.get("names").and_then(Value::as_str) == Some("fictional");
+                let d = WorldOptions::default();
+                // How many history seasons play high school on the engine
+                // (quick checks pass 0; live seasons always do).
+                let hs_engine_years = num("hs_engine_years").map_or(d.hs_engine_years, |n| Some(n as u32));
                 self.world = Some(World::new(WorldOptions {
                     seed,
                     history_years: years,
@@ -88,7 +92,8 @@ impl Game {
                         afm_engine::world::names::NameMode::Real
                     },
                     fictional_league: fictional,
-                    ..Default::default()
+                    hs_engine_years,
+                    ..d
                 }));
                 self.save_path = None;
                 Ok(json!({ "built": true }))

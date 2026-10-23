@@ -1799,6 +1799,7 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
         "potential": potential,
         "groups": groups,
         "tendencies": tendencies,
+        "links": reads::links(&p.player, own, p.stage == Stage::Pro || p.cal.combine_invite, eye, reader),
         "history": history,
         "pro": pro,
         "offers": offers,

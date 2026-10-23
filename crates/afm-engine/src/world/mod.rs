@@ -81,9 +81,10 @@ pub struct WorldOptions {
     pub engine_from: Option<i32>,
     /// How many of the history's last seasons play their high school games
     /// on the match engine (section 8, choice 2; Cain 2026-10-20: the last
-    /// 12, "for now"). Every season after the history does too. Earlier
-    /// seasons, and every season with this None, use the stand-in. A
-    /// season before `engine_from` stays on the stand-in as well.
+    /// 12, "for now"). Every live season does too, whatever this is (final
+    /// build: every high school game in a live save). Earlier history
+    /// seasons, and every history season with this None, use the stand-in.
+    /// A season before `engine_from` stays on the stand-in as well.
     pub hs_engine_years: Option<u32>,
     /// Trial tooling: keep every college game's box score totals and each
     /// player's season totals in `World::game_log` (history years only).
