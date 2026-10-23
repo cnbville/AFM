@@ -237,6 +237,7 @@ fn weigh(w: &mut World) {
     take("high schools", w, &|w| w.high_schools = Vec::new());
     take("programs", w, &|w| w.programs = Vec::new());
     take("news", w, &|w| w.news = Vec::new());
+    take("stories", w, &|w| w.stories = Default::default());
     take("stat book", w, &|w| w.stats = Default::default());
     take("game log", w, &|w| w.game_log = Default::default());
     take("recruiting log", w, &|w| w.recruiting_log = Default::default());

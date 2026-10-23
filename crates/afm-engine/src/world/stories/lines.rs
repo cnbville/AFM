@@ -195,6 +195,19 @@ impl Recent {
 pub(crate) fn tidy(s: &str) -> String {
     let mut t = s.split_whitespace().collect::<Vec<_>>().join(" ");
     t = t.replace("Jr..", "Jr.").replace("Sr..", "Sr.").replace(" ,", ",").replace(" .", ".");
+    // A name ending in s takes the apostrophe alone (AP style): "Illinois'".
+    if t.contains("s's") {
+        t = t
+            .split(' ')
+            .map(|word| match word.find("s's") {
+                Some(k) if word.starts_with(|c: char| c.is_uppercase()) => {
+                    format!("{}s'{}", &word[..k], &word[k + 3..])
+                }
+                _ => word.to_string(),
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+    }
     let mut c = t.chars();
     match c.next() {
         Some(f) if f.is_lowercase() && !t.starts_with("the ") || f.is_lowercase() => {

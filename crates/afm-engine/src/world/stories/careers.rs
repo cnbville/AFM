@@ -138,7 +138,7 @@ pub(crate) fn after_nfl_game(w: &mut World, ctx: &GameCtx, s: &GameStats) {
                 let Some(gift) = gift else { continue };
                 let fill = team_fill(w, ctx.teams[1], Fill::new())
                     .set("name", name)
-                    .set("opp", super::team_name(w, ctx.teams[0]))
+                    .set("opp", super::short_name(w, ctx.teams[0]))
                     .set("gift", gift.clone());
                 if let Some(text) = w.stories.line(seed, "farewell.gift", &fill, year) {
                     let e = news(w, Level::Nfl, Loudness::Small, Some(ctx.teams[1]), text);
@@ -151,7 +151,7 @@ pub(crate) fn after_nfl_game(w: &mut World, ctx: &GameCtx, s: &GameStats) {
                 w.stories.careers.farewells[k].last_game = true;
                 let fill = team_fill(w, TeamKey::Nfl(f.team), Fill::new())
                     .set("name", w.people[i].name.clone())
-                    .set("opp", super::team_name(w, ctx.teams[1 - side]));
+                    .set("opp", super::short_name(w, ctx.teams[1 - side]));
                 if let Some(text) = w.stories.line(seed, "farewell.last_game", &fill, year) {
                     let e = news(w, Level::Nfl, Loudness::Medium, Some(TeamKey::Nfl(f.team)), text);
                     post(w, e);

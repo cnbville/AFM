@@ -316,6 +316,27 @@ Section 6 on your side. The world side is `world/folk/` (`docs/world-model.md`, 
 - Your staff's expectation is shown only in one-on-ones (the other scenes' answers show what they tend to do).
 - A meeting set for a later day shows its date and place and can only be handed; it opens on its morning.
 
+## Stories (final build, lane 8)
+
+The stories around the football on your side. The world side is `world/stories/` (`docs/world-model.md`, "The stories"); the game side `crates/afm-game/src/lane_stories.rs` (9 `stories_*` commands); the screens `app/ui/screens/stories.js` and `stories.css`, on lane 9's helpers.
+
+- **Office** (`office`, sidebar under World): your office in your team's colours, always dark like the meeting room. Shelves of rings, trophies, game balls, magazine covers, plaques, photos and gifts, each with its year and what it was for (the newest ten, then "All"); your title banners; where the office has been (each team's years, the job you hold now marked "now") and every move.
+- **Career story** (`story`, under World): your hire is on the timeline from the first day. Your record, winning share, titles, players coached and drafted, teams. Timeline (filtered by big moments, titles, moves, your players, names, seasons; by year, newest first), Seasons (a table), Titles (banners), Names (what they call you) and Fourth downs (how often you matched the bots).
+- **Media** (`media`, under World after News), tabs by seat: Front page (the morning after's grades, your names, the annuals' pick of you, the video game's ratings of your best, your jerseys, fantasy, the cameras, your schedule), Grades (every morning-after report: the critics' lines, each fourth down with the bot's call and the win chance given up, timeouts left), Schedule (NFL: prime-time games and short weeks at release, a game abroad, your international marketing rights), Annuals (each magazine's order, covers and all-conference team, by year), Ratings (your team in the game, the 99 club; the game named is the one out now at your level, released each August 12), Fantasy (QB, RB, WR and TE leaders with points, games, average and last week; past winners), Jerseys (the NFLPA and college lists; a college list names the school each player sold for, wherever he is now), Shows (documentaries and Campus Kickoff's stops) and Nicknames (your team, known everywhere, newest, coaches, units, named plays).
+- **Traditions** (`traditions`, under Your team), tabs by seat: Rivalries (each game, its trophy, the record and who holds it), Uniforms (your sets with your record in each; pick the next game's set or leave it to your staff), Honors (retired numbers, your team's honors, the rest of the game), Pregame show (this season's stops and the campuses it visits most), Stormings (the conference's fine and every field stormed), Farewells (tours with their gifts, one-day contracts), Celebrations (the era's rule and signature celebrations) and Parades and rings.
+- **The player page**: his nickname in quotes beside his name, and a Story tab: his names (who coined each, how far it spread, how he took it), the video game, fantasy, his number and covers, what the press did with him, his honors, named plays, celebration, farewell and one-day contract. "Give him a nickname" on your own players, with three ideas that fit him.
+- **Asks**: a one-day contract (NFL) and a documentary ask come as letters with their answers and an answer-by date (pinned under Continue); the Media desk shows them on every tab with the same answers. The calendar's line stops Continue on the day; the letter is the pin.
+
+### Decided in the final build (Claude's pick)
+
+- Four sidebar entries: Media and Traditions where they're used every week; Career story and Office beside Your profile.
+- The office is a room (dark, in your colours, shelves on a wood board) rather than a list; covers, rings and trophies are drawn, not photographed.
+- Media and Traditions show only the tabs a seat uses (no fantasy at a high school, no rivalry table at a club); with no seat, the world's tabs.
+- The grades show your call against the bot's on every fourth down, with the edge your call gained when you made the bot's call.
+- An answer given on a letter acts the next morning, or at once when a stories screen opens; an answer on the Media desk marks the letter answered.
+- Lists that link names (nicknames, units, named plays, rings, moves) read the world's names once per page, not once per line: the Nicknames tab took 1.5 s on a small world before.
+- Plaques print one year for a one-season stint ("2019"), a range for more; an NFL opponent in a nickname's moment is its city ("against Chicago"), the way broadcasts say it.
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The choice screens where the AI still decides for your team: the draft board and war room; game plans, playbook and installs; scouting assignments. (The NFL, college and high school front offices and the setup leftovers are built: "Your front office" above. Talks, team rules, press conferences, bosses and goals and hiring and firing staff are built: "People" above.)

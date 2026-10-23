@@ -138,6 +138,23 @@ pub fn team_name(w: &World, t: TeamKey) -> String {
     }
 }
 
+/// How a broadcast names an opponent: the city for an NFL club ("Chicago
+/// has to punt"), the school's own name otherwise.
+pub fn short_name(w: &World, t: TeamKey) -> String {
+    match t {
+        TeamKey::Nfl(_) => city(w, t),
+        _ => team_name(w, t),
+    }
+}
+
+/// A team's full name inside a sentence: "the Chicago Bears", "Alabama".
+pub fn team_in_text(w: &World, t: TeamKey) -> String {
+    match t {
+        TeamKey::Nfl(_) => format!("the {}", team_name(w, t)),
+        _ => team_name(w, t),
+    }
+}
+
 /// The club's nickname alone ("Bears") or a college's mascot.
 pub fn mascot(w: &World, t: TeamKey) -> Option<String> {
     match t {
@@ -179,7 +196,9 @@ pub(crate) fn team_fill(w: &World, t: TeamKey, f: Fill) -> Fill {
         TeamKey::Hs(h) => w.high_schools.get(h as usize).map(|x| x.state),
         TeamKey::Nfl(_) => None,
     };
-    let f = f.set("team", team_name(w, t)).set("city", city(w, t));
+    // An NFL club goes by its city in a sentence ("Chicago has 4 days to get
+    // ready"), the way papers and broadcasts say it.
+    let f = f.set("team", short_name(w, t)).set("city", city(w, t));
     let f = match mascot(w, t) {
         Some(m) => f.set("mascot", m),
         None => f,

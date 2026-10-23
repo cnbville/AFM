@@ -332,7 +332,7 @@ fn make_name(w: &mut World, key_name: &str, f: &Fill) -> Option<String> {
         let mut rng = w.stories.rng.take().unwrap_or_else(|| crate::rng::Rng::new(seed ^ 0x5709_1E55));
         let raw = super::lines::word(&mut rng, key_name, f, year);
         w.stories.rng = Some(rng);
-        let Some(n) = raw else { return None };
+        let n = raw?;
         let n = n.split_whitespace().collect::<Vec<_>>().join(" ");
         if n.is_empty() || super::lines::BANK.blocked(&n) {
             continue;
@@ -355,8 +355,7 @@ fn person_fill(w: &World, i: usize, team: Option<TeamKey>) -> Fill {
     let last = p
         .name
         .split_whitespace()
-        .filter(|x| !matches!(*x, "Jr." | "Sr." | "II" | "III" | "IV"))
-        .last()
+        .rfind(|x| !matches!(*x, "Jr." | "Sr." | "II" | "III" | "IV"))
         .unwrap_or("")
         .to_string();
     let initials: String = p.name.split_whitespace().take(2).filter_map(|x| x.chars().next()).collect();
@@ -598,7 +597,7 @@ fn trim(x: f64) -> String {
 /// earn its own name.
 pub(crate) fn after_game(w: &mut World, ctx: &GameCtx, s: &GameStats) {
     let seed = w.options.seed;
-    let names = ctx.teams.map(|t| super::team_name(w, t));
+    let names = ctx.teams.map(|t| super::short_name(w, t));
     // Who is in this game: player id to person index, from both rosters.
     let mut who: std::collections::HashMap<u32, usize> = Default::default();
     for t in ctx.teams {
@@ -865,7 +864,7 @@ fn named_play(w: &mut World, ctx: &GameCtx, s: &GameStats, who: &std::collection
         "November",
         "December",
     ][(w.today.month() as usize).saturating_sub(1).min(11)];
-    f = f.set("opp", super::team_name(w, opp)).set("month", month).set("site", super::city(w, ctx.teams[0]));
+    f = f.set("opp", super::short_name(w, opp)).set("month", month).set("site", super::city(w, ctx.teams[0]));
     if let Some(m) = super::mascot(w, opp) {
         f = f.set("opp_mascot", m);
     }
@@ -882,7 +881,7 @@ fn named_play(w: &mut World, ctx: &GameCtx, s: &GameStats, who: &std::collection
         },
         if kind == "kick" { p.kick_distance.max(p.yards) } else { p.yards.abs().max(p.return_yards) },
         clock_words(p.clock),
-        super::team_name(w, opp),
+        super::team_in_text(w, opp),
         sh.max(sa),
         sh.min(sa)
     );
@@ -896,7 +895,7 @@ fn named_play(w: &mut World, ctx: &GameCtx, s: &GameStats, who: &std::collection
     let cf = team_fill(w, team, Fill::new())
         .set("nick", booth)
         .set("yards", format!("{:.0}", p.yards.abs()))
-        .set("opp", super::team_name(w, opp));
+        .set("opp", super::short_name(w, opp));
     let call = w.stories.line(seed, call_key, &cf, w.year).unwrap_or_default();
     let players: Vec<u32> = [Some(main), second].into_iter().flatten().collect();
     w.stories.plays.push(NamedPlay {
@@ -1284,9 +1283,7 @@ fn coaches(w: &mut World, level: Level) {
         let you = Some(c) == super::seat_coach(w);
         let style = if you { w.career.as_ref().map(|x| x.you.style) } else { w.coaches.get(c).map(|x| x.style()) };
         let Some(style) = style else { continue };
-        let theme = if you && w.stories.nfl.go_rate(year).is_some_and(|r| r >= 0.6) {
-            "aggressive"
-        } else if style.risk >= 17.0 {
+        let theme = if (you && w.stories.nfl.go_rate(year).is_some_and(|r| r >= 0.6)) || style.risk >= 17.0 {
             "aggressive"
         } else if style.risk <= 4.0 && losses > wins {
             "conservative"
@@ -1494,4 +1491,3 @@ pub fn suggestions(w: &mut World, id: u32) -> Vec<String> {
     }
     out
 }
-

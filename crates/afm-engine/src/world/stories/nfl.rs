@@ -151,7 +151,7 @@ pub fn bot(level: Level, year: i32, key: u64) -> Option<&'static str> {
             2014..=2017 => "The New York Times' 4th Down Bot",
             2018..=2019 => "EdjSports' Critical Call report",
             _ => {
-                if key % 2 == 0 {
+                if key.is_multiple_of(2) {
                     "EdjSports' Critical Call report"
                 } else {
                     "the fourth-down bots"
@@ -294,7 +294,7 @@ pub(crate) fn grade(w: &mut World, ctx: &GameCtx, s: &GameStats) {
     let timeouts_left = if lost && score[1] - score[0] <= 8 { s.timeouts_left[1][side] } else { 0 };
     let seed = w.options.seed;
     let coach = w.career.as_ref().map(|c| c.you.name.clone()).unwrap_or_default();
-    let base = team_fill(w, me, Fill::new()).set("coach", coach.clone()).set("opp", super::team_name(w, opp));
+    let base = team_fill(w, me, Fill::new()).set("coach", coach.clone()).set("opp", super::short_name(w, opp));
     let mut lines = Vec::new();
     // The bot's verdict on the costliest call, or its nod to a good one.
     let worst = calls.iter().max_by(|a, b| a.cost.total_cmp(&b.cost)).cloned();
@@ -324,10 +324,10 @@ pub(crate) fn grade(w: &mut World, ctx: &GameCtx, s: &GameStats) {
             }
         }
     }
-    if timeouts_left >= 1 {
-        if let Some(t) = w.stories.line(seed, "grade.timeout", &base, year) {
-            lines.push(t);
-        }
+    if timeouts_left >= 1
+        && let Some(t) = w.stories.line(seed, "grade.timeout", &base, year)
+    {
+        lines.push(t);
     }
     // The critics: by the numbers once there are numbers, by the result
     // before. A failed gamble in a loss is the classic bad morning.
@@ -452,7 +452,7 @@ fn release(w: &mut World, t: usize) {
     let abroad = games.iter().find(|g| g.4.is_some()).cloned();
     if let Some((_, opp, home, _, Some(site))) = &abroad {
         let f = team_fill(w, me, Fill::new())
-            .set("opp", super::team_name(w, TeamKey::Nfl(*opp as u16)))
+            .set("opp", super::short_name(w, TeamKey::Nfl(*opp as u16)))
             .set("site", site.clone());
         if let Some(text) = w.stories.line(seed, "sched.intl", &f, year) {
             let e = news(w, Level::Nfl, Loudness::Medium, Some(me), text);
@@ -493,7 +493,7 @@ fn season_day(w: &mut World, d: Date, t: usize) {
             continue;
         }
         let f = team_fill(w, me, Fill::new())
-            .set("opp", super::team_name(w, TeamKey::Nfl(g.1 as u16)))
+            .set("opp", super::short_name(w, TeamKey::Nfl(g.1 as u16)))
             .set("window", g.3.name().to_string());
         let key = if g.3.prime() { "sched.flex_in" } else { "sched.flex_out" };
         if let Some(text) = w.stories.line(seed, key, &f, year) {
@@ -508,7 +508,7 @@ fn season_day(w: &mut World, d: Date, t: usize) {
     let Some(k) = games.iter().position(|g| g.0.add(1) == d) else { return };
     let Some(next) = games.get(k + 1) else { return };
     let days = games[k].0.days_to(next.0);
-    let opp = super::team_name(w, TeamKey::Nfl(next.1 as u16));
+    let opp = super::short_name(w, TeamKey::Nfl(next.1 as u16));
     if days < 6 {
         let f = team_fill(w, me, Fill::new()).set("opp", opp.clone()).set("days", days.to_string());
         if let Some(text) = w.stories.line(seed, "sched.short_week", &f, year) {

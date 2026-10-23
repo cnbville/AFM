@@ -277,8 +277,14 @@ pub(crate) fn roster(w: &World, t: TeamKey) -> Vec<(usize, u32)> {
         TeamKey::Hs(h) => w.high_schools.get(h as usize).map_or_else(Vec::new, |x| x.roster.clone()),
         TeamKey::Nfl(n) => w.clubs.get(n as usize).map_or_else(Vec::new, |c| c.roster.clone()),
     };
-    let mut v: Vec<(usize, u32, u32)> =
-        idx.into_iter().filter_map(|i| w.people.get(i).map(|p| (i, p.player.id, p.player.age))).collect();
+    // A player who walked away stays on the list until the roster is
+    // rebuilt; he is not on the team.
+    let mut v: Vec<(usize, u32, u32)> = idx
+        .into_iter()
+        .filter_map(|i| {
+            w.people.get(i).filter(|p| p.stage != crate::world::Stage::Done).map(|p| (i, p.player.id, p.player.age))
+        })
+        .collect();
     v.sort_by_key(|x| (std::cmp::Reverse(x.2), x.1));
     v.into_iter().map(|x| (x.0, x.1)).collect()
 }
@@ -293,14 +299,19 @@ fn mix(a: u32, b: u32) -> u32 {
 /// Each player's jersey number on a team: veterans choose first, each
 /// starting from a number of his own (a big ego reaches for a single digit)
 /// and taking the next free one his position allows. Retired numbers are
-/// out of circulation.
+/// out of circulation. A college or high school roster bigger than its
+/// numbers doubles up the way real ones do: an offensive and a defensive
+/// player share a number, never two on the field at once.
 pub fn numbers(w: &World, t: TeamKey) -> HashMap<u32, u8> {
     let level = t.level();
     let year = w.year;
     let retired: Vec<u8> = w.stories.traditions.retired_numbers(t);
     let mut taken = [false; 100];
+    let mut side_taken = [[false; 100]; 2];
     for &n in &retired {
         taken[n as usize] = true;
+        side_taken[0][n as usize] = true;
+        side_taken[1][n as usize] = true;
     }
     let mut out = HashMap::new();
     for (i, id) in roster(w, t) {
@@ -317,9 +328,15 @@ pub fn numbers(w: &World, t: TeamKey) -> HashMap<u32, u8> {
         } else {
             h as usize % list.len()
         };
-        let pick = (0..list.len()).map(|k| list[(start + k) % list.len()]).find(|&n| !taken[n as usize]);
+        let side =
+            matches!(p.position, Position::EDGE | Position::DT | Position::LB | Position::CB | Position::S) as usize;
+        let order = || (0..list.len()).map(|k| list[(start + k) % list.len()]);
+        let pick = order().find(|&n| !taken[n as usize]).or_else(|| {
+            (level != crate::calendar::Level::Nfl).then(|| order().find(|&n| !side_taken[side][n as usize])).flatten()
+        });
         if let Some(n) = pick {
             taken[n as usize] = true;
+            side_taken[side][n as usize] = true;
             out.insert(id, n);
         }
     }

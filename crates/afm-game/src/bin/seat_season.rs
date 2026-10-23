@@ -6,7 +6,8 @@
 //!
 //! Usage: seat_season [world file | "build"] [days] [seats, e.g. hs,college,nfl]
 //! With "build" a small world is made first (seed 7, 2 years, scale 0.05).
-//! `AFM_SEAT_OUT=report.json` writes the full report.
+//! `AFM_SEAT_OUT=report.json` writes the full report; `AFM_SEAT_SAVE_END=dir`
+//! keeps each seat's save from the end of its run.
 
 use std::collections::BTreeSet;
 use std::time::Instant;
@@ -211,12 +212,22 @@ fn main() {
     let days: i32 = args.get(2).and_then(|x| x.parse().ok()).unwrap_or(365);
     let seats: Vec<String> =
         args.get(3).cloned().unwrap_or_else(|| "hs,college,nfl".into()).split(',').map(String::from).collect();
-    // Extra commands to open at every stop: AFM_SEAT_EXTRA='cmd1,cmd2'.
+    // Extra commands to open at every stop: AFM_SEAT_EXTRA='cmd1,cmd2?k=v&k2=v2'
+    // (arguments after a question mark, numbers as numbers).
     let extra: Vec<(String, Value)> = std::env::var("AFM_SEAT_EXTRA")
         .unwrap_or_default()
         .split(',')
         .filter(|s| !s.is_empty())
-        .map(|s| (s.to_string(), json!({})))
+        .map(|s| {
+            let (cmd, q) = s.split_once('?').unwrap_or((s, ""));
+            let mut a = serde_json::Map::new();
+            for kv in q.split('&').filter(|x| !x.is_empty()) {
+                let (k, v) = kv.split_once('=').unwrap_or((kv, ""));
+                let v = v.replace("%20", " ");
+                a.insert(k.to_string(), v.parse::<i64>().map_or_else(|_| json!(v), |n| json!(n)));
+            }
+            (cmd.to_string(), Value::Object(a))
+        })
         .collect();
     let dir = std::env::temp_dir().join(format!("afm-seat-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
@@ -302,6 +313,21 @@ fn main() {
         }
         if !saved_once {
             run.errors.push("no game of yours was played in the run, so save and load was not tested".into());
+        }
+        // The stories wrote your year (lane 8): your hire and games on the
+        // timeline, and your office opened.
+        if let Some(v) = run.call(&mut g, "stories_story", json!({}))
+            && v["entries"].as_array().is_none_or(|a| a.is_empty())
+        {
+            run.errors.push("your career story has no entries after the run".into());
+        }
+        // Keep each seat's save from the end of the run for a look in the
+        // browser: AFM_SEAT_SAVE_END=dir.
+        if let Ok(d) = std::env::var("AFM_SEAT_SAVE_END")
+            && let Some(s) = run.call(&mut g, "save", json!({ "name": format!("seat {seat} end") }))
+        {
+            let to = std::path::Path::new(&d).join(format!("{seat}-end.afmsave"));
+            let _ = std::fs::copy(s["saved"].as_str().unwrap_or_default(), to);
         }
         let secs = t.elapsed().as_secs_f64();
         // Your games in the run and how they went: a season with too few

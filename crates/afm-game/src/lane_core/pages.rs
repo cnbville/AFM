@@ -652,6 +652,8 @@ pub fn profile(w: &World, id: u32) -> Result<Value, String> {
         w.nfl_book.awards.iter().filter(|a| a.2 == id).map(|a| json!({ "year": a.0, "award": a.1 })).collect();
     let stories: Vec<String> = p.notes.iter().rev().take(40).map(|s| s.to_string()).collect();
     v["jersey"] = json!(team.and_then(|t| people::jersey(w, t, k)));
+    // The name he goes by, wherever he shows (stories, A14).
+    v["nick"] = json!(w.nickname_of(id));
     v["level_rating"] = json!(level_rating(w, k));
     v["measurables"] = json!(measurables(w, k));
     v["key_mental"] = json!(mental);

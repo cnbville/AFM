@@ -30,8 +30,11 @@ fn rows(src: &'static str) -> Vec<Vec<String>> {
     src.lines().skip(1).filter(|l| !l.trim().is_empty()).map(csv_fields).collect()
 }
 
-/// (conference, from, to, [first, second, later]); an empty amount is no fine.
-static FINES: LazyLock<Vec<(String, i32, i32, [Option<u32>; 3])>> = LazyLock::new(|| {
+/// One conference rule: (conference, from, to, [first, second, later]).
+type FineRule = (String, i32, i32, [Option<u32>; 3]);
+
+/// The fines by conference and era; an empty amount is no fine.
+static FINES: LazyLock<Vec<FineRule>> = LazyLock::new(|| {
     rows(FINES_CSV)
         .into_iter()
         .filter(|r| r.len() >= 6)
@@ -138,6 +141,14 @@ fn video_games(year: i32) -> Vec<(String, bool, bool)> {
     // After the table: the series go on, one edition a year.
     let yy = (year + 1) % 100;
     vec![(format!("Madden NFL {yy:02}"), true, true), (format!("College Football {yy:02}"), false, true)]
+}
+
+/// The video game editions out on `today`: (title, the NFL game) for each.
+/// Each comes out on August 12, named for the next year; the college game
+/// counts only in the years it carries names.
+pub fn games_out(today: Date) -> Vec<(String, bool)> {
+    let y = if (today.month(), today.day()) >= (8, 12) { today.year() } else { today.year() - 1 };
+    video_games(y).into_iter().filter(|g| g.1 || g.2).map(|g| (g.0, g.1)).collect()
 }
 
 // --- The store -----------------------------------------------------------------------------------
@@ -586,7 +597,10 @@ fn documentaries(w: &mut World, d: Date) {
         // Your answer, or the owner's call when you gave none.
         let offer = w.stories.media.doc_offer.clone().filter(|o| o.0 as i32 == year);
         let said = offer.as_ref().map(|_| {
-            w.stories.media.doc_answer.unwrap_or_else(|| me.is_some_and(|t| key(year as u64, team_code(t) ^ 0x0FFE) < 0.5))
+            w.stories
+                .media
+                .doc_answer
+                .unwrap_or_else(|| me.is_some_and(|t| key(year as u64, team_code(t) ^ 0x0FFE) < 0.5))
         });
         if let (Some((_, show)), Some(yes), Some(t)) = (&offer, said, me) {
             if yes {
@@ -600,13 +614,14 @@ fn documentaries(w: &mut World, d: Date) {
             }
         }
         let taken_nfl = picks.iter().any(|p| matches!(p.1, TeamKey::Nfl(_)));
-        if year >= 2001 && !taken_nfl {
-            if let Some((t, how)) = hard_knocks(w, year) {
-                // A club that said no is only on the show if the league orders it.
-                let declined = said == Some(false) && me == Some(TeamKey::Nfl(t as u16));
-                if !declined || how == "forced" {
-                    picks.push(("Hard Knocks".into(), TeamKey::Nfl(t as u16), how));
-                }
+        if year >= 2001
+            && !taken_nfl
+            && let Some((t, how)) = hard_knocks(w, year)
+        {
+            // A club that said no is only on the show if the league orders it.
+            let declined = said == Some(false) && me == Some(TeamKey::Nfl(t as u16));
+            if !declined || how == "forced" {
+                picks.push(("Hard Knocks".into(), TeamKey::Nfl(t as u16), how));
             }
         }
         for o in other_docs(w, year) {
@@ -729,7 +744,12 @@ fn offer_doc(w: &mut World, year: i32) {
     let Some(me) = super::seat_team(w) else { return };
     let show = match me {
         TeamKey::Nfl(t) => {
-            let shown = w.stories.media.docs.iter().any(|d| d.show == "Hard Knocks" && d.team == me && d.year as i32 >= year - 10);
+            let shown = w
+                .stories
+                .media
+                .docs
+                .iter()
+                .any(|d| d.show == "Hard Knocks" && d.team == me && d.year as i32 >= year - 10);
             let pull = key(t as u64, year as u64 ^ 0xA5C) * (1.3 - market_rank(w, t as usize) as f64 / 40.0);
             if shown || pull < 0.55 {
                 return;
@@ -748,8 +768,9 @@ fn offer_doc(w: &mut World, year: i32) {
     };
     let name = super::team_name(w, me);
     let who = if matches!(me, TeamKey::Nfl(_)) { "NFL Films" } else { "The streaming service" };
+    let boss = if matches!(me, TeamKey::Nfl(_)) { "the owner" } else { "the athletic director" };
     let text = format!(
-        "{who} wants {name} for {show} this summer: cameras in meetings, the locker room and your office from camp on. The answer is due by June 1; with none, the owner decides."
+        "{who} wants {name} for {show} this summer: cameras in meetings, the locker room and your office from camp on. The answer is due by May 31; with none, {boss} decides."
     );
     let e = news(w, me.level(), Loudness::Big, Some(me), text).decision().rule(super::ASK_RULE);
     post(w, e);
@@ -845,13 +866,14 @@ fn ratings_release(w: &mut World, d: Date) {
         if !nfl && !names {
             continue;
         }
-        if !nfl && year == 2024 {
-            if let Some(t) = super::seat_team(w).filter(|t| matches!(t, TeamKey::College(_))) {
-                let f = team_fill(w, t, Fill::new()).set("game", title.clone());
-                if let Some(text) = w.stories.line(seed, "vg.college_back", &f, year) {
-                    let e = news(w, Level::College, Loudness::Medium, Some(t), text);
-                    post(w, e);
-                }
+        if !nfl
+            && year == 2024
+            && let Some(t) = super::seat_team(w).filter(|t| matches!(t, TeamKey::College(_)))
+        {
+            let f = team_fill(w, t, Fill::new()).set("game", title.clone());
+            if let Some(text) = w.stories.line(seed, "vg.college_back", &f, year) {
+                let e = news(w, Level::College, Loudness::Medium, Some(t), text);
+                post(w, e);
             }
         }
         // The top of the game: the 99 club (the best few by public standing).
@@ -885,7 +907,7 @@ fn ratings_release(w: &mut World, d: Date) {
         let roster = super::numbers::roster(w, me);
         let mut rated: Vec<(u8, usize)> =
             roster.iter().filter_map(|&(i, _)| game_rating(w, i).map(|r| (r, i))).collect();
-        rated.sort_by(|a, b| b.0.cmp(&a.0));
+        rated.sort_by_key(|b| std::cmp::Reverse(b.0));
         if let Some(&(r, i)) = rated.first() {
             let f = team_fill(w, me, Fill::new())
                 .set("game", title.clone())
@@ -1059,7 +1081,7 @@ fn fantasy_tuesday(w: &mut World, d: Date) {
         }
     }
     // A first-round pick who keeps failing his managers.
-    let bust = lines.iter().filter(|x| x.1.games >= 3 && rank_of(x.0, x.3, &lines) < 3 && x.1.last < 6.0).next();
+    let bust = lines.iter().find(|x| x.1.games >= 3 && rank_of(x.0, x.3, &lines) < 3 && x.1.last < 6.0);
     if let Some(b) = bust
         && w.stories.rng(seed).chance(0.3)
     {

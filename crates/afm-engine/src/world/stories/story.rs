@@ -26,6 +26,8 @@ pub enum EntryKind {
     Nickname,
     LosingSeason,
     Season,
+    /// A bowl or playoff win that brought no title.
+    BigWin,
 }
 
 /// One line on your timeline.
@@ -238,16 +240,17 @@ pub(crate) fn after_game(w: &mut World, ctx: &GameCtx, s: &GameStats) {
     };
     w.stories.story.wins += 1;
     let n = w.stories.story.wins;
-    let f = team_fill(w, me, Fill::new()).set("opp", opp_name.clone()).set("score", score.clone());
+    let opp_short = super::short_name(w, opp);
+    let f = team_fill(w, me, Fill::new()).set("opp", opp_short.clone()).set("score", score.clone());
     let mut ball_worthy = false;
     if n == 1 {
         let text = w
             .stories
             .line(seed, "story.first_win", &f, year)
-            .unwrap_or_else(|| format!("Your first win: {score} over {opp_name}."));
+            .unwrap_or_else(|| format!("Your first win: {score} over {opp_short}."));
         log(w, EntryKind::FirstWin, text, Some(me));
         ball_worthy = true;
-    } else if n == 25 || n == 50 || n % 50 == 0 {
+    } else if n == 25 || n == 50 || n.is_multiple_of(50) {
         let f = f.clone().set("n", n.to_string());
         let text = w.stories.line(seed, "story.milestone", &f, year).unwrap_or_else(|| format!("Career win No. {n}."));
         log(w, EntryKind::Milestone, text, Some(me));
@@ -258,7 +261,7 @@ pub(crate) fn after_game(w: &mut World, ctx: &GameCtx, s: &GameStats) {
         let text = w
             .stories
             .line(seed, "story.upset", &f, year)
-            .unwrap_or_else(|| format!("The upset: {score} over {opp_name}."));
+            .unwrap_or_else(|| format!("The upset: {score} over {opp_short}."));
         log(w, EntryKind::Upset, text, Some(me));
         ball_worthy = true;
     }
@@ -268,6 +271,30 @@ pub(crate) fn after_game(w: &mut World, ctx: &GameCtx, s: &GameStats) {
         let f = f.clone().set("trophy", trophy.clone());
         let text = w.stories.line(seed, "story.rivalry", &f, year).unwrap_or_else(|| format!("You won the {trophy}."));
         log(w, EntryKind::Rivalry, text, Some(me));
+        ball_worthy = true;
+    } else if ctx.rivalry {
+        // The rivalries without a trophy (Ohio State and Michigan's "The
+        // Game") count the same on your timeline.
+        let text = w
+            .stories
+            .line(seed, "story.rivalry_plain", &f, year)
+            .unwrap_or_else(|| format!("Rivalry win: {score} over {opp_short}."));
+        log(w, EntryKind::Rivalry, text, Some(me));
+        ball_worthy = true;
+    }
+    // A bowl or playoff win that brought no title (an NFL playoff game has
+    // no name of its own).
+    let postseason =
+        ctx.name.clone().or_else(|| (ctx.postseason && ctx.level == Level::Nfl).then(|| "playoff game".to_string()));
+    if ctx.title.is_none()
+        && let Some(game) = &postseason
+    {
+        let f = f.clone().set("game", game.clone());
+        let text = w
+            .stories
+            .line(seed, "story.big_win", &f, year)
+            .unwrap_or_else(|| format!("You won the {game}, {score} over {opp_short}."));
+        log(w, EntryKind::BigWin, text, Some(me));
         ball_worthy = true;
     }
     if let Some(what) = &ctx.title {
@@ -296,47 +323,60 @@ pub(crate) fn title(w: &mut World, me: TeamKey, season: i32, what: String) {
     memento(w, MementoKind::Trophy, format!("{what} trophy, {season}"));
 }
 
+/// A new job (or your first): the move on your timeline, the boxes to the
+/// new office and the first-day photo. Runs in the day pass, and when a
+/// career starts so the story has your hire from the first day.
+pub fn notice_job(w: &mut World, d: Date) {
+    if w.career.is_none() {
+        return;
+    }
+    let now = super::seat_team(w);
+    let before = w.stories.story.last_team;
+    if now == before {
+        return;
+    }
+    let seed = w.options.seed;
+    let year = d.year();
+    if let (Some(old), Some(new)) = (before, now) {
+        let f = team_fill(w, old, Fill::new()).set("new", super::team_name(w, new));
+        let text = w
+            .stories
+            .line(seed, "story.left", &f, year)
+            .unwrap_or_else(|| format!("You left {} for {}.", super::team_name(w, old), super::team_name(w, new)));
+        log(w, EntryKind::Left, text, Some(old));
+        let boxes = w.stories.story.office.len();
+        if boxes > 0 {
+            let text = format!(
+                "Movers packed {} from your old office; they're on the shelves at {} now.",
+                crate::world::news::count(boxes as u32, "keepsake"),
+                super::team_name(w, new)
+            );
+            let e = news(w, new.level(), Loudness::Small, Some(new), text);
+            post(w, e);
+        }
+    }
+    if let Some(new) = now {
+        let f = team_fill(w, new, Fill::new()).set("year", year.to_string());
+        let text = w
+            .stories
+            .line(seed, "story.hired", &f, year)
+            .unwrap_or_else(|| format!("Hired by {} in {year}.", super::team_name(w, new)));
+        log(w, EntryKind::Hired, text, Some(new));
+        let photo = format!("Your first day at {}, {}", super::team_name(w, new), d.pretty());
+        memento(w, MementoKind::Photo, photo);
+    }
+    w.stories.story.last_team = now;
+}
+
 /// Daily: a new job (or your first), the titles the world books outside
 /// the game hooks, your players drafted, a season's end.
 pub(crate) fn day(w: &mut World, d: Date) {
     if w.career.is_none() {
         return;
     }
+    notice_job(w, d);
     let now = super::seat_team(w);
-    let before = w.stories.story.last_team;
-    let seed = w.options.seed;
     let year = d.year();
-    if now != before {
-        if let (Some(old), Some(new)) = (before, now) {
-            let f = team_fill(w, old, Fill::new()).set("new", super::team_name(w, new));
-            let text = w
-                .stories
-                .line(seed, "story.left", &f, year)
-                .unwrap_or_else(|| format!("You left {} for {}.", super::team_name(w, old), super::team_name(w, new)));
-            log(w, EntryKind::Left, text, Some(old));
-            let boxes = w.stories.story.office.len();
-            if boxes > 0 {
-                let text = format!(
-                    "Movers packed {} from your old office; they're on the shelves at {} now.",
-                    crate::world::news::count(boxes as u32, "keepsake"),
-                    super::team_name(w, new)
-                );
-                let e = news(w, new.level(), Loudness::Small, Some(new), text);
-                post(w, e);
-            }
-        }
-        if let Some(new) = now {
-            let f = team_fill(w, new, Fill::new()).set("year", year.to_string());
-            let text = w
-                .stories
-                .line(seed, "story.hired", &f, year)
-                .unwrap_or_else(|| format!("Hired by {} in {year}.", super::team_name(w, new)));
-            log(w, EntryKind::Hired, text, Some(new));
-            let photo = format!("Your first day at {}, {}", super::team_name(w, new), d.pretty());
-            memento(w, MementoKind::Photo, photo);
-        }
-        w.stories.story.last_team = now;
-    }
     let Some(me) = now else { return };
     // The NFL's champion and a high school's state title, booked outside the
     // game hooks.

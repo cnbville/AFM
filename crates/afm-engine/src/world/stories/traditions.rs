@@ -463,7 +463,7 @@ pub(crate) fn thousands(n: u32) -> String {
     let s = n.to_string();
     let mut out = String::new();
     for (k, c) in s.chars().enumerate() {
-        if k > 0 && (s.len() - k) % 3 == 0 {
+        if k > 0 && (s.len() - k).is_multiple_of(3) {
             out.push(',');
         }
         out.push(c);
@@ -851,7 +851,7 @@ fn yearly_honors(w: &mut World) {
             pos: h.pos.unwrap_or(Position::QB),
             number,
             year: year as i16,
-            years: format!("{}-{}", first.map_or(last, |x| x as i32), last),
+            years: span(first.map_or(last, |x| x as i32), last),
             ceremony_done: false,
         });
         // A Heisman winner at a school that builds statues (proposed, not
@@ -865,7 +865,7 @@ fn yearly_honors(w: &mut World) {
                 pos: h.pos.unwrap_or(Position::QB),
                 number,
                 year: (year + 2) as i16,
-                years: format!("{}-{}", first.map_or(last, |x| x as i32), last),
+                years: span(first.map_or(last, |x| x as i32), last),
                 ceremony_done: false,
             });
         }
@@ -988,7 +988,12 @@ fn most_seasons_club(w: &World, id: u32) -> Option<usize> {
 fn club_years(w: &World, id: u32, club: usize) -> Option<String> {
     let s = pro_seasons(w, id)?;
     let ys: Vec<i32> = s.iter().filter(|x| x.1 == Some(club)).map(|x| x.0).collect();
-    Some(format!("{}-{}", ys.iter().min()?, ys.iter().max()?))
+    Some(span(*ys.iter().min()?, *ys.iter().max()?))
+}
+
+/// Years as a plaque prints them: "2019" for one season, "2015-2022" for more.
+fn span(first: i32, last: i32) -> String {
+    if first >= last { last.to_string() } else { format!("{first}-{last}") }
 }
 
 /// A home game day for a team in the honor's season: the ceremony.

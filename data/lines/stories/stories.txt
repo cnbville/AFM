@@ -2299,6 +2299,26 @@ You learned all about the {trophy} in your first week at {team}. You won it agai
 {team} beat {opp}, and the {trophy} came home with you.
 The {trophy} belongs to {team}. {opp} will have to wait another year.
 
+[story.rivalry_plain]
+{team} beat {opp}, {score}. The rivalry game is the one they remember.
+Rivalry week went to {team}: {score} over {opp}.
+You beat {opp}, {score}, and the whole state heard about it.
+The game circled on every calendar in {city} went to {team}, {score} over {opp}.
+A {score} win over {opp}. Nobody in {city} will let them hear the end of it this year.
+{team} {score}, {opp} beaten. Your seniors walked off the field with their helmets in the air.
+Beat {opp}. {score}. The fan base exhaled for the first time since August.
+You heard about the {opp} game on your first day at {team}. You won it, {score}.
+
+[story.big_win]
+{team} won the {game}, {score} over {opp}.
+The {game} went to {team}: {score} over {opp}.
+{score} over {opp} in the {game}. Your players doused you on the sideline.
+You won the {game}. {team} {score}, {opp} sent home.
+{team} beat {opp} in the {game}, {score}, and the trophy came home with the team.
+A postseason win: the {game}, {score} over {opp}.
+The {game} belongs to {team}. {score} over {opp}, and a happy flight home.
+{team} closed the {game} out, {score} over {opp}.
+
 [story.fired]
 Fired by {team}.
 {team} let you go.

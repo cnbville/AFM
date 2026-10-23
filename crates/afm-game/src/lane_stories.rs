@@ -144,6 +144,13 @@ fn link_one(w: &World, text: &str) -> String {
     link_all(w, &[text.to_string()], &views::mine(w).into_iter().collect::<Vec<_>>()).pop().unwrap_or_default()
 }
 
+/// Many lines linked with one reading of the world's names (building the
+/// name index is the slow part, so a list never builds it per line).
+fn link_many<'a>(w: &World, texts: impl IntoIterator<Item = &'a String>) -> std::vec::IntoIter<String> {
+    let texts: Vec<String> = texts.into_iter().cloned().collect();
+    link_all(w, &texts, &views::mine(w).into_iter().collect::<Vec<_>>()).into_iter()
+}
+
 fn stage_words(n: &Nickname) -> &'static str {
     if n.retired {
         return if n.replaced.is_some() { "Replaced" } else { "Faded" };
@@ -254,13 +261,21 @@ fn office(w: &World) -> Value {
             _ => stints.push((x.team, x.year, x.year)),
         }
     }
-    let moves: Vec<Value> = s
-        .entries
+    let moved: Vec<_> = s.entries.iter().filter(|e| matches!(e.kind, EntryKind::Hired | EntryKind::Left)).collect();
+    let mut texts = link_many(w, moved.iter().map(|e| &e.text));
+    let moves: Vec<Value> = moved
         .iter()
-        .filter(|e| matches!(e.kind, EntryKind::Hired | EntryKind::Left))
-        .map(|e| json!({ "date": date_text(e.date), "kind": format!("{:?}", e.kind), "text": link_one(w, &e.text), "team": e.team.map(|t| brief(w, t)) }))
+        .map(|e| json!({ "date": date_text(e.date), "kind": format!("{:?}", e.kind), "text": texts.next(), "team": e.team.map(|t| brief(w, t)) }))
         .collect();
     let here = st::seat_team(w);
+    // The job you hold now runs on from the year you were hired.
+    if let Some(h) = here
+        && stints.last().is_none_or(|l| l.0 != h)
+    {
+        let hired = s.entries.iter().rev().find(|e| e.kind == EntryKind::Hired && e.team == Some(h));
+        let from = hired.map_or(w.today.year(), |e| e.date.year()) as i16;
+        stints.push((h, from, from));
+    }
     json!({
         "you": c.you.name,
         "team": here.map(|t| brief(w, t)),
@@ -268,7 +283,7 @@ fn office(w: &World) -> Value {
         "since": s.office.first().map(|m| date_text(m.date)),
         "count": s.office.len(),
         "shelves": shelves,
-        "stints": stints.iter().map(|&(t, a, b)| json!({ "team": brief(w, t), "from": a, "to": b })).collect::<Vec<_>>(),
+        "stints": stints.iter().map(|&(t, a, b)| json!({ "team": brief(w, t), "from": a, "to": b, "now": Some(t) == here && stints.last().is_some_and(|l| l.0 == t) })).collect::<Vec<_>>(),
         "moves": moves,
         "titles": s.titles.iter().rev().map(|(y, t, what)| json!({ "year": y, "team": brief(w, *t), "what": what })).collect::<Vec<_>>(),
         "wins": s.wins,
@@ -291,6 +306,7 @@ fn entry_kind(k: EntryKind) -> &'static str {
         EntryKind::Nickname => "Nickname",
         EntryKind::LosingSeason => "Hard year",
         EntryKind::Season => "Season",
+        EntryKind::BigWin => "Big win",
     }
 }
 
@@ -337,19 +353,21 @@ fn story(w: &World) -> Value {
     let drafted = s.entries.iter().filter(|e| e.kind == EntryKind::Draftee).count();
     let teams = {
         let mut v: Vec<TeamKey> = Vec::new();
-        for x in &s.seasons {
-            if !v.contains(&x.team) {
-                v.push(x.team);
+        for t in s.seasons.iter().map(|x| x.team).chain(st::seat_team(w)) {
+            if !v.contains(&t) {
+                v.push(t);
             }
         }
         v
     };
-    let names: Vec<Value> = nick::all_of(&w.stories, Who::Coach(c.coach as u32)).into_iter().map(|n| nick_json(w, n)).collect();
+    let names: Vec<Value> =
+        nick::all_of(&w.stories, Who::Coach(c.coach as u32)).into_iter().map(|n| nick_json(w, n)).collect();
     // Your fourth downs as the bots read them.
     let reports = &w.stories.nfl.reports;
     let calls: Vec<&nfl::Call> = reports.iter().flat_map(|r| &r.calls).collect();
     let agreed = calls.iter().filter(|x| x.chose == x.bot).count();
-    let given: f32 = calls.iter().map(|x| x.cost).sum();
+    // A fold from 0.0: an empty f32 sum is -0.0, which a page prints as "-0".
+    let given = calls.iter().fold(0.0f32, |a, x| a + x.cost);
     let start = w.stories.story.entries.first().map(|e| e.date).unwrap_or(c.started);
     json!({
         "you": c.you.name,
@@ -376,7 +394,9 @@ fn story(w: &World) -> Value {
 
 fn media_tabs(w: &World) -> Vec<&'static str> {
     match seat_kind(w) {
-        "nfl" => vec!["Front page", "Grades", "Schedule", "Annuals", "Ratings", "Fantasy", "Jerseys", "Shows", "Nicknames"],
+        "nfl" => {
+            vec!["Front page", "Grades", "Schedule", "Annuals", "Ratings", "Fantasy", "Jerseys", "Shows", "Nicknames"]
+        }
         "college" => vec!["Front page", "Grades", "Annuals", "Ratings", "Jerseys", "Shows", "Nicknames"],
         "hs" => vec!["Front page", "Shows", "Nicknames"],
         _ => vec!["Annuals", "Ratings", "Fantasy", "Jerseys", "Shows", "Nicknames"],
@@ -431,10 +451,11 @@ fn asks(w: &World) -> Vec<Value> {
         && *year as i32 == w.year
     {
         let answered = w.stories.media.doc_answer;
+        let boss = if seat_kind(w) == "nfl" { "the owner" } else { "your athletic director" };
         v.push(json!({
             "what": "doc",
             "title": format!("{show} wants your team"),
-            "text": format!("Cameras in meetings, the locker room and your office from camp on. With no answer by June 1, the owner decides."),
+            "text": format!("Cameras in meetings, the locker room and your office from camp on. With no answer by May 31, {boss} decides."),
             "by": date_text(Date::ymd(*year as i32, 5, 31)),
             "yes": "Say yes",
             "no": "Say no",
@@ -542,9 +563,12 @@ fn front_page(w: &World) -> Value {
         .collect();
     // Your best by the video game, your jerseys, your names.
     let mine = my_players(w);
-    let mut rated: Vec<(u8, u32)> = mine.iter().filter_map(|&i| media::game_rating(w, i).map(|r| (r, w.people[i].player.id))).collect();
-    rated.sort_by(|a, b| b.0.cmp(&a.0));
-    let vg = w.stories.media.vg_top.iter().rev().find(|x| x.0 as i32 <= year).map(|x| x.1.clone());
+    let mut rated: Vec<(u8, u32)> =
+        mine.iter().filter_map(|&i| media::game_rating(w, i).map(|r| (r, w.people[i].player.id))).collect();
+    rated.sort_by_key(|b| std::cmp::Reverse(b.0));
+    // The game your players are in: the NFL's or the college one.
+    let pro = matches!(me, Some(TeamKey::Nfl(_)));
+    let vg = media::games_out(w.today).into_iter().find(|g| g.1 == pro).map(|g| g.0);
     let jerseys: Vec<Value> = w
         .stories
         .media
@@ -569,11 +593,14 @@ fn front_page(w: &World) -> Value {
         .take(6)
         .map(|n| nick_json(w, n))
         .collect();
-    let docs: Vec<Value> = w.stories.media.docs.iter().rev().filter(|d| Some(d.team) == me).take(3).map(|d| doc_json(w, d)).collect();
+    let docs: Vec<Value> =
+        w.stories.media.docs.iter().rev().filter(|d| Some(d.team) == me).take(3).map(|d| doc_json(w, d)).collect();
     let fantasy: Vec<Value> = if matches!(me, Some(TeamKey::Nfl(_))) {
         let mut f: Vec<(f32, u32)> = mine
             .iter()
-            .filter_map(|&i| w.stories.media.fantasy.get(&w.people[i].player.id).map(|x| (x.pts, w.people[i].player.id)))
+            .filter_map(|&i| {
+                w.stories.media.fantasy.get(&w.people[i].player.id).map(|x| (x.pts, w.people[i].player.id))
+            })
             .collect();
         f.sort_by(|a, b| b.0.total_cmp(&a.0));
         f.iter()
@@ -586,7 +613,33 @@ fn front_page(w: &World) -> Value {
     } else {
         Vec::new()
     };
+    // A high school's front page: the rivalry and the names around the state
+    // (no annuals, video game or jersey lists cover high schoolers).
+    let (rivals, around) = match me {
+        Some(TeamKey::Hs(h)) => {
+            let state = w.high_schools.get(h as usize).map(|x| x.state);
+            let around: Vec<Value> = w
+                .stories
+                .nicknames
+                .iter()
+                .rev()
+                .filter(|n| !n.retired && n.team != me)
+                .filter(|n| match n.team {
+                    Some(TeamKey::Hs(x)) => w.high_schools.get(x as usize).map(|s| s.state) == state,
+                    _ => false,
+                })
+                .take(6)
+                .map(|n| nick_json(w, n))
+                .collect();
+            (rivalries(w)["rows"].clone(), around)
+        }
+        _ => (json!([]), Vec::new()),
+    };
     json!({
+        "level": seat_kind(w),
+        "bots": me.is_some_and(|t| nfl::bot(t.level(), year, 0).is_some()),
+        "rivals": rivals,
+        "around": around,
         "grade": grade,
         "annuals": annual,
         "rated": rated.iter().take(6).map(|&(r, id)| json!({ "who": who(w, id), "rating": r })).collect::<Vec<_>>(),
@@ -624,7 +677,7 @@ fn schedule(w: &World) -> Value {
     let games: Vec<Value> = s
         .games
         .iter()
-        .map(|(d, opp, window)| json!({ "date": date_text(*d), "iso": d.0, "opp": brief(w, TeamKey::Nfl(*opp)), "window": window, "prime": !matches!(window.as_str(), "Sunday 1:00" | "Sunday 4:05" | "Sunday 4:25" | "Sunday afternoon" | "" ) }))
+        .map(|(d, opp, window)| json!({ "date": date_text(*d), "iso": d.0, "opp": brief(w, TeamKey::Nfl(*opp)), "window": window, "prime": matches!(window.as_str(), "the season opener" | "Thursday night" | "Sunday night" | "Monday night" | "Thanksgiving" | "Black Friday" | "Christmas") }))
         .collect();
     json!({
         "year": s.year,
@@ -675,14 +728,14 @@ fn annuals(w: &World, year: Option<i32>) -> Value {
 }
 
 fn ratings(w: &World) -> Value {
-    let year = w.year;
-    let titles: Vec<String> = {
-        let mut v: Vec<String> = w.stories.media.vg_top.iter().filter(|x| x.0 as i32 == year).map(|x| x.1.clone()).collect();
-        v.dedup();
-        v
-    };
-    let mut mine: Vec<(u8, u32)> = my_players(w).iter().filter_map(|&i| media::game_rating(w, i).map(|r| (r, w.people[i].player.id))).collect();
-    mine.sort_by(|a, b| b.0.cmp(&a.0));
+    // The games out now, yours first.
+    let pro = matches!(st::seat_team(w), Some(TeamKey::Nfl(_)));
+    let mut titles: Vec<(String, bool)> = media::games_out(w.today);
+    titles.sort_by_key(|g| g.1 != pro);
+    let titles: Vec<String> = titles.into_iter().map(|g| g.0).collect();
+    let mut mine: Vec<(u8, u32)> =
+        my_players(w).iter().filter_map(|&i| media::game_rating(w, i).map(|r| (r, w.people[i].player.id))).collect();
+    mine.sort_by_key(|b| std::cmp::Reverse(b.0));
     let club: Vec<Value> = w
         .stories
         .media
@@ -734,7 +787,7 @@ fn fantasy(w: &World) -> Value {
         .take(24)
         .map(|&(y, pos, id, pts)| json!({ "year": y, "pos": POS.get(pos as usize).copied().unwrap_or(""), "who": who(w, id), "pts": (pts * 10.0).round() / 10.0 }))
         .collect();
-    json!({ "year": w.stories.media.fantasy_year, "groups": groups, "past": past, "scoring": if w.year >= 2000 { "PPR-style points (a point a catch), the scoring most leagues use today." } else { "Standard points (no points for catches), the scoring of the time." } })
+    json!({ "year": w.stories.media.fantasy_year, "groups": groups, "past": past, "scoring": if w.year >= 2019 { "Points per reception (a point a catch), the big sites' default since ESPN switched in 2019." } else { "Standard scoring (no points for catches), the default of the time." } })
 }
 
 fn jerseys(w: &World) -> Value {
@@ -749,7 +802,14 @@ fn jerseys(w: &World) -> Value {
                 "year": y,
                 "college": college,
                 "title": if *college { format!("College jersey sales, {y}") } else { format!("NFLPA top-selling players, {y}") },
-                "rows": ids.iter().enumerate().map(|(k, &id)| json!({ "rank": k + 1, "who": who(w, id) })).collect::<Vec<_>>(),
+                "rows": ids.iter().enumerate().map(|(k, &id)| {
+                    // A college list names the school he sold for, wherever he is now.
+                    let school = college
+                        .then(|| views::person_index(w, id).and_then(|i| w.people[i].college))
+                        .flatten()
+                        .map(|p| brief(w, TeamKey::College(p as u32)));
+                    json!({ "rank": k + 1, "who": who(w, id), "school": school })
+                }).collect::<Vec<_>>(),
             })
         })
         .collect();
@@ -761,7 +821,7 @@ fn doc_json(w: &World, d: &media::Doc) -> Value {
         "year": d.year,
         "show": d.show,
         "team": brief(w, d.team),
-        "how": match d.how.as_str() { "forced" => "Ordered by the league", "volunteered" => "Volunteered", "followed" => "Followed a season", x => x },
+        "how": match d.how.as_str() { "forced" => "Ordered by the league", "volunteered" => "Volunteered", "followed" => "Followed a season", "unknown" => "", x => x },
         "episodes": d.episodes,
         "stars": d.stars.iter().map(|&id| who(w, id)).collect::<Vec<_>>(),
         "mine": Some(d.team) == st::seat_team(w),
@@ -794,25 +854,39 @@ fn nicknames(w: &World) -> Value {
     let me = st::seat_team(w);
     let s = &w.stories;
     let live = |n: &&Nickname| !n.retired;
-    let yours: Vec<Value> = s.nicknames.iter().rev().filter(|n| me.is_some() && n.team == me).take(60).map(|n| nick_json(w, n)).collect();
-    let mut national: Vec<&Nickname> = s.nicknames.iter().filter(live).filter(|n| n.stage >= 2 && matches!(n.who, Who::Player(_))).collect();
+    let yours: Vec<Value> =
+        s.nicknames.iter().rev().filter(|n| me.is_some() && n.team == me).take(60).map(|n| nick_json(w, n)).collect();
+    let mut national: Vec<&Nickname> =
+        s.nicknames.iter().filter(live).filter(|n| n.stage >= 2 && matches!(n.who, Who::Player(_))).collect();
     national.sort_by(|a, b| b.stage.cmp(&a.stage).then(b.stick.total_cmp(&a.stick)));
-    let coaches: Vec<Value> = s.nicknames.iter().rev().filter(live).filter(|n| matches!(n.who, Who::Coach(_))).take(30).map(|n| nick_json(w, n)).collect();
-    let newest: Vec<Value> = s.nicknames.iter().rev().filter(|n| matches!(n.who, Who::Player(_))).take(40).map(|n| nick_json(w, n)).collect();
-    let units: Vec<Value> = s
-        .units
+    let coaches: Vec<Value> = s
+        .nicknames
         .iter()
         .rev()
+        .filter(live)
+        .filter(|n| matches!(n.who, Who::Coach(_)))
         .take(30)
+        .map(|n| nick_json(w, n))
+        .collect();
+    let newest: Vec<Value> = s
+        .nicknames
+        .iter()
+        .rev()
+        .filter(|n| matches!(n.who, Who::Player(_)))
+        .take(40)
+        .map(|n| nick_json(w, n))
+        .collect();
+    let unit_list: Vec<_> = s.units.iter().rev().take(30).collect();
+    let play_list: Vec<_> = s.plays.iter().rev().take(30).collect();
+    let mut texts = link_many(w, unit_list.iter().map(|u| &u.why).chain(play_list.iter().map(|p| &p.what)));
+    let units: Vec<Value> = unit_list
+        .iter()
         .map(|u| {
-            json!({ "team": brief(w, u.team), "unit": u.unit, "name": u.name, "from": u.from, "last": u.last, "why": link_one(w, &u.why), "mine": Some(u.team) == me })
+            json!({ "team": brief(w, u.team), "unit": u.unit, "name": u.name, "from": u.from, "last": u.last, "why": texts.next(), "mine": Some(u.team) == me })
         })
         .collect();
-    let plays: Vec<Value> = s
-        .plays
+    let plays: Vec<Value> = play_list
         .iter()
-        .rev()
-        .take(30)
         .map(|p| {
             json!({
                 "name": p.name,
@@ -820,7 +894,7 @@ fn nicknames(w: &World) -> Value {
                 "year": p.date.year(),
                 "teams": p.teams.iter().map(|&t| brief(w, t)).collect::<Vec<_>>(),
                 "players": p.players.iter().map(|&id| who(w, id)).collect::<Vec<_>>(),
-                "what": link_one(w, &p.what),
+                "what": texts.next(),
                 "call": p.call,
             })
         })
@@ -841,7 +915,9 @@ fn nicknames(w: &World) -> Value {
 fn traditions_tabs(w: &World) -> Vec<&'static str> {
     match seat_kind(w) {
         "nfl" => vec!["Uniforms", "Honors", "Farewells", "Celebrations", "Parades and rings"],
-        "college" => vec!["Rivalries", "Uniforms", "Honors", "Pregame show", "Stormings", "Celebrations", "Parades and rings"],
+        "college" => {
+            vec!["Rivalries", "Uniforms", "Honors", "Pregame show", "Stormings", "Celebrations", "Parades and rings"]
+        }
         "hs" => vec!["Rivalries", "Uniforms", "Honors"],
         _ => vec!["Honors", "Pregame show", "Stormings", "Farewells", "Celebrations", "Parades and rings"],
     }
@@ -932,7 +1008,13 @@ fn uniforms(w: &World) -> Value {
             json!({ "i": k, "name": name, "w": r.map_or(0, |x| x.1), "l": r.map_or(0, |x| x.2), "next": u.next == Some(k as u8) })
         })
         .collect();
-    let worn: Vec<Value> = u.worn.iter().rev().take(24).map(|(d, set, won)| json!({ "date": date_text(*d), "set": set, "won": won })).collect();
+    let worn: Vec<Value> = u
+        .worn
+        .iter()
+        .rev()
+        .take(24)
+        .map(|(d, set, won)| json!({ "date": date_text(*d), "set": set, "won": won }))
+        .collect();
     let reveals: Vec<Value> = u
         .reveals
         .iter()
@@ -969,7 +1051,8 @@ fn honors(w: &World) -> Value {
     let me = st::seat_team(w);
     let t = &w.stories.traditions;
     let yours: Vec<Value> = t.honors.iter().rev().filter(|h| Some(h.team) == me).map(|h| honor_json(w, h)).collect();
-    let league: Vec<Value> = t.honors.iter().rev().filter(|h| Some(h.team) != me).take(40).map(|h| honor_json(w, h)).collect();
+    let league: Vec<Value> =
+        t.honors.iter().rev().filter(|h| Some(h.team) != me).take(40).map(|h| honor_json(w, h)).collect();
     let retired: Vec<u8> = me.map(|m| t.retired_numbers(m)).unwrap_or_default();
     let policy = me.map(|m| {
         let p = media::honor_policy(&st::team_name(w, m), m.level());
@@ -1057,11 +1140,19 @@ fn celebrations(w: &World) -> Value {
         .collect();
     let year = w.year;
     let rule = match seat_kind(w) {
-        "college" if year >= 2011 => "College: a taunt on the way to the end zone is a live-ball foul, enforced from the spot, so the points come off. Celebrations after the score cost 15 yards on the kickoff.",
+        "college" if year >= 2011 => {
+            "College: a taunt on the way to the end zone is a live-ball foul, enforced from the spot, so the points come off. Celebrations after the score cost 15 yards on the kickoff."
+        }
         "college" => "College: unsportsmanlike celebrations cost 15 yards on the kickoff; the score stands.",
-        "hs" => "High school: any celebration aimed at an opponent draws an unsportsmanlike flag, and officials call it tight.",
-        _ if year >= 2017 => "NFL since 2017: group celebrations, using the ball as a prop and going to the ground are allowed. Taunting, sexual gestures and anything aimed at an opponent still draw 15 yards.",
-        _ => "NFL before 2017: the 'No Fun League'. Props, going to the ground and choreographed group celebrations draw 15 yards.",
+        "hs" => {
+            "High school: any celebration aimed at an opponent draws an unsportsmanlike flag, and officials call it tight."
+        }
+        _ if year >= 2017 => {
+            "NFL since 2017: group celebrations, using the ball as a prop and going to the ground are allowed. Taunting, sexual gestures and anything aimed at an opponent still draw 15 yards."
+        }
+        _ => {
+            "NFL before 2017: the 'No Fun League'. Props, going to the ground and choreographed group celebrations draw 15 yards."
+        }
     };
     json!({ "rows": rows, "rule": rule })
 }
@@ -1076,14 +1167,11 @@ fn parades(w: &World) -> Value {
         .take(40)
         .map(|&(y, t, crowd)| json!({ "year": y, "team": brief(w, t), "crowd": crowd, "mine": Some(t) == st::seat_team(w) }))
         .collect();
-    let rings: Vec<Value> = w
-        .stories
-        .story
-        .office
+    let ring_list: Vec<_> = w.stories.story.office.iter().rev().filter(|m| m.kind == MementoKind::Ring).collect();
+    let mut texts = link_many(w, ring_list.iter().map(|m| &m.text));
+    let rings: Vec<Value> = ring_list
         .iter()
-        .rev()
-        .filter(|m| m.kind == MementoKind::Ring)
-        .map(|m| json!({ "date": date_text(m.date), "text": link_one(w, &m.text), "team": m.team.map(|t| brief(w, t)) }))
+        .map(|m| json!({ "date": date_text(m.date), "text": texts.next(), "team": m.team.map(|t| brief(w, t)) }))
         .collect();
     json!({ "rows": rows, "rings": rings })
 }
@@ -1119,20 +1207,33 @@ fn player(w: &World, id: u32) -> Result<Value, String> {
         })
         .collect();
     let honors: Vec<Value> = s.traditions.honors.iter().filter(|h| h.player == id).map(|h| honor_json(w, h)).collect();
-    let plays: Vec<Value> = s
-        .plays
+    let his: Vec<_> = s.plays.iter().filter(|p| p.players.contains(&id)).collect();
+    let mut texts = link_many(w, his.iter().map(|p| &p.what));
+    let plays: Vec<Value> = his
         .iter()
-        .filter(|p| p.players.contains(&id))
-        .map(|p| json!({ "name": p.name, "date": date_text(p.date), "what": link_one(w, &p.what), "call": p.call }))
+        .map(|p| json!({ "name": p.name, "date": date_text(p.date), "what": texts.next(), "call": p.call }))
         .collect();
-    let docs: Vec<Value> = s.media.docs.iter().filter(|d| d.stars.contains(&id)).map(|d| json!({ "year": d.year, "show": d.show })).collect();
+    let docs: Vec<Value> = s
+        .media
+        .docs
+        .iter()
+        .filter(|d| d.stars.contains(&id))
+        .map(|d| json!({ "year": d.year, "show": d.show }))
+        .collect();
     let farewell = s.careers.farewells.iter().find(|f| f.id == id).map(|f| {
         json!({ "year": f.year, "gifts": f.gifts.iter().map(|(t, g)| json!({ "team": brief(w, TeamKey::Nfl(*t)), "gift": g })).collect::<Vec<_>>(), "done": f.last_game })
     });
-    let one_day = s.careers.one_day.iter().find(|x| x.0 == id && x.2 != u16::MAX).map(|x| json!({ "year": x.1, "team": brief(w, TeamKey::Nfl(x.2)) }));
-    let fantasy = media::fantasy_line(w, id).map(|(pts, g, rank)| json!({ "pts": (pts * 10.0).round() / 10.0, "games": g, "rank": rank }));
+    let one_day = s
+        .careers
+        .one_day
+        .iter()
+        .find(|x| x.0 == id && x.2 != u16::MAX)
+        .map(|x| json!({ "year": x.1, "team": brief(w, TeamKey::Nfl(x.2)) }));
+    let fantasy = media::fantasy_line(w, id)
+        .map(|(pts, g, rank)| json!({ "pts": (pts * 10.0).round() / 10.0, "games": g, "rank": rank }));
     let number = team.and_then(|t| numbers::number_of(w, t, id));
-    let vg_title = s.media.vg_top.iter().rev().find(|x| x.0 as i32 == w.year).map(|x| x.1.clone());
+    let pro = w.people[i].stage == afm_engine::world::Stage::Pro;
+    let vg_title = media::games_out(w.today).into_iter().find(|g| g.1 == pro).map(|g| g.0);
     Ok(json!({
         "id": id,
         "name": w.people[i].name,
@@ -1194,8 +1295,12 @@ pub fn after_days(w: &mut World) {
     if w.career.is_none() {
         return;
     }
+    // A career just started: your story has the hire from the first day.
+    let today = w.today;
+    st::story::notice_job(w, today);
     if let Some((id, club, asked)) = w.stories.careers.offer {
-        let name = views::person_index(w, id).map(|i| w.people[i].name.clone()).unwrap_or_else(|| "A former star".into());
+        let name =
+            views::person_index(w, id).map(|i| w.people[i].name.clone()).unwrap_or_else(|| "A former star".into());
         let club_name = w.nfl_team_name(club as usize);
         let you = w.career.as_ref().map(|c| c.you.name.clone()).unwrap_or_default();
         let mut m = mail::letter(
@@ -1260,8 +1365,18 @@ pub fn after_days(w: &mut World) {
         m.keys = mail::MEDIA;
         m.about = Some((mail::ABOUT_TEAM, mail::team_code(tref(me))));
         m.answers = vec![
-            mail::answer("Say yes", "The cameras come with camp; episodes air from August.", st::ACT_DOC_YES, year as u32),
-            mail::answer("Say no", "The series looks elsewhere (unless the league orders you on).", st::ACT_DOC_NO, year as u32),
+            mail::answer(
+                "Say yes",
+                "The cameras come with camp; episodes air from August.",
+                st::ACT_DOC_YES,
+                year as u32,
+            ),
+            mail::answer(
+                "Say no",
+                "The series looks elsewhere (unless the league orders you on).",
+                st::ACT_DOC_NO,
+                year as u32,
+            ),
         ];
         m.answer_by = Some(Date::ymd(year as i32, 5, 31));
         m.loud = 2;
