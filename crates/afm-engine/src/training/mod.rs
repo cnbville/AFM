@@ -17,6 +17,7 @@
 //! checkpoint whatever the calendar never reached lands (`close_year`) and
 //! his season row gets the rating he really ended on.
 
+pub mod offseason;
 pub mod plan;
 pub mod practice;
 pub mod rules;

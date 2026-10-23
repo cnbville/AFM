@@ -10,7 +10,6 @@ use super::rules::{BLOCKS, Block, Book, Counts, Frame, Tier, block_limits, book,
 use super::work::{ROLES, Role, ratio, week_load, week_work};
 use super::{FAMILIES, cover, owe, settle};
 use crate::calendar::{Date, YearDates};
-use crate::player::Trait;
 use crate::rng::clamp;
 use crate::tendencies::Style;
 use crate::world::data::Division;
@@ -227,12 +226,7 @@ pub fn team_week(f: &Frame, block: Block, bk: &[Book; 7], wk: &Week, nk: &Week) 
 /// player (the yearly calibration), 0.6-1.4 at the ends (proposed, not
 /// confirmed).
 pub fn own_ratio(p: &crate::player::Player, just_paid: bool) -> f64 {
-    let t = &p.personality.traits;
-    clamp(
-        1.0 + 0.12 * t.z(Trait::Professionalism) + 0.06 * t.z(Trait::Ambition) - if just_paid { 0.08 } else { 0.0 },
-        0.6,
-        1.4,
-    )
+    super::offseason::own_effort(p, just_paid, false)
 }
 
 /// Whether he comes to a voluntary week (NFL phases and OTAs, summer
@@ -434,6 +428,7 @@ pub(crate) fn monday(w: &mut World, d: Date) {
     let (people, programs, schools) = (&mut w.people, &w.programs, &w.high_schools);
     let n_progs = programs.len();
     let _ = n_progs;
+    let year = w.year;
     people.par_iter_mut().enumerate().for_each(|(i, p)| {
         if skip[i] {
             return;
@@ -472,11 +467,24 @@ pub(crate) fn monday(w: &mut World, d: Date) {
         }
         let base = weekly_base(frame, weeks, block);
         let b = cover(&mut p.player.train, &base);
-        let own = |p: &crate::world::Person| [own_ratio(&p.player, p.pro.as_ref().is_some_and(|c| c.paid)); FAMILIES];
+        let own = |p: &crate::world::Person| {
+            let c = p.pro.as_ref();
+            let last_year =
+                c.and_then(|c| c.contract.as_ref()).is_some_and(|k| k.signed + k.years.len() as i32 - 1 <= year);
+            [super::offseason::own_effort(&p.player, c.is_some_and(|c| c.paid), last_year); FAMILIES]
+        };
         let mut r = match tw {
             Some(tw) if !tw.own && (!tw.voluntary || attends(&p.player, seed)) => tw.r[role as usize],
             _ => own(p),
         };
+        // A high schooler's other sport (topic 10).
+        if matches!(p.stage, Stage::HighSchool | Stage::PrepSchool)
+            && let Some((_, sr)) = super::offseason::sport_ratio(&p.player, block, d)
+        {
+            for f in 0..FAMILIES {
+                r[f] *= sr[f];
+            }
+        }
         // Hurt: rehab keeps a little of the body work, nothing else.
         let attend = if out {
             r = [0.6, 0.4, 0.4, 0.1, 0.0, 0.2, 0.5];
