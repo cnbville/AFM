@@ -676,6 +676,8 @@ fn run_return(
         lane: None,
         bites: Vec::new(),
         two_gap: false,
+        help_on: None,
+        chip: None,
         gap_run: None,
         stunt: None,
         level: rules.level,
@@ -743,6 +745,7 @@ fn run_return(
     let mut buf = String::new();
     while sim.t < 12.0 && !sim.dead {
         sim.t += DT;
+        sim.link_speeds();
         if ktrace && ((sim.t / DT).round() as i64) % 5 == 0 {
             buf.push_str(&sim.snapshot());
             buf.push('\n');

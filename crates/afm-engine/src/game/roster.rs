@@ -57,6 +57,10 @@ pub struct GamePlayer {
     /// nothing (`world::chemistry`).
     #[serde(default = "typical_chem")]
     pub chem: f32,
+    /// His Dynamic Links today (`links.rs`): each a modest edge in its own
+    /// situations.
+    #[serde(default)]
+    pub links: crate::links::Links,
 }
 
 fn typical_chem() -> f32 {
@@ -94,6 +98,7 @@ impl GamePlayer {
             tend: p.tend,
             orders: Default::default(),
             chem: TYPICAL_CHEM,
+            links: crate::links::measure(p.position, &b, &p.attributes, p.game.recovery),
         }
     }
 

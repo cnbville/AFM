@@ -136,26 +136,32 @@ fn game_day_from_the_morning_to_the_game_page() {
     let tapes = hub["tapes"].as_array().unwrap().clone();
     assert!(!tapes.is_empty(), "the opponent's film is in the film room: {}", hub["tapes"]);
     assert!(!hub["report"]["sections"].as_array().unwrap().is_empty(), "{}", hub["report"]);
-    // A hint the plan can act on ("for your eyes" ones only inform): study
-    // the tapes in order until one shows one (a tape's three strongest
-    // hints can all be battles).
-    let mut found = None;
+    // Study the tapes until one shows a hint the plan can act on ("for
+    // your eyes" ones only inform; which kinds a tape shows depends on what
+    // happened in that game).
     let mut seen = Vec::new();
+    let mut pick = None;
     for tape in &tapes {
         let hub = ok(&mut g, "gameday_study", tape["key"].clone());
-        let studied = hub["tapes"].as_array().unwrap().iter().find(|x| x["key"] == tape["key"]).unwrap().clone();
+        let studied = hub["tapes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|x| x["key"] == tape["key"])
+            .expect("the tape studied")
+            .clone();
         assert_eq!(studied["studied"], true);
-        let hints = studied["hints"].as_array().unwrap().clone();
+        let hints = studied["hints"].as_array().unwrap();
         assert!(!hints.is_empty() && hints.len() <= 3, "{hints:?}");
         if let Some(h) = hints.iter().find(|h| h["plan"] == true) {
-            found = Some((studied.clone(), h.clone()));
+            pick = Some((studied["key"].clone(), h["key"].clone()));
             break;
         }
-        seen.extend(hints);
+        seen.extend(hints.iter().cloned());
     }
-    let Some((studied, h)) = found else { panic!("no hint the plan answers on any tape: {seen:?}") };
-    let mut add = studied["key"].clone();
-    add["key"] = h["key"].clone();
+    let Some((tape, hint)) = pick else { panic!("no hint the plan answers on {} tapes: {seen:?}", tapes.len()) };
+    let mut add = tape;
+    add["key"] = hint;
     add["add"] = json!(true);
     let hub = ok(&mut g, "gameday_hint", add);
     assert!(hub["finds"].as_array().unwrap().iter().any(|f| f["added"] == true), "{}", hub["finds"]);

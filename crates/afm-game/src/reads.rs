@@ -67,6 +67,54 @@ pub fn attributes(p: &Player, own: bool, eye: f64, reader: u64) -> Vec<(Attr, Re
         .collect()
 }
 
+/// Your staff's read of his Dynamic Links (`docs/design/dynamic-links.md`):
+/// each link it sees, how strong it looks and the numbers it is named by.
+/// Your own players are measured by your staff; a pro or a combine invite
+/// has public numbers; anyone else is a guess from film, which can miss a
+/// link or see one that isn't there. A better athletic eye reads truer.
+pub fn links(p: &Player, own: bool, measured: bool, eye: f64, reader: u64) -> Vec<serde_json::Value> {
+    use afm_engine::links::{Link, links_of, numbers, projected, strength_words};
+    // A boy still growing is read for what his frame and testing project
+    // to, in words only (his grown numbers would give his ceiling away).
+    let young = p.age < 21 && !measured;
+    let truth = if young { projected(p) } else { links_of(p) };
+    let body = afm_engine::body::body_now(p);
+    let noise = if young {
+        0.3 - if own { 0.008 * eye.clamp(1.0, 20.0) } else { 0.0 }
+    } else if own || measured {
+        0.06 + (20.0 - eye.clamp(1.0, 20.0)) * 0.006
+    } else {
+        0.25
+    };
+    let mut out: Vec<(f64, serde_json::Value)> = Link::ALL
+        .iter()
+        .filter_map(|&l| {
+            let seen = (truth.get(l) + noise * lean(reader, p.id, 300 + l.index())).clamp(0.0, 1.0);
+            (seen >= 0.2).then(|| {
+                let shown = if young {
+                    format!("Projects: {}", l.film())
+                } else if own || measured {
+                    numbers(l, &body, &p.attributes)
+                } else {
+                    format!("From film: {}", l.film())
+                };
+                (
+                    seen,
+                    serde_json::json!({
+                        "name": l.name(),
+                        "strength": strength_words(seen),
+                        "numbers": shown,
+                        "edge": l.edge(),
+                        "measured": !young && (own || measured),
+                    }),
+                )
+            })
+        })
+        .collect();
+    out.sort_by(|a, b| b.0.total_cmp(&a.0));
+    out.into_iter().map(|x| x.1).collect()
+}
+
 /// The overall read: narrow for your own players, wide for anyone else.
 pub fn overall(p: &Player, own: bool, eye: f64, reader: u64) -> Read {
     let half = if own { 2.0 + (20.0 - eye.clamp(1.0, 20.0)) * 0.12 } else { 6.0 };

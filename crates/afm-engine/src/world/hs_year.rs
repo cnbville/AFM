@@ -199,10 +199,14 @@ pub(crate) struct HsSeasonState {
     book: HashMap<usize, HsAcc>,
 }
 
-/// Whether a season's high school games run on the match engine.
+/// Whether a season's high school games run on the match engine: every
+/// season of a live save (the start year on), and the history's last
+/// `hs_engine_years`. `engine_from`, the quick-check knob, holds back every
+/// level alike, live seasons included.
 pub(crate) fn hs_on_engine(w: &World, year: i32) -> bool {
-    let Some(n) = w.options.hs_engine_years else { return false };
-    year >= w.options.start_year - n as i32 && w.options.engine_from.is_none_or(|from| year >= from)
+    let start = w.options.start_year;
+    let from = w.options.hs_engine_years.map_or(start, |n| start - n as i32);
+    year >= from && w.options.engine_from.is_none_or(|e| year >= e)
 }
 
 /// A 2026 date shifted to `year` by the anchor it follows (Labor Day for
@@ -749,16 +753,7 @@ fn play_week(w: &mut World, s: usize, k: usize, d: Date) {
     w.log.hs_no_contests += no_contests;
     w.log.hs_homecomings += homecomings;
     w.log.hs_senior_nights += senior_nights;
-    let played = engine_games(w, s, k, &engine, &wx, false, seed ^ 0x55);
-    let hs = w.hs_season.as_mut().unwrap();
-    for (&(h, a, key), _) in engine.iter().zip(played).filter(|x| x.1.is_none()) {
-        let p =
-            win_chance(hs.results[h].strength - adj(hs, h, k), hs.results[a].strength - adj(hs, a, k), HS_SPREAD, 0.8);
-        let (wn, l) = if key_uniform(seed ^ 0x55, key) < p { (h, a) } else { (a, h) };
-        hs.results[wn].wins += 1;
-        hs.results[l].losses += 1;
-        outcomes.push((wn, l));
-    }
+    engine_games(w, s, k, &engine, &wx, false, seed ^ 0x55);
     if w.recording {
         for (wn, l) in outcomes {
             super::records::hs_result(w, wn, true);
@@ -986,8 +981,8 @@ pub(crate) fn seat_setup(w: &World, me: usize) -> Option<super::live_seat::SeatS
 
 /// Plays a state's engine games for one week (regular week `week`, or a
 /// playoff round) and files the results and lines. Returns whether each
-/// home team won, or None where a school too short to dress a team leaves
-/// the game to the stand-in.
+/// home team won. A school too short to dress a team forfeits (both short:
+/// the home side), as a real one does; no game falls back to the stand-in.
 fn engine_games(
     w: &mut World,
     s: usize,
@@ -996,7 +991,7 @@ fn engine_games(
     wx: &crate::calendar::weather::Weather,
     final_game: bool,
     seed: u64,
-) -> Vec<Option<bool>> {
+) -> Vec<bool> {
     if games.is_empty() {
         return Vec::new();
     }
@@ -1010,11 +1005,16 @@ fn engine_games(
     // Your game, played live on the game day screens (section 9).
     let live = world.live_result(Level::HighSchool);
     let watch = world.tape_watch(Level::HighSchool);
-    let played: Vec<Option<HsPlayed>> = games
+    // Each game draws from its own seeded stream (from its key), so results
+    // are the same on any core count.
+    let played: Vec<Result<HsPlayed, bool>> = games
         .par_iter()
         .map(|&(h, a, key)| {
-            let (home, hid) = hs_team(world, h, week)?;
-            let (away, aid) = hs_team(world, a, week)?;
+            let ((home, hid), (away, aid)) = match (hs_team(world, h, week), hs_team(world, a, week)) {
+                (Some(x), Some(y)) => (x, y),
+                // A forfeit: the home side wins only if it could dress a team.
+                (x, _) => return Err(x.is_some()),
+            };
             let cond = hs_conditions(world, h, wx, seed, key);
             let mut setup = crate::game::GameSetup::new(
                 &home,
@@ -1044,14 +1044,26 @@ fn engine_games(
             let kept = seat.is_some_and(|x| x == h || x == a)
                 || watch.as_ref().is_some_and(|o| o.contains(&h) || o.contains(&a));
             let full = kept.then(|| (r.stats.clone(), r.film.clone()));
-            Some(HsPlayed { score: [ha.max(0) as u32, hb.max(0) as u32], team: r.stats.team.clone(), lines, full })
+            Ok(HsPlayed { score: [ha.max(0) as u32, hb.max(0) as u32], team: r.stats.team.clone(), lines, full })
         })
         .collect();
     let mut out = Vec::with_capacity(games.len());
     for (&(h, a, key), g) in games.iter().zip(played) {
-        let Some(g) = g else {
-            out.push(None);
-            continue;
+        let g = match g {
+            Ok(g) => g,
+            Err(home_wins) => {
+                let (wn, l) = if home_wins { (h, a) } else { (a, h) };
+                let hs = w.hs_season.as_mut().unwrap();
+                hs.results[wn].wins += 1;
+                hs.results[l].losses += 1;
+                w.log.hs_forfeits += 1;
+                if w.recording {
+                    super::records::hs_result(w, wn, true);
+                    super::records::hs_result(w, l, false);
+                }
+                out.push(home_wins);
+                continue;
+            }
         };
         let home_wins = if g.score[0] == g.score[1] { key & 1 == 0 } else { g.score[0] > g.score[1] };
         let (wn, l) = if home_wins { (h, a) } else { (a, h) };
@@ -1084,7 +1096,7 @@ fn engine_games(
             super::records::hs_result(w, wn, true);
             super::records::hs_result(w, l, false);
         }
-        out.push(Some(home_wins));
+        out.push(home_wins);
     }
     out
 }
@@ -1183,12 +1195,12 @@ fn play_round(w: &mut World, s: usize, r: usize, d: Date) {
     let wx = weather_at(w.options.seed as u64, s, &code, d, 19);
     let engine: Vec<(usize, usize, u64)> = pairs.iter().map(|&(_, a, b, key)| (a, b, key)).collect();
     let seat = w.seat_school();
-    let played = if hs.on_engine {
-        engine_games(w, s, week, &engine, &wx, r == last, seed)
+    let played: Vec<Option<bool>> = if hs.on_engine {
+        engine_games(w, s, week, &engine, &wx, r == last, seed).into_iter().map(Some).collect()
     } else if let Some(k) = seat.and_then(|x| engine.iter().position(|&(a, b, _)| a == x || b == x)) {
         // Your school's playoff game runs on the engine even in a stand-in season.
         let mut v = vec![None; pairs.len()];
-        v[k] = engine_games(w, s, week, &engine[k..k + 1], &wx, r == last, seed)[0];
+        v[k] = Some(engine_games(w, s, week, &engine[k..k + 1], &wx, r == last, seed)[0]);
         v
     } else {
         vec![None; pairs.len()]
@@ -1934,6 +1946,20 @@ mod tests {
         assert_eq!(hs.groups.iter().filter(|g| g.state == fl).count(), 7);
     }
 
+    /// Every live season plays every high school game on the engine, even
+    /// with the history's engine seasons turned off; only the quick-check
+    /// knob holds it back.
+    #[test]
+    fn live_seasons_play_high_school_games_on_the_engine() {
+        let mut w = World::empty(WorldOptions { scale: 0.02, hs_engine_years: None, ..Default::default() });
+        assert!(hs_on_engine(&w, 2026) && hs_on_engine(&w, 2031));
+        assert!(!hs_on_engine(&w, 2025), "history seasons follow hs_engine_years");
+        w.options.hs_engine_years = Some(12);
+        assert!(hs_on_engine(&w, 2014) && !hs_on_engine(&w, 2013));
+        w.options.engine_from = Some(2100);
+        assert!(!hs_on_engine(&w, 2026));
+    }
+
     #[test]
     fn january_all_star_games_start_in_their_real_seasons() {
         assert_eq!(all_star_first_season("All-American Bowl"), 2000);
@@ -2027,5 +2053,13 @@ impl World {
         }
         let r = hs.results.get(h)?;
         Some((r.wins, r.losses))
+    }
+
+    /// The schools whose players have engine lines in the season being
+    /// played (their lines are filed at each state's finals).
+    pub fn hs_schools_with_lines(&self) -> std::collections::BTreeSet<usize> {
+        self.hs_season.as_ref().map_or_else(Default::default, |hs| {
+            hs.book.values().filter(|e| e.games > 0).map(|e| e.school as usize).collect()
+        })
     }
 }
