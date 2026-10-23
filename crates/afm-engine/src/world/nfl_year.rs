@@ -77,6 +77,9 @@ pub(crate) struct NflSeason {
     pub round_next: [Vec<usize>; 2],
     /// Flexes so far in weeks 5-10 (two at most a season from 2014).
     pub early_flexes: u32,
+    /// Thursday night flexes this season (two at most, from 2023).
+    #[serde(default)]
+    pub tnf_flexes: u32,
 }
 
 /// One NFL team's season in the book.
@@ -1686,36 +1689,68 @@ fn christmas_games(season: i32) -> usize {
     }
 }
 
-/// Flexible scheduling (T2): twelve days before a Sunday (six before the
-/// last one), a better game can take the Sunday night slot. The real limits
-/// (from memory, to verify): from week 11 in 2006-2013; from 2014 from week
-/// 5, with at most two flexes in weeks 5-10.
+/// Flexible scheduling (T2): from 2006 a better Sunday afternoon game
+/// takes a Sunday night slot from week 11, 12 days ahead (6 for the last
+/// week); from 2014 from week 5, with at most two flexes in weeks 5-10.
+/// From 2023 Monday night (weeks 12-17, 12 days ahead) and Thursday night
+/// (weeks 13-17, 28 days ahead, two a season) flex too (from memory, to
+/// verify).
 fn flex(w: &mut World, d: Date, y: &YearDates) {
     let season = w.year;
     if season < 2006 {
         return;
     }
+    flex_window(w, d, y, Window::SundayNight);
+    if season >= 2023 {
+        flex_window(w, d, y, Window::MondayNight);
+        flex_window(w, d, y, Window::ThursdayNight);
+    }
+}
+
+fn flex_window(w: &mut World, d: Date, y: &YearDates, window: Window) {
+    let season = w.year;
     let Some(s) = w.nfl_season.as_ref() else { return };
     if s.slots.is_empty() {
         return;
     }
     let last = s.weeks.len().saturating_sub(1);
-    let from = if season >= 2014 { 4 } else { 10 };
-    let Some(k) =
-        (from..=last).find(|&k| y.nfl_weeks.get(k).is_some_and(|&sun| d == sun.add(if k == last { -6 } else { -12 })))
-    else {
+    let (from, to) = match window {
+        Window::SundayNight => (if season >= 2014 { 4 } else { 10 }, last),
+        Window::MondayNight => (11, last.saturating_sub(1)),
+        _ => (12, last.saturating_sub(1)),
+    };
+    let notice = |k: usize| match window {
+        Window::ThursdayNight => -28,
+        Window::SundayNight if k == last => -6,
+        _ => -12,
+    };
+    let Some(k) = (from..=to).find(|&k| y.nfl_weeks.get(k).is_some_and(|&sun| d == sun.add(notice(k)))) else {
         return;
     };
-    let early = (4..=9).contains(&k);
-    if early && s.early_flexes >= 2 {
+    let early = window == Window::SundayNight && (4..=9).contains(&k);
+    if early && s.early_flexes >= 2 || window == Window::ThursdayNight && s.tnf_flexes >= 2 {
         return;
     }
     let wins = |t: usize| s.wins[t] as f64 + 0.5 * s.ties[t] as f64;
     let value = |g: &(usize, usize)| wins(g.0) + wins(g.1) - 0.5 * (wins(g.0) - wins(g.1)).abs();
     let games = &s.weeks[k];
-    let Some(night) = s.slots[k].iter().position(|x| x.window == Window::SundayNight) else { return };
+    let Some(night) = s.slots[k].iter().position(|x| x.window == window) else { return };
+    // A team that played on Sunday night or Monday night the week before
+    // isn't moved to a Thursday.
+    let rested = |t: usize| {
+        window != Window::ThursdayNight
+            || k == 0
+            || s.weeks[k - 1].iter().zip(&s.slots[k - 1]).all(|(g, sl)| {
+                (g.0 != t && g.1 != t) || !matches!(sl.window, Window::SundayNight | Window::MondayNight)
+            })
+    };
     let Some(best) = (0..games.len())
-        .filter(|&g| s.slots[k][g].window == Window::Sunday && s.slots[k][g].site.is_none())
+        .filter(|&g| {
+            s.slots[k][g].window == Window::Sunday
+                && s.slots[k][g].site.is_none()
+                && rested(games[g].0)
+                && rested(games[g].1)
+        })
         .max_by(|&a, &b| value(&games[a]).total_cmp(&value(&games[b])).then(b.cmp(&a)))
     else {
         return;
@@ -1749,14 +1784,18 @@ fn flex(w: &mut World, d: Date, y: &YearDates) {
     let night_at = s.slots[k][night].at;
     let best_at = s.slots[k][best].at;
     s.slots[k][best].at = night_at;
-    s.slots[k][best].window = Window::SundayNight;
+    s.slots[k][best].window = window;
     s.slots[k][night].at = best_at;
     s.slots[k][night].window = Window::Sunday;
     if early {
         s.early_flexes += 1;
     }
+    if window == Window::ThursdayNight {
+        s.tnf_flexes += 1;
+    }
     let text = format!(
-        "Flexed into Sunday night, week {}: the {} at the {}; the {} at the {} moves to the afternoon.",
+        "Flexed into {}, week {}: the {} at the {}; the {} at the {} moves to Sunday afternoon.",
+        window.name(),
         k + 1,
         w.nfl[a].name,
         w.nfl[h].name,

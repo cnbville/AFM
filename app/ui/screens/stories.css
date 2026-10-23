@@ -1,1 +1,137 @@
-/* Lane styles: stories (docs/final-build/plan.md). */
+/* Lane styles: stories (docs/final-build/plan.md).
+   Lane 8: your office, your career story, the media desk, the traditions
+   and the player's Story tab. The office is a room in your team's colours,
+   always dark like the meeting room; everything else reads Showtime's
+   tokens, so the light theme follows. */
+
+.pnick { font-weight: 500; font-style: italic; color: var(--gold); letter-spacing: 0; white-space: nowrap; }
+.so-nick { color: var(--fg3); font-style: italic; font-size: .92em; white-space: nowrap; }
+.so-tiles { margin-bottom: 14px; }
+.so-tiles b { font-size: 28px; }
+.so-tiles b.so-small, b.so-small { font-size: 17px; line-height: 1.2; font-stretch: 80%; }
+.so-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 12px; }
+.so-rank { display: inline-block; min-width: 22px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--fg3); }
+b.so-rank { color: var(--fg); font-size: 18px; }
+.so-ovr { display: inline-grid; place-items: center; min-width: 34px; height: 24px; padding: 0 6px; border-radius: 8px; font-weight: 800; font-variant-numeric: tabular-nums; background: var(--fill-2); color: var(--fg); }
+
+/* ---------- asks waiting on you ---------- */
+.so-asks { display: grid; gap: 10px; margin-bottom: 14px; }
+.so-ask { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 14px 16px; border-radius: 18px; background: linear-gradient(150deg, color-mix(in oklab, var(--gold) 12%, transparent), transparent 75%); box-shadow: inset 3px 0 0 var(--gold), inset 0 0 0 1px var(--hair); }
+.so-ask.done { opacity: .8; box-shadow: inset 0 0 0 1px var(--hair); background: var(--fill-1); }
+.so-ask b { font-size: 15px; }
+.so-ask p { margin: 4px 0 0; color: var(--fg2); font-size: 13.5px; line-height: 1.45; }
+.so-ask-act { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 760px) { .so-ask { grid-template-columns: 1fr; } .so-ask-act { justify-content: flex-start; } }
+
+/* ---------- nicknames ---------- */
+.so-nicks, .so-plays { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.so-nick-card, .so-play { display: grid; gap: 6px; align-content: start; padding: 12px 14px; border-radius: 16px; background: linear-gradient(160deg, var(--fill-1), transparent 85%); box-shadow: inset 0 0 0 1px var(--hair); }
+.so-nick-card.gone { opacity: .62; }
+.so-nick-card p, .so-play p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--fg2); }
+.so-nick-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.so-nick-name { font-size: 18px; font-weight: 800; font-stretch: 80%; letter-spacing: .005em; line-height: 1.15; }
+.so-nick-who { font-size: 13px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.so-nick-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.so-spread { display: inline-flex; gap: 3px; flex: none; }
+.so-spread i { width: 7px; height: 7px; border-radius: 50%; background: var(--fill-2); box-shadow: inset 0 0 0 1px var(--hair); }
+.so-spread i.on { background: var(--gold); box-shadow: none; }
+.so-play blockquote { margin: 0; padding: 6px 10px; border-left: 2px solid var(--gold); font-style: italic; font-size: 13px; color: var(--fg); background: var(--fill-1); border-radius: 0 10px 10px 0; }
+
+/* ---------- the office ---------- */
+.so-office { align-items: start; }
+.so-room { --c1: #2b3140; --c2: #11141b; display: grid; gap: 4px; padding: 18px 18px 10px; border-radius: 24px; color: #f4f1ea; min-width: 0;
+  background:
+    radial-gradient(70% 45% at 15% 0%, color-mix(in oklab, var(--c1) 50%, transparent), transparent 75%),
+    radial-gradient(55% 40% at 100% 100%, color-mix(in oklab, var(--c2) 40%, transparent), transparent 70%),
+    linear-gradient(175deg, color-mix(in oklab, var(--c1) 22%, #120f0c), #0a0807 85%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06), 0 18px 40px -24px rgba(0, 0, 0, .6); }
+.so-room .st-label { color: rgba(244, 241, 234, .66); }
+.so-room small, .so-room .muted { color: rgba(244, 241, 234, .55); }
+.so-room .link { color: #fff; }
+.so-shelf { display: grid; gap: 6px; padding-top: 6px; }
+.so-shelf-head { display: flex; align-items: baseline; gap: 8px; }
+.so-shelf-head small { font-variant-numeric: tabular-nums; }
+.so-more { margin-left: auto; border: 0; background: transparent; color: rgba(244, 241, 234, .7); font-size: 12px; font-weight: 600; cursor: pointer; }
+.so-more:hover { color: #fff; }
+.so-shelf-row { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 2px; scrollbar-width: thin; min-height: 94px; align-items: flex-end; }
+.so-shelf-none { align-self: center; color: rgba(244, 241, 234, .38); font-size: 13px; font-style: italic; padding: 0 4px; }
+.so-board { height: 9px; border-radius: 3px; background: linear-gradient(180deg, #6d4c33, #3e2a1c 60%, #251810); box-shadow: 0 6px 12px -6px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(255, 255, 255, .12); }
+.so-obj { flex: none; width: 112px; margin: 0; display: grid; justify-items: center; gap: 4px; text-align: center; outline: none; }
+.so-obj .so-glyph { width: 46px; height: 46px; color: #e9dcc0; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .5)); transition: transform .25s var(--ease); }
+.so-obj.so-ring .so-glyph, .so-obj.so-trophy .so-glyph { color: #e7c46c; }
+.so-obj.so-gameball .so-glyph { color: #c9875a; }
+.so-obj:hover .so-glyph, .so-obj:focus .so-glyph { transform: translateY(-3px) scale(1.05); }
+.so-obj figcaption { display: grid; gap: 1px; font-size: 11px; line-height: 1.3; }
+.so-obj figcaption b { font-size: 12px; color: #fff; font-variant-numeric: tabular-nums; }
+.so-obj figcaption span { color: rgba(244, 241, 234, .82); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.so-obj:hover figcaption span, .so-obj:focus figcaption span { -webkit-line-clamp: unset; }
+.so-glyph { width: 30px; height: 30px; flex: none; }
+
+.so-banners { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.so-banners.big { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.so-banner { --c1: #333; --c2: #111; position: relative; display: grid; gap: 2px; padding: 14px 12px 22px; color: #fff; text-align: center; background: linear-gradient(180deg, var(--c1), color-mix(in oklab, var(--c1) 70%, #000)); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 86%, 0 100%); box-shadow: inset 0 3px 0 var(--c2); }
+.so-banner b { font-size: 24px; font-weight: 800; font-stretch: 70%; line-height: 1; }
+.so-banner span { font-size: 12px; font-weight: 700; line-height: 1.25; }
+.so-banner small, .so-banner small .link { color: rgba(255, 255, 255, .78); font-size: 11px; }
+
+/* ---------- the career story ---------- */
+.so-timeline { display: grid; gap: 2px; }
+.so-year { display: flex; align-items: center; gap: 12px; padding: 14px 0 6px; }
+.so-year span { font-size: 20px; font-weight: 800; font-stretch: 72%; }
+.so-year::after { content: ""; flex: 1; height: 1px; background: var(--hair); }
+.so-entry { display: grid; grid-template-columns: 76px minmax(0, 1fr) 24px; gap: 12px; align-items: start; padding: 8px 10px; border-radius: 12px; font-size: 13.5px; line-height: 1.45; }
+.so-entry:hover { background: var(--fill-1); }
+.so-entry .when { color: var(--fg3); font-size: 12px; padding-top: 2px; }
+.so-entry .tag { margin-right: 4px; vertical-align: 1px; }
+.so-entry.kind-title { box-shadow: inset 3px 0 0 var(--gold); }
+.so-entry.kind-title .so-entry-copy { font-weight: 600; }
+.so-entry-team .st-mark { --s: 18px; }
+
+/* ---------- the grades ---------- */
+.so-reports { display: grid; gap: 12px; }
+.so-report { display: grid; gap: 10px; padding: 14px 16px; border-radius: 18px; background: var(--raised); box-shadow: inset 0 0 0 1px var(--hair); }
+.so-report header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.so-score { font-weight: 800; font-variant-numeric: tabular-nums; padding: 2px 9px; border-radius: 8px; font-size: 13px; }
+.so-score.w { background: color-mix(in oklab, var(--good) 22%, transparent); }
+.so-score.l { background: color-mix(in oklab, var(--live) 18%, transparent); }
+.so-quotes { display: grid; gap: 6px; }
+.so-quotes p { margin: 0; padding-left: 12px; border-left: 2px solid var(--warm-hair); font-size: 13.5px; line-height: 1.5; color: var(--fg2); }
+.so-quotes p:first-child { color: var(--fg); }
+.so-report tr.so-off td { background: color-mix(in oklab, var(--live) 7%, transparent); }
+.panel .so-report { padding: 0; background: transparent; box-shadow: none; }
+
+/* ---------- annuals, lists ---------- */
+.so-mags { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; align-items: start; }
+.so-mag p { margin: 0; font-size: 13px; line-height: 1.6; }
+.so-top { margin: 0; padding: 0; list-style: none; display: grid; gap: 1px; }
+.so-top li { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 9px; font-size: 13px; }
+.so-top li:hover { background: var(--fill-1); }
+.so-top li.mine { background: color-mix(in oklab, var(--gold) 13%, transparent); box-shadow: inset 2px 0 0 var(--gold); }
+.so-fantasy { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 14px; margin-bottom: 14px; }
+@media (max-width: 900px) { .so-fantasy { grid-template-columns: 1fr; } }
+
+/* ---------- traditions ---------- */
+.so-held { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+.so-held-item { display: flex; align-items: center; gap: 12px; padding: 10px 16px 10px 12px; border-radius: 16px; background: linear-gradient(150deg, color-mix(in oklab, var(--gold) 16%, transparent), transparent 80%); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--gold) 40%, transparent); }
+.so-held-item .so-glyph { width: 36px; height: 36px; color: var(--gold); }
+.so-held-item div { display: grid; }
+.so-held-item small { color: var(--fg3); font-size: 12px; }
+
+.so-sets { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.so-set { display: grid; justify-items: center; gap: 4px; padding: 14px 10px 12px; border: 0; border-radius: 16px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--hair); color: var(--fg); cursor: pointer; text-align: center; transition: box-shadow .2s var(--ease), transform .2s var(--ease); }
+.so-set:hover { transform: translateY(-1px); box-shadow: inset 0 0 0 1px var(--warm-hair); }
+.so-set.on { box-shadow: inset 0 0 0 2px var(--gold); background: color-mix(in oklab, var(--gold) 8%, var(--fill-1)); }
+.so-set small { color: var(--fg3); font-size: 11.5px; }
+.so-jersey { width: 46px; height: 42px; margin-bottom: 4px; background: var(--accent); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 42'%3E%3Cpath d='M15 2l-13 7 5 11 5-3v23h22V17l5 3 5-11-13-7c-1 4-4 6-8 6s-7-2-8-6z'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 42'%3E%3Cpath d='M15 2l-13 7 5 11 5-3v23h22V17l5 3 5-11-13-7c-1 4-4 6-8 6s-7-2-8-6z'/%3E%3C/svg%3E") center / contain no-repeat; }
+.so-jersey.home { background: linear-gradient(180deg, var(--tc1, var(--accent)), color-mix(in oklab, var(--tc1, var(--accent)) 70%, #000)); }
+.so-jersey.white { background: linear-gradient(180deg, #f7f5ef, #d9d5cb); }
+.so-jersey.alt { background: linear-gradient(180deg, color-mix(in oklab, var(--tc2, #2a2a2e) 60%, #111), #0c0c0e); }
+.so-jersey.retro { background: linear-gradient(180deg, #c9a46a, #8b6a3a); }
+
+.so-honors { display: grid; gap: 8px; }
+.so-honor { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: center; padding: 10px 12px; border-radius: 14px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--hair); }
+.so-honor .so-glyph { width: 34px; height: 34px; color: var(--gold); }
+.so-honor div { display: grid; gap: 1px; }
+.so-honor small { color: var(--fg3); font-size: 12px; line-height: 1.4; }
+.so-retired { display: flex; flex-wrap: wrap; gap: 10px; }
+.so-num { display: grid; place-items: center; width: 54px; height: 62px; border-radius: 10px 10px 14px 14px; font-size: 26px; font-weight: 800; font-stretch: 70%; color: var(--fg); background: linear-gradient(180deg, var(--fill-2), var(--fill-1)); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--gold) 45%, transparent); }

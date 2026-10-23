@@ -1,0 +1,2746 @@
+# Nicknames: earned names for players, coaches, units and plays, and the story lines around them.
+# Format: see FORMAT.md. Templates are written as they appear in print.
+# {nick} in nick.heir is the legend's nickname without a leading "the".
+# The engine must drop any filled nickname that matches a [blocklist] line (case-insensitive).
+
+[blocklist]
+Beast Mode
+Sweetness
+the Bus
+Prime Time
+Primetime
+Neon Deion
+Coach Prime
+Megatron
+Johnny Football
+the Hoodie
+Sauce
+Sauce Gardner
+Captain Checkdown
+Butt Fumble
+the Butt Fumble
+Broadway Joe
+Mean Joe
+Mean Joe Greene
+Night Train
+the Galloping Ghost
+Crazylegs
+Mad Duck
+the Refrigerator
+the Fridge
+Bullet Bob
+Joe Cool
+Joe Montana
+the Juice
+Air McNair
+Golden Arm
+the Golden Boy
+the Toe
+Iron Mike
+Papa Bear
+the Tuna
+the Genius
+the Mad Hatter
+the Process
+Riverboat Ron
+Captain Comeback
+the Minister of Defense
+Mr. Irrelevant
+Lights Out
+the Assassin
+the Hitman
+Hollywood Henderson
+Too Tall
+Too Tall Jones
+the Snake
+Sweet Feet
+Moose
+the Bus Driver
+Big Ben
+Mr. Clutch
+the Sheriff
+Matty Ice
+Big Snack
+Cheetah
+Revis Island
+Primetime Deion
+Shady
+Gronk
+Sack Daddy
+the Bambino
+Ironhead
+the Kansas Comet
+Air Coryell
+Steel Curtain
+the Steel Curtain
+Legion of Boom
+the Legion of Boom
+No Fly Zone
+Doomsday
+Doomsday Defense
+Purple People Eaters
+the Purple People Eaters
+the Hogs
+Fearsome Foursome
+the Fearsome Foursome
+New York Sack Exchange
+the Sack Exchange
+Orange Crush
+the Orange Crush
+the Killer B's
+Killer Bees
+the Greatest Show on Turf
+the Fun Bunch
+the Smurfs
+the Four Horsemen
+the Pony Express
+the Junkyard Dogs
+the Wrecking Crew
+the Black Hole
+the Dawg Pound
+the No-Name Defense
+the Monsters of the Midway
+Monsters of the Midway
+the Bash Brothers
+Thunder and Lightning
+Smash and Dash
+Earth, Wind and Fire
+the Electric Company
+the Gang Green
+the Blackshirts
+the Big Red Machine
+the Blur
+the Air Raid
+the Run and Shoot
+the Catch
+The Catch
+the Catch II
+the Immaculate Reception
+Immaculate Reception
+Kick Six
+the Kick Six
+Music City Miracle
+the Music City Miracle
+Minneapolis Miracle
+the Minneapolis Miracle
+Philly Special
+the Philly Special
+the Holy Roller
+Holy Roller
+the Play
+The Play
+Hail Flutie
+Hail Murray
+the Fail Mary
+the Hail Mary
+the Miracle at the Meadowlands
+Miracle at the Meadowlands
+the Bluegrass Miracle
+the Prayer at Jordan-Hare
+the River City Relay
+the Miami Miracle
+the Miracle in Motown
+the Miracle at Michigan
+the Helmet Catch
+the Ice Bowl
+the Sea of Hands
+the Ghost to the Post
+the Drive
+The Drive
+the Fumble
+The Fumble
+the Tuck Rule
+Wide Right
+Double Doink
+the Double Doink
+the Fumblerooski
+the Statue of Liberty
+the Snow Plow Game
+the Heidi Game
+the Epic in Miami
+the Beast Quake
+Beast Quake
+the Super Bowl Shuffle
+Ice Up Son
+Hands of Stone
+the Iceman
+Lights Out Defense
+Ghost to the Post
+
+[words.allit.a]
+Agile
+Atomic
+Ace
+Apex
+Avalanche
+Arctic
+Ambush
+Amazing
+Afterburner
+Almighty
+All-Out
+Anvil
+Arrow
+
+[words.allit.b]
+Bad
+Blazing
+Boom
+Brick
+Bruiser
+Bulldog
+Bulldozer
+Bullet
+Big-Play
+Buzzsaw
+Blitz
+Battleship
+Bonecrusher
+Bayou
+
+[words.allit.c]
+Cannon
+Concrete
+Crash
+Cyclone
+Comet
+Captain
+Cool
+Cold
+Crusher
+Cobra
+Clutch
+Cyclops
+Cruise
+
+[words.allit.d]
+Dynamite
+Diesel
+Daring
+Dandy
+Deadeye
+Danger
+Dagger
+Demolition
+Dizzy
+Downtown
+Dragon
+Double
+
+[words.allit.e]
+Electric
+Express
+Elite
+Eagle
+Earthquake
+Easy
+Eclipse
+Edge
+Eruption
+Ever-Ready
+
+[words.allit.f]
+Flash
+Freight
+Fearless
+Fire
+Flying
+Fast
+Fury
+Full-Throttle
+Fourth-Down
+Foxy
+Freeway
+Frosty
+
+[words.allit.g]
+Gator
+Grizzly
+Gold
+Glide
+Gunner
+Gravel
+Gangbuster
+Granite
+Gusty
+Galaxy
+Gale
+
+[words.allit.h]
+Hammer
+Hurricane
+Hot
+Havoc
+Highway
+Hustle
+Heavy
+Hawkeye
+Heat
+Hardball
+Hightop
+
+[words.allit.i]
+Iron
+Ice
+Inferno
+Instant
+Impact
+Invincible
+Island
+Iceberg
+Ivory
+
+[words.allit.j]
+Jet
+Jolt
+Jumpin'
+Juke
+Jackhammer
+Jumbo
+Jitterbug
+Jackrabbit
+Jaguar
+
+[words.allit.k]
+Killer
+King
+Kaboom
+Kodiak
+Kinetic
+Knockout
+Krazy
+Knuckles
+
+[words.allit.l]
+Lightning
+Lucky
+Laser
+Lone
+Lockdown
+Loose
+Lunchpail
+Lion
+Locomotive
+Leapin'
+
+[words.allit.m]
+Mighty
+Mad
+Magic
+Money
+Monster
+Maverick
+Mustang
+Motor
+Midnight
+Moonshot
+Mayhem
+
+[words.allit.n]
+Nitro
+Nasty
+Night
+Nimble
+Ninja
+No-Fly
+Nova
+Northern
+
+[words.allit.o]
+Outlaw
+Overdrive
+Octane
+Onslaught
+Oak
+Omega
+Orbit
+Old-School
+
+[words.allit.p]
+Prime
+Power
+Pistol
+Pocket
+Panther
+Pile-Driver
+Pinball
+Pronto
+Prowler
+Punch
+
+[words.allit.q]
+Quick
+Quicksilver
+Quake
+Quiet
+
+[words.allit.r]
+Rapid
+Rolling
+Rifle
+Rumble
+Razor
+Ramblin'
+Rampage
+Rattlesnake
+Renegade
+Ruckus
+
+[words.allit.s]
+Swift
+Slick
+Smokin'
+Sonic
+Steamroller
+Sledgehammer
+Snake-Hips
+Sudden
+Sure-Hands
+Showtime
+Silver
+Stone
+
+[words.allit.t]
+Turbo
+Thunder
+Tornado
+Tough
+Titan
+Trigger
+Tank
+Torpedo
+Twister
+Truck
+
+[words.allit.u]
+Upstate
+Uncaged
+Unchained
+Ultra
+Unstoppable
+Untouchable
+Uptown
+Undertow
+
+[words.allit.v]
+Velvet
+Vapor
+Venom
+Viper
+Vandal
+Voltage
+Valiant
+Vortex
+
+[words.allit.w]
+Wild
+Wrecking
+Whirlwind
+Wheels
+Warpath
+Wizard
+Wolf
+Windmill
+
+[words.allit.x]
+X-Factor
+Xtreme
+
+[words.allit.y]
+Yukon
+Yardstick
+Yo-Yo
+Yowza
+Yankee
+Yard
+Yeti
+Young
+
+[words.allit.z]
+Zoom
+Zero
+Zipper
+Zig-Zag
+Zeus
+
+# ---------- Players ----------
+
+[nick.speed]
+{allit_last} {last}
+{allit_first} {first}
+the {town} Flash
+the {town} Express
+the {state} Comet
+Lightning {last}
+{last} Lightning
+Jet {last}
+{first} the Jet
+the {state} Jet
+Zoom
+Zoom {last}
+Warp {last}
+Warp Speed
+Mach {num}
+the {num} Express
+the {initials} Express
+Turbo
+Turbo {last}
+the Blur of {town}
+Nitro {last}
+Hot Wheels
+Wheels
+{first} Wheels
+Long Gone {last}
+the Gazelle
+the {town} Gazelle
+Quicksilver
+Slipstream
+Fleet {last}
+Fast {first}
+Track Meet
+Track Meet {last}
+Supersonic {last}
+the Vapor Trail
+Smoke
+Smoke {last}
+Afterburner
+Fifth Gear
+Overdrive {last}
+Kid Lightning
+Bye-Bye {last}
+See Ya {first}
+
+[nick.power]
+{allit_last} {last}
+{allit_first} {first}
+the {town} Truck
+Truck {last}
+Big Rig
+Big Rig {last}
+the Bulldozer
+Bulldozer {last}
+the Battering Ram
+the {state} Wrecking Ball
+Wrecking Ball {last}
+Sledgehammer {last}
+the Steamroller
+Mack {last}
+the Mack Truck
+Brickhouse {last}
+Thunder {last}
+the {town} Thunder
+the Plow
+Snowplow {last}
+the Hammer
+Hammer {last}
+the Rhino
+Rhino {last}
+the Juggernaut
+Concrete {last}
+the Bruiser
+{first} the Bruiser
+Stiff-Arm {last}
+{last} Smash
+Dump Truck
+the Ox
+the {town} Ox
+Pile Driver
+the Load
+Freight {last}
+the {num} Train
+Run-Over {first}
+Hard Yards {last}
+
+[nick.hands]
+{allit_last} {last}
+Glue
+Glue Hands {last}
+Velcro
+Velcro {last}
+Mister Reliable
+the Vise
+Vise Grip {last}
+Sticky {first}
+Stickum {last}
+Magnet
+Magnet {last}
+Flypaper
+Hands {last}
+{first} Hands
+Mitts {last}
+the Vacuum
+the {town} Vacuum
+Catch {num}
+Third-Down {first}
+Safe Deposit {last}
+the Lockbox
+Spider {last}
+the Octopus
+Bucket {last}
+Clamps
+Tractor Beam
+Superglue {last}
+No-Drop {last}
+Paws
+Mister Third Down
+the Chain Mover
+Contested {last}
+Fifty-Fifty {first}
+Bear Trap {last}
+
+[nick.ballhawk]
+the Ballhawk
+Ballhawk {num}
+{allit_last} {last}
+Hawk {last}
+the Thief
+Thief {last}
+the Pickpocket
+Pick {last}
+Pick-Six {first}
+the {town} Burglar
+Burglar {last}
+Cat Burglar
+the Bandit
+the {state} Bandit
+the Interceptor
+Interceptor {last}
+Takeaway {first}
+Pirate {last}
+the Turnover Machine
+Ballhunter
+the Collector
+Swipe {last}
+Hijack {last}
+the Repo Man
+Grand Theft {last}
+the Klepto
+Picasso
+{first} Picasso
+the Heist
+Heist {last}
+Return to Sender
+Fly Swatter
+Undercover {last}
+Five-Finger {first}
+the Lifeguard
+Ball Thief {num}
+
+[nick.rush]
+{allit_last} {last}
+{allit_first} {first}
+Sackmaster
+Sackmaster {last}
+Sack {last}
+the {town} Terror
+the QB Hunter
+Blindside {last}
+Edge {last}
+Havoc {last}
+the Havoc Machine
+the Heat
+Heat Seeker
+the Reaper
+Reaper {last}
+Chaos {last}
+the {state} Storm
+Blitz {last}
+the Pocket Crusher
+Mayhem {last}
+Strip-Sack {first}
+Jailbreak
+Spin Cycle
+Spin Cycle {last}
+the Bull
+Bull {last}
+the Tornado
+the {town} Twister
+Hurricane {last}
+Bloodhound
+the Lone Wolf
+Wolf {last}
+Bendy {last}
+Ten-Sack {first}
+Get-Off {last}
+the Landlord
+
+[nick.hitter]
+{allit_last} {last}
+{allit_first} {first}
+the Headhunter
+the Enforcer
+Enforcer {last}
+Boom {last}
+Boom Boom {first}
+the {town} Hit Man
+Thud
+Thud {last}
+the Collision
+Crash {last}
+Kaboom
+the Eraser
+the Tackling Machine
+Punch-Out {last}
+Punch {last}
+Thump {last}
+Lullaby {first}
+the Nightcap
+the Sandman
+Tombstone {last}
+Bonecrusher
+the Missile
+Torpedo {last}
+Dynamite {last}
+the Demolition Man
+Smash Mouth {first}
+Bam Bam {last}
+Wham {last}
+the Wrecking Ball of {town}
+the Jackhammer
+Thunderclap
+Ring-Your-Bell {last}
+Lunch Money {last}
+
+[nick.arm]
+{allit_last} {last}
+{allit_first} {first}
+the Cannon
+Cannon {last}
+the Laser
+Laser {last}
+the {town} Rifle
+Rifle {last}
+Bazooka {last}
+the Howitzer
+Howitzer {last}
+Trebuchet {last}
+the Catapult
+Slingshot {first}
+Moonball {last}
+Deep Ball {first}
+the Bomber
+Bombs Away {last}
+the {state} Bomber
+the Launcher
+Launch {last}
+Big Arm {first}
+Fastball {last}
+Zip {last}
+the Arm
+Fifty-Yard {first}
+Spiral {last}
+Long Bomb {last}
+Artillery
+the Railgun
+Cannonball {first}
+the {town} Arsenal
+Heater {last}
+Air {first}
+Downtown {last}
+
+[nick.scrambler]
+{allit_last} {last}
+the {town} Houdini
+the Escape Artist
+Slippery {first}
+the Eel
+Scramble {last}
+the Magician
+Magic {last}
+Pinball {last}
+the Pinball
+the Wizard of {town}
+Sandlot {first}
+Backyard {last}
+Jukebox
+Juke {last}
+Spin Doctor
+Getaway {last}
+the Waterbug
+the Ghost
+Ghost {last}
+Mister Improv
+Freelance {first}
+Wiggle
+Dodgeball {last}
+Uncatchable {first}
+Greased Lightning
+Off-Script {last}
+the Escape Hatch
+Roadrunner {last}
+Hide-and-Seek {first}
+Loose Change
+Can't-Touch {last}
+Playground {first}
+
+[nick.clutch]
+{allit_last} {last}
+Mister Fourth Quarter
+the Closer
+Closer {last}
+Ice
+Ice {last}
+Ice Water {first}
+Cold-Blooded {last}
+Last-Minute {last}
+Two-Minute {first}
+Comeback {last}
+the Finisher
+Big Moment {last}
+Money {last}
+Zero Hour
+Final Drive {first}
+Crunch Time {last}
+the Dagger
+Dagger {last}
+the Heartbreaker
+Late Show {last}
+Overtime {first}
+Ice Veins
+No-Panic {last}
+the Exclamation Point
+Walk-Off {last}
+Cool Hand {first}
+Fourth-and-{first}
+the Clock Killer
+Sudden {last}
+Ice Box
+Mister Midnight
+Nerves of {last}
+
+[nick.returner]
+{allit_last} {last}
+the Return Man
+the {town} Return Man
+Boomerang {last}
+the Boomerang
+House Call {last}
+Housecall
+Room Service
+Room Service {last}
+Special Delivery
+Round Trip {first}
+U-Turn {last}
+Cutback {last}
+the Lane Finder
+the Rebate
+the Refund
+No Fair Catch {first}
+Squib {last}
+the Field Flipper
+Kickoff {last}
+the Return Policy
+Ninety-Nine {first}
+Hundred-Yard {first}
+Express Mail
+Same-Day {last}
+the Toll Road
+Kick-Me {first}
+Bring-It-Back {last}
+Punt Return {first}
+the Change of Address
+Back-to-Sender {last}
+
+[nick.kicker]
+{allit_last} {last}
+the Leg
+Leg {last}
+Big Foot
+Bigfoot {last}
+the Boot
+Boot {last}
+Thunderfoot
+Automatic {first}
+Auto {last}
+the Metronome
+Fifty-Plus {first}
+Upright {last}
+Split {last}
+Three-Point {first}
+Points {last}
+Leggy
+Hang Time {last}
+Coffin Corner {last}
+Pin-'Em {first}
+the Sniper
+Ice Toes
+Kick {last}
+the Specialist
+Distance {last}
+Moonshot {first}
+Long Distance {last}
+the Sandwedge
+Sky {last}
+Money Leg
+the Pendulum
+Dead Center {first}
+the Thoroughbred
+
+[nick.big_man]
+{allit_last} {last}
+Big {first}
+Big {last}
+the Mountain
+Mount {last}
+the {town} Mountain
+Big Country
+the Wall
+Wall {last}
+the Great Wall of {town}
+the Planet
+Planet {last}
+House
+the Warehouse
+the Glacier
+Goliath {last}
+the Sequoia
+Redwood {last}
+Timber
+the Silo
+Silo {last}
+the Boulder
+the Continent
+Atlas
+the Eclipse
+Total Eclipse
+Hoss
+Grizzly {last}
+the {state} Grizzly
+Jumbo
+Jumbo {last}
+Square Footage
+Biggie {last}
+Zip Code
+Area Code
+the Landmass
+the Monolith
+Two-Seat {first}
+Big Shadow
+the Skyline
+
+[nick.iron]
+Iron {last}
+Iron {first}
+{allit_last} {last}
+Old Reliable
+the Ironclad
+Ironclad {last}
+Steel {last}
+Every Snap {first}
+Granite {last}
+the Anvil
+Anvil {last}
+Mister Every Down
+the Workhorse
+Workhorse {last}
+the Mule
+Old Faithful
+the {town} Oak
+Oak {last}
+Cockroach
+Ironside
+Leather {last}
+Unbreakable {first}
+Rebar
+Rebar {last}
+Diesel
+Diesel {last}
+Sixty Minutes
+Clock-In {last}
+the Lunch Pail
+Lunch Pail {first}
+Ever-Ready {last}
+Rawhide
+the Timecard
+Hundred Straight {first}
+
+[nick.brain]
+Professor {last}
+the Coach on the Field
+the General
+General {last}
+Field Marshal {last}
+Film Room {first}
+the Film Rat
+Film Rat {last}
+the Librarian
+Encyclopedia {last}
+the Computer
+Doc {last}
+Dr. {last}
+the Brain
+Brainiac
+Big Brain {first}
+Einstein
+Chessboard {last}
+Mastermind
+the Scholar
+the Navigator
+the Conductor
+Maestro
+Maestro {last}
+the Architect
+the Oracle
+Oracle {last}
+the Mind Reader
+the Surgeon
+Audible {last}
+Sherlock
+the Detective
+Tapeworm
+Playbook {first}
+Scout Team {last}
+Two Moves Ahead
+the Translator
+
+[nick.swagger]
+{allit_last} {last}
+{allit_first} {first}
+Showboat {last}
+the Showman
+Prime {last}
+Big Stage {last}
+Flashy {first}
+Swag {last}
+Swagger
+King {last}
+the King of {town}
+the Entertainer
+Main Event {last}
+the Headliner
+Loud {last}
+the {town} Mouth
+Chatterbox
+Big Talk {first}
+Talkin' {last}
+Mister Highlight
+Highlight {last}
+the Spotlight
+Spotlight {first}
+Drip {last}
+Box Office {last}
+the Marquee
+Mic Drop {first}
+Strut
+Strut {last}
+the Peacock
+Encore {last}
+Camera Ready {last}
+Cocky {first}
+Fireworks
+Bling {last}
+the Ringmaster
+Center Stage
+Look-At-Me {first}
+
+[nick.hype]
+the Anointed One
+the Savior
+Savior of {city}
+the Next Big Thing
+Can't-Miss {first}
+the Can't-Miss Kid
+Five-Star {last}
+the Phenom
+Phenom {last}
+the Prodigy
+the {state} Prodigy
+the Future
+Mister Future
+the Natural
+Wonder Boy
+Boy Wonder {last}
+the {town} Wonder
+the Golden Child
+Golden {first}
+the Kid
+the Kid from {town}
+Year One {last}
+Day One {first}
+the Missing Piece
+Hype {last}
+Number One {last}
+Crown Prince of {town}
+Prince {last}
+the Prize
+Blue Chip {last}
+Blue-Chip {first}
+Generational {last}
+the Unicorn
+Mister Tomorrow
+the Pride of {town}
+the {state} Treasure
+Instant Impact {last}
+the Big Get
+
+[nick.family]
+Boo
+Peanut
+Tank
+Man-Man
+Pooh
+Bubba
+Junior
+Tre
+Deuce
+Scooter
+Pookie
+Bud
+Hambone
+Biscuit
+Butter
+Cookie
+Sugar
+Bear
+Cub
+Lil Man
+Big Baby
+Squirrel
+Tater
+Tadpole
+Pumpkin
+Bean
+Rabbit
+Pickles
+Duck
+Boogie
+Nugget
+Choo-Choo
+Puddin'
+Peewee
+Buck
+Skeeter
+Red
+Sonny
+Bam
+Taz
+Monk
+Sweet Pea
+Bubby
+Doodle
+Gator
+Little Bit
+Turtle
+Pepper
+Chunk
+Dink
+Tip
+Sport
+Champ
+Lil Bro
+Baby Boy
+Pops
+Scoot
+Hot Dog
+Jelly Bean
+Noodle
+Shug
+JoJo
+Ray-Ray
+Bay-Bay
+Boo-Boo
+Popcorn
+Wookie
+Meat
+Turkey
+Cheese
+Pork Chop
+Spud
+
+[nick.heir]
+the New {nick}
+{nick} 2.0
+Baby {nick}
+Little {nick}
+{nick} Junior
+Young {nick}
+{nick} the Second
+{nick} II
+the Next {nick}
+{nick} Reloaded
+{nick} Returns
+Son of {nick}
+Mini {nick}
+{nick} Jr.
+{nick} Redux
+Kid {nick}
+{nick} Next
+{nick} Remix
+{nick} Part Two
+{nick} Lite
+the Second {nick}
+{last}, the Next {nick}
+{nick} Again
+
+# ---------- Mocking names ----------
+
+[nick.mock.int]
+Pick-Six {last}
+Picks {last}
+Gift {last}
+Santa {last}
+Charity {last}
+the Charity Case
+the Philanthropist
+Turnover {first}
+Generous {first}
+Wrong Jersey {last}
+Double Coverage {last}
+Duck Hunt {last}
+Lame Duck
+Mallard {last}
+Free Throw {first}
+Pick 'Em {last}
+Two-Way {last}
+Regift {last}
+the Gift That Keeps Giving
+Christmas {first}
+Air Mail {last}
+Return Address
+Wrong Address {first}
+Distributor {last}
+Pick City
+Interception {first}
+the Other Team's QB
+Bad Read {last}
+Hand Delivery {last}
+Pickle {last}
+Sixty-Forty {first}
+
+[nick.mock.fumble]
+Fumbles {last}
+Fumblin' {first}
+Greasy {first}
+Slip {last}
+Loose Ball {last}
+the Fumble Factory
+Oil Can {last}
+Bobble {last}
+Bobblehead
+Hot Potato {last}
+Ball Security {last}
+Cough-Up {last}
+Cough Drop
+Fumblebee
+Rumble-Fumble {first}
+Leaky {last}
+Butter {last}
+Crisco {first}
+Teflon {last}
+the Giveaway
+Giveaway {last}
+Pop-Up {last}
+Greased {last}
+Soap {last}
+Bar of Soap
+Wet Bar {first}
+Loose Lips {last}
+Fumbles McGee
+
+[nick.mock.drop]
+Butterfingers
+Butterfingers {last}
+Stonehands {last}
+Bricks
+Bricks {last}
+Cinderblock
+Alligator {last}
+T-Rex {last}
+Oven Mitts
+Mittens {last}
+Frying Pan {first}
+Nonstick {first}
+the Colander
+Sieve {last}
+Drops {last}
+Dropsy {first}
+Drop-Off {last}
+Clank
+Clank {last}
+Boxing Gloves
+Juggles {last}
+the Juggler
+Bounce House
+Ricochet {last}
+Iffy {last}
+Slippery When Wet
+Hands of Tin
+Paddles {last}
+Concrete Mitts
+
+[nick.mock.kick]
+Wide {last}
+Shank {last}
+the Shank
+Shanks
+Doink {last}
+Post {last}
+Ping {last}
+Hook {last}
+Slice {last}
+the Slicer
+Duck Hook {first}
+Block Party {last}
+Line Drive {last}
+Worm Burner
+Divot {last}
+Sod {last}
+Chip Shot {last}
+Short {last}
+No-Good {last}
+the Postman
+the Doorbell
+Shin {last}
+Shinkicker
+Hit-the-Post {first}
+Noodle Leg
+Noodle Leg {last}
+Banana {last}
+the Groundskeeper
+Clang {first}
+
+[nick.mock.sack]
+Statue {last}
+the Statue
+the Statue of {town}
+Sitting Duck {last}
+Cement Shoes
+Cement {first}
+Hold-It {last}
+Molasses {last}
+Tree Stump {last}
+the Mannequin
+Mannequin {last}
+Lawn Gnome
+Garden Gnome {first}
+Fire Hydrant
+Sacks {last}
+Sack Lunch {last}
+Brown Bag {first}
+Bullseye {last}
+Target {first}
+Speed Bump {last}
+Furniture {last}
+the Coat Rack
+Wax Museum
+Slow-Mo {last}
+the Snail
+Buffering {first}
+Parking Lot {last}
+Doormat {last}
+
+[nick.mock.checkdown]
+Checkdown {last}
+Dink {last}
+Dink-and-Dunk {first}
+Short Pass {last}
+Two-Yard {first}
+Bubble Wrap
+Bubble Screen {last}
+Safety Valve {last}
+Dump-Off {last}
+Little League {first}
+Paper Airplane
+Noodle Arm {last}
+Wet Noodle
+Popgun
+Pop-Gun {last}
+Cap Gun {first}
+Water Pistol
+Squirt Gun {last}
+Nerf {last}
+Kiddie Pool
+Shallow {first}
+Shallow End {last}
+Puddle Jumper
+Checkers {last}
+Ankle-Deep {last}
+Play-It-Safe {last}
+Third-and-Four {first}
+Flat Route {last}
+Training Wheels
+
+[nick.mock.bust]
+the Bust
+Bust {last}
+Bust {first}
+the Never-Was
+Was-Gonna-Be {last}
+the Next Nothing
+Trainwreck {last}
+Five-Star Flop
+Flop {last}
+the Flop
+Fool's Gold
+Fool's Gold {last}
+Blue Chip Bust
+Paper Tiger
+the Mirage
+Mirage {last}
+Vaporware
+Bench {last}
+Clipboard {first}
+Mister Potential
+Potential {last}
+Toolbox {last}
+Combine {last}
+Mixtape {last}
+Highlight Tape {last}
+Recall {last}
+the Big Miss
+Empty Box {last}
+
+[nick.mock.rival]
+Overrated {last}
+Mister Overrated
+Crybaby {last}
+the {state} Crybaby
+Pretty Boy {last}
+Media Darling
+Fraud {last}
+the Fraud
+Fake {first}
+Paper Champion
+Stat Padder
+Stat-Pad {last}
+Garbage Time {first}
+Garbage Time {last}
+the Hall Monitor
+the Tattletale
+Ref's Pet {last}
+Flag {last}
+Lil' {first}
+{first} the Overhyped
+Cupcake {last}
+Cupcake King
+Cardboard {last}
+Participation Trophy
+Selfie {last}
+Mama's Boy {first}
+Whiner {last}
+Fake Injury {first}
+Pom-Pom {last}
+Bubble Boy
+
+# ---------- Coaches ----------
+
+[nick.coach.aggressive]
+Fourth-Down {last}
+Riverboat {last}
+the Gambler
+Gambler {last}
+Go-For-It {last}
+Vegas {last}
+High Roller {last}
+All-In {last}
+Card Shark {last}
+Double Down {first}
+Dice {last}
+Fearless {first}
+Blackjack {last}
+Full Throttle {last}
+Cowboy {last}
+Bet-the-Farm {last}
+Never-Punt {last}
+No Punt {first}
+Roulette {last}
+Wild Card {last}
+Hold My Headset
+Loose Cannon {last}
+Mad {last}
+Pedal-Down {first}
+{allit_last} {last}
+Fourth-and-{first}
+
+[nick.coach.conservative]
+Punt {last}
+Punt-First {last}
+Field Position {last}
+Safety First {last}
+Captain Caution
+Cautious {first}
+Cloud of Dust {last}
+Turtle {last}
+Prevent {last}
+Sleepy {last}
+the Sedative
+Snooze Button {last}
+Kneel-Down {last}
+Run-Run-Punt {last}
+Vanilla {last}
+Beige {last}
+the Accountant
+Seatbelt {last}
+Grandpa {last}
+Oatmeal {last}
+Settle-for-Three {last}
+Field Goal {first}
+Coach Punt
+Bend-Don't-Break {last}
+Mister Fourth-and-Punt
+Three-and-Out {first}
+
+[nick.coach.trick]
+Trick {last}
+Gadget {last}
+Flea Flicker {last}
+Smoke and Mirrors {last}
+Sleight-of-Hand {first}
+the Illusionist
+Hocus Pocus {last}
+Abracadabra {last}
+the Trickster
+Trickster {last}
+Circus {last}
+Funny Business {last}
+Shenanigans {last}
+Razzle-Dazzle {last}
+Double Reverse {first}
+Fake Punt {last}
+the Joker
+Bag of Tricks {last}
+Mischief {last}
+Top Hat {last}
+the Carnival Barker
+Snake Oil {last}
+Sneaky {first}
+the Magician of {city}
+
+[nick.coach.bigwin]
+Big Game {last}
+the Giant Killer
+Giant Killer {last}
+Bowl Game {first}
+Trophy {last}
+December {last}
+January {last}
+King of {city}
+Champ {last}
+Rings {last}
+the Ring Collector
+the Jeweler
+Crown {last}
+the Spoiler
+Spoiler {last}
+Upset {last}
+the Dragon Slayer
+the Big-Game Hunter
+Showdown {last}
+Hardware {last}
+Trophy Case {first}
+the Banner Man
+Banner {last}
+{allit_last} {last}
+Rivalry {last}
+
+[nick.coach.chokes]
+Choker {last}
+the Choke Artist
+Almost {last}
+Almost {first}
+Silver {last}
+Silver Medal {last}
+Runner-Up {last}
+the Bridesmaid
+Collapse {last}
+Fold {last}
+the Folding Chair
+Lawn Chair {last}
+Card Table {last}
+November Swoon {last}
+Swoon {last}
+Fade {last}
+Heartbreak {last}
+Stage Fright {last}
+Close Call {last}
+Next Year {first}
+Wait-Till-Next-Year {last}
+Oh-Fer {last}
+Moral Victory {last}
+Second Place {first}
+Halftime Hero {last}
+
+[nick.coach.recruiter]
+the Living Room King
+Living Room {last}
+the Salesman
+Silver-Tongued {first}
+Smooth {last}
+the Pied Piper of {city}
+the Pied Piper
+Signing Day {last}
+Commit {last}
+Frequent Flyer {last}
+Air Miles {last}
+the Ambassador
+the Mayor of {city}
+Mayor {last}
+Handshake {last}
+the Charmer
+Charm School {last}
+Casserole {last}
+Sweet Tea {last}
+Kitchen Table {first}
+the Pitchman
+Pitch {last}
+Stamps {last}
+Couch {last}
+Home Visit {first}
+Five-Star Fisher
+
+[nick.coach.fiery]
+Firestarter {last}
+the Volcano
+Volcano {last}
+Vesuvius
+Teakettle {last}
+Hothead {last}
+Mad {first}
+the Screamer
+Red-Faced {first}
+Tomato {last}
+Headset {last}
+Slam {last}
+the Inferno
+Blowtorch {last}
+Firecracker {first}
+Spitfire
+Pressure Cooker
+Boiling Point {last}
+Steam {last}
+the Drill Sergeant
+Sarge {last}
+Megaphone {last}
+Iron Lungs
+Neck Veins {last}
+the Siren
+Short Fuse {last}
+
+[nick.coach.professor]
+the Professor
+Professor {last}
+Doc {last}
+Chess {last}
+Grandmaster {last}
+the Mad Scientist
+Mad Scientist {last}
+the Engineer
+Engineer {last}
+Chalk {last}
+Whiteboard {first}
+X-and-O {last}
+the Mathematician
+Slide Rule {last}
+Calculator {first}
+the Puppet Master
+Checkmate {last}
+Spreadsheet {last}
+the Tinkerer
+Lab Coat {last}
+the Thinker
+Brainstorm {last}
+Tenured {last}
+the Dean
+Dean {last}
+Scheme {last}
+the Schemer
+
+[nick.coach.grinder]
+Blue Collar {last}
+the Foreman
+Foreman {last}
+the Grinder
+Grind {last}
+Sunrise {last}
+Cot {last}
+Midnight Oil {last}
+the Mason
+Bricklayer {last}
+Brick-by-Brick {last}
+the Builder
+Builder {last}
+Farmer {last}
+Old School {last}
+Workboots {last}
+Tool Belt {first}
+the Carpenter
+Culture {last}
+Whistle {last}
+Earlybird {last}
+Sweat {last}
+Hard Hat {last}
+the Lunchpail Coach
+Overalls {first}
+Mister Fundamentals
+
+# ---------- Units ----------
+
+[nick.unit.defense]
+the {color} Wall
+{color} Thunder
+the {color} Storm
+the {color} Menace
+the {color} Avalanche
+the {color} Blackout
+the {city} Wall
+the {city} Crush
+the Doom Squad
+the {color} Fence
+No Vacancy
+the Dead End
+the Toll Booth
+Road Closed
+the {color} Plague
+the Hit Parade
+the Bruise Cruise
+Bad Company
+the Demolition Derby
+the {coach_last} Wall
+{coach_last}'s Wreckers
+the {mascot} Pound
+the Swarm
+the {color} Swarm
+the {color} Riot
+the Thunderdome
+the Graveyard Shift
+the {state} Stonewall
+Eleven Angry Men
+the Neighborhood Watch
+the Mosh Pit
+the {color} Chain Gang
+the Hostile Takeover
+the {city} Lockup
+Closed for Business
+the {color} Brick Factory
+the Ambush Squad
+the Bad Neighbors
+
+[nick.unit.rush]
+the {color} Wolf Pack
+the Hunting Party
+the Heat Wave
+the {color} Heat
+the Edge Patrol
+the Fierce Four
+the {city} Stampede
+the Pressure Cookers
+the Landlords
+the Backfield Squatters
+the Smokehouse
+{color} Wildfire
+the Night Shift
+the Demolition Crew
+the {color} Blitz
+the Sack Shack
+the Chaos Committee
+the Havoc Brigade
+the Ground Shakers
+the {city} Earthquake
+the Hit Squad
+the Heat Index
+the {coach_last} Hunters
+the Pocket Wreckers
+the Quarterback Club
+the {state} Sack Market
+the Pass Rush Posse
+the Front Porch
+the Home Invaders
+the Pocket Movers
+the {mascot} Pack Hunters
+Rush Hour
+
+[nick.unit.secondary]
+{color} Lockdown
+Air Traffic Control
+the Control Tower
+the {color} Air Force
+the Ballhawks
+the {city} Thieves
+the Pickpockets
+the {color} Bandits
+Lockdown Inc.
+the Shutdown Crew
+the Witness Protection
+Missing Persons
+the Dead Letter Office
+the Lost and Found
+the Sky Patrol
+the Bermuda Triangle
+the Vault
+the {city} Vault
+the Safe House
+the Coverage Club
+the Speed Trap
+Cancelled Flights
+Grounded
+the Takeaway Committee
+the Fly Swatters
+the Customs Office
+the {coach_last} Heist Crew
+the {state} Repo Men
+the Ball Bank
+the Mirror Men
+the Sticky Fingers Society
+
+[nick.unit.oline]
+the {city} Road Crew
+the {color} Bulldozers
+the Bodyguards
+the Great Wall of {city}
+the Moving Company
+the Movers
+the Pancake House
+the Pancake Factory
+the Big Uglies
+the Fort
+Fort {coach_last}
+Fort {city}
+the {color} Fortress
+the Secret Service
+the Bouncers
+the Hard Hats
+the Iron Five
+the Tonnage
+the Mountain Range
+the {state} Mountain Range
+the Earthmovers
+the Lumberyard
+the Big Five
+the Body Shop
+the Grounds Crew
+the Steam Shovels
+the Sumo Club
+the Load-Bearing Walls
+the Highway Department
+the Paving Crew
+the Wrecking Yard
+the {mascot} Bodyguards
+the Snowplows
+
+[nick.unit.receivers]
+Air {city}
+the Track Team
+the {city} Track Club
+the Downtown Crew
+the Air Show
+the Fly Guys
+the Postal Service
+the Sticky Fingers Club
+the Route Masters
+the Mismatch Squad
+the Separation Society
+the Highlight Factory
+the Big Play Gang
+the Jet Set
+the Afterburners
+the {color} Jets
+the {city} Skyline
+Air Supply
+the Flight Crew
+the Treetops
+the Burn Unit
+the Toasters
+the {state} Sky Riders
+the {coach_last} Air Force
+the Deep End
+the Catch Club
+the Long Ball Lounge
+the Vertical Club
+the Express Lane
+
+[nick.unit.backfield]
+the Ground Crew
+the Stable
+the {color} Stable
+the Two-Headed Monster
+Grit and Glide
+Boom and Zoom
+Hammer and Nail
+the Tag Team
+the {city} Express
+the Workhorses
+the Carry-On Club
+Ground Control
+the Dust Storm
+the Turf Burners
+the Chain Movers
+the Yard Sale
+the Mudders
+Hit and Run
+the Rumble Brothers
+Muscle and Hustle
+the {coach_last} Stable
+the {color} Herd
+the {state} Ground Force
+the Bruise and Burn
+Sledge and Spark
+the Clock Eaters
+the Tough Yards Gang
+the Backfield Bullies
+the Ground Floor
+Pound and Pounce
+
+[nick.unit.offense]
+the {color} Fireworks Show
+the Scoreboard Breakers
+the Light Show
+the Point Factory
+the {city} Point Factory
+the Scoreboard Wreckers
+the Highlight Reel
+Air {city}
+the Track Meet
+the Fun House
+the Video Game
+the {coach_last} Express
+the {coach_last} Show
+the {color} Scoring Machine
+the Pinball Machine
+the {city} Arcade
+the Fourth of July
+Big Play Incorporated
+the Bomb Squad
+the {color} Juggernaut
+the Clinic
+the {state} Shootout
+the Points Parade
+the Fast Lane
+the {color} Fast Break
+the Hurry-Up Machine
+the Scoreboard Operators' Nightmare
+the Fifty-Burger Club
+the Speed Lab
+the Sixty-Minute Blitz
+the Track Stars
+
+# ---------- Named plays ----------
+
+[nick.play.catch]
+the {last} Catch
+the Grab
+the Grab at {site}
+the {month} Grab
+the Snag
+the {last} Snag
+the Stretch
+the Reach
+the Fingertip
+the One-Hander
+the {last} One-Hander
+the Juggle at {site}
+the Toe-Tap
+the {last} Toe-Tap
+the Sideline Ballet
+the Ballet at {site}
+the Levitation
+{last2} to {last}
+the Leap
+the Leap at {site}
+the {month} Leap
+the {last} Pluck
+the Spider Grab
+the {opp} Heartbreaker
+the Grab Heard 'Round {city}
+the {city} Snag
+the Tip Drill
+the {site} Stretch
+the Snag That Sank {opp}
+the Backboard
+
+[nick.play.run]
+the Run
+the {last} Run
+the Run at {site}
+the {month} Run
+the Romp
+the {last} Sprint
+the Scamper
+the Weave
+the Long Way Home
+the {last} Dash
+the {site} Rumble
+the Stampede at {site}
+the Breakaway
+the {month} Breakaway
+the {site} Escape
+the Bounce
+the {last} Cutback
+the {site} Train
+the Truck Stop
+the Stiff-Arm at {site}
+the Hurdle
+the {last} Hurdle
+the {month} Gallop
+the Midnight Run
+the Zigzag
+the Slalom
+the Tightrope
+the {last} Tightrope
+the Run Through {opp}
+the Long Walk Home
+
+[nick.play.kick]
+the Kick
+the {last} Kick
+the Boot at {site}
+the {month} Boot
+the {last} Boot
+the {last} Moonshot
+the {site} Split
+the Split at {site}
+the Bank Shot
+the Kick That Saved {month}
+the Icebreaker
+the Moon Kick
+the {opp} Killer
+the Three at {site}
+the {last} Three
+the Wobbler
+the Knuckleball
+the Ugly Duckling
+the Long Three
+the {month} Leg
+the Dead Center
+the Last Boot
+the {site} Bank Shot
+the Thread
+
+[nick.play.pick]
+the Pick
+the {last} Pick
+the Pick at {site}
+the {month} Pick
+the Theft
+the Heist
+the {site} Heist
+the Robbery
+the Great {opp} Robbery
+the Steal
+the {last} Steal
+the Jump
+the Ambush
+the Ambush at {site}
+the Read
+the Swipe
+the {month} Swipe
+the Larceny
+Grand Larceny
+the Undercut
+the Pick That Broke {opp}
+the {last} Pick-Six
+the Gamble
+the {site} Hijacking
+the Burglary
+the Lift
+the Bait
+the Volleyball
+the Jumped Route
+
+[nick.play.hail]
+the Heave
+the {last2} Heave
+the Heave at {site}
+the {month} Heave
+the Prayer
+the {site} Prayer
+the Prayer at {site}
+the Answered Prayer
+the {month} Moonball
+the Launch
+the {last2}-{last} Bomb
+the Bomb
+the Bomb at {site}
+the Zero-Second Heave
+the Lob
+the Rainbow
+the {site} Rainbow
+the Jump Ball
+the Jump Ball at {site}
+the Scrum
+the Last Gasp
+the Last Gasp at {site}
+the Long Goodbye
+the Buzzer Beater
+the {site} Impossible
+Hail {last2}
+the Desperation at {site}
+the Lob Heard 'Round {city}
+
+[nick.play.trick]
+the {city} Special
+the {last} Special
+the {month} Special
+the Fake
+the Fake at {site}
+the Big Fake
+the Swindle
+the {site} Swindle
+the Con
+the Long Con
+the Hustle
+the {opp} Hustle
+the Hoodwink
+the Bamboozle
+the Okey-Doke
+the Switcheroo
+the Double Pass at {site}
+the Sleight of Hand
+the Magic Trick
+the Card Trick
+the Sleeper
+the Shell Game
+the Three-Card Monte
+the Rope-a-Dope
+the Smoke Screen
+the Ruse at {site}
+the {last2} Special
+the Pickle at {site}
+
+[nick.play.stop]
+the Stand
+the Stand at {site}
+the {month} Stand
+{last}'s Last Stand
+the Wall at {site}
+the Stonewall
+the Stonewall at {site}
+the Line in the Sand
+the {site} Brick Wall
+the Barricade
+the Blockade
+the Fort
+the Siege of {site}
+the Inch
+the Last Inch
+the Six Inches
+the Turnaway
+the Pushback
+No Entry
+the Doorstop
+the Locked Door
+the {mascot} Wall
+Four Downs at {site}
+the {site} Alamo
+the Standoff
+Not Today
+the Denial
+the {opp} Dead End
+
+[nick.play.return]
+the Return
+the {last} Return
+the Return at {site}
+the {month} Return
+the Runback
+the {site} Runback
+the Hundred-Yard Dash
+the Kickback
+the Send-Back
+the Wrong Kick
+the Punt {opp} Regrets
+the Bring-Back
+the Opening Bell
+the Lane at {site}
+the {opp_mascot} Slalom
+the {month} Relay
+the {site} Relay
+the Boomerang
+the {last} Express
+the Return to {site}
+the Long Way Back
+the Kick They Wanted Back
+
+# ---------- Who coined it ----------
+
+[nick.coined.beat_writer]
+{writer} of {outlet} first called {name} "{nick}" in the game story after {moment}, and by Monday nobody called him anything else.
+After {moment}, {writer} wrote one line that changed his name: "Call him {nick}." By the next week, his own coaches did.
+The name belongs to {writer}. The {outlet} beat writer slipped "{nick}" into a notes column after {moment} and never had to explain it again.
+{writer} says "{nick}" came to him on deadline, somewhere between {moment} and the last paragraph. It has followed {name} ever since.
+It started with a headline. After {moment}, {outlet} ran a single word over the {team} story: "{nick}."
+{writer} had covered {team} for years without handing out a nickname. Then came {moment}, and {name} became "{nick}" in the second paragraph.
+"I needed something for the lede," {writer} of {outlet} said later. After {moment}, "{nick}" was the something.
+The first recorded "{nick}" is in {outlet}, in {writer}'s story on {moment}. {name} says he read it on the bus home and laughed.
+{writer} tried "{nick}" once as a joke in a mailbag after {moment}. Readers wrote back asking for more of it.
+When {writer} filed his story on {moment}, the copy desk left one thing untouched: the word "{nick}" in the headline.
+{outlet} readers knew {name} by number until {moment}. {writer} gave them "{nick}" instead.
+{writer} is careful with nicknames. "You get maybe one a decade that sticks," he said. "{nick}" was his, coined after {moment}.
+The {team} beat had been looking for a word for {name} all season. After {moment}, {writer} of {outlet} found it: "{nick}."
+"{nick}" first ran in {writer}'s notebook column, three items down, the week after {moment}. It moved up fast.
+A {team} assistant swears he said it first. The paper trail says {writer} of {outlet}, the night of {moment}.
+{writer} wrote "{nick}" in the press box as {moment} finished, crossed it out, then wrote it again. That version ran.
+Ask around {team} who named {name} "{nick}," and the answer is the same: {writer}, {outlet}, after {moment}.
+
+[nick.coined.broadcaster]
+The booth named him. As {moment} unfolded, the play-by-play voice on {outlet} shouted "{nick}!" and the replay crews ran it all week.
+{writer} was calling the game for {outlet} during {moment}. One word came out on the call: "{nick}." {name} has had it since.
+The color analyst on {outlet} said it almost as an aside after {moment}: "That's {nick} right there." The clip did the rest.
+"{nick}" was born on the air. {writer} used it on {outlet} during {moment} and never stopped.
+The sideline reporter on {outlet} asked {name} about "{nick}" after {moment}. It was the first time he had heard it, and the last time he could escape it.
+Rewind the {outlet} broadcast of {moment} and you can hear the exact second: {writer} yelling "{nick}" over the crowd.
+{writer} had a habit of naming players on the fly. After {moment}, {name} became "{nick}" somewhere over the middle of the field.
+A producer at {outlet} put "{nick}" on the lower third during {moment}. Nobody approved it. Nobody took it down.
+The {outlet} crew needed a tag for {name} going into the second half. {moment} gave {writer} one: "{nick}."
+On the {outlet} replay of {moment}, {writer} says it twice: "{nick}. {nick}!" The second time is the one people remember.
+{writer} admitted later he had planned "{nick}" for weeks. He just waited for a moment like {moment} to use it on {outlet}.
+"I didn't mean to name him," {writer} of {outlet} said. "I meant to describe {moment}. It came out as {nick}."
+The radio call of {moment} on {outlet} ended with {writer} out of breath and {name} with a new name: "{nick}."
+The {team} radio crew had a running joke about {name} in practice. After {moment}, {writer} said it on {outlet}, and "{nick}" was public.
+It was a throwaway line on {outlet} after {moment}. "{nick}," {writer} said, and moved on. The audience did not.
+
+[nick.coined.teammate]
+His teammates named him first. After {moment}, someone in the {team} locker room started yelling "{nick}," and the whole room joined in.
+The {team} linemen take credit for "{nick}." They started using it in the film room the Monday after {moment}.
+A senior on the {team} roster called {name} "{nick}" on the sideline during {moment}. It was in the group chat by the end of the bus ride.
+"We called him {nick} before anybody else," a {team} teammate said. "Since {moment}. The papers caught up late."
+The name came from the scout team. After {moment}, they started calling {name} "{nick}" in practice, and {coach} picked it up too.
+{name}'s roommate is the one who started "{nick}." He says it took {moment} for anyone else to agree.
+After {moment}, the {team} quarterback grabbed {name}'s facemask and said one word: "{nick}." The cameras caught it.
+The {team} locker room has a whiteboard of nicknames. After {moment}, someone wrote "{nick}" next to {name}'s number in marker.
+A fellow freshman named him "{nick}" as a joke in summer workouts. Then came {moment}, and it stopped being a joke.
+The defensive backs started it. After {moment}, every {team} position group had its own version, and "{nick}" won.
+"That's what we call him," a {team} captain told reporters after {moment}. "{nick}. Y'all can use it now."
+The name started as a chant in the {team} weight room. {moment} took it out of the building.
+His position coach heard the players calling him "{nick}" after {moment} and asked what it meant. Nobody would tell him.
+{name} got the name on a bus ride. The {team} offensive line decided after {moment} that he needed one, and "{nick}" passed by voice vote.
+A teammate stood on a chair in the {team} locker room after {moment} and announced it: "From now on, he's {nick}."
+
+[nick.coined.coach]
+{coach} named him. Asked about {name} after {moment}, the {team} head coach said, "That's our {nick}," and the room wrote it down.
+{coach} has been calling {name} "{nick}" in practice for months. After {moment}, he finally said it on camera.
+The name comes from {coach}, who barked "{nick}" across the practice field so often that it stuck long before {moment} made it famous.
+In the postgame press conference after {moment}, {coach} slipped: "{nick} made that play." Then he grinned. He knew what he had done.
+{coach} denies inventing "{nick}." Three assistants and a video of the {team} locker room after {moment} say otherwise.
+"I've called him {nick} since his first camp," {coach} said after {moment}. "You all are just late."
+The {team} staff had a code name for {name} in recruiting meetings. After {moment}, {coach} let it slip: "{nick}."
+{coach} was asked to describe {name} in one word after {moment}. He used two: "{nick}. Next question."
+A {team} assistant started "{nick}" in position meetings. {coach} made it official at his Monday press conference after {moment}.
+{coach} does not hand out nicknames. That made it news when he called {name} "{nick}" after {moment}.
+"{nick}," {coach} said, pointing at {name} across the locker room after {moment}. The players roared, and that was that.
+{coach} first used "{nick}" in a halftime speech during {moment}. The {team} players repeated it to every reporter who asked.
+{coach} tried three different nicknames on {name} in fall camp. After {moment}, only "{nick}" survived.
+At the {team} booster lunch after {moment}, {coach} introduced {name} as "{nick}." The boosters bought it, and so did the rest of the state.
+"You earn a name around here," {coach} said after {moment}. "He earned {nick}."
+
+[nick.coined.local_radio]
+The name came from local radio. The morning host on {outlet} started calling {name} "{nick}" the day after {moment}.
+A caller to {outlet} after {moment} said, "That kid is {nick}," and the host would not let it go for the rest of the season.
+{writer} of {outlet} has nicknamed half the {team} roster over the years. After {moment}, {name} got "{nick}."
+The {outlet} postgame show gave it to him. Somewhere around the fourth caller after {moment}, "{nick}" had stuck.
+"We said it first," {outlet} reminds listeners every week. The station's hosts coined "{nick}" the night of {moment}.
+The drive-time crew on {outlet} ran a contest to name {name} after {moment}. "{nick}" won with more than half the votes.
+{writer} of {outlet} said "{nick}" on the air after {moment}, then said it again every hour on the hour until it took.
+The name started as a bit on {outlet}: a fake jingle for "{nick}" played after {moment}. Fans started singing it in the stands.
+{writer} doesn't remember saying it, but the {outlet} archive does: "{nick}," the night of {moment}, 11:42 p.m.
+A retired coach who calls into {outlet} every Monday named {name} "{nick}" after {moment}. The host made it the show's opening line.
+Local radio got there first. After {moment}, {outlet} spent a full segment on whether "{nick}" fit, and decided it did.
+"{nick}" was {writer}'s idea, floated on {outlet} after {moment} as a question. By Friday it was an answer.
+The {outlet} call-in line lit up after {moment}. One caller had a name for {name}, and {writer} put him on the air twice: "{nick}."
+{outlet} printed "{nick}" bumper stickers a week after {moment}. They ran out in two days.
+The station that carries {team} games had been workshopping names on air for a month. {moment} settled it: "{nick}."
+
+[nick.coined.national_show]
+The national shows found him after {moment}. On {outlet}, {writer} called him "{nick}," and suddenly the whole country did.
+{writer} needed a tease for the top of the hour on {outlet}. After {moment}, "{nick}" was it.
+"{nick}" started on {outlet}'s highlight segment the night of {moment}. {name} heard it in a hotel room and turned the TV up.
+A national studio host coined it. After {moment}, {writer} of {outlet} ended the segment with, "Remember the name: {nick}."
+{name} had never been on national TV before {moment}. He came off it as "{nick}," courtesy of {writer} on {outlet}.
+{outlet} ran {moment} at the top of its show and gave it a name in the graphic: "{nick}." The {team} fans were not consulted.
+{writer} of {outlet} built a whole bit around "{nick}" after {moment}. It aired four times that week.
+The {team} faithful had other names for him. After {moment}, {outlet} chose "{nick}," and the national name won out.
+On the {outlet} debate show after {moment}, {writer} said "{nick}" in his first sentence and his last.
+It took a national show to name him. {writer} saw {moment} on a monitor, said "{nick}" on {outlet}, and that was the end of it.
+The play of the day on {outlet} after {moment} carried a caption: "{nick}." The {team} sports information office used it the next morning.
+"I didn't name him," {writer} of {outlet} said. "{moment} named him. I just said {nick} first."
+{writer} tried to start a different nickname on {outlet} for weeks. After {moment}, he gave up and went with "{nick}."
+{outlet} spent seven minutes on {name} after {moment}. By minute three, {writer} was calling him "{nick}."
+Out-of-town viewers met {name} through {outlet} the night of {moment}. They met him as "{nick}."
+
+[nick.coined.national_show@1996-2007]
+{writer} said it on {outlet}'s late highlight show after {moment}: "{nick}." By breakfast it was on every radio station in the state.
+The 11 p.m. highlight package on {outlet} gave {name} his name. {writer} called {moment} and finished with "{nick}."
+
+[nick.coined.national_show@2008-]
+{writer} used "{nick}" on {outlet} after {moment}, and the clip passed a million views before {team} had landed.
+The {outlet} segment on {moment} was titled "{nick}." It trended within the hour, and {name} changed his profile picture that night.
+
+[nick.coined.fans]
+The fans named him. After {moment}, the {team} student section had a chant for {name}: "{nick}!"
+{team} fans found the name the week after {moment}. Nobody knows who said "{nick}" first, and everybody says it now.
+After {moment}, someone in the upper deck held up a bedsheet sign that read "{nick}." The cameras found it, and so did everyone else.
+The {team} student section voted on it. "{nick}" won after {moment}, and the chant started the next home game.
+The tailgate lots named him. By the end of the parking lot walk after {moment}, "{nick}" was the only name anyone used.
+A fan's hand-painted "{nick}" sign after {moment} ended up framed in the {team} football offices.
+The name came from the stands. During {moment}, a section behind the {team} bench started chanting "{nick}," and the stadium followed.
+{team} fans had been searching for the right name for {name} all season. After {moment}, "{nick}" won without a vote.
+Season ticket holders in the end zone take credit for "{nick}." They say they started it during {moment}, and nobody has proven otherwise.
+The {team} band played a fight song riff every time {name} touched the ball after {moment}. The students sang "{nick}" over it.
+
+[nick.coined.fans@1996-2008]
+The name started on a {team} message board the night of {moment}. A thread titled "{nick}" ran to forty pages.
+A caller to a late-night sports line coined "{nick}" after {moment}, and the {team} fans on the message boards made it law.
+"{nick}" first appeared on a fan-run {team} website after {moment}. Within a week it was on hand-made shirts at the tailgates.
+A {team} fan typed "{nick}" into a message board subject line after {moment}. It became the board's unofficial name for him.
+The fax machine at {outlet} jammed the Monday after {moment}. Every letter had the same suggestion: "{nick}."
+
+[nick.coined.fans@2009-]
+A {team} fan tweeted "{nick}" with the replay of {moment}. Forty thousand likes later, it was his name.
+The name went viral before it went official. After {moment}, the hashtag for "{nick}" trended in the state for two days.
+A clip of {moment} with "{nick}" written across it in a fan's edit hit a million views. {name} reposted it the next morning.
+Someone on a {team} fan forum posted "{nick}" with a GIF of {moment}. By Sunday, his own teammates were using it.
+The comments under the {team} highlight of {moment} settled it. The top one, with ten thousand likes, read simply "{nick}."
+
+[nick.coined.rival_fans]
+The rival school's mascot wore a "{nick}" sign on its back after {moment}. The {team} fans did not find it funny. Everyone else did.
+A rival radio host gave {name} "{nick}" the Monday after {moment}, and his listeners have not let it go.
+"{nick}" was born in the visitors' section during {moment}. The {team} fans tried to drown it out and only made it louder.
+The name came from the other side. Rival fans started calling {name} "{nick}" after {moment}, and it was not a compliment.
+After {moment}, the visiting section started chanting "{nick}" at {name}. {team} fans could not stop laughing.
+{name} earned "{nick}" from the rivals, the hard way, with {moment}. The name followed him home.
+The rival student section had a sign ready the week after {moment}. It read "{nick}," with a drawing nobody should describe.
+Rival fans named him "{nick}" after {moment}. They meant it as an insult. Some days it still is.
+The other school's band played a sad trombone every time {name} touched the ball after {moment}. Their fans called him "{nick}."
+"{nick}" came from rival territory. It started after {moment} and spread faster than anything {team} fans ever came up with.
+The opposing fans did not wait long. By the fourth quarter of {moment}, the chant of "{nick}" was rolling down from the upper deck.
+Rival fans printed "{nick}" shirts the week after {moment}. {team} fans bought half of them as a joke.
+"{nick}" was coined by the people who like him least, after {moment}. That makes it stick harder.
+
+[nick.coined.rival_fans@1996-2008]
+Rival message boards named him after {moment}. The thread was titled "{nick}," and it was not kind.
+A rival radio caller coined "{nick}" the morning after {moment}. The host played the clip every Monday for a month.
+
+[nick.coined.rival_fans@2009-]
+Rival fans made {moment} into a meme with "{nick}" in bold letters. It had a million shares by the weekend.
+"{nick}" started as a rival account's tweet after {moment}. Now it is in every reply under every {team} post.
+
+[nick.coined.family]
+The name is older than his career. His family has called {name} "{nick}" since he was in diapers, and after {moment} the papers finally used it.
+"{nick}" came from his grandmother. {name} asked reporters not to use it. After {moment}, they did anyway.
+His mother started it. "He's been {nick} since he was two," she told {outlet} after {moment}. "I'm not changing now."
+The name is a family name. {name}'s uncles called him "{nick}" at every cookout, and after {moment} the whole state did.
+{name}'s little sister came up with "{nick}" when she couldn't say his real name. After {moment}, a television crew asked her to say it on camera.
+His father yelled "{nick}!" from the stands during {moment}. The reporter sitting two rows down wrote it down.
+"Nobody back home calls him anything else," his aunt told {writer} after {moment}. "{nick}. Always has been."
+The family kept "{nick}" in the family for years. Then his mother wore a "{nick}" shirt to {moment}, and it was out.
+{name} was "{nick}" at Sunday dinners long before anyone in the {team} program knew his name. {moment} changed who was listening.
+His grandfather gave him the name in a backyard in his first year. After {moment}, {writer} of {outlet} tracked down the story.
+"{nick}" was a family secret until his cousin posted a baby picture after {moment} with the name in the caption.
+His high school coach had heard his mother call him "{nick}" at every game. After {moment}, he told {writer}, and {outlet} ran it.
+The {team} media guide lists him by his full name. His mother, in the stands at {moment}, wore a hat that read "{nick}."
+"That's what his granddaddy called him," his mother said after {moment}. "{nick}. Now everybody does."
+A family friend in the stands during {moment} shouted "{nick}" so loud the field microphones picked it up.
+
+[nick.coined.hs_paper]
+The name started in the hometown paper. {writer} of {outlet} called {name} "{nick}" in a Friday night story after {moment}.
+{outlet} named him first. A two-paragraph high school roundup after {moment} called him "{nick}," and it followed him to {team}.
+{writer} has covered high school football for {outlet} for twenty years. "{nick}" is the only nickname he ever coined that went all the way.
+The clipping is still on his parents' refrigerator: {outlet}, the morning after {moment}, headline "{nick}."
+{name} was "{nick}" in {outlet}'s prep section long before {team} offered him. {writer} coined it after {moment}.
+A part-time stringer for {outlet} first wrote "{nick}" after {moment}. He was paid fifteen dollars for the story.
+The small-town paper got there first. {outlet}'s {writer} called him "{nick}" after {moment}, when the crowd was a few hundred people.
+"{nick}" was born in the agate type of {outlet}, in a box score note after {moment}. The college recruiters picked it up from there.
+{writer} of {outlet} still has the notebook. On the page for {moment} he wrote "{nick}" and underlined it twice.
+The {outlet} all-area team in his junior year listed him as "{nick}." {writer} had been using it since {moment}.
+The high school paper's sports page put "{nick}" in a headline after {moment}. The {team} coaches saw it on the recruiting trail.
+The hometown paper ran a front-page photo of {moment} with one word underneath: "{nick}." It hangs in the diner on Main Street.
+When {team} signed him, {outlet} ran a story headlined "{nick} Is Going Big Time." {writer} had coined the name after {moment}.
+{writer} called him "{nick}" in {outlet} after {moment}, when he was sixteen. He has signed it on footballs ever since.
+"I gave him that name after {moment}," {writer} of {outlet} said. "He was a sophomore. He's going to be {nick} forever."
+
+# ---------- How it spreads ----------
+
+[nick.spread.local]
+The {team} campus coffee shop renamed a drink "{nick}" {days} days after the name first appeared.
+Local barbers were shaving "{nick}" into haircuts {days} days after it caught on. One shop has a waiting list.
+Within {days} days of being coined, "{nick}" was all over local radio. The {team} pregame show used it in its opening montage.
+"{nick}" moved from one column to every column in {days} days. {outlet} now uses it in headlines without quotation marks.
+The {team} sports information office put "{nick}" in its game notes {days} days after it first appeared.
+Local sports talk adopted "{nick}" inside {days} days. One host has been fined by his producer for saying it too often.
+By day {days}, "{nick}" was on a hand-painted sign outside a barbecue joint near the {team} stadium.
+The local TV sports anchors started using "{nick}" {days} days in. One of them got it wrong on air and was corrected by text messages from viewers.
+It took {days} days for "{nick}" to reach the {team} student newspaper. It took one more for the campus bookstore.
+{outlet} ran a reader poll on "{nick}" {days} days after it started. It passed with 81 percent.
+Two weeks is fast for a nickname to settle. "{nick}" took {days} days around {team}.
+{days} days after the first mention, a high school coach in town was using "{nick}" to describe his own players' goals.
+
+[nick.spread.local@1996-2007]
+"{nick}" was in the {outlet} headline {days} days after it was coined, and on the local radio postgame show the same night.
+By day {days}, the hometown paper's letters page had three letters about "{nick}," two in favor.
+Local radio callers used "{nick}" for {days} days before the {team} radio network made it official.
+
+[nick.spread.local@2008-]
+"{nick}" hit the local sports Twitter accounts within hours and stuck for good inside {days} days.
+The {team} beat writers had "{nick}" in their tweets {days} days after it started. The local podcasts followed by the weekend.
+The {team} official account posted "{nick}" with a fire emoji {days} days after it was coined, and the debate was over.
+
+[nick.spread.national]
+"{nick}" made the national rounds {days} days after it was coined. One network used it on a graphic without explanation.
+National writers needed {days} days to adopt "{nick}." After that, it showed up in every story about {name}.
+A national college football magazine put "{nick}" on its cover {days} days after it started. {team} fans bought every copy in town.
+{days} days after it was coined, "{nick}" turned up in a question at a national press conference. {name} smiled and answered it.
+"{nick}" crossed state lines in {days} days. A columnist on the other coast used it in a lede about something else entirely.
+It took {days} days for "{nick}" to go national, and one bad pun in a national column to make it permanent.
+The national betting shows were calling {name} "{nick}" {days} days in, usually right before telling viewers to take the points.
+
+[nick.spread.national@1996-2007]
+"{nick}" reached {outlet}'s national highlight show {days} days after it started. The anchor said it with a little drumroll.
+National radio picked up "{nick}" {days} days after it was coined. The late-night host who used it first now claims he invented it.
+By day {days}, "{nick}" was in a national magazine's preview issue, under a full-page photo of {name}.
+
+[nick.spread.national@2008-2018]
+"{nick}" was trending nationally {days} days after it was coined. The national shows put it on their afternoon rundowns.
+{days} days in, "{nick}" had its own hashtag and its own highlight reel on a national sports site.
+The national podcasts had a full segment on "{nick}" within {days} days. One spent eleven minutes arguing it was better than his real name.
+
+[nick.spread.national@2019-]
+"{nick}" had a TikTok sound {days} days after it was coined. Kids in three states were lip-syncing it before {name} had heard it.
+{days} days in, "{nick}" edits of {name}'s highlights were all over TikTok and the national shows were reading out the best ones.
+The national podcasts and a dozen meme accounts had "{nick}" running {days} days after it started.
+
+[nick.spread.broadcast]
+The booth tried to resist "{nick}" for {days} days. On a third-down conversion, the play-by-play voice gave in.
+{days} days after it started, the analyst drew "{nick}" on the telestrator next to {name}'s route. The producers loved it.
+The network's pregame show led with "{nick}" {days} days after it was coined. By kickoff, both booths were using it.
+The radio voice of {team} worked "{nick}" into his touchdown call {days} days in. It has been in the call ever since.
+It took {days} days, one long touchdown and one excited announcer for "{nick}" to make it onto live television.
+The TV booth finally used it {days} days after it was coined. As {name} broke free, the play-by-play voice shouted "{nick}!"
+{days} days in, the network crew at the {team} game said "{nick}" on the air for the first time. The stadium cheered the broadcast delay.
+The broadcast made it official. The color analyst used "{nick}" on a replay {days} days after it started, then apologized for liking it so much.
+The national broadcast added "{nick}" to its graphics package {days} days after it was coined.
+{days} days after it began, the booth was using "{nick}" on every big play. {name} said his phone buzzed for an hour after the game.
+The TV crew had been told about "{nick}" in their production meeting. They waited {days} days and saved it for a big play.
+The radio call of {name}'s touchdown, {days} days after the name was coined, used "{nick}" three times in four seconds.
+By day {days}, even the officials' microphone picked up a referee saying "{nick}" to the {team} sideline.
+The network's graphic team built a whole "{nick}" animation {days} days after the name took. It ran every time he touched the ball.
+The broadcast caught on {days} days later. When {name} scored, the booth's call was a single word: "{nick}."
+
+# ---------- How he takes it ----------
+
+[nick.react.embrace]
+{name} loves it. "{nick}," he said, grinning. "Yeah. That's me now."
+"I'll take it," {name} said of "{nick}." "My little brother has been saying it all week."
+{name} has started signing autographs as "{nick}." The extra loop on the "k" is a new touch.
+"{nick}? I didn't pick it, but I'm keeping it," {name} said.
+{name} changed his social media handle to "{nick}" the same night. His coach found out from his own kids.
+"My mama likes it, so I like it," {name} said of "{nick}."
+{name} answered to "{nick}" the first time a reporter tried it, without missing a beat.
+{name} said "{nick}" is the best thing anyone has called him since his first scholarship offer.
+{name} had "{nick}" stitched on his travel bag before the next road trip.
+"Everybody back home already calls me that," {name} said. "Might as well make it official. {nick}."
+{name} grinned when asked about "{nick}." "Took y'all long enough."
+{name} introduces himself in the team's pregame video as "{nick}." The players' replay of it went viral.
+"It fits," {name} said. "{nick}. I'd have picked it myself if I was smart enough."
+{name} wore a "{nick}" T-shirt to his postgame press conference. Nobody had to ask.
+{name} said "{nick}" makes him play harder. "Got to live up to it now."
+
+[nick.react.trademark]
+{name}'s family filed paperwork to trademark "{nick}" the week it caught on.
+"{nick}" shirts showed up at a pop-up stand outside the stadium. {name}'s agent owns the stand.
+{name} has a lawyer working on the rights to "{nick}." "If somebody's selling it, it ought to be me," he said.
+The first run of "{nick}" hoodies sold out in an afternoon. {name}'s mother handled the shipping from her dining room.
+{name}'s camp filed a trademark application for "{nick}" covering apparel, drinkware and, for some reason, dog leashes.
+"{nick}" is now a registered name with a logo, drawn by {name}'s cousin, an art student.
+{name} launched a "{nick}" clothing line before the season was over. The first shirt is plain black with the name in gold.
+{name} sent a polite letter to a bootleg vendor selling "{nick}" hats. Then he bought one.
+The paperwork for "{nick}" was filed by a hometown lawyer who also handles the family's church league softball team.
+{name} put "{nick}" on a line of youth camp shirts. Every camper gets one, and the proceeds go back to his old high school.
+{name}'s representatives confirmed that "{nick}" is now his intellectual property. His teammates have been told to pay up.
+A "{nick}" signature cleat is in the works, according to someone close to {name} who would not stop talking about it.
+{name} said he filed for "{nick}" because his grandmother told him to. "She's the business brain," he said.
+Within a month, "{nick}" had its own logo, its own website and a waiting list for the next shirt run.
+{name} turned "{nick}" into a charity drive. Every shirt sold buys a pair of cleats for a kid in his hometown.
+
+[nick.react.shrug]
+{name} shrugged at "{nick}." "People can call me whatever," he said. "I'm worried about Saturday."
+"I've heard it," {name} said of "{nick}." "I don't really think about it."
+{name} answered the "{nick}" question with a half smile and went back to talking about his blocking.
+"Doesn't matter what they call me," {name} said. "Matters what we do."
+Asked about "{nick}," {name} said, "It's fine," and then, after a pause, "It's fine."
+{name} said he hasn't decided whether he likes "{nick}." He says that might take a few years.
+"My teammates call me worse," {name} said when asked about "{nick}."
+{name} treats "{nick}" like the weather. "It's out there. Can't do nothing about it."
+"It's a name," {name} said. "Ask me about the third down instead."
+{name} said "{nick}" is for the fans. "I just play," he said. "They can name it whatever."
+Asked if he likes "{nick}," {name} said, "I like winning more." Then he left.
+{name} wasn't sure who started "{nick}," and said he wasn't going to look into it.
+"{nick} is cool, I guess," {name} said. His coach, standing nearby, laughed out loud.
+{name} doesn't use "{nick}" himself. He doesn't stop anyone else, either.
+"I'm not changing my name tag," {name} said of "{nick}." "Coach would make me run."
+
+[nick.react.hate]
+{name} has asked reporters to stop calling him "{nick}." He asked nicely, then less nicely.
+"I'm not {nick}," {name} said. "I've got a name. My mother picked it."
+{name} wrinkled his nose at "{nick}." "Please," he said. "Anything else."
+{name} said he doesn't like "{nick}" and doesn't know why it caught on. "It doesn't even make sense," he said.
+{name} told a radio host on air to stop using "{nick}." The host used it twice more in the sign-off.
+"I've asked them to stop," {name} said of "{nick}." "That just made it worse."
+{name} called "{nick}" "corny" and said he would answer to his number before he answered to that.
+{name} asked the school to send a memo about "{nick}." The memo used it in the subject line.
+{name} said he hears "{nick}" in his sleep. "Not in a good way," he added.
+{name} posted a long message asking fans to drop "{nick}." It got more likes than any post he has ever made, mostly from people saying no.
+"My little cousins say it to annoy me," {name} said of "{nick}." "It works."
+{name} said he will consider "{nick}" if he gets to pick the next nickname himself.
+Asked about "{nick}," {name} said, "Next question," and kept saying it until there was one.
+{name} said he hates "{nick}" but loves the people who say it. "Just not when they say it," he said.
+{name} said "{nick}" makes him sound like a cartoon. His teammates have started drawing him as one.
+
+[nick.react.mock_hurt]
+"{nick}" has gotten to {name}. He has deleted his social media apps and stopped doing interviews.
+{name} said "{nick}" stings. "I hear it in my head on every snap," he said quietly.
+The "{nick}" chants are in {name}'s head. His coaches have noticed him pressing.
+{name} admitted he has read every "{nick}" post. "You're not supposed to," he said. "I know."
+"It hurts," {name} said of "{nick}." "I'm a person. People forget that."
+{name} has stopped looking at the crowd. Teammates say "{nick}" was the reason.
+{name} shut down after the "{nick}" signs showed up in the student section. He didn't speak to reporters for a week.
+A teammate said {name} has been staying late after practice every day since "{nick}" started. "He's trying to make it go away," he said.
+{name} said the worst part of "{nick}" is that his little brother hears it at school.
+"{nick}" has followed {name} to the grocery store. His mother asked fans in a letter to the local paper to leave it at the stadium.
+{name} said he cried after the first "{nick}" chant. "I'm not ashamed of it," he said. "It was a lot."
+{name} said he's working with a sports psychologist. He didn't mention "{nick}" by name. He didn't have to.
+{name} took the bait. After another round of "{nick}" chants, he gestured at the stands and drew a flag.
+{name} has been quieter since "{nick}" took off. He answers in five words or less, and never about the name.
+{name} said he understands "{nick}." "I put it on myself," he said. "I'm going to take it off myself."
+
+[nick.react.mock_own]
+{name} has taken "{nick}" back. He wore it on his cleats the next week.
+"Call me {nick}," {name} said. "I'll call you when I score."
+{name} printed "{nick}" shirts himself and wore one to the next road game. The rival fans did not know what to do.
+{name} laughed off "{nick}" and then used it as his walk-up song title. The crowd sang along.
+{name} changed his bio to "{nick}." Underneath, he added his stats from the following week.
+"Sure, I'm {nick}," {name} said. "And I'm still here."
+{name} put "{nick}" on a hat and signed it for the rival student who started the chant.
+{name} said "{nick}" is motivation. He has it written on a strip of tape inside his locker.
+{name} turned "{nick}" into a celebration. He mimed it after his next big play, and the penalty flag was worth it.
+"They gave me {nick}," {name} said. "I'm going to make them regret it."
+{name} answered "{nick}" chants with a wave and a bow. The road crowd booed louder, which he seemed to enjoy.
+{name} named his podcast "{nick}." The first episode was about the play that started it.
+{name} signs some autographs "{nick}" now, with a little smiley face. "Got to have fun with it," he said.
+{name} sent the rival school's student section a pizza with "{nick}" spelled in pepperoni. It made national news.
+{name} said he likes "{nick}" now. "It's mine. They can't have it back."
+
+[nick.redeem]
+"{old}" is gone. After {moment}, nobody can call {name} anything but "{nick}."
+{moment} buried "{old}" for good. The new name is "{nick}," and {name} says he likes this one better.
+For a year, {name} was "{old}." Then came {moment}, and now he is "{nick}."
+The same fans who chanted "{old}" were chanting "{nick}" after {moment}.
+{name} heard "{old}" for months. After {moment}, he heard "{nick}," and he said it sounded a lot better.
+"{old}" was all anyone said about {name} until {moment}. Now the name is "{nick}."
+{moment} did what interviews and good intentions could not. "{old}" is retired, replaced by "{nick}."
+The rival section that coined "{old}" was silent after {moment}. The home side had a new name ready: "{nick}."
+{name} said he knew "{old}" was gone the second {moment} ended. "{nick} sounds like a guy who wins," he said.
+"{old}" lasted one bad season. "{nick}," born in {moment}, looks like it will last a career.
+The headline after {moment} said it all: "Goodbye, {old}. Hello, {nick}."
+His mother said she cried twice after {moment}: once for the play, once for the end of "{old}." Now he is "{nick}."
+Nobody has said "{old}" since {moment}. The talk shows, the fans and his teammates have all moved on to "{nick}."
+{name} kept a "{old}" sign from the rival student section in his locker for a year. After {moment}, he replaced it with "{nick}."
+It took {moment} to turn "{old}" into "{nick}." {name} says it was worth the wait.
+
+[nick.merch]
+"{nick}" shirts are the best-selling item in the {team} team store this week.
+The {team} store ran out of {name}'s jersey two days after "{nick}" took off. More are on order.
+"{nick}" T-shirts are everywhere in the tailgate lots, most of them made by someone's aunt with an iron-on kit.
+{team} officially licensed a "{nick}" shirt. The first run sold out in the time it took to post the link.
+{name}'s jersey number has outsold every other {team} number since "{nick}" caught on.
+A "{nick}" bobblehead night is on the {team} schedule. It is already the biggest promotion of the season.
+Bootleg "{nick}" shirts outnumber the official ones outside the stadium by about ten to one.
+The {team} bookstore has a "{nick}" display at the front door, right next to the textbooks no one is buying.
+A local bakery started selling "{nick}" cookies with the name in team colors. They sell out every Friday.
+Kids in {name}'s hometown are wearing "{nick}" shirts to school. The principal has asked for one.
+The {team} store added a "{nick}" foam finger. It is the first new foam finger design in years.
+"{nick}" is on a limited-run poster in the {team} store. It is signed, numbered and gone.
+Hand-painted "{nick}" signs are a fixture in the {team} student section now, with new ones every week.
+The {team} marketing office put "{nick}" on the season ticket renewal mailers. Renewals are up.
+A brewery near campus released a "{nick}" lager. {name} is too young to try it, but his teammates report it is good.
+
+# ---------- The head coach gives a nickname (press conference) ----------
+
+[nick.given.accept]
+{coach} called {name} "{nick}" at the press conference, and the room loved it. It was in every story by the evening.
+"That's {nick}," {coach} said, pointing at the depth chart. By the next practice, the players were using it too.
+{coach} said "{nick}" with a straight face, and it worked. The reporters used it in their first tweets.
+{coach} unveiled "{nick}" at the podium. {name} grinned in the back of the room and gave a thumbs up.
+The name {coach} gave {name}, "{nick}," was on a student section sign by the weekend.
+{coach} called him "{nick}" once, and the beat writers decided it was official.
+"We call him {nick} around here," {coach} said. The local radio shows picked it up within the hour.
+{coach}'s "{nick}" got a laugh and then a following. The team store asked about a shirt the next day.
+{coach} slipped "{nick}" into an answer about the running game. It was the only thing anyone wrote down.
+{name} said he liked "{nick}" because {coach} gave it to him. "Coach doesn't hand those out," he said.
+"{nick}," {coach} said. "Write that down." They did.
+The players picked up {coach}'s "{nick}" in the locker room before the press conference was even over.
+{coach} called {name} "{nick}" and the quote ran as the headline in two papers the next morning.
+{coach}'s "{nick}" stuck instantly. Even {name}'s mother started using it.
+{coach} used "{nick}" in his weekly radio show the next night. The callers were already ahead of him.
+
+[nick.given.flop]
+{coach} tried "{nick}" at the podium. Nobody wrote it down.
+{coach} called {name} "{nick}." The room was silent for a long second. The next question was about the kicking game.
+"{nick}" did not take. Reporters kept using {name}'s last name, and {coach} quietly stopped trying.
+{coach}'s "{nick}" lasted about one news cycle. A beat writer called it "a coach's joke that should have stayed in the staff room."
+{name} was asked about "{nick}" the next day. "That's Coach's thing," he said, and changed the subject.
+{coach} said "{nick}" twice. Even the sports information director winced.
+"{nick}" never made it out of the press conference. The players had their own name for {name} already.
+{coach} pushed "{nick}" for a week. The fans settled on something else.
+The local radio hosts spent a segment mocking {coach}'s "{nick}." It did not survive the segment.
+{coach} tried to make "{nick}" happen. It did not happen.
+{coach}'s "{nick}" got a polite chuckle and nothing else. The next day's papers didn't mention it.
+"{nick}?" a reporter repeated. {coach} nodded. The reporter wrote down something else.
+{coach} gave {name} "{nick}," but the players had already named him. Their version won.
+The "{nick}" experiment ended when {name} told reporters, kindly, that he'd rather not.
+{coach} used "{nick}" in three straight press conferences. The beat writers used it in zero straight stories.
+
+[nick.given.eye_roll]
+{coach} called {name} "{nick}," and {name} rolled his eyes from the back of the room. The cameras caught that, too.
+{name} groaned when {coach} said "{nick}." "Coach, please," he said, loud enough for the microphones.
+The players cracked up when {coach} said "{nick}." Not with him. At him.
+{coach}'s "{nick}" earned an eye roll from {name} and a dad-joke headline from the local paper.
+{name} put his head in his hands when {coach} said "{nick}." He later said he loves his coach, "just not his nicknames."
+{coach} said "{nick}" with real pride. {name} looked at the floor and smiled through it.
+"He's going to hate this," {coach} said, then called {name} "{nick}." {name} did hate it.
+The veterans on the roster spent the next practice calling {name} "{nick}" in {coach}'s voice. It was not a compliment to {coach}.
+{coach}'s "{nick}" became a locker room joke in about an hour. The joke was on the coach, not the player.
+{name} said "{nick}" was "very Coach." Asked to explain, he only laughed.
+{coach} explained "{nick}" for two minutes. The room was lost by the first thirty seconds.
+{name} said he'd answer to "{nick}" if {coach} let them skip conditioning. {coach} said no. {name} said no.
+"{nick}," {coach} announced. A reporter's audible sigh made the radio broadcast.
+{coach} gave {name} the name "{nick}." His teammates gave {coach} a new one in return.
+{name} fake-coughed into his fist when {coach} said "{nick}." The team's social account posted the clip anyway.
+
+# ---------- Broadcast calls ----------
+
+[call.td_run]
+{nick}! He's loose! {yards} yards and gone!
+Handoff to {nick}, he bounces it outside, and nobody is catching him! Touchdown, {team}!
+{nick} through the hole, {nick} in the clear, {nick} into the end zone!
+Cutback by {nick}, he's at the forty, the thirty, the twenty... touchdown!
+He breaks one tackle, he breaks two! {nick} will not go down! {yards} yards for the score!
+{nick} up the middle, and there is no one there! Touchdown, {team}!
+Look at {nick} go! {yards} yards, untouched!
+Toss to {nick}, he turns the corner, and {opp} has no answer! Six points!
+{nick} stiff-arms one, spins off another, and walks in!
+The {opp} defense had him in the backfield, and {nick} said no! He is in! Touchdown!
+{nick} down the sideline... he stays in bounds... he's gone!
+There goes {nick}! {yards} yards, and the {team} sideline is emptying onto the field!
+{nick} on the draw, he slips the linebacker, and it's a footrace he wins!
+They hit him at the five, and {nick} carries two {opp} defenders across the goal line!
+He's at midfield! He's at the thirty! {nick} is not going to be caught!
+Third and short, they give it to {nick}, and he takes it {yards} yards to the house!
+{nick} hurdles a man at the ten and lands in the end zone! Are you kidding me?
+{nick}, around the end, {nick} with a block, {nick} touchdown!
+A crease, a burst, and {nick} is gone for {yards}! {team} on top!
+{nick} reverses field, he has a convoy, and he's gonna score!
+Pitch to {nick}, he's to the outside, and nobody from {opp} is even close!
+Oh, {nick}! What a run! {yards} yards and {team} takes the lead!
+
+[call.td_catch]
+{nick} behind the defense... caught! Touchdown, {team}!
+Deep shot for {nick}, he's got a step... he's got it! He's gone!
+{nick} in the back of the end zone, one foot down, two feet down! Touchdown!
+Slant to {nick}, he catches it in stride, and nobody from {opp} is catching him!
+{nick} goes up over two defenders and comes down with it! Touchdown!
+Short pass to {nick}, he makes one miss, two miss, and he is in! {yards} yards!
+Fade to the corner... {nick}... got it! What a catch!
+Over the middle to {nick}, he splits the safeties, and he is gone!
+{nick} with the one-handed grab! Are you kidding me? Touchdown!
+They threw it into triple coverage, and {nick} took it away from all three!
+Wide open {nick}! Nobody within ten yards of him! Touchdown, {team}!
+{nick} tiptoes the back line... the official signals... touchdown!
+Screen to {nick}, he has blockers, and he is gone! {yards} yards!
+{nick} catches it at the twenty, cuts back, and walks in! Six for {team}!
+Rainbow down the sideline, {nick} running under it... touchdown! {yards} yards!
+Bobbled... bobbled... {nick} hangs on! Touchdown!
+{nick} turns the corner... and {opp} can only watch! Six points!
+He snatched it away from the {opp} corner and that's six for {team}!
+Back-shoulder throw, and {nick} makes it look easy! Touchdown!
+{nick} on the post, perfect throw, perfect catch, {yards} yards!
+Diving in the end zone... {nick}! He caught it! He caught it!
+Third and long, {nick} on the sideline, and he takes it all the way!
+
+[call.pick]
+Intercepted! {nick} jumped that route and he is going the other way!
+Picked off by {nick}! {opp} threw it right to him!
+{nick} reads it all the way and takes it away! What a play!
+Tipped... and caught by {nick}! Interception!
+{nick} undercuts the receiver and takes it {yards} yards to the house! Pick six!
+Deep shot... and {nick} is there! Intercepted!
+{nick} with the interception! That might be the ballgame!
+Batted in the air, {nick} goes up and gets it! {team} ball!
+{nick} saw it coming from the snap! Picked off!
+Oh, he stole that one! {nick} with the pick, and {team} takes over!
+{nick} high-points it in the end zone! Interception!
+They tried to fit it in a window, and {nick} slammed the window shut!
+Picked! {nick}! And he has a convoy in front of him!
+{nick} out-jumps the receiver and comes down with it! Interception, {team}!
+A diving interception by {nick}! What a play by the {team} defense!
+{opp} goes after {nick} again, and {nick} makes them pay! Intercepted!
+{nick} had no business getting to that ball, and he got to it! Interception!
+He's going to score! {nick} with the pick, and it's {yards} yards the other way!
+Thrown up for grabs, and {nick} is there to grab it!
+Pass deflected... {nick} catches it off his own shoulder pads! Intercepted!
+{nick} baits the throw, and the quarterback bit! Interception!
+{nick} picks it off at the goal line and {team} keeps the lead!
+
+[call.sack]
+{nick} off the edge! Sack!
+Down goes the quarterback! {nick} got him!
+{nick} beats the tackle and buries him! Sack!
+{nick} with the strip sack! Ball's loose!
+He spun inside, and {nick} gets there! Sack!
+{nick} untouched! What a rush!
+{nick} chases him down from behind! Sack!
+Nowhere to go, and {nick} wraps him up! {opp} loses {yards}!
+{nick} again! He has been in that backfield all day!
+{nick} through the A-gap! He got there in no time!
+Bull rush, and {nick} drives the tackle into the quarterback! Sack!
+Third down, {nick} off the edge, and {opp} has to punt!
+{nick} with a speed rush, and the quarterback never saw him!
+Get him, {nick}! Got him! Sack!
+{nick} gets home! A huge sack on a huge down!
+They double-teamed {nick}, and he still got there!
+{nick} chases him out of the pocket and drags him down! Sack!
+Ball out... no! {nick} knocks it out! Fumble!
+{nick} swims past the guard and slams the quarterback down! {yards}-yard loss!
+{nick} with a sack, and that takes {opp} out of field goal range!
+
+[call.kick_good]
+The kick is up... it's good! {team} wins it!
+It's long enough... it's straight enough... it's good!
+{nick} from {yards}... good!
+It's on its way... dead center! Good!
+{nick} drills it from {yards} yards! {team} takes the lead!
+The snap, the hold, the kick... good! {team} goes ahead!
+From {yards}... and it's got plenty! Good!
+It hits the upright... and bounces in! Good!
+{nick} is ice cold! The kick is good!
+They called timeout to ice him, and {nick} doesn't care! Good!
+{yards} yards... and it splits the uprights! What a kick from {nick}!
+It's high, it's far, it's... good!
+{nick} hooks it... it's drifting... it stays inside! Good!
+Long snap, good hold, good kick! {nick} from {yards}!
+It's a career long for {nick}, and it is through!
+{nick} with a {yards}-yarder into the wind, and he nails it!
+The crowd holds its breath... and it's good! {team} leads!
+Off the foot of {nick}... and it's good, with room to spare!
+It's good! {nick} has done it again!
+Straight down the middle from {yards} yards! {nick}, perfect!
+
+[call.walkoff]
+He did it! {nick} did it! {team} wins!
+Ballgame! {nick} with the winner, and {team} beats {opp}!
+No time on the clock, and {nick} wins it! The {team} sideline floods the field!
+{nick}! Game over! Unbelievable!
+It's over! {nick} has won the game for {team}!
+The clock reads zero, and {nick} is the hero!
+Final play, final answer: {nick}! {team} wins!
+Do you believe it? {nick} wins it at the gun!
+{nick} wins it! The {opp} players are flat on the turf!
+Into the end zone... {nick}! {team} wins it with no time left!
+And the fans are coming onto the field! {nick} has beaten {opp}!
+{nick} and {team} steal it from {opp} at the very end!
+Walk-off! {nick}! What a finish!
+{nick} with the last play of the game and the best play of his life!
+They're piling on {nick} in the end zone! {team} wins!
+He's in! It's over! {nick} has won it!
+The {team} bench is sprinting onto the field! {nick} won the game!
+{opp} had it won, and then {nick} happened!
+There's no flag! It counts! {nick} wins it for {team}!
+Time expired and {nick} has broken {opp} hearts!

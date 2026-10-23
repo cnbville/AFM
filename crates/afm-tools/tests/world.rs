@@ -456,12 +456,19 @@ fn five_stars_find_division_one_places() {
     let w = &*WORLD;
     let mut at_juco: std::collections::BTreeMap<(i32, usize), u32> = Default::default();
     let first = |path: &[usize]| path.first().copied().filter(|&c| w.programs[c].division == Division::JUCO);
+    // A drafted or undrafted pro still playing is in both lists (his
+    // alumni record is written at the draft): count him once.
+    let mut counted = std::collections::HashSet::new();
     for p in w.people.iter().filter(|p| p.stars == 5) {
         if let Some(c) = first(&p.path) {
+            counted.insert(p.player.id);
             *at_juco.entry((p.class_of, c)).or_default() += 1;
         }
     }
     for a in w.alumni.iter().filter(|a| a.stars == 5) {
+        if a.player.as_ref().is_some_and(|x| counted.contains(&x.id)) {
+            continue;
+        }
         if let Some(c) = first(&a.colleges) {
             *at_juco.entry((a.class_of, c)).or_default() += 1;
         }

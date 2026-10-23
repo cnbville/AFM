@@ -30,6 +30,10 @@ pub struct ReplaySetup {
     /// roof over the field.
     pub kickoff: f32,
     pub indoor: bool,
+    /// The season, for the rules that changed by era (celebrations); 0
+    /// reads as today's rules.
+    #[serde(default)]
+    pub year: i32,
     /// Your settings and every answer, for a game you played live (section
     /// 9): the game is its seed plus these.
     #[serde(default)]
@@ -52,6 +56,7 @@ impl ReplaySetup {
             cold_unused: s.cold_unused,
             kickoff: s.kickoff,
             indoor: s.indoor,
+            year: s.year,
             live,
         }
     }
@@ -74,6 +79,7 @@ impl ReplaySetup {
             keep: false,
             kickoff: self.kickoff,
             indoor: self.indoor,
+            year: self.year,
         }
     }
 

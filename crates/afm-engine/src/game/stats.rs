@@ -648,6 +648,10 @@ pub struct GameStats {
     pub players: [HashMap<u32, StatLine>; 2],
     pub plays: Vec<PlayRecord>,
     pub overtime: bool,
+    /// Timeouts each team (home, away) still held when the first and the
+    /// second half ended: what the morning-after grades read.
+    #[serde(default)]
+    pub timeouts_left: [[u8; 2]; 2],
 }
 
 impl GameStats {

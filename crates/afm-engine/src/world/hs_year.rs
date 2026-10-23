@@ -1125,6 +1125,7 @@ fn engine_games(
             );
             setup.rules = rules;
             setup.cond = cond;
+            setup.year = world.year;
             setup.neutral = final_game;
             setup.playoff = week >= world.hs_season.as_ref().unwrap().states[s].weeks.len();
             // Your school's game keeps its setup for the film; Friday night
@@ -1194,6 +1195,7 @@ fn engine_games(
             if let Some(o) = &watch {
                 w.keep_tape(o, Level::HighSchool, [h, a], full, film);
             }
+            super::stories::hs_game(w, [h, a], full);
         }
         w.log.hs_engine_games += 1;
         w.log.hs_totals.add(&g.team[0], &g.team[1]);

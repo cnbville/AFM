@@ -342,6 +342,7 @@ pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bo
         neutral,
         wear: [wear_of(home), wear_of(away)],
         cold_unused: [cold_of(home), cold_of(away)],
+        year: w.year,
         kickoff: at.minute as f32 / 60.0 - et_offset(code) as f32,
         indoor: neutral || closed,
         keep: w.seat_plays(crate::calendar::Level::Nfl, [home, away]),
@@ -473,6 +474,12 @@ pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[
     if let Some(o) = w.tape_watch(crate::calendar::Level::Nfl) {
         w.keep_tape(&o, crate::calendar::Level::Nfl, teams, &r.stats, &r.film);
     }
+    // The stories around the game (final build lane 8): the home side's
+    // chance from the two strengths read at kickoff, and whether the
+    // regular season is over.
+    let postseason = w.nfl_season.as_ref().is_some_and(|s| s.booked);
+    let pre = 1.0 / (1.0 + (-(1.1 * (opp_z[1] - opp_z[0]) + 0.1)).exp());
+    crate::world::stories::nfl_game(w, teams, &r.stats, postseason, pre);
     if w.options.keep_game_log && w.recording {
         w.game_log.add_nfl(year, teams, &r.stats);
     }
