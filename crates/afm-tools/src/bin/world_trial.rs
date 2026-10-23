@@ -206,8 +206,23 @@ fn main() {
         std::env::var("AFM_DASH").is_ok() || std::env::var("AFM_CARDS").is_ok() || std::env::var("AFM_RAW").is_ok();
     // AFM_SCALE=0.05: a small world, for quick checks of the tooling only.
     let scale = std::env::var("AFM_SCALE").ok().and_then(|v| v.parse().ok()).unwrap_or(1.0);
+    // AFM_HS_ENGINE_YEARS=n plays the last n years of high school games on
+    // the match engine (0: none, for speed); the game's own default otherwise.
+    let hs_engine_years = match std::env::var("AFM_HS_ENGINE_YEARS").ok().and_then(|v| v.parse::<u32>().ok()) {
+        Some(0) => None,
+        Some(n) => Some(n),
+        None => WorldOptions::default().hs_engine_years,
+    };
     // Each season's build time and memory, as it comes.
-    let opts = WorldOptions { seed, history_years: years, engine_from, keep_game_log, scale, ..Default::default() };
+    let opts = WorldOptions {
+        seed,
+        history_years: years,
+        engine_from,
+        keep_game_log,
+        scale,
+        hs_engine_years,
+        ..Default::default()
+    };
     let mut w = World::new_watched(opts, |w, secs| {
         let hs = w.log_history.last().map_or(0, |l| l.hs_engine_games);
         eprintln!(
