@@ -485,6 +485,11 @@ pub(crate) fn roster_limit(w: &World, d: Date) -> usize {
 // --- Money on the books -----------------------------------------------------------------
 
 /// A team's cap charges in a league year: every contract it holds and its dead money.
+/// A deal that runs out the year before still owes its void-year bonus: it
+/// lands on this year's cap when the league year opens (real, and what
+/// `market::open_league_year` charges), so the books count it from now.
+/// Without it a club planned its February cuts on books $50-80M lighter
+/// than the ones it opened March with.
 pub fn payroll(w: &World, t: usize, year: i32) -> f64 {
     // The offseason rule of 51 (real): until the first game only a team's
     // 51 biggest cap hits count. A stack buffer: this runs for every offer.
@@ -492,10 +497,18 @@ pub fn payroll(w: &World, t: usize, year: i32) -> f64 {
     let mut buf = [0.0f64; 160];
     let mut n = 0;
     let mut all = 0.0;
+    let mut voided = 0.0;
     for &i in &w.clubs[t].roster {
         if let Some(c) = w.people[i].pro.as_ref().and_then(|c| c.contract.as_ref())
             && c.team == t
         {
+            let last = c.last_year();
+            if last < year {
+                if last + 1 == year {
+                    voided += c.years.iter().filter(|x| x.year >= year).map(|x| x.proration).sum::<f64>();
+                }
+                continue;
+            }
             let hit = c.cap_hit(year);
             all += hit;
             if n < buf.len() {
@@ -511,7 +524,7 @@ pub fn payroll(w: &World, t: usize, year: i32) -> f64 {
     } else {
         all
     };
-    held + w.clubs[t].dead_in(year)
+    held + voided + w.clubs[t].dead_in(year)
 }
 
 /// The offseason rule of 51.

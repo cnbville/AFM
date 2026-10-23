@@ -536,6 +536,10 @@ fn flags(p: &crate::world::Person) -> f64 {
         .sum()
 }
 
+/// Grade points a full measured link adds to a club's read (D3, Claude's
+/// pick: real clubs draft the freak a round or so early).
+const DRAFT_GIFT: f64 = 2.0;
+
 fn competition_discount(d: Division) -> f64 {
     match d {
         Division::FBS => 0.0,
@@ -699,7 +703,13 @@ pub(crate) fn read(w: &World, t: usize, i: usize, looks: &[Look], ctx: &Ctx) -> 
     let pot = now.max(overall_for(pos, &p.player.ceilings) + pot_err);
     let youth = clamp((23.0 - p.player.age as f64) / 3.0, 0.0, 1.0);
     let q = 0.25 + 0.2 * youth;
-    let grade = now + q * (pot - now) - competition_discount(division) - flags(p);
+    // Traits that can't be coached (D3): clubs pay for measured size,
+    // length, speed and burst (the links), about two grade points for one
+    // full link once he has tested, less on a film guess. A workout warrior
+    // without the skills still grades on his skills first.
+    let gift = crate::links::gift(&crate::links::links_at(&p.player, pos));
+    let gift_pts = if meas.is_some() { DRAFT_GIFT } else { 0.5 * DRAFT_GIFT } * gift;
+    let grade = now + q * (pot - now) + gift_pts - competition_discount(division) - flags(p);
     let var = now_var * (1.0 - q) * (1.0 - q) + q * q / pot_prec;
     // The character read: the services' talk only, if nobody asked.
     let risk = if risk_prec > 0.0 {
