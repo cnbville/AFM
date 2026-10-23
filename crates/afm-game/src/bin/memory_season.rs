@@ -150,6 +150,23 @@ fn main() {
     }
     loop {
         let r = g.call("continue", &json!({})).expect("continue");
+        // The draft live from your chair (lane 7): the staff picks, then the rush.
+        if r["studio"]["screen"] == json!("warroom") {
+            line("war room open", &t);
+            for _ in 0..400 {
+                let room = g.call("draft_live", &json!({})).expect("draft_live");
+                if !room["live"].as_bool().unwrap_or(false) {
+                    break;
+                }
+                if room["rush"].as_bool().unwrap_or(false) {
+                    g.call("draft_rush", &json!({})).expect("draft_rush");
+                    break;
+                }
+                let cmd = if room["on_clock"].as_bool().unwrap_or(false) { "draft_auto" } else { "draft_go" };
+                g.call(cmd, &json!({ "until": "yours" })).expect(cmd);
+            }
+            line("draft done", &t);
+        }
         let w = g.world.as_ref().expect("world");
         let (y, m, d) = w.today.parts();
         let _ = r;

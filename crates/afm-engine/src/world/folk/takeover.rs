@@ -245,6 +245,7 @@ pub fn roles_around(team: Team) -> Vec<Role> {
             Role::Personnel,
             Role::ChiefOfStaff,
         ],
+        Team::Other(_) => vec![Role::Owner, Role::Gm, Role::Reporter, Role::Comms, Role::Trainer, Role::Strength],
         Team::High(_) => vec![
             Role::Principal,
             Role::SchoolAd,
@@ -389,6 +390,24 @@ fn schedule(w: &World, team: Team, _d0: Date) -> Vec<(i32, Kind, u64, String, St
                 "Your first team meeting".into(),
                 "The team auditorium, the first day of the offseason program".into(),
             ));
+        }
+        // An other-league club: the owner, the press, the holdovers and the
+        // team at camp.
+        Team::Other(_) => {
+            v.push((0, Kind::BossFirst, 0, "The owner's goals".into(), "The owner's office at the stadium".into()));
+            v.push((
+                1,
+                Kind::PressIntro,
+                0,
+                format!("Introduced as the {name}' head coach"),
+                format!("{town}, the stadium club"),
+            ));
+            for (c, role) in &facts::assistants(w, team) {
+                v.push((2, Kind::Holdover, *c as u64, format!("Meeting the {}", role.name()), "Your office".into()));
+            }
+            v.push((3, Kind::Trainer, 0, "The trainer's report".into(), "The training room".into()));
+            v.push((4, Kind::Media, 0, "The beat reporters".into(), "The media room".into()));
+            v.push((5, Kind::TeamMeeting, 0, "Your first team meeting".into(), "The team room at camp".into()));
         }
         Team::High(h) => {
             let school = name.clone();
@@ -864,7 +883,7 @@ pub fn captains_of(w: &World, team: Team) -> Vec<usize> {
     let ids: Vec<usize> = match team {
         Team::College(p) => w.programs[p].captains.clone(),
         Team::Nfl(t) => w.clubs.get(t).map(|c| c.captains.clone()).unwrap_or_default(),
-        Team::High(_) => Vec::new(),
+        Team::High(_) | Team::Other(_) => Vec::new(),
     };
     let roster = team.roster(w);
     let mut out: Vec<usize> = ids.into_iter().filter(|i| roster.contains(i)).collect();
@@ -926,6 +945,7 @@ fn hire_reaction(w: &mut World, s: &mut Scene, team: Team) {
     let fans = match team {
         Team::College(p) => w.programs[p].fans,
         Team::Nfl(t) => w.clubs.get(t).map_or(0.5, |c| (c.office.fans + 1.0) / 2.0),
+        Team::Other(f) => crate::world::pro::other::prestige(f),
         Team::High(h) => w.high_schools[h].prestige,
     };
     s.who.push(Who::Group("The press and the fans".into()));
@@ -1362,6 +1382,8 @@ fn staff_report(w: &mut World, s: &mut Scene, team: Team) {
         match team {
             Team::Nfl(_) =>
                 "The pro scouts sit in: in the NFL the new staff grades the roster with them, before the combine.",
+            Team::Other(_) =>
+                "The general manager sits in: half the roster turns over every year, so the board is mostly names to sign.",
             Team::College(_) =>
                 "Your read is wide on day one: film and what the holdovers say. Spring ball will sharpen it.",
             Team::High(_) => "Most of it is last fall's film and what the old staff wrote on the board.",
@@ -1821,7 +1843,7 @@ fn flight_risks(w: &mut World, s: &mut Scene, team: Team) {
                     None => "There's no coaching-change window in this era, but the next regular window comes all the same.".into(),
                 }
             }
-            Team::Nfl(_) => "In the league it means trade requests, holdouts and veterans who'd rather be released than rebuild.".into(),
+            Team::Nfl(_) | Team::Other(_) => "In the league it means trade requests, holdouts and veterans who'd rather be released than rebuild.".into(),
             Team::High(_) => "A coaching change is when families shop for another school, where the state's transfer rules allow it.".into(),
         }
     ));
@@ -2484,6 +2506,7 @@ fn tour(w: &mut World, s: &mut Scene, team: Team) {
     let host = match team {
         Team::College(_) => cast::get(w, CastRef::new(team, Role::AthleticDirector, 0)),
         Team::Nfl(_) => cast::get(w, CastRef::new(team, Role::TeamPresident, 0)),
+        Team::Other(_) => cast::get(w, CastRef::new(team, Role::Gm, 0)),
         Team::High(_) => cast::get(w, CastRef::new(team, Role::SchoolAd, 0)),
     };
     s.who.push(Who::Cast(host.r.token()));
@@ -2575,6 +2598,10 @@ fn tour(w: &mut World, s: &mut Scene, team: Team) {
                 let opp = if f.home == h { f.away } else { f.home };
                 (f.date, format!("{} {}", if f.home == h { "vs" } else { "at" }, Team::High(opp).link(w)))
             })
+            .collect(),
+        Team::Other(f) => crate::world::pro::other::fixtures(w, f)
+            .into_iter()
+            .map(|(d, o, home)| (d, format!("{} {}", if home { "vs" } else { "at" }, Team::Other(o).link(w))))
             .collect(),
     };
     if !fixtures.is_empty() {

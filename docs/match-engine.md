@@ -449,9 +449,72 @@ The 2D and 3D game views (later extras topics 2 and 3) watch a game by playing i
 - **An engine change makes old setups play a different game.** The film room checks the replay against the kept box score (score, plays, each play's kind and yards) and says the game can't be played back when they differ.
 - **Receivers near the goal line** (found by the film checks: a go route from the 10 ran through the back of the end zone, and a man was tracked 15 yards past the end line). A route's points now stop a yard inside the end line (a go route becomes a fade to the back line), and a receiver still running at the end line slides along it toward the middle of the field. This changes results slightly in the red zone.
 
+## The other leagues' rule books (final build lane 4, X7)
+
+`game/books.rs` gives each other league its rules by season: `Rules::for_book(book, year)`, with the rule book's own settings in `Rules.code`. An American game (`Book::American`, every NFL, college and high school game) takes the engine's old paths, so its results per seed don't move. The field of the game running on a thread is `geom::field()`, set for a game by `FieldGuard`. Everything that knew the field was 100 by 53.3 yards now reads `goal()`, `end_line()` and `width()`. Where a league's published rule book couldn't be checked line by line, the rule below is Claude's reading of its reported rules, marked "(reading)".
+
+- **CFL** (`cfl`):
+  - **Field and players:** 12 a side on a field 110 yards long and 65 wide, with 20-yard end zones from 1986 (25 before). From 2027 the field is 100 yards with 15-yard end zones and the posts at the back. Three downs. The hash marks are 24 yards in.
+  - **Before the snap:** the defensive line sits a yard off the ball. Every back may be moving and receivers may run forward at the snap.
+  - **Kicks:** no fair catch (a 5-yard halo). The single (rouge) scores for a kick not brought out of the end zone; under the 2026 rule only one that settles there scores, and one through the end zone comes out to the 40. A missed field goal is a live kick.
+  - **The convert:** a kick from the 5 and two from the 5; from 2015 the kick is from the 25 (a 32-yard try) and two from the 3.
+  - **The clock:** the three-minute warning, and the clock stopping after every play in the last three minutes. The play clock is 20 seconds from the referee's whistle (about 30 from the end of the play), 35 from the end of the play from 2026.
+  - **Challenges and timeouts:** none to 2006, one to 2013, then two. One timeout a game, two from 2013.
+  - **Overtime:** possessions from the other team's 35, at most two rounds in the regular season, and a two-point convert required after a touchdown from 2010.
+  - **Calling:** the league's pass lean is -0.16. It brings the CFL's three-down passing to 40.2 attempts a team game on synthetic rosters (it was 42).
+- **Arena football** (`arena`):
+  - **Field and players:** 8 a side on a 50-yard field 85 feet wide, with 8-yard end zones, posts 9 feet wide at the end line and rebound nets beside them. Most players go both ways until 2006 (`ironman`).
+  - **Kicks:** no punting; drop kicks allowed. Kickoffs go from the goal line. A kick off the nets stays live, and one over the side walls comes to the 20.
+  - **Tries:** a kick from the 3 or a play from the 3.
+  - **Defense:** man coverage only (a zone call becomes the man look with the same safeties), and at most four rushers.
+  - **Motion and clock:** one receiver in motion toward the line. The clock runs in the last minute (reading).
+  - **Overtime:** one possession each, then the next score wins.
+  - **Calling:** the pass lean is +0.28.
+- **The World League and NFL Europe:** the NFL rules of the era, plus the two-point try all along and four points for a field goal from 50 yards. 15-minute quarters and sudden death.
+- **The XFL of 2001:**
+  - **Tries:** no kick; one point for a play from the 2, and from the playoffs two from the 5 and three from the 10.
+  - **Punts:** no fair catch (5 yards for the returner), and a punt past 25 yards is a live ball.
+  - **Other:** one back may run toward the line at the snap, and the play clock is 35 seconds.
+  - **Overtime:** four downs from the 20 each, and only a touchdown counts.
+- **The XFL of 2020 and 2023 and the UFL from 2024:**
+  - **Kickoff:** the XFL kickoff, with both lines set five yards apart and nobody moving until the catch. A short kick comes out to the 45, one into the end zone to the 35.
+  - **Tries:** plays for one, two or three from the 2, 5 and 10.
+  - **Punts:** a punt touchback comes out to the 35.
+  - **Onside alternative:** fourth and 15 from the 25 in 2023, fourth and 12 from the 28 in the UFL.
+  - **Clock and timeouts:** two timeouts a half, and a 25-second clock from the spot.
+  - **Overtime:** a shootout of tries from the 5, five rounds in 2020 and three after.
+  - **The UFL of 2026:** a kicked point from the 15 again, two from the 2 and three from the 8. Four points for a field goal from 60 yards, no punting from past midfield outside the last two minutes of a half, and one foot in bounds.
+- **The AAF (2019):**
+  - **No kickoffs:** the ball starts at the 25.
+  - **Tries:** no kicked try; a two-point play from the 2.
+  - **Onside alternative:** fourth and 12 from the 28 when behind by 17 or in the last five minutes.
+  - **Rushers:** at most five.
+  - **Overtime:** one round from the 10, with a two-point try after a touchdown.
+- **The USFL of 1983-85:** NFL rules with the two-point try from the 2, and sudden death.
+- **The USFL of 2022-23:**
+  - **Kickoff:** from the 25.
+  - **Tries:** a kicked point, or plays for two from the 2 and three from the 10.
+  - **Onside alternative:** fourth and 12 from the own 33.
+  - **Overtime:** a best-of-three shootout from the 2.
+- **The UFL of 2009-12:** NFL rules with the two-point try.
+
+**What the leagues' plays share.** The players and the play come from the same engine: only the rules change.
+- **Personnel:** with 12 a side the offense adds a receiver and the defense a defensive back. With 8 a side the offense and defense are cut to arena football's sets (`for_players`).
+- **Tries:** a two-point (or one- or three-point) try is booked as a try, never as a scrimmage touchdown. This fixed the American game's two-point try too: it was booked as a six-point play in the stats.
+- **Playoffs:** a playoff game plays its overtime out (`GameSetup.playoff`), so no title game ends tied.
+- **The other fields:** every place that read a 100-yard field now reads the game's field. That covers fourth-down and field-goal choices, the expected points behind your own calls and replay rulings, the officials' spots near the goal, and kicking distances (`kick_add`).
+
+**Measured** (`match_check <book> 300`, synthetic NFL-level rosters, points a team game against each league's real average): CFL 27.6 (24), arena 51.6 (52), NFL Europe 25.6 (21), XFL 2001 26.3 (20), XFL 2020/23 27.1 (20.5), AAF 27.4 (20.2), USFL 1983 24.7 (23.5), USFL 2022 27.5 (20.4), UFL 2009 25.3 (21), UFL 27.7 (20.5). The engine's NFL on the same rosters runs 21.9% over real points, 31% over passing yards and 12% over attempts, so the spring leagues are about 10% above that bias. Their real rosters were thinner at quarterback than synthetic NFL rosters; in the world (`leagues_check 2025 5`) the CFL scores 22-27 and arena 50-57, but the spring leagues still score 26-30 (`docs/world-model.md`, "The other leagues as full leagues").
+
+**Thin rosters:** an arena team dresses 20-odd men, so a blowout can pull nearly all of them. The pulled starters come back for a kick unit before it takes the field short, as they already did on offense and defense (`Side::kick_unit`); a test world once crashed on a kickoff with nobody to field it.
+
+**Known gaps:** CFL teams punt about 9.7 times a game (real about 6-7). The spring leagues run 14-18% more plays than real. The CFL's best passers throw for more than the league's real record (6,619 yards).
+
+
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
-- `cargo run --release --bin match_check -- nfl|fbs|hs [games] [seed] [pbp]`: averages against real data; `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, college only; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams.
+- `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl2022|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, college only; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams.
 - `cargo run --release --bin dynasty_check -- value [games] [seed]`: what each position and the play callers are worth (`AFM_LEVEL`, `AFM_ONLY`). `cargo run --release --bin call_values -- 400`: rebuilds the coaches' what-beats-what table (`AFM_CELL=concept:Coverage` shows one cell's outcomes).
 - `cargo run --release --bin garbage_check -- fbs|nfl|hs [games] [quality sd] [seed]`: garbage time against real play-by-play (who plays the 4th quarter by lead, run-out, 4th downs, sample why lines).
+- `cargo run --release --bin leagues_check -- <start year> <history years> [scale] [seed]`: the other leagues in a small world (college on the stand-in): every season's table, scoring against the real league, champions, rosters and Canadians, the CFL draft, the best passing lines and the coaches' seats.
 - `cargo run --release --bin play_trace -- <run|pass|N> [seed] [sweep]`: one snap traced tick by tick, or a sweep of seeds. `AFM_LEVEL=fbs|hs`, `AFM_COV=0-9`, `AFM_LOS=yards` and `AFM_BASE=1` set the level, coverage, spot and personnel. `AFM_TRACE=1` prints every agent.

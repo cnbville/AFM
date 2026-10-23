@@ -827,6 +827,7 @@
         <span class="gp-at">at</span>
         <span class="gp-pts ${won(0) ? "won" : ""}">${h.score}</span><a class="gp-team ${won(0) ? "won" : ""}" ${teamGo(g.home)}><b>${esc(h.name)}</b>${mark(g.home, 60)}</a>
       </div>
+      ${g.line && (g.line.words || g.line.crowd) ? `<div class="gp-line">${g.line.words ? `<span><span class="st-label">The line</span> ${esc(g.line.words)}${g.line.against ? ` · <b>${esc(g.line.against)}</b>` : ""}</span>` : ""}${g.line.crowd ? `<span><span class="st-label">Crowd</span> ${Number(g.line.crowd).toLocaleString()}</span>` : ""}</div>` : ""}
       <div class="gp-under"><div class="tbl gp-qs"><table><thead><tr><th class="l"></th>${qs}<th>T</th></tr></thead><tbody><tr><td class="l">${esc(w.name)}</td>${qline(1)}<td><b>${w.score}</b></td></tr><tr><td class="l">${esc(h.name)}</td>${qline(0)}<td><b>${h.score}</b></td></tr></tbody></table></div>
         <div class="gp-wpbox"><div class="st-label">${esc(g.mine != null ? sideTeam(g.mine).name : h.name)} win chance · the big swings marked</div>${wpChart(g.wp, mineHome, { h: 110, marks, halves: half })}</div></div>
       ${g.stars.length ? `<div class="gp-stars"><span class="st-label">Game balls</span>${g.stars.slice(0, 4).map((s) => `<span>${playerLink(s.id, s.name)} <small>${esc(s.pos || "")} · ${esc(s.line)}</small></span>`).join("")}</div>` : ""}

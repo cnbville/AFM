@@ -308,9 +308,11 @@ fn cap_sheet(w: &World) -> Reply {
         .iter()
         .filter(|d| d.year >= year)
         .map(|d| {
-            let who =
-                fo::index_of(w, d.player).map(|i| w.people[i].name.clone()).unwrap_or_else(|| "A former player".into());
-            json!({ "year": d.year, "amount": d.amount.round(), "id": d.player, "name": who, "why": dead_words(d.why) })
+            // A player the world no longer keeps (he left football) has no
+            // page: his name without a link.
+            let at = fo::index_of(w, d.player);
+            let who = at.map(|i| w.people[i].name.clone()).unwrap_or_else(|| "A former player".into());
+            json!({ "year": d.year, "amount": d.amount.round(), "id": at.map(|_| d.player), "name": who, "why": dead_words(d.why) })
         })
         .collect();
     let picks: Vec<Value> = deals::picks_of(w, t).iter().map(|p| pick_json(w, p)).collect();

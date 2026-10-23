@@ -593,6 +593,7 @@ fn star_open(w: &mut World, s: &mut Scene) {
     let oc = match team {
         Team::College(p) => w.programs[p].oc,
         Team::Nfl(t) => w.nfl[t].oc,
+        Team::Other(f) => crate::world::pro::other::slot(w, f, crate::world::coach::Role::OffensiveCoordinator),
         Team::High(_) => None,
     };
     let (ask, line) = match s.b {

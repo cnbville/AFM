@@ -65,6 +65,10 @@ pub struct PickBook {
     pub cfa: Vec<(i32, usize, usize, usize, f64)>,
     /// Minority coaches hired away as head coaches: (year, old team, offseasons there).
     pub diversity: Vec<(i32, usize, u32)>,
+    /// Picks forfeited for a supplemental draft choice: (draft year, round,
+    /// original team).
+    #[serde(default)]
+    pub forfeited: Vec<(i32, u32, usize)>,
 }
 
 impl PickBook {
@@ -74,6 +78,15 @@ impl PickBook {
 }
 
 /// Hands over a pick (an offer sheet's compensation, a trade).
+/// A club gives up its own pick in a round of a coming draft (a
+/// supplemental draft choice): the pick it holds in that round, its own or
+/// one it acquired.
+pub(crate) fn forfeit_pick(w: &mut World, team: usize, year: i32, round: u32) {
+    let teams = super::super::franchise::active_teams(year);
+    let orig = teams.iter().copied().find(|&o| w.market.picks.owner_of(year, round, o) == team).unwrap_or(team);
+    w.market.picks.forfeited.push((year, round, orig));
+}
+
 pub(crate) fn give_pick(w: &mut World, from: usize, to: usize, year: i32, round: u32) {
     // The giver's own pick in that round if he still has it, else one he
     // holds from another team.
@@ -115,6 +128,11 @@ pub(crate) fn board_owners(w: &World, year: i32, board: &mut Vec<(usize, u32)>, 
             let n = ((full.len() as f64 * scale).round() as usize).max(1);
             (0..n).map(|i| full[((i as f64 / scale) as usize).min(full.len() - 1)]).collect()
         };
+    }
+    // A pick given up in a supplemental draft is gone from the board.
+    let lost: Vec<(u32, usize)> = w.market.picks.forfeited.iter().filter(|f| f.0 == year).map(|f| (f.1, f.2)).collect();
+    if !lost.is_empty() {
+        board.retain(|s| s.1 & COMP != 0 || !lost.contains(&(s.1, s.0)));
     }
     for slot in board.iter_mut() {
         if slot.1 & COMP != 0 {
@@ -224,16 +242,30 @@ pub(crate) fn pick_value(w: &World, t: usize, year: i32, round: u32, orig: usize
 /// cap cost, as a share of the cap (10,000 points for a full cap-year of
 /// surplus, so about two late firsts for a fifth of the cap). Proposed,
 /// not confirmed.
+///
+/// A club counts the seasons it will use him for its plan: a rebuilding
+/// club gets little from a veteran of 27 or more, who will be gone or past
+/// it before it wins again (a third of his surplus), so it doesn't spend
+/// picks on one and sells its own cheaply; a contender pays a little more
+/// for help this season. What he costs over his worth counts in full.
 pub(crate) fn player_points(w: &World, t: usize, i: usize) -> f64 {
     let year = w.year;
     let (_, apy) = worth(w, t, i);
     let Some(k) = w.people[i].pro.as_ref().and_then(|c| c.contract.as_ref()) else { return 0.0 };
-    let age = w.people[i].player.age;
+    let age = w.people[i].player.age as i32;
+    let mode = w.clubs[t].office.mode;
     let mut pts = 0.0;
     for y in year..=k.last_year() {
-        let decline = if age as i32 + (y - year) >= 30 { 0.88f64.powi(y - year) } else { 1.0 };
+        let decline = if age + (y - year) >= 30 { 0.88f64.powi(y - year) } else { 1.0 };
         let cost = k.year(y).map_or(0.0, |x| x.base + x.roster_bonus + x.workout + x.per_game);
-        pts += 10_000.0 * (apy * decline - cost) / money::price_cap(y);
+        let surplus = apy * decline - cost;
+        let used = match mode {
+            _ if surplus <= 0.0 => 1.0,
+            Mode::Rebuild if age + (y - year) >= 27 => 0.35,
+            Mode::Contend if y == year => 1.15,
+            _ => 1.0,
+        };
+        pts += 10_000.0 * surplus * used / money::price_cap(y);
     }
     pts
 }

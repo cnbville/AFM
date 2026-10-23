@@ -3,7 +3,7 @@
 //! holds and protection are their own battles; returns are full tracked
 //! plays. For kickers and punters, composure is the biggest factor.
 
-use super::geom::{DT, MID, V2, WIDTH, v2};
+use super::geom::{DT, V2, back_line, field, goal, mid, v2, width};
 use super::roster::GamePlayer;
 use super::rules::Rules;
 use super::scrimmage::escort;
@@ -150,7 +150,7 @@ pub fn field_goal(
     let angle = sd * rng.normal(0.0, 1.0);
     let lateral = distance * angle.to_radians().tan();
     let reach = leg(kicker, Attr::KickPower, 40.0, 0.3, cond, along) + rng.normal(0.0, 3.0);
-    let wide = lateral.abs() > 3.083;
+    let wide = lateral.abs() > field().posts;
     let short_of = reach < distance;
     fg.made = !wide && !short_of;
     let composure = kicker.composure(level);
@@ -204,7 +204,7 @@ pub fn kickoff(
     rng: &mut Rng,
 ) -> KickResult {
     let kicker = &k.kick[k.kick_on[0]];
-    let from = 100.0 - rules.kickoff_from;
+    let from = goal() - rules.kickoff_from;
     let mut res = KickResult::default();
     if onside {
         // A short kick and a scramble for it; the hands team waits for it.
@@ -247,7 +247,7 @@ pub fn kickoff(
     let tech = kicker.a(Attr::KickoffTechnique);
     let spread = clamp(1.0 - 0.01 * (tech - 60.0), 0.6, 1.4);
     let land_x = (from - max).max(aim) + rng.normal(0.0, 2.5 * spread);
-    let land_y = clamp(MID + rng.normal(0.0, 7.0), 2.0, WIDTH - 2.0);
+    let land_y = clamp(mid() + rng.normal(0.0, 7.0), 2.0, width() - 2.0);
     let hang = clamp(
         3.4 + 0.014 * (kicker.a(Attr::KickPower) - 60.0) + 0.006 * (tech - 60.0) + rng.normal(0.0, 0.2),
         2.8,
@@ -258,17 +258,21 @@ pub fn kickoff(
     // Out of bounds: rare, the ball goes to the 40.
     if rng.chance(0.006 * (1.4 - kicker.a(Attr::KickoffTechnique) / 100.0)) {
         res.out_of_bounds = true;
-        res.spot = 40.0;
+        res.spot = rules.code.kick_out_spot;
         res.duration = hang;
         return res;
     }
     if rules.nfl_kickoff && land_x > 20.0 {
         // Short of the landing zone.
-        res.spot = 40.0;
+        res.spot = rules.code.short_kick_spot;
         res.duration = hang;
         return res;
     }
-    if land_x < -9.5 {
+    // Arena football: a kick into the rebound nets stays live and comes
+    // back into the end zone, and the returner brings it out.
+    let land_x =
+        if rules.code.arena_kickoff && land_x < back_line() + 0.5 { back_line() + rng.range(1.0, 4.0) } else { land_x };
+    if land_x < back_line() + 0.5 {
         res.touchback = true;
         res.spot = rules.kickoff_touchback;
         return res;
@@ -286,7 +290,7 @@ pub fn kickoff(
     let ordered = rp.orders.kneel_depth().filter(|_| rp.follows(k.mood.strict[1], level, rng));
     // The order only adds kneels: deeper than his depth he takes the knee
     // whatever he thinks of his chances.
-    let kneel = land_x < 0.0 && {
+    let kneel = land_x < 0.0 && !rules.code.arena_kickoff && {
         // He weighs where he thinks he will get to against the touchback;
         // good judgment makes it a sharper call.
         let expected = land_x + 22.0 + 0.1 * (rp.a(Attr::Speed) - 70.0) + 0.9 * (risk - MID_T);
@@ -347,14 +351,14 @@ pub fn punt(
     let get_off = clamp(1.3 - 0.004 * (punter.a(Attr::GetOff) - 60.0), 1.12, 1.55);
     let op = snap_time + get_off + if bad { 0.7 } else { 0.0 } + rng.normal(0.0, 0.08);
     let p_block = 0.0028 * (op / 2.05).powi(8);
-    let from = 100.0 - los; // receiving team frame: the kicking spot
+    let from = goal() - los; // receiving team frame: the kicking spot
     if rng.chance(p_block) {
         res.blocked = true;
-        res.spot = (from + 12.0 - rng.range(0.0, 15.0)).min(99.0);
+        res.spot = (from + 12.0 - rng.range(0.0, 15.0)).min(goal() - 1.0);
         res.recovered_by_kicking = rng.chance(0.4);
         res.duration = 2.5;
         if res.recovered_by_kicking {
-            res.spot = 100.0 - res.spot;
+            res.spot = goal() - res.spot;
         }
         return res;
     }
@@ -377,17 +381,17 @@ pub fn punt(
     // comes (proposed, not confirmed).
     let mut land_y = if pin {
         let side = if rng.chance(0.5) { -1.0 } else { 1.0 };
-        MID + side * 14.0 + rng.normal(0.0, clamp(5.0 - 0.05 * (acc - 60.0), 3.0, 7.0))
+        mid() + side * 14.0 + rng.normal(0.0, clamp(5.0 - 0.05 * (acc - 60.0), 3.0, 7.0))
     } else {
-        MID + rng.normal(0.0, 8.0)
+        mid() + rng.normal(0.0, 8.0)
     };
-    land_y = clamp(land_y, -1.0, WIDTH + 1.0);
+    land_y = clamp(land_y, -1.0, width() + 1.0);
     res.distance = from - land_x;
     res.hang = hang;
     // Out of bounds (coffin corner or a shank).
-    if !(0.0..=WIDTH).contains(&land_y) || rng.chance(0.03 * (1.3 - punter.composure(rules.level) / 20.0)) {
+    if !(0.0..=width()).contains(&land_y) || rng.chance(0.03 * (1.3 - punter.composure(rules.level) / 20.0)) {
         res.out_of_bounds = true;
-        land_y = land_y.clamp(0.0, WIDTH);
+        land_y = land_y.clamp(0.0, width());
         let _ = land_y;
         res.spot = land_x.max(rules.touchback.min(1.0));
         if land_x <= 0.0 {
@@ -415,7 +419,22 @@ pub fn punt(
         .map(|&i| &k.ret[i])
         .map(|p| 0.4 * p.a(Attr::Press) + 0.3 * p.a(Attr::Strength) + 0.3 * p.a(Attr::Speed))
         .fold(0.0, f64::max);
-    let cover_gap = clamp(4.6 - 1.6 * (hang - 4.2) - 0.08 * (gunner - jammer) + rng.normal(0.0, 2.0), 0.0, 15.0);
+    let mut cover_gap = clamp(4.6 - 1.6 * (hang - 4.2) - 0.08 * (gunner - jammer) + rng.normal(0.0, 2.0), 0.0, 15.0);
+    // No fair catch (the CFL, the XFL of 2001): the cover men must give the
+    // returner his halo until he touches the ball; one who gets there
+    // first draws "no yards", 15 yards on the kicking team (5 in the XFL).
+    let no_fc = !rules.code.fair_catch;
+    let mut no_yards = 0.0;
+    if no_fc {
+        if cover_gap < 0.5 * rules.code.halo && rng.chance(0.25) {
+            no_yards = if rules.code.book == super::books::Book::Cfl { 15.0 } else { 5.0 };
+        }
+        // He has his halo when it comes down, and the cover men, held off
+        // until he touches it, are still closing when he starts to run
+        // (real CFL punt returns about 10 yards against the NFL's 9.5 on
+        // returned ones; Claude's reading).
+        cover_gap = cover_gap.max(rules.code.halo) + 0.5 * rules.code.halo;
+    }
     let returner = &k.ret[k.ret_on[0]];
     let judgment = returner.a(Attr::Decisions);
     // Returner risk (tendencies): a risk-taker fields punts he could let
@@ -435,6 +454,15 @@ pub fn punt(
         if !field {
             let roll = rng.normal(2.0, 7.0);
             let end = land_x - roll;
+            // A live punt (the XFL of 2001): past 25 yards it is anybody's
+            // ball once it hits the ground.
+            if rules.code.punt_live && end > 0.0 && rng.chance(0.08) {
+                res.recovered_by_kicking = true;
+                res.spot = goal() - end;
+                res.distance = from - end;
+                res.duration = hang + 2.0;
+                return res;
+            }
             if end <= 0.0 {
                 res.touchback = true;
                 res.spot = rules.touchback;
@@ -452,7 +480,7 @@ pub fn punt(
     // back and muffs more doing it.
     let fc = if safe { 0.99 } else { clamp(0.95 - 0.004 * (judgment - 50.0) - 0.3 * lean, 0.45, 0.99) };
     let reach = if safe { 7.0 } else { 5.0 - 1.5 * lean };
-    if cover_gap < reach && rng.chance(fc) || cover_gap < 1.5 {
+    if !no_fc && (cover_gap < reach && rng.chance(fc) || cover_gap < 1.5) {
         res.fair_catch = true;
         res.spot = land_x.max(1.0);
         res.inside20 = res.spot <= 20.0;
@@ -462,7 +490,7 @@ pub fn punt(
             res.muffed = true;
             res.recovered_by_kicking = rng.chance(0.45);
             if res.recovered_by_kicking {
-                res.spot = 100.0 - res.spot;
+                res.spot = goal() - res.spot;
             }
         }
         return res;
@@ -473,11 +501,11 @@ pub fn punt(
         res.muffed = true;
         res.returner = Some(returner.id);
         res.recovered_by_kicking = rng.chance(0.5);
-        res.spot = if res.recovered_by_kicking { 100.0 - land_x } else { land_x };
+        res.spot = if res.recovered_by_kicking { goal() - land_x } else { land_x };
         res.duration = hang + 1.0;
         return res;
     }
-    let catch = v2(land_x, land_y.clamp(2.0, WIDTH - 2.0));
+    let catch = v2(land_x, land_y.clamp(2.0, width() - 2.0));
     run_return(
         k,
         catch,
@@ -494,6 +522,9 @@ pub fn punt(
         false,
         Some(cover_gap),
     );
+    if no_yards > 0.0 && !res.return_td && !res.recovered_by_kicking {
+        res.spot = (res.spot + no_yards).min(goal() - 1.0);
+    }
     res.inside20 = res.spot <= 20.0;
     res
 }
@@ -580,10 +611,10 @@ fn run_return(
     res.returned = true;
     // Coverage has run (hang - start) seconds by the catch, in lanes.
     let run = (hang - start_cover).max(0.0);
-    let cover_start = if kickoff && rules.nfl_kickoff { 40.0 } else { from - 1.0 };
+    let cover_start = if kickoff && rules.nfl_kickoff { rules.code.cover_line } else { from - 1.0 };
     for (n, &i) in k.kick_on.iter().enumerate() {
         let p = &k.kick[i];
-        let lane = 4.0 + (n as f64) * (WIDTH - 8.0) / 10.0;
+        let lane = 4.0 + (n as f64) * (width() - 8.0) / (rules.code.players as f64 - 1.0);
         let speed = p.top_speed() * 0.9;
         let x = if n == 0 {
             // The kicker trails as the safety: under the 2025 NFL rule he
@@ -600,7 +631,7 @@ fn run_return(
         let y = if n == 0 {
             // The kicker kicks from between the hashes and trails in the
             // middle as the last man (it used to start him at the sideline).
-            MID + rng.range(-3.0, 3.0)
+            mid() + rng.range(-3.0, 3.0)
         } else if gap.is_some() && (n == 1 || n == 2) {
             // Gunners close on the returner from either side.
             catch.y + if n == 1 { -4.5 } else { 4.5 } + rng.range(-2.0, 2.0)
@@ -620,7 +651,7 @@ fn run_return(
             catch
         } else {
             // The wall forms between him and the coverage.
-            let lane = 6.0 + ((n - 1) as f64) * (WIDTH - 12.0) / 9.0;
+            let lane = 6.0 + ((n - 1) as f64) * (width() - 12.0) / (rules.code.players as f64 - 2.0);
             // NFL 2025: nine of the return team line up in the setup zone
             // (their 30 to 35) and may not move until the ball lands.
             // Elsewhere the front line starts ten yards off the ball and drops
@@ -781,7 +812,7 @@ fn run_return(
                         // wave, shaded to the ball, until the returner is on
                         // him; then he attacks with a deep angle.
                         let level = (rp.x + deep(i)).max(wave_x + deep(i) - 3.0);
-                        let shade = if safety[i] { (lanes[i] - MID) * 0.3 } else { 0.0 };
+                        let shade = if safety[i] { (lanes[i] - mid()) * 0.3 } else { 0.0 };
                         let aim = v2(level, rp.y + shade);
                         let vm = sim.agents[i].vmax;
                         let gap = (me.x - level).abs();
@@ -795,7 +826,7 @@ fn run_return(
                         // His lane moves with the ball and narrows as he
                         // closes, so the unit arrives spread across it.
                         let squeeze = clamp((me.x - rp.x) / 35.0, 0.6, 1.0);
-                        let aim = v2(rp.x, rp.y + (lanes[i] - MID) * squeeze);
+                        let aim = v2(rp.x, rp.y + (lanes[i] - mid()) * squeeze);
                         let vm = sim.agents[i].vmax;
                         sim.steer(i, (aim - me).norm().scale(vm));
                     } else {
@@ -821,11 +852,11 @@ fn run_return(
     let end = sim.progress;
     if let Some((side, _)) = sim.notes.recovered {
         res.recovered_by_kicking = side == 1;
-        res.spot = if res.recovered_by_kicking { 100.0 - end } else { end };
+        res.spot = if res.recovered_by_kicking { goal() - end } else { end };
     } else {
         res.spot = end;
     }
-    if !res.recovered_by_kicking && end >= 100.0 {
+    if !res.recovered_by_kicking && end >= goal() {
         res.return_td = true;
     }
     if end <= 0.0 && !res.recovered_by_kicking {

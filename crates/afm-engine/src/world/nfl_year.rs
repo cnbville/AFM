@@ -106,6 +106,12 @@ pub(crate) struct Slot {
     /// draws only a winner).
     #[serde(default)]
     pub score: Option<[u32; 2]>,
+    /// The closing line (C8): the home side's spread and the total.
+    #[serde(default)]
+    pub line: Option<[f32; 2]>,
+    /// The crowd (later extras topic 1).
+    #[serde(default)]
+    pub attendance: u32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1038,6 +1044,7 @@ fn dated_events(w: &mut World, d: Date, y: &YearDates) {
     for (k, p) in y.preseason.iter().enumerate() {
         if d == *p {
             post(w, d, Kind::Game, Loudness::Small, "", format!("Preseason week {}.", k + 1));
+            preseason_gates(w, k, d);
         }
     }
     if d == y.cutdown.date {
@@ -1321,7 +1328,7 @@ fn real_schedule(w: &World, season: i32, n_weeks: usize) -> Option<WeekSlots> {
             }
         };
         weeks.get_mut(k)?.push((home, away));
-        slots[k].push(Slot { at, window, site, played: false, score: None });
+        slots[k].push(Slot { at, window, site, played: false, score: None, line: None, attendance: 0 });
     }
     (weeks.iter().map(|v| v.len()).sum::<usize>() > 0).then_some((weeks, slots))
 }
@@ -1493,7 +1500,7 @@ fn formula_slots(w: &mut World, season: i32, seed: u64) {
         let mut slot: Vec<Option<Slot>> = vec![None; games.len()];
         let mut set = |taken: &mut Vec<bool>, g: usize, at: Moment, window: Window, site: Option<String>| {
             taken[g] = true;
-            slot[g] = Some(Slot { at, window, site, played: false, score: None });
+            slot[g] = Some(Slot { at, window, site, played: false, score: None, line: None, attendance: 0 });
         };
         // The best game still open, by appeal; `pred` limits the choice.
         let best = |taken: &Vec<bool>, pred: &dyn Fn(&(usize, usize)) -> bool| -> Option<usize> {
@@ -1808,6 +1815,53 @@ fn win_prob(s: &NflSeason, home: usize, away: usize, field: f64) -> f64 {
     1.0 / (1.0 + (-x).exp())
 }
 
+/// A preseason week's gates (later extras topic 1): half the league hosts,
+/// in turn, at preseason prices; season-ticket holders pay for them in
+/// their packages.
+fn preseason_gates(w: &mut World, k: usize, d: Date) {
+    let teams: Vec<usize> = (0..w.nfl.len()).filter(|&t| super::franchise::active(t, w.year)).collect();
+    let n = teams.len();
+    if n < 2 {
+        return;
+    }
+    for i in (0..n).filter(|i| (i + k).is_multiple_of(2)) {
+        let opp = teams[(i + 1 + 2 * k) % n];
+        if opp != teams[i] {
+            super::finance::nfl::gate(w, teams[i], opp, d, true, false);
+        }
+    }
+}
+
+/// A week's lines (C8): a spread and a total on every game, from the win
+/// chance the world reads off both rosters and staffs, and home field.
+fn hang_lines(w: &mut World, k: usize) {
+    let Some(s) = w.nfl_season.as_ref() else { return };
+    let Some(week) = s.weeks.get(k) else { return };
+    let lines: Vec<(usize, [f32; 2])> = week
+        .iter()
+        .enumerate()
+        .filter(|&(g, _)| s.slots[k][g].line.is_none() && !s.slots[k][g].played)
+        .map(|(g, &(h, a))| {
+            let field = if s.slots[k][g].site.is_some() { 0.0 } else { HOME };
+            (g, super::finance::lines::nfl(w, win_prob(s, h, a, field), h, a))
+        })
+        .collect();
+    let s = w.nfl_season.as_mut().unwrap();
+    for (g, l) in lines {
+        s.slots[k][g].line = Some(l);
+    }
+}
+
+/// A finished NFL game against its line: the head coaches' records against
+/// the spread, and an upset by the line in the news.
+fn settle_line(w: &mut World, h: usize, a: usize, line: Option<[f32; 2]>, score: Option<[u32; 2]>) {
+    let (Some(line), Some(score)) = (line, score) else { return };
+    super::finance::lines::learn(w, Level::Nfl, [h, a], line, score);
+    let coaches = [w.nfl[h].head_coach, w.nfl[a].head_coach];
+    let names = [w.nfl[h].name.to_string(), w.nfl[a].name.to_string()];
+    super::finance::lines::settle(w, Level::Nfl, line, score, coaches, names, (Some(h), None));
+}
+
 /// The day's games (T1.2): each is played on its own day and kickoff. A
 /// week's stakes are read before its first game; its lines open after its
 /// last.
@@ -1832,6 +1886,7 @@ fn play_day(w: &mut World, d: Date) {
     for &k in &weeks {
         let s = w.nfl_season.as_ref().unwrap();
         if s.slots[k].iter().all(|x| !x.played) {
+            hang_lines(w, k);
             stakes(w, k, d);
             if k == 0 {
                 post(
@@ -1915,6 +1970,18 @@ fn play_day(w: &mut World, d: Date) {
         }
     }
     w.log.nfl_games += todays.len() as u32;
+    // The gate at each home stadium, and each game against its line (C8).
+    for &(k, g) in &todays {
+        let s = w.nfl_season.as_ref().unwrap();
+        let (h, a) = s.weeks[k][g];
+        let x = &s.slots[k][g];
+        let (site, line, score, date) = (x.site.is_some(), x.line, x.score, x.at.date);
+        if !site {
+            let gate = super::finance::nfl::gate(w, h, a, date, false, false);
+            w.nfl_season.as_mut().unwrap().slots[k][g].attendance = gate.attendance;
+        }
+        settle_line(w, h, a, line, score);
+    }
     // The national windows and the games abroad make the news.
     for (wn, l, x) in shown {
         let place = x.site.as_ref().map_or(String::new(), |site| format!(" at {site}"));
@@ -1932,6 +1999,7 @@ fn play_day(w: &mut World, d: Date) {
     for k in weeks {
         let s = w.nfl_season.as_ref().unwrap();
         if s.slots[k].iter().all(|x| x.played) && k + 1 < s.weeks.len() {
+            hang_lines(w, k + 1);
             post(w, d, Kind::News, Loudness::Small, "betting (A45)", format!("Week {} lines open.", k + 2));
         }
     }
@@ -2134,12 +2202,14 @@ fn play_round(w: &mut World, round: u32, d: Date) {
     let (a, b) = (s.alive[0].first().copied(), s.alive[1].first().copied());
     let (Some(a), Some(b)) = (a, b) else { return };
     let p = win_prob(&s, a, b, 0.0);
+    let line = super::finance::lines::nfl(w, p, a, b);
     let at = Moment::at(d, 18, 30);
     let game = engine_games(w, &[Fixture { home: a, away: b, at, neutral: true, loud: 0.0, seed: seed ^ 0x5B }]);
     let a_wins = match game.first().and_then(|g| g.as_ref()) {
         Some((r, sides)) => {
             pro_games::record(w, [a, b], r, sides, [s.z[b], s.z[a]]);
             let [x, y] = r.stats.score;
+            settle_line(w, a, b, Some(line), Some([x.max(0) as u32, y.max(0) as u32]));
             let won = if x == y { key_uniform(seed, (a as u64) << 8 ^ b as u64) < p } else { x > y };
             let (side, champ) = if won { (0, a) } else { (1, b) };
             super::pro::honors::super_bowl_mvp(w, r, &sides[side], side, champ, d);
@@ -2237,12 +2307,16 @@ fn play_round_games(w: &mut World, d: Date) {
             Fixture { home: hi, away: lo, at, neutral: false, loud: 0.1, seed: seed ^ (hi as u64) << 8 ^ lo as u64 }
         })
         .collect();
+    let lines: Vec<[f32; 2]> =
+        today.iter().map(|g| super::finance::lines::nfl(w, win_prob(&s, g.2, g.3, HOME), g.2, g.3)).collect();
     let outcomes = engine_games(w, &fixtures);
     let mut engine: Vec<(usize, usize, bool)> = Vec::new();
-    for (g, o) in today.iter().zip(&outcomes) {
+    for ((g, o), line) in today.iter().zip(&outcomes).zip(&lines) {
+        super::finance::nfl::gate(w, g.2, g.3, d, false, true);
         if let Some((r, sides)) = o {
             pro_games::record(w, [g.2, g.3], r, sides, [s.z[g.3], s.z[g.2]]);
             let [x, y] = r.stats.score;
+            settle_line(w, g.2, g.3, Some(*line), Some([x.max(0) as u32, y.max(0) as u32]));
             if x != y {
                 engine.push((g.2, g.3, x > y));
             }
@@ -2351,7 +2425,11 @@ fn super_bowl_book(w: &mut World, champ: usize, loser: usize, d: Date) {
 /// The draft order for this April, from last season (T2); None before the
 /// first season has been played on the clock.
 pub(crate) fn draft_order(w: &World) -> Option<Vec<usize>> {
-    w.nfl_season.as_ref().and_then(|s| s.last_order.clone())
+    let s = w.nfl_season.as_ref()?;
+    // The morning a football year opens (the day after the Super Bowl,
+    // before that day runs, as a new career starts) the season on hand is
+    // still last year's: its final order is this April's.
+    if s.year < w.year { s.final_order.clone().filter(|_| s.booked) } else { s.last_order.clone() }
 }
 
 impl World {

@@ -104,7 +104,7 @@ fn pay(w: &World, e: Employer, r: Role) -> f64 {
 /// three years.
 fn deal_terms(w: &World, c: usize, e: Employer, r: Role) -> (i32, f32) {
     match e {
-        Employer::Nfl(_) => (2 + (super::roll(w, 0xDEA1, c as u64) < 0.4) as i32, 0.0),
+        Employer::Nfl(_) | Employer::Other(_) => (2 + (super::roll(w, 0xDEA1, c as u64) < 0.4) as i32, 0.0),
         Employer::College(p) => {
             let big = w.programs[p].division == Division::FBS && w.programs[p].power_four();
             match (big, r) {
@@ -204,6 +204,15 @@ pub fn drawn_staff(w: &World, team: Team) -> Vec<Drawn> {
             for (k, (title, _)) in NFL_ROOMS.iter().enumerate() {
                 let key = team.key() << 16 ^ 0xA55 ^ k as u64;
                 v.push(draw_person(w, key, title, base * if k >= 9 { 0.6 } else { 1.0 }, None));
+            }
+        }
+        // An other-league club keeps a lean room: the position coaches and a
+        // special teams coach, no quality control.
+        Team::Other(f) => {
+            let base = pay(w, Employer::Other(f), Role::PositionCoach(Group::QB));
+            for (k, (title, _)) in NFL_ROOMS.iter().enumerate().take(9) {
+                let key = team.key() << 16 ^ 0xA55 ^ k as u64;
+                v.push(draw_person(w, key, title, base, None));
             }
         }
         Team::College(p) => {
@@ -466,7 +475,7 @@ pub fn openings(w: &World) -> Vec<Role> {
             }
             v
         }
-        Team::High(_) => Vec::new(),
+        Team::High(_) | Team::Other(_) => Vec::new(),
     }
 }
 

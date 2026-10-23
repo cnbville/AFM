@@ -86,3 +86,36 @@ fn the_kicker_never_snaps_to_himself() {
     assert_eq!(k, k2);
     assert!(sn != k && sn != p, "kicker {k}, punter {p}, snapper {sn}");
 }
+
+/// An arena roster of 24 in a blowout, with its returners and three more
+/// hurt and every other man pulled: the pulled starters come back for the
+/// return unit, so a kickoff always has someone to field it (a test world's
+/// arena game crashed on a kickoff to an empty unit).
+#[test]
+fn a_thin_roster_fields_its_kick_units_in_a_blowout() {
+    use crate::game::flow::kick_unit_with;
+    use Position::*;
+    let full = synthetic_league(Level::NFL, 1, 7).remove(0);
+    let keep = |pos: Position| match pos {
+        WR | IOL => 4,
+        RB | EDGE | DT | LB => 2,
+        CB => 3,
+        LS | P => 0,
+        _ => 1,
+    };
+    let mut players = Vec::new();
+    for pos in Position::ALL {
+        players.extend(full.players.iter().filter(|p| p.position == pos).take(keep(pos)).cloned());
+    }
+    let team = crate::game::GameTeam::new(full.name.clone(), players, full.staff);
+    let n = team.players.len();
+    assert_eq!(n, 24);
+    let out: Vec<usize> = (0..n).filter(|&i| matches!(team.players[i].position, RB | WR)).take(5).collect();
+    let benched: Vec<usize> = (0..n).filter(|i| !out.contains(i)).collect();
+    for receiving in [true, false] {
+        let on = kick_unit_with(&team, &out, &benched, receiving, 8);
+        assert_eq!(on.len(), 8, "receiving {receiving}: {on:?}");
+        assert!(on.iter().all(|i| !out.contains(i)), "a hurt man on the unit: {on:?}");
+        assert_eq!(on.iter().collect::<HashSet<_>>().len(), 8, "a man listed twice: {on:?}");
+    }
+}

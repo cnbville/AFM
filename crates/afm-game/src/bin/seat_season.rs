@@ -43,6 +43,37 @@ impl Run {
     }
 }
 
+/// The draft in your war room, as a person runs it: your first pick from
+/// the top of your board, the staff's after that, a trade call taken if one
+/// comes, then the undrafted rush.
+fn draft(run: &mut Run, g: &mut Game) {
+    let mut first = true;
+    let mut traded = false;
+    for _ in 0..400 {
+        let Some(room) = run.call(g, "draft_live", json!({})) else { return };
+        if !room["live"].as_bool().unwrap_or(false) {
+            return;
+        }
+        if room["rush"].as_bool().unwrap_or(false) {
+            run.call(g, "draft_rush", json!({}));
+            run.call(g, "draft_record", json!({}));
+            return;
+        }
+        if !room["on_clock"].as_bool().unwrap_or(false) {
+            run.call(g, "draft_go", json!({ "until": "yours" }));
+        } else if first && let Some(id) = room["board"][0]["id"].as_u64() {
+            first = false;
+            run.call(g, "draft_pick", json!({ "id": id }));
+        } else if !traded && room["offers"].as_array().is_some_and(|o| !o.is_empty()) {
+            traded = true;
+            run.call(g, "draft_accept", json!({ "offer": 0 }));
+        } else {
+            run.call(g, "draft_auto", json!({}));
+        }
+    }
+    run.errors.push("the draft didn't finish in 400 steps".into());
+}
+
 /// Values a player should never see.
 fn smell(cmd: &str, v: &Value, path: &str, out: &mut BTreeSet<String>) {
     match v {
@@ -87,7 +118,7 @@ fn refs(v: &Value, players: &mut BTreeSet<u64>, coaches: &mut BTreeSet<u64>, tea
     match v {
         Value::Object(o) => {
             if let (Some(Value::String(k)), Some(Value::Number(i))) = (o.get("kind"), o.get("id"))
-                && matches!(k.as_str(), "nfl" | "college" | "hs")
+                && matches!(k.as_str(), "nfl" | "college" | "hs" | "other")
             {
                 teams.insert((k.clone(), i.as_u64().unwrap_or(0)));
             }
@@ -154,6 +185,8 @@ const SCREENS: &[&str] = &[
     "games",
     "you",
     "card",
+    "money_books",
+    "money_league",
 ];
 
 fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)]) {
@@ -201,16 +234,25 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)]) {
     }
     run.call(g, "news", json!({ "mine": true }));
     run.call(g, "search", json!({ "q": "a" }));
+    run.call(g, "money_league", json!({ "level": "college" }));
     for &p in players.iter().take(12) {
         run.call(g, "player", json!({ "id": p }));
     }
     for &c in coaches.iter().take(6) {
         run.call(g, "coach", json!({ "id": c }));
     }
-    for (k, i) in teams.iter().take(6) {
-        for s in ["team", "roster", "schedule", "staff"] {
+    // The other leagues (X7): every league's page, and their clubs named
+    // on the screens (a club's page is `league_team`).
+    for k in 0..afm_engine::world::pro::other::LEAGUE_COUNT {
+        run.call(g, "leagues", json!({ "league": k }));
+    }
+    for (k, i) in teams.iter().filter(|t| t.0 != "other").take(6) {
+        for s in ["team", "roster", "schedule", "staff", "money_books"] {
             run.call(g, s, json!({ "kind": k, "id": i }));
         }
+    }
+    for (_, i) in teams.iter().filter(|t| t.0 == "other").take(4) {
+        run.call(g, "league_team", json!({ "id": i }));
     }
 }
 
@@ -292,6 +334,11 @@ fn main() {
             peak = peak.max(resident_gb());
             if r.is_none() {
                 break;
+            }
+            // The draft live from your chair (lane 7): Continue stops in the war room.
+            if r.as_ref().is_some_and(|v| v["studio"]["screen"] == json!("warroom")) {
+                visit_all(&mut run, &mut g, &extra);
+                draft(&mut run, &mut g);
             }
             visit_all(&mut run, &mut g, &extra);
             // Save and reload once in season, after the first game.
