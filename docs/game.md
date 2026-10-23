@@ -322,10 +322,10 @@ The game side is `crates/afm-game/src/lane_money.rs` (`money_books`, `money_leag
 
 - **Finances** (team section of the sidebar, `money`): what your seat can see of your own club's books, and what is published about anyone else's.
   - **NFL head coach:** Overview, Football budget, Gate and Report card. You see your club's published numbers and the football budgets you spend (coaches, scouting, medical, travel, player amenities). The owner keeps the rest of the books. Another club shows its estimates, stadium, gate and card.
-  - **College head coach:** Overview, Football budget, Department and Gate. Football's lines are on one tab, the athletic department's published report on another. Once a year, Ask for a building puts a facility project to your AD. A private school publishes only its federal (EADA) totals.
+  - **College head coach:** Overview, Football budget, Department and Gate. Football's lines are on one tab, the athletic department's published report on another. Once a year, Ask for a building puts a facility project to your AD. A private school publishes only its federal (EADA) totals. "What TV pays for you" is your pull priced at your conference deal's rate (`college::media_worth`); a school above its conference's average pull is worth more than the deal pays it, which is what realignment chases.
   - **High school head coach:** Overview, Equipment, Fundraisers and Ledger. You see your program's money in full. You spend the equipment budget item by item, run the booster club's fundraisers, and ask the district for more once a year. Another high school's books aren't published.
 - **League money** (`money_league`): every NFL club's and every college's revenue, expenses, the university's support and the crowd, as sortable tables. Each conference's media deal is shown with its end year.
-- **Report cards:** the NFLPA's grades on your club's page and its Finances tab. Every club's card is public in 2023-24. From 2025 you see only your own.
+- **Report cards:** the NFLPA's grades on your club's page and its Finances tab. Every club's card is public in 2023-24. From 2025 you see only your own; another club shows its last published card (2024), with a note that the newer ones stayed inside the union.
 - **Betting lines:** your schedule and game pages show each game's spread and over/under, and after the game whether you covered and whether it went over. A coach's page shows his record against the spread.
 - **Conference moves:** your inbox shows the moves your seat would hear about, on 1 July, the day each takes effect (`docs/world-model.md`, 1a and 1b).
 - **Other leagues** (world section of the sidebar, `leagues`): pick a league and a year.
@@ -345,6 +345,7 @@ Your own career can't take an other-league job yet (`docs/world-model.md`, "The 
 - **Who sees what:** what each seat sees of the books follows what is really published. NFL clubs publish nothing but the Packers' report, so another club is estimated. Public colleges publish their NCAA report and private ones only the federal totals. High schools publish nothing.
 - **The high school ledger** keeps the last 200 entries.
 - **Equipment:** the equipment budget's running costs are paid first, and you spend what's left.
+- **Your school's books open on your first morning** (and on the first day of a new high school job), so the Equipment and Fundraisers tabs work before the money year turns in July.
 
 ## Not built yet (section 8's design, for the next builds)
 
