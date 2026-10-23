@@ -1,6 +1,6 @@
 # Dynamic Links: physical gifts that stack
 
-Designed 2026-10-21 in the thread "Section 10: UI and screens", agreed by Cain the same evening (20:47, "agreed on all"). Design only: Cain wants it built later ("dynamic links is an new feature i want to implement later", 20:26).
+Designed 2026-10-21 in the thread "Section 10: UI and screens", agreed by Cain the same evening (20:47, "agreed on all"). Cain first wanted it built later ("dynamic links is an new feature i want to implement later", 20:26); on 2026-10-21 (20:57) he put every designed feature into the final build, so it is built there (engine lane 3, PR #97).
 
 How it started, in Cain's words:
 - 20:26: "I want to make Geneticall traits important in this game, it's what could give a 2* a serious scholarship to a SEC Team because they see a physical freak. my idea was to have players that has (speed/acc above 90, size >6'3, reach = elite) earn a extreme highpoint catcher. Like those traits link so dynamically that it creates a monster."

@@ -390,6 +390,7 @@ pub fn my_players(w: &World) -> Value {
                 Stage::Declared => "Draft pool",
                 Stage::Pro => "NFL",
                 Stage::Done => "Out of football",
+                Stage::Away => "Away from football",
             };
             Some(json!({
                 "id": id,

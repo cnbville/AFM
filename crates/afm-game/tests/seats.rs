@@ -83,14 +83,17 @@ fn every_seat_starts_and_the_school_desk_runs() {
     ok(&mut g, "continue", json!({ "max_days": 40 }));
     assert!(ok(&mut g, "status", json!({}))["you"].is_string());
 
-    // A high school head job at the biggest public school, with a stop on a college staff.
+    // A high school head job at the biggest public school in Texas, with a
+    // stop on a college staff. A world this small keeps only two or three
+    // schools in the smallest states (Nevada's are its powerhouses), too few
+    // for a season's schedule; Texas keeps dozens.
     ok(&mut g, "load", json!({ "path": fresh }));
     let hs = ok(&mut g, "jobs", json!({ "level": "hs" }));
     let big = hs["jobs"]
         .as_array()
         .unwrap()
         .iter()
-        .filter(|j| j["private"] != true)
+        .filter(|j| j["private"] != true && j["state"] == "TX")
         .max_by_key(|j| j["enrollment"].as_u64().unwrap_or(0))
         .unwrap()
         .clone();
