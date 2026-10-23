@@ -58,9 +58,17 @@ function pgPage({ steps = "", right = "", kicker, title, lede = "", body, foot }
   </div>`;
 }
 
+// The version a person sees: on the Mac, the app's own number (0.2.<build>,
+// the one updates compare against), since the game library's stays 0.2.0.
+async function appHello() {
+  const h = await api("hello");
+  try { if (isMac() && window.__TAURI__.app) h.version = await window.__TAURI__.app.getVersion(); } catch (e) { /* keep the game's number */ }
+  return h;
+}
+
 // ---------- the opening screen ----------
 screens.start = async () => {
-  const [lib, hello] = await Promise.all([api("library"), PG.hello ? Promise.resolve(PG.hello) : api("hello")]);
+  const [lib, hello] = await Promise.all([api("library"), PG.hello ? Promise.resolve(PG.hello) : appHello()]);
   PG.lib = lib;
   PG.hello = hello;
   // A career is open with or without a team (out of work is a career too).
