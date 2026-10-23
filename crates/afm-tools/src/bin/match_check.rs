@@ -818,6 +818,73 @@ fn main() {
     ] {
         row(&format!("  {k}"), g(k) / n, Some(real));
     }
+    // The officials and the toss, per game (both teams): the targets in
+    // docs/match-engine.md, "Live games, officials and the toss" (NFL 2024:
+    // 133 coach's challenges in 285 games, 50 won; booth reviews about 0.7
+    // a game, a little over half reversed; winners defer about 82%).
+    {
+        use afm_engine::game::live::{Reviewer, TossChoice};
+        let per = games.max(1) as f64;
+        let calls: Vec<&afm_engine::game::live::Officiating> =
+            results.iter().flat_map(|r| r.stats.plays.iter().filter_map(|p| p.officiating.as_ref())).collect();
+        let count =
+            |f: &dyn Fn(&afm_engine::game::live::Officiating) -> bool| calls.iter().filter(|o| f(o)).count() as f64;
+        let chal = count(&|o| matches!(o.reviewer, Reviewer::Challenge(_)));
+        let booth = count(&|o| matches!(o.reviewer, Reviewer::Booth | Reviewer::Assist));
+        let real_chal = matches!(level, Level::NFL).then_some(133.0 / 285.0);
+        row("close calls a game", calls.len() as f64 / per, None);
+        row("  wrong on the field", count(&|o| o.wrong) / per, matches!(level, Level::NFL).then_some(0.8));
+        row("  wrong and left standing", count(&|o| o.wrong && !o.overturned) / per, None);
+        row("coach's challenges a game", chal / per, real_chal);
+        row(
+            "  won",
+            count(&|o| matches!(o.reviewer, Reviewer::Challenge(_)) && o.overturned) / chal.max(1.0),
+            matches!(level, Level::NFL).then_some(50.0 / 133.0),
+        );
+        row("booth reviews a game", booth / per, matches!(level, Level::NFL).then_some(0.7));
+        row(
+            "  reversed",
+            count(&|o| matches!(o.reviewer, Reviewer::Booth | Reviewer::Assist) && o.overturned) / booth.max(1.0),
+            matches!(level, Level::NFL).then_some(0.55),
+        );
+        if std::env::var("AFM_REFS").is_ok() {
+            let mut m: std::collections::BTreeMap<String, [u32; 6]> = Default::default();
+            for o in &calls {
+                let e = m.entry(format!("{:?}", o.call)).or_default();
+                e[0] += 1;
+                e[1] += o.wrong as u32;
+                let k = match o.reviewer {
+                    Reviewer::None => 2,
+                    Reviewer::Booth | Reviewer::Assist => 3,
+                    Reviewer::Challenge(_) => 4,
+                };
+                e[k] += 1;
+                e[5] += (o.overturned) as u32;
+            }
+            for (k, e) in m {
+                eprintln!(
+                    "{k:12} close {:.3} wrong {:.3} none {:.3} booth {:.3} chal {:.3} over {:.3}",
+                    e[0] as f64 / per,
+                    e[1] as f64 / per,
+                    e[2] as f64 / per,
+                    e[3] as f64 / per,
+                    e[4] as f64 / per,
+                    e[5] as f64 / per
+                );
+            }
+        }
+        let tosses: Vec<TossChoice> = results.iter().filter_map(|r| r.toss.map(|t| t.1)).collect();
+        let defer = tosses.iter().filter(|&&c| c == TossChoice::Defer).count() as f64 / tosses.len().max(1) as f64;
+        row(
+            "toss winners who defer",
+            defer,
+            Some(match level {
+                Level::NFL => 0.82,
+                Level::HS => 0.60,
+                _ => 0.78,
+            }),
+        );
+    }
     row("third downs", g("third") / n, f("third"));
     row("fourth down tries", g("fourth_go") / n, f("fourth_go"));
     row("pass TD", g("pass_td") / n, f("pass_td"));

@@ -8,7 +8,8 @@ use crate::calendar::Date;
 use crate::game::GameStats;
 use crate::positions::Position;
 
-use super::World;
+use super::front_office as fo;
+use super::{World, pro};
 
 /// One of your team's games, kept whole for its game page: the box score,
 /// every play with the caller's reasons, and each side's name that day.
@@ -77,6 +78,8 @@ impl World {
         if !self.seat_plays(level, teams) {
             return;
         }
+        // The day booked your game: a live game of it is over.
+        self.live_booked(level, teams);
         let names = match level {
             crate::calendar::Level::Nfl => teams.map(|t| self.nfl_team_name(t)),
             crate::calendar::Level::HighSchool => teams.map(|h| self.school_name(h).to_string()),
@@ -101,6 +104,12 @@ impl World {
     /// An NFL club's name in this season (its franchise by era).
     pub fn nfl_team_name(&self, t: usize) -> String {
         self.nfl.get(t).map_or_else(|| format!("Team {t}"), |team| team.name.to_string())
+    }
+
+    /// A conference's name as this world shows it (fictional in a world
+    /// built with the fictional league option).
+    pub fn conference_name(&self, real: &str) -> String {
+        if self.options.fictional_league { super::names::fictional_conference(real) } else { real.to_string() }
     }
 
     /// Your depth chart order at a position (player ids, best first).
@@ -135,6 +144,16 @@ impl World {
         )
     }
 
+    /// Whether your NFL club's duty `d` is yours and one of its contracts
+    /// passes `test` (lane 10: a morning stop only when it holds a choice).
+    fn fo_holds(&self, d: fo::Duty, test: impl Fn(&pro::money::Contract, usize) -> bool) -> bool {
+        let Some(t) = self.seat.and_then(|s| s.nfl_team) else { return false };
+        fo::yours(self, t, d)
+            && self.clubs[t].roster.iter().any(|&i| {
+                self.people[i].pro.as_ref().and_then(|c| c.contract.as_ref()).is_some_and(|k| k.team == t && test(k, i))
+            })
+    }
+
     /// What waits for you on the morning of `d`, before the day plays: your
     /// team's game, or a dated day at your level when you decide things
     /// (the tag deadline, free agency, the draft, cutdown, signing day).
@@ -142,6 +161,10 @@ impl World {
     pub fn morning_stop(&self, d: Date) -> Option<String> {
         use crate::calendar::Level;
         let s = self.seat?;
+        // A dated meeting waiting for you (people, takeover item 1).
+        if let Some(m) = super::folk::scene::due(self, d) {
+            return Some(m);
+        }
         let game = match s.level {
             Level::College => s.program.and_then(|p| {
                 let f = self
@@ -172,13 +195,47 @@ impl World {
         }
         let y = &self.dates;
         let days: Vec<(Date, &str)> = match s.level {
-            Level::Nfl => vec![
-                (y.tag_deadline.date, "The franchise tag deadline is today."),
-                (y.league_year.date, "The new league year opens today, and free agency with it."),
-                (y.draft[0].date, "The draft opens tonight."),
-                (y.cutdown.date, "Cutdown day: rosters go to 53 today."),
-                (y.trade_deadline.date, "The trade deadline is today."),
-            ],
+            Level::Nfl => [
+                (self.year >= 1993)
+                    .then_some((y.tag_window_open, "The tag window opens today: re-sign, tag or tender your expiring players.")),
+                Some((y.tag_deadline.date, "The franchise tag deadline is today.")),
+                y.tampering_open.map(|m| {
+                    (m.date, "The negotiating window opens at noon: agree terms with other clubs' free agents.")
+                }),
+                Some((y.league_year.date, "The new league year opens today, and free agency with it.")),
+                Some((y.draft[0].date, "The draft opens tonight.")),
+                Some((y.cutdown.date, "Cutdown day: rosters go to 53 today.")),
+                Some((y.trade_deadline.date, "The trade deadline is today.")),
+                // Your own front office's days (lane 10), only when they
+                // hold a choice for you.
+                self.fo_holds(fo::Duty::Contracts, |k, i| {
+                    k.signed == self.year
+                        && matches!(k.kind, pro::money::Kind::Franchise | pro::money::Kind::Transition)
+                        && self.people[i].pro.as_ref().is_some_and(|c| c.status == pro::Status::Roster)
+                })
+                .then_some((
+                    y.tag_long_term_deadline.date,
+                    "The last day for a long-term deal with your tagged player: after 4pm ET he plays the year on the tag.",
+                )),
+                (self.year >= 2014
+                    && self.fo_holds(fo::Duty::Contracts, |k, i| {
+                        k.kind == pro::money::Kind::Rookie
+                            && k.option.is_none()
+                            && self.people[i]
+                                .pro
+                                .as_ref()
+                                .and_then(|c| c.draft)
+                                .is_some_and(|d| d.1 == 1 && d.0 == self.year - 3)
+                    }))
+                .then_some((y.fifth_year_option, "The fifth-year option deadline is today: pick up or decline your first-rounder's option.")),
+                (self.fo_holds(fo::Duty::Waivers, |_, _| true))
+                    .then_some((y.waiver_claims.date, "Waiver claims are due at noon: the players cut yesterday are on the wire.")),
+                (self.fo_holds(fo::Duty::PracticeSquad, |_, _| true))
+                    .then_some((y.practice_squads, "Practice squads form today: sign your squad from the players who cleared waivers.")),
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
             Level::College => [
                 y.early_signing.map(|e| (e, "The early signing period opens today.")),
                 Some((y.signing_day, "National signing day.")),
@@ -422,6 +479,9 @@ impl World {
 pub struct You {
     pub name: String,
     pub age: u32,
+    /// Your date of birth (A1), from the setup page.
+    #[serde(default = "crate::calendar::born::unknown")]
+    pub born: crate::calendar::Date,
     pub ethnicity: super::ethnicity::Ethnicity,
     pub home_state: usize,
     pub ex_pro: bool,
@@ -447,6 +507,22 @@ pub struct You {
     /// topic 2): where you're from, your school, family and looks.
     #[serde(default)]
     pub profile: Profile,
+    /// Aura (final build F15): a hidden 1-20 presence, read by the world in
+    /// interviews, with recruits and in the room. 0 in a file from before it:
+    /// read from your road and your people ratings.
+    #[serde(default)]
+    pub aura: f64,
+}
+
+impl You {
+    /// Your Aura, hidden from your own screens like every person's.
+    pub fn aura(&self) -> f64 {
+        if self.aura > 0.0 {
+            return self.aura;
+        }
+        let seed = self.name.bytes().fold(0x811C_9DC5u32, |h, b| (h ^ b as u32).wrapping_mul(0x0100_0193));
+        super::front_office::market::your_aura(&self.road, self.relationships, self.motivation, seed)
+    }
 }
 
 /// Your profile (people topics 13 and 15). Kept and shown on your page; the
@@ -482,6 +558,17 @@ pub enum Job {
     HighSchool(usize),
     College(usize),
     Nfl(usize),
+    /// Out of work at the start: you look for a job through the market.
+    Unemployed,
+}
+
+/// How you start (first-playable topic 2): a head job, an assistant's job
+/// under an AI head coach, or no job at all at the level you'd work at.
+#[derive(Clone, Copy, Debug)]
+pub enum Start {
+    Head(Job),
+    Assistant(Job, super::coach::Role),
+    Free(crate::calendar::Level),
 }
 
 impl World {
@@ -491,43 +578,97 @@ impl World {
     /// world share its history and then play out differently. The career's
     /// seed makes it replay exactly. Returns your coach id.
     pub fn start_career(&mut self, you: &You, job: Job, career_seed: u32) -> usize {
+        self.start_career_as(you, Start::Head(job), career_seed)
+    }
+
+    /// Starts your career in any seat (first-playable topic 2): a head job,
+    /// an assistant's job (the coach who held it moves into the market) or
+    /// none, with the people from the world's history who know you.
+    pub fn start_career_as(&mut self, you: &You, start: Start, career_seed: u32) -> usize {
+        self.start_with(you, start, career_seed, Vec::new())
+    }
+
+    /// The same, with the people who know you already found (the setup's
+    /// preview reads them before the career starts).
+    pub fn start_with(
+        &mut self,
+        you: &You,
+        start: Start,
+        career_seed: u32,
+        known: Vec<super::front_office::market::Known>,
+    ) -> usize {
+        use super::coach::{Employer, Role};
+        use crate::calendar::Level;
         // Fresh randomness: the world's own stream, the seed every keyed
         // draw reads, and every person's stream, each mixed with the career.
         self.options.seed ^= career_seed.rotate_left(13) ^ 0x5EA7_0001;
         self.rng = crate::rng::Rng::new(self.options.seed ^ 0xC0FF_EE11);
         let seed = self.options.seed;
         self.people.iter_mut().for_each(|p| p.rng = crate::rng::Rng::new(seed ^ p.player.id.wrapping_mul(0x9E37_79B9)));
-        let employer = match job {
-            Job::HighSchool(s) => super::coach::Employer::HighSchool(s),
-            Job::College(p) => super::coach::Employer::College(p),
-            Job::Nfl(t) => super::coach::Employer::Nfl(t),
+        let (job, role) = match start {
+            Start::Head(j) => (j, Role::HeadCoach),
+            Start::Assistant(j, r) => (j, r),
+            Start::Free(_) => (Job::Unemployed, Role::HeadCoach),
         };
-        let id = super::staff::take_seat(self, you, employer);
+        let employer = match job {
+            Job::HighSchool(s) => Some(Employer::HighSchool(s)),
+            Job::College(p) => Some(Employer::College(p)),
+            Job::Nfl(t) => Some(Employer::Nfl(t)),
+            Job::Unemployed => None,
+        };
+        let id = super::staff::take_seat_as(self, you, employer, role);
         self.seat = Some(match job {
-            Job::HighSchool(s) => {
-                super::Seat { level: crate::calendar::Level::HighSchool, nfl_team: None, program: Some(s) }
+            Job::HighSchool(s) => super::Seat { level: Level::HighSchool, nfl_team: None, program: Some(s) },
+            Job::College(p) => super::Seat { level: Level::College, nfl_team: None, program: Some(p) },
+            Job::Nfl(t) => super::Seat { level: Level::Nfl, nfl_team: Some(t), program: None },
+            Job::Unemployed => {
+                let level = if let Start::Free(l) = start { l } else { Level::College };
+                super::Seat { level, nfl_team: None, program: None }
             }
-            Job::College(p) => super::Seat { level: crate::calendar::Level::College, nfl_team: None, program: Some(p) },
-            Job::Nfl(t) => super::Seat { level: crate::calendar::Level::Nfl, nfl_team: Some(t), program: None },
         });
+        let mut you = you.clone();
+        if you.aura <= 0.0 {
+            you.aura = you.aura();
+        }
+        let today = self.today;
         self.career = Some(Career {
-            you: you.clone(),
+            you,
             coach: id,
             job,
-            started: self.today,
+            started: today,
             seed: career_seed,
             notes: Vec::new(),
             hs_staff: Vec::new(),
+            desk: Default::default(),
+            role: (role != Role::HeadCoach && employer.is_some()).then_some(role),
+            market: Default::default(),
+            known,
+            family: Default::default(),
         });
-        if let Job::HighSchool(h) = job {
+        let home = employer.and_then(|e| super::front_office::market::state_of(self, e));
+        if let Some(c) = self.career.as_mut() {
+            c.family.state = home.or(Some(c.you.home_state));
+            // A job in another state moved the family with it this winter;
+            // in your home state they were already settled there.
+            let moved = c.family.state != Some(c.you.home_state);
+            c.family.since = if moved { self.year } else { self.year - 1 };
+            c.family.mood = if moved { 0.5 } else { 0.62 };
+            if employer.is_none() {
+                c.market.out_since = Some(today);
+            }
+        }
+        if let (Job::HighSchool(h), Role::HeadCoach) = (job, role) {
             let staff = self.hire_hs_staff(h);
             if let Some(c) = self.career.as_mut() {
                 c.hs_staff = staff;
             }
+            super::front_office::school::open(self, h);
         }
         self.seat_depth.clear();
         self.seat_games.clear();
         self.seat_focus.clear();
+        // Your first two weeks: the meetings of a new job (takeover).
+        super::folk::takeover::begin(self);
         id
     }
 }
@@ -547,6 +688,22 @@ pub struct Career {
     /// Your high school staff, when you coach a high school.
     #[serde(default)]
     pub hs_staff: Vec<HsAssistant>,
+    /// Your desk: mail, notes on anything, "my players", watches (the
+    /// final build's inbox and screens, `desk.rs`).
+    #[serde(default)]
+    pub desk: super::desk::Desk,
+    /// Your role when you are an assistant (None: head coach, or out of work).
+    #[serde(default)]
+    pub role: Option<super::coach::Role>,
+    /// Your side of the coaching market.
+    #[serde(default)]
+    pub market: super::front_office::market::Market,
+    /// The people from the world's history who know you.
+    #[serde(default)]
+    pub known: Vec<super::front_office::market::Known>,
+    /// Your family's life where you live.
+    #[serde(default)]
+    pub family: super::front_office::market::FamilyLife,
 }
 
 /// A high school assistant (people topic 10): most teach at the school and
@@ -556,6 +713,9 @@ pub struct Career {
 pub struct HsAssistant {
     pub name: String,
     pub age: u32,
+    /// His date of birth (A1): the age the game shows counts from it.
+    #[serde(default = "crate::calendar::born::unknown")]
+    pub born: crate::calendar::Date,
     /// Offensive or defensive coordinator, or a position group's coach.
     pub coordinator: Option<bool>,
     /// The group he coaches (`coach::Group` as an index).
@@ -567,6 +727,26 @@ pub struct HsAssistant {
     /// Hidden teaching ability, 1-20 on every coach's scale.
     pub teaching: f64,
     pub since: i32,
+}
+
+impl You {
+    /// Your age on a day, from your date of birth (A1).
+    pub fn age_on(&self, d: crate::calendar::Date) -> u32 {
+        crate::calendar::born::age_or(self.born, d, self.age)
+    }
+}
+
+impl HsAssistant {
+    /// His age on a day, from his date of birth (A1).
+    pub fn age_on(&self, d: crate::calendar::Date) -> u32 {
+        crate::calendar::born::age_or(self.born, d, self.age)
+    }
+}
+
+/// The key a high school assistant's birthday is drawn from: his name and
+/// the year he was hired (keyed, no stream consumed).
+pub(crate) fn assistant_born_key(name: &str, year: i32) -> u64 {
+    name.bytes().fold(0xA551_57A0_u64 ^ year as u64, |k, b| k.wrapping_mul(0x100_0000_01B3) ^ b as u64)
 }
 
 /// Subjects high school coaches teach (proposed, not confirmed: weighted
@@ -623,6 +803,7 @@ impl World {
                 let subject = (rng.next() > 0.15).then(|| SUBJECTS[(rng.next() * 10.0) as usize % 10].to_string());
                 let lead = if coordinator.is_some() { 1.0 } else { 0.0 };
                 HsAssistant {
+                    born: crate::calendar::born::birth_date(assistant_born_key(&name, year), age, year),
                     name,
                     age,
                     coordinator,
@@ -659,15 +840,25 @@ impl World {
 pub struct Note {
     pub date: Date,
     pub text: String,
+    /// The page it was written on ("Player page · Jalen Carter", "Depth
+    /// chart"); empty for notes from before the final build.
+    #[serde(default)]
+    pub page: String,
 }
 
 impl World {
     pub fn add_note(&mut self, player: u32, text: String) {
+        self.add_note_from(player, text, String::new());
+    }
+
+    /// A note on a player, with the page it was written on.
+    pub fn add_note_from(&mut self, player: u32, text: String, page: String) {
         let date = self.today;
         let Some(c) = self.career.as_mut() else { return };
+        let note = Note { date, text, page };
         match c.notes.iter_mut().find(|(id, _)| *id == player) {
-            Some((_, list)) => list.push(Note { date, text }),
-            None => c.notes.push((player, vec![Note { date, text }])),
+            Some((_, list)) => list.push(note),
+            None => c.notes.push((player, vec![note])),
         }
     }
 
@@ -712,5 +903,83 @@ impl World {
         let room = self.people.len() + self.people.len() / 3;
         self.people.shrink_to(room);
         self.seat_games.retain(|g| g.teams.iter().all(|&t| t < self.programs.len().max(self.nfl.len())));
+        self.fill_final_build_fields();
+        super::folk::after_load(self);
+        // A world file from before the poll and award voters gets them now.
+        super::voters::ensure(self);
+        // Long snappers made before the final build at a lineman's weight
+        // play at a snapper's (the 307-pound snapper).
+        for p in self.people.iter_mut().filter(|p| p.player.position == crate::positions::Position::LS) {
+            p.player.body.weight =
+                p.player.body.weight.clamp(crate::athlete::LS_MIN_WEIGHT, crate::athlete::LS_MAX_WEIGHT);
+        }
+        // A career from before the lane-10 build: its school's people and
+        // books are drawn now, its family settled where it is. The people
+        // you answer to are the persons the meeting room knows.
+        if let Some(h) = self.seat_school()
+            && self.seat_head()
+        {
+            if self.front_office.school.school != Some(h) {
+                super::front_office::school::open(self, h);
+            } else {
+                super::front_office::school::sync_people(self, h);
+            }
+        }
+        let home = super::front_office::market::your_job(self)
+            .and_then(|j| super::front_office::market::state_of(self, j.employer));
+        let year = self.year;
+        if let Some(c) = self.career.as_mut()
+            && c.family.state.is_none()
+        {
+            c.family.state = home.or(Some(c.you.home_state));
+            c.family.since = year - 1;
+            c.family.mood = 0.62;
+        }
+    }
+
+    /// What a world file from before the final build lacks (lane 1): birth
+    /// dates (A1), Aura (F15), followers and brand money. Every value is
+    /// keyed by the world's seed and the person's id, so the same file
+    /// always fills the same way. Old files get no held-back boys (A2): a
+    /// birthday inside each person's own class keeps every grade as it was.
+    pub(crate) fn fill_final_build_fields(&mut self) {
+        use crate::calendar::born;
+        let seed = self.options.seed;
+        let year = self.year;
+        let mut fresh = false;
+        for p in self.people.iter_mut() {
+            if p.born == born::UNKNOWN {
+                p.born = born::for_class(super::born_key(seed, p.player.id), p.class_of);
+            }
+            let t = &mut p.player.personality.traits;
+            if t.aura == 0 {
+                t.aura = crate::player::Traits::draw_aura(
+                    super::born_key(seed, p.player.id) ^ 0xA07A,
+                    t.ego.max(1),
+                    t.leadership.max(1),
+                );
+                fresh = true;
+            }
+        }
+        for a in self.alumni.iter_mut().filter(|a| a.born == born::UNKNOWN) {
+            let key = super::born_key(seed, a.year as u32) ^ a.name.len() as u64;
+            a.born = born::for_class(key, a.class_of);
+        }
+        for c in self.coaches.iter_mut().filter(|c| c.born == born::UNKNOWN) {
+            c.born = born::birth_date(super::staff::coach_born_key(seed, c.id), c.age, year);
+        }
+        if let Some(career) = self.career.as_mut() {
+            let you = &mut career.you;
+            if you.born == born::UNKNOWN {
+                you.born = born::birth_date(seed as u64 ^ 0x70_0B0E, you.age, year);
+            }
+            for a in career.hs_staff.iter_mut().filter(|a| a.born == born::UNKNOWN) {
+                a.born = born::birth_date(assistant_born_key(&a.name, a.since), a.age, a.since.max(year - 40));
+            }
+        }
+        // Followers and brand money as the year's book would have left them.
+        if fresh {
+            super::fame::fill(self);
+        }
     }
 }

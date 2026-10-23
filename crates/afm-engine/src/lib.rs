@@ -20,6 +20,7 @@ pub mod development;
 pub mod game;
 pub mod league;
 pub mod level_rating;
+pub mod links;
 pub mod player;
 pub mod positions;
 pub mod rng;

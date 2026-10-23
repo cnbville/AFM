@@ -114,6 +114,24 @@ fn a_college_career_plays_through_its_first_games() {
         ok(&mut g, cmd, json!({}));
     }
     assert!(!ok(&mut g, "search", json!({ "q": "test coach" }))["coaches"].as_array().unwrap().is_empty());
+    // Every name a line names is a link (L2), and the parts rebuild the line.
+    let parts_of = |x: &Value| -> Vec<Value> {
+        x["items"].as_array().unwrap().iter().flat_map(|i| i["parts"].as_array().cloned().unwrap_or_default()).collect()
+    };
+    let news = ok(&mut g, "news", json!({ "limit": 300 }));
+    for item in news["items"].as_array().unwrap() {
+        let joined: String = item["parts"].as_array().unwrap().iter().map(|p| p["t"].as_str().unwrap()).collect();
+        assert_eq!(joined, item["text"].as_str().unwrap());
+    }
+    let links = parts_of(&news).into_iter().filter(|p| p["go"].is_string()).collect::<Vec<_>>();
+    assert!(links.iter().any(|p| p["go"] == "player"), "players are linked in the news");
+    assert!(links.iter().any(|p| p["go"] == "team"), "teams are linked in the news");
+    let inbox = ok(&mut g, "inbox", json!({ "days": 120 }));
+    assert!(parts_of(&inbox).iter().any(|p| p["go"] == "game"), "your result opens its game page");
+    // A1: the player page counts his age from his birthday.
+    let page = ok(&mut g, "player", json!({ "id": id }));
+    assert!(page["born"].is_string(), "{}", page["born"]);
+    assert!(page["on_camera"].is_string());
     // Save and load: the loaded career plays on.
     let saved = ok(&mut g, "save", json!({ "name": "test career" }));
     let path = saved["saved"].as_str().unwrap().to_string();
@@ -156,6 +174,15 @@ fn a_college_career_plays_through_its_first_games() {
     let sched = ok(&mut g, "schedule", json!({}));
     assert!(sched["games"].as_array().unwrap().iter().any(|x| x["result"].is_string()), "{sched}");
     assert!(!ok(&mut g, "standings", json!({}))["groups"].as_array().unwrap().is_empty());
+    // Every other school's games run on the engine too, not only yours:
+    // each game played is an engine game or a forfeit, never the stand-in,
+    // and the engine's team totals cover them all.
+    let log = &g.world.as_ref().unwrap().log;
+    assert!(log.hs_engine_games > 100, "{} high school engine games", log.hs_engine_games);
+    assert_eq!(log.hs_engine_games + log.hs_forfeits, log.hs_games, "a high school game on the stand-in");
+    assert_eq!(log.hs_totals.games, 2 * log.hs_engine_games);
+    let schools = g.world.as_ref().unwrap().hs_schools_with_lines();
+    assert!(schools.len() > 100, "{} schools with players' engine lines this season", schools.len());
     println!("career test in {:.0}s", t.elapsed().as_secs_f64());
     let _ = std::fs::remove_dir_all(dir);
 }

@@ -6,7 +6,7 @@ Five topics: 1 full club finances at every level, 2 a 3D game view, 3 player fig
 
 Not in this section, and why:
 - **Press conferences and player talks** moved into section 6 on 2026-10-18 (`docs/design/people.md`, topic 5 talks and topic 9 press conferences). The old roadmap and open-questions lines that still put them here are fixed.
-- **Dynamic Links** is already designed and agreed (`docs/design/dynamic-links.md`, PR #85) and is built later, not in the final build.
+- **Dynamic Links** is designed and agreed (`docs/design/dynamic-links.md`, PR #85) and is built in the final build with the engine (lane 3, PR #97).
 
 ---
 

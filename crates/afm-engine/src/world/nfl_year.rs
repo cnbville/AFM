@@ -17,7 +17,7 @@ use super::news::{Channel, NewsItem, NewsKind};
 use super::pro::games::{self as pro_games, Fixture, Side};
 use super::season::{key_normal, key_uniform};
 use super::{World, franchise, recruiting, staff};
-use crate::calendar::{Date, Event, Kind, Level, Loudness, Moment, Weekday, YearDates};
+use crate::calendar::{Date, Event, Kind, Level, Link, Loudness, Moment, Weekday, YearDates};
 
 /// Win odds per standard deviation of roster strength (a logit), per point
 /// of staff quality over 2.5, and home field (about 55% at home). Proposed,
@@ -1920,7 +1920,13 @@ fn play_day(w: &mut World, d: Date) {
         let place = x.site.as_ref().map_or(String::new(), |site| format!(" at {site}"));
         let text =
             format!("{}{place}: the {} beat the {}.", capitalize(x.window.name()), w.nfl[wn].name, w.nfl[l].name);
-        w.calendar.post(Event::new(x.at.date, Level::Nfl, Kind::Game, Loudness::Small, text).team(wn).at(x.at));
+        w.calendar.post(
+            Event::new(x.at.date, Level::Nfl, Kind::Game, Loudness::Small, text)
+                .team(wn)
+                .at(x.at)
+                .club_link(wn, w.nfl[wn].name)
+                .club_link(l, w.nfl[l].name),
+        );
     }
     // A45: next week's lines open after the week's last game.
     for k in weeks {
@@ -2020,7 +2026,14 @@ fn stakes(w: &mut World, k: usize, d: Date) {
                 t,
             )
         };
-        w.calendar.post(Event::new(at.date, Level::Nfl, Kind::Game, loud, text).team(team).at(at).regular());
+        w.calendar.post(
+            Event::new(at.date, Level::Nfl, Kind::Game, loud, text)
+                .team(team)
+                .at(at)
+                .regular()
+                .club_link(h, w.nfl[h].name)
+                .club_link(a, w.nfl[a].name),
+        );
     }
 }
 
@@ -2266,7 +2279,13 @@ fn play_round_games(w: &mut World, d: Date) {
     let names = ["", "Wild card", "Divisional round", "Conference title game"];
     for (round, wn, l, at) in results {
         let text = format!("{}: the {} beat the {}.", names[round as usize], w.nfl[wn].name, w.nfl[l].name);
-        w.calendar.post(Event::new(at.date, Level::Nfl, Kind::Game, Loudness::Huge, text).team(wn).at(at));
+        w.calendar.post(
+            Event::new(at.date, Level::Nfl, Kind::Game, Loudness::Huge, text)
+                .team(wn)
+                .at(at)
+                .club_link(wn, w.nfl[wn].name)
+                .club_link(l, w.nfl[l].name),
+        );
     }
 }
 
@@ -2302,18 +2321,30 @@ fn super_bowl_book(w: &mut World, champ: usize, loser: usize, d: Date) {
     w.nfl_champions.push((year, champ));
     let name = w.nfl[champ].name;
     let text = format!("The {name} win the Super Bowl over the {}.", w.nfl[loser].name);
-    w.calendar.post(Event::new(d, Level::Nfl, Kind::Game, Loudness::Huge, text).team(champ).memorable());
+    w.calendar.post(
+        Event::new(d, Level::Nfl, Kind::Game, Loudness::Huge, text)
+            .team(champ)
+            .memorable()
+            .club_link(champ, name)
+            .club_link(loser, w.nfl[loser].name),
+    );
     if w.recording {
-        let coach =
-            w.nfl[champ].head_coach.map_or(String::new(), |h| format!(" under head coach {}", w.coaches[h].name));
-        w.news.push(NewsItem {
+        let head = w.nfl[champ].head_coach;
+        let coach = head.map_or(String::new(), |h| format!(" under head coach {}", w.coaches[h].name));
+        let mut item = NewsItem {
             date: Some(d),
             year,
             kind: NewsKind::NationalTitle,
             channel: Channel::News,
             program: None,
             text: format!("The {name} win the Super Bowl{coach}."),
-        });
+            refs: Vec::new(),
+        }
+        .link(Link::Club(champ as u32), name);
+        if let Some(h) = head {
+            item = item.link(Link::Coach(h as u32), &w.coaches[h].name.clone());
+        }
+        w.news.push(item);
     }
 }
 
@@ -2391,6 +2422,61 @@ pub(crate) fn playoff_field(s: &NflSeason) -> Vec<(usize, usize)> {
     let mut v: Vec<(usize, usize)> = s.seed.iter().enumerate().filter_map(|(t, k)| k.map(|k| (k, t))).collect();
     v.sort();
     v
+}
+
+/// Your club's game today, as the day builds its fixture (section 9): the
+/// regular season, a playoff round or the Super Bowl.
+pub(crate) fn seat_fixture(w: &World, t: usize) -> Option<Fixture> {
+    let d = w.today;
+    let s = w.nfl_season.as_ref()?;
+    if !s.started {
+        return None;
+    }
+    for (k, week) in s.slots.iter().enumerate() {
+        for (g, x) in week.iter().enumerate() {
+            let (h, a) = s.weeks[k][g];
+            if x.at.date == d && !x.played && (h == t || a == t) {
+                let seed = w.options.seed as u64 ^ (w.year as u64) << 24 ^ (k as u64) << 10 ^ 0x4E47;
+                let loud = if x.window.prime() { 0.04 } else { 0.0 };
+                return Some(Fixture {
+                    home: h,
+                    away: a,
+                    at: x.at,
+                    neutral: x.site.is_some(),
+                    loud,
+                    seed: seed ^ (h as u64) << 8 ^ a as u64,
+                });
+            }
+        }
+    }
+    for &(round, c, hi, lo, at) in &s.round_games {
+        if at.date == d && (hi == t || lo == t) {
+            let seed = w.options.seed as u64 ^ (w.year as u64) << 24 ^ (round as u64) << 4 ^ 0x504F ^ c as u64;
+            return Some(Fixture {
+                home: hi,
+                away: lo,
+                at,
+                neutral: false,
+                loud: 0.1,
+                seed: seed ^ (hi as u64) << 8 ^ lo as u64,
+            });
+        }
+    }
+    if d == w.dates.super_bowl && s.booked {
+        let (a, b) = (s.alive[0].first().copied()?, s.alive[1].first().copied()?);
+        if a == t || b == t {
+            let seed = w.options.seed as u64 ^ (w.year as u64) << 24 ^ 4u64 << 4 ^ 0x504F;
+            return Some(Fixture {
+                home: a,
+                away: b,
+                at: Moment::at(d, 18, 30),
+                neutral: true,
+                loud: 0.0,
+                seed: seed ^ 0x5B,
+            });
+        }
+    }
+    None
 }
 
 #[cfg(test)]

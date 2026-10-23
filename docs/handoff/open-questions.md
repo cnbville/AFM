@@ -8,6 +8,8 @@ How to read it:
 - Pointers like ([T17] 2026-10-14 12:16) name the transcript and the message time (UTC). The link list is at the bottom.
 - Nothing here is decided. Per Raichel's rule, ask before building any of it.
 
+**Status, 2026-10-22 (final build, lane 5).** This file is a snapshot of 2026-10-14 and almost all of it has since been answered and built. Read `docs/handoff/decisions.md`, `CLAUDE.md` ("Next job") and the design docs for the current state. In short: the engine physics fixes were built 2026-10-14 and world trials 4 to 10 ran on them (section A 1-2); the trial 3 findings were answered and built in the trial fix lists (A 3; finding 9, shared names, in the names rebuild; finding 10, the stats record and high school games on the engine, built in build 7 and section 8); the realism questions were answered (A 5: real programs with D3, NAIA and the 113 real junior colleges in `colleges_lower.csv`; Q2, each state's real playoff format, built in the final build, `world/hs_playoffs.rs`); plays and tactics, the calendar, the 67 attributes, tendencies, people, scouting, training, game day, screens, Dynamic Links and the later extras were designed and are built or in the final build. Section B's table below now says where each item was built. What is still open lives in the threads' own lists, not here.
+
 ---
 
 ## A. Waiting on Raichel now, most urgent first
@@ -118,18 +120,18 @@ Raichel has not signed these off. Each list names its numbers:
 | Decision | Where it was decided | State |
 |---|---|---|
 | About 35-40 attributes, about 20 positions | [T02] 2026-10-10 | Attributes built 2026-10-18 (67 + 5 hidden); positions 14 |
-| Engine physics fixes (5 items) | [T17] 2026-10-14 | Spec only, waiting on "build" |
-| Career stats record across levels (percentiles, era adjustment) | Section 3 topic 8 | Not built |
-| High school games on the engine | Section 3 ground rules | Stand-in for now |
-| Coach buzz from stats (trial 1 item 5, stat part) | [T11] 2026-10-13 11:58 | Waits for the stats record |
-| Hidden-gem "oh damn" stat footprint (trial 1 item 9) | [T11] 2026-10-13 12:35 | Waits for the stats record |
-| Awards, records, Hall of Fame | Q48; section 3 topic 8 | Not built |
-| Real JUCO programs and D3/NAIA in the data | [T11] 2026-10-13 08:03 | Placeholders |
-| Section 4 calendar | `docs/design/calendar.md` | Spec only |
-| Plays and tactics database | `docs/design/plays-and-tactics.md` | Spec only |
-| Engine speed-up (same results per seed) | [T15] 2026-10-14 08:12 | Not started |
-| Sections 5 to 11 | `docs/roadmap.md` | Not designed |
-| Player tendencies (15 in 8 groups, topics 1-4, six coaching styles) | `docs/design/tendencies.md`, 2026-10-18 | Spec only |
+| Engine physics fixes (5 items) | [T17] 2026-10-14 | Built 2026-10-14 (`docs/match-engine.md`, "Physics fixes") |
+| Career stats record across levels (percentiles, era adjustment) | Section 3 topic 8 | Built in build 7 (the stat book, `world/records.rs`) |
+| High school games on the engine | Section 3 ground rules | Built for the history from 2014 (world trial 10); every game in a live save is final build lane 3 |
+| Coach buzz from stats (trial 1 item 5, stat part) | [T11] 2026-10-13 11:58 | Built with the stats record |
+| Hidden-gem "oh damn" stat footprint (trial 1 item 9) | [T11] 2026-10-13 12:35 | Built (`records::current_footprints`) |
+| Awards, records, Hall of Fame | Q48; section 3 topic 8 | Built in build 7; real poll and award voters in the final build (`world/voters.rs`) |
+| Real JUCO programs and D3/NAIA in the data | [T11] 2026-10-13 08:03 | Built: 113 real junior colleges, D3 and NAIA in `colleges_lower.csv` |
+| Section 4 calendar | `docs/design/calendar.md` | Built 2026-10-16 |
+| Plays and tactics database | `docs/design/plays-and-tactics.md` | Built 2026-10-17 (build 7) |
+| Engine speed-up (same results per seed) | [T15] 2026-10-14 08:12 | Worked on in the project folder (`afm/engine-speed/`); check there |
+| Sections 5 to 11 | `docs/roadmap.md` | All designed by 2026-10-21; built through the final build |
+| Player tendencies (15 in 8 groups, topics 1-4, six coaching styles) | `docs/design/tendencies.md`, 2026-10-18 | Built 2026-10-19 |
 
 Done since the specs were written (the specs still say "not done"):
 - **High school NIL rules per state** were added to `data/real-world/hs_states.csv` on 2026-10-13. `docs/design/world.md` follow-up 5 still says "Not done yet".

@@ -58,8 +58,6 @@ struct Group {
     schools: Vec<usize>,
     /// Each week's games: (home, away).
     schedule: Vec<Vec<(usize, usize)>>,
-    /// Still alive in the playoffs.
-    alive: Vec<usize>,
 }
 
 /// A high school player's counting stats, in the order `HsLine::s` keeps them.
@@ -138,7 +136,7 @@ struct HsAcc {
     s: [i32; HS_STAT_COUNT],
 }
 
-fn hs_counts(l: &crate::game::stats::StatLine) -> [i32; HS_STAT_COUNT] {
+pub(crate) fn hs_counts(l: &crate::game::stats::StatLine) -> [i32; HS_STAT_COUNT] {
     let mut s = [0; HS_STAT_COUNT];
     let mut set = |k: HsStat, v: f64| s[k as usize] = v.round() as i32;
     set(HsStat::SnapsOff, l.snaps_off as f64);
@@ -171,9 +169,9 @@ struct HsPlayed {
     score: [u32; 2],
     team: [crate::game::stats::TeamStats; 2],
     lines: [Vec<(usize, [i32; HS_STAT_COUNT], bool)>; 2],
-    /// The whole game, kept only for your school's game page, with its
-    /// setup for watching it back.
-    full: Option<(crate::game::stats::GameStats, Option<Box<crate::game::ReplaySetup>>)>,
+    /// The whole game, kept only for your school's game page (with its
+    /// setup for watching it back) and your coming opponents' film.
+    full: Option<(crate::game::stats::GameStats, [crate::game::calling::Film; 2], Option<Box<crate::game::ReplaySetup>>)>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -198,12 +196,26 @@ pub(crate) struct HsSeasonState {
     grade_weeks: HashMap<usize, u32>,
     /// The season's lines so far, by person.
     book: HashMap<usize, HsAcc>,
+    /// Each school's district this season (U-d), by school id.
+    #[serde(default)]
+    district: Vec<u32>,
+    /// The regular season's results so far, (winner, loser), for the
+    /// states' playoff ratings (U-d).
+    #[serde(default)]
+    played: Vec<(u32, u32)>,
+    /// The playoff brackets, by state as each state's field is set (U-d).
+    #[serde(default)]
+    pub(crate) brackets: Vec<super::hs_playoffs::Bracket>,
 }
 
-/// Whether a season's high school games run on the match engine.
+/// Whether a season's high school games run on the match engine: every
+/// season of a live save (the start year on), and the history's last
+/// `hs_engine_years`. `engine_from`, the quick-check knob, holds back every
+/// level alike, live seasons included.
 pub(crate) fn hs_on_engine(w: &World, year: i32) -> bool {
-    let Some(n) = w.options.hs_engine_years else { return false };
-    year >= w.options.start_year - n as i32 && w.options.engine_from.is_none_or(|from| year >= from)
+    let start = w.options.start_year;
+    let from = w.options.hs_engine_years.map_or(start, |n| start - n as i32);
+    year >= from && w.options.engine_from.is_none_or(|e| year >= e)
 }
 
 /// A 2026 date shifted to `year` by the anchor it follows (Labor Day for
@@ -265,10 +277,11 @@ pub(crate) fn new_season(w: &World) -> HsSeasonState {
             class,
             schools,
             schedule: vec![Vec::new(); states[state].weeks.len()],
-            alive: Vec::new(),
         })
         .collect();
     let mut marks = vec![None; w.high_schools.len()];
+    let mut district = vec![super::hs_playoffs::NONE; w.high_schools.len()];
+    let mut n_districts = 0u32;
     let mut first = 0;
     while first < groups.len() {
         let state = groups[first].state;
@@ -277,7 +290,17 @@ pub(crate) fn new_season(w: &World) -> HsSeasonState {
         let classes: Vec<(u32, &[usize])> =
             groups[first..end].iter().map(|g| (g.class, g.schools.as_slice())).collect();
         let area = |id: usize| w.high_schools[id].area;
-        let weeks = state_schedule(&classes, &area, n_weeks, seed ^ (state as u64) << 8);
+        let power = |id: usize| {
+            let h = &w.high_schools[id];
+            (h.prestige, h.private && h.is_powerhouse())
+        };
+        let (weeks, districts) = state_schedule(&classes, &area, &power, n_weeks, seed ^ (state as u64) << 8);
+        for d in districts {
+            for h in d {
+                district[h] = n_districts;
+            }
+            n_districts += 1;
+        }
         // Each game is filed under the home team's classification.
         let mut home_days: Vec<(usize, Date)> = Vec::new();
         for (k, games) in weeks.into_iter().enumerate() {
@@ -312,6 +335,9 @@ pub(crate) fn new_season(w: &World) -> HsSeasonState {
         on_engine: hs_on_engine(w, year),
         grade_weeks: HashMap::new(),
         book: HashMap::new(),
+        district,
+        played: Vec::new(),
+        brackets: Vec::new(),
     }
 }
 
@@ -319,9 +345,17 @@ pub(crate) fn new_season(w: &World) -> HsSeasonState {
 /// games outside the classification.
 const SCHEDULE_TRIES: u64 = 8;
 
+/// Prestige from which a program schedules up (A11): the states' named
+/// powerhouses (0.8 and up) and the strongest generated programs (they top
+/// out at 0.72; proposed, not confirmed).
+const BIG_NAME: f64 = 0.6;
+
 /// About how many schools make a district (part B 40; real districts run
 /// about 5 to 8; proposed, not confirmed: 7, fewer when the season is short).
 const DISTRICT_SIZE: usize = 7;
+
+/// Each week's games (home, away), by week.
+type WeekPairs = Vec<Vec<(usize, usize)>>;
 
 /// A state's regular season, week by week, as (home, away) games, from its
 /// classifications (class number and schools) and each school's area (part
@@ -330,13 +364,23 @@ const DISTRICT_SIZE: usize = 7;
 /// The first weeks are non-district games, against a school not met yet
 /// from the same area first, then a similar classification. A school with a
 /// district bye plays another school with one. Two schools never meet twice
-/// in a regular season; a playoff rematch is fine.
-fn state_schedule(
+/// in a regular season; a playoff rematch is fine. Also returns the
+/// districts, as school ids.
+///
+/// A11, the dynasty leveler: strong programs schedule up, as real ones do.
+/// A state's private powerhouses play in one league of their own when there
+/// are three or more (California's Trinity League, the Catholic leagues),
+/// whatever their class. And a program with a big name (`power`: prestige,
+/// and whether it is a private powerhouse) books its non-district games
+/// against the biggest names in the state that are free, not the school
+/// down the road, so the best teams meet every year.
+pub(crate) fn state_schedule(
     classes: &[(u32, &[usize])],
     area: &dyn Fn(usize) -> usize,
+    power: &dyn Fn(usize) -> (f64, bool),
     n_weeks: usize,
     seed: u64,
-) -> Vec<Vec<(usize, usize)>> {
+) -> (WeekPairs, Vec<Vec<usize>>) {
     const FREE: usize = usize::MAX;
     let ids: Vec<usize> = classes.iter().flat_map(|c| c.1.iter().copied()).collect();
     let class_of: Vec<u32> = classes.iter().flat_map(|c| std::iter::repeat_n(c.0, c.1.len())).collect();
@@ -346,10 +390,24 @@ fn state_schedule(
     let size = DISTRICT_SIZE.min(n_weeks.saturating_sub(2)).max(2);
     let mut district = vec![FREE; n];
     let mut districts: Vec<Vec<usize>> = Vec::new();
+    let prestige: Vec<f64> = ids.iter().map(|&id| power(id).0).collect();
+    // The private powerhouses' league (A11).
+    let mut league: Vec<usize> = (0..n).filter(|&i| power(ids[i]).1).collect();
+    if league.len() >= 3 {
+        league.sort_by(|&a, &b| prestige[b].total_cmp(&prestige[a]).then(a.cmp(&b)));
+        league.truncate(size.max(3));
+        for &i in &league {
+            district[i] = districts.len();
+        }
+        districts.push(league);
+    }
     let mut at = 0;
     for c in classes {
-        let mut idx: Vec<usize> = (at..at + c.1.len()).collect();
+        let mut idx: Vec<usize> = (at..at + c.1.len()).filter(|&i| district[i] == FREE).collect();
         at += c.1.len();
+        if idx.is_empty() {
+            continue;
+        }
         idx.sort_by(|&a, &b| {
             area_of[a]
                 .cmp(&area_of[b])
@@ -401,6 +459,11 @@ fn state_schedule(
             let mut order: Vec<usize> = (0..n).filter(|&a| !busy[k][a]).collect();
             let shuffle: Vec<f64> = ids.iter().map(|&id| key_uniform(key, id as u64)).collect();
             order.sort_by(|&a, &b| area_of[a].cmp(&area_of[b]).then(shuffle[a].total_cmp(&shuffle[b])));
+            // The big names book first (A11).
+            let (mut big, rest): (Vec<usize>, Vec<usize>) = order.iter().partition(|&&a| prestige[a] >= BIG_NAME);
+            big.sort_by(|&a, &b| prestige[b].total_cmp(&prestige[a]).then(shuffle[a].total_cmp(&shuffle[b])));
+            big.extend(rest);
+            let order = big;
             let mut partner = vec![FREE; n];
             let mut pairs: Vec<(usize, usize)> = Vec::new();
             for (x, &a) in order.iter().enumerate() {
@@ -411,8 +474,16 @@ fn state_schedule(
                 // the order is by area, so the nearby schools come next.
                 let open = |b: &&usize| partner[**b] == FREE && !met[a].contains(*b) && district[**b] != district[a];
                 let rank = |b: &&usize| ((area_of[**b] != area_of[a]) as u32, class_of[**b].abs_diff(class_of[a]));
-                let near = order[x + 1..].iter().take(200).filter(open).min_by_key(rank);
-                let b = near.or_else(|| order[x + 1..].iter().filter(open).min_by_key(rank));
+                // A big name books the biggest free name in the state.
+                let b = if prestige[a] >= BIG_NAME {
+                    order[x + 1..]
+                        .iter()
+                        .filter(open)
+                        .max_by(|&&p, &&q| prestige[p].total_cmp(&prestige[q]).then(shuffle[q].total_cmp(&shuffle[p])))
+                } else {
+                    let near = order[x + 1..].iter().take(200).filter(open).min_by_key(rank);
+                    near.or_else(|| order[x + 1..].iter().filter(open).min_by_key(rank))
+                };
                 if let Some(&b) = b {
                     (partner[a], partner[b]) = (b, a);
                     pairs.push((a, b));
@@ -432,13 +503,14 @@ fn state_schedule(
             weeks[k].push((a, b));
         }
     }
-    weeks
+    let weeks = weeks
         .into_iter()
         .enumerate()
         .map(|(k, pairs)| {
             pairs.into_iter().map(|(a, b)| if k % 2 == 0 { (ids[a], ids[b]) } else { (ids[b], ids[a]) }).collect()
         })
-        .collect()
+        .collect();
+    (weeks, districts.into_iter().map(|d| d.into_iter().map(|i| ids[i]).collect()).collect())
 }
 
 /// The high school day.
@@ -540,11 +612,13 @@ fn start_state(w: &mut World, s: usize) {
     for &h in &schools {
         for &i in &w.high_schools[h].roster {
             let p = &w.people[i];
-            who[i] = p.stage == Stage::HighSchool && p.player.age > 14;
+            who[i] = p.stage == Stage::HighSchool && p.school_age() > 14;
         }
     }
     super::clock::timed("hs reconsider", || season::reconsider_positions(w, &who));
-    let roles = super::clock::timed("hs roles", || season::hs_roles(w, &schools));
+    let mut roles = super::clock::timed("hs roles", || season::hs_roles(w, &schools));
+    // Your JV and freshman players get their own squad's game reps (lane 10).
+    super::front_office::school::squad_roles(w, &mut roles);
     super::clock::timed("hs mood", || super::people::hs_camp_mood(w, &schools, &roles));
     super::clock::timed("hs develop", || season::develop(w, &roles));
     let people = &w.people;
@@ -748,15 +822,20 @@ fn play_week(w: &mut World, s: usize, k: usize, d: Date) {
     w.log.hs_no_contests += no_contests;
     w.log.hs_homecomings += homecomings;
     w.log.hs_senior_nights += senior_nights;
-    let played = engine_games(w, s, k, &engine, &wx, false, seed ^ 0x55);
+    let played = engine_games(w, s, k, &engine, (d, &wx), false, seed ^ 0x55);
     let hs = w.hs_season.as_mut().unwrap();
-    for (&(h, a, key), _) in engine.iter().zip(played).filter(|x| x.1.is_none()) {
-        let p =
-            win_chance(hs.results[h].strength - adj(hs, h, k), hs.results[a].strength - adj(hs, a, k), HS_SPREAD, 0.8);
-        let (wn, l) = if key_uniform(seed ^ 0x55, key) < p { (h, a) } else { (a, h) };
-        hs.results[wn].wins += 1;
-        hs.results[l].losses += 1;
-        outcomes.push((wn, l));
+    let mut all: Vec<(usize, usize)> = outcomes.clone();
+    for (&(h, a, _), home_wins) in engine.iter().zip(played) {
+        all.push(if home_wins { (h, a) } else { (a, h) });
+    }
+    // The season so far, for the playoff ratings, and district records (U-d).
+    for &(wn, l) in &all {
+        hs.played.push((wn as u32, l as u32));
+        let dist = |x: usize| hs.district.get(x).copied().unwrap_or(super::hs_playoffs::NONE);
+        if dist(wn) != super::hs_playoffs::NONE && dist(wn) == dist(l) {
+            hs.results[wn].conf_wins += 1;
+            hs.results[l].conf_losses += 1;
+        }
     }
     if w.recording {
         for (wn, l) in outcomes {
@@ -779,21 +858,52 @@ const HS_DRESS_MIN: usize = 18;
 /// experience grow with his years in the program (proposed, not confirmed).
 /// Also returns each player's id and person index.
 fn hs_team(w: &World, h: usize, week: usize) -> Option<(GameTeam, Vec<(u32, usize)>)> {
+    let school = &w.high_schools[h];
+    let ok = |i: usize| can_play(w, i, week);
+    let older = school.roster.iter().filter(|&&i| ok(i) && w.people[i].school_age() > 14).count();
+    // Your school dresses its varsity squad (lane 10: you or your staff
+    // decide who plays varsity, JV and freshman ball).
+    let squads = super::front_office::school::varsity_filter(w, h);
+    let dressed: Vec<usize> = school
+        .roster
+        .iter()
+        .copied()
+        .filter(|&i| {
+            ok(i)
+                && match &squads {
+                    Some(v) => v.contains(&i),
+                    None => older < 30 || w.people[i].school_age() > 14,
+                }
+        })
+        .collect();
+    squad_team(w, h, dressed, true)
+}
+
+/// Whether a high schooler may play in week `week` (regular weeks, then
+/// playoff rounds): not sitting a transfer, suspended or out for grades. A
+/// player suspended for the season sits, as in college (his status line
+/// says so).
+pub(crate) fn can_play(w: &World, i: usize, week: usize) -> bool {
+    let grades = w.hs_season.as_ref().map(|hs| &hs.grade_weeks);
+    let p = &w.people[i];
+    p.stage == Stage::HighSchool
+        && p.last_role != Some(PlayingTime::Redshirt)
+        && !p.cal.trouble
+        && !super::folk::rules::sitting(w, p.player.id, w.today)
+        && grades.is_none_or(|g| g.get(&i).is_none_or(|m| m >> week & 1 == 0))
+}
+
+/// A game team from the players given (a school's varsity, or your JV or
+/// freshman squad): the same build for each, with the school's head coach
+/// calling both sides. Your order is played only by your varsity.
+pub(crate) fn squad_team(
+    w: &World,
+    h: usize,
+    dressed: Vec<usize>,
+    varsity: bool,
+) -> Option<(GameTeam, Vec<(u32, usize)>)> {
     use super::systems::Installed;
     let school = &w.high_schools[h];
-    let grades = w.hs_season.as_ref().map(|hs| &hs.grade_weeks);
-    // A player suspended for the season sits, as in college (his status
-    // line says so).
-    let ok = |i: usize| {
-        let p = &w.people[i];
-        p.stage == Stage::HighSchool
-            && p.last_role != Some(PlayingTime::Redshirt)
-            && !p.cal.trouble
-            && grades.is_none_or(|g| g.get(&i).is_none_or(|m| m >> week & 1 == 0))
-    };
-    let older = school.roster.iter().filter(|&&i| ok(i) && w.people[i].player.age > 14).count();
-    let dressed: Vec<usize> =
-        school.roster.iter().copied().filter(|&i| ok(i) && (older < 30 || w.people[i].player.age > 14)).collect();
     if dressed.len() < HS_DRESS_MIN {
         return None;
     }
@@ -839,8 +949,8 @@ fn hs_team(w: &World, h: usize, week: usize) -> Option<(GameTeam, Vec<(u32, usiz
         },
     );
     team.give_orders(crate::player::Level::HS);
-    if w.seat_school() == Some(h) {
-        team.order = w.seat_depth.clone();
+    if varsity && w.seat_school() == Some(h) {
+        team.order = w.seat_order();
     }
     // Line chemistry: upperclassmen up front have played together.
     let line_vets = dressed
@@ -848,7 +958,7 @@ fn hs_team(w: &World, h: usize, week: usize) -> Option<(GameTeam, Vec<(u32, usiz
         .filter(|&&i| {
             let p = &w.people[i];
             matches!(p.player.position, Position::OT | Position::IOL)
-                && p.player.age >= 17
+                && p.school_age() >= 17
                 && p.last_role == Some(PlayingTime::Starter)
         })
         .count()
@@ -867,19 +977,109 @@ pub(crate) fn seat_team(w: &World, h: usize) -> Option<GameTeam> {
     hs_team(w, h, week).map(|t| t.0)
 }
 
+/// A Friday night's conditions at a home school: the day's weather, a
+/// crowd as loud as the school is big, and the wind along the field.
+fn hs_conditions(
+    w: &World,
+    h: usize,
+    wx: &crate::calendar::weather::Weather,
+    seed: u64,
+    key: u64,
+) -> crate::game::Conditions {
+    let school = &w.high_schools[h];
+    // The crowd: a big school's Friday night is louder (proposed, not confirmed).
+    let crowd = clamp(0.2 + 0.3 * (school.enrollment as f64 / 2500.0).sqrt() + 0.1 * school.prestige, 0.1, 0.7);
+    crate::game::Conditions {
+        temperature: wx.temperature,
+        wind: wx.wind,
+        wind_along: key_uniform(seed ^ 0xA10, key) * 2.0 - 1.0,
+        rain: wx.rain,
+        snow: wx.snow,
+        crowd,
+        ..Default::default()
+    }
+}
+
+/// Your school's game today as the day will play it (section 9): a
+/// regular-season Friday or a playoff round.
+pub(crate) fn seat_setup(w: &World, me: usize) -> Option<super::live_seat::SeatSetup> {
+    let d = w.today;
+    let hs = w.hs_season.as_ref()?;
+    let s = w.high_schools.get(me)?.state;
+    let st = &hs.states[s];
+    let code = w.states[s].code.clone();
+    let rules = if matches!(code.as_str(), "TX" | "MA") {
+        crate::game::Rules::high_school_on_college_rules()
+    } else {
+        crate::game::Rules::for_level(crate::player::Level::HS)
+    };
+    // (home, away, week index, seed, key, final, playoff)
+    let found = if let Some(k) = st.weeks.iter().position(|&g| g == d) {
+        let seed = (w.options.seed as u64 ^ (w.year as u64) << 24 ^ (k as u64) << 8 ^ 0x6761) ^ 0x55;
+        hs.groups.iter().filter(|g| g.state == s).find_map(|g| {
+            let &(h, a) = g.schedule.get(k)?.iter().find(|&&(h, a)| h == me || a == me)?;
+            Some((h, a, k, seed, (h as u64) << 20 ^ a as u64, false, false))
+        })
+    } else if let Some(r) = st.rounds.iter().position(|&x| x == d) {
+        let seed = w.options.seed as u64 ^ (w.year as u64) << 24 ^ (r as u64) << 12 ^ 0x706F;
+        let last = st.rounds.len() - 1;
+        hs.brackets.iter().filter(|b| b.state as usize == s && !b.done() && b.round as usize == r).find_map(|b| {
+            b.games()
+                .into_iter()
+                .map(|(a, h)| (a as usize, h as usize))
+                .find(|&(a, b)| a == me || b == me)
+                .map(|(a, b)| (a, b, st.weeks.len() + r, seed, (a as u64) << 20 ^ b as u64, r == last, true))
+        })
+    } else {
+        None
+    }?;
+    let (h, a, week, seed, key, final_game, playoff) = found;
+    // The home town's own climate (U-e); a neutral-site final, the state's.
+    let wx = if final_game {
+        weather_at(w.options.seed as u64, s, &code, d, 19)
+    } else {
+        crate::calendar::weather::weather_in(w.options.seed as u64, s, &code, &w.high_schools[h].town, d, 19)
+    };
+    let (home, _) = hs_team(w, h, week)?;
+    let (away, _) = hs_team(w, a, week)?;
+    let mut setup = crate::game::GameSetup::new(
+        &home,
+        &away,
+        crate::player::Level::HS,
+        seed.wrapping_mul(1_000_003).wrapping_add(key),
+    );
+    setup.rules = rules;
+    setup.cond = hs_conditions(w, h, &wx, seed, key);
+    setup.neutral = final_game;
+    setup.playoff = playoff;
+    setup.kickoff = 19.0;
+    let params = crate::game::live::Params::of(&setup);
+    Some(super::live_seat::SeatSetup {
+        level: Level::HighSchool,
+        teams: [h, a],
+        names: [w.school_name(h).to_string(), w.school_name(a).to_string()],
+        home,
+        away,
+        params,
+    })
+}
+
 /// Plays a state's engine games for one week (regular week `week`, or a
-/// playoff round) and files the results and lines. Returns whether each
-/// home team won, or None where a school too short to dress a team leaves
-/// the game to the stand-in.
+/// playoff round) and files the results and lines. Each game is played in
+/// its home town's weather (U-e: the town's own climate normals, with the
+/// state's shared swing for the day); a final at a neutral site plays in
+/// the state's weather (`state_wx`). Returns whether each home team won. A
+/// school too short to dress a team forfeits (both short: the home side),
+/// as a real one does; no game falls back to the stand-in.
 fn engine_games(
     w: &mut World,
     s: usize,
     week: usize,
     games: &[(usize, usize, u64)],
-    wx: &crate::calendar::weather::Weather,
+    (day, state_wx): (Date, &crate::calendar::weather::Weather),
     final_game: bool,
     seed: u64,
-) -> Vec<Option<bool>> {
+) -> Vec<bool> {
     if games.is_empty() {
         return Vec::new();
     }
@@ -890,23 +1090,30 @@ fn engine_games(
     };
     let seat = w.seat_school();
     let world: &World = w;
-    let played: Vec<Option<HsPlayed>> = games
+    // Your game, played live on the game day screens (section 9).
+    let live = world.live_result(Level::HighSchool);
+    let watch = world.tape_watch(Level::HighSchool);
+    // Each game draws from its own seeded stream (from its key), so results
+    // are the same on any core count.
+    let played: Vec<Result<HsPlayed, bool>> = games
         .par_iter()
         .map(|&(h, a, key)| {
-            let (home, hid) = hs_team(world, h, week)?;
-            let (away, aid) = hs_team(world, a, week)?;
-            let school = &world.high_schools[h];
-            // The crowd: a big school's Friday night is louder (proposed, not confirmed).
-            let crowd = clamp(0.2 + 0.3 * (school.enrollment as f64 / 2500.0).sqrt() + 0.1 * school.prestige, 0.1, 0.7);
-            let cond = crate::game::Conditions {
-                temperature: wx.temperature,
-                wind: wx.wind,
-                wind_along: key_uniform(seed ^ 0xA10, key) * 2.0 - 1.0,
-                rain: wx.rain,
-                snow: wx.snow,
-                crowd,
-                ..Default::default()
+            let ((home, hid), (away, aid)) = match (hs_team(world, h, week), hs_team(world, a, week)) {
+                (Some(x), Some(y)) => (x, y),
+                // A forfeit: the home side wins only if it could dress a team.
+                (x, _) => return Err(x.is_some()),
             };
+            let school = &world.high_schools[h];
+            let code = world.states[s].code.as_str();
+            let town_wx;
+            let wx = if final_game {
+                state_wx
+            } else {
+                town_wx =
+                    crate::calendar::weather::weather_in(world.options.seed as u64, s, code, &school.town, day, 19);
+                &town_wx
+            };
+            let cond = hs_conditions(world, h, wx, seed, key);
             let mut setup = crate::game::GameSetup::new(
                 &home,
                 &away,
@@ -921,7 +1128,10 @@ fn engine_games(
             // under the lights (7 pm).
             setup.keep = seat.is_some_and(|x| x == h || x == a);
             setup.kickoff = 19.0;
-            let mut r = crate::game::play_game(&setup);
+            let mut r = match &live {
+                Some((t, r)) if *t == [h, a] => r.clone(),
+                _ => crate::game::play_game(&setup),
+            };
             let lines = [(0usize, &hid), (1usize, &aid)].map(|(side, ids)| {
                 ids.iter()
                     .filter_map(|&(id, i)| {
@@ -932,16 +1142,31 @@ fn engine_games(
                     .collect()
             });
             let [ha, hb] = r.stats.score;
+            // Your game, and your coming opponents' film.
+            let kept = seat.is_some_and(|x| x == h || x == a)
+                || watch.as_ref().is_some_and(|o| o.contains(&h) || o.contains(&a));
             let replay = r.replay.take();
-            let full = seat.is_some_and(|x| x == h || x == a).then(|| (r.stats.clone(), replay));
-            Some(HsPlayed { score: [ha.max(0) as u32, hb.max(0) as u32], team: r.stats.team.clone(), lines, full })
+            let full = kept.then(|| (r.stats.clone(), r.film.clone(), replay));
+            Ok(HsPlayed { score: [ha.max(0) as u32, hb.max(0) as u32], team: r.stats.team.clone(), lines, full })
         })
         .collect();
     let mut out = Vec::with_capacity(games.len());
     for (&(h, a, key), g) in games.iter().zip(played) {
-        let Some(g) = g else {
-            out.push(None);
-            continue;
+        let g = match g {
+            Ok(g) => g,
+            Err(home_wins) => {
+                let (wn, l) = if home_wins { (h, a) } else { (a, h) };
+                let hs = w.hs_season.as_mut().unwrap();
+                hs.results[wn].wins += 1;
+                hs.results[l].losses += 1;
+                w.log.hs_forfeits += 1;
+                if w.recording {
+                    super::records::hs_result(w, wn, true);
+                    super::records::hs_result(w, l, false);
+                }
+                out.push(home_wins);
+                continue;
+            }
         };
         let home_wins = if g.score[0] == g.score[1] { key & 1 == 0 } else { g.score[0] > g.score[1] };
         let (wn, l) = if home_wins { (h, a) } else { (a, h) };
@@ -961,8 +1186,11 @@ fn engine_games(
                 }
             }
         }
-        if let Some((full, replay)) = g.full.as_ref() {
+        if let Some((full, film, replay)) = g.full.as_ref() {
             w.keep_seat_game(Level::HighSchool, [h, a], full, replay.as_deref());
+            if let Some(o) = &watch {
+                w.keep_tape(o, Level::HighSchool, [h, a], full, film);
+            }
         }
         w.log.hs_engine_games += 1;
         w.log.hs_totals.add(&g.team[0], &g.team[1]);
@@ -971,7 +1199,7 @@ fn engine_games(
             super::records::hs_result(w, wn, true);
             super::records::hs_result(w, l, false);
         }
-        out.push(Some(home_wins));
+        out.push(home_wins);
     }
     out
 }
@@ -1009,70 +1237,71 @@ fn poll(w: &mut World, s: usize, d: Date, which: &str) {
         return;
     }
     let text = format!("{which} {} high school poll: {}.", w.states[s].code, top.join(", "));
-    w.calendar.post(Event::new(d, Level::HighSchool, Kind::Poll, Loudness::Small, text));
+    let mut e = Event::new(d, Level::HighSchool, Kind::Poll, Loudness::Small, text);
+    for &(_, h) in teams.iter().take(5) {
+        e = e.hs_link(h, w.school_name(h));
+    }
+    w.calendar.post(e);
 }
 
-/// The playoff field: each classification's best, as many as its rounds
-/// need (part B 12: five rounds take 32; a small class takes everyone, the
-/// top seeds with byes).
+/// The playoff field (U-d): each bracket of the state's real format, from
+/// its regular season (`hs_playoffs`).
 fn seed_playoffs(w: &mut World, s: usize) {
+    let hs = w.hs_season.as_ref().unwrap();
+    let opps = super::hs_playoffs::opponents(w.high_schools.len(), &hs.played);
+    let rounds = hs.states[s].rounds.len();
+    let brackets = super::hs_playoffs::build(w, s, &hs.results, &hs.district, &opps, rounds);
     let hs = w.hs_season.as_mut().unwrap();
-    let field = 1usize << hs.states[s].rounds.len().min(8);
-    let results = &hs.results;
-    for g in hs.groups.iter_mut().filter(|g| g.state == s) {
-        let mut seeds: Vec<usize> = g.schools.iter().copied().filter(|&h| results[h].roster > 0).collect();
-        seeds.sort_by(|&a, &b| {
-            let ka = results[a].win_pct() + 0.01 * results[a].strength;
-            let kb = results[b].win_pct() + 0.01 * results[b].strength;
-            kb.total_cmp(&ka)
-        });
-        seeds.truncate(field);
-        g.alive = seeds;
+    hs.brackets.retain(|b| b.state as usize != s);
+    for b in &brackets {
+        if b.champion != super::hs_playoffs::NONE {
+            hs.results[b.champion as usize].state_title = true;
+        }
+    }
+    hs.brackets.extend(brackets);
+    // Your school's playoff goals read whether it made the field.
+    if let Some(me) = super::front_office::school::your_school(w)
+        && w.high_schools[me].state == s
+        && w.hs_alive(me)
+    {
+        w.front_office.school.in_playoffs = true;
     }
 }
 
-/// A playoff round: the better seed hosts until the final.
+/// A playoff round: the better seed hosts until the final, which is on a
+/// neutral field.
 fn play_round(w: &mut World, s: usize, r: usize, d: Date) {
     let seed = w.options.seed as u64 ^ (w.year as u64) << 24 ^ (r as u64) << 12 ^ 0x706F;
     let hs = w.hs_season.as_ref().unwrap();
     let week = hs.states[s].weeks.len() + r;
     let last = hs.states[s].rounds.len() - 1;
-    // Each classification's pairings: the top seeds take the byes, then
-    // the best left meets the worst.
+    let playing = |b: &super::hs_playoffs::Bracket| b.state as usize == s && !b.done() && b.round as usize == r;
+    // Each bracket playing this round: (bracket, home, away, key).
     let mut pairs: Vec<(usize, usize, usize, u64)> = Vec::new();
-    let mut byes_of: Vec<(usize, Vec<usize>)> = Vec::new();
-    for (gi, g) in hs.groups.iter().enumerate() {
-        if g.state != s || g.alive.len() < 2 {
-            continue;
-        }
-        let n = g.alive.len();
-        let byes = n.next_power_of_two() - n;
-        byes_of.push((gi, g.alive[..byes].to_vec()));
-        let rest = &g.alive[byes..];
-        let m = rest.len();
-        for k in 0..m / 2 {
-            let (a, b) = (rest[k], rest[m - 1 - k]);
-            pairs.push((gi, a, b, (a as u64) << 20 ^ b as u64));
+    for (bi, b) in hs.brackets.iter().enumerate().filter(|x| playing(x.1)) {
+        for (a, h) in b.games() {
+            let (a, h) = (a as usize, h as usize);
+            pairs.push((bi, a, h, (a as u64) << 20 ^ h as u64));
         }
     }
     let code = w.states[s].code.clone();
     let wx = weather_at(w.options.seed as u64, s, &code, d, 19);
     let engine: Vec<(usize, usize, u64)> = pairs.iter().map(|&(_, a, b, key)| (a, b, key)).collect();
     let seat = w.seat_school();
-    let played = if hs.on_engine {
-        engine_games(w, s, week, &engine, &wx, r == last, seed)
+    let played: Vec<Option<bool>> = if hs.on_engine {
+        engine_games(w, s, week, &engine, (d, &wx), r == last, seed).into_iter().map(Some).collect()
     } else if let Some(k) = seat.and_then(|x| engine.iter().position(|&(a, b, _)| a == x || b == x)) {
         // Your school's playoff game runs on the engine even in a stand-in season.
         let mut v = vec![None; pairs.len()];
-        v[k] = engine_games(w, s, week, &engine[k..k + 1], &wx, r == last, seed)[0];
+        v[k] = Some(engine_games(w, s, week, &engine[k..k + 1], (d, &wx), r == last, seed)[0]);
         v
     } else {
         vec![None; pairs.len()]
     };
     let hs = w.hs_season.as_mut().unwrap();
     let mut outcomes: Vec<(usize, usize)> = Vec::new();
-    let mut next_of: HashMap<usize, Vec<usize>> = byes_of.into_iter().collect();
-    for (&(gi, a, b, key), on) in pairs.iter().zip(played) {
+    let mut by_bracket: HashMap<usize, Vec<(u32, u32)>> = HashMap::new();
+    for (&(bi, a, b, key), on) in pairs.iter().zip(played) {
         let a_wins = match on {
             Some(won) => won,
             None => {
@@ -1091,23 +1320,21 @@ fn play_round(w: &mut World, s: usize, r: usize, d: Date) {
                 won
             }
         };
-        next_of.entry(gi).or_default().push(if a_wins { a } else { b });
+        let (wn, l) = if a_wins { (a, b) } else { (b, a) };
+        by_bracket.entry(bi).or_default().push((wn as u32, l as u32));
     }
     w.log.hs_games += pairs.len() as u32;
     let hs = w.hs_season.as_mut().unwrap();
-    let mut gis: Vec<usize> = next_of.keys().copied().collect();
-    gis.sort();
-    for gi in gis {
-        let mut next = next_of.remove(&gi).unwrap();
-        // Keep the seeding order for the next round.
-        let g = &hs.groups[gi];
-        next.sort_by_key(|x| g.alive.iter().position(|y| y == x));
-        if (r == last || next.len() == 1)
-            && let Some(&c) = next.first()
-        {
-            hs.results[c].state_title = true;
+    for bi in 0..hs.brackets.len() {
+        if !playing(&hs.brackets[bi]) {
+            continue;
         }
-        hs.groups[gi].alive = next;
+        let res = by_bracket.remove(&bi).unwrap_or_default();
+        hs.brackets[bi].advance(&res);
+        let c = hs.brackets[bi].champion;
+        if c != super::hs_playoffs::NONE {
+            hs.results[c as usize].state_title = true;
+        }
     }
     if w.recording {
         for (wn, l) in outcomes {
@@ -1124,10 +1351,12 @@ fn finish_state(w: &mut World, s: usize, d: Date) {
     {
         let hs = w.hs_season.as_mut().unwrap();
         hs.states[s].done = true;
-        for g in hs.groups.iter_mut().filter(|g| g.state == s) {
-            // A bracket that ended early (a short field) crowns its last team standing.
-            if g.alive.len() == 1 && !hs.results[g.alive[0]].state_title {
-                hs.results[g.alive[0]].state_title = true;
+        // A bracket still open on finals day (it should not be) crowns its
+        // best seed left.
+        for b in hs.brackets.iter_mut().filter(|b| b.state as usize == s && !b.done()) {
+            if let Some(&c) = b.seeds.iter().find(|&&t| b.alive(t)) {
+                b.champion = c;
+                hs.results[c as usize].state_title = true;
             }
         }
     }
@@ -1138,6 +1367,13 @@ fn finish_state(w: &mut World, s: usize, d: Date) {
         return;
     }
     let schools = w.states[s].schools.clone();
+    // Each school's playoff run: wins and whether it reached the last four.
+    let mut runs: HashMap<usize, (u8, bool)> = HashMap::new();
+    for b in w.hs_season.as_ref().unwrap().brackets.iter().filter(|b| b.state as usize == s) {
+        for (k, &t) in b.seeds.iter().enumerate() {
+            runs.insert(t as usize, (b.wins[k], b.semi[k]));
+        }
+    }
     for h in schools {
         let t = w.hs_season.as_ref().unwrap().results[h].clone();
         if t.games() == 0 {
@@ -1151,6 +1387,8 @@ fn finish_state(w: &mut World, s: usize, d: Date) {
             state_title: t.state_title,
             coach: school.coach,
             points: [t.totals.points_for.max(0) as u32, t.totals.points_against.max(0) as u32],
+            playoff_wins: runs.get(&h).map_or(0, |r| r.0),
+            semifinal: runs.get(&h).is_some_and(|r| r.1),
         });
         if t.state_title {
             school.state_titles += 1;
@@ -1201,6 +1439,7 @@ fn file_lines(w: &mut World, s: usize) {
             games: e.games,
             s: e.s.map(|v| v.clamp(i16::MIN as i32, i16::MAX as i32) as i16),
         };
+        w.people[i].hs_lines.reserve_exact(1);
         w.people[i].hs_lines.push(line);
         if !w.recording {
             continue;
@@ -1284,7 +1523,10 @@ fn all_state(w: &mut World, s: usize, d: Date) {
                 p.cal.all_state = p.cal.all_state.max(team);
                 let age = p.player.age - 1;
                 let which = if team == 2 { "first-team" } else { "second-team" };
-                p.note(format!("Named {which} all-state ({code} class {}) at {age}.", class + 1));
+                let cl = super::hs_playoffs::format(&code)
+                    .class_label(class)
+                    .map_or_else(|| format!("class {}", class + 1), str::to_string);
+                p.note(format!("Named {which} all-state ({code} {cl}) at {age}."));
                 named += 1;
             }
         }
@@ -1456,7 +1698,7 @@ fn hs_spring_candidates(w: &World) -> Vec<(usize, f64, bool)> {
         .par_iter()
         .enumerate()
         .filter_map(|(i, p)| {
-            if p.stage != Stage::HighSchool || !(15..=16).contains(&p.player.age) || spring_steps(p) >= 2 {
+            if p.stage != Stage::HighSchool || !(15..=16).contains(&p.school_age()) || spring_steps(p) >= 2 {
                 return None;
             }
             let school = &w.high_schools[p.hs];
@@ -1505,7 +1747,8 @@ fn notices(w: &mut World, cands: &[(usize, f64, bool)], d: Date, college: bool) 
         if college && p.stars >= 4 {
             let text = format!("Spring practice: {} is turning heads.", p.name);
             let prog = p.college;
-            let mut e = Event::new(d, Level::College, Kind::Breakout, Loudness::Small, text);
+            let mut e =
+                Event::new(d, Level::College, Kind::Breakout, Loudness::Small, text).person(p.player.id, &p.name);
             if let Some(c) = prog {
                 e = e.program(c);
             }
@@ -1567,7 +1810,8 @@ fn jumps(w: &mut World, cands: &[(usize, f64, bool)], d: Date, college: bool) {
         if college && (p.stars >= 4 || gain >= 4.0) {
             let text = format!("{} breaks out in spring practice (+{gain:.1}).", p.name);
             let prog = p.college;
-            let mut e = Event::new(d, Level::College, Kind::Breakout, Loudness::Medium, text);
+            let mut e =
+                Event::new(d, Level::College, Kind::Breakout, Loudness::Medium, text).person(p.player.id, &p.name);
             if let Some(c) = prog {
                 e = e.program(c);
             }
@@ -1807,6 +2051,20 @@ mod tests {
         assert_eq!(hs.groups.iter().filter(|g| g.state == fl).count(), 7);
     }
 
+    /// Every live season plays every high school game on the engine, even
+    /// with the history's engine seasons turned off; only the quick-check
+    /// knob holds it back.
+    #[test]
+    fn live_seasons_play_high_school_games_on_the_engine() {
+        let mut w = World::empty(WorldOptions { scale: 0.02, hs_engine_years: None, ..Default::default() });
+        assert!(hs_on_engine(&w, 2026) && hs_on_engine(&w, 2031));
+        assert!(!hs_on_engine(&w, 2025), "history seasons follow hs_engine_years");
+        w.options.hs_engine_years = Some(12);
+        assert!(hs_on_engine(&w, 2014) && !hs_on_engine(&w, 2013));
+        w.options.engine_from = Some(2100);
+        assert!(!hs_on_engine(&w, 2026));
+    }
+
     #[test]
     fn january_all_star_games_start_in_their_real_seasons() {
         assert_eq!(all_star_first_season("All-American Bowl"), 2000);
@@ -1828,6 +2086,18 @@ pub struct HsFixture {
 }
 
 impl World {
+    /// The schools still alive with a school in its playoff bracket.
+    pub fn hs_playoff_field(&self, h: usize) -> Vec<usize> {
+        let Some(hs) = self.hs_season.as_ref() else { return Vec::new() };
+        hs.brackets
+            .iter()
+            .filter(|b| b.alive(h as u32))
+            .flat_map(|b| b.seeds.iter().copied().filter(|&t| b.alive(t)))
+            .map(|t| t as usize)
+            .filter(|&x| x != h)
+            .collect()
+    }
+
     /// A school's regular season this year (empty before the schedule is
     /// made in the summer).
     pub fn hs_fixtures(&self, h: usize) -> Vec<HsFixture> {
@@ -1862,7 +2132,22 @@ impl World {
             .map(|&s| (s, hs.results[s].wins, hs.results[s].losses))
             .collect();
         rows.sort_by_key(|&(_, wn, l)| (std::cmp::Reverse(wn), l));
-        Some((format!("{} class {}", self.states[g.state].code, g.class + 1), rows))
+        let f = super::hs_playoffs::format(&self.states[g.state].code);
+        let name = f.class_label(g.class).map_or_else(|| format!("class {}", g.class + 1), str::to_string);
+        Some((format!("{} {name}", self.states[g.state].code), rows))
+    }
+
+    /// Whether a school is in its state's playoff field and still alive.
+    pub fn hs_alive(&self, h: usize) -> bool {
+        self.hs_season.as_ref().is_some_and(|hs| hs.brackets.iter().any(|b| b.alive(h as u32)))
+    }
+
+    /// A school's state season this year: its regular-season Fridays, its
+    /// playoff rounds and whether it is over.
+    pub fn hs_weeks(&self, h: usize) -> Option<(Vec<Date>, Vec<Date>, bool)> {
+        let hs = self.hs_season.as_ref()?;
+        let st = hs.states.get(self.high_schools.get(h)?.state)?;
+        Some((st.weeks.clone(), st.rounds.clone(), st.done))
     }
 
     /// A school's record this season, if its season has started. On the
@@ -1876,5 +2161,13 @@ impl World {
         }
         let r = hs.results.get(h)?;
         Some((r.wins, r.losses))
+    }
+
+    /// The schools whose players have engine lines in the season being
+    /// played (their lines are filed at each state's finals).
+    pub fn hs_schools_with_lines(&self) -> std::collections::BTreeSet<usize> {
+        self.hs_season.as_ref().map_or_else(Default::default, |hs| {
+            hs.book.values().filter(|e| e.games > 0).map(|e| e.school as usize).collect()
+        })
     }
 }

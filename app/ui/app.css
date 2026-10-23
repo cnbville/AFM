@@ -54,12 +54,26 @@ a { color: inherit; }
   box-shadow: 1px 0 0 var(--hair); overflow: hidden;
 }
 /* The screens list scrolls on a short window; Save game and the rest stay in view below it. */
-.side .navs { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; margin: 0 -4px; padding: 0 4px; }
+.side .navs {
+  flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; margin: 0 -4px; padding: 0 4px 16px;
+  scrollbar-width: none; -webkit-mask-image: linear-gradient(#000 calc(100% - 22px), transparent); mask-image: linear-gradient(#000 calc(100% - 22px), transparent);
+}
+.side .navs::-webkit-scrollbar { display: none; }
 .side .brand { display: flex; align-items: center; gap: 12px; padding: 6px 8px 14px; }
 .side .brand .st-mark { --s: 40px; }
 .side .brand b { display: block; font-size: 14px; font-stretch: 110%; line-height: 1.1; }
 .side .brand small { color: var(--fg3); font-size: 11px; }
-.side .sec { margin: 12px 10px 4px; }
+.side .sec {
+  display: flex; align-items: center; justify-content: space-between; margin: 12px 0 4px; padding: 0 10px; flex: none;
+  border: 0; background: none; cursor: pointer; text-align: left; width: 100%;
+  font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--fg3);
+}
+.side .sec:hover { color: var(--fg2); }
+.side .sec svg { width: 14px; height: 14px; opacity: 0; transition: opacity .15s, transform .2s; }
+.side .sec:hover svg, .side .sec:focus-visible svg, .side .sec[aria-expanded="false"] svg { opacity: .7; }
+.side .sec[aria-expanded="false"] svg { transform: rotate(-90deg); }
+.side .navgrp { display: flex; flex-direction: column; gap: 2px; }
+.side .navgrp[hidden] { display: none; }
 .side button.nav {
   display: flex; align-items: center; gap: 10px; border: 0; background: none; text-align: left;
   padding: 7px 10px; border-radius: 10px; color: var(--fg2); font-weight: 600; font-size: 13.5px; width: 100%; flex: none;
@@ -67,7 +81,10 @@ a { color: inherit; }
 .side button.nav:hover { background: var(--fill-1); color: var(--fg); }
 .side button.nav[aria-current="true"] { background: var(--fill-2); color: var(--fg); box-shadow: inset 3px 0 0 var(--accent); }
 .side button.nav svg { width: 17px; height: 17px; flex: none; opacity: 0.85; }
-.side .foot { display: grid; gap: 2px; padding-top: 8px; border-top: 1px solid var(--hair); }
+/* Save keeps its word; holiday, settings, bugs and the menu sit beside it as icons. */
+.side .foot { display: flex; gap: 2px; padding-top: 8px; border-top: 1px solid var(--hair); }
+.side .foot button.nav.save { flex: 1; min-width: 0; width: auto; white-space: nowrap; overflow: hidden; }
+.side .foot button.nav.ico { width: 34px; padding: 7px 0; justify-content: center; }
 
 .main { position: relative; display: flex; flex-direction: column; min-width: 0; height: 100vh; }
 .topbar {
@@ -117,7 +134,16 @@ a { color: inherit; }
     linear-gradient(180deg, #120d0a 0%, var(--ground) 70%);
   opacity: 0.9;
 }
-:root[data-theme="light"] .film::before { opacity: 0.18; }
+:root[data-theme="light"] .film::before {
+  opacity: 1;
+  background:
+    radial-gradient(60% 50% at 18% 0%, color-mix(in oklab, var(--accent) 14%, transparent) 0%, transparent 70%),
+    radial-gradient(50% 40% at 100% 10%, color-mix(in oklab, var(--accent-2) 9%, transparent) 0%, transparent 70%),
+    linear-gradient(180deg, #f8f4ef 0%, var(--ground) 70%);
+}
+/* Heroes stay dark in both themes: their glass buttons stay light. */
+:is(.hcar, .hero, .phero) .st-btn.glass { color: #fff; background: rgba(255, 255, 255, 0.14); }
+:is(.hcar, .hero, .phero) .st-btn.glass:hover { background: rgba(255, 255, 255, 0.24); }
 
 /* ---------- the dense table (screens topic 3) ---------- */
 .tbl { overflow: auto; border-radius: 18px; }

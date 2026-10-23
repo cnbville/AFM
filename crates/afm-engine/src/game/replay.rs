@@ -1,10 +1,12 @@
 //! Replaying a game from its seed (match engine 9.2, screens topic 12): a
 //! game you can watch back is kept as everything that decided it (both
-//! teams as they dressed, the rules, the weather, the seed), never as its
-//! tracking. Watching plays it again with frames on; the frames are output
-//! only (`pose.rs`), so the replay is the same game, snap for snap.
+//! teams as they dressed, the rules, the weather, the seed, and your
+//! answers when you played it live), never as its tracking. Watching plays
+//! it again with frames on; the frames are output only (`pose.rs`), so the
+//! replay is the same game, snap for snap.
 
-use super::flow::{GameResult, GameSetup, play_game};
+use super::flow::{GameResult, GameSetup, play_game, play_game_ctl};
+use super::live::{Control, StopMode};
 use super::garbage::Context;
 use super::roster::GameTeam;
 use super::rules::Rules;
@@ -28,10 +30,14 @@ pub struct ReplaySetup {
     /// roof over the field.
     pub kickoff: f32,
     pub indoor: bool,
+    /// Your settings and every answer, for a game you played live (section
+    /// 9): the game is its seed plus these.
+    #[serde(default)]
+    pub live: Option<Control>,
 }
 
 impl ReplaySetup {
-    pub fn of(s: &GameSetup) -> ReplaySetup {
+    pub fn of(s: &GameSetup, live: Option<Control>) -> ReplaySetup {
         ReplaySetup {
             home: s.home.clone(),
             away: s.away.clone(),
@@ -46,6 +52,7 @@ impl ReplaySetup {
             cold_unused: s.cold_unused,
             kickoff: s.kickoff,
             indoor: s.indoor,
+            live,
         }
     }
 
@@ -74,7 +81,20 @@ impl ReplaySetup {
     pub fn play(&self, record: bool) -> GameResult {
         let mut s = self.setup();
         s.record = record;
-        play_game(&s)
+        match &self.live {
+            // Your answers at the points they answered; nothing stops now.
+            Some(c) => {
+                let mut c = c.clone();
+                c.settings.stop = StopMode::Off;
+                c.take_next = false;
+                c.record_from = 0;
+                c.pending = None;
+                c.pause_at = None;
+                c.asked = 0;
+                play_game_ctl(&s, c).0
+            }
+            None => play_game(&s),
+        }
     }
 
     /// Packed small for keeping (MessagePack through zstd): about a tenth

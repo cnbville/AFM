@@ -132,7 +132,7 @@ const COMP: u32 = 1 << 16;
 
 /// The classic chart (Jimmy Johnson's, as teams used it from the 1990s):
 /// pick 1 3,000 points, the end of round one about 590, round seven a few.
-const CLASSIC: [(f64, f64); 23] = [
+pub(crate) const CLASSIC: [(f64, f64); 23] = [
     (1.0, 3000.0),
     (2.0, 2600.0),
     (3.0, 2200.0),
@@ -182,7 +182,7 @@ pub(crate) fn chart(classic: bool, pick: f64) -> f64 {
     if classic { chart_at(&CLASSIC, pick) } else { chart_at(&SURPLUS, pick) }
 }
 
-fn chart_at(table: &[(f64, f64)], pick: f64) -> f64 {
+pub(crate) fn chart_at(table: &[(f64, f64)], pick: f64) -> f64 {
     let p = pick.max(1.0);
     for k in 1..table.len() {
         let (a, va) = table[k - 1];
@@ -198,7 +198,7 @@ fn chart_at(table: &[(f64, f64)], pick: f64) -> f64 {
 /// A pick's value on a GM's chart: this year's picks at their slot (the
 /// order is set once the season ends), later years at mid-round, cut by
 /// his urgency (a contender wants now).
-fn pick_value(w: &World, t: usize, year: i32, round: u32, orig: usize) -> f64 {
+pub(crate) fn pick_value(w: &World, t: usize, year: i32, round: u32, orig: usize) -> f64 {
     let teams = super::super::franchise::active_teams(w.year).len().max(1) as f64;
     let o = &w.clubs[t].office;
     let slot = if year == w.year && w.today < w.dates.draft[0].date {
@@ -224,7 +224,7 @@ fn pick_value(w: &World, t: usize, year: i32, round: u32, orig: usize) -> f64 {
 /// cap cost, as a share of the cap (10,000 points for a full cap-year of
 /// surplus, so about two late firsts for a fifth of the cap). Proposed,
 /// not confirmed.
-fn player_points(w: &World, t: usize, i: usize) -> f64 {
+pub(crate) fn player_points(w: &World, t: usize, i: usize) -> f64 {
     let year = w.year;
     let (_, apy) = worth(w, t, i);
     let Some(k) = w.people[i].pro.as_ref().and_then(|c| c.contract.as_ref()) else { return 0.0 };
@@ -272,7 +272,10 @@ pub(crate) fn trade_window(w: &mut World, d: Date, window: Window) {
     }
     let mut moved: Vec<usize> = Vec::new();
     for &buyer in &teams {
-        if w.clubs[buyer].office.mode == Mode::Rebuild {
+        // Your calls are your own (lane 10).
+        if w.clubs[buyer].office.mode == Mode::Rebuild
+            || crate::world::front_office::yours(w, buyer, crate::world::front_office::Duty::Trades)
+        {
             continue;
         }
         // Its biggest hole at a starting spot (an injury opens one in season).
@@ -336,7 +339,10 @@ pub(crate) fn trade_window(w: &mut World, d: Date, window: Window) {
                     let sm = w.clubs[seller].office.mode;
                     let starters = depth_slots(pos).starters;
                     let rank = w.clubs[seller].depth[pos.index()].iter().position(|&j| j == i).unwrap_or(9);
-                    sm == Mode::Rebuild && w.people[i].player.age >= 26 || rank >= starters || c.wants_out
+                    sm == Mode::Rebuild && w.people[i].player.age >= 26
+                        || rank >= starters
+                        || c.wants_out
+                        || crate::world::front_office::deals::on_block(w, seller, i)
                 };
                 if !surplus_seller {
                     continue;
@@ -386,10 +392,17 @@ pub(crate) fn trade_window(w: &mut World, d: Date, window: Window) {
                 w,
                 d,
                 Some(seller),
+                Some(i),
                 Loudness::Medium,
                 Kind::Transfer,
                 format!("A trade for {who} is voided after a failed physical."),
             );
+            continue;
+        }
+        // A call to your club waits for your answer (lane 10).
+        if crate::world::front_office::yours(w, seller, crate::world::front_office::Duty::Trades) {
+            crate::world::front_office::deals::call_in(w, d, buyer, seller, i, package);
+            moved.push(i);
             continue;
         }
         execute(w, d, buyer, seller, i, package, window);
@@ -403,7 +416,7 @@ pub(crate) fn trade_window(w: &mut World, d: Date, window: Window) {
 /// release (real; trial 7 finding 18: a trade once left a seller with half
 /// the cap in dead money in one year, and it could no longer field a team).
 /// Returns (this year, next year).
-fn kept_bonus(k: &money::Contract, year: i32, june1: bool) -> (f64, f64) {
+pub(crate) fn kept_bonus(k: &money::Contract, year: i32, june1: bool) -> (f64, f64) {
     let share = |pick: &dyn Fn(i32) -> bool| k.years.iter().filter(|y| pick(y.year)).map(|y| y.proration).sum::<f64>();
     if june1 { (share(&|y| y == year), share(&|y| y > year)) } else { (share(&|y| y >= year), 0.0) }
 }
@@ -414,7 +427,7 @@ type Package = (Vec<(i32, u32, usize)>, f64);
 /// The buyer's picks that meet the seller's ask on the seller's chart at
 /// the lowest cost on the buyer's own: the cheapest single pick, else the
 /// cheapest pair, over the next three drafts.
-fn package(w: &World, buyer: usize, seller: usize, ask: f64) -> Option<Vec<(i32, u32, usize)>> {
+pub(crate) fn package(w: &World, buyer: usize, seller: usize, ask: f64) -> Option<Vec<(i32, u32, usize)>> {
     let year = w.year;
     let first = if w.today < w.dates.draft[0].date { year } else { year + 1 };
     let teams = w.nfl.len();
@@ -494,7 +507,8 @@ fn execute(
     let from = w.nfl[seller].name;
     let what: Vec<String> = picks.iter().map(|&(y, r, _)| format!("a {y} round {r} pick")).collect();
     let text = format!("The {from} trade {who} to the {to} for {}.", what.join(" and "));
-    post(w, d, Some(buyer), if fair >= 82.0 { Loudness::Big } else { Loudness::Medium }, Kind::Transfer, text.clone());
+    let loud = if fair >= 82.0 { Loudness::Big } else { Loudness::Medium };
+    post(w, d, Some(buyer), Some(i), loud, Kind::Transfer, text.clone());
     let my = w.market.year_mut(year);
     my.trades += 1;
     my.picks_traded += picks.len() as u32;
@@ -513,7 +527,7 @@ fn execute(
 
 /// A shopping effort that leaks (topic 6 question 4): the player hears it;
 /// a loyal veteran takes it worst.
-fn shopping_rumor(w: &mut World, i: usize, seller: usize, d: Date) {
+pub(crate) fn shopping_rumor(w: &mut World, i: usize, seller: usize, d: Date) {
     if key_uniform(0x5A0B ^ d.0 as u64, i as u64) > 0.3 {
         return;
     }
@@ -525,7 +539,15 @@ fn shopping_rumor(w: &mut World, i: usize, seller: usize, d: Date) {
     let age = p.row_age();
     p.note(format!("Learned at {age} that the {name} had been shopping him."));
     let who = super::describe(w, i);
-    post(w, d, Some(seller), Loudness::Small, Kind::News, format!("Reports: the {name} have been shopping {who}."));
+    post(
+        w,
+        d,
+        Some(seller),
+        Some(i),
+        Loudness::Small,
+        Kind::News,
+        format!("Reports: the {name} have been shopping {who}."),
+    );
 }
 
 // --- Compensatory picks ------------------------------------------------------------------------------------
@@ -708,6 +730,7 @@ pub(crate) fn award_comp_picks(w: &mut World, d: Date) {
     post(
         w,
         d,
+        None,
         None,
         Loudness::Small,
         Kind::Date,

@@ -405,6 +405,7 @@ pub fn set_position(p: &mut Player, pos: Position) {
         return;
     }
     p.position = pos;
+    p.position_history.reserve_exact(1);
     p.position_history.push((p.age, pos));
     // His spot at the new position: where he suits best (a staff sets the
     // whole room's spots each spring).
@@ -423,8 +424,21 @@ pub fn set_position(p: &mut Player, pos: Position) {
     let (_, dw) = talent_size(p.original_potential);
     let target = wm + dw;
     let frame = p.body.frame_weight;
-    p.body.weight = if pos.is_specialist() { frame } else { frame + clamp(0.6 * (target - frame), -25.0, 30.0) };
+    p.body.weight = if pos == Position::LS {
+        // A long snapper plays at a snapper's weight, cutting or adding to
+        // it (real FBS and NFL snappers: about 6'2", 235-250 lb).
+        clamp(frame, LS_MIN_WEIGHT, LS_MAX_WEIGHT)
+    } else if pos.is_specialist() {
+        frame
+    } else {
+        frame + clamp(0.6 * (target - frame), -25.0, 30.0)
+    };
 }
+
+/// The weights a long snapper plays at (real FBS and NFL rosters: 220-265
+/// lb, most 235-250).
+pub const LS_MIN_WEIGHT: f64 = 220.0;
+pub const LS_MAX_WEIGHT: f64 = 265.0;
 
 /// Within a family of spots, staffs put the better athlete at the harder
 /// one: the best lineman plays tackle, the best pass rusher the edge, the

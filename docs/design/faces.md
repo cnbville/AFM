@@ -1,6 +1,8 @@
 # Player faces (section 10, screens)
 
-Design started 2026-10-16 in the thread "Regen faces". Design only; nothing in the game is built yet. The proof of concept (one face model, drawn at four ages) is reported in "Proof", below.
+Design started 2026-10-16 in the thread "Regen faces". The proof of concept (one face model, drawn at four ages) is reported in "Proof", below.
+
+**Where this stands now (2026-10-22).** The GAN photo faces described in the first half of this file were dropped: Cain called the GAN photos "horrible" (2026-10-17), and faces became 3D heads. Since 2026-10-20 (F14, final build list) the game draws each head itself from its stored recipe, with no Blender and no photo model: a headshot at creation, a new one every four years on media day and on a team change, an initials silhouette until one is drawn, and only the faces a screen shows are drawn and then saved. Faces F3-F12 and F14 are final build lane 12, shown against the approved v7 ten before they ship. Your own photos (below) stay. Read the GAN sections as the history of how the design got here, not as the plan.
 
 Cain's question: "Since we're using fictional players.. regen face generation becomes a huge thing... how do you intend to create 3d faces for player cards/screens".
 
@@ -21,7 +23,7 @@ Cain's question: "Since we're using fictional players.. regen face generation be
 
 ## Decisions (Cain, 2026-10-16 22:04)
 
-1. **Style: AI photos from a GAN.** Cain: "GAN-> make sure it's somehow ethnetically accurate with the names". Each player's face is drawn by a GAN (an AI face model that invents new faces). The face's dominant heritage must match the ethnicity his name was drawn from.
+1. **Style: AI photos from a GAN** (dropped 2026-10-17 for 3D heads the game draws itself; see the top). Cain: "GAN-> make sure it's somehow ethnetically accurate with the names". Each player's face is drawn by a GAN (an AI face model that invents new faces). The face's dominant heritage must match the ethnicity his name was drawn from.
 2. **A new headshot every 4 years, on media day.** Cain: "Once per 4 years on media day". Follow-up asked: also a new headshot when a player changes teams (transfer, trade, signing), since teams shoot new photos when a player joins. Proposed, not confirmed.
 3. **Mixed ancestry for faces: yes.** A face can blend heritages; names keep using the main group, as now.
 4. **The face recipe is added at player creation: yes.** It uses its own random stream, so every seed gives the same results as before. Pictures are drawn in section 10.
