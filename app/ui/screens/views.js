@@ -8,16 +8,16 @@
 // left end line (0) to the right one (120), y from the far sideline (0) to
 // the near one (53.3). The 2D view draws it from above (dots, or figures as
 // a setting); the 3D coaches' view (views/views3d.js, three.js vendored so
-// the Mac app works offline) sits behind a setting until Cain okays it.
+// the Mac app works offline) is the other side of one switch.
 "use strict";
 
 (() => {
   // ---------------------------------------------------------------- settings
   const SKEY = "afm.views.v1";
   const DEFAULTS = {
-    view: "2d", // the view the watch screen opens in: the last one used
+    view: "3d", // the view the watch screen opens in: the last one used (3D the first time)
     figures: false, // 2D: top-down figures instead of dots
-    three: false, // the 3D coaches' view, off until Cain okays the clip
+    three: true, // the 3D coaches' view (Cain okayed the clip 2026-10-23); off leaves 2D only
     side: true, // the panel beside the film
     quality: "auto",
     cam2d: "all22",

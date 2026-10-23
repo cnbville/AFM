@@ -8,7 +8,8 @@
 // light and weather. Cameras: the coaches' end-zone copy, the All-22 from
 // the sideline, the broadcast angle, isolated on one man, and free.
 //
-// Behind the "3D view (preview)" setting, off until Cain okays the clip.
+// On by default since Cain okayed the clip (2026-10-23); the "3D coaches' view"
+// setting turns it off.
 "use strict";
 
 (() => {

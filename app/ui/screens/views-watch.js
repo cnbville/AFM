@@ -421,19 +421,38 @@
     nextGen() {
       const el = this.$(".vw-ng");
       if (!SET.tiles || !this.clip) {
-        if (el.innerHTML) el.innerHTML = "";
+        if (el.firstChild) el.replaceChildren();
         return;
       }
       const c = this.clip, ng = c.ng || {}, t = this.t, st = this.st;
+      // Live numbers (separation, the carrier's speed) change four times a
+      // second of film, as a broadcast's do, so they read rather than blur.
+      const beat = Math.floor(t * 4);
+      const held = (k, v) => {
+        const h = (this._ngHeld = this._ngHeld || {});
+        const o = h[k];
+        if (!o || o.beat !== beat || o.n !== c.n) h[k] = { beat, n: c.n, v };
+        return h[k].v;
+      };
       const tiles = [];
       if (c.throwAt != null && t >= c.throwAt && ng.ttt) tiles.push(["Time to throw", ng.ttt.toFixed(1), "s"]);
       if (c.catchAt != null && t >= c.catchAt) {
         if (ng.air != null) tiles.push(["Air yards", Math.round(ng.air), "yd"]);
         if (ng.sep != null) tiles.push(["Separation", ng.sep.toFixed(1), "yd"]);
-      } else if (c.throwAt != null && t >= c.throwAt && st && st.sepNow != null && st.sepNow < 30) tiles.push(["Separation", st.sepNow.toFixed(1), "yd"]);
+      } else if (c.throwAt != null && t >= c.throwAt && st && st.sepNow != null && st.sepNow < 30) tiles.push(["Separation", held("sep", st.sepNow.toFixed(1)), "yd"]);
+      // The carrier's speed once he runs with it (a quarterback dropping
+      // back isn't carrying it yet); it stays up until he gives it up.
       if (t > 0.2 && st && st.ball.mode === 0 && st.ball.holder >= 0) {
         const m = st.men[st.ball.holder];
-        if (m && m.speed > 2) tiles.push(["Ball carrier", (m.speed * 2.045).toFixed(1), "mph"]);
+        const id = c.ids[st.ball.holder];
+        const dropback = id === c.passer && c.los != null && (m.x - c.los) * (c.dir || 1) < 0;
+        // On a pass the tiles belong to the throw until the catch is made.
+        const inAir = c.throwAt != null && t >= c.throwAt && (c.catchAt == null || t < c.catchAt);
+        const run = this._ngRun && this._ngRun.n === c.n && this._ngRun.id === id;
+        if (m && !dropback && !inAir && (run || m.speed > 2)) {
+          this._ngRun = { n: c.n, id };
+          tiles.push(["Ball carrier", held("mph", (m.speed * 2.045).toFixed(1)), "mph"]);
+        }
       }
       if (t < 0.1 && ng.box) tiles.push(["In the box", ng.box, ""]);
       if (t >= c.t1 - 1.2 && ng.top && ng.top[1] > 12) {
@@ -441,14 +460,72 @@
         tiles.push(["Top speed", ng.top[1].toFixed(1), "mph" + (pl ? ` · #${pl.num}` : "")]);
       }
       const chips = [];
-      if (t >= 0 && ng.blitz) chips.push('<span class="vw-chip live">Blitz</span>');
-      if (t >= 0 && ng.pa) chips.push('<span class="vw-chip">Play action</span>');
-      if (t >= 0 && ng.pressured && c.throwAt != null && t >= c.throwAt - 0.4) chips.push('<span class="vw-chip live">Pressured</span>');
-      const html = tiles.slice(0, 3).map(([k, v, u]) => `<div class="vw-tile"><span>${k}</span><b class="st-tnum">${v}<small>${u}</small></b></div>`).join("") + (chips.length ? `<div class="vw-chips">${chips.join("")}</div>` : "");
-      if (html !== this._ng) {
-        el.innerHTML = html;
-        this._ng = html;
+      if (t >= 0 && ng.blitz) chips.push(["Blitz", true]);
+      if (t >= 0 && ng.pa) chips.push(["Play action", false]);
+      if (t >= 0 && ng.pressured && c.throwAt != null && t >= c.throwAt - 0.4) chips.push(["Pressured", true]);
+      this.tilesTo(el, tiles.slice(0, 3), chips);
+    }
+    // The tiles stay put while their numbers change: a tile is built (and
+    // fades in) only when it first appears, and only its number is
+    // rewritten after that.
+    tilesTo(el, tiles, chips) {
+      const keep = (parent, sel, want, make, fill, before = null) => {
+        const have = new Map([...parent.querySelectorAll(":scope > " + sel)].map((d) => [d.dataset.k, d]));
+        const keys = new Set(want.map((w) => w[0]));
+        for (const [k, d] of have) if (!keys.has(k)) d.remove();
+        let at = parent.querySelector(":scope > " + sel);
+        for (const w of want) {
+          let d = have.get(w[0]);
+          if (!d || !d.isConnected) {
+            d = make(w);
+            d.dataset.k = w[0];
+            parent.insertBefore(d, at || before);
+          } else if (d !== at) parent.insertBefore(d, at || before);
+          fill(d, w);
+          at = d.nextElementSibling;
+          while (at && !at.matches(sel)) at = at.nextElementSibling;
+        }
+      };
+      keep(
+        el,
+        ".vw-tile",
+        tiles,
+        ([k]) => {
+          const d = document.createElement("div");
+          d.className = "vw-tile";
+          d.innerHTML = `<span>${esc(k)}</span><b class="st-tnum"></b>`;
+          return d;
+        },
+        (d, [, v, u]) => {
+          const val = `${v}\u0001${u}`;
+          if (d.dataset.v === val) return;
+          d.dataset.v = val;
+          d.querySelector("b").innerHTML = `${esc(String(v))}<small>${esc(u)}</small>`;
+        },
+        el.querySelector(":scope > .vw-chips"),
+      );
+      let row = el.querySelector(":scope > .vw-chips");
+      if (!chips.length) {
+        if (row) row.remove();
+        return;
       }
+      if (!row) {
+        row = document.createElement("div");
+        row.className = "vw-chips";
+      }
+      if (el.lastElementChild !== row) el.appendChild(row);
+      keep(
+        row,
+        ".vw-chip",
+        chips,
+        ([k, live]) => {
+          const d = document.createElement("span");
+          d.className = "vw-chip" + (live ? " live" : "");
+          d.textContent = k;
+          return d;
+        },
+        () => {},
+      );
     }
 
     // ---------- the bar
@@ -831,7 +908,7 @@
           ${sw("marks", "Your drawings", "")}
         </div>
         <div class="vw-sec"><span class="st-label">The 3D view</span>
-          ${sw("three", "3D coaches' view (preview)", "The film in a stadium built from the real one: its seats, roof, turf, weather and light")}
+          ${sw("three", "3D coaches' view", "The film in a stadium built from the real one: its seats, roof, turf, weather and light. Off keeps the 2D view only")}
           ${SET.three ? sel("quality", "Quality", [["auto", "Automatic for this Mac"], ["low", "Low: for older Macs"], ["medium", "Medium"], ["high", "High: smooth on an M1 and newer"]]) : ""}
           ${SET.three ? sw("replay", "Replays from a second angle", "Touchdowns, turnovers and big plays again from the end zone") : ""}
         </div>

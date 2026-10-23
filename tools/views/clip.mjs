@@ -58,7 +58,8 @@ console.log(`${games.length} kept games; watching game ${k}`);
 
 // The Watch tab.
 where = "watch";
-await page.evaluate((k) => { S.keep.gptab = { t: "Watch" }; go("game", { index: k }); }, k);
+// The 2D view first (the film room's first opening is 3D).
+await page.evaluate((k) => { AFMViews.SET.view = "2d"; AFMViews.saveSettings(); S.keep.gptab = { t: "Watch" }; go("game", { index: k }); }, k);
 await page.waitForSelector(".vw-stage canvas", { timeout: 60000 });
 await clear();
 await wait(2500);
@@ -127,7 +128,7 @@ await page.keyboard.press("Escape");
 await wait(600);
 
 if (process.env.AFM_CLIP !== "0") {
-  // The 3D view: turned on in the View panel, then V.
+  // The 3D view: on in the View panel (the default), then V.
   where = "3d";
   await page.evaluate(() => { AFMViews.SET.three = true; AFMViews.SET.figures = false; AFMViews.saveSettings(); });
   await page.click('.vw-side [data-k="view"]');
