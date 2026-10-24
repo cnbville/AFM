@@ -51,35 +51,37 @@ pub fn import_world(path: &Path, worlds: &Path) -> Result<PathBuf, String> {
         return import_world(&file, worlds);
     }
     let name = path.file_name().and_then(|n| n.to_str()).ok_or("Not a file.")?;
-    let to = match name.strip_suffix(".001") {
-        Some(whole) => {
-            let to = worlds.join(whole);
-            let mut out = std::fs::File::create(&to).map_err(|e| format!("Could not write the world: {e}"))?;
-            for i in 1.. {
-                let part = path.with_file_name(format!("{whole}.{i:03}"));
-                if !part.exists() {
-                    break;
-                }
-                let mut f =
-                    std::fs::File::open(&part).map_err(|e| format!("Could not read {}: {e}", part.display()))?;
-                std::io::copy(&mut f, &mut out).map_err(|e| format!("Could not join the world: {e}"))?;
-            }
-            drop(out);
-            if let Err(e) = read_meta(&to) {
-                let _ = std::fs::remove_file(&to);
-                return Err(e);
-            }
-            to
-        }
-        None => {
+    // Written beside the library first and moved in whole, so a world it
+    // replaces (a newer build of the same world) is never left half written.
+    let whole = name.strip_suffix(".001").unwrap_or(name);
+    let to = worlds.join(whole);
+    if to == path {
+        return read_meta(path).map(|_| to);
+    }
+    let part = to.with_extension("afmworld.part");
+    let made = (|| -> Result<(), String> {
+        if whole == name {
             read_meta(path)?;
-            let to = worlds.join(name);
-            if to != path {
-                std::fs::copy(path, &to).map_err(|e| format!("Could not copy the world: {e}"))?;
-            }
-            to
+            std::fs::copy(path, &part).map_err(|e| format!("Could not copy the world: {e}"))?;
+            return Ok(());
         }
-    };
+        let mut out = std::fs::File::create(&part).map_err(|e| format!("Could not write the world: {e}"))?;
+        for i in 1.. {
+            let piece = path.with_file_name(format!("{whole}.{i:03}"));
+            if !piece.exists() {
+                break;
+            }
+            let mut f = std::fs::File::open(&piece).map_err(|e| format!("Could not read {}: {e}", piece.display()))?;
+            std::io::copy(&mut f, &mut out).map_err(|e| format!("Could not join the world: {e}"))?;
+        }
+        drop(out);
+        read_meta(&part).map(|_| ())
+    })()
+    .and_then(|_| std::fs::rename(&part, &to).map_err(|e| format!("Could not add the world: {e}")));
+    if let Err(e) = made {
+        let _ = std::fs::remove_file(&part);
+        return Err(e);
+    }
     Ok(to)
 }
 
@@ -98,4 +100,52 @@ pub fn now_utc() -> String {
     let m = if mp < 10 { mp + 3 } else { mp - 9 };
     let y = yoe + era * 400 + (m <= 2) as i64;
     format!("{y:04}-{m:02}-{d:02} {:02}:{:02} UTC", rem / 3600, rem % 3600 / 60)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{import_world, read_meta};
+    use std::path::Path;
+
+    /// A world file's header with `commit`, and some body after it.
+    fn fake(path: &Path, commit: &str, body: &[u8]) {
+        let meta = serde_json::json!({ "seed": 2026, "history_years": 30, "start_year": 2026, "commit": commit,
+            "written": "2026-10-23 20:55 UTC", "world_date": "2026-02-09" })
+        .to_string();
+        let mut b = afm_engine::save::MAGIC.to_vec();
+        b.extend(afm_engine::save::FORMAT_VERSION.to_le_bytes());
+        b.extend((meta.len() as u32).to_le_bytes());
+        b.extend(meta.as_bytes());
+        b.extend(body);
+        std::fs::write(path, b).unwrap();
+    }
+
+    #[test]
+    fn a_newer_build_replaces_the_library_world_whole() {
+        let dir = std::env::temp_dir().join(format!("afm-import-{}", std::process::id()));
+        let (from, worlds) = (dir.join("download"), dir.join("worlds"));
+        std::fs::create_dir_all(&from).unwrap();
+        std::fs::create_dir_all(&worlds).unwrap();
+        fake(&worlds.join("w.afmworld"), "old", b"old body");
+        // A single file replaces the library's copy.
+        fake(&from.join("w.afmworld"), "new", b"new body");
+        let to = import_world(&from.join("w.afmworld"), &worlds).unwrap();
+        assert_eq!(to, worlds.join("w.afmworld"));
+        assert_eq!(read_meta(&to).unwrap()["commit"], "new");
+        // A world in parts is joined, then replaces it.
+        fake(&dir.join("whole"), "parts", &[7u8; 5000]);
+        let whole = std::fs::read(dir.join("whole")).unwrap();
+        let (a, b) = whole.split_at(1000);
+        std::fs::write(from.join("w.afmworld.001"), a).unwrap();
+        std::fs::write(from.join("w.afmworld.002"), b).unwrap();
+        import_world(&from.join("w.afmworld.001"), &worlds).unwrap();
+        assert_eq!(std::fs::read(worlds.join("w.afmworld")).unwrap(), whole);
+        // Something that isn't a world leaves the library's copy as it was.
+        std::fs::write(from.join("x.afmworld"), b"not a world").unwrap();
+        std::fs::copy(from.join("x.afmworld"), from.join("w.afmworld")).unwrap();
+        assert!(import_world(&from.join("w.afmworld"), &worlds).is_err());
+        assert_eq!(std::fs::read(worlds.join("w.afmworld")).unwrap(), whole);
+        assert!(!worlds.join("w.afmworld.part").exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
