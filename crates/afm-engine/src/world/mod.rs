@@ -31,6 +31,7 @@ pub mod high_school;
 pub mod hs_playoffs;
 pub mod hs_year;
 pub mod live_seat;
+pub mod looks;
 pub mod names;
 pub mod ncaa;
 pub mod news;
@@ -259,6 +260,11 @@ pub struct Person {
     /// military term in progress.
     #[serde(default)]
     pub roads: eligibility::Roads,
+    /// His face recipe (faces F3): one number his genes, looks and
+    /// headshots are read from (`looks.rs`). 0 in a world written before
+    /// faces, until `World::faces_after_load` sets it.
+    #[serde(default)]
+    pub looks: looks::Looks,
 }
 
 /// The draft staffs' read of a player in December (T3.1, T3.2): his consensus
@@ -784,6 +790,10 @@ pub struct World {
     /// The other pro leagues as full leagues (final build X7).
     #[serde(default)]
     pub others: pro::other::Others,
+    /// 1 once the world has faces (looks numbers and the three Asian
+    /// groups); 0 in an older file until `faces_after_load` runs.
+    #[serde(default)]
+    pub faces_version: u8,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -1111,6 +1121,7 @@ impl World {
             front_office: Default::default(),
             stories: stories::Stories::default(),
             others: Default::default(),
+            faces_version: 1,
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);
@@ -1346,6 +1357,7 @@ impl World {
                 trust: 0.6,
                 trust_in: u32::MAX,
                 roads: eligibility::Roads::default(),
+                looks: looks::Looks::new(seed_world, id),
             }
         }));
         self.draw_home_ties(start);

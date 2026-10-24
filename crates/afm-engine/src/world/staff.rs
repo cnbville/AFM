@@ -1832,7 +1832,10 @@ fn new_ad(w: &mut World, since: i32) -> program::AthleticDirector {
         (Ethnicity::White, 0.80),
         (Ethnicity::Black, 0.14),
         (Ethnicity::Hispanic, 0.03),
-        (Ethnicity::Asian, 0.02),
+        // The Asian share cut into its groups in place, so the draw for every other group is unchanged.
+        (Ethnicity::EastAsian, 0.02 * super::ethnicity::ASIAN_SPLIT[0]),
+        (Ethnicity::SoutheastAsian, 0.02 * super::ethnicity::ASIAN_SPLIT[1]),
+        (Ethnicity::SouthAsian, 0.02 * super::ethnicity::ASIAN_SPLIT[2]),
         (Ethnicity::Polynesian, 0.01),
     ]);
     let age = w.rng.int(38, 62);

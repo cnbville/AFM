@@ -341,7 +341,7 @@ const HEIGHTS = Array.from({ length: 15 }, (_, i) => `${Math.floor((66 + i) / 12
 const BUILDS = ["Lean", "Athletic", "Average", "Stocky", "Heavy", "Former lineman, still big", "Former linebacker, a little heavier", "Former receiver, still lean"];
 const HAIR = ["Short, dark", "Short, greying at the sides", "Grey", "White", "Thinning", "Shaved", "Bald", "Longer, swept back", "Close-cropped", "Curly"];
 const FACIAL = ["Clean-shaven", "Stubble", "Moustache", "Goatee", "Trimmed beard", "Full beard", "Grey beard"];
-const HERITAGE = [["white", "White"], ["black", "Black"], ["hispanic", "Hispanic"], ["polynesian", "Polynesian"], ["asian", "Asian"]];
+const HERITAGE = [["white", "White"], ["black", "Black"], ["hispanic", "Hispanic"], ["polynesian", "Polynesian"], ["east_asian", "East Asian"], ["southeast_asian", "Southeast Asian"], ["south_asian", "South Asian"]];
 function ageOn(born, today) {
   const m = String(born || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!m) return null;
