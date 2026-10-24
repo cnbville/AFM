@@ -911,6 +911,7 @@
           ${sw("three", "3D coaches' view", "The film in a stadium built from the real one: its seats, roof, turf, weather and light. Off keeps the 2D view only")}
           ${SET.three ? sel("quality", "Quality", [["auto", "Automatic for this Mac"], ["low", "Low: for older Macs"], ["medium", "Medium"], ["high", "High: smooth on an M1 and newer"]]) : ""}
           ${SET.three ? sw("replay", "Replays from a second angle", "Touchdowns, turnovers and big plays again from the end zone") : ""}
+          ${SET.three ? sw("next", "Preview: the next look", "Men run curves and lean into cuts, never pass through each other, dive for low balls and go down with their tackler; pads, gloves and visors by position; dirt on the uniforms and wear on the grass as the season goes; a crowd for third downs; a broadcast camera with a man behind it") : ""}
         </div>
         <div class="vw-sec"><span class="st-label">Keys</span><div class="vw-keys">
           <span><kbd>Space</kbd> play or pause</span><span><kbd>←</kbd><kbd>→</kbd> a tenth of a second</span><span><kbd>Shift</kbd>+<kbd>←</kbd><kbd>→</kbd> previous or next snap</span>
@@ -1000,6 +1001,7 @@
         this.syncBar();
       }
       if (k === "quality" && this.kind === "3d" && this.view.setQuality) this.view.setQuality(v);
+      if (k === "next" && this.view) this.view.rebuild = true;
       if (k === "figures" || k === "trails") this.view && (this.view.snapCam = false);
     }
     setCam(k) {
