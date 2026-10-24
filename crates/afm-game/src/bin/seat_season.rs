@@ -197,11 +197,18 @@ const SCREENS: &[&str] = &[
     "money_league",
 ];
 
-fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)]) {
+/// Screens a club in another league doesn't have: it practises on its own
+/// staff's plan and runs its staff's playbook (its sidebar leaves them out).
+const NOT_OTHER: &[&str] = &["training", "practice", "plans", "designer", "squad", "boards", "recruiting", "contracts"];
+
+fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str) {
     let mut players = BTreeSet::new();
     let mut coaches = BTreeSet::new();
     let mut teams = BTreeSet::new();
     for s in SCREENS {
+        if seat == "other" && NOT_OTHER.contains(s) {
+            continue;
+        }
         if let Some(v) = run.call(g, s, json!({})) {
             refs(&v, &mut players, &mut coaches, &mut teams);
             if *s == "roster" {
@@ -247,7 +254,7 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)]) {
         run.call(g, "player", json!({ "id": p }));
     }
     // Your own players' Development tab (lane 11).
-    if let Some(sq) = run.call(g, "squad", json!({})) {
+    if let Some(sq) = if seat == "other" { None } else { run.call(g, "squad", json!({})) } {
         for r in sq["rows"].as_array().into_iter().flatten().take(6) {
             if let Some(i) = r["id"].as_u64() {
                 run.call(g, "player_dev", json!({ "id": i }));
@@ -341,7 +348,7 @@ fn main() {
             s["background"] = json!("college_assistant");
             run.call(&mut g, "start_career", s);
         }
-        visit_all(&mut run, &mut g, &extra);
+        visit_all(&mut run, &mut g, &extra, seat);
         let begin = g.world.as_ref().map(|w| w.today).unwrap();
         let mut stops = 0;
         let mut longest = 0.0f64;
@@ -364,10 +371,10 @@ fn main() {
             }
             // The draft live from your chair (lane 7): Continue stops in the war room.
             if r.as_ref().is_some_and(|v| v["studio"]["screen"] == json!("warroom")) {
-                visit_all(&mut run, &mut g, &extra);
+                visit_all(&mut run, &mut g, &extra, seat);
                 draft(&mut run, &mut g);
             }
-            visit_all(&mut run, &mut g, &extra);
+            visit_all(&mut run, &mut g, &extra, seat);
             // Save and reload once in season, after the first game.
             let played = g.world.as_ref().map(|w| !w.seat_games().is_empty()).unwrap_or(false);
             if played && !saved_once {

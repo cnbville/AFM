@@ -1,8 +1,8 @@
 // Lane screens: faces (docs/final-build/plan.md; faces F7-F11, F14, S4, X4).
-// - The player page's portrait: his team headshot, or your photo, or a
-//   silhouette with his initials until a face exists; "Change photo" with a
-//   crop box, "Copy AI prompt", "Back to generated face" and the "new team
-//   photo" note.
+// - The player page's portrait in the hero's round face slot: your photo, or
+//   the silhouette with his initials until a drawn face exists; a quiet row
+//   with "Change photo" (a crop box), "Copy AI prompt", "Remove your photo",
+//   the "new team photo" note and his looks.
 // - Small round faces in the squad, depth chart, recruiting, training and
 //   contracts lists.
 // - The "Faces and photos" page: a folder import with a review table and
@@ -32,13 +32,15 @@
   }
 
   // ---------- the player page ----------
+  // His picture goes in the hero's round face slot; the photo tools sit in a
+  // quiet row under the page's own buttons.
   async function portrait(hero, id) {
     hero.classList.add("fc-has");
     const box = document.createElement("div");
     box.className = "fc-portrait";
     box.dataset.id = id;
-    box.innerHTML = `<div class="fc-frame">${silhouette({ initials: "", colors: ["#3a3f4b", "#9aa3b2"] }, "fc-img")}</div>`;
-    hero.appendChild(box);
+    const copy = hero.querySelector(".copy") || hero;
+    copy.appendChild(box);
     try {
       const f = await api("face", { id });
       fill(box, f);
@@ -50,24 +52,27 @@
     if (!box.isConnected) return;
     const mine = f.mine && f.mine.mode !== "team" ? f.mine : null;
     const src = (mine && mine.data) || f.drawn;
-    const pic = src ? `<img class="fc-img" src="${src}" alt="${esc(f.name)}">` : silhouette(f, "fc-img");
+    const round = box.closest(".hero").querySelector(".phero-in > .face");
+    if (round) {
+      if (!round._sil) round._sil = round.innerHTML;
+      round.innerHTML = src ? `<img class="fc-round" src="${src}" alt="${esc(f.name)}">` : round._sil;
+      round.classList.toggle("fc-pic", !!src);
+      round.title = f.heritage_words || "";
+    }
     const cap = mine
       ? `Your photo${mine.set ? ` · ${esc(mine.set)}` : ""}`
-      : f.photo
-        ? `${esc(f.team || "")} · ${f.photo.joined ? "joined" : f.photo.why} ${f.photo.year}`
-        : "No team photo yet";
+      : f.photo && src
+        ? `${esc(f.team || "")} photo · ${f.photo.joined ? "joined" : f.photo.why} ${f.photo.year}`
+        : "No picture yet";
     const note = f.mine && f.mine.new_team_photo && f.mine.mode !== "team"
-      ? `<div class="fc-note">New team photo (${esc(f.photo.why)} ${f.photo.year}). <a data-fact="team" data-id="${f.id}">Show it</a></div>`
+      ? `<span class="fp-note">New team photo (${esc(f.photo.why)} ${f.photo.year}). <a data-fact="team" data-id="${f.id}">Show it</a></span>`
       : f.mine && f.mine.mode === "team"
-        ? `<div class="fc-note"><a data-fact="mine" data-id="${f.id}">Show your photo again</a></div>`
+        ? `<span class="fp-note"><a data-fact="mine" data-id="${f.id}">Show your photo again</a></span>`
         : "";
-    box.innerHTML = `<div class="fc-frame" title="${esc(f.heritage_words)}">${pic}</div>
-      <div class="fc-cap">${cap}</div>${note}
-      <div class="fc-acts">
-        <button class="st-btn small glass" data-fact="change" data-id="${f.id}">Change photo</button>
-        <button class="st-btn small glass" data-fact="prompt" data-id="${f.id}" title="An image prompt from his looks, for your own AI pictures">Copy AI prompt</button>
-        ${f.mine ? `<button class="st-btn small glass" data-fact="clear" data-id="${f.id}">Remove your photo</button>` : ""}
-      </div>
+    box.innerHTML = `<span class="fp-cap">${cap}</span>${note}
+      <button class="fc-link" data-fact="change" data-id="${f.id}">Change photo</button>
+      <button class="fc-link" data-fact="prompt" data-id="${f.id}" title="An image prompt from his looks, for your own AI pictures">Copy AI prompt</button>
+      ${f.mine ? `<button class="fc-link" data-fact="clear" data-id="${f.id}">Remove your photo</button>` : ""}
       <details class="fc-looks"><summary>Looks</summary><div>${[f.looks.hair, f.looks.beard, ...f.looks.marks.map((m) => m[0].toUpperCase() + m.slice(1)), `${f.looks.build[0].toUpperCase()}${f.looks.build.slice(1)} build, ${f.looks.skin}, ${f.looks.eyes}`].map((t) => `<span>${esc(t)}</span>`).join("")}</div></details>`;
     box._face = f;
   }
