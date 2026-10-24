@@ -4,7 +4,9 @@
 //! games those screens name), save and reload, and report every error and
 //! every suspicious value ("NaN", "undefined", empty names, "later").
 //!
-//! Usage: seat_season [world file | "build"] [days] [seats, e.g. hs,college,nfl]
+//! Usage: seat_season [world file | "build"] [days] [seats, e.g. hs,college,nfl,other]
+//! ("other" is a club in another league: the CFL, arena football or a
+//! spring league.)
 //! With "build" a small world is made first (seed 7, 2 years, scale 0.05).
 //! `AFM_SEAT_OUT=report.json` writes the full report; `AFM_SEAT_SAVE_END=dir`
 //! keeps each seat's save from the end of its run.
@@ -329,7 +331,7 @@ fn main() {
         };
         let bg = match seat.as_str() {
             "hs" => "hs_coach",
-            "nfl" => "nfl_assistant",
+            "nfl" | "other" => "nfl_assistant",
             _ => "college_assistant",
         };
         let start = json!({ "name": "Seat Tester", "age": 44, "background": bg, "job": job["ref"], "seed": 3 });

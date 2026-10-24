@@ -126,6 +126,61 @@ screens.squads = async () => {
 };
 
 // ---------- the school and its feeder area ----------
+// The town drawn around your school (screens topic 7): the feeder middle
+// schools and the youth teams where they sit, each one's road in as wide
+// as its share of your freshmen, and how many of your players came from it.
+function fsHash(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return (h >>> 0) / 4294967296;
+}
+function fsTownMap(x) {
+  const W = 640, H = 380, cx = W / 2, cy = H / 2 + 6;
+  const seed = fsHash(x.school.name + x.town);
+  const [c1, c2] = x.school.colors || ["#a71930", "#322f2b"];
+  const n = x.feeders.length || 1;
+  // The town's streets: a loose grid turned a little, and the main roads out.
+  const tilt = (seed - 0.5) * 0.5;
+  const streets = [];
+  for (let k = -6; k <= 6; k++) {
+    const o = k * 46 + (fsHash(x.town + k) - 0.5) * 14;
+    const [dx, dy] = [Math.cos(tilt), Math.sin(tilt)];
+    streets.push(`<line x1="${cx - dx * 420 - dy * o}" y1="${cy - dy * 420 + dx * o}" x2="${cx + dx * 420 - dy * o}" y2="${cy + dy * 420 + dx * o}"/>`);
+    streets.push(`<line x1="${cx + dy * 420 + dx * o}" y1="${cy - dx * 420 + dy * o}" x2="${cx - dy * 420 + dx * o}" y2="${cy + dx * 420 + dy * o}"/>`);
+  }
+  const spots = x.feeders.map((f, i) => {
+    const a = seed * Math.PI * 2 + (i / n) * Math.PI * 2 + (fsHash(f.name) - 0.5) * (Math.PI / n);
+    const share = Number(f.share || 0);
+    const r = (f.youth ? 150 : 118) + 40 * (1 - Math.min(1, share / 40)) + fsHash(f.name + "r") * 16;
+    return { f, x: cx + Math.cos(a) * r * 1.3, y: cy + Math.sin(a) * r * 0.74, share, a };
+  });
+  const roads = spots.map((s) => `<path d="M${cx} ${cy} Q ${(cx + s.x) / 2 + Math.sin(s.a) * 18} ${(cy + s.y) / 2 - Math.cos(s.a) * 18} ${s.x} ${s.y}" stroke-width="${(1.2 + s.share / 7).toFixed(1)}"/>`).join("");
+  const marks = spots.map((s) => {
+    const size = 7 + Math.sqrt(Math.max(1, s.f.boys)) * 0.9;
+    const shape = s.f.youth
+      ? `<rect x="${s.x - size}" y="${s.y - size}" width="${size * 2}" height="${size * 2}" rx="5" class="fs-map-y"/>`
+      : `<circle cx="${s.x}" cy="${s.y}" r="${size}" class="fs-map-ms"/>`;
+    // The label under the mark, or over it near the bottom edge, kept inside.
+    const tx = Math.min(W - 96, Math.max(96, s.x));
+    const below = s.y + size + 30 < H;
+    const ny = below ? s.y + size + 14 : s.y - size - 19;
+    const name = s.f.name.length > 26 ? s.f.name.slice(0, 25) + "…" : s.f.name;
+    return `<g><title>${esc(s.f.name)}: ${s.f.boys} boys, ${s.share}% of your freshmen${s.f.players.length ? `, ${s.f.players.length} on your roster` : ""}</title>${shape}
+      <text x="${s.x}" y="${s.y + 3.5}" text-anchor="middle" class="fs-map-in">${s.f.youth ? "Y" : "MS"}</text>
+      <text x="${tx}" y="${ny}" text-anchor="middle" class="fs-map-name">${esc(name)}</text>
+      <text x="${tx}" y="${ny + 13}" text-anchor="middle" class="fs-map-sub">${s.f.boys} boys · ${s.share}%${s.f.players.length ? ` · ${s.f.players.length} yours` : ""}</text></g>`;
+  }).join("");
+  const school = `<g><rect x="${cx - 46}" y="${cy - 26}" width="92" height="52" rx="10" fill="${c1}" stroke="${c2}" stroke-width="2"/>
+    <rect x="${cx - 34}" y="${cy - 14}" width="68" height="28" rx="4" class="fs-map-field"/>
+    ${[-22, -11, 0, 11, 22].map((d) => `<line x1="${cx + d}" y1="${cy - 12}" x2="${cx + d}" y2="${cy + 12}" class="fs-map-yard"/>`).join("")}
+    <text x="${cx}" y="${cy + 44}" text-anchor="middle" class="fs-map-school">${esc(x.school.name)}</text></g>`;
+  return `<div class="panel fs-map"><h2>${esc(x.town)} <small>your school and where its players start out</small></h2>
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Map of ${esc(x.town)}: your school, ${x.feeders.filter((f) => !f.youth).length} feeder middle schools and ${x.feeders.filter((f) => f.youth).length} youth teams">
+      <defs><clipPath id="fs-map-clip"><rect width="${W}" height="${H}" rx="16"/></clipPath></defs>
+      <g clip-path="url(#fs-map-clip)"><rect width="${W}" height="${H}" class="fs-map-ground"/><g class="fs-map-streets">${streets.join("")}</g>
+      <g class="fs-map-roads">${roads}</g>${marks}${school}</g></svg>
+    <div class="fs-map-key"><span><i class="ms"></i>Feeder middle school</span><span><i class="y"></i>Youth tackle team</span><span><i class="road"></i>The wider the road, the more of your freshmen it sends</span></div></div>`;
+}
 screens.area = async () => {
   const x = await api("school_area");
   setColors(x.school.colors);
@@ -159,7 +214,8 @@ screens.area = async () => {
         <div class="panel"><h2>Seasons <small>the school's own book</small></h2>${seasons ? `<div class="tbl box"><table><thead><tr><th class="l">Year</th><th>Record</th><th class="l">Head coach</th><th>Points</th><th class="l"></th></tr></thead><tbody>${seasons}</tbody></table></div>` : '<div class="empty">No seasons kept.</div>'}</div>
         <div class="panel"><h2>Head coaches</h2>${coaches ? `<div class="tbl"><table><thead><tr><th class="l">Coach</th><th>Years</th><th>Record</th></tr></thead><tbody>${coaches}</tbody></table></div>` : '<div class="empty">No record.</div>'}</div>
       </div>
-      <div class="panel"><h2>Where your players come from <small>${x.came_in} on the roster moved in or transferred</small></h2><div class="fs-feeders">${feeders}</div></div>
+      <div style="display:grid;gap:18px;align-content:start">${x.feeders.length ? fsTownMap(x) : ""}
+      <div class="panel"><h2>Where your players come from <small>${x.came_in} on the roster moved in or transferred</small></h2><div class="fs-feeders">${feeders}</div></div></div>
     </div>
     <div class="panel"><h2>Playing on <small>${x.alumni.length ? `${x.alumni.length} of the school's players in college and the pros${pros ? `, ${pros} on an NFL roster` : ""}` : "the school's players in college and the pros"}</small></h2>
       ${table("school-alumni", alumniCols, x.alumni, { groupBy: (r) => (["NFL", "Free agent", "Draft pool"].includes(r.level) ? r.level : "College · " + r.level), empty: "Nobody from the school is playing in college or the pros yet." })}</div>
@@ -199,10 +255,10 @@ screens.market = async () => {
     <div class="fs-row">
       <div class="panel"><h2>What you'd take <small>where your agent puts your name</small></h2>
         ${job ? chk("listening", "Take calls about other jobs while I have one") : ""}
-        <div class="fs-checks">${chk("college_head", "College head coach")}${chk("coordinator", "Coordinator")}${chk("position", "College position coach")}${chk("nfl", "NFL")}${chk("hs_head", "High school head coach")}</div>
+        <div class="fs-checks">${chk("college_head", "College head coach")}${chk("coordinator", "Coordinator")}${chk("position", "College position coach")}${chk("nfl", "NFL")}${chk("other", "Other leagues (CFL, UFL, arena)")}${chk("hs_head", "High school head coach")}</div>
         <div class="fs-states"><span class="st-label">Colleges</span><div class="seg">${[[0, "Any division"], [1, "FCS and up"], [2, "FBS only"]].map(([v, t]) => `<button data-fs="floor" data-v="${v}" aria-pressed="${(i.college_floor || 0) === v}">${t}</button>`).join("")}</div></div>
         <div class="fs-states"><span class="st-label">Where</span>${chips || '<span class="sub">Anywhere</span>'}${addState}</div>
-        <small class="sub">NFL jobs go anywhere.</small></div>
+        <small class="sub">NFL and other-league jobs go anywhere.</small></div>
       ${fam ? `<div class="panel"><h2>Your family <small>${esc(fam.mood)}</small></h2><dl class="kv"><dt>Home</dt><dd>${esc(fam.home || "")}${fam.since ? ` since ${fam.since}` : ""}${fam.moves ? ` · moved ${fam.moves} time${fam.moves === 1 ? "" : "s"}` : ""}</dd>${fam.status === "Married" && fam.spouse ? `<dt>Married to</dt><dd>${esc(fam.spouse)}</dd>` : `<dt>Status</dt><dd>${esc(fam.status || "")}</dd>`}${fam.children.length ? `<dt>Children</dt><dd>${fam.children.map((c) => `${esc(c.name)}, ${c.age} <span class="sub">(${esc(c.school.toLowerCase())})</span>`).join("; ")}</dd>` : ""}</dl></div>` : ""}
       <div class="panel"><h2>People who know you <small>a search calls them about you</small></h2><div class="items">${known || '<div class="empty">Nobody in the world\'s history yet: they come with every staff you join.</div>'}</div>${(x.known || []).length > 6 ? '<a class="link sub" data-go="you">Everyone who knows you, on your profile</a>' : ""}</div>
     </div>

@@ -1230,10 +1230,150 @@ fn side(w: &World, k: u8, fr: usize, year: i32) -> Option<Side> {
     // A line that played together last year (the NFL's rule); a new
     // team's line has just met.
     t.line_chem = 0.25 + 0.15 * line_back.min(5) as f64;
+    // Your club: your depth chart where your job sets it (an NFL seat's
+    // rule), the CFL's ratio met the cheapest way from your order.
+    let yours = w.seat.is_some_and(|s| s.level == crate::calendar::Level::Other && s.other == Some(fr));
+    let mine = if yours { w.seat_order() } else { Vec::new() };
     if k == CFL {
-        t.order = ratio_starters(&t.players, &nationals, ratio(year).1);
+        let fixed = ratio_starters_from(&t.players, &nationals, ratio(year).1, &mine);
+        let set: Vec<Position> = fixed.iter().map(|x| x.0).collect();
+        t.order = mine.into_iter().filter(|(p, _)| !set.contains(p)).chain(fixed).collect();
+    } else {
+        t.order = mine;
     }
     Some(Side { team: t, who })
+}
+
+/// Your club as the engine would dress it today.
+pub(crate) fn seat_side(w: &World, fr: usize) -> Option<GameTeam> {
+    Some(side(w, league_of(fr), fr, w.today.year())?.team)
+}
+
+/// The seed of a league's week (each game mixes in its place in the week).
+fn week_seed(w: &World, k: u8, year: i32, wk: usize) -> u64 {
+    w.options.seed as u64 ^ (year as u64) << 24 ^ (k as u64) << 16 ^ (wk as u64) << 8
+}
+
+/// The games a league plays on its next week: the regular season's week,
+/// or the playoff round (seeded from the table first when the regular
+/// season just ended). Empty when the season is over or stopped.
+fn next_pairs(live: &Live, f: &Format) -> Vec<(u16, u16)> {
+    let wk = live.week as usize;
+    let reg = live.weeks.len();
+    let stopped = f.stop_after.is_some_and(|s| wk >= s as usize);
+    if wk < reg && !stopped {
+        return live.weeks[wk].clone();
+    }
+    if wk == reg || stopped && live.round == 0 {
+        if stopped || f.playoff == Playoff::None {
+            return Vec::new();
+        }
+        let mut c = live.clone();
+        seed_playoffs(&mut c, f);
+        return playoff_pairs(&c, f);
+    }
+    playoff_pairs(live, f)
+}
+
+/// Your club's league season under way: its place in `others.live` and
+/// its format.
+fn seat_league(w: &World) -> Option<(usize, usize, Format)> {
+    let s = w.seat?;
+    let fr = s.other.filter(|_| s.level == crate::calendar::Level::Other)?;
+    let k = league_of(fr);
+    let year = w.today.year();
+    let f = format(k, year)?;
+    let li = w.others.live.iter().position(|l| l.league == k && l.year == year && !l.done)?;
+    Some((fr, li, f))
+}
+
+/// The games left for your club this season, by date: the regular season's
+/// weeks still to play, then, once the playoffs start, the next round
+/// while your club is alive. (week date, home, away)
+pub fn seat_fixtures(w: &World) -> Vec<(Date, usize, usize)> {
+    let Some((fr, li, f)) = seat_league(w) else { return Vec::new() };
+    let live = &w.others.live[li];
+    let mut out = Vec::new();
+    let reg = live.weeks.len();
+    let stop = f.stop_after.map_or(reg, |s| (s as usize).min(reg));
+    let from = live.week as usize;
+    for wk in from..stop {
+        if let Some(&(h, a)) = live.weeks[wk].iter().find(|&&(h, a)| h as usize == fr || a as usize == fr) {
+            out.push((f.start.add(7 * wk as i32), h as usize, a as usize));
+        }
+    }
+    if from >= stop {
+        let d = f.start.add(7 * from as i32);
+        for (h, a) in next_pairs(live, &f) {
+            if h as usize == fr || a as usize == fr {
+                out.push((d, h as usize, a as usize));
+            }
+        }
+    }
+    out
+}
+
+/// The teams your club may still meet: the rest of its schedule, and in
+/// the playoffs every team still alive.
+pub fn seat_opponents(w: &World) -> Vec<usize> {
+    let Some((fr, li, f)) = seat_league(w) else { return Vec::new() };
+    let mut v: Vec<usize> = seat_fixtures(w).into_iter().map(|(_, h, a)| if h == fr { a } else { h }).collect();
+    let live = &w.others.live[li];
+    let reg = f.stop_after.map_or(live.weeks.len(), |s| (s as usize).min(live.weeks.len()));
+    if live.week as usize >= reg && live.alive.contains(&(fr as u16)) {
+        v.extend(live.alive.iter().map(|&x| x as usize).filter(|&x| x != fr));
+    }
+    v.sort_unstable();
+    v.dedup();
+    v
+}
+
+/// Your club's game today as the day will play it.
+pub(crate) fn seat_setup(w: &World) -> Option<crate::world::live_seat::SeatSetup> {
+    let (fr, li, f) = seat_league(w)?;
+    let live = &w.others.live[li];
+    let wk = live.week as usize;
+    if w.today != f.start.add(7 * wk as i32) {
+        return None;
+    }
+    let pairs = next_pairs(live, &f);
+    let g = pairs.iter().position(|&(h, a)| h as usize == fr || a as usize == fr)?;
+    let (h, a) = pairs[g];
+    let (k, year) = (live.league, live.year);
+    let sh = side(w, k, h as usize, year)?;
+    let sa = side(w, k, a as usize, year)?;
+    let round =
+        if wk < live.weeks.len() && f.stop_after.is_none_or(|s| wk < s as usize) { 0 } else { live.round.max(1) };
+    // The title game's neutral site, as `play_week` reads it after seeding.
+    let mut after = live.clone();
+    if round > 0 && after.round == 0 {
+        seed_playoffs(&mut after, &f);
+    }
+    let neutral = round > 0 && last_round(&f, &after);
+    let mut setup = crate::game::GameSetup::new(
+        &sh.team,
+        &sa.team,
+        crate::player::Level::NFL,
+        week_seed(w, k, year, wk) ^ (g as u64 * 7919),
+    );
+    // As `quick_game_book` sets it up, so the day plays the same game.
+    let v = Venue { neutral, ..Venue::default() };
+    setup.rules = crate::game::Rules::for_book(book(k), year);
+    setup.year = year;
+    setup.playoff = round > 0;
+    setup.cond = v.cond;
+    setup.neutral = v.neutral;
+    setup.wear = v.wear;
+    setup.cold_unused = v.cold_unused;
+    let params = crate::game::live::Params::of(&setup);
+    Some(crate::world::live_seat::SeatSetup {
+        level: crate::calendar::Level::Other,
+        teams: [h as usize, a as usize],
+        names: [name(h as usize, year).to_string(), name(a as usize, year).to_string()],
+        home: sh.team,
+        away: sa.team,
+        params,
+    })
 }
 
 /// The CFL's starters by position, twelve a side: five on the offensive
@@ -1257,7 +1397,20 @@ pub(crate) fn cfl_starts(pos: Position) -> usize {
 /// start on merit, the coach starts the Canadians who cost him least, each
 /// in place of the weakest import at his spot. The order is the staff's
 /// own depth chart for every spot it changes.
+#[cfg(test)]
 pub(crate) fn ratio_starters(ps: &[GamePlayer], nationals: &HashSet<u32>, need: usize) -> Vec<(Position, Vec<u32>)> {
+    ratio_starters_from(ps, nationals, need, &[])
+}
+
+/// `ratio_starters` from a coach's own order where he set one (your
+/// depth chart): his men stay where he put them, and only the spots the
+/// ratio needs change.
+pub(crate) fn ratio_starters_from(
+    ps: &[GamePlayer],
+    nationals: &HashSet<u32>,
+    need: usize,
+    order: &[(Position, Vec<u32>)],
+) -> Vec<(Position, Vec<u32>)> {
     let starts = cfl_starts;
     let mut lists: Vec<(Position, Vec<(f64, u32)>)> = Position::ALL
         .iter()
@@ -1266,6 +1419,19 @@ pub(crate) fn ratio_starters(ps: &[GamePlayer], nationals: &HashSet<u32>, need: 
             let mut v: Vec<(f64, u32)> =
                 ps.iter().filter(|p| p.position == pos).map(|p| (p.overall_at(pos), p.id)).collect();
             v.sort_by(|a, b| b.0.total_cmp(&a.0));
+            if let Some((_, ids)) = order.iter().find(|(p, _)| *p == pos) {
+                // His listed men, then the rest as the staff ranks them.
+                let mut listed: Vec<(f64, u32)> = ids
+                    .iter()
+                    .filter_map(|&id| ps.iter().find(|p| p.id == id).map(|p| (p.overall_at(pos), id)))
+                    .collect();
+                for x in v.iter() {
+                    if !listed.iter().any(|y| y.1 == x.1) {
+                        listed.push(*x);
+                    }
+                }
+                v = listed;
+            }
             (pos, v)
         })
         .collect();
@@ -1313,7 +1479,7 @@ fn play_week(w: &mut World, d: Date, li: usize, f: &Format) {
                 finish(w, d, li, f, if stopped { "the league stopped play" } else { "" });
                 return;
             }
-            seed_playoffs(w, li, f);
+            seed_playoffs(&mut w.others.live[li], f);
         }
         playoff_pairs(&w.others.live[li], f)
     };
@@ -1329,14 +1495,31 @@ fn play_week(w: &mut World, d: Date, li: usize, f: &Format) {
         }
     }
     let bk = book(k);
-    let seed = w.options.seed as u64 ^ (year as u64) << 24 ^ (k as u64) << 16 ^ (wk as u64) << 8;
+    let seed = week_seed(w, k, year, wk);
     let jobs: Vec<(usize, u16, u16)> = fixtures.iter().enumerate().map(|(g, &(h, a))| (g, h, a)).collect();
+    // Your game, played live on the game day screens (later extras topic
+    // 5: a seat here works like an NFL seat under the league's rules).
+    let live = w.live_result(crate::calendar::Level::Other);
+    // Your game as the morning built it (`seat_setup`), so the game your
+    // staff coaches is the one the game day screen showed.
+    let yours = seat_setup(w);
+    let neutral = round > 0 && last_round(f, &w.others.live[li]);
     let results: Vec<Option<GameResult>> = jobs
         .par_iter()
         .map(|&(g, h, a)| {
             let (Some(Some(sh)), Some(Some(sa))) = (sides.get(&h), sides.get(&a)) else { return None };
+            if let Some((t, r)) = &live
+                && *t == [h as usize, a as usize]
+            {
+                return Some(r.clone());
+            }
+            if let Some(m) = &yours
+                && m.teams == [h as usize, a as usize]
+            {
+                return Some(crate::game::play_game(&m.params.setup(&m.home, &m.away)));
+            }
             // A title game is at a neutral site (the Grey Cup's host city).
-            let venue = Venue { neutral: round > 0 && last_round(f, &w.others.live[li]), ..Venue::default() };
+            let venue = Venue { neutral, ..Venue::default() };
             Some(crate::game::quick_game_book(&sh.team, &sa.team, bk, year, seed ^ (g as u64 * 7919), venue, round > 0))
         })
         .collect();
@@ -1369,6 +1552,11 @@ fn play_week(w: &mut World, d: Date, li: usize, f: &Format) {
         if let Some(r) = r {
             let (Some(Some(sh)), Some(Some(sa))) = (sides.get(&h), sides.get(&a)) else { continue };
             record(w, k, [h, a], &r, [&sh.who, &sa.who]);
+            let teams = [h as usize, a as usize];
+            w.keep_seat_game(crate::calendar::Level::Other, teams, &r.stats, r.replay.as_deref());
+            if let Some(o) = w.tape_watch(crate::calendar::Level::Other) {
+                w.keep_tape(&o, crate::calendar::Level::Other, teams, &r.stats, &r.film);
+            }
         }
     }
     let live = &mut w.others.live[li];
@@ -1389,9 +1577,8 @@ fn last_round(f: &Format, live: &Live) -> bool {
 }
 
 /// The playoff field from the standings.
-fn seed_playoffs(w: &mut World, li: usize, f: &Format) {
-    let year = w.others.live[li].year;
-    let live = &mut w.others.live[li];
+fn seed_playoffs(live: &mut Live, f: &Format) {
+    let year = live.year;
     let rank = |rows: &mut Vec<Row>| {
         rows.sort_by(|a, b| {
             b.points()
@@ -1804,6 +1991,56 @@ pub fn fixtures(w: &World, fr: usize) -> Vec<(Date, usize, bool)> {
         }
     }
     v
+}
+
+/// A franchise's games this year in order: (date, opponent, at home, the
+/// score as (its points, theirs) once played, the playoff round or 0).
+/// The next playoff game shows once the round is drawn.
+pub fn season_games(w: &World, fr: usize) -> Vec<(Date, usize, bool, Option<[u16; 2]>, u8)> {
+    let k = league_of(fr);
+    let Some(f) = format(k, w.year) else { return Vec::new() };
+    let Some(live) = w.others.live.iter().find(|l| l.league == k && l.year == w.year) else { return Vec::new() };
+    let me = fr as u16;
+    let ours = |g: &Game| if g.home == me { g.score } else { [g.score[1], g.score[0]] };
+    let mut v = Vec::new();
+    let stop = f.stop_after.map_or(live.weeks.len(), |s| (s as usize).min(live.weeks.len()));
+    for (wk, games) in live.weeks.iter().enumerate().take(stop) {
+        for &(h, a) in games.iter().filter(|&&(h, a)| h == me || a == me) {
+            let played =
+                live.games.iter().find(|g| g.round == 0 && g.week as usize == wk && g.home == h && g.away == a);
+            v.push((f.start.add(7 * wk as i32), if h == me { a } else { h } as usize, h == me, played.map(ours), 0));
+        }
+    }
+    for g in live.games.iter().filter(|g| g.round > 0 && (g.home == me || g.away == me)) {
+        let home = g.home == me;
+        let opp = if home { g.away } else { g.home };
+        v.push((f.start.add(7 * g.week as i32), opp as usize, home, Some(ours(g)), g.round));
+    }
+    if !live.done && live.week as usize >= stop {
+        for (h, a) in next_pairs(live, &f).into_iter().filter(|&(h, a)| h == me || a == me) {
+            let d = f.start.add(7 * live.week as i32);
+            v.push((d, if h == me { a } else { h } as usize, h == me, None, live.round.max(1)));
+        }
+    }
+    v
+}
+
+/// A franchise's line in its league's table: this year's season while it
+/// runs or once it's done, else the last one it played.
+pub fn record_of(w: &World, fr: usize) -> Option<(i32, Row)> {
+    let k = league_of(fr);
+    let me = fr as u16;
+    let live =
+        w.others.live.iter().rev().find(|l| l.league == k && l.year <= w.year && l.table.iter().any(|r| r.fr == me));
+    if let Some(l) = live {
+        return l.table.iter().find(|r| r.fr == me).map(|r| (l.year, *r));
+    }
+    w.others
+        .seasons
+        .iter()
+        .rev()
+        .find(|s| s.league == k)
+        .and_then(|s| s.table.iter().find(|r| r.fr == me).map(|r| (s.year, *r)))
 }
 
 /// The league's rule book in plain lines, for its page: what differs from

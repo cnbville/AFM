@@ -221,6 +221,7 @@ impl Film {
             match self.cal {
                 afm_engine::calendar::Level::Nfl => crate::colors::nfl(&w.nfl_team_name(t), t),
                 afm_engine::calendar::Level::HighSchool => crate::colors::high_school(t),
+                afm_engine::calendar::Level::Other => crate::colors::other(&self.names[side], t),
                 _ => crate::colors::college(&w.programs[t].real_name, t),
             }
         };
@@ -229,6 +230,7 @@ impl Film {
                 let refj = match self.cal {
                     CalLevel::Nfl => json!({ "kind": "nfl", "id": self.teams[side] }),
                     CalLevel::HighSchool => json!({ "kind": "hs", "id": self.teams[side] }),
+                    CalLevel::Other => json!({ "kind": "other", "id": self.teams[side] }),
                     _ => json!({ "kind": "college", "id": self.teams[side] }),
                 };
                 let n = &self.names[side];
@@ -304,7 +306,8 @@ impl Film {
             "date": crate::views::date_text(self.date),
             "live": self.live,
             "level": match self.cal {
-                CalLevel::Nfl => "nfl",
+                // The other leagues' games are played on the pro field.
+                CalLevel::Nfl | CalLevel::Other => "nfl",
                 CalLevel::HighSchool => "hs",
                 _ => "college",
             },

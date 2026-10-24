@@ -1,7 +1,8 @@
 //! Every seat on a small world (final build lane 10): an assistant's job
 //! (what it controls, the head coach's answer), a career without a job
-//! (the market), and a high school head job at a big school with its
-//! squads, its office, its feeders and its JV games.
+//! (the market), a high school head job at a big school with its
+//! squads, its office, its feeders and its JV games, and a club in another
+//! league through a season's first games.
 
 use afm_game::Game;
 use serde_json::{Value, json};
@@ -166,6 +167,48 @@ fn every_seat_starts_and_the_school_desk_runs() {
         "the boosters raised money: {}",
         office["boosters"]
     );
+
+    // A club in another league (first post-release update): the CFL's
+    // clubs are in the job list, and its head coach's season plays on the
+    // engine with game mornings, kept games and their film.
+    ok(&mut g, "load", json!({ "path": fresh }));
+    let other = ok(&mut g, "jobs", json!({ "level": "other" }));
+    let club = find(&other, "jobs", |j| j["league"] == "CFL").expect("a CFL club in the job list").clone();
+    let st = ok(&mut g, "start_career_seat", with(base.clone(), json!({ "start": "head", "job": club["ref"] })));
+    assert_eq!(st["mine"]["ref"]["kind"], "other", "{st}");
+    assert_eq!(st["seat"]["level"], "other");
+    assert!(
+        g.call(
+            "start_career_seat",
+            &with(base.clone(), json!({ "start": "assistant", "role": "pc0", "job": club["ref"] }))
+        )
+        .is_err()
+    );
+    let lg = ok(&mut g, "leagues", json!({}));
+    assert_eq!(lg["league"]["short"], "CFL", "your own league first");
+    let mut played = 0;
+    for _ in 0..60 {
+        played = g.world.as_ref().map_or(0, |w| w.seat_games().len());
+        if played >= 3 {
+            break;
+        }
+        ok(&mut g, "continue", json!({ "max_days": 60 }));
+    }
+    assert!(played >= 3, "your club's games are kept: {played}");
+    let games = ok(&mut g, "games", json!({}));
+    let n = games["games"].as_array().unwrap().len();
+    let page = ok(&mut g, "game_page", json!({ "index": n - 1 }));
+    assert_eq!(page["level"], "CFL");
+    let film = ok(&mut g, "film", json!({ "index": n - 1 }));
+    assert!(film["teams"].as_array().unwrap().iter().all(|t| t["ref"]["kind"] == "other"), "{}", film["teams"]);
+    ok(&mut g, "film_close", json!({}));
+    let hub = ok(&mut g, "gameday", json!({}));
+    assert_eq!(hub["has_game"], true, "{hub}");
+    assert_eq!(hub["level"], "CFL");
+    assert!(hub["tapes"].as_array().is_some_and(|t| !t.is_empty()), "film of your next opponent: {}", hub["tapes"]);
+    for s in ["team", "roster", "schedule", "staff", "depth", "news", "inbox"] {
+        ok(&mut g, s, json!({}));
+    }
     println!("done in {:.0}s", t.elapsed().as_secs_f64());
     let _ = std::fs::remove_dir_all(dir);
 }

@@ -99,11 +99,13 @@ pub fn team_code(t: TeamRef) -> u32 {
         TeamRef::Nfl(i) => i as u32,
         TeamRef::College(i) => 100_000 + i as u32,
         TeamRef::HighSchool(i) => 1_000_000 + i as u32,
+        TeamRef::Other(i) => 10_000_000 + i as u32,
     }
 }
 
 pub fn team_from(code: u32) -> TeamRef {
     match code {
+        c if c >= 10_000_000 => TeamRef::Other((c - 10_000_000) as usize),
         c if c >= 1_000_000 => TeamRef::HighSchool((c - 1_000_000) as usize),
         c if c >= 100_000 => TeamRef::College((c - 100_000) as usize),
         c => TeamRef::Nfl(c as usize),
@@ -246,7 +248,7 @@ impl<'a> Pen<'a> {
             TeamRef::College(p) => {
                 (Head::School, format!("Department of Athletics · {}, {}", w.programs[p].city, state_code(w, self.me)))
             }
-            TeamRef::Nfl(_) => (Head::Club, "Football operations".to_string()),
+            TeamRef::Nfl(_) | TeamRef::Other(_) => (Head::Club, "Football operations".to_string()),
             TeamRef::HighSchool(h) => (Head::School, people::district(w, h)),
         };
         let mut m = letter(
@@ -302,6 +304,21 @@ impl<'a> Pen<'a> {
                 )
             }
             TeamRef::College(_) => self.memo(tag, d, 10 * 60, Job::Compliance, subject),
+            TeamRef::Other(i) => {
+                let k = afm_engine::world::pro::other::league_of(i);
+                letter(
+                    tag,
+                    d,
+                    10 * 60,
+                    Head::League,
+                    afm_engine::world::pro::other::league_name(k, w.year).into(),
+                    "League office · football operations".into(),
+                    people::named(w, &format!("league-ops-{k}")),
+                    "Vice president, football operations".into(),
+                    "All clubs: head coaches and general managers".into(),
+                    subject,
+                )
+            }
         }
     }
 
@@ -333,7 +350,7 @@ fn state_code(w: &World, t: TeamRef) -> String {
     match t {
         TeamRef::College(i) => w.states[w.programs[i].state].code.clone(),
         TeamRef::HighSchool(i) => w.states[w.high_schools[i].state].code.clone(),
-        TeamRef::Nfl(_) => String::new(),
+        TeamRef::Nfl(_) | TeamRef::Other(_) => String::new(),
     }
 }
 
@@ -368,6 +385,16 @@ pub fn rivals(w: &World, me: TeamRef) -> Vec<TeamRef> {
             .hs_standings(h)
             .map(|(_, rows)| rows.iter().map(|r| r.0).filter(|&o| o != h).take(10).map(TeamRef::HighSchool).collect())
             .unwrap_or_default(),
+        // Another league's clubs: the rest of its division.
+        TeamRef::Other(f) => {
+            use afm_engine::world::pro::other as o;
+            let div = o::def(f, w.year).map(|d| d.div);
+            o::teams_in(o::league_of(f), w.year)
+                .into_iter()
+                .filter(|&x| x != f && o::def(x, w.year).map(|d| d.div) == div)
+                .map(TeamRef::Other)
+                .collect()
+        }
     }
 }
 
@@ -477,6 +504,11 @@ fn welcome(w: &World, me: TeamRef, mails: &mut Vec<Mail>, reveals: &mut Vec<Reve
             crate::setup::hs_expectation(s.prestige, s.state_titles).to_string()
         }
         TeamRef::Nfl(_) => "Build a roster that wins in January, and do it the right way.".to_string(),
+        TeamRef::Other(i) => {
+            let k = afm_engine::world::pro::other::league_of(i);
+            let title = afm_engine::world::pro::other::format(k, w.year).map_or("title game", |f| f.title);
+            format!("Win here, and get us to the {title}. A short season leaves no time to settle in.")
+        }
     };
     let (rec, note) = views::season_record(w, me);
     m.body = vec![
@@ -611,7 +643,7 @@ fn compose(w: &World, me: TeamRef, from: Date, to: Date, mails: &mut Vec<Mail>, 
                         || rivals.iter().any(|&t| match t {
                             TeamRef::College(p) => e.program == Some(p),
                             TeamRef::Nfl(t) => e.nfl_team == Some(t),
-                            TeamRef::HighSchool(_) => false,
+                            TeamRef::HighSchool(_) | TeamRef::Other(_) => false,
                         });
                     if (mine || rival) && e.loud < Loudness::Huge && e.kind != Kind::Weather {
                         clips.push(link(e));
@@ -695,7 +727,9 @@ fn compose(w: &World, me: TeamRef, from: Date, to: Date, mails: &mut Vec<Mail>, 
                     "{}, for your calendar. Our office tracks each of these; tell me if you want a briefing.",
                     pen.dear
                 ),
-                TeamRef::Nfl(_) => "This memo is to inform all clubs of the following dates and rules.".into(),
+                TeamRef::Nfl(_) | TeamRef::Other(_) => {
+                    "This memo is to inform all clubs of the following dates and rules.".into()
+                }
                 TeamRef::HighSchool(_) => "Member schools are reminded of the following.".into(),
             };
             m.body = vec![intro];
@@ -1258,7 +1292,7 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                 }
             }
         }
-        TeamRef::Nfl(_) => {}
+        TeamRef::Nfl(_) | TeamRef::Other(_) => {}
     }
 }
 
@@ -1285,7 +1319,7 @@ fn games_mail(pen: &mut Pen, from: Date, to: Date) {
             continue;
         }
         let side = match (pen.me, g.level) {
-            (TeamRef::College(i), _) | (TeamRef::Nfl(i), _) | (TeamRef::HighSchool(i), _) => {
+            (TeamRef::College(i), _) | (TeamRef::Nfl(i), _) | (TeamRef::HighSchool(i), _) | (TeamRef::Other(i), _) => {
                 if g.teams[0] == i {
                     0
                 } else {
@@ -1414,7 +1448,9 @@ fn games_mail(pen: &mut Pen, from: Date, to: Date) {
             .rev()
             .take_while(|g| {
                 let sd = match pen.me {
-                    TeamRef::College(i) | TeamRef::Nfl(i) | TeamRef::HighSchool(i) => usize::from(g.teams[0] != i),
+                    TeamRef::College(i) | TeamRef::Nfl(i) | TeamRef::HighSchool(i) | TeamRef::Other(i) => {
+                        usize::from(g.teams[0] != i)
+                    }
                 };
                 g.stats.score[sd] < g.stats.score[1 - sd]
             })
@@ -1571,6 +1607,16 @@ fn your_people(pen: &mut Pen, d: Date, coach: usize) {
                     && p.class_of >= started
                     && p.stage != Stage::HighSchool
                     && p.stage != Stage::Done
+                {
+                    names.push((p.name.clone(), p.player.id));
+                }
+            }
+        }
+        TeamRef::Other(f) => {
+            for (k, p) in w.people.iter().enumerate() {
+                if !mine.contains(&k)
+                    && p.stage == Stage::Pro
+                    && p.pro.as_ref().is_some_and(|c| c.other.iter().any(|s| s.team as usize == f && s.year >= started))
                 {
                     names.push((p.name.clone(), p.player.id));
                 }

@@ -223,6 +223,7 @@ fn team_ref_of(w: &World, p: &Person) -> Option<TeamRef> {
         TeamRef::HighSchool(h) => h < w.high_schools.len(),
         TeamRef::College(c) => c < w.programs.len(),
         TeamRef::Nfl(t) => t < w.nfl.len(),
+        TeamRef::Other(f) => f < afm_engine::world::pro::other::FRANCHISES,
     })
 }
 

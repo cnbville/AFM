@@ -4,7 +4,7 @@
 // every page error, console error and failed call, with a screenshot per
 // screen. Needs afm_play running (cargo run --release --bin afm_play).
 //
-// Usage: node tools/seat-ui/crawl.mjs <world file> <seat: hs|college|nfl> [rounds] [out dir]
+// Usage: node tools/seat-ui/crawl.mjs <world file> <seat: hs|college|nfl|other> [rounds] [out dir]
 // PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers, AFM_URL (default http://127.0.0.1:7700).
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
@@ -52,7 +52,7 @@ let r = await api("open_world", { path: world });
 if (r.err) { console.log("open_world:", r.err); process.exit(2); }
 const jobs = (await api("jobs", { level: seat })).ok.jobs;
 const job = jobs[Math.min(2, jobs.length - 1)];
-const bg = { hs: "hs_coach", nfl: "nfl_assistant", college: "college_assistant" }[seat];
+const bg = { hs: "hs_coach", nfl: "nfl_assistant", other: "nfl_assistant", college: "college_assistant" }[seat];
 r = await api("start_career", { name: "Crawl Tester", age: 44, background: bg, job: job.ref, seed: 3 });
 if (r.err) r = await api("start_career", { name: "Crawl Tester", age: 44, background: "college_assistant", job: job.ref, seed: 3 });
 if (r.err) { console.log("start_career:", r.err); process.exit(2); }

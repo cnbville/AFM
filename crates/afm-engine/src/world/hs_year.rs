@@ -1147,8 +1147,8 @@ fn engine_games(
             });
             let [ha, hb] = r.stats.score;
             // Your game, and your coming opponents' film.
-            let kept = seat.is_some_and(|x| x == h || x == a)
-                || watch.as_ref().is_some_and(|o| o.contains(&h) || o.contains(&a));
+            let kept =
+                seat.is_some_and(|x| x == h || x == a) || watch.as_ref().is_some_and(|o| o.watches(h) || o.watches(a));
             let replay = r.replay.take();
             let full = kept.then(|| (r.stats.clone(), r.film.clone(), replay));
             Ok(HsPlayed { score: [ha.max(0) as u32, hb.max(0) as u32], team: r.stats.team.clone(), lines, full })

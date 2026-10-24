@@ -443,6 +443,58 @@ pub fn jobs(w: &World, level: &str) -> Value {
                 })
                 .collect()
         }
+        // The other pro leagues' clubs playing this year or next (later
+        // extras topic 5): a club works like an NFL seat on its league's
+        // own rules, money and calendar.
+        "other" => {
+            use afm_engine::world::pro::other as o;
+            let mut clubs: Vec<usize> = (0..o::LEAGUE_COUNT as u8)
+                .flat_map(|k| o::teams_in(k, w.year).into_iter().chain(o::teams_in(k, w.year + 1)))
+                .collect();
+            clubs.sort_unstable();
+            clubs.dedup();
+            clubs
+                .into_iter()
+                .map(|f| {
+                    let k = o::league_of(f);
+                    let titles: Vec<i32> =
+                        w.others.seasons.iter().filter(|s| s.champion == Some(f as u16)).map(|s| s.year).collect();
+                    let last = o::record_of(w, f);
+                    let year =
+                        if o::format(k, w.year).is_some_and(|x| x.start >= w.today) { w.year } else { w.year + 1 };
+                    let opens = o::format(k, year).map(|x| x.start);
+                    let mut j = base(TeamRef::Other(f));
+                    j["league"] = json!(o::league_short(k));
+                    j["league_name"] = json!(o::league_name(k, year));
+                    j["city"] = json!(o::city(f, w.year));
+                    j["titles"] = json!(titles.len());
+                    j["last_title"] = json!(titles.iter().max());
+                    j["trophy"] = json!(o::format(k, year).map(|x| x.title));
+                    j["prestige"] = json!((o::prestige(f) * 100.0).round() / 100.0);
+                    j["prestige_word"] = json!(match k {
+                        o::CFL => "Canada's top league",
+                        o::AFL1 | o::AFL2 => "Indoor football",
+                        _ => "A spring league",
+                    });
+                    j["pay"] = json!(o::salary(f, afm_engine::world::coach::Role::HeadCoach, w.year).round());
+                    j["coach"] = json!(coach(o::head_coach(w, f)));
+                    j["expectation"] = json!(match last {
+                        Some((_, r)) if r.w > r.l + 3 =>
+                            format!("Win the {}.", o::format(k, year).map_or("title", |x| x.title)),
+                        Some((_, r)) if r.w >= r.l => "Make the playoffs and win a round.".to_string(),
+                        Some(_) => "A winning season and a playoff spot.".to_string(),
+                        None =>
+                            "Build a club from nothing: a roster by camp and a season that sells tickets.".to_string(),
+                    });
+                    j["calendar"] = json!(match opens {
+                        Some(d) => format!("The {} season opens {}.", o::league_short(k), date_text(d)),
+                        None => "No season is set yet.".to_string(),
+                    });
+                    j["sub"] = json!(format!("{} · {}", o::league_name(k, year), o::city(f, w.year)));
+                    (k as f64 * 100.0 - o::prestige(f), j)
+                })
+                .collect()
+        }
         "hs" => {
             let calendar = format!(
                 "Offseason workouts, and spring practice where the state allows it. School starts {}.",
@@ -647,6 +699,7 @@ pub fn start(w: &mut World, args: &Value) -> Result<(), String> {
         TeamRef::Nfl(i) => Job::Nfl(i),
         TeamRef::College(i) => Job::College(i),
         TeamRef::HighSchool(i) => Job::HighSchool(i),
+        TeamRef::Other(f) => Job::Other(f),
     };
     let seed = career_seed(args);
     w.start_career(&you, job, seed);

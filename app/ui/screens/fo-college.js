@@ -148,10 +148,11 @@ screens.recruit_board = async (a) => {
       [sg ? String(sg.in) : "-", sg ? "Days to signing" : "No signing date"],
     ])}
     <div class="fc-open"><span class="st-label">Open spots</span>${openPos.length ? openPos.map((p) => `<button class="st-pill" data-fc="planpos" data-v="${p.pos}" title="See the ${p.pos}s on your board">${p.pos} ${p.open}</button>`).join("") : '<span class="sub">Every spot your staff planned is filled.</span>'}</div>`;
-  const tabs = [["targets", "Top targets"], ["board", "Full board", x.rows.length], ["plan", "Class plan and staff"]];
+  const tabs = [["targets", "Top targets"], ["board", "Full board", x.rows.length], ["map", "Map"], ["plan", "Class plan and staff"]];
   let body = "";
   if (k.tab === "targets") body = await fcTargets(x, k);
   else if (k.tab === "board") body = fcBoardTable(x, k, yours);
+  else if (k.tab === "map") body = await fcMap(x);
   else body = fcPlan(x);
   return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · ${esc(x.conference)} · Recruiting`, title: `Class of ${year}`, line: heroLine, sub, big: String(year).slice(2), panel })}
   <div class="pad fc-pad">
@@ -160,6 +161,77 @@ screens.recruit_board = async (a) => {
     ${body}
   </div></div>`;
 };
+
+// ---------- the map (screens topic 7) ----------
+// The country as a tile map, one tile a state where it sits: your board by
+// state, every rated prospect, your conference rivals' commits, or your
+// assistants' recruiting areas. A state's tile opens its file beside it:
+// who recruits it for you (yours to change) and the top names there.
+const FC_TILES = { AK: [0, 0], ME: [11, 0], WI: [6, 1], VT: [10, 1], NH: [11, 1], WA: [1, 2], ID: [2, 2], MT: [3, 2], ND: [4, 2], MN: [5, 2], IL: [6, 2], MI: [7, 2], NY: [9, 2], MA: [10, 2], OR: [1, 3], NV: [2, 3], WY: [3, 3], SD: [4, 3], IA: [5, 3], IN: [6, 3], OH: [7, 3], PA: [8, 3], NJ: [9, 3], CT: [10, 3], RI: [11, 3], CA: [1, 4], UT: [2, 4], CO: [3, 4], NE: [4, 4], MO: [5, 4], KY: [6, 4], WV: [7, 4], VA: [8, 4], MD: [9, 4], DE: [10, 4], AZ: [2, 5], NM: [3, 5], KS: [4, 5], AR: [5, 5], TN: [6, 5], NC: [7, 5], SC: [8, 5], DC: [9, 5], OK: [4, 6], LA: [5, 6], MS: [6, 6], AL: [7, 6], GA: [8, 6], HI: [0, 7], TX: [4, 7], FL: [9, 7] };
+// Each assistant's area in its own quiet tint.
+const FC_AREA = ["#8fb3d9", "#d9a86c", "#9ccf9a", "#d98f8f", "#b89ad9", "#d9cf7a", "#7fcfc4", "#d99ac2", "#a8b0bd"];
+async function fcMap(x) {
+  const m = await api("recruit_map");
+  const k = keep("fcm", { mode: "board", st: m.home });
+  const by = Object.fromEntries(m.states.map((s) => [s.code, s]));
+  if (!by[k.st]) k.st = m.home;
+  const areaIx = Object.fromEntries(m.staff.map((c, i) => [c.id, i]));
+  const modes = [
+    ["board", "Your board", "players your staff is recruiting", "on the board"],
+    ["all", "All talent", "every prospect the services rate three stars and up", "rated prospects"],
+    ["rivals", `${m.conference} rivals`, `where the other ${m.rivals_n} are getting commitments`, "commits"],
+    ["areas", "Staff areas", "the assistant who recruits each state", "on the board"],
+  ];
+  const mode = modes.find((d) => d[0] === k.mode) || modes[0];
+  const val = (s) => (k.mode === "all" ? s.all : k.mode === "rivals" ? s.rivals : s.board);
+  const max = Math.max(1, ...m.states.map(val));
+  const total = m.states.reduce((a, s) => a + val(s), 0);
+  const tiles = Object.entries(FC_TILES).map(([code, [c, r]]) => {
+    const s = by[code] || { code, board: 0, commits: 0, all: 0, rivals: 0 };
+    const n = val(s);
+    let bg;
+    if (k.mode === "areas") {
+      const ix = s.coach ? areaIx[s.coach.id] : undefined;
+      bg = ix == null ? "var(--fill-1)" : `color-mix(in oklab, ${FC_AREA[ix % FC_AREA.length]} ${n ? 46 : 22}%, var(--raised))`;
+    } else bg = n ? `color-mix(in oklab, var(--fg) ${Math.round(6 + Math.sqrt(n / max) * 30)}%, var(--raised))` : "var(--fill-1)";
+    const dots = k.mode === "board" || k.mode === "areas" ? Math.min(s.commits || 0, 6) : 0;
+    const sub = k.mode === "areas" && s.coach ? initials(s.coach.name) : "";
+    return `<button class="fc-tile-st ${code === k.st ? "on" : ""} ${n ? "" : "none"}" style="grid-column:${c + 1};grid-row:${r + 1};background:${bg}" data-fc="mapst" data-v="${code}" aria-label="${esc(STATE_NAMES[code] || code)}: ${n} ${esc(mode[3])}">
+      <span class="fc-tile-code">${code}${code === m.home ? " ★" : ""}</span><b class="st-cond">${n || ""}</b><span class="fc-tile-foot">${sub ? `<small>${esc(sub)}</small>` : ""}${dots ? `<i>${"<em></em>".repeat(dots)}</i>` : ""}</span></button>`;
+  }).join("");
+  const scale = k.mode === "areas"
+    ? `<div class="fc-map-key">${m.staff.map((c, i) => `<span><em style="background:${FC_AREA[i % FC_AREA.length]}"></em>${esc(c.name.split(" ").slice(-1)[0])} <small>${c.states.length}</small></span>`).join("")}</div>`
+    : `<div class="fc-map-key"><span class="st-cond">0</span><span class="fc-map-ramp"></span><span class="st-cond">${max}</span><span>${esc(mode[3])}</span>${k.mode === "board" ? '<span><em class="gold"></em>one commit</span>' : ""}<span class="sub">Pick a state for its names and who covers it</span></div>`;
+  const s = by[k.st] || { code: k.st, board: 0, commits: 0, offers: 0, leaning: 0, all: 0, rivals: 0, top: [] };
+  const sum = (f) => m.states.reduce((a, x) => a + (x[f] || 0), 0);
+  const cover = s.coach
+    ? `${coachLink(s.coach.id, s.coach.name)} <small class="sub">${esc(s.coach.job)}${s.set ? "" : ", the staff's own split"}</small>`
+    : '<span class="sub">Nobody: your staff has no on-field assistants</span>';
+  const pick = m.staff.length
+    ? `<select class="fc-select" data-fcarea="${s.code}" aria-label="Who recruits ${esc(STATE_NAMES[s.code] || s.code)}"><option value="">The staff's own split</option>${m.staff.map((c) => `<option value="${c.id}" ${s.set && s.coach && s.coach.id === c.id ? "selected" : ""}>${esc(c.name)}, ${esc(c.job.toLowerCase())} (${c.states.length})</option>`).join("")}</select>`
+    : "";
+  const kv = [
+    ["On your board", s.board],
+    ["Committed to you", s.commits, s.commits ? "good" : ""],
+    ["Offers out", s.offers],
+    ["Leaning elsewhere", s.leaning, s.leaning ? "warn" : ""],
+    ["Rated prospects", s.all],
+    [`${m.conference} rivals' commits`, s.rivals],
+  ].map(([t, v, tone]) => `<dt>${esc(t)}</dt><dd class="${tone ? "fc-" + tone : ""}">${v}</dd>`).join("");
+  const names = s.top.length
+    ? `<div class="fc-map-names">${s.top.map((p) => `<div class="fc-map-name"><span><b>${playerLink(p.id, p.name)}</b><small>${esc(p.town)}</small></span><span class="sub">${esc(p.pos)}</span>${fcStars(p.stars)}<span class="fc-map-word ${fcTone(p.tone)}">${esc(p.words)}</span></div>`).join("")}</div>`
+    : `<div class="empty">${s.board ? `${s.board} on your board, none in this class.` : `Nobody from ${esc(STATE_NAMES[s.code] || s.code)} is on your board.`} ${fcLink("recruit_find", "Find recruits there", { state: s.code })}</div>`;
+  return `<div class="fc-map">
+    <section class="panel fc-map-main"><div class="fc-map-head"><h2>${esc(mode[1])} by state <small>${esc(mode[2])} · class of ${m.year}</small></h2>${fcSeg("fcm", "mode", modes.map((d) => [d[0], d[1]]), k.mode)}</div>
+      <div class="fc-tilemap">${tiles}</div>${scale}
+      <div class="sub fc-map-total">${total} ${esc(mode[3])} in all${k.mode === "board" ? ` · ${sum("commits")} committed · ${sum("offers")} offers out` : ""}</div></section>
+    <aside class="fc-map-side">
+      <div class="panel"><h2>${esc(STATE_NAMES[s.code] || s.code)} <small>${s.code === m.home ? "your home state" : `class of ${m.year}`}</small></h2>
+        <div class="fc-map-cover"><span class="st-label">Recruited by</span><span>${cover}</span>${pick}</div>
+        <dl class="kv">${kv}</dl></div>
+      <div class="panel"><h2>Top names on your board <small>in your order</small></h2>${names}</div>
+    </aside></div>`;
+}
 
 function ordinal(n) {
   const s = ["th", "st", "nd", "rd"], v = n % 100;
@@ -365,8 +437,10 @@ screens.recruit_file = async (a) => {
 };
 
 // ---------- finding recruits ----------
-screens.recruit_find = async () => {
+screens.recruit_find = async (a) => {
   const k = keep("fcf", { cls: null, pos: "ALL", state: "", stars: 0, q: "", juco: false });
+  // From the map: one state's recruits.
+  if (a && a.state) { k.state = a.state; k.q = ""; }
   const x = await api("recruit_find", { class: k.cls, pos: k.pos, state: k.state || null, stars: k.stars, q: k.q, juco: k.juco });
   setColors(x.team.colors);
   if (k.cls == null) k.cls = x.class;
@@ -629,6 +703,7 @@ document.addEventListener(
         break;
       }
       case "pick": S.keep.fcb.sel = id; render($(".view").scrollTop); break;
+      case "mapst": S.keep.fcm.st = d.v; render($(".view").scrollTop); break;
       case "planpos": { const k = keep("fcb", {}); k.tab = "board"; k.pos = d.v; k.cls = "next"; render(); break; }
       case "add": fcDo("recruit_add", { id }); break;
       case "remove": fcDo("recruit_remove", { id }); break;
@@ -679,6 +754,10 @@ document.addEventListener("change", (ev) => {
   if (t.dataset.fcf2) {
     S.keep.fcp[t.dataset.fcf2] = t.value;
     render();
+    return;
+  }
+  if (t.dataset.fcarea) {
+    fcDo("recruit_area", t.value === "" ? { state: t.dataset.fcarea } : { state: t.dataset.fcarea, coach: Number(t.value) }, t.value === "" ? "Back to the staff's own split." : "Area set.");
     return;
   }
   const id = Number(t.dataset.id);

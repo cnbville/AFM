@@ -85,6 +85,7 @@ impl World {
         let s = self.seat?;
         let t = match s.level {
             Level::Nfl => s.nfl_team?,
+            Level::Other => s.other?,
             _ => s.program?,
         };
         Some((s.level, t))
@@ -101,6 +102,7 @@ impl World {
                 super::pro::games::seat_setup(self, &f)
             }
             Level::HighSchool => super::hs_year::seat_setup(self, t),
+            Level::Other => super::pro::other::seat_setup(self),
             _ => None,
         }
     }

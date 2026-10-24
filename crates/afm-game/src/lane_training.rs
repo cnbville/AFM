@@ -385,6 +385,15 @@ fn teacher(w: &World, t: TeamRef, i: usize) -> Value {
                 },
             }
         }
+        TeamRef::Other(f) => {
+            let tm = w.others.team(f).cloned().unwrap_or_default();
+            match if g.offense() { tm.oc } else { tm.dc } {
+                Some(x) => {
+                    (Some(x), if g.offense() { "offensive coordinator" } else { "defensive coordinator" }.to_string())
+                }
+                None => (tm.head_coach, "head coach".to_string()),
+            }
+        }
         TeamRef::Nfl(c) => {
             let tm = &w.nfl[c];
             match if g.offense() { tm.oc } else { tm.dc } {
@@ -1392,6 +1401,10 @@ fn oc_name(w: &World) -> Option<String> {
         TeamRef::College(c) => w.programs[c].oc.or(w.programs[c].head_coach).map(|x| w.coaches[x].name.clone()),
         TeamRef::Nfl(c) => w.nfl[c].oc.or(w.nfl[c].head_coach).map(|x| w.coaches[x].name.clone()),
         TeamRef::HighSchool(h) => w.high_schools[h].coach.map(|x| w.coaches[x].name.clone()),
+        TeamRef::Other(f) => {
+            let tm = w.others.team(f)?;
+            tm.oc.or(tm.head_coach).map(|x| w.coaches[x].name.clone())
+        }
     }
 }
 

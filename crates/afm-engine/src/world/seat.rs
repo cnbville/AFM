@@ -61,6 +61,7 @@ impl World {
         let Some(seat) = self.seat else { return false };
         let mine = match level {
             crate::calendar::Level::Nfl => seat.nfl_team.is_some_and(|t| teams.contains(&t)),
+            crate::calendar::Level::Other => seat.other.is_some_and(|t| teams.contains(&t)),
             _ => seat.program.is_some_and(|p| teams.contains(&p)),
         };
         mine && seat.level == level
@@ -83,6 +84,7 @@ impl World {
         let names = match level {
             crate::calendar::Level::Nfl => teams.map(|t| self.nfl_team_name(t)),
             crate::calendar::Level::HighSchool => teams.map(|h| self.school_name(h).to_string()),
+            crate::calendar::Level::Other => teams.map(|f| super::pro::other::name(f, self.year).to_string()),
             _ => teams.map(|p| self.program_name(p).to_string()),
         };
         let replay = replay.map(|r| r.pack()).unwrap_or_default();
@@ -119,6 +121,7 @@ impl World {
         Some(match seat.level {
             Cal::HighSchool => (super::hs_year::seat_team(self, seat.program?)?, crate::player::Level::HS),
             Cal::Nfl => (super::pro::games::game_side(self, seat.nfl_team?)?.team, crate::player::Level::NFL),
+            Cal::Other => (super::pro::other::seat_side(self, seat.other?)?, crate::player::Level::NFL),
             _ => {
                 let prog = self.programs.get(seat.program?)?;
                 (super::season::game_team(self, prog)?, super::division_level(prog.division))
@@ -192,6 +195,12 @@ impl World {
                 let f = self.hs_fixtures(h).into_iter().find(|f| f.date == d)?;
                 let opp = if f.home == h { f.away } else { f.home };
                 Some(format!("Game day: {} {}", if f.home == h { "vs" } else { "at" }, self.school_name(opp)))
+            }),
+            Level::Other => s.other.and_then(|fr| {
+                let (_, h, a) = super::pro::other::seat_fixtures(self).into_iter().find(|f| f.0 == d)?;
+                let opp = if h == fr { a } else { h };
+                let name = super::pro::other::name(opp, d.year());
+                Some(format!("Game day: {} the {name}", if h == fr { "vs" } else { "at" }))
             }),
             _ => None,
         };
@@ -591,6 +600,8 @@ pub enum Job {
     Nfl(usize),
     /// Out of work at the start: you look for a job through the market.
     Unemployed,
+    /// A club in another pro league (later extras topic 5), by franchise.
+    Other(usize),
 }
 
 /// How you start (first-playable topic 2): a head job, an assistant's job
@@ -645,16 +656,20 @@ impl World {
             Job::HighSchool(s) => Some(Employer::HighSchool(s)),
             Job::College(p) => Some(Employer::College(p)),
             Job::Nfl(t) => Some(Employer::Nfl(t)),
+            Job::Other(f) => Some(Employer::Other(f)),
             Job::Unemployed => None,
         };
         let id = super::staff::take_seat_as(self, you, employer, role);
         self.seat = Some(match job {
-            Job::HighSchool(s) => super::Seat { level: Level::HighSchool, nfl_team: None, program: Some(s) },
-            Job::College(p) => super::Seat { level: Level::College, nfl_team: None, program: Some(p) },
-            Job::Nfl(t) => super::Seat { level: Level::Nfl, nfl_team: Some(t), program: None },
+            Job::HighSchool(s) => {
+                super::Seat { level: Level::HighSchool, nfl_team: None, program: Some(s), other: None }
+            }
+            Job::College(p) => super::Seat { level: Level::College, nfl_team: None, program: Some(p), other: None },
+            Job::Nfl(t) => super::Seat { level: Level::Nfl, nfl_team: Some(t), program: None, other: None },
+            Job::Other(f) => super::Seat { level: Level::Other, nfl_team: None, program: None, other: Some(f) },
             Job::Unemployed => {
                 let level = if let Start::Free(l) = start { l } else { Level::College };
-                super::Seat { level, nfl_team: None, program: None }
+                super::Seat { level, nfl_team: None, program: None, other: None }
             }
         });
         let mut you = you.clone();
@@ -700,6 +715,7 @@ impl World {
         self.seat_depth.clear();
         self.seat_games.clear();
         self.seat_focus.clear();
+        self.prune_tapes();
         // Your first two weeks: the meetings of a new job (takeover).
         super::folk::takeover::begin(self);
         id

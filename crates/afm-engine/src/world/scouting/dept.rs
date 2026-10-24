@@ -447,17 +447,51 @@ pub fn evaluator_for(w: &World, prog: usize, i: usize) -> Option<usize> {
 /// The coach whose recruiting area holds a recruit's state: your set areas
 /// first, else by the coach's ties (his home state, then nearest).
 pub fn recruiter_for(w: &World, prog: usize, i: usize) -> Option<usize> {
-    let st = w.people[i].home_state as u8;
+    area_coach(w, prog, w.people[i].home_state as u8)
+}
+
+/// The coach who recruits a state for a program: the area you set, else
+/// the staff's own split (each state to one on-field assistant).
+pub fn area_coach(w: &World, prog: usize, st: u8) -> Option<usize> {
     if let Some((c, _)) = w.scouting.dept.areas.iter().find(|a| a.1.contains(&st)) {
         return Some(*c);
     }
+    default_area_coach(w, prog, st)
+}
+
+/// The staff's own split of the states, before you set any: a state goes
+/// to an assistant from it (his ties there), else to one of the staff.
+pub fn default_area_coach(w: &World, prog: usize, st: u8) -> Option<usize> {
     let p = &w.programs[prog];
     let staff: Vec<usize> = p.position_coaches.iter().flatten().copied().collect();
     if staff.is_empty() {
         return p.head_coach;
     }
-    let k = (key_uniform(prog as u64 ^ 0xA2EA, st as u64) * staff.len() as f64) as usize;
-    Some(staff[k.min(staff.len() - 1)])
+    let k = |n: usize| (key_uniform(prog as u64 ^ 0xA2EA, st as u64) * n as f64) as usize;
+    let home: Vec<usize> = staff
+        .iter()
+        .copied()
+        .filter(|&c| w.coaches.get(c).is_some_and(|c| c.home_state == Some(st as usize)))
+        .collect();
+    if !home.is_empty() {
+        return Some(home[k(home.len()).min(home.len() - 1)]);
+    }
+    Some(staff[k(staff.len()).min(staff.len() - 1)])
+}
+
+/// You give a state to one of your assistants' recruiting areas (scouting
+/// topic 15), or back to the staff's own split with `None`.
+pub fn set_area(w: &mut World, st: u8, coach: Option<usize>) {
+    for a in w.scouting.dept.areas.iter_mut() {
+        a.1.retain(|&s| s != st);
+    }
+    if let Some(c) = coach {
+        match w.scouting.dept.areas.iter_mut().find(|a| a.0 == c) {
+            Some(a) => a.1.push(st),
+            None => w.scouting.dept.areas.push((c, vec![st])),
+        }
+    }
+    w.scouting.dept.areas.retain(|a| !a.1.is_empty());
 }
 
 /// Prunes looks of players nobody will read again (signed elsewhere and

@@ -402,7 +402,7 @@ fn col_json(k: &str) -> Value {
 
 fn leader_rows(w: &World, args: &Value, limit: usize) -> (Vec<Value>, usize, Vec<String>, i32, String) {
     let default_scope = match views::mine(w) {
-        Some(TeamRef::Nfl(_)) => "nfl".to_string(),
+        Some(TeamRef::Nfl(_) | TeamRef::Other(_)) => "nfl".to_string(),
         Some(TeamRef::HighSchool(_)) => "hs".to_string(),
         Some(TeamRef::College(p)) => w.programs[p].division.name().to_lowercase(),
         None => "fbs".into(),

@@ -79,6 +79,9 @@ fn books(w: &World, t: TeamRef) -> Value {
         TeamRef::Nfl(i) => nfl_books(w, i, own),
         TeamRef::College(p) => college_books(w, p, own),
         TeamRef::HighSchool(h) => hs_books(w, h, own),
+        // The other leagues' clubs keep no books in the world (their money
+        // is the players' pay on their pages and the coaches' salaries).
+        TeamRef::Other(_) => Value::Null,
     };
     json!({ "team": team_brief(w, t), "own": own, "year": w.year, "today": date_text(w.today), "seat": seat_kind(t), "books": body })
 }
@@ -88,6 +91,7 @@ fn seat_kind(t: TeamRef) -> &'static str {
         TeamRef::Nfl(_) => "nfl",
         TeamRef::College(_) => "college",
         TeamRef::HighSchool(_) => "hs",
+        TeamRef::Other(_) => "other",
     }
 }
 

@@ -22,6 +22,8 @@ use crate::{Game, Reply, colors, reads};
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     let reply = match cmd {
         "recruit_board" => with(game, board),
+        "recruit_map" => with(game, map),
+        "recruit_area" => set_area(game, args),
         "recruit_find" => with_args(game, args, find),
         "recruit_file" => with_args(game, args, file),
         "visits_desk" => with(game, visits),
@@ -810,6 +812,134 @@ fn board(w: &World, j: usize) -> Reply {
         "nil_yours": w.front_office.owner(Duty::Nil) == Owner::You,
         "budget": budget_json(w, j),
         "classes": [sign_year, sign_year + 1, sign_year + 2],
+    }))
+}
+
+// --- The map (screens topic 7) -----------------------------------------------------------
+
+/// You give a state to an assistant's area, or back to the staff's split.
+fn set_area(game: &mut Game, args: &Value) -> Reply {
+    let w = game.world.as_mut().ok_or("No world is loaded.")?;
+    let j = program(w)?;
+    let code = args.get("state").and_then(Value::as_str).unwrap_or("");
+    let st = w.states.iter().position(|s| s.code == code).ok_or("No such state.")? as u8;
+    let coach = args.get("coach").and_then(Value::as_u64).map(|c| c as usize);
+    if coach.is_some_and(|c| !area_staff(w, j).contains(&c)) {
+        return Err("He isn't one of your on-field assistants.".into());
+    }
+    afm_engine::world::scouting::dept::set_area(w, st, coach);
+    map(w, j)
+}
+
+/// Your on-field assistants, who recruit an area each.
+fn area_staff(w: &World, j: usize) -> Vec<usize> {
+    let mut v: Vec<usize> = w.programs[j].position_coaches.iter().flatten().copied().collect();
+    v.sort_unstable();
+    v.dedup();
+    v
+}
+
+/// The country by state for this class: your board, its commits and
+/// offers, who leans elsewhere, every prospect the services rate three
+/// stars and up, your conference rivals' commits, and the assistant whose
+/// area each state is, with the top names on your board there.
+fn map(w: &World, j: usize) -> Reply {
+    let o = desk::outlook(w, j);
+    let year = o.sign_year;
+    let n = w.states.len();
+    let mut board = vec![0u32; n];
+    let mut commits = vec![0u32; n];
+    let mut offers = vec![0u32; n];
+    let mut leaning = vec![0u32; n];
+    let mut all = vec![0u32; n];
+    let mut rivals = vec![0u32; n];
+    let mut top: Vec<Vec<Value>> = vec![Vec::new(); n];
+    let d = &w.front_office.college;
+    let ids: Vec<u32> = d.board.iter().map(|t| t.id).collect();
+    let at = index_map(w, &ids);
+    for t in &d.board {
+        let Some(&i) = at.get(&t.id) else { continue };
+        let p = &w.people[i];
+        if p.class_of != year {
+            continue;
+        }
+        let s = p.home_state.min(n - 1);
+        board[s] += 1;
+        let offered = t.offered.is_some() && t.pulled.is_none();
+        let st = desk::standing(p, j);
+        if matches!(st, Standing::CommittedHere | Standing::SignedHere | Standing::Enrolled) {
+            commits[s] += 1;
+        }
+        if offered {
+            offers[s] += 1;
+        }
+        let it = interest(w, j, i, offered);
+        if it.tone == "bad" {
+            leaning[s] += 1;
+        }
+        if top[s].len() < 6 {
+            top[s].push(json!({
+                "id": p.player.id, "name": p.name, "pos": p.player.position.name(), "stars": stars_of(p),
+                "town": views::hometown(w, p), "words": it.words, "tone": it.tone,
+            }));
+        }
+    }
+    let conf = &w.programs[j].conference;
+    for p in &w.people {
+        if p.class_of != year || !matches!(p.stage, Stage::HighSchool | Stage::PrepSchool | Stage::College) {
+            continue;
+        }
+        if p.stage == Stage::College && p.cal.signed.is_none() {
+            continue;
+        }
+        let s = p.home_state.min(n - 1);
+        if stars_of(p) >= 3 {
+            all[s] += 1;
+        }
+        let to = p.cal.signed.map(|x| x.program).or(p.cal.commit.map(|c| c.0));
+        if let Some(c) = to
+            && c != j
+            && w.programs[c].conference == *conf
+        {
+            rivals[s] += 1;
+        }
+    }
+    let staff = area_staff(w, j);
+    let coach_json = |c: usize| {
+        let g = w.programs[j].position_coaches.iter().position(|x| *x == Some(c));
+        json!({ "id": c, "name": w.coaches[c].name, "job": g.map_or("Head coach".to_string(), |g| format!("{} coach", afm_engine::world::coach::Group::ALL[g].name())) })
+    };
+    let set: std::collections::HashSet<u8> = w.scouting.dept.areas.iter().flat_map(|a| a.1.iter().copied()).collect();
+    let states: Vec<Value> = (0..n)
+        .map(|s| {
+            let c = afm_engine::world::scouting::dept::area_coach(w, j, s as u8);
+            json!({
+                "code": w.states[s].code, "board": board[s], "commits": commits[s], "offers": offers[s],
+                "leaning": leaning[s], "all": all[s], "rivals": rivals[s],
+                "coach": c.map(coach_json), "set": set.contains(&(s as u8)), "top": top[s],
+            })
+        })
+        .collect();
+    let areas: Vec<Value> = staff
+        .iter()
+        .map(|&c| {
+            let mut v = coach_json(c);
+            v["states"] = json!(
+                (0..n)
+                    .filter(|&s| afm_engine::world::scouting::dept::area_coach(w, j, s as u8) == Some(c))
+                    .map(|s| w.states[s].code.clone())
+                    .collect::<Vec<_>>()
+            );
+            v
+        })
+        .collect();
+    Ok(json!({
+        "year": year,
+        "home": w.states[w.programs[j].state].code,
+        "conference": w.conference_name(conf),
+        "rivals_n": w.programs.iter().filter(|p| p.conference == *conf && p.plays(w.year)).count().saturating_sub(1),
+        "states": states,
+        "staff": areas,
     }))
 }
 

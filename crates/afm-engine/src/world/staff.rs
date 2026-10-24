@@ -2595,6 +2595,22 @@ pub(crate) fn empty_seats(w: &World) -> Vec<(Employer, Role)> {
             out.push((Employer::HighSchool(s), Role::HeadCoach));
         }
     }
+    // The other leagues' clubs playing this year or next (their carousel
+    // fills the rest before camp).
+    use super::pro::other as o;
+    for k in 0..o::LEAGUE_COUNT as u8 {
+        let mut teams = o::teams_in(k, w.year);
+        teams.extend(o::teams_in(k, w.year + 1));
+        teams.sort_unstable();
+        teams.dedup();
+        for fr in teams {
+            for role in [Role::HeadCoach, Role::OffensiveCoordinator, Role::DefensiveCoordinator] {
+                if o::slot(w, fr, role).is_none() {
+                    out.push((Employer::Other(fr), role));
+                }
+            }
+        }
+    }
     out.retain(|&(e, r)| !market::offered(w, e, r));
     out
 }

@@ -658,6 +658,10 @@ pub struct World {
     pub(crate) rng: Rng,
     /// False during the spin-up before recorded history, while rosters fill.
     pub(crate) recording: bool,
+    /// The last history season keeps every NFL and college team's last
+    /// tapes, so a new career has film of its first opponents (tape.rs).
+    #[serde(skip)]
+    pub(crate) world_tapes: bool,
     /// Trial tooling, see `WorldOptions::keep_game_log`.
     /// Trial tooling only: not saved (`save.rs`).
     #[serde(skip)]
@@ -887,13 +891,17 @@ pub struct CalendarLog {
     pub moved_up_far: u32,
 }
 
-/// Where the manager works (N58): his level, and his NFL team or college
-/// program.
-#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
+/// Where the manager works (N58): his level, and his NFL team, college
+/// program or high school, or his club in another league.
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Seat {
     pub level: crate::calendar::Level,
     pub nfl_team: Option<usize>,
     pub program: Option<usize>,
+    /// A club in another pro league (`Level::Other`; later extras topic 5),
+    /// by its franchise in `world::pro::other`.
+    #[serde(default)]
+    pub other: Option<usize>,
 }
 
 impl Seat {
@@ -952,9 +960,11 @@ impl World {
             p.prestige_start = p.prestige;
         }
         program::seed_pipelines(&mut w);
-        for _ in 0..w.options.history_years {
+        for k in 0..w.options.history_years {
             let t = std::time::Instant::now();
+            w.world_tapes = k + 1 == w.options.history_years;
             w.advance_year();
+            w.world_tapes = false;
             if !each(&w, t.elapsed().as_secs_f64()) {
                 return None;
             }
@@ -1054,6 +1064,7 @@ impl World {
             draft_bars: None,
             rng,
             recording: false,
+            world_tapes: false,
             game_log: game_log::GameLog::default(),
             stats: records::StatBook::default(),
             system_norms: [[0.0; 11]; crate::positions::POSITION_COUNT],

@@ -67,6 +67,7 @@ fn team_seed(t: TeamRef) -> u32 {
         TeamRef::Nfl(i) => 0x00A1_0000 ^ i as u32,
         TeamRef::College(i) => 0x00B2_0000 ^ i as u32,
         TeamRef::HighSchool(i) => 0x00C3_0000 ^ i as u32,
+        TeamRef::Other(i) => 0x00D4_0000 ^ i as u32,
     }
 }
 
@@ -109,6 +110,7 @@ pub fn boss(w: &World, t: TeamRef) -> (String, &'static str) {
             (gm, "General manager")
         }
         TeamRef::HighSchool(_) => (staff_name(w, t, Job::Principal), "Principal"),
+        TeamRef::Other(_) => (staff_name(w, t, Job::CapManager), "General manager"),
     }
 }
 
@@ -119,6 +121,7 @@ pub fn paper(w: &World, t: TeamRef) -> (String, String) {
         TeamRef::College(i) => w.programs[i].city.clone(),
         TeamRef::HighSchool(i) => w.high_schools[i].town.clone(),
         TeamRef::Nfl(i) => nfl_city(&w.nfl_team_name(i)),
+        TeamRef::Other(i) => afm_engine::world::pro::other::city(i, w.year).to_string(),
     };
     const NAMES: [&str; 10] =
         ["Herald", "Courier", "Gazette", "Register", "Tribune", "Journal", "Ledger", "Star", "Post", "Press"];
@@ -126,7 +129,7 @@ pub fn paper(w: &World, t: TeamRef) -> (String, String) {
     let state = match t {
         TeamRef::College(i) => w.states[w.programs[i].state].code.clone(),
         TeamRef::HighSchool(i) => w.states[w.high_schools[i].state].code.clone(),
-        TeamRef::Nfl(_) => String::new(),
+        TeamRef::Nfl(_) | TeamRef::Other(_) => String::new(),
     };
     let line = if state.is_empty() { "Sports".to_string() } else { format!("Sports · {city}, {state}") };
     (format!("The {city} {}", NAMES[k]), line)
@@ -186,6 +189,8 @@ pub fn jerseys(w: &World, t: TeamRef) -> Vec<(usize, u8)> {
         TeamRef::Nfl(i) => TeamKey::Nfl(i as u16),
         TeamRef::College(i) => TeamKey::College(i as u32),
         TeamRef::HighSchool(i) => TeamKey::Hs(i as u32),
+        // The other leagues' clubs keep no numbers in the stories.
+        TeamRef::Other(_) => return Vec::new(),
     };
     let nums = numbers::numbers(w, key);
     crate::views::roster_people(w, t)

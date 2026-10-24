@@ -681,6 +681,9 @@ pub fn game_page(w: &World, k: usize) -> Result<Value, String> {
     v["level"] = json!(match g.level {
         afm_engine::calendar::Level::Nfl => "NFL",
         afm_engine::calendar::Level::HighSchool => "High school",
+        afm_engine::calendar::Level::Other => {
+            afm_engine::world::pro::other::league_short(afm_engine::world::pro::other::league_of(g.teams[0]))
+        }
         _ => "College",
     });
     v["mine"] = json!(mine);

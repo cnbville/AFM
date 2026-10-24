@@ -148,3 +148,49 @@ fn rosters_follow_the_people_when_the_world_compacts() {
     x.remap(&map);
     assert_eq!(x.teams[1].roster, vec![0, 4]);
 }
+
+/// Your club in another league (later extras topic 5): the morning's game
+/// is the one the day plays, your games are kept, and the film room keeps
+/// your coming opponents' tapes.
+#[test]
+fn your_club_in_another_league_plays_its_season() {
+    use crate::calendar::Level as Cal;
+    use crate::world::Seat;
+    let mut w = World::empty(WorldOptions { scale: 0.001, ..Default::default() });
+    w.year = 2001;
+    let fr = *o::teams_in(XFL01, 2001).first().unwrap();
+    let mut d = Date::ymd(2001, 1, 1);
+    let mut played = 0;
+    while d < Date::ymd(2001, 5, 1) {
+        w.today = d;
+        if w.seat.is_none() && w.others.live.iter().any(|l| l.league == XFL01 && l.year == 2001) {
+            w.seat = Some(Seat { level: Cal::Other, nfl_team: None, program: None, other: Some(fr) });
+            assert_eq!(o::seat_fixtures(&w).len(), 10, "ten games ahead");
+            assert!(!o::seat_opponents(&w).is_empty());
+        }
+        let today = w.seat_setup_today();
+        let before = w.seat_games.len();
+        let dry = today.as_ref().map(|s| crate::game::play_game(&s.params.setup(&s.home, &s.away)));
+        o::day(&mut w, d);
+        if let (Some(s), Some(r)) = (today, dry) {
+            assert_eq!(w.seat_games.len(), before + 1, "{d:?}: your game is kept");
+            let g = w.seat_games.last().unwrap();
+            assert_eq!(g.teams, s.teams);
+            assert!(g.teams.contains(&fr));
+            let score = |t: &crate::game::GameStats| [t.team[0].points, t.team[1].points];
+            assert_eq!(score(&g.stats), score(&r.stats), "{d:?}: the day played the morning's game");
+            played += 1;
+            assert!(w.gameday.tapes.iter().all(|t| t.level == Cal::Other), "only this league's film");
+            // The club's schedule page shows every game it has played so far.
+            if w.others.live.iter().any(|l| l.league == XFL01 && l.year == 2001) {
+                let shown = o::season_games(&w, fr).iter().filter(|g| g.3.is_some()).count();
+                assert_eq!(shown, played, "{d:?}: the schedule has every game played");
+            }
+        } else {
+            assert_eq!(w.seat_games.len(), before, "{d:?}: a game with no morning");
+        }
+        d = d.add(1);
+    }
+    assert!(played >= 10, "{played} games for your club");
+    assert_eq!(o::record_of(&w, fr).map(|(_, r)| r.w + r.l + r.t), Some(10));
+}

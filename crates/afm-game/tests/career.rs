@@ -60,6 +60,19 @@ fn a_college_career_plays_through_its_first_games() {
     let card = ok(&mut g, "card", json!({}));
     assert!(!card["world"]["story"].as_array().unwrap().is_empty(), "{card}");
     assert!(card["seat"]["team"]["name"].is_string(), "{card}");
+    // The recruiting map: every state, its recruiter, and an area you set.
+    let map = ok(&mut g, "recruit_map", json!({}));
+    let states = map["states"].as_array().unwrap();
+    assert_eq!(states.len(), 51);
+    assert!(states.iter().all(|s| s["coach"].is_object()), "every state has a recruiter");
+    if let Some(c) = map["staff"].as_array().and_then(|a| a.last()) {
+        let set = ok(&mut g, "recruit_area", json!({ "state": "TX", "coach": c["id"] }));
+        let tx = set["states"].as_array().unwrap().iter().find(|s| s["code"] == "TX").unwrap().clone();
+        assert_eq!((tx["coach"]["id"].clone(), tx["set"].clone()), (c["id"].clone(), json!(true)));
+        let back = ok(&mut g, "recruit_area", json!({ "state": "TX" }));
+        assert!(back["states"].as_array().unwrap().iter().any(|s| s["code"] == "TX" && s["set"] == false));
+    }
+    assert!(g.call("recruit_area", &json!({ "state": "TX", "coach": 999_999 })).is_err());
     let roster = ok(&mut g, "roster", json!({}));
     let rows = roster["rows"].as_array().unwrap();
     assert!(rows.len() > 40, "{} players", rows.len());

@@ -388,7 +388,7 @@ The game side is `crates/afm-game/src/lane_money.rs` (`money_books`, `money_leag
 - **Player pages:** a player's other-league seasons sit in his Stats with his college and NFL lines, sorted by year. "Now" names his club when he plays in another league. A Canadian's hometown and school come from his U Sports program.
 - **Coach pages:** an other-league job shows as the club and league, in his history and in the coach search.
 
-Your own career can't take an other-league job yet (`docs/world-model.md`, "The other leagues as full leagues").
+Your own career can take an other-league job since the first post-release update (below, "Lane 2: jobs in the other leagues").
 
 ### Decided in the final build (Claude's pick)
 
@@ -434,6 +434,31 @@ Section 7 on your side. The world side is `world/scouting/` (`docs/world-model.m
 - Playbook families are known as the base playbook; reps on the card only sharpen them. Only your own designs need installing before they are called.
 - The load words: light under 150 units a week, moderate to 350, heavy to 650, very heavy above (a winter week is about 300, a game week about 450, a camp week 900 or more).
 
+## First post-release update (2026-10-24)
+
+Built overnight in one thread ("First post-release update"), lane by lane.
+
+### Lane 1: last season's film for the opener
+
+- **What you see:** the game day screen's Report and Film room have film of your first opponent from the first day of a season. They show that team's last two games of last season until it plays this season; from then the tapes are this season's, as before.
+- **How the film is kept** (`world/tape.rs`, `tape_watch`, `trim`, `prune_tapes`): your coming opponents' last six games, as before; late in a season (the NFL from 1 December, college from 1 November, high school from 15 October, another league its last four weeks) also the last two games of every team you could open against next year: every other NFL club, every program of your division, your state's schools of your class and the classes next to it, every club of your league. Film older than about 13 months goes. When next season's schedule is out, the room keeps only your coming opponents.
+- **A new career** starts with film of its first opponent too: the world's last history season keeps every NFL and college team's last two games (`World::world_tapes`, set only for that season). A world file built before this update has no such film until it is built again; a high school career's first opener has none, since high school history games are not kept as film.
+- **A job change** keeps only the new level's film (`prune_tapes`), so a coach who moves from college to the NFL starts his new film room clean.
+
+### Lane 2: jobs in the other leagues
+
+- **Taking one:** the CFL, arena football and the spring leagues (the XFL, AAF, USFL and UFL in their years) are in your job list: on the job market (`market`, the "Other leagues" box under "What you'd take", on by default for NFL coaches), and in the career setup (the job step's "Other leagues" level, with the league filter, last season, titles, the head coach's pay and the calendar; an assistant's seat is a coordinator's; "No job yet" can look for one there). A club has a head coach and two coordinators in the game.
+- **The seat works like an NFL seat on its league's rules, money and calendar** (later extras topic 5): your club's games are on the engine under the league's rule book; Continue stops on game mornings; the game day screen (report, film room, plan, calling, live game) and the game pages work as at any level; your games are kept with their film. The sidebar's Standings is your league's table (`leagues`, your league first); Training, Plans, Traditions and Finances are hidden there (your club's practice is its staff's; another league's books aren't published).
+- **The family** can stay home: a CFL or spring job is a season away, so the offer says so instead of moving them.
+- **Hiring:** the CFL fires after the Grey Cup and hires through the winter, the spring leagues in the fall, and any seat still empty is filled about three weeks before camp. The job market's calendar says so.
+- **Links:** every news line, inbox line and game link naming an other-league club opens its page (`Link::League`).
+
+### Lane 3: the maps
+
+- **The recruiting map** (college, Recruiting, the "Map" tab; `recruit_map`): the country as a tile map, a tile a state. Four views: your board by state (with a gold dot per commit), all talent (every prospect the services rate three stars and up in the class), your conference rivals' commits, and your staff's areas (each assistant's states in his own tint). A state's tile opens its file beside the map: who recruits it for you, its board, commits, offers out, those leaning elsewhere, its rated prospects and rivals' commits, and the top names on your board there in your order (each a link), with a link to find recruits there.
+- **Recruiting areas** (scouting topic 15): every state is one assistant's area. You change it from the map's state file (`recruit_area`); "The staff's own split" gives a state back to the default, which goes to an assistant from that state when there is one, else to one of the staff (`scouting::dept::area_coach`). The area recruiter is the one who builds the relationship.
+- **The town map** (high school, School and feeders; `fsTownMap` in `fo-school.js`): your school and its field in the middle of the town's streets, each feeder middle school (circles) and youth tackle team (squares) where it sits, sized by its boys, its road in as wide as its share of your freshmen, and how many of your players came from it.
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The inbox's pinned answers; holiday mode on screen; faces and charts (section 10).
@@ -456,7 +481,7 @@ Section 7 on your side. The world side is `world/scouting/` (`docs/world-model.m
 
 - Memory in season is 3.8 GB, under the agreed 4 GB, with a brief high of 4.0 GB in the summer (see "Memory (final build lane 1)"). Measured on Linux; a Mac's allocator keeps and returns memory differently, so the Mac figure may differ a little.
 - Continuing the same career twice from the same world file gives the same season: scores, players, news and the depth chart match stop for stop (checked 2026-10-22 on college, NFL and high school seats). An earlier note here said it didn't; the memory check's fingerprint printed each box score's player lines in hash map order, which changes run to run. The fingerprint now sorts them by player id.
-- Game day (lane 2): the first game of a season has no opponent film (last season's tapes aren't kept), so its report and film room are empty until they play. In one browser game an FCS team drew 16 accepted flags against Alabama: the engine's discipline against a much better level may run hot (not measured).
+- Game day (lane 2): the first game of a season had no opponent film; since the first post-release update it has last season's (above). In one browser game an FCS team drew 16 accepted flags against Alabama: the engine's discipline against a much better level may run hot (not measured).
 
 - Storing ratings as 4-byte floats changes results per seed slightly (rounding), so a seed no longer rebuilds a pre-build world exactly. Accepted because the section 8 build changes the world anyway.
 - Season records keep 8-byte values (an exact-size list of 136-byte rows since the final build); making the values 4-byte would move results per seed, so it waits for a build that may move them.
