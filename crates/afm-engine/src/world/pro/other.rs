@@ -1993,10 +1993,13 @@ pub fn fixtures(w: &World, fr: usize) -> Vec<(Date, usize, bool)> {
     v
 }
 
-/// A franchise's games this year in order: (date, opponent, at home, the
-/// score as (its points, theirs) once played, the playoff round or 0).
-/// The next playoff game shows once the round is drawn.
-pub fn season_games(w: &World, fr: usize) -> Vec<(Date, usize, bool, Option<[u16; 2]>, u8)> {
+/// One game on a club's schedule: (date, opponent, at home, the score as
+/// (its points, theirs) once played, the playoff round or 0).
+pub type ClubGame = (Date, usize, bool, Option<[u16; 2]>, u8);
+
+/// A franchise's games this year in order. The next playoff game shows once
+/// the round is drawn.
+pub fn season_games(w: &World, fr: usize) -> Vec<ClubGame> {
     let k = league_of(fr);
     let Some(f) = format(k, w.year) else { return Vec::new() };
     let Some(live) = w.others.live.iter().find(|l| l.league == k && l.year == w.year) else { return Vec::new() };
