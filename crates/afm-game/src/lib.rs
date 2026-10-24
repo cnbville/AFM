@@ -19,6 +19,7 @@ pub mod lane_money;
 pub mod lane_people;
 pub mod lane_scouting;
 pub mod lane_stories;
+pub mod lane_storylines;
 pub mod lane_training;
 pub mod lane_views;
 pub mod memory;
@@ -220,13 +221,14 @@ impl Game {
             _ => {
                 // The final build's lanes each answer their own commands.
                 type Lane = fn(&mut Game, &str, &Value) -> Option<Reply>;
-                const LANES: [Lane; 10] = [
+                const LANES: [Lane; 11] = [
                     lane_core::call,
                     lane_gameday::call,
                     lane_money::call,
                     lane_people::call,
                     lane_scouting::call,
                     lane_stories::call,
+                    lane_storylines::call,
                     lane_frontoffice::call,
                     lane_training::call,
                     lane_faces::call,

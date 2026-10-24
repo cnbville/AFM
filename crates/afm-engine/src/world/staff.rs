@@ -1443,7 +1443,7 @@ fn hs_review(w: &mut World, c: usize, s: usize, tenure: i32, openings: &mut Vec<
     let n = coach.recent.len();
     let last = if n >= 1 { coach.recent[n - 1] } else { 0.0 };
     let before = if n >= 2 { coach.recent[n - 2] } else { 0.0 };
-    let badness = -(1.5 * last + 0.7 * before);
+    let badness = -(1.5 * last + 0.7 * before) + super::storylines::effects::review_push(w, c);
     let prestige = w.high_schools[s].prestige;
     let mut p_fire = clamp((badness - 0.06) * (2.0 + 4.0 * prestige), 0.0, 0.85);
     p_fire *= match tenure {
@@ -1525,6 +1525,9 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
     let mut read = -(1.5 * last + 0.7 * before) + w.rng.normal(0.0, sd);
     // Your own boss's trust in you and last year's goals (section 6).
     read += super::folk::boss::review_push(w, c);
+    // The stories around him (S4): a hot seat the fans believe in, and a
+    // volatile job's patience for a coach hired into it.
+    read += super::storylines::effects::review_push(w, c);
     read -= if tenure <= 3 { 0.1 } else { 0.04 } * direction;
     if tenure >= 3 {
         read += (0.3 + 0.5 * prestige) * (0.4 - wp2).max(0.0);

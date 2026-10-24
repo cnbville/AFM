@@ -28,7 +28,7 @@ use crate::player::Trait;
 use crate::rng::Rng;
 use crate::world::World;
 
-const BANKS: [&str; 9] = [
+const BANKS: [&str; 10] = [
     include_str!("../../../data/lines/takeover.txt"),
     include_str!("../../../data/lines/players.txt"),
     include_str!("../../../data/lines/staff.txt"),
@@ -38,6 +38,7 @@ const BANKS: [&str; 9] = [
     include_str!("../../../data/lines/room.txt"),
     include_str!("../../../data/lines/network.txt"),
     include_str!("../../../data/lines/life.txt"),
+    include_str!("../../../data/lines/storylines.txt"),
 ];
 
 #[derive(Debug)]

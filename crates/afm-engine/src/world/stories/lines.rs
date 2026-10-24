@@ -14,6 +14,7 @@ use crate::rng::Rng;
 
 const NICKNAMES: &str = include_str!("../../../../../data/lines/stories/nicknames.txt");
 const STORIES: &str = include_str!("../../../../../data/lines/stories/stories.txt");
+const STORYLINES: &str = include_str!("../../../../../data/lines/stories/storylines.txt");
 
 /// One template and the seasons it may be used in.
 struct Line {
@@ -57,6 +58,7 @@ pub(crate) static BANK: LazyLock<Bank> = LazyLock::new(|| {
     let mut b = Bank { keys: HashMap::new(), blocked: Vec::new() };
     parse(NICKNAMES, &mut b);
     parse(STORIES, &mut b);
+    parse(STORYLINES, &mut b);
     b
 });
 

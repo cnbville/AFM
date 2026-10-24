@@ -37,6 +37,32 @@ pub struct Chapter {
     /// How it went for you, -1 to 1.
     pub score: f32,
     pub team: Option<TeamKey>,
+    /// The question it answered, and its public life: first day, last day.
+    #[serde(default)]
+    pub question: String,
+    #[serde(default)]
+    pub from: Option<Date>,
+    #[serde(default)]
+    pub to: Option<Date>,
+    /// How it ended, in a few words ("won", "held job").
+    #[serde(default)]
+    pub outcome: String,
+    /// The chapter's text: its key beats told in order.
+    #[serde(default)]
+    pub text: String,
+    /// The beats that mattered, oldest first.
+    #[serde(default)]
+    pub beats: Vec<(Date, String)>,
+    /// Who was in it, by name.
+    #[serde(default)]
+    pub cast: Vec<String>,
+    /// What it left: (kind, text): a tie, a callback, a memento, a name,
+    /// a seed (a story it started).
+    #[serde(default)]
+    pub left: Vec<(String, String)>,
+    /// What it paid you: (what, by how much, tone: 0 good, 1 plain, 2 bad).
+    #[serde(default)]
+    pub paid: Vec<(String, String, u8)>,
 }
 
 /// Your rewards and your record with stories.
@@ -112,6 +138,10 @@ pub struct Inherited {
     pub public: String,
     /// The boss's version in the interview.
     pub spin: String,
+    /// The lesson points it pays if it ends well (0.25-1.00), and the
+    /// ratings they go into.
+    pub lesson: f32,
+    pub tests: Vec<&'static str>,
 }
 
 /// What a job hands a new coach (S8): its stories, the word, the premium.
@@ -124,6 +154,22 @@ pub struct JobRead {
     pub premium: Vec<String>,
     /// What handling it well would pay, in words.
     pub rewards: Vec<String>,
+    /// Reputation (of 20) if every story ends well, and if every one ends
+    /// badly.
+    pub rep_up: f64,
+    pub rep_down: f64,
+    /// The players a story there would tie to you.
+    pub ties: Vec<String>,
+    /// The chapter its hottest story would write.
+    pub chapter: String,
+    /// The office keepsake on offer, and the name the papers might give.
+    pub memento: String,
+    pub name: String,
+    /// The boss's patience, in words.
+    pub patience: String,
+    /// The premium in numbers: a year more guaranteed, a bigger buyout (%).
+    pub extra_years: u8,
+    pub buyout_extra: u8,
 }
 
 /// The job pick's read of a team (S8).
@@ -140,8 +186,20 @@ pub fn job_read(w: &mut World, t: TeamKey) -> JobRead {
     list.truncate(6);
     let boss = crate::world::folk::boss::boss(w, super::folk_team(t));
     let straight = boss.honesty >= 13.0;
+    let mult = 1.0 + v as f64 / 100.0;
     let mut stories = Vec::new();
+    let (mut rep_up, mut rep_down) = (0.0, 0.0);
+    let mut ties = Vec::new();
     for s in &list {
+        let lesson = (0.25 + 0.75 * s.heat / 100.0).clamp(0.25, 1.0);
+        rep_up += 0.06 * lesson as f64 * mult;
+        rep_down += 0.05 * (s.heat as f64 / 60.0).max(0.4);
+        if matches!(s.family(), Family::Battle | Family::Leaving | Family::OffField | Family::Comeback | Family::Rise)
+            && let Some(n) = s.lead_player().and_then(|p| member_name(w, super::Who::Player(p)))
+            && !ties.contains(&n)
+        {
+            ties.push(n);
+        }
         let f = super::tell::fill(w, s);
         let public = super::tell::last_said(s).map_or_else(|| super::tell::question(w, s), |b| b.text.clone());
         let extra = if straight { Some("straight") } else { None };
@@ -156,10 +214,60 @@ pub fn job_read(w: &mut World, t: TeamKey) -> JobRead {
             phase: s.phase.name(),
             public,
             spin: format!("{}: \"{}\"", boss.name, spin.trim_matches('"')),
+            lesson,
+            tests: s.def().tests.iter().map(|r| r.name()).collect(),
         });
     }
     let (premium, rewards) = premium_words(v);
-    JobRead { volatility: v.round(), word: word(v), stories, premium, rewards }
+    let seed = w.options.seed;
+    let year = w.year;
+    let chapter = list
+        .first()
+        .and_then(|s| {
+            let f = super::tell::fill(w, s);
+            [format!("sl.{}.chapter", s.def().key), format!("sl.{}.chapter", s.family().key())]
+                .iter()
+                .find_map(|k| w.storylines.line(seed, k, &f, year))
+        })
+        .unwrap_or_else(|| "none yet".into());
+    let memento = if list.iter().any(|s| s.heat >= 70.0) {
+        "one, if a story this hot ends well".to_string()
+    } else {
+        "none yet: only the hottest stories leave one".to_string()
+    };
+    let name = if v >= 45.0 && w.storylines.credit.name.is_none() {
+        "after three stories handled well in jobs like this".to_string()
+    } else {
+        "none yet".to_string()
+    };
+    let patience = if v >= 45.0 {
+        "two seasons before the boss judges you".to_string()
+    } else {
+        "judged as usual".to_string()
+    };
+    let (extra_years, buyout_extra) = if v >= 70.0 {
+        (1, 35)
+    } else if v >= 45.0 {
+        (1, 20)
+    } else {
+        (0, 0)
+    };
+    JobRead {
+        volatility: v.round(),
+        word: word(v),
+        stories,
+        premium,
+        rewards,
+        rep_up: (rep_up * 100.0).round() / 100.0,
+        rep_down: (rep_down * 100.0).round() / 100.0,
+        ties,
+        chapter,
+        memento,
+        name,
+        patience,
+        extra_years,
+        buyout_extra,
+    }
 }
 
 fn spin_plain(s: &Story, straight: bool) -> String {
@@ -249,6 +357,9 @@ pub(crate) fn ended(w: &mut World, id: u32) {
     let heat = s.peak_heat;
     let fam = s.family();
     let mult = 1.0 + w.storylines.credit.hired_into.map_or(0.0, |x| x.1) / 100.0;
+    // What it paid and what it left, for the chapter.
+    let mut paid: Vec<(String, String, u8)> = Vec::new();
+    let mut left: Vec<(String, String)> = Vec::new();
     if score >= 0.3 {
         // Lesson points: 0.25 at a cool story to 1.00 at a blazing one,
         // shared by the ratings it tested.
@@ -259,9 +370,15 @@ pub(crate) fn ended(w: &mut World, id: u32) {
             for r in tests {
                 w.storylines.credit.bank[r.index()] += each;
             }
+            let names: Vec<&str> = tests.iter().map(|r| r.name()).collect();
+            paid.push((format!("Lesson points into {}", and_list(&names)), format!("+{lesson:.2}"), 0));
         }
-        reputation(w, 0.06 * lesson as f64 * mult as f64);
-        boss_trust(w, fam, 0.03);
+        let rep = 0.06 * lesson as f64 * mult as f64;
+        reputation(w, rep);
+        paid.push(("Reputation, of 20".into(), format!("+{rep:.2}"), 0));
+        if boss_trust(w, fam, 0.03) {
+            paid.push(("Your boss's trust".into(), "+3".into(), 0));
+        }
         // Loyal ties with the player you saw through it.
         if matches!(fam, Family::Battle | Family::Leaving | Family::OffField | Family::Comeback | Family::Rise)
             && let Some(pid) = s.lead_player()
@@ -271,19 +388,37 @@ pub(crate) fn ended(w: &mut World, id: u32) {
             if !w.storylines.credit.loyal.iter().any(|x| x.0 == pid) {
                 w.storylines.credit.loyal.push((pid, season));
             }
+            left.push(("tie".into(), w.people[i].name.clone()));
         }
         if heat >= 70.0 {
-            memento(w, &s);
+            left.push(("memento".into(), memento(w, &s)));
         }
         tally(w, season, true);
-        maybe_name(w);
+        if let Some(n) = maybe_name(w) {
+            left.push(("name".into(), format!("\"{n}\"")));
+        }
     } else if score <= -0.3 {
-        reputation(w, -0.05 * (heat as f64 / 60.0).max(0.4));
-        boss_trust(w, fam, -0.04);
+        let rep = 0.05 * (heat as f64 / 60.0).max(0.4);
+        reputation(w, -rep);
+        paid.push(("Reputation, of 20".into(), format!("\u{2212}{rep:.2}"), 2));
+        if boss_trust(w, fam, -0.04) {
+            paid.push(("Your boss's trust".into(), "\u{2212}4".into(), 2));
+        }
         tally(w, season, false);
+    } else {
+        paid.push(("Lesson points".into(), "none".into(), 1));
     }
     if heat >= 35.0 {
-        chapter(w, &s, score);
+        chapter(w, &s, score, paid, left);
+    }
+}
+
+/// "a", "a and b", "a, b and c".
+fn and_list(v: &[&str]) -> String {
+    match v {
+        [] => String::new(),
+        [a] => a.to_string(),
+        [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
     }
 }
 
@@ -313,17 +448,18 @@ fn reputation(w: &mut World, by: f64) {
 }
 
 /// Your boss's trust moves on the stories he cares about.
-fn boss_trust(w: &mut World, fam: Family, by: f32) {
+fn boss_trust(w: &mut World, fam: Family, by: f32) -> bool {
     if !matches!(fam, Family::Seat | Family::OffField | Family::You | Family::Battle | Family::Program | Family::Leaving) {
-        return;
+        return false;
     }
-    let Some(team) = crate::world::folk::Team::seat(w) else { return };
+    let Some(team) = crate::world::folk::Team::seat(w) else { return false };
     let b = crate::world::folk::boss::boss(w, team);
     w.folk.mine.nudge(b.key(), by);
+    true
 }
 
 /// A shelf piece for the stories that ran hottest.
-fn memento(w: &mut World, s: &Story) {
+fn memento(w: &mut World, s: &Story) -> String {
     let f = super::tell::fill(w, s);
     let text = super::tell::line(w, s, BeatKind::Callback, Some("memento"), &f)
         .unwrap_or_else(|| format!("A framed front page: {}", super::tell::question(w, s)));
@@ -333,11 +469,13 @@ fn memento(w: &mut World, s: &Story) {
         Family::Recruiting | Family::Draft => crate::world::stories::story::MementoKind::Photo,
         _ => crate::world::stories::story::MementoKind::Gift,
     };
-    crate::world::stories::story::memento(w, kind, text);
+    crate::world::stories::story::memento(w, kind, text.clone());
+    text
 }
 
-/// A chapter from a story you were in.
-fn chapter(w: &mut World, s: &Story, score: f32) {
+/// A chapter from a story you were in: its title, its key beats told in
+/// order, who was in it, what it paid and what it left.
+fn chapter(w: &mut World, s: &Story, score: f32, paid: Vec<(String, String, u8)>, mut left: Vec<(String, String)>) {
     let f = super::tell::fill(w, s);
     let e = s.ending_key();
     let seed = w.options.seed;
@@ -351,7 +489,60 @@ fn chapter(w: &mut World, s: &Story, score: f32) {
     } else {
         s.legacy.clone()
     };
-    let c = Chapter { season: s.season, story: s.id, kind: s.kind, title: title.clone(), line, score, team: s.team };
+    // The beats that mattered: the spark, the hottest in between, the answer.
+    let said: Vec<&super::Beat> = s.beats.iter().filter(|b| b.what.public() && !b.text.is_empty()).collect();
+    let mut keep: Vec<&super::Beat> = Vec::new();
+    if let Some(b) = said.iter().find(|b| b.what == BeatKind::Spark).or(said.first()) {
+        keep.push(b);
+    }
+    let mut mid: Vec<&&super::Beat> =
+        said.iter().filter(|b| !matches!(b.what, BeatKind::Spark | BeatKind::Resolve)).collect();
+    mid.sort_by(|a, b| b.heat.cmp(&a.heat).then(a.date.cmp(&b.date)));
+    for b in mid.into_iter().take(2) {
+        keep.push(b);
+    }
+    if let Some(b) = said.iter().rev().find(|b| b.what == BeatKind::Resolve) {
+        keep.push(b);
+    }
+    keep.sort_by_key(|b| b.date);
+    keep.dedup_by(|a, b| std::ptr::eq(*a, *b));
+    let beats: Vec<(Date, String)> = keep.iter().map(|b| (b.date, b.text.clone())).collect();
+    let mut text = beats.iter().map(|b| b.1.as_str()).collect::<Vec<_>>().join(" ");
+    if !s.legacy.is_empty() && !text.contains(&s.legacy) {
+        text = format!("{text} {}", s.legacy).trim().to_string();
+    }
+    let cast: Vec<String> = s.cast.iter().filter_map(|m| member_name(w, m.who)).take(5).collect();
+    if !s.legacy.is_empty() {
+        left.push(("callback".into(), s.legacy.clone()));
+    }
+    // The stories it started that are still running.
+    for &l in &s.links {
+        if let Some(o) = w.storylines.get(l)
+            && o.phase.open()
+            && o.opened >= s.opened
+        {
+            left.push(("seed".into(), super::tell::question(w, o)));
+        }
+    }
+    left.truncate(5);
+    let c = Chapter {
+        season: s.season,
+        story: s.id,
+        kind: s.kind,
+        title: title.clone(),
+        line,
+        score,
+        team: s.team,
+        question: super::tell::question(w, s),
+        from: Some(s.public_on.unwrap_or(s.opened)),
+        to: Some(s.closed.unwrap_or(w.today)),
+        outcome: e.replace('_', " "),
+        text,
+        beats,
+        cast,
+        left,
+        paid,
+    };
     w.storylines.credit.chapters.push(c);
     crate::world::stories::story::log(
         w,
@@ -361,18 +552,33 @@ fn chapter(w: &mut World, s: &Story, score: f32) {
     );
 }
 
+/// A cast member's name for the screens.
+pub fn member_name(w: &World, who: super::Who) -> Option<String> {
+    use super::Who;
+    match who {
+        Who::Player(id) => super::pi(w, id).map(|i| w.people[i].name.clone()),
+        Who::Coach(c) => w.coaches.get(c as usize).map(|c| c.name.clone()),
+        Who::Team(t) => Some(crate::world::stories::short_name(w, t)),
+        Who::Boss(t) => Some(crate::world::folk::boss::boss(w, super::folk_team(t)).name),
+        Who::Parent(id) => super::pi(w, id).map(|i| {
+            let last = w.people[i].name.split_whitespace().last().unwrap_or("").to_string();
+            format!("{}'s family", if last.is_empty() { "his" } else { &last })
+        }),
+    }
+}
+
 /// A name the papers give a coach who keeps walking into fires and
 /// putting them out: three stories handled well at volatile jobs.
-fn maybe_name(w: &mut World) {
+fn maybe_name(w: &mut World) -> Option<String> {
     if w.storylines.credit.name.is_some() {
-        return;
+        return None;
     }
-    let Some((_, v, _)) = w.storylines.credit.hired_into else { return };
+    let (_, v, _) = w.storylines.credit.hired_into?;
     let well: u16 = w.storylines.credit.record.iter().map(|x| x.1).sum();
     if v < 45.0 || well < 3 {
-        return;
+        return None;
     }
-    let Some(c) = super::super::stories::seat_coach(w) else { return };
+    let c = super::super::stories::seat_coach(w)?;
     let seed = w.options.seed;
     let year = w.year;
     let name = w.storylines.line(seed, "sl.name.fixer", &Fill::new(), year).unwrap_or_else(|| "The Fixer".to_string());
@@ -405,6 +611,7 @@ fn maybe_name(w: &mut World) {
         format!("The papers start calling you \"{name}\"."),
         team,
     );
+    Some(name)
 }
 
 /// A followed story's public beat reaches your inbox (once a day each).

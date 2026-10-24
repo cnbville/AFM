@@ -24,7 +24,7 @@ fn team_code(t: Team) -> u32 {
         Team::Nfl(i) => i as u32,
         Team::College(i) => 100_000 + i as u32,
         Team::High(i) => 1_000_000 + i as u32,
-        Team::Other(i) => 2_000_000 + i as u32,
+        Team::Other(i) => 10_000_000 + i as u32,
     }
 }
 

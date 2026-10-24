@@ -571,7 +571,7 @@ pub static CATALOGUE: [Def; 111] = [
         -1,
         true,
         45,
-        "Will {team} pay {n} to make a change?",
+        "Will {team} pay {money} to make a change?",
         &[("paid_it", -1.0), ("kept_him", 0.6)],
         &[R::Negotiating, R::Relationships],
         0.6,

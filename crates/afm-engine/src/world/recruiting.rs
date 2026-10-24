@@ -2487,6 +2487,9 @@ fn utility_fit(
     if let Some(&(v, _)) = prog.hs_pipeline.get(&p.hs) {
         u += 0.12 * v;
     }
+    // The program's stories this week (S4): a scandal or a hot seat is
+    // rivals' material in his living room, a rising story a lift.
+    u += prog.story_push as f64;
     // His own pull to stay in his state, and the team he grew up with
     // (fix list 2.2, 2.3; the lean is proposed, not confirmed).
     if prog.state == p.home_state {

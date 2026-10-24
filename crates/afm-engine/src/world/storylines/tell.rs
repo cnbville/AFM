@@ -141,6 +141,12 @@ pub(crate) fn fill(w: &World, s: &Story) -> Fill {
     if s.nums[0] > 0 && (s.nums[0] as usize) < NUMBERS.len() {
         f = f.set("n_words", NUMBERS[s.nums[0] as usize]);
     }
+    f = numbers(w, s, f);
+    // A Hall of Fame candidate long gone from the world's people.
+    if f.get("lead").is_none() && !s.word.is_empty() && s.kind == K::HallCall.id() {
+        let last = s.word.split_whitespace().last().unwrap_or("").to_string();
+        f = f.set("lead", s.word.clone()).set("lead_last", last);
+    }
     if let Some(t) = s.team {
         let (wn, l) = record_now(w, t);
         if wn + l > 0 {
@@ -167,10 +173,78 @@ pub(crate) fn fill(w: &World, s: &Story) -> Fill {
             _ => "word",
         };
         f = f.set(key, s.word.clone()).set("word", s.word.clone());
+        if s.kind == K::PositionSwitch.id() {
+            f = f.set("pos", pos_word(&s.word));
+        }
     }
     f = f.set("season", s.season.to_string()).set("year", w.year.to_string());
     let q = question_with(s, &f);
     f.set("question", q)
+}
+
+/// A count in words up to twelve ("three"), digits above.
+fn count(n: i32) -> String {
+    if (0..NUMBERS.len() as i32).contains(&n) { NUMBERS[n as usize].to_string() } else { n.to_string() }
+}
+
+fn stars(n: i32) -> String {
+    match n {
+        1..=5 => format!("{}-star", NUMBERS[n as usize]),
+        _ => "unrated".to_string(),
+    }
+}
+
+/// Named numbers by kind, so lines read "$12 million", "8 of 13" and
+/// "No. 4 in the country" instead of bare numbers.
+fn numbers(w: &World, s: &Story, mut f: Fill) -> Fill {
+    use crate::world::folk::facts::thousands;
+    let n = s.nums;
+    let Some(&kind) = K::ALL.get(s.kind as usize) else { return f };
+    match kind {
+        K::BuyoutWatch if n[0] > 0 => f = f.set("money", format!("${} million", n[0])),
+        K::HotSeat if n[3] > 0 => f = f.set("money", format!("${} million", n[3])),
+        _ => {}
+    }
+    match kind {
+        K::HotSeat | K::ExtensionTalks | K::YourContract if n[2] > 2000 => f = f.set("through", n[2].to_string()),
+        K::KickerSlump if n[1] > 0 => f = f.set("made", n[0].to_string()).set("tried", n[1].to_string()),
+        K::CareerRecord | K::RecordChase if n[1] > 0 => {
+            let stat = super::detect::weekly::stat_name(n[2]);
+            if !stat.is_empty() {
+                f = f
+                    .set("stat", stat)
+                    .set("mark", thousands(n[0].max(0) as u32))
+                    .set("record_mark", thousands(n[1] as u32))
+                    .set("to_go", thousands((n[1] - n[0]).max(0) as u32))
+                    .set("scope", super::detect::weekly::record_scope(n[2]));
+            }
+        }
+        K::Breakout | K::FreshmanStar | K::WalkOnStar | K::LateRoundGem if n[1] > 0 && n[1] < 99 => {
+            const STATS: [&str; 5] = ["passing yards", "rushing yards", "receiving yards", "sacks", "interceptions"];
+            f = f.set("rank", n[1].to_string());
+            if let Some(st) = STATS.get(n[2].max(0) as usize) {
+                f = f.set("stat", *st);
+            }
+        }
+        K::Turnaround if n[2] + n[3] > 0 => f = f.set("last_record", format!("{}-{}", n[2], n[3])),
+        K::Drought if n[0] > 1900 => {
+            f = f.set("since_year", n[0].to_string()).set("years", count(w.year - n[0]));
+        }
+        K::LateRiser if n[1] > 0 => f = f.set("stars_was", stars(n[0])).set("stars_now", stars(n[1])),
+        K::PortalExodus if n[0] > 0 => f = f.set("gone", count(n[0])).set("starters", count(n[1])),
+        K::LeagueSuspension | K::SuspensionReturn if n[0] > 0 => {
+            f = f.set("games", if n[0] == 1 { "one game".to_string() } else { format!("{} games", count(n[0])) });
+        }
+        K::CoordinatorHeat if n[1] > 0 => {
+            f = f.set("unit", if n[2] == 1 { "offense" } else { "defense" }).set("rank_of", format!("{} of {}", n[0], n[1]));
+        }
+        K::Unbeaten | K::LosingStreak | K::RivalryStreak | K::Dynasty | K::Graveyard if n[0] > 0 => {
+            f = f.set("count", count(n[0]));
+        }
+        K::CoachMilestone | K::YourMilestone if n[0] > 0 => f = f.set("milestone", n[0].to_string()),
+        _ => {}
+    }
+    f
 }
 
 /// The story's question with its names filled.
@@ -193,6 +267,7 @@ fn question_with(s: &Story, f: &Fill) -> String {
             "other" | "other_name" => "the other side".to_string(),
             "team" => "the team".to_string(),
             "n" => "the next one".to_string(),
+            "money" => "the buyout".to_string(),
             _ => "it".to_string(),
         });
         out.push_str(&v);
@@ -245,6 +320,7 @@ fn keys(s: &Story, what: BeatKind, extra: Option<&str>) -> Vec<String> {
             if let Some(x) = extra {
                 v.push(format!("sl.{}.{b}.{x}", def.key));
                 v.push(format!("sl.{fam}.{b}.{x}"));
+                v.push(format!("sl.any.{b}.{x}"));
             }
             v.push(format!("sl.{}.{b}", def.key));
             v.push(format!("sl.{fam}.{b}"));

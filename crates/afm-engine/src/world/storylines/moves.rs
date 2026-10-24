@@ -152,6 +152,84 @@ impl Move {
     }
 }
 
+/// What your staff expects a move to do, as short tags with a tone (0
+/// good, 1 plain, 2 bad), read off what `make` does to the story and the
+/// people in it. How well it lands still depends on the truth and on you.
+pub fn chips(w: &World, s: &Story, mv: Move) -> Vec<(String, u8)> {
+    let f = super::tell::fill(w, s);
+    let first = |k: &str| f.get(k).map(|n| n.split_whitespace().last().unwrap_or(n).to_string());
+    let lead = first("lead");
+    let rival = first("rival");
+    let fam = s.family();
+    let mut v: Vec<(String, u8)> = Vec::new();
+    match mv {
+        Move::Quiet => v.push(("cools it a little".into(), 0)),
+        Move::Private => v.push(("stays private".into(), 1)),
+        _ => {
+            let h = mv.heat().round() as i32;
+            v.push((format!("heat +{h}"), if h >= 6 { 2 } else { 1 }));
+        }
+    }
+    match mv {
+        Move::Back if fam == Family::Battle => {
+            if let Some(l) = &lead {
+                v.push((format!("{l} starts, said in public"), 0));
+            }
+            if let Some(r) = &rival {
+                v.push((format!("{r}'s mood down"), 2));
+            }
+        }
+        Move::BackRival => {
+            if let Some(r) = &rival {
+                v.push((format!("{r}'s mood up"), 0));
+            }
+            if let Some(l) = &lead {
+                v.push((format!("{l}'s mood down"), 2));
+            }
+        }
+        Move::Back | Move::Praise => {
+            v.push(("locker room +".into(), 0));
+            if let Some(l) = &lead {
+                v.push((format!("{l}'s trust +"), 0));
+            }
+        }
+        Move::Open | Move::Challenge => v.push(("competitors lift, egos bristle".into(), 1)),
+        Move::Warn => {
+            v.push(("boosters +".into(), 0));
+            v.push(("locker room \u{2212}".into(), 2));
+            if let Some(l) = &lead {
+                v.push((format!("{l}'s trust \u{2212}"), 2));
+            }
+        }
+        Move::Private => {
+            for n in [&lead, &rival].into_iter().flatten() {
+                v.push((format!("{n}'s trust +"), 0));
+            }
+        }
+        Move::Own => {
+            v.push(("fans +".into(), 0));
+            v.push(("the room's trust +".into(), 0));
+        }
+        Move::FireBack => {
+            v.push(("locker room +".into(), 0));
+            v.push(("media \u{2212}".into(), 2));
+        }
+        Move::Deny => v.push(("on the record".into(), 1)),
+        Move::Promise => {
+            v.push(("fans +".into(), 0));
+            v.push(("a promise to keep".into(), 1));
+        }
+        Move::Leak => v.push(("out by morning, unsigned".into(), 1)),
+        Move::Quiet => v.push(("media \u{2212}".into(), 2)),
+    }
+    // A public word on a battle you walk back later costs.
+    if s.stance != 0 && matches!((s.stance, mv), (1, Move::BackRival | Move::Open | Move::Warn) | (-1, Move::Back | Move::Open)) {
+        v.push(("walks back your word".into(), 2));
+    }
+    v.truncate(3);
+    v
+}
+
 /// What you said on the record, kept on the story (`Story::said`).
 pub const SAID_PROMISE: u8 = 1;
 pub const SAID_DENY: u8 = 2;
