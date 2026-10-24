@@ -195,3 +195,14 @@ fn your_club_in_another_league_plays_its_season() {
     assert!(played >= 10, "{played} games for your club");
     assert_eq!(o::record_of(&w, fr).map(|(_, r)| r.w + r.l + r.t), Some(10));
 }
+
+#[test]
+fn a_club_in_another_league_has_a_city_and_a_nickname() {
+    let club = |n: &str| (0..o::FRANCHISES).find(|&f| o::name(f, 2026) == n).unwrap();
+    let wpg = club("Winnipeg Blue Bombers");
+    assert_eq!((o::city(wpg, 2026), o::nickname(wpg, 2026)), ("Winnipeg", "Blue Bombers"));
+    let edm = club("Edmonton Elks");
+    assert_eq!((o::city(edm, 2026), o::nickname(edm, 2026)), ("Edmonton", "Elks"));
+    let stl = club("St. Louis Battlehawks");
+    assert_eq!((o::city(stl, 2026), o::nickname(stl, 2026)), ("St. Louis", "Battlehawks"));
+}

@@ -97,6 +97,7 @@ fn tref(t: TeamKey) -> TeamRef {
         TeamKey::Hs(h) => TeamRef::HighSchool(h as usize),
         TeamKey::College(p) => TeamRef::College(p as usize),
         TeamKey::Nfl(n) => TeamRef::Nfl(n as usize),
+        TeamKey::Other(f) => TeamRef::Other(f as usize),
     }
 }
 
@@ -109,6 +110,7 @@ fn seat_kind(w: &World) -> &'static str {
         Some(TeamKey::Nfl(_)) => "nfl",
         Some(TeamKey::College(_)) => "college",
         Some(TeamKey::Hs(_)) => "hs",
+        Some(TeamKey::Other(_)) => "other",
         None => "",
     }
 }
@@ -343,7 +345,7 @@ fn story(w: &World) -> Value {
             json!({
                 "year": x.year,
                 "team": brief(w, x.team),
-                "level": match x.team { TeamKey::Nfl(_) => "NFL", TeamKey::College(_) => "College", TeamKey::Hs(_) => "High school" },
+                "level": match x.team { TeamKey::Nfl(_) => "NFL", TeamKey::College(_) => "College", TeamKey::Hs(_) => "High school", TeamKey::Other(f) => afm_engine::world::pro::other::league_short(afm_engine::world::pro::other::league_of(f as usize)) },
                 "w": x.wins, "l": x.losses, "t": x.ties,
                 "pct": ((x.wins as f64 + 0.5 * x.ties as f64) / games * 1000.0).round() / 1000.0,
                 "title": s.titles.iter().find(|t| t.0 == x.year as i32 && t.1 == x.team).map(|t| t.2.clone()),

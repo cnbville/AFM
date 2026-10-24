@@ -612,6 +612,7 @@ pub fn sets(w: &World, t: TeamKey) -> Vec<String> {
             ((pr.prestige * 0.6 + pr.facilities * 0.4).clamp(0.0, 1.5), p as u64)
         }
         TeamKey::Nfl(n) => (1.0, 1000 + n as u64),
+        TeamKey::Other(f) => (0.5, 3000 + f as u64),
         TeamKey::Hs(h) => (w.high_schools[h as usize].resources.clamp(0.0, 1.0) * 0.5, 50_000 + h as u64),
     };
     let alts = match t {
@@ -1022,7 +1023,7 @@ fn ceremonies(w: &mut World, d: Date) {
                 .into_iter()
                 .find(|f| f.when == Some(d) && f.home == t as usize)
                 .map(|f| w.nfl_team_name(f.away)),
-            TeamKey::Hs(_) => None,
+            TeamKey::Hs(_) | TeamKey::Other(_) => None,
         };
         let Some(opp) = opp else { continue };
         w.stories.traditions.honors[k].ceremony_done = true;
@@ -1085,11 +1086,14 @@ fn parade(w: &mut World, t: TeamKey, d: Date) {
     let fans = match t {
         TeamKey::College(p) => w.programs[p as usize].fans.clamp(0.3, 1.6),
         TeamKey::Nfl(n) => 0.8 + 0.6 * (1.0 - (super::media::market_rank(w, n as usize) as f64 - 1.0) / 31.0),
+        TeamKey::Other(_) => 0.6,
         TeamKey::Hs(_) => 0.2,
     };
     let base = match t {
         TeamKey::Nfl(_) => 450_000.0,
         TeamKey::College(_) => 45_000.0,
+        // A Grey Cup parade or rally draws tens of thousands.
+        TeamKey::Other(_) => 60_000.0,
         TeamKey::Hs(_) => 4_000.0,
     };
     let crowd = (base * fans * (0.7 + 0.6 * key(year as u64, d.0 as u64)) / 1000.0).round() as u32 * 1000;

@@ -297,10 +297,34 @@ pub fn name(fr: usize, year: i32) -> &'static str {
         .map_or("", |d| d.name)
 }
 
+/// Nicknames of two words ("Blue Bombers", "Sea Devils").
+const TWO_WORDS: &[&str] = &[
+    "Battle Wings",
+    "Blue Bombers",
+    "Fighting Pike",
+    "Forest Dragons",
+    "Mountain Lions",
+    "Red Dogs",
+    "Rough Riders",
+    "Sea Devils",
+    "Sea Dragons",
+    "Sea Wolves",
+    "Yard Dawgz",
+];
+
+/// The franchise's nickname in a season ("Elks", "Blue Bombers").
+pub fn nickname(fr: usize, year: i32) -> &'static str {
+    let n = name(fr, year);
+    match TWO_WORDS.iter().find(|t| n.ends_with(*t)) {
+        Some(t) => &n[n.len() - t.len()..],
+        None => n.rsplit_once(' ').map_or(n, |x| x.1),
+    }
+}
+
 /// The franchise's city in a season (its name less the nickname).
 pub fn city(fr: usize, year: i32) -> &'static str {
     let n = name(fr, year);
-    n.rsplit_once(' ').map_or(n, |x| x.0)
+    n.strip_suffix(nickname(fr, year)).map_or(n, str::trim_end)
 }
 
 /// The franchise's league.
@@ -1557,6 +1581,7 @@ fn play_week(w: &mut World, d: Date, li: usize, f: &Format) {
             record(w, k, [h, a], &r, [&sh.who, &sa.who]);
             let teams = [h as usize, a as usize];
             w.keep_seat_game(crate::calendar::Level::Other, teams, &r.stats, r.replay.as_deref());
+            crate::world::stories::other_game(w, teams, &r.stats, round > 0);
             if let Some(o) = w.tape_watch(crate::calendar::Level::Other) {
                 w.keep_tape(&o, crate::calendar::Level::Other, teams, &r.stats, &r.film);
             }

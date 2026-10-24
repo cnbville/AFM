@@ -452,6 +452,7 @@ Built overnight in one thread ("First post-release update"), lane by lane.
 - **The family** can stay home: a CFL or spring job is a season away, so the offer says so instead of moving them.
 - **Hiring:** the CFL fires after the Grey Cup and hires through the winter, the spring leagues in the fall, and any seat still empty is filled about three weeks before camp. The job market's calendar says so.
 - **Links:** every news line, inbox line and game link naming an other-league club opens its page (`Link::League`).
+- **Your career story** keeps the seat like any other: your hire, each game, the season's line and a title (the Grey Cup, the league's championship), with the club's city and nickname ("Winnipeg", "Blue Bombers"; `stories::TeamKey::Other`, `pro::other::nickname`).
 
 ### Lane 3: the maps
 

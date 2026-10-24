@@ -392,7 +392,7 @@ fn release_magazines(w: &mut World, d: Date) {
             let id = match me {
                 TeamKey::College(p) => p,
                 TeamKey::Nfl(n) => n as u32,
-                TeamKey::Hs(_) => u32::MAX,
+                TeamKey::Hs(_) | TeamKey::Other(_) => u32::MAX,
             };
             let f = team_fill(w, me, Fill::new()).set("mag", title.clone());
             let text = match top.iter().position(|&x| x == id) {
@@ -734,6 +734,7 @@ fn team_code(t: TeamKey) -> u64 {
         TeamKey::Hs(h) => h as u64,
         TeamKey::College(p) => 1 << 20 | p as u64,
         TeamKey::Nfl(n) => 2 << 20 | n as u64,
+        TeamKey::Other(f) => 3 << 20 | f as u64,
     }
 }
 
@@ -764,7 +765,7 @@ fn offer_doc(w: &mut World, year: i32) {
             };
             show
         }
-        TeamKey::Hs(_) => return,
+        TeamKey::Hs(_) | TeamKey::Other(_) => return,
     };
     let name = super::team_name(w, me);
     let who = if matches!(me, TeamKey::Nfl(_)) { "NFL Films" } else { "The streaming service" };
