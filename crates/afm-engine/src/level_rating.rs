@@ -20,6 +20,11 @@
 //! 100 (an All-American; for high schoolers, an All-American Bowl player), 95+
 //! the top 8, and only a player about 5 points clear of the No. 2 reaches 99.
 //! EA rated nobody 99 at launch in College Football 25 or 26, and one player in 27.
+//!
+//! In the world the anchors are pooled over the last five seasons
+//! (`SCALE_SEASONS`, `pooled_level_scale`), so a loaded year shows more
+//! 90s and a thin one fewer, instead of every year being squeezed into the
+//! same counts (Cain, 2026-10-24). The label never feeds growth.
 
 use crate::player::Level;
 use crate::positions::{POSITION_COUNT, Position};
@@ -60,6 +65,27 @@ fn anchors(pool: Pool) -> Anchors {
     }
 }
 
+/// One group's anchors over its last `SCALE_SEASONS` seasons, oldest first,
+/// at the start and at the end of each season.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct ScaleHistory {
+    pub group: LevelGroup,
+    pub start: Vec<SeasonAnchors>,
+    pub end: Vec<SeasonAnchors>,
+}
+
+impl ScaleHistory {
+    /// Add a season, dropping the oldest past `SCALE_SEASONS`.
+    pub fn push(&mut self, start: SeasonAnchors, end: SeasonAnchors) {
+        for (seasons, a) in [(&mut self.start, start), (&mut self.end, end)] {
+            seasons.push(a);
+            if seasons.len() > SCALE_SEASONS {
+                seasons.remove(0);
+            }
+        }
+    }
+}
+
 /// Group a season is rated in: high schoolers by age, every college player together, pros not at all.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum LevelGroup {
@@ -80,15 +106,27 @@ pub fn sets_level_scale(level: Level) -> bool {
     matches!(level, Level::HS | Level::FBS)
 }
 
+/// Seasons a group's scale is pooled over in the world (Cain, 2026-10-24).
+pub const SCALE_SEASONS: usize = 5;
+
+/// One season's anchors for a group: (overall at the anchor, rating there),
+/// always in the same order, empty when nobody set the scale.
+pub type SeasonAnchors = Vec<(f64, f64)>;
+
 /// Build the scale for one group from the overalls that set it. The top ranks
 /// are national counts (the top 100 is the top 100 however big the pool is),
 /// so they are only scaled when the simulated class is smaller than a real one.
 pub fn build_level_scale(overalls: &[f64], pool: Pool, class_share: f64) -> LevelScale {
+    scale_from(season_anchors(overalls, pool, class_share))
+}
+
+/// One season's anchors, before they are pooled or turned into a scale.
+pub fn season_anchors(overalls: &[f64], pool: Pool, class_share: f64) -> SeasonAnchors {
     let mut s = overalls.to_vec();
     s.sort_unstable_by(|a, b| b.total_cmp(a));
     let n = s.len();
     if n == 0 {
-        return LevelScale::default();
+        return Vec::new();
     }
     let a = anchors(pool);
     let mut points: Vec<(f64, f64)> = Vec::with_capacity(6);
@@ -98,6 +136,25 @@ pub fn build_level_scale(overalls: &[f64], pool: Pool, class_share: f64) -> Leve
     for (rank, rating) in a.rank {
         let k = (round_half_up(rank * class_share).max(1.0) as usize) - 1;
         points.push((s[(n - 1).min(k)], rating));
+    }
+    points
+}
+
+/// The scale from several seasons' anchors: each anchor sits at the average
+/// overall it had over those seasons, so the No. 100 is about the No. 100 of
+/// a typical recent year and a strong year's best rate above the usual
+/// counts. Seasons without anchors are left out.
+pub fn pooled_level_scale(seasons: &[SeasonAnchors]) -> LevelScale {
+    let used: Vec<&SeasonAnchors> = seasons.iter().filter(|a| !a.is_empty()).collect();
+    let Some(first) = used.first() else { return LevelScale::default() };
+    let n = used.len() as f64;
+    let points = (0..first.len()).map(|i| (used.iter().map(|a| a[i].0).sum::<f64>() / n, first[i].1)).collect();
+    scale_from(points)
+}
+
+fn scale_from(mut points: SeasonAnchors) -> LevelScale {
+    if points.is_empty() {
+        return LevelScale::default();
     }
     points.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.total_cmp(&b.1)));
     // Keep the curve strictly increasing in overall: in a tiny pool two anchors can share a value.

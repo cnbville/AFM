@@ -672,11 +672,14 @@ pub(crate) fn win_chance(a: f64, b: f64, spread: f64, home: f64) -> f64 {
 /// the FBS scale (FCS and small-college tape discounted), as in `level_rating`.
 pub(crate) fn attach_level_ratings(w: &mut World) {
     use crate::level_rating::{
-        LevelGroup, Pool, PositionAligner, build_level_scale, level_group, level_rating, sets_level_scale,
+        LevelGroup, LevelScale, Pool, PositionAligner, ScaleHistory, SeasonAnchors, level_group, level_rating,
+        pooled_level_scale, season_anchors, sets_level_scale,
     };
     use std::collections::HashMap;
-    type Scales = HashMap<LevelGroup, (crate::level_rating::LevelScale, PositionAligner)>;
-    let build = |at_end: bool| -> Scales {
+    type Scales = HashMap<LevelGroup, (LevelScale, PositionAligner)>;
+    // This season's anchors per group, then each group's scale pooled with
+    // its last four seasons (`SCALE_SEASONS`): a loaded year shows more 90s.
+    let build = |at_end: bool| -> HashMap<LevelGroup, (SeasonAnchors, PositionAligner)> {
         let mut groups: HashMap<LevelGroup, Vec<(Position, f64)>> = HashMap::new();
         for p in w.people.iter() {
             let Some(s) = p.player.history.last() else { continue };
@@ -696,12 +699,34 @@ pub(crate) fn attach_level_ratings(w: &mut World) {
                 let align = PositionAligner::new(&samples);
                 let aligned: Vec<f64> = samples.iter().map(|&(pos, x)| align.align(pos, x)).collect();
                 let pool = if key == LevelGroup::College { Pool::College } else { Pool::HS };
-                (key, (build_level_scale(&aligned, pool, w.options.scale), align))
+                (key, (season_anchors(&aligned, pool, w.options.scale), align))
             })
             .collect()
     };
-    let start = build(false);
-    let end = build(true);
+    let mut start_now = build(false);
+    let mut end_now = build(true);
+    let mut keys: Vec<LevelGroup> = start_now.keys().chain(end_now.keys()).copied().collect();
+    keys.sort_by_key(|k| match *k {
+        LevelGroup::HS(age) => age,
+        LevelGroup::College => u32::MAX,
+    });
+    keys.dedup();
+    let (mut start, mut end): (Scales, Scales) = (HashMap::new(), HashMap::new());
+    for key in keys {
+        let (a_start, align_start) = start_now.remove(&key).unwrap_or_else(|| (Vec::new(), PositionAligner::new(&[])));
+        let (a_end, align_end) = end_now.remove(&key).unwrap_or_else(|| (Vec::new(), PositionAligner::new(&[])));
+        let i = match w.level_scales.iter().position(|h| h.group == key) {
+            Some(i) => i,
+            None => {
+                w.level_scales.push(ScaleHistory { group: key, start: Vec::new(), end: Vec::new() });
+                w.level_scales.len() - 1
+            }
+        };
+        let h = &mut w.level_scales[i];
+        h.push(a_start, a_end);
+        start.insert(key, (pooled_level_scale(&h.start), align_start));
+        end.insert(key, (pooled_level_scale(&h.end), align_end));
+    }
     w.people.par_iter_mut().for_each(|p| {
         let pos = p.player.position;
         let age_now = p.player.age;

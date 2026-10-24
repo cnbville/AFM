@@ -1,4 +1,7 @@
-use crate::level_rating::{LevelScale, Pool, build_level_scale, level_rating};
+use crate::level_rating::{
+    LevelGroup, LevelScale, Pool, SCALE_SEASONS, ScaleHistory, build_level_scale, level_rating, pooled_level_scale,
+    season_anchors,
+};
 use crate::player::Level;
 use crate::rng::Rng;
 
@@ -31,6 +34,29 @@ fn puts_about_a_hundred_players_at_90_plus_and_saves_99_for_a_clear_no_1() {
     assert!(rate(sorted[1]) < 98);
     assert!(rate(sorted[1] + 1.0) < 99);
     assert_eq!(rate(sorted[1] + 6.0), 99);
+}
+
+#[test]
+fn a_strong_year_shows_more_90s_against_five_seasons_than_against_itself() {
+    let mut rng = Rng::new("level-rating-pooled");
+    let mut h = ScaleHistory { group: LevelGroup::College, start: Vec::new(), end: Vec::new() };
+    for _ in 0..SCALE_SEASONS + 2 {
+        let typical: Vec<f64> = (0..11_000).map(|_| rng.normal(56.0, 9.0)).collect();
+        let a = season_anchors(&typical, Pool::College, 1.0);
+        h.push(a.clone(), a);
+    }
+    assert_eq!(h.end.len(), SCALE_SEASONS);
+    // A loaded year: everyone a point and a half better.
+    let strong: Vec<f64> = (0..11_000).map(|_| rng.normal(57.5, 9.0)).collect();
+    let alone = build_level_scale(&strong, Pool::College, 1.0);
+    h.push(Vec::new(), season_anchors(&strong, Pool::College, 1.0));
+    let pooled = pooled_level_scale(&h.end);
+    let count = |s: &LevelScale| strong.iter().filter(|&&x| level_rating(x, Level::FBS, Some(s)) >= 90).count();
+    let (n_alone, n_pooled) = (count(&alone), count(&pooled));
+    assert!(n_alone > 80 && n_alone < 130, "{n_alone}");
+    assert!(n_pooled > n_alone + 15, "{n_pooled} pooled, {n_alone} alone");
+    // An empty season is left out of the pool, not read as a zero.
+    assert!(pooled_level_scale(&h.start).points.len() >= 4);
 }
 
 #[test]
