@@ -916,7 +916,12 @@ fn sales(w: &mut World) {
             format!("{} {surname}", first.split(' ').next().unwrap_or("Pat"))
         } else {
             let eth = if rng.chance(0.12) {
-                crate::world::ethnicity::Ethnicity::Asian
+                // Which of the three Asian groups, on its own keyed draw so
+                // the sale's other draws stay where they were (faces F4).
+                use crate::world::ethnicity::{ASIAN_SPLIT, Ethnicity as E};
+                let mut pick = crate::rng::Rng::new(w.options.seed ^ 0xA51A_0000 ^ (year as u32) << 6 ^ t as u32);
+                let [e, se, so] = ASIAN_SPLIT;
+                pick.weighted(&[(E::EastAsian, e), (E::SoutheastAsian, se), (E::SouthAsian, so)])
             } else {
                 crate::world::ethnicity::Ethnicity::White
             };

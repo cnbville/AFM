@@ -1,1 +1,43 @@
-/* Lane styles: faces (docs/final-build/plan.md). */
+/* Lane styles: faces (docs/final-build/plan.md; F7-F11, S4, X4). */
+
+/* The player page's portrait: a 4:5 headshot card on the hero's right. */
+.hero.fc-has .copy { padding-right: 230px; }
+.fc-portrait { position: absolute; right: 26px; bottom: 18px; width: 172px; display: grid; gap: 7px; z-index: 1; animation: st-rise .6s var(--ease) both; }
+.fc-frame { width: 100%; aspect-ratio: 4 / 5; border-radius: 18px; overflow: hidden; background: #16181d;
+  box-shadow: 0 18px 40px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.14); }
+.fc-frame .fc-img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.fc-cap { font-size: 11.5px; color: rgba(255,255,255,.72); line-height: 1.3; }
+.fc-note { font-size: 12px; color: #fff; background: rgba(255,214,10,.16); border-radius: 10px; padding: 6px 9px; line-height: 1.35; }
+.fc-note a { color: var(--gold); font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.fc-acts { display: grid; gap: 6px; }
+.fc-acts .st-btn { padding: 7px 10px; font-size: 12.5px; border-radius: 10px; width: 100%; }
+.fc-looks { font-size: 12px; color: rgba(255,255,255,.78); }
+.fc-looks summary { cursor: pointer; color: rgba(255,255,255,.62); font-weight: 600; list-style: none; }
+.fc-looks summary::-webkit-details-marker { display: none; }
+.fc-looks summary::before { content: "▸ "; }
+.fc-looks[open] summary::before { content: "▾ "; }
+.fc-looks div { display: grid; gap: 3px; margin-top: 5px; max-height: 160px; overflow: auto; }
+.hero.small:has(.fc-portrait) { min-height: 420px; }
+@media (max-width: 900px) {
+  .hero.fc-has .copy { padding-right: 26px; padding-top: 290px; }
+  .fc-portrait { top: 18px; bottom: auto; width: 150px; }
+  .fc-looks { display: none; }
+}
+
+/* Small round faces in lists (S4). */
+.fc-slot { display: inline-block; vertical-align: middle; margin-right: 8px; width: 26px; height: 26px; }
+.fc-dot { width: 26px; height: 26px; border-radius: 50%; display: inline-grid; place-items: center; object-fit: cover;
+  object-position: 50% 22%; box-shadow: inset 0 0 0 1px rgba(255,255,255,.18); background: #23262e; }
+.fc-ini { font-size: 10px; font-weight: 800; color: #fff; letter-spacing: .02em; }
+
+/* The crop box. */
+.overlay .box.fc-crop { width: min(720px, calc(100vw - 48px)); }
+.fc-stage { position: relative; justify-self: center; max-width: 100%; overflow: hidden; border-radius: 12px; user-select: none; touch-action: none; }
+.fc-stage img { display: block; max-width: min(660px, calc(100vw - 104px)); max-height: 62vh; border-radius: 12px; }
+.fc-box { position: absolute; border: 2px solid #fff; border-radius: 6px; cursor: move;
+  box-shadow: 0 0 0 9999px rgba(0,0,0,.45); }
+.fc-box i { position: absolute; right: 3px; bottom: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; cursor: nwse-resize; }
+
+/* The import review. */
+.fc-thumb { width: 40px; height: 50px; object-fit: cover; border-radius: 6px; display: block; }
+.st-pill.good { background: rgba(48,209,88,.16); color: var(--good); }

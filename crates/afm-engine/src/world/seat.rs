@@ -938,6 +938,8 @@ impl World {
         self.seat_games.retain(|g| g.teams.iter().all(|&t| t < self.programs.len().max(self.nfl.len())));
         super::scouting::after_load(self);
         self.fill_final_build_fields();
+        // Faces (F3, F4): looks numbers and the Asian groups for an older file.
+        self.faces_after_load();
         // Your designed plays become concepts again (section 6b).
         self.training.register_designs();
         super::folk::after_load(self);
