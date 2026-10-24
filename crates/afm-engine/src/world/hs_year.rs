@@ -1197,6 +1197,25 @@ fn engine_games(
             }
             super::stories::hs_game(w, [h, a], full);
         }
+        // The storylines' look after the game (update 2, S2), for the
+        // schools people follow.
+        let teams = [crate::world::stories::TeamKey::Hs(h as u32), crate::world::stories::TeamKey::Hs(a as u32)];
+        if w.recording && (super::storylines::detect::on(w, teams[0]) || super::storylines::detect::on(w, teams[1])) {
+            let hs = w.hs_season.as_ref().unwrap();
+            let playoff = week >= hs.states[s].weeks.len();
+            let played = super::storylines::detect::games::Played {
+                level: Level::HighSchool,
+                teams,
+                score: [g.score[0] as i32, g.score[1] as i32],
+                stats: g.full.as_ref().map(|f| &f.0),
+                postseason: playoff,
+                senior_day: !playoff && hs.marks.get(h).copied().flatten().is_some_and(|m| m.1 == day),
+                title: final_game,
+                conf_title: false,
+                rivalry: super::stories::traditions::hs_rivals(w, h, a),
+            };
+            super::storylines::detect::games::after(w, &played);
+        }
         w.log.hs_engine_games += 1;
         w.log.hs_totals.add(&g.team[0], &g.team[1]);
         w.log.hs_totals.add(&g.team[1], &g.team[0]);

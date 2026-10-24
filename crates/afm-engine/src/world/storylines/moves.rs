@@ -349,7 +349,7 @@ pub(crate) fn menu(w: &mut World, s: &Story, press: bool) -> Vec<Opt> {
                 v.push((Private, format!("Sit down with {lead} yourself."), "Your relationships decide how it lands."));
             }
         }
-        (Sit::Player, Family::Battle | Family::Comeback | Family::Rise | Family::Draft | Family::Ending | Family::Streak) | (Sit::Player, _) => {
+        (Sit::Player, _) => {
             v.push((Praise, format!("\"{lead} is one of the best players I've coached.\""), "Public praise counts double; an ego grows."));
             v.push((Challenge, format!("\"{lead} knows there's more in him.\""), "A public challenge: competitors lift, egos bristle."));
             v.push((Quiet, "\"I'm not going to single anyone out.\"".into(), "Nothing either way."));

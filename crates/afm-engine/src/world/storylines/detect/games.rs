@@ -5,13 +5,13 @@
 //! injury), the kicks (a kicker's slump), and the chases (a record, a
 //! coach's milestone, six wins for a bowl).
 
-use super::{K, Part, Who, end, head, on, open_of, pid, pname, s_coach, s_pair, s_player, s_season, tell, tname};
+use super::{K, Who, end, head, on, open_of, pname, s_coach, s_pair, s_player, s_season, tell, tname};
 use crate::calendar::Level;
 use crate::game::GameStats;
 use crate::positions::Position;
 use crate::world::World;
 use crate::world::stories::TeamKey;
-use crate::world::storylines::{Spot, close, fact, open_id};
+use crate::world::storylines::{close, fact, open_id};
 
 /// One finished game as the detectors see it.
 pub(crate) struct Played<'a> {
@@ -441,14 +441,4 @@ fn bowl_chase(w: &mut World, t: TeamKey) {
 /// A team's quarterback who started its last game.
 pub(crate) fn last_starter(w: &World, t: TeamKey) -> Option<u32> {
     w.storylines.watch.starters.get(&super::tcode(t)).copied()
-}
-
-/// A spot for a story about a player facing a team.
-pub(crate) fn facing(w: &World, kind: K, i: usize, t: TeamKey, o: TeamKey) -> Spot {
-    let id = pid(w, i);
-    let mut s = Spot::new(kind, s_player(id)).team(t).other(o).lead(Who::Player(id));
-    if let Some(c) = head(w, t) {
-        s = s.with(Who::Coach(c as u32), Part::Decider);
-    }
-    s
 }

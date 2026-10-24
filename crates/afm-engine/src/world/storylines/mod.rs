@@ -580,8 +580,6 @@ pub(crate) struct Spot {
     /// A public fact that opens or feeds it, and the heat it brings.
     pub fact: Option<String>,
     pub heat: f32,
-    /// The sides it starts with (None: the kind's default).
-    pub sides: Option<[f32; 4]>,
     /// Starts public even when the kind starts private (a fact everyone saw).
     pub public: bool,
     pub word: String,
@@ -601,7 +599,6 @@ impl Spot {
             truth: 0.0,
             fact: None,
             heat: 0.0,
-            sides: None,
             public: false,
             word: String::new(),
         }
@@ -650,10 +647,6 @@ impl Spot {
     pub fn fact(mut self, text: String, heat: f32) -> Spot {
         self.fact = Some(text);
         self.heat = heat;
-        self
-    }
-    pub fn sides(mut self, s: [f32; 4]) -> Spot {
-        self.sides = Some(s);
         self
     }
     pub fn public(mut self) -> Spot {
@@ -722,11 +715,14 @@ pub(crate) fn notice(w: &mut World, s: Spot) -> Option<u32> {
     let level = match (s.team, def.levels) {
         (_, l) if l == catalogue::REC => Level::Recruiting,
         (Some(t), _) => t.level(),
-        (None, _) => Level::College,
+        (None, _) => [Level::College, Level::Nfl, Level::HighSchool, Level::Other]
+            .into_iter()
+            .find(|&l| def.at(l))
+            .unwrap_or(Level::College),
     };
     let stakes = (def.stakes as i32 + s.stakes).clamp(5, 100) as u8;
     let (fame, market) = (fame(w, &s.cast), market(w, s.team));
-    let sides = s.sides.unwrap_or_else(|| default_sides(def));
+    let sides = default_sides(def);
     let public = def.public || s.public;
     let id = {
         let st = &mut w.storylines;

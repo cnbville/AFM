@@ -340,7 +340,7 @@ pub(crate) struct Opening {
     pub(crate) prestige: f64,
 }
 
-fn employer_prestige(w: &World, e: Employer) -> f64 {
+pub(crate) fn employer_prestige(w: &World, e: Employer) -> f64 {
     match e {
         Employer::HighSchool(s) => w.high_schools[s].prestige * 0.35,
         Employer::College(p) => {
@@ -1041,6 +1041,14 @@ impl World {
     /// (the job stays empty until the search decides; part D 18).
     pub fn head_search_open(&self, p: usize) -> bool {
         self.searches.iter().any(|s| s.opening.employer == Employer::College(p) && s.opening.role == Role::HeadCoach)
+    }
+
+    /// The day a college head coach search under way decides.
+    pub(crate) fn head_search_due(&self, p: usize) -> Option<crate::calendar::Date> {
+        self.searches
+            .iter()
+            .find(|s| s.opening.employer == Employer::College(p) && s.opening.role == Role::HeadCoach)
+            .map(|s| s.decide_on)
     }
 }
 

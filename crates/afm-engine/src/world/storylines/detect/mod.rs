@@ -23,7 +23,7 @@ pub mod weekly;
 
 use std::collections::BTreeMap;
 
-use super::{K, Member, Part, Spot, Who, close, notice, open_id, subj, tcode};
+use super::{K, Part, Spot, Who, close, notice, open_id, subj, tcode};
 use crate::calendar::{Date, Level};
 use crate::player::PlayingTime;
 use crate::positions::Position;
@@ -78,6 +78,10 @@ pub struct Watch {
     pub(crate) board: Option<Date>,
     /// Offers to you already told (employer code, day made).
     pub(crate) offers: Vec<(u64, Date)>,
+    /// This offseason's portal entrants per program (entrants, starters)
+    /// and the football year they count for.
+    pub(crate) exodus: BTreeMap<u32, [u16; 2]>,
+    pub(crate) exodus_year: i32,
 }
 
 /// Flags on `Watch::flags`.
@@ -86,9 +90,10 @@ pub(crate) const F_WANTS_OUT: u8 = 2;
 pub(crate) const F_SUSPENDED: u8 = 4;
 pub(crate) const F_PORTAL: u8 = 8;
 pub(crate) const F_OPTED: u8 = 16;
-pub(crate) const F_DECLARED: u8 = 32;
 /// An off-field incident this season already queued for the news.
 pub(crate) const F_INCIDENT: u8 = 64;
+/// Franchise or transition tagged this league year.
+pub(crate) const F_TAGGED: u8 = 128;
 
 /// Once a day, before the stories step (`storylines::day`).
 pub(crate) fn day(w: &mut World, d: Date) {
@@ -257,7 +262,7 @@ pub(crate) fn team_spot(w: &World, kind: K, t: TeamKey, subject: u64) -> Spot {
 }
 
 /// A coach-led story's spot with his boss.
-pub(crate) fn coach_spot(w: &World, kind: K, c: usize, t: TeamKey) -> Spot {
+pub(crate) fn coach_spot(_w: &World, kind: K, c: usize, t: TeamKey) -> Spot {
     Spot::new(kind, s_coach(c)).team(t).lead(Who::Coach(c as u32)).with(Who::Boss(t), Part::Boss)
 }
 
@@ -291,15 +296,6 @@ pub(crate) fn college(p: usize) -> TeamKey {
     TeamKey::College(p as u32)
 }
 
-pub(crate) fn nfl(n: usize) -> TeamKey {
-    TeamKey::Nfl(n as u16)
-}
-
-/// The story's member list with a rival added.
-pub(crate) fn with_rival(s: Spot, who: Who) -> Spot {
-    s.with(who, Part::Rival)
-}
-
 /// A level's games this season are under way.
 pub(crate) fn in_season(w: &World, level: Level) -> bool {
     let d = w.today;
@@ -315,9 +311,4 @@ pub(crate) fn in_season(w: &World, level: Level) -> bool {
             && d.month() <= 12,
         _ => false,
     }
-}
-
-/// Members for a list of players.
-pub(crate) fn members(w: &World, idx: &[usize], part: Part) -> Vec<Member> {
-    idx.iter().map(|&i| Member { who: Who::Player(pid(w, i)), part, side: 0 }).collect()
 }

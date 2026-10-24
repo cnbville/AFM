@@ -11,7 +11,7 @@
 
 use super::games::{hurt, last_starter};
 use super::{
-    K, Part, Who, at, career_wins, cname, coach_spot, end, head, in_season, mine, on, open_of, pid, player_spot, pname,
+    K, Part, Who, at, career_wins, cname, coach_spot, head, in_season, mine, on, open_of, pid, player_spot, pname,
     s_coach, s_pair, s_player, s_season, s_team, started, team_of, team_spot, tell, tname,
 };
 use crate::calendar::{Date, Level};
@@ -115,7 +115,7 @@ fn tenure(w: &World, c: usize) -> i32 {
 }
 
 /// The employer a team key names.
-fn employer(t: TeamKey) -> Employer {
+pub(crate) fn employer(t: TeamKey) -> Employer {
     match t {
         TeamKey::College(p) => Employer::College(p as usize),
         TeamKey::Nfl(n) => Employer::Nfl(n as usize),
@@ -423,8 +423,9 @@ fn team_start(w: &mut World, t: TeamKey) {
     if let TeamKey::College(p) = t {
         let g = &w.programs[p as usize];
         let then = g.prestige_history.iter().find(|&&(y, _)| y == year - 4).map(|x| x.1);
+        let (prestige, dark_next) = (g.prestige, g.dark.iter().any(|&(a, _)| a == year + 1));
         if let (Some(then), Some(l)) = (then, last)
-            && g.prestige - then >= 0.1
+            && prestige - then >= 0.1
             && l.1 >= 9
         {
             let s = team_spot(w, K::ProgramRise, t, s_season(t, year))
@@ -433,7 +434,7 @@ fn team_start(w: &mut World, t: TeamKey) {
             tell(w, s);
         }
         // A school about to drop football.
-        if g.dark.iter().any(|&(a, _)| a == year + 1) {
+        if dark_next {
             let s = team_spot(w, K::ChoppingBlock, t, s_team(t)).truth(1.0).due(w.dates.title_game).public();
             tell(w, s);
         }
@@ -1239,7 +1240,7 @@ fn cfp_push(w: &mut World, d: Date) {
     else {
         return;
     };
-    let field = if year >= 2024 { 12 } else { 4 };
+    let field: usize = if year >= 2024 { 12 } else { 4 };
     let (from, to) = (field.saturating_sub(2), field + 3);
     let bubble: Vec<usize> = poll.top.iter().copied().skip(from).take(to - from).collect();
     for j in bubble {
@@ -1262,7 +1263,7 @@ fn drought(w: &mut World, d: Date, level: Level) {
             for &j in poll.top.iter().take(4) {
                 let g = &w.programs[j];
                 let last = g.seasons.iter().rev().find(|s| s.national_title).map(|s| s.year);
-                let since = last.map_or(year - (w.start_year - w.history_years as i32), |y| year - y);
+                let since = last.map_or(year - (w.options.start_year - w.options.history_years as i32), |y| year - y);
                 if g.titles == 0 || since >= 25 {
                     cands.push((TeamKey::College(j as u32), since));
                 }
@@ -2176,8 +2177,15 @@ fn due_checks(w: &mut World, d: Date) {
             K::LeagueSuspension if late >= 60 => Some("upheld"),
             K::Arrest if late >= 0 && s.nums[3] == 0 => {
                 let here = li.is_some_and(|i| team_of(w, i) == s.team);
-                Some(if here { "suspended" } else { "dismissed" })
+                Some(match s.nums[2] {
+                    1 => "dismissed",
+                    2 => "suspended",
+                    _ if here => "suspended",
+                    _ => "dismissed",
+                })
             }
+            K::TeamRules if late >= 0 && s.nums[2] == 1 => Some("dismissed"),
+            K::Academics if late >= 0 && s.nums[2] != 0 => Some("out"),
             K::Arrest if late >= 200 => Some("cleared"),
             K::SecondOpinion => {
                 let back = s.lead_player().is_some_and(|id| !hurt(w, id));
@@ -2275,6 +2283,23 @@ fn declarations(w: &mut World, y: &crate::calendar::YearDates) {
 /// The best classes close at the top before a signing day.
 fn class_race(w: &mut World, y: &crate::calendar::YearDates) {
     let year = w.year;
+    let scores = class_scores(w);
+    let (Some(&(a, ja)), Some(&(b, jb))) = (scores.first(), scores.get(1)) else { return };
+    if a > 1.04 * b {
+        return;
+    }
+    let (ta, tb) = (TeamKey::College(ja as u32), TeamKey::College(jb as u32));
+    let due = match y.early_signing {
+        Some(e) if w.today <= e => e,
+        _ => y.signing_day,
+    };
+    let s = team_spot(w, K::ClassRace, ta, subj(0xC1A5, year as u64)).other(tb).rival(Who::Team(tb)).due(due).public();
+    tell(w, s);
+}
+
+/// The FBS classes signing next, best first: each commitment's stars on
+/// the services' points, the deeper players counting less (the 247 shape).
+pub(crate) fn class_scores(w: &World) -> Vec<(f64, usize)> {
     let sign_year = crate::world::recruiting::next_class(w);
     let mut by: std::collections::BTreeMap<usize, Vec<f64>> = Default::default();
     for p in &w.people {
@@ -2301,17 +2326,7 @@ fn class_race(w: &mut World, y: &crate::calendar::YearDates) {
         })
         .collect();
     scores.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
-    let (Some(&(a, ja)), Some(&(b, jb))) = (scores.first(), scores.get(1)) else { return };
-    if a > 1.04 * b {
-        return;
-    }
-    let (ta, tb) = (TeamKey::College(ja as u32), TeamKey::College(jb as u32));
-    let due = match y.early_signing {
-        Some(e) if w.today <= e => e,
-        _ => y.signing_day,
-    };
-    let s = team_spot(w, K::ClassRace, ta, subj(0xC1A5, year as u64)).other(tb).rival(Who::Team(tb)).due(due).public();
-    tell(w, s);
+    scores
 }
 
 /// Two desks with different first picks.
@@ -2560,8 +2575,4 @@ pub(crate) fn note(w: &mut World, kind: K, subject: u64, text: String) {
     if let Some(id) = open_id(w, kind, subject) {
         fact(w, id, text, 2.0);
     }
-}
-
-pub(crate) fn ended(w: &mut World, kind: K, subject: u64, ending: &str) {
-    end(w, kind, subject, ending, None);
 }
