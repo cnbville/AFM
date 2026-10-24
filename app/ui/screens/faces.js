@@ -6,7 +6,10 @@
 // - Small round faces in the squad, depth chart, recruiting, training and
 //   contracts lists.
 // - The "Faces and photos" page: a folder import with a review table and
-//   undo, and "Export AI prompts", one file per player.
+//   undo, "Export AI prompts", one file per player, and the drawn heads switch.
+// - Drawn heads (F14, behind that switch, off by default): a face with no
+//   photo is drawn in the page from his recipe the first time a screen shows
+//   it (screens/heads/heads.js), then kept in the save's folder.
 "use strict";
 (() => {
   const LISTS = new Set(["roster", "depth", "recruiting", "training", "contracts"]);
@@ -25,10 +28,47 @@
       <text x="80" y="181" text-anchor="middle" font-size="26" font-weight="800" fill="#fff" fill-opacity=".92" letter-spacing="1">${esc(f.initials || "")}</text></svg>`;
   }
   function dot(f) {
-    const src = f.photo || f.drawn;
-    if (src) return `<img class="fc-dot" src="${src}" alt="">`;
+    if (f.photo) return `<img class="fc-dot" src="${f.photo}" alt="">`;
+    // a drawn head is a head-and-shoulders picture: the dot shows his face
+    if (f.drawn) return `<span class="fc-dot fc-dz"><img src="${f.drawn}" alt=""></span>`;
     const [c1, c2] = f.colors || ["#3a3f4b", "#9aa3b2"];
     return `<span class="fc-dot fc-ini" style="background:${c1};box-shadow:inset 0 0 0 2px ${c2}66">${esc(f.initials || "")}</span>`;
+  }
+
+  // ---------- drawn heads ----------
+  // The drawing code and its data (about 20 MB) load the first time a head is
+  // drawn; heads are drawn one at a time, newest asks first, so a long list
+  // never holds up the screen. A computer without WebGL keeps the silhouettes.
+  let headsP = null, broken = false;
+  const loadScript = (src) => new Promise((res, rej) => {
+    const el = document.createElement("script");
+    el.src = src;
+    el.onload = res;
+    el.onerror = () => rej(new Error("missing " + src));
+    document.head.appendChild(el);
+  });
+  function heads() {
+    if (window.AFMHeads) return Promise.resolve(window.AFMHeads);
+    headsP ||= (window.THREE ? Promise.resolve() : loadScript("screens/views/three.min.js")).then(() => loadScript("screens/heads/heads.js")).then(() => window.AFMHeads);
+    return headsP;
+  }
+  const drawing = new Map(); // id -> promise of the drawn picture
+  function drawHead(id, key, spec) {
+    if (broken || !spec) return Promise.resolve(null);
+    if (!drawing.has(id)) {
+      drawing.set(id, heads()
+        .then((H) => H.queue(spec))
+        .then(async (r) => {
+          await api("face_drawn_store", { id, key: key || "", data: r.url }).catch(() => {});
+          return r.url;
+        })
+        .catch((e) => {
+          broken = true;
+          console.warn("drawn heads off for this session:", e);
+          return null;
+        }));
+    }
+    return drawing.get(id);
   }
 
   // ---------- the player page ----------
@@ -75,6 +115,11 @@
       ${f.mine ? `<button class="fc-link" data-fact="clear" data-id="${f.id}">Remove your photo</button>` : ""}
       <details class="fc-looks"><summary>Looks</summary><div>${[f.looks.hair, f.looks.beard, ...f.looks.marks.map((m) => m[0].toUpperCase() + m.slice(1)), `${f.looks.build[0].toUpperCase()}${f.looks.build.slice(1)} build, ${f.looks.skin}, ${f.looks.eyes}`].map((t) => `<span>${esc(t)}</span>`).join("")}</div></details>`;
     box._face = f;
+    if (!src && f.drawn_on && f.spec) {
+      drawHead(f.id, f.photo ? f.photo.key : "", f.spec).then((url) => {
+        if (url && box.isConnected) fill(box, { ...f, drawn: url, spec: null });
+      });
+    }
   }
   async function refresh(id) {
     cache.delete(id);
@@ -109,6 +154,14 @@
         for (const f of x.faces) {
           cache.set(f.id, f);
           document.querySelectorAll(`.fc-slot[data-face-id="${f.id}"]`).forEach((s) => (s.innerHTML = dot(f)));
+          if (f.spec) {
+            drawHead(f.id, f.key, f.spec).then((url) => {
+              if (!url) return;
+              const g = { ...f, drawn: url, spec: null };
+              cache.set(f.id, g);
+              document.querySelectorAll(`.fc-slot[data-face-id="${f.id}"]`).forEach((s) => (s.innerHTML = dot(g)));
+            });
+          }
         }
       } catch (e) { /* the list still works without faces */ }
       part.forEach((i) => waiting.delete(i));
@@ -288,6 +341,15 @@
         render();
       } else if (act === "export") await exportPrompts();
       else if (act === "reveal") await api("reveal", { path: el.dataset.path });
+      else if (act === "drawn") {
+        const on = el.dataset.on !== "1";
+        await api("face_settings_set", { drawn: on });
+        cache.clear();
+        drawing.clear();
+        broken = false;
+        toast(on ? "Drawn heads on. Each face is drawn the first time a screen shows it." : "Drawn heads off. Silhouettes show again.");
+        render();
+      }
     } catch (e) { toast(e.message || String(e)); }
   });
 
@@ -338,6 +400,7 @@
   }
   screens.faces = async () => {
     const b = await api("faces_import_batches");
+    const st = await api("face_settings").catch(() => ({ drawn: false }));
     let review = "";
     if (IMP.rows) {
       const n = IMP.rows.filter((r) => r.on && r.pick).length;
@@ -361,6 +424,8 @@
       <p class="sub">Give players your own pictures: one at a time with "Change photo" on his page, or many at once from a folder. Files are matched by name: <b>41234.jpg</b> (his id), <b>Jalen Smith - Alabama.png</b> (name and team), <b>Jalen Smith 2027.jpg</b> (name and class or draft year), or just his name when only one active player has it. Photos are copied into this save's own folder and never leave your computer.</p>
       <div class="grid2"><div class="panel"><h2>Import photos</h2><div class="sub">PNG, JPEG, WebP, and HEIC where this computer reads it.</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="st-btn small primary" data-fact="import" data-dir="1">Choose a folder…</button><button class="st-btn small glass" data-fact="import" data-dir="0">Choose pictures…</button></div></div>
+      <div class="panel"><h2>Drawn heads <small>${st.drawn ? "On" : "Off"}</small></h2><div class="sub">The game draws each player without a photo itself: his face from his heritage and his own features, his haircut, beard and build this season, in his team's jersey under a studio light. A face is drawn the first time a screen shows it (a moment each) and kept in this save's folder; a new team photo draws him again. Your photos always come first.</div>
+        <div><button class="st-btn small ${st.drawn ? "glass" : "primary"}" data-fact="drawn" data-on="${st.drawn ? 1 : 0}">${st.drawn ? "Turn drawn heads off" : "Turn drawn heads on"}</button></div></div>
       <div class="panel"><h2>AI prompts</h2><div class="sub">One text file per player on your squad, written from his looks (heritage, age, size, position, team colours, hair, beard and marks), ready for your own image tool.</div>
         <div><button class="st-btn small glass" data-fact="export">Export AI prompts</button></div></div></div>
       ${review}

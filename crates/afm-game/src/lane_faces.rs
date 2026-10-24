@@ -216,11 +216,21 @@ fn from_data_url(s: &str) -> Result<(Vec<u8>, &'static str), String> {
 
 fn to_data_url(p: &Path) -> Option<String> {
     let bytes = std::fs::read(p).ok()?;
-    let mime = match p.extension()?.to_str()? {
-        "png" => "image/png",
-        "jpg" | "jpeg" => "image/jpeg",
-        "webp" => "image/webp",
-        _ => return None,
+    // By its contents first: a drawn head is a JPEG where the Mac's web view
+    // can't write WebP, kept under the same name.
+    let mime = if bytes.starts_with(b"\x89PNG") {
+        "image/png"
+    } else if bytes.starts_with(&[0xFF, 0xD8]) {
+        "image/jpeg"
+    } else if bytes.len() > 12 && &bytes[0..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
+        "image/webp"
+    } else {
+        match p.extension()?.to_str()? {
+            "png" => "image/png",
+            "jpg" | "jpeg" => "image/jpeg",
+            "webp" => "image/webp",
+            _ => return None,
+        }
     };
     Some(format!("data:{mime};base64,{}", b64_encode(&bytes)))
 }
@@ -982,5 +992,18 @@ mod tests {
         assert_eq!(colour_name("#FFFFFF"), "white");
         assert_eq!(initials_of("Mark De La Cruz Jr."), "MD");
         assert_eq!(norm("Jalen_Smith - Alabama (2027)"), "jalen smith alabama 2027");
+    }
+
+    #[test]
+    fn a_kept_picture_is_read_by_its_contents() {
+        // the Mac's web view keeps a drawn head as a JPEG under its .webp name
+        let dir = std::env::temp_dir().join(format!("afm-faces-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = dir.join("7-key-v1.webp");
+        std::fs::write(&p, [0xFF, 0xD8, 0xFF, 0xE0, 0, 16]).unwrap();
+        assert!(to_data_url(&p).unwrap().starts_with("data:image/jpeg;base64,"));
+        std::fs::write(&p, b"RIFF\x10\0\0\0WEBPVP8 ").unwrap();
+        assert!(to_data_url(&p).unwrap().starts_with("data:image/webp;base64,"));
+        std::fs::remove_dir_all(&dir).ok();
     }
 }

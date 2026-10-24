@@ -24,6 +24,8 @@
 .fc-dot { width: 26px; height: 26px; border-radius: 50%; display: inline-grid; place-items: center; object-fit: cover;
   object-position: 50% 22%; box-shadow: inset 0 0 0 1px rgba(255,255,255,.18); background: #23262e; }
 .fc-ini { font-size: 10px; font-weight: 800; color: #fff; letter-spacing: .02em; }
+.fc-dz { position: relative; overflow: hidden; }
+.fc-dz img { position: absolute; width: 180%; left: -40%; top: -16%; }
 
 /* The crop box. */
 .overlay .box.fc-crop { width: min(720px, calc(100vw - 48px)); }
