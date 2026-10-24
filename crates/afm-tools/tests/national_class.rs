@@ -125,17 +125,21 @@ fn drafts_imperfectly_without_wild_first_round_reaches() {
 }
 
 #[test]
-fn makes_a_99_level_rating_as_rare_as_ea_college_football_does() {
+fn makes_level_ratings_as_rare_as_real_honours() {
     let l = &s().level_ratings;
-    // EA rated nobody 99 at launch in College Football 25 or 26 and one player in 27.
+    println!("level ratings: {l:?}");
+    // A 99 needs a clear No. 1.
     assert!(l.hs_seniors99 <= 2, "{l:?}");
     assert!(l.college_seasons99 <= 2);
-    // About ten players a season at 95+, and about a hundred at 90+.
-    assert!(l.hs_seniors95plus > 3 && l.hs_seniors95plus < 25);
-    assert!(l.hs_seniors90plus > 50 && l.hs_seniors90plus < 200);
-    assert!(l.college_seasons95plus > 5 && l.college_seasons95plus < 35);
-    assert!(l.college_seasons90plus > 70 && l.college_seasons90plus < 160);
-    // A typical FBS player rates in the low 70s, as on an EA roster.
+    // Seniors: 95+ about the 5-stars (about 32 a class), 90+ about the
+    // All-American Bowl's roster (about 100). Measured 2026-10-24: 32 and 100.
+    assert!(l.hs_seniors95plus > 20 && l.hs_seniors95plus < 45);
+    assert!(l.hs_seniors90plus > 60 && l.hs_seniors90plus < 170);
+    // College: 95+ about the consensus All-Americans (about 28 a season), 90+
+    // about AP's three All-America teams (about 80). Measured: 29 and 81.
+    assert!(l.college_seasons95plus > 15 && l.college_seasons95plus < 50);
+    assert!(l.college_seasons90plus > 55 && l.college_seasons90plus < 160);
+    // A typical FBS player rates in the low 70s.
     assert!(l.fbs_season_median > 65.0 && l.fbs_season_median < 78.0);
     assert!(l.five_star_senior_median > 85.0);
     assert!(l.five_star_senior_median > l.four_star_senior_median);
