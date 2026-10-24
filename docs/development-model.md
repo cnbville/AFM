@@ -72,7 +72,7 @@ Each season record keeps the rating he played the season at (`overallStart`), hi
 
 ## Level ratings
 
-Cards also show a 1–99 level rating. In high school it ranks a player against everyone his age nationally, in college against every FBS player (FCS and D2 players go on the same scale after the scouts' discount), and in the pros it is simply his overall. Each player is first placed against his own position, then ranked nationally. The scale follows EA College Football's rarity: about 100 players a season at 90+, about 10 at 95+, and a 99 only for a player well clear of everyone else.
+Cards also show a 1–99 level rating. In high school it ranks a player against everyone his age nationally, in college against every FBS player (FCS and D2 players go on the same scale after the scouts' discount), and in the pros it is simply his overall. Each player is first placed against his own position, then ranked nationally. The scale follows EA College Football's rarity: about 100 players a season at 90+, about 10 at 95+, and a 99 only for a player well clear of everyone else. In the world the scale is built from the last five seasons together, not the current one alone (Cain, 2026-10-24): each anchor sits at its average over those seasons, so a loaded year shows more 90s and a thin year fewer, and a true 99 still has to be well clear. The label is worked out after the season and never feeds growth; only fame reads it. A world file from before this change pools the seasons it plays after loading.
 
 ## Scouting
 

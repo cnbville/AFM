@@ -794,6 +794,11 @@ pub struct World {
     /// groups); 0 in an older file until `faces_after_load` runs.
     #[serde(default)]
     pub faces_version: u8,
+    /// Each high school age and college's level-scale anchors over the last
+    /// five seasons (Cain, 2026-10-24). An older file starts empty and
+    /// pools the seasons it plays from then on.
+    #[serde(default)]
+    pub level_scales: Vec<crate::level_rating::ScaleHistory>,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -1122,6 +1127,7 @@ impl World {
             stories: stories::Stories::default(),
             others: Default::default(),
             faces_version: 1,
+            level_scales: Vec::new(),
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);
