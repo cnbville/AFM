@@ -398,6 +398,15 @@ pub(crate) fn day(w: &mut World, d: Date) {
                 title(w, me, y, "State championship".to_string());
             }
         }
+        // Another league's title (the Grey Cup), once its season is booked.
+        TeamKey::Other(f) => {
+            if let Some((y, _, _, note)) = crate::world::pro::other::team_seasons(w, f as usize).pop()
+                && y >= year - 1
+                && let Some(cup) = note.strip_prefix("won the ")
+            {
+                title(w, me, y, cup.to_string());
+            }
+        }
         TeamKey::College(_) => {}
     }
     // Your players drafted, the day after the draft.

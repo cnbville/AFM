@@ -56,8 +56,9 @@ impl Loudness {
 }
 
 /// Which level an event belongs to.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Level {
+    #[default]
     Nfl,
     College,
     HighSchool,
@@ -65,6 +66,9 @@ pub enum Level {
     Recruiting,
     /// Weather and the world around football.
     World,
+    /// The other pro leagues (the CFL, arena football, the spring leagues):
+    /// your seat when you coach there (later extras topic 5).
+    Other,
 }
 
 impl Level {
@@ -75,6 +79,7 @@ impl Level {
             Level::HighSchool => "high school",
             Level::Recruiting => "recruiting",
             Level::World => "world",
+            Level::Other => "other leagues",
         }
     }
 }
@@ -131,6 +136,8 @@ pub enum Link {
     /// A game: its day, its level (the event `Level`) and the home team's
     /// index at that level.
     Game(Date, Level, u32),
+    /// A club in another pro league, by its franchise (`world::pro::other`).
+    League(u32),
 }
 
 /// A linked span of a line: bytes `at..at + len` of its text name `to`.

@@ -167,3 +167,40 @@
 .fc-nilgrid > :first-child { grid-row: span 2; }
 .fc-nilgrid > :last-child { grid-column: span 2; }
 @media (max-width: 1200px) { .fc-nilgrid { grid-template-columns: minmax(0, 1fr); } .fc-nilgrid > :first-child { grid-row: auto; } .fc-nilgrid > :last-child { grid-column: auto; } }
+
+/* ---------- the map (screens topic 7): a tile map of the country ---------- */
+.fc-map { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: 18px; align-items: start; }
+.fc-map-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.fc-map-head h2 { margin: 0; }
+.fc-tilemap { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-template-rows: repeat(8, auto); gap: 6px; }
+.fc-tile-st { aspect-ratio: 1; min-width: 0; border: 0; border-radius: 12px; padding: 6px 7px; display: flex; flex-direction: column; justify-content: space-between; text-align: left; color: var(--fg); cursor: pointer; font: inherit; box-shadow: inset 0 0 0 1px var(--hair); transition: box-shadow 0.15s; }
+.fc-tile-st:hover { box-shadow: inset 0 0 0 1px var(--fg3); }
+.fc-tile-st.on { box-shadow: inset 0 0 0 2px var(--gold); }
+.fc-tile-st.none .fc-tile-code { color: var(--fg3); }
+.fc-tile-code { font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; color: var(--fg2); white-space: nowrap; }
+.fc-tile-st b { font-size: clamp(14px, 1.7vw, 22px); font-weight: 800; line-height: 1; }
+.fc-tile-foot { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-height: 6px; }
+.fc-tile-foot small { font-size: 10px; color: var(--fg2); font-weight: 600; }
+.fc-tile-foot i { display: flex; gap: 2px; flex-wrap: wrap; }
+.fc-tile-foot em, .fc-map-key em { width: 5px; height: 5px; border-radius: 3px; background: var(--gold); display: inline-block; }
+.fc-map-key { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; font-size: 12px; color: var(--fg2); padding-top: 10px; box-shadow: inset 0 1px 0 var(--hair); }
+.fc-map-key span { display: inline-flex; align-items: center; gap: 6px; }
+.fc-map-key em { width: 10px; height: 10px; border-radius: 4px; }
+.fc-map-key em.gold { width: 6px; height: 6px; }
+.fc-map-ramp { width: 140px; height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--fill-1), color-mix(in oklab, var(--fg) 36%, var(--raised))); }
+.fc-map-total { font-size: 12.5px; }
+.fc-map-side { display: grid; gap: 18px; align-content: start; }
+.fc-map-side h2 { margin: 0; }
+.fc-map-cover { display: grid; gap: 6px; font-size: 13.5px; }
+.fc-map-cover .fc-select { justify-self: start; max-width: 100%; }
+.fc-map-side .kv dd.fc-good { color: var(--good); font-weight: 700; }
+.fc-map-side .kv dd.fc-warn { color: color-mix(in oklab, var(--gold) 70%, var(--fg)); font-weight: 700; }
+.fc-map-names { display: grid; }
+.fc-map-name { display: grid; grid-template-columns: minmax(0, 1fr) 40px 60px minmax(0, 120px); gap: 10px; align-items: center; min-height: 40px; font-size: 13px; box-shadow: inset 0 -1px 0 var(--hair); }
+.fc-map-name > span:first-child { display: grid; min-width: 0; }
+.fc-map-name > span:first-child b, .fc-map-name > span:first-child small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc-map-name small { color: var(--fg3); font-size: 11.5px; }
+.fc-map-word { text-align: right; font-weight: 600; font-size: 12.5px; }
+.fc-map-word.good { color: var(--good); }
+.fc-map-word.bad { color: color-mix(in oklab, var(--gold) 70%, var(--fg)); }
+@media (max-width: 1100px) { .fc-map { grid-template-columns: minmax(0, 1fr); } }

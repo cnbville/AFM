@@ -31,7 +31,11 @@ pub struct Interest {
     pub coordinator: bool,
     pub position: bool,
     pub nfl: bool,
-    /// Only jobs in these states (empty: anywhere). NFL jobs ignore it.
+    /// Head and coordinator jobs in the other pro leagues (the CFL, arena
+    /// football, the spring leagues).
+    pub other: bool,
+    /// Only jobs in these states (empty: anywhere). NFL and other-league
+    /// jobs ignore it.
     pub states: Vec<usize>,
     /// The lowest college level you'd coach at: 0 any division, 1 FCS and
     /// up, 2 FBS only (an agent shops a man where his résumé belongs).
@@ -47,6 +51,7 @@ impl Default for Interest {
             coordinator: true,
             position: true,
             nfl: true,
+            other: true,
             states: Vec::new(),
             college_floor: 0,
         }
@@ -249,7 +254,8 @@ fn level_of(e: Employer) -> Level {
     match e {
         Employer::HighSchool(_) => Level::HighSchool,
         Employer::College(_) => Level::College,
-        Employer::Nfl(_) | Employer::Other(_) => Level::Nfl,
+        Employer::Nfl(_) => Level::Nfl,
+        Employer::Other(_) => Level::Other,
     }
 }
 
@@ -281,12 +287,13 @@ pub fn interest_fits(w: &World, i: &Interest, e: Employer, r: Role) -> bool {
         (Employer::College(_), Role::HeadCoach) => i.college_head,
         (Employer::College(_), Role::OffensiveCoordinator | Role::DefensiveCoordinator) => i.coordinator,
         (Employer::College(_), Role::PositionCoach(_)) => i.position,
-        // The other leagues' jobs go to the world's coaches; your career
-        // stays at the high school, college and NFL levels.
-        (Employer::Other(_), _) => false,
+        // The other leagues' clubs hire a head coach and two coordinators.
+        (Employer::Other(_), Role::PositionCoach(_)) => false,
+        (Employer::Other(_), _) => i.other,
     };
-    let place =
-        matches!(e, Employer::Nfl(_)) || i.states.is_empty() || state_of(w, e).is_some_and(|s| i.states.contains(&s));
+    let place = matches!(e, Employer::Nfl(_) | Employer::Other(_))
+        || i.states.is_empty()
+        || state_of(w, e).is_some_and(|s| i.states.contains(&s));
     kind && place
 }
 
@@ -417,6 +424,14 @@ pub fn family_words(w: &World, e: Employer) -> String {
     let here = c.family.state;
     if to.is_some() && to == here {
         return "No move: the family stays where it is.".into();
+    }
+    // Most coaches in the other leagues keep the family home and go for
+    // the season (a CFL camp to the Grey Cup is about six months).
+    if let Employer::Other(f) = e {
+        return format!(
+            "The family can stay home: you'd be in {} for the season and back between seasons.",
+            crate::world::pro::other::city(f, w.year)
+        );
     }
     let year = w.year;
     let mut parts: Vec<String> = Vec::new();
@@ -662,11 +677,10 @@ pub fn apply(w: &mut World, e: Employer, r: Role) -> Result<String, String> {
 /// the family moves if the job is somewhere else.
 pub(crate) fn hired(w: &mut World, e: Employer, r: Role) {
     w.seat = Some(match e {
-        Employer::HighSchool(s) => Seat { level: Level::HighSchool, nfl_team: None, program: Some(s) },
-        Employer::College(p) => Seat { level: Level::College, nfl_team: None, program: Some(p) },
-        Employer::Nfl(t) => Seat { level: Level::Nfl, nfl_team: Some(t), program: None },
-        // Never offered to you (`interest_fits`).
-        Employer::Other(_) => return,
+        Employer::HighSchool(s) => Seat { level: Level::HighSchool, nfl_team: None, program: Some(s), other: None },
+        Employer::College(p) => Seat { level: Level::College, nfl_team: None, program: Some(p), other: None },
+        Employer::Nfl(t) => Seat { level: Level::Nfl, nfl_team: Some(t), program: None, other: None },
+        Employer::Other(f) => Seat { level: Level::Other, nfl_team: None, program: None, other: Some(f) },
     });
     let log_kept = std::mem::take(&mut w.front_office.log);
     w.front_office = Default::default();
@@ -690,6 +704,7 @@ pub(crate) fn hired(w: &mut World, e: Employer, r: Role) {
         super::school::open(w, s);
     }
     super::super::finance::hs::open_seat(w);
+    w.prune_tapes();
     move_family(w, e);
     let name = employer_name(w, e);
     post(w, today, level_of(e), format!("You start as {} at {name}.", r.name()), false);
@@ -736,10 +751,12 @@ pub(crate) fn left(w: &mut World, why: &str) {
     let name = match seat.level {
         Level::Nfl => seat.nfl_team.map(|t| w.nfl_team_name(t)),
         Level::HighSchool => seat.program.map(|s| w.school_name(s).to_string()),
+        Level::Other => seat.other.map(|f| crate::world::pro::other::name(f, w.year).to_string()),
         _ => seat.program.map(|p| w.program_name(p).to_string()),
     }
     .unwrap_or_default();
-    w.seat = Some(Seat { level: seat.level, nfl_team: None, program: None });
+    w.seat = Some(Seat { level: seat.level, nfl_team: None, program: None, other: None });
+    w.prune_tapes();
     w.seat_depth.clear();
     w.seat_focus.clear();
     if let Some(c) = w.career.as_mut() {

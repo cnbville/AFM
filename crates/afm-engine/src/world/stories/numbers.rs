@@ -276,6 +276,9 @@ pub(crate) fn roster(w: &World, t: TeamKey) -> Vec<(usize, u32)> {
         TeamKey::College(p) => w.programs.get(p as usize).map_or_else(Vec::new, |x| x.roster.clone()),
         TeamKey::Hs(h) => w.high_schools.get(h as usize).map_or_else(Vec::new, |x| x.roster.clone()),
         TeamKey::Nfl(n) => w.clubs.get(n as usize).map_or_else(Vec::new, |c| c.roster.clone()),
+        TeamKey::Other(f) => {
+            w.others.teams.get(f as usize).map_or_else(Vec::new, |t| t.roster.iter().map(|&i| i as usize).collect())
+        }
     };
     // A player who walked away stays on the list until the roster is
     // rebuilt; he is not on the team.

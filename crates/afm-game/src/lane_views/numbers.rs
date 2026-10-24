@@ -72,6 +72,9 @@ pub fn defense(pos: Position) -> usize {
 /// the numbers left.
 pub fn for_team(w: &World, cal: CalLevel, team: usize, players: &[(u32, Position)], year: i32) -> HashMap<u32, u8> {
     let key = match cal {
+        // Another league's club keeps no numbers between seasons: each
+        // man picks his own, the pro way.
+        CalLevel::Other => return assign_with(players, true, year, [[false; 100]; 2]).into_iter().collect(),
         CalLevel::Nfl => TeamKey::Nfl(team as u16),
         CalLevel::HighSchool => TeamKey::Hs(team as u32),
         _ => TeamKey::College(team as u32),

@@ -52,6 +52,7 @@ impl Team {
         Some(match s.level {
             Level::Nfl => Team::Nfl(s.nfl_team?),
             Level::HighSchool => Team::High(s.program?),
+            Level::Other => Team::Other(s.other?),
             _ => Team::College(s.program?),
         })
     }

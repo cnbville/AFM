@@ -105,6 +105,36 @@ pub fn venue(w: &World, level: CalLevel, date: Date, home: usize, setup: &Replay
             });
             (stadium, city, seat_n, "bowl", roof_s, surf, false, true, "video")
         }
+        CalLevel::Other => {
+            use afm_engine::world::pro::other as o;
+            let year = date.year();
+            let city = o::city(home, year).to_string();
+            let k = home as u64 ^ 0x07E2;
+            match o::league_of(home) {
+                // Arena football: a hockey and basketball arena, 50 yards
+                // of turf under a roof.
+                o::AFL1 | o::AFL2 => {
+                    let n = 11_000 + (unit(k) * 7_000.0) as u32;
+                    (format!("{city} arena"), city, n / 50 * 50, "bowl", "dome", "turf", false, true, "video")
+                }
+                // The CFL's grounds: two long stands on most, BC Place's
+                // roof in Vancouver.
+                o::CFL => {
+                    let n = 23_000 + (unit(k) * 13_000.0) as u32;
+                    let shp = if n > 32_000 { "horseshoe" } else { "two sides" };
+                    if city == "BC" {
+                        ("BC Place".into(), "Vancouver".into(), 54_500, "bowl", "dome", "turf", false, true, "video")
+                    } else {
+                        (format!("{city} stadium"), city, n / 50 * 50, shp, "open", "turf", false, true, "video")
+                    }
+                }
+                // The spring leagues rent NFL, MLS and college grounds.
+                _ => {
+                    let n = 20_000 + (unit(k) * 45_000.0) as u32;
+                    (format!("{city} stadium"), city, n / 50 * 50, "bowl", "open", "turf", false, true, "video")
+                }
+            }
+        }
         CalLevel::HighSchool => {
             let s = &w.high_schools[home];
             let k = home as u64 ^ 0x4853;

@@ -188,3 +188,48 @@ fn game_day_from_the_morning_to_the_game_page() {
     println!("game day test in {:.0}s", t.elapsed().as_secs_f64());
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// Opener film (first post-release update): the world keeps every NFL and
+/// college team's last two tapes from its final history season, so a new
+/// career's first opponent has last season's film before it plays, and the
+/// film room keeps only your coming opponents once your career starts.
+#[test]
+fn a_new_careers_opener_has_last_seasons_film() {
+    let dir = std::env::temp_dir().join(format!("afm-opener-{}", std::process::id()));
+    let mut g = Game::new(dir.clone());
+    ok(&mut g, "build_world", json!({ "seed": 12, "history_years": 1, "scale": 0.04, "engine_from": 2025 }));
+    {
+        let w = g.world.as_ref().unwrap();
+        let tapes = &w.gameday.tapes;
+        let levels = |l: afm_engine::calendar::Level| tapes.iter().filter(|t| t.level == l).count();
+        let (nfl, college) = (levels(afm_engine::calendar::Level::Nfl), levels(afm_engine::calendar::Level::College));
+        println!("the world keeps {nfl} NFL and {college} college tapes");
+        assert!(nfl >= 32, "every club's last games are on tape: {nfl}");
+        assert!(college >= 100, "college teams' last games are on tape: {college}");
+        // Two a team at most: the store is bounded by the teams.
+        assert!(nfl <= 2 * w.nfl.len() && college <= 2 * w.programs.len());
+    }
+    let job = ok(&mut g, "jobs", json!({ "level": "college" }))["jobs"][0]["ref"].clone();
+    ok(
+        &mut g,
+        "start_career",
+        json!({ "name": "Test Coach", "age": 44, "background": "college_assistant", "job": job, "seed": 5, "calls": "staff" }),
+    );
+    to_game_morning(&mut g);
+    let w = g.world.as_ref().unwrap();
+    let opps = w.coming_opponents();
+    assert!(
+        w.gameday.tapes.iter().all(|t| t.level == afm_engine::calendar::Level::College),
+        "only your level's film stays"
+    );
+    assert!(
+        w.gameday.tapes.iter().all(|t| t.teams.iter().any(|x| opps.contains(x))),
+        "only your coming opponents' film stays"
+    );
+    assert!(w.gameday.tapes.iter().any(|t| t.date < w.dates.start), "last season's film is in the room");
+    let hub = ok(&mut g, "gameday", json!({}));
+    let tapes = hub["tapes"].as_array().unwrap();
+    assert!(!tapes.is_empty(), "the opener has last season's film: {hub}");
+    println!("opener film: {} tapes of {}", tapes.len(), hub["opp"]["name"]);
+    let _ = std::fs::remove_dir_all(dir);
+}

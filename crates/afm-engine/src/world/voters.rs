@@ -314,12 +314,8 @@ pub struct Voters {
 /// Sports media by ethnicity (APSE report cards: about four in five
 /// writers and editors white).
 fn media_ethnicity(rng: &mut Rng) -> Ethnicity {
-    rng.weighted(&[
-        (Ethnicity::White, 0.78),
-        (Ethnicity::Black, 0.13),
-        (Ethnicity::Hispanic, 0.05),
-        (Ethnicity::Asian, 0.04),
-    ])
+    // The Asian share split into its three groups at the end (faces F4).
+    rng.weighted(&super::ethnicity::with_asian_split([0.78, 0.13, 0.05, 0.0, 0.04]))
 }
 
 /// A media voter's name, drawn from his id each time it is shown.

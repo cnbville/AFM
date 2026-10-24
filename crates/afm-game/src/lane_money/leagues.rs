@@ -43,8 +43,18 @@ pub(crate) fn leagues(w: &World, args: &Value) -> Value {
             })
         })
         .collect();
-    let k =
-        args.get("league").and_then(Value::as_u64).map(|k| k as u8).filter(|k| ks.contains(k)).or(ks.first().copied());
+    // Your own league first when you coach in one.
+    let yours = crate::views::mine(w).and_then(|t| match t {
+        crate::views::TeamRef::Other(f) => Some(o::league_of(f)),
+        _ => None,
+    });
+    let k = args
+        .get("league")
+        .and_then(Value::as_u64)
+        .map(|k| k as u8)
+        .filter(|k| ks.contains(k))
+        .or(yours.filter(|k| ks.contains(k)))
+        .or(ks.first().copied());
     let Some(k) = k else {
         return json!({ "leagues": list, "league": Value::Null, "note": "No other league has played a season in this world yet." });
     };

@@ -703,6 +703,7 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
         trust: 0.6,
         trust_in: u32::MAX,
         roads: Default::default(),
+        looks: super::looks::Looks::new(w.options.seed, id),
     }
 }
 

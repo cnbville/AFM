@@ -245,8 +245,92 @@ impl Tape {
     }
 }
 
-/// Tapes kept per opponent (its last few games).
+/// Tapes kept per coming opponent (its last few games).
 const KEEP_PER_TEAM: usize = 6;
+/// Tapes kept of each team you could open against next season.
+const KEEP_NEXT_YEAR: usize = 2;
+/// A tape older than this is from the season before last.
+const TAPE_DAYS: i32 = 400;
+
+/// The teams whose film the day keeps, and how many tapes of each.
+pub(crate) struct Watch {
+    level: Level,
+    caps: Vec<u8>,
+    /// Your own team: its games are on your own film, not here.
+    me: Option<usize>,
+}
+
+impl Watch {
+    fn new(level: Level, teams: usize) -> Watch {
+        Watch { level, caps: vec![0; teams], me: None }
+    }
+
+    fn add(&mut self, team: usize, n: usize) {
+        if let Some(c) = self.caps.get_mut(team) {
+            *c = (*c).max(n as u8);
+        }
+    }
+
+    /// Whether the day keeps film of a team's games.
+    pub(crate) fn watches(&self, team: usize) -> bool {
+        self.cap(team) > 0
+    }
+
+    fn cap(&self, team: usize) -> usize {
+        self.caps.get(team).map_or(0, |&c| c as usize)
+    }
+}
+
+/// Late in a season, when a staff starts on next year's opponents: the NFL
+/// from 1 December, college from 1 November, high school from 15 October,
+/// to the end of each one's postseason (another league: its last four
+/// weeks, `tape_watch`).
+fn late_season(level: Level, d: Date) -> bool {
+    let (m, day) = (d.month(), d.day());
+    match level {
+        Level::Nfl => m == 12 || m <= 2,
+        Level::College => m >= 11 || m == 1,
+        // The other leagues run on their own calendars (`tape_watch`).
+        Level::Other => false,
+        _ => (m == 10 && day >= 15) || m >= 11,
+    }
+}
+
+/// Keeps the newest tapes of each watched team up to its cap (a tape stays
+/// while either side still needs it), from this season and the one before.
+/// Only the watch's level is trimmed.
+fn trim(tapes: &mut Vec<Tape>, w: &Watch, today: Date) {
+    let oldest = today.add(-TAPE_DAYS);
+    let mut order: Vec<usize> = (0..tapes.len()).collect();
+    order.sort_by_key(|&k| std::cmp::Reverse(tapes[k].date));
+    let mut seen = vec![0usize; w.caps.len()];
+    let mut keep = vec![false; tapes.len()];
+    for k in order {
+        let t = &tapes[k];
+        // Another level's film is not this watch's to drop (the world's
+        // last season keeps the NFL's and college's side by side).
+        if t.level != w.level {
+            keep[k] = true;
+            continue;
+        }
+        if t.date < oldest {
+            continue;
+        }
+        for &team in &t.teams {
+            if let Some(n) = seen.get_mut(team) {
+                if *n < w.cap(team) {
+                    keep[k] = true;
+                }
+                *n += 1;
+            }
+        }
+    }
+    let mut k = 0;
+    tapes.retain(|_| {
+        k += 1;
+        keep[k - 1]
+    });
+}
 
 impl World {
     /// The teams still to play your team this season, at your level: the
@@ -287,6 +371,7 @@ impl World {
                 v.extend(self.hs_playoff_field(t));
                 v
             }
+            Level::Other => super::pro::other::seat_opponents(self),
             _ => Vec::new(),
         };
         out.sort_unstable();
@@ -294,52 +379,143 @@ impl World {
         out
     }
 
-    /// Whose film the day keeps at a level: your coming opponents, or None
-    /// when your team is not at that level.
-    pub(crate) fn tape_watch(&self, level: Level) -> Option<Vec<usize>> {
-        let (my_level, _) = self.seat_team()?;
-        (my_level == level).then(|| self.coming_opponents())
+    /// Whose film the day keeps at a level, and how many tapes of each:
+    /// your coming opponents' last 6, and late in the season the last 2 of
+    /// every team you could open against next year (a staff starts on next
+    /// season's opener in the winter, from last season's film). In the last
+    /// history season, with no career yet, every NFL and college team's
+    /// last 2, so a new career has film of its first opponents. None when
+    /// the day keeps no film at that level.
+    pub(crate) fn tape_watch(&self, level: Level) -> Option<Watch> {
+        if self.seat.is_none() {
+            if !self.world_tapes || !matches!(level, Level::Nfl | Level::College) || !late_season(level, self.today) {
+                return None;
+            }
+            let n = match level {
+                Level::Nfl => self.nfl.len(),
+                _ => self.programs.len(),
+            };
+            let mut w = Watch::new(level, n);
+            (0..n).for_each(|t| w.add(t, KEEP_NEXT_YEAR));
+            return Some(w);
+        }
+        let (my_level, me) = self.seat_team()?;
+        if my_level != level {
+            return None;
+        }
+        let mut w = Watch::new(level, self.team_count(level));
+        // In another league, the last four weeks of your club's season.
+        let late = match level {
+            Level::Other => super::pro::other::seat_fixtures(self).len() <= 4,
+            _ => late_season(level, self.today),
+        };
+        if late {
+            for t in self.next_year_pool() {
+                w.add(t, KEEP_NEXT_YEAR);
+            }
+        }
+        for t in self.coming_opponents() {
+            w.add(t, KEEP_PER_TEAM);
+        }
+        w.me = Some(me);
+        Some(w)
     }
 
-    /// Keeps a game's film when a coming opponent of yours played in it
-    /// (`opps` from `tape_watch`).
+    /// How many teams a level has (team ids run below it).
+    fn team_count(&self, level: Level) -> usize {
+        match level {
+            Level::Nfl => self.nfl.len(),
+            Level::HighSchool => self.high_schools.len(),
+            Level::Other => super::pro::other::FRANCHISES,
+            _ => self.programs.len(),
+        }
+    }
+
+    /// Every team your team could open against next season: at the NFL
+    /// every other club; in college every program of your division; in
+    /// high school your state's schools of your class and the ones next
+    /// to it.
+    fn next_year_pool(&self) -> Vec<usize> {
+        let Some((level, me)) = self.seat_team() else { return Vec::new() };
+        match level {
+            Level::Nfl => (0..self.nfl.len()).filter(|&t| t != me).collect(),
+            // Every club of your league (next year's list where it is out).
+            Level::Other => {
+                let k = super::pro::other::league_of(me);
+                let y = self.today.year();
+                let mut v = super::pro::other::teams_in(k, y + 1);
+                if v.is_empty() {
+                    v = super::pro::other::teams_in(k, y);
+                }
+                v.retain(|&t| t != me);
+                v
+            }
+            Level::HighSchool => {
+                let Some(s) = self.high_schools.get(me) else { return Vec::new() };
+                self.high_schools
+                    .iter()
+                    .filter(|o| o.id != me && o.state == s.state && o.classification.abs_diff(s.classification) <= 1)
+                    .map(|o| o.id)
+                    .collect()
+            }
+            _ => {
+                let Some(p) = self.programs.get(me) else { return Vec::new() };
+                self.programs.iter().filter(|o| o.id != me && o.division == p.division).map(|o| o.id).collect()
+            }
+        }
+    }
+
+    /// Keeps a game's film when a team the day watches played in it
+    /// (`watch` from `tape_watch`), then drops what nobody needs.
     pub(crate) fn keep_tape(
         &mut self,
-        opps: &[usize],
+        watch: &Watch,
         level: Level,
         teams: [usize; 2],
         stats: &GameStats,
         film: &[Film; 2],
     ) {
-        let Some((my_level, me)) = self.seat_team() else { return };
-        if level != my_level || teams.contains(&me) || !teams.iter().any(|t| opps.contains(t)) {
+        if level != watch.level
+            || watch.me.is_some_and(|me| teams.contains(&me))
+            || !teams.iter().any(|&t| watch.cap(t) > 0)
+        {
             return;
         }
         let names = match level {
             Level::Nfl => teams.map(|t| self.nfl_team_name(t)),
             Level::HighSchool => teams.map(|h| self.school_name(h).to_string()),
+            Level::Other => teams.map(|f| super::pro::other::name(f, self.today.year()).to_string()),
             _ => teams.map(|p| self.program_name(p).to_string()),
         };
         let tape = Tape::of(self.today, level, teams, names, stats, film);
-        let tapes = &mut self.gameday.tapes;
-        tapes.push(tape);
-        // Only this season's tapes of teams still to come, the last few of
-        // each (a tape stays while either side still needs it).
-        let season_start = self.today.add(-200);
-        tapes.retain(|t| t.date >= season_start && t.teams.iter().any(|x| opps.contains(x)));
-        let mut keep = vec![false; tapes.len()];
-        for &o in opps {
-            let mut mine: Vec<usize> = (0..tapes.len()).filter(|&k| tapes[k].teams.contains(&o)).collect();
-            mine.sort_by_key(|&k| std::cmp::Reverse(tapes[k].date));
-            for &k in mine.iter().take(KEEP_PER_TEAM) {
-                keep[k] = true;
+        self.gameday.tapes.push(tape);
+        let today = self.today;
+        trim(&mut self.gameday.tapes, watch, today);
+    }
+
+    /// The film room after a change of schedule or job: only your level's
+    /// tapes, and once your schedule is out only your coming opponents'
+    /// (last season's film of them included). Before the schedule is out
+    /// the tapes stay as they are; without a team the room is empty.
+    pub(crate) fn prune_tapes(&mut self) {
+        let Some((level, me)) = self.seat_team() else {
+            if self.seat.is_some() {
+                self.gameday.tapes.clear();
             }
+            return;
+        };
+        self.gameday.tapes.retain(|t| t.level == level);
+        let coming = self.coming_opponents();
+        if coming.is_empty() {
+            return;
         }
-        let mut k = 0;
-        tapes.retain(|_| {
-            k += 1;
-            keep[k - 1]
-        });
+        let mut w = Watch::new(level, self.team_count(level));
+        for t in coming {
+            w.add(t, KEEP_PER_TEAM);
+        }
+        w.me = Some(me);
+        let today = self.today;
+        trim(&mut self.gameday.tapes, &w, today);
     }
 
     /// Your staff's film study (1-20), as the world builds it for your
@@ -365,9 +541,12 @@ impl World {
         v.clamp(1.0, 20.0)
     }
 
-    /// An opponent's tapes this season, newest first.
+    /// An opponent's tapes, newest first: this season's, and last
+    /// season's while they are still among its last few games.
     pub fn tapes_of(&self, team: usize) -> Vec<&Tape> {
-        let mut v: Vec<&Tape> = self.gameday.tapes.iter().filter(|t| t.teams.contains(&team)).collect();
+        let level = self.seat_team().map(|s| s.0);
+        let mut v: Vec<&Tape> =
+            self.gameday.tapes.iter().filter(|t| Some(t.level) == level && t.teams.contains(&team)).collect();
         v.sort_by_key(|t| std::cmp::Reverse(t.date));
         v
     }

@@ -43,8 +43,8 @@ Object.assign(I, {
   plans: '<path d="M5 3h10l4 4v14H5z M15 3v4h4"/><circle cx="9" cy="12" r="1.6"/><path d="M13 11l3 3M16 11l-3 3M9 17c2 0 4-1 6-3"/>',
   design: '<path d="M4 20l4-1 11-11-3-3L5 16z M14 6l3 3"/>',
 });
-navAdd({ go: "plans", label: "Plans", icon: "plans", sec: "team", after: "training" });
-navAdd({ go: "designer", label: "Play designer", icon: "design", sec: "team", after: "plans" });
+navAdd({ go: "plans", label: "Plans", icon: "plans", sec: "team", after: "training", seats: ["college", "nfl", "hs"] });
+navAdd({ go: "designer", label: "Play designer", icon: "design", sec: "team", after: "plans", seats: ["college", "nfl", "hs"] });
 Object.assign(CRUMBS, { plans: "Plans", designer: "Play designer", roster: "Squad", depth: "Depth chart", training: "Training" });
 GOTO.training = () => [["Squad", "roster", { view: "Development" }], ["Depth chart", "depth"], ["Plans", "plans"], ["Staff", "staff"], ["Schedule", "schedule"]];
 GOTO.plans = () => [["Game day", "gameday"], ["Play designer", "designer"], ["Training", "training"], ["Depth chart", "depth"], ["Schedule", "schedule"]];

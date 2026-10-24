@@ -411,7 +411,9 @@ fn heritage(role: Role, rng: &mut Rng) -> Ethnicity {
         Role::Reporter | Role::Comms => (0.82, 0.1, 0.05, 0.03),
         _ => (0.72, 0.2, 0.05, 0.03),
     };
-    rng.weighted(&[(Ethnicity::White, w), (Ethnicity::Black, b), (Ethnicity::Hispanic, h), (Ethnicity::Asian, a)])
+    // The Asian share split into its three groups at the end of the list
+    // (faces F4): one draw picks every other heritage as before.
+    rng.weighted(&super::super::ethnicity::with_asian_split([w, b, h, 0.0, a]))
 }
 
 fn women_share(role: Role) -> f64 {

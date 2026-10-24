@@ -569,6 +569,9 @@ fn year_start(w: &mut World) {
             .post(Event::new(esp, Level::Recruiting, Kind::Window, Loudness::Big, text).rule("NCAA: early signing"));
     }
     let _ = hs_transfer_day(&y);
+    // The new schedules are out: your film room keeps your coming
+    // opponents, last season's tapes of them included.
+    w.prune_tapes();
 }
 
 /// Recorded years whose small events the game log keeps (part D 40).
@@ -850,11 +853,11 @@ mod tests {
     /// college moment about his own program still matters to him.
     #[test]
     fn a_seat_cares_about_its_level_and_team() {
-        let seat = super::super::Seat { level: Level::Nfl, nfl_team: Some(3), program: None };
+        let seat = super::super::Seat { level: Level::Nfl, nfl_team: Some(3), program: None, other: None };
         let d = Date::ymd(2026, 9, 5);
         assert!(!seat.cares(&Event::new(d, Level::College, Kind::Game, Loudness::Big, "A college game.")));
         assert!(seat.cares(&Event::new(d, Level::Nfl, Kind::Game, Loudness::Big, "An NFL game.")));
-        let coach = super::super::Seat { level: Level::College, nfl_team: None, program: Some(7) };
+        let coach = super::super::Seat { level: Level::College, nfl_team: None, program: Some(7), other: None };
         let nfl = Event::new(d, Level::Nfl, Kind::Transfer, Loudness::Big, "His player is drafted.").program(7);
         assert!(coach.cares(&nfl));
     }

@@ -236,7 +236,8 @@ const icon = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" 
 
 // ---------- the sidebar (topic 1): every area of your job, by seat ----------
 // Other lanes add their screens with navAdd({go, label, icon, sec, seats,
-// after}); seats lists "college", "nfl", "hs" (all when left out).
+// after}); seats lists "college", "nfl", "hs", "other" (a club in another
+// league; all when left out).
 const NAV = [
   { go: "home", label: "Home", icon: "home", sec: "top" },
   { go: "inbox", label: "Inbox", icon: "inbox", sec: "top", badge: () => (S.status && S.status.unread) || 0 },
@@ -244,14 +245,16 @@ const NAV = [
   { go: "myplayers", label: "My players", icon: "star", sec: "top" },
   { go: "roster", label: "Squad", icon: "squad", sec: "team" },
   { go: "depth", label: "Depth chart", icon: "depth", sec: "team" },
-  { go: "training", label: "Training", icon: "train", sec: "team" },
+  // A club in another league practises on its own staff's plan (the
+  // world's training covers the NFL, college and high school seats).
+  { go: "training", label: "Training", icon: "train", sec: "team", seats: ["college", "nfl", "hs"] },
   { go: "recruiting", label: "Recruiting", icon: "recruit", sec: "team", seats: ["college", "hs"] },
   { go: "contracts", label: "Contracts", icon: "money", sec: "team", seats: ["nfl"] },
   { go: "schedule", label: "Schedule", icon: "sched", sec: "team" },
   { go: "games", label: "Game pages", icon: "game", sec: "team" },
   { go: "staff", label: "Staff", icon: "staff", sec: "team" },
   { go: "news", label: "News", icon: "news", sec: "world" },
-  { go: "standings", label: "Standings", icon: "table", sec: "world" },
+  { go: "standings", label: "Standings", icon: "table", sec: "world", seats: ["college", "nfl", "hs"] },
   { go: "leaders", label: "Leaderboards", icon: "leader", sec: "world" },
   { go: "history", label: "History", icon: "history", sec: "world" },
   { go: "team", label: "Team history", icon: "team", sec: "world" },

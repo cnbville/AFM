@@ -71,6 +71,7 @@ fn team_ref(level: CalLevel, t: usize) -> TeamRef {
     match level {
         CalLevel::Nfl => TeamRef::Nfl(t),
         CalLevel::HighSchool => TeamRef::HighSchool(t),
+        CalLevel::Other => TeamRef::Other(t),
         _ => TeamRef::College(t),
     }
 }
@@ -185,6 +186,19 @@ fn next_game(w: &World) -> Option<Next> {
             why: Vec::new(),
             kick: Some("7:00 pm".into()),
         }),
+        CalLevel::Other => {
+            afm_engine::world::pro::other::seat_fixtures(w).into_iter().find(|f| f.0 >= today).map(|(date, h, a)| {
+                Next {
+                    date,
+                    opp: if h == t { a } else { h },
+                    home: h == t,
+                    neutral: false,
+                    name: None,
+                    why: Vec::new(),
+                    kick: None,
+                }
+            })
+        }
         _ => None,
     }
     .or_else(|| {
@@ -403,7 +417,12 @@ fn hub(w: &World) -> Value {
         "date": views::date_text(n.date),
         "in": w.today.days_to(n.date),
         "kick": n.kick,
-        "level": match level { CalLevel::Nfl => "NFL", CalLevel::HighSchool => "High school", _ => "College" },
+        "level": match level {
+            CalLevel::Nfl => "NFL",
+            CalLevel::HighSchool => "High school",
+            CalLevel::Other => afm_engine::world::pro::other::league_short(afm_engine::world::pro::other::league_of(t)),
+            _ => "College",
+        },
         "name": n.name,
         "why": n.why,
         "me": views::team_brief(w, me),
@@ -1071,7 +1090,7 @@ fn live_state(w: &mut World) -> Reply {
 
 fn level_of(l: CalLevel) -> afm_engine::player::Level {
     match l {
-        CalLevel::Nfl => afm_engine::player::Level::NFL,
+        CalLevel::Nfl | CalLevel::Other => afm_engine::player::Level::NFL,
         CalLevel::HighSchool => afm_engine::player::Level::HS,
         _ => afm_engine::player::Level::FBS,
     }
