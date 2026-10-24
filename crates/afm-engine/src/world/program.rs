@@ -331,6 +331,11 @@ pub struct Program {
     pub support: super::people::Support,
     pub team_mood: f32,
     pub captains: Vec<usize>,
+    /// What the open stories about it say to a recruit this week (update 2,
+    /// S4): rivals' material from a scandal or a hot seat, the lift of a
+    /// rising program's story. Small, read by every recruit's appeal.
+    #[serde(default)]
+    pub story_push: f32,
 }
 
 /// A school single-season record (A40).
@@ -568,6 +573,7 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
         support: Default::default(),
         team_mood: 0.0,
         captains: Vec::new(),
+        story_push: 0.0,
     };
     p.prestige = prestige_of(&p, 10.0, 0.5);
     p

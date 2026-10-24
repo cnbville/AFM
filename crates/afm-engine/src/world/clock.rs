@@ -502,6 +502,8 @@ pub(crate) fn advance_day(w: &mut World) {
     timed("people", || super::folk::day(w, d));
     // The stories around the day's football (final build lane 8).
     timed("stories", || super::stories::day(w, d));
+    // The storyline engine (update 2): stories that last.
+    timed("storylines", || super::storylines::day(w, d));
     timed("scouting", || super::scouting::day(w, d));
     // Section 6b: every team's training week, and the growth it earned.
     if d.weekday() == Weekday::Mon {

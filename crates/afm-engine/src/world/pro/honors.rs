@@ -80,7 +80,7 @@ const REAL_1983: [(&str, bool, f64, &str, i32); 18] = [
     ("field goals", false, 35.0, "Ali Haji-Sheikh", 1983),
 ];
 
-fn stat_of(l: &StatLine, stat: &str) -> f64 {
+pub(crate) fn stat_of(l: &StatLine, stat: &str) -> f64 {
     match stat {
         "passing yards" => l.pass_yds,
         "passing touchdowns" => l.pass_td as f64,

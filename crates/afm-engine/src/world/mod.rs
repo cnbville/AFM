@@ -54,6 +54,7 @@ pub(crate) mod season;
 pub mod seat;
 pub mod staff;
 pub mod stories;
+pub mod storylines;
 pub mod systems;
 pub mod tape;
 pub mod trends;
@@ -799,6 +800,10 @@ pub struct World {
     /// pools the seasons it plays from then on.
     #[serde(default)]
     pub level_scales: Vec<crate::level_rating::ScaleHistory>,
+    /// The storyline engine (update 2, S1-S10): stories that last, with a
+    /// cast, a question, heat and an ending.
+    #[serde(default)]
+    pub storylines: storylines::Storylines,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -1128,6 +1133,7 @@ impl World {
             others: Default::default(),
             faces_version: 1,
             level_scales: Vec::new(),
+            storylines: Default::default(),
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);

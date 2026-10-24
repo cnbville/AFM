@@ -28,6 +28,8 @@ pub enum EntryKind {
     Season,
     /// A bowl or playoff win that brought no title.
     BigWin,
+    /// A chapter written from a story you were in (update 2, S10).
+    Chapter,
 }
 
 /// One line on your timeline.
