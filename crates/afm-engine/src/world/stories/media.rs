@@ -195,9 +195,11 @@ pub struct Media {
     /// The last six seasons' annuals.
     pub magazines: Vec<Magazine>,
     pub docs: Vec<Doc>,
-    /// This season's fantasy lines by player id, and its year.
+    /// This season's fantasy lines by player id (in id order: the weekly
+    /// fantasy news walks them and rolls the stories' dice as it goes), and
+    /// its year.
     pub fantasy_year: i32,
-    pub fantasy: HashMap<u32, Fantasy>,
+    pub fantasy: std::collections::BTreeMap<u32, Fantasy>,
     /// Each season's fantasy leaders at QB, RB, WR, TE: (year, pos, id, points).
     pub fantasy_leaders: Vec<(i16, u8, u32, f32)>,
     /// Jersey sales lists: (year, college or not, ids in order).

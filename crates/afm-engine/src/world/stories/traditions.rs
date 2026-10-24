@@ -897,7 +897,7 @@ fn yearly_honors(w: &mut World) {
     }
     // Ring of honor before the Hall: a long-time star at the club, a few
     // years after he retires (five Pro Bowls with the club).
-    let mut bowls: std::collections::HashMap<(u32, usize), u32> = Default::default();
+    let mut bowls: std::collections::BTreeMap<(u32, usize), u32> = Default::default();
     for &(_, id, team) in &w.nfl_book.pro_bowls {
         *bowls.entry((id, team)).or_default() += 1;
     }
