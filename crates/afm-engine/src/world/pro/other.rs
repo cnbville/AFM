@@ -1516,7 +1516,10 @@ fn play_week(w: &mut World, d: Date, li: usize, f: &Format) {
             if let Some(m) = &yours
                 && m.teams == [h as usize, a as usize]
             {
-                return Some(crate::game::play_game(&m.params.setup(&m.home, &m.away)));
+                // Kept with its setup, so its film plays again in the film room.
+                let mut setup = m.params.setup(&m.home, &m.away);
+                setup.keep = true;
+                return Some(crate::game::play_game(&setup));
             }
             // A title game is at a neutral site (the Grey Cup's host city).
             let venue = Venue { neutral, ..Venue::default() };

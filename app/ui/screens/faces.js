@@ -66,7 +66,7 @@
       <div class="fc-acts">
         <button class="st-btn small glass" data-fact="change" data-id="${f.id}">Change photo</button>
         <button class="st-btn small glass" data-fact="prompt" data-id="${f.id}" title="An image prompt from his looks, for your own AI pictures">Copy AI prompt</button>
-        ${f.mine ? `<button class="st-btn small glass" data-fact="clear" data-id="${f.id}">Back to generated face</button>` : ""}
+        ${f.mine ? `<button class="st-btn small glass" data-fact="clear" data-id="${f.id}">Remove your photo</button>` : ""}
       </div>
       <details class="fc-looks"><summary>Looks</summary><div>${[f.looks.hair, f.looks.beard, ...f.looks.marks.map((m) => m[0].toUpperCase() + m.slice(1)), `${f.looks.build[0].toUpperCase()}${f.looks.build.slice(1)} build, ${f.looks.skin}, ${f.looks.eyes}`].map((t) => `<span>${esc(t)}</span>`).join("")}</div></details>`;
     box._face = f;
@@ -259,7 +259,7 @@
       if (act === "change") await changePhoto(id);
       else if (act === "prompt") await copyPrompt(id);
       else if (act === "clear") {
-        if (!(await sure("Back to the generated face?", "Your photo of him is deleted from this save's folder.", "Remove photo"))) return;
+        if (!(await sure("Remove your photo?", "Your photo of him is deleted from this save's folder, and his team picture shows again.", "Remove photo"))) return;
         const f = await api("face_photo_clear", { id });
         cache.delete(id);
         fill(document.querySelector(`.fc-portrait[data-id="${id}"]`), f);

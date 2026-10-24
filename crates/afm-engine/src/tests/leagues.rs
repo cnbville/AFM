@@ -177,6 +177,7 @@ fn your_club_in_another_league_plays_its_season() {
             let g = w.seat_games.last().unwrap();
             assert_eq!(g.teams, s.teams);
             assert!(g.teams.contains(&fr));
+            assert!(!g.replay.is_empty(), "{d:?}: your game keeps its film");
             let score = |t: &crate::game::GameStats| [t.team[0].points, t.team[1].points];
             assert_eq!(score(&g.stats), score(&r.stats), "{d:?}: the day played the morning's game");
             played += 1;

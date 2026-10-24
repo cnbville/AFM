@@ -480,6 +480,17 @@ Cain's list of 2026-10-23 (`docs/final-build/list.md`, "Next update": V1-V10, P1
 - **V1 anti-aliasing and V2 filmic tone mapping** were already in lane 13's view.
 - **Not in this preview:** V3 (one shared low-poly CC0 body) and P12 (CMU motion capture) need assets picked and converted to the rig, so they wait; V9 and P20 were noes. The M1 frame rate is not measured here (the test machine has no GPU); the switch's extra work per frame is the pair pass over 22 men and a few material colours per snap.
 
+### Lane 4: faces (all but the drawn heads)
+
+Faces items F3-F12, S4 and X4 from `docs/design/faces.md` and `docs/final-build/briefs/lane12-faces.md`, from the earlier faces lane's work (`claude/final-wip-lane12`) merged onto today's code. Engine side in `world/looks.rs` (`docs/world-model.md`, "Faces"); commands in `crates/afm-game/src/lane_faces.rs`; screens in `app/ui/screens/faces.js`.
+
+- **The recipe (F3):** one looks number per person (4 bytes), from the world's seed and his id alone, so every seed plays exactly as before. His genes (heritage with mixed ancestry, skin, eyes, natural hair, beard growth, greying and hairline genes, freckles), how he looks in a season (haircut and dye, facial hair, scars, a broken nose, tattoos, earrings, build) and his team headshots (one when he joins a team, a new one every four years on media day, high schoolers every school year) are read from it when a screen asks.
+- **Heritage groups (F4):** Ethnicity has East Asian, Southeast Asian and South Asian beside Polynesian; names and faces follow the family's origin (`data/names/asian_surnames.csv`). The old Asian share is cut into the three at the end of every draw list, so every other group is drawn exactly as before. A world file from before loads with the groups split by surname (`World::faces_after_load`).
+- **The player page:** his portrait (your photo, or a silhouette with his initials in his team's colours), the caption with his team and when its picture was taken, "Change photo" with a crop box, "Copy AI prompt" (heritage, age, body, position, team colours, hair, beard and marks as of his current headshot), "Remove your photo", the note when a newer team picture exists (F8), and his looks in words.
+- **Lists (S4, F11):** small round faces before every player link in the squad, depth chart, recruiting, training and contracts tables: your photo or his initials.
+- **Photos and AI prompts page (X4):** a folder (or a pick of pictures) imported in one go, matched by id ("41234.jpg"), by name and team or year ("Jalen Smith - Alabama.png", "Jalen Smith 2027.jpg") or by name alone when one active player has it; a review table before anything is kept; undo for a whole batch; "Export AI prompts", one text file per player. Photos live in the save's own faces folder beside the save and follow it on save, rename and delete.
+- **Not in this update: the drawn heads (F14).** Drawing the approved v7 heads in the app (the GNM shapes and strand hair, offline, under a second a face) is a project of its own; until it ships every face without your photo is the initials silhouette, and there is no comparison picture yet. The settings switch and the store for drawn pictures exist in `lane_faces.rs` (off) for when it does.
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The inbox's pinned answers; holiday mode on screen; faces and charts (section 10).
