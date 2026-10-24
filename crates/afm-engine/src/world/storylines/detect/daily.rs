@@ -167,12 +167,8 @@ fn head_left(w: &mut World, t: TeamKey, c: usize, d: Date) {
             && on(w, t)
         {
             let n = (s.to - s.from).max(1) as u32;
-            let text = format!(
-                "{} leaves {} after {}.",
-                cname(w, c),
-                tname(w, t),
-                crate::world::news::count(n, "season")
-            );
+            let text =
+                format!("{} leaves {} after {}.", cname(w, c), tname(w, t), crate::world::news::count(n, "season"));
             let s = coach_spot(w, K::QuickExit, c, t).fact(text, 4.0).public();
             tell(w, s);
         }
@@ -351,14 +347,18 @@ fn candidates(w: &mut World, t: TeamKey, due: Date) {
             {
                 picks.push((K::NflWantsCoach, x));
             }
-            for &x in coords.iter().filter(|x| matches!(x.2, TeamKey::Nfl(_)) && w.coaches[x.1].reputation >= 12.0).take(2) {
+            for &x in
+                coords.iter().filter(|x| matches!(x.2, TeamKey::Nfl(_)) && w.coaches[x.1].reputation >= 12.0).take(2)
+            {
                 picks.push((K::CoordinatorHeadJob, x));
             }
         }
         TeamKey::College(_) if big => {
             for &x in heads
                 .iter()
-                .filter(|x| matches!(x.2, TeamKey::College(_)) && x.3 < worth - 0.05 && w.coaches[x.1].reputation >= 12.0)
+                .filter(|x| {
+                    matches!(x.2, TeamKey::College(_)) && x.3 < worth - 0.05 && w.coaches[x.1].reputation >= 12.0
+                })
                 .take(2)
             {
                 picks.push((K::BigJobWantsCoach, x));
@@ -427,12 +427,7 @@ fn recruit_spot(w: &World, kind: K, i: usize) -> Spot {
 /// What the daily look compares: his commitment (program + 1), signed or
 /// not, his stars, his high school + 1.
 fn snapshot(p: &crate::world::Person) -> [u32; 4] {
-    [
-        p.cal.commit.map_or(0, |c| c.0 as u32 + 1),
-        p.cal.signed.is_some() as u32,
-        p.stars as u32,
-        p.hs as u32 + 1,
-    ]
+    [p.cal.commit.map_or(0, |c| c.0 as u32 + 1), p.cal.signed.is_some() as u32, p.stars as u32, p.hs as u32 + 1]
 }
 
 /// The recruits the world follows, picked again each Monday: the coming
@@ -548,7 +543,8 @@ fn changed(w: &mut World, i: usize, old: [u32; 4], now: [u32; 4], d: Date) {
             end(w, K::CommitWobble, sp, "decommitted", Some(text.clone()));
             end(w, K::SigningFlip, sp, "flipped", Some(text.clone()));
             if w.people[i].stars >= 4 {
-                let s = recruit_spot(w, K::TopRecruit, i).team(TeamKey::Hs(w.people[i].hs as u32)).fact(text, 4.0).public();
+                let s =
+                    recruit_spot(w, K::TopRecruit, i).team(TeamKey::Hs(w.people[i].hs as u32)).fact(text, 4.0).public();
                 tell(w, s);
             }
         }
@@ -588,9 +584,11 @@ fn decided(w: &mut World, i: usize, t: TeamKey, text: String) {
         TeamKey::College(p) => w.programs.get(p as usize).is_some_and(|g| g.state == home),
         _ => false,
     };
-    for (kind, yes, no) in
-        [(K::RecruitWar, "won", "lost"), (K::HometownLeaving, "stayed", "left"), (K::LegacyRecruit, "followed", "own_way")]
-    {
+    for (kind, yes, no) in [
+        (K::RecruitWar, "won", "lost"),
+        (K::HometownLeaving, "stayed", "left"),
+        (K::LegacyRecruit, "followed", "own_way"),
+    ] {
         let Some(id) = open_id(w, kind, sp) else { continue };
         let good = match kind {
             K::HometownLeaving => in_state,
@@ -833,7 +831,10 @@ fn flags_now(w: &World, i: usize, d: Date) -> u8 {
         if c.suspended > 0 {
             f |= F_SUSPENDED;
         }
-        if c.contract.as_ref().is_some_and(|k| matches!(k.kind, Deal::Franchise | Deal::Transition) && k.signed == w.year) {
+        if c.contract
+            .as_ref()
+            .is_some_and(|k| matches!(k.kind, Deal::Franchise | Deal::Transition) && k.signed == w.year)
+        {
             f |= F_TAGGED;
         }
     }
@@ -941,12 +942,16 @@ fn rose(w: &mut World, i: usize, f: u8, d: Date) {
     }
     if f & F_SUSPENDED != 0 && notable_pro(w, i) {
         let games = w.people[i].pro.as_ref().map_or(0, |c| c.suspended);
-        let appeal = w.folk.courts.open.iter().find(|c| c.id == id && matches!(c.step, Step::Appeal { .. })).map(|c| c.next);
+        let appeal =
+            w.folk.courts.open.iter().find(|c| c.id == id && matches!(c.step, Step::Appeal { .. })).map(|c| c.next);
         let s = match appeal {
             Some(next) => player_spot(w, K::LeagueSuspension, i)
                 .nums([games as i32, 0, 0, 0])
                 .due(next)
-                .fact(format!("The league suspends {name} {}; he appeals.", crate::world::news::count(games, "game")), 4.0)
+                .fact(
+                    format!("The league suspends {name} {}; he appeals.", crate::world::news::count(games, "game")),
+                    4.0,
+                )
                 .public(),
             None => player_spot(w, K::SuspensionReturn, i)
                 .nums([games as i32, 0, 0, 0])
@@ -985,7 +990,9 @@ fn fell(w: &mut World, id: u32, f: u8) {
     let now_team = i.and_then(|i| team_of(w, i));
     let deal = |w: &World, team: Option<TeamKey>| {
         i.and_then(|i| w.people[i].pro.as_ref()).and_then(|c| c.contract.as_ref()).is_some_and(|k| {
-            k.signed == w.year && Some(TeamKey::Nfl(k.team as u16)) == team && matches!(k.kind, Deal::Extension | Deal::Veteran)
+            k.signed == w.year
+                && Some(TeamKey::Nfl(k.team as u16)) == team
+                && matches!(k.kind, Deal::Extension | Deal::Veteran)
         })
     };
     if f & F_HOLDOUT != 0
@@ -1040,7 +1047,8 @@ fn trades(w: &mut World, d: Date) {
         end(w, K::TradeRequest, sp, "traded", None);
         end(w, K::Holdout, sp, "traded", None);
         let Some(i) = pi(w, id) else { continue };
-        let star = pro_bowler(w, id, 3) || w.people[i].pro.as_ref().is_some_and(|c| c.last_grade.unwrap_or(0.0) >= 80.0);
+        let star =
+            pro_bowler(w, id, 3) || w.people[i].pro.as_ref().is_some_and(|c| c.last_grade.unwrap_or(0.0) >= 80.0);
         if !star {
             continue;
         }
@@ -1165,7 +1173,10 @@ fn incidents(w: &mut World, d: Date) {
         let dismissed = p.notes.iter().rev().take(4).any(|n| n.starts_with("Dismissed from his team"));
         let kind = if what.contains("academic") || what.contains("grades") {
             K::Academics
-        } else if what.contains("team rules") || what.contains("drug test") || what.contains("at school") || what.contains("benefits")
+        } else if what.contains("team rules")
+            || what.contains("drug test")
+            || what.contains("at school")
+            || what.contains("benefits")
         {
             K::TeamRules
         } else {
@@ -1224,7 +1235,11 @@ fn dated(w: &mut World, d: Date) {
 fn heisman_night(w: &mut World) {
     let year = w.year;
     let Some(id) = open_id(w, K::AwardRace, subj(0xA11A, year as u64)) else { return };
-    let winner = w.college.as_ref().and_then(|c| c.heisman_vote.iter().max_by_key(|r| (r.points, std::cmp::Reverse(r.id)))).map(|r| r.id);
+    let winner = w
+        .college
+        .as_ref()
+        .and_then(|c| c.heisman_vote.iter().max_by_key(|r| (r.points, std::cmp::Reverse(r.id))))
+        .map(|r| r.id);
     let Some(win) = winner else { return };
     let lead = w.storylines.get(id).and_then(|s| s.lead_player());
     let name = pi(w, win).map_or_else(String::new, |i| pname(w, i));
@@ -1307,7 +1322,10 @@ fn draft_day(w: &mut World, k: usize, d: Date) {
         for (id, _) in open_of(w, K::TopPickDebate) {
             let Some(s) = w.storylines.get(id) else { continue };
             let first = |x: Option<u32>| {
-                x.and_then(|id| pi(w, id)).and_then(|i| w.people[i].pro.as_ref()).and_then(|c| c.draft).is_some_and(|x| x.0 == year && x.2 == 1)
+                x.and_then(|id| pi(w, id))
+                    .and_then(|i| w.people[i].pro.as_ref())
+                    .and_then(|c| c.draft)
+                    .is_some_and(|x| x.0 == year && x.2 == 1)
             };
             let lead = first(s.lead_player());
             close(w, id, if lead { "lead_first" } else { "rival_first" }, None);
@@ -1324,7 +1342,8 @@ fn draft_day(w: &mut World, k: usize, d: Date) {
             }
         }
         for (rank, i) in slides {
-            let text = format!("{}, No. {rank} on the consensus board, is still there after the first round.", pname(w, i));
+            let text =
+                format!("{}, No. {rank} on the consensus board, is still there after the first round.", pname(w, i));
             let mut s = Spot::new(K::DraftSlide, s_player(pid(w, i)))
                 .lead(Who::Player(pid(w, i)))
                 .due(w.dates.draft[1].date)
@@ -1371,7 +1390,11 @@ fn draft_day(w: &mut World, k: usize, d: Date) {
         let found = w.clubs.get(n).is_some_and(|c| {
             c.roster.iter().any(|&i| {
                 w.people[i].player.position == Position::QB
-                    && w.people[i].pro.as_ref().and_then(|x| x.draft).is_some_and(|x| x.0 == year && x.1 <= 3 && x.3 == n)
+                    && w.people[i]
+                        .pro
+                        .as_ref()
+                        .and_then(|x| x.draft)
+                        .is_some_and(|x| x.0 == year && x.1 <= 3 && x.3 == n)
             })
         });
         if found {
@@ -1435,7 +1458,11 @@ fn closings(w: &mut World, d: Date) {
     // A free agent signed.
     for (id, subject) in open_of(w, K::FreeAgentStar) {
         let Some(i) = pi(w, subject as u32) else { continue };
-        let Some(n) = w.people[i].pro.as_ref().filter(|c| c.contract.as_ref().is_some_and(|k| k.signed == w.year)).and_then(|c| c.team)
+        let Some(n) = w.people[i]
+            .pro
+            .as_ref()
+            .filter(|c| c.contract.as_ref().is_some_and(|k| k.signed == w.year))
+            .and_then(|c| c.team)
         else {
             continue;
         };
@@ -1521,8 +1548,10 @@ fn contract_years(w: &mut World, d: Date) {
 fn offers(w: &mut World, d: Date) {
     let Some(c) = crate::world::stories::seat_coach(w) else { return };
     let mine_now = crate::world::stories::seat_team(w);
-    let list: Vec<(Employer, Date, Date)> =
-        w.career.as_ref().map_or(Vec::new(), |k| k.market.offers.iter().map(|o| (o.employer, o.made, o.until)).collect());
+    let list: Vec<(Employer, Date, Date)> = w
+        .career
+        .as_ref()
+        .map_or(Vec::new(), |k| k.market.offers.iter().map(|o| (o.employer, o.made, o.until)).collect());
     for &(e, made, until) in &list {
         let t = team_of_employer(e);
         let code = tcode(t);

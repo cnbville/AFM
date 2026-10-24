@@ -25,13 +25,8 @@ use crate::world::stories::TeamKey;
 
 /// The weekly effects of the open public stories.
 pub(crate) fn week(w: &mut World, _d: Date) {
-    let stories: Vec<Story> = w
-        .storylines
-        .open
-        .iter()
-        .filter(|s| s.public && s.phase.open() && s.heat >= 15.0)
-        .cloned()
-        .collect();
+    let stories: Vec<Story> =
+        w.storylines.open.iter().filter(|s| s.public && s.phase.open() && s.heat >= 15.0).cloned().collect();
     let mut push = vec![0.0f32; w.programs.len()];
     for s in &stories {
         mood(w, s);
@@ -57,8 +52,14 @@ fn recruit_read(s: &Story) -> f32 {
     use K::*;
     let kind = K::ALL.get(s.kind as usize).copied();
     let sign = match kind {
-        Some(HotSeat | BuyoutWatch | VoteOfConfidence | NcaaCase | PortalExodus | Graveyard | LosingStreak | FanRevolt | Arrest | RoomRift | ChoppingBlock | Decline) => -1.0,
-        Some(Unbeaten | ProgramRise | Turnaround | Dynasty | PlayoffPush | TitleDefense | AwardRace | FacilityPush | ConferenceRace) => 1.0,
+        Some(
+            HotSeat | BuyoutWatch | VoteOfConfidence | NcaaCase | PortalExodus | Graveyard | LosingStreak | FanRevolt
+            | Arrest | RoomRift | ChoppingBlock | Decline,
+        ) => -1.0,
+        Some(
+            Unbeaten | ProgramRise | Turnaround | Dynasty | PlayoffPush | TitleDefense | AwardRace | FacilityPush
+            | ConferenceRace,
+        ) => 1.0,
         Some(NflWantsCoach | BigJobWantsCoach | JobRumors) => -0.6,
         _ => 0.0,
     };
@@ -220,7 +221,8 @@ pub(crate) fn ended(w: &mut World, id: u32) {
 /// boss with less judgement of his own; for you, the hazard premium's
 /// patience in a volatile job's first two seasons pulls the other way.
 pub fn review_push(w: &World, c: usize) -> f64 {
-    let Some(team) = w.coaches.get(c).and_then(|co| co.job).map(|j| crate::world::folk::Team::from_employer(j.employer))
+    let Some(team) =
+        w.coaches.get(c).and_then(|co| co.job).map(|j| crate::world::folk::Team::from_employer(j.employer))
     else {
         return 0.0;
     };

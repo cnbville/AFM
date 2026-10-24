@@ -497,6 +497,22 @@ Faces items F3-F12, S4 and X4 from `docs/design/faces.md` and `docs/final-build/
   - **Safari.** The Mac app's web view can't write WebP pictures, so there a head is kept as a JPEG on the face slots' dark grey under the same name; the game reads a stored picture's type from its contents.
   - **Not drawn yet:** scars, a broken nose, a tooth gap, glasses, earrings and tattoos (all in his looks and his AI prompt); the jersey's number and the team's logo stay out on purpose.
 
+## Update 2 (2026-10-24)
+
+Built lane by lane in one thread ("Build and ship update 2"), from `afm/post-release-2/list.md`, each lane merged on its own.
+
+### Lane 1: the storylines (boards 28-33)
+
+The storyline engine (`docs/world-model.md`, "The storyline engine") on screen, in the Press Box look (`screens/storylines.js` and `.css`, the commands in `lane_storylines.rs`). Every name in a story links to its page.
+
+- **This week** (board 28, in the sidebar under Inbox, with a badge for the stories that need you): the stories you're in as cards, hottest first, each with its family, its question, its heat and the last weeks of it, your part, its phase, how the people split, the latest beat and what's next; tabs for the stories you follow and the ones that ended this season; beside them the eight hottest elsewhere (follow any with +), what ended this week and the dates coming up in yours.
+- **A story's page** (board 29): its heat over its life with every beat marked (yours in gold), the beats with their sources, what's next; what your staff knows against what the public believes and how sure it is; the four audiences' sides; the cast with their sides and moods; what they're saying now; your moves, each with what your staff expects it to do, asked once before it is said; linked stories; Follow.
+- **The Continue stop** (board 30): a story meeting that stops Continue opens over Home, with what happened, four facts (who leads it and his mood, the heat, what the public believes, what waiting does when there is room) and what you can say, each answer with what your staff expects it to do. Later leaves it to your staff. **"Previously"** opens when a saved career loads (once a world day): your last game, the next one and where your open stories stood.
+- **Season chapters** (board 31, under the world's screens): the season's games as a strip with the chapters across it, the book of the year, and one chapter open with its beats, what it left and what it paid. A Results tab, and earlier seasons from the year list.
+- **Your career's chapters** (board 33): the first tab of the Career story, your jobs and chapters on one line, the book, the office shelf with each keepsake's note, and the names you've been given.
+- **Pick your next job** (board 32): from the job market (a link per offer and in its Go-to line). The openings that fit you with each job's word and stories, what you would walk into (each inherited story with the public's read and the boss's), the offer against a calm job, what handling it pays and costs, and what leaving starts. Take, pass or put your name in from there.
+- The scripted season per seat (`seat_season`) opens every storyline command at every stop, answers each story meeting and makes one move a stop. `AFM_SEAT_LEAN=1` only plays; `AFM_SEAT_STORIES=1` prints your team's stories by family per season and any line told twice to the same person in a season.
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The inbox's pinned answers; holiday mode on screen; faces and charts (section 10).

@@ -236,7 +236,9 @@ fn numbers(w: &World, s: &Story, mut f: Fill) -> Fill {
             f = f.set("games", if n[0] == 1 { "one game".to_string() } else { format!("{} games", count(n[0])) });
         }
         K::CoordinatorHeat if n[1] > 0 => {
-            f = f.set("unit", if n[2] == 1 { "offense" } else { "defense" }).set("rank_of", format!("{} of {}", n[0], n[1]));
+            f = f
+                .set("unit", if n[2] == 1 { "offense" } else { "defense" })
+                .set("rank_of", format!("{} of {}", n[0], n[1]));
         }
         K::Unbeaten | K::LosingStreak | K::RivalryStreak | K::Dynasty | K::Graveyard if n[0] > 0 => {
             f = f.set("count", count(n[0]));
@@ -284,20 +286,16 @@ pub(crate) fn head_coach(w: &World, t: TeamKey) -> Option<usize> {
 /// A team's record this season so far.
 pub(crate) fn record_now(w: &World, t: TeamKey) -> (u32, u32) {
     match t {
-        TeamKey::College(p) => w
-            .college
-            .as_ref()
-            .and_then(|c| c.results.get(p as usize))
-            .map_or((0, 0), |r| (r.wins, r.losses)),
+        TeamKey::College(p) => {
+            w.college.as_ref().and_then(|c| c.results.get(p as usize)).map_or((0, 0), |r| (r.wins, r.losses))
+        }
         TeamKey::Nfl(n) => {
             let (wn, l, _) = w.nfl_record(n as usize);
             (wn, l)
         }
-        TeamKey::Hs(h) => w
-            .hs_season
-            .as_ref()
-            .and_then(|s| s.results.get(h as usize))
-            .map_or((0, 0), |r| (r.wins, r.losses)),
+        TeamKey::Hs(h) => {
+            w.hs_season.as_ref().and_then(|s| s.results.get(h as usize)).map_or((0, 0), |r| (r.wins, r.losses))
+        }
         TeamKey::Other(_) => (0, 0),
     }
 }
@@ -400,9 +398,12 @@ pub(crate) fn post_beat(w: &mut World, id: u32) {
         return;
     }
     let Some(loud) = loudness(&s, b.what) else { return };
-    let level = if s.level == Level::Recruiting || s.family() == Family::Recruiting { Level::Recruiting } else { s.level };
-    let rumor = matches!(b.what, BeatKind::Leak) || (!s.def().public && matches!(b.what, BeatKind::Spark | BeatKind::Report));
-    let mut e = Event::new(w.today, level, if rumor { Kind::Whisper } else { Kind::News }, loud, b.text.clone()).rule(RULE);
+    let level =
+        if s.level == Level::Recruiting || s.family() == Family::Recruiting { Level::Recruiting } else { s.level };
+    let rumor =
+        matches!(b.what, BeatKind::Leak) || (!s.def().public && matches!(b.what, BeatKind::Spark | BeatKind::Report));
+    let mut e =
+        Event::new(w.today, level, if rumor { Kind::Whisper } else { Kind::News }, loud, b.text.clone()).rule(RULE);
     e = link_names(w, &s, e);
     if b.what == BeatKind::Resolve && s.peak_heat >= 85.0 {
         e = e.memorable();
@@ -544,7 +545,12 @@ pub(crate) fn voice_beat(w: &mut World, id: u32, attended: bool) {
     if s.other.is_some() && matches!(fam, Family::Rivalry | Family::Streak | Family::Recruiting) {
         choices.push((4, 1.0));
     }
-    if s.lead_player().is_some() && matches!(fam, Family::Battle | Family::Leaving | Family::OffField | Family::Rise | Family::Comeback | Family::Recruiting) {
+    if s.lead_player().is_some()
+        && matches!(
+            fam,
+            Family::Battle | Family::Leaving | Family::OffField | Family::Rise | Family::Comeback | Family::Recruiting
+        )
+    {
         choices.push((6, if social { 1.6 } else { 0.6 }));
     }
     if matches!(fam, Family::Seat | Family::You) && s.team.is_some() {
@@ -557,7 +563,11 @@ pub(crate) fn voice_beat(w: &mut World, id: u32, attended: bool) {
         3 => (BeatKind::Radio, Voice::Radio, None),
         4 => (BeatKind::Jab, Voice::Rival, None),
         5 => (BeatKind::Fans, Voice::Fans, Some(if s.sides[1] >= 0.5 { "for" } else { "against" })),
-        6 => (BeatKind::Post, if fam == Family::Recruiting { Voice::Recruit } else { Voice::Player }, if social { None } else { Some("paper") }),
+        6 => (
+            BeatKind::Post,
+            if fam == Family::Recruiting { Voice::Recruit } else { Voice::Player },
+            if social { None } else { Some("paper") },
+        ),
         7 => (BeatKind::Quote, Voice::Boss, Some("boss")),
         _ => (BeatKind::Report, if fam == Family::Recruiting { Voice::Insider } else { Voice::Beat }, None),
     };
@@ -642,7 +652,11 @@ pub(crate) fn quote(w: &mut World, s: &Story, part: Part) -> Option<String> {
         _ => "decider",
     };
     let tone = if s.def().tone < 0 { "down" } else { "up" };
-    let keys = [format!("story.quote.{fam}.{part_key}.{tone}"), format!("story.quote.{fam}.{part_key}"), format!("story.quote.any.{part_key}")];
+    let keys = [
+        format!("story.quote.{fam}.{part_key}.{tone}"),
+        format!("story.quote.{fam}.{part_key}"),
+        format!("story.quote.any.{part_key}"),
+    ];
     let seed = (w.folk.base as u64) << 16 ^ (s.id as u64) << 4 ^ s.beats.len() as u64;
     let mut pen = Pen::take(w, seed);
     let mut said = String::new();
@@ -675,12 +689,8 @@ pub(crate) fn maybe_memo(w: &mut World, id: u32) {
     }
     let Some(team) = s.team.or_else(|| crate::world::stories::seat_team(w)) else { return };
     // Two memos a week at most, hottest first.
-    let this_week = w
-        .storylines
-        .open
-        .iter()
-        .filter(|o| o.beats.iter().any(|b| b.what == BeatKind::Memo && b.date == d))
-        .count();
+    let this_week =
+        w.storylines.open.iter().filter(|o| o.beats.iter().any(|b| b.what == BeatKind::Memo && b.date == d)).count();
     if this_week >= 2 {
         return;
     }
@@ -719,7 +729,11 @@ pub(crate) fn legacy(w: &mut World, id: u32) {
     let seed = w.options.seed;
     let year = w.year;
     let mut out = None;
-    for k in [format!("sl.{}.legacy.{e}", def.key), format!("sl.{}.legacy", def.key), format!("sl.{}.legacy", def.family.key())] {
+    for k in [
+        format!("sl.{}.legacy.{e}", def.key),
+        format!("sl.{}.legacy", def.key),
+        format!("sl.{}.legacy", def.family.key()),
+    ] {
         if let Some(t) = w.storylines.line(seed, &k, &f, year) {
             out = Some(t);
             break;

@@ -147,7 +147,9 @@ pub fn split(w: &World, s: &Story) -> Split {
     let team = s.team.map(|t| crate::world::stories::short_name(w, t));
     let other = s.other.map(|t| crate::world::stories::short_name(w, t));
     let (a, b, k, audience) = match s.family() {
-        Family::Battle => (lead.clone().unwrap_or("The starter".into()), rival.unwrap_or("A change".into()), 0, "locker room"),
+        Family::Battle => {
+            (lead.clone().unwrap_or("The starter".into()), rival.unwrap_or("A change".into()), 0, "locker room")
+        }
         Family::Seat => ("He stays".into(), "He goes".into(), 1, "fans"),
         Family::Wanted | Family::Leaving => ("He stays".into(), "He goes".into(), 1, "fans"),
         Family::Recruiting => {
@@ -165,7 +167,12 @@ pub fn split(w: &World, s: &Story) -> Split {
 /// The four audiences and their share backing the lead, 0-100.
 pub fn audiences(s: &Story) -> [(&'static str, u8); 4] {
     let pct = |x: f32| (x * 100.0).round().clamp(0.0, 100.0) as u8;
-    [("Locker room", pct(s.sides[0])), ("Fans", pct(s.sides[1])), ("Media", pct(s.sides[2])), ("Boosters", pct(s.sides[3]))]
+    [
+        ("Locker room", pct(s.sides[0])),
+        ("Fans", pct(s.sides[1])),
+        ("Media", pct(s.sides[2])),
+        ("Boosters", pct(s.sides[3])),
+    ]
 }
 
 /// Heat each Monday, then today's: the sparkline.
@@ -215,14 +222,16 @@ pub fn needs_you(w: &World, s: &Story) -> bool {
 
 /// Your stories, hottest first: the open ones you are in.
 pub fn mine(w: &World) -> Vec<&Story> {
-    let mut v: Vec<&Story> = w.storylines.open.iter().filter(|s| s.you.is_some() && s.public && s.phase.open()).collect();
+    let mut v: Vec<&Story> =
+        w.storylines.open.iter().filter(|s| s.you.is_some() && s.public && s.phase.open()).collect();
     v.sort_by(|a, b| b.heat.total_cmp(&a.heat).then(a.id.cmp(&b.id)));
     v
 }
 
 /// Your private stories: the ones only the building knows.
 pub fn private(w: &World) -> Vec<&Story> {
-    let mut v: Vec<&Story> = w.storylines.open.iter().filter(|s| s.you.is_some() && !s.public && s.phase.open()).collect();
+    let mut v: Vec<&Story> =
+        w.storylines.open.iter().filter(|s| s.you.is_some() && !s.public && s.phase.open()).collect();
     v.sort_by(|a, b| b.heat.total_cmp(&a.heat).then(a.id.cmp(&b.id)));
     v
 }
@@ -235,7 +244,11 @@ pub fn elsewhere(w: &World, n: usize) -> Vec<&Story> {
         .open
         .iter()
         .filter(|s| s.public && s.phase.open() && s.you.is_none())
-        .filter(|s| level.is_none_or(|l| s.level == l || s.family() == Family::Recruiting && l == crate::calendar::Level::College))
+        .filter(|s| {
+            level.is_none_or(|l| {
+                s.level == l || s.family() == Family::Recruiting && l == crate::calendar::Level::College
+            })
+        })
         .collect();
     v.sort_by(|a, b| b.heat.total_cmp(&a.heat).then(a.id.cmp(&b.id)));
     v.truncate(n);

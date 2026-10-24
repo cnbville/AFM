@@ -168,6 +168,9 @@ function enterCareer() {
   S.back = [];
   S.fwd = [];
   go("home", {}, { push: false, root: true });
+  // "Previously" (storylines): where your stories stood when a saved
+  // career opens, once a world day.
+  if (S.savedOn && typeof slPrevious === "function") slPrevious();
 }
 function goBack() {
   if (!S.back.length) return;
@@ -655,6 +658,11 @@ async function cont() {
       if (r.studio && !moved && (screens[r.studio.screen] || screens.studio)) go(screens[r.studio.screen] ? r.studio.screen : "studio", r.studio);
       // A meeting this morning opens its room (people).
       else if (r.meeting != null && screens.people_scene && !moved) go("people_scene", { id: r.meeting });
+      // A story meeting (storylines) shows over Home.
+      else if (r.story != null && typeof slStop === "function" && !moved) {
+        if (S.route.screen === "home") render(); else go("home", {}, { root: true });
+        slStop(r.story);
+      }
       else if (moved || S.route.screen === "home") render();
       else go("home", {}, { root: true });
     }

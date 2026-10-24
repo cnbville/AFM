@@ -49,8 +49,16 @@ fn losing_at(level: Level) -> i16 {
 }
 
 /// The rivalry-pair kinds a game between their two teams answers.
-const PAIR_KINDS: [K; 8] =
-    [K::RivalryStreak, K::CantBeatRival, K::RevengeGame, K::CoachReturn, K::TrophyGame, K::Rematch, K::BulletinBoard, K::OldTeam];
+const PAIR_KINDS: [K; 8] = [
+    K::RivalryStreak,
+    K::CantBeatRival,
+    K::RevengeGame,
+    K::CoachReturn,
+    K::TrophyGame,
+    K::Rematch,
+    K::BulletinBoard,
+    K::OldTeam,
+];
 
 pub(crate) fn after(w: &mut World, g: &Played) {
     if !w.recording || !(on(w, g.teams[0]) || on(w, g.teams[1])) {
@@ -64,10 +72,17 @@ pub(crate) fn after(w: &mut World, g: &Played) {
     }
     let tie = g.score[0] == g.score[1];
     let pair = s_pair(g.teams[0], g.teams[1]);
-    let winner = if tie { 0 } else if g.score[0] > g.score[1] { super::tcode(g.teams[0]) } else { super::tcode(g.teams[1]) };
+    let winner = if tie {
+        0
+    } else if g.score[0] > g.score[1] {
+        super::tcode(g.teams[0])
+    } else {
+        super::tcode(g.teams[1])
+    };
     if g.rivalry {
         let e = w.storylines.watch.rivals.entry(pair).or_insert((0, 0));
-        *e = if winner != 0 && e.0 == winner { (winner, e.1.saturating_add(1)) } else { (winner, (winner != 0) as u16) };
+        *e =
+            if winner != 0 && e.0 == winner { (winner, e.1.saturating_add(1)) } else { (winner, (winner != 0) as u16) };
     }
     w.storylines.watch.met.insert(pair, winner);
     for side in 0..2 {
@@ -118,12 +133,16 @@ pub(crate) fn after(w: &mut World, g: &Played) {
         }
         if g.title || g.conf_title {
             for (id, _) in open_of(w, K::ConferenceRace) {
-                if w.storylines.get(id).is_some_and(|s| s.team == Some(t) && s.season == year) && (g.conf_title || g.title) {
+                if w.storylines.get(id).is_some_and(|s| s.team == Some(t) && s.season == year)
+                    && (g.conf_title || g.title)
+                {
                     close(w, id, if won { "won" } else { "lost" }, None);
                 }
             }
         }
-        if g.title && let Some(c) = head(w, t) {
+        if g.title
+            && let Some(c) = head(w, t)
+        {
             end(w, K::BigOne, s_coach(c), if won { "won_it" } else { "again" }, None);
         }
         // The players who opted out of a bowl: how the team did without them.
@@ -206,12 +225,7 @@ fn pairs(w: &mut World, g: &Played, t: TeamKey, o: TeamKey, won: bool) {
             (K::BulletinBoard, true) => "backed_it",
             (_, _) => "ate_it",
         };
-        let text = format!(
-            "{} {} {} {score}.",
-            tname(w, t),
-            if won { "beat" } else { "lost to" },
-            tname(w, o)
-        );
+        let text = format!("{} {} {} {score}.", tname(w, t), if won { "beat" } else { "lost to" }, tname(w, o));
         fact(w, id, text, 4.0);
         close(w, id, ending, None);
     }
@@ -261,7 +275,11 @@ fn snaps(w: &mut World, t: TeamKey, stats: &GameStats, side: usize) {
             continue;
         }
         if s.rival_player() == Some(starter) {
-            let text = format!("{} gets the start over {}.", name(w, starter), s.lead_player().map_or_else(String::new, |x| name(w, x)));
+            let text = format!(
+                "{} gets the start over {}.",
+                name(w, starter),
+                s.lead_player().map_or_else(String::new, |x| name(w, x))
+            );
             close(w, id, "benched", Some(text));
         }
     }
@@ -287,7 +305,10 @@ fn snaps(w: &mut World, t: TeamKey, stats: &GameStats, side: usize) {
     {
         let s = super::player_spot(w, K::NextManUp, i)
             .rival(Who::Player(prev))
-            .fact(format!("{} starts at quarterback for {} with {} hurt.", name(w, starter), tname(w, t), name(w, prev)), 4.0)
+            .fact(
+                format!("{} starts at quarterback for {} with {} hurt.", name(w, starter), tname(w, t), name(w, prev)),
+                4.0,
+            )
             .public();
         tell(w, s);
     }
@@ -327,7 +348,15 @@ fn snaps(w: &mut World, t: TeamKey, stats: &GameStats, side: usize) {
             let s = super::team_spot(w, K::TwoQb, t, s_season(t, year))
                 .lead(Who::Player(starter))
                 .rival(Who::Player(b))
-                .fact(format!("{} and {} split the snaps at quarterback for {}.", pname(w, ia), pname(w, ib), tname(w, t)), 3.0);
+                .fact(
+                    format!(
+                        "{} and {} split the snaps at quarterback for {}.",
+                        pname(w, ia),
+                        pname(w, ib),
+                        tname(w, t)
+                    ),
+                    3.0,
+                );
             tell(w, s);
         }
     }
@@ -338,7 +367,9 @@ pub(crate) fn hurt(w: &World, id: u32) -> bool {
     let Some(i) = crate::world::storylines::pi(w, id) else { return false };
     let p = &w.people[i];
     p.pro.as_ref().is_some_and(|c| c.out_weeks > 0)
-        || w.college.as_ref().is_some_and(|c| c.out.get(&id).is_some_and(|why| why.contains("injur") || why.contains("hurt")))
+        || w.college
+            .as_ref()
+            .is_some_and(|c| c.out.get(&id).is_some_and(|why| why.contains("injur") || why.contains("hurt")))
 }
 
 /// A kicker's tries: a slump, its end, his job.

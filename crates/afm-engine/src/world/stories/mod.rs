@@ -387,7 +387,10 @@ pub(crate) fn nfl_game(w: &mut World, teams: [usize; 2], stats: &crate::game::Ga
     };
     // The storylines' look after the game (update 2, S2): the Super Bowl
     // is the title; division rivals are the rivalries.
-    let rivals = w.nfl_season.as_ref().is_some_and(|s| s.div.get(teams[0]).is_some() && s.div.get(teams[0]) == s.div.get(teams[1]));
+    let rivals = w
+        .nfl_season
+        .as_ref()
+        .is_some_and(|s| s.div.get(teams[0]).is_some() && s.div.get(teams[0]) == s.div.get(teams[1]));
     let played = super::storylines::detect::games::Played {
         level: Level::Nfl,
         teams: ctx.teams,

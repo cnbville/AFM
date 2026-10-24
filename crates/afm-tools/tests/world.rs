@@ -509,6 +509,13 @@ fn a_seed_gives_the_same_world_on_any_core_count() {
             for m in &w.market.years {
                 (m.year, m.signed_new, m.trades, m.draft_trades, m.udfa_signed, m.trouble).hash(&mut h);
             }
+            // The storylines (update 2): the same seed tells the same stories.
+            for st in w.storylines.open.iter().chain(&w.storylines.ended) {
+                (st.id, st.kind, st.subject, st.phase, st.heat.to_bits(), st.beats.len()).hash(&mut h);
+                for b in &st.beats {
+                    b.text.hash(&mut h);
+                }
+            }
             (h.finish(), w.people.len())
         })
     };
@@ -626,4 +633,50 @@ fn a_saved_world_plays_on_identically() {
     };
     let (pa, pb) = (print(&a), print(&b));
     assert!(pa == pb, "the loaded world played its next season differently");
+}
+
+/// The storylines (update 2, lane 1) over the history's seasons: many kinds
+/// from every family, a share of them public, every told line whole, and
+/// no bank line told twice about the same person in one season.
+#[test]
+fn the_storylines_tell_the_seasons() {
+    use afm_engine::world::storylines::{BeatKind, Family, catalogue};
+    use std::collections::{BTreeSet, HashMap};
+    let w = &*WORLD;
+    let sl = &w.storylines;
+    let seasons: BTreeSet<i32> = sl.counts.iter().map(|c| c.0).collect();
+    // The last season the history played through.
+    let y = *seasons.iter().rev().find(|&&y| y < w.year).expect("a history season with stories");
+    let rows: Vec<_> = sl.counts.iter().filter(|c| c.0 == y).collect();
+    let opened: u32 = rows.iter().map(|c| c.2).sum();
+    let public: u32 = rows.iter().map(|c| c.3).sum();
+    let kinds = rows.iter().filter(|c| c.2 > 0).count();
+    let fams: BTreeSet<&str> = rows.iter().filter(|c| c.2 > 0).map(|c| catalogue::def(c.1).family.name()).collect();
+    eprintln!("{y}: {opened} stories opened, {public} public, {kinds} kinds, {} of 14 families: {fams:?}", fams.len());
+    assert!(kinds >= 40, "only {kinds} kinds of story in {y}");
+    assert!(fams.len() >= 11, "only {} families in {y}: {fams:?}", fams.len());
+    let share = f64::from(public) / f64::from(opened.max(1));
+    assert!((0.15..0.95).contains(&share), "{share:.2} of the stories went public");
+    assert!(Family::ALL.iter().all(|f| !f.name().is_empty()));
+    let told = |b: &BeatKind| {
+        !matches!(b, BeatKind::Fact | BeatKind::Move | BeatKind::Private | BeatKind::Denial | BeatKind::Seed)
+    };
+    let mut seen: HashMap<(String, i32), BTreeSet<&str>> = HashMap::new();
+    let (mut lines, mut twice) = (0, Vec::new());
+    for st in sl.open.iter().chain(&sl.ended) {
+        for b in &st.beats {
+            assert!(!b.text.contains('{') && !b.text.contains('}'), "an unfilled line: {}", b.text);
+            assert!(!b.text.contains("  "), "a doubled space: {}", b.text);
+        }
+        let Some(lead) = st.lead() else { continue };
+        for b in st.beats.iter().filter(|b| told(&b.what) && !b.text.is_empty()) {
+            lines += 1;
+            let season = if b.date.month() <= 2 { b.date.year() - 1 } else { b.date.year() };
+            if !seen.entry((format!("{lead:?}"), season)).or_default().insert(b.text.as_str()) {
+                twice.push(b.text.clone());
+            }
+        }
+    }
+    eprintln!("{lines} told lines, {} told twice to the same person in a season", twice.len());
+    assert!(twice.is_empty(), "lines told twice to the same person in a season: {:?}", &twice[..twice.len().min(8)]);
 }

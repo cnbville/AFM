@@ -790,7 +790,9 @@ pub(crate) fn notice(w: &mut World, s: Spot) -> Option<u32> {
         st.peak_heat = st.heat;
     }
     match s.fact {
-        Some(text) => add_beat(w, id, if public { BeatKind::Spark } else { BeatKind::Seed }, Voice::World, 255, s.heat, text),
+        Some(text) => {
+            add_beat(w, id, if public { BeatKind::Spark } else { BeatKind::Seed }, Voice::World, 255, s.heat, text)
+        }
         None if public => {
             let text = tell::text(w, id, BeatKind::Spark, Voice::World);
             add_beat(w, id, BeatKind::Spark, Voice::World, 255, s.heat.max(BeatKind::Spark.heat()), text);
@@ -992,18 +994,20 @@ pub(crate) fn player_fame(w: &World, i: usize) -> f32 {
 pub(crate) fn market(w: &World, t: Option<TeamKey>) -> f32 {
     let Some(t) = t else { return 0.4 };
     match t {
-        TeamKey::College(p) => w.programs.get(p as usize).map_or(0.3, |x| {
-            (0.55 * x.prestige_rel + 0.25 * x.fans.clamp(0.0, 1.0) + 0.2 * x.prestige) as f32
-        }),
+        TeamKey::College(p) => w
+            .programs
+            .get(p as usize)
+            .map_or(0.3, |x| (0.55 * x.prestige_rel + 0.25 * x.fans.clamp(0.0, 1.0) + 0.2 * x.prestige) as f32),
         TeamKey::Nfl(n) => {
             let city = super::finance::nfl::city(w, n as usize, w.year).0;
             let m = (super::finance::nfl::metro(&city) / 20.0).sqrt() as f32;
             let brand = super::finance::data::BRAND.get(n as usize).copied().unwrap_or(0.5) as f32;
             (0.45 + 0.3 * m + 0.25 * brand).clamp(0.0, 1.0)
         }
-        TeamKey::Hs(h) => w.high_schools.get(h as usize).map_or(0.1, |s| {
-            (0.08 + 0.3 * s.prestige as f32 + if s.national { 0.15 } else { 0.0 }).clamp(0.0, 0.6)
-        }),
+        TeamKey::Hs(h) => w
+            .high_schools
+            .get(h as usize)
+            .map_or(0.1, |s| (0.08 + 0.3 * s.prestige as f32 + if s.national { 0.15 } else { 0.0 }).clamp(0.0, 0.6)),
         TeamKey::Other(_) => 0.2,
     }
 }
@@ -1045,11 +1049,9 @@ fn near(w: &World, s: &Story) -> bool {
         }
         (TeamKey::Nfl(a), TeamKey::Nfl(b)) => super::franchise::alignment(a as usize, w.year)
             .is_some_and(|da| super::franchise::alignment(b as usize, w.year).map(|x| x.1) == Some(da.1)),
-        (TeamKey::Hs(a), TeamKey::Hs(b)) => w
-            .high_schools
-            .get(a as usize)
-            .zip(w.high_schools.get(b as usize))
-            .is_some_and(|(x, y)| x.state == y.state),
+        (TeamKey::Hs(a), TeamKey::Hs(b)) => {
+            w.high_schools.get(a as usize).zip(w.high_schools.get(b as usize)).is_some_and(|(x, y)| x.state == y.state)
+        }
         _ => false,
     };
     if s.team.is_some_and(close) || s.other.is_some_and(close) {
@@ -1249,7 +1251,13 @@ fn step(w: &mut World, d: Date, id: u32) {
     }
     {
         let s = &mut w.storylines.open[k];
-        s.heat *= if attended { 0.965 } else if public { 0.93 } else { 0.95 };
+        s.heat *= if attended {
+            0.965
+        } else if public {
+            0.93
+        } else {
+            0.95
+        };
     }
     // A private story goes public only through a person.
     if !public {
@@ -1368,12 +1376,8 @@ fn compact(s: &mut Story) {
 
 /// The world's open stories at a level, hottest first (trials and the board).
 pub fn hottest(w: &World, level: Option<Level>, n: usize) -> Vec<&Story> {
-    let mut v: Vec<&Story> = w
-        .storylines
-        .open
-        .iter()
-        .filter(|s| s.public && s.phase.open() && level.is_none_or(|l| s.level == l))
-        .collect();
+    let mut v: Vec<&Story> =
+        w.storylines.open.iter().filter(|s| s.public && s.phase.open() && level.is_none_or(|l| s.level == l)).collect();
     v.sort_by(|a, b| b.heat.total_cmp(&a.heat).then(a.id.cmp(&b.id)));
     v.truncate(n);
     v

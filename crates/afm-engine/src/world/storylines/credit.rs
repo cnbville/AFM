@@ -175,13 +175,8 @@ pub struct JobRead {
 /// The job pick's read of a team (S8).
 pub fn job_read(w: &mut World, t: TeamKey) -> JobRead {
     let v = volatility(w, t);
-    let mut list: Vec<Story> = w
-        .storylines
-        .open
-        .iter()
-        .filter(|s| s.public && s.phase.open() && s.about(t))
-        .cloned()
-        .collect();
+    let mut list: Vec<Story> =
+        w.storylines.open.iter().filter(|s| s.public && s.phase.open() && s.about(t)).cloned().collect();
     list.sort_by(|a, b| b.heat.total_cmp(&a.heat).then(a.id.cmp(&b.id)));
     list.truncate(6);
     let boss = crate::world::folk::boss::boss(w, super::folk_team(t));
@@ -240,11 +235,8 @@ pub fn job_read(w: &mut World, t: TeamKey) -> JobRead {
     } else {
         "none yet".to_string()
     };
-    let patience = if v >= 45.0 {
-        "two seasons before the boss judges you".to_string()
-    } else {
-        "judged as usual".to_string()
-    };
+    let patience =
+        if v >= 45.0 { "two seasons before the boss judges you".to_string() } else { "judged as usual".to_string() };
     let (extra_years, buyout_extra) = if v >= 70.0 {
         (1, 35)
     } else if v >= 45.0 {
@@ -449,7 +441,10 @@ fn reputation(w: &mut World, by: f64) {
 
 /// Your boss's trust moves on the stories he cares about.
 fn boss_trust(w: &mut World, fam: Family, by: f32) -> bool {
-    if !matches!(fam, Family::Seat | Family::OffField | Family::You | Family::Battle | Family::Program | Family::Leaving) {
+    if !matches!(
+        fam,
+        Family::Seat | Family::OffField | Family::You | Family::Battle | Family::Program | Family::Leaving
+    ) {
         return false;
     }
     let Some(team) = crate::world::folk::Team::seat(w) else { return false };
@@ -480,10 +475,14 @@ fn chapter(w: &mut World, s: &Story, score: f32, paid: Vec<(String, String, u8)>
     let e = s.ending_key();
     let seed = w.options.seed;
     let year = w.year;
-    let title = [format!("sl.{}.chapter.{e}", s.def().key), format!("sl.{}.chapter", s.def().key), format!("sl.{}.chapter", s.family().key())]
-        .iter()
-        .find_map(|k| w.storylines.line(seed, k, &f, year))
-        .unwrap_or_else(|| s.def().name.to_string());
+    let title = [
+        format!("sl.{}.chapter.{e}", s.def().key),
+        format!("sl.{}.chapter", s.def().key),
+        format!("sl.{}.chapter", s.family().key()),
+    ]
+    .iter()
+    .find_map(|k| w.storylines.line(seed, k, &f, year))
+    .unwrap_or_else(|| s.def().name.to_string());
     let line = if s.legacy.is_empty() {
         super::tell::last_said(s).map_or_else(String::new, |b| b.text.clone())
     } else {
@@ -666,7 +665,9 @@ fn staff_voice(w: &World, team: TeamKey) -> (String, String) {
 }
 
 fn mail(w: &World, tag: &str, head: Head, from: String, role: String, subject: String) -> Mail {
-    let id = tag.bytes().fold(0x5701_0000_0000_0000u64 ^ w.today.0 as u64, |h, b| (h ^ b as u64).wrapping_mul(0x100_0000_01b3));
+    let id = tag
+        .bytes()
+        .fold(0x5701_0000_0000_0000u64 ^ w.today.0 as u64, |h, b| (h ^ b as u64).wrapping_mul(0x100_0000_01b3));
     Mail {
         id,
         date: w.today,

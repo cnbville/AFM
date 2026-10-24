@@ -145,12 +145,9 @@ fn season_nums(w: &World, i: usize) -> Option<[f64; 5]> {
     let p = &w.people[i];
     let id = p.player.id;
     match p.stage {
-        Stage::College => w
-            .college
-            .as_ref()?
-            .lines
-            .get(&id)
-            .map(|l| [l.pass_yds, l.rush_yds, l.rec_yds, l.sacks, l.ints as f64]),
+        Stage::College => {
+            w.college.as_ref()?.lines.get(&id).map(|l| [l.pass_yds, l.rush_yds, l.rec_yds, l.sacks, l.ints as f64])
+        }
         Stage::Pro => {
             let l = nfl_line(w, i)?;
             Some([l.pass_yds, l.rush_yds, l.rec_yds, l.sacks, l.ints as f64])
@@ -192,12 +189,18 @@ pub(crate) fn record_value(w: &World, id: u32, code: i32) -> f64 {
             2 => l.rec_yds,
             _ => l.sacks,
         }),
-        10..=19 => nfl_line(w, i).map_or(0.0, |l| crate::world::pro::honors::stat_of(l, NFL_STATS[(code - 10) as usize])),
+        10..=19 => {
+            nfl_line(w, i).map_or(0.0, |l| crate::world::pro::honors::stat_of(l, NFL_STATS[(code - 10) as usize]))
+        }
         20..=29 => {
             let stat = NFL_STATS[(code - 20) as usize];
             let past = w.nfl_book.careers.get(&id).map_or(0.0, |l| crate::world::pro::honors::stat_of(l, stat));
             let booked = w.nfl_season.as_ref().is_some_and(|s| s.booked);
-            past + if booked { 0.0 } else { nfl_line(w, i).map_or(0.0, |l| crate::world::pro::honors::stat_of(l, stat)) }
+            past + if booked {
+                0.0
+            } else {
+                nfl_line(w, i).map_or(0.0, |l| crate::world::pro::honors::stat_of(l, stat))
+            }
         }
         _ => 0.0,
     }
@@ -251,7 +254,8 @@ fn qb_battle(w: &mut World, t: TeamKey) {
         return;
     }
     let inc = incumbent(w, t, &qbs);
-    let Some(chal) = qbs.iter().copied().filter(|&i| i != inc).max_by(|&a, &b| ovr(w, a).total_cmp(&ovr(w, b)).then(b.cmp(&a)))
+    let Some(chal) =
+        qbs.iter().copied().filter(|&i| i != inc).max_by(|&a, &b| ovr(w, a).total_cmp(&ovr(w, b)).then(b.cmp(&a)))
     else {
         return;
     };
@@ -299,7 +303,12 @@ fn veteran_job(w: &mut World, t: TeamKey, d: Date) {
         for &i in depth.iter().skip(starters).take(2) {
             let p = &w.people[i];
             let Some(c) = p.pro.as_ref() else { continue };
-            let was = c.seasons.iter().rev().find(|s| s.year == year - 1).is_some_and(|s| s.team == Some(n) && s.starts >= 10);
+            let was = c
+                .seasons
+                .iter()
+                .rev()
+                .find(|s| s.year == year - 1)
+                .is_some_and(|s| s.team == Some(n) && s.starts >= 10);
             if was
                 && p.player.age >= 29
                 && let Some(&r) = depth.iter().take(starters).find(|&&j| w.people[j].player.age <= 25)
@@ -468,7 +477,11 @@ fn team_start(w: &mut World, t: TeamKey) {
             tell(w, s);
         }
         if crate::world::stories::seat_coach(w) == Some(c) {
-            let mut s = Spot::new(K::NewCoach, s_coach(c)).team(t).lead(Who::Coach(c as u32)).with(Who::Boss(t), Part::Boss).public();
+            let mut s = Spot::new(K::NewCoach, s_coach(c))
+                .team(t)
+                .lead(Who::Coach(c as u32))
+                .with(Who::Boss(t), Part::Boss)
+                .public();
             if let Some(e) = end {
                 s = s.due(e);
             }
@@ -555,7 +568,8 @@ fn final_seasons_college(w: &mut World, teams: &[TeamKey]) {
         }
         for i in super::roster(w, t) {
             let q = &w.people[i];
-            if q.college_seasons >= 3 && q.last_role == Some(PlayingTime::Starter) && !q.player.position.is_specialist() {
+            if q.college_seasons >= 3 && q.last_role == Some(PlayingTime::Starter) && !q.player.position.is_specialist()
+            {
                 v.push((ovr(w, i), i, t));
             }
         }
@@ -804,7 +818,9 @@ pub(crate) fn seat_look(w: &mut World, t: TeamKey, c: usize, push: bool) {
         }
         TeamKey::Nfl(_) => {
             let pct = if games == 0 { 0.5 } else { wins as f64 / games as f64 };
-            let hot = (ten >= 2 && games >= 6 && pct < 0.36) || (ten >= 1 && games >= 8 && pct <= 0.25) || (push && ten >= 2 && pct < 0.42);
+            let hot = (ten >= 2 && games >= 6 && pct < 0.36)
+                || (ten >= 1 && games >= 8 && pct <= 0.25)
+                || (push && ten >= 2 && pct < 0.42);
             (hot, ((0.45 - pct) * 3.0 + if ten >= 4 { 0.1 } else { 0.0 }) as f32)
         }
         TeamKey::Hs(_) => (ten >= 3 && losses >= wins + 4, 0.0),
@@ -829,7 +845,10 @@ pub(crate) fn seat_look(w: &mut World, t: TeamKey, c: usize, push: bool) {
         tell(w, s);
     }
     // The boss says he's safe.
-    if public && heat >= 45.0 && open_id(w, K::VoteOfConfidence, s_coach(c)).is_none() && roll(w, 0x707E, c as u64) < 0.25
+    if public
+        && heat >= 45.0
+        && open_id(w, K::VoteOfConfidence, s_coach(c)).is_none()
+        && roll(w, 0x707E, c as u64) < 0.25
     {
         let s = coach_spot(w, K::VoteOfConfidence, c, t).due(due).public();
         tell(w, s);
@@ -851,7 +870,9 @@ fn coordinator_heat(w: &mut World, t: TeamKey) {
             } else {
                 format!("{} allows {pa:.1} points a game, near the bottom of the league.", tname(w, t))
             };
-            let s = coach_spot(w, K::CoordinatorHeat, c, t).nums([rank as i32 + 1, n as i32, off as i32, 0]).fact(what, 2.0);
+            let s = coach_spot(w, K::CoordinatorHeat, c, t)
+                .nums([rank as i32 + 1, n as i32, off as i32, 0])
+                .fact(what, 2.0);
             tell(w, s);
         } else if let Some(id) = open
             && rank + (n as f64 * 0.3) as usize <= n
@@ -881,7 +902,13 @@ fn unit_ranks(w: &World, t: TeamKey) -> Option<(f64, f64, usize, usize, usize)> 
                 .iter()
                 .enumerate()
                 .filter(|(j, r)| w.programs[*j].division == div && r.totals.games >= 3)
-                .map(|(j, r)| (j, r.totals.points_for as f64 / r.totals.games as f64, r.totals.points_against as f64 / r.totals.games as f64))
+                .map(|(j, r)| {
+                    (
+                        j,
+                        r.totals.points_for as f64 / r.totals.games as f64,
+                        r.totals.points_against as f64 / r.totals.games as f64,
+                    )
+                })
                 .collect()
         }
         TeamKey::Nfl(_) => {
@@ -899,7 +926,11 @@ fn unit_ranks(w: &World, t: TeamKey) -> Option<(f64, f64, usize, usize, usize)> 
                     }
                 }
             }
-            acc.iter().enumerate().filter(|x| x.1.2 >= 3).map(|(j, x)| (j, x.0 / x.2 as f64, x.1 / x.2 as f64)).collect()
+            acc.iter()
+                .enumerate()
+                .filter(|x| x.1.2 >= 3)
+                .map(|(j, x)| (j, x.0 / x.2 as f64, x.1 / x.2 as f64))
+                .collect()
         }
         _ => return None,
     };
@@ -941,17 +972,16 @@ fn qb_controversy(w: &mut World, t: TeamKey) {
             let att = (l.pass_yds / 7.0).max(1.0);
             l.int_thrown >= l.pass_td + 2 || (l.pass_yds / att < 6.0 && l.pass_td <= l.int_thrown + 1)
         }),
-        TeamKey::Nfl(_) => nfl_line(w, i).is_some_and(|l| {
-            l.att >= 60 && (l.pass_yds / l.att as f64 <= 6.2 || l.int > l.pass_td)
-        }),
+        TeamKey::Nfl(_) => {
+            nfl_line(w, i).is_some_and(|l| l.att >= 60 && (l.pass_yds / l.att as f64 <= 6.2 || l.int > l.pass_td))
+        }
         _ => false,
     };
     if !poor {
         return;
     }
     let qbs = at(w, t, Position::QB);
-    let Some(b) = qbs.iter().copied().filter(|&j| j != i).max_by(|&a, &b| ovr(w, a).total_cmp(&ovr(w, b)))
-    else {
+    let Some(b) = qbs.iter().copied().filter(|&j| j != i).max_by(|&a, &b| ovr(w, a).total_cmp(&ovr(w, b))) else {
         return;
     };
     let close_behind = ovr(w, b) >= ovr(w, i) - 3.0 || (w.people[b].stars >= 4 && w.people[b].college_seasons <= 1);
@@ -1081,7 +1111,8 @@ fn college_rises(w: &mut World) {
     }
     // Both ways: real snaps on offense and defense.
     for (&id, &(off, def)) in &snaps {
-        if off >= 150 && def >= 150
+        if off >= 150
+            && def >= 150
             && let Some(i) = pi(w, id)
             && team_of(w, i).is_some_and(|t| on(w, t))
         {
@@ -1135,7 +1166,9 @@ fn school_records(w: &mut World) {
                 _ => l.sacks,
             };
             let floor = crate::world::program::RECORD_STATS[k].1;
-            let (rec, holder) = prog.season_records[k].as_ref().map_or((floor, String::new()), |r| (r.value.max(floor), r.holder.clone()));
+            let (rec, holder) = prog.season_records[k]
+                .as_ref()
+                .map_or((floor, String::new()), |r| (r.value.max(floor), r.holder.clone()));
             let pace = v / l.games as f64 * 12.0;
             if pace >= rec && v >= 0.55 * rec && v < rec {
                 let Some(i) = pi(w, id) else { continue };
@@ -1236,7 +1269,8 @@ fn cfp_push(w: &mut World, d: Date) {
     if year < 2014 || d < w.dates.first_cfp_ranking || d > w.dates.selection_day {
         return;
     }
-    let Some(poll) = w.college.as_ref().and_then(|c| c.polls.iter().rev().find(|p| p.kind == crate::world::college::PollKind::Cfp))
+    let Some(poll) =
+        w.college.as_ref().and_then(|c| c.polls.iter().rev().find(|p| p.kind == crate::world::college::PollKind::Cfp))
     else {
         return;
     };
@@ -1386,7 +1420,9 @@ fn mvp(w: &mut World) {
         let wins = w.nfl_record(n).0 as f64;
         for &i in &club.roster {
             let Some(l) = nfl_line(w, i) else { continue };
-            let score = l.pass_yds / 20.0 + l.pass_td as f64 * 4.0 - l.int as f64 * 3.0 + l.rush_yds / 10.0 + l.rush_td as f64 * 6.0
+            let score = l.pass_yds / 20.0 + l.pass_td as f64 * 4.0 - l.int as f64 * 3.0
+                + l.rush_yds / 10.0
+                + l.rush_td as f64 * 6.0
                 + wins * 10.0;
             v.push((score, i));
         }
@@ -1419,7 +1455,8 @@ fn nfl_races(w: &mut World) {
     };
     let mut races = Vec::new();
     for div in 0..8 {
-        let mut v: Vec<usize> = (0..n).filter(|&t| s.active.get(t).copied().unwrap_or(false) && s.div[t] == div).collect();
+        let mut v: Vec<usize> =
+            (0..n).filter(|&t| s.active.get(t).copied().unwrap_or(false) && s.div[t] == div).collect();
         v.sort_by(|&a, &b| pct(b).total_cmp(&pct(a)).then(a.cmp(&b)));
         if let (Some(&a), Some(&b)) = (v.first(), v.get(1))
             && s.wins[a] <= s.wins[b] + 1
@@ -1429,7 +1466,8 @@ fn nfl_races(w: &mut World) {
     }
     let mut bubble = Vec::new();
     for conf in 0..2 {
-        let mut v: Vec<usize> = (0..n).filter(|&t| s.active.get(t).copied().unwrap_or(false) && s.conf[t] == conf).collect();
+        let mut v: Vec<usize> =
+            (0..n).filter(|&t| s.active.get(t).copied().unwrap_or(false) && s.conf[t] == conf).collect();
         v.sort_by(|&a, &b| pct(b).total_cmp(&pct(a)).then(a.cmp(&b)));
         let line = if year >= 2020 { 7 } else { 6 };
         bubble.extend(v.into_iter().skip(line - 2).take(4));
@@ -1629,7 +1667,8 @@ fn pair_stories(w: &mut World, g: &Coming, side: usize) {
     let (name, oname) = (tname(w, t), tname(w, o));
     let due = g.date;
     let spot = |w: &World, kind: K| {
-        let mut s = Spot::new(kind, subj(pair, kind.id() as u64 ^ (w.year as u64) << 16)).team(t).other(o).due(due).public();
+        let mut s =
+            Spot::new(kind, subj(pair, kind.id() as u64 ^ (w.year as u64) << 16)).team(t).other(o).due(due).public();
         if let Some(c) = head(w, t) {
             s = s.with(Who::Coach(c as u32), Part::Decider);
         }
@@ -1651,10 +1690,10 @@ fn pair_stories(w: &mut World, g: &Coming, side: usize) {
             && tenure(w, c) >= 3
             && n as i32 >= tenure(w, c)
         {
-            let s = spot(w, K::CantBeatRival).lead(Who::Coach(c as u32)).nums([n as i32, 0, 0, 0]).fact(
-                format!("{} has never beaten {oname} as {name}'s head coach.", cname(w, c)),
-                3.0,
-            );
+            let s = spot(w, K::CantBeatRival)
+                .lead(Who::Coach(c as u32))
+                .nums([n as i32, 0, 0, 0])
+                .fact(format!("{} has never beaten {oname} as {name}'s head coach.", cname(w, c)), 3.0);
             tell(w, s);
         }
     }
@@ -1668,7 +1707,12 @@ fn pair_stories(w: &mut World, g: &Coming, side: usize) {
             Some(hd) if TeamKey::College(hd as u32) == o => (o, t),
             _ => (t, o),
         };
-        let mut s = Spot::new(K::TrophyGame, subj(pair, 0x7E0 ^ (w.year as u64) << 16)).team(team).other(other).due(due).word(trophy).public();
+        let mut s = Spot::new(K::TrophyGame, subj(pair, 0x7E0 ^ (w.year as u64) << 16))
+            .team(team)
+            .other(other)
+            .due(due)
+            .word(trophy)
+            .public();
         if let Some(c) = head(w, team) {
             s = s.with(Who::Coach(c as u32), Part::Decider);
         }
@@ -1705,13 +1749,17 @@ fn pair_stories(w: &mut World, g: &Coming, side: usize) {
         && let Some(&winner) = w.storylines.watch.met.get(&pair)
         && winner == tcode(o)
     {
-        let s = spot(w, K::Rematch).with(Who::Team(t), Part::Lead).fact(format!("{name} gets another shot at {oname}."), 3.0);
+        let s = spot(w, K::Rematch)
+            .with(Who::Team(t), Part::Lead)
+            .fact(format!("{name} gets another shot at {oname}."), 3.0);
         tell(w, s);
     }
     // Bulletin-board material: yours, or a rival week's loose talk.
-    let yours = w.folk.bulletin.is_some_and(|(team, when)| {
-        crate::world::storylines::team_key(team) == o && when.days_to(w.today) <= 14
-    }) && mine(w, t);
+    let yours = w
+        .folk
+        .bulletin
+        .is_some_and(|(team, when)| crate::world::storylines::team_key(team) == o && when.days_to(w.today) <= 14)
+        && mine(w, t);
     if yours && let Some(c) = head(w, t) {
         let s = spot(w, K::BulletinBoard).lead(Who::Coach(c as u32));
         tell(w, s);
@@ -1748,7 +1796,8 @@ fn revenge_player(w: &World, t: TeamKey, o: TeamKey) -> Option<usize> {
                     p.path.len() >= 2 && p.path[..p.path.len() - 1].contains(&(op as usize))
                 }
                 (TeamKey::Nfl(_), TeamKey::Nfl(op)) => p.pro.as_ref().is_some_and(|c| {
-                    c.former == Some(op as usize) && c.seasons.iter().rev().find(|s| s.year == w.year - 1).is_some_and(|s| s.starts >= 8)
+                    c.former == Some(op as usize)
+                        && c.seasons.iter().rev().find(|s| s.year == w.year - 1).is_some_and(|s| s.starts >= 8)
                 }),
                 _ => false,
             }
@@ -1797,7 +1846,12 @@ fn sweeps(w: &mut World, d: Date) {
                 continue;
             }
             if let (Some(TeamKey::College(a)), Some(TeamKey::College(b))) = (s.team, s.other) {
-                let r = |j: u32| w.college.as_ref().and_then(|c| c.results.get(j as usize)).map_or((0, 0), |r| (r.conf_wins, r.conf_losses));
+                let r = |j: u32| {
+                    w.college
+                        .as_ref()
+                        .and_then(|c| c.results.get(j as usize))
+                        .map_or((0, 0), |r| (r.conf_wins, r.conf_losses))
+                };
                 let ((aw, al), (bw, bl)) = (r(a), r(b));
                 if d > w.dates.conference_championships {
                     let won = al < bl || (al == bl && aw >= bw);
@@ -1810,7 +1864,13 @@ fn sweeps(w: &mut World, d: Date) {
         let field: Vec<usize> = w
             .college
             .as_ref()
-            .map(|c| c.brackets.iter().filter(|b| b.division == Division::FBS).flat_map(|b| b.slots.iter().flatten().copied()).collect())
+            .map(|c| {
+                c.brackets
+                    .iter()
+                    .filter(|b| b.division == Division::FBS)
+                    .flat_map(|b| b.slots.iter().flatten().copied())
+                    .collect()
+            })
             .unwrap_or_default();
         for (id, _) in open_of(w, K::PlayoffPush) {
             let Some(TeamKey::College(j)) = w.storylines.get(id).and_then(|s| s.team) else { continue };
@@ -1829,8 +1889,13 @@ fn sweeps(w: &mut World, d: Date) {
 /// Every open season-bound story at a level gets the season's answer.
 pub(crate) fn season_close(w: &mut World, level: Level) {
     let year = w.year;
-    let list: Vec<u32> =
-        w.storylines.open.iter().filter(|s| s.phase.open() && s.level == level && s.season <= year).map(|s| s.id).collect();
+    let list: Vec<u32> = w
+        .storylines
+        .open
+        .iter()
+        .filter(|s| s.phase.open() && s.level == level && s.season <= year)
+        .map(|s| s.id)
+        .collect();
     for id in list {
         let Some(s) = w.storylines.get(id).cloned() else { continue };
         if let Some(e) = season_ending(w, &s) {
@@ -1848,11 +1913,18 @@ fn season_ending(w: &World, s: &crate::world::storylines::Story) -> Option<&'sta
     let pct = team.map_or(0.5, |t| win_pct(w, t));
     let started_last = |t: Option<TeamKey>| t.zip(lead).is_some_and(|(t, l)| last_starter(w, t) == Some(l));
     let on_team = li.is_some_and(|i| team_of(w, i) == team);
-    let starts = li.and_then(|i| w.people[i].pro.as_ref()).and_then(|c| c.seasons.iter().rev().find(|x| x.year == s.season)).map_or(0, |x| x.starts);
+    let starts = li
+        .and_then(|i| w.people[i].pro.as_ref())
+        .and_then(|c| c.seasons.iter().rev().find(|x| x.year == s.season))
+        .map_or(0, |x| x.starts);
     let pro_bowl = lead.is_some_and(|id| w.nfl_book.pro_bowls.iter().any(|x| x.0 == s.season && x.1 == id));
     let title = team.is_some_and(|t| match t {
         TeamKey::Nfl(n) => w.nfl_champions.iter().any(|x| x.0 == s.season && x.1 == n as usize),
-        TeamKey::College(p) => w.college.as_ref().and_then(|c| c.results.get(p as usize)).is_some_and(|r| r.national_title || r.conference_title),
+        TeamKey::College(p) => w
+            .college
+            .as_ref()
+            .and_then(|c| c.results.get(p as usize))
+            .is_some_and(|r| r.national_title || r.conference_title),
         TeamKey::Hs(h) => w.hs_season.as_ref().and_then(|x| x.results.get(h as usize)).is_some_and(|r| r.state_title),
         TeamKey::Other(_) => false,
     });
@@ -1905,11 +1977,7 @@ fn season_ending(w: &World, s: &crate::world::storylines::Story) -> Option<&'sta
         }
         K::ExtensionTalks => {
             let now = s.lead_coach().and_then(|c| w.coaches[c].contract.as_ref()).map_or(0, |k| k.through);
-            if now > s.nums[2] {
-                "extended"
-            } else {
-                "stalled"
-            }
+            if now > s.nums[2] { "extended" } else { "stalled" }
         }
         K::Unbeaten => "perfect",
         K::RecordChase | K::CareerRecord => "fell_short",
@@ -1939,21 +2007,13 @@ fn season_ending(w: &World, s: &crate::world::storylines::Story) -> Option<&'sta
         }
         K::Bust => {
             let started = li.is_some_and(|i| w.people[i].last_role == Some(PlayingTime::Starter)) || starts >= 8;
-            if started {
-                "turned_it"
-            } else {
-                "bust"
-            }
+            if started { "turned_it" } else { "bust" }
         }
         K::TwoWay => {
             let both = lead
                 .and_then(|id| w.college.as_ref().and_then(|c| c.snaps.get(&id)))
                 .is_some_and(|&(o, d)| o >= 300 && d >= 300);
-            if both {
-                "did_it"
-            } else {
-                "one_side"
-            }
+            if both { "did_it" } else { "one_side" }
         }
         K::ProgramRise => {
             if pct >= 0.7 || title {
@@ -1975,11 +2035,7 @@ fn season_ending(w: &World, s: &crate::world::storylines::Story) -> Option<&'sta
                 Some(TeamKey::Nfl(n)) => w.clubs.get(n as usize).map_or(0.0, |c| c.team_mood),
                 _ => 0.0,
             };
-            if mood >= -0.2 {
-                "healed"
-            } else {
-                "broke"
-            }
+            if mood >= -0.2 { "healed" } else { "broke" }
         }
         K::FanRevolt => "calmed",
         K::Decline => {
@@ -2014,24 +2070,20 @@ fn season_ending(w: &World, s: &crate::world::storylines::Story) -> Option<&'sta
             let back = li.is_some_and(|i| {
                 let p = &w.people[i];
                 let h = &p.player.history;
-                p.last_role == Some(PlayingTime::Starter) || starts >= 8 || h.last().is_some_and(|r| r.games_missed <= 3)
+                p.last_role == Some(PlayingTime::Starter)
+                    || starts >= 8
+                    || h.last().is_some_and(|r| r.games_missed <= 3)
             });
-            if back {
-                "returned"
-            } else {
-                "not_same"
-            }
+            if back { "returned" } else { "not_same" }
         }
         K::StarTraded => {
             let playoffs = team.is_some_and(|t| match t {
-                TeamKey::Nfl(n) => w.nfl_season.as_ref().is_some_and(|x| x.seed.get(n as usize).copied().flatten().is_some()),
+                TeamKey::Nfl(n) => {
+                    w.nfl_season.as_ref().is_some_and(|x| x.seed.get(n as usize).copied().flatten().is_some())
+                }
                 _ => false,
             });
-            if playoffs || pro_bowl {
-                "paid_off"
-            } else {
-                "flopped"
-            }
+            if playoffs || pro_bowl { "paid_off" } else { "flopped" }
         }
         K::FinalSeason => {
             if title {
@@ -2067,11 +2119,7 @@ fn season_ending(w: &World, s: &crate::world::storylines::Story) -> Option<&'sta
             if s.nums[3] != 0 {
                 return None;
             }
-            if on_team {
-                "suspended"
-            } else {
-                "dismissed"
-            }
+            if on_team { "suspended" } else { "dismissed" }
         }
         _ => return None,
     })
@@ -2081,14 +2129,20 @@ fn season_ending(w: &World, s: &crate::world::storylines::Story) -> Option<&'sta
 /// a case decided, a project opened.
 fn due_checks(w: &mut World, d: Date) {
     let year = w.year;
-    let due: Vec<(u32, u16, Date)> =
-        w.storylines.open.iter().filter(|s| s.phase.open()).filter_map(|s| s.due.map(|x| (s.id, s.kind, x))).filter(|x| x.2 <= d).collect();
+    let due: Vec<(u32, u16, Date)> = w
+        .storylines
+        .open
+        .iter()
+        .filter(|s| s.phase.open())
+        .filter_map(|s| s.due.map(|x| (s.id, s.kind, x)))
+        .filter(|x| x.2 <= d)
+        .collect();
     for (id, kind, when) in due {
         let Some(s) = w.storylines.get(id).cloned() else { continue };
         let late = when.days_to(d);
-        let coach_here = s.lead_coach().is_some_and(|c| {
-            w.coaches[c].job.is_some_and(|j| s.team.is_some_and(|t| employer(t) == j.employer))
-        });
+        let coach_here = s
+            .lead_coach()
+            .is_some_and(|c| w.coaches[c].job.is_some_and(|j| s.team.is_some_and(|t| employer(t) == j.employer)));
         let li = s.lead_player().and_then(|x| pi(w, x));
         let ending: Option<&str> = match K::ALL[kind as usize] {
             K::HotSeat if late >= 14 && coach_here => {
@@ -2102,9 +2156,10 @@ fn due_checks(w: &mut World, d: Date) {
                 let start = li.zip(t).is_some_and(|(i, t)| {
                     let TeamKey::Nfl(n) = t else { return false };
                     let pos = w.people[i].player.position;
-                    w.clubs.get(n as usize).and_then(|c| c.depth.get(pos.index())).is_some_and(|dc| {
-                        dc.iter().take(crate::league::depth_slots(pos).starters).any(|&j| j == i)
-                    })
+                    w.clubs
+                        .get(n as usize)
+                        .and_then(|c| c.depth.get(pos.index()))
+                        .is_some_and(|dc| dc.iter().take(crate::league::depth_slots(pos).starters).any(|&j| j == i))
                 });
                 Some(if start {
                     "won_back"
@@ -2114,7 +2169,9 @@ fn due_checks(w: &mut World, d: Date) {
                     "released"
                 })
             }
-            K::NflWantsCoach | K::BigJobWantsCoach | K::OldSchoolCalls | K::CoordinatorHeadJob if late >= 7 && coach_here => {
+            K::NflWantsCoach | K::BigJobWantsCoach | K::OldSchoolCalls | K::CoordinatorHeadJob
+                if late >= 7 && coach_here =>
+            {
                 Some("stayed")
             }
             K::InterimAudition if late >= 45 => Some(if coach_here { "got_job" } else { "passed_over" }),
@@ -2128,7 +2185,8 @@ fn due_checks(w: &mut World, d: Date) {
                 if now > s.nums[2] && coach_here {
                     Some("extended")
                 } else if !coach_here {
-                    let fired = c.and_then(|c| w.coaches[c].history.last()).is_some_and(|h| h.ended.starts_with("fired"));
+                    let fired =
+                        c.and_then(|c| w.coaches[c].history.last()).is_some_and(|h| h.ended.starts_with("fired"));
                     Some(if fired { "let_go" } else { "left" })
                 } else {
                     None
@@ -2142,7 +2200,9 @@ fn due_checks(w: &mut World, d: Date) {
             K::Graveyard => Some(if coach_here { "broken" } else { "another_gone" }),
             K::ChoppingBlock if d.year() > when.year() || late >= 30 => {
                 let dark = match s.team {
-                    Some(TeamKey::College(p)) => w.programs[p as usize].dark.iter().any(|&(a, b)| year + 1 >= a && year + 1 <= b),
+                    Some(TeamKey::College(p)) => {
+                        w.programs[p as usize].dark.iter().any(|&(a, b)| year + 1 >= a && year + 1 <= b)
+                    }
                     _ => false,
                 };
                 Some(if dark { "dropped" } else { "saved" })
@@ -2151,7 +2211,9 @@ fn due_checks(w: &mut World, d: Date) {
             K::Realignment => Some("moved"),
             K::NcaaCase => Some(if s.nums[1] > 0 { "sanctioned" } else { "cleared" }),
             K::SocialStorm => {
-                let pro = li.is_some_and(|i| w.people[i].player.personality.traits.z(crate::player::Trait::Professionalism) > 0.0);
+                let pro = li.is_some_and(|i| {
+                    w.people[i].player.personality.traits.z(crate::player::Trait::Professionalism) > 0.0
+                });
                 Some(if pro { "apologized" } else { "blew_over" })
             }
             K::SuspensionReturn if late >= 0 => {
@@ -2358,7 +2420,8 @@ fn top_pick(w: &mut World, y: &crate::calendar::YearDates) {
 /// After the combine: the risers and the red flags.
 fn combine_and_flags(w: &mut World, y: &crate::calendar::YearDates) {
     let Some(top) = crate::world::scouting::public::consensus(w) else { return };
-    let before = w.scouting.public.weekly.iter().rev().find(|x| x.0 < y.combine_start).map(|x| x.1.clone()).unwrap_or_default();
+    let before =
+        w.scouting.public.weekly.iter().rev().find(|x| x.0 < y.combine_start).map(|x| x.1.clone()).unwrap_or_default();
     let mut opens: Vec<(K, usize)> = Vec::new();
     for (r, id) in top.iter().enumerate() {
         let was = before.iter().position(|x| x == id).unwrap_or(60);
@@ -2367,7 +2430,8 @@ fn combine_and_flags(w: &mut World, y: &crate::calendar::YearDates) {
             opens.push((K::CombineRiser, i));
         }
         let flagged = w.people[i].player.history.iter().any(|h| {
-            h.events.has(crate::player::DevelopmentEvent::Dismissed) || h.events.has(crate::player::DevelopmentEvent::Suspended)
+            h.events.has(crate::player::DevelopmentEvent::Dismissed)
+                || h.events.has(crate::player::DevelopmentEvent::Suspended)
         }) || w.people[i].on_notice;
         if flagged && r < 40 {
             opens.push((K::RedFlag, i));
@@ -2387,12 +2451,16 @@ fn early_entries(w: &mut World, y: &crate::calendar::YearDates) {
             continue;
         }
         let starter = p.last_role == Some(PlayingTime::Starter);
-        if starter && p.cal.draft_read.is_some_and(|r| r.round >= 4) && p.college.is_some_and(|c| w.programs[c].division == Division::FBS) {
+        if starter
+            && p.cal.draft_read.is_some_and(|r| r.round >= 4)
+            && p.college.is_some_and(|c| w.programs[c].division == Division::FBS)
+        {
             opens.push(i);
         }
     }
     for i in opens.into_iter().take(12) {
-        let mut s = Spot::new(K::EarlyEntry, s_player(pid(w, i))).lead(Who::Player(pid(w, i))).due(y.draft[0].date).public();
+        let mut s =
+            Spot::new(K::EarlyEntry, s_player(pid(w, i))).lead(Who::Player(pid(w, i))).due(y.draft[0].date).public();
         if let Some(c) = w.people[i].college {
             s = s.team(TeamKey::College(c as u32));
         }
@@ -2451,13 +2519,18 @@ fn stock(w: &mut World, y: &crate::calendar::YearDates) {
     let mut opens: Vec<(K, usize)> = Vec::new();
     for (r, id) in now.iter().enumerate() {
         let was = before.iter().position(|x| x == id).unwrap_or(60);
-        if r < 32 && was >= r + 12 && let Some(i) = pi(w, *id) {
+        if r < 32
+            && was >= r + 12
+            && let Some(i) = pi(w, *id)
+        {
             opens.push((K::StockRise, i));
         }
     }
     for (r, id) in before.iter().enumerate().take(15) {
         let at = now.iter().position(|x| x == id).unwrap_or(60);
-        if at >= r + 20 && let Some(i) = pi(w, *id) {
+        if at >= r + 20
+            && let Some(i) = pi(w, *id)
+        {
             opens.push((K::StockFall, i));
         }
     }
@@ -2535,10 +2608,7 @@ fn program_news(w: &mut World) {
             if !on(w, t) {
                 continue;
             }
-            let s = team_spot(w, K::FacilityPush, t, s_team(t))
-                .word(name)
-                .due(Date::ymd(opens, 8, 1))
-                .public();
+            let s = team_spot(w, K::FacilityPush, t, s_team(t)).word(name).due(Date::ymd(opens, 8, 1)).public();
             tell(w, s);
         }
     }

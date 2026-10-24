@@ -24,7 +24,9 @@ use afm_engine::world::front_office::market;
 use afm_engine::world::stories::nick::{self, NickKind, Who as NWho};
 use afm_engine::world::stories::story::MementoKind;
 use afm_engine::world::stories::{self as st, TeamKey};
-use afm_engine::world::storylines::{self as sl, BeatKind, Family, Part, Phase, Story, Voice, Who, credit, moves, view};
+use afm_engine::world::storylines::{
+    self as sl, BeatKind, Family, Part, Phase, Story, Voice, Who, credit, moves, view,
+};
 use serde_json::{Value, json};
 
 use crate::lane_core::links::{self, Linker};
@@ -134,7 +136,11 @@ fn ctx_line(w: &World) -> String {
         TeamRef::Other(i) => views::other_line(w, i),
     };
     let rec = views::record_text(w, t);
-    [views::team_name(w, t), level, rec, date_text(w.today)].into_iter().filter(|x| !x.is_empty()).collect::<Vec<_>>().join(" · ")
+    [views::team_name(w, t), level, rec, date_text(w.today)]
+        .into_iter()
+        .filter(|x| !x.is_empty())
+        .collect::<Vec<_>>()
+        .join(" · ")
 }
 
 /// The board's six phases: Seed to Aftermath (a fizzle sits with the
@@ -263,6 +269,14 @@ fn link_tree(w: &World, v: &mut Value) {
 
 // --- Board 28: This week -------------------------------------------------------------------------
 
+/// How many of your stories wait on you, for the sidebar's badge.
+pub(crate) fn need_count(w: &World) -> usize {
+    if w.career.is_none() {
+        return 0;
+    }
+    view::mine(w).into_iter().filter(|s| view::needs_you(w, s)).count()
+}
+
 /// One story as a card: its question, heat and the last weeks of it, your
 /// part, its phase, how the people split, the latest beat, what's next.
 fn card(w: &World, s: &Story) -> Value {
@@ -331,7 +345,8 @@ fn week(w: &World) -> Value {
         v.sort_by(|a, b| b.heat.total_cmp(&a.heat));
         v
     };
-    let ended: Vec<&Story> = view::ended_since(w, Date::ymd(w.year, 2, 15)).into_iter().filter(|s| s.season == w.year).collect();
+    let ended: Vec<&Story> =
+        view::ended_since(w, Date::ymd(w.year, 2, 15)).into_iter().filter(|s| s.season == w.year).collect();
     let week_ago = w.today.add(-7);
     let ended_week: Vec<Value> =
         ended.iter().filter(|s| s.closed.is_some_and(|c| c >= week_ago)).take(3).map(|s| ended_row(w, s)).collect();
@@ -470,7 +485,16 @@ fn cast_row(w: &World, s: &Story, m: &sl::Member) -> Value {
         }
     };
     let (mood_word, tone) = match mood {
-        Some(x) => (view::mood_word(x), if x > 0.15 { 0 } else if x > -0.15 { 1 } else { 2 }),
+        Some(x) => (
+            view::mood_word(x),
+            if x > 0.15 {
+                0
+            } else if x > -0.15 {
+                1
+            } else {
+                2
+            },
+        ),
         None => ("", 1),
     };
     json!({ "name": link, "role": format!("{} · {}", m.part.name(), role).trim_end_matches(" · ").to_string(), "side": side, "mood": mood_word, "tone": tone })
@@ -589,7 +613,11 @@ fn ticks(start: Date, days: i32) -> Vec<Value> {
     let mut m = Date::ymd(start.year(), start.month(), 1);
     let mut k = 0;
     loop {
-        m = Date::ymd(if m.month() == 12 { m.year() + 1 } else { m.year() }, if m.month() == 12 { 1 } else { m.month() + 1 }, 1);
+        m = Date::ymd(
+            if m.month() == 12 { m.year() + 1 } else { m.year() },
+            if m.month() == 12 { 1 } else { m.month() + 1 },
+            1,
+        );
         let d = start.days_to(m);
         if d >= span {
             break;
@@ -630,7 +658,8 @@ fn meeting(w: &mut World, id: u32) -> Reply {
             facts.push(json!({ "k": "His mood", "v": md }));
         }
     }
-    facts.push(json!({ "k": "The heat", "v": format!("{} of 100, {}", s.heat.round(), s.phase.name().to_lowercase()) }));
+    facts
+        .push(json!({ "k": "The heat", "v": format!("{} of 100, {}", s.heat.round(), s.phase.name().to_lowercase()) }));
     let lean = belief.split(", ").next().unwrap_or(&belief).trim_end_matches('.').to_string();
     facts.push(json!({ "k": "The public", "v": format!("{lean}, {sure}% sure") }));
     facts.push(json!({ "k": "If you wait", "v": "your staff puts out a no-comment" }));
@@ -679,7 +708,13 @@ fn previously(w: &mut World) -> Value {
             Some(k) => {
                 let (us, them) = if k == 0 { (a, b) } else { (b, a) };
                 let opp = &g.names[1 - k];
-                let res = if us > them { "beat" } else if us < them { "lost to" } else { "tied" };
+                let res = if us > them {
+                    "beat"
+                } else if us < them {
+                    "lost to"
+                } else {
+                    "tied"
+                };
                 format!("You {res} {opp} {}-{}.", us.max(them), us.min(them))
             }
             None => format!("{} {} at {} {}.", g.names[1], b, g.names[0], a),
@@ -742,7 +777,13 @@ fn chapter_json(w: &World, k: usize, c: &credit::Chapter, slots: &[(Date, String
     let to = c.to.unwrap_or(from);
     // Its place on the season's strip: the first and last slot it covers.
     let slot = |d: Date| slots.iter().rposition(|s| s.0 <= d).unwrap_or(0);
-    let tone = if c.score >= 0.3 { 0 } else if c.score <= -0.3 { 2 } else { 1 };
+    let tone = if c.score >= 0.3 {
+        0
+    } else if c.score <= -0.3 {
+        2
+    } else {
+        1
+    };
     let dates = if from == to { short_day(from) } else { format!("{} – {}", short_day(from), short_day(to)) };
     json!({
         "k": k + 1,
@@ -815,11 +856,18 @@ fn chapters(w: &World, season: Option<i32>) -> Value {
     let nth = w.stories.story.seasons.iter().filter(|x| Some(x.team) == team && x.year as i32 <= yr).count().max(1);
     let title = w.stories.story.titles.iter().find(|x| x.0 == yr && Some(x.1) == team).map(|x| x.2.clone());
     let rec = if ties > 0 { format!("{wins}-{losses}-{ties}") } else { format!("{wins}-{losses}") };
-    let sub = [title, Some(format!("your {} season{}", ordinal(nth), team.map_or(String::new(), |t| format!(" at {}", st::short_name(w, t)))))]
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>()
-        .join(" · ");
+    let sub = [
+        title,
+        Some(format!(
+            "your {} season{}",
+            ordinal(nth),
+            team.map_or(String::new(), |t| format!(" at {}", st::short_name(w, t)))
+        )),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>()
+    .join(" · ");
     let chs: Vec<Value> = list.iter().enumerate().map(|(k, c)| chapter_json(w, k, c, &slots)).collect();
     let mut v = json!({
         "ctx": format!("{} · season review", team.map_or_else(|| "Your career".to_string(), |t| views::team_name(w, tref(t)))),
@@ -927,7 +975,13 @@ fn career(w: &World) -> Value {
     .collect::<Vec<_>>()
     .join(" · ");
     let ctx = match co.job {
-        Some(j) => format!("{} · {} since {} · {}", views::employer_name(w, j.employer), market::role_title(j.role).to_lowercase(), j.since, date_text(w.today)),
+        Some(j) => format!(
+            "{} · {} since {} · {}",
+            views::employer_name(w, j.employer),
+            market::role_title(j.role).to_lowercase(),
+            j.since,
+            date_text(w.today)
+        ),
         None => format!("Out of coaching · {}", date_text(w.today)),
     };
     let mut v = json!({
@@ -986,7 +1040,9 @@ fn jobs(w: &mut World) -> Value {
         .offers
         .iter()
         .enumerate()
-        .map(|(k, o)| (Some(k), o.employer, o.role, format!("Offered {}: {}", date_text(o.made), o.why), Some((o.pay, o.years))))
+        .map(|(k, o)| {
+            (Some(k), o.employer, o.role, format!("Offered {}: {}", date_text(o.made), o.why), Some((o.pay, o.years)))
+        })
         .collect();
     let mine = market::your_job(w).map(|j| (j.employer, j.role));
     let level = w.seat.map(|s| s.level);
@@ -1066,15 +1122,23 @@ fn jobs(w: &mut World) -> Value {
     let co = &w.coaches[c.coach];
     // Who reads the market for you: your agent above high school, a coaching
     // friend at it.
-    let hottest = out.iter().max_by(|a, b| a["volatility"].as_f64().unwrap_or(0.0).total_cmp(&b["volatility"].as_f64().unwrap_or(0.0)));
-    let calmest = out.iter().min_by(|a, b| a["volatility"].as_f64().unwrap_or(0.0).total_cmp(&b["volatility"].as_f64().unwrap_or(0.0)));
+    let hottest = out
+        .iter()
+        .max_by(|a, b| a["volatility"].as_f64().unwrap_or(0.0).total_cmp(&b["volatility"].as_f64().unwrap_or(0.0)));
+    let calmest = out
+        .iter()
+        .min_by(|a, b| a["volatility"].as_f64().unwrap_or(0.0).total_cmp(&b["volatility"].as_f64().unwrap_or(0.0)));
     let agent = match (hottest, calmest) {
         (Some(h), Some(c)) if h["name"] != c["name"] && h["w"].as_u64().unwrap_or(0) >= 2 => format!(
             "\"{} pays for the trouble it carries. {} is the quiet one. Both are true.\"",
             h["name"].as_str().unwrap_or(""),
             c["name"].as_str().unwrap_or("")
         ),
-        (Some(h), _) => format!("\"{} reads {}. Know what you'd walk into.\"", h["name"].as_str().unwrap_or(""), h["word"].as_str().unwrap_or("calm").to_lowercase()),
+        (Some(h), _) => format!(
+            "\"{} reads {}. Know what you'd walk into.\"",
+            h["name"].as_str().unwrap_or(""),
+            h["word"].as_str().unwrap_or("calm").to_lowercase()
+        ),
         _ => "\"Nothing worth moving for yet.\"".to_string(),
     };
     let agent_who = if seat_kind(w) == "hs" {
@@ -1107,11 +1171,7 @@ fn jobs(w: &mut World) -> Value {
 }
 
 fn money(d: f64) -> String {
-    if d >= 1.0e6 {
-        format!("${:.1}M a year", d / 1.0e6)
-    } else {
-        format!("${}K a year", (d / 1000.0).round())
-    }
+    if d >= 1.0e6 { format!("${:.1}M a year", d / 1.0e6) } else { format!("${}K a year", (d / 1000.0).round()) }
 }
 
 fn boss_title(w: &World, e: Employer) -> String {

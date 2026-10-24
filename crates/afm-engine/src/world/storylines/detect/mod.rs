@@ -138,8 +138,10 @@ fn follow_high_schools(w: &mut World) {
 /// Whether the world tells stories about a team.
 pub(crate) fn on(w: &World, t: TeamKey) -> bool {
     match t {
-        TeamKey::College(p) => w.programs.get(p as usize).is_some_and(|x| matches!(x.division, Division::FBS | Division::FCS))
-            || mine(w, t),
+        TeamKey::College(p) => {
+            w.programs.get(p as usize).is_some_and(|x| matches!(x.division, Division::FBS | Division::FCS))
+                || mine(w, t)
+        }
         TeamKey::Nfl(_) => true,
         TeamKey::Hs(h) => w.storylines.watch.hs.binary_search(&h).is_ok() || mine(w, t),
         TeamKey::Other(_) => mine(w, t),
@@ -199,12 +201,7 @@ pub(crate) fn head(w: &World, t: TeamKey) -> Option<usize> {
 /// A coach's career wins as a head coach, across every stint.
 pub(crate) fn career_wins(w: &World, c: usize) -> u32 {
     let co = &w.coaches[c];
-    let past: u32 = co
-        .history
-        .iter()
-        .filter(|s| s.role == crate::world::coach::Role::HeadCoach)
-        .map(|s| s.wins)
-        .sum();
+    let past: u32 = co.history.iter().filter(|s| s.role == crate::world::coach::Role::HeadCoach).map(|s| s.wins).sum();
     past + if co.job.is_some_and(|j| j.role == crate::world::coach::Role::HeadCoach) { co.wins } else { 0 }
 }
 
@@ -305,10 +302,12 @@ pub(crate) fn in_season(w: &World, level: Level) -> bool {
                 && w.dates.cfb_weeks.first().is_some_and(|&f| d >= f)
         }
         Level::Nfl => w.dates.nfl_weeks.first().is_some_and(|&f| d >= f) && d <= w.dates.super_bowl,
-        Level::HighSchool => w.hs_season.as_ref().is_some_and(|s| s.on_engine || !s.results.is_empty())
-            && d >= w.dates.hs_school_start
-            && d.month() >= 8
-            && d.month() <= 12,
+        Level::HighSchool => {
+            w.hs_season.as_ref().is_some_and(|s| s.on_engine || !s.results.is_empty())
+                && d >= w.dates.hs_school_start
+                && d.month() >= 8
+                && d.month() <= 12
+        }
         _ => false,
     }
 }

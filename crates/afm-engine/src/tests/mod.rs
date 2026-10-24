@@ -16,6 +16,7 @@ mod live_game;
 mod polls;
 mod scouting;
 mod stories;
+mod storylines;
 mod tactics;
 mod tendencies;
 mod training;
