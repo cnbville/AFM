@@ -32,11 +32,20 @@
     tiles: true,
     marks: true,
     pace: "every", // every snap, or key plays only
-    next: false, // the next look (curves, leaning, gear, dirt, wear): a preview until Cain okays its clip
+    next: true, // the next look (curves, leaning, gear, dirt, wear); Cain okayed its clip 2026-10-24
+    ver: 2,
   };
   function loadSettings() {
     try {
-      return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(SKEY) || "{}") };
+      const kept = JSON.parse(localStorage.getItem(SKEY) || "{}");
+      const s = { ...DEFAULTS, ...kept };
+      // Settings kept while the next look was a preview hold it off: it
+      // comes on once, and stays as you set it after that.
+      if ((kept.ver || 0) < 2) {
+        s.next = DEFAULTS.next;
+        s.ver = DEFAULTS.ver;
+      }
+      return s;
     } catch (e) {
       return { ...DEFAULTS };
     }

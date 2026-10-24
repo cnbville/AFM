@@ -7,7 +7,7 @@
 //   contracts lists.
 // - The "Faces and photos" page: a folder import with a review table and
 //   undo, "Export AI prompts", one file per player, and the drawn heads switch.
-// - Drawn heads (F14, behind that switch, off by default): a face with no
+// - Drawn heads (F14, on unless that switch turns them off): a face with no
 //   photo is drawn in the page from his recipe the first time a screen shows
 //   it (screens/heads/heads.js), then kept in the save's folder.
 "use strict";

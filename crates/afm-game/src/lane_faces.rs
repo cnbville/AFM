@@ -12,7 +12,8 @@
 //! - your photos (F7, F8): set, clear, and the "new team photo" switch;
 //! - the folder import (X4): match file names to players, apply a batch,
 //!   undo it; and "Export AI prompts", one text file per player;
-//! - the drawn heads' switch (off by default) and their saved pictures.
+//! - the drawn heads' switch (on unless you turn it off) and their saved
+//!   pictures.
 //!
 //! Everything lives in the save's own faces folder, `<save>.faces/` beside
 //! `<save>.afmsave`, or `faces/unsaved/` in the game folder before the
@@ -241,10 +242,10 @@ fn settings_path(g: &Game) -> PathBuf {
     g.home.join("faces-settings.json")
 }
 
-/// Drawn heads are behind a switch, off until Cain okays the comparison
-/// picture (final build B5).
+/// Drawn heads are on unless you turned them off (Cain okayed the
+/// comparison picture 2026-10-24).
 fn drawn_on(g: &Game) -> bool {
-    read_json(&settings_path(g)).get("drawn").and_then(Value::as_bool).unwrap_or(false)
+    read_json(&settings_path(g)).get("drawn").and_then(Value::as_bool).unwrap_or(true)
 }
 
 fn settings(g: &Game) -> Value {
