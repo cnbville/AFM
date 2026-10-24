@@ -27,7 +27,7 @@ I.story = '<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5zM5
 I.office = '<path d="M3 20.5h18M4.5 20.5V4h15v16.5M4.5 12h15M7.5 12V8.5h2.5V12M13.5 12V7.5h2V12M8 20.5v-4.5h3v4.5M14 20.5V17h3v3.5"/>';
 
 navAdd({ go: "media", label: "Media", icon: "mic", sec: "world", after: "news" });
-navAdd({ go: "traditions", label: "Traditions", icon: "flag", sec: "team", after: "people" });
+navAdd({ go: "traditions", label: "Traditions", icon: "flag", sec: "team", after: "people", seats: ["college", "nfl", "hs"] });
 navAdd({ go: "story", label: "Career story", icon: "story", sec: "world", after: "you" });
 navAdd({ go: "office", label: "Office", icon: "office", sec: "world", after: "story" });
 Object.assign(CRUMBS, { office: "Office", story: "Career story", media: "Media", traditions: "Traditions" });

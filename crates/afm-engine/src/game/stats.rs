@@ -2,8 +2,6 @@
 //! did what and why, and every stat is computed from that log. Game lines
 //! roll up into season and career totals.
 
-use std::collections::HashMap;
-
 use super::sim::{FoulKind, Injury, Move};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -645,7 +643,9 @@ pub struct GameStats {
     pub score: [i32; 2],
     pub quarters: Vec<[i32; 2]>,
     pub team: [TeamStats; 2],
-    pub players: [HashMap<u32, StatLine>; 2],
+    /// Every player's line by id, in id order so walking the lines is the
+    /// same in every run (stories draw on it).
+    pub players: [std::collections::BTreeMap<u32, StatLine>; 2],
     pub plays: Vec<PlayRecord>,
     pub overtime: bool,
     /// Timeouts each team (home, away) still held when the first and the

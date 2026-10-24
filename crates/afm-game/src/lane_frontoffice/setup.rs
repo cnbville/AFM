@@ -58,6 +58,7 @@ fn employer(w: &World, v: &Value) -> Result<Employer, String> {
         Some("hs") if id < w.high_schools.len() => Ok(Employer::HighSchool(id)),
         Some("college") if id < w.programs.len() => Ok(Employer::College(id)),
         Some("nfl") if id < w.nfl.len() => Ok(Employer::Nfl(id)),
+        Some("other") if id < afm_engine::world::pro::other::FRANCHISES => Ok(Employer::Other(id)),
         _ => Err("No such team.".into()),
     }
 }
@@ -92,6 +93,7 @@ fn level_key(l: Level) -> &'static str {
     match l {
         Level::Nfl => "nfl",
         Level::HighSchool => "hs",
+        Level::Other => "other",
         _ => "college",
     }
 }
@@ -174,6 +176,7 @@ fn start(w: &mut World, args: &Value) -> Result<(), String> {
             TeamRef::Nfl(i) => Job::Nfl(i),
             TeamRef::College(i) => Job::College(i),
             TeamRef::HighSchool(i) => Job::HighSchool(i),
+            TeamRef::Other(f) => Job::Other(f),
         })
     };
     let start = match kind {
@@ -186,6 +189,9 @@ fn start(w: &mut World, args: &Value) -> Result<(), String> {
                 (Job::Nfl(_), Role::PositionCoach(_)) => {
                     return Err("NFL staffs in the game are the head coach and the two coordinators.".into());
                 }
+                (Job::Other(_), Role::PositionCoach(_)) => {
+                    return Err("A club in the other leagues has a head coach and two coordinators in the game.".into());
+                }
                 _ => {}
             }
             Start::Assistant(j, r)
@@ -193,6 +199,7 @@ fn start(w: &mut World, args: &Value) -> Result<(), String> {
         "free" => Start::Free(match args.get("level").and_then(Value::as_str) {
             Some("nfl") => Level::Nfl,
             Some("hs") => Level::HighSchool,
+            Some("other") => Level::Other,
             _ => Level::College,
         }),
         _ => Start::Head(job()?),
@@ -217,6 +224,7 @@ fn start(w: &mut World, args: &Value) -> Result<(), String> {
                 coordinator: level != Level::HighSchool,
                 position: level == Level::College,
                 nfl: level == Level::Nfl,
+                other: matches!(level, Level::Nfl | Level::Other),
                 states: if level == Level::HighSchool { vec![home] } else { Vec::new() },
                 college_floor: 1,
             };
@@ -279,6 +287,10 @@ fn assistant_jobs(w: &World, args: &Value) -> Value {
                     let t = &w.nfl[id];
                     vec![(Role::OffensiveCoordinator, t.oc), (Role::DefensiveCoordinator, t.dc)]
                 }
+                Some("other") => [Role::OffensiveCoordinator, Role::DefensiveCoordinator]
+                    .into_iter()
+                    .map(|r| (r, afm_engine::world::pro::other::slot(w, id, r)))
+                    .collect(),
                 _ => Vec::new(),
             };
             j["roles"] = json!(
@@ -376,6 +388,7 @@ fn set_interest(w: &mut World, args: &Value) -> Result<(), String> {
     i.coordinator = b("coordinator", i.coordinator);
     i.position = b("position", i.position);
     i.nfl = b("nfl", i.nfl);
+    i.other = b("other", i.other);
     if let Some(f) = args.get("college_floor").and_then(Value::as_u64) {
         i.college_floor = f.min(2) as u8;
     }
@@ -393,6 +406,7 @@ fn cycle_words(w: &World) -> Vec<Value> {
     vec![
         json!({ "level": "College", "text": format!("Head coaches are fired from the end of October; searches run through the bowls and into January. Assistants move from December to February. The regular season ends {}.", date_text(d.fbs_regular_end)) }),
         json!({ "level": "NFL", "text": "Black Monday follows the last regular-season Sunday; head coaches are hired in January and their coordinators within weeks.".to_string() }),
+        json!({ "level": "Other leagues", "text": "The CFL fires after the Grey Cup and hires through the winter; the spring leagues hire in the fall. Any seat still empty is filled three weeks before camp.".to_string() }),
         json!({ "level": "High school", "text": format!("Principals and boards decide on their coaches after the season; most openings are posted and filled around {}.", date_text(hs)) }),
     ]
 }
@@ -468,7 +482,7 @@ pub(crate) fn market_view(w: &World) -> Value {
         "teaching_at": m.teaching_at.map(|s| w.school_name(s).to_string()),
         "interest": {
             "listening": i.listening, "hs_head": i.hs_head, "college_head": i.college_head,
-            "coordinator": i.coordinator, "position": i.position, "nfl": i.nfl, "college_floor": i.college_floor,
+            "coordinator": i.coordinator, "position": i.position, "nfl": i.nfl, "other": i.other, "college_floor": i.college_floor,
             "states": i.states.iter().filter_map(|&s| w.states.get(s).map(|x| x.code.clone())).collect::<Vec<_>>(),
         },
         "states": w.states.iter().map(|s| json!({ "code": s.code, "name": market::state_name(&s.code) })).collect::<Vec<_>>(),

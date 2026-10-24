@@ -287,6 +287,7 @@ fn writer(w: &World, team: Option<TeamKey>) -> String {
     let k = team.map_or(0, |t| match t {
         TeamKey::Hs(x) | TeamKey::College(x) => x as u64,
         TeamKey::Nfl(x) => 9000 + x as u64,
+        TeamKey::Other(x) => 12_000 + x as u64,
     });
     const FIRST: [&str; 24] = [
         "Dave", "Mike", "Tom", "Jen", "Chris", "Pat", "Ross", "Lori", "Greg", "Matt", "Sam", "Erin", "Kevin", "Dana",
@@ -488,6 +489,7 @@ pub(crate) fn head_coach_name(w: &World, t: TeamKey) -> Option<String> {
         TeamKey::College(p) => w.programs.get(p as usize)?.head_coach,
         TeamKey::Nfl(n) => w.nfl.get(n as usize)?.head_coach,
         TeamKey::Hs(h) => w.high_schools.get(h as usize)?.coach,
+        TeamKey::Other(f) => w.others.teams.get(f as usize)?.head_coach,
     }?;
     if Some(c) == super::seat_coach(w) {
         return w.career.as_ref().map(|x| x.you.name.clone());
@@ -1273,6 +1275,7 @@ fn coaches(w: &mut World, level: Level) {
         let c = match t {
             TeamKey::College(p) => w.programs[p as usize].head_coach,
             TeamKey::Nfl(n) => w.nfl[n as usize].head_coach,
+            TeamKey::Other(f) => w.others.teams.get(f as usize).and_then(|t| t.head_coach),
             TeamKey::Hs(_) => None,
         };
         let Some(c) = c else { continue };

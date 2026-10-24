@@ -36,6 +36,8 @@ pub enum TeamKey {
     Hs(u32),
     College(u32),
     Nfl(u16),
+    /// A club in another pro league, by its franchise (`world::pro::other`).
+    Other(u16),
 }
 
 impl TeamKey {
@@ -44,6 +46,7 @@ impl TeamKey {
             TeamKey::Hs(_) => Level::HighSchool,
             TeamKey::College(_) => Level::College,
             TeamKey::Nfl(_) => Level::Nfl,
+            TeamKey::Other(_) => Level::Other,
         }
     }
 }
@@ -135,6 +138,7 @@ pub fn team_name(w: &World, t: TeamKey) -> String {
         TeamKey::Hs(h) => w.school_name(h as usize).to_string(),
         TeamKey::College(p) => w.program_name(p as usize).to_string(),
         TeamKey::Nfl(n) => w.nfl_team_name(n as usize),
+        TeamKey::Other(f) => super::pro::other::name(f as usize, w.year).to_string(),
     }
 }
 
@@ -142,7 +146,7 @@ pub fn team_name(w: &World, t: TeamKey) -> String {
 /// has to punt"), the school's own name otherwise.
 pub fn short_name(w: &World, t: TeamKey) -> String {
     match t {
-        TeamKey::Nfl(_) => city(w, t),
+        TeamKey::Nfl(_) | TeamKey::Other(_) => city(w, t),
         _ => team_name(w, t),
     }
 }
@@ -150,7 +154,7 @@ pub fn short_name(w: &World, t: TeamKey) -> String {
 /// A team's full name inside a sentence: "the Chicago Bears", "Alabama".
 pub fn team_in_text(w: &World, t: TeamKey) -> String {
     match t {
-        TeamKey::Nfl(_) => format!("the {}", team_name(w, t)),
+        TeamKey::Nfl(_) | TeamKey::Other(_) => format!("the {}", team_name(w, t)),
         _ => team_name(w, t),
     }
 }
@@ -164,6 +168,7 @@ pub fn mascot(w: &World, t: TeamKey) -> Option<String> {
         }
         TeamKey::College(p) => numbers::mascot_of(w.program_name(p as usize)),
         TeamKey::Hs(h) => Some(numbers::hs_mascot(h)),
+        TeamKey::Other(f) => Some(super::pro::other::nickname(f as usize, w.year).to_string()),
     }
 }
 
@@ -179,6 +184,7 @@ pub fn city(w: &World, t: TeamKey) -> String {
         }
         TeamKey::College(p) => w.programs.get(p as usize).map_or_else(String::new, |x| x.city.clone()),
         TeamKey::Hs(h) => w.high_schools.get(h as usize).map_or_else(String::new, |x| x.town.clone()),
+        TeamKey::Other(f) => super::pro::other::city(f as usize, w.year).to_string(),
     }
 }
 
@@ -194,7 +200,7 @@ pub(crate) fn team_fill(w: &World, t: TeamKey, f: Fill) -> Fill {
     let state = match t {
         TeamKey::College(p) => w.programs.get(p as usize).map(|x| x.state),
         TeamKey::Hs(h) => w.high_schools.get(h as usize).map(|x| x.state),
-        TeamKey::Nfl(_) => None,
+        TeamKey::Nfl(_) | TeamKey::Other(_) => None,
     };
     // An NFL club goes by its city in a sentence ("Chicago has 4 days to get
     // ready"), the way papers and broadcasts say it.
@@ -219,6 +225,7 @@ pub fn seat_team(w: &World) -> Option<TeamKey> {
     match s.level {
         Level::Nfl => s.nfl_team.map(|t| TeamKey::Nfl(t as u16)),
         Level::HighSchool => s.program.map(|h| TeamKey::Hs(h as u32)),
+        Level::Other => s.other.map(|f| TeamKey::Other(f as u16)),
         _ => s.program.map(|p| TeamKey::College(p as u32)),
     }
 }
@@ -394,6 +401,27 @@ pub(crate) fn hs_game(w: &mut World, teams: [usize; 2], stats: &crate::game::Gam
     nick::after_game(w, &ctx, stats);
     careers::after_game(w, &ctx, stats);
     traditions::seat_uniform(w, &ctx, stats.score[0] > stats.score[1]);
+    story::after_game(w, &ctx, stats);
+}
+
+/// After one of your club's games in another league (the CFL, arena or a
+/// spring league): its line in your career story.
+pub(crate) fn other_game(w: &mut World, teams: [usize; 2], stats: &crate::game::GameStats, postseason: bool) {
+    let teams = teams.map(|t| TeamKey::Other(t as u16));
+    if !w.recording || !seat_team(w).is_some_and(|me| teams.contains(&me)) {
+        return;
+    }
+    let ctx = GameCtx {
+        level: Level::Other,
+        teams,
+        big: postseason,
+        rivalry: false,
+        postseason,
+        pre: 0.5,
+        name: None,
+        trophy: None,
+        title: None,
+    };
     story::after_game(w, &ctx, stats);
 }
 

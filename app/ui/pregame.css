@@ -249,6 +249,9 @@ body:has(.pg) .toasts { bottom: 96px; }
 .pg-mode.on { border-color: var(--pg-amber); box-shadow: inset 3px 0 0 var(--pg-amber); background: #1b1f25; }
 .pg-mode:focus-visible, .pg-role:focus-visible { outline: 2px solid var(--pg-amber); outline-offset: -2px; }
 .pg-filters .pg-seg.two { grid-template-columns: 1fr 1fr; }
+/* Four levels (the other leagues too): two rows of two. */
+.pg-filters .pg-seg.four { grid-template-columns: 1fr 1fr; }
+.pg-filters .pg-seg.four button:nth-child(-n + 2) { border-bottom: 1px solid var(--pg-edge); }
 .pg-roles { display: grid; gap: 4px; padding: 8px 10px 14px; }
 .pg-role { all: unset; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 8px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; }
 .pg-role b { font-weight: 600; color: #d5d9df; }

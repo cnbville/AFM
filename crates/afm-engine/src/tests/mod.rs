@@ -3,6 +3,7 @@
 
 mod compact;
 mod development;
+mod faces;
 mod foundations;
 mod front_office;
 mod game_stats;

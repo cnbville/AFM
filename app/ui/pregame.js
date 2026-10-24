@@ -213,7 +213,7 @@ function newSetup() {
     // Lane 10: your last stops, and the seat you start in (head coach, an
     // assistant's role, or out of work at a level).
     stops: [], mode: "head", role: null, freeLevel: "college",
-    f: { college: { div: "FBS", conf: null }, nfl: { conf: null, div: null }, hs: { state: null, cls: null } },
+    f: { college: { div: "FBS", conf: null }, nfl: { conf: null, div: null }, hs: { state: null, cls: null }, other: { league: null } },
     sort: { k: null, desc: true },
   };
 }
@@ -343,7 +343,7 @@ const HEIGHTS = Array.from({ length: 15 }, (_, i) => `${Math.floor((66 + i) / 12
 const BUILDS = ["Lean", "Athletic", "Average", "Stocky", "Heavy", "Former lineman, still big", "Former linebacker, a little heavier", "Former receiver, still lean"];
 const HAIR = ["Short, dark", "Short, greying at the sides", "Grey", "White", "Thinning", "Shaved", "Bald", "Longer, swept back", "Close-cropped", "Curly"];
 const FACIAL = ["Clean-shaven", "Stubble", "Moustache", "Goatee", "Trimmed beard", "Full beard", "Grey beard"];
-const HERITAGE = [["white", "White"], ["black", "Black"], ["hispanic", "Hispanic"], ["polynesian", "Polynesian"], ["asian", "Asian"]];
+const HERITAGE = [["white", "White"], ["black", "Black"], ["hispanic", "Hispanic"], ["polynesian", "Polynesian"], ["east_asian", "East Asian"], ["southeast_asian", "Southeast Asian"], ["south_asian", "South Asian"]];
 function ageOn(born, today) {
   const m = String(born || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!m) return null;
@@ -714,7 +714,7 @@ function stepStyle(st) {
 }
 
 // Step 6: the job.
-const LEVELS = [["nfl", "NFL"], ["college", "College"], ["hs", "High school"]];
+const LEVELS = [["nfl", "NFL"], ["college", "College"], ["hs", "High school"], ["other", "Other leagues"]];
 const DIVS = ["FBS", "FCS", "D2", "D3", "NAIA", "JUCO"];
 const DIV_NAMES = { D2: "Division II", D3: "Division III" };
 function jobFilters(st, all) {
@@ -728,6 +728,10 @@ function jobFilters(st, all) {
     const confs = [...new Set(inDiv.map((j) => j.conference))].sort();
     html = `<h4>Division</h4>${divs.map((d) => btn("div", d, DIV_NAMES[d] || d, count((j) => j.division === d))).join("")}
       <h4>Conference</h4>${btn("conf", null, "All", inDiv.length)}${confs.map((c) => btn("conf", c, c, inDiv.filter((j) => j.conference === c).length)).join("")}`;
+  } else if (lv === "other") {
+    // The CFL, arena football and the spring leagues playing this year or next.
+    const leagues = [...new Set(all.map((j) => j.league))];
+    html = `<h4>League</h4>${btn("league", null, "Every league", all.length)}${leagues.map((l) => btn("league", l, all.find((j) => j.league === l).league_name, count((j) => j.league === l))).join("")}`;
   } else if (lv === "nfl") {
     const divs = [...new Set(all.map((j) => j.division).filter(Boolean))].sort();
     html = `<h4>Conference</h4>${btn("conf", null, "Both", all.length)}${["AFC", "NFC"].map((c) => btn("conf", c, c, count((j) => j.conference === c))).join("")}
@@ -745,7 +749,7 @@ function jobFilters(st, all) {
   // An assistant's seat is on a college or NFL staff (lane 10).
   const levels = st.mode === "assistant" ? LEVELS.filter(([k]) => k !== "hs") : LEVELS;
   return `<nav class="pg-panel pg-filters" aria-label="Filters">
-    <div class="pg-seg ${levels.length === 2 ? "two" : ""}">${levels.map(([k, t]) => `<button class="${lv === k ? "on" : ""}" data-pg="level" data-k="${k}">${t}</button>`).join("")}</div>
+    <div class="pg-seg ${levels.length === 2 ? "two" : levels.length === 4 ? "four" : ""}">${levels.map(([k, t]) => `<button class="${lv === k ? "on" : ""}" data-pg="level" data-k="${k}">${t}</button>`).join("")}</div>
     <input class="pg-search" id="pg-q" value="${esc(st.q)}" placeholder="Find a team, town or state" aria-label="Find a team" autocomplete="off">
     <div class="pg-flt" data-keep="flt">${html}</div></nav>`;
 }
@@ -753,12 +757,13 @@ const JOB_COLS = {
   college: [["name", "Program"], ["record", "2025", "n"], ["prestige", "Prestige"], ["stadium", "Stadium", "n"], ["nil", "NIL budget", "n"], ["coach", "Head coach now"]],
   nfl: [["name", "Club"], ["record", "2025", "n"], ["playoffs", "Playoffs"], ["titles", "Super Bowls", "n"], ["cap_room", "Cap room", "n"], ["coach", "Head coach now"]],
   hs: [["name", "School"], ["record", "2025", "n"], ["prestige", "Prestige"], ["class", "Class"], ["enrollment", "Enrollment", "n"], ["coach", "Head coach now"]],
+  other: [["name", "Club"], ["league", "League"], ["record", "Last season", "n"], ["titles", "Titles", "n"], ["pay", "Head coach pay", "n"], ["coach", "Head coach now"]],
 };
 const winPct = (r) => { const m = String(r || "").match(/^(\d+)-(\d+)/); return m ? Number(m[1]) / Math.max(1, Number(m[1]) + Number(m[2])) : -1; };
 function jobSortValue(j, k) {
   if (k === "record") return winPct(j.record);
   if (k === "coach") return j.coach ? j.coach.name : "";
-  if (k === "name" || k === "class" || k === "playoffs") return String(j[k] || "");
+  if (k === "name" || k === "class" || k === "playoffs" || k === "league") return String(j[k] || "");
   return Number(j[k] || 0);
 }
 function jobCell(j, k) {
@@ -771,6 +776,8 @@ function jobCell(j, k) {
     case "playoffs": return `<td class="pg-dim">${esc(j.playoffs || "Missed the playoffs")}</td>`;
     case "titles": return `<td class="n">${j.titles || '<span class="pg-dim">-</span>'}</td>`;
     case "cap_room": return `<td class="n">${money(j.cap_room)}</td>`;
+    case "league": return `<td>${esc(j.league)}</td>`;
+    case "pay": return `<td class="n">${money0(j.pay)}</td>`;
     case "class": return `<td>${esc(j.class)}</td>`;
     case "enrollment": return `<td class="n">${thousands(j.enrollment)}</td>`;
     case "coach": return `<td class="pg-dim">${j.coach ? esc(j.coach.name) : "Open"}</td>`;
@@ -789,6 +796,10 @@ function jobFile(st, j) {
   } else if (st.level === "nfl") {
     kv += `<span>Super Bowls</span><span>${j.titles ? `${j.titles}, the last in ${j.last_title}` : "None yet"}</span><span>Cap room</span><span>${money(j.cap_room)} for ${esc(PG.opts.year)}</span>
       <span>You replace</span><span>${esc(replace)}</span><span>Your boss</span><span>The owner. In the NFL you are head coach and GM; ${esc(j.gm.name)} has run the personnel side since ${j.gm.since}.</span>`;
+  } else if (st.level === "other") {
+    kv += `<span>League</span><span>${esc(j.league_name)}</span><span>Titles</span><span>${j.titles ? `${j.titles} ${esc(j.trophy || "")}${j.titles === 1 ? "" : "s"}, the last in ${j.last_title}` : "None yet"}</span>
+      <span>Pay</span><span>About ${money0(j.pay)} a year for the head coach</span>
+      <span>You replace</span><span>${esc(replace)}</span><span>Your boss</span><span>The owner and his general manager. The league office sets the roster rules and the salary cap; your players sign one-year and two-year deals.</span>`;
   } else {
     kv += `<span>Class</span><span>${esc(j.class)} · ${thousands(j.enrollment)} students${j.private ? " · private" : ""}</span><span>State titles</span><span>${j.titles || "None"}</span>
       <span>You replace</span><span>${esc(replace)}</span><span>Your boss</span><span>The principal and the school board; most high school head coaches also teach.</span>`;
@@ -825,6 +836,7 @@ const FREE_TEXT = {
   nfl: ["NFL staffs are set by February. Openings come when coaches leave in the spring and summer; the big round is Black Monday, after the last regular-season Sunday, with head coaches hired in January and their coordinators within weeks.", "An NFL search wants coordinators and head coaches with records. Without one, a college or high school job first is the usual road."],
   college: ["Head coaches are fired from late October; searches run through the bowls into January, and new head coaches hire their staffs from December to February. You start in February, after the big moves: openings come back through the spring as assistants move up or leave.", "A position coach's job is the first rung; a coordinator's needs a record or someone on the staff who knows you. Your agent shops you to FBS and FCS staffs; the Job market screen widens or narrows that any day."],
   hs: ["Principals and boards decide on their coaches after the season, and most openings are posted and filled from January to April, so February is the busy time. You look in your home state first: change that on the Job market screen any day.", "High school jobs pay a teacher's salary plus a stipend; most head coaches teach a subject at the school."],
+  other: ["The CFL fires after the Grey Cup in November and hires through the winter; the spring leagues hire in the fall for a season from March. Any seat still empty is filled about three weeks before camp.", "A head coach or coordinator's job in the CFL, arena football or a spring league. NFL and college coaches take them and come back: a good season there puts your name back on NFL lists."],
 };
 function stepFree(st) {
   const lv = st.freeLevel || "college";
@@ -850,7 +862,7 @@ async function stepJob(st) {
       title: "Your job",
       lede: "Start without a team, the way most careers start between jobs: your name goes on the coaching market, and the searches decide whether to call.",
       body: stepFree(st),
-      sum: esc(`No job yet · looking for ${{ nfl: "an NFL job", college: "a college job", hs: "a high school head job" }[st.freeLevel || "college"]}`),
+      sum: esc(`No job yet · looking for ${{ nfl: "an NFL job", college: "a college job", hs: "a high school head job", other: "a job in the other leagues" }[st.freeLevel || "college"]}`),
       next: "Start without a job",
     });
   }
@@ -867,6 +879,7 @@ async function stepJob(st) {
     if (q) return hay(j).includes(q);
     if (lv === "college") return j.division === f.div && (!f.conf || j.conference === f.conf);
     if (lv === "nfl") return (!f.conf || j.conference === f.conf) && (!f.div || j.division === f.div);
+    if (lv === "other") return !f.league || j.league === f.league;
     return (!f.state || j.state === f.state) && (!f.cls || j.class === f.cls);
   });
   if (st.sort.k) {
@@ -876,7 +889,7 @@ async function stepJob(st) {
   const shown = list.slice(0, 400);
   const cols = JOB_COLS[lv];
   const cur = st.job && st.job.kind === lv ? all.find((j) => j.ref.id === st.job.id) : null;
-  const what = q ? `${list.length} match "${esc(st.q.trim())}"` : lv === "college" ? `${esc(f.conf || DIV_NAMES[f.div] || f.div)}` : lv === "nfl" ? esc(f.div || f.conf || "The NFL") : esc(f.state ? `${STATE_NAMES[f.state] || f.state}${f.cls ? " " + f.cls : ""}` : "Every state");
+  const what = q ? `${list.length} match "${esc(st.q.trim())}"` : lv === "college" ? `${esc(f.conf || DIV_NAMES[f.div] || f.div)}` : lv === "nfl" ? esc(f.div || f.conf || "The NFL") : lv === "other" ? esc(f.league ? all.find((j) => j.league === f.league).league_name : "The other leagues") : esc(f.state ? `${STATE_NAMES[f.state] || f.state}${f.cls ? " " + f.cls : ""}` : "Every state");
   const sortedBy = st.sort.k ? (cols.find((c) => c[0] === st.sort.k) || [, ""])[1].toLowerCase() : "prestige";
   const kind = assistant ? `staff${list.length === 1 ? "" : "s"}` : `head coaching job${list.length === 1 ? "" : "s"}`;
   const head = (k, t) => (assistant && k === "coach" ? "Head coach" : t);

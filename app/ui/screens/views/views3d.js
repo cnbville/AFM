@@ -92,10 +92,10 @@
       g.fillText(String(num), 64, 70);
     });
   }
-  const blobTex = () =>
+  const blobTex = (dark = 0.55) =>
     canvasTex(64, 64, (g) => {
       const r = g.createRadialGradient(32, 32, 2, 32, 32, 31);
-      r.addColorStop(0, "rgba(0,0,0,.55)");
+      r.addColorStop(0, `rgba(0,0,0,${dark})`);
       r.addColorStop(1, "rgba(0,0,0,0)");
       g.fillStyle = r;
       g.fillRect(0, 0, 64, 64);
@@ -138,6 +138,8 @@
     const w = clamp(Math.sqrt((body.wt || 220) / 230), 0.78, 1.32);
     const armLen = clamp((body.arm || 32.5) / 36, 0.78, 1.02);
     const root = new T.Group();
+    // Turned to his facing first, then rolled about his own forward line.
+    root.rotation.order = "YXZ";
     const m = (geo, mat, sx, sy, sz) => {
       const o = new T.Mesh(geo, mat);
       o.scale.set(sx, sy, sz);
@@ -187,7 +189,10 @@
     const belly = limb(mats.jersey, 0.14 * w, dim.torso * 1.02, 0.19 * w);
     belly.position.y = dim.torso * 0.46;
     torso.add(belly);
-    const pads = m(G.box, mats.jersey, 0.3 * w, 0.14, dim.shW * 2.1);
+    // Pads by position on the next look: a lineman's wide and tall, a
+    // receiver's or a back's cut down, a kicker's barely there.
+    const pw = extra.pads || 1;
+    const pads = m(G.box, mats.jersey, 0.3 * w * (0.6 + 0.4 * pw), 0.14 * pw, dim.shW * 2.1 * pw);
     pads.position.y = dim.torso * 0.86;
     torso.add(pads);
     if (kit.num) {
@@ -218,6 +223,11 @@
         st.position.set(0.0, 0.25, 0);
         neck.add(st);
       }
+      if (extra.visor) {
+        const vz = m(G.box, extra.visor, 0.01, 0.045, 0.16);
+        vz.position.set(0.128, 0.125, 0);
+        neck.add(vz);
+      }
     }
     if (extra.cap) {
       const c = m(G.cyl, extra.cap, 0.12, 0.05, 0.12);
@@ -234,9 +244,14 @@
       g.add(up);
       const el = new T.Group();
       el.position.y = -dim.upper;
-      const fo = limb(mats.skin, 0.045 * w, dim.fore * 1.05, 0.045 * w);
+      const fo = limb(extra.long ? mats.sleeve : mats.skin, 0.045 * w, dim.fore * 1.05, 0.045 * w);
       fo.position.y = -dim.fore / 2;
       el.add(fo);
+      if (extra.gloves && q.detail) {
+        const hand = m(G.headLo, extra.gloves, 0.045 * w, 0.06, 0.04);
+        hand.position.y = -dim.fore - 0.035;
+        el.add(hand);
+      }
       g.add(el);
       torso.add(g);
       return { g, el };
@@ -254,7 +269,18 @@
     blob.scale.set(1.3 * w, 1.3 * w, 1);
     blob.renderOrder = 1;
     root.add(blob);
-    return { root, hips, torso, neck, L, R, AL, AR, dim, hit, blob, fall: 0, actWas: -1, actT: 0 };
+    // High on the next look: a tight, darker shadow where he meets the
+    // turf, the way light fails under a body and between bodies.
+    let core = null;
+    if (extra.core) {
+      core = new T.Mesh(G.plane, extra.core);
+      core.rotation.x = -Math.PI / 2;
+      core.position.y = 0.025;
+      core.scale.set(0.62 * w, 0.5 * w, 1);
+      core.renderOrder = 1;
+      root.add(core);
+    }
+    return { root, hips, torso, neck, L, R, AL, AR, dim, hit, blob, core, fall: 0, actWas: -1, actT: 0 };
   }
 
   // Bend his joints for what he is doing. Angles are about his own axes:
@@ -268,8 +294,17 @@
     }
     const since = t - man.actT;
     const run = clamp(m.speed / 7.5, 0, 1);
-    // A full stride (two steps) is about two and a half yards at speed.
-    const ph = (m.walked / (1.6 + 1.0 * run)) * TAU;
+    const next = SET.next;
+    // A full stride (two steps) is about two and a half yards at speed. On
+    // the next look the stride is counted step by step, so a man speeding
+    // up lengthens his stride without his feet skipping.
+    let ph;
+    if (next) {
+      const dw = m.walked - (man.wasWalked == null ? m.walked : man.wasWalked);
+      man.wasWalked = m.walked;
+      if (Math.abs(dw) < 3) man.ph = (man.ph || 0) + (Math.abs(dw) / (1.6 + 1.0 * run)) * TAU;
+      ph = man.ph || 0;
+    } else ph = (m.walked / (1.6 + 1.0 * run)) * TAU;
     const sw = Math.sin(ph), cw = Math.cos(ph);
     let lean = 0.06 + 0.26 * run;
     let l = 0.65 * run * sw, r = -0.65 * run * sw;
@@ -277,6 +312,8 @@
     let al = -0.7 * run * sw, ar = 0.7 * run * sw, el = -0.4 - 0.9 * run, er = -0.4 - 0.9 * run;
     let spreadL = 0.08, spreadR = 0.08;
     let fallTo = 0;
+    let roll = 0;
+    let lift = 0;
     const walk = !run && m.speed > 0.3;
     if (walk) {
       l = 0.25 * sw;
@@ -310,6 +347,15 @@
           l = 0.35 + 0.1 * Math.sin(t * 7 + man.seed);
           r = -0.1;
           kl = kr = -0.55;
+        }
+        // The man winning the rep drives low into his man; the one losing
+        // is stood up, his arms pushed high.
+        if (next && man.win) {
+          lean += man.win > 0 ? 0.14 : -0.2;
+          if (man.win < 0) {
+            al = ar = 1.7;
+            kl = kr = -0.35;
+          }
         }
         break;
       case ACT.tackle:
@@ -355,6 +401,32 @@
         el = er = -0.35;
         spreadL = spreadR = -0.1;
         lean = 0.05;
+        // Hands to where the ball arrives: up for a high ball, out in front
+        // at the chest, low for a ball at his knees; a ball over his reach
+        // is a leap, one out of reach or at his shoetops a dive.
+        if (next && man.reach) {
+          const R = man.reach;
+          const sh = (d.hip + d.torso * 0.84) * Math.cos(lean);
+          const out = Math.max(0.25, Math.hypot(R.fwd, R.side));
+          al = ar = Math.atan2(out, sh - R.z);
+          el = er = -0.2;
+          roll = clamp(R.side * 0.3, -0.4, 0.4);
+          if (R.z > d.H * 1.3) {
+            lift = clamp(R.z - d.H * 1.22, 0.15, 0.5);
+            al = ar = 2.95;
+            l = 0.5;
+            kl = -1.3;
+            r = -0.1;
+            kr = -0.6;
+          } else if (R.dive) {
+            fallTo = 0.82;
+            al = ar = 2.95;
+            el = er = -0.05;
+            l = -0.35;
+            r = -0.6;
+            kl = kr = -0.2;
+          }
+        }
         break;
       case ACT.carry:
         // The ball tucked high and tight on his outside arm.
@@ -400,11 +472,24 @@
         }
         break;
     }
+    // Leaning into it: forward when he speeds up, back when he brakes, and
+    // into the turn on a cut, as far as the push against the ground takes
+    // him (gravity is 10.7 yards a second squared).
+    if (next && m.ax != null && act !== ACT.down && act !== ACT.fall && act !== ACT.stance) {
+      const cf = Math.cos(m.face), sf = Math.sin(m.face);
+      const ahead = m.ax * cf + m.ay * sf, across = -m.ax * sf + m.ay * cf;
+      const moving = clamp(m.speed / 3, 0, 1);
+      lean += clamp(Math.atan2(ahead, 10.7) * 0.9, -0.22, 0.35) * (0.4 + 0.6 * moving);
+      roll += clamp(Math.atan2(across, 10.7) * 0.9, -0.38, 0.38) * moving;
+    }
     // Ease the joints so a change of act never snaps.
     const k = 1 - Math.pow(0.0005, dt);
-    const S = man.sm || (man.sm = { lean, l, r, kl, kr, al, ar, el, er, sl: spreadL, sr: spreadR, fall: fallTo });
+    const S = man.sm || (man.sm = { lean, l, r, kl, kr, al, ar, el, er, sl: spreadL, sr: spreadR, fall: fallTo, roll });
     const E = (key, v) => (S[key] += (v - S[key]) * k);
     E("lean", lean); E("l", l); E("r", r); E("kl", kl); E("kr", kr); E("al", al); E("ar", ar); E("el", el); E("er", er); E("sl", spreadL); E("sr", spreadR);
+    S.roll = (S.roll || 0) + (roll - (S.roll || 0)) * (1 - Math.pow(0.002, dt));
+    S.lift = (S.lift || 0) + (lift - (S.lift || 0)) * (1 - Math.pow(0.0005, dt));
+    man.root.rotation.x = next ? S.roll : 0;
     S.fall += (fallTo - S.fall) * (1 - Math.pow(0.002, dt));
     man.L.g.rotation.z = S.l;
     man.L.knee.rotation.z = S.kl;
@@ -420,9 +505,108 @@
     // The hips sit as high as the straighter leg reaches.
     const reach = (a, kk) => d.thigh * Math.cos(a) + d.shin * Math.cos(a + kk);
     const hy = Math.max(reach(S.l, S.kl), reach(S.r, S.kr)) + 0.03;
-    man.hips.position.y = lerp(hy, 0.14, S.fall);
+    man.hips.position.y = lerp(hy, 0.14, S.fall) + (next ? S.lift : 0);
     man.hips.rotation.z = -S.fall * (Math.PI / 2 - 0.12);
     man.hips.position.x = S.fall * 0.25;
+  }
+
+  // ---------------------------------------------------------------- the next look
+  // View only (Cain's list, 2026-10-23): nothing here changes where the
+  // engine puts anyone, only how it looks getting there.
+  const DOWN = (a) => a === ACT.fall || a === ACT.down;
+  // Where man i is at time t, straight from the engine's frames.
+  function posAt(c, i, t) {
+    const [k, u] = V.at(c, t);
+    const k2 = Math.min(c.frames - 1, k + 1), o = 6 + i * 5;
+    const f = c.f, A = k * c.S, B = k2 * c.S;
+    return [f[A + o] + (f[B + o] - f[A + o]) * u, f[A + o + 1] + (f[B + o + 1] - f[A + o + 1]) * u];
+  }
+  function nextLook(st, c) {
+    const men = st.men, n = men.length;
+    for (const m of men) {
+      m.dx = m.x;
+      m.dy = m.y;
+      m.win = 0;
+      m.pile = 0;
+    }
+    // Bodies never pass through each other: men closer than their
+    // shoulders allow are eased apart (two passes), men locked up in a
+    // block or a tackle only as far as chest to chest. Men in their stance
+    // keep the engine's spots, and men on the ground can pile up.
+    const free = (m) => m.act !== ACT.stance && m.act !== ACT.kneel && !DOWN(m.act);
+    for (let pass = 0; pass < 2; pass++) {
+      for (let i = 0; i < n; i++) {
+        const a = men[i];
+        if (!free(a)) continue;
+        for (let j = i + 1; j < n; j++) {
+          const b = men[j];
+          if (!free(b)) continue;
+          const ex = b.dx - a.dx, ey = b.dy - a.dy, d2 = ex * ex + ey * ey;
+          const pair = a.with === j || b.with === i;
+          const min = !pair ? 0.62 : a.act === ACT.tackle || a.act === ACT.wrapped || b.act === ACT.tackle || b.act === ACT.wrapped ? 0.42 : 0.5;
+          if (d2 >= min * min) continue;
+          const d = Math.sqrt(d2);
+          const ux = d > 1e-4 ? ex / d : Math.cos(i * 2.4), uy = d > 1e-4 ? ey / d : Math.sin(i * 2.4);
+          const push = (min - d) / 2;
+          a.dx -= ux * push;
+          a.dy -= uy * push;
+          b.dx += ux * push;
+          b.dy += uy * push;
+        }
+      }
+    }
+    for (let i = 0; i < n; i++) {
+      const m = men[i];
+      const j = m.with;
+      const mate = j != null && j < n && j !== i ? men[j] : null;
+      // Who is winning a block: over the next half second, does the pair
+      // move toward his man (he drives him) or toward him (he gives ground)?
+      if (mate && (m.act === ACT.block || m.act === ACT.engaged || m.act === ACT.rush) && st.t > 0) {
+        const [x0, y0] = posAt(c, i, st.t), [x1, y1] = posAt(c, i, st.t + 0.5);
+        const [u0, v0] = posAt(c, j, st.t), [u1, v1] = posAt(c, j, st.t + 0.5);
+        const ex = u0 - x0, ey = v0 - y0, e = Math.hypot(ex, ey) || 1;
+        const drift = (((x1 + u1) - (x0 + u0)) / 2 * ex + ((y1 + v1) - (y0 + v0)) / 2 * ey) / e;
+        m.win = drift > 0.12 ? 1 : drift < -0.12 ? -1 : 0;
+      }
+      // Going down: the way his momentum and his tackler's take him.
+      if (m.act === ACT.fall) {
+        let vx = m.vx || 0, vy = m.vy || 0;
+        if (mate) {
+          vx += mate.vx || 0;
+          vy += mate.vy || 0;
+        }
+        let tw = 0;
+        if (Math.hypot(vx, vy) > 1.2) {
+          tw = Math.atan2(vy, vx) - m.face;
+          while (tw > Math.PI) tw -= TAU;
+          while (tw < -Math.PI) tw += TAU;
+        }
+        m.twist = clamp(tw, -2.2, 2.2);
+      }
+      // The catch: the ball's spot against his body, a dive when it is low
+      // or past his reach.
+      if (i === c.catcher && c.catchBall) {
+        const [bx, by, bz] = c.catchBall;
+        const ex = bx - m.x, ey = by - m.y, cf = Math.cos(m.face), sf = Math.sin(m.face);
+        const fwd = ex * cf + ey * sf, side = -ex * sf + ey * cf;
+        // A ball over his standing reach (about 1.3 times his height) is a
+        // leap, never a dive.
+        const dive = bz < 2.2 && (bz < 0.45 || Math.hypot(fwd, side) > 1.25);
+        m.reach = { fwd, side, z: bz, dive };
+        if (dive && m.act === ACT.catch) m.twist = clamp(Math.atan2(side, Math.max(0.2, fwd)), -1.2, 1.2);
+      }
+    }
+    // A pile: each man on the ground lies on the ones under him.
+    for (let i = 0; i < n; i++) {
+      const a = men[i];
+      if (!DOWN(a.act)) continue;
+      let under = 0;
+      for (let j = 0; j < i; j++) {
+        const b = men[j];
+        if (DOWN(b.act) && Math.hypot(a.x - b.x, a.y - b.y) < 0.8) under++;
+      }
+      a.pile = Math.min(3, under) * 0.24;
+    }
   }
 
   // ---------------------------------------------------------------- stadium
@@ -818,8 +1002,9 @@
       // The sky, the sun and the lights by the hour, the month and the roof.
       this.light(v);
       // The field: the 2D view's painted field on the turf.
-      film.fieldCanvas3d = film.fieldCanvas3d || V.paintField(film, { natural: true });
-      const ft = new T.CanvasTexture(film.fieldCanvas3d);
+      const fieldKey = SET.next ? "fieldCanvas3dNext" : "fieldCanvas3d";
+      film[fieldKey] = film[fieldKey] || V.paintField(film, { natural: true, wear: SET.next });
+      const ft = new T.CanvasTexture(film[fieldKey]);
       ft.encoding = T.sRGBEncoding;
       ft.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
       this.fieldTex = ft;
@@ -880,6 +1065,45 @@
       this.skins = new Map();
       this.men = new Map();
       const lineman = new Set(["OT", "IOL", "DT", "EDGE", "LS"]);
+      // The next look: each position group's own jersey, pants and socks,
+      // so the dirt can find the linemen first; gear by position and by the
+      // day (long sleeves in the cold, gloves, visors).
+      const next = SET.next;
+      this.next = next;
+      const GROUP = { OT: 0, IOL: 0, DT: 0, EDGE: 0, LS: 0, RB: 1, FB: 1, TE: 1, LB: 1, WR: 2, CB: 2, S: 2, QB: 3, K: 4, P: 4 };
+      const PADS = [1.12, 1.03, 0.92, 0.95, 0.8];
+      this.dirt = [];
+      const groupKit = (side, g) => {
+        const kit = kits[side];
+        const k2 = (kit.groups ||= []);
+        if (k2[g]) return k2[g];
+        const mk = (base) => {
+          const mm = keep(base.clone());
+          this.dirt.push({ mat: mm, base: base.color.clone(), g, part: base === kit.pants ? 1 : base === kit.sock ? 0.8 : 0.7 });
+          return mm;
+        };
+        k2[g] = { ...kit, jersey: mk(kit.jersey), sleeve: mk(kit.sleeve), pants: mk(kit.pants), sock: mk(kit.sock) };
+        return k2[g];
+      };
+      const visorM = next ? keep(new T.MeshStandardMaterial({ color: "#20242a", roughness: 0.15, metalness: 0.4, transparent: true, opacity: 0.85 })) : null;
+      const coreM = next && q.detail === 2 ? keep(new T.MeshBasicMaterial({ map: blobTex(0.8), transparent: true, depthWrite: false })) : null;
+      const gloveMs = kits.map((kit) => [keep(new T.MeshLambertMaterial({ color: kit.u.c1 })), keep(new T.MeshLambertMaterial({ color: "#16171a" })), keep(new T.MeshLambertMaterial({ color: "#ecebe6" }))]);
+      const cold = v.temperature != null && v.temperature < 45, cool = v.temperature != null && v.temperature < 60;
+      const gear = (pl) => {
+        if (!next) return {};
+        const g = GROUP[pl.pos] ?? 2;
+        const r = rng("gear" + pl.id);
+        const roll = (p) => r() < p;
+        const line = g === 0;
+        return {
+          pads: PADS[g],
+          visor: roll(line ? 0.12 : g === 4 ? 0.05 : 0.35) ? visorM : null,
+          long: roll(cold ? (line ? 0.35 : 0.75) : cool ? (line ? 0.05 : 0.15) : 0.02),
+          gloves: g === 4 || (g === 3 && !roll(0.2)) ? null : roll(line ? 0.75 : 0.95) ? gloveMs[pl.side][line ? (roll(0.5) ? 2 : 1) : roll(0.6) ? 0 : 1] : null,
+          core: coreM,
+          group: g,
+        };
+      };
       for (const pl of film.players.values()) {
         const kit = kits[pl.side];
         let num = kit.nums.get(pl.num);
@@ -890,7 +1114,8 @@
         }
         let skin = this.skins.get(pl.skin);
         if (!skin) this.skins.set(pl.skin, (skin = keep(new T.MeshLambertMaterial({ color: pl.skin }))));
-        const man = makeMan({ num }, pl, q, { ...kit, skin });
+        const g = gear(pl);
+        const man = makeMan({ num }, pl, q, { ...(next ? groupKit(pl.side, g.group) : kit), skin }, g);
         man.lineman = lineman.has(pl.pos);
         man.seed = (pl.id % 97) / 15;
         man.root.visible = false;
@@ -1066,9 +1291,14 @@
       // The scene's own clock (the crowd, the weather), even when recording.
       this.clock = (this.clock || 0) + frameDt;
       const now = this.clock * 1000;
-      if (this.film !== film || this.rebuild) this.build(film);
+      if (this.film !== film || this.rebuild || this.next !== SET.next) this.build(film);
       this.resize();
       const p = this.player;
+      const next = this.next;
+      if (next) {
+        if (this.dirtFor !== c.n) this.soil(c, film);
+        nextLook(st, c);
+      }
       // The men on the field this snap; the rest stand down.
       const on = new Set(c.ids);
       for (const [id, man] of this.men) if (!on.has(id)) man.root.visible = false;
@@ -1077,9 +1307,31 @@
         const man = this.men.get(id);
         if (!man) continue;
         man.root.visible = true;
-        man.root.position.set(WX(m.x), 0, WZ(m.y));
-        man.root.rotation.y = -m.face;
+        if (next) {
+          man.win = m.win || 0;
+          man.reach = m.i === c.catcher && m.act === ACT.catch ? m.reach : null;
+          if ((m.act === ACT.fall || (m.act === ACT.catch && man.reach && man.reach.dive)) && man.twistFor !== m.act) {
+            man.twistFor = m.act;
+            man.twist = m.twist || 0;
+          } else if (m.act !== ACT.fall && m.act !== ACT.down && m.act !== ACT.getup && m.act !== ACT.catch) man.twistFor = -1;
+        }
+        man.root.position.set(WX(next ? m.dx : m.x), 0, WZ(next ? m.dy : m.y));
         pose(man, m, st.t, frameDt);
+        if (next) {
+          // He goes down the way the hit takes him, his tackler with him,
+          // and a pile stacks up rather than sinking into the turf.
+          const fall = man.sm ? man.sm.fall : 0;
+          man.root.rotation.y = -(m.face + (man.twistFor === -1 ? 0 : man.twist || 0) * Math.min(1, fall * 1.6));
+          man.hips.position.y += (m.pile || 0) * fall;
+          // His shadow lies along him when he is down.
+          const lie = fall * man.dim.H;
+          man.blob.position.x = lie * 0.42;
+          man.blob.scale.x = 1.3 * man.dim.w + lie * 0.8;
+          if (man.core) {
+            man.core.position.x = lie * 0.42;
+            man.core.scale.x = 0.62 * man.dim.w + lie * 0.75;
+          }
+        } else man.root.rotation.y = -m.face;
       }
       for (const man of this.side) {
         man.root.visible = !on.has(man.id);
@@ -1094,8 +1346,9 @@
         const man = this.men.get(c.ids[h.i]);
         const tuck = h.act === ACT.carry ? 0.28 : h.act === ACT.stance ? 0.45 : 0.32;
         const side = h.act === ACT.carry ? 0.2 : 0;
-        bx = h.x + Math.cos(h.face) * tuck - Math.sin(h.face) * side;
-        by = h.y + Math.sin(h.face) * tuck + Math.cos(h.face) * side;
+        const hx = next ? h.dx : h.x, hy = next ? h.dy : h.y;
+        bx = hx + Math.cos(h.face) * tuck - Math.sin(h.face) * side;
+        by = hy + Math.sin(h.face) * tuck + Math.cos(h.face) * side;
         bz = h.act === ACT.stance ? 0.12 : man ? man.dim.H * (h.act === ACT.throw ? 0.9 : 0.62) : 1.2;
         if (h.act === ACT.down || h.act === ACT.fall) bz = 0.25;
       }
@@ -1107,15 +1360,28 @@
         // over end on a kick.
         const vx = bx - this.lastBall.x, vy = by - this.lastBall.y, vz = bz - this.lastBall.z;
         if (Math.hypot(vx, vy) > 1e-4) this.head = Math.atan2(vy, vx);
-        this.spin = (this.spin || 0) + frameDt * (kick ? 8 : 28);
-        Q.yaw.setFromAxisAngle(Q.Y, -(this.head || 0));
-        Q.tilt.setFromAxisAngle(Q.Z, kick ? this.spin : Math.atan2(vz, Math.hypot(vx, vy) || 1e-4));
+        // A throw under pressure comes out a wobbling duck on the next look.
+        const duck = next && !kick && c.ng && c.ng.pressured;
+        this.spin = (this.spin || 0) + frameDt * (kick ? 8 : duck ? 15 : 28);
+        const air = c.throwAt != null ? Math.max(0, st.t - c.throwAt) : 0;
+        const wob = duck ? 0.32 * Math.sin(air * 8.5) : 0;
+        Q.yaw.setFromAxisAngle(Q.Y, -(this.head || 0) + wob);
+        Q.tilt.setFromAxisAngle(Q.Z, kick ? this.spin : Math.atan2(vz, Math.hypot(vx, vy) || 1e-4) + (duck ? 0.22 * Math.cos(air * 8.5) : 0));
         Q.spin.setFromAxisAngle(Q.X, kick ? 0 : this.spin);
         this.ball.quaternion.copy(Q.yaw).multiply(Q.tilt).multiply(Q.spin);
       } else if (b.mode === 0 && st.men[b.holder]) {
         Q.yaw.setFromAxisAngle(Q.Y, -st.men[b.holder].face);
         Q.tilt.setFromAxisAngle(Q.Z, 0.35);
         this.ball.quaternion.copy(Q.yaw).multiply(Q.tilt);
+      } else if (next && b.mode === 2 && c.looseAt != null) {
+        // A loose ball bounces the way a football does, high and crooked
+        // and dying away, on its way to the spot where the engine has it.
+        const u = Math.max(0, st.t - c.looseAt), fade = Math.exp(-u * 2.2);
+        bz = Math.max(bz, 0.12 + 0.6 * fade * Math.abs(Math.sin(u * 8.5)));
+        this.ball.position.y = bz;
+        Q.tilt.setFromAxisAngle(Q.Z, u * 11 * fade + 0.4);
+        Q.spin.setFromAxisAngle(Q.X, u * 7 * fade);
+        this.ball.quaternion.copy(Q.tilt).multiply(Q.spin);
       } else this.ball.quaternion.set(0, 0, 0, 1);
       this.lastBall = { x: bx, y: by, z: bz };
       // The lines.
@@ -1253,6 +1519,23 @@
       }
       this.ovTex.needsUpdate = true;
     }
+    // The next look's dirt: uniforms pick it up as the game goes, the
+    // linemen first and the kickers hardly at all, mud on wet grass twice as
+    // fast, the black crumbs of artificial turf far slower.
+    soil(c, film) {
+      this.dirtFor = c.n;
+      const v = film.ix.venue || {};
+      const i = film.byN.get(c.n) || 0;
+      const progress = film.ix.plays.length > 1 ? i / (film.ix.plays.length - 1) : 0;
+      const turf = v.surface === "turf";
+      const wet = v.rain ? 1.9 : v.snow ? 1.3 : 1;
+      const dirt = new T.Color(turf ? "#2b2b2b" : v.rain ? "#4a3a26" : "#5d4c33");
+      const SHARE = [1, 0.85, 0.6, 0.4, 0.12];
+      for (const d of this.dirt) {
+        const amount = clamp(progress * SHARE[d.g] * (turf ? 0.25 : 1) * wet * 0.34 * d.part, 0, 0.6);
+        d.mat.color.copy(d.base).lerp(dirt, amount);
+      }
+    }
     // The home crowd stands and bounces when its team scores or takes the
     // ball away; the visitors' corner when theirs does.
     cheer(st, c, film, now) {
@@ -1268,6 +1551,13 @@
           const good = res === "turnover" ? 1 - p.off : p.off;
           if (good === 0) h = res === "explosive" ? 0.6 : 1;
           else a = res === "explosive" ? 0.6 : 1;
+        }
+        // On the next look a crowd also gets up for its defense on third
+        // and fourth down, loudest before the snap.
+        if (this.next && p.down >= 3 && st.t < 0.6) {
+          const loud = p.down === 4 ? 0.8 : 0.5;
+          if (p.off === 1) h = Math.max(h, loud);
+          else a = Math.max(a, loud * 0.6);
         }
       }
       const u = m.uniforms.cheer.value;
@@ -1397,7 +1687,29 @@
         at = new T.Vector3(WX(mid), 0, WZ(lerp(FIELD_H / 2, (ylo + yhi) / 2, 0.6)));
         fov = fovFor(across, Math.abs(mid - ex));
       }
-      const k = this.snapCam ? 1 : 1 - Math.pow(0.03, dt);
+      // The next look's broadcast camera has a man behind it: he sees the
+      // play change a beat late and swings after it, overshooting a little.
+      if (this.next && mode === "broadcast") {
+        const L = this.lag;
+        if (!L || this.snapCam || L.mode !== mode) this.lag = { mode, buf: [], x: at.clone(), v: new T.Vector3() };
+        else {
+          L.buf.push({ c: this.clock, at: at.clone() });
+          while (L.buf.length > 1 && L.buf[1].c <= this.clock - 0.2) L.buf.shift();
+          const want = L.buf[0].at;
+          const om = 4.2, ze = 0.72;
+          for (let left = Math.min(dt, 0.25); left > 1e-4; left -= 1 / 120) {
+            const h = Math.min(left, 1 / 120);
+            L.v.x += ((want.x - L.x.x) * om * om - 2 * ze * om * L.v.x) * h;
+            L.v.z += ((want.z - L.x.z) * om * om - 2 * ze * om * L.v.z) * h;
+            L.x.x += L.v.x * h;
+            L.x.z += L.v.z * h;
+          }
+          pos.x += L.x.x - at.x;
+          at.x = L.x.x;
+          at.z = L.x.z;
+        }
+      } else this.lag = null;
+      const k = this.snapCam ? 1 : this.next && mode === "broadcast" ? 1 - Math.pow(0.2, dt) : 1 - Math.pow(0.03, dt);
       this.snapCam = false;
       this.camPos.lerp(pos, k);
       this.camAt.lerp(at, k);

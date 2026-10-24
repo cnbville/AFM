@@ -572,7 +572,9 @@ pub struct StatBook {
     pub books: HashMap<(Scope, Book), Vec<RecordEntry>>,
     /// Records broken this season and earlier (year, division, book, holder, value).
     pub broken: Vec<(i32, Division, Book, String, f64)>,
-    pub honors: HashMap<u32, Honors>,
+    /// By player id, in id order (the honors and Hall of Fame walks draw
+    /// in that order).
+    pub honors: std::collections::BTreeMap<u32, Honors>,
     pub hall: Vec<HallEntry>,
     pub buzz: Vec<UnitBuzz>,
     /// Running streaks per player (games played in a row).

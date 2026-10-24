@@ -32,6 +32,7 @@
     tiles: true,
     marks: true,
     pace: "every", // every snap, or key plays only
+    next: false, // the next look (curves, leaning, gear, dirt, wear): a preview until Cain okays its clip
   };
   function loadSettings() {
     try {
@@ -164,6 +165,21 @@
       if (c.throwAt == null && mode === 1 && was === 0 && t[k] > 0) c.throwAt = t[k - 1];
       if (c.throwAt != null && c.catchAt == null && was === 1 && mode !== 1) c.catchAt = t[k];
     }
+    // The catch: where the ball met the catcher's hands (its last frame in
+    // the air) and who caught it, for his reach on the next look; the
+    // moment a ball first came loose, for its bounce.
+    c.catchBall = null;
+    c.catcher = -1;
+    c.looseAt = null;
+    for (let k = 1; k < frames; k++) {
+      const mode = f[k * S + 4], was = f[(k - 1) * S + 4];
+      if (c.catchBall == null && was === 1 && mode === 0 && f[k * S + 5] < n) {
+        const kb = (k - 1) * S;
+        c.catchBall = [f[kb + 1], f[kb + 2], f[kb + 3]];
+        c.catcher = f[k * S + 5];
+      }
+      if (c.looseAt == null && mode === 2) c.looseAt = t[k - 1];
+    }
     c.side = raw.ids.map((id) => (film.players.get(id) || { side: 0 }).side);
     c.crew = officials(c, film);
     return c;
@@ -187,8 +203,36 @@
     while (d < -Math.PI) d += 2 * Math.PI;
     return a + d * u;
   };
+  // One coordinate on a curve through the frames around [k, k2] (a cubic
+  // with Catmull-Rom slopes on the frames' own times, held flat where the
+  // path turns back so a man who stops never overshoots his spot): where
+  // it is, how fast it moves and how fast that changes. The engine's
+  // frames stay exactly on the curve.
+  const CURVE = { p: 0, v: 0, a: 0 };
+  function curve(c, k, k2, u, o) {
+    const f = c.f, S = c.S, t = c.t;
+    const p1 = f[k * S + o], p2 = f[k2 * S + o];
+    if (k2 === k) {
+      CURVE.p = p1;
+      CURVE.v = CURVE.a = 0;
+      return CURVE;
+    }
+    const k0 = Math.max(0, k - 1), k3 = Math.min(c.frames - 1, k2 + 1);
+    const p0 = f[k0 * S + o], p3 = f[k3 * S + o];
+    const h = Math.max(1e-4, t[k2] - t[k]);
+    const d0 = (p1 - p0) / Math.max(1e-4, t[k] - t[k0] || h), d1 = (p2 - p1) / h, d2 = (p3 - p2) / Math.max(1e-4, t[k3] - t[k2] || h);
+    const slope = (a, b) => (a * b <= 0 ? 0 : Math.sign(b) * Math.min(Math.abs((a + b) / 2), 3 * Math.abs(a), 3 * Math.abs(b)));
+    const m1 = k0 === k ? d1 : slope(d0, d1), m2 = k3 === k2 ? d1 : slope(d1, d2);
+    const u2 = u * u, u3 = u2 * u;
+    CURVE.p = (2 * u3 - 3 * u2 + 1) * p1 + (u3 - 2 * u2 + u) * h * m1 + (-2 * u3 + 3 * u2) * p2 + (u3 - u2) * h * m2;
+    CURVE.v = ((6 * u2 - 6 * u) * p1 + (3 * u2 - 4 * u + 1) * h * m1 + (-6 * u2 + 6 * u) * p2 + (3 * u2 - 2 * u) * h * m2) / h;
+    CURVE.a = ((12 * u - 6) * p1 + (6 * u - 4) * h * m1 + (-12 * u + 6) * p2 + (6 * u - 2) * h * m2) / (h * h);
+    return CURVE;
+  }
   // Where everything is at time t, smoothed from the engine's ten frames a
-  // second to the screen's sixty.
+  // second to the screen's sixty: straight between frames, or on the next
+  // look along curves, with each man's velocity and acceleration for his
+  // stride and his lean.
   function sample(c, t, out) {
     const [k, u] = at(c, t);
     const k2 = Math.min(c.frames - 1, k + 1), S = c.S, f = c.f;
@@ -203,17 +247,44 @@
     const near = u < 0.5 ? A : B;
     out.ball.mode = f[near + 4];
     out.ball.holder = f[near + 5];
+    const smooth = SET.next;
+    // A ball in flight or bouncing loose rides its curve while its state
+    // holds on both sides; a held ball follows its man.
+    if (smooth && f[A + 4] === f[B + 4] && f[A + 4] !== 0) {
+      out.ball.x = curve(c, k, k2, u, 1).p;
+      out.ball.y = curve(c, k, k2, u, 2).p;
+      out.ball.z = Math.max(0, curve(c, k, k2, u, 3).p);
+    }
     for (let i = 0; i < c.men; i++) {
       const o = 6 + i * 5, m = out.men[i];
-      m.x = L(o);
-      m.y = L(o + 1);
+      if (smooth) {
+        const cx = curve(c, k, k2, u, o);
+        m.x = cx.p;
+        m.vx = cx.v;
+        m.ax = cx.a;
+        const cy = curve(c, k, k2, u, o + 1);
+        m.y = cy.p;
+        m.vy = cy.v;
+        m.ay = cy.a;
+      } else {
+        m.x = L(o);
+        m.y = L(o + 1);
+        m.vx = m.vy = m.ax = m.ay = 0;
+      }
       m.face = angLerp(f[A + o + 2], f[B + o + 2], u);
       m.act = f[near + o + 3];
       m.with = f[near + o + 4];
       m.walked = c.walked[k * c.men + i] + (c.walked[k2 * c.men + i] - c.walked[k * c.men + i]) * u;
       const dt = Math.max(0.05, c.t[k2] - c.t[k]);
-      m.speed = k2 > k ? Math.hypot(f[B + o] - f[A + o], f[B + o + 1] - f[A + o + 1]) / dt : 0;
+      m.speed = smooth ? Math.hypot(m.vx, m.vy) : k2 > k ? Math.hypot(f[B + o] - f[A + o], f[B + o + 1] - f[A + o + 1]) / dt : 0;
       m.i = i;
+    }
+    // A held ball moves with its man along his curve.
+    const hi = out.ball.holder;
+    if (smooth && out.ball.mode === 0 && hi >= 0 && hi < c.men) {
+      const o = 6 + hi * 5;
+      out.ball.x += out.men[hi].x - L(o);
+      out.ball.y += out.men[hi].y - L(o + 1);
     }
     // The officials and the chains.
     out.crew = c.crew.map((o) => {
@@ -337,6 +408,21 @@ function monogram(name, level) {
   return use.map((w) => (caps(w) ? w.replace(/&/g, "") : w[0].toUpperCase())).join("").slice(0, 3);
 }
 
+// How far into its season a game is, 0 at the opener to 1 by about the
+// fourteenth week, from the date on the film: the NFL from September,
+// college and high school from late August, the CFL from June and the
+// spring leagues from February.
+function seasonWear(ix) {
+  const M = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const parts = String(ix.date || "").split(" ");
+  const month = M.indexOf(parts[2]) + 1, day = Number(parts[1]) || 1;
+  if (!month) return 0.3;
+  const other = ix.teams && ix.teams[0] && ix.teams[0].ref && ix.teams[0].ref.kind === "other";
+  const [sm, sd] = other ? (month >= 6 && month <= 11 ? [6, 10] : [2, 15]) : ix.level === "nfl" ? [9, 5] : [8, 25];
+  const days = (((month - sm + 12) % 12) * 30.4 + (day - sd) + 365) % 365;
+  // A preseason game (a few weeks before the opener) is on fresh grass.
+  return days > 300 ? 0 : Math.max(0, Math.min(1, days / 7 / 14));
+}
 function paintField(film, opts = {}) {
     const ix = film.ix, v = ix.venue, home = ix.teams[0], u = film.uni[0];
     const nat = !!opts.natural;
@@ -389,6 +475,36 @@ function paintField(film, opts = {}) {
         g.fillRect(X(0), Y(0) + y, FIELD_W * PX, 1);
       }
       g.globalAlpha = 1;
+    }
+    // The next look's grass (3D only): cut across as well as along at the
+    // big stadiums, and worn bare between the hashes as the season goes on,
+    // most where the ball is snapped most (between the 30s), the lines
+    // repainted over it each week.
+    if (opts.wear && !turf) {
+      const midY = FIELD_H / 2, hashW = ix.hash || (ix.level === "nfl" ? 3.08 : ix.level === "college" ? 6.67 : 8.89);
+      if (ix.level !== "hs") {
+        g.globalAlpha = 0.045;
+        g.fillStyle = "#000";
+        for (let k = 0; k < 8; k += 2) g.fillRect(X(0), Y((k * FIELD_H) / 8), FIELD_W * PX, (FIELD_H / 8) * PX);
+        g.globalAlpha = 1;
+      }
+      const wear = seasonWear(ix);
+      let seed = 0;
+      for (const ch of String(ix.date || "") + home.name) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) | 0;
+      const rnd = () => ((seed = (Math.imul(seed ^ (seed >>> 15), 0x2c1b3c6d) + 0x9e3779b9) | 0) >>> 0) / 4294967296;
+      const gauss = () => (rnd() + rnd() + rnd() - 1.5) * 1.15;
+      const blots = Math.round(320 * wear);
+      for (let i = 0; i < blots; i++) {
+        const x = Math.min(108, Math.max(12, 60 + gauss() * 24));
+        const y = midY + gauss() * (hashW + 1.6);
+        const r = (0.5 + rnd() * 1.8) * PX;
+        const bare = rnd() < 0.55;
+        const gr = g.createRadialGradient(X(x), Y(y), 0, X(x), Y(y), r);
+        gr.addColorStop(0, bare ? `rgba(112,88,58,${0.22 + 0.25 * wear})` : `rgba(150,150,85,${0.12 + 0.18 * wear})`);
+        gr.addColorStop(1, "rgba(112,88,58,0)");
+        g.fillStyle = gr;
+        g.fillRect(X(x) - r, Y(y) - r, 2 * r, 2 * r);
+      }
     }
     // End zones in the home team's colours.
     const ez = mixHex(home.colors[0], "#000000", 0.18);

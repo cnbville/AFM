@@ -87,7 +87,9 @@ fn skin(e: Option<Ethnicity>, id: u32) -> String {
         Some(Ethnicity::Black) => ([150.0, 98.0, 62.0], [62.0, 38.0, 26.0]),
         Some(Ethnicity::Hispanic) => ([224.0, 178.0, 132.0], [158.0, 108.0, 70.0]),
         Some(Ethnicity::Polynesian) => ([192.0, 138.0, 94.0], [128.0, 84.0, 54.0]),
-        Some(Ethnicity::Asian) => ([238.0, 200.0, 160.0], [196.0, 150.0, 106.0]),
+        Some(Ethnicity::EastAsian) => ([238.0, 200.0, 160.0], [196.0, 150.0, 106.0]),
+        Some(Ethnicity::SoutheastAsian) => ([226.0, 182.0, 140.0], [168.0, 120.0, 80.0]),
+        Some(Ethnicity::SouthAsian) => ([212.0, 162.0, 118.0], [118.0, 78.0, 50.0]),
         None => ([200.0, 150.0, 110.0], [120.0, 80.0, 52.0]),
     };
     let c: Vec<u8> = (0..3).map(|i| (a[i] + (b[i] - a[i]) * u).round() as u8).collect();
@@ -221,6 +223,7 @@ impl Film {
             match self.cal {
                 afm_engine::calendar::Level::Nfl => crate::colors::nfl(&w.nfl_team_name(t), t),
                 afm_engine::calendar::Level::HighSchool => crate::colors::high_school(t),
+                afm_engine::calendar::Level::Other => crate::colors::other(&self.names[side], t),
                 _ => crate::colors::college(&w.programs[t].real_name, t),
             }
         };
@@ -229,6 +232,7 @@ impl Film {
                 let refj = match self.cal {
                     CalLevel::Nfl => json!({ "kind": "nfl", "id": self.teams[side] }),
                     CalLevel::HighSchool => json!({ "kind": "hs", "id": self.teams[side] }),
+                    CalLevel::Other => json!({ "kind": "other", "id": self.teams[side] }),
                     _ => json!({ "kind": "college", "id": self.teams[side] }),
                 };
                 let n = &self.names[side];
@@ -304,7 +308,8 @@ impl Film {
             "date": crate::views::date_text(self.date),
             "live": self.live,
             "level": match self.cal {
-                CalLevel::Nfl => "nfl",
+                // The other leagues' games are played on the pro field.
+                CalLevel::Nfl | CalLevel::Other => "nfl",
                 CalLevel::HighSchool => "hs",
                 _ => "college",
             },

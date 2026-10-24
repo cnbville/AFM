@@ -1832,7 +1832,10 @@ fn new_ad(w: &mut World, since: i32) -> program::AthleticDirector {
         (Ethnicity::White, 0.80),
         (Ethnicity::Black, 0.14),
         (Ethnicity::Hispanic, 0.03),
-        (Ethnicity::Asian, 0.02),
+        // The Asian share cut into its groups in place, so the draw for every other group is unchanged.
+        (Ethnicity::EastAsian, 0.02 * super::ethnicity::ASIAN_SPLIT[0]),
+        (Ethnicity::SoutheastAsian, 0.02 * super::ethnicity::ASIAN_SPLIT[1]),
+        (Ethnicity::SouthAsian, 0.02 * super::ethnicity::ASIAN_SPLIT[2]),
         (Ethnicity::Polynesian, 0.01),
     ]);
     let age = w.rng.int(38, 62);
@@ -2593,6 +2596,22 @@ pub(crate) fn empty_seats(w: &World) -> Vec<(Employer, Role)> {
     for (s, school) in w.high_schools.iter().enumerate() {
         if school.coach.is_none() {
             out.push((Employer::HighSchool(s), Role::HeadCoach));
+        }
+    }
+    // The other leagues' clubs playing this year or next (their carousel
+    // fills the rest before camp).
+    use super::pro::other as o;
+    for k in 0..o::LEAGUE_COUNT as u8 {
+        let mut teams = o::teams_in(k, w.year);
+        teams.extend(o::teams_in(k, w.year + 1));
+        teams.sort_unstable();
+        teams.dedup();
+        for fr in teams {
+            for role in [Role::HeadCoach, Role::OffensiveCoordinator, Role::DefensiveCoordinator] {
+                if o::slot(w, fr, role).is_none() {
+                    out.push((Employer::Other(fr), role));
+                }
+            }
         }
     }
     out.retain(|&(e, r)| !market::offered(w, e, r));

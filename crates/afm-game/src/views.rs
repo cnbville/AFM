@@ -18,6 +18,8 @@ pub enum TeamRef {
     Nfl(usize),
     College(usize),
     HighSchool(usize),
+    /// A club in another pro league, by franchise (`world::pro::other`).
+    Other(usize),
 }
 
 impl TeamRef {
@@ -28,6 +30,7 @@ impl TeamRef {
             (Some("nfl"), Some(i)) if i < w.nfl.len() => Ok(TeamRef::Nfl(i)),
             (Some("college"), Some(i)) if i < w.programs.len() => Ok(TeamRef::College(i)),
             (Some("hs"), Some(i)) if i < w.high_schools.len() => Ok(TeamRef::HighSchool(i)),
+            (Some("other"), Some(i)) if i < afm_engine::world::pro::other::FRANCHISES => Ok(TeamRef::Other(i)),
             (Some(k), _) => Err(format!("No such team: {k} {id:?}")),
             (None, _) => mine(w).ok_or_else(|| "You have no team yet.".to_string()),
         }
@@ -38,6 +41,7 @@ impl TeamRef {
             TeamRef::Nfl(i) => json!({ "kind": "nfl", "id": i }),
             TeamRef::College(i) => json!({ "kind": "college", "id": i }),
             TeamRef::HighSchool(i) => json!({ "kind": "hs", "id": i }),
+            TeamRef::Other(i) => json!({ "kind": "other", "id": i }),
         }
     }
 }
@@ -48,6 +52,7 @@ pub fn mine(w: &World) -> Option<TeamRef> {
     Some(match s.level {
         CalLevel::Nfl => TeamRef::Nfl(s.nfl_team?),
         CalLevel::HighSchool => TeamRef::HighSchool(s.program?),
+        CalLevel::Other => TeamRef::Other(s.other?),
         _ => TeamRef::College(s.program?),
     })
 }
@@ -63,6 +68,7 @@ pub fn team_name(w: &World, t: TeamRef) -> String {
         TeamRef::Nfl(i) => w.nfl_team_name(i),
         TeamRef::College(i) => w.program_name(i).to_string(),
         TeamRef::HighSchool(i) => w.school_name(i).to_string(),
+        TeamRef::Other(i) => afm_engine::world::pro::other::name(i, w.year).to_string(),
     }
 }
 
@@ -71,6 +77,7 @@ pub fn team_colors(w: &World, t: TeamRef) -> [String; 2] {
         TeamRef::Nfl(i) => colors::nfl(&w.nfl_team_name(i), i),
         TeamRef::College(i) => colors::college(&w.programs[i].real_name, i),
         TeamRef::HighSchool(i) => colors::high_school(i),
+        TeamRef::Other(i) => colors::other(afm_engine::world::pro::other::name(i, w.year), i),
     }
 }
 
@@ -85,7 +92,7 @@ pub(crate) fn employer_ref(e: Employer) -> Option<TeamRef> {
         Employer::HighSchool(s) => Some(TeamRef::HighSchool(s)),
         Employer::College(p) => Some(TeamRef::College(p)),
         Employer::Nfl(t) => Some(TeamRef::Nfl(t)),
-        Employer::Other(_) => None,
+        Employer::Other(f) => Some(TeamRef::Other(f)),
     }
 }
 
@@ -167,6 +174,13 @@ pub(crate) fn season_record(w: &World, t: TeamRef) -> (String, String) {
                 Some(h) => (format!("{}-{}", h.wins, h.losses), format!("in {}", h.year)),
                 None => ("0-0".to_string(), now),
             },
+        },
+        TeamRef::Other(i) => match afm_engine::world::pro::other::record_of(w, i) {
+            Some((y, r)) => {
+                let text = if r.t > 0 { format!("{}-{}-{}", r.w, r.l, r.t) } else { format!("{}-{}", r.w, r.l) };
+                (text, if y < w.year { format!("in {y}") } else { now })
+            }
+            None => ("0-0".to_string(), now),
         },
     }
 }
@@ -312,6 +326,19 @@ pub(crate) fn team_line(w: &World, t: TeamRef) -> String {
             let st = w.high_schools[i].state;
             format!("{} {}", state_name(&w.states[st].code), hs_class(w, i))
         }
+        TeamRef::Other(i) => other_line(w, i),
+    }
+}
+
+/// A club in another league in a line: "CFL · West Division".
+pub(crate) fn other_line(w: &World, fr: usize) -> String {
+    use afm_engine::world::pro::other as o;
+    let k = o::league_of(fr);
+    match o::def(fr, w.year) {
+        Some(d) => format!("{} · {}", o::league_short(k), o::division_name(k, w.year, d.div))
+            .trim_end_matches(" · ")
+            .to_string(),
+        None => o::league_short(k).to_string(),
     }
 }
 
@@ -387,6 +414,7 @@ pub fn roster_people(w: &World, t: TeamRef) -> Vec<usize> {
         TeamRef::Nfl(i) => w.clubs.get(i).map_or(Vec::new(), |c| c.roster.clone()),
         TeamRef::College(i) => w.programs[i].roster.clone(),
         TeamRef::HighSchool(i) => w.high_schools[i].roster.clone(),
+        TeamRef::Other(i) => w.others.team(i).map_or(Vec::new(), |t| t.roster.iter().map(|&k| k as usize).collect()),
     };
     // A player who walked away from football (or whose playing days ended)
     // stays on the list until the roster is rebuilt; he is not on the team.
@@ -413,6 +441,7 @@ pub(crate) fn eye_for(w: &World, t: TeamRef, pos: Position) -> f64 {
             if g.offense() { tm.oc } else { tm.dc }.or(tm.head_coach)
         }
         TeamRef::HighSchool(i) => w.high_schools[i].coach,
+        TeamRef::Other(i) => w.others.team(i).and_then(|tm| if g.offense() { tm.oc } else { tm.dc }.or(tm.head_coach)),
     };
     coach.and_then(|c| w.coaches.get(c)).map_or(10.0, |c| c.evaluation())
 }
@@ -716,6 +745,7 @@ pub fn home(w: &World) -> Value {
                 let s = &w.high_schools[i];
                 format!("{} high school · {}", w.states[s.state].code, hs_class(w, s.id))
             }
+            TeamRef::Other(i) => other_line(w, i),
         });
         v
     });
@@ -770,6 +800,17 @@ pub(crate) fn next_game(w: &World, t: TeamRef) -> Option<Value> {
                 "home": home,
             })
         }),
+        TeamRef::Other(i) => afm_engine::world::pro::other::season_games(w, i)
+            .into_iter()
+            .find(|g| g.3.is_none() && g.0 >= w.today)
+            .map(|(d, opp, home, _, _)| {
+                json!({
+                    "date": date_text(d),
+                    "in": w.today.days_to(d),
+                    "opp": team_brief(w, TeamRef::Other(opp)),
+                    "home": home,
+                })
+            }),
     }
 }
 
@@ -928,6 +969,9 @@ impl Linker {
             Link::Program(p) if (p as usize) < w.programs.len() => json!({ "go": "team", "kind": "college", "id": p }),
             Link::School(h) if (h as usize) < w.high_schools.len() => json!({ "go": "team", "kind": "hs", "id": h }),
             Link::Club(t) if (t as usize) < w.nfl.len() => json!({ "go": "team", "kind": "nfl", "id": t }),
+            Link::League(f) if (f as usize) < afm_engine::world::pro::other::FRANCHISES => {
+                json!({ "go": "team", "kind": "other", "id": f })
+            }
             Link::Game(date, level, home) => {
                 let home = home as usize;
                 let kept = w.seat_games().iter().position(|g| g.date == date && g.level == level && g.teams[0] == home);
@@ -941,6 +985,9 @@ impl Linker {
                     }
                     (None, CalLevel::HighSchool) if home < w.high_schools.len() => {
                         json!({ "go": "schedule", "kind": "hs", "id": home })
+                    }
+                    (None, CalLevel::Other) if home < afm_engine::world::pro::other::FRANCHISES => {
+                        json!({ "go": "team", "kind": "other", "id": home })
                     }
                     _ => return None,
                 }
@@ -957,6 +1004,7 @@ fn final_line(g: &afm_engine::world::seat::SeatGame) -> (String, Vec<Ref>) {
     let team = |k: usize| match g.level {
         CalLevel::Nfl => Link::Club(g.teams[k] as u32),
         CalLevel::HighSchool => Link::School(g.teams[k] as u32),
+        CalLevel::Other => Link::League(g.teams[k] as u32),
         _ => Link::Program(g.teams[k] as u32),
     };
     let mut refs = Vec::new();
@@ -1249,6 +1297,15 @@ pub(crate) fn schedule_rows(w: &World, t: TeamRef) -> Vec<(Date, String, Vec<Ref
                 (f.date, text, refs)
             })
             .collect(),
+        // Another league's clubs have no news links of their own: plain words.
+        TeamRef::Other(i) => afm_engine::world::pro::other::season_games(w, i)
+            .into_iter()
+            .filter(|g| g.3.is_none() && g.0 >= w.today)
+            .map(|(d, opp, home, _, _)| {
+                let name = afm_engine::world::pro::other::name(opp, w.year);
+                (d, format!("{} the {name}", if home { "vs" } else { "at" }), Vec::new())
+            })
+            .collect(),
     }
 }
 
@@ -1345,6 +1402,23 @@ pub fn team(w: &World, t: TeamRef) -> Value {
                         "coach": h.coach.and_then(|c| w.coaches.get(c)).map(|c| c.name.clone()),
                         "pf": h.points[0], "pa": h.points[1], "g": if h.points == [0, 0] { 0 } else { h.wins + h.losses },
                     }))
+                    .collect::<Vec<_>>()
+            );
+        }
+        TeamRef::Other(i) => {
+            use afm_engine::world::pro::other as o;
+            let k = o::league_of(i);
+            v["level"] = json!(format!("{} · {}", o::league_name(k, w.year), other_line(w, i)));
+            v["place"] = json!(o::city(i, w.year));
+            let t = w.others.team(i).cloned().unwrap_or_default();
+            v["roster_count"] = json!(t.roster.len());
+            v["titles"] = json!(t.titles);
+            v["seasons"] = json!(
+                o::team_seasons(w, i)
+                    .into_iter()
+                    .rev()
+                    .take(30)
+                    .map(|(y, wn, l, note)| json!({ "year": y, "record": format!("{wn}-{l}"), "note": note, "nat": note.starts_with("won") }))
                     .collect::<Vec<_>>()
             );
         }
@@ -1482,6 +1556,36 @@ pub fn schedule(w: &World, t: TeamRef) -> Value {
             }
             rows.sort_by_key(|r| r.0);
             rows.into_iter().map(|r| r.1).collect()
+        }
+        TeamRef::Other(i) => {
+            let title = afm_engine::world::pro::other::format(afm_engine::world::pro::other::league_of(i), w.year)
+                .map_or("title game", |f| f.title);
+            afm_engine::world::pro::other::season_games(w, i)
+                .into_iter()
+                .enumerate()
+                .map(|(n, (d, opp, home, score, round))| {
+                    let result = score.map(|[me, them]| {
+                        format!(
+                            "{} {me}-{them}",
+                            if me > them {
+                                "W"
+                            } else if me < them {
+                                "L"
+                            } else {
+                                "T"
+                            }
+                        )
+                    });
+                    json!({
+                        "week": if round == 0 { json!(n + 1) } else { Value::Null },
+                        "date": date_text(d),
+                        "opp": team_brief(w, TeamRef::Other(opp)),
+                        "at": if home { "vs" } else { "at" },
+                        "name": (round > 0).then(|| format!("Playoffs, round {round} (the {title} last)")),
+                        "result": result,
+                    })
+                })
+                .collect()
         }
     };
     let kept: Vec<Value> = w
@@ -1682,6 +1786,17 @@ pub fn staff(w: &World, t: TeamRef) -> Value {
                         "came_up": a.subject.as_ref().map_or("Walk-on coach (doesn't teach)".to_string(), |s| format!("Teaches {s}")),
                         "record": "", "since": a.since, "pay": a.stipend, "you": false,
                     }));
+                }
+            }
+        }
+        TeamRef::Other(i) => {
+            if let Some(tm) = w.others.team(i) {
+                for (c, role) in
+                    [(tm.head_coach, "Head coach"), (tm.oc, "Offensive coordinator"), (tm.dc, "Defensive coordinator")]
+                {
+                    if let Some(c) = c {
+                        rows.push(coach_row(w, c, role));
+                    }
                 }
             }
         }
@@ -2325,6 +2440,7 @@ pub fn search(w: &World, q: &str) -> Value {
                 let s = &w.high_schools[i];
                 format!("High school · {}, {}", s.town, w.states[s.state].code)
             }
+            TeamRef::Other(i) => format!("{} · {}", other_line(w, i), afm_engine::world::pro::other::city(i, w.year)),
         });
         v
     };
@@ -2545,7 +2661,8 @@ pub fn recruiting(w: &World) -> Value {
                 rows.push(v);
             }
         }
-        TeamRef::Nfl(_) => {}
+        // A pro club signs players; it doesn't recruit them.
+        TeamRef::Nfl(_) | TeamRef::Other(_) => {}
     }
     json!({ "team": team_brief(w, t), "level": t.json()["kind"], "rows": rows })
 }

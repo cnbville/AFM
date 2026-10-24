@@ -499,6 +499,7 @@ fn area(w: &World) -> Result<Value, String> {
         })
         .collect();
     let (wins, losses) = s.seasons.iter().fold((0, 0), |a, x| (a.0 + x.wins, a.1 + x.losses));
+    let bracket = st.schools.iter().filter(|&&k| w.high_schools[k].classification == s.classification).count();
     Ok(json!({
         "school": team_brief(w, TeamRef::HighSchool(h)),
         "town": s.town,
@@ -512,7 +513,7 @@ fn area(w: &World) -> Result<Value, String> {
         "resources": level_words(s.resources, ["Bare bones", "Thin", "Decent", "Well equipped", "Among the best in the state"]),
         "money": level_words(s.area_money, ["A poor area", "Working class", "Middle class", "Comfortable", "Wealthy"]),
         "safety": level_words(s.area_safety, ["Rough", "Some trouble", "Mostly quiet", "Safe", "Very safe"]),
-        "district": format!("{} schools in the {} {} playoff bracket", st.schools.iter().filter(|&&k| w.high_schools[k].classification == s.classification).count(), st.code, crate::views::hs_class(w, h)),
+        "district": format!("{bracket} school{} in the {} {} playoff bracket", if bracket == 1 { "" } else { "s" }, st.code, crate::views::hs_class(w, h)),
         "transfer": st.transfer.sit_out,
         "feeders": feeders,
         "came_in": came_in,

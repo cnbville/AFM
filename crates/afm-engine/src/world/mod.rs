@@ -31,6 +31,7 @@ pub mod high_school;
 pub mod hs_playoffs;
 pub mod hs_year;
 pub mod live_seat;
+pub mod looks;
 pub mod names;
 pub mod ncaa;
 pub mod news;
@@ -259,6 +260,11 @@ pub struct Person {
     /// military term in progress.
     #[serde(default)]
     pub roads: eligibility::Roads,
+    /// His face recipe (faces F3): one number his genes, looks and
+    /// headshots are read from (`looks.rs`). 0 in a world written before
+    /// faces, until `World::faces_after_load` sets it.
+    #[serde(default)]
+    pub looks: looks::Looks,
 }
 
 /// The draft staffs' read of a player in December (T3.1, T3.2): his consensus
@@ -658,6 +664,10 @@ pub struct World {
     pub(crate) rng: Rng,
     /// False during the spin-up before recorded history, while rosters fill.
     pub(crate) recording: bool,
+    /// The last history season keeps every NFL and college team's last
+    /// tapes, so a new career has film of its first opponents (tape.rs).
+    #[serde(skip)]
+    pub(crate) world_tapes: bool,
     /// Trial tooling, see `WorldOptions::keep_game_log`.
     /// Trial tooling only: not saved (`save.rs`).
     #[serde(skip)]
@@ -780,6 +790,15 @@ pub struct World {
     /// The other pro leagues as full leagues (final build X7).
     #[serde(default)]
     pub others: pro::other::Others,
+    /// 1 once the world has faces (looks numbers and the three Asian
+    /// groups); 0 in an older file until `faces_after_load` runs.
+    #[serde(default)]
+    pub faces_version: u8,
+    /// Each high school age and college's level-scale anchors over the last
+    /// five seasons (Cain, 2026-10-24). An older file starts empty and
+    /// pools the seasons it plays from then on.
+    #[serde(default)]
+    pub level_scales: Vec<crate::level_rating::ScaleHistory>,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -887,13 +906,17 @@ pub struct CalendarLog {
     pub moved_up_far: u32,
 }
 
-/// Where the manager works (N58): his level, and his NFL team or college
-/// program.
-#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
+/// Where the manager works (N58): his level, and his NFL team, college
+/// program or high school, or his club in another league.
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Seat {
     pub level: crate::calendar::Level,
     pub nfl_team: Option<usize>,
     pub program: Option<usize>,
+    /// A club in another pro league (`Level::Other`; later extras topic 5),
+    /// by its franchise in `world::pro::other`.
+    #[serde(default)]
+    pub other: Option<usize>,
 }
 
 impl Seat {
@@ -952,9 +975,11 @@ impl World {
             p.prestige_start = p.prestige;
         }
         program::seed_pipelines(&mut w);
-        for _ in 0..w.options.history_years {
+        for k in 0..w.options.history_years {
             let t = std::time::Instant::now();
+            w.world_tapes = k + 1 == w.options.history_years;
             w.advance_year();
+            w.world_tapes = false;
             if !each(&w, t.elapsed().as_secs_f64()) {
                 return None;
             }
@@ -1054,6 +1079,7 @@ impl World {
             draft_bars: None,
             rng,
             recording: false,
+            world_tapes: false,
             game_log: game_log::GameLog::default(),
             stats: records::StatBook::default(),
             system_norms: [[0.0; 11]; crate::positions::POSITION_COUNT],
@@ -1100,6 +1126,8 @@ impl World {
             front_office: Default::default(),
             stories: stories::Stories::default(),
             others: Default::default(),
+            faces_version: 1,
+            level_scales: Vec::new(),
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);
@@ -1335,6 +1363,7 @@ impl World {
                 trust: 0.6,
                 trust_in: u32::MAX,
                 roads: eligibility::Roads::default(),
+                looks: looks::Looks::new(seed_world, id),
             }
         }));
         self.draw_home_ties(start);

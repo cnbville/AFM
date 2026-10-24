@@ -126,7 +126,7 @@ pub fn dashboard(w: &World) -> Value {
     let last_game = w.seat_games().iter().enumerate().next_back();
     if let Some((k, g)) = last_game {
         let side = usize::from(match me {
-            TeamRef::College(i) | TeamRef::Nfl(i) | TeamRef::HighSchool(i) => g.teams[0] != i,
+            TeamRef::College(i) | TeamRef::Nfl(i) | TeamRef::HighSchool(i) | TeamRef::Other(i) => g.teams[0] != i,
         });
         let (us, them) = (g.stats.score[side], g.stats.score[1 - side]);
         slides.push(json!({
@@ -271,7 +271,9 @@ fn team_words(w: &World, t: TeamRef) -> Vec<String> {
     let mut out = Vec::new();
     let games = w.seat_games();
     let side = |g: &afm_engine::world::seat::SeatGame| match t {
-        TeamRef::College(i) | TeamRef::Nfl(i) | TeamRef::HighSchool(i) => usize::from(g.teams[0] != i),
+        TeamRef::College(i) | TeamRef::Nfl(i) | TeamRef::HighSchool(i) | TeamRef::Other(i) => {
+            usize::from(g.teams[0] != i)
+        }
     };
     let season: Vec<_> =
         games.iter().filter(|g| g.date.year() == w.today.year() || g.date.days_to(w.today) < 200).collect();
@@ -746,6 +748,7 @@ pub fn peek(w: &World, args: &Value) -> Result<Value, String> {
                     .iter()
                     .find(|c| c.job.is_some_and(|j| j.employer == Employer::Nfl(i) && j.role == Role::HeadCoach))
                     .map(|c| c.name.clone()),
+                TeamRef::Other(f) => afm_engine::world::pro::other::head_coach(w, f).map(|c| w.coaches[c].name.clone()),
             });
             v["next"] = views::next_game(w, t).unwrap_or(Value::Null);
             Ok(v)
@@ -1314,7 +1317,7 @@ pub fn feed(w: &World, args: &Value) -> Value {
     {
         for (k, g) in w.seat_games().iter().enumerate().rev().take(12) {
             let side = usize::from(match t {
-                TeamRef::College(i) | TeamRef::Nfl(i) | TeamRef::HighSchool(i) => g.teams[0] != i,
+                TeamRef::College(i) | TeamRef::Nfl(i) | TeamRef::HighSchool(i) | TeamRef::Other(i) => g.teams[0] != i,
             });
             let (us, them) = (g.stats.score[side], g.stats.score[1 - side]);
             let margin = us - them;
@@ -1451,7 +1454,7 @@ pub fn team_page(w: &World, t: TeamRef) -> Value {
     let lines: Vec<(Date, &Event)> = events_in(w, w.today.add(-60), w.today, |e| match t {
         TeamRef::College(p) => e.program == Some(p) || e.text.contains(name.as_str()),
         TeamRef::Nfl(i) => e.nfl_team == Some(i) || e.text.contains(name.as_str()),
-        TeamRef::HighSchool(_) => e.text.contains(name.as_str()),
+        TeamRef::HighSchool(_) | TeamRef::Other(_) => e.text.contains(name.as_str()),
     });
     let texts: Vec<&str> = lines.iter().take(20).map(|(_, e)| e.text.as_str()).collect();
     let lk = Linker::new(w, &texts, matches!(t, TeamRef::HighSchool(_)));
@@ -1470,6 +1473,7 @@ pub fn team_page(w: &World, t: TeamRef) -> Value {
                 .coaches
                 .iter()
                 .position(|c| c.job.is_some_and(|j| j.employer == Employer::Nfl(i) && j.role == Role::HeadCoach)),
+            TeamRef::Other(f) => afm_engine::world::pro::other::head_coach(w, f),
         }
         .map(|c| json!({ "id": c, "name": w.coaches[c].name }))
     );
@@ -1585,6 +1589,15 @@ pub fn calendar_month(w: &World, args: &Value) -> Value {
                     [g.stats.score[s].max(0) as u32, g.stats.score[1 - s].max(0) as u32]
                 });
                 games.insert(f.date.0, json!({ "opp": views::team_brief(w, TeamRef::HighSchool(opp)), "at": if home { "vs" } else { "at" }, "name": if f.playoff { Some("Playoffs") } else { None }, "score": score, "page": page_of(f.date) }));
+            }
+        }
+        Some(TeamRef::Other(fr)) => {
+            for (d, opp, home, score, round) in afm_engine::world::pro::other::season_games(w, fr) {
+                if d < start || d >= next.add(7) {
+                    continue;
+                }
+                let score = score.map(|s| [s[0] as u32, s[1] as u32]);
+                games.insert(d.0, json!({ "opp": views::team_brief(w, TeamRef::Other(opp)), "at": if home { "vs" } else { "at" }, "name": (round > 0).then_some("Playoffs"), "score": score, "page": page_of(d) }));
             }
         }
         None => {}

@@ -195,9 +195,11 @@ pub struct Media {
     /// The last six seasons' annuals.
     pub magazines: Vec<Magazine>,
     pub docs: Vec<Doc>,
-    /// This season's fantasy lines by player id, and its year.
+    /// This season's fantasy lines by player id (in id order: the weekly
+    /// fantasy news walks them and rolls the stories' dice as it goes), and
+    /// its year.
     pub fantasy_year: i32,
-    pub fantasy: HashMap<u32, Fantasy>,
+    pub fantasy: std::collections::BTreeMap<u32, Fantasy>,
     /// Each season's fantasy leaders at QB, RB, WR, TE: (year, pos, id, points).
     pub fantasy_leaders: Vec<(i16, u8, u32, f32)>,
     /// Jersey sales lists: (year, college or not, ids in order).
@@ -392,7 +394,7 @@ fn release_magazines(w: &mut World, d: Date) {
             let id = match me {
                 TeamKey::College(p) => p,
                 TeamKey::Nfl(n) => n as u32,
-                TeamKey::Hs(_) => u32::MAX,
+                TeamKey::Hs(_) | TeamKey::Other(_) => u32::MAX,
             };
             let f = team_fill(w, me, Fill::new()).set("mag", title.clone());
             let text = match top.iter().position(|&x| x == id) {
@@ -734,6 +736,7 @@ fn team_code(t: TeamKey) -> u64 {
         TeamKey::Hs(h) => h as u64,
         TeamKey::College(p) => 1 << 20 | p as u64,
         TeamKey::Nfl(n) => 2 << 20 | n as u64,
+        TeamKey::Other(f) => 3 << 20 | f as u64,
     }
 }
 
@@ -764,7 +767,7 @@ fn offer_doc(w: &mut World, year: i32) {
             };
             show
         }
-        TeamKey::Hs(_) => return,
+        TeamKey::Hs(_) | TeamKey::Other(_) => return,
     };
     let name = super::team_name(w, me);
     let who = if matches!(me, TeamKey::Nfl(_)) { "NFL Films" } else { "The streaming service" };

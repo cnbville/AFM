@@ -35,6 +35,7 @@ pub fn team_ref(t: TeamRef) -> String {
         TeamRef::Nfl(i) => format!("nfl:{i}"),
         TeamRef::College(i) => format!("college:{i}"),
         TeamRef::HighSchool(i) => format!("hs:{i}"),
+        TeamRef::Other(i) => format!("other:{i}"),
     }
 }
 
@@ -220,6 +221,7 @@ impl<'a> Linker<'a> {
             }
             TeamRef::Nfl(n) => p.pro.as_ref().is_some_and(|c| c.team == Some(n) || c.teams.contains(&n)),
             TeamRef::HighSchool(h) => p.hs == h,
+            TeamRef::Other(f) => self.w.others.team(f).is_some_and(|t| t.roster.contains(&(k as u32))),
         })
     }
 
@@ -312,6 +314,9 @@ impl<'a> Linker<'a> {
                     team(TeamRef::HighSchool(h as usize), &mut ctx)
                 }
                 Link::Club(t) if (t as usize) < w.nfl.len() => team(TeamRef::Nfl(t as usize), &mut ctx),
+                Link::League(f) if (f as usize) < afm_engine::world::pro::other::FRANCHISES => {
+                    team(TeamRef::Other(f as usize), &mut ctx)
+                }
                 Link::Game(date, level, home) => {
                     let home = home as usize;
                     // Your own kept game opens its game page; another
@@ -326,6 +331,10 @@ impl<'a> Linker<'a> {
                     };
                     match (kept, kind) {
                         (Some(k), _) => game(k, label),
+                        // Another league's game opens the home club's page.
+                        (None, None) if level == Level::Other && home < afm_engine::world::pro::other::FRANCHISES => {
+                            team(TeamRef::Other(home), &mut ctx)
+                        }
                         (None, Some(kind)) => screen(&format!("schedule?kind={kind}&id={home}"), label),
                         _ => continue,
                     }

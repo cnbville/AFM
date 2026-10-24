@@ -18,7 +18,7 @@
  */
 
 I.ledger = '<path d="M5 3h11l3 3v15H5z"/><path d="M8 9h8M8 13h8M8 17h5"/><path d="M15 3v4h4"/>';
-navAdd({ go: "money", label: "Finances", icon: "ledger", sec: "team", after: "games" });
+navAdd({ go: "money", label: "Finances", icon: "ledger", sec: "team", after: "games", seats: ["college", "nfl", "hs"] });
 Object.assign(CRUMBS, { money: "Finances", money_league: "League money" });
 
 // ---------- formatting ----------
@@ -292,7 +292,10 @@ Object.assign(CORE_MORE, {
  */
 I.globe = '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>';
 navAdd({ go: "leagues", label: "Other leagues", icon: "globe", sec: "world", after: "standings" });
-Object.assign(CRUMBS, { leagues: "Other leagues", league_team: "Club" });
+// Your league's table, under its own name, when you coach there.
+navAdd({ go: "leagues_mine", label: "Standings", icon: "table", sec: "world", after: "leagues", seats: ["other"] });
+screens.leagues_mine = (a) => screens.leagues(a);
+Object.assign(CRUMBS, { leagues: "Other leagues", leagues_mine: "Standings", league_team: "Club" });
 GOTO.leagues = () => [["Standings", "standings"], ["History", "history"], ["League money", "money_league"]];
 
 const lgRecord = (r) => `${r.w}-${r.l}${r.t ? "-" + r.t : ""}`;

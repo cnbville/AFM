@@ -769,7 +769,7 @@ The stories around the football: creative additions C1-C17, the NFL items P5-P7 
 - **People:** the folk modules know the other leagues' clubs (`folk::Team::Other`): an owner and GM, a reporter, the trainers, the club's seasons and fixtures, so a coach there has a boss, a staff and a life like anyone else's. A coach's page shows the job, the league and the club.
 - **Memory:** rosters are people indices, remapped at the yearly compaction (`Others::remap`). Nationals and the draft are player ids. A season keeps its table, its games' scores and its champion.
 
-**Not built in this lane:** your own career can't take an other-league job. `market::interest_fits` keeps them for the world's coaches, and they don't show on the job market's list. A seat there needs its own game day, roster moves and screens.
+**Your career there** (first post-release update, 2026-10-24): a club is a seat (`Seat::other`, `calendar::Level::Other`, `Job::Other`). Its head coach and coordinator jobs are on your job market (`Interest::other`) and in the career setup. Your club's game each week is built in the morning as the day plays it (`other::seat_setup`, `seat_fixtures`, `seat_opponents`): `play_week` plays your game from that setup when you don't play it live, keeps it with its film (`keep_seat_game`) and keeps your coming opponents' tapes (`tape_watch`). A CFL or spring job doesn't move the family (`family_words`).
 
 **Measured** (small worlds at scale 0.03, college on the stand-in, `leagues_check`):
 - **1996-2001:** every league reached a champion. The CFL scored 24-26 points a team game (real about 24), arena 46-53 (real about 52), NFL Europe 23-28 (real about 21), the 2001 XFL 26.9 (real about 20). 1,638 players had other-league seasons, and 169 of them played in the NFL afterwards. 112 coaches held other-league seats, and 22 who had moved on were in the NFL or college.
@@ -825,6 +825,15 @@ Training is built whole from `docs/design/training.md` for every player in the w
 - Own-time effort: about 3% of players slack badly (`fail_chance`).
 - Install speed: 60 reps to know a play well, 35% before a design is called in games.
 - Your position coaches' package proposals: the best staff read at the slot's position; on kicking units backups first (a starter counts 18 points less), quarterbacks and specialists never on them, linemen only on the field goal, speed counting a little, and returners by speed, agility and ball security among receivers, backs and defensive backs.
+
+## Faces (first post-release update, 2026-10-24)
+
+`world/looks.rs` (faces F3, F4, F5, F10, F12; `docs/design/faces.md`). Looks never decide anything in the sim.
+
+- **`Person::looks`:** one number per person, `Looks::new(world seed, id)`, set at creation from a key, never from the world's stream or his own, so every seed gives the same world as before (`tests::faces::every_new_person_gets_a_looks_number_from_his_id_alone`). Coaches' looks are read from their id, nothing stored. 0 in an older file until `World::faces_after_load` fills it (`faces_version` 1 once done).
+- **`World::face_of`** reads from it: his genes (heritage with mixed ancestry, the face shape's seed, skin, eyes and natural hair colour, hair texture, beard growth, greying and hairline genes, freckles and small marks); his appearance in a season, a walk from age 14 with one keyed draw a year (haircut and dye at real rates, facial hair, scars, a broken nose, tattoos, earrings, build from body and position; greying and the hairline with the years); his team headshots, one when he joins a team (transfer, trade, signing) and a new one every four years on media day, every school year in high school.
+- **Ethnicity (F4):** White, Black, Hispanic, Polynesian, East Asian, Southeast Asian and South Asian. Every draw list cuts the old Asian share into the three groups at its end (`with_asian_split`, the national split East 38.5%, Southeast 35.1%, South 26.4%; each state its own, `asian_split`), so the same uniform number picks every other group as before (`the_asian_split_leaves_every_other_draw_unchanged`). The four places built since that drew one Asian group (the people around a team, the media voters, an NFL owner's sale, the film's skin tones) now draw or read the three; the owner's group is its own keyed draw so the sale's other draws stay put. Names follow the family's origin from the surname (`data/names/asian_surnames.csv`, `names::asian_group_of`). An older file's "Asian" loads as East Asian and is split again by surname on load.
+- The rates are Claude's estimates from real roster photos and the faces research (proposed, not confirmed).
 
 ## Proposed, not confirmed (Claude's own picks in the build)
 
