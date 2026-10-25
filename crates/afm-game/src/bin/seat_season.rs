@@ -9,7 +9,11 @@
 //! spring league.)
 //! With "build" a small world is made first (seed 7, 2 years, scale 0.05).
 //! `AFM_SEAT_OUT=report.json` writes the full report; `AFM_SEAT_SAVE_END=dir`
-//! keeps each seat's save from the end of its run.
+//! keeps each seat's save from the end of its run. `AFM_SEAT_LEAN=1` only
+//! plays (no screens at the stops), for long runs; `AFM_SEAT_STORIES=1`
+//! prints your team's stories by family per season and the lines that
+//! reached the same person twice in a season (the storylines' design
+//! checks).
 
 use std::collections::BTreeSet;
 use std::time::Instant;
@@ -77,14 +81,153 @@ fn draft(run: &mut Run, g: &mut Game) {
     run.errors.push("the draft didn't finish in 400 steps".into());
 }
 
+/// Your team's stories by family and season, the world's by family, and
+/// the lines that reached the same person twice in a season.
+/// `since`: the run's first day; the line checks read only what the run
+/// itself told (a save's history may come from an older build).
+fn story_counts(w: &afm_engine::world::World, seat: &str, since: afm_engine::calendar::Date) {
+    use afm_engine::world::storylines::{BeatKind, Family, Who, catalogue};
+    use std::collections::BTreeMap;
+    let me = afm_engine::world::stories::seat_team(w);
+    let all: Vec<_> = w.storylines.open.iter().chain(&w.storylines.ended).collect();
+    let mut seasons: BTreeMap<i32, BTreeMap<&str, (u32, u32)>> = BTreeMap::new();
+    for s in all.iter().filter(|s| s.you.is_some() || me.is_some_and(|t| s.about(t))) {
+        let e = seasons.entry(s.season).or_default().entry(s.family().name()).or_default();
+        e.0 += 1;
+        e.1 += u32::from(s.public);
+    }
+    println!("\n{seat}: your team's stories by season (opened, of them public)");
+    for (y, fams) in &seasons {
+        let n: u32 = fams.values().map(|x| x.0).sum();
+        let row: Vec<String> = Family::ALL
+            .iter()
+            .filter_map(|f| fams.get(f.name()).map(|x| format!("{} {}/{}", f.name(), x.0, x.1)))
+            .collect();
+        println!("  {y}: {n} stories: {}", row.join(", "));
+    }
+    let mut world: BTreeMap<i32, BTreeMap<&str, (u32, u32)>> = BTreeMap::new();
+    for &(y, kind, opened, public) in &w.storylines.counts {
+        let e = world.entry(y).or_default().entry(catalogue::def(kind).family.name()).or_default();
+        e.0 += opened;
+        e.1 += public;
+    }
+    println!("{seat}: the world's stories by season (opened/public)");
+    for (y, fams) in &world {
+        let (n, p): (u32, u32) = fams.values().fold((0, 0), |a, x| (a.0 + x.0, a.1 + x.1));
+        let row: Vec<String> = fams.iter().map(|(f, x)| format!("{f} {}/{}", x.0, x.1)).collect();
+        println!("  {y}: {n} opened, {p} public: {}", row.join(", "));
+    }
+    // A bank line told twice to the same person in one season.
+    let told = |b: &BeatKind| {
+        !matches!(b, BeatKind::Fact | BeatKind::Move | BeatKind::Private | BeatKind::Denial | BeatKind::Seed)
+    };
+    let mut seen: std::collections::HashMap<(Who, i32), Vec<&str>> = std::collections::HashMap::new();
+    let (mut twice, mut lines) = (Vec::new(), 0);
+    for s in &all {
+        let Some(lead) = s.lead() else { continue };
+        for b in s.beats.iter().filter(|b| told(&b.what) && !b.text.is_empty() && b.date.0 >= since.0) {
+            lines += 1;
+            let season = if b.date.month() <= 2 { b.date.year() - 1 } else { b.date.year() };
+            let v = seen.entry((lead, season)).or_default();
+            if v.contains(&b.text.as_str()) {
+                twice.push(format!("{season} {}: {}", s.def().key, b.text));
+            } else {
+                v.push(&b.text);
+            }
+        }
+    }
+    println!("{seat}: {lines} told lines, {} reached the same person twice in a season", twice.len());
+    for t in twice.iter().take(12) {
+        println!("  TWICE {}", t.chars().take(160).collect::<String>());
+    }
+    // The same line twice inside one story.
+    let mut again = Vec::new();
+    for s in &all {
+        let mut v: Vec<&str> = Vec::new();
+        for b in s.beats.iter().filter(|b| told(&b.what) && !b.text.is_empty() && b.date.0 >= since.0) {
+            if v.iter().any(|t| *t == b.text) {
+                again.push(format!("{} #{}: {}", s.def().key, s.id, b.text));
+            }
+            v.push(&b.text);
+        }
+    }
+    println!("{seat}: {} lines repeated inside one story", again.len());
+    for t in again.iter().take(6) {
+        println!("  AGAIN {}", t.chars().take(160).collect::<String>());
+    }
+    // How long stories run, and how they end, by family.
+    let today = w.today;
+    let open: Vec<_> = w.storylines.open.iter().filter(|s| s.phase.open()).collect();
+    let mut ages: Vec<i32> = open.iter().map(|s| s.opened.days_to(today)).collect();
+    ages.sort_unstable();
+    let q = |p: f64| ages.get(((ages.len() as f64 - 1.0) * p).round() as usize).copied().unwrap_or(0);
+    println!(
+        "{seat}: {} open stories, age in days: median {}, 90th {}, max {}; {} older than a year",
+        open.len(),
+        q(0.5),
+        q(0.9),
+        q(1.0),
+        ages.iter().filter(|&&a| a > 365).count()
+    );
+    let mut old: Vec<_> = open.iter().filter(|s| s.opened.days_to(today) > 365).collect();
+    old.sort_by_key(|s| s.opened);
+    for s in old.iter().take(6) {
+        println!(
+            "  OLD {} #{} since {}: {} beats, heat {:.0}, {}",
+            s.def().key,
+            s.id,
+            s.opened.pretty(),
+            s.beats.len(),
+            s.heat,
+            afm_engine::world::storylines::view::question(w, s)
+        );
+    }
+    let mut ends: BTreeMap<&str, (u32, u32, i64)> = BTreeMap::new();
+    for s in all.iter().filter(|s| !s.phase.open()) {
+        let e = ends.entry(s.family().name()).or_default();
+        if s.phase == afm_engine::world::storylines::Phase::Fizzled {
+            e.1 += 1;
+        } else {
+            e.0 += 1;
+        }
+        e.2 += i64::from(s.opened.days_to(s.closed.unwrap_or(today)));
+    }
+    let row: Vec<String> =
+        ends.iter().map(|(f, x)| format!("{f} {}/{} ({}d)", x.0, x.1, x.2 / i64::from((x.0 + x.1).max(1)))).collect();
+    println!("{seat}: ended by family (answered/fizzled, mean days): {}", row.join(", "));
+    // Questions asking for a name the story can't fill, by kind and name
+    // (stories from the run itself; the world file's older ones apart).
+    let mut gaps: std::collections::BTreeMap<String, (u32, u32)> = std::collections::BTreeMap::new();
+    let mut older = 0;
+    for s in &all {
+        let g = afm_engine::world::storylines::tell::question_gaps(w, s);
+        if g.is_empty() {
+            continue;
+        }
+        if s.opened < since {
+            older += 1;
+            continue;
+        }
+        let e = gaps.entry(format!("{} needs {}", s.def().key, g.join(", "))).or_insert((0, s.id));
+        e.0 += 1;
+    }
+    let total: u32 = gaps.values().map(|x| x.0).sum();
+    println!("{seat}: {total} stories from the run ask for a name they can't fill ({older} from before it)");
+    let mut by: Vec<_> = gaps.into_iter().collect();
+    by.sort_by(|a, b| b.1.0.cmp(&a.1.0).then(a.0.cmp(&b.0)));
+    for (k, (n, id)) in by.iter().take(10) {
+        println!("  GAP {k}: {n} (e.g. #{id})");
+    }
+}
+
 /// Values a player should never see.
 fn smell(cmd: &str, v: &Value, path: &str, out: &mut BTreeSet<String>) {
     match v {
         Value::String(s) => {
             let low = s.to_lowercase();
             for bad in ["nan", "undefined", "infinity", "todo", "placeholder", "lorem", "built later", "coming soon"] {
-                // Whole words for these two: "Loreman" is a real surname.
-                let hit = if bad == "nan" || bad == "lorem" {
+                // Whole words for these: "Loreman" and "Todora" are real surnames.
+                let hit = if matches!(bad, "nan" | "lorem" | "todo") {
                     low.split(|c: char| !c.is_alphanumeric()).any(|w| w == bad)
                 } else {
                     low.contains(bad)
@@ -108,7 +251,12 @@ fn smell(cmd: &str, v: &Value, path: &str, out: &mut BTreeSet<String>) {
             }
         }
         Value::Object(o) => {
+            // A meeting's narration (`by` 0) has no speaker's name.
+            let narration = o.get("by").and_then(Value::as_u64) == Some(0);
             for (k, x) in o {
+                if narration && k == "name" {
+                    continue;
+                }
                 smell(cmd, x, &format!("{path}.{k}"), out);
             }
         }
@@ -242,6 +390,22 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
             }
         }
     }
+    // The storylines (update 2, lane 1): this week, every story it lists,
+    // the season's chapters, your career's, the jobs and "Previously".
+    if let Some(v) = run.call(g, "storylines_week", json!({})) {
+        let ids: BTreeSet<u64> = ["mine", "following", "ended", "others"]
+            .iter()
+            .flat_map(|k| v[*k].as_array().into_iter().flatten().filter_map(|c| c["id"].as_u64()))
+            .collect();
+        for &id in ids.iter().take(10) {
+            if let Some(st) = run.call(g, "storylines_story", json!({ "id": id })) {
+                refs(&st, &mut players, &mut coaches, &mut teams);
+            }
+        }
+    }
+    for cmd in ["storylines_chapters", "storylines_career", "storylines_jobs", "storylines_previously"] {
+        run.call(g, cmd, json!({}));
+    }
     for (cmd, args) in extra {
         if let Some(v) = run.call(g, cmd, args.clone()) {
             refs(&v, &mut players, &mut coaches, &mut teams);
@@ -303,6 +467,7 @@ fn main() {
             (cmd.to_string(), Value::Object(a))
         })
         .collect();
+    let lean = std::env::var_os("AFM_SEAT_LEAN").is_some();
     let dir = std::env::temp_dir().join(format!("afm-seat-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
     let t = Instant::now();
@@ -348,7 +513,9 @@ fn main() {
             s["background"] = json!("college_assistant");
             run.call(&mut g, "start_career", s);
         }
-        visit_all(&mut run, &mut g, &extra, seat);
+        if !lean {
+            visit_all(&mut run, &mut g, &extra, seat);
+        }
         let begin = g.world.as_ref().map(|w| w.today).unwrap();
         let mut stops = 0;
         let mut longest = 0.0f64;
@@ -371,8 +538,33 @@ fn main() {
             }
             // The draft live from your chair (lane 7): Continue stops in the war room.
             if r.as_ref().is_some_and(|v| v["studio"]["screen"] == json!("warroom")) {
-                visit_all(&mut run, &mut g, &extra, seat);
+                if !lean {
+                    visit_all(&mut run, &mut g, &extra, seat);
+                }
                 draft(&mut run, &mut g);
+            }
+            // A story meeting stopped Continue (storylines): read it, then
+            // answer as the screen's first pick would (lean runs too, so a
+            // stop never waits).
+            if let Some(id) = r.as_ref().and_then(|v| v["story"].as_u64())
+                && let Some(m) = run.call(&mut g, "storylines_meeting", json!({ "id": id }))
+                && let Some(code) = m["opts"][0]["code"].as_u64()
+            {
+                run.call(&mut g, "people_answer", json!({ "id": id, "code": code }));
+            }
+            // One move a stop in your hottest story that has one, the way a
+            // player would answer from its page.
+            if let Some(v) = run.call(&mut g, "storylines_week", json!({})) {
+                let first = v["mine"].as_array().into_iter().flatten().find_map(|c| c["id"].as_u64());
+                if let Some(id) = first
+                    && let Some(st) = run.call(&mut g, "storylines_story", json!({ "id": id }))
+                    && let Some(code) = st["moves"][0]["code"].as_u64()
+                {
+                    run.call(&mut g, "storylines_move", json!({ "id": id, "code": code }));
+                }
+            }
+            if lean {
+                continue;
             }
             visit_all(&mut run, &mut g, &extra, seat);
             // Save and reload once in season, after the first game.
@@ -390,8 +582,13 @@ fn main() {
                 }
             }
         }
-        if !saved_once {
+        if !saved_once && !lean {
             run.errors.push("no game of yours was played in the run, so save and load was not tested".into());
+        }
+        if std::env::var_os("AFM_SEAT_STORIES").is_some()
+            && let Some(w) = g.world.as_ref()
+        {
+            story_counts(w, seat, begin);
         }
         // The stories wrote your year (lane 8): your hire and games on the
         // timeline, and your office opened.

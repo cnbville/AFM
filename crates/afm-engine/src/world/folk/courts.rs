@@ -75,6 +75,9 @@ pub struct Courts {
     /// Mirrored league cases already in the courts (person index and ruling
     /// day), so each is opened once.
     pub seen: Vec<(u32, Date)>,
+    /// Your players' police matters already in the courts (player id and
+    /// which of his incidents): one incident is one case.
+    pub amateur: Vec<(u32, i32)>,
 }
 
 impl Courts {
@@ -195,15 +198,20 @@ fn mirror(w: &mut World) {
 
 /// Opens a case for a college or high school player of yours whose trouble
 /// is a police matter (the season's roll, `amateur_kind`).
-pub(crate) fn amateur(w: &mut World, i: usize, what: &str) {
+pub(crate) fn amateur(w: &mut World, i: usize, what: &str, nth: i32) {
     let police =
         what.contains("arrest") || what.contains("DUI") || what.contains("theft") || what.contains("drug case");
     if !police {
         return;
     }
     let id = w.people[i].player.id;
-    if w.folk.courts.open.iter().any(|c| c.id == id) {
+    if w.folk.courts.open.iter().any(|c| c.id == id) || w.folk.courts.amateur.contains(&(id, nth)) {
         return;
+    }
+    w.folk.courts.amateur.push((id, nth));
+    let n = w.folk.courts.amateur.len();
+    if n > 400 {
+        w.folk.courts.amateur.drain(..n - 400);
     }
     let today = w.today;
     let level = if w.people[i].stage == crate::world::Stage::College { Level::College } else { Level::HighSchool };
@@ -327,17 +335,26 @@ pub(crate) fn day(w: &mut World, d: Date) {
         if let Some(t) = super::Team::seat(w)
             && t.level() != Level::Nfl
         {
-            let found: Vec<(usize, String)> = t
+            // This season's incident only: a dismissal for team rules is no
+            // police matter, and an old note is an old case.
+            let found: Vec<(usize, String, i32)> = t
                 .roster(w)
                 .into_iter()
                 .filter(|&i| w.people[i].cal.trouble)
                 .filter_map(|i| {
-                    let n = w.people[i].notes.iter().rev().find(|n| n.starts_with("Off-field trouble"))?;
-                    Some((i, n.split(": ").nth(1).unwrap_or("").trim_end_matches('.').to_string()))
+                    let notes = &w.people[i].notes;
+                    let n = notes.iter().rev().find(|n| {
+                        n.starts_with("Off-field trouble")
+                            || n.starts_with("Dismissed from the team")
+                            || n.starts_with("Removed from the team")
+                    })?;
+                    let what = n.strip_prefix("Off-field trouble")?;
+                    let nth = notes.iter().filter(|n| n.starts_with("Off-field trouble")).count() as i32;
+                    Some((i, what.split(": ").nth(1).unwrap_or("").trim_end_matches('.').to_string(), nth))
                 })
                 .collect();
-            for (i, what) in found {
-                amateur(w, i, &what);
+            for (i, what, nth) in found {
+                amateur(w, i, &what, nth);
             }
         }
     }

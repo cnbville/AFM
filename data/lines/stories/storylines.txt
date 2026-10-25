@@ -1,0 +1,2665 @@
+# AFM storyline lines (update 2, S3): the beats of every story, by kind, family and beat.
+# Format: see FORMAT.md. Read by world/storylines/tell.rs, credit.rs and moves.rs.
+#
+# Keys, most specific first:
+#   sl.<kind>.<beat>.<extra>, sl.<family>.<beat>.<extra>, sl.any.<beat>.<extra>,
+#   sl.<kind>.<beat>, sl.<family>.<beat>, sl.any.<beat>
+#   endings: sl.<kind>.end.<ending>, sl.<kind>.end, sl.<family>.end, sl.any.end
+#   legacy and chapters: sl.<kind>.legacy.<ending>, sl.<kind>.legacy, sl.<family>.legacy
+#                        sl.<kind>.chapter.<ending>, sl.<kind>.chapter, sl.<family>.chapter
+# Beats: spark (.post .parent .rival), report, leak, column, radio, fans (.for .against),
+#   jab, post (.paper before 2008), quote (.boss .ask .spin .spin_straight), peak,
+#   memo (.up .down .even .gap: your staff, in private), fizzle, end, legacy, chapter,
+#   callback.memento (a shelf piece).
+# Placeholders: {team} {city} {state} {other} {other_short} {lead} {lead_last} {lead_first}
+#   {lead_pos} {rival} {rival_last} {rival_first} {rival_pos} {coach} {coach_last} {boss}
+#   {boss_title} {record} {weeks} {nth_week} {since} {question} {writer} {outlet} {season}
+#   {year} {word} and the kind's own: {money} {through} {made} {tried} {stat} {mark}
+#   {record_mark} {to_go} {scope} {rank} {last_record} {since_year} {years} {stars_was}
+#   {stars_now} {gone} {starters} {games} {unit} {rank_of} {count} {milestone} {trophy}
+#   {conf} {holder} {pos} {award}.
+# A line naming a value the story doesn't have is skipped, so every key keeps lines
+# that need only {team} or {lead}.
+
+# ================================================================== any story
+
+[sl.any.spark]
+It is out in the open now. {question}
+Word got around this week, and now it is the only thing anyone asks about. {question}
+Nobody was supposed to be talking about it yet. They are now. {question}
+It started as a whisper around {team}. By the weekend it was a question: {question}
+[sl.any.spark.post]
+It started with a post. Within the hour everyone who follows {team} was asking the same thing. {question}
+One post, deleted twenty minutes later, was enough. {question}
+[sl.any.spark.parent]
+A parent said it out loud on the radio before anyone at {team} would. {question}
+It came out through a family member, which is how these things usually come out. {question}
+[sl.any.spark.rival]
+A rival coach brought it up first, which tells you how far it has already traveled. {question}
+The other side is talking about it, so it is not a secret anymore. {question}
+
+[sl.any.report]
+{writer} of {outlet} spent the week asking around. Nobody has settled it. {question}
+Two people close to {team} say the same thing this week: it is not decided yet.
+The beat writers kept at it this week, and the answer is still the same. Nobody knows.
+Nothing official from {team}, but the people around the team are talking, and they are not all saying the same thing.
+{outlet} reports that the people deciding it have not decided it. {question}
+[sl.any.leak]
+A source inside {team} says it is further along than anyone is saying in public.
+Somebody in the building is talking. The leak this week: the people deciding it have a lean.
+{writer} has a source who has been right before. The source says to watch the next ten days.
+[sl.any.column]
+The national view: this is bigger than one week at {team}. {question}
+A columnist who covers the whole sport took it up this week and asked the obvious thing. {question}
+Every team has one of these. What makes this one worth watching is how long {team} has let it run.
+[sl.any.radio]
+The phone lines lit up again. Most callers had already made up their minds. {question}
+Talk radio did two full hours on it, and the host changed his mind twice. {question}
+A caller from {city} said what a lot of people were thinking. The host did not argue.
+[sl.any.fans]
+The message boards have taken sides, and neither side is listening to the other.
+[sl.any.fans.for]
+Most of the {team} fans who weighed in this week are on the same side, and it is the patient one.
+The fans are more forgiving than the papers this week. The online poll ran two to one in favor.
+[sl.any.fans.against]
+The fans are out of patience. The online poll ran three to one the other way.
+The boards turned ugly this week. "Enough," read the most liked post, and it was not close.
+[sl.any.jab]
+Across the way, they are enjoying this. A rival coach was asked about it and smiled before he said no comment.
+Somebody on the other side could not resist. "Not our problem," he said, "but we're watching."
+[sl.any.post]
+A post this week said more than any press release: a single line, then nothing.
+It showed up on social media first, the way most things do now.
+[sl.any.post.paper]
+He told the local paper more than he meant to, and the quote ran on the front of the sports section.
+[sl.any.quote.boss]
+{boss}, the {boss_title}, kept it short: "We're not going to get into that today."
+{boss} was asked about it twice and answered once. "We'll handle it the right way."
+[sl.any.quote.ask]
+Coach, everyone in this room wants to know the same thing. {question}
+Coach, you knew this was coming. {question}
+Coach, it's been the story all week. {question}
+[sl.any.quote.spin]
+That's being handled. It won't be your problem.
+People talk. You'll find the situation is a lot calmer than it reads.
+[sl.any.quote.spin_straight]
+I won't pretend it's nothing. You would walk into it on day one, and I'd rather you heard it from me.
+It's real, and it's ours to fix. I'd want you to own it from the first day.
+[sl.any.peak]
+It comes to a head this week. {question}
+This is the week that decides it. {question}
+After {weeks} weeks of talk, the answer is close. {question}
+[sl.any.memo.up]
+Between us, the talk is right this time. Plan for it.
+Our read: it is real, and it is closer than the public thinks.
+[sl.any.memo.down]
+Our read: there is less to this than the papers think. Don't let it drive the week.
+Between us, the talk is ahead of the facts. Most of it won't happen.
+[sl.any.memo.even]
+Honestly, it could go either way. What we do this week matters.
+It is a coin flip right now. The next few days tip it.
+[sl.any.memo.gap]
+The public has it wrong, and that gap is a problem of its own. If the truth comes out, it comes out loud.
+What people believe and what is actually going on are far apart. Decide whether we close that gap or let it ride.
+[sl.any.fizzle]
+The talk around {team} has moved on.
+It went quiet. No answer came, and nobody is asking anymore.
+Nobody brought it up this week, and that is usually how these end.
+[sl.any.end]
+It has its answer now.
+And that was that. The question that hung over {team} has been answered.
+[sl.any.callback.memento]
+A framed front page from the week it broke, signed by the people in it.
+The newspaper from that week, kept in a drawer and then in a frame.
+
+# ================================================================== families
+
+# ---------------------------------------------------------------- position battles
+# Battle kinds: qb_battle, qb_controversy, veteran_job, two_qb, kicker_slump,
+# next_man_up, freshman_starter, position_switch. Lines here fit them all.
+[sl.battle.report]
+{writer} of {outlet} watched the open part of practice this week. {question}
+The staff is charting every rep and saying nothing about what the charts show.
+People who have watched practice say it has not settled. {question}
+[sl.battle.leak]
+A source says the staff has its answer and is waiting for the right day to say it.
+One person who has seen the practice grades says this week moved things.
+[sl.battle.column]
+Who plays is the decision a coach makes every week, and {team} is making this one in public.
+The national view: a job that stays open too long starts to split a room.
+[sl.battle.radio]
+The callers had opinions on who should play, and most of them were sure.
+Talk radio wanted a decision. The host joked about reading the head coach's office number on the air, and only mostly joked.
+[sl.battle.fans.for]
+The fans are patient with it. Most of the posts this week said give it time.
+[sl.battle.fans.against]
+The fans want an answer. "Decide," said the post with the most likes.
+[sl.battle.jab]
+A rival coach said he had studied {team}'s film closely this week. He did not have to say which part.
+[sl.battle.post]
+{lead} posted a photo from the film room at 6 a.m. and no caption. It said enough.
+A short post from {lead} this week: "Nothing given. Everything earned."
+[sl.battle.post.paper]
+{lead} told the paper he was not worried about his job. "I just have to do mine," he said.
+[sl.battle.peak]
+The depth chart comes out this week, and it will answer it. {question}
+This is the week the staff decides. {question}
+[sl.battle.memo.up]
+Our grades say the answer is clear. The sooner we act on it, the easier it is on everyone.
+The tape has settled it. Waiting longer only makes the next conversation harder.
+[sl.battle.memo.down]
+Our grades say it is closer than the outside thinks. Don't move because the papers want a move.
+Nothing on our tape says change it yet. Give it another week.
+[sl.battle.memo.even]
+It is even on our charts. The tiebreaker is who makes fewer mistakes when it's live.
+[sl.battle.memo.gap]
+The outside thinks it's settled. Our grades don't. If we go the other way, be ready to explain it.
+[sl.battle.quote.ask]
+Coach, is there a timeline on a decision?
+Coach, has anything changed on the depth chart this week?
+Coach, what does {lead} need to show you this week?
+[sl.battle.quote.spin]
+That's healthy competition. You'll have players pushing each other.
+Every good team has a job open somewhere. That one is a strength.
+[sl.battle.quote.spin_straight]
+There's a split room over that job. Whoever you pick, you'll need to keep the other side with you.
+[sl.battle.fizzle]
+It got settled the quiet way, one practice at a time, and nobody calls it a question anymore.
+[sl.battle.chapter]
+The {lead_pos} job
+Who plays
+[sl.battle.legacy]
+Remembered as the season {team} sorted out who plays.
+[sl.battle.callback.memento]
+A copy of the depth chart that settled it, pinned to the film room wall.
+
+# ---------------------------------------------------------------- job security
+[sl.seat.report]
+{writer} of {outlet} hears the same thing from more than one person: the people who make the call are watching every week now.
+Nobody at {team} will say it on the record, but the talk around {lead_last} is not going away.
+The people who give money to {team} are asking questions, and the {boss_title} is hearing them.{amateur}
+The sponsors and the season-ticket holders are asking questions, and the {boss_title} is hearing them.{at_pro}
+[sl.seat.leak]
+A source with ties to the {boss_title}'s office says the meetings have already started.
+One person close to the decision says it will come down to the next few weeks.
+A source says the money for a change has been discussed. Nobody discusses money by accident.
+[sl.seat.column]
+The national view on {team} is not kind. A team like this does not wait forever, and it has waited a while.
+This is how it goes for coaches in this spot. The vote of confidence comes first, then the meetings, then the press conference.{not_hs}
+This is how it goes for coaches in this spot. The meeting with the {boss_title} comes first, then the school board, then the letter.{at_hs}
+[sl.seat.radio]
+The first caller wanted a change. So did the second. The host had to go to the fifth before anyone defended the coach.
+Talk radio has decided. Talk radio doesn't make the call, but the people who do listen to it.
+[sl.seat.fans.for]
+The fans are more patient than the papers. Most of them still want to see it through.
+"Give the man a full season," said the top post on the board, and the replies mostly agreed.
+[sl.seat.fans.against]
+The empty seats said it before the boards did. The fans are done waiting.
+"Fire" was the most used word on the fans' board this week, and it was not close.
+[sl.seat.jab]
+A rival's fans flew a banner over the stadium. It thanked {lead_last} for his service.{not_hs}
+Somebody hung a bedsheet on the fence by the field. It thanked {lead_last} for his service.{at_hs}
+[sl.seat.quote.boss]
+{boss}, the {boss_title}, said it plainly: "Our coach has my full support."
+{boss} would not put a timeline on anything. "We evaluate everything at the end of the season," the {boss_title} said.
+"We're not making decisions in October," {boss} said. Nobody was sure what that meant about November.
+[sl.seat.peak]
+This is the week it gets decided. {question}
+The {boss_title}'s decision is close. {question}
+[sl.seat.memo.up]
+Our read from people we trust: it's real. The {boss_title} has started asking what a change would cost.
+Plan as if it's happening. The boss is past the point of wanting to see more.
+[sl.seat.memo.down]
+Our read: the boss isn't close to a change. The noise is outside the building, not inside it.
+The people who decide this are not where the papers are. Steady the room and let it pass.
+[sl.seat.memo.even]
+It can turn either way. A good month buys a year. A bad one ends it.
+Our read is that the next three weeks decide it. The boss is waiting to see.
+[sl.seat.memo.gap]
+The public thinks the seat is cooler than it is. When it turns, it'll look sudden from the outside.
+The outside thinks it's over. Inside it isn't. That gap can work for us if we win this week.
+[sl.seat.quote.ask]
+Coach, do you feel you have the support of your {boss_title}?
+Coach, have you been told anything about your future here?
+Coach, what do you say to the fans who want a change?
+[sl.seat.quote.spin]
+That's done. We made our decision, and we're moving forward.
+Every job has noise. This one has less than people think.
+[sl.seat.quote.spin_straight]
+The last staff ran out of time here, and the fans remember it. Patience will be short.
+I'll be honest: the seat was hot, and the people who made it hot are still here.
+[sl.seat.fizzle]
+The seat cooled the only way seats cool. The team started winning, and nobody asked anymore.
+[sl.seat.chapter]
+The seat
+The hot seat
+[sl.seat.legacy]
+Remembered as the fall the seat at {team} got hot.
+[sl.seat.callback.memento]
+The newspaper with the headline that said he was done, framed, with the date circled.
+
+# ---------------------------------------------------------------- coaches wanted
+[sl.wanted.report]
+{writer} of {outlet} reports that {other} has made contact through people close to {lead}.
+More than one person says {other} has {lead} on its short list.
+{lead}'s agent has taken calls this week. Nobody takes those calls for no reason.{not_hs}
+{lead} has taken calls this week. Nobody takes those calls for no reason.{at_hs}
+[sl.wanted.leak]
+A source says {other} asked permission to talk to {lead}. {team} has not said whether it gave it.
+One person close to the search says {lead} is the name at the top of the list.
+A source says the money is not the question. The question is whether {lead} wants to leave.
+[sl.wanted.column]
+This is what success buys a coach: everyone with an opening wants him, and his own school has to decide what he is worth.
+The national view: {other} would be a step up, and {lead} knows it. So does {team}.
+[sl.wanted.radio]
+The callers are split between "pay him" and "let him go." Nobody called in to say they weren't worried.
+Talk radio spent an hour on whether {team} can keep {lead}. Most callers think not.
+[sl.wanted.fans.for]
+The fans want him to stay, and they are saying so. "Pay the man," read the post with the most likes.
+[sl.wanted.fans.against]
+Some fans have already moved on. "If he wants to go, go," said one post, and the replies agreed more than they should have.
+[sl.wanted.jab]
+The other school's fans are already counting him as theirs, which is its own kind of jab.
+[sl.wanted.post]
+He posted a photo of his players at practice: "Home." Nobody knew what to make of it.
+[sl.wanted.post.paper]
+He told the local paper he was happy where he was. Coaches say that until the day they aren't.
+[sl.wanted.peak]
+The decision is close. {question}
+{other} wants an answer this week. {question}
+[sl.wanted.memo.up]
+Between us, he's listening, and the other side is serious. Be ready to lose him, or to pay to keep him.
+Our read is that he'll take it if the offer is what we're hearing.
+[sl.wanted.memo.down]
+He's flattered, not leaving. The interest is real, but so is how much he likes it here.
+Our read: it's his agent's leverage more than a real move.{not_hs}
+Our read: he's listening, but his family is settled here.{at_hs}
+[sl.wanted.memo.even]
+Honestly, he hasn't decided. The money and the family will decide it, in that order.
+It's a coin flip. The other side's next offer tips it.
+[sl.wanted.memo.gap]
+The public thinks he's staying. He isn't sure. If he goes, it'll look like a shock from the outside.
+[sl.wanted.quote.ask]
+Coach, have you been contacted about other jobs?
+Coach, can you say you'll be here next season?
+Coach, what would it take for you to leave?
+[sl.wanted.quote.spin]
+That was talk. Coaches get calls. He stayed, and so will this staff.
+Rumors follow anybody who wins. Pay them no mind.
+[sl.wanted.quote.spin_straight]
+Other teams will come for your staff if you win. They always have here, and it's part of the job.
+[sl.wanted.fizzle]
+The calls stopped. {lead} is still at {team}, and the job went to someone else.
+[sl.wanted.chapter]
+Wanted
+The other job
+[sl.wanted.legacy]
+Remembered as the winter everyone wanted {lead}.
+[sl.wanted.callback.memento]
+The letter from {other}, never answered, in a desk drawer.
+
+# ---------------------------------------------------------------- recruiting sagas
+[sl.recruiting.report]
+{writer} of {outlet} says {lead} has cut his list and a favorite is starting to show.
+The recruiting sites moved their predictions again this week, and not all in the same direction.
+People close to {lead} say the family is doing the deciding, and the family is taking its time.
+{lead}'s high school coach says the phone has not stopped ringing.
+[sl.recruiting.leak]
+A source close to the family says {lead} is leaning one way and has told one school.
+One recruiting insider has a new pick and would not say why, which usually means a visit went well.
+A source says a home visit last week changed things.
+[sl.recruiting.column]
+In a sport built on recruiting, a kid like {lead} decides more than a season. He decides who wins the next four.
+The national view: {lead} is the kind of player who makes a class, and everyone knows it.
+[sl.recruiting.radio]
+Recruiting talk on a Tuesday afternoon, and every caller had a theory about {lead}.
+[sl.recruiting.fans.for]
+The boards are full of hope. Somebody saw a hat on a visit, and that was enough.
+[sl.recruiting.fans.against]
+The boards are nervous. "He's gone," one post said, and three hundred people argued with it.
+[sl.recruiting.jab]
+A rival coach was asked about {lead} and grinned. "We like our chances," he said.
+[sl.recruiting.post]
+{lead} posted a photo in somebody's uniform from his visit. Then he posted one in another school's.
+A post from {lead}: "Top five. Thank you to everyone." The replies were longer than the list.
+[sl.recruiting.post.paper]
+{lead} told the local paper he would decide "when it feels right," which is what everyone says.
+[sl.recruiting.peak]
+Decision day is close. {question}
+The visits are over. {question}
+[sl.recruiting.memo.up]
+Our read from the family: it's going our way. Don't change the pitch now.
+The people around him say we're the leader. Keep the coaches who know him in front of him.
+[sl.recruiting.memo.down]
+Honestly, we're behind. One more visit won't fix it. Decide whether he's worth the push.
+Our read: somebody else has the family. We're being kept on the list to keep the others honest.
+[sl.recruiting.memo.even]
+Two schools and a coin flip. The last visit decides it.
+It's even. His mother will decide this, and she hasn't.
+[sl.recruiting.memo.gap]
+The sites have us out of it. The family says otherwise. Don't believe the predictions.
+[sl.recruiting.quote.ask]
+Coach, how do you feel about where you stand with {lead}?
+Coach, are you still in it for {lead}?
+[sl.recruiting.quote.spin]
+That's handled. The kids who matter are still coming.
+We recruit well here. That class will be fine.
+[sl.recruiting.quote.spin_straight]
+We've lost some kids we shouldn't have, and the class shows it. You'd be fixing that.
+[sl.recruiting.fizzle]
+The recruiting world moved on to the next name. {lead}'s list stayed where it was.
+[sl.recruiting.chapter]
+The {lead_last} recruitment
+Where {lead_last} signs
+[sl.recruiting.legacy]
+Remembered as the recruitment everyone in {state} followed.
+Remembered as the year {lead} chose.
+[sl.recruiting.callback.memento]
+A photo of signing day: the hat, the table, the family behind him.
+
+# ---------------------------------------------------------------- leaving
+# Leaving kinds: portal_decision, portal_exodus, trade_request, holdout,
+# contract_year, tag_standoff, declare_decision, opt_out, retire_decision,
+# free_agent_star, star_traded. Lines here fit them all.
+[sl.leaving.report]
+{writer} of {outlet} spent the week on it. {question}
+People close to {lead} are saying less than usual, which is its own answer.
+Nothing is settled. {question}
+[sl.leaving.leak]
+A source says {team} has already started planning for either answer.
+One person who knows the numbers says it is closer than it looks from the outside.
+[sl.leaving.column]
+This is the business of the sport. Somebody always leaves, and somebody always has to replace him.
+The national view: {question}
+[sl.leaving.radio]
+The callers had strong feelings about {lead}, and not many of them agreed with each other.
+Talk radio spent the hour on {team}'s future, and the future did not sound simple.
+[sl.leaving.fans.for]
+The fans are with {lead}. Most of the posts this week wished him well, whatever he does.
+[sl.leaving.fans.against]
+The fans are tired of it. "Whatever happens, just get it done," the top post read.
+[sl.leaving.jab]
+Other teams are watching, and one of them is not hiding it.
+[sl.leaving.post]
+{lead} posted a photo in a {team} uniform with no caption. Some read it as a goodbye.
+A post from {lead}: "Business is business." The replies have not stopped.
+[sl.leaving.post.paper]
+{lead} told the paper he loved {team} "but this is my living." It read like a man with one foot out the door.
+[sl.leaving.peak]
+The answer is close. {question}
+This is the week it gets decided. {question}
+[sl.leaving.memo.up]
+Our read: it is happening. Plan for it now.
+Between us, he has made up his mind.
+[sl.leaving.memo.down]
+Our read: there is less here than the noise. It settles on its own.
+[sl.leaving.memo.even]
+It's even. The next few days decide it.
+[sl.leaving.memo.gap]
+The outside has this one wrong. Don't be caught by the gap when it closes.
+[sl.leaving.quote.ask]
+Coach, have you talked to {lead} about his future?
+Coach, do you expect {lead} to be here next season?
+Coach, what's the latest on {lead}?
+[sl.leaving.quote.spin]
+Players come and go. The ones who stayed want to be here.
+That's been handled. The room is better for it.
+[sl.leaving.quote.spin_straight]
+Some of our best players left. You'd have to win back the ones who stayed.
+[sl.leaving.fizzle]
+The talk faded without an answer anyone announced.
+[sl.leaving.chapter]
+The {lead_last} question
+Stay or go
+[sl.leaving.legacy]
+Remembered as the year {team} had to decide what {lead} was worth.
+
+# ---------------------------------------------------------------- comebacks
+[sl.comeback.report]
+{writer} of {outlet} watched {lead} work this week. He looks closer than anyone expected.
+The people around {lead} say the hard part is behind him. The rest is football.
+[sl.comeback.leak]
+A source says {lead} has looked better in private than the team is letting on.
+[sl.comeback.column]
+Everyone wants this one to work. That is the trouble with comebacks. They do not care what anyone wants.
+The national view: if {lead} gets back to who he was, {team} is a different team.
+[sl.comeback.radio]
+Every caller was rooting for {lead}. Half of them didn't think he'd make it.
+[sl.comeback.fans.for]
+The fans are with him. The loudest cheer of the week was for {lead}, and he hadn't even played.
+[sl.comeback.fans.against]
+Some fans have seen this before and say so. "Don't get your hopes up," one wrote.
+[sl.comeback.jab]
+"We'll see," a rival said, and left it there.
+[sl.comeback.post]
+{lead} posted a clip from a workout: one cut, full speed. It got more likes than anything he's posted.
+[sl.comeback.post.paper]
+{lead} told the paper he felt like himself again. "I'm not done," he said.
+[sl.comeback.peak]
+This is the week it shows. {question}
+[sl.comeback.memo.up]
+Our medical and our tape say he's back. Trust it.
+[sl.comeback.memo.down]
+He isn't what he was, and the tape shows it. Plan around it.
+[sl.comeback.memo.even]
+Some days he's himself, some days he isn't. It's too early to know.
+[sl.comeback.memo.gap]
+The public thinks he's back. Our tape isn't sure. Don't bet the season on it.
+[sl.comeback.quote.ask]
+Coach, how close is {lead} to the player he was?
+Coach, what have you seen from {lead} this week?
+[sl.comeback.quote.spin]
+That's a comeback story waiting to happen. You'd be the one to finish it.
+[sl.comeback.quote.spin_straight]
+It's a long road back, and nobody knows how it ends.
+[sl.comeback.fizzle]
+Nobody calls it a comeback anymore. {lead} is just playing.
+[sl.comeback.chapter]
+The way back
+{lead_last} comes back
+[sl.comeback.legacy]
+Remembered as the season {lead} came back.
+
+# ---------------------------------------------------------------- streaks and chases
+# Streak kinds: turnaround is a comeback; here are unbeaten, losing_streak,
+# record_chase, career_record, playoff_push, drought, coach_milestone,
+# bowl_chase, award_race, title_defense. Lines here fit them all.
+[sl.streak.report]
+{writer} of {outlet} asked around the locker room. Nobody would talk about it, which is how you know they are thinking about it.
+The number is in every story now, and the players have started to see it.
+{writer} of {outlet} spent the week on the one question everyone is asking. {question}
+[sl.streak.leak]
+A source says the staff told the players to stop reading about it. Nobody stops reading about it.
+[sl.streak.column]
+Everybody can follow a number, and everybody is following this one.
+The national view: {question}
+[sl.streak.radio]
+Talk radio counts the weeks now. Every caller had a prediction for the next game.
+[sl.streak.fans.for]
+The fans are sticking with {team}. The student section showed up early anyway.{amateur}
+The fans are sticking with {team}. The tailgate lots filled up early anyway.{at_pro}
+[sl.streak.fans.against]
+The fans are nervous, and the boards show it.
+[sl.streak.jab]
+The next opponent has the date circled. Its coach said so this week.
+[sl.streak.post]
+A player posted the number and nothing else. Everyone knew what it meant.
+[sl.streak.post.paper]
+The paper ran the number on the front of the sports section, and the players pretended not to see it.
+[sl.streak.peak]
+This is the week. {question}
+It comes down to one more game. {question}
+[sl.streak.memo.up]
+Our read: we're good enough to get it. Don't change anything because of the number.
+[sl.streak.memo.down]
+The tape says we've been living on the edge. Clean it up or it goes the wrong way.
+[sl.streak.memo.even]
+It's a fifty-fifty game. The number doesn't change that.
+[sl.streak.memo.gap]
+The public thinks it's easy. It isn't. Keep the room humble.
+[sl.streak.quote.ask]
+Coach, how much do your players talk about it?
+Coach, do you feel the pressure of the number this week?
+[sl.streak.quote.spin]
+That run is a big part of what this place is now.
+[sl.streak.quote.spin_straight]
+Expectations are high here. Anything less will look like a failure.
+[sl.streak.fizzle]
+The chase ran out of road. Nobody talks about the number anymore.
+[sl.streak.chapter]
+The chase
+The number
+[sl.streak.legacy]
+Remembered as the season everyone was counting.
+[sl.streak.callback.memento]
+The game ball from the night it was decided, with the number written on it.
+
+# ---------------------------------------------------------------- rivalries
+[sl.rivalry.report]
+{writer} of {outlet} says both locker rooms have had this week circled since the summer.
+Nobody on either side wanted to say anything this week. Somebody always does anyway.
+[sl.rivalry.leak]
+A source says the {team} staff showed the players last year's game three times this week.
+[sl.rivalry.column]
+Rivalries are the oldest stories in the sport, and this one has a new chapter coming.
+The national view: forget the records. This one is about who gets to talk for a year.
+[sl.rivalry.radio]
+Rivalry week on the radio: two hours, one subject, and not a single caller from the other side who got through politely.
+[sl.rivalry.fans.for]
+The fans are ready. The tickets went in an hour and the tailgate lots filled the night before.
+[sl.rivalry.fans.against]
+The fans have been here before. "Same as every year," one post said. Nobody liked it, but nobody argued.
+[sl.rivalry.jab]
+The other side's coach was asked about {team} and said, "Who?" Then he smiled.
+A billboard went up on the highway between the two towns. It only had the score from last year.
+[sl.rivalry.post]
+A player posted last year's score with a clock. The countdown ends {gameday}.
+[sl.rivalry.post.paper]
+A player told the paper what he thought of the other side. It ended up on their locker room wall.
+[sl.rivalry.peak]
+Game week. {question}
+It all comes down to {gameday}. {question}
+[sl.rivalry.memo.up]
+We're the better team this year. Play it like a normal game and we win it.
+[sl.rivalry.memo.down]
+They're better than us this year. Keep it close, keep it ugly, and give it a chance late.
+[sl.rivalry.memo.even]
+It's an even game on paper. In this rivalry, paper doesn't mean much.
+[sl.rivalry.memo.gap]
+The public thinks we win it easily. We won't. Keep the room focused.
+[sl.rivalry.quote.ask]
+Coach, what does this week mean to you?
+Coach, have you shown the players the end of last year's game?
+[sl.rivalry.quote.spin]
+That rivalry is the best thing about this place. You'll love it.
+[sl.rivalry.quote.spin_straight]
+The rivalry has gone the wrong way for a while. The fans won't forget it, and they'll count the years.
+[sl.rivalry.fizzle]
+The rivalry went back to sleep until next year.
+[sl.rivalry.chapter]
+{other_short}, again
+The rivalry
+[sl.rivalry.legacy]
+Remembered as the year of {team} and {other}.
+[sl.rivalry.callback.memento]
+The game ball from the rivalry, kept on the office shelf.
+
+# ---------------------------------------------------------------- rise and fall
+[sl.rise.report]
+{writer} of {outlet} says the scouts have noticed. Three were at practice this week.
+The numbers keep coming, and so do the people asking about {lead}.
+[sl.rise.leak]
+A source says the staff has known for a while. They were just waiting for everyone else to see it.
+[sl.rise.column]
+Every season has one of these, a name nobody knew in August. This year it might be {lead}.
+The national view: it is early, but the tape is real.
+[sl.rise.radio]
+Callers want to know where {lead} came from. The host didn't have a good answer either.
+[sl.rise.fans.for]
+The fans have a new favorite. His jersey was the one people wanted this week.
+[sl.rise.fans.against]
+Some fans are waiting to see it twice. "One good month," one post said.
+[sl.rise.jab]
+An opposing coach was asked about {lead} and said he hadn't seen much of him. He will.
+[sl.rise.post]
+{lead} posted a highlight with one word: "Day one." It was everywhere by morning.
+[sl.rise.post.paper]
+{lead} told the paper he always knew he could do this. "Nobody else did," he said.
+[sl.rise.peak]
+This is the stretch that decides it. {question}
+[sl.rise.memo.up]
+The tape says he's for real. Get him more of the ball.
+[sl.rise.memo.down]
+It's a hot streak more than a jump. The tape says he'll come back to earth.
+[sl.rise.memo.even]
+Too early to say. A few more weeks will tell us.
+[sl.rise.memo.gap]
+The public has him ahead of where he is. Keep the pressure off him.
+[sl.rise.quote.ask]
+Coach, where did {lead} come from?
+Coach, how good can {lead} be?
+[sl.rise.quote.spin]
+That's the kind of player this program develops.{amateur}
+That's the kind of player we bring along here.{at_pro}
+[sl.rise.quote.spin_straight]
+Not every bet here has paid off. You'd inherit a few that didn't.
+[sl.rise.fizzle]
+Nobody is talking about it anymore. The season moved on.
+[sl.rise.chapter]
+The rise of {lead_last}
+Out of nowhere
+[sl.rise.legacy]
+Remembered as the season {lead} showed up.
+
+# ---------------------------------------------------------------- draft arcs
+[sl.draft.report]
+{writer} of {outlet} talked to scouts this week. The range on {lead} is wide.
+Teams with picks in that range have been calling about {lead}.
+[sl.draft.leak]
+A source with one of the teams says {lead} is on their board higher than the mock drafts have him.
+One scout says the medical reports are what teams are really talking about.
+[sl.draft.column]
+The draft is a guessing game with a lot of money on it, and {lead} is one of its biggest guesses.
+[sl.draft.radio]
+Draft talk radio: callers have {lead} going everywhere from the top ten to the third round.
+[sl.draft.fans.for]
+The fans of the teams that need him want him. Mock drafts keep sending him their way.
+[sl.draft.fans.against]
+The fans are split on {lead}. Some see a star, some see a risk.
+[sl.draft.jab]
+An anonymous scout said {lead} wouldn't be on his board. The quote traveled fast.
+[sl.draft.post]
+{lead} posted a photo from his workout with the clock time in the caption.
+[sl.draft.post.paper]
+{lead} told the paper he would prove the doubters wrong. "Just pick me," he said.
+[sl.draft.peak]
+Draft week. {question}
+[sl.draft.memo.up]
+Our read from the league: he goes high. Don't let anyone talk you out of it.
+[sl.draft.memo.down]
+Our read: he slides. The teams we trust have him lower than the noise.
+[sl.draft.memo.even]
+It's a wide range. One team falling in love changes everything.
+[sl.draft.memo.gap]
+The mocks have him higher than the teams do. Somebody's going to be surprised.
+[sl.draft.quote.ask]
+Coach, what are you hearing about {lead} and the draft?
+[sl.draft.quote.spin]
+That kid's going to be a great pro, and it'll help us recruit.{at_college}
+We had him high on our board for a reason. He'll show everybody why.{at_pro}
+[sl.draft.quote.spin_straight]
+Some of our kids fell in the draft, and recruits noticed.{at_college}
+We took the player our board said to take. Time will tell.{at_pro}
+[sl.draft.fizzle]
+The draft came and went. The story ended without a headline.
+[sl.draft.chapter]
+Draft day
+The wait
+[sl.draft.legacy]
+Remembered as the spring {lead} waited for the phone.
+
+# ---------------------------------------------------------------- off the field
+[sl.offfield.report]
+{writer} of {outlet} says the school has not decided anything and is not in a hurry to.
+People around {team} say {lead}'s status is the question nobody wants to answer on the record.
+The details are still coming out, and they are not all good.
+[sl.offfield.leak]
+A source says the team's decision is already made and is waiting on paperwork.
+One person close to the case says it is more serious than the first reports made it sound.
+[sl.offfield.column]
+This is the part of the job nobody puts on a recruiting pitch, and it decides more seasons than anyone admits.{amateur}
+This is the part of the job nobody puts in a press release, and it decides more seasons than anyone admits.{at_pro}
+The national view: what {team} does here will say more about the team than any game.
+[sl.offfield.radio]
+The callers want consequences, and they want them before the next game.
+Talk radio split: some callers want {lead} gone, others want everyone to wait for the facts.
+[sl.offfield.fans.for]
+The fans are waiting for the facts. Most of them want {lead} to get a fair hearing.
+[sl.offfield.fans.against]
+The fans are angry. "Embarrassing," said the most liked post, and the replies piled on.
+[sl.offfield.jab]
+Opposing fans have a new chant. It is not kind.
+[sl.offfield.post]
+{lead} posted a short apology, then deleted it, then posted it again.
+[sl.offfield.post.paper]
+{lead} told the paper he was sorry and would not say anything else.
+[sl.offfield.peak]
+A decision is coming this week. {question}
+[sl.offfield.memo.up]
+Our read: it's as bad as it sounds. Act before someone else acts for us.
+[sl.offfield.memo.down]
+It's less than it looks. Get the facts in front of the right people, and it passes.
+[sl.offfield.memo.even]
+We don't know enough yet. Wait for the facts before you say anything that sticks.
+[sl.offfield.memo.gap]
+The public has it worse than it is. That helps us only until the details come out.
+[sl.offfield.quote.ask]
+Coach, can you update us on {lead}'s status?
+Coach, do you have any comment on the incident involving {lead}?
+Coach, will there be discipline?
+[sl.offfield.quote.spin]
+That was handled internally. We're past it.
+[sl.offfield.quote.spin_straight]
+There have been incidents here, and the culture needs work. The board knows it.
+[sl.offfield.fizzle]
+The story faded without a final word. {lead} is back at practice.
+[sl.offfield.chapter]
+The {lead_last} situation
+Off the field
+[sl.offfield.legacy]
+Remembered as the week {team} had to answer for {lead}.
+
+# ---------------------------------------------------------------- program arcs
+[sl.program.report]
+{writer} of {outlet} says the people who run {team} have started asking where this is going.
+The boosters are talking, and the {boss_title} is listening.{amateur}
+The season-ticket holders are talking, and the {boss_title} is listening.{at_pro}
+[sl.program.leak]
+A source says the next big decision at {team} is already on someone's desk.
+[sl.program.column]
+Programs are built over years and lost in a few seasons. {team} is in the middle of one or the other.{amateur}
+Contenders are built over years and lost in a few seasons. {team} is in the middle of one or the other.{at_pro}
+The national view: {question}
+[sl.program.radio]
+Callers to the radio wanted to talk about {team} the way people talk about the weather. Everyone has an opinion, and nobody can change it.
+[sl.program.fans.for]
+The fans are behind it. Season tickets are up, and so is the noise.
+[sl.program.fans.against]
+The fans are worried. Season ticket renewals are down, and the boards are angry.
+[sl.program.jab]
+Rivals have noticed. "Good for them," one coach said, and nobody believed him.
+[sl.program.post]
+A former player posted a photo from the old days with one word: "Remember."
+[sl.program.post.paper]
+A former player told the paper what he thought of the program now. It wasn't kind.{amateur}
+A former player told the paper what he thought of the franchise now. It wasn't kind.{at_pro}
+[sl.program.peak]
+This is the turn. {question}
+[sl.program.memo.up]
+Our read: it's working. Stay the course.
+[sl.program.memo.down]
+Our read: it isn't working, and the people who pay for it know.
+[sl.program.memo.even]
+It could go either way. The next season decides it.
+[sl.program.memo.gap]
+The public thinks it's further along than it is. Manage what they expect.
+[sl.program.quote.ask]
+Coach, where is this program headed?{amateur}
+Coach, where is this team headed?{at_pro}
+Coach, how long until {team} is where you want it?
+[sl.program.quote.spin]
+That's the kind of place this is. We know what we are.
+[sl.program.quote.spin_straight]
+The program is not where it was. Rebuilding it is the job.{amateur}
+This team is not where it was. Rebuilding it is the job.{at_pro}
+[sl.program.fizzle]
+The talk about {team} moved on. The team is what it is.
+[sl.program.chapter]
+The program{amateur}
+The franchise{at_pro}
+{team}, building
+[sl.program.legacy]
+Remembered as a turning point for {team}.
+
+# ---------------------------------------------------------------- endings
+[sl.ending.report]
+{writer} of {outlet} says the goodbye is already planned, down to who speaks first.
+The people around {lead} say he has made his peace with it.
+[sl.ending.leak]
+A source says {lead} told the team before he told anyone else.
+[sl.ending.column]
+Every ending is a story about everything before it. {lead}'s is a long one.
+[sl.ending.radio]
+Callers shared their favorite {lead} memories for an hour. Nobody could pick just one.
+[sl.ending.fans.for]
+The fans are planning a send-off. Signs are being painted.
+[sl.ending.fans.against]
+Some fans think it's time, and say so. Most of them say it quietly.
+[sl.ending.jab]
+Even the other side tipped its cap.
+[sl.ending.post]
+{lead} posted an old photo from his first day. The caption just said "Thank you."
+[sl.ending.post.paper]
+{lead} told the paper he would miss the locker room most. "Not the games," he said. "The guys."
+[sl.ending.peak]
+The last one is close. {question}
+[sl.ending.memo.up]
+He's going out the right way. Give him the moment.
+[sl.ending.memo.down]
+It won't be the ending he wants. Be there for him when it isn't.
+[sl.ending.memo.even]
+It could be a great day or a hard one. Plan for both.
+[sl.ending.memo.gap]
+The outside thinks it's a celebration. Inside it's harder than that.
+[sl.ending.quote.ask]
+Coach, what has {lead} meant to this program?{amateur}
+Coach, what has {lead} meant to this organization?{at_pro}
+[sl.ending.quote.spin]
+That was a legend's goodbye. The place still feels it.
+[sl.ending.quote.spin_straight]
+You'd be following a legend. Nobody here will let you forget it.
+[sl.ending.fizzle]
+It ended quietly, without the send-off anyone planned.
+[sl.ending.chapter]
+The last one
+Goodbye
+[sl.ending.legacy]
+Remembered as the year {lead} said goodbye.
+
+# ---------------------------------------------------------------- you
+# The coach's own arcs: new_coach, big_one and old_team happen to every coach;
+# your_contract, job_rumors and your_milestone are yours. Third person: {lead}
+# is your name when the story is yours.
+[sl.you.report]
+{writer} of {outlet} says the people who decide {lead}'s future are watching closely.
+{lead}'s name is in the papers this week, and not only on the sports pages.
+{writer} of {outlet} spent the week on {lead}. {question}
+[sl.you.leak]
+A source close to the {boss_title} says {lead}'s situation will be discussed this month.
+[sl.you.column]
+The national view: {lead} has a story worth watching, and this is the chapter that matters.
+[sl.you.radio]
+Callers spent an hour on {lead}. About half of them were kind.
+[sl.you.fans.for]
+The fans are behind {lead}. His name got a cheer at the last home game.
+[sl.you.fans.against]
+The fans are restless. {lead}'s name drew boos when it was read at the last home game.
+[sl.you.jab]
+A rival coach brought up {lead} in his own press conference. He didn't have to.{not_hs}
+A rival coach brought up {lead} in the local paper. He didn't have to.{at_hs}
+[sl.you.quote.boss]
+{boss}, the {boss_title}, said: "We're proud of the direction of this program."{amateur}
+{boss}, the {boss_title}, said: "We're proud of the direction of this franchise."{at_pro}
+{boss} was asked about {lead}'s future and said only, "We'll talk at the end of the season."
+[sl.you.peak]
+This is the week. {question}
+[sl.you.memo.up]
+Our read: what people are saying is true, and it is moving fast.
+[sl.you.memo.down]
+Our read: what people are saying is ahead of the facts.
+[sl.you.memo.even]
+It's even. What you do this week matters.
+[sl.you.memo.gap]
+The outside sees it differently than we do. That gap matters.
+[sl.you.quote.ask]
+Coach, how do you see your own future here?
+Coach, what's your message to the people who doubt you?
+[sl.you.fizzle]
+The talk about {lead} faded. Back to football.
+[sl.you.chapter]
+{lead_last}'s year
+[sl.you.legacy]
+Remembered as a turning point in {lead}'s career.
+
+# ================================================================== kinds
+# One block per kind: the spark (when it goes public), its own beats where the
+# family's don't fit, the peak, every ending, the chapter title and the legacy.
+
+# ---------------------------------------------------------------- battles
+
+[sl.qb_battle.spark]
+{lead_last} started every game last season. {rival_last} has taken more first-team snaps this camp than anyone expected. {question}
+The quarterback job at {team} is open, whatever the depth chart says. {lead} against {rival}.
+[sl.qb_battle.report]
+{writer} of {outlet} charted the open practice: {lead_last} and {rival_last} split the first-team periods again.
+Neither quarterback has taken the job. {lead_last} has the experience. {rival_last} has the arm, and the staff knows it.
+[sl.qb_battle.memo.up]
+{rival_last} is ahead on our charts, and it isn't close in the team periods. {lead_last} needs to hear it from you first.
+[sl.qb_battle.memo.down]
+{lead_last} is still the better quarterback on our tape. {rival_last} has the tools; he doesn't have the reads yet.
+[sl.qb_battle.peak]
+The opener is days away. {question}
+[sl.qb_battle.end.won_job]
+{rival} won the job. He starts the opener, and {lead_last} watches from the sideline.
+{rival_last} took the job from {lead_last}, the first real change at quarterback for {team} in a while.
+[sl.qb_battle.end.kept_job]
+{lead} kept his job. {rival_last} pushed him all camp and will have to wait.
+{lead_last} held off {rival_last} and starts the opener for {team}.
+[sl.qb_battle.end.injury]
+Neither of them got the job the way they wanted. An injury settled it.
+[sl.qb_battle.end.split]
+Nobody won it. {lead_last} and {rival_last} are both playing, and {team} is living with it.
+[sl.qb_battle.chapter]
+The quarterback battle
+{rival_last} or {lead_last}
+[sl.qb_battle.chapter.won_job]
+{rival_last} takes the job
+[sl.qb_battle.chapter.kept_job]
+{lead_last} holds on
+[sl.qb_battle.legacy.won_job]
+Remembered as the summer {rival_last} won the job.
+[sl.qb_battle.legacy.kept_job]
+Remembered as the summer {lead_last} held on.
+[sl.qb_battle.legacy]
+Remembered as the summer {team} could not pick a quarterback.
+
+[sl.qb_controversy.spark]
+The boos started in the third quarter, and so did the chant for {rival_last}. {question}
+{lead_last} has thrown away two games this month, and the backup is getting louder applause than the starter.
+[sl.qb_controversy.report]
+{writer} of {outlet} asked the staff about {rival_last} again this week and got the same answer: {lead_last} is the starter.
+{rival_last} has been taking more reps with the first team this week, according to people who watched practice.
+[sl.qb_controversy.memo.up]
+On our tape {rival_last} gives us a better chance right now. The question is whether {lead_last}'s room follows him back.
+[sl.qb_controversy.memo.down]
+{lead_last} is still our best quarterback. The crowd is wrong, and the tape says so.
+[sl.qb_controversy.peak]
+The depth chart for this week is the answer. {question}
+[sl.qb_controversy.end.benched]
+{team} made the change. {rival} starts, and {lead_last} goes to the bench.
+[sl.qb_controversy.end.held_job]
+{lead} kept the job through all of it and finished the season as the starter.
+[sl.qb_controversy.end.injury]
+An injury settled what the staff would not. {team} has a new quarterback, for now.
+[sl.qb_controversy.end.season_over]
+The season ended before anyone made a change. {lead_last} is still the starter, and the question will be back in the spring.
+[sl.qb_controversy.chapter]
+The {rival_last} chant
+[sl.qb_controversy.chapter.benched]
+{rival_last} gets the start
+[sl.qb_controversy.legacy]
+Remembered as the fall the crowd chanted for {rival_last}.
+
+[sl.veteran_job.spark]
+{lead} has started for years. On this week's depth chart he is behind {rival}. {question}
+[sl.veteran_job.report]
+{lead_last} took most of his snaps with the second team this week. {rival_last} took his.
+[sl.veteran_job.peak]
+The cutdown is close. {question}
+[sl.veteran_job.end.lost_job]
+{rival} has the job. {lead_last} is a backup now, and nobody pretends otherwise.
+[sl.veteran_job.end.won_back]
+{lead} won his job back. {rival_last} will get his chance another year.
+[sl.veteran_job.end.released]
+{team} released {lead}, ending his time there with the job he lost to {rival_last}.
+{lead_last} is gone, released by {team} after losing his job.
+[sl.veteran_job.chapter]
+{lead_last}'s last camp
+[sl.veteran_job.legacy]
+Remembered as the summer {lead_last} lost his job.
+
+[sl.two_qb.spark]
+{team} played two quarterbacks again and says it will keep doing it. {question}
+[sl.two_qb.report]
+The two-quarterback plan held up again this week, and the people who watch practice say the players have stopped asking about it.
+[sl.two_qb.peak]
+The plan meets its biggest test this week. {question}
+[sl.two_qb.end.one_wins]
+The two-quarterback system is over. One of them took the job outright.
+[sl.two_qb.end.works]
+It worked. {team} won with two quarterbacks and nobody is apologizing for it.
+[sl.two_qb.end.ends]
+{team} gave up on the two-quarterback plan. It never found a rhythm.
+[sl.two_qb.chapter]
+Two quarterbacks
+[sl.two_qb.legacy]
+Remembered as the season {team} played two quarterbacks.
+
+[sl.kicker_slump.spark]
+{lead} missed again. He has made {made} of his last {tried}. {question}
+The kicking has become the story at {team}, which is never a good sign. {lead_last} missed another one.
+[sl.kicker_slump.report]
+{lead_last} stayed after practice to kick alone for forty minutes. The staff would not say whether anyone else is kicking for the job.
+{writer} of {outlet} says {team} has called in two kickers for a workout this week.
+{lead_last} has made {made} of his last {tried}. He has been kicking with a new holder in practice.
+[sl.kicker_slump.leak]
+A source says {team} worked out three kickers on Tuesday. {lead_last} was not told until after.
+[sl.kicker_slump.radio]
+Callers wanted a new kicker, and two of them named one.
+[sl.kicker_slump.fans.for]
+The fans are with {lead_last}. "He'll make the next one," read the top post, with a lot of crossed fingers.
+[sl.kicker_slump.fans.against]
+The fans have seen enough. "Go for it on fourth down," one post said, and the replies agreed.
+[sl.kicker_slump.jab]
+A rival coach was asked about the {team} kicking. "I'll take it," he said.
+[sl.kicker_slump.memo.up]
+It's in his head. His mechanics are the same as August. A workout for someone else might wake him up, or end it.
+[sl.kicker_slump.memo.down]
+His contact is fine on our film. The misses are the snap and the hold. Fix the operation, not the kicker.
+[sl.kicker_slump.quote.ask]
+Coach, are you still confident in {lead_last}?
+Coach, will you bring in another kicker this week?
+[sl.kicker_slump.peak]
+Another close game, and the kick will matter. {question}
+[sl.kicker_slump.end.fixed]
+{lead} has found it again. The misses stopped as fast as they started.
+[sl.kicker_slump.end.lost_job]
+{team} made a change at kicker. {lead_last} lost the job.
+[sl.kicker_slump.end.season_over]
+The season ended with the kicking still a question. {lead_last} will have a long offseason.
+[sl.kicker_slump.chapter]
+The kicks
+[sl.kicker_slump.legacy]
+Remembered as the season {team} could not trust its kicker.
+
+[sl.next_man_up.spark]
+{rival} is hurt, and {lead} is the starter now. {question}
+[sl.next_man_up.report]
+{lead_last} has handled the first team well enough that the staff is asking itself questions it did not expect to ask.
+[sl.next_man_up.peak]
+{rival_last} is close to coming back. {question}
+[sl.next_man_up.end.kept_job]
+{lead} kept the job even after {rival_last} was healthy. The backup is the starter now.
+[sl.next_man_up.end.gave_back]
+{rival} is back, and the job is his again. {lead_last} did what was asked.
+[sl.next_man_up.end.faded]
+{lead_last} faded before {rival_last} came back, and the experiment ended.
+[sl.next_man_up.chapter]
+{lead_last} steps in
+[sl.next_man_up.legacy]
+Remembered as the stretch {lead_last} stepped in.
+
+[sl.freshman_starter.spark]
+{team} is starting a {young} at quarterback. {lead} gets the job. {question}
+[sl.freshman_starter.report]
+{lead_last} has thrown with more poise than the staff expected. He has also thrown more interceptions.
+[sl.freshman_starter.peak]
+The schedule gets hard now. {question}
+[sl.freshman_starter.end.arrived]
+{lead} arrived. The {young} ran the offense like a veteran by the end of the year.
+[sl.freshman_starter.end.struggled]
+It was a hard first year for {lead}. He kept the job, and the staff kept believing.
+[sl.freshman_starter.end.benched]
+{team} went back to experience. {lead_last} lost the job before the season was out.
+[sl.freshman_starter.chapter]
+The {young}
+[sl.freshman_starter.legacy]
+Remembered as the year {team} handed the offense to a {young}.
+
+[sl.position_switch.spark]
+{lead} is moving to {pos}. {question}
+[sl.position_switch.report]
+{lead_last} has spent the week with the {pos} group. The coaches say he is a quick study.
+[sl.position_switch.peak]
+His first real game at the new spot is close. {question}
+[sl.position_switch.end.stuck]
+The move stuck. {lead} is a {pos} now.
+[sl.position_switch.end.moved_back]
+The switch did not work. {lead_last} is back at his old position.
+[sl.position_switch.chapter]
+{lead_last} moves
+[sl.position_switch.legacy]
+Remembered as the season {lead_last} changed positions.
+
+# ---------------------------------------------------------------- job security
+
+[sl.hot_seat.spark]
+The questions about {lead} are coming from inside the building now. {question}
+{team} is {record}, and the people who decide these things have started talking about {lead_last}.
+[sl.hot_seat.report]
+{writer} of {outlet} hears that the {boss_title} has started asking what a change would cost. The buyout is {money}.
+{lead_last}'s contract runs through {through}. The people who would pay the rest of it are watching.
+{team} is {record}. {writer} of {outlet} says the next few weeks will decide {lead_last}'s future.
+[sl.hot_seat.peak]
+A loss this week could end it. {question}
+[sl.hot_seat.end.fired]
+{team} fired {lead}. The {boss_title} announced it in a short statement.
+It is over for {lead_last} at {team}. He was fired.
+[sl.hot_seat.end.saved]
+{lead} survived. {team} is keeping him, and the {boss_title} said so.
+[sl.hot_seat.end.extended]
+The seat turned into an extension. {team} gave {lead_last} more years.
+[sl.hot_seat.end.resigned]
+{lead} resigned before {team} could decide for him.
+[sl.hot_seat.chapter]
+The seat
+[sl.hot_seat.chapter.fired]
+The end at {team}
+[sl.hot_seat.chapter.saved]
+Surviving the seat
+[sl.hot_seat.legacy.fired]
+Remembered as the fall {team} let {lead_last} go.
+[sl.hot_seat.legacy.saved]
+Remembered as the fall {lead_last} saved his job.
+[sl.hot_seat.legacy]
+Remembered as the fall the seat at {team} got hot.
+
+[sl.vote_of_confidence.spark]
+{boss} says {lead} is the coach at {team}. Everyone has heard that before. {question}
+[sl.vote_of_confidence.report]
+The vote of confidence is a week old, and nobody has repeated it.
+[sl.vote_of_confidence.peak]
+The {boss_title} has to decide whether the words still hold. {question}
+[sl.vote_of_confidence.end.meant_it]
+{boss} meant it. {lead} is still the coach at {team}.
+[sl.vote_of_confidence.end.fired_anyway]
+The vote of confidence lasted until it didn't. {team} fired {lead}.
+[sl.vote_of_confidence.chapter]
+The vote of confidence
+[sl.vote_of_confidence.legacy]
+Remembered as the week {boss} stood behind {lead_last}.
+
+[sl.buyout_watch.spark]
+The buyout is {money}. That number is now part of every conversation about {lead} at {team}. {question}
+[sl.buyout_watch.report]
+{writer} of {outlet} says boosters have been asked whether they would help with {money}.
+[sl.buyout_watch.peak]
+The money is the last question. {question}
+[sl.buyout_watch.end.paid_it]
+{team} paid it. {money} to make a change, and it made the change.
+{team} paid {lead_last} to leave.
+[sl.buyout_watch.end.kept_him]
+{team} decided {money} was too much. {lead_last} stays.
+[sl.buyout_watch.chapter]
+The buyout
+[sl.buyout_watch.legacy]
+Remembered as the fall {team} added up the buyout.
+
+[sl.interim_audition.spark]
+{lead} is the interim coach at {team}, and every game is an interview now. {question}
+[sl.interim_audition.report]
+The players have rallied around {lead_last}. {writer} of {outlet} says the search committee is noticing.
+[sl.interim_audition.fans.for]
+The fans want {lead_last} to get the job. "Take the interim off," read the top post.
+[sl.interim_audition.fans.against]
+The fans want a big name, not the interim.
+[sl.interim_audition.peak]
+The search is close to a decision. {question}
+[sl.interim_audition.end.got_job]
+{lead} got the job. The interim tag is gone.
+[sl.interim_audition.end.passed_over]
+{team} went outside. {lead_last}'s audition ended without the job.
+[sl.interim_audition.chapter]
+The audition
+[sl.interim_audition.legacy]
+Remembered as the stretch {lead_last} auditioned for the job.
+
+[sl.coaching_search.spark]
+{team} needs a head coach. {question}
+The search is on at {team}.
+[sl.coaching_search.report]
+{writer} of {outlet} says {team} has a short list and has started making calls.
+Three names keep coming up in the {team} search. The {boss_title} has not said any of them out loud.
+{team} has hired a search firm. The people close to the search say it wants a decision before signing day.{at_college}
+{team} has hired a search firm. The people close to the search say the {boss_title} wants a coach in place before free agency opens.{at_pro}
+{team} has posted the job. The people close to the search say the {boss_title} wants a coach in the building before spring practice.{at_hs}
+[sl.coaching_search.leak]
+A source says {team} has met with at least two candidates this week, one of them twice.
+One person close to the search says the first choice said no.
+[sl.coaching_search.column]
+The national view: {team} is a better job than its last few seasons say. The right hire changes everything.
+[sl.coaching_search.radio]
+Callers have a candidate, and each one has a different candidate.
+[sl.coaching_search.fans.for]
+The fans are excited. Every rumored name is bigger than the last.
+[sl.coaching_search.fans.against]
+The fans are nervous. The names they wanted are taking other jobs.
+[sl.coaching_search.memo.up]
+Our read: they have their man and are waiting on the paperwork.
+[sl.coaching_search.memo.down]
+Our read: the first choices are saying no. This could drag.
+[sl.coaching_search.quote.ask]
+Coach, have you been contacted about the opening at {team}?
+[sl.coaching_search.peak]
+A decision is close. {question}
+[sl.coaching_search.fizzle]
+The search went quiet, the way searches do before an announcement.
+[sl.coaching_search.end.hired]
+{team} has its new head coach.
+[sl.coaching_search.end.promoted]
+{team} promoted from within. The new head coach was already in the building.
+[sl.coaching_search.chapter]
+The search
+[sl.coaching_search.legacy]
+Remembered as the winter {team} went looking.
+
+[sl.coordinator_heat.spark]
+The {unit} is {rank_of} in the country. {question}
+{team}'s {unit} has the fans asking about {lead}.
+[sl.coordinator_heat.report]
+The {unit} ranks {rank_of}. {writer} of {outlet} says {coach_last} has been sitting in on {unit} meetings.
+[sl.coordinator_heat.peak]
+Another bad week for the {unit} and the head coach may have to act. {question}
+[sl.coordinator_heat.end.fired]
+{team} fired {lead}, its coordinator, in the middle of the season.
+[sl.coordinator_heat.end.turned_it]
+The {unit} turned it around, and {lead_last} with it.
+{lead_last}'s group got better, and the talk stopped.
+[sl.coordinator_heat.end.season_over]
+The season ended with {lead_last} still in charge and the question still open.
+[sl.coordinator_heat.chapter]
+The coordinator's seat
+[sl.coordinator_heat.legacy]
+Remembered as the season the fans turned on {lead_last}.
+
+[sl.extension_talks.spark]
+{team} wants to keep {lead}. The question is what it costs. {question}
+[sl.extension_talks.report]
+{writer} of {outlet} says the two sides have exchanged numbers and are not far apart.
+{lead_last}'s contract runs through {through}. {team} would like to change that before anyone else calls.
+[sl.extension_talks.fans.for]
+The fans want it done. "Lock him up," was the post of the week.
+[sl.extension_talks.fans.against]
+Some fans want to see more before {team} commits more years.
+[sl.extension_talks.memo.up]
+Our read: they want it done, and they'll pay.
+[sl.extension_talks.memo.down]
+Our read: they're slow-walking it. Somebody above the {boss_title} isn't convinced.
+[sl.extension_talks.peak]
+The deal is close. {question}
+[sl.extension_talks.end.extended]
+{team} extended {lead}. More years, more money, and a message to everyone else who called.
+[sl.extension_talks.end.left]
+The extension never came. {lead_last} left {team}.
+[sl.extension_talks.end.stalled]
+The talks stalled. {lead_last} is coaching on the contract he has.
+[sl.extension_talks.chapter]
+The extension
+[sl.extension_talks.legacy]
+Remembered as the year {team} decided what {lead_last} was worth.
+
+# ---------------------------------------------------------------- coaches wanted
+
+[sl.nfl_wants_coach.spark]
+{other} has asked about {lead}. The NFL is calling {team}'s coach. {question}
+[sl.nfl_wants_coach.report]
+{writer} of {outlet} says {other} has done its homework on {lead} and likes what it found.
+[sl.nfl_wants_coach.peak]
+{other} wants an answer. {question}
+[sl.nfl_wants_coach.end.left]
+{lead} is going to the NFL. He leaves {team} for {other}.
+[sl.nfl_wants_coach.end.stayed]
+{lead} stays at {team}. The NFL will have to wait.
+[sl.nfl_wants_coach.chapter]
+The NFL calls
+[sl.nfl_wants_coach.legacy]
+Remembered as the winter the NFL called {lead_last}.
+
+[sl.big_job_wants_coach.spark]
+{other} wants {lead}. {team} wants to keep him. {question}
+[sl.big_job_wants_coach.report]
+{writer} of {outlet} says {other} has made {lead} its top target.
+[sl.big_job_wants_coach.peak]
+{other} wants an answer this week. {question}
+[sl.big_job_wants_coach.end.left]
+{lead} takes the job at {other}. {team} is looking for a coach.
+[sl.big_job_wants_coach.end.stayed]
+{lead} turned down {other} and stays at {team}.
+[sl.big_job_wants_coach.chapter]
+The bigger job
+[sl.big_job_wants_coach.legacy]
+Remembered as the winter {other} came for {lead_last}.
+
+[sl.staff_raid.spark]
+{team}'s staff is being picked apart. {question}
+Another {team} assistant is leaving. The staff that won here is breaking up.
+[sl.staff_raid.report]
+{writer} of {outlet} says {team} has interviewed two people for the opening, one from inside.
+[sl.staff_raid.peak]
+The new hires have to be in place before the spring. {question}
+[sl.staff_raid.end.replaced]
+{team} has filled the openings from outside.
+[sl.staff_raid.end.promoted]
+{team} promoted from within to fill the openings.
+[sl.staff_raid.chapter]
+The staff raided
+[sl.staff_raid.legacy]
+Remembered as the winter {team}'s staff was picked apart.
+
+[sl.coordinator_head_job.spark]
+{lead} has been a coordinator long enough. {other} is interested. {question}
+[sl.coordinator_head_job.report]
+{writer} of {outlet} says {lead} interviewed with {other} this week.
+[sl.coordinator_head_job.peak]
+{other} is close to a decision. {question}
+[sl.coordinator_head_job.end.got_job]
+{lead} got his first head coaching job. He is going to {other}.
+[sl.coordinator_head_job.end.stayed]
+{lead_last} stays a coordinator for another year.
+[sl.coordinator_head_job.chapter]
+{lead_last}'s chance
+[sl.coordinator_head_job.legacy]
+Remembered as the year {lead_last} went for a head job.
+
+[sl.old_school_calls.spark]
+{other} called {lead}. He used to work there. {question}
+[sl.old_school_calls.report]
+{writer} of {outlet} says {other} sees {lead_last} as a homecoming.
+[sl.old_school_calls.peak]
+{other} wants him back. {question}
+[sl.old_school_calls.end.went_back]
+{lead} goes home. He is going back to {other}.
+[sl.old_school_calls.end.stayed]
+{lead} turned down the old school and stays at {team}.
+[sl.old_school_calls.chapter]
+The old school calls
+[sl.old_school_calls.legacy]
+Remembered as the winter {other} called {lead_last} home.
+
+[sl.hs_coach_jump.spark]
+{lead} built a winner at {other}. Now he is going to {team}. {question}
+[sl.hs_coach_jump.report]
+{lead_last} has spent the fall learning a new level. The recruits from his old area have noticed.
+[sl.hs_coach_jump.end.made_it]
+{lead} made it at {team}. The high school coach belongs.
+[sl.hs_coach_jump.end.came_back]
+{lead_last} is going back to high school football. He says he missed it.
+[sl.hs_coach_jump.chapter]
+The jump
+[sl.hs_coach_jump.legacy]
+Remembered as the year {lead_last} jumped to a bigger stage.
+
+[sl.quick_exit.spark]
+One season, and the coach is gone. {question}
+{team} is looking again after one year.
+[sl.quick_exit.report]
+The players at {team} are on their second coach in two years. {writer} of {outlet} says a few are thinking about the portal.{at_college}
+The players at {team} are on their second coach in two years. {writer} of {outlet} says the veterans have stopped unpacking.{at_pro}
+[sl.quick_exit.end.replaced]
+{team} has its new coach, its second in two years.
+[sl.quick_exit.end.met_again]
+{team} met the coach who left. It did not forget.
+[sl.quick_exit.chapter]
+One and done
+[sl.quick_exit.legacy]
+Remembered as the year the coach left {team} after one season.
+
+# ---------------------------------------------------------------- recruiting
+
+[sl.top_recruit.spark]
+{lead} is the best player in {state}, and every program that matters is in his living room this year. {question}
+[sl.top_recruit.report]
+{writer} of {outlet} says {lead} has cut his list to five and plans to take every official visit.
+The {lead_last} family has hired nobody and promised nobody. Coaches who have been in the house say that is the point.
+{lead_last}'s high school coach says the phone has not stopped since the spring.
+[sl.top_recruit.peak]
+His announcement is set. {question}
+[sl.top_recruit.end.committed]
+{lead} has made his choice.
+[sl.top_recruit.chapter]
+Where {lead_last} goes
+[sl.top_recruit.legacy]
+Remembered as the year the whole country recruited {lead}.
+
+[sl.signing_flip.spark]
+{lead} is committed to {team}, and {other} is still calling. {question}
+[sl.signing_flip.report]
+{writer} of {outlet} says {other} has made one more push for {lead}, with a visit the week before signing day.
+[sl.signing_flip.peak]
+Signing day is close. {question}
+[sl.signing_flip.end.flipped]
+{lead} flipped. He signed with {other} after months committed to {team}.
+[sl.signing_flip.end.held]
+{lead} held firm and signed with {team}.
+[sl.signing_flip.chapter]
+The flip
+[sl.signing_flip.legacy]
+Remembered as the signing day {lead_last} was nearly flipped.
+
+[sl.commit_wobble.spark]
+{lead} is committed to {team}, but he took a visit somewhere else. {question}
+[sl.commit_wobble.report]
+{writer} of {outlet} says {lead_last} has stopped answering texts from some of the {team} staff.
+[sl.commit_wobble.peak]
+The signing period opens soon. {question}
+[sl.commit_wobble.end.decommitted]
+{lead} has backed out of his commitment to {team}.
+[sl.commit_wobble.end.held]
+{lead} stayed with {team}. The wobble is over.
+[sl.commit_wobble.chapter]
+Holding on to {lead_last}
+[sl.commit_wobble.legacy]
+Remembered as the winter {team} nearly lost {lead_last}.
+
+[sl.hometown_leaving.spark]
+{lead} grew up an hour from campus. He is looking out of state. {question}
+[sl.hometown_leaving.report]
+{writer} of {outlet} says {lead_last}'s family would like him close to home. {lead_last} is not so sure.
+[sl.hometown_leaving.fans.for]
+The fans want him home and are telling him so, in every reply he gets.
+[sl.hometown_leaving.fans.against]
+Some fans are already bitter. "If he doesn't want us, we don't want him," one post said.
+[sl.hometown_leaving.peak]
+He decides soon. {question}
+[sl.hometown_leaving.end.stayed]
+{lead} is staying home.
+[sl.hometown_leaving.end.left]
+{lead} is leaving the state to play college football.
+[sl.hometown_leaving.chapter]
+Home or away
+[sl.hometown_leaving.legacy]
+Remembered as the year {state}'s best player decided where home was.
+
+[sl.recruit_war.spark]
+{team} and {other} both want {lead}, and neither is pretending otherwise. {question}
+[sl.recruit_war.report]
+{writer} of {outlet} says {team} and {other} have both been to see {lead_last} three times this month.
+[sl.recruit_war.jab]
+{other}'s recruiters have started talking about {team} in living rooms. It isn't flattering.
+[sl.recruit_war.peak]
+The last visits are done. {question}
+[sl.recruit_war.end.won]
+{team} won the fight for {lead}.
+[sl.recruit_war.end.lost]
+{other} won the fight for {lead}. {team} came up short.
+[sl.recruit_war.chapter]
+The fight for {lead_last}
+[sl.recruit_war.legacy]
+Remembered as the year {team} and {other} fought over {lead_last}.
+
+[sl.class_race.spark]
+Signing day is coming, and the race for the nation's top class is down to a few programs. {question}
+[sl.class_race.report]
+The rankings moved again this week. {team} is in the race, and the next commitment could decide it.
+{writer} of {outlet} says the last few uncommitted five-stars will decide who finishes first.
+[sl.class_race.peak]
+Signing day decides it. {question}
+[sl.class_race.end.won]
+{team} signed the nation's best class.
+[sl.class_race.end.second]
+{team} finished second in the class race, close enough to count and not close enough to celebrate.
+[sl.class_race.chapter]
+The class
+[sl.class_race.legacy]
+Remembered as the year {team} chased the top class.
+
+[sl.late_riser.spark]
+In the spring {lead} was a {stars_was} prospect. Now he is a {stars_now}, and the offers are coming in. {question}
+{lead} was barely recruited a year ago. Not anymore.
+[sl.late_riser.report]
+{writer} of {outlet} says three new offers came in for {lead_last} this month.
+[sl.late_riser.peak]
+The signing period is close. {question}
+[sl.late_riser.end.signed_up]
+{lead} signed with a bigger program than anyone would have guessed a year ago.
+[sl.late_riser.end.signed]
+{lead} signed. The late rise got him an offer, if not the one he wanted most.
+[sl.late_riser.chapter]
+The late rise
+[sl.late_riser.legacy]
+Remembered as the year {lead_last} came out of nowhere.
+
+[sl.legacy_recruit.spark]
+{lead}'s family has history at {team}. {question}
+[sl.legacy_recruit.report]
+{writer} of {outlet} says {lead_last} has heard about {team} his whole life and wants to see the rest of the country first.
+[sl.legacy_recruit.peak]
+He decides soon. {question}
+[sl.legacy_recruit.end.followed]
+{lead} is following his family to {team}.
+[sl.legacy_recruit.end.own_way]
+{lead} is going his own way, away from {team}.
+[sl.legacy_recruit.chapter]
+The family school
+[sl.legacy_recruit.legacy]
+Remembered as the year {lead_last} chose between family and his own way.
+
+[sl.prodigy.spark]
+{lead} is young and already holds offers from programs that rarely offer anyone his age. {question}
+[sl.prodigy.report]
+{writer} of {outlet} says the biggest programs in the country have been to {lead_last}'s games this fall.
+[sl.prodigy.peak]
+He is close to deciding. {question}
+[sl.prodigy.end.committed]
+{lead} has committed, and the rest of the country has stopped calling.
+[sl.prodigy.chapter]
+The prodigy
+[sl.prodigy.legacy]
+Remembered as the year everyone found out about {lead}.
+
+[sl.hs_transfer.spark]
+{lead} is transferring to {other}. {question}
+[sl.hs_transfer.report]
+{writer} of {outlet} says the state association has asked for more paperwork on {lead_last}'s move.
+[sl.hs_transfer.peak]
+The eligibility ruling is due. {question}
+[sl.hs_transfer.end.eligible]
+{lead} is eligible at {other}.
+[sl.hs_transfer.end.sits]
+{lead} has to sit out at {other}.
+[sl.hs_transfer.chapter]
+The transfer
+[sl.hs_transfer.legacy]
+Remembered as the year {lead_last} changed schools.
+
+# ---------------------------------------------------------------- leaving
+
+[sl.portal_decision.spark]
+{lead} has entered the transfer portal. {question}
+[sl.portal_decision.report]
+{writer} of {outlet} says {lead_last} has heard from a dozen schools since entering the portal.
+[sl.portal_decision.peak]
+The window is closing. {question}
+[sl.portal_decision.end.landed]
+{lead} has found his new school.
+[sl.portal_decision.end.returned]
+{lead} pulled his name out of the portal and is staying at {team}.
+[sl.portal_decision.end.unsigned]
+The portal closed without a new home for {lead}.
+[sl.portal_decision.chapter]
+{lead_last} in the portal
+[sl.portal_decision.legacy]
+Remembered as the winter {lead_last} entered the portal.
+
+[sl.portal_exodus.spark]
+{gone} players have left {team} through the portal, {starters} of them starters. {question}
+Another {team} player is in the portal. The count keeps climbing.
+[sl.portal_exodus.report]
+{writer} of {outlet} says more {team} players are expected to enter before the window closes.
+{team} has lost {gone} players to the portal. The staff is calling high school coaches it had not called in years.
+[sl.portal_exodus.peak]
+The window closes soon. {question}
+[sl.portal_exodus.end.window_closed]
+The portal window closed. {team} lost {gone} players.
+The window closed, and {team} can finally count what it lost.
+[sl.portal_exodus.chapter]
+The exodus
+[sl.portal_exodus.legacy]
+Remembered as the winter {team} emptied out.
+
+[sl.trade_request.spark]
+{lead} wants out of {team}. He asked for a trade. {question}
+[sl.trade_request.report]
+{writer} of {outlet} says {team} has taken calls about {lead_last} and has not made any.
+[sl.trade_request.peak]
+The deadline is close. {question}
+[sl.trade_request.end.traded]
+{team} traded {lead}, ending a standoff it could not win.
+{lead} got his wish. {team} traded him.
+[sl.trade_request.end.made_up]
+{lead} and {team} made up. He is staying.
+[sl.trade_request.end.released]
+{team} released {lead}. He got out, if not the way he wanted.
+[sl.trade_request.chapter]
+{lead_last} wants out
+[sl.trade_request.legacy]
+Remembered as the year {lead_last} asked to leave.
+
+[sl.holdout.spark]
+{lead} did not report. He wants a new deal from {team}. {question}
+[sl.holdout.report]
+{writer} of {outlet} says the two sides have exchanged numbers and are still apart.
+{lead_last} is being fined for every day he stays away, and says it is worth it.
+[sl.holdout.leak]
+A source says the gap between {team} and {lead_last} is in the guaranteed money, not the total.
+[sl.holdout.fans.for]
+The fans are with {lead_last}. "Pay the man," was the post of the week.
+[sl.holdout.fans.against]
+The fans want him in camp. "He signed a contract," the top post said.
+[sl.holdout.peak]
+The season is close. {question}
+[sl.holdout.end.paid]
+{team} paid {lead}. The holdout is over.
+[sl.holdout.end.reported]
+{lead} reported without a new deal. He decided the holdout was costing him more than it was worth.
+[sl.holdout.end.traded]
+{team} traded {lead} rather than pay him.
+[sl.holdout.chapter]
+The holdout
+[sl.holdout.legacy]
+Remembered as the summer {lead_last} stayed away.
+
+[sl.contract_year.spark]
+{lead} is playing out the last year of his deal. {question}
+[sl.contract_year.report]
+{writer} of {outlet} says {team} and {lead_last}'s agent have talked, and nothing is close.
+[sl.contract_year.peak]
+The market opens soon. {question}
+[sl.contract_year.end.extended]
+{team} signed {lead} to an extension before anyone else could bid.
+[sl.contract_year.end.walked]
+{lead} is a free agent. {team} let him reach the market.
+[sl.contract_year.end.tagged]
+{team} used the franchise tag on {lead}.
+[sl.contract_year.chapter]
+The contract year
+[sl.contract_year.legacy]
+Remembered as {lead_last}'s contract year.
+
+[sl.tag_standoff.spark]
+{team} tagged {lead}. He wants a long-term deal, not a one-year one. {question}
+[sl.tag_standoff.report]
+{writer} of {outlet} says the two sides are far apart on the years.
+[sl.tag_standoff.peak]
+The deadline for a long-term deal is close. {question}
+[sl.tag_standoff.end.long_deal]
+{team} and {lead} agreed on a long-term deal.
+[sl.tag_standoff.end.plays_on_tag]
+No deal. {lead} plays the season on the tag.
+[sl.tag_standoff.chapter]
+The tag
+[sl.tag_standoff.legacy]
+Remembered as the year {team} tagged {lead_last}.
+
+[sl.declare_decision.spark]
+{lead} could go pro or come back to {team}. {question}
+[sl.declare_decision.report]
+{writer} of {outlet} says the NFL's draft advisory board has sent its grade on {lead_last}.
+[sl.declare_decision.peak]
+The deadline to declare is close. {question}
+[sl.declare_decision.end.declared]
+{lead} is entering the draft.
+[sl.declare_decision.end.returned]
+{lead} is coming back to {team} for another season.
+[sl.declare_decision.chapter]
+Stay or go
+[sl.declare_decision.legacy]
+Remembered as the winter {lead_last} chose.
+
+[sl.opt_out.spark]
+{lead} will sit out the bowl game to get ready for the draft. {question}
+[sl.opt_out.report]
+{team} has spent bowl practice getting the next man ready for {lead_last}'s snaps.
+[sl.opt_out.peak]
+The bowl is this week. {question}
+[sl.opt_out.end.won_without]
+{team} won without {lead}.
+[sl.opt_out.end.lost_without]
+{team} lost without {lead}.
+[sl.opt_out.chapter]
+The bowl without {lead_last}
+[sl.opt_out.legacy]
+Remembered as the bowl {lead_last} sat out.
+
+[sl.retire_decision.spark]
+{lead} has not said whether he is coming back. {question}
+[sl.retire_decision.report]
+{writer} of {outlet} says {lead_last} has told friends he is leaning one way. Neither friend would say which.
+[sl.retire_decision.peak]
+Camp is coming. {question}
+[sl.retire_decision.end.retired]
+{lead} is retiring.
+{lead} has played his last game.
+[sl.retire_decision.end.returned]
+{lead} is coming back for another season.
+[sl.retire_decision.chapter]
+One more year
+[sl.retire_decision.legacy]
+Remembered as the year {lead_last} thought about walking away.
+
+[sl.free_agent_star.spark]
+{lead} is the best free agent on the market. {question}
+[sl.free_agent_star.report]
+{writer} of {outlet} says three teams have made offers for {lead}.
+[sl.free_agent_star.peak]
+The market opens. {question}
+[sl.free_agent_star.end.signed]
+{lead} has signed with a new team.
+[sl.free_agent_star.end.stayed]
+{lead} is staying with {team}.
+[sl.free_agent_star.chapter]
+The market
+[sl.free_agent_star.legacy]
+Remembered as the spring everyone bid on {lead}.
+
+[sl.star_traded.spark]
+{team} traded for {lead}. {question}
+[sl.star_traded.report]
+{writer} of {outlet} says {team} gave up a lot for {lead}, and everyone in the building knows it.
+[sl.star_traded.peak]
+The season will judge it. {question}
+[sl.star_traded.end.paid_off]
+The trade paid off. {lead} was everything {team} wanted.
+[sl.star_traded.end.flopped]
+The trade did not work. {team} paid a lot for {lead} and did not get it back.
+[sl.star_traded.chapter]
+The trade
+[sl.star_traded.legacy]
+Remembered as the year {team} traded for {lead_last}.
+
+# ---------------------------------------------------------------- comebacks
+
+[sl.injury_comeback.spark]
+{lead} is back at practice. {question}
+[sl.injury_comeback.report]
+{lead_last} took full reps for the first time this week. He did not look like a man coming off an injury.
+[sl.injury_comeback.peak]
+His first real game back is close. {question}
+[sl.injury_comeback.end.returned]
+{lead} is back, and he is the same player.
+[sl.injury_comeback.end.not_same]
+{lead} came back, but he is not the same player.
+[sl.injury_comeback.end.retired]
+{lead} could not come back. He is retiring.
+[sl.injury_comeback.chapter]
+The way back
+[sl.injury_comeback.legacy]
+Remembered as the year {lead_last} came back from the injury.
+
+[sl.second_chance.spark]
+{lead} gets a second chance at {team}. {question}
+[sl.second_chance.report]
+{lead_last} has been the first one in the building every morning since he signed.
+[sl.second_chance.end.made_it]
+{lead} made the most of his second chance.
+[sl.second_chance.end.cut_again]
+{team} let {lead} go. The second chance is over.
+[sl.second_chance.chapter]
+The second chance
+[sl.second_chance.legacy]
+Remembered as {lead_last}'s second chance.
+
+[sl.fallen_star.spark]
+{lead} used to be one of the best. {team} is betting he still can be. {question}
+[sl.fallen_star.report]
+{lead_last} looked like his old self in practice this week, and like a much older player the day after.
+[sl.fallen_star.end.found_it]
+{lead} found it again. The old star is back.
+[sl.fallen_star.end.done]
+It is over for {lead}. The last shot did not land.
+[sl.fallen_star.chapter]
+The last shot
+[sl.fallen_star.legacy]
+Remembered as {lead_last}'s last shot.
+
+[sl.suspension_return.spark]
+{lead} is back from a suspension of {games}. {question}
+{lead} is eligible again. {question}
+[sl.suspension_return.report]
+{lead_last} has been working with the scout team. His first game back is close.
+[sl.suspension_return.end.sharp]
+{lead} came back sharp, as if he never left.
+[sl.suspension_return.end.rusty]
+{lead} looked rusty in his return.
+[sl.suspension_return.chapter]
+Back from the suspension
+[sl.suspension_return.legacy]
+Remembered as the season {lead_last} came back from his suspension.
+
+[sl.turnaround.spark]
+{team} went {last_record} last year. This year it is {record}. {question}
+{team} has turned it around, and people have noticed.
+[sl.turnaround.report]
+{writer} of {outlet} says the {team} locker room believes it is for real. The schedule ahead will say.
+[sl.turnaround.peak]
+The hard part of the schedule is here. {question}
+[sl.turnaround.end.real]
+The turnaround is real. {team} finished what it started.
+[sl.turnaround.end.faded]
+The turnaround faded. {team} could not keep it going.
+[sl.turnaround.chapter]
+The turnaround
+[sl.turnaround.legacy]
+Remembered as the year {team} turned it around.
+
+# ---------------------------------------------------------------- streaks and chases
+
+[sl.unbeaten.spark]
+{team} is still unbeaten. {question}
+[sl.unbeaten.report]
+{team} has not lost yet, and its players have started to hear about it everywhere they go.
+[sl.unbeaten.fans.for]
+The fans are all in. Every home game is sold out, and the student section shows up two hours early.{amateur}
+The fans are all in. Every home game is sold out, and the lots fill up four hours before kickoff.{at_pro}
+[sl.unbeaten.end.lost]
+{team} lost. The unbeaten run is over after {count} wins.
+The perfect season is over for {team}.
+[sl.unbeaten.end.perfect]
+{team} finished perfect. Not one loss.
+[sl.unbeaten.chapter]
+Unbeaten
+[sl.unbeaten.chapter.perfect]
+Perfect
+[sl.unbeaten.legacy.perfect]
+Remembered as the season {team} did not lose.
+[sl.unbeaten.legacy]
+Remembered as the run that had everyone waiting for {team} to lose.
+
+[sl.losing_streak.spark]
+{team} has lost {count} straight. {question}
+{team} lost again.
+[sl.losing_streak.report]
+{writer} of {outlet} says the {team} locker room is quiet after another loss. Nobody has an answer.
+[sl.losing_streak.fans.for]
+The fans keep coming. A few hundred stayed after the last loss to clap the players off the field.
+[sl.losing_streak.fans.against]
+The fans are staying home. The upper deck was empty by halftime.
+[sl.losing_streak.peak]
+The next game is winnable. {question}
+[sl.losing_streak.end.snapped]
+{team} won. The losing streak is over.
+[sl.losing_streak.end.season_over]
+The season ended with {team} still looking for a win.
+[sl.losing_streak.chapter]
+The streak
+[sl.losing_streak.legacy]
+Remembered as the season {team} forgot how to win.
+
+[sl.record_chase.spark]
+{lead} has {mark} {stat} this season. The {scope} record is {record_mark}. {question}
+{lead} is chasing a record.
+[sl.record_chase.report]
+{lead_last} needs {to_go} more {stat} for the record. {writer} of {outlet} says he has not asked how many.
+{lead} is {to_go} {stat} from the record.
+[sl.record_chase.peak]
+He is close. {question}
+[sl.record_chase.end.broke_it]
+{lead} broke the record.
+[sl.record_chase.end.fell_short]
+{lead} fell short of the record.
+[sl.record_chase.chapter]
+The record
+[sl.record_chase.legacy]
+Remembered as the season {lead} chased the record.
+
+[sl.career_record.spark]
+{lead} is closing in on {holder}. {question}
+[sl.career_record.report]
+{lead_last} is getting closer to {holder} every week, and the league is starting to pay attention.
+[sl.career_record.peak]
+It could happen this week. {question}
+[sl.career_record.end.broke_it]
+{lead} passed {holder}. The record is his.
+[sl.career_record.end.fell_short]
+{lead} came up short of {holder}, for now.
+[sl.career_record.chapter]
+Passing {holder}
+[sl.career_record.legacy]
+Remembered as the year {lead_last} went after {holder}.
+
+[sl.playoff_push.spark]
+{team} is on the playoff line. {question}
+[sl.playoff_push.report]
+{team} needs help and needs to win. {writer} of {outlet} has the scenarios, and most of them are complicated.
+[sl.playoff_push.peak]
+It comes down to the last weeks. {question}
+[sl.playoff_push.end.in]
+{team} is in the playoffs.
+[sl.playoff_push.end.out]
+{team} missed the playoffs.
+[sl.playoff_push.chapter]
+The push
+[sl.playoff_push.legacy]
+Remembered as the year {team} chased a playoff spot.
+
+[sl.drought.spark]
+{team} has not won a title since {since_year}. {question}
+It has been {years} years since {team} won anything.
+[sl.drought.report]
+{writer} of {outlet} says the older fans have stopped counting the years, and the younger ones never started.
+[sl.drought.peak]
+This is the closest {team} has been in years. {question}
+[sl.drought.end.ended]
+{team} ended the drought.
+The wait is over for {team}.
+[sl.drought.end.goes_on]
+The drought goes on for {team}.
+[sl.drought.chapter]
+The drought
+[sl.drought.chapter.ended]
+The wait ends
+[sl.drought.legacy.ended]
+Remembered as the year {team} finally won it.
+[sl.drought.legacy]
+Remembered as another year of waiting for {team}.
+
+[sl.coach_milestone.spark]
+{lead} is close to {milestone} career wins. {question}
+[sl.coach_milestone.report]
+{lead_last} says he has not thought about {milestone}. His players have.
+[sl.coach_milestone.peak]
+It could come this week. {question}
+[sl.coach_milestone.end.reached]
+{lead} has {milestone} wins.
+[sl.coach_milestone.chapter]
+Win number {milestone}
+[sl.coach_milestone.legacy]
+Remembered as the year {lead_last} reached {milestone} wins.
+
+[sl.bowl_chase.spark]
+{team} is one win from a bowl. {question}
+[sl.bowl_chase.report]
+Six wins means a bowl and fifteen more practices. {team} knows exactly what the next game is worth.
+[sl.bowl_chase.peak]
+It comes down to one game. {question}
+[sl.bowl_chase.end.made_it]
+{team} got to six wins. It is going bowling.
+[sl.bowl_chase.end.fell_short]
+{team} fell short of six wins. No bowl this year.
+[sl.bowl_chase.chapter]
+Six wins
+[sl.bowl_chase.legacy]
+Remembered as the year {team} chased a bowl.
+
+[sl.award_race.spark]
+{lead} is the favorite for the {award}. {question}
+[sl.award_race.report]
+{writer} of {outlet} says {lead_last} is the name on most ballots this week.
+[sl.award_race.peak]
+The voting is close. {question}
+[sl.award_race.end.won]
+{lead} won the {award}.
+[sl.award_race.end.lost]
+{lead} came up short in the {award} race.
+[sl.award_race.chapter]
+The {award} race
+[sl.award_race.legacy]
+Remembered as the year {lead_last} ran for the {award}.
+
+[sl.title_defense.spark]
+{team} won it all last year. {question}
+[sl.title_defense.report]
+Every opponent is getting {team}'s best shot, and the players say they expected it.
+[sl.title_defense.peak]
+The playoffs are here. {question}
+[sl.title_defense.end.repeated]
+{team} did it again. Back-to-back.
+[sl.title_defense.end.dethroned]
+{team} will not repeat. The title goes somewhere else.
+[sl.title_defense.chapter]
+The defense
+[sl.title_defense.legacy]
+Remembered as the year {team} defended its title.
+
+# ---------------------------------------------------------------- rivalries
+
+[sl.rivalry_streak.spark]
+{team} has beaten {other} {count} straight times. {question}
+[sl.rivalry_streak.report]
+{other}'s players have heard about the streak all week. Some of them have never beaten {team}.
+[sl.rivalry_streak.end.extended]
+{team} beat {other} again, {count_next} in a row now.
+[sl.rivalry_streak.end.snapped]
+{other} finally beat {team}. The streak is over.
+[sl.rivalry_streak.chapter]
+The streak against {other_short}
+[sl.rivalry_streak.legacy]
+Remembered as the year of the streak against {other}.
+
+[sl.cant_beat_rival.spark]
+{lead} has never beaten {other}. {question}
+[sl.cant_beat_rival.report]
+{lead_last} was asked about {other} on Monday and talked about the next practice instead.
+[sl.cant_beat_rival.end.beat_them]
+{lead} finally beat {other}.
+[sl.cant_beat_rival.end.lost_again]
+{lead} lost to {other} again, {count_next} in a row now.
+[sl.cant_beat_rival.chapter]
+{other_short}, again
+[sl.cant_beat_rival.chapter.beat_them]
+Beating {other_short}
+[sl.cant_beat_rival.legacy]
+Remembered as the year {lead_last} faced {other} again.
+
+[sl.revenge_game.spark]
+{lead} faces {other} this week, and he has not forgotten. {question}
+[sl.revenge_game.report]
+{lead_last} would not talk about {other} this week. His teammates did it for him.
+[sl.revenge_game.end.got_it]
+{lead} got his revenge on {other}.
+[sl.revenge_game.end.denied]
+{other} denied {lead} his revenge.
+[sl.revenge_game.chapter]
+Revenge
+[sl.revenge_game.legacy]
+Remembered as the week {lead_last} went after {other}.
+
+[sl.coach_return.spark]
+{lead} goes back to {other} this week, on the other sideline. {question}
+[sl.coach_return.report]
+The fans at {other} have not decided whether to cheer {lead_last} or boo him. They have until kickoff.
+[sl.coach_return.end.won]
+{lead} won in his return to {other}.
+[sl.coach_return.end.lost]
+{other} beat its old coach. {lead} lost in his return.
+[sl.coach_return.chapter]
+Going back
+[sl.coach_return.legacy]
+Remembered as the day {lead_last} went back to {other}.
+
+[sl.trophy_game.spark]
+The {trophy} is on the line when {team} plays {other}. {question}
+[sl.trophy_game.report]
+The {trophy} has been in {team}'s building all year. The players walked past it every day this week.
+[sl.trophy_game.end.kept]
+{team} keeps the {trophy}.
+[sl.trophy_game.end.won_back]
+{team} won the {trophy} back.
+[sl.trophy_game.end.lost]
+{other} takes the {trophy} home.
+[sl.trophy_game.chapter]
+The {trophy}
+[sl.trophy_game.legacy]
+Remembered as the year the {trophy} was on the line.
+
+[sl.rematch.spark]
+{team} gets {other} again. It lost the first one. {question}
+[sl.rematch.report]
+{team} has watched the first game more than any other this year, according to people who have seen the film room schedule.
+[sl.rematch.end.avenged]
+{team} beat {other} the second time.
+[sl.rematch.end.again]
+{other} beat {team} again.
+[sl.rematch.chapter]
+{other_short}, the second time
+[sl.rematch.legacy]
+Remembered as the year {team} got another shot at {other}.
+
+[sl.conference_race.spark]
+{team} and {other} are fighting for {conf}. {question}
+[sl.conference_race.report]
+{writer} of {outlet} says the {conf} race has come down to {team} and {other}.
+[sl.conference_race.radio]
+Callers ran the tiebreakers for an hour. Nobody agreed on them.
+[sl.conference_race.fans.for]
+The fans are scoreboard watching. Half the stadium had the other game on their phones.
+[sl.conference_race.fans.against]
+The fans are nervous about the tiebreakers.
+[sl.conference_race.peak]
+It comes down to the last weeks. {question}
+[sl.conference_race.end.won]
+{team} won {conf}.
+[sl.conference_race.end.lost]
+{team} came up short in {conf}.
+[sl.conference_race.chapter]
+The {conf} race
+[sl.conference_race.legacy]
+Remembered as the year {team} chased {conf}.
+
+[sl.bulletin_board.spark]
+{lead} said what he thought of {other}. It is on their locker room wall now. {question}
+[sl.bulletin_board.report]
+{other}'s coach was asked about {lead_last}'s comments and smiled. "We read everything," he said.
+[sl.bulletin_board.end.backed_it]
+{lead} backed it up.
+[sl.bulletin_board.end.ate_it]
+{lead} had to eat his words.
+[sl.bulletin_board.chapter]
+The quote
+[sl.bulletin_board.legacy]
+Remembered as the week {lead_last} talked and had to play.
+
+# ---------------------------------------------------------------- rise and fall
+
+[sl.walk_on_star.spark]
+{lead} walked on at {team}. Now he is starting. {question}
+[sl.walk_on_star.report]
+{lead_last} pays his own tuition. {writer} of {outlet} asked the staff whether that will change, and the staff smiled.
+[sl.walk_on_star.fans.for]
+The fans want him on scholarship. "Give it to him already," was the post of the week.
+[sl.walk_on_star.end.scholarship]
+{lead} has a scholarship. The walk-on earned it.
+[sl.walk_on_star.end.faded]
+{lead}'s run faded, and the scholarship did not come.
+[sl.walk_on_star.chapter]
+The walk-on
+[sl.walk_on_star.legacy]
+Remembered as the year the walk-on {lead_last} became a star.
+
+[sl.breakout.spark]
+{lead} is No. {rank} in the country in {stat}. A year ago he barely played. {question}
+{lead} has broken out.
+[sl.breakout.report]
+Scouts have started asking about {lead_last}. {writer} of {outlet} counted three at practice this week.
+[sl.breakout.end.for_real]
+{lead} is for real. The breakout lasted the whole season.
+[sl.breakout.end.cooled]
+{lead} cooled off after the hot start.
+[sl.breakout.chapter]
+{lead_last} breaks out
+[sl.breakout.legacy]
+Remembered as the season {lead_last} broke out.
+
+[sl.bust.spark]
+{team} expected more from {lead}. {question}
+[sl.bust.report]
+{lead_last} has fallen down the depth chart. {writer} of {outlet} says the staff still believes in him, mostly.
+[sl.bust.fans.for]
+Some fans are still with him. "Give him time," a few posts said.
+[sl.bust.fans.against]
+The fans have used the word. "Bust," the top post said, and it was not close.
+[sl.bust.end.turned_it]
+{lead} turned it around. He is not a bust.
+[sl.bust.end.bust]
+It did not work out for {lead} at {team}.
+[sl.bust.chapter]
+The weight of expectations
+[sl.bust.legacy]
+Remembered as the year {team} waited on {lead_last}.
+
+[sl.stock_rise.spark]
+NFL scouts have moved {lead} up their boards. {question}
+[sl.stock_rise.report]
+{writer} of {outlet} says {lead_last}'s name has started showing up in first-round conversations.
+[sl.stock_rise.end.drafted_high]
+{lead} went higher than anyone expected in August.
+[sl.stock_rise.end.cooled]
+{lead}'s stock cooled before the draft.
+[sl.stock_rise.chapter]
+The rise
+[sl.stock_rise.legacy]
+Remembered as the season {lead_last} played his way up the boards.
+
+[sl.stock_fall.spark]
+{lead} started the year as a first-round prospect. {question}
+[sl.stock_fall.report]
+Scouts have been quieter about {lead_last} lately. {writer} of {outlet} says the tape is the reason.
+[sl.stock_fall.fans.for]
+The fans still believe in {lead_last}. "One bad month," the top post said.
+[sl.stock_fall.fans.against]
+The fans are worried about {lead_last}. The mock drafts have moved him down.
+[sl.stock_fall.end.recovered]
+{lead} recovered. The stock came back.
+[sl.stock_fall.end.fell]
+{lead}'s stock fell, and it did not come back.
+[sl.stock_fall.chapter]
+The slide
+[sl.stock_fall.legacy]
+Remembered as the season {lead_last}'s stock fell.
+
+[sl.small_school_star.spark]
+{lead} plays at {team}, and NFL scouts are making the trip anyway. {question}
+[sl.small_school_star.report]
+{writer} of {outlet} says six NFL teams have sent scouts to {team} games this fall.
+[sl.small_school_star.end.drafted]
+{lead} was drafted. {team} has an NFL player.
+[sl.small_school_star.end.overlooked]
+The draft passed {lead} by.
+[sl.small_school_star.chapter]
+The small-school star
+[sl.small_school_star.legacy]
+Remembered as the year the scouts came to {team} for {lead_last}.
+
+[sl.late_round_gem.spark]
+{lead} was a late pick, and he is playing like a first-rounder. {question}
+[sl.late_round_gem.report]
+{lead_last} is No. {rank} in {stat}. Twenty teams passed on him at least five times each.
+[sl.late_round_gem.end.star]
+{lead} is a star. The late pick is the steal of his draft.
+[sl.late_round_gem.end.faded]
+{lead} faded after the fast start.
+[sl.late_round_gem.chapter]
+The steal
+[sl.late_round_gem.legacy]
+Remembered as the year {lead_last} made everyone look foolish.
+
+[sl.two_way.spark]
+{lead} is playing both ways. {question}
+[sl.two_way.report]
+{lead_last} played more than a hundred snaps on both sides of the ball. The trainers have noticed.
+[sl.two_way.end.did_it]
+{lead} played both ways all season.
+[sl.two_way.end.one_side]
+{lead} is a one-way player again.
+[sl.two_way.chapter]
+Both ways
+[sl.two_way.legacy]
+Remembered as the season {lead_last} played both ways.
+
+[sl.freshman_star.spark]
+{lead} is a freshman and already No. {rank} in the country in {stat}. {question}
+{lead} is a freshman, and he is already a star.
+[sl.freshman_star.report]
+{lead_last} has been on campus less than a year. Opposing coaches already game-plan for him.
+[sl.freshman_star.end.star]
+{lead} is a star. The freshman year was the start.
+[sl.freshman_star.end.cooled]
+{lead} cooled after the fast start, the way freshmen do.
+[sl.freshman_star.chapter]
+The freshman
+[sl.freshman_star.legacy]
+Remembered as {lead_last}'s freshman year.
+
+[sl.program_rise.spark]
+{team} is on the rise, and people have started to notice. {question}
+[sl.program_rise.report]
+{writer} of {outlet} says {team} has more recruits visiting this fall than any year in a decade.
+{team} keeps winning games it used to lose, and the recruits are noticing.
+[sl.program_rise.end.arrived]
+{team} has arrived.
+[sl.program_rise.end.fell_back]
+{team} fell back after the rise.
+[sl.program_rise.end.coach_left]
+The coach who built {team} left, and the rise stopped with him.
+[sl.program_rise.chapter]
+The climb
+[sl.program_rise.legacy]
+Remembered as the year {team} climbed.
+
+# ---------------------------------------------------------------- draft arcs
+
+[sl.draft_slide.spark]
+{lead} is still waiting. The first round is over. {question}
+[sl.draft_slide.report]
+The cameras keep finding {lead_last} in the green room. He keeps looking at his phone.
+[sl.draft_slide.end.picked]
+{lead} is finally off the board.
+[sl.draft_slide.chapter]
+The green room
+[sl.draft_slide.legacy]
+Remembered as the night {lead_last} waited.
+
+[sl.red_flag.spark]
+Teams have questions about {lead}, and not about his football. {question}
+[sl.red_flag.report]
+{writer} of {outlet} says some teams have taken {lead_last} off their boards.
+[sl.red_flag.end.drafted]
+Someone took the chance. {lead} was drafted.
+[sl.red_flag.end.fell]
+{lead} fell, the red flag louder than the tape.
+[sl.red_flag.chapter]
+The red flag
+[sl.red_flag.legacy]
+Remembered as the spring teams wondered about {lead_last}.
+
+[sl.combine_riser.spark]
+{lead} lit up the combine. {question}
+[sl.combine_riser.report]
+{lead_last}'s workout numbers are all anyone at the combine wanted to talk about.
+[sl.combine_riser.end.drafted_high]
+{lead} ran his way into the early rounds.
+[sl.combine_riser.end.cooled]
+The combine buzz around {lead} cooled before the draft.
+[sl.combine_riser.chapter]
+The combine
+[sl.combine_riser.legacy]
+Remembered as the spring {lead_last} ran himself up the board.
+
+[sl.top_pick_debate.spark]
+{lead} or {rival}? The first pick is a two-man race. {question}
+[sl.top_pick_debate.report]
+{writer} of {outlet} says the team picking first has brought both {lead_last} and {rival_last} in twice.
+[sl.top_pick_debate.end.lead_first]
+{lead} went first.
+[sl.top_pick_debate.end.rival_first]
+{rival} went first.
+[sl.top_pick_debate.chapter]
+Number one
+[sl.top_pick_debate.legacy]
+Remembered as the year it was {lead_last} or {rival_last} at the top.
+
+[sl.early_entry.spark]
+{lead} left school early for the draft. Not everyone thinks he was ready. {question}
+[sl.early_entry.report]
+{writer} of {outlet} says scouts are split on {lead_last}. Some see a starter, some see a year too soon.
+[sl.early_entry.end.drafted]
+{lead} was drafted. The gamble paid.
+[sl.early_entry.end.undrafted]
+{lead} went undrafted. He left school for nothing.
+[sl.early_entry.chapter]
+Leaving early
+[sl.early_entry.legacy]
+Remembered as the spring {lead_last} bet on himself.
+
+[sl.qb_need.spark]
+{team} needs a quarterback, and everyone knows it. {question}
+[sl.qb_need.report]
+{writer} of {outlet} says {team} has spent more time on quarterbacks this spring than anyone in the league.
+[sl.qb_need.end.found_one]
+{team} drafted its quarterback.
+[sl.qb_need.end.passed]
+{team} passed on the quarterbacks. The question waits another year.
+[sl.qb_need.chapter]
+The quarterback search
+[sl.qb_need.legacy]
+Remembered as the spring {team} went looking for a quarterback.
+
+# ---------------------------------------------------------------- off the field
+
+[sl.arrest.spark]
+{lead} was arrested. {question}
+[sl.arrest.report]
+{writer} of {outlet} says {team} is gathering the facts before saying anything about {lead_last}.
+[sl.arrest.end.cleared]
+The charges against {lead} were dropped.
+[sl.arrest.end.suspended]
+{team} suspended {lead}.
+[sl.arrest.end.dismissed]
+{team} dismissed {lead}.
+[sl.arrest.end.convicted]
+{lead} was convicted.
+[sl.arrest.chapter]
+The arrest
+[sl.arrest.legacy]
+Remembered as the week {lead_last} was arrested.
+
+[sl.academics.spark]
+{lead}'s grades have him close to ineligible. {question}
+[sl.academics.report]
+{lead_last} has a tutor four nights a week. The school will check his grades soon.
+[sl.academics.end.cleared]
+{lead} is eligible. The grades came through.
+[sl.academics.end.out]
+{lead} is academically ineligible.
+[sl.academics.chapter]
+The grades
+[sl.academics.legacy]
+Remembered as the semester {lead_last} fought for his eligibility.
+
+[sl.family_loss.spark]
+{lead} lost someone close to him. {question}
+[sl.family_loss.report]
+{lead_last}'s teammates wore his family's initials on their wrist tape this week.
+[sl.family_loss.fans.for]
+The fans sent cards. The team says there are boxes of them.
+[sl.family_loss.end.played]
+{lead} played. His teammates met him at midfield after the game.
+[sl.family_loss.end.stepped_away]
+{lead} stepped away from the team to be with his family.
+[sl.family_loss.chapter]
+For his family
+[sl.family_loss.legacy]
+Remembered as the week {lead_last} played through his grief.
+
+[sl.public_feud.spark]
+{lead} and {rival} are not speaking, and everyone can tell. {question}
+[sl.public_feud.report]
+{writer} of {outlet} says {lead_last} and {rival_last} have not been in the same room this week.
+[sl.public_feud.end.made_peace]
+{lead} and {rival} made peace.
+[sl.public_feud.end.split]
+{lead} and {rival} could not fix it. One of them is gone.
+[sl.public_feud.chapter]
+The feud
+[sl.public_feud.legacy]
+Remembered as the season {lead_last} and {rival_last} fell out.
+
+[sl.team_rules.spark]
+{lead} is suspended indefinitely for breaking team rules. {question}
+[sl.team_rules.report]
+{lead_last} has not been at practice. The staff says only that he knows what he has to do.
+[sl.team_rules.end.reinstated]
+{lead} is back with the team.
+[sl.team_rules.end.dismissed]
+{lead} has been dismissed from the team.
+[sl.team_rules.chapter]
+The suspension
+[sl.team_rules.legacy]
+Remembered as the week {lead_last} was suspended.
+
+[sl.league_suspension.spark]
+The league suspended {lead} for {games}. He is appealing. {question}
+[sl.league_suspension.report]
+{writer} of {outlet} says the appeal hearing is set, and {lead_last}'s side thinks it has a case.
+[sl.league_suspension.end.upheld]
+The suspension stands. {lead} will miss {games}.
+The league upheld {lead}'s suspension.
+[sl.league_suspension.end.reduced]
+The suspension was reduced on appeal. {lead} will be back sooner.
+[sl.league_suspension.chapter]
+The appeal
+[sl.league_suspension.legacy]
+Remembered as the year {lead_last} fought his suspension.
+
+[sl.nil_dispute.spark]
+{lead} wants more from {team}'s collective. {question}
+[sl.nil_dispute.report]
+{writer} of {outlet} says {lead_last}'s representatives have talked to the collective twice this month.
+[sl.nil_dispute.end.settled]
+{lead} and {team} settled.
+[sl.nil_dispute.end.left]
+{lead} left {team} over the money.
+[sl.nil_dispute.chapter]
+The money
+[sl.nil_dispute.legacy]
+Remembered as the year {lead_last} and {team} fought over the money.
+
+[sl.social_storm.spark]
+{lead} posted something, and the internet saw it. {question}
+[sl.social_storm.report]
+The post has been deleted. The screenshots have not.
+[sl.social_storm.end.apologized]
+{lead} apologized.
+[sl.social_storm.end.suspended]
+{team} suspended {lead} over the post.
+[sl.social_storm.end.blew_over]
+It blew over. Nobody is talking about the post anymore.
+[sl.social_storm.chapter]
+The post
+[sl.social_storm.legacy]
+Remembered as the week of {lead_last}'s post.
+
+[sl.second_opinion.spark]
+{lead} went outside the team for a second opinion on his injury. {question}
+[sl.second_opinion.report]
+{writer} of {outlet} says {lead_last}'s doctors and the team's doctors do not agree.
+[sl.second_opinion.end.back]
+{lead} is back on the field. The two sides agreed.
+[sl.second_opinion.end.split]
+{lead} and the team split over his health.
+[sl.second_opinion.chapter]
+The second opinion
+[sl.second_opinion.legacy]
+Remembered as the year {lead_last} did not trust the team doctors.
+
+[sl.room_rift.spark]
+The {team} locker room is split, and the split is about {lead}. {question}
+[sl.room_rift.report]
+{writer} of {outlet} says a group of veterans met without the coaches this week.
+[sl.room_rift.end.healed]
+The rift healed. The room is together again.
+[sl.room_rift.end.broke]
+The room broke apart.
+[sl.room_rift.chapter]
+The room
+[sl.room_rift.legacy]
+Remembered as the season the {team} locker room split.
+
+# ---------------------------------------------------------------- program arcs
+
+[sl.rebuild.spark]
+{team} is rebuilding. {question}
+[sl.rebuild.report]
+{team} is playing more young players than anyone in its league. {writer} of {outlet} says that is the plan.
+[sl.rebuild.end.built]
+The rebuild is done. {team} is good again.
+[sl.rebuild.end.stalled]
+The rebuild stalled.
+[sl.rebuild.chapter]
+The rebuild
+[sl.rebuild.legacy]
+Remembered as the years {team} rebuilt.
+
+[sl.dynasty.spark]
+{team} has won {count} titles in a row. {question}
+{team} keeps winning.
+[sl.dynasty.report]
+Every opponent's best game of the year comes against {team}. It keeps winning anyway.
+[sl.dynasty.end.goes_on]
+The dynasty goes on. {team} won it again.
+[sl.dynasty.end.ended]
+The dynasty is over. Someone finally beat {team} when it counted.
+[sl.dynasty.chapter]
+The dynasty
+[sl.dynasty.legacy]
+Remembered as part of the {team} dynasty.
+
+[sl.decline.spark]
+{team} used to be one of the best. {question}
+[sl.decline.report]
+{writer} of {outlet} says the boosters who used to fill the stadium are asking hard questions.{amateur}
+{writer} of {outlet} says the season-ticket holders who used to fill the stadium are asking hard questions.{at_pro}
+[sl.decline.end.revived]
+{team} is back.
+[sl.decline.end.still_down]
+{team} is still down.
+[sl.decline.chapter]
+The decline
+[sl.decline.legacy]
+Remembered as the years {team} slipped.
+
+[sl.ncaa_case.spark]
+The NCAA is investigating {team}. {question}
+[sl.ncaa_case.report]
+{writer} of {outlet} says the NCAA has interviewed former players and at least one booster.
+[sl.ncaa_case.end.sanctioned]
+The NCAA sanctioned {team}.
+[sl.ncaa_case.end.cleared]
+The NCAA cleared {team}.
+[sl.ncaa_case.chapter]
+The investigation
+[sl.ncaa_case.legacy]
+Remembered as the year the NCAA came to {team}.
+
+[sl.facility_push.spark]
+{team} wants a new building. {question}
+[sl.facility_push.report]
+{writer} of {outlet} says the money for {team}'s new building is close, but not there yet.
+[sl.facility_push.end.built]
+{team} opens its new building.
+[sl.facility_push.end.shelved]
+The building is on hold.
+[sl.facility_push.chapter]
+The building
+[sl.facility_push.legacy]
+Remembered as the year {team} fought for its building.
+
+[sl.realignment.spark]
+{team} is moving to {conf}. {question}
+[sl.realignment.report]
+{writer} of {outlet} says {team} has been studying {conf} film all offseason.
+[sl.realignment.end.moved]
+{team} is in {conf} now.
+[sl.realignment.chapter]
+The move
+[sl.realignment.legacy]
+Remembered as the year {team} changed conferences.
+
+[sl.fan_revolt.spark]
+{team} fans are fed up. {question}
+[sl.fan_revolt.report]
+Season ticket renewals at {team} are down, and {writer} of {outlet} has the numbers.
+[sl.fan_revolt.end.calmed]
+The fans have calmed down.
+[sl.fan_revolt.end.change_made]
+{team} made a change, and the fans got what they wanted.
+[sl.fan_revolt.chapter]
+The revolt
+[sl.fan_revolt.legacy]
+Remembered as the year {team} fans revolted.
+
+[sl.graveyard.spark]
+{team} has gone through {count} coaches in a short time. {question}
+{team} is looking for a coach again.
+[sl.graveyard.report]
+{writer} of {outlet} says the next coach at {team} will be asked the same question as the last few: why will this time be different?
+[sl.graveyard.end.broken]
+The curse is broken. {team}'s coach is staying.
+[sl.graveyard.end.another_gone]
+Another coach is gone at {team}.
+[sl.graveyard.chapter]
+The graveyard
+[sl.graveyard.legacy]
+Remembered as another year at a job that eats coaches.
+
+[sl.chopping_block.spark]
+{team} might drop football. {question}
+[sl.chopping_block.report]
+{writer} of {outlet} says the board will vote on the program's future soon.
+[sl.chopping_block.end.saved]
+{team} keeps its team.
+[sl.chopping_block.end.dropped]
+{team} has dropped football.
+[sl.chopping_block.chapter]
+The vote
+[sl.chopping_block.legacy]
+Remembered as the year {team} almost lost its team.
+
+# ---------------------------------------------------------------- endings
+
+[sl.last_home_game.spark]
+It is {lead}'s last home game at {team}. {question}
+[sl.last_home_game.report]
+{lead_last}'s family will walk him out before kickoff. He says he has not thought about it. He has.
+[sl.last_home_game.end.won]
+{lead} won his last home game.
+[sl.last_home_game.end.lost]
+{lead} lost his last home game.
+[sl.last_home_game.chapter]
+The last one at home
+[sl.last_home_game.legacy]
+Remembered as {lead_last}'s last game at home.
+
+[sl.final_season.spark]
+{lead} says this is his last season. {question}
+[sl.final_season.report]
+Every stadium {lead_last} visits this year has a sign for him.
+[sl.final_season.end.went_out_on_top]
+{lead} went out on top.
+[sl.final_season.end.went_out]
+{lead} played his last season.
+[sl.final_season.chapter]
+The last season
+[sl.final_season.legacy]
+Remembered as {lead_last}'s last season.
+
+[sl.coach_farewell.spark]
+{lead} says this season will be his last. {question}
+[sl.coach_farewell.report]
+Former players have been calling {lead_last} all week. He has called most of them back.
+[sl.coach_farewell.end.went_out]
+{lead} has coached his last game.
+[sl.coach_farewell.end.stayed_on]
+{lead} changed his mind. He is coaching another year.
+[sl.coach_farewell.chapter]
+The farewell
+[sl.coach_farewell.legacy]
+Remembered as {lead_last}'s last season on the sideline.
+
+[sl.hall_call.spark]
+{lead} is a finalist for the Hall of Fame. {question}
+[sl.hall_call.report]
+{writer} of {outlet} says the voters have {lead_last} close, and the room will decide it.
+[sl.hall_call.leak]
+A voter says {lead_last} has the support he needs, if nobody changes his mind in the room.
+[sl.hall_call.column]
+The national view: {lead}'s numbers are good enough. The question is whether the voters remember them.
+[sl.hall_call.radio]
+Callers were sure {lead_last} belongs. They were less sure the voters agree.
+[sl.hall_call.fans.for]
+Fans of his old team want him in, and they say so every year.
+[sl.hall_call.fans.against]
+Some fans think he was good, not great. They say so every year too.
+[sl.hall_call.memo.up]
+Our read: he gets in this year.
+[sl.hall_call.memo.down]
+Our read: he waits another year.
+[sl.hall_call.peak]
+The class is announced this week. {question}
+[sl.hall_call.end.inducted]
+{lead} is a Hall of Famer.
+[sl.hall_call.end.waits]
+{lead} waits another year for the Hall of Fame.
+[sl.hall_call.chapter]
+The Hall
+[sl.hall_call.legacy]
+Remembered as the year {lead_last} waited on the Hall.
+
+# ---------------------------------------------------------------- the coach's own arcs
+
+[sl.new_coach.spark]
+{lead} is the new coach at {team}. {question}
+[sl.new_coach.report]
+{lead_last} has changed the schedule, the weight room and the music at practice. The players are still deciding what they think.
+[sl.new_coach.end.strong_start]
+{lead} is off to a strong start at {team}.
+[sl.new_coach.end.rough_start]
+{lead}'s first year at {team} was rough.
+[sl.new_coach.chapter]
+The first year
+[sl.new_coach.legacy]
+Remembered as {lead_last}'s first year at {team}.
+
+[sl.big_one.spark]
+{lead} wins a lot of games. He has not won the biggest one. {question}
+[sl.big_one.report]
+{writer} of {outlet} says {lead_last} has stopped answering questions about his record in big games.
+[sl.big_one.end.won_it]
+{lead} won the big one.
+[sl.big_one.end.again]
+{lead} lost the big one again.
+[sl.big_one.chapter]
+The big one
+[sl.big_one.legacy]
+Remembered as the year {lead_last} went for the big one.
+
+[sl.old_team.spark]
+{lead} faces his old team, {other}, this week. {question}
+[sl.old_team.report]
+{lead_last} still knows half the {other} roster. He recruited some of them.
+[sl.old_team.end.won]
+{lead} beat his old team.
+[sl.old_team.end.lost]
+{lead}'s old team beat him.
+[sl.old_team.chapter]
+The old team
+[sl.old_team.legacy]
+Remembered as the week {lead_last} faced {other}.
+
+[sl.your_contract.spark]
+{lead}'s contract runs through {through}. {question}
+{lead}'s contract is coming up. {question}
+[sl.your_contract.report]
+{writer} of {outlet} says {team} has not started talks with {lead_last}.
+[sl.your_contract.end.extended]
+{team} extended {lead}.
+[sl.your_contract.end.let_go]
+{team} let {lead} go.
+[sl.your_contract.end.left]
+{lead} left {team}.
+[sl.your_contract.chapter]
+The contract
+[sl.your_contract.legacy]
+Remembered as the year {lead_last}'s contract came up.
+
+[sl.job_rumors.spark]
+{lead}'s name has come up for the opening at {other}. {question}
+[sl.job_rumors.report]
+{writer} of {outlet} says {other} has asked about {lead_last}.
+[sl.job_rumors.memo.up]
+Our read: {other} is serious, and the offer will be real.
+[sl.job_rumors.memo.down]
+Our read: {other} is using your name to push someone else.
+[sl.job_rumors.end.took_it]
+{lead} took the job at {other}.
+[sl.job_rumors.end.stayed]
+{lead} stays at {team}.
+[sl.job_rumors.chapter]
+The other job
+[sl.job_rumors.legacy]
+Remembered as the winter {other} came calling for {lead_last}.
+
+[sl.your_milestone.spark]
+{lead} is close to {milestone} career wins. {question}
+[sl.your_milestone.end.reached]
+{lead} has {milestone} career wins.
+[sl.your_milestone.chapter]
+Win number {milestone}
+[sl.your_milestone.legacy]
+Remembered as the year {lead_last} reached {milestone} wins.
+
+# ================================================================== names
+[sl.name.fixer]
+The Fixer
+The Firefighter
+The Cleanup Man

@@ -344,12 +344,41 @@ impl<'a> Linker<'a> {
             spans.push((a, b, m));
         }
         let ws = words(text);
+        // A person's name holds its words: a school inside it ("Harrison
+        // Lawrence", "Xavier Dopson") is no school, even when the name is
+        // too common to link.
+        let mut held: Vec<(usize, usize)> = Vec::new();
+        let mut i = 0;
+        while i < ws.len() {
+            let mut took = 1;
+            for n in (2..=4).rev() {
+                if i + n > ws.len() {
+                    continue;
+                }
+                let span = &ws[i..i + n];
+                if !span.iter().all(|&(s, e)| name_word(&text[s..e])) {
+                    continue;
+                }
+                let name = &text[span[0].0..span[n - 1].1];
+                // A school named like a person ("James Madison") stays a school.
+                let school =
+                    self.teams.get(&text[span[0].0..span[0].1]).is_some_and(|v| v.iter().any(|(full, _)| full == name));
+                let h = fnv(name);
+                if !school && (self.people.contains_key(&h) || self.coaches.contains_key(&h)) {
+                    held.push((span[0].0, span[n - 1].1));
+                    took = n;
+                    break;
+                }
+            }
+            i += took;
+        }
+        let in_name = |a: usize, b: usize| held.iter().any(|x| a < x.1 && b > x.0);
         // Teams first: the longest name starting at each word.
         let covered = |a: usize, b: usize, spans: &[(usize, usize, String)]| spans.iter().any(|x| a < x.1 && b > x.0);
         let mut i = 0;
         while i < ws.len() {
             let (s, e) = ws[i];
-            if covered(s, e, &spans) {
+            if covered(s, e, &spans) || in_name(s, e) {
                 i += 1;
                 continue;
             }
@@ -376,7 +405,7 @@ impl<'a> Linker<'a> {
                     }
                 }
             }
-            if let Some((end, t)) = hit.filter(|&(end, _)| !covered(s, end, &spans)) {
+            if let Some((end, t)) = hit.filter(|&(end, _)| !covered(s, end, &spans) && !in_name(s, end)) {
                 spans.push((s, end, team_as(t, &text[s..end])));
                 if !ctx.contains(&t) {
                     ctx.push(t);

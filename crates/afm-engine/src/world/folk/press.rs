@@ -36,6 +36,10 @@ enum Q {
     Trouble,
     Recruiting,
     Player,
+    /// A story you are in (update 2): its id is in the scene's `f[2]`.
+    Story,
+    /// A second story: its id in `f[3]`.
+    Story2,
 }
 
 impl Q {
@@ -51,6 +55,8 @@ impl Q {
             8 => Q::Trouble,
             9 => Q::Recruiting,
             10 => Q::Player,
+            11 => Q::Story,
+            12 => Q::Story2,
             _ => return None,
         })
     }
@@ -66,6 +72,7 @@ impl Q {
             Q::Trouble => "trouble",
             Q::Recruiting => "recruiting",
             Q::Player => "player",
+            Q::Story | Q::Story2 => "story",
         }
     }
 }
@@ -112,8 +119,36 @@ fn battle(w: &World, team: Team) -> Option<(usize, usize)> {
     }
 }
 
-/// What the reporters will ask this time, from the week's facts.
-fn questions(w: &World, team: Team, occasion: i64) -> (Vec<Q>, u64) {
+/// What the reporters will ask this time, from the week's facts, and the
+/// stories you are in that they ask about (update 2).
+fn questions(w: &World, team: Team, occasion: i64) -> (Vec<Q>, u64, Vec<u32>) {
+    let (mut v, subject) = week_questions(w, team, occasion);
+    if occasion == 0 {
+        return (v, subject, Vec::new());
+    }
+    use crate::world::storylines::{Family, moves};
+    let ids = moves::press_stories(w, crate::world::storylines::team_key(team));
+    // A story question replaces the week's own question on the same thing.
+    for &id in &ids {
+        match moves::press_family(w, id) {
+            Some(Family::Seat) => v.retain(|q| *q != Q::HotSeat),
+            Some(Family::Battle) => v.retain(|q| *q != Q::Battle),
+            Some(Family::OffField) => v.retain(|q| *q != Q::Trouble),
+            Some(Family::Rivalry) => v.retain(|q| *q != Q::Rival),
+            _ => {}
+        }
+    }
+    // The last game first, then the stories, then the rest.
+    let at = usize::from(v.first() == Some(&Q::LastGame));
+    for (k, _) in ids.iter().enumerate().rev() {
+        v.insert(at.min(v.len()), if k == 0 { Q::Story } else { Q::Story2 });
+    }
+    v.truncate(4);
+    let kept: Vec<u32> = ids.into_iter().take(2).collect();
+    (v, subject, kept)
+}
+
+fn week_questions(w: &World, team: Team, occasion: i64) -> (Vec<Q>, u64) {
     let mut v = Vec::new();
     let mut subject = 0u64;
     if occasion == 0 {
@@ -178,8 +213,11 @@ pub(crate) fn open(w: &mut World, s: &mut Scene) {
         return;
     };
     let occasion = if s.kind == Kind::PressIntro { 0 } else { s.c };
-    let (qs, subject) = questions(w, team, occasion);
+    let (qs, subject, stories) = questions(w, team, occasion);
     s.a = pack(&qs);
+    for (k, id) in stories.iter().enumerate() {
+        s.f[2 + k] = *id as f32;
+    }
     if s.b == 0 {
         s.b = subject;
     }
@@ -234,7 +272,10 @@ fn ask_next(w: &mut World, s: &mut Scene, team: Team, k: u8) {
     }
     let (wn, l) = facts::record_now(w, team);
     f.set("record", format!("{wn}-{l}"));
-    let text = {
+    let story = story_of(s, q);
+    let text = if let Some(id) = story {
+        crate::world::storylines::moves::press_question(w, id)
+    } else {
         let spk = r.as_ref().map_or_else(Speaker::default, |c| Speaker::cast(w, c));
         let mut pen = scene::pen(w, s, 10 + k as u64);
         let line = pen.line(&[&format!("press.q.{}", q.key())], &spk, &f);
@@ -263,6 +304,13 @@ fn ask_next(w: &mut World, s: &mut Scene, team: Team, k: u8) {
     );
     let base = 100 * (k as u32 + 1);
     match q {
+        Q::Story | Q::Story2 => {
+            if let Some(id) = story {
+                for (j, o) in crate::world::storylines::moves::press_menu(w, id).into_iter().enumerate() {
+                    s.pick(base + j as u32, o.label, o.mv.name(), o.mv.tone(), &o.hint);
+                }
+            }
+        }
         Q::Vision => {
             s.pick(
                 base,
@@ -487,9 +535,20 @@ fn ask_next(w: &mut World, s: &mut Scene, team: Team, k: u8) {
     }
 }
 
+/// The story a story question is about.
+fn story_of(s: &Scene, q: Q) -> Option<u32> {
+    let id = match q {
+        Q::Story => s.f[2],
+        Q::Story2 => s.f[3],
+        _ => return None,
+    };
+    (id >= 1.0).then_some(id as u32)
+}
+
 fn q_fallback(w: &World, q: Q, f: &Facts, team: Team) -> String {
     let get = |k: &str| f.get(k).unwrap_or("").to_string();
     match q {
+        Q::Story | Q::Story2 => "Coach, can you address the story everyone is talking about?".into(),
         Q::Vision => format!("Coach, what should {} fans expect in year one?", get("team")),
         Q::OldCoach => format!("How do you follow what {} built here?", get("old")),
         Q::Battle => "Have you decided on a starting quarterback?".into(),
@@ -526,6 +585,12 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     }
     let boss = super::boss::boss(w, team);
     match (q, opt) {
+        (Q::Story | Q::Story2, o) => {
+            if let Some(id) = story_of(s, q) {
+                let out = crate::world::storylines::moves::press_answer(w, id, o);
+                s.outcome.extend(out);
+            }
+        }
         (Q::Vision, 0) => {
             w.folk.mine.expectation = (w.folk.mine.expectation + 0.3).min(1.0);
             s.outcome.push("You promised championships, in public.".into());

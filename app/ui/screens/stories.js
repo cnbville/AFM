@@ -125,7 +125,7 @@ const SO_FILTERS = [
 screens.story = async (a) => {
   const x = await api("stories_story");
   if (x.none) return `<div class="pad">${pageHead({ title: "Career story" })}${soEmpty("You need a job first: the story starts with it.")}</div>`;
-  const list = ["Timeline", "Seasons", "Titles", { name: "Names", badge: x.names.length || "" }, "Fourth downs"];
+  const list = [...(typeof slCareerTab === "function" ? ["Chapters"] : []), "Timeline", "Seasons", "Titles", { name: "Names", badge: x.names.length || "" }, "Fourth downs"];
   const tab = tabOf("sostory", list.map((t) => (typeof t === "string" ? t : t.name)), a);
   title("Career story", tab);
   const r = x.record;
@@ -138,7 +138,9 @@ screens.story = async (a) => {
     <div><b>${x.drafted}</b><small>sent to the draft</small></div>
     <div><b>${x.teams.length}</b><small>${x.teams.length === 1 ? "team" : "teams"}</small></div></div>`;
   let body = "";
-  if (tab === "Timeline") {
+  if (tab === "Chapters") {
+    body = await slCareerTab();
+  } else if (tab === "Timeline") {
     const f = keep("sofilter", { v: "all" });
     const kinds = (SO_FILTERS.find((z) => z[0] === f.v) || SO_FILTERS[0])[2];
     const shown = x.entries.filter((e) => !kinds || kinds.includes(e.kind)).reverse();

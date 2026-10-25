@@ -315,9 +315,24 @@ pub(crate) fn college_game(w: &mut World, k: usize, stats: Option<&crate::game::
         return;
     }
     traditions::after_college_game(w, k, pre);
+    let Some(g) = w.college.as_ref().map(|c| c.games[k].clone()) else { return };
+    use super::schedule::GameKind;
+    // The storylines' look after the game (update 2, S2).
+    if let Some(p) = g.played.as_ref().filter(|p| !p.cancelled) {
+        let played = super::storylines::detect::games::Played {
+            level: Level::College,
+            teams: [TeamKey::College(g.home as u32), TeamKey::College(g.away as u32)],
+            score: [p.score[0] as i32, p.score[1] as i32],
+            stats,
+            postseason: g.kind != GameKind::Regular,
+            senior_day: g.senior_day,
+            title: g.kind == GameKind::Title,
+            conf_title: g.kind == GameKind::ConferenceTitle,
+            rivalry: g.rivalry.is_some(),
+        };
+        super::storylines::detect::games::after(w, &played);
+    }
     if let Some(s) = stats {
-        let Some(g) = w.college.as_ref().map(|c| c.games[k].clone()) else { return };
-        use super::schedule::GameKind;
         let year = w.year;
         let trophy =
             g.rivalry.and_then(|r| crate::calendar::data::RIVALRIES.get(r)).and_then(|r| r.trophy).map(str::to_string);
@@ -370,6 +385,24 @@ pub(crate) fn nfl_game(w: &mut World, teams: [usize; 2], stats: &crate::game::Ga
         trophy: None,
         title: None,
     };
+    // The storylines' look after the game (update 2, S2): the Super Bowl
+    // is the title; division rivals are the rivalries.
+    let rivals = w
+        .nfl_season
+        .as_ref()
+        .is_some_and(|s| s.div.get(teams[0]).is_some() && s.div.get(teams[0]) == s.div.get(teams[1]));
+    let played = super::storylines::detect::games::Played {
+        level: Level::Nfl,
+        teams: ctx.teams,
+        score: stats.score,
+        stats: Some(stats),
+        postseason,
+        senior_day: false,
+        title: postseason && w.today == w.dates.super_bowl,
+        conf_title: false,
+        rivalry: rivals,
+    };
+    super::storylines::detect::games::after(w, &played);
     media::after_nfl_game(w, &ctx, stats);
     nfl::after_game(w, &ctx, stats);
     nick::after_game(w, &ctx, stats);

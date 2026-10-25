@@ -483,6 +483,10 @@ pub(crate) fn offer(w: &mut World, e: Employer, r: Role, prestige: f64) {
         (Employer::Other(_), Role::HeadCoach) => 3,
         (Employer::Other(_), _) => 2,
     };
+    // A head job that is volatile now pays for it (update 2, S10): a
+    // guaranteed year more, and a bigger buyout when you sign.
+    let hazard = if r == Role::HeadCoach { crate::world::storylines::credit::hazard(w, e) } else { None };
+    let years = years + hazard.map_or(0, |h| h.0);
     let Some(c) = w.career.as_ref() else { return };
     let hc = match e {
         Employer::College(p) => w.programs[p].head_coach,
@@ -514,6 +518,12 @@ pub(crate) fn offer(w: &mut World, e: Employer, r: Role, prestige: f64) {
         _ if y.recruiting >= 13.0 => "they want a coordinator who recruits".into(),
         _ => format!("they need an {} and your name came up", r.name()),
     });
+    if let Some((_, share)) = hazard {
+        why.push(format!(
+            "the job is volatile right now, so they add a guaranteed year and a buyout {:.0}% bigger",
+            share * 100.0
+        ));
+    }
     let family = family_words(w, e);
     let name = employer_name(w, e);
     let title = role_title(r);
@@ -692,6 +702,8 @@ pub(crate) fn hired(w: &mut World, e: Employer, r: Role) {
         (Employer::HighSchool(s), Role::HeadCoach) => w.hire_hs_staff(s),
         _ => Vec::new(),
     };
+    // The stories you walk into, and the premium's bigger buyout (update 2).
+    crate::world::storylines::credit::hired(w, e);
     if let Some(c) = w.career.as_mut() {
         c.role = (r != Role::HeadCoach).then_some(r);
         c.hs_staff = staff;

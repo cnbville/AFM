@@ -14,6 +14,7 @@ use crate::rng::Rng;
 
 const NICKNAMES: &str = include_str!("../../../../../data/lines/stories/nicknames.txt");
 const STORIES: &str = include_str!("../../../../../data/lines/stories/stories.txt");
+const STORYLINES: &str = include_str!("../../../../../data/lines/stories/storylines.txt");
 
 /// One template and the seasons it may be used in.
 struct Line {
@@ -57,6 +58,7 @@ pub(crate) static BANK: LazyLock<Bank> = LazyLock::new(|| {
     let mut b = Bank { keys: HashMap::new(), blocked: Vec::new() };
     parse(NICKNAMES, &mut b);
     parse(STORIES, &mut b);
+    parse(STORYLINES, &mut b);
     b
 });
 
@@ -161,6 +163,20 @@ impl Recent {
     /// A filled line from `key`, avoiding the ones used lately. None when
     /// the key has nothing usable.
     pub(crate) fn line(&mut self, rng: &mut Rng, key: &str, f: &Fill, year: i32) -> Option<String> {
+        self.line_avoiding(rng, key, f, year, &[])
+    }
+
+    /// As `line`, and never a line one of `said` already starts with (a
+    /// story's own beats: one story doesn't hear the same line twice).
+    /// None when every usable line was said.
+    pub(crate) fn line_avoiding(
+        &mut self,
+        rng: &mut Rng,
+        key: &str,
+        f: &Fill,
+        year: i32,
+        said: &[&str],
+    ) -> Option<String> {
         let all = BANK.usable(key, f, year);
         if all.is_empty() {
             return None;
@@ -171,19 +187,35 @@ impl Recent {
         if recent.len() > rest {
             recent.drain(..recent.len() - rest);
         }
-        let fresh: Vec<&&str> = all.iter().filter(|t| !recent.contains(&hash(t))).collect();
-        let pool: Vec<&&str> = if fresh.is_empty() { all.iter().collect() } else { fresh };
-        // A few tries: a template can still fail on an alliteration list
-        // with nothing for its letter.
-        for _ in 0..6 {
-            let t = pool[(rng.next() * pool.len() as f64) as usize % pool.len()];
-            if let Some(s) = fill_one(t, f, rng, year) {
+        let (fresh, rested): (Vec<&&str>, Vec<&&str>) = all.iter().partition(|t| !recent.contains(&hash(t)));
+        // The rested lines first; the recent ones only when there are none,
+        // or a story said every rested one.
+        let pools = if fresh.is_empty() { [rested, Vec::new()] } else { [fresh, rested] };
+        for mut pool in pools {
+            // A few tries: a template can still fail on an alliteration list
+            // with nothing for its letter.
+            let mut misses = 0;
+            while !pool.is_empty() && misses < 6 {
+                let k = (rng.next() * pool.len() as f64) as usize % pool.len();
+                let t = pool[k];
+                let Some(s) = fill_one(t, f, rng, year) else {
+                    misses += 1;
+                    continue;
+                };
+                let s = tidy(&s);
+                if said.iter().any(|x| x.starts_with(s.as_str())) {
+                    pool.swap_remove(k);
+                    continue;
+                }
                 self.used.push((kh, hash(t)));
                 let cap = 4000;
                 if self.used.len() > cap {
                     self.used.drain(..self.used.len() - cap);
                 }
-                return Some(tidy(&s));
+                return Some(s);
+            }
+            if said.is_empty() {
+                break;
             }
         }
         None

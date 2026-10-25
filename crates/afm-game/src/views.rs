@@ -660,6 +660,8 @@ pub fn status(w: &World) -> Value {
         "my_players": w.career.as_ref().map_or(0, |c| c.desk.listed.len()),
         // The draft live from your chair: the sidebar shows the war room.
         "draft_live": w.scouting.live.is_some(),
+        // Your stories waiting on you (This week's badge).
+        "stories_need": crate::lane_storylines::need_count(w),
     })
 }
 
@@ -701,8 +703,12 @@ pub(crate) fn pinned(w: &World) -> Vec<Value> {
 /// After Continue: the days that ran and why it stopped.
 pub fn stopped(w: &World, from: Date, at: Date) -> Value {
     let seat = w.seat;
-    // Stopped on the morning of a day still to play: what it holds.
-    let morning = (at == w.today && at > from).then(|| w.morning_stop(at)).flatten();
+    // Stopped on the morning of a day still to play: what it holds. A stop
+    // at the end of a day leaves you on the next morning, and the next
+    // Continue plays that day, so its morning shows too (a story meeting on
+    // the eve of your game no longer skips the game morning).
+    let morning_day = if at == w.today && at > from { Some(at) } else { (at.add(1) == w.today).then_some(w.today) };
+    let morning = morning_day.and_then(|d| w.morning_stop(d));
     let mut why: Vec<Value> = w
         .calendar
         .on(at)
@@ -722,12 +728,32 @@ pub fn stopped(w: &World, from: Date, at: Date) -> Value {
         json!({ "index": k, "text": format!("{} {} at {} {}", g.names[1], g.stats.score[1], g.names[0], g.stats.score[0]) })
     });
     // A meeting waiting this morning (people): the screens open it.
-    let meeting = morning
-        .as_ref()
-        .and_then(|_| w.folk.scenes.iter().filter(|s| !s.done && s.stops && s.date == at).map(|s| s.id).min());
+    let meeting = morning.as_ref().and_then(|_| {
+        w.folk
+            .scenes
+            .iter()
+            .filter(|s| {
+                !s.done
+                    && s.stops
+                    && Some(s.date) == morning_day
+                    && s.kind != afm_engine::world::folk::scene::Kind::Story
+            })
+            .map(|s| s.id)
+            .min()
+    });
     // The draft live from your chair (scouting): the screens open the war room.
     let studio = w.scouting.live.as_ref().map(|_| json!({ "screen": "warroom" }));
-    json!({ "from": date_text(from), "days": from.days_to(w.today), "stopped_on": date_text(at), "morning": morning.is_some(), "today": date_text(w.today), "why": why, "game": game, "meeting": meeting, "studio": studio, "status": status(w) })
+    // A story meeting that stopped Continue (storylines): the screens show
+    // it over Home.
+    let story = w
+        .folk
+        .scenes
+        .iter()
+        .filter(|s| !s.done && s.stops && s.kind == afm_engine::world::folk::scene::Kind::Story)
+        .filter(|s| s.date >= from && s.date <= w.today)
+        .map(|s| s.id)
+        .min();
+    json!({ "from": date_text(from), "days": from.days_to(w.today), "stopped_on": date_text(at), "morning": morning.is_some(), "today": date_text(w.today), "why": why, "game": game, "meeting": meeting, "story": story, "studio": studio, "status": status(w) })
 }
 
 pub fn home(w: &World) -> Value {

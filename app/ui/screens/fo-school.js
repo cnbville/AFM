@@ -26,7 +26,7 @@ foNavAdd("all", [["market", "Job market", "market"]]);
 GOTO.school = () => [["Varsity and JV", "squads"], ["School and feeders", "area"], ["Staff", "staff"], ["Schedule", "schedule"], ["Inbox", "inbox"]];
 GOTO.squads = () => [["Depth chart", "depth"], ["Squad", "roster"], ["Schedule", "schedule"], ["School office", "school"]];
 GOTO.area = () => [["School office", "school"], ["Recruiting", "recruiting"], ["Standings", "standings"], ["Team page", "team"]];
-GOTO.market = () => [["Your profile", "you"], ["Inbox", "inbox"], ["News", "news"]];
+GOTO.market = () => [["Pick your next job", "jobpick"], ["Your profile", "you"], ["Inbox", "inbox"], ["News", "news"]];
 GOTO_AFTER.push("school", "area");
 
 const fsTrust = (t) => (/Firmly|Pleased/.test(t) ? "good" : /Watching/.test(t) ? "" : "fs-warn");
@@ -233,7 +233,7 @@ screens.market = async () => {
       <div class="fs-who">${mark(o.team, 40)}<div><b>${esc(o.role)}, ${teamLink(o.team)}</b><small>${esc(o.line)} · offered ${esc(o.made)} · answer by ${esc(o.until)}</small></div></div>
       <div class="st-tiles"><div><b>${money(o.pay)}</b><small>a year</small></div><div><b>${o.years}</b><small>year${o.years === 1 ? "" : "s"}</small></div></div>
       <p>${esc(o.why)}</p><p class="sub">${esc(o.family)}</p>
-      <div class="st-actions"><button class="st-btn primary" data-fs="accept" data-k="${o.k}">Take the job</button><button class="st-btn glass" data-fs="decline" data-k="${o.k}">Turn it down</button></div>
+      <div class="st-actions"><button class="st-btn primary" data-fs="accept" data-k="${o.k}">Take the job</button><button class="st-btn glass" data-fs="decline" data-k="${o.k}">Turn it down</button>${screens.jobpick ? linkTo("jobpick", { index: o.k }, "What you'd walk into", "st-btn glass") : ""}</div>
     </div>`).join("");
   const q = f.q.trim().toLowerCase();
   let open = x.openings.filter((o) => (f.show === "all" || o.fits || o.applied) && (!q || `${o.team.name} ${o.line} ${o.role}`.toLowerCase().includes(q)));
