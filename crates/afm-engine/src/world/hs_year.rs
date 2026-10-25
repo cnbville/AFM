@@ -16,7 +16,7 @@
 //! teams' starters as they play this year, plus home field and luck.
 
 use rayon::prelude::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::coach::TitleKind;
 use super::high_school::HsSeason;
@@ -210,6 +210,53 @@ pub(crate) struct HsSeasonState {
 }
 
 impl HsSeasonState {
+    /// The winner of a regular-season game between two schools, once played
+    /// (two schools meet once in a regular season).
+    pub(crate) fn outcome(&self, a: usize, b: usize) -> Option<usize> {
+        let (a, b) = (a as u32, b as u32);
+        self.played.iter().find(|&&(x, y)| (x, y) == (a, b) || (x, y) == (b, a)).map(|&(x, _)| x as usize)
+    }
+
+    /// Each school's record going into each regular-season week of a state
+    /// (the schedule page, update 2, lane 6): school to (wins, losses)
+    /// before week k, and after the last week at the end.
+    pub(crate) fn records_by_week(&self, state: usize) -> HashMap<usize, Vec<(u32, u32)>> {
+        let won: HashSet<(u32, u32)> = self.played.iter().copied().collect();
+        let n = self.states.get(state).map_or(0, |s| s.weeks.len());
+        let mut out: HashMap<usize, Vec<(u32, u32)>> = HashMap::new();
+        for g in self.groups.iter().filter(|g| g.state == state) {
+            for &s in &g.schools {
+                out.entry(s).or_insert_with(|| vec![(0, 0); n + 1]);
+            }
+        }
+        for g in self.groups.iter().filter(|g| g.state == state) {
+            for (k, week) in g.schedule.iter().enumerate().take(n) {
+                for &(h, a) in week {
+                    let (x, y) = (h as u32, a as u32);
+                    let winner = if won.contains(&(x, y)) {
+                        h
+                    } else if won.contains(&(y, x)) {
+                        a
+                    } else {
+                        continue;
+                    };
+                    let loser = if winner == h { a } else { h };
+                    for (t, win) in [(winner, true), (loser, false)] {
+                        let v = out.entry(t).or_insert_with(|| vec![(0, 0); n + 1]);
+                        for r in v.iter_mut().skip(k + 1) {
+                            if win {
+                                r.0 += 1;
+                            } else {
+                                r.1 += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        out
+    }
+
     /// A school's district this season, if it has one.
     pub(crate) fn district_of(&self, h: usize) -> Option<u32> {
         self.district.get(h).copied().filter(|&d| d != super::hs_playoffs::NONE)
@@ -273,6 +320,7 @@ pub(crate) fn new_season(w: &World) -> HsSeasonState {
     let year = w.year;
     let states = state_dates(w, year);
     let seed = w.options.seed as u64 ^ (year as u64) << 32 ^ 0x4853;
+    let cycle_seed = w.options.seed as u64 ^ (cycle_start(year) as u64) << 32 ^ 0x4853;
     let mut by: std::collections::BTreeMap<(usize, u32), Vec<usize>> = std::collections::BTreeMap::new();
     for s in &w.high_schools {
         by.entry((s.state, s.classification)).or_default().push(s.id);
@@ -302,7 +350,10 @@ pub(crate) fn new_season(w: &World) -> HsSeasonState {
             let h = &w.high_schools[id];
             (h.prestige, h.private && h.is_powerhouse())
         };
-        let (weeks, districts) = state_schedule(&classes, &area, &power, n_weeks, seed ^ (state as u64) << 8);
+        // Districts hold for a two-year cycle (update 2, lane 6): the same
+        // schools both years, home and away swapped in the second.
+        let cycle = (cycle_seed ^ (state as u64) << 8, year != cycle_start(year));
+        let (weeks, districts) = state_schedule(&classes, &area, &power, n_weeks, seed ^ (state as u64) << 8, cycle);
         for d in districts {
             for h in d {
                 district[h] = n_districts;
@@ -358,6 +409,13 @@ const SCHEDULE_TRIES: u64 = 8;
 /// out at 0.72; proposed, not confirmed).
 const BIG_NAME: f64 = 0.6;
 
+/// The first season of a district cycle: states realign every two years,
+/// for the even year and the next (Texas's UIL each February of an even
+/// year; update 2, lane 6, proposed, not confirmed for every state).
+pub fn cycle_start(year: i32) -> i32 {
+    year - year.rem_euclid(2)
+}
+
 /// About how many schools make a district (part B 40; real districts run
 /// about 5 to 8; proposed, not confirmed: 7, fewer when the season is short).
 const DISTRICT_SIZE: usize = 7;
@@ -382,12 +440,16 @@ type WeekPairs = Vec<Vec<(usize, usize)>>;
 /// and whether it is a private powerhouse) books its non-district games
 /// against the biggest names in the state that are free, not the school
 /// down the road, so the best teams meet every year.
+///
+/// `cycle`: the district cycle's own seed, so the districts hold for both
+/// of its years, and whether this is its second year (home and away swap).
 pub(crate) fn state_schedule(
     classes: &[(u32, &[usize])],
     area: &dyn Fn(usize) -> usize,
     power: &dyn Fn(usize) -> (f64, bool),
     n_weeks: usize,
     seed: u64,
+    cycle: (u64, bool),
 ) -> (WeekPairs, Vec<Vec<usize>>) {
     const FREE: usize = usize::MAX;
     let ids: Vec<usize> = classes.iter().flat_map(|c| c.1.iter().copied()).collect();
@@ -417,9 +479,9 @@ pub(crate) fn state_schedule(
             continue;
         }
         idx.sort_by(|&a, &b| {
-            area_of[a]
-                .cmp(&area_of[b])
-                .then(key_uniform(seed ^ 0xD15, ids[a] as u64).total_cmp(&key_uniform(seed ^ 0xD15, ids[b] as u64)))
+            area_of[a].cmp(&area_of[b]).then(
+                key_uniform(cycle.0 ^ 0xD15, ids[a] as u64).total_cmp(&key_uniform(cycle.0 ^ 0xD15, ids[b] as u64)),
+            )
         });
         let k = idx.len().div_ceil(size).max(1);
         for j in 0..k {
@@ -515,7 +577,10 @@ pub(crate) fn state_schedule(
         .into_iter()
         .enumerate()
         .map(|(k, pairs)| {
-            pairs.into_iter().map(|(a, b)| if k % 2 == 0 { (ids[a], ids[b]) } else { (ids[b], ids[a]) }).collect()
+            pairs
+                .into_iter()
+                .map(|(a, b)| if (k % 2 == 0) != cycle.1 { (ids[a], ids[b]) } else { (ids[b], ids[a]) })
+                .collect()
         })
         .collect();
     (weeks, districts.into_iter().map(|d| d.into_iter().map(|i| ids[i]).collect()).collect())
@@ -2180,6 +2245,11 @@ impl World {
     /// Whether a school is in its state's playoff field and still alive.
     pub fn hs_alive(&self, h: usize) -> bool {
         self.hs_season.as_ref().is_some_and(|hs| hs.brackets.iter().any(|b| b.alive(h as u32)))
+    }
+
+    /// The day this year's new class joins the high school rosters.
+    pub fn hs_class_day(&self) -> Option<Date> {
+        self.hs_season.as_ref().map(|hs| hs.class_day)
     }
 
     /// A school's state season this year: its regular-season Fridays, its

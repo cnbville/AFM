@@ -19,6 +19,7 @@ pub mod lane_legacy;
 pub mod lane_money;
 pub mod lane_people;
 pub mod lane_ratings;
+pub mod lane_schedule;
 pub mod lane_scouting;
 pub mod lane_stories;
 pub mod lane_storylines;
@@ -193,7 +194,6 @@ impl Game {
             "calendar" => Ok(views::calendar(self.w()?)),
             "team" => Ok(views::team(self.w()?, views::TeamRef::from_args(self.w()?, args)?)),
             "roster" => Ok(views::roster(self.w()?, views::TeamRef::from_args(self.w()?, args)?)),
-            "schedule" => Ok(views::schedule(self.w()?, views::TeamRef::from_args(self.w()?, args)?)),
             "standings" => Ok(views::standings(self.w()?, args)),
             "staff" => Ok(views::staff(self.w()?, views::TeamRef::from_args(self.w()?, args)?)),
             "depth" => Ok(views::depth(self.w()?)),
@@ -226,7 +226,7 @@ impl Game {
             _ => {
                 // The final build's lanes each answer their own commands.
                 type Lane = fn(&mut Game, &str, &Value) -> Option<Reply>;
-                const LANES: [Lane; 13] = [
+                const LANES: [Lane; 14] = [
                     lane_core::call,
                     lane_gameday::call,
                     lane_money::call,
@@ -240,6 +240,7 @@ impl Game {
                     lane_faces::call,
                     lane_views::call,
                     lane_ratings::call,
+                    lane_schedule::call,
                 ];
                 for lane in LANES {
                     if let Some(r) = lane(self, cmd, args) {

@@ -283,7 +283,7 @@ fn record_key(s: &NflSeason, t: usize) -> f64 {
 /// the conference, and from 2021 a 17th game against a same-place team of
 /// another division of the other conference. The 32-team alignment is used
 /// for every year (proposed, not confirmed).
-fn opponent_formula(s: &NflSeason, season: i32, games: u32) -> Vec<(usize, usize)> {
+pub(crate) fn opponent_formula(s: &NflSeason, season: i32, games: u32) -> Vec<(usize, usize)> {
     let n = s.div.len();
     let members = |d: usize| -> Vec<usize> {
         let mut m: Vec<usize> = (0..n).filter(|&t| s.div[t] == d).collect();

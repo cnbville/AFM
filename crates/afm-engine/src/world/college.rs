@@ -204,10 +204,11 @@ pub(crate) struct CollegeSeason {
 /// holder (the last rivalry game's winner).
 /// Last year's season once the new one starts (memory): the next year
 /// reads only its results (the coaches' and programs' book on signing day),
-/// its rivalry series and the academy trophy, so the games, rosters, stat
-/// lines and polls are let go instead of riding through the whole season.
+/// its rivalry series and the academy trophy, so the rosters, stat lines
+/// and polls are let go instead of riding through the whole season. The
+/// games stay (about a megabyte): last season's schedule page reads them
+/// (update 2, lane 6).
 pub(crate) fn keep_for_next_year(c: &mut CollegeSeason) {
-    c.games = Vec::new();
     c.teams = Vec::new();
     c.coaches = Vec::new();
     c.banned = Vec::new();

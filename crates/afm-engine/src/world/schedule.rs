@@ -499,6 +499,36 @@ pub(crate) fn build(w: &World, season: i32, y: &YearDates) -> Vec<Game> {
             b.add(home, away, Some(wk), y.cfb_weeks[wk], true, false, None);
         }
     }
+    // The world's non-conference contracts (update 2, lane 6): signed years
+    // ago, played now. A neutral-site kickoff game opens the season; the
+    // rest go where both have the date.
+    let mut deals: Vec<&super::deals::Deal> = super::deals::for_season(w, season).collect();
+    deals.sort_by_key(|d| (d.kind != super::deals::DealKind::Neutral, d.home, d.away));
+    for d in deals {
+        let (home, away) = (d.home, d.away);
+        if home >= np || away >= np || b.opp[home].contains(&away) {
+            continue;
+        }
+        let (ph, pa) = (&w.programs[home], &w.programs[away]);
+        if !ph.plays(season) || !pa.plays(season) {
+            continue;
+        }
+        if b.count[home] >= games_target(ph.division, season) || b.count[away] >= games_target(pa.division, season) {
+            continue;
+        }
+        let last = last_week(ph.division, y);
+        let order = match d.site {
+            Some(_) => vec![1, 0, 2],
+            None => b.week_order(home, away, false, last),
+        };
+        if let Some(wk) = order.into_iter().find(|&wk| wk < nw && b.free(home, wk) && b.free(away, wk)) {
+            b.add(home, away, Some(wk), y.cfb_weeks[wk], true, false, None);
+            if let Some(s) = d.site.and_then(|k| super::deals::SITES.get(k as usize)) {
+                let g = b.games.last_mut().unwrap();
+                g.site = Some(Site { state: geo::state_index(s.state).unwrap_or(0), town: s.town, indoor: s.indoor });
+            }
+        }
+    }
 
     for division in Division::ALL {
         let last = last_week(division, y);
@@ -545,6 +575,10 @@ pub(crate) fn build(w: &World, season: i32, y: &YearDates) -> Vec<Game> {
             let mut bought = vec![0u32; np];
             for &i in &members {
                 if b.count[i] >= target || b.key(i as u64 ^ 0xFC5, season as u64) >= 0.85 {
+                    continue;
+                }
+                // Already hosting an FCS school under contract.
+                if b.opp[i].iter().any(|&j| w.programs[j].division == Division::FCS) {
                     continue;
                 }
                 let mut cands: Vec<(f64, usize)> = fcs
