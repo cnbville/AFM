@@ -1468,7 +1468,7 @@ pub fn deals_year(w: &World) -> i32 {
 /// can adjust).
 pub fn usual_deals(w: &World, j: usize) -> Vec<(u32, f64)> {
     let prog = &w.programs[j];
-    let budget = prog.collective.budget * 0.6;
+    let budget = prog.collective.budget * 0.6 * crate::world::legacy::college::split_q(w, j, 0);
     let roster: Vec<usize> = prog
         .roster
         .iter()

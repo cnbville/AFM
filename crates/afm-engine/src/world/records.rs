@@ -1199,26 +1199,40 @@ fn hall_of_fame(w: &mut World, year: i32) {
             });
         }
     }
-    // Coaches: retired three seasons, 100 games and a .600 record as a
-    // college head coach.
+    // Coaches, on the Hall's own rule: ten seasons and 100 games as a
+    // college head coach with a .600 record (.595 from the 2027 ballot),
+    // three seasons after retiring or at once from 70; a coach still
+    // working is eligible at 75 (update 2, lane 2).
     let inducted_coaches: Vec<String> = w.stats.hall.iter().filter(|e| e.coach).map(|e| e.name.clone()).collect();
     let mut coaches: Vec<(f64, usize, Division, Vec<usize>, String)> = Vec::new();
+    let line = if year + 1 >= 2027 { 0.595 } else { 0.6 };
     for (c, coach) in w.coaches.iter().enumerate() {
-        if !coach.retired || inducted_coaches.contains(&coach.name) {
+        if inducted_coaches.contains(&coach.name) {
+            continue;
+        }
+        let active = !coach.retired && coach.job.is_some();
+        if active && coach.age < 75 {
             continue;
         }
         let mut wins = 0;
         let mut losses = 0;
         let mut last = 0;
         let mut titles = 0;
+        let mut seasons = 0;
         let mut programs = Vec::new();
         let mut top = Division::JUCO;
-        for s in &coach.history {
-            if let (super::coach::Employer::College(p), super::coach::Role::HeadCoach) = (s.employer, s.role) {
-                wins += s.wins;
-                losses += s.losses;
-                titles += s.titles;
-                last = last.max(s.to);
+        let mut stints: Vec<(super::coach::Employer, super::coach::Role, i32, i32, u32, u32, u32)> =
+            coach.history.iter().map(|s| (s.employer, s.role, s.from, s.to, s.wins, s.losses, s.titles)).collect();
+        if active && let Some(j) = coach.job {
+            stints.push((j.employer, j.role, j.since, year + 1, coach.wins, coach.losses, coach.titles));
+        }
+        for (e, r, from, to, sw, sl, st) in stints {
+            if let (super::coach::Employer::College(p), super::coach::Role::HeadCoach) = (e, r) {
+                wins += sw;
+                losses += sl;
+                titles += st;
+                seasons += (to - from).max(1);
+                last = last.max(to);
                 if !programs.contains(&p) {
                     programs.push(p);
                 }
@@ -1226,7 +1240,8 @@ fn hall_of_fame(w: &mut World, year: i32) {
             }
         }
         let games = wins + losses;
-        if games < 100 || (wins as f64) < 0.6 * games as f64 || last > year - 3 || last < year - 50 {
+        let waited = active || last <= year - 3 || coach.age >= 70;
+        if seasons < 10 || games < 100 || (wins as f64) < line * games as f64 || !waited || last < year - 50 {
             continue;
         }
         let score = wins as f64 / games as f64 * 10.0 + titles as f64 + games as f64 / 100.0;

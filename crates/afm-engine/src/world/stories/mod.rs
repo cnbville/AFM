@@ -329,6 +329,7 @@ pub(crate) fn college_game(w: &mut World, k: usize, stats: Option<&crate::game::
             title: g.kind == GameKind::Title,
             conf_title: g.kind == GameKind::ConferenceTitle,
             rivalry: g.rivalry.is_some(),
+            playoff: matches!(g.kind, GameKind::Playoff(_) | GameKind::Title),
         };
         super::storylines::detect::games::after(w, &played);
     }
@@ -401,6 +402,7 @@ pub(crate) fn nfl_game(w: &mut World, teams: [usize; 2], stats: &crate::game::Ga
         title: postseason && w.today == w.dates.super_bowl,
         conf_title: false,
         rivalry: rivals,
+        playoff: postseason,
     };
     super::storylines::detect::games::after(w, &played);
     media::after_nfl_game(w, &ctx, stats);

@@ -7,7 +7,7 @@
 //!
 //! How it is built:
 //! - One record per story (`Story`): its kind from the catalogue
-//!   (`catalogue.rs`, 111 kinds in 14 families), its cast in roles, the
+//!   (`catalogue.rs`, 117 kinds in 14 families), its cast in roles, the
 //!   question, the stakes, what is really going on (truth) apart from what
 //!   the public believes and how sure it is, the sides as shares, heat 0-100
 //!   day by day, its phase (seed, spark, building, peak, resolved,

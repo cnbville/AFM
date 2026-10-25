@@ -30,6 +30,9 @@ pub(crate) struct Played<'a> {
     /// A rivalry game (a listed college rivalry, NFL division rivals, high
     /// school rivals).
     pub rivalry: bool,
+    /// A playoff game (the College Football Playoff or a division's own,
+    /// the NFL's, a state's): a bowl is postseason but not a playoff.
+    pub playoff: bool,
 }
 
 /// Wins in a row that make an unbeaten start a story, and losses in a row
@@ -61,6 +64,14 @@ const PAIR_KINDS: [K; 8] = [
 ];
 
 pub(crate) fn after(w: &mut World, g: &Played) {
+    // Your games are kept for the chases (update 2, lane 2).
+    crate::world::legacy::after_game(
+        w,
+        g.level,
+        g.teams,
+        g.score,
+        [g.postseason, g.title, g.conf_title, g.rivalry, g.playoff],
+    );
     if !w.recording || !(on(w, g.teams[0]) || on(w, g.teams[1])) {
         return;
     }

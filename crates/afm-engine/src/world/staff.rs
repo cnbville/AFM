@@ -44,6 +44,12 @@ fn new_coach(w: &mut World, tier: CoachTier, age: u32, pool: CoachPool) -> usize
     id
 }
 
+/// A new high school coach of the world's (update 2, lane 2: your
+/// assistant who takes a head job).
+pub(crate) fn new_hs_coach(w: &mut World, age: u32) -> usize {
+    new_coach(w, CoachTier::HighSchool, age, CoachPool::HighSchool)
+}
+
 /// The state a job is in (an NFL team has none here).
 fn employer_state(w: &World, e: Employer) -> Option<usize> {
     match e {
@@ -691,6 +697,11 @@ fn weigh_offer(w: &mut World, c: usize, o: Opening) -> Option<String> {
         let heat = clamp(-(1.5 * last + 0.7 * before) / 0.3, 0.0, 1.0);
         parts.push((0.03 * heat, "a way out before his seat got hot".to_string()));
     }
+    // His own ambitions (update 2, G5): a homecoming, a revenge shot, a
+    // coach who means to retire where he is.
+    if w.career.as_ref().is_none_or(|k| k.coach != c) {
+        parts.extend(super::legacy::ambitions::ai_pulls(w, c, o.employer, job));
+    }
     let pull: f64 = parts.iter().map(|p| p.0).sum();
     if pull <= 0.03 {
         return None;
@@ -1125,6 +1136,17 @@ pub(crate) fn college_searches_day(w: &mut World, force: bool) {
 /// college head coach then picks his staff.
 fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[usize], queue: &mut Vec<Opening>) {
     let year = w.year;
+    // One of your own high school assistants can be the school's pick
+    // (update 2, G2): he takes the job and joins your tree.
+    if let Employer::HighSchool(s) = o.employer
+        && o.role == Role::HeadCoach
+        && let Some(i) = super::legacy::tree::assistant_pick(w, s)
+        && let Some(c) = super::legacy::tree::promote_assistant(w, i)
+    {
+        moved.insert(c);
+        hire(w, c, o.employer, o.role);
+        return;
+    }
     let mut candidates = candidate_pool(w, o, moved, buzz);
     // You are on the list when you put your name in or the job is the kind
     // you let it be known you want; never otherwise (lane 10).

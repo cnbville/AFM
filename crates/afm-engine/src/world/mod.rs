@@ -30,6 +30,7 @@ pub mod geo;
 pub mod high_school;
 pub mod hs_playoffs;
 pub mod hs_year;
+pub mod legacy;
 pub mod live_seat;
 pub mod looks;
 pub mod names;
@@ -804,6 +805,10 @@ pub struct World {
     /// cast, a question, heat and an ending.
     #[serde(default)]
     pub storylines: storylines::Storylines,
+    /// The systems to chase (update 2, lane 2): ambitions, your tree, your
+    /// scheme, your guys, the Hall of Fame race and each level's five.
+    #[serde(default)]
+    pub legacy: legacy::Legacy,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -1134,6 +1139,7 @@ impl World {
             faces_version: 1,
             level_scales: Vec::new(),
             storylines: Default::default(),
+            legacy: Default::default(),
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);

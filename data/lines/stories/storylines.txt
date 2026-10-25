@@ -2658,6 +2658,87 @@ Win number {milestone}
 [sl.your_milestone.legacy]
 Remembered as the year {lead_last} reached {milestone} wins.
 
+# ---------------------------------------------------------------- the systems to chase (update 2, lane 2)
+[sl.your_ambition.spark]
+{lead} said it out loud: {word}. {question}
+{lead} put it on the record at his introduction: {word}. {question}
+[sl.your_ambition.report]
+{writer} of {outlet} says {lead_last} still talks about it in private: {word}.
+{writer} of {outlet} keeps a count of how close {lead_last} is to what he promised.
+[sl.your_ambition.end.reached]
+{lead} did what he said he would: {word}.
+[sl.your_ambition.end.fell_short]
+The chance is gone. {lead} said {word}, and it won't happen now.
+[sl.your_ambition.chapter]
+What he came to do
+[sl.your_ambition.legacy]
+Remembered as the year {lead_last} chased what he promised.
+
+[sl.scheme_named.spark]
+The papers have a name for what {team} runs: {word}. {question}
+[sl.scheme_named.report]
+{writer} of {outlet} counts the coaches who have been to {team}'s practices to learn {word}.
+[sl.scheme_named.end.copied]
+{word} is everywhere now, and everyone knows whose it was first.
+[sl.scheme_named.end.caught_up]
+Defenses have an answer for {word} now. It isn't new anymore.
+[sl.scheme_named.chapter]
+The name on the system
+[sl.scheme_named.legacy]
+Remembered as the year {word} got its name.
+
+[sl.bond_vote.spark]
+The district is asking the town to pay for {word}. {question}
+[sl.bond_vote.report]
+{writer} of {outlet} says the yard signs are going up on both sides of the bond.
+[sl.bond_vote.end.passed]
+The town voted yes. {word} is coming.
+[sl.bond_vote.end.failed]
+The bond failed. {word} will have to wait.
+[sl.bond_vote.chapter]
+The vote
+[sl.bond_vote.legacy]
+Remembered as the year the town voted on {word}.
+
+[sl.position_u.spark]
+{team} has sent more players at one position to the NFL than anyone. The press calls it {word}. {question}
+[sl.position_u.report]
+{writer} of {outlet} says recruits at that position keep asking about {word}.
+[sl.position_u.end.claimed]
+The name is {team}'s: {word}.
+[sl.position_u.end.lost]
+Somebody else is {word} now.
+[sl.position_u.chapter]
+{word}
+[sl.position_u.legacy]
+Remembered as the year {team} became {word}.
+
+[sl.draft_verdict.spark]
+The draft shows gave {team}'s class a {word}. {question}
+[sl.draft_verdict.report]
+{writer} of {outlet} says the people who built {team}'s board still believe in it.
+[sl.draft_verdict.end.proved_right]
+Three years on, {team}'s class looks better than its grade.
+[sl.draft_verdict.end.proved_wrong]
+Three years on, the draft-night grade looks kind.
+[sl.draft_verdict.chapter]
+The class
+[sl.draft_verdict.legacy]
+Remembered as the year {team}'s draft class was judged.
+
+[sl.owner_leash.spark]
+The owner wants a say. {question}
+[sl.owner_leash.report]
+{writer} of {outlet} says the owner has been asking about football decisions again.
+[sl.owner_leash.end.trusted]
+The owner stepped back. Football is {lead_last}'s to run.
+[sl.owner_leash.end.overruled]
+The owner got his way, and everyone in the building knows it.
+[sl.owner_leash.chapter]
+The leash
+[sl.owner_leash.legacy]
+Remembered as the year the owner tested {lead_last}.
+
 # ================================================================== names
 [sl.name.fixer]
 The Fixer

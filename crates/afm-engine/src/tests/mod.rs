@@ -10,6 +10,7 @@ mod game_stats;
 mod hs_playoffs;
 mod kick_units;
 mod leagues;
+mod legacy;
 mod level_rating;
 mod links;
 mod live_game;
