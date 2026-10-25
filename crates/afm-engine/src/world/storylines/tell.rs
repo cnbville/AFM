@@ -370,8 +370,26 @@ fn keys(s: &Story, what: BeatKind, extra: Option<&str>) -> Vec<String> {
 pub(crate) fn line(w: &mut World, s: &Story, what: BeatKind, extra: Option<&str>, f: &Fill) -> Option<String> {
     let seed = w.options.seed;
     let year = w.year;
-    // Never a line this story already told.
-    let said: Vec<&str> = s.beats.iter().filter(|b| !b.text.is_empty()).map(|b| b.text.as_str()).collect();
+    // Never a line this story already told, nor one his other stories near
+    // you told this season: a person hears a line once.
+    let others: Vec<String> = match s.lead() {
+        Some(l) if s.near => w
+            .storylines
+            .open
+            .iter()
+            .chain(&w.storylines.ended)
+            .filter(|o| o.id != s.id && o.near && o.season == s.season && o.lead() == Some(l))
+            .flat_map(|o| o.beats.iter().filter(|b| !b.text.is_empty()).map(|b| b.text.clone()))
+            .collect(),
+        _ => Vec::new(),
+    };
+    let said: Vec<&str> = s
+        .beats
+        .iter()
+        .filter(|b| !b.text.is_empty())
+        .map(|b| b.text.as_str())
+        .chain(others.iter().map(String::as_str))
+        .collect();
     for k in keys(s, what, extra) {
         if let Some(t) = w.storylines.line(seed, &k, f, year, &said) {
             return Some(t);

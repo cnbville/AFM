@@ -83,7 +83,9 @@ fn draft(run: &mut Run, g: &mut Game) {
 
 /// Your team's stories by family and season, the world's by family, and
 /// the lines that reached the same person twice in a season.
-fn story_counts(w: &afm_engine::world::World, seat: &str) {
+/// `since`: the run's first day; the line checks read only what the run
+/// itself told (a save's history may come from an older build).
+fn story_counts(w: &afm_engine::world::World, seat: &str, since: afm_engine::calendar::Date) {
     use afm_engine::world::storylines::{BeatKind, Family, Who, catalogue};
     use std::collections::BTreeMap;
     let me = afm_engine::world::stories::seat_team(w);
@@ -123,7 +125,7 @@ fn story_counts(w: &afm_engine::world::World, seat: &str) {
     let (mut twice, mut lines) = (Vec::new(), 0);
     for s in &all {
         let Some(lead) = s.lead() else { continue };
-        for b in s.beats.iter().filter(|b| told(&b.what) && !b.text.is_empty()) {
+        for b in s.beats.iter().filter(|b| told(&b.what) && !b.text.is_empty() && b.date.0 >= since.0) {
             lines += 1;
             let season = if b.date.month() <= 2 { b.date.year() - 1 } else { b.date.year() };
             let v = seen.entry((lead, season)).or_default();
@@ -142,7 +144,7 @@ fn story_counts(w: &afm_engine::world::World, seat: &str) {
     let mut again = Vec::new();
     for s in &all {
         let mut v: Vec<&str> = Vec::new();
-        for b in s.beats.iter().filter(|b| told(&b.what) && !b.text.is_empty()) {
+        for b in s.beats.iter().filter(|b| told(&b.what) && !b.text.is_empty() && b.date.0 >= since.0) {
             if v.iter().any(|t| *t == b.text) {
                 again.push(format!("{} #{}: {}", s.def().key, s.id, b.text));
             }
@@ -579,7 +581,7 @@ fn main() {
         if std::env::var_os("AFM_SEAT_STORIES").is_some()
             && let Some(w) = g.world.as_ref()
         {
-            story_counts(w, seat);
+            story_counts(w, seat, begin);
         }
         // The stories wrote your year (lane 8): your hire and games on the
         // timeline, and your office opened.
