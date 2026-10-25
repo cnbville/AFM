@@ -480,8 +480,10 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         let fam = if slot.is_line() { Family::Front } else { cov_fam };
         // Measured against a starter who knows his job well (0.9).
         let slow = 0.12 * (0.9 - sim.player(i).know[fam as usize] as f64);
+        // A week of poor prep reads late, a sharp one a touch early (TR38).
+        let prep = 0.1 * (sim.player(i).prep as f64 - 1.0);
         let freeze = if jet && slot.is_lb() { 0.10 * bite } else { 0.0 };
-        sim.agents[i].read_at = (base + extra + tend + slow + freeze + 0.12 * tac.novelty).max(0.12);
+        sim.agents[i].read_at = (base + extra + tend + slow + prep + freeze + 0.12 * tac.novelty).max(0.12);
     }
 
     // Busted assignments (topic 3): players who don't know the playbook.
@@ -505,6 +507,8 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     for i in 0..sim.agents.len() {
         let gp = sim.player(i);
         let iq = gp.a(Attr::FootballIq);
+        // His week's prep (TR38): up to about a third more busts.
+        let prep = gp.prep as f64;
         let fam = if i < off_n {
             tac.family
         } else if slot_of[i].is_some_and(|d| d.is_line()) {
@@ -543,7 +547,8 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         };
         let p = ((1.0 - know) * 0.05 + (60.0 - iq).max(0.0) * 0.0006 + noise + check + install + lapse).max(0.0)
             * call
-            * chem;
+            * chem
+            * prep;
         if sim.rng.chance(p) {
             sim.agents[i].bust = true;
             let id = sim.agents[i].id;
@@ -577,6 +582,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             let pr = gp.a(Attr::PlayRecognition);
             let know = gp.know[Family::Front as usize] as f64;
             let disc = gp.trait20(Attr::Discipline, s.rules.level);
+            let prep = gp.prep as f64;
             let p = 0.035
                 + 0.002 * (65.0 - pr).max(-15.0)
                 + 0.06 * (1.0 - know)
@@ -584,6 +590,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 + if misdirect { 0.04 } else { 0.0 }
                 + if jet { 0.03 } else { 0.0 }
                 + 0.05 * tac.novelty;
+            let p = p * prep;
             if sim.rng.chance(clamp(p, 0.01, 0.35)) {
                 sim.agents[i].misfit = true;
                 let id = sim.agents[i].id;
@@ -2883,7 +2890,10 @@ fn quarterback(
     // fitted with it.
     let shown = (1.0 - 0.2 * (s.tac.pre_read - PRE_READ)) * if s.tac.fooled { 1.15 } else { 1.0 };
     // A man who holds for the big play stays on each read a little longer.
-    let per_read = clamp(0.62 - 0.0045 * (iq - 50.0), 0.3, 0.95) * shown * (1.0 + 0.6 * sim.lean(qb, Tend::Hold));
+    // A week of poor prep throws off his timing (TR38).
+    let prep = 1.0 + 0.3 * (sim.player(qb).prep as f64 - 1.0);
+    let per_read =
+        clamp(0.62 - 0.0045 * (iq - 50.0), 0.3, 0.95) * shown * (1.0 + 0.6 * sim.lean(qb, Tend::Hold)) * prep;
     // He stays on a read until that route has made its break.
     let developing = ps.read < ps.reads.len()
         && matches!(&sim.agents[ps.reads[ps.read]].job, Job::Route { pts, next, .. } if *next == 0 && pts.len() > 1);

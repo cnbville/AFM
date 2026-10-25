@@ -506,6 +506,16 @@ pub(crate) fn hometown(w: &World, p: &Person) -> String {
 }
 
 pub(crate) fn status_text(w: &World, p: &Person) -> String {
+    // Your players hurt in practice or on the non-football list.
+    let hurt =
+        w.training.hurt.iter().find(|h| h.id == p.player.id && h.from <= w.today && h.until > w.today).map(|h| {
+            let days = w.today.days_to(h.until);
+            let back = if days <= 7 { format!("{days} d") } else { format!("{} wk", (days + 6) / 7) };
+            match h.kind {
+                Some(k) => format!("Injured ({}), {back}", k.name().to_lowercase()),
+                None => format!("Non-football injury list, {back}"),
+            }
+        });
     if let Some(c) = &p.pro {
         use afm_engine::world::pro::Status;
         let s = match c.status {
@@ -518,7 +528,7 @@ pub(crate) fn status_text(w: &World, p: &Person) -> String {
         if c.out_weeks > 0 {
             return format!("Injured, {} wk", c.out_weeks);
         }
-        return s.to_string();
+        return hurt.unwrap_or_else(|| s.to_string());
     }
     if p.cal.portal.is_some() {
         return "In the portal".into();
@@ -532,8 +542,7 @@ pub(crate) fn status_text(w: &World, p: &Person) -> String {
     if p.sit_out > 0.0 || p.cal.sitting_transfer {
         return "Sitting out (transfer)".into();
     }
-    let _ = w;
-    String::new()
+    hurt.unwrap_or_default()
 }
 
 /// The schools that offered a recruit, once each: his early offers first

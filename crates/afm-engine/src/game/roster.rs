@@ -65,10 +65,24 @@ pub struct GamePlayer {
     /// staff adds when it orders the depth chart (section 6b topic 8).
     #[serde(default)]
     pub impression: f64,
+    /// His week's prep (update 2, lane 4, TR38): his mental errors on game
+    /// day against a prepared player's (busts, wrong fits, late reads; 1
+    /// changes nothing).
+    #[serde(default = "no_prep")]
+    pub prep: f32,
 }
 
 fn typical_chem() -> f32 {
     TYPICAL_CHEM
+}
+
+fn no_prep() -> f32 {
+    1.0
+}
+
+/// A player's game-day prep factor from his latest week's word.
+fn prep_of(p: &Player) -> f32 {
+    crate::training::prep::game_factor(crate::training::prep::latest(&p.train)) as f32
 }
 
 /// The chemistry where nothing changes.
@@ -104,6 +118,7 @@ impl GamePlayer {
             chem: TYPICAL_CHEM,
             links: crate::links::measure(p.position, &b, &p.attributes, p.game.recovery),
             impression: crate::training::impression(&p.train),
+            prep: prep_of(p),
         }
     }
 
@@ -118,6 +133,7 @@ impl GamePlayer {
         self.spot_r = Spot::ALL.map(|s| spot_rating(s, &p.attributes, b.weight));
         self.tend = p.tend;
         self.impression = crate::training::impression(&p.train);
+        self.prep = prep_of(p);
         self.links = crate::links::measure(p.position, &b, &p.attributes, p.game.recovery);
         if self.position != p.position {
             self.position = p.position;
@@ -415,11 +431,23 @@ pub struct Prep {
     pub packages: Vec<(u8, Vec<u32>)>,
     pub sheet: Vec<(u8, Vec<SheetCall>)>,
     pub stick: f64,
+    /// How much a road crowd gets to the offense against an average
+    /// staff's week (TR28: the speakers at practice; 1 changes nothing).
+    #[serde(default = "one")]
+    pub noise: f64,
+    /// Pre-snap fouls against an average staff's week (TR29: the officials'
+    /// rules clinic; 1 changes nothing).
+    #[serde(default = "one")]
+    pub rules: f64,
+}
+
+fn one() -> f64 {
+    1.0
 }
 
 impl Default for Prep {
     fn default() -> Prep {
-        Prep { fresh: 1.0, packages: Vec::new(), sheet: Vec::new(), stick: 0.0 }
+        Prep { fresh: 1.0, packages: Vec::new(), sheet: Vec::new(), stick: 0.0, noise: 1.0, rules: 1.0 }
     }
 }
 
