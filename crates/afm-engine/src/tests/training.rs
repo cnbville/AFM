@@ -483,3 +483,193 @@ fn the_training_store_stays_small() {
     assert!(std::mem::size_of::<Period>() <= 8);
     let _ = (Level::FBS, PlayingTime::Starter, Attr::Speed);
 }
+
+/// A college game week's Monday and the neutral week for it.
+fn game_week(season: i32, k: usize) -> (Frame, Date, Vec<Date>, Week) {
+    let (y, f) = college_frame(season);
+    let m = monday(y.cfb_weeks[k].add(-6));
+    let g = games_in(&y.cfb_weeks, m);
+    let slot = Slot::of(block_of_week(&f, m), !g.is_empty(), false);
+    let mut nk = week_from(slot, m, &g, &neutral(Tier::College, slot), &neutral(Tier::College, Slot::Bye));
+    fit(&mut nk, &books(&f, m, "", false));
+    (f, m, g, nk)
+}
+
+/// College players of 19 to 21 for the prep checks.
+fn college_players(n: usize, seed: &str) -> Vec<Player> {
+    prospects(n, seed, 1.0)
+        .into_iter()
+        .enumerate()
+        .map(|(k, mut p)| {
+            let mut rng = Rng::new(format!("{seed}{k}"));
+            while p.age < 19 + (k % 3) as u32 {
+                yearly(&mut p, &mut rng);
+            }
+            p
+        })
+        .collect()
+}
+
+/// TR36, TR38 and TR41: an average staff's week is neutral. Its two-deep
+/// reads mostly Prepared, the hard workers Sharp, a few Patchy or worse,
+/// and the game-day factor averages about 1. A week with the classroom
+/// cut leaves most of them unprepared.
+#[test]
+fn an_average_week_leaves_the_two_deep_prepared() {
+    use crate::training::prep::{self, Status, WORDS, game_factor, prep_week, read};
+    let (_, m, _, nk) = game_week(2024, 5);
+    let pw = prep_week(&nk, &nk, false, false);
+    assert!(pw.game && !pw.none);
+    let players = college_players(600, "prep-cal");
+    let key = prep::key(7, m);
+    let words_for = |pw: &prep::PrepWeek| {
+        let mut n = [0usize; 6];
+        let mut f = Vec::new();
+        for (k, p) in players.iter().enumerate() {
+            let role = if k % 2 == 0 { Role::Starter } else { Role::Backup };
+            let x = read(p, &pw.r[role as usize], pw.game, pw.test, pw.days, Status::Full, Tier::College, 2024, 2, key);
+            n[x.word as usize] += 1;
+            f.push(game_factor(x.word));
+        }
+        (n.map(|c| c as f64 / players.len() as f64), mean(&f))
+    };
+    let (share, factor) = words_for(&pw);
+    for w in (1..6).rev() {
+        println!("{:<14} {:>5.1}%", WORDS[w], 100.0 * share[w]);
+    }
+    println!("mean game factor {factor:.3}");
+    assert!(share[4] > share[5] && share[4] > share[3], "Prepared is the usual word");
+    assert!(share[4] + share[5] > 0.65 && share[5] > 0.08, "{share:?}");
+    assert!(share[1] + share[2] < 0.12, "{share:?}");
+    assert!((0.97..=1.03).contains(&factor), "{factor}");
+    // The classroom cut: no meetings, installs, film, walkthroughs or study.
+    let mut cut = nk.clone();
+    for d in &mut cut.days {
+        d.periods.retain(|p| {
+            !matches!(
+                p.kind,
+                Kind::Meeting
+                    | Kind::Install
+                    | Kind::Film
+                    | Kind::Walkthrough
+                    | Kind::PlanTest
+                    | Kind::Signals
+                    | Kind::HomeStudy
+                    | Kind::VrReps
+            )
+        });
+    }
+    let (poor, factor) = words_for(&prep_week(&cut, &nk, false, false));
+    println!("classroom cut: {:.0}% under or unprepared, factor {factor:.3}", 100.0 * (poor[1] + poor[2]));
+    assert!(poor[1] + poor[2] > 0.8, "{poor:?}");
+    assert!(factor > 1.15);
+    // An average staff's own week (the AI's default) reads as the neutral
+    // week does.
+    let (f, _, g, _) = game_week(2024, 5);
+    let (_, ai) = work_out(Tier::College, &f, m, &Style::default(), &g, false, "", false);
+    let r = prep_week(&ai, &nk, false, false).r[Role::Starter as usize];
+    println!("the average staff's week against the neutral week: {r:?}");
+    assert!(r[..6].iter().all(|x| (0.85..=1.15).contains(x)), "{r:?}");
+}
+
+/// TR39 and TR40: five unprepared weeks rust his reading and his
+/// position's technique by about 3 points and slow his growth in technique,
+/// kicking and the mental side by about an eighth; two or three prepared
+/// weeks win it back. One poor week does nothing lasting.
+#[test]
+fn a_run_of_poor_prep_rusts_and_comes_back() {
+    use crate::training::prep::{READING, growth_factor, record, rust, slows, technique, unrust};
+    let mut p = college_players(1, "rust").remove(0);
+    let tech = technique(p.position);
+    let read0: Vec<f64> = READING.iter().map(|&a| p.attributes.get(a)).collect();
+    let tech0: Vec<f64> = tech.iter().map(|&a| p.attributes.get(a)).collect();
+    record(&mut p, 1, 0.5);
+    assert_eq!(rust(&p.train), (0.0, 0.0), "one poor week leaves no rust");
+    record(&mut p, 4, 0.5);
+    for _ in 0..5 {
+        record(&mut p, 1, 0.5);
+    }
+    let (rd, tc) = rust(&p.train);
+    let g = growth_factor(&p.train);
+    println!("after five unprepared weeks: reading -{rd:.1}, technique -{tc:.1}, growth x{g:.3}");
+    assert!((2.5..=3.0).contains(&rd) && (2.5..=3.0).contains(&tc));
+    for (k, &a) in READING.iter().enumerate() {
+        assert!((read0[k] - p.attributes.get(a) - rd).abs() < 0.05);
+    }
+    assert!((0.85..=0.9).contains(&g));
+    let mut s = [1.0; FAMILIES];
+    crate::training::prep::slow(&p.train, &mut s);
+    assert!((0..FAMILIES).all(|f| (s[f] < 1.0) == slows(f)));
+    // Three prepared weeks win it all back.
+    for _ in 0..3 {
+        record(&mut p, 4, 0.5);
+    }
+    assert_eq!(rust(&p.train), (0.0, 0.0));
+    for (k, &a) in READING.iter().enumerate() {
+        assert!((read0[k] - p.attributes.get(a)).abs() < 1e-3);
+    }
+    for (k, &a) in tech.iter().enumerate() {
+        assert!((tech0[k] - p.attributes.get(a)).abs() < 1e-3);
+    }
+    // A position change gives the rust back first.
+    for _ in 0..3 {
+        record(&mut p, 2, 1.0);
+    }
+    assert!(rust(&p.train).0 > 0.0);
+    unrust(&mut p);
+    assert_eq!(rust(&p.train), (0.0, 0.0));
+    assert!((read0[0] - p.attributes.get(READING[0])).abs() < 1e-3);
+}
+
+/// TR16-TR35: the new kinds come in their eras (vision and VR at the big
+/// programs and the NFL from 2010 and 2015, nutrition and mobility later at
+/// smaller levels) and each grows only what it works.
+#[test]
+fn the_new_period_kinds_keep_their_eras() {
+    use crate::training::plan::available;
+    assert!(!available(Kind::VrReps, Tier::Pro, 2014, true) && available(Kind::VrReps, Tier::Pro, 2015, true));
+    assert!(!available(Kind::VrReps, Tier::College, 2020, false));
+    assert!(!available(Kind::Vision, Tier::College, 2009, true) && available(Kind::Vision, Tier::College, 2010, true));
+    assert!(!available(Kind::Vision, Tier::High, 2025, false));
+    assert!(
+        !available(Kind::Nutrition, Tier::High, 2009, false) && available(Kind::Nutrition, Tier::High, 2010, false)
+    );
+    assert!(!available(Kind::Mobility, Tier::College, 2004, true));
+    assert!(available(Kind::HomeStudy, Tier::High, 1995, false));
+    // The classroom grows the mental side only; mat drills mostly
+    // conditioning; mobility speed and movement.
+    let one = |kind: Kind| {
+        let mut wk = Week::default();
+        wk.days[1].periods.push(Period::new(kind, 60, Gear::None, Contact::Air));
+        week_work(&wk, Role::Starter, false, 1.0)
+    };
+    for kind in [Kind::Vision, Kind::VrReps, Kind::MentalSkills, Kind::RulesClinic, Kind::Signals, Kind::HomeStudy] {
+        let w = one(kind);
+        assert!(w[Family::Mental as usize] > 0.0, "{kind:?}");
+        assert!((0..FAMILIES).all(|f| f == Family::Mental as usize || w[f] == 0.0), "{kind:?} {w:?}");
+    }
+    let mats = one(Kind::MatDrills);
+    assert!(mats[Family::Conditioning as usize] > mats[Family::Speed as usize]);
+    assert!(one(Kind::Mobility)[Family::Speed as usize] > 0.0);
+    for kind in [Kind::Recovery, Kind::StudyHall, Kind::Nutrition, Kind::Council, Kind::TeamBuilding] {
+        assert!(one(kind).iter().all(|&x| x == 0.0), "{kind:?}");
+    }
+}
+
+#[test]
+fn an_injury_healing_on_tuesday_keeps_the_week_and_the_page_reads_the_pass() {
+    use crate::training::prep::{mark_out, out_this_week, record, was_out, words};
+    // Monday's read comes before Tuesday's healing: one week left means he
+    // practises from Wednesday and plays on Sunday.
+    assert!(!out_this_week(0) && !out_this_week(1) && out_this_week(2));
+    let mut p = college_players(1, "out").remove(0);
+    record(&mut p, 4, 0.5);
+    record(&mut p, 1, 0.5);
+    mark_out(&mut p.train);
+    assert!(was_out(&p.train));
+    assert_eq!(words(&p.train)[..2], [1, 4], "the mark leaves the words alone");
+    // The next week's record clears it.
+    record(&mut p, 5, 0.5);
+    assert!(!was_out(&p.train));
+    assert_eq!(words(&p.train)[..3], [5, 1, 4]);
+}

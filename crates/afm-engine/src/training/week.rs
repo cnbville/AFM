@@ -5,7 +5,7 @@
 //! share one worked-out week, so a full world's Monday stays quick. Your
 //! own team runs its real plan (`seat::week`).
 
-use super::plan::{Slot, Template, Week, fit, fit_block, neutral, styled, week_from};
+use super::plan::{Slot, Template, Week, extras, fit, fit_block, neutral, styled, week_from};
 use super::rules::{BLOCKS, Block, Book, Counts, Frame, Tier, block_limits, book, weekly_base};
 use super::work::{ROLES, Role, ratio, week_load, week_work};
 use super::{FAMILIES, cover, owe, settle};
@@ -33,6 +33,8 @@ pub struct TeamWeek {
     pub voluntary: bool,
     /// The week's live team snaps (`practice::team_snaps`).
     pub battle: Vec<(super::plan::Kind, super::plan::Who, u8, f32)>,
+    /// What the week gives each role for its prep (TR36, TR42).
+    pub prep: super::prep::PrepWeek,
 }
 
 /// The year's frames: each college division, the NFL, each state.
@@ -55,7 +57,8 @@ impl Frames {
             (y.d2_regular_end, false),
             (y.juco_regular_end, true),
         ];
-        let college = div.map(|(end, spring)| Frame::college(y, end, spring));
+        let mut college = div.map(|(end, spring)| Frame::college(y, end, spring));
+        college[Division::FBS as usize].big = true;
         let college_weeks = college.map(|f| f.weeks());
         let pro = Frame::pro(y, false);
         let states = w
@@ -94,7 +97,7 @@ pub fn books(f: &Frame, monday: Date, state: &str, heat: bool) -> [Book; 7] {
     std::array::from_fn(|k| {
         let d = monday.add(k as i32);
         let b = f.block(d);
-        book(f.tier, b, f.season, camp_day(f, d), state, heat)
+        Book { big: f.big, ..book(f.tier, b, f.season, camp_day(f, d), state, heat) }
     })
 }
 
@@ -174,6 +177,7 @@ pub fn staff_week(
     let build = |m: Date, g: &[Date]| {
         let slot = Slot::of(block, !g.is_empty(), bowl);
         let mut wk = week_from(slot, m, g, &tpl(slot), &tpl(Slot::Bye));
+        extras(f, m, &mut wk);
         fit(&mut wk, &books(f, m, state, heat));
         wk
     };
@@ -219,7 +223,8 @@ pub fn team_week(f: &Frame, block: Block, bk: &[Book; 7], wk: &Week, nk: &Week) 
     let voluntary = bk.iter().any(|b| b.voluntary);
     let _ = f;
     let battle = if own { Vec::new() } else { super::practice::team_snaps(wk) };
-    TeamWeek { block, r, load, risk, own, voluntary, battle }
+    let prep = super::prep::prep_week(wk, nk, camp, own);
+    TeamWeek { block, r, load, risk, own, voluntary, battle, prep }
 }
 
 /// How hard a player works on his own (topic 9): his professionalism and
@@ -256,6 +261,7 @@ pub(crate) fn monday(w: &mut World, d: Date) {
     let y = w.dates.clone();
     let frames = Frames::new(w, &y);
     let seed = w.options.seed as u64 ^ (d.0 as u64) << 24 ^ 0x7EA1;
+    let pkey = super::prep::key(w.options.seed as u64, d);
     // Your team first: its real plan, its battles, its notes.
     let seat_people = crate::world::clock::timed("training seat", || super::seat::week(w, d, &frames));
     // The week's games by team.
@@ -400,6 +406,12 @@ pub(crate) fn monday(w: &mut World, d: Date) {
     timed("training schools", || super::practice::school_grades(w, &school_snaps, seed ^ 0x5C4));
     // NFL clubs' practice risk for the week's practice injuries.
     w.training.club_risk = club_key.iter().map(|k| worked[k].risk as f32).collect();
+    // Your club practises your own week (`seat::week` set its risk).
+    if w.training.my_risk > 0.0
+        && let Some(t) = (0..w.training.club_risk.len()).find(|&t| w.seat_club(t))
+    {
+        w.training.club_risk[t] = w.training.my_risk;
+    }
     // Each pro's place on his club's depth chart.
     let mut pro_role: HashMap<usize, Role> = HashMap::new();
     for (t, c) in w.clubs.iter().enumerate() {
@@ -430,77 +442,152 @@ pub(crate) fn monday(w: &mut World, d: Date) {
     let n_progs = programs.len();
     let _ = n_progs;
     let year = w.year;
-    people.par_iter_mut().enumerate().for_each(|(i, p)| {
-        if skip[i] {
-            return;
-        }
-        let (frame, weeks, tw, role) = match p.stage {
-            Stage::HighSchool | Stage::PrepSchool => {
-                let s = schools[p.hs].state;
-                let (f, wk, _, _) = &frames.states[s];
-                (f, wk, worked.get(&school_key[p.hs]), Role::of(p.player.position, p.last_role))
+    // Stars missing a voluntary week (TR11: it makes news).
+    let missing: Vec<usize> = people
+        .par_iter_mut()
+        .enumerate()
+        .filter_map(|(i, p)| {
+            if skip[i] {
+                return None;
             }
-            Stage::College => {
-                let Some(c) = p.college else { return };
-                let (f, wk) = frames.division(programs[c].division);
-                (f, wk, worked.get(&prog_key[c]), Role::of(p.player.position, p.last_role))
+            let (frame, weeks, tw, role) = match p.stage {
+                Stage::HighSchool | Stage::PrepSchool => {
+                    let s = schools[p.hs].state;
+                    let (f, wk, _, _) = &frames.states[s];
+                    (f, wk, worked.get(&school_key[p.hs]), Role::of(p.player.position, p.last_role))
+                }
+                Stage::College => {
+                    let c = p.college?;
+                    let (f, wk) = frames.division(programs[c].division);
+                    (f, wk, worked.get(&prog_key[c]), Role::of(p.player.position, p.last_role))
+                }
+                Stage::Declared => {
+                    let (f, wk) = frames.division(Division::FBS);
+                    (f, wk, None, Role::Young)
+                }
+                Stage::Pro => {
+                    let team = p.pro.as_ref().and_then(|c| c.team);
+                    let tw = team.and_then(|t| club_key.get(t)).and_then(|k| worked.get(k));
+                    (&frames.pro, &frames.pro_weeks, tw, *pro_role.get(&i).unwrap_or(&Role::Young))
+                }
+                Stage::Done | Stage::Away => return None,
+            };
+            let block = block_of_week(frame, d);
+            let out = p.pro.as_ref().is_some_and(|c| super::prep::out_this_week(c.out_weeks));
+            let absent = tw.is_some_and(|tw| !tw.own && tw.voluntary) && !attends(&p.player, pkey);
+            let load = match tw {
+                Some(tw) if !tw.own && !out => tw.load[role as usize],
+                _ => 150.0,
+            };
+            p.player.train.add_load(load);
+            // A high schooler's other sport (topic 10).
+            let sport = if matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) {
+                super::offseason::sport_ratio(&p.player, block, d)
+            } else {
+                None
+            };
+            // The week's prep (TR36-TR42): what he really did, a run of it
+            // rusting or winning back his reading and technique.
+            match tw {
+                Some(tw) if !tw.prep.none => {
+                    let (tier, years) = match p.stage {
+                        Stage::HighSchool | Stage::PrepSchool => (Tier::High, p.player.age.saturating_sub(14)),
+                        Stage::College => (Tier::College, p.college_seasons),
+                        _ => (Tier::Pro, p.pro.as_ref().map_or(0, |c| c.seasons.len() as u32)),
+                    };
+                    use super::prep::Status;
+                    let status = if out {
+                        Status::Out
+                    } else if absent {
+                        Status::Absent
+                    } else if sport.is_some() {
+                        Status::Away
+                    } else {
+                        Status::Full
+                    };
+                    let pw = &tw.prep;
+                    let pr = super::prep::read(
+                        &p.player,
+                        &pw.r[role as usize],
+                        pw.game,
+                        pw.test,
+                        pw.days,
+                        status,
+                        tier,
+                        frame.season,
+                        years,
+                        pkey,
+                    );
+                    super::prep::record(&mut p.player, pr.word, pr.mental);
+                }
+                _ => super::prep::record(&mut p.player, 0, 0.5),
             }
-            Stage::Declared => {
-                let (f, wk) = frames.division(Division::FBS);
-                (f, wk, None, Role::Young)
+            let star = absent
+                && p.stage == Stage::Pro
+                && p.last_role == Some(crate::player::PlayingTime::Starter)
+                && p.player.overall() >= 82.0;
+            if !p.player.train.pending() {
+                return star.then_some(i);
             }
-            Stage::Pro => {
-                let team = p.pro.as_ref().and_then(|c| c.team);
-                let tw = team.and_then(|t| club_key.get(t)).and_then(|k| worked.get(k));
-                (&frames.pro, &frames.pro_weeks, tw, *pro_role.get(&i).unwrap_or(&Role::Young))
+            let base = weekly_base(frame, weeks, block);
+            let b = cover(&mut p.player.train, &base);
+            let own = |p: &crate::world::Person| {
+                let c = p.pro.as_ref();
+                let last_year =
+                    c.and_then(|c| c.contract.as_ref()).is_some_and(|k| k.signed + k.years.len() as i32 - 1 <= year);
+                [super::offseason::own_effort(&p.player, c.is_some_and(|c| c.paid), last_year); FAMILIES]
+            };
+            let mut r = match tw {
+                Some(tw) if !tw.own && !absent => tw.r[role as usize],
+                _ => own(p),
+            };
+            if let Some((_, sr)) = sport {
+                for f in 0..FAMILIES {
+                    r[f] *= sr[f];
+                }
             }
-            Stage::Done | Stage::Away => return,
-        };
-        let block = block_of_week(frame, d);
-        let out = p.pro.as_ref().is_some_and(|c| c.out_weeks > 0);
-        let load = match tw {
-            Some(tw) if !tw.own && !out => tw.load[role as usize],
-            _ => 150.0,
-        };
-        p.player.train.add_load(load);
-        if !p.player.train.pending() {
-            return;
-        }
-        let base = weekly_base(frame, weeks, block);
-        let b = cover(&mut p.player.train, &base);
-        let own = |p: &crate::world::Person| {
-            let c = p.pro.as_ref();
-            let last_year =
-                c.and_then(|c| c.contract.as_ref()).is_some_and(|k| k.signed + k.years.len() as i32 - 1 <= year);
-            [super::offseason::own_effort(&p.player, c.is_some_and(|c| c.paid), last_year); FAMILIES]
-        };
-        let mut r = match tw {
-            Some(tw) if !tw.own && (!tw.voluntary || attends(&p.player, seed)) => tw.r[role as usize],
-            _ => own(p),
-        };
-        // A high schooler's other sport (topic 10).
-        if matches!(p.stage, Stage::HighSchool | Stage::PrepSchool)
-            && let Some((_, sr)) = super::offseason::sport_ratio(&p.player, block, d)
-        {
-            for f in 0..FAMILIES {
-                r[f] *= sr[f];
+            // Hurt: rehab keeps a little of the body work, nothing else.
+            let attend = if out {
+                r = [0.6, 0.4, 0.4, 0.1, 0.0, 0.2, 0.5];
+                0.7
+            } else {
+                1.0
+            };
+            let mut s = super::work::share(&b, &r, attend);
+            // A run of poor prep slows the season's growth (TR40).
+            super::prep::slow(&p.player.train, &mut s);
+            let last = frame.block(d.add(7)) != block;
+            if owe(&mut p.player.train, &s) || last {
+                settle(&mut p.player, None, seed);
             }
-        }
-        // Hurt: rehab keeps a little of the body work, nothing else.
-        let attend = if out {
-            r = [0.6, 0.4, 0.4, 0.1, 0.0, 0.2, 0.5];
-            0.7
-        } else {
-            1.0
-        };
-        let s = super::work::share(&b, &r, attend);
-        let last = frame.block(d.add(7)) != block;
-        if owe(&mut p.player.train, &s) || last {
-            settle(&mut p.player, None, seed);
-        }
-    });
+            star.then_some(i)
+        })
+        .collect();
+    if block_of_week(&frames.pro, d) == Block::Otas {
+        absent_news(w, &missing);
+    }
     // The week's growth reaches the college teams kept for the season.
     refresh_college_teams(w);
+}
+
+/// Stars missing a voluntary OTA week make the news (TR11): the three best
+/// a week, by name and club.
+fn absent_news(w: &mut World, missing: &[usize]) {
+    use crate::calendar::{Level, Loudness};
+    use crate::world::stories::{TeamKey, news, post};
+    let mut list: Vec<usize> = missing.to_vec();
+    list.sort_by(|&a, &b| w.people[b].player.overall().total_cmp(&w.people[a].player.overall()));
+    for i in list.into_iter().take(3) {
+        let Some(t) = w.people[i].pro.as_ref().and_then(|c| c.team) else { continue };
+        let (name, id) = (w.people[i].name.clone(), w.people[i].player.id);
+        let club = w.nfl_team_name(t);
+        let pos = w.people[i].player.position.name();
+        let text = format!("{name} ({pos}) is not at voluntary OTAs with the {club} this week.");
+        let e = news(w, Level::Nfl, Loudness::Small, Some(TeamKey::Nfl(t as u16)), text)
+            .person(id, &name)
+            .club_link(t, &club);
+        post(w, e);
+    }
 }
 
 /// The college teams the season keeps (built at camp) take the players'

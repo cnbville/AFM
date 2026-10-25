@@ -42,9 +42,50 @@ pub enum Kind {
     Young,
     /// Treatment, rehab and recovery: not countable.
     Recovery,
+    // The training week (update 2, lane 4: TR5-TR35). New kinds go at the
+    // end so older saves read the same.
+    /// Early-morning team competitions on the mats (TR6).
+    MatDrills,
+    /// The strength staff's testing: lifts, the 40, the shuttle, the jump (TR5).
+    Testing,
+    /// The week's new plays on the board before they're repped (TR17).
+    Install,
+    /// Flagged players at the academic center: academic, not countable (TR14).
+    StudyHall,
+    /// Quarterbacks and receivers with no defense (TR20); `what` 1 is the
+    /// players' own session with no staff.
+    OnAir,
+    /// Catching and ball security stations: the JUGS machine, tennis
+    /// balls, the gauntlet (TR21).
+    BallSecurity,
+    /// Snap-hold-kick, punt catching, directional punting (TR22).
+    KickStations,
+    /// Mobility, yoga and pliability (TR23).
+    Mobility,
+    /// Vision and reaction training: strobe glasses, light boards (TR25).
+    Vision,
+    /// Virtual reality reps for quarterbacks (TR26).
+    VrReps,
+    /// Mental skills with a sports psychologist (TR27).
+    MentalSkills,
+    /// Officials at practice on the year's rules (TR29).
+    RulesClinic,
+    /// A written quiz on the game plan (TR30).
+    PlanTest,
+    /// Nutrition with the dietitian (TR31).
+    Nutrition,
+    /// The leadership council and player-led meetings (TR32).
+    Council,
+    /// Away from the field: community service, team dinners (TR33).
+    TeamBuilding,
+    /// The secondary's calls, the line's protection calls, the sideline
+    /// signals (TR34).
+    Signals,
+    /// Home study on the tablet or the playbook (TR35).
+    HomeStudy,
 }
 
-pub const KINDS: usize = 17;
+pub const KINDS: usize = 35;
 
 impl Kind {
     pub const ALL: [Kind; KINDS] = [
@@ -65,6 +106,24 @@ impl Kind {
         Kind::Film,
         Kind::Young,
         Kind::Recovery,
+        Kind::MatDrills,
+        Kind::Testing,
+        Kind::Install,
+        Kind::StudyHall,
+        Kind::OnAir,
+        Kind::BallSecurity,
+        Kind::KickStations,
+        Kind::Mobility,
+        Kind::Vision,
+        Kind::VrReps,
+        Kind::MentalSkills,
+        Kind::RulesClinic,
+        Kind::PlanTest,
+        Kind::Nutrition,
+        Kind::Council,
+        Kind::TeamBuilding,
+        Kind::Signals,
+        Kind::HomeStudy,
     ];
 
     pub fn name(self) -> &'static str {
@@ -86,6 +145,24 @@ impl Kind {
             "film",
             "young",
             "recovery",
+            "mat_drills",
+            "testing",
+            "install",
+            "study_hall",
+            "on_air",
+            "ball_security",
+            "kick_stations",
+            "mobility",
+            "vision",
+            "vr_reps",
+            "mental_skills",
+            "rules_clinic",
+            "plan_test",
+            "nutrition",
+            "council",
+            "team_building",
+            "signals",
+            "home_study",
         ][self as usize]
     }
 
@@ -108,6 +185,24 @@ impl Kind {
             "Film",
             "Young players",
             "Treatment and recovery",
+            "Mat drills",
+            "Testing",
+            "Install",
+            "Study hall",
+            "Routes on air",
+            "Ball security",
+            "Kicking stations",
+            "Mobility and yoga",
+            "Vision and reaction",
+            "VR reps",
+            "Mental skills",
+            "Rules clinic",
+            "Game plan test",
+            "Nutrition",
+            "Leadership council",
+            "Team building",
+            "Signals and communication",
+            "Home study",
         ][self as usize]
     }
 
@@ -118,24 +213,129 @@ impl Kind {
     /// The colour group the planner shows it in.
     pub fn group(self) -> &'static str {
         match self {
-            Kind::WarmUp | Kind::Conditioning | Kind::Speed | Kind::WeightRoom | Kind::Recovery => "body",
-            Kind::Individual | Kind::OneOnOnes | Kind::Young => "technique",
+            Kind::WarmUp
+            | Kind::Conditioning
+            | Kind::Speed
+            | Kind::WeightRoom
+            | Kind::Recovery
+            | Kind::MatDrills
+            | Kind::Testing
+            | Kind::Mobility
+            | Kind::Nutrition => "body",
+            Kind::Individual | Kind::OneOnOnes | Kind::Young | Kind::OnAir | Kind::BallSecurity => "technique",
             Kind::InsideRun | Kind::SevenOnSeven | Kind::Team | Kind::Scrimmage => "team",
             Kind::Situations | Kind::Walkthrough => "situations",
-            Kind::SpecialTeams => "special",
-            Kind::Meeting | Kind::Film => "classroom",
+            Kind::SpecialTeams | Kind::KickStations => "special",
+            Kind::Meeting
+            | Kind::Film
+            | Kind::Install
+            | Kind::Vision
+            | Kind::VrReps
+            | Kind::MentalSkills
+            | Kind::RulesClinic
+            | Kind::PlanTest
+            | Kind::Signals
+            | Kind::HomeStudy
+            | Kind::StudyHall => "classroom",
+            Kind::Council | Kind::TeamBuilding => "people",
         }
+    }
+
+    /// The family a screen files it under (the training week's nine: the
+    /// seven that grow, recovery and the team), by its contact for the
+    /// periods that can go either way.
+    pub fn shown_family(self, contact: Contact) -> Option<&'static str> {
+        Some(match self {
+            Kind::WeightRoom | Kind::Testing | Kind::Nutrition => "Strength",
+            Kind::Speed | Kind::WarmUp => "Speed and movement",
+            Kind::Conditioning | Kind::MatDrills => "Conditioning",
+            Kind::InsideRun | Kind::Team | Kind::Scrimmage | Kind::OneOnOnes | Kind::Situations | Kind::Young
+                if contact.full() =>
+            {
+                "Contact"
+            }
+            Kind::Individual
+            | Kind::OneOnOnes
+            | Kind::Young
+            | Kind::InsideRun
+            | Kind::SevenOnSeven
+            | Kind::Team
+            | Kind::Scrimmage
+            | Kind::Situations
+            | Kind::OnAir
+            | Kind::BallSecurity => "Technique",
+            Kind::SpecialTeams | Kind::KickStations => "Kicking",
+            Kind::Meeting
+            | Kind::Film
+            | Kind::Walkthrough
+            | Kind::Install
+            | Kind::Vision
+            | Kind::VrReps
+            | Kind::MentalSkills
+            | Kind::RulesClinic
+            | Kind::PlanTest
+            | Kind::Signals
+            | Kind::HomeStudy => "Mental",
+            Kind::Recovery | Kind::Mobility => "Recovery",
+            Kind::Council | Kind::TeamBuilding => "Team",
+            Kind::StudyHall => return None,
+        })
     }
 
     /// On the practice field (with coaches and a ball).
     pub fn on_field(self) -> bool {
-        !matches!(self, Kind::WeightRoom | Kind::Meeting | Kind::Film | Kind::Recovery)
+        !matches!(
+            self,
+            Kind::WeightRoom
+                | Kind::Meeting
+                | Kind::Film
+                | Kind::Recovery
+                | Kind::MatDrills
+                | Kind::Testing
+                | Kind::Install
+                | Kind::StudyHall
+                | Kind::Mobility
+                | Kind::Vision
+                | Kind::VrReps
+                | Kind::MentalSkills
+                | Kind::RulesClinic
+                | Kind::PlanTest
+                | Kind::Nutrition
+                | Kind::Council
+                | Kind::TeamBuilding
+                | Kind::Signals
+                | Kind::HomeStudy
+        )
+    }
+
+    /// The strength staff's own work: allowed when football isn't (the
+    /// NCAA's winter, the NFL's phase 1).
+    pub fn strength_staff(self) -> bool {
+        matches!(self, Kind::Conditioning | Kind::Speed | Kind::MatDrills | Kind::Testing | Kind::Mobility)
     }
 
     /// A practice in the rule books' count: a ball and coaches on the
     /// field, not a conditioning or speed session.
     pub fn practice(self) -> bool {
         self.on_field() && !matches!(self, Kind::Conditioning | Kind::Speed | Kind::WarmUp)
+    }
+
+    /// Counted against the rules (the NCAA's countable athletically related
+    /// activities): not treatment, academics, the dietitian, voluntary
+    /// meetings and outings, a psychologist's opt-in sessions or the
+    /// players' own study (proposed, not confirmed: how the NCAA's
+    /// countable hours read each).
+    pub fn counted(self) -> bool {
+        !matches!(
+            self,
+            Kind::Recovery
+                | Kind::StudyHall
+                | Kind::Nutrition
+                | Kind::Council
+                | Kind::TeamBuilding
+                | Kind::MentalSkills
+                | Kind::HomeStudy
+        )
     }
 
     /// Offense against defense.
@@ -146,8 +346,36 @@ impl Kind {
         )
     }
 
+    /// Film and meetings in the rules' count (the NCAA's two hours out of
+    /// season).
     pub fn film(self) -> bool {
-        matches!(self, Kind::Meeting | Kind::Film | Kind::Walkthrough)
+        matches!(
+            self,
+            Kind::Meeting
+                | Kind::Film
+                | Kind::Walkthrough
+                | Kind::Install
+                | Kind::VrReps
+                | Kind::RulesClinic
+                | Kind::PlanTest
+                | Kind::Signals
+        )
+    }
+
+    /// Classroom, mind or body work that readies a player for the week's
+    /// plan (TR36): meetings, installs, film, walkthroughs, tests.
+    pub fn study(self) -> bool {
+        matches!(
+            self,
+            Kind::Meeting
+                | Kind::Film
+                | Kind::Walkthrough
+                | Kind::Install
+                | Kind::VrReps
+                | Kind::PlanTest
+                | Kind::Signals
+                | Kind::HomeStudy
+        )
     }
 
     /// Practice snaps a minute at normal tempo (a rep every 30-45 seconds
@@ -279,9 +507,14 @@ pub struct Period {
     pub who: Who,
     /// The situation for team and situation periods (`SITUATIONS`); for a
     /// team period 0 is base work and 1+ this week's install against the
-    /// opponent's looks.
+    /// opponent's looks. For the kinds with sub-kinds it is the sub-kind
+    /// (`Period::name`): which meeting, which film, which walkthrough,
+    /// which install, which outing; routes on air 1 is the players' own.
     #[serde(default)]
     pub what: u8,
+    /// Crowd noise on (TR28): speakers before a loud road game.
+    #[serde(default)]
+    pub noise: bool,
 }
 
 impl Period {
@@ -292,7 +525,144 @@ impl Period {
             _ => Who::All,
         };
         let tempo = if kind == Kind::Walkthrough { Tempo::Walk } else { Tempo::Normal };
-        Period { kind, min, gear, contact, tempo, who, what: 0 }
+        Period { kind, min, gear, contact, tempo, who, what: 0, noise: false }
+    }
+
+    /// The players' own session with no staff (routes on air, `what` 1):
+    /// not counted, allowed when the staff may run nothing.
+    pub fn own(&self) -> bool {
+        self.kind == Kind::OnAir && self.what == 1
+    }
+
+    /// Counted against the rules' hours (the NCAA's countable activities).
+    pub fn counted(&self) -> bool {
+        self.kind.counted() && !self.own()
+    }
+
+    /// A practice in the rule books' count.
+    pub fn practice(&self) -> bool {
+        self.kind.practice() && !self.own()
+    }
+
+    /// What happens when the staff may run nothing: the players' own
+    /// sessions and study hall (academic) stay.
+    pub fn players_own(&self) -> bool {
+        self.own() || self.kind == Kind::StudyHall
+    }
+
+    /// The period's name on a screen, with its sub-kind.
+    pub fn name(&self) -> String {
+        let pick = |l: &[&str]| l[(self.what as usize).min(l.len() - 1)].to_string();
+        match self.kind {
+            Kind::Meeting => pick(&MEETINGS),
+            Kind::Film => pick(&FILMS),
+            Kind::Walkthrough => pick(&WALKS),
+            Kind::Install => pick(&INSTALLS),
+            Kind::TeamBuilding => pick(&OUTINGS),
+            Kind::Recovery => pick(&RECOVERY),
+            Kind::OnAir if self.own() => "Throwing on air (players' own)".to_string(),
+            Kind::WeightRoom if self.what == 1 => "Weight room (in season)".to_string(),
+            _ => self.kind.label().to_string(),
+        }
+    }
+
+    fn on(mut self, gear: Gear, contact: Contact) -> Period {
+        self.gear = gear;
+        self.contact = contact;
+        self
+    }
+
+    fn w(mut self, what: u8) -> Period {
+        self.what = what;
+        self
+    }
+
+    fn loud(mut self) -> Period {
+        self.noise = true;
+        self
+    }
+
+    fn at(mut self, t: Tempo) -> Period {
+        self.tempo = t;
+        self
+    }
+}
+
+/// The sub-kinds of the kinds that have them (`Period::what`), for the
+/// screens: meetings (TR16), film (TR18), walkthroughs (TR19), installs
+/// (TR17), outings (TR33) and recovery (TR7, TR24).
+pub const MEETINGS: [&str; 3] = ["Team meeting", "Unit meetings", "Position meetings"];
+pub const FILMS: [&str; 6] = [
+    "Film: the opponent",
+    "Film: self-scout",
+    "Film: practice tape",
+    "Film: situation cut-ups",
+    "Film: the new system",
+    "Film: the game, graded",
+];
+pub const WALKS: [&str; 3] = ["Walkthrough: jog-through", "Mock game", "Hotel walkthrough"];
+pub const INSTALLS: [&str; 5] = [
+    "Install: base downs",
+    "Install: third down",
+    "Install: red zone and goal line",
+    "Install: two-minute and situations",
+    "Install: the new system",
+];
+pub const OUTINGS: [&str; 4] = ["Team dinner", "Community service", "Pasta dinner", "Team outing"];
+pub const RECOVERY: [&str; 2] = ["Treatment and recovery", "Rehab group"];
+
+impl Kind {
+    /// The sub-kinds a screen offers for this kind (empty: none).
+    pub fn whats(self) -> &'static [&'static str] {
+        match self {
+            Kind::Meeting => &MEETINGS,
+            Kind::Film => &FILMS,
+            Kind::Walkthrough => &WALKS,
+            Kind::Install => &INSTALLS,
+            Kind::TeamBuilding => &OUTINGS,
+            Kind::Recovery => &RECOVERY,
+            Kind::OnAir => &["With the staff", "The players' own"],
+            Kind::WeightRoom => &["Weight room", "In season"],
+            Kind::Team | Kind::Situations => &SITUATIONS,
+            _ => &[],
+        }
+    }
+}
+
+/// Whether a kind of period exists at a level in an era (proposed, not
+/// confirmed): virtual reality headsets from 2015 and vision boards from
+/// 2010, at FBS programs and NFL clubs; a sports psychologist's sessions
+/// from 2005 at the top, 2015 elsewhere in college, not at a high school;
+/// a dietitian from 2000 in the NFL, 2005 at the top of college, 2015
+/// elsewhere, a high school's visiting dietitian from 2010; mobility and
+/// yoga from 2000 in the NFL, 2005 in college, 2012 at a high school.
+pub fn available(kind: Kind, tier: Tier, season: i32, big: bool) -> bool {
+    match kind {
+        Kind::VrReps => big && tier != Tier::High && season >= 2015,
+        Kind::Vision => big && tier != Tier::High && season >= 2010,
+        Kind::MentalSkills => match tier {
+            Tier::Pro => season >= 2005,
+            Tier::College => season >= if big { 2005 } else { 2015 },
+            Tier::High => false,
+        },
+        Kind::Nutrition => {
+            season
+                >= match tier {
+                    Tier::Pro => 2000,
+                    Tier::College if big => 2005,
+                    Tier::College => 2015,
+                    Tier::High => 2010,
+                }
+        }
+        Kind::Mobility => {
+            season
+                >= match tier {
+                    Tier::Pro => 2000,
+                    Tier::College => 2005,
+                    Tier::High => 2012,
+                }
+        }
+        _ => true,
     }
 }
 
@@ -308,16 +678,20 @@ pub struct Day {
 }
 
 impl Day {
-    /// A day with nothing required (recovery may still happen).
+    /// A day with nothing required (treatment, academics, voluntary
+    /// outings and the players' own sessions may still happen).
     pub fn rest(&self) -> bool {
-        !self.game && self.periods.iter().all(|p| p.kind == Kind::Recovery)
+        !self.game && self.periods.iter().all(|p| !p.counted())
     }
 
-    /// NCAA countable minutes: everything but treatment; a game counts
-    /// three hours.
+    /// NCAA countable minutes: everything counted (`Period::counted`); a
+    /// game day counts three hours flat, its walkthrough and meetings
+    /// inside them.
     pub fn countable(&self) -> u32 {
-        self.periods.iter().filter(|p| p.kind != Kind::Recovery).map(|p| p.min as u32).sum::<u32>()
-            + if self.game { 180 } else { 0 }
+        if self.game {
+            return 180;
+        }
+        self.periods.iter().filter(|p| p.counted()).map(|p| p.min as u32).sum::<u32>()
     }
 
     /// Minutes on the practice field.
@@ -423,236 +797,315 @@ impl Slot {
 /// game and day 6 the game; for every other slot, Monday to Sunday.
 pub type Template = [Day; 7];
 
-fn day(ps: &[(Kind, u8, Gear, Contact)]) -> Day {
-    Day { periods: ps.iter().map(|&(k, m, g, c)| Period::new(k, m, g, c)).collect(), game: false, second: false }
+fn d(ps: Vec<Period>) -> Day {
+    Day { periods: ps, game: false, second: false }
 }
 
 fn off() -> Day {
     Day::default()
 }
 
-use Contact::{Air, Bags, Control, Thud};
+/// A game day with its own periods (the hotel walkthrough, the captains'
+/// meeting): inside the game day's three hours.
+fn game_day(ps: Vec<Period>) -> Day {
+    Day { periods: ps, game: true, second: false }
+}
+
+/// A period with no gear and no contact.
+fn p(k: Kind, min: u8) -> Period {
+    Period::new(k, min, Gear::None, Contact::Air)
+}
+
+use Contact::{Air, Bags, Control, Live, Thud};
 use Gear::{Helmets, Pads, Shells};
 use Kind::*;
 
 /// The neutral staff's template for a slot at a level: what an average
 /// staff of the era runs (proposed, not confirmed: built from the real
-/// weeks of calendar topic 6 and the period lengths of real practice
-/// scripts).
+/// weeks of calendar topic 6, the period lengths of real practice scripts
+/// and update 2's training week: mat drills, testing, installs in three
+/// pieces, film by type, walkthroughs, stations, recovery, study hall,
+/// meetings by room, the players' own throwing). Kinds an era or level
+/// doesn't have drop out in `fit` (`available`).
 pub fn neutral(tier: Tier, slot: Slot) -> Template {
-    let g = Gear::None;
     match (tier, slot) {
+        (Tier::College, Slot::Own) => {
+            [off(), d(vec![p(OnAir, 60).w(1)]), off(), d(vec![p(OnAir, 60).w(1)]), off(), off(), off()]
+        }
         (_, Slot::Own) => Default::default(),
         (Tier::College, Slot::Game) => [
-            // Sunday after the game: treatment, film, the young players' practice.
-            day(&[(Recovery, 30, g, Air), (Film, 45, g, Air), (Young, 50, Shells, Control)]),
-            off(),
-            day(&[
-                (Meeting, 45, g, Air),
-                (Film, 30, g, Air),
-                (WarmUp, 15, Pads, Air),
-                (Individual, 20, Pads, Bags),
-                (SpecialTeams, 15, Pads, Control),
-                (InsideRun, 15, Pads, Thud),
-                (OneOnOnes, 10, Pads, Thud),
-                (SevenOnSeven, 15, Pads, Air),
-                (Team, 30, Pads, Thud),
-                (Conditioning, 10, Pads, Air),
-                (WeightRoom, 30, g, Air),
+            // Sunday after the game: treatment, a recovery lift, the game
+            // graded on film, the young players' practice, the weigh-in.
+            d(vec![
+                p(Recovery, 30),
+                p(WeightRoom, 30).w(1),
+                p(Film, 45).w(5),
+                p(Mobility, 20),
+                p(Young, 50).on(Shells, Control),
+                p(Nutrition, 10),
             ]),
-            day(&[
-                (Meeting, 45, g, Air),
-                (Film, 30, g, Air),
-                (WarmUp, 15, Pads, Air),
-                (Individual, 20, Pads, Bags),
-                (SpecialTeams, 15, Pads, Control),
-                (Situations, 20, Pads, Thud),
-                (SevenOnSeven, 15, Pads, Air),
-                (Team, 30, Pads, Control),
-                (WeightRoom, 25, g, Air),
+            // Monday: the required day off; treatment, and the plan on the
+            // tablets in the evening.
+            d(vec![p(Recovery, 60), p(HomeStudy, 30)]),
+            // Tuesday: base downs installed, then a padded practice.
+            d(vec![
+                p(WeightRoom, 30).w(1),
+                p(Meeting, 10),
+                p(Install, 30),
+                p(Meeting, 30).w(2),
+                p(Walkthrough, 15).on(Helmets, Air),
+                p(WarmUp, 10).on(Pads, Air),
+                p(KickStations, 15).on(Pads, Air),
+                p(Individual, 15).on(Pads, Bags),
+                p(BallSecurity, 10).on(Pads, Bags),
+                p(InsideRun, 15).on(Pads, Thud),
+                p(OneOnOnes, 10).on(Pads, Thud),
+                p(SevenOnSeven, 15).on(Pads, Air).w(1),
+                p(Team, 25).on(Pads, Thud).w(1).loud(),
+                p(Conditioning, 10).on(Pads, Air),
+                p(Recovery, 20),
             ]),
-            day(&[
-                (Meeting, 40, g, Air),
-                (Film, 30, g, Air),
-                (WarmUp, 10, Shells, Air),
-                (Individual, 15, Shells, Bags),
-                (SpecialTeams, 15, Shells, Air),
-                (Situations, 20, Shells, Control),
-                (Team, 20, Shells, Control),
+            // Wednesday: third down.
+            d(vec![
+                p(WeightRoom, 25).w(1),
+                p(Install, 30).w(1),
+                p(Film, 30),
+                p(Signals, 15),
+                p(WarmUp, 10).on(Pads, Air),
+                p(KickStations, 15).on(Pads, Air),
+                p(Individual, 20).on(Pads, Bags),
+                p(Situations, 25).on(Pads, Thud).w(1).loud(),
+                p(SevenOnSeven, 15).on(Pads, Air).w(1),
+                p(Team, 20).on(Pads, Control).w(1).loud(),
+                p(Recovery, 20),
             ]),
-            day(&[(Walkthrough, 40, Helmets, Air), (Meeting, 30, g, Air), (Film, 20, g, Air)]),
-            Day { game: true, ..off() },
+            // Thursday: red zone, the plan test, the mock game in shells.
+            d(vec![
+                p(Install, 25).w(2),
+                p(PlanTest, 15),
+                p(Film, 20).w(2),
+                p(RulesClinic, 10),
+                p(WarmUp, 10).on(Shells, Air),
+                p(KickStations, 15).on(Shells, Air),
+                p(Individual, 15).on(Shells, Bags),
+                p(Walkthrough, 35).on(Shells, Air).w(1).at(Tempo::Normal),
+                p(Situations, 15).on(Shells, Control).w(3),
+                p(MentalSkills, 15),
+            ]),
+            // Friday: meetings, cut-ups, the walkthrough, the team dinner.
+            d(vec![
+                p(Meeting, 30).w(2),
+                p(Film, 20).w(3),
+                p(Walkthrough, 20).on(Helmets, Air),
+                p(VrReps, 15),
+                p(TeamBuilding, 45),
+                p(Meeting, 30).w(1),
+            ]),
+            game_day(vec![p(Walkthrough, 15).w(2), p(Council, 15)]),
         ],
         (Tier::College, Slot::Bye) | (Tier::College, Slot::Bowl) => [
+            d(vec![p(WeightRoom, 45), p(Film, 30).w(1), p(Recovery, 30), p(Mobility, 20)]),
+            d(vec![
+                p(Meeting, 30).w(2),
+                p(WarmUp, 15).on(Pads, Air),
+                p(Individual, 30).on(Pads, Bags),
+                p(BallSecurity, 10).on(Pads, Bags),
+                p(OneOnOnes, 15).on(Pads, Thud),
+                p(Young, 30).on(Pads, Thud),
+                p(Team, 25).on(Pads, Thud),
+                p(Conditioning, 15).on(Pads, Air),
+                p(WeightRoom, 30),
+            ]),
+            d(vec![
+                p(Meeting, 30).w(1),
+                p(Film, 30).w(1),
+                p(WarmUp, 15).on(Shells, Air),
+                p(KickStations, 15).on(Shells, Air),
+                p(Individual, 30).on(Shells, Bags),
+                p(SevenOnSeven, 20).on(Shells, Air),
+                p(Young, 30).on(Shells, Control),
+                p(Situations, 20).on(Shells, Control),
+            ]),
+            d(vec![p(WeightRoom, 45), p(Film, 30).w(2), p(Council, 30), p(MentalSkills, 20)]),
+            d(vec![
+                p(Meeting, 30).w(2),
+                p(WarmUp, 15).on(Pads, Air),
+                p(Individual, 25).on(Pads, Bags),
+                p(Young, 30).on(Pads, Thud),
+                p(Team, 30).on(Pads, Thud),
+                p(SpecialTeams, 15).on(Pads, Control),
+                p(TeamBuilding, 60).w(3),
+            ]),
             off(),
-            day(&[(WeightRoom, 45, g, Air), (Film, 30, g, Air), (Recovery, 30, g, Air)]),
-            day(&[
-                (Meeting, 30, g, Air),
-                (WarmUp, 15, Pads, Air),
-                (Individual, 30, Pads, Bags),
-                (OneOnOnes, 15, Pads, Thud),
-                (Young, 30, Pads, Thud),
-                (Team, 25, Pads, Thud),
-                (Conditioning, 15, Pads, Air),
-                (WeightRoom, 30, g, Air),
-            ]),
-            day(&[
-                (Meeting, 30, g, Air),
-                (WarmUp, 15, Shells, Air),
-                (Individual, 30, Shells, Bags),
-                (SevenOnSeven, 20, Shells, Air),
-                (Young, 30, Shells, Control),
-                (Situations, 20, Shells, Control),
-            ]),
-            day(&[(WeightRoom, 45, g, Air), (Film, 30, g, Air)]),
-            day(&[
-                (Meeting, 30, g, Air),
-                (WarmUp, 15, Pads, Air),
-                (Individual, 25, Pads, Bags),
-                (Young, 30, Pads, Thud),
-                (Team, 30, Pads, Thud),
-                (SpecialTeams, 15, Pads, Control),
-            ]),
             off(),
         ],
         (Tier::College, Slot::Camp) => {
             let practice = |gear: Gear, c: Contact| {
-                day(&[
-                    (Meeting, 60, Gear::None, Air),
-                    (Film, 30, Gear::None, Air),
-                    (WarmUp, 15, gear, Air),
-                    (Individual, 25, gear, Bags),
-                    (SpecialTeams, 15, gear, Control),
-                    (InsideRun, 15, gear, c),
-                    (OneOnOnes, 15, gear, c),
-                    (SevenOnSeven, 15, gear, Air),
-                    (Team, 30, gear, c),
-                    (Situations, 15, gear, Control),
-                    (Conditioning, 15, gear, Air),
-                    (WeightRoom, 30, Gear::None, Air),
+                d(vec![
+                    p(Install, 45),
+                    p(Meeting, 30).w(2),
+                    p(Film, 20).w(2),
+                    p(WarmUp, 15).on(gear, Air),
+                    p(KickStations, 10).on(gear, Air),
+                    p(Individual, 25).on(gear, Bags),
+                    p(SpecialTeams, 15).on(gear, Control),
+                    p(InsideRun, 15).on(gear, c),
+                    p(OneOnOnes, 15).on(gear, c),
+                    p(SevenOnSeven, 15).on(gear, Air),
+                    p(Team, 30).on(gear, c),
+                    p(Situations, 15).on(gear, Control),
+                    p(Conditioning, 15).on(gear, Air),
+                    p(WeightRoom, 30),
+                    p(Recovery, 20),
                 ])
             };
+            let mut clinic = practice(Shells, Control);
+            clinic.periods.insert(3, p(RulesClinic, 30));
+            let mut outing = practice(Shells, Control);
+            outing.periods.push(p(TeamBuilding, 60).w(3));
             [
                 practice(Shells, Control),
                 practice(Pads, Thud),
-                practice(Shells, Control),
+                clinic,
                 practice(Pads, Thud),
-                practice(Shells, Control),
+                outing,
                 {
-                    let mut d = practice(Pads, Thud);
-                    d.periods.retain(|p| !matches!(p.kind, Team | InsideRun));
-                    d.periods.insert(4, Period::new(Scrimmage, 50, Pads, Contact::Live));
-                    d
+                    let mut x = practice(Pads, Thud);
+                    x.periods.retain(|q| !matches!(q.kind, Team | InsideRun));
+                    x.periods.insert(7, p(Scrimmage, 50).on(Pads, Live));
+                    x
                 },
-                day(&[(Recovery, 30, g, Air)]),
+                d(vec![p(Recovery, 30), p(Mobility, 20)]),
             ]
         }
         (Tier::College, Slot::Spring) => [
-            day(&[(WeightRoom, 45, g, Air), (Film, 30, g, Air)]),
-            day(&[
-                (Meeting, 45, g, Air),
-                (Film, 30, g, Air),
-                (WarmUp, 15, Shells, Air),
-                (Individual, 25, Shells, Bags),
-                (OneOnOnes, 15, Shells, Control),
-                (SevenOnSeven, 15, Shells, Air),
-                (Team, 30, Shells, Control),
-                (SpecialTeams, 10, Shells, Air),
-                (Conditioning, 10, Shells, Air),
+            d(vec![p(WeightRoom, 45), p(Film, 30).w(2), p(Mobility, 15)]),
+            d(vec![
+                p(Install, 30).w(4),
+                p(Meeting, 30).w(2),
+                p(Film, 15).w(2),
+                p(WarmUp, 15).on(Shells, Air),
+                p(KickStations, 10).on(Shells, Air),
+                p(Individual, 25).on(Shells, Bags),
+                p(OneOnOnes, 15).on(Shells, Control),
+                p(SevenOnSeven, 15).on(Shells, Air),
+                p(Team, 30).on(Shells, Control),
+                p(Conditioning, 10).on(Shells, Air),
             ]),
-            day(&[(WeightRoom, 45, g, Air), (Film, 30, g, Air)]),
-            day(&[
-                (Meeting, 45, g, Air),
-                (WarmUp, 15, Pads, Air),
-                (Individual, 25, Pads, Bags),
-                (InsideRun, 15, Pads, Thud),
-                (OneOnOnes, 15, Pads, Thud),
-                (SevenOnSeven, 15, Pads, Air),
-                (Team, 30, Pads, Thud),
-                (Situations, 15, Pads, Control),
+            d(vec![p(WeightRoom, 45), p(Film, 30).w(2), p(StudyHall, 90)]),
+            d(vec![
+                p(Install, 30).w(4),
+                p(Meeting, 30).w(2),
+                p(WarmUp, 15).on(Pads, Air),
+                p(Individual, 25).on(Pads, Bags),
+                p(BallSecurity, 10).on(Pads, Bags),
+                p(InsideRun, 15).on(Pads, Thud),
+                p(OneOnOnes, 15).on(Pads, Thud),
+                p(SevenOnSeven, 15).on(Pads, Air),
+                p(Team, 30).on(Pads, Thud),
+                p(Situations, 15).on(Pads, Control).w(1),
             ]),
-            day(&[(WeightRoom, 45, g, Air), (Film, 30, g, Air)]),
-            day(&[
-                (Meeting, 30, g, Air),
-                (WarmUp, 15, Pads, Air),
-                (Individual, 15, Pads, Bags),
-                (Scrimmage, 60, Pads, Contact::Live),
-                (SpecialTeams, 10, Pads, Control),
+            d(vec![p(WeightRoom, 45), p(Film, 30).w(2), p(Council, 30)]),
+            d(vec![
+                p(Meeting, 30).w(1),
+                p(WarmUp, 15).on(Pads, Air),
+                p(Individual, 15).on(Pads, Bags),
+                p(Scrimmage, 60).on(Pads, Live),
+                p(SpecialTeams, 10).on(Pads, Control),
+                p(Recovery, 20),
             ]),
             off(),
         ],
-        (Tier::College, Slot::Winter) => {
-            let lift = |film: bool| {
-                let mut d = day(&[(WeightRoom, 60, g, Air), (Conditioning, 25, g, Air), (Speed, 20, g, Air)]);
-                if film {
-                    d.periods.push(Period::new(Film, 30, g, Air));
-                }
-                d
-            };
-            [lift(true), lift(false), lift(true), lift(false), off(), off(), off()]
-        }
-        (Tier::College, Slot::Summer) => {
-            let lift = |film: bool| {
-                let mut d = day(&[(WeightRoom, 60, g, Air), (Speed, 30, g, Air), (Conditioning, 15, g, Air)]);
-                if film {
-                    d.periods.push(Period::new(Film, 30, g, Air));
-                }
-                d
-            };
-            [lift(true), lift(false), lift(true), lift(false), off(), off(), off()]
-        }
-        (Tier::Pro, Slot::Game) => [
-            day(&[
-                (Recovery, 45, g, Air),
-                (Film, 60, g, Air),
-                (Meeting, 30, g, Air),
-                (WeightRoom, 30, g, Air),
-                (Walkthrough, 20, Helmets, Air),
+        (Tier::College, Slot::Winter) => [
+            // Winter conditioning (TR6): mat drills twice a week at 5:45, the
+            // lift groups, film of the system, study hall at night.
+            d(vec![p(MatDrills, 40), p(WeightRoom, 55), p(Meeting, 15), p(Film, 30).w(4), p(StudyHall, 90)]),
+            d(vec![
+                p(WeightRoom, 55),
+                p(Speed, 25),
+                p(Mobility, 15),
+                p(Nutrition, 20),
+                p(Recovery, 45).w(1),
+                p(OnAir, 45).w(1),
             ]),
+            d(vec![p(WeightRoom, 55), p(Film, 25).w(1), p(Council, 30), p(StudyHall, 90)]),
+            d(vec![p(WeightRoom, 55), p(Conditioning, 25), p(Vision, 15), p(VrReps, 15), p(MentalSkills, 30)]),
+            d(vec![p(MatDrills, 40), p(Recovery, 30), p(TeamBuilding, 90)]),
+            d(vec![p(TeamBuilding, 120).w(1)]),
             off(),
-            day(&[
-                (Meeting, 90, g, Air),
-                (Film, 45, g, Air),
-                (WarmUp, 15, Pads, Air),
-                (Individual, 20, Pads, Bags),
-                (SpecialTeams, 15, Pads, Control),
-                (SevenOnSeven, 10, Pads, Air),
-                (Team, 35, Pads, Thud),
-                (WeightRoom, 30, g, Air),
+        ],
+        (Tier::College, Slot::Summer) => [
+            d(vec![p(WeightRoom, 60), p(Speed, 30), p(Film, 30).w(4), p(StudyHall, 60)]),
+            d(vec![p(WeightRoom, 60), p(Conditioning, 20), p(Mobility, 15), p(OnAir, 60).w(1)]),
+            d(vec![p(WeightRoom, 60), p(Speed, 30), p(Film, 30).w(1), p(Nutrition, 20)]),
+            d(vec![p(WeightRoom, 60), p(Conditioning, 20), p(OnAir, 60).w(1)]),
+            d(vec![p(TeamBuilding, 90).w(1)]),
+            off(),
+            off(),
+        ],
+        (Tier::Pro, Slot::Game) => [
+            // Monday: the game graded, a recovery lift.
+            d(vec![p(Meeting, 20), p(Film, 60).w(5), p(WeightRoom, 40).w(1), p(Mobility, 20), p(Recovery, 45)]),
+            // Tuesday: the players' day off; the plan reaches the tablets.
+            d(vec![p(Recovery, 60), p(TeamBuilding, 120).w(1), p(HomeStudy, 60)]),
+            // Wednesday: first and second down, the padded day.
+            d(vec![
+                p(Meeting, 15),
+                p(Install, 45),
+                p(Meeting, 40).w(2),
+                p(Walkthrough, 20).on(Helmets, Air),
+                p(KickStations, 15).on(Pads, Air),
+                p(Individual, 20).on(Pads, Bags),
+                p(BallSecurity, 10).on(Pads, Bags),
+                p(Team, 35).on(Pads, Thud).w(1).loud(),
+                p(SevenOnSeven, 15).on(Pads, Air).w(1),
+                p(WeightRoom, 30),
+                p(Recovery, 20),
             ]),
-            day(&[
-                (Meeting, 75, g, Air),
-                (Film, 45, g, Air),
-                (WarmUp, 15, Shells, Air),
-                (Individual, 20, Shells, Bags),
-                (SpecialTeams, 15, Shells, Air),
-                (Situations, 30, Shells, Control),
-                (Team, 20, Shells, Control),
-                (WeightRoom, 20, g, Air),
+            // Thursday: third down.
+            d(vec![
+                p(Install, 40).w(1),
+                p(Film, 40),
+                p(Signals, 15),
+                p(PlanTest, 15),
+                p(WarmUp, 15).on(Shells, Air),
+                p(Individual, 20).on(Shells, Bags),
+                p(SpecialTeams, 15).on(Shells, Air),
+                p(Situations, 30).on(Shells, Control).w(1).loud(),
+                p(Team, 20).on(Shells, Control).w(1),
+                p(WeightRoom, 20),
             ]),
-            day(&[
-                (Meeting, 60, g, Air),
-                (Film, 30, g, Air),
-                (WarmUp, 10, Helmets, Air),
-                (Individual, 10, Helmets, Air),
-                (SpecialTeams, 10, Helmets, Air),
-                (Situations, 30, Helmets, Air),
-                (Team, 15, Helmets, Air),
+            // Friday: red zone and two-minute.
+            d(vec![
+                p(Install, 30).w(2),
+                p(MentalSkills, 20),
+                p(Vision, 10),
+                p(WarmUp, 10).on(Helmets, Air),
+                p(Individual, 10).on(Helmets, Air),
+                p(KickStations, 10).on(Helmets, Air),
+                p(Situations, 30).on(Helmets, Air).w(2),
+                p(Team, 15).on(Helmets, Air).w(1),
             ]),
-            day(&[(Walkthrough, 45, Helmets, Air), (Meeting, 45, g, Air)]),
-            Day { game: true, ..off() },
+            // Saturday: the mock game, the hotel meetings and walkthrough.
+            d(vec![
+                p(Walkthrough, 30).on(Helmets, Air).w(1),
+                p(Meeting, 45).w(1),
+                p(Walkthrough, 15).w(2),
+                p(VrReps, 15),
+            ]),
+            game_day(vec![]),
         ],
         (Tier::Pro, Slot::Bye) | (Tier::Pro, Slot::Bowl) => [
-            day(&[(Film, 60, g, Air), (Meeting, 30, g, Air), (WeightRoom, 30, g, Air)]),
-            day(&[
-                (Meeting, 60, g, Air),
-                (WarmUp, 15, Shells, Air),
-                (Individual, 30, Shells, Bags),
-                (Young, 30, Shells, Control),
-                (Team, 25, Shells, Control),
-                (WeightRoom, 30, g, Air),
+            d(vec![p(Film, 60).w(1), p(Meeting, 30), p(WeightRoom, 30), p(Mobility, 20)]),
+            d(vec![
+                p(Meeting, 60).w(2),
+                p(WarmUp, 15).on(Shells, Air),
+                p(Individual, 30).on(Shells, Bags),
+                p(Young, 30).on(Shells, Control),
+                p(Team, 25).on(Shells, Control),
+                p(WeightRoom, 30),
             ]),
-            day(&[(Meeting, 45, g, Air), (Film, 30, g, Air), (Walkthrough, 30, Helmets, Air)]),
+            d(vec![p(Meeting, 45).w(1), p(Film, 30).w(1), p(Walkthrough, 30).on(Helmets, Air)]),
             off(),
             off(),
             off(),
@@ -660,171 +1113,264 @@ pub fn neutral(tier: Tier, slot: Slot) -> Template {
         ],
         (Tier::Pro, Slot::Camp) => {
             let practice = |gear: Gear, c: Contact| {
-                day(&[
-                    (Meeting, 90, Gear::None, Air),
-                    (Film, 45, Gear::None, Air),
-                    (WarmUp, 15, gear, Air),
-                    (Individual, 25, gear, Bags),
-                    (SpecialTeams, 15, gear, Control),
-                    (InsideRun, 15, gear, c),
-                    (OneOnOnes, 15, gear, c),
-                    (SevenOnSeven, 15, gear, Air),
-                    (Team, 30, gear, c),
-                    (Situations, 15, gear, Control),
-                    (Conditioning, 10, gear, Air),
-                    (WeightRoom, 30, Gear::None, Air),
+                d(vec![
+                    p(Install, 45),
+                    p(Meeting, 45).w(2),
+                    p(Film, 45).w(2),
+                    p(WarmUp, 15).on(gear, Air),
+                    p(KickStations, 10).on(gear, Air),
+                    p(Individual, 25).on(gear, Bags),
+                    p(SpecialTeams, 15).on(gear, Control),
+                    p(InsideRun, 15).on(gear, c),
+                    p(OneOnOnes, 15).on(gear, c),
+                    p(SevenOnSeven, 15).on(gear, Air),
+                    p(Team, 30).on(gear, c),
+                    p(Situations, 15).on(gear, Control),
+                    p(Conditioning, 10).on(gear, Air),
+                    p(WeightRoom, 30),
+                    p(Recovery, 20),
                 ])
             };
+            let mut clinic = practice(Shells, Control);
+            clinic.periods.insert(3, p(RulesClinic, 30));
             [
                 practice(Pads, Thud),
                 practice(Pads, Thud),
-                practice(Shells, Control),
+                clinic,
                 practice(Pads, Thud),
                 practice(Shells, Control),
                 practice(Shells, Control),
-                day(&[(Recovery, 30, g, Air)]),
+                d(vec![p(Recovery, 30), p(Mobility, 20)]),
             ]
         }
-        (Tier::Pro, Slot::Phase1) => {
-            let d = day(&[
-                (Meeting, 30, g, Air),
-                (Film, 30, g, Air),
-                (WeightRoom, 75, g, Air),
-                (Conditioning, 30, g, Air),
-                (Speed, 20, g, Air),
-            ]);
-            [d.clone(), d.clone(), off(), d.clone(), d, off(), off()]
-        }
+        (Tier::Pro, Slot::Phase1) => [
+            // Phase 1: the classroom, the weight room and rehab only.
+            d(vec![p(Meeting, 30), p(Install, 60).w(4), p(WeightRoom, 60), p(Nutrition, 20), p(Recovery, 60).w(1)]),
+            d(vec![
+                p(Meeting, 60).w(1),
+                p(WeightRoom, 60),
+                p(Conditioning, 30),
+                p(Vision, 15),
+                p(VrReps, 30),
+                p(Recovery, 30),
+            ]),
+            d(vec![p(Meeting, 60).w(2), p(WeightRoom, 60), p(Mobility, 30), p(MentalSkills, 30), p(Council, 20)]),
+            d(vec![p(Install, 45).w(3), p(Signals, 20), p(WeightRoom, 60), p(Speed, 30), p(HomeStudy, 60)]),
+            d(vec![p(TeamBuilding, 180).w(1)]),
+            off(),
+            off(),
+        ],
         (Tier::Pro, Slot::Phase2) => {
-            let d = day(&[
-                (Meeting, 60, g, Air),
-                (Film, 30, g, Air),
-                (WarmUp, 10, g, Air),
-                (Individual, 40, g, Air),
-                (Walkthrough, 20, g, Air),
-                (WeightRoom, 60, g, Air),
-                (Conditioning, 20, g, Air),
+            let x = d(vec![
+                p(Install, 40).w(4),
+                p(Meeting, 30).w(2),
+                p(Film, 20).w(4),
+                p(WarmUp, 10),
+                p(Individual, 35),
+                p(KickStations, 10),
+                p(Walkthrough, 20),
+                p(WeightRoom, 45),
+                p(Conditioning, 15),
+                p(Mobility, 15),
             ]);
-            [d.clone(), d.clone(), off(), d.clone(), d, off(), off()]
+            [x.clone(), x.clone(), off(), x.clone(), x, off(), off()]
         }
         (Tier::Pro, Slot::Otas) => {
-            let d = day(&[
-                (Meeting, 60, g, Air),
-                (Film, 30, g, Air),
-                (WarmUp, 10, Helmets, Air),
-                (Individual, 30, Helmets, Air),
-                (SevenOnSeven, 20, Helmets, Air),
-                (Team, 30, Helmets, Air),
-                (SpecialTeams, 10, Helmets, Air),
-                (WeightRoom, 45, g, Air),
+            let x = d(vec![
+                p(Install, 40),
+                p(Meeting, 30).w(2),
+                p(Film, 20).w(2),
+                p(WarmUp, 10).on(Helmets, Air),
+                p(Individual, 25).on(Helmets, Air),
+                p(SevenOnSeven, 20).on(Helmets, Air),
+                p(Team, 30).on(Helmets, Air),
+                p(KickStations, 10).on(Helmets, Air),
+                p(WeightRoom, 40),
+                p(Recovery, 20),
             ]);
-            [d.clone(), d.clone(), off(), d.clone(), d, off(), off()]
+            [x.clone(), x.clone(), off(), x.clone(), x, off(), off()]
         }
         (Tier::Pro, Slot::Winter | Slot::Summer | Slot::Spring) => Default::default(),
         (Tier::High, Slot::Game) => [
-            // Saturday after Friday's game: film, lift, treatment.
-            day(&[(Film, 60, g, Air), (WeightRoom, 45, g, Air), (Recovery, 20, g, Air)]),
+            // Saturday after Friday's game: the film graded, a lift.
+            d(vec![p(Film, 60).w(5), p(WeightRoom, 45).w(1), p(Mobility, 20), p(Recovery, 20)]),
             off(),
-            day(&[
-                (Film, 30, g, Air),
-                (WeightRoom, 30, g, Air),
-                (WarmUp, 10, Shells, Air),
-                (Individual, 20, Shells, Bags),
-                (Walkthrough, 20, Helmets, Air),
-                (SevenOnSeven, 20, Shells, Air),
-                (SpecialTeams, 15, Shells, Air),
-                (Conditioning, 15, Shells, Air),
+            // Monday: the opponent, base downs installed, helmets.
+            d(vec![
+                p(Film, 30),
+                p(WeightRoom, 25).w(1),
+                p(Install, 20),
+                p(WarmUp, 10).on(Helmets, Air),
+                p(Individual, 20).on(Helmets, Bags),
+                p(KickStations, 10).on(Helmets, Air),
+                p(SevenOnSeven, 20).on(Helmets, Air).w(1),
+                p(Walkthrough, 15).on(Helmets, Air),
+                p(Conditioning, 10).on(Helmets, Air),
             ]),
-            day(&[
-                (WarmUp, 10, Pads, Air),
-                (Individual, 20, Pads, Bags),
-                (InsideRun, 15, Pads, Thud),
-                (OneOnOnes, 10, Pads, Thud),
-                (SevenOnSeven, 15, Pads, Air),
-                (Team, 25, Pads, Thud),
-                (SpecialTeams, 15, Pads, Control),
-                (Conditioning, 10, Pads, Air),
+            // Tuesday: the padded day.
+            d(vec![
+                p(Film, 30),
+                p(Meeting, 25).w(2),
+                p(WarmUp, 10).on(Pads, Air),
+                p(Individual, 20).on(Pads, Bags),
+                p(BallSecurity, 10).on(Pads, Bags),
+                p(InsideRun, 15).on(Pads, Thud),
+                p(OneOnOnes, 10).on(Pads, Thud),
+                p(Team, 25).on(Pads, Thud).w(1),
+                p(SpecialTeams, 15).on(Pads, Air),
+                p(Conditioning, 10).on(Pads, Air),
             ]),
-            day(&[
-                (WarmUp, 10, Pads, Air),
-                (Individual, 20, Pads, Bags),
-                (Situations, 20, Pads, Control),
-                (SevenOnSeven, 15, Pads, Air),
-                (Team, 25, Pads, Thud),
-                (SpecialTeams, 15, Pads, Control),
-                (Conditioning, 10, Pads, Air),
+            // Wednesday: third down and red zone, the quiz.
+            d(vec![
+                p(Install, 30).w(1),
+                p(PlanTest, 15),
+                p(KickStations, 15).on(Pads, Air),
+                p(WarmUp, 10).on(Pads, Air),
+                p(Individual, 15).on(Pads, Bags),
+                p(SevenOnSeven, 20).on(Pads, Air).w(1),
+                p(Team, 25).on(Pads, Thud).w(1),
+                p(Situations, 10).on(Pads, Control).w(3),
+                p(Conditioning, 10).on(Pads, Air),
             ]),
-            day(&[(Walkthrough, 40, Helmets, Air), (SpecialTeams, 15, Helmets, Air), (Film, 20, g, Air)]),
-            Day { game: true, ..off() },
+            // Thursday: cut-ups, the mock game in shells, the pasta dinner.
+            d(vec![
+                p(Film, 25).w(3),
+                p(RulesClinic, 10),
+                p(Walkthrough, 40).on(Shells, Air).w(1).at(Tempo::Normal),
+                p(SpecialTeams, 15).on(Shells, Air),
+                p(TeamBuilding, 60).w(2),
+            ]),
+            game_day(vec![p(Walkthrough, 25).on(Helmets, Air)]),
         ],
         (Tier::High, Slot::Bye) | (Tier::High, Slot::Bowl) => {
-            let d = day(&[
-                (WarmUp, 10, Shells, Air),
-                (Individual, 30, Shells, Bags),
-                (Young, 30, Shells, Control),
-                (SevenOnSeven, 20, Shells, Air),
-                (Conditioning, 15, Shells, Air),
-                (WeightRoom, 30, g, Air),
+            let x = d(vec![
+                p(WarmUp, 10).on(Shells, Air),
+                p(Individual, 30).on(Shells, Bags),
+                p(KickStations, 10).on(Shells, Air),
+                p(Young, 30).on(Shells, Control),
+                p(SevenOnSeven, 20).on(Shells, Air),
+                p(Conditioning, 15).on(Shells, Air),
+                p(WeightRoom, 30),
             ]);
-            [d.clone(), d.clone(), d, day(&[(Film, 30, g, Air)]), off(), off(), off()]
+            [x.clone(), x.clone(), x, d(vec![p(Film, 30).w(1), p(Council, 30)]), off(), off(), off()]
         }
         (Tier::High, Slot::Camp) => {
             let practice = |gear: Gear, c: Contact| {
-                day(&[
-                    (Film, 20, Gear::None, Air),
-                    (WarmUp, 15, gear, Air),
-                    (Individual, 30, gear, Bags),
-                    (InsideRun, 15, gear, c),
-                    (OneOnOnes, 15, gear, c),
-                    (SevenOnSeven, 20, gear, Air),
-                    (Team, 30, gear, c),
-                    (SpecialTeams, 15, gear, Air),
-                    (Conditioning, 20, gear, Air),
+                d(vec![
+                    p(Install, 20),
+                    p(Film, 15).w(2),
+                    p(WarmUp, 15).on(gear, Air),
+                    p(KickStations, 10).on(gear, Air),
+                    p(Individual, 30).on(gear, Bags),
+                    p(InsideRun, 15).on(gear, c),
+                    p(OneOnOnes, 15).on(gear, c),
+                    p(SevenOnSeven, 20).on(gear, Air),
+                    p(Team, 30).on(gear, c),
+                    p(SpecialTeams, 15).on(gear, Air),
+                    p(Conditioning, 15).on(gear, Air),
                 ])
             };
+            let mut clinic = practice(Shells, Control);
+            clinic.periods.insert(2, p(RulesClinic, 20));
             [
                 practice(Pads, Thud),
                 practice(Pads, Thud),
-                practice(Shells, Control),
+                clinic,
                 practice(Pads, Thud),
                 practice(Shells, Control),
                 {
-                    let mut d = practice(Pads, Thud);
-                    d.periods.retain(|p| !matches!(p.kind, Team | InsideRun));
-                    d.periods.insert(3, Period::new(Scrimmage, 45, Pads, Contact::Live));
-                    d
+                    let mut x = practice(Pads, Thud);
+                    x.periods.retain(|q| !matches!(q.kind, Team | InsideRun));
+                    x.periods.insert(4, p(Scrimmage, 45).on(Pads, Live));
+                    x.periods.push(p(TeamBuilding, 60).w(2));
+                    x
                 },
                 off(),
             ]
         }
         (Tier::High, Slot::Spring) => {
-            let d = day(&[
-                (WarmUp, 10, Pads, Air),
-                (Individual, 25, Pads, Bags),
-                (InsideRun, 10, Pads, Thud),
-                (OneOnOnes, 10, Pads, Thud),
-                (SevenOnSeven, 15, Pads, Air),
-                (Team, 25, Pads, Thud),
-                (SpecialTeams, 10, Pads, Air),
-                (Conditioning, 15, Pads, Air),
+            let x = d(vec![
+                p(Install, 20).w(4),
+                p(WarmUp, 10).on(Pads, Air),
+                p(Individual, 25).on(Pads, Bags),
+                p(InsideRun, 10).on(Pads, Thud),
+                p(OneOnOnes, 10).on(Pads, Thud),
+                p(SevenOnSeven, 15).on(Pads, Air),
+                p(Team, 25).on(Pads, Thud),
+                p(SpecialTeams, 10).on(Pads, Air),
+                p(Conditioning, 15).on(Pads, Air),
             ]);
-            [d.clone(), d.clone(), off(), d.clone(), d, off(), off()]
+            [x.clone(), x.clone(), off(), x.clone(), x, off(), off()]
         }
-        (Tier::High, Slot::Winter) => {
-            let d = day(&[(WeightRoom, 60, g, Air), (Speed, 20, g, Air)]);
-            [d.clone(), d.clone(), d.clone(), d, off(), off(), off()]
-        }
+        (Tier::High, Slot::Winter) => [
+            // The athletics period (TR2): the lift, speed, mat drills on
+            // Friday, study hall before the bell, the players' own throwing.
+            d(vec![p(StudyHall, 30), p(WeightRoom, 55)]),
+            d(vec![p(Speed, 30), p(Mobility, 25), p(OnAir, 45).w(1)]),
+            d(vec![p(WeightRoom, 55), p(Nutrition, 30)]),
+            d(vec![p(StudyHall, 30), p(Film, 25).w(1), p(Council, 30)]),
+            d(vec![p(MatDrills, 40), p(HomeStudy, 15)]),
+            d(vec![p(TeamBuilding, 120).w(1)]),
+            off(),
+        ],
         (Tier::High, Slot::Summer) => {
-            let d = day(&[
-                (WeightRoom, 60, g, Air),
-                (Speed, 30, g, Air),
-                (Conditioning, 20, g, Air),
-                (SevenOnSeven, 30, Helmets, Air),
-            ]);
-            [d.clone(), d.clone(), d.clone(), d, off(), off(), off()]
+            let x = d(vec![p(WeightRoom, 60), p(Speed, 30), p(Conditioning, 20), p(SevenOnSeven, 30).on(Helmets, Air)]);
+            let mut throws = x.clone();
+            throws.periods.push(p(OnAir, 45));
+            let mut kicks = x.clone();
+            kicks.periods.push(p(KickStations, 20).on(Helmets, Air));
+            let mut mob = x;
+            mob.periods.push(p(Mobility, 15));
+            [throws.clone(), kicks, throws, mob, d(vec![p(TeamBuilding, 60).w(3)]), off(), off()]
         }
         (_, _) => Default::default(),
     }
+}
+
+/// The week's dated extras on top of a template (update 2, lane 4): the
+/// strength staff's testing days (TR5: college in the second week of the
+/// winter term, a week before spring practice and the summer's last week;
+/// the NFL's first program day and report day; a high school's first May
+/// week and late July) replace the day's lift, and an NFL quarterback's
+/// own throwing sessions fill the summer break (TR20).
+pub fn extras(f: &super::rules::Frame, monday: Date, wk: &mut Week) {
+    if let Some(k) = testing_day(f, monday) {
+        let d = &mut wk.days[k];
+        if !d.game {
+            d.periods.retain(|q| q.kind != WeightRoom);
+            d.periods.insert(0, p(Testing, 60));
+        }
+    }
+    if f.tier == Tier::Pro && f.block(monday.add(2)) == super::rules::Block::Break {
+        for k in [1, 3] {
+            wk.days[k].periods.push(p(OnAir, 90).w(1));
+        }
+    }
+}
+
+/// The weekday (Monday 0) of a testing day in the week from `monday`.
+pub fn testing_day(f: &super::rules::Frame, monday: Date) -> Option<usize> {
+    let in_week = |d: Date| (d >= monday && d < monday.add(7)).then(|| monday.days_to(d) as usize);
+    let first_monday = |d: Date| {
+        let mut m = d;
+        while weekday_index(m) != 0 {
+            m = m.add(1);
+        }
+        m
+    };
+    let s = f.season;
+    let days: Vec<Date> = match f.tier {
+        Tier::College => {
+            let mut v = vec![first_monday(f.winter.add(7)), first_monday(f.camp.add(-10))];
+            if let Some((a, _)) = f.spring {
+                v.push(first_monday(a.add(-12)));
+            }
+            v
+        }
+        Tier::Pro => vec![f.phase1, f.report],
+        Tier::High => vec![first_monday(Date::ymd(s, 5, 1)).add(-7), first_monday(f.camp.add(-10))],
+    };
+    days.into_iter().find_map(in_week)
 }
 
 /// An AI staff's template (topic 11): the neutral week moved by the head
@@ -873,9 +1419,12 @@ pub fn week_from(slot: Slot, monday: Date, games: &[Date], t: &Template, bye: &T
         } else {
             t[k].clone()
         };
-        // A game on its day, whatever the template says.
+        // A game on its day, whatever the template says; the template's
+        // own game day keeps its periods (the hotel walkthrough, the
+        // captains' meeting).
         if games.contains(&d) {
-            w.days[k] = Day { game: true, ..Default::default() };
+            let ps = if w.days[k].game { std::mem::take(&mut w.days[k].periods) } else { Vec::new() };
+            w.days[k] = Day { periods: ps, game: true, second: false };
         }
     }
     w
@@ -887,15 +1436,19 @@ pub fn week_from(slot: Slot, monday: Date, games: &[Date], t: &Template, bye: &T
 pub fn fit(w: &mut Week, books: &[Book; 7]) {
     for (i, d) in w.days.iter_mut().enumerate() {
         let k = &books[i];
+        // What the level and era don't have (no VR headsets in 2005).
+        d.periods.retain(|p| available(p.kind, k.tier, k.season, k.big));
         if !k.coaches {
-            d.periods.clear();
+            // The players' own time: their own throwing and study hall stay.
+            d.periods.retain(|p| p.players_own());
+            d.second = false;
             continue;
         }
         if !k.two_a_days {
             d.second = false;
         }
         d.periods.retain(|p| {
-            (k.field || !p.kind.on_field() || matches!(p.kind, Kind::Conditioning | Kind::Speed))
+            (k.field || !p.kind.on_field() || p.kind.strength_staff() || p.own())
                 && (k.team || !p.kind.offense_against_defense())
         });
         for p in d.periods.iter_mut() {
@@ -970,9 +1523,11 @@ pub fn fit(w: &mut Week, books: &[Book; 7]) {
     if let Some(m) = k.week_min {
         let total: u32 = w.days.iter().map(|d| d.countable()).sum();
         if total > m as u32 {
-            let scale = m as f64 / total as f64;
-            for d in w.days.iter_mut() {
-                for p in d.periods.iter_mut().filter(|p| p.kind != Kind::Recovery) {
+            // A game day counts three hours flat: only practice days scale.
+            let games: u32 = w.days.iter().filter(|d| d.game).map(|d| d.countable()).sum();
+            let scale = (m as f64 - games as f64).max(0.0) / (total - games).max(1) as f64;
+            for d in w.days.iter_mut().filter(|d| !d.game) {
+                for p in d.periods.iter_mut().filter(|p| p.counted()) {
                     p.min = ((p.min as f64 * scale).floor() as u8).max(5);
                 }
                 d.periods.retain(|p| p.min >= 5);
@@ -983,8 +1538,9 @@ pub fn fit(w: &mut Week, books: &[Book; 7]) {
                 let Some(p) = w
                     .days
                     .iter_mut()
+                    .filter(|d| !d.game)
                     .flat_map(|d| d.periods.iter_mut())
-                    .filter(|p| p.kind != Kind::Recovery && p.min > 5)
+                    .filter(|p| p.counted() && p.min > 5)
                     .max_by_key(|p| p.min)
                 else {
                     break;
@@ -1000,7 +1556,7 @@ pub fn fit(w: &mut Week, books: &[Book; 7]) {
         else {
             break;
         };
-        w.days[i].periods.retain(|p| p.kind == Kind::Recovery);
+        w.days[i].periods.retain(|p| !p.counted());
     }
 }
 
@@ -1012,12 +1568,12 @@ pub fn fit(w: &mut Week, books: &[Book; 7]) {
 pub fn fit_block(w: &mut Week, used: &super::rules::Counts, lim: &super::rules::Counts) {
     let mut c = *used;
     for d in w.days.iter_mut() {
-        if d.rest() || !d.periods.iter().any(|p| p.kind.practice()) {
+        if d.rest() || !d.periods.iter().any(|p| p.practice()) {
             continue;
         }
         let room = lim.practices.saturating_sub(c.practices);
         if room == 0 {
-            d.periods.retain(|p| !p.kind.practice());
+            d.periods.retain(|p| !p.practice());
             d.second = false;
             continue;
         }
@@ -1060,14 +1616,10 @@ pub fn fit_block(w: &mut Week, used: &super::rules::Counts, lim: &super::rules::
 /// `field`), shortening the longest periods first.
 fn trim(d: &mut Day, max: u32, field: bool) {
     let measure = |d: &Day| if field { d.field() } else { d.countable() };
+    let counts = |p: &Period| if field { p.kind.on_field() } else { p.counted() };
     while measure(d) > max {
-        let Some(p) = d
-            .periods
-            .iter_mut()
-            .filter(|p| p.kind != Kind::Recovery && p.min > 5 && (!field || p.kind.on_field()))
-            .max_by_key(|p| p.min)
-        else {
-            d.periods.retain(|p| p.kind == Kind::Recovery || (field && !p.kind.on_field()));
+        let Some(p) = d.periods.iter_mut().filter(|p| counts(p) && p.min > 5).max_by_key(|p| p.min) else {
+            d.periods.retain(|p| !counts(p));
             return;
         };
         p.min -= 5;

@@ -45,6 +45,7 @@ pub(crate) fn actives(w: &World, t: usize) -> Vec<(usize, bool)> {
             .as_ref()
             .is_some_and(|c| c.status == Status::Roster && c.out_weeks == 0 && crate::world::people::available(c))
             && !crate::world::folk::rules::sitting(w, w.people[**i].player.id, w.today)
+            && !w.training.hurt_out(w.people[**i].player.id, w.today)
     };
     let lists: Vec<Vec<usize>> = Position::ALL
         .iter()
@@ -123,7 +124,8 @@ pub(crate) fn preseason_side(w: &World, t: usize, week: usize, weeks: usize) -> 
             let ok =
                 w.people[i].pro.as_ref().is_some_and(|c| {
                     c.status == Status::Roster && c.out_weeks == 0 && crate::world::people::available(c)
-                }) && !crate::world::folk::rules::sitting(w, w.people[i].player.id, w.today);
+                }) && !crate::world::folk::rules::sitting(w, w.people[i].player.id, w.today)
+                    && !w.training.hurt_out(w.people[i].player.id, w.today);
             if !ok || (k < s.starters && !rehearsal) {
                 continue;
             }

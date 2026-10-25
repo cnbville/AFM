@@ -965,7 +965,8 @@ impl<'a> Game<'a> {
     }
 
     fn home_crowd(&self, team: usize) -> f64 {
-        if self.s.neutral || team == 0 { 0.0 } else { self.s.cond.crowd }
+        // A week practising with the speakers on gets a road team used to it.
+        if self.s.neutral || team == 0 { 0.0 } else { self.s.cond.crowd * self.sides[team].team.prep.noise }
     }
 
     fn add_points(&mut self, team: usize, pts: i32) {
@@ -2437,7 +2438,9 @@ impl<'a> Game<'a> {
     fn pre_snap_foul(&mut self, off: &[(ORole, usize)], def: &[(DSlot, usize)]) -> Option<Foul> {
         let o = self.poss;
         let crowd = self.home_crowd(o);
-        let crew = self.crew.pre_snap;
+        // The week's rules clinic (TR29) on each side.
+        let crew = self.crew.pre_snap * self.sides[o].team.prep.rules;
+        let def_crew = self.crew.pre_snap * self.sides[1 - o].team.prep.rules;
         for &(r, i) in off {
             if !(r.is_line() || r.is_receiver()) {
                 continue;
@@ -2508,7 +2511,7 @@ impl<'a> Game<'a> {
                 * jump
                 * hard
                 * guess
-                * crew;
+                * def_crew;
             if self.rng.chance(chance) {
                 return Some(Foul { kind: FoulKind::Offside, side: 1, player: p.id, at: self.x });
             }

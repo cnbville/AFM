@@ -47,19 +47,23 @@ impl Role {
 /// technique, contact, kicking, mental) at normal tempo, for a player in
 /// the period (proposed, not confirmed: the shape of topic 1's "each
 /// period grows what it works, and only that"). The contact column is
-/// scaled by the period's contact level.
-fn per_minute(k: Kind, specialist: bool) -> [f64; FAMILIES] {
+/// scaled by the period's contact level (mat drills' wrestling and
+/// competitions aren't: they are the contact). The kinds with sub-kinds
+/// read them: a team meeting teaches less than a unit's, a position
+/// meeting a little technique, practice tape a little technique.
+fn per_minute(p: &Period, specialist: bool) -> [f64; FAMILIES] {
     if specialist {
-        return match k {
-            Kind::Individual | Kind::SpecialTeams => [0.0, 0.05, 0.1, 0.2, 0.0, 1.0, 0.05],
+        match p.kind {
+            Kind::Individual | Kind::SpecialTeams => return [0.0, 0.05, 0.1, 0.2, 0.0, 1.0, 0.05],
+            Kind::KickStations => return [0.0, 0.05, 0.1, 0.2, 0.0, 1.2, 0.05],
             Kind::Team | Kind::Situations | Kind::Scrimmage | Kind::SevenOnSeven | Kind::InsideRun => {
-                [0.0, 0.0, 0.05, 0.05, 0.0, 0.3, 0.1]
+                return [0.0, 0.0, 0.05, 0.05, 0.0, 0.3, 0.1];
             }
-            Kind::Young | Kind::OneOnOnes => [0.0, 0.0, 0.05, 0.05, 0.0, 0.4, 0.0],
-            _ => per_minute(k, false),
-        };
+            Kind::Young | Kind::OneOnOnes => return [0.0, 0.0, 0.05, 0.05, 0.0, 0.4, 0.0],
+            _ => {}
+        }
     }
-    match k {
+    match p.kind {
         Kind::WarmUp => [0.0, 0.15, 0.2, 0.0, 0.0, 0.0, 0.0],
         Kind::Individual => [0.0, 0.1, 0.2, 1.0, 0.35, 0.0, 0.03],
         Kind::InsideRun => [0.0, 0.0, 0.3, 0.45, 1.0, 0.0, 0.4],
@@ -73,10 +77,28 @@ fn per_minute(k: Kind, specialist: bool) -> [f64; FAMILIES] {
         Kind::Conditioning => [0.0, 0.2, 1.2, 0.0, 0.0, 0.0, 0.0],
         Kind::Speed => [0.0, 1.0, 0.3, 0.0, 0.0, 0.0, 0.0],
         Kind::WeightRoom => [1.0, 0.15, 0.1, 0.0, 0.0, 0.0, 0.0],
-        Kind::Meeting => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.6],
+        // The classroom grows the mental side only: a position meeting's
+        // footwork on film is learned on the field.
+        Kind::Meeting if p.what == 0 => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3],
+        Kind::Meeting => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.7],
         Kind::Film => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.9],
         Kind::Young => [0.0, 0.05, 0.25, 0.8, 0.5, 0.0, 0.5],
-        Kind::Recovery => [0.0; FAMILIES],
+        Kind::MatDrills => [0.1, 0.35, 1.0, 0.0, 0.2, 0.0, 0.05],
+        Kind::Testing => [0.3, 0.3, 0.1, 0.0, 0.0, 0.0, 0.0],
+        Kind::Install => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.8],
+        Kind::OnAir => [0.0, 0.05, 0.15, 0.35, 0.0, 0.0, 0.35],
+        Kind::BallSecurity => [0.0, 0.05, 0.1, 0.5, 0.5, 0.0, 0.05],
+        Kind::KickStations => [0.0, 0.05, 0.05, 0.2, 0.0, 0.15, 0.05],
+        Kind::Mobility => [0.0, 0.3, 0.05, 0.0, 0.0, 0.0, 0.0],
+        Kind::Vision => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.7],
+        // Mostly the quarterbacks' (the room's average).
+        Kind::VrReps => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5],
+        Kind::MentalSkills => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.4],
+        Kind::RulesClinic => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3],
+        Kind::PlanTest => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5],
+        Kind::Signals => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.7],
+        Kind::HomeStudy => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.6],
+        Kind::Recovery | Kind::StudyHall | Kind::Nutrition | Kind::Council | Kind::TeamBuilding => [0.0; FAMILIES],
     }
 }
 
@@ -121,7 +143,7 @@ pub fn reps(who: Who, role: Role, camp: bool) -> f64 {
 /// One period's raw work for a role.
 pub fn period_work(p: &Period, role: Role, camp: bool) -> [f64; FAMILIES] {
     let spec = role == Role::Specialist;
-    let mut w = per_minute(p.kind, spec);
+    let mut w = per_minute(p, spec);
     let r = reps(p.who, role, camp) * p.min as f64;
     // The scout team runs the opponent's plays: his general skills and
     // effort grow, not his own playbook.
@@ -137,6 +159,7 @@ pub fn period_work(p: &Period, role: Role, camp: bool) -> [f64; FAMILIES] {
         match f {
             2 => v *= tempo_cond,
             3 | 5 => v *= tempo_skill,
+            4 if p.kind == Kind::MatDrills => {}
             4 => v *= cf * if p.tempo == Tempo::Walk { 0.0 } else { tempo_skill },
             6 => {
                 v *= if p.tempo == Tempo::Walk { 0.9 } else { tempo_skill };
@@ -238,7 +261,8 @@ pub fn share(base: &[f64; FAMILIES], r: &[f64; FAMILIES], attend: f64) -> [f64; 
 }
 
 /// The load a minute of a period puts on the body (the GPS units of
-/// topic 7, proposed, not confirmed).
+/// topic 7, proposed, not confirmed). Treatment and mobility take a little
+/// off (recovery); the classroom and outings put none on.
 fn load_per_min(p: &Period) -> f64 {
     let base = match p.kind {
         Kind::WarmUp => 0.3,
@@ -255,7 +279,26 @@ fn load_per_min(p: &Period) -> f64 {
         Kind::Speed => 0.85,
         Kind::WeightRoom => 0.5,
         Kind::Young => 0.75,
-        Kind::Meeting | Kind::Film | Kind::Recovery => 0.0,
+        Kind::MatDrills => 1.1,
+        Kind::Testing => 0.6,
+        Kind::OnAir | Kind::BallSecurity => 0.5,
+        Kind::KickStations => 0.3,
+        Kind::Recovery => -0.2,
+        Kind::Mobility => -0.05,
+        Kind::Meeting
+        | Kind::Film
+        | Kind::Install
+        | Kind::StudyHall
+        | Kind::Vision
+        | Kind::VrReps
+        | Kind::MentalSkills
+        | Kind::RulesClinic
+        | Kind::PlanTest
+        | Kind::Nutrition
+        | Kind::Council
+        | Kind::TeamBuilding
+        | Kind::Signals
+        | Kind::HomeStudy => 0.0,
     };
     let c = match p.contact {
         Contact::Air => 0.85,
@@ -283,7 +326,7 @@ pub fn day_load(d: &Day, role: Role, camp: bool) -> (f64, f64) {
             full += p.min as f64 * r;
         }
     }
-    (load, full)
+    (load.max(0.0), full)
 }
 
 /// A week's load, its full-contact minutes and its on-field minutes.
@@ -298,23 +341,39 @@ pub fn week_load(w: &Week, role: Role, camp: bool) -> (f64, f64, f64) {
     out
 }
 
-/// The game plan's preparation: minutes on this week's install (team
-/// periods against the opponent's looks, situations, walkthroughs,
-/// meetings and film).
+/// The game plan's preparation: minutes on this week's plan (team periods
+/// against the opponent's looks, situations, the installs, the opponent's
+/// film and cut-ups, walkthroughs and the mock game, unit and position
+/// meetings, the plan test, signals, VR and the tablet). Film of the new
+/// system, self-scout and last game's tape aren't (bug T2: the winter's
+/// film read as game prep), nor is the new system's install.
 pub fn prep_minutes(w: &Week) -> f64 {
-    w.days
-        .iter()
-        .flat_map(|d| d.periods.iter())
-        .map(|p| match p.kind {
-            Kind::Team if p.what >= 1 => p.min as f64 * 1.2,
-            Kind::Team => p.min as f64 * 0.5,
-            Kind::Situations => p.min as f64,
-            Kind::Walkthrough => p.min as f64 * 0.8,
-            Kind::Meeting | Kind::Film => p.min as f64 * 0.5,
-            Kind::SevenOnSeven => p.min as f64 * 0.4,
-            _ => 0.0,
-        })
-        .sum()
+    w.days.iter().flat_map(|d| d.periods.iter()).map(|p| p.min as f64 * prep_weight(p)).sum()
+}
+
+/// How much of a period's minutes go to this week's plan (`prep_minutes`).
+pub fn prep_weight(p: &Period) -> f64 {
+    match (p.kind, p.what) {
+        (Kind::Team, 0) => 0.5,
+        (Kind::Team, _) => 1.2,
+        (Kind::Situations, _) => 1.0,
+        (Kind::SevenOnSeven, 0) => 0.3,
+        (Kind::SevenOnSeven, _) => 0.6,
+        (Kind::Walkthrough, 1) => 1.0,
+        (Kind::Walkthrough, 2) => 0.6,
+        (Kind::Walkthrough, _) => 0.8,
+        (Kind::Install, 4) => 0.0,
+        (Kind::Install, _) => 1.0,
+        (Kind::Film, 0 | 3) => 0.8,
+        (Kind::Film, 2) => 0.3,
+        (Kind::Meeting, 0) => 0.2,
+        (Kind::Meeting, _) => 0.5,
+        (Kind::PlanTest, _) => 0.6,
+        (Kind::VrReps, _) => 0.6,
+        (Kind::Signals, _) => 0.5,
+        (Kind::HomeStudy, _) => 0.3,
+        _ => 0.0,
+    }
 }
 
 /// The load of the days just before a game (the last three), for game-day
