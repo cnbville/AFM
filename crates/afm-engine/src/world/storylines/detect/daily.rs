@@ -23,7 +23,7 @@ use crate::world::folk::courts::Step;
 use crate::world::pro::market::Hold;
 use crate::world::pro::money::Kind as Deal;
 use crate::world::stories::TeamKey;
-use crate::world::storylines::{Spot, close, open_id, pi, subj, tcode};
+use crate::world::storylines::{Family, Spot, close, fizzle, open_id, pi, subj, tcode};
 use crate::world::{Stage, Visit, World};
 
 /// Once a day.
@@ -484,7 +484,8 @@ fn follow_recruits(w: &mut World, d: Date) {
 }
 
 fn recruits(w: &mut World, d: Date) {
-    if d.weekday() == crate::calendar::Weekday::Mon || w.storylines.watch.recruits_on.is_none() {
+    let monday = d.weekday() == crate::calendar::Weekday::Mon || w.storylines.watch.recruits_on.is_none();
+    if monday {
         follow_recruits(w, d);
     }
     let list: Vec<(u32, [u32; 4])> = w.storylines.watch.recruits.iter().map(|(&k, &v)| (k, v)).collect();
@@ -497,7 +498,101 @@ fn recruits(w: &mut World, d: Date) {
             w.storylines.watch.recruits.insert(id, now);
         }
     }
+    // After the day's own look, so a signing seen today ends its story
+    // the daily way first.
+    if monday {
+        settle_recruits(w);
+    }
     signing_dues(w, d);
+}
+
+/// The recruiting stories the daily watch no longer sees through: a
+/// recruit who signed after his class rolled over, whose stars fell, who
+/// went to a prep school or left football. His signing or his college ends
+/// them the way it went; a recruit gone from football lets them fade.
+fn settle_recruits(w: &mut World) {
+    let open: Vec<(u32, u16, Option<TeamKey>, u32)> = w
+        .storylines
+        .open
+        .iter()
+        .filter(|s| s.phase.open() && s.family() == Family::Recruiting && s.kind != K::HsTransfer.id())
+        .filter_map(|s| Some((s.id, s.kind, s.team, s.lead_player()?)))
+        .collect();
+    let today = w.today;
+    for (id, kind, team, who) in open {
+        let Some(i) = pi(w, who) else {
+            fizzle(w, id, today);
+            continue;
+        };
+        let p = &w.people[i];
+        let (at, signed) = match (p.cal.signed, p.stage) {
+            (Some(sg), _) => (Some(sg.program), true),
+            (None, Stage::College) => (p.college, false),
+            _ => (None, false),
+        };
+        let Some(c) = at else {
+            if !matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) {
+                fizzle(w, id, today);
+            }
+            continue;
+        };
+        let t = college(c);
+        let in_state = w.programs.get(c).is_some_and(|g| g.state == p.home_state);
+        let up = w.programs.get(c).is_some_and(|g| g.division == Division::FBS && g.prestige >= 0.55);
+        let won = team == Some(t);
+        let ending = match K::ALL.get(kind as usize) {
+            Some(K::TopRecruit | K::Prodigy) => "committed",
+            Some(K::RecruitWar) => {
+                if won {
+                    "won"
+                } else {
+                    "lost"
+                }
+            }
+            Some(K::HometownLeaving) => {
+                if in_state {
+                    "stayed"
+                } else {
+                    "left"
+                }
+            }
+            Some(K::LegacyRecruit) => {
+                if won {
+                    "followed"
+                } else {
+                    "own_way"
+                }
+            }
+            Some(K::CommitWobble) => {
+                if won {
+                    "held"
+                } else {
+                    "decommitted"
+                }
+            }
+            Some(K::SigningFlip) => {
+                if won {
+                    "held"
+                } else {
+                    "flipped"
+                }
+            }
+            Some(K::LateRiser) => {
+                if up {
+                    "signed_up"
+                } else {
+                    "signed"
+                }
+            }
+            _ => continue,
+        };
+        let text = if signed {
+            format!("{} signs with {}.", pname(w, i), tname(w, t))
+        } else {
+            format!("{} enrolls at {}.", pname(w, i), tname(w, t))
+        };
+        close(w, id, ending, Some(text));
+    }
 }
 
 /// The program a commitment code names.

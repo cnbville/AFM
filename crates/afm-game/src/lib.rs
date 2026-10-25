@@ -127,6 +127,9 @@ impl Game {
                 let path = args.get("path").and_then(Value::as_str).ok_or("Missing path.")?;
                 self.world = Some(setup::read(path)?);
                 self.save_path = (cmd == "load").then(|| PathBuf::from(path));
+                // "Previously" shows each time a save opens, even one saved
+                // the day it was last shown.
+                self.wm()?.storylines.previously_seen = None;
                 lane_core::after_days(self.wm()?);
                 memory::hand_back();
                 lane_faces::on_open(self);

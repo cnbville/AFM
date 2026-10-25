@@ -138,6 +138,73 @@ fn story_counts(w: &afm_engine::world::World, seat: &str) {
     for t in twice.iter().take(12) {
         println!("  TWICE {}", t.chars().take(160).collect::<String>());
     }
+    // The same line twice inside one story.
+    let mut again = Vec::new();
+    for s in &all {
+        let mut v: Vec<&str> = Vec::new();
+        for b in s.beats.iter().filter(|b| told(&b.what) && !b.text.is_empty()) {
+            if v.iter().any(|t| *t == b.text) {
+                again.push(format!("{} #{}: {}", s.def().key, s.id, b.text));
+            }
+            v.push(&b.text);
+        }
+    }
+    println!("{seat}: {} lines repeated inside one story", again.len());
+    for t in again.iter().take(6) {
+        println!("  AGAIN {}", t.chars().take(160).collect::<String>());
+    }
+    // How long stories run, and how they end, by family.
+    let today = w.today;
+    let open: Vec<_> = w.storylines.open.iter().filter(|s| s.phase.open()).collect();
+    let mut ages: Vec<i32> = open.iter().map(|s| s.opened.days_to(today)).collect();
+    ages.sort_unstable();
+    let q = |p: f64| ages.get(((ages.len() as f64 - 1.0) * p).round() as usize).copied().unwrap_or(0);
+    println!(
+        "{seat}: {} open stories, age in days: median {}, 90th {}, max {}; {} older than a year",
+        open.len(),
+        q(0.5),
+        q(0.9),
+        q(1.0),
+        ages.iter().filter(|&&a| a > 365).count()
+    );
+    let mut old: Vec<_> = open.iter().filter(|s| s.opened.days_to(today) > 365).collect();
+    old.sort_by_key(|s| s.opened);
+    for s in old.iter().take(6) {
+        println!(
+            "  OLD {} #{} since {}: {} beats, heat {:.0}, {}",
+            s.def().key,
+            s.id,
+            s.opened.pretty(),
+            s.beats.len(),
+            s.heat,
+            afm_engine::world::storylines::view::question(w, s)
+        );
+    }
+    let mut ends: BTreeMap<&str, (u32, u32, i64)> = BTreeMap::new();
+    for s in all.iter().filter(|s| !s.phase.open()) {
+        let e = ends.entry(s.family().name()).or_default();
+        if s.phase == afm_engine::world::storylines::Phase::Fizzled {
+            e.1 += 1;
+        } else {
+            e.0 += 1;
+        }
+        e.2 += i64::from(s.opened.days_to(s.closed.unwrap_or(today)));
+    }
+    let row: Vec<String> =
+        ends.iter().map(|(f, x)| format!("{f} {}/{} ({}d)", x.0, x.1, x.2 / i64::from((x.0 + x.1).max(1)))).collect();
+    println!("{seat}: ended by family (answered/fizzled, mean days): {}", row.join(", "));
+    // Questions asking for a name the story can't fill.
+    let gaps: Vec<String> = all
+        .iter()
+        .filter_map(|s| {
+            let g = afm_engine::world::storylines::tell::question_gaps(w, s);
+            (!g.is_empty()).then(|| format!("{} #{} needs {}", s.def().key, s.id, g.join(", ")))
+        })
+        .collect();
+    println!("{seat}: {} stories ask for a name they can't fill", gaps.len());
+    for g in gaps.iter().take(6) {
+        println!("  GAP {g}");
+    }
 }
 
 /// Values a player should never see.
@@ -146,8 +213,8 @@ fn smell(cmd: &str, v: &Value, path: &str, out: &mut BTreeSet<String>) {
         Value::String(s) => {
             let low = s.to_lowercase();
             for bad in ["nan", "undefined", "infinity", "todo", "placeholder", "lorem", "built later", "coming soon"] {
-                // Whole words for these two: "Loreman" is a real surname.
-                let hit = if bad == "nan" || bad == "lorem" {
+                // Whole words for these: "Loreman" and "Todora" are real surnames.
+                let hit = if matches!(bad, "nan" | "lorem" | "todo") {
                     low.split(|c: char| !c.is_alphanumeric()).any(|w| w == bad)
                 } else {
                     low.contains(bad)
@@ -171,7 +238,12 @@ fn smell(cmd: &str, v: &Value, path: &str, out: &mut BTreeSet<String>) {
             }
         }
         Value::Object(o) => {
+            // A meeting's narration (`by` 0) has no speaker's name.
+            let narration = o.get("by").and_then(Value::as_u64) == Some(0);
             for (k, x) in o {
+                if narration && k == "name" {
+                    continue;
+                }
                 smell(cmd, x, &format!("{path}.{k}"), out);
             }
         }
@@ -458,11 +530,9 @@ fn main() {
                 }
                 draft(&mut run, &mut g);
             }
-            if lean {
-                continue;
-            }
             // A story meeting stopped Continue (storylines): read it, then
-            // answer as the screen's first pick would.
+            // answer as the screen's first pick would (lean runs too, so a
+            // stop never waits).
             if let Some(id) = r.as_ref().and_then(|v| v["story"].as_u64())
                 && let Some(m) = run.call(&mut g, "storylines_meeting", json!({ "id": id }))
                 && let Some(code) = m["opts"][0]["code"].as_u64()
@@ -479,6 +549,9 @@ fn main() {
                 {
                     run.call(&mut g, "storylines_move", json!({ "id": id, "code": code }));
                 }
+            }
+            if lean {
+                continue;
             }
             visit_all(&mut run, &mut g, &extra, seat);
             // Save and reload once in season, after the first game.

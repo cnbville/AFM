@@ -203,8 +203,8 @@ pub(crate) fn ended(w: &mut World, id: u32) {
             .clamp(0.0, 0.3);
             let today = w.today;
             let p = &mut w.people[i];
-            p.cal.lean = (p.cal.lean + lean as f64).min(0.95);
-            p.cal.lean_events.push((today, "lost a position battle", lean as f64));
+            p.cal.lean = (p.cal.lean + lean).min(0.95);
+            p.cal.lean_events.push((today, "lost a position battle", lean));
             let hit = -0.05 - 0.01 * (ego - 10.0).max(0.0) as f32;
             if s.you.is_some() {
                 talks::mood_event(w, id, Reason::Benched, hit);

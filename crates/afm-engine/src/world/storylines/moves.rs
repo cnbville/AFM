@@ -720,11 +720,16 @@ pub(crate) fn menu(w: &mut World, s: &Story, press: bool) -> Vec<Opt> {
         }
     }
     let _ = &rival;
-    v.into_iter()
+    // What you said on it this week isn't offered again: the same line
+    // twice is no new move. With everything said, a no-comment is left.
+    let said: Vec<&str> =
+        s.beats.iter().filter(|b| b.by == Voice::You && b.date.days_to(w.today) < 7).map(|b| b.text.as_str()).collect();
+    let (fresh, stale): (Vec<_>, Vec<_>) = v
+        .into_iter()
         .filter(|(m, ..)| !press || m.public())
-        .take(4)
-        .map(|(mv, label, hint)| Opt { mv, label, hint: hint.to_string() })
-        .collect()
+        .partition(|(_, label, _)| !said.iter().any(|t| t.ends_with(label.as_str())));
+    let left = if fresh.is_empty() { stale.into_iter().filter(|(m, ..)| *m == Quiet).take(1).collect() } else { fresh };
+    left.into_iter().take(4).map(|(mv, label, hint)| Opt { mv, label, hint: hint.to_string() }).collect()
 }
 
 /// Your rating for a move, centred: -0.9 at 1, 1 at 20.
@@ -828,6 +833,11 @@ pub(crate) fn make(w: &mut World, id: u32, mv: Move, said: &str) -> Vec<String> 
     if !s.phase.open() {
         return Vec::new();
     }
+    // The same line twice in a week is no new move: nothing comes of it.
+    let line = if mv.public() { format!("{}: {said}", scene::your_name(w)) } else { said.to_string() };
+    if s.beats.iter().any(|b| b.by == Voice::You && b.date.days_to(w.today) < 7 && b.text == line) {
+        return vec!["You said that this week already; nothing new comes of it.".into()];
+    }
     let seed = w.options.seed;
     let fam = s.family();
     let noise = (w.storylines.rng(seed).next() as f32 - 0.5) * 0.08;
@@ -905,14 +915,16 @@ pub(crate) fn make(w: &mut World, id: u32, mv: Move, said: &str) -> Vec<String> 
         }
     }
     // The beat.
-    let text = if mv.public() {
-        let you = scene::your_name(w);
-        format!("{you}: {said}")
-    } else {
-        said.to_string()
-    };
+    let text = line;
     let what = if mv.public() { BeatKind::Move } else { BeatKind::Private };
+    let quiet_since = w.storylines.idx(id).map(|k| w.storylines.open[k].last_beat);
     add_beat(w, id, what, Voice::You, 255, mv.heat(), text);
+    // A no-comment is no news: the story can still go quiet.
+    if mv == Move::Quiet
+        && let (Some(k), Some(was)) = (w.storylines.idx(id), quiet_since)
+    {
+        w.storylines.open[k].last_beat = was;
+    }
     if mv == Move::Leak {
         // A leak goes out through a writer the next day.
         if let Some(k) = w.storylines.idx(id) {
@@ -1184,7 +1196,7 @@ fn consider(w: &mut World, id: u32) {
         return;
     }
     let Some(part) = s.you else { return };
-    if !matches!(part, Part::Lead | Part::Decider | Part::Rival) {
+    if !matches!(part, Part::Lead | Part::Decider | Part::Rival | Part::Suitor) {
         return;
     }
     if w.storylines.met.iter().any(|m| m.0 == id && m.1.days_to(d) < MEETING_GAP) {
@@ -1260,8 +1272,7 @@ pub(crate) fn open(w: &mut World, sc: &mut Scene) {
     for b in said.iter().skip(n.saturating_sub(3)) {
         sc.other(b.by.name(), b.text.clone());
     }
-    let read = public_read(&s);
-    sc.narrate(format!("What people think: {read}"));
+    sc.narrate(public_read(w, &s));
     // The clippings.
     let mut doc = scene::Doc {
         title: "What's been said".into(),
@@ -1280,29 +1291,43 @@ pub(crate) fn open(w: &mut World, sc: &mut Scene) {
 }
 
 /// What the public thinks, in words.
-pub fn public_read(s: &Story) -> String {
-    let lean = if s.belief > 0.35 {
-        "most expect the change"
-    } else if s.belief < -0.35 {
-        "most think nothing changes"
-    } else {
-        "nobody knows which way it goes"
+pub fn public_read(w: &World, s: &Story) -> String {
+    let sp = super::view::split(w, s);
+    let (yes, no) = (s.belief > 0.35, s.belief < -0.35);
+    // Which way people think it goes, in the question's own terms: the
+    // insiders' picks for a recruit, the mock drafts for a prospect.
+    let lean = match s.family() {
+        Family::Recruiting => match sp.share {
+            60.. => format!("Most insiders pick {}", sp.a),
+            ..=40 if sp.b == "Elsewhere" => "Most insiders think he leaves".to_string(),
+            ..=40 => format!("Most insiders pick {}", sp.b),
+            _ => "The insiders' picks are split".to_string(),
+        },
+        Family::Draft => match sp.share {
+            60.. => "Most mock drafts have him going high".to_string(),
+            ..=40 => "Most mock drafts have him sliding".to_string(),
+            _ => "The mock drafts are split on him".to_string(),
+        },
+        Family::Battle if yes => "Most expect a change at the top".to_string(),
+        Family::Battle if no => "Most expect the starter to keep the job".to_string(),
+        Family::Battle => "Nobody knows who starts".to_string(),
+        Family::Seat | Family::Wanted | Family::Leaving if yes => "Most think he goes".to_string(),
+        Family::Seat | Family::Wanted | Family::Leaving if no => "Most think he stays".to_string(),
+        Family::Seat | Family::Wanted | Family::Leaving => "Nobody knows if he stays".to_string(),
+        Family::OffField if yes => "Most expect the program to act".to_string(),
+        Family::OffField if no => "Most expect it to blow over".to_string(),
+        _ if yes => "Most expect it to happen".to_string(),
+        _ if no => "Most doubt it".to_string(),
+        _ => "Nobody knows which way it goes".to_string(),
     };
     let sure = if s.sure > 0.7 {
-        "and they are sure of it"
+        "and they sound sure"
     } else if s.sure > 0.4 {
-        "though it's far from settled"
+        "but it's far from settled"
     } else {
-        "and it's mostly talk"
+        "but most of it is talk"
     };
-    let room = if s.sides[0] >= 0.6 {
-        "The locker room is with the lead."
-    } else if s.sides[0] <= 0.4 {
-        "The locker room is split."
-    } else {
-        "The locker room is quiet about it."
-    };
-    format!("{lean}, {sure}. {room}")
+    format!("{lean}, {sure}.")
 }
 
 pub(crate) fn answer(w: &mut World, sc: &mut Scene, code: u32, picked: &Pick) {
@@ -1355,6 +1380,7 @@ pub fn stake_line(s: &Story) -> &'static str {
         Some(Part::Lead) => "It's about you.",
         Some(Part::Decider) => "It's your call.",
         Some(Part::Rival) => "You're the other side.",
+        Some(Part::Suitor) => "You want him; he decides.",
         Some(_) => "You're in it.",
         None => "",
     }

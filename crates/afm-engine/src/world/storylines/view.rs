@@ -98,6 +98,7 @@ pub fn role(w: &World, s: &Story) -> &'static str {
         Some(Part::Decider) => "decider",
         Some(Part::Rival) => "the other side",
         Some(Part::Boss) => "the boss",
+        Some(Part::Suitor) if s.family() == Family::Recruiting => "recruiting him",
         Some(Part::Suitor) => "a suitor",
         Some(_) => "in it",
         None => "",
@@ -116,8 +117,8 @@ pub fn inside(s: &Story) -> &'static str {
 }
 
 /// What the public believes, in words, and how sure it is (0-100).
-pub fn outside(s: &Story) -> (String, u8) {
-    (moves::public_read(s), (s.sure * 100.0).round().clamp(0.0, 100.0) as u8)
+pub fn outside(w: &World, s: &Story) -> (String, u8) {
+    (moves::public_read(w, s), (s.sure * 100.0).round().clamp(0.0, 100.0) as u8)
 }
 
 /// The two sides of a story as one split: who backs the lead and who
@@ -194,6 +195,7 @@ pub fn next(w: &World, s: &Story) -> (&'static str, Option<Date>) {
         return ("", None);
     }
     let what = match s.family() {
+        _ if s.kind == super::K::StaffRaid.id() => "the hires",
         Family::Battle => "the depth chart",
         Family::Seat => "the decision on his future",
         Family::Wanted => "the other job's decision",

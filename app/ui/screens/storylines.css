@@ -87,7 +87,7 @@
 .sl-crest { flex: none; display: inline-flex; }
 .sl-head-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .sl-h1 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -.02em; line-height: 1.05; font-stretch: 125%; }
-.sl-h1.q { font-size: clamp(20px, 2vw, 26px); font-stretch: 100%; line-height: 1.15; max-width: 980px; }
+.sl-h1.sl-hq { font-size: clamp(20px, 2vw, 26px); font-stretch: 100%; line-height: 1.15; max-width: 980px; }
 .sl-head .tabsline { border-bottom: 0; align-self: flex-end; margin-left: 14px; }
 .sl .tabsline button[aria-selected="true"] { border-bottom-color: var(--sl-gold); }
 .sl-head-act { margin-left: auto; display: flex; align-items: center; gap: 10px; }
@@ -109,9 +109,9 @@
 /* heat: hot gold, warm sand, cool grey */
 .sl-num { font-stretch: 68%; font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; line-height: 1; }
 .sl-num.big { font-size: 40px; line-height: .9; }
-.sl-num.hot, .sl-big.hot, .sl-spark.hot, .sl-pvh .hot { color: var(--sl-gold); }
-.sl-num.warm, .sl-big.warm, .sl-spark.warm, .sl-pvh .warm { color: var(--sl-warm); }
-.sl-num.cool, .sl-big.cool, .sl-spark.cool, .sl-pvh .cool { color: var(--sl-cool); }
+.sl-num.sl-hot, .sl-big.sl-hot, .sl-spark.sl-hot, .sl-pvh .sl-hot { color: var(--sl-gold); }
+.sl-num.sl-warm, .sl-big.sl-warm, .sl-spark.sl-warm, .sl-pvh .sl-warm { color: var(--sl-warm); }
+.sl-num.sl-cool, .sl-big.sl-cool, .sl-spark.sl-cool, .sl-pvh .sl-cool { color: var(--sl-cool); }
 .sl-spark { flex: none; display: block; overflow: visible; }
 .sl-spark line { stroke: var(--sl-track-dim); }
 .sl-spark polygon { fill: var(--sl-gold-fill); }
@@ -376,7 +376,7 @@ a.sl-chip:hover { background: var(--sl-track-dim); color: var(--fg); }
 .sl-shelf { position: relative; display: flex; align-items: flex-end; gap: 6px; min-height: 104px; padding: 0 4px 9px; overflow-x: auto; scrollbar-width: thin; }
 .sl-shelf::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 7px; border-radius: 3px; background: var(--sl-shelf); }
 .sl-shelf > .sub { align-self: center; font-style: italic; }
-.sl-mem { flex: none; width: 96px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px 6px; border: 0; border-radius: 12px; background: transparent; color: var(--sl-warm); cursor: pointer; }
+.sl-mem { flex: 1 1 0; min-width: 64px; max-width: 96px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px 6px; border: 0; border-radius: 12px; background: transparent; color: var(--sl-warm); cursor: pointer; }
 .sl-mem .so-glyph { width: 46px; height: 46px; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .35)); transition: transform .25s var(--ease); }
 .sl-mem:hover .so-glyph { transform: translateY(-3px) scale(1.04); }
 .sl-mem small { max-width: 100%; font-size: 11px; font-weight: 600; line-height: 1.25; color: var(--sl-cool); text-align: center; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

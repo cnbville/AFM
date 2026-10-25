@@ -265,7 +265,17 @@ fn question_with(s: &Story, f: &Fill) -> String {
         let Some(z) = after.find('}') else { break };
         let key = &after[..z];
         let v = f.get(key).map(str::to_string).unwrap_or_else(|| match key {
-            "lead" | "rival" => "him".to_string(),
+            // Someone gone from the world: named by what he was in it.
+            "lead" | "rival" => {
+                let part = if key == "lead" { Part::Lead } else { Part::Rival };
+                match s.cast.iter().find(|m| m.part == part).map(|m| m.who) {
+                    Some(Who::Coach(_)) => "the coach",
+                    Some(Who::Team(_)) => "the team",
+                    _ if s.family() == Family::Recruiting => "the recruit",
+                    _ => "the player",
+                }
+                .to_string()
+            }
             "other" | "other_name" => "the other side".to_string(),
             "team" => "the team".to_string(),
             "n" => "the next one".to_string(),
@@ -276,7 +286,25 @@ fn question_with(s: &Story, f: &Fill) -> String {
         rest = &after[z + 1..];
     }
     out.push_str(rest);
-    out
+    crate::world::stories::lines::tidy(&out)
+}
+
+/// The names a story's question asks for that its fill doesn't have (its
+/// lead gone from the world, a team story asking for a person): the
+/// scripted seasons list them.
+pub fn question_gaps(w: &World, s: &Story) -> Vec<String> {
+    let f = fill(w, s);
+    let mut gaps = Vec::new();
+    let mut rest = s.def().question;
+    while let Some(a) = rest.find('{') {
+        let after = &rest[a + 1..];
+        let Some(z) = after.find('}') else { break };
+        if f.get(&after[..z]).is_none() {
+            gaps.push(after[..z].to_string());
+        }
+        rest = &after[z + 1..];
+    }
+    gaps
 }
 
 pub(crate) fn head_coach(w: &World, t: TeamKey) -> Option<usize> {
@@ -332,8 +360,10 @@ fn keys(s: &Story, what: BeatKind, extra: Option<&str>) -> Vec<String> {
 pub(crate) fn line(w: &mut World, s: &Story, what: BeatKind, extra: Option<&str>, f: &Fill) -> Option<String> {
     let seed = w.options.seed;
     let year = w.year;
+    // Never a line this story already told.
+    let said: Vec<&str> = s.beats.iter().filter(|b| !b.text.is_empty()).map(|b| b.text.as_str()).collect();
     for k in keys(s, what, extra) {
-        if let Some(t) = w.storylines.line(seed, &k, f, year) {
+        if let Some(t) = w.storylines.line(seed, &k, f, year, &said) {
             return Some(t);
         }
     }
@@ -734,7 +764,7 @@ pub(crate) fn legacy(w: &mut World, id: u32) {
         format!("sl.{}.legacy", def.key),
         format!("sl.{}.legacy", def.family.key()),
     ] {
-        if let Some(t) = w.storylines.line(seed, &k, &f, year) {
+        if let Some(t) = w.storylines.line(seed, &k, &f, year, &[]) {
             out = Some(t);
             break;
         }

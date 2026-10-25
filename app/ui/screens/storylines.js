@@ -25,7 +25,7 @@ navAdd({ go: "chapters", label: "Season chapters", icon: "book", sec: "world", a
 Object.assign(CRUMBS, { storylines: "This week", storyline: "Story", chapters: "Season chapters", jobpick: "Pick your next job" });
 
 // ---------- small pieces ----------
-const slHeat = (h) => (h >= 60 ? "hot" : h >= 30 ? "warm" : "cool");
+const slHeat = (h) => (h >= 60 ? "sl-hot" : h >= 30 ? "sl-warm" : "sl-cool");
 const slEmpty = (t) => `<div class="empty">${esc(t)}</div>`;
 const slSigned = (d) => (d > 0 ? "+" : d < 0 ? "−" : "±") + Math.abs(d);
 const SL_PHASES = ["Seed", "Spark", "Building", "Peak", "Resolved", "Aftermath"];
@@ -77,7 +77,7 @@ screens.storylines = async (a) => {
       ${x.following.length ? `<div class="sl-cards">${x.following.map(slCard).join("")}</div>` : slEmpty("You follow nothing yet. The + beside a story elsewhere follows it.")}`;
   } else {
     main = `<div class="sl-ph"><span><b class="sl-pt">Ended this season</b> <span class="sub">yours, the ones you followed and the ones around you</span></span></div>
-      ${x.ended.length ? `<div class="sl-ended">${x.ended.map((e) => `<div class="sl-erow" data-go="storyline" data-id="${e.id}" role="link" tabindex="0"><span class="sl-num ${slHeat(e.heat)}">${e.heat}</span><span><b>${rich(e.q)}</b><small>${rich(e.text)}</small></span><span class="st-label">${esc(e.fam)}</span><span class="sl-out">${esc(e.outcome)}</span></div>`).join("")}</div>` : slEmpty("Nothing has ended yet this season.")}`;
+      ${x.ended.length ? `<div class="sl-ended">${x.ended.map((e) => `<div class="sl-erow" data-go="storyline" data-id="${e.id}" role="link" tabindex="0"><span class="sl-num ${slHeat(e.heat)}">${e.heat}</span><span><b>${rich(e.q)}</b><small>${rich(e.text)}</small></span><span class="st-label">${esc(e.fam)}</span><span class="sl-out">${esc(e.outcome)}</span></div>`).join("")}</div>` : `<div class="empty">Nothing has ended yet in the ${x.year} season. Last season's stories are in ${linkTo("chapters", { season: x.year - 1 }, "its chapters")}.</div>`}`;
   }
   const others = x.others.length
     ? x.others.map((o) => `<div class="sl-orow"><span class="sl-num ${slHeat(o.heat)}">${o.heat}</span><span class="sl-otext" data-go="storyline" data-id="${o.id}" role="link" tabindex="0"><b>${rich(o.q)}</b><small>${esc(o.fam)} · ${esc(o.phase.toLowerCase())}</small></span><span class="st-label sl-tag">${esc(o.tag)}</span>${slFollow(o)}</div>`).join("")
@@ -130,7 +130,7 @@ screens.storyline = async (a) => {
   const follow = x.canFollow ? `<button class="st-btn ${x.following ? "sl-on" : "glass"}" data-act="slfollow" data-id="${x.id}" data-on="${x.following ? 0 : 1}">${x.following ? "Following ✓" : "Follow"}</button>` : "";
   const crest = x.team ? `<span class="sl-crest">${mark(x.team, 40)}</span>` : "";
   return `<div class="pad sl">
-    <header class="sl-head">${crest}<div class="sl-head-copy"><span class="st-label">${esc(x.ctx)}</span><h1 class="sl-h1 q">${rich(x.q)}</h1></div><div class="sl-head-act">${follow}</div></header>${gotoFor("storyline")}
+    <header class="sl-head">${crest}<div class="sl-head-copy"><span class="st-label">${esc(x.ctx)}</span><h1 class="sl-h1 sl-hq">${rich(x.q)}</h1></div><div class="sl-head-act">${follow}</div></header>${gotoFor("storyline")}
     <div class="sl-story">
       <section class="panel sl-so">
         <div class="sl-ph"><span><b class="sl-pt">The story so far</b> <span class="sub">${esc(x.span)}</span></span><span class="sl-num big ${slHeat(x.heat)}">${x.heat}</span></div>
@@ -348,14 +348,14 @@ screens.jobpick = async (a) => {
         <div class="sl-terms"><div class="sl-of head st-label"><span>Terms</span><span>${esc(J.name)}</span><span>A calm job</span></div>${terms}</div>
         ${J.premium.length ? `<p class="sub small">${esc(J.premium.join(" · "))}</p>` : ""}
         <div class="sl-rws"><span class="st-label gold">If you handle it</span>
-          <div class="sl-rw"><span>Reputation, if its stories end well</span><b class="t0">${esc(J.rep)}</b></div>
-          <div class="sl-rw"><span>Lesson points, every story, no season cap</span><b class="t0">${esc(J.lessons)}</b></div>
+          <div class="sl-rw"><span>Reputation, if its stories end well</span><b class="${/^up to/.test(J.rep) ? "t0" : ""}">${esc(J.rep)}</b></div>
+          <div class="sl-rw"><span>Lesson points, every story, no season cap</span><b class="${/^\+/.test(J.lessons) ? "t0" : ""}">${esc(J.lessons)}</b></div>
           <div class="sl-rw"><span>Loyal ties</span><span>${esc(J.ties)}</span></div>
           <div class="sl-rw"><span>A career chapter</span><span>${esc(plainText(J.chapter))}</span></div>
           <div class="sl-rw"><span>An office keepsake</span><span>${esc(J.memento)}</span></div>
           <div class="sl-rw"><span>A name</span><span>${esc(J.name_given)}</span></div></div>
         <div class="sl-rws"><span class="st-label">If it goes badly</span>
-          <div class="sl-rw"><span>Reputation</span><b class="t2">${esc(J.bad)}</b></div>
+          <div class="sl-rw"><span>Reputation</span><b class="${/^\u2212/.test(J.bad) ? "t2" : ""}">${esc(J.bad)}</b></div>
           <div class="sl-rw"><span>Patience</span><span class="t2">${esc(J.badP)}</span></div></div>
         <div class="sl-cardlet"><span class="st-label">What leaving starts</span><span>${esc(x.leave)}</span></div>
         <div class="sl-btns">${act}</div>

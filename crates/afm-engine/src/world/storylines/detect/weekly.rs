@@ -1041,7 +1041,7 @@ fn room_and_fans(w: &mut World, t: TeamKey) {
 fn bowl_chase(w: &mut World, t: TeamKey) {
     let year = w.year;
     let (wins, losses) = record_now(w, t);
-    if (4..=5).contains(&wins) && losses <= 6 && losses >= 4 {
+    if (4..=5).contains(&wins) && (4..=6).contains(&losses) {
         let s = team_spot(w, K::BowlChase, t, s_season(t, year)).nums([wins as i32, losses as i32, 0, 0]).public();
         tell(w, s);
     }
@@ -2201,7 +2201,7 @@ fn due_checks(w: &mut World, d: Date) {
             K::ChoppingBlock if d.year() > when.year() || late >= 30 => {
                 let dark = match s.team {
                     Some(TeamKey::College(p)) => {
-                        w.programs[p as usize].dark.iter().any(|&(a, b)| year + 1 >= a && year + 1 <= b)
+                        w.programs[p as usize].dark.iter().any(|&(a, b)| (a..=b).contains(&(year + 1)))
                     }
                     _ => false,
                 };
@@ -2570,10 +2570,10 @@ fn program_news(w: &mut World) {
     for p in &w.programs {
         let n = p.era.cases.len() as u32;
         let seen = w.storylines.watch.ncaa.get(&(p.id as u32)).copied().unwrap_or(0);
-        if n > seen {
-            if let Some(c) = p.era.cases.last() {
-                cases.push((p.id, c.scholarships + c.postseason_years));
-            }
+        if n > seen
+            && let Some(c) = p.era.cases.last()
+        {
+            cases.push((p.id, c.scholarships + c.postseason_years));
         }
     }
     for (p, weight) in cases {

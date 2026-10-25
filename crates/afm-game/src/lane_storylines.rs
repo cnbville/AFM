@@ -16,7 +16,8 @@
 //! The words come from the engine's `view` and `credit`; this lane lays
 //! them out. Story text is linked once per page (`link_tree`).
 
-use afm_engine::calendar::{Date, Level, Weekday};
+use afm_engine::calendar::events::add_ref;
+use afm_engine::calendar::{Date, Level, Link, Weekday};
 use afm_engine::world::World;
 use afm_engine::world::coach::{Employer, Role};
 use afm_engine::world::folk::{self, scene::Kind as SceneKind};
@@ -242,20 +243,69 @@ fn link_tree(w: &World, v: &mut Value) {
             _ => {}
         }
     }
-    fn apply(v: &mut Value, l: &Linker, ctx: &[TeamRef]) {
+    // The stories in the tree: a card or page by its "id" beside its "q",
+    // a meeting or chapter by its "story".
+    fn ids(v: &Value, out: &mut Vec<u32>) {
+        match v {
+            Value::Object(m) => {
+                let id = match (m.get("story"), m.get("q")) {
+                    (Some(s), _) => s.as_u64(),
+                    (None, Some(_)) => m.get("id").and_then(Value::as_u64),
+                    _ => None,
+                };
+                out.extend(id.map(|x| x as u32));
+                m.values().for_each(|x| ids(x, out));
+            }
+            Value::Array(a) => a.iter().for_each(|x| ids(x, out)),
+            _ => {}
+        }
+    }
+    fn apply(v: &mut Value, l: &Linker, ctx: &[TeamRef], known: &[(String, Link)]) {
         match v {
             Value::Object(m) => {
                 for (k, x) in m.iter_mut() {
                     match x {
-                        Value::String(s) if LINKED.contains(&k.as_str()) => *s = l.link(s, ctx),
-                        _ => apply(x, l, ctx),
+                        Value::String(s) if LINKED.contains(&k.as_str()) => {
+                            let mut refs = Vec::new();
+                            for (name, to) in known.iter().filter(|(n, _)| s.contains(n.as_str())) {
+                                add_ref(&mut refs, s, *to, name);
+                            }
+                            *s = l.link_refs(s, &refs, ctx);
+                        }
+                        _ => apply(x, l, ctx, known),
                     }
                 }
             }
-            Value::Array(a) => a.iter_mut().for_each(|x| apply(x, l, ctx)),
+            Value::Array(a) => a.iter_mut().for_each(|x| apply(x, l, ctx, known)),
             _ => {}
         }
     }
+    // The people in those stories link by id: a common name ("Chase
+    // Thomas") still finds the one the story is about. A name two of them
+    // share is left to the linker.
+    let mut known: Vec<(String, Link)> = Vec::new();
+    let mut story_ids = Vec::new();
+    ids(v, &mut story_ids);
+    story_ids.sort_unstable();
+    story_ids.dedup();
+    for s in story_ids.iter().filter_map(|&id| w.storylines.get(id)) {
+        for m in &s.cast {
+            let found = match m.who {
+                Who::Player(id) => views::person_index(w, id).map(|i| (w.people[i].name.clone(), Link::Person(id))),
+                Who::Coach(c) => w.coaches.get(c as usize).map(|co| (co.name.clone(), Link::Coach(c))),
+                _ => None,
+            };
+            if let Some((name, to)) = found {
+                known.push((name, to));
+            }
+        }
+    }
+    known.sort_by(|a, b| a.0.cmp(&b.0));
+    known.dedup();
+    let shared: Vec<String> = known.windows(2).filter(|p| p[0].0 == p[1].0).map(|p| p[0].0.clone()).collect();
+    known.retain(|k| !shared.contains(&k.0));
+    // Longest first, so "Tom Smith Jr." wins over "Tom Smith".
+    known.sort_by_key(|k| std::cmp::Reverse(k.0.len()));
     let texts: Vec<String> = {
         let mut out = Vec::new();
         gather(v, &mut out);
@@ -264,7 +314,7 @@ fn link_tree(w: &World, v: &mut Value) {
     let refs: Vec<&str> = texts.iter().map(String::as_str).collect();
     let l = Linker::new(w, &refs, true);
     let ctx: Vec<TeamRef> = views::mine(w).into_iter().collect();
-    apply(v, &l, &ctx);
+    apply(v, &l, &ctx, &known);
 }
 
 // --- Board 28: This week -------------------------------------------------------------------------
@@ -345,8 +395,8 @@ fn week(w: &World) -> Value {
         v.sort_by(|a, b| b.heat.total_cmp(&a.heat));
         v
     };
-    let ended: Vec<&Story> =
-        view::ended_since(w, Date::ymd(w.year, 2, 15)).into_iter().filter(|s| s.season == w.year).collect();
+    // Ended since the season turned, whenever they started.
+    let ended: Vec<&Story> = view::ended_since(w, Date::ymd(w.year, 2, 15));
     let week_ago = w.today.add(-7);
     let ended_week: Vec<Value> =
         ended.iter().filter(|s| s.closed.is_some_and(|c| c >= week_ago)).take(3).map(|s| ended_row(w, s)).collect();
@@ -385,6 +435,7 @@ fn week(w: &World) -> Value {
         "following": following.iter().map(|s| card(w, s)).collect::<Vec<_>>(),
         "ended": ended.iter().map(|s| ended_row(w, s)).collect::<Vec<_>>(),
         "endedWeek": ended_week,
+        "year": w.year,
         "others": others,
         "where": where_,
         "up": up.into_iter().map(|(d, t)| json!({ "d": short_day(d), "date": date_text(d), "text": t })).collect::<Vec<_>>(),
@@ -473,11 +524,13 @@ fn cast_row(w: &World, s: &Story, m: &sl::Member) -> Value {
     };
     let side = match m.part {
         Part::Lead | Part::Rival => "himself".to_string(),
+        Part::Suitor => last(s.lead()).map_or("wants him".into(), |n| format!("wants {n}")),
         _ => {
             let (a, b) = (last(s.lead()), last(s.rival()));
             match m.side {
                 x if x >= 40 => a.map_or("with him".into(), |n| format!("with {n}")),
                 x if x >= 10 => a.map_or("leans with him".into(), |n| format!("leans {n}")),
+                x if x > -10 && matches!(m.part, Part::Decider | Part::Boss) => "undecided".into(),
                 x if x > -10 => "on the fence".into(),
                 x if x > -40 => b.map_or("leans against".into(), |n| format!("leans {n}")),
                 _ => b.map_or("against him".into(), |n| format!("with {n}")),
@@ -509,6 +562,8 @@ fn story_page(w: &mut World, id: u32) -> Reply {
     let w: &World = w;
     let (start, pts) = heat_line(w, &s);
     let shown: Vec<&sl::Beat> = s.beats.iter().filter(|b| seen(b)).collect();
+    // A story older than this year shows its dates with years.
+    let years = start.year() != w.today.year();
     let marks: Vec<Value> = shown
         .iter()
         .map(|b| {
@@ -521,7 +576,11 @@ fn story_page(w: &mut World, id: u32) -> Reply {
         .rev()
         .take(12)
         .rev()
-        .map(|b| json!({ "d": short_day(b.date), "src": view::source(&s, b), "text": b.text, "h": b.heat.max(0), "ours": ours(b) }))
+        .map(|b| {
+            let d =
+                if years { format!("{} '{:02}", short_day(b.date), b.date.year() % 100) } else { short_day(b.date) };
+            json!({ "d": d, "src": view::source(&s, b), "text": b.text, "h": b.heat.max(0), "ours": ours(b) })
+        })
         .collect();
     let (next, due) = next_text(w, &s);
     // What your staff knows: the inside read, then its latest memos. A
@@ -533,7 +592,7 @@ fn story_page(w: &mut World, id: u32) -> Reply {
     } else {
         vec!["Your staff has nobody inside this one: what you know is what the papers know.".to_string()]
     };
-    let (belief, sure) = view::outside(&s);
+    let (belief, sure) = view::outside(w, &s);
     let sp = view::split(w, &s);
     let money_side = if seat_kind(w) == "nfl" { "Ownership" } else { "Boosters" };
     let sides: Vec<Value> = view::audiences(&s)
@@ -576,7 +635,12 @@ fn story_page(w: &mut World, id: u32) -> Reply {
         "open": s.phase.open(),
         "phase": phase_index(s.phase),
         "phaseName": s.phase.name(),
-        "span": format!("{} beat{} since {}", shown.len(), if shown.len() == 1 { "" } else { "s" }, short_day(start)),
+        "span": format!(
+            "{} beat{} since {}",
+            shown.len(),
+            if shown.len() == 1 { "" } else { "s" },
+            if years { format!("{}, {}", short_day(start), start.year()) } else { short_day(start) }
+        ),
         "chart": {
             "days": pts.last().map_or(1, |p| p.0.max(1)) + if s.phase.open() { 7 } else { 0 },
             "now": pts.last().map_or(0, |p| p.0),
@@ -607,9 +671,17 @@ fn story_page(w: &mut World, id: u32) -> Reply {
 
 /// Date ticks along a chart: its first day, each month's first, today.
 fn ticks(start: Date, days: i32) -> Vec<Value> {
-    let mut v = vec![json!([0, short_day(start)])];
     let span = days.max(1);
-    let step = if span > 150 { 2 } else { 1 };
+    let end = start.add(span);
+    // Across a new year the ends carry their years and January its own.
+    let years = start.year() != end.year();
+    let label = |d: Date| if years { format!("{} '{:02}", short_day(d), d.year() % 100) } else { short_day(d) };
+    let mut v = vec![json!([0, label(start)])];
+    let step = match span {
+        ..=150 => 1,
+        151..=400 => 2,
+        _ => 3,
+    };
     let mut m = Date::ymd(start.year(), start.month(), 1);
     let mut k = 0;
     loop {
@@ -624,12 +696,15 @@ fn ticks(start: Date, days: i32) -> Vec<Value> {
         }
         k += 1;
         if k % step == 0 && d > span / 12 && span - d > span / 12 {
-            v.push(json!([d, short_day(m).split(' ').next().unwrap_or("")]));
+            let t = if years && m.month() == 1 {
+                m.year().to_string()
+            } else {
+                short_day(m).split(' ').next().unwrap_or("").to_string()
+            };
+            v.push(json!([d, t]));
         }
     }
-    if span > 0 {
-        v.push(json!([span, short_day(start.add(span))]));
-    }
+    v.push(json!([span, label(end)]));
     v
 }
 
@@ -647,7 +722,7 @@ fn meeting(w: &mut World, id: u32) -> Reply {
     let w_ref: &World = w;
     let latest = sl::tell::last_said(&s);
     let title = latest.map_or_else(|| view::question(w_ref, &s), |b| b.text.clone());
-    let (belief, sure) = view::outside(&s);
+    let (belief, sure) = view::outside(w_ref, &s);
     // Four facts: who leads it, how he is, what people think, what waiting does.
     let lead = s.cast.iter().find(|m| m.part == Part::Lead);
     let mut facts: Vec<Value> = Vec::new();
@@ -678,7 +753,7 @@ fn meeting(w: &mut World, id: u32) -> Reply {
         "q": view::question(w_ref, &s),
         "when": date_text(sc.date),
         "title": title,
-        "body": format!("{} What people think: {belief}", sc.place),
+        "body": format!("{} {belief}", sc.place),
         "facts": facts,
         "opts": opts,
         "done": sc.done,
@@ -738,7 +813,7 @@ fn previously(w: &mut World) -> Value {
     let rows: Vec<Value> = mine
         .iter()
         .map(|s| {
-            let stood = sl::tell::last_said(s).map_or_else(|| view::outside(s).0, |b| b.text.clone());
+            let stood = sl::tell::last_said(s).map_or_else(|| view::outside(w, s).0, |b| b.text.clone());
             json!({ "id": s.id, "q": view::question(w, s), "text": format!("{}. {stood}", s.phase.name()), "h": s.heat.round(), "n": upper(&next_text(w, s).0) })
         })
         .collect();
@@ -815,7 +890,14 @@ fn chapters(w: &World, season: Option<i32>) -> Value {
     years.sort_unstable();
     years.dedup();
     years.reverse();
-    let yr = season.filter(|y| years.contains(y)).or_else(|| years.first().copied()).unwrap_or(w.year);
+    // Opened without a season: the latest one with a chapter or a game, so
+    // the weeks after the year turns still show the season just played.
+    let played = |y: i32| all.iter().any(|c| c.season == y) || w.seat_games().iter().any(|g| season_of(g.date) == y);
+    let yr = season
+        .filter(|y| years.contains(y))
+        .or_else(|| years.iter().copied().find(|&y| played(y)))
+        .or_else(|| years.first().copied())
+        .unwrap_or(w.year);
     let list: Vec<&credit::Chapter> = all.iter().filter(|c| c.season == yr).collect();
     // The season's team: the one its chapters were about, else your team then.
     let team = list
@@ -853,7 +935,7 @@ fn chapters(w: &World, season: Option<i32>) -> Value {
     };
     let last = slots.last().map_or(Date::ymd(yr, 12, 1), |s| s.0.add(1));
     slots.push((last, "·".into(), winter.into()));
-    let nth = w.stories.story.seasons.iter().filter(|x| Some(x.team) == team && x.year as i32 <= yr).count().max(1);
+    let nth = w.stories.story.seasons.iter().filter(|x| Some(x.team) == team && (x.year as i32) < yr).count() + 1;
     let title = w.stories.story.titles.iter().find(|x| x.0 == yr && Some(x.1) == team).map(|x| x.2.clone());
     let rec = if ties > 0 { format!("{wins}-{losses}-{ties}") } else { format!("{wins}-{losses}") };
     let sub = [
@@ -906,21 +988,31 @@ fn ordinal(n: usize) -> String {
 fn career(w: &World) -> Value {
     let Some(c) = w.career.as_ref() else { return json!({ "none": true }) };
     let co = &w.coaches[c.coach];
-    let now = w.today.year() as f64 + w.today.day_of_year() as f64 / 365.0;
-    // Your jobs: the ones before and the one you hold.
+    let cal = |d: Date| d.year() as f64 + d.day_of_year() as f64 / 365.0;
+    let now = cal(w.today);
+    // Your jobs on the calendar: a football year starts after the Super
+    // Bowl, and the job you hold started the day you took it.
+    let turn = |y: i32| y as f64 + 0.12;
     let mut jobs: Vec<Value> = co
         .history
         .iter()
         .map(|s| {
-            json!({ "team": views::employer_brief(w, s.employer), "name": views::employer_name(w, s.employer), "role": market::role_title(s.role), "from": s.from, "to": s.to.max(s.from) + 1, "now": false })
+            json!({ "team": views::employer_brief(w, s.employer), "name": views::employer_name(w, s.employer), "role": market::role_title(s.role), "from": turn(s.from), "to": turn(s.to.max(s.from) + 1), "now": false })
         })
         .collect();
     if let Some(j) = co.job {
-        jobs.push(json!({ "team": views::employer_brief(w, j.employer), "name": views::employer_name(w, j.employer), "role": market::role_title(j.role), "from": j.since, "to": now, "now": true }));
+        let hired = w.storylines.credit.hired_into.filter(|h| h.0 == employer_team(j.employer)).map(|h| h.2);
+        let from = match hired {
+            Some(d) => cal(d),
+            None if co.history.is_empty() => cal(c.started),
+            None => turn(j.since),
+        };
+        jobs.push(json!({ "team": views::employer_brief(w, j.employer), "name": views::employer_name(w, j.employer), "role": market::role_title(j.role), "from": from, "to": now, "now": true }));
     }
-    let first = co.history.first().map(|s| s.from).or(co.job.map(|j| j.since)).unwrap_or(w.today.year()) as f64;
-    // The chapters, oldest first, each with what it gave you.
-    let all = &w.storylines.credit.chapters;
+    let first = jobs.iter().filter_map(|j| j["from"].as_f64()).fold(cal(w.today), f64::min).floor();
+    // The book: each season's biggest chapter and the hottest of all,
+    // oldest first, each with what it gave you.
+    let all = credit::career_book(w);
     let chs: Vec<Value> = all
         .iter()
         .enumerate()
@@ -929,7 +1021,7 @@ fn career(w: &World) -> Value {
             let gave: Vec<Value> = ch
                 .left
                 .iter()
-                .filter(|l| matches!(l.0.as_str(), "memento" | "tie" | "name" | "callback"))
+                .filter(|l| matches!(l.0.as_str(), "memento" | "tie" | "name"))
                 .take(3)
                 .map(|l| json!({ "t": format!("{}: {}", l.0, l.1), "tone": if matches!(l.0.as_str(), "memento" | "name") { 0 } else { 1 } }))
                 .collect();
@@ -1035,7 +1127,9 @@ fn word_index(word: &str) -> u8 {
 fn jobs(w: &mut World) -> Value {
     let Some(c) = w.career.as_ref() else { return json!({ "none": true }) };
     let i = c.market.interest.clone();
-    let mut list: Vec<(Option<usize>, Employer, Role, String, Option<(f64, u8)>)> = c
+    // (offer index, employer, role, why it's listed, the offer's pay and years)
+    type Row = (Option<usize>, Employer, Role, String, Option<(f64, u8)>);
+    let mut list: Vec<Row> = c
         .market
         .offers
         .iter()
@@ -1053,13 +1147,13 @@ fn jobs(w: &mut World) -> Value {
         if o.role != Role::HeadCoach || Some((o.employer, o.role)) == mine || list.iter().any(|x| x.1 == o.employer) {
             continue;
         }
-        let same_level = match (o.employer, level) {
-            (Employer::College(_), Some(Level::College)) => true,
-            (Employer::Nfl(_), Some(Level::Nfl)) => true,
-            (Employer::HighSchool(_), Some(Level::HighSchool)) => true,
-            (_, None) => true,
-            _ => false,
-        };
+        let same_level = matches!(
+            (o.employer, level),
+            (Employer::College(_), Some(Level::College))
+                | (Employer::Nfl(_), Some(Level::Nfl))
+                | (Employer::HighSchool(_), Some(Level::HighSchool))
+                | (_, None)
+        );
         if !same_level || !market::interest_fits(w, &i, o.employer, o.role) {
             continue;
         }
@@ -1079,7 +1173,7 @@ fn jobs(w: &mut World) -> Value {
         let pay = offer.map_or_else(|| market::pay_words(w, e, r), |o| money(o.0));
         let terms = vec![
             json!({ "k": "Pay", "a": pay, "b": "the same" }),
-            json!({ "k": "Years guaranteed", "a": offer.map_or("as offered".into(), |o| format!("{}", o.1)), "b": calm_years.map_or("as offered".into(), |y| format!("{y}")) }),
+            json!({ "k": "Years guaranteed", "a": offer.map_or_else(|| if read.extra_years > 0 { format!("the usual + {}", read.extra_years) } else { "the usual".into() }, |o| o.1.to_string()), "b": calm_years.map_or("the usual".into(), |y| y.to_string()) }),
             json!({ "k": "Buyout if they fire you", "a": if read.buyout_extra > 0 { format!("{}% bigger", read.buyout_extra) } else { "the usual".into() }, "b": "the usual" }),
             json!({ "k": "Patience", "a": read.patience, "b": "judged as usual" }),
         ];
@@ -1105,13 +1199,17 @@ fn jobs(w: &mut World) -> Value {
             "terms": terms,
             "premium": read.premium,
             "rewards": read.rewards,
-            "rep": format!("up to +{:.2}", read.rep_up),
-            "lessons": format!("{:.2}", read.stories.iter().map(|s| s.lesson).sum::<f32>()),
+            "rep": if read.rep_up >= 0.005 { format!("up to +{:.2}", read.rep_up) } else { "none: no story to handle".into() },
+            // A fold from 0.0: an empty f32 sum is -0.0 ("-0.00").
+            "lessons": match read.stories.iter().fold(0.0f32, |a, s| a + s.lesson) {
+                x if x >= 0.005 => format!("+{x:.2}"),
+                _ => "none yet".into(),
+            },
             "ties": if read.ties.is_empty() { "none yet".to_string() } else { read.ties.join(", ") },
             "chapter": read.chapter,
             "memento": read.memento,
             "name_given": read.name,
-            "bad": format!("\u{2212}{:.2}", read.rep_down),
+            "bad": if read.rep_down >= 0.005 { format!("\u{2212}{:.2}", read.rep_down) } else { "nothing at stake yet".into() },
             "badP": if read.volatility >= 45.0 { "still kinder for two seasons" } else { "shorter after a losing year" },
             "boss": boss_title(w, e),
             "offer": offer.is_some(),

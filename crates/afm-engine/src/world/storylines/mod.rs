@@ -233,6 +233,15 @@ impl BeatKind {
     pub fn public(self) -> bool {
         !matches!(self, BeatKind::Seed | BeatKind::Memo | BeatKind::Private)
     }
+    /// Whether it moves the story on: something happened, or someone in it
+    /// acted. Talk about it (reports, columns, the radio, the fans) keeps
+    /// it warm but is no news, so a story nothing happens in goes quiet.
+    pub fn news(self) -> bool {
+        matches!(
+            self,
+            BeatKind::Spark | BeatKind::Fact | BeatKind::Peak | BeatKind::Resolve | BeatKind::Move | BeatKind::Denial
+        )
+    }
 }
 
 /// Who tells a beat.
@@ -460,9 +469,9 @@ impl Storylines {
     }
 
     /// A line from the banks, avoiding recent repeats.
-    pub(crate) fn line(&mut self, seed: u32, key: &str, f: &Fill, year: i32) -> Option<String> {
+    pub(crate) fn line(&mut self, seed: u32, key: &str, f: &Fill, year: i32, said: &[&str]) -> Option<String> {
         let mut rng = self.rng.take().unwrap_or_else(|| Rng::new(seed ^ 0x5701_11E5));
-        let out = self.recent.line(&mut rng, key, f, year);
+        let out = self.recent.line_avoiding(&mut rng, key, f, year, said);
         self.rng = Some(rng);
         out
     }
@@ -842,7 +851,7 @@ pub(crate) fn add_beat(w: &mut World, id: u32, what: BeatKind, by: Voice, who: u
         let gain = heat * amp_of(s, slow);
         s.heat = (s.heat + gain).clamp(0.0, 100.0);
         s.peak_heat = s.peak_heat.max(s.heat);
-        if what.public() && what != BeatKind::Fizzle {
+        if what.news() {
             s.last_beat = d;
         }
         if s.phase == Phase::Spark && what.public() && what != BeatKind::Spark && s.public_on.is_some_and(|p| p < d) {
@@ -1021,9 +1030,14 @@ fn your_part(w: &World, s: &Story) -> Option<Part> {
     {
         return Some(m.part);
     }
-    let team = super::stories::seat_team(w)?;
+    team_part(s, super::stories::seat_team(w)?)
+}
+
+/// A team's part in a story it is not cast in: the decider of its own
+/// stories, but a suitor when a recruit decides; the other side of a rival's.
+pub(crate) fn team_part(s: &Story, team: TeamKey) -> Option<Part> {
     if s.team == Some(team) {
-        return Some(Part::Decider);
+        return Some(if s.family() == Family::Recruiting { Part::Suitor } else { Part::Decider });
     }
     if s.other == Some(team) {
         return Some(Part::Rival);

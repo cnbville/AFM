@@ -391,6 +391,7 @@ pub fn by_key(key: &str) -> Option<u16> {
     CATALOGUE.iter().position(|d| d.key == key).map(|k| k as u16)
 }
 
+#[allow(clippy::too_many_arguments)]
 const fn d(
     key: &'static str,
     family: Family,
@@ -677,7 +678,7 @@ pub static CATALOGUE: [Def; 111] = [
         -1,
         true,
         30,
-        "Who replaces {lead} at {team}?",
+        "Who fills the holes on {team}'s staff?",
         &[("replaced", 0.5), ("promoted", 0.6)],
         &[R::Relationships, R::Network],
         0.3,

@@ -63,6 +63,33 @@ pub struct Chapter {
     /// What it paid you: (what, by how much, tone: 0 good, 1 plain, 2 bad).
     #[serde(default)]
     pub paid: Vec<(String, String, u8)>,
+    /// How hot the story ran at its peak (0-100): the book keeps the
+    /// biggest.
+    #[serde(default)]
+    pub heat: u8,
+}
+
+/// The chapters a season's book keeps: its biggest stories (the season
+/// reviews in the mock-ups hold five or six). Every story still pays.
+pub const SEASON_CHAPTERS: usize = 6;
+
+/// Your career's book: each season's biggest chapter, and the ones that
+/// ran hottest of all (the stories kept for good), three a season at most.
+pub fn career_book(w: &World) -> Vec<&Chapter> {
+    let all = &w.storylines.credit.chapters;
+    let mut out: Vec<&Chapter> = Vec::new();
+    let mut seasons: Vec<i32> = all.iter().map(|c| c.season).collect();
+    seasons.sort_unstable();
+    seasons.dedup();
+    for y in seasons {
+        let mut v: Vec<&Chapter> = all.iter().filter(|c| c.season == y).collect();
+        v.sort_by(|a, b| b.heat.cmp(&a.heat).then(a.to.cmp(&b.to)));
+        let keep: Vec<&Chapter> =
+            v.iter().enumerate().filter(|(k, c)| *k == 0 || c.heat >= 85).map(|(_, c)| *c).take(3).collect();
+        out.extend(keep);
+    }
+    out.sort_by(|a, b| a.season.cmp(&b.season).then(a.to.cmp(&b.to)));
+    out
 }
 
 /// Your rewards and your record with stories.
@@ -222,7 +249,7 @@ pub fn job_read(w: &mut World, t: TeamKey) -> JobRead {
             let f = super::tell::fill(w, s);
             [format!("sl.{}.chapter", s.def().key), format!("sl.{}.chapter", s.family().key())]
                 .iter()
-                .find_map(|k| w.storylines.line(seed, k, &f, year))
+                .find_map(|k| w.storylines.line(seed, k, &f, year, &[]))
         })
         .unwrap_or_else(|| "none yet".into());
     let memento = if list.iter().any(|s| s.heat >= 70.0) {
@@ -314,7 +341,7 @@ pub(crate) fn hired(w: &mut World, e: Employer) {
     for s in w.storylines.open.iter_mut().filter(|s| s.about(team)) {
         s.near = true;
         if s.you.is_none() {
-            s.you = Some(Part::Decider);
+            s.you = Some(super::team_part(s, team).unwrap_or(Part::Decider));
         }
     }
 }
@@ -481,7 +508,7 @@ fn chapter(w: &mut World, s: &Story, score: f32, paid: Vec<(String, String, u8)>
         format!("sl.{}.chapter", s.family().key()),
     ]
     .iter()
-    .find_map(|k| w.storylines.line(seed, k, &f, year))
+    .find_map(|k| w.storylines.line(seed, k, &f, year, &[]))
     .unwrap_or_else(|| s.def().name.to_string());
     let line = if s.legacy.is_empty() {
         super::tell::last_said(s).map_or_else(String::new, |b| b.text.clone())
@@ -541,8 +568,26 @@ fn chapter(w: &mut World, s: &Story, score: f32, paid: Vec<(String, String, u8)>
         cast,
         left,
         paid,
+        heat: s.peak_heat.round().clamp(0.0, 100.0) as u8,
     };
-    w.storylines.credit.chapters.push(c);
+    // The season's book keeps its biggest: a bigger story pushes out the
+    // smallest (the newest of equals goes first).
+    let ch = &mut w.storylines.credit.chapters;
+    ch.push(c);
+    let season = s.season;
+    if ch.iter().filter(|x| x.season == season).count() > SEASON_CHAPTERS
+        && let Some(k) = ch
+            .iter()
+            .enumerate()
+            .filter(|(_, x)| x.season == season)
+            .min_by(|a, b| a.1.heat.cmp(&b.1.heat).then(b.0.cmp(&a.0)))
+            .map(|(k, _)| k)
+    {
+        ch.remove(k);
+    }
+    if !w.storylines.credit.chapters.iter().any(|x| x.story == s.id) {
+        return;
+    }
     crate::world::stories::story::log(
         w,
         crate::world::stories::story::EntryKind::Chapter,
@@ -580,7 +625,8 @@ fn maybe_name(w: &mut World) -> Option<String> {
     let c = super::super::stories::seat_coach(w)?;
     let seed = w.options.seed;
     let year = w.year;
-    let name = w.storylines.line(seed, "sl.name.fixer", &Fill::new(), year).unwrap_or_else(|| "The Fixer".to_string());
+    let name =
+        w.storylines.line(seed, "sl.name.fixer", &Fill::new(), year, &[]).unwrap_or_else(|| "The Fixer".to_string());
     w.storylines.credit.name = Some(name.clone());
     let team = crate::world::stories::seat_team(w);
     use crate::world::stories::nick::{Coiner, NickKind, Nickname, Reaction, Who as NWho};
