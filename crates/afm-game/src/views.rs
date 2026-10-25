@@ -703,8 +703,12 @@ pub(crate) fn pinned(w: &World) -> Vec<Value> {
 /// After Continue: the days that ran and why it stopped.
 pub fn stopped(w: &World, from: Date, at: Date) -> Value {
     let seat = w.seat;
-    // Stopped on the morning of a day still to play: what it holds.
-    let morning = (at == w.today && at > from).then(|| w.morning_stop(at)).flatten();
+    // Stopped on the morning of a day still to play: what it holds. A stop
+    // at the end of a day leaves you on the next morning, and the next
+    // Continue plays that day, so its morning shows too (a story meeting on
+    // the eve of your game no longer skips the game morning).
+    let morning_day = if at == w.today && at > from { Some(at) } else { (at.add(1) == w.today).then_some(w.today) };
+    let morning = morning_day.and_then(|d| w.morning_stop(d));
     let mut why: Vec<Value> = w
         .calendar
         .on(at)
@@ -728,7 +732,12 @@ pub fn stopped(w: &World, from: Date, at: Date) -> Value {
         w.folk
             .scenes
             .iter()
-            .filter(|s| !s.done && s.stops && s.date == at && s.kind != afm_engine::world::folk::scene::Kind::Story)
+            .filter(|s| {
+                !s.done
+                    && s.stops
+                    && Some(s.date) == morning_day
+                    && s.kind != afm_engine::world::folk::scene::Kind::Story
+            })
             .map(|s| s.id)
             .min()
     });
