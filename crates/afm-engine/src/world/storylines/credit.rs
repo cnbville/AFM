@@ -230,7 +230,7 @@ pub fn job_read(w: &mut World, t: TeamKey) -> JobRead {
             .unwrap_or_else(|| spin_plain(s, straight));
         stories.push(Inherited {
             id: s.id,
-            kind: s.def().name.to_string(),
+            kind: s.kind_name(),
             question: super::tell::question(w, s),
             heat: s.heat.round(),
             phase: s.phase.name(),
@@ -509,7 +509,7 @@ fn chapter(w: &mut World, s: &Story, score: f32, paid: Vec<(String, String, u8)>
     ]
     .iter()
     .find_map(|k| w.storylines.line(seed, k, &f, year, &[]))
-    .unwrap_or_else(|| s.def().name.to_string());
+    .unwrap_or_else(|| s.kind_name());
     let line = if s.legacy.is_empty() {
         super::tell::last_said(s).map_or_else(String::new, |b| b.text.clone())
     } else {

@@ -1534,6 +1534,8 @@ impl World {
                 })
             })
             .collect();
+        // The stories they are in keep their names.
+        storylines::keep_names(self, &map);
         let mut stays = map.iter();
         self.people.retain(|_| stays.next().is_some_and(|m| m.is_some()));
         // Hand back the room of everyone who left, keeping a third more for

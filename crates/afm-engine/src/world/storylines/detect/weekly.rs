@@ -1657,6 +1657,17 @@ fn game_week(w: &mut World, d: Date) {
     }
 }
 
+/// Whether a story of this kind about this subject (against `other`, when
+/// given) already ran this season.
+fn ran(w: &World, kind: K, subject: u64, other: Option<TeamKey>) -> bool {
+    let (k, year) = (kind.id(), w.year);
+    w.storylines
+        .open
+        .iter()
+        .chain(&w.storylines.ended)
+        .any(|s| s.kind == k && s.subject == subject && s.season == year && other.is_none_or(|o| s.other == Some(o)))
+}
+
 /// The stories a coming game opens for one side.
 fn pair_stories(w: &mut World, g: &Coming, side: usize) {
     let (t, o) = (g.teams[side], g.teams[1 - side]);
@@ -1718,8 +1729,11 @@ fn pair_stories(w: &mut World, g: &Coming, side: usize) {
         }
         tell(w, s);
     }
-    // Revenge: a starter facing the team he left.
-    if let Some(i) = revenge_player(w, t, o) {
+    // Revenge: a starter facing the team he left, once a season (the second
+    // meeting with a division rival is no new revenge).
+    if let Some(i) = revenge_player(w, t, o)
+        && !ran(w, K::RevengeGame, s_player(pid(w, i)), Some(o))
+    {
         let id = pid(w, i);
         let s = Spot::new(K::RevengeGame, s_player(id))
             .team(t)
@@ -1730,19 +1744,22 @@ fn pair_stories(w: &mut World, g: &Coming, side: usize) {
             .public();
         tell(w, s);
     }
-    // The coach's return.
+    // The coach's return, once a season.
     if let Some(c) = head(w, t)
         && coached_at(w, c, o)
     {
         let kind = if crate::world::stories::seat_coach(w) == Some(c) { K::OldTeam } else { K::CoachReturn };
-        let s = Spot::new(kind, subj(s_coach(c), tcode(o) ^ (w.year as u64) << 24))
-            .team(t)
-            .other(o)
-            .lead(Who::Coach(c as u32))
-            .due(due)
-            .fact(format!("{} returns to face {oname}, his old team.", cname(w, c)), 3.0)
-            .public();
-        tell(w, s);
+        let subject = subj(s_coach(c), tcode(o) ^ (w.year as u64) << 24);
+        if !ran(w, kind, subject, None) {
+            let s = Spot::new(kind, subject)
+                .team(t)
+                .other(o)
+                .lead(Who::Coach(c as u32))
+                .due(due)
+                .fact(format!("{} returns to face {oname}, his old team.", cname(w, c)), 3.0)
+                .public();
+            tell(w, s);
+        }
     }
     // A rematch in the postseason, for the side that lost the first one.
     if g.postseason

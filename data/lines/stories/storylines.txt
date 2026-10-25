@@ -42,7 +42,7 @@ The other side is talking about it, so it is not a secret anymore. {question}
 {writer} of {outlet} spent the week asking around. Nobody has settled it. {question}
 Two people close to {team} say the same thing this week: it is not decided yet.
 The beat writers kept at it this week, and the answer is still the same. Nobody knows.
-Nothing official from {team}, but the people around the program are talking, and they are not all saying the same thing.
+Nothing official from {team}, but the people around the team are talking, and they are not all saying the same thing.
 {outlet} reports that the people deciding it have not decided it. {question}
 [sl.any.leak]
 A source inside {team} says it is further along than anyone is saying in public.
@@ -51,7 +51,7 @@ Somebody in the building is talking. The leak this week: the people deciding it 
 [sl.any.column]
 The national view: this is bigger than one week at {team}. {question}
 A columnist who covers the whole sport took it up this week and asked the obvious thing. {question}
-Every program has one of these. What makes this one worth watching is how long {team} has let it run.
+Every team has one of these. What makes this one worth watching is how long {team} has let it run.
 [sl.any.radio]
 The phone lines lit up again. Most callers had already made up their minds. {question}
 Talk radio did two full hours on it, and the host changed his mind twice. {question}
@@ -177,14 +177,16 @@ A copy of the depth chart that settled it, pinned to the film room wall.
 [sl.seat.report]
 {writer} of {outlet} hears the same thing from more than one person: the people who make the call are watching every week now.
 Nobody at {team} will say it on the record, but the talk around {lead_last} is not going away.
-The people who give money to {team} are asking questions, and the {boss_title} is hearing them.
+The people who give money to {team} are asking questions, and the {boss_title} is hearing them.{amateur}
+The sponsors and the season-ticket holders are asking questions, and the {boss_title} is hearing them.{at_pro}
 [sl.seat.leak]
 A source with ties to the {boss_title}'s office says the meetings have already started.
 One person close to the decision says it will come down to the next few weeks.
 A source says the money for a change has been discussed. Nobody discusses money by accident.
 [sl.seat.column]
-The national view on {team} is not kind. A program like this does not wait forever, and it has waited a while.
-This is how it goes for coaches in this spot. The vote of confidence comes first, then the meetings, then the press conference.
+The national view on {team} is not kind. A team like this does not wait forever, and it has waited a while.
+This is how it goes for coaches in this spot. The vote of confidence comes first, then the meetings, then the press conference.{not_hs}
+This is how it goes for coaches in this spot. The meeting with the {boss_title} comes first, then the school board, then the letter.{at_hs}
 [sl.seat.radio]
 The first caller wanted a change. So did the second. The host had to go to the fifth before anyone defended the coach.
 Talk radio has decided. Talk radio doesn't make the call, but the people who do listen to it.
@@ -195,7 +197,8 @@ The fans are more patient than the papers. Most of them still want to see it thr
 The empty seats said it before the boards did. The fans are done waiting.
 "Fire" was the most used word on the fans' board this week, and it was not close.
 [sl.seat.jab]
-A rival's fans flew a banner over the stadium. It thanked {lead_last} for his service.
+A rival's fans flew a banner over the stadium. It thanked {lead_last} for his service.{not_hs}
+Somebody hung a bedsheet on the fence by the field. It thanked {lead_last} for his service.{at_hs}
 [sl.seat.quote.boss]
 {boss}, the {boss_title}, said it plainly: "Our coach has my full support."
 {boss} would not put a timeline on anything. "We evaluate everything at the end of the season," the {boss_title} said.
@@ -239,7 +242,8 @@ The newspaper with the headline that said he was done, framed, with the date cir
 [sl.wanted.report]
 {writer} of {outlet} reports that {other} has made contact through people close to {lead}.
 More than one person says {other} has {lead} on its short list.
-{lead}'s agent has taken calls this week. Nobody takes those calls for no reason.
+{lead}'s agent has taken calls this week. Nobody takes those calls for no reason.{not_hs}
+{lead} has taken calls this week. Nobody takes those calls for no reason.{at_hs}
 [sl.wanted.leak]
 A source says {other} asked permission to talk to {lead}. {team} has not said whether it gave it.
 One person close to the search says {lead} is the name at the top of the list.
@@ -268,7 +272,8 @@ Between us, he's listening, and the other side is serious. Be ready to lose him,
 Our read is that he'll take it if the offer is what we're hearing.
 [sl.wanted.memo.down]
 He's flattered, not leaving. The interest is real, but so is how much he likes it here.
-Our read: it's his agent's leverage more than a real move.
+Our read: it's his agent's leverage more than a real move.{not_hs}
+Our read: he's listening, but his family is settled here.{at_hs}
 [sl.wanted.memo.even]
 Honestly, he hasn't decided. The money and the family will decide it, in that order.
 It's a coin flip. The other side's next offer tips it.
@@ -282,7 +287,7 @@ Coach, what would it take for you to leave?
 That was talk. Coaches get calls. He stayed, and so will this staff.
 Rumors follow anybody who wins. Pay them no mind.
 [sl.wanted.quote.spin_straight]
-Other programs will come for your staff if you win. They always have here, and it's part of the job.
+Other teams will come for your staff if you win. They always have here, and it's part of the job.
 [sl.wanted.fizzle]
 The calls stopped. {lead} is still at {team}, and the job went to someone else.
 [sl.wanted.chapter]
@@ -471,7 +476,8 @@ The national view: {question}
 [sl.streak.radio]
 Talk radio counts the weeks now. Every caller had a prediction for the next game.
 [sl.streak.fans.for]
-The fans are sticking with {team}. The student section showed up early anyway.
+The fans are sticking with {team}. The student section showed up early anyway.{amateur}
+The fans are sticking with {team}. The tailgate lots filled up early anyway.{at_pro}
 [sl.streak.fans.against]
 The fans are nervous, and the boards show it.
 [sl.streak.jab]
@@ -520,19 +526,19 @@ The national view: forget the records. This one is about who gets to talk for a 
 [sl.rivalry.radio]
 Rivalry week on the radio: two hours, one subject, and not a single caller from the other side who got through politely.
 [sl.rivalry.fans.for]
-The fans are ready. The tickets went in an hour and the tailgate lots filled on Friday.
+The fans are ready. The tickets went in an hour and the tailgate lots filled the night before.
 [sl.rivalry.fans.against]
 The fans have been here before. "Same as every year," one post said. Nobody liked it, but nobody argued.
 [sl.rivalry.jab]
 The other side's coach was asked about {team} and said, "Who?" Then he smiled.
 A billboard went up on the highway between the two towns. It only had the score from last year.
 [sl.rivalry.post]
-A player posted last year's score with a clock. The countdown ends Saturday.
+A player posted last year's score with a clock. The countdown ends {gameday}.
 [sl.rivalry.post.paper]
 A player told the paper what he thought of the other side. It ended up on their locker room wall.
 [sl.rivalry.peak]
 Game week. {question}
-It all comes down to Saturday. {question}
+It all comes down to {gameday}. {question}
 [sl.rivalry.memo.up]
 We're the better team this year. Play it like a normal game and we win it.
 [sl.rivalry.memo.down]
@@ -593,7 +599,8 @@ The public has him ahead of where he is. Keep the pressure off him.
 Coach, where did {lead} come from?
 Coach, how good can {lead} be?
 [sl.rise.quote.spin]
-That's the kind of player this program develops.
+That's the kind of player this program develops.{amateur}
+That's the kind of player we bring along here.{at_pro}
 [sl.rise.quote.spin_straight]
 Not every bet here has paid off. You'd inherit a few that didn't.
 [sl.rise.fizzle]
@@ -638,9 +645,11 @@ The mocks have him higher than the teams do. Somebody's going to be surprised.
 [sl.draft.quote.ask]
 Coach, what are you hearing about {lead} and the draft?
 [sl.draft.quote.spin]
-That kid's going to be a great pro, and it'll help us recruit.
+That kid's going to be a great pro, and it'll help us recruit.{at_college}
+We had him high on our board for a reason. He'll show everybody why.{at_pro}
 [sl.draft.quote.spin_straight]
-Some of our kids fell in the draft, and recruits noticed.
+Some of our kids fell in the draft, and recruits noticed.{at_college}
+We took the player our board said to take. Time will tell.{at_pro}
 [sl.draft.fizzle]
 The draft came and went. The story ended without a headline.
 [sl.draft.chapter]
@@ -658,8 +667,9 @@ The details are still coming out, and they are not all good.
 A source says the team's decision is already made and is waiting on paperwork.
 One person close to the case says it is more serious than the first reports made it sound.
 [sl.offfield.column]
-This is the part of the job nobody puts on a recruiting pitch, and it decides more seasons than anyone admits.
-The national view: what {team} does here will say more about the program than any game.
+This is the part of the job nobody puts on a recruiting pitch, and it decides more seasons than anyone admits.{amateur}
+This is the part of the job nobody puts in a press release, and it decides more seasons than anyone admits.{at_pro}
+The national view: what {team} does here will say more about the team than any game.
 [sl.offfield.radio]
 The callers want consequences, and they want them before the next game.
 Talk radio split: some callers want {lead} gone, others want everyone to wait for the facts.
@@ -702,11 +712,13 @@ Remembered as the week {team} had to answer for {lead}.
 # ---------------------------------------------------------------- program arcs
 [sl.program.report]
 {writer} of {outlet} says the people who run {team} have started asking where this is going.
-The boosters are talking, and the {boss_title} is listening.
+The boosters are talking, and the {boss_title} is listening.{amateur}
+The season-ticket holders are talking, and the {boss_title} is listening.{at_pro}
 [sl.program.leak]
 A source says the next big decision at {team} is already on someone's desk.
 [sl.program.column]
-Programs are built over years and lost in a few seasons. {team} is in the middle of one or the other.
+Programs are built over years and lost in a few seasons. {team} is in the middle of one or the other.{amateur}
+Contenders are built over years and lost in a few seasons. {team} is in the middle of one or the other.{at_pro}
 The national view: {question}
 [sl.program.radio]
 Callers to the radio wanted to talk about {team} the way people talk about the weather. Everyone has an opinion, and nobody can change it.
@@ -719,7 +731,8 @@ Rivals have noticed. "Good for them," one coach said, and nobody believed him.
 [sl.program.post]
 A former player posted a photo from the old days with one word: "Remember."
 [sl.program.post.paper]
-A former player told the paper what he thought of the program now. It wasn't kind.
+A former player told the paper what he thought of the program now. It wasn't kind.{amateur}
+A former player told the paper what he thought of the franchise now. It wasn't kind.{at_pro}
 [sl.program.peak]
 This is the turn. {question}
 [sl.program.memo.up]
@@ -731,16 +744,19 @@ It could go either way. The next season decides it.
 [sl.program.memo.gap]
 The public thinks it's further along than it is. Manage what they expect.
 [sl.program.quote.ask]
-Coach, where is this program headed?
+Coach, where is this program headed?{amateur}
+Coach, where is this team headed?{at_pro}
 Coach, how long until {team} is where you want it?
 [sl.program.quote.spin]
 That's the kind of place this is. We know what we are.
 [sl.program.quote.spin_straight]
-The program is not where it was. Rebuilding it is the job.
+The program is not where it was. Rebuilding it is the job.{amateur}
+This team is not where it was. Rebuilding it is the job.{at_pro}
 [sl.program.fizzle]
-The talk about {team} moved on. The program is what it is.
+The talk about {team} moved on. The team is what it is.
 [sl.program.chapter]
-The program
+The program{amateur}
+The franchise{at_pro}
 {team}, building
 [sl.program.legacy]
 Remembered as a turning point for {team}.
@@ -776,7 +792,8 @@ It could be a great day or a hard one. Plan for both.
 [sl.ending.memo.gap]
 The outside thinks it's a celebration. Inside it's harder than that.
 [sl.ending.quote.ask]
-Coach, what has {lead} meant to this program?
+Coach, what has {lead} meant to this program?{amateur}
+Coach, what has {lead} meant to this organization?{at_pro}
 [sl.ending.quote.spin]
 That was a legend's goodbye. The place still feels it.
 [sl.ending.quote.spin_straight]
@@ -808,9 +825,11 @@ The fans are behind {lead}. His name got a cheer at the last home game.
 [sl.you.fans.against]
 The fans are restless. {lead}'s name drew boos when it was read at the last home game.
 [sl.you.jab]
-A rival coach brought up {lead} in his own press conference. He didn't have to.
+A rival coach brought up {lead} in his own press conference. He didn't have to.{not_hs}
+A rival coach brought up {lead} in the local paper. He didn't have to.{at_hs}
 [sl.you.quote.boss]
-{boss}, the {boss_title}, said: "We're proud of the direction of this program."
+{boss}, the {boss_title}, said: "We're proud of the direction of this program."{amateur}
+{boss}, the {boss_title}, said: "We're proud of the direction of this franchise."{at_pro}
 {boss} was asked about {lead}'s future and said only, "We'll talk at the end of the season."
 [sl.you.peak]
 This is the week. {question}
@@ -991,21 +1010,21 @@ Remembered as the season {team} could not trust its kicker.
 Remembered as the stretch {lead_last} stepped in.
 
 [sl.freshman_starter.spark]
-{team} is starting a freshman at quarterback. {lead} gets the job. {question}
+{team} is starting a {young} at quarterback. {lead} gets the job. {question}
 [sl.freshman_starter.report]
 {lead_last} has thrown with more poise than the staff expected. He has also thrown more interceptions.
 [sl.freshman_starter.peak]
 The schedule gets hard now. {question}
 [sl.freshman_starter.end.arrived]
-{lead} arrived. The freshman ran the offense like a veteran by the end of the year.
+{lead} arrived. The {young} ran the offense like a veteran by the end of the year.
 [sl.freshman_starter.end.struggled]
 It was a hard first year for {lead}. He kept the job, and the staff kept believing.
 [sl.freshman_starter.end.benched]
 {team} went back to experience. {lead_last} lost the job before the season was out.
 [sl.freshman_starter.chapter]
-The freshman
+The {young}
 [sl.freshman_starter.legacy]
-Remembered as the year {team} handed the offense to a freshman.
+Remembered as the year {team} handed the offense to a {young}.
 
 [sl.position_switch.spark]
 {lead} is moving to {pos}. {question}
@@ -1111,7 +1130,9 @@ The search is on at {team}.
 [sl.coaching_search.report]
 {writer} of {outlet} says {team} has a short list and has started making calls.
 Three names keep coming up in the {team} search. The {boss_title} has not said any of them out loud.
-{team} has hired a search firm. The people close to the search say it wants a decision before signing day.
+{team} has hired a search firm. The people close to the search say it wants a decision before signing day.{at_college}
+{team} has hired a search firm. The people close to the search say the {boss_title} wants a coach in place before free agency opens.{at_pro}
+{team} has posted the job. The people close to the search say the {boss_title} wants a coach in the building before spring practice.{at_hs}
 [sl.coaching_search.leak]
 A source says {team} has met with at least two candidates this week, one of them twice.
 One person close to the search says the first choice said no.
@@ -1282,7 +1303,8 @@ Remembered as the year {lead_last} jumped to a bigger stage.
 One season, and the coach is gone. {question}
 {team} is looking again after one year.
 [sl.quick_exit.report]
-The players at {team} are on their second coach in two years. {writer} of {outlet} says a few are thinking about the portal.
+The players at {team} are on their second coach in two years. {writer} of {outlet} says a few are thinking about the portal.{at_college}
+The players at {team} are on their second coach in two years. {writer} of {outlet} says the veterans have stopped unpacking.{at_pro}
 [sl.quick_exit.end.replaced]
 {team} has its new coach, its second in two years.
 [sl.quick_exit.end.met_again]
@@ -1717,7 +1739,8 @@ Remembered as the year {team} turned it around.
 [sl.unbeaten.report]
 {team} has not lost yet, and its players have started to hear about it everywhere they go.
 [sl.unbeaten.fans.for]
-The fans are all in. Every home game is sold out, and the student section shows up two hours early.
+The fans are all in. Every home game is sold out, and the student section shows up two hours early.{amateur}
+The fans are all in. Every home game is sold out, and the lots fill up four hours before kickoff.{at_pro}
 [sl.unbeaten.end.lost]
 {team} lost. The unbeaten run is over after {count} wins.
 The perfect season is over for {team}.
@@ -1885,7 +1908,7 @@ Remembered as the year {team} defended its title.
 [sl.rivalry_streak.report]
 {other}'s players have heard about the streak all week. Some of them have never beaten {team}.
 [sl.rivalry_streak.end.extended]
-{team} beat {other} again. The streak goes on.
+{team} beat {other} again, {count_next} in a row now.
 [sl.rivalry_streak.end.snapped]
 {other} finally beat {team}. The streak is over.
 [sl.rivalry_streak.chapter]
@@ -1900,7 +1923,7 @@ Remembered as the year of the streak against {other}.
 [sl.cant_beat_rival.end.beat_them]
 {lead} finally beat {other}.
 [sl.cant_beat_rival.end.lost_again]
-{lead} lost to {other} again.
+{lead} lost to {other} again, {count_next} in a row now.
 [sl.cant_beat_rival.chapter]
 {other_short}, again
 [sl.cant_beat_rival.chapter.beat_them]
@@ -2394,7 +2417,8 @@ Remembered as part of the {team} dynasty.
 [sl.decline.spark]
 {team} used to be one of the best. {question}
 [sl.decline.report]
-{writer} of {outlet} says the boosters who used to fill the stadium are asking hard questions.
+{writer} of {outlet} says the boosters who used to fill the stadium are asking hard questions.{amateur}
+{writer} of {outlet} says the season-ticket holders who used to fill the stadium are asking hard questions.{at_pro}
 [sl.decline.end.revived]
 {team} is back.
 [sl.decline.end.still_down]

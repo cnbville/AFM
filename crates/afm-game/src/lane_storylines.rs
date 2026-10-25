@@ -341,7 +341,7 @@ fn card(w: &World, s: &Story) -> Value {
     json!({
         "id": s.id,
         "fam": s.family().name(),
-        "kind": s.def().name,
+        "kind": s.kind_name(),
         "q": view::question(w, s),
         "heat": s.heat.round(),
         "delta": s.heat.round() as i32 - view::heat_week_ago(s) as i32,
@@ -629,7 +629,7 @@ fn story_page(w: &mut World, id: u32) -> Reply {
         "ctx": ctx,
         "team": s.team.map(|t| brief(w, t)),
         "q": view::question(w, &s),
-        "kind": s.def().name,
+        "kind": s.kind_name(),
         "fam": s.family().name(),
         "heat": s.heat.round(),
         "open": s.phase.open(),

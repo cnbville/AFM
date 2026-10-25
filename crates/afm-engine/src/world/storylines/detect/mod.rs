@@ -230,6 +230,16 @@ pub(crate) fn end(w: &mut World, kind: K, subject: u64, ending: &str, text: Opti
     }
 }
 
+/// Closes the open story of a kind about a subject on an event several
+/// stories share: the first one closed tells the event's fact, the others
+/// end in their own words ("He is staying home", "Georgia won the fight for
+/// him"), so the news says it once.
+pub(crate) fn end_once(w: &mut World, kind: K, subject: u64, ending: &str, fact: &mut Option<String>) {
+    if let Some(id) = open_id(w, kind, subject) {
+        close(w, id, ending, fact.take());
+    }
+}
+
 /// Every open story of a kind (ids and subjects), for the closing looks.
 pub(crate) fn open_of(w: &World, kind: K) -> Vec<(u32, u64)> {
     let k = kind.id();

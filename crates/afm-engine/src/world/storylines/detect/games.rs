@@ -344,7 +344,10 @@ fn snaps(w: &mut World, t: TeamKey, stats: &GameStats, side: usize) {
             TeamKey::Other(_) => false,
         };
         let subject = s_player(starter);
-        if young && open_id(w, K::FreshmanStarter, subject).is_none() {
+        // His first start only: a freshman back in the job after a benching
+        // (or a tenth grader who started as a ninth grader) is no new story.
+        let started = w.storylines.ended.iter().any(|s| s.kind == K::FreshmanStarter.id() && s.subject == subject);
+        if young && !started && open_id(w, K::FreshmanStarter, subject).is_none() {
             let s = super::player_spot(w, K::FreshmanStarter, i)
                 .fact(format!("{} makes his first start at quarterback for {}.", pname(w, i), tname(w, t)), 4.0)
                 .public();

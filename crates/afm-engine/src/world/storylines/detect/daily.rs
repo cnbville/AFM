@@ -11,8 +11,8 @@
 use super::weekly::{class_scores, employer, note, opener, roll, team_of_employer};
 use super::{
     F_HOLDOUT, F_INCIDENT, F_OPTED, F_PORTAL, F_SUSPENDED, F_TAGGED, F_WANTS_OUT, K, Part, Who, cname, coach_spot,
-    college, end, in_season, mine, on, open_of, pid, player_spot, pname, s_coach, s_player, s_season, team_of,
-    team_spot, tell, tname,
+    college, end, end_once, in_season, mine, on, open_of, pid, player_spot, pname, s_coach, s_player, s_season,
+    team_of, team_spot, tell, tname,
 };
 use crate::calendar::{Date, Level};
 use crate::player::PlayingTime;
@@ -522,6 +522,7 @@ fn settle_recruits(w: &mut World) {
         .filter_map(|s| Some((s.id, s.kind, s.team, s.lead_player()?)))
         .collect();
     let today = w.today;
+    let mut told: Vec<u32> = Vec::new();
     for (id, kind, team, who) in open {
         let Some(i) = pi(w, who) else {
             fizzle(w, id, today);
@@ -589,12 +590,17 @@ fn settle_recruits(w: &mut World) {
             }
             _ => continue,
         };
-        let text = if signed {
-            format!("{} signs with {}.", pname(w, i), tname(w, t))
-        } else {
-            format!("{} enrolls at {}.", pname(w, i), tname(w, t))
-        };
-        close(w, id, ending, Some(text));
+        // His stories end together: the first tells where he went, the
+        // others in their own words.
+        let fact = (!told.contains(&who)).then(|| {
+            if signed {
+                format!("{} signs with {}.", pname(w, i), tname(w, t))
+            } else {
+                format!("{} enrolls at {}.", pname(w, i), tname(w, t))
+            }
+        });
+        told.push(who);
+        close(w, id, ending, fact);
     }
 }
 
@@ -633,14 +639,17 @@ fn changed(w: &mut World, i: usize, old: [u32; 4], now: [u32; 4], d: Date) {
     match (prog(old[0]), prog(now[0])) {
         (None, Some(t)) => {
             let text = format!("{name} commits to {}.", tname(w, t));
-            decided(w, i, t, text);
+            decided(w, i, t, Some(text));
         }
         (Some(a), None) => {
             let sp = s_player(pid(w, i));
-            let text = format!("{name} decommits from {}.", tname(w, a));
-            end(w, K::CommitWobble, sp, "decommitted", Some(text.clone()));
-            end(w, K::SigningFlip, sp, "flipped", Some(text.clone()));
+            let mut fact = Some(format!("{name} decommits from {}.", tname(w, a)));
+            end_once(w, K::CommitWobble, sp, "decommitted", &mut fact);
+            end_once(w, K::SigningFlip, sp, "flipped", &mut fact);
             if w.people[i].stars >= 4 {
+                // On the market again: the decommitment, or in other words
+                // when a story already told it.
+                let text = fact.unwrap_or_else(|| format!("{name} is back on the market."));
                 let s =
                     recruit_spot(w, K::TopRecruit, i).team(TeamKey::Hs(w.people[i].hs as u32)).fact(text, 4.0).public();
                 tell(w, s);
@@ -649,10 +658,11 @@ fn changed(w: &mut World, i: usize, old: [u32; 4], now: [u32; 4], d: Date) {
         (Some(a), Some(b)) => {
             let sp = s_player(pid(w, i));
             let text = format!("{name} flips from {} to {}.", tname(w, a), tname(w, b));
-            end(w, K::CommitWobble, sp, "decommitted", Some(text.clone()));
+            let mut fact = Some(text.clone());
+            end_once(w, K::CommitWobble, sp, "decommitted", &mut fact);
             match open_id(w, K::SigningFlip, sp) {
-                Some(id) => close(w, id, "flipped", Some(text.clone())),
-                None if w.people[i].stars >= 4 && d.days_to(next_signing(w, d)) <= 30 => {
+                Some(id) => close(w, id, "flipped", fact.take()),
+                None if fact.is_some() && w.people[i].stars >= 4 && d.days_to(next_signing(w, d)) <= 30 => {
                     // A flip nobody saw coming: told as it happens.
                     let s = recruit_spot(w, K::SigningFlip, i)
                         .team(a)
@@ -661,22 +671,25 @@ fn changed(w: &mut World, i: usize, old: [u32; 4], now: [u32; 4], d: Date) {
                         .fact(text.clone(), 6.0)
                         .public();
                     if let Some(id) = tell(w, s) {
+                        fact = None;
                         close(w, id, "flipped", None);
                     }
                 }
                 None => {}
             }
-            decided(w, i, b, text);
+            decided(w, i, b, fact);
         }
         (None, None) => {}
     }
 }
 
-/// A recruit made up his mind: the stories about where he would go end.
-fn decided(w: &mut World, i: usize, t: TeamKey, text: String) {
+/// A recruit made up his mind: the stories about where he would go end, the
+/// first with the fact (`fact`, None when a story already told it) and the
+/// others in their own words.
+fn decided(w: &mut World, i: usize, t: TeamKey, mut fact: Option<String>) {
     let sp = s_player(pid(w, i));
-    end(w, K::TopRecruit, sp, "committed", Some(text.clone()));
-    end(w, K::Prodigy, sp, "committed", Some(text.clone()));
+    end_once(w, K::TopRecruit, sp, "committed", &mut fact);
+    end_once(w, K::Prodigy, sp, "committed", &mut fact);
     let home = w.people[i].home_state;
     let in_state = match t {
         TeamKey::College(p) => w.programs.get(p as usize).is_some_and(|g| g.state == home),
@@ -688,11 +701,25 @@ fn decided(w: &mut World, i: usize, t: TeamKey, text: String) {
         (K::LegacyRecruit, "followed", "own_way"),
     ] {
         let Some(id) = open_id(w, kind, sp) else { continue };
+        let (team, other) = w.storylines.get(id).map_or((None, None), |s| (s.team, s.other));
         let good = match kind {
             K::HometownLeaving => in_state,
-            _ => w.storylines.get(id).and_then(|s| s.team) == Some(t),
+            _ => team == Some(t),
         };
-        close(w, id, if good { yes } else { no }, Some(text.clone()));
+        // A war lost to a third school: neither side's line fits.
+        let third = kind == K::RecruitWar && !good && other != Some(t);
+        let text = match (fact.take(), third, team, other) {
+            (Some(f), _, _, _) => Some(f),
+            (None, true, Some(a), Some(b)) => Some(format!(
+                "Neither {} nor {} gets {}: he picks {}.",
+                tname(w, a),
+                tname(w, b),
+                pname(w, i),
+                tname(w, t)
+            )),
+            _ => None,
+        };
+        close(w, id, if good { yes } else { no }, text);
     }
 }
 
@@ -701,14 +728,12 @@ fn signed(w: &mut World, i: usize, was: Option<TeamKey>) {
     let t = college(sg.program);
     let sp = s_player(pid(w, i));
     let held = was == Some(t);
-    let text = format!("{} signs with {}.", pname(w, i), tname(w, t));
-    end(w, K::SigningFlip, sp, if held { "held" } else { "flipped" }, Some(text.clone()));
-    end(w, K::CommitWobble, sp, if held { "held" } else { "decommitted" }, Some(text.clone()));
-    if let Some(id) = open_id(w, K::LateRiser, sp) {
-        let up = w.programs.get(sg.program).is_some_and(|g| g.division == Division::FBS && g.prestige >= 0.55);
-        close(w, id, if up { "signed_up" } else { "signed" }, Some(text.clone()));
-    }
-    decided(w, i, t, text);
+    let mut fact = Some(format!("{} signs with {}.", pname(w, i), tname(w, t)));
+    end_once(w, K::SigningFlip, sp, if held { "held" } else { "flipped" }, &mut fact);
+    end_once(w, K::CommitWobble, sp, if held { "held" } else { "decommitted" }, &mut fact);
+    let up = w.programs.get(sg.program).is_some_and(|g| g.division == Division::FBS && g.prestige >= 0.55);
+    end_once(w, K::LateRiser, sp, if up { "signed_up" } else { "signed" }, &mut fact);
+    decided(w, i, t, fact);
 }
 
 /// Official visits: a fact for his stories, a war between two powers, the
@@ -1193,7 +1218,14 @@ fn courts(w: &mut World, d: Date) {
         if !matches!(t, TeamKey::Nfl(_)) && !mine(w, t) {
             continue;
         }
-        let text = format!("{} is arrested ({what}).", pname(w, i));
+        // A second arrest is told as one.
+        let again = w
+            .storylines
+            .open
+            .iter()
+            .chain(&w.storylines.ended)
+            .any(|s| s.kind == K::Arrest.id() && s.lead_player() == Some(id));
+        let text = format!("{} is arrested{} ({what}).", pname(w, i), if again { " again" } else { "" });
         let s = player_spot(w, K::Arrest, i).nums([0, 0, 0, 1]).word(what).fact(text, 5.0).public();
         tell(w, s);
     }

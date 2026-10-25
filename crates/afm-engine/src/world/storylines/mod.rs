@@ -381,6 +381,16 @@ impl Story {
     pub fn def(&self) -> &'static Def {
         catalogue::def(self.kind)
     }
+    /// The kind's name in its level's words: in the pros a club is a
+    /// franchise and a first-year player a rookie.
+    pub fn kind_name(&self) -> String {
+        let name = self.def().name;
+        if matches!(self.level, Level::Nfl | Level::Other) {
+            name.replace("freshman", "rookie").replace("program", "franchise")
+        } else {
+            name.to_string()
+        }
+    }
     pub fn family(&self) -> Family {
         self.def().family
     }
@@ -542,6 +552,48 @@ pub(crate) fn pi(w: &World, id: u32) -> Option<usize> {
     super::stories::person_index(w, id)
 }
 
+/// Before the people who left football leave the world (`map` holds where
+/// each person lands, None for those dropped), the stories they are in keep
+/// their names, so a question still names a retired player.
+pub(crate) fn keep_names(w: &mut World, map: &[Option<usize>]) {
+    let st = &w.storylines;
+    let mut wanted: Vec<u32> = st
+        .open
+        .iter()
+        .chain(&st.ended)
+        .flat_map(|s| {
+            s.cast.iter().filter_map(|m| match m.who {
+                Who::Player(id) if !s.names.iter().any(|x| x.0 == m.who) => Some(id),
+                _ => None,
+            })
+        })
+        .collect();
+    wanted.sort_unstable();
+    wanted.dedup();
+    let gone: std::collections::HashMap<u32, String> = wanted
+        .into_iter()
+        .filter_map(|id| {
+            let i = pi(w, id)?;
+            map.get(i)?.is_none().then(|| (id, w.people[i].name.clone()))
+        })
+        .collect();
+    if gone.is_empty() {
+        return;
+    }
+    let st = &mut w.storylines;
+    for s in st.open.iter_mut().chain(st.ended.iter_mut()) {
+        for k in 0..s.cast.len() {
+            let who = s.cast[k].who;
+            if let Who::Player(id) = who
+                && let Some(n) = gone.get(&id)
+                && !s.names.iter().any(|x| x.0 == who)
+            {
+                s.names.push((who, n.clone()));
+            }
+        }
+    }
+}
+
 /// A team as a number, for subjects.
 pub fn tcode(t: TeamKey) -> u64 {
     match t {
@@ -635,7 +687,14 @@ impl Spot {
         }
         self
     }
-    pub fn lead(self, who: Who) -> Spot {
+    pub fn lead(mut self, who: Who) -> Spot {
+        // Already in the cast in another part (the head coach as the
+        // decider of his team's story): he leads it.
+        if let Some(m) = self.cast.iter_mut().find(|m| m.who == who) {
+            m.part = Part::Lead;
+            m.side = 100;
+            return self;
+        }
         self.with(who, Part::Lead)
     }
     pub fn rival(self, who: Who) -> Spot {

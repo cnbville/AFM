@@ -109,6 +109,43 @@ const MONTHS: [&str; 12] = [
 /// Every value a story's lines may name.
 pub(crate) fn fill(w: &World, s: &Story) -> Fill {
     let mut f = Fill::new();
+    // Where it is told: a line tagged {at_hs}, {at_college}, {at_pro},
+    // {amateur} (high school or college) or {not_hs} fits only those
+    // levels (each fills empty), and {gameday} is the day the games are
+    // played (Friday nights in high school, a pro game's own day).
+    let level = if s.level == Level::Recruiting { Level::Recruiting } else { s.team.map_or(s.level, |t| t.level()) };
+    f = match level {
+        Level::HighSchool => f.set("at_hs", "").set("amateur", ""),
+        Level::College => f.set("at_college", "").set("amateur", "").set("not_hs", ""),
+        Level::Recruiting => f.set("amateur", ""),
+        _ => f.set("at_pro", "").set("not_hs", ""),
+    };
+    let usual = match level {
+        Level::HighSchool => "Friday",
+        Level::Nfl | Level::Other => "Sunday",
+        _ => "Saturday",
+    };
+    let gameday = match s.due.filter(|d| *d >= w.today && w.today.days_to(*d) <= 7).map(|d| d.weekday()) {
+        Some(crate::calendar::Weekday::Mon) => "Monday night",
+        Some(crate::calendar::Weekday::Thu) => "Thursday night",
+        Some(crate::calendar::Weekday::Fri) => "Friday night",
+        Some(crate::calendar::Weekday::Sat) => "Saturday",
+        Some(crate::calendar::Weekday::Sun) => "Sunday",
+        _ => usual,
+    };
+    f = f.set("gameday", gameday);
+    if s.kind == K::FreshmanStarter.id() {
+        // A rookie in the pros; in high school a ninth or tenth grader.
+        let young = match level {
+            Level::Nfl | Level::Other => "rookie",
+            Level::HighSchool => match s.lead_player().and_then(|p| super::pi(w, p)) {
+                Some(i) if w.people[i].class_of - s.season <= 3 => "sophomore",
+                _ => "freshman",
+            },
+            _ => "freshman",
+        };
+        f = f.set("young", young);
+    }
     if let Some(t) = s.team {
         f = team_fill(w, t, f);
         if let Some(c) = head_coach(w, t)
@@ -247,8 +284,9 @@ fn numbers(w: &World, s: &Story, mut f: Fill) -> Fill {
                 .set("unit", if n[2] == 1 { "offense" } else { "defense" })
                 .set("rank_of", format!("{} of {}", n[0], n[1]));
         }
-        K::Unbeaten | K::LosingStreak | K::RivalryStreak | K::Dynasty | K::Graveyard if n[0] > 0 => {
-            f = f.set("count", count(n[0]));
+        K::Unbeaten | K::LosingStreak | K::RivalryStreak | K::Dynasty | K::Graveyard | K::CantBeatRival if n[0] > 0 => {
+            // The run after this week's game, for its ending.
+            f = f.set("count", count(n[0])).set("count_next", count(n[0] + 1));
         }
         K::CoachMilestone | K::YourMilestone if n[0] > 0 => f = f.set("milestone", n[0].to_string()),
         _ => {}
@@ -378,14 +416,16 @@ pub(crate) fn line(w: &mut World, s: &Story, what: BeatKind, extra: Option<&str>
     let seed = w.options.seed;
     let year = w.year;
     // Never a line this story already told, nor one his other stories near
-    // you told this season: a person hears a line once.
+    // you or in the national news told this season: a person hears a line
+    // once.
+    let seen = |o: &Story| o.near || o.peak_heat >= 55.0;
     let others: Vec<String> = match s.lead() {
-        Some(l) if s.near => w
+        Some(l) if seen(s) => w
             .storylines
             .open
             .iter()
             .chain(&w.storylines.ended)
-            .filter(|o| o.id != s.id && o.near && o.season == s.season && o.lead() == Some(l))
+            .filter(|o| o.season == s.season && seen(o) && o.id != s.id && o.lead() == Some(l))
             .flat_map(|o| o.beats.iter().filter(|b| !b.text.is_empty()).map(|b| b.text.clone()))
             .collect(),
         _ => Vec::new(),
@@ -424,7 +464,7 @@ fn plain(s: &Story, what: BeatKind, _by: Voice, f: &Fill) -> String {
         BeatKind::Peak => format!("It comes to a head this week: {}", lower_first(&q)),
         BeatKind::Resolve => {
             let e = s.def().ending_key(s.ending).replace('_', " ");
-            format!("{} has its answer ({e}).", s.def().name)
+            format!("{} has its answer ({e}).", s.kind_name())
         }
         BeatKind::Fizzle => format!("The talk around {team} has moved on."),
         _ => q,
