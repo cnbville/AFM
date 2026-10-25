@@ -1349,12 +1349,12 @@ fn nfl_rises(w: &mut World) {
         for (r, &(_, i)) in col.iter().enumerate() {
             let Some(c) = w.people[i].pro.as_ref() else { continue };
             let last = c.seasons.iter().rev().find(|s| s.year == year - 1);
-            if r < 10 && last.is_none_or(|s| s.starts == 0) {
-                opens.push((K::Breakout, i, r, k));
-            }
+            // A late pick's rise is told as the gem, not twice.
             let late = c.draft.is_none_or(|x| x.1 >= 5);
             if late && year - c.first_year <= 2 {
                 opens.push((K::LateRoundGem, i, r, k));
+            } else if r < 10 && last.is_none_or(|s| s.starts == 0) {
+                opens.push((K::Breakout, i, r, k));
             }
         }
     }
@@ -2611,6 +2611,23 @@ fn program_news(w: &mut World) {
             let s = team_spot(w, K::FacilityPush, t, s_team(t)).word(name).due(Date::ymd(opens, 8, 1)).public();
             tell(w, s);
         }
+    }
+    // A building years in the making is news once a year while the work
+    // goes on, as real projects are (the groundbreaking, the steel, the
+    // fundraising), not a story silent for years.
+    let today = w.today;
+    let going: Vec<(TeamKey, i32)> = open_of(w, K::FacilityPush)
+        .into_iter()
+        .filter_map(|(id, _)| w.storylines.get(id))
+        .filter(|s| s.last_beat.days_to(today) >= 330)
+        .filter_map(|s| Some((s.team?, s.due?)))
+        .filter(|&(_, due)| today.days_to(due) > 60)
+        .map(|(t, due)| (t, due.year()))
+        .collect();
+    for (t, opens) in going {
+        let text = format!("Work on {}'s new building goes on; it opens for the {opens} season.", tname(w, t));
+        let s = team_spot(w, K::FacilityPush, t, s_team(t)).fact(text, 2.0).public();
+        tell(w, s);
     }
 }
 

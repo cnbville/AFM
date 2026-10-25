@@ -193,17 +193,21 @@ fn story_counts(w: &afm_engine::world::World, seat: &str) {
     let row: Vec<String> =
         ends.iter().map(|(f, x)| format!("{f} {}/{} ({}d)", x.0, x.1, x.2 / i64::from((x.0 + x.1).max(1)))).collect();
     println!("{seat}: ended by family (answered/fizzled, mean days): {}", row.join(", "));
-    // Questions asking for a name the story can't fill.
-    let gaps: Vec<String> = all
-        .iter()
-        .filter_map(|s| {
-            let g = afm_engine::world::storylines::tell::question_gaps(w, s);
-            (!g.is_empty()).then(|| format!("{} #{} needs {}", s.def().key, s.id, g.join(", ")))
-        })
-        .collect();
-    println!("{seat}: {} stories ask for a name they can't fill", gaps.len());
-    for g in gaps.iter().take(6) {
-        println!("  GAP {g}");
+    // Questions asking for a name the story can't fill, by kind and name.
+    let mut gaps: std::collections::BTreeMap<String, (u32, u32)> = std::collections::BTreeMap::new();
+    for s in &all {
+        let g = afm_engine::world::storylines::tell::question_gaps(w, s);
+        if !g.is_empty() {
+            let e = gaps.entry(format!("{} needs {}", s.def().key, g.join(", "))).or_insert((0, s.id));
+            e.0 += 1;
+        }
+    }
+    let total: u32 = gaps.values().map(|x| x.0).sum();
+    println!("{seat}: {total} stories ask for a name they can't fill");
+    let mut by: Vec<_> = gaps.into_iter().collect();
+    by.sort_by(|a, b| b.1.0.cmp(&a.1.0).then(a.0.cmp(&b.0)));
+    for (k, (n, id)) in by.iter().take(10) {
+        println!("  GAP {k}: {n} (e.g. #{id})");
     }
 }
 

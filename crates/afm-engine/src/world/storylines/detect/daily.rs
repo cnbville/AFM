@@ -241,12 +241,15 @@ fn head_hired(w: &mut World, t: TeamKey, c: usize) {
 }
 
 /// A high school head coach hired onto a college staff.
+/// The story's team is the college; the school he left is the other side.
 fn hs_jump(w: &mut World, t: TeamKey, c: usize, prev: Option<&crate::world::coach::Stint>) {
-    let from_hs = prev.is_some_and(|s| matches!(s.employer, Employer::HighSchool(_)) && s.role == Role::HeadCoach);
-    if !from_hs || !matches!(t, TeamKey::College(_)) || !on(w, t) {
+    let Some(Employer::HighSchool(h)) = prev.filter(|s| s.role == Role::HeadCoach).map(|s| s.employer) else {
+        return;
+    };
+    if !matches!(t, TeamKey::College(_)) || !on(w, t) {
         return;
     }
-    let s = coach_spot(w, K::HsCoachJump, c, t).due(Date::ymd(w.year + 1, 12, 1)).public();
+    let s = coach_spot(w, K::HsCoachJump, c, t).other(TeamKey::Hs(h as u32)).due(Date::ymd(w.year + 1, 12, 1)).public();
     tell(w, s);
 }
 

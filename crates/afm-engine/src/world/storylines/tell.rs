@@ -255,8 +255,18 @@ pub fn question(w: &World, s: &Story) -> String {
     question_with(s, &f)
 }
 
-fn question_with(s: &Story, f: &Fill) -> String {
+/// The question a story asks, as its fill allows: a coach wanted elsewhere
+/// with no team of his own to leave is asked about the job alone.
+fn asked(s: &Story, f: &Fill) -> &'static str {
     let q = s.def().question;
+    if f.get("team").is_none() && q.contains("leave {team} for {other}") {
+        return "Will {lead} take the {other_short} job?";
+    }
+    q
+}
+
+fn question_with(s: &Story, f: &Fill) -> String {
+    let q = asked(s, f);
     let mut out = String::with_capacity(q.len() + 24);
     let mut rest = q;
     while let Some(a) = rest.find('{') {
@@ -295,7 +305,7 @@ fn question_with(s: &Story, f: &Fill) -> String {
 pub fn question_gaps(w: &World, s: &Story) -> Vec<String> {
     let f = fill(w, s);
     let mut gaps = Vec::new();
-    let mut rest = s.def().question;
+    let mut rest = asked(s, &f);
     while let Some(a) = rest.find('{') {
         let after = &rest[a + 1..];
         let Some(z) = after.find('}') else { break };

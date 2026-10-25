@@ -1266,11 +1266,11 @@ The old school calls
 Remembered as the winter {other} called {lead_last} home.
 
 [sl.hs_coach_jump.spark]
-{lead} built a winner at {team}. Now he is going to {other}. {question}
+{lead} built a winner at {other}. Now he is going to {team}. {question}
 [sl.hs_coach_jump.report]
 {lead_last} has spent the fall learning a new level. The recruits from his old area have noticed.
 [sl.hs_coach_jump.end.made_it]
-{lead} made it at {other}. The high school coach belongs.
+{lead} made it at {team}. The high school coach belongs.
 [sl.hs_coach_jump.end.came_back]
 {lead_last} is going back to high school football. He says he missed it.
 [sl.hs_coach_jump.chapter]
@@ -2422,7 +2422,7 @@ Remembered as the year the NCAA came to {team}.
 [sl.facility_push.report]
 {writer} of {outlet} says the money for {team}'s new building is close, but not there yet.
 [sl.facility_push.end.built]
-{team} is getting its building.
+{team} opens its new building.
 [sl.facility_push.end.shelved]
 The building is on hold.
 [sl.facility_push.chapter]

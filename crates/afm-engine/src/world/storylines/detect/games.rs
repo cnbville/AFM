@@ -264,7 +264,16 @@ fn snaps(w: &mut World, t: TeamKey, stats: &GameStats, side: usize) {
             } else {
                 "injury"
             };
-            let text = format!("{} starts at quarterback for {}.", name(w, starter), tname(w, t));
+            let (who, team) = (name(w, starter), tname(w, t));
+            let text = match ending {
+                "split" => {
+                    let second = qbs.get(1).map_or_else(String::new, |x| name(w, x.0));
+                    format!("{who} and {second} split the snaps at quarterback for {team}.")
+                }
+                "kept_job" => format!("{who} keeps the job at quarterback for {team}."),
+                "won_job" => format!("{who} wins the job at quarterback for {team}."),
+                _ => format!("{who} starts at quarterback for {team}."),
+            };
             close(w, id, ending, Some(text));
         }
     }
@@ -292,8 +301,20 @@ fn snaps(w: &mut World, t: TeamKey, stats: &GameStats, side: usize) {
         let (lead, rival) = (s.lead_player(), s.rival_player());
         let back = rival.is_some_and(|r| qbs.iter().any(|x| x.0 == r) || !hurt(w, r));
         if back {
-            let ending = if Some(starter) == lead { "kept_job" } else { "gave_back" };
-            close(w, id, ending, Some(format!("{} starts at quarterback for {}.", name(w, starter), tname(w, t))));
+            let (ending, text) = if Some(starter) == lead {
+                let back = rival.map_or_else(String::new, |r| name(w, r));
+                (
+                    "kept_job",
+                    format!(
+                        "{} keeps the job at quarterback for {} with {back} healthy.",
+                        name(w, starter),
+                        tname(w, t)
+                    ),
+                )
+            } else {
+                ("gave_back", format!("{} is back under center for {}.", name(w, starter), tname(w, t)))
+            };
+            close(w, id, ending, Some(text));
         }
     }
     // The starter is hurt: the next man up.
@@ -333,7 +354,9 @@ fn snaps(w: &mut World, t: TeamKey, stats: &GameStats, side: usize) {
     for (id, _) in open_of(w, K::FreshmanStarter) {
         let Some(s) = w.storylines.get(id) else { continue };
         if s.team == Some(t) && s.lead_player() != Some(starter) && s.lead_player().is_some_and(|l| !hurt(w, l)) {
-            close(w, id, "benched", Some(format!("{} starts at quarterback for {}.", name(w, starter), tname(w, t))));
+            let young = s.lead_player().map_or_else(String::new, |l| name(w, l));
+            let text = format!("{} takes over from {young} at quarterback for {}.", name(w, starter), tname(w, t));
+            close(w, id, "benched", Some(text));
         }
     }
     // A two-quarterback system shows itself.

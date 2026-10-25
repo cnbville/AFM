@@ -723,7 +723,7 @@ pub static CATALOGUE: [Def; 111] = [
         1,
         true,
         200,
-        "Can {lead} make it at {other}?",
+        "Can {lead} make it at {team}?",
         &[("made_it", 0.7), ("came_back", -0.2)],
         &[R::Network],
         0.1,
