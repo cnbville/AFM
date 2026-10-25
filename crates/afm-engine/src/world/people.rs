@@ -121,13 +121,16 @@ pub struct Staffer {
 /// The support staff's heads (topic 10): strength and conditioning,
 /// medical (the head athletic trainer), analytics and quality control,
 /// and academics (college). Their assistants are counted in their rating
-/// through the budget.
+/// through the budget. Player engagement (update 2, Q4): life skills, money
+/// and trouble, which a good one makes a little rarer.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Support {
     pub strength: Staffer,
     pub medical: Staffer,
     pub analytics: Staffer,
     pub academic: Staffer,
+    #[serde(default)]
+    pub engagement: Staffer,
 }
 
 impl Support {
@@ -175,6 +178,8 @@ pub(crate) fn staff_support(w: &mut World) {
                 *post = hire(&mut rng, year, budget, era);
             }
         }
+        // Player engagement on its own stream, so no other draw moves.
+        engage(&mut s.engagement, w.options.seed ^ 0xE16A_0000 ^ k as u32, year, budget, era);
     }
     for t in 0..w.clubs.len() {
         if !super::franchise::active(t, year) {
@@ -188,6 +193,17 @@ pub(crate) fn staff_support(w: &mut World) {
                 *post = hire(&mut rng, year, budget, era);
             }
         }
+        engage(&mut s.engagement, w.options.seed ^ 0xE16B_0000 ^ t as u32, year, budget, era);
+    }
+}
+
+/// The player engagement post (update 2, Q4): filled when empty, turning
+/// over like the other heads, on a stream keyed by the team and year.
+fn engage(post: &mut Staffer, key: u32, year: i32, budget: f64, era: f64) {
+    let mut rng = Rng::new(key ^ (year as u32).wrapping_mul(2_654_435_761));
+    let leave = 0.12 + if post.rating >= 15 { 0.12 * (1.0 - budget) } else { 0.0 };
+    if post.rating == 0 || rng.chance(leave) {
+        *post = hire(&mut rng, year, budget, era);
     }
 }
 

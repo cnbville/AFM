@@ -8,7 +8,7 @@ use crate::world::legacy::{self, ambitions, hall, view};
 use crate::world::seat::{Job, You};
 use crate::world::{World, WorldOptions};
 
-fn you() -> You {
+pub(super) fn you() -> You {
     let teaching = vec![12.0; crate::world::coach::GROUP_COUNT];
     serde_json::from_value(serde_json::json!({
         "name": "Test Coach", "age": 45, "ethnicity": "White", "home_state": 0, "ex_pro": false, "reputation": 60.0,
@@ -21,7 +21,7 @@ fn you() -> You {
 }
 
 /// A tiny world with your career at one of each level's teams.
-fn seat(level: &str) -> World {
+pub(super) fn seat(level: &str) -> World {
     let mut w = World::empty(WorldOptions { scale: 0.001, history_years: 0, start_year: 2037, ..Default::default() });
     let job = match level {
         "nfl" => Job::Nfl(

@@ -431,6 +431,38 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
             run.call(g, "legacy_keep", json!({ "later": false }));
         }
     }
+    // Your staff and the ranges (update 2, lane 3): the quality page, each
+    // member's detail and ratings page with his key reads' cards, and the
+    // cards for a few of your players' ranges.
+    if let Some(q) = run.call(g, "staff_quality", json!({}))
+        && q["none"] != json!(true)
+    {
+        let rows: Vec<Value> = q["depts"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .flat_map(|d| d["rows"].as_array().cloned().unwrap_or_default())
+            .collect();
+        for r in rows.iter().take(40) {
+            let who = r["who"].clone();
+            run.call(g, "staff_member", json!({ "who": who }));
+            run.call(g, "coach_ratings", json!({ "who": who }));
+            for f in r["reads"].as_array().into_iter().flatten() {
+                if let Some(n) = f["now"].as_array() {
+                    run.call(g, "rr_staff", json!({ "who": who, "k": f["key"], "lo": n[0], "hi": n[1] }));
+                }
+            }
+        }
+        if let Some(ro) = run.call(g, "roster", json!({})) {
+            for p in ro["rows"].as_array().into_iter().flatten().take(6) {
+                if let Some(o) = p["ovr"].as_array() {
+                    for k in ["ovr", "speed", "strength", "agility", "jumping", "playRecognition"] {
+                        run.call(g, "rr_card", json!({ "p": p["id"], "k": k, "lo": o[0], "hi": o[1] }));
+                    }
+                }
+            }
+        }
+    }
     for (cmd, args) in extra {
         if let Some(v) = run.call(g, cmd, args.clone()) {
             refs(&v, &mut players, &mut coaches, &mut teams);

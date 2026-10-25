@@ -156,7 +156,7 @@ function playersTab(x) {
     { k: "pos", t: "Pos", l: true },
     { k: "class", t: "Class", l: true, v: (r) => classRank(r.class) },
     { k: "role", t: "Role", l: true },
-    { k: "ovr", t: "Rating", div: true, v: (r) => mid(r.ovr), f: (r) => range(r.ovr) },
+    { k: "ovr", t: "Rating", div: true, v: (r) => mid(r.ovr), f: (r) => range(r.ovr, null, { p: r.id, k: "ovr" }) },
     { k: "growth", t: "Growth", l: true, tip: "Your position coach's read of how he's coming along, in words", f: (r) => trGrowth(r.growth) },
     { k: "grade_words", t: "Practice", l: true, tip: "His practice grades against the room", v: (r) => r.grade },
     { k: "practice", t: "Status", l: true, f: trStatus },
@@ -232,7 +232,7 @@ PLAYER_TABS.push({
     const dis = d.may_plan ? "" : 'disabled title="The head coach plans him"';
     const t = d.teacher;
     const teacher = t.name ? `${t.you ? "You" : coachLink(t.id, t.name)}, ${esc(t.title)}${t.you ? "" : ` · ${esc(t.words)}`}` : "Nobody on the staff";
-    const key = d.key.map((k) => `<div class="attr ${k.focus ? "tr-focus" : ""}"><span>${esc(k.label)} <small class="muted">${esc(k.family)}</small>${k.focus ? ' <span class="tag soft">Focus</span>' : ""}</span>${range(k.read, "your position coach")}</div>`).join("");
+    const key = d.key.map((k) => `<div class="attr ${k.focus ? "tr-focus" : ""}"><span>${esc(k.label)} <small class="muted">${esc(k.family)}</small>${k.focus ? ' <span class="tag soft">Focus</span>' : ""}</span>${range(k.read, "your position coach", { p: p.id, k: k.key })}</div>`).join("");
     const habit = d.habit ? `<div class="attr"><span>${esc(d.habit.label)} <small class="muted">now</small></span>${range(d.habit.read)}</div><div class="sub">Coaching it toward ${d.habit.target_read} of 99: a habit moves slowly, faster with a good teacher and a coachable player.</div>` : "";
     const ex = pl.extra;
     const plan = `<div class="gd-form">
@@ -416,8 +416,8 @@ function squadCols(view, x) {
   const name = { k: "name", t: "Name", l: true, f: (r) => `${playerLink(r.id, r.name, view === "Development" ? "Development" : "")}${r.notes ? ` <span class="st-pill" title="Your notes">✎ ${r.notes}</span>` : ""}` };
   const pos = { k: "pos", t: "Pos", l: true };
   const cls = { k: "class", t: "Class", l: true, v: (r) => classRank(r.class) };
-  const ovr = { k: "ovr", t: "Rating", tip: "Your staff's read of his play now", v: (r) => mid(r.ovr), f: (r) => range(r.ovr) };
-  const key = (n) => ({ k: "k" + n, t: `Key ${n + 1}`, tip: "The skills that matter most at his position, your position coach's read", v: (r) => mid(r["k" + n]), f: (r) => `<span class="tr-key"><small>${esc(r["k" + n + "_label"] || "")}</small>${range(r["k" + n])}</span>` });
+  const ovr = { k: "ovr", t: "Rating", tip: "Your staff's read of his play now", v: (r) => mid(r.ovr), f: (r) => range(r.ovr, null, { p: r.id, k: "ovr" }) };
+  const key = (n) => ({ k: "k" + n, t: `Key ${n + 1}`, tip: "The skills that matter most at his position, your position coach's read", v: (r) => mid(r["k" + n]), f: (r) => `<span class="tr-key"><small>${esc(r["k" + n + "_label"] || "")}</small>${range(r["k" + n], null, { p: r.id, k: r["k" + n + "_key"] })}</span>` });
   const pro = x.tier === "nfl";
   const views = {
     General: [name, pos, cls, { k: "age", t: "Age" }, { k: "ht", t: "Ht", v: (r) => inches(r.ht) }, { k: "wt", t: "Wt" }, { k: "home", t: "Hometown", l: true, wrap: true }, { k: "stars", t: "★", tip: "Recruiting stars", f: (r) => (r.stars ? "★".repeat(r.stars) : '<span class="muted">-</span>') }, ovr, { k: "mood", t: "Mood", l: true }, { k: "status", t: "Status", l: true, f: (r) => (r.status ? `<span class="dot ${/Injur|Susp|ineligible/.test(r.status) ? "bad" : "warn"}"></span>${esc(r.status)}` : '<span class="muted">Available</span>') }, { k: "born", t: "Born", l: true, hide: true }],
@@ -497,7 +497,7 @@ screens.depth = async (a) => {
   const onBoard = new Set(b.slots.filter((s) => s.player).map((s) => s.player.id));
   // The pool: everyone, the slot's position first when a slot is picked.
   const pool = x.players.slice().sort((p, q) => (want ? (q.pos === want.pos) - (p.pos === want.pos) : 0) || mid(q.ovr) - mid(p.ovr));
-  const poolHtml = pool.filter((p) => !want || p.pos === want.pos || keep("trpoolall", { v: false }).v).map((p) => `<div class="tr-pp ${onBoard.has(p.id) ? "on" : ""} ${p.practice !== "full" ? "p-" + p.practice : ""}" draggable="true" data-act="tr-pp" data-pid="${p.id}"><span class="pos">${esc(p.pos)}</span><b>${playerLink(p.id, p.name)}</b><small>${esc(p.class)} · ${esc(p.role || "")}${p.practice !== "full" ? ` · ${esc(p.practice)}` : ""}</small>${range(p.ovr)}</div>`).join("");
+  const poolHtml = pool.filter((p) => !want || p.pos === want.pos || keep("trpoolall", { v: false }).v).map((p) => `<div class="tr-pp ${onBoard.has(p.id) ? "on" : ""} ${p.practice !== "full" ? "p-" + p.practice : ""}" draggable="true" data-act="tr-pp" data-pid="${p.id}"><span class="pos">${esc(p.pos)}</span><b>${playerLink(p.id, p.name)}</b><small>${esc(p.class)} · ${esc(p.role || "")}${p.practice !== "full" ? ` · ${esc(p.practice)}` : ""}</small>${range(p.ovr, null, { p: p.id, k: "ovr" })}</div>`).join("");
   const props = b.slots.some((s) => s.proposal && (!s.player || s.proposal.id !== s.player.id));
   const locked = b.slots.some((s) => !s.controls);
   const changes = b.slots.map((s) => (s.proposal && s.player && s.proposal.id !== s.player.id ? `<div class="item"><span class="when">${esc(s.slot)}</span><span>${playerLink(s.proposal.id, s.proposal.name)} over ${playerLink(s.player.id, s.player.name)} <small class="muted">${esc(s.proposal.practice === "full" ? s.proposal.class : s.proposal.practice)}</small></span></div>` : "")).join("");

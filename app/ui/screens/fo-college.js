@@ -278,7 +278,7 @@ function fcFile(f, ctx, compact) {
         .map((s) => `<div class="fc-school ${s.yours ? "yours" : ""}"><span class="fc-n">${s.n}</span>${mark(s.team, 28)}<span><b>${teamLink(s.team)}</b><small>${esc(s.status)}</small></span>${s.pill ? `<span class="st-pill ${s.pill === "Leads" ? "good" : "gold"}">${esc(s.pill)}</span>` : ""}</div>`)
         .join("")
     : '<div class="empty">No offers yet. The first one is remembered.</div>';
-  const read = `<div class="fc-read"><div>${range(f.read)}</div><div><b>${fcPot(f.pot)}</b>${f.pot ? `<small class="sub">How sure: ${esc(words(f.pot.sure))}</small>` : ""}</div></div>
+  const read = `<div class="fc-read"><div>${range(f.read, null, { p: f.id, k: "ovr" })}</div><div><b>${fcPot(f.pot)}</b>${f.pot ? `<small class="sub">How sure: ${esc(words(f.pot.sure))}</small>` : ""}</div></div>
     ${f.pot && f.pot.hints && f.pot.hints.length ? `<div class="fc-hints">${f.pot.hints.map((h) => `<span class="st-fact">${esc(fcCap(h))}</span>`).join("")}</div>` : ""}
     <small class="sub">Read by ${esc(f.reader)}${f.reader_role ? `, your ${esc(f.reader_role)}` : ""}.${f.on_board ? "" : " Add him to your board and the read narrows as your staff works him."}</small>`;
   const nextLine = f.next ? `<b>${esc(f.next.date)}</b> · ${esc(f.next.what)}` : "Nothing set";
@@ -375,7 +375,7 @@ function fcBoardTable(x, k, yours) {
     { k: "stars", t: "★", tip: "The services' stars", f: (r) => fcStars(r.stars) },
     { k: "nat", t: "Public", l: true, tip: "The services' rank at his position and in his state", v: (r) => -(r.nat || 9999), f: fcPublic },
     { k: "school", t: "School · Hometown", l: true, div: true, v: (r) => (r.hs ? r.hs.name : ""), f: (r) => `${fcSchool(r)} <small class="sub">· ${esc(r.town)}</small>` },
-    { k: "read", t: "Read", div: true, tip: "Your position coach's read of his play now", v: (r) => mid(r.read), f: (r) => range(r.read) },
+    { k: "read", t: "Read", div: true, tip: "Your position coach's read of his play now", v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) },
     { k: "pot", t: "Ceiling", l: true, tip: "Your staff's words on how far he can go", v: (r) => (r.pot ? r.pot.tier : ""), f: (r) => fcPot(r.pot) },
     { k: "interest", t: "His interest", l: true, div: true, f: (r) => `<span title="${esc(r.reason)}">${fcDot(fcTone(r.tone))}${esc(r.interest)}</span>` },
     { k: "leader", t: "Leader", l: true, v: (r) => (r.leader ? r.leader.name : ""), f: (r) => (r.leader ? teamLink(r.leader) : '<span class="muted">-</span>') },
@@ -454,7 +454,7 @@ screens.recruit_find = async (a) => {
     { k: "school", t: "School · Hometown", l: true, div: true, v: (r) => (r.hs ? r.hs.name : ""), f: (r) => `${fcSchool(r)} <small class="sub">· ${esc(r.town)}</small>` },
     { k: "ht", t: "Ht", div: true, v: (r) => inches(r.ht) },
     { k: "wt", t: "Wt" },
-    { k: "read", t: "Read", div: true, tip: "A first look: it narrows once he's on your board", v: (r) => mid(r.read), f: (r) => range(r.read) },
+    { k: "read", t: "Read", div: true, tip: "A first look: it narrows once he's on your board", v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) },
     { k: "interest", t: "Where it stands", l: true, div: true, f: (r) => `<span title="${esc(r.reason)}">${fcDot(fcTone(r.tone))}${esc(r.interest)}</span>` },
     { k: "offers", t: "Offers" },
     { k: "act", t: "", l: true, v: (r) => (r.on_board ? 1 : 0), f: (r) => (r.on_board ? `${fcLink("recruit_file", "On your board", { id: r.id })}` : `<button class="st-btn small glass" data-fc="add" data-id="${r.id}">Add to board</button>`) },
@@ -548,7 +548,7 @@ screens.portal_desk = async () => {
       { k: "left", t: "Yrs", tip: "Seasons he could play from next season on", f: (r) => `<span title="${esc(r.cls)}">${r.left}</span>` },
       { k: "stars", t: "★", tip: "His stars out of high school", f: (r) => fcStars(r.stars) },
       { k: "role", t: "Last role", l: true, div: true, v: (r) => r.role || "", f: (r) => esc(r.role || "-") },
-      { k: "read", t: "Read", tip: "Your staff's read from his tape", v: (r) => mid(r.read), f: (r) => range(r.read) },
+      { k: "read", t: "Read", tip: "Your staff's read from his tape", v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) },
       { k: "why", t: "Why he left", l: true, wrap: true, div: true },
       { k: "days", t: "Decides", tip: "When he means to choose", f: (r) => `<span title="${esc(fcIn(r.days))}">${esc(String(r.decide || "").replace(/ \d{4}$/, ""))}</span>` },
       { k: "sits", t: "", l: true, v: (r) => (r.sits ? 1 : 0), f: (r) => (r.sits ? '<span class="st-pill gold" title="He would sit out a season with you">Sits a year</span>' : "") },
@@ -577,7 +577,7 @@ screens.portal_desk = async () => {
       { k: "pos", t: "Pos", l: true },
       { k: "cls", t: "Class", l: true, v: (r) => classRank(r.cls) },
       { k: "role", t: "Role", l: true, v: (r) => r.role || "", f: (r) => esc(r.role || "-") },
-      { k: "read", t: "Read", div: true, v: (r) => mid(r.read), f: (r) => range(r.read) },
+      { k: "read", t: "Read", div: true, v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) },
       { k: "risk", t: "Mood about staying", l: true, div: true, v: (r) => -r.rank },
       { k: "why", t: "What your staff hears", l: true, wrap: true, tip: "The strongest pull away this year, and the strongest reason he has to stay", f: (r) => `${esc(r.why ? r.why[0].toUpperCase() + r.why.slice(1) : "-")}${r.hold ? `<br><small class="sub">Keeping him: ${esc(r.hold)}</small>` : ""}` },
       { k: "nil", t: "NIL now", f: (r) => (r.nil ? money(r.nil) : '<span class="muted">-</span>') },
@@ -593,7 +593,7 @@ screens.portal_desk = async () => {
       { k: "cls", t: "Class", l: true },
       { k: "stars", t: "★", f: (r) => fcStars(r.stars) },
       { k: "role", t: "Role", l: true, div: true, v: (r) => r.role || "", f: (r) => esc(r.role || "-") },
-      { k: "read", t: "Read", v: (r) => mid(r.read), f: (r) => range(r.read) },
+      { k: "read", t: "Read", v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) },
       { k: "contacted", t: "Your word", l: true, div: true, v: (r) => (r.contacted ? 1 : 0), f: (r) => (r.contacted ? `${esc(r.contacted)}${r.leaked ? ' <span class="st-pill gold">Word got out</span>' : ""}` : x.yours ? `<button class="st-btn small glass" data-fc="pcontact" data-id="${r.id}" data-name="${esc(r.name)}">Reach out</button>` : "") },
     ], x.whispers, { empty: "No whispers around the country right now." })}`;
   }
@@ -633,7 +633,7 @@ screens.nil_desk = async () => {
     { k: "cls", t: "Class", l: true, v: (r) => classRank(r.cls) },
     { k: "left", t: "Yrs left" },
     { k: "role", t: "Role", l: true, v: (r) => r.role || "", f: (r) => esc(r.role || "-") },
-    { k: "read", t: "Read", div: true, v: (r) => mid(r.read), f: (r) => range(r.read) },
+    { k: "read", t: "Read", div: true, v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) },
     { k: "now", t: "Paid last year", div: true, f: (r) => (r.now ? money(r.now) : '<span class="muted">-</span>') },
     { k: "brand", t: "His own deals", tip: "Brand and ad money he earns himself, apart from the collective (a public estimate for the year)", v: (r) => r.brand || 0, f: (r) => (r.brand ? money(r.brand) : '<span class="muted">-</span>') },
     { k: "followers", t: "Followers", tip: "Social media followers, every platform", v: (r) => r.followers || 0, f: (r) => (r.followers ? fcFollow(r.followers) : '<span class="muted">-</span>') },

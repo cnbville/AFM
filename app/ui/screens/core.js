@@ -1139,7 +1139,7 @@ screens.home = async () => {
     ? `<div class="trk">${x.tracked.slice(0, 7).map((p) => {
       const then = p.then && p.then.read, now = p.read;
       const d = then && now ? Math.round(mid(now) - mid(then)) : null;
-      return `<div class="trk-row"><span>${playerLink(p.id, p.name)}<small>${esc(p.pos)} · ${esc(p.where)}</small></span>${now ? range(now) : `<small class="muted">${esc(p.level)}</small>`}${d != null && d !== 0 ? `<span class="delta ${d > 0 ? "up" : "down"}">${d > 0 ? "▲" : "▼"} ${Math.abs(d)}</span>` : "<span></span>"}</div>`;
+      return `<div class="trk-row"><span>${playerLink(p.id, p.name)}<small>${esc(p.pos)} · ${esc(p.where)}</small></span>${now ? range(now, null, { p: p.id, k: "ovr" }) : `<small class="muted">${esc(p.level)}</small>`}${d != null && d !== 0 ? `<span class="delta ${d > 0 ? "up" : "down"}">${d > 0 ? "▲" : "▼"} ${Math.abs(d)}</span>` : "<span></span>"}</div>`;
     }).join("")}</div>`
     : `<div class="empty">Nobody on your list yet. Right-click any name, or use "Add to my players" on a player's page.</div>`;
   const boss = x.boss;
@@ -1218,17 +1218,17 @@ function readCard(p) {
   const who = p.mine ? "Your position coach" : "Your scouts";
   return `<div class="readcard"><div class="rc-top"><div><div class="st-label">${esc(who)}'s read</div><div class="rc-tier">${pot ? esc(pot.tier) : p.ovr ? "Rated, not projected" : "Not scouted"}</div></div>${p.level_rating ? `<div class="lvl"><b>${esc(p.level_rating.split(" ")[0])}</b><small>${esc(p.level_rating.split(" ").slice(1).join(" "))}</small></div>` : ""}</div>
     ${pot ? `<p class="sub">Staff ${esc(words(pot.sure))}.${pot.hints && pot.hints.length ? " " + pot.hints.map(esc).join(". ") + "." : ""}</p>` : `<p class="sub">${p.ovr ? "Your staff rates what he is now; nobody has projected what he could become." : "Nobody on your staff has seen him. Only his measurables and public profile are known."}</p>`}
-    <div class="kv"><dt>Rating now</dt><dd>${range(p.ovr, who.toLowerCase())}</dd><dt>Mood</dt><dd>${esc(p.mood)}</dd><dt>Status</dt><dd>${esc(p.status || "Available")}</dd>${p.born ? `<dt>Born</dt><dd>${esc(p.born)} <small class="sub">(${p.age})</small></dd>` : ""}${p.on_camera ? `<dt>On camera</dt><dd>${esc(p.on_camera)}</dd>` : ""}${p.followers ? `<dt>Followers</dt><dd>${fans(p.followers)}</dd>` : ""}${p.brand ? `<dt>Ads and deals</dt><dd>${money(p.brand)} <small class="sub">a year, reported</small></dd>` : ""}</div></div>`;
+    <div class="kv"><dt>Rating now</dt><dd>${range(p.ovr, who.toLowerCase(), { p: p.id, k: "ovr" })}</dd><dt>Mood</dt><dd>${esc(p.mood)}</dd><dt>Status</dt><dd>${esc(p.status || "Available")}</dd>${p.born ? `<dt>Born</dt><dd>${esc(p.born)} <small class="sub">(${p.age})</small></dd>` : ""}${p.on_camera ? `<dt>On camera</dt><dd>${esc(p.on_camera)}</dd>` : ""}${p.followers ? `<dt>Followers</dt><dd>${fans(p.followers)}</dd>` : ""}${p.brand ? `<dt>Ads and deals</dt><dd>${money(p.brand)} <small class="sub">a year, reported</small></dd>` : ""}</div></div>`;
 }
 const fans = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e4 ? Math.round(n / 1e3) + "k" : n.toLocaleString());
 const PT = {
   Overview: (p) => {
     const last = p.seasons[p.seasons.length - 1];
     const fit = p.fit && p.fit.length > 1
-      ? `<div class="panel"><h2>Where else he could play <small>your staff's read at each spot</small></h2>${p.fit.map((f) => `<div class="attr"><span>${esc(f.pos)}${f.now ? ' <span class="tag soft">Now</span>' : ""}</span>${range(f.read)}</div>`).join("")}</div>`
+      ? `<div class="panel"><h2>Where else he could play <small>your staff's read at each spot</small></h2>${p.fit.map((f) => `<div class="attr"><span>${esc(f.pos)}${f.now ? ' <span class="tag soft">Now</span>' : ""}</span>${range(f.read, null, { p: p.id, k: "at:" + f.pos })}</div>`).join("")}</div>`
       : "";
     return `<div class="grid2"><div class="panel">${readCard(p)}</div>
-      <div class="panel"><h2>Five that matter at ${esc(p.pos)} <small>the mental side</small></h2>${p.key_mental.map((a) => `<div class="attr"><span>${esc(a.label)}</span>${range(a.read)}</div>`).join("") || '<div class="empty">Not seen.</div>'}</div></div>
+      <div class="panel"><h2>Five that matter at ${esc(p.pos)} <small>the mental side</small></h2>${p.key_mental.map((a) => `<div class="attr"><span>${esc(a.label)}</span>${range(a.read, null, { p: p.id, k: a.key })}</div>`).join("") || '<div class="empty">Not seen.</div>'}</div></div>
       ${p.measurables.length ? `<div class="panel"><h2>Measurables <small>where each was taken</small></h2>${measurablesHtml(p)}</div>` : ""}
       ${linksHtml(p)}
       <div class="grid2">${last ? `<div class="panel"><h2>Latest season <small>${esc(last.year)} · ${esc(last.level)}</small></h2><p class="bigline">${esc(last.line)}</p>${last.team ? `<p class="sub">${teamChip(last.team, 18)} · ${last.games} games</p>` : ""}</div>` : ""}${fit}</div>
@@ -1238,7 +1238,7 @@ const PT = {
     const g = keep("pattr", { g: "" }).g;
     const groups = p.groups.filter((x) => !g || x.name === g);
     const sel = `<select data-act="attrgroup" class="ssel"><option value="">Every group</option>${p.groups.map((x) => `<option ${x.name === g ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select>`;
-    return `<div class="tbar">${sel}<span class="muted small">Ranges are your staff's reads: a narrow bar is a sure read. Nobody sees a true number.</span></div><div class="attrgrid">${groups.map((x) => `<div class="panel"><h2>${esc(x.name)} <small>${esc(p.mine ? "your coaches" : x.name === "Physical" ? "public measurables" : "your scouts")}</small></h2><div class="attrs">${x.attrs.map((a) => `<div class="attr"><span>${esc(a.label)}</span>${range(a.read)}</div>`).join("")}</div></div>`).join("")}</div>`;
+    return `<div class="tbar">${sel}<span class="muted small">Ranges are your staff's reads: a narrow bar is a sure read. Nobody sees a true number.</span></div><div class="attrgrid">${groups.map((x) => `<div class="panel"><h2>${esc(x.name)} <small>${esc(p.mine ? "your coaches" : x.name === "Physical" ? "public measurables" : "your scouts")}</small></h2><div class="attrs">${x.attrs.map((a) => `<div class="attr"><span>${esc(a.label)}</span>${range(a.read, null, { p: p.id, k: a.key })}</div>`).join("")}</div></div>`).join("")}</div>`;
   },
   Reports: (p) => `<div class="grid2"><div class="panel">${readCard(p)}</div><div class="panel"><h2>Reports on file</h2>${(p.reports || []).length ? `<div class="items">${p.reports.map((r) => `<div class="item"><span class="when">${esc(r.date)}</span><span><b>${esc(r.by || "")}</b> ${rich(r.text)}</span></div>`).join("")}</div>` : `<div class="empty">${p.mine ? "Your position coach grades him every week; his read is the bar on each attribute." : "No written reports yet. Put him on your list and your scouts will keep looking."}</div>`}</div></div>`,
   Stats: (p) => {
@@ -1332,15 +1332,15 @@ screens.compare = async (a) => {
   title("Compare", `${x.players.length} players`);
   const ps = x.players;
   const attrs = new Map();
-  ps.forEach((p, i) => p.groups.forEach((g) => g.attrs.forEach((t) => { const k = g.name + "|" + t.label; if (!attrs.has(k)) attrs.set(k, { g: g.name, label: t.label, reads: [] }); attrs.get(k).reads[i] = t.read; })));
+  ps.forEach((p, i) => p.groups.forEach((g) => g.attrs.forEach((t) => { const k = g.name + "|" + t.label; if (!attrs.has(k)) attrs.set(k, { g: g.name, label: t.label, key: t.key, reads: [] }); attrs.get(k).reads[i] = t.read; })));
   const head = `<tr><th class="l"></th>${ps.map((p) => `<th class="l cmp-h">${face(p, 44)}<div>${playerLink(p.id, p.name)}<small>${esc(p.pos)} · ${esc(p.class)}${p.team ? " · " + esc(p.team.name) : ""}</small></div><button class="st-icon-btn" data-act="cmpdrop" data-id="${p.id}" aria-label="Take out">×</button></th>`).join("")}</tr>`;
   const row = (label, cells) => `<tr><td class="l">${label}</td>${cells.map((c) => `<td class="l">${c}</td>`).join("")}</tr>`;
-  let body = row("Rating now", ps.map((p) => range(p.ovr))) + row("Level", ps.map((p) => esc(p.level_rating || ""))) + row("Size", ps.map((p) => `${esc(p.ht)}, ${p.wt} lb`)) + row("Age", ps.map((p) => p.age)) + row("Stars", ps.map((p) => stars(p.stars))) + row("Last season", ps.map((p) => esc(p.last || "")));
+  let body = row("Rating now", ps.map((p) => range(p.ovr, null, { p: p.id, k: "ovr" }))) + row("Level", ps.map((p) => esc(p.level_rating || ""))) + row("Size", ps.map((p) => `${esc(p.ht)}, ${p.wt} lb`)) + row("Age", ps.map((p) => p.age)) + row("Stars", ps.map((p) => stars(p.stars))) + row("Last season", ps.map((p) => esc(p.last || "")));
   let g = null;
   for (const v of attrs.values()) {
     if (v.g !== g) { body += `<tr class="grouprow"><td class="l" colspan="${ps.length + 1}">${esc(v.g)}</td></tr>`; g = v.g; }
     const best = Math.max(...v.reads.map((r) => (r ? mid(r) : -1)));
-    body += `<tr><td class="l">${esc(v.label)}</td>${ps.map((_, i) => `<td class="l ${v.reads[i] && mid(v.reads[i]) === best && best > 0 ? "best" : ""}">${range(v.reads[i])}</td>`).join("")}</tr>`;
+    body += `<tr><td class="l">${esc(v.label)}</td>${ps.map((_, i) => `<td class="l ${v.reads[i] && mid(v.reads[i]) === best && best > 0 ? "best" : ""}">${range(v.reads[i], null, { p: ps[i].id, k: v.key })}</td>`).join("")}</tr>`;
   }
   return `<div class="pad">${pageHead({ kicker: "Side by side · your staff's reads", title: "Compare" })}<div class="tbl warm box cmp"><table><thead>${head}</thead><tbody>${body}</tbody></table></div></div>`;
 };
@@ -1354,11 +1354,15 @@ function treeHtml(list, empty) {
 screens.coach = async (a) => {
   const c = await api("coach_page", { id: a.id });
   title(c.name, c.job ? c.job.role : "Coach");
-  const tab = tabOf("ctab", ["Profile", "Jobs", "Coaching tree", "Players he developed", "Notes"], a);
+  // Your read of him (update 2, board 18) comes with having him on your staff.
+  const names = ["Profile", ...(c.your_staff ? ["Ratings"] : []), "Jobs", "Coaching tree", "Players he developed", "Notes"];
+  const tab = tabOf("ctab", names, a);
   let body = "";
-  if (tab === "Profile") {
+  if (tab === "Ratings") {
+    body = await rrCoachTab(a.id);
+  } else if (tab === "Profile") {
     body = `<div class="grid2"><div class="panel"><h2>Who he is</h2><div class="kv"><dt>Age</dt><dd>${c.age}</dd><dt>Reputation</dt><dd>${esc(c.reputation)}</dd><dt>Came up as</dt><dd>${esc(c.came_up)}</dd><dt>Played pro</dt><dd>${c.ex_pro ? "Yes" : "No"}</dd><dt>Titles</dt><dd>${c.titles}</dd>${c.ats ? `<dt>Against the spread</dt><dd>${esc(c.ats)}</dd>` : ""}${c.mentor_line ? `<dt>Learned under</dt><dd>${rich(c.mentor_line)}</dd>` : ""}</div></div>
-      <div class="panel"><h2>Contract <small>as reported</small></h2>${c.contract ? `<div class="st-tiles"><div><b>${money(c.contract.salary)}</b><small>a year</small></div><div><b>${c.contract.through}</b><small>through</small></div><div><b>${money(c.contract.buyout)}</b><small>buyout now</small></div></div>` : '<div class="empty">No contract reported.</div>'}</div></div>`;
+      <div class="panel"><h2>Contract <small>as reported</small></h2>${c.contract ? `<div class="st-tiles"><div><b>${money(c.contract.salary)}</b><small>a year</small></div><div><b>${c.contract.through}</b><small>through</small></div><div><b>${c.contract.buyout > 0 ? money(c.contract.buyout) : "None"}</b><small>buyout now</small></div></div>` : '<div class="empty">No contract reported.</div>'}</div></div>`;
   } else if (tab === "Jobs") {
     body = table("cjobs", [{ k: "where", t: "Where", l: true }, { k: "role", t: "Role", l: true }, { k: "from", t: "From" }, { k: "to", t: "To" }, { k: "record", t: "Record", l: true }, { k: "ended", t: "How it ended", l: true }], c.history, { tools: false });
   } else if (tab === "Coaching tree") {
@@ -1368,7 +1372,7 @@ screens.coach = async (a) => {
   } else {
     body = `<div class="panel"><h2>Your notes on ${esc(c.name)}</h2>${(c.notes || []).length ? `<div class="items">${c.notes.map((n) => `<div class="item"><span class="when">${esc(n.date)}</span><span>${esc(n.text)}</span></div>`).join("")}</div>` : '<div class="empty">No notes yet.</div>'}<button class="st-btn small primary" data-act="cnote" data-id="${c.id ?? a.id}" data-name="${esc(c.name)}">Add a note</button></div>`;
   }
-  return `<div class="pad">${pageHead({ kicker: jobLine(c.job), title: `${esc(c.name)}${c.you ? ' <span class="st-pill gold">You</span>' : ""}`, actions: `<button class="st-btn small glass" data-act="cnote" data-id="${a.id}" data-name="${esc(c.name)}">${icon("note")} Add a note</button>` })}${gotoFor("coach", a, c)}${tabs("ctab", tab === "Notes" ? ["Profile", "Jobs", "Coaching tree", "Players he developed", "Notes"] : ["Profile", "Jobs", "Coaching tree", "Players he developed", { name: "Notes", badge: (c.notes || []).length || "" }], tab)}<div class="tabbody">${body}</div></div>`;
+  return `<div class="pad">${pageHead({ kicker: jobLine(c.job), title: `${esc(c.name)}${c.you ? ' <span class="st-pill gold">You</span>' : ""}`, actions: `<button class="st-btn small glass" data-act="cnote" data-id="${a.id}" data-name="${esc(c.name)}">${icon("note")} Add a note</button>` })}${gotoFor("coach", a, c)}${tabs("ctab", tab === "Notes" ? names : [...names.slice(0, -1), { name: "Notes", badge: (c.notes || []).length || "" }], tab)}<div class="tabbody">${body}</div></div>`;
 };
 GOTO.coach = (a, c) => [c.job && c.job.team ? ["His team", "team", c.job.team] : null, c.job && c.job.team ? ["His staff", "staff", c.job.team] : null, ["Coaching carousel", "history", { tab: "Coaching carousel" }]];
 
@@ -1517,7 +1521,7 @@ screens.myplayers = async () => {
     { k: "class", t: "Class", l: true, v: (r) => classRank(r.class) ?? r.class },
     { k: "team", t: "Team", l: true, f: (r) => (r.team ? teamChip(r.team, 18) : esc(r.where)), v: (r) => (r.team ? r.team.name : r.where) },
     { k: "stars", t: "Stars", f: (r) => stars(r.stars) },
-    { k: "read", t: "Your read now", l: true, f: (r) => range(r.read), v: (r) => mid(r.read) },
+    { k: "read", t: "Your read now", l: true, f: (r) => range(r.read, null, { p: r.id, k: "ovr" }), v: (r) => mid(r.read) },
     { k: "change", t: "Since added", f: (r) => { const d = delta(r); return d == null || d === 0 ? '<span class="muted">·</span>' : `<span class="delta ${d > 0 ? "up" : "down"}">${d > 0 ? "▲" : "▼"} ${Math.abs(d)}</span>`; }, v: (r) => delta(r) ?? 0, tip: "How your staff's read moved since you added him" },
     { k: "added", t: "Added", l: true, f: (r) => esc(r.then ? r.then.date : ""), v: (r) => (r.then ? r.then.date : ""), hide: true },
     { k: "status", t: "Status", l: true, f: (r) => esc(r.status || "") },

@@ -2,6 +2,7 @@
 //! as JSON from the world, showing only what your staff could know.
 
 use afm_engine::attributes::Category;
+use afm_engine::body::body_now;
 use afm_engine::calendar::{Date, Level as CalLevel, Link, Loudness, Ref};
 use afm_engine::player::{Level, PlayingTime};
 use afm_engine::positions::Position;
@@ -609,8 +610,8 @@ pub(crate) fn row(w: &World, k: usize, t: TeamRef, own: bool, reader: u64) -> Va
         "group": unit(pos),
         "age": p.age_on(w.today),
         "class": class_text(w, p),
-        "ht": ft_in(p.player.body.height),
-        "wt": p.player.body.weight.round(),
+        "ht": ft_in(body_now(&p.player).height),
+        "wt": body_now(&p.player).weight.round(),
         "stars": p.stars,
         "home": hometown(w, p),
         "ovr": ovr.json(),
@@ -1950,6 +1951,8 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
     let own = team.is_some_and(|t| is_mine(w, t));
     let reader = reader_key(w);
     let pos = p.player.position;
+    // His body now: a boy still growing is smaller than the man he becomes.
+    let body = body_now(&p.player);
     let eye = team.filter(|_| own).map_or(10.0, |t| eye_for(w, t, pos));
     let attrs = reads::attributes(&p.player, own, eye, reader);
     let groups: Vec<Value> = [
@@ -2062,10 +2065,10 @@ pub fn player(w: &World, id: u32) -> Result<Value, String> {
         "high_school": w.high_schools.get(p.hs).filter(|_| !w.others.national(p.player.id)).map(|s| w.school_name(s.id).to_string()),
         "high_school_id": w.high_schools.get(p.hs).filter(|_| !w.others.national(p.player.id)).map(|_| p.hs),
         "national": w.others.nationals.get(&p.player.id).map(|&s| afm_engine::world::pro::other::U_SPORTS.get(s as usize).copied().unwrap_or("")),
-        "ht": ft_in(p.player.body.height),
-        "wt": p.player.body.weight.round(),
-        "arm": p.player.body.arm,
-        "hand": p.player.body.hand,
+        "ht": ft_in(body.height),
+        "wt": body.weight.round(),
+        "arm": body.arm,
+        "hand": body.hand,
         "stars": p.stars,
         "status": status_text(w, p),
         "mood": mood_words(p),

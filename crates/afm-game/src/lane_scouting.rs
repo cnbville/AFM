@@ -589,6 +589,9 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
     let followers = Some(p.followers).filter(|&f| f > 0);
     let choices = w.scouting.predraft.choices.get(&id).map_or(Vec::new(), |&c| predraft::choice_words(c));
     let (lh, lw) = file::listed(&p.player);
+    // Measured is his body now (a boy still growing is smaller than the man
+    // he becomes).
+    let now = afm_engine::body::body_now(&p.player);
     let measured = looks.iter().any(|l| matches!(l.kind, Kind::Combine | Kind::ProDay | Kind::Camp | Kind::Showcase));
     Ok(json!({
         "id": id,
@@ -601,11 +604,11 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
         "team": team_ref_of(w, p).map(|t| team_brief(w, t)),
         "hometown": w.states.get(p.home_state).map(|s| s.code.to_string()),
         "high_school": w.high_schools.get(p.hs).map(|s| w.school_name(s.id).to_string()),
-        "ht": ft_in(if measured { p.player.body.height } else { lh }),
-        "wt": (if measured { p.player.body.weight } else { lw }).round(),
+        "ht": ft_in(if measured { now.height } else { lh }),
+        "wt": (if measured { now.weight } else { lw }).round(),
         "measured": measured,
-        "arm": measured.then_some(p.player.body.arm),
-        "hand": measured.then_some(p.player.body.hand),
+        "arm": measured.then_some(now.arm),
+        "hand": measured.then_some(now.hand),
         "stars": p.stars,
         "mine": matches!(staff, readers::Staff::Club(t) if p.pro.as_ref().is_some_and(|c| c.team == Some(t)))
             || matches!(staff, readers::Staff::Program(c) if p.college == Some(c) && p.stage == Stage::College)

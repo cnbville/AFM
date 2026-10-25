@@ -105,7 +105,7 @@ screens.fo_cap = async () => {
     { k: "name", t: "Player", l: true, f: (r) => `${playerLink(r.id, r.name)}${r.no_trade ? ' <span class="st-pill" title="No-trade clause">NTC</span>' : ""}` },
     { k: "pos", t: "Pos", l: true },
     { k: "age", t: "Age" },
-    { k: "ovr", t: "Rating", v: (r) => mid(r.ovr), f: (r) => range(r.ovr) },
+    { k: "ovr", t: "Rating", v: (r) => mid(r.ovr), f: (r) => range(r.ovr, null, { p: r.id, k: "ovr" }) },
     ...yrs.map((y, k) => ({ k: "y" + y, t: String(y), div: k === 0, v: (r) => (r.hits[k] ? r.hits[k].hit : -1), f: (r) => hit(r.hits[k]) })),
     { k: "kind", t: "Deal", l: true, div: true, f: (r) => `${esc(r.kind)}${r.ending ? ' <span class="st-pill gold">Ends</span>' : ""}` },
     { k: "apy", t: "A year", f: (r) => `<span title="${r.years_left} more years · ${foM(r.gtd_left)} still guaranteed">${foM(r.apy)}</span>` },
@@ -158,7 +158,7 @@ screens.fo_expiring = async () => {
     { k: "pos", t: "Pos", l: true },
     { k: "age", t: "Age" },
     { k: "accrued", t: "Seasons", tip: "Accrued seasons, last season's counted" },
-    { k: "ovr", t: "Rating", v: (r) => mid(r.ovr), f: (r) => range(r.ovr) },
+    { k: "ovr", t: "Rating", v: (r) => mid(r.ovr), f: (r) => range(r.ovr, null, { p: r.id, k: "ovr" }) },
     { k: "market", t: "His market", div: true, tip: "Your cap manager's read of what he'd get a year", v: (r) => r.market[0], f: (r) => `${foM(r.market[0])}-${foM(r.market[1])}` },
     { k: "apy", t: "Now a year", f: (r) => foM(r.apy) },
     { k: "what", t: "Where it stands", l: true, div: true, wrap: true, v: (r) => r.order, f: (r) => `${what(r)} ${r.talk ? foTalkChip(r.talk) : ""}` },
@@ -195,7 +195,7 @@ screens.fo_talk = async (a) => {
   return `<div class="hero small"><div class="art"></div><div class="st-outline">${esc(t.pos)}</div><div class="copy">
     <div class="st-label" style="color:rgba(255,255,255,.7)">${esc(foKindWords[t.kind] || "No talks possible")} · ${t.team ? teamLink(t.team) : "Free agent"}</div>
     <h1>${playerLink(t.id, t.name)}</h1>
-    <div class="meta"><span>Age <b>${t.age}</b></span><span>${t.accrued} accrued seasons</span><span>Rating ${range(t.ovr)}</span>${t.contract ? `<span>${esc(t.contract.kind)}, ${foM(t.contract.apy)} a year through ${t.contract.through}</span>` : ""}</div></div></div>
+    <div class="meta"><span>Age <b>${t.age}</b></span><span>${t.accrued} accrued seasons</span><span>Rating ${range(t.ovr, null, { p: t.id, k: "ovr" })}</span>${t.contract ? `<span>${esc(t.contract.kind)}, ${foM(t.contract.apy)} a year through ${t.contract.through}</span>` : ""}</div></div></div>
     <div class="pad fo"><p class="sub">${esc(t.kind_words)}</p>
     ${answer ? `<div class="fo-answer ${answer.verdict}"><div class="st-label">${esc({ Signed: "Deal", Agreed: "Agreed", Standing: "On the table", Counter: "Counter", Broken: "Talks ended" }[answer.verdict] || answer.verdict)} · ${esc(answer.gap)}</div><b>${esc(answer.text)}</b>${answer.claim ? `<div>${esc(answer.claim)}</div><small>${esc(answer.read || "")}</small>` : ""}</div>` : ""}
     <div class="grid2">
@@ -254,7 +254,7 @@ screens.fo_market = async () => {
     { k: "pos", t: "Pos", l: true },
     { k: "age", t: "Age" },
     { k: "accrued", t: "Seasons" },
-    { k: "ovr", t: "Rating", tip: "The league's public read", v: (r) => mid(r.ovr), f: (r) => range(r.ovr) },
+    { k: "ovr", t: "Rating", tip: "The league's public read", v: (r) => mid(r.ovr), f: (r) => range(r.ovr, null, { p: r.id, k: "ovr" }) },
     { k: "former", t: "Last club", l: true, div: true, v: (r) => (r.former ? r.former.name : ""), f: (r) => (r.former ? teamLink(r.former) : '<span class="muted">-</span>') },
     { k: "market", t: "His market", v: (r) => r.market[0], f: (r) => `${foM(r.market[0])}-${foM(r.market[1])}` },
     { k: "status", t: "Market", l: true, v: (r) => (r.agreed ? 1 : 0), f: status },
@@ -285,7 +285,7 @@ screens.fo_trades = async () => {
   const givePts = giveP.reduce((s, r) => s + r.points, 0) + pts(x.picks, tr.givePicks, foPickKey);
   const getPts = getP.reduce((s, r) => s + r.points, 0) + (other ? pts(other.picks, tr.getPicks, foPickKey) : 0);
   const pickBox = (list, sel, side) => list.map((p) => `<label class="fo-pickbox ${sel.includes(foPickKey(p)) ? "on" : ""}"><input type="checkbox" data-fo-pick="${side}" data-k="${foPickKey(p)}" ${sel.includes(foPickKey(p)) ? "checked" : ""}>${foPick(p)}<small>${p.points}</small></label>`).join("") || '<span class="muted">No picks to trade.</span>';
-  const plist = (rows, sel, side) => `<div class="tbl fo-tradelist"><table><thead><tr><th></th><th class="l">Player</th><th class="l">Pos</th><th>Age</th><th>Rating</th><th>Cap hit</th><th title="His value over his contract, on your chart">Value</th></tr></thead><tbody>${rows.slice().sort((a, b) => sel.includes(b.id) - sel.includes(a.id) || mid(b.ovr) - mid(a.ovr)).map((r) => `<tr class="${sel.includes(r.id) ? "on" : ""}"><td><input type="checkbox" data-fo-pl="${side}" data-id="${r.id}" ${sel.includes(r.id) ? "checked" : ""} ${r.no_trade ? 'title="No-trade clause"' : ""}></td><td class="l">${playerLink(r.id, r.name)}${r.no_trade ? ' <span class="st-pill">NTC</span>' : ""}${r.block ? ' <span class="st-pill gold">Block</span>' : ""}</td><td class="l">${esc(r.pos)}</td><td>${r.age}</td><td>${range(r.ovr)}</td><td>${foM(r.hit)}</td><td class="${r.points < 0 ? "neg" : ""}">${r.points}</td></tr>`).join("")}</tbody></table></div>`;
+  const plist = (rows, sel, side) => `<div class="tbl fo-tradelist"><table><thead><tr><th></th><th class="l">Player</th><th class="l">Pos</th><th>Age</th><th>Rating</th><th>Cap hit</th><th title="His value over his contract, on your chart">Value</th></tr></thead><tbody>${rows.slice().sort((a, b) => sel.includes(b.id) - sel.includes(a.id) || mid(b.ovr) - mid(a.ovr)).map((r) => `<tr class="${sel.includes(r.id) ? "on" : ""}"><td><input type="checkbox" data-fo-pl="${side}" data-id="${r.id}" ${sel.includes(r.id) ? "checked" : ""} ${r.no_trade ? 'title="No-trade clause"' : ""}></td><td class="l">${playerLink(r.id, r.name)}${r.no_trade ? ' <span class="st-pill">NTC</span>' : ""}${r.block ? ' <span class="st-pill gold">Block</span>' : ""}</td><td class="l">${esc(r.pos)}</td><td>${r.age}</td><td>${range(r.ovr, null, { p: r.id, k: "ovr" })}</td><td>${foM(r.hit)}</td><td class="${r.points < 0 ? "neg" : ""}">${r.points}</td></tr>`).join("")}</tbody></table></div>`;
   const calls = x.calls.filter((c) => !c.answered).map((c) => `<div class="fo-call">${mark(c.team, 40)}<div><b>${teamLink(c.team)} call about ${c.player ? playerLink(c.player.id, c.player.name) : "a player"}</b><small>They offer ${c.picks.map(foPick).join(" ")} · answer by ${esc(c.until)}</small></div><div class="st-actions">${foBtn("call", "Accept", { k: c.k, yes: 1 }, "primary")} ${foBtn("call", "Turn down", { k: c.k, yes: 0 })}</div></div>`).join("");
   const ans = tr.answer;
   const condOpts = tr.givePicks.length && tr.get.length ? `<div class="fo-cond"><label class="fo-check"><input type="checkbox" data-fo-cond="on" ${tr.cond ? "checked" : ""}> Make one of your picks conditional</label>${tr.cond ? `<select data-fo-cond="pick">${x.picks.filter((p) => tr.givePicks.includes(foPickKey(p)) && p.round > 1).map((p) => `<option value="${foPickKey(p)}" ${tr.cond.pick === foPickKey(p) ? "selected" : ""}>${esc(p.text)}</option>`).join("")}</select> moves up a round <select data-fo-cond="kind"><option value="games" ${tr.cond.kind === "games" ? "selected" : ""}>if he plays in</option><option value="starts" ${tr.cond.kind === "starts" ? "selected" : ""}>if he starts</option><option value="pro_bowl" ${tr.cond.kind === "pro_bowl" ? "selected" : ""}>if he makes the Pro Bowl</option></select>${tr.cond.kind !== "pro_bowl" ? `<input type="number" min="1" max="17" data-fo-cond="n" value="${tr.cond.n || 8}"> games` : ""} · <select data-fo-cond="player">${getP.map((r) => `<option value="${r.id}" ${tr.cond.player === r.id ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</select>` : ""}</div>` : "";
@@ -331,7 +331,7 @@ screens.fo_moves = async () => {
       { k: "age", t: "Age" },
       { k: "class", t: "Exp", l: true, v: (r) => classRank(r.class) },
       { k: "round", t: "Drafted", v: (r) => r.round || 99, f: (r) => (r.round ? esc(r.draft || "R" + r.round) : '<span class="muted">Undrafted</span>') },
-      { k: "ovr", t: "Rating", v: (r) => mid(r.ovr), f: (r) => range(r.ovr) },
+      { k: "ovr", t: "Rating", v: (r) => mid(r.ovr), f: (r) => range(r.ovr, null, { p: r.id, k: "ovr" }) },
       { k: "hit", t: "Cap hit", div: true, f: (r) => foM(r.hit) },
       { k: "dead", t: "Dead if cut", f: (r) => foM(r.dead) },
       { k: "staff", t: "Staff says", l: true, div: true, f: (r) => `<span class="st-pill ${r.staff === "keep" ? "good" : r.staff === "squad" ? "gold" : ""}">${{ keep: "53", squad: "Squad", release: "Cut" }[r.staff]}</span>` },
@@ -343,8 +343,8 @@ screens.fo_moves = async () => {
   } else if (tab.t === "Practice squad") {
     const x = await api("fo_squad");
     team = x.team;
-    const sq = x.squad.map((r) => `<tr><td class="l">${playerLink(r.id, r.name)}</td><td class="l">${esc(r.pos)}</td><td>${r.age}</td><td>${range(r.ovr)}</td><td>${r.elevations}</td><td>${x.protect ? `<label class="fo-check"><input type="checkbox" data-fo-protect="${r.id}" ${r.protected ? "checked" : ""}> Protect</label>` : ""}</td><td>${foBtn("signup", "Sign to the 53", { id: r.id })}</td></tr>`).join("") || `<tr><td class="l" colspan="7"><div class="empty">Nobody on the squad.</div></td></tr>`;
-    const st = x.street.map((r) => `<tr><td class="l">${playerLink(r.id, r.name)}</td><td class="l">${esc(r.pos)}</td><td>${r.age}</td><td>${range(r.ovr)}</td><td class="l">${r.team ? teamLink(r.team) : '<span class="muted">Unsigned</span>'}</td><td>${x.open ? foBtn("signsquad", "Sign to the squad", { id: r.id }) : ""}</td></tr>`).join("");
+    const sq = x.squad.map((r) => `<tr><td class="l">${playerLink(r.id, r.name)}</td><td class="l">${esc(r.pos)}</td><td>${r.age}</td><td>${range(r.ovr, null, { p: r.id, k: "ovr" })}</td><td>${r.elevations}</td><td>${x.protect ? `<label class="fo-check"><input type="checkbox" data-fo-protect="${r.id}" ${r.protected ? "checked" : ""}> Protect</label>` : ""}</td><td>${foBtn("signup", "Sign to the 53", { id: r.id })}</td></tr>`).join("") || `<tr><td class="l" colspan="7"><div class="empty">Nobody on the squad.</div></td></tr>`;
+    const st = x.street.map((r) => `<tr><td class="l">${playerLink(r.id, r.name)}</td><td class="l">${esc(r.pos)}</td><td>${r.age}</td><td>${range(r.ovr, null, { p: r.id, k: "ovr" })}</td><td class="l">${r.team ? teamLink(r.team) : '<span class="muted">Unsigned</span>'}</td><td>${x.open ? foBtn("signsquad", "Sign to the squad", { id: r.id }) : ""}</td></tr>`).join("");
     body = `<p class="sub">${x.squad.length} of ${x.limit} on the squad · roster ${x.roster} of ${x.roster_limit}. ${x.protect ? `Protect up to ${x.protect} a week: other clubs can sign the rest to their 53.` : ""} ${x.open ? "" : "Squads are formed at cutdown."}</p>
       <div class="filters">${foOwner("practice_squad", x.owner)}</div>
       <div class="grid2"><div class="panel"><h2>Your squad</h2><div class="tbl"><table><thead><tr><th class="l">Player</th><th class="l">Pos</th><th>Age</th><th>Rating</th><th title="Game-day elevations this season">Elev.</th><th></th><th></th></tr></thead><tbody>${sq}</tbody></table></div></div>
@@ -356,7 +356,7 @@ screens.fo_moves = async () => {
       { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name) },
       { k: "pos", t: "Pos", l: true },
       { k: "age", t: "Age" },
-      { k: "ovr", t: "Rating", v: (r) => mid(r.ovr), f: (r) => range(r.ovr) },
+      { k: "ovr", t: "Rating", v: (r) => mid(r.ovr), f: (r) => range(r.ovr, null, { p: r.id, k: "ovr" }) },
       { k: "from", t: "Waived by", l: true, div: true, v: (r) => (r.from ? r.from.name : ""), f: (r) => (r.from ? teamLink(r.from) : "") },
       { k: "hit", t: "Cap hit", f: (r) => foM(r.hit) },
       { k: "through", t: "Through" },
