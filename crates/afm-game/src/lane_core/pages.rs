@@ -7,6 +7,7 @@
 
 use std::collections::HashMap;
 
+use afm_engine::body::body_now;
 use afm_engine::calendar::{Date, Event, Kind, Level as CalLevel, Loudness};
 use afm_engine::player::Level;
 use afm_engine::positions::Position;
@@ -390,7 +391,7 @@ fn eighths(x: f64) -> String {
 
 fn measurables(w: &World, k: usize) -> Vec<Value> {
     let p = &w.people[k];
-    let b = &p.player.body;
+    let b = &afm_engine::body::body_now(&p.player);
     let at = match p.stage {
         Stage::HighSchool | Stage::PrepSchool => format!("{} roster, school-listed", w.school_name(p.hs)),
         Stage::College => format!("{} spring measurements", p.college.map_or("Team", |c| w.program_name(c))),
@@ -718,7 +719,7 @@ pub fn peek(w: &World, args: &Value) -> Result<Value, String> {
             Ok(json!({
                 "kind": "player", "id": id, "name": p.name, "pos": p.player.position.name(), "age": p.player.age,
                 "class": views::class_text(w, p), "team": team.map(|t| views::team_brief(w, t)), "where": views::where_now(w, p),
-                "ht": views::ft_in(p.player.body.height), "wt": p.player.body.weight.round(), "stars": p.stars,
+                "ht": views::ft_in(body_now(&p.player).height), "wt": body_now(&p.player).weight.round(), "stars": p.stars,
                 "read": if own { reads::overall(&p.player, own, eye, views::reader_key(w)).json() } else { Value::Null },
                 "level_rating": level_rating(w, k), "last": last, "status": views::status_text(w, p),
                 "listed": desk::is_listed(w, id), "noted": desk::has_note(w, id),
@@ -1381,11 +1382,19 @@ pub fn coach_page(w: &World, c: usize) -> Result<Value, String> {
     developed.truncate(60);
     v["tree"] = json!(tree);
     v["developed"] = json!(developed);
-    v["contract"] = json!(
+    // Your own assistant's deal is the staff office's (update 2, Q5); the
+    // world's contract book covers everyone else.
+    let deal = w.folk.staff.deal(c).map(|d| {
+        let owed = d.salary * (d.through - w.year + 1).max(0) as f64 * d.buyout as f64;
+        json!({ "through": d.through, "salary": d.salary.round(), "buyout": owed.round() })
+    });
+    v["contract"] = json!(deal.or_else(|| {
         co.contract
             .as_ref()
             .map(|k| json!({ "through": k.through, "salary": k.salary.round(), "buyout": k.buyout(w.year).round() }))
-    );
+    }));
+    // Your read of him (update 2, Q2) comes with having him on your staff.
+    v["your_staff"] = json!(afm_engine::world::staff_read::of_coach(w, c).is_some());
     v["mentor_line"] = json!(co.mentor.and_then(|m| w.coaches.get(m)).map(|m| links::coach(m.id, &m.name)));
     v["notes"] = json!(w.career.as_ref().map(|k| {
         k.desk

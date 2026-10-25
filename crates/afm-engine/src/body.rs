@@ -157,32 +157,68 @@ pub struct Combine {
     pub shuttle: f64,
 }
 
-/// Combine results from his attributes and body, with test-day noise.
-/// Coefficients fitted to the real position averages (nflverse, 2000-2025).
-pub fn combine(p: &Player, rng: &mut Rng) -> Combine {
-    let b = body_now(p);
-    let at = |a: Attr| p.attributes.get(a);
-    let (speed, accel, agility, strength, jumping) =
-        (at(Attr::Speed), at(Attr::Acceleration), at(Attr::Agility), at(Attr::Strength), at(Attr::Jumping));
-    let w = b.weight - 220.0;
-    let burst = jumping.max(0.95 * accel);
-    // The 3-cone is the scouts' bend test for edge rushers: it reads hip
-    // flexibility as well as feet; the short shuttle is change of direction.
-    let quick = 0.7 * agility + 0.3 * accel;
-    let bend = 0.55 * agility + 0.25 * accel + 0.2 * at(Attr::Flexibility);
-    // Speed is how fast he plays. On the track some run faster or slower than
-    // they play (a stable sd 0.04 s each, on his own stream), and each run
-    // adds its own 0.03 s (proposed, not confirmed).
-    let track = Rng::new(p.id ^ 0x40_7AC4).normal(0.0, 0.04);
-    let forty = 5.56 - 0.0124 * (0.75 * speed + 0.25 * accel) + 0.0033 * w + track + rng.normal(0.0, 0.03);
-    let vertical = 20.9 + 0.182 * burst - 0.035 * w + rng.normal(0.0, 1.5);
-    let broad = 87.6 + 0.448 * burst - 0.089 * w + rng.normal(0.0, 3.0);
-    // Long arms mean a longer press: fewer reps for the same strength.
-    // Refit 2026-10-14 to drafted players' position means after athlete-first
-    // creation (item 6; proposed, not confirmed).
-    let bench = 8.05 + 0.137 * strength + 0.073 * w - 0.8 * (b.arm - 32.5) + rng.normal(0.0, 2.0);
-    let cone = 7.58 - 0.007 * bend + 0.0062 * w + rng.normal(0.0, 0.08);
-    let shuttle = 4.59 - 0.0045 * quick + 0.0039 * w + rng.normal(0.0, 0.06);
+/// The six drills' expected results from the ratings that drive them and
+/// his weight and arm length, before the day's noise: forty, vertical,
+/// broad, bench, 3-cone, shuttle. Coefficients fitted to the real position
+/// averages (nflverse, 2000-2025).
+#[derive(Clone, Copy, Debug)]
+pub struct Drills {
+    pub speed: f64,
+    pub accel: f64,
+    pub agility: f64,
+    pub strength: f64,
+    pub jumping: f64,
+    pub flexibility: f64,
+    pub weight: f64,
+    pub arm: f64,
+}
+
+impl Drills {
+    pub fn of(p: &Player) -> Drills {
+        let b = body_now(p);
+        let at = |a: Attr| p.attributes.get(a);
+        Drills {
+            speed: at(Attr::Speed),
+            accel: at(Attr::Acceleration),
+            agility: at(Attr::Agility),
+            strength: at(Attr::Strength),
+            jumping: at(Attr::Jumping),
+            flexibility: at(Attr::Flexibility),
+            weight: b.weight,
+            arm: b.arm,
+        }
+    }
+
+    fn means(&self) -> [f64; 6] {
+        let w = self.weight - 220.0;
+        let burst = self.jumping.max(0.95 * self.accel);
+        // The 3-cone is the scouts' bend test for edge rushers: it reads hip
+        // flexibility as well as feet; the short shuttle is change of direction.
+        let quick = 0.7 * self.agility + 0.3 * self.accel;
+        let bend = 0.55 * self.agility + 0.25 * self.accel + 0.2 * self.flexibility;
+        [
+            5.56 - 0.0124 * (0.75 * self.speed + 0.25 * self.accel) + 0.0033 * w,
+            20.9 + 0.182 * burst - 0.035 * w,
+            87.6 + 0.448 * burst - 0.089 * w,
+            // Long arms mean a longer press: fewer reps for the same strength.
+            // Refit 2026-10-14 to drafted players' position means after
+            // athlete-first creation (item 6; proposed, not confirmed).
+            8.05 + 0.137 * self.strength + 0.073 * w - 0.8 * (self.arm - 32.5),
+            7.58 - 0.007 * bend + 0.0062 * w,
+            4.59 - 0.0045 * quick + 0.0039 * w,
+        ]
+    }
+
+    /// What the ratings stand for at the combine, without the test-day
+    /// noise or how he runs on a track (update 2, RR4): the number a rating
+    /// range is read as.
+    pub fn expected(&self) -> Combine {
+        let [forty, vertical, broad, bench, cone, shuttle] = self.means();
+        tested(forty, vertical, broad, bench, cone, shuttle)
+    }
+}
+
+fn tested(forty: f64, vertical: f64, broad: f64, bench: f64, cone: f64, shuttle: f64) -> Combine {
     let r2 = |x: f64| (x * 100.0).round() / 100.0;
     Combine {
         forty: r2(clamp(forty, 4.2, 6.0)),
@@ -192,6 +228,22 @@ pub fn combine(p: &Player, rng: &mut Rng) -> Combine {
         cone: r2(clamp(cone, 6.4, 9.0)),
         shuttle: r2(clamp(shuttle, 3.8, 5.5)),
     }
+}
+
+/// Combine results from his attributes and body, with test-day noise.
+pub fn combine(p: &Player, rng: &mut Rng) -> Combine {
+    let [forty, vertical, broad, bench, cone, shuttle] = Drills::of(p).means();
+    // Speed is how fast he plays. On the track some run faster or slower than
+    // they play (a stable sd 0.04 s each, on his own stream), and each run
+    // adds its own 0.03 s (proposed, not confirmed).
+    let track = Rng::new(p.id ^ 0x40_7AC4).normal(0.0, 0.04);
+    let forty = forty + track + rng.normal(0.0, 0.03);
+    let vertical = vertical + rng.normal(0.0, 1.5);
+    let broad = broad + rng.normal(0.0, 3.0);
+    let bench = bench + rng.normal(0.0, 2.0);
+    let cone = cone + rng.normal(0.0, 0.08);
+    let shuttle = shuttle + rng.normal(0.0, 0.06);
+    tested(forty, vertical, broad, bench, cone, shuttle)
 }
 
 /// Feet and inches, the way the combine writes it: "6'3 1/2\"", to the eighth.

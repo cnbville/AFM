@@ -690,6 +690,7 @@ impl World {
             market: Default::default(),
             known,
             family: Default::default(),
+            staff_book: Default::default(),
         });
         let home = employer.and_then(|e| super::front_office::market::state_of(self, e));
         if let Some(c) = self.career.as_mut() {
@@ -753,6 +754,9 @@ pub struct Career {
     /// Your family's life where you live.
     #[serde(default)]
     pub family: super::front_office::market::FamilyLife,
+    /// What each season showed of your staff's work (update 2, Q3).
+    #[serde(default)]
+    pub staff_book: super::staff_read::Book,
 }
 
 /// A high school assistant (people topic 10): most teach at the school and

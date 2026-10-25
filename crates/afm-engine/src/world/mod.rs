@@ -37,6 +37,7 @@ pub mod names;
 pub mod ncaa;
 pub mod news;
 mod nfl_year;
+pub mod norms;
 pub use nfl_year::NflTeamSeason;
 
 /// Last season's draft order once the season has ended (for the coming draft).
@@ -54,6 +55,7 @@ pub mod scouting;
 pub(crate) mod season;
 pub mod seat;
 pub mod staff;
+pub mod staff_read;
 pub mod stories;
 pub mod storylines;
 pub mod systems;

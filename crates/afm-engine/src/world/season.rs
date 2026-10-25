@@ -438,7 +438,15 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 0.25,
                 3.0,
             )
-            * background::trouble_multiplier(&p.player, &p.bg);
+            * background::trouble_multiplier(&p.player, &p.bg)
+            // A good player engagement staff makes trouble a little rarer
+            // (update 2, Q4; proposed, not confirmed: 12% at either end).
+            * match p.college {
+                Some(c) if p.stage == Stage::College => {
+                    1.0 - 0.12 * super::people::Support::z(programs[c].support.engagement.rating)
+                }
+                _ => 1.0,
+            };
         let mut trouble = None;
         if p.rng.chance(trouble_p) {
             p.incident = true;

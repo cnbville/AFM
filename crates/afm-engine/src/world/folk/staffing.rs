@@ -59,6 +59,9 @@ pub struct Staffs {
     pub owed: Vec<(i32, f64)>,
     /// The year contracts were last renewed.
     pub renewed: i32,
+    /// Deals carried over from another job were repriced once (older saves
+    /// kept a coach's deal when he moved).
+    pub repriced: bool,
 }
 
 impl Staffs {
@@ -82,6 +85,9 @@ pub struct HsStaffs {
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct Drawn {
     pub key: u64,
+    /// The person in the job: its key with the holder's term (a new hire
+    /// is a new person).
+    pub who: u64,
     pub name: String,
     pub title: String,
     pub age: u32,
@@ -117,9 +123,27 @@ fn deal_terms(w: &World, c: usize, e: Employer, r: Role) -> (i32, f32) {
     }
 }
 
+/// A newly hired assistant's deal at his job's pay, from today (the world's
+/// own moves; a hire you make carries the deal you offered).
+pub(crate) fn sign(w: &mut World, c: usize) {
+    let Some(job) = w.coaches[c].job else { return };
+    if job.role == Role::HeadCoach || matches!(job.employer, Employer::HighSchool(_)) || w.folk.staff.deal(c).is_some()
+    {
+        return;
+    }
+    let base = pay(w, job.employer, job.role);
+    let salary = (base * (0.8 + 0.4 * w.coaches[c].reputation / 20.0)).round();
+    let (years, buyout) = deal_terms(w, c, job.employer, job.role);
+    w.folk.staff.deals.push(Deal { coach: c, salary, through: w.year + years - 1, buyout });
+}
+
 /// Fills a deal for every assistant who lacks one (old worlds, new hires).
 pub fn ensure(w: &mut World) {
     let year = w.year;
+    if !w.folk.staff.repriced {
+        w.folk.staff.repriced = true;
+        reprice(w);
+    }
     let mut have: std::collections::HashSet<usize> = w.folk.staff.deals.iter().map(|d| d.coach).collect();
     let mut add: Vec<Deal> = Vec::new();
     for c in 0..w.coaches.len() {
@@ -160,12 +184,38 @@ pub fn ensure(w: &mut World) {
     });
 }
 
+/// Older saves kept an assistant's deal when he moved, so a coach who went
+/// from a small school to a big one kept his old pay. A deal far from what
+/// his job pays (under half or over twice) is signed again at his job's pay.
+fn reprice(w: &mut World) {
+    let year = w.year;
+    for k in 0..w.folk.staff.deals.len() {
+        let c = w.folk.staff.deals[k].coach;
+        let Some(job) = w.coaches.get(c).and_then(|co| co.job) else { continue };
+        if job.role == Role::HeadCoach || matches!(job.employer, Employer::HighSchool(_)) {
+            continue;
+        }
+        let base = pay(w, job.employer, job.role);
+        let have = w.folk.staff.deals[k].salary;
+        if base <= 0.0 || (0.5..=2.0).contains(&(have / base)) {
+            continue;
+        }
+        let rep = w.coaches[c].reputation;
+        let (years, buyout) = deal_terms(w, c, job.employer, job.role);
+        let cycles = (year - job.since).max(0) / years + 1;
+        let d = &mut w.folk.staff.deals[k];
+        d.salary = (base * (0.8 + 0.4 * rep / 20.0)).round();
+        d.through = (job.since + years * cycles - 1).max(year);
+        d.buyout = buyout;
+    }
+}
+
 /// The term of a drawn job (a change bumps it, drawing a new person).
 fn term(w: &World, key: u64) -> u16 {
     w.folk.staff.terms.iter().find(|x| x.0 == key).map_or(0, |x| x.1)
 }
 
-const NFL_ROOMS: [(&str, u8); 11] = [
+pub(crate) const NFL_ROOMS: [(&str, u8); 11] = [
     ("Quarterbacks coach", 0),
     ("Running backs coach", 1),
     ("Wide receivers coach", 2),
@@ -179,7 +229,7 @@ const NFL_ROOMS: [(&str, u8); 11] = [
     ("Offensive quality control", 9),
 ];
 
-fn draw_person(w: &World, key: u64, title: &str, pay: f64, subject: Option<String>) -> Drawn {
+pub(crate) fn draw_person(w: &World, key: u64, title: &str, pay: f64, subject: Option<String>) -> Drawn {
     let t = term(w, key);
     let k = key ^ (t as u64) << 48;
     let u = |n: u64| super::roll(w, k, n);
@@ -189,7 +239,7 @@ fn draw_person(w: &World, key: u64, title: &str, pay: f64, subject: Option<Strin
     let mut rng = crate::rng::Rng::new((k ^ k >> 32) as u32 ^ 0x57AF);
     let name = crate::world::names::person_name(eth, w.year - age as i32, &mut rng);
     let since = w.year - (u(3) * 6.0) as i32;
-    Drawn { key, name, title: title.to_string(), age, since, subject, pay: (pay * (0.85 + 0.3 * u(4))).round() }
+    Drawn { key, who: k, name, title: title.to_string(), age, since, subject, pay: (pay * (0.85 + 0.3 * u(4))).round() }
 }
 
 /// The staff jobs the world doesn't keep as coaches, drawn for a team:

@@ -778,7 +778,7 @@ fn dev(w: &World, id: u32) -> Reply {
     let mut key: Vec<(f64, Attr)> =
         Attr::ALL.iter().map(|&a| (afm_engine::positions::weight(pos, a), a)).filter(|x| x.0 > 0.02).collect();
     key.sort_by(|a, b| b.0.total_cmp(&a.0));
-    let key: Vec<Value> = key.iter().take(8).map(|&(_, a)| json!({ "label": a.label(), "read": read_of(a), "family": afm_engine::training::family_of(a).label(), "focus": Some(a) == focus })).collect();
+    let key: Vec<Value> = key.iter().take(8).map(|&(_, a)| json!({ "key": a.key(), "label": a.label(), "read": read_of(a), "family": afm_engine::training::family_of(a).label(), "focus": Some(a) == focus })).collect();
     // How far into the year's work each family is (the calendar, not his growth).
     let landed: f64 =
         if tr.pending() { Family::ALL.iter().map(|&f| tr.landed(f)).sum::<f64>() / FAMILIES as f64 } else { 1.0 };
@@ -798,8 +798,9 @@ fn dev(w: &World, id: u32) -> Reply {
         let v = p.player.tend.get(tend);
         json!({ "label": tend.label(), "target": target, "read": reads::range(v * 99.0 / 20.0, 6.0, reader, id, 200 + tend.index()).json(), "target_read": (target as f64 * 99.0 / 20.0).round() })
     });
-    // The listed body, as every other screen shows it; the body plan moves it.
-    let body = &p.player.body;
+    // His body now, as every other screen shows it and the body plan reads
+    // it (a boy still growing is smaller than the man he becomes).
+    let body = afm_engine::body::body_now(&p.player);
     let sport = (st.tier == Tier::High).then(|| offseason::other_sport(&p.player)).flatten();
     let mut log_lines: Vec<Value> = Vec::new();
     for l in w.training.log.iter().rev().take(6) {
@@ -1509,6 +1510,7 @@ fn squad(w: &World) -> Reply {
             for (k, (_, a)) in key.iter().take(4).enumerate() {
                 v[format!("k{k}")] = attrs.iter().find(|x| x.0 == *a).map_or(Value::Null, |x| x.1.json());
                 v[format!("k{k}_label")] = json!(a.label());
+                v[format!("k{k}_key")] = json!(a.key());
             }
             v["role"] = json!(role.label());
             v["depth"] = json!(order.iter().find(|(x, _)| *x == pos).and_then(|(_, ids)| ids.iter().position(|&x| x == id)).map(|k| k + 1));
@@ -1739,7 +1741,7 @@ fn boards(w: &World, args: &Value) -> Reply {
             "id": p.player.id, "name": p.name, "pos": p.player.position.name(),
             "class": class_text(w, p), "ovr": reads::overall(&p.player, true, eye, reader).json(),
             "practice": status, "role": roles.get(&i).map(|r| r.label()),
-            "ht": crate::views::ft_in(p.player.body.height), "wt": p.player.body.weight.round(),
+            "ht": crate::views::ft_in(afm_engine::body::body_now(&p.player).height), "wt": afm_engine::body::body_now(&p.player).weight.round(),
         })
     };
     // A base board: the depth order at each slot's position, yours where

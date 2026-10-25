@@ -102,7 +102,10 @@ pub(crate) fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) 
             super::pro::trades::note_diversity_hire(w, old, (year - from).max(0) as u32);
         }
     }
+    // A new job comes with a new deal: the old one stays with the old job.
+    w.folk.staff.deals.retain(|d| d.coach != coach);
     w.coaches[coach].job = Some(Job { employer, role, since });
+    super::folk::staffing::sign(w, coach);
     w.coaches[coach].wins = 0;
     w.coaches[coach].losses = 0;
     w.coaches[coach].titles = 0;
@@ -2456,7 +2459,7 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
 /// position coach counts most, then the coordinator, then the head coach.
 /// One player's year: his group, his (level, age) cohort, his growth and the
 /// coaches credited with their weights.
-type TeachingRow = (Group, (u8, u32), f64, [(Option<usize>, f64); 3]);
+type TeachingRow = (usize, Group, (u8, u32), f64, [(Option<usize>, f64); 3]);
 
 pub(crate) fn credit_teaching(w: &mut World) {
     if !w.recording {
@@ -2464,7 +2467,10 @@ pub(crate) fn credit_teaching(w: &mut World) {
     }
     let mut rows: Vec<TeachingRow> = Vec::new();
     let mut norm: BTreeMap<(u8, u32), (f64, f64)> = BTreeMap::new();
-    for p in &w.people {
+    // Your own team's players, for the season book (update 2, Q3): a pro
+    // club's growth is read against the league's players his age too.
+    let seat = super::folk::Team::seat(w);
+    for (k, p) in w.people.iter().enumerate() {
         let Some(h) = p.player.history.last() else { continue };
         if h.age + 1 != p.player.age || h.performance.is_none() {
             continue;
@@ -2477,6 +2483,7 @@ pub(crate) fn credit_teaching(w: &mut World) {
                 let coord = if group.offense() { prog.oc } else { prog.dc };
                 [(prog.position_coaches[group as usize], 1.0), (coord, 0.5), (prog.head_coach, 0.25)]
             }
+            Stage::Pro if matches!(seat, Some(super::folk::Team::Nfl(_))) => [(None, 0.0), (None, 0.0), (None, 0.0)],
             _ => continue,
         };
         let key = (h.level as u8, h.age);
@@ -2484,9 +2491,10 @@ pub(crate) fn credit_teaching(w: &mut World) {
         let e = norm.entry(key).or_default();
         e.0 += delta;
         e.1 += 1.0;
-        rows.push((group, key, delta, staff));
+        rows.push((k, group, key, delta, staff));
     }
-    for (group, key, delta, staff) in rows {
+    let mut grown: Vec<(usize, u8, f64)> = Vec::new();
+    for (k, group, key, delta, staff) in rows {
         let (sum, n) = norm[&key];
         let residual = delta - sum / n;
         for (c, wt) in staff {
@@ -2496,6 +2504,10 @@ pub(crate) fn credit_teaching(w: &mut World) {
                 u.seasons += wt;
             }
         }
+        grown.push((k, group as u8, residual));
+    }
+    if w.career.is_some() {
+        super::staff_read::note_season(w, &grown);
     }
 }
 

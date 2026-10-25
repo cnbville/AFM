@@ -76,13 +76,23 @@ function rateColor(v) {
   return `rgb(${c[0]},${c[1]},${c[2]})`;
 }
 // A staff read as a bar spanning low to high, with the numbers (topic 4).
-// `who` names whose read it is for the hover.
-function range(r, who) {
+// `who` names whose read it is for the hover. `ctx` says whose rating it
+// is, so the range explains itself on hover against his level (update 2,
+// RR1-RR3; screens/ratings.js): { p: player id, k: "ovr", "at:QB" or an
+// attribute key } or { s: staff key, k: rating key }.
+function range(r, who, ctx) {
   if (!r) return `<span class="rg ns" title="Nobody on your staff has seen this"><span class="t"></span><b>Not seen</b></span>`;
   const [lo, hi] = r;
   const m = (lo + hi) / 2;
+  const card = rrAttrs(ctx, lo, hi);
   const tip = `Your staff's read: ${lo} to ${hi}${who ? ` · ${who}` : ""}. A narrow bar is a sure read; a wide one says your staff isn't sure.`;
-  return `<span class="rg" title="${esc(tip)}"><span class="t"><i style="left:${lo}%;width:${Math.max(2, hi - lo)}%;background:${rateColor(m)}"></i></span><b>${lo}-${hi}</b></span>`;
+  return `<span class="rg${card ? " rr-on" : ""}"${card || ` title="${esc(tip)}"`}><span class="t"><i style="left:${lo}%;width:${Math.max(2, hi - lo)}%;background:${rateColor(m)}"></i></span><b>${lo}-${hi}</b></span>`;
+}
+// The hover card's address on a range: whose rating, which one, the range.
+function rrAttrs(ctx, lo, hi) {
+  if (!ctx || (ctx.p == null && ctx.s == null)) return "";
+  const w = ctx.p != null ? `p:${ctx.p}` : `s:${ctx.s}`;
+  return ` data-rr="${esc(w)}" data-rrk="${esc(ctx.k || "ovr")}" data-lo="${lo}" data-hi="${hi}" tabindex="0"`;
 }
 // "minorInjury" -> "minor injury"
 const words = (s) => String(s).replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
@@ -379,7 +389,7 @@ screens.roster = async (a) => {
     { k: "wt", t: "Wt" },
     { k: "home", t: "Hometown", l: true, wrap: true },
     { k: "stars", t: "★", tip: "Recruiting stars", f: (r) => (r.stars ? "★".repeat(r.stars) : '<span class="muted">-</span>') },
-    { k: "ovr", t: "Rating", div: true, tip: "Your staff's read of his play now, as a range", v: (r) => mid(r.ovr), f: (r) => range(r.ovr) },
+    { k: "ovr", t: "Rating", div: true, tip: "Your staff's read of his play now, as a range", v: (r) => mid(r.ovr), f: (r) => range(r.ovr, null, { p: r.id, k: "ovr" }) },
     { k: "mood", t: "Mood", l: true },
     { k: "status", t: "Status", l: true, f: (r) => (r.status ? `<span class="dot ${/Injur|Susp|ineligible/.test(r.status) ? "bad" : "warn"}"></span>${esc(r.status)}` : '<span class="muted">Available</span>') },
   ];
@@ -407,7 +417,7 @@ screens.training = async () => {
     { k: "pos", t: "Pos", l: true },
     { k: "class", t: "Class", l: true, v: (r) => classRank(r.class) },
     { k: "age", t: "Age" },
-    { k: "ovr", t: "Rating", div: true, v: (r) => mid(r.ovr), f: (r) => range(r.ovr) },
+    { k: "ovr", t: "Rating", div: true, v: (r) => mid(r.ovr), f: (r) => range(r.ovr, null, { p: r.id, k: "ovr" }) },
     { k: "focus", t: "Main focus", l: true, div: true, v: (r) => r.focus || "", f: (r) => `<select class="focus" data-act="focus" data-id="${r.id}" ${r.may_plan === false ? `disabled title="${esc(S.status && S.status.seat && S.status.seat.boss ? S.status.seat.boss.name : "The head coach")} plans him: your job covers ${esc(S.status && S.status.seat ? S.status.seat.controls : "")}"` : ""}><option value="">Balanced (the staff's plan)</option>${r.options.map((o) => `<option value="${o.key}" ${o.key === r.focus ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>` },
   ];
   return `<div class="film"><div class="pad"><div class="h1">Training</div>
@@ -445,7 +455,7 @@ screens.contracts = async () => {
     { k: "name", t: "Name", l: true, f: (r) => playerLink(r.id, r.name) },
     { k: "pos", t: "Pos", l: true },
     { k: "age", t: "Age" },
-    { k: "ovr", t: "Rating", v: (r) => mid(r.ovr), f: (r) => range(r.ovr) },
+    { k: "ovr", t: "Rating", v: (r) => mid(r.ovr), f: (r) => range(r.ovr, null, { p: r.id, k: "ovr" }) },
     { k: "cap_hit", t: `${x.year} cap hit`, div: true, f: (r) => money(r.cap_hit) },
     { k: "apy", t: "A year", f: (r) => money(r.apy) },
     { k: "total", t: "Total", f: (r) => money(r.total) },
@@ -471,7 +481,7 @@ screens.depth = async () => {
     const n = i < cur.starters ? `<b>${i + 1}</b>` : `<span class="muted">${i + 1}</span>`;
     const where = r.here ? esc(r.pos) : `<span class="st-pill gold" title="Listed at ${esc(r.pos)}: the staff plays him here too">${esc(r.pos)}</span>`;
     const deep = i >= cur.listed ? ' class="deep"' : "";
-    return `<tr${deep}><td class="l">${n}</td><td class="l">${playerLink(r.id, r.name)}</td><td class="l">${where}</td><td class="l">${esc(r.class)}</td><td>${range(r.ovr)}</td><td class="l">${esc(r.status)}</td>
+    return `<tr${deep}><td class="l">${n}</td><td class="l">${playerLink(r.id, r.name)}</td><td class="l">${where}</td><td class="l">${esc(r.class)}</td><td>${range(r.ovr, null, { p: r.id, k: "ovr" })}</td><td class="l">${esc(r.status)}</td>
       <td><button class="st-btn small glass" data-act="dmove" data-i="${i}" data-d="-1" ${i === 0 || !ctl ? "disabled" : ""}>Up</button> <button class="st-btn small glass" data-act="dmove" data-i="${i}" data-d="1" ${i === cur.players.length - 1 || !ctl ? "disabled" : ""}>Down</button></td></tr>`;
   }).join("");
   return `<div class="film"><div class="pad">
@@ -549,6 +559,8 @@ function tbl(head, rows) {
 
 screens.staff = async (a) => {
   const x = await api("staff", a.kind ? { kind: a.kind, id: a.id } : {});
+  // Your own staff is your read of each of them (update 2, board 17).
+  if (x.team.mine && screens.people_staff) return screens.people_staff(a);
   setColors(x.team.colors);
   const cols = [
     { k: "role", t: "Role", l: true },
@@ -560,7 +572,7 @@ screens.staff = async (a) => {
     { k: "record", t: "Record here", l: true },
     { k: "since", t: "Since" },
   ];
-  return `<div class="film"><div class="pad"><div class="h1">${esc(x.team.name)} staff</div><p class="sub">Their ability isn't shown: you see what their work and their name say.</p>${table("staff", cols, x.rows)}</div></div>`;
+  return `<div class="film"><div class="pad"><div class="h1">${esc(x.team.name)} staff</div><p class="sub">You see what their work and their name say. Your read of a coach's ability comes with having him on your own staff.</p>${table("staff", cols, x.rows)}</div></div>`;
 };
 
 // ---------- render ----------

@@ -39,8 +39,8 @@ function scSeg(key, field, opts) {
   return `<div class="seg">${opts.map(([v, t, n]) => `<button data-act="sc-seg" data-k="${key}" data-f="${field}" data-v="${esc(v)}" aria-pressed="${String(k[field]) === String(v)}">${esc(t)}${n != null ? `<small>${n}</small>` : ""}</button>`).join("")}</div>`;
 }
 // Your staff's short read in a row: the range now and the role in words.
-function scNow(read) {
-  return read && read.now ? range(read.now) : range(null);
+function scNow(read, id) {
+  return read && read.now ? range(read.now, null, { p: id, k: "ovr" }) : range(null);
 }
 function scRole(read) {
   if (!read || !read.role || read.role === "Not seen") return '<span class="muted">Not seen</span>';
@@ -214,7 +214,7 @@ function scFileSummary(f) {
     : scEmpty("Nobody has three looks at him yet, so the room has no voices on him.");
   return `<div class="sc-sum">
     <div class="panel warm"><h2>Your staff's grade <small>${scPlural(f.looks_n, "look")} by ${scPlural(f.readers_n, "person", "people")}</small></h2>
-      <div class="sc-grade"><div><b class="sc-role-big">${esc(s.role)}</b><span class="sub">Staff ${esc(s.sure)}.</span></div><div class="sc-nowread"><span class="st-label">His level now</span>${range(s.now)}</div></div>
+      <div class="sc-grade"><div><b class="sc-role-big">${esc(s.role)}</b><span class="sub">Staff ${esc(s.sure)}.</span></div><div class="sc-nowread"><span class="st-label">His level now</span>${range(s.now, null, { p: f.id, k: "ovr" })}</div></div>
       <dl class="kv"><dt>Floor and ceiling</dt><dd>${esc(s.floor || "Not read yet")}</dd>
       <dt>Best at</dt><dd>${esc(s.strengths.join(", ") || "-")}</dd><dt>Watch</dt><dd>${esc(s.weaknesses.join(", ") || "-")}</dd>
       <dt>Medical</dt><dd>${scMed(s.medical)}${s.examined ? "" : ' <small class="muted">· not examined, records only</small>'}</dd></dl></div>
@@ -235,13 +235,13 @@ function scFileRatings(f) {
   const panel = (g) => {
     const who = [...new Set(g.attrs.flatMap((x) => (x.per || []).map((p) => p.who).filter(Boolean)))];
     return `<div class="panel warm"><h2>${esc(g.name)} <small>${g.attrs.length}</small></h2><div class="opinion">${who.length ? "Opinion: " + esc(who.slice(0, 3).join(", ")) + (who.length > 3 ? ` and ${who.length - 3} more` : "") : f.measured && g.name === "Physical" ? "Measured; not graded by your staff yet" : "Not seen by your staff"}</div>
-      ${g.attrs.map((x) => `<button class="attr sc-attr ${sel && sel.key === x.key ? "on" : ""}" data-act="sc-attr" data-key="${x.key}" title="${x.read ? `Read by ${x.readers}` : "Nobody on your staff has seen it"}"><span>${esc(x.label)}${x.matters ? "" : ' <small class="muted">·</small>'}</span><span class="sc-attr-r">${range(x.read)}<span class="sc-chips">${scChips(x.chips)}</span></span></button>`).join("")}</div>`;
+      ${g.attrs.map((x) => `<button class="attr sc-attr ${sel && sel.key === x.key ? "on" : ""}" data-act="sc-attr" data-key="${x.key}" title="${x.read ? `Read by ${x.readers}` : "Nobody on your staff has seen it"}"><span>${esc(x.label)}${x.matters ? "" : ' <small class="muted">·</small>'}</span><span class="sc-attr-r">${range(x.read, null, { p: f.id, k: x.key })}<span class="sc-chips">${scChips(x.chips)}</span></span></button>`).join("")}</div>`;
   };
   const side = sel
-    ? `<div class="panel warm sc-sticky"><span class="st-label">How this range narrowed</span><h2>${esc(sel.label)}</h2><div>${range(sel.read)}</div>
+    ? `<div class="panel warm sc-sticky"><span class="st-label">How this range narrowed</span><h2>${esc(sel.label)}</h2><div>${range(sel.read, null, { p: f.id, k: sel.key })}</div>
       <div class="sc-chips big">${scChips(sel.chips) || '<span class="muted">No looks behind it</span>'}</div>
       <span class="st-label">Each reader's own range</span>
-      ${(sel.per || []).length ? sel.per.map((p) => `<div class="attr"><span>${esc(p.who || "Your staff")}</span>${range(p.read)}</div>`).join("") + `<p class="sub">The file blends them: more looks and a better eye weigh more. ${scPlural(sel.readers, "reader")}.</p>` : '<p class="sub">Nobody on your staff has seen it, so there is nothing to blend.</p>'}
+      ${(sel.per || []).length ? sel.per.map((p) => `<div class="attr"><span>${esc(p.who || "Your staff")}</span>${range(p.read, null, { p: f.id, k: sel.key })}</div>`).join("") + `<p class="sub">The file blends them: more looks and a better eye weigh more. ${scPlural(sel.readers, "reader")}.</p>` : '<p class="sub">Nobody on your staff has seen it, so there is nothing to blend.</p>'}
       <div class="sc-legend"><span class="st-label">Looks</span>${Object.keys(SC_CHIP).map((c) => `<span>${scChips([c])} ${SC_CHIP_T[c]}</span>`).join("")}</div></div>`
     : `<div class="panel warm">${scEmpty("No attribute has been read yet.")}</div>`;
   return `<div class="filters">${scSeg("sc-rat", "all", [[false, "What matters at his position"], [true, "Every attribute"]])}<span class="sub">Each bar is your staff's range on 1-99. A narrow bar is a sure read. Click one for who read it.</span></div>
@@ -392,7 +392,7 @@ function scMyPlayers(rows) {
     { k: "why", t: "Why", l: true, wrap: true },
     { k: "first", t: "First read", l: true, div: true },
     { k: "public_then", t: "Public then", l: true },
-    { k: "now", t: "Read now", div: true, v: (r) => mid(r.read && r.read.now), f: (r) => scNow(r.read) },
+    { k: "now", t: "Read now", div: true, v: (r) => mid(r.read && r.read.now), f: (r) => scNow(r.read, r.id) },
     { k: "role", t: "Outlook now", l: true, v: (r) => (r.read && r.read.role) || "", f: (r) => scRole(r.read) },
     { k: "x", t: "", f: (r) => `<button class="st-btn small glass" data-act="sc-unfollow" data-id="${r.id}">Stop following</button>` },
   ], rows, { empty: "Nobody yet. Follow a player from his scouting file and he's kept here for the rest of your career." });
@@ -510,7 +510,7 @@ async function scBoardSide(r, x) {
     <div class="sc-side-h"><div class="sc-pills"><span class="st-pill">${esc(r.pos)}</span><span class="st-pill">Tier ${r.tier}</span><span class="st-pill">No. ${r.rank}</span>${r.public ? `<span class="st-pill">Public ${r.public}</span>` : ""}</div>
       <h2>${scName(r.id, r.name)}</h2><div class="sub">${scWhere(r)} · ${esc(r.class)} · ${esc(r.ht)}, ${r.wt}</div></div>
     <div class="sc-side-g"><span class="st-label">Your grade</span><b>${esc(r.grade_words)}</b>${s ? `<span>${esc(s.role)} · staff ${esc(s.sure)}</span>` : '<span class="sc-dim">Not seen by your staff: graded off the public board</span>'}</div>
-    ${s ? `<div class="sc-side-sec"><span class="st-label">Key reads · 1-99, his level now</span>${keyReads.map((a) => `<div class="attr"><span>${esc(a.label)}</span>${range(a.read)}</div>`).join("") || '<span class="sc-dim">No key attribute read yet.</span>'}</div>
+    ${s ? `<div class="sc-side-sec"><span class="st-label">Key reads · 1-99, his level now</span>${keyReads.map((a) => `<div class="attr"><span>${esc(a.label)}</span>${range(a.read, null, { p: r.id, k: a.key })}</div>`).join("") || '<span class="sc-dim">No key attribute read yet.</span>'}</div>
       <div class="sc-side-sec"><span class="st-label">Medical and character</span><div>${scMed(s.medical)}</div>${f.character.filter((c) => c.note).slice(0, 2).map((c) => `<p class="sc-q">“${esc(c.note)}”<small>${esc(scCap(c.source))}</small></p>`).join("")}</div>
       ${s.hints.length ? `<div class="sc-side-sec"><span class="st-label">Hints</span>${s.hints.slice(0, 2).map((h) => `<p class="sc-q">${esc(h.text)}${h.by ? `<small>${esc(h.by)}</small>` : ""}</p>`).join("")}</div>` : ""}
       ${f.voices.length ? `<div class="sc-side-sec"><span class="st-label">The meeting</span>${f.voices.slice(0, 3).map((v) => `<p class="sc-q">“${esc(v.says)}”<small>${esc(v.who)}, ${esc(v.job)}</small></p>`).join("")}<div class="sc-final"><span class="st-label">Final say</span><b>You, head coach</b></div></div>` : ""}` : ""}
@@ -712,7 +712,7 @@ screens.proscout = async () => {
     { k: "age", t: "Age" },
     { k: "ht", t: "Ht", div: true, v: (r) => inches(r.ht) },
     { k: "wt", t: "Wt" },
-    { k: "now", t: "Read now", div: true, v: (r) => mid(r.read && r.read.now), f: (r) => scNow(r.read) },
+    { k: "now", t: "Read now", div: true, v: (r) => mid(r.read && r.read.now), f: (r) => scNow(r.read, r.id) },
     { k: "role", t: "Outlook", l: true, v: (r) => (r.read && r.read.role) || "", f: (r) => scRole(r.read) },
     { k: "looks", t: "Looks", v: (r) => (r.read ? r.read.looks : 0), f: (r) => (r.read ? r.read.looks : 0) },
   ];
@@ -753,7 +753,7 @@ screens.recruitboard = async () => {
     { k: "ht", t: "Ht", div: true, v: (r) => inches(r.ht) },
     { k: "wt", t: "Wt" },
     { k: "stars", t: "★", tip: "The services' stars", f: (r) => scStars(r.stars) },
-    { k: "now", t: "Your read", div: true, v: (r) => mid(r.read && r.read.now), f: (r) => scNow(r.read) },
+    { k: "now", t: "Your read", div: true, v: (r) => mid(r.read && r.read.now), f: (r) => scNow(r.read, r.id) },
     { k: "role", t: "Outlook", l: true, v: (r) => (r.read && r.read.role) || "", f: (r) => scRole(r.read) },
     { k: "looks", t: "Looks", v: (r) => (r.read ? r.read.looks : 0), f: (r) => (r.read ? r.read.looks : 0) },
     { k: "status", t: "With you", l: true, div: true, v: (r) => (r.committed ? 3 : r.offered ? 2 : r.visits ? 1 : 0), f: (r) => (r.committed ? '<span class="st-pill good">Committed</span>' : r.offered ? '<span class="st-pill">Offered</span>' : "") + (r.visits ? ` <small class="muted">${scPlural(r.visits, "visit")}</small>` : "") },
@@ -778,7 +778,7 @@ screens.hsside = async () => {
     { k: "ht", t: "Ht", div: true, v: (r) => inches(r.ht) },
     { k: "wt", t: "Wt" },
     { k: "stars", t: "★", f: (r) => scStars(r.stars) },
-    { k: "now", t: "Your read", div: true, v: (r) => mid(r.read && r.read.now), f: (r) => scNow(r.read) },
+    { k: "now", t: "Your read", div: true, v: (r) => mid(r.read && r.read.now), f: (r) => scNow(r.read, r.id) },
     { k: "role", t: "Outlook", l: true, v: (r) => (r.read && r.read.role) || "", f: (r) => scRole(r.read) },
     { k: "offers", t: "Colleges", l: true, div: true, wrap: true, v: (r) => r.offers.length + (r.committed ? 50 : 0) + (r.signed ? 100 : 0), f: pcell },
     { k: "visits", t: "Visits", v: (r) => r.visits.length, f: (r) => (r.visits.length ? `<span title="${esc(r.visits.map((v) => v.name + " " + v.date).join(", "))}">${r.visits.length}</span>` : '<span class="muted">-</span>') },

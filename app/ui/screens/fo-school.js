@@ -106,7 +106,7 @@ screens.squads = async () => {
     { k: "grade", t: "Grade", l: true, f: (r) => fsGrade(r.grade) },
     { k: "ht", t: "Ht", div: true, v: (r) => inches(r.ht) },
     { k: "wt", t: "Wt" },
-    { k: "ovr", t: "Rating", div: true, tip: "Your staff's read of his play now", v: (r) => mid(r.ovr), f: (r) => range(r.ovr) },
+    { k: "ovr", t: "Rating", div: true, tip: "Your staff's read of his play now", v: (r) => mid(r.ovr), f: (r) => range(r.ovr, null, { p: r.id, k: "ovr" }) },
     { k: "status", t: "Status", l: true, f: (r) => (r.status ? `<span class="dot bad"></span>${esc(r.status)}` : '<span class="muted">Available</span>') },
     ...(cur.key !== "varsity" ? [{ k: "line", t: "This season", l: true, div: true, v: (r) => (r.line ? r.line.games : 0), f: (r) => (r.line ? `<span class="sub">${r.line.games} g</span> ${esc(r.line.text)}` : '<span class="muted">-</span>') }] : []),
     { k: "move", t: yours ? "Team" : "", l: true, div: true, v: (r) => (r.moved ? 1 : 0), f: moveCell },
