@@ -1822,11 +1822,16 @@ pub fn feeders(w: &World, h: usize) -> Vec<Feeder> {
 /// Where a player came up: a feeder (its index), or None for one who
 /// moved in or transferred.
 pub fn feeder_of(w: &World, h: usize, i: usize) -> Option<usize> {
+    feeder_in(&feeders(w, h), w, h, i)
+}
+
+/// `feeder_of` with the school's feeders already drawn (a whole roster
+/// at once).
+pub fn feeder_in(f: &[Feeder], w: &World, h: usize, i: usize) -> Option<usize> {
     let p = &w.people[i];
     if p.transfers > 0 || p.hs != h {
         return None;
     }
-    let f = feeders(w, h);
     let u = key(w, SALT ^ 0xFE, p.player.id as u64);
     if u > 0.93 {
         return None;

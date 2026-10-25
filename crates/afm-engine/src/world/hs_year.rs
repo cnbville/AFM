@@ -209,6 +209,13 @@ pub(crate) struct HsSeasonState {
     pub(crate) brackets: Vec<super::hs_playoffs::Bracket>,
 }
 
+impl HsSeasonState {
+    /// A school's district this season, if it has one.
+    pub(crate) fn district_of(&self, h: usize) -> Option<u32> {
+        self.district.get(h).copied().filter(|&d| d != super::hs_playoffs::NONE)
+    }
+}
+
 /// Whether a season's high school games run on the match engine: every
 /// season of a live save (the start year on), and the history's last
 /// `hs_engine_years`. `engine_from`, the quick-check knob, holds back every
@@ -909,12 +916,20 @@ pub(crate) fn squad_team(
         return None;
     }
     let ids: Vec<(u32, usize)> = dressed.iter().map(|&i| (w.people[i].player.id, i)).collect();
+    // Your feeders that took up your system send freshmen who know its
+    // terms (update 2, L14): the playbook learning starts further along.
+    let feeders = if w.seat_school() == Some(h) && !w.legacy.hs.feeders.is_empty() {
+        super::front_office::school::feeders(w, h)
+    } else {
+        Vec::new()
+    };
     let players: Vec<GamePlayer> = dressed
         .iter()
         .map(|&i| {
             let p = &w.people[i].player;
             let years = p.age.saturating_sub(14) as f64;
-            GamePlayer::from_player(p, clamp(0.72 + 0.04 * years, 0.0, 0.9), 0.7 * years)
+            let head = if feeders.is_empty() { 0.0 } else { super::legacy::hs::head_start(w, &feeders, h, i) };
+            GamePlayer::from_player(p, clamp(0.72 + 0.04 * years + head, 0.0, 0.9), 0.7 * years)
         })
         .collect();
     let coach = school.coach;
@@ -1213,6 +1228,7 @@ fn engine_games(
                 title: final_game,
                 conf_title: false,
                 rivalry: super::stories::traditions::hs_rivals(w, h, a),
+                playoff,
             };
             super::storylines::detect::games::after(w, &played);
         }
@@ -2194,4 +2210,24 @@ impl World {
             hs.book.values().filter(|e| e.games > 0).map(|e| e.school as usize).collect()
         })
     }
+}
+
+/// Whether a school won or shared its district this season: the best
+/// district record among its district's schools (update 2, lane 2).
+pub(crate) fn district_champion(w: &World, h: usize) -> bool {
+    let Some(s) = w.hs_season.as_ref() else { return false };
+    let Some(&d) = s.district.get(h) else { return false };
+    if d == super::hs_playoffs::NONE {
+        return false;
+    }
+    let mut rec: HashMap<u32, (u32, u32)> = HashMap::new();
+    for &(win, lose) in &s.played {
+        if s.district.get(win as usize) == Some(&d) && s.district.get(lose as usize) == Some(&d) {
+            rec.entry(win).or_default().0 += 1;
+            rec.entry(lose).or_default().1 += 1;
+        }
+    }
+    let pct = |x: &(u32, u32)| x.0 as f64 / (x.0 + x.1).max(1) as f64;
+    let Some(mine) = rec.get(&(h as u32)).map(pct) else { return false };
+    rec.values().all(|x| pct(x) <= mine + 1e-9)
 }

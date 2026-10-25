@@ -465,7 +465,7 @@ fn tally(w: &mut World, season: i32, good: bool) {
 }
 
 /// Your reputation moves (your coach and your profile together).
-fn reputation(w: &mut World, by: f64) {
+pub(crate) fn reputation(w: &mut World, by: f64) {
     let Some(c) = super::super::stories::seat_coach(w) else { return };
     let co = &mut w.coaches[c];
     co.reputation = (co.reputation + by).clamp(1.0, 20.0);
@@ -731,7 +731,7 @@ pub(crate) fn memo(w: &mut World, s: &Story, team: TeamKey, body: Vec<String>) {
 
 /// Who writes your staff's memos: the chief of staff or the operations
 /// director, or your top assistant at a high school.
-fn staff_voice(w: &World, team: TeamKey) -> (String, String) {
+pub(crate) fn staff_voice(w: &World, team: TeamKey) -> (String, String) {
     use crate::world::folk::cast::{self, CastRef, Role};
     let t = super::folk_team(team);
     for r in [Role::ChiefOfStaff, Role::Ops] {
@@ -746,7 +746,7 @@ fn staff_voice(w: &World, team: TeamKey) -> (String, String) {
     }
 }
 
-fn mail(w: &World, tag: &str, head: Head, from: String, role: String, subject: String) -> Mail {
+pub(crate) fn mail(w: &World, tag: &str, head: Head, from: String, role: String, subject: String) -> Mail {
     let id = tag
         .bytes()
         .fold(0x5701_0000_0000_0000u64 ^ w.today.0 as u64, |h, b| (h ^ b as u64).wrapping_mul(0x100_0000_01b3));
@@ -778,7 +778,7 @@ fn mail(w: &World, tag: &str, head: Head, from: String, role: String, subject: S
     }
 }
 
-fn send(w: &mut World, m: Mail) {
+pub(crate) fn send(w: &mut World, m: Mail) {
     let Some(c) = w.career.as_mut() else { return };
     if !c.desk.has(m.id) {
         c.desk.mails.push(m);
@@ -795,9 +795,65 @@ pub fn desk_answers(w: &mut World) {
         (a.act == ACT_LESSON).then_some(a.target)
     });
     if let Some(r) = pick {
-        place(w, Rating::from_index(r as usize));
+        place_any(w, r);
         w.storylines.credit.letter = None;
     }
+}
+
+/// A letter's target: a rating's index, or `TEACH` and a teaching group
+/// (the chases' developers, update 2 lane 2).
+pub const TEACH: u32 = 100;
+
+fn place_any(w: &mut World, target: u32) {
+    if target >= TEACH {
+        place_teach(w, (target - TEACH) as usize);
+    } else {
+        place(w, Rating::from_index(target as usize));
+    }
+}
+
+/// Places one whole lesson point into teaching a group: its own bank first,
+/// then the fullest of the others.
+fn place_teach(w: &mut World, g: usize) {
+    use crate::world::coach::GROUP_COUNT;
+    let g = g.min(GROUP_COUNT - 1);
+    let mut need = 1.0f32;
+    let t = &mut w.legacy.teach;
+    let take = t[g].min(need);
+    t[g] -= take;
+    need -= take;
+    while need > 0.001 {
+        let Some(k) = (0..GROUP_COUNT).filter(|&k| t[k] > 0.0).max_by(|&a, &b| t[a].total_cmp(&t[b])) else { break };
+        let x = t[k].min(need);
+        t[k] -= x;
+        need -= x;
+    }
+    if let Some(c) = super::super::stories::seat_coach(w) {
+        let v = &mut w.coaches[c].ability.teaching[g];
+        *v = (*v + 1.0).clamp(1.0, 20.0);
+    }
+    if let Some(k) = w.career.as_mut() {
+        let v = &mut k.you.teaching[g];
+        *v = (*v + 1.0).clamp(1.0, 20.0);
+    }
+}
+
+/// Every bank a lesson letter offers: ratings by index, teaching groups
+/// past `TEACH`, with what each holds.
+fn banks(w: &World) -> Vec<(u32, f32, String)> {
+    let mut v: Vec<(u32, f32, String)> = w
+        .storylines
+        .credit
+        .bank
+        .iter()
+        .enumerate()
+        .map(|(k, &x)| (k as u32, x, Rating::from_index(k).name().to_string()))
+        .collect();
+    for (g, &x) in w.legacy.teach.iter().enumerate() {
+        let name = format!("Teaching {}", crate::world::coach::Group::ALL[g].name().to_lowercase());
+        v.push((TEACH + g as u32, x, name));
+    }
+    v
 }
 
 /// Places one whole lesson point into a rating.
@@ -852,45 +908,38 @@ pub(crate) fn day(w: &mut World, d: Date) {
             c.desk.mails.iter().find(|m| m.id == id).is_none_or(|m| m.answered.is_none() && m.date.days_to(d) > 21)
         });
         if lapsed {
-            let bank = w.storylines.credit.bank;
-            let best = (0..11).max_by(|&a, &b| bank[a].total_cmp(&bank[b])).unwrap_or(0);
-            place(w, Rating::from_index(best));
+            let all = banks(w);
+            let best = all.iter().max_by(|a, b| a.1.total_cmp(&b.1)).map_or(0, |x| x.0);
+            place_any(w, best);
             w.storylines.credit.letter = None;
         }
         return;
     }
-    let total: f32 = w.storylines.credit.bank.iter().sum();
+    let all = banks(w);
+    let total: f32 = all.iter().map(|x| x.1).sum();
     if total < 1.0 || d.weekday() != Weekday::Mon {
         return;
     }
-    let bank = w.storylines.credit.bank;
-    let mut order: Vec<usize> = (0..11).filter(|&k| bank[k] > 0.01).collect();
-    order.sort_by(|&a, &b| bank[b].total_cmp(&bank[a]));
+    let mut order: Vec<&(u32, f32, String)> = all.iter().filter(|x| x.1 > 0.01).collect();
+    order.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
     order.truncate(3);
     let Some(team) = crate::world::stories::seat_team(w) else { return };
     let (from, role) = staff_voice(w, team);
     let mut m = mail(w, "lesson", Head::Memo, from.clone(), role, "A lesson learned".into());
     m.body = vec![
-        "What the last stories put you through has taught you something. You have a whole point to place.".into(),
+        "What the last stories and your chases put you through has taught you something. You have a whole point to place.".into(),
         format!(
             "Banked: {}.",
-            order
-                .iter()
-                .map(|&k| format!("{} {:.2}", Rating::from_index(k).name(), bank[k]))
-                .collect::<Vec<_>>()
-                .join(", ")
+            order.iter().map(|x| format!("{} {:.2}", x.2, x.1)).collect::<Vec<_>>().join(", ")
         ),
     ];
     m.answers = order
         .iter()
-        .map(|&k| {
-            let r = Rating::from_index(k);
-            Answer {
-                label: format!("Into {}", r.name()),
-                does: format!("Your {} goes up a point.", r.name().to_lowercase()),
-                act: ACT_LESSON,
-                target: k as u32,
-            }
+        .map(|x| Answer {
+            label: format!("Into {}", x.2),
+            does: format!("Your {} goes up a point.", x.2.to_lowercase()),
+            act: ACT_LESSON,
+            target: x.0,
         })
         .collect();
     m.answer_by = Some(d.add(21));

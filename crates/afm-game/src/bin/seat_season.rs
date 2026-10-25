@@ -10,7 +10,8 @@
 //! With "build" a small world is made first (seed 7, 2 years, scale 0.05).
 //! `AFM_SEAT_OUT=report.json` writes the full report; `AFM_SEAT_SAVE_END=dir`
 //! keeps each seat's save from the end of its run. `AFM_SEAT_LEAN=1` only
-//! plays (no screens at the stops), for long runs; `AFM_SEAT_STORIES=1`
+//! plays (no screens at the stops), for long runs; `AFM_SEAT_TEAM=Allen`
+//! takes that team's job instead of the third on the list; `AFM_SEAT_STORIES=1`
 //! prints your team's stories by family per season and the lines that
 //! reached the same person twice in a season (the storylines' design
 //! checks).
@@ -406,6 +407,30 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
     for cmd in ["storylines_chapters", "storylines_career", "storylines_jobs", "storylines_previously"] {
         run.call(g, cmd, json!({}));
     }
+    // The chases (update 2, lane 2): your legacy, your level's five, the
+    // strip their screens show and the ambition picker, answered the way a
+    // player would: the first three, the first said out loud.
+    if seat != "other" {
+        for cmd in ["legacy_page", "legacy_chases", "legacy_strip"] {
+            if let Some(v) = run.call(g, cmd, json!({})) {
+                refs(&v, &mut players, &mut coaches, &mut teams);
+            }
+        }
+        if let Some(p) = run.call(g, "legacy_ambitions", json!({}))
+            && p["open"] == json!(true)
+        {
+            let room = p["max"].as_u64().unwrap_or(3) as usize - p["held"].as_array().map_or(0, Vec::len);
+            let ids: Vec<u64> =
+                p["offers"].as_array().into_iter().flatten().filter_map(|o| o["id"].as_u64()).take(room).collect();
+            for (k, id) in ids.iter().enumerate() {
+                run.call(g, "legacy_pick", json!({ "id": id, "on": true }));
+                if k == 0 {
+                    run.call(g, "legacy_loud", json!({ "id": id, "loud": true }));
+                }
+            }
+            run.call(g, "legacy_keep", json!({ "later": false }));
+        }
+    }
     for (cmd, args) in extra {
         if let Some(v) = run.call(g, cmd, args.clone()) {
             refs(&v, &mut players, &mut coaches, &mut teams);
@@ -496,7 +521,13 @@ fn main() {
         }
         let level = if seat == "hs" { "hs" } else { seat.as_str() };
         let jobs = run.call(&mut g, "jobs", json!({ "level": level })).unwrap_or(json!({}));
-        let Some(job) = jobs["jobs"].as_array().and_then(|a| a.get(a.len().min(3).saturating_sub(1))).cloned() else {
+        // A team by name (AFM_SEAT_TEAM=Allen), else the third on the list.
+        let named = std::env::var("AFM_SEAT_TEAM").ok().and_then(|n| {
+            jobs["jobs"].as_array().and_then(|a| a.iter().find(|j| j["name"].as_str() == Some(n.as_str())).cloned())
+        });
+        let Some(job) =
+            named.or_else(|| jobs["jobs"].as_array().and_then(|a| a.get(a.len().min(3).saturating_sub(1))).cloned())
+        else {
             println!("{seat}: no jobs listed");
             total_errors += 1;
             continue;

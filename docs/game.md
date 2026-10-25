@@ -513,6 +513,16 @@ The storyline engine (`docs/world-model.md`, "The storyline engine") on screen, 
 - **Pick your next job** (board 32): from the job market (a link per offer and in its Go-to line). The openings that fit you with each job's word and stories, what you would walk into (each inherited story with the public's read and the boss's), the offer against a calm job, what handling it pays and costs, and what leaving starts. Take, pass or put your name in from there.
 - The scripted season per seat (`seat_season`) opens every storyline command at every stop, answers each story meeting and makes one move a stop. `AFM_SEAT_LEAN=1` only plays (it still answers story meetings and makes the one move); `AFM_SEAT_STORIES=1` prints your team's stories by family per season, any line told twice to the same person in a season or twice inside one story, how old the open stories are, how each family's stories ended (answered or faded, after how many days) and any question that asks for a name it can't fill.
 
+### Lane 2: systems to chase (boards 34-36)
+
+The systems to chase (`docs/world-model.md`, "Systems to chase") on screen, in the same Press Box look (`screens/legacy.js` and `.css`, the commands in `lane_legacy.rs`).
+
+- **Your legacy** (board 34, under the world's screens after Chapters): your ambitions with their ladders and what's next, your coaching tree (mentors above you, your branches and theirs below, each with his job and record; pick how you grow each assistant on your staff now), the Hall of Fame race (the line, your numbers against it, your place on the all-time list, what would move it, the real greats), your scheme (its name and who runs it now, by level and year, and how defenses answer it), your guys for life (the best of them with their bond and what's next) and your level's five chases, then what your chases paid.
+- **The ambition picker** (board 35): opens with a new job. The offers that fit your situation with why and when each closes, three slots of your own (each private or out loud, with what you would say), the goals on your desk from your boss, family and fans, and how ambitions pay. Keep these, or decide later (60 days).
+- **Your chases** (board 36): your level's five as panels, each with its word, its chart (bars, rows or a line with its moments marked), what it pays and risks, and a link to the screen it lives on. The NFL's window has hold, push in and reload; college's collective has its split presets; high school's feeders have what you give each.
+- **Strips and Home.** Each chase's own screen (the cap sheet for the window, the depth chart for the quarterback search, the draft record, the owner's office, standings, the recruiting board, the team page, traditions, the NIL desk, the schedule, the school, history, the high school side, the area and the job market) carries a strip of its chase at the top; Home has a "Your chases" panel.
+- The scripted season per seat (`seat_season`) opens the legacy page, the chases and the strip at every stop and answers an open picker (it takes the first offers, says the first out loud and keeps them).
+
 ## Not built yet (section 8's design, for the next builds)
 
 - The inbox's pinned answers; holiday mode on screen; faces and charts (section 10).

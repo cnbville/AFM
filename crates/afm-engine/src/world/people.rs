@@ -95,7 +95,16 @@ pub(crate) fn ties_q(w: &World, i: usize, t: usize) -> f64 {
     // A close friend already there pulls a little (section 6, ties;
     // proposed, not confirmed: 4% a friend, two at most).
     let friends = super::folk::ties::friends_on(w, p.player.id, t).min(2) as f64;
-    (1.0 - 0.015 * grudge) * if knew { 1.08 } else { 1.0 } * (1.0 + 0.04 * friends)
+    // One of your own guys weighs your club by his bond with you (update 2):
+    // a strong one pulls more than having played for the staff, a grudge
+    // keeps him away.
+    let follow = super::legacy::guys::follow_q(w, p.player.id, t);
+    let knew_q = match (knew, follow) {
+        (_, f) if f < 1.0 => f,
+        (true, f) => f.max(1.08),
+        (false, f) => f,
+    };
+    (1.0 - 0.015 * grudge) * knew_q * (1.0 + 0.04 * friends)
 }
 
 // --- Topic 10: support staff --------------------------------------------------------------

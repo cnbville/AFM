@@ -43,7 +43,7 @@ fn literal_sets(src: &str) -> BTreeSet<String> {
 #[test]
 fn the_catalogue_reads_whole() {
     assert_eq!(CATALOGUE.len(), K::ALL.len());
-    assert_eq!(CATALOGUE.len(), 111, "the design names 111 kinds");
+    assert_eq!(CATALOGUE.len(), 117, "the design names 111 kinds, and update 2's chases six more");
     let mut keys = BTreeSet::new();
     for (k, d) in CATALOGUE.iter().enumerate() {
         assert!(keys.insert(d.key), "{} twice", d.key);

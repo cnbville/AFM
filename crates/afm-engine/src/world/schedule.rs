@@ -485,6 +485,20 @@ pub(crate) fn build(w: &World, season: i32, y: &YearDates) -> Vec<Game> {
         let last = last_week(w.programs[a].division, y);
         b.place(a, c, true, Some(k), last);
     }
+    // Non-conference games you booked years ahead (update 2, L10).
+    for (home, away) in super::legacy::college::booked_games(w, season) {
+        if home >= np || away >= np || b.opp[home].contains(&away) {
+            continue;
+        }
+        if !w.programs[home].plays(season) || !w.programs[away].plays(season) {
+            continue;
+        }
+        let last = last_week(w.programs[home].division, y);
+        let order = b.week_order(home, away, false, last);
+        if let Some(wk) = order.into_iter().find(|&wk| b.free(home, wk) && b.free(away, wk)) {
+            b.add(home, away, Some(wk), y.cfb_weeks[wk], true, false, None);
+        }
+    }
 
     for division in Division::ALL {
         let last = last_week(division, y);

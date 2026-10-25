@@ -4024,8 +4024,10 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             2 => 0.08,
             _ => 0.03,
         } * (1.3 - 0.6 * rank);
-        let pay = (prog.collective.budget / 10.0e6).powf(0.8);
-        let cap = prog.collective.budget * 0.6 * if reach[j] { 0.35 } else { 0.25 };
+        // Your collective's split puts more or less into the class (L9).
+        let q = super::legacy::college::split_q(w, j, 2);
+        let pay = (prog.collective.budget / 10.0e6).powf(0.8) * q;
+        let cap = prog.collective.budget * 0.6 * if reach[j] { 0.35 } else { 0.25 } * q;
         // Within the real range for his position (11.8). Before NIL a rogue
         // booster's cash is the only money (11.6).
         (position_nil(p.player.position) * talent * pay * if reach[j] { 1.6 } else { 1.0 })
@@ -4249,6 +4251,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             view.join(j, p.player.position, who, p.player.overall() + 4.0, 0);
         }
     }
+    // Your former players' pull (update 2, L-guys).
+    let leans = super::legacy::guys::leans(w);
     // What a commitment and friends add to a school for him (T5.1, T5.3).
     let pull = |j: usize, k: usize| -> f64 {
         let p = &w.people[pool[k].person];
@@ -4264,7 +4268,11 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         if friends.get(&p.hs).is_some_and(|v| v.contains(&j)) {
             u += 0.04;
         }
-        u
+        if let Some(l) = leans.as_ref().filter(|l| l.prog == j) {
+            u += l.of(p.player.id, p.hs);
+        }
+        // A school that holds his position's name (L8).
+        u + super::legacy::college::u_lean(w, j, p.player.position, p.stars)
     };
     let mut held_offer = vec![0.0f64; pool.len()];
     // His fit at the school he holds, kept until that room changes: (program, room version, fit).
@@ -4390,7 +4398,10 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 {
                     let p = &w.people[who];
                     let wants = p.family.decider_wants;
-                    let cap = prog.collective.budget * 0.6 * if reach[j] { 0.35 } else { 0.25 };
+                    let cap = prog.collective.budget
+                        * 0.6
+                        * if reach[j] { 0.35 } else { 0.25 }
+                        * super::legacy::college::split_q(w, j, 2);
                     let raised = (offer * 1.5).min(cap).min(super::ncaa::position_nil_max(seat.pos));
                     let ru = utility_fit(&pool_fits[k], p, &wants, prog, raised, 1.0 - rank) + fx.ties + fit;
                     if ru > hu {
@@ -5820,6 +5831,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                         let ahead = mk.depth[j][k].iter().take_while(|&&v| v >= perf).count();
                         let role = role_at(ahead, slots);
                         portal_nil(&wr.programs[j], mk.pool(j), p, role, perf - median(d))
+                            * super::legacy::college::split_q(wr, j, 1)
                     });
                     let u = utility(&norms, p, &p.family.own_wants, &wr.programs[j], nil, 0.6)
                         + mk.view.fit(
@@ -5864,7 +5876,8 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                     return None;
                 }
                 let p = &wr.people[i];
-                let nil = portal_nil(&wr.programs[j], mk.pool(j), p, role_at(ahead, slots), perf - median(d));
+                let nil = portal_nil(&wr.programs[j], mk.pool(j), p, role_at(ahead, slots), perf - median(d))
+                    * super::legacy::college::split_q(wr, j, 1);
                 let u = utility(&norms, p, &p.family.own_wants, &wr.programs[j], nil, 0.6)
                     + mk.view.fit(j, i, p.player.position, &p.family.own_wants, perf, 3, 0.0, early_weight(p.stars));
                 Some((j, u))
@@ -6019,7 +6032,7 @@ pub(crate) fn nil_payouts(w: &mut World) {
     let today = w.today;
     let mut short: Vec<(u32, f64, f64)> = Vec::new();
     for j in 0..pn {
-        let budget = w.programs[j].collective.budget * 0.6;
+        let budget = w.programs[j].collective.budget * 0.6 * super::legacy::college::split_q(w, j, 0);
         let roster = w.programs[j].roster.clone();
         if roster.is_empty() {
             continue;
@@ -6113,9 +6126,10 @@ pub(crate) fn usual_nil_offer(w: &World, j: usize, i: usize) -> f64 {
         2 => 0.08,
         _ => 0.03,
     };
-    let pay = (prog.collective.budget / 10.0e6).powf(0.8);
+    let q = super::legacy::college::split_q(w, j, 2);
+    let pay = (prog.collective.budget / 10.0e6).powf(0.8) * q;
     (position_nil(p.player.position) * talent * pay)
-        .min(prog.collective.budget * 0.6 * 0.25)
+        .min(prog.collective.budget * 0.6 * 0.25 * q)
         .min(super::ncaa::position_nil_max(p.player.position))
 }
 
@@ -6145,7 +6159,8 @@ pub(crate) fn appeal(w: &World, i: usize, j: usize, nil: Option<f64>) -> f64 {
     if p.cal.signed.is_some_and(|s| s.program == j) {
         u += 10.0;
     }
-    u
+    u + super::legacy::guys::recruit_lean(w, p.player.id, p.hs, j)
+        + super::legacy::college::u_lean(w, j, p.player.position, p.stars)
 }
 
 /// How hard a recruit holds to the school he committed to, in appeal points.
