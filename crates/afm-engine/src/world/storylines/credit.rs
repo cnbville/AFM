@@ -122,13 +122,23 @@ pub const ACT_LESSON: u8 = 64;
 /// How volatile a job is now, 0-100: the heat of the public stories it
 /// would hand a new coach, weighted by how much each unsettles a job, and
 /// the bad endings of the last year.
+/// An open public story a new coach at `t` would inherit: not the search or
+/// the interim's audition his own hire answers.
+fn handed(s: &Story, t: TeamKey) -> bool {
+    use super::K;
+    s.public
+        && s.phase.open()
+        && s.about(t)
+        && !(s.team == Some(t) && [K::CoachingSearch.id(), K::InterimAudition.id()].contains(&s.kind))
+}
+
 pub fn volatility(w: &World, t: TeamKey) -> f32 {
     let d = w.today;
     let open: f32 = w
         .storylines
         .open
         .iter()
-        .filter(|s| s.public && s.phase.open() && s.about(t))
+        .filter(|s| handed(s, t))
         .map(|s| s.heat * (0.25 + s.def().volatile) * if s.def().tone < 0 { 1.0 } else { 0.4 })
         .sum();
     let past: f32 = w
@@ -202,8 +212,7 @@ pub struct JobRead {
 /// The job pick's read of a team (S8).
 pub fn job_read(w: &mut World, t: TeamKey) -> JobRead {
     let v = volatility(w, t);
-    let mut list: Vec<Story> =
-        w.storylines.open.iter().filter(|s| s.public && s.phase.open() && s.about(t)).cloned().collect();
+    let mut list: Vec<Story> = w.storylines.open.iter().filter(|s| handed(s, t)).cloned().collect();
     list.sort_by(|a, b| b.heat.total_cmp(&a.heat).then(a.id.cmp(&b.id)));
     list.truncate(6);
     let boss = crate::world::folk::boss::boss(w, super::folk_team(t));
@@ -502,14 +511,24 @@ fn chapter(w: &mut World, s: &Story, score: f32, paid: Vec<(String, String, u8)>
     let e = s.ending_key();
     let seed = w.options.seed;
     let year = w.year;
+    // A title already in this season's book is avoided where the bank has
+    // another, and otherwise reads with the lead's name ("For his family:
+    // Boyd"), so a book doesn't hold the same title twice.
+    let used: Vec<String> =
+        w.storylines.credit.chapters.iter().filter(|c| c.season == s.season).map(|c| c.title.clone()).collect();
+    let said: Vec<&str> = used.iter().map(String::as_str).collect();
     let title = [
         format!("sl.{}.chapter.{e}", s.def().key),
         format!("sl.{}.chapter", s.def().key),
         format!("sl.{}.chapter", s.family().key()),
     ]
     .iter()
-    .find_map(|k| w.storylines.line(seed, k, &f, year, &[]))
+    .find_map(|k| w.storylines.line(seed, k, &f, year, &said).or_else(|| w.storylines.line(seed, k, &f, year, &[])))
     .unwrap_or_else(|| s.kind_name());
+    let title = match f.get("lead_last") {
+        Some(n) if used.contains(&title) && !n.is_empty() && !title.contains(n) => format!("{title}: {n}"),
+        _ => title,
+    };
     let line = if s.legacy.is_empty() {
         super::tell::last_said(s).map_or_else(String::new, |b| b.text.clone())
     } else {
@@ -604,7 +623,7 @@ pub fn member_name_in(w: &World, s: &Story, who: super::Who) -> Option<String> {
     member_name(w, who).or_else(|| match who {
         Who::Parent(id) => s.names.iter().find(|x| x.0 == Who::Player(id)).map(|x| {
             let last = x.1.split_whitespace().last().unwrap_or("his");
-            format!("{last}'s family")
+            format!("{} family", crate::world::pro::possessive(last))
         }),
         _ => s.names.iter().find(|x| x.0 == who).map(|x| x.1.clone()),
     })
@@ -619,7 +638,11 @@ pub fn member_name(w: &World, who: super::Who) -> Option<String> {
         Who::Boss(t) => Some(crate::world::folk::boss::boss(w, super::folk_team(t)).name),
         Who::Parent(id) => super::pi(w, id).map(|i| {
             let last = w.people[i].name.split_whitespace().last().unwrap_or("").to_string();
-            format!("{}'s family", if last.is_empty() { "his" } else { &last })
+            if last.is_empty() {
+                "his family".to_string()
+            } else {
+                format!("{} family", crate::world::pro::possessive(&last))
+            }
         }),
     }
 }

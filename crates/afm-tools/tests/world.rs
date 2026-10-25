@@ -632,7 +632,9 @@ fn a_saved_world_plays_on_identically() {
         )
     };
     let (pa, pb) = (print(&a), print(&b));
-    assert!(pa == pb, "the loaded world played its next season differently");
+    // The first line that differs, to see which part of the world drifted.
+    let first = pa.lines().zip(pb.lines()).enumerate().find(|(_, (x, y))| x != y);
+    assert!(pa == pb, "the loaded world played its next season differently: {first:?}");
 }
 
 /// The storylines (update 2, lane 1) over the history's seasons: many kinds

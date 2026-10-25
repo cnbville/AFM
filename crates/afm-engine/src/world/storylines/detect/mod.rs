@@ -240,6 +240,17 @@ pub(crate) fn end_once(w: &mut World, kind: K, subject: u64, ending: &str, fact:
     }
 }
 
+/// Whether a story of this kind about this subject (against `other`, when
+/// given) already ran this season.
+pub(crate) fn ran(w: &World, kind: K, subject: u64, other: Option<TeamKey>) -> bool {
+    let (k, year) = (kind.id(), w.year);
+    w.storylines
+        .open
+        .iter()
+        .chain(&w.storylines.ended)
+        .any(|s| s.kind == k && s.subject == subject && s.season == year && other.is_none_or(|o| s.other == Some(o)))
+}
+
 /// Every open story of a kind (ids and subjects), for the closing looks.
 pub(crate) fn open_of(w: &World, kind: K) -> Vec<(u32, u64)> {
     let k = kind.id();

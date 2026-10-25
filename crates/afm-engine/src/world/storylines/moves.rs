@@ -25,6 +25,7 @@ use crate::world::World;
 use crate::world::folk::cast::{self, Role};
 use crate::world::folk::scene::{self, Kind, Pick, Scene};
 use crate::world::folk::talks::{self, PromiseKind, PromiseTo, Reason};
+use crate::world::pro::possessive;
 use crate::world::stories::TeamKey;
 
 /// What you can do about a story.
@@ -176,21 +177,21 @@ pub fn chips(w: &World, s: &Story, mv: Move) -> Vec<(String, u8)> {
                 v.push((format!("{l} starts, said in public"), 0));
             }
             if let Some(r) = &rival {
-                v.push((format!("{r}'s mood down"), 2));
+                v.push((format!("{} mood down", possessive(r)), 2));
             }
         }
         Move::BackRival => {
             if let Some(r) = &rival {
-                v.push((format!("{r}'s mood up"), 0));
+                v.push((format!("{} mood up", possessive(r)), 0));
             }
             if let Some(l) = &lead {
-                v.push((format!("{l}'s mood down"), 2));
+                v.push((format!("{} mood down", possessive(l)), 2));
             }
         }
         Move::Back | Move::Praise => {
             v.push(("locker room +".into(), 0));
             if let Some(l) = &lead {
-                v.push((format!("{l}'s trust +"), 0));
+                v.push((format!("{} trust +", possessive(l)), 0));
             }
         }
         Move::Open | Move::Challenge => v.push(("competitors lift, egos bristle".into(), 1)),
@@ -198,12 +199,12 @@ pub fn chips(w: &World, s: &Story, mv: Move) -> Vec<(String, u8)> {
             v.push(("boosters +".into(), 0));
             v.push(("locker room \u{2212}".into(), 2));
             if let Some(l) = &lead {
-                v.push((format!("{l}'s trust \u{2212}"), 2));
+                v.push((format!("{} trust \u{2212}", possessive(l)), 2));
             }
         }
         Move::Private => {
             for n in [&lead, &rival].into_iter().flatten() {
-                v.push((format!("{n}'s trust +"), 0));
+                v.push((format!("{} trust +", possessive(n)), 0));
             }
         }
         Move::Own => {
@@ -339,7 +340,7 @@ pub(crate) fn menu(w: &mut World, s: &Story, press: bool) -> Vec<Opt> {
             Some(K::VoteOfConfidence) => {
                 v.push((
                     Praise,
-                    format!("\"I appreciate {}'s support. Now we go win.\"", g("boss", "the boss")),
+                    format!("\"I appreciate {} support. Now we go win.\"", possessive(&g("boss", "the boss"))),
                     "Grateful in public; the writers read it as a coach who knows.",
                 ));
                 v.push((
@@ -834,10 +835,17 @@ pub(crate) fn make(w: &mut World, id: u32, mv: Move, said: &str) -> Vec<String> 
         return Vec::new();
     }
     // The same line twice in a week is no new move: nothing comes of it.
-    let line = if mv.public() { format!("{}: {said}", scene::your_name(w)) } else { said.to_string() };
-    if s.beats.iter().any(|b| b.by == Voice::You && b.date.days_to(w.today) < 7 && b.text == line) {
+    if s.beats.iter().any(|b| b.by == Voice::You && b.date.days_to(w.today) < 7 && b.text.ends_with(said)) {
         return vec!["You said that this week already; nothing new comes of it.".into()];
     }
+    // Said on the story before: the papers note it's the same line again.
+    let again = s.beats.iter().any(|b| b.by == Voice::You && b.text.ends_with(said));
+    let line = match (mv.public(), again) {
+        (true, false) => format!("{}: {said}", scene::your_name(w)),
+        (true, true) => format!("{}, again: {said}", scene::your_name(w)),
+        (false, false) => said.to_string(),
+        (false, true) => format!("Again: {said}"),
+    };
     let seed = w.options.seed;
     let fam = s.family();
     let noise = (w.storylines.rng(seed).next() as f32 - 0.5) * 0.08;

@@ -11,7 +11,7 @@
 
 use super::games::{hurt, last_starter};
 use super::{
-    K, Part, Who, at, career_wins, cname, coach_spot, head, in_season, mine, on, open_of, pid, player_spot, pname,
+    K, Part, Who, at, career_wins, cname, coach_spot, head, in_season, mine, on, open_of, pid, player_spot, pname, ran,
     s_coach, s_pair, s_player, s_season, s_team, started, team_of, team_spot, tell, tname,
 };
 use crate::calendar::{Date, Level};
@@ -1089,7 +1089,9 @@ fn college_rises(w: &mut World) {
     let mut ids: Vec<u32> = cols.iter().flat_map(|c| c.iter().map(|x| x.1)).collect();
     ids.sort_unstable();
     ids.dedup();
-    let snaps = c.snaps.clone();
+    // In id order: a hash map's order differs between a world and its save.
+    let mut snaps: Vec<(u32, (u32, u32))> = c.snaps.iter().map(|(&id, &x)| (id, x)).collect();
+    snaps.sort_unstable_by_key(|x| x.0);
     let mut opens: Vec<(K, usize, usize, usize)> = Vec::new();
     for id in ids {
         let Some(i) = pi(w, id) else { continue };
@@ -1099,10 +1101,12 @@ fn college_rises(w: &mut World) {
             continue;
         }
         let was_starter = p.player.history.iter().rev().nth(1).is_some_and(|h| h.playing_time == PlayingTime::Starter);
-        if r < 15 && !was_starter && p.college_seasons >= 1 {
+        // A walk-on's rise is told as the walk-on star's, not also as a
+        // breakout or a freshman star.
+        if r < 15 && !was_starter && p.college_seasons >= 1 && !p.walk_on {
             opens.push((K::Breakout, i, r, k));
         }
-        if r < 40 && p.college_seasons == 0 {
+        if r < 40 && p.college_seasons == 0 && !p.walk_on {
             opens.push((K::FreshmanStar, i, r, k));
         }
         if r < 60 && p.walk_on {
@@ -1110,7 +1114,7 @@ fn college_rises(w: &mut World) {
         }
     }
     // Both ways: real snaps on offense and defense.
-    for (&id, &(off, def)) in &snaps {
+    for &(id, (off, def)) in &snaps {
         if off >= 150
             && def >= 150
             && let Some(i) = pi(w, id)
@@ -1128,6 +1132,11 @@ fn college_rises(w: &mut World) {
         }
     }
     for (kind, i, r, k) in opens {
+        // One rise a season: an ended one doesn't come back the same year.
+        let subject = s_player(pid(w, i));
+        if ran(w, kind, subject, None) && open_id(w, kind, subject).is_none() {
+            continue;
+        }
         let mut s = player_spot(w, kind, i).nums([0, r as i32 + 1, k as i32, 0]).public();
         if kind != K::TwoWay {
             let v = season_nums(w, i).map_or(0.0, |n| n[k]);
@@ -1153,7 +1162,9 @@ fn college_rises(w: &mut World) {
 fn school_records(w: &mut World) {
     let Some(c) = w.college.as_ref() else { return };
     let mut opens: Vec<(usize, i32, f64, f64, String)> = Vec::new();
-    for (&id, l) in &c.lines {
+    let mut lines: Vec<(&u32, &crate::world::college::Line)> = c.lines.iter().collect();
+    lines.sort_unstable_by_key(|x| *x.0);
+    for (&id, l) in lines {
         let Some(prog) = w.programs.get(l.program) else { continue };
         if !matches!(prog.division, Division::FBS | Division::FCS) || l.games < 5 {
             continue;
@@ -1657,17 +1668,6 @@ fn game_week(w: &mut World, d: Date) {
     }
 }
 
-/// Whether a story of this kind about this subject (against `other`, when
-/// given) already ran this season.
-fn ran(w: &World, kind: K, subject: u64, other: Option<TeamKey>) -> bool {
-    let (k, year) = (kind.id(), w.year);
-    w.storylines
-        .open
-        .iter()
-        .chain(&w.storylines.ended)
-        .any(|s| s.kind == k && s.subject == subject && s.season == year && other.is_none_or(|o| s.other == Some(o)))
-}
-
 /// The stories a coming game opens for one side.
 fn pair_stories(w: &mut World, g: &Coming, side: usize) {
     let (t, o) = (g.teams[side], g.teams[1 - side]);
@@ -1699,12 +1699,15 @@ fn pair_stories(w: &mut World, g: &Coming, side: usize) {
         if holder == tcode(o)
             && let Some(c) = head(w, t)
             && tenure(w, c) >= 3
-            && n as i32 >= tenure(w, c)
+            // Every meeting of his tenure lost: a division foe comes twice a
+            // season in the NFL.
+            && n as i32 >= tenure(w, c) * if matches!(t, TeamKey::Nfl(_)) { 2 } else { 1 }
         {
-            let s = spot(w, K::CantBeatRival)
-                .lead(Who::Coach(c as u32))
-                .nums([n as i32, 0, 0, 0])
-                .fact(format!("{} has never beaten {oname} as {name}'s head coach.", cname(w, c)), 3.0);
+            let text = format!(
+                "{name} has lost {n} straight to {oname}, and {} has never beaten them as head coach.",
+                cname(w, c)
+            );
+            let s = spot(w, K::CantBeatRival).lead(Who::Coach(c as u32)).nums([n as i32, 0, 0, 0]).fact(text, 3.0);
             tell(w, s);
         }
     }
@@ -1844,6 +1847,11 @@ fn last_home_game(w: &mut World, t: TeamKey, date: Date) {
     else {
         return;
     };
+    // One last home game a season.
+    let subject = s_player(pid(w, i));
+    if ran(w, K::LastHomeGame, subject, None) && open_id(w, K::LastHomeGame, subject).is_none() {
+        return;
+    }
     let s = player_spot(w, K::LastHomeGame, i).due(date).public();
     tell(w, s);
 }
@@ -2642,7 +2650,10 @@ fn program_news(w: &mut World) {
         .map(|(t, due)| (t, due.year()))
         .collect();
     for (t, opens) in going {
-        let text = format!("Work on {}'s new building goes on; it opens for the {opens} season.", tname(w, t));
+        let text = format!(
+            "Work on {} new building goes on; it opens for the {opens} season.",
+            crate::world::pro::possessive(&tname(w, t))
+        );
         let s = team_spot(w, K::FacilityPush, t, s_team(t)).fact(text, 2.0).public();
         tell(w, s);
     }

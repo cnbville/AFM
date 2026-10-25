@@ -857,12 +857,14 @@ pub(crate) fn notice(w: &mut World, s: Spot) -> Option<u32> {
     }
     link(w, id);
     // The opening: a public fact everyone saw, or the detector's private look.
+    // A fact told word for word this season gives way to the bank's line.
+    let fact = s.fact.filter(|t| !told(w, id, t));
     let start = 0.25 * stakes as f32 * amp_of(&w.storylines.open[k], slow_news(d));
     if let Some(st) = w.storylines.open.get_mut(k) {
         st.heat = start.min(60.0);
         st.peak_heat = st.heat;
     }
-    match s.fact {
+    match fact {
         Some(text) => {
             add_beat(w, id, if public { BeatKind::Spark } else { BeatKind::Seed }, Voice::World, 255, s.heat, text)
         }
@@ -882,6 +884,19 @@ pub(crate) fn notice(w: &mut World, s: Spot) -> Option<u32> {
         crowd_out(w, d);
     }
     Some(id)
+}
+
+/// Whether a line was told this season by another story of the same kind
+/// and subject or with the same lead: a person hears a line once.
+fn told(w: &World, id: u32, text: &str) -> bool {
+    let Some(s) = w.storylines.get(id) else { return false };
+    let lead = s.lead();
+    w.storylines.open.iter().chain(&w.storylines.ended).any(|o| {
+        o.season == s.season
+            && o.id != id
+            && ((o.kind == s.kind && o.subject == s.subject) || lead.is_some() && o.lead() == lead)
+            && o.beats.iter().any(|b| b.text == text)
+    })
 }
 
 /// Adds a world fact to an open story (a game, a filing, a report).
@@ -985,8 +1000,8 @@ pub(crate) fn close(w: &mut World, id: u32, ending: &str, text: Option<String>) 
         code
     };
     let text = match text {
-        Some(t) => t,
-        None => tell::text(w, id, BeatKind::Resolve, Voice::World),
+        Some(t) if !told(w, id, &t) => t,
+        _ => tell::text(w, id, BeatKind::Resolve, Voice::World),
     };
     let public = w.storylines.open[k].public;
     add_beat(w, id, BeatKind::Resolve, Voice::World, 255, if public { BeatKind::Resolve.heat() } else { 0.0 }, text);
@@ -1423,12 +1438,15 @@ fn archive(w: &mut World, d: Date) {
         compact(&mut s);
         let keep = s.you.is_some() || s.phase != Phase::Fizzled || s.peak_heat >= 40.0;
         if keep {
-            s.names = s
-                .cast
-                .iter()
-                .filter(|m| matches!(m.who, Who::Player(_)))
-                .filter_map(|m| credit::member_name(w, m.who).map(|n| (m.who, n)))
-                .collect();
+            // Its players' names as they are today, beside those it kept for
+            // anyone who already left the world.
+            for m in s.cast.iter().filter(|m| matches!(m.who, Who::Player(_))) {
+                if !s.names.iter().any(|x| x.0 == m.who)
+                    && let Some(n) = credit::member_name(w, m.who)
+                {
+                    s.names.push((m.who, n));
+                }
+            }
             w.storylines.ended.push(s);
         }
         w.storylines.followed.retain(|f| *f != id);

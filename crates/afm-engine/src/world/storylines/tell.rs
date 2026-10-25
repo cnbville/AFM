@@ -60,7 +60,12 @@ fn name_of(w: &World, who: Who) -> Option<Name> {
             let i = super::pi(w, id)?;
             let p = &w.people[i];
             let last = p.name.split_whitespace().last().unwrap_or("").to_string();
-            Some(Name { full: format!("{last}'s father"), last: last.clone(), first: String::new(), pos: None })
+            Some(Name {
+                full: format!("{} father", crate::world::pro::possessive(&last)),
+                last: last.clone(),
+                first: String::new(),
+                pos: None,
+            })
         }
     }
 }
@@ -415,21 +420,22 @@ fn keys(s: &Story, what: BeatKind, extra: Option<&str>) -> Vec<String> {
 pub(crate) fn line(w: &mut World, s: &Story, what: BeatKind, extra: Option<&str>, f: &Fill) -> Option<String> {
     let seed = w.options.seed;
     let year = w.year;
-    // Never a line this story already told, nor one his other stories near
-    // you or in the national news told this season: a person hears a line
-    // once.
-    let seen = |o: &Story| o.near || o.peak_heat >= 55.0;
-    let others: Vec<String> = match s.lead() {
-        Some(l) if seen(s) => w
-            .storylines
-            .open
-            .iter()
-            .chain(&w.storylines.ended)
-            .filter(|o| o.season == s.season && seen(o) && o.id != s.id && o.lead() == Some(l))
-            .flat_map(|o| o.beats.iter().filter(|b| !b.text.is_empty()).map(|b| b.text.clone()))
-            .collect(),
-        _ => Vec::new(),
-    };
+    // Never a line this story already told, nor one his other stories told
+    // this season (the same story come back included): a person hears a
+    // line once.
+    let lead = s.lead();
+    let others: Vec<String> = w
+        .storylines
+        .open
+        .iter()
+        .chain(&w.storylines.ended)
+        .filter(|o| {
+            o.season == s.season
+                && o.id != s.id
+                && ((o.kind == s.kind && o.subject == s.subject) || lead.is_some() && o.lead() == lead)
+        })
+        .flat_map(|o| o.beats.iter().filter(|b| !b.text.is_empty()).map(|b| b.text.clone()))
+        .collect();
     let said: Vec<&str> = s
         .beats
         .iter()

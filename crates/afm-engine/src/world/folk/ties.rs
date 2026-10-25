@@ -220,7 +220,8 @@ fn draw(w: &mut World) {
             }
         }
         // Mentors: the best veteran mind at a position takes the youngest.
-        let mut by_pos: HashMap<crate::positions::Position, Vec<usize>> = HashMap::new();
+        // By position in a fixed order, so a world and its save draw alike.
+        let mut by_pos: std::collections::BTreeMap<crate::positions::Position, Vec<usize>> = Default::default();
         for &i in &live {
             by_pos.entry(w.people[i].player.position).or_default().push(i);
         }

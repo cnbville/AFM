@@ -165,7 +165,15 @@ fn runs(w: &mut World, g: &Played, t: TeamKey, o: TeamKey, won: bool, lost: bool
     let oname = tname(w, o);
     let score = format!("{}-{}", g.score[0].max(g.score[1]), g.score[0].min(g.score[1]));
     if lost && let Some(id) = open_id(w, K::Unbeaten, s_season(t, year)) {
-        close(w, id, "lost", Some(format!("{name}'s unbeaten run ends at {wins}, beaten {score} by {oname}.")));
+        close(
+            w,
+            id,
+            "lost",
+            Some(format!(
+                "{} unbeaten run ends at {wins}, beaten {score} by {oname}.",
+                crate::world::pro::possessive(&name)
+            )),
+        );
     }
     if won && losses == 0 && wins >= unbeaten_at(g.level) {
         let s = super::team_spot(w, K::Unbeaten, t, s_season(t, year))
@@ -324,10 +332,16 @@ fn snaps(w: &mut World, t: TeamKey, stats: &GameStats, side: usize) {
         && on(w, t)
         && let Some(i) = crate::world::storylines::pi(w, starter)
     {
+        let again = if super::ran(w, K::NextManUp, s_player(starter), None) { " again" } else { "" };
         let s = super::player_spot(w, K::NextManUp, i)
             .rival(Who::Player(prev))
             .fact(
-                format!("{} starts at quarterback for {} with {} hurt.", name(w, starter), tname(w, t), name(w, prev)),
+                format!(
+                    "{} starts at quarterback for {}{again} with {} hurt.",
+                    name(w, starter),
+                    tname(w, t),
+                    name(w, prev)
+                ),
                 4.0,
             )
             .public();

@@ -469,8 +469,11 @@ fn follow_recruits(w: &mut World, d: Date) {
     }
     w.storylines.watch.recruits = picked;
     w.storylines.watch.recruits_on = Some(d);
+    // His recruitment is a story until he decides: signing day keeps it
+    // alive through a quiet month (it came back with the same opening).
     for i in tops {
-        let s = recruit_spot(w, K::TopRecruit, i).team(TeamKey::Hs(w.people[i].hs as u32)).public();
+        let s =
+            recruit_spot(w, K::TopRecruit, i).team(TeamKey::Hs(w.people[i].hs as u32)).due(next_signing(w, d)).public();
         tell(w, s);
     }
     for i in prodigies {
@@ -1275,7 +1278,8 @@ fn life(w: &mut World, d: Date) {
         if !on(w, t) || !(mine(w, t) || notable_pro(w, i)) {
             continue;
         }
-        let text = format!("{} is away from {} after a death in his family.", pname(w, i), tname(w, t));
+        let another = if super::ran(w, K::FamilyLoss, s_player(id), None) { "another" } else { "a" };
+        let text = format!("{} is away from {} after {another} death in his family.", pname(w, i), tname(w, t));
         let s = player_spot(w, K::FamilyLoss, i).due(d.add(7)).fact(text, 3.0).public();
         tell(w, s);
     }

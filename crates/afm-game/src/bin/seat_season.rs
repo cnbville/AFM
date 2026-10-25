@@ -195,17 +195,24 @@ fn story_counts(w: &afm_engine::world::World, seat: &str, since: afm_engine::cal
     let row: Vec<String> =
         ends.iter().map(|(f, x)| format!("{f} {}/{} ({}d)", x.0, x.1, x.2 / i64::from((x.0 + x.1).max(1)))).collect();
     println!("{seat}: ended by family (answered/fizzled, mean days): {}", row.join(", "));
-    // Questions asking for a name the story can't fill, by kind and name.
+    // Questions asking for a name the story can't fill, by kind and name
+    // (stories from the run itself; the world file's older ones apart).
     let mut gaps: std::collections::BTreeMap<String, (u32, u32)> = std::collections::BTreeMap::new();
+    let mut older = 0;
     for s in &all {
         let g = afm_engine::world::storylines::tell::question_gaps(w, s);
-        if !g.is_empty() {
-            let e = gaps.entry(format!("{} needs {}", s.def().key, g.join(", "))).or_insert((0, s.id));
-            e.0 += 1;
+        if g.is_empty() {
+            continue;
         }
+        if s.opened < since {
+            older += 1;
+            continue;
+        }
+        let e = gaps.entry(format!("{} needs {}", s.def().key, g.join(", "))).or_insert((0, s.id));
+        e.0 += 1;
     }
     let total: u32 = gaps.values().map(|x| x.0).sum();
-    println!("{seat}: {total} stories ask for a name they can't fill");
+    println!("{seat}: {total} stories from the run ask for a name they can't fill ({older} from before it)");
     let mut by: Vec<_> = gaps.into_iter().collect();
     by.sort_by(|a, b| b.1.0.cmp(&a.1.0).then(a.0.cmp(&b.0)));
     for (k, (n, id)) in by.iter().take(10) {
