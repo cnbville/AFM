@@ -497,9 +497,9 @@ fn heat_at(pts: &[(i32, u8)], d: i32) -> f32 {
 /// A cast member as a row: name (a link), who they are, their side, their
 /// mood.
 fn cast_row(w: &World, s: &Story, m: &sl::Member) -> Value {
-    let name = credit::member_name(w, m.who).unwrap_or_else(|| "Someone".into());
+    let name = credit::member_name_in(w, s, m.who).unwrap_or_else(|| "Someone".into());
     let last = |who: Option<Who>| {
-        who.and_then(|x| credit::member_name(w, x)).map(|n| n.split_whitespace().last().unwrap_or(&n).to_string())
+        who.and_then(|x| credit::member_name_in(w, s, x)).map(|n| n.split_whitespace().last().unwrap_or(&n).to_string())
     };
     let (link, role, mood) = match m.who {
         Who::Player(id) => match views::person_index(w, id) {

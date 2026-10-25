@@ -26,17 +26,24 @@ struct Name {
     pos: Option<&'static str>,
 }
 
-fn name_of(w: &World, who: Who) -> Option<Name> {
-    let split = |full: String, pos: Option<&'static str>| {
-        let parts: Vec<&str> = full.split_whitespace().collect();
-        let last = match parts.as_slice() {
-            [.., l, s] if matches!(*s, "Jr." | "Sr." | "II" | "III" | "IV") => format!("{l} {s}"),
-            [.., l] => l.to_string(),
-            _ => full.clone(),
-        };
-        let first = parts.first().map_or_else(String::new, |s| s.to_string());
-        Name { full: full.clone(), last, first, pos }
+fn split(full: String, pos: Option<&'static str>) -> Name {
+    let parts: Vec<&str> = full.split_whitespace().collect();
+    let last = match parts.as_slice() {
+        [.., l, s] if matches!(*s, "Jr." | "Sr." | "II" | "III" | "IV") => format!("{l} {s}"),
+        [.., l] => l.to_string(),
+        _ => full.clone(),
     };
+    let first = parts.first().map_or_else(String::new, |s| s.to_string());
+    Name { full: full.clone(), last, first, pos }
+}
+
+/// A cast member's name, from the world or, once he has left it, from the
+/// names the story kept when it ended.
+fn name_in(w: &World, s: &Story, who: Who) -> Option<Name> {
+    name_of(w, who).or_else(|| s.names.iter().find(|x| x.0 == who).map(|x| split(x.1.clone(), None)))
+}
+
+fn name_of(w: &World, who: Who) -> Option<Name> {
     match who {
         Who::Player(id) => {
             let i = super::pi(w, id)?;
@@ -118,7 +125,7 @@ pub(crate) fn fill(w: &World, s: &Story) -> Fill {
         (Part::Rival, "rival", "rival_last", "rival_first", "rival_pos"),
     ] {
         if let Some(m) = s.cast.iter().find(|m| m.part == part)
-            && let Some(n) = name_of(w, m.who)
+            && let Some(n) = name_in(w, s, m.who)
         {
             f = f.set(key, n.full).set(last, n.last).set(first, n.first);
             if let Some(p) = n.pos {

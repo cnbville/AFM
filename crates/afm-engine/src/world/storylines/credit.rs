@@ -597,6 +597,19 @@ fn chapter(w: &mut World, s: &Story, score: f32, paid: Vec<(String, String, u8)>
 }
 
 /// A cast member's name for the screens.
+/// A cast member's name, from the world or, once he has left it, from the
+/// names the story kept when it ended (a parent by his son's).
+pub fn member_name_in(w: &World, s: &Story, who: super::Who) -> Option<String> {
+    use super::Who;
+    member_name(w, who).or_else(|| match who {
+        Who::Parent(id) => s.names.iter().find(|x| x.0 == Who::Player(id)).map(|x| {
+            let last = x.1.split_whitespace().last().unwrap_or("his");
+            format!("{last}'s family")
+        }),
+        _ => s.names.iter().find(|x| x.0 == who).map(|x| x.1.clone()),
+    })
+}
+
 pub fn member_name(w: &World, who: super::Who) -> Option<String> {
     use super::Who;
     match who {

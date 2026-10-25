@@ -371,6 +371,10 @@ pub struct Story {
     /// What you said on the record (`moves::SAID_*`).
     #[serde(default)]
     pub said: u8,
+    /// Its players' names when it ended, for the day one of them leaves
+    /// the world: an ended story still names a retired player.
+    #[serde(default)]
+    pub names: Vec<(Who, String)>,
 }
 
 impl Story {
@@ -777,6 +781,7 @@ pub(crate) fn notice(w: &mut World, s: Spot) -> Option<u32> {
         stance: 0,
         word: s.word,
         said: 0,
+        names: Vec::new(),
     };
     w.storylines.open.push(story);
     w.storylines.count(season, kind, false);
@@ -1359,6 +1364,12 @@ fn archive(w: &mut World, d: Date) {
         compact(&mut s);
         let keep = s.you.is_some() || s.phase != Phase::Fizzled || s.peak_heat >= 40.0;
         if keep {
+            s.names = s
+                .cast
+                .iter()
+                .filter(|m| matches!(m.who, Who::Player(_)))
+                .filter_map(|m| credit::member_name(w, m.who).map(|n| (m.who, n)))
+                .collect();
             w.storylines.ended.push(s);
         }
         w.storylines.followed.retain(|f| *f != id);
