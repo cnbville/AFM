@@ -20,6 +20,7 @@
 pub mod offseason;
 pub mod plan;
 pub mod practice;
+pub mod prep;
 pub mod rules;
 pub mod seat;
 pub mod week;
@@ -132,6 +133,14 @@ pub struct Train {
     /// His practice grade as his coaches see it, 1-100 (0: none yet).
     #[serde(default)]
     pub grade: u8,
+    /// The last five weeks' prep words, three bits each, this week's
+    /// lowest (update 2, lane 4: `prep`).
+    #[serde(default)]
+    pub prep: u16,
+    /// Rust from a run of poor prep, in tenths of a point: reading and
+    /// technique (`prep::record`).
+    #[serde(default)]
+    pub rust: [u8; 2],
 }
 
 fn q(v: f64, lo: f64, scale: f64) -> u8 {
@@ -166,6 +175,8 @@ impl Train {
             pos: pos.index() as u8,
             load,
             grade: 0,
+            prep: 0,
+            rust: [0, 0],
         }
     }
 
@@ -323,8 +334,8 @@ pub fn close_year(p: &mut Player, focus: Option<Attr>) {
     }
     let done: [f64; FAMILIES] = std::array::from_fn(|f| p.train.landed(Family::ALL[f]));
     land_after(p, &rest, &done, focus, 0xC105E);
-    let load = p.train.load;
-    p.train = Train { load, ..Train::default() };
+    let (load, prep, rust) = (p.train.load, p.train.prep, p.train.rust);
+    p.train = Train { load, prep, rust, ..Train::default() };
     let now = p.overall();
     if let Some(h) = p.history.last_mut() {
         h.overall = now;

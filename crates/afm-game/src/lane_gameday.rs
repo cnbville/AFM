@@ -141,17 +141,17 @@ fn quarter_text(q: u8, ot: bool) -> String {
 
 /// Your next game: date, opponent, home or away, neutral site, the
 /// game's name and why it matters.
-struct Next {
-    date: Date,
-    opp: usize,
-    home: bool,
-    neutral: bool,
-    name: Option<String>,
-    why: Vec<String>,
-    kick: Option<String>,
+pub(crate) struct Next {
+    pub(crate) date: Date,
+    pub(crate) opp: usize,
+    pub(crate) home: bool,
+    pub(crate) neutral: bool,
+    pub(crate) name: Option<String>,
+    pub(crate) why: Vec<String>,
+    pub(crate) kick: Option<String>,
 }
 
-fn next_game(w: &World) -> Option<Next> {
+pub(crate) fn next_game(w: &World) -> Option<Next> {
     let (level, t) = w.seat_team()?;
     // Today's game as the day builds it (playoff rounds included).
     if let Some(s) = w.live.as_ref().filter(|l| l.date == w.today) {
@@ -468,6 +468,7 @@ fn hub(w: &World) -> Value {
         "finds": finds,
         "film": { "used": used, "budget": budget, "per_tape": per, "staff_eye": report["staff"] },
         "out_mine": out_of(me),
+        "prep_mine": crate::lane_training::prep_report(w),
         "calling": calling,
     })
 }

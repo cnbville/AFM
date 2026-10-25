@@ -1083,6 +1083,7 @@ function afterRender() {
   // Big moments waiting from before this page loaded (a save, a reload).
   if (S.status && S.status.reveals > 0 && !document.querySelector(".reveal-room")) { const n = S.status.reveals; S.status.reveals = 0; showReveals(n); }
   if (r.screen === "home") homeWire();
+  if (r.screen === "training" && typeof twAfter === "function") twAfter();
   if (r.screen === "inbox" && r.args.open) { const id = r.args.open; delete r.args.open; showLetter(id, [...document.querySelectorAll(".mrow[data-id]")].map((x) => x.dataset.id)); }
 }
 

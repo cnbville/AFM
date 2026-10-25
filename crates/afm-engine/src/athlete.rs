@@ -404,6 +404,9 @@ pub fn set_position(p: &mut Player, pos: Position) {
     if p.position_history.last().map(|h| h.1) == Some(pos) {
         return;
     }
+    // Rust from poor prep took his old position's technique: it comes back
+    // before he moves.
+    crate::training::prep::unrust(p);
     p.position = pos;
     p.position_history.reserve_exact(1);
     p.position_history.push((p.age, pos));

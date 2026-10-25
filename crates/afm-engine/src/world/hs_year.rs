@@ -953,9 +953,9 @@ fn hs_team(w: &World, h: usize, week: usize) -> Option<(GameTeam, Vec<(u32, usiz
 }
 
 /// Whether a high schooler may play in week `week` (regular weeks, then
-/// playoff rounds): not sitting a transfer, suspended or out for grades. A
-/// player suspended for the season sits, as in college (his status line
-/// says so).
+/// playoff rounds): not sitting a transfer, suspended, out for grades or
+/// hurt in your practices. A player suspended for the season sits, as in
+/// college (his status line says so).
 pub(crate) fn can_play(w: &World, i: usize, week: usize) -> bool {
     let grades = w.hs_season.as_ref().map(|hs| &hs.grade_weeks);
     let p = &w.people[i];
@@ -963,6 +963,7 @@ pub(crate) fn can_play(w: &World, i: usize, week: usize) -> bool {
         && p.last_role != Some(PlayingTime::Redshirt)
         && !p.cal.trouble
         && !super::folk::rules::sitting(w, p.player.id, w.today)
+        && !w.training.hurt_out(p.player.id, w.today)
         && grades.is_none_or(|g| g.get(&i).is_none_or(|m| m >> week & 1 == 0))
 }
 

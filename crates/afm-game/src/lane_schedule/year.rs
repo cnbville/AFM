@@ -435,17 +435,21 @@ fn rules_lane(level: CalLevel, frame: &Frame, y: &YearDates) -> Vec<(Date, Date,
 }
 
 /// One practice day as blocks: practice, film, meetings, the weight room,
-/// the game.
+/// the game. Treatment, study hall and outings aren't football work and
+/// stay off the board (the training week shows them).
 fn day_blocks(day: &afm_engine::training::plan::Day, game: Option<String>) -> Vec<Value> {
     let mut out: Vec<(&str, String, u32, Gear)> = Vec::new();
     for p in &day.periods {
         let (k, n) = match p.kind {
-            Kind::Recovery => continue,
-            Kind::Film => ("film", "Film"),
-            Kind::Meeting => ("meet", "Meetings"),
+            Kind::Recovery | Kind::StudyHall | Kind::TeamBuilding => continue,
+            Kind::Film | Kind::VrReps => ("film", "Film"),
+            Kind::HomeStudy => ("film", "Home study"),
             Kind::Walkthrough => ("meet", "Walk-through"),
-            Kind::WeightRoom => ("lift", "Weight room"),
-            Kind::Conditioning | Kind::Speed => ("lift", "Conditioning"),
+            Kind::WeightRoom | Kind::Testing => ("lift", "Weight room"),
+            Kind::Conditioning | Kind::Speed | Kind::MatDrills | Kind::Mobility => ("lift", "Conditioning"),
+            // Meetings, installs, the plan test, signals, the rules clinic,
+            // vision, the psychologist, the dietitian and the council.
+            kind if !kind.on_field() => ("meet", "Meetings"),
             _ => ("prac", "Practice"),
         };
         match out.last_mut() {

@@ -651,7 +651,10 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
             };
             let strip = |t: &GameTeam, me: usize| {
                 let mut t = t.clone();
-                t.players.retain(|p| !cs.out.contains_key(&p.id) && !capped.contains(&p.id));
+                // Your players hurt in practice sit too.
+                t.players.retain(|p| {
+                    !cs.out.contains_key(&p.id) && !capped.contains(&p.id) && !w.training.hurt_out(p.id, date)
+                });
                 t.week = week(me);
                 t
             };
@@ -3704,7 +3707,8 @@ pub(crate) fn seat_setup(w: &World, p: usize) -> Option<super::live_seat::SeatSe
     };
     let strip = |t: &GameTeam, me: usize| {
         let mut t = t.clone();
-        t.players.retain(|p| !cs.out.contains_key(&p.id) && !capped.contains(&p.id));
+        t.players
+            .retain(|p| !cs.out.contains_key(&p.id) && !capped.contains(&p.id) && !w.training.hurt_out(p.id, date));
         t.week = week(me);
         t
     };
