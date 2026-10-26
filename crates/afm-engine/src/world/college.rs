@@ -197,6 +197,15 @@ pub(crate) struct CollegeSeason {
     /// This season's Heisman vote, top ten (kept with the season).
     #[serde(default)]
     pub heisman_vote: Vec<HeismanRow>,
+    /// The Heisman reads of this season's productive players (player id,
+    /// production against the season's best of his kind), sorted by id:
+    /// next August's hype reads them once the stat lines are let go.
+    #[serde(default)]
+    pub heisman_reads: Vec<(u32, f32)>,
+    /// Each program's division and conference this season (update 2, lane
+    /// 6): last season's page reads its own year's leagues after realignment.
+    #[serde(default)]
+    pub confs: Vec<(Division, String)>,
 }
 
 /// A rivalry's record over the world's history (A28): wins by its first
@@ -289,6 +298,8 @@ pub(crate) fn new_season(w: &World) -> CollegeSeason {
         rivalry_of,
         academy_holder: w.college_prev.as_ref().and_then(|c| c.academy_holder),
         heisman_vote: Vec::new(),
+        heisman_reads: Vec::new(),
+        confs: w.programs.iter().map(|p| (p.division, p.conference.clone())).collect(),
     }
 }
 
@@ -2439,7 +2450,11 @@ struct Candidate {
 /// August. Finalists: the top three and anyone else with 250 points or
 /// more, up to six (real fields run three to six). Weights are Claude's
 /// pick.
-fn heisman_vote(w: &World, rank: &HashMap<usize, usize>, by_id: &HashMap<u32, usize>) -> Vec<HeismanRow> {
+fn heisman_vote(
+    w: &World,
+    rank: &HashMap<usize, usize>,
+    by_id: &HashMap<u32, usize>,
+) -> (Vec<HeismanRow>, Vec<(u32, f32)>) {
     let cs = w.college.as_ref().unwrap();
     let year = cs.year;
     let raw: Vec<(u32, usize, usize, f64, f64, usize)> = cs
@@ -2465,6 +2480,10 @@ fn heisman_vote(w: &World, rank: &HashMap<usize, usize>, by_id: &HashMap<u32, us
             (top.iter().sum::<f64>() / top.len().max(1) as f64).max(1.0)
         })
         .collect();
+    // The season's reads kept for next August's hype (the lines go).
+    let mut reads: Vec<(u32, f32)> =
+        raw.iter().map(|c| (c.0, (c.3 * c.4 / bar[c.2]) as f32)).filter(|x| x.1 >= 0.25).collect();
+    reads.sort_by_key(|x| x.0);
     let prev = w.college_prev.as_ref();
     let mut cands: Vec<Candidate> = raw
         .iter()
@@ -2472,9 +2491,10 @@ fn heisman_vote(w: &World, rank: &HashMap<usize, usize>, by_id: &HashMap<u32, us
             let p = &w.people[i];
             let res = &cs.results[prog];
             let team = rank.get(&prog).map_or(0.0, |&r| (26 - r.min(25)) as f64 / 25.0) - 0.06 * res.losses as f64;
+            // Last season's read as last season's vote kept it.
             let last = prev
-                .and_then(|c| c.lines.get(&id))
-                .map_or(0.0, |l| (weight * production(l, p.player.position) / bar[kind]).clamp(0.0, 1.4));
+                .and_then(|c| c.heisman_reads.binary_search_by_key(&id, |x| x.0).ok().map(|k| c.heisman_reads[k].1))
+                .map_or(0.0, |r| (r as f64).clamp(0.0, 1.4));
             let was_finalist = prev.is_some_and(|c| c.heisman_vote.iter().any(|r| r.id == id && r.finalist));
             let hype = last + if was_finalist { 0.4 } else { 0.0 } + 0.05 * (p.stars as f64 - 3.0).max(0.0);
             let big_wins = cs
@@ -2506,7 +2526,7 @@ fn heisman_vote(w: &World, rank: &HashMap<usize, usize>, by_id: &HashMap<u32, us
     cands.sort_by(|a, b| base(b).total_cmp(&base(a)).then(a.id.cmp(&b.id)));
     cands.truncate(30);
     if cands.is_empty() {
-        return Vec::new();
+        return (Vec::new(), reads);
     }
     let key = super::voters::heisman_key(w.options.seed, year);
     let mut tally: Vec<(u32, u16, u16, u16)> = vec![(0, 0, 0, 0); cands.len()];
@@ -2581,7 +2601,7 @@ fn heisman_vote(w: &World, rank: &HashMap<usize, usize>, by_id: &HashMap<u32, us
     for (k, r) in rows.iter_mut().enumerate() {
         r.finalist = k < 3 || (k < 6 && r.points >= 250);
     }
-    rows
+    (rows, reads)
 }
 
 /// The Heisman finalists, the ceremony, the awards show and All-America
@@ -2600,8 +2620,10 @@ pub(crate) fn awards(w: &mut World, which: &'static str) {
     match which {
         "finalists" | "heisman" => {
             if which == "finalists" || cs.heisman_vote.is_empty() {
-                let vote = heisman_vote(w, &rank, &by_id);
-                w.college.as_mut().unwrap().heisman_vote = vote;
+                let (vote, reads) = heisman_vote(w, &rank, &by_id);
+                let c = w.college.as_mut().unwrap();
+                c.heisman_vote = vote;
+                c.heisman_reads = reads;
             }
             let vote = w.college.as_ref().unwrap().heisman_vote.clone();
             let person = |r: &HeismanRow| by_id.get(&r.id).copied();

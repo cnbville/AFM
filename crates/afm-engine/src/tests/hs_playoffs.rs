@@ -166,7 +166,7 @@ fn strong_programs_schedule_up() {
             (0.3, false)
         }
     };
-    let (weeks, districts) = crate::world::hs_year::state_schedule(&classes, &area, &power, 10, 7, (7, false));
+    let (weeks, districts) = crate::world::hs_year::state_schedule(&classes, &area, &power, 10, 7, (7, false), None);
     // The private powerhouses play one league, across classes.
     let league = districts.iter().find(|d| d.contains(&3)).unwrap();
     for p in powerhouses {

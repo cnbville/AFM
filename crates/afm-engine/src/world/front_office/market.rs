@@ -686,6 +686,8 @@ pub fn apply(w: &mut World, e: Employer, r: Role) -> Result<String, String> {
 /// moves there, the desks start over, a high school's staff is drawn and
 /// the family moves if the job is somewhere else.
 pub(crate) fn hired(w: &mut World, e: Employer, r: Role) {
+    // The season you coached at the old job stays on your record.
+    crate::world::season_page::keep_seat_season(w);
     w.seat = Some(match e {
         Employer::HighSchool(s) => Seat { level: Level::HighSchool, nfl_team: None, program: Some(s), other: None },
         Employer::College(p) => Seat { level: Level::College, nfl_team: None, program: Some(p), other: None },
@@ -759,6 +761,8 @@ pub fn welcome(w: &mut World) {
 /// left it: until the next one you have no team.
 pub(crate) fn left(w: &mut World, why: &str) {
     let Some(seat) = w.seat else { return };
+    // The season you coached so far stays on your record.
+    crate::world::season_page::keep_seat_season(w);
     let today = w.today;
     let name = match seat.level {
         Level::Nfl => seat.nfl_team.map(|t| w.nfl_team_name(t)),

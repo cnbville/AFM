@@ -515,11 +515,17 @@ fn last_release(w: &World, kind: PollKind) -> Option<(Date, Vec<usize>)> {
     w.college.as_ref()?.polls.iter().rev().find(|p| family(p.kind) == f).map(|p| (p.date, p.top.clone()))
 }
 
+fn final_poll(polls: &[super::college::Poll]) -> Option<&super::college::Poll> {
+    polls.iter().rev().find(|p| p.kind == PollKind::Final)
+}
+
 /// Last season's final AP ranking, 1 for the champion down to 1/25 for
 /// No. 25, as each member's preseason anchor.
 fn last_final(w: &World, ev: &Ev) -> Vec<f64> {
     let mut v = vec![0.0; ev.t.len()];
-    if let Some(p) = w.college_prev.as_ref().and_then(|c| c.polls.iter().rev().find(|p| p.kind == PollKind::Final)) {
+    // Last season's polls are kept apart once the season turns (`prev_polls`).
+    let fin = final_poll(&w.prev_polls).or_else(|| w.college_prev.as_ref().and_then(|c| final_poll(&c.polls)));
+    if let Some(p) = fin {
         for (k, &t) in p.top.iter().enumerate() {
             if let Some(i) = ev.idx(t) {
                 v[i] = (25 - k) as f64 / 25.0;

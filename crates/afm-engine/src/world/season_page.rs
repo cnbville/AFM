@@ -6,6 +6,7 @@
 //! season). Only what is public goes in: poll ranks, records, lines,
 //! crowds, the weather, the networks and the money the contracts name.
 
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
@@ -142,7 +143,7 @@ pub fn page(w: &World, level: Level, team: usize, held: Held) -> Option<SeasonPa
         Level::College => {
             let (cs, polls) = match held {
                 Held::This => (w.college.as_ref()?, &w.college.as_ref()?.polls),
-                Held::Last => (w.college_prev.as_ref()?, &w.prev_polls),
+                Held::Last => (w.college_prev.as_ref().filter(|c| !c.games.is_empty())?, &w.prev_polls),
             };
             (team < w.programs.len()).then(|| college_page(w, cs, polls, team))
         }
@@ -169,19 +170,27 @@ pub fn rank_now(w: &World, level: Level, team: usize) -> Option<(u8, String)> {
             let k = rank_in(Some(poll), team)?;
             Some((k, if poll.kind == PollKind::Cfp { "CFP" } else { "AP" }.to_string()))
         }
-        Level::HighSchool => {
-            let p = page(w, level, team, Held::This)?;
-            let g = p.games.iter().find(|g| g.score.is_none() && g.won.is_none()).or(p.games.last())?;
-            Some((g.ranks[0]?, p.rank_label.clone()))
-        }
+        Level::HighSchool => hs_rank_on(&page(w, level, team, Held::This)?),
         _ => None,
     }
+}
+
+/// A high school's class poll rank on its page: going into its next game,
+/// or at the end of its season.
+pub fn hs_rank_on(p: &SeasonPage) -> Option<(u8, String)> {
+    let g = p.games.iter().find(|g| g.score.is_none() && g.won.is_none()).or(p.games.last())?;
+    Some((g.ranks[0]?, p.rank_label.clone()))
 }
 
 /// The seasons each held page covers: (this, last), when held.
 pub fn held_years(w: &World, level: Level) -> (Option<i32>, Option<i32>) {
     match level {
-        Level::College => (w.college.as_ref().map(|c| c.year), w.college_prev.as_ref().map(|c| c.year)),
+        // A file from before last season's games were kept holds none: its
+        // book line stands in.
+        Level::College => (
+            w.college.as_ref().map(|c| c.year),
+            w.college_prev.as_ref().filter(|c| !c.games.is_empty()).map(|c| c.year),
+        ),
         Level::Nfl => (w.nfl_season.as_ref().map(|s| s.year), w.nfl_prev.as_ref().map(|s| s.year)),
         Level::HighSchool => (w.hs_season.as_ref().and_then(|h| h.states.first()).map(|s| s.start.year()), None),
         _ => (None, None),
@@ -195,12 +204,19 @@ pub fn kept(w: &World, level: Level, team: usize) -> Vec<&KeptSeason> {
     v
 }
 
-/// Keeps your team's season as its page shows it, on the day the football
-/// year turns (the season just ended).
+/// Keeps your team's season as its page shows it: on the day the football
+/// year turns (the season just ended), and when you take another job or
+/// lose this one (the season you coached so far). Only a season you
+/// coached a game of: a team you joined after its last game isn't yours.
 pub(crate) fn keep_seat_season(w: &mut World) {
     let Some((level, team)) = w.seat_team() else { return };
     let Some(p) = page(w, level, team, Held::This) else { return };
-    if p.games.is_empty() {
+    let (Some(first), Some(end)) = (p.games.first().map(|g| g.date), p.games.last().map(|g| g.date)) else { return };
+    let coached = w
+        .seat_games()
+        .iter()
+        .any(|g| g.level == level && g.teams.contains(&team) && g.date >= first.add(-1) && g.date <= end.add(1));
+    if !coached {
         return;
     }
     w.kept_schedules.retain(|k| !(k.year == p.year && k.level == level && k.team == team));
@@ -248,10 +264,14 @@ fn pct(r: [u32; 3]) -> f64 {
 /// record (their games against it left out). Returns the team's and the
 /// pool's size.
 fn sos_of(team: usize, opp_sums: &HashMap<usize, [u32; 3]>) -> Option<(u32, u32)> {
-    let mine = pct(*opp_sums.get(&team)?);
+    let own = *opp_sums.get(&team)?;
+    if own.iter().sum::<u32>() == 0 {
+        return None;
+    }
+    let mine = pct(own);
     let of = opp_sums.values().filter(|r| r[0] + r[1] + r[2] > 0).count() as u32;
     let rank = 1 + opp_sums.values().filter(|r| r[0] + r[1] + r[2] > 0 && pct(**r) > mine).count() as u32;
-    Some((rank, of))
+    (of > 0).then_some((rank.min(of), of))
 }
 
 /// The stadium of a bowl or neutral site by its town and season (from
@@ -345,9 +365,30 @@ fn rank_in(p: Option<&Poll>, team: usize) -> Option<u8> {
     p.and_then(|p| p.top.iter().position(|&t| t == team)).map(|k| k as u8 + 1)
 }
 
+/// Each program's division and conference in a held season: as the season
+/// kept them, else (a file from before they were kept) its real league that
+/// year for a past season, else today's.
+fn leagues<'a>(w: &World, cs: &'a CollegeSeason) -> Cow<'a, [(Division, String)]> {
+    if cs.confs.len() == w.programs.len() {
+        return Cow::Borrowed(&cs.confs);
+    }
+    w.programs
+        .iter()
+        .map(|q| {
+            let real = (cs.year < w.year && cs.year <= super::data::HISTORY_LAST + 1)
+                .then(|| q.real_status(cs.year))
+                .flatten();
+            real.unwrap_or_else(|| (q.division, q.conference.clone()))
+        })
+        .collect()
+}
+
 fn college_page(w: &World, cs: &CollegeSeason, polls: &[Poll], p: usize) -> SeasonPage {
     let year = cs.year;
     let me = &w.programs[p];
+    // The leagues as they were that season.
+    let lg = leagues(w, cs);
+    let (my_div, my_conf) = (lg[p].0, lg[p].1.as_str());
     let played = |g: &super::schedule::Game| g.played.filter(|x| !x.cancelled);
     // Every team's games, for records going in and the strength of schedule.
     let mut by_team: HashMap<usize, Vec<usize>> = HashMap::new();
@@ -382,9 +423,9 @@ fn college_page(w: &World, cs: &CollegeSeason, polls: &[Poll], p: usize) -> Seas
         let ranks = [rank_in(poll, p), rank_in(poll, opp)];
         let mut tags = Vec::new();
         if g.conference && g.kind == GameKind::Regular {
-            tags.push(w.conference_name(&me.conference));
+            tags.push(w.conference_name(my_conf));
         }
-        if me.division == Division::FBS && op.division == Division::FCS {
+        if my_div == Division::FBS && lg[opp].0 == Division::FCS {
             tags.push("FCS".to_string());
         }
         let (bowl, playoff) = (
@@ -445,10 +486,10 @@ fn college_page(w: &World, cs: &CollegeSeason, polls: &[Poll], p: usize) -> Seas
             kick: g.kickoff,
             kind: g.kind,
             name: g.name,
-            home_conf: &w.programs[g.home].conference,
-            away_conf: &w.programs[g.away].conference,
-            home_div: w.programs[g.home].division,
-            away_div: w.programs[g.away].division,
+            home_conf: &lg[g.home].1,
+            away_conf: &lg[g.away].1,
+            home_div: lg[g.home].0,
+            away_div: lg[g.away].0,
             home: &w.programs[g.home].real_name,
             away: &w.programs[g.away].real_name,
             draw,
@@ -494,7 +535,7 @@ fn college_page(w: &World, cs: &CollegeSeason, polls: &[Poll], p: usize) -> Seas
     let mut sums: HashMap<usize, [u32; 3]> = HashMap::new();
     let finals: HashMap<usize, [u32; 3]> = by_team.keys().map(|&t| (t, record(t, None))).collect();
     for (&t, list) in &by_team {
-        if w.programs.get(t).is_none_or(|x| x.division != me.division) {
+        if lg.get(t).is_none_or(|x| x.0 != my_div) {
             continue;
         }
         let mut s = [0u32; 3];
@@ -521,7 +562,7 @@ fn college_page(w: &World, cs: &CollegeSeason, polls: &[Poll], p: usize) -> Seas
     }
     let sos = sos_of(p, &sums).map(|(rank, of)| {
         let s = sums[&p];
-        Sos { wins: s[0], losses: s[1], ties: s[2], rank, of, pool: me.division.name().to_string() }
+        Sos { wins: s[0], losses: s[1], ties: s[2], rank, of, pool: my_div.name().to_string() }
     });
     // Where the season ended: the final poll, else this week's.
     let last_poll = polls.iter().filter(|q| q.kind == PollKind::Final).max_by_key(|q| q.date);
@@ -545,11 +586,11 @@ fn college_page(w: &World, cs: &CollegeSeason, polls: &[Poll], p: usize) -> Seas
         },
     };
     // The conference standing by conference record.
-    let place = (!me.conference.contains("Independent")).then(|| {
+    let place = (!my_conf.contains("Independent")).then(|| {
         let mut members: Vec<usize> = w
             .programs
             .iter()
-            .filter(|q| q.division == me.division && q.conference == me.conference && q.plays(year))
+            .filter(|q| lg[q.id].0 == my_div && lg[q.id].1 == my_conf && q.plays(year))
             .map(|q| q.id)
             .collect();
         let key = |t: usize| {
@@ -569,7 +610,7 @@ fn college_page(w: &World, cs: &CollegeSeason, polls: &[Poll], p: usize) -> Seas
         games,
         byes,
         finish,
-        league_name: w.conference_name(&me.conference),
+        league_name: w.conference_name(my_conf),
         place,
         sos,
         rank_label: rank_label.to_string(),
@@ -700,15 +741,30 @@ fn nfl_page(w: &World, s: &NflSeason, t: usize) -> SeasonPage {
         last = Some(sl.at.date);
     }
     let regular_end = last;
-    // The playoffs: your club's games as kept, and a round still to play.
+    // The playoffs: each game played as the season kept it, then the round
+    // still to play and the Super Bowl once both conferences have a champion.
     let round_name = |r: u32| match r {
         1 => "Wild card",
         2 => "Divisional round",
         3 => "Conference title game",
         _ => "Super Bowl",
     };
-    if let Some(end) = regular_end {
-        let mut seen: HashSet<Date> = HashSet::new();
+    let mut seen: HashSet<Date> = HashSet::new();
+    for g in s.playoffs.iter().filter(|g| g.home == t || g.away == t) {
+        let host = g.home == t;
+        let opp = if host { g.away } else { g.home };
+        let score = g.score.map(|[x, y]| if host { [x, y] } else { [y, x] });
+        let row = playoff_row(w, s, t, opp, host, g.at.date, Some(g.at.minute), score, round_name(g.round), year, last);
+        games.push(PageGame { won: score.is_none().then_some(g.home_won == host), ..row });
+        seen.insert(g.at.date);
+        last = Some(g.at.date);
+    }
+    // A file from before the playoffs were kept: your club's games as kept,
+    // each round read from the league's playoff dates that season.
+    let dates = if year == w.year { Some(&w.dates) } else { w.prev_dates.as_ref().filter(|d| d.season == year) };
+    if s.playoffs.is_empty()
+        && let (Some(end), Some(y)) = (regular_end, dates)
+    {
         for sg in w
             .seat_games()
             .iter()
@@ -716,8 +772,7 @@ fn nfl_page(w: &World, s: &NflSeason, t: usize) -> SeasonPage {
         {
             let home = sg.teams[0] == t;
             let opp = if home { sg.teams[1] } else { sg.teams[0] };
-            let [x, y] = sg.stats.score.map(|v| v.max(0) as u32);
-            let r = ((end.days_to(sg.date) - 1) / 7 + 1).clamp(1, 4) as u32;
+            let [x, z] = sg.stats.score.map(|v| v.max(0) as u32);
             seen.insert(sg.date);
             games.push(playoff_row(
                 w,
@@ -727,26 +782,45 @@ fn nfl_page(w: &World, s: &NflSeason, t: usize) -> SeasonPage {
                 home,
                 sg.date,
                 None,
-                Some(if home { [x, y] } else { [y, x] }),
-                round_name(r),
+                Some(if home { [x, z] } else { [z, x] }),
+                round_name(playoff_round(y, sg.date)),
                 year,
                 last,
             ));
             last = Some(sg.date);
         }
-        for &(r, _, hi, lo, at) in s.round_games.iter().filter(|g| g.2 == t || g.3 == t) {
-            if seen.contains(&at.date) {
-                continue;
-            }
-            let home = hi == t && r < 4;
-            let opp = if hi == t { lo } else { hi };
-            games.push(playoff_row(w, s, t, opp, home, at.date, Some(at.minute), None, round_name(r), year, last));
-            if r >= 4
-                && let Some(g) = games.last_mut()
-            {
-                g.neutral = true;
-            }
-            last = Some(at.date);
+    }
+    for &(r, _, hi, lo, at) in s.round_games.iter().filter(|g| g.2 == t || g.3 == t) {
+        if seen.contains(&at.date) {
+            continue;
+        }
+        let opp = if hi == t { lo } else { hi };
+        games.push(playoff_row(w, s, t, opp, hi == t, at.date, Some(at.minute), None, round_name(r), year, last));
+        last = Some(at.date);
+    }
+    if s.booked
+        && s.champion.is_none()
+        && s.round_games.is_empty()
+        && s.alive.iter().all(|c| c.len() == 1)
+        && s.playoffs.iter().any(|g| g.round == 3)
+        && let Some(y) = dates
+    {
+        let (a, b) = (s.alive[0][0], s.alive[1][0]);
+        if a == t || b == t {
+            let opp = if a == t { b } else { a };
+            games.push(playoff_row(
+                w,
+                s,
+                t,
+                opp,
+                a == t,
+                y.super_bowl,
+                Some(18 * 60 + 30),
+                None,
+                "Super Bowl",
+                year,
+                last,
+            ));
         }
     }
     let byes = s.byes.get(t).copied().flatten().into_iter().collect();
@@ -782,7 +856,10 @@ fn nfl_page(w: &World, s: &NflSeason, t: usize) -> SeasonPage {
     let d = s.div.get(t).copied().unwrap_or(0);
     let mut members: Vec<usize> =
         (0..n).filter(|&x| s.div[x] == d && s.active.get(x).copied().unwrap_or(true)).collect();
-    members.sort_by(|&x, &y| pct(fin(y)).total_cmp(&pct(fin(x))).then(x.cmp(&y)));
+    // The league's own order: record, then division wins (the world's
+    // tiebreak when it picks division winners).
+    let key = |x: usize| if x < s.wins.len() { super::nfl_year::record_key(s, x) } else { 0.0 };
+    members.sort_by(|&x, &y| key(y).total_cmp(&key(x)).then(x.cmp(&y)));
     let at = members.iter().position(|&x| x == t).unwrap_or(0) as u32 + 1;
     let league_name = super::legacy::div_name(d as u8, year).to_string();
     let out = s.out_round.get(t).copied().unwrap_or(0);
@@ -859,11 +936,13 @@ fn playoff_row(
         round: Some(r),
         key: key_uniform(w.options.seed as u64 ^ 0x7F7D, (date.0 as u64) << 16 ^ (h as u64) << 8 ^ a as u64),
     });
+    // The Super Bowl's host stadium that season.
+    let host = (r >= 4).then(|| super_bowl_site(year));
     PageGame {
         date,
         kick: minute.map(|m| (m / 60, m % 60)),
         tv: tv.to_string(),
-        home,
+        home: home && r < 4,
         neutral: r >= 4,
         opp,
         league: false,
@@ -876,9 +955,9 @@ fn playoff_row(
         ranks: [None, None],
         opp_in: fin(opp),
         opp_final: fin(opp),
-        site: None,
-        site_stadium: None,
-        indoor: false,
+        site: host.map(|x| (x.1.to_string(), x.2.to_string())),
+        site_stadium: host.map(|x| x.0.to_string()),
+        indoor: host.is_some_and(|x| x.3),
         weather: None,
         line: None,
         score,
@@ -888,6 +967,74 @@ fn playoff_row(
         rest: last.map(|d| d.days_to(date)),
         fee: None,
         why: Vec::new(),
+    }
+}
+
+/// A playoff game's round from the league's dates that season: before the
+/// divisional round the wild card, then the divisional round, the
+/// conference title games and the Super Bowl.
+pub(crate) fn playoff_round(y: &crate::calendar::YearDates, d: Date) -> u32 {
+    if d < y.divisional {
+        1
+    } else if d < y.conference_title_games {
+        2
+    } else if d < y.super_bowl {
+        3
+    } else {
+        4
+    }
+}
+
+/// The Super Bowl's host by season (the game is played the next February):
+/// stadium, town, state and whether it has a roof. The real hosts through
+/// the 2027 season, then the stadiums that have held it in turn (Claude's
+/// pick, proposed, not confirmed).
+pub fn super_bowl_site(season: i32) -> (&'static str, &'static str, &'static str, bool) {
+    match season {
+        ..=1984 => ("Stanford Stadium", "Stanford", "CA", false),
+        1985 | 1989 => ("Louisiana Superdome", "New Orleans", "LA", true),
+        1986 | 1992 => ("Rose Bowl", "Pasadena", "CA", false),
+        1987 => ("Jack Murphy Stadium", "San Diego", "CA", false),
+        1988 | 1994 => ("Joe Robbie Stadium", "Miami", "FL", false),
+        1990 => ("Tampa Stadium", "Tampa", "FL", false),
+        1991 => ("Hubert H. Humphrey Metrodome", "Minneapolis", "MN", true),
+        1993 | 1999 => ("Georgia Dome", "Atlanta", "GA", true),
+        1995 => ("Sun Devil Stadium", "Tempe", "AZ", false),
+        1996 | 2001 => ("Louisiana Superdome", "New Orleans", "LA", true),
+        1997 | 2002 => ("Qualcomm Stadium", "San Diego", "CA", false),
+        1998 => ("Pro Player Stadium", "Miami", "FL", false),
+        2000 | 2008 | 2020 => ("Raymond James Stadium", "Tampa", "FL", false),
+        2003 => ("Reliant Stadium", "Houston", "TX", true),
+        2004 => ("Alltel Stadium", "Jacksonville", "FL", false),
+        2005 => ("Ford Field", "Detroit", "MI", true),
+        2006 => ("Dolphin Stadium", "Miami Gardens", "FL", false),
+        2007 | 2014 => ("University of Phoenix Stadium", "Glendale", "AZ", true),
+        2009 => ("Sun Life Stadium", "Miami Gardens", "FL", false),
+        2010 => ("Cowboys Stadium", "Arlington", "TX", true),
+        2011 => ("Lucas Oil Stadium", "Indianapolis", "IN", true),
+        2012 => ("Mercedes-Benz Superdome", "New Orleans", "LA", true),
+        2013 => ("MetLife Stadium", "East Rutherford", "NJ", false),
+        2015 | 2025 => ("Levi's Stadium", "Santa Clara", "CA", false),
+        2016 => ("NRG Stadium", "Houston", "TX", true),
+        2017 => ("U.S. Bank Stadium", "Minneapolis", "MN", true),
+        2018 | 2027 => ("Mercedes-Benz Stadium", "Atlanta", "GA", true),
+        2019 => ("Hard Rock Stadium", "Miami Gardens", "FL", false),
+        2021 | 2026 => ("SoFi Stadium", "Inglewood", "CA", true),
+        2022 => ("State Farm Stadium", "Glendale", "AZ", true),
+        2023 => ("Allegiant Stadium", "Las Vegas", "NV", true),
+        2024 => ("Caesars Superdome", "New Orleans", "LA", true),
+        _ => [
+            ("Caesars Superdome", "New Orleans", "LA", true),
+            ("Hard Rock Stadium", "Miami Gardens", "FL", false),
+            ("State Farm Stadium", "Glendale", "AZ", true),
+            ("Allegiant Stadium", "Las Vegas", "NV", true),
+            ("NRG Stadium", "Houston", "TX", true),
+            ("Raymond James Stadium", "Tampa", "FL", false),
+            ("SoFi Stadium", "Inglewood", "CA", true),
+            ("Levi's Stadium", "Santa Clara", "CA", false),
+            ("Mercedes-Benz Stadium", "Atlanta", "GA", true),
+            ("AT&T Stadium", "Arlington", "TX", true),
+        ][(season - 2028).rem_euclid(10) as usize],
     }
 }
 
@@ -936,6 +1083,20 @@ fn hs_page(w: &World, h: usize) -> Option<SeasonPage> {
     let year = st.start.year();
     let code = w.states[school.state].code.clone();
     let records = hs.records_by_week(school.state);
+    // The state's results once (winner, loser), and each school's fixtures
+    // in one pass over its groups.
+    let won = hs.winners(&|x| w.high_schools.get(x).is_some_and(|s| s.state == school.state));
+    let outcome = |a: usize, b: usize| -> Option<usize> {
+        let (x, y) = (a as u32, b as u32);
+        if won.contains(&(x, y)) {
+            Some(a)
+        } else if won.contains(&(y, x)) {
+            Some(b)
+        } else {
+            None
+        }
+    };
+    let fixtures = hs.fixtures_by_school(school.state);
     let weeks = &st.weeks;
     let rec_at =
         |t: usize, k: usize| -> [u32; 3] { records.get(&t).and_then(|v| v.get(k)).map_or([0; 3], |&(a, b)| [a, b, 0]) };
@@ -995,7 +1156,7 @@ fn hs_page(w: &World, h: usize) -> Option<SeasonPage> {
             let [a, b] = x.stats.score.map(|v| v.max(0) as u32);
             if x.teams[0] == h { [a, b] } else { [b, a] }
         });
-        let won = if score.is_some() { None } else { k.and_then(|_| hs.outcome(h, opp)).map(|winner| winner == h) };
+        let won = if score.is_some() { None } else { k.and_then(|_| outcome(h, opp)).map(|winner| winner == h) };
         let rival = super::stories::traditions::hs_rivals(w, h, opp);
         let district = !playoff && my_district.is_some() && hs.district_of(opp) == my_district;
         let mut tags = Vec::new();
@@ -1060,13 +1221,24 @@ fn hs_page(w: &World, h: usize) -> Option<SeasonPage> {
         games.push(row(f.date, opp, home, k, last));
         last = Some(f.date);
     }
-    // The playoffs: your school's games as kept.
+    // The playoffs: your school's games as kept, and every school's games
+    // as the brackets played them.
     let reg_end = weeks.last().copied().unwrap_or(st.start);
     for x in seat_games.iter().filter(|x| x.date > reg_end) {
         let home = x.teams[0] == h;
         let opp = if home { x.teams[1] } else { x.teams[0] };
         games.push(row(x.date, opp, home, None, last));
         last = Some(x.date);
+    }
+    for (r, host, visitor, winner) in hs.playoff_games_of(h) {
+        let Some(&date) = st.rounds.get(r) else { continue };
+        if games.iter().any(|g| g.date == date) {
+            continue;
+        }
+        let home = host == h;
+        let g = row(date, if home { visitor } else { host }, home, None, last);
+        games.push(PageGame { won: Some(winner == h), ..g });
+        last = Some(date);
     }
     games.sort_by_key(|g| g.date);
     let byes = byes_between(&games, 13, 7);
@@ -1081,10 +1253,10 @@ fn hs_page(w: &World, h: usize) -> Option<SeasonPage> {
     let mut sums: HashMap<usize, [u32; 3]> = HashMap::new();
     for &x in &pool {
         let mut s = [0u32; 3];
-        for f in w.hs_fixtures(x) {
-            let o = if f.home == x { f.away } else { f.home };
+        for &(a, b) in fixtures.get(&x).map_or(&[][..], |v| v.as_slice()) {
+            let o = if a == x { b } else { a };
             let mut r = fin(o);
-            match hs.outcome(x, o) {
+            match outcome(x, o) {
                 Some(win) if win == o => r[0] = r[0].saturating_sub(1),
                 Some(_) => r[1] = r[1].saturating_sub(1),
                 None => {}
@@ -1101,22 +1273,11 @@ fn hs_page(w: &World, h: usize) -> Option<SeasonPage> {
         Sos { wins: x[0], losses: x[1], ties: x[2], rank, of, pool: label.clone() }
     });
     // The district standing by district record.
+    // The district standing as the playoffs read it.
     let place = my_district.map(|d| {
-        let mut members: Vec<usize> =
+        let members: Vec<usize> =
             w.states[school.state].schools.iter().copied().filter(|&x| hs.district_of(x) == Some(d)).collect();
-        let dist = |x: usize| {
-            let mut r = [0i64; 2];
-            for &o in &members {
-                match hs.outcome(x, o) {
-                    Some(win) if win == x => r[0] += 1,
-                    Some(_) => r[1] += 1,
-                    None => {}
-                }
-            }
-            (r[0] - r[1], fin(x)[0] as i64 - fin(x)[1] as i64)
-        };
-        let keys: HashMap<usize, (i64, i64)> = members.iter().map(|&x| (x, dist(x))).collect();
-        members.sort_by_key(|&x| (std::cmp::Reverse(keys[&x]), x));
+        let members = hs.district_order(w, school.state, members);
         let at = members.iter().position(|&x| x == h).unwrap_or(0) as u32 + 1;
         (at, members.len() as u32)
     });
@@ -1202,6 +1363,13 @@ pub fn college_ahead(w: &World, p: usize, from: i32) -> Vec<Ahead> {
     let me = &w.programs[p];
     let mut out = Vec::new();
     for y in from..=w.year + super::deals::HORIZON {
+        let yours = |a: usize, b: usize| {
+            w.legacy
+                .college
+                .booked
+                .iter()
+                .any(|x| x.year == y && ((x.program == a && x.opp == b) || (x.program == b && x.opp == a)))
+        };
         let mut lines = Vec::new();
         for d in super::deals::of_program(w, p, y).into_iter().filter(|d| d.year == y) {
             let home = d.home == p;
@@ -1235,11 +1403,22 @@ pub fn college_ahead(w: &World, p: usize, from: i32) -> Vec<Ahead> {
                     if home || d.kind == super::deals::DealKind::Neutral { "" } else { "at " },
                     w.program_name(opp)
                 ),
-                note: format!("{note} · signed {}", d.signed),
+                note: format!(
+                    "{note} · signed {}{}",
+                    d.signed,
+                    if yours(d.home, d.away) { " · booked by you" } else { "" }
+                ),
             });
         }
-        // Your own bookings (update 2, lane 2's ledger).
-        for b in w.legacy.college.booked.iter().filter(|b| b.year == y && (b.program == p || b.opp == p)) {
+        // Your own bookings (update 2, lane 2's ledger), unless a contract
+        // above already carries one.
+        for b in w
+            .legacy
+            .college
+            .booked
+            .iter()
+            .filter(|b| b.year == y && (b.program == p || b.opp == p) && !super::deals::met(w, b.program, b.opp, y))
+        {
             let home = (b.program == p) == b.home;
             let opp = if b.program == p { b.opp } else { b.program };
             lines.push(AheadLine {

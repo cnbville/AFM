@@ -23,7 +23,21 @@
  * contract, the scouting report and the series.
  */
 
-let SCH = null;
+// Each drawn page's data, by the key on its root: a schedule or year board
+// open beside the screen keeps its own (R27). The last few pages only.
+const SCH_PAGES = new Map();
+let SCH_SEQ = 0;
+function schKeep(x) {
+  const k = String(++SCH_SEQ);
+  SCH_PAGES.set(k, x);
+  while (SCH_PAGES.size > 8) SCH_PAGES.delete(SCH_PAGES.keys().next().value);
+  return k;
+}
+const schOf = (el) => {
+  const root = el && el.closest ? el.closest("[data-pk]") : null;
+  return root ? SCH_PAGES.get(root.dataset.pk) || null : null;
+};
+const schRoot = (el) => (el && el.closest ? el.closest(".sch") : null);
 const schNum = (n) => Number(n || 0).toLocaleString("en-US");
 const schMoney = (n) => (n >= 1e6 ? `$${(Math.round(n / 1e4) / 100).toString()}M` : `$${Math.round(n / 1e3)}K`);
 // The opponent's record: going in and how he finished, or, while the season
@@ -40,15 +54,15 @@ screens.schedule = async (a) => {
   const args = teamArgs(a);
   if (a.season) args.season = Number(a.season);
   const x = await api("schedule", args);
-  SCH = x;
+  const pk = schKeep(x);
   setColors(x.team.colors);
   title(`${x.team.name} schedule`, x.season ? String(x.season) : "");
-  if (x.other) return schOther(x);
+  if (x.other) return schOther(x, a, pk);
   const lv = x.level;
   const tabList = ["Schedule", ...(x.jv ? ["JV and freshman"] : []), "Future schedules"];
   const tab = tabOf("schtab", tabList, a);
   const body = tab === "Schedule" ? schTable(x) : tab === "JV and freshman" ? schJv(x) : schFuture(x);
-  return `<div class="pad sl sch sch-${lv}">
+  return `<div class="pad sl sch sch-${lv}" data-pk="${pk}">
     ${schHead(x, a)}
     ${x.rows.length ? schShapes(x) : schSummary(x)}
     <div class="sch-tabs">${tabs("schtab", tabList, tab)}</div>
@@ -64,7 +78,7 @@ function schHead(x, a) {
   const older = x.seasons.slice(6);
   const btn = (s) => linkTo("schedule", { ...targs, season: s.year }, `${s.year}${s.record ? ` <small>${esc(s.record)}</small>` : ""}`, `sch-yr${s.year === x.season ? " on" : ""}${s.held ? "" : " thin"}`);
   const pick = older.length
-    ? `<select class="sch-older" data-act="schseason" aria-label="Earlier seasons"><option value="">Earlier</option>${older.map((s) => `<option value="${s.year}" ${s.year === x.season ? "selected" : ""}>${s.year}${s.record ? ` · ${esc(s.record)}` : ""}</option>`).join("")}</select>`
+    ? `<select class="sch-older" data-act="schseason" data-kind="${esc(String(x.team.ref.kind))}" data-id="${x.team.ref.id}" aria-label="Earlier seasons"><option value="">Earlier</option>${older.map((s) => `<option value="${s.year}" ${s.year === x.season ? "selected" : ""}>${s.year}${s.record ? ` · ${esc(s.record)}` : ""}</option>`).join("")}</select>`
     : "";
   return `<header class="sch-head">
     <div class="sch-head-copy">
@@ -110,7 +124,7 @@ function schShapes(x) {
     <div class="sch-panel sch-sos"><div class="sch-ph"><span class="st-label">Strength of schedule</span></div>
       ${sos ? `<div class="sch-hero"><b>${esc(sos.rank_text)}</b><span>hardest of ${schNum(sos.of)} · ${esc(sos.pool)}</span></div>
       <div class="sch-sosline">Opponents ${esc(sos.record)} (${esc(sos.pct)})</div>
-      <div class="sch-bar"><i style="width:${sos.bar.toFixed(1)}%"></i></div><div class="sch-ticks"><span>Hardest</span><span>Easiest</span></div>
+      <div class="sch-bar"><i style="width:${sos.bar.toFixed(1)}%"></i></div><div class="sch-ticks"><span>Easiest</span><span>Hardest</span></div>
       <div class="sch-note">Opponents' records leave out their games against you.${x.season && x.rows.some((r) => r.kind === "game" && !r.played) ? " It moves as the season is played." : ""}</div>` : '<div class="sch-wait">Ranked once games are played.</div>'}</div>
   </div>`;
 }
@@ -195,78 +209,87 @@ function schFuture(x) {
     <div class="sch-note">${esc(x.future_note)}</div>`;
 }
 
-// Another league's season: the plain list.
-function schOther(x) {
+// Another league's season: the plain list, your own games' pages under it.
+function schOther(x, a, pk) {
   const games = x.games.map((g) => `<tr><td>${esc(g.week ? "Wk " + g.week : "")} ${esc(g.date || "")}</td><td>${esc(g.at)} ${teamA(g.opp)}${g.name ? ` <span class="sch-tag gold">${esc(g.name)}</span>` : ""}</td><td>${g.result ? `<b>${esc(g.result)}</b>` : '<span class="sch-dim">To play</span>'}</td></tr>`).join("");
-  return `<div class="pad sl sch"><header class="sch-head"><div class="sch-head-copy"><h1 class="sch-h1">${teamA(x.team)} schedule</h1></div></header>
-    <div class="sch-tbl"><table class="narrow"><tr><th>Date</th><th>Opponent</th><th>Result</th></tr>${games || '<tr><td colspan="3"><div class="empty">The schedule comes out with the season.</div></td></tr>'}</table></div></div>`;
+  const kept = (x.box_scores || []).map((g) => `<li><span><a class="link" data-go="game" data-index="${g.index}">${esc(g.away)} ${g.score[1]} at ${esc(g.home)} ${g.score[0]}</a></span><span>${esc(g.date)}</span></li>`).join("");
+  return `<div class="pad sl sch" data-pk="${pk}"><header class="sch-head"><div class="sch-head-copy"><h1 class="sch-h1">${teamA(x.team)} schedule</h1></div></header>
+    <div class="sch-tbl"><table class="narrow"><tr><th>Date</th><th>Opponent</th><th>Result</th></tr>${games || '<tr><td colspan="3"><div class="empty">The schedule comes out with the season.</div></td></tr>'}</table></div>
+    ${kept ? `<div class="sch-fut"><div class="sch-panel"><h3>Game pages</h3><ul>${kept}</ul></div></div>` : ""}
+    <div class="sch-foot">${gotoFor("schedule", a, x)}</div></div>`;
 }
 
 // ---------- the side panel ----------
-function schOpen(html, i) {
-  const side = document.querySelector(".sch-side");
+function schOpen(root, html, i) {
+  const side = root && root.querySelector(".sch-side");
   if (!side) return;
   side.querySelector(".sch-sbody").innerHTML = html;
   side.hidden = false;
   requestAnimationFrame(() => side.classList.add("open"));
-  document.querySelectorAll(".sch-g.on, .sch-subrow.on, .sch-tile.on").forEach((n) => n.classList.remove("on"));
-  if (i != null) document.querySelectorAll(`.sch-g[data-i="${i}"], .sch-subrow[data-i="${i}"], .sch-tile[data-i="${i}"]`).forEach((n) => n.classList.add("on"));
+  root.querySelectorAll(".sch-g.on, .sch-subrow.on, .sch-tile.on").forEach((n) => n.classList.remove("on"));
+  if (i != null) root.querySelectorAll(`.sch-g[data-i="${i}"], .sch-subrow[data-i="${i}"], .sch-tile[data-i="${i}"]`).forEach((n) => n.classList.add("on"));
 }
-function schClose() {
-  const side = document.querySelector(".sch-side");
-  if (side) { side.classList.remove("open"); side.hidden = true; }
-  document.querySelectorAll(".sch-g.on, .sch-subrow.on, .sch-tile.on").forEach((n) => n.classList.remove("on"));
+// One page's panel, or every open one (Escape).
+function schClose(root) {
+  for (const r of root ? [root] : document.querySelectorAll(".sch")) {
+    const side = r.querySelector(".sch-side");
+    if (side) { side.classList.remove("open"); side.hidden = true; }
+    r.querySelectorAll(".sch-g.on, .sch-subrow.on, .sch-tile.on").forEach((n) => n.classList.remove("on"));
+  }
 }
-const schRow = (i) => SCH && SCH.rows.find((r) => r.kind === "game" && r.i === Number(i));
+const schRow = (x, i) => x && x.rows && x.rows.find((r) => r.kind === "game" && r.i === Number(i));
 
-function schGamePanel(r) {
+function schGamePanel(r, x) {
   const res = r.result || {};
   const head = res.us != null ? `${res.wl} ${res.us}-${res.them} ${esc(r.at)} ${esc(r.opp.name)}` : res.wl ? `${res.wl} ${esc(r.at)} ${esc(r.opp.name)}` : `${esc(r.at)} ${esc(r.opp.name)}`;
   const L = r.leaders || {};
   const leaders = [L.pass && `Pass: ${playerLink(L.pass.id, L.pass.name)} ${esc(L.pass.line)}`, L.rush && `Rush: ${playerLink(L.rush.id, L.rush.name)} ${esc(L.rush.line)}`, L.rec && `Rec: ${playerLink(L.rec.id, L.rec.name)} ${esc(L.rec.line)}`, L.pog && `<b class="sch-pogk">Player of the game</b> ${playerLink(L.pog.id, L.pog.name)}, ${esc(L.pog.line)}`].filter(Boolean);
   const pct = r.crowd && r.seats ? ` · ${Math.round((r.crowd / r.seats) * 100)}%` : "";
-  return `<div class="st-label">${r.played ? "The game" : "Coming up"}</div><h2>${head}</h2>
+  // A game called off is over without a score.
+  const called = !r.played && r.result && r.result.text ? r.result.text : "";
+  const over = r.played || !!called;
+  return `<div class="st-label">${r.played ? "The game" : called ? esc(called) : "Coming up"}</div><h2>${head}</h2>
     <div class="sch-lede">${esc(r.date || "Date TBA")} · ${esc(r.stadium)}, ${esc(r.place)}</div>
-    <div class="sch-cells two">${schCell("Kickoff", `${esc(r.kick || "TBA")} · ${esc(r.tv || "TV TBA")}`)}${schCell("Weather", esc(r.weather || (r.played ? "–" : "At kickoff")))}${schCell("Crowd", r.crowd ? `${schNum(r.crowd)}${pct}` : "–")}${schCell("Rest", esc(r.rest ? r.rest.text : "–"))}${r.line ? schCell("Line", `${esc(r.line.spread)}, O/U ${r.line.total}`) : ""}${schCell(r.ranks && r.ranks[1] ? "Their rank" : "Their record", r.ranks && r.ranks[1] ? `No. ${r.ranks[1]}` : `${esc(r.opp_in)} going in`)}</div>
+    <div class="sch-cells two">${schCell("Kickoff", `${esc(r.kick || "TBA")} · ${esc(r.tv || "TV TBA")}`)}${schCell("Weather", esc(r.weather || (over ? "–" : "At kickoff")))}${schCell("Crowd", r.crowd ? `${schNum(r.crowd)}${pct}` : "–")}${schCell("Rest", esc(r.rest ? r.rest.text : "–"))}${r.line ? schCell("Line", `${esc(r.line.spread)}, O/U ${r.line.total}`) : ""}${schCell(r.ranks && r.ranks[1] ? "Their rank" : "Their record", r.ranks && r.ranks[1] ? `No. ${r.ranks[1]}` : `${esc(r.opp_in)} going in`)}</div>
     ${leaders.length ? `<div class="sch-sec"><span class="st-label">Leaders</span>${leaders.map((l) => `<p>${l}</p>`).join("")}</div>` : r.played ? `<div class="sch-sec"><p class="sch-dim">${r.mine ? "The box score is no longer kept for this game." : "Box scores are kept for your own games."}</p></div>` : ""}
-    ${r.why && r.why.length ? `<div class="sch-sec"><span class="st-label">Why it ${r.played ? "mattered" : "matters"}</span><p>${esc(r.why.join(", "))}</p></div>` : ""}
-    <div class="sch-acts">${r.game != null ? linkTo("game", { index: r.game }, "Game page", "st-btn small") : ""}${linkTo("team", { kind: r.opp.ref.kind, id: r.opp.ref.id }, "Team page", "st-btn small glass")}${SCH.can_scout && !r.opp.mine ? `<button class="st-btn small glass" data-act="schscout" data-kind="${r.opp.ref.kind}" data-id="${r.opp.ref.id}">Scouting report</button>` : ""}</div>`;
+    ${r.why && r.why.length ? `<div class="sch-sec"><span class="st-label">Why it ${over ? "mattered" : "matters"}</span><p>${esc(r.why.join(", "))}</p></div>` : ""}
+    <div class="sch-acts">${r.game != null ? linkTo("game", { index: r.game }, "Game page", "st-btn small") : ""}${linkTo("team", { kind: r.opp.ref.kind, id: r.opp.ref.id }, "Team page", "st-btn small glass")}${x.can_scout && !r.opp.mine ? `<button class="st-btn small glass" data-act="schscout" data-kind="${r.opp.ref.kind}" data-id="${r.opp.ref.id}">Scouting report</button>` : ""}</div>`;
 }
 
-async function schScoutPanel(kind, id) {
-  schOpen('<div class="sch-dim">Pulling your staff\'s report…</div>');
+async function schScoutPanel(root, kind, id) {
+  schOpen(root, '<div class="sch-dim">Pulling your staff\'s report…</div>');
   let s;
-  try { s = await api("schedule_scout", { kind, id: Number(id) }); } catch (e) { schOpen(`<div class="st-label">Your scouting report</div><p>${esc(e.message || e)}</p>`); return; }
+  try { s = await api("schedule_scout", { kind, id: Number(id) }); } catch (e) { schOpen(root, `<div class="st-label">Your scouting report</div><p>${esc(e.message || e)}</p>`); return; }
   const rep = s.report || {};
   const secs = (rep.sections || []).slice(0, 5).map((sec) => `<div class="sch-sec"><span class="st-label">${esc(sec.unit)} · ${esc(sec.title)}</span>${(sec.lines || []).slice(0, 3).map((l) => `<p>${esc(l.text)}${l.sure ? ` <span class="sch-dim">(${esc(l.sure)})</span>` : ""}</p>`).join("")}</div>`).join("");
   const none = !rep.games;
-  schOpen(`<div class="st-label">Your scouting report</div><h2>${esc(s.team.name)}</h2>
+  schOpen(root, `<div class="st-label">Your scouting report</div><h2>${esc(s.team.name)}</h2>
     <div class="sch-lede">${none ? "No film yet: your staff has no tape of them this season." : `From ${rep.games} tape${rep.games === 1 ? "" : "s"}, ${schNum(rep.snaps)} snaps${rep.thin ? " · a thin sample, so the reads are loose" : ""}`}</div>
     ${rep.staff ? `<p class="sch-dim">${esc(rep.staff)}</p>` : ""}${secs}
     <div class="sch-acts">${s.next ? linkTo("gameday", {}, "Full report in game week", "st-btn small") : ""}${linkTo("team", { kind: s.team.ref.kind, id: s.team.ref.id }, "Team page", "st-btn small glass")}</div>`);
 }
 
-async function schSeriesPanel(kind, id) {
-  schOpen('<div class="sch-dim">Opening the series…</div>');
+async function schSeriesPanel(root, x, kind, id) {
+  schOpen(root, '<div class="sch-dim">Opening the series…</div>');
   let s;
-  try { s = await api("schedule_series", { kind, id: Number(id), of: SCH ? SCH.team.ref.id : undefined }); } catch (e) { schOpen(`<div class="st-label">Series history</div><p>${esc(e.message || e)}</p>`); return; }
+  try { s = await api("schedule_series", { kind, id: Number(id), of: x ? x.team.ref.id : undefined }); } catch (e) { schOpen(root, `<div class="st-label">Series history</div><p>${esc(e.message || e)}</p>`); return; }
   const lead = s.wins === s.losses ? `Tied ${s.wins}-${s.losses}${s.ties ? `-${s.ties}` : ""}` : s.wins > s.losses ? `${esc(s.me.name)} leads ${s.wins}-${s.losses}${s.ties ? `-${s.ties}` : ""}` : `${esc(s.rival.name)} leads ${s.losses}-${s.wins}${s.ties ? `-${s.ties}` : ""}`;
   const game = s.game.charAt(0).toUpperCase() + s.game.slice(1);
-  schOpen(`<div class="st-label">Series history</div><h2>${esc(game)}</h2>
+  schOpen(root, `<div class="st-label">Series history</div><h2>${esc(game)}</h2>
     <div class="sch-lede">${s.trophy ? `${esc(s.trophy)} · ` : ""}${s.real ? "the all-time record" : s.since ? `on record since ${s.since}` : ""}</div>
     <div class="sch-cells two">${schCell("Series", lead)}${schCell(s.trophy ? "Trophy holder" : "Last won by", s.holder ? teamA(s.holder) : "–")}</div>
     <div class="sch-sec"><span class="st-label">Meetings on record</span>${s.meetings.length ? s.meetings.map((m) => `<p>${m.year} · ${esc(m.text)} at ${esc(m.at)}</p>`).join("") : '<p class="sch-dim">The meetings before last season live in the series record above.</p>'}</div>
     <div class="sch-acts">${linkTo("traditions", { tab: "Rivalries" }, "Rivalries", "st-btn small glass")}${teamA(s.rival) ? linkTo("team", { kind: s.rival.ref.kind, id: s.rival.ref.id }, "Their team page", "st-btn small glass") : ""}</div>`);
 }
 
-function schFeePanel(r) {
+function schFeePanel(r, x) {
   const f = r.fee;
-  const how = f.how === "paid" ? `${esc(SCH.team.name)} paid ${esc(r.opp.name)}` : f.how === "received" ? `${esc(r.opp.name)} paid ${esc(SCH.team.name)}` : "The game's organisers paid each side";
+  const how = f.how === "paid" ? `${esc(x.team.name)} paid ${esc(r.opp.name)}` : f.how === "received" ? `${esc(r.opp.name)} paid ${esc(x.team.name)}` : "The game's organisers paid each side";
   const kind = f.how === "neutral" ? "A neutral-site kickoff game." : "A one-off game: no return trip.";
   return `<div class="st-label">Game contract</div><h2>${esc(r.opp.name)} · ${schMoney(f.amount)}</h2><div class="sch-lede">${kind}</div>
     <div class="sch-cells two">${schCell("Paid", how)}${schCell("Signed", f.signed ? String(f.signed) : "Booked late, at the going rate")}</div>
     <p class="sch-dim">Real one-off games pay about $300K-700K for an FCS visitor and $1-2M for a Group of 5 visitor; a Group of 5 host pays less. A neutral site pays each side a few million.</p>
-    <div class="sch-acts">${linkTo("money", SCH.mine ? {} : { kind: SCH.team.ref.kind, id: SCH.team.ref.id }, "The books", "st-btn small glass")}</div>`;
+    <div class="sch-acts">${linkTo("money", x.mine ? {} : { kind: x.team.ref.kind, id: x.team.ref.id }, "The books", "st-btn small glass")}</div>`;
 }
 
 function schVenuePanel(r) {
@@ -274,8 +297,8 @@ function schVenuePanel(r) {
     <div class="sch-cells two">${schCell("Seats", r.seats ? schNum(r.seats) : "–")}${schCell("Roof", r.indoor ? "Indoors" : "Open air")}${schCell("Crowd", r.crowd ? schNum(r.crowd) : "–")}${schCell("Weather", esc(r.weather || "–"))}</div>`;
 }
 
-function schTvPanel(r) {
-  const lv = SCH.level;
+function schTvPanel(r, x) {
+  const lv = x.level;
   const why = lv === "hs" ? "The school's games on the town's station; the NFHS Network streams most games now." : lv === "nfl" ? "Set with the schedule in May; late-season games can be flexed into prime time." : "Most kickoffs and networks are picked 6 or 12 days ahead; the biggest game of a window goes to its biggest network.";
   return `<div class="st-label">Broadcast</div><h2>${esc(r.tv)}</h2><div class="sch-lede">${esc(r.date || "")} · ${esc(r.kick || "")}</div><p class="sch-dim">${esc(why)}</p>`;
 }
@@ -283,22 +306,24 @@ function schTvPanel(r) {
 Object.assign(CORE_MORE, {
   schrow: (el, ev) => {
     if (ev && ev.target && ev.target.closest("a, button") && ev.target.closest("a, button") !== el) return;
-    const r = schRow(el.dataset.i);
-    if (r) schOpen(schGamePanel(r), r.i);
+    const x = schOf(el);
+    const r = schRow(x, el.dataset.i);
+    if (r) schOpen(schRoot(el), schGamePanel(r, x), r.i);
   },
-  schtv: (el) => { const r = schRow(el.dataset.i); if (r && r.tv) schOpen(schTvPanel(r), r.i); },
-  schvenue: (el) => { const r = schRow(el.dataset.i); if (r) schOpen(schVenuePanel(r), r.i); },
-  schfee: (el) => { const r = schRow(el.dataset.i); if (r && r.fee) schOpen(schFeePanel(r), r.i); },
-  schscout: (el) => schScoutPanel(el.dataset.kind, el.dataset.id),
-  schseries: (el) => schSeriesPanel(el.dataset.kind, el.dataset.id),
-  schclose: () => schClose(),
+  schtv: (el) => { const x = schOf(el); const r = schRow(x, el.dataset.i); if (r && r.tv) schOpen(schRoot(el), schTvPanel(r, x), r.i); },
+  schvenue: (el) => { const r = schRow(schOf(el), el.dataset.i); if (r) schOpen(schRoot(el), schVenuePanel(r), r.i); },
+  schfee: (el) => { const x = schOf(el); const r = schRow(x, el.dataset.i); if (r && r.fee) schOpen(schRoot(el), schFeePanel(r, x), r.i); },
+  schscout: (el) => schScoutPanel(schRoot(el), el.dataset.kind, el.dataset.id),
+  schseries: (el) => schSeriesPanel(schRoot(el), schOf(el), el.dataset.kind, el.dataset.id),
+  schclose: (el) => schClose(schRoot(el)),
 });
 
-// The earlier seasons' list opens one; Escape closes the side panel.
+// The earlier seasons' list opens one (the team on the list itself);
+// Escape closes the side panels.
 document.addEventListener("change", (ev) => {
   const t = ev.target;
-  if (!t.matches || !t.matches(".sch-older") || !t.value || !SCH) return;
-  go("schedule", { kind: SCH.team.ref.kind, id: SCH.team.ref.id, season: Number(t.value) });
+  if (!t.matches || !t.matches(".sch-older") || !t.value) return;
+  go("schedule", { kind: t.dataset.kind, id: Number(t.dataset.id), season: Number(t.value) });
 });
 document.addEventListener("keydown", (ev) => {
   if (ev.key === "Escape" && document.querySelector(".sch-side.open")) schClose();
@@ -311,7 +336,6 @@ document.addEventListener("keydown", (ev) => {
  * today marked. Below: this week's practice plan against the hours allowed,
  * the picked block's dates and rules, and what's coming up. */
 
-let YR = null;
 const YR_KINDS = [["prac", "Practice"], ["film", "Film"], ["meet", "Meetings"], ["lift", "Strength"], ["game", "Game"]];
 navAdd({ go: "year", label: "The year", icon: "cal", sec: "team", after: "schedule", seats: ["college", "nfl", "hs"] });
 CRUMBS.year = "The year";
@@ -319,19 +343,19 @@ GOTO.year = () => [["Schedule", "schedule"], ["Calendar", "calendar"], ["Trainin
 
 screens.year = async (a) => {
   const x = await api("year_board", {});
-  YR = x;
+  const pk = schKeep(x);
   setColors(x.team.colors);
   title("The year", String(x.season));
   const sel = Math.min(Math.max(0, a.pick != null ? Number(a.pick) : x.cur), x.phases.length - 1);
   requestAnimationFrame(yrFit);
-  return `<div class="pad sl yr yr-${x.level}">
+  return `<div class="pad sl yr yr-${x.level}" data-pk="${pk}">
     ${yrHead(x)}
     ${yrRibbon(x, sel)}
     <div class="yr-low">
       ${yrWeek(x.week)}
       <aside class="yr-panel yr-side">
-        <div class="yr-card" id="yr-card">${yrCard(x.phases[sel])}</div>
-        <div class="yr-next"><span class="st-label">Coming up</span>${x.ahead.map((n) => `<div class="yr-nx"><span class="yr-nd"><b>${n.d}</b><span class="st-label">${esc(n.m)}</span></span><span class="yr-nt"><b>${esc(n.t)}</b><span>${esc(n.s)}</span></span></div>`).join("") || `<p class="sch-dim">Nothing more this year. The next football year starts ${esc(x.next_year)}.</p>`}</div>
+        <div class="yr-card">${yrCard(x.phases[sel])}</div>
+        <div class="yr-next"><span class="st-label">Coming up</span>${x.ahead.map((n) => `<div class="yr-nx"><span class="yr-nd"><b>${n.d}</b><span class="st-label">${esc(n.m)}</span></span><span class="yr-nt"><b>${esc(n.t)}</b><span>${esc(n.s)}${n.in == null ? "" : n.in === 0 ? " · today" : ` · in ${n.in} day${n.in === 1 ? "" : "s"}`}</span></span></div>`).join("") || `<p class="sch-dim">Nothing more this year. The next football year starts ${esc(x.next_year)}.</p>`}</div>
       </aside>
     </div>
     <div class="sch-foot">${gotoFor("year", a, x)}</div>
@@ -390,10 +414,12 @@ function yrCard(p) {
 // Fit the ribbon to its width: game tiles as wide as a week allows; each
 // bar's name inside it, else its short label, else just after the bar while
 // that clears the next one, else none (the card and the tooltip name it);
-// the Today label hides the month name it would sit on.
+// the Today label hides the month name it would sit on. Every board drawn
+// (one may be open beside the screen).
 function yrFit() {
-  const tr = document.querySelector(".yr-track");
-  if (!tr) return;
+  document.querySelectorAll(".yr-track").forEach(yrFitOne);
+}
+function yrFitOne(tr) {
   const W = tr.clientWidth;
   const xs = [...tr.querySelectorAll(".yr-g")].map((g) => Number(g.dataset.x)).sort((a, b) => a - b);
   const gaps = xs.slice(1).map((x, i) => (x - xs[i]) * W).filter((g) => g > 0).sort((a, b) => a - b);
@@ -431,12 +457,14 @@ function yrFit() {
 Object.assign(CORE_MORE, {
   yrpick: (el) => {
     const k = Number(el.dataset.k);
-    if (!YR || !YR.phases[k]) return;
-    document.querySelectorAll(".yr-ph.on").forEach((n) => n.classList.remove("on"));
+    const x = schOf(el);
+    const root = el.closest(".yr");
+    if (!x || !x.phases[k] || !root) return;
+    root.querySelectorAll(".yr-ph.on").forEach((n) => n.classList.remove("on"));
     el.classList.add("on");
-    const c = document.getElementById("yr-card");
-    if (c) c.innerHTML = yrCard(YR.phases[k]);
-    if (S.route && S.route.screen === "year") S.route.args = { ...S.route.args, pick: k };
+    const c = root.querySelector(".yr-card");
+    if (c) c.innerHTML = yrCard(x.phases[k]);
+    if (!el.closest(".beside") && S.route && S.route.screen === "year") S.route.args = { ...S.route.args, pick: k };
   },
 });
 window.addEventListener("resize", () => { if (document.querySelector(".yr-rib")) yrFit(); });

@@ -534,12 +534,13 @@ fn year_start(w: &mut World) {
     let year = w.year;
     super::scouting::dept::prune(w);
     w.rules = w.changes.rules(year);
+    // Your team's season as its schedule page showed it (update 2, lane 6),
+    // kept before any conference moves.
+    super::season_page::keep_seat_season(w);
     // Conference moves announced last year take effect.
     super::finance::college::switch(w);
     // The real moves of the season (college history, through 2026).
     super::program::apply_history(w);
-    // Your team's season as its schedule page showed it (update 2, lane 6).
-    super::season_page::keep_seat_season(w);
     w.college_prev = w.college.take();
     w.college = Some(college::new_season(w));
     if let Some(prev) = w.college_prev.as_mut() {

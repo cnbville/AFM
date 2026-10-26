@@ -172,25 +172,31 @@ fn football(frame: &Frame, y: &YearDates, page: Option<&SeasonPage>, state: &str
     let regular = page.map_or(0, |p| p.games.iter().filter(|g| !g.playoff && !g.bowl).count());
     let playoff = page.and_then(|p| p.games.iter().find(|g| g.playoff || g.bowl).map(|g| g.date));
     let last_game = page.and_then(|p| p.games.last().map(|g| g.date));
-    let rec = page.map(|p| {
-        let r = p.games.iter().fold([0u32; 3], |mut r, g| {
-            match (g.score, g.won) {
-                (Some([a, b]), _) => {
-                    r[if a > b {
-                        0
-                    } else if a < b {
-                        1
-                    } else {
-                        2
-                    }] += 1
+    // The record over the games `post` picks: the regular season's, or the
+    // playoffs' and the bowl's.
+    let rec_of = |post: bool| {
+        page.map(|p| {
+            let r = p.games.iter().filter(|g| (g.playoff || g.bowl) == post).fold([0u32; 3], |mut r, g| {
+                match (g.score, g.won) {
+                    (Some([a, b]), _) => {
+                        r[if a > b {
+                            0
+                        } else if a < b {
+                            1
+                        } else {
+                            2
+                        }] += 1
+                    }
+                    (None, Some(won)) => r[if won { 0 } else { 1 }] += 1,
+                    _ => {}
                 }
-                (None, Some(won)) => r[if won { 0 } else { 1 }] += 1,
-                _ => {}
-            }
-            r
-        });
-        wlt(r)
-    });
+                r
+            });
+            wlt(r)
+        })
+        .filter(|r| r.as_str() != "0-0")
+    };
+    let (rec, post_rec) = (rec_of(false), rec_of(true));
     let mut out = Vec::new();
     for (b, a, z) in segs {
         let days = a.days_to(z) + 1;
@@ -198,7 +204,7 @@ fn football(frame: &Frame, y: &YearDates, page: Option<&SeasonPage>, state: &str
         let mut kv = block_facts(frame.tier, b, frame.season, state, heat, days);
         if b == Block::Season {
             name = format!("{} · {regular} games", if frame.tier == Tier::High { "Season" } else { "Regular season" });
-            if let Some(r) = rec.as_ref().filter(|r| r.as_str() != "0-0") {
+            if let Some(r) = rec.as_ref() {
                 kv.insert(0, ("Record".into(), r.clone()));
             }
             // A high school's playoffs run inside its season block.
@@ -206,11 +212,11 @@ fn football(frame: &Frame, y: &YearDates, page: Option<&SeasonPage>, state: &str
                 let mut s = Phase::new(0, a, p.add(-1), &name);
                 s.kv = kv.clone();
                 out.push(s);
-                out.push(
-                    Phase::new(0, p, z, "Playoffs")
-                        .kv("First round", span_text(p, p))
-                        .kv("Practice", "the season's rules"),
-                );
+                let mut po = Phase::new(0, p, z, "Playoffs");
+                if let Some(r) = post_rec.as_ref() {
+                    po = po.kv("Record", r.clone());
+                }
+                out.push(po.kv("First round", span_text(p, p)).kv("Practice", "the season's rules"));
                 continue;
             }
         }
@@ -221,11 +227,11 @@ fn football(frame: &Frame, y: &YearDates, page: Option<&SeasonPage>, state: &str
             && let (Some(p), Some(l)) = (playoff, last_game)
             && p >= a
         {
-            out.push(
-                Phase::new(0, a, l, "Playoffs")
-                    .kv("Seed", "set by the regular season")
-                    .kv("Practice", "the season's rules"),
-            );
+            let mut po = Phase::new(0, a, l, "Playoffs");
+            if let Some(r) = post_rec.as_ref() {
+                po = po.kv("Record", r.clone());
+            }
+            out.push(po.kv("Seed", "set by the regular season").kv("Practice", "the season's rules"));
             if l < z {
                 let mut s = Phase::new(0, l.add(1), z, &name);
                 s.kv = kv;
@@ -234,6 +240,9 @@ fn football(frame: &Frame, y: &YearDates, page: Option<&SeasonPage>, state: &str
             continue;
         }
         if b == Block::Postseason && frame.tier == Tier::College {
+            if let Some(r) = post_rec.as_ref() {
+                kv.insert(0, ("Record".into(), r.clone()));
+            }
             kv.push(("Bowl season".into(), span_text(y.bowl_season.0, y.bowl_season.1)));
         }
         let mut s = Phase::new(0, a, z, &name);
@@ -243,11 +252,13 @@ fn football(frame: &Frame, y: &YearDates, page: Option<&SeasonPage>, state: &str
     out
 }
 
-/// Recruiting counts for a college: commits, signed, official visits and
-/// offers out (all public).
-fn recruit_counts(w: &World, prog: usize) -> (u32, u32, u32, u32) {
+/// Recruiting counts for a college in one class: commits, signed, official
+/// visits and offers out, early offers included as the recruiting screens
+/// count them (all public).
+fn recruit_counts(w: &World, prog: usize, class: i32) -> (u32, u32, u32, u32) {
     let (mut commits, mut signed, mut official, mut offers) = (0, 0, 0, 0);
-    for p in w.people.iter().filter(|p| matches!(p.stage, Stage::HighSchool | Stage::PrepSchool)) {
+    for p in w.people.iter().filter(|p| p.class_of == class && matches!(p.stage, Stage::HighSchool | Stage::PrepSchool))
+    {
         if p.cal.signed.is_some_and(|s| s.program == prog) {
             signed += 1;
         } else if p.cal.commit.is_some_and(|c| c.0 == prog) {
@@ -256,7 +267,12 @@ fn recruit_counts(w: &World, prog: usize) -> (u32, u32, u32, u32) {
         if p.cal.visits.iter().any(|v| v.0 == prog && v.2 == Visit::Official) {
             official += 1;
         }
-        if p.cal.offers.contains(&prog) {
+        // `views::offers_of`, without building the list for every boy.
+        if p.cal.early_offers.iter().any(|o| o.0 == prog)
+            || p.cal.offers.contains(&prog)
+            || p.cal.signed.is_some_and(|s| !s.walk_on && s.program == prog)
+            || p.cal.commit.is_some_and(|c| !c.2 && c.0 == prog)
+        {
             offers += 1;
         }
     }
@@ -320,7 +336,11 @@ fn dates_lanes(w: &World, level: CalLevel, team: usize, y: &YearDates, page: Opt
                 Phase::new(1, y.hs_school_start, y.hs_school_start, "School starts")
                     .kv("Eligibility", "grades from the spring count"),
             );
-            let roster: Vec<usize> = w.high_schools.get(team).map_or_else(Vec::new, |h| h.roster.clone());
+            // The juniors this spring, the seniors when they sign: the class of
+            // next spring.
+            let roster: Vec<usize> = w.high_schools.get(team).map_or_else(Vec::new, |h| {
+                h.roster.iter().copied().filter(|&i| w.people[i].class_of == s + 1).collect()
+            });
             let with_offers = roster.iter().filter(|&&i| !views::offers_of(&w.people[i]).is_empty()).count();
             let committed = roster.iter().filter(|&&i| w.people[i].cal.commit.is_some()).count();
             out.push(
@@ -346,7 +366,9 @@ fn dates_lanes(w: &World, level: CalLevel, team: usize, y: &YearDates, page: Opt
             out.push(Phase::new(2, y.signing_day, y.signing_day, "Signing day").kv("Committed", committed.to_string()));
         }
         _ => {
-            let (commits, signed, official, offers) = recruit_counts(w, team);
+            // Junior days, the June visits and both signing dates all work
+            // on the class of next spring.
+            let (commits, signed, official, offers) = recruit_counts(w, team, s + 1);
             out.push(
                 Phase::new(1, y.draft[0].date, y.draft[2].date, "NFL draft")
                     .kv("Rounds", "7 over three days")
@@ -354,7 +376,7 @@ fn dates_lanes(w: &World, level: CalLevel, team: usize, y: &YearDates, page: Opt
             );
             out.push(
                 Phase::new(1, y.summer_enrollment, y.summer_enrollment, "Freshmen arrive")
-                    .kv("Early enrollees", format!("since {}", span_text(y.early_enrollment, y.early_enrollment))),
+                    .kv("Early enrollees", format!("since {}", span_text(Date::ymd(s, 1, 10), Date::ymd(s, 1, 10)))),
             );
             out.push(
                 Phase::new(1, y.portal_open, y.portal_close, "Transfer portal")
@@ -405,14 +427,16 @@ fn dates_lanes(w: &World, level: CalLevel, team: usize, y: &YearDates, page: Opt
 }
 
 /// The rules lane, day by day: the recruiting periods (college and high
-/// school), the CBA's offseason at the NFL.
-fn rules_lane(level: CalLevel, frame: &Frame, y: &YearDates) -> Vec<(Date, Date, &'static str)> {
+/// school), the CBA's offseason at the NFL. `run_to`: the last day of an
+/// NFL playoff run, the season's rules till then.
+fn rules_lane(level: CalLevel, frame: &Frame, y: &YearDates, run_to: Option<Date>) -> Vec<(Date, Date, &'static str)> {
     let mut out: Vec<(Date, Date, &'static str)> = Vec::new();
     let mut d = frame.start;
     while d <= frame.end {
         let k = if level == CalLevel::Nfl {
             match frame.block(d) {
                 Block::Season | Block::Camp => "c",
+                _ if d >= frame.winter && run_to.is_some_and(|e| d <= e) => "c",
                 Block::Otas if d >= y.minicamp.0 && d <= y.minicamp.1 => "c",
                 Block::Otas | Block::Phase1 | Block::Phase2 => "e",
                 _ => "d",
@@ -565,7 +589,18 @@ pub(super) fn year(w: &World) -> Reply {
             })
         })
         .collect();
-    let rules: Vec<Value> = rules_lane(level, &frame, y)
+    // An NFL playoff run: to the game it ended, or to the Super Bowl while
+    // the team is alive.
+    let run_to = page.as_ref().filter(|_| nfl).and_then(|p| {
+        let g = p.games.iter().rev().find(|g| g.playoff)?;
+        let lost = match (g.score, g.won) {
+            (Some([a, b]), _) => a < b,
+            (None, Some(won)) => !won,
+            _ => false,
+        };
+        Some(if lost { g.date } else { y.super_bowl })
+    });
+    let rules: Vec<Value> = rules_lane(level, &frame, y, run_to)
         .into_iter()
         .map(|(a, b, k)| json!({ "x": x(a), "w": x(b.add(1).min(end)) - x(a), "k": k, "d": span_text(a, b) }))
         .collect();
@@ -616,6 +651,8 @@ pub(super) fn year(w: &World) -> Reply {
             .and_then(|p| p.place)
             .filter(|_| overall.iter().sum::<u32>() > 0)
             .map(|(a, _)| format!("{} in the {}", ordinal(a), p_league(page.as_ref()))),
+        // The class poll from the page built above; college's from the polls.
+        CalLevel::HighSchool => page.as_ref().and_then(sp::hs_rank_on).map(|(k, poll)| format!("No. {k} in {poll}")),
         _ => sp::rank_now(w, level, team).map(|(k, poll)| {
             if level == CalLevel::HighSchool {
                 format!("No. {k} in {poll}")
@@ -683,17 +720,19 @@ pub(super) fn year(w: &World) -> Reply {
     // Coming up: your next games and what starts next.
     let mut ahead: Vec<(Date, String, String)> = Vec::new();
     if let Some(p) = page.as_ref().filter(|_| !hidden) {
+        let first = p.games.first().map(|x| x.date);
         for g in p.games.iter().filter(|g| g.date >= today && g.score.is_none() && g.won.is_none()).take(3) {
+            let out = super::announced(w, level, g, first);
             let opp = views::team_name(w, super::same_level(t, g.opp));
             let at = if g.home || g.neutral { "" } else { "at " };
             let mut s: Vec<String> = Vec::new();
             if let Some(n) = g.name.as_ref() {
                 s.push(n.clone());
             }
-            if let Some(k) = g.kick.filter(|_| g.date <= today.add(12) || level != CalLevel::College) {
+            if let Some(k) = g.kick.filter(|_| out) {
                 s.push(kick_text(k, level));
             }
-            if !g.tv.is_empty() && (g.date <= today.add(12) || level != CalLevel::College) {
+            if !g.tv.is_empty() && out {
                 s.push(g.tv.clone());
             }
             ahead.push((

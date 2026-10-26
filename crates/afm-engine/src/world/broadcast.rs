@@ -621,15 +621,28 @@ pub fn nfl(g: &NflGame) -> &'static str {
     }
 }
 
-/// The Super Bowl's network by season: CBS, FOX and NBC in turn, ESPN and
-/// ABC in the turn from the 2026 season.
+/// The Super Bowl's network by season, as each game really went: CBS and
+/// NBC in turn to the 1983 season, ABC joining the turn from 1984, FOX from
+/// 1996, CBS, FOX and NBC from 2006, and ESPN and ABC in the turn from the
+/// 2026 season.
 fn super_bowl(season: i32) -> &'static str {
     match season {
+        ..=1983 => {
+            if season % 2 == 0 {
+                "NBC"
+            } else {
+                "CBS"
+            }
+        }
+        1984 | 1987 | 1990 | 1994 | 1999 | 2002 | 2005 => "ABC",
+        1985 | 1988 | 1992 | 1993 | 1995 | 1997 => "NBC",
+        1986 | 1989 | 1991 | 2000 | 2003 => "CBS",
+        1996 | 1998 | 2001 | 2004 => "FOX",
+        2006..=2013 => ["CBS", "FOX", "NBC"][(season - 2006).rem_euclid(3) as usize],
         2014 | 2017 | 2021 | 2025 => "NBC",
         2015 | 2018 | 2020 | 2023 => "CBS",
         2016 | 2019 | 2022 | 2024 => "FOX",
-        2026.. => ["ESPN/ABC", "CBS", "FOX", "NBC"][((season - 2026) % 4) as usize],
-        _ => ["CBS", "FOX", "NBC"][(season.rem_euclid(3)) as usize],
+        _ => ["ESPN/ABC", "CBS", "FOX", "NBC"][(season - 2026).rem_euclid(4) as usize],
     }
 }
 

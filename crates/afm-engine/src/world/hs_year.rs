@@ -207,14 +207,59 @@ pub(crate) struct HsSeasonState {
     /// The playoff brackets, by state as each state's field is set (U-d).
     #[serde(default)]
     pub(crate) brackets: Vec<super::hs_playoffs::Bracket>,
+    /// The districts as drawn, school ids in their round-robin order
+    /// (update 2, lane 6): the cycle's second year plays the same ones.
+    #[serde(default)]
+    district_lists: Vec<Vec<u32>>,
+    /// The playoff games played so far: (round, host, visitor, winner), for
+    /// every school's schedule page (update 2, lane 6).
+    #[serde(default)]
+    playoff_games: Vec<(u8, u32, u32, u32)>,
 }
 
 impl HsSeasonState {
-    /// The winner of a regular-season game between two schools, once played
-    /// (two schools meet once in a regular season).
-    pub(crate) fn outcome(&self, a: usize, b: usize) -> Option<usize> {
-        let (a, b) = (a as u32, b as u32);
-        self.played.iter().find(|&&(x, y)| (x, y) == (a, b) || (x, y) == (b, a)).map(|&(x, _)| x as usize)
+    /// The regular season's results so far among the schools `keep` picks:
+    /// (winner, loser) (the schedule page, update 2, lane 6).
+    pub(crate) fn winners(&self, keep: &dyn Fn(usize) -> bool) -> HashSet<(u32, u32)> {
+        self.played.iter().copied().filter(|&(a, _)| keep(a as usize)).collect()
+    }
+
+    /// A school's playoff games so far: (round, host, visitor, winner).
+    pub(crate) fn playoff_games_of(&self, h: usize) -> Vec<(usize, usize, usize, usize)> {
+        let t = h as u32;
+        self.playoff_games
+            .iter()
+            .filter(|g| g.1 == t || g.2 == t)
+            .map(|g| (g.0 as usize, g.1 as usize, g.2 as usize, g.3 as usize))
+            .collect()
+    }
+
+    /// A district's standing as the playoffs read it (`hs_playoffs::build`):
+    /// district record, then the state's own rating, then the school.
+    pub(crate) fn district_order(&self, w: &World, state: usize, mut members: Vec<usize>) -> Vec<usize> {
+        let f = super::hs_playoffs::format(&w.states[state].code);
+        let opps = super::hs_playoffs::opponents(w.high_schools.len(), &self.played);
+        let rating: HashMap<usize, f64> =
+            members.iter().map(|&h| (h, super::hs_playoffs::rate(f.rating, h, &opps, &self.results))).collect();
+        let rec = |h: usize| self.results.get(h).map_or(0, |r| r.conf_wins as i64 - r.conf_losses as i64);
+        members.sort_by(|&a, &b| rec(b).cmp(&rec(a)).then(rating[&b].total_cmp(&rating[&a])).then(a.cmp(&b)));
+        members
+    }
+
+    /// Every school's regular-season games in a state, (home, away), in one
+    /// pass over its groups.
+    pub(crate) fn fixtures_by_school(&self, state: usize) -> HashMap<usize, Vec<(usize, usize)>> {
+        let n = self.states.get(state).map_or(0, |s| s.weeks.len());
+        let mut out: HashMap<usize, Vec<(usize, usize)>> = HashMap::new();
+        for g in self.groups.iter().filter(|g| g.state == state) {
+            for week in g.schedule.iter().take(n) {
+                for &(a, b) in week {
+                    out.entry(a).or_default().push((a, b));
+                    out.entry(b).or_default().push((a, b));
+                }
+            }
+        }
+        out
     }
 
     /// Each school's record going into each regular-season week of a state
@@ -338,6 +383,12 @@ pub(crate) fn new_season(w: &World) -> HsSeasonState {
     let mut marks = vec![None; w.high_schools.len()];
     let mut district = vec![super::hs_playoffs::NONE; w.high_schools.len()];
     let mut n_districts = 0u32;
+    // The cycle's second year plays the districts its first year drew.
+    let kept: &[Vec<u32>] = match w.hs_season.as_ref() {
+        Some(h) if year != cycle_start(year) => &h.district_lists,
+        _ => &[],
+    };
+    let mut district_lists: Vec<Vec<u32>> = Vec::new();
     let mut first = 0;
     while first < groups.len() {
         let state = groups[first].state;
@@ -353,12 +404,27 @@ pub(crate) fn new_season(w: &World) -> HsSeasonState {
         // Districts hold for a two-year cycle (update 2, lane 6): the same
         // schools both years, home and away swapped in the second.
         let cycle = (cycle_seed ^ (state as u64) << 8, year != cycle_start(year));
-        let (weeks, districts) = state_schedule(&classes, &area, &power, n_weeks, seed ^ (state as u64) << 8, cycle);
+        let in_state = |id: u32| w.high_schools.get(id as usize).is_some_and(|s| s.state == state);
+        let fixed: Vec<Vec<usize>> = kept
+            .iter()
+            .filter(|d| d.first().is_some_and(|&x| in_state(x)))
+            .map(|d| d.iter().map(|&x| x as usize).collect())
+            .collect();
+        let (weeks, districts) = state_schedule(
+            &classes,
+            &area,
+            &power,
+            n_weeks,
+            seed ^ (state as u64) << 8,
+            cycle,
+            (!fixed.is_empty()).then_some(fixed.as_slice()),
+        );
         for d in districts {
-            for h in d {
+            for &h in &d {
                 district[h] = n_districts;
             }
             n_districts += 1;
+            district_lists.push(d.into_iter().map(|h| h as u32).collect());
         }
         // Each game is filed under the home team's classification.
         let mut home_days: Vec<(usize, Date)> = Vec::new();
@@ -397,6 +463,8 @@ pub(crate) fn new_season(w: &World) -> HsSeasonState {
         district,
         played: Vec::new(),
         brackets: Vec::new(),
+        district_lists,
+        playoff_games: Vec::new(),
     }
 }
 
@@ -443,6 +511,9 @@ type WeekPairs = Vec<Vec<(usize, usize)>>;
 ///
 /// `cycle`: the district cycle's own seed, so the districts hold for both
 /// of its years, and whether this is its second year (home and away swap).
+/// `fixed`: the districts the cycle's first year drew (school ids in their
+/// round-robin order), played again in its second year whatever the weeks
+/// or the programs' standing now; a school new since gets placed as usual.
 pub(crate) fn state_schedule(
     classes: &[(u32, &[usize])],
     area: &dyn Fn(usize) -> usize,
@@ -450,6 +521,7 @@ pub(crate) fn state_schedule(
     n_weeks: usize,
     seed: u64,
     cycle: (u64, bool),
+    fixed: Option<&[Vec<usize>]>,
 ) -> (WeekPairs, Vec<Vec<usize>>) {
     const FREE: usize = usize::MAX;
     let ids: Vec<usize> = classes.iter().flat_map(|c| c.1.iter().copied()).collect();
@@ -461,9 +533,23 @@ pub(crate) fn state_schedule(
     let mut district = vec![FREE; n];
     let mut districts: Vec<Vec<usize>> = Vec::new();
     let prestige: Vec<f64> = ids.iter().map(|&id| power(id).0).collect();
+    // The cycle's districts as drawn in its first year.
+    if let Some(lists) = fixed {
+        let at: HashMap<usize, usize> = ids.iter().enumerate().map(|(i, &id)| (id, i)).collect();
+        for list in lists {
+            let part: Vec<usize> = list.iter().filter_map(|id| at.get(id).copied()).collect();
+            if part.is_empty() {
+                continue;
+            }
+            for &i in &part {
+                district[i] = districts.len();
+            }
+            districts.push(part);
+        }
+    }
     // The private powerhouses' league (A11).
-    let mut league: Vec<usize> = (0..n).filter(|&i| power(ids[i]).1).collect();
-    if league.len() >= 3 {
+    let mut league: Vec<usize> = (0..n).filter(|&i| power(ids[i]).1 && district[i] == FREE).collect();
+    if fixed.is_none() && league.len() >= 3 {
         league.sort_by(|&a, &b| prestige[b].total_cmp(&prestige[a]).then(a.cmp(&b)));
         league.truncate(size.max(3));
         for &i in &league {
@@ -573,13 +659,20 @@ pub(crate) fn state_schedule(
             weeks[k].push((a, b));
         }
     }
+    // Home and away: a district game by its round (so the second year swaps
+    // each pairing even when the season's weeks moved), the rest by week.
+    let first_round = n_weeks - d_weeks;
     let weeks = weeks
         .into_iter()
         .enumerate()
         .map(|(k, pairs)| {
             pairs
                 .into_iter()
-                .map(|(a, b)| if (k % 2 == 0) != cycle.1 { (ids[a], ids[b]) } else { (ids[b], ids[a]) })
+                .map(|(a, b)| {
+                    let same = district[a] != FREE && district[a] == district[b] && k >= first_round;
+                    let even = if same { (k - first_round) % 2 == 0 } else { k % 2 == 0 };
+                    if even != cycle.1 { (ids[a], ids[b]) } else { (ids[b], ids[a]) }
+                })
                 .collect()
         })
         .collect();
@@ -1407,6 +1500,7 @@ fn play_round(w: &mut World, s: usize, r: usize, d: Date) {
     let hs = w.hs_season.as_mut().unwrap();
     let mut outcomes: Vec<(usize, usize)> = Vec::new();
     let mut by_bracket: HashMap<usize, Vec<(u32, u32)>> = HashMap::new();
+    let mut kept: Vec<(u8, u32, u32, u32)> = Vec::new();
     for (&(bi, a, b, key), on) in pairs.iter().zip(played) {
         let a_wins = match on {
             Some(won) => won,
@@ -1428,9 +1522,11 @@ fn play_round(w: &mut World, s: usize, r: usize, d: Date) {
         };
         let (wn, l) = if a_wins { (a, b) } else { (b, a) };
         by_bracket.entry(bi).or_default().push((wn as u32, l as u32));
+        kept.push((r as u8, a as u32, b as u32, wn as u32));
     }
     w.log.hs_games += pairs.len() as u32;
     let hs = w.hs_season.as_mut().unwrap();
+    hs.playoff_games.extend(kept);
     for bi in 0..hs.brackets.len() {
         if !playing(&hs.brackets[bi]) {
             continue;

@@ -83,7 +83,14 @@ pub(crate) fn scout_report(w: &World, opp: usize) -> Option<Value> {
     let (level, t) = w.seat_team()?;
     let tapes = w.tapes_of(opp);
     let names = names(w, &[team_ref(level, t), team_ref(level, opp)]);
-    let date = next_game(w).filter(|n| n.opp == opp).map_or(w.today, |n| n.date);
+    // Seeded by what is held: game week's seed for your next opponent, so
+    // both reports agree, and the newest tape's date for anyone else, so
+    // the figures hold from day to day until a new tape comes in.
+    let date = next_game(w)
+        .filter(|n| n.opp == opp)
+        .map(|n| n.date)
+        .or_else(|| tapes.first().map(|t| t.date))
+        .unwrap_or(w.today);
     Some(film::report(
         &tapes,
         opp,

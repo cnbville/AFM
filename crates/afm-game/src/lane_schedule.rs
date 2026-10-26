@@ -234,8 +234,14 @@ fn venue_of(w: &World, level: CalLevel, host: usize, g: &PageGame, year: i32) ->
     if g.neutral {
         let (town, state) = g.site.clone().unwrap_or_default();
         let place = if state.is_empty() { town.clone() } else { format!("{town}, {state}") };
+        // An NFL game away from both teams' homes with a town of its own
+        // is one played abroad; anything else unnamed is a neutral site.
         let name = g.site_stadium.clone().unwrap_or_else(|| {
-            if level == CalLevel::Nfl { "International game".to_string() } else { "Neutral site".to_string() }
+            if level == CalLevel::Nfl && g.site.is_some() && !g.playoff {
+                "International game".to_string()
+            } else {
+                "Neutral site".to_string()
+            }
         });
         return (name, place, 0);
     }
@@ -398,7 +404,7 @@ fn leaders(w: &World, k: usize, team: usize) -> Value {
 /// schedule in May, a college game's 12 days ahead (the networks' six- and
 /// twelve-day picks), weeknights and the first three weeks from June, and
 /// the bowls and playoffs as they are set. High school's are known all year.
-fn announced(w: &World, level: CalLevel, g: &PageGame, first: Option<Date>) -> bool {
+pub(super) fn announced(w: &World, level: CalLevel, g: &PageGame, first: Option<Date>) -> bool {
     if g.score.is_some() || g.won.is_some() || g.date < w.today {
         return true;
     }
@@ -576,8 +582,10 @@ fn totals(p: &SeasonPage, level: CalLevel) -> Value {
         |x: u32| if scored.is_empty() { "-".to_string() } else { format!("{x} <small>{:.1}</small>", x as f64 / n) };
     let margin = pf as i64 - pa as i64;
     // No place before a game is played.
-    let place =
-        p.place.filter(|_| !scored.is_empty()).map_or("-".to_string(), |(a, b)| format!("{} of {b}", ordinal(a)));
+    let place = p
+        .place
+        .filter(|_| all.iter().sum::<u32>() > 0)
+        .map_or("-".to_string(), |(a, b)| format!("{} of {b}", ordinal(a)));
     let league = match level {
         CalLevel::Nfl => "Division",
         CalLevel::HighSchool => "District",
@@ -627,7 +635,7 @@ fn ordinal(n: u32) -> String {
 
 /// The seasons the picker offers: the team's book of seasons, the held
 /// ones and the next one once its schedule is out (B5).
-fn seasons(w: &World, t: TeamRef, level: CalLevel, i: usize) -> Vec<(i32, String)> {
+fn seasons(w: &World, t: TeamRef, level: CalLevel, i: usize, cur: Option<&SeasonPage>) -> Vec<(i32, String)> {
     let mut v: Vec<(i32, String)> = match t {
         TeamRef::College(p) => {
             w.programs[p].seasons.iter().map(|s| (s.year, format!("{}-{}", s.wins, s.losses))).collect()
@@ -644,7 +652,8 @@ fn seasons(w: &World, t: TeamRef, level: CalLevel, i: usize) -> Vec<(i32, String
     for y in [last, this].into_iter().flatten() {
         if !v.iter().any(|x| x.0 == y) {
             // The season under way: its record so far.
-            let rec = sp::page(w, level, i, if Some(y) == this { Held::This } else { Held::Last })
+            let held = if Some(y) == this { cur.cloned() } else { sp::page(w, level, i, Held::Last) };
+            let rec = held
                 .map(|p| {
                     let r = p.games.iter().fold([0u32; 3], |mut r, g| {
                         match (g.score, g.won) {
@@ -670,10 +679,9 @@ fn seasons(w: &World, t: TeamRef, level: CalLevel, i: usize) -> Vec<(i32, String
 /// The season the page opens on: the one under way, else the last one
 /// played until the new season is a month off (February shows last season,
 /// with the next one a click away).
-fn default_season(w: &World, level: CalLevel, i: usize) -> Option<i32> {
+fn default_season(w: &World, level: CalLevel, i: usize, cur: Option<&SeasonPage>) -> Option<i32> {
     let (this, last) = sp::held_years(w, level);
-    let cur = sp::page(w, level, i, Held::This);
-    let started = cur.as_ref().is_some_and(|p| {
+    let started = cur.is_some_and(|p| {
         p.games.iter().any(|g| g.score.is_some() || g.won.is_some())
             || p.games.first().is_some_and(|g| w.today.days_to(g.date) <= 30)
     });
@@ -707,17 +715,19 @@ fn schedule(w: &World, t: TeamRef, want: Option<i32>) -> Value {
         return v;
     };
     let mine = views::is_mine(w, t);
-    let list = seasons(w, t, level, i);
+    // This season's page, built once for the picker, the default and the note.
+    let cur = sp::page(w, level, i, Held::This);
+    let list = seasons(w, t, level, i, cur.as_ref());
     let (this, last) = sp::held_years(w, level);
-    let year = want.or_else(|| default_season(w, level, i)).or_else(|| list.last().map(|x| x.0));
+    let year = want.or_else(|| default_season(w, level, i, cur.as_ref())).or_else(|| list.last().map(|x| x.0));
+    // The next season once its dates are out, and what it opens with.
+    let next_note = next_note(w, t, level, cur.as_ref());
     let page: Option<SeasonPage> = match year {
-        Some(y) if Some(y) == this => sp::page(w, level, i, Held::This),
+        Some(y) if Some(y) == this => cur,
         Some(y) if Some(y) == last => sp::page(w, level, i, Held::Last),
         Some(y) => sp::kept(w, level, i).into_iter().find(|k| k.year == y).cloned(),
         None => None,
     };
-    // The next season once its dates are out, and what it opens with.
-    let next_note = next_note(w, t, level, i);
     let summary = if page.is_none() { year.and_then(|y| summary(w, t, y)) } else { None };
     let mut rows: Vec<Value> = Vec::new();
     let mut strip: Vec<Value> = Vec::new();
@@ -733,11 +743,14 @@ fn schedule(w: &World, t: TeamRef, want: Option<i32>) -> Value {
             && p.year >= w.year;
         let mut rec = [[0u32; 3]; 2];
         let mut byes = p.byes.iter().peekable();
+        // Byes wait for the next game with a score: the strip shows gaps
+        // between games played, never after the last one.
+        let mut pending: Vec<Value> = Vec::new();
         for k in 0..p.games.len() {
             while let Some(&&b) = byes.peek() {
                 if b < p.games[k].date && !nflhide {
                     rows.push(json!({ "kind": "bye", "date": views::date_text(b) }));
-                    strip.push(json!({ "bye": true, "date": views::date_text(b) }));
+                    pending.push(json!({ "bye": true, "date": views::date_text(b) }));
                     byes.next();
                 } else {
                     break;
@@ -755,12 +768,13 @@ fn schedule(w: &World, t: TeamRef, want: Option<i32>) -> Value {
                 && let (Some(us), Some(them)) =
                     (res.get("us").and_then(Value::as_i64), res.get("them").and_then(Value::as_i64))
             {
+                strip.append(&mut pending);
                 strip.push(json!({ "i": k, "margin": us - them, "title": format!("{} {} {}: {} {us}-{them}", r["date"].as_str().unwrap_or(""), r["at"].as_str().unwrap_or(""), r["opp"]["name"].as_str().unwrap_or(""), res.get("wl").and_then(Value::as_str).unwrap_or("")) }));
             }
             rows.push(r);
         }
         totals_v = totals(p, level);
-        sos_v = p.sos.as_ref().map_or(Value::Null, |s| {
+        sos_v = p.sos.as_ref().filter(|s| s.of > 0 && s.wins + s.losses + s.ties > 0).map_or(Value::Null, |s| {
             let n = s.wins + s.losses + s.ties;
             let pct = if n == 0 { 0.0 } else { (s.wins as f64 + 0.5 * s.ties as f64) / n as f64 };
             json!({
@@ -855,10 +869,10 @@ fn summary(w: &World, t: TeamRef, y: i32) -> Option<Value> {
 }
 
 /// The line beside the picker: the next season's dates and opener.
-fn next_note(w: &World, t: TeamRef, level: CalLevel, i: usize) -> String {
+fn next_note(w: &World, t: TeamRef, level: CalLevel, cur: Option<&SeasonPage>) -> String {
     let (this, _) = sp::held_years(w, level);
     let Some(y) = this else { return String::new() };
-    let Some(p) = sp::page(w, level, i, Held::This) else { return String::new() };
+    let Some(p) = cur else { return String::new() };
     if p.games.iter().any(|g| g.score.is_some() || g.won.is_some()) {
         return String::new();
     }

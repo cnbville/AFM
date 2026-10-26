@@ -700,7 +700,13 @@ pub(crate) fn played(w: &mut World, idx: &[usize]) {
         // site's payout, or nothing for a home-and-home.
         let money = crate::world::deals::money(w, year, g, k);
         let (att, sold) = crowd(w, k);
-        w.college.as_mut().unwrap().games[k].attendance = att;
+        let gm = &mut w.college.as_mut().unwrap().games[k];
+        gm.attendance = att;
+        gm.paid = Some(match money {
+            Some(Money::Guarantee(x)) => (1, x as f32),
+            Some(Money::Neutral(x)) => (2, x as f32),
+            None => (0, 0.0),
+        });
         let month = date.month();
         if !neutral && home < w.finance.college.len() {
             let price = w.finance.college[home].price as f64;

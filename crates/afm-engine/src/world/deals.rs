@@ -202,6 +202,14 @@ pub fn money(w: &World, season: i32, g: &Game, k: usize) -> Option<Money> {
     if g.kind != GameKind::Regular || g.conference {
         return None;
     }
+    // A played game keeps what it paid, whatever the conferences are now.
+    if let Some((kind, x)) = g.paid {
+        return match kind {
+            1 => Some(Money::Guarantee(x as f64)),
+            2 => Some(Money::Neutral(x as f64)),
+            _ => None,
+        };
+    }
     if let Some(d) = find(w, season, g.home, g.away) {
         return match d.kind {
             DealKind::OneOff => Some(Money::Guarantee(d.fee as f64)),
@@ -219,13 +227,37 @@ pub fn money(w: &World, season: i32, g: &Game, k: usize) -> Option<Money> {
     })
 }
 
-fn booked(w: &World, p: usize, season: i32) -> u32 {
+/// The non-conference games a program has under contract in a season: the
+/// world's and the ones you booked (a neutral-site booking of yours is a
+/// contract too, counted once).
+pub(crate) fn booked(w: &World, p: usize, season: i32) -> u32 {
     let own = w.deals.iter().filter(|d| d.year == season && (d.home == p || d.away == p)).count();
-    let yours = w.legacy.college.booked.iter().filter(|b| b.year == season && (b.program == p || b.opp == p)).count();
+    let yours = w
+        .legacy
+        .college
+        .booked
+        .iter()
+        .filter(|b| b.year == season && (b.program == p || b.opp == p) && !met(w, b.program, b.opp, season))
+        .count();
     (own + yours) as u32
 }
 
-fn met(w: &World, a: usize, b: usize, season: i32) -> bool {
+/// A date held for your own program: the season four years out stays open
+/// for the athletic director's March call to you (`legacy::college`,
+/// `booking_letter`) until you book it.
+fn held(w: &World, p: usize, season: i32) -> u32 {
+    let yours = matches!(w.seat_team(), Some((crate::calendar::Level::College, q)) if q == p);
+    let asked = w.legacy.college.booked.iter().any(|b| b.program == p && b.year == season);
+    (yours && season == w.year + 4 && !asked) as u32
+}
+
+/// Whether a program still has an open non-conference date in a season.
+pub(crate) fn open(w: &World, p: usize, season: i32) -> bool {
+    booked(w, p, season) + held(w, p, season) < slots(w, p, season)
+}
+
+/// Whether two programs have a contract in a season.
+pub(crate) fn met(w: &World, a: usize, b: usize, season: i32) -> bool {
     w.deals.iter().any(|d| d.year == season && ((d.home == a && d.away == b) || (d.home == b && d.away == a)))
 }
 
@@ -241,6 +273,7 @@ fn fbs_trips(w: &World, q: usize, season: i32) -> u32 {
 pub(crate) fn top_up(w: &mut World) {
     let now = w.year;
     w.deals.retain(|d| d.year >= now - 1);
+    trim(w);
     for y in now + 1..=now + HORIZON {
         let h = y - now;
         let mut order: Vec<usize> =
@@ -253,11 +286,44 @@ pub(crate) fn top_up(w: &mut World) {
                 .then(key(a).total_cmp(&key(b)))
         });
         for p in order {
-            let want = (slots(w, p, y) as f64 * share(h)).round() as u32;
+            let room = slots(w, p, y).saturating_sub(held(w, p, y));
+            let want = ((slots(w, p, y) as f64 * share(h)).round() as u32).min(room);
             let mut tries = 0;
             while booked(w, p, y) < want && tries < 6 {
                 tries += 1;
                 book_one(w, p, y, h, tries);
+            }
+        }
+    }
+}
+
+/// A program whose conference changed since it signed (a move to a league
+/// with more games, or an independent joining one) has fewer open dates:
+/// the newest contracts past them are bought out, both legs of a
+/// home-and-home, as real schools do when they realign.
+fn trim(w: &mut World) {
+    let now = w.year;
+    for y in now + 1..=now + HORIZON + 1 {
+        for p in 0..w.programs.len() {
+            if w.programs[p].division != Division::FBS {
+                continue;
+            }
+            while booked(w, p, y) > slots(w, p, y) {
+                let Some(k) = (0..w.deals.len())
+                    .filter(|&k| w.deals[k].year == y && (w.deals[k].home == p || w.deals[k].away == p))
+                    .max_by_key(|&k| (w.deals[k].signed, k))
+                else {
+                    break;
+                };
+                let d = w.deals.remove(k);
+                if d.kind == DealKind::HomeAndHome {
+                    let other = if d.leg == 1 { d.year + 1 } else { d.year - 1 };
+                    w.deals.retain(|x| {
+                        !(x.kind == DealKind::HomeAndHome
+                            && x.year == other
+                            && ((x.home == d.home && x.away == d.away) || (x.home == d.away && x.away == d.home)))
+                    });
+                }
             }
         }
     }
@@ -317,7 +383,7 @@ const ROAD: u8 = 3;
 fn partner(w: &World, p: usize, y: i32, kind: DealKind, want: u8, seed: u64) -> Option<Vec<Deal>> {
     use super::finance::college::tier;
     let me = &w.programs[p];
-    let open = |q: usize, s: i32| booked(w, q, s) < slots(w, q, s);
+    let free = |q: usize, s: i32| open(w, q, s);
     let mut cands: Vec<(f64, usize)> = w
         .programs
         .iter()
@@ -325,11 +391,17 @@ fn partner(w: &World, p: usize, y: i32, kind: DealKind, want: u8, seed: u64) -> 
         .filter(|q| q.conference != me.conference || independent(&me.conference))
         .filter(|q| match kind {
             DealKind::OneOff if want == 2 => q.division == Division::FCS && fbs_trips(w, q.id, y) == 0,
-            DealKind::OneOff if want == ROAD => q.division == Division::FBS && tier(w, q.id, y) == 0 && open(q.id, y),
-            DealKind::OneOff => q.division == Division::FBS && tier(w, q.id, y) == 1 && open(q.id, y),
-            DealKind::Neutral => q.division == Division::FBS && tier(w, q.id, y) == 0 && open(q.id, y),
+            DealKind::OneOff if want == ROAD => q.division == Division::FBS && tier(w, q.id, y) == 0 && free(q.id, y),
+            DealKind::OneOff => q.division == Division::FBS && tier(w, q.id, y) == 1 && free(q.id, y),
+            DealKind::Neutral => q.division == Division::FBS && tier(w, q.id, y) == 0 && free(q.id, y),
+            // Both legs need both programs' dates (the second a season on).
             DealKind::HomeAndHome => {
-                q.division == Division::FBS && tier(w, q.id, y) == want && open(q.id, y) && open(q.id, y + 1)
+                q.division == Division::FBS
+                    && tier(w, q.id, y) == want
+                    && free(q.id, y)
+                    && free(q.id, y + 1)
+                    && free(p, y + 1)
+                    && !met(w, p, q.id, y + 1)
             }
         })
         .filter(|q| !met(w, p, q.id, y) && !met(w, p, q.id, y - 1) && !rivals(w, p, q.id))
@@ -347,19 +419,18 @@ fn partner(w: &World, p: usize, y: i32, kind: DealKind, want: u8, seed: u64) -> 
         .collect();
     cands.sort_by(|a, b| a.0.total_cmp(&b.0));
     let &(_, q) = cands.first()?;
+    // A contract fixes its sum when it is signed: the going rate that year.
     let signed = w.year;
     let noise = key_uniform(seed ^ 0xFEE, (q as u64) << 20 ^ p as u64);
     Some(match kind {
         DealKind::OneOff => {
             let (home, away) = if want == ROAD { (q, p) } else { (p, q) };
-            let fee = super::finance::data::guarantee(tier(w, home, y), tier(w, away, y), y) * (0.8 + 0.5 * noise);
+            let fee = super::finance::data::guarantee(tier(w, home, signed), tier(w, away, signed), signed)
+                * (0.8 + 0.5 * noise);
             vec![Deal { year: y, home, away, kind, leg: 0, signed, fee: round_fee(fee), site: None }]
         }
         DealKind::Neutral => {
-            let sites: Vec<usize> = (0..SITES.len()).filter(|&k| SITES[k].first <= y).collect();
-            let site = sites[(noise * sites.len() as f64) as usize % sites.len()];
-            let fee = neutral_payout(y) * (0.85 + 0.3 * noise);
-            vec![Deal { year: y, home: p, away: q, kind, leg: 0, signed, fee: round_fee(fee), site: Some(site as u8) }]
+            vec![neutral(p, q, y, signed, noise)]
         }
         DealKind::HomeAndHome => {
             // Who hosts first: a coin flip.
@@ -370,6 +441,16 @@ fn partner(w: &World, p: usize, y: i32, kind: DealKind, want: u8, seed: u64) -> 
             ]
         }
     })
+}
+
+/// A neutral-site kickoff game signed in `signed` for season `y`: one of
+/// the sites hosting by then, each side paid the going rate the year it
+/// was signed.
+pub(crate) fn neutral(home: usize, away: usize, y: i32, signed: i32, noise: f64) -> Deal {
+    let sites: Vec<usize> = (0..SITES.len()).filter(|&k| SITES[k].first <= y).collect();
+    let site = sites[(noise * sites.len() as f64) as usize % sites.len()];
+    let fee = neutral_payout(signed) * (0.85 + 0.3 * noise);
+    Deal { year: y, home, away, kind: DealKind::Neutral, leg: 0, signed, fee: round_fee(fee), site: Some(site as u8) }
 }
 
 /// Contracts name round sums: to $5,000.
@@ -404,14 +485,22 @@ mod tests {
         // Next season nearly full, ten years out about a quarter.
         let (near, far) = (full(w.year + 1), full(w.year + HORIZON));
         assert!(near > 0.75 && far < 0.5 && near > far, "{near} {far}");
-        // No program is booked past its open dates (a home-and-home's
-        // second leg may land one season past the books).
+        // No program is booked past its open dates, a home-and-home's
+        // second leg included, and no pairing twice in a season.
         for &p in &fbs {
-            for y in w.year + 1..=w.year + HORIZON {
-                assert!(booked(&w, p, y) <= slots(&w, p, y) + 1, "{} {y}", w.programs[p].real_name);
+            for y in w.year + 1..=w.year + HORIZON + 1 {
+                assert!(booked(&w, p, y) <= slots(&w, p, y), "{} {y}", w.programs[p].real_name);
+                let mut opps: Vec<usize> = for_season(&w, y)
+                    .filter(|d| d.home == p || d.away == p)
+                    .map(|d| if d.home == p { d.away } else { d.home })
+                    .collect();
+                let n = opps.len();
+                opps.sort();
+                opps.dedup();
+                assert_eq!(opps.len(), n, "{} meets a team twice in {y}", w.programs[p].real_name);
             }
         }
-        // Buy games carry the going rate in their year: an FCS visitor about
+        // Buy games carry the going rate the year they are signed: an FCS visitor about
         // $400K-700K at a Power 4 host in the 2020s, a Group of 5 visitor
         // about $1-2M, less at a Group of 5 host.
         use crate::world::finance::college::tier;
@@ -421,7 +510,7 @@ mod tests {
         assert!((250_000.0..450_000.0).contains(&guarantee(1, 2, 2024)));
         let mut road = 0;
         for d in w.deals.iter().filter(|d| d.kind == DealKind::OneOff) {
-            let rate = guarantee(tier(&w, d.home, d.year), tier(&w, d.away, d.year), d.year);
+            let rate = guarantee(tier(&w, d.home, d.signed), tier(&w, d.away, d.signed), d.signed);
             let fee = d.fee as f64;
             assert!(fee >= 0.8 * rate - 5_000.0 && fee <= 1.3 * rate + 5_000.0, "{fee} against {rate}");
             assert!(tier(&w, d.home, d.year) < tier(&w, d.away, d.year), "the bigger program hosts");
