@@ -32,7 +32,7 @@ fn picks_of(w: &World, b: Board) -> Vec<u32> {
     w.plans.depth.iter().find(|(x, _)| *x == b).map(|(_, v)| v.clone()).unwrap_or_default()
 }
 
-pub(super) fn view(w: &World, a: &Value) -> Reply {
+pub(crate) fn view(w: &World, a: &Value) -> Reply {
     let s = seat(w)?;
     let reader = reader_key(w);
     let bj = boards(w, &json!({}))?;

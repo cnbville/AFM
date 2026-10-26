@@ -415,7 +415,7 @@ fn teaching_words(t: f64) -> &'static str {
 /// Who teaches a player (topic 6): his position coach, else the
 /// coordinator, else the head coach; at a high school the head coach or
 /// the assistant on his group.
-fn teacher(w: &World, t: TeamRef, i: usize) -> Value {
+pub(crate) fn teacher(w: &World, t: TeamRef, i: usize) -> Value {
     let p = &w.people[i];
     let g = afm_engine::world::coach::Group::of(p.player.position);
     let (coach, title) = match t {
@@ -1770,7 +1770,7 @@ fn design_delete(w: &mut World, args: &Value) -> Result<(), String> {
 
 // ---------- the squad (six views) ----------
 
-fn squad(w: &World) -> Reply {
+pub(crate) fn squad(w: &World) -> Reply {
     let (t, st) = team_of(w)?;
     let reader = reader_key(w);
     let roles = ts::roles(w, &st);
@@ -2235,7 +2235,7 @@ fn proposal(
         .collect()
 }
 
-fn board_set(w: &mut World, args: &Value) -> Result<Option<String>, String> {
+pub(crate) fn board_set(w: &mut World, args: &Value) -> Result<Option<String>, String> {
     let key = args.get("board").and_then(Value::as_str).ok_or("Missing board.")?;
     let ids: Vec<Option<u32>> = args
         .get("ids")

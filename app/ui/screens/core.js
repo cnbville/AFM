@@ -1309,7 +1309,7 @@ screens.player = async (a) => {
   const names = list.map((t) => (typeof t === "string" ? t : t.name));
   const tab = tabOf("ptab", names, a);
   const extra = PLAYER_TABS.find((t) => t.name === tab);
-  const body = extra ? await extra.draw(p) : PT[tab](p);
+  const body = extra ? await extra.draw(p) : await PT[tab](p);
   const posHist = (p.positions || []).map(([age, pos]) => `${pos} from age ${age}`).join(" · ");
   const lr = p.level_rating ? `<span class="lvlpill" title="His staff-read rating against everyone at his level">${esc(p.level_rating)}</span>` : "";
   const listBtn = p.listed
