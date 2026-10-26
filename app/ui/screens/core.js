@@ -779,25 +779,30 @@ async function showLetter(id, list) {
   if (list) MAIL.list = list;
   MAIL.at = MAIL.list.indexOf(String(id));
   peekHide();
+  // The letter is read before the room opens: an empty room showed its
+  // blank paper stack over the inbox until the letter came (minor bug 1).
+  const ask = (MAIL.ask = String(id));
+  let m;
+  try { m = await api("letter", { id: String(id) }); } catch (e) { toast(e.message); closeLetter(); return; }
+  if (MAIL.ask !== ask) return;
+  MAIL.cur = m;
   let room = document.querySelector(".letter-room");
   const fresh = !room;
   if (!room) {
     room = document.createElement("div");
     room.className = "letter-room";
     room.innerHTML = `<div class="lt-stage"><div class="lt-stack"><i></i><i></i><i></i></div><div class="lt-sheet"></div></div><div class="lt-aside"></div><button class="lt-close st-icon-btn" data-act="letterclose" aria-label="Close">×</button>`;
+  }
+  const sheet = room.querySelector(".lt-sheet");
+  sheet.classList.remove("rise", "turn");
+  void sheet.offsetWidth;
+  sheet.innerHTML = letterHtml(m);
+  sheet.classList.add(fresh ? "rise" : "turn");
+  room.querySelector(".lt-aside").innerHTML = letterSide(m);
+  if (fresh) {
     document.body.appendChild(room);
     document.documentElement.classList.add("reading");
   }
-  let m;
-  try { m = await api("letter", { id: String(id) }); } catch (e) { toast(e.message); closeLetter(); return; }
-  MAIL.cur = m;
-  const sheet = room.querySelector(".lt-sheet");
-  sheet.classList.remove("rise");
-  void sheet.offsetWidth;
-  sheet.innerHTML = letterHtml(m);
-  sheet.classList.add("rise");
-  if (!fresh) sheet.classList.add("turn");
-  room.querySelector(".lt-aside").innerHTML = letterSide(m);
   room.querySelector(".lt-stage").scrollTop = 0;
   if (S.status) { S.status.unread = m.unread; badge(); }
   const row = document.querySelector(`.mrow[data-id="${id}"]`);
