@@ -654,12 +654,19 @@ pub fn trip_day(w: &World, id: u32, kind: TripKind) -> Result<Date, String> {
             Ok(sat)
         }
         (Staff::Club(_), TripKind::ProDay) => {
+            if !matches!(p.stage, Stage::College | Stage::Declared) {
+                return Err("Pro days are for this year's draft prospects.".into());
+            }
             let c = p.college.ok_or("He has no school to hold a pro day.")?;
             let d = w
                 .nfl_season
                 .as_ref()
                 .and_then(|s| s.pro_days.iter().find(|x| x.0 == c).map(|x| x.1))
                 .ok_or("His school's pro day isn't set yet: they are set for March and April.")?;
+            // Last spring's dates stand until the new ones are set.
+            if d < today && d.year() < super::public::draft_year(w) {
+                return Err("His school's pro day isn't set yet: they are set for March and April.".into());
+            }
             if d < today {
                 return Err("His school's pro day has been held.".into());
             }
@@ -1128,7 +1135,8 @@ pub struct Item {
     pub id: u32,
     pub name: String,
     pub pos: Position,
-    /// The man who presented him (reader code) and his conviction (1-20).
+    /// The man who presented him (reader code) and his conviction (1-20;
+    /// 0 when his staff keeps none).
     pub by: u32,
     pub by_name: String,
     pub conviction: u8,
@@ -1294,8 +1302,8 @@ fn hold_meeting(w: &mut World, d: Date, kind: &str) {
         let codes = readers::evidence(w, staff, id).2;
         let code = |r: usize| codes.get(r).copied().unwrap_or(0);
         let conviction = match staff {
-            Staff::Club(t) => w.clubs[t].scouts.get(code(by.0) as usize).map_or(10, |s| s.conviction),
-            _ => 10,
+            Staff::Club(t) => w.clubs[t].scouts.get(code(by.0) as usize).map_or(0, |s| s.conviction),
+            _ => 0,
         };
         let range =
             |c: f64, sd: f64| (((c - sd).floor()).clamp(1.0, 99.0) as u8, ((c + sd).ceil()).clamp(1.0, 99.0) as u8);
@@ -1313,9 +1321,15 @@ fn hold_meeting(w: &mut World, d: Date, kind: &str) {
             low: (code(lo.0), rds[lo.0].name.clone(), ll, lh),
             settled: 0,
         });
-        if items.len() >= 12 {
+        // An NFL room goes down its board; a college staff's board isn't
+        // ranked, so it takes the twelve it's highest on.
+        if matches!(staff, Staff::Club(_)) && items.len() >= 12 {
             break;
         }
+    }
+    if !matches!(staff, Staff::Club(_)) {
+        items.sort_by(|a, b| (b.high.3, b.high.2, a.id).cmp(&(a.high.3, a.high.2, b.id)));
+        items.truncate(12);
     }
     let n = items.len();
     w.scouting.own.meetings.push(Meeting { date: d, kind: kind.to_string(), items });
@@ -1323,7 +1337,8 @@ fn hold_meeting(w: &mut World, d: Date, kind: &str) {
         w.scouting.own.meetings.remove(0);
     }
     let text = if n > 0 {
-        format!("{kind}: your room splits on {n} players. Settle them on the board meeting page.")
+        let who = if n == 1 { "one player".to_string() } else { format!("{n} players") };
+        format!("{kind}: your room splits on {who}. Settle them under Evaluation, Meetings.")
     } else {
         format!("{kind}: your room agrees on the top of the board.")
     };
@@ -1950,6 +1965,11 @@ pub struct AthleteTalk {
     pub yes: bool,
     /// The player he became, if he said yes.
     pub id: Option<u32>,
+    /// His name and his sport, for a boy who stayed with it.
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub sport: String,
 }
 
 /// The athletes your staff has spotted this year (SK22): each school has a
@@ -2050,12 +2070,14 @@ pub fn recruit_athlete(w: &mut World, key: u64) -> Result<String, String> {
     let yes = key_uniform(key ^ 0x5A7, w.dates.season as u64) < yes_chance(&a, rel, w.dates.season);
     let d = w.today;
     if !yes {
-        w.scouting.own.athletes.push(AthleteTalk { key, date: d, yes: false, id: None });
+        let (name, sport) = (a.name.clone(), SPORTS[a.sport].0.to_string());
+        w.scouting.own.athletes.push(AthleteTalk { key, date: d, yes: false, id: None, name, sport });
         return Ok(format!("{} thanks you and sticks with {}.", a.name, SPORTS[a.sport].0.to_lowercase()));
     }
     let i = w.add_athlete(h, &a.name, a.ethnicity, a.class_of, key, a.pos, SPORTS[a.sport].2, (a.truth - 10.0) / 3.0);
     let id = w.people[i].player.id;
-    w.scouting.own.athletes.push(AthleteTalk { key, date: d, yes: true, id: Some(id) });
+    let (name, sport) = (a.name.clone(), SPORTS[a.sport].0.to_string());
+    w.scouting.own.athletes.push(AthleteTalk { key, date: d, yes: true, id: Some(id), name, sport });
     Ok(format!("{} comes out for football: he starts at {}.", a.name, a.pos.name()))
 }
 

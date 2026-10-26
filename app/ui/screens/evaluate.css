@@ -49,9 +49,18 @@ td.ev-dim, span.ev-dim { margin: 0; }
 .ev-tbl tbody tr:hover td { background: var(--sl-hover); }
 .ev-tbl tbody tr:last-child td { border-bottom: 0; }
 .ev-tbl .num { text-align: right; white-space: nowrap; }
+/* The app's .tbl sets right-aligned, unbroken cells on a warm zebra and a
+   sticky warm head; Press Box tables read left, wrap, and stay flat. */
+.ev .ev-tbl thead th { position: static; background: transparent; text-align: left; cursor: default; padding: 6px 8px; border-bottom: 1px solid var(--hair); }
+.ev .ev-tbl td { text-align: left; white-space: normal; padding: 8px; border-bottom: 1px solid var(--sl-line); }
+.ev .ev-tbl tbody tr:nth-child(even) td { background: transparent; }
+.ev .ev-tbl tbody tr:hover td { background: var(--sl-hover); }
+.ev .ev-tbl thead th.num, .ev .ev-tbl td.num { text-align: right; white-space: nowrap; }
+.ev .ev-tbl td.ev-date { width: 140px; white-space: nowrap; color: var(--sl-dim); }
 .ev-name b { display: block; }
 .ev-name small { color: var(--sl-dim); font-size: 11.5px; }
 .ev-tbl td small { font-size: 11.5px; }
+.ev-tbl td small.ev-line { display: block; margin-top: 2px; }
 
 /* ---------- controls ---------- */
 .ev-btn { height: 28px; padding: 0 11px; border-radius: 9px; border: 0; background: var(--sl-chip); color: var(--fg2); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
@@ -60,6 +69,7 @@ td.ev-dim, span.ev-dim { margin: 0; }
 .ev-btn.pri { background: var(--fg); color: var(--bg, #08090c); }
 .ev-btn:focus-visible { outline: 1px solid var(--sl-gold-ring); outline-offset: 2px; }
 .ev-seg { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.ev-card > .ev-seg { margin: 6px 0 8px; }
 .ev-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
 .ev-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
 .ev-form select, .ev-form input[type="number"], .ev-topics input { height: 30px; border-radius: 9px; border: 1px solid var(--hair); background: var(--sl-soft); color: var(--fg); font: inherit; font-size: 12.5px; padding: 0 8px; }

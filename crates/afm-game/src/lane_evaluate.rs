@@ -185,10 +185,11 @@ fn seat_word(staff: Staff) -> &'static str {
 fn home(w: &World) -> Value {
     let Some(staff) = readers::seat_staff(w) else { return json!({ "seat": Value::Null }) };
     let o = &w.scouting.own;
-    let trips: Vec<Value> = o
-        .trips
-        .iter()
-        .rev()
+    // The latest first: planned days ahead, then the ones done.
+    let mut by_day: Vec<_> = o.trips.iter().collect();
+    by_day.sort_by_key(|t| std::cmp::Reverse(t.date.0));
+    let trips: Vec<Value> = by_day
+        .into_iter()
         .take(24)
         .filter_map(|t| {
             let i = sc::place(w, t.id)?;
@@ -229,7 +230,7 @@ fn home(w: &World) -> Value {
                 .iter()
                 .map(|it| {
                     json!({
-                        "id": it.id, "name": it.name, "pos": it.pos.name(), "by": it.by_name, "conviction": it.conviction,
+                        "id": it.id, "name": it.name, "pos": it.pos.name(), "by": it.by_name, "manner": manner_words(it.conviction),
                         "high": { "name": it.high.1, "read": [it.high.2, it.high.3] },
                         "low": { "name": it.low.1, "read": [it.low.2, it.low.3] },
                         "settled": it.settled,
@@ -264,21 +265,38 @@ fn home(w: &World) -> Value {
     out
 }
 
+/// How a presenter stands by his read, in words a room learns (an NFL
+/// scout's conviction; a college staff's people have none recorded).
+fn manner_words(conviction: u8) -> &'static str {
+    match conviction {
+        0 => "",
+        15.. => "pounds the table",
+        1..=6 => "hedges",
+        _ => "",
+    }
+}
+
 fn scout_row(w: &World, s: &Scout, place: Option<usize>) -> Value {
     let areas = w
         .seat
         .and_then(|x| x.nfl_team)
         .and_then(|t| w.clubs.get(t))
         .map_or(1, |c| c.scouts.iter().filter(|s| s.role == Role::Area).count().max(1));
-    let area = (s.role == Role::Area).then(|| {
-        (0..8u8)
-            .filter(|r| (*r as usize) % areas == s.region as usize)
+    // His regions on your staff; a man on the market has none yet.
+    let area = (s.role == Role::Area && place.is_some()).then(|| {
+        afm_engine::world::pro::scouts::covers(s.region, areas)
+            .into_iter()
             .map(|r| crate::lane_scouting::REGION_NAMES[r as usize])
             .collect::<Vec<_>>()
             .join(", ")
     });
-    let clubs: Vec<String> =
-        s.clubs.iter().filter_map(|&c| w.nfl.get(c as usize).map(|t| t.name.to_string())).collect();
+    let clubs: Vec<Value> = s
+        .clubs
+        .iter()
+        .filter_map(|&c| {
+            w.nfl.get(c as usize).map(|t| json!({ "name": t.name.to_string(), "ref": { "kind": "nfl", "id": c } }))
+        })
+        .collect();
     json!({
         "place": place,
         "name": s.name,
@@ -396,11 +414,11 @@ fn college_desk(w: &World, c: usize) -> Value {
     let market: Vec<Value> = own::personnel_market(w)
         .into_iter()
         .map(|h| {
-            let past: Vec<String> = h
+            let past: Vec<Value> = h
                 .past
                 .iter()
                 .filter(|&&q| (q as usize) < w.programs.len())
-                .map(|&q| w.program_name(q as usize).to_string())
+                .map(|&q| json!({ "name": w.program_name(q as usize).to_string(), "ref": { "kind": "college", "id": q } }))
                 .collect();
             json!({
                 "key": h.key, "name": h.name, "job": own::PERSONNEL_JOBS[h.job as usize % own::PERSONNEL_JOBS.len()],
@@ -426,9 +444,8 @@ fn college_desk(w: &World, c: usize) -> Value {
                 e.0 += 1;
                 e.2.push(t as u8);
             }
-            e.1 +=
-                recent.iter().filter(|l| matches!(l.kind, LookKind::Coach | LookKind::Director | LookKind::Gm)).count()
-                    as u32;
+            // A club that sent its head coach, a coordinator or its GM.
+            e.1 += recent.iter().any(|l| matches!(l.kind, LookKind::Coach | LookKind::Gm)) as u32;
         }
     }
     let mut campus: Vec<(u32, u32, u32)> = traffic.iter().map(|(&id, x)| (id, x.0, x.1)).collect();
@@ -462,7 +479,7 @@ fn college_desk(w: &World, c: usize) -> Value {
     let pro_day = w.scouting.pro_days.iter().rev().find(|x| x.program == id).map(|x| {
         json!({
             "year": x.year, "clubs": x.clubs, "heads": x.heads, "tested": x.tested,
-            "head_clubs": x.head_clubs.iter().filter_map(|&t| w.nfl.get(t as usize).map(|n| n.name.to_string())).collect::<Vec<_>>(),
+            "head_clubs": x.head_clubs.iter().filter_map(|&t| w.nfl.get(t as usize).map(|n| json!({ "name": n.name.to_string(), "ref": { "kind": "nfl", "id": t } }))).collect::<Vec<_>>(),
             "players": x.players.iter().filter_map(|&p| sc::place(w, p).map(|i| person_row(w, i))).collect::<Vec<_>>(),
         })
     });
@@ -490,7 +507,8 @@ fn college_desk(w: &World, c: usize) -> Value {
                 _ => "Not drafted".to_string(),
             }));
             row["talk"] = json!(own::talk_of(w, p.player.id));
-            row["score"] = json!(r.score);
+            // Sorted by the word he has (the round), never the hidden score.
+            row["score"] = json!(-(r.round as f64));
             row
         })
         .collect();
@@ -534,7 +552,7 @@ fn hs_desk(w: &World, _h: usize) -> Value {
         .take(12)
         .map(|t| {
             let who = t.id.and_then(|id| sc::place(w, id)).map(|i| person_row(w, i));
-            json!({ "date": date_text(t.date), "yes": t.yes, "player": who })
+            json!({ "date": date_text(t.date), "yes": t.yes, "player": who, "name": t.name, "sport": t.sport })
         })
         .collect();
     json!({ "athletes": athletes, "talks": talks })

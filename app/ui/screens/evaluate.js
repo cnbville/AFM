@@ -37,9 +37,9 @@ const evRec = (r) => {
   const miss = r.missed != null ? [`${r.missed} missed`] : [r.high ? `${r.high} too high` : "", r.low ? `${r.low} too low` : ""];
   return `<span class="ev-rec"><b>${r.held}</b> of ${r.n} held${miss.filter(Boolean).map((m) => ` · ${m}`).join("")}</span>`;
 };
-// A staff range as a soft band on the 40-99 scale.
-const evBand = (lo, hi, cls = "") => {
-  const x = (v) => Math.max(0, Math.min(100, ((v - 40) / 59) * 100));
+// A staff range as a soft band on the 40-99 scale (or another).
+const evBand = (lo, hi, cls = "", min = 40, max = 99) => {
+  const x = (v) => Math.max(0, Math.min(100, ((v - min) / (max - min)) * 100));
   return `<span class="ev-band ${cls}" title="${lo}-${hi}"><i style="left:${x(lo)}%;width:${Math.max(2, x(hi) - x(lo))}%"></i><b>${lo}-${hi}</b></span>`;
 };
 
@@ -80,7 +80,7 @@ function evTops(x) {
 function evScoutRow(s, extra) {
   return `<tr><td class="ev-name"><b>${esc(s.name)}</b><small>${esc(s.job)}${s.area ? ` · ${esc(s.area)}` : ""}</small></td>
     <td class="num">${s.age}</td><td>${s.contacts ? esc(s.contacts) : '<span class="ev-dim">—</span>'}</td>
-    <td>${evRec(s.record)}${s.before ? `<small class="ev-dim">${esc(s.before)}</small>` : ""}</td><td class="num">${esc(s.pay)}${s.underpaid ? ' <span class="ev-amber" title="The market pays him more">under market</span>' : ""}</td>
+    <td>${evRec(s.record)}${s.before ? `<small class="ev-dim ev-line">${esc(s.before)}</small>` : ""}</td><td class="num">${esc(s.pay)}${s.underpaid ? ' <span class="ev-amber" title="The market pays him more">under market</span>' : ""}</td>
     <td class="num ev-dim">${esc(s.market)}</td>${extra || ""}</tr>`;
 }
 function evScouts(x) {
@@ -97,7 +97,7 @@ function evScouts(x) {
     review = evCard("Your scouts", `<p class="ev-dim">The May review opens after the draft, when scouting contracts end.</p><table class="tbl ev-tbl">${head}</tr></thead><tbody>${n.staff.map((s) => evScoutRow(s)).join("")}</tbody></table>`, "wide");
   }
   const market = n.market.length
-    ? `<table class="tbl ev-tbl">${head}<th>Clubs</th><th></th></tr></thead><tbody>${n.market.map((s) => evScoutRow(s, `<td class="ev-dim">${esc((s.clubs || []).slice(-2).join(", ") || "—")}</td><td>${n.review ? evLk("evsign", { k: s.k }, "Sign") : ""}</td>`)).join("")}</tbody></table>`
+    ? `<table class="tbl ev-tbl">${head}<th>Clubs</th><th></th></tr></thead><tbody>${n.market.map((s) => evScoutRow(s, `<td class="ev-dim">${(s.clubs || []).slice(-2).map((t) => teamLink(t)).join(", ") || "—"}</td><td>${n.review ? evLk("evsign", { k: s.k }, "Sign") : ""}</td>`)).join("")}</tbody></table>`
     : evEmpty("Nobody is out of work just now.");
   return `${review}${evCard(`The scout market · ${n.market.length} out of work`, market, "wide")}`;
 }
@@ -116,22 +116,24 @@ function evService(x) {
 // ---------- every seat: days out, meetings, minimums ----------
 function evTrips(x) {
   if (!x.trips.length) return evCard("Your days out", evEmpty("No trips yet. Open a player's scouting file and pick a day under \"Your look\"."), "wide");
-  const rows = x.trips.map((t) => `<tr><td class="num">${esc(t.date)}</td><td>${evFileLink(t.player)} <small class="ev-dim">${esc(t.player.pos)} · ${esc(t.player.class)}</small></td>
+  const rows = x.trips.map((t) => `<tr><td class="ev-date">${esc(t.date)}</td><td>${evFileLink(t.player)} <small class="ev-dim">${esc(t.player.pos)} · ${esc(t.player.class)}</small></td>
     <td>${esc(t.kind)}</td><td>${t.sent ? `Sent ${esc(t.sent)}` : "You"}</td>
     <td>${t.done ? (t.seen ? '<span class="ev-amber">Seen: the press reported it</span>' : '<span class="ev-dim">Not noticed</span>') : '<span class="ev-gold">Planned</span>'}</td></tr>`).join("");
-  return evCard("Your days out", `<p class="ev-dim">A head coach or GM turning up is news, so the interest leaks; a man you send isn't.</p><table class="tbl ev-tbl"><thead><tr><th class="num">Date</th><th>Player</th><th>Trip</th><th>Who went</th><th>Seen</th></tr></thead><tbody>${rows}</tbody></table>`, "wide");
+  return evCard("Your days out", `<p class="ev-dim">A head coach or GM turning up is news, so the interest leaks; a man you send isn't.</p><table class="tbl ev-tbl"><thead><tr><th>Date</th><th>Player</th><th>Trip</th><th>Who went</th><th>Seen</th></tr></thead><tbody>${rows}</tbody></table>`, "wide");
 }
 
 function evMeetings(x) {
+  // Reads on the file's own scale: prospects sit on 40-99, recruits lower.
+  const dom = x.seat === "nfl" ? [40, 99] : [1, 99];
   const rec = x.meeting_record.length
     ? `<table class="tbl ev-tbl"><thead><tr><th>Who</th><th class="num">Right</th><th class="num">Wrong</th></tr></thead><tbody>${x.meeting_record.map((r) => `<tr><td>${esc(r.name)}</td><td class="num">${r.right}</td><td class="num">${r.wrong}</td></tr>`).join("")}</tbody></table>`
     : evEmpty("Each meeting's calls are judged once the class has its look-back.");
   const ms = x.meetings.length
     ? x.meetings.map((m) => evCard(`${m.kind} · ${m.date}`, m.items.length ? `<table class="tbl ev-tbl ev-meet"><thead><tr><th>Player</th><th>Presented by</th><th>High man</th><th>Low man</th><th>Your call</th></tr></thead><tbody>${m.items.map((it) => `<tr>
         <td><a class="link name" data-go="scout" data-id="${it.id}">${esc(it.name)}</a> <small class="ev-dim">${esc(it.pos)}</small></td>
-        <td>${esc(it.by)} <small class="ev-dim">conviction ${it.conviction}</small></td>
-        <td><small>${esc(it.high.name)}</small>${evBand(it.high.read[0], it.high.read[1], "hi")}</td>
-        <td><small>${esc(it.low.name)}</small>${evBand(it.low.read[0], it.low.read[1], "lo")}</td>
+        <td>${esc(it.by)}${it.manner ? ` <small class="ev-dim">${esc(it.manner)}</small>` : ""}</td>
+        <td><small>${esc(it.high.name)}</small>${evBand(it.high.read[0], it.high.read[1], "hi", ...dom)}</td>
+        <td><small>${esc(it.low.name)}</small>${evBand(it.low.read[0], it.low.read[1], "lo", ...dom)}</td>
         <td><div class="ev-seg">${[[1, "High"], [3, "Between"], [2, "Low"]].map(([v, t]) => evLk("evsettle", { meeting: m.index, id: it.id, side: v }, t, it.settled === v ? "on" : "")).join("")}</div></td></tr>`).join("")}</tbody></table>` : evEmpty("Your room agreed on everyone."), "wide")).join("")
     : evCard("Board meetings", evEmpty(x.seat === "nfl" ? "The room meets after the all-star games in February and for April's final stack." : "Your staff meets June 1, August 1 and December 1."), "wide");
   return `${ms}${evCard("Who was right in the room", rec)}`;
@@ -155,7 +157,7 @@ function evPersonnel(x) {
     ? `<table class="tbl ev-tbl"><thead><tr><th>Name</th><th>Job</th><th class="num">Since</th><th></th></tr></thead><tbody>${c.personnel.map((p) => `<tr><td><b>${esc(p.name)}</b></td><td>${esc(p.job)}</td><td class="num">${p.since}</td><td>${evLk("evletgo", { post: p.post }, "Let go")}</td></tr>`).join("")}</tbody></table>`
     : evEmpty("No personnel staff yet.");
   const market = c.personnel_market.length
-    ? `<table class="tbl ev-tbl"><thead><tr><th>Name</th><th>Job</th><th class="num">Age</th><th>Programs</th><th>Look-backs</th><th></th></tr></thead><tbody>${c.personnel_market.map((h) => `<tr><td><b>${esc(h.name)}</b></td><td>${esc(h.job)}</td><td class="num">${h.age}</td><td class="ev-dim">${esc(h.past.join(", ") || "—")}</td><td>${evRec(h.record)}</td><td>${evLk("evhire", { key: h.key }, "Hire")}</td></tr>`).join("")}</tbody></table>`
+    ? `<table class="tbl ev-tbl"><thead><tr><th>Name</th><th>Job</th><th class="num">Age</th><th>Programs</th><th>Look-backs</th><th></th></tr></thead><tbody>${c.personnel_market.map((h) => `<tr><td><b>${esc(h.name)}</b></td><td>${esc(h.job)}</td><td class="num">${h.age}</td><td class="ev-dim">${h.past.map((t) => teamLink(t)).join(", ") || "—"}</td><td>${evRec(h.record)}</td><td>${evLk("evhire", { key: h.key }, "Hire")}</td></tr>`).join("")}</tbody></table>`
     : evEmpty("Nobody is looking this year.");
   return `${evCard("Your personnel staff", `<p class="ev-dim">They evaluate film and work on campus; only the on-field coaches go out.</p>${staff}`, "wide")}${evCard("Personnel people looking for work", market, "wide")}`;
 }
@@ -165,7 +167,7 @@ function evCampus(x) {
   const open = [[0, "Closed"], [1, "Open practice"], [2, "Practice and the film room"]].map(([v, t]) => evLk("evopen", { level: v }, t, c.openness === v ? "on" : "")).join("");
   const rows = c.campus.map((p) => `<tr><td>${evFileLink(p)} <small class="ev-dim">${esc(p.pos)} · ${esc(p.class)}</small></td><td class="num">${p.clubs}</td><td class="num">${p.heads}</td>
     <td>${p.words.length ? p.words.map((w) => `${esc(w.club)}: ${["worth a look", "can play", "a sure thing"][w.strength]}${w.held === true ? " ✓" : w.held === false ? ' <span class="ev-amber">✗</span>' : ""}`).join("; ") : '<span class="ev-dim">—</span>'}</td></tr>`).join("");
-  const clubs = c.clubs.slice().sort((a, b) => b.cred - a.cred).map((k) => `<tr><td>${esc(k.name)}</td><td><span class="ev-meter"><i style="width:${k.cred}%"></i></span></td><td class="${k.cred < 25 ? "ev-amber" : ""}">${esc(k.words)}</td></tr>`).join("");
+  const clubs = c.clubs.slice().sort((a, b) => b.cred - a.cred).map((k) => `<tr><td>${teamLink({ name: k.name, ref: { kind: "nfl", id: k.club } })}</td><td><span class="ev-meter"><i style="width:${k.cred}%"></i></span></td><td class="${k.cred < 25 ? "ev-amber" : ""}">${esc(k.words)}</td></tr>`).join("");
   return `<div class="ev-grid">
     ${evCard("NFL scouts on your campus this year", `<div class="ev-seg">${open}</div><p class="ev-dim">Closed practice hides more from them; the film room shows more. Their traffic shows your players' stock.</p>${rows ? `<table class="tbl ev-tbl"><thead><tr><th>Player</th><th class="num">Clubs</th><th class="num">Head men</th><th>Your word</th></tr></thead><tbody>${rows}</tbody></table>` : evEmpty("No NFL club has been through this fall yet.")}`, "wide")}
     ${evCard("Each club's credit for your word", `<p class="ev-dim">Your word on a player is settled after his draft: it builds your credit with that club or burns it.</p><table class="tbl ev-tbl"><tbody>${clubs}</tbody></table>`)}
@@ -176,8 +178,8 @@ function evProDay(x) {
   const d = x.college.pro_day;
   if (!d) return evCard("Your pro day", evEmpty("Your pro day is held in March or April once your seniors and early entrants are declared."), "wide");
   return evCard(`Your pro day · ${d.year}`, `<div class="ev-stats"><div><b>${d.clubs}</b><small>clubs sent a scout</small></div><div><b>${d.heads}</b><small>sent a head coach, coordinator or GM</small></div><div><b>${d.tested}</b><small>players worked out</small></div></div>
-    ${d.head_clubs.length ? `<p><span class="st-label">Head men from</span> ${d.head_clubs.map(esc).join(", ")}</p>` : ""}
-    ${d.players.length ? `<table class="tbl ev-tbl"><tbody>${d.players.map((p) => `<tr><td>${evFileLink(p)}</td><td>${esc(p.pos)}</td><td class="ev-dim">${esc(p.class)}</td></tr>`).join("")}</tbody></table>` : ""}
+    ${d.head_clubs.length ? `<p><span class="st-label">Head men from</span> ${d.head_clubs.map((t) => teamLink(t)).join(", ")}</p>` : ""}
+    ${d.players.length ? `<table class="tbl ev-tbl"><thead><tr><th>Worked out</th><th>Spot</th><th>Now</th></tr></thead><tbody>${d.players.map((p) => `<tr><td>${evFileLink(p)}</td><td>${esc(p.pos)}</td><td class="ev-dim">${esc(p.class)}</td></tr>`).join("")}</tbody></table>` : ""}
     <p class="ev-dim">A pro day the league's head men come to sells the path to the pros in recruiting.</p>`, "wide");
 }
 
@@ -196,9 +198,9 @@ function evAdvisory(x) {
 // ---------- high school ----------
 function evAthletes(x) {
   const h = x.hs;
-  const rows = h.athletes.map((a) => `<tr><td><b>${esc(a.name)}</b></td><td>${esc(a.sport)}</td><td class="num">${a.class_of}</td><td>${esc(a.pos)}</td><td>${evBand(a.tools[0] * 5, a.tools[1] * 5)}</td><td class="ev-dim">${esc(a.spotted_by)}</td><td>${evLk("evath", { key: a.key }, "Talk to him", "pri")}</td></tr>`).join("");
-  const talks = h.talks.length ? `<table class="tbl ev-tbl"><tbody>${h.talks.map((t) => `<tr><td class="num">${esc(t.date)}</td><td>${t.player ? evFileLink(t.player) : "—"}</td><td>${t.yes ? '<span class="ev-gold">Came out</span>' : '<span class="ev-dim">Stayed with his sport</span>'}</td></tr>`).join("")}</tbody></table>` : "";
-  return `${evCard("Athletes in your building who don't play football", `<p class="ev-dim">Your staff's read of the athlete he is (on the 1-20 tools scale, times five on the band). A talk asks him to come out; seniors rarely do.</p>${rows ? `<table class="tbl ev-tbl"><thead><tr><th>Name</th><th>Sport</th><th class="num">Class</th><th>Spot</th><th>Tools</th><th>Spotted by</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : evEmpty("Nobody new caught your staff's eye this year.")}`, "wide")}${talks ? evCard("Your talks", talks, "wide") : ""}`;
+  const rows = h.athletes.map((a) => `<tr><td><b>${esc(a.name)}</b></td><td>${esc(a.sport)}</td><td class="num">${a.class_of}</td><td>${esc(a.pos)}</td><td>${evBand(a.tools[0], a.tools[1], "", 1, 20)}</td><td class="ev-dim">${esc(a.spotted_by)}</td><td>${evLk("evath", { key: a.key }, "Talk to him", "pri")}</td></tr>`).join("");
+  const talks = h.talks.length ? `<table class="tbl ev-tbl"><tbody>${h.talks.map((t) => `<tr><td class="ev-date">${esc(t.date)}</td><td>${t.player ? evFileLink(t.player) : `<b>${esc(t.name || "—")}</b>`}</td><td class="ev-dim">${esc(t.sport || "")}</td><td>${t.yes ? '<span class="ev-gold">Came out</span>' : '<span class="ev-dim">Stayed with his sport</span>'}</td></tr>`).join("")}</tbody></table>` : "";
+  return `${evCard("Athletes in your building who don't play football", `<p class="ev-dim">Your staff's read of the athlete he is, on the 1-20 tools scale. A talk asks him to come out; seniors rarely do.</p>${rows ? `<table class="tbl ev-tbl"><thead><tr><th>Name</th><th>Sport</th><th class="num">Class</th><th>Spot</th><th>Tools</th><th>Spotted by</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : evEmpty("Nobody new caught your staff's eye this year.")}`, "wide")}${talks ? evCard("Your talks", talks, "wide") : ""}`;
 }
 
 // ---------- the scouting file's "Your look" tab ----------
@@ -207,8 +209,8 @@ async function evFileTab(id) {
   try { f = await api("eval_file", { id }); } catch (e) { return evEmpty(e.message || String(e)); }
   const tape = f.tape.length ? `<ul class="ev-list">${f.tape.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>` : evEmpty("Nothing out of the ordinary on his tape, or no tape yet.");
   const send = f.send.length ? `<select data-ev="send" aria-label="Who goes"><option value="">You go</option>${f.send.map((s) => `<option value="${s.code}">${esc(s.name)} · ${esc(s.job)}</option>`).join("")}</select>` : "";
-  const trips = f.trips.length ? `<div class="ev-trips">${f.trips.map((t) => `<div class="ev-trip ${t.date ? "" : "off"}"><b>${esc(t.words)}</b>${t.date ? `<small>${esc(t.date)}</small>${evLk("evtrip", { id: f.id, kind: t.kind }, "Go", "pri")}` : `<small>${esc(t.why)}</small>`}</div>`).join("")}</div>${send ? `<div class="ev-form">${send}</div>` : ""}` : evEmpty("No trips for your seat.");
-  const planned = f.planned.length ? `<table class="tbl ev-tbl"><tbody>${f.planned.map((t) => `<tr><td class="num">${esc(t.date)}</td><td>${esc(t.kind)}</td><td>${t.sent ? `Sent ${esc(t.sent)}` : "You"}</td><td>${t.done ? (t.seen ? '<span class="ev-amber">Seen</span>' : "Done") : '<span class="ev-gold">Planned</span>'}</td></tr>`).join("")}</tbody></table>` : "";
+  const trips = f.trips.length ? `<div class="ev-trips">${f.trips.map((t) => `<div class="ev-trip ${t.date ? "" : "off"}"><b>${esc(t.words)}</b>${t.date ? `<small>${esc(t.date)}</small>${evLk("evtrip", { id: f.id, kind: t.kind }, "Go", "pri")}` : `<small>${esc(t.why)}</small>`}</div>`).join("")}</div>${send && f.trips.some((t) => t.date) ? `<div class="ev-form">${send}</div>` : ""}` : evEmpty("No trips for your seat.");
+  const planned = f.planned.length ? `<table class="tbl ev-tbl"><tbody>${f.planned.map((t) => `<tr><td class="ev-date">${esc(t.date)}</td><td>${esc(t.kind)}</td><td>${t.sent ? `Sent ${esc(t.sent)}` : "You"}</td><td>${t.done ? (t.seen ? '<span class="ev-amber">Seen</span>' : "Done") : '<span class="ev-gold">Planned</span>'}</td></tr>`).join("")}</tbody></table>` : "";
   const rooms = f.rooms.map((r) => `<div class="ev-room" data-room="${esc(r.room)}"><div class="ev-ph"><b>${esc(r.room)}</b><small>${r.minutes} minutes</small></div>
     <div class="ev-topics">${f.topics.map((t) => `<label><span>${esc(t.words)}</span><input type="number" min="0" max="${r.minutes}" step="1" value="0" data-topic="${t.key}"></label>`).join("")}</div>
     ${evLk("evinterview", { id: f.id, room: r.room }, "Run the interview", "pri")}</div>`).join("");

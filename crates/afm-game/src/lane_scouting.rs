@@ -767,8 +767,8 @@ fn staff_people(w: &World, staff: readers::Staff) -> Vec<(u32, String, String, V
                             ("National scout".to_string(), "Cross-checks".to_string())
                         }
                         afm_engine::world::pro::scouts::Role::Area => {
-                            let regions: Vec<&str> = (0..8u8)
-                                .filter(|r| (*r as usize) % areas == s.region as usize)
+                            let regions: Vec<&str> = afm_engine::world::pro::scouts::covers(s.region, areas)
+                                .into_iter()
                                 .map(|r| REGION_NAMES[r as usize])
                                 .collect();
                             ("Area scout".to_string(), regions.join(", "))

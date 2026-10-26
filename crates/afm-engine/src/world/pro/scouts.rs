@@ -72,7 +72,7 @@ pub struct Scout {
     pub name: String,
     pub role: Role,
     /// An area scout's place among the club's area scouts: he covers the
-    /// regions `r` with `r % areas == region`.
+    /// regions `covers(region, areas)`.
     pub region: u8,
     /// The region he comes from (his soft spot, if he has that bias).
     pub home: u8,
@@ -216,6 +216,23 @@ pub const DC: u8 = 253;
 pub const EVENT: u8 = 255;
 
 const REGIONS: u8 = 8;
+/// A department with more area scouts than regions splits the richest
+/// ones: a ninth man shares the Deep South, a tenth Texas and Louisiana
+/// (proposed, not confirmed).
+const SPLIT: [u8; 2] = [2, 5];
+
+/// The regions an area scout covers: with eight men or fewer, regions `r`
+/// with `r % areas == region`; past eight, each his own, the extra men a
+/// share of a split region.
+pub fn covers(region: u8, areas: usize) -> Vec<u8> {
+    if areas <= REGIONS as usize {
+        (0..REGIONS).filter(|r| (*r as usize) % areas.max(1) == region as usize).collect()
+    } else if region < REGIONS {
+        vec![region]
+    } else {
+        vec![SPLIT[(region - REGIONS) as usize % SPLIT.len()]]
+    }
+}
 
 /// The eight scouting regions a club splits the country into.
 pub(crate) fn region_of(state: usize) -> u8 {
@@ -485,12 +502,12 @@ pub(crate) fn sign(w: &mut World, rng: &mut Rng, t: usize, role: Role, budget: f
     let pick = if cands.is_empty() { None } else { Some(cands[rng.int(0, (cands.len() as i32 - 1).min(2)) as usize]) };
     if let Some(k) = pick {
         let mut s = w.scouting.market.remove(k);
-        if s.role != role {
-            s.role = role;
-        }
+        // A man who takes a step down is paid for the job he takes.
+        let same = s.role == role;
+        s.role = role;
         s.since = year;
         s.contacts = 0.0;
-        s.pay = s.market_pay(year).max(s.pay);
+        s.pay = if same { s.market_pay(year).max(s.pay) } else { s.market_pay(year) };
         return s;
     }
     // Hired away: another club's man a step below, for the promotion.
@@ -790,7 +807,10 @@ fn eye(w: &World, t: usize, who: u8, group: usize) -> Eye {
                 say: (0.8 + 0.02 * s.conviction as f64) * if s.role == Role::Director { 1.2 } else { 1.0 },
                 bias: Some(s.bias),
                 home: s.home,
-                contacts: (s.role == Role::Area && s.contacts > 0.0).then_some((s.region, s.contacts as f64)),
+                contacts: (s.role == Role::Area && s.contacts > 0.0).then(|| {
+                    let areas = club.scouts.iter().filter(|x| x.role == Role::Area).count();
+                    (covers(s.region, areas)[0], s.contacts as f64)
+                }),
             }
         }
     }
@@ -1271,7 +1291,7 @@ pub(crate) fn fall(w: &mut World) {
             }
             // About 35-45 school calls a fall (topic 3), fewer with the
             // long flights of the West and the mountains.
-            let regions: Vec<u8> = (0..REGIONS).filter(|r| r % areas == s.region).collect();
+            let regions = covers(s.region, areas as usize);
             let travel = if regions.iter().any(|&r| r >= 6) { 0.85 } else { 1.0 };
             // A member club lends one area scout to its service for part
             // of the fall; a club outside the services spends the fee on
@@ -1281,7 +1301,16 @@ pub(crate) fn fall(w: &mut World) {
             let calls = (38.0 * (0.75 + 0.025 * s.work as f64) * travel * lent * own_way).round() as usize;
             let mut schools: Vec<usize> = Vec::new();
             for &r in &regions {
-                schools.extend(by_region[r as usize].iter().copied());
+                // A split region's schools alternate between its men.
+                let men: Vec<u8> = scouts
+                    .iter()
+                    .filter(|x| x.role == Role::Area && covers(x.region, areas as usize).contains(&r))
+                    .map(|x| x.region)
+                    .collect();
+                let rank = men.iter().filter(|&&m| m < s.region).count();
+                let n = men.len().max(1);
+                schools
+                    .extend(by_region[r as usize].iter().enumerate().filter(|(j, _)| j % n == rank).map(|(_, &c)| c));
             }
             schools.sort_by(|&a, &b| pull[b].total_cmp(&pull[a]).then(a.cmp(&b)));
             // A scout who distrusts small schools gets to fewer of them.
