@@ -505,6 +505,62 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
     for v in find_stops(run, g, seat) {
         refs(&v, &mut players, &mut coaches, &mut teams);
     }
+    // The deeper game plan (update 2, lane 5): the Plans page's boards,
+    // the depth chart's packages, the week's plan, the teams like us and
+    // the fit reads; as the head coach a guideline set, the drafted sheet
+    // sent back once and approved, and a game rule changed for one game.
+    if seat != "other" {
+        let head = run.call(g, "dp_identity", json!({})).is_some_and(|v| v["head"] == json!(true));
+        run.call(g, "dp_rules", json!({}));
+        let (mut bye, mut studied) = (false, true);
+        for side in ["offense", "defense"] {
+            if let Some(v) = run.call(g, "dp_scout", json!({ "side": side })) {
+                bye = v["bye"] == json!(true);
+                studied = v["studied"] == json!(true);
+            }
+        }
+        for unit in ["offense", "defense", "kicking"] {
+            run.call(g, "dp_installs", json!({ "unit": unit }));
+        }
+        if let Some(v) = run.call(g, "dp_packages", json!({})) {
+            for p in v["packages"].as_array().into_iter().flatten() {
+                run.call(g, "dp_packages", json!({ "board": p["key"] }));
+            }
+        }
+        for role in ["oc", "dc"] {
+            run.call(g, "dp_fit_staff", json!({ "role": role }));
+        }
+        for pos in ["CB", "S"] {
+            run.call(g, "dp_fit_recruits", json!({ "pos": pos }));
+        }
+        let week = run.call(g, "dp_week", json!({})).is_some_and(|v| v["has"] == json!(true));
+        let mut sheets = 0;
+        for side in ["offense", "defense"] {
+            if run.call(g, "dp_sheet", json!({ "side": side })).is_some_and(|v| v["has"] == json!(true)) {
+                sheets += 1;
+            }
+            run.call(g, "dp_sheet", json!({ "side": side, "wet": true }));
+            run.call(g, "dp_like_us", json!({ "side": side }));
+        }
+        if head {
+            run.call(g, "dp_guide", json!({ "key": "man", "to": 50, "firm": "lean" }));
+            run.call(g, "dp_rules_set", json!({ "two": "chart" }));
+            if sheets == 2 {
+                run.call(g, "dp_sheet_review", json!({ "side": "offense", "part": 1, "approve": false, "notes": [0] }));
+                for side in ["offense", "defense"] {
+                    run.call(g, "dp_sheet_review", json!({ "side": side, "approve": true }));
+                }
+            }
+            if week {
+                run.call(g, "gameday_rules", json!({ "fourth": "numbers" }));
+                run.call(g, "dp_week_set", json!({ "if": { "k": 0, "on": true } }));
+                run.call(g, "dp_week", json!({}));
+            }
+            if bye && !studied {
+                run.call(g, "dp_study", json!({ "side": "offense" }));
+            }
+        }
+    }
     for (cmd, args) in extra {
         if let Some(v) = run.call(g, cmd, args.clone()) {
             refs(&v, &mut players, &mut coaches, &mut teams);

@@ -14,8 +14,7 @@ use std::collections::HashMap;
 use afm_engine::calendar::{Date, Level as CalLevel};
 use afm_engine::game::calling::FourthDown;
 use afm_engine::game::live::{
-    self, Ask, CallClock, FourthChart, Input, Pending, PlanChange, Settings, StopMode, Tempo, TossChoice, TwoChart,
-    View,
+    self, Ask, CallClock, Input, Pending, PlanChange, Settings, StopMode, Tempo, TossChoice, View,
 };
 use afm_engine::game::playbook::{
     Backfield, Coverage, DefCall, DefPersonnel, Formation, FrontLook, Motion, OffCall, PASS_CONCEPTS, Personnel,
@@ -111,6 +110,28 @@ pub(crate) fn names(w: &World, teams: &[TeamRef]) -> film::Names {
         }
     }
     m
+}
+
+/// Players on the tapes who have left the two rosters since (drafted,
+/// graduated, transferred, cut) keep their names on the film.
+fn add_tape_names(w: &World, m: &mut film::Names, tapes: &[&afm_engine::world::tape::Tape]) {
+    for t in tapes {
+        let ids = t
+            .protection
+            .iter()
+            .map(|x| x.1)
+            .chain(t.rush.iter().map(|x| x.1))
+            .chain(t.snaps.iter().flat_map(|x| [x.returner, x.passer, x.target, x.carrier, x.defender]).flatten());
+        for id in ids {
+            if m.contains_key(&id) {
+                continue;
+            }
+            if let Some(k) = views::person_index(w, id) {
+                let p = &w.people[k];
+                m.insert(id, (p.name.clone(), p.player.position.name().to_string()));
+            }
+        }
+    }
 }
 
 fn clock_text(secs: f64) -> String {
@@ -311,11 +332,12 @@ fn hub(w: &World) -> Value {
         return json!({ "has_game": false, "why": why, "me": views::team_brief(w, me), "settings": settings, "rules": rules, "calling": calling });
     };
     let opp = team_ref(level, n.opp);
-    let names = names(w, &[me, opp]);
+    let mut names = names(w, &[me, opp]);
     let today = n.date == w.today;
     // The day's game as it will be played (game morning only).
     let setup = if today { w.seat_setup_today() } else { None };
     let tapes = w.tapes_of(n.opp);
+    add_tape_names(w, &mut names, &tapes);
     let side = |tp: &afm_engine::world::tape::Tape| tp.side_of(n.opp).unwrap_or(0);
     let studied = |tp: &afm_engine::world::tape::Tape| {
         w.gameday.studied.iter().any(|s| s.0 == n.date && s.1 == tp.date && [s.2, s.3] == tp.teams)
@@ -512,14 +534,16 @@ fn settings_json(s: &Settings) -> Value {
     })
 }
 
+/// The rules this game is played to: your standing rules, or this game's
+/// own when game day changed them.
 fn rules_json(w: &World) -> Value {
-    let r = &w.gameday.rules;
-    json!({
-        "fourth": match r.fourth { FourthChart::Staff => "staff", FourthChart::Numbers => "numbers", FourthChart::Aggressive => "aggressive", FourthChart::Conservative => "conservative" },
-        "two": match r.two { TwoChart::Staff => "staff", TwoChart::Chart => "chart", TwoChart::Kick => "kick" },
-        "tempo": tempo_name(r.tempo),
-        "level": w.seat_team().map(|x| x.0 == CalLevel::HighSchool),
-    })
+    let date = next_game(w).map_or(w.today, |n| n.date);
+    let r = w.gameday.rules_for(date);
+    let mut v = crate::lane_gameplan::rules::rules_json(&r);
+    v["level"] = json!(w.seat_team().map(|x| x.0 == CalLevel::HighSchool));
+    v["changed"] = json!(matches!(w.gameday.week_rules, Some((d, _)) if d == date));
+    v["standing"] = crate::lane_gameplan::rules::rules_json(&w.gameday.rules);
+    v
 }
 
 fn tempo_name(t: Tempo) -> &'static str {
@@ -693,26 +717,16 @@ fn set_settings(w: &mut World, a: &Value) -> Reply {
     Ok(json!({ "settings": settings_json(&now) }))
 }
 
+/// Game day changes the rules for this one game only (update 2, G4): the
+/// standing rules stay on the Plans page and come back the week after.
+/// A new 4th-down preset here keeps your own chart cells.
 fn set_rules(w: &mut World, a: &Value) -> Reply {
-    let r = &mut w.gameday.rules;
-    if let Some(v) = a.get("fourth").and_then(Value::as_str) {
-        r.fourth = match v {
-            "numbers" => FourthChart::Numbers,
-            "aggressive" => FourthChart::Aggressive,
-            "conservative" => FourthChart::Conservative,
-            _ => FourthChart::Staff,
-        };
+    let mut a = a.clone();
+    if let Some(o) = a.as_object_mut() {
+        o.insert("week".into(), json!(true));
+        o.entry("keep_cells").or_insert(json!(true));
     }
-    if let Some(v) = a.get("two").and_then(Value::as_str) {
-        r.two = match v {
-            "chart" => TwoChart::Chart,
-            "kick" => TwoChart::Kick,
-            _ => TwoChart::Staff,
-        };
-    }
-    if let Some(v) = a.get("tempo").and_then(Value::as_str) {
-        r.tempo = tempo_of(v);
-    }
+    crate::lane_gameplan::rules::set(w, &a)?;
     Ok(hub(w))
 }
 
@@ -797,7 +811,8 @@ fn hint(w: &mut World, a: &Value) -> Reply {
     let tape = w.gameday.tapes.iter().find(|x| x.date == d && x.teams == [h, aw]).ok_or("That tape is gone.")?;
     let opp = next_game(w).map(|n| n.opp).ok_or("No game.")?;
     let side = tape.side_of(opp).ok_or("That tape isn't of your next opponent.")?;
-    let names = names(w, &[team_ref(level, t), team_ref(level, opp)]);
+    let mut names = names(w, &[team_ref(level, t), team_ref(level, opp)]);
+    add_tape_names(w, &mut names, &[tape]);
     let found =
         film::hints(tape, side, &names).into_iter().find(|x| x.key == key).ok_or("That hint is not on this tape.")?;
     if found.effect == film::Effect::Note {

@@ -49,6 +49,22 @@ pub struct GameDay {
     /// This week's matchup plan and the hints you added to it.
     #[serde(default)]
     pub plan: WeekPlan,
+    /// Game rules changed for one game (update 2, G4): the game's date and
+    /// its rules. Every other game starts from the standing rules
+    /// (`rules`), set on the Plans page.
+    #[serde(default)]
+    pub week_rules: Option<(Date, GameRules)>,
+}
+
+impl GameDay {
+    /// The rules for a game: the week's when you changed them for it,
+    /// else the standing rules.
+    pub fn rules_for(&self, date: Date) -> GameRules {
+        match self.week_rules {
+            Some((d, r)) if d == date => r,
+            _ => self.rules,
+        }
+    }
 }
 
 /// Your game rules (topic 2): the 4th-down and two-point charts and your
@@ -58,6 +74,14 @@ pub struct GameRules {
     pub fourth: FourthChart,
     pub two: TwoChart,
     pub tempo: Tempo,
+    /// Update 2, G4: the timeout rule, the four-minute plan and your own
+    /// cells on the 4th-down chart.
+    #[serde(default)]
+    pub timeouts: crate::game::live::TimeoutRule,
+    #[serde(default)]
+    pub four: crate::game::live::FourMinute,
+    #[serde(default)]
+    pub cells: [u32; 7],
 }
 
 /// The matchup plan for one game (topic 2): players by id; None leaves it
@@ -158,7 +182,17 @@ impl World {
                 }
             }
         }
-        Prep { plan, study: film, fourth: gd.rules.fourth, two: gd.rules.two, tempo: gd.rules.tempo }
+        let r = gd.rules_for(self.today);
+        Prep {
+            plan,
+            study: film,
+            fourth: r.fourth,
+            two: r.two,
+            tempo: r.tempo,
+            timeouts: r.timeouts,
+            four: r.four,
+            cells: r.cells,
+        }
     }
 
     /// The result of your live game for the day's books: your answers so
@@ -175,8 +209,9 @@ impl World {
         // coaches the whole game with it.
         let gd = &self.gameday;
         let today = self.today;
-        let worked =
-            gd.rules != GameRules::default() || gd.plan.date == Some(today) || gd.studied.iter().any(|s| s.0 == today);
+        let worked = gd.rules_for(today) != GameRules::default()
+            || gd.plan.date == Some(today)
+            || gd.studied.iter().any(|s| s.0 == today);
         if !worked || self.seat_team()?.0 != level {
             return None;
         }

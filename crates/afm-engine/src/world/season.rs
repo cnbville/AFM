@@ -920,8 +920,12 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
             film_study,
             install,
             style: prog.head_coach.map_or_else(Default::default, |c| w.coaches[c].style()),
+            guide: Default::default(),
         },
     );
+    // The head coach's guidelines (update 2, G2).
+    let g = super::guide::program_guidelines(w, prog);
+    super::guide::apply(w, &mut team, g, oc_call.or(prog.head_coach), dc_call.or(prog.head_coach));
     team.give_orders(division_level(prog.division));
     if w.seat_program(prog.id) {
         team.order = w.seat_order();

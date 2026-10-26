@@ -257,11 +257,16 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
             film_study,
             install,
             style: tm.head_coach.map_or_else(Default::default, |c| w.coaches[c].style()),
+            guide: Default::default(),
         },
     );
+    // The head coach's guidelines (update 2, G2).
+    let g = crate::world::guide::club_guidelines(w, t);
+    crate::world::guide::apply(w, &mut team, g, oc_call.or(tm.head_coach), dc_call.or(tm.head_coach));
     team.give_orders(crate::player::Level::NFL);
     if w.seat_club(t) {
         team.order = w.seat_order();
+        crate::training::seat::sit_hurt(w, &mut team);
         crate::training::seat::prepare(w, &mut team);
     }
     team.film = club.film.clone();
