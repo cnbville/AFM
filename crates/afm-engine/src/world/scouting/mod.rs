@@ -30,6 +30,7 @@ pub mod predraft;
 pub mod pro;
 pub mod public;
 pub mod readers;
+pub mod services;
 pub mod social;
 pub mod supp;
 
@@ -346,6 +347,10 @@ pub struct Scouting {
     /// Each program's pro day this spring (SK20): clubs and scouts there.
     #[serde(default)]
     pub pro_days: Vec<own::ProDayCount>,
+    /// The recruiting services' printed rankings by class, the insiders'
+    /// picks and the announced top schools (update 2, lane 7).
+    #[serde(default)]
+    pub rankings: services::Rankings,
 }
 
 /// The daily scouting work (called from the clock each day, after the
@@ -355,6 +360,7 @@ pub(crate) fn day(w: &mut crate::world::World, d: Date) {
         public::staff_desks(w);
     }
     public::day(w, d);
+    services::day(w, d);
     predraft::day(w, d);
     supp::day(w, d);
     if d.parts().1 == 8 && d.parts().2 == 1 {
@@ -375,6 +381,7 @@ pub(crate) fn after_load(w: &mut crate::world::World) {
     if w.scouting.desks.is_empty() {
         public::staff_desks(w);
     }
+    services::catch_up(w);
 }
 
 /// After the draft and the rush: the public's mocks scored, your class kept

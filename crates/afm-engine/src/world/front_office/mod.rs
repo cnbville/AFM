@@ -16,6 +16,7 @@ pub mod college;
 pub mod deals;
 pub mod market;
 pub mod nfl;
+pub mod race;
 pub mod roster;
 pub mod school;
 
@@ -192,6 +193,8 @@ pub struct FrontOffice {
     pub school: school::SchoolDesk,
     /// Your moves, newest last (the last 400).
     pub log: Vec<Move>,
+    /// Each recruit's race, week by week, as your office followed it.
+    pub race: race::RaceLog,
 }
 
 impl Default for FrontOffice {
@@ -206,6 +209,7 @@ impl Default for FrontOffice {
             college: Default::default(),
             school: Default::default(),
             log: Vec::new(),
+            race: Default::default(),
         }
     }
 }
@@ -335,6 +339,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
     college::day(w, d);
     school::day(w, d);
     market::day(w, d);
+    race::day(w, d);
 }
 
 /// Money in words: "$12.4M", "$850K".

@@ -1,6 +1,6 @@
 # The NFL draft: how it works today
 
-Checked against main at d9ecf1c with update 2 lane 8 on 2026-10-26.
+Checked against main at dfb8b02 with update 2 lane 8 on 2026-10-26.
 
 ## Quick answers
 

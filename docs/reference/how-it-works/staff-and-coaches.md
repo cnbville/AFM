@@ -1,6 +1,6 @@
 # Staff and coaches: how it works today
 
-Checked against main at d9ecf1c with update 2 lane 8 on 2026-10-26.
+Checked against main at dfb8b02 with update 2 lane 8 on 2026-10-26.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. Most of the world side is `world/coach.rs` (the coach) and `world/staff.rs` (jobs, the carousel); your own side is `world/folk/` and `world/front_office/`.
 

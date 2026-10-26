@@ -95,7 +95,7 @@ navAdd({ go: "predraft", label: "Pre-draft", icon: "clip", sec: "scout", seats: 
 }
 navAdd({ go: "proscout", label: "Pro scouting", icon: "pro", sec: "scout", seats: ["nfl"] });
 navAdd({ go: "recruitboard", label: "Recruit board", icon: "board", sec: "scout", seats: ["college"] });
-navAdd({ go: "hsside", label: "College calls", icon: "calls", sec: "team", seats: ["hs"], after: "recruiting" });
+navAdd({ go: "hsside", label: "Colleges calling", icon: "calls", sec: "team", seats: ["hs"], after: "recruiting" });
 Object.assign(CRUMBS, {
   scout: "Scouting file",
   scouting: "Scouting",
@@ -105,10 +105,10 @@ Object.assign(CRUMBS, {
   draftrecord: "Draft record",
   proscout: "Pro scouting",
   recruitboard: "Recruit board",
-  hsside: "College calls",
+  hsside: "Colleges calling",
 });
 // Where each screen leads (topic 17).
-GOTO.scout = (a, f) => [["Player page", "player", { id: a.id }], f && f.team ? [f.team.name, "team", f.team.ref] : null, scSeat() === "nfl" ? ["Draft board", "draftboard"] : scSeat() === "college" ? ["Recruit board", "recruitboard"] : ["College calls", "hsside"], ["My players", "myplayers"]];
+GOTO.scout = (a, f) => [["Player page", "player", { id: a.id }], f && f.team ? [f.team.name, "team", f.team.ref] : null, scSeat() === "nfl" ? ["Draft board", "draftboard"] : scSeat() === "college" ? ["Recruit board", "recruitboard"] : ["Colleges calling", "hsside"], ["My players", "myplayers"]];
 GOTO.scouting = () => (scSeat() === "nfl" ? [["Draft board", "draftboard"], ["Pre-draft", "predraft"], ["Pro scouting", "proscout"], ["Staff", "staff"], ["My players", "myplayers"]] : [["Recruit board", "recruitboard"], ["Recruiting", "recruiting"], ["Staff", "staff"], ["My players", "myplayers"]]);
 GOTO.draftboard = () => [["Pre-draft", "predraft"], ["Department", "scouting"], ["Contracts", "contracts"], ["Squad", "roster"]];
 GOTO.predraft = () => [["Draft board", "draftboard"], ["Department", "scouting"], ["Calendar", "calendar"]];
@@ -767,42 +767,9 @@ screens.recruitboard = async () => {
     ${table("sc-rbt-" + k.list, cols, rows, { empty: k.list === "portal" ? "Nobody in the portal right now. It opens after the season and in the spring." : "Nobody on this list yet." })}</div></div>`;
 };
 
-// ---------- the high school coach's side (scouting topic 16) ----------
-screens.hsside = async () => {
-  const x = await api("hs_side");
-  if (S.status && S.status.mine) setColors(S.status.mine.colors);
-  const progs = x.colleges.map((c) => c.team);
-  const pcell = (p) => `${p.signed ? `<span class="st-pill good">Signed: ${esc(p.signed)}</span>` : p.committed ? `<span class="st-pill gold">Committed: ${esc(p.committed)}</span>` : ""}${p.offers.length ? ` ${p.offers.slice(0, 4).map((o) => teamLink(scTeamOf("college", o.id, o.name))).join(", ")}${p.offers.length > 4 ? ` <small class="muted">+${p.offers.length - 4}</small>` : ""}` : p.signed || p.committed ? "" : '<span class="muted">No offers yet</span>'}`;
-  const players = table("sc-hsp", [
-    { k: "name", t: "Name", l: true, f: (r) => scName(r.id, r.name) },
-    { k: "pos", t: "Pos", l: true },
-    { k: "class_of", t: "Class of" },
-    { k: "ht", t: "Ht", div: true, v: (r) => inches(r.ht) },
-    { k: "wt", t: "Wt" },
-    { k: "stars", t: "★", f: (r) => scStars(r.stars) },
-    { k: "now", t: "Your read", div: true, v: (r) => mid(r.read && r.read.now), f: (r) => scNow(r.read, r.id) },
-    { k: "role", t: "Outlook", l: true, v: (r) => (r.read && r.read.role) || "", f: (r) => scRole(r.read) },
-    { k: "offers", t: "Colleges", l: true, div: true, wrap: true, v: (r) => r.offers.length + (r.committed ? 50 : 0) + (r.signed ? 100 : 0), f: pcell },
-    { k: "visits", t: "Visits", v: (r) => r.visits.length, f: (r) => (r.visits.length ? `<span title="${esc(r.visits.map((v) => v.name + " " + v.date).join(", "))}">${r.visits.length}</span>` : '<span class="muted">-</span>') },
-    { k: "promoted", t: "Your calls" },
-    { k: "x", t: "", f: (r) => (r.signed ? "" : `<button class="st-btn small glass" data-act="sc-promote" data-id="${r.id}" data-name="${esc(r.name)}">Call a college</button>`) },
-  ], x.players, { sort: "class_of", empty: "No players on your roster." });
-  const credit = (c) => `<span class="sc-credit"><span class="t"><i style="width:${Math.round(c.credit * 100)}%"></i></span><span>${esc(c.credit_words)}</span></span>`;
-  const k = keep("sc-hs", { pid: null });
-  const pick = x.players.find((p) => p.id === k.pid);
-  const callBox = pick
-    ? `<div class="panel warm sc-callbox"><h2>Call a college about ${scName(pick.id, pick.name)} <small>${esc(pick.pos)} · class of ${pick.class_of}</small></h2>
-      <p class="sub">Your word is worth what your record makes it. Push a player who doesn't pan out and the next call counts for less.</p>
-      <div class="sc-row2"><div class="field"><label>Who you call</label><select id="sc-prog"><option value="">Every staff that recruits your area</option>${progs.map((t) => `<option value="${t.ref.id}">${esc(t.name)}</option>`).join("")}</select></div>
-      <div class="field"><label>What you say</label><select id="sc-strength">${x.strengths.map((s, i) => `<option value="${i}">${esc(s)}</option>`).join("")}</select></div></div>
-      <div class="sc-row2"><button class="st-btn small primary" data-act="sc-promotego" data-id="${pick.id}">Make the call</button><button class="st-btn small glass" data-act="sc-promote" data-id="">Cancel</button></div></div>`
-    : "";
-  return `<div class="film"><div class="pad">${scHead("Your players and colleges", "Who's calling about your players, how much each staff trusts your word, and the calls you make for your kids.", scGo("hsside"))}
-    ${callBox}${players}
-    <div class="grid2"><div class="panel warm"><h2>College staffs that come to you <small>${x.colleges.length}</small></h2>${x.colleges.length ? `<div class="tbl"><table><thead><tr><th class="l">Program</th><th>Offers to your kids</th><th class="l">Your word with them</th></tr></thead><tbody>${x.colleges.map((c) => `<tr><td class="l"><span class="teamcell">${mark(c.team, 22)} ${teamLink(c.team)}</span></td><td>${c.offers}</td><td class="l">${credit(c)}</td></tr>`).join("")}</tbody></table></div>` : scEmpty("No college staff has come by yet.")}</div>
-    <div class="panel warm"><h2>Your calls <small>${x.calls.length}</small></h2>${x.calls.length ? `<div class="items">${x.calls.map((c) => `<div class="item"><span class="when">${esc(c.date)}</span><span>${scName(c.player.id, c.player.name)} to ${esc(c.to)}: “${esc(c.said)}”${c.settled ? ` <span class="st-pill ${/right/.test(c.settled) ? "good" : "gold"}">${esc(c.settled)}</span>` : ' <small class="muted">· settled in two seasons</small>'}</span></div>`).join("")}</div>` : scEmpty("You haven't called anyone yet.")}</div></div>
-  </div></div>`;
-};
+// The high school coach's side (scouting topic 16) is Colleges calling now:
+// screens/find.js (update 2, lane 7). Its call box keeps the sc-promote
+// handlers below.
 
 // ---------- clicks and changes of our own (data-act "sc-...") ----------
 // Capture phase: runs before app.js's handler, so a board row can be

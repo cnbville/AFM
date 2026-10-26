@@ -1,6 +1,6 @@
 # Recruiting: how it works today
 
-Checked against main at d9ecf1c with update 2 lane 8 on 2026-10-26.
+Checked against main at dfb8b02 with update 2 lane 8 on 2026-10-26.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Recruiting" below is `world/recruiting.rs`.
 
@@ -23,6 +23,9 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - How is NIL paid? On July 1, each collective's budget × 0.6 is split over the roster by role, position value and stars (`nil_payouts`, `nil_weight`).
 - What NIL does a recruit get offered? Position market rate × a star factor × (budget / $10M)^0.8, capped by the collective and the position's top rate (`offer_for`, `position_nil`; `world/ncaa.rs`, `position_nil_max`).
 - What grades does he need? Division I 2.3 core GPA to qualify, 2.0-2.299 academic redshirt, under 2.0 can't enroll; Division II 2.2; JUCO anyone (`ncaa_tier`).
+- When do the services first rank a class? From its sophomore year: four updates a year (21 Jan, 12 May, 14 Jul, 20 Oct) for the classes behind the one the signing stages rate, which they take over at 20 March of its junior year (`world/scouting/services.rs`, `update_days`, `underclasses`; recruiting, `rate_underclass`).
+- Is there a composite? From 2012, a 0.70-1.00 rating read off each class's national order: 5 stars from .9834, 4 from .89, 3 from .797, 2 from .70 (`world/scouting/services.rs`, `composite`, `BANDS`, `COMPOSITE_FROM`).
+- Who predicts where a recruit goes? Each service's insider, from 2011, every Tuesday (`world/scouting/services.rs`, `insiders_week`).
 - Do walk-ons exist? Yes: planned preferred walk-ons, local walk-on offers in February, open tryouts, and fall-camp scholarships for walk-ons who play (`class_plan`, `run_signing_stage`, `camp_walk_ons`).
 
 ## High schools and being seen
@@ -45,9 +48,23 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 
 - Film is aligned by position: each position's film is rescaled to the class-wide mean and SD, so every position's top looks the same (`run_signing_stage`, `pos_mean_sd`).
 - The services' projection: a scouting read at accuracy 12, HS level, plus `service_bias` = 1.6 points per year older than the middle of his class (±1.5 years) + a lasting 9-point-SD misread keyed to the player. Each new look moves halfway toward what they now see; a JUCO mover is a fresh read (`service_bias`, `SERVICE_MATURITY`, `SERVICE_MISREAD`).
-- Ratings happen at each summer wave and at the early period (or January enrollees before 2017); each rating replaces the last. February adds no new stars (`run_signing_stage`, `rate_now`).
+- Ratings happen at each summer wave and at the early period (or January enrollees before 2017); each rating replaces the last. February adds no new stars (`run_signing_stage`, `rate_now`). The younger classes are rated at the services' own four updates (next section).
 - Specialists: K and P are ranked by the camps on their overall + 1.5 SD noise among those who attend (attendance 0.3 + 0.7 × money). Camp tiers by national rank: 5 stars top 25, 4 to 100, 3 to 250, 2 to 500. Long snappers: top 12/40/100/250. A school's best non-QB/K/P snapper with 0 service stars and LS build is found once a class and moved to LS (`camp_rankings`, `CAMP_TIERS`, `SNAP_TIERS`).
 - Composite class rankings (signing days): 5★ = 99, 4★ = 92, 3★ = 85, 2★ = 78, else 70; a class scores Σ rating × exp(-n² / 200) down its signees, best first. Walk-ons and specialists don't count. Only FBS is headlined. The score is kept per program in `class_scores`, which athletic directors read (`class_rankings_news`).
+
+## The services before the signing stages
+
+`world/scouting/services.rs` and recruiting, `rate_underclass`:
+
+- Update days: 21 January (winter), 12 May (spring), 14 July (summer), 20 October (fall). Each ranks every class from the one after the signing stages' class down to this year's sophomores (`update_days`, `underclasses`, `underclass_update`).
+- Who is looked at: the class's top 8% by film, plus every kid with stars, camp stars, all-state honors, an offer or a commitment; a class under 10 kids is skipped. Each is read the way a senior is (film and projection, each new look moving halfway), on keyed streams that leave the kids' own untouched (`rate_underclass`).
+- How deep a list goes, as shares of a full class's 5/4/3/2-star quotas: a sophomore class 0.6/0.6/0.25/0, after its sophomore spring and summer 1.0/0.9/0.5/0.1, a junior class 1.0/1.0/0.7/0.25 (`reach`).
+- Each class's national order (stars, then the services' read) is kept with the one before, for the rank movement, and each service's list with it (`record`, `ClassRanks`). An old save catches up once, on loading only, rated as of the latest update (`catch_up`); a page never rates.
+- Each service's own list, made at each rating and kept until the next (`boards_of`; read by `service_boards`): the composite plus its lean minus the services' mean lean on the kid (so the composite is their average), the lean a lasting misread of SD 0.012 + 0.0015 × (20 − skill) plus a little of the update's own, and its bias (big-program kids, with camp stars of 4+ or 15+ offers, +0.006; a speed of 80+ +0.006; size up to ±0.006; a 10-game last season +0.004). Stars by the composite's bands on that rating (`stars_of`), a specialist 3 at most; 60-100% as deep into the 2-stars as the shared list (`lean`).
+- Underclass kickers, punters and snappers: no services' stars; the kicking camps rank those they saw on the camps' tiers, as short as the services' list (`recruiting::underclass_camps`).
+- Insiders: picks on the open 4- and 5-stars and on 3-stars with 6+ offers (no specialists), in the two classes signing next. The read is the kid's race (`world/front_office/college.rs`, `race_at`) plus the insider's misread of each school (SD 0.018 + 0.0025 × (20 − skill), mostly lasting). A first pick needs a 0.08 lead (0.025 within 75 days of his decision), a change 0.06; a pick on a school that fell out of his top three is moved like a first pick or taken back. Confidence 50 + 550 × the lead, capped 50-95 (`insiders_week`). Judged when he commits; six years of records (`judge`, `insider_record`).
+- Top schools: announced within 90 days of his decision day when 6+ schools offer and he is a 4-star or has 10+: 10 schools (14+ offers), 8 (10+) or 5; cut to 5 or 3 in the last 30 days. The list is kept by program, never in his order (`announced`). A list whose leader is now off it, or more than half gone from his race, is dropped (`insiders_week`).
+- His decision day: his commit timing's date (a summer wave, the early signing period's Wednesday from `calendar::anchors::early_signing`, or February's first Wednesday) (`decision_day`). Screens show it only as a read: nothing without a signal, then a window (`crates/afm-game/src/lane_find/race.rs`, `decides_read`).
 
 ## Offers before the waves
 
@@ -158,6 +175,10 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 ## Your desk
 
 - Your college board, visits, portal offers and NIL promises replace your staff's in the same matching; recruits decide by the same code (`world/front_office/college.rs`; recruiting, `stage_board` use in `run_signing_stage`). `appeal` and `usual_nil_offer` are the reads your screens show.
+- The race log: every Monday your office logs each followed recruit's top 6 schools by appeal and your staff's read of his interest in each, at most 400 recruits (a college follows its board's high school, prep and JUCO recruits; a high school coach his players with an offer or commitment). Interest 0-100 is logistic: 50 sits 0.10 below his best school's appeal in the first logged week, 0.06 appeal a step; the read adds a lasting lean (2.5 your school, 4.5 a rival, 2 a coach's own player) and a week's own (3.5, 5, 1.5), each 8% narrower a contact down to 40% (`world/front_office/race.rs`, `day`, `followed`, `interest`, `read`, `reader`, `SCHOOLS`, `MOST`).
+- A school's appeal split into seven reasons (close to home, playing time, NIL money, coaching and development, winning and the name, academics, ties and feel; they add up to its appeal) (`world/front_office/college.rs`, `reasons`). The race page reads them as your staff's ranges (`crates/afm-game/src/lane_find/race.rs`, `weight_read`), and scores the seventh from public ties only (`ties_score`).
+- Find recruits reads only your staff's files and public values (stars, composite, offers, visits, the public NIL value), never a true rating (`crates/afm-game/src/lane_find/fields.rs`, `value`). Core courses and academic risk read the transcript once your staff has it, the profile's GPA before (`core_behind`, `risk`). A name filter matches whole names (`crates/afm-game/src/lane_find/query.rs`, `names_match`). The public NIL value is $3,000 × e^(17 × (composite − .70)) × a position factor (QB 1.8; WR, RB, EDGE 1.1; CB 1.0; OT 0.85; IOL 0.75; K, P, LS 0.4; others 0.9) + $1.20 a follower (`nil_value`).
+- A preferred walk-on signs no letter: your screens say "Walk-on" or "Walking on at" (`crates/afm-game/src/lane_frontoffice/college.rs`, `interest`).
 
 ## The fresh look's part (update 2, lane 8)
 
@@ -173,6 +194,7 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 - `world/recruiting.rs`: `STAFF_GIFT`, `SERVICE_GIFT`, `SERVICE_MATURITY`, `SERVICE_MISREAD`, `CAMP_TIERS`, `SNAP_TIERS`, `SERVICE_SPECIALIST_MAX`, `FEEL_SD`, `RECRUITED_PER_SPOT`, `RECRUITED_EXTRA`, `OFFICIAL_VISITS`, `CHILDHOOD_LEAN`, `FIVE_STAR_PULL`, `SHOWCASE`, `FIT_EVAL`, `WALK_ON_GIVE_UP`, `HOUSE_CLASS_MAX`, `JUCO_OUT_OF_STATE_OFFERS`, `REDSHIRT_PORTAL`, `EARLY_OFFER_PASSES`, `real_roster`, `level_roster`, `level_value`, `position_nil`, `nil_scale`, `competition_discount`, `era_factor`.
 - `world/ncaa.rs`: `scholarship_rules`, `staff_cap`, `nil_market`, `revenue_share`, `position_nil_max`, `COLLECTIVE_CEILING`, `ROGUE_ARRIVAL`, `ROGUE_QUITS`, `DETECTION_SCALE`, `FCS_OPTED_OUT`.
 - `world/program.rs`: `nil_target`, `prestige_of`, `division_scale`, `move_grade`, `STRICT_ADMISSIONS`.
+- `world/scouting/services.rs`: `update_days`, `reach`, `BANDS`, `COMPOSITE_FROM`, `INSIDERS_FROM`, the insiders' thresholds in `insiders_week`, `lean`. `world/front_office/race.rs`: `SCHOOLS`, `MOST`, `BELOW`, `SPREAD`.
 - `world/clock.rs`: `commit_wave`, `portal_windows`, early-offer dates. `calendar/anchors.rs`: signing days. `calendar/mod.rs`: `recruiting_period`.
 
 ## Related pages

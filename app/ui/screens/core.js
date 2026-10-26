@@ -1536,7 +1536,7 @@ screens.myplayers = async () => {
     { k: "x", t: "", f: (r) => `<button class="st-icon-btn small" data-act="listremove" data-id="${r.id}" title="Take off my players">×</button>` },
   ], rows, { empty: "Nobody yet. Right-click any name, or press \"Add to my players\" on a player's page.", select: (r) => r.id, groupBy: (r) => r.level });
   const watches = x.watches.length
-    ? `<div class="items">${x.watches.map((w) => `<div class="item"><span class="when">${esc(w.since)}</span><span><b>${esc(w.name)}</b> <small class="muted">${w.seen} found so far</small></span>${linkTo("finder", JSON.parse(w.query || "{}"), "Open", "st-btn small glass")}<button class="st-btn small" data-act="unwatch" data-k="${w.k}">Stop watching</button></div>`).join("")}</div>`
+    ? `<div class="items">${x.watches.map((w) => `<div class="item"><span class="when">${esc(w.since)}</span><span><b>${esc(w.name)}</b> <small class="muted">${w.seen} found so far</small></span>${linkTo("finder", w.query || {}, "Open", "st-btn small glass")}<button class="st-btn small" data-act="unwatch" data-k="${w.k}">Stop watching</button></div>`).join("")}</div>`
     : '<div class="empty">No saved searches. Build one in the player finder and press "Watch"; every Monday your personnel office reports who\'s new.</div>';
   return `<div class="pad">${pageHead({ kicker: "Your list, your notes, your watches", title: "My players", actions: linkTo("finder", {}, `${icon("search")} Player finder`, "st-btn small primary") })}${gotoLine([["Player finder", "finder"], ["Recruiting", "recruiting"], ["Leaderboards", "leaders"]])}${t}<div class="panel"><h2>Saved searches <small>watched every Monday</small></h2>${watches}</div></div>`;
 };

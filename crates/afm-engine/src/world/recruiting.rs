@@ -16,7 +16,7 @@ use crate::calendar::{Date, Event, Kind, Level as CalLevel, Loudness, Moment};
 use crate::career::{PIPELINE, Step, position_value};
 use crate::player::{Level, PlayingTime};
 use crate::positions::{POSITION_COUNT, Position};
-use crate::rng::clamp;
+use crate::rng::{Rng, clamp};
 use crate::scouting::{ScoutOptions, scout_player};
 
 // --- Data hooks -------------------------------------------------------------------
@@ -2322,7 +2322,7 @@ const SNAP_TIERS: [(u8, f64); 4] = [(5, 12.0), (4, 40.0), (3, 100.0), (2, 250.0)
 
 /// The most stars the recruiting services give a kicker, punter or long
 /// snapper (fix list 1.5): the general sites rarely rate one above 3 stars.
-const SERVICE_SPECIALIST_MAX: u8 = 3;
+pub(crate) const SERVICE_SPECIALIST_MAX: u8 = 3;
 
 /// The services' stars down a class ranked best first (`specialist` marks
 /// the kickers, punters and long snappers): each tier of `quotas` (stars,
@@ -3480,6 +3480,214 @@ pub(crate) fn signing_stage(w: &mut World, stage: SignStage, season: i32) {
 /// 40,000, fewer than reading every board would cost.
 const READ_ALL_AFTER: usize = 100_000;
 
+/// How visible a recruit is to the services and the staffs (A12, A32): his
+/// school's exposure, his coach's network, the camps his family can pay
+/// for, his tape, his state's football traffic, a viral clip, a father who
+/// played, all-state honors and his high school coach's calls. Returns the
+/// visibility and whether a clip of his went viral.
+fn recruit_visibility(w: &World, p: &Person, film: f64, all_mean_sd: (f64, f64), seed: u64, promo: f64) -> (f64, bool) {
+    let juco_mover = p.stage == Stage::College;
+    let hs = &w.high_schools[p.hs];
+    let school_exposure = if juco_mover {
+        0.7
+    } else if p.stage == Stage::PrepSchool {
+        0.6
+    } else {
+        hs.prestige
+    };
+    let network = if juco_mover {
+        p.college.and_then(|c| w.programs[c].head_coach).map_or(0.5, |c| w.coaches[c].ability().network / 20.0)
+    } else {
+        hs.coach.map_or(0.4, |c| w.coaches[c].ability().network / 20.0)
+    };
+    let camps = 0.3 + 0.7 * p.bg.money;
+    let tape = clamp((film - all_mean_sd.0) / (3.0 * all_mean_sd.1) + 0.3, 0.0, 1.0);
+    let traffic = 0.1 * (w.states[p.home_state].culture + 0.6);
+    let viral_odds = if p.family.parent_style == super::background::ParentStyle::SocialMedia { 0.06 } else { 0.02 };
+    // A viral clip gets him a first look only: staffs still judge his film.
+    let went_viral = !juco_mover
+        && key_normal(seed ^ 11, p.player.id as u64) > 0.0
+        && key_normal(seed ^ 13, p.player.id as u64).abs() < viral_odds * 2.5;
+    let viral = if went_viral { 0.25 } else { 0.0 };
+    let bloodline = match p.family.bloodline {
+        super::background::Bloodline::NflPlayer => 0.15,
+        super::background::Bloodline::CollegePlayer => 0.05,
+        super::background::Bloodline::None => 0.0,
+    };
+    // All-state honors (A32) put a name in front of every staff in the state.
+    let honors = 0.04 * p.cal.all_state.min(2) as f64;
+    let visibility = clamp(
+        0.05 + 0.3 * school_exposure
+            + 0.2 * network
+            + 0.15 * camps
+            + 0.25 * tape
+            + traffic
+            + viral
+            + bloodline
+            + honors
+            + promo,
+        0.0,
+        1.0,
+    );
+    (visibility, went_viral)
+}
+
+/// The services rank an underclass (update 2, minor bug 12): from a kid's
+/// sophomore year they put out stars for the classes behind the one
+/// signing, at their winter, spring, summer and fall updates. They look
+/// at the kids whose film stands out in the class and the ones the
+/// colleges have already offered or the state has honored, read each the
+/// way they read a senior (film and their projection, drifting halfway
+/// toward each new look), and hand out the stars of a senior class scaled
+/// by `reach`, the share of each of the 5, 4, 3 and 2 star places a class
+/// this young fills. Each read runs on its own keyed stream, so the kids'
+/// own streams are not touched.
+pub(crate) fn rate_underclass(w: &mut World, class_of: i32, d: Date, reach: [f64; 4]) {
+    let world_seed = w.options.seed as u64;
+    let seed = world_seed ^ (class_of as u64) << 20;
+    let mut pos_stats: [(f64, f64, f64); POSITION_COUNT] = [(0.0, 0.0, 0.0); POSITION_COUNT];
+    let mut members: Vec<usize> = Vec::new();
+    for (i, p) in w.people.iter().enumerate() {
+        if p.stage == Stage::HighSchool && p.class_of == class_of && p.cal.signed.is_none() {
+            let f = film_raw(p);
+            let s = &mut pos_stats[p.player.position.index()];
+            s.0 += 1.0;
+            s.1 += f;
+            s.2 += f * f;
+            members.push(i);
+        }
+    }
+    if members.len() < 10 {
+        return;
+    }
+    let pos_mean_sd: Vec<(f64, f64)> = pos_stats
+        .iter()
+        .map(|&(k, s, s2)| {
+            if k < 2.0 {
+                (45.0, 6.0)
+            } else {
+                let m = s / k;
+                (m, ((s2 / k - m * m).max(1.0)).sqrt())
+            }
+        })
+        .collect();
+    let all_mean_sd = {
+        let (k, s, s2) = pos_stats.iter().fold((0.0, 0.0, 0.0), |a, b| (a.0 + b.0, a.1 + b.1, a.2 + b.2));
+        let m = s / k.max(1.0);
+        (m, ((s2 / k.max(1.0) - m * m).max(1.0)).sqrt())
+    };
+    let film_of = |p: &Person| {
+        let (m, sd) = pos_mean_sd[p.player.position.index()];
+        all_mean_sd.0 + all_mean_sd.1 * (film_raw(p) - m) / sd
+    };
+    // Who they look at: the top of the class on film, and every kid a
+    // college offered, the state honored, the camps ranked or they rated
+    // before.
+    let mut by_film: Vec<(f64, usize)> = members.iter().map(|&i| (film_of(&w.people[i]), i)).collect();
+    by_film.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+    let top = ((by_film.len() as f64) * 0.08).ceil() as usize;
+    let mut looked: Vec<usize> = by_film.iter().take(top).map(|x| x.1).collect();
+    for &(_, i) in by_film.iter().skip(top) {
+        let p = &w.people[i];
+        if p.stars > 0
+            || p.camp_stars > 0
+            || p.cal.all_state > 0
+            || !p.cal.offers.is_empty()
+            || !p.cal.early_offers.is_empty()
+            || p.cal.commit.is_some()
+        {
+            looked.push(i);
+        }
+    }
+    looked.sort_unstable();
+    let promos = super::scouting::hs::promos(w);
+    let wr: &World = w;
+    let scored: Vec<(usize, f64, f64)> = looked
+        .par_iter()
+        .map(|&i| {
+            let p = &wr.people[i];
+            let film = film_of(p);
+            let promo = promos.get(&p.player.id).copied().unwrap_or(0.0);
+            let (vis, _) = recruit_visibility(wr, p, film, all_mean_sd, seed, promo);
+            let mut rng = Rng::new(p.player.id ^ (d.0 as u32).rotate_left(11) ^ 0x51A7_0000);
+            let rep = scout_player(&p.player, ScoutOptions { accuracy: 12.0, level: Level::HS }, &mut rng);
+            let seen = rep.potential + service_bias(p, world_seed);
+            let read = match p.cal.service_read {
+                Some(prev) => prev + 0.5 * (seen - prev),
+                None => seen,
+            };
+            let gift = crate::links::gift(&crate::links::projected(&p.player));
+            let score =
+                0.25 * film + 0.75 * read - 12.0 * (1.0 - vis).powi(2) + SERVICE_GIFT * all_mean_sd.1 * gift * vis;
+            (i, read, score)
+        })
+        .collect();
+    for &i in &members {
+        w.people[i].stars = 0;
+    }
+    for &(i, read, _) in &scored {
+        w.people[i].cal.service_read = Some(read);
+    }
+    let mut order: Vec<&(usize, f64, f64)> = scored.iter().collect();
+    order.sort_by(|a, b| b.2.total_cmp(&a.2).then(a.0.cmp(&b.0)));
+    let class = 250_000.0 * w.options.scale;
+    let specialist: Vec<bool> = order.iter().map(|x| w.people[x.0].player.position.is_specialist()).collect();
+    let quotas: Vec<(u8, usize)> = PIPELINE
+        .star_shares
+        .iter()
+        .zip(reach)
+        .map(|(&(stars, share), r)| (stars, (share * class * r).round() as usize))
+        .collect();
+    for (x, stars) in order.iter().zip(service_stars(&specialist, &quotas)) {
+        w.people[x.0].stars = stars;
+    }
+    underclass_camps(w, &members, seed, reach[0]);
+}
+
+/// An underclass's kickers, punters and snappers (update 2, lane 7): the
+/// general services leave them unrated, as in life, and the kicking camps
+/// rank the ones they have seen against their own spot, on lists as short
+/// as the services' (`short`, the share of a full class's tiers). The
+/// signing stages' camps (`camp_rankings`) take over from the junior
+/// spring. Claude's pick, proposed: the camps see the same kids the
+/// signing stages' camps would (the family's money), on the same tiers.
+fn underclass_camps(w: &mut World, members: &[usize], seed: u64, short: f64) {
+    let spots = [Position::K, Position::P, Position::LS];
+    let mut lists: [Vec<(f64, usize)>; 3] = Default::default();
+    for &i in members {
+        let p = &w.people[i];
+        let Some(s) = spots.iter().position(|&x| x == p.player.position) else { continue };
+        let id = p.player.id as u64;
+        if key_uniform(seed ^ 0xCA4D, id) >= 0.3 + 0.7 * p.bg.money {
+            continue;
+        }
+        let grade = if spots[s] == Position::LS {
+            crate::positions::overall_for(Position::LS, &p.player.attributes)
+        } else {
+            specialist_grade(&p.player)
+        };
+        lists[s].push((grade + 1.5 * key_normal(seed ^ 0xCA4E, id), i));
+    }
+    for &i in members {
+        let p = &mut w.people[i];
+        if p.player.position.is_specialist() {
+            p.stars = 0;
+            p.camp_stars = 0;
+        }
+    }
+    let scale = w.options.scale * short;
+    for (s, list) in lists.iter_mut().enumerate() {
+        list.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+        let tiers = if spots[s] == Position::LS { &SNAP_TIERS } else { &CAMP_TIERS };
+        for (rank, &(_, i)) in list.iter().enumerate() {
+            let Some(&(stars, _)) = tiers.iter().find(|t| (rank as f64) < (t.1 * scale).round().max(1.0)) else {
+                break;
+            };
+            w.people[i].camp_stars = stars;
+        }
+    }
+}
+
 fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     let norms = w.system_norms;
     let year = season;
@@ -3541,67 +3749,23 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         let m = s / k.max(1.0);
         (m, ((s2 / k.max(1.0) - m * m).max(1.0)).sqrt())
     };
-    let culture: Vec<f64> = w.states.iter().map(|s| s.culture).collect();
-    let schools = &w.high_schools;
-    let coaches = &w.coaches;
-    let programs = &w.programs;
     // Your calls to colleges as a high school coach (section 7, topic 16).
     // SK13: a head coach seen at his games puts a name on the map.
     let seen_trips = super::scouting::own::seen_lift(w);
     let promos = super::scouting::hs::promos(w);
+    let wr: &World = w;
     let recruits: Vec<Recruit> = candidates
         .par_iter()
         .map(|&i| {
             // (Visibility and film read only; the person's own stream isn't touched here.)
-            let p = &w.people[i];
+            let p = &wr.people[i];
             let raw = film_raw(p);
             let (m, sd) = pos_mean_sd[p.player.position.index()];
             let film = all_mean_sd.0 + all_mean_sd.1 * (raw - m) / sd;
             let juco_mover = p.stage == Stage::College;
-            let hs = &schools[p.hs];
-            let school_exposure = if juco_mover {
-                0.7
-            } else if p.stage == Stage::PrepSchool {
-                0.6
-            } else {
-                hs.prestige
-            };
-            let network = if juco_mover {
-                p.college.and_then(|c| programs[c].head_coach).map_or(0.5, |c| coaches[c].ability().network / 20.0)
-            } else {
-                hs.coach.map_or(0.4, |c| coaches[c].ability().network / 20.0)
-            };
-            let camps = 0.3 + 0.7 * p.bg.money;
-            let tape = clamp((film - all_mean_sd.0) / (3.0 * all_mean_sd.1) + 0.3, 0.0, 1.0);
-            let traffic = 0.1 * (culture[p.home_state] + 0.6);
-            let viral_odds =
-                if p.family.parent_style == super::background::ParentStyle::SocialMedia { 0.06 } else { 0.02 };
-            // A viral clip gets him a first look only: staffs still judge his film.
-            let went_viral = !juco_mover
-                && key_normal(seed ^ 11, p.player.id as u64) > 0.0
-                && key_normal(seed ^ 13, p.player.id as u64).abs() < viral_odds * 2.5;
-            let viral = if went_viral { 0.25 } else { 0.0 };
-            let bloodline = match p.family.bloodline {
-                super::background::Bloodline::NflPlayer => 0.15,
-                super::background::Bloodline::CollegePlayer => 0.05,
-                super::background::Bloodline::None => 0.0,
-            };
-            // All-state honors (A32) put a name in front of every staff in the state.
-            let honors = 0.04 * p.cal.all_state.min(2) as f64;
-            let visibility = clamp(
-                0.05 + 0.3 * school_exposure
-                    + 0.2 * network
-                    + 0.15 * camps
-                    + 0.25 * tape
-                    + traffic
-                    + viral
-                    + bloodline
-                    + honors
-                    + promos.get(&p.player.id).copied().unwrap_or(0.0)
-                    + seen_trips.get(&p.player.id).copied().unwrap_or(0.0),
-                0.0,
-                1.0,
-            );
+            let promo =
+                promos.get(&p.player.id).copied().unwrap_or(0.0) + seen_trips.get(&p.player.id).copied().unwrap_or(0.0);
+            let (visibility, went_viral) = recruit_visibility(wr, p, film, all_mean_sd, seed, promo);
             let gift = crate::links::gift(&crate::links::projected(&p.player));
             // What his tape holds (SK1, SK2, SK5): every staff and service
             // sees the same film, so they lean the same way. A kid seen at
@@ -3707,6 +3871,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         // camps (fix list 1.5); the camps find the snappers once a class,
         // at its first rating.
         camp_rankings(w, &mut pool, &seniors, seed, all_mean_sd, stage == SignStage::Summer(0));
+        // The services' rankings as printed (update 2, minor bugs 12-15).
+        super::scouting::services::record(w, sign_year, today);
     }
     // When each recruit makes up his mind (T5.2).
     let persons = super::pick_mut(&mut w.people, pool.iter().map(|r| r.person));
@@ -6309,6 +6475,80 @@ pub(crate) fn appeal(w: &World, i: usize, j: usize, nil: Option<f64>) -> f64 {
     }
     u + super::legacy::guys::recruit_lean(w, p.player.id, p.hs, j)
         + super::legacy::college::u_lean(w, j, p.player.position, p.stars)
+}
+
+/// What a school means to a recruit, reason by reason (board 8): six of
+/// [`utility_fit`]'s terms as he weighs them, each in appeal points with the
+/// school's score on it (0 to 1): close to home, playing time, NIL money,
+/// coaching and development, winning and the name, academics. The seventh
+/// is the rest of [`appeal`]: his ties and feel (visits, an early offer, a
+/// commitment, the team he grew up with, a brother there, his school's
+/// pipeline, the program's stories, his pull to stay home, his own feel).
+/// The seven add up to `appeal` exactly.
+pub(crate) fn reason_parts(w: &World, i: usize, j: usize, nil: Option<f64>) -> [(f64, f64); 7] {
+    let p = &w.people[i];
+    let prog = &w.programs[j];
+    let nil = nil.unwrap_or_else(|| usual_nil_offer(w, j, i));
+    let wants = p.family.decider_wants;
+    let g = |c: GradeCat| prog.grades[c as usize] / 100.0;
+    let close = closeness(geo::miles(p.home_state, prog.state));
+    let crisis = p.bg.story.iter().rev().take(1).any(|s| s.contains("death") || s.contains("lost a job"));
+    let close_w = wants.close_to_home + if crisis { 0.15 } else { 0.0 };
+    let prestige = (g(GradeCat::TitleChances)
+        + g(GradeCat::StadiumAtmosphere)
+        + g(GradeCat::Tradition)
+        + g(GradeCat::BrandExposure))
+        / 4.0;
+    let money = (nil.max(0.0) / 1.0e6).powf(0.6);
+    let (money_w, path_w) = money_weights(p, &wants, crisis);
+    // `appeal` reads him at 0.6 of the way down a board.
+    let playing = g(GradeCat::PlayingTime) * (0.6 + 0.4 * 0.6);
+    let academics = g(GradeCat::Academics) * (0.5 + 0.5 * clamp((p.bg.gpa - 2.5) / 1.5, 0.0, 1.0));
+    let development = (g(GradeCat::ProPipeline) + g(GradeCat::CoachPrestige)) / 2.0;
+    let brand = prog.prestige_rel.min(1.0);
+    let lv = level_value(prog.division);
+    let mut name = 1.6 * lv * (0.5 + wants.prestige + wants.development)
+        + (0.25 + wants.prestige) * brand * (0.4 + 0.6 * lv)
+        + 0.1 * g(GradeCat::Facilities)
+        + wants.prestige * prestige;
+    if p.stars == 5 {
+        name += FIVE_STAR_PULL * brand.powi(3) * lv;
+    }
+    let six = [
+        (close_w * close, close),
+        ((wants.playing_time + path_w) * playing, playing),
+        (money_w * money * 1.5, money.min(1.0)),
+        ((wants.development + path_w) * development, development),
+        (name, (prestige + brand) / 2.0),
+        (wants.academics * academics, g(GradeCat::Academics)),
+    ];
+    let rest = appeal(w, i, j, Some(nil)) - six.iter().map(|x| x.0).sum::<f64>();
+    [six[0], six[1], six[2], six[3], six[4], six[5], (rest, clamp(0.5 + rest / 0.4, 0.0, 1.0))]
+}
+
+/// How much each of the six reasons counts with whoever decides for him,
+/// as [`reason_parts`] weighs them (close to home, playing time, money,
+/// development, winning and the name, academics).
+pub(crate) fn reason_weights(p: &Person) -> [f64; 6] {
+    let wants = p.family.decider_wants;
+    let crisis = p.bg.story.iter().rev().take(1).any(|s| s.contains("death") || s.contains("lost a job"));
+    let (money_w, path_w) = money_weights(p, &wants, crisis);
+    [
+        wants.close_to_home + if crisis { 0.15 } else { 0.0 },
+        wants.playing_time + path_w,
+        money_w,
+        wants.development + path_w,
+        wants.prestige,
+        wants.academics,
+    ]
+}
+
+/// Money's weight for him (his family's need, against his drive) and the
+/// path to the pros the ambitious kid weighs instead, as `utility_fit`.
+fn money_weights(p: &Person, wants: &super::background::Wants, crisis: bool) -> (f64, f64) {
+    let need = clamp(0.25 + 0.75 * (1.0 - p.bg.money) + if crisis { 0.2 } else { 0.0 }, 0.1, 1.2);
+    let drive = clamp((p.family.ambition - 10.0) / 10.0, -1.0, 1.0);
+    (wants.money * need * (1.0 - 0.35 * drive), 0.35 * drive.max(0.0) * wants.money)
 }
 
 /// How hard a recruit holds to the school he committed to, in appeal points.
