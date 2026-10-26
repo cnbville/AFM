@@ -1,6 +1,6 @@
 # Ratings: how it works today
 
-Checked against main at 94a6553 on 2026-10-25.
+Checked against main at a423e02 on 2026-10-26.
 
 ## Quick answers
 
@@ -20,6 +20,8 @@ Checked against main at 94a6553 on 2026-10-25.
 - What do "Elite / Starter level / Backup level" on the hover card mean? Bands against this season's two-deeps at his level and position: elite = 90th percentile of starters, typical starter = median starter, typical backup = median backup (`world/norms.rs`, `marks`; `crates/afm-game/src/lane_ratings.rs`, `band`).
 - Are the hidden 1-20 traits shown? No. Consistency, temperament and recovery are never shown (`player.rs`, `GameTraits`).
 - Stars? Half-stars 0.5-5 from a rating: (rating - 40) / 5, rounded, halved; 50 = 1 star, 70 = 3, 90 = 5 (`scouting.rs`, `to_stars`).
+- What is a high school squad read against on the squad boards? His state and classification with every graduating class together (a varsity's starters), not his own class as the hover card does (`world/norms.rs`, `Pool::Hs` grade 0; `crates/afm-game/src/lane_squadboards.rs`, `team_pool`).
+- Does the game remember last season's read of a player? Yes, from update 2's lane 9A: once a season, for every player your staff follows (`world/seat.rs`, `Career::kept_reads`; see "Kept reads" below).
 
 ## The 67 visible attributes
 
@@ -123,6 +125,17 @@ Draft boards use `PositionAligner::for_draft`: K, P and LS are read off their ow
 - Marks: backup = median backup, starter = median starter, elite = 90th percentile of starters (`norms.rs`, `marks`). Cached per season (`lane_ratings.rs`, `marks_cached`).
 - Band by the range's middle: Elite (≥ elite), A good starter (≥ halfway starter-elite), Starter level, Between a backup and a starter (≥ backup), Backup level (≥ backup - max(starter - backup, 3)), Below a typical backup. Plus "Ahead of about X-Y% of ..." rounded to 5%, and a straddle note (`lane_ratings.rs`, `band`, `round5`).
 - For a physical rating the card adds what it stands for at the combine at his weight (see the body page) (`lane_ratings.rs`, `combine_line`).
+- A high school pool with grade 0 keeps every graduating class (`world/norms.rs`, `collect`). The squad boards use it for a high school's players and unit cards, so a sophomore starter is read against the state classification's starters of every grade (`crates/afm-game/src/lane_squadboards.rs`, `team_pool`, `marks`).
+
+## Kept reads (the career arc)
+
+- What is kept: once a season, your staff's read of each player it follows as the football year turns: the overall range, the four ratings that matter most at his position (attribute index, low, high), the middle of each of his position's eight skill families, his position and his weight. About 30 bytes a player a season (`world/seat.rs`, `KeptRead`; `crates/afm-game/src/lane_squadboards.rs`, `read_now`).
+- When: the first day after the football year turns (the day after the Super Bowl), for the season just ended (`lane_squadboards.rs`, `after_days`, called from `lane_core.rs`, `after_days`).
+- Who: your roster, everyone you keep notes on, and the top 300 of your scouting board, while they are still in football (`lane_squadboards.rs`, `followed`).
+- The read is the same one the screens show that day: your own players through their position coach's eye, anyone else the public read (`lane_squadboards.rs`, `any_read`; `crates/afm-game/src/reads.rs`, `overall`, `attributes`).
+- Never made up after the fact: a new career, or a save from before lane 9A, marks the season it starts in and keeps from the next turn (`after_days`, `kept_through` 0). A second read of the same season replaces the first (`world/seat.rs`, `Career::keep_read`).
+- Where it shows: the career arc (the Career tab's chart and table), the shape tab's "since the end of" card and the body tab's weight over time (`lane_squadboards/arc.rs`, `shape.rs`, `body.rs`).
+- A season row of the record is dated from his birth date: the engine age on a row is his age on 31 August as that season starts (`lane_squadboards/arc.rs`, `record_season`; `calendar/born.rs`).
 
 ## trait_norm and the 1-20 reads in the engine
 
@@ -142,6 +155,7 @@ Draft boards use `PositionAligner::for_draft`: K, P and LS are read off their ow
 - `game/rules.rs`: `trait_norm` bases and offsets, `TRAIT_STEP`.
 - `crates/afm-game/src/reads.rs`: half-widths (2 + 0.12 per eye point, +4 for others' physicals, ±6 others' overall), lean 0.6.
 - `world/norms.rs`: `MIN_STARTERS` 12, `NATIONAL_SCHOOLS` 1500, elite at the 90th percentile.
+- `crates/afm-game/src/lane_squadboards.rs`: `followed` (the board's top 300), `read_now` (what a kept read holds), `key_attrs` (the top four by position weight over 0.02).
 - `scouting.rs`: `to_stars`, `level_visibility`, tier cut 52; `career.rs`, `NFL_LEVELS` (65/75/85/92).
 - `spots.rs`: `LEAN` 0.35, `fill_in`.
 - `athlete.rs`: `misfit` (0.04, 25 lb slack, cap 0.5), `premium`, `Eye::coach`.

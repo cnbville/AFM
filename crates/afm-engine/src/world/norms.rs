@@ -33,7 +33,8 @@ const NATIONAL_SCHOOLS: usize = 1500;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Pool {
     /// High school: a state (None for the nation), a classification within
-    /// it (0 = its biggest; None for every class) and a graduating class.
+    /// it (0 = its biggest; None for every class) and a graduating class
+    /// (0: every class, a whole varsity's starters).
     Hs {
         state: Option<usize>,
         class: Option<u32>,
@@ -201,7 +202,7 @@ fn collect(w: &World, pool: Pool, pos: Position, rated: Rated) -> (Vec<f32>, Vec
             }
         }
         Pool::Hs { state, class, grade } => {
-            let keep = |i: usize| w.people[i].class_of == grade;
+            let keep = |i: usize| grade == 0 || w.people[i].class_of == grade;
             let schools: Vec<usize> = match state {
                 Some(s) => w.states[s].schools.clone(),
                 None => {
