@@ -245,7 +245,7 @@ pub(crate) fn hs_rivals(w: &World, a: usize, b: usize) -> bool {
 }
 
 /// The trophy two rival schools play for, if they are rivals.
-pub(crate) fn hs_trophy(w: &World, a: usize, b: usize) -> Option<String> {
+pub fn hs_trophy(w: &World, a: usize, b: usize) -> Option<String> {
     if !hs_rivals(w, a, b) {
         return None;
     }

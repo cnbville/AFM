@@ -15,6 +15,7 @@ use crate::calendar::{Date, Event, Kind, Level, Loudness};
 use crate::rng::clamp;
 use crate::world::World;
 use crate::world::data::Division;
+use crate::world::deals::Money;
 use crate::world::schedule::GameKind;
 
 pub const CONFERENCE: usize = 0;
@@ -695,8 +696,17 @@ pub(crate) fn played(w: &mut World, idx: &[usize]) {
             continue;
         }
         let (home, away, kind, neutral, line, date) = (g.home, g.away, g.kind, g.site.is_some(), g.line, g.date);
+        // The game's contract (update 2, lane 6): a guarantee, a neutral
+        // site's payout, or nothing for a home-and-home.
+        let money = crate::world::deals::money(w, year, g, k);
         let (att, sold) = crowd(w, k);
-        w.college.as_mut().unwrap().games[k].attendance = att;
+        let gm = &mut w.college.as_mut().unwrap().games[k];
+        gm.attendance = att;
+        gm.paid = Some(match money {
+            Some(Money::Guarantee(x)) => (1, x as f32),
+            Some(Money::Neutral(x)) => (2, x as f32),
+            None => (0, 0.0),
+        });
         let month = date.month();
         if !neutral && home < w.finance.college.len() {
             let price = w.finance.college[home].price as f64;
@@ -709,10 +719,11 @@ pub(crate) fn played(w: &mut World, idx: &[usize]) {
                 d.sellouts += 1;
             }
             d.cash_month(month, gate as f32);
+        }
+        match money {
             // A guarantee game: the bigger program buys the home game.
-            let (th, ta) = (tier(w, home, year), tier(w, away, year));
-            if kind == GameKind::Regular && !w.college.as_ref().unwrap().games[k].conference && ta > th {
-                let fee = data::guarantee(ta, year) as f32 * (0.8 + 0.4 * draw(w, 0x6A4A, k as u64, year) as f32);
+            Some(Money::Guarantee(fee)) if home < w.finance.college.len() => {
+                let fee = fee as f32;
                 w.finance.college[home].now.l[GUARANTEES_OUT] += fee;
                 w.finance.college[home].cash_month(month, -fee);
                 if away < w.finance.college.len() {
@@ -720,6 +731,16 @@ pub(crate) fn played(w: &mut World, idx: &[usize]) {
                     w.finance.college[away].cash_month(month, fee);
                 }
             }
+            // A neutral-site kickoff game: the organisers pay each side.
+            Some(Money::Neutral(fee)) => {
+                for p in [home, away] {
+                    if p < w.finance.college.len() {
+                        w.finance.college[p].now.l[GUARANTEES_IN] += fee as f32;
+                        w.finance.college[p].cash_month(month, fee as f32);
+                    }
+                }
+            }
+            _ => {}
         }
         // Bowls and playoff games: the conference pays the trip's allowance;
         // the school buys its ticket block and pays the travel (many bowl

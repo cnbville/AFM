@@ -185,7 +185,7 @@ fn a_college_career_plays_through_its_first_games() {
     let game = ok(&mut g, "game", json!({ "index": 0 }));
     assert!(game["plays"].as_array().unwrap().len() > 60, "a whole high school game's plays");
     let sched = ok(&mut g, "schedule", json!({}));
-    assert!(sched["games"].as_array().unwrap().iter().any(|x| x["result"].is_string()), "{sched}");
+    assert!(sched["rows"].as_array().unwrap().iter().any(|x| x["result"]["us"].is_number()), "{sched}");
     assert!(!ok(&mut g, "standings", json!({}))["groups"].as_array().unwrap().is_empty());
     // Every other school's games run on the engine too, not only yours:
     // each game played is an engine game or a forfeit, never the stand-in,

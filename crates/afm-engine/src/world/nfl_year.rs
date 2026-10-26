@@ -80,6 +80,23 @@ pub(crate) struct NflSeason {
     /// Thursday night flexes this season (two at most, from 2023).
     #[serde(default)]
     pub tnf_flexes: u32,
+    /// The playoff games played so far (update 2, lane 6): every club's
+    /// schedule page reads its run, the Super Bowl included.
+    #[serde(default)]
+    pub playoffs: Vec<PlayedRound>,
+}
+
+/// A playoff game once played: its round (1 wild card .. 4 the Super
+/// Bowl), the host (the AFC side at the Super Bowl), the kickoff, the score
+/// when it was played on the engine, and whether the host won.
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
+pub(crate) struct PlayedRound {
+    pub round: u32,
+    pub home: usize,
+    pub away: usize,
+    pub at: Moment,
+    pub score: Option<[u32; 2]>,
+    pub home_won: bool,
 }
 
 /// One NFL team's season in the book.
@@ -269,7 +286,7 @@ fn strength_places(w: &World, div: &[usize]) -> Vec<usize> {
     place
 }
 
-fn record_key(s: &NflSeason, t: usize) -> f64 {
+pub(crate) fn record_key(s: &NflSeason, t: usize) -> f64 {
     let g = (s.wins[t] + s.losses[t] + s.ties[t]).max(1) as f64;
     (s.wins[t] as f64 + 0.5 * s.ties[t] as f64) / g
         + 0.001 * s.div_wins[t] as f64
@@ -283,7 +300,7 @@ fn record_key(s: &NflSeason, t: usize) -> f64 {
 /// the conference, and from 2021 a 17th game against a same-place team of
 /// another division of the other conference. The 32-team alignment is used
 /// for every year (proposed, not confirmed).
-fn opponent_formula(s: &NflSeason, season: i32, games: u32) -> Vec<(usize, usize)> {
+pub(crate) fn opponent_formula(s: &NflSeason, season: i32, games: u32) -> Vec<(usize, usize)> {
     let n = s.div.len();
     let members = |d: usize| -> Vec<usize> {
         let mut m: Vec<usize> = (0..n).filter(|&t| s.div[t] == d).collect();
@@ -2244,10 +2261,12 @@ fn play_round(w: &mut World, round: u32, d: Date) {
     let line = super::finance::lines::nfl(w, p, a, b);
     let at = Moment::at(d, 18, 30);
     let game = engine_games(w, &[Fixture { home: a, away: b, at, neutral: true, loud: 0.0, seed: seed ^ 0x5B }]);
+    let mut score = None;
     let a_wins = match game.first().and_then(|g| g.as_ref()) {
         Some((r, sides)) => {
             pro_games::record(w, [a, b], r, sides, [s.z[b], s.z[a]]);
             let [x, y] = r.stats.score;
+            score = Some([x.max(0) as u32, y.max(0) as u32]);
             settle_line(w, a, b, Some(line), Some([x.max(0) as u32, y.max(0) as u32]));
             let won = if x == y { key_uniform(seed, (a as u64) << 8 ^ b as u64) < p } else { x > y };
             let (side, champ) = if won { (0, a) } else { (1, b) };
@@ -2257,6 +2276,7 @@ fn play_round(w: &mut World, round: u32, d: Date) {
         None => key_uniform(seed, (a as u64) << 8 ^ b as u64) < p,
     };
     let (champ, loser) = if a_wins { (a, b) } else { (b, a) };
+    s.playoffs.push(PlayedRound { round: 4, home: a, away: b, at, score, home_won: a_wins });
     s.out_round[champ] = 5;
     s.out_round[loser] = 4;
     s.champion = Some(champ);
@@ -2350,12 +2370,14 @@ fn play_round_games(w: &mut World, d: Date) {
         today.iter().map(|g| super::finance::lines::nfl(w, win_prob(&s, g.2, g.3, HOME), g.2, g.3)).collect();
     let outcomes = engine_games(w, &fixtures);
     let mut engine: Vec<(usize, usize, bool)> = Vec::new();
+    let mut scores: Vec<(usize, usize, [u32; 2])> = Vec::new();
     for ((g, o), line) in today.iter().zip(&outcomes).zip(&lines) {
         super::finance::nfl::gate(w, g.2, g.3, d, false, true);
         if let Some((r, sides)) = o {
             pro_games::record(w, [g.2, g.3], r, sides, [s.z[g.3], s.z[g.2]]);
             let [x, y] = r.stats.score;
             settle_line(w, g.2, g.3, Some(*line), Some([x.max(0) as u32, y.max(0) as u32]));
+            scores.push((g.2, g.3, [x.max(0) as u32, y.max(0) as u32]));
             if x != y {
                 engine.push((g.2, g.3, x > y));
             }
@@ -2374,6 +2396,8 @@ fn play_round_games(w: &mut World, d: Date) {
             None => key_uniform(seed ^ c as u64, (hi as u64) << 8 ^ lo as u64) < p,
         };
         let (wn, l) = if hi_wins { (hi, lo) } else { (lo, hi) };
+        let score = scores.iter().find(|e| e.0 == hi && e.1 == lo).map(|e| e.2);
+        s.playoffs.push(PlayedRound { round, home: hi, away: lo, at, score, home_won: hi_wins });
         s.out_round[l] = round;
         s.round_next[c].push(wn);
         results.push((round, wn, l, at));

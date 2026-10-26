@@ -121,6 +121,8 @@ pub fn read_world(path: &Path) -> std::io::Result<World> {
     let mut w: World = rmp_serde::decode::from_read(z).map_err(std::io::Error::other)?;
     // The game keeps no trial game log.
     w.options.keep_game_log = false;
+    // A file from before the contract books (update 2, lane 6): fill them.
+    crate::world::deals::ensure(&mut w);
     Ok(w)
 }
 

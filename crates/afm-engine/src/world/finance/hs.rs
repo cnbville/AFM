@@ -118,6 +118,11 @@ fn state_code(w: &World, h: usize) -> &str {
     &w.states[w.high_schools[h].state].code
 }
 
+/// A school's usual home crowd (the schedule page's crowds start from it).
+pub(crate) fn usual_crowd(w: &World, h: usize) -> u32 {
+    crowd(w, h)
+}
+
 /// A normal home crowd: the school's size, the town's football and the
 /// program's name (Texas and the Deep South fill bigger stadiums).
 fn crowd(w: &World, h: usize) -> u32 {
