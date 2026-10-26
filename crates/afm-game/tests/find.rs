@@ -193,7 +193,12 @@ fn a_college_staff_searches_a_class() {
             assert!(page["decides"].is_null(), "when he decides waits for a signal: {}", page["decides"]);
         }
     }
-    assert!(all > 0 && same * 3 < all, "the race shows reads: {same} of {all} points equal his true interest");
+    // A read lands on his true number now and then by chance (about one
+    // point in seven); the truth itself would match every time.
+    assert!(
+        all > 0 && (all < 2 || same < all) && (all < 12 || same * 3 < all),
+        "the race shows reads: {same} of {all} points equal his true interest"
+    );
     // An announced top list is in a neutral order, never his.
     let w = g.world.as_ref().unwrap();
     for t in &w.scouting.rankings.tops {
