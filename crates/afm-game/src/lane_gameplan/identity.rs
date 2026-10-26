@@ -99,12 +99,28 @@ fn fit_json(p: f64) -> Value {
 }
 
 /// A coordinator's knowledge in words.
-fn know_words(k: f64) -> &'static str {
-    match k {
-        x if x >= 0.85 => "knows it inside out",
-        x if x >= 0.7 => "knows it well",
-        x if x >= 0.5 => "knows it in part",
-        _ => "barely knows it",
+/// "McConnell knows the 3-4 well", or "You know the 3-4 well".
+fn knows(name: &str, k: f64, what: &str) -> String {
+    let (verb, adv) = match k {
+        x if x >= 0.85 => ("know", " inside out"),
+        x if x >= 0.7 => ("know", " well"),
+        x if x >= 0.5 => ("know", " in part"),
+        _ => ("barely know", ""),
+    };
+    if name == "you" { format!("You {verb} {what}{adv}") } else { format!("{name} {verb}s {what}{adv}") }
+}
+
+/// The line under a guideline's name: the play caller's own habit (yours
+/// when you call that side), or whether he agreed with yours.
+fn own_sub(name: &str, set: bool, agree: bool, own: &str) -> String {
+    if name == "you" {
+        format!("your own: {own}")
+    } else if !set {
+        format!("{name}'s own: {own}")
+    } else if agree {
+        format!("agreed with {name}")
+    } else {
+        format!("{name}: {own}")
     }
 }
 
@@ -221,6 +237,8 @@ pub(super) fn view(w: &World) -> Reply {
     let ddis = dis(dc, false);
     let firm_text = |want: Option<String>, own: String, f: Firm, who: &str| -> String {
         match want {
+            None if who == "you" => format!("Nothing said: you call it as you see it ({own})."),
+            Some(t) if who == "you" => format!("You call this side yourself: {t} is yours to keep."),
             None => format!("Nothing said: {who} calls his own game ({own})."),
             Some(t) => match f {
                 Firm::Firm => format!(
@@ -251,9 +269,16 @@ pub(super) fn view(w: &World) -> Reply {
     let mut rows: Vec<Value> = Vec::new();
 
     // ---- Defense: the base front.
-    let own_front = {
+    // The front he knows best, and his own: what went in this season when
+    // nothing is said (his pick for the roster), else the one he knows best.
+    let best_front = {
         let f = FRONTS[best(&dknow, 5..7) - 5];
         if f == afm_engine::game::Front::FourThree { BaseFront::FourThree } else { BaseFront::ThreeFour }
+    };
+    let own_front = match g.front.to {
+        None if st.front == afm_engine::game::Front::FourThree => BaseFront::FourThree,
+        None => BaseFront::ThreeFour,
+        Some(_) => best_front,
     };
     let front_pick = g.front.to.unwrap_or(if st.front == afm_engine::game::Front::FourThree {
         BaseFront::FourThree
@@ -280,7 +305,7 @@ pub(super) fn view(w: &World) -> Reply {
         let agree = !ddis.contains(&"front");
         rows.push(json!({
             "key": "front", "group": "Defense", "name": "Base front",
-            "sub": if g.front.to.is_none() { format!("{dname}'s own: {}", own_front.name()) } else if agree { format!("agreed with {dname}") } else { format!("{dname}: {}", own_front.name()) },
+            "sub": own_sub(&dname, g.front.to.is_some(), agree, own_front.name()),
             "kind": "options",
             "options": fronts(s.level).into_iter().map(|b| json!({ "v": b.name(), "label": b.name(), "own": b == own_front, "fit": FIT_WORDS[fit_level(front_fit(b))] })).collect::<Vec<_>>(),
             "value": g.front.to.map(|b| b.name()),
@@ -295,8 +320,8 @@ pub(super) fn view(w: &World) -> Reply {
             "firm_text": firm_text(g.front.to.map(|b| b.name().to_string()), own_front.name().to_string(), g.front.firm, &dname),
             "kv": [
                 { "k": "Your roster · fit", "v": format!("Your staff reads the roster as a {} fit for the {}: {} corners, {} safeties, {} linebackers.", FIT_WORDS[fit_level(front_fit(front_pick))].to_lowercase(), front_pick.name(), cbs, ss, lbs) },
-                { "k": "The coordinator's view", "v": if you(dc) { "You call the defense yourself: your guidelines are yours to keep.".to_string() } else if agree { format!("Agrees: {dname} knows the {} best.", own_front.name()) } else { format!("He'd rather not: {dname} knows the {} best.", own_front.name()) } },
-                { "k": "How well it gets called", "v": format!("{} {} the {}.", dname, know_words(dknow[fslot(front_pick)]), front_pick.name()) },
+                { "k": "The coordinator's view", "v": if you(dc) { "You call the defense yourself: your guidelines are yours to keep.".to_string() } else if agree { format!("Agrees: {dname} knows the {} best.", best_front.name()) } else { format!("He'd rather not: {dname} knows the {} best.", best_front.name()) } },
+                { "k": "How well it gets called", "v": format!("{}.", knows(&dname, dknow[fslot(front_pick)], &format!("the {}", front_pick.name()))) },
                 { "k": "If you change it", "v": if (ov - 1.0).abs() < 1e-9 { "No new learning: the same front, more or less nickel.".to_string() } else { format!("About {:.0}% of the front's calls carry over; the rest goes in at the spring install and is new learning for the line and the linebackers.", 100.0 * ov) } },
                 { "k": "Elsewhere it shows", "v": "The depth chart's packages, recruiting and the draft board's fit reads for the front seven." },
             ],
@@ -319,7 +344,7 @@ pub(super) fn view(w: &World) -> Reply {
         let dbest = best(&dknow, 7..11) - 7;
         rows.push(json!({
             "key": "man", "group": "Defense", "name": "Coverage",
-            "sub": if want.is_none() { format!("{dname}'s own: {:.0}% man", 100.0 * own) } else if agree { format!("agreed with {dname}") } else { format!("{dname}: {:.0}% man", 100.0 * own) },
+            "sub": own_sub(&dname, want.is_some(), agree, &format!("{:.0}% man", 100.0 * own)),
             "kind": "track", "min": 0, "max": 100, "step": 5, "label_lo": "zone", "label_hi": "man",
             "value": want.map(pct), "own": pct(own),
             "firm": firm_of(g.man.firm, want.is_some()), "firm_labels": ["Firm", "Lean", def_label],
@@ -333,7 +358,7 @@ pub(super) fn view(w: &World) -> Reply {
             "kv": [
                 { "k": "Your roster · fit", "v": format!("At about {:.0}% man the secondary plays mostly {}: your staff reads the roster as a {} fit for it ({} corners, {} safeties).", 100.0 * expect, SHELL_NAMES[near], FIT_WORDS[fit_level(fits[7 + near])].to_lowercase(), cbs, ss) },
                 { "k": "The coordinator's view", "v": if you(dc) { "You call the defense yourself.".to_string() } else if agree { format!("Agrees: close to the {} he knows best.", SHELL_NAMES[dbest]) } else { format!("He'd rather not: {dname} knows {} best.", SHELL_NAMES[dbest]) } },
-                { "k": "How well it gets called", "v": format!("{dname} {} {}; a coordinator moved off his own coverages calls them as well as he knows them.", know_words(dknow[7 + near]), SHELL_NAMES[near]) },
+                { "k": "How well it gets called", "v": if you(dc) { format!("{}.", knows(&dname, dknow[7 + near], SHELL_NAMES[near])) } else { format!("{}; a coordinator moved off his own coverages calls them as well as he knows them.", knows(&dname, dknow[7 + near], SHELL_NAMES[near])) } },
                 { "k": "If you change it", "v": "No install of its own: the same coverages, called more or less often. A big move pulls next spring's install toward the family that plays it." },
                 { "k": "Elsewhere it shows", "v": "Recruiting and the draft board grade corners for press-man or zone against it; game day's answers start from it." },
             ],
@@ -351,7 +376,7 @@ pub(super) fn view(w: &World) -> Reply {
         let edges = count(&|p| p == P::EDGE);
         rows.push(json!({
             "key": "pressure", "group": "Defense", "name": "Pressure",
-            "sub": if want.is_none() { format!("{dname}'s own: {:.0}%", 100.0 * own) } else if agree { format!("agreed with {dname}") } else { format!("{dname}: {:.0}%", 100.0 * own) },
+            "sub": own_sub(&dname, want.is_some(), agree, &format!("{:.0}%", 100.0 * own)),
             "kind": "track", "min": 0, "max": 60, "step": 5, "label_lo": "four", "label_hi": "five or more",
             "value": want.map(pct), "own": pct(own),
             "firm": firm_of(g.pressure.firm, want.is_some()), "firm_labels": ["Firm", "Lean", def_label],
@@ -365,7 +390,7 @@ pub(super) fn view(w: &World) -> Reply {
             "kv": [
                 { "k": "Your roster · fit", "v": format!("Pressure leans on the corners behind it: your staff reads man and pressure as a {} fit ({} corners, {} edge rushers).", FIT_WORDS[fit_level(fits[9])].to_lowercase(), cbs, edges) },
                 { "k": "The coordinator's view", "v": if you(dc) { "You call the defense yourself.".to_string() } else if agree { "Agrees: about what his nature brings.".to_string() } else { format!("He'd rather not: {dname} sends {:.0}% on his own.", 100.0 * own) } },
-                { "k": "How well it gets called", "v": format!("{dname} {} man and pressure.", know_words(dknow[9])) },
+                { "k": "How well it gets called", "v": format!("{}.", knows(&dname, dknow[9], "man and pressure")) },
                 { "k": "If you change it", "v": "No new learning: the same pressures, sent more or less often." },
                 { "k": "Elsewhere it shows", "v": "The 5+ rush on game day's answers to each personnel group starts here." },
             ],
@@ -374,7 +399,8 @@ pub(super) fn view(w: &World) -> Reply {
 
     // ---- Offense: the system.
     {
-        let own_o = OFFENSES[best(&oknow, 0..5)];
+        let best_o = OFFENSES[best(&oknow, 0..5)];
+        let own_o = if g.system.to.is_none() && OFFENSES.contains(&st.off_scheme) { st.off_scheme } else { best_o };
         let pick = g.system.to.unwrap_or(st.off_scheme);
         let slot = |o: OffScheme| OFFENSES.iter().position(|&x| x == o).unwrap_or(3);
         let ofit = |o: OffScheme| if o == OffScheme::WingT { fits[3] - 0.2 } else { fits[slot(o)] };
@@ -386,9 +412,18 @@ pub(super) fn view(w: &World) -> Reply {
             (Some(_), Firm::Lean) => "likely",
             (Some(_), Firm::Theirs) => "his call",
         };
+        let how = {
+            let k = if pick == OffScheme::WingT { oknow[3] * 0.75 } else { oknow[slot(pick)] };
+            let line = knows(&oname, k, &format!("the {}", scheme_name(pick)));
+            if you(oc) {
+                format!("{line}.")
+            } else {
+                format!("{line}; asked to call what he knows less, he calls it as well as he knows it.")
+            }
+        };
         rows.push(json!({
             "key": "system", "group": "Offense", "name": "System",
-            "sub": if g.system.to.is_none() { format!("{oname}'s own: {}", scheme_name(own_o)) } else if agree { format!("agreed with {oname}") } else { format!("{oname}: {}", scheme_name(own_o)) },
+            "sub": own_sub(&oname, g.system.to.is_some(), agree, &scheme_name(own_o)),
             "kind": "options",
             "options": offenses(s.level).into_iter().map(|o| json!({ "v": scheme_key(o), "label": scheme_name(o), "own": o == own_o, "fit": FIT_WORDS[fit_level(ofit(o))] })).collect::<Vec<_>>(),
             "value": g.system.to.map(scheme_key), "own": scheme_key(own_o),
@@ -402,8 +437,8 @@ pub(super) fn view(w: &World) -> Reply {
             "firm_text": firm_text(g.system.to.map(scheme_name), scheme_name(own_o), g.system.firm, &oname),
             "kv": [
                 { "k": "Your roster · fit", "v": format!("Your staff reads the roster as a {} fit for the {} ({} receivers, {} tight ends, {} backs).", FIT_WORDS[fit_level(ofit(pick))].to_lowercase(), scheme_name(pick), wrs, tes, rbs) },
-                { "k": "The coordinator's view", "v": if you(oc) { "You call the offense yourself.".to_string() } else if agree { format!("Agrees: {oname} knows the {} best.", scheme_name(own_o)) } else { format!("He'd rather not: {oname} knows the {} best.", scheme_name(own_o)) } },
-                { "k": "How well it gets called", "v": format!("{oname} {} the {}; asked to call what he knows less, he calls it as well as he knows it.", know_words(if pick == OffScheme::WingT { oknow[3] * 0.75 } else { oknow[slot(pick)] }), scheme_name(pick)) },
+                { "k": "The coordinator's view", "v": if you(oc) { "You call the offense yourself.".to_string() } else if agree { format!("Agrees: {oname} knows the {} best.", scheme_name(best_o)) } else { format!("He'd rather not: {oname} knows the {} best.", scheme_name(best_o)) } },
+                { "k": "How well it gets called", "v": how },
                 { "k": "If you change it", "v": if (ov - 1.0).abs() < 1e-9 { "Nothing to learn: it's the system in now.".to_string() } else { format!("About {:.0}% of the playbook carries over from the {}; the rest is new learning at the spring install, and the call sheet thins until it goes in.", 100.0 * ov, scheme_name(st.off_scheme)) } },
                 { "k": "Elsewhere it shows", "v": "The spring install, the call sheet's plays, recruiting's quarterback and receiver fit." },
             ],
@@ -448,7 +483,7 @@ pub(super) fn view(w: &World) -> Reply {
         let gj = games_json("personnel", &json!(pick.name()));
         rows.push(json!({
             "key": "personnel", "group": "Offense", "name": "Personnel",
-            "sub": if g.personnel.to.is_none() { format!("{oname}'s own: {}", own_p.name()) } else if pick == own_p { format!("agreed with {oname}") } else { format!("{oname}: {}", own_p.name()) },
+            "sub": own_sub(&oname, g.personnel.to.is_some(), pick == own_p, own_p.name()),
             "kind": "options",
             "options": PERSONNEL.iter().map(|&p| json!({ "v": p.name(), "label": p.name(), "own": p == own_p, "fit": FIT_WORDS[fit_level(pfit(p))] })).collect::<Vec<_>>(),
             "value": g.personnel.to.map(|p| p.name()), "own": own_p.name(),
@@ -480,7 +515,7 @@ pub(super) fn view(w: &World) -> Reply {
         let agree = !odis.contains(&"pace");
         rows.push(json!({
             "key": "pace", "group": "Offense", "name": "Tempo",
-            "sub": if g.pace.to.is_none() { format!("{oname}'s own: {:.0}% no-huddle", 100.0 * own) } else if agree { format!("agreed with {oname}") } else { format!("{oname}: {:.0}% no-huddle", 100.0 * own) },
+            "sub": own_sub(&oname, g.pace.to.is_some(), agree, &format!("{:.0}% no-huddle", 100.0 * own)),
             "kind": "options",
             "options": Pace::ALL.iter().map(|&p| json!({ "v": pace_key(p), "label": p.name(), "own": p == own_p, "fit": Value::Null })).collect::<Vec<_>>(),
             "value": g.pace.to.map(pace_key), "own": pace_key(own_p), "own_share": own,
@@ -514,7 +549,7 @@ pub(super) fn view(w: &World) -> Reply {
         let runfit = if expect >= own { (fits[2] + fits[3]) / 2.0 } else { (fits[0] + fits[1]) / 2.0 };
         rows.push(json!({
             "key": "run", "group": "Offense", "name": "Run or pass",
-            "sub": if want.is_none() { format!("{oname}'s own: {:.0}% runs", 100.0 * own) } else if agree { format!("agreed with {oname}") } else { format!("{oname}: {:.0}% runs", 100.0 * own) },
+            "sub": own_sub(&oname, want.is_some(), agree, &format!("{:.0}% runs", 100.0 * own)),
             "kind": "track", "min": 20, "max": 80, "step": 5, "label_lo": "throw", "label_hi": "run",
             "value": want.map(pct), "own": pct(own),
             "firm": firm_of(g.run.firm, want.is_some()), "firm_labels": ["Firm", "Lean", off_label],
@@ -543,7 +578,7 @@ pub(super) fn view(w: &World) -> Reply {
         let expect = want.map_or(own, |t| guide::expected(own, t, k));
         let gj = games_json("stick", &Value::Null);
         let fams = plans::sheet_families(w);
-        let grasp = plans::unit_grasp(&s.team, 0, &fams);
+        let grasp = plans::unit_grasp(&s.team, s.level, 0, &fams);
         let gl = if grasp >= 0.85 {
             3.0
         } else if grasp >= 0.75 {

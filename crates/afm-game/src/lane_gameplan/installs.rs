@@ -24,6 +24,15 @@ use crate::views::{class_text, date_text, person_index, reader_key};
 /// The game-ready line: 85% of the plan known (proposed, not confirmed).
 const READY: f64 = 0.85;
 
+/// The game week: the plan for a game goes in over the last seven days
+/// before it. Further out, the board shows the grasp as it stands.
+const WEEK: i32 = 7;
+
+/// Whether the next game is in this game week.
+fn in_week(w: &World, next: Option<plans::Next>) -> bool {
+    next.is_some_and(|n| n.date.0 - w.today.0 <= WEEK)
+}
+
 fn unit_arg(a: &Value) -> usize {
     match a.get("unit").and_then(Value::as_str) {
         Some("defense") => 1,
@@ -95,9 +104,12 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
     };
     let wk = &w.plans.week;
     let this = next.is_some_and(|n| wk.game == Some(n.date));
+    let week = in_week(w, next);
     let extra_of = |id: u32, x: u8| this && wk.extra.iter().any(|e| e.0 == id && e.1 == x);
     let base_of = |id: u32| this && wk.base_only.contains(&id);
-    let days = next.map_or(0, |n| days_left(w.today, n.date));
+    // Out of the game week nothing is projected: the plan isn't in yet.
+    let days = if week { next.map_or(0, |n| days_left(w.today, n.date)) } else { 0 };
+    let away = next.map(|n| n.date.0 - w.today.0);
     let load = s.team.plan().1;
     // The week's film minutes on your practice plan.
     let film_min: u32 = w
@@ -147,7 +159,11 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
     let mut rows: Vec<Value> = Vec::new();
     let (mut sum_now, mut sum_fri, mut sum_busts, mut n) = (0.0, 0.0, 0.0, 0usize);
     let mut seen: Vec<u32> = Vec::new();
-    for (pos, ids) in &s.team.order {
+    // The two-deep as the engine dresses it: your order where you set one,
+    // your staff's for the rest (a season's team keeps no order of its own
+    // in the offseason).
+    let order = plans::depth_order(&s.team, s.level);
+    for (pos, ids) in &order {
         let off = systems::offense(*pos);
         let fits = match unit {
             0 => off && !pos.is_specialist(),
@@ -173,7 +189,7 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
                 sn *= 0.55;
             }
             let rate = plans::bust_rate(fri, iq, load, p.prep as f64);
-            let busts = rate * sn;
+            let busts = if week { rate * sn } else { 0.0 };
             let calls = plays.iter().filter(|f| p.know[**f as usize] < 0.6).count();
             let name = person_index(w, id).map(|i| w.people[i].name.clone()).unwrap_or_else(|| "A player".into());
             let class = person_index(w, id).map(|i| class_text(w, &w.people[i])).unwrap_or_default();
@@ -185,7 +201,7 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
                 "id": id, "name": name, "pos": pos.name(), "class": class, "role": if starter { "1st" } else { "2nd" },
                 "now": super::pct(now), "friday": super::pct(fri), "calls": calls,
                 "film": super::num((film_min as f64 / 60.0) + if extra_of(id, 1) { 1.5 } else { 0.0 }, 1),
-                "busts": (busts * 10.0).round() / 10.0, "flag": fri < READY,
+                "busts": (busts * 10.0).round() / 10.0, "flag": week && fri < READY,
                 "extra": { "film": extra_of(id, 1), "walk": extra_of(id, 2), "base": base_of(id) },
                 "iq_words": iq_words(iq),
             }));
@@ -198,7 +214,8 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
             let ids: Vec<&GamePlayer> = s.team.players.iter().filter(|p| seen.contains(&p.id)).collect();
             let g = ids.iter().map(|p| p.know[*f as usize] as f64).sum::<f64>() / ids.len().max(1) as f64;
             let iq = ids.iter().map(|p| read_iq(p)).sum::<f64>() / ids.len().max(1) as f64;
-            json!({ "name": f.name(), "calls": wt.round(), "now": super::pct(g), "friday": super::pct(by_friday(g, iq, days, 0.0)), "new": g < 0.7 })
+            let fri = if week { by_friday(g, iq, days, 0.0) } else { g };
+            json!({ "name": f.name(), "calls": wt.round(), "now": super::pct(g), "friday": super::pct(fri), "new": g < 0.7 })
         })
         .collect();
     fam_rows.sort_by(|a, b| a["now"].as_f64().unwrap_or(0.0).total_cmp(&b["now"].as_f64().unwrap_or(0.0)));
@@ -207,7 +224,7 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
     let mut chart: Vec<Value> = Vec::new();
     let names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     let avg_now = if n > 0 { sum_now / n as f64 } else { 0.0 };
-    for i in 0..7 {
+    for i in 0..if week { 7 } else { 0 } {
         let d = monday.add(i);
         if next.is_some_and(|nx| d.0 >= nx.date.0) {
             break;
@@ -237,7 +254,7 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
     };
     Ok(json!({
         "level": lvl(s.level), "unit": (["offense", "defense", "kicking"][unit]), "head": w.seat_head(),
-        "has_game": next.is_some(),
+        "has_game": next.is_some(), "week": week, "away": away,
         "game": next.map(|nx| date_text(nx.date)), "opp": next.map(|nx| team_link(w, s.level, nx.opp)),
         "days": days, "ready": super::pct(READY),
         "rows": rows,
@@ -272,7 +289,10 @@ pub(super) fn extra(w: &mut World, a: &Value) -> Result<(), String> {
     if !w.seat_head() && !w.controls(pos) {
         return Err(format!("He isn't in your room. Your job covers {}.", w.your_controls()));
     }
-    plans::next_game(w).ok_or("No game ahead this week.")?;
+    let next = plans::next_game(w).ok_or("No game ahead this week.")?;
+    if !in_week(w, Some(next)) {
+        return Err("Extras go in the week of the game.".into());
+    }
     let wk = plans::week_mut(w);
     match x {
         "film" | "walk" => {

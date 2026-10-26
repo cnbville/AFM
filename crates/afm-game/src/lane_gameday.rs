@@ -87,6 +87,28 @@ pub(crate) fn names(w: &World, teams: &[TeamRef]) -> film::Names {
     m
 }
 
+/// Players on the tapes who have left the two rosters since (drafted,
+/// graduated, transferred, cut) keep their names on the film.
+fn add_tape_names(w: &World, m: &mut film::Names, tapes: &[&afm_engine::world::tape::Tape]) {
+    for t in tapes {
+        let ids = t
+            .protection
+            .iter()
+            .map(|x| x.1)
+            .chain(t.rush.iter().map(|x| x.1))
+            .chain(t.snaps.iter().flat_map(|x| [x.returner, x.passer, x.target, x.carrier, x.defender]).flatten());
+        for id in ids {
+            if m.contains_key(&id) {
+                continue;
+            }
+            if let Some(k) = views::person_index(w, id) {
+                let p = &w.people[k];
+                m.insert(id, (p.name.clone(), p.player.position.name().to_string()));
+            }
+        }
+    }
+}
+
 fn clock_text(secs: f64) -> String {
     let s = secs.max(0.0).round() as u32;
     format!("{}:{:02}", s / 60, s % 60)
@@ -285,11 +307,12 @@ fn hub(w: &World) -> Value {
         return json!({ "has_game": false, "why": why, "me": views::team_brief(w, me), "settings": settings, "rules": rules, "calling": calling });
     };
     let opp = team_ref(level, n.opp);
-    let names = names(w, &[me, opp]);
+    let mut names = names(w, &[me, opp]);
     let today = n.date == w.today;
     // The day's game as it will be played (game morning only).
     let setup = if today { w.seat_setup_today() } else { None };
     let tapes = w.tapes_of(n.opp);
+    add_tape_names(w, &mut names, &tapes);
     let side = |tp: &afm_engine::world::tape::Tape| tp.side_of(n.opp).unwrap_or(0);
     let studied = |tp: &afm_engine::world::tape::Tape| {
         w.gameday.studied.iter().any(|s| s.0 == n.date && s.1 == tp.date && [s.2, s.3] == tp.teams)
@@ -763,7 +786,8 @@ fn hint(w: &mut World, a: &Value) -> Reply {
     let tape = w.gameday.tapes.iter().find(|x| x.date == d && x.teams == [h, aw]).ok_or("That tape is gone.")?;
     let opp = next_game(w).map(|n| n.opp).ok_or("No game.")?;
     let side = tape.side_of(opp).ok_or("That tape isn't of your next opponent.")?;
-    let names = names(w, &[team_ref(level, t), team_ref(level, opp)]);
+    let mut names = names(w, &[team_ref(level, t), team_ref(level, opp)]);
+    add_tape_names(w, &mut names, &[tape]);
     let found =
         film::hints(tape, side, &names).into_iter().find(|x| x.key == key).ok_or("That hint is not on this tape.")?;
     if found.effect == film::Effect::Note {

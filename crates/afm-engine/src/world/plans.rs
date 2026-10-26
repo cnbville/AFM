@@ -443,6 +443,36 @@ fn is_run(p: &SheetPlay) -> bool {
     matches!(p.play, SheetKind::Run(_))
 }
 
+/// A box's plays (sorted by weight): runs and throws in the share the play
+/// caller calls them there, each kind best first, spread through the list
+/// so the order of preference keeps the mix. The most frequent plays alone
+/// would fill a box with runs: his runs gather on a few plays while his
+/// throws spread over many concepts, and a box with no throw turns his
+/// throw into a run on game day (`game::sheet::off_call`).
+fn mix(counts: Vec<(SheetPlay, f64)>, want: usize) -> Vec<SheetPlay> {
+    let (runs, passes): (Vec<_>, Vec<_>) = counts.into_iter().partition(|x| is_run(&x.0));
+    let wr: f64 = runs.iter().map(|x| x.1).sum();
+    let wp: f64 = passes.iter().map(|x| x.1).sum();
+    let mut nr = if wr + wp > 0.0 { (want as f64 * wr / (wr + wp)).round() as usize } else { 0 };
+    if want >= 2 && !runs.is_empty() && !passes.is_empty() {
+        nr = nr.clamp(1, want - 1);
+    }
+    let mut nr = nr.min(runs.len());
+    let np = (want - nr).min(passes.len());
+    if nr + np < want {
+        nr = (want - np).min(runs.len());
+    }
+    let mut keyed: Vec<(f64, SheetPlay)> = Vec::new();
+    for (i, x) in runs.into_iter().take(nr).enumerate() {
+        keyed.push(((i as f64 + 0.5) / nr as f64, x.0));
+    }
+    for (i, x) in passes.into_iter().take(np).enumerate() {
+        keyed.push(((i as f64 + 0.5) / np as f64, x.0));
+    }
+    keyed.sort_by(|a, b| a.0.total_cmp(&b.0));
+    keyed.into_iter().map(|x| x.1).collect()
+}
+
 fn family_of(p: &SheetPlay) -> Family {
     match p.play {
         SheetKind::Run(r) => r.family(),
@@ -824,7 +854,7 @@ pub fn draft_with(w: &World, team: &GameTeam, next: &Next, notes: [&[u8]; 2], ro
                     1.0,
                 ));
             }
-            for (i, (p, _)) in counts.into_iter().take(want).enumerate() {
+            for (i, p) in mix(counts, want).into_iter().enumerate() {
                 let mut marks = 0;
                 if matches!(p.play, SheetKind::Pass(c) if favs.contains(&(c as usize))) {
                     marks |= FAV;
@@ -1528,9 +1558,11 @@ pub(crate) fn day(w: &mut World, d: Date) {
     }
     check_keys(w);
     // The team's grasp of the plan today (G14), for the week's chart.
-    if let Some(team) = next_game(w).filter(|n| n.date.0 - d.0 <= 8).and_then(|_| our_team(w)) {
+    if let Some(n) = next_game(w).filter(|n| n.date.0 - d.0 <= 8)
+        && let Some(team) = our_team(w)
+    {
         let fams = sheet_families(w);
-        let g = [0, 1, 2].map(|u| unit_grasp(&team, u, &fams) as f32);
+        let g = [0, 1, 2].map(|u| unit_grasp(&team, n.level, u, &fams) as f32);
         w.plans.grasp_log.retain(|x| x.0 != d && d.0 - x.0.0 <= 14);
         w.plans.grasp_log.push((d, g));
     }
@@ -1705,11 +1737,23 @@ pub fn grasp(team: &GameTeam, id: u32, off: bool, weights: &[(Family, f64)]) -> 
     Some(fams.iter().map(|(f, w)| w * p.know[*f as usize] as f64).sum::<f64>() / all)
 }
 
+/// The team's order at every position as the engine dresses it: your
+/// order where you set one, your staff's for the rest (`team.order` holds
+/// only what you set). Two-way play only at high school, as on game day.
+pub fn depth_order(team: &GameTeam, level: Level) -> Vec<(crate::positions::Position, Vec<u32>)> {
+    let margin = if level == Level::HighSchool { 4.0 } else { 99.0 };
+    let d = crate::game::roster::depth_chart(team, margin);
+    crate::positions::Position::ALL
+        .iter()
+        .map(|&pos| (pos, d.list(pos).iter().map(|&i| team.players[i].id).collect()))
+        .collect()
+}
+
 /// A unit's grasp of the plan (G14): 0 offense, 1 defense, 2 the kicking
 /// game, the mean over the unit's top players by the depth order.
-pub fn unit_grasp(team: &GameTeam, unit: usize, weights: &[(Family, f64)]) -> f64 {
+pub fn unit_grasp(team: &GameTeam, level: Level, unit: usize, weights: &[(Family, f64)]) -> f64 {
     let mut v: Vec<f64> = Vec::new();
-    for (pos, ids) in &team.order {
+    for (pos, ids) in &depth_order(team, level) {
         let off = super::systems::offense(*pos);
         let fits = match unit {
             0 => off && !pos.is_specialist(),

@@ -118,6 +118,13 @@ fn the_game_plan_from_the_identity_to_game_day() {
             assert!(!text.contains(&format!("\"{bad}\"")) && !text.contains(&format!(":{bad}")), "{cmd} shows {bad}");
         }
     }
+    // The boards read the two-deep the engine dresses: your staff's order
+    // where you set none.
+    let inst = ok(&mut g, "dp_installs", json!({ "unit": "offense" }));
+    assert_eq!(inst["week"], true);
+    assert!(inst["rows"].as_array().is_some_and(|r| r.len() >= 8), "{}", inst["rows"]);
+    assert!(week["two_deep"].as_array().is_some_and(|r| !r.is_empty()), "{}", week["two_deep"]);
+    assert!(week["orders"][0]["players"].as_array().is_some_and(|r| !r.is_empty()), "{}", week["orders"]);
 
     // The game is played to this game's rules; the next week is back on
     // the standing ones.

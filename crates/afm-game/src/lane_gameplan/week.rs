@@ -112,7 +112,9 @@ pub(super) fn view(w: &World) -> Reply {
         .collect();
     // Snap limits: the two-deep, the ones your trainers flag first.
     let mut limit_rows: Vec<Value> = Vec::new();
-    for (pos, ids) in &s.team.order {
+    // The two-deep as the engine dresses it (your order, then your staff's).
+    let order = plans::depth_order(&s.team, s.level);
+    for (pos, ids) in &order {
         for &id in ids.iter().take(if pos.is_specialist() { 1 } else { 2 }) {
             let Some(i) = person_index(w, id) else { continue };
             if limit_rows.iter().any(|x| x["id"] == id) {
@@ -126,9 +128,7 @@ pub(super) fn view(w: &World) -> Reply {
             limit_rows.push(json!({ "id": id, "name": w.people[i].name, "pos": pos.name(), "practice": practice, "note": note, "limit": limit }));
         }
     }
-    let two_deep: Vec<Value> = s
-        .team
-        .order
+    let two_deep: Vec<Value> = order
         .iter()
         .flat_map(|(pos, ids)| ids.iter().take(2).map(move |&id| (*pos, id)))
         .filter_map(|(pos, id)| {
@@ -155,8 +155,7 @@ pub(super) fn view(w: &World) -> Reply {
         .collect();
     // Instructions for this opponent.
     let roster_at = |ps: &[Position]| -> Vec<Value> {
-        s.team
-            .order
+        order
             .iter()
             .filter(|(p, _)| ps.contains(p))
             .flat_map(|(_, ids)| ids.iter().take(3).copied())
