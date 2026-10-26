@@ -17,6 +17,7 @@ mod links;
 mod live_game;
 mod polls;
 mod ratings;
+mod schedule;
 mod scouting;
 mod stories;
 mod storylines;
