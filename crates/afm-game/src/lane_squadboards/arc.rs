@@ -164,11 +164,13 @@ fn alikes(w: &World, pos: Position, age: u32, tier: u8, at: f64, me: u32) -> Vec
 /// left long enough ago) and how many men they come from.
 type AfterCollege = (f64, Option<(u32, u32)>, Option<f64>, usize);
 
-/// Of the men who left college with a rating near `at` at his position
-/// in the last 25 years: the share drafted, their usual rounds, and the
-/// share who became NFL starters (a season of 8 starts or more), counted
-/// over the men who left four seasons ago or more, who had the time.
-/// Everyone the world remembers leaving college, drafted or not.
+/// Of the men who signed with an NFL team out of college with a rating
+/// near `at` at his position in the last 25 years: the share drafted,
+/// their usual rounds, and the share who became NFL starters (a season of
+/// 8 starts or more), counted over the men who left four seasons ago or
+/// more, who had the time. The world keeps no record of a man who left
+/// college for life, only of its blue-chips, so those are left out too:
+/// counting them and not the rest would tilt the shares.
 fn after_college(w: &World, pos: Position, at: f64) -> Option<AfterCollege> {
     let (mut n, mut drafted, mut settled, mut starters) = (0usize, 0usize, 0usize, 0usize);
     let mut rounds: Vec<f64> = Vec::new();
@@ -185,7 +187,9 @@ fn after_college(w: &World, pos: Position, at: f64) -> Option<AfterCollege> {
             starters += usize::from(started);
         }
     };
-    for a in w.alumni.iter().filter(|a| a.position == pos && !a.colleges.is_empty() && a.year >= since) {
+    for a in
+        w.alumni.iter().filter(|a| a.position == pos && !a.colleges.is_empty() && !a.left_football && a.year >= since)
+    {
         if (a.overall - at).abs() > 3.0 || live.contains(&(a.name.as_str(), a.class_of)) {
             continue;
         }
@@ -411,7 +415,7 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
     let footnote = format!(
         "From your staff's read today, his age and how {many} grow in this world{}. The staff's guess, not a promise.",
         match outcome_n {
-            Some(n) => format!(", and {n} past {many} who left college rated like him"),
+            Some(n) => format!(", and {n} past {many} rated like him who signed with an NFL team out of college"),
             None => String::new(),
         }
     );

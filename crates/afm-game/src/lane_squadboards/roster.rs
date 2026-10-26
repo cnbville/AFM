@@ -12,8 +12,13 @@ use serde_json::{Value, json};
 
 use super::{class_full, game_grade, health, my_games, my_team, snaps_in, team_snaps, unit_card};
 use crate::Reply;
-use crate::lane_gameplan::season_of;
 use crate::views::{self, TeamRef};
+
+/// The season a date falls in: a game in January belongs to the fall
+/// before.
+fn season_of(d: afm_engine::calendar::Date) -> i32 {
+    if d.month() <= 6 { d.year() - 1 } else { d.year() }
+}
 
 /// A group's key, its name, its positions and its starters by position.
 type Group = (&'static str, &'static str, &'static [Position], &'static [(Position, usize)]);
