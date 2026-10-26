@@ -87,6 +87,12 @@ fn scrimmage(r: &PlayRecord) -> bool {
     matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble)
 }
 
+/// "an 18-yard", "an 8-yard", "an 11-yard", else "a".
+fn a_an(yards: f64) -> &'static str {
+    let n = yards.round() as i64;
+    if n == 8 || n == 11 || n == 18 || (80..90).contains(&n) { "an" } else { "a" }
+}
+
 /// The board for one of your games.
 pub fn board(w: &World, k: usize) -> Reply {
     let g = w.seat_games().get(k).ok_or("That game is not kept.")?;
@@ -267,7 +273,7 @@ fn final_card(w: &World, g: &SeatGame, us: usize, name: &dyn Fn(u32) -> String) 
     }
     let how = decider.map(|r| {
         let what = if r.kind == PlayType::FieldGoal {
-            format!("a {}-yard kick", r.kick_distance.round())
+            format!("{} {}-yard kick", a_an(r.kick_distance), r.kick_distance.round())
         } else if r.safety {
             "a safety".into()
         } else if r.defense_td {
@@ -275,7 +281,7 @@ fn final_card(w: &World, g: &SeatGame, us: usize, name: &dyn Fn(u32) -> String) 
         } else if r.kind == PlayType::Run || r.kind == PlayType::Scramble {
             format!("{}'s {}-yard run", name(r.carrier.unwrap_or(0)), r.yards.round())
         } else if r.kind == PlayType::Pass {
-            format!("a {}-yard throw to {}", r.yards.round(), name(r.target.unwrap_or(0)))
+            format!("{} {}-yard throw to {}", a_an(r.yards), r.yards.round(), name(r.target.unwrap_or(0)))
         } else {
             "a touchdown".into()
         };

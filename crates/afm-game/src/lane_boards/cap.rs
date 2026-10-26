@@ -99,7 +99,9 @@ fn nfl(w: &World, t: usize, args: &Value) -> Reply {
     for &i in &order {
         let p = &w.people[i];
         let Some(c) = p.pro.as_ref() else { continue };
-        let Some(k) = c.contract.as_ref().filter(|k| k.team == t) else { continue };
+        // A deal's void years past its last real year are no cap hit of
+        // his: they fall on the books as dead money (below).
+        let Some(k) = c.contract.as_ref().filter(|k| k.team == t && k.last_year() >= year) else { continue };
         let Some(y) = k.year(year) else { continue };
         let hit = y.cap_hit();
         if hit <= 0.0 {
@@ -132,7 +134,6 @@ fn nfl(w: &World, t: usize, args: &Value) -> Reply {
             "hit": hit.round(),
             "pct": (1000.0 * hit / cap).round() / 10.0,
             "left": left,
-            "void": y.void,
             "through": k.last_year(),
             "salary": y.base.round(),
             "bonus": y.proration.round(),
@@ -159,9 +160,17 @@ fn nfl(w: &World, t: usize, args: &Value) -> Reply {
                 "id": at.map(|_| d.player),
                 "name": at.map_or_else(|| "A former player".to_string(), |i| w.people[i].name.clone()),
                 "amount": d.amount.round(),
+                // An unlikely incentive he earned last season, charged now.
+                "incentive": d.why == pro::DeadWhy::Incentives,
             })
         })
         .collect();
+    // Last season's per-game bonuses not earned come back as a credit
+    // (`market::settle_incentives`), one line for them all.
+    let credit: f64 = club.dead.iter().filter(|d| d.year == year && d.amount < 0.0).map(|d| d.amount).sum();
+    if credit < 0.0 {
+        dead.push(json!({ "id": null, "name": "Unearned bonuses back", "amount": credit.round(), "credit": true }));
+    }
     // A deal that ran out last year leaves its void years' bonus here.
     for &i in &club.roster {
         let p = &w.people[i];
@@ -206,7 +215,12 @@ fn nfl(w: &World, t: usize, args: &Value) -> Reply {
         "year": year,
         "years": years,
         "capped": capped,
-        "cap": cap.round(),
+        // The team's own cap: the league's plus what it carried over (or,
+        // with no cap, the owner's budget), so the space is this less
+        // what's committed.
+        "cap": (room + committed).round(),
+        "leagueCap": cap.round(),
+        "carry": if capped { club.carryover.round() } else { 0.0 },
         "committed": committed.round(),
         "space": room.round(),
         "rookies": rookies.round(),

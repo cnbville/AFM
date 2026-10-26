@@ -385,7 +385,7 @@ PLAYER_TABS.push({
       const dots = r.a.map((t) => `<circle class="bd-mdot${t.int ? " int" : t.ok ? " ok" : ""}" cx="${((53.33 - Math.max(0.5, Math.min(52.8, t.y1))) * MX).toFixed(1)}" cy="${MY(t.air).toFixed(1)}" r="2.1"></circle>`).join("");
       const grid = [0, 10, 20, 30].map((d) => `<line class="bd-yl${d === 0 ? " los" : ""}" x1="0" x2="125" y1="${MY(d).toFixed(1)}" y2="${MY(d).toFixed(1)}"></line>`).join("");
       return `<button class="bd-rc${on ? " on" : ""}" data-act="bd-pick" data-k="${key}" data-f="r" data-v="${on ? "" : r.id}">
-        <span class="bd-line2"><b>${esc(bdSur(r.name))}</b><small class="bd-dim">${esc(r.pos)}</small></span>
+        <span class="bd-line2"><b class="${bdSur(r.name).length > 9 ? "bd-cond" : ""}" title="${esc(r.name)}">${esc(bdSur(r.name))}</b><small class="bd-dim">${esc(r.pos)}</small></span>
         <svg viewBox="0 0 125 66" aria-hidden="true">${grid}${dots}</svg>
         <span class="bd-line2 bd-cond"><b>${r.c.length}/${r.a.length}</b><span>${r.a.filter((t) => t.td).length} TD</span></span><span class="bd-cond">${Math.round(r.y).toLocaleString()} yds</span>
         <small class="bd-cond bd-dim">air ${Math.round(r.air)} · after the catch ${Math.round(r.yac)}</small></button>`;
@@ -524,6 +524,16 @@ function bdTreemap(groups, blocks, extra, sel, cap) {
     }
     const gname = t.g;
     const hw = t.w - 4;
+    // A group too small for its heading and its blocks is one block: the
+    // group and its money, its men on hover.
+    if (t.h < 56 || t.w < 44) {
+      const r = { x: t.x + 2, y: t.y + 2, w: t.w - 4, h: t.h - 4 };
+      const short = BD_GROUP_SHORT[gname] || gname;
+      const txt = r.h >= 15 * K ? [`${short} · ${bdMoney(t.v)}`, short].find((s) => s.length * 6.6 * K <= r.w - 12) || "" : "";
+      const men = blocks.filter((b) => b.group === t.i).sort((a, b) => b.hit - a.hit).map((q) => `${q.name} ${bdMoney(q.hit)}`);
+      html += `<div class="bd-tb lump bd-tgs" style="${box(r)}" title="${esc(`${gname}: ${men.join(", ")}`)}">${txt ? `<span class="bd-cond">${esc(txt)}</span>` : ""}</div>`;
+      continue;
+    }
     const label = [`${gname} · ${bdMoney(t.v)}`, `${BD_GROUP_SHORT[gname] || gname} · ${bdMoney(t.v)}`, BD_GROUP_SHORT[gname] || gname].find((s) => s.length * 7.2 * K <= hw - 18) || "";
     html += `<div class="bd-tg" style="${box({ x: t.x + 2, y: t.y + 2, w: t.w - 4, h: t.h - 4 })}"><span class="st-label">${esc(label)}</span></div>`;
     for (const b of bdSquarify(t.items, t.x + 5, t.y + 24, t.w - 10, t.h - 29)) {
@@ -567,7 +577,7 @@ function bdCapNfl(x, st) {
   ];
   const years = bdSegs("bd:cap", "year", x.years.map((y) => [y.year, `${y.year} <span class="bd-cond bd-dim">${y.pct}%</span>`]), x.year, "small");
   const clocks = bdCells([
-    { k: "Cap", v: bdMoney(x.cap) },
+    { k: "Cap", v: bdMoney(x.cap), sub: x.carry ? `${bdMoney(x.leagueCap)} ${x.carry > 0 ? "+" : ""}${bdMoney(x.carry)} carried over` : "" },
     { k: "Committed", v: bdMoney(x.committed) },
     { k: "Space", v: bdMoney(x.space), bad: x.space < 0 },
     ...(x.rookies > 0 ? [{ k: "Rookie pool", v: bdMoney(x.rookies), sub: "your picks, at each round's middle slot" }, { k: "After rookies", v: bdMoney(x.afterRookies), bad: x.afterRookies < 0 }] : []),
@@ -577,7 +587,7 @@ function bdCapNfl(x, st) {
     const topBar = sel.topAtPos > 0 ? Math.min(100, (100 * sel.hit) / sel.topAtPos) : 0;
     const moves = sel.moves.map((m) => `<div class="bd-mv"><span>${esc(m.k)}${m.noTrade ? ' <small class="bad">no-trade clause</small>' : ""}</span><span class="bd-cond${m.saves < 0 ? " bad" : ""}">${bdMoney(m.saves)}</span><span class="bd-cond${m.now > 0 ? " bad" : ""}">${bdMoney(m.now)}</span><span class="bd-cond">${bdMoney(m.later)}</span></div>`).join("");
     card = `<div class="bd-card">
-      <div class="bd-line2"><span class="st-label">${esc(sel.pos)} · age ${sel.age}${sel.squad ? " · practice squad" : ""}</span><span class="bd-dim">signed through ${sel.through}${sel.void ? " · a void year" : ""}</span></div>
+      <div class="bd-line2"><span class="st-label">${esc(sel.pos)} · age ${sel.age}${sel.squad ? " · practice squad" : ""}</span><span class="bd-dim">signed through ${sel.through}</span></div>
       <span class="bd-mtitle">${playerLink(sel.id, sel.name)}</span>
       <div class="bd-hero"><b class="bd-cond bd-big">${bdMoney(sel.hit)}</b><span class="bd-how"><span>cap hit in ${x.year}</span><span class="bd-dim">${sel.pct}% of the cap</span></span></div>
       <div class="bd-xp"><span class="bd-bar"><i style="width:${topBar.toFixed(1)}%"></i></span><small class="bd-dim">${Math.round(topBar)}% of the biggest ${esc(sel.pos)} cap hit in the league (${bdMoney(sel.topAtPos)})</small></div>
@@ -592,7 +602,7 @@ function bdCapNfl(x, st) {
     <div class="bd-ens">${e.top.map((p) => `<div class="bd-en"><span>${playerLink(p.id, p.name)} <small class="bd-dim">${esc(p.pos)}, ${p.age}</small></span>${range(p.read, "your staff", { p: p.id, k: "ovr" })}<span class="bd-cond bd-r">${bdMoney(p.hit)}</span></div>`).join("") || '<div class="bd-dim">Nobody.</div>'}</div></div>`;
   // The twelve biggest charges by name, the rest summed in one line.
   const deadTop = x.dead.slice().sort((a, b) => b.amount - a.amount), deadRest = deadTop.splice(12);
-  const dead = x.dead.length ? `<div class="bd-deads"><span class="st-label">Dead money in ${x.year}</span>${deadTop.map((d) => `<span>${d.id != null ? playerLink(d.id, d.name) : esc(d.name)}${d.void ? ' <small class="bd-dim">void years</small>' : ""} <b class="bd-cond bad">${bdMoney(d.amount)}</b></span>`).join("")}${deadRest.length ? `<span class="bd-dim">and ${deadRest.length} more, <b class="bd-cond">${bdMoney(deadRest.reduce((s, d) => s + d.amount, 0))}</b> in all</span>` : ""}</div>` : "";
+  const dead = x.dead.length ? `<div class="bd-deads"><span class="st-label">Dead money in ${x.year}</span>${deadTop.map((d) => `<span>${d.id != null ? playerLink(d.id, d.name) : esc(d.name)}${d.void ? ' <small class="bd-dim">void years</small>' : d.incentive ? ' <small class="bd-dim">incentive</small>' : ""} <b class="bd-cond${d.credit ? "" : " bad"}">${bdMoney(d.amount)}</b></span>`).join("")}${deadRest.length ? `<span class="bd-dim">and ${deadRest.length} more, <b class="bd-cond">${bdMoney(deadRest.reduce((s, d) => s + d.amount, 0))}</b> in all</span>` : ""}</div>` : "";
   const over = x.space < 0 ? `<div class="bd-note bad">Over the cap by ${bdMoney(-x.space)}: a team must be under it by the start of the league year.</div>` : "";
   return `<div class="pad bd bd-cap">
     <header class="bd-head"><span class="bd-crest">${mark(x.team, 40)}</span><div class="bd-head-copy"><span class="st-label">${esc(x.team.name)} · ${x.year} league year${x.capped ? "" : " · no cap this year"}</span><h1 class="bd-h1">Where the money goes</h1></div>${clocks}</header>

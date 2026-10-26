@@ -587,20 +587,18 @@ impl Ctx<'_> {
                 let lt =
                     base.filter(|b| b.throws > 0).map(|b| (b.ttt as f64 / b.throws as f64 * 100.0).round() / 100.0);
                 let ls = base.map(|b| r1(100.0 * b.sacks as f64 / b.dropbacks.max(1) as f64));
-                let blitz: Vec<&&PlayRecord> = snaps
-                    .iter()
-                    .filter(|r| {
-                        r.line.as_ref().map_or(r.blitz, |c| c.rush.iter().any(|x| x.flags & Rusher::LINEMAN == 0))
-                    })
-                    .collect();
+                // A blitz: five or more rushers. Picked up: every rusher was
+                // blocked, his man at the snap or caught in a block after it
+                // (a slide's linemen take whoever comes to them).
+                let blitz: Vec<&&PlayRecord> =
+                    snaps.iter().filter(|r| r.line.as_ref().map_or(r.blitz, |c| c.rush.len() >= 5)).collect();
                 let picked = blitz
                     .iter()
                     .filter(|r| {
                         r.line.as_ref().is_some_and(|c| {
                             c.rush
                                 .iter()
-                                .filter(|x| x.flags & Rusher::LINEMAN == 0)
-                                .all(|x| x.flags & Rusher::PICKED != 0)
+                                .all(|x| x.flags & Rusher::PICKED != 0 || c.reps.iter().any(|p| p.defender == x.id))
                         })
                     })
                     .count();
@@ -616,8 +614,24 @@ impl Ctx<'_> {
                     json!({ "k": if ours { "Time to throw" } else { "Their throw time" }, "v": format!("{:.2} s", ttt), "sub": lt.map_or("No level numbers yet".into(), |x| format!("{lvl} {x:.2} s")), "bad": false }),
                 ];
                 if ours {
-                    v.push(json!({ "k": "Blitzes picked up", "v": format!("{picked}/{}", blitz.len()), "sub": if self.charted(snaps) { "every blitzer blocked".to_string() } else { "Not charted".into() }, "bad": blitz.len() >= 3 && picked * 2 < blitz.len() }));
-                    v.push(json!({ "k": "Stunts handled", "v": format!("{stunt_ok}/{}", stunts.len()), "sub": "no pressure off the twist", "bad": stunts.len() >= 3 && stunt_ok * 2 < stunts.len() }));
+                    // A stunt is handled when it gets no pressure.
+                    let free = blitz.len() - picked;
+                    let blitz_sub = match (self.charted(snaps), blitz.len(), free) {
+                        (false, _, _) => "Not charted".to_string(),
+                        (_, 0, _) => "no blitzes".into(),
+                        (_, _, 0) => "every rusher blocked".into(),
+                        (_, _, 1) => "one with a man left free".into(),
+                        _ => format!("{free} with a man left free"),
+                    };
+                    let hurt = stunts.len() - stunt_ok;
+                    let stunt_sub = match (stunts.len(), hurt) {
+                        (0, _) => "no stunts".to_string(),
+                        (_, 0) => "no pressure off the twist".into(),
+                        (_, 1) => "one got pressure".into(),
+                        _ => format!("{hurt} got pressure"),
+                    };
+                    v.push(json!({ "k": "Blitzes picked up", "v": format!("{picked}/{}", blitz.len()), "sub": blitz_sub, "bad": blitz.len() >= 3 && picked * 2 < blitz.len() }));
+                    v.push(json!({ "k": "Stunts handled", "v": format!("{stunt_ok}/{}", stunts.len()), "sub": stunt_sub, "bad": stunts.len() >= 3 && stunt_ok * 2 < stunts.len() }));
                     v.push(json!({ "k": "Lost reps", "v": lost, "sub": format!("{}% of {} reps", pct(lost, reps.len()), reps.len()), "bad": pct(lost, reps.len()) > 12.0 }));
                 } else {
                     v.push(json!({ "k": "Blitzes", "v": blitz.len(), "sub": format!("{}% of their dropbacks", pct(blitz.len(), n)), "bad": false }));

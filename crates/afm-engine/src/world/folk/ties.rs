@@ -212,7 +212,12 @@ fn draw(w: &mut World) {
                 match idx.get(&(id.min(jd), id.max(jd))) {
                     Some(&e) => deepen.push(e),
                     None => {
-                        if count.get(&jd).copied().unwrap_or(0) >= 6 {
+                        // His own cap holds while he makes friends too (at a
+                        // high school, where everyone shares the school, a
+                        // sociable boy drew 25 or more in one camp).
+                        if count.get(&jd).copied().unwrap_or(0) >= 6
+                            || count.get(&id).copied().unwrap_or(0) >= cap.min(6)
+                        {
                             continue;
                         }
                         new.push(Tie {

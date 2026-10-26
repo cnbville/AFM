@@ -223,7 +223,9 @@ fn drives(s: &GameStats) -> Vec<Drive> {
         }
         if cur.as_ref().is_some_and(|d| d.team != r.offense || (r.quarter == 3 && d.q <= 2)) {
             let d = cur.as_mut().unwrap();
-            if d.result.is_empty() {
+            // A side that knelt and still gave the ball back (the clock
+            // didn't run out) turned it over on downs.
+            if d.result.is_empty() || (d.result == "End of game" && d.team != r.offense) {
                 d.result = if d.q <= 2 && r.quarter >= 3 { "End of half" } else { "Downs" };
             }
             close(&mut cur, &mut out);
@@ -241,7 +243,10 @@ fn drives(s: &GameStats) -> Vec<Drive> {
             first: r.n,
             last: r.n,
         });
-        if !d.result.is_empty() {
+        if d.result == "End of game" {
+            // A kneel with time still on the clock: the same drive goes on.
+            d.result = "";
+        } else if !d.result.is_empty() {
             // The drive already ended (a score or a kick) but the same team
             // has the ball again: a new drive.
             let team = d.team;
@@ -267,7 +272,9 @@ fn drives(s: &GameStats) -> Vec<Drive> {
         d.last = r.n;
         d.end = 100.0 - r.yardline_100 + if scrimmage(r) && !r.turnover { r.yards } else { 0.0 };
         let start_left = left(&PlayRecord { quarter: d.q, clock: d.clock, ..r.clone() }, qlen);
-        d.secs = (start_left - at(r) + r.duration.max(0.0)).max(0.0);
+        // The last play's seconds, up to the clock it had (a snap at 0:02
+        // that runs eight seconds ends the quarter at 0:00).
+        d.secs = (start_left - at(r) + r.duration.max(0.0).min(r.clock.max(0.0))).max(0.0);
         if r.touchdown && !r.defense_td {
             d.result = "Touchdown";
             d.points = 6;

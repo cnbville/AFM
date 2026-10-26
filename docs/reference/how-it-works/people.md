@@ -93,7 +93,7 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 
 - **Drawn each fall camp** on every college and NFL roster, and your high school's (`world/folk/ties.rs`, `draw`, `rosters`).
   - Social = 1 + 0.35 x leadership z + 0.25 x loyalty z - 0.25 x ego z - 0.2 x temper z, clamped 0.3-1.8.
-  - The friend cap is 2-6, set by social.
+  - The friend cap is 2-6, set by social, checked at each new friend through the draw (`draw`).
   - Pair odds = closeness x social x the other's social. Closeness: same position group 0.04, same class 0.025, same high school 0.35.
   - On your roster the odds are also x clamp(1 + bonds, 0.85, 1.25). Bonds add 0.01 x your outing and council minutes beyond an average staff's / 60 each week, clamped −0.15 to 0.25, and reset to 0 after the fall camp draw (`world/folk/ties.rs`, `draw`, `day`; `training/seat.rs`, `team_effects`).
   - New ties start at strength 38, or 55 from the same high school. A tie that rolls again deepens +12.

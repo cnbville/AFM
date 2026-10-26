@@ -371,6 +371,7 @@
 .bd-tb.y2 { background: var(--bd-y2); }
 .bd-tb.y3 { background: var(--bd-y3); }
 .bd-tb.lump { background: var(--bd-soft); color: var(--bd-dim); cursor: default; }
+.bd-tb.bd-tgs { justify-content: center; padding: 0 6px; font-size: 10.5px; white-space: nowrap; }
 .bd-tb.usual { background-image: repeating-linear-gradient(135deg, transparent 0 6px, var(--bd-soft) 6px 9px); }
 .bd-pad { padding: 8px 2px 4px; font-size: 12.5px; }
 .bd-tb.out, .bd-lg.out { background: transparent; color: var(--bd-dim); outline: 1px dashed var(--bd-track); outline-offset: -1px; }
@@ -403,7 +404,10 @@
 .bd-le.t { stroke: var(--bd-bad); stroke-dasharray: 5 5; }
 .bd-lg-name { position: absolute; font-size: 9.5px; color: var(--bd-faint); white-space: nowrap; pointer-events: none; }
 .bd-nd { position: absolute; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 0; border: 0; background: none; color: var(--fg); font-family: var(--font-sans); cursor: pointer; z-index: 1; max-width: 16%; }
-.bd-nd.far { opacity: .45; }
+/* Faded by colour, not opacity, so a name keeps its ground over the lines. */
+.bd-nd.far .bd-dot { opacity: .45; }
+.bd-nd.far .bd-ndn { color: color-mix(in srgb, var(--bd-text2) 45%, var(--bd-panel)); }
+.bd-nd.far .bd-nds { color: color-mix(in srgb, var(--bd-dim) 45%, var(--bd-panel)); }
 .bd-nd:hover { opacity: 1; z-index: 2; }
 .bd-dot { display: flex; align-items: center; justify-content: center; box-sizing: border-box; border-radius: 50%; font-weight: 800; color: var(--fg); }
 .bd-dot.m1 { background: color-mix(in srgb, var(--bd-ink) 7%, var(--bd-panel)); color: var(--bd-bad); box-shadow: inset 0 0 0 1.5px var(--bd-bad-ring); }
@@ -414,6 +418,8 @@
 .bd-nd.on .bd-dot { box-shadow: 0 0 0 2px var(--bd-panel), 0 0 0 3.5px var(--bd-gold); }
 .bd-ndn { font-size: 11.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; color: var(--bd-text2); }
 .bd-nd.on .bd-ndn { color: var(--fg); }
+/* A line passing under a name doesn't strike it through. */
+.bd-ndn, .bd-nds { background: var(--bd-panel); border-radius: 3px; padding: 0 3px; }
 .bd-nds { font-size: 10px; color: var(--bd-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; margin-top: -3px; }
 .bd-lk { display: inline-block; width: 18px; height: 0; border-top: 1.5px solid var(--bd-track); }
 .bd-lk.c { border-top: 2px solid var(--bd-ink-bar); }

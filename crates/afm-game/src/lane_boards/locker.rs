@@ -64,12 +64,29 @@ fn surname(n: &str) -> &str {
 }
 
 /// One friction: the starter, the man who wants his place, the position,
-/// and the words.
+/// and whether the starter took his place from him.
 struct Friction {
     starter: usize,
     rival: usize,
     pos: Position,
-    words: &'static str,
+    benched: bool,
+}
+
+impl Friction {
+    /// The man who wants the place, against the starter's name.
+    fn wants(&self, starter: &str) -> String {
+        if self.benched { format!("lost his snaps to {starter}") } else { format!("wants {starter}'s snaps") }
+    }
+
+    /// The man who wants the place, as the starter's card names him.
+    fn wants_his(&self) -> &'static str {
+        if self.benched { "lost his snaps to him" } else { "wants his snaps" }
+    }
+
+    /// The starter, as the man who wants his place sees him.
+    fn holder(&self) -> &'static str {
+        if self.benched { "took his snaps" } else { "starts ahead of him" }
+    }
 }
 
 pub fn board(w: &World) -> Reply {
@@ -120,8 +137,7 @@ pub fn board(w: &World) -> Reply {
         rivals.sort_by(|&a, &b| w.people[a].mood.total_cmp(&w.people[b].mood));
         if let Some(&r) = rivals.first() {
             let benched = talks::reasons(w, w.people[r].player.id).iter().any(|x| x.1 == "was benched");
-            let words = if benched { "lost his snaps to him" } else { "wants his snaps" };
-            friction.push(Friction { starter: last, rival: r, pos: *pos, words });
+            friction.push(Friction { starter: last, rival: r, pos: *pos, benched });
         }
     }
     friction.sort_by(|a, b| w.people[a.rival].mood.total_cmp(&w.people[b.rival].mood));
@@ -185,7 +201,8 @@ pub fn board(w: &World) -> Reply {
     }
     for f in &friction {
         if let (Some(&a), Some(&b)) = (at.get(&f.rival), at.get(&f.starter)) {
-            edges.push(json!({ "a": a, "b": b, "k": "t", "why": f.words }));
+            let (r, s) = (&w.people[f.rival].name, &w.people[f.starter].name);
+            edges.push(json!({ "a": a, "b": b, "k": "t", "why": format!("{} {}", surname(r), f.wants(surname(s))) }));
         }
     }
 
@@ -221,7 +238,7 @@ pub fn board(w: &World) -> Reply {
         notes.push(json!({
             "tag": "Friction",
             "t": format!("{} and {}", surname(&a.name), surname(&b.name)),
-            "s": format!("{}: {} {}", f.pos.name(), b.name, f.words),
+            "s": format!("{}: {} {}", f.pos.name(), b.name, f.wants(surname(&a.name))),
             "sel": at.get(&f.rival),
             "act": { "k": "talk", "id": b.player.id, "s": "role", "label": format!("Talk to {}", surname(&b.name)) },
             "warn": true,
@@ -524,7 +541,7 @@ fn node(
         }
     }
     for f in friction.iter().filter(|f| f.rival == i) {
-        why.push((false, format!("{} {}", cap(f.words), w.people[f.starter].name)));
+        why.push((false, cap(&f.wants(&w.people[f.starter].name))));
     }
     let mut seen = HashSet::new();
     why.retain(|x| seen.insert(x.1.clone()));
@@ -551,9 +568,9 @@ fn node(
     for f in friction.iter().filter(|f| f.rival == i || f.starter == i) {
         let o = if f.rival == i { f.starter } else { f.rival };
         let words = if f.rival == i {
-            f.words.to_string()
+            f.holder().to_string()
         } else {
-            format!("{} {}", surname(&w.people[f.rival].name), f.words)
+            format!("{} {}", surname(&w.people[f.rival].name), f.wants_his())
         };
         links
             .push((0, json!({ "id": w.people[o].player.id, "name": w.people[o].name, "why": words, "k": "friction" })));
