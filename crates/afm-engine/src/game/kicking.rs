@@ -29,6 +29,12 @@ pub struct KickTeams<'a> {
     /// How much the kicking team's plan kicks to a returner who brings
     /// everything out (tendencies topic 4.4), 0-1.
     pub kick_deep: f64,
+    /// The kicking team's plan for the kick (update 2, G18): kickoffs 1
+    /// deep, 2 squib, 3 pooch; punts 1 directional, 2 coffin corner; 0 the
+    /// staff's usual.
+    pub style: u8,
+    /// A surprise onside kick: the return team's front line left early.
+    pub surprise: bool,
 }
 
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -210,6 +216,9 @@ pub fn kickoff(
         // A short kick and a scramble for it; the hands team waits for it.
         let acc = kicker.a(Attr::KickoffTechnique);
         let p = clamp(0.08 + 0.0025 * (acc - 50.0) + if rules.nfl_kickoff { -0.02 } else { 0.03 }, 0.03, 0.25);
+        // A true surprise is recovered about half the time (real NFL
+        // 2009-2023, unexpected onside kicks).
+        let p = if k.surprise { clamp(0.5 + 0.003 * (acc - 60.0), 0.35, 0.65) } else { p };
         res.distance = 11.0 + rng.range(0.0, 3.0);
         let spot = from - res.distance;
         res.spot = spot;
@@ -246,6 +255,15 @@ pub fn kickoff(
     // arrive (proposed, not confirmed).
     let tech = kicker.a(Attr::KickoffTechnique);
     let spread = clamp(1.0 - 0.01 * (tech - 60.0), 0.6, 1.4);
+    // Your plan's kickoff (update 2, G18): a squib skips along the ground
+    // to the up-backs about the 25 (low, the coverage gets there as he
+    // picks it up); a pooch hangs high to about the 12 (a fair catch or a
+    // short return). Proposed, not confirmed.
+    let aim = match k.style {
+        2 => (from - max).max(24.0 + rng.range(0.0, 8.0)),
+        3 => (from - max).max(10.0 + rng.range(0.0, 7.0)),
+        _ => aim,
+    };
     let land_x = (from - max).max(aim) + rng.normal(0.0, 2.5 * spread);
     let land_y = clamp(mid() + rng.normal(0.0, 7.0), 2.0, width() - 2.0);
     let hang = clamp(
@@ -253,6 +271,11 @@ pub fn kickoff(
         2.8,
         4.8,
     );
+    let hang = match k.style {
+        2 => 1.8 + rng.range(0.0, 0.4),
+        3 => hang + 0.5,
+        _ => hang,
+    };
     res.distance = from - land_x;
     res.hang = hang;
     // Out of bounds: rare, the ball goes to the 40.
@@ -365,7 +388,9 @@ pub fn punt(
     let max = leg(punter, Attr::PuntPower, 17.0, 0.215, cond, along) + 14.0 + rng.normal(0.0, 4.5);
     // Placement: from midfield he aims inside the 10 rather than the end zone.
     let dist_goal = from + 15.0;
-    let pin = from < 62.0;
+    // Your plan's punt (update 2, G18): the coffin corner from farther out
+    // (their 40 in), aiming at the corner.
+    let pin = from < if k.style == 2 { 72.0 } else { 62.0 };
     let acc = punter.a(Attr::PuntPlacement);
     let aim_land = if pin { 8.0 + rng.normal(0.0, 6.0 - 0.04 * acc) } else { from - max };
     let land_x = aim_land.max(from - max);
@@ -379,12 +404,18 @@ pub fn punt(
     // Pinning, he aims at the numbers on one side, away from the middle of
     // the field where the return has room; placement sets how close he
     // comes (proposed, not confirmed).
-    let mut land_y = if pin {
+    // A directional punt goes to the numbers away from the middle on every
+    // punt, a little shorter and lower (proposed, not confirmed).
+    let directional = k.style == 1 && !pin;
+    let mut land_y = if pin || directional {
         let side = if rng.chance(0.5) { -1.0 } else { 1.0 };
-        mid() + side * 14.0 + rng.normal(0.0, clamp(5.0 - 0.05 * (acc - 60.0), 3.0, 7.0))
+        let out = if pin && k.style == 2 { 19.0 } else { 14.0 };
+        mid() + side * out + rng.normal(0.0, clamp(5.0 - 0.05 * (acc - 60.0), 3.0, 7.0))
     } else {
         mid() + rng.normal(0.0, 8.0)
     };
+    let land_x = if directional { land_x + 2.5 } else { land_x };
+    let hang = if directional { hang - 0.15 } else { hang };
     land_y = clamp(land_y, -1.0, width() + 1.0);
     res.distance = from - land_x;
     res.hang = hang;
@@ -420,6 +451,10 @@ pub fn punt(
         .map(|p| 0.4 * p.a(Attr::Press) + 0.3 * p.a(Attr::Strength) + 0.3 * p.a(Attr::Speed))
         .fold(0.0, f64::max);
     let mut cover_gap = clamp(4.6 - 1.6 * (hang - 4.2) - 0.08 * (gunner - jammer) + rng.normal(0.0, 2.0), 0.0, 15.0);
+    // Near the numbers the sideline helps the coverage.
+    if directional {
+        cover_gap = (cover_gap - 0.8).max(0.0);
+    }
     // No fair catch (the CFL, the XFL of 2001): the cover men must give the
     // returner his halo until he touches the ball; one who gets there
     // first draws "no yards", 15 yards on the kicking team (5 in the XFL).

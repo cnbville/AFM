@@ -157,6 +157,37 @@ pub struct Plan {
     /// Moves against the other team's tendencies (tendencies topic 4.4),
     /// each 0-1 by how sure the staff is.
     pub vs: VsHabits,
+    /// Your answer to each of their personnel groups (update 2, G16): 11,
+    /// 12, 10 and 21.
+    #[serde(default)]
+    pub answers: [Answer; 4],
+    /// Moves an "if this, then that" line made during the game (G20): a
+    /// safety down in the box, and how much more to run.
+    #[serde(default)]
+    pub box_up: bool,
+    #[serde(default)]
+    pub run_more: f64,
+}
+
+/// Your defense's answer to one of their personnel groups (update 2,
+/// G16): the package (0 the staff's, 1 base, 2 nickel, 3 dime), the man
+/// coverage share and the share with five or more rushers.
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Answer {
+    pub pkg: u8,
+    pub man: Option<f32>,
+    pub rush: Option<f32>,
+}
+
+/// The slot of a personnel group among the answers.
+pub fn answer_slot(p: Personnel) -> Option<usize> {
+    match p {
+        Personnel::P11 => Some(0),
+        Personnel::P12 => Some(1),
+        Personnel::P10 => Some(2),
+        Personnel::P21 => Some(3),
+        _ => None,
+    }
 }
 
 /// Matchup moves that target the other team's habits (tendencies topic
@@ -466,6 +497,14 @@ pub fn call_offense(staff: &Staff, mem: &Memory, sit: &Situation, ctx: &OffCtx, 
         let noise = rng.normal(0.0, 0.25 * (1.0 - sharp));
         p_pass += clamp((diff + noise) * 0.22 * sharp, -0.12, 0.12);
     }
+    // The head coach's run share (update 2, G2): the caller leans toward it
+    // by its firmness on every down; the clock and the score still rule.
+    if let Some((run, k)) = staff.guide.run.pull() {
+        let own = super::guide::habit_pass(sit.college, scheme, c.aggressiveness);
+        p_pass += k * ((1.0 - run) - own);
+    }
+    // A line in your plan (G20): run it more.
+    p_pass -= mem.plan.run_more;
     if sit.hurry() {
         p_pass = p_pass.max(0.85);
     }
@@ -498,7 +537,7 @@ pub fn call_offense(staff: &Staff, mem: &Memory, sit: &Situation, ctx: &OffCtx, 
     // A tell (topic 7.1): a predictable caller's personnel and formation
     // give the play away; a creative one shows the same looks for both.
     let tell = clamp(0.33 - 0.013 * c.creativity, 0.07, 0.33);
-    let personnel = pick_personnel(scheme, short, hurry, pass, tell, ctx, rng);
+    let personnel = pick_personnel(scheme, short, hurry, pass, tell, ctx, staff.guide.personnel.pull(), rng);
     let gun_lean = match scheme {
         OffScheme::AirRaid | OffScheme::SpreadOption => 0.92,
         OffScheme::WestCoast => 0.6,
@@ -617,7 +656,10 @@ fn call_why(staff: &Staff, mem: &Memory, sit: &Situation, call: &OffCall) -> &'s
 }
 
 /// Personnel by scheme and situation, with the caller's tell: a
-/// predictable one goes heavy to run and light to throw.
+/// predictable one goes heavy to run and light to throw. The head coach's
+/// personnel identity (update 2, G2) wins some of the normal downs by its
+/// firmness; short yardage and the hurry-up keep their own groups.
+#[allow(clippy::too_many_arguments)]
 fn pick_personnel(
     scheme: OffScheme,
     short: bool,
@@ -625,6 +667,7 @@ fn pick_personnel(
     pass: bool,
     tell: f64,
     ctx: &OffCtx,
+    want: Option<(Personnel, f64)>,
     rng: &mut Rng,
 ) -> Personnel {
     let has_fb = ctx.has_fb;
@@ -680,6 +723,10 @@ fn pick_personnel(
                 ],
             ),
         }
+    };
+    let personnel = match want {
+        Some((p, k)) if !hurry && !short && p != personnel && rng.chance(0.55 * k) => p,
+        _ => personnel,
     };
     let te = ctx.te_count;
     let personnel = if te < 2 && matches!(personnel, Personnel::P12 | Personnel::P22 | Personnel::P13) {
@@ -1274,6 +1321,10 @@ pub fn shell_mix(shell: Shell) -> [(Coverage, f64); COVERAGE_COUNT] {
 pub struct DefCtx {
     /// The quarterback's running threat, 0-1.
     pub qb_run: f64,
+    /// The offense's call read from its call words (update 2, G5): +1 a
+    /// pass, -1 a run, 0 nothing read.
+    #[serde(default)]
+    pub tip: f64,
 }
 
 /// The defensive call.
@@ -1289,14 +1340,31 @@ pub fn call_defense(
     let wr = off.personnel.wide_receivers();
     let long = sit.togo >= 8.0 && sit.down >= 2;
     let short = sit.togo <= 2.0;
+    let answer = answer_slot(off.personnel).map(|k| mem.plan.answers[k]).unwrap_or_default();
     let personnel = if sit.yardline_100 <= 3.0 && wr <= 2 {
         DefPersonnel::GoalLine
+    } else if answer.pkg > 0 && !(long && sit.down == 3) {
+        // Your answer to this group this week (G16).
+        [DefPersonnel::Base, DefPersonnel::Nickel, DefPersonnel::Dime][(answer.pkg as usize - 1).min(2)]
     } else if wr >= 4 || (long && sit.down == 3 && wr >= 3 && rng.chance(0.5)) {
         DefPersonnel::Dime
     } else if wr == 3 {
-        if rng.chance(staff.nickel) { DefPersonnel::Nickel } else { DefPersonnel::Base }
+        // The base front the head coach asks for (update 2, G2) leans the
+        // habit: a nickel base nearly always, a 4-3 or 3-4 team a little
+        // less, but it still goes to nickel.
+        let p = match staff.guide.front.pull() {
+            Some((b, k)) if b.nickel_base() => staff.nickel + k * (0.98 - staff.nickel),
+            Some((_, k)) => staff.nickel * (1.0 - 0.12 * k),
+            None => staff.nickel,
+        };
+        if rng.chance(p) { DefPersonnel::Nickel } else { DefPersonnel::Base }
     } else {
-        DefPersonnel::Base
+        // A nickel base front (4-2-5, 3-3-5) keeps its fifth back on the
+        // field against two receivers too, less against heavy sets.
+        match staff.guide.front.pull() {
+            Some((b, k)) if b.nickel_base() && rng.chance(k * if wr <= 1 { 0.45 } else { 0.9 }) => DefPersonnel::Nickel,
+            _ => DefPersonnel::Base,
+        }
     };
     // The coordinator's family of coverages, then the situation.
     let base = shell_mix(staff.shell);
@@ -1308,7 +1376,7 @@ pub fn call_defense(
     // 7.2): a run tell brings the safety down, a pass tell keeps two high.
     let (p_run, sure) = mem.belief(off.look());
     let read = (c.reading + c.adaptation) / 40.0;
-    let lean_run = (p_run - 0.5) * sure * read;
+    let lean_run = if ctx.tip != 0.0 { -0.5 * ctx.tip * read.max(0.6) } else { (p_run - 0.5) * sure * read };
     // What each coverage gives up against the passes this coordinator
     // expects (topic 2): a sharp one leans away from the coverages they
     // beat.
@@ -1352,6 +1420,25 @@ pub fn call_defense(
             (cov, w)
         })
         .collect();
+    // The head coach's man-coverage share (update 2, G2): the coordinator
+    // moves his man share toward it by its firmness and keeps the shape
+    // the down gives him.
+    let mut w = w;
+    if let Some((want, k)) = staff.guide.man.pull() {
+        super::guide::steer_man(&mut w, k * (want - super::guide::habit_man(staff.shell)));
+    }
+    // Your answer to this group (G16): the coordinator plays close to it.
+    if let Some(m) = answer.man {
+        let all: f64 = w.iter().map(|x| x.1).sum();
+        let now = w.iter().filter(|x| x.0.is_man()).map(|x| x.1).sum::<f64>() / all.max(1e-9);
+        super::guide::steer_man(&mut w, 0.7 * (m as f64 - now));
+    }
+    // A line in your plan (G20): a safety down against their run.
+    if mem.plan.box_up {
+        for x in w.iter_mut().filter(|x| x.0.high() == 2) {
+            x.1 *= 0.6;
+        }
+    }
     // Garbage time: the leading defense keeps everything in front of it
     // (two-high, fewer man looks, no Cover 0) instead of hunting stops.
     let ease = sit.def_ease;
@@ -1379,10 +1466,16 @@ pub fn call_defense(
         blitz -= 0.1;
     }
     blitz += sharp * (mem.opp_quick / mem.opp_plays.max(1.0) - 0.3).min(0.0) * 0.5;
+    // The head coach's pressure rate (update 2, G2).
+    if let Some(r) = answer.rush {
+        blitz += 0.7 * (r as f64 - super::guide::habit_pressure(c.aggressiveness));
+    } else if let Some((want, k)) = staff.guide.pressure.pull() {
+        blitz += k * (want - super::guide::habit_pressure(c.aggressiveness));
+    }
     let zone = !coverage.is_man() && coverage != Coverage::Cover0;
     let pressure = if coverage == Coverage::Cover0 {
         Pressure::DoubleA
-    } else if rng.chance(clamp(blitz, 0.05, 0.6)) {
+    } else if rng.chance(clamp(blitz, 0.05, 0.7)) {
         weigh(
             rng,
             &[
@@ -1530,7 +1623,16 @@ pub fn make_plan(
             if our_blockers.is_empty() { 0.0 } else { our_blockers.iter().sum::<f64>() / our_blockers.len() as f64 };
         best.filter(|b| b.1 - ours > HELP_GAP).map(|b| b.0)
     };
-    Plan { target_cb, bracket, spy, help_on, vs: VsHabits::default() }
+    Plan {
+        target_cb,
+        bracket,
+        spy,
+        help_on,
+        vs: VsHabits::default(),
+        answers: Default::default(),
+        box_up: false,
+        run_more: 0.0,
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

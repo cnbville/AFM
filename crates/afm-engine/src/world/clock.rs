@@ -507,6 +507,9 @@ pub(crate) fn advance_day(w: &mut World) {
     // The systems to chase (update 2, lane 2) and the world's halls.
     timed("legacy", || super::legacy::day(w, d));
     timed("scouting", || super::scouting::day(w, d));
+    // Update 2, lane 5: the call sheet drafted on plan day, the week's
+    // keys, and the call words.
+    timed("plans", || super::plans::day(w, d));
     // Section 6b: every team's training week, and the growth it earned.
     if d.weekday() == Weekday::Mon {
         timed("training", || crate::training::week::monday(w, d));

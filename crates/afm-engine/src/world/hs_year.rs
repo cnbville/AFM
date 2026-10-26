@@ -940,6 +940,12 @@ pub(crate) fn squad_team(
         r.max_by(|&a, &b| know[a].total_cmp(&know[b])).map_or(0, |x| x - start)
     };
     let inst = Installed { off: best(0..5), front: best(5..7), shell: best(7..11), ..Installed::default() };
+    // Your guidelines pick your varsity's systems (update 2, G2): at a high
+    // school the head coach calls both sides himself.
+    let level = crate::calendar::Level::HighSchool;
+    let seat = varsity && w.seat_school() == Some(h);
+    let guide = super::guide::team_guidelines(w, coach, coach, coach, level, seat);
+    let inst = if seat { super::guide::wanted_install(&guide, inst) } else { inst };
     let ab = coach.map(|c| *w.coaches[c].ability());
     let aware = players.iter().map(|p| p.a(crate::attributes::Attr::FootballIq)).sum::<f64>() / players.len() as f64;
     let offense = season::coach_caller(w, coach, inst.off);
@@ -963,8 +969,10 @@ pub(crate) fn squad_team(
             film_study: clamp(0.7 * ab.map_or(9.0, |a| a.scheme) + 7.0 * school.resources, 1.0, 20.0),
             install,
             style: coach.map_or_else(Default::default, |c| w.coaches[c].style()),
+            guide: Default::default(),
         },
     );
+    super::guide::apply(w, &mut team, guide, coach, coach);
     team.give_orders(crate::player::Level::HS);
     if varsity && w.seat_school() == Some(h) {
         team.order = w.seat_order();

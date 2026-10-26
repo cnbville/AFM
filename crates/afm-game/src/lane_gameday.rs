@@ -14,8 +14,7 @@ use std::collections::HashMap;
 use afm_engine::calendar::{Date, Level as CalLevel};
 use afm_engine::game::calling::FourthDown;
 use afm_engine::game::live::{
-    self, Ask, CallClock, FourthChart, Input, Pending, PlanChange, Settings, StopMode, Tempo, TossChoice, TwoChart,
-    View,
+    self, Ask, CallClock, Input, Pending, PlanChange, Settings, StopMode, Tempo, TossChoice, View,
 };
 use afm_engine::game::playbook::{
     Backfield, Coverage, DefCall, DefPersonnel, Formation, FrontLook, Motion, OffCall, PASS_CONCEPTS, Personnel,
@@ -487,14 +486,16 @@ fn settings_json(s: &Settings) -> Value {
     })
 }
 
+/// The rules this game is played to: your standing rules, or this game's
+/// own when game day changed them.
 fn rules_json(w: &World) -> Value {
-    let r = &w.gameday.rules;
-    json!({
-        "fourth": match r.fourth { FourthChart::Staff => "staff", FourthChart::Numbers => "numbers", FourthChart::Aggressive => "aggressive", FourthChart::Conservative => "conservative" },
-        "two": match r.two { TwoChart::Staff => "staff", TwoChart::Chart => "chart", TwoChart::Kick => "kick" },
-        "tempo": tempo_name(r.tempo),
-        "level": w.seat_team().map(|x| x.0 == CalLevel::HighSchool),
-    })
+    let date = next_game(w).map_or(w.today, |n| n.date);
+    let r = w.gameday.rules_for(date);
+    let mut v = crate::lane_gameplan::rules::rules_json(&r);
+    v["level"] = json!(w.seat_team().map(|x| x.0 == CalLevel::HighSchool));
+    v["changed"] = json!(matches!(w.gameday.week_rules, Some((d, _)) if d == date));
+    v["standing"] = crate::lane_gameplan::rules::rules_json(&w.gameday.rules);
+    v
 }
 
 fn tempo_name(t: Tempo) -> &'static str {
@@ -668,26 +669,16 @@ fn set_settings(w: &mut World, a: &Value) -> Reply {
     Ok(json!({ "settings": settings_json(&now) }))
 }
 
+/// Game day changes the rules for this one game only (update 2, G4): the
+/// standing rules stay on the Plans page and come back the week after.
+/// A new 4th-down preset here keeps your own chart cells.
 fn set_rules(w: &mut World, a: &Value) -> Reply {
-    let r = &mut w.gameday.rules;
-    if let Some(v) = a.get("fourth").and_then(Value::as_str) {
-        r.fourth = match v {
-            "numbers" => FourthChart::Numbers,
-            "aggressive" => FourthChart::Aggressive,
-            "conservative" => FourthChart::Conservative,
-            _ => FourthChart::Staff,
-        };
+    let mut a = a.clone();
+    if let Some(o) = a.as_object_mut() {
+        o.insert("week".into(), json!(true));
+        o.entry("keep_cells").or_insert(json!(true));
     }
-    if let Some(v) = a.get("two").and_then(Value::as_str) {
-        r.two = match v {
-            "chart" => TwoChart::Chart,
-            "kick" => TwoChart::Kick,
-            _ => TwoChart::Staff,
-        };
-    }
-    if let Some(v) = a.get("tempo").and_then(Value::as_str) {
-        r.tempo = tempo_of(v);
-    }
+    crate::lane_gameplan::rules::set(w, &a)?;
     Ok(hub(w))
 }
 

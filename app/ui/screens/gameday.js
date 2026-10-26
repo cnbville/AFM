@@ -111,9 +111,11 @@
     const tabs = ["Report", "Film room", "Game plan", "Calling"];
     if (!tabs.includes(tab.t)) tab.t = "Report";
     let body = "";
-    if (tab.t === "Report") body = reportTab(h);
+    // The deeper game plan (update 2, lane 5, screens/gameplan.js) draws
+    // the week's plan and the teams like us; without it the older tabs.
+    if (tab.t === "Report") body = reportTab(h) + (typeof window.dpLikeUs === "function" ? await window.dpLikeUs(h) : "");
     else if (tab.t === "Film room") body = filmTab(h);
-    else if (tab.t === "Game plan") body = planTab(h);
+    else if (tab.t === "Game plan") body = typeof window.dpWeekTab === "function" ? await window.dpWeekTab(h, { matchups: matchupsForm(h), fallback: planTab(h) }) : planTab(h);
     else body = `${settingsPanel(h.settings)}${callingPanel(h.calling)}`;
     const go = goLine([
       ["Their squad", teamArgs(h.opp, "roster")],
@@ -208,28 +210,34 @@
     const v = cur == null ? "staff" : cur ? "yes" : "no";
     return `<div class="seg">${[["staff", "Staff decides"], ["yes", words[0]], ["no", words[1]]].map(([k, t]) => `<button data-act="gd-plan" data-k="${name}" data-v="${k}" aria-pressed="${v === k}">${t}</button>`).join("")}</div>`;
   }
-  function planTab(h) {
+  // The week's matchups against this opponent: whose corner to throw at,
+  // the bracket, the spy, the kicks and the draws.
+  function matchupsForm(h) {
     const p = h.plan;
     const o = p.options;
-    const r = h.rules;
-    const seg = (k, cur, opts) => `<div class="seg">${opts.map(([v, t]) => `<button data-act="gd-rule" data-k="${k}" data-v="${v}" aria-pressed="${cur === v}">${t}</button>`).join("")}</div>`;
-    const fourth = { staff: "Your staff decides each one by its own lean and the game.", numbers: "Go for it whenever the model says going wins more often than punting or kicking.", aggressive: "Go for it unless kicking is clearly better (two points of win chance).", conservative: "Kick unless going is clearly better (four points of win chance)." };
-    const two = { staff: "Your staff decides by its chart and its trust in the kicker.", chart: "Dick Vermeil's chart in the 4th quarter: go for two when the margin after the touchdown says so (down 2, 5, 9, 10, 13, 17 or 18; up 1, 4, 5, 12, 15 or 19).", kick: "Always kick the extra point." };
-    return `<div class="grid2"><div class="panel warm"><h2>Matchups <small>the week's plan against ${esc(h.opp.name)}</small></h2>
-        <div class="gd-form">
+    return `<div class="gd-form">
           <label>Throw at their corner<small>your offensive coordinator looks his way first</small></label>${pickSelect("target_cb", p.target_cb, o.corners, "Staff decides")}
           <label>Bracket their receiver<small>two men on him, someone short elsewhere</small></label>${pickSelect("bracket", p.bracket, o.receivers, "Staff decides")}
           <label>Spy their quarterback<small>a linebacker mirrors him instead of rushing or dropping</small></label>${triSeg("spy", p.spy, ["Spy him", "No spy"])}
           <label>Kick away from their returner<small>shorter, safer kicks: field position for the return</small></label>${triSeg("kick_away", p.kick_away, ["Kick away", "Kick deep to him"])}
           <label>Draws and screens<small>more of them against edge rushers who win upfield</small></label>${triSeg("draws", p.draws, ["More of them", "As usual"])}
         </div>
-        <div class="sub">${p.hints ? `${p.hints} hint${p.hints === 1 ? "" : "s"} from your film study in the plan: your players key those habits from the snaps that show them. ` : ""}The plan holds whether you call the game or your staff does.</div></div>
+        <div class="sub">${p.hints ? `${p.hints} hint${p.hints === 1 ? "" : "s"} from your film study in the plan: your players key those habits from the snaps that show them. ` : ""}The plan holds whether you call the game or your staff does.</div>`;
+  }
+  function planTab(h) {
+    const r = h.rules;
+    const seg = (k, cur, opts) => `<div class="seg">${opts.map(([v, t]) => `<button data-act="gd-rule" data-k="${k}" data-v="${v}" aria-pressed="${cur === v}">${t}</button>`).join("")}</div>`;
+    const fourth = { staff: "Your staff decides each one by its own lean and the game.", numbers: "Go for it whenever the model says going wins more often than punting or kicking.", aggressive: "Go for it unless kicking is clearly better (two points of win chance).", conservative: "Kick unless going is clearly better (four points of win chance)." };
+    const two = { staff: "Your staff decides by its chart and its trust in the kicker.", chart: "Dick Vermeil's chart in the 4th quarter: go for two when the margin after the touchdown says so (down 2, 5, 9, 10, 13, 17 or 18; up 1, 4, 5, 12, 15 or 19).", kick: "Always kick the extra point." };
+    return `<div class="grid2"><div class="panel warm"><h2>Matchups <small>the week's plan against ${esc(h.opp.name)}</small></h2>${matchupsForm(h)}</div>
       <div class="panel warm"><h2>Your game rules <small>they decide when no snap stops for you</small></h2>
         <div class="gd-form stack">
           <label>4th downs<small>${esc(fourth[r.fourth])}</small></label>${seg("fourth", r.fourth, [["staff", "Staff"], ["numbers", "The numbers"], ["aggressive", "Aggressive"], ["conservative", "Conservative"]])}
           <label>Two-point tries<small>${esc(two[r.two])}</small></label>${seg("two", r.two, [["staff", "Staff"], ["chart", "The chart"], ["kick", "Always kick"]])}
           <label>Tempo<small>${r.tempo === "hurry" ? "No-huddle: more snaps, less time for their defense to substitute and disguise." : r.tempo === "milk" ? "Use the play clock: fewer snaps, the game shorter." : "Huddle and snap as the play caller likes."}</small></label>${seg("tempo", r.tempo, [["normal", "Normal"], ["hurry", "No-huddle"], ["milk", "Milk the clock"]])}
-        </div></div></div>`;
+          <label>Timeouts<small>${r.timeouts === "keep_two" ? "Keep two for the end of each half." : r.timeouts === "keep_one" ? "Keep one for the end of each half." : r.timeouts === "free" ? "Use them when the snap needs it." : "Your staff spends them as the game goes."}</small></label>${seg("timeouts", r.timeouts, [["staff", "Staff"], ["keep_two", "Keep two"], ["keep_one", "Keep one"], ["free", "Freely"]])}
+          <label>Four-minute plan<small>${r.four === "run" ? "Ahead by one score late: run it out." : r.four === "attack" ? "Keep attacking with the lead." : "Your staff decides with the lead and the clock."}</small></label>${seg("four", r.four, [["staff", "Staff"], ["run", "Run it out"], ["attack", "Keep attacking"]])}
+        </div>${r.changed ? `<div class="sub">Changed for this game only: the standing rules on Plans come back after it. <a class="link" data-act="gd-rulereset">Back to the standing rules</a></div>` : ""}</div></div>`;
   }
 
   function settingsPanel(s) {
@@ -272,6 +280,7 @@
       case "gd-study": gdDo("gameday_study", tapeKey(d)); break;
       case "gd-hint": gdDo("gameday_hint", { ...tapeKey(d), key: d.key, add: d.add === "1" }); break;
       case "gd-rule": gdDo("gameday_rules", { [d.k]: d.v }); break;
+      case "gd-rulereset": gdDo("gameday_rules", { reset: true }); break;
       case "gd-set": gdDo("gameday_settings", { [d.k]: d.v }); break;
       case "gd-plan": if (d.v) gdDo("gameday_plan", { [d.k]: d.v === "yes" ? true : d.v === "no" ? false : "staff" }); break;
       case "gd-kick": kickoff(); break;

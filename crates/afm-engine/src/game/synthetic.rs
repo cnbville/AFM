@@ -149,7 +149,7 @@ pub fn synthetic_team(name: &str, level: Level, quality: f64, scheme: OffScheme,
 /// Depth spots, game players and a staff for a team's players.
 fn finish_team(
     name: &str,
-    _level: Level,
+    level: Level,
     mut raw: Vec<(crate::player::Player, f64, f64)>,
     rng: &mut Rng,
     seed: u32,
@@ -186,7 +186,18 @@ fn finish_team(
         film_study: 10.0,
         install: absorb(aware).clamp(0.35, 1.0),
         style: Default::default(),
+        guide: Default::default(),
     };
+    // The head coach's guidelines (update 2, G2), from their own stream so
+    // the draws above keep their values.
+    let mut staff = staff;
+    staff.guide = super::guide::draw(
+        &mut Rng::new(seed ^ 0x6A1D_E5E7),
+        level != Level::NFL,
+        staff.off_scheme,
+        staff.shell,
+        staff.defense.aggressiveness,
+    );
     GameTeam::new(name.to_string(), players, staff)
 }
 

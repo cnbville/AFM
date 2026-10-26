@@ -149,6 +149,10 @@ pub struct Tactics {
     /// How much the offense planned double moves and pump fakes against
     /// route jumpers (tendencies topic 4.4), 0-1.
     pub double_moves: f64,
+    /// New call words this week (update 2, G5), offense then defense: the
+    /// extra chance a snap that a player busts.
+    #[serde(default)]
+    pub learn: [f64; 2],
 }
 
 impl Default for Tactics {
@@ -168,6 +172,7 @@ impl Default for Tactics {
             downfield: 1.0,
             load: [super::roster::INSTALL; 2],
             double_moves: 0.0,
+            learn: [0.0; 2],
         }
     }
 }
@@ -545,7 +550,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             | crate::positions::Position::S => 1.0 - 0.45 * (sim.player(i).chem - super::roster::TYPICAL_CHEM) as f64,
             _ => 1.0,
         };
-        let p = ((1.0 - know) * 0.05 + (60.0 - iq).max(0.0) * 0.0006 + noise + check + install + lapse).max(0.0)
+        let words = tac.learn[if i < off_n { 0 } else { 1 }];
+        let p = ((1.0 - know) * 0.05 + (60.0 - iq).max(0.0) * 0.0006 + noise + check + install + lapse + words)
+            .max(0.0)
             * call
             * chem
             * prep;

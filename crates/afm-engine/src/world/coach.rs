@@ -457,6 +457,17 @@ impl Coach {
         &self.ability
     }
 
+    /// Whether he is the user's own coach.
+    pub fn is_yours(&self) -> bool {
+        self.yours.is_some()
+    }
+
+    /// What he knows of each system, 0-1 (hidden: screens show it in
+    /// words through your staff's read, never as a number).
+    pub fn system_know(&self) -> [f64; 11] {
+        self.systems.know
+    }
+
     /// His eye for players (section 7, topic 14): how well he judges a
     /// recruit, 1-20 (hidden). Keyed by the coach, so no draw moves; it
     /// leans on his recruiting and his teaching (proposed, not confirmed).

@@ -27,6 +27,7 @@ pub mod franchise;
 pub mod front_office;
 pub mod game_log;
 pub mod geo;
+pub mod guide;
 pub mod high_school;
 pub mod hs_playoffs;
 pub mod hs_year;
@@ -45,6 +46,7 @@ pub(crate) fn nfl_year_order(w: &World) -> Option<Vec<usize>> {
     nfl_year::draft_order(w)
 }
 pub mod people;
+pub mod plans;
 pub(crate) mod polls;
 pub mod pro;
 pub mod program;
@@ -811,6 +813,11 @@ pub struct World {
     /// scheme, your guys, the Hall of Fame race and each level's five.
     #[serde(default)]
     pub legacy: legacy::Legacy,
+    /// The deeper game plan (update 2, lane 5): your identity, standing
+    /// game rules, call words, the staff's drafted call sheet and the
+    /// week's plan beyond the matchups.
+    #[serde(default)]
+    pub plans: plans::SeatPlans,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -1142,6 +1149,7 @@ impl World {
             level_scales: Vec::new(),
             storylines: Default::default(),
             legacy: Default::default(),
+            plans: Default::default(),
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);

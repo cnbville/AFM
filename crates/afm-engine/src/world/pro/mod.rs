@@ -808,7 +808,9 @@ pub(crate) fn fill_league(w: &mut World) {
     }
     for t in 0..n {
         let tm = &w.nfl[t];
-        let inst = super::systems::nfl_install(w, Default::default(), tm.oc.or(tm.head_coach), tm.dc.or(tm.head_coach));
+        let g = super::guide::club_guidelines(w, t);
+        let inst =
+            super::systems::nfl_install(w, Default::default(), tm.oc.or(tm.head_coach), tm.dc.or(tm.head_coach), &g);
         w.clubs[t].installed = inst;
     }
     office::staff_offices(w);
@@ -1252,8 +1254,9 @@ fn league_year(w: &mut World, d: Date) {
     // tape fades (a new head coach's team shows little of the old one).
     for t in 0..w.clubs.len() {
         let tm = &w.nfl[t];
+        let g = super::guide::club_guidelines(w, t);
         let inst =
-            super::systems::nfl_install(w, w.clubs[t].installed, tm.oc.or(tm.head_coach), tm.dc.or(tm.head_coach));
+            super::systems::nfl_install(w, w.clubs[t].installed, tm.oc.or(tm.head_coach), tm.dc.or(tm.head_coach), &g);
         let new_coach = tm.staff_years == 0;
         let c = &mut w.clubs[t];
         c.installed = inst;
