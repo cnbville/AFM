@@ -8,6 +8,7 @@ use afm_engine::calendar::{Date, Level as CalLevel};
 use afm_engine::game::stats::{GameStats, PlayRecord, PlayType};
 use afm_engine::game::win_chance::{self, Params};
 use afm_engine::world::World;
+use afm_engine::world::season_page::{self, Held};
 use afm_engine::world::seat::SeatGame;
 use serde_json::{Value, json};
 
@@ -18,7 +19,7 @@ use crate::views;
 
 /// The win chance for one game: its level's numbers and what the home
 /// side was expected to win by (the closing line where the books hung
-/// one; else the home field alone).
+/// one; else the home field alone, nothing at a neutral site).
 #[derive(Clone, Copy, Debug)]
 pub struct Wp {
     pub p: Params,
@@ -35,53 +36,92 @@ fn home_field(level: afm_engine::player::Level) -> f64 {
     }
 }
 
-/// The home side's expected margin from the closing line, when there was
-/// one (the line is the home spread, negative when favoured).
-fn line_margin(w: &World, level: CalLevel, teams: [usize; 2], date: Date) -> Option<f64> {
-    let [h, a] = teams;
-    let line = match level {
-        CalLevel::College => w
-            .college_fixtures(Some(h))
+/// The game in the home side's season page (this season's or last), for
+/// its line and site.
+fn page_game(w: &World, level: CalLevel, teams: [usize; 2], date: Date) -> Option<season_page::PageGame> {
+    [Held::This, Held::Last].into_iter().find_map(|held| {
+        season_page::page(w, level, teams[0], held)?
+            .games
             .into_iter()
-            .find(|f| f.date == date && f.home == h && f.away == a)
-            .and_then(|f| f.line),
-        CalLevel::Nfl => w
-            .nfl_fixtures(Some(h))
-            .into_iter()
-            .find(|f| f.when == Some(date) && f.home == h && f.away == a)
-            .and_then(|f| f.line),
-        _ => None,
-    };
-    line.map(|l| -l[0] as f64)
+            .find(|g| g.date == date && g.opp == teams[1] && g.home)
+    })
 }
 
 impl Wp {
-    pub fn new(w: &World, level: CalLevel, teams: [usize; 2], date: Date) -> Wp {
+    /// A game on a date: the line from the home side's season page, else
+    /// the home field (nothing at a neutral site).
+    pub fn new(w: &World, level: CalLevel, teams: [usize; 2], date: Date, neutral: bool) -> Wp {
         let lv = super::game_level(w, level, teams);
         let p = Params::for_level(lv);
-        let home_spread = line_margin(w, level, teams, date).unwrap_or_else(|| home_field(lv));
+        let g = page_game(w, level, teams, date);
+        let neutral = neutral || g.as_ref().is_some_and(|g| g.neutral);
+        // The page's line is the home side's spread (negative when favoured).
+        let home_spread =
+            g.and_then(|g| g.line).map(|l| -l[0] as f64).unwrap_or_else(|| if neutral { 0.0 } else { home_field(lv) });
         Wp { p, home_spread }
     }
 
+    /// A kept game: the line stored with it, else as `new` reads it (a
+    /// game kept before the lines were).
     pub fn of_game(w: &World, g: &SeatGame) -> Wp {
-        Wp::new(w, g.level, g.teams, g.date)
-    }
-
-    /// The home side's chance before a play.
-    pub fn home(&self, r: &PlayRecord) -> f64 {
-        win_chance::home_before(&self.p, r, self.home_spread)
-    }
-
-    /// Seconds of regulation played at a snap (overtime runs on past it).
-    pub fn elapsed(&self, r: &PlayRecord) -> f64 {
-        let q = self.p.quarter;
-        if r.quarter > 4 {
-            4.0 * q + (r.quarter - 5) as f64 * 600.0 + (600.0 - r.clock.min(600.0))
-        } else {
-            (r.quarter.max(1) - 1) as f64 * q + (q - r.clock).max(0.0)
+        match g.spread {
+            Some(x) => Wp { p: Params::for_level(super::game_level(w, g.level, g.teams)), home_spread: x as f64 },
+            None => Wp::new(w, g.level, g.teams, g.date, false),
         }
     }
+
+    /// The home side's chance before each play of the log (one for each
+    /// record), following college and high school overtime's rounds.
+    pub fn series(&self, plays: &[PlayRecord]) -> Vec<f64> {
+        win_chance::home_series(&self.p, plays, self.home_spread)
+    }
+
+    /// Each record's place on the chart's time line, in seconds from the
+    /// kick, with where each overtime period or round starts. Regulation
+    /// runs on its clock. A timed overtime (the NFL's) follows on its own
+    /// clock, a new period when the clock starts again; college and high
+    /// school overtime has no clock, so each snap takes a fixed width and
+    /// each round is marked.
+    pub fn times(&self, plays: &[PlayRecord]) -> (Vec<f64>, Vec<(f64, String)>) {
+        let q = self.p.quarter;
+        let reg = 4.0 * q;
+        let untimed = |r: &PlayRecord| r.clock >= UNTIMED;
+        let len = if plays.iter().any(|r| r.quarter > 4 && !untimed(r) && r.clock > 600.5) { 900.0 } else { 600.0 };
+        let label = |k: usize| if k <= 1 { "OT".to_string() } else { format!("{k}OT") };
+        let mut out = Vec::with_capacity(plays.len());
+        let mut marks: Vec<(f64, String)> = Vec::new();
+        let (mut period, mut prev, mut snaps) = (0usize, f64::MAX, 0usize);
+        let rounds = win_chance::ot_rounds(plays);
+        for (r, &round) in plays.iter().zip(&rounds) {
+            if r.quarter <= 4 {
+                out.push((r.quarter.max(1) - 1) as f64 * q + (q - r.clock).clamp(0.0, q));
+                continue;
+            }
+            if !untimed(r) {
+                if period == 0 || r.clock > prev + 1.0 {
+                    period += 1;
+                    marks.push((reg + (period - 1) as f64 * len, label(period)));
+                }
+                prev = r.clock;
+                out.push(reg + (period - 1) as f64 * len + (len - r.clock.min(len)));
+                continue;
+            }
+            let x = reg + snaps as f64 * OT_SNAP;
+            if round as usize > marks.len() {
+                marks.push((x, label(round as usize)));
+            }
+            out.push(x);
+            snaps += 1;
+        }
+        (out, marks)
+    }
 }
+
+/// A clock this high is college or high school overtime's: no clock.
+const UNTIMED: f64 = 1.0e6;
+
+/// The chart's width for a snap of untimed overtime, in seconds.
+const OT_SNAP: f64 = 20.0;
 
 fn scrimmage(r: &PlayRecord) -> bool {
     matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble)
@@ -105,20 +145,23 @@ pub fn board(w: &World, k: usize) -> Reply {
     let refs = [super::team_ref(g.level, g.teams[0]), super::team_ref(g.level, g.teams[1])];
     let names = super::game_names(w, g, &refs);
     let name = |id: u32| names.get(&id).map_or(format!("No. {id}"), |x| x.0.clone());
-    let plays: Vec<&PlayRecord> = s.plays.iter().filter(|r| r.offense < 2).collect();
     // Our chance before each play, then the final.
-    let ours = |r: &PlayRecord| {
-        let h = m.home(r);
-        if us == 0 { h } else { 1.0 - h }
-    };
+    let home = m.series(&s.plays);
+    let (xs, ot_marks) = m.times(&s.plays);
+    let idx: Vec<usize> = (0..s.plays.len()).filter(|&i| s.plays[i].offense < 2).collect();
+    let plays: Vec<&PlayRecord> = idx.iter().map(|&i| &s.plays[i]).collect();
+    let ours = |i: usize| if us == 0 { home[i] } else { 1.0 - home[i] };
     let fin = match s.score[us].cmp(&s.score[them]) {
         std::cmp::Ordering::Greater => 1.0,
         std::cmp::Ordering::Less => 0.0,
         _ => 0.5,
     };
     let mut series: Vec<(u32, f64, f64, &PlayRecord)> =
-        plays.iter().map(|r| (r.n, m.elapsed(r), ours(r), *r)).collect();
-    let end_t = series.last().map_or(4.0 * m.p.quarter, |x| x.1.max(4.0 * m.p.quarter));
+        idx.iter().map(|&i| (s.plays[i].n, xs[i], ours(i), &s.plays[i])).collect();
+    let end_t = series.last().map_or(4.0 * m.p.quarter, |x| {
+        let ot = if x.3.quarter > 4 && x.3.clock >= UNTIMED { OT_SNAP } else { 0.0 };
+        (x.1 + ot).max(4.0 * m.p.quarter)
+    });
     // Each play's swing: our chance after it (the next snap's) less ours
     // before it.
     let mut swings: Vec<(f64, usize)> = Vec::new();
@@ -161,12 +204,13 @@ pub fn board(w: &World, k: usize) -> Reply {
             })
         })
         .collect();
+    // The low and high points of ours before the final whistle, with the
+    // time left then.
+    let low = series.iter().min_by(|a, b| a.2.total_cmp(&b.2)).copied();
+    let high = series.iter().max_by(|a, b| a.2.total_cmp(&b.2)).copied();
     series.push((plays.last().map_or(0, |r| r.n + 1), end_t, fin, plays.last().copied().unwrap_or(&s.plays[0])));
-    // The low and high points of ours, with the time left then.
-    let low = series.iter().min_by(|a, b| a.2.total_cmp(&b.2));
-    let high = series.iter().max_by(|a, b| a.2.total_cmp(&b.2));
-    let point = |x: Option<&(u32, f64, f64, &PlayRecord)>| {
-        x.map(|&(n, t, p, r)| {
+    let point = |x: Option<(u32, f64, f64, &PlayRecord)>| {
+        x.map(|(n, t, p, r)| {
             json!({ "n": n, "t": r1(t), "p": (100.0 * p).round(), "q": quarter(r.quarter), "qn": r.quarter, "clock": clock(r.clock) })
         })
     };
@@ -213,6 +257,7 @@ pub fn board(w: &World, k: usize) -> Reply {
         "wp": wp,
         "low": point(low),
         "high": point(high),
+        "ot": ot_marks.iter().map(|(t, l)| json!([r1(*t), l])).collect::<Vec<_>>(),
         "swings": swing_rows,
         "drives": drives,
         "final": final_card(w, g, us, &name),
@@ -260,10 +305,20 @@ fn final_card(w: &World, g: &SeatGame, us: usize, name: &dyn Fn(u32) -> String) 
     // The deciding score: the first score by the winner after the last
     // moment it was level or behind.
     let mut decider: Option<&PlayRecord> = None;
+    let mut with_try: Option<&str> = None;
     if !tied {
         let winner = if won { us } else { them };
         let live: Vec<&PlayRecord> = s.plays.iter().filter(|r| r.offense < 2 && !r.nullified).collect();
-        let last_level = live.iter().rposition(|r| r.score[winner] - r.score[1 - winner] <= 0);
+        let mut last_level = live.iter().rposition(|r| r.score[winner] - r.score[1 - winner] <= 0);
+        // Level before the try: the touchdown before it decided it, with
+        // the try.
+        if let Some(i) = last_level
+            && matches!(live[i].kind, PlayType::ExtraPoint | PlayType::TwoPoint)
+            && let Some(j) = live[..i].iter().rposition(|r| r.touchdown)
+        {
+            with_try = Some(if live[i].kind == PlayType::TwoPoint { " and the two" } else { " and the extra point" });
+            last_level = Some(j);
+        }
         decider = last_level.and_then(|i| {
             live[i..].iter().copied().find(|r| {
                 (r.kind == PlayType::FieldGoal && r.kick_good || r.touchdown || r.safety || r.single)
@@ -278,6 +333,12 @@ fn final_card(w: &World, g: &SeatGame, us: usize, name: &dyn Fn(u32) -> String) 
             "a safety".into()
         } else if r.defense_td {
             "a defensive touchdown".into()
+        } else if matches!(r.kind, PlayType::Kickoff | PlayType::Punt) && r.touchdown && !r.turnover {
+            let what = if r.kind == PlayType::Kickoff { "kickoff" } else { "punt" };
+            match r.returner {
+                Some(id) => format!("{}'s {what} return", name(id)),
+                None => format!("a {what} return"),
+            }
         } else if r.kind == PlayType::Run || r.kind == PlayType::Scramble {
             format!("{}'s {}-yard run", name(r.carrier.unwrap_or(0)), r.yards.round())
         } else if r.kind == PlayType::Pass {
@@ -292,19 +353,9 @@ fn final_card(w: &World, g: &SeatGame, us: usize, name: &dyn Fn(u32) -> String) 
         } else {
             format!("in the {}", ["first", "second", "third"][(r.quarter.max(1) - 1) as usize])
         };
-        json!({ "what": what, "when": left, "n": r.n })
+        json!({ "what": format!("{what}{}", with_try.unwrap_or("")), "when": left, "n": r.n })
     });
-    let record = match g.level {
-        CalLevel::Nfl => {
-            let (wn, l, t) = w.nfl_record(g.teams[us]);
-            if t > 0 { format!("{wn}-{l}-{t}") } else { format!("{wn}-{l}") }
-        }
-        CalLevel::College => {
-            let r = w.college_record(g.teams[us]);
-            format!("{}-{}", r.wins, r.losses)
-        }
-        _ => String::new(),
-    };
+    let record = record_after(w, g, us);
     json!({
         "won": won, "tied": tied,
         "word": if tied { "Tied" } else if won { "Won" } else { "Lost" },
@@ -315,10 +366,39 @@ fn final_card(w: &World, g: &SeatGame, us: usize, name: &dyn Fn(u32) -> String) 
     })
 }
 
+/// The record after a game: its season's games up to it, from the season
+/// page that holds it (none once the world no longer holds that season).
+fn record_after(w: &World, g: &SeatGame, us: usize) -> String {
+    let (team, opp) = (g.teams[us], g.teams[1 - us]);
+    [Held::This, Held::Last]
+        .into_iter()
+        .find_map(|held| {
+            let p = season_page::page(w, g.level, team, held)?;
+            p.games.iter().any(|x| x.date == g.date && x.opp == opp).then(|| {
+                let (mut wn, mut l, mut t) = (0, 0, 0);
+                for x in p.games.iter().filter(|x| x.date <= g.date && !x.cancelled) {
+                    match (x.score, x.won) {
+                        (Some([a, b]), _) if a > b => wn += 1,
+                        (Some([a, b]), _) if a < b => l += 1,
+                        (Some(_), _) => t += 1,
+                        (None, Some(true)) => wn += 1,
+                        (None, Some(false)) => l += 1,
+                        _ => {}
+                    }
+                }
+                if t > 0 { format!("{wn}-{l}-{t}") } else { format!("{wn}-{l}") }
+            })
+        })
+        .unwrap_or_default()
+}
+
 /// The side that scored on a play.
 fn scorer(r: &PlayRecord) -> Option<usize> {
     let o = r.offense.min(1);
     if r.safety || r.defense_td {
+        Some(1 - o)
+    } else if matches!(r.kind, PlayType::Kickoff | PlayType::Punt) && r.touchdown && !r.turnover {
+        // A return: the kicking side is the offense on the record.
         Some(1 - o)
     } else if r.touchdown || r.kick_good || r.single {
         Some(o)

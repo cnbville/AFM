@@ -1581,6 +1581,7 @@ fn play_week(w: &mut World, d: Date, li: usize, f: &Format) {
             record(w, k, [h, a], &r, [&sh.who, &sa.who]);
             let teams = [h as usize, a as usize];
             w.keep_seat_game(crate::calendar::Level::Other, teams, &r.stats, r.replay.as_deref());
+            w.seat_line(crate::calendar::Level::Other, teams, None, neutral);
             crate::world::stories::other_game(w, teams, &r.stats, round > 0);
             if let Some(o) = w.tape_watch(crate::calendar::Level::Other) {
                 w.keep_tape(&o, crate::calendar::Level::Other, teams, &r.stats, &r.film);

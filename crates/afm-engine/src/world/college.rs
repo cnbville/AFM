@@ -741,6 +741,8 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
         played.home_won = home_won;
         if let Some(r) = &r {
             w.keep_seat_game(CalLevel::College, [home, away], &r.stats, r.replay.as_deref());
+            let line = w.college.as_ref().unwrap().games[k].line;
+            w.seat_line(CalLevel::College, [home, away], line, j.neutral);
             if let Some(o) = &watch {
                 w.keep_tape(o, CalLevel::College, [home, away], &r.stats, &r.film);
             }

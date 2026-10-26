@@ -7,16 +7,20 @@
 use std::cmp::Ordering;
 
 use crate::game::synthetic::synthetic_league;
-use crate::game::win_chance::{Params, State, chance, home_before};
+use crate::game::win_chance::{Params, State, chance, home_before, home_series};
 use crate::game::{GameResult, GameSetup, PlayRecord, PlayType, play_game};
 use crate::player::Level;
 use crate::world::charts::{Charts, Tally, depth_bin};
 use crate::world::tape::{Snap, Throw};
 
+/// The most the side behind may gain in one second (see
+/// `win_chance_runs_down_with_the_clock`).
+const RISE: f64 = 0.012;
+
 const LEVELS: [Level; 5] = [Level::NFL, Level::FBS, Level::FCS, Level::SmallCollege, Level::HS];
 
 fn st(quarter: u8, clock: f64, lead: f64, down: u8, togo: f64, yl: f64) -> State {
-    State { quarter, clock, lead, down, togo, yl, timeouts: [3, 3], spread: 0.0 }
+    State { quarter, clock, lead, down, togo, yl, timeouts: [3, 3], spread: 0.0, answering: false }
 }
 
 #[test]
@@ -78,6 +82,153 @@ fn win_chance_rises_with_the_score_and_the_field() {
                 }
             }
         }
+    }
+}
+
+/// The last second (R12): a kick only from range, as often as it is good;
+/// past the longest kick, nothing but a Hail Mary, and no cliff a yard
+/// apart.
+#[test]
+fn win_chance_late_kicks_need_range() {
+    for level in LEVELS {
+        let p = Params::for_level(level);
+        let at = |yl: f64| chance(&p, &State { timeouts: [0, 0], ..st(4, 1.0, -2.0, 1, 10.0, yl) });
+        let mid = at(50.0);
+        assert!(mid < 0.08, "{level:?} down 2 at the 50 with 0:01 {mid:.3}");
+        for yl in 20..70 {
+            let (yl, c) = (yl as f64, at(yl as f64));
+            let kick = p.fg_make(yl);
+            if kick > 0.02 {
+                assert!((c - kick).abs() < 0.05, "{level:?} 0:01 at the {yl}: {c:.3}, the kick makes {kick:.3}");
+            } else {
+                // Past the longest kick: only a throw at the end zone.
+                let shot = 0.55 * (-yl / 14.0).exp();
+                assert!(c < shot + 0.01, "{level:?} 0:01 at the {yl}, out of range: {c:.3}, the throw {shot:.3}");
+                assert!((c - at(yl + 1.0)).abs() < 0.03, "{level:?} 0:01: a cliff past the {yl}");
+            }
+        }
+    }
+}
+
+/// The fourth quarter for the side behind (R13): no step at any moment
+/// (the old one came at 5:00). Closer in, the chance may rise a little as
+/// the clock runs, as in real play: the drive can't use all the time, so
+/// the other side gets less to answer. Never by more than about a point a
+/// second. From its own 25 the side behind can use six minutes itself, so
+/// 5:00 is never better than 6:00.
+#[test]
+fn win_chance_runs_down_with_the_clock() {
+    for level in LEVELS {
+        let p = Params::for_level(level);
+        let q = p.quarter as i32;
+        for lead in [-17.0, -14.0, -10.0, -8.0, -7.0, -6.0, -5.0, -3.0, -2.0, -1.0] {
+            for (yl, to) in [(75.0, [3, 3]), (50.0, [2, 3]), (30.0, [1, 2]), (75.0, [0, 3])] {
+                let at = |t: f64| chance(&p, &State { timeouts: to, ..st(4, t, lead, 1, 10.0, yl) });
+                let mut prev: Option<f64> = None;
+                for t in (15..=q).rev() {
+                    let c = at(t as f64);
+                    if let Some(b) = prev {
+                        assert!(c - b <= RISE, "{level:?} down {lead} at the {yl} {to:?}: {b:.4} to {c:.4} at {t}s");
+                        assert!((c - b).abs() <= 0.02, "{level:?} down {lead} at the {yl} {to:?}: a step at {t}s");
+                    }
+                    prev = Some(c);
+                }
+                if yl >= 75.0 {
+                    let (a, b) = (at(360.0), at(300.0));
+                    assert!(b <= a + 0.005, "{level:?} down {lead} at the {yl} {to:?}: 6:00 {a:.3}, 5:00 {b:.3}");
+                }
+            }
+        }
+    }
+}
+
+/// An overtime snap for the log tests, from a real record.
+fn ot_play(base: &PlayRecord, kind: PlayType, offense: usize, score: [i32; 2], yl: f64) -> PlayRecord {
+    let mut r = base.clone();
+    r.kind = kind;
+    r.offense = offense;
+    r.quarter = 5;
+    r.clock = 1.0e9;
+    r.score = score;
+    r.yardline_100 = yl;
+    r.down = 1;
+    r.togo = yl.min(10.0);
+    r.turnover = false;
+    r.touchdown = false;
+    r.kick_good = false;
+    r.nullified = false;
+    r.timeouts = Some([1, 1]);
+    r
+}
+
+/// College and high school overtime (R14): the side that answers knows
+/// what it needs, and a try hands the other side the ball at the spot.
+#[test]
+fn win_chance_reads_overtime_possessions() {
+    for level in [Level::FBS, Level::FCS, Level::HS] {
+        let p = Params::for_level(level);
+        let spot = p.ot_spot.unwrap();
+        let ot = |lead: f64, answering: bool| {
+            chance(&p, &State { answering, ..st(5, 1.0e9, lead, 1, 10.0_f64.min(spot), spot) })
+        };
+        let first = ot(0.0, false);
+        assert!((0.4..0.6).contains(&first), "{level:?} the first possession, level: {first:.3}");
+        let answer = ot(0.0, true);
+        assert!(answer > 0.8, "{level:?} answering level: any score wins, {answer:.3}");
+        assert!(ot(-7.0, true) < ot(-3.0, true) && ot(-3.0, true) < answer, "{level:?} answering behind");
+        // A log: the home side kicks a field goal, the away side answers
+        // with one; round two the away side goes first, scores a
+        // touchdown and a two, and the home side answers.
+        let teams = synthetic_league(level, 4, 78);
+        let r = play_game(&GameSetup::new(&teams[0], &teams[1], level, 33_001));
+        let base = r.stats.plays.iter().find(|x| x.kind == PlayType::Run).expect("a run").clone();
+        let mut fg = ot_play(&base, PlayType::FieldGoal, 0, [0, 0], spot - 4.0);
+        fg.kick_good = true;
+        let mut fg2 = ot_play(&base, PlayType::FieldGoal, 1, [3, 0], spot - 4.0);
+        fg2.kick_good = true;
+        let mut td = ot_play(&base, PlayType::Run, 1, [3, 3], 4.0);
+        td.touchdown = true;
+        let mut two = ot_play(&base, PlayType::TwoPoint, 1, [3, 9], 3.0);
+        two.touchdown = true;
+        let log = vec![
+            ot_play(&base, PlayType::Run, 0, [0, 0], spot),
+            fg,
+            ot_play(&base, PlayType::Run, 1, [3, 0], spot),
+            fg2,
+            ot_play(&base, PlayType::Run, 1, [3, 3], spot),
+            td,
+            two,
+            ot_play(&base, PlayType::Run, 0, [3, 11], spot),
+        ];
+        let w = home_series(&p, &log, 0.0);
+        assert!((0.4..0.6).contains(&w[0]), "{level:?} home's first snap {:.3}", w[0]);
+        // Away answers a field goal: it needs one to go on, a touchdown to
+        // win (likelier from high school's 10 than college's 25).
+        let lo = if spot < 20.0 { 0.08 } else { 0.15 };
+        assert!(w[2] > lo && w[2] < 0.6, "{level:?} away answering 3 down: home {:.3}", w[2]);
+        // Round two, level, away first again: no one is answering yet.
+        assert!((0.35..0.65).contains(&w[4]), "{level:?} round two's first snap: home {:.3}", w[4]);
+        // The two, then home's first snap from the spot: before it, home
+        // still had a chance (a miss leaves it a touchdown to win); after
+        // the made two, home answering 8 down is nearly lost.
+        assert!(w[6] > 0.15 && w[6] < 0.5, "{level:?} the two read home {:.3}", w[6]);
+        assert!(w[7] < 0.1, "{level:?} home answering 8 down {:.3}", w[7]);
+        // A miss on the first possession: the answer needs any score.
+        let mut miss = ot_play(&base, PlayType::FieldGoal, 0, [0, 0], spot - 4.0);
+        miss.kick_good = false;
+        let log =
+            vec![ot_play(&base, PlayType::Run, 0, [0, 0], spot), miss, ot_play(&base, PlayType::Run, 1, [0, 0], spot)];
+        let w = home_series(&p, &log, 0.0);
+        assert!(w[2] < 0.2, "{level:?} away answering a miss: home {:.3}", w[2]);
+        // The first side's touchdown and kick: the kick read about where
+        // the answer's first snap is, not as a kickoff from deep.
+        let mut td = ot_play(&base, PlayType::Run, 0, [0, 0], 3.0);
+        td.touchdown = true;
+        let mut xp = ot_play(&base, PlayType::ExtraPoint, 0, [6, 0], 3.0);
+        xp.kick_good = true;
+        let log = vec![td, xp, ot_play(&base, PlayType::Run, 1, [7, 0], spot)];
+        let w = home_series(&p, &log, 0.0);
+        assert!((w[1] - w[2]).abs() < 0.08, "{level:?} the kick read {:.3}, the answer's first snap {:.3}", w[1], w[2]);
     }
 }
 
@@ -262,6 +413,7 @@ fn your_games_keep_the_names_of_players_who_leave() {
         replay: Vec::new(),
         marks: Vec::new(),
         gone: Vec::new(),
+        spread: None,
     };
     // A game kept before the names were: it reads with none kept (an
     // empty box score, as JSON keys a box score's ids as text).

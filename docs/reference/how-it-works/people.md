@@ -1,6 +1,6 @@
 # People: how it works today
 
-Checked against main at a423e02 on 2026-10-26.
+Checked against main at d9ecf1c on 2026-10-26.
 
 Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked in code as Claude's (proposed, not confirmed).
 
@@ -128,6 +128,7 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
   - NFL: seasons on the same team.
   - High school: seasons both were in the program.
   - Each adds 0.5 for this season (`seasons_together`).
+  - Another league: none kept, so the locker room board shows no chemistry there (`pair`, `charts::pair_chemistry`, both None).
 - **Values**: 1 - e^(-0.55 x s). A new pair is 0.24, 1.5 seasons 0.56, 2.5 seasons 0.75.
 - **Any two players**, for the locker room board: the same 1 - e^(-0.55 x seasons together) at your seat's level (`world/chemistry.rs`, `pair`; `world/charts.rs`, `pair_chemistry`).
 - **Line chemistry**: 0.25 + 0.15 x the number of the 5 most experienced linemen who started 8+ games here last season (`world/pro/games.rs`, `build_side`; `world/season.rs`, `world/hs_year.rs` the same way).

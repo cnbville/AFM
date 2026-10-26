@@ -377,7 +377,7 @@
 .bd-tb.out, .bd-lg.out { background: transparent; color: var(--bd-dim); outline: 1px dashed var(--bd-track); outline-offset: -1px; }
 .bd-tb.on { box-shadow: inset 0 0 0 2px var(--bd-gold); }
 .bd-tb .bd-nm { font-weight: 700; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.bd-tb b { font-size: 15px; font-weight: 800; }
+.bd-tb b { font-size: 15px; font-weight: 800; display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bd-tb small { font-size: 10.5px; color: var(--bd-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .bd-tx { cursor: default; }
 .bd-tx.dead { background: var(--bd-bad-bg); box-shadow: inset 0 0 0 1px var(--bd-bad-ring); color: var(--bd-bad); }
@@ -444,7 +444,7 @@
 .bd-wkc .st-label { font-size: 9.5px; letter-spacing: .1em; }
 .bd-wkc .bd-dim { font-size: 12px; }
 .bd-mtable { display: flex; flex-direction: column; min-width: 0; }
-.bd-mr { display: grid; grid-template-columns: minmax(110px, 1.3fr) 40px minmax(50px, .6fr) 140px 62px 62px 64px minmax(0, 1.6fr); gap: 10px; align-items: center; min-height: 32px; padding: 0 6px; border-radius: 8px; font-size: 12.5px; box-shadow: inset 0 -1px 0 var(--bd-row); }
+.bd-mr { display: grid; grid-template-columns: minmax(110px, 1.3fr) 40px minmax(48px, .6fr) 112px 48px 48px 52px minmax(120px, 1.6fr); gap: 10px; align-items: center; min-height: 32px; padding: 0 6px; border-radius: 8px; font-size: 12.5px; box-shadow: inset 0 -1px 0 var(--bd-row); }
 .bd-mr.bd-thd { border-radius: 0; min-height: 26px; letter-spacing: .05em; }
 .bd-mr { padding-top: 3px; padding-bottom: 3px; }
 .bd-snp { display: flex; flex-direction: column; line-height: 1.2; }
@@ -518,9 +518,41 @@
   .bd-cols3 > .bd-side { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
   .bd-flow { grid-template-columns: minmax(0, 1fr) minmax(300px, 340px); }
 }
-@container (max-width: 980px) {
-  .bd-cols, .bd-flow, .bd-cols3 { grid-template-columns: minmax(0, 1fr); }
+/* The morale table beside the side column: the default 1280 px window
+   leaves its panel about 560 px, too little for every column. */
+@container (max-width: 1060px) {
   .bd-mr { grid-template-columns: minmax(120px, 1.3fr) 40px 150px 56px minmax(100px, 1.6fr); }
   .bd-mr > span:nth-child(3), .bd-mr > span:nth-child(6), .bd-mr > span:nth-child(7) { display: none; }
+}
+@container (max-width: 980px) {
+  .bd-cols, .bd-flow, .bd-cols3 { grid-template-columns: minmax(0, 1fr); }
   .bd-head > .bd-cells, .bd-headr { margin-left: 0; }
 }
+
+/* V12's front: their men above ours, joined pair by pair, and an arrow
+   through each gap. */
+.bd-front2 { position: relative; display: flex; flex-direction: column; gap: 4px; padding-bottom: 18px; }
+.bd-frow { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 8px; }
+.bd-frow .bd-chip { cursor: pointer; text-align: center; align-items: center; }
+.bd-frow .bd-chip.ours { box-shadow: inset 0 -2px 0 var(--bd-gold); }
+.bd-frow .bd-chip.on { box-shadow: inset 0 0 0 1px var(--bd-gold-ring); }
+.bd-fband { position: relative; height: 76px; }
+.bd-fcon { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed var(--bd-track); display: flex; flex-direction: column; justify-content: center; }
+.bd-fcon b, .bd-fcon small { position: relative; left: 6px; font-size: 12px; white-space: nowrap; }
+.bd-fcon small { font-size: 10px; color: var(--bd-dim); }
+.bd-fcon.bad b { color: var(--bd-bad); }
+.bd-fcon.on { border-left: 1px solid var(--bd-gold); }
+.bd-farrow { position: absolute; top: 2px; width: 28px; margin-left: -14px; display: flex; flex-direction: column; align-items: center; pointer-events: auto; }
+.bd-farrow svg { width: 28px; height: 60px; overflow: visible; }
+.bd-farrow svg.up { transform: rotate(180deg); }
+.bd-farrow line { stroke: var(--bd-ink-bar); stroke-linecap: round; }
+.bd-farrow path { fill: var(--bd-ink-bar); }
+.bd-farrow.bad line { stroke: var(--bd-bad); }
+.bd-farrow.bad path { fill: var(--bd-bad); }
+.bd-farrow.none { opacity: .35; }
+.bd-farrow small { font-size: 10.5px; white-space: nowrap; background: var(--bd-panel, transparent); }
+.bd-fgaps { position: absolute; left: 0; right: 0; bottom: 0; height: 14px; }
+.bd-fgaps span { position: absolute; transform: translateX(-50%); font-size: 10px; color: var(--bd-dim); white-space: nowrap; }
+.bd-fgaps span:first-child { transform: none; }
+.bd-fgaps span:last-child { transform: translateX(-100%); }
+.bd-mtable { overflow-x: auto; }

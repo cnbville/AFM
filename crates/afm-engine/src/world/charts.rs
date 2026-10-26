@@ -154,6 +154,12 @@ pub struct StatePoll {
     pub top: Vec<PollRow>,
     /// The top 25 in your school's class, and your school.
     pub class: Vec<PollRow>,
+    /// The state and your school it was kept for (none in a save from
+    /// before they were kept).
+    #[serde(default)]
+    pub state: Option<u16>,
+    #[serde(default)]
+    pub school: Option<u32>,
 }
 
 /// The boards' store.
@@ -221,7 +227,15 @@ pub(crate) fn state_poll(w: &mut World, s: usize, d: Date, which: &str, ranked: 
     let class = keep(ranked.iter().map(|x| x.1).filter(|&h| w.high_schools[h].classification == class).collect());
     let year = w.year;
     let polls = &mut w.charts.state_polls;
-    polls.push(StatePoll { year, date: d, which: which.to_string(), top, class });
+    polls.push(StatePoll {
+        year,
+        date: d,
+        which: which.to_string(),
+        top,
+        class,
+        state: Some(s as u16),
+        school: Some(me as u32),
+    });
     // This season and last.
     polls.retain(|p| p.year >= year - 1);
 }
@@ -237,6 +251,8 @@ pub struct PollWeek {
     pub top: Vec<usize>,
     pub points: Vec<u32>,
     pub firsts: Vec<u16>,
+    /// The season's final poll (the coaches' final ballots are public).
+    pub fin: bool,
 }
 
 /// One team in the NFL's playoff race after a week.
@@ -287,28 +303,43 @@ impl World {
     /// The college polls of this season (or last season's, `prev`), in
     /// the order they came out.
     pub fn poll_weeks(&self, prev: bool) -> Vec<PollWeek> {
-        let cs = if prev { self.college_prev.as_ref() } else { self.college.as_ref() };
-        cs.map(|c| {
-            c.polls
-                .iter()
-                .map(|p| PollWeek {
-                    date: p.date,
-                    kind: p.kind.name(),
-                    key: poll_key(p.kind),
-                    top: p.top.clone(),
-                    points: p.points.clone(),
-                    firsts: p.firsts.clone(),
-                })
-                .collect()
-        })
-        .unwrap_or_default()
+        use super::college::PollKind;
+        // Last season's polls move apart once the season turns.
+        let polls: &[super::college::Poll] = if prev {
+            match self.college_prev.as_ref().filter(|c| !c.polls.is_empty()) {
+                Some(c) => &c.polls,
+                None => &self.prev_polls,
+            }
+        } else {
+            self.college.as_ref().map_or(&[], |c| &c.polls)
+        };
+        polls
+            .iter()
+            .map(|p| PollWeek {
+                date: p.date,
+                kind: p.kind.name(),
+                key: poll_key(p.kind),
+                top: p.top.clone(),
+                points: p.points.clone(),
+                firsts: p.firsts.clone(),
+                fin: matches!(p.kind, PollKind::Final | PollKind::CoachesFinal),
+            })
+            .collect()
     }
 
     /// The NFL's playoff race this season, week by week, by the seeding
     /// rule the season itself uses (division winners first, then the wild
     /// cards, by record, division wins and strength).
     pub fn nfl_race(&self) -> Option<NflRace> {
-        let s = self.nfl_season.as_ref()?;
+        self.race_of(self.nfl_season.as_ref()?)
+    }
+
+    /// Last NFL season's race, kept once the new league year opens.
+    pub fn nfl_race_prev(&self) -> Option<NflRace> {
+        self.race_of(self.nfl_prev.as_ref()?)
+    }
+
+    fn race_of(&self, s: &super::nfl_year::NflSeason) -> Option<NflRace> {
         let n = s.conf.len();
         let per_conf = (self.rules.nfl_playoff_teams / 2) as usize;
         let mut w = vec![0u32; n];
@@ -395,9 +426,22 @@ impl World {
 
 /// How well two of your players (person indexes) know each other, 0-1:
 /// the seasons they've spent on the same team, as the engine's chemistry
-/// reads it.
-pub fn pair_chemistry(w: &World, a: usize, b: usize) -> f32 {
+/// reads it. None at a seat in another league (no seasons kept there).
+pub fn pair_chemistry(w: &World, a: usize, b: usize) -> Option<f32> {
     super::chemistry::pair(w, a, b)
+}
+
+/// Whether a college player (a person index) takes a place under his
+/// program's limit this season: the House settlement's designated walk-ons
+/// and a COVID senior's extra year don't.
+pub fn takes_a_place(w: &World, i: usize, whole_roster: bool, season: i32) -> bool {
+    super::recruiting::takes_a_place(&w.people[i], whole_roster, season)
+}
+
+/// The order of the coming draft's rounds (clubs by pick, before trades
+/// and comp picks), once it is set.
+pub fn draft_order(w: &World) -> Option<Vec<usize>> {
+    super::nfl_year::draft_order(w)
 }
 
 /// A poll's short key for the boards' tabs.

@@ -14,6 +14,7 @@ use afm_engine::world::World;
 use afm_engine::world::charts::pair_chemistry;
 use afm_engine::world::folk::ties::Kind;
 use afm_engine::world::folk::{Team, life, rules, takeover, talks, ties};
+use afm_engine::world::people::Why;
 use serde_json::{Value, json};
 
 use crate::Reply;
@@ -123,8 +124,10 @@ pub fn board(w: &World) -> Reply {
         })
         .collect();
 
-    // Friction: a man behind a starter at his position, unhappy about his
-    // role, and the starter at the bottom of that position's order.
+    // Friction: a man behind a starter at his position, unhappy and saying
+    // it's his role (his mood's own reason: a man who won't say why isn't
+    // read as wanting a starter's snaps), and the starter at the bottom of
+    // that position's order.
     let mut friction: Vec<Friction> = Vec::new();
     for (pos, list) in &starters {
         let Some(&last) = list.last() else { continue };
@@ -132,7 +135,7 @@ pub fn board(w: &World) -> Reply {
             .iter()
             .copied()
             .filter(|&i| w.people[i].player.position == *pos && !list.contains(&i))
-            .filter(|&i| w.people[i].mood < -0.15 && talks::concern(w, i).0.key() == "role")
+            .filter(|&i| w.people[i].mood < -0.15 && Why::from_u8(w.people[i].mood_why) == Why::Role)
             .collect();
         rivals.sort_by(|&a, &b| w.people[a].mood.total_cmp(&w.people[b].mood));
         if let Some(&r) = rivals.first() {
@@ -211,25 +214,23 @@ pub fn board(w: &World) -> Reply {
     let nodes: Vec<Value> =
         pick.iter().map(|&i| node(w, i, &on, &captains, &starter, &say, &friction, &snaps)).collect();
 
-    // Chemistry: how well each unit's starters know each other.
+    // Chemistry: how well each unit's starters know each other (none kept
+    // in another league).
     let unit = |f: &dyn Fn(Position) -> bool| -> Value {
         let set: Vec<usize> = starter.iter().copied().filter(|&i| f(w.people[i].player.position)).collect();
-        let mut sum = 0.0;
-        let mut c = 0;
-        for x in 0..set.len() {
-            for y in x + 1..set.len() {
-                sum += pair_chemistry(w, set[x], set[y]) as f64;
-                c += 1;
-            }
-        }
-        if c == 0 { Value::Null } else { json!((100.0 * sum / c as f64).round()) }
+        mean_chemistry(w, &set)
     };
-    let chem = json!([
-        { "n": "Team", "v": unit(&|p| group(p) < 3), "of": "the starters together" },
-        { "n": "Offense", "v": unit(&|p| group(p) < 2), "of": "the offense's starters" },
-        { "n": "Defense", "v": unit(&|p| group(p) == 2), "of": "the defense's starters" },
-        { "n": "O-line", "v": unit(&|p| group(p) == 0), "of": "the five up front" },
-    ]);
+    let kept = roster.len() >= 2 && pair_chemistry(w, roster[0], roster[1]).is_some();
+    let chem = if kept {
+        json!([
+            { "n": "Team", "v": unit(&|p| group(p) < 3), "of": "the starters together" },
+            { "n": "Offense", "v": unit(&|p| group(p) < 2), "of": "the offense's starters" },
+            { "n": "Defense", "v": unit(&|p| group(p) == 2), "of": "the defense's starters" },
+            { "n": "O-line", "v": unit(&|p| group(p) == 0), "of": "the five up front" },
+        ])
+    } else {
+        json!([])
+    };
 
     // Worth knowing.
     let mut notes: Vec<Value> = Vec::new();
@@ -262,14 +263,13 @@ pub fn board(w: &World) -> Reply {
             "warn": true,
         }));
     }
-    let mentor = w
-        .folk
-        .ties
-        .list
+    // The strongest mentor tie of a man on the map, from the shown men's
+    // own ties (not the world's whole list).
+    let mentor = pick
         .iter()
+        .flat_map(|&i| w.folk.ties.of_id(w.people[i].player.id))
         .filter(|t| t.kind == Kind::Mentor && t.together && t.a != t.b)
         .filter_map(|t| Some((on.get(&t.a)?, on.get(&t.b)?, t.strength)))
-        .filter(|(a, b, _)| at.contains_key(a) || at.contains_key(b))
         .max_by_key(|x| x.2);
     if let Some((&a, &b, _)) = mentor {
         let (m, s) = (&w.people[a], &w.people[b]);
@@ -327,27 +327,19 @@ pub fn board(w: &World) -> Reply {
             }
             let mood = men.iter().map(|&i| w.people[i].mood).sum::<f32>() / men.len() as f32;
             let ids: HashSet<u32> = men.iter().map(|&i| w.people[i].player.id).collect();
-            let links = w
-                .folk
-                .ties
-                .list
-                .iter()
-                .filter(|t| t.together && t.a != t.b && ids.contains(&t.a) && ids.contains(&t.b))
-                .count();
-            let st: Vec<usize> = men.iter().copied().filter(|i| starter.contains(i)).collect();
-            let chem = if st.len() >= 2 {
-                let mut s = 0.0;
-                let mut c = 0;
-                for x in 0..st.len() {
-                    for y in x + 1..st.len() {
-                        s += pair_chemistry(w, st[x], st[y]) as f64;
-                        c += 1;
+            // Each pair's ties from its men's own lists, counted once (a
+            // tie drawn twice counts once, as on the map).
+            let mut pairs: HashSet<(u32, u32, u8)> = HashSet::new();
+            for &id in &ids {
+                for t in w.folk.ties.of_id(id).filter(|t| t.together && t.a != t.b) {
+                    if ids.contains(&t.a) && ids.contains(&t.b) {
+                        pairs.insert((t.a.min(t.b), t.a.max(t.b), t.kind as u8));
                     }
                 }
-                json!((100.0 * s / c as f64).round())
-            } else {
-                Value::Null
-            };
+            }
+            let links = pairs.len();
+            let st: Vec<usize> = men.iter().copied().filter(|i| starter.contains(i)).collect();
+            let chem = mean_chemistry(w, &st);
             Some(json!({
                 "pos": pos.name(),
                 "g": group(pos),
@@ -362,10 +354,12 @@ pub fn board(w: &World) -> Reply {
         .collect();
 
     let mood = talks::team_mood(w, team);
-    // The last game, when it was this past week.
-    let last = w.seat_games().last().filter(|g| g.date.days_to(w.today) <= 7).map(|g| {
-        let us = w.seat_team().and_then(|(_, t)| g.teams.iter().position(|&x| x == t)).unwrap_or(0);
-        g.names[1 - us].clone()
+    // The last game, when it was this past week and your team's (a game
+    // from the job you just left isn't).
+    let last = w.seat_team().and_then(|(level, t)| {
+        let g = w.seat_games().last().filter(|g| g.date.days_to(w.today) <= 7 && g.level == level)?;
+        let us = g.teams.iter().position(|&x| x == t)?;
+        Some(g.names[1 - us].clone())
     });
     Ok(json!({
         "team": views::team_brief(w, tref),
@@ -384,6 +378,21 @@ pub fn board(w: &World) -> Reply {
         "say": SAY,
         "moods": MOOD,
     }))
+}
+
+/// The mean chemistry of every pair in a set of men, 0-100: None for
+/// fewer than two, or in another league.
+fn mean_chemistry(w: &World, set: &[usize]) -> Value {
+    let mut sum = 0.0;
+    let mut c = 0;
+    for x in 0..set.len() {
+        for y in x + 1..set.len() {
+            let Some(v) = pair_chemistry(w, set[x], set[y]) else { return Value::Null };
+            sum += v as f64;
+            c += 1;
+        }
+    }
+    if c == 0 { Value::Null } else { json!((100.0 * sum / c as f64).round()) }
 }
 
 /// A tie's kind on the map and its words.
@@ -445,7 +454,7 @@ fn snap_shares(w: &World) -> Snaps {
     let mut s = Snaps { his: HashMap::new(), team: [0; 3] };
     let Some((level, t)) = w.seat_team() else { return s };
     let now = super::season_now(w, level);
-    for g in w.seat_games().iter().filter(|g| super::season_of(g.level, g.date) == now) {
+    for g in w.seat_games().iter().filter(|g| g.level == level && super::season_of(g.level, g.date) == now) {
         let Some(us) = g.teams.iter().position(|&x| x == t) else { continue };
         let lines = &g.stats.players[us];
         let most = [

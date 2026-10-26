@@ -269,15 +269,22 @@ fn situation(r: &PlayRecord) -> String {
     format!("{d} & {togo} at {}", views::spot_text(r.yardline_100))
 }
 
-/// Your staff's read of a few ratings: ours from practice, theirs from the
-/// scouting file when there is one, else from the tape (the band narrows
-/// with each game of film: about ±10 from one game, ±4 from six or more;
-/// proposed, not confirmed).
+/// Whether a man is on your roster today (a kept game can list men who
+/// have since left: your staff reads them as it reads anyone else).
+fn on_your_team(w: &World, i: usize) -> bool {
+    views::team_of(w, &w.people[i]).is_some_and(|t| views::is_mine(w, t))
+}
+
+/// Your staff's read of a few ratings: ours from practice, theirs (and a
+/// man who has left your team) from the scouting file when there is one,
+/// else from the tape (the band narrows with each game of film: about ±10
+/// from one game, ±4 from six or more; proposed, not confirmed).
 fn ratings(w: &World, id: u32, ours: bool, keys: &[Attr], tape_games: usize) -> (Vec<Value>, String) {
     let Some(i) = views::person_index(w, id) else { return (Vec::new(), String::new()) };
     let p = &w.people[i].player;
     let reader = views::reader_key(w);
-    if ours {
+    let gone = ours && !on_your_team(w, i);
+    if ours && !gone {
         let eye = views::team_of(w, &w.people[i]).map_or(10.0, |t| views::eye_for(w, t, p.position));
         let all = reads::attributes(p, true, eye, reader);
         let v = keys
@@ -298,7 +305,11 @@ fn ratings(w: &World, id: u32, ours: bool, keys: &[Attr], tape_games: usize) -> 
                 json!({ "k": a.label(), "key": format!("{a:?}"), "r": r })
             })
             .collect();
-        return (v, format!("from your file, {} {}", looks.len(), if looks.len() == 1 { "look" } else { "looks" }));
+        let left = if gone { "; no longer on your team" } else { "" };
+        return (
+            v,
+            format!("from your file, {} {}{left}", looks.len(), if looks.len() == 1 { "look" } else { "looks" }),
+        );
     }
     let half = (10.0 - 1.2 * tape_games.saturating_sub(1) as f64).max(4.0);
     let v = keys
@@ -309,7 +320,8 @@ fn ratings(w: &World, id: u32, ours: bool, keys: &[Attr], tape_games: usize) -> 
         })
         .collect();
     let games = tape_games.max(1);
-    (v, format!("from {} {} of tape", games, if games == 1 { "game" } else { "games" }))
+    let left = if gone { "; no longer on your team" } else { "" };
+    (v, format!("from {} {} of tape{left}", games, if games == 1 { "game" } else { "games" }))
 }
 
 /// Games of film your staff has of a team (this one counts once).
@@ -552,12 +564,14 @@ impl Ctx<'_> {
     fn overall(&self, id: u32, ours: bool) -> Value {
         let Some(i) = self.who.person(id) else { return Value::Null };
         let p = &self.w.people[i].player;
-        let eye = if ours {
+        // Practice reads only a man still on your team.
+        let own = ours && on_your_team(self.w, i);
+        let eye = if own {
             views::team_of(self.w, &self.w.people[i]).map_or(10.0, |t| views::eye_for(self.w, t, p.position))
         } else {
             10.0
         };
-        reads::overall(p, ours, eye, views::reader_key(self.w)).json()
+        reads::overall(p, own, eye, views::reader_key(self.w)).json()
     }
 
     /// Hurt in this game.

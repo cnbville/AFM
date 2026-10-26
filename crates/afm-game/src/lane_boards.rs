@@ -112,6 +112,10 @@ pub(crate) fn team_ref(level: CalLevel, t: usize) -> TeamRef {
 
 /// "3:05" from seconds.
 pub(crate) fn clock(secs: f64) -> String {
+    // College and high school overtime has no clock.
+    if secs >= 1.0e6 {
+        return String::new();
+    }
     let s = secs.max(0.0).round() as u32;
     format!("{}:{:02}", s / 60, s % 60)
 }

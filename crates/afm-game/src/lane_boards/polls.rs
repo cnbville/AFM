@@ -124,8 +124,11 @@ fn col_label(w: &World, p: &PollWeek) -> String {
 }
 
 fn college(w: &World, j: usize, tab: Option<&str>) -> Reply {
-    let weeks = w.poll_weeks(false);
-    let year = w.college_year().unwrap_or(w.year);
+    // Before this season's first poll, last season's (the offseason).
+    let now_weeks = w.poll_weeks(false);
+    let prev = now_weeks.is_empty() && !w.poll_weeks(true).is_empty();
+    let weeks = if prev { w.poll_weeks(true) } else { now_weeks };
+    let year = w.college_year().map_or(w.year, |y| if prev { y - 1 } else { y });
     let prog = &w.programs[j];
     let conf = prog.conference.clone();
     let conf_name = w.conference_name(&conf);
@@ -150,7 +153,7 @@ fn college(w: &World, j: usize, tab: Option<&str>) -> Reply {
     tabs.push(json!({ "k": "conf", "n": format!("{conf_name} standings") }));
 
     // Every game played this season, and ours.
-    let fixtures = w.college_fixtures(None);
+    let fixtures = w.college_fixtures_in(None, prev);
     let played: Vec<_> = fixtures.iter().filter(|f| f.score.is_some()).collect();
     let ours_in = |a: Date, b: Date| -> Vec<Res> {
         played
@@ -177,7 +180,7 @@ fn college(w: &World, j: usize, tab: Option<&str>) -> Reply {
             }
         })
     };
-    let rec = w.college_record(j);
+    let rec = w.college_record_in(j, prev);
     let latest = |key: &str| weeks.iter().rev().find(|p| p.key == key);
     let rank_text = |p: Option<&PollWeek>| {
         p.map_or("—".to_string(), |p| {
@@ -212,9 +215,19 @@ fn college(w: &World, j: usize, tab: Option<&str>) -> Reply {
         .programs
         .iter()
         .filter(|p| p.conference == conf && p.division == prog.division)
-        .map(|p| (p.id, w.college_record(p.id)))
+        .map(|p| (p.id, w.college_record_in(p.id, prev)))
         .collect();
-    table.sort_by(|a, b| (b.1.conf_wins, b.1.wins, a.1.conf_losses).cmp(&(a.1.conf_wins, a.1.wins, b.1.conf_losses)));
+    // As conferences publish them: conference winning share (0-0 last),
+    // fewer conference losses, then the overall share and wins.
+    let pct = |w: u32, l: u32| if w + l > 0 { w as f64 / (w + l) as f64 } else { -1.0 };
+    table.sort_by(|a, b| {
+        let (x, y) = (&a.1, &b.1);
+        pct(y.conf_wins, y.conf_losses)
+            .total_cmp(&pct(x.conf_wins, x.conf_losses))
+            .then(x.conf_losses.cmp(&y.conf_losses))
+            .then(pct(y.wins, y.losses).total_cmp(&pct(x.wins, x.losses)))
+            .then(y.wins.cmp(&x.wins))
+    });
     let ap = latest("ap").or(latest("cfp"));
     let standings = json!({
         "title": format!("{conf_name} standings"),
@@ -244,7 +257,7 @@ fn college(w: &World, j: usize, tab: Option<&str>) -> Reply {
         return Ok(json!({
             "level": "college",
             "team": views::team_brief(w, TeamRef::College(j)),
-            "head": format!("{year} college football · {}", if weeks.is_empty() { "no polls yet: the preseason polls come out in August" } else { "the conference race" }),
+            "head": format!("{year} college football · {}", if weeks.is_empty() { "no polls yet: the preseason polls come out in August" } else if prev { "last season's conference race" } else { "the conference race" }),
             "tabs": tabs, "tab": tab, "hero": hero, "table": standings, "note": note, "fbsOnly": polls_only_fbs,
             "next": next_college(w, j, None),
         }));
@@ -270,18 +283,21 @@ fn college(w: &World, j: usize, tab: Option<&str>) -> Reply {
     if !set.contains(&j) {
         set.push(j);
     }
-    // The latest ballots behind a voters' poll.
+    // The latest ballots behind a voters' poll, where they are public: the
+    // AP's since 2007, the Harris poll's, and the coaches' final ballots
+    // only (their weekly ones are confidential). Else only the points and
+    // first-place votes.
     let ballots: Vec<&[u16]> = match tab.as_str() {
-        "ap" => w.voters.ap.iter().map(|v| v.ballot.as_slice()).collect(),
+        "ap" if year >= 2007 => w.voters.ap.iter().map(|v| v.ballot.as_slice()).collect(),
         "harris" => w.voters.harris.iter().map(|v| v.ballot.as_slice()).collect(),
-        "coaches" => w.voters.coaches.iter().map(|v| v.ballot.as_slice()).collect(),
+        "coaches" if last.fin => w.voters.coaches.iter().map(|v| v.ballot.as_slice()).collect(),
         _ => Vec::new(),
     };
     let ballots: Vec<&[u16]> = ballots.into_iter().filter(|b| !b.is_empty()).collect();
     let lines: Vec<Value> = set
         .iter()
         .map(|&t| {
-            let r = w.college_record(t);
+            let r = w.college_record_in(t, prev);
             let at = last.top.iter().position(|&x| x == t);
             let counts = (!ballots.is_empty()).then(|| {
                 let mut c = [0u32; 26];
@@ -426,6 +442,13 @@ fn college_why(
                 format!("In the poll: a win over a ranked team counts for more than the score.{made_room}")
             }
             (0, _) => format!("In the poll after the win.{made_room}"),
+            (_, 0) => {
+                if passed.is_empty() {
+                    "Won, but voters dropped you out: others passed you with bigger wins.".into()
+                } else {
+                    format!("Won, but voters dropped you out: {} passed you with bigger wins.", names(passed))
+                }
+            }
             (p, c) if c < p => {
                 if fell.is_empty() {
                     format!("Voters liked the win more than the results above you.{road}")
@@ -511,8 +534,14 @@ fn next_college(w: &World, j: usize, poll: Option<&PollWeek>) -> Vec<Value> {
 // The NFL.
 
 fn nfl(w: &World, t: usize, tab: Option<&str>) -> Reply {
-    let Some(race) = w.nfl_race() else {
-        return Ok(json!({ "level": "nfl", "none": true, "why": "The season's schedule isn't out yet." }));
+    // Before this season's first games, last season's race (the
+    // offseason).
+    let now = w.nfl_race();
+    let last = now.as_ref().is_none_or(|r| r.weeks.is_empty()).then(|| w.nfl_race_prev()).flatten();
+    let (race, prev) = match (now, last) {
+        (_, Some(r)) if !r.weeks.is_empty() => (r, true),
+        (Some(r), _) => (r, false),
+        _ => return Ok(json!({ "level": "nfl", "none": true, "why": "The season's schedule isn't out yet." })),
     };
     if t >= race.conf.len() {
         return Ok(json!({ "level": "nfl", "none": true, "why": "Your club isn't on this season's schedule." }));
@@ -539,7 +568,7 @@ fn nfl(w: &World, t: usize, tab: Option<&str>) -> Reply {
             if r.ties > 0 { format!("{}-{}-{}", r.wins, r.losses, r.ties) } else { format!("{}-{}", r.wins, r.losses) }
         })
     };
-    let fixtures = w.nfl_fixtures(None);
+    let fixtures = w.nfl_fixtures_in(None, prev);
     let left_of = |x: usize| fixtures.iter().filter(|f| !f.played && (f.home == x || f.away == x)).count();
     let div_place = |x: usize| -> usize {
         now.map_or(0, |rows| {
@@ -753,7 +782,12 @@ fn nfl(w: &World, t: usize, tab: Option<&str>) -> Reply {
     Ok(json!({
         "level": "nfl",
         "team": views::team_brief(w, TeamRef::Nfl(t)),
-        "head": format!("{} NFL season · after week {last_week} · the {} playoff picture", race.year, CONF[conf]),
+        "head": format!(
+            "{} NFL season · {}after week {last_week} · the {} playoff picture",
+            race.year,
+            if prev { "last season, " } else { "" },
+            CONF[conf]
+        ),
         "tabs": tabs,
         "tab": tab,
         "hero": hero,
@@ -778,7 +812,15 @@ fn nfl(w: &World, t: usize, tab: Option<&str>) -> Reply {
 // High school.
 
 fn high_school(w: &World, h: usize, tab: Option<&str>) -> Reply {
-    let polls: Vec<&StatePoll> = w.state_polls().iter().filter(|p| p.year == w.year).collect();
+    // This season's polls kept for this school (a move mid-year leaves the
+    // old school's behind).
+    let st = w.high_schools[h].state;
+    let polls: Vec<&StatePoll> = w
+        .state_polls()
+        .iter()
+        .filter(|p| p.year == w.year)
+        .filter(|p| p.state.is_none_or(|s| s as usize == st) && p.school.is_none_or(|x| x as usize == h))
+        .collect();
     let class = views::hs_class(w, h);
     let state = w
         .states
@@ -794,7 +836,11 @@ fn high_school(w: &World, h: usize, tab: Option<&str>) -> Reply {
         { "k": "state", "n": format!("{state} top 25") },
         { "k": "table", "n": "Your league" },
     ]);
-    let rows_of = |p: &StatePoll| -> Vec<PollRow> { if tab == "state" { p.top.clone() } else { p.class.clone() } };
+    // The polls publish 25: your own place past that stays off the board.
+    let rows_of = |p: &StatePoll| -> Vec<PollRow> {
+        let rows = if tab == "state" { &p.top } else { &p.class };
+        rows.iter().filter(|r| r.rank <= 25).cloned().collect()
+    };
     let rank_of =
         |rows: &[PollRow], x: usize| rows.iter().find(|r| r.school as usize == x).map_or(0, |r| r.rank as usize);
     let in25 = |rows: &[PollRow], x: usize| {
@@ -811,7 +857,7 @@ fn high_school(w: &World, h: usize, tab: Option<&str>) -> Reply {
         .and_then(|(_, rows)| rows.iter().find(|r| r.0 == h).map(|r| format!("{}-{}", r.1, r.2)))
         .unwrap_or_else(|| "0-0".into());
     let hero = json!([
-        { "k": "Class", "v": if my_class > 0 { format!("{} in {class}", ord(my_class)) } else { "—".into() } },
+        { "k": "Class", "v": if my_class > 0 && my_class <= 25 { format!("{} in {class}", ord(my_class)) } else { "NR".into() } },
         { "k": "State", "v": if my_state > 0 && my_state <= 25 { format!("{} in {state}", ord(my_state)) } else { "NR".into() } },
         { "k": "Record", "v": rec },
         { "k": "Poll", "v": last.map_or("none yet".to_string(), |p| format!("{} of {}", p.which.to_lowercase(), short(p.date))) },
@@ -954,10 +1000,14 @@ fn high_school(w: &World, h: usize, tab: Option<&str>) -> Reply {
         let won = games.last().is_some_and(|(_, g)| g.won());
         let why = match (games.is_empty(), won, rc.cmp(&rp)) {
             _ if rp == 0 && rc == 0 => {
-                "Outside the top 25: the poll ranks by record first, then how strong a team looks.".to_string()
+                "Outside the top 25: the writers rank by record first, then margins and what they know of a school."
+                    .to_string()
             }
             (true, _, _) => "No game this week; the schools around you played.".into(),
             (_, true, _) if rp == 0 => "Into the top 25 after the win.".into(),
+            (_, true, _) if rc == 0 => {
+                "Won, but out of the top 25: schools with better records or bigger wins passed you.".into()
+            }
             (_, true, Ordering::Less) if fell > 0 => {
                 format!("{fell} {} above you lost.", if fell == 1 { "school" } else { "schools" })
             }

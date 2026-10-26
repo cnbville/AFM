@@ -1948,7 +1948,7 @@ pub(crate) fn camp_walk_ons(w: &mut World) {
 /// programs that stayed out, D2 and junior colleges) the limit counts
 /// players on aid, and walk-ons sit outside it, except the specialists the
 /// class plan keeps in its own walk-on room under the limit.
-fn takes_a_place(p: &Person, whole_roster: bool, season: i32) -> bool {
+pub(crate) fn takes_a_place(p: &Person, whole_roster: bool, season: i32) -> bool {
     // A 2020 senior back for his COVID year didn't count against the 2021
     // scholarship limits (the NCAA's one-year exemption, A3).
     if super::eligibility::covid_senior(p, season) {

@@ -48,8 +48,10 @@ pub fn board(w: &World, id: u32) -> Reply {
     let p = &w.people[i];
     let mine = views::mine(w);
     let mut throws: Vec<Throw> = Vec::new();
-    let mut away = 0usize;
-    // Your games.
+    // Throwaways, by season.
+    let mut away: Vec<i32> = Vec::new();
+    // Your games, and the days they were played (their film is the same).
+    let mut seen: Vec<afm_engine::calendar::Date> = Vec::new();
     for (k, g) in w.seat_games().iter().enumerate() {
         let Some(side) = (0..2).find(|&s| g.stats.players[s].contains_key(&id)) else { continue };
         let season = season_of(g.level, g.date);
@@ -57,25 +59,26 @@ pub fn board(w: &World, id: u32) -> Reply {
             if r.kind != PlayType::Pass {
                 continue;
             }
+            if !seen.contains(&g.date) {
+                seen.push(g.date);
+            }
             if r.throw_away {
-                away += 1;
+                away.push(season);
                 continue;
             }
             throws.push(of_play(r, season, views::date_text(g.date), g.names[1 - side].clone(), Some(k)));
         }
     }
-    // Your coming opponents' film, for a passer on another team.
-    let mut film_games = 0;
-    if throws.is_empty() {
-        for t in &w.gameday.tapes {
-            let mut any = false;
+    // Your coming opponents' film: always read, as it may be newer than
+    // any game of yours he played in.
+    {
+        for t in w.gameday.tapes.iter().filter(|t| !seen.contains(&t.date)) {
             for s in t.snaps.iter().filter(|s| s.passer == Some(id) && !s.null) {
                 let Some(th) = s.throw else { continue };
                 if th.away {
-                    away += 1;
+                    away.push(season_of(t.level, t.date));
                     continue;
                 }
-                any = true;
                 let opp = t.names[1 - s.off.min(1) as usize].clone();
                 let air = th.air as f64;
                 let sep = th.sep as f64 / 10.0;
@@ -105,7 +108,6 @@ pub fn board(w: &World, id: u32) -> Reply {
                     target: s.target,
                 });
             }
-            film_games += any as usize;
         }
     }
     // The newest season with throws, or the one asked for.
@@ -117,10 +119,20 @@ pub fn board(w: &World, id: u32) -> Reply {
     };
     let season = seasons.last().copied();
     let throws: Vec<&Throw> = throws.iter().filter(|t| Some(t.season) == season).collect();
-    let games = {
-        let mut v: Vec<(&str, &str)> = throws.iter().map(|t| (t.date.as_str(), t.opp.as_str())).collect();
+    let away = away.iter().filter(|&&s| Some(s) == season).count();
+    // The games shown: yours and the film's.
+    let count = |film: bool| {
+        let mut v: Vec<(&str, &str)> =
+            throws.iter().filter(|t| t.game.is_none() == film).map(|t| (t.date.as_str(), t.opp.as_str())).collect();
+        v.sort_unstable();
         v.dedup();
         v.len()
+    };
+    let (seat_games, film_games) = (count(false), count(true));
+    let games = seat_games + film_games;
+    // A receiver who has left football keeps his name in your games.
+    let gone = |r: u32| {
+        w.seat_games().iter().find_map(|g| afm_engine::world::seat_names::gone(g, r)).map(|x| (x.name.clone(), x.pos))
     };
     // Who he threw to.
     let mut rec: Vec<u32> = throws.iter().filter_map(|t| t.target).collect();
@@ -129,9 +141,10 @@ pub fn board(w: &World, id: u32) -> Reply {
     let receivers: Vec<Value> = rec
         .iter()
         .map(|&r| {
-            let j = views::person_index(w, r);
-            let pos = j.map_or(String::new(), |j| w.people[j].player.position.name().to_string());
-            let name = j.map_or(format!("No. {r}"), |j| w.people[j].name.clone());
+            let (name, pos) = match views::person_index(w, r) {
+                Some(j) => (w.people[j].name.clone(), w.people[j].player.position.name().to_string()),
+                None => gone(r).map_or((format!("No. {r}"), String::new()), |(n, p)| (n, p.name().to_string())),
+            };
             json!({ "id": r, "name": name, "pos": pos })
         })
         .collect();
@@ -181,8 +194,17 @@ pub fn board(w: &World, id: u32) -> Reply {
         "team": team.map(|t| views::team_brief(w, t)),
         "mine": own,
         "season": season,
-        "source": if film_games > 0 { "film" } else if throws.is_empty() { "none" } else { "games" },
+        "source": if throws.is_empty() {
+            "none"
+        } else if seat_games == 0 {
+            "film"
+        } else if film_games == 0 {
+            "games"
+        } else {
+            "both"
+        },
         "games": games,
+        "seatGames": seat_games,
         "filmGames": film_games,
         "throwaways": away,
         "throws": rows,

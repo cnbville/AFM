@@ -24,11 +24,13 @@ I.race = '<path d="M3 18l5-6 4 3 4-7 5 4"/><circle cx="21" cy="12" r="1.2"/><pat
 
 navAdd({
   go: "capboard", icon: "blocks", sec: "team", after: "contracts", seats: ["nfl", "college"],
+  show: () => !!(S.status && S.status.mine),
   get label() { return seatKind() === "college" ? "NIL budget" : "Cap"; },
 });
-navAdd({ go: "locker", label: "Locker room", icon: "locker", sec: "team", after: "people", seats: ["college", "nfl", "hs"] });
+navAdd({ go: "locker", label: "Locker room", icon: "locker", sec: "team", after: "people", seats: ["college", "nfl", "hs"], show: () => !!(S.status && S.status.mine) });
 navAdd({
   go: "polls", icon: "race", sec: "world", after: "standings", seats: ["college", "nfl", "hs"],
+  show: () => !!(S.status && S.status.mine),
   get label() { const k = seatKind(); return k === "nfl" ? "Playoff picture" : k === "hs" ? "State rankings" : "Polls"; },
 });
 Object.assign(CRUMBS, { capboard: "Where the money goes", locker: "Locker room", polls: "The race" });
@@ -50,8 +52,8 @@ const bdSur = (n) => {
   return w.pop() || "";
 };
 // A segmented switch: each button sets keep(key)[field] and redraws.
-function bdSegs(key, field, list, cur, cls = "") {
-  return `<div class="bd-segs ${cls}" role="tablist">${list.map(([v, n]) => `<button class="bd-seg" role="tab" data-act="bd-pick" data-k="${esc(key)}" data-f="${esc(field)}" data-v="${esc(v)}" aria-selected="${String(v) === String(cur)}">${n}</button>`).join("")}</div>`;
+function bdSegs(key, field, list, cur, cls = "", extra = "") {
+  return `<div class="bd-segs ${cls}" role="tablist">${list.map(([v, n]) => `<button class="bd-seg" role="tab" data-act="bd-pick" data-k="${esc(key)}" data-f="${esc(field)}" data-v="${esc(v)}" aria-selected="${String(v) === String(cur)}"${extra}>${n}</button>`).join("")}</div>`;
 }
 // Equal label-over-value cells, the hero row's numbers.
 function bdCells(list) {
@@ -65,6 +67,7 @@ Object.assign(CORE_MORE, {
     const val = (v) => (v === "" || v == null ? null : /^-?\d+$/.test(v) ? Number(v) : v);
     st[el.dataset.f] = val(el.dataset.v);
     if (el.dataset.f2) st[el.dataset.f2] = val(el.dataset.v2);
+    if (el.dataset.f3) st[el.dataset.f3] = val(el.dataset.v3);
     refresh(el);
   },
 });
@@ -87,11 +90,11 @@ function bdFlowChart(x, sel) {
   const first = x.wp[0], last = x.wp[x.wp.length - 1];
   const area = first ? `${X(first[1]).toFixed(1)},${Y(0.5)} ${pts} ${X(last[1]).toFixed(1)},${Y(0.5)}` : "";
   const qs = [];
-  const nq = Math.max(4, Math.ceil(end / x.qlen - 0.001));
-  for (let q = 0; q < nq; q++) {
-    const a = q * x.qlen, b = Math.min(end, (q + 1) * x.qlen);
-    qs.push(`${q ? `<line class="bd-q" x1="${X(a).toFixed(1)}" x2="${X(a).toFixed(1)}" y1="${T}" y2="${B}"></line>` : ""}<text class="bd-axis" x="${X((a + b) / 2).toFixed(1)}" y="${H - 6}" text-anchor="middle">${q < 4 ? "Q" + (q + 1) : q === 4 ? "OT" : q - 3 + "OT"}</text>`);
-  }
+  const div = (a, b, label, line) => `${line ? `<line class="bd-q" x1="${X(a).toFixed(1)}" x2="${X(a).toFixed(1)}" y1="${T}" y2="${B}"></line>` : ""}<text class="bd-axis" x="${X((a + b) / 2).toFixed(1)}" y="${H - 6}" text-anchor="middle">${label}</text>`;
+  for (let q = 0; q < 4; q++) qs.push(div(q * x.qlen, Math.min(end, (q + 1) * x.qlen), "Q" + (q + 1), q > 0));
+  // Overtime: each period (or, with no clock, each round) from its start.
+  const ot = x.ot || [];
+  ot.forEach(([a, label], k) => qs.push(div(a, k + 1 < ot.length ? ot[k + 1][0] : end, label, true)));
   const us = x.names[x.us].toUpperCase(), them = x.names[1 - x.us].toUpperCase();
   // Each swing's letter on the line after its snap; two close together
   // step apart, above or below, so both stay readable.
@@ -120,7 +123,9 @@ window.gamePageTabs["Game flow"] = async (g, a) => {
   const st = keep("bd:flow", { s: 0 });
   const sel = Math.min(st.s ?? 0, Math.max(0, x.swings.length - 1));
   const us = x.names[x.us], them = x.names[1 - x.us];
-  const low = x.low ? `Lowest <b class="bd-cond">${x.low.p}%</b> ${x.low.qn > 4 ? "in overtime" : `with ${esc(x.low.clock)} left in the ${["first", "second", "third", "fourth"][x.low.qn - 1] || "game"}`}` : "";
+  const lost = !x.final.won && !x.final.tied;
+  const pt = lost ? x.high : x.low;
+  const low = pt ? `${lost ? "Highest" : "Lowest"} <b class="bd-cond">${pt.p}%</b> ${pt.qn > 4 ? "in overtime" : `with ${esc(pt.clock)} left in the ${["first", "second", "third", "fourth"][pt.qn - 1] || "game"}`}` : "";
   const spread = x.spread ? `${x.spread > 0 ? "favoured by" : "underdog by"} ${Math.abs(x.spread)} before kickoff` : "even before kickoff";
   const drives = x.drives.map((d) => {
     const lo = Math.min(d.from, d.to), hi = Math.max(d.from, d.to);
@@ -139,10 +144,10 @@ window.gamePageTabs["Game flow"] = async (g, a) => {
         <span class="bd-letter${j === sel ? " on" : ""}">${s.letter}</span>
         <span class="bd-wtext">${esc(s.text)}${s.who.length ? `<small>${s.who.map((p) => playerLink(p.id, p.name)).join(", ")}</small>` : ""}
           <span class="bd-wlinks"><a class="link" data-vwgo="${s.n}">Watch ›</a><a class="link" data-act="gp-play" data-n="${s.n}">Snap ›</a></span></span>
-        <span class="bd-wright"><span class="bd-cond bd-dim">${esc(s.q)} ${esc(s.clock)}</span><b class="bd-cond${s.delta < 0 ? " bad" : ""}">${s.delta > 0 ? "+" : s.delta < 0 ? "−" : "±"}${Math.abs(s.delta)}%</b><small class="bd-dim">${Math.round(s.before)}% to ${Math.round(s.after)}%</small></span></div>`).join("")
+        <span class="bd-wright"><span class="bd-cond bd-dim">${esc(s.q)} ${esc(s.clock)}</span>${((d) => `<b class="bd-cond${d < 0 ? " bad" : ""}">${d > 0 ? "+" : d < 0 ? "−" : "±"}${Math.abs(d)}%</b>`)(Math.round(s.after) - Math.round(s.before))}<small class="bd-dim">${Math.round(s.before)}% to ${Math.round(s.after)}%</small></span></div>`).join("")
     : bdEmpty("No snap swung the game by four points or more.");
   const how = f.how ? `<span>${esc(f.word)} on ${esc(f.how.what)}</span><span class="bd-dim">${esc(f.how.when)} · <a class="link" data-vwgo="${f.how.n}">Watch ›</a></span>` : `<span>${esc(f.word)}</span>`;
-  return `<div class="bd bd-flow">
+  return `<div class="bd"><div class="bd-flow">
     <div class="bd-col">
       <section class="bd-panel">
         <div class="bd-ph"><span><b class="bd-pt">Win chance</b> <span class="bd-ps">${esc(us)}'s chance to win after every snap · ${esc(spread)}</span></span><span class="bd-ps">${low}</span></div>
@@ -163,7 +168,7 @@ window.gamePageTabs["Game flow"] = async (g, a) => {
       <div class="bd-block"><div class="bd-line2"><span class="st-label" title="${esc(us)}">${esc(initials(us))}</span><span class="st-label">Team stats</span><span class="st-label" title="${esc(them)}">${esc(initials(them))}</span></div>${stats}</div>
       <div class="bd-block"><span class="st-label">Swing plays</span>${swings}</div>
     </aside>
-  </div>`;
+  </div></div>`;
 };
 
 // ======================================================================
@@ -172,12 +177,13 @@ window.gamePageTabs["Game flow"] = async (g, a) => {
 const BD_OUT = ["won", "even", "lost"];
 window.gamePageTabs["Line battles"] = async (g, a) => {
   const x = await api("board_battles", { index: a.index });
-  const st = keep("bd:bat", { mode: "pass", row: 0, snap: null });
+  const bk = "bd:bat:" + a.index;
+  const st = keep(bk, { mode: "pass", row: 0, snap: null });
   const modes = [["pass", "Pass protection"], ["run", "Run blocking"], ["rush", "Pass rush"]];
   const mk = x.modes[st.mode] ? st.mode : "pass";
   const m = x.modes[mk];
   const us = x.names[x.us], them = x.names[1 - x.us];
-  const head = `<div class="bd-ph"><span><b class="bd-pt">Line battles</b> <span class="bd-ps">${mk === "rush" ? `our rushers against ${esc(them)}'s blockers` : `our blockers against ${esc(them)}'s front`} · every rep, snap by snap</span></span>${bdSegs("bd:bat", "mode", modes, mk)}</div>`;
+  const head = `<div class="bd-ph"><span><b class="bd-pt">Line battles</b> <span class="bd-ps">${mk === "rush" ? `our rushers against ${esc(them)}'s blockers` : `our blockers against ${esc(them)}'s front`} · every rep, snap by snap</span></span>${bdSegs(bk, "mode", modes, mk, "", ' data-f2="snap" data-v2="" data-f3="row" data-v3="0"')}</div>`;
   if (!m.snaps.length) return `<div class="bd bd-bat"><section class="bd-panel">${head}${bdEmpty(mk === "run" ? "No runs in this game." : "No dropbacks in this game.")}</section></div>`;
   const rows = m.rows;
   const ri = Math.min(st.row ?? 0, Math.max(0, rows.length - 1));
@@ -189,34 +195,57 @@ window.gamePageTabs["Line battles"] = async (g, a) => {
     const cells = r.cells.map((c, k) => {
       if (!c) return `<i class="bd-gc none${k === sn ? " col" : ""}"></i>`;
       const tip = `${m.snaps[k].q} ${m.snaps[k].clock}: ${BD_OUT[c.o]}${c.mv ? " · " + c.mv : ""}${c.home ? " · got home" : ""}`;
-      return `<i class="bd-gc o${c.o}${c.home ? " home" : ""}${k === sn ? " col" : ""}" data-act="bd-pick" data-k="bd:bat" data-f="snap" data-v="${k}" title="${esc(tip)}"></i>`;
+      return `<i class="bd-gc o${c.o}${c.home ? " home" : ""}${k === sn ? " col" : ""}" data-act="bd-pick" data-k="${bk}" data-f="snap" data-v="${k}" title="${esc(tip)}"></i>`;
     }).join("");
     const bad = mk === "rush" ? r.pct < 20 : r.lostPct >= 30;
     return `<div class="bd-grow${i === ri ? " on" : ""}">
-      <span class="bd-gname" data-act="bd-pick" data-k="bd:bat" data-f="row" data-v="${i}" data-f2="snap" data-v2="" role="button" tabindex="0"><b>${esc(r.spot || r.pos)}</b> ${esc(bdSur(r.name))}${r.hurt ? ` <em class="bd-hurt" title="${esc(r.hurt)}">hurt</em>` : ""}</span>
+      <span class="bd-gname" data-act="bd-pick" data-k="${bk}" data-f="row" data-v="${i}" data-f2="snap" data-v2="" role="button" tabindex="0"><b>${esc(r.spot || r.pos)}</b> ${esc(bdSur(r.name))}${r.hurt ? ` <em class="bd-hurt" title="${esc(r.hurt)}">hurt</em>` : ""}</span>
       <span class="bd-gcells" style="--n:${n}">${cells}</span>
       <span class="bd-gwel bd-cond${bad ? " bad" : ""}">${r.won} ${r.even} ${r.lost} <b>${Math.round(r.pct)}%</b></span></div>`;
   }).join("");
   // The front: our man and the man he faced most.
   const fr = m.front;
-  const links = fr.links.map((l, i) => `<div class="bd-fl${i === ri ? " on" : ""}${(mk === "rush" ? l.pct < 20 : l.lost >= 30) ? " bad" : ""}" data-act="bd-pick" data-k="bd:bat" data-f="row" data-v="${i}" data-f2="snap" data-v2="" role="button" tabindex="0">
-      <span class="bd-chip them">${l.bName ? esc(bdSur(l.bName)) : "—"}<small>${esc(l.bPos || "")}</small></span>
-      <span class="bd-fpct bd-cond">${Math.round(l.pct)}%<small>${l.reps} reps</small></span>
-      <span class="bd-chip ours">${esc(bdSur(l.aName))}<small>${esc(rows[i] ? rows[i].spot || l.aPos : l.aPos)}</small></span></div>`).join("");
   const gapNames = mk === "run" ? ["Left end", "Left tackle", "Middle", "Right tackle", "Right end"] : ["Left edge", "Left inside", "Middle", "Right inside", "Right edge"];
   const gmax = Math.max(1, ...fr.gaps.map((q) => q.n));
-  const gaps = fr.gaps.map((q, k) => {
+  const gapTitle = mk === "run" ? "Where the runs went: yards a run by hole" : mk === "pass" ? "Where the pressure came through" : "Where our pressure got home";
+  // The front across the line: their men above ours, each pair joined, and
+  // an arrow through each gap, wider the more came through it (runs go up
+  // from our side; pressure comes down at ours, or up at theirs when we
+  // rush).
+  const fn = Math.max(1, fr.links.length);
+  const gx = [0, Math.min(2, fn) / fn, 0.5, 1 - Math.min(2, fn) / fn, 1].map((f) => 3 + f * 94);
+  const up = mk !== "pass";
+  const chips = (side) => fr.links.map((l, i) => {
+    const name = side === "them" ? (l.bName ? esc(bdSur(l.bName)) : "—") : esc(bdSur(l.aName));
+    const pos = side === "them" ? esc(l.bPos || "") : esc(rows[i] ? rows[i].spot || l.aPos : l.aPos);
+    return `<span class="bd-chip ${side}${i === ri ? " on" : ""}" data-act="bd-pick" data-k="${bk}" data-f="row" data-v="${i}" data-f2="snap" data-v2="" role="button" tabindex="0">${name}<small>${pos}</small></span>`;
+  }).join("");
+  const cons = fr.links.map((l, i) => {
+    const bad = mk === "rush" ? l.pct < 20 : l.lost >= 30;
+    return `<span class="bd-fcon${bad ? " bad" : ""}${i === ri ? " on" : ""}" style="left:${(((i + 0.5) / fn) * 100).toFixed(2)}%"><b class="bd-cond">${Math.round(l.pct)}%</b><small>${l.reps}</small></span>`;
+  }).join("");
+  const arrows = fr.gaps.map((q, k) => {
     const v = mk === "run" ? (q.n ? bdNum(q.v) + " yds" : "—") : String(q.n);
     const bad = mk === "pass" ? q.n >= 3 : mk === "run" ? q.n >= 3 && q.v < 3 : false;
-    return `<div class="bd-gap${bad ? " bad" : ""}"><span class="bd-gbar"><i style="height:${Math.max(4, (q.n / gmax) * 100)}%"></i></span><b class="bd-cond">${v}</b><small>${gapNames[k]}${mk === "run" ? ` · ${q.n} runs` : ""}</small></div>`;
+    const sw = q.n ? 2 + (7 * q.n) / gmax : 1;
+    return `<span class="bd-farrow${bad ? " bad" : ""}${q.n ? "" : " none"}" style="left:${gx[k].toFixed(2)}%" title="${esc(gapNames[k])}: ${esc(v)}${mk === "run" ? ` over ${q.n} runs` : ""}">
+      <svg viewBox="0 0 28 72" aria-hidden="true"${up ? ' class="up"' : ""}><line x1="14" y1="4" x2="14" y2="54" stroke-width="${sw.toFixed(1)}"></line><path d="M${(14 - 4 - sw).toFixed(1)} 52 L14 68 L${(14 + 4 + sw).toFixed(1)} 52 Z"></path></svg>
+      <small class="bd-cond">${esc(v)}</small></span>`;
   }).join("");
-  const gapTitle = mk === "run" ? "Where the runs went: yards a run by hole" : mk === "pass" ? "Where the pressure came through" : "Where our pressure got home";
+  const front = `<div class="bd-front2" style="--n:${fn}">
+      <div class="bd-fside"><span class="st-label">${esc(them)}</span></div>
+      <div class="bd-frow">${chips("them")}</div>
+      <div class="bd-fband">${cons}${arrows}</div>
+      <div class="bd-frow">${chips("ours")}</div>
+      <div class="bd-fside"><span class="st-label">${esc(us)}</span></div>
+      <div class="bd-fgaps">${gapNames.map((n, k) => `<span style="left:${gx[k].toFixed(2)}%">${esc(n)}</span>`).join("")}</div>
+    </div>`;
   // The side: a snap's card, or the picked man's matchups.
   let side;
   if (sn != null) {
     const s = m.snaps[sn];
     side = `<div class="bd-card">
-      <div class="bd-line2"><span class="st-label">${esc(s.q)} ${esc(s.clock)} · ${esc(s.sit)}</span><a class="link" data-act="bd-pick" data-k="bd:bat" data-f="snap" data-v="">Close</a></div>
+      <div class="bd-line2"><span class="st-label">${esc(s.q)} ${esc(s.clock)} · ${esc(s.sit)}</span><a class="link" data-act="bd-pick" data-k="${bk}" data-f="snap" data-v="">Close</a></div>
       <span class="bd-ptext">${esc(s.text)}</span>
       ${bdCells(s.facts.map(([k, v]) => ({ k, v })))}
       <div class="bd-reps">${s.chips.map((c) => `<div class="bd-rep o${c.o}"><span>${playerLink(c.id, bdSur(c.name))} <small>${esc(c.pos)}</small></span><span class="bd-dim">vs ${playerLink(c.vs, bdSur(c.vsName))}</span><b>${esc(c.out)}</b><small>${c.mv ? esc(c.mv) + " · " : ""}${bdNum(c.t)} s${c.double ? " · double team" : ""}</small></div>`).join("") || '<div class="bd-dim">No reps up front on this snap.</div>'}</div>
@@ -256,9 +285,8 @@ window.gamePageTabs["Line battles"] = async (g, a) => {
         </section>
         <section class="bd-panel">
           <div class="bd-ph"><b>The front</b><span class="bd-ps">${mk === "rush" ? "each rusher and the blocker he faced most" : "each blocker and the man he faced most"} · ${mk === "rush" ? "rush" : "rep"} wins</span></div>
-          <div class="bd-front"><div class="bd-fside"><span class="st-label">${esc(them)}</span><span class="st-label">${esc(us)}</span></div><div class="bd-fls">${links}</div></div>
-          <div class="bd-ph"><b>${gapTitle}</b><span class="bd-ps">${mk === "run" ? "from the runner's crossing point" : x.charted ? "the first man home on each pressured snap" : "not charted for this game"}</span></div>
-          <div class="bd-gaps">${gaps}</div>
+          ${front}
+          <div class="bd-ph"><b>${gapTitle}</b><span class="bd-ps">${mk === "run" ? "the arrows: where each run crossed the line, yards a run" : x.charted ? "the arrows: the first man home on each pressured snap" : "not charted for this game"}</span></div>
         </section>
       </div>
       <aside class="bd-panel bd-side">${side || ""}${callTbl}</aside>
@@ -315,7 +343,8 @@ PLAYER_TABS.push({
     // The field: 11.25 px a yard, 50 yards past the line at the top.
     // A ball aimed past the sideline sits on it.
     const PX = 600 / 53.33, X = (y) => (53.33 - Math.max(0.3, Math.min(53, y))) * PX, Y = (d) => (50 - Math.max(-8, Math.min(49.4, d))) * PX;
-    const focus = (t) => (st.r != null ? t.tgt === st.r : t.z === st.z);
+    const rEff = st.r != null && T.some((t) => t.tgt === st.r) ? st.r : null;
+    const focus = (t) => (rEff != null ? t.tgt === rEff : t.z === st.z);
     let lines = "", nums = "";
     for (let d = -5; d <= 45; d += 5) {
       const y = Y(d).toFixed(1);
@@ -339,7 +368,7 @@ PLAYER_TABS.push({
       const o = on ? 1 : 0.24;
       if (st.v === "heat") {
         const e = zoneEpa[t.z];
-        marks += `<circle class="bd-heat${e < 0 ? " bad" : ""}" cx="${x2.toFixed(1)}" cy="${y2.toFixed(1)}" r="22" opacity="${(st.r != null && !on ? 0.12 : Math.min(0.85, 0.22 + Math.abs(e))).toFixed(2)}"></circle>`;
+        marks += `<circle class="bd-heat${e < 0 ? " bad" : ""}" cx="${x2.toFixed(1)}" cy="${y2.toFixed(1)}" r="22" opacity="${(rEff != null && !on ? 0.12 : Math.min(0.85, 0.22 + Math.abs(e))).toFixed(2)}"></circle>`;
         continue;
       }
       if (st.v === "paths") {
@@ -361,7 +390,7 @@ PLAYER_TABS.push({
       const y = Y(rowsY[row][0]), h = Y(rowsY[row][1]) - y;
       return { i, name, row, a, c, x: col * 200, y, h, e: zoneEpa[i] };
     });
-    const zones = zd.map((z) => `<button class="bd-zb${st.v === "heat" ? " h" : ""}${st.r == null && z.i === st.z ? " on" : ""}" style="left:${(z.x / 6).toFixed(2)}%;top:${((z.y / 656) * 100).toFixed(2)}%;height:${((z.h / 656) * 100).toFixed(2)}%" data-act="bd-pick" data-k="${key}" data-f="z" data-v="${z.i}" data-f2="r" data-v2="" aria-label="${esc(z.name)}">${
+    const zones = zd.map((z) => `<button class="bd-zb${st.v === "heat" ? " h" : ""}${rEff == null && z.i === st.z ? " on" : ""}" style="left:${(z.x / 6).toFixed(2)}%;top:${((z.y / 656) * 100).toFixed(2)}%;height:${((z.h / 656) * 100).toFixed(2)}%" data-act="bd-pick" data-k="${key}" data-f="z" data-v="${z.i}" data-f2="r" data-v2="" aria-label="${esc(z.name)}">${
       st.v === "zones" ? `<span class="bd-cond">${z.c.length}/${z.a.length}</span><small class="bd-cond">${z.a.length ? bdNum(sum(z.a, (t) => t.yds) / z.a.length) : "0.0"} a throw</small>` : ""}${
       st.v === "heat" ? `<span class="st-label">${esc(z.name)}</span><b class="bd-cond${z.e < 0 ? " bad" : ""}">${z.a.length ? bdSigned(z.e) : "—"}</b><small class="bd-cond">${z.c.length}/${z.a.length} caught</small>` : ""}</button>`).join("");
     const legend = st.v === "heat"
@@ -391,17 +420,18 @@ PLAYER_TABS.push({
         <small class="bd-cond bd-dim">air ${Math.round(r.air)} · after the catch ${Math.round(r.yac)}</small></button>`;
     }).join("");
     // The detail: a receiver when one is picked, else the zone.
-    const rsel = st.r != null ? per.find((r) => r.id === st.r) : null;
+    const rsel = rEff != null ? per.find((r) => r.id === rEff) : null;
     const zs = zd[st.z] || zd[4];
     const a = rsel ? rsel.a : zs.a;
     const c = a.filter((t) => t.ok), rate = a.length ? c.length / a.length : 0, xp = xpOf(a), over = rate - xp;
-    const rank = zd.slice().sort((p1, p2) => p2.e - p1.e).findIndex((q) => q.i === zs.i) + 1;
+    const thrown = zd.filter((q) => q.a.length);
+    const rank = thrown.slice().sort((p1, p2) => p2.e - p1.e).findIndex((q) => q.i === zs.i) + 1;
     const cells = rsel
       ? bdCells([{ k: "Yards", v: String(Math.round(rsel.y)) }, { k: "TD", v: String(a.filter((t) => t.td).length) }, { k: "Air · after", v: `${Math.round(rsel.air)} · ${Math.round(rsel.yac)}` }])
       : bdCells([
         { k: "A throw", v: (a.length ? bdNum(sum(a, (t) => t.yds) / a.length) : "0.0") + " yds" },
         { k: "TD-INT", v: `${a.filter((t) => t.td).length}-${a.filter((t) => t.int).length}` },
-        { k: "Points added", v: a.length ? bdSigned(zs.e) : "—", sub: a.length ? `${bdOrd(rank)} of 12` : "", bad: a.length && zs.e < 0 },
+        { k: "Points added", v: a.length ? bdSigned(zs.e) : "—", sub: a.length ? `${bdOrd(rank)} of ${thrown.length}` : "", bad: a.length && zs.e < 0 },
       ]);
     const splitRows = rsel
       ? ["Deep", "Middle", "Short", "Behind"].map((k, row) => { const q = a.filter((t) => Math.floor(t.z / 3) === row); return [k, q.filter((t) => t.ok).length, q.length]; })
@@ -434,7 +464,9 @@ PLAYER_TABS.push({
     const ttt = T.length ? sum(T, (t) => t.t) / T.length : 0;
     const pressured = T.filter((t) => t.pr).length;
     const lvlNote = level ? `${esc(lvlName)} numbers from ${level.last ? `last season (${level.season})` : `the ${level.season} season`}` : `no ${esc(lvlName)} numbers yet`;
-    const src = x.source === "film" ? `from ${x.filmGames} ${x.filmGames === 1 ? "game" : "games"} of film your staff keeps on a coming opponent` : `from ${x.games} of your kept ${x.games === 1 ? "game" : "games"}`;
+    const filmTxt = `${x.filmGames} ${x.filmGames === 1 ? "game" : "games"} of film your staff keeps on a coming opponent`;
+    const seatTxt = `${x.seatGames} of your kept ${x.seatGames === 1 ? "game" : "games"}`;
+    const src = x.source === "film" ? `from ${filmTxt}` : x.source === "both" ? `from ${seatTxt} and ${filmTxt}` : `from ${seatTxt}`;
     const fname = { all: "all throws", clean: "clean pocket", pressure: "under pressure", third: "third down" }[st.f];
     const filters = bdSegs(key, "f", [["all", "All throws"], ["clean", "Clean pocket"], ["pressure", "Under pressure"], ["third", "Third down"]], st.f);
     const views = bdSegs(key, "v", [["paths", "Paths"], ["heat", "Heat"], ["zones", "Zones"]], st.v);
@@ -500,9 +532,10 @@ const BD_GROUP_SHORT = { "Offensive line": "OL", "EDGE and DT": "DL", "RB and TE
 // then the extra blocks (dead money, open space, promises).
 function bdTreemap(groups, blocks, extra, sel, cap) {
   const W = 872, H = 640;
-  // The map draws about 700 px wide at most widths; a label needs its
-  // pixels, so each test is in units of that drawing.
-  const K = W / 700;
+  // The map draws about 540 px wide at the default 1280 px window (wider
+  // at bigger ones); a label needs its pixels, so each test is in units of
+  // that drawing.
+  const K = W / 540;
   const fits = (r, w, h) => r.w >= w * K && r.h >= h * K;
   const by = groups.map((g, i) => {
     const mine = blocks.filter((b) => b.group === i).sort((a, b) => b.hit - a.hit);
@@ -580,7 +613,7 @@ function bdCapNfl(x, st) {
     { k: "Cap", v: bdMoney(x.cap), sub: x.carry ? `${bdMoney(x.leagueCap)} ${x.carry > 0 ? "+" : ""}${bdMoney(x.carry)} carried over` : "" },
     { k: "Committed", v: bdMoney(x.committed) },
     { k: "Space", v: bdMoney(x.space), bad: x.space < 0 },
-    ...(x.rookies > 0 ? [{ k: "Rookie pool", v: bdMoney(x.rookies), sub: "your picks, at each round's middle slot" }, { k: "After rookies", v: bdMoney(x.afterRookies), bad: x.afterRookies < 0 }] : []),
+    ...(x.rookies > 0 ? [{ k: "Rookie pool", v: bdMoney(x.rookies), sub: "your picks at their slots" }, { k: "After rookies", v: bdMoney(x.afterRookies), bad: x.afterRookies < 0 }] : []),
   ]);
   let card = bdEmpty(`Nobody is under contract for ${x.year} yet.`);
   if (sel) {
@@ -630,12 +663,23 @@ function bdCapCollege(x, st) {
   ];
   const clocks = bdCells([
     { k: "Budget", v: bdMoney(b.total) },
-    { k: "To the roster", v: bdMoney(b.roster) },
+    b.usualRoster != null
+      ? { k: "To the roster", v: bdMoney(b.usualRoster), sub: x.budget.yours ? "the usual split, no deals set" : "the collective's usual split" }
+      : { k: "To the roster", v: bdMoney(b.roster) },
     { k: "Promised", v: bdMoney(b.recruits + b.portal), sub: "recruits and the portal" },
-    { k: "Left", v: bdMoney(b.left), bad: b.left < 0 },
+    b.leftUsual != null
+      ? { k: "Left", v: bdMoney(b.left), sub: `${bdMoney(b.leftUsual)} with the usual split`, bad: b.left < 0 }
+      : { k: "Left", v: bdMoney(b.left), bad: b.left < 0 },
   ]);
+  // Under the House settlement the limit counts the whole roster but its
+  // designated walk-ons.
+  const over = sch.whole && sch.counted > sch.cap;
+  const rosterLine = sch.whole
+    ? `<span class="bd-dim${over ? " bad" : ""}">${sch.counted} of ${sch.cap} roster places used${sch.roster > sch.counted ? ` · ${sch.roster - sch.counted} designated walk-ons outside the limit` : ""}</span>`
+    : `<span class="bd-dim">${sch.walkOns} walk-ons · ${sch.roster} on the roster</span>`;
+  const aidHow = sch.aid === "none" ? "no athletic aid in Division III" : sch.aid === "equivalency" ? `on aid · ${sch.equiv} equivalencies, shared out` : `on aid${sch.limit ? "" : " · no scholarship limit"}`;
   const schCard = `<div class="bd-card"><div class="bd-line2"><span class="st-label">Scholarships, ${sch.season}</span><span class="bd-dim">${esc(x.level_name)}</span></div>
-    <div class="bd-hero"><b class="bd-cond bd-big${sch.limit && sch.onAid > sch.limit ? " bad" : ""}">${sch.onAid}${sch.limit ? `/${sch.limit}` : ""}</b><span class="bd-how"><span>on aid${sch.limit ? "" : " · no scholarship limit"}</span><span class="bd-dim">${sch.walkOns} walk-ons · ${sch.roster} on the roster${sch.whole && sch.limit ? ` of ${sch.limit} allowed` : ""}</span></span></div>
+    <div class="bd-hero"><b class="bd-cond bd-big${(sch.limit && sch.onAid > sch.limit) || over ? " bad" : ""}">${sch.aid === "none" ? "—" : `${sch.onAid}${sch.limit ? `/${sch.limit}` : ""}`}</b><span class="bd-how"><span>${aidHow}</span>${rosterLine}</span></div>
     ${sch.limit ? `<div class="bd-xp"><span class="bd-bar"><i style="width:${Math.min(100, (100 * sch.onAid) / sch.limit).toFixed(1)}%"></i></span></div>` : ""}
     ${bdCells([{ k: "Signees allowed", v: sch.signees ? String(sch.signees) : "no limit" }, { k: "Open now", v: sch.limit ? String(Math.max(0, sch.limit - sch.onAid)) : "—", bad: sch.limit && sch.onAid > sch.limit }])}
     <div class="bd-links"><a class="link" data-go="recruiting">Recruiting ›</a><a class="link" data-go="roster">Squad ›</a></div></div>`;
@@ -655,7 +699,7 @@ function bdCapCollege(x, st) {
   const budget = `<div class="bd-card"><div class="bd-line2"><span class="st-label">Where the budget comes from</span><span class="bd-dim">${x.house ? "revenue sharing era" : "collective era"}</span></div>
     ${[["Revenue share", b.revenue], ["The collective", b.collective]].map(([k, v]) => `<div class="bd-kv"><span>${k}</span><b class="bd-cond">${bdMoney(v)}</b></div>`).join("")}
     <span class="st-label">Where it goes</span>
-    ${[["The roster", b.roster], ["Recruits", b.recruits], ["Portal", b.portal], ["Left", b.left]].map(([k, v]) => `<div class="bd-kv"><span>${k}</span><span class="bd-kvbar"><i style="width:${b.total > 0 ? Math.max(0, Math.min(100, (100 * v) / b.total)).toFixed(1) : 0}%"></i></span><b class="bd-cond${v < 0 ? " bad" : ""}">${bdMoney(v)}</b></div>`).join("")}
+    ${[["The roster", b.usualRoster ?? b.roster], ["Recruits", b.recruits], ["Portal", b.portal], ["Left", b.leftUsual ?? b.left]].map(([k, v]) => `<div class="bd-kv"><span>${k}</span><span class="bd-kvbar"><i style="width:${b.total > 0 ? Math.max(0, Math.min(100, (100 * v) / b.total)).toFixed(1) : 0}%"></i></span><b class="bd-cond${v < 0 ? " bad" : ""}">${bdMoney(v)}</b></div>`).join("")}
     ${b.usual ? `<small class="bd-dim">No deals set yet for ${x.moneyYear}: the blocks show the collective's usual split. On 1 July only the deals you set are paid; <a class="link" data-go="nil_desk">set them</a> or hand NIL to your staff.</small>` : b.yours ? "" : '<small class="bd-dim">Your staff hands out the NIL money: the collective\'s usual split.</small>'}</div>`;
   return `<div class="pad bd bd-cap">
     <header class="bd-head"><span class="bd-crest">${mark(x.team, 40)}</span><div class="bd-head-copy"><span class="st-label">${esc(x.team.name)} · NIL money year ${x.moneyYear}</span><h1 class="bd-h1">Where the money goes</h1></div>${clocks}</header>
@@ -682,10 +726,10 @@ const bdLockSub = (n) => `${n.pos} · ${String(n.cls || "").replace("redshirt ",
 // backs and receivers and the defense on the right, each group on its own
 // rows under its name, so no two men ever cover each other. Inside a
 // group, each next man is the one with most links to those already
-// placed, so linked men sit side by side. The map draws about 700 px
-// wide at most widths; the dots keep their pixel size.
+// placed, so linked men sit side by side. The map draws about 540 px
+// wide at the default window; the dots keep their pixel size.
 function bdLockLayout(nodes, edges, W, H) {
-  const k0 = W / 700, LBL = 24, CW = W / 6;
+  const k0 = W / 540, LBL = 24, CW = W / 6;
   const tie = (i, j) => edges.some((e) => (e.a === i && e.b === j) || (e.a === j && e.b === i));
   const by = [0, 1, 2, 3].map((g) => {
     const left = nodes.map((n, i) => (n.g === g ? i : -1)).filter((i) => i >= 0), out = [];
@@ -805,7 +849,7 @@ screens.locker = async (a) => {
     si = f ? f.sel : 0;
   }
   const sel = x.nodes[si];
-  const chem = bdCells(x.chem.map((c) => ({ k: c.n, v: c.v == null ? "—" : String(c.v), warn: c.v != null && c.v < 60, tip: `How well ${c.of} know each other, 0-100` })));
+  const chem = !x.chem.length ? "" : bdCells(x.chem.map((c) => ({ k: c.n, v: c.v == null ? "—" : String(c.v), warn: c.v != null && c.v < 60, tip: `How well ${c.of} know each other, 0-100` })));
   const after = x.after ? `, after ${esc(x.after)}` : "";
   let main;
   if (tab === "Links") {
@@ -838,7 +882,7 @@ screens.locker = async (a) => {
   }
   return `<div class="pad bd bd-lock">
     <header class="bd-head"><span class="bd-crest">${mark(x.team, 40)}</span><div class="bd-head-copy"><span class="st-label">${esc(x.team.name)} · the locker room · ${esc(x.date)}${after}</span><h1 class="bd-h1">Who's close to whom</h1></div>
-      <div class="bd-headr"><span class="st-label">Chemistry</span>${chem}</div></header>
+      ${chem ? `<div class="bd-headr"><span class="st-label">Chemistry</span>${chem}</div>` : ""}</header>
     <div class="bd-tabrow">${tabs("bd:lockt", BD_LOCK_TABS, tab)}<span class="bd-dim">The room is ${esc(x.mood.words)} · <a class="link" data-go="people" data-tab="Room">People ›</a></span></div>
     <div class="bd-cols">
       <section class="bd-panel">${main}</section>

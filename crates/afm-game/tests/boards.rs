@@ -149,11 +149,19 @@ fn college_boards_and_the_nil_budget() {
     let b = &cap["budget"];
     let blocks = cap["blocks"].as_array().unwrap();
     let sum: f64 = blocks.iter().map(|x| f(&x["hit"])).sum();
-    assert!((sum - f(&b["roster"])).abs() <= blocks.len() as f64, "blocks {sum} against the roster's {}", b["roster"]);
+    // The blocks are the deals set, or the usual split when they show it.
+    let shown = if b["usualRoster"].is_null() { f(&b["roster"]) } else { f(&b["usualRoster"]) };
+    assert!((sum - shown).abs() <= blocks.len() as f64, "blocks {sum} against the roster's {shown}");
+    // What's left is the deals desk's own figure.
     let parts = f(&b["roster"]) + f(&b["recruits"]) + f(&b["portal"]) + f(&b["left"]);
     assert!((parts - f(&b["total"])).abs() <= 2.0, "{b}");
+    if !b["usualRoster"].is_null() {
+        let parts = shown + f(&b["recruits"]) + f(&b["portal"]) + f(&b["leftUsual"]);
+        assert!((parts - f(&b["total"])).abs() <= 2.0, "{b}");
+    }
     let s = &cap["scholarships"];
     assert_eq!(s["onAid"].as_u64().unwrap() + s["walkOns"].as_u64().unwrap(), s["roster"].as_u64().unwrap());
+    assert!(s["counted"].as_u64().unwrap() <= s["roster"].as_u64().unwrap());
 }
 
 #[test]

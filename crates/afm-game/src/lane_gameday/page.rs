@@ -50,16 +50,13 @@ fn left(r: &PlayRecord, qlen: f64) -> f64 {
     if r.quarter > 4 { r.clock.min(300.0) } else { (4 - r.quarter.min(4)) as f64 * qlen + r.clock }
 }
 
-/// The home team's win chance before a play (the game boards' model,
-/// `lane_boards::flow::Wp`: the level's numbers and the line).
-pub fn wp_before(r: &PlayRecord, m: &Wp) -> f64 {
-    m.home(r)
-}
-
-/// The home team's win chance through the game: before each play, then
-/// the final.
+/// The home team's win chance through the game (the game boards' model,
+/// `lane_boards::flow::Wp`: the level's numbers and the line): before
+/// each play, then the final.
 pub fn wp_series(s: &GameStats, m: &Wp) -> Vec<(u32, f64)> {
-    let mut v: Vec<(u32, f64)> = s.plays.iter().filter(|r| r.offense < 2).map(|r| (r.n, wp_before(r, m))).collect();
+    let home = m.series(&s.plays);
+    let mut v: Vec<(u32, f64)> =
+        s.plays.iter().zip(home).filter(|(r, _)| r.offense < 2).map(|(r, h)| (r.n, h)).collect();
     let fin = match s.score[0].cmp(&s.score[1]) {
         std::cmp::Ordering::Greater => 1.0,
         std::cmp::Ordering::Less => 0.0,
@@ -275,7 +272,11 @@ fn drives(s: &GameStats) -> Vec<Drive> {
         // The last play's seconds, up to the clock it had (a snap at 0:02
         // that runs eight seconds ends the quarter at 0:00).
         d.secs = (start_left - at(r) + r.duration.max(0.0).min(r.clock.max(0.0))).max(0.0);
-        if r.touchdown && !r.defense_td {
+        if r.kind == PlayType::Punt && r.touchdown && !r.turnover {
+            // Returned: the punting side's drive gave up the points.
+            d.result = "Returned for a TD";
+            d.points = -6;
+        } else if r.touchdown && !r.defense_td {
             d.result = "Touchdown";
             d.points = 6;
         } else if r.defense_td {

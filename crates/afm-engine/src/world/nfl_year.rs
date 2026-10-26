@@ -1918,6 +1918,10 @@ fn settle_line(w: &mut World, h: usize, a: usize, line: Option<[f32; 2]>, score:
     super::finance::lines::settle(w, Level::Nfl, line, score, coaches, names, (Some(h), None));
 }
 
+/// An engine game of the day: its teams, their strengths, its line and
+/// whether it is at a neutral site.
+type Played = ([usize; 2], [f64; 2], Option<[f32; 2]>, bool);
+
 /// The day's games (T1.2): each is played on its own day and kickoff. A
 /// week's stakes are read before its first game; its lines open after its
 /// last.
@@ -1980,7 +1984,8 @@ fn play_day(w: &mut World, d: Date) {
             .collect();
         engine_games(w, &fixtures)
     };
-    let mut played: Vec<([usize; 2], [f64; 2])> = Vec::new();
+    // Each engine game: its teams, their strengths, its line and site.
+    let mut played: Vec<Played> = Vec::new();
     let mut shown: Vec<(usize, usize, Slot)> = Vec::new();
     let s = w.nfl_season.as_mut().unwrap();
     for (n, (&(k, g), seed)) in todays.iter().zip(seeds).enumerate() {
@@ -1996,7 +2001,7 @@ fn play_day(w: &mut World, d: Date) {
             Some((r, _)) => {
                 let [x, y] = r.stats.score;
                 s.slots[k][g].score = Some([x.max(0) as u32, y.max(0) as u32]);
-                played.push(([h, a], [s.z[a], s.z[h]]));
+                played.push(([h, a], [s.z[a], s.z[h]], s.slots[k][g].line, s.slots[k][g].site.is_some()));
                 (if x > y { 0.0 } else { 1.0 }, 0.5, x == y)
             }
             None => (key_uniform(seed, key), p, key_uniform(seed ^ 0x7E, key) < TIE),
@@ -2021,8 +2026,9 @@ fn play_day(w: &mut World, d: Date) {
     }
     let mut it = played.into_iter();
     for o in outcomes.iter().flatten() {
-        if let Some((teams, z)) = it.next() {
+        if let Some((teams, z, line, neutral)) = it.next() {
             pro_games::record(w, teams, &o.0, &o.1, z);
+            w.seat_line(Level::Nfl, teams, line, neutral);
         }
     }
     w.log.nfl_games += todays.len() as u32;
@@ -2265,6 +2271,7 @@ fn play_round(w: &mut World, round: u32, d: Date) {
     let a_wins = match game.first().and_then(|g| g.as_ref()) {
         Some((r, sides)) => {
             pro_games::record(w, [a, b], r, sides, [s.z[b], s.z[a]]);
+            w.seat_line(Level::Nfl, [a, b], Some(line), true);
             let [x, y] = r.stats.score;
             score = Some([x.max(0) as u32, y.max(0) as u32]);
             settle_line(w, a, b, Some(line), Some([x.max(0) as u32, y.max(0) as u32]));
@@ -2375,6 +2382,7 @@ fn play_round_games(w: &mut World, d: Date) {
         super::finance::nfl::gate(w, g.2, g.3, d, false, true);
         if let Some((r, sides)) = o {
             pro_games::record(w, [g.2, g.3], r, sides, [s.z[g.3], s.z[g.2]]);
+            w.seat_line(Level::Nfl, [g.2, g.3], Some(*line), false);
             let [x, y] = r.stats.score;
             settle_line(w, g.2, g.3, Some(*line), Some([x.max(0) as u32, y.max(0) as u32]));
             scores.push((g.2, g.3, [x.max(0) as u32, y.max(0) as u32]));

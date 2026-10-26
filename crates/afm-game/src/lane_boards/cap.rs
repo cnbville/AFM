@@ -39,6 +39,9 @@ pub fn board(w: &World, args: &Value) -> Reply {
     match views::mine(w) {
         Some(TeamRef::Nfl(t)) => nfl(w, t, args),
         Some(TeamRef::College(j)) => college(w, j),
+        Some(TeamRef::Other(_)) => {
+            Ok(json!({ "level": "none", "why": "Your league's books aren't kept in the game." }))
+        }
         Some(_) => Ok(json!({ "level": "none", "why": "A high school has no cap and no NIL budget to set." })),
         None => Err("Start a career first.".into()),
     }
@@ -95,6 +98,12 @@ fn nfl(w: &World, t: usize, args: &Value) -> Reply {
             |i: usize| w.people[i].pro.as_ref().and_then(|c| c.contract.as_ref()).map_or(0.0, |k| k.cap_hit(year));
         hit(b).total_cmp(&hit(a))
     });
+    // From June 1 to the Super Bowl every release and trade splits its dead
+    // money over two league years by itself (`pro::after_june1`), and a
+    // club has two post-June 1 designations a year from 2011.
+    let split = year == first && pro::after_june1(w, today);
+    let used = w.front_office.nfl.june1.iter().filter(|x| x.1 == year).count();
+    let june1_open = !split && !(year >= 2011 && year == first && used >= 2);
     let mut outside = 0.0;
     for &i in &order {
         let p = &w.people[i];
@@ -111,11 +120,23 @@ fn nfl(w: &World, t: usize, args: &Value) -> Reply {
         if k.last_year() == year {
             ending.push((hit, i));
         }
-        let (dead_now, _) = k.dead_if_cut(year, today, false);
+        let (dead_now, dead_later) = k.dead_if_cut(year, today, split);
         let (dj, dj2) = k.dead_if_cut(year, today, true);
-        // A trade leaves the bonus still to count here; the salary and its
-        // guarantees go with him.
-        let bonus_left: f64 = k.years.iter().filter(|x| x.year >= year).map(|x| x.proration).sum();
+        // A trade leaves the bonus still to count here (`trades::kept_bonus`):
+        // all of it this year, or this year's share now and the rest next
+        // year once June 1 has passed; the salary and its guarantees go
+        // with him.
+        let share =
+            |pick: &dyn Fn(i32) -> bool| k.years.iter().filter(|x| pick(x.year)).map(|x| x.proration).sum::<f64>();
+        let (trade_now, trade_later) =
+            if split { (share(&|y| y == year), share(&|y| y > year)) } else { (share(&|y| y >= year), 0.0) };
+        let mut moves = vec![
+            json!({ "k": "Cut now", "saves": k.cut_savings(year, today, split).round(), "now": dead_now.round(), "later": dead_later.round() }),
+        ];
+        if june1_open {
+            moves.push(json!({ "k": "Cut after 1 June", "saves": k.cut_savings(year, today, true).round(), "now": dj.round(), "later": dj2.round() }));
+        }
+        moves.push(json!({ "k": "Trade now", "saves": (hit - trade_now).round(), "now": trade_now.round(), "later": trade_later.round(), "noTrade": k.no_trade }));
         let pos = p.player.position;
         let counts = hit > bar || (hit == bar && at_bar > 0);
         if hit == bar && at_bar > 0 {
@@ -143,11 +164,7 @@ fn nfl(w: &World, t: usize, args: &Value) -> Reply {
             "read": read_of(w, i, TeamRef::Nfl(t)),
             "kind": format!("{:?}", k.kind),
             "squad": c.status == pro::Status::PracticeSquad,
-            "moves": [
-                { "k": "Cut now", "saves": k.cut_savings(year, today, false).round(), "now": dead_now.round(), "later": 0.0 },
-                { "k": "Cut after 1 June", "saves": k.cut_savings(year, today, true).round(), "now": dj.round(), "later": dj2.round() },
-                { "k": "Trade now", "saves": (hit - bonus_left).round(), "now": bonus_left.round(), "later": 0.0, "noTrade": k.no_trade },
-            ],
+            "moves": moves,
         }));
     }
     let mut dead: Vec<Value> = club
@@ -184,18 +201,32 @@ fn nfl(w: &World, t: usize, args: &Value) -> Reply {
         }
     }
     let committed = pro::payroll(w, t, year);
-    let room = pro::cap_room(w, t, year);
-    // Before the draft, the rookies you will sign: each pick's slot price
-    // in its first year (the middle of the round where the order isn't
-    // set; proposed, not confirmed).
+    // A carryover is this league year's only (`pro::set_carryover`): a later
+    // year's books don't have it yet.
+    let carry_out = if year > first { club.carryover } else { 0.0 };
+    let room = pro::cap_room(w, t, year) - carry_out;
+    // Before the draft, the rookies you will sign: each pick's first-year
+    // cap hit at its slot, from last season's final order (set once the
+    // Super Bowl is played); compensatory picks at the end of their round.
+    // Where the order isn't known, the middle of the round (proposed, not
+    // confirmed).
     let draft = w.dates.draft[0].date;
+    let order = afm_engine::world::charts::draft_order(w);
+    let teams = w.nfl.len() as u32;
     let rookies: f64 = if year == first && today < draft {
         afm_engine::world::front_office::deals::picks_of(w, t)
             .iter()
             .filter(|p| p.year == year)
             .map(|p| {
-                let slot = (p.round.max(1) - 1) * 32 + 16;
-                money::rookie_terms(year, slot, p.round).apy
+                let round = p.round.max(1);
+                let place = if p.comp {
+                    Some(teams)
+                } else {
+                    order.as_ref().and_then(|o| o.iter().position(|&x| x == p.orig)).map(|k| k as u32 + 1)
+                };
+                let slot = (round - 1) * teams + place.unwrap_or(teams / 2);
+                let terms = money::rookie_terms(year, slot, round);
+                money::build(t, money::Kind::Rookie, year, &terms).cap_hit(year)
             })
             .sum()
     } else {
@@ -220,7 +251,7 @@ fn nfl(w: &World, t: usize, args: &Value) -> Reply {
         // what's committed.
         "cap": (room + committed).round(),
         "leagueCap": cap.round(),
-        "carry": if capped { club.carryover.round() } else { 0.0 },
+        "carry": if capped && year == first { club.carryover.round() } else { 0.0 },
         "committed": committed.round(),
         "space": room.round(),
         "rookies": rookies.round(),
@@ -261,15 +292,20 @@ fn college(w: &World, j: usize) -> Reply {
     let suggested = yours && set.is_empty();
     let mut to_roster = 0.0;
     let mut blocks: Vec<Value> = Vec::new();
+    let whole = ncaa::whole_roster_limit(prog, season);
     let mut on_aid = 0usize;
     let mut walk_ons = 0usize;
     let mut roster = 0usize;
+    let mut counted = 0usize;
     for &i in &prog.roster {
         let p = &w.people[i];
         if p.stage != Stage::College || p.college != Some(j) {
             continue;
         }
         roster += 1;
+        if afm_engine::world::charts::takes_a_place(w, i, whole, season) {
+            counted += 1;
+        }
         if p.walk_on {
             walk_ons += 1;
         } else {
@@ -301,7 +337,24 @@ fn college(w: &World, j: usize) -> Reply {
         }));
     }
     let (cap_now, signees) = ncaa::roster_limits(prog, season);
-    let whole = ncaa::whole_roster_limit(prog, season);
+    // The aid rules by division: a count of players on aid (FBS and FCS),
+    // equivalencies shared out (Division II 36, the NAIA 24; the world
+    // counts heads there, so no limit is shown), or no athletic aid at all
+    // (Division III). A yearly signing cap only where the rules set one.
+    use afm_engine::world::data::Division;
+    let aid = match prog.division {
+        Division::D3 => "none",
+        Division::D2 | Division::NAIA => "equivalency",
+        _ => "heads",
+    };
+    let equiv = match prog.division {
+        Division::D2 => Some(36),
+        Division::NAIA => Some(24),
+        _ => None,
+    };
+    let yearly = if whole { None } else { ncaa::scholarship_rules(prog.division, season, true).1 };
+    let signees = yearly.map(|_| signees);
+    let limit = (aid == "heads").then_some(cap_now);
     Ok(json!({
         "level": "college",
         "team": views::team_brief(w, TeamRef::College(j)),
@@ -312,15 +365,26 @@ fn college(w: &World, j: usize) -> Reply {
         "blocks": blocks,
         "budget": {
             "total": b.total.round(), "revenue": b.revenue_share.round(), "collective": b.collective.round(),
-            "roster": to_roster.round(), "recruits": b.recruits.round(), "portal": b.portal.round(),
-            "left": (b.total - to_roster - b.recruits - b.portal).round(),
+            // The deals set (what the desk counts), and the usual split
+            // when the blocks show it instead.
+            "roster": b.roster.round(), "recruits": b.recruits.round(), "portal": b.portal.round(),
+            "usualRoster": (!use_set).then(|| to_roster.round()),
+            // What the deals gate reads: the deals set for this money
+            // year. With the usual split only suggested, what it would
+            // leave.
+            "left": b.left.round(),
+            "leftUsual": (!use_set).then(|| (b.total - to_roster - b.recruits - b.portal).round()),
             "setAny": !set.is_empty(), "yours": yours, "usual": suggested,
         },
         "scholarships": {
             "season": season,
-            "limit": cap_now,
+            "limit": limit,
             "signees": signees,
-            "onAid": on_aid,
+            "aid": aid,
+            "equiv": equiv,
+            "onAid": if aid == "none" { 0 } else { on_aid },
+            "counted": counted,
+            "cap": cap_now,
             "walkOns": walk_ons,
             "roster": roster,
             "whole": whole,

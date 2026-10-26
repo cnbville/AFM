@@ -1,6 +1,6 @@
 # Recruiting: how it works today
 
-Checked against main at 9a53e5d on 2026-10-26.
+Checked against main at d9ecf1c on 2026-10-26.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Recruiting" below is `world/recruiting.rs`.
 
@@ -22,6 +22,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - What decides a portal entry? A yearly "lean" built from role, how buried he is and dated events, then a uniform draw against lean × era factor (`world/college.rs`, `lean_checkpoint`; recruiting, `portal_open`).
 - How is NIL paid? On July 1, each collective's budget × 0.6 is split over the roster by role, position value and stars (`nil_payouts`, `nil_weight`).
 - What NIL does a recruit get offered? Position market rate × a star factor × (budget / $10M)^0.8, capped by the collective and the position's top rate (`offer_for`, `position_nil`; `world/ncaa.rs`, `position_nil_max`).
+- How much NIL can you still promise? The budget less this money year's deals for players still on your roster, less the offers out to recruits and portal targets: the deals, NIL and portal offers check it, and the NIL board shows it (`world/front_office/college.rs`, `budget`).
 - What grades does he need? Division I 2.3 core GPA to qualify, 2.0-2.299 academic redshirt, under 2.0 can't enroll; Division II 2.2; JUCO anyone (`ncaa_tier`).
 - Do walk-ons exist? Yes: planned preferred walk-ons, local walk-on offers in February, open tryouts, and fall-camp scholarships for walk-ons who play (`class_plan`, `run_signing_stage`, `camp_walk_ons`).
 
