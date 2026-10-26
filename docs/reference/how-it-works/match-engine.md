@@ -1,6 +1,6 @@
 # Match engine: how it works today
 
-Checked against main at 94a6553 on 2026-10-25.
+Checked against main at 9a53e5d on 2026-10-26.
 
 Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "20" (the 1-20 read against the level, see the quick answers). In a block, w runs from -1 (the blocker has won) to +1 (the defender has shed him). U is a uniform 0-1 draw, N(m, sd) a normal one.
 
@@ -23,6 +23,7 @@ Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "2
 - How do tendencies act? Each check reads lean = (tendency - 10.5) / 9.5, from -1 to +1; a followed instruction sets the tendency, stress slides it up to a third back toward his old habit (`game/sim.rs`, `tend`, `lean`).
 - How much is a Dynamic Link worth? 5 rating points at full strength, only in its own situations; stacked links count the strongest in full, the next at half, a third at a quarter (`links.rs`, `edge`, `FULL`).
 - When does a tired starter come out? Below his position's energy line (EDGE/DT 0.84, WR/TE 0.74, LB/CB/S 0.68, RB 0.60, others 0.5), if a fresh backup is within 60 × (line - energy) rating points (`game/flow.rs`, `threshold`, `pick`).
+- Does a player's week of practice matter? Through his prep word, for every team: his busts and run misfits × 1.33 (Unprepared) to × 0.93 (Sharp), his read up to 0.033 s later, a quarterback up to about 10% longer on each read. It changes no rating (`game/roster.rs`, `GamePlayer.prep`; `training/prep.rs`, `game_factor`; `game/scrimmage.rs`, `run_snap`, `quarterback`). See [training.md](training.md).
 
 ## How a snap runs
 
@@ -30,6 +31,7 @@ Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "2
 - His ratings for the snap: rating × (1 - fatigue share × tiredness) + edge, clamped 1-99. The edge is momentum, -3 if he plays hurt, minus the fill-in cost of a spot he doesn't know (`game/sim.rs`, `Agent::new`; `game/flow.rs`, `run_scrimmage_call`, `unfamiliar`).
 - Top speed, burst and cut come from his raw ratings and weight; the edge doesn't move them, fatigue does (`game/sim.rs`, `Agent::new`).
 - Road noise: every offensive player loses 11 × crowd × focus points of Football IQ, focus = clamp(1.6 - 0.06 × Concentration20, 0.4, 1.6) (`run_snap`, `NOISE_LOAD`).
+- Crowd, wherever this page uses it: the home crowd × the road offense's `prep.noise`, 0 at home or on a neutral site. `prep.noise` is 1 for AI teams; your week's crowd-noise days set yours, 0.9-1.15 (`game/flow.rs`, `home_crowd`; `training/seat.rs`, `week_habits`).
 - Seeing: a cone of half-angle 1.2 + 0.006 × (rating - 50) radians, read with Pocket Presence for the passer, Ball Carrier Vision for the carrier, Play Recognition for everyone else; anything within 2 yards is felt (`game/sim.rs`, `sees`).
 - `pro()`: some quarterback, catch-radius and decision reads count every point from 68 up and a quarter of the gap below 68 (`game/scrimmage.rs`, `pro`).
 - Chemistry is 0-1 with 0.45 as typical (`game/roster.rs`, `TYPICAL_CHEM`).
@@ -38,22 +40,24 @@ Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "2
 
 ### Reading the play
 
-- Each defender's read time = max(0.12, 0.22 + 0.0075 × (100 - Play Recognition + level gap) + 0.12 × U - 0.14 × lean(Downhill) + fake + film + job + motion + 0.12 × novelty) seconds (`run_snap`).
+- Each defender's read time = max(0.12, 0.22 + 0.0075 × (100 - Play Recognition + level gap) + 0.12 × U - 0.14 × lean(Downhill) + fake + film + job + prep + motion + 0.12 × novelty) seconds (`run_snap`).
   - Level gap: the Play Recognition norm at his level minus FBS's (NFL +19, high school -19), so a typical defender reads alike at every level (`run_snap`; `game/rules.rs`, `trait_norm`).
   - Fake (play action or a draw): (0.15 + 0.012 × (100 - PR) × U) × sell × bite × max(1 + 0.9 × lean(Downhill), 0.1); sell = clamp(1 + 0.01 × (QB Ball Handling - 60), 0.6, 1.4); bite = clamp(1.5 - 0.05 × Discipline20, 0.5, 1.5).
   - Film: ±0.16 × keyed, sooner when what the look tells matches the play; keyed = belief lean × (0.5 + 0.5 × film study / 20) × clamp(PR / 80, 0.3, 1.2) (`run_snap`; `game/calling.rs`, `belief`).
   - Job: 0.12 × (0.9 - his knowledge of the front or coverage family). Jet or orbit motion: +0.10 × bite for linebackers.
+  - Prep: 0.1 × (his prep factor - 1): +0.033 s Unprepared, +0.02 Underprepared, +0.008 Patchy, -0.0025 Prepared, -0.007 Sharp (`run_snap`; `training/prep.rs`, `game_factor`).
   - Downhill applies to linebackers and safeties only.
 
 ### Busts and misfits
 
-- Bust chance = ((1 - know) × 0.05 + (60 - FIQ)₊ × 0.0006 + noise + check + install + lapse) × call × chem (`run_snap`).
+- Bust chance = ((1 - know) × 0.05 + (60 - FIQ)₊ × 0.0006 + noise + check + install + lapse) × call × chem × prep (`run_snap`).
   - noise (road offense) = 0.03 × crowd × max(1.3 - FIQ / 100, 0.3); check (defense against trips, bunch, empty or motion) = 0.04 × (1 - know).
   - install = 0.04 × (plan load - absorb)₊, absorb = clamp((FIQ - 30) / 45, 0.2, 1.3) (`game/roster.rs`, `absorb`, `plan`).
   - lapse = 0.03 × (1 - energy) × (10 - Concentration20) / 9.
   - call = clamp(1 - 0.006 × (Communication - 60), 0.75, 1.25) of the QB (offense), the center (the line), the best communicator among linebackers and safeties (defense).
   - chem (WR, TE, RB, CB, S) = 1 - 0.45 × (chemistry - 0.45).
-- Run-fit misfit (linebackers and DBs on runs) = clamp(0.035 + 0.002 × max(65 - PR, -15) + 0.06 × (1 - front knowledge) + 0.003 × (10 - Discipline20) + 0.04 misdirection + 0.03 jet + 0.05 × novelty, 0.01, 0.35). A misfit fills the wrong gap or comes late (`run_snap`, `defend`).
+  - prep = his week's prep factor from his latest word: None 1, Unprepared 1.33, Underprepared 1.2, Patchy 1.08, Prepared 0.975, Sharp 0.93 (`game/roster.rs`, `prep_of`; `training/prep.rs`, `game_factor`).
+- Run-fit misfit (linebackers and DBs on runs) = clamp((0.035 + 0.002 × max(65 - PR, -15) + 0.06 × (1 - front knowledge) + 0.003 × (10 - Discipline20) + 0.04 misdirection + 0.03 jet + 0.05 × novelty) × prep, 0.01, 0.35). A misfit fills the wrong gap or comes late (`run_snap`, `defend`).
 
 ## Bodies and movement
 
@@ -124,7 +128,7 @@ What it reads: Play Recognition, Decisions, Pocket Presence, Composure, Football
 - The drop: top of the drop at quick 1.25 s, medium 1.6, deep 2.1, boot 2.2, screen 1.4, bubble 0.75, +0.35 with play action, + clamp(-0.0015 × (Footwork - 60), -0.06, 0.08) (`game/scrimmage.rs`, `run_snap`).
   - A bad shotgun snap costs 0.3-0.6 s, chance clamp(0.004 - 0.0001 × (center's Shotgun Snap - 60), 0.001, 0.012); a fumbled snap is not modelled (`run_snap`).
 - First read: the concept's order, except the best receiver is fed first with chance min(0.1 + 0.02 × his rating edge, 0.55), or the plan's target corner's man 50% of the time (`run_snap`, `FEED_BASE`, `FEED_MAX`).
-- Time on each read = clamp(0.62 - 0.0045 × (iq - 50), 0.3, 0.95) × shown × (1 + 0.6 × lean(Hold)); iq = 0.5 PR + 0.5 Decisions; shown = (1 - 0.2 × (pre-snap read - 0.45)) × 1.15 if a disguise fooled him (`quarterback`).
+- Time on each read = clamp(0.62 - 0.0045 × (iq - 50), 0.3, 0.95) × shown × (1 + 0.6 × lean(Hold)) × prep; iq = 0.5 PR + 0.5 Decisions; shown = (1 - 0.2 × (pre-snap read - 0.45)) × 1.15 if a disguise fooled him; prep = 1 + 0.3 × (his prep factor - 1), 1.099 Unprepared to 0.979 Sharp (`quarterback`).
 - His clock = clamp(3.6 - 0.01 × (Decisions - 60) - 0.004 × (Pocket Presence - 60), 3.1, 4.1) + 0.3 on a deep drop + 1.0 × lean(Hold) (`quarterback`).
 - Hot read: pressure over 0.6 before 2 s sends him back to read 1 (always above 45 Football IQ, else 40%) (`quarterback`).
 - Urgent: the first free rusher he knows of is under 0.85 - 0.004 × (Composure - 60) s away (`quarterback`).
@@ -260,7 +264,7 @@ Each crew draws four multipliers, N(1, 0.15) clamped 0.6-1.5: holding, pass inte
 - Face mask on a tackle 0.0087 × crew × max(1.6 - Discipline20 / 12, 0.2) × 0.6; else unnecessary roughness 0.023 × crew × max(1.6 - hidden temperament / 12, 0.2) × 0.6 × max(1 + 0.6 × lean(Big hit), 0.2) (`game/sim.rs`, `tackled`).
 - Illegal block in the back on returns and escorts: a block from behind, 0.075 × crew × clamp(1 - 0.05 × (Discipline20 - 10) - 0.006 × (Blocking in Space - 60), 0.4, 1.6) (`game/scrimmage.rs`, `escort`).
 - Ineligible downfield, only on an RPO thrown past the line: a lineman past 1 yard (NFL), 2 (HS) or 3 (college), 0.6 × clamp(1 - 0.015 × (FIQ - 60), 0.4, 1.4) (`run_snap`; `game/flow.rs`, `run_scrimmage_call`).
-- Pre-snap, before each snap (`game/flow.rs`, `pre_snap_foul`):
+- Pre-snap, before each snap (`game/flow.rs`, `pre_snap_foul`). Crew here is the crew's pre-snap draw × the fouling side's `prep.rules`: the offense's for false starts, delay of game and illegal formation, the defense's for offside. `prep.rules` is 1 for AI teams; your week's rules clinic sets yours, 0.9-1.08 (`training/seat.rs`, `week_habits`):
   - False start, each lineman and receiver: 0.00162 × max(1.6 - focus / 15, 0.3) × (1 + 0.32 × road crowd × clamp(1.5 - 0.05 × Conc20, 0.5, 1.5)) × crew × (1 + tiredness) × (1.25 - 0.25 × playbook knowledge), focus = 0.6 Disc20 + 0.4 Conc20.
   - Offside, each down lineman: 0.00172 × max(1.6 - Disc20 / 15, 0.3) × clamp(1 + 0.04 × (Anticipation20 - 10), 0.6, 1.5) × hard count × guessing × crew. Hard count on 3rd/4th and 2 or less (more downs when the plan targets snap guessers): clamp(1.5 + 0.05 × (QB FIQ20 - 10), 1, 2.5) × (1 + 0.5 × plan); guessing = max(1 + 1.1 × lean(Snap timing), 0.1) × hard^(0.8 × lean₊) (a followed "no snap guessing" order sets the tendency).
   - Delay of game 0.005 × (1.3 - QB FIQ / 120) × (1 + 0.52 × crowd) × crew; illegal formation 0.0078 × crew × (1.3 - 0.3 × QB knowledge) × clamp(1 - 0.008 × (line and QB FIQ - 60), 0.6, 1.4).
@@ -327,12 +331,14 @@ What it reads: the kicker's Kick Power, Short and Long Kick Accuracy, Kick Traje
 - He plays on with clamp(0.15 + 0.035 × Toughness20 - 0.12 × weeks, 0, 0.95), never with a concussion, ACL or fracture; a concussion is caught 92% in the NFL, 80% in college, 60% in high school (`injury_check`; `game/flow.rs`, `apply_injuries`).
 - Playing on costs 3 points off every rating (`run_scrimmage_call`).
 - Code against the design doc: `docs/design/match-engine.md` says a hurt player loses the attributes the injury hits (an ankle cuts speed and cutting); the code takes the flat 3 points and never calls `InjuryKind::hampers`.
+- Code against the docs: `docs/world-model.md` (training lane 4's picks) says a poorly prepared player reads about a tenth of a second late per word below prepared and a quarterback's reads run up to 30% slower; the code adds 0.1 × (factor - 1) s (0.033 s Unprepared) and × (1 + 0.3 × (factor - 1)) (about 10%) (`run_snap`, `quarterback`).
 
 ## Where the knobs are
 
 - `game/geom.rs`: `DT` 0.1.
 - `game/sim.rs`: `OPEN_REACH` 2.5, `RUN_EDGE` 0.035, `SHED_RUNNER` 0.5, `SILENT_COUNT` 24, `BURNER` 0.0125; block drifts 0.032 and noise 0.58/0.6 in `update_blocks`; the miss logit in `first_hit`; hazard 3.1 and break 0.026 in `fight_tick`; fumble 0.018 in `hit_effects`; injury 0.022 and the kind weights in `injury_check`; `injury_weeks`; `Crew::draw`; `FoulKind::yards`.
-- `game/scrimmage.rs`: `NOISE_BUSTS` 0.03, `NOISE_LOAD` 11, `CHIP_TIME` 0.6, `CHIP_W` 0.25, `READ_NEED` 0.3, `READ_START` 0.1, `PRE_READ` 0.45, `FEED_BASE` 0.1, `FEED_PER_POINT` 0.02, `FEED_MAX` 0.55, `BAT` 0.17, `HANDS_LEVEL` 0.5; `aim_sd`; drop times and mesh times in `run_snap`.
+- `game/scrimmage.rs`: `NOISE_BUSTS` 0.03, `NOISE_LOAD` 11, `CHIP_TIME` 0.6, `CHIP_W` 0.25, `READ_NEED` 0.3, `READ_START` 0.1, `PRE_READ` 0.45, `FEED_BASE` 0.1, `FEED_PER_POINT` 0.02, `FEED_MAX` 0.55, `BAT` 0.17, `HANDS_LEVEL` 0.5; `aim_sd`; drop times and mesh times in `run_snap`; the prep terms (0.1 on the read in `run_snap`, 0.3 on each read in `quarterback`).
+- `training/prep.rs`: `game_factor`. `training/seat.rs`: `week_habits` (crowd noise 0.075 a day, 0.9-1.15; rules clinic 0.9-1.08).
 - `game/roster.rs`: `forty`, `top_speed`, `sprint_tau`, `accel`, `cut`, `drain`, `RECOVER_ON_FIELD` 0.012, `RECOVER_ON_BENCH` 0.05, `TYPICAL_CHEM` 0.45, `CROSS_LIST` 3, `INSTALL` 0.75, `wanted`.
 - `game/rules.rs`: `trait_norm`, `TRAIT_STEP` 2.6.
 - `game/kicking.rs`: the leg bases in `field_goal`, `kickoff`, `punt`; `muff`.
@@ -349,5 +355,5 @@ What it reads: the kicker's Kick Power, Short and Long Kick Accuracy, Kick Traje
 - [tendencies.md](tendencies.md): the 15 tendencies and instructions.
 - [injuries.md](injuries.md): injuries outside the game and recovery.
 - [staff-and-coaches.md](staff-and-coaches.md): the coach ratings the engine reads.
-- [training.md](training.md): practice impressions, packages and kickoff energy.
+- [training.md](training.md): practice impressions, packages, kickoff energy, each player's prep word, crowd-noise days and the rules clinic.
 - The long explanation with calibration history: `docs/match-engine.md`.
