@@ -216,7 +216,7 @@
     const p = h.plan;
     const o = p.options;
     return `<div class="gd-form">
-          <label>Throw at their corner<small>your offensive coordinator looks his way first</small></label>${pickSelect("target_cb", p.target_cb, o.corners, "Staff decides")}
+          <label>Throw at their corner<small>your play caller looks his way first</small></label>${pickSelect("target_cb", p.target_cb, o.corners, "Staff decides")}
           <label>Bracket their receiver<small>two men on him, someone short elsewhere</small></label>${pickSelect("bracket", p.bracket, o.receivers, "Staff decides")}
           <label>Spy their quarterback<small>a linebacker mirrors him instead of rushing or dropping</small></label>${triSeg("spy", p.spy, ["Spy him", "No spy"])}
           <label>Kick away from their returner<small>shorter, safer kicks: field position for the return</small></label>${triSeg("kick_away", p.kick_away, ["Kick away", "Kick deep to him"])}

@@ -156,6 +156,7 @@ pub(super) fn view(w: &mut World, a: &Value) -> Reply {
         "side": if side == 0 { "offense" } else { "defense" }, "wet": wet, "wet_n": wet_n,
         "game": date_text(d.game), "opp": team_link(w, level, d.opp), "opp_name": plans::team_name(w, level, d.opp),
         "drafted": date_text(d.drafted), "round": d.round, "by": by,
+        "early": d.early_look(level), "plan_day": date_text(plans::plan_day(level, d.game)),
         "parts": parts, "all_approved": all_ok,
         "script": { "k": sheet::SCRIPT, "name": "Opening script", "plays": in_box(sheet::SCRIPT) },
         "extras": extras, "grid": grid,

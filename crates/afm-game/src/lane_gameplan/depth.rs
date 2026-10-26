@@ -167,8 +167,12 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
     // The line rotation by series.
     let mut line: Vec<Value> = Vec::new();
     let mut total = 0.0;
+    let mut listed: Vec<u32> = Vec::new();
     for pos in [Position::EDGE, Position::DT] {
-        for (k, id) in order_at(pos).into_iter().take(4).enumerate() {
+        // A man on both lists rotates at the first of them only.
+        let ids: Vec<u32> = order_at(pos).into_iter().filter(|id| !listed.contains(id)).take(4).collect();
+        listed.extend(&ids);
+        for (k, id) in ids.into_iter().enumerate() {
             let role = w.plans.rotation.iter().find(|r| r.0 == id).map_or(0, |r| r.1);
             let cells: Vec<&str> = (0..12)
                 .map(|series| match role {

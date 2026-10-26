@@ -122,12 +122,11 @@ fn zone(yl: f64) -> usize {
     }
 }
 
-const ZONES: [&str; 5] =
-    ["Backed up, own 1-10", "Own 11-40", "Midfield, own 41 to their 40", "Their 39-21", "Red zone"];
+const ZONES: [&str; 5] = ["Own 1-10", "Own 11-40", "Own 41-their 40", "Their 39-21", "Red zone"];
 
 fn read_of(share: f64, n: usize, base: f64) -> String {
     if n < 8 {
-        "too few snaps to read".into()
+        "too few snaps".into()
     } else if share >= 0.75 {
         "a run tell".into()
     } else if share <= 0.25 {
@@ -224,7 +223,7 @@ pub(super) fn view(w: &World, args: &Value) -> Reply {
         format!(
             "{} snaps so far {}: too few for a defense to read you, or for you to read yourself.",
             all,
-            season_words(w)
+            season_words(w, &s)
         )
     } else {
         let mut t = format!(
@@ -349,7 +348,7 @@ pub(super) fn view(w: &World, args: &Value) -> Reply {
             (thr >= 8 && man as f64 / thr as f64 >= 0.6) || (n >= 8 && bl as f64 / n as f64 >= 0.5)
         };
         tables.push(json!({
-            "title": "Against their personnel", "cols": ["Their group", "Snaps", "Man", "5+ rush"],
+            "title": "Against their personnel", "cols": ["Group", "Snaps", "Man", "5+ rush"],
             "rows": pers.iter().filter(|x| !x.0.is_empty()).map(|(p, n, t, m, b)| json!({ "cells": [p, n, sh(*m, *t), sh(*b, *n)], "flag": flag(*m, *t, *b, *n) })).collect::<Vec<_>>(),
         }));
         tables.push(json!({
@@ -450,7 +449,7 @@ pub(super) fn view(w: &World, args: &Value) -> Reply {
     Ok(json!({
         "level": lvl(level),
         "side": if defense { "defense" } else { "offense" },
-        "season": season_words(w),
+        "season": season_words(w, &s),
         "games": n_games,
         "snaps": snaps.len(),
         "measure": if defense { "man coverage on their throws" } else { "runs" },

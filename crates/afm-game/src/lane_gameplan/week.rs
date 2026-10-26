@@ -22,6 +22,9 @@ use crate::Reply;
 use crate::lane_training::practice_status;
 use crate::views::{date_text, person_index};
 
+/// The snap-limit rows shown before "more on load management" (proposed,
+/// not confirmed).
+const LIMIT_ROWS: usize = 8;
 const GROUPS: [Personnel; 4] = [Personnel::P11, Personnel::P12, Personnel::P10, Personnel::P21];
 const BASE_ORDER: [Personnel; 6] =
     [Personnel::P11, Personnel::P12, Personnel::P21, Personnel::P10, Personnel::P22, Personnel::P13];
@@ -110,24 +113,38 @@ pub(super) fn view(w: &World) -> Reply {
             })
         })
         .collect();
-    // Snap limits: the two-deep, the ones your trainers flag first.
-    let mut limit_rows: Vec<Value> = Vec::new();
+    // Snap limits: the two-deep, the ones your trainers flag first. A man
+    // still hurt on game day doesn't dress, so he isn't here; one back
+    // before it is, and so is a load spike, the biggest first. Your own
+    // limits always show.
+    let mut flagged: Vec<(f64, Value)> = Vec::new();
     // The two-deep as the engine dresses it (your order, then your staff's).
     let order = plans::depth_order(&s.team, s.level);
     for (pos, ids) in &order {
         for &id in ids.iter().take(if pos.is_specialist() { 1 } else { 2 }) {
             let Some(i) = person_index(w, id) else { continue };
-            if limit_rows.iter().any(|x| x["id"] == id) {
+            if flagged.iter().any(|x| x.1["id"] == id) {
                 continue;
             }
             let (practice, note) = practice_status(w, id, i);
             let limit = if this { wk.limits.iter().find(|l| l.0 == id).map(|l| l.1) } else { None };
-            if practice == "full" && limit.is_none() {
+            let out_for_game = w.training.hurt_on(id, next.date).is_some();
+            if limit.is_none() && (practice == "full" || out_for_game || note == "a rest day each week") {
                 continue;
             }
-            limit_rows.push(json!({ "id": id, "name": w.people[i].name, "pos": pos.name(), "practice": practice, "note": note, "limit": limit }));
+            let key = if limit.is_some() {
+                9.0
+            } else if practice == "out" {
+                5.0
+            } else {
+                w.people[i].player.train.spike()
+            };
+            flagged.push((key, json!({ "id": id, "name": w.people[i].name, "pos": pos.name(), "practice": practice, "note": note, "limit": limit })));
         }
     }
+    flagged.sort_by(|a, b| b.0.total_cmp(&a.0));
+    let more_limits = flagged.len().saturating_sub(LIMIT_ROWS);
+    let limit_rows: Vec<Value> = flagged.into_iter().take(LIMIT_ROWS).map(|x| x.1).collect();
     let two_deep: Vec<Value> = order
         .iter()
         .flat_map(|(pos, ids)| ids.iter().take(2).map(move |&id| (*pos, id)))
@@ -209,7 +226,7 @@ pub(super) fn view(w: &World) -> Reply {
         "locked": this && wk.locked,
         "film_snaps": (film.off_snaps + film.def_snaps).round(),
         "answers": answers,
-        "limits": limit_rows, "two_deep": two_deep,
+        "limits": limit_rows, "more_limits": more_limits, "two_deep": two_deep,
         "ifs": ifs, "checks": checks, "orders": orders, "teams": teams,
         "keys": keys, "keys_day": date_text(plan_day), "last_keys": last,
         "rules": rules_json(&w.gameday.rules),

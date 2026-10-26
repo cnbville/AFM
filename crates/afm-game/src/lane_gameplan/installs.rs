@@ -21,8 +21,17 @@ use crate::Reply;
 use crate::reads::{self, Read};
 use crate::views::{class_text, date_text, person_index, reader_key};
 
-/// The game-ready line: 85% of the plan known (proposed, not confirmed).
-const READY: f64 = 0.85;
+/// The game-ready line by level: what a starter two years in the system
+/// knows of the families he runs every week under the engine's own
+/// knowledge terms (`world/season.rs`, `game_team`; proposed, not
+/// confirmed).
+fn ready_line(level: Cal) -> f64 {
+    match level {
+        Cal::HighSchool => 0.75,
+        Cal::Nfl | Cal::Other => 0.82,
+        _ => 0.78,
+    }
+}
 
 /// The game week: the plan for a game goes in over the last seven days
 /// before it. Further out, the board shows the grasp as it stands.
@@ -156,8 +165,11 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
             Read::Range(lo, hi) => (lo as f64 + hi as f64) / 2.0,
             Read::NotSeen => 60.0,
         };
+    let ready = ready_line(s.level);
     let mut rows: Vec<Value> = Vec::new();
     let (mut sum_now, mut sum_fri, mut sum_busts, mut n) = (0.0, 0.0, 0.0, 0usize);
+    // The busts the same men would have at the game-ready line.
+    let mut ready_busts = 0.0;
     let mut seen: Vec<u32> = Vec::new();
     // The two-deep as the engine dresses it: your order where you set one,
     // your staff's for the rest (a season's team keeps no order of its own
@@ -190,6 +202,9 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
             }
             let rate = plans::bust_rate(fri, iq, load, p.prep as f64);
             let busts = if week { rate * sn } else { 0.0 };
+            if week {
+                ready_busts += plans::bust_rate(fri.max(ready), iq, load, p.prep as f64) * sn;
+            }
             let calls = plays.iter().filter(|f| p.know[**f as usize] < 0.6).count();
             let name = person_index(w, id).map(|i| w.people[i].name.clone()).unwrap_or_else(|| "A player".into());
             let class = person_index(w, id).map(|i| class_text(w, &w.people[i])).unwrap_or_default();
@@ -201,7 +216,7 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
                 "id": id, "name": name, "pos": pos.name(), "class": class, "role": if starter { "1st" } else { "2nd" },
                 "now": super::pct(now), "friday": super::pct(fri), "calls": calls,
                 "film": super::num((film_min as f64 / 60.0) + if extra_of(id, 1) { 1.5 } else { 0.0 }, 1),
-                "busts": (busts * 10.0).round() / 10.0, "flag": week && fri < READY,
+                "busts": (busts * 10.0).round() / 10.0, "flag": week && fri < ready,
                 "extra": { "film": extra_of(id, 1), "walk": extra_of(id, 2), "base": base_of(id) },
                 "iq_words": iq_words(iq),
             }));
@@ -215,7 +230,7 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
             let g = ids.iter().map(|p| p.know[*f as usize] as f64).sum::<f64>() / ids.len().max(1) as f64;
             let iq = ids.iter().map(|p| read_iq(p)).sum::<f64>() / ids.len().max(1) as f64;
             let fri = if week { by_friday(g, iq, days, 0.0) } else { g };
-            json!({ "name": f.name(), "calls": wt.round(), "now": super::pct(g), "friday": super::pct(fri), "new": g < 0.7 })
+            json!({ "name": f.name(), "calls": wt.round(), "now": super::pct(g), "friday": super::pct(fri), "new": g < ready - 0.08 })
         })
         .collect();
     fam_rows.sort_by(|a, b| a["now"].as_f64().unwrap_or(0.0).total_cmp(&b["now"].as_f64().unwrap_or(0.0)));
@@ -244,21 +259,22 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
         }
     }
     let busts_words = |b: f64| {
-        if b < 1.0 {
-            "under one bust"
-        } else if b < 3.0 {
-            "a few busts"
+        let r = b / ready_busts.max(0.1);
+        if r <= 1.1 {
+            "about what a ready unit has"
+        } else if r <= 1.4 {
+            "a few more than a ready unit"
         } else {
-            "more busts than a ready team"
+            "well more than a ready unit"
         }
     };
     Ok(json!({
         "level": lvl(s.level), "unit": (["offense", "defense", "kicking"][unit]), "head": w.seat_head(),
         "has_game": next.is_some(), "week": week, "away": away,
         "game": next.map(|nx| date_text(nx.date)), "opp": next.map(|nx| team_link(w, s.level, nx.opp)),
-        "days": days, "ready": super::pct(READY),
+        "days": days, "ready": super::pct(ready),
         "rows": rows,
-        "total": { "now": super::pct(avg_now), "friday": if n > 0 { super::pct(sum_fri / n as f64) } else { 0.0 }, "busts": (sum_busts * 10.0).round() / 10.0, "words": busts_words(sum_busts) },
+        "total": { "now": super::pct(avg_now), "friday": if n > 0 { super::pct(sum_fri / n as f64) } else { 0.0 }, "busts": (sum_busts * 10.0).round() / 10.0, "words": busts_words(sum_busts), "ready_busts": (ready_busts * 10.0).round() / 10.0 },
         "families": fam_rows,
         "chart": chart,
         "film_hours": super::num(film_min as f64 / 60.0, 1),

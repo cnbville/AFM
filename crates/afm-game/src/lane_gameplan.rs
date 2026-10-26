@@ -163,10 +163,19 @@ pub(crate) fn season_of(d: Date) -> i32 {
     if d.month() <= 6 { d.year() - 1 } else { d.year() }
 }
 
-/// Your kept games of the season on the board (this one, or the last one
-/// in the offseason), oldest first, with your side.
+/// The season the boards read: this one once you've played in it, else
+/// the last one (the tape a staff studies in the offseason and in camp).
+fn board_season(w: &World, s: &Seat) -> i32 {
+    let now = season_of(w.today);
+    let played =
+        w.seat_games().iter().any(|g| g.level == s.level && season_of(g.date) == now && g.teams.contains(&s.t));
+    if played { now } else { now - 1 }
+}
+
+/// Your kept games of the season on the board (this one once it has
+/// begun, else the last one), oldest first, with your side.
 pub(crate) fn season_games<'a>(w: &'a World, s: &Seat) -> Vec<(&'a SeatGame, usize)> {
-    let season = season_of(w.today);
+    let season = board_season(w, s);
     w.seat_games()
         .iter()
         .filter(|g| g.level == s.level && season_of(g.date) == season && g.teams.contains(&s.t))
@@ -174,9 +183,9 @@ pub(crate) fn season_games<'a>(w: &'a World, s: &Seat) -> Vec<(&'a SeatGame, usi
         .collect()
 }
 
-/// "This season" or "the 2026 season" (in the offseason).
-pub(crate) fn season_words(w: &World) -> String {
-    let s = season_of(w.today);
+/// "This season" or "the 2026 season" (the season the boards read).
+pub(crate) fn season_words(w: &World, seat: &Seat) -> String {
+    let s = board_season(w, seat);
     if s == w.today.year() && w.today.month() >= 8 { "this season".into() } else { format!("the {s} season") }
 }
 

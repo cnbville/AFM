@@ -1549,6 +1549,13 @@ pub(crate) fn day(w: &mut World, d: Date) {
     }
     if let Some(n) = next_game(w)
         && d >= plan_day(n.level, n.date)
+        && w.plans.draft.as_ref().is_some_and(|x| x.game == n.date && x.opp == n.opp && x.early_look(n.level))
+    {
+        // An early look nobody touched: plan day drafts it again.
+        w.plans.draft = None;
+    }
+    if let Some(n) = next_game(w)
+        && d >= plan_day(n.level, n.date)
         && !w.plans.draft.as_ref().is_some_and(|x| x.game == n.date && x.opp == n.opp)
     {
         ensure_draft(w);
@@ -1816,6 +1823,16 @@ pub fn sheet_families(w: &World) -> Vec<(Family, f64)> {
 }
 
 impl Draft {
+    /// A draft made before its plan day that you haven't approved, edited
+    /// or sent back: an early look, which your coordinators draw up again
+    /// on plan day from the latest film and roster.
+    pub fn early_look(&self, level: Level) -> bool {
+        self.drafted < plan_day(level, self.game)
+            && self.status.iter().flatten().all(|&s| s == 0)
+            && self.edits.iter().flatten().all(|&e| e == 0)
+            && self.notes.iter().all(Vec::is_empty)
+    }
+
     /// Every box on both sides has its calls, the opening scripts
     /// included: a drafted sheet is never empty.
     pub fn every_box_filled(&self) -> bool {

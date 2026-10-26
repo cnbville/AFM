@@ -276,7 +276,7 @@ pub(super) fn view(w: &World) -> Reply {
         "tally": { "go": tally[0], "fg": tally[1], "punt": tally[2] },
         "kicker": kicker(&s).and_then(|k| person_index(w, k.id).map(|i| json!({ "id": k.id, "name": w.people[i].name }))),
         "season": season,
-        "season_words": season_words(w),
+        "season_words": season_words(w, &s),
         "behind": behind,
         "ahead": ahead,
         "words": sides,
