@@ -10,6 +10,9 @@
 use afm_engine::world::data::Division;
 use afm_engine::world::{Stage, World, WorldOptions};
 
+/// A group of programs by conference and level.
+type Group = (&'static str, fn(&str, Division) -> bool);
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let w: World = if args.get(1).map(String::as_str) == Some("build") {
@@ -36,11 +39,13 @@ fn main() {
     }
     println!("{:?}, year {}", w.today, w.year);
     let stars = |p: &afm_engine::world::Person| if p.player.position.is_specialist() { p.camp_stars } else { p.stars };
-    let groups: [(&str, fn(&str, Division) -> bool); 5] = [
+    let groups: [Group; 5] = [
         ("SEC", |c, _| c == "SEC"),
         ("Big Ten", |c, _| c == "Big Ten"),
         ("Big 12/ACC", |c, _| c == "Big 12" || c == "ACC"),
-        ("Group of 5", |c, d| d == Division::FBS && ["American", "AAC", "Mountain West", "Sun Belt", "MAC", "C-USA", "CUSA"].contains(&c)),
+        ("Group of 5", |c, d| {
+            d == Division::FBS && ["American", "AAC", "Mountain West", "Sun Belt", "MAC", "C-USA", "CUSA"].contains(&c)
+        }),
         ("FCS", |_, d| d == Division::FCS),
     ];
     // Per program: [5,4,3,2,0 stars], walk-ons, unrated scholarship players
@@ -73,14 +78,29 @@ fn main() {
         }
         r[7] += 1;
     }
-    println!("{:<12} {:>5} {:>5} {:>5} {:>5} {:>5} {:>8} {:>9} {:>6} {:>6} {:>5}", "group", "5*", "4*", "3*", "2*", "0*", "walk-on", "unr.schol", "squad", "signed", "early");
+    println!(
+        "{:<12} {:>5} {:>5} {:>5} {:>5} {:>5} {:>8} {:>9} {:>6} {:>6} {:>5}",
+        "group", "5*", "4*", "3*", "2*", "0*", "walk-on", "unr.schol", "squad", "signed", "early"
+    );
     for (name, f) in groups {
-        let teams: Vec<usize> = (0..w.programs.len()).filter(|&j| f(&w.programs[j].conference, w.programs[j].division)).collect();
+        let teams: Vec<usize> =
+            (0..w.programs.len()).filter(|&j| f(&w.programs[j].conference, w.programs[j].division)).collect();
         let n = teams.len().max(1) as f64;
         let avg = |k: usize| teams.iter().map(|&j| rows[j][k] as f64).sum::<f64>() / n;
         println!(
             "{:<12} {:>5.1} {:>5.1} {:>5.1} {:>5.1} {:>5.1} {:>8.1} {:>9.1} {:>6.1} {:>6.1} {:>5.1}  ({} teams)",
-            name, avg(0), avg(1), avg(2), avg(3), avg(4), avg(5), avg(6), avg(7), avg(8), avg(9), teams.len()
+            name,
+            avg(0),
+            avg(1),
+            avg(2),
+            avg(3),
+            avg(4),
+            avg(5),
+            avg(6),
+            avg(7),
+            avg(8),
+            avg(9),
+            teams.len()
         );
     }
     for name in ["South Carolina", "Alabama", "Georgia", "Vanderbilt", "Michigan", "Purdue", "Memphis", "Montana"] {
@@ -88,9 +108,40 @@ fn main() {
             let r = rows[j];
             println!(
                 "{:<12} {:>5} {:>5} {:>5} {:>5} {:>5} {:>8} {:>9} {:>6} {:>6} {:>5}",
-                &name[..name.len().min(12)], r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9]
+                &name[..name.len().min(12)],
+                r[0],
+                r[1],
+                r[2],
+                r[3],
+                r[4],
+                r[5],
+                r[6],
+                r[7],
+                r[8],
+                r[9]
             );
         }
+    }
+    // The last four classes' scholarship signees from high school by the
+    // group of their first school, a school's average (the composite's
+    // counts are signees, not squads).
+    println!("\nscholarship signees of the classes {}-{} a school:", w.year - 4, w.year - 1);
+    println!("{:<12} {:>5} {:>5} {:>5} {:>5} {:>5}", "group", "5*", "4*", "3*", "2*", "0*");
+    for (name, f) in groups {
+        let teams = (0..w.programs.len()).filter(|&j| f(&w.programs[j].conference, w.programs[j].division)).count();
+        let mut c = [0u32; 6];
+        for p in &w.people {
+            if p.class_of < w.year - 4 || p.class_of > w.year - 1 || p.walk_on || p.juco {
+                continue;
+            }
+            let Some(&j) = p.path.first() else { continue };
+            if f(&w.programs[j].conference, w.programs[j].division) {
+                c[stars(p).min(5) as usize] += 1;
+            }
+        }
+        let n = teams.max(1) as f64;
+        let a = |k: usize| c[k] as f64 / n;
+        println!("{:<12} {:>5.1} {:>5.1} {:>5.1} {:>5.1} {:>5.1}", name, a(5), a(4), a(3), a(2), a(0));
     }
     // The last four signing classes: where each star tier went.
     println!("\nhigh school signees of the classes {}-{} by stars and level:", w.year - 4, w.year - 1);
@@ -104,7 +155,10 @@ fn main() {
         let col = p.path.first().map_or(6, |&j| levels.iter().position(|&d| d == w.programs[j].division).unwrap_or(6));
         by[5 - s][col] += 1;
     }
-    println!("{:<6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>7}", "stars", "FBS", "FCS", "D2", "NAIA", "D3", "JUCO", "none");
+    println!(
+        "{:<6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>7}",
+        "stars", "FBS", "FCS", "D2", "NAIA", "D3", "JUCO", "none"
+    );
     for (k, r) in by.iter().enumerate() {
         println!("{:<6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>7}", 5 - k, r[0], r[1], r[2], r[3], r[4], r[5], r[6]);
     }

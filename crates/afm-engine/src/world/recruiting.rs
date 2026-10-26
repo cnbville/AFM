@@ -3589,9 +3589,8 @@ pub(crate) fn rate_underclass(w: &mut World, class_of: i32, d: Date, reach: [f64
                 None => seen,
             };
             let gift = crate::links::gift(&crate::links::projected(&p.player));
-            let score =
-                0.25 * film + 0.75 * read - 12.0 * (1.0 - vis).powi(2) + SERVICE_GIFT * all_mean_sd.1 * gift * vis;
-            (i, read, score)
+            let sheet = offer_sheet(&wr.programs, p);
+            (i, read, star_score(film, read, vis, gift, sheet, all_mean_sd.1))
         })
         .collect();
     for &i in &members {
@@ -3604,8 +3603,7 @@ pub(crate) fn rate_underclass(w: &mut World, class_of: i32, d: Date, reach: [f64
     order.sort_by(|a, b| b.2.total_cmp(&a.2).then(a.0.cmp(&b.0)));
     let class = 250_000.0 * w.options.scale;
     let specialist: Vec<bool> = order.iter().map(|x| w.people[x.0].player.position.is_specialist()).collect();
-    let quotas: Vec<(u8, usize)> = PIPELINE
-        .star_shares
+    let quotas: Vec<(u8, usize)> = SERVICE_TIERS
         .iter()
         .zip(reach)
         .map(|(&(stars, share), r)| (stars, (share * class * r).round() as usize))
