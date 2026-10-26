@@ -693,6 +693,8 @@ impl World {
             known,
             family: Default::default(),
             staff_book: Default::default(),
+            kept_reads: Vec::new(),
+            kept_through: 0,
         });
         let home = employer.and_then(|e| super::front_office::market::state_of(self, e));
         if let Some(c) = self.career.as_mut() {
@@ -759,6 +761,61 @@ pub struct Career {
     /// What each season showed of your staff's work (update 2, Q3).
     #[serde(default)]
     pub staff_book: super::staff_read::Book,
+    /// Your staff's read of each player it follows, once a season (update
+    /// 2, lane 9A: the career arc). Kept from the day your staff follows
+    /// him; never rebuilt for the seasons before.
+    #[serde(default)]
+    pub kept_reads: Vec<KeptReads>,
+    /// The last season whose reads were kept (0: none yet; a save from
+    /// before the kept reads starts keeping at the next season's end).
+    #[serde(default)]
+    pub kept_through: i16,
+}
+
+/// One player's kept reads, oldest season first.
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct KeptReads {
+    pub id: u32,
+    pub rows: Vec<KeptRead>,
+}
+
+/// Your staff's read of a player as one season ended: his overall and the
+/// four ratings that matter most at his position, each with the rating's
+/// `Attr::index`, low and high on 1-99 (0 and 0 when nobody saw it); the
+/// middle of each of his position's eight skill families (0: not seen);
+/// his weight then in pounds. About 30 bytes a player a season.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct KeptRead {
+    pub season: i16,
+    /// His position then (`Position::index`).
+    pub pos: u8,
+    pub ovr: [u8; 2],
+    pub keys: [[u8; 3]; 4],
+    pub fams: [u8; 8],
+    pub wt: u16,
+}
+
+impl Career {
+    /// The kept reads of one player, oldest first.
+    pub fn kept_of(&self, id: u32) -> &[KeptRead] {
+        self.kept_reads.iter().find(|k| k.id == id).map_or(&[], |k| k.rows.as_slice())
+    }
+
+    /// Keeps a season's read; a second read of the same season replaces
+    /// the first.
+    pub fn keep_read(&mut self, id: u32, row: KeptRead) {
+        let at = match self.kept_reads.iter().position(|k| k.id == id) {
+            Some(i) => i,
+            None => {
+                self.kept_reads.push(KeptReads { id, rows: Vec::new() });
+                self.kept_reads.len() - 1
+            }
+        };
+        let rows = &mut self.kept_reads[at].rows;
+        rows.retain(|r| r.season != row.season);
+        rows.push(row);
+        rows.sort_by_key(|r| r.season);
+    }
 }
 
 /// A high school assistant (people topic 10): most teach at the school and
