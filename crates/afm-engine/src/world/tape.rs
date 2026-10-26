@@ -62,6 +62,10 @@ pub struct Snap {
     pub pressured: bool,
     /// Wiped out by a penalty.
     pub null: bool,
+    /// A punt or kickoff: the return team showed the look a fake or a
+    /// surprise onside kick waits for (update 2, G18).
+    #[serde(default)]
+    pub ret_look: bool,
 }
 
 /// One game's film.
@@ -161,6 +165,7 @@ impl Tape {
                 scramble: r.kind == PlayType::Scramble,
                 pressured: r.pressured,
                 null: r.nullified || r.kind == PlayType::NoPlay,
+                ret_look: r.look,
             });
             if kind == 1 && !r.nullified {
                 for &(blocker, defender, pass, won, _, pressure) in &r.blocks {

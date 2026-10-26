@@ -506,6 +506,18 @@ pub struct Prep {
     /// (G14): player id and the knowledge added (taken back on a refresh).
     #[serde(default)]
     pub boosts: Vec<(u32, f32)>,
+    /// The staff's own install before this week's prep weighs on it, kept
+    /// so a refresh sets the install again instead of compounding it.
+    #[serde(default)]
+    pub install_base: Option<f64>,
+    /// The know each boost really added, by family (taken back exactly).
+    #[serde(default)]
+    pub boost_added: Vec<(u32, Vec<f32>)>,
+    /// The quarterback's checks and the "if" lines were set by your plan
+    /// (`checks`, `ifs`). Otherwise the staff reads them from the
+    /// opponent's film at kickoff, the same way for every team.
+    #[serde(default)]
+    pub planned: bool,
 }
 
 /// The quarterback's checks at the line this week (G19), in the order of
@@ -513,10 +525,38 @@ pub struct Prep {
 /// last two off unless switched on.
 pub const CHECKS: [&str; 4] = [
     "Out of a run into a loaded box",
-    "To a throw against a light box with two deep",
+    "Out of a throw, to the run, against a light box with two deep",
     "Hot throw against Cover 0",
     "To the run against two high on early downs",
 ];
+
+/// The staff's own checks for an opponent (G19), as bits of `CHECKS`: the
+/// hot throw when their film shows Cover 0 on one snap in twelve or more,
+/// the run against two high when half their coverages or more are two
+/// deep. Every staff reads its opponent this way.
+pub fn staff_checks(film: &Film) -> u8 {
+    use super::playbook::Coverage;
+    let all: f32 = film.cov.iter().sum::<f32>().max(1.0);
+    let zero = film.cov[Coverage::Cover0 as usize] / all;
+    let two: f32 = Coverage::ALL.iter().filter(|c| c.high() == 2).map(|c| film.cov[*c as usize]).sum::<f32>() / all;
+    (if zero >= 0.08 { 4 } else { 0 }) | (if two >= 0.5 { 8 } else { 0 })
+}
+
+/// The staff's own "if they do this" lines for an opponent (G20): the ones
+/// their film says could come up.
+pub fn staff_ifs(film: &Film) -> Vec<u8> {
+    let snaps = film.def_snaps.max(1.0);
+    let mut v = vec![2, 5];
+    if film.blitz / snaps >= 0.25 {
+        v.insert(0, 0);
+    }
+    let runs: f32 = film.look.iter().map(|x| x[0]).sum();
+    let plays: f32 = film.look.iter().map(|x| x[0] + x[1]).sum();
+    if plays > 0.0 && runs / plays >= 0.45 {
+        v.push(3);
+    }
+    v
+}
 
 /// The "if they do this, we go to that" lines (G20), by kind: the trigger
 /// and the move.
@@ -576,6 +616,9 @@ impl Default for Prep {
             rotation: Vec::new(),
             base_only: Vec::new(),
             boosts: Vec::new(),
+            install_base: None,
+            boost_added: Vec::new(),
+            planned: false,
         }
     }
 }

@@ -114,9 +114,23 @@ pub(crate) fn team_guidelines(
     level: Level,
     seat: bool,
 ) -> Guidelines {
+    // A head coach who calls a side himself calls his own game there, at
+    // your team (an assistant's) as at every other.
+    let own_calls = |mut g: Guidelines| {
+        if head.is_some() && oc_call == head {
+            g = g.without_offense();
+        }
+        if head.is_some() && dc_call == head {
+            g = g.without_defense();
+        }
+        if head.is_some() && oc_call == head && dc_call == head {
+            g.stick = Default::default();
+        }
+        g
+    };
     if seat {
         // An assistant's team plays to its head coach's guidelines.
-        let mut g = if w.seat_head() { w.plans.guide } else { head_guidelines(w, head, level) };
+        let mut g = if w.seat_head() { w.plans.guide } else { own_calls(head_guidelines(w, head, level)) };
         if let Some(y) = head.and_then(|h| w.coaches[h].yours).filter(|_| w.seat_head()) {
             if y.calls_offense {
                 firm_side(&mut g, true);
@@ -125,18 +139,20 @@ pub(crate) fn team_guidelines(
                 firm_side(&mut g, false);
             }
         }
-        return g;
+        return fit_level(g, level);
     }
-    let mut g = head_guidelines(w, head, level);
-    // Wing-T stays a high school offense for the AI.
+    own_calls(fit_level(head_guidelines(w, head, level), level))
+}
+
+/// What a level's football allows (the Identity board's own rule): the
+/// wing-T is a high school offense, and a pro team's base front has four
+/// or more in the box, not a nickel front.
+pub fn fit_level(mut g: Guidelines, level: Level) -> Guidelines {
     if level != Level::HighSchool && g.system.to == Some(OffScheme::WingT) {
         g.system = Want::default();
     }
-    if head.is_some() && oc_call == head {
-        g = g.without_offense();
-    }
-    if head.is_some() && dc_call == head {
-        g = g.without_defense();
+    if matches!(level, Level::Nfl | Level::Other) && g.front.to.is_some_and(|b| b.nickel_base()) {
+        g.front = Want::default();
     }
     g
 }
@@ -318,6 +334,10 @@ pub(crate) fn seat_apply(w: &World, team: &mut GameTeam) {
         },
         Level::HighSchool => match s.program.map(|h| w.high_schools[h].coach) {
             Some(c) => (c, c, c),
+            None => return,
+        },
+        Level::Other => match s.other.and_then(|t| w.others.teams.get(t)) {
+            Some(t) => (t.head_coach, t.oc, t.dc),
             None => return,
         },
         _ => return,

@@ -30,6 +30,9 @@ use crate::training::seat::{SheetKind, SheetPlay};
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct SeatPlans {
+    /// Your high school's systems as this season's summer camp installed
+    /// them (G2, S5): the season and the install.
+    pub hs_install: Option<(i32, super::systems::Installed)>,
     /// Your identity: the head coach's guidelines (G1).
     pub guide: Guidelines,
     /// When you last changed it.
@@ -221,37 +224,62 @@ pub fn next_game(w: &World) -> Option<Next> {
 }
 
 /// Your games still to play this season from today (today's included),
-/// in order.
+/// in order: the schedule, the playoff games once they are set (an NFL
+/// round and the Super Bowl, a high school bracket's round, the other
+/// leagues' playoffs) and a game being played today.
 pub fn upcoming(w: &World) -> Vec<Next> {
     let Some((level, t)) = w.seat_team() else { return Vec::new() };
     let today = w.today;
-    let pick = |v: Vec<(Date, usize, usize)>| {
-        let mut out: Vec<Next> = v
+    let mut v: Vec<(Date, usize, usize)> = match level {
+        Level::College => w
+            .college_fixtures(Some(t))
             .into_iter()
-            .filter(|g| g.0 >= today)
-            .map(|(date, h, a)| Next { date, opp: if h == t { a } else { h }, home: h == t, level })
-            .collect();
-        out.sort_by_key(|n| n.date);
-        out
-    };
-    match level {
-        Level::College => pick(
-            w.college_fixtures(Some(t))
-                .into_iter()
-                .filter(|f| f.score.is_none() && !f.cancelled)
-                .map(|f| (f.date, f.home, f.away))
-                .collect(),
-        ),
-        Level::Nfl => pick(
-            w.nfl_fixtures(Some(t))
+            .filter(|f| f.score.is_none() && !f.cancelled)
+            .map(|f| (f.date, f.home, f.away))
+            .collect(),
+        Level::Nfl => {
+            let mut v: Vec<(Date, usize, usize)> = w
+                .nfl_fixtures(Some(t))
                 .into_iter()
                 .filter(|f| !f.played)
                 .filter_map(|f| Some((f.when?, f.home, f.away)))
-                .collect(),
-        ),
-        Level::HighSchool => pick(w.hs_fixtures(t).into_iter().map(|f| (f.date, f.home, f.away)).collect()),
+                .collect();
+            if let Some(s) = w.nfl_season.as_ref() {
+                // A playoff round's games are dropped once played.
+                v.extend(s.round_games.iter().filter(|g| g.2 == t || g.3 == t).map(|g| (g.4.date, g.2, g.3)));
+                if s.booked
+                    && s.champion.is_none()
+                    && let (Some(&a), Some(&b)) = (s.alive[0].first(), s.alive[1].first())
+                    && (a == t || b == t)
+                {
+                    v.push((w.dates.super_bowl, a, b));
+                }
+            }
+            v
+        }
+        Level::HighSchool => {
+            let mut v: Vec<(Date, usize, usize)> =
+                w.hs_fixtures(t).into_iter().map(|f| (f.date, f.home, f.away)).collect();
+            v.extend(w.hs_playoff_next(t));
+            v
+        }
+        Level::Other => super::pro::other::seat_fixtures(w),
         _ => Vec::new(),
+    };
+    // A game being played today, as the day built it.
+    if let Some(l) = w.live.as_ref().filter(|l| l.date == today && l.teams.contains(&t))
+        && !v.iter().any(|g| g.0 == today)
+    {
+        v.push((today, l.teams[0], l.teams[1]));
     }
+    let mut out: Vec<Next> = v
+        .into_iter()
+        .filter(|g| g.0 >= today)
+        .map(|(date, h, a)| Next { date, opp: if h == t { a } else { h }, home: h == t, level })
+        .collect();
+    out.sort_by_key(|n| n.date);
+    out.dedup_by_key(|n| n.date);
+    out
 }
 
 /// A team's name at a level.
@@ -259,6 +287,7 @@ pub fn team_name(w: &World, level: Level, i: usize) -> String {
     match level {
         Level::Nfl => w.nfl.get(i).map_or(String::new(), |t| t.name.to_string()),
         Level::HighSchool => w.school_name(i).to_string(),
+        Level::Other => super::pro::other::name(i, w.today.year()).to_string(),
         _ => w.program_name(i).to_string(),
     }
 }
@@ -267,7 +296,25 @@ pub fn team_name(w: &World, level: Level, i: usize) -> String {
 /// Sunday NFL game (five days out), Sunday for a Saturday (six), the
 /// weekend for a high school's Friday (six); never before the last game.
 pub fn plan_day(level: Level, game: Date) -> Date {
-    game.add(if level == Level::Nfl { -5 } else { -6 })
+    game.add(if pro(level) { -5 } else { -6 })
+}
+
+/// A pro league's level: the NFL, or another league's (its book's rules
+/// on an NFL roster's football).
+pub fn pro(level: Level) -> bool {
+    matches!(level, Level::Nfl | Level::Other)
+}
+
+/// How much more your league's play callers throw than the NFL's habits
+/// say (another league's book; 0 elsewhere).
+pub fn book_lean(w: &World) -> f64 {
+    match w.seat.filter(|s| s.level == Level::Other).and_then(|s| s.other) {
+        Some(t) => {
+            let book = super::pro::other::book(super::pro::other::league_of(t));
+            crate::game::Rules::for_book(book, w.today.year()).code.pass_lean
+        }
+        None => 0.0,
+    }
 }
 
 /// Your team as the engine would build it now (for drafting and reads).
@@ -281,6 +328,10 @@ pub fn our_team(w: &World) -> Option<GameTeam> {
             .as_ref()
             .and_then(|c| c.teams.get(t))
             .and_then(|x| x.clone())
+            .map(|mut x| {
+                crate::training::seat::sit_hurt(w, &mut x);
+                x
+            })
             .or_else(|| w.seat_game_team().map(|x| x.0)),
         Level::Nfl => super::pro::games::game_side(w, t).map(|s| s.team),
         Level::HighSchool => super::hs_year::seat_team(w, t),
@@ -481,15 +532,66 @@ fn family_of(p: &SheetPlay) -> Family {
     }
 }
 
-/// What your quarterback likes to throw (G12): the concepts he has
+/// The football season a day belongs to (January's bowls and playoffs
+/// close the last one).
+pub fn season_of(d: Date) -> i32 {
+    if d.month() <= 6 { d.year() - 1 } else { d.year() }
+}
+
+/// The season the self-scout reads: this one once you have played in it,
+/// else the last one (the tape a staff studies in the offseason and in
+/// camp).
+pub fn board_season(w: &World) -> i32 {
+    let now = season_of(w.today);
+    let Some((level, t)) = w.seat_team() else { return now };
+    let played = w.seat_games().iter().any(|g| g.level == level && season_of(g.date) == now && g.teams.contains(&t));
+    if played { now } else { now - 1 }
+}
+
+/// Your kept games of that season, at this level and with this team (a
+/// game from another job is not your team's film), oldest first, with
+/// your side.
+pub fn own_games(w: &World) -> Vec<(&super::seat::SeatGame, usize)> {
+    let Some((level, t)) = w.seat_team() else { return Vec::new() };
+    let season = board_season(w);
+    w.seat_games()
+        .iter()
+        .filter(|g| g.level == level && season_of(g.date) == season && g.teams.contains(&t))
+        .map(|g| (g, if g.teams[0] == t { 0 } else { 1 }))
+        .collect()
+}
+
+/// A snap the self-scout counts: a run or a throw on a real down, outside
+/// the two-minute drills and garbage time (both play to the clock and the
+/// score, not to habit).
+pub fn scout_counts(r: &crate::game::stats::PlayRecord) -> bool {
+    !r.nullified
+        && matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble)
+        && !(matches!(r.quarter, 2 | 4) && r.clock <= 120.0)
+        && r.garbage == [0, 0]
+        && r.down >= 1
+}
+
+/// Your starting quarterback as the team dresses (the depth order's first).
+pub fn starting_qb(team: &GameTeam, level: Level) -> Option<u32> {
+    let margin = if level == Level::HighSchool { 4.0 } else { 99.0 };
+    let d = crate::game::roster::depth_chart(team, margin);
+    d.list(crate::positions::Position::QB).first().map(|&i| team.players[i].id)
+}
+
+/// What your quarterback likes to throw (G12): the concepts he himself has
 /// completed and gained on most in your games this season, eight throws
-/// at least (a favourite is earned only through reps).
-pub fn favourites(w: &World) -> Vec<(usize, u32, f64)> {
-    let Some((_, t)) = w.seat_team() else { return Vec::new() };
+/// at least (a favourite is earned only through his own reps).
+pub fn favourites(w: &World, qb: Option<u32>) -> Vec<(usize, u32, f64)> {
+    let Some(qb) = qb else { return Vec::new() };
     let mut by: Vec<(usize, u32, f64)> = Vec::new();
-    for g in w.seat_games().iter().filter(|g| g.date.days_to(w.today) < 240) {
-        let side = if g.teams[0] == t { 0 } else { 1 };
-        for r in g.stats.plays.iter().filter(|r| r.offense == side && r.kind == PlayType::Pass && !r.nullified) {
+    for (g, side) in own_games(w) {
+        for r in g
+            .stats
+            .plays
+            .iter()
+            .filter(|r| r.offense == side && r.kind == PlayType::Pass && !r.nullified && r.passer == Some(qb))
+        {
             let Some(c) = concept_in(&r.call) else { continue };
             match by.iter_mut().find(|x| x.0 == c) {
                 Some(x) => {
@@ -536,14 +638,12 @@ impl Tell {
 }
 
 /// Your offense's looks this season with their run and pass counts (from
-/// your kept games' play logs).
+/// your kept games' play logs, the snaps the self-scout counts).
 pub fn own_looks(w: &World) -> Vec<Tell> {
-    let Some((_, t)) = w.seat_team() else { return Vec::new() };
     let mut out: Vec<Tell> = Vec::new();
-    for g in w.seat_games().iter().filter(|g| g.date.0 > w.today.0 - 240) {
-        let side = if g.teams[0] == t { 0 } else { 1 };
+    for (g, side) in own_games(w) {
         let mut seen: Vec<usize> = Vec::new();
-        for r in g.stats.plays.iter().filter(|r| r.offense == side && !r.nullified) {
+        for r in g.stats.plays.iter().filter(|r| r.offense == side && scout_counts(r)) {
             let run = match r.kind {
                 PlayType::Run => true,
                 PlayType::Pass | PlayType::Sack | PlayType::Scramble => false,
@@ -617,23 +717,39 @@ pub fn tells(w: &World, full: bool) -> Vec<Tell> {
 }
 
 /// Whether your staff did a full self-scout this season (a bye week's
-/// study, G6).
+/// study, G6): it holds to the season's end.
 pub fn studied(w: &World) -> bool {
-    w.plans.study.is_some_and(|d| d.0 <= w.today.0 && w.today.0 - d.0 <= 200)
+    w.plans.study.is_some_and(|d| d.0 <= w.today.0 && season_of(d) == season_of(w.today))
 }
 
-/// A full self-scout: the staff spends a bye week on its own film. Only
-/// with no game in the next eight days (G6: "best on a bye").
+/// A full self-scout: the staff spends an in-season bye week on its own
+/// film (G6: "best on a bye"): a game played this season, the next one
+/// more than eight days off.
 pub fn study(w: &mut World) -> Result<(), String> {
-    if let Some(n) = next_game(w)
-        && n.date.0 - w.today.0 <= 8
-    {
+    can_study(w)?;
+    w.plans.study = Some(w.today);
+    Ok(())
+}
+
+/// Whether today is a bye week your staff can spend on its own film, and
+/// why not when it isn't.
+pub fn can_study(w: &World) -> Result<(), String> {
+    let Some(n) = next_game(w) else {
+        return Err("Your staff studies its own film in a bye week, with the season under way.".into());
+    };
+    let now = season_of(w.today);
+    let played = w.seat_team().is_some_and(|(level, t)| {
+        w.seat_games().iter().any(|g| g.level == level && season_of(g.date) == now && g.teams.contains(&t))
+    });
+    if !played {
+        return Err("Your staff studies its own film in a bye week: no game this season on tape yet.".into());
+    }
+    if n.date.0 - w.today.0 <= 8 {
         return Err(format!(
             "Your staff studies its own film in a bye week: the next game is in {} days and the week belongs to the opponent.",
             n.date.0 - w.today.0
         ));
     }
-    w.plans.study = Some(w.today);
     Ok(())
 }
 
@@ -806,19 +922,75 @@ pub fn draft_for(w: &World, next: &Next, notes: [&[u8]; 2], round: u8) -> Option
 /// `prepare`, which drafts, so `prepare` hands its own team in rather than
 /// building it again.
 pub fn draft_with(w: &World, team: &GameTeam, next: &Next, notes: [&[u8]; 2], round: u8) -> Draft {
-    let film = opp_film(w, next.level, next.opp);
-    let college = next.level != Level::Nfl;
-    let mut rng = Rng::new(key_of(w, next.date, next.opp, round));
+    let qb = starting_qb(team, next.level);
+    let t = &w.training;
+    let designs = t
+        .designs
+        .iter()
+        .enumerate()
+        .filter(|(_, d)| d.installing)
+        .take(2)
+        .map(|(i, d)| {
+            (i as u16, d.design.formation, t.install_level(crate::training::seat::InstallKey::Design(i as u16)))
+        })
+        .collect();
+    let inp = DraftIn {
+        film: opp_film(w, next.level, next.opp),
+        level: next.level,
+        seed: key_of(w, next.date, next.opp, round),
+        favs: favourites(w, qb).into_iter().map(|x| x.0).collect(),
+        tells: tells(w, false),
+        designs,
+    };
+    let (off, def) = draft_sides(team, &inp, notes);
+    let (oc, dc) = callers(w);
+    Draft {
+        game: next.date,
+        opp: next.opp,
+        drafted: w.today,
+        by: [oc, dc],
+        off,
+        def,
+        status: [[0; 6]; 2],
+        edits: [[0; 6]; 2],
+        notes: [notes[0].to_vec(), notes[1].to_vec()],
+        round,
+    }
+}
+
+/// What the coordinators draft from: the opponent's film, the level, the
+/// draft's own random key, the quarterback's favourite concepts, your
+/// offense's tells and your designs going in (playbook slot, formation,
+/// how far in).
+pub struct DraftIn {
+    pub film: Film,
+    pub level: Level,
+    pub seed: u32,
+    pub favs: Vec<usize>,
+    pub tells: Vec<Tell>,
+    pub designs: Vec<(u16, Formation, f32)>,
+}
+
+/// Both sides of the coordinators' draft (G7-G13): the offense's boxes,
+/// script, tendency breakers, designs and wet sheet; the defense's boxes,
+/// script and wet sheet.
+pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<Entry>, Vec<Entry>) {
+    let film = &inp.film;
+    let college = !pro(inp.level);
+    let mut rng = Rng::new(inp.seed);
     let mut mem = Memory::default();
-    mem.study(&film);
+    mem.study(film);
     let te = team.players.iter().filter(|p| p.position == crate::positions::Position::TE).count();
     let fb = team.players.iter().filter(|p| p.position == crate::positions::Position::RB).count() >= 2;
-    let ctx = OffCtx { has_fb: fb, te_count: te.min(3), qb_run: 0.3, level: level_of(next.level), plan: team.plan().0 };
+    // His quarterback's running, as the game reads it (the depth order's
+    // first quarterback).
+    let qb = starting_qb(team, inp.level);
+    let qb_run = qb.and_then(|id| team.players.iter().find(|p| p.id == id)).map_or(0.0, crate::game::flow::qb_run);
+    let ctx = OffCtx { has_fb: fb, te_count: te.min(3), qb_run, level: level_of(inp.level), plan: team.plan().0 };
     let staff = team.staff;
-    let two_from = crate::game::Rules::for_level(level_of(next.level)).two_point_from;
-    let favs: Vec<usize> = favourites(w).into_iter().map(|x| x.0).collect();
-    let tells = tells(w, false);
-    let designs = &w.training.designs;
+    let two_from = crate::game::Rules::for_level(level_of(inp.level)).two_point_from;
+    let favs = &inp.favs;
+    let tells = &inp.tells;
     let (runs_f, pass_f, fav_first, breakers, _, _) = biases(notes[0]);
     let mut off: Vec<Entry> = Vec::new();
     for &k in &OFF_BOXES {
@@ -863,7 +1035,7 @@ pub fn draft_with(w: &World, team: &GameTeam, next: &Next, notes: [&[u8]; 2], ro
                 if family_know(team, family_of(&p)) < 0.72 {
                     marks |= CUT;
                 }
-                let why = off_reason(&p, sheet::key(k, hash), &film, marks, &mut rng);
+                let why = off_reason(&p, sheet::key(k, hash), film, marks, &mut rng);
                 let tests = if k == sheet::SCRIPT { tests_of(&p, i) } else { String::new() };
                 off.push(Entry { k: sheet::key(k, hash), play: Play::Off(p), why, tests, marks });
             }
@@ -884,21 +1056,20 @@ pub fn draft_with(w: &World, team: &GameTeam, next: &Next, notes: [&[u8]; 2], ro
         off.push(Entry {
             k: sheet::FIRST,
             play: Play::Off(p),
-            why: off_reason(&p, sheet::FIRST, &film, BREAKER, &mut rng),
+            why: off_reason(&p, sheet::FIRST, film, BREAKER, &mut rng),
             tests: String::new(),
             marks: BREAKER,
         });
     }
     // Your designs in the install go on the first-down list.
-    for (i, d) in designs.iter().enumerate().filter(|(_, d)| d.installing).take(2) {
+    for &(i, f, learned) in &inp.designs {
         let p = SheetPlay {
-            personnel: d.design.formation.personnel,
-            backfield: d.design.formation.backfield,
-            set: d.design.formation.set,
-            play: SheetKind::Design(i as u16),
+            personnel: f.personnel,
+            backfield: f.backfield,
+            set: f.set,
+            play: SheetKind::Design(i),
             hash: 0,
         };
-        let learned = w.training.install_level(crate::training::seat::InstallKey::Design(i as u16));
         let marks = if learned < 0.35 { CUT } else { 0 };
         off.push(Entry {
             k: sheet::FIRST,
@@ -945,7 +1116,7 @@ pub fn draft_with(w: &World, team: &GameTeam, next: &Next, notes: [&[u8]; 2], ro
         );
     }
     let mut dmem = Memory::default();
-    dmem.study(&film);
+    dmem.study(film);
     let looks = [
         (Formation::plain(Personnel::P11, Backfield::Shotgun, 1.0), 6.0),
         (Formation::plain(Personnel::P12, Backfield::UnderCenter, 1.0), 2.5),
@@ -993,7 +1164,7 @@ pub fn draft_with(w: &World, team: &GameTeam, next: &Next, notes: [&[u8]; 2], ro
             def.push(Entry {
                 k,
                 play: Play::Def(c, p),
-                why: def_reason(c, p, k, &film),
+                why: def_reason(c, p, k, film),
                 tests: String::new(),
                 marks: 0,
             });
@@ -1036,7 +1207,7 @@ pub fn draft_with(w: &World, team: &GameTeam, next: &Next, notes: [&[u8]; 2], ro
             def.push(Entry {
                 k: sheet::SCRIPT,
                 play: Play::Def(c, p),
-                why: def_reason(c, p, sheet::FIRST, &film),
+                why: def_reason(c, p, sheet::FIRST, film),
                 tests: tests[i % tests.len()].to_string(),
                 marks: 0,
             });
@@ -1059,19 +1230,66 @@ pub fn draft_with(w: &World, team: &GameTeam, next: &Next, notes: [&[u8]; 2], ro
         })
         .collect();
     def.extend(dwet);
-    let (oc, dc) = callers(w);
-    Draft {
-        game: next.date,
-        opp: next.opp,
-        drafted: w.today,
-        by: [oc, dc],
-        off,
-        def,
-        status: [[0; 6]; 2],
-        edits: [[0; 6]; 2],
-        notes: [notes[0].to_vec(), notes[1].to_vec()],
-        round,
+    (off, def)
+}
+
+/// A drafted offense as the engine reads it: each box's calls, dry or
+/// wet. A design goes on once `design` gives its playbook id (once it is
+/// in).
+pub fn sheet_calls(off: &[Entry], wet: bool, design: impl Fn(u16) -> Option<usize>) -> Vec<(u8, Vec<SheetCall>)> {
+    let mut v: Vec<(u8, Vec<SheetCall>)> = Vec::new();
+    for e in off.iter().filter(|e| (e.marks & WET != 0) == wet) {
+        let Play::Off(p) = e.play else { continue };
+        let kind = match p.play {
+            SheetKind::Run(r) => PlayKind::Run(r),
+            SheetKind::Pass(i) => PlayKind::Pass(i as usize),
+            SheetKind::Design(k) => match design(k) {
+                Some(id) => PlayKind::Pass(id),
+                None => continue,
+            },
+        };
+        let call = (p.personnel, p.backfield, p.set, kind);
+        match v.iter_mut().find(|x| x.0 == e.k) {
+            Some(x) => x.1.push(call),
+            None => v.push((e.k, vec![call])),
+        }
     }
+    v
+}
+
+/// A drafted defense as the engine reads it: each box's coverage and
+/// pressure, dry or wet.
+pub fn dsheet_calls(def: &[Entry], wet: bool) -> Vec<(u8, Vec<DefSheetCall>)> {
+    let mut v: Vec<(u8, Vec<DefSheetCall>)> = Vec::new();
+    for e in def.iter().filter(|e| (e.marks & WET != 0) == wet) {
+        let Play::Def(c, p) = e.play else { continue };
+        match v.iter_mut().find(|x| x.0 == e.k) {
+            Some(x) => x.1.push((c, p)),
+            None => v.push((e.k, vec![(c, p)])),
+        }
+    }
+    v
+}
+
+/// A drafted sheet on a team with no world around it, for the engine
+/// checks (`match_check` with AFM_SHEET): the coordinators' draft from no
+/// film yet, as in week one, and the stick to the card a seat team gets
+/// from its guideline (both play callers).
+pub fn check_sheet(team: &mut GameTeam, level: Level, seed: u32) {
+    let inp = DraftIn { film: Film::default(), level, seed, favs: Vec::new(), tells: Vec::new(), designs: Vec::new() };
+    let (off, def) = draft_sides(team, &inp, [&[], &[]]);
+    let g = team.staff.guide;
+    let pull = |own: f64| g.stick.pull().map_or(own, |(t, k)| guide::expected(own, t, k));
+    let stick = pull(guide::habit_stick(team.staff.offense.creativity));
+    let dstick = pull(guide::habit_stick(team.staff.defense.creativity));
+    let none = |_: u16| None;
+    let prep = &mut team.prep;
+    prep.sheet = sheet_calls(&off, false, none);
+    prep.wet = sheet_calls(&off, true, none);
+    prep.dsheet = dsheet_calls(&def, false);
+    prep.dwet = dsheet_calls(&def, true);
+    prep.stick = if prep.sheet.is_empty() { 0.0 } else { stick };
+    prep.dstick = if prep.dsheet.is_empty() { 0.0 } else { dstick };
 }
 
 fn deep_concept() -> usize {
@@ -1095,7 +1313,7 @@ fn formation_of(look: usize) -> Formation {
 
 pub fn level_of(l: Level) -> crate::player::Level {
     match l {
-        Level::Nfl => crate::player::Level::NFL,
+        Level::Nfl | Level::Other => crate::player::Level::NFL,
         Level::HighSchool => crate::player::Level::HS,
         _ => crate::player::Level::FBS,
     }
@@ -1110,6 +1328,9 @@ pub fn callers(w: &World) -> (Option<usize>, Option<usize>) {
         Level::HighSchool => {
             let c = s.program.and_then(|h| w.high_schools[h].coach);
             (c, c, c)
+        }
+        Level::Other => {
+            s.other.and_then(|t| w.others.teams.get(t)).map_or((None, None, None), |t| (t.head_coach, t.oc, t.dc))
         }
         _ => (None, None, None),
     };
@@ -1171,19 +1392,33 @@ pub fn review(w: &mut World, side: usize, part: Option<usize>, approve: bool, no
     let round = old.round.saturating_add(1);
     let mut fresh =
         draft_for(w, &next, [&all[0], &all[1]], round).ok_or("Your coordinators can't draft without a team.")?;
-    // Approved parts and the other side stay as they were.
-    let keep = |e: &Entry, s: usize| old.status[s][part_of(e.k)] == 1 || s != side;
-    let mut off: Vec<Entry> = old.off.iter().filter(|e| keep(e, 0)).cloned().collect();
-    off.extend(fresh.off.into_iter().filter(|e| !keep(e, 0)));
-    let mut def: Vec<Entry> = old.def.iter().filter(|e| keep(e, 1)).cloned().collect();
-    def.extend(fresh.def.into_iter().filter(|e| !keep(e, 1)));
-    fresh.off = off;
-    fresh.def = def;
+    // The coordinator redraws the part sent back (every part not approved
+    // when none is named). Approved parts, the other parts, the other side
+    // and the plays you added yourself stay as they were.
+    let redo = |p: usize, s: usize| s == side && old.status[s][p] != 1 && part.is_none_or(|x| x == p);
+    let merge = |old_list: &[Entry], fresh_list: Vec<Entry>, s: usize| -> Vec<Entry> {
+        let mut v: Vec<Entry> =
+            old_list.iter().filter(|e| !redo(part_of(e.k), s) || e.marks & YOURS != 0).cloned().collect();
+        for e in fresh_list.into_iter().filter(|e| redo(part_of(e.k), s)) {
+            let dup = v.iter().any(|x| x.k == e.k && x.play == e.play && (x.marks & WET) == (e.marks & WET));
+            if !dup {
+                v.push(e);
+            }
+        }
+        v
+    };
+    fresh.off = merge(&old.off, std::mem::take(&mut fresh.off), 0);
+    fresh.def = merge(&old.def, std::mem::take(&mut fresh.def), 1);
     fresh.status = old.status;
     fresh.edits = old.edits;
-    for s in fresh.status[side].iter_mut() {
-        if *s != 1 {
-            *s = 2;
+    let list = if side == 0 { &fresh.off } else { &fresh.def };
+    for p in 0..fresh.status[side].len() {
+        if redo(p, side) {
+            fresh.status[side][p] = 2;
+            // Your edits there went with the old draft; the plays you
+            // added are what is left of them.
+            let yours = list.iter().filter(|e| part_of(e.k) == p && e.marks & YOURS != 0).count();
+            fresh.edits[side][p] = yours.min(u8::MAX as usize) as u8;
         }
     }
     fresh.drafted = old.drafted;
@@ -1200,19 +1435,15 @@ pub fn edit(w: &mut World, side: usize, i: usize, act: &str, add: Option<Play>) 
         return Err("No game ahead to plan for.".into());
     }
     let d = w.plans.draft.as_mut().ok_or("No draft.")?;
-    let list = if side == 0 { &mut d.off } else { &mut d.def };
+    let list = if side == 0 { &d.off } else { &d.def };
     if act == "add" {
         let play = add.ok_or("Pick a play.")?;
         let k = list.get(i).map_or(sheet::FIRST, |e| e.k);
         let wet = list.get(i).map_or(0, |e| e.marks & WET);
-        let count = list.iter().filter(|e| e.k == k && e.marks & WET == wet).count();
-        if count >= 12 {
-            return Err("Twelve plays a box at most: a call sheet is one card.".into());
-        }
-        list.push(Entry { k, play, why: "your call".into(), tests: String::new(), marks: YOURS | wet });
-        d.edits[side.min(1)][part_of(k)] += 1;
-        d.status[side.min(1)][part_of(k)] = 2;
-    } else {
+        return add_to_box(w, side, k, wet, play);
+    }
+    let list = if side == 0 { &mut d.off } else { &mut d.def };
+    {
         let e = list.get(i).ok_or("No such play.")?.clone();
         let part = part_of(e.k);
         match act {
@@ -1229,9 +1460,47 @@ pub fn edit(w: &mut World, side: usize, i: usize, act: &str, add: Option<Play>) 
             }
             _ => return Err("Keep, move up, cut or add.".into()),
         }
-        d.edits[side.min(1)][part] += 1;
+        let n = &mut d.edits[side.min(1)][part];
+        *n = n.saturating_add(1);
         d.status[side.min(1)][part] = 2;
     }
+    sync(w);
+    w.refresh_seat_team();
+    Ok(())
+}
+
+/// A design deleted from the play designer: it leaves the drafted sheet,
+/// and the designs after it move down one, as they do on the practice
+/// sheet and the installs.
+pub fn design_removed(w: &mut World, k: u16) {
+    let Some(d) = w.plans.draft.as_mut() else { return };
+    d.off.retain(|e| !matches!(e.play, Play::Off(p) if p.play == SheetKind::Design(k)));
+    for e in d.off.iter_mut() {
+        if let Play::Off(p) = &mut e.play
+            && let SheetKind::Design(x) = p.play
+            && x > k
+        {
+            p.play = SheetKind::Design(x - 1);
+        }
+    }
+}
+
+/// Your play added to a box (`k` with its hash: 0 either hash; `wet` the
+/// bad-weather sheet's bit).
+pub fn add_to_box(w: &mut World, side: usize, k: u8, wet: u8, play: Play) -> Result<(), String> {
+    if !ensure_draft(w) {
+        return Err("No game ahead to plan for.".into());
+    }
+    let d = w.plans.draft.as_mut().ok_or("No draft.")?;
+    let list = if side == 0 { &mut d.off } else { &mut d.def };
+    let count = list.iter().filter(|e| e.k == k && e.marks & WET == wet).count();
+    if count >= 12 {
+        return Err("Twelve plays a box at most: a call sheet is one card.".into());
+    }
+    list.push(Entry { k, play, why: "your call".into(), tests: String::new(), marks: YOURS | wet });
+    let n = &mut d.edits[side.min(1)][part_of(k)];
+    *n = n.saturating_add(1);
+    d.status[side.min(1)][part_of(k)] = 2;
     sync(w);
     w.refresh_seat_team();
     Ok(())
@@ -1250,26 +1519,14 @@ pub fn week_mut(w: &mut World) -> &mut Week {
 /// usual ones, the hot throw against a team that plays Cover 0, the run
 /// against two-high against a team that lives in it.
 pub fn staff_checks(film: &Film) -> u8 {
-    let all: f32 = film.cov.iter().sum::<f32>().max(1.0);
-    let zero = film.cov[Coverage::Cover0 as usize] / all;
-    let two: f32 = Coverage::ALL.iter().filter(|c| c.high() == 2).map(|c| film.cov[*c as usize]).sum::<f32>() / all;
-    (if zero >= 0.08 { 4 } else { 0 }) | (if two >= 0.5 { 8 } else { 0 })
+    crate::game::roster::staff_checks(film)
 }
 
 /// The staff's own "if they do this" lines for an opponent (G20): the ones
-/// their film says could come up.
+/// their film says could come up (the engine reads every AI staff's the
+/// same way, `game::roster::staff_ifs`).
 pub fn staff_ifs(film: &Film) -> Vec<u8> {
-    let snaps = film.def_snaps.max(1.0);
-    let mut v = vec![2, 5];
-    if film.blitz / snaps >= 0.25 {
-        v.insert(0, 0);
-    }
-    let runs: f32 = film.look.iter().map(|x| x[0]).sum();
-    let plays: f32 = film.look.iter().map(|x| x[0] + x[1]).sum();
-    if plays > 0.0 && runs / plays >= 0.45 {
-        v.push(3);
-    }
-    v
+    crate::game::roster::staff_ifs(film)
 }
 
 /// Who knows our call words (G5): people who were with us since the
@@ -1296,7 +1553,8 @@ pub fn knowers(w: &World) -> Vec<Knower> {
         Level::College => {
             let roster = &w.programs[t].roster;
             for (i, p) in w.people.iter().enumerate() {
-                if roster.contains(&i) || !p.college_staff.iter().any(|s| s.1 == t) {
+                // The cheap test first: almost nobody was ever ours.
+                if !p.college_staff.iter().any(|s| s.1 == t) || roster.contains(&i) {
                     continue;
                 }
                 let side = if super::systems::offense(p.player.position) { 0 } else { 1 };
@@ -1353,8 +1611,10 @@ pub fn knowers(w: &World) -> Vec<Knower> {
         }
         _ => {}
     }
-    // Coaches who left the staff with the words.
+    // Coaches who left the staff with the words: a coach knows his own
+    // side's words (new words on that side close him out).
     for (i, c) in w.coaches.iter().enumerate() {
+        let side = if c.came_up.offense() { 0 } else { 1 };
         let was = c.history.iter().any(|s| {
             let ours = match (level, s.employer) {
                 (Level::College, super::coach::Employer::College(p)) => p == t,
@@ -1362,7 +1622,7 @@ pub fn knowers(w: &World) -> Vec<Knower> {
                 (Level::HighSchool, super::coach::Employer::HighSchool(p)) => p == t,
                 _ => false,
             };
-            ours && s.to >= since(0).min(since(1))
+            ours && s.to >= since(side)
         });
         if !was || c.retired || c.yours.is_some() {
             continue;
@@ -1380,7 +1640,6 @@ pub fn knowers(w: &World) -> Vec<Knower> {
             (_, super::coach::Employer::Nfl(p)) => (w.nfl.get(p).map_or(String::new(), |x| x.name.to_string()), None),
             _ => continue,
         };
-        let side = if c.came_up.offense() { 0 } else { 1 };
         out.push(Knower {
             name: c.name.clone(),
             what: "coach".into(),
@@ -1395,8 +1654,10 @@ pub fn knowers(w: &World) -> Vec<Knower> {
     out
 }
 
+/// The year you came to this team (your call words are as old as your job
+/// here at most).
 fn first_year(w: &World) -> i32 {
-    w.career.as_ref().map_or(w.year, |c| c.started.year())
+    w.career.as_ref().map_or(w.year, |c| c.market.job_since.unwrap_or(c.started).year())
 }
 
 fn pro_team(w: &World, p: &super::Person) -> String {
@@ -1407,8 +1668,13 @@ fn pro_team(w: &World, p: &super::Person) -> String {
 /// their team or staff reads about one call in nine on his side, a backup
 /// less; at most three in ten.
 pub fn leak(w: &World, opp: usize) -> [f64; 2] {
+    leak_from(&knowers(w), opp)
+}
+
+/// The same from the knowers in hand (a board that lists them).
+pub fn leak_from(knowers: &[Knower], opp: usize) -> [f64; 2] {
     let mut v = [0.0f64; 2];
-    for k in knowers(w).into_iter().filter(|k| k.team == Some(opp)) {
+    for k in knowers.iter().filter(|k| k.team == Some(opp)) {
         v[k.side] += 0.11 * k.share;
     }
     [v[0].min(0.3), v[1].min(0.3)]
@@ -1436,50 +1702,25 @@ pub(crate) fn prepare(w: &World, team: &mut GameTeam) {
     };
     let prep = &mut team.prep;
     if let Some(d) = drafted.as_ref() {
-        let off = |wet: bool| -> Vec<(u8, Vec<SheetCall>)> {
-            let mut v: Vec<(u8, Vec<SheetCall>)> = Vec::new();
-            for e in d.off.iter().filter(|e| (e.marks & WET != 0) == wet) {
-                let Play::Off(p) = e.play else { continue };
-                let kind = match p.play {
-                    SheetKind::Run(r) => PlayKind::Run(r),
-                    SheetKind::Pass(i) => PlayKind::Pass(i as usize),
-                    SheetKind::Design(k) => {
-                        let t = &w.training;
-                        if t.install_level(crate::training::seat::InstallKey::Design(k)) < 0.35 {
-                            continue;
-                        }
-                        match t.design_ids.get(k as usize) {
-                            Some(&id) => PlayKind::Pass(id),
-                            None => continue,
-                        }
-                    }
-                };
-                let call = (p.personnel, p.backfield, p.set, kind);
-                match v.iter_mut().find(|x| x.0 == e.k) {
-                    Some(x) => x.1.push(call),
-                    None => v.push((e.k, vec![call])),
-                }
+        // A design goes on the card once the players know it a third of
+        // the way.
+        let t = &w.training;
+        let design = |k: u16| {
+            if t.install_level(crate::training::seat::InstallKey::Design(k)) < 0.35 {
+                return None;
             }
-            v
+            t.design_ids.get(k as usize).copied()
         };
-        let def = |wet: bool| -> Vec<(u8, Vec<DefSheetCall>)> {
-            let mut v: Vec<(u8, Vec<DefSheetCall>)> = Vec::new();
-            for e in d.def.iter().filter(|e| (e.marks & WET != 0) == wet) {
-                let Play::Def(c, p) = e.play else { continue };
-                match v.iter_mut().find(|x| x.0 == e.k) {
-                    Some(x) => x.1.push((c, p)),
-                    None => v.push((e.k, vec![(c, p)])),
-                }
-            }
-            v
-        };
-        prep.sheet = off(false);
-        prep.wet = off(true);
-        prep.dsheet = def(false);
-        prep.dwet = def(true);
+        prep.sheet = sheet_calls(&d.off, false, design);
+        prep.wet = sheet_calls(&d.off, true, design);
+        prep.dsheet = dsheet_calls(&d.def, false);
+        prep.dwet = dsheet_calls(&d.def, true);
     }
     prep.stick = if prep.sheet.is_empty() { 0.0 } else { stick };
-    prep.dstick = if prep.dsheet.is_empty() { 0.0 } else { guide::habit_stick(team.staff.defense.creativity) };
+    // The same guideline holds the defensive play caller (G1: both callers).
+    let own_d = guide::habit_stick(team.staff.defense.creativity);
+    let dstick = g.stick.pull().map_or(own_d, |(t, k)| guide::expected(own_d, t, k));
+    prep.dstick = if prep.dsheet.is_empty() { 0.0 } else { dstick };
     // The words (G5).
     let words = w.plans.words;
     prep.learn = [0, 1].map(|s| {
@@ -1502,6 +1743,7 @@ pub(crate) fn prepare(w: &World, team: &mut GameTeam) {
     prep.teams = if this { wk.teams } else { Teams::default() };
     prep.checks = wk.checks.filter(|_| this).unwrap_or_else(|| staff_checks(&film));
     prep.ifs = wk.ifs.clone().filter(|_| this).unwrap_or_else(|| staff_ifs(&film));
+    prep.planned = true;
     prep.base_only = if this { wk.base_only.clone() } else { Vec::new() };
     // Instructions for this opponent (G19): take back last time's, give
     // this week's.
@@ -1512,13 +1754,16 @@ pub(crate) fn prepare(w: &World, team: &mut GameTeam) {
         Vec::new()
     };
     let old_boosts = std::mem::take(&mut prep.boosts);
+    let old_added = std::mem::take(&mut prep.boost_added);
     let boosts: Vec<(u32, f32)> = if this {
         wk.extra.iter().map(|&(id, x)| (id, if x == 1 { 0.04 } else { 0.03 })).collect()
     } else {
         Vec::new()
     };
-    team.prep.orders = new.clone();
-    team.prep.boosts = boosts.clone();
+    // Only what this plan gave is taken back: an instruction the staff had
+    // already given stays, and the know added is what the clamp let in.
+    let mut pushed: Vec<(u32, Instruction)> = Vec::new();
+    let mut added: Vec<(u32, Vec<f32>)> = Vec::new();
     for p in team.players.iter_mut() {
         for (_, ins) in old.iter().filter(|o| o.0 == p.id) {
             if let Some(i) = p.orders.0.iter().position(|x| x == ins) {
@@ -1528,16 +1773,42 @@ pub(crate) fn prepare(w: &World, team: &mut GameTeam) {
         for (_, ins) in new.iter().filter(|o| o.0 == p.id) {
             if !p.orders.0.contains(ins) {
                 p.orders.0.push(*ins);
+                pushed.push((p.id, *ins));
             }
         }
-        let back: f32 = old_boosts.iter().filter(|b| b.0 == p.id).map(|b| b.1).sum();
-        let add: f32 = boosts.iter().filter(|b| b.0 == p.id).map(|b| b.1).sum();
-        if back != 0.0 || add != 0.0 {
-            for k in p.know.iter_mut() {
-                *k = (*k - back + add).clamp(0.0, 1.0);
+        match old_added.iter().find(|b| b.0 == p.id) {
+            Some((_, d)) => {
+                for (k, x) in p.know.iter_mut().zip(d) {
+                    *k = (*k - x).clamp(0.0, 1.0);
+                }
             }
+            // A save from before kept only the amount.
+            None => {
+                let back: f32 = old_boosts.iter().filter(|b| b.0 == p.id).map(|b| b.1).sum();
+                if back != 0.0 {
+                    for k in p.know.iter_mut() {
+                        *k = (*k - back).clamp(0.0, 1.0);
+                    }
+                }
+            }
+        }
+        let add: f32 = boosts.iter().filter(|b| b.0 == p.id).map(|b| b.1).sum();
+        if add != 0.0 {
+            let d: Vec<f32> = p
+                .know
+                .iter_mut()
+                .map(|k| {
+                    let was = *k;
+                    *k = (*k + add).clamp(0.0, 1.0);
+                    *k - was
+                })
+                .collect();
+            added.push((p.id, d));
         }
     }
+    team.prep.orders = pushed;
+    team.prep.boosts = boosts;
+    team.prep.boost_added = added;
 }
 
 /// The day's planning (from the clock): the coordinators draft the next
@@ -1548,6 +1819,12 @@ pub(crate) fn day(w: &mut World, d: Date) {
     if w.seat.is_none() || w.career.is_none() {
         return;
     }
+    // Your high school's summer camp install (G2).
+    super::hs_year::camp_install(w);
+    // The keys of a game just played, checked before a short week's plan
+    // day puts the next game's on the board (a Thursday game's plan day is
+    // the Saturday before: the day after a Sunday game, or that day).
+    check_keys(w);
     if let Some(n) = next_game(w)
         && d >= plan_day(n.level, n.date)
         && w.plans.draft.as_ref().is_some_and(|x| x.game == n.date && x.opp == n.opp && x.early_look(n.level))
@@ -1567,7 +1844,6 @@ pub(crate) fn day(w: &mut World, d: Date) {
             set_keys(w);
         }
     }
-    check_keys(w);
     // The team's grasp of the plan today (G14), for the week's chart.
     if let Some(n) = next_game(w).filter(|n| n.date.0 - d.0 <= 8)
         && let Some(team) = our_team(w)
@@ -1663,7 +1939,7 @@ fn set_keys(w: &mut World) {
     let Some(n) = next_game(w) else { return };
     let film = opp_film(w, n.level, n.opp);
     let ypc = match n.level {
-        Level::Nfl => 4.2,
+        Level::Nfl | Level::Other => 4.2,
         Level::HighSchool => 4.4,
         _ => 4.6,
     };

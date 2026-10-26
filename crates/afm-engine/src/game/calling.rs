@@ -500,7 +500,8 @@ pub fn call_offense(staff: &Staff, mem: &Memory, sit: &Situation, ctx: &OffCtx, 
     // The head coach's run share (update 2, G2): the caller leans toward it
     // by its firmness on every down; the clock and the score still rule.
     if let Some((run, k)) = staff.guide.run.pull() {
-        let own = super::guide::habit_pass(sit.college, scheme, c.aggressiveness);
+        // His habit as he calls it here: the league's book leans too.
+        let own = super::guide::habit_pass(sit.college, scheme, c.aggressiveness) + sit.lean;
         p_pass += k * ((1.0 - run) - own);
     }
     // A line in your plan (G20): run it more.

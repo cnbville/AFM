@@ -55,6 +55,7 @@ pub(super) fn staff(w: &World, a: &Value) -> Reply {
     };
     let offense = role == Role::OffensiveCoordinator;
     let g = guidelines(w);
+    let college = !w.seat_team().is_some_and(|x| matches!(x.0, Cal::Nfl | Cal::Other));
     let mut against: Vec<Value> = Vec::new();
     if offense {
         if let Some(s) = g.system.to {
@@ -85,7 +86,12 @@ pub(super) fn staff(w: &World, a: &Value) -> Reply {
         .take(40)
         .map(|c| {
             let co = &w.coaches[c.coach];
-            let know = co.system_know();
+            // Your staff's read of him (his knowledge and his nature are
+            // hidden): as wide as its read of his teaching, wider for a
+            // man you don't know.
+            let half = (2.5 * (c.read.1 - c.read.0) as f64).clamp(6.0, 20.0);
+            let know = super::know_read(w, c.coach, half);
+            let amb = super::trait_read(w, c.coach, co.personality.ambition, 0, half);
             let mut ticks: Vec<Value> = Vec::new();
             let mut score = 0.0;
             let mut n = 0.0;
@@ -107,7 +113,11 @@ pub(super) fn staff(w: &World, a: &Value) -> Reply {
                     add("System", know[i], format!("calls the {}", OFFENSES[best(&know, 0..5)].name()));
                 }
                 if let Some(r) = g.run.to {
-                    let own = 1.0 - guide::habit_pass(true, o, 10.0);
+                    // At your level, with his aggressiveness as your staff
+                    // reads it (the engine's caller is his ambition).
+                    let own = 1.0
+                        - (guide::habit_pass(college, o, amb) + afm_engine::world::plans::book_lean(w))
+                            .clamp(0.05, 0.95);
                     add(
                         "Run or pass",
                         1.0 - (r - own).abs() * 3.0,
@@ -135,7 +145,7 @@ pub(super) fn staff(w: &World, a: &Value) -> Reply {
                     add("Coverage", 1.0 - (m - own).abs() * 2.5, format!("about {:.0}% man on his own", 100.0 * own));
                 }
                 if let Some(p) = g.pressure.to {
-                    let own = guide::habit_pressure(co.personality.ambition);
+                    let own = guide::habit_pressure(amb);
                     add(
                         "Pressure",
                         1.0 - (p - own).abs() * 3.0,

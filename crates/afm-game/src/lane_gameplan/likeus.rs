@@ -246,8 +246,8 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
         let mut by: Vec<(String, u32, f64)> = Vec::new();
         for (_, t, them) in &like {
             // Their offense against defenses like ours: the coverage the
-            // like-us defense played and what it gave up.
-            for x in tape_snaps(t, 1 - *them) {
+            // like-us defense played and what it gave up (their snaps).
+            for x in tape_snaps(t, *them) {
                 if x.coverage.is_empty() {
                     continue;
                 }
@@ -337,20 +337,11 @@ fn sheet_play_of(name: &str, look: &str) -> Option<SheetPlay> {
 }
 
 /// Your coordinator's suggestion taken: the play goes on the first-down
-/// list.
+/// list, from either hash.
 pub(super) fn add(w: &mut World, a: &Value) -> Result<(), String> {
     head(w)?;
     let name = a.get("name").and_then(Value::as_str).ok_or("Missing play.")?;
     let look = a.get("look").and_then(Value::as_str).unwrap_or("11 gun doubles");
     let p = sheet_play_of(name, look).ok_or("That play isn't in your playbook.")?;
-    if !plans::ensure_draft(w) {
-        return Err("No game ahead to plan for.".into());
-    }
-    let d = w.plans.draft.as_ref().ok_or("No draft.")?;
-    let i = d
-        .off
-        .iter()
-        .position(|e| sheet::split(e.k).0 == sheet::FIRST && e.marks & WET == 0)
-        .ok_or("The first-down list is missing.")?;
-    plans::edit(w, 0, i, "add", Some(Play::Off(p)))
+    plans::add_to_box(w, 0, sheet::key(sheet::FIRST, 0), 0, Play::Off(p))
 }

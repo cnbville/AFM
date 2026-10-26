@@ -81,7 +81,7 @@ async function dpPlans(a) {
   const team = st.mine || null;
   if (team) setColors(team.colors);
   let out = { body: "", actions: "", kick: "" };
-  if (tab === "Identity") out = await dpIdentityTab();
+  if (tab === "Identity") out = await dpIdentityTab(a);
   else if (tab === "Self-scout") out = await dpScoutTab();
   else if (tab === "Call sheet") out = await dpSheetTab();
   else if (tab === "Installs") out = await dpInstallsTab();
@@ -174,8 +174,10 @@ function dpIdDetail(x, r) {
 function dpCoord(c) {
   return `<div class="dp-coord"><div><b>${rich(c.name)}</b><span class="${c.warn ? "warn" : ""}">${esc(c.mood)}</span></div><span>${esc(c.role)}${c.yours ? "" : ` · ${c.of ? `agrees with ${c.agree} of your ${dpPlural(c.of, "guideline")} on his side` : "no guidelines set on his side"}`}</span><span class="k">${esc(c.knows)}</span><span>${esc(c.line)}</span></div>`;
 }
-async function dpIdentityTab() {
+async function dpIdentityTab(a) {
   const seg = keep("dpidseg", { v: "guide" });
+  // A link can ask for a segment (game day's "Open Plans" asks for the rules).
+  if (a && (a.seg === "rules" || a.seg === "guide")) seg.v = a.seg;
   const segHtml = dpSeg("dpkeep", [["guide", "Guidelines"], ["rules", "Game rules and call names"]], seg.v, { key: "dpidseg", f: "v" });
   if (seg.v === "rules") return dpRulesTab(segHtml);
   const x = await dpGet("dp_identity");
@@ -196,7 +198,7 @@ async function dpIdentityTab() {
   const actions = x.head
     ? `<button class="st-btn glass" data-act="dptalk">Talk it through with staff</button><button class="st-btn primary" data-act="dpsave"${n ? "" : " disabled"}>Save the identity</button>`
     : `<span class="dp-ps">The head coach's identity: you coach to it.</span>`;
-  return { body: `<div class="dp-cols">${left}${dpIdDetail(x, sel)}</div>`, actions, kick: x.set ? `set ${esc(x.set)}` : "nothing set yet" };
+  return { body: `<div class="dp-cols id">${left}${dpIdDetail(x, sel)}</div>`, actions, kick: x.set ? `set ${esc(x.set)}` : "nothing set yet" };
 }
 
 // ---------- Game rules and call names (board 20) ----------
@@ -399,7 +401,7 @@ async function dpInstallsTab() {
   try {
     const p = await dpGet("plans");
     if (p.designs && p.designs.length && k.unit === "offense") {
-      designs = `<div><span class="dp-lbl">Your own plays going in</span>${p.designs.map((d) => `<label class="dp-opt" style="cursor:pointer"><span><input type="checkbox" data-act="tr-inst" data-k="${d.k}" ${d.installing ? "checked" : ""}> ${esc(d.design.name)}</span>${typeof trInstall === "function" ? trInstall(d.install, d.words) : `<small>${esc(d.words)}</small>`}</label>`).join("")}</div>`;
+      designs = `<div><span class="dp-lbl">Your own plays going in</span>${p.designs.map((d) => `<label class="dp-opt" style="cursor:pointer"><span><input type="checkbox" data-act="dpinst" data-k="${d.k}" ${d.installing ? "checked" : ""}> ${esc(d.design.name)}</span>${typeof trInstall === "function" ? trInstall(d.install, d.words) : `<small>${esc(d.words)}</small>`}</label>`).join("")}</div>`;
     }
   } catch (e) {
     designs = "";
@@ -475,6 +477,8 @@ async function dpPackagesPage(a) {
 const dpGdBase = screens.gameday;
 screens.gameday = async (a) => {
   try {
+    // A link can ask for a tab ("See game day" asks for the Game plan).
+    if (a && ["Report", "Film room", "Game plan", "Calling"].includes(a.tab)) S.keep.gdtab = { t: a.tab };
     return await dpGdBase(a);
   } finally {
     DP.reuse = false;
@@ -527,18 +531,19 @@ window.dpWeekTab = async (h, parts) => {
   const p2 = `<div class="panel"><div><div class="dp-sec"><b>If they do this, we go to</b><small>the play callers switch on the look</small></div>${ifs}</div>
     <div><div class="dp-sec"><b>Player instructions</b><small>for ${esc(x.opp_name)} only</small></div>${orders}</div>
     <div><div class="dp-sec"><b>The quarterback's checks</b><small>at the line, from what he sees</small></div>${checks}</div></div>`;
-  const teams = DP_ST.map(([key, label, opts]) => `<div class="dp-st"><span>${label}</span><span><span class="dp-seg small">${opts.map((t, v) => `<button ${wk({ teams: { [key]: v } })} aria-pressed="${x.teams[key] === v}"${dis}>${t}</button>`).join("")}</span></span></div>`).join("");
+  const filmOf = (key) => (x.teams.film && x.teams.film[key] ? `<small class="muted">${esc(x.teams.film[key])}</small>` : "");
+  const teams = DP_ST.map(([key, label, opts]) => `<div class="dp-st"><span>${label}</span><span><span class="dp-seg small">${opts.map((t, v) => `<button ${wk({ teams: { [key]: v } })} aria-pressed="${x.teams[key] === v}"${dis}>${t}</button>`).join("")}</span>${filmOf(key)}</span></div>`).join("");
   const keys = x.keys.length ? x.keys.map((k, i) => `<div class="dp-lk"><span>${esc(k.text)}</span><span>${i + 1}</span></div>`).join("") : `<div class="dp-foot">Your staff writes the keys on plan day, ${esc(x.keys_day)}.</div>`;
   const last = x.last_keys ? `<div><div class="dp-sec"><b>Last game's keys · ${esc(x.last_keys.opp)}</b><small>${x.last_keys.met} of ${x.last_keys.of} met</small></div>${x.last_keys.keys.map((k) => `<div class="dp-lk" title="${esc(k.what)}"><span>${esc(k.text)}<br><small class="muted">${esc(k.what)}</small></span><span class="${k.met ? "" : "miss"}">${k.met ? "✓" : "✗"}</span></div>`).join("")}</div>` : "";
   const r = x.week_rules;
-  const rseg = (k, items) => `<span class="dp-seg small">${items.map(([v, t]) => `<button data-act="gd-rule" data-k="${k}" data-v="${v}" aria-pressed="${r[k] === v}">${t}</button>`).join("")}</span>`;
+  const rseg = (k, items) => `<span class="dp-seg small">${items.map(([v, t]) => `<button data-act="gd-rule" data-k="${k}" data-v="${v}" aria-pressed="${r[k] === v}"${dis}>${t}</button>`).join("")}</span>`;
   const rules = `<div class="dp-rulesnote"><span class="dp-lbl">Game rules · ${x.rules_changed ? "changed for this game" : "from the identity"}</span><span>4th downs ${esc(DP_FOURTH[r.fourth])} · two-point ${esc(DP_TWO[r.two])} · ${esc(DP_TO[r.timeouts])} · four-minute: ${esc(DP_FM[r.four])} · ${esc(DP_TEMPO[r.tempo])}. Change any of them for this game only.</span>
     <div class="row"><small>4th downs</small>${rseg("fourth", [["staff", "Staff"], ["numbers", "Numbers"], ["aggressive", "Aggressive"], ["conservative", "Conservative"]])}</div>
     <div class="row"><small>Two-point</small>${rseg("two", [["staff", "Staff"], ["chart", "Chart"], ["kick", "Kick"]])}</div>
     <div class="row"><small>Tempo</small>${rseg("tempo", [["normal", "Normal"], ["hurry", "No-huddle"], ["milk", "Milk it"]])}</div>
     <div class="row"><small>Timeouts</small>${rseg("timeouts", [["staff", "Staff"], ["keep_two", "Keep two"], ["keep_one", "Keep one"], ["free", "Freely"]])}</div>
     <div class="row"><small>Four-minute</small>${rseg("four", [["staff", "Staff"], ["run", "Run it out"], ["attack", "Attack"]])}</div>
-    <div class="row"><small>${x.rules_changed ? "Only this game: the standing rules come back after it." : "The standing rules and the 4th-down chart are on Plans."}</small><span class="dp-btns">${x.rules_changed ? '<button class="dp-chipbtn" data-act="gd-rulereset">Back to the standing rules</button>' : ""}<a class="link" data-go="plans" data-tab="Identity">Open Plans ›</a></span></div></div>`;
+    <div class="row"><small>${x.rules_changed ? "Only this game: the standing rules come back after it." : "The standing rules and the 4th-down chart are on Plans."}</small><span class="dp-btns">${x.rules_changed && x.head ? '<button class="dp-chipbtn" data-act="gd-rulereset">Back to the standing rules</button>' : ""}<a class="link" data-go="plans" data-args='{"tab":"Identity","seg":"rules"}'>Open Plans ›</a></span></div></div>`;
   const p3 = `<div class="panel"><div><div class="dp-sec"><b>Special teams</b><small>${x.teams.fg_range ? `field goal range ${esc(x.teams.fg_range)}` : "no kicker on the roster"}</small></div>${teams}<div class="dp-foot" style="padding-top:6px">Returners and the cover teams are on the depth chart's <a class="link" data-go="depth" data-tab="Kickoff return">return boards</a>.</div></div>
     <div><div class="dp-sec"><b>Keys to the game</b><small>checked after the final whistle</small></div>${keys}</div>${last}${rules}</div>`;
   const bar = `<div class="dp-ph" style="margin-bottom:12px"><span><span class="dp-pt">The week's plan</span><span class="dp-ps">against ${rich(x.opp)} · ${esc(x.game)}${x.locked ? " · locked" : ""}</span></span><span class="dp-btns"><button class="st-btn small glass" data-go="plans" data-tab="Call sheet">The call sheet${x.sheet.waiting ? ` · ${dpPlural(x.sheet.waiting, "part")} waiting` : x.sheet.drafted ? " · approved" : ""}</button>${x.head ? `<button class="st-btn small ${x.locked ? "glass" : "primary"}" ${wk({ lock: !x.locked })}>${x.locked ? "Unlock the plan" : "Lock the plan"}</button>` : ""}</span></div>`;
@@ -617,7 +622,12 @@ for (const name of ["recruit_board", "draftboard"]) {
   screens[name] = async (a) => {
     const html = await base(a);
     try {
-      return html + (await dpFitRecruits());
+      const add = await dpFitRecruits();
+      if (!add) return html;
+      // Inside the board's padded column: before its last two closing tags
+      // (the .pad, then the .film).
+      const tail = /<\/div>\s*<\/div>\s*$/;
+      return tail.test(html) ? html.replace(tail, `${add}</div></div>`) : html + add;
     } catch (e) {
       return html;
     }
@@ -729,11 +739,21 @@ Object.assign(CORE_MORE, {
     if (!(await sure(`New call names for the ${name}?`, "Your players learn new words this week: about one extra bust in 70 snaps. Everyone who left with the old words stops reading your calls.", "Change them"))) return;
     dpDo("dp_words", { side, act: "change" }, el, `New ${name} words: the players learn them this week.`);
   },
+  dpinst: (el) => dpDo("plans_install", { design: Number(el.dataset.k), on: el.checked }, el, el.checked ? "It goes in this week." : "Taken out of the install."),
   dpstudy: (el) => dpDo("dp_study", { side: el.dataset.side }, el, "Your staff ran the full study: every snap since spring."),
   dpedit: (el) => {
     const k = keep("dpsheet", { side: "offense", wet: false });
     const act = el.dataset.a;
     if (act === "cut") DP.sel.play = null;
+    if (act === "up" && DP.sheet) {
+      // The play swaps with the one above it in the same box, hash and
+      // weather: the selection follows the play.
+      const i = Number(el.dataset.i);
+      const box = [DP.sheet.script, ...DP.sheet.extras, ...DP.sheet.grid].find((b) => b.plays.some((p) => p.i === i));
+      const me = box && box.plays.find((p) => p.i === i);
+      const above = me ? box.plays.filter((p) => p.i < i && (p.hash || 0) === (me.hash || 0) && !!p.wet === !!me.wet) : [];
+      if (above.length) DP.sel.play = Math.max(...above.map((p) => p.i));
+    }
     dpDo("dp_sheet_edit", { side: k.side, i: Number(el.dataset.i), act }, el, act === "cut" ? "Cut from the sheet." : act === "keep" ? "It stays on the sheet." : "");
   },
   dpnote: (el) => {

@@ -87,6 +87,7 @@ pub(super) fn view(w: &mut World, a: &Value) -> Reply {
     let wet = a.get("wet").and_then(Value::as_bool).unwrap_or(false);
     let s = seat(w)?;
     let level = s.level;
+    let qb = plans::starting_qb(&s.team, level);
     drop(s);
     if !plans::ensure_draft(w) {
         return Ok(json!({
@@ -133,7 +134,7 @@ pub(super) fn view(w: &mut World, a: &Value) -> Reply {
     let by = d.by[side].map(|c| if w.coaches[c].is_yours() { "you".to_string() } else { coach_link(w, c) });
     let all_ok = parts.iter().all(|p| p["approved"].as_bool() == Some(true));
     let wet_n = list.iter().filter(|e| e.marks & WET != 0).count();
-    let favs: Vec<Value> = plans::favourites(w)
+    let favs: Vec<Value> = plans::favourites(w, qb)
         .into_iter()
         .map(|(c, n, epa)| json!({ "name": PASS_CONCEPTS[c].name, "n": n, "epa": (epa / n as f64 * 100.0).round() / 100.0 }))
         .collect();

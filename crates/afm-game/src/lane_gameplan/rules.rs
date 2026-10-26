@@ -258,7 +258,7 @@ pub(super) fn view(w: &World) -> Reply {
                 "changed": words.changed[side].map(date_text),
                 "fresh": words.changed[side].is_some_and(|d| w.today.0 - d.0 <= 10),
                 "knowers": n,
-                "leak": upcoming.first().map(|nx| super::pct(plans::leak(w, nx.opp)[side])),
+                "leak": upcoming.first().map(|nx| super::pct(plans::leak_from(&knowers, nx.opp)[side])),
             })
         })
         .collect();
@@ -362,18 +362,24 @@ pub(crate) fn change(r: &mut GameRules, a: &Value) -> Result<(), String> {
 /// (`week`: game day, for your next game; `reset` puts the standing rules
 /// back for it).
 pub(crate) fn set(w: &mut World, a: &Value) -> Result<(), String> {
+    // The game rules are the head coach's, the standing ones and a game's.
+    head(w)?;
     if a.get("week").and_then(Value::as_bool) == Some(true) {
-        let next = plans::next_game(w).ok_or("No game left on your schedule.")?;
+        // Your next game as game day finds it (a playoff game the schedule
+        // doesn't list yet included), else today.
+        let date = plans::next_game(w)
+            .map(|n| n.date)
+            .or_else(|| crate::lane_gameday::next_game(w).map(|n| n.date))
+            .unwrap_or(w.today);
         if a.get("reset").and_then(Value::as_bool) == Some(true) {
             w.gameday.week_rules = None;
             return Ok(());
         }
-        let mut r = w.gameday.rules_for(next.date);
+        let mut r = w.gameday.rules_for(date);
         change(&mut r, a)?;
-        w.gameday.week_rules = if r == w.gameday.rules { None } else { Some((next.date, r)) };
+        w.gameday.week_rules = if r == w.gameday.rules { None } else { Some((date, r)) };
         return Ok(());
     }
-    head(w)?;
     let mut r = w.gameday.rules;
     change(&mut r, a)?;
     w.gameday.rules = r;
