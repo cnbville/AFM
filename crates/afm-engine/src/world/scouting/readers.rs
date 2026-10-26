@@ -474,12 +474,14 @@ pub fn medical_rating(w: &World, staff: Staff) -> f64 {
     if r == 0 { 10.0 } else { r as f64 }
 }
 
-/// A full read of one player's file for a staff, or None if it has never
-/// looked at him.
+/// A full read of one player's file for a staff, or None until a report on
+/// him is written: a look still to come (a declared underclassman's film is
+/// filed a week ahead, his cross-check three) or one not yet written up
+/// reads nothing, so the file isn't "seen" without a rating in it.
 pub fn read(w: &World, staff: Staff, id: u32) -> Option<(Vec<Reader>, Vec<Evidence>, super::file::FileRead)> {
     let i = super::place(w, id)?;
     let (readers, looks, _) = evidence(w, staff, id);
-    if looks.is_empty() {
+    if !looks.iter().any(|l| l.date.add(readers[l.reader].lag(l.kind, id, l.date)) <= w.today) {
         return None;
     }
     let f = super::file::read(w, i, &readers, &looks, &norms(w, i), medical_rating(w, staff), Some(w.today));

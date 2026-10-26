@@ -558,6 +558,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
 }
 
 fn booking_letter(w: &mut World, p: usize) {
+    use crate::world::deals;
     let year = w.year;
     let target = year + 4;
     if w.legacy.college.booked.iter().any(|b| b.program == p && b.year == target) {
@@ -566,6 +567,10 @@ fn booking_letter(w: &mut World, p: usize) {
     let prog = &w.programs[p];
     let d = prog.division;
     if !matches!(d, Division::FBS | Division::FCS) {
+        return;
+    }
+    // Only with a date really open (the books hold one for this call).
+    if deals::booked(w, p, target) >= deals::slots(w, p, target) {
         return;
     }
     // Three real calls: a big name home-and-home, a neutral-site opener on
@@ -584,10 +589,29 @@ fn booking_letter(w: &mut World, p: usize) {
         c.sort_by(|a, b| a.0.total_cmp(&b.0));
         c.first().map(|x| x.1)
     };
-    let big = pick(&|x| x.division == Division::FBS && x.prestige > my_p + 0.1, 0xB16);
-    let neutral = pick(&|x| x.division == Division::FBS && (x.prestige - my_p).abs() < 0.15, 0x7E0);
-    let small =
-        pick(&|x| if d == Division::FBS { x.division == Division::FCS } else { x.division == Division::D2 }, 0x5A1);
+    // Each call is from a school with the date open, and a home-and-home
+    // needs the return date the season after on both sides.
+    let free = |q: usize, s: i32| deals::open(w, q, s);
+    let both = deals::open(w, p, target + 1);
+    let big = pick(
+        &|x| {
+            x.division == Division::FBS
+                && x.prestige > my_p + 0.1
+                && both
+                && free(x.id, target)
+                && free(x.id, target + 1)
+        },
+        0xB16,
+    );
+    let neutral =
+        pick(&|x| x.division == Division::FBS && (x.prestige - my_p).abs() < 0.15 && free(x.id, target), 0x7E0);
+    let small = pick(
+        &|x| {
+            (if d == Division::FBS { x.division == Division::FCS } else { x.division == Division::D2 })
+                && free(x.id, target)
+        },
+        0x5A1,
+    );
     let ad = w.programs[p].ad.as_ref().map_or("Athletic director".to_string(), |a| a.name.clone());
     let mut answers = Vec::new();
     let name = |q: usize| w.program_name(q).to_string();
@@ -643,15 +667,22 @@ pub(crate) fn answer_booking(w: &mut World, target: u32) {
     if kind == 0 {
         w.legacy.college.booked.push(Booking { year: first + 1, program: p, opp, kind, home: false, booked: year });
     }
+    // A neutral-site opener is a contract with a site and a payout, as the
+    // world's are: the builder, the books and the page all read it.
+    if kind == 1 && crate::world::deals::find(w, first, p, opp).is_none() {
+        let noise = crate::world::season::key_uniform(w.options.seed as u64 ^ 0x7E05, (opp as u64) << 20 ^ p as u64);
+        w.deals.push(crate::world::deals::neutral(p, opp, first, year, noise));
+    }
 }
 
-/// Booked games for a season, for the schedule builder: (home, away).
+/// Booked games for a season, for the schedule builder: (home, away). A
+/// booking that is also a contract (a neutral-site opener) plays as one.
 pub(crate) fn booked_games(w: &World, season: i32) -> Vec<(usize, usize)> {
     w.legacy
         .college
         .booked
         .iter()
-        .filter(|b| b.year == season)
+        .filter(|b| b.year == season && !crate::world::deals::met(w, b.program, b.opp, season))
         .map(|b| if b.home { (b.program, b.opp) } else { (b.opp, b.program) })
         .collect()
 }
