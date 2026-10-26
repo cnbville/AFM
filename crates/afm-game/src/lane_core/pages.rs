@@ -378,7 +378,7 @@ fn level_rating(w: &World, k: usize) -> Option<String> {
 
 /// Measurables with where each was taken (S2).
 /// Inches to the nearest eighth, as the combine writes them (32 3/8").
-fn eighths(x: f64) -> String {
+pub(crate) fn eighths(x: f64) -> String {
     let e = (x * 8.0).round() as i64;
     let (whole, part) = (e / 8, e % 8);
     match part {
@@ -429,7 +429,7 @@ fn measurables(w: &World, k: usize) -> Vec<Value> {
 }
 
 /// Every season's stat line he has: high school, college, NFL.
-fn seasons(w: &World, k: usize) -> Vec<Value> {
+pub(crate) fn seasons(w: &World, k: usize) -> Vec<Value> {
     let p = &w.people[k];
     let id = p.player.id;
     let mut v = Vec::new();

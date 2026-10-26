@@ -1,6 +1,6 @@
 # People: how it works today
 
-Checked against main at d9ecf1c on 2026-10-26.
+Checked against main at 567fdd4 on 2026-10-26.
 
 Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked in code as Claude's (proposed, not confirmed).
 

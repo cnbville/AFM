@@ -1,6 +1,6 @@
 # Match engine: how it works today
 
-Checked against main at d9ecf1c on 2026-10-26.
+Checked against main at 567fdd4 on 2026-10-26.
 
 Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "20" (the 1-20 read against the level, see the quick answers). In a block, w runs from -1 (the blocker has won) to +1 (the defender has shed him). U is a uniform 0-1 draw, N(m, sd) a normal one.
 
