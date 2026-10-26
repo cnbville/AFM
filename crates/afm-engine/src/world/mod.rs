@@ -42,6 +42,7 @@ pub mod news;
 pub(crate) mod nfl_year;
 pub mod norms;
 pub use nfl_year::NflTeamSeason;
+pub use recruiting::DraftRun;
 
 /// Last season's draft order once the season has ended (for the coming draft).
 pub(crate) fn nfl_year_order(w: &World) -> Option<Vec<usize>> {
@@ -967,6 +968,12 @@ impl Seat {
 pub const SPIN_UP_YEARS: u32 = 12;
 
 impl World {
+    /// What it took last draft to go in rounds 1-2 and in rounds 3-4, as
+    /// overall bars (a public fact: who went where and how they played).
+    pub fn draft_bars(&self) -> Option<(f64, f64)> {
+        self.draft_bars
+    }
+
     /// The world's first season: the spin-up years before recorded history.
     pub fn first_year(&self) -> i32 {
         self.options.start_year - self.options.history_years as i32 - SPIN_UP_YEARS as i32

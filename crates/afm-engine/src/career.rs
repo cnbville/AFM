@@ -1228,7 +1228,7 @@ pub(crate) fn draft_order(teams: &[Team], rng: &mut Rng) -> Vec<usize> {
 }
 
 /// How much a team needs a position, in grade points.
-pub(crate) fn need(team: &Team, pos: Position) -> f64 {
+pub fn need(team: &Team, pos: Position) -> f64 {
     let Some((rating, age)) = team.weakest_starter(pos) else {
         return 0.0;
     };
