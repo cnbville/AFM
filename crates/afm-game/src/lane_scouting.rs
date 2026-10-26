@@ -353,7 +353,7 @@ fn is_followed(w: &World, id: u32) -> bool {
 
 /// A short read of a player for a list row: the now range, the role words
 /// and how many looks.
-fn brief_read(w: &World, staff: readers::Staff, id: u32) -> Value {
+pub(crate) fn brief_read(w: &World, staff: readers::Staff, id: u32) -> Value {
     let Some(i) = sc::place(w, id) else { return Value::Null };
     let p = &w.people[i];
     match readers::read(w, staff, id) {

@@ -39,6 +39,7 @@ pub mod news;
 mod nfl_year;
 pub mod norms;
 pub use nfl_year::NflTeamSeason;
+pub use season::{key_normal, key_uniform};
 
 /// Last season's draft order once the season has ended (for the coming draft).
 pub(crate) fn nfl_year_order(w: &World) -> Option<Vec<usize>> {
@@ -438,6 +439,15 @@ impl Person {
         s.shrink_to_fit();
         self.notes.reserve_exact(1);
         self.notes.push(s);
+    }
+    /// His family's football ties (a brother's program, a bloodline): the
+    /// public record a recruiting search reads.
+    pub fn family(&self) -> &background::Family {
+        &self.family
+    }
+    /// How well off his family is, 0 to 1: what pays for camps and travel.
+    pub fn family_money(&self) -> f64 {
+        self.bg.money
     }
     /// The age on his latest season row. A row covers the season and the
     /// offseason after it, so every note about either gives this age and a

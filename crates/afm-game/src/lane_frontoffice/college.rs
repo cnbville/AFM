@@ -24,7 +24,6 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "recruit_board" => with(game, board),
         "recruit_map" => with(game, map),
         "recruit_area" => set_area(game, args),
-        "recruit_find" => with_args(game, args, find),
         "recruit_file" => with_args(game, args, file),
         "visits_desk" => with(game, visits),
         "portal_desk" => with_args(game, args, portal),
@@ -234,34 +233,28 @@ fn source_word(s: Source) -> &'static str {
     }
 }
 
-/// The services' public ranks of a class: by position nationally, in each
-/// state, and overall (stars first, then the services' running read).
+/// The services' public ranks of a class as last printed (update 2, minor
+/// bug 14): by position nationally, in each state, and overall.
 struct Ranks {
     by_id: HashMap<u32, (u32, u32, u32)>,
 }
 
 impl Ranks {
     fn new(w: &World, classes: &[i32]) -> Ranks {
-        let mut list: Vec<(u8, f64, usize, usize, u32)> = Vec::new();
-        for p in w.people.iter() {
-            if matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) && classes.contains(&p.class_of) {
-                let s = stars_of(p);
-                if s == 0 {
-                    continue;
-                }
-                let read = p.cal.service_read.unwrap_or(0.0);
-                list.push((s, read, p.player.position.index(), p.home_state, p.player.id));
-            }
-        }
-        list.sort_by(|a, b| b.0.cmp(&a.0).then(b.1.total_cmp(&a.1)).then(a.4.cmp(&b.4)));
-        let mut pos = [0u32; afm_engine::positions::POSITION_COUNT];
-        let mut state: HashMap<usize, u32> = HashMap::new();
         let mut by_id = HashMap::new();
-        for (n, &(_, _, k, s, id)) in list.iter().enumerate() {
-            pos[k] += 1;
-            let st = state.entry(s).or_insert(0);
-            *st += 1;
-            by_id.insert(id, (pos[k], *st, n as u32 + 1));
+        for &c in classes {
+            let Some(r) = afm_engine::world::scouting::services::class_ranks(w, c) else { continue };
+            let mut pos = [0u32; afm_engine::positions::POSITION_COUNT];
+            let mut state: HashMap<usize, u32> = HashMap::new();
+            for (n, &id) in r.ids.iter().enumerate() {
+                let Some(i) = afm_engine::world::scouting::place(w, id) else { continue };
+                let p = &w.people[i];
+                let k = p.player.position.index();
+                pos[k] += 1;
+                let st = state.entry(p.home_state).or_insert(0);
+                *st += 1;
+                by_id.insert(id, (pos[k], *st, n as u32 + 1));
+            }
         }
         Ranks { by_id }
     }
@@ -314,18 +307,26 @@ fn reader_role(w: &World, j: usize, pos: Position) -> String {
 
 /// His interest in your program in your staff's words: a headline, a
 /// tone, a reason, and who leads.
-struct Interest {
-    words: String,
-    tone: &'static str,
-    reason: String,
-    leader: Option<usize>,
+pub(crate) struct Interest {
+    pub(crate) words: String,
+    pub(crate) tone: &'static str,
+    pub(crate) reason: String,
+    pub(crate) leader: Option<usize>,
 }
 
-fn interest(w: &World, j: usize, i: usize, offered: bool) -> Interest {
+pub(crate) fn interest(w: &World, j: usize, i: usize, offered: bool) -> Interest {
     let p = &w.people[i];
     let s = desk::standing(p, j);
     let first = p.name.split_whitespace().next().unwrap_or("He").to_string();
     match s {
+        Standing::SignedHere if p.cal.signed.is_some_and(|x| x.walk_on) => {
+            return Interest {
+                words: "Walking on with you".into(),
+                tone: "good",
+                reason: "A preferred walk-on: a roster place without a scholarship.".into(),
+                leader: Some(j),
+            };
+        }
         Standing::SignedHere => {
             return Interest {
                 words: "Signed with you".into(),
@@ -343,13 +344,16 @@ fn interest(w: &World, j: usize, i: usize, offered: bool) -> Interest {
             };
         }
         Standing::SignedElsewhere => {
-            let c = p.cal.signed.unwrap().program;
-            return Interest {
-                words: format!("Signed with {}", name(w, c)),
-                tone: "bad",
-                reason: "A signed letter binds him.".into(),
-                leader: Some(c),
+            let x = p.cal.signed.unwrap();
+            let (words, reason) = if x.walk_on {
+                (
+                    format!("Walking on at {}", name(w, x.program)),
+                    "A preferred walk-on there: no letter, but his mind is made up.",
+                )
+            } else {
+                (format!("Signed with {}", name(w, x.program)), "A signed letter binds him.")
             };
+            return Interest { words, tone: "bad", reason: reason.into(), leader: Some(x.program) };
         }
         Standing::Gone => {
             return Interest { words: "Off the market".into(), tone: "bad", reason: String::new(), leader: None };
@@ -689,6 +693,14 @@ fn class_plan(w: &World, j: usize, rows: &[(usize, &desk::Target)]) -> Value {
 /// signees scored the way the composite services do (a star's rough
 /// rating, the best counting most), among your division's programs.
 fn class_rank(w: &World, j: usize, sign_year: i32) -> (Option<u32>, usize) {
+    let (rank, of, _, _) = class_ranks(w, j, sign_year);
+    (rank, of)
+}
+
+/// The same ranking nationally and in your conference: (national rank,
+/// programs in your division, conference rank, programs in your
+/// conference).
+fn class_ranks(w: &World, j: usize, sign_year: i32) -> (Option<u32>, usize, Option<u32>, usize) {
     let div = w.programs[j].division;
     let mut by: HashMap<usize, Vec<f64>> = HashMap::new();
     for p in w.people.iter() {
@@ -721,7 +733,15 @@ fn class_rank(w: &World, j: usize, sign_year: i32) -> (Option<u32>, usize) {
         .collect();
     scores.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
     let of = w.programs.iter().filter(|p| p.division == div).count();
-    (scores.iter().position(|s| s.1 == j).map(|k| k as u32 + 1), of)
+    let conf = &w.programs[j].conference;
+    let in_conf: Vec<usize> = scores.iter().map(|s| s.1).filter(|&x| w.programs[x].conference == *conf).collect();
+    let conf_of = w.programs.iter().filter(|p| p.conference == *conf && p.plays(w.year)).count();
+    (
+        scores.iter().position(|s| s.1 == j).map(|k| k as u32 + 1),
+        of,
+        in_conf.iter().position(|&x| x == j).map(|k| k as u32 + 1),
+        conf_of,
+    )
 }
 
 fn duties(w: &World, j: usize) -> Value {
@@ -839,14 +859,19 @@ fn area_staff(w: &World, j: usize) -> Vec<usize> {
     v
 }
 
-/// The country by state for this class: your board, its commits and
-/// offers, who leans elsewhere, every prospect the services rate three
-/// stars and up, your conference rivals' commits, and the assistant whose
-/// area each state is, with the top names on your board there.
+/// The country for this class (screens topic 7; board 7 of update 2): your
+/// board, its commits and offers, who leans elsewhere, every prospect at
+/// your level, your conference rivals' commits, and the assistant whose
+/// area each state is, by state; and on the real map (latitude and
+/// longitude: the screen draws it) your board at each prospect's hometown,
+/// the talent's metro areas, the rivals' campuses and your class so far.
 fn map(w: &World, j: usize) -> Reply {
     let o = desk::outlook(w, j);
     let year = o.sign_year;
     let n = w.states.len();
+    let pr = &w.programs[j];
+    let campus = geo::campus(pr.state, &pr.city);
+    let floor = level_floor(pr.division);
     let mut board = vec![0u32; n];
     let mut commits = vec![0u32; n];
     let mut offers = vec![0u32; n];
@@ -854,9 +879,16 @@ fn map(w: &World, j: usize) -> Reply {
     let mut all = vec![0u32; n];
     let mut rivals = vec![0u32; n];
     let mut top: Vec<Vec<Value>> = vec![Vec::new(); n];
+    let mut dots: Vec<Value> = Vec::new();
     let d = &w.front_office.college;
     let ids: Vec<u32> = d.board.iter().map(|t| t.id).collect();
     let at = index_map(w, &ids);
+    let home_of = |p: &Person| -> (usize, &str) {
+        match w.high_schools.get(p.hs) {
+            Some(h) => (h.state.min(n - 1), h.town.as_str()),
+            None => (p.home_state.min(n - 1), ""),
+        }
+    };
     for t in &d.board {
         let Some(&i) = at.get(&t.id) else { continue };
         let p = &w.people[i];
@@ -867,7 +899,8 @@ fn map(w: &World, j: usize) -> Reply {
         board[s] += 1;
         let offered = t.offered.is_some() && t.pulled.is_none();
         let st = desk::standing(p, j);
-        if matches!(st, Standing::CommittedHere | Standing::SignedHere | Standing::Enrolled) {
+        let here = matches!(st, Standing::CommittedHere | Standing::SignedHere | Standing::Enrolled);
+        if here {
             commits[s] += 1;
         }
         if offered {
@@ -877,14 +910,37 @@ fn map(w: &World, j: usize) -> Reply {
         if it.tone == "bad" {
             leaning[s] += 1;
         }
+        let kind = if here {
+            "c"
+        } else if it.tone == "bad" {
+            "b"
+        } else if offered {
+            "g"
+        } else {
+            "n"
+        };
+        let (hs, town) = home_of(p);
+        let place = geo::place(hs, town);
+        dots.push(json!({
+            "id": p.player.id, "name": p.name, "k": kind, "at": [round3(place.0), round3(place.1)],
+            "mi": geo::miles_between(campus, place).round(), "st": w.states[s].code,
+        }));
         if top[s].len() < 6 {
             top[s].push(json!({
                 "id": p.player.id, "name": p.name, "pos": p.player.position.name(), "stars": stars_of(p),
-                "town": views::hometown(w, p), "words": it.words, "tone": it.tone,
+                "town": views::hometown(w, p), "words": it.words, "tone": it.tone, "k": kind,
             }));
         }
     }
-    let conf = &w.programs[j].conference;
+    // Every prospect at your level, by state and by metro area; your class
+    // so far; your conference rivals' commits.
+    let conf = &pr.conference;
+    let mut towns: HashMap<(usize, &str), u32> = HashMap::new();
+    let mut rival_towns: HashMap<(usize, &str), u32> = HashMap::new();
+    let mut class: Vec<u32> = Vec::new();
+    let mut stars_in: Vec<u8> = Vec::new();
+    // (The plan's open slots already leave out the signees.)
+    let mut signed_n = 0usize;
     for p in &w.people {
         if p.class_of != year || !matches!(p.stage, Stage::HighSchool | Stage::PrepSchool | Stage::College) {
             continue;
@@ -893,17 +949,44 @@ fn map(w: &World, j: usize) -> Reply {
             continue;
         }
         let s = p.home_state.min(n - 1);
-        if stars_of(p) >= 3 {
+        if stars_of(p) >= floor || (floor <= 1 && !views::offers_of(p).is_empty()) {
             all[s] += 1;
+            *towns.entry(home_of(p)).or_default() += 1;
         }
-        let to = p.cal.signed.map(|x| x.program).or(p.cal.commit.map(|c| c.0));
+        let to = match (p.cal.signed, p.cal.commit) {
+            (Some(x), _) if !x.walk_on => Some(x.program),
+            (None, Some(c)) if !c.2 => Some(c.0),
+            _ => None,
+        };
+        if to == Some(j) {
+            class.push(p.player.id);
+            stars_in.push(stars_of(p));
+            signed_n += usize::from(p.cal.signed.is_some());
+        }
         if let Some(c) = to
             && c != j
             && w.programs[c].conference == *conf
         {
             rivals[s] += 1;
+            *rival_towns.entry(home_of(p)).or_default() += 1;
         }
     }
+    // How much of each lies within 250 and 500 miles of campus.
+    let near = |towns: &HashMap<(usize, &str), u32>| -> [u32; 2] {
+        let mut v = [0u32; 2];
+        for (&(s, town), &c) in towns {
+            let mi = geo::miles_between(campus, geo::place(s, town));
+            if mi <= 250.0 {
+                v[0] += c;
+            }
+            if mi <= 500.0 {
+                v[1] += c;
+            }
+        }
+        v
+    };
+    let all_near = near(&towns);
+    let rivals_near = near(&rival_towns);
     let staff = area_staff(w, j);
     let coach_json = |c: usize| {
         let g = w.programs[j].position_coaches.iter().position(|x| *x == Some(c));
@@ -913,10 +996,16 @@ fn map(w: &World, j: usize) -> Reply {
     let states: Vec<Value> = (0..n)
         .map(|s| {
             let c = afm_engine::world::scouting::dept::area_coach(w, j, s as u8);
+            let code = &w.states[s].code;
+            // The state's biggest town, and how far it is from campus.
+            let main = afm_engine::world::high_school::state_towns(code).first().map(|t| {
+                let mi = geo::miles_between(campus, (t.lat as f64, t.lon as f64)).round();
+                json!({ "town": t.town, "mi": mi })
+            });
             json!({
-                "code": w.states[s].code, "board": board[s], "commits": commits[s], "offers": offers[s],
+                "code": code, "board": board[s], "commits": commits[s], "offers": offers[s],
                 "leaning": leaning[s], "all": all[s], "rivals": rivals[s],
-                "coach": c.map(coach_json), "set": set.contains(&(s as u8)), "top": top[s],
+                "coach": c.map(coach_json), "set": set.contains(&(s as u8)), "top": top[s], "main": main,
             })
         })
         .collect();
@@ -933,14 +1022,98 @@ fn map(w: &World, j: usize) -> Reply {
             v
         })
         .collect();
+    let metros: Vec<Value> = metro_areas(w, towns)
+        .into_iter()
+        .map(|(name, at, v)| json!({ "name": name, "at": [round3(at.0), round3(at.1)], "v": v }))
+        .collect();
+    let campuses: Vec<Value> = w
+        .programs
+        .iter()
+        .enumerate()
+        .filter(|(k, x)| *k != j && x.conference == *conf && x.plays(w.year))
+        .map(|(k, x)| {
+            let at = geo::campus(x.state, &x.city);
+            json!({ "id": k, "name": w.program_name(k), "at": [round3(at.0), round3(at.1)] })
+        })
+        .collect();
+    // Your class: commits against the places, by stars at your level, its
+    // public rank nationally and in your conference, and its average
+    // composite rating.
+    let top_band = floor + 1;
+    let split = [
+        stars_in.iter().filter(|&&s| s >= top_band).count(),
+        stars_in.iter().filter(|&&s| s == floor).count(),
+        stars_in.iter().filter(|&&s| s < floor).count(),
+    ];
+    let (rank, of, conf_rank, conf_of) = class_ranks(w, j, year);
+    let comp = afm_engine::world::scouting::services::class_ranks(w, year)
+        .map(|c| afm_engine::world::scouting::services::composite(w, c))
+        .unwrap_or_default();
+    let rated: Vec<f64> = class.iter().filter_map(|id| comp.get(id).map(|c| c.1)).collect();
+    let average = (!rated.is_empty()).then(|| (rated.iter().sum::<f64>() / rated.len() as f64 * 1000.0).round() / 10.0);
+    let next = desk::next_signing(w);
     Ok(json!({
         "year": year,
-        "home": w.states[w.programs[j].state].code,
+        "home": w.states[pr.state].code,
+        "campus": { "name": w.program_name(j), "city": pr.city, "at": [round3(campus.0), round3(campus.1)] },
+        "level": pr.division.name(),
+        "floor": floor,
         "conference": w.conference_name(conf),
         "rivals_n": w.programs.iter().filter(|p| p.conference == *conf && p.plays(w.year)).count().saturating_sub(1),
         "states": states,
         "staff": areas,
+        "dots": dots,
+        "metros": metros,
+        "campuses": campuses,
+        "all_near": all_near,
+        "rivals_near": rivals_near,
+        "class": {
+            "commits": class.len(), "slots": o.slots + signed_n, "open": o.slots.saturating_sub(class.len() - signed_n),
+            "split": [
+                { "k": format!("{top_band}+ stars"), "v": split[0] },
+                { "k": format!("{floor} star{}", if floor == 1 { "" } else { "s" }), "v": split[1] },
+                { "k": match floor { 0 | 1 => "Unrated".to_string(), 2 => "1 star or none".to_string(), f => format!("{} or fewer", f - 1) }, "v": split[2] },
+            ],
+            "rank": rank, "rank_of": of, "conf_rank": conf_rank, "conf_of": conf_of, "average": average,
+            "signing": next.map(|(d, n)| json!({ "date": short_date(d), "name": n })),
+        },
     }))
+}
+
+/// The stars a staff at each level counts as its talent: three and up for
+/// the FBS, two and up for the FCS, any star or any offer below.
+fn level_floor(d: afm_engine::world::data::Division) -> u8 {
+    use afm_engine::world::data::Division;
+    match d {
+        Division::FBS => 3,
+        Division::FCS => 2,
+        _ => 1,
+    }
+}
+
+fn round3(x: f64) -> f64 {
+    (x * 1000.0).round() / 1000.0
+}
+
+/// Prospects' hometowns gathered into metro areas: the biggest town takes
+/// in every town within 35 miles. The 60 biggest areas, by prospects.
+fn metro_areas(w: &World, towns: HashMap<(usize, &str), u32>) -> Vec<(String, (f64, f64), u32)> {
+    let mut list: Vec<((usize, &str), u32)> = towns.into_iter().collect();
+    list.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    let mut areas: Vec<(String, (f64, f64), u32)> = Vec::new();
+    for ((s, town), c) in list {
+        let at = geo::place(s, town);
+        if let Some(m) = areas.iter_mut().find(|m| geo::miles_between(m.1, at) <= 35.0) {
+            m.2 += c;
+        } else if areas.len() < 400 {
+            let code = w.states.get(s).map_or("", |x| x.code.as_str());
+            let name = if town.is_empty() { code.to_string() } else { format!("{town}, {code}") };
+            areas.push((name, at, c));
+        }
+    }
+    areas.sort_by_key(|a| std::cmp::Reverse(a.2));
+    areas.truncate(60);
+    areas
 }
 
 fn home_weekends(w: &World, j: usize) -> Vec<Value> {
@@ -965,80 +1138,6 @@ fn home_weekends(w: &World, j: usize) -> Vec<Value> {
 fn index_map(w: &World, ids: &[u32]) -> HashMap<u32, usize> {
     let want: std::collections::HashSet<u32> = ids.iter().copied().collect();
     w.people.iter().enumerate().filter(|(_, p)| want.contains(&p.player.id)).map(|(i, p)| (p.player.id, i)).collect()
-}
-
-// --- Finding recruits -------------------------------------------------------------------
-
-fn find(w: &World, j: usize, args: &Value) -> Reply {
-    let sign_year = desk::next_class(w);
-    let class = args.get("class").and_then(Value::as_i64).map_or(sign_year, |c| c as i32);
-    let pos = args.get("pos").and_then(Value::as_str).filter(|s| *s != "ALL");
-    let state = args.get("state").and_then(Value::as_str).filter(|s| !s.is_empty() && *s != "ALL");
-    let min = args.get("stars").and_then(Value::as_u64).unwrap_or(0) as u8;
-    let q = args.get("q").and_then(Value::as_str).unwrap_or("").trim().to_lowercase();
-    let juco = args.get("juco").and_then(Value::as_bool).unwrap_or(false);
-    let ranks = Ranks::new(w, &[class]);
-    let prog = &w.programs[j];
-    let on_board: std::collections::HashSet<u32> = w.front_office.college.board.iter().map(|t| t.id).collect();
-    let mut hits: Vec<(u8, f64, usize)> = Vec::new();
-    for (i, p) in w.people.iter().enumerate() {
-        let recruit = if juco {
-            p.stage == Stage::College && p.juco && p.cal.signed.is_none() && p.college_seasons >= 1
-        } else {
-            matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) && p.class_of == class
-        };
-        if !recruit || p.cal.signed.is_some() {
-            continue;
-        }
-        if pos.is_some_and(|x| x != p.player.position.name()) {
-            continue;
-        }
-        let code = w.states.get(p.home_state).map_or("", |s| s.code.as_str());
-        if state.is_some_and(|s| s != code) {
-            continue;
-        }
-        let s = stars_of(p);
-        if s < min {
-            continue;
-        }
-        // Who your staff knows: every recruit the services rank, and the
-        // unranked kids in your footprint, your pipeline schools and your state.
-        let known = s >= 2
-            || p.home_state == prog.state
-            || prog.footprint[p.home_state] >= 0.3
-            || prog.hs_pipeline.contains_key(&p.hs)
-            || juco;
-        if !known {
-            continue;
-        }
-        if !q.is_empty() && !p.name.to_lowercase().contains(&q) && !w.school_name(p.hs).to_lowercase().contains(&q) {
-            continue;
-        }
-        hits.push((s, p.cal.service_read.unwrap_or(0.0), i));
-    }
-    let total = hits.len();
-    hits.sort_by(|a, b| b.0.cmp(&a.0).then(b.1.total_cmp(&a.1)).then(a.2.cmp(&b.2)));
-    hits.truncate(200);
-    let rows: Vec<Value> = hits
-        .iter()
-        .map(|&(_, _, i)| {
-            let p = &w.people[i];
-            let t = w.front_office.college.board.iter().find(|t| t.id == p.player.id);
-            let mut v = recruit_row(w, j, i, &ranks, t, None, None);
-            v["on_board"] = json!(on_board.contains(&p.player.id));
-            v
-        })
-        .collect();
-    let states: Vec<&str> = w.states.iter().map(|s| s.code.as_str()).collect();
-    Ok(json!({
-        "team": brief(w, j),
-        "class": class,
-        "classes": [sign_year, sign_year + 1, sign_year + 2],
-        "rows": rows,
-        "total": total,
-        "states": states,
-        "home_state": w.states.get(prog.state).map(|s| s.code.clone()),
-    }))
 }
 
 // --- One recruit's file -----------------------------------------------------------------

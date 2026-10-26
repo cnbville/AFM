@@ -251,8 +251,15 @@ pub(crate) fn day(w: &mut World, d: Date) {
         let scored = std::mem::take(&mut w.scouting.public.scored);
         w.scouting.public = Season { year: dy, scored, ..Default::default() };
     }
-    let (_, m, day) = d.parts();
-    let in_season = matches!(m, 9..=12 | 1..=4) && d <= w.dates.draft[0].date;
+    let (y, m, day) = d.parts();
+    // From September to the spring's draft. The football year's own dates
+    // hold the draft before its fall, so the draft these boards are for is
+    // `dy`: in the spring only until that draft is held.
+    let in_season = match m {
+        9..=12 => true,
+        1..=4 => dy == y,
+        _ => false,
+    };
     if !in_season {
         return;
     }
@@ -296,7 +303,9 @@ pub(crate) fn day(w: &mut World, d: Date) {
         }
     }
     if mock_day {
-        let last_week = d.add(7) > w.dates.draft[0].date;
+        let draft_day =
+            if dy == w.year { w.dates.draft[0].date } else { crate::calendar::YearDates::new(dy).draft[0].date };
+        let last_week = d.add(7) > draft_day;
         let teams = crate::world::franchise::active_teams(dy).len().max(1);
         for (k, desk) in &desks {
             let n = if last_week { 2 * teams } else { teams };

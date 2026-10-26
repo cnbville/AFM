@@ -978,3 +978,31 @@ What a range means at a player's level (RR1-RR4) and your read of your own staff
 - The player engagement head's effect: up to 12% less off-field trouble at either end of the scale; the same hiring and leaving as the other heads.
 - A coach's market and what he wants next on his page (in demand at a reputation of 14, or 11 for a climber; a climbing position coach wants to coordinate, a climbing coordinator a head job).
 - The repricing band for older saves (under half or over twice the job's pay) and the coordinators' default rooms (quarterbacks, the secondary).
+
+## The services rank from the sophomore year (update 2, lane 7, 2026-10-25)
+
+Minor bugs 12-15 in `afm/post-release-2/list.md`. The code is `world/scouting/services.rs` and `recruiting::rate_underclass`; the search that shows it is in `docs/game.md`, "Lane 7".
+
+- **The underclass updates** (bug 12). Before, only the class in the signing stages had stars, so a junior or sophomore read "Not ranked" until his junior spring. Now the services rank every class from its sophomore year, four times a year (winter, spring, summer, fall). An update rates the classes after the one the signing stages rate, down to this year's sophomores. Each update looks at the kids the services can see (the best on film and every kid with stars, camp stars, all-state, an offer or a commitment), reads them the way the signing stages do (film, the service's own scouting read with its lasting drift, and how visible the kid is), and gives stars by the class's quotas times how far down the list reaches this early. A sophomore list is short and cautious; a junior class carries most of its stars by the winter. The signing stages take a class over at its first commitment wave (20 March of the junior year), as before.
+- **The class's order on each day** (bugs 14, 15). Each rating of a class (an underclass update, or a signing stage's wave) keeps its national order and the order before it, so ranks, position and state ranks, the move since the last update and "new" all come from the services' own lists, not from a sort of hidden numbers. Each active service has its own board around the shared read, with a lasting lean of its own and its known bias, and the composite (from 2012) averages them into a 0-1 rating with the usual star bands.
+- **The insiders and top lists.** From 2011 each service's insider logs a pick on the open recruitments that matter (4- and 5-stars, and 3-stars with a real offer list), changes it when his read moves (at once, or takes it back, when the school falls out of the kid's top three), and is judged right or wrong when the kid commits (six years of records kept). Kids still deciding announce a top group about three months before they mean to decide and cut it in the final month; a kid whose new favorite isn't on his list has reopened, and his list is gone until he names a new one.
+- **Older saves.** A save from before this change fills in empty and catches up on loading: the class orders and the underclass stars are rated on the spot.
+- **The draft desks' season (a fix).** The public draft desks publish from September to the draft they are for: big boards on the first of each month in the fall and every Tuesday from January, mocks every Thursday from mid-December (two rounds in the draft's last week). They used to check the football year's own draft, which from the spring's draft to the Super Bowl is last spring's, so they stayed quiet until mid-February.
+
+### Claude's picks (proposed, not confirmed)
+
+- The four update days (21 January, 12 May, 14 July, 20 October), how far a list reaches by class and time of year, and the 8% film share; all listed in `docs/game.md`, "Lane 7", with the insiders' thresholds and the composite bands.
+
+## The race log (update 2, lane 7, 2026-10-25)
+
+Board 8, the race, needs each school's standing with a recruit month by month, which the world didn't keep. The code is `world/front_office/race.rs`; the screen is in `docs/game.md`, "Lane 7".
+
+- **What it keeps.** Once a week, on Mondays (and the first day a recruit is followed), your office logs each followed recruit's top six schools by appeal (`college::race_at`, the race the screens already read) and his interest in each, 0 to 100. A college follows the high school, prep school and junior college recruits on its board; a high school coach his players with an offer or a commitment. At most 400 recruits; one leaves the log on the Monday after he leaves the board or the school. A week costs about 3 bytes a school plus its date, so a full board over two years stays under a megabyte. Older saves start empty (`#[serde(default)]`).
+- **The scale.** Interest is a logistic curve of a school's appeal against his first week: 50 sits 0.10 below his favourite's appeal that week, with 0.06 appeal a step, so lines from different weeks share one scale and a school can rise and fall on it.
+- **His reasons** (`college::reasons`, `recruiting::reason_parts`). What a school means to him split into the recruiting model's own terms: close to home, playing time with the path to the field, NIL money with the family's need, coaching and development, the name (level, brand, facilities, prestige, the 5-star pull) and academics, each with how much it counts for whoever decides for him; the seventh, his ties and feel, is the rest of his appeal. The parts add up to the appeal the race uses. The weights are true values: a screen shows them only as your staff's range (`docs/game.md`, "Lane 7").
+- **Campuses on the map** (`geo::campus`): a college's town from the towns table, or its own place for 23 campuses the table spells differently (University Park, Coral Gables, West Point and the like).
+
+### Claude's picks (proposed, not confirmed)
+
+- A weekly line on Mondays, six schools, 400 recruits, and the scale's 0.10 and 0.06; listed with the rest of the race's picks in `docs/game.md`, "Lane 7".
+

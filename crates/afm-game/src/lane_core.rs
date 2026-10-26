@@ -39,6 +39,7 @@ pub fn after_days(w: &mut World) {
         if monday {
             desk::watch_mail(w);
         }
+        crate::lane_find::after_days(w, b);
     }
 }
 
