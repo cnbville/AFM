@@ -431,6 +431,41 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
             run.call(g, "legacy_keep", json!({ "later": false }));
         }
     }
+    // The schedule page (update 2, lane 6): every season it holds game by
+    // game and two from the book, the JV tab and the seasons ahead, then
+    // the scouting report and the series history for this season's
+    // opponents.
+    if let Some(v) = run.call(g, "schedule", json!({})) {
+        refs(&v, &mut players, &mut coaches, &mut teams);
+        let seasons: Vec<&Value> = v["seasons"].as_array().into_iter().flatten().collect();
+        let held = seasons.iter().filter(|s| s["held"] == json!(true));
+        let book = seasons.iter().filter(|s| s["held"] != json!(true)).take(2);
+        for y in held.chain(book).filter_map(|s| s["year"].as_i64()) {
+            if let Some(p) = run.call(g, "schedule", json!({ "season": y })) {
+                refs(&p, &mut players, &mut coaches, &mut teams);
+            }
+        }
+        let me = v["team"]["ref"]["id"].clone();
+        let mut seen = BTreeSet::new();
+        for r in v["rows"].as_array().into_iter().flatten().filter(|r| r["kind"] == json!("game")) {
+            let o = r["opp"]["ref"].clone();
+            if !seen.insert(o.to_string()) {
+                continue;
+            }
+            if v["can_scout"] == json!(true) && r["opp"]["mine"] != json!(true) && seen.len() <= 4 {
+                run.call(g, "schedule_scout", o.clone());
+            }
+            let rival = !r["rivalry"].is_null()
+                || (v["level"] == json!("hs") && !r["name"].is_null() && r["playoff"] != json!(true));
+            if rival {
+                run.call(g, "schedule_series", json!({ "kind": o["kind"], "id": o["id"], "of": me }));
+            }
+        }
+    }
+    // The year as a ribbon (update 2, lane 6, V13).
+    if seat != "other" {
+        run.call(g, "year_board", json!({}));
+    }
     // Your staff and the ranges (update 2, lane 3): the quality page, each
     // member's detail and ratings page with his key reads' cards, and the
     // cards for a few of your players' ranges.
