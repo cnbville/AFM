@@ -17,7 +17,8 @@ fn ok(g: &mut Game, cmd: &str, args: Value) -> Value {
 }
 
 /// No hidden number anywhere in an answer: no potential or ceiling keys,
-/// and every read a range at least two wide.
+/// and every read a range at least two wide, or one wide where it touches
+/// the 1-99 scale's end (`reads::range` clamps, so a 99 can read 98-99).
 fn only_ranges(cmd: &str, v: &Value, path: &str) {
     match v {
         Value::Object(o) => {
@@ -32,7 +33,8 @@ fn only_ranges(cmd: &str, v: &Value, path: &str) {
                 {
                     assert_eq!(a.len(), 2, "{cmd}{p}: {x}");
                     let (lo, hi) = (a[0].as_f64().unwrap(), a[1].as_f64().unwrap());
-                    assert!(hi - lo >= 2.0, "{cmd}{p}: {x} is too sure to be a staff's read");
+                    let least = if lo <= 1.0 || hi >= 99.0 { 1.0 } else { 2.0 };
+                    assert!(hi - lo >= least, "{cmd}{p}: {x} is too sure to be a staff's read");
                 }
                 only_ranges(cmd, x, &p);
             }

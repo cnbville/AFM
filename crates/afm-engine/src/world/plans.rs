@@ -104,6 +104,26 @@ pub const CUT: u8 = 4;
 pub const YOURS: u8 = 8;
 pub const WET: u8 = 16;
 
+/// A box holds the plays his play caller calls there: enough for this
+/// share of his calls, the box's own size at least and a card's room at
+/// most (an offense box a hash, a defense box; proposed, not confirmed).
+pub const COVER: f64 = 0.98;
+pub const BOX_MAX: usize = 30;
+pub const DBOX_MAX: usize = 12;
+
+/// How many of a box's plays, most called first, hold `share` of his calls.
+fn cover<T>(counts: &[(T, f64)], share: f64) -> usize {
+    let total: f64 = counts.iter().map(|x| x.1).sum();
+    let mut acc = 0.0;
+    for (i, x) in counts.iter().enumerate() {
+        acc += x.1;
+        if acc >= share * total - 1e-9 {
+            return i + 1;
+        }
+    }
+    counts.len()
+}
+
 /// The sheet's six parts, for your review.
 pub const PARTS: [&str; 6] = [
     "Opening script",
@@ -934,9 +954,15 @@ pub fn draft_with(w: &World, team: &GameTeam, next: &Next, notes: [&[u8]; 2], ro
             (i as u16, d.design.formation, t.install_level(crate::training::seat::InstallKey::Design(i as u16)))
         })
         .collect();
+    // His quarterback's running, as the game reads it (the depth order's
+    // first quarterback).
+    let qb_run = qb.and_then(|id| team.players.iter().find(|p| p.id == id)).map_or(0.0, crate::game::flow::qb_run);
+    let level = level_of(next.level);
     let inp = DraftIn {
         film: opp_film(w, next.level, next.opp),
-        level: next.level,
+        level,
+        two_from: crate::game::Rules::for_level(level).two_point_from,
+        qb_run,
         seed: key_of(w, next.date, next.opp, round),
         favs: favourites(w, qb).into_iter().map(|x| x.0).collect(),
         tells: tells(w, false),
@@ -958,13 +984,16 @@ pub fn draft_with(w: &World, team: &GameTeam, next: &Next, notes: [&[u8]; 2], ro
     }
 }
 
-/// What the coordinators draft from: the opponent's film, the level, the
-/// draft's own random key, the quarterback's favourite concepts, your
-/// offense's tells and your designs going in (playbook slot, formation,
-/// how far in).
+/// What the coordinators draft from: the opponent's film, the level of
+/// play and where its two-point try is snapped, the starting
+/// quarterback's running as the game reads it, the draft's own random key,
+/// the quarterback's favourite concepts, the offense's tells and your
+/// designs going in (playbook slot, formation, how far in).
 pub struct DraftIn {
     pub film: Film,
-    pub level: Level,
+    pub level: crate::player::Level,
+    pub two_from: f64,
+    pub qb_run: f64,
     pub seed: u32,
     pub favs: Vec<usize>,
     pub tells: Vec<Tell>,
@@ -976,19 +1005,15 @@ pub struct DraftIn {
 /// script and wet sheet.
 pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<Entry>, Vec<Entry>) {
     let film = &inp.film;
-    let college = !pro(inp.level);
+    let college = inp.level != crate::player::Level::NFL;
     let mut rng = Rng::new(inp.seed);
     let mut mem = Memory::default();
     mem.study(film);
     let te = team.players.iter().filter(|p| p.position == crate::positions::Position::TE).count();
     let fb = team.players.iter().filter(|p| p.position == crate::positions::Position::RB).count() >= 2;
-    // His quarterback's running, as the game reads it (the depth order's
-    // first quarterback).
-    let qb = starting_qb(team, inp.level);
-    let qb_run = qb.and_then(|id| team.players.iter().find(|p| p.id == id)).map_or(0.0, crate::game::flow::qb_run);
-    let ctx = OffCtx { has_fb: fb, te_count: te.min(3), qb_run, level: level_of(inp.level), plan: team.plan().0 };
+    let ctx = OffCtx { has_fb: fb, te_count: te.min(3), qb_run: inp.qb_run, level: inp.level, plan: team.plan().0 };
     let staff = team.staff;
-    let two_from = crate::game::Rules::for_level(level_of(inp.level)).two_point_from;
+    let two_from = inp.two_from;
     let favs = &inp.favs;
     let tells = &inp.tells;
     let (runs_f, pass_f, fav_first, breakers, _, _) = biases(notes[0]);
@@ -998,6 +1023,11 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
         for hash in if by_hash(k) { vec![1u8, 2] } else { vec![0u8] } {
             let want = if hash == 0 { n } else { n.div_ceil(2) };
             let mut counts: Vec<(SheetPlay, f64)> = Vec::new();
+            // The script is his own first calls in its order (your notes
+            // weigh which of them he keeps): his whole game in the share he
+            // calls it, not his few most-called plays.
+            let mut raw: Vec<SheetPlay> = Vec::new();
+            let top = runs_f.max(pass_f) * if fav_first { 2.5 } else { 1.0 };
             for i in 0..140 {
                 let s = &sits[i % sits.len()];
                 let c = crate::game::calling::call_offense(&staff, &mem, s, &ctx, &mut rng);
@@ -1012,12 +1042,28 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
                 if fav_first && matches!(p.play, SheetKind::Pass(i) if favs.contains(&(i as usize))) {
                     wt *= 2.5;
                 }
+                if k == sheet::SCRIPT && raw.len() < want && rng.next() * top <= wt {
+                    raw.push(p);
+                }
                 match counts.iter_mut().find(|x| x.0 == p) {
                     Some(x) => x.1 += wt,
                     None => counts.push((p, wt)),
                 }
             }
-            counts.sort_by(|a, b| b.1.total_cmp(&a.1));
+            {
+                // One line a play, in his most used formation for it, with
+                // the weight of all of them: a box says which play.
+                counts.sort_by(|a, b| b.1.total_cmp(&a.1));
+                let mut plays: Vec<(SheetPlay, f64)> = Vec::new();
+                for (p, w) in counts {
+                    match plays.iter_mut().find(|x| x.0.play == p.play) {
+                        Some(x) => x.1 += w,
+                        None => plays.push((p, w)),
+                    }
+                }
+                plays.sort_by(|a, b| b.1.total_cmp(&a.1));
+                counts = plays;
+            }
             // Never empty: a box with no fitting calls takes the base call.
             if counts.is_empty() {
                 let f = Formation::plain(Personnel::P11, Backfield::Shotgun, 1.0);
@@ -1027,7 +1073,13 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
                     1.0,
                 ));
             }
-            for (i, p) in mix(counts, want).into_iter().enumerate() {
+            let want = if matches!(k, sheet::SCRIPT | sheet::SHOTS | sheet::TWO_POINT) {
+                want
+            } else {
+                want.max(cover(&counts, COVER)).min(BOX_MAX)
+            };
+            let list = if k == sheet::SCRIPT && !raw.is_empty() { raw } else { mix(counts, want) };
+            for (i, p) in list.into_iter().enumerate() {
                 let mut marks = 0;
                 if matches!(p.play, SheetKind::Pass(c) if favs.contains(&(c as usize))) {
                     marks |= FAV;
@@ -1160,6 +1212,7 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
         if counts.is_empty() {
             counts.push(((Coverage::Cover1, Pressure::LbBlitz), 1.0));
         }
+        let n = if k == sheet::SHOTS { n } else { n.max(cover(&counts, COVER)).min(DBOX_MAX) };
         for ((c, p), _) in counts.into_iter().take(n) {
             def.push(Entry {
                 k,
@@ -1271,25 +1324,49 @@ pub fn dsheet_calls(def: &[Entry], wet: bool) -> Vec<(u8, Vec<DefSheetCall>)> {
     v
 }
 
-/// A drafted sheet on a team with no world around it, for the engine
-/// checks (`match_check` with AFM_SHEET): the coordinators' draft from no
-/// film yet, as in week one, and the stick to the card a seat team gets
-/// from its guideline (both play callers).
-pub fn check_sheet(team: &mut GameTeam, level: Level, seed: u32) {
-    let inp = DraftIn { film: Film::default(), level, seed, favs: Vec::new(), tells: Vec::new(), designs: Vec::new() };
-    let (off, def) = draft_sides(team, &inp, [&[], &[]]);
+/// Every other team's sheet (Cain's rule: every team plays by the same
+/// rules): its coordinators draft it at kickoff the way yours do on plan
+/// day, from the opponent's film, their own habits and their head coach's
+/// guidelines, with the tendency breakers their own film calls for. It
+/// lives for the game only (`game::flow`). Your team's comes from your
+/// week (`prepare`).
+pub fn kickoff_card(team: &GameTeam, inp: &DraftIn) -> sheet::Card {
+    let (off, def) = draft_sides(team, inp, [&[], &[]]);
     let g = team.staff.guide;
     let pull = |own: f64| g.stick.pull().map_or(own, |(t, k)| guide::expected(own, t, k));
     let stick = pull(guide::habit_stick(team.staff.offense.creativity));
     let dstick = pull(guide::habit_stick(team.staff.defense.creativity));
     let none = |_: u16| None;
-    let prep = &mut team.prep;
-    prep.sheet = sheet_calls(&off, false, none);
-    prep.wet = sheet_calls(&off, true, none);
-    prep.dsheet = dsheet_calls(&def, false);
-    prep.dwet = dsheet_calls(&def, true);
-    prep.stick = if prep.sheet.is_empty() { 0.0 } else { stick };
-    prep.dstick = if prep.dsheet.is_empty() { 0.0 } else { dstick };
+    let mut card = sheet::Card {
+        sheet: sheet_calls(&off, false, none),
+        wet: sheet_calls(&off, true, none),
+        dsheet: dsheet_calls(&def, false),
+        dwet: dsheet_calls(&def, true),
+        ..Default::default()
+    };
+    card.stick = if card.sheet.is_empty() { 0.0 } else { stick };
+    card.dstick = if card.dsheet.is_empty() { 0.0 } else { dstick };
+    card
+}
+
+/// The tells in a team's own film, as a defense would read them and as
+/// its staff self-scouts (G6, the same lines as yours): a look with 8
+/// snaps or more where one kind is 75% or more of the calls, on film of
+/// two games or more (about 65 snaps a game; proposed, not confirmed).
+pub fn film_tells(own: &Film) -> Vec<Tell> {
+    let games = (own.off_snaps / 65.0).floor() as u32;
+    if games < 2 {
+        return Vec::new();
+    }
+    let mut out: Vec<Tell> = own
+        .look
+        .iter()
+        .enumerate()
+        .map(|(look, x)| Tell { look, runs: x[0].round() as u32, passes: x[1].round() as u32, games })
+        .filter(|t| t.snaps() >= 8 && (t.run_share() >= 0.75 || t.run_share() <= 0.25))
+        .collect();
+    out.sort_by_key(|x| std::cmp::Reverse(x.snaps()));
+    out
 }
 
 fn deep_concept() -> usize {
@@ -1494,8 +1571,8 @@ pub fn add_to_box(w: &mut World, side: usize, k: u8, wet: u8, play: Play) -> Res
     let d = w.plans.draft.as_mut().ok_or("No draft.")?;
     let list = if side == 0 { &mut d.off } else { &mut d.def };
     let count = list.iter().filter(|e| e.k == k && e.marks & WET == wet).count();
-    if count >= 12 {
-        return Err("Twelve plays a box at most: a call sheet is one card.".into());
+    if count >= BOX_MAX {
+        return Err("Thirty plays a box at most: a call sheet is one card.".into());
     }
     list.push(Entry { k, play, why: "your call".into(), tests: String::new(), marks: YOURS | wet });
     let n = &mut d.edits[side.min(1)][part_of(k)];
