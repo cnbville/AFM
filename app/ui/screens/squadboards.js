@@ -23,12 +23,21 @@ const sbNum = (v) => (typeof v === "number" && isFinite(v) ? v : null);
 const sbMid = (r) => (r ? Math.round((r[0] + r[1]) / 2) : null);
 const sbPlural = (n, w, ws) => `${n} ${n === 1 ? w : ws || w + "s"}`;
 const sbOrd = (n) => { const s = ["th", "st", "nd", "rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
-// The bar of a range on the 40-99 scale (soft band, the middle marked).
-const sbPct = (v) => Math.max(0, Math.min(100, ((v - 40) / 59) * 100));
-function sbBand(r, tick) {
+// A board's scale runs from its floor to 99. The floor is 40, where college
+// and NFL reads sit; a board whose reads sit lower (high school, the small
+// colleges) drops it by tens, from the lowest tenth of its numbers.
+function sbFloor(...vs) {
+  const v = vs.flat(2).filter((n) => typeof n === "number" && isFinite(n)).sort((a, b) => a - b);
+  if (!v.length) return 40;
+  const low = v[Math.floor((v.length - 1) * 0.1)];
+  return Math.max(0, Math.min(40, Math.floor((low - 5) / 10) * 10));
+}
+// The bar of a range on the floor-99 scale (soft band, the middle marked).
+const sbPct = (v, f = 40) => Math.max(0, Math.min(100, ((v - f) / (99 - f)) * 100));
+function sbBand(r, tick, f = 40) {
   if (!r) return `<span class="sb-bar"><span class="sb-ns">Not seen</span></span>`;
-  const l = sbPct(r[0]), w = Math.max(1.5, sbPct(r[1]) - l);
-  return `<span class="sb-bar"><i class="sb-bd" style="left:${l}%;width:${w}%"></i><i class="sb-md" style="left:${sbPct((r[0] + r[1]) / 2)}%"></i>${tick != null ? `<i class="sb-tk" style="left:${sbPct(tick)}%"></i>` : ""}</span>`;
+  const l = sbPct(r[0], f), w = Math.max(1.5, sbPct(r[1], f) - l);
+  return `<span class="sb-bar"><i class="sb-bd" style="left:${l}%;width:${w}%"></i><i class="sb-md" style="left:${sbPct((r[0] + r[1]) / 2, f)}%"></i>${tick != null ? `<i class="sb-tk" style="left:${sbPct(tick, f)}%"></i>` : ""}</span>`;
 }
 
 // ---------- the stadium (V1, V2) ----------
@@ -337,7 +346,8 @@ screens.needs = async (a) => {
   const legend = `<div class="sb-legend">${SB_VERDICTS.map((v) => `<span><i class="${sbVc(v)}"></i>${v}</span>`).join("")}</div>`;
   const yearCards = x.years.map((q, i) => `<button class="sb-year ${i === y ? "on" : ""}" data-act="sbneedy" data-v="${i}"><span class="sb-lbl">${esc(q.label)} · ${q.fall}</span><small>${esc(x.notes[i])}</small><b>${q.avg != null ? q.avg : "–"}</b><small class="${q.holes ? "sb-warn" : ""}">${sbPlural(q.holes, "hole")} · ${q.thin} thin</small></button>`).join("");
   const leaving = `<div class="sb-leave"><span class="sb-lbl">After this season</span>${x.leaving.map((l) => `<div class="sb-lv" title="${esc((l.names || []).join(", "))}"><b>${l.n}</b><span>${esc(l.label)}</span></div>`).join("")}</div>`;
-  const bars = s.vals.map((v, i) => `<button class="sb-ybar ${i === y ? "on" : ""}" data-act="sbneedy" data-v="${i}"><span class="sb-yb"><i class="${sbVc(s.verdicts[i])}" style="height:${v != null ? sbPct(v) : 0}%"></i></span><b>${v != null ? v : "–"}</b><small>${x.falls[i]}</small></button>`).join("");
+  const nf = sbFloor(x.spots.map((q) => q.vals));
+  const bars = s.vals.map((v, i) => `<button class="sb-ybar ${i === y ? "on" : ""}" data-act="sbneedy" data-v="${i}"><span class="sb-yb"><i class="${sbVc(s.verdicts[i])}" style="height:${v != null ? sbPct(v, nf) : 0}%"></i></span><b>${v != null ? v : "–"}</b><small>${x.falls[i]}</small></button>`).join("");
   const rows = s.names.map((n, i) => `<div class="sb-sr ${i === y ? "on" : ""}"><span>${x.falls[i]}</span><span>${n ? `${playerLink(n.id, n.name)} <small>${esc(n.class)}${n.commit ? " · commit" : ""}</small>` : '<span class="sb-warn">Nobody</span>'}</span><b class="${sbVc(s.verdicts[i])}-t">${s.vals[i] != null ? s.vals[i] : "–"}</b></div>`).join("");
   const fills = x.kind === "college" ? [["Recruiting board", "recruit_board"], ["Portal", "portal_desk"], ["NIL", "nil_desk"]] : x.kind === "nfl" ? [["Cap", "fo_cap"], ["Expiring deals", "fo_expiring"], ["Draft board", "draftboard"]] : [["Squad", "roster"], ["Training", "training"]];
   const panel = `<div class="sb-ph"><span class="sb-lbl gold">${esc(s.full)} · fall ${x.falls[y]}</span><span class="sb-bignum2 ${sbVc(s.verdicts[y])}-t">${s.vals[y] != null ? s.vals[y] : "–"}</span><span class="sb-verdict ${sbVc(s.verdicts[y])}-t">${esc(s.verdicts[y])}</span><span class="sb-meta">${s.names[y] ? `${esc(s.names[y].name)} starts` : "Nobody to start"}</span></div>
@@ -448,7 +458,7 @@ function sbRosterPanel(r, x) {
   const line = r.line ? `<div class="sb-sec"><span class="sb-lbl">${r.line.year === x.season ? "This season" : `${r.line.year} season`}</span><p class="sb-big">${esc(r.line.line)}</p><small class="sb-dim">${r.line.games != null ? sbPlural(r.line.games, "game") : ""} · ${esc(r.line.level || "")}</small></div>` : `<div class="sb-sec"><span class="sb-lbl">This season</span><p class="sb-dim">No games yet.</p></div>`;
   return `<span class="sb-bignum" aria-hidden="true">${r.num != null ? r.num : ""}</span>
     <div class="sb-ph"><span class="sb-lbl gold">${esc(r.pos)} · ${esc(r.class_full || r.class)}${r.num != null ? " · #" + r.num : ""}</span><span class="sb-first">${esc(first)}</span><span class="sb-last">${esc(rest.join(" "))}</span><span class="sb-meta">${esc(r.ht)}, ${r.wt} lb · ${esc(r.home)}</span></div>
-    <div class="sb-card"><span class="sb-lbl">Staff read</span><div class="sb-hero2"><b>${r.ovr ? sbMid(r.ovr) : "–"}</b>${range(r.ovr, "his position coach", { p: r.id, k: "ovr" })}</div>${sbBand(r.ovr)}</div>
+    <div class="sb-card"><span class="sb-lbl">Staff read</span><div class="sb-hero2"><b>${r.ovr ? sbMid(r.ovr) : "–"}</b>${range(r.ovr, "his position coach", { p: r.id, k: "ovr" })}</div>${sbBand(r.ovr, null, sbFloor(x.rows.map((q) => (q.ovr ? q.ovr[0] : null))))}</div>
     <div class="sb-sec"><span class="sb-lbl">What matters at ${esc(r.pos)}</span>${keys}</div>
     <div class="sb-cells"><div><span class="sb-lbl">Snaps</span><b>${r.snaps_pct != null ? r.snaps_pct + "%" : "–"}</b></div><div><span class="sb-lbl">${esc(m.label || "Money")}</span><b>${esc(m.value || "–")}</b></div><div><span class="sb-lbl">Health</span><b class="${r.health !== "full" ? "sb-warn" : ""}">${r.health === "out" ? "Out" : r.health === "limited" ? "Limited" : "Full"}</b></div><div><span class="sb-lbl">Morale</span><b class="${r.unhappy ? "sb-warn" : ""}">${esc(r.mood)}</b></div></div>
     ${line}

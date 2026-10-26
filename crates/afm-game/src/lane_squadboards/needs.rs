@@ -392,8 +392,12 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
             let commits = men.iter().filter(|m| m.commit).count();
             format!("{roster_n} on the roster of {lim} · {commits} commit{}", if commits == 1 { "" } else { "s" })
         }
-        TeamRef::Nfl(_) => {
-            format!("{roster_n} on the roster of {}", afm_engine::world::front_office::roster::roster_limit(w))
+        TeamRef::Nfl(n) => {
+            // The front office's own count: the men on the roster, not the
+            // practice squad or the injured list.
+            use afm_engine::world::front_office::roster;
+            let on = roster::count(w, n, afm_engine::world::pro::Status::Roster);
+            format!("{on} on the roster of {}", roster::roster_limit(w))
         }
         _ => format!("{roster_n} on the roster"),
     };

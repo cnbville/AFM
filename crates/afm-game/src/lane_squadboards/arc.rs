@@ -349,11 +349,21 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
             if peak.is_none_or(|pk| p50 > pk.0) {
                 peak = Some((p50, a, row[1], row[3]));
             }
-            path.push(json!({ "season": season, "age": a, "level": (["High school", "College", "NFL"][tier as usize]), "q": row }));
+            path.push(json!({ "season": season, "age": a, "tier": tier, "level": (["High school", "College", "NFL"][tier as usize]), "q": row }));
         }
     }
     // The cells: likely peak, the draft, an NFL starter.
     let nfl_marks = crate::lane_ratings::marks_cached(w, Pool::Nfl, pos, Rated::Overall);
+    // The years after college say "NFL" only when his middle path gets to
+    // a typical NFL backup by then; most men's football ends with college.
+    if let Some(r) = path.iter().position(|r| r["tier"] == 2)
+        && path[r]["q"][2].as_f64().zip(nfl_marks.as_ref()).is_none_or(|(m, k)| m < k.backup)
+        && p.stage != Stage::Pro
+    {
+        for row in &mut path[r..] {
+            row["level"] = json!("After college");
+        }
+    }
     let (draft_cell, starter_cell, outcome_n) = match p.stage {
         Stage::Pro | Stage::Done => {
             let d = p.pro.as_ref().and_then(|c| c.draft);
@@ -368,8 +378,7 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
         }
         _ => {
             // His read carried to his last college season.
-            let at_end =
-                path.iter().take_while(|r| r["level"] != "NFL").last().and_then(|r| r["q"][2].as_f64()).or(start);
+            let at_end = path.iter().take_while(|r| r["tier"] != 2).last().and_then(|r| r["q"][2].as_f64()).or(start);
             match at_end.and_then(|x| after_college(w, pos, x)) {
                 Some((share, rounds, starters, n)) => (
                     json!({

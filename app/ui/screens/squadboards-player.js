@@ -9,9 +9,9 @@ const sbDiff = (d) => (d == null ? "–" : d > 0 ? "+" + d : d < 0 ? "−" + -d 
 
 // ---------- V4: a player's shape ----------
 const SB_RADAR = { C: [260, 235], R: 150 };
-function sbRadarPt(i, v) {
+function sbRadarPt(i, v, f = 40, t = 99) {
   const a = -Math.PI / 2 + (i * Math.PI) / 4;
-  const r = Math.max(0, (v - 40) / 59) * SB_RADAR.R;
+  const r = Math.max(0, Math.min(1, (v - f) / (t - f))) * SB_RADAR.R;
   return [SB_RADAR.C[0] + Math.cos(a) * r, SB_RADAR.C[1] + Math.sin(a) * r];
 }
 function sbShapeCmp(x) {
@@ -32,13 +32,18 @@ async function sbShapeTab(p) {
   const ax = Math.min(7, Math.max(0, keep("sbshax:" + x.pos, { i: 0 }).i));
   const F = x.families;
   const fm = (f) => (f.lo != null ? (f.lo + f.hi) / 2 : null);
-  const rings = [50, 60, 70, 80, 90].map((v) => {
-    const r = ((v - 40) / 59) * SB_RADAR.R;
+  // One floor for the level: his families, the level's starters and his read.
+  const fl = sbFloor(F.map((f) => [f.lo, f.level]), x.read, x.band ? x.band.starter : null);
+  // Its edge: 99, or nearer where the level's starters and his best family
+  // sit well below it (high school), so the shape fills the circle.
+  const top = Math.min(99, Math.max(fl + 50, ...F.map((f) => Math.ceil(((sbNum(f.level) || 0) + 25) / 10) * 10), ...F.map((f) => Math.ceil(((f.hi || 0) + 8) / 10) * 10)));
+  const rings = [10, 20, 30, 40, 50, 60, 70, 80, 90].filter((v) => v > fl && v < top).map((v) => {
+    const r = ((v - fl) / (top - fl)) * SB_RADAR.R;
     const a = (-3 * Math.PI) / 8;
     return `<circle cx="${SB_RADAR.C[0]}" cy="${SB_RADAR.C[1]}" r="${r.toFixed(1)}" class="sb-rg"/><text x="${(SB_RADAR.C[0] + Math.cos(a) * r + 4).toFixed(1)}" y="${(SB_RADAR.C[1] + Math.sin(a) * r + 3).toFixed(1)}" class="sb-rgt">${v}</text>`;
   }).join("");
-  const spokes = F.map((_, i) => { const [x2, y2] = sbRadarPt(i, 99); return `<line x1="${SB_RADAR.C[0]}" y1="${SB_RADAR.C[1]}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" class="sb-sp"/>`; }).join("");
-  const pts = (vals) => vals.map((v, i) => sbRadarPt(i, v == null ? 40 : v).map((n) => n.toFixed(1)).join(","));
+  const spokes = F.map((_, i) => { const [x2, y2] = sbRadarPt(i, top, fl, top); return `<line x1="${SB_RADAR.C[0]}" y1="${SB_RADAR.C[1]}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" class="sb-sp"/>`; }).join("");
+  const pts = (vals) => vals.map((v, i) => sbRadarPt(i, v == null ? fl : v, fl, top).map((n) => n.toFixed(1)).join(","));
   const seen = F.every((f) => f.lo != null);
   const band = seen ? `<path d="M${pts(F.map((f) => f.hi)).join(" L")} Z M${pts(F.map((f) => f.lo)).join(" L")} Z" class="sb-rb" fill-rule="evenodd"/>` : "";
   const cv = F.map((f) => sbCmpVal(f, cmp));
@@ -48,7 +53,7 @@ async function sbShapeTab(p) {
     const a = -Math.PI / 2 + (i * Math.PI) / 4;
     const lx = SB_RADAR.C[0] + Math.cos(a) * (SB_RADAR.R + 54), ly = SB_RADAR.C[1] + Math.sin(a) * (SB_RADAR.R + 34);
     const m = fm(f);
-    const [mx, my] = sbRadarPt(i, m == null ? 40 : m);
+    const [mx, my] = sbRadarPt(i, m == null ? fl : m, fl, top);
     return `${m != null ? `<circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="${i === ax ? 5 : 2.6}" class="sb-rdot ${i === ax ? "on" : ""}"/>` : ""}<foreignObject x="${(lx - 62).toFixed(1)}" y="${(ly - 18).toFixed(1)}" width="124" height="38"><button xmlns="http://www.w3.org/1999/xhtml" class="sb-ax ${i === ax ? "on" : ""}" data-act="sbax" data-pos="${esc(x.pos)}" data-i="${i}"><b>${esc(f.name.toUpperCase())}</b><small>${f.lo != null ? `${f.lo}-${f.hi}` : "Not seen"}</small></button></foreignObject>`;
   }).join("");
   const cmpOpts = [["level", x.compare.level_short], ...(x.compare.last ? [["last", x.compare.last_short]] : []), ...x.compare.mates.slice(0, 3).map((m, i) => ["m" + i, m.name.split(" ").slice(-1)[0]])];
@@ -61,10 +66,10 @@ async function sbShapeTab(p) {
   const listRows = x.groups.map((g) => `<div class="sb-lg"><span class="sb-lbl">${esc(g.name)}</span>${g.rows.map((r) => {
     const cvv = cmp === "level" ? r.level : cmp === "last" ? (r.last ? (r.last[0] + r.last[1]) / 2 : null) : (r.mates || [])[Number(cmp.slice(1))];
     const d = r.read && cvv != null ? Math.round((r.read[0] + r.read[1]) / 2 - cvv) : null;
-    return `<div class="sb-lr ${r.fams.includes(ax) ? "on" : ""}"><span>${esc(r.label)}</span>${range(r.read, null, { p: x.id, k: r.key })}${sbBand(r.read, cvv)}<b class="${d != null && d <= -5 ? "sb-warn" : d != null && d >= 3 ? "" : "sb-dim"}">${sbDiff(d)}</b></div>`;
+    return `<div class="sb-lr ${r.fams.includes(ax) ? "on" : ""}"><span>${esc(r.label)}</span>${range(r.read, null, { p: x.id, k: r.key })}${sbBand(r.read, cvv, fl)}<b class="${d != null && d <= -5 ? "sb-warn" : d != null && d >= 3 ? "" : "sb-dim"}">${sbDiff(d)}</b></div>`;
   }).join("")}</div>`).join("");
   const b = x.band;
-  const scale = x.read ? `<span class="sb-scale"><i class="sb-sc-b" style="left:${sbPct(x.read[0])}%;width:${Math.max(1.5, sbPct(x.read[1]) - sbPct(x.read[0]))}%"></i>${b ? `<i class="sb-sc-t" style="left:${sbPct(b.starter)}%" title="A typical starter: ${b.starter}"></i>` : ""}</span><span class="sb-scl"><small>40</small><small>${b ? `typical starter ${b.starter}` : ""}</small><small>99</small></span>` : "";
+  const scale = x.read ? `<span class="sb-scale"><i class="sb-sc-b" style="left:${sbPct(x.read[0], fl)}%;width:${Math.max(1.5, sbPct(x.read[1], fl) - sbPct(x.read[0], fl))}%"></i>${b ? `<i class="sb-sc-t" style="left:${sbPct(b.starter, fl)}%" title="A typical starter: ${b.starter}"></i>` : ""}</span><span class="sb-scl"><small>${fl}</small><small>${b ? `typical starter ${b.starter}` : ""}</small><small>99</small></span>` : "";
   const since = x.since
     ? `<div class="sb-card"><span class="sb-lbl">Since the end of ${x.since.season}</span><div class="sb-hero2"><b>${sbDiff(x.since.change)}</b><small class="sb-dim">overall read${x.since.then ? `, from ${x.since.then[0]}-${x.since.then[1]}` : ""}</small></div>${x.since.gains.map((g) => `<div class="sb-kv"><span>${esc(g.name)}</span><b>${sbDiff(g.d)}</b></div>`).join("")}</div>`
     : `<div class="sb-card"><span class="sb-lbl">Since the last kept read</span><p class="sb-dim">${esc(x.kept_note || "")}</p></div>`;
@@ -90,8 +95,12 @@ PLAYER_TABS.push({ name: "Shape", after: "Overview", draw: sbSafe(sbShapeTab) })
 
 // ---------- V5: the career arc (the Career tab) ----------
 const SB_ARC = { W: 960, H: 432, L: 46, R: 18, T: 22, B: 40, lo: 40, hi: 99 };
+// The arc's floor: his reads, the road's half paths and the marks drawn.
+function sbArcFloor(x) {
+  return sbFloor(x.points.map((p) => (p.read ? p.read[0] : null)), x.table.map((r) => (r.read ? r.read[0] : null)), x.path.map((p) => p.q[1]), x.refs.map((r) => r.v));
+}
 function sbArcChart(x, metric, ghostsOn, selSeason) {
-  const A = SB_ARC;
+  const A = { ...SB_ARC, lo: sbArcFloor(x) };
   const first = x.points.length ? Math.min(...x.table.map((r) => r.season), ...x.points.map((p) => p.season)) : x.table.length ? x.table[0].season : x.points[0].season;
   const all = [...x.table.map((r) => r.season), ...x.points.map((p) => p.season), ...(metric === "ovr" ? x.path.map((p) => p.season) : [])];
   const s0 = Math.min(first, ...all), s1 = Math.max(...all, s0 + 1);
@@ -108,7 +117,7 @@ function sbArcChart(x, metric, ghostsOn, selSeason) {
     else eras.push({ l, a: s, b: s });
   }
   const eraHtml = eras.map((e, i) => `<rect x="${(X(e.a) - (i ? (X(e.a) - X(e.a - 1)) / 2 : 0)).toFixed(1)}" y="${A.T}" width="${(X(e.b) - X(e.a) + (X(s0 + 1) - X(s0))).toFixed(1)}" height="${A.H - A.T - A.B}" class="sb-era e${i % 2}"/><text x="${(X(e.a) + 6).toFixed(1)}" y="${A.T + 14}" class="sb-erat">${esc(e.l.toUpperCase())}${e.a > x.points[x.points.length - 1].season ? " · PROJECTED" : ""}</text>`).join("");
-  const grid = [50, 60, 70, 80, 90].map((v) => `<line x1="${A.L}" x2="${A.W - A.R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" class="sb-ag"/><text x="${A.L - 8}" y="${(Y(v) + 4).toFixed(1)}" class="sb-agt">${v}</text>`).join("");
+  const grid = [10, 20, 30, 40, 50, 60, 70, 80, 90].filter((v) => v > A.lo).map((v) => `<line x1="${A.L}" x2="${A.W - A.R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" class="sb-ag"/><text x="${A.L - 8}" y="${(Y(v) + 4).toFixed(1)}" class="sb-agt">${v}</text>`).join("");
   const years = [];
   for (let s = s0; s <= s1; s++) years.push(`<text x="${X(s).toFixed(1)}" y="${A.H - A.B + 18}" class="sb-ayt ${s === selSeason ? "on" : ""}">${s}</text>`);
   const refs = metric === "ovr" ? x.refs.map((r) => `<line x1="${A.L}" x2="${A.W - A.R}" y1="${Y(r.v).toFixed(1)}" y2="${Y(r.v).toFixed(1)}" class="sb-ref"/><text x="${A.W - A.R - 4}" y="${(Y(r.v) - 5).toFixed(1)}" class="sb-reft">${esc(r.label)} ${r.v}</text>`).join("") : "";
@@ -142,12 +151,13 @@ async function sbArcTab(p) {
   const chart = sbArcChart(x, mt, ghostsOn, sel);
   const ki = mt === "ovr" ? -1 : x.metrics.findIndex((m) => m.key === mt) - 1;
   const readOf = (r) => (ki < 0 ? r.read : r.keys ? r.keys[ki] : null);
+  const af = sbArcFloor(x);
   const rows = x.table.slice().reverse().map((r) => {
     const rr = readOf(r);
-    return `<div class="sb-ar ${r.season === sel ? "on" : ""} ${r.now ? "now" : ""}" data-act="sbarcy" data-id="${x.id}" data-v="${r.season}"><span>${r.season}<small>age ${r.age}</small></span><span>${esc(r.team || r.level)}<small>${esc(r.level)} · ${esc(r.pos)}</small></span><span class="sb-arr">${rr ? `<b>${sbMid(rr)}</b>${sbBand(rr)}<small>${rr[0]}-${rr[1]}</small>` : '<span class="sb-dim" title="Your staff kept no read of him that season">Not kept</span>'}</span><span>${r.games != null ? r.games : "–"}</span><span class="sb-wrap">${esc(r.line || "")}</span><span class="sb-wrap">${esc(r.what || "")}</span></div>`;
+    return `<div class="sb-ar ${r.season === sel ? "on" : ""} ${r.now ? "now" : ""}" data-act="sbarcy" data-id="${x.id}" data-v="${r.season}"><span>${r.season}<small>age ${r.age}</small></span><span>${esc(r.team || r.level)}<small>${esc(r.level)} · ${esc(r.pos)}</small></span><span class="sb-arr">${rr ? `<b>${sbMid(rr)}</b>${sbBand(rr, null, af)}<small>${rr[0]}-${rr[1]}</small>` : '<span class="sb-dim" title="Your staff kept no read of him that season">Not kept</span>'}</span><span>${r.games != null ? r.games : "–"}</span><span class="sb-wrap">${esc(r.line || "")}</span><span class="sb-wrap">${esc(r.what || "")}</span></div>`;
   }).join("");
   const pk = x.peak;
-  const proj = `<div class="sb-card"><span class="sb-lbl">Projection</span>${pk ? `<div class="sb-hero2"><b>${pk.v}</b><small class="sb-dim">likely peak · ${pk.lo}-${pk.hi}</small></div><span class="sb-scale"><i class="sb-sc-b" style="left:${sbPct(pk.lo)}%;width:${Math.max(1.5, sbPct(pk.hi) - sbPct(pk.lo))}%"></i>${x.nfl_starter != null ? `<i class="sb-sc-t" style="left:${sbPct(x.nfl_starter)}%" title="A typical NFL starter: ${x.nfl_starter}"></i>` : ""}</span><span class="sb-scl"><small>40</small><small>${x.nfl_starter != null ? `typical NFL starter ${x.nfl_starter}` : ""}</small><small>99</small></span>` : '<p class="sb-dim">Nobody on your staff has read him yet.</p>'}
+  const proj = `<div class="sb-card"><span class="sb-lbl">Projection</span>${pk ? `<div class="sb-hero2"><b>${pk.v}</b><small class="sb-dim">likely peak · ${pk.lo}-${pk.hi}</small></div><span class="sb-scale"><i class="sb-sc-b" style="left:${sbPct(pk.lo, af)}%;width:${Math.max(1.5, sbPct(pk.hi, af) - sbPct(pk.lo, af))}%"></i>${x.nfl_starter != null ? `<i class="sb-sc-t" style="left:${sbPct(x.nfl_starter, af)}%" title="A typical NFL starter: ${x.nfl_starter}"></i>` : ""}</span><span class="sb-scl"><small>${af}</small><small>${x.nfl_starter != null ? `typical NFL starter ${x.nfl_starter}` : ""}</small><small>99</small></span>` : '<p class="sb-dim">Nobody on your staff has read him yet.</p>'}
     <div class="sb-cells three"><div><span class="sb-lbl">Peak age</span><b>${pk ? pk.age : "–"}</b></div><div><span class="sb-lbl">Draft</span><b>${esc(x.draft.value)}</b><small class="sb-dim">${esc(x.draft.note)}</small></div><div><span class="sb-lbl">Starter</span><b>${esc(x.starter.value)}</b><small class="sb-dim">${esc(x.starter.note)}</small></div></div><p class="sb-note">${esc(x.footnote)}</p></div>`;
   const row = x.table.find((r) => r.season === sel);
   const pr = x.path.find((q) => q.season === sel);
