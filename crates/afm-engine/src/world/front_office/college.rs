@@ -557,7 +557,7 @@ pub fn standing(p: &crate::world::Person, j: usize) -> Standing {
 }
 
 /// A junior college player still looking to move up: a recruit.
-fn is_juco_recruit(p: &crate::world::Person) -> bool {
+pub(crate) fn is_juco_recruit(p: &crate::world::Person) -> bool {
     p.stage == Stage::College && p.juco && p.cal.signed.is_none()
 }
 
@@ -1771,6 +1771,22 @@ pub fn race_at(w: &World, i: usize) -> Vec<(usize, f64)> {
 pub fn appeal_of(w: &World, i: usize, j: usize) -> f64 {
     let nil = if super::program(w) == Some(j) { promise_of(w, w.people[i].player.id) } else { None };
     rec::appeal(w, i, j, nil)
+}
+
+/// What a school means to a recruit reason by reason (board 8), in
+/// `race`'s units: close to home, playing time, NIL money, coaching and
+/// development, winning and the name, academics, and his ties and feel.
+/// Each is (appeal points, the school's score 0-1); they add up to its
+/// appeal in `race`.
+pub fn reasons(w: &World, i: usize, j: usize) -> [(f64, f64); 7] {
+    let nil = if super::program(w) == Some(j) { promise_of(w, w.people[i].player.id) } else { None };
+    rec::reason_parts(w, i, j, nil)
+}
+
+/// How much each of the six weighed reasons counts with whoever decides for
+/// him. True values: a screen shows them only through your staff's read.
+pub fn reason_weights(w: &World, i: usize) -> [f64; 6] {
+    rec::reason_weights(&w.people[i])
 }
 
 /// How firmly a committed recruit holds, in the same units as `race`.

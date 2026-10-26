@@ -415,9 +415,25 @@ pub fn my_players(w: &World) -> Value {
 
 // ---- Watches: saved searches that tell you about new matches ----
 
+/// The player finder's watches (the find pages' saved searches are listed
+/// on their own pages, `lane_find::saved`), each with its place in the
+/// desk's list.
 pub fn watches(w: &World) -> Value {
     let Some(c) = &w.career else { return json!([]) };
-    json!(c.desk.watches.iter().enumerate().map(|(k, x)| json!({ "k": k, "name": x.name, "query": serde_json::from_str::<Value>(&x.query).unwrap_or(Value::Null), "since": views::date_text(x.since), "seen": x.seen.len() })).collect::<Vec<_>>())
+    json!(
+        c.desk
+            .watches
+            .iter()
+            .enumerate()
+            .filter_map(|(k, x)| {
+                let query = serde_json::from_str::<Value>(&x.query).unwrap_or(Value::Null);
+                if query.get("find").is_some() {
+                    return None;
+                }
+                Some(json!({ "k": k, "name": x.name, "query": query, "since": views::date_text(x.since), "seen": x.seen.len() }))
+            })
+            .collect::<Vec<_>>()
+    )
 }
 
 pub fn watch_set(w: &mut World, args: &Value) -> Result<Value, String> {
@@ -434,7 +450,13 @@ pub fn watch_set(w: &mut World, args: &Value) -> Result<Value, String> {
     // What it finds today is already known: it tells you about new ones.
     let seen: Vec<u32> = super::tables::finder_ids(w, &query, 2000);
     let c = w.career.as_mut().ok_or("No career.")?;
-    c.desk.watches.push(afm_engine::world::desk::Watch { name, query: query.to_string(), since: today, seen });
+    c.desk.watches.push(afm_engine::world::desk::Watch {
+        name,
+        query: query.to_string(),
+        since: today,
+        seen,
+        fresh: Vec::new(),
+    });
     Ok(watches(w))
 }
 
@@ -449,6 +471,11 @@ pub fn watch_mail(w: &mut World) {
     let mut found: Vec<(usize, Vec<u32>)> = Vec::new();
     for (k, x) in c.desk.watches.iter().enumerate() {
         let q: Value = serde_json::from_str(&x.query).unwrap_or(Value::Null);
+        // The find pages' saved searches tell you on their own days
+        // (`lane_find::after_days`).
+        if q.get("find").is_some() {
+            continue;
+        }
         let new: Vec<u32> =
             super::tables::finder_ids(w, &q, 2000).into_iter().filter(|id| !x.seen.contains(id)).take(25).collect();
         if !new.is_empty() {

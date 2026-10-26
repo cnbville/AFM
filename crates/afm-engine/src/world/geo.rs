@@ -71,6 +71,60 @@ pub fn miles(a: usize, b: usize) -> f64 {
     MILES[a * 51 + b]
 }
 
+/// Where a town is: its own place when the towns table has it, else its
+/// state's center.
+pub fn place(state: usize, town: &str) -> (f64, f64) {
+    let (code, lat, lon) = STATE_CENTERS[state.min(50)];
+    super::high_school::town_place(code, town).unwrap_or((lat, lon))
+}
+
+/// Campuses whose town the towns table doesn't list under the college's
+/// own spelling (a campus town, a split city), with their real places.
+const CAMPUSES: [(&str, &str, f64, f64); 23] = [
+    ("CO", "USAF Academy", 38.998, -104.862),
+    ("NY", "West Point", 41.391, -73.956),
+    ("IL", "Urbana-Champaign", 40.110, -88.228),
+    ("FL", "Coral Gables", 25.721, -80.268),
+    ("IL", "DeKalb", 41.930, -88.750),
+    ("PA", "University Park", 40.798, -77.860),
+    ("TX", "University Park", 32.850, -96.800),
+    ("CT", "Storrs", 41.808, -72.250),
+    ("NC", "Winston-Salem", 36.100, -80.244),
+    ("MN", "St. Paul", 44.954, -93.090),
+    ("MO", "St. Louis", 38.627, -90.199),
+    ("AL", "Normal", 34.787, -86.572),
+    ("TX", "Prairie View", 30.093, -95.988),
+    ("PA", "Wilkes-Barre", 41.246, -75.881),
+    ("MO", "St. Charles", 38.788, -90.497),
+    ("NC", "Boiling Springs", 35.254, -81.667),
+    ("NC", "Buies Creek", 35.413, -78.736),
+    ("FL", "DeLand", 29.028, -81.303),
+    ("MA", "Easton", 42.024, -71.129),
+    ("UT", "St. George", 37.096, -113.568),
+    ("TX", "Brownsville/Edinburg", 26.302, -98.163),
+    ("PA", "Moon Township", 40.521, -80.211),
+    ("NY", "Brookville", 40.813, -73.567),
+];
+
+/// Where a college's campus is: its town's place, a listed campus, or its
+/// state's center.
+pub fn campus(state: usize, city: &str) -> (f64, f64) {
+    let code = STATE_CENTERS[state.min(50)].0;
+    match CAMPUSES.iter().find(|c| c.0 == code && c.1 == city) {
+        Some(c) => (c.2, c.3),
+        None => place(state, city),
+    }
+}
+
+/// Great-circle miles between two places (latitude, longitude).
+pub fn miles_between(a: (f64, f64), b: (f64, f64)) -> f64 {
+    let (p1, p2) = (a.0.to_radians(), b.0.to_radians());
+    let dp = p2 - p1;
+    let dl = (b.1 - a.1).to_radians();
+    let h = (dp / 2.0).sin().powi(2) + p1.cos() * p2.cos() * (dl / 2.0).sin().powi(2);
+    3959.0 * 2.0 * h.sqrt().min(1.0).asin()
+}
+
 fn great_circle(a: usize, b: usize) -> f64 {
     if a == b {
         return 60.0;

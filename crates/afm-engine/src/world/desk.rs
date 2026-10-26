@@ -128,6 +128,10 @@ pub struct Watch {
     pub since: Date,
     /// Players already matched and told.
     pub seen: Vec<u32>,
+    /// The players its last mail named, until you open the search (a
+    /// saved search of the find pages, update 2 lane 7).
+    #[serde(default)]
+    pub fresh: Vec<u32>,
 }
 
 /// Contacts you made from the inbox (congratulations, calls), for the

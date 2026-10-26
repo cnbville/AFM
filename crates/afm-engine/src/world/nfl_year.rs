@@ -2503,6 +2503,24 @@ pub(crate) fn draft_order(w: &World) -> Option<Vec<usize>> {
     if s.year < w.year { s.final_order.clone().filter(|_| s.booked) } else { s.last_order.clone() }
 }
 
+/// The order a mock draft picks in: while the season runs, the standings
+/// so far (teams out of the playoffs by record, worst first, then playoff
+/// teams by the round they went out in, those still alive last); once the
+/// season has set the order, that order.
+pub(crate) fn mock_order(w: &World) -> Option<Vec<usize>> {
+    let s = w.nfl_season.as_ref()?;
+    if s.year != w.year || !s.started || s.final_order.is_some() {
+        return draft_order(w);
+    }
+    let round = |t: usize| match s.out_round.get(t).copied().unwrap_or(0) {
+        0 if s.seed.get(t).is_some_and(Option::is_some) => 5,
+        r => r,
+    };
+    let mut v: Vec<usize> = (0..s.wins.len()).filter(|&t| s.active[t]).collect();
+    v.sort_by(|&a, &b| round(a).cmp(&round(b)).then(record_key(s, a).total_cmp(&record_key(s, b))));
+    Some(v)
+}
+
 impl World {
     /// Last season's Super Bowl champion, if the clock has played one.
     pub(crate) fn prev_champion(&self) -> Option<usize> {
