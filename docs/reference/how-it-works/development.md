@@ -1,6 +1,6 @@
 # Development: how it works today
 
-Checked against main at 94a6553 on 2026-10-25.
+Checked against main at 9a53e5d on 2026-10-26.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 
@@ -166,6 +166,9 @@ What it reads from the world: `SeasonContext` (`development.rs`): level, coachin
 
 - With `defer`, `develop_season` skips growth for attributes his position weights (`training/mod.rs`, `defers`) and not declining this year, still taking the noise draw. It stores the year's rate inputs in `player.train` (`Train::open`) and the row's end is `projected_overall`.
 - Each week `training::land` lands a share of each family's year with `grow_share`; shares summing to 1 give the yearly step's growth exactly (`development.rs`, `grow_share`).
+- A run of poor weekly prep multiplies that week's technique, kicking and mental shares by 1 − 0.024 × (Unprepared + 0.6 × Underprepared weeks among the last five), at most 12% off. The cut is lost for the year: `close_year` lands only the part of the calendar the weeks never reached (`training/prep.rs`, `growth_factor`, `slow`; `training/mod.rs`, `cover`, `close_year`).
+- Rust from poor prep moves ratings outside the yearly step: up to 3 points off play recognition and anticipation and off his position's two main technique ratings, won back by prepared weeks; a position change gives it back first (`training/prep.rs`, `record`, `unrust`; `athlete.rs`, `set_position`).
+- Opening the year keeps his practice grade, his last five prep words and his rust (`develop_season`, the `defer` step); `close_year` keeps his load, prep words and rust (`training/mod.rs`, `close_year`).
 - At the next checkpoint `close_year` lands the rest at the default and sets the last row's end overall (`training/mod.rs`, `close_year`, called just before `develop_season` in `world/season.rs` and `world/pro/mod.rs`).
 - Everything else (ceilings, injuries, events, ageing, fades, tendencies) settles at the checkpoint. Details on [training.md](training.md).
 

@@ -1,6 +1,6 @@
 # Code oddities found while writing the reference
 
-Checked against main at 94a6553 on 2026-10-25.
+Checked against main at 9a53e5d on 2026-10-26.
 
 Places where the code does something its own comment, a design doc or the obvious intent says it shouldn't. Each is stated as what the code does. None is fixed: fixes wait for Cain's yes or no. Remove a line when it is fixed or decided.
 
@@ -28,3 +28,6 @@ Places where the code does something its own comment, a design doc or the obviou
 22. Nothing in the AI draft reads injury history (injuries.md).
 23. Turf (×1.12 injury risk) is only set in NFL games in closed stadiums (injuries.md).
 24. `combine_bench_mean` has 13 values for 14 positions (no long snapper), and the combine CSV has no LS row, so snappers get the default size 73 in / 230 lb (body.md).
+25. Lane 4's picks in `docs/world-model.md` size prep bigger than the code does: there a poorly prepared player is about a tenth of a second late per word below prepared and a quarterback's reads run up to 30% slower. The code adds 0.1 × (factor − 1) seconds (0.033 s for Unprepared) and multiplies each read by 1 + 0.3 × (factor − 1) (about 10%) (`game/scrimmage.rs`, `run_snap`, `quarterback`) (match-engine.md, training.md).
+26. Study hall flags a player under a 2.3 GPA at every level (`training/seat.rs`, `team_effects`), but the practice screen's who's-where list flags a high schooler only under 2.0 (`crates/afm-game/src/lane_training/week.rs`) (training.md).
+27. A player absent from a voluntary week works his own effort, but still takes the team week's load, in the world pass and on your team. At your high school he also still rolls the summer week's practice injuries and heat illness (`training/week.rs`, `monday`; `training/seat.rs`, `week`, `practice_injuries`, `heat_week`) (training.md, injuries.md).
