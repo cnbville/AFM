@@ -100,8 +100,10 @@ pub(super) fn view(w: &World) -> Reply {
                 Personnel::P11 => "nickel",
                 _ => "base",
             };
-            let does = if n < 8.0 {
-                "seldom on their film".to_string()
+            let does = if n < 0.5 {
+                "haven't shown it on film yet".to_string()
+            } else if n < 8.0 {
+                "seldom show it on their film".to_string()
             } else {
                 format!("run {:.0}% · throw {:.0}%", 100.0 * r / n, 100.0 * (n - r) / n)
             };
