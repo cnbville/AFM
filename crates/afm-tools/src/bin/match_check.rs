@@ -211,11 +211,46 @@ fn main() {
     if std::env::var("AFM_TRACE").is_ok() {
         afm_engine::game::sim::TRACE.store(true, std::sync::atomic::Ordering::Relaxed);
     }
+    // AFM_SHEET=home: the home team plays from a drafted call sheet (the
+    // coordinators' draft from no film yet, `plans::check_sheet`), the way
+    // your seat's team does; AFM_SHEET=none prints the same home-side block
+    // without one, the baseline to set it against.
+    let sheet = std::env::var("AFM_SHEET").ok();
+    let sheet_home = sheet.as_deref() == Some("home");
+    let sheet_drop: Vec<String> =
+        std::env::var("AFM_SHEET_DROP").map(|v| v.split(',').map(String::from).collect()).unwrap_or_default();
     let t0 = std::time::Instant::now();
     let results: Vec<_> = (0..games)
         .into_par_iter()
         .map(|g| {
             let (h, a) = pair(g);
+            let drafted = sheet_home.then(|| {
+                let mut t = teams[h].clone();
+                let cal = match level {
+                    Level::NFL => afm_engine::calendar::Level::Nfl,
+                    Level::HS => afm_engine::calendar::Level::HighSchool,
+                    _ => afm_engine::calendar::Level::College,
+                };
+                afm_engine::world::plans::check_sheet(&mut t, cal, seed.wrapping_mul(7919).wrapping_add(g as u32));
+                // AFM_SHEET_DROP=shots,script,off,def takes a part off the
+                // sheet, to see what each part does.
+                use afm_engine::game::sheet::{SCRIPT, SHOTS, split};
+                for part in sheet_drop.iter() {
+                    let p = &mut t.prep;
+                    match part.as_str() {
+                        "shots" | "script" => {
+                            let k = if part == "shots" { SHOTS } else { SCRIPT };
+                            p.sheet.retain(|x| split(x.0).0 != k);
+                            p.wet.retain(|x| split(x.0).0 != k);
+                        }
+                        "off" => (p.sheet, p.wet, p.stick) = (Vec::new(), Vec::new(), 0.0),
+                        "def" => (p.dsheet, p.dwet, p.dstick) = (Vec::new(), Vec::new(), 0.0),
+                        _ => {}
+                    }
+                }
+                t
+            });
+            let home = drafted.as_ref().unwrap_or(&teams[h]);
             // An average road trip: the crowd of an average FBS conference
             // or NFL game (a 50,000-70,000 stadium) and about 500 miles and
             // half a time zone of travel for the visitors.
@@ -227,7 +262,7 @@ fn main() {
             let seed = seed as u64 * 1_000_003 + g as u64;
             match book {
                 Some((b, y)) => afm_engine::game::quick_game_book(&teams[h], &teams[a], b, y, seed, venue, false),
-                None => quick_game_in(&teams[h], &teams[a], level, seed, Default::default(), venue),
+                None => quick_game_in(home, &teams[a], level, seed, Default::default(), venue),
             }
         })
         .collect();
@@ -787,6 +822,65 @@ fn main() {
             m.iter().filter(|&&x| x > 0.0).count() as f64 / m.iter().filter(|&&x| x != 0.0).count().max(1) as f64;
         let target = if level == Level::NFL { 2.1 } else { 2.4 };
         println!("{:<28} {:>9.3} {:>9.3}  (se {:.2}, home wins {:.3})", "home margin", hm, target, se, wins);
+    }
+    if let Some(mode) = sheet.as_deref() {
+        // The home side with a drafted sheet (home) or without (none): the
+        // offense [points, pass yards, rush yards, snaps, EPA, runs, sacks
+        // taken, interceptions thrown] and the defense [points allowed,
+        // snaps, EPA allowed, man, blitz, dropbacks faced, pressures, sacks,
+        // interceptions].
+        let (mut o, mut d) = ([0.0f64; 8], [0.0f64; 9]);
+        for r in &results {
+            let s = &r.stats;
+            let (ht, at) = (&s.team[0], &s.team[1]);
+            o[0] += ht.points as f64;
+            o[1] += ht.pass_yards;
+            o[2] += ht.rush_yards;
+            o[6] += ht.sacks as f64;
+            o[7] += ht.ints as f64;
+            d[0] += at.points as f64;
+            d[5] += at.dropbacks as f64;
+            d[6] += at.pressures as f64;
+            d[7] += at.sacks as f64;
+            d[8] += at.ints as f64;
+            for p in s
+                .plays
+                .iter()
+                .filter(|p| matches!(p.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble))
+            {
+                if p.offense == 0 {
+                    o[3] += 1.0;
+                    o[4] += p.epa;
+                    o[5] += (p.kind == PlayType::Run) as u8 as f64;
+                } else {
+                    d[1] += 1.0;
+                    d[2] += p.epa;
+                    d[3] += p.coverage_man as u8 as f64;
+                    d[4] += p.blitz as u8 as f64;
+                }
+            }
+        }
+        let gm = games as f64;
+        println!(
+            "home side, sheet {mode}: offense points {:.2}, pass yards {:.1}, rush yards {:.1}, run share {:.3}, EPA a snap {:.3}, sacks taken {:.2}, interceptions {:.3}",
+            o[0] / gm,
+            o[1] / gm,
+            o[2] / gm,
+            o[5] / o[3].max(1.0),
+            o[4] / o[3].max(1.0),
+            o[6] / gm,
+            o[7] / gm
+        );
+        println!(
+            "home side, sheet {mode}: defense points allowed {:.2}, man share {:.3}, blitz share {:.3}, pressure rate {:.3}, sacks {:.2}, interceptions {:.3}, EPA a snap allowed {:.3}",
+            d[0] / gm,
+            d[3] / d[1].max(1.0),
+            d[4] / d[1].max(1.0),
+            d[6] / d[5].max(1.0),
+            d[7] / gm,
+            d[8] / gm,
+            d[2] / d[1].max(1.0)
+        );
     }
     row("plays", g("plays") / n, f("plays"));
     {

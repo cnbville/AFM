@@ -379,7 +379,7 @@ fn grade_words(g: u8) -> &'static str {
     }
 }
 
-fn practice_status(w: &World, id: u32, i: usize) -> (&'static str, String) {
+pub(crate) fn practice_status(w: &World, id: u32, i: usize) -> (&'static str, String) {
     let d = w.today;
     if let Some(h) = w.training.hurt_on(id, d) {
         let what = h.kind.map_or(h.how.clone(), |k| k.name().to_string());
@@ -1214,7 +1214,7 @@ fn backfield_name(b: Backfield) -> &'static str {
     }
 }
 
-fn personnel_of(s: &str) -> Personnel {
+pub(crate) fn personnel_of(s: &str) -> Personnel {
     match s {
         "12" => Personnel::P12,
         "21" => Personnel::P21,
@@ -1225,7 +1225,7 @@ fn personnel_of(s: &str) -> Personnel {
     }
 }
 
-fn backfield_of(s: &str) -> Backfield {
+pub(crate) fn backfield_of(s: &str) -> Backfield {
     match s {
         "under center" => Backfield::UnderCenter,
         "pistol" => Backfield::Pistol,
@@ -1233,7 +1233,7 @@ fn backfield_of(s: &str) -> Backfield {
     }
 }
 
-fn set_of(s: &str) -> Set {
+pub(crate) fn set_of(s: &str) -> Set {
     match s {
         "trips" => Set::Trips,
         "bunch" => Set::Bunch,
@@ -1401,6 +1401,7 @@ fn sheet_set(w: &mut World, args: &Value) -> Result<(), String> {
             backfield: backfield_of(&s("backfield")),
             set: set_of(&s("set")),
             play,
+            hash: v.get("hash").and_then(Value::as_u64).unwrap_or(0).min(2) as u8,
         });
     }
     let sheet = &mut w.training.plan.sheet;
@@ -1762,6 +1763,8 @@ fn design_delete(w: &mut World, args: &Value) -> Result<(), String> {
             i.key = InstallKey::Design(x - 1);
         }
     }
+    // The drafted sheet follows too (update 2, G7).
+    afm_engine::world::plans::design_removed(w, k as u16);
     w.training.register_designs();
     w.refresh_seat_team();
     Ok(())
@@ -1915,6 +1918,18 @@ fn package_spots(b: Board) -> Vec<(f64, f64)> {
             (2.0, 12.0),
             (6.0, 0.0),
         ],
+        Board::Jumbo => vec![
+            (-5.0, 0.0),
+            (0.0, -4.4),
+            (0.0, -2.2),
+            (0.0, 0.0),
+            (0.0, 2.2),
+            (0.0, 4.4),
+            (0.0, -7.6),
+            (0.0, 7.6),
+            (-1.0, 10.0),
+            (-7.0, 0.0),
+        ],
         Board::GoalLineO => vec![
             (-2.0, 0.0),
             (0.0, -4.4),
@@ -2010,12 +2025,17 @@ fn slot_read(w: &World, t: TeamRef, i: usize, pos: Position, reader: u64) -> f64
     if p.player.position == pos { mid } else { mid - 8.0 }
 }
 
-fn boards(w: &World, args: &Value) -> Reply {
+pub(crate) fn boards(w: &World, args: &Value) -> Reply {
+    boards_with(w, args, w.seat_game_depth().unwrap_or_default())
+}
+
+/// The same with your staff's depth order in hand (a board that has built
+/// your game team already).
+pub(crate) fn boards_with(w: &World, args: &Value, staff_order: Vec<(Position, Vec<u32>)>) -> Reply {
     let (t, st) = team_of(w)?;
     let reader = reader_key(w);
     let roster: Vec<usize> = st.roster.clone();
     let roles = ts::roles(w, &st);
-    let staff_order = w.seat_game_depth().unwrap_or_default();
     let by_id: HashMap<u32, usize> = roster.iter().map(|&i| (w.people[i].player.id, i)).collect();
     let who = |i: usize| {
         let p = &w.people[i];

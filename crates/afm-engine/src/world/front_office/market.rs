@@ -699,6 +699,11 @@ pub(crate) fn hired(w: &mut World, e: Employer, r: Role) {
     w.front_office.log = log_kept;
     w.seat_depth.clear();
     w.seat_focus.clear();
+    // The game plan starts over at the new team (update 2): its own
+    // guidelines (a head coach sets his; an assistant's team plays to its
+    // head coach's), its words, depth and keys; the old team's games stay
+    // out of the self-scout.
+    w.plans = Default::default();
     let today = w.today;
     let staff = match (e, r) {
         (Employer::HighSchool(s), Role::HeadCoach) => w.hire_hs_staff(s),
@@ -775,6 +780,7 @@ pub(crate) fn left(w: &mut World, why: &str) {
     w.prune_tapes();
     w.seat_depth.clear();
     w.seat_focus.clear();
+    w.plans = Default::default();
     if let Some(c) = w.career.as_mut() {
         c.role = None;
         c.hs_staff.clear();

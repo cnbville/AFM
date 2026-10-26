@@ -151,6 +151,82 @@ pub enum TwoChart {
     Kick,
 }
 
+/// Your timeout rule (update 2, G4): how many to keep for the end of each
+/// half. Your staff spends the rest to beat the play clock instead of
+/// taking a delay of game.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TimeoutRule {
+    #[default]
+    Staff,
+    KeepTwo,
+    KeepOne,
+    Free,
+}
+
+/// Your four-minute plan (update 2, G4): ahead late, run it out (runs and
+/// the play clock), keep attacking (your usual mix and tempo), or the
+/// staff's call.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FourMinute {
+    #[default]
+    Staff,
+    RunItOut,
+    KeepAttacking,
+}
+
+/// The 4th-down chart's rows (to go) and columns (field position), for
+/// your own cells (update 2, G4).
+pub const CHART_ROWS: [&str; 7] =
+    ["4th & 1", "4th & 2", "4th & 3", "4th & 4-5", "4th & 6-7", "4th & 8-10", "4th & 11+"];
+pub const CHART_COLS: [&str; 9] =
+    ["Own 1-20", "Own 21-30", "Own 31-40", "Own 41-50", "Opp 49-40", "Opp 39-30", "Opp 29-20", "Opp 19-10", "Opp 9-1"];
+
+/// A snap's cell on the chart: (row, column).
+pub fn chart_at(togo: f64, yardline_100: f64) -> (usize, usize) {
+    let row = match togo {
+        t if t <= 1.0 => 0,
+        t if t <= 2.0 => 1,
+        t if t <= 3.0 => 2,
+        t if t <= 5.0 => 3,
+        t if t <= 7.0 => 4,
+        t if t <= 10.0 => 5,
+        _ => 6,
+    };
+    let y = yardline_100;
+    let col = if y >= 80.0 {
+        0
+    } else if y >= 70.0 {
+        1
+    } else if y >= 60.0 {
+        2
+    } else if y >= 50.0 {
+        3
+    } else if y >= 40.0 {
+        4
+    } else if y >= 30.0 {
+        5
+    } else if y >= 20.0 {
+        6
+    } else if y >= 10.0 {
+        7
+    } else {
+        8
+    };
+    (row, col)
+}
+
+/// Your own call in a cell, if you set one: two bits a column, 1 go, 2
+/// field goal, 3 punt.
+pub fn chart_cell(cells: &[u32; 7], togo: f64, yardline_100: f64) -> Option<super::calling::FourthDown> {
+    let (r, c) = chart_at(togo, yardline_100);
+    match (cells[r] >> (2 * c)) & 3 {
+        1 => Some(super::calling::FourthDown::Go),
+        2 => Some(super::calling::FourthDown::FieldGoal),
+        3 => Some(super::calling::FourthDown::Punt),
+        _ => None,
+    }
+}
+
 /// The classic two-point chart (`TwoChart::Chart`), by the margin after
 /// the touchdown.
 pub fn chart_says_two(diff_after_td: i32) -> bool {
@@ -169,6 +245,14 @@ pub struct Prep {
     pub fourth: FourthChart,
     pub two: TwoChart,
     pub tempo: Tempo,
+    /// Your standing rules beyond the charts (update 2, G4): timeouts, the
+    /// four-minute plan and your own cells on the 4th-down chart.
+    #[serde(default)]
+    pub timeouts: TimeoutRule,
+    #[serde(default)]
+    pub four: FourMinute,
+    #[serde(default)]
+    pub cells: [u32; 7],
 }
 
 impl Prep {
@@ -178,6 +262,9 @@ impl Prep {
             && self.fourth == FourthChart::Staff
             && self.two == TwoChart::Staff
             && self.tempo == Tempo::Normal
+            && self.timeouts == TimeoutRule::Staff
+            && self.four == FourMinute::Staff
+            && self.cells == [0; 7]
     }
 }
 

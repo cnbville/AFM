@@ -1064,6 +1064,50 @@ pub(crate) fn can_play(w: &World, i: usize, week: usize) -> bool {
         && grades.is_none_or(|g| g.get(&i).is_none_or(|m| m >> week & 1 == 0))
 }
 
+/// A school's systems as its head coach would install them: what he knows
+/// best, and at your school what your guidelines ask for (G2).
+pub(crate) fn school_install(w: &World, h: usize, yours: bool) -> super::systems::Installed {
+    use super::systems::Installed;
+    let coach = w.high_schools[h].coach;
+    let know = coach.map_or([0.5; 11], |c| w.coaches[c].systems.know);
+    let best = |r: std::ops::Range<usize>| {
+        let start = r.start;
+        r.max_by(|&a, &b| know[a].total_cmp(&know[b])).map_or(0, |x| x - start)
+    };
+    let inst = Installed { off: best(0..5), front: best(5..7), shell: best(7..11), ..Installed::default() };
+    if !yours {
+        return inst;
+    }
+    let level = crate::calendar::Level::HighSchool;
+    let guide = super::guide::team_guidelines(w, coach, coach, coach, level, true);
+    super::guide::wanted_install(&guide, inst)
+}
+
+/// Your school's summer camp install (update 2, G2 and S5): from August
+/// the season's systems are set by your guidelines, once a season; a
+/// system changed from last season is known only as far as it shares the
+/// old one's playbook. Before camp, last season's stand.
+pub(crate) fn camp_install(w: &mut World) {
+    use super::systems::{Kind, overlap};
+    let Some(h) = w.seat.filter(|s| s.level == crate::calendar::Level::HighSchool).and_then(|s| s.program) else {
+        return;
+    };
+    let season = super::plans::season_of(w.today);
+    if w.today.month() < 8 || w.plans.hs_install.is_some_and(|x| x.0 == season) {
+        return;
+    }
+    let mut new = school_install(w, h, true);
+    let (off, def) = match w.plans.hs_install {
+        Some((_, old)) => (
+            overlap(Kind::Offense, old.off, new.off),
+            overlap(Kind::Front, old.front, new.front).min(overlap(Kind::Shell, old.shell, new.shell)),
+        ),
+        None => (1.0, 1.0),
+    };
+    (new.off_known, new.def_known) = (off, def);
+    w.plans.hs_install = Some((season, new));
+}
+
 /// A game team from the players given (a school's varsity, or your JV or
 /// freshman squad): the same build for each, with the school's head coach
 /// calling both sides. Your order is played only by your varsity.
@@ -1073,12 +1117,22 @@ pub(crate) fn squad_team(
     dressed: Vec<usize>,
     varsity: bool,
 ) -> Option<(GameTeam, Vec<(u32, usize)>)> {
-    use super::systems::Installed;
     let school = &w.high_schools[h];
     if dressed.len() < HS_DRESS_MIN {
         return None;
     }
     let ids: Vec<(u32, usize)> = dressed.iter().map(|&i| (w.people[i].player.id, i)).collect();
+    // Your varsity's systems as your summer camp installed them (update 2,
+    // G2): a change from last season is known only as far as the systems
+    // share their playbooks (S5) until a year on.
+    let seat = varsity && w.seat_school() == Some(h);
+    let season = super::plans::season_of(w.today);
+    let stored = w.plans.hs_install.filter(|_| seat).map(|(s, mut inst)| {
+        if s != season {
+            (inst.off_known, inst.def_known) = (1.0, 1.0);
+        }
+        inst
+    });
     // Your feeders that took up your system send freshmen who know its
     // terms (update 2, L14): the playbook learning starts further along.
     let feeders = if w.seat_school() == Some(h) && !w.legacy.hs.feeders.is_empty() {
@@ -1092,16 +1146,18 @@ pub(crate) fn squad_team(
             let p = &w.people[i].player;
             let years = p.age.saturating_sub(14) as f64;
             let head = if feeders.is_empty() { 0.0 } else { super::legacy::hs::head_start(w, &feeders, h, i) };
-            GamePlayer::from_player(p, clamp(0.72 + 0.04 * years + head, 0.0, 0.9), 0.7 * years)
+            let side =
+                stored.map_or(1.0, |s| if super::systems::offense(p.position) { s.off_known } else { s.def_known });
+            let know = clamp(0.72 + 0.04 * years + head, 0.0, 0.9) * (0.8 + 0.2 * side);
+            GamePlayer::from_player(p, know, 0.7 * years)
         })
         .collect();
     let coach = school.coach;
-    let know = coach.map_or([0.5; 11], |c| w.coaches[c].systems.know);
-    let best = |r: std::ops::Range<usize>| {
-        let start = r.start;
-        r.max_by(|&a, &b| know[a].total_cmp(&know[b])).map_or(0, |x| x - start)
-    };
-    let inst = Installed { off: best(0..5), front: best(5..7), shell: best(7..11), ..Installed::default() };
+    // Your guidelines pick your varsity's systems (update 2, G2) at camp:
+    // at a high school the head coach calls both sides himself.
+    let level = crate::calendar::Level::HighSchool;
+    let guide = super::guide::team_guidelines(w, coach, coach, coach, level, seat);
+    let inst = stored.unwrap_or_else(|| school_install(w, h, seat));
     let ab = coach.map(|c| *w.coaches[c].ability());
     let aware = players.iter().map(|p| p.a(crate::attributes::Attr::FootballIq)).sum::<f64>() / players.len() as f64;
     let offense = season::coach_caller(w, coach, inst.off);
@@ -1125,11 +1181,14 @@ pub(crate) fn squad_team(
             film_study: clamp(0.7 * ab.map_or(9.0, |a| a.scheme) + 7.0 * school.resources, 1.0, 20.0),
             install,
             style: coach.map_or_else(Default::default, |c| w.coaches[c].style()),
+            guide: Default::default(),
         },
     );
+    super::guide::apply(w, &mut team, guide, coach, coach);
     team.give_orders(crate::player::Level::HS);
     if varsity && w.seat_school() == Some(h) {
         team.order = w.seat_order();
+        crate::training::seat::sit_hurt(w, &mut team);
         crate::training::seat::prepare(w, &mut team);
     }
     // Line chemistry: upperclassmen up front have played together.
@@ -2357,6 +2416,18 @@ impl World {
         }
         out.sort_by_key(|f| f.date);
         out
+    }
+
+    /// A school's next playoff game once its bracket sets it: (date, home,
+    /// away), the better seed hosting.
+    pub(crate) fn hs_playoff_next(&self, h: usize) -> Option<(Date, usize, usize)> {
+        let hs = self.hs_season.as_ref()?;
+        let state = self.high_schools.get(h)?.state;
+        let st = hs.states.get(state)?;
+        hs.brackets.iter().filter(|b| b.state as usize == state && !b.done()).find_map(|b| {
+            let (home, away) = b.games().into_iter().find(|g| g.0 as usize == h || g.1 as usize == h)?;
+            Some((*st.rounds.get(b.round as usize)?, home as usize, away as usize))
+        })
     }
 
     /// A school's classification this season: its name and every school's

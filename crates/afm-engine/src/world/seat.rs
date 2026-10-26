@@ -156,7 +156,9 @@ impl World {
             Cal::Other => (super::pro::other::seat_side(self, seat.other?)?, crate::player::Level::NFL),
             _ => {
                 let prog = self.programs.get(seat.program?)?;
-                (super::season::game_team(self, prog)?, super::division_level(prog.division))
+                let mut team = super::season::game_team(self, prog)?;
+                crate::training::seat::sit_hurt(self, &mut team);
+                (team, super::division_level(prog.division))
             }
         })
     }

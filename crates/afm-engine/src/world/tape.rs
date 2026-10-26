@@ -66,6 +66,10 @@ pub struct Snap {
     /// film kept before it.
     #[serde(default)]
     pub throw: Option<Throw>,
+    /// A punt or kickoff: the return team showed the look a fake or a
+    /// surprise onside kick waits for (update 2, G18).
+    #[serde(default)]
+    pub ret_look: bool,
 }
 
 /// A throw as the film shows it, in small numbers.
@@ -206,6 +210,7 @@ impl Tape {
                 pressured: r.pressured,
                 null: r.nullified || r.kind == PlayType::NoPlay,
                 throw: Throw::of(r),
+                ret_look: r.look,
             });
             if kind == 1 && !r.nullified {
                 for &(blocker, defender, pass, won, _, pressure) in &r.blocks {

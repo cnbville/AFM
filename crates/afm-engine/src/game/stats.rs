@@ -155,6 +155,22 @@ pub struct PlayRecord {
     /// The line chart (lane 9): your games' snaps only.
     #[serde(default)]
     pub line: Option<Box<super::chart::LineChart>>,
+    /// Where the ball sat at the snap (update 2, G6, the self-scout): 0 not
+    /// kept, 1 the left hash, 2 the right, 3 the middle, as the offense
+    /// looks downfield.
+    #[serde(default)]
+    pub hash: u8,
+    /// Snapped without a huddle (G1's tempo, for the Identity tab).
+    #[serde(default)]
+    pub hurry: bool,
+    /// The defense's package (G15): 0 not kept, 1 base, 2 nickel, 3 dime,
+    /// 4 goal line.
+    #[serde(default)]
+    pub dpers: u8,
+    /// A punt or a kickoff: the return team showed the look a fake or a
+    /// surprise onside kick waits for (G18).
+    #[serde(default)]
+    pub look: bool,
 }
 
 impl PlayRecord {
@@ -247,6 +263,10 @@ impl PlayRecord {
             fourth: None,
             timeouts: None,
             line: None,
+            hash: 0,
+            hurry: false,
+            dpers: 0,
+            look: false,
         }
     }
 

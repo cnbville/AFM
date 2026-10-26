@@ -1265,6 +1265,11 @@ fn side(w: &World, k: u8, fr: usize, year: i32) -> Option<Side> {
     } else {
         t.order = mine;
     }
+    // Your club takes your week and your plan, as at every level.
+    if yours {
+        crate::training::seat::sit_hurt(w, &mut t);
+        crate::training::seat::prepare(w, &mut t);
+    }
     Some(Side { team: t, who })
 }
 
