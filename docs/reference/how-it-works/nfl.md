@@ -1,6 +1,6 @@
 # The living NFL: how it works today
 
-Checked against main at 94a6553 on 2026-10-25.
+Checked against main at 9a53e5d on 2026-10-26.
 
 Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes are Claude's; the code says which.
 
@@ -32,7 +32,7 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
 - **Depth order**: the club's `grade`. Non-specialists lose 0.6 a year past 30. Last year's 8-game starter here, if under 32, gets +3 (QB) or +1.5. Injured or holding out: -50. The owner's pet: +4 (`world/pro/mod.rs`, `order_depth`).
 - **Team strength**: the average rating of the starters, long snapper left out (`league.rs`, `Team::strength`).
 - **Roster limit**: the offseason limit from the new league year to cutdown, then the regular-season limit (`world/pro/mod.rs`, `roster_limit`; the sizes are in `w.rules`).
-- **Game-day actives**: healthy, not suspended, not sitting out by your discipline. Starters and rotation first, then backups in a fixed order (QB, IOL, OT, DT, EDGE, LB, CB, S, WR, RB, TE) up to the actives limit. Then practice-squad elevations (`world/pro/games.rs`, `actives`; `world/pro/squad.rs`, `elevate`).
+- **Game-day actives**: healthy, not suspended, not sitting out by your discipline, and for your own club not on the non-football injury list from report day (`training/seat.rs`, `SeatTraining::hurt_out`; preseason sides the same, `preseason_side`). Starters and rotation first, then backups in a fixed order (QB, IOL, OT, DT, EDGE, LB, CB, S, WR, RB, TE) up to the actives limit. Then practice-squad elevations (`world/pro/games.rs`, `actives`; `world/pro/squad.rs`, `elevate`).
 - **Elevations**: 2 a game from 2020. Each player can be elevated 2 times a season in 2020-21 and 3 times from 2022 (`world/pro/squad.rs`, `elevation_limits`). Protected squad players: 4 a week from 2020 (`protected_count`).
 - **Practice squad eligibility**: at most 2 seasons played, fewer than 3 seasons on a squad, age 26 or under. Veteran places: 2 (2014-15), 4 (2016-19), 6 with no accrual limit (2020 on) (`world/pro/squad.rs`, `squad_eligible`, `veteran_places`).
 - **Cutdown**: each player is ranked on the club's grade, plus a camp term (first year -4 x 0.2, new team -1 x 0.2, competitiveness), plus preseason tape (clamped ±3), minus 3 x (1 - sharpness). Then add rookie protection by round for 3 years (`PIPELINE.rookie_protection`), +3 for last year's starter and +0.3 a year under 27. A 4+ season veteran below starter level pays a cost (up to 3). GM biases also count: sunk cost +2x, impatience -2x, "not my guy" -2x. The owner's pet gets +10, and a player out 6+ weeks -2. Each position keeps its share of the limit, and the best of the rest fill it. Young players within 7 points of the cut line go to the squad (`world/pro/mod.rs`, `cut_scores`, `cut_split`, `cutdown`).
@@ -94,6 +94,7 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
 - **Street signings** (players under consensus 66 before camp, everyone after): price = market share x decline x (1 - 4% a week unsigned). The club where he would gain the most playing time wins. Grade 58+ only (`world/pro/mod.rs`, `ask`, `street_signings`).
 - **Reserve/future deals**: at Black Monday for non-playoff teams and at the Super Bowl for playoff teams. A club keeps squad players graded 58+ who are 28 or younger, and adds up to 4 street players (27 or under, grade 60+) (`world/pro/market.rs`, `futures`).
 - **Holdouts**: only a star (market grade 85+) paid under half his market, with 3+ seasons. Push = greed x min(under/3, 1) x leverage (1, or 0.6 at 30+) - 0.3 x loyalty x trust + 0.1 x temper - 0.15 x mood. At push ≥ 0.3 he holds in. He holds out if push > 0.4, or > 0.55 on a rookie deal from 2020. Each week he gives in with odds 0.08 + 0.05 x weeks, +0.15 in season. A holdout at a rebuilding club, or with trust under 0.5, requests a trade (`world/pro/market.rs`, `holdouts`).
+- **Voluntary weeks** (offseason phases 1-2 and OTAs): each pro comes with chance clamp(0.9 + 0.015 x (work ethic - 10) - 0.04 x max(age - 29, 0), 0.45, 0.99), drawn each week; one who skips works at his own effort and reads Unprepared for prep that week. In OTA weeks the three best absent starters at 82+ overall make small news (`training/week.rs`, `attends`, `monday`, `absent_news`; see [training.md](training.md)).
 - **Promises**: a starting job promised in a deal is checked in week 1. If broken: his trust -0.3 and the agent's relationship with the club -0.1 (`world/pro/market.rs`, `check_promises`).
 
 ## Tags and tenders
