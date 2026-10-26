@@ -156,12 +156,14 @@ impl Guidelines {
         self.pressure = Want::default();
         self
     }
+    /// The offense's guidelines dropped (its play caller calls his own
+    /// game). Sticking to the card is the program's, for both callers: it
+    /// stays while the other side still has a caller to hold to it.
     pub fn without_offense(mut self) -> Guidelines {
         self.system = Want::default();
         self.personnel = Want::default();
         self.pace = Want::default();
         self.run = Want::default();
-        self.stick = Want::default();
         self
     }
 }

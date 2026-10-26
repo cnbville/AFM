@@ -266,6 +266,7 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
     team.give_orders(crate::player::Level::NFL);
     if w.seat_club(t) {
         team.order = w.seat_order();
+        crate::training::seat::sit_hurt(w, &mut team);
         crate::training::seat::prepare(w, &mut team);
     }
     team.film = club.film.clone();

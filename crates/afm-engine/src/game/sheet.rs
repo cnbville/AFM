@@ -58,18 +58,20 @@ pub fn hash_of(ball_y: f64) -> u8 {
 }
 
 /// The four-minute offense: ahead by one to two scores with about four
-/// minutes or less to play.
+/// minutes or less to play, the last two included (one window for the
+/// tempo and the calls).
 pub fn four_minute(sit: &Situation) -> bool {
-    sit.quarter >= 4 && (1..=16).contains(&sit.score_diff) && sit.game_left <= 300.0 && sit.half_left > 120.0
+    sit.quarter >= 4 && (1..=16).contains(&sit.score_diff) && sit.game_left <= 300.0
 }
 
-/// The boxes for a snap, best first.
+/// The boxes for a snap, best first: the two-minute drill when the offense
+/// must hurry, the four-minute offense when it leads late.
 pub fn boxes(sit: &Situation, two_point: bool) -> Vec<u8> {
     if two_point {
         return vec![TWO_POINT, GOAL_LINE];
     }
     let mut v = Vec::new();
-    if sit.half_left <= 120.0 {
+    if sit.hurry() {
         v.push(TWO_MINUTE);
     }
     if four_minute(sit) {
@@ -107,6 +109,9 @@ pub struct Ctx {
     pub wet: bool,
     pub two_point: bool,
     pub hurry: bool,
+    /// The snap's kind is set before the sheet (your four-minute plan, a
+    /// practice period): the sheet calls only that kind.
+    pub forced: bool,
 }
 
 /// A pick down a box's list: the first choice most often (each next one
@@ -117,13 +122,26 @@ fn ordered<T>(list: &[T], rng: &mut Rng) -> usize {
 }
 
 /// The plays of a box for this hash: the hash's own list first, then the
-/// box's plays for either hash.
-fn box_list<T: Copy>(sheet: &[(u8, Vec<T>)], k: u8, hash: u8) -> Vec<T> {
+/// box's plays for either hash. A ball in the middle of the field takes
+/// both hashes' lists, first choices first, then the plays for either.
+fn box_list<T: Copy + PartialEq>(sheet: &[(u8, Vec<T>)], k: u8, hash: u8) -> Vec<T> {
+    let of =
+        |key: u8| -> Vec<T> { sheet.iter().filter(|(s, _)| *s == key).flat_map(|(_, l)| l.iter().copied()).collect() };
     let mut out: Vec<T> = Vec::new();
+    let mut push = |x: T| {
+        if !out.contains(&x) {
+            out.push(x);
+        }
+    };
     if hash > 0 {
-        out.extend(sheet.iter().filter(|(s, _)| *s == key(k, hash)).flat_map(|(_, l)| l.iter().copied()));
+        of(key(k, hash)).into_iter().for_each(&mut push);
+    } else {
+        let (a, b) = (of(key(k, 1)), of(key(k, 2)));
+        for i in 0..a.len().max(b.len()) {
+            a.get(i).into_iter().chain(b.get(i)).for_each(|&x| push(x));
+        }
     }
-    out.extend(sheet.iter().filter(|(s, _)| *s == k).flat_map(|(_, l)| l.iter().copied()));
+    of(k).into_iter().for_each(&mut push);
     out
 }
 
@@ -147,14 +165,21 @@ pub fn off_call(prep: &Prep, sit: &Situation, own: &OffCall, ctx: Ctx, rng: &mut
     }
     // The opening script (G11), in its order, on normal early downs.
     let script = box_list(sheet, SCRIPT, 0);
-    let normal = sit.down <= 2 && sit.yardline_100 > 20.0 && sit.yardline_100 < 90.0 && !ctx.hurry && !ctx.two_point;
+    let normal = sit.down <= 2
+        && sit.yardline_100 > 20.0
+        && sit.yardline_100 < 90.0
+        && !ctx.hurry
+        && !ctx.two_point
+        && !ctx.forced;
     if normal && ctx.scripted < script.len() && ctx.scripted < 20 {
         return Some((to_call(own, script[ctx.scripted], "the opening script"), true));
     }
     // A shot play (G9): on second and short in the middle of the field, now
-    // and then on first down there.
+    // and then on first down there; never when the clock or the score says
+    // run it (the four-minute offense, a decided game, a run called first).
     let shots = box_list(sheet, SHOTS, ctx.hash);
-    if !shots.is_empty() && !ctx.hurry && !ctx.two_point && (35.0..=65.0).contains(&sit.yardline_100) {
+    let quiet = ctx.hurry || ctx.two_point || ctx.forced || four_minute(sit) || sit.ease > 0.0;
+    if !shots.is_empty() && !quiet && (35.0..=65.0).contains(&sit.yardline_100) {
         let p = match sit.down {
             1 => 0.08,
             2 if sit.togo <= 3.0 => 0.35,
@@ -170,47 +195,72 @@ pub fn off_call(prep: &Prep, sit: &Situation, own: &OffCall, ctx: Ctx, rng: &mut
         if list.is_empty() {
             continue;
         }
-        // The kind the play caller read the snap as, if the box has it.
+        // The kind the play caller read the snap as: a box without it
+        // leaves his own call standing (the two-point list is called
+        // whole).
         let fit: Vec<SheetCall> = list.iter().copied().filter(|x| x.3.is_run() == own.kind.is_run()).collect();
-        let pool = if fit.is_empty() || k == TWO_POINT { list } else { fit };
+        let pool = if k == TWO_POINT && !ctx.forced { list } else { fit };
+        if pool.is_empty() {
+            return None;
+        }
         let i = ordered(&pool, rng);
         return Some((to_call(own, pool[i], "on the call sheet"), false));
     }
     None
 }
 
-/// The defense's call from its sheet (G8): the coverage and pressure for
-/// the situation, the front and personnel as the coordinator set them.
-#[allow(clippy::too_many_arguments)]
-pub fn def_call(
-    prep: &Prep,
-    sit: &Situation,
-    own: &DefCall,
-    wet: bool,
-    two_point: bool,
-    scripted: usize,
-    rng: &mut Rng,
-) -> Option<DefCall> {
-    let sheet = if wet && !prep.dwet.is_empty() { &prep.dwet } else { &prep.dsheet };
-    if sheet.is_empty() || !rng.chance(prep.dstick) {
+/// What the defense's sheet call needs to know beyond the situation.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct DefCtx {
+    pub wet: bool,
+    pub two_point: bool,
+    /// Scripted calls already used this game.
+    pub scripted: usize,
+    /// The coordinator read the call off a tip (a former player with our
+    /// words): his own call stands.
+    pub tipped: bool,
+}
+
+/// The defense's call from its sheet (G8), inside the coordinator's own
+/// decision: he has read the snap (man or zone, a rush of four or more)
+/// and the sheet says which of the week's calls of that kind; a box
+/// without that kind leaves his call standing. His pressure package comes
+/// out on passing downs when he was sending pressure anyway. A decided
+/// game or a tipped call is his own. Returns the call and whether it was
+/// the script's.
+pub fn def_call(prep: &Prep, sit: &Situation, own: &DefCall, ctx: DefCtx, rng: &mut Rng) -> Option<(DefCall, bool)> {
+    let sheet = if ctx.wet && !prep.dwet.is_empty() { &prep.dwet } else { &prep.dsheet };
+    if sheet.is_empty() || ctx.tipped || sit.def_ease > 0.0 || !rng.chance(prep.dstick) {
         return None;
     }
     // The defense's opening script (G11): its first calls in order on
     // normal early downs, each testing something on their offense.
     let script = box_list(sheet, SCRIPT, 0);
-    let normal = sit.down <= 2 && sit.yardline_100 > 20.0 && sit.yardline_100 < 90.0 && !two_point;
-    // The pressure package on passing downs.
+    let normal = sit.down <= 2 && sit.yardline_100 > 20.0 && sit.yardline_100 < 90.0 && !ctx.two_point;
     let passing = (sit.down == 3 && sit.togo >= 4.0) || (sit.down == 2 && sit.togo >= 7.0);
-    let pressures = box_list(sheet, SHOTS, 0);
-    let pick: Option<DefSheetCall> = if normal && scripted < script.len() && scripted < 12 {
-        Some(script[scripted])
-    } else if passing && !pressures.is_empty() && rng.chance(0.3) {
-        Some(pressures[ordered(&pressures, rng)])
+    let blitz = own.pressure.extra() > 0;
+    let like = |x: &DefSheetCall| x.0.is_man() == own.coverage.is_man() && (x.1.extra() > 0) == blitz;
+    let (pick, scripted): (Option<DefSheetCall>, bool) = if normal && ctx.scripted < script.len() && ctx.scripted < 12 {
+        (Some(script[ctx.scripted]), true)
     } else {
-        boxes(sit, two_point).into_iter().find_map(|k| {
-            let list = box_list(sheet, k, 0);
-            (!list.is_empty()).then(|| list[ordered(&list, rng)])
-        })
+        let pressures: Vec<DefSheetCall> = box_list(sheet, SHOTS, 0).into_iter().filter(|x| x.1.extra() > 0).collect();
+        let package: Vec<DefSheetCall> =
+            pressures.iter().copied().filter(|x| x.0.is_man() == own.coverage.is_man()).collect();
+        let package = if package.is_empty() { pressures } else { package };
+        if passing && blitz && !package.is_empty() {
+            (Some(package[ordered(&package, rng)]), false)
+        } else {
+            let found = boxes(sit, ctx.two_point).into_iter().find_map(|k| {
+                let list = box_list(sheet, k, 0);
+                if list.is_empty() {
+                    return None;
+                }
+                // The box answers the snap; his read decides the kind.
+                let fit: Vec<DefSheetCall> = list.into_iter().filter(like).collect();
+                Some((!fit.is_empty()).then(|| fit[ordered(&fit, rng)]))
+            });
+            (found.flatten(), false)
+        }
     };
     let (coverage, pressure) = pick?;
     let mut c = *own;
@@ -225,5 +275,5 @@ pub fn def_call(
     if c.coverage.is_man() {
         c.spy = false;
     }
-    Some(c)
+    Some((c, scripted))
 }

@@ -256,10 +256,13 @@ pub fn kickoff(
     let tech = kicker.a(Attr::KickoffTechnique);
     let spread = clamp(1.0 - 0.01 * (tech - 60.0), 0.6, 1.4);
     // Your plan's kickoff (update 2, G18): a squib skips along the ground
-    // to the up-backs about the 25 (low, the coverage gets there as he
-    // picks it up); a pooch hangs high to about the 12 (a fair catch or a
-    // short return). Proposed, not confirmed.
+    // to the up-backs about the 25 (a ground ball: no fair catch, fielded
+    // after its bounces with the coverage on top of it); under the NFL's
+    // landing-zone rule it is a line drive that bounces in the zone (short
+    // of it the ball goes to the 40). A pooch hangs high to about the 12
+    // (a fair catch or a short return). Proposed, not confirmed.
     let aim = match k.style {
+        2 if rules.nfl_kickoff => (from - max).max(12.0 + rng.range(0.0, 6.0)),
         2 => (from - max).max(24.0 + rng.range(0.0, 8.0)),
         3 => (from - max).max(10.0 + rng.range(0.0, 7.0)),
         _ => aim,
@@ -332,6 +335,52 @@ pub fn kickoff(
         res.duration = hang;
         return res;
     }
+    // A squib is a ground ball: it skips on a few yards and an up-back
+    // fields it on the bounce, about 3.5 to 4 seconds after the kick, with
+    // the coverage running all that time (under the NFL's rule they go
+    // when it hits in the zone). Nobody fair-catches a bouncing ball.
+    if k.style == 2 && land_x > 0.0 {
+        let field_x = (land_x - rng.range(2.0, 6.0)).max(1.0);
+        let fielded = 3.5 + rng.range(0.0, 0.5);
+        let mut ret_on = k.ret_on.clone();
+        if ret_on.len() > 2 {
+            // The up-back in front of the deep men fields it.
+            let up = ret_on.remove(2);
+            ret_on.insert(0, up);
+        }
+        let up = KickTeams {
+            kick: k.kick,
+            ret: k.ret,
+            kick_on: k.kick_on.clone(),
+            ret_on,
+            snapper: k.snapper,
+            holder: k.holder,
+            energy: k.energy,
+            mood: k.mood,
+            kick_deep: k.kick_deep,
+            style: k.style,
+            surprise: k.surprise,
+        };
+        let catch = v2(field_x, land_y);
+        let start_cover = if rules.nfl_kickoff { hang } else { 0.0 };
+        run_return(
+            &up,
+            catch,
+            fielded,
+            start_cover,
+            from,
+            rules,
+            cond,
+            crew,
+            injury_scale,
+            record,
+            rng,
+            &mut res,
+            true,
+            None,
+        );
+        return res;
+    }
     // College: a fair catch inside the 25 is a touchback.
     if !rules.nfl_kickoff && rules.kickoff_touchback >= 25.0 && land_x < 25.0 && land_x > -1.0 && rng.chance(0.3) {
         res.fair_catch = true;
@@ -388,9 +437,11 @@ pub fn punt(
     let max = leg(punter, Attr::PuntPower, 17.0, 0.215, cond, along) + 14.0 + rng.normal(0.0, 4.5);
     // Placement: from midfield he aims inside the 10 rather than the end zone.
     let dist_goal = from + 15.0;
-    // Your plan's punt (update 2, G18): the coffin corner from farther out
-    // (their 40 in), aiming at the corner.
-    let pin = from < if k.style == 2 { 72.0 } else { 62.0 };
+    // Your plan's punt (update 2, G18): the coffin corner from their 45 in,
+    // aimed at the corner by the sideline; farther out it is a punt like
+    // any other.
+    let pin = from < 62.0;
+    let coffin = k.style == 2 && from <= 45.0;
     let acc = punter.a(Attr::PuntPlacement);
     let aim_land = if pin { 8.0 + rng.normal(0.0, 6.0 - 0.04 * acc) } else { from - max };
     let land_x = aim_land.max(from - max);
@@ -409,7 +460,7 @@ pub fn punt(
     let directional = k.style == 1 && !pin;
     let mut land_y = if pin || directional {
         let side = if rng.chance(0.5) { -1.0 } else { 1.0 };
-        let out = if pin && k.style == 2 { 19.0 } else { 14.0 };
+        let out = if coffin { 19.0 } else { 14.0 };
         mid() + side * out + rng.normal(0.0, clamp(5.0 - 0.05 * (acc - 60.0), 3.0, 7.0))
     } else {
         mid() + rng.normal(0.0, 8.0)

@@ -12,7 +12,7 @@ use serde_json::{Value, json};
 
 use super::{head, is_snap, lvl, pct, season_games, seat};
 use crate::Reply;
-use crate::lane_training::{boards, practice_status};
+use crate::lane_training::{boards_with, practice_status};
 use crate::reads;
 use crate::views::{class_text, eye_for, person_index, reader_key};
 
@@ -35,15 +35,17 @@ fn picks_of(w: &World, b: Board) -> Vec<u32> {
 pub(super) fn view(w: &World, a: &Value) -> Reply {
     let s = seat(w)?;
     let reader = reader_key(w);
-    let bj = boards(w, &json!({}))?;
+    // One build of your game team serves the whole board (the depth order
+    // the engine dresses, the packages' fill).
+    let depth = plans::depth_order(&s.team, s.level);
+    let bj = boards_with(w, &json!({}), depth.clone())?;
     let games = season_games(w, &s);
-    let depth = w.seat_game_depth().unwrap_or_default();
     let order_at = |pos: Position| depth.iter().find(|(p, _)| *p == pos).map(|(_, v)| v.clone()).unwrap_or_default();
     // A package's staff men up: the dressed order at the spot, then the
     // rest of the roster in the same group (corners and safeties, ends and
     // tackles), best at the spot, the way the engine fills a spot once the
     // listed men are used (`game/flow.rs`, `pick`).
-    let team = w.seat_game_team().map(|(t, _)| t);
+    let team = Some(&s.team);
     let staff_lists: Vec<(Position, Vec<u32>)> = Position::ALL
         .iter()
         .map(|&pos| {
@@ -212,11 +214,15 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
         listed.extend(&ids);
         for (k, id) in ids.into_iter().enumerate() {
             let role = w.plans.rotation.iter().find(|r| r.0 == id).map_or(0, |r| r.1);
+            // "Every other series" men split the series by their order on
+            // the board: the first plays the first series, the next the
+            // second (the engine's `held`).
+            let turn = w.plans.rotation.iter().filter(|r| r.1 == 2).position(|r| r.0 == id).unwrap_or(0) % 2;
             let cells: Vec<&str> = (0..12)
                 .map(|series| match role {
                     1 => "whole",
                     2 => {
-                        if series % 2 == 0 {
+                        if (series + turn) % 2 == 0 {
                             "whole"
                         } else {
                             ""

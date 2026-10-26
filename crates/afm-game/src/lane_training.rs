@@ -1763,6 +1763,8 @@ fn design_delete(w: &mut World, args: &Value) -> Result<(), String> {
             i.key = InstallKey::Design(x - 1);
         }
     }
+    // The drafted sheet follows too (update 2, G7).
+    afm_engine::world::plans::design_removed(w, k as u16);
     w.training.register_designs();
     w.refresh_seat_team();
     Ok(())
@@ -2024,11 +2026,16 @@ fn slot_read(w: &World, t: TeamRef, i: usize, pos: Position, reader: u64) -> f64
 }
 
 pub(crate) fn boards(w: &World, args: &Value) -> Reply {
+    boards_with(w, args, w.seat_game_depth().unwrap_or_default())
+}
+
+/// The same with your staff's depth order in hand (a board that has built
+/// your game team already).
+pub(crate) fn boards_with(w: &World, args: &Value, staff_order: Vec<(Position, Vec<u32>)>) -> Reply {
     let (t, st) = team_of(w)?;
     let reader = reader_key(w);
     let roster: Vec<usize> = st.roster.clone();
     let roles = ts::roles(w, &st);
-    let staff_order = w.seat_game_depth().unwrap_or_default();
     let by_id: HashMap<u32, usize> = roster.iter().map(|&i| (w.people[i].player.id, i)).collect();
     let who = |i: usize| {
         let p = &w.people[i];

@@ -13,7 +13,7 @@ use afm_engine::world::World;
 use afm_engine::world::plans::{self, BREAKER, Play};
 use serde_json::{Value, json};
 
-use super::{abbr, is_pass, is_snap, lvl, num, opp_of, pct, season_games, season_words, seat};
+use super::{abbr, is_pass, lvl, num, opp_of, pct, season_games, season_words, seat};
 use crate::Reply;
 use crate::views::date_text;
 
@@ -67,11 +67,7 @@ fn bucket(r: &PlayRecord) -> Option<usize> {
 /// A snap the self-scout counts: a run or a throw outside the last two
 /// minutes of each half and garbage time (real staffs cut both).
 fn counts(r: &PlayRecord) -> bool {
-    !r.nullified
-        && is_snap(r.kind)
-        && !(matches!(r.quarter, 2 | 4) && r.clock <= 120.0)
-        && r.garbage == [0, 0]
-        && r.down >= 1
+    plans::scout_counts(r)
 }
 
 fn formation_group(call: &str) -> &'static str {
@@ -461,7 +457,7 @@ pub(super) fn view(w: &World, args: &Value) -> Reply {
         "study": study,
         "studied": studied,
         "next_in": next_in,
-        "bye": next_in.is_none_or(|d| d > 8),
+        "bye": plans::can_study(w).is_ok(),
         "breakers": breakers_on,
         "head": w.seat_head(),
         "cut": "Snaps in the last two minutes of each half and in garbage time are left out, as real staffs do.",

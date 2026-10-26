@@ -115,6 +115,9 @@
 .dp-cols.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .dp-cols.stack { grid-template-columns: minmax(0, 1fr); }
 @media (max-width: 1180px) { .dp-cols, .dp-cols.three { grid-template-columns: minmax(0, 1fr); } }
+/* Identity: the guideline rows need about 700 px; below a 1500 px window
+   (the app opens at 1280) the detail goes under them. */
+@media (max-width: 1499px) { .dp-cols.id { grid-template-columns: minmax(0, 1fr); } }
 .dp-rotw { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr); gap: 28px; align-items: start; }
 @media (max-width: 1180px) { .dp-rotw { grid-template-columns: minmax(0, 1fr); } }
 
@@ -156,7 +159,7 @@
 .dp-barx span { flex: 1 1 0; min-width: 0; text-align: center; font-size: 9.5px; font-weight: 700; letter-spacing: 0; color: var(--dp-faint); overflow: visible; white-space: nowrap; display: flex; justify-content: center; }
 
 /* ---------- Identity (19) ---------- */
-.dp-grow { display: grid; grid-template-columns: 150px minmax(0, 1fr) 74px 186px 66px; column-gap: 10px; align-items: center; min-height: 56px; padding: 4px 10px; border-radius: 12px; }
+.dp-grow { display: grid; grid-template-columns: 150px minmax(148px, 1fr) 74px 186px 66px; column-gap: 10px; align-items: center; min-height: 56px; padding: 4px 10px; border-radius: 12px; }
 .dp-grow.th { min-height: 26px; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--dp-faint); }
 .dp-grow.on { background: var(--dp-sel); box-shadow: inset 2px 0 0 var(--dp-gold); }
 .dp-grow.pend { box-shadow: inset 2px 0 0 var(--dp-gold-ring); }
@@ -348,6 +351,10 @@
 .dp-opt small { color: var(--dp-dim); white-space: nowrap; }
 
 /* ---------- Packages (24) ---------- */
+/* The depth chart's tabs (every board, Jumbo and Packages) go onto a
+   second row in a narrow window instead of pushing the page wide. */
+.tr-pad > .tabsline { flex-wrap: wrap; gap: 0 20px; }
+.tr-pad > .tabsline button { white-space: nowrap; }
 .dp-pkw { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 16px; }
 .dp-pk { display: flex; flex-direction: column; gap: 3px; width: 100%; padding: 10px 12px; border: 0; border-radius: 12px; background: transparent; color: var(--dp-text); text-align: left; cursor: pointer; }
 .dp-pk:hover { background: var(--dp-hover); }

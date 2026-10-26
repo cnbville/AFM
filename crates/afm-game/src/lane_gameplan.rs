@@ -12,7 +12,7 @@
 //! NFL, against each level's own baselines (Claude's picks, proposed, not
 //! confirmed, in `docs/game.md`).
 
-use afm_engine::calendar::{Date, Level as Cal};
+use afm_engine::calendar::Level as Cal;
 use afm_engine::game::{GameTeam, PlayType};
 use afm_engine::world::World;
 use afm_engine::world::plans;
@@ -157,35 +157,48 @@ pub(crate) fn level_words(level: Cal) -> &'static str {
     }
 }
 
-/// The football season a day belongs to (January's bowls and playoffs
-/// close the last one).
-pub(crate) fn season_of(d: Date) -> i32 {
-    if d.month() <= 6 { d.year() - 1 } else { d.year() }
+/// Your staff's read of a coach's system knowledge (hidden: the true
+/// values never reach a screen): a fixed lean per reader, coach and
+/// system, `half` points wide either side on a 0-100 scale (about 8 for a
+/// coach your staff works with or has studied, wider for a stranger).
+/// Your own knowledge is yours.
+pub(crate) fn know_read(w: &World, c: usize, half: f64) -> [f64; 11] {
+    let k = w.coaches[c].system_know();
+    if w.coaches[c].is_yours() {
+        return k;
+    }
+    let reader = crate::views::reader_key(w);
+    let mut out = [0.5; 11];
+    for (s, v) in out.iter_mut().enumerate() {
+        if let crate::reads::Read::Range(lo, hi) = crate::reads::range(100.0 * k[s], half, reader, c as u32, 300 + s) {
+            *v = (lo as f64 + hi as f64) / 200.0;
+        }
+    }
+    out
 }
 
-/// The season the boards read: this one once you've played in it, else
-/// the last one (the tape a staff studies in the offseason and in camp).
-fn board_season(w: &World, s: &Seat) -> i32 {
-    let now = season_of(w.today);
-    let played =
-        w.seat_games().iter().any(|g| g.level == s.level && season_of(g.date) == now && g.teams.contains(&s.t));
-    if played { now } else { now - 1 }
+/// Your staff's read of a coach's hidden trait on its 1-20 scale (his
+/// aggressiveness as a play caller, say), `half` points wide on 0-100.
+pub(crate) fn trait_read(w: &World, c: usize, truth: f64, salt: usize, half: f64) -> f64 {
+    if w.coaches[c].is_yours() {
+        return truth;
+    }
+    match crate::reads::range(5.0 * truth, half, crate::views::reader_key(w), c as u32, 320 + salt) {
+        crate::reads::Read::Range(lo, hi) => (lo as f64 + hi as f64) / 10.0,
+        crate::reads::Read::NotSeen => 10.0,
+    }
 }
 
 /// Your kept games of the season on the board (this one once it has
-/// begun, else the last one), oldest first, with your side.
-pub(crate) fn season_games<'a>(w: &'a World, s: &Seat) -> Vec<(&'a SeatGame, usize)> {
-    let season = board_season(w, s);
-    w.seat_games()
-        .iter()
-        .filter(|g| g.level == s.level && season_of(g.date) == season && g.teams.contains(&s.t))
-        .map(|g| (g, if g.teams[0] == s.t { 0 } else { 1 }))
-        .collect()
+/// begun, else the last one), oldest first, with your side: the same
+/// games the staff's self-scout reads (`plans::own_games`).
+pub(crate) fn season_games<'a>(w: &'a World, _s: &Seat) -> Vec<(&'a SeatGame, usize)> {
+    plans::own_games(w)
 }
 
 /// "This season" or "the 2026 season" (the season the boards read).
-pub(crate) fn season_words(w: &World, seat: &Seat) -> String {
-    let s = board_season(w, seat);
+pub(crate) fn season_words(w: &World, _seat: &Seat) -> String {
+    let s = plans::board_season(w);
     if s == w.today.year() && w.today.month() >= 8 { "this season".into() } else { format!("the {s} season") }
 }
 

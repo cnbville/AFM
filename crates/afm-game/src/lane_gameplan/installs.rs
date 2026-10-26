@@ -75,10 +75,11 @@ fn days_left(today: Date, game: Date) -> i32 {
 
 /// Your staff's projection of a grasp by the last practice: each practice
 /// day closes part of the gap, more for a sharp mind (proposed, not
-/// confirmed), plus tonight's extra film or walkthrough.
-fn by_friday(now: f64, iq: f64, days: i32, boost: f64) -> f64 {
+/// confirmed). An extra film session or walkthrough this week is in the
+/// grasp already (the game team carries it).
+fn by_friday(now: f64, iq: f64, days: i32) -> f64 {
     let r = (0.07 + 0.002 * (iq - 60.0)).clamp(0.03, 0.12);
-    (1.0 - (1.0 - now) * (1.0 - r).powi(days) + boost).clamp(0.0, 0.99)
+    (1.0 - (1.0 - now) * (1.0 - r).powi(days)).clamp(0.0, 0.99)
 }
 
 /// A game's snaps for a starter and a backup at the level.
@@ -172,7 +173,7 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
     let mut ready_busts = 0.0;
     let mut seen: Vec<u32> = Vec::new();
     // Each man's grasp now, mind read and tonight's extras, for the chart.
-    let mut grasp_in: Vec<(f64, f64, f64)> = Vec::new();
+    let mut grasp_in: Vec<(f64, f64)> = Vec::new();
     // The two-deep as the engine dresses it: your order where you set one,
     // your staff's for the rest (a season's team keeps no order of its own
     // in the offseason).
@@ -195,8 +196,7 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
             seen.push(id);
             let now = plans::grasp(&s.team, id, unit != 1, &unit_fams).unwrap_or(0.0);
             let iq = read_iq(p);
-            let boost = if extra_of(id, 1) { 0.04 } else { 0.0 } + if extra_of(id, 2) { 0.03 } else { 0.0 };
-            let fri = by_friday(now, iq, days, boost);
+            let fri = by_friday(now, iq, days);
             let starter = k == 0 || (k < two_deep(*pos) / 2 + usize::from(two_deep(*pos) >= 3));
             let mut sn = snaps(s.level, starter, unit);
             if base_of(id) {
@@ -212,7 +212,7 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
             let class = person_index(w, id).map(|i| class_text(w, &w.people[i])).unwrap_or_default();
             sum_now += now;
             sum_fri += fri;
-            grasp_in.push((now, iq, boost));
+            grasp_in.push((now, iq));
             sum_busts += busts;
             n += 1;
             rows.push(json!({
@@ -232,7 +232,7 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
             let ids: Vec<&GamePlayer> = s.team.players.iter().filter(|p| seen.contains(&p.id)).collect();
             let g = ids.iter().map(|p| p.know[*f as usize] as f64).sum::<f64>() / ids.len().max(1) as f64;
             let iq = ids.iter().map(|p| read_iq(p)).sum::<f64>() / ids.len().max(1) as f64;
-            let fri = if week { by_friday(g, iq, days, 0.0) } else { g };
+            let fri = if week { by_friday(g, iq, days) } else { g };
             json!({ "name": f.name(), "calls": wt.round(), "now": super::pct(g), "friday": super::pct(fri), "new": g < ready - 0.08 })
         })
         .collect();
@@ -251,8 +251,8 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
                 // The same men's projection as the rows, day by day, so the
                 // last bar is the unit's game-day grasp.
                 let ahead = days_left(w.today, d.add(1));
-                let v = grasp_in.iter().map(|&(g, iq, b)| by_friday(g, iq, ahead, b)).sum::<f64>()
-                    / grasp_in.len().max(1) as f64;
+                let v =
+                    grasp_in.iter().map(|&(g, iq)| by_friday(g, iq, ahead)).sum::<f64>() / grasp_in.len().max(1) as f64;
                 Some((v, true))
             }
             None if d == w.today => Some((avg_now, false)),

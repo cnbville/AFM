@@ -199,6 +199,8 @@ pub(super) fn view(w: &World) -> Reply {
     let g = if is_head { w.plans.guide } else { s.team.staff.guide };
     let st = &s.team.staff;
     let college = !matches!(s.level, Cal::Nfl | Cal::Other);
+    // When a system change goes in: a high school's at summer camp.
+    let install_at = if s.level == Cal::HighSchool { "summer camp" } else { "the spring install" };
     let (oc, dc) = plans::callers(w);
     let games = season_games(w, &s);
     let fits = fit_reads(w, &s);
@@ -215,7 +217,8 @@ pub(super) fn view(w: &World) -> Reply {
         count(&|p| p == P::RB),
         count(&|p| p == P::WR),
     );
-    let know_of = |c: Option<usize>| c.map_or([0.75; 11], |c| w.coaches[c].system_know());
+    // The coordinators' knowledge as your staff reads it (hidden values).
+    let know_of = |c: Option<usize>| c.map_or([0.75; 11], |c| super::know_read(w, c, 8.0));
     let oknow = know_of(oc);
     let dknow = know_of(dc);
     let you = |c: Option<usize>| c.is_some_and(|c| w.coaches[c].is_yours());
@@ -322,7 +325,7 @@ pub(super) fn view(w: &World) -> Reply {
                 { "k": "Your roster · fit", "v": format!("Your staff reads the roster as a {} fit for the {}: {} corners, {} safeties, {} linebackers.", FIT_WORDS[fit_level(front_fit(front_pick))].to_lowercase(), front_pick.name(), cbs, ss, lbs) },
                 { "k": "The coordinator's view", "v": if you(dc) { "You call the defense yourself: your guidelines are yours to keep.".to_string() } else if g.front.to.is_none() { if own_front == best_front { format!("Nothing asked of him: the {} is his own, and the front he knows best.", own_front.name()) } else { format!("Nothing asked of him: he put in the {} for this roster, though he knows the {} best.", own_front.name(), best_front.name()) } } else if agree { format!("Agrees: {dname} knows the {} best.", best_front.name()) } else { format!("He'd rather not: {dname} knows the {} best.", best_front.name()) } },
                 { "k": "How well it gets called", "v": format!("{}.", knows(&dname, dknow[fslot(front_pick)], &format!("the {}", front_pick.name()))) },
-                { "k": "If you change it", "v": if (ov - 1.0).abs() < 1e-9 { "No new learning: the same front, more or less nickel.".to_string() } else { format!("About {:.0}% of the front's calls carry over; the rest goes in at the spring install and is new learning for the line and the linebackers.", 100.0 * ov) } },
+                { "k": "If you change it", "v": if (ov - 1.0).abs() < 1e-9 { "No new learning: the same front, more or less nickel.".to_string() } else { format!("About {:.0}% of the front's calls carry over; the rest goes in at {install_at} and is new learning for the line and the linebackers.", 100.0 * ov) } },
                 { "k": "Elsewhere it shows", "v": "The depth chart's packages, recruiting and the draft board's fit reads for the front seven." },
             ],
         }));
@@ -440,8 +443,8 @@ pub(super) fn view(w: &World) -> Reply {
                 { "k": "Your roster · fit", "v": format!("Your staff reads the roster as a {} fit for the {} ({} receivers, {} tight ends, {} backs).", FIT_WORDS[fit_level(ofit(pick))].to_lowercase(), scheme_name(pick), wrs, tes, rbs) },
                 { "k": "The coordinator's view", "v": if you(oc) { "You call the offense yourself.".to_string() } else if g.system.to.is_none() { if own_o == best_o { format!("Nothing asked of him: the {} is his own, and the system he knows best.", scheme_name(own_o)) } else { format!("Nothing asked of him: he put in the {} for this roster, though he knows the {} best.", scheme_name(own_o), scheme_name(best_o)) } } else if agree { format!("Agrees: {oname} knows the {} best.", scheme_name(best_o)) } else { format!("He'd rather not: {oname} knows the {} best.", scheme_name(best_o)) } },
                 { "k": "How well it gets called", "v": how },
-                { "k": "If you change it", "v": if (ov - 1.0).abs() < 1e-9 { "Nothing to learn: it's the system in now.".to_string() } else { format!("About {:.0}% of the playbook carries over from the {}; the rest is new learning at the spring install, and the call sheet thins until it goes in.", 100.0 * ov, scheme_name(st.off_scheme)) } },
-                { "k": "Elsewhere it shows", "v": "The spring install, the call sheet's plays, recruiting's quarterback and receiver fit." },
+                { "k": "If you change it", "v": if (ov - 1.0).abs() < 1e-9 { "Nothing to learn: it's the system in now.".to_string() } else { format!("About {:.0}% of the playbook carries over from the {}; the rest is new learning at {install_at}, and the call sheet thins until it goes in.", 100.0 * ov, scheme_name(st.off_scheme)) } },
+                { "k": "Elsewhere it shows", "v": format!("The install at {install_at}, the call sheet's plays, recruiting's quarterback and receiver fit.") },
             ],
         }));
     }
@@ -541,7 +544,10 @@ pub(super) fn view(w: &World) -> Reply {
 
     // ---- Offense: run or pass.
     {
-        let own = 1.0 - guide::habit_pass(college, st.off_scheme, st.offense.aggressiveness);
+        // The league's book leans too (the other leagues throw more or less
+        // than the NFL's habits say).
+        let lean = plans::book_lean(w);
+        let own = 1.0 - (guide::habit_pass(college, st.off_scheme, st.offense.aggressiveness) + lean).clamp(0.05, 0.95);
         let want = g.run.to;
         let k = g.run.pull().map_or(0.0, |x| x.1);
         let expect = want.map_or(own, |t| guide::expected(own, t, k));
@@ -654,7 +660,8 @@ pub(super) fn view(w: &World) -> Reply {
         let firm_n = against.iter().filter(|x| x.1 == Firm::Firm).count();
         let talked = w.plans.talks.iter().filter(|t| t.0 == c).map(|t| t.1).max();
         let talked_recent = talked.is_some_and(|d| w.today.0 - d.0 <= 31);
-        let know = co.system_know();
+        // Your staff's read of what he knows best (never his true numbers).
+        let know = super::know_read(w, c, 8.0);
         let knows = if both {
             format!(
                 "Knows the {} and {} best",
@@ -663,7 +670,12 @@ pub(super) fn view(w: &World) -> Reply {
             )
         } else if offense {
             let b = best(&know, 0..5);
-            format!("Knows the {} best ({:.0}%)", scheme_name(OFFENSES[b]), 100.0 * know[b])
+            let how = match know[b] {
+                x if x >= 0.85 => "inside out",
+                x if x >= 0.7 => "well",
+                _ => "in part",
+            };
+            format!("Knows the {} best, {how}", scheme_name(OFFENSES[b]))
         } else {
             let f = best(&know, 5..7) - 5;
             let sh = best(&know, 7..11) - 7;
@@ -789,7 +801,9 @@ fn apply_one(g: &mut Guidelines, c: &Value) -> Result<(), String> {
 pub(super) fn set(w: &mut World, args: &Value) -> Result<(), String> {
     head(w)?;
     let level = w.seat_team().map(|x| x.0).ok_or("You have no team.")?;
-    let mut g = w.plans.guide;
+    // A guideline this level can't hold (a save from before a job change)
+    // is dropped, not kept in the way of every other change.
+    let mut g = afm_engine::world::guide::fit_level(w.plans.guide, level);
     match args.get("changes").and_then(Value::as_array) {
         Some(list) => {
             for c in list {

@@ -160,6 +160,10 @@ pub struct PlayRecord {
     /// 4 goal line.
     #[serde(default)]
     pub dpers: u8,
+    /// A punt or a kickoff: the return team showed the look a fake or a
+    /// surprise onside kick waits for (G18).
+    #[serde(default)]
+    pub look: bool,
 }
 
 impl PlayRecord {
@@ -253,6 +257,7 @@ impl PlayRecord {
             hash: 0,
             hurry: false,
             dpers: 0,
+            look: false,
         }
     }
 

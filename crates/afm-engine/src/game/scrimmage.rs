@@ -550,7 +550,11 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             | crate::positions::Position::S => 1.0 - 0.45 * (sim.player(i).chem - super::roster::TYPICAL_CHEM) as f64,
             _ => 1.0,
         };
-        let words = tac.learn[if i < off_n { 0 } else { 1 }];
+        // New call words (G5): read through his football mind, as the crowd
+        // noise is; about one extra bust in 70 snaps for a side of average
+        // minds (a 60), more for a slow learner, less for a sharp one
+        // (proposed, not confirmed).
+        let words = tac.learn[if i < off_n { 0 } else { 1 }] * (1.3 - iq / 100.0).max(0.3) / 0.7;
         let p = ((1.0 - know) * 0.05 + (60.0 - iq).max(0.0) * 0.0006 + noise + check + install + lapse + words)
             .max(0.0)
             * call

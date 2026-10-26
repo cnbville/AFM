@@ -209,9 +209,34 @@ pub(super) fn view(w: &World) -> Reply {
         .filter(|p| p.position == Position::K)
         .max_by(|a, b| fg_make(a, 40.0).total_cmp(&fg_make(b, 40.0)));
     let range = kicker.map(|k| (20..=65).rev().find(|&d| fg_make(k, d as f64) >= 0.5).unwrap_or(20));
+    // Their return teams on the tapes your staff keeps (G18): the punts and
+    // kickoffs they fielded, and how often they showed the look a fake or
+    // a surprise onside kick waits for.
+    let (mut punts, mut punt_looks, mut kicks, mut kick_looks) = (0u32, 0u32, 0u32, 0u32);
+    for tp in &w.gameday.tapes {
+        let Some(side) = tp.side_of(next.opp) else { continue };
+        for sn in tp.snaps.iter().filter(|x| x.off != side && !x.null) {
+            match sn.kind {
+                2 => (punts, punt_looks) = (punts + 1, punt_looks + sn.ret_look as u32),
+                4 => (kicks, kick_looks) = (kicks + 1, kick_looks + sn.ret_look as u32),
+                _ => {}
+            }
+        }
+    }
+    let on_tape = |looks: u32, n: u32, what: &str, look: &str| {
+        if n == 0 {
+            format!("No {what} on the tapes your staff keeps.")
+        } else {
+            format!("{look} on {looks} of {n} {what} on tape.")
+        }
+    };
     let teams = json!({
         "kick": t.kick, "punt": t.punt, "ret": t.ret, "pret": t.pret, "fake": t.fake, "onside": t.onside,
         "fg_range": range.map(|d| format!("{d} yards: their {}", (d - 17).max(1))),
+        "film": {
+            "fake": on_tape(punt_looks, punts, "punts", "Their return team left nobody home"),
+            "onside": on_tape(kick_looks, kicks, "kickoffs", "Their front line left early"),
+        },
     });
     // The keys.
     let keys: Vec<Value> =

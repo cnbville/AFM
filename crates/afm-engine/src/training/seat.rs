@@ -1987,13 +1987,23 @@ fn block_report(w: &mut World, st: &SeatTeam, d: Date, block: Block) {
     w.training.grades.clear();
 }
 
-/// Your team's game team takes the week: players hurt in practice sit,
-/// the late week's load sets kickoff energy, your packages and call sheet
-/// go with it, and the install follows the week's prep.
+/// Your players hurt in practice (or on the non-football list) sit today's
+/// game: taken off a game team built for the day. The college team kept
+/// for the season keeps them; its game day takes them off.
+pub(crate) fn sit_hurt(w: &World, team: &mut crate::game::GameTeam) {
+    let (t, d) = (&w.training, w.today);
+    team.players.retain(|p| !t.hurt_out(p.id, d));
+}
+
+/// Your team's game team takes the week: the late week's load sets kickoff
+/// energy, your packages and call sheet go with it, and the install
+/// follows the week's prep. Safe to run again on the same team (the
+/// college team kept for the season is refreshed after every change): it
+/// sets from the staff's own install, never from the last result.
 pub(crate) fn prepare(w: &World, team: &mut crate::game::GameTeam) {
     let t = &w.training;
-    let d = w.today;
-    team.players.retain(|p| t.hurt_on(p.id, d).is_none_or(|h| h.from > d));
+    let base_install = *team.prep.install_base.get_or_insert(team.staff.install);
+    team.staff.install = base_install;
     let prep = &mut team.prep;
     prep.packages = t.packages.iter().map(|(b, ids)| (*b as u8, ids.clone())).collect();
     // Each box splits by hash (update 2, G10): the key carries it.
@@ -2035,7 +2045,7 @@ pub(crate) fn prepare(w: &World, team: &mut crate::game::GameTeam) {
         let gd = l.week.days.iter().position(|x| x.game).unwrap_or(6);
         let late = super::work::late_load(&l.week, gd, Role::Starter);
         let tier = match w.seat.map(|s| s.level) {
-            Some(Cal::Nfl) => Tier::Pro,
+            Some(Cal::Nfl | Cal::Other) => Tier::Pro,
             Some(Cal::HighSchool) => Tier::High,
             _ => Tier::College,
         };
@@ -2053,7 +2063,7 @@ pub(crate) fn prepare(w: &World, team: &mut crate::game::GameTeam) {
         let mine = super::work::prep_minutes(&l.week);
         let theirs = super::work::prep_minutes(&neutral_wk);
         if theirs > 0.0 {
-            team.staff.install = clamp(team.staff.install * (mine / theirs).sqrt().clamp(0.75, 1.15), 0.3, 1.0);
+            team.staff.install = clamp(base_install * (mine / theirs).sqrt().clamp(0.75, 1.15), 0.3, 1.0);
         }
         let (noise, rules) = week_habits(&l.week, &neutral_wk);
         prep.noise = noise;
