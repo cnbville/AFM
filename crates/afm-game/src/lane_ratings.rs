@@ -78,7 +78,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
 
 // ---- RR1 and RR4: a player's range ----
 
-fn pos_words(p: Position) -> (&'static str, &'static str) {
+pub(crate) fn pos_words(p: Position) -> (&'static str, &'static str) {
     match p {
         Position::QB => ("quarterback", "quarterbacks"),
         Position::RB => ("running back", "running backs"),
@@ -132,7 +132,7 @@ fn pool_words(w: &World, pool: Pool, school: Option<usize>) -> String {
 type Key = (u32, i32, usize, Pool, Position, Rated);
 
 /// The season's marks for a pool, read once and kept.
-fn marks_cached(w: &World, pool: Pool, pos: Position, rated: Rated) -> Option<Marks> {
+pub(crate) fn marks_cached(w: &World, pool: Pool, pos: Position, rated: Rated) -> Option<Marks> {
     static CACHE: Mutex<Option<HashMap<Key, Option<Marks>>>> = Mutex::new(None);
     let key: Key = (w.options.seed, w.year, w.people.len() / 4096, pool, pos, rated);
     let mut g = CACHE.lock().unwrap_or_else(|e| e.into_inner());
@@ -152,7 +152,7 @@ fn round5(x: f64) -> u32 {
 }
 
 /// Where a range falls against the marks, in a few words, and a line.
-fn band(m: &Marks, lo: u8, hi: u8, who: &str) -> (String, String) {
+pub(crate) fn band(m: &Marks, lo: u8, hi: u8, who: &str) -> (String, String) {
     let mid = (lo as f64 + hi as f64) / 2.0;
     let word = if mid >= m.elite {
         "Elite"
