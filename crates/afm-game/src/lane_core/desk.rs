@@ -415,9 +415,25 @@ pub fn my_players(w: &World) -> Value {
 
 // ---- Watches: saved searches that tell you about new matches ----
 
+/// The player finder's watches (the find pages' saved searches are listed
+/// on their own pages, `lane_find::saved`), each with its place in the
+/// desk's list.
 pub fn watches(w: &World) -> Value {
     let Some(c) = &w.career else { return json!([]) };
-    json!(c.desk.watches.iter().enumerate().map(|(k, x)| json!({ "k": k, "name": x.name, "query": serde_json::from_str::<Value>(&x.query).unwrap_or(Value::Null), "since": views::date_text(x.since), "seen": x.seen.len() })).collect::<Vec<_>>())
+    json!(
+        c.desk
+            .watches
+            .iter()
+            .enumerate()
+            .filter_map(|(k, x)| {
+                let query = serde_json::from_str::<Value>(&x.query).unwrap_or(Value::Null);
+                if query.get("find").is_some() {
+                    return None;
+                }
+                Some(json!({ "k": k, "name": x.name, "query": query, "since": views::date_text(x.since), "seen": x.seen.len() }))
+            })
+            .collect::<Vec<_>>()
+    )
 }
 
 pub fn watch_set(w: &mut World, args: &Value) -> Result<Value, String> {

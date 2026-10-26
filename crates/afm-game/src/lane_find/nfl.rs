@@ -9,12 +9,13 @@
 
 use std::collections::{HashMap, HashSet};
 
+use afm_engine::calendar::YearDates;
 use afm_engine::player::PlayingTime;
 use afm_engine::world::data::Division;
 use afm_engine::world::scouting::predraft::{LIST_INTERVIEW, LIST_VISIT};
 use afm_engine::world::scouting::readers::Staff;
 use afm_engine::world::scouting::{board, file, public};
-use afm_engine::world::{Stage, World, franchise};
+use afm_engine::world::{Stage, World, eligibility, franchise};
 use serde_json::{Value, json};
 
 use super::fields::{self, Ctx, Draft, Seat, Sure, Val};
@@ -90,6 +91,27 @@ fn level_ok(w: &World, p: &afm_engine::world::Person, level: &str) -> bool {
     }
 }
 
+/// The grade tier past the draft's picks: a free agent (R28).
+pub const FREE_AGENT_TIER: u8 = 9;
+
+/// The picks in the coming draft (at least seven rounds).
+fn picks_in(w: &World) -> usize {
+    let teams = franchise::active_teams(w.year).len().max(1);
+    board::coming_slots(w).len().max(teams * 7)
+}
+
+/// A grade tier in words: the round, or a free agent (a priority one when
+/// he's on your list).
+fn grade_words(w: &World, id: u32, tier: u8) -> &'static str {
+    if tier < FREE_AGENT_TIER {
+        board::round_words(tier)
+    } else if w.scouting.board.pfa.iter().any(|x| x.0 == id) {
+        "Priority free agent"
+    } else {
+        "Free-agent grade"
+    }
+}
+
 /// The draft's side for the search: your board, its grades and the desks.
 fn draft_side(w: &World, year: i32) -> Draft {
     let mut d = Draft { year, ..Default::default() };
@@ -99,11 +121,18 @@ fn draft_side(w: &World, year: i32) -> Draft {
     let grades = board::seat_grades(w);
     let order = board::ordered(w, &grades);
     let teams = franchise::active_teams(w.year).len().max(1);
+    let picks = picks_in(w);
     let b = &w.scouting.board;
+    // A grade you set holds; otherwise the board's place gives the round,
+    // and a place past the last pick is a free agent's grade.
     d.board = order
         .iter()
         .enumerate()
-        .map(|(k, &id)| (id, (k, b.tier_of(id).unwrap_or_else(|| board::tier_of_rank(k, teams)))))
+        .map(|(k, &id)| {
+            let tier =
+                b.tier_of(id).unwrap_or(if k >= picks { FREE_AGENT_TIER } else { board::tier_of_rank(k, teams) });
+            (id, (k, tier))
+        })
         .collect();
     d.public = board::public_ranks(w);
     let s = &w.scouting.public;
@@ -138,12 +167,32 @@ pub fn search<'a>(w: &'a World, t: usize, spec: &Spec) -> Found<'a> {
     let class = spec.class.filter(|c| (dy..=dy + 1).contains(c)).unwrap_or(dy);
     let staff_of = Staff::Club(t);
     let this: HashSet<usize> = public::prospects(w).into_iter().collect();
-    // Juniors are this draft's until the declaration deadline passes.
-    let juniors_open = w.today <= w.dates.declare_deadline || w.today.month() >= 8;
+    // Juniors are this draft's until its own declaration deadline (15
+    // January of the draft year; `w.dates` is next year's from the Super
+    // Bowl on).
+    let juniors_open = w.today <= YearDates::new(dy - 1).declare_deadline;
+    // The season before this draft, and whether it has been played (and
+    // counted) yet.
+    let season = dy - 1;
+    let played = w.today > YearDates::new(season).title_game;
+    // A player whose college football ends with that season is this
+    // draft's, whatever his read: never next year's.
+    let last_season = |p: &afm_engine::world::Person| {
+        let d = eligibility::division_of(p, &w.programs);
+        if played {
+            eligibility::exhausted_after(p, d, season)
+        } else {
+            p.college_seasons + 1 >= eligibility::seasons_allowed(season, d) || season >= eligibility::clock_last(p)
+        }
+    };
+    let known = |p: &afm_engine::world::Person| {
+        p.cal.draft_read.is_some() || started(p) || staff::has_file(w, staff_of, p.player.id)
+    };
     let mut pool: Vec<usize> = Vec::new();
     for (i, p) in w.people.iter().enumerate() {
         let ok = if class == dy {
             this.contains(&i)
+                || (p.stage == Stage::College && dy - p.class_of >= 3 && last_season(p) && known(p))
                 || (juniors_open
                     && p.stage == Stage::College
                     && dy - p.class_of >= 3
@@ -152,6 +201,7 @@ pub fn search<'a>(w: &'a World, t: usize, spec: &Spec) -> Found<'a> {
             p.stage == Stage::College
                 && !this.contains(&i)
                 && class - p.class_of >= 3
+                && !last_season(p)
                 && (started(p) || staff::has_file(w, staff_of, p.player.id))
         };
         if ok {
@@ -190,10 +240,11 @@ pub fn ids(w: &World, t: usize, spec: &Spec) -> Vec<u32> {
 }
 
 /// The fields Compare lines up (FS20).
-const COMPARE: [(&str, &str); 16] = [
+const COMPARE: [(&str, &str); 17] = [
     ("Your board", "board"),
     ("Your grade (tier)", "grade"),
     ("Your read", "now"),
+    ("Scheme fit", "fit"),
     ("Could be", "proj"),
     ("Consensus", "cons"),
     ("Earliest mock pick", "mock_hi"),
@@ -212,7 +263,10 @@ const COMPARE: [(&str, &str); 16] = [
 /// Find prospects: the page.
 pub fn find(w: &World, t: usize, args: &Value) -> Reply {
     let spec = Spec::parse(args);
-    let f = search(w, t, &spec);
+    let mut f = search(w, t, &spec);
+    // The players ticked for Compare are read even when today's filters
+    // leave them out.
+    f.ctx.reads = staff::reads(w, Staff::Club(t), &super::compare_ids(args));
     let ctx = &f.ctx;
     let dy = public::draft_year(w);
     let this = f.class == dy;
@@ -222,18 +276,21 @@ pub fn find(w: &World, t: usize, args: &Value) -> Reply {
     let page = args.get("page").and_then(Value::as_u64).unwrap_or(0) as usize;
     let rows: Vec<Value> = page_of(&sorted, page).iter().map(|&i| row(ctx, i)).collect();
     // By the round your board has them in.
-    let teams = franchise::active_teams(w.year).len().max(1);
-    let picks = if this { board::coming_slots(w).len().max(teams * 7) } else { teams * 7 };
+    // By the grade each row shows: rounds 1, 2 and 3 by tier, then rounds
+    // 4-7, then the free agents.
     let mut dist = [0usize; 6];
     let (mut senior_bowl, mut combine, mut seen_week) = (0usize, 0usize, 0usize);
     for &i in &f.matches {
         let p = ctx.p(i);
         let k = match ctx.draft.board.get(&p.player.id) {
-            Some(&(r, _)) if r < teams => 0,
-            Some(&(r, _)) if r < 2 * teams => 1,
-            Some(&(r, _)) if r < 3 * teams => 2,
-            Some(&(r, _)) if r < picks => 3,
-            Some(_) => 4,
+            // Top ten and round 1; late 1st-2nd to round 2-3; round 3.
+            Some(&(_, t)) => match t {
+                1 | 2 => 0,
+                3..=5 => 1,
+                6 => 2,
+                7 | 8 => 3,
+                _ => 4,
+            },
             None => 5,
         };
         dist[k] += 1;
@@ -246,11 +303,15 @@ pub fn find(w: &World, t: usize, args: &Value) -> Reply {
         combine += usize::from(p.cal.combine_invite);
     }
     let visits = w.scouting.predraft.lists.iter().filter(|x| x.1 == LIST_VISIT).count();
+    // The Senior Bowl before this class's draft (the January before it).
+    let senior_bowl_day = YearDates::new(f.class - 1).senior_bowl;
     let draft = &ctx.dd.draft[0];
     let team = TeamRef::Nfl(t);
     let chart = super::chart(ctx, &f.catalog, &sorted, args, if this { ("board", "cons") } else { ("t40", "wt_v") });
     let compare = super::compare(ctx, &f.catalog, args, &COMPARE);
-    let confs: Vec<String> = {
+    // Each conference by its real name (what the search matches) and the
+    // name the world shows.
+    let confs: Vec<Value> = {
         let mut v: Vec<String> = w
             .programs
             .iter()
@@ -259,7 +320,9 @@ pub fn find(w: &World, t: usize, args: &Value) -> Reply {
             .collect();
         v.sort();
         v.dedup();
-        v
+        let mut v: Vec<(String, String)> = v.into_iter().map(|k| (w.conference_name(&k).to_string(), k)).collect();
+        v.sort();
+        v.into_iter().map(|(name, k)| json!({ "k": k, "name": name })).collect()
     };
     let mut dist_v = vec![
         json!(["Round 1", dist[0]]),
@@ -280,8 +343,8 @@ pub fn find(w: &World, t: usize, args: &Value) -> Reply {
         "draft_date": short(draft.date),
         "combine": [short(ctx.dd.combine_start), short(ctx.dd.combine_end)],
         "combine_done": w.today > ctx.dd.combine_end && this,
-        "senior_bowl": short(w.dates.senior_bowl),
-        "senior_bowl_done": w.today > w.dates.senior_bowl && this,
+        "senior_bowl": short(senior_bowl_day),
+        "senior_bowl_done": w.today > senior_bowl_day && this,
         "level": spec.level,
         "confs": confs,
         "count": f.matches.len(),
@@ -312,14 +375,28 @@ pub fn find(w: &World, t: usize, args: &Value) -> Reply {
     }))
 }
 
-/// The analyst desks working this year, in the order of their columns.
+/// The analyst desks working this year, in the order of their columns,
+/// each with its record: how many of its final top 100 went in the first
+/// 100 picks over its last five drafts, and its mocks' hits.
 fn desks_of(w: &World) -> Vec<Value> {
     w.scouting
         .desks
         .iter()
         .enumerate()
         .filter(|(_, d)| d.kind == public::DeskKind::Analyst && d.active(w.year))
-        .map(|(k, d)| json!({ "k": k, "name": d.outlet }))
+        .map(|(k, d)| {
+            let last: Vec<&(i32, u8)> = d.board_hits.iter().rev().take(5).collect();
+            let top100 = (!last.is_empty()).then(|| {
+                let hits: u32 = last.iter().map(|x| x.1 as u32).sum();
+                let (from, to) =
+                    (last.iter().map(|x| x.0).min().unwrap_or(0), last.iter().map(|x| x.0).max().unwrap_or(0));
+                let years = if from == to { from.to_string() } else { format!("{from}-{:02}", to % 100) };
+                json!({ "pct": (hits as f64 / last.len() as f64).round(), "years": years })
+            });
+            let mocks =
+                (d.record.0 > 0).then(|| json!({ "drafts": d.record.0, "exact": d.record.1, "near": d.record.2 }));
+            json!({ "k": k, "name": d.outlet, "top100": top100, "mocks": mocks })
+        })
         .collect()
 }
 
@@ -398,7 +475,8 @@ pub fn row(ctx: &Ctx, i: usize) -> Value {
         "age": fields::value(ctx, i, "age_draft").num().map(|a| format!("{a:.1}")),
         "early": fields::value(ctx, i, "early") == Val::N(1.0),
         "board": b.map(|x| x.0 + 1),
-        "grade": b.map(|x| board::round_words(x.1)),
+        "grade": b.map(|x| grade_words(w, id, x.1)),
+        "fit": fields::fit_words(ctx, i),
         "read": now,
         "proj": proj,
         "sure": sure,

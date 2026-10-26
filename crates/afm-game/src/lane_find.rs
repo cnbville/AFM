@@ -64,9 +64,9 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
 }
 
 fn run(game: &mut Game, cmd: &str, args: &Value) -> Reply {
+    // A page never changes the world: the services rate only on their own
+    // days (an older file caught up once, when it loaded).
     let w = game.world.as_mut().ok_or("No world is loaded.")?;
-    // An older file has no underclass rankings yet (minor bug 12).
-    services::catch_up(w);
     match cmd {
         "find_save" => return saved::save(w, args),
         "find_forget" => return saved::forget(w, args),
@@ -110,6 +110,7 @@ fn nfl_seat(w: &World) -> Result<usize, String> {
 /// how many were left out for not being seen.
 pub fn apply(ctx: &mut Ctx, query: &query::Query, pool: Vec<usize>, include: bool) -> (Vec<usize>, usize) {
     ctx.unseen = true;
+    let query = &query.settled(ctx, &pool);
     let passed: Vec<usize> = pool.into_iter().filter(|&i| query.pass(ctx, i)).collect();
     ctx.unseen = false;
     if !query.reads_staff() {
@@ -224,14 +225,18 @@ pub fn chart(ctx: &Ctx, catalog: &[Group], sorted: &[usize], args: &Value, defau
     })
 }
 
-/// Compare (FS20): two to five players side by side on the fields given,
-/// the best of each line marked.
-pub fn compare(ctx: &Ctx, catalog: &[Group], args: &Value, lines: &[(&str, &str)]) -> Value {
-    let ids: Vec<u32> = args
-        .get("compare")
+/// The players ticked for Compare (at most five).
+pub fn compare_ids(args: &Value) -> Vec<u32> {
+    args.get("compare")
         .and_then(Value::as_array)
-        .map_or(Vec::new(), |a| a.iter().filter_map(Value::as_u64).map(|x| x as u32).take(5).collect());
-    let at: Vec<usize> = ids.iter().filter_map(|&id| afm_engine::world::scouting::place(ctx.w, id)).collect();
+        .map_or(Vec::new(), |a| a.iter().filter_map(Value::as_u64).map(|x| x as u32).take(5).collect())
+}
+
+/// Compare (FS20): two to five players side by side on the fields given,
+/// the best of each line marked. The caller reads the ticked players' files
+/// into the context first (they may sit outside today's filters).
+pub fn compare(ctx: &Ctx, catalog: &[Group], args: &Value, lines: &[(&str, &str)]) -> Value {
+    let at: Vec<usize> = compare_ids(args).iter().filter_map(|&id| views::person_index(ctx.w, id)).collect();
     if at.len() < 2 {
         return json!({ "players": at.iter().map(|&i| who(ctx, i)).collect::<Vec<_>>(), "rows": [] });
     }
@@ -282,10 +287,12 @@ pub fn short(d: Date) -> String {
 }
 
 /// A kid's offers (minor bug 16): every school, its level and conference,
-/// with the dates the early ones came.
+/// with the dates the early ones came. In a public order, never his own:
+/// the schools on his announced list first, then by when they offered,
+/// then by name.
 fn offers(w: &World, args: &Value) -> Reply {
     let id = args.get("id").and_then(Value::as_u64).ok_or("Missing id.")? as u32;
-    let i = afm_engine::world::scouting::place(w, id).ok_or("No such player.")?;
+    let i = views::person_index(w, id).ok_or("No such player.")?;
     let p = &w.people[i];
     let mut list: Vec<(usize, Option<Date>)> = Vec::new();
     for &(c, d) in &p.cal.early_offers {
@@ -307,11 +314,14 @@ fn offers(w: &World, args: &Value) -> Reply {
         let d = w.front_office.college.board.iter().find(|t| t.id == id).and_then(|t| t.offered);
         list.push((j, d));
     }
-    let race = desk::race_at(w, i);
+    let top = w.scouting.rankings.tops.iter().find(|t| t.id == id);
+    let listed = |c: usize| top.is_some_and(|t| t.schools.contains(&(c as u16)));
     list.sort_by(|a, b| {
-        let ra = race.iter().position(|r| r.0 == a.0).unwrap_or(usize::MAX);
-        let rb = race.iter().position(|r| r.0 == b.0).unwrap_or(usize::MAX);
-        ra.cmp(&rb).then(a.0.cmp(&b.0))
+        listed(b.0)
+            .cmp(&listed(a.0))
+            .then(a.1.is_none().cmp(&b.1.is_none()))
+            .then(a.1.cmp(&b.1))
+            .then_with(|| w.program_name(a.0).cmp(w.program_name(b.0)))
     });
     let commit = p.cal.commit.map(|c| c.0).or(p.cal.signed.map(|s| s.program));
     let rows: Vec<Value> = list
@@ -325,14 +335,19 @@ fn offers(w: &World, args: &Value) -> Reply {
                 "date": d.map(short),
                 "yours": Some(c) == mine,
                 "committed": Some(c) == commit,
+                "listed": listed(c),
                 "state": w.states.get(pr.state).map(|s| s.code.clone()),
             })
         })
         .collect();
+    let note = if top.is_some() {
+        "His announced list first, then by when they offered. Dates are known for the offers made before his junior year's spring."
+    } else {
+        "By when they offered, then by name. Dates are known for the offers made before his junior year's spring."
+    };
     Ok(json!({
         "id": id, "name": p.name, "pos": p.player.position.name(), "cls": views::class_text(w, p),
-        "offers": rows, "count": rows.len(),
-        "note": "In the order he seems to rank them, as your staff hears it. Dates are known for the offers made before his junior year's spring.",
+        "offers": rows, "count": rows.len(), "note": note,
     }))
 }
 
@@ -356,7 +371,7 @@ pub fn division_word(d: afm_engine::world::data::Division) -> &'static str {
 fn insider(w: &World, args: &Value) -> Reply {
     let year = w.year;
     let pick_row = |x: &services::Pick| {
-        let i = afm_engine::world::scouting::place(w, x.id);
+        let i = views::person_index(w, x.id);
         json!({
             "player": i.map(|i| { let p = &w.people[i]; json!({ "id": p.player.id, "name": p.name, "pos": p.player.position.name(), "cls": p.class_of, "stars": p.stars }) }),
             "team": views::team_brief(w, TeamRef::College(x.program as usize)),

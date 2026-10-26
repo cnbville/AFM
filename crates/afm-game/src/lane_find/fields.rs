@@ -363,6 +363,7 @@ pub const REGIONS: [&str; 4] = ["Northeast", "Midwest", "South", "West"];
 pub const SPORTS: [&str; 5] = ["None", "Baseball", "Basketball", "Wrestling", "Track"];
 pub const DECIDER: [&str; 4] = ["He decides", "His parents", "His grandparents", "A trainer around him"];
 pub const VS: [&str; 3] = ["You're lower", "Level", "You're higher"];
+pub const FIT: [&str; 3] = ["Poor fit", "Fits", "Good fit"];
 pub const STAFF_WORDS: [&str; 2] = ["Not seen", "Seen"];
 pub const DIVISIONS: [&str; 3] = ["Division II and below", "FCS", "FBS"];
 
@@ -428,6 +429,7 @@ pub fn catalog(seat: Seat, w: &World) -> Vec<Group> {
     if !college {
         reads.push(Field::new("board", "Your board", FKind::Num).lower());
         reads.push(Field::new("grade", "Your grade (round tier)", FKind::Num).lower());
+        reads.push(Field::new("fit", "Scheme fit", FKind::Word).opts(&FIT).staff());
     } else {
         reads.push(Field::new("vs", "You vs the services", FKind::Word).opts(&VS).staff());
     }
@@ -544,8 +546,8 @@ pub fn catalog(seat: Seat, w: &World) -> Vec<Group> {
             fields: vec![
                 Field::new("gpa", "GPA", FKind::Num).dp(2),
                 Field::new("test", "Test score (SAT scale)", FKind::Num),
-                Field::new("core", "Core courses", FKind::Word).opts(&CORE),
-                Field::new("risk", "Qualifier risk", FKind::Word).opts(&RISK),
+                Field::new("core", "Core courses", FKind::Word).opts(&CORE).staff(),
+                Field::new("risk", "Qualifier risk", FKind::Word).opts(&RISK).staff(),
             ],
         });
         g.push(Group {
@@ -750,6 +752,7 @@ pub fn value(ctx: &Ctx, i: usize, k: &str) -> Val {
         "vs" => vs_services(ctx, i),
         "board" => ctx.draft.board.get(&id).map_or(Val::None, |b| Val::N(b.0 as f64 + 1.0)),
         "grade" => ctx.draft.board.get(&id).map_or(Val::None, |b| Val::N(b.1 as f64)),
+        "fit" => scheme_fit(ctx, i).map_or(Val::Unseen, |f| Val::N(f.0 as f64)),
         "ht_v" | "wt_v" | "arm" | "hand" | "wing" => measured(ctx, i, k),
         "ht" => Val::N(file::listed(&p.player).0),
         "wt" => Val::N(file::listed(&p.player).1),
@@ -761,7 +764,7 @@ pub fn value(ctx: &Ctx, i: usize, k: &str) -> Val {
         "class" => hs_of(ctx, i).map_or(Val::None, |h| Val::N(w.high_schools[h].classification as f64 + 1.0)),
         "sos" => sos(ctx, i),
         "culture" => Val::N((w.states.get(p.home_state).map_or(0.5, |s| s.culture) * 10.0).clamp(1.0, 10.0)),
-        "conf" => p.college.map_or(Val::None, |c| Val::T(w.programs[c].conference.clone())),
+        "conf" => p.college.map_or(Val::None, |c| Val::T(w.conference_name(&w.programs[c].conference).to_string())),
         "div" => p.college.map_or(Val::None, |c| {
             Val::N(match w.programs[c].division {
                 afm_engine::world::data::Division::FBS => 2.0,
@@ -777,21 +780,25 @@ pub fn value(ctx: &Ctx, i: usize, k: &str) -> Val {
         "trouble" => flag(trouble(p)),
         "gpa" => Val::N(gpa_shown(ctx, i)),
         "test" => p.cal.test_score.map_or(Val::None, |t| Val::N(t as f64)),
-        "core" => Val::N(if core_behind(p) > 0 { 0.0 } else { 1.0 }),
-        "risk" => Val::N(risk(ctx, i) as f64),
+        "core" => core_behind(ctx, i).map_or(Val::Unseen, |n| Val::N(if n > 0 { 0.0 } else { 1.0 })),
+        "risk" => ctx.read(i).map_or(Val::Unseen, |_| Val::N(risk(ctx, i) as f64)),
         "committed" => flag(p.cal.commit.is_some() || p.cal.signed.is_some()),
         "firm" => Val::N(firm(ctx, i) as f64),
         "offers" => Val::N(crate::views::offers_of(p).len() as f64),
         "no_offers" => flag(crate::views::offers_of(p).is_empty()),
         "offer_conf" => Val::T(
-            crate::views::offers_of(p).iter().map(|&o| w.programs[o].conference.clone()).collect::<Vec<_>>().join("\n"),
+            crate::views::offers_of(p)
+                .iter()
+                .map(|&o| w.conference_name(&w.programs[o].conference).to_string())
+                .collect::<Vec<_>>()
+                .join("\n"),
         ),
         "offer_from" => Val::T(
             crate::views::offers_of(p).iter().map(|&o| w.program_name(o).to_string()).collect::<Vec<_>>().join("\n"),
         ),
         "leader" => leader(ctx, i).map_or(Val::None, |j| Val::T(w.program_name(j).to_string())),
-        "officials" => Val::N(p.cal.visits.iter().filter(|v| v.2 == Visit::Official).count() as f64),
-        "visits_you" => Val::N(ctx.program().map_or(0, |j| p.cal.visits.iter().filter(|v| v.0 == j).count()) as f64),
+        "officials" => Val::N(officials_used(ctx, i) as f64),
+        "visits_you" => Val::N(visits_to_you(ctx, i) as f64),
         "top_out" => flag(w.scouting.rankings.tops.iter().any(|t| t.id == id)),
         "insider" => insider(ctx, i).map_or(Val::None, |x| Val::T(w.program_name(x.program as usize).to_string())),
         "insider_conf" => insider(ctx, i).map_or(Val::None, |x| Val::N(x.conf as f64)),
@@ -1027,6 +1034,40 @@ pub fn stat_line(ctx: &Ctx, i: usize) -> Option<String> {
 
 // --- Measurables and testing (FR1, FS4, FS5) ----------------------------------------------
 
+/// His fit to your club's systems as your scouts read it (FIT's slot, and
+/// the system his position plays in: "4-3"): the attributes in their file
+/// against what your front, coverage or offense asks of his position. Not
+/// seen until the file has every attribute it needs. Proposed, not
+/// confirmed: a good fit from 0.15 on `fit_to`'s scale (about a third of a
+/// spread), a poor one from -0.15.
+pub fn scheme_fit(ctx: &Ctx, i: usize) -> Option<(usize, &'static str)> {
+    use afm_engine::world::systems;
+    let Seat::Nfl(t) = ctx.seat else { return None };
+    let w = ctx.w;
+    let inst = &w.clubs.get(t)?.installed;
+    let p = ctx.p(i);
+    let r = ctx.read(i)?;
+    let pos = p.player.position;
+    let f = systems::read_fit(w, pos, file::listed(&p.player).1, |a| r.attr(a.index()).map(|x| x.0), inst)?;
+    let k = if f >= 0.15 {
+        2
+    } else if f <= -0.15 {
+        0
+    } else {
+        1
+    };
+    Some((k, systems::system_words(pos, inst)?))
+}
+
+/// His fit in the row's words: "Fits your 4-3".
+pub fn fit_words(ctx: &Ctx, i: usize) -> Option<String> {
+    scheme_fit(ctx, i).map(|(k, sys)| match k {
+        2 => format!("Good fit for your {sys}"),
+        1 => format!("Fits your {sys}"),
+        _ => format!("Poor fit for your {sys}"),
+    })
+}
+
 /// Whether a kid's numbers were taken by someone who measures (FR1): your
 /// own camp's lasers, or a services' showcase (the ranked kids whose
 /// families can travel go to one most years). An NFL prospect's are
@@ -1241,32 +1282,46 @@ pub fn gpa_shown(ctx: &Ctx, i: usize) -> f64 {
     ((real + up).min(4.0) * 10.0).round() / 10.0
 }
 
-/// Core courses behind the NCAA's 16 (FS12): a struggling student is often
-/// one or two short until summer school.
-pub fn core_behind(p: &Person) -> u32 {
+/// Core courses behind the NCAA's 16 (FS12), once your academic staff has
+/// his transcript (None before): a struggling student is often one or two
+/// short until summer school.
+pub fn core_behind(ctx: &Ctx, i: usize) -> Option<u32> {
+    let p = ctx.p(i);
+    if !ctx.read(i).is_some_and(|r| r.transcript) {
+        return None;
+    }
     let gpa = file::gpa(p);
     if gpa >= 2.6 {
-        return 0;
+        return Some(0);
     }
     let u = key_uniform(0xC0E5, p.player.id as u64);
-    if gpa < 2.2 && u < 0.7 {
+    Some(if gpa < 2.2 && u < 0.7 {
         2
     } else if u < 0.45 {
         1
     } else {
         0
-    }
+    })
 }
 
-/// The academic staff's risk word (FR3): 0 high, 1 some, 2 none.
+/// The academic staff's risk word (FR3): 0 high, 1 some, 2 none. With his
+/// transcript, whether he qualifies and his core courses; before it, their
+/// guess from the GPA his profile gives (under 2.3, the NCAA's floor, high;
+/// under 2.6 some).
 pub fn risk(ctx: &Ctx, i: usize) -> usize {
-    let p = ctx.p(i);
+    let Some(behind) = core_behind(ctx, i) else {
+        return match gpa_shown(ctx, i) {
+            g if g < 2.3 => 0,
+            g if g < 2.6 => 1,
+            _ => 2,
+        };
+    };
     let line = match ctx.program() {
         Some(j) => desk::qualifies(ctx.w, j, i),
         None => "Qualifier",
     };
     match line {
-        "Qualifier" if core_behind(p) == 0 && file::gpa(p) >= 2.6 => 2,
+        "Qualifier" if behind == 0 && gpa_shown(ctx, i) >= 2.6 => 2,
         "Qualifier" => 1,
         _ => 0,
     }
@@ -1355,6 +1410,23 @@ pub fn firm(ctx: &Ctx, i: usize) -> usize {
     let best_other = race.iter().filter(|r| r.0 != c.0).map(|r| r.1).fold(f64::MIN, f64::max);
     let hold = desk::hold(ctx.w, i);
     if best_other > theirs - hold { 1 } else { 2 }
+}
+
+/// Official visits he has taken (FR7, of the five allowed): a visit only
+/// booked doesn't count yet.
+pub fn officials_used(ctx: &Ctx, i: usize) -> usize {
+    let today = ctx.w.today;
+    ctx.p(i).cal.visits.iter().filter(|v| v.2 == Visit::Official && v.1 <= today).count()
+}
+
+/// Unofficial visits he has made to your campus (FR7: junior days and
+/// game days); your coaches' home visits and drop-ins are visits to him,
+/// and one only booked hasn't happened.
+pub fn visits_to_you(ctx: &Ctx, i: usize) -> usize {
+    let today = ctx.w.today;
+    ctx.program().map_or(0, |j| {
+        ctx.p(i).cal.visits.iter().filter(|v| v.0 == j && v.2 == Visit::Unofficial && v.1 <= today).count()
+    })
 }
 
 /// The insiders' pick on him: the most confident, then the latest.

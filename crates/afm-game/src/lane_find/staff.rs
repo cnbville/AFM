@@ -49,28 +49,56 @@ impl Read {
 }
 
 struct Cache {
-    key: (i32, u64, usize),
+    key: (i32, u64, usize, u64),
     reads: Arc<HashMap<u32, Read>>,
 }
 
 static CACHE: Mutex<Option<Cache>> = Mutex::new(None);
 
-/// What changes a staff's reads: the day, whose staff, and how many looks
-/// its files hold.
-fn cache_key(w: &World, staff: Staff) -> (i32, u64, usize) {
+/// What changes a staff's reads: the day, whose staff, how many looks its
+/// files hold, and who reads them (a club's head coach and coordinators are
+/// read by role, so a hire the same day re-reads; the doctors' rating and
+/// the world's seed, so another file never borrows these reads).
+fn cache_key(w: &World, staff: Staff) -> (i32, u64, usize, u64) {
     let mut looks: usize = w.scouting.dept.looks.values().map(|v| v.len()).sum();
     if let Staff::Club(t) = staff
         && let Some(c) = w.clubs.get(t)
     {
         looks += c.files.values().map(|v| v.len()).sum::<usize>();
     }
-    (w.today.0, readers::staff_key(staff) ^ (w.people.len() as u64) << 32, looks)
+    let who = match staff {
+        Staff::Club(t) => w.nfl.get(t).map_or(0, |tm| {
+            let id = |c: Option<usize>| c.map_or(0xFFFF, |c| c as u64 & 0xFFFF);
+            id(tm.head_coach) | id(tm.oc) << 16 | id(tm.dc) << 32
+        }),
+        Staff::Program(p) => w.programs.get(p).map_or(0, |pr| pr.head_coach.map_or(0xFFFF, |c| c as u64 & 0xFFFF)),
+        Staff::School(_) => 0,
+    };
+    let medical = readers::medical_rating(w, staff) as u64;
+    let seat = who ^ medical << 48 ^ (w.options.seed as u64).rotate_left(24);
+    (w.today.0, readers::staff_key(staff) ^ (w.people.len() as u64) << 32, looks, seat)
 }
 
 /// Whether your staff has a file on a player (a look by anyone of yours).
 pub fn has_file(w: &World, staff: Staff, id: u32) -> bool {
     w.scouting.dept.looks.get(&id).is_some_and(|v| !v.is_empty())
         || matches!(staff, Staff::Club(t) if w.clubs.get(t).is_some_and(|c| c.files.get(&id).is_some_and(|v| !v.is_empty())))
+}
+
+/// Your staff's contacts with a player: calls, home visits, his visits
+/// and your camps.
+pub fn contacts(w: &World, id: u32) -> usize {
+    w.scouting.dept.looks.get(&id).map_or(0, |v| {
+        v.iter()
+            .filter(|l| matches!(l.kind, Kind::Call | Kind::HomeVisit | Kind::Official | Kind::Unofficial | Kind::Camp))
+            .count()
+    })
+}
+
+/// Whether your staff has been in touch with a player (what "Who decides"
+/// and the race's family words wait for).
+pub fn contacted(w: &World, id: u32) -> bool {
+    contacts(w, id) > 0
 }
 
 /// The reads of these players (those with a file), read once a day.
@@ -112,11 +140,7 @@ fn read_one(w: &World, staff: Staff, id: u32) -> Option<Read> {
     let judge = rds.iter().map(|r| r.judge).fold(0.0f64, f64::max) as f32;
     let own = w.scouting.dept.looks.get(&id);
     let has = |k: &[Kind]| own.is_some_and(|v| v.iter().any(|l| k.contains(&l.kind)));
-    let contact = own.map_or(0, |v| {
-        v.iter()
-            .filter(|l| matches!(l.kind, Kind::Call | Kind::HomeVisit | Kind::Official | Kind::Unofficial | Kind::Camp))
-            .count()
-    }) as u16;
+    let contact = contacts(w, id) as u16;
     let seen_now = f.now.1 > 0.0 || f.now.0 > 0.0;
     Some(Read {
         now: if seen_now { (f.now.0 as f32, f.now.1 as f32) } else { (0.0, 0.0) },

@@ -48,6 +48,7 @@
 .fr .fr-h2 small { font-size: 13px; font-weight: 500; margin-left: 6px; }
 .fr .fr-sub { color: var(--fr-fg2); font-size: 13px; }
 .fr .fr-mute { color: var(--fr-fg3); }
+.fr .fr-small { font-size: 12px; }
 .fr .fr-l2 { color: var(--fr-fg3); font-size: 11.5px; margin-top: 1px; }
 .fr span.fr-l2 { margin-top: 0; }
 .fr .fr-num { font-variant-numeric: tabular-nums; }
@@ -106,8 +107,8 @@
 .fr .fr-chipbtn:hover, .fr .fr-btn:hover { color: var(--fr-fg); background: var(--fr-hover); }
 .fr .fr-chipbtn.on { color: var(--fr-fg); background: var(--fr-lift); }
 .fr .fr-chipbtn small { margin-left: 6px; font-size: 11px; font-weight: 700; color: var(--fr-fg); }
-.fr .fr-btn.main { background: var(--fr-fg); color: var(--fr-raised); border-color: var(--fr-fg); font-weight: 600; }
-.fr .fr-btn.main:hover { opacity: .9; background: var(--fr-fg); color: var(--fr-raised); }
+.fr .fr-btn.fr-main { background: var(--fr-fg); color: var(--fr-raised); border-color: var(--fr-fg); font-weight: 600; }
+.fr .fr-btn.fr-main:hover { opacity: .9; background: var(--fr-fg); color: var(--fr-raised); }
 .fr .fr-saved { display: inline-flex; align-items: center; gap: 0; }
 .fr .fr-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px; background: var(--fr-sunk); box-shadow: inset 0 0 0 1px var(--fr-hair); }
 .fr .fr-edit .fr-k { color: var(--fr-fg); }
@@ -315,8 +316,8 @@
 .frr .frr-lane.riv .frr-dot { background: var(--fr-fg); }
 .frr .frr-val { text-align: right; font-size: 17px; font-weight: 800; }
 .frr .frr-ch { text-align: right; color: var(--fr-fg3); font-size: 13px; }
-.frr .frr-ch.up { color: var(--fr-gold); }
-.frr .frr-ch.dn { color: var(--fr-amber); }
+.frr .frr-ch.frr-up { color: var(--fr-gold); }
+.frr .frr-ch.frr-dn { color: var(--fr-amber); }
 .frr .frr-gap { width: 100%; height: auto; display: block; margin-top: 4px; font-family: inherit; }
 .frr .frr-gt { fill: var(--fr-fg3); font-size: 10px; font-weight: 700; letter-spacing: 1.4px; }
 .frr .frr-mon { stroke: var(--fr-hair); }

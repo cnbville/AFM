@@ -6,8 +6,12 @@
 //! club).
 //!
 //! A saved search is the desk's `Watch`: its name, the search as the
-//! screen sent it, the day it was saved, the players it has already told
-//! you about (at most 2,000) and the ones its last mail named.
+//! screen sent it, the day it was saved, the players it found at its last
+//! look (sorted, so a look reads them at once; as many as it matches, so a
+//! player still matching is never told twice) and the ones its last mail
+//! named.
+
+use std::collections::HashSet;
 
 use afm_engine::calendar::{Date, Weekday};
 use afm_engine::world::World;
@@ -20,8 +24,6 @@ use crate::Reply;
 use crate::lane_core::{links, mail, people};
 use crate::views::{self, TeamRef};
 
-/// The most players a saved search remembers telling you about.
-const SEEN_MOST: usize = 2000;
 /// The most players one mail names.
 const MAIL_MOST: usize = 25;
 
@@ -67,7 +69,7 @@ pub fn save(w: &mut World, args: &Value) -> Reply {
     let name = args.get("name").and_then(Value::as_str).map(str::trim).filter(|s| !s.is_empty()).unwrap_or("My search");
     let name: String = name.chars().take(60).collect();
     let mut seen = found(w, &spec).ok_or("That search is for another seat.")?;
-    seen.truncate(SEEN_MOST);
+    seen.sort_unstable();
     let today = w.today;
     let c = w.career.as_mut().ok_or("No career.")?;
     c.desk.watches.push(Watch { name: name.clone(), query: spec.to_string(), since: today, seen, fresh: Vec::new() });
@@ -129,8 +131,10 @@ fn trigger(w: &World, d: Date, college: bool) -> Option<String> {
     named.iter().find(|x| x.0 == d).map(|x| x.1.to_string())
 }
 
-/// After the clock ran from `before`: each saved search looks again if one
-/// of the days changed what your staff knows, and mails its new players.
+/// After the clock ran from `before` (the last day mailed): each saved
+/// search looks again if one of the days run since changed what your staff
+/// knows, and mails the players it finds that it didn't at its last look.
+/// Today itself hasn't run yet, so its trigger waits for the next step.
 pub fn after_days(w: &mut World, before: Date) {
     let Some(me) = views::mine(w) else { return };
     let college = match me {
@@ -144,38 +148,38 @@ pub fn after_days(w: &mut World, before: Date) {
     }
     let mut why: Option<(Date, String)> = None;
     let mut d = before.add(1);
-    while d <= w.today {
+    while d < w.today {
         if let Some(t) = trigger(w, d, college) {
             why = Some((d, t));
         }
         d = d.add(1);
     }
     let Some((day, what)) = why else { return };
-    services::catch_up(w);
-    let mut news: Vec<(usize, Vec<u32>)> = Vec::new();
+    // Each search's matches today, and the ones it hadn't found before.
+    let mut looks: Vec<(usize, Vec<u32>, Vec<u32>)> = Vec::new();
     if let Some(c) = &w.career {
         for (k, x) in c.desk.watches.iter().enumerate() {
             let Ok(spec) = serde_json::from_str::<Value>(&x.query) else { continue };
             if spec.get("find").is_none() {
                 continue;
             }
-            let Some(ids) = found(w, &spec) else { continue };
-            let new: Vec<u32> = ids.into_iter().filter(|id| !x.seen.contains(id)).collect();
-            if !new.is_empty() {
-                news.push((k, new));
-            }
+            let Some(mut ids) = found(w, &spec) else { continue };
+            ids.sort_unstable();
+            let told: HashSet<u32> = x.seen.iter().copied().collect();
+            let new: Vec<u32> = ids.iter().copied().filter(|id| !told.contains(id)).collect();
+            looks.push((k, ids, new));
         }
     }
     let date = day.add(1).min(w.today);
-    for (k, new) in news {
-        tell(w, me, k, &new, date, &what);
+    for (k, ids, new) in looks {
+        if !new.is_empty() {
+            tell(w, me, k, &new, date, &what);
+        }
         if let Some(x) = w.career.as_mut().and_then(|c| c.desk.watches.get_mut(k)) {
-            x.fresh = new.iter().copied().take(MAIL_MOST).collect();
-            x.seen.extend(new);
-            if x.seen.len() > SEEN_MOST {
-                let cut = x.seen.len() - SEEN_MOST;
-                x.seen.drain(..cut);
+            if !new.is_empty() {
+                x.fresh = new;
             }
+            x.seen = ids;
         }
     }
 }
@@ -212,7 +216,7 @@ fn tell(w: &mut World, me: TeamRef, k: usize, new: &[u32], date: Date, what: &st
     m.table = vec![vec!["Player".into(), "Pos".into(), "Team".into(), "Class".into(), "Stars".into()]];
     let shown: Vec<u32> = new.iter().copied().take(MAIL_MOST).collect();
     for &id in &shown {
-        if let Some(i) = afm_engine::world::scouting::place(w, id) {
+        if let Some(i) = views::person_index(w, id) {
             let p = &w.people[i];
             m.table.push(vec![
                 links::player(id, &p.name),

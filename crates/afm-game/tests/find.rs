@@ -7,6 +7,8 @@
 
 use std::time::Instant;
 
+use afm_engine::world::front_office::{college as desk, race};
+use afm_engine::world::scouting::Kind;
 use afm_game::Game;
 use serde_json::{Value, json};
 
@@ -146,6 +148,69 @@ fn a_college_staff_searches_a_class() {
         assert!((1..=hi).contains(&lo) && hi <= 5, "{r}");
     }
     println!("a race in {ms} ms");
+
+    // Nothing hidden on the race: each school's line today is your staff's
+    // read, not his true interest; his ties score only what anyone can see
+    // (steps of 5); who decides for him, and when, wait for a contact or
+    // an announcement.
+    let followed: Vec<u32> = g.world.as_ref().unwrap().front_office.race.kids.iter().map(|k| k.id).take(40).collect();
+    let (mut same, mut all) = (0usize, 0usize);
+    for kid in followed {
+        let page = ok(&mut g, "recruit_race", json!({ "id": kid }));
+        let w = g.world.as_ref().unwrap();
+        let i = w.people.binary_search_by_key(&kid, |p| p.player.id).unwrap();
+        let p = &w.people[i];
+        let base = race::of(w, kid).unwrap().base;
+        for (j, a) in desk::race_at(w, i).into_iter().take(race::SCHOOLS) {
+            let truth = race::interest(base, a) as i64;
+            let shown = page["schools"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|s| s["id"] == json!(j))
+                .and_then(|s| s["now"].as_i64());
+            if let Some(v) = shown
+                && (1..=99).contains(&truth)
+            {
+                all += 1;
+                same += usize::from(v == truth);
+            }
+        }
+        for b in page["reasons"][6]["by"].as_array().unwrap() {
+            let score = b["score"].as_f64().unwrap();
+            assert!(score % 5.0 == 0.0 && (0.0..=100.0).contains(&score), "his ties: {b}");
+        }
+        let talked = w.scouting.dept.looks.get(&kid).is_some_and(|v| {
+            v.iter().any(|l| {
+                matches!(l.kind, Kind::Call | Kind::HomeVisit | Kind::Official | Kind::Unofficial | Kind::Camp)
+            })
+        });
+        let listed = w.scouting.rankings.tops.iter().any(|t| t.id == kid);
+        if !talked {
+            assert_eq!(page["listens"], json!("Not known yet"), "who decides waits for a contact");
+        }
+        if !talked && !listed && p.cal.commit.is_none() && p.cal.signed.is_none() {
+            assert!(page["decides"].is_null(), "when he decides waits for a signal: {}", page["decides"]);
+        }
+    }
+    assert!(all > 0 && same * 3 < all, "the race shows reads: {same} of {all} points equal his true interest");
+    // An announced top list is in a neutral order, never his.
+    let w = g.world.as_ref().unwrap();
+    for t in &w.scouting.rankings.tops {
+        assert!(t.schools.windows(2).all(|p| p[0] < p[1]), "{:?}", t.schools);
+    }
+    // The offers drawer: his announced list first, then by when they
+    // offered, never by how he feels.
+    let kid = w.front_office.race.kids.iter().map(|k| k.id).find(|&id| {
+        let i = w.people.binary_search_by_key(&id, |p| p.player.id).unwrap();
+        w.people[i].cal.offers.len() >= 3
+    });
+    if let Some(kid) = kid {
+        let o = ok(&mut g, "find_offers", json!({ "id": kid }));
+        let rows = o["offers"].as_array().unwrap();
+        let listed: Vec<bool> = rows.iter().map(|r| r["listed"].as_bool().unwrap()).collect();
+        assert!(listed.windows(2).all(|p| p[0] >= p[1]), "his list first: {listed:?}");
+    }
 
     // Speed: every search reads compact reads, not files.
     let (_, ms) = timed(

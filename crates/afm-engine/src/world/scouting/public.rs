@@ -69,6 +69,10 @@ pub struct Desk {
     /// Its mock drafts' record: (drafts scored, exact hits, within three).
     #[serde(default)]
     pub record: (u16, u16, u16),
+    /// Its big boards' record, the last ten drafts: (draft, how many of its
+    /// final top 100 went in the first 100 picks).
+    #[serde(default)]
+    pub board_hits: Vec<(i32, u8)>,
 }
 
 impl Desk {
@@ -121,6 +125,7 @@ pub(crate) fn staff_desks(w: &mut World) {
             skill: clamp(rng.normal(12.0, 2.0), 7.0, 17.0).round() as u8,
             key: rng.next_u32() as u64 | 0x5E00_0000_0000,
             record: (0, 0, 0),
+            board_hits: Vec::new(),
         });
     }
     let analysts: [(&str, i32, Option<i32>, Lean, i32); 4] = [
@@ -142,6 +147,7 @@ pub(crate) fn staff_desks(w: &mut World) {
             skill: clamp(rng.normal(12.0, 2.0), 8.0, 17.0).round() as u8,
             key: rng.next_u32() as u64 | 0xA1_0000_0000,
             record: (0, 0, 0),
+            board_hits: Vec::new(),
         });
     }
     w.scouting.desks = desks;
@@ -213,7 +219,8 @@ pub fn big_board(w: &World, desk: &Desk, pool: &[usize], week: i32) -> Vec<u32> 
 /// A desk's mock: each pick in order goes to the best player on its board
 /// weighed by the club's need as the desk reads it.
 pub fn mock(w: &World, desk: &Desk, pool: &[usize], week: i32, picks: usize) -> Vec<u32> {
-    let order = super::super::nfl_year::draft_order(w).unwrap_or_default();
+    // While the season runs, the standings so far: never last April's order.
+    let order = super::super::nfl_year::mock_order(w).unwrap_or_default();
     if order.is_empty() {
         return Vec::new();
     }
@@ -393,6 +400,28 @@ pub(crate) fn score_mocks(w: &mut World, board: &[(usize, u32)]) {
         scored.push((k, exact, near, n));
     }
     w.scouting.public.scored = scored;
+    // Each big board's final top 100 against the first 100 picks.
+    let year = w.year;
+    for (k, _, ids) in w.scouting.public.boards.clone() {
+        let Some(hits) = board_hit_rate(&ids, &picks) else { continue };
+        if let Some(desk) = w.scouting.desks.get_mut(k as usize) {
+            desk.board_hits.retain(|x| x.0 != year);
+            desk.board_hits.push((year, hits));
+            if desk.board_hits.len() > 10 {
+                desk.board_hits.remove(0);
+            }
+        }
+    }
+}
+
+/// How many of a board's top 100 went in the first 100 picks, per 100. A
+/// small world's draft has fewer picks (`franchise::draft_board`), so its
+/// top N is scored against the first N picks, N the last pick up to 100;
+/// None when no pick was made.
+pub(crate) fn board_hit_rate(ids: &[u32], picks: &HashMap<u32, u32>) -> Option<u8> {
+    let n = picks.values().copied().filter(|pk| (1..=100).contains(pk)).max()? as usize;
+    let hits = ids.iter().take(n).filter(|id| picks.get(id).is_some_and(|&pk| pk as usize <= n)).count();
+    Some((100.0 * hits as f64 / n as f64).round().min(100.0) as u8)
 }
 
 /// A service's read of a recruit (topic 14): its star rating and national
@@ -416,4 +445,25 @@ pub fn service_read(w: &World, desk: &Desk, i: usize) -> (u8, f64) {
     // Stars stay within one of the shared read (services agree on most kids).
     let s = p.stars as f64 + clamp((g - base) / 4.0, -0.6, 0.6);
     (s.round().clamp(2.0, 5.0) as u8, g)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_board_is_scored_against_the_picks_the_draft_had() {
+        // A full draft: 100 of the first 100 picks, 70 of them from the board.
+        let mut picks: HashMap<u32, u32> = (0..224u32).map(|k| (1000 + k, k + 1)).collect();
+        let board: Vec<u32> = (0..70u32).map(|k| 1000 + k).chain((0..30u32).map(|k| 5000 + k)).collect();
+        assert_eq!(board_hit_rate(&board, &picks), Some(70));
+        // A small world's 13 picks: its top 13 against them, as a share.
+        picks.retain(|_, pk| *pk <= 13);
+        let small: Vec<u32> = (0..10u32).map(|k| 1000 + k).chain((0..90u32).map(|k| 5000 + k)).collect();
+        assert_eq!(board_hit_rate(&small, &picks), Some(77));
+        // Only the top 13 are read: a pick lower on the board doesn't count.
+        let late: Vec<u32> = (0..13u32).map(|k| 5000 + k).chain((0..13u32).map(|k| 1000 + k)).collect();
+        assert_eq!(board_hit_rate(&late, &picks), Some(0));
+        assert_eq!(board_hit_rate(&board, &HashMap::new()), None);
+    }
 }

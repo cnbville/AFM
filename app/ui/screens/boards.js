@@ -39,7 +39,7 @@ function frmShade(n, max, a) {
 // place, the marks, the state labels (beside the coast for the small ones)
 // and the home place in gold.
 function frmSvg(o) {
-  const states = US_STATES.map(([id, , , , , d]) => `<path class="frm-st${o.sel === id ? " on" : ""}" d="${d}" style="${o.fill(id) || ""}" data-act="fr-mapst" data-v="${id}"><title>${esc(STATE_NAMES[id] || id)}${o.tip ? esc(o.tip(id)) : ""}</title></path>`).join("");
+  const states = US_STATES.map(([id, , , , , d]) => `<path class="frm-st${o.sel === id ? " on" : ""}" d="${d}" style="${o.fill(id) || ""}" data-act="${o.act || "fr-mapst"}" data-v="${id}"><title>${esc(STATE_NAMES[id] || id)}${o.tip ? esc(o.tip(id)) : ""}</title></path>`).join("");
   const sel = US_STATES.find((s) => s[0] === o.sel);
   // Rings round a place in an inset stay on its own land.
   const inset = o.home.st === "AK" || o.home.st === "HI" ? US_STATES.find((s) => s[0] === o.home.st) : null;
@@ -81,9 +81,9 @@ function frmSvg(o) {
     if (side >= 0) {
       const y = 112 + side * 22;
       leaders.push(`<line class="frm-lead${on ? " on" : ""}" x1="808" y1="${y}" x2="${cx}" y2="${cy}"/>`);
-      labels.push(`<text class="${cls}" x="812" y="${y + 4}" data-act="fr-mapst" data-v="${id}">${id}${n !== "" ? `<tspan class="frm-n" dx="5">${n}</tspan>` : ""}</text>`);
+      labels.push(`<text class="${cls}" x="812" y="${y + 4}" data-act="${o.act || "fr-mapst"}" data-v="${id}">${id}${n !== "" ? `<tspan class="frm-n" dx="5">${n}</tspan>` : ""}</text>`);
     } else {
-      labels.push(`<text class="${cls}" x="${lx}" y="${ly}" text-anchor="middle" data-act="fr-mapst" data-v="${id}">${id}${n !== "" ? `<tspan class="frm-n" x="${lx}" dy="13">${n}</tspan>` : ""}</text>`);
+      labels.push(`<text class="${cls}" x="${lx}" y="${ly}" text-anchor="middle" data-act="${o.act || "fr-mapst"}" data-v="${id}">${id}${n !== "" ? `<tspan class="frm-n" x="${lx}" dy="13">${n}</tspan>` : ""}</text>`);
     }
   }
   return `<svg class="frm-svg" viewBox="0 0 ${US_MAP.w} ${US_MAP.h}" role="img" aria-label="${esc(o.aria)}">
@@ -273,7 +273,7 @@ function frHsMap(x, lines) {
     return `<rect class="frm-cc ${c}" x="${(cx - r).toFixed(1)}" y="${(cy - r).toFixed(1)}" width="${2 * r}" height="${2 * r}" rx="1.5" data-act="fr-hsst" data-v="${l.st}"><title>${esc(l.team.name)} · ${esc(l.stage)} · ${frN(l.mi)} miles</title></rect>`;
   }).join("");
   const svg = frmSvg({
-    key: "h", sel: k.mapst || null, rings: [250, 500], marks,
+    key: "h", act: "fr-hsst", sel: k.mapst || null, rings: [250, 500], marks,
     home: { at: home.at, st: home.st, name: home.town },
     fill: (id) => frmShade(count[id] || 0, max, 0.25),
     count: (id) => count[id] || "",
@@ -333,8 +333,12 @@ screens.recruit_race = async (a) => {
   const lanesData = schools.map((s) => ({ s, v: frrAt(s.pts, tSnap), p: frrAt(s.pts, tPrev) }))
     .filter((l) => l.v != null || l.s.me)
     .sort((p, q) => (q.v ?? -1) - (p.v ?? -1));
-  const ref = mine || (lanesData[0] && lanesData[0].s);
-  const others = x.compare.filter((j) => !ref || j !== ref.id);
+  // Today's standings (the card and the tug of war read these, whatever
+  // snapshot the lanes show).
+  const vNow = (s) => (s ? frrAt(s.pts, span) : null);
+  const nowOrder = schools.map((s) => ({ s, v: vNow(s) })).filter((l) => l.v != null).sort((p, q) => q.v - p.v);
+  const ref = mine || (nowOrder[0] && nowOrder[0].s) || (lanesData[0] && lanesData[0].s);
+  const others = x.compare.filter((j) => (!ref || j !== ref.id) && schools.some((s) => s.id === j));
   const rivalId = k.rival != null && others.includes(k.rival) ? k.rival : others[0];
   const rival = schools.find((s) => s.id === rivalId);
   const shortOf = (j) => { const s = schools.find((q) => q.id === j); return s ? s.short : ""; };
@@ -347,7 +351,7 @@ screens.recruit_race = async (a) => {
       <span class="frr-track"><i class="frr-line"></i><i class="frr-tick" style="left:25%"></i><i class="frr-tick" style="left:50%"></i><i class="frr-tick" style="left:75%"></i>
       ${l.v != null && l.p != null && snapIx > 0 ? `<i class="frr-trail" style="left:${lo.toFixed(1)}%;width:${(hi - lo).toFixed(1)}%"></i><i class="frr-ghost" style="left:${l.p.toFixed(1)}%"></i>` : ""}
       ${l.v != null ? `<i class="frr-dot" style="left:${l.v.toFixed(1)}%"></i>` : ""}</span>
-      <b class="fr-num frr-val">${v == null ? "—" : v}</b><span class="fr-num frr-ch${me && ch.startsWith("+") ? " up" : me && ch.startsWith("−") ? " dn" : ""}">${ch}</span></div>`;
+      <b class="fr-num frr-val">${v == null ? "—" : v}</b><span class="fr-num frr-ch${me && ch.startsWith("+") ? " frr-up" : me && ch.startsWith("−") ? " frr-dn" : ""}">${ch}</span></div>`;
   }).join("");
   const snapSeg = frSeg("fr-racesnap", snaps.map(([n], i) => [String(i), n]), String(snapIx), "Snapshot");
   // The gap: your school against the best other (or the leader's margin).
@@ -433,9 +437,8 @@ screens.recruit_race = async (a) => {
     <div class="frr-tug frr-th"><span class="fr-k">His reason</span><span class="fr-k">Weight</span><span class="fr-k frr-ends"><span>← ${esc(rival ? rival.name : "")} better</span><span>${esc(ref ? ref.name : "")} better →</span></span><span class="fr-k">Points</span></div>
     ${rival ? tug : '<div class="fr-empty">No other school is after him yet.</div>'}
     ${rival ? `<div class="frr-tug frr-net"><span class="frr-rn"><b>His reasons alone</b></span><span></span><span class="frr-bar"><i class="frr-mid"></i><i class="frr-fill${net >= 0 ? " us" : ""}" style="left:${(net >= 0 ? 50 : 50 - nlen).toFixed(1)}%;width:${nlen.toFixed(1)}%"></i></span><b class="fr-num${net >= 0 ? " us" : ""}">${frmSign(net, 1)}</b></div>` : ""}</div>`;
-  // Where it stands.
-  const leaderOther = lanesData.find((l) => l.v != null && (!mine || l.s.id !== mine.id));
-  const vNow = (s) => (s ? frrAt(s.pts, span) : null);
+  // Where it stands, today.
+  const leaderOther = nowOrder.find((l) => !mine || l.s.id !== mine.id);
   let gapBig = "—", t1 = "", t2 = "", t3 = "";
   if (x.signed || x.committed) {
     gapBig = x.walk_on ? "Walk-on" : x.signed ? "Signed" : "Committed";
@@ -454,8 +457,8 @@ screens.recruit_race = async (a) => {
       t2 = gNow >= worst[1] + 1 && worst[1] < 0 ? `closed from ${frmSign(Math.round(worst[1]))} on ${dayName(worst[0])}` : `widest ${best[1] >= 0 ? "lead" : "gap"} ${frmSign(Math.round(best[1]))} on ${dayName(best[0])}`;
       const alone = x.reasons.reduce((p, r, i) => p + pts(r, i, leaderOther.s.id), 0);
       t3 = `his reasons alone: ${frmSign(alone, 1)} against ${leaderOther.s.short}`;
-    } else if (lanesData[0]) {
-      if (!x.signed && !x.committed) t1 = `${lanesData[0].s.name} leads${lanesData[1] && lanesData[1].v != null ? ` ${lanesData[1].s.name}` : ""}`;
+    } else if (nowOrder[0]) {
+      if (!x.signed && !x.committed) t1 = `${nowOrder[0].s.name} leads${nowOrder[1] ? ` ${nowOrder[1].s.name}` : ""}`;
       t2 = `widest margin ${frmSign(Math.round(best[1]))} on ${dayName(best[0])}`;
     }
   }

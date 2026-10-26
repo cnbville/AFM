@@ -48,6 +48,41 @@ pub struct Term {
     pub text: String,
     /// Joined to the filter before by "or".
     pub or: bool,
+    /// A text filter's name in lower case, its words single-spaced.
+    pub want: String,
+    /// Whether `want` is a whole name somewhere (a program, a conference
+    /// or a value in the pool): then only that name matches, so "Michigan"
+    /// never finds Michigan State. Set by `Query::settled`.
+    pub exact: bool,
+}
+
+/// A name in lower case with its words single-spaced.
+pub fn norm(s: &str) -> String {
+    s.split_whitespace().map(str::to_lowercase).collect::<Vec<_>>().join(" ")
+}
+
+/// Whether a line holds the name `want` (both as `norm` gives them). The
+/// whole name always matches. When `want` is no whole name anywhere
+/// (`exact` off), its words match the line's words from any word start,
+/// the last one as far as it was typed: "ohio st" finds Ohio State and
+/// "lyle" finds Andre Lyle, while "chigan" finds nothing.
+pub fn names_match(line: &str, want: &str, exact: bool) -> bool {
+    let line = norm(line);
+    if want.is_empty() {
+        return false;
+    }
+    if line == want || exact {
+        return line == want;
+    }
+    let have: Vec<&str> = line.split(' ').collect();
+    let typed: Vec<&str> = want.split(' ').collect();
+    (0..have.len()).any(|s| {
+        s + typed.len() <= have.len()
+            && typed.iter().enumerate().all(|(k, t)| {
+                let h = have[s + k];
+                if k + 1 == typed.len() { h.starts_with(t) } else { h == *t }
+            })
+    })
 }
 
 impl Term {
@@ -84,10 +119,7 @@ impl Term {
                 Op::Between => x >= self.a.min(self.b) - 1e-9 && x <= self.a.max(self.b) + 1e-9,
                 Op::Is => (x - self.a).abs() < 1e-6,
             },
-            Val::T(s) => {
-                let want = self.text.trim().to_lowercase();
-                !want.is_empty() && s.lines().any(|l| l.to_lowercase() == want || l.to_lowercase().contains(&want))
-            }
+            Val::T(s) => s.lines().any(|l| names_match(l, &self.want, self.exact)),
         }
     }
 }
@@ -150,6 +182,8 @@ impl Query {
                 op: if field.kind == FKind::Text { Op::Is } else { op },
                 a: num(c.get("v")),
                 b: num(c.get("v2")),
+                want: norm(&text),
+                exact: false,
                 text,
                 or: c.get("or").and_then(Value::as_bool).unwrap_or(false),
                 field,
@@ -160,6 +194,26 @@ impl Query {
 
     pub fn json(&self) -> Value {
         json!(self.terms.iter().map(Term::json).collect::<Vec<_>>())
+    }
+
+    /// The search with each text filter told whether its name is a whole
+    /// name: a program's or a conference's (as shown or real), or one a
+    /// player in the pool carries.
+    pub fn settled(&self, ctx: &Ctx, pool: &[usize]) -> Query {
+        let w = ctx.w;
+        let mut q = self.clone();
+        for t in q.terms.iter_mut().filter(|t| t.field.kind == FKind::Text && !t.want.is_empty()) {
+            let want = &t.want;
+            let known = (0..w.programs.len()).any(|j| norm(w.program_name(j)) == *want)
+                || w.programs
+                    .iter()
+                    .any(|p| norm(&p.conference) == *want || norm(&w.conference_name(&p.conference)) == *want);
+            t.exact = known
+                || pool
+                    .iter()
+                    .any(|&i| matches!(value(ctx, i, &t.field.k), Val::T(s) if s.lines().any(|l| norm(l) == *want)));
+        }
+        q
     }
 
     /// The fields the search reads (for the row's columns and the chart).
@@ -218,7 +272,26 @@ impl Query {
 
 #[cfg(test)]
 mod tests {
-    use super::thousands;
+    use super::{names_match, norm, thousands};
+
+    #[test]
+    fn school_names_match_whole() {
+        let m = |line: &str, typed: &str, exact: bool| names_match(line, &norm(typed), exact);
+        // A whole name finds only itself (R5).
+        for other in ["Michigan State", "Western Michigan", "Central Michigan", "Michigan Tech"] {
+            assert!(!m(other, "Michigan", true), "{other}");
+        }
+        assert!(m("Michigan", "michigan", true));
+        assert!(m("Michigan", "  MICHIGAN ", true));
+        assert!(!m("Texas A&M", "Texas", true) && !m("North Texas", "Texas", true) && m("Texas", "Texas", true));
+        assert!(!m("Miami (OH)", "Miami", true));
+        // A name typed in part matches from word starts only.
+        assert!(m("Ohio State", "ohio st", false));
+        assert!(m("Andre Lyle", "Lyle", false));
+        assert!(!m("Michigan", "chigan", false));
+        assert!(!m("Ohio State", "hio", false));
+        assert!(!m("Anything", "", false));
+    }
 
     #[test]
     fn thousands_separator() {

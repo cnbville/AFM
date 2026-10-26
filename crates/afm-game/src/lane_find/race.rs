@@ -5,10 +5,14 @@
 //! after him.
 //!
 //! The standings come from the race log your office keeps
-//! (`front_office::race`). His reasons are the parts of what each school
-//! means to him (`front_office::college::reasons`); how much each counts
-//! with whoever decides for him is shown only as your staff's read, a range
-//! on 1 to 5 that narrows as your staff gets to know him.
+//! (`front_office::race`), which holds your staff's read of each week, never
+//! his true interest; today's point is read the same way. His reasons are
+//! the parts of what each school means to him
+//! (`front_office::college::reasons`); how much each counts with whoever
+//! decides for him is shown only as your staff's read, a range on 1 to 5
+//! that narrows as your staff gets to know him. His ties are only the ones
+//! anyone can see, and when he decides is a window your staff has heard,
+//! never his own plan.
 
 use afm_engine::calendar::Date;
 use afm_engine::world::background::Decider;
@@ -102,14 +106,14 @@ fn day(d: Date) -> String {
 /// Your staff's read of how much a reason counts with him: a range on 1
 /// to 5 around the truth, narrower with each call, visit and camp your
 /// staff has had with him (a high school coach knows his own player).
-fn weight_read(w: &World, i: usize, seat_hs: bool, contacts: usize) -> Vec<[u8; 2]> {
+fn weight_read(w: &World, i: usize, own: bool, contacts: usize) -> Vec<[u8; 2]> {
     let p = &w.people[i];
     // The six wants, and his ties and feel at his average want (the model
     // gives them no want of their own).
     let six = desk::reason_weights(w, i);
     let wts: Vec<f64> = six.iter().copied().chain([six.iter().sum::<f64>() / six.len() as f64]).collect();
     let top = wts.iter().copied().fold(0.01, f64::max);
-    let half = if seat_hs { 0.5 } else { (2.0 - 0.35 * contacts as f64).max(0.5) };
+    let half = if own { 0.5 } else { (2.0 - 0.35 * contacts as f64).max(0.5) };
     wts.iter()
         .enumerate()
         .map(|(k, &x)| {
@@ -120,22 +124,6 @@ fn weight_read(w: &World, i: usize, seat_hs: bool, contacts: usize) -> Vec<[u8; 
             [lo, hi.max(lo)]
         })
         .collect()
-}
-
-/// Your staff's read of his interest in a school: the race as he lets it
-/// show, with a steady lean of its own for each school (a staff reads its
-/// own standing better than a rival's; a high school coach hears it from
-/// his own player).
-fn seen(id: u32, j: usize, mine: bool, seat_hs: bool, v: u8) -> i64 {
-    let sd = if seat_hs {
-        2.0
-    } else if mine {
-        2.5
-    } else {
-        4.5
-    };
-    let lean = sd * key_normal(0x5EAD ^ j as u64, id as u64).clamp(-2.0, 2.0);
-    (v as f64 + lean).round().clamp(0.0, 100.0) as i64
 }
 
 /// Players at his position on a program now with a season left after this
@@ -157,13 +145,20 @@ fn ahead_at(w: &World, progs: &[usize], i: usize) -> Vec<usize> {
 /// His race: the page.
 pub fn page(w: &World, args: &Value) -> Reply {
     let id = args.get("id").and_then(Value::as_u64).ok_or("Which recruit?")? as u32;
-    let i = w.people.iter().position(|p| p.player.id == id).ok_or("No such player.")?;
+    let i = views::person_index(w, id).ok_or("No such player.")?;
     let p = &w.people[i];
     let me = match views::mine(w) {
         Some(TeamRef::College(j)) => Some(j),
         _ => None,
     };
+    // A high school coach's page; he reads closely only his own player.
     let seat_hs = matches!(views::mine(w), Some(TeamRef::HighSchool(_)));
+    let rd = race::reader(w, i);
+    let own = rd.own_player;
+    // Who decides for him and how he feels about a school's ties: known to
+    // his own coach, or once your staff has been in touch (as on Find
+    // recruits' "Who decides").
+    let known = own || super::staff::contacted(w, id);
     let log = race::of(w, id);
     let today = w.today;
     // Every school in his weeks, with its line (None where it wasn't in his top).
@@ -190,8 +185,10 @@ pub fn page(w: &World, args: &Value) -> Reply {
         progs.push(j);
     }
     let base = log.map(|l| l.base).unwrap_or_else(|| now_race.first().map_or(0.0, |r| (r.1 - 0.10) as f32));
-    let read = |j: usize, v: u8| seen(id, j, Some(j) == me, seat_hs, v);
-    let now_of = |j: usize| now_race.iter().find(|r| r.0 == j).map(|r| read(j, race::interest(base, r.1)));
+    // The log holds your staff's reads; today's is read the same way.
+    let now_of = |j: usize| {
+        now_race.iter().find(|r| r.0 == j).map(|r| race::read(rd, id, j, today, race::interest(base, r.1)) as i64)
+    };
     let first = weeks.first().map_or(today, |x| x.date);
     let span = first.days_to(today).max(1);
     let mut schools: Vec<Value> = progs
@@ -200,7 +197,7 @@ pub fn page(w: &World, args: &Value) -> Reply {
             let mut pts: Vec<[i64; 2]> = weeks
                 .iter()
                 .filter_map(|wk| {
-                    wk.schools.iter().find(|s| s.0 as usize == j).map(|s| [first.days_to(wk.date) as i64, read(j, s.1)])
+                    wk.schools.iter().find(|s| s.0 as usize == j).map(|s| [first.days_to(wk.date) as i64, s.1 as i64])
                 })
                 .collect();
             if let Some(v) = now_of(j)
@@ -243,14 +240,14 @@ pub fn page(w: &World, args: &Value) -> Reply {
             .rev()
             .filter(|wk| wk.date < d)
             .find_map(|wk| wk.schools.iter().find(|s| s.0 as usize == j))
-            .map(|s| read(j, s.1))
+            .map(|s| s.1 as i64)
     };
     let after = |j: usize, d: Date| -> Option<i64> {
         weeks
             .iter()
             .filter(|wk| wk.date >= d)
             .find_map(|wk| wk.schools.iter().find(|s| s.0 as usize == j))
-            .map(|s| read(j, s.1))
+            .map(|s| s.1 as i64)
             .or_else(|| if d <= today { now_of(j) } else { None })
     };
     let mut moments: Vec<(Date, String, Option<usize>, bool)> = Vec::new();
@@ -312,17 +309,13 @@ pub fn page(w: &World, args: &Value) -> Reply {
             })
         })
         .collect();
-    // His reasons against each school in his race now.
-    let contacts = me.map_or(0, |j| {
-        w.front_office.college.talks.iter().filter(|t| t.id == id).count()
-            + p.cal.visits.iter().filter(|v| v.0 == j).count()
-            + usize::from(w.front_office.college.visits.iter().any(|v| v.id == id && v.state == VisitState::Done))
-    });
-    let reads = weight_read(w, i, seat_hs, contacts);
-    let race_now: Vec<usize> = now_race.iter().take(race::SCHOOLS).map(|r| r.0).collect();
-    let mut cmp = race_now.clone();
+    // His reasons against each school in his race now (yours too, when
+    // you're in it).
+    let reads = weight_read(w, i, own, rd.contacts);
+    let mut cmp: Vec<usize> = now_race.iter().take(race::SCHOOLS).map(|r| r.0).collect();
     if let Some(j) = me
         && !cmp.contains(&j)
+        && (progs.contains(&j) || now_race.iter().any(|r| r.0 == j))
     {
         cmp.push(j);
     }
@@ -370,12 +363,15 @@ pub fn page(w: &World, args: &Value) -> Reply {
                         ),
                         4 => format!("{} name, title chances {:.0}", w.programs[j].division.name(), grade(j, GradeCat::TitleChances)),
                         5 => format!("academics {:.0}", grade(j, GradeCat::Academics)),
-                        _ => ties_words(w, i, j),
+                        _ => ties_words(w, i, j, known),
                     };
-                    json!({ "id": j, "score": (parts[s][k].1 * 100.0).round(), "fact": fact })
+                    // His ties score only the ones anyone can see (never his
+                    // own feel for a school).
+                    let score = if k == 6 { ties_score(w, i, j, known) } else { parts[s][k].1 };
+                    json!({ "id": j, "score": (score * 100.0).round(), "fact": fact })
                 })
                 .collect();
-            json!({ "k": k, "name": n, "weight": reads.get(k), "by": by, "move": move_words(k, seat_hs), "source": source_words(w, i, k, me) })
+            json!({ "k": k, "name": n, "weight": reads.get(k), "by": by, "move": move_words(k, seat_hs), "source": source_words(w, i, k, me, known) })
         })
         .collect();
     // Where it stands.
@@ -397,19 +393,12 @@ pub fn page(w: &World, args: &Value) -> Reply {
             json!({ "label": "He committed", "date": views::date_text(d), "what": "not signed yet", "t": first.days_to(d), "past": true }),
         )
     } else {
-        services::decision_day(w, i).map(|d| {
-            if d < today {
-                let late = format!("was expected by {}", views::date_text(d));
+        decides_read(w, i, own, known).map(|r| {
+            if r.overdue {
+                let late = format!("was expected by {}", r.when);
                 return json!({ "label": "He decides", "date": "Still open", "what": late, "t": first.days_to(today), "past": true });
             }
-            let what = if Some(d) == w.dates.early_signing || d.month() == 12 {
-                "early signing"
-            } else if d.month() == 2 {
-                "signing day"
-            } else {
-                "a commitment"
-            };
-            json!({ "label": "He decides", "date": views::date_text(d), "what": what, "t": first.days_to(d), "past": false })
+            json!({ "label": "He decides", "date": r.when, "what": r.what, "t": first.days_to(r.until), "past": false, "window": !r.exact })
         })
     };
     let next_visit = me
@@ -430,11 +419,15 @@ pub fn page(w: &World, args: &Value) -> Reply {
                 .min_by_key(|v| v.1)
                 .map(|v| (v.1, w.program_name(v.0).to_string()))
         });
-    let decider = match desk::family_read(w, i).decider {
-        Decider::Himself => "Himself",
-        Decider::Parent => "His parents",
-        Decider::Grandparent => "His grandparents",
-        Decider::Handler => "A trainer close to the family",
+    let decider = if !known {
+        "Not known yet"
+    } else {
+        match desk::family_read(w, i).decider {
+            Decider::Himself => "Himself",
+            Decider::Parent => "His parents",
+            Decider::Grandparent => "His grandparents",
+            Decider::Handler => "A trainer close to the family",
+        }
     };
     let reader = me.and_then(|j| dept::area_coach(w, j, p.home_state.min(50) as u8)).map(
         |c| json!({ "id": c, "name": w.coaches[c].name, "state": w.states.get(p.home_state).map(|s| s.code.clone()) }),
@@ -471,8 +464,9 @@ pub fn page(w: &World, args: &Value) -> Reply {
     }))
 }
 
-/// His ties to a school, in words.
-fn ties_words(w: &World, i: usize, j: usize) -> String {
+/// His ties to a school, in words: the ones anyone can see, and the team
+/// he grew up a fan of once your staff has talked with him.
+fn ties_words(w: &World, i: usize, j: usize, known: bool) -> String {
     let p = &w.people[i];
     let mut v: Vec<String> = Vec::new();
     if p.cal.signed.is_some_and(|s| s.program == j) {
@@ -483,7 +477,7 @@ fn ties_words(w: &World, i: usize, j: usize) -> String {
     if p.cal.visits.iter().any(|x| x.0 == j && x.2 == Visit::Official && x.1 <= w.today) {
         v.push("official visit".into());
     }
-    if p.childhood_team == Some(j) {
+    if known && p.childhood_team == Some(j) {
         v.push("grew up a fan".into());
     }
     if p.family().older_brother_at == Some(j) {
@@ -496,6 +490,87 @@ fn ties_words(w: &World, i: usize, j: usize) -> String {
         v.push("his school's pipeline".into());
     }
     if v.is_empty() { "nothing beyond the offer".into() } else { v.join(", ") }
+}
+
+/// His ties to a school as a score from 0 to 1, built only from what
+/// `ties_words` names (proposed, not confirmed: 0.1 to start; signed is
+/// 1; committed 0.35, an official visit taken 0.15, each unofficial 0.05 up
+/// to two, a fan 0.15, a brother 0.15, in-state 0.1, his school's pipeline
+/// 0.1).
+fn ties_score(w: &World, i: usize, j: usize, known: bool) -> f64 {
+    let p = &w.people[i];
+    if p.cal.signed.is_some_and(|s| s.program == j) {
+        return 1.0;
+    }
+    let past = |k: Visit| p.cal.visits.iter().filter(|x| x.0 == j && x.2 == k && x.1 <= w.today).count();
+    let mut x = 0.1;
+    if p.cal.commit.is_some_and(|c| c.0 == j) {
+        x += 0.35;
+    }
+    if past(Visit::Official) > 0 {
+        x += 0.15;
+    }
+    x += 0.05 * past(Visit::Unofficial).min(2) as f64;
+    if known && p.childhood_team == Some(j) {
+        x += 0.15;
+    }
+    if p.family().older_brother_at == Some(j) {
+        x += 0.15;
+    }
+    if w.programs[j].state == p.home_state {
+        x += 0.1;
+    }
+    if w.programs[j].hs_pipeline.contains_key(&p.hs) {
+        x += 0.1;
+    }
+    x.clamp(0.0, 1.0)
+}
+
+/// When he decides, as your staff has heard it.
+struct DecidesRead {
+    /// "Dec 2026", or the day itself once it's close and out.
+    when: String,
+    what: &'static str,
+    /// The window's last day (the day itself when exact).
+    until: Date,
+    exact: bool,
+    overdue: bool,
+}
+
+/// When he decides, as a read (R38): nothing until there's a signal (his
+/// own coach, an announced top list, or your staff in touch with him);
+/// then the period or the month his plan falls in; the day itself only
+/// once his list is out (or he's your own player) and it's within 30 days.
+/// Proposed, not confirmed.
+fn decides_read(w: &World, i: usize, own: bool, known: bool) -> Option<DecidesRead> {
+    let p = &w.people[i];
+    let listed = w.scouting.rankings.tops.iter().any(|t| t.id == p.player.id);
+    if !(own || listed || known) {
+        return None;
+    }
+    let d = services::decision_day(w, i)?;
+    let today = w.today;
+    let (y, m, _) = d.parts();
+    let month_end = if m == 12 { Date::ymd(y + 1, 1, 1).add(-1) } else { Date::ymd(y, m + 1, 1).add(-1) };
+    let early = afm_engine::calendar::anchors::early_signing(p.class_of - 1);
+    let (what, until) = if early == Some(d) {
+        // The early period runs three days from its Wednesday.
+        ("the early signing period", d.add(2))
+    } else if m == 2 {
+        ("signing day", month_end)
+    } else {
+        ("a commitment", month_end)
+    };
+    let exact = (own || listed) && (0..=30).contains(&today.days_to(d));
+    let when = if exact { views::date_text(d) } else { month_year(d) };
+    Some(DecidesRead { when, what, until: if exact { d } else { until }, exact, overdue: until < today })
+}
+
+/// "Dec 2026".
+fn month_year(d: Date) -> String {
+    const M: [&str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    let (y, m, _) = d.parts();
+    format!("{} {y}", M[(m as usize).clamp(1, 12) - 1])
 }
 
 /// What could move a reason, in your staff's words.
@@ -523,7 +598,7 @@ fn move_words(k: usize, seat_hs: bool) -> &'static str {
 }
 
 /// Where your staff learned it.
-fn source_words(w: &World, i: usize, k: usize, me: Option<usize>) -> Vec<String> {
+fn source_words(w: &World, i: usize, k: usize, me: Option<usize>, known: bool) -> Vec<String> {
     let p = &w.people[i];
     let mut v: Vec<String> = Vec::new();
     if let Some(t) = w.front_office.college.talks.iter().filter(|t| t.id == p.player.id).max_by_key(|t| t.date)
@@ -537,11 +612,16 @@ fn source_words(w: &World, i: usize, k: usize, me: Option<usize>) -> Vec<String>
         5 => v.push("His transcript".into()),
         _ => {}
     }
-    match desk::family_read(w, i).decider {
-        Decider::Parent => v.push("His parents".into()),
-        Decider::Grandparent => v.push("His grandparents".into()),
-        Decider::Handler => v.push("His trainer".into()),
-        Decider::Himself => v.push("His high school coach".into()),
+    // Who he listens to is a source only once your staff knows it.
+    if known {
+        match desk::family_read(w, i).decider {
+            Decider::Parent => v.push("His parents".into()),
+            Decider::Grandparent => v.push("His grandparents".into()),
+            Decider::Handler => v.push("His trainer".into()),
+            Decider::Himself => v.push("His high school coach".into()),
+        }
+    } else {
+        v.push("His high school coach".into());
     }
     v.truncate(3);
     v

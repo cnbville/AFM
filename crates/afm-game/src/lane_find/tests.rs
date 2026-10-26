@@ -2,6 +2,7 @@
 
 use afm_engine::attributes::Attr;
 use afm_engine::world::scouting::readers::Staff;
+use afm_engine::world::scouting::services;
 use afm_engine::world::{Stage, World};
 use serde_json::json;
 
@@ -129,5 +130,94 @@ fn and_or_groups_read_as_written() {
         let want = (p.stars >= 4 || code == "TX") && ctx.miles(i).round() <= 300.0;
         assert_eq!(q.pass(&ctx, i), want, "{} {code} {}", p.stars, ctx.miles(i));
     }
+
+    // A school filter matches the whole name (R5): "Michigan" never finds a
+    // kid whose only offer is from Michigan State.
+    let names: Vec<&str> = (0..w.programs.len()).map(|k| w.program_name(k)).collect();
+    let short = names
+        .iter()
+        .copied()
+        .find(|n| names.iter().any(|m| m.starts_with(&format!("{n} "))))
+        .expect("a program named inside another's name");
+    let pool: Vec<usize> = (0..w.people.len())
+        .filter(|&i| w.people[i].stage == Stage::HighSchool && !views::offers_of(&w.people[i]).is_empty())
+        .collect();
+    for typed in [short.to_string(), short.to_uppercase(), format!("  {short} ")] {
+        let q =
+            query::Query::parse(&json!([{ "k": "offer_from", "op": "is", "v": typed }]), &catalog).settled(&ctx, &pool);
+        let mut longer = 0;
+        for &i in &pool {
+            let offers = views::offers_of(&w.people[i]);
+            let want = offers.iter().any(|&c| w.program_name(c) == short);
+            longer += usize::from(!want && offers.iter().any(|&c| w.program_name(c).starts_with(&format!("{short} "))));
+            assert_eq!(
+                q.pass(&ctx, i),
+                want,
+                "{typed:?}: {:?}",
+                offers.iter().map(|&c| w.program_name(c)).collect::<Vec<_>>()
+            );
+        }
+        println!("{short}: {longer} kids with only a longer name's offer left out");
+    }
+    // Part of a name (no program's whole name) still finds the names whose
+    // words start with it.
+    let part: String = short.split_whitespace().next().unwrap_or(short).chars().take(4).collect();
+    let whole = names.iter().any(|n| n.eq_ignore_ascii_case(&part));
+    let q = query::Query::parse(&json!([{ "k": "offer_from", "op": "is", "v": part }]), &catalog).settled(&ctx, &pool);
+    for &i in pool.iter().filter(|_| !whole) {
+        let lines: Vec<String> =
+            views::offers_of(&w.people[i]).iter().map(|&c| w.program_name(c).to_lowercase()).collect();
+        let want = lines.iter().any(|l| l.split_whitespace().any(|w| w.starts_with(&part.to_lowercase())));
+        assert_eq!(q.pass(&ctx, i), want, "{part:?}: {lines:?}");
+    }
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_saved_search_tells_each_player_once() {
+    let (mut g, dir) = college_world("saved");
+    // Everyone your staff knows: more than any cap would keep (R1).
+    let page = g.call("find_recruits", &json!({ "filters": [] })).unwrap();
+    g.call("find_save", &json!({ "name": "Everyone", "spec": page["spec"] })).unwrap();
+    let w = g.world.as_mut().unwrap();
+    let k = w.career.as_ref().unwrap().desk.watches.len() - 1;
+    let all = w.career.as_ref().unwrap().desk.watches[k].seen.clone();
+    assert_eq!(all.len() as u64, page["count"].as_u64().unwrap(), "every match counts as told, none cut");
+    assert!(all.windows(2).all(|p| p[0] < p[1]), "kept sorted");
+    // As if a third of them were new since the last look.
+    let new: Vec<u32> = all.iter().copied().step_by(3).collect();
+    w.career.as_mut().unwrap().desk.watches[k].seen.retain(|id| !new.contains(id));
+    let mails = |w: &World| {
+        w.career
+            .as_ref()
+            .unwrap()
+            .desk
+            .mails
+            .iter()
+            .filter(|m| m.subject.starts_with("Your search \"Everyone\""))
+            .count()
+    };
+    let today = w.today;
+    // The last services update before today.
+    let u = (today.year() - 1..=today.year())
+        .flat_map(services::update_days)
+        .map(|u| u.0)
+        .filter(|&d| d < today.add(-1))
+        .max()
+        .expect("an update before today");
+    // The update's own day hasn't run while it is today: no look yet (R4).
+    w.today = u;
+    super::saved::after_days(w, u.add(-1));
+    assert_eq!(mails(w), 0, "today's trigger waits for the day to run");
+    // Once it has run, one mail names exactly the new ones.
+    w.today = today;
+    super::saved::after_days(w, u.add(-1));
+    assert_eq!(mails(w), 1);
+    let x = &w.career.as_ref().unwrap().desk.watches[k];
+    assert_eq!(x.fresh, new, "the new ones, each once");
+    assert_eq!(x.seen, all, "told: today's matches");
+    // The same days again (a step that re-reads them): nothing new, no mail.
+    super::saved::after_days(w, u.add(-1));
+    assert_eq!(mails(w), 1, "a player already told is never told again");
     let _ = std::fs::remove_dir_all(dir);
 }

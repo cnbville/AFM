@@ -2241,7 +2241,7 @@ const SNAP_TIERS: [(u8, f64); 4] = [(5, 12.0), (4, 40.0), (3, 100.0), (2, 250.0)
 
 /// The most stars the recruiting services give a kicker, punter or long
 /// snapper (fix list 1.5): the general sites rarely rate one above 3 stars.
-const SERVICE_SPECIALIST_MAX: u8 = 3;
+pub(crate) const SERVICE_SPECIALIST_MAX: u8 = 3;
 
 /// The services' stars down a class ranked best first (`specialist` marks
 /// the kickers, punters and long snappers): each tier of `quotas` (stars,
@@ -3556,6 +3556,51 @@ pub(crate) fn rate_underclass(w: &mut World, class_of: i32, d: Date, reach: [f64
         .collect();
     for (x, stars) in order.iter().zip(service_stars(&specialist, &quotas)) {
         w.people[x.0].stars = stars;
+    }
+    underclass_camps(w, &members, seed, reach[0]);
+}
+
+/// An underclass's kickers, punters and snappers (update 2, lane 7): the
+/// general services leave them unrated, as in life, and the kicking camps
+/// rank the ones they have seen against their own spot, on lists as short
+/// as the services' (`short`, the share of a full class's tiers). The
+/// signing stages' camps (`camp_rankings`) take over from the junior
+/// spring. Claude's pick, proposed: the camps see the same kids the
+/// signing stages' camps would (the family's money), on the same tiers.
+fn underclass_camps(w: &mut World, members: &[usize], seed: u64, short: f64) {
+    let spots = [Position::K, Position::P, Position::LS];
+    let mut lists: [Vec<(f64, usize)>; 3] = Default::default();
+    for &i in members {
+        let p = &w.people[i];
+        let Some(s) = spots.iter().position(|&x| x == p.player.position) else { continue };
+        let id = p.player.id as u64;
+        if key_uniform(seed ^ 0xCA4D, id) >= 0.3 + 0.7 * p.bg.money {
+            continue;
+        }
+        let grade = if spots[s] == Position::LS {
+            crate::positions::overall_for(Position::LS, &p.player.attributes)
+        } else {
+            specialist_grade(&p.player)
+        };
+        lists[s].push((grade + 1.5 * key_normal(seed ^ 0xCA4E, id), i));
+    }
+    for &i in members {
+        let p = &mut w.people[i];
+        if p.player.position.is_specialist() {
+            p.stars = 0;
+            p.camp_stars = 0;
+        }
+    }
+    let scale = w.options.scale * short;
+    for (s, list) in lists.iter_mut().enumerate() {
+        list.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+        let tiers = if spots[s] == Position::LS { &SNAP_TIERS } else { &CAMP_TIERS };
+        for (rank, &(_, i)) in list.iter().enumerate() {
+            let Some(&(stars, _)) = tiers.iter().find(|t| (rank as f64) < (t.1 * scale).round().max(1.0)) else {
+                break;
+            };
+            w.people[i].camp_stars = stars;
+        }
     }
 }
 

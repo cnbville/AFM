@@ -9,7 +9,12 @@
 //! (`recruiting::rate_underclass`). Each rating keeps the class's national
 //! order and the one before, so a page shows rank movement since the last
 //! update, and each service's own stars and ranks are read from the shared
-//! order with its own lasting lean (the composite averages them, from 2012).
+//! order with its own lasting lean, centred on the kid so the composite is
+//! the services' average (from 2012). Each service's list is kept at the
+//! update that made it, so its stars and ranks hold until the next.
+//!
+//! Nothing here runs on a page: the services rate only on their own days
+//! (an older file catches up once, on loading).
 //!
 //! The insiders (one a service, 247Sports' Crystal Ball and On3's RPM in
 //! life) log predictions on the open recruitments that matter, with a
@@ -66,6 +71,10 @@ pub struct ClassRanks {
     pub prev_date: Option<Date>,
     #[serde(default)]
     pub prev: Vec<u32>,
+    /// Each active service's own list at this rating, best first: (desk,
+    /// [(player id, stars)]); a kid's rank is his place on it.
+    #[serde(default)]
+    pub boards: Vec<(u8, Vec<(u32, u8)>)>,
 }
 
 /// An insider's prediction: the school, how sure (percent) and when.
@@ -78,7 +87,9 @@ pub struct Pick {
     pub date: Date,
 }
 
-/// A kid's announced top schools (his own order) and the day he said them.
+/// A kid's announced top schools and the day he said them. The schools are
+/// kept by program number, a neutral order: a list says who is in, not who
+/// leads (pages print it by name).
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct TopList {
     pub id: u32,
@@ -165,29 +176,41 @@ fn underclass_update(w: &mut World, d: Date) {
     }
 }
 
-/// A file from before the services ranked the younger classes: the latest
-/// update is taken now, so its pages show the lists a world of today keeps.
-pub fn catch_up(w: &mut World) {
-    let d = w.today;
+/// An older file, once, on loading (never from a page): a file from before
+/// the services kept their own lists gets each list's boards as of its own
+/// day; a file from before the services ranked the younger classes gets the
+/// lists a world on schedule would hold, rated as of the latest update (its
+/// day, its streams and its reach), so the next update carries on from
+/// there.
+pub(crate) fn catch_up(w: &mut World) {
     if w.year < 2000 || w.people.is_empty() {
         return;
     }
+    for k in 0..w.scouting.rankings.classes.len() {
+        if w.scouting.rankings.classes[k].boards.is_empty() {
+            let c = &w.scouting.rankings.classes[k];
+            let boards = boards_of(w, c.class_of, &c.ids, c.date);
+            w.scouting.rankings.classes[k].boards = boards;
+        }
+    }
+    if !w.scouting.rankings.classes.is_empty() {
+        return;
+    }
+    let d = w.today;
     // The class the signing stages rated keeps its stars: only its order is
     // written down.
     let signing = *underclasses(w, d).start() - 1;
-    if class_ranks(w, signing).is_none() {
-        record(w, signing, d);
-    }
-    let missing: Vec<i32> = underclasses(w, d).filter(|&c| class_ranks(w, c).is_none()).collect();
-    for c in missing {
-        let at = last_update(d).0;
-        crate::world::recruiting::rate_underclass(w, c, d, reach(c, at));
-        record(w, c, d);
+    record(w, signing, d);
+    let at = last_update(d).0;
+    for c in underclasses(w, at).filter(|&c| c > signing) {
+        crate::world::recruiting::rate_underclass(w, c, at, reach(c, at));
+        record(w, c, at);
     }
 }
 
 /// Keeps a class's national order after a rating: stars first, then the
-/// services' running read (the order every page shows until the next).
+/// services' running read (the order every page shows until the next), and
+/// each service's own list as it reads the class that day.
 pub(crate) fn record(w: &mut World, class_of: i32, d: Date) {
     let mut list: Vec<(u8, f64, u32)> = w
         .people
@@ -202,15 +225,20 @@ pub(crate) fn record(w: &mut World, class_of: i32, d: Date) {
         .collect();
     list.sort_by(|a, b| b.0.cmp(&a.0).then(b.1.total_cmp(&a.1)).then(a.2.cmp(&b.2)));
     let ids: Vec<u32> = list.into_iter().map(|x| x.2).collect();
+    let boards = boards_of(w, class_of, &ids, d);
     let r = &mut w.scouting.rankings;
     match r.classes.iter_mut().find(|c| c.class_of == class_of) {
-        Some(c) if c.date == d => c.ids = ids,
+        Some(c) if c.date == d => {
+            c.ids = ids;
+            c.boards = boards;
+        }
         Some(c) => {
             c.prev = std::mem::replace(&mut c.ids, ids);
             c.prev_date = Some(c.date);
             c.date = d;
+            c.boards = boards;
         }
-        None => r.classes.push(ClassRanks { class_of, date: d, ids, prev_date: None, prev: Vec::new() }),
+        None => r.classes.push(ClassRanks { class_of, date: d, ids, prev_date: None, prev: Vec::new(), boards }),
     }
     // Classes that have signed and gone keep nothing here.
     let oldest = w.year - 1;
@@ -227,21 +255,42 @@ pub fn class_ranks(w: &World, class_of: i32) -> Option<&ClassRanks> {
 /// .9834, 4 from .8900, 3 from .7970.
 const BANDS: [(u8, f64, f64); 4] = [(5, 1.0, 0.9834), (4, 0.9833, 0.89), (3, 0.8899, 0.797), (2, 0.7969, 0.70)];
 
+/// The stars a rating on the composite scale stands for.
+fn stars_of(rating: f64) -> u8 {
+    BANDS.iter().find(|b| rating >= b.2).map_or(2, |b| b.0)
+}
+
+/// A player's place by id. People are kept in id order, so a binary search
+/// finds him; a kid who has left the world since the list came out is not
+/// looked for any further (a scan per id took seconds on a full world).
+fn at(w: &World, id: u32) -> Option<usize> {
+    w.people.binary_search_by_key(&id, |p| p.player.id).ok()
+}
+
+/// Each listed kid's place and composite rating, in list order (None: he
+/// has left the world): each star band from its top to its bottom.
+fn ratings(w: &World, ids: &[u32]) -> Vec<Option<(usize, f64)>> {
+    let places: Vec<Option<usize>> = ids.iter().map(|&id| at(w, id)).collect();
+    let mut out = vec![None; ids.len()];
+    for &(s, hi, lo) in &BANDS {
+        let band: Vec<(usize, usize)> = places
+            .iter()
+            .enumerate()
+            .filter_map(|(k, &i)| i.filter(|&i| w.people[i].stars == s).map(|i| (k, i)))
+            .collect();
+        let n = band.len().max(1) as f64;
+        for (j, &(k, i)) in band.iter().enumerate() {
+            out[k] = Some((i, hi - (hi - lo) * (j as f64 / n)));
+        }
+    }
+    out
+}
+
 /// Each ranked kid of a class: his national rank and composite rating, read
 /// off the class's order (stars as the list gives them, a specialist's
 /// services' stars included).
 pub fn composite(w: &World, c: &ClassRanks) -> HashMap<u32, (u32, f64)> {
-    let stars: Vec<u8> = c.ids.iter().map(|&id| super::place(w, id).map_or(0, |i| w.people[i].stars)).collect();
-    let mut out = HashMap::with_capacity(c.ids.len());
-    for &(s, hi, lo) in &BANDS {
-        let band: Vec<usize> = (0..c.ids.len()).filter(|&k| stars[k] == s).collect();
-        let n = band.len().max(1) as f64;
-        for (j, &k) in band.iter().enumerate() {
-            let rating = hi - (hi - lo) * (j as f64 / n);
-            out.insert(c.ids[k], (k as u32 + 1, rating));
-        }
-    }
-    out
+    ratings(w, &c.ids).iter().enumerate().filter_map(|(k, r)| r.map(|(_, x)| (c.ids[k], (k as u32 + 1, x)))).collect()
 }
 
 /// A class's rank before its latest rating, by id (rank movement).
@@ -252,51 +301,74 @@ pub fn previous(c: &ClassRanks) -> HashMap<u32, u32> {
 /// One service's board: (stars, national rank) by player id.
 pub type ServiceBoard = HashMap<u32, (u8, u32)>;
 
-/// Each service's own read of a ranked class: its stars and national rank
-/// for every kid on its list, from the composite order with the service's
-/// lasting lean on each kid, its bias, and a little of the update's noise.
-/// The services rank as many kids at each star as the shared list does;
-/// the shorter-listed ones stop sooner among the 2-stars.
-pub fn service_boards(w: &World, c: &ClassRanks) -> Vec<(usize, ServiceBoard)> {
-    let comp = composite(w, c);
-    let year = c.date.year();
-    let mut counts = [0usize; 6];
-    for &id in &c.ids {
-        if let Some(i) = super::place(w, id) {
-            counts[w.people[i].stars.min(5) as usize] += 1;
-        }
+/// Each service's own read of a ranked class as it stood at the class's
+/// latest rating: its stars and national rank for every kid on its list.
+pub fn service_boards(_w: &World, c: &ClassRanks) -> Vec<(usize, ServiceBoard)> {
+    c.boards
+        .iter()
+        .map(|(k, list)| {
+            let board = list.iter().enumerate().map(|(r, &(id, s))| (id, (s, r as u32 + 1))).collect();
+            (*k as usize, board)
+        })
+        .collect()
+}
+
+/// Each active service's list for a class on a rating day: the composite
+/// with the service's lean on each kid (lasting, a little of the day's own,
+/// and its bias), the leans centred on the kid so the composite is the
+/// services' average. Stars follow the composite's own bands on each
+/// service's rating, so a composite star always lies between the services'
+/// (one rates him at least as high, one at most); a specialist gets 3 stars
+/// at most (fix list 1.5); the shorter-listed services stop sooner among
+/// the 2-stars.
+fn boards_of(w: &World, class_of: i32, ids: &[u32], d: Date) -> Vec<(u8, Vec<(u32, u8)>)> {
+    let year = d.year();
+    let desks: Vec<(usize, &Desk)> =
+        w.scouting.desks.iter().enumerate().filter(|(_, x)| x.kind == DeskKind::Service && x.active(year)).collect();
+    if desks.is_empty() {
+        return Vec::new();
     }
-    w.scouting
-        .desks
+    let n = desks.len() as f64;
+    // (id, place, composite, each service's centred lean)
+    let rows: Vec<(u32, usize, f64, Vec<f64>)> = ratings(w, ids)
         .iter()
         .enumerate()
-        .filter(|(_, d)| d.kind == DeskKind::Service && d.active(year))
-        .map(|(k, desk)| {
-            let mut v: Vec<(f64, u32)> = c
-                .ids
-                .iter()
-                .filter_map(|&id| {
-                    let i = super::place(w, id)?;
-                    let base = comp.get(&id)?.1;
-                    Some((base + lean(w, desk, i, c.date), id))
-                })
-                .collect();
+        .filter_map(|(k, r)| {
+            let (i, base) = (*r)?;
+            let mut leans: Vec<f64> = desks.iter().map(|(_, desk)| lean(w, desk, i, d)).collect();
+            let mean = leans.iter().sum::<f64>() / n;
+            for l in &mut leans {
+                *l -= mean;
+            }
+            Some((ids[k], i, base, leans))
+        })
+        .collect();
+    let twos = rows.iter().filter(|r| w.people[r.1].stars <= 2).count();
+    desks
+        .iter()
+        .enumerate()
+        .map(|(s, (k, desk))| {
+            let mut v: Vec<(f64, u32, bool)> =
+                rows.iter().map(|r| (r.2 + r.3[s], r.0, w.people[r.1].player.position.is_specialist())).collect();
             v.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
             // How deep this service goes into the 2-stars.
-            let depth = 0.6 + 0.4 * key_uniform(desk.key ^ 0xDE97, c.class_of as u64);
-            let take = counts[5] + counts[4] + counts[3] + (counts[2] as f64 * depth).round() as usize;
-            let mut out = HashMap::with_capacity(take);
-            let mut at = 0;
-            for s in [5u8, 4, 3, 2] {
-                for _ in 0..counts[s as usize] {
-                    if at >= v.len() || at >= take {
+            let depth = 0.6 + 0.4 * key_uniform(desk.key ^ 0xDE97, class_of as u64);
+            let mut twos_left = (twos as f64 * depth).round() as usize;
+            let mut list = Vec::with_capacity(v.len());
+            for (rating, id, specialist) in v {
+                let mut stars = stars_of(rating);
+                if stars <= 2 {
+                    if twos_left == 0 {
                         break;
                     }
-                    out.insert(v[at].1, (s, at as u32 + 1));
-                    at += 1;
+                    twos_left -= 1;
                 }
+                if specialist {
+                    stars = stars.min(crate::world::recruiting::SERVICE_SPECIALIST_MAX);
+                }
+                list.push((id, stars));
             }
-            (k, out)
+            (*k as u8, list)
         })
         .collect()
 }
@@ -347,8 +419,9 @@ pub fn insider_record(w: &World, desk: usize, year: i32) -> (u16, u16) {
 }
 
 /// The day a recruit means to decide, from his own timing: a commitment
-/// wave of his junior spring or senior year, the early period, or
-/// February's signing day.
+/// wave of his junior spring or senior year, the early period's first day,
+/// or February's signing day. His own plan, hidden: the insiders time
+/// their calls on it, and a page shows only what he has let out.
 pub fn decision_day(w: &World, i: usize) -> Option<Date> {
     let p = &w.people[i];
     let season = p.class_of - 1;
@@ -357,9 +430,21 @@ pub fn decision_day(w: &World, i: usize) -> Option<Date> {
             let (m, day) = [(3, 20), (4, 30), (6, 15), (8, 31), (10, 31)][(k as usize).min(4)];
             Date::ymd(season, m, day)
         }
-        CommitTiming::Early => Date::ymd(season, 12, 18),
+        // Before 2017 there was no early period: an early decider enrolled
+        // in January.
+        CommitTiming::Early => {
+            crate::calendar::anchors::early_signing(season).unwrap_or_else(|| Date::ymd(season + 1, 1, 10))
+        }
         CommitTiming::Late => Date::nth_weekday(season + 1, 2, Weekday::Wed, 1),
     })
+}
+
+/// The schools a kid names in his top list: the first `cut` of his race,
+/// in a neutral order (by program), never who leads.
+fn announced(race: &[(usize, f64)], cut: usize) -> Vec<u16> {
+    let mut schools: Vec<u16> = race.iter().take(cut).map(|r| r.0.min(u16::MAX as usize) as u16).collect();
+    schools.sort_unstable();
+    schools
 }
 
 /// The insiders' week: picks judged on the kids who committed, new and
@@ -475,8 +560,7 @@ fn insiders_week(w: &mut World, d: Date) {
             _ => None,
         };
         if let Some(cut) = cut {
-            let schools: Vec<u16> = race.iter().take(cut.min(n)).map(|r| r.0 as u16).collect();
-            tops.push(TopList { id, date: d, schools });
+            tops.push(TopList { id, date: d, schools: announced(race, cut) });
         }
     }
     let r = &mut w.scouting.rankings;
@@ -499,7 +583,7 @@ fn judge(w: &mut World, d: Date) {
     let mut done: Vec<(u8, bool)> = Vec::new();
     let mut keep: Vec<Pick> = Vec::new();
     for x in std::mem::take(&mut w.scouting.rankings.picks) {
-        let Some(i) = super::place(w, x.id) else { continue };
+        let Some(i) = at(w, x.id) else { continue };
         let p = &w.people[i];
         let went = p.cal.commit.map(|c| c.0).or(p.cal.signed.map(|s| s.program));
         match went {
@@ -559,6 +643,17 @@ mod tests {
         }
         assert_eq!(fall[3], 0.0, "no 2-stars on a first sophomore list");
         assert!(junior[1] >= 0.99, "a junior class carries its 4-stars");
+    }
+
+    #[test]
+    fn a_top_list_never_shows_who_leads() {
+        // His race, best first: 41 leads, then 7, 300 and 12.
+        let race = [(41, 1.30), (7, 1.21), (300, 1.18), (12, 1.02), (5, 0.9)];
+        let list = announced(&race, 4);
+        assert_eq!(list, vec![7, 12, 41, 300], "who is in, by program: never his order");
+        // Whoever leads, the same schools read the same.
+        let flipped = [(300, 1.4), (12, 1.3), (7, 1.2), (41, 1.1), (5, 0.9)];
+        assert_eq!(announced(&flipped, 4), list);
     }
 
     #[test]

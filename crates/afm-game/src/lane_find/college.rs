@@ -185,7 +185,10 @@ pub fn short(d: Date) -> String {
 /// Find recruits: the page.
 pub fn find(w: &World, j: usize, args: &Value) -> Reply {
     let spec = Spec::parse(args);
-    let f = search(w, j, &spec);
+    let mut f = search(w, j, &spec);
+    // The players ticked for Compare are read even when today's filters
+    // leave them out.
+    f.ctx.reads = staff::reads(w, Staff::Program(j), &super::compare_ids(args));
     let ctx = &f.ctx;
     let sort = args.get("sort").and_then(Value::as_str).unwrap_or(if spec.level == "hs" { "nat" } else { "now" });
     let flip = args.get("dir").and_then(Value::as_i64) == Some(-1);
@@ -338,6 +341,13 @@ const COMPARE: [(&str, &str); 16] = [
     ("Games missed hurt", "missed"),
 ];
 
+/// Schools by the name the page prints (an announced list's neutral order).
+pub fn by_name(w: &World, schools: &[u16]) -> Vec<usize> {
+    let mut v: Vec<usize> = schools.iter().map(|&s| s as usize).collect();
+    v.sort_by(|&a, &b| w.program_name(a).cmp(w.program_name(b)));
+    v
+}
+
 fn opt_str(v: Val, dp: usize) -> Value {
     match v {
         Val::N(x) => json!(format!("{x:.dp$}")),
@@ -363,6 +373,7 @@ pub fn row(ctx: &Ctx, i: usize) -> Value {
     let sure = read.filter(|r| r.ceiling.0 > 0.0).map(|r| file::sure_words(r.ceiling.1 as f64));
     let vs = match fields::value(ctx, i, "vs") {
         Val::N(x) => Some(fields::VS[x as usize]),
+        Val::Unseen => Some("unseen"),
         _ => None,
     };
     let it = crate::lane_frontoffice::college::interest(w, j, i, super::offered_here(w, id));
@@ -494,9 +505,9 @@ pub fn row(ctx: &Ctx, i: usize) -> Value {
     super::merge(&mut v, more);
     let more = json!({
         "committed": p.cal.commit.map(|c| views::team_brief(w, TeamRef::College(c.0))),
-        "top": tops.map(|t| json!({ "date": short(t.date), "schools": t.schools.iter().map(|&s| views::team_brief(w, TeamRef::College(s as usize))).collect::<Vec<_>>() })),
-        "officials": p.cal.visits.iter().filter(|v| v.2 == afm_engine::world::Visit::Official).count(),
-        "visits_you": p.cal.visits.iter().filter(|v| v.0 == j).count(),
+        "top": tops.map(|t| json!({ "date": short(t.date), "schools": by_name(w, &t.schools).into_iter().map(|s| views::team_brief(w, TeamRef::College(s))).collect::<Vec<_>>() })),
+        "officials": fields::officials_used(ctx, i),
+        "visits_you": fields::visits_to_you(ctx, i),
         "camp": fields::CAMP[fields::camp(ctx, i)],
         "followers": p.followers,
         "nil": fields::nil_value(ctx, i),
@@ -508,8 +519,12 @@ pub fn row(ctx: &Ctx, i: usize) -> Value {
         "gpa": format!("{:.1}", fields::gpa_shown(ctx, i)),
         "transcript": read.is_some_and(|r| r.transcript),
         "test": p.cal.test_score,
-        "risk": fields::RISK[fields::risk(ctx, i)],
-        "core": match fields::core_behind(p) { 0 => "On track".to_string(), n => format!("Behind: {n} short") },
+        "risk": read.map(|_| fields::RISK[fields::risk(ctx, i)]),
+        "core": match fields::core_behind(ctx, i) {
+            None => "No transcript yet".to_string(),
+            Some(0) => "On track".to_string(),
+            Some(n) => format!("Behind: {n} short"),
+        },
         "work": chr(0),
         "coach": chr(1),
         "habit": habit,
@@ -523,7 +538,6 @@ pub fn row(ctx: &Ctx, i: usize) -> Value {
         "sport": sport,
         "frame": fields::frame_read(ctx, i).map(|r| json!({ "room": r, "word": fields::FRAME[fields::frame_word(r)] })),
         "insider": ins,
-        "qualifies": desk::qualifies(w, j, i),
         "kind_text": if p.stage == Stage::College { "College" } else { "High school" },
     });
     super::merge(&mut v, more);

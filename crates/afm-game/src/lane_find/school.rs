@@ -105,12 +105,19 @@ fn camp_day(prog: usize, year: i32) -> Date {
 }
 
 /// A recent day for a contact the world doesn't date, kept to the
-/// calendar: a visit to school only when in-person contact is allowed.
-fn recent(w: &World, prog: usize, id: u32, salt: u64) -> (Date, &'static str) {
+/// calendar: a visit to school only when in-person contact is allowed, and
+/// a Division I staff writes to a kid (camp brochures, questionnaires)
+/// until 1 September of his junior year, when calls and texts may start.
+fn recent(w: &World, prog: usize, p: &afm_engine::world::Person, salt: u64) -> (Date, &'static str) {
+    let id = p.player.id;
     let back = (key_uniform(0x7E11 ^ salt ^ prog as u64, id as u64 ^ (w.today.0 / 14) as u64) * 20.0) as i32;
     let d = w.today.add(-back);
     let period = cal::recruiting_period(&w.dates, d);
     let u = key_uniform(0x7E12 ^ prog as u64, id as u64 ^ d.0 as u64);
+    let d1 = matches!(w.programs[prog].division, Division::FBS | Division::FCS);
+    if d1 && d < Date::ymd(p.class_of - 2, 9, 1) {
+        return (d, "letter");
+    }
     let how = match period {
         Period::Contact | Period::Evaluation if u < 0.3 => "visit to school",
         _ if u < 0.55 => "call",
@@ -118,6 +125,11 @@ fn recent(w: &World, prog: usize, id: u32, salt: u64) -> (Date, &'static str) {
         _ => "letter",
     };
     (d, how)
+}
+
+/// Whether his senior year has begun (1 August before he graduates).
+fn senior_year(w: &World, p: &afm_engine::world::Person) -> bool {
+    w.today >= Date::ymd(p.class_of - 1, 8, 1)
 }
 
 /// What a staff wants now, in the words its coach would use.
@@ -167,10 +179,12 @@ fn wants(w: &World, prog: usize, p: &afm_engine::world::Person, stage: Stage2, s
 }
 
 /// Every staff in touch about one kid.
-fn touches(w: &World, i: usize, sign: i32) -> Vec<Touch> {
+fn touches(w: &World, i: usize, promoted: bool) -> Vec<Touch> {
     let p = &w.people[i];
     let id = p.player.id;
-    let senior = p.class_of <= sign;
+    let senior = senior_year(w, p);
+    // Years to his graduation: 0 a senior, 1 a junior, 2 a sophomore.
+    let years = p.class_of - services::school_year_end(w.today);
     let mut out: Vec<Touch> = Vec::new();
     let mut put =
         |prog: usize, stage: Stage2, date: Date, how: &'static str| match out.iter_mut().find(|t| t.prog == prog) {
@@ -191,11 +205,14 @@ fn touches(w: &World, i: usize, sign: i32) -> Vec<Touch> {
     if let Some(c) = p.cal.commit {
         put(c.0, Stage2::Committed, c.1, "commitment");
     }
+    let went = p.cal.signed.map(|s| s.program);
     for &(c, d) in &p.cal.early_offers {
         put(c, Stage2::Offer, d, "offer");
     }
-    for &c in &p.cal.offers {
-        let (d, how) = recent(w, c, id, 1);
+    // A signed kid's other offers are history: only the dated ones show,
+    // with no fresh calls.
+    for &c in p.cal.offers.iter().filter(|_| went.is_none()) {
+        let (d, how) = recent(w, c, p, 1);
         put(c, Stage2::Offer, d, how);
     }
     for v in &p.cal.visits {
@@ -203,18 +220,20 @@ fn touches(w: &World, i: usize, sign: i32) -> Vec<Touch> {
         put(v.0, Stage2::Visit, d, if v.1 > w.today { "visit set" } else { "visit" });
     }
     // The staffs with interest and no offer yet: where their footprint
-    // reaches, at the level the services put him.
+    // reaches, at the level the services put him. A kid nobody has rated,
+    // honored, offered or heard about from you draws none.
     let reach = match super::fields::rstars(p) {
         5 => 10,
         4 => 7,
         3 => 5,
         2 => 3,
         _ if p.cal.all_state > 0 => 2,
-        _ => 1,
+        _ if promoted || !out.is_empty() => 1,
+        _ => 0,
     };
-    let reach = if p.class_of > sign + 1 { reach / 2 } else { reach };
+    let reach = if years >= 2 { reach / 2 } else { reach };
     let late = senior && (w.today >= w.dates.signing_day || p.cal.signed.is_some() || p.cal.commit.is_some());
-    if reach > 0 && !late && p.class_of <= sign + 2 {
+    if reach > 0 && !late && (0..=2).contains(&years) {
         let lvl = want(p);
         let st = p.home_state.min(50);
         let mut cands: Vec<(f64, usize)> = w
@@ -240,7 +259,7 @@ fn touches(w: &World, i: usize, sign: i32) -> Vec<Touch> {
         for &(_, k) in cands.iter().take(reach) {
             let camp = camp_day(k, w.today.year());
             let invited = !senior && (2..=6).contains(&w.today.month()) && w.today <= camp;
-            let (d, how) = recent(w, k, id, 2);
+            let (d, how) = recent(w, k, p, 2);
             out.push(Touch {
                 prog: k,
                 kid: i,
@@ -251,8 +270,15 @@ fn touches(w: &World, i: usize, sign: i32) -> Vec<Touch> {
             });
         }
     }
+    let taken = went.or(p.cal.commit.map(|c| c.0));
     for t in out.iter_mut() {
-        t.want = wants(w, t.prog, p, t.stage, senior);
+        t.want = match taken {
+            Some(x) if x != t.prog && went.is_some() => format!("He signed with {}", w.program_name(x)),
+            Some(x) if x != t.prog && t.stage >= Stage2::Visit => {
+                format!("Trying to flip him from {}", w.program_name(x))
+            }
+            _ => wants(w, t.prog, p, t.stage, senior),
+        };
     }
     out
 }
@@ -332,7 +358,8 @@ pub fn calling(w: &World, _args: &Value) -> Reply {
     for &i in &kids {
         let p = &w.people[i];
         let id = p.player.id;
-        let t = touches(w, i, sign);
+        let promoted = w.scouting.hs.promoted.iter().any(|x| x.id == id);
+        let t = touches(w, i, promoted);
         let offers = views::offers_of(p).len();
         let r = &ranks[&p.class_of];
         let by: Vec<Value> = services
@@ -434,7 +461,7 @@ pub fn calling(w: &World, _args: &Value) -> Reply {
         .rev()
         .take(40)
         .filter_map(|x| {
-            let i = afm_engine::world::scouting::place(w, x.id)?;
+            let i = views::person_index(w, x.id)?;
             let p = &w.people[i];
             Some(json!({
                 "date": views::date_text(x.date),
