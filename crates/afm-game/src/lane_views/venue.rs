@@ -146,7 +146,7 @@ pub fn venue(w: &World, level: CalLevel, date: Date, home: usize, setup: &Replay
             let turf = unit(k ^ 1) < 0.15 + 0.6 * s.resources.clamp(0.0, 1.0);
             let state = afm_engine::world::geo::STATE_CENTERS.get(s.state).map_or("", |c| c.0);
             (
-                format!("{} field", w.school_name(home)),
+                crate::lane_schedule::school_field(w, home),
                 format!("{}, {}", s.town, state),
                 (n / 50.0).round() as u32 * 50,
                 "bleachers",
@@ -174,7 +174,7 @@ pub fn venue(w: &World, level: CalLevel, date: Date, home: usize, setup: &Replay
             let turf = unit(k ^ 4) < if n >= 15_000 { 0.6 } else { 0.75 };
             let state = afm_engine::world::geo::STATE_CENTERS.get(p.state).map_or("", |c| c.0);
             (
-                format!("{} stadium", w.program_name(home)),
+                crate::lane_schedule::college_stadium(w, home, date.year()),
                 format!("{}, {}", p.city, state),
                 n,
                 shp,

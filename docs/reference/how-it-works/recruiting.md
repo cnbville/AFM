@@ -1,6 +1,6 @@
 # Recruiting: how it works today
 
-Checked against main at a423e02 on 2026-10-26.
+Checked against main at 7d31e6f on 2026-10-26.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Recruiting" below is `world/recruiting.rs`.
 

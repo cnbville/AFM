@@ -127,7 +127,13 @@ GOTO.depth = () => [["Squad", "roster"], ["Training", "training"], ["Schedule", 
 GOTO.training = () => [["Squad", "roster"], ["Depth chart", "depth"], ["Staff", "staff"]];
 GOTO.recruiting = () => [["My players", "myplayers"], ["Player finder", "finder"], ["Recruiting mail", "inbox", { key: "Recruiting" }]];
 GOTO.contracts = () => [["Squad", "roster"], ["Money mail", "inbox", { key: "Money" }]];
-GOTO.schedule = (a) => [["Standings", "standings"], ["Game pages", "games"], ["Team page", "team", teamArgs(a)]];
+// The schedule page's own line (update 2, lane 6, B4): Standings, Calendar
+// and the next opponent (your game day hub, or that team's page).
+GOTO.schedule = (a, x) => {
+  const opp = x && x.next_opp;
+  const next = opp ? (x.mine ? [`Next opponent: ${opp.name}`, "gameday"] : [`Next opponent: ${opp.name}`, "team", { kind: opp.ref.kind, id: opp.ref.id }]) : null;
+  return [["Standings", "standings"], ["Calendar", "calendar"], next, x && x.mine && x.level !== undefined ? ["The year", "year"] : null];
+};
 GOTO.games = () => [["Schedule", "schedule"], ["Standings", "standings"], ["Leaderboards", "leaders"]];
 GOTO.staff = (a) => [["Team page", "team", teamArgs(a)], ["Your profile", "you"]];
 GOTO.game = () => [["Game pages", "games"], ["Schedule", "schedule"], ["Standings", "standings"]];
@@ -1419,8 +1425,8 @@ screens.team = async (a) => {
   const ta = { kind: t.ref.kind, id: t.ref.id };
   const seasons = t.seasons && t.seasons.length
     ? pro
-      ? table("tseasons", [{ k: "year", t: "Season" }, { k: "record", t: "Record", l: true }, { k: "coach", t: "Head coach", l: true }, { k: "note", t: "Playoffs", l: true }], t.seasons, { tools: false })
-      : table("tseasons", [{ k: "year", t: "Season" }, { k: "record", t: "Record", l: true }, { k: "coach", t: "Coach", l: true }, { k: "pts", t: "Points", l: true, f: (s) => (s.g ? `${s.pf}-${s.pa}` : "") }, { k: "titles", t: "Titles", l: true, wrap: true, f: (s) => [s.conf ? "Conference" : "", s.nat ? (t.ref.kind === "hs" ? "State" : "National") : ""].filter(Boolean).join(", ") }], t.seasons, { tools: false })
+      ? table("tseasons", [{ k: "year", t: "Season", f: (s) => linkTo("schedule", { ...ta, season: s.year }, String(s.year)) }, { k: "record", t: "Record", l: true }, { k: "coach", t: "Head coach", l: true }, { k: "note", t: "Playoffs", l: true }], t.seasons, { tools: false })
+      : table("tseasons", [{ k: "year", t: "Season", f: (s) => linkTo("schedule", { ...ta, season: s.year }, String(s.year)) }, { k: "record", t: "Record", l: true }, { k: "coach", t: "Coach", l: true }, { k: "pts", t: "Points", l: true, f: (s) => (s.g ? `${s.pf}-${s.pa}` : "") }, { k: "titles", t: "Titles", l: true, wrap: true, f: (s) => [s.conf ? "Conference" : "", s.nat ? (t.ref.kind === "hs" ? "State" : "National") : ""].filter(Boolean).join(", ") }], t.seasons, { tools: false })
     : `<div class="empty">${pro ? "The league's book of seasons starts with this world's next season." : "No seasons kept."}</div>`;
   const leaders = (t.leaders || []).length ? `<div class="panel"><h2>Last season's leaders</h2><div class="items">${t.leaders.map((l) => `<div class="item"><span class="when">${esc(l.label)}</span><span>${playerLink(l.id, l.name)} <small class="muted">${esc(l.pos)}</small><br><small>${esc(l.line)}</small></span></div>`).join("")}</div></div>` : "";
   const news = t.news.length ? `<div class="items">${t.news.map((n) => `<div class="item"><span class="when">${esc(n.date)}</span><span><small class="muted">${esc(n.kind)}</small> ${rich(n.text)}</span></div>`).join("")}</div>` : '<div class="empty">Nothing in the last two months.</div>';

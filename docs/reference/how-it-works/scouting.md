@@ -1,6 +1,6 @@
 # Scouting: how it works today
 
-Checked against main at a423e02 on 2026-10-26.
+Checked against main at 7d31e6f on 2026-10-26.
 
 ## Quick answers
 
@@ -58,7 +58,7 @@ A file holds only looks: who, what kind, when (`world/scouting/mod.rs`, `SeatLoo
 - Measurements (`file.rs`, `measures`): speed 1.5, acceleration 2.0, jumping 2.0, agility 2.5, strength 2.5 at the combine; +1.0 pro day; +1.5 camp or showcase (no strength); +2.0 local day, workout, tryout. Combine, pro day and showcase are shared and written the same day (`mod.rs`, `Kind::instant`).
 - Test numbers shown are seeded per player, kind and year, so every club sees the same combine; pro day 40s run 0.05 s fast, a camp laser on grass 0.04 s slow (`file.rs`, `tests`).
 - School listings run tall and heavy: about an inch and 3-9 pounds (`file.rs`, `listed`).
-- A report is written 4-21 days after the look: 7 + 0.7 × (20 - work rate), ± a 3-day draw. Until then the look doesn't count (`file.rs`, `Reader::lag`, `read`).
+- A report is written 4-21 days after the look: 7 + 0.7 × (20 - work rate), ± a 3-day draw. Until then the look doesn't count (`file.rs`, `Reader::lag`, `read`). A file with no report written yet is not read at all: "Not seen", no ranges and no role, even with looks taken or filed ahead (a declared underclassman's film is filed a week ahead) (`readers.rs`, `read`).
 
 ## The scouting file: who reads, and their weight
 

@@ -83,19 +83,13 @@ fn an_nfl_war_room_runs_the_draft() {
     if file["seen"].as_bool().unwrap() {
         assert!(file["summary"]["role"].is_string(), "{}", file["summary"]);
         assert!(!file["looks"].as_array().unwrap().is_empty());
-    }
-    // Ranges come once a look's report is written (a scout writes his
-    // all-star week up days later, so a file of only those looks lists them
-    // and reads nothing yet): some file near the top of the board reads them.
-    let any_range = rows.iter().take(10).any(|r| {
-        let f = ok(&mut g, "scout_file", json!({ "id": r["id"] }));
-        f["groups"]
+        let any_range = file["groups"]
             .as_array()
             .unwrap()
             .iter()
-            .any(|x| x["attrs"].as_array().unwrap().iter().any(|a| a["read"].is_array()))
-    });
-    assert!(any_range, "some ratings read near the top of the board");
+            .any(|g| g["attrs"].as_array().unwrap().iter().any(|a| a["read"].is_array()));
+        assert!(any_range, "some ratings read");
+    }
     // To draft day: Continue stops when the war room opens.
     let mut steps = 0;
     while !ok(&mut g, "draft_live", json!({}))["live"].as_bool().unwrap() && steps < 300 {
