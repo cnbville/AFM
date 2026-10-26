@@ -115,8 +115,8 @@ enum Area {
 /// A real town the state's generated schools are placed in
 /// (`data/real-world/hs_towns.csv`, built by `scripts/hs_towns.py` from the
 /// 2010 Census by ZIP code): its county, people, how many of the state's
-/// schools it takes at most, people per square mile and median household
-/// income.
+/// schools it takes at most, people per square mile, median household
+/// income and where it is (latitude and longitude, 0 when unknown).
 #[derive(Clone, Debug)]
 pub struct TownRow {
     pub town: String,
@@ -125,6 +125,8 @@ pub struct TownRow {
     pub slots: u32,
     pub density: f32,
     pub income: f32,
+    pub lat: f32,
+    pub lon: f32,
 }
 
 const TOWNS_CSV: &str = include_str!("../../../../data/real-world/hs_towns.csv");
@@ -145,10 +147,29 @@ static TOWNS: std::sync::LazyLock<std::collections::HashMap<String, Vec<TownRow>
             slots: (num(4) as u32).max(1),
             density: num(5),
             income: num(6),
+            lat: if c.len() > 8 { num(7) } else { 0.0 },
+            lon: if c.len() > 8 { num(8) } else { 0.0 },
         });
     }
     map
 });
+
+/// Every town's place by state code and name.
+static PLACES: std::sync::LazyLock<std::collections::HashMap<(String, String), (f32, f32)>> =
+    std::sync::LazyLock::new(|| {
+        let mut map = std::collections::HashMap::new();
+        for (code, towns) in TOWNS.iter() {
+            for t in towns.iter().filter(|t| t.lat != 0.0 || t.lon != 0.0) {
+                map.entry((code.clone(), t.town.clone())).or_insert((t.lat, t.lon));
+            }
+        }
+        map
+    });
+
+/// A town's latitude and longitude, when the table has it.
+pub fn town_place(code: &str, town: &str) -> Option<(f64, f64)> {
+    PLACES.get(&(code.to_string(), town.to_string())).map(|&(a, b)| (a as f64, b as f64))
+}
 
 /// A state's real towns, biggest first (empty for a state the table lacks).
 pub fn state_towns(code: &str) -> &'static [TownRow] {

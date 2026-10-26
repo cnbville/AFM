@@ -28,6 +28,7 @@ pub mod predraft;
 pub mod pro;
 pub mod public;
 pub mod readers;
+pub mod services;
 pub mod social;
 pub mod supp;
 
@@ -310,6 +311,10 @@ pub struct Scouting {
     /// Your side as a high school coach (topic 17).
     #[serde(default)]
     pub hs: hs::HsSide,
+    /// The recruiting services' printed rankings by class, the insiders'
+    /// picks and the announced top schools (update 2, lane 7).
+    #[serde(default)]
+    pub rankings: services::Rankings,
 }
 
 /// The daily scouting work (called from the clock each day, after the
@@ -319,6 +324,7 @@ pub(crate) fn day(w: &mut crate::world::World, d: Date) {
         public::staff_desks(w);
     }
     public::day(w, d);
+    services::day(w, d);
     predraft::day(w, d);
     supp::day(w, d);
     if w.seat.is_some() {
@@ -335,6 +341,7 @@ pub(crate) fn after_load(w: &mut crate::world::World) {
     if w.scouting.desks.is_empty() {
         public::staff_desks(w);
     }
+    services::catch_up(w);
 }
 
 /// After the draft and the rush: the public's mocks scored, your class kept
