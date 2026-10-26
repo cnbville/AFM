@@ -1,6 +1,6 @@
 # Body and combine: how it works today
 
-Checked against main at 94a6553 on 2026-10-25.
+Checked against main at 9a53e5d on 2026-10-26.
 
 ## Quick answers
 
@@ -75,8 +75,9 @@ Physical attributes grow like the rest (`development.rs`, `GrowthCtx::rate`, `de
 ## The weight room and body plans (your own players)
 
 - Practice families: Strength (strength and balance: the weight room), Speed (speed, acceleration, agility, flexibility, jumping), Conditioning (stamina) and others (`training/mod.rs`, `Family`). How much practice drives each family's growth: `PRACTICE_DRIVEN` [0.55, 0.3, 0.7, 0.5, 0.6, 0.5, 0.35]; a plan moves a family's year by at most 15% (`training/work.rs`, `PRACTICE_DRIVEN`, `PLAN_REACH`, `share`). Details belong to the training page.
-- Body plan, each practice week: step toward the target weight of up to 1.5 lb (gain) or 1.2 lb (loss) × clamp(0.7 + 0.03 × work ethic, 0.7, 1.3) (`training/seat.rs`, `week`).
+- Body plan, each practice week: step toward the target weight of up to 1.5 lb (gain) or 1.2 lb (loss) × clamp(0.7 + 0.03 × work ethic, 0.7, 1.3) × fuel; fuel = clamp(1 + 0.15 × (nutrition minutes − an average staff's) / (theirs + 30), 0.9, 1.15) from the week's sessions with the dietitian (`training/seat.rs`, `week`).
 - Each pound changes (`training/seat.rs`, `body_change`): adult weight by lbs × adult/now (clamped 120-400), and attributes and ceilings by strength +0.05, anchor +0.04, speed -0.03, acceleration -0.02, agility -0.03, stamina -0.02. Ten pounds: +0.5 strength, -0.3 speed.
+- Your strength staff's testing days use the combine fit: `Drills::expected` for his ratings and body now plus a test day's noise (reps sd 1.5, forty sd 0.03, shuttle sd 0.04, vertical sd 0.8), the 10-yard split 0.375 × forty − 0.15, and lifts from a bench max read at 220 lb and scaled by (weight / 220)^0.67 (squat about 1.45 times it, clean 0.88) (`training/seat.rs`, `test_row`). Details on [training.md](training.md).
 
 ## Combine drills
 
@@ -126,7 +127,7 @@ So weight costs a big man straight-line speed, burst and cutting, with the same 
 - `body.rs`: `SIZES` (from the combine CSV), `LEFT_HANDED` 0.1, `RIGHTY_LEFT_FOOTED` 0.12, arm/hand/wingspan coefficients in `Body::grown` and `adult_body`, `body_now` (4 in, 6 and 9 years, 0.70/0.25/0.05), `Drills::means` coefficients, test-day sds in `combine`, clamps in `tested`.
 - `athlete.rs`: `draw_frame` (29% linemen), `talent_size`, `leaning`, `misfit`, `set_position` (0.6, -25/+30), `LS_MIN_WEIGHT`/`LS_MAX_WEIGHT`.
 - `development.rs`: `HS_STRENGTH_GROWTH` 0.6, `COLLEGE_TEACHING` 1.3, redshirt 1.35, `STALL_CHANCE` 0.025, spurt 9%, weight gain 2.5% and 8-25 lb, `injury_age_hit`.
-- `training/seat.rs`: `body_change` per-pound table, body plan 1.5/1.2 lb a week. `training/work.rs`: `PRACTICE_DRIVEN`, `PLAN_REACH`.
+- `training/seat.rs`: `body_change` per-pound table, body plan 1.5/1.2 lb a week and the nutrition fuel (0.9-1.15), `test_row`. `training/work.rs`: `PRACTICE_DRIVEN`, `PLAN_REACH`.
 - `game/roster.rs`: `forty`, `top_speed`, `sprint_tau`, `accel`, `cut`.
 - `world/scouting/file.rs`: pro day -0.05, camp +0.04, `listed`. `world/scouting/predraft.rs`: the combine-moment line 4.25 + 0.0042/lb and the 0.12 margin.
 
