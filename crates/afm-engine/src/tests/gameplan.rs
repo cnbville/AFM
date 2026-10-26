@@ -85,3 +85,38 @@ fn a_four_three_team_still_goes_to_nickel_against_three_receivers() {
     let (_, base) = calls(&staff, Personnel::P12, 9);
     assert!(base < 0.2, "a staff with no front guideline stays in base against 12: {base:.2}");
 }
+
+/// Every staff drafts a call sheet (Cain's rule: the same rules for every
+/// team): two college or NFL teams with no week's plan both draft one at
+/// kickoff, and both offenses run their opening script and call from their
+/// boxes. High school AI staffs don't (`sheet::KICKOFF`, for time).
+#[test]
+fn every_team_calls_from_a_sheet() {
+    use crate::game::quick_game;
+    use crate::game::synthetic::synthetic_league;
+    use crate::player::Level;
+    for level in [Level::HS, Level::FBS, Level::NFL] {
+        let teams = synthetic_league(level, 8, 21);
+        // Per side: script calls and box calls.
+        let mut on = [[0usize; 2]; 2];
+        for g in 0..4 {
+            let res = quick_game(&teams[g * 2], &teams[g * 2 + 1], level, 4_400_011 + g as u64);
+            for r in &res.stats.plays {
+                if r.call_why == "the opening script" {
+                    on[r.offense][0] += 1;
+                }
+                if r.call_why == "on the call sheet" {
+                    on[r.offense][1] += 1;
+                }
+            }
+        }
+        for (side, n) in on.iter().enumerate() {
+            println!("{level:?} side {side}: {} script calls, {} box calls in 4 games", n[0], n[1]);
+            if level == Level::HS {
+                assert_eq!(*n, [0, 0], "a high school AI staff drafts no sheet at kickoff");
+            } else {
+                assert!(n[0] >= 8 && n[1] >= 40, "{level:?} side {side} calls from its sheet: {n:?}");
+            }
+        }
+    }
+}

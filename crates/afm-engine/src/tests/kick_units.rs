@@ -119,3 +119,43 @@ fn a_thin_roster_fields_its_kick_units_in_a_blowout() {
         assert_eq!(on.iter().collect::<HashSet<_>>().len(), 8, "a man listed twice: {on:?}");
     }
 }
+
+/// A fake punt is played by the punt units (update 2, G18; R25): the punt
+/// team stays on with its punter against the punt return team, and the
+/// ball goes to the up-back, never the punter or a quarterback.
+#[test]
+fn a_fake_punt_is_played_by_the_punt_units() {
+    for level in [Level::FBS, Level::NFL] {
+        let mut teams = synthetic_league(level, 32, 13);
+        for t in teams.iter_mut() {
+            t.prep.teams.fake = 2;
+        }
+        let mut fakes = 0;
+        for g in 0..16 {
+            let (h, a) = (g * 2, g * 2 + 1);
+            let res = quick_game(&teams[h], &teams[a], level, 7_300_003 + g as u64);
+            for r in res.stats.plays.iter().filter(|r| r.call_why.starts_with("a fake punt") && r.kind == PlayType::Run)
+            {
+                fakes += 1;
+                let o = [h, a][r.offense];
+                let pos = |id: u32| teams[o].players.iter().find(|p| p.id == id).map(|p| p.position);
+                assert_eq!(r.on_field[0].len(), 11, "{level:?} game {g}: the punt team");
+                assert_eq!(r.on_field[1].len(), 11, "{level:?} game {g}: the return team");
+                assert!(r.on_field[0].iter().any(|&id| pos(id) == Some(Position::P)), "{level:?} game {g}: no punter");
+                assert!(
+                    r.on_field[0].iter().all(|&id| pos(id) != Some(Position::QB)),
+                    "{level:?} game {g}: a quarterback"
+                );
+                let c = r.carrier.expect("the up-back carries");
+                assert!(r.on_field[0].contains(&c), "{level:?} game {g}: the carrier is on the punt team");
+                assert!(
+                    !matches!(pos(c), Some(Position::P | Position::QB)),
+                    "{level:?} game {g}: {:?} carried",
+                    pos(c)
+                );
+                assert_eq!(r.personnel, "punt");
+            }
+        }
+        assert!(fakes >= 4, "{level:?}: only {fakes} fake punts in 16 games");
+    }
+}

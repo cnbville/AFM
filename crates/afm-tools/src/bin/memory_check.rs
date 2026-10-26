@@ -19,6 +19,14 @@ fn main() {
     // AFM_ENGINE_FROM=year plays the history's games on the stand-in before
     // that year: quick checks only, the people stores are the same size.
     let engine_from = std::env::var("AFM_ENGINE_FROM").ok().and_then(|v| v.parse().ok());
+    // AFM_SHEET=none: no staff drafts a call sheet at kickoff, to time what
+    // the drafts cost the history (every staff drafts one in the game).
+    // AFM_SHEET=every: high school staffs too (the game: college and NFL).
+    match std::env::var("AFM_SHEET").as_deref() {
+        Ok("none") => afm_engine::game::sheet::KICKOFF.store(0, std::sync::atomic::Ordering::Relaxed),
+        Ok("every") => afm_engine::game::sheet::KICKOFF.store(1, std::sync::atomic::Ordering::Relaxed),
+        _ => {}
+    }
     println!(
         "sizes: person {} B, player {} B, attributes {} B, season record {} B",
         std::mem::size_of::<afm_engine::world::Person>(),
