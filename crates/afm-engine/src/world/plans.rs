@@ -104,6 +104,26 @@ pub const CUT: u8 = 4;
 pub const YOURS: u8 = 8;
 pub const WET: u8 = 16;
 
+/// A box holds the plays his play caller calls there: enough for this
+/// share of his calls, the box's own size at least and a card's room at
+/// most (an offense box a hash, a defense box; proposed, not confirmed).
+pub const COVER: f64 = 0.98;
+pub const BOX_MAX: usize = 30;
+pub const DBOX_MAX: usize = 12;
+
+/// How many of a box's plays, most called first, hold `share` of his calls.
+fn cover<T>(counts: &[(T, f64)], share: f64) -> usize {
+    let total: f64 = counts.iter().map(|x| x.1).sum();
+    let mut acc = 0.0;
+    for (i, x) in counts.iter().enumerate() {
+        acc += x.1;
+        if acc >= share * total - 1e-9 {
+            return i + 1;
+        }
+    }
+    counts.len()
+}
+
 /// The sheet's six parts, for your review.
 pub const PARTS: [&str; 6] = [
     "Opening script",
@@ -1003,6 +1023,11 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
         for hash in if by_hash(k) { vec![1u8, 2] } else { vec![0u8] } {
             let want = if hash == 0 { n } else { n.div_ceil(2) };
             let mut counts: Vec<(SheetPlay, f64)> = Vec::new();
+            // The script is his own first calls in its order (your notes
+            // weigh which of them he keeps): his whole game in the share he
+            // calls it, not his few most-called plays.
+            let mut raw: Vec<SheetPlay> = Vec::new();
+            let top = runs_f.max(pass_f) * if fav_first { 2.5 } else { 1.0 };
             for i in 0..140 {
                 let s = &sits[i % sits.len()];
                 let c = crate::game::calling::call_offense(&staff, &mem, s, &ctx, &mut rng);
@@ -1017,12 +1042,28 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
                 if fav_first && matches!(p.play, SheetKind::Pass(i) if favs.contains(&(i as usize))) {
                     wt *= 2.5;
                 }
+                if k == sheet::SCRIPT && raw.len() < want && rng.next() * top <= wt {
+                    raw.push(p);
+                }
                 match counts.iter_mut().find(|x| x.0 == p) {
                     Some(x) => x.1 += wt,
                     None => counts.push((p, wt)),
                 }
             }
-            counts.sort_by(|a, b| b.1.total_cmp(&a.1));
+            {
+                // One line a play, in his most used formation for it, with
+                // the weight of all of them: a box says which play.
+                counts.sort_by(|a, b| b.1.total_cmp(&a.1));
+                let mut plays: Vec<(SheetPlay, f64)> = Vec::new();
+                for (p, w) in counts {
+                    match plays.iter_mut().find(|x| x.0.play == p.play) {
+                        Some(x) => x.1 += w,
+                        None => plays.push((p, w)),
+                    }
+                }
+                plays.sort_by(|a, b| b.1.total_cmp(&a.1));
+                counts = plays;
+            }
             // Never empty: a box with no fitting calls takes the base call.
             if counts.is_empty() {
                 let f = Formation::plain(Personnel::P11, Backfield::Shotgun, 1.0);
@@ -1032,7 +1073,13 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
                     1.0,
                 ));
             }
-            for (i, p) in mix(counts, want).into_iter().enumerate() {
+            let want = if matches!(k, sheet::SCRIPT | sheet::SHOTS | sheet::TWO_POINT) {
+                want
+            } else {
+                want.max(cover(&counts, COVER)).min(BOX_MAX)
+            };
+            let list = if k == sheet::SCRIPT && !raw.is_empty() { raw } else { mix(counts, want) };
+            for (i, p) in list.into_iter().enumerate() {
                 let mut marks = 0;
                 if matches!(p.play, SheetKind::Pass(c) if favs.contains(&(c as usize))) {
                     marks |= FAV;
@@ -1165,6 +1212,7 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
         if counts.is_empty() {
             counts.push(((Coverage::Cover1, Pressure::LbBlitz), 1.0));
         }
+        let n = if k == sheet::SHOTS { n } else { n.max(cover(&counts, COVER)).min(DBOX_MAX) };
         for ((c, p), _) in counts.into_iter().take(n) {
             def.push(Entry {
                 k,
@@ -1523,8 +1571,8 @@ pub fn add_to_box(w: &mut World, side: usize, k: u8, wet: u8, play: Play) -> Res
     let d = w.plans.draft.as_mut().ok_or("No draft.")?;
     let list = if side == 0 { &mut d.off } else { &mut d.def };
     let count = list.iter().filter(|e| e.k == k && e.marks & WET == wet).count();
-    if count >= 12 {
-        return Err("Twelve plays a box at most: a call sheet is one card.".into());
+    if count >= BOX_MAX {
+        return Err("Thirty plays a box at most: a call sheet is one card.".into());
     }
     list.push(Entry { k, play, why: "your call".into(), tests: String::new(), marks: YOURS | wet });
     let n = &mut d.edits[side.min(1)][part_of(k)];

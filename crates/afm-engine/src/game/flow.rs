@@ -654,6 +654,10 @@ enum Next {
     Scrimmage,
 }
 
+/// A fake punt's two units on the field, by their scrimmage roles, and
+/// whether the return unit showed the look (G18).
+type FakeUnits = (Vec<(ORole, usize)>, Vec<(DSlot, usize)>, bool);
+
 struct Game<'a> {
     s: &'a GameSetup<'a>,
     sides: [Side<'a>; 2],
@@ -734,7 +738,7 @@ struct Game<'a> {
     kick_look: bool,
     /// A fake punt's two units on the field and the look (G18): the next
     /// scrimmage snap is played with them.
-    fake: Option<(Vec<(ORole, usize)>, Vec<(DSlot, usize)>, bool)>,
+    fake: Option<FakeUnits>,
 }
 
 /// Play a game.
@@ -774,7 +778,7 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
     // the tells in its own, the same draft as yours. Its own key, so the
     // game's stream is the one it was.
     for (k, side) in sides.iter_mut().enumerate() {
-        if side.team.prep.planned || !side.card.is_empty() || !super::sheet::drafts_at_kickoff(k) {
+        if side.team.prep.planned || !side.card.is_empty() || !super::sheet::drafts_at_kickoff(k, setup.rules.level) {
             continue;
         }
         let (opp, own) = if k == 0 { (setup.away, setup.home) } else { (setup.home, setup.away) };
@@ -3109,7 +3113,7 @@ impl<'a> Game<'a> {
         // it, the opening script in order, by the hash, the bad-weather
         // version in bad weather.
         if !self.sides[o].card.sheet.is_empty() {
-            let ctx = super::sheet::Ctx {
+            let sctx = super::sheet::Ctx {
                 scripted: self.sides[o].scripted[0],
                 hash: super::sheet::hash_of(self.ball_y),
                 wet: self.bad_weather(),
@@ -3117,7 +3121,9 @@ impl<'a> Game<'a> {
                 hurry: sit.hurry(),
                 forced: run.is_some(),
             };
-            if let Some((c, _)) = super::sheet::off_call(&self.sides[o].card, &sit, &call, ctx, &mut self.rng) {
+            let side = &self.sides[o];
+            let again = |rng: &mut Rng| calling::call_offense(&staff_o, &side.mem, &sit, &ctx, rng);
+            if let Some((c, _)) = super::sheet::off_call(&side.card, &sit, &call, sctx, &mut self.rng, again) {
                 call = c;
             }
         }
@@ -3189,8 +3195,11 @@ impl<'a> Game<'a> {
                 scripted: self.sides[1 - o].scripted[1],
                 tipped: dctx.tip != 0.0,
             };
+            let side = &self.sides[1 - o];
+            let formation = call.formation;
+            let again = |rng: &mut Rng| calling::call_defense(&staff_d, &side.mem, &sit, &formation, &dctx, rng);
             if let Some((c, scripted)) =
-                super::sheet::def_call(&self.sides[1 - o].card, &sit, &dcall, dctx_sheet, &mut self.rng)
+                super::sheet::def_call(&side.card, &sit, &dcall, dctx_sheet, &mut self.rng, again)
             {
                 dcall = c;
                 self.def_script = scripted;

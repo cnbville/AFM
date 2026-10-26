@@ -1591,13 +1591,12 @@ fn punt_spot(f: &Formation, r: ORole, los: f64, by: f64, level: crate::Level) ->
 /// back five yards off the ball. In `s.defense` order.
 fn return_spots(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2> {
     let (los, by) = (s.los, s.ball_y);
-    let deep = match s.rules.level {
+    let deep: f64 = match s.rules.level {
         crate::Level::NFL => 40.0,
         crate::Level::HS => 32.0,
         _ => 38.0,
-    }
-    .min(goal() - los - 10.0)
-    .max(8.0);
+    };
+    let deep = deep.min(goal() - los - 10.0).max(8.0);
     let mut gunners: Vec<V2> =
         (0..agents.len()).filter(|&i| matches!(roles[i], Some(ORole::X | ORole::Z))).map(|i| agents[i].pos).collect();
     let mut extra = 0.0;
@@ -1607,10 +1606,11 @@ fn return_spots(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2> 
             DSlot::FS => v2(los + deep, by),
             DSlot::CBL | DSlot::CBR | DSlot::NCB | DSlot::DCB => {
                 let want = if d == DSlot::CBR { -1.0 } else { 1.0 };
-                let k = gunners
-                    .iter()
-                    .position(|g| (g.y - by) * want > 0.0)
-                    .or(if gunners.is_empty() { None } else { Some(0) });
+                let k = gunners.iter().position(|g| (g.y - by) * want > 0.0).or(if gunners.is_empty() {
+                    None
+                } else {
+                    Some(0)
+                });
                 match k {
                     Some(k) => {
                         let g = gunners.remove(k);
@@ -1655,9 +1655,10 @@ fn return_jobs(sim: &mut Sim, s: &Snap, off_n: usize, slots: &[Option<DSlot>], r
         sim.agents[i].job = match slot {
             DSlot::FS => Job::Zone { spot: me, deep: true, width: 20.0, matched: false },
             DSlot::CBL | DSlot::CBR | DSlot::NCB | DSlot::DCB => {
-                let near = gunners.iter().copied().min_by(|&a, &b| {
-                    sim.agents[a].pos.dist(me).total_cmp(&sim.agents[b].pos.dist(me))
-                });
+                let near = gunners
+                    .iter()
+                    .copied()
+                    .min_by(|&a, &b| sim.agents[a].pos.dist(me).total_cmp(&sim.agents[b].pos.dist(me)));
                 match near {
                     Some(g) => {
                         gunners.retain(|&x| x != g);

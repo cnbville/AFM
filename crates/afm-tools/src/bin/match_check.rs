@@ -211,18 +211,19 @@ fn main() {
     if std::env::var("AFM_TRACE").is_ok() {
         afm_engine::game::sim::TRACE.store(true, std::sync::atomic::Ordering::Relaxed);
     }
-    // Every team's coordinators draft a call sheet at kickoff (the game's
-    // rule). AFM_SHEET=none plays with no sheets, AFM_SHEET=home with the
-    // home team's only; the home-side block below sets each against the
-    // others.
+    // College and NFL coordinators draft a call sheet at kickoff (the
+    // game's rule). AFM_SHEET=every has high school staffs draft too,
+    // AFM_SHEET=none plays with no sheets, AFM_SHEET=home with the home
+    // team's only; the home-side block below sets each against the others.
     let sheet = std::env::var("AFM_SHEET").ok();
     let mode = match sheet.as_deref() {
         Some("none") => 0,
         Some("home") => 2,
-        _ => 1,
+        Some("every") => 1,
+        _ => 3,
     };
     afm_engine::game::sheet::KICKOFF.store(mode, std::sync::atomic::Ordering::Relaxed);
-    let mode_name = ["none", "every team", "home only"][mode as usize];
+    let mode_name = ["none", "every team", "home only", "college and NFL teams"][mode as usize];
     // What a kickoff draft costs: one team's sheet from the other's film,
     // on one core.
     {
@@ -231,6 +232,7 @@ fn main() {
         let n = 64;
         let t = std::time::Instant::now();
         let mut boxes = 0;
+        let (mut plays, mut dboxes, mut dplays) = (0, 0, 0);
         for k in 0..n {
             let (h, a) = pair(k);
             let inp = DraftIn {
@@ -243,10 +245,20 @@ fn main() {
                 tells: film_tells(&teams[h].film),
                 designs: Vec::new(),
             };
-            boxes += kickoff_card(&teams[h], &inp).sheet.len();
+            let card = kickoff_card(&teams[h], &inp);
+            boxes += card.sheet.len();
+            plays += card.sheet.iter().map(|b| b.1.len()).sum::<usize>();
+            dboxes += card.dsheet.len();
+            dplays += card.dsheet.iter().map(|b| b.1.len()).sum::<usize>();
         }
         let ms = t.elapsed().as_secs_f64() * 1000.0 / n as f64;
-        println!("kickoff sheet: {ms:.2} ms to draft on one core ({:.1} offense boxes a sheet)", boxes as f64 / n as f64);
+        println!(
+            "kickoff sheet: {ms:.2} ms to draft on one core ({:.1} offense boxes a sheet, {:.1} plays a box; {:.1} defense boxes, {:.1} calls a box)",
+            boxes as f64 / n as f64,
+            plays as f64 / boxes.max(1) as f64,
+            dboxes as f64 / n as f64,
+            dplays as f64 / dboxes.max(1) as f64
+        );
     }
     // AFM_FAKE=1 gives every team the fake punt "if the look shows",
     // AFM_FAKE=2 "called" (the first chance); the fakes are counted below.
@@ -896,13 +908,20 @@ fn main() {
         // without it, and how many made the line to gain.
         let mut fk = [[0.0f64; 3]; 2];
         for r in &results {
-            for p in r.stats.plays.iter().filter(|p| p.call_why.starts_with("a fake punt")) {
+            for p in r.stats.plays.iter().filter(|p| p.call_why.starts_with("a fake punt") && p.kind == PlayType::Run) {
                 let k = p.look as usize;
                 fk[k][0] += 1.0;
                 fk[k][1] += (p.first_down || p.touchdown) as u8 as f64;
                 fk[k][2] += p.yards;
             }
         }
+        let f: Vec<u64> =
+            afm_engine::game::sheet::FOUND.iter().map(|x| x.load(std::sync::atomic::Ordering::Relaxed)).collect();
+        let share = |a: &[u64]| {
+            let n = a.iter().sum::<u64>().max(1) as f64;
+            a.iter().map(|&x| format!("{:.3}", x as f64 / n)).collect::<Vec<_>>().join(" / ")
+        };
+        println!("box calls: offense own / second thought / closest {}, defense {}", share(&f[..3]), share(&f[3..]));
         for (k, name) in [(1, "with the look"), (0, "without it")] {
             if fk[k][0] > 0.0 {
                 println!(
