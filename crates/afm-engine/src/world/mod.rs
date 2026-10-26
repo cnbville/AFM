@@ -12,11 +12,13 @@
 //! game is decided from the two teams' starters, with home field and luck.
 
 pub mod background;
+pub mod broadcast;
 pub(crate) mod chemistry;
 pub(crate) mod clock;
 pub mod coach;
 pub(crate) mod college;
 pub mod data;
+pub mod deals;
 pub mod desk;
 pub mod eligibility;
 pub mod ethnicity;
@@ -36,7 +38,7 @@ pub mod looks;
 pub mod names;
 pub mod ncaa;
 pub mod news;
-mod nfl_year;
+pub(crate) mod nfl_year;
 pub mod norms;
 pub use nfl_year::NflTeamSeason;
 
@@ -53,6 +55,7 @@ pub(crate) mod recruiting;
 pub mod schedule;
 pub mod scouting;
 pub(crate) mod season;
+pub mod season_page;
 pub mod seat;
 pub mod staff;
 pub mod staff_read;
@@ -811,6 +814,17 @@ pub struct World {
     /// scheme, your guys, the Hall of Fame race and each level's five.
     #[serde(default)]
     pub legacy: legacy::Legacy,
+    /// The schedule page (update 2, lane 6): non-conference games under
+    /// contract for the seasons ahead, last season's polls and NFL season,
+    /// and your own team's past seasons kept small.
+    #[serde(default)]
+    pub(crate) deals: Vec<deals::Deal>,
+    #[serde(default)]
+    pub(crate) prev_polls: Vec<college::Poll>,
+    #[serde(default)]
+    pub(crate) nfl_prev: Option<nfl_year::NflSeason>,
+    #[serde(default)]
+    pub(crate) kept_schedules: Vec<season_page::KeptSeason>,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -1142,6 +1156,10 @@ impl World {
             level_scales: Vec::new(),
             storylines: Default::default(),
             legacy: Default::default(),
+            deals: Vec::new(),
+            prev_polls: Vec::new(),
+            nfl_prev: None,
+            kept_schedules: Vec::new(),
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);
@@ -1237,6 +1255,9 @@ impl World {
             "last college season" => self.college_prev = None,
             "high school season" => self.hs_season = None,
             "NFL season" => self.nfl_season = None,
+            "last NFL season" => self.nfl_prev = None,
+            "deals" => self.deals = Vec::new(),
+            "kept schedules" => self.kept_schedules = Vec::new(),
             "portal market" => self.portal_market = None,
             "announcements" => self.announcements = Vec::new(),
             "searches" => self.searches = Vec::new(),

@@ -76,6 +76,31 @@ fn team_ref(level: CalLevel, t: usize) -> TeamRef {
     }
 }
 
+/// Your staff's report on any team you play, from the tapes you hold of it
+/// (the schedule page's scouting link, update 2, lane 6): the same report
+/// as game week's for your next opponent.
+pub(crate) fn scout_report(w: &World, opp: usize) -> Option<Value> {
+    let (level, t) = w.seat_team()?;
+    let tapes = w.tapes_of(opp);
+    let names = names(w, &[team_ref(level, t), team_ref(level, opp)]);
+    // Seeded by what is held: game week's seed for your next opponent, so
+    // both reports agree, and the newest tape's date for anyone else, so
+    // the figures hold from day to day until a new tape comes in.
+    let date = next_game(w)
+        .filter(|n| n.opp == opp)
+        .map(|n| n.date)
+        .or_else(|| tapes.first().map(|t| t.date))
+        .unwrap_or(w.today);
+    Some(film::report(
+        &tapes,
+        opp,
+        w.seat_film_study(),
+        w.options.seed ^ (date.0 as u32).rotate_left(9),
+        &names,
+        Vec::new(),
+    ))
+}
+
 /// Every player on both teams' books: id to (name, position).
 pub(crate) fn names(w: &World, teams: &[TeamRef]) -> film::Names {
     let mut m = HashMap::new();

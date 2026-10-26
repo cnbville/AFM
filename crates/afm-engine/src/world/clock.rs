@@ -534,6 +534,9 @@ fn year_start(w: &mut World) {
     let year = w.year;
     super::scouting::dept::prune(w);
     w.rules = w.changes.rules(year);
+    // Your team's season as its schedule page showed it (update 2, lane 6),
+    // kept before any conference moves.
+    super::season_page::keep_seat_season(w);
     // Conference moves announced last year take effect.
     super::finance::college::switch(w);
     // The real moves of the season (college history, through 2026).
@@ -541,12 +544,19 @@ fn year_start(w: &mut World) {
     w.college_prev = w.college.take();
     w.college = Some(college::new_season(w));
     if let Some(prev) = w.college_prev.as_mut() {
+        w.prev_polls = std::mem::take(&mut prev.polls);
         college::keep_for_next_year(prev);
     }
-    super::hs_playoffs::reclassify(w);
+    // The athletic directors fill their open dates for the seasons ahead.
+    super::deals::top_up(w);
+    // States realign for a two-year cycle (update 2, lane 6).
+    if year == super::hs_year::cycle_start(year) || w.hs_season.is_none() {
+        super::hs_playoffs::reclassify(w);
+    }
     super::voters::year_start(w);
     w.hs_season = Some(hs_year::new_season(w));
-    w.nfl_season = Some(nfl_year::new_season(w));
+    let nfl = nfl_year::new_season(w);
+    w.nfl_prev = w.nfl_season.replace(nfl);
     super::franchise::year_start(w);
     let y = w.dates.clone();
     // The year's fixed dates on the calendar (T1.3).
