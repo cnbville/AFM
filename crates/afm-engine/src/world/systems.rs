@@ -199,10 +199,15 @@ pub fn overlap(kind: Kind, a: usize, b: usize) -> f64 {
 /// A player's score in what one system asks of his position (weighted
 /// attributes; body weight for a two-gap nose).
 fn score(p: &Player, pos: Position, slot: usize) -> f64 {
+    score_by(|x| p.attributes.get(x), p.body.weight, pos, slot)
+}
+
+/// `score` with the attributes as `a` gives them (the truth, or a staff's
+/// read) and his body weight.
+fn score_by(a: impl Fn(Attr) -> f64, weight: f64, pos: Position, slot: usize) -> f64 {
     use Position as P;
-    let a = |x: Attr| p.attributes.get(x);
     let mix = |w: &[(Attr, f64)]| w.iter().map(|&(x, v)| a(x) * v).sum::<f64>();
-    let heavy = clamp((p.body.weight - 250.0) / 1.2, 20.0, 99.0);
+    let heavy = clamp((weight - 250.0) / 1.2, 20.0, 99.0);
     match (pos, slot) {
         (P::QB, 0) => {
             mix(&[(ShortAccuracy, 0.3), (Decisions, 0.2), (Anticipation, 0.2), (QuickRelease, 0.15), (Footwork, 0.15)])
@@ -356,6 +361,69 @@ pub fn fits(p: &Player, pos: Position, norms: &SystemNorms) -> [f64; 11] {
         }
     }
     f
+}
+
+/// A player's fit to what a team runs as a staff reads it (the NFL search's
+/// "Scheme fit"): `fits` and `fit_to` with his attributes as `a` gives them
+/// (your scouts' file) and his listed weight. None when the file hasn't
+/// seen an attribute the systems ask about, or his position plays in none.
+pub fn read_fit(
+    w: &World,
+    pos: Position,
+    weight: f64,
+    a: impl Fn(Attr) -> Option<f64>,
+    inst: &Installed,
+) -> Option<f64> {
+    let k = kinds(pos);
+    if k.is_empty() {
+        return None;
+    }
+    let missing = std::cell::Cell::new(false);
+    let get = |x: Attr| {
+        a(x).unwrap_or_else(|| {
+            missing.set(true);
+            50.0
+        })
+    };
+    let norms = &w.system_norms[pos.index()];
+    let mut f = [0.0; 11];
+    for &kind in k {
+        let r = kind.range();
+        let mut buf = [0.0; 11];
+        let s = &mut buf[..r.len()];
+        for (i, slot) in r.clone().enumerate() {
+            s[i] = score_by(get, weight, pos, slot) - norms[slot];
+        }
+        let mean = s.iter().sum::<f64>() / s.len() as f64;
+        for (i, slot) in r.enumerate() {
+            f[slot] = clamp((s[i] - mean) / 10.0, -1.5, 1.5);
+        }
+    }
+    (!missing.get()).then(|| fit_to(&f, pos, inst))
+}
+
+/// The system a position plays in for a team, in words ("4-3", "Cover 3",
+/// "West Coast"): the front for the front seven, the coverage for the
+/// secondary, the offense for the offense. None for specialists.
+pub fn system_words(pos: Position, inst: &Installed) -> Option<&'static str> {
+    let k = kinds(pos);
+    if k.contains(&Kind::Offense) {
+        Some(inst.offense().name())
+    } else if k.contains(&Kind::Front) {
+        Some(match inst.front() {
+            Front::FourThree => "4-3",
+            Front::ThreeFour => "3-4",
+        })
+    } else if k.contains(&Kind::Shell) {
+        Some(match inst.shell() {
+            Shell::Cover3 => "Cover 3",
+            Shell::Quarters => "quarters",
+            Shell::ManPressure => "man and pressure",
+            Shell::Cover2 => "Cover 2",
+        })
+    } else {
+        None
+    }
 }
 
 /// His fit to what a program runs now (S6): the mean over the kinds his

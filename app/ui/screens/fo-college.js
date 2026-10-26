@@ -128,6 +128,7 @@ screens.recruit_board = async (a) => {
   setColors(x.team.colors);
   const k = keep("fcb", { tab: "targets", sel: null, order: "mine", cls: "next", pos: "ALL" });
   if (a && a.id) { k.sel = a.id; k.tab = "targets"; }
+  if (a && a.tab) { k.tab = a.tab; a.tab = null; }
   const c = x.class;
   const yours = x.duties.list.find((d) => d.key === "board").yours;
   const year = c.year;
@@ -152,7 +153,7 @@ screens.recruit_board = async (a) => {
   let body = "";
   if (k.tab === "targets") body = await fcTargets(x, k);
   else if (k.tab === "board") body = fcBoardTable(x, k, yours);
-  else if (k.tab === "map") body = await fcMap(x);
+  else if (k.tab === "map") body = await fcMap();
   else body = fcPlan(x);
   return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · ${esc(x.conference)} · Recruiting`, title: `Class of ${year}`, line: heroLine, sub, big: String(year).slice(2), panel })}
   <div class="pad fc-pad">
@@ -163,74 +164,11 @@ screens.recruit_board = async (a) => {
 };
 
 // ---------- the map (screens topic 7) ----------
-// The country as a tile map, one tile a state where it sits: your board by
-// state, every rated prospect, your conference rivals' commits, or your
-// assistants' recruiting areas. A state's tile opens its file beside it:
-// who recruits it for you (yours to change) and the top names there.
-const FC_TILES = { AK: [0, 0], ME: [11, 0], WI: [6, 1], VT: [10, 1], NH: [11, 1], WA: [1, 2], ID: [2, 2], MT: [3, 2], ND: [4, 2], MN: [5, 2], IL: [6, 2], MI: [7, 2], NY: [9, 2], MA: [10, 2], OR: [1, 3], NV: [2, 3], WY: [3, 3], SD: [4, 3], IA: [5, 3], IN: [6, 3], OH: [7, 3], PA: [8, 3], NJ: [9, 3], CT: [10, 3], RI: [11, 3], CA: [1, 4], UT: [2, 4], CO: [3, 4], NE: [4, 4], MO: [5, 4], KY: [6, 4], WV: [7, 4], VA: [8, 4], MD: [9, 4], DE: [10, 4], AZ: [2, 5], NM: [3, 5], KS: [4, 5], AR: [5, 5], TN: [6, 5], NC: [7, 5], SC: [8, 5], DC: [9, 5], OK: [4, 6], LA: [5, 6], MS: [6, 6], AL: [7, 6], GA: [8, 6], HI: [0, 7], TX: [4, 7], FL: [9, 7] };
-// Each assistant's area in its own quiet tint.
+// The real map of the country (board 7, update 2 lane 7): screens/boards.js
+// draws it. Each assistant's area keeps its own quiet tint there.
 const FC_AREA = ["#8fb3d9", "#d9a86c", "#9ccf9a", "#d98f8f", "#b89ad9", "#d9cf7a", "#7fcfc4", "#d99ac2", "#a8b0bd"];
-async function fcMap(x) {
-  const m = await api("recruit_map");
-  const k = keep("fcm", { mode: "board", st: m.home });
-  const by = Object.fromEntries(m.states.map((s) => [s.code, s]));
-  if (!by[k.st]) k.st = m.home;
-  const areaIx = Object.fromEntries(m.staff.map((c, i) => [c.id, i]));
-  const modes = [
-    ["board", "Your board", "players your staff is recruiting", "on the board"],
-    ["all", "All talent", "every prospect the services rate three stars and up", "rated prospects"],
-    ["rivals", `${m.conference} rivals`, `where the other ${m.rivals_n} are getting commitments`, "commits"],
-    ["areas", "Staff areas", "the assistant who recruits each state", "on the board"],
-  ];
-  const mode = modes.find((d) => d[0] === k.mode) || modes[0];
-  const val = (s) => (k.mode === "all" ? s.all : k.mode === "rivals" ? s.rivals : s.board);
-  const max = Math.max(1, ...m.states.map(val));
-  const total = m.states.reduce((a, s) => a + val(s), 0);
-  const tiles = Object.entries(FC_TILES).map(([code, [c, r]]) => {
-    const s = by[code] || { code, board: 0, commits: 0, all: 0, rivals: 0 };
-    const n = val(s);
-    let bg;
-    if (k.mode === "areas") {
-      const ix = s.coach ? areaIx[s.coach.id] : undefined;
-      bg = ix == null ? "var(--fill-1)" : `color-mix(in oklab, ${FC_AREA[ix % FC_AREA.length]} ${n ? 46 : 22}%, var(--raised))`;
-    } else bg = n ? `color-mix(in oklab, var(--fg) ${Math.round(6 + Math.sqrt(n / max) * 30)}%, var(--raised))` : "var(--fill-1)";
-    const dots = k.mode === "board" || k.mode === "areas" ? Math.min(s.commits || 0, 6) : 0;
-    const sub = k.mode === "areas" && s.coach ? initials(s.coach.name) : "";
-    return `<button class="fc-tile-st ${code === k.st ? "on" : ""} ${n ? "" : "none"}" style="grid-column:${c + 1};grid-row:${r + 1};background:${bg}" data-fc="mapst" data-v="${code}" aria-label="${esc(STATE_NAMES[code] || code)}: ${n} ${esc(mode[3])}">
-      <span class="fc-tile-code">${code}${code === m.home ? " ★" : ""}</span><b class="st-cond">${n || ""}</b><span class="fc-tile-foot">${sub ? `<small>${esc(sub)}</small>` : ""}${dots ? `<i>${"<em></em>".repeat(dots)}</i>` : ""}</span></button>`;
-  }).join("");
-  const scale = k.mode === "areas"
-    ? `<div class="fc-map-key">${m.staff.map((c, i) => `<span><em style="background:${FC_AREA[i % FC_AREA.length]}"></em>${esc(c.name.split(" ").slice(-1)[0])} <small>${c.states.length}</small></span>`).join("")}</div>`
-    : `<div class="fc-map-key"><span class="st-cond">0</span><span class="fc-map-ramp"></span><span class="st-cond">${max}</span><span>${esc(mode[3])}</span>${k.mode === "board" ? '<span><em class="gold"></em>one commit</span>' : ""}<span class="sub">Pick a state for its names and who covers it</span></div>`;
-  const s = by[k.st] || { code: k.st, board: 0, commits: 0, offers: 0, leaning: 0, all: 0, rivals: 0, top: [] };
-  const sum = (f) => m.states.reduce((a, x) => a + (x[f] || 0), 0);
-  const cover = s.coach
-    ? `${coachLink(s.coach.id, s.coach.name)} <small class="sub">${esc(s.coach.job)}${s.set ? "" : ", the staff's own split"}</small>`
-    : '<span class="sub">Nobody: your staff has no on-field assistants</span>';
-  const pick = m.staff.length
-    ? `<select class="fc-select" data-fcarea="${s.code}" aria-label="Who recruits ${esc(STATE_NAMES[s.code] || s.code)}"><option value="">The staff's own split</option>${m.staff.map((c) => `<option value="${c.id}" ${s.set && s.coach && s.coach.id === c.id ? "selected" : ""}>${esc(c.name)}, ${esc(c.job.toLowerCase())} (${c.states.length})</option>`).join("")}</select>`
-    : "";
-  const kv = [
-    ["On your board", s.board],
-    ["Committed to you", s.commits, s.commits ? "good" : ""],
-    ["Offers out", s.offers],
-    ["Leaning elsewhere", s.leaning, s.leaning ? "warn" : ""],
-    ["Rated prospects", s.all],
-    [`${m.conference} rivals' commits`, s.rivals],
-  ].map(([t, v, tone]) => `<dt>${esc(t)}</dt><dd class="${tone ? "fc-" + tone : ""}">${v}</dd>`).join("");
-  const names = s.top.length
-    ? `<div class="fc-map-names">${s.top.map((p) => `<div class="fc-map-name"><span><b>${playerLink(p.id, p.name)}</b><small>${esc(p.town)}</small></span><span class="sub">${esc(p.pos)}</span>${fcStars(p.stars)}<span class="fc-map-word ${fcTone(p.tone)}">${esc(p.words)}</span></div>`).join("")}</div>`
-    : `<div class="empty">${s.board ? `${s.board} on your board, none in this class.` : `Nobody from ${esc(STATE_NAMES[s.code] || s.code)} is on your board.`} ${fcLink("recruit_find", "Find recruits there", { state: s.code })}</div>`;
-  return `<div class="fc-map">
-    <section class="panel fc-map-main"><div class="fc-map-head"><h2>${esc(mode[1])} by state <small>${esc(mode[2])} · class of ${m.year}</small></h2>${fcSeg("fcm", "mode", modes.map((d) => [d[0], d[1]]), k.mode)}</div>
-      <div class="fc-tilemap">${tiles}</div>${scale}
-      <div class="sub fc-map-total">${total} ${esc(mode[3])} in all${k.mode === "board" ? ` · ${sum("commits")} committed · ${sum("offers")} offers out` : ""}</div></section>
-    <aside class="fc-map-side">
-      <div class="panel"><h2>${esc(STATE_NAMES[s.code] || s.code)} <small>${s.code === m.home ? "your home state" : `class of ${m.year}`}</small></h2>
-        <div class="fc-map-cover"><span class="st-label">Recruited by</span><span>${cover}</span>${pick}</div>
-        <dl class="kv">${kv}</dl></div>
-      <div class="panel"><h2>Top names on your board <small>in your order</small></h2>${names}</div>
-    </aside></div>`;
+async function fcMap() {
+  return frMap();
 }
 
 function ordinal(n) {
@@ -296,7 +234,7 @@ function fcFile(f, ctx, compact) {
       </div></div>`;
   const mid = `<div class="fc-mid">
       <div class="fc-block"><div class="fc-h"><span class="st-label">Your staff's read</span>${compact ? fcLink("recruit_file", "Open his full file", { id: f.id }) : playerLink(f.id, "His player page")}</div>${read}</div>
-      <div class="fc-block"><div class="fc-h"><span class="st-label">His interest in ${esc(ctx.team.name)}</span></div>
+      <div class="fc-block"><div class="fc-h"><span class="st-label">His interest in ${esc(ctx.team.name)}</span>${fcLink("recruit_race", "The race, month by month", { id: f.id })}</div>
         <div class="fc-interest ${fcTone(f.tone)}">${fcDot(fcTone(f.tone))}<b>${esc(f.interest)}</b></div><p class="sub">${esc(f.reason)}</p></div>
       <div class="fc-block"><div class="fc-h"><span class="st-label">His top schools</span><small class="sub">${f.schools_n > 1 ? `${f.schools_n} schools after him · ` : ""}as your staff hears it</small></div><div class="fc-schools">${schools}</div></div>
       <div class="fc-next"><span class="st-label">Next contact</span><span>${nextLine}</span></div>
@@ -429,48 +367,14 @@ function fcPlan(x) {
 screens.recruit_file = async (a) => {
   const [f, b] = await Promise.all([api("recruit_file", { id: a.id }), api("recruit_board")]);
   setColors(b.team.colors);
-  const go = fcGoto([["recruit_board", "Recruiting board"], ["visits_desk", "Visits"], ["player", "His player page", { id: f.id }], ["recruit_find", "Find recruits"]]);
+  const go = fcGoto([["recruit_board", "Recruiting board"], ["recruit_race", "The race", { id: f.id }], ["visits_desk", "Visits"], ["player", "His player page", { id: f.id }], ["recruit_find", "Find recruits"]]);
   return `<div class="film"><div class="pad fc-pad">
     <div class="fc-bar"><div><div class="st-label">${teamLink(b.team)} · Recruiting · Class of ${f.class_of}</div><div class="h1">${esc(f.name)}</div></div>${go}</div>
     ${fcFile(f, b, false)}
   </div></div>`;
 };
 
-// ---------- finding recruits ----------
-screens.recruit_find = async (a) => {
-  const k = keep("fcf", { cls: null, pos: "ALL", state: "", stars: 0, q: "", juco: false });
-  // From the map: one state's recruits.
-  if (a && a.state) { k.state = a.state; k.q = ""; }
-  const x = await api("recruit_find", { class: k.cls, pos: k.pos, state: k.state || null, stars: k.stars, q: k.q, juco: k.juco });
-  setColors(x.team.colors);
-  if (k.cls == null) k.cls = x.class;
-  const POS = ["QB", "RB", "WR", "TE", "OT", "IOL", "EDGE", "DT", "LB", "CB", "S", "K", "P", "LS"];
-  const cols = [
-    { k: "name", t: "Recruit", l: true, f: (r) => playerLink(r.id, r.name) },
-    { k: "pos", t: "Pos", l: true },
-    { k: "cls", t: "Class", l: true, v: (r) => r.class_of },
-    { k: "stars", t: "★", f: (r) => fcStars(r.stars) },
-    { k: "nat", t: "Public", l: true, v: (r) => -(r.nat || 9999), f: fcPublic },
-    { k: "school", t: "School · Hometown", l: true, div: true, v: (r) => (r.hs ? r.hs.name : ""), f: (r) => `${fcSchool(r)} <small class="sub">· ${esc(r.town)}</small>` },
-    { k: "ht", t: "Ht", div: true, v: (r) => inches(r.ht) },
-    { k: "wt", t: "Wt" },
-    { k: "read", t: "Read", div: true, tip: "A first look: it narrows once he's on your board", v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) },
-    { k: "interest", t: "Where it stands", l: true, div: true, f: (r) => `<span title="${esc(r.reason)}">${fcDot(fcTone(r.tone))}${esc(r.interest)}</span>` },
-    { k: "offers", t: "Offers" },
-    { k: "act", t: "", l: true, v: (r) => (r.on_board ? 1 : 0), f: (r) => (r.on_board ? `${fcLink("recruit_file", "On your board", { id: r.id })}` : `<button class="st-btn small glass" data-fc="add" data-id="${r.id}">Add to board</button>`) },
-  ];
-  const clsOpts = x.classes.map((c) => [c, String(c)]);
-  const states = `<select class="fc-select" data-fcsel="state" data-fcf="state"><option value="">Every state</option>${x.states.map((s) => `<option value="${s}" ${k.state === s ? "selected" : ""}>${esc(STATE_NAMES[s] || s)}${s === x.home_state ? " (yours)" : ""}</option>`).join("")}</select>`;
-  const pos = `<select class="fc-select" data-fcf="pos"><option value="ALL">Every position</option>${POS.map((p) => `<option ${k.pos === p ? "selected" : ""}>${p}</option>`).join("")}</select>`;
-  return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · Recruiting`, title: "Find recruits", line: `<span><b>${x.total}</b> ${x.total === 1 ? "recruit matches" : "recruits match"}</span>`, sub: "Your staff knows every recruit the services rank, and the unranked kids in your state, your footprint and your pipeline schools." })}
-  <div class="pad fc-pad">
-    <div class="fc-bar"><div class="st-label">${k.juco ? "Junior college players" : `Class of ${k.cls}`}</div>${fcGoto([["recruit_board", "Recruiting board"], ["visits_desk", "Visits"], ["scouting", "Scouting"], ["calendar", "Calendar"]])}</div>
-    <div class="filters">${k.juco ? "" : fcSeg("fcf", "cls", clsOpts, k.cls)}${fcSeg("fcf", "juco", [["0", "High school"], ["1", "Junior college"]], k.juco ? "1" : "0")}${pos}${states}${fcSeg("fcf", "stars", [[0, "Any"], [2, "2★+"], [3, "3★+"], [4, "4★+"], [5, "5★"]], k.stars)}
-      <input class="fc-search" data-fcf="q" placeholder="Name or school" value="${esc(k.q)}"></div>
-    ${table("fcfind", cols, x.rows, { empty: "Nobody matches. Clear a filter to see more.", groups: [{ t: "Recruit", span: 6 }, { t: "Body", span: 2, div: true }, { t: "First look", span: 1, div: true }, { t: "His recruitment", span: 3, div: true }] })}
-    ${x.total > x.rows.length ? `<p class="sub">The first ${x.rows.length} of ${x.total}, by the services' order. Narrow the filters to see the rest.</p>` : ""}
-  </div></div>`;
-};
+// Finding recruits is its own screen now: screens/find.js (update 2, lane 7).
 
 // ---------- visits ----------
 screens.visits_desk = async () => {
@@ -696,9 +600,7 @@ document.addEventListener(
       case "tab": S.keep[d.key].tab = d.v; render(); break;
       case "seg": {
         const k = S.keep[d.key];
-        if (d.key === "fcf" && d.f === "juco") k.juco = d.v === "1";
-        else if (d.f === "stars" || d.f === "cls" && d.key === "fcf") k[d.f] = Number(d.v);
-        else k[d.f] = d.v;
+        k[d.f] = d.v;
         render($(".view").scrollTop);
         break;
       }
@@ -745,12 +647,6 @@ document.addEventListener(
 document.addEventListener("change", (ev) => {
   const t = ev.target;
   if (!t.dataset) return;
-  if (t.dataset.fcf) {
-    const k = S.keep.fcf;
-    k[t.dataset.fcf] = t.value;
-    render();
-    return;
-  }
   if (t.dataset.fcf2) {
     S.keep.fcp[t.dataset.fcf2] = t.value;
     render();
@@ -768,13 +664,5 @@ document.addEventListener("change", (ev) => {
     // A portal offer's money: re-sent with the offer, or saved on it if out.
     const off = t.closest("td") && t.closest("td").querySelector('[data-fc="ppull"]');
     if (off) fcDo("portal_offer", v == null ? { id } : { id, nil: v });
-  }
-});
-// The name search runs on Enter.
-document.addEventListener("keydown", (ev) => {
-  const t = ev.target;
-  if (t.dataset && t.dataset.fcf === "q" && ev.key === "Enter") {
-    S.keep.fcf.q = t.value.trim();
-    render();
   }
 });

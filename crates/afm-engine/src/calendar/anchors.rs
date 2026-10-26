@@ -164,6 +164,18 @@ pub struct YearDates {
     pub senior_bowl: Date,
 }
 
+/// The early signing period's first day, by the season it falls in: the
+/// third Wednesday of December from 2017 to 2023 (Dec 20, 2017 to Dec 20,
+/// 2023), the first Wednesday from 2024 (adopted March 2024; Dec 4, 2024
+/// and Dec 2, 2026); none before 2017.
+pub fn early_signing(s: i32) -> Option<Date> {
+    match s {
+        ..=2016 => None,
+        2017..=2023 => Some(Date::nth_weekday(s, 12, Weekday::Wed, 3)),
+        _ => Some(Date::nth_weekday(s, 12, Weekday::Wed, 1)),
+    }
+}
+
 /// Labor Day: the first Monday of September.
 pub fn labor_day(y: i32) -> Date {
     Date::nth_weekday(y, 9, Weekday::Mon, 1)
@@ -554,15 +566,8 @@ impl YearDates {
         let portal_open = Date::ymd(s + 1, 1, 2);
         let portal_close = Date::ymd(s + 1, 1, 16);
         let declare_deadline = if s + 1 == 2026 { Date::ymd(2026, 1, 14) } else { Date::ymd(s + 1, 1, 15) };
-        // Early signing, by the season it falls in: the third Wednesday of
-        // December from 2017 to 2023 (Dec 20, 2017 to Dec 20, 2023), the first
-        // Wednesday from 2024 (adopted March 2024; Dec 4, 2024 and Dec 2, 2026).
         // February signing is the first Wednesday of February.
-        let early_signing = match s {
-            ..=2016 => None,
-            2017..=2023 => Some(Date::nth_weekday(s, 12, Weekday::Wed, 3)),
-            _ => Some(Date::nth_weekday(s, 12, Weekday::Wed, 1)),
-        };
+        let early_signing = early_signing(s);
         let signing_day = Date::nth_weekday(s + 1, 2, Weekday::Wed, 1);
 
         YearDates {
