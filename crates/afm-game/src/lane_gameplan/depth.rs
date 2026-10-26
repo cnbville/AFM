@@ -182,9 +182,7 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
                     }
                     3 => "rush",
                     _ => {
-                        if k < 2 {
-                            "staff"
-                        } else if series % 3 == 2 {
+                        if k < 2 || series % 3 == 2 {
                             "staff"
                         } else {
                             ""

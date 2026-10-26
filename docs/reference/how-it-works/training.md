@@ -1,6 +1,6 @@
 # Training: how it works today
 
-Checked against main at 94a6553 on 2026-10-25.
+Checked against main at 9a53e5d on 2026-10-26.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. A training build lane may be changing this system on another branch; this page is `main` only.
 
@@ -139,6 +139,8 @@ Set per player through `plans_set` / `set_plan` (`crates/afm-game/src/lane_train
   - Kickoff energy: clamp(1 − 0.06 × (late load / neutral late load − 1), 0.85, 1.0), late load = the three days before the game (`training/work.rs`, `late_load`, `freshness`).
   - Install: the staff's install × sqrt(your prep minutes / neutral prep minutes) clamped 0.75-1.15, then 0.3-1.0 (`training/work.rs`, `prep_minutes`).
   - Playbook installs: team, situations, 7-on-7 and walkthrough minutes × 1.5 reps split over the call sheet's families and your designs; level = 1 − e^(−reps/60). A designed play goes on the sheet only at 0.35 or more (`training/seat.rs`, `install_week`, `prepare`).
+  - Then your guidelines and the week's plan (`world/guide.rs`, `seat_apply`; `world/plans.rs`, `prepare`): the call sheets your coordinators drafted for this game (15 boxes, `SHEET`; each split by hash, `game/sheet.rs`, `key`), extra film tonight +0.04 and an extra walkthrough +0.03 on the player's knowledge of every family for this game, base downs only, snap limits, the line rotation, the packages' 2nd and 3rd strings, and the instructions for this opponent (taken back after it). How the engine uses them is on [play-calling.md](play-calling.md).
+  - The packages' boards include Jumbo (three tight ends outside the goal line) (`training/seat.rs`, `Board::Jumbo`).
 
 ## Offseason and own time
 

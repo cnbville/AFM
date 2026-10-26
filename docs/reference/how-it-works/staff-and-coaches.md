@@ -1,6 +1,6 @@
 # Staff and coaches: how it works today
 
-Checked against main at 94a6553 on 2026-10-25.
+Checked against main at 9a53e5d on 2026-10-26.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. Most of the world side is `world/coach.rs` (the coach) and `world/staff.rs` (jobs, the carousel); your own side is `world/folk/` and `world/front_office/`.
 
@@ -60,7 +60,10 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 
 - Play caller skill (`world/season.rs`, `coach_caller`): base 0.6 scheme + 0.4 game management, × (0.7 + 0.3 × how well he knows the installed system). Reading 0.7 scheme + 0.3 GM, situational 0.7 GM + 0.3 scheme, creativity = scheme, each ± a fixed personal spread; nerve and aggressiveness from ambition.
 - `GameStaff` also carries the head coach's game management, discipline (strictness), sportsmanship and style; film study = 0.35 × (OC + DC scheme) + 7 × facilities (`game_team`).
-- Systems: each spring the coordinator (or HC) installs the system he knows ≥ 0.5 that suits his players best, his read noise 0.8 × (20 − scheme)/10; a switch costs a year of learning (`world/systems.rs`, `spring_install`, `draw`).
+- Systems: each spring the coordinator (or HC) installs the system he knows ≥ 0.5 that suits his players best, his read noise 0.8 × (20 − scheme)/10; a switch costs a year of learning (`world/systems.rs`, `spring_install`, `draw`). The head coach's guideline adds to a system's worth: firm 6, a lean 1.6, his call 0.3 points a game; the coverage guideline up to 4 toward the family whose man share is nearest, fading over 0.35. A lean or firm guideline lets him install a system he knows under 0.5 (`world/guide.rs`, `install_bonus`, `install_wanted`). NFL staffs weigh the same pull in knowledge units, the bonus / 6 (`nfl_bonus`; `world/systems.rs`, `nfl_install`). Your high school installs what your lean or firm guideline asks for (`wanted_install`).
+- Guidelines (`world/guide.rs`, `head_guidelines`): an AI head coach sets one only where he leans clearly: the offense, front or coverage family he knows 0.8+ and 0.15 ahead of the next; pressure when his risk is 3+ from 10 (`habit_pressure`); a run share 0.05 above his best system's habit for a line or backs coach, 0.05 below for a quarterback or receivers coach, + 0.02 N, clamped 0.25-0.65; mixed tempo (no-huddle one in five) for an air raid or spread option man who knows it 0.85+. College and high school linebacker and secondary minds make a nickel front their base (4-2-5, 3-3-5) a quarter and about a third of the time, redrawn every four years. Wing-T never for the AI outside high school (`team_guidelines`).
+- Firmness from his coaching style's mould: 13.5+ firm, 7.5 or less his coordinators' call, else a lean (`firmness`). A head coach calling a side himself has no guideline there; when you call a side, yours there are firm; an assistant's team plays to its head coach's (`team_guidelines`, `firm_side`).
+- A coordinator asked off his systems calls them as well as he knows them: the defensive caller's fit is his knowledge blended toward the family the man guideline moves him to (more man: the man and pressure family; less: the zone family he knows best), by the share of snaps it moves (`man_fit`, `apply`).
 - Quick results (no engine): team strength + (HC game management − 10) × 0.12 (`college_results`).
 - NFL season: staff edge (coaching − 13) / 2.5 (`world/nfl_year.rs`).
 
@@ -160,6 +163,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - `world/coach.rs`: `level_ability`, `generate_coach` spreads, `head_coach_value` weights, `age_one_year` learn and decline weights, `season_reputation` (0.3, 12, 0.6), `title_reputation` (3, 5), `hiring_buzz` (10, 4), `hiring_needs`, `candidate_score`, `evaluation`, `style`.
 - `world/staff.rs`: `salary`, `hotness`, `weigh_offer` part sizes, `early_exit`, `nfl_firing`, `college_review`, `hs_review`, `in_season_firings`, `contract_years`, `buyout_share`, `athletic_budget`, `new_ad`, `ad_turnover`, `candidate_pool` list sizes (15, 10, 40, 3, 8, 5, 2, 20 calls), `schedule_search` lengths, keep shares in `fill_opening`.
 - `world/ethnicity.rs`: `hiring_bias`. `world/systems.rs`: `draw`, `learn_from`, `spring_install`.
+- `world/guide.rs`: `firmness` (13.5, 7.5), `leaning` (0.8, 0.15), the risk band, run lean and nickel shares in `head_guidelines`, `install_bonus` (6, 1.6, 0.3, 4 over 0.35), `wing_fit` (0.75).
 - `world/season.rs`: the coaching blend per stage, `coach_caller`. `development.rs`: `coaching_mult`, `coachability_lean`.
 - `world/folk/staffing.rs`: `deal_terms`, `candidates`, `offer`, `interview_read`. `world/folk/boss.rs`: `review_push`, `booster_push`, `draft_goals`.
 

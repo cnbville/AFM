@@ -768,6 +768,13 @@ fn biases(notes: &[u8]) -> (f64, f64, bool, bool, f64, f64) {
 /// takes your notes. Never empty: every box gets its plays.
 pub fn draft_for(w: &World, next: &Next, notes: [&[u8]; 2], round: u8) -> Option<Draft> {
     let team = our_team(w)?;
+    Some(draft_with(w, &team, next, notes, round))
+}
+
+/// The same draft from a game team in hand: building your team runs
+/// `prepare`, which drafts, so `prepare` hands its own team in rather than
+/// building it again.
+pub fn draft_with(w: &World, team: &GameTeam, next: &Next, notes: [&[u8]; 2], round: u8) -> Draft {
     let film = opp_film(w, next.level, next.opp);
     let college = next.level != Level::Nfl;
     let mut rng = Rng::new(key_of(w, next.date, next.opp, round));
@@ -822,7 +829,7 @@ pub fn draft_for(w: &World, next: &Next, notes: [&[u8]; 2], round: u8) -> Option
                 if matches!(p.play, SheetKind::Pass(c) if favs.contains(&(c as usize))) {
                     marks |= FAV;
                 }
-                if family_know(&team, family_of(&p)) < 0.72 {
+                if family_know(team, family_of(&p)) < 0.72 {
                     marks |= CUT;
                 }
                 let why = off_reason(&p, sheet::key(k, hash), &film, marks, &mut rng);
@@ -1022,7 +1029,7 @@ pub fn draft_for(w: &World, next: &Next, notes: [&[u8]; 2], round: u8) -> Option
         .collect();
     def.extend(dwet);
     let (oc, dc) = callers(w);
-    Some(Draft {
+    Draft {
         game: next.date,
         opp: next.opp,
         drafted: w.today,
@@ -1033,7 +1040,7 @@ pub fn draft_for(w: &World, next: &Next, notes: [&[u8]; 2], round: u8) -> Option
         edits: [[0; 6]; 2],
         notes: [notes[0].to_vec(), notes[1].to_vec()],
         round,
-    })
+    }
 }
 
 fn deep_concept() -> usize {
@@ -1393,7 +1400,7 @@ pub(crate) fn prepare(w: &World, team: &mut GameTeam) {
     // would draft them now: the same draft, keyed by the game).
     let drafted = match (next, w.plans.draft.as_ref()) {
         (Some(n), Some(d)) if d.game == n.date && d.opp == n.opp => Some(d.clone()),
-        (Some(n), _) => draft_for(w, &n, [&[], &[]], 0),
+        (Some(n), _) => Some(draft_with(w, team, &n, [&[], &[]], 0)),
         _ => None,
     };
     let prep = &mut team.prep;
