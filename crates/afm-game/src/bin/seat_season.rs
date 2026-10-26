@@ -594,6 +594,49 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
             }
         }
     }
+    // The player and roster boards (update 2, lane 9A): the depth chart in
+    // the stadium on every tab and formation, a backup moved up and the
+    // spot given back to the staff, the needs map's three falls, the
+    // roster, and the shape, career arc and body boards of a few of your
+    // players and of players the other screens named.
+    if seat != "other" {
+        let tabs = run.call(g, "sb_depth", json!({})).map(|d| d["tabs"].clone()).unwrap_or_default();
+        let mut moved = false;
+        for t in tabs.as_array().into_iter().flatten() {
+            for f in t["forms"].as_array().into_iter().flatten() {
+                let args = json!({ "tab": t["key"], "form": f["key"] });
+                let Some(v) = run.call(g, "sb_depth", args.clone()) else { continue };
+                if moved || f["key"] != json!("offense") {
+                    continue;
+                }
+                let spot = v["slots"].as_array().into_iter().flatten().position(|s| {
+                    s["controls"] == json!(true) && s["picks"][1].is_object() && s["picks"][0].is_object()
+                });
+                if let Some(k) = spot {
+                    let mv = json!({ "tab": t["key"], "form": f["key"], "slot": k, "n": 2 });
+                    run.call(g, "sb_depth_up", mv);
+                    run.call(g, "sb_depth_reset", args);
+                    moved = true;
+                }
+            }
+        }
+        for year in 0..3 {
+            run.call(g, "sb_needs", json!({ "year": year }));
+        }
+        let mut ids: Vec<u64> = run
+            .call(g, "sb_roster", json!({}))
+            .map(|r| {
+                r["rows"].as_array().into_iter().flatten().filter_map(|p| p["id"].as_u64()).step_by(9).take(5).collect()
+            })
+            .unwrap_or_default();
+        // Players whose page opens: the boards are its tabs.
+        ids.extend(players.iter().copied().filter(|&p| g.call("profile", &json!({ "id": p })).is_ok()).take(3));
+        for id in ids {
+            for cmd in ["sb_shape", "sb_arc", "sb_body"] {
+                run.call(g, cmd, json!({ "id": id }));
+            }
+        }
+    }
     for (cmd, args) in extra {
         if let Some(v) = run.call(g, cmd, args.clone()) {
             refs(&v, &mut players, &mut coaches, &mut teams);

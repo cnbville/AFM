@@ -22,6 +22,7 @@ Checked against main at d9ecf1c with update 2 lane 8 on 2026-10-26.
 - How do AI NFL clubs read pros? Overall plus a keyed misread of `draft_board_noise(skill)` × 0.6 / (1 + 0.4 × seasons) (`world/pro/mod.rs`, `grade`; `career.rs`, `draft_board_noise`).
 - Do the services' errors average out? No. A service's misread is lasting (sd 9 points plus 1.6 per year older than his class) and each new look moves its projection only halfway (`world/recruiting.rs`, `service_bias`, `run_signing_stage`).
 - Does a high school coach's call to colleges get a kid stars? No. It raises his visibility by up to 0.12, scaled by your credibility; staffs still judge his film (`world/scouting/hs.rs`, `promos`).
+- Does your staff keep its read of a prospect from year to year? Yes, once a season for the top 300 of your scouting board, the players you keep notes on and your roster: the simple read (`reads.rs`) the player page shows, not the scouting file's (`crates/afm-game/src/lane_squadboards.rs`, `followed`, `read_now`; the ratings page, "Kept reads").
 
 ## Two read systems on screen
 

@@ -1,6 +1,6 @@
 # Body and combine: how it works today
 
-Checked against main at 9a53e5d on 2026-10-26.
+Checked against main at a423e02 on 2026-10-26.
 
 ## Quick answers
 
@@ -17,6 +17,7 @@ Checked against main at 9a53e5d on 2026-10-26.
 - What is the bad-weight event? Ages 18-32, 2.5% a year × a laxness factor: +8-25 lb, speed, acceleration and agility -1 to -3 now and ceilings -0.5 to -2 (`development.rs`, `develop_season`, `WeightGain`).
 - Do high schoolers show arms and hands? No. The page shows arm, hand and wingspan only from college on, combine drills only for declared and pro players who were invited or drafted (`pages.rs`, `measurables`).
 - Lefties? 10% throw left; 60% of lefties and 12% of righties kick left (`body.rs`, `LEFT_HANDED`, `RIGHTY_LEFT_FOOTED`).
+- Where does the Body and testing tab get each number? The first known of: your staff's measuring and testing days (own players), the combine (declared and pro players who were invited, or a pro day for a drafted man who was not), the latest camp, showcase, pro day or combine your scouts saw, then the school's or team's listing (self-reported, height and weight only) (`crates/afm-game/src/lane_squadboards/body.rs`, `known`).
 - What is a "combine moment"? The invited player whose combine forty beats 4.25 + 0.0042 × (weight - 180)₊ by the most makes one news item, if he beats it by more than 0.12 s (`world/scouting/predraft.rs`, `combine_moments`).
 
 ## The body record
@@ -122,8 +123,22 @@ So weight costs a big man straight-line speed, burst and cutting, with the same 
 - Talent = clamp(45 + 6.5z + 2.75 × (z - 1.6)₊², 20, 99) (`player.rs`, `talent_from_z`).
 - Ratings at his first age: maturity = clamp(maturity_at_14 - 0.035 × bloom + 0.03 × (age - 14) + normal(0, 0.05), 0.2, 0.98); raw = ceiling × maturity; above 40 it is halved: 40 + (raw - 40) × 0.5; capped at the ceiling (`player.rs`, `generate_prospect`).
 
+## The Body and testing tab (update 2, lane 9A)
+
+What the game knows of a player's body, against three groups (`crates/afm-game/src/lane_squadboards/body.rs`):
+- Sources, first known wins: your staff's measurements (height and weight; arms, hands and wingspan from college on) and its latest testing day (forty, split, vertical, shuttle, bench reps, and the lifts); the combine (or a pro day for a drafted man it did not invite), seeded `id ^ 0x00C0FFEE` as on the player page; the latest camp, showcase, pro day or combine your scouts saw (`world/scouting/file.rs`, `tests`); the school's listing (`file.rs`, `listed`) or the team's. Only the listing is self-reported; the rest is marked verified (`known`).
+- His level: his position at his level, from every player there through `Drills::expected` (no test-day noise): high schoolers in his state and graduating class, the nation's class when the state has under 40; college by FBS, FCS or smaller; NFL players on a roster (`level_pool`).
+- Drafted: every drafted player at his position the world remembers in full (alumni with a record, drafted pros), each with his combine (`drafted_pool`).
+- The real combine: the position's mean and spread from `data/real-world/combine_by_position.csv` (2000-2025), read as a normal curve (`REAL`, `phi`). Arms, hands, wingspan and the split have no real column.
+- Percentiles: the share of the group his number beats (faster is better on the clock), ties counted half (`pct_in`).
+- Athletic score on 0-10: the mean percentile over size (height, weight), speed (forty), burst (vertical, broad), agility (3-cone, shuttle) and bench, divided by 10, with at least three numbers known; "better than" scores each of the group the same way (`view`).
+- Built like him: the five drafted players nearest in height, weight, forty, vertical and 3-cone, each in the drafted pool's spreads, with at least three shared; match = 100 - 18 × distance (`view`).
+- Weight over time: his weight in each season's kept read (the ratings page, "Kept reads"), each testing day and today. Games missed hurt and seasons with an injury count only seasons played out (`view`, `record_season`).
+- What it does not read: true ratings. The level cloud is drawn from each player's expected drills, the norms of his level, with no names.
+
 ## Where the knobs are
 
+- `crates/afm-game/src/lane_squadboards/body.rs`: `TESTS` (the tab's tests and the CSV columns), 40 players for a state's pool, 10 for a percentile, 3 numbers for a score or a match, the 18-point match step.
 - `body.rs`: `SIZES` (from the combine CSV), `LEFT_HANDED` 0.1, `RIGHTY_LEFT_FOOTED` 0.12, arm/hand/wingspan coefficients in `Body::grown` and `adult_body`, `body_now` (4 in, 6 and 9 years, 0.70/0.25/0.05), `Drills::means` coefficients, test-day sds in `combine`, clamps in `tested`.
 - `athlete.rs`: `draw_frame` (29% linemen), `talent_size`, `leaning`, `misfit`, `set_position` (0.6, -25/+30), `LS_MIN_WEIGHT`/`LS_MAX_WEIGHT`.
 - `development.rs`: `HS_STRENGTH_GROWTH` 0.6, `COLLEGE_TEACHING` 1.3, redshirt 1.35, `STALL_CHANCE` 0.025, spurt 9%, weight gain 2.5% and 8-25 lb, `injury_age_hit`.
