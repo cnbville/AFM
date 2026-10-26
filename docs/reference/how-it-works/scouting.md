@@ -1,6 +1,6 @@
 # Scouting: how it works today
 
-Checked against main at a423e02 on 2026-10-26.
+Checked against main at 567fdd4 on 2026-10-26.
 
 ## Quick answers
 
@@ -162,8 +162,9 @@ All in `world/recruiting.rs`, `run_signing_stage` (the board per position):
 
 - Five services (from 1998, 2006, 2010, 2021; one ends 2017) and four draft analysts (1978, 2004-2017, 2010, 2014), made-up names, hidden skill N(12, 2) clamped 7-17 (analysts 8-17), each with a lean (`staff_desks`).
 - Analyst grade = December score + 3.5 × (1.4 - 0.04 × skill) × (0.8 × lasting lean + 0.35 × weekly noise), plus its lean: big programs +1.0 (FBS with prestige ≥ 60; prestige is stored 0-1, so this never fires), size 0.8 × z, viral 0.6 × speed z, production 0.6 × last performance clamped to ±1.5 (a rating, so in practice +0.9) (`desk_grade`).
-- Big boards on the 1st of September-December, then Tuesdays from mid-December; mocks Thursdays (round 1; two rounds in the last week), picking best grade + 0.8 × need. Consensus top 50 = sum of (100 - rank) (`day`, `mock`). Risers of 10+ places make the news (`risers_and_fallers`). Mocks scored the morning after (`score_mocks`).
-- A service's recruit stars stay within ±0.6 of the shared stars (`service_read`).
+- Big boards on the 1st of September-December, then Tuesdays from mid-December; mocks Thursdays from mid-December (round 1; two rounds in the last week), picking best grade + 0.8 × need. The season runs for the draft the boards are for (`draft_year`): any day September-December, and January-April only in that draft's own year, since a football year's dates hold last spring's draft until the Super Bowl turns it. Consensus top 50 = sum of (100 - rank) (`day`, `mock`). Risers of 10+ places make the news (`risers_and_fallers`). Mocks scored the morning after (`score_mocks`), with each desk's final top 100 against the first 100 picks, per 100 (`Desk::board_hits`, ten drafts; `board_hit_rate`: a small world's top N against its first N picks). Before the season sets the draft order, mocks pick in today's standings' order (`world/nfl_year.rs`, `mock_order`).
+- A service's recruit stars stay within ±0.6 of the shared stars (`service_read`). The recruit search and the high school coach's page show each service's own stars and rank as kept at its last update (`world/scouting/services.rs`, `service_boards`; see [recruiting.md](recruiting.md), "The services before the signing stages").
+- The search screens (Find recruits, Find prospects) filter and sort on what your staff's file and the public know: a kid with no file reads "Not seen", and a range filter takes a "how sure" floor (a fair read spreads 6 points or less, a narrow one 3.5) (`crates/afm-game/src/lane_find/fields.rs`, `value`, `Sure`). An NFL prospect's marks count as verified after the combine (if invited) or his school's pro day, read from the coming draft's own dates (`verified`, `draft_dates`). Find prospects' "Scheme fit" reads your scouts' attribute reads against your club's systems (`scheme_fit`; `world/systems.rs`, `read_fit`). The search's day cache keys on the day, the files' looks and who reads (`crates/afm-game/src/lane_find/staff.rs`, `cache_key`).
 
 ## The high school coach's side
 
@@ -200,7 +201,8 @@ All in `world/recruiting.rs`, `run_signing_stage` (the board per position):
 - `crates/afm-game/src/reads.rs`: half-widths 2 + 0.12 × (20 - eye), +4 for strangers, ±6 overall.
 - `world/recruiting.rs`: the college `noise_sd` formula, `FIT_EVAL`, `STAFF_GIFT`, `SERVICE_MISREAD`, `SERVICE_MATURITY`.
 - `world/scouting/dept.rs`: `eval_limits`, board sizes in `watch`, camp radius and odds.
-- `world/scouting/public.rs`: desk lists and skills, grade spread 3.5.
+- `world/scouting/public.rs`: desk lists and skills, grade spread 3.5, the season's months in `day`.
+- `world/scouting/services.rs`: each service's `lean` on its own list.
 - `world/coach.rs`: `Coach::evaluation`.
 
 ## Related pages

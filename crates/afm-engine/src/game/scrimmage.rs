@@ -110,6 +110,12 @@ pub struct Snap<'a> {
     pub tac: Tactics,
     /// What the game does to habits this snap (offense, defense).
     pub mood: super::sim::Mood,
+    /// A fake punt (update 2, G18): the punt team in its punt formation
+    /// against the punt return team, the snap straight to the up-back
+    /// (`ORole::QB`; the punter stands deep as `ORole::RB`). Some(true)
+    /// when the return team showed the look: its front turns to set up
+    /// the return.
+    pub fake_punt: Option<bool>,
 }
 
 /// What the plan and the game so far bring to one snap (plays and tactics
@@ -298,7 +304,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     let mut slot_of: Vec<Option<DSlot>> = Vec::new();
     for &(r, p) in s.offense {
         let gp = &s.teams[0][p];
-        let pos = align(&f, r, los, by);
+        let pos = if s.fake_punt.is_some() { punt_spot(&f, r, los, by, s.rules.level) } else { align(&f, r, los, by) };
         agents.push(Agent::new(0, p, gp, orole_label(r), pos, s.energy[0][p], s.edge[0][p]));
         role_of.push(Some(r));
         slot_of.push(None);
@@ -326,7 +332,8 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         let focus = clamp(1.6 - 0.06 * s.teams[0][a.p].trait20(Attr::Concentration, s.rules.level), 0.4, 1.6);
         a.r[Attr::FootballIq.index()] = (a.r[Attr::FootballIq.index()] - load * focus).max(1.0);
     }
-    let def_spots = align_defense(s, &agents, &role_of);
+    let def_spots =
+        if s.fake_punt.is_some() { return_spots(s, &agents, &role_of) } else { align_defense(s, &agents, &role_of) };
     for (k, &(d, p)) in s.defense.iter().enumerate() {
         let gp = &s.teams[1][p];
         agents.push(Agent::new(1, p, gp, d.label(), def_spots[k], s.energy[1][p], s.edge[1][p]));
@@ -489,6 +496,20 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         let prep = 0.1 * (sim.player(i).prep as f64 - 1.0);
         let freeze = if jet && slot.is_lb() { 0.10 * bite } else { 0.0 };
         sim.agents[i].read_at = (base + extra + tend + slow + prep + freeze + 0.12 * tac.novelty).max(0.12);
+    }
+    // A fake punt into a return team that turned to set up the return: its
+    // front has its back to the play and reads it late; a disciplined man
+    // checks for the fake before he turns (proposed, not confirmed: a
+    // quarter of a second for an average man, an eighth to three eighths).
+    if s.fake_punt == Some(true) {
+        for i in off_n..sim.agents.len() {
+            let slot = slot_of[i].unwrap_or(DSlot::Mike);
+            if matches!(slot, DSlot::FS | DSlot::CBL | DSlot::CBR | DSlot::NCB | DSlot::DCB) {
+                continue;
+            }
+            let bite = clamp(1.5 - 0.05 * sim.trait20(i, Attr::Discipline), 0.5, 1.5);
+            sim.agents[i].read_at += 0.25 * bite;
+        }
     }
 
     // Busted assignments (topic 3): players who don't know the playbook.
@@ -829,6 +850,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 _ => None,
             };
             run_blocking(&mut sim, off_n, &role_of, rc, dir, pulls);
+            if let Some(look) = s.fake_punt {
+                return_jobs(&mut sim, s, off_n, &slot_of, &role_of, look);
+            }
             // The jet sweep: the motion man takes it on the run at the
             // quarterback; the back fakes the other way.
             if rc == RunConcept::JetSweep
@@ -1536,6 +1560,125 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
 }
 
 // ------------------------------------------------------------- alignment
+
+/// The punt team in its punt formation (a fake punt, G18): the long
+/// snapper and four linemen with the usual splits, a wing a step outside
+/// and behind each tackle, the gunners split wide, the up-back about five
+/// and a half yards behind the ball and the punter at his depth (about 15
+/// yards in the NFL, 14 in college, 12 at high school).
+fn punt_spot(f: &Formation, r: ORole, los: f64, by: f64, level: crate::Level) -> V2 {
+    let deep = match level {
+        crate::Level::NFL => 15.0,
+        crate::Level::HS => 12.0,
+        _ => 14.0,
+    };
+    match r {
+        ORole::QB => v2(los - 5.5, by),
+        ORole::RB => v2(los - deep, by),
+        ORole::TE => v2(los - 1.3, by + 4.4),
+        ORole::TE2 => v2(los - 1.3, by - 4.4),
+        // A twelfth man (the CFL) is a second up-back.
+        ORole::Slot | ORole::Slot2 | ORole::Slot3 | ORole::FB => v2(los - 4.0, by - 1.8),
+        _ => align(f, r, los, by),
+    }
+}
+
+/// The punt return team against the punt formation (a fake punt, G18):
+/// the returner deep where the punt would come down (about 40 yards off
+/// in the NFL, 38 in college and 32 at high school, never inside his own
+/// 10), a jammer on each gunner, the four biggest men head up on the
+/// guards and tackles, two more on the line over the wings and two held
+/// back five yards off the ball. In `s.defense` order.
+fn return_spots(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2> {
+    let (los, by) = (s.los, s.ball_y);
+    let deep: f64 = match s.rules.level {
+        crate::Level::NFL => 40.0,
+        crate::Level::HS => 32.0,
+        _ => 38.0,
+    };
+    let deep = deep.min(goal() - los - 10.0).max(8.0);
+    let mut gunners: Vec<V2> =
+        (0..agents.len()).filter(|&i| matches!(roles[i], Some(ORole::X | ORole::Z))).map(|i| agents[i].pos).collect();
+    let mut extra = 0.0;
+    s.defense
+        .iter()
+        .map(|&(d, _)| match d {
+            DSlot::FS => v2(los + deep, by),
+            DSlot::CBL | DSlot::CBR | DSlot::NCB | DSlot::DCB => {
+                let want = if d == DSlot::CBR { -1.0 } else { 1.0 };
+                let k = gunners.iter().position(|g| (g.y - by) * want > 0.0).or(if gunners.is_empty() {
+                    None
+                } else {
+                    Some(0)
+                });
+                match k {
+                    Some(k) => {
+                        let g = gunners.remove(k);
+                        v2(los + 1.5, g.y)
+                    }
+                    None => {
+                        extra += 1.0;
+                        v2(los + 8.0, by + 6.0 * extra)
+                    }
+                }
+            }
+            DSlot::DTL => v2(los + 1.0, by + 1.5),
+            DSlot::DTR | DSlot::NT => v2(los + 1.0, by - 1.5),
+            DSlot::LE => v2(los + 1.0, by + 3.6),
+            DSlot::RE => v2(los + 1.0, by - 3.6),
+            DSlot::Sam => v2(los + 1.0, by + 6.2),
+            DSlot::Will => v2(los + 1.0, by - 6.2),
+            DSlot::Mike => v2(los + 5.0, by + 1.8),
+            DSlot::SS => v2(los + 5.0, by - 1.8),
+        })
+        .collect()
+}
+
+/// The return team's jobs on a fake punt (G18): the returner waits deep,
+/// each jammer stays on his gunner, and the front either turns and runs
+/// back to set up the return (the look the fake was called on) or holds
+/// up at the line with the two men behind it watching for the fake. Each
+/// comes back to the ball at his own moment of reading it. The punter
+/// stays where he stood.
+fn return_jobs(sim: &mut Sim, s: &Snap, off_n: usize, slots: &[Option<DSlot>], roles: &[Option<ORole>], look: bool) {
+    let (los, by) = (s.los, s.ball_y);
+    for i in 0..off_n {
+        if roles[i] == Some(ORole::RB) {
+            sim.agents[i].job = Job::Idle;
+        }
+    }
+    let mut gunners: Vec<usize> = (0..off_n).filter(|&i| matches!(roles[i], Some(ORole::X | ORole::Z))).collect();
+    for i in off_n..sim.agents.len() {
+        let me = sim.agents[i].pos;
+        let slot = slots[i].unwrap_or(DSlot::Mike);
+        let side = if me.y > by { 1.0 } else { -1.0 };
+        sim.agents[i].job = match slot {
+            DSlot::FS => Job::Zone { spot: me, deep: true, width: 20.0, matched: false },
+            DSlot::CBL | DSlot::CBR | DSlot::NCB | DSlot::DCB => {
+                let near = gunners
+                    .iter()
+                    .copied()
+                    .min_by(|&a, &b| sim.agents[a].pos.dist(me).total_cmp(&sim.agents[b].pos.dist(me)));
+                match near {
+                    Some(g) => {
+                        gunners.retain(|&x| x != g);
+                        man_job(sim, i, g)
+                    }
+                    None => Job::Zone { spot: v2(los + 12.0, me.y), deep: false, width: 8.0, matched: false },
+                }
+            }
+            // The look: back to set up the wall, in his own lane.
+            _ if look => {
+                Job::Zone { spot: v2(los + 15.0, by + 0.6 * (me.y - by)), deep: false, width: 8.0, matched: false }
+            }
+            DSlot::Mike | DSlot::SS => Job::Zone { spot: me, deep: false, width: 6.0, matched: false },
+            _ => {
+                let edge = matches!(slot, DSlot::Sam | DSlot::Will);
+                Job::Rush { lane: me.y, contain: if edge { side } else { 0.0 }, mv: Move::Power }
+            }
+        };
+    }
+}
 
 fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2> {
     let los = s.los;

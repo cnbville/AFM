@@ -27,6 +27,8 @@ struct Run {
     smells: BTreeSet<String>,
     calls: usize,
     slow: Vec<String>,
+    /// Stops that looked at finding players: turns the fields tried.
+    finds: usize,
 }
 
 impl Run {
@@ -500,6 +502,11 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
             }
         }
     }
+    // Finding players (update 2, lane 7): the seat's search, its filters,
+    // sorts, chart, Compare and drawers; a high school's Colleges calling.
+    for v in find_stops(run, g, seat) {
+        refs(&v, &mut players, &mut coaches, &mut teams);
+    }
     // The deeper game plan (update 2, lane 5): the Plans page's boards,
     // the depth chart's packages, the week's plan, the teams like us and
     // the fit reads; as the head coach a guideline set, the drafted sheet
@@ -641,6 +648,119 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
     }
 }
 
+/// One stop's look at finding players (update 2, lane 7): the default
+/// search, then seven of its fields as filters (alone with "not seen" both
+/// ways, and joined by "or" to the default's) and as sorts both ways, the
+/// other classes and levels, the chart, Compare, the offers and insider
+/// drawers, and one saved search kept for the inbox (forgotten and saved
+/// again now and then). The fields turn from stop to stop, so a season
+/// tries every one. A high school coach opens Colleges calling.
+fn find_stops(run: &mut Run, g: &mut Game, seat: &str) -> Vec<Value> {
+    let cmd = match seat {
+        "college" => "find_recruits",
+        "nfl" => "find_prospects",
+        "hs" => {
+            // Colleges calling, its map's data, and the races of two of
+            // your players with offers (board 8).
+            let mut out: Vec<Value> = run.call(g, "colleges_calling", json!({})).into_iter().collect();
+            let ids: Vec<u64> = out
+                .first()
+                .and_then(|p| p["players"].as_array())
+                .into_iter()
+                .flatten()
+                .filter(|p| p["offers"].as_u64().unwrap_or(0) > 0)
+                .filter_map(|p| p["id"].as_u64())
+                .take(2)
+                .collect();
+            for id in ids {
+                out.extend(run.call(g, "recruit_race", json!({ "id": id })));
+            }
+            return out;
+        }
+        _ => return Vec::new(),
+    };
+    let Some(page) = run.call(g, cmd, json!({})) else { return Vec::new() };
+    let fields: Vec<Value> = page["catalog"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .flat_map(|c| c["fields"].as_array().cloned().unwrap_or_default())
+        .collect();
+    let mut out = Vec::new();
+    run.finds += 1;
+    let defaults: Vec<Value> = page["filters"].as_array().cloned().unwrap_or_default();
+    for n in 0..fields.len().min(7) {
+        let f = &fields[(run.finds * 7 + n) % fields.len()];
+        let k = f["k"].clone();
+        let filter = match f["kind"].as_str() {
+            Some("num") if n % 2 == 0 => json!({ "k": k, "op": "ge", "v": 0 }),
+            Some("num") => json!({ "k": k, "op": "between", "v": -1000, "v2": 100_000 }),
+            Some("word") => json!({ "k": k, "op": "ge", "v": 1 }),
+            Some("flag") => json!({ "k": k, "op": "is", "v": if n % 2 == 0 { "yes" } else { "no" } }),
+            _ => json!({ "k": k, "op": "is", "v": "a" }),
+        };
+        run.call(g, cmd, json!({ "filters": [filter.clone()], "unseen": n % 2 == 0 }));
+        let mut joined = defaults.clone();
+        let mut or = filter.clone();
+        or["or"] = json!(true);
+        joined.push(or);
+        run.call(g, cmd, json!({ "filters": joined, "page": 1 }));
+        if f["kind"] != json!("text") {
+            run.call(g, cmd, json!({ "filters": [], "sort": k, "dir": if n % 2 == 0 { 1 } else { -1 } }));
+        }
+    }
+    for c in page["classes"].as_array().into_iter().flatten().skip(1) {
+        out.extend(run.call(g, cmd, json!({ "class": c, "filters": [] })));
+    }
+    let levels: &[&str] = if seat == "nfl" { &["fbs", "fcs", "small"] } else { &["juco", "portal"] };
+    for l in levels {
+        run.call(g, cmd, json!({ "level": l }));
+    }
+    let nums: Vec<&Value> = fields.iter().filter(|f| f["kind"] == json!("num")).map(|f| &f["k"]).collect();
+    let rows: Vec<Value> = page["rows"].as_array().cloned().unwrap_or_default();
+    let ids: Vec<u64> = rows.iter().filter_map(|r| r["id"].as_u64()).take(3).collect();
+    if nums.len() > 1 {
+        let x = nums[run.finds % nums.len()];
+        let y = nums[(run.finds + 1) % nums.len()];
+        run.call(g, cmd, json!({ "filters": [], "x": x, "y": y, "compare": ids, "picked": ids }));
+    }
+    if let Some(r) = rows.iter().find(|r| r["offers"].as_u64().unwrap_or(0) > 0) {
+        out.extend(run.call(g, "find_offers", json!({ "id": r["id"] })));
+    }
+    // The recruiting map and three recruits' races (boards 7 and 8).
+    if seat == "college" {
+        out.extend(run.call(g, "recruit_map", json!({})));
+        let board: Vec<u64> = run
+            .call(g, "recruit_board", json!({}))
+            .and_then(|b| b["rows"].as_array().cloned())
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|r| r["id"].as_u64())
+            .skip(run.finds % 5)
+            .take(3)
+            .collect();
+        for id in board {
+            out.extend(run.call(g, "recruit_race", json!({ "id": id })));
+        }
+    }
+    if let Some(k) = page["insiders"].as_array().and_then(|d| d.first()).map(|d| d["k"].clone()) {
+        out.extend(run.call(g, "find_insider", json!({ "desk": k })));
+    }
+    match page["saved"].as_array().and_then(|s| s.first()).map(|s| s["k"].clone()) {
+        Some(k) if run.finds % 10 == 5 => {
+            run.call(g, "find_forget", json!({ "k": k }));
+        }
+        Some(k) => {
+            run.call(g, cmd, json!({ "saved": k }));
+        }
+        None => {
+            run.call(g, "find_save", json!({ "name": "Seat check", "spec": page["spec"] }));
+        }
+    }
+    out.push(page);
+    out
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let world = args.get(1).cloned().unwrap_or_else(|| "build".into());
@@ -684,7 +804,7 @@ fn main() {
     let mut report = vec![];
     let mut total_errors = 0;
     for seat in &seats {
-        let mut run = Run { errors: vec![], smells: BTreeSet::new(), calls: 0, slow: vec![] };
+        let mut run = Run { errors: vec![], smells: BTreeSet::new(), calls: 0, slow: vec![], finds: 0 };
         let t = Instant::now();
         if let Err(e) = g.call("open_world", &json!({ "path": fresh })) {
             println!("{seat}: can't open the world: {e}");

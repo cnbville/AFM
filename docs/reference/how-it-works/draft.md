@@ -1,6 +1,6 @@
 # The NFL draft: how it works today
 
-Checked against main at 94a6553 on 2026-10-25.
+Checked against main at ab8c8d1 on 2026-10-25.
 
 ## Quick answers
 

@@ -65,7 +65,7 @@ impl TeamResult {
 
 /// A cheap, order-independent uniform draw in [0, 1) from a key.
 #[inline]
-pub(crate) fn key_uniform(a: u64, b: u64) -> f64 {
+pub fn key_uniform(a: u64, b: u64) -> f64 {
     let mut x = a.wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ b.wrapping_mul(0xD1B5_4A32_D192_ED03);
     x = (x ^ (x >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
     x = (x ^ (x >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
@@ -73,7 +73,7 @@ pub(crate) fn key_uniform(a: u64, b: u64) -> f64 {
 }
 
 /// A cheap, order-independent normal draw from a key, so parallel work stays reproducible.
-pub(crate) fn key_normal(a: u64, b: u64) -> f64 {
+pub fn key_normal(a: u64, b: u64) -> f64 {
     let mut z = a.wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ b.wrapping_add(0x632B_E59B_D9B4_E019);
     let mut next = || {
         z = z.wrapping_add(0x9E37_79B9_7F4A_7C15);
