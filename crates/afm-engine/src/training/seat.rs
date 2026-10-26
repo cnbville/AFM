@@ -133,6 +133,9 @@ pub struct SheetPlay {
     pub backfield: Backfield,
     pub set: Set,
     pub play: SheetKind,
+    /// The hash it is called from (update 2, G10): 0 either, 1 left, 2 right.
+    #[serde(default)]
+    pub hash: u8,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -144,8 +147,9 @@ pub enum SheetKind {
     Design(u16),
 }
 
-/// The call sheet's situations.
-pub const SHEET: [&str; 10] = [
+/// The call sheet's situations (`game::sheet` has their keys; update 2,
+/// G9 added the five after the two-minute drill).
+pub const SHEET: [&str; 15] = [
     "Opening script",
     "First and 10",
     "Second and long",
@@ -156,6 +160,11 @@ pub const SHEET: [&str; 10] = [
     "Red zone",
     "Goal line",
     "Two-minute",
+    "Second and medium",
+    "Backed up",
+    "Four-minute",
+    "Shot plays",
+    "Two-point",
 ];
 
 /// The week's game plan (calendar topic 6, plays and tactics topic 5):
@@ -196,10 +205,13 @@ pub enum Board {
     PuntReturn,
     PuntCover,
     FieldGoal,
+    /// Three tight ends (13 personnel) outside the goal line (update 2,
+    /// G15).
+    Jumbo,
 }
 
 impl Board {
-    pub const ALL: [Board; 9] = [
+    pub const ALL: [Board; 10] = [
         Board::Nickel,
         Board::Dime,
         Board::GoalLineD,
@@ -209,6 +221,7 @@ impl Board {
         Board::PuntReturn,
         Board::PuntCover,
         Board::FieldGoal,
+        Board::Jumbo,
     ];
     pub fn name(self) -> &'static str {
         [
@@ -221,6 +234,7 @@ impl Board {
             "punt_return",
             "punt_cover",
             "field_goal",
+            "jumbo",
         ][self as usize]
     }
     pub fn label(self) -> &'static str {
@@ -234,6 +248,7 @@ impl Board {
             "Punt return",
             "Punt coverage",
             "Field goal and extra point",
+            "Jumbo",
         ][self as usize]
     }
     pub fn parse(s: &str) -> Option<Board> {
@@ -281,6 +296,18 @@ impl Board {
                 ("CB", CB),
                 ("CB", CB),
                 ("SS", S),
+            ],
+            Board::Jumbo => &[
+                ("QB", QB),
+                ("LT", OT),
+                ("LG", IOL),
+                ("C", IOL),
+                ("RG", IOL),
+                ("RT", OT),
+                ("TE", TE),
+                ("TE", TE),
+                ("TE", TE),
+                ("RB", RB),
             ],
             Board::GoalLineO => &[
                 ("QB", QB),
@@ -1960,24 +1987,40 @@ fn block_report(w: &mut World, st: &SeatTeam, d: Date, block: Block) {
     w.training.grades.clear();
 }
 
-/// Your team's game team takes the week: players hurt in practice sit,
-/// the late week's load sets kickoff energy, your packages and call sheet
-/// go with it, and the install follows the week's prep.
+/// Your players hurt in practice (or on the non-football list) sit today's
+/// game: taken off a game team built for the day. The college team kept
+/// for the season keeps them; its game day takes them off.
+pub(crate) fn sit_hurt(w: &World, team: &mut crate::game::GameTeam) {
+    let (t, d) = (&w.training, w.today);
+    team.players.retain(|p| !t.hurt_out(p.id, d));
+}
+
+/// Your team's game team takes the week: the late week's load sets kickoff
+/// energy, your packages and call sheet go with it, and the install
+/// follows the week's prep. Safe to run again on the same team (the
+/// college team kept for the season is refreshed after every change): it
+/// sets from the staff's own install, never from the last result.
 pub(crate) fn prepare(w: &World, team: &mut crate::game::GameTeam) {
     let t = &w.training;
-    let d = w.today;
-    team.players.retain(|p| t.hurt_on(p.id, d).is_none_or(|h| h.from > d));
+    let base_install = *team.prep.install_base.get_or_insert(team.staff.install);
+    team.staff.install = base_install;
     let prep = &mut team.prep;
     prep.packages = t.packages.iter().map(|(b, ids)| (*b as u8, ids.clone())).collect();
+    // Each box splits by hash (update 2, G10): the key carries it.
     prep.sheet = t
         .plan
         .sheet
         .iter()
-        .map(|(sit, plays)| {
+        .flat_map(|(sit, plays)| {
+            let mut hs: Vec<u8> = plays.iter().map(|p| p.hash.min(2)).collect();
+            hs.sort_unstable();
+            hs.dedup();
+            hs.into_iter().map(move |h| (*sit, h, plays.iter().filter(move |p| p.hash.min(2) == h)))
+        })
+        .map(|(sit, h, plays)| {
             (
-                *sit,
+                crate::game::sheet::key(sit, h),
                 plays
-                    .iter()
                     .filter_map(|sp| {
                         let kind = match sp.play {
                             SheetKind::Run(r) => PlayKind::Run(r),
@@ -2002,7 +2045,7 @@ pub(crate) fn prepare(w: &World, team: &mut crate::game::GameTeam) {
         let gd = l.week.days.iter().position(|x| x.game).unwrap_or(6);
         let late = super::work::late_load(&l.week, gd, Role::Starter);
         let tier = match w.seat.map(|s| s.level) {
-            Some(Cal::Nfl) => Tier::Pro,
+            Some(Cal::Nfl | Cal::Other) => Tier::Pro,
             Some(Cal::HighSchool) => Tier::High,
             _ => Tier::College,
         };
@@ -2020,12 +2063,15 @@ pub(crate) fn prepare(w: &World, team: &mut crate::game::GameTeam) {
         let mine = super::work::prep_minutes(&l.week);
         let theirs = super::work::prep_minutes(&neutral_wk);
         if theirs > 0.0 {
-            team.staff.install = clamp(team.staff.install * (mine / theirs).sqrt().clamp(0.75, 1.15), 0.3, 1.0);
+            team.staff.install = clamp(base_install * (mine / theirs).sqrt().clamp(0.75, 1.15), 0.3, 1.0);
         }
         let (noise, rules) = week_habits(&l.week, &neutral_wk);
         prep.noise = noise;
         prep.rules = rules;
     }
+    // Your guidelines and the deeper game plan (update 2, lane 5).
+    crate::world::guide::seat_apply(w, team);
+    crate::world::plans::prepare(w, team);
 }
 
 /// What a week's crowd-noise periods and rules clinic send into the game
@@ -2133,27 +2179,4 @@ pub fn counts_text(st: &SeatTeam, block: Block, c: &Counts) -> Vec<String> {
     add(c.padded, lim.padded, "padded practices");
     add(c.scrimmages, lim.scrimmages, "scrimmages");
     out
-}
-
-/// The call sheet's situations for a snap, best first (`SHEET`).
-pub fn sheet_situation(down: u8, togo: f64, yardline_100: f64, half_left: f64) -> Vec<u8> {
-    let mut v = Vec::new();
-    if half_left <= 120.0 {
-        v.push(9);
-    }
-    if yardline_100 <= 3.0 {
-        v.push(8);
-    }
-    if yardline_100 <= 20.0 {
-        v.push(7);
-    }
-    v.push(match down {
-        1 => 1,
-        2 if togo >= 7.0 => 2,
-        2 => 3,
-        _ if togo <= 2.0 => 4,
-        _ if togo <= 6.0 => 5,
-        _ => 6,
-    });
-    v
 }
