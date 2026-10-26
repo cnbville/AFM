@@ -52,12 +52,12 @@ impl Wp {
     /// the home field (nothing at a neutral site).
     pub fn new(w: &World, level: CalLevel, teams: [usize; 2], date: Date, neutral: bool) -> Wp {
         let lv = super::game_level(w, level, teams);
-        let p = Params::for_level(lv);
         let g = page_game(w, level, teams, date);
         let neutral = neutral || g.as_ref().is_some_and(|g| g.neutral);
         // The page's line is the home side's spread (negative when favoured).
-        let home_spread =
-            g.and_then(|g| g.line).map(|l| -l[0] as f64).unwrap_or_else(|| if neutral { 0.0 } else { home_field(lv) });
+        let line = g.and_then(|g| g.line).map(|l| -l[0] as f64);
+        let p = if line.is_some() { Params::for_level(lv) } else { Params::for_level(lv).without_line() };
+        let home_spread = line.unwrap_or_else(|| if neutral { 0.0 } else { home_field(lv) });
         Wp { p, home_spread }
     }
 
@@ -65,7 +65,14 @@ impl Wp {
     /// game kept before the lines were).
     pub fn of_game(w: &World, g: &SeatGame) -> Wp {
         match g.spread {
-            Some(x) => Wp { p: Params::for_level(super::game_level(w, g.level, g.teams)), home_spread: x as f64 },
+            Some(x) => {
+                // High school and the other leagues have no books: a stored 0
+                // there is a neutral site, not a line.
+                let lv = super::game_level(w, g.level, g.teams);
+                let booked = !matches!(g.level, CalLevel::HighSchool | CalLevel::Other);
+                let p = if booked { Params::for_level(lv) } else { Params::for_level(lv).without_line() };
+                Wp { p, home_spread: x as f64 }
+            }
             None => Wp::new(w, g.level, g.teams, g.date, false),
         }
     }

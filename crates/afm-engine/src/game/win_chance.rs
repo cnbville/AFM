@@ -49,6 +49,12 @@ pub struct Params {
     /// Overtime: the NFL's timed period, or college's alternating
     /// possessions from a spot (the 25; high school's Kansas plan, the 10).
     pub ot_spot: Option<f64>,
+    /// How far apart two of the level's sides are, as the spread of the
+    /// lines books hang (points over a game): what a game with no line
+    /// leaves unknown.
+    pub gap_sd: f64,
+    /// No line was hung: the score so far also hints which side is better.
+    pub no_line: bool,
 }
 
 impl Params {
@@ -70,6 +76,8 @@ impl Params {
                 try_pts: 0.955,
                 start: 71.0,
                 ot_spot: None,
+                gap_sd: 6.0,
+                no_line: false,
             },
             Level::FBS => Params {
                 level,
@@ -82,6 +90,8 @@ impl Params {
                 try_pts: 0.97,
                 start: 73.0,
                 ot_spot: Some(25.0),
+                gap_sd: 14.0,
+                no_line: false,
             },
             Level::FCS | Level::SmallCollege => Params {
                 level,
@@ -94,6 +104,8 @@ impl Params {
                 try_pts: 0.95,
                 start: 73.0,
                 ot_spot: Some(25.0),
+                gap_sd: 14.0,
+                no_line: false,
             },
             Level::HS => Params {
                 level,
@@ -106,8 +118,15 @@ impl Params {
                 try_pts: 0.88,
                 start: 68.0,
                 ot_spot: Some(10.0),
+                gap_sd: 17.0,
+                no_line: false,
             },
         }
+    }
+
+    /// The same level for a game with no line (high school's always).
+    pub fn without_line(self) -> Params {
+        Params { no_line: true, ..self }
     }
 
     fn length(&self) -> f64 {
@@ -439,7 +458,18 @@ fn from_spot(p: &Params, s: &State, probe: f64, pace: Pace) -> f64 {
     // After the drive: the rest of the game. The other side gets the ball
     // on a kickoff after points; a drive that ends the half leaves the next
     // half even. The other side's next drive needs time too.
-    let drift = s.spread * game_left / p.length();
+    // With no line, the gap between the sides is unknown: the lead beyond
+    // what the line said so far hints at it, as a normal prior updated by
+    // the score (the gap's spread from the books' lines, the play's from
+    // `sigma`).
+    let len = p.length();
+    let played = (1.0 - game_left / len).clamp(0.0, 1.0);
+    let tau2 = if p.no_line { p.gap_sd * p.gap_sd } else { 0.0 };
+    let sig2 = p.sigma * p.sigma;
+    let hint = tau2 / (tau2 * played + sig2);
+    let gap_mean = (s.lead - s.spread * played) * hint;
+    let gap_var = tau2 * sig2 / (tau2 * played + sig2);
+    let drift = (s.spread + gap_mean) * game_left / len;
     let base = s.lead + drift;
     let rest = |secs: f64, pts: f64, opp_ep: f64| {
         let mut tot = 0.0;
@@ -448,7 +478,8 @@ fn from_spot(p: &Params, s: &State, probe: f64, pace: Pace) -> f64 {
             let after = (game_left - t).max(0.0);
             let half_after = (half_left - t).max(0.0);
             let opp = opp_ep * in_time(half_after, 110.0);
-            tot += wt * over(base + pts - opp, rest_sd(p, after));
+            let sd = (rest_sd(p, after).powi(2) + (after / len).powi(2) * gap_var).sqrt();
+            tot += wt * over(base + pts - opp, sd);
         }
         tot / 16.0
     };
