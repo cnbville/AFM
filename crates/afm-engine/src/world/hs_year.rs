@@ -670,7 +670,7 @@ pub(crate) fn state_schedule(
                 .into_iter()
                 .map(|(a, b)| {
                     let same = district[a] != FREE && district[a] == district[b] && k >= first_round;
-                    let even = if same { (k - first_round) % 2 == 0 } else { k % 2 == 0 };
+                    let even = if same { (k - first_round).is_multiple_of(2) } else { k.is_multiple_of(2) };
                     if even != cycle.1 { (ids[a], ids[b]) } else { (ids[b], ids[a]) }
                 })
                 .collect()

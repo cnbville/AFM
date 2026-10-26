@@ -1272,7 +1272,6 @@ fn hs_page(w: &World, h: usize) -> Option<SeasonPage> {
         let x = sums[&h];
         Sos { wins: x[0], losses: x[1], ties: x[2], rank, of, pool: label.clone() }
     });
-    // The district standing by district record.
     // The district standing as the playoffs read it.
     let place = my_district.map(|d| {
         let members: Vec<usize> =
