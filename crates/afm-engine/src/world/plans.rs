@@ -934,9 +934,15 @@ pub fn draft_with(w: &World, team: &GameTeam, next: &Next, notes: [&[u8]; 2], ro
             (i as u16, d.design.formation, t.install_level(crate::training::seat::InstallKey::Design(i as u16)))
         })
         .collect();
+    // His quarterback's running, as the game reads it (the depth order's
+    // first quarterback).
+    let qb_run = qb.and_then(|id| team.players.iter().find(|p| p.id == id)).map_or(0.0, crate::game::flow::qb_run);
+    let level = level_of(next.level);
     let inp = DraftIn {
         film: opp_film(w, next.level, next.opp),
-        level: next.level,
+        level,
+        two_from: crate::game::Rules::for_level(level).two_point_from,
+        qb_run,
         seed: key_of(w, next.date, next.opp, round),
         favs: favourites(w, qb).into_iter().map(|x| x.0).collect(),
         tells: tells(w, false),
@@ -958,13 +964,16 @@ pub fn draft_with(w: &World, team: &GameTeam, next: &Next, notes: [&[u8]; 2], ro
     }
 }
 
-/// What the coordinators draft from: the opponent's film, the level, the
-/// draft's own random key, the quarterback's favourite concepts, your
-/// offense's tells and your designs going in (playbook slot, formation,
-/// how far in).
+/// What the coordinators draft from: the opponent's film, the level of
+/// play and where its two-point try is snapped, the starting
+/// quarterback's running as the game reads it, the draft's own random key,
+/// the quarterback's favourite concepts, the offense's tells and your
+/// designs going in (playbook slot, formation, how far in).
 pub struct DraftIn {
     pub film: Film,
-    pub level: Level,
+    pub level: crate::player::Level,
+    pub two_from: f64,
+    pub qb_run: f64,
     pub seed: u32,
     pub favs: Vec<usize>,
     pub tells: Vec<Tell>,
@@ -976,19 +985,15 @@ pub struct DraftIn {
 /// script and wet sheet.
 pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<Entry>, Vec<Entry>) {
     let film = &inp.film;
-    let college = !pro(inp.level);
+    let college = inp.level != crate::player::Level::NFL;
     let mut rng = Rng::new(inp.seed);
     let mut mem = Memory::default();
     mem.study(film);
     let te = team.players.iter().filter(|p| p.position == crate::positions::Position::TE).count();
     let fb = team.players.iter().filter(|p| p.position == crate::positions::Position::RB).count() >= 2;
-    // His quarterback's running, as the game reads it (the depth order's
-    // first quarterback).
-    let qb = starting_qb(team, inp.level);
-    let qb_run = qb.and_then(|id| team.players.iter().find(|p| p.id == id)).map_or(0.0, crate::game::flow::qb_run);
-    let ctx = OffCtx { has_fb: fb, te_count: te.min(3), qb_run, level: level_of(inp.level), plan: team.plan().0 };
+    let ctx = OffCtx { has_fb: fb, te_count: te.min(3), qb_run: inp.qb_run, level: inp.level, plan: team.plan().0 };
     let staff = team.staff;
-    let two_from = crate::game::Rules::for_level(level_of(inp.level)).two_point_from;
+    let two_from = inp.two_from;
     let favs = &inp.favs;
     let tells = &inp.tells;
     let (runs_f, pass_f, fav_first, breakers, _, _) = biases(notes[0]);
@@ -1271,25 +1276,49 @@ pub fn dsheet_calls(def: &[Entry], wet: bool) -> Vec<(u8, Vec<DefSheetCall>)> {
     v
 }
 
-/// A drafted sheet on a team with no world around it, for the engine
-/// checks (`match_check` with AFM_SHEET): the coordinators' draft from no
-/// film yet, as in week one, and the stick to the card a seat team gets
-/// from its guideline (both play callers).
-pub fn check_sheet(team: &mut GameTeam, level: Level, seed: u32) {
-    let inp = DraftIn { film: Film::default(), level, seed, favs: Vec::new(), tells: Vec::new(), designs: Vec::new() };
-    let (off, def) = draft_sides(team, &inp, [&[], &[]]);
+/// Every other team's sheet (Cain's rule: every team plays by the same
+/// rules): its coordinators draft it at kickoff the way yours do on plan
+/// day, from the opponent's film, their own habits and their head coach's
+/// guidelines, with the tendency breakers their own film calls for. It
+/// lives for the game only (`game::flow`). Your team's comes from your
+/// week (`prepare`).
+pub fn kickoff_card(team: &GameTeam, inp: &DraftIn) -> sheet::Card {
+    let (off, def) = draft_sides(team, inp, [&[], &[]]);
     let g = team.staff.guide;
     let pull = |own: f64| g.stick.pull().map_or(own, |(t, k)| guide::expected(own, t, k));
     let stick = pull(guide::habit_stick(team.staff.offense.creativity));
     let dstick = pull(guide::habit_stick(team.staff.defense.creativity));
     let none = |_: u16| None;
-    let prep = &mut team.prep;
-    prep.sheet = sheet_calls(&off, false, none);
-    prep.wet = sheet_calls(&off, true, none);
-    prep.dsheet = dsheet_calls(&def, false);
-    prep.dwet = dsheet_calls(&def, true);
-    prep.stick = if prep.sheet.is_empty() { 0.0 } else { stick };
-    prep.dstick = if prep.dsheet.is_empty() { 0.0 } else { dstick };
+    let mut card = sheet::Card {
+        sheet: sheet_calls(&off, false, none),
+        wet: sheet_calls(&off, true, none),
+        dsheet: dsheet_calls(&def, false),
+        dwet: dsheet_calls(&def, true),
+        ..Default::default()
+    };
+    card.stick = if card.sheet.is_empty() { 0.0 } else { stick };
+    card.dstick = if card.dsheet.is_empty() { 0.0 } else { dstick };
+    card
+}
+
+/// The tells in a team's own film, as a defense would read them and as
+/// its staff self-scouts (G6, the same lines as yours): a look with 8
+/// snaps or more where one kind is 75% or more of the calls, on film of
+/// two games or more (about 65 snaps a game; proposed, not confirmed).
+pub fn film_tells(own: &Film) -> Vec<Tell> {
+    let games = (own.off_snaps / 65.0).floor() as u32;
+    if games < 2 {
+        return Vec::new();
+    }
+    let mut out: Vec<Tell> = own
+        .look
+        .iter()
+        .enumerate()
+        .map(|(look, x)| Tell { look, runs: x[0].round() as u32, passes: x[1].round() as u32, games })
+        .filter(|t| t.snaps() >= 8 && (t.run_share() >= 0.75 || t.run_share() <= 0.25))
+        .collect();
+    out.sort_by_key(|x| std::cmp::Reverse(x.snaps()));
+    out
 }
 
 fn deep_concept() -> usize {

@@ -211,46 +211,56 @@ fn main() {
     if std::env::var("AFM_TRACE").is_ok() {
         afm_engine::game::sim::TRACE.store(true, std::sync::atomic::Ordering::Relaxed);
     }
-    // AFM_SHEET=home: the home team plays from a drafted call sheet (the
-    // coordinators' draft from no film yet, `plans::check_sheet`), the way
-    // your seat's team does; AFM_SHEET=none prints the same home-side block
-    // without one, the baseline to set it against.
+    // Every team's coordinators draft a call sheet at kickoff (the game's
+    // rule). AFM_SHEET=none plays with no sheets, AFM_SHEET=home with the
+    // home team's only; the home-side block below sets each against the
+    // others.
     let sheet = std::env::var("AFM_SHEET").ok();
-    let sheet_home = sheet.as_deref() == Some("home");
-    let sheet_drop: Vec<String> =
-        std::env::var("AFM_SHEET_DROP").map(|v| v.split(',').map(String::from).collect()).unwrap_or_default();
+    let mode = match sheet.as_deref() {
+        Some("none") => 0,
+        Some("home") => 2,
+        _ => 1,
+    };
+    afm_engine::game::sheet::KICKOFF.store(mode, std::sync::atomic::Ordering::Relaxed);
+    let mode_name = ["none", "every team", "home only"][mode as usize];
+    // What a kickoff draft costs: one team's sheet from the other's film,
+    // on one core.
+    {
+        use afm_engine::world::plans::{DraftIn, film_tells, kickoff_card};
+        let rules = afm_engine::game::Rules::for_level(level);
+        let n = 64;
+        let t = std::time::Instant::now();
+        let mut boxes = 0;
+        for k in 0..n {
+            let (h, a) = pair(k);
+            let inp = DraftIn {
+                film: teams[a].film.clone(),
+                level,
+                two_from: rules.two_point_from,
+                qb_run: 0.3,
+                seed: seed ^ k as u32,
+                favs: Vec::new(),
+                tells: film_tells(&teams[h].film),
+                designs: Vec::new(),
+            };
+            boxes += kickoff_card(&teams[h], &inp).sheet.len();
+        }
+        let ms = t.elapsed().as_secs_f64() * 1000.0 / n as f64;
+        println!("kickoff sheet: {ms:.2} ms to draft on one core ({:.1} offense boxes a sheet)", boxes as f64 / n as f64);
+    }
+    // AFM_FAKE=1 gives every team the fake punt "if the look shows",
+    // AFM_FAKE=2 "called" (the first chance); the fakes are counted below.
+    if let Some(f) = std::env::var("AFM_FAKE").ok().and_then(|v| v.parse::<u8>().ok()) {
+        for t in teams.iter_mut() {
+            t.prep.teams.fake = f;
+        }
+    }
     let t0 = std::time::Instant::now();
     let results: Vec<_> = (0..games)
         .into_par_iter()
         .map(|g| {
             let (h, a) = pair(g);
-            let drafted = sheet_home.then(|| {
-                let mut t = teams[h].clone();
-                let cal = match level {
-                    Level::NFL => afm_engine::calendar::Level::Nfl,
-                    Level::HS => afm_engine::calendar::Level::HighSchool,
-                    _ => afm_engine::calendar::Level::College,
-                };
-                afm_engine::world::plans::check_sheet(&mut t, cal, seed.wrapping_mul(7919).wrapping_add(g as u32));
-                // AFM_SHEET_DROP=shots,script,off,def takes a part off the
-                // sheet, to see what each part does.
-                use afm_engine::game::sheet::{SCRIPT, SHOTS, split};
-                for part in sheet_drop.iter() {
-                    let p = &mut t.prep;
-                    match part.as_str() {
-                        "shots" | "script" => {
-                            let k = if part == "shots" { SHOTS } else { SCRIPT };
-                            p.sheet.retain(|x| split(x.0).0 != k);
-                            p.wet.retain(|x| split(x.0).0 != k);
-                        }
-                        "off" => (p.sheet, p.wet, p.stick) = (Vec::new(), Vec::new(), 0.0),
-                        "def" => (p.dsheet, p.dwet, p.dstick) = (Vec::new(), Vec::new(), 0.0),
-                        _ => {}
-                    }
-                }
-                t
-            });
-            let home = drafted.as_ref().unwrap_or(&teams[h]);
+            let home = &teams[h];
             // An average road trip: the crowd of an average FBS conference
             // or NFL game (a 50,000-70,000 stadium) and about 500 miles and
             // half a time zone of travel for the visitors.
@@ -823,12 +833,13 @@ fn main() {
         let target = if level == Level::NFL { 2.1 } else { 2.4 };
         println!("{:<28} {:>9.3} {:>9.3}  (se {:.2}, home wins {:.3})", "home margin", hm, target, se, wins);
     }
-    if let Some(mode) = sheet.as_deref() {
-        // The home side with a drafted sheet (home) or without (none): the
-        // offense [points, pass yards, rush yards, snaps, EPA, runs, sacks
-        // taken, interceptions thrown] and the defense [points allowed,
-        // snaps, EPA allowed, man, blitz, dropbacks faced, pressures, sacks,
-        // interceptions].
+    {
+        let mode = mode_name;
+        // The home side against the road side, with sheets as `AFM_SHEET`
+        // sets them: the offense [points, pass yards, rush yards, snaps,
+        // EPA, runs, sacks taken, interceptions thrown] and the defense
+        // [points allowed, snaps, EPA allowed, man, blitz, dropbacks faced,
+        // pressures, sacks, interceptions].
         let (mut o, mut d) = ([0.0f64; 8], [0.0f64; 9]);
         for r in &results {
             let s = &r.stats;
@@ -881,6 +892,27 @@ fn main() {
             d[8] / gm,
             d[2] / d[1].max(1.0)
         );
+        // Fake punts (AFM_FAKE): how many, with the return team's look or
+        // without it, and how many made the line to gain.
+        let mut fk = [[0.0f64; 3]; 2];
+        for r in &results {
+            for p in r.stats.plays.iter().filter(|p| p.call_why.starts_with("a fake punt")) {
+                let k = p.look as usize;
+                fk[k][0] += 1.0;
+                fk[k][1] += (p.first_down || p.touchdown) as u8 as f64;
+                fk[k][2] += p.yards;
+            }
+        }
+        for (k, name) in [(1, "with the look"), (0, "without it")] {
+            if fk[k][0] > 0.0 {
+                println!(
+                    "fake punts {name}: {:.0}, converted {:.3}, yards {:.2}",
+                    fk[k][0],
+                    fk[k][1] / fk[k][0],
+                    fk[k][2] / fk[k][0]
+                );
+            }
+        }
     }
     row("plays", g("plays") / n, f("plays"));
     {
