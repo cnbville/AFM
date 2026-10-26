@@ -1,6 +1,6 @@
 # Scouting: how it works today
 
-Checked against main at a423e02 on 2026-10-26.
+Checked against main at d9ecf1c with update 2 lane 8 on 2026-10-26.
 
 ## Quick answers
 
@@ -190,6 +190,41 @@ All in `world/recruiting.rs`, `run_signing_stage` (the board per position):
 
 `world/tape.rs`: your coming opponents' last 6 games are kept as tapes for the game-day report. Your staff's film study = 0.35 × (OC scheme + DC scheme) + 7 × facilities (college), + 6.3 (NFL), or 0.7 × coach scheme + 7 × resources (high school), clamped 1-20 (`World::seat_film_study`). It sizes how often the report's tags are wrong. It does not feed player files.
 
+## The fresh look (update 2, lane 8)
+
+What the tape holds (SK1-SK5), read the same by every staff:
+
+- A player's footage comes from his season records (`world/scouting/footage.rs`, `footage`). College: snaps over the last two seasons, starts = snaps / 700; role snaps from the record (pass sets, run blocks, rushes, coverage, routes, dropbacks, carries); man and zone shares from his program's shell (`man_share`: man-pressure 0.7, quarters 0.35, Cover 3 0.25, Cover 2 0.2); a two-gap tackle in a 3-4 counts rush snaps × 0.4. High school: `hs_lines`, starts = snaps / 450, reels from 2008.
+- The schedule (`comp`): the snap-weighted strength of schedule plus a division offset (`div_offset`: FCS -4, D2 and JUCO -8, NAIA -9, D3 -10); high school -1.5 × classification + 3 × the state's culture - 3.
+- Dominance (`dom`): his grade over the last two seasons, 60 + 95 × the per-snap grade × confidence, then clamp((grade - 70) / 15, 0, 1.5).
+- Context (`context`): his scheme for his spot plus his unit against his conference's (`unit_rel`, cached per day), clamped ±2.
+- Luck: last season's form against his true overall, ±8.
+- Film narrows a read by `film_factor` = clamp(1.55 - 0.27 × starts, 0.75, 1.55) on every tape look (1.0 with no record) (`file.rs`, `read`; `world/pro/scouts.rs`, `read`).
+- A role skill under 60 snaps of its role (`ROLE_MIN`) stays unread on tape (`role_seen`); the AI boards blend that share with the position prior (`untested_shares`).
+- The shared tilt (`scout_tilt`) = 2.2 × dom × weak schedule (× 0.4 once seen against good players: an all-star week, the combine, a showcase) + `numbers_lean(judge)` × 2.5 × context (a judge under 14 leans up to 60%) + 2.5 for a reel alone + 0.3 × luck. In your file it is weighted by each reader's share of tape looks, half on physical skills (`file.rs`, `read`, `lean_of`; `tape_flags`).
+- The same footage feeds the AI clubs' boards (`scouts::read`, a per-board cache in `Ctx.foot`), the college staffs' film read and the services (`recruiting.rs`, `Recruit.wide` and `svc`: a reel's tilt × (1 - visibility), minus 0.3 × luck on film that is already his last season), the December read (`tape_lean` at judge 12) and the desks (`public.rs`, `desk_grade`, the spring months against a judge-12 baseline).
+- The file shows the reasons in words (`footage::reasons`) on its "Your look" tab.
+
+The analytics staff (SK6): a numbers reader (`readers.rs`, `numbers_reader`; judge = its rating) at NFL clubs from 2003 and FBS programs from 2016 (`has_analytics`), one `Kind::Numbers` look each December 10 of a record year, added only to a file that already has looks (`numbers_looks`). It sees role skills with the snaps and four mental ones (`numbers_see`), with a misread of 8 × clamp(√(2100 / snaps), 0.8, 3) (`analytics_sd`) and a tilt of 0.8 × luck + 0.75 × context (`analytics_tilt`). Its own order of the 300 you grade on draft day is kept (`lookback.rs`, `Graded.numbers`, `numbers_record`).
+
+The scouts as people (SK7-SK10, `world/pro/scouts.rs`, `staff`): in a turnover year each club, richest first, loses about 0.1 of its men plus 0.12 × (1 - budget) for a judge of 15 and up, and half of those 64 and up retire. The leavers go to `Scouting::market` (up to 240, sorted by standing, one in five leaves it each year), with about 1.5 newcomers a club each spring (`newcomers`). Posts are filled by `sign`: from the market within 3 + 6 × budget names, a step up for a fit man (a director from a national of 12+, a national from an area of 11+), else half the time another club's man a step below (filled in place), else a new hire (`hire`). Each kept man has six AI look-backs settle a year at 0.35 + 0.025 × (judge - 10) (`ai_lookbacks`) and grows (`grow`): a chance of 0.32 × youth (1.0 under 38, then 0.6, 0.3, 0.1) × (0.5 + share held) for a point of judge, 80% of that for potential, a point of one group's knowledge; past 56 a 35% chance to lose a point of work. An area scout's contacts grow by (1 - c) × 0.22 × (0.6 + 0.04 × network) a year and fade 15% a year out of an area role; `place_areas` keeps him on his region, a move starts him at 0.05. Contacts cut a character read's misread by up to 35% and add 0.2 × contacts of see-through on background, call, school and old-staff looks of players at programs in his region (`file.rs`, `trait_reads`; `scouts.rs`, `Eye.contacts`). Bug 19: `staff_ethnicity` draws seven backgrounds by era. `climb_to_gm` (from `office.rs`, `replace_gm`): 35% of GM openings from 1990 go to the best director aged 36-60 of another club, yours included; skill 0.5 × judge + 0.5 × potential + 1, then half the read; a non-White director's old club gets the 2020 diversity picks (`trades::note_diversity_hire`).
+
+Your own side (`world/scouting/own.rs`; the commands in `crates/afm-game/src/lane_evaluate.rs`):
+
+- The May review (SK11): opens instead of your club's turnover (`open_review`, due June 1); your calls (renew, raise +12%, promote, let go), signings from the market into your let-go posts or up to two new ones (`sign`), then `close_review`: the AI's leave rule (a raise keeps 60% of the sharp men who'd go), growth, the director's post filled, the areas placed, look-back leads of changed posts cleared.
+- College personnel (SK7): `personnel_market` (12 keyed candidates with their past programs and look-backs), `hire_personnel`, `let_go_personnel`; your staff overrides `readers::personnel` once changed (`keyed_personnel` is the program's own); a year on each July 1 (`grow_personnel`).
+- Your days out (SK12-SK13): `trip_kinds` and `trip_day` (the seat's rules above), `go`, `take_trips` (the look under your code, or the man you sent). Seen (`leak`): an NFL head man's trip plants a `predraft::Leak`; a college coach's adds 0.05 visibility a trip, 0.1 at most for a year (`seen_lift`, read in `recruiting.rs`'s pool).
+- Your eye (SK14): `credit_eye` each September 2, 0.04 for a settled look of yours that held, 0.06 for a miss, three points at most, added to your evaluation.
+- Interviews (SK15): `rooms` (combine 15 minutes, 18 from 2020, for a declared player on your interview list; top-30 visit 60 in March and April; official visit 45), `interview` (answers from `lines::interview_answer` by `answer_band`; the whiteboard quiz out of 6 on football IQ and recognition), `interview_traits` (each topic's traits, misread 2.4 × √(6 / minutes) × sharp(your relationships), shaded by 0.6 × `polish`), applied in `readers::read` for your seat.
+- Meetings (SK16): `meeting_today`, `hold_meeting` (top 60, 4+ points apart, 12 items), `settle` (three board places a point; college through `front_office::college::reorder`), `meeting_record`.
+- Minimums (SK17): `set_minimum`, `under` (measured at the combine, a pro day, your camp or a workout, else the listed height and weight); AI GMs' by key (`ai_minimums`, a third hold one, 12% two) in `scouts::board_from` (do not draft); college head coaches' height and weight lines in `run_signing_stage`; yours at your club or program the same way when set to drop.
+- Services (SK18): `service_of` (36% National, 30% BLESTO by club and decade; yours once set), `service_grade` (7 + (read - division - 78) / 4 on 1.0-9.0), the member clubs' fall lists in `scouts::fall` (the service's top `slots × 5`), a lent scout at 60% of his calls, non-members at 112%.
+- Your word (SK19): `tell`, `word_lift` ((0.5 + 0.6 × strength) × credit, for 400 days, added in `scouts::read`), `settle_words` after the draft, `cred`; `set_openness` and `openness_factor` (school calls on your players × 1.15 closed, × 0.9 with the film room).
+- Pro days (SK20): `scouts::pro_day` counts each program's (a club with a read of 60+ sends a scout, 74+ a head man) into `Scouting::pro_days`, and sets `Program.pro_day` = `pro_day_pull` (0.03 × min((clubs + 2 × heads) / 40, 1), last two springs), read in `utility_fit` × (0.6 + development + path).
+- The advisory grades (SK21): `recruiting.rs`, `advisory_grades` (by era, above), `own::request_advisory`, `stay_or_go`, `talk_factor` (trust 0.35 + 0.02 × (relationships - 10) + 0.015 × (coachability - 10) + 0.015 × (loyalty - 10), 0.05-0.75; stay × (1 - 0.6 × trust), go × (1 + 0.2 × trust)).
+- Athletes (SK22): `athletes` (keyed, 2 to 7 by enrollment), `recruit_athlete` (chance = his openness + 0.025 × (relationships - 10), less 0.1 for a senior), `World::add_athlete` (`world/mod.rs`, made by `new_kid` with his talent, his sport's tools +6, football skills × 0.8).
+- Bug 18: `own::voice` and `lines::voice` (his range from `reader_overall`, the room's centre, his looks, the tier, the fit from `footage::scheme_asks`), in the file's and the war room's voices.
+
 ## Where the knobs are
 
 - `world/scouting/file.rs`: `LEAN` 0.6, `NOISE` 0.4, `MIX_SD`, `sharp`, `sees` (base misreads), `measures`, `trait_sees`, `Shade::tilt`, `visibility`, the 0.33 bias tilt, the 9 × visibility prior, the 1.15 no-talk factor, medical cut-offs 0.6/1.4/2.4, `hints` notice and hit rates.
@@ -201,6 +236,7 @@ All in `world/recruiting.rs`, `run_signing_stage` (the board per position):
 - `world/scouting/dept.rs`: `eval_limits`, board sizes in `watch`, camp radius and odds.
 - `world/scouting/public.rs`: desk lists and skills, grade spread 3.5.
 - `world/coach.rs`: `Coach::evaluation`.
+- `world/scouting/footage.rs` and `world/scouting/own.rs`: the fresh look's sizes (listed in `docs/game.md`, update 2 lane 8, Claude's picks).
 
 ## Related pages
 

@@ -72,6 +72,33 @@ pub struct Personnel {
 }
 
 pub fn personnel(w: &World, prog: usize) -> Vec<Personnel> {
+    // Your program's staff, once you have hired or let go (SK7).
+    if matches!(seat_staff(w), Some(Staff::Program(q)) if q == prog) && !w.scouting.own.personnel.is_empty() {
+        return w
+            .scouting
+            .own
+            .personnel
+            .iter()
+            .flatten()
+            .map(|h| Personnel {
+                name: h.name.clone(),
+                job: super::own::PERSONNEL_JOBS[h.job as usize % super::own::PERSONNEL_JOBS.len()],
+                judge: h.judge as f64,
+                potential: h.potential as f64,
+                athletic: h.athletic as f64,
+                character: h.character as f64,
+                network: h.network as f64,
+                work: h.work as f64,
+                since: h.since,
+                key: h.key,
+            })
+            .collect();
+    }
+    keyed_personnel(w, prog)
+}
+
+/// The staff a program has by key, before you change it.
+pub fn keyed_personnel(w: &World, prog: usize) -> Vec<Personnel> {
     use crate::world::data::Division;
     let p = &w.programs[prog];
     let money = clamp(0.4 * p.facilities / 20.0 + 0.6 * p.prestige / 100.0, 0.0, 1.0);
@@ -108,11 +135,7 @@ pub fn personnel(w: &World, prog: usize) -> Vec<Personnel> {
             let mean = 8.0 + 4.0 * money;
             let mut r = || clamp(rng.normal(mean, 2.8), 1.0, 20.0).round();
             let (judge, potential, athletic, character, network, work) = (r(), r(), r(), r(), r(), r());
-            let eth = if rng.chance(0.3) {
-                crate::world::ethnicity::Ethnicity::Black
-            } else {
-                crate::world::ethnicity::Ethnicity::White
-            };
+            let eth = crate::world::pro::scouts::staff_ethnicity(&mut rng, w.year);
             let born = w.year - rng.int(24, 50);
             let name = crate::world::names::person_name(eth, born, &mut rng);
             Personnel { name, job, judge, potential, athletic, character, network, work, since, key }
@@ -141,6 +164,7 @@ fn coach_reader(w: &World, c: usize, job: String, group: usize) -> Reader {
         say: if you(w) == Some(c) { 1.5 } else { 1.0 },
         bias: None,
         home: 99,
+        contacts: None,
     }
 }
 
@@ -208,10 +232,14 @@ pub fn reader(w: &World, staff: Staff, who: u32, group: usize) -> Option<Reader>
                     say: 0.9,
                     bias: None,
                     home: 99,
+                    contacts: None,
                 })
             } else if who == ACADEMIC {
                 let s = &w.programs[prog].support.academic;
                 Some(staffer_reader(&s.name, "Academic support", s.rating, prog as u64 ^ 0xACAD))
+            } else if who == ANALYTICS {
+                let s = &w.programs[prog].support.analytics;
+                Some(numbers_reader(&s.name, "Director of football analytics", s.rating, prog as u64 ^ 0xA7A))
             } else if who == MEDICAL {
                 let s = &w.programs[prog].support.medical;
                 Some(staffer_reader(&s.name, "Head trainer", s.rating, prog as u64 ^ 0x3ED))
@@ -242,6 +270,7 @@ pub fn reader(w: &World, staff: Staff, who: u32, group: usize) -> Option<Reader>
                     say: 0.8,
                     bias: None,
                     home: 99,
+                    contacts: None,
                 })
             } else {
                 None
@@ -266,7 +295,41 @@ fn staffer_reader(name: &str, job: &str, rating: u8, key: u64) -> Reader {
         say: 0.6,
         bias: None,
         home: 99,
+        contacts: None,
     }
+}
+
+/// The analytics head as a reader (SK6): he reads numbers, so his rating
+/// is his judgment of them.
+fn numbers_reader(name: &str, job: &str, rating: u8, key: u64) -> Reader {
+    let r = if rating == 0 { 10.0 } else { rating as f64 };
+    Reader { judge: r, potential: r, ..staffer_reader(name, job, rating, key) }
+}
+
+/// Whether a staff has an analytics department reading college numbers
+/// (SK6): NFL clubs from 2003 (real: a few in the 2000s, all by the late
+/// 2010s), FBS programs from 2016 (proposed, not confirmed).
+pub fn has_analytics(w: &World, staff: Staff) -> bool {
+    match staff {
+        Staff::Club(_) => w.year >= 2003,
+        Staff::Program(p) => w.year >= 2016 && w.programs[p].division == crate::world::data::Division::FBS,
+        Staff::School(_) => false,
+    }
+}
+
+/// The analytics staff's reads of a college player's numbers: one a
+/// season in the book, written as the season closes (SK6).
+fn numbers_looks(w: &World, staff: Staff, i: usize) -> Vec<(u32, Kind, crate::calendar::Date)> {
+    let p = &w.people[i];
+    if !has_analytics(w, staff) || !matches!(p.stage, Stage::College | Stage::Declared) {
+        return Vec::new();
+    }
+    w.stats
+        .career(p.player.id)
+        .iter()
+        .map(|r| (ANALYTICS, Kind::Numbers, crate::calendar::Date::ymd(r.year as i32, 12, 10)))
+        .filter(|x| x.2 <= w.today)
+        .collect()
 }
 
 fn club_reader(w: &World, t: usize, who: u32, group: usize) -> Option<Reader> {
@@ -288,6 +351,7 @@ fn club_reader(w: &World, t: usize, who: u32, group: usize) -> Option<Reader> {
                 say: if club.office.power == crate::world::pro::office::Power::Gm { 1.4 } else { 1.1 },
                 bias: None,
                 home: 99,
+                contacts: None,
             })
         }
         x if x == HC as u32 || x == OC as u32 || x == DC as u32 => {
@@ -322,10 +386,11 @@ fn club_reader(w: &World, t: usize, who: u32, group: usize) -> Option<Reader> {
             say: 0.7,
             bias: None,
             home: 99,
+            contacts: None,
         }),
         ANALYTICS => {
             let s = &club.support.analytics;
-            Some(staffer_reader(&s.name, "Director of analytics", s.rating, t as u64 ^ 0xA7A))
+            Some(numbers_reader(&s.name, "Director of analytics", s.rating, t as u64 ^ 0xA7A))
         }
         x if (PRO_SCOUT..PERSONNEL).contains(&x) => {
             let k = (x - PRO_SCOUT) as usize;
@@ -361,6 +426,7 @@ fn scout_reader(s: &scouts::Scout, group: usize, job: &str) -> Reader {
         say: (0.8 + 0.02 * s.conviction as f64) * if s.role == Role::Director { 1.2 } else { 1.0 },
         bias: Some(s.bias),
         home: s.home,
+        contacts: (s.role == Role::Area && s.contacts > 0.0).then_some((s.region, s.contacts as f64)),
     }
 }
 
@@ -379,6 +445,11 @@ pub fn evidence(w: &World, staff: Staff, id: u32) -> (Vec<Reader>, Vec<Evidence>
         raw.extend(v.iter().map(|l: &SeatLook| (l.who, l.kind, l.date)));
     }
     raw.extend(own_roster(w, staff, i));
+    // The analytics staff runs the numbers on everyone the staff is
+    // looking at.
+    if !raw.is_empty() {
+        raw.extend(numbers_looks(w, staff, i));
+    }
     raw.sort_by_key(|x| x.2);
     let mut codes: Vec<u32> = Vec::new();
     let mut readers: Vec<Reader> = Vec::new();
@@ -484,7 +555,10 @@ pub fn read(w: &World, staff: Staff, id: u32) -> Option<(Vec<Reader>, Vec<Eviden
     if !looks.iter().any(|l| l.date.add(readers[l.reader].lag(l.kind, id, l.date)) <= w.today) {
         return None;
     }
-    let f = super::file::read(w, i, &readers, &looks, &norms(w, i), medical_rating(w, staff), Some(w.today));
+    let mut f = super::file::read(w, i, &readers, &looks, &norms(w, i), medical_rating(w, staff), Some(w.today));
+    if seat_staff(w) == Some(staff) {
+        super::own::interview_traits(w, id, &mut f.traits);
+    }
     Some((readers, looks, f))
 }
 

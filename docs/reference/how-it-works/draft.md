@@ -1,6 +1,6 @@
 # The NFL draft: how it works today
 
-Checked against main at 94a6553 on 2026-10-25.
+Checked against main at d9ecf1c with update 2 lane 8 on 2026-10-26.
 
 ## Quick answers
 
@@ -43,7 +43,7 @@ Checked against main at 94a6553 on 2026-10-25.
 - Round = where his score ranks against the draft's slots; beyond the slots he is "round 8", projected undrafted (`career.rs`, `draft_round`).
 - Each underclassman draws a first plan from `declare_chance` (`recruiting.rs`).
 - `declare_chance`: rounds 1-2 0.85; 3-4 0.35 + 0.02 × (family money want × 10); 5-7 0.08; else 0.0005. In the NIL era × clamp(1 - 0.6 × NIL income / a year of his round's rookie pay, 0.25, 1). × (1 + 0.25 × ambition z). Capped 0.97. Rookie pay used: $4M round 1, $1.6M round 2, $1.2M rounds 3-4, $1M later.
-- December 15, the advisory committee: advisory round = round(December round + 1.5 × a keyed draw), 1-8; the plan is redrawn from it (`advisory_grades`; date in `world/clock.rs`).
+- December 15, the advisory committee (`advisory_grades`; date in `world/clock.rs`; update 2 lane 8, SK21): who asks is every underclassman projected in rounds 1-7 or planning to go. From 1994 the committee answers; from 2014 five names a school (an AI staff sends its five best scores, more for a projected first-rounder; your program sends the names on your list, `own::request_advisory`) with three answers (1, 2, 3 = return to school), before 2014 a round 1-8. Advisory = round(December round + 1.5 × a keyed draw). A junior not sent decides on round(December round + 2.4 × a keyed draw) with no grade. The plan is redrawn from `declare_chance` × your stay-or-go talk's factor (`own::talk_factor`) for your own players.
 - Announcements: each on his own day between his last game (or the advisory date) and the deadline, sooner with competitiveness; seniors who have used their eligibility enter at the deadline; playoff teams' players after their last game (`declarations`, `Declare::Soft`, `Deadline`).
 - Withdrawals: a declared underclassman with advisory round 5+ withdraws 30% of the time, unless he opted out of his bowl (`declarations`, `Declare::Withdraw`).
 - The COVID year: a senior with only that year left decides at the deadline (`eligibility::covid_return_chance`).
@@ -54,7 +54,7 @@ Checked against main at 94a6553 on 2026-10-25.
 - All-star week: every club's area scout (and a national at the Senior Bowl) files a look, and the public grade and score move 0.3 × (an accuracy-16 read - grade), capped ±2 (`recruiting.rs`, `all_star_game`; `world/pro/scouts.rs`, `all_star`).
 - Combine invites: every declared prospect projected in rounds 1-7 plus up to 60 (× world scale) of the rest by score (`recruiting.rs`, `combine_invites`).
 - Combine: shared measurements into every file (none in a year its workouts were cancelled; none for a prospect who chose to skip them), the clubs' interviews (60, 45 from 2020), news for anyone testing 1.8 sd above his position's invitees, and one "combine moment" for the 40 furthest under what his weight predicts (4.25 + 0.0042 × (weight - 180)), if 0.12 s or more (`recruiting.rs`, `combine`; `scouts.rs`, `combine`; `world/scouting/predraft.rs`, `combine_moments`).
-- Pro days: March to early April, FBS and FCS programs only; untested prospects measured (hand times, 0.05 s fast); clubs grading him 66+ send a coach (`world/nfl_year.rs`, `new_season`; `scouts.rs`, `pro_day`; `world/scouting/file.rs`, `tests`).
+- Pro days: March to early April, FBS and FCS programs only; untested prospects measured (hand times, 0.05 s fast); clubs grading him 66+ send a coach (`world/nfl_year.rs`, `new_season`; `scouts.rs`, `pro_day`; `world/scouting/file.rs`, `tests`). Each is counted (SK20): clubs whose best read there is 60+ came, 74+ sent a head man; kept three years in `Scouting::pro_days` and read by recruiting ([scouting.md](scouting.md), "The fresh look").
 - Pre-draft training: every declared prospect's speed, acceleration and agility measurements read up to +2.0 points for a hard worker with money (2 × clamp((work ethic - 6)/12) × (0.5 + 0.5 × money)), less the staff's test-reading discount (`world/scouting/file.rs`, `read`, `training`). The "testing camp" choice flag is shown in words only; nothing reads it.
 
 ## The prospect's own choices
@@ -77,6 +77,8 @@ Checked against main at 94a6553 on 2026-10-25.
 - Aligned onto the draft scale with every position (`level_rating.rs`, `PositionAligner::for_draft`). Specialists climb a ladder against the class instead, capped at the grade found at 18% of the draft (kickers), 27% (punters), 70% (long snappers).
 - Blend: weight on its own read 1/max(var, 0.25); on the public grade (1.5 - GM overconfidence)/16.
 - Character: minus 1.0 × max(risk - 0.5, 0). Do-not-draft if risk ≥ 2.5, or a dismissal with risk ≥ 1.0.
+- Hard minimums (SK17): do-not-draft under one of the GM's own lines (`own::ai_minimums`, keyed by the GM; about a third hold one), or at your club under one of yours set to drop.
+- The read itself carries the shared tape tilt, the analytics look, a member club's service list in the fall, area contacts and your word as a college coach (`own::word_lift`) ([scouting.md](scouting.md), "The fresh look").
 - A prospect it never filed: the public grade + 3 × a keyed draw.
 - What it does not read: the GM's position fixation (only the market reads it, `world/pro/market.rs`), the GM's film lean, or the Power's fit weight.
 

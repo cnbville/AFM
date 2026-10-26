@@ -41,6 +41,10 @@ pub struct Graded {
     /// His rank in the class three years on.
     #[serde(default)]
     pub outcome: Option<u32>,
+    /// Your analytics staff's rank of him by his numbers (SK6), for its
+    /// own look-back record.
+    #[serde(default)]
+    pub numbers: Option<u32>,
 }
 
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -149,7 +153,27 @@ pub(crate) fn snapshot(w: &mut World, grades: &HashMap<u32, f64>, public: &HashM
             lead,
             looks,
             outcome: None,
+            numbers: None,
         });
+    }
+    // SK6: the analytics staff's own order of the same players, from its
+    // read of their numbers.
+    if let Some(staff) = super::readers::seat_staff(w)
+        && super::readers::has_analytics(w, staff)
+    {
+        let mut by: Vec<(f64, usize)> = Vec::new();
+        for (k, g) in v.iter().enumerate() {
+            let Some(&i) = places.get(&g.id) else { continue };
+            let Some((rds, _, f)) = super::readers::read(w, staff, g.id) else { continue };
+            let Some(r) = rds.iter().position(|x| x.job.contains("analytics")) else { continue };
+            if let Some((c, _)) = super::own::reader_overall(w, i, &f, r) {
+                by.push((c, k));
+            }
+        }
+        by.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+        for (n, &(_, k)) in by.iter().enumerate() {
+            v[k].numbers = Some(n as u32 + 1);
+        }
     }
     w.scouting.records.drafts.extend(v);
 }
@@ -212,6 +236,7 @@ fn record_class(w: &mut World, prog: usize) {
             lead,
             looks,
             outcome: None,
+            numbers: None,
         });
     }
     // The services' order of the same class (by stars, then the national rank).
@@ -283,6 +308,31 @@ pub(crate) fn day(w: &mut World, d: Date) {
 }
 
 /// A staffer's record: (held, too high, too low) over his settled reads.
+/// The analytics staff's own verdict on a graded player (SK6): its rank
+/// by his numbers against where he ended up.
+pub fn numbers_verdict(g: &Graded) -> Verdict {
+    let (Some(out), Some(n)) = (g.outcome, g.numbers) else { return Verdict::Open };
+    match super::board::limb(n as usize - 1, Some(out as usize - 1)) {
+        1 => Verdict::TooLow,
+        -1 => Verdict::TooHigh,
+        _ => Verdict::Held,
+    }
+}
+
+/// The analytics staff's record: held, too high, too low.
+pub fn numbers_record(r: &Records) -> (u32, u32, u32) {
+    let mut out = (0, 0, 0);
+    for g in &r.drafts {
+        match numbers_verdict(g) {
+            Verdict::Held => out.0 += 1,
+            Verdict::TooHigh => out.1 += 1,
+            Verdict::TooLow => out.2 += 1,
+            _ => {}
+        }
+    }
+    out
+}
+
 pub fn record_of(r: &Records, who: u32) -> (u32, u32, u32) {
     let mut out = (0, 0, 0);
     for g in r.drafts.iter().chain(r.classes.iter()).filter(|g| g.lead == Some(who)) {

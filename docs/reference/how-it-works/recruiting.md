@@ -1,6 +1,6 @@
 # Recruiting: how it works today
 
-Checked against main at 9a53e5d on 2026-10-26.
+Checked against main at d9ecf1c with update 2 lane 8 on 2026-10-26.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Recruiting" below is `world/recruiting.rs`.
 
@@ -158,6 +158,14 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 ## Your desk
 
 - Your college board, visits, portal offers and NIL promises replace your staff's in the same matching; recruits decide by the same code (`world/front_office/college.rs`; recruiting, `stage_board` use in `run_signing_stage`). `appeal` and `usual_nil_offer` are the reads your screens show.
+
+## The fresh look's part (update 2, lane 8)
+
+- Film and the services read through the same tape as every staff (SK1-SK5): each recruit's film carries his footage lean (dominance over weak schedules, a reel's tilt × (1 - visibility)) minus 0.3 × luck, and the services' projection the same lean (`Recruit.wide`, `Recruit.svc`); a staff's misread on film is × `wide` (`film_factor`) (`world/recruiting.rs`, the pool and `run_signing_stage`).
+- A head coach seen at a recruit's game adds 0.05 visibility a trip, 0.1 at most for a year (`own::seen_lift`, in the pool's visibility sum).
+- A program's pro day pull (SK20): `Program.pro_day` (up to 0.03) × (0.6 + development want + path weight) in `utility_fit`.
+- Hard minimums (SK17): a head coach's height or weight line (keyed by the coach, `own::ai_minimums`; yours when set to drop) takes a recruit off his staff's board unless he is already committed there.
+- How each works: [scouting.md](scouting.md), "The fresh look".
 
 ## Where the knobs are
 
