@@ -358,6 +358,9 @@ pub enum Reason {
     Benched,
     TeamTalk,
     Room,
+    /// The way the staff run the week (update 2, lane 4: a third morning of
+    /// mat drills).
+    Practice,
 }
 
 impl Reason {
@@ -374,6 +377,7 @@ impl Reason {
             10 => Reason::Benched,
             11 => Reason::TeamTalk,
             12 => Reason::Room,
+            13 => Reason::Practice,
             _ => Reason::Talk,
         }
     }
@@ -397,6 +401,8 @@ impl Reason {
             (Reason::TeamTalk, false) => "didn't buy your team talk",
             (Reason::Room, true) => "the locker room",
             (Reason::Room, false) => "something that happened in the locker room",
+            (Reason::Practice, true) => "the way the staff run the week",
+            (Reason::Practice, false) => "the grind of the week: mat drills at dawn",
         }
     }
 }

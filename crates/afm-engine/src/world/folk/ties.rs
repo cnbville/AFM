@@ -151,7 +151,18 @@ fn draw(w: &mut World) {
     let mut on_team: HashMap<u32, usize> = HashMap::new();
     let mut new: Vec<Tie> = Vec::new();
     let mut deepen: Vec<usize> = Vec::new();
-    for (r, roster) in rosters(w).iter().enumerate() {
+    let all = rosters(w);
+    // Your outings and leadership council since last camp (TR32, TR33):
+    // friendships on your roster form a little more often (proposed, not
+    // confirmed: up to a quarter more, or a sixth fewer when you cut them).
+    let mine = match Team::seat(w) {
+        Some(Team::College(p)) => Some(p),
+        Some(Team::Nfl(c)) => Some(w.programs.len() + c),
+        Some(Team::High(_)) => Some(all.len() - 1),
+        _ => None,
+    };
+    let lift = (1.0 + w.training.bonds as f64).clamp(0.85, 1.25);
+    for (r, roster) in all.iter().enumerate() {
         let live: Vec<usize> =
             roster.iter().copied().filter(|&i| w.people.get(i).is_some_and(|p| p.stage != Stage::Done)).collect();
         for &i in &live {
@@ -193,7 +204,7 @@ fn draw(w: &mut World) {
                 let social_q = (1.0 + 0.35 * tq.z(Trait::Leadership) + 0.25 * tq.z(Trait::Loyalty)
                     - 0.25 * tq.z(Trait::Ego))
                 .clamp(0.3, 1.8);
-                let chance = near * social * social_q;
+                let chance = near * social * social_q * if Some(r) == mine { lift } else { 1.0 };
                 let u = crate::world::season::key_uniform(seed ^ id as u64, k as u64 ^ (jd as u64) << 20);
                 if u >= chance {
                     continue;
@@ -401,6 +412,7 @@ pub fn friends_on(w: &World, id: u32, t: usize) -> usize {
 pub(crate) fn day(w: &mut World, d: Date) {
     if d == w.dates.fall_camp && w.folk.ties.drawn < w.year {
         draw(w);
+        w.training.bonds = 0.0;
         mentor_year(w);
     }
     if d.weekday() == Weekday::Mon && w.seat.is_some() {

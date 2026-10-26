@@ -137,11 +137,20 @@
       .map((s) => `<div class="panel warm"><h2>${esc(s.title)} <small>${esc(s.unit)}</small></h2><div class="gd-lines">${s.lines.map(line).join("")}</div></div>`)
       .join("");
     const mine = h.out_mine.length ? `<div class="panel warm"><h2>Your injury report <small>${h.out_mine.length}</small></h2><div class="gd-lines">${h.out_mine.map((l) => `<div class="gd-line"><span>${linkFirst(l.text, l.id)}</span></div>`).join("")}</div></div>` : "";
+    // Your two-deep's prep this week (update 2, TR43): the words, and the
+    // ones your staff worries about.
+    const pm = h.prep_mine;
+    const prep = pm && typeof twWord === "function"
+      ? `<div class="panel warm gd-prep"><h2>Your players' prep <small>the two-deep this week · <a class="link" data-go="training">Training</a></small></h2>
+        <div class="gd-prepwords">${[5, 4, 3, 2, 1].map((w) => `<span>${twWord(w)} <b class="${w <= 2 && pm.words[w] ? "amber" : ""}">${pm.words[w]}</b></span>`).join("")}</div>
+        ${pm.rows.length ? `<div class="gd-lines">${pm.rows.map((r) => `<div class="gd-line gd-prepline"><span>${playerLink(r.id, r.name)} <span class="muted">${esc(r.pos)} · ${esc(r.role)}</span> ${twWord(r.word)} ${twTrend(r.five)}${r.rust || r.says ? `<br><small class="${r.word <= 2 || r.rust ? "amber" : "muted"}">${r.rust ? `Rust ${esc(r.rust)}. ` : ""}${esc(r.says || "")}</small>` : ""}</span></div>`).join("")}</div>` : '<div class="sub">Everyone in the two-deep is prepared or sharp.</div>'}
+        <div class="sub gd-prepnote">Poor prep shows only through the battles today: more busts and late reads, not a worse player.</div></div>`
+      : "";
     return `<div class="gd-staff"><div><div class="st-label">Your staff's report on ${esc(h.opp.name)}</div>
         <div class="sub">${r.games ? `From ${r.games} game${r.games === 1 ? "" : "s"} of film, ${r.snaps} snaps tagged by ${esc(r.staff)}.${r.thin ? " Early in the season the report is thin: read every line as a small sample." : ""}` : `No film of ${esc(h.opp.name)} this season yet: they haven't played. The report fills in from their games, tagged by ${esc(r.staff)}.`}</div></div>
         <a class="link gd-side-link" data-act="gd-tab" data-t="Film room">Study their tapes yourself →</a></div>
       ${finds}
-      <div class="gd-report">${sections || '<div class="panel warm"><div class="empty">No film of them yet this season. The report fills in once they play.</div></div>'}${mine}</div>`;
+      <div class="gd-report">${sections || '<div class="panel warm"><div class="empty">No film of them yet this season. The report fills in once they play.</div></div>'}${mine}${prep}</div>`;
   }
   // A line whose subject is a player: his name (the text's start) links.
   function linkFirst(text, id) {

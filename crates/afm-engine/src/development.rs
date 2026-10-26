@@ -710,10 +710,11 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         player.attributes.add(key, gap.min(gap * rate + FINISHING_STEP * rate).min(MAX_YEARLY_GAIN) + noise);
     }
     if ctx.defer {
-        let grade = player.train.grade;
-        player.train =
-            crate::training::Train::open(&g, player.age, development_age, player.position, player.train.load);
-        player.train.grade = grade;
+        let old = player.train;
+        player.train = crate::training::Train::open(&g, player.age, development_age, player.position, old.load);
+        player.train.grade = old.grade;
+        player.train.prep = old.prep;
+        player.train.rust = old.rust;
     }
 
     for key in Attr::ALL {

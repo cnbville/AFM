@@ -1,0 +1,248 @@
+# Play calling: how it works today
+
+Checked against main at 94a6553 on 2026-10-25.
+
+Paths are under `crates/afm-engine/src/` unless they start with `crates/`. Coach skills are 1-20. A list of weights means one option is drawn in proportion to its weight. "Long" means 2nd down or later with 8+ to go. U is a uniform 0-1 draw, N(m, sd) a normal one, N alone N(0, 1).
+
+## Quick answers
+
+- Who calls the plays? Each side's coordinator, the head coach when there is none, you when you take a side; a high school head coach calls both sides (`world/season.rs`, `play_caller`; `world/hs_year.rs`, `squad_team`).
+- Does a good play caller get a bonus on the field? No. His skills only change which plays are called; the play then has to win its battles on the field (`game/calling.rs`, module doc).
+- Where does a caller's quality come from? 0.6 scheme + 0.4 game management, times 0.7 + 0.3 × how well he knows the installed system (`world/season.rs`, `coach_caller`).
+- How is run or pass picked? The real pass rate for the down, distance, score and clock, then the scheme's lean, aggressiveness, what has worked today and the game state (`game/calling.rs`, `call_offense`; `game/tables.rs`, `real_pass_rate`).
+- Does the caller know what beats what? Yes: a table of what each concept gained against each coverage, and each run against each front, measured on the engine. He leans on it by trust(reading) = 0.55 × ((reading - 1) / 19)² (`game/calling.rs`, `CALL_VALUES_CSV`, `trust`).
+- What does film study do? It sets how many of the opponent's snaps the staff breaks down (20 + 2.25 × film study), the error on what it counts, its matchup plan and the habits it targets (`Memory::prepare`, `make_plan`, `read_habit`).
+- Do defenders key formations? Yes: what the offense has run from a look is a tell. A defender reads the play 0.16 s × his key sooner when the tell is right, and later when it lies (`Memory::belief`; `game/scrimmage.rs`, `run_snap`).
+- When does the quarterback audible? From a run into a box with 2+ more defenders than blockers, or from a pass against a light box showing two deep, with chance clamp((iq - 40) / 50, 0.05, 0.95), × (1 - 0.5 × crowd) on the road, if his head coach gives him the freedom (`game/flow.rs`, `run_scrimmage_call`).
+- How is fourth down decided? Expected points of going, punting and kicking, then a habit: he follows the numbers with chance clamp(0.05 + 0.012 GM + 0.01 (agg - 10), 0.03, 0.45), else the real go rate (`game/calling.rs`, `fourth_down`).
+- When do starters come out? When the head coach's read of the comeback odds passes his level's steps: z = lead / (10 √(share of game left) + 3.25), read through his game management and moved by his sportsmanship (`game/garbage.rs`, `comeback_z`, `Coach::review`).
+- Does any world team run the wing-T? No. World teams install one of five offenses (West Coast, air raid, wide zone, power gap, spread option); the wing-T is only in synthetic high school test leagues (`world/systems.rs`, `OFFENSES`; `game/synthetic.rs`, `synthetic_league`).
+- Do AI coordinators call designed plays? No: they draw from the library's pass concepts (27 alone; the 3 RPO halves only inside an RPO). A design is called only from your call sheet or by you (`game/calling.rs`, `pick_concept`; `game/flow.rs`, `sheet_call`).
+- Does the designer grade my play? No: it checks legality, your coordinator comments at his reading skill, and the play gains what its geometry gains (`game/designer.rs`, `legal`, `review`).
+- Do new ideas fool defenses? In college only: a family new to the division, or one the team runs far more than its division, makes defenders read up to 0.12 s later. NFL and high school teams keep 0 (`world/trends.rs`, `team_novelty`; `game/scrimmage.rs`, `run_snap`).
+- Does my game plan's run-pass lean do anything? No: it is saved and shown, but no engine code reads it (`training/seat.rs`, `GamePlan`, `prepare`).
+- Do the rules change by era? Mostly no: every NFL, college and high school game plays today's book for its level, so NFL history games use the 2025 kickoff, the 15-yard extra point and the 10-minute overtime (`game/flow.rs`, `quick_game_in`; `game/rules.rs`, `Rules::for_level`). The other leagues' games use their own book for the season (`game/flow.rs`, `quick_game_book`; `game/books.rs`, `Rules::for_book`).
+
+## Who calls and how good he is
+
+- The caller is the side's coordinator, else the head coach; you, when your coach calls that side (`world/season.rs`, `play_caller`). A high school head coach calls both sides and installs the systems he knows best (`world/hs_year.rs`, `squad_team`).
+- An AI caller's skills come from the calling coach's scheme (S) and game management (GM), both 1-20: skill = (0.6 S + 0.4 GM) × fit; reading = clamp(0.7 S + 0.3 GM + 2N, 1, 20) × fit; situational = clamp(0.7 GM + 0.3 S + 2N, 1, 20), with no fit; creativity = clamp(S + 3N, 1, 20) × fit. fit = 0.7 + 0.3 × his knowledge of the installed system, 0-1 (`world/season.rs`, `coach_caller`; the NFL copy is in `world/pro/games.rs`, `build_side`).
+- Adaptation = his GM, aggressiveness = his ambition, nerve = clamp(0.04 × (ambition - 10) + 0.4N, -1, 1). Each N is keyed on the coach, so his spread is the same every game. With no coach at all: skill, reading and creativity 9 × 0.94 (NFL 10 × 0.94), situational and adaptation 9 (NFL 10), aggressiveness 10, nerve 0 (`coach_caller`).
+- Your own calls: your play-calling rating replaces the 0.6 S + 0.4 GM base and shifts reading, situational and creativity by the same amount; your adaptation rating replaces GM (`world/season.rs`, `your_calls`).
+- The head coach brings game management, strictness (his discipline) and sportsmanship (`world/season.rs`, `game_team`; `world/pro/games.rs`, `build_side`; `world/hs_year.rs`, `squad_team`).
+- Film study, 1-20: college clamp(0.35 × (OC scheme + DC scheme) + 7 × facilities, 1, 20); NFL the same with 7 × clamp(0.85 + 0.15 × analytics z, 0.7, 1) in place of facilities; high school clamp(0.7 × his scheme + 7 × the school's resources, 1, 20) (same functions).
+- Install, the share of the playbook in a normal week's plan: clamp(absorb(the roster's mean Football IQ) + miss + 0.01 × (OC aggressiveness - 10), 0.35, 1), miss = 0.15 × (1 - OC skill / 20) × N keyed on coach and year; high school has no miss (same functions).
+- Nickel habit: clamp(0.88 + 0.08N, 0.55, 0.99) in college and high school, clamp(0.9 + 0.06N, 0.6, 0.99) in the NFL. Playbook size is 1.0 for every world team (same functions).
+
+| Skill | On offense (`game/calling.rs`) | On defense (`game/calling.rs`) |
+|---|---|---|
+| reading | trust in the value table for runs and passes; half of how sharply he reads the coverages shown (`pick_run`, `pick_concept`) | trust in what each coverage gives up; half of how hard he keys the look; spy 0.25 + 0.02 × reading; plan spy 0.4 + 0.03 × reading; bumping across motion 0.15 + 0.02 × reading (`call_defense`, `make_plan`; `game/flow.rs`, `run_scrimmage_call`) |
+| adaptation | run-pass shift from today's EPA; today's run and deep results; half of the coverage read (`call_offense`, `pick_run`, `pick_concept`) | coverages and fronts against what hurt him today; the quick-throw term in the blitz chance (`call_defense`, `pick_front`) |
+| situational | routes that reach the sticks on 3rd and 4th down (`pick_concept`) | not read |
+| creativity | the tell (looks that give the play away); breaking his own tendency (`call_offense`) | not read |
+| aggressiveness | pass rate, deep shots, fourth downs, two- and three-point tries, a surprise onside kick (`call_offense`, `pick_concept`, `fourth_down`, `go_for_two`, `go_for_three`; `game/flow.rs`, `kickoff`) | blitz rate, stunts; the blitz habit opponents prep for (`call_defense`, `Memory::prepare`) |
+| nerve | agg = aggressiveness + 4 × nerve × pressure (`call_offense`, `pick_concept`, `fourth_down`) | not read |
+| skill | not read in the call; the install's miss (`world/season.rs`, `game_team`) | simulated pressure weight, fire zone weight, disguise (`call_defense`) |
+
+- trust(x) = 0.55 × clamp((x - 1) / 19, 0, 1)²: 0 at 1, 0.12 at 10, 0.55 at 20 (`trust`, `TRUST`).
+- Fourth downs use the offensive caller's aggressiveness and nerve, tries his aggressiveness; the head coach adds only his game management, on fourth downs (`fourth_down`, `go_for_two`). His game management also sets the defense's late timeouts (`game/flow.rs`, `after_snap_clock`), how true his garbage-time read is (`game/garbage.rs`, `Coach::new`) and the NFL toss deferral (`game/live.rs`, `ai_toss`).
+- Strictness cuts the quarterback's freedom at the line (`run_scrimmage_call`); its part in obeying instructions is on [tendencies.md](tendencies.md).
+
+## Film and game prep
+
+- A team's film is its season so far. Every run, pass, sack and scramble goes on both teams' film: runs and passes by look (personnel × backfield × set, 108 looks), pass and run concepts, coverages, blitzes, fronts and passes by down (`game/calling.rs`, `Film`; `game/flow.rs`, `resolve`).
+- At the new season the film fades to 0.3, or 0.1 after a head coach change (`world/college.rs`, `start`; `world/pro/mod.rs`, `league_year`). High school teams carry no film, so their opponents prep from habits alone (`world/hs_year.rs`, `squad_team`).
+- Prep, study = clamp(film study / 20, 0.05, 1) (`Memory::prepare`). What everyone knows: 12 × (0.4 + 0.6 study) snaps of the opponent's shell mix, its blitz rate clamp(0.24 + 0.012 × (DC aggressiveness - 10), 0.05, 0.6) and its pass rate 0.58 + scheme lean. The tape: at most 20 + 45 × study snaps of each side, each count × (1 + N(0, 0.35 × (1 - study))).
+- Your own film study adds the tapes you watched at their true counts, with no cap (`Memory::study`; `world/live_seat.rs`, `seat_prep`).
+- Habits targeted: seen = the group's true mean + N(0, 0.15 × max(21 - film study, 1)), lean = clamp((seen - 12.5) / 4, 0, 1) (`read_habit`; `game/flow.rs`, `play_game_ctl`). Against the starting 2 EDGE + 2 DT's Snap timing: the hard count comes on every 3rd and 4th down and at 3 or less to go, not only 3rd/4th and 2 or less, × (1 + 0.5 × lean) (`game/flow.rs`, `pre_snap_foul`). Against the 2 CB + 2 S's Jump routes: double moves cut their chance to jump the right route by 0.25 × lean (`game/scrimmage.rs`, `jump_route`).
+- Against the 2 EDGE's Upfield: draws × (1 + 1.5 × lean) (`pick_run`). Against KR1's Return risk: with chance 0.6 × lean, if the leg reaches, the kickoff lands 1-4 yards deep in the end zone (`game/kicking.rs`, `kickoff`).
+- Matchup plan, from depth-chart spot ratings seen with error N(0, 0.8 × max(20 - film study, 1)) (`make_plan`; `game/flow.rs`, `play_game_ctl`). Target corner: the weaker of their top 2 CBs, if more than 4 points below the other; his man becomes the first read 50% of the time (`game/scrimmage.rs`, `run_snap`). Bracket: their best of 3 WRs, if more than 5 above our best of 2 CBs (`game/scrimmage.rs`, `assign_defense`).
+- Spy: their QB's run threat above 0.6, with chance 0.4 + 0.03 × DC reading; run threat = clamp((0.6 Speed + 0.4 Elusiveness - 68) / 20, 0, 1) (`game/flow.rs`, `qb_run`). Help: their best of 2 EDGE + 2 DT, if more than 3 above our 2 OTs' mean; the line slides and a back or tight end chips (`HELP_GAP`; `game/scrimmage.rs`, `slide_to`).
+- In-game memory, after each run, pass, sack or scramble with no accepted penalty: the offense keeps its runs, passes and deep throws (15+ air yards), each look's runs and passes and each run concept's results; the defense keeps the other offense's looks, concepts, passes, quick throws (under 2.4 s), deep EPA and run EPA. EPA is read off the NFL table at every level, a touchdown worth 6.95 (`game/flow.rs`, `resolve`, `estimate_epa`).
+- The defense's key on a look: league = 1 - (their passes + 2) / (their plays + 4); p_run = (runs from it + 3 × league) / (snaps from it + 3); sure = n / (n + 6); it returns (p_run - league, sure) (`Memory::belief`).
+
+## The offensive call (`game/calling.rs`, `call_offense`)
+
+- p_pass starts at the real pass rate by down 1-3 (fourth down uses third), distance, score and clock (late = the 4th quarter's last 7:00, two-minute = a half's last 2:00): nflverse 2021-25 for the NFL, the college table below it, defaults 0.58 and 0.5 (`game/tables.rs`, `real_pass_rate`; `Situation::clock`).
+- Then + the scheme's lean (West Coast +0.02, air raid +0.09, wide zone -0.03, power gap -0.06, spread option -0.02, wing-T -0.25) + 0.006 × (agg - 10) + the book's lean, 0 at the American levels (`game/roster.rs`, `OffScheme::pass_lean`). agg = aggressiveness + 4 × nerve × pressure; pressure = clamp(-diff / 14, 0, 1) when behind in the second half, × 0.6 in Q3 (`Situation::pressure`).
+- After 8+ plays: + clamp((pass EPA a play - run EPA a play - 0.12 + N(0, 0.25 × (1 - a))) × 0.22a, -0.12, 0.12), a = adaptation / 20.
+- Hurry-up: p_pass at least 0.85. It is on in a half's last 2:00 from Q2 on when tied or behind, in Q4's last 5:00 when behind, and in Q2's last 2:00 at any score; never when easing at 0.5+ or conceded (`Situation::hurry`).
+- Garbage time: leading, p_pass moves toward 0.22 by the ease share (0.44 on 3rd+ and 7+, 0.11 at 2 or less to go); conceded, 70% of the way to 0.45 (`RUN_OUT_PASS`, `CONCEDED_PASS`). 3rd and 4th and 1: at most 0.45. Clamped 0.03-0.97.
+- What it does not read: weather, the crowd, the defense on the field, or any player rating beyond the QB's run threat, the healthy TE count and whether the depth chart lists 2+ RBs (`OffCtx`; `game/flow.rs`, `snap_play_as`).
+- Personnel (`pick_personnel`), with short = (3rd/4th and 2 or less) or at the 3 or closer, and tell = clamp(0.33 - 0.013 × creativity, 0.07, 0.33): hurry-up 11 (70%) or 10; short yardage 12: 3, 22: 2, 13: 1.5, 21: 1.5; otherwise by scheme, with h = max(1 + 2 × tell on runs, or 1 - 2 × tell on passes, 0.2):
+
+| Scheme | Personnel weights |
+|---|---|
+| West Coast | 11: 6, 12: 2.5h, 21: 1.5h |
+| Air raid | 10: 4 / h, 11: 6 |
+| Wide zone | 11: 5, 12: 2.5h, 21: 2.5h |
+| Power gap | 11: 4, 12: 3.5h, 21: 2h, 22: 0.8h |
+| Spread option | 11: 6, 10: 3 / h |
+| Wing-T | 21: 5, 22: 2, 12: 3 |
+
+- 21 and 22 need a fullback (2+ RBs listed). With fewer than 2 healthy TEs, 12, 22 and 13 become 11; with fewer than 3, 13 becomes 12 (`pick_personnel`).
+- Shotgun chance = clamp(lean + tell on passes or - tell on runs, + 0.3 in the hurry-up, 0, 0.98); leans air raid and spread 0.92, West Coast 0.6, power gap 0.4, wide zone 0.35, wing-T 0.05, + 0.08 below the NFL. 21 and 22 go under center outside the hurry-up. Pistol: 20% of wide zone and spread gun snaps and 30% of wide zone's other snaps; a play-action pass from the gun moves to the pistol 40% of the time.
+- Set (`pick_set`), m = clamp((year - 2008) / 14, 0, 1). Short yardage: wing 40% with 12, 21 or 22, else doubles. Otherwise: empty 0.06 + 0.06m (passes, 3+ WR, air raid, West Coast or spread), bunch 0.03 + 0.06m (3+ WR), stack 0.02 + 0.04m (2+ WR), trips 0.3 (3+ WR), wing 0.3 (12, 21 or 22 in wide zone, power gap or wing-T), doubles the rest, at least 0.05. A run, or a pass needing 6- or 7-man protection, turns empty into trips.
+- Self-scout: once a look has 4+ snaps today, outside the hurry-up and short yardage, a run from a look he has run 75%+ of the time becomes a pass, and a pass from a look run 15% or less becomes a run, each with chance 0.45 × creativity / 20.
+- Motion (`pick_motion`): rate = (0.22 + 0.33 × clamp((year - 2014) / 9, 0, 1)) × 0.6 in high school; none from empty. Jet 1.5 (wide zone, wing-T, spread) or 1, orbit 0.4 on passes and 0.2 on runs, across 1.6, shift 0.8.
+- Runs (`pick_run`): a sneak 25% of the time in short yardage from under center, before anything else. Otherwise:
+
+| Scheme | Run weights |
+|---|---|
+| West Coast | inside zone 4, outside zone 2, draw 1.2, power 1, toss 0.6, duo 0.8, trap 0.4 |
+| Air raid | inside zone 4, draw 2, zone read 1.5 (gun), counter 1, QB power 1 × run threat (gun) |
+| Wide zone | outside zone 5, inside zone 3, counter 0.8, toss 0.6, draw 0.4, duo 0.6, trap 0.3 |
+| Power gap | power 4, counter 2.5, inside zone 2, duo 1.5, trap 0.8, toss 0.6, draw 0.6, iso 1.5 (fullback) |
+| Spread option | zone read 5 (gun), inside zone 3, draw 1.5, counter 1, power 1, speed option 1 (gun, below the NFL), QB power 2.5 × run threat (gun), triple option 1 (high school) |
+| Wing-T | buck sweep 4, counter 2.5, power 2, toss 1.5, inside zone 1, trap 1.5, triple option 1.5 (below the NFL) |
+
+- A fullback on the field adds power 1.5 and iso 1; jet motion adds jet sweep 2.5; draws × (1 + 1.5 × the plan's draws); short yardage: toss, draw, outside zone, jet sweep and speed option × 0.3. Each weight × exp(trust(reading) × 1.5 × ev + 0.8 × adaptation / 20 × today): ev is the run's table value against the fronts seen (each front + 1/6), today its mean EPA after 3+ tries.
+- Jet sweep, counter and 30% of other runs go away from the strength (`call_offense`). RPO (`pick_rpo`): on inside zone, duo, power or counter with 2+ WR, outside short yardage and the hurry-up, with chance scheme (spread 0.4, air raid 0.35, West Coast and power gap 0.15, wide zone 0.08, wing-T 0) × level (NFL 0.4, high school 0.8, college 1) × clamp((year - 2010) / 8, 0, 1); the throw is RPO glance 1, RPO bubble 1 or RPO slant 0.8.
+- Passes (`pick_concept`), short = 3 or less to go, red zone at the 20 or closer, goal at the 8 or closer. Depth: screens × 1.2 long, else 1.6; quick × 2.2 short, 0.7 long, else 1.5; medium × 1.4 long, else 0.9; deep × 1.1 long, 0.4 short, else 0.6.
+- Play action × 1.4 on 1st down or short, else × 0.5; the PA boot from the shotgun × 0.5 more. Red zone: deep × 0.3; fades, flood, slant-flat, snag and spacing × 2; outside it, fades × 0.15. Goal: screens × 0.3. Hurry-up: play action and screens × 0.3; flood, curl-flat, smash and speed outs × 1.8. From empty: 6- or 7-man protection or play action × 0.05, a back's route × 0.3.
+- Scheme favorites × 2.2: air raid mesh, four verticals, stick, Y-cross, hitches, shallow cross, spacing; West Coast slant-flat, curl-flat, stick, RB screen, drive, spacing, Texas; wide zone PA boot, PA shot, PA dig, flood, drive, tunnel screen; power gap PA shot, curl-flat, dagger, smash, mills, Y-option; spread bubble screen, hitches, four verticals, RB screen, snag, levels; wing-T PA boot, PA shot, flood.
+- Value: × exp(trust(reading) × (its expected value - the mean)), read with sharp = (reading + adaptation) / 40 (`expected_values`). On 3rd and 4th, not short: × (1 + 0.8s) if one of the first two reads breaks at or past the sticks, else × (1 - 0.48s), s = clamp((situational - 4) / 14, 0, 1) (`sticks_depth`). Deep, after 3+ deep throws today: × clamp(1 + deep EPA a throw × 0.4 × adaptation / 20, 0.5, 1.6).
+- Aggressiveness: deep × (1 + 0.03 (agg - 10)), others × (1 - 0.009 (agg - 10)). Easing: deep and the PA shot × (1 - 0.3 × ease). The week's plan: non-favorites × clamp(playbook × plan share / 0.75, 0.2, 1.4) (`INSTALL`). Every weight is at least 0.01; the RPO halves are never called alone.
+- Kill call: on 1st and 2nd down outside the hurry-up and short yardage, a second play goes in the huddle: a pass with a run or RPO (curl-flat at 8+ to go, else slant-flat), inside zone with a pass. The why line is the coordinator's reason, for example "they keep two safeties deep, so the box is light" on a run when over 55% of the coverages seen were two-high (`call_why`).
+
+## The defensive call (`game/calling.rs`, `call_defense`, `pick_front`)
+
+- Personnel: goal line at the 3 or closer against 2 or fewer WR; dime against 4+ WR, or half the time on 3rd and 8+ against 3+; nickel against 3 WR with chance of the DC's nickel habit; else base.
+- Coverage: the DC's shell mix, each weight × exp(-trust(reading) × (what it gives up - the mean)) against the concepts he expects, read with sharp = (reading + adaptation) / 40 (`shell_mix`, `coverage_values`):
+
+| DC's shell | Cover 3 | C3 match | Cover 1 | C1 robber | Cover 4 | Cover 2 | Cover 6 | 2-man | Cover 0 | Tampa 2 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Cover 3 | 26 | 16 | 15 | 5 | 10 | 9 | 6 | 4 | 4 | 5 |
+| Quarters | 10 | 8 | 10 | 4 | 30 | 12 | 14 | 5 | 3 | 4 |
+| Man pressure | 14 | 8 | 26 | 12 | 8 | 6 | 4 | 10 | 9 | 3 |
+| Cover 2 | 14 | 6 | 9 | 3 | 10 | 28 | 8 | 6 | 2 | 14 |
+
+- Then, with a = adaptation / 20. Two-high (Cover 2, Tampa 2, Cover 4, Cover 6, 2-man): × 1.5 long, × 0.55 at 2 or less to go; × (1 + a × (3 × deep hurt + 1.5 × (their pass share - 0.55)₊)); × (1 - min(2a × run hurt, 0.5)); × max(1 - 2 × lean_run, 0.2); × 1.6 against the hurry-up. Single-high and Cover 0: × (1 + 2.5a × run hurt); × max(1 + 2 × lean_run, 0.2).
+- Cover 0: × 2.5 at 2 or less to go or at the 10 or closer, × 0.3 long. Goal-line personnel: zones × 0.3. Leading (his ease): Cover 0 × (1 - ease), man × (1 - 0.5 × ease), two-high × (1 + ease).
+- Deep hurt = max(their deep EPA / their plays, 0) once they have more than 6 plays, prep snaps included. Run hurt = max(their run EPA a run, 0) after more than 5 runs today. lean_run = (belief - 0.5) × sure × (reading + adaptation) / 40, where belief is already the look's run share minus their usual one (`Memory::belief`).
+- Blitz chance = clamp(0.24 + 0.012 × (aggressiveness - 10) - 0.2 × ease + 0.1 on 3rd and 4-9 - 0.1 against the hurry-up + 0.5a × min(quick share - 0.3, 0), 0.05, 0.6). Quick share = their throws under 2.4 s / their plays; the plays include the prep snaps, so it starts at 0. Cover 0 always sends the double-A.
+- Pressure: LB blitz 4, DB blitz 2, double-A 1, simulated 2 (DC skill above 9) or 0.5, fire zone 1 + 0.1 × skill behind single-high zones only; in dime a double-A becomes a DB blitz. Disguise chance = clamp(0.05 + 0.025 × skill, 0.05, 0.6) × (1 - ease).
+- Stunts, on four-man and simulated rushes: clamp(0.12 + 0.008 × (aggressiveness - 10) + 0.08 long - 0.2 × lean_run, 0.03, 0.35); tackle-end 2, end-tackle 1.5, twist 1.2. Spy: the plan's spy or a QB run threat above 0.75, when long or on 3rd and 4th, in zone, with chance 0.25 + 0.02 × reading.
+- Fronts (`pick_front`): 4-3 over 4, under 3, wide 3 on 2nd+ and 7+ (else 1), bear 1.5 against 12, 21, 22 or 13 personnel or at 2 or less to go (else 0.3); 3-4 odd 4, tite 3, under 1, bear the same. lean_run above 0: bear and tite × (1 + 3 × lean_run). Today's best inside run (inside zone, duo, power, trap, iso; 3+ tries) boosts tite and bear × (1 + 4a × its EPA a carry); the best outside run (outside zone, toss, jet sweep, buck sweep) does the same for wide and over.
+- A 3-4 staff's line plays two-gap on the snap (`game/flow.rs`, `run_scrimmage_call`, `two_gap`). What the call does not read: the defensive caller's situational, creativity and nerve; weather; the offense's players beyond the QB's run threat.
+
+## What beats what: the call values table
+
+- `crates/afm-engine/data/call_values.csv`, compiled in (`CALL_VALUES_CSV`). Rows: the 30 pass concepts and 15 runs (no sneak). Columns: Cover 0 with the double-A, each other coverage with four rushers and with an LB blitz (19), and the six fronts. Missing rows or columns read as 0 (`values`, `col`).
+- Each value is the mean yards on the snap, capped at 40, minus 45 for a turnover: 400 snaps a cell between two average synthetic NFL West Coast teams; passes from 11 personnel in the shotgun against nickel; runs against base Cover 3 with four rushers, the odd and tite fronts from a 3-4 team. Rebuild: `cargo run --release --bin call_values -- 400 > crates/afm-engine/data/call_values.csv` (`crates/afm-tools/src/bin/call_values.rs`).
+- Each run row is centered on its own six-front mean: a run is picked by how much better it does against a front than it usually does (`values`).
+- Offense: a concept's value = Σ p_cov × ((1 - blitz) × four-man value + blitz × LB-blitz value); p_cov = sharp × (seen + 4 × league share) / (snaps seen + 4) + (1 - sharp) × league share; blitz = sharp × the blitz rate seen + 0.25 × (1 - sharp); the league mix is the four shells' mixes averaged (`expected_values`, `league_mix`).
+- Defense: a coverage's cost = what it gives up with four rushers against the concepts expected, each concept's share = sharp × (their calls + 4 / n) / (seen + 4) + (1 - sharp) / n (`coverage_values`).
+
+## Before the snap (`game/flow.rs`, `run_scrimmage_call`)
+
+- Against a no-huddle offense the defense can't substitute (`frozen`). The box: linemen and linebackers, plus the strong safety unless the coverage is two-high. Blockers: 5 + tight ends and fullback. numbers = box - blockers.
+- freedom = clamp(0.85 - 0.035 × strictness + 0.04 × min(experience, 5), 0.1, 0.95). The QB's iq = 0.5 Play Recognition + 0.5 Football IQ.
+- A disguised single-high coverage fools him unless he wins clamp(0.5 + 0.02 × (iq - the DBs' mean Disguise), 0.1, 0.9). On the road, noise = 1 - 0.5 × crowd; sees = clamp((iq - 40) / 50, 0.05, 0.95) × noise.
+- Audible, outside the hurry-up and kneels, with chance sees: a run into numbers of 2+ with more than 2 to go becomes a pass; a non-screen pass against numbers of -1 or less, with the shell showing two-high (two-high or disguised), not fooled and 6 or less to go, becomes a run.
+- He takes the kill-call play if freedom is 0.35+. With freedom 0.7+ and no fitting kill call, he checks to the quick pass (slant-flat at 4 or less to go, else curl-flat) or inside zone (`quick_check`). Otherwise the call stands.
+- pre_read = 0 if fooled, else clamp((iq - 45) / 50, 0, 1) × noise; across motion against man adds 0.35 × clamp(1 + 0.01 × (QB PR - the DBs' Disguise), 0.5, 1.5) unless the DC bumps. The QB's reads use it (`game/scrimmage.rs`, `quarterback`, `PRE_READ`).
+- Passed to the snap (`scrimmage::Tactics`): the defense's key on the look and its film study; the offense's target corner and help; the defense's bracket; line chemistry; the called family's novelty; linemen allowed downfield (NFL 1, high school 2, college 3 yards); each side's plan load; double moves. What the snap does with them is on [match-engine.md](match-engine.md).
+
+## Playbooks, the install and your game plan
+
+- The library (`game/playbook.rs`, `PASS_CONCEPTS`, `RUN_CONCEPTS`, `is_rpo_half`). 30 passes: slant-flat, stick, hitches, mesh, smash, flood, curl-flat, dagger, four verticals, Y-cross, play-action shot, play-action boot, play-action dig, RB screen, bubble screen, speed outs, fades, drive, shallow cross, levels, spacing, snag, mills, Y-option, Texas, slot wheel, tunnel screen, and the RPO halves glance, bubble and slant. 16 runs: inside zone, outside zone, power, counter, draw, QB sneak, zone read, toss, buck sweep, duo, trap, iso, jet sweep, QB power, speed option, triple option.
+- A man with no route in a concept: the back check-releases, or blocks in 6- and 7-man protection; the tight end sits at 6 yards, or blocks in max; other tight ends and the fullback block; receivers run go (`route_for`).
+- Players learn 14 families, not plays: 9 on offense, 5 on defense (`Family`, `RunConcept::family`, `pass_family`, `Coverage::family`). The snap reads each player's knowledge of the called family in busts, read times and run fits (see [match-engine.md](match-engine.md)).
+- Knowledge, 0-1. College: clamp(0.78 + 0.05 × college seasons, 0, 0.95) × (0.8 + 0.2 × the installed side known) (`world/season.rs`, `game_team`). NFL: clamp(0.82 + 0.05 × seasons with this team, 0, 0.97) × (0.8 + 0.2 × side known) × rust (`world/pro/games.rs`, `build_side`).
+- Both then × reps × mind per family: reps = 0.78 + 0.22 × √(family use / the top family's use) with 40+ snaps of film, else 0.92; mind = clamp(0.92 + 0.08 × (iq - 60) / 25, 0.82, 1.04), iq = the mean of FIQ and PR. High school: clamp(0.72 + 0.04 × (age - 14) + a feeder head start, 0, 0.9) for every family (`world/hs_year.rs`, `squad_team`).
+- The week's plan: planned = clamp(install × (1 - 0.5 × (1 - w)), 0.2, 1), load = planned / w, w = max(week, 0.3); week by days since the last game: none 1.15, 4 or less 0.65, 5 0.8, 6 0.92, 7-9 1.0, 10-13 1.1, 14+ 1.15 (`game/roster.rs`, `GameTeam::plan`, `prep_week`).
+- The plan share scales non-favorite passes (`pick_concept`). Load above absorb(FIQ) = clamp((FIQ - 30) / 45, 0.2, 1.3) adds 0.04 × the gap to each player's bust chance (`game/scrimmage.rs`, `run_snap`; `absorb`).
+- Your call sheet (`game/flow.rs`, `sheet_call`): with chance stick (your setting, 0 with no sheet) the play comes from the first situation that has plays: two-minute, goal line (3 or closer), red zone (20 or closer), then the down's own (1st and 10; 2nd and 7+; 2nd and short; 3rd/4th and 2 or less, 3-6, 7+), with the opening script first in the first 15 plays (`training/seat.rs`, `sheet_situation`, `SHEET`).
+- The sheet play keeps the coordinator's run or pass choice when the list has one, and his motion, strength, direction and tempo. A design goes on the sheet only once its install is 0.35+ (`training/seat.rs`, `prepare`).
+- Your own call stands as made. It is "off this week's sheet" when neither the staff's call nor its 8 most likely calls (40 draws) share its play and personnel (coverage and pressure on defense); an off-sheet call adds 0.35 to that side's load on the snap (`snap_play_as`, `off_options`, `def_options`, `run_scrimmage_call`).
+- Your game plan's run-pass lean (-0.2 to 0.2) is saved and shown, but `prepare` copies only the sheet and stick and nothing else reads it (`training/seat.rs`, `GamePlan`; `crates/afm-game/src/lane_training.rs`). AI head coaches give tendency instructions when the team is built (`game/roster.rs`, `GameTeam::give_orders`; see [tendencies.md](tendencies.md)).
+
+## Fourth down, tries, onside kicks and the clock
+
+- `fourth_down`: conv = clamp(0.70 × e^(-0.085 × (togo - 1)), 0.12, 0.75). A conversion is worth 6 (6.95 - 0.95) if it scores, else EP of the new first down; a failure -EP of their first down at the spot. EP is the NFL table at every level (`game/tables.rs`, `expected_points`).
+- Punt: 41 net; they start at their 20 if it would reach the end zone, else at the landing spot but no deeper than their own 8. FG: make × 2.05 - (1 - make) × EP of their ball at the spot of the kick, or at their 20 when the kick was from inside it (`fourth_down`).
+- Late (Q4, under 5:00): behind, not conceded, needing 4+ or under 2:00 left, going gets +1.2 + (300 - seconds left) / 100; ahead, -0.6. margin = 0.06 × (11 - agg) + 0.03 × (11 - GM) + 0.35; noise N(0, 0.5 × (1.3 - GM / 20)). The kick is the FG if it beats the punt and make is above 0.3.
+- With chance follow = clamp(0.05 + 0.012 GM + 0.01 × (agg - 10), 0.03, 0.45) he goes if go + noise beats kick + margin; otherwise he goes at the real rate for distance, field zone and score (NFL or college table, 0.1 when missing) (`real_fourth_go_rate`). He always goes late when down 4+ with under 2:30 left and not conceded.
+- Then (`game/flow.rs`, `scrimmage`): make is the kicker's estimate, range = 38 + 0.3 × Kick Power - 4, kick distance = yards to the goal + 17 (`fg_make_estimate`, `kicker_range`, `kick_add`). In untimed overtime a punt becomes a FG if make is above 0.35, else go. A FG beyond range + 3 becomes go inside the 40, else a punt.
+- Garbage time (`garbage_fourth`): conceded, a FG becomes go 70% (`CONCEDED_GO`); easing in his own half, a go becomes a punt with chance 0.7 × ease; easing with his backups in, a FG becomes go with clamp(fg_go + 0.04 × (sportsmanship - 10), 0.05, 0.95).
+- Your chart, from each choice's win chance (`chart_fourth`; `game/live.rs`, `win_prob`, sd = 13.9 √(share left) + 0.6): Numbers goes when going is at least the best kick, Aggressive within 2 points, Conservative only 4+ points better; none in untimed overtime.
+- End of a half, 6 s or less left in Q2 or Q4: a FG in range in Q2, or in Q4 when tied or down 1-3 (`scrimmage`). Kneel in Q4 when ahead, under 2:40, if the time left plus 38 s per opposing timeout fits in the downs left at 39 s each; in Q2 when ahead with a running clock under 0:30, short of their 40 (`should_kneel`). Spike: a running clock in the hurry-up, no timeouts, 0:03-0:30 left, not on the last down (`scrimmage`).
+- Tries (`game/flow.rs`, `pat`; `game/calling.rs`, `go_for_two`, `go_for_three`): xp_make = clamp(0.55 + 0.005 × Short Kick Accuracy - 0.002 × (the try's line - 3), 0.2, 0.99). Two in Q4 at 0.8 on these margins after the touchdown: -2, -5, -9, -10, -13, -16, +1, +4, +5, +8, +12; any time at 0.55 with xp_make under 0.75; otherwise 0.01 + 0.004 × (agg - 10). Never while easing at 0.5+ unless forced; forced from the second college overtime.
+- Your two-point chart: staff, always kick, or the classic chart in Q4 (up 1, 4, 5, 12, 15, 19; down 2, 5, 9, 10, 13, 17, 18) (`game/live.rs`, `TwoChart`, `chart_says_two`). Three, in books with a three-point try: late at 0.7 on -3, -10, -11, +4, +5, -17; early at 0.05 + 0.01 × (agg - 10). On a two-point pass, 30% become slant-flat (`snap_play_as`).
+- Onside: in Q4's last 3:00, down 1-16 and not conceded; else a surprise with chance 0.002 × aggressiveness / 10 when not easing (`kickoff`).
+- Tempo (`after_snap_clock`): hurry-up 13 s with no huddle, and under 1:15 a timeout after an in-bounds play 75% of the time; 38 s when ahead in Q4, easing, or tied or ahead in Q2's last 2:00 in his own half; your tempo hurry 24 s, milk 39 s; otherwise air raid and spread go no-huddle on 35% of snaps at 24 ± 2 s, others 6%, huddled 38 ± 3 s (38.2 for the others). The defense, behind in Q4 under 3:00 and not conceded, calls timeout with chance clamp(0.4 + 0.03 GM, 0.4, 0.98).
+
+## Garbage time (`game/garbage.rs`)
+
+- At each drive start and each quarter (not in overtime) both head coaches read the game (`game/flow.rs`, `review`; `Coach::review`). z = lead / (10 × √(game left / game length) + 3.25) (`comeback_z`, `SWING`, `FLOOR`); the why line gives odds of 1 / (1 - Φ(|z|)) (`comeback_odds`).
+- seen = z + bias + N(0, 0.015 × max(21 - GM, 0)), with bias = N(0, 0.03 × max(21 - GM, 0)) held for the whole game (`Coach::new`).
+
+| Level | Reads from | Steps (z) | Top step | Ease from-full | Concede | Plays it out | FG-to-go base |
+|---|---|---|---|---|---|---|---|
+| High school | Q2 | 3.4, 3.9, 4.7 | 3 | 1.2-2.4 | 3.0 | 35% | 0.6 |
+| College | Q3 | 4.3, 4.8, 5.7 | 3 | 1.2-2.4 | 3.4 | 45% | 0.55 |
+| NFL | Q3 | 4.4, 5.4 | 2 | 1.4-2.8 | 5.2 | 60% | 0.25 |
+
+- Leading, the steps and the ease line move by 0.15 × (10 - (sportsmanship + push)); push is -2 in a playoff race, -4 against a program that fired him (`habits`, `shift`). Behind, the steps move by +0.8 on the hot seat, +0.5 for a bowl push and his fight (4.5 if he plays it out, else N(0, 0.8)); the concede line moves by the hot seat and bowl push only (`steps`, `FIGHT_SD`, `PLAY_OUT_FIGHT`). The race, grudge, hot seat and bowl push exist only in college games (`world/season.rs`, `game_context`).
+- A step comes back down only when the read falls 0.8 below its threshold, or the lead flips (`HOLD`). The lead back sits from 1.2 below the first step (`REST_BACK`). ease = clamp((|seen| - from) / (full - from), 0, 1) when leading; concede = behind and (a step taken, the concede line passed, or already conceded and within 0.8 of it).
+- Who sits (`benched`): step 1 QB1, RB1, 3 WR, 2 LB, 3 CB, 2 S; step 2 TE1, 2 OT, 3 IOL, 2 EDGE, 2 DT; step 3 the second string. The first kicker and punter and the long snapper always stay.
+- What reads it: the pass rate, deep shots, coverages, blitzes and disguise (`call_offense`, `pick_concept`, `call_defense`), the hurry-up (`Situation::hurry`), fourth downs (`fourth_down`; `game/flow.rs`, `garbage_fourth`), tries (`pat`), onside kicks (`kickoff`), tempo and timeouts (`after_snap_clock`) and kneels (`should_kneel`).
+
+## The play designer (`game/designer.rs`)
+
+- A design is a formation (motion included), each player's route, the reads in order, the protection, the drop and play action (`Design`).
+- Legal, the same at every level (the level argument is ignored): 7 on the line (within 1 yard of the ball, the QB excluded), 4 backs at most, no route for a lineman or a man covered up between the end men, every read runs a route, every route's man is in the personnel (`legal`).
+- On saving, your offensive play caller reviews it and sees each flaw with chance clamp(reading / 20, 0.05, 0.95): two routes ending within 3 yards of each other; no route ending within 6 yards with fewer than 7 blockers, unless a screen; one route, unless a screen; no reads. With none seen he says "Looks good to me." (`review`; `crates/afm-game/src/lane_training.rs`, `design_save`).
+- It becomes a concept: a screen or bubble drop is a screen; a deepest route of 7 yards or less is quick, 16 or less medium, else deep. It is numbered after the library (`to_concept`, `save`; `game/playbook.rs`, `register_concept`).
+- Practice read: 2 snaps for each day with a team period, from the 35, against the team's own scout looks in turn (base Cover 3; nickel Cover 1 with an LB blitz; nickel Cover 4; base Cover 2; nickel Cover 3 match with simulated pressure). Average yards and completions add up over the weeks (`training/practice.rs`, `design_reads`; `practice`).
+- A design's snaps go on film only as a look and a pass: the concept tally, the opponent's concept memory and the family shares count library concepts only (`game/calling.rs`, `Film::offense`, `Film::families`; `game/flow.rs`, `resolve`).
+- Code and design doc differ: the doc (`docs/design/plays-and-tactics.md`, topic 8) also has a defense designer, motion and downfield rules, opponents learning a design from film and AI coaches inventing plays; the code has none of these.
+
+## Ideas spreading (`world/trends.rs`)
+
+- At college fall camp, before the film fades, each division's season goes on the trend lines: its family shares and pass rate; a division with under 100 offensive snaps of film is skipped (`record`; `world/college.rs`, `start`).
+- Division novelty per family = clamp((share now - share 4+ seasons back) / max(share now, 0.02), 0, 1) × 0.8; 0 until a trend line 4 seasons back exists (`novelty`, `RISE_YEARS`).
+- A team adds clamp((mine - division) / mine, 0, 1) × clamp(mine / 0.25, 0, 1) × 0.5 for each family it runs on more than 4% of snaps (fronts excluded), once it has 40+ snaps of film; capped at 1 (`team_novelty`). Only college teams get it (`world/season.rs`, `game_team`); NFL and high school teams keep 0 (`world/pro/games.rs`, `build_side`; `world/hs_year.rs`, `squad_team`).
+- The snap reads only the called offensive family's novelty: defenders read 0.12 × novelty s later and misfit run fits 0.05 × novelty more often (`game/flow.rs`, `run_scrimmage_call`; `game/scrimmage.rs`, `run_snap`). Defense-family novelty is set but never read.
+
+## Level differences
+
+| Rule | NFL | College (FBS, FCS, small college) | High school |
+|---|---|---|---|
+| Quarter | 15:00 | 15:00 | 12:00 |
+| Hash, yards from the middle | 3.083 | 6.667 | 8.889 (6.667 in Texas and Massachusetts) |
+| Feet in bounds | 2 | 1 | 1 |
+| Kickoff from / touchback | 35 / 35, the 2025 kickoff | 35 / 25 | 40 / 20 |
+| Extra point kick from | 15 | 3 | 3 |
+| Two-point try from | 2 | 3 | 3 |
+| Two-minute warning | yes | no | no |
+| Clock stops on a first down | never | last 2:00 of a half | always |
+| Overtime | one 10:00 period, both get the ball, ties allowed | series from the 25 every round, two-point tries from the 2nd | Kansas plan, series from the 10 |
+| Running clock (mercy) | none | none | 35+ points from Q3 |
+| Down when he falls untouched | no | yes | yes |
+
+- College overtime never reaches a two-point shootout: the `Overtime::College` doc names one from the 3rd overtime, but every round is a series from the 25 with one timeout a side (`game/flow.rs`, `start_overtime`, `ot_series`, `possession_over`).
+- All levels: punt touchback at the 20, 3 timeouts a half, a 40 s play clock (`game/rules.rs`, `Rules::for_level`). Texas and Massachusetts high schools use the college hash (`high_school_on_college_rules`; `world/hs_year.rs`). The field is the same at every American level, goalposts included (`game/geom.rs`, `Field::AMERICAN`).
+- The book is the same every season: NFL, college and high school games take their rules from `Rules::for_level` (`game/flow.rs`, `GameSetup::new`, `quick_game_in`); the other leagues' books go by year (`game/books.rs`, `Rules::for_book`; `world/pro/other.rs`). What changes by year: replay (`game/live.rs`, `Replay::of`), the NFL toss deferral from 2008 (`ai_toss`), the NFL's declared onside kick from 2024 (`game/flow.rs`, `onside_allowed`), college taunting at the goal line from 2011 and celebration flags, lower in the NFL from 2017 (`resolve`), and the calls' era terms for motion, RPOs, empty, bunch and stack (`game/calling.rs`).
+- In the calls: high school uses the college pass-rate and go-rate tables (`game/flow.rs`, `situation`); shotgun + 0.08 below the NFL; high school motion × 0.6; the RPO level factor; speed option below the NFL; triple option in high school spread and below-NFL wing-T (`call_offense`, `pick_motion`, `pick_rpo`, `pick_run`).
+- In the game: two-way play only in high school, at a 4-point margin (`GameSetup::new`); garbage-time habits (`habits`); toss deferral NFL clamp(0.82 + 0.008 × (GM - 10), 0.6, 0.97) from 2008, college 0.78, high school 0.6; in overtime NFL winners receive 88%, others take defense first 90% (`game/live.rs`, `ai_toss`, `ai_ot_toss`). Officials call each level to its own standard through the level norms (`game/rules.rs`, `trait_norm`; see [match-engine.md](match-engine.md)).
+
+## Where the knobs are
+
+- `game/calling.rs`: `TRUST` 0.55, `RUN_OUT_PASS` 0.22, `CONCEDED_PASS` 0.45, `HELP_GAP` 3; the gun leans in `call_offense`; the weights in `pick_personnel`, `pick_set`, `pick_motion`, `pick_run`, `pick_rpo`, `pick_concept`, `shell_mix`, `pick_front`; the blitz, stunt and disguise terms in `call_defense`; net 41 and the conversion curve in `fourth_down`; the charts in `go_for_two` and `go_for_three`.
+- `crates/afm-engine/data/call_values.csv`, rebuilt by `crates/afm-tools/src/bin/call_values.rs`.
+- `game/roster.rs`: `OffScheme::pass_lean`, `INSTALL` 0.75, `prep_week`, `absorb`, `Staff::average` (nickel 0.88, film study 10).
+- `game/garbage.rs`: `SWING` 10, `FLOOR` 3.25, `FIGHT_SD` 0.8, `PLAY_OUT_FIGHT` 4.5, `CONCEDED_GO` 0.7, `HOLD` 0.8, `REST_BACK` 1.2, `habits`.
+- `game/rules.rs`: `Rules::for_level`, `high_school_on_college_rules`. `game/tables.rs`: the real tables in `data/real-world/` (expected points, pass rate, fourth-down go rate, win probability).
+- `game/flow.rs`: freedom, sees and pre_read in `run_scrimmage_call`; the tempo gaps in `after_snap_clock`; `garbage_fourth`, `kicker_range`, `should_kneel`. `game/live.rs`: `FourthChart`, `TwoChart`, `chart_says_two`, `ai_toss`.
+- `world/season.rs`: `coach_caller`, and the film study and install formulas in `game_team` (NFL copies in `world/pro/games.rs`, `build_side`). `world/trends.rs`: `RISE_YEARS` 4, `novelty`, `team_novelty`. `training/seat.rs`: `SHEET`, `sheet_situation`, the 0.35 design bar in `prepare`.
+
+## Related pages
+
+- [match-engine.md](match-engine.md): what the snap does with each call, key, plan and load.
+- [staff-and-coaches.md](staff-and-coaches.md): the coach ratings behind each caller.
+- [tendencies.md](tendencies.md): the habits the plan targets, and coaches' instructions.
+- [training.md](training.md): the practice week, installs and the call sheet's practice.
+- [ratings.md](ratings.md): the 67 attributes and the 1-20 reads.
+- The design with Raichel's wording: `docs/design/plays-and-tactics.md`; game day: `docs/design/game-day.md`.
