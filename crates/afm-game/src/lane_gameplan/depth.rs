@@ -4,6 +4,7 @@
 //! where it is thin, and the defensive line's rotation by series.
 
 use afm_engine::positions::Position;
+use afm_engine::spots::group;
 use afm_engine::training::seat::Board;
 use afm_engine::world::World;
 use afm_engine::world::plans;
@@ -38,6 +39,25 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
     let games = season_games(w, &s);
     let depth = w.seat_game_depth().unwrap_or_default();
     let order_at = |pos: Position| depth.iter().find(|(p, _)| *p == pos).map(|(_, v)| v.clone()).unwrap_or_default();
+    // A package's staff men up: the dressed order at the spot, then the
+    // rest of the roster in the same group (corners and safeties, ends and
+    // tackles), best at the spot, the way the engine fills a spot once the
+    // listed men are used (`game/flow.rs`, `pick`).
+    let team = w.seat_game_team().map(|(t, _)| t);
+    let staff_at = |pos: Position| -> Vec<u32> {
+        let mut v = order_at(pos);
+        if let Some(t) = &team {
+            let mut rest: Vec<(f64, u32)> = t
+                .players
+                .iter()
+                .filter(|p| !p.position.is_specialist() && group(p.position) == group(pos) && !v.contains(&p.id))
+                .map(|p| (p.overall_at(pos), p.id))
+                .collect();
+            rest.sort_by(|a, b| b.0.total_cmp(&a.0));
+            v.extend(rest.into_iter().map(|r| r.1));
+        }
+        v
+    };
     let who = |id: u32| -> Option<Value> {
         let i = person_index(w, id)?;
         let p = &w.people[i];
@@ -104,8 +124,8 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
                 Position::ALL.iter().copied().find(|p| Some(p.name()) == sl["pos"].as_str()).unwrap_or(Position::CB);
             let first = sl["player"]["id"].as_u64().map(|x| x as u32);
             // The second and third: yours, else your staff's next men up at
-            // the position (the depth order, past the package's firsts).
-            let mut staff = order_at(pos).into_iter().filter(|id| !used.contains(id));
+            // the spot (the depth order, then the group, past the firsts).
+            let mut staff = staff_at(pos).into_iter().filter(|id| !used.contains(id));
             let mut deep: Vec<(Option<u32>, bool)> = Vec::new();
             for n in 0..2 {
                 let set = mine.get(2 * k + n).copied().filter(|&x| x != 0);
