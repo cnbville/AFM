@@ -1,6 +1,6 @@
 # People: how it works today
 
-Checked against main at 94a6553 on 2026-10-25.
+Checked against main at 9a53e5d on 2026-10-26.
 
 Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked in code as Claude's (proposed, not confirmed).
 
@@ -67,7 +67,9 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 - **Money part** (NFL only): pay / worth - 1, clamped -1 to 0.5. Worth is the market price for his ladder rank. Rookie-scale, undrafted, future and squad deals count as fair until 3 accrued seasons. Tenders always count as fair (`world/people.rs`, `pay_and_worth`).
 - **Winning part**: last season's 2 x win% - 1 (college and NFL; 0 in high school). **Life part**: 0.5 x (stability - 10)/10.
 - **The main reason** (`Person::mood_why`): the part pulling hardest. Below -0.15: the worst part. Above 0.15: the best of role or winning only (`world/people.rs`, `Why`, `read`).
-- **Dated reasons** (`world/folk/talks.rs`, `Reason`, `mood_event`, `residual`): talk, promise kept or broken, friend left, friends here, noise (media), discipline, life event, praise, benched, team talk, room.
+- **Dated reasons** (`world/folk/talks.rs`, `Reason`, `mood_event`, `residual`): talk, promise kept or broken, friend left, friends here, noise (media), discipline, life event, praise, benched, team talk, room, practice.
+  - Practice: past two mornings of mat drills in your week, each extra one is a −0.02 event for every player on your roster, "the grind of the week: mat drills at dawn" (`training/seat.rs`, `team_effects`; `Reason::Practice`).
+  - Your week's outings and leadership council against an average staff's also move each of your players' mood by clamp(0.004 x extra minutes / 60, −0.01, 0.015) a week, straight onto mood, not as a dated reason (`training/seat.rs`, `team_effects`).
   - Each moves mood at once and fades by 25% a month (0.75^(days/30)).
   - Up to 12 are kept a person, and they are dropped after 240 days.
 
@@ -93,6 +95,7 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
   - Social = 1 + 0.35 x leadership z + 0.25 x loyalty z - 0.25 x ego z - 0.2 x temper z, clamped 0.3-1.8.
   - The friend cap is 2-6, set by social.
   - Pair odds = closeness x social x the other's social. Closeness: same position group 0.04, same class 0.025, same high school 0.35.
+  - On your roster the odds are also x clamp(1 + bonds, 0.85, 1.25). Bonds add 0.01 x your outing and council minutes beyond an average staff's / 60 each week, clamped −0.15 to 0.25, and reset to 0 after the fall camp draw (`world/folk/ties.rs`, `draw`, `day`; `training/seat.rs`, `team_effects`).
   - New ties start at strength 38, or 55 from the same high school. A tie that rolls again deepens +12.
 - **Mentor**: in each position group, the veteran (26+ in the NFL, 21+ in college) with the best leadership + 0.6 x professionalism takes the youngest player 21 or under, if his leadership is ≥ 13. Each year the mentor's professionalism (≥ 14 or ≤ 7) shifts the young player's by ±1 (`mentor_year`).
 - **Family**: an older brother from the same high school with the same surname, strength 90.
@@ -119,6 +122,7 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
   - that QB, as the average of his top 3 targets
   - each CB/S, as the average of seasons together with the other starting DBs (top 4 by experience)
   - An unknown person gets 0.3.
+  - Your team's QB, WR, TE and RB also get `training.air` added, clamped 0-1, when the most experienced QB is yours. Air follows your routes-on-air minutes beyond an average staff's: air = clamp(0.97 x air + 0.001 x extra minutes / 30, −0.05, 0.1) each week (`world/chemistry.rs`, `apply`, `yours`; `training/seat.rs`, `team_effects`).
 - **Seasons together**:
   - College: seasons at the same program.
   - NFL: seasons on the same team.

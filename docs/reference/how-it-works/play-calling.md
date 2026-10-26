@@ -1,6 +1,6 @@
 # Play calling: how it works today
 
-Checked against main at 94a6553 on 2026-10-25.
+Checked against main at 9a53e5d on 2026-10-26.
 
 Paths are under `crates/afm-engine/src/` unless they start with `crates/`. Coach skills are 1-20. A list of weights means one option is drawn in proportion to its weight. "Long" means 2nd down or later with 8+ to go. U is a uniform 0-1 draw, N(m, sd) a normal one, N alone N(0, 1).
 
@@ -138,7 +138,7 @@ Paths are under `crates/afm-engine/src/` unless they start with `crates/`. Coach
 
 - Against a no-huddle offense the defense can't substitute (`frozen`). The box: linemen and linebackers, plus the strong safety unless the coverage is two-high. Blockers: 5 + tight ends and fullback. numbers = box - blockers.
 - freedom = clamp(0.85 - 0.035 × strictness + 0.04 × min(experience, 5), 0.1, 0.95). The QB's iq = 0.5 Play Recognition + 0.5 Football IQ.
-- A disguised single-high coverage fools him unless he wins clamp(0.5 + 0.02 × (iq - the DBs' mean Disguise), 0.1, 0.9). On the road, noise = 1 - 0.5 × crowd; sees = clamp((iq - 40) / 50, 0.05, 0.95) × noise.
+- A disguised single-high coverage fools him unless he wins clamp(0.5 + 0.02 × (iq - the DBs' mean Disguise), 0.1, 0.9). On the road, noise = 1 - 0.5 × crowd, crowd = the home crowd × the road offense's `prep.noise` (1 for AI teams, 0.9-1.15 from your week's crowd-noise days) (`home_crowd`; `training/seat.rs`, `week_habits`); sees = clamp((iq - 40) / 50, 0.05, 0.95) × noise.
 - Audible, outside the hurry-up and kneels, with chance sees: a run into numbers of 2+ with more than 2 to go becomes a pass; a non-screen pass against numbers of -1 or less, with the shell showing two-high (two-high or disguised), not fooled and 6 or less to go, becomes a run.
 - He takes the kill-call play if freedom is 0.35+. With freedom 0.7+ and no fitting kill call, he checks to the quick pass (slant-flat at 4 or less to go, else curl-flat) or inside zone (`quick_check`). Otherwise the call stands.
 - pre_read = 0 if fooled, else clamp((iq - 45) / 50, 0, 1) × noise; across motion against man adds 0.35 × clamp(1 + 0.01 × (QB PR - the DBs' Disguise), 0.5, 1.5) unless the DC bumps. The QB's reads use it (`game/scrimmage.rs`, `quarterback`, `PRE_READ`).
@@ -155,6 +155,8 @@ Paths are under `crates/afm-engine/src/` unless they start with `crates/`. Coach
 - The plan share scales non-favorite passes (`pick_concept`). Load above absorb(FIQ) = clamp((FIQ - 30) / 45, 0.2, 1.3) adds 0.04 × the gap to each player's bust chance (`game/scrimmage.rs`, `run_snap`; `absorb`).
 - Your call sheet (`game/flow.rs`, `sheet_call`): with chance stick (your setting, 0 with no sheet) the play comes from the first situation that has plays: two-minute, goal line (3 or closer), red zone (20 or closer), then the down's own (1st and 10; 2nd and 7+; 2nd and short; 3rd/4th and 2 or less, 3-6, 7+), with the opening script first in the first 15 plays (`training/seat.rs`, `sheet_situation`, `SHEET`).
 - The sheet play keeps the coordinator's run or pass choice when the list has one, and his motion, strength, direction and tempo. A design goes on the sheet only once its install is 0.35+ (`training/seat.rs`, `prepare`).
+- Your practice week moves your install on game day: × sqrt(your week's plan minutes / an average staff's), clamped 0.75-1.15, then 0.3-1. Plan minutes weigh each period by how much it readies this week's plan; the new system's install and film, self-scout and last game's tape count 0 (`training/seat.rs`, `prepare`; `training/work.rs`, `prep_minutes`, `prep_weight`). The same week's crowd-noise days and rules clinic set your `prep.noise` and `prep.rules` (`week_habits`). Details on [training.md](training.md).
+- Every player, on every team, also brings his week's prep word: it scales his busts, run misfits and read time, and a quarterback's time on each read (`game/roster.rs`, `GamePlayer.prep`; see [match-engine.md](match-engine.md)).
 - Your own call stands as made. It is "off this week's sheet" when neither the staff's call nor its 8 most likely calls (40 draws) share its play and personnel (coverage and pressure on defense); an off-sheet call adds 0.35 to that side's load on the snap (`snap_play_as`, `off_options`, `def_options`, `run_scrimmage_call`).
 - Your game plan's run-pass lean (-0.2 to 0.2) is saved and shown, but `prepare` copies only the sheet and stick and nothing else reads it (`training/seat.rs`, `GamePlan`; `crates/afm-game/src/lane_training.rs`). AI head coaches give tendency instructions when the team is built (`game/roster.rs`, `GameTeam::give_orders`; see [tendencies.md](tendencies.md)).
 
@@ -236,13 +238,13 @@ Paths are under `crates/afm-engine/src/` unless they start with `crates/`. Coach
 - `game/garbage.rs`: `SWING` 10, `FLOOR` 3.25, `FIGHT_SD` 0.8, `PLAY_OUT_FIGHT` 4.5, `CONCEDED_GO` 0.7, `HOLD` 0.8, `REST_BACK` 1.2, `habits`.
 - `game/rules.rs`: `Rules::for_level`, `high_school_on_college_rules`. `game/tables.rs`: the real tables in `data/real-world/` (expected points, pass rate, fourth-down go rate, win probability).
 - `game/flow.rs`: freedom, sees and pre_read in `run_scrimmage_call`; the tempo gaps in `after_snap_clock`; `garbage_fourth`, `kicker_range`, `should_kneel`. `game/live.rs`: `FourthChart`, `TwoChart`, `chart_says_two`, `ai_toss`.
-- `world/season.rs`: `coach_caller`, and the film study and install formulas in `game_team` (NFL copies in `world/pro/games.rs`, `build_side`). `world/trends.rs`: `RISE_YEARS` 4, `novelty`, `team_novelty`. `training/seat.rs`: `SHEET`, `sheet_situation`, the 0.35 design bar in `prepare`.
+- `world/season.rs`: `coach_caller`, and the film study and install formulas in `game_team` (NFL copies in `world/pro/games.rs`, `build_side`). `world/trends.rs`: `RISE_YEARS` 4, `novelty`, `team_novelty`. `training/seat.rs`: `SHEET`, `sheet_situation`, the 0.35 design bar in `prepare`, `week_habits`. `training/work.rs`: `prep_weight`.
 
 ## Related pages
 
 - [match-engine.md](match-engine.md): what the snap does with each call, key, plan and load.
 - [staff-and-coaches.md](staff-and-coaches.md): the coach ratings behind each caller.
 - [tendencies.md](tendencies.md): the habits the plan targets, and coaches' instructions.
-- [training.md](training.md): the practice week, installs and the call sheet's practice.
+- [training.md](training.md): the practice week, installs, the call sheet's practice and each player's prep word.
 - [ratings.md](ratings.md): the 67 attributes and the 1-20 reads.
 - The design with Raichel's wording: `docs/design/plays-and-tactics.md`; game day: `docs/design/game-day.md`.

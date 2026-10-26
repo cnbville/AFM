@@ -1,6 +1,6 @@
 # Scouting: how it works today
 
-Checked against main at 9a53e5d on 2026-10-26.
+Checked against main at a423e02 on 2026-10-26.
 
 ## Quick answers
 

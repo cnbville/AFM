@@ -1,6 +1,6 @@
 # Recruiting: how it works today
 
-Checked against main at 9a53e5d on 2026-10-26.
+Checked against main at a423e02 on 2026-10-26.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Recruiting" below is `world/recruiting.rs`.
 
@@ -142,6 +142,7 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 - Summer school: 3+ star seniors at 1.85-2.0 or 2.15-2.3 are pushed over the line with chance 0.3 + 0.03 × (work ethic − 10) + 0.15 if 4+★ + 0.15 × school resources (`run_signing_stage`).
 - Admissions bars and special admits per school (`world/program.rs`, `admissions`, `STRICT_ADMISSIONS`).
 - In college: spring and fall term checks make a player ineligible with chance 0.06 × ((2.5 − GPA)/0.5) × (1.3 − support) (`world/college.rs`, `spring_term_check`, `fall_term_check`).
+- Your own team's study hall moves GPA: each study-hall period in your week beyond an average staff's adds 0.003 to a flagged player's GPA (under 2.3, or in his first college season), each one fewer takes 0.003; college and high school only (`training/seat.rs`, `team_effects`; see [training.md](training.md)).
 - Seasons: four in a five-year clock; from 2026-27 FBS/FCS get five seasons in five years (`world/eligibility.rs`, `seasons_allowed`, `clock_last`). Medical hardship: ≤ max(3, 30%) games (`hardship_games`). COVID year 2020 returners by role: starter 60%, rotation 45%, backup 25% (`covid_return_chance`). Missions and military pause the clock (`summer_roads`).
 
 ## The transfer portal
