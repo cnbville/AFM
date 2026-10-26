@@ -575,7 +575,7 @@ G1-G23 in `afm/post-release-2/list.md`, section 5, on screen in the Press Box lo
 - A call sheet opened before plan day is an early look, drafted again on plan day unless you approved, edited or sent back any of it. Each box holds runs and throws in the play caller's own share there, at least one of each in a box of two or more.
 - The installs board projects grasp, busts and extras only in the game week (the last seven days); further out it shows the grasp as it stands. The boards read last season's tape until your first game of the new one.
 - The snap-limits list shows eight men at most: your own limits, then men back from a knock before game day, then the biggest load spikes; a man still hurt on game day doesn't dress and isn't listed.
-- A package's 2nd and 3rd strings left to the staff go past the dressed order to the rest of the position group (a safety behind the nickel corner, an end behind a tackle), so a spot is thin only when its 2nd string is out or the group has nobody left.
+- A package's 2nd and 3rd strings left to the staff go past the dressed order to the rest of the position group (a safety behind the nickel corner, an end behind a tackle), every spot's 2nd string before any 3rd, so a spot is thin only when its 2nd string is out or the group has nobody left.
 - Snap limits from 5 to 120; the five-man rush answer at 70% at most; the keys (4 yards or more on half the first downs, one turnover or fewer, their yards a carry under 4.2 in the NFL, 4.6 in college and 4.4 at high school, and 5.5 yards a play against the blitz when they bring it on 30% of snaps, else 40% on third down).
 
 ## Not built yet (section 8's design, for the next builds)
