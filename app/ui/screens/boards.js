@@ -155,7 +155,7 @@ window.gamePageTabs["Game flow"] = async (g, a) => {
       </section>
       <section class="bd-panel bd-drives">
         <div class="bd-ph"><b>Drives</b><span class="bd-ps">gold: ${esc(us)} · grey: ${esc(them)} · the left end zone is ${esc(us)}'s · click a drive for its plays</span></div>
-        <div class="bd-drow bd-thd"><span>Drive</span><span class="bd-dends"><span>${esc(initials(us))} goal line</span><span>50</span><span>${esc(initials(them))} goal line</span></span><span>Result</span><span class="bd-r">Plays · yards · time</span></div>
+        <div class="bd-drow bd-thd"><span>Drive</span><span class="bd-dends"><span>${esc(initials(us))}<span class="bd-gl"> goal line</span></span><span>50</span><span>${esc(initials(them))}<span class="bd-gl"> goal line</span></span></span><span>Result</span><span class="bd-r">Plays · yards · time</span></div>
         ${drives || bdEmpty("No drives kept for this game.")}
       </section>
     </div>
@@ -574,7 +574,8 @@ function bdTreemap(groups, blocks, extra, sel, cap) {
       if (r.w <= 1 || r.h <= 1) continue;
       if (b.lump) {
         const n = b.lump.length;
-        const both = fits(r, 54, 46), sum = !both && fits(r, 48, 26);
+        // "N more" needs its own width (about 7 a letter and the padding).
+        const both = fits(r, Math.max(54, `${n} more`.length * 7 + 16), 46), sum = !both && fits(r, 48, 26);
         html += `<div class="bd-tb lump" style="${box(r)}" title="${esc(b.lump.map((q) => `${q.name} ${bdMoney(q.hit)}`).join(", "))}">${both ? `<span class="bd-nm">${n} more</span>` : ""}${both || sum ? `<b class="bd-cond">${bdMoney(b.v)}</b>` : ""}</div>`;
         continue;
       }
@@ -796,7 +797,7 @@ function bdLockMap(x, st, sel) {
       <span class="bd-dot m${n.m}" style="width:${p.d}px;height:${p.d}px;font-size:${Math.round(p.d / 3.2)}px">${esc(ini)}</span>
       <span class="bd-ndn">${esc(bdShortName(n.name))}</span><span class="bd-nds">${esc(sub)}</span></button>`;
   }).join("");
-  return `<div class="bd-map"><svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${lines}</svg>${gl}${dots}</div>
+  return `<div class="bd-map"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>${gl}${dots}</div>
     <div class="bd-legend"><span><i class="bd-lk c"></i>close friends</span><span><i class="bd-lk f"></i>friends</span><span><i class="bd-lk m"></i>mentor</span><span><i class="bd-lk t"></i>friction</span><span class="bd-dim">Brighter dot = happier · amber edge = unhappy · bigger = more say in the room</span></div>`;
 }
 
@@ -927,7 +928,13 @@ function bdPollChart(x, st, sel) {
   }
   let lines = "", hits = "", labels = "", mine = "";
   const order = c.lines.slice().sort((a, b) => (inHl(a) ? 1 : 0) - (inHl(b) ? 1 : 0));
+  // Each placed name's span across (chart units, about 9.5 a letter at the
+  // default window) and its row: a name is left off where it would cover one.
   const used = [];
+  const span = (s) => s.length * 9.5 + 12;
+  // The letters on your line keep their spots too.
+  const mine0 = c.lines.find((l) => l.me);
+  for (const m of x.moves || []) used.push([X(m.col) - 16, X(m.col) + 16, (mine0 ? Y(mine0.r[m.col]) : NR) - 16]);
   for (const l of order) {
     const on = l.id === sel, h = inHl(l);
     const pts = l.r.map((v, i) => [i, v]).filter((q) => q[1] > 0);
@@ -949,9 +956,10 @@ function bdPollChart(x, st, sel) {
     const gone = lp[0] < n - 1;
     if (!l.me && !on && (gone ? !h : false)) continue;
     const lx = X(lp[0]) + (l.me ? 12 : 8), ly = Y(lp[1]);
-    if (!l.me && !on && used.some((u) => Math.abs(u[0] - lx) < 120 && Math.abs(u[1] - ly) < rh * 0.8)) continue;
-    used.push([lx, ly]);
     const name = `${l.name}${gone && lp[1] > 0 ? " · out" : ""}`;
+    const lx1 = Math.min(W, lx + span(name));
+    if (!l.me && !on && used.some((u) => lx < u[1] && u[0] < lx1 && Math.abs(u[2] - ly) < rh * 0.9)) continue;
+    used.push([lx, lx1, ly]);
     labels += `<button class="bd-pn${l.me ? " me" : on ? " on" : h ? " hl" : ""}" style="left:${((lx / W) * 100).toFixed(2)}%;top:${((ly / H) * 100).toFixed(2)}%;max-width:${(((W - lx) / W) * 100).toFixed(2)}%" title="${esc(name)}" data-act="bd-pick" data-k="bd:poll" data-f="sel" data-v="${l.id}">${esc(name)}</button>`;
   }
   const me = c.lines.find((l) => l.me);
@@ -960,7 +968,9 @@ function bdPollChart(x, st, sel) {
     const y = me ? Y(me.r[m.col]) : NR;
     return `<button class="bd-mk${on ? " on" : ""}" style="left:${((X(m.col) / W) * 100).toFixed(2)}%;top:${(((y - 16) / H) * 100).toFixed(2)}%" data-act="bd-pick" data-k="bd:poll" data-f="wk" data-v="${k}" aria-label="Move ${m.k}">${m.k}</button>`;
   }).join("");
-  return `<div class="bd-race" style="aspect-ratio:${W}/${H}"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Rank by week">${grid}${lines}${mine}${hits}</svg>${labels}${marks}</div>`;
+  // The names' size follows the rows' drawn height (--fs, in the chart's
+  // own width), so neighbours never cover each other.
+  return `<div class="bd-race" style="aspect-ratio:${W}/${H};--fs:${((rh / W) * 78).toFixed(3)}cqw"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Rank by week">${grid}${lines}${mine}${hits}</svg>${labels}${marks}</div>`;
 }
 
 function bdPollCard(x, l) {

@@ -170,6 +170,8 @@
 .bd-mk { position: absolute; transform: translate(-50%, -50%); display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 10px; background: var(--bd-mk); color: var(--bd-text2); box-shadow: inset 0 0 0 1px var(--bd-track); font: 800 10.5px var(--font-sans); cursor: pointer; z-index: 2; }
 .bd-mk.on, .bd-letter.on { background: var(--bd-gold); color: var(--bd-on-gold); box-shadow: none; }
 .bd-mk.static, .bd-letter { position: static; transform: none; flex: none; }
+/* Above showtime's ".st button { font: inherit }". */
+.bd .bd-mk { font: 800 10.5px var(--font-sans); }
 .bd-letter { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 10px; background: var(--bd-mk); color: var(--bd-text2); box-shadow: inset 0 0 0 1px var(--bd-track); font: 800 10.5px var(--font-sans); }
 .bd-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .bd-tag { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 7px; background: var(--bd-chip); font-size: 11.5px; font-weight: 600; cursor: pointer; }
@@ -396,7 +398,9 @@
 /* ---------- V15 the locker room ---------- */
 .bd-lock .bd-big { font-size: 28px; }
 .bd-map { position: relative; width: 100%; aspect-ratio: 872 / 600; }
-.bd-le { stroke-width: 1.5; opacity: .28; }
+/* The links stretch with the map when a narrow window makes it taller. */
+.bd-map svg { position: absolute; inset: 0; height: 100%; }
+.bd-le { stroke-width: 1.5; opacity: .28; vector-effect: non-scaling-stroke; }
 .bd-le.on { opacity: 1; }
 .bd-le.c { stroke: var(--bd-ink-bar); stroke-width: 2; }
 .bd-le.f { stroke: var(--bd-track); }
@@ -469,7 +473,7 @@
 .bd-lead.low { box-shadow: inset 0 0 0 1px var(--bd-bad-ring); }
 
 /* ---------- V16 the race ---------- */
-.bd-race { position: relative; width: 100%; }
+.bd-race { position: relative; width: 100%; container-type: inline-size; }
 .bd-race svg { height: 100%; }
 .bd-pl { fill: none; stroke: var(--bd-track-dim); stroke-width: 1.2; stroke-linejoin: round; }
 .bd-pl.hl { stroke: var(--bd-track); stroke-width: 1.6; }
@@ -483,11 +487,11 @@
 .bd-pd.me.nr { fill: var(--bd-panel); stroke: var(--bd-gold); stroke-width: 1.5; }
 .bd-hit { fill: none; stroke: transparent; stroke-width: 9; pointer-events: stroke; cursor: pointer; }
 .bd-cut { stroke: var(--bd-bad); stroke-width: 1; stroke-dasharray: 3 4; opacity: .7; }
-.bd-pn { position: absolute; transform: translateY(-50%); padding: 1px 6px; border: 0; border-radius: 6px; background: transparent; color: var(--bd-faint); font: 600 11.5px var(--font-sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; cursor: pointer; z-index: 1; }
-.bd-pn:hover { color: var(--fg); background: var(--bd-panel); z-index: 3; }
-.bd-pn.hl { color: var(--bd-dim); }
-.bd-pn.on { color: var(--fg); font-weight: 800; box-shadow: inset 0 0 0 1px var(--bd-track); background: var(--bd-panel); z-index: 2; }
-.bd-pn.me { color: var(--bd-gold); font-size: 13px; font-weight: 800; background: var(--bd-panel); z-index: 2; }
+.bd-race .bd-pn { position: absolute; transform: translateY(-50%); padding: 0 6px; border: 0; border-radius: 6px; background: transparent; color: var(--bd-faint); font-weight: 600; font-size: min(11.5px, var(--fs, 11.5px)); line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; cursor: pointer; z-index: 1; }
+.bd-race .bd-pn:hover { color: var(--fg); background: var(--bd-panel); z-index: 3; }
+.bd-race .bd-pn.hl { color: var(--bd-dim); }
+.bd-race .bd-pn.on { color: var(--fg); font-weight: 800; box-shadow: inset 0 0 0 1px var(--bd-track); background: var(--bd-panel); z-index: 2; }
+.bd-race .bd-pn.me { color: var(--bd-gold); font-size: min(13px, var(--fs, 13px)); font-weight: 800; background: var(--bd-panel); z-index: 2; }
 .bd-ballot { display: flex; align-items: flex-end; gap: 2px; height: 48px; }
 .bd-ballot i { flex: 1 1 0; border-radius: 2px 2px 0 0; background: var(--bd-track); }
 .bd-ballot i.on { background: var(--bd-ink); }
@@ -514,6 +518,7 @@
 
 /* ---------- narrower windows ---------- */
 @container (max-width: 1180px) {
+  .bd-gl { display: none; }
   .bd-cols3 { grid-template-columns: minmax(230px, 260px) minmax(0, 1fr); }
   .bd-cols3 > .bd-side { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
   .bd-flow { grid-template-columns: minmax(0, 1fr) minmax(300px, 340px); }
@@ -521,6 +526,9 @@
 /* The morale table beside the side column: the default 1280 px window
    leaves its panel about 560 px, too little for every column. */
 @container (max-width: 1060px) {
+  /* The locker map at about 540 px: taller, so each row has room for a
+     man's dot, name and line. */
+  .bd-map { aspect-ratio: 872 / 820; }
   .bd-mr { grid-template-columns: minmax(120px, 1.3fr) 40px 150px 56px minmax(100px, 1.6fr); }
   .bd-mr > span:nth-child(3), .bd-mr > span:nth-child(6), .bd-mr > span:nth-child(7) { display: none; }
 }
@@ -556,3 +564,4 @@
 .bd-fgaps span:first-child { transform: none; }
 .bd-fgaps span:last-child { transform: translateX(-100%); }
 .bd-mtable { overflow-x: auto; }
+.bd-ell > .link { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
