@@ -11,6 +11,7 @@ pub mod cards;
 pub mod colors;
 pub mod files;
 pub mod jobs;
+pub mod lane_boards;
 pub mod lane_core;
 pub mod lane_faces;
 pub mod lane_find;
@@ -229,7 +230,7 @@ impl Game {
             _ => {
                 // The final build's lanes each answer their own commands.
                 type Lane = fn(&mut Game, &str, &Value) -> Option<Reply>;
-                const LANES: [Lane; 17] = [
+                const LANES: [Lane; 18] = [
                     lane_core::call,
                     lane_gameday::call,
                     lane_money::call,
@@ -243,6 +244,7 @@ impl Game {
                     lane_faces::call,
                     lane_views::call,
                     lane_ratings::call,
+                    lane_boards::call,
                     lane_find::call,
                     lane_gameplan::call,
                     lane_schedule::call,

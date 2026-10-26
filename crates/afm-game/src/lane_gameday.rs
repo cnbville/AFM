@@ -6,8 +6,8 @@
 //! hints, your plan and game rules, which snaps stop for you), your game
 //! played live snap by snap, and the game page of every game you kept.
 
-mod film;
-mod page;
+pub(crate) mod film;
+pub(crate) mod page;
 
 use std::collections::HashMap;
 
@@ -20,11 +20,13 @@ use afm_engine::game::playbook::{
     Backfield, Coverage, DefCall, DefPersonnel, Formation, FrontLook, Motion, OffCall, PASS_CONCEPTS, Personnel,
     PlayKind, Pressure, RUN_CONCEPTS, Set, Stunt, call_family,
 };
-use afm_engine::game::stats::{PlayRecord, PlayType};
+use afm_engine::game::stats::{GameStats, PlayRecord, PlayType};
+use afm_engine::game::win_chance;
 use afm_engine::game::{GameResult, GameTeam};
 use afm_engine::world::World;
 use serde_json::{Value, json};
 
+use crate::lane_boards::flow::Wp;
 use crate::views::{self, TeamRef};
 use crate::{Game, Reply};
 
@@ -135,6 +137,10 @@ fn add_tape_names(w: &World, m: &mut film::Names, tapes: &[&afm_engine::world::t
 }
 
 fn clock_text(secs: f64) -> String {
+    // College and high school overtime has no clock.
+    if secs >= 1.0e6 {
+        return String::new();
+    }
     let s = secs.max(0.0).round() as u32;
     format!("{}:{:02}", s / 60, s % 60)
 }
@@ -910,7 +916,39 @@ fn fourth_name(f: FourthDown) -> &'static str {
     }
 }
 
-fn view_json(v: &View, mine: usize, rules_q: f64) -> Value {
+/// The home side's win chance now, on the same model as the chart and the
+/// feed: before the snap, the try or the kickoff that comes next, and the
+/// final once it is over.
+fn live_wp(m: &Wp, s: &GameStats, step: &live::Step, over: bool) -> f64 {
+    let v = &step.view;
+    if over {
+        return match s.score[0].cmp(&s.score[1]) {
+            std::cmp::Ordering::Greater => 1.0,
+            std::cmp::Ordering::Less => 0.0,
+            _ => 0.5,
+        };
+    }
+    let o = v.poss.min(1);
+    let state = win_chance::State {
+        quarter: v.quarter,
+        clock: v.clock.max(0.0),
+        lead: (v.score[o] - v.score[1 - o]) as f64,
+        down: v.down.max(1),
+        togo: if v.togo > 0.0 { v.togo } else { 10.0 },
+        yl: (100.0 - v.x).clamp(0.5, 99.5),
+        timeouts: [v.timeouts[o], v.timeouts[1 - o]],
+        spread: 0.0,
+        answering: false,
+    };
+    let next = match step.pending.as_ref().map(|p| p.ask) {
+        Some(Ask::Pat) => win_chance::Next::Try { two: false },
+        Some(Ask::Onside | Ask::Toss | Ask::Halftime) => win_chance::Next::Kickoff,
+        _ => win_chance::Next::Snap,
+    };
+    win_chance::home_now(&m.p, &s.plays, next, o, state, m.home_spread)
+}
+
+fn view_json(v: &View, mine: usize, rules_q: f64, wp_home: f64) -> Value {
     let to_goal = 100.0 - v.x;
     json!({
         "quarter": v.quarter,
@@ -931,8 +969,8 @@ fn view_json(v: &View, mine: usize, rules_q: f64) -> Value {
         "timeouts": v.timeouts,
         "challenges": v.challenges,
         "running": v.running,
-        "wp_home": v.wp_home,
-        "wp_mine": if mine == 0 { v.wp_home } else { 1.0 - v.wp_home },
+        "wp_home": wp_home,
+        "wp_mine": if mine == 0 { wp_home } else { 1.0 - wp_home },
         "plays": v.plays,
         "tempo": tempo_name(v.tempo),
         "wind_home": v.wind_home,
@@ -947,6 +985,7 @@ fn pending_json(
     today: &[&PlayRecord],
     names: &film::Names,
     can_defer: bool,
+    wp_home: f64,
 ) -> Value {
     let ask = match p.ask {
         Ask::Snap => "snap",
@@ -990,7 +1029,7 @@ fn pending_json(
     };
     json!({
         "ask": ask,
-        "view": view_json(&p.view, mine, rules_q),
+        "view": view_json(&p.view, mine, rules_q, wp_home),
         "staff_fourth": p.staff_fourth.map(fourth_name),
         "staff_two": p.staff_two,
         "staff_onside": p.staff_onside,
@@ -1009,7 +1048,7 @@ fn pending_json(
 
 /// A play for the feed: what happened, who called it and how it changed
 /// the game.
-fn play_row(r: &PlayRecord, names: &film::Names, sides: &[String; 2], mine: usize, len: f64) -> Value {
+fn play_row(r: &PlayRecord, names: &film::Names, sides: &[String; 2], mine: usize, wp: f64) -> Value {
     let name = |id: u32| names.get(&id).map_or(format!("No. {id}"), |x| x.0.clone());
     let downless = matches!(r.kind, PlayType::Kickoff | PlayType::ExtraPoint | PlayType::TwoPoint);
     let off = r.offense.min(1);
@@ -1022,7 +1061,6 @@ fn play_row(r: &PlayRecord, names: &film::Names, sides: &[String; 2], mine: usiz
         || r.officiating.as_ref().is_some_and(|o| o.reviewer != live::Reviewer::None)
         || !r.injuries.is_empty()
         || (r.down == 4 && matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble));
-    let wp = page::wp_before(r, len);
     json!({
         "n": r.n,
         "q": quarter_text(r.quarter, r.quarter > 4),
@@ -1069,19 +1107,22 @@ fn live_state(w: &mut World) -> Reply {
     let refs = [team_ref(level, teams[0]), team_ref(level, teams[1])];
     let names = names(w, &refs);
     let r = &step.result;
-    let len = 4.0 * rules_q;
+    let m = Wp::new(w, level, teams, date, neutral);
+    let over = step.pending.is_none();
+    let bar = live_wp(&m, &r.stats, &step, over);
     let today: Vec<&PlayRecord> = r.stats.plays.iter().filter(|p| p.offense == mine).collect();
     let today_def: Vec<&PlayRecord> = r.stats.plays.iter().filter(|p| p.offense != mine && p.offense < 2).collect();
     let pending = step.pending.as_ref().map(|p| {
         let pool = if p.ask == Ask::Defense { &today_def } else { &today };
-        pending_json(p, mine, rules_q, pool, &names, can_defer)
+        pending_json(p, mine, rules_q, pool, &names, can_defer, bar)
     });
-    let feed: Vec<Value> = r.stats.plays.iter().map(|p| play_row(p, &names, &sides_names, mine, len)).collect();
+    let home = m.series(&r.stats.plays);
+    let feed: Vec<Value> =
+        r.stats.plays.iter().zip(&home).map(|(p, &h)| play_row(p, &names, &sides_names, mine, h)).collect();
     let log: Vec<Value> =
         r.log.iter().map(|(n, t, what)| json!({ "n": n, "team": t, "text": page::with_names(what, &names) })).collect();
     let totals = page::totals(&r.stats, &sides_names);
-    let over = step.pending.is_none();
-    let after = if over { Some(page::after_game(w, r, mine, &names, &sides_names)) } else { None };
+    let after = if over { Some(page::after_game(w, r, mine, &names, &sides_names, &m)) } else { None };
     let halftime =
         step.pending.as_ref().filter(|p| p.ask == Ask::Halftime).map(|_| page::halftime(r, mine, &names, &sides_names));
     let roster: Vec<Value> = {
@@ -1111,12 +1152,12 @@ fn live_state(w: &mut World) -> Reply {
         "names": sides_names,
         "mine": mine,
         "neutral": neutral,
-        "view": view_json(&step.view, mine, rules_q),
+        "view": view_json(&step.view, mine, rules_q, bar),
         "pending": pending,
         "plays": feed,
         "log": log,
         "totals": totals,
-        "wp": page::wp_series(&r.stats, len),
+        "wp": page::wp_series(&r.stats, &m),
         "settings": settings_json(&settings),
         "take_next": take_next,
         "weather": weather_json(&cond, level_of(level), mine == 0 || neutral),

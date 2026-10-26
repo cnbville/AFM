@@ -585,6 +585,10 @@ pub struct Notes {
     pub stunt: Option<bool>,
     /// What the players' tendencies did this snap.
     pub tend: TendNotes,
+    /// The line chart (lane 9), on your games' snaps only: Some from the
+    /// snap when the game keeps one.
+    #[serde(default)]
+    pub chart: Option<Box<super::chart::LineChart>>,
 }
 
 /// What the players' tendencies did on a play (`docs/design/tendencies.md`),
@@ -1554,6 +1558,10 @@ impl<'a> Sim<'a> {
         let t = self.t - e.start;
         let won = e.shed_at.is_none();
         let pass = e.pass;
+        if let Some(c) = self.notes.chart.as_mut() {
+            let who = [(self.agents[b].id, self.agents[b].label), (self.agents[d].id, self.agents[d].label)];
+            c.reps.push(super::chart::Rep::of(e, who, self.agents[d].down_until > self.t, t));
+        }
         self.agents[b].engaged = None;
         self.agents[d].engaged = None;
         if let Some(h) = h {

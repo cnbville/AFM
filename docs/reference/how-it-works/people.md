@@ -1,6 +1,6 @@
 # People: how it works today
 
-Checked against main at 9a53e5d on 2026-10-26.
+Checked against main at 567fdd4 on 2026-10-26.
 
 Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked in code as Claude's (proposed, not confirmed).
 
@@ -93,11 +93,11 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
 
 - **Drawn each fall camp** on every college and NFL roster, and your high school's (`world/folk/ties.rs`, `draw`, `rosters`).
   - Social = 1 + 0.35 x leadership z + 0.25 x loyalty z - 0.25 x ego z - 0.2 x temper z, clamped 0.3-1.8.
-  - The friend cap is 2-6, set by social.
+  - The friend cap is 2-6, set by social, checked at each new friend through the draw (`draw`).
   - Pair odds = closeness x social x the other's social. Closeness: same position group 0.04, same class 0.025, same high school 0.35.
   - On your roster the odds are also x clamp(1 + bonds, 0.85, 1.25). Bonds add 0.01 x your outing and council minutes beyond an average staff's / 60 each week, clamped −0.15 to 0.25, and reset to 0 after the fall camp draw (`world/folk/ties.rs`, `draw`, `day`; `training/seat.rs`, `team_effects`).
   - New ties start at strength 38, or 55 from the same high school. A tie that rolls again deepens +12.
-- **Mentor**: in each position group, the veteran (26+ in the NFL, 21+ in college) with the best leadership + 0.6 x professionalism takes the youngest player 21 or under, if his leadership is ≥ 13. Each year the mentor's professionalism (≥ 14 or ≤ 7) shifts the young player's by ±1 (`mentor_year`).
+- **Mentor**: in each position group, the veteran (26+ in the NFL, 21+ in college) with the best leadership + 0.6 x professionalism takes the youngest player 21 or under, if his leadership is ≥ 13. Never himself (a 21-year-old can be both), and one new mentor per young player in a draw (`draw`). Each year the mentor's professionalism (≥ 14 or ≤ 7) shifts the young player's by ±1 (`mentor_year`).
 - **Family**: an older brother from the same high school with the same surname, strength 90.
 - **Fading**: ties apart lose a third a year (family excepted). Ties under 15 are dropped. A "close friend" is strength 35+ (`friends`).
 - **Effects**:
@@ -128,7 +128,9 @@ Paths are relative to `crates/afm-engine/src/`. Nearly every size here is marked
   - NFL: seasons on the same team.
   - High school: seasons both were in the program.
   - Each adds 0.5 for this season (`seasons_together`).
+  - Another league: none kept, so the locker room board shows no chemistry there (`pair`, `charts::pair_chemistry`, both None).
 - **Values**: 1 - e^(-0.55 x s). A new pair is 0.24, 1.5 seasons 0.56, 2.5 seasons 0.75.
+- **Any two players**, for the locker room board: the same 1 - e^(-0.55 x seasons together) at your seat's level (`world/chemistry.rs`, `pair`; `world/charts.rs`, `pair_chemistry`).
 - **Line chemistry**: 0.25 + 0.15 x the number of the 5 most experienced linemen who started 8+ games here last season (`world/pro/games.rs`, `build_side`; `world/season.rs`, `world/hs_year.rs` the same way).
 - **Engine effects** (all relative to 0.45):
   - Throw delay +0.12 x (0.45 - chem) s.
