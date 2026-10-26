@@ -603,15 +603,16 @@ pub fn look_words(look: usize) -> String {
     format!("{} {} {}", p.name(), b, s.name())
 }
 
-/// The strong tells: looks with 8 snaps or more where one kind is 75% or
-/// more of the calls (a bye week's full study reads them from 6 snaps and
-/// 70%).
+/// The strong tells: looks with 8 snaps or more, seen in two games or more,
+/// where one kind is 75% or more of the calls (a bye week's full study
+/// reads them from 6 snaps and 70%). One game's habit isn't a tell a
+/// defense trusts.
 pub fn tells(w: &World, full: bool) -> Vec<Tell> {
     let full = full || studied(w);
     let (n, edge) = if full { (6, 0.7) } else { (8, 0.75) };
     own_looks(w)
         .into_iter()
-        .filter(|t| t.snaps() >= n && (t.run_share() >= edge || t.run_share() <= 1.0 - edge))
+        .filter(|t| t.snaps() >= n && t.games >= 2 && (t.run_share() >= edge || t.run_share() <= 1.0 - edge))
         .collect()
 }
 
@@ -1556,12 +1557,15 @@ pub(crate) fn day(w: &mut World, d: Date) {
     }
     if let Some(n) = next_game(w)
         && d >= plan_day(n.level, n.date)
-        && !w.plans.draft.as_ref().is_some_and(|x| x.game == n.date && x.opp == n.opp)
     {
-        ensure_draft(w);
-        let wk = week_mut(w);
-        let _ = wk;
-        set_keys(w);
+        if !w.plans.draft.as_ref().is_some_and(|x| x.game == n.date && x.opp == n.opp) {
+            ensure_draft(w);
+        }
+        // The keys go on the board on plan day whoever drafted the sheet,
+        // a sheet approved before plan day included.
+        if w.plans.week.game != Some(n.date) || w.plans.week.keys.is_empty() {
+            set_keys(w);
+        }
     }
     check_keys(w);
     // The team's grasp of the plan today (G14), for the week's chart.

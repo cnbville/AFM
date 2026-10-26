@@ -171,6 +171,8 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
     // The busts the same men would have at the game-ready line.
     let mut ready_busts = 0.0;
     let mut seen: Vec<u32> = Vec::new();
+    // Each man's grasp now, mind read and tonight's extras, for the chart.
+    let mut grasp_in: Vec<(f64, f64, f64)> = Vec::new();
     // The two-deep as the engine dresses it: your order where you set one,
     // your staff's for the rest (a season's team keeps no order of its own
     // in the offseason).
@@ -210,6 +212,7 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
             let class = person_index(w, id).map(|i| class_text(w, &w.people[i])).unwrap_or_default();
             sum_now += now;
             sum_fri += fri;
+            grasp_in.push((now, iq, boost));
             sum_busts += busts;
             n += 1;
             rows.push(json!({
@@ -234,28 +237,29 @@ pub(super) fn view(w: &World, a: &Value) -> Reply {
         })
         .collect();
     fam_rows.sort_by(|a, b| a["now"].as_f64().unwrap_or(0.0).total_cmp(&b["now"].as_f64().unwrap_or(0.0)));
-    // The week's chart: the logged days, then the projection.
-    let monday = monday_of(w.today);
+    // The week's chart: the six days before the game, logged where they
+    // have passed, then the projection.
     let mut chart: Vec<Value> = Vec::new();
     let names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     let avg_now = if n > 0 { sum_now / n as f64 } else { 0.0 };
-    for i in 0..if week { 7 } else { 0 } {
-        let d = monday.add(i);
-        if next.is_some_and(|nx| d.0 >= nx.date.0) {
-            break;
-        }
+    let game = next.filter(|_| week).map(|nx| nx.date);
+    for d in game.into_iter().flat_map(|g| (1..=6).rev().map(move |back| g.add(-back))) {
         let logged = w.plans.grasp_log.iter().find(|x| x.0 == d).map(|x| x.1[unit] as f64);
         let v = match logged {
             Some(v) => Some((v, false)),
             None if d.0 > w.today.0 => {
+                // The same men's projection as the rows, day by day, so the
+                // last bar is the unit's game-day grasp.
                 let ahead = days_left(w.today, d.add(1));
-                Some((by_friday(avg_now, 60.0, ahead, 0.0), true))
+                let v = grasp_in.iter().map(|&(g, iq, b)| by_friday(g, iq, ahead, b)).sum::<f64>()
+                    / grasp_in.len().max(1) as f64;
+                Some((v, true))
             }
             None if d == w.today => Some((avg_now, false)),
             None => None,
         };
         if let Some((v, proj)) = v {
-            chart.push(json!({ "d": names[i as usize], "v": super::pct(v), "proj": proj }));
+            chart.push(json!({ "d": names[weekday_index(d)], "v": super::pct(v), "proj": proj }));
         }
     }
     let busts_words = |b: f64| {

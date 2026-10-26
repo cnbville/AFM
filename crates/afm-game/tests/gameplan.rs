@@ -123,6 +123,13 @@ fn the_game_plan_from_the_identity_to_game_day() {
     let inst = ok(&mut g, "dp_installs", json!({ "unit": "offense" }));
     assert_eq!(inst["week"], true);
     assert!(inst["rows"].as_array().is_some_and(|r| r.len() >= 8), "{}", inst["rows"]);
+    // The week's chart runs to the game's eve, and a projected last bar is
+    // the unit's game-day grasp.
+    let chart = inst["chart"].as_array().cloned().unwrap_or_default();
+    assert!(!chart.is_empty() && chart.len() <= 6, "{}", inst["chart"]);
+    if let Some(last) = chart.last().filter(|c| c["proj"] == true) {
+        assert_eq!(last["v"], inst["total"]["friday"], "{}", inst["chart"]);
+    }
     assert!(week["two_deep"].as_array().is_some_and(|r| !r.is_empty()), "{}", week["two_deep"]);
     assert!(week["orders"][0]["players"].as_array().is_some_and(|r| !r.is_empty()), "{}", week["orders"]);
 

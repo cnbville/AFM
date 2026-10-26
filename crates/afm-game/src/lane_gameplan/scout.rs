@@ -465,7 +465,12 @@ pub(super) fn view(w: &World, args: &Value) -> Reply {
         "breakers": breakers_on,
         "head": w.seat_head(),
         "cut": "Snaps in the last two minutes of each half and in garbage time are left out, as real staffs do.",
-        "edge": if studied { "6 snaps and 70%" } else { "8 snaps and 75%" },
+        "edge": match (defense, studied) {
+            (false, true) => "6 snaps and 70% in two games or more",
+            (false, false) => "8 snaps and 75% in two games or more",
+            (true, true) => "6 throws at 60% man, or 6 snaps with five or more rushers on half",
+            (true, false) => "8 throws at 65% man, or 8 snaps with five or more rushers on half",
+        },
         "pts": num(overall_base * 100.0, 0),
     }))
 }
