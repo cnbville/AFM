@@ -23,6 +23,12 @@ A deep, realistic American football management sim modelled on Football Manager:
 17. `docs/design/later-extras.md`: section 11, the later extras (full club finances at every level, a 3D game view, player figures in the 2D view, a folder import for photos, build 9's "still later" leftovers with the other leagues' rule books). Designed 2026-10-21 for the final build; Cain chose the coaches' 3D view and the 2D dots with one switch (mock-ups B and D at https://claude.ai/artifact/CteVV5nFKW8TmDigAqe3hR) and no photo pool for now.
 16. `docs/design/game-day.md`: section 9, game day control (advance scouting and the tape's own hints, the game plan, game morning, calling plays live, between plays, in-game decisions and replay challenges, injuries, the sideline, halftime, watching, after the game, your play-calling rating and replays). Designed 2026-10-21; Cain answered every question the same day (other teams' tape shows film and staff tags plus some hints of its own, the same whatever the staff; which snaps stop for you and the time for a call are both his choice, realism or learning; his own ratings call the snaps he doesn't take); not built.
 
+## How the game works today (quick answers)
+`docs/reference/how-it-works/` has one plain page per system (ratings, body and the forty, development, tendencies, match engine checks, play calling, scouting, draft, recruiting, staff, training, injuries, NFL, people), every fact with its file and function.
+- Answer every "how does X work" question from these pages first, quoting the fact and its source. Open the code only when the page lacks the fact or the system changed since the page's commit line; then add the fact to the page.
+- Any build or lane that changes a system updates its page in the same PR and bumps the page's commit line.
+- The pages say what the code does, not why a world number looks off: measure before explaining.
+
 ## Working rules (from Raichel)
 - **Ask before every design decision.** Bring a concrete proposal, then wait for the answer. Never pick defaults yourself.
 - **Default to ultra realism.** Never ask "realistic or simplified?": the answer is always the most realistic option. Ask only about deep mechanics (how things work and interact), each with a concrete proposal Raichel can agree with or adjust. Go topic by topic in order and don't skip topics.
