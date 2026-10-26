@@ -148,6 +148,13 @@ pub struct PlayRecord {
     /// convert.
     #[serde(default)]
     pub fourth: Option<[f32; 4]>,
+    /// Timeouts left at the snap, home then away (None in games kept
+    /// before lane 9), for the win chance.
+    #[serde(default)]
+    pub timeouts: Option<[u8; 2]>,
+    /// The line chart (lane 9): your games' snaps only.
+    #[serde(default)]
+    pub line: Option<Box<super::chart::LineChart>>,
 }
 
 impl PlayRecord {
@@ -238,6 +245,8 @@ impl PlayRecord {
             officiating: None,
             throw_y: None,
             fourth: None,
+            timeouts: None,
+            line: None,
         }
     }
 

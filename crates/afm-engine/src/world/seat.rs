@@ -29,6 +29,10 @@ pub struct SeatGame {
     /// Your drawings on the film (film-room tool 1), saved with the clip.
     #[serde(default)]
     pub marks: Vec<FilmMark>,
+    /// The players in it who have since left football, and so the world:
+    /// their names for its pages (`seat_names::keep`).
+    #[serde(default)]
+    pub gone: Vec<super::seat_names::Gone>,
 }
 
 /// A drawing on a paused frame of the film: a line, an arrow, a circle or
@@ -96,6 +100,7 @@ impl World {
             stats: stats.clone(),
             replay,
             marks: Vec::new(),
+            gone: Vec::new(),
         });
         if self.seat_games.len() > KEEP_GAMES {
             let cut = self.seat_games.len() - KEEP_GAMES;

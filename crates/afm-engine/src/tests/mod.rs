@@ -23,6 +23,7 @@ mod tactics;
 mod tendencies;
 mod training;
 mod views;
+mod win_chance;
 mod world;
 
 use crate::development::{SeasonContext, develop_season};

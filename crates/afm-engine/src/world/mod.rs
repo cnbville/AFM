@@ -12,6 +12,7 @@
 //! game is decided from the two teams' starters, with home field and luck.
 
 pub mod background;
+pub mod charts;
 pub(crate) mod chemistry;
 pub(crate) mod clock;
 pub mod coach;
@@ -54,6 +55,7 @@ pub mod schedule;
 pub mod scouting;
 pub(crate) mod season;
 pub mod seat;
+pub mod seat_names;
 pub mod staff;
 pub mod staff_read;
 pub mod stories;
@@ -767,6 +769,10 @@ pub struct World {
     /// opponents, what you have studied.
     #[serde(default)]
     pub gameday: live_seat::GameDay,
+    /// The game boards' level numbers and your state's polls (update 2,
+    /// lane 9).
+    #[serde(default)]
+    pub charts: charts::Charts,
     /// Every club's books, projects, report cards and lines (later extras topic 1).
     #[serde(default)]
     pub finance: finance::Finance,
@@ -1133,6 +1139,7 @@ impl World {
             career: None,
             live: None,
             gameday: Default::default(),
+            charts: Default::default(),
             finance: finance::Finance::default(),
             scouting: Default::default(),
             front_office: Default::default(),
@@ -1542,8 +1549,9 @@ impl World {
                 })
             })
             .collect();
-        // The stories they are in keep their names.
+        // The stories they are in keep their names, and so do your games.
         storylines::keep_names(self, &map);
+        seat_names::keep(self, &map);
         let mut stays = map.iter();
         self.people.retain(|_| stays.next().is_some_and(|m| m.is_some()));
         // Hand back the room of everyone who left, keeping a third more for

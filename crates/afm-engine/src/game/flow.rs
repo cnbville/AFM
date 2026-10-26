@@ -984,6 +984,7 @@ impl<'a> Game<'a> {
         r.score = [self.stats.team[0].points, self.stats.team[1].points];
         r.ep_before = ep_at(self.down.max(1), self.togo, goal() - self.x);
         r.wp_before = wp_at(self.diff(self.poss), self.game_left(), goal() - self.x);
+        r.timeouts = Some([self.sides[0].timeouts, self.sides[1].timeouts]);
         r.after_turnover = self.after_turnover;
         r.garbage = [self.sides[0].coach.read.step, self.sides[1].coach.read.step];
         r
@@ -2867,6 +2868,8 @@ impl<'a> Game<'a> {
             strictness: [self.sides[o].team.staff.strictness, self.sides[d].team.staff.strictness],
             injury_scale: 1.0,
             record: self.recording(),
+            // Your games keep the line chart (lane 9); no other game does.
+            chart: self.s.keep || self.ctl.is_some(),
             hurry: sit.hurry(),
             two_gap: self.sides[d].team.staff.front == Front::ThreeFour,
             tac,
@@ -3039,6 +3042,7 @@ impl<'a> Game<'a> {
         r.fumbled = res.notes.fumbled;
         r.blocks = res.notes.blocks.clone();
         r.rush_wins = res.notes.rush_wins.clone();
+        r.line = res.notes.chart.clone();
         r.tend = res.notes.tend;
         r.busts = res.notes.busts.clone();
         r.injuries = res.notes.injuries.clone();

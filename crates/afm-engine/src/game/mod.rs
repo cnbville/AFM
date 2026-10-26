@@ -7,6 +7,7 @@
 
 pub mod books;
 pub mod calling;
+pub mod chart;
 pub mod designer;
 pub mod experiment;
 pub mod flow;
@@ -24,6 +25,7 @@ pub mod sim;
 pub mod stats;
 pub mod synthetic;
 pub mod tables;
+pub mod win_chance;
 
 pub use books::Book;
 pub use calling::Film;

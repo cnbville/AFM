@@ -6,8 +6,8 @@
 //! hints, your plan and game rules, which snaps stop for you), your game
 //! played live snap by snap, and the game page of every game you kept.
 
-mod film;
-mod page;
+pub(crate) mod film;
+pub(crate) mod page;
 
 use std::collections::HashMap;
 
@@ -26,6 +26,7 @@ use afm_engine::game::{GameResult, GameTeam};
 use afm_engine::world::World;
 use serde_json::{Value, json};
 
+use crate::lane_boards::flow::Wp;
 use crate::views::{self, TeamRef};
 use crate::{Game, Reply};
 
@@ -969,7 +970,7 @@ fn pending_json(
 
 /// A play for the feed: what happened, who called it and how it changed
 /// the game.
-fn play_row(r: &PlayRecord, names: &film::Names, sides: &[String; 2], mine: usize, len: f64) -> Value {
+fn play_row(r: &PlayRecord, names: &film::Names, sides: &[String; 2], mine: usize, m: &Wp) -> Value {
     let name = |id: u32| names.get(&id).map_or(format!("No. {id}"), |x| x.0.clone());
     let downless = matches!(r.kind, PlayType::Kickoff | PlayType::ExtraPoint | PlayType::TwoPoint);
     let off = r.offense.min(1);
@@ -982,7 +983,7 @@ fn play_row(r: &PlayRecord, names: &film::Names, sides: &[String; 2], mine: usiz
         || r.officiating.as_ref().is_some_and(|o| o.reviewer != live::Reviewer::None)
         || !r.injuries.is_empty()
         || (r.down == 4 && matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble));
-    let wp = page::wp_before(r, len);
+    let wp = page::wp_before(r, m);
     json!({
         "n": r.n,
         "q": quarter_text(r.quarter, r.quarter > 4),
@@ -1029,19 +1030,19 @@ fn live_state(w: &mut World) -> Reply {
     let refs = [team_ref(level, teams[0]), team_ref(level, teams[1])];
     let names = names(w, &refs);
     let r = &step.result;
-    let len = 4.0 * rules_q;
+    let m = Wp::new(w, level, teams, date);
     let today: Vec<&PlayRecord> = r.stats.plays.iter().filter(|p| p.offense == mine).collect();
     let today_def: Vec<&PlayRecord> = r.stats.plays.iter().filter(|p| p.offense != mine && p.offense < 2).collect();
     let pending = step.pending.as_ref().map(|p| {
         let pool = if p.ask == Ask::Defense { &today_def } else { &today };
         pending_json(p, mine, rules_q, pool, &names, can_defer)
     });
-    let feed: Vec<Value> = r.stats.plays.iter().map(|p| play_row(p, &names, &sides_names, mine, len)).collect();
+    let feed: Vec<Value> = r.stats.plays.iter().map(|p| play_row(p, &names, &sides_names, mine, &m)).collect();
     let log: Vec<Value> =
         r.log.iter().map(|(n, t, what)| json!({ "n": n, "team": t, "text": page::with_names(what, &names) })).collect();
     let totals = page::totals(&r.stats, &sides_names);
     let over = step.pending.is_none();
-    let after = if over { Some(page::after_game(w, r, mine, &names, &sides_names)) } else { None };
+    let after = if over { Some(page::after_game(w, r, mine, &names, &sides_names, &m)) } else { None };
     let halftime =
         step.pending.as_ref().filter(|p| p.ask == Ask::Halftime).map(|_| page::halftime(r, mine, &names, &sides_names));
     let roster: Vec<Value> = {
@@ -1076,7 +1077,7 @@ fn live_state(w: &mut World) -> Reply {
         "plays": feed,
         "log": log,
         "totals": totals,
-        "wp": page::wp_series(&r.stats, len),
+        "wp": page::wp_series(&r.stats, &m),
         "settings": settings_json(&settings),
         "take_next": take_next,
         "weather": weather_json(&cond, level_of(level), mine == 0 || neutral),

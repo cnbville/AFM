@@ -102,6 +102,8 @@ pub struct Snap<'a> {
     pub strictness: [f64; 2],
     pub injury_scale: f64,
     pub record: bool,
+    /// Keep the line chart (lane 9): your games.
+    pub chart: bool,
     /// The offense needs the clock stopped (two-minute drill): runners get
     /// out of bounds and receivers work the sideline.
     pub hurry: bool,
@@ -336,7 +338,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         t: 0.0,
         los,
         rng,
-        notes: Notes::default(),
+        notes: Notes { chart: s.chart.then(Default::default), ..Notes::default() },
         record: if s.record { Some(Vec::new()) } else { None },
         cond: s.cond,
         crew: s.crew,
@@ -694,6 +696,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             pass_protection(&mut sim, off_n);
             stunt_pickup(&mut sim, s.tac.chem);
             slide_to(&mut sim, s, off_n);
+            chart_rush(&mut sim, off_n, &slot_of, by);
             // The matchup plan (topic 5.4): the quarterback looks first at
             // the receiver on the corner the staff wants to attack, when that
             // man is in the progression.
@@ -2170,6 +2173,48 @@ fn slide_to(sim: &mut Sim, s: &Snap, off_n: usize) {
             *release_delay += CHIP_TIME;
             sim.chip = Some((b, star));
         }
+    }
+}
+
+/// The rush and the protection for the line chart (lane 9), when the snap
+/// keeps one: the gap each rusher aimed at from the line's spots, whether a
+/// blocker took him, and the protection the offense used.
+fn chart_rush(sim: &mut Sim, off_n: usize, slots: &[Option<DSlot>], ball_y: f64) {
+    if sim.notes.chart.is_none() {
+        return;
+    }
+    use super::chart::{Protection, Rusher, gap_at};
+    let ol: Vec<f64> = (0..off_n).filter(|&i| is_line(sim.agents[i].label)).map(|i| sim.agents[i].pos.y).collect();
+    let taken = |sim: &Sim, d: usize| {
+        (0..off_n).any(|b| matches!(sim.agents[b].job, Job::PassBlock { target: Some(t) } if t == d))
+    };
+    let mut rush = Vec::new();
+    for i in off_n..sim.agents.len() {
+        let Job::Rush { lane, .. } = sim.agents[i].job else { continue };
+        let mut flags = 0;
+        if slots.get(i).copied().flatten().is_some_and(|d| d.is_line()) {
+            flags |= Rusher::LINEMAN;
+        }
+        if taken(sim, i) {
+            flags |= Rusher::PICKED;
+        }
+        if sim.stunt.is_some_and(|(a, b)| a == i || b == i) {
+            flags |= Rusher::STUNT;
+        }
+        rush.push(Rusher { id: sim.agents[i].id, gap: gap_at(lane, &ol), flags });
+    }
+    let blockers = (0..off_n).filter(|&i| matches!(sim.agents[i].job, Job::PassBlock { .. })).count();
+    let protection = if blockers >= 7 {
+        Protection::Max
+    } else if let Some(star) = sim.help_on {
+        if sim.agents[star].pos.y > ball_y { Protection::SlideLeft } else { Protection::SlideRight }
+    } else {
+        Protection::Man
+    };
+    if let Some(c) = sim.notes.chart.as_mut() {
+        c.rush = rush;
+        c.protection = protection;
+        c.blockers = blockers as u8;
     }
 }
 

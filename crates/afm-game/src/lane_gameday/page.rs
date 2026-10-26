@@ -6,13 +6,14 @@
 use std::collections::HashMap;
 
 use afm_engine::game::GameResult;
-use afm_engine::game::live::{self, Reviewer};
+use afm_engine::game::live::Reviewer;
 use afm_engine::game::stats::{GameStats, PlayRecord, PlayType};
 use afm_engine::world::World;
 use serde_json::{Value, json};
 
 use super::film::Names;
 use super::{clock_text, down_text, quarter_text, spot, success, team_ref};
+use crate::lane_boards::flow::Wp;
 use crate::views;
 
 fn scrimmage(r: &PlayRecord) -> bool {
@@ -49,23 +50,16 @@ fn left(r: &PlayRecord, qlen: f64) -> f64 {
     if r.quarter > 4 { r.clock.min(300.0) } else { (4 - r.quarter.min(4)) as f64 * qlen + r.clock }
 }
 
-/// The home team's win chance before a play (the game day screens'
-/// smooth model, `live::win_prob`).
-pub fn wp_before(r: &PlayRecord, len: f64) -> f64 {
-    let lead = (r.score[0] - r.score[1]) as f64;
-    let ep = match r.kind {
-        PlayType::Kickoff => 0.0,
-        PlayType::ExtraPoint | PlayType::TwoPoint => 0.9,
-        _ => r.ep_before,
-    };
-    let home_ep = if r.offense == 0 { ep } else { -ep };
-    live::win_prob(lead, home_ep, left(r, len / 4.0), len)
+/// The home team's win chance before a play (the game boards' model,
+/// `lane_boards::flow::Wp`: the level's numbers and the line).
+pub fn wp_before(r: &PlayRecord, m: &Wp) -> f64 {
+    m.home(r)
 }
 
 /// The home team's win chance through the game: before each play, then
 /// the final.
-pub fn wp_series(s: &GameStats, len: f64) -> Vec<(u32, f64)> {
-    let mut v: Vec<(u32, f64)> = s.plays.iter().filter(|r| r.offense < 2).map(|r| (r.n, wp_before(r, len))).collect();
+pub fn wp_series(s: &GameStats, m: &Wp) -> Vec<(u32, f64)> {
+    let mut v: Vec<(u32, f64)> = s.plays.iter().filter(|r| r.offense < 2).map(|r| (r.n, wp_before(r, m))).collect();
     let fin = match s.score[0].cmp(&s.score[1]) {
         std::cmp::Ordering::Greater => 1.0,
         std::cmp::Ordering::Less => 0.0,
@@ -313,6 +307,12 @@ fn drives(s: &GameStats) -> Vec<Drive> {
     out
 }
 
+/// Every drive of a game as the drive chart shows it (the game flow
+/// board reads them too).
+pub(crate) fn drives_json(s: &GameStats, names: &[String; 2]) -> Vec<Value> {
+    drives(s).iter().map(|d| drive_json(d, names)).collect()
+}
+
 fn drive_json(d: &Drive, names: &[String; 2]) -> Value {
     json!({
         "team": d.team,
@@ -461,8 +461,8 @@ fn look(r: &PlayRecord) -> String {
 }
 
 /// The win-probability change of each play (home), by play number.
-fn swings(s: &GameStats, len: f64) -> HashMap<u32, (f64, f64)> {
-    let series = wp_series(s, len);
+fn swings(s: &GameStats, m: &Wp) -> HashMap<u32, (f64, f64)> {
+    let series = wp_series(s, m);
     let mut m = HashMap::new();
     for w in series.windows(2) {
         m.insert(w[0].0, (w[0].1, w[1].1 - w[0].1));
@@ -470,8 +470,8 @@ fn swings(s: &GameStats, len: f64) -> HashMap<u32, (f64, f64)> {
     m
 }
 
-fn key_plays(s: &GameStats, names: &Names, sides: &[String; 2], len: f64, mine: Option<usize>, n: usize) -> Vec<Value> {
-    let sw = swings(s, len);
+fn key_plays(s: &GameStats, names: &Names, sides: &[String; 2], m: &Wp, mine: Option<usize>, n: usize) -> Vec<Value> {
+    let sw = swings(s, m);
     let mut v: Vec<(&PlayRecord, f64, f64)> = s
         .plays
         .iter()
@@ -658,14 +658,10 @@ pub fn game_page(w: &World, k: usize) -> Result<Value, String> {
     let g = w.seat_games().get(k).ok_or("That game is not kept.")?;
     let s = &g.stats;
     let refs = [team_ref(g.level, g.teams[0]), team_ref(g.level, g.teams[1])];
-    let names = super::names(w, &refs);
+    let names = crate::lane_boards::game_names(w, g, &refs);
     let mine = w.seat_team().and_then(|(_, t)| g.teams.iter().position(|&x| x == t));
-    let qlen = match g.level {
-        afm_engine::calendar::Level::HighSchool => 720.0,
-        _ => 900.0,
-    };
-    let len = 4.0 * qlen;
-    let sw = swings(s, len);
+    let m = Wp::of_game(w, g);
+    let sw = swings(s, &m);
     let snaps: Vec<Value> = s
         .plays
         .iter()
@@ -687,8 +683,8 @@ pub fn game_page(w: &World, k: usize) -> Result<Value, String> {
         _ => "College",
     });
     v["mine"] = json!(mine);
-    v["wp"] = json!(wp_series(s, len));
-    v["key_plays"] = json!(key_plays(s, &names, &g.names, len, mine, 14));
+    v["wp"] = json!(wp_series(s, &m));
+    v["key_plays"] = json!(key_plays(s, &names, &g.names, &m, mine, 14));
     v["advanced"] = advanced(s, &g.names);
     v["drives"] = json!(dr.iter().map(|d| drive_json(d, &g.names)).collect::<Vec<_>>());
     v["scoring"] = json!(scoring_summary(s, &names, &dr));
@@ -1260,9 +1256,8 @@ pub fn halftime(r: &GameResult, mine: usize, names: &Names, sides: &[String; 2])
 /// The final whistle (topic 11): the result, your calls against your
 /// staff's, the plays that decided it, game balls, injuries and the
 /// officials.
-pub fn after_game(w: &World, r: &GameResult, mine: usize, names: &Names, sides: &[String; 2]) -> Value {
+pub fn after_game(w: &World, r: &GameResult, mine: usize, names: &Names, sides: &[String; 2], m: &Wp) -> Value {
     let s = &r.stats;
-    let len = 4.0 * s.plays.iter().map(|p| p.clock).fold(0.0, f64::max).max(720.0);
     let name = |id: u32| names.get(&id).map_or(format!("No. {id}"), |x| x.0.clone());
     let hurt: Vec<String> = r
         .injuries
@@ -1278,7 +1273,7 @@ pub fn after_game(w: &World, r: &GameResult, mine: usize, names: &Names, sides: 
         "tied": tied,
         "score": s.score,
         "calls": calls(s, mine),
-        "key_plays": key_plays(s, names, sides, len, Some(mine), 6),
+        "key_plays": key_plays(s, names, sides, m, Some(mine), 6),
         "stars": stars(s, names, sides),
         "hurt": hurt,
         "officials": officiating(s, sides, names),

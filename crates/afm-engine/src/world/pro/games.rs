@@ -473,6 +473,9 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
 pub(crate) fn record(w: &mut World, teams: [usize; 2], r: &GameResult, sides: &[Side; 2], opp_z: [f64; 2]) {
     let year = w.year;
     w.keep_seat_game(crate::calendar::Level::Nfl, teams, &r.stats, r.replay.as_deref());
+    // The league's numbers for the game boards (lane 9), by season.
+    let season = w.nfl_season.as_ref().map_or(year, |s| s.year);
+    crate::world::charts::add_game(w, season, crate::world::charts::NFL, &r.stats);
     if let Some(o) = w.tape_watch(crate::calendar::Level::Nfl) {
         w.keep_tape(&o, crate::calendar::Level::Nfl, teams, &r.stats, &r.film);
     }

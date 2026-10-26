@@ -173,6 +173,8 @@ struct HsPlayed {
     /// setup for watching it back) and your coming opponents' film.
     full:
         Option<(crate::game::stats::GameStats, [crate::game::calling::Film; 2], Option<Box<crate::game::ReplaySetup>>)>,
+    /// The game on the state's numbers for the game boards (lane 9).
+    tally: super::charts::Tally,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -1167,7 +1169,9 @@ fn engine_games(
                 seat.is_some_and(|x| x == h || x == a) || watch.as_ref().is_some_and(|o| o.watches(h) || o.watches(a));
             let replay = r.replay.take();
             let full = kept.then(|| (r.stats.clone(), r.film.clone(), replay));
-            Ok(HsPlayed { score: [ha.max(0) as u32, hb.max(0) as u32], team: r.stats.team.clone(), lines, full })
+            let mut tally = super::charts::Tally::default();
+            tally.add_game(&r.stats);
+            Ok(HsPlayed { score: [ha.max(0) as u32, hb.max(0) as u32], team: r.stats.team.clone(), lines, full, tally })
         })
         .collect();
     let mut out = Vec::with_capacity(games.len());
@@ -1233,6 +1237,8 @@ fn engine_games(
             };
             super::storylines::detect::games::after(w, &played);
         }
+        let year = w.year;
+        w.charts.add(year, super::charts::HS + s as u16, &g.tally);
         w.log.hs_engine_games += 1;
         w.log.hs_totals.add(&g.team[0], &g.team[1]);
         w.log.hs_totals.add(&g.team[1], &g.team[0]);
@@ -1283,6 +1289,7 @@ fn poll(w: &mut World, s: usize, d: Date, which: &str) {
         e = e.hs_link(h, w.school_name(h));
     }
     w.calendar.post(e);
+    super::charts::state_poll(w, s, d, which, &teams);
 }
 
 /// The playoff field (U-d): each bracket of the state's real format, from

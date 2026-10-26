@@ -2144,7 +2144,13 @@ pub fn my_games(w: &World) -> Value {
 /// play-by-play with the play callers' reasons.
 pub fn game(w: &World, k: usize) -> Result<Value, String> {
     let g = w.seat_games().get(k).ok_or("That game is not kept.")?;
-    let name = |id: u32| -> String { person_index(w, id).map_or(format!("#{id}"), |i| w.people[i].name.clone()) };
+    // A player who has left football since is kept with the game.
+    let name = |id: u32| -> String {
+        person_index(w, id)
+            .map(|i| w.people[i].name.clone())
+            .or_else(|| afm_engine::world::seat_names::gone(g, id).map(|x| x.name.clone()))
+            .unwrap_or_else(|| format!("#{id}"))
+    };
     let s = &g.stats;
     let top = possession(s);
     let mut sides = Vec::new();
