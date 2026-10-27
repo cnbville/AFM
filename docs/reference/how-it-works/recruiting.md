@@ -97,14 +97,14 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 
 Utility of a school (`utility_fit`), each grade on 0-1 (`world/program.rs`, `GradeCat`):
 
-- Level: 1.6 × level value × (0.5 + wants.prestige + wants.development). Level value: FBS 1.0, FCS 0.55, JUCO 0.35, D2 0.3, NAIA 0.25, D3 0.2 (`level_value`).
-- Brand: (0.25 + wants.prestige) × prestige_rel (capped at 1) × (0.4 + 0.6 × level value).
+- Level: 1.6 × the level he reads × (0.5 + wants.prestige + wants.development). Level value: FBS 1.0, FCS 0.55, JUCO 0.35, D2 0.3, NAIA 0.25, D3 0.2 (`level_value`). He reads an FBS school outside the power conferences that year (the Pac-12 counts until 2023, the Big East until 2013, Notre Dame always) as 0.85 of FBS (`recruit_level`, `GROUP_OF_FIVE_LEVEL`, `Program::power_conference`); the portal's choice reads it the same way.
+- Brand: (0.25 + wants.prestige) × prestige_rel (capped at 1) × (0.4 + 0.6 × the level he reads).
 - Prestige grades: wants.prestige × mean(title chances, stadium, tradition, brand exposure). Facilities: 0.1 × grade.
 - Money: wants.money × need × (1 − 0.35 × ambition drive) × 1.5 × (NIL / $1M)^0.6. Need = 0.25 + 0.75 × (1 − family money) (+0.2 after a family crisis).
 - Ambitious families instead weigh the path to the pros: 0.35 × drive × wants.money on development and playing time.
 - Closeness: (wants.close_to_home, +0.15 after a death or lost job) × closeness(miles).
 - Playing time grade × (0.6 + 0.4 × his standing on that board); academics grade × (0.5 + 0.5 × GPA factor); development = mean(pro pipeline, coach prestige).
-- Small pulls: Pioneer League −0.8 × (1 − 0.6 × money), Ivy −0.4; HS pipeline +0.12 × strength; the program's week of stories (`story_push`); his own stay-home lean (0 for 20% of kids, else 0.04-0.40) in his home state; his childhood team +0.18; an older brother there +0.15 (or −0.05); a system that shows him off up to +0.06; 5-stars get +0.25 × brand³ × level value (`FIVE_STAR_PULL`).
+- Small pulls: Pioneer League −0.8 × (1 − 0.6 × money), Ivy −0.4; HS pipeline +0.12 × strength; the program's week of stories (`story_push`); his own stay-home lean (0 for 20% of kids, else 0.04-0.40) in his home state; his childhood team +0.18; an older brother there +0.15 (or −0.05); a system that shows him off up to +0.06; 5-stars get +0.25 × brand³ × the level he reads (`FIVE_STAR_PULL`).
 - Room at his position (`RosterView::fit`): he judges himself at overall + 6, against players with ≤ 2 seasons left who'll be 2 points better. Room = 1 − 0.5 × ahead/starters, or negative when buried. Weight (0.06 + 0.2 × wants.playing_time) × early weight (1 + 0.08 per star over 2). Plus the supporting cast his position leans on (a QB's receivers and line), weight 0.04 + 0.15 × wants.development.
 - Ties on top: the relationship the staff built, his own feel for the school (SD 0.07, `FEEL_SD`), and the pull of a commitment (`fixed_at`, `pull`).
 - Walk-on places carry no money, cost tuition (0.8 × (1 − 0.6 × money), ×1.77 out of state; free at PFL/Ivy) and, against a real scholarship, 1.4 × level value of what he turns down (specialists exempt) (`walk_on_cost`, `scholarship_given_up`).
@@ -194,7 +194,7 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 
 - `world/recruiting.rs`: `SERVICE_TIERS` (33, 350, 2,800, 3,200), `OFFER_READ` 3.0, `offer_sheet`, `star_score`.
 - `career.rs`, `PIPELINE`: `star_shares` (the class sim only), `portal_entry` (backup 0.18, rotation 0.07, coaching change 1.8), `transfer_chance` 0.15, `college_trouble`.
-- `world/recruiting.rs`: `STAFF_GIFT`, `SERVICE_GIFT`, `SERVICE_MATURITY`, `SERVICE_MISREAD`, `CAMP_TIERS`, `SNAP_TIERS`, `SERVICE_SPECIALIST_MAX`, `FEEL_SD`, `RECRUITED_PER_SPOT`, `RECRUITED_EXTRA`, `OFFICIAL_VISITS`, `CHILDHOOD_LEAN`, `FIVE_STAR_PULL`, `SHOWCASE`, `FIT_EVAL`, `WALK_ON_GIVE_UP`, `HOUSE_CLASS_MAX`, `JUCO_OUT_OF_STATE_OFFERS`, `REDSHIRT_PORTAL`, `EARLY_OFFER_PASSES`, `real_roster`, `level_roster`, `level_value`, `position_nil`, `nil_scale`, `competition_discount`, `era_factor`.
+- `world/recruiting.rs`: `STAFF_GIFT`, `SERVICE_GIFT`, `SERVICE_MATURITY`, `SERVICE_MISREAD`, `CAMP_TIERS`, `SNAP_TIERS`, `SERVICE_SPECIALIST_MAX`, `FEEL_SD`, `RECRUITED_PER_SPOT`, `RECRUITED_EXTRA`, `OFFICIAL_VISITS`, `CHILDHOOD_LEAN`, `FIVE_STAR_PULL`, `GROUP_OF_FIVE_LEVEL`, `SHOWCASE`, `FIT_EVAL`, `WALK_ON_GIVE_UP`, `HOUSE_CLASS_MAX`, `JUCO_OUT_OF_STATE_OFFERS`, `REDSHIRT_PORTAL`, `EARLY_OFFER_PASSES`, `real_roster`, `level_roster`, `level_value`, `position_nil`, `nil_scale`, `competition_discount`, `era_factor`.
 - `world/ncaa.rs`: `scholarship_rules`, `staff_cap`, `nil_market`, `revenue_share`, `position_nil_max`, `COLLECTIVE_CEILING`, `ROGUE_ARRIVAL`, `ROGUE_QUITS`, `DETECTION_SCALE`, `FCS_OPTED_OUT`.
 - `world/program.rs`: `nil_target`, `prestige_of`, `division_scale`, `move_grade`, `STRICT_ADMISSIONS`.
 - `world/scouting/services.rs`: `update_days`, `reach`, `BANDS`, `COMPOSITE_FROM`, `INSIDERS_FROM`, the insiders' thresholds in `insiders_week`, `lean`. `world/front_office/race.rs`: `SCHOOLS`, `MOST`, `BELOW`, `SPREAD`.
