@@ -1,6 +1,6 @@
 # Match engine: how it works today
 
-Checked against main at 9a53e5d on 2026-10-26.
+Checked against main at 567fdd4 on 2026-10-26.
 
 Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "20" (the 1-20 read against the level, see the quick answers). In a block, w runs from -1 (the blocker has won) to +1 (the defender has shed him). U is a uniform 0-1 draw, N(m, sd) a normal one.
 
@@ -24,6 +24,7 @@ Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "2
 - How much is a Dynamic Link worth? 5 rating points at full strength, only in its own situations; stacked links count the strongest in full, the next at half, a third at a quarter (`links.rs`, `edge`, `FULL`).
 - When does a tired starter come out? Below his position's energy line (EDGE/DT 0.84, WR/TE 0.74, LB/CB/S 0.68, RB 0.60, others 0.5), if a fresh backup is within 60 × (line - energy) rating points (`game/flow.rs`, `threshold`, `pick`).
 - Does a player's week of practice matter? Through his prep word, for every team: his busts and run misfits × 1.33 (Unprepared) to × 0.93 (Sharp), his read up to 0.033 s later, a quarterback up to about 10% longer on each read. It changes no rating (`game/roster.rs`, `GamePlayer.prep`; `training/prep.rs`, `game_factor`; `game/scrimmage.rs`, `run_snap`, `quarterback`). See [training.md](training.md).
+- Is the win chance on screen what the coaches read? No: the screens' chance is its own model (`game/win_chance.rs`, `chance`); play calls still read `live::win_prob`, unchanged. See "The game boards' records and the win chance" below.
 
 ## How a snap runs
 
@@ -333,6 +334,30 @@ What it reads: the kicker's Kick Power, Short and Long Kick Accuracy, Kick Traje
 - Code against the design doc: `docs/design/match-engine.md` says a hurt player loses the attributes the injury hits (an ankle cuts speed and cutting); the code takes the flat 3 points and never calls `InjuryKind::hampers`.
 - Code against the docs: `docs/world-model.md` (training lane 4's picks) says a poorly prepared player reads about a tenth of a second late per word below prepared and a quarterback's reads run up to 30% slower; the code adds 0.1 × (factor - 1) s (0.033 s Unprepared) and × (1 + 0.3 × (factor - 1)) (about 10%) (`run_snap`, `quarterback`).
 
+## The game boards' records and the win chance
+
+- **The line chart**, on your games only: a snap keeps a line chart when its game keeps its setup or is played live (`game/flow.rs`, `run_scrimmage_call`; `game/scrimmage.rs`, `Snap::chart`). Each block's rep keeps both men, the leverage when it ended (× 50), its length in tenths of a second, the defender's last move (0 speed, 1 power, 2 finesse), pass, shed, double and pancake flags and both men's spots (`game/chart.rs`, `Rep::of`, called from `game/sim.rs`, `Sim::release`). Each pass rusher keeps his gap 0-4 from the line's spots and whether he was a down lineman, picked up at the snap or in the stunt, with the protection (man, slide left or right, max at 7+ blockers) (`game/scrimmage.rs`, `chart_rush`; `game/chart.rs`, `gap_at`). It draws no random numbers, so a game plays the same with it.
+- **Timeouts**: every logged snap keeps both sides' timeouts (`game/flow.rs`, `new_record`; `game/stats.rs`, `PlayRecord::timeouts`).
+- **Where a throw went**: every pass keeps where across the field it was snapped and where it was aimed, in yards from the left sideline (`game/scrimmage.rs`, `PlayRecord::throw_y`); an aim past a sideline is kept as aimed.
+- **The film's throws**: your coming opponents' film keeps each pass's air yards, yards after the catch, where across the field it was snapped and got to (half yards), time to throw, separation, thrown away and dropped (`world/tape.rs`, `Throw::of`).
+- **Names in your kept games**: at the year's turn, before the men who left football are dropped from the world, each of your kept games keeps the id, name and position of its men among them, so last season's pages still name them (`world/seat_names.rs`, `keep`, called from `world/mod.rs` beside `storylines::keep_names`).
+- **Each level's numbers**: each engine game adds both sides to its level's tally for the season (dropbacks, pressure, sacks, throws by depth, air yards, time to throw, runs, yards before contact, stuffed, 10+), this season and last (`world/charts.rs`, `Tally::add_game`, `Charts::add`).
+- **The win chance the screens show** is its own model, not the coaches' (`live::win_prob` is unchanged and still what calls read) (`game/win_chance.rs`, `chance`):
+  - The drive on the field first: touchdown chance from the spot 0.15 + 0.65 × e^(-yards to go / 28); a field goal try 0.2 + 0.4 / (1 + e^((yards - (range - 8)) / 6)) times the level's make at that distance; both scaled so the drive is worth the down and distance's expected points, read between the table's 5-yard rows (`drive`, `ep_at`).
+  - Where the other side starts after a stall: a punt netting 42 (a touchback at the 20) from outside range, the spot of the kick inside it, a mix of the two within 6 yards either side of range (`drive`).
+  - A short clock, from the real spot: a touchdown needs one snap per 6 yards; after the first, a snap takes 6 s of play and 16 s more of running clock unless a timeout (or the two-minute warning, easing in over its last 30 s) stops it; the chance kept is 1 - e^(-1.6 × time left / time needed) (`drive`, `in_time`, `warning_stop`).
+  - The half's last snap (when a second snap won't fit): a kick from the spot at the level's make there, or a shot at 0.55 × e^(-yards / 14), whichever is worth more (down 3 in the fourth, a tying kick counts half) (`drive`).
+  - Late habits blend in with the clock: the leader or a tied side burns it from 7:00 of the fourth to fully at 3:00 (`MILK_FROM`, `MILK_RAMP`); the side behind in the fourth takes the best of three paces (usual, hurry, slow); from 6:00 of the half to 4:00 a side short of time plays for the kick (`KICK_FROM`, `KICK_RAMP`): given no touchdown it kicks once in range, from outside with chance e^(-yards past range / 25), × 0.45 on fourth down (`REACH`, `FOURTH_REACH`) (`chance`, `drive`).
+  - The kick's make by distance, falling away as 1 - s² over the last 7 yards to the longest kick, 0 from there (`Params::fg_make`).
+  - How long each ending takes: a touchdown drive 1 + yards / 8 snaps, a field goal drive the snaps to range plus two, a stall 4.5 snaps; 27 s a snap usual, 14 s in a hurry (then the short clock's own mean time to score), 36 s less 30 per timeout the other side spends when slow (the side behind in the fourth: the play clock plus 4 s a snap, less the play clock minus 2 per timeout, and a drive as long as one from its probe spot); a side burning the clock runs four downs before it scores (`drive`, `time_to_score`).
+  - The rest of the game: the final margin is normal around the lead plus the pregame line × the share of the game left, with a spread of σ × √(time left × (1 + b) / game), b rising from 0 to 1 over the last ten minutes (`rest_sd`, `LATE_SPREAD`); σ 13.5 NFL, 16 FBS, 16.5 FCS and small college, 18 high school. Each ending's time is read at seven lengths, 0.55 to 1.45 of its usual, weighted 1-2-3-4-3-2-1 (`LENGTHS`) (`from_spot`, `Params::for_level`).
+  - A spot's split is never read as worth less than one up to 25 yards further back, the clock still from the real spot: the drive's split has small kinks where kicks give way to punts (`chance`).
+  - A leader in the fourth quarter whose kneels outlast the clock against the other side's timeouts (and the two-minute warning) has won: 0.999 (`kneel_burn`).
+  - Overtime: the NFL's timed period as the end of a game; college and high school possession for possession from the level's spot (`overtime`). The log is followed round by round: a possession ends with its try, its kick or a turnover, or when the other side has the ball, and a side with the ball again starts a round (`Rounds`, `home_series`, `ot_rounds`). An answering side level wins with any score; a try ends the possession, so the other side is read from the spot, and an answering side's try settles the round (XP at the level's try worth, a two at 0.475) (`try_value`).
+  - The game day bar: the same model before the next snap, try or kickoff (`home_now`, called from `crates/afm-game/src/lane_gameday.rs`, `live_wp`).
+  - The pregame line: stored with each kept game when it is kept (the closing line, the playoff and Super Bowl lines included; 0 at a neutral site without one) (`world/seat.rs`, `seat_line`, `SeatGame::spread`); for an older game the home side's season page's line; else 1.7 points of home field in the NFL and 2.5 elsewhere, none at a neutral site (`crates/afm-game/src/lane_boards/flow.rs`, `Wp::of_game`, `Wp::new`, `home_field`).
+  - With no line (high school and the other leagues always): the gap between the sides is a normal prior with sd `gap_sd` (6 NFL, 14 college, 17 high school), updated by the lead beyond the line's share so far against `sigma`; its mean moves the rest of the game's margin and its remaining spread widens it (`Params::without_line`, `from_spot`).
+
 ## Where the knobs are
 
 - `game/geom.rs`: `DT` 0.1.
@@ -345,6 +370,7 @@ What it reads: the kicker's Kick Power, Short and Long Kick Accuracy, Kick Traje
 - `game/flow.rs`: `threshold`, `pre_snap_foul`, `edge_hit`, `decay_edges`, `apply_injuries`, the tempo gaps in `after_snap_clock`.
 - `game/playbook.rs`: run `press` and `aim`.
 - `links.rs`: `FULL` 5. `attributes.rs`: each attribute's `fatigue` share.
+- `game/win_chance.rs`: the margin spread per level and field goal makes in `Params::for_level`; the touchdown and kick curves, the punt net 42 and the short clock (6 s a snap, 16 s running) in `drive`; the 25-yard envelope in `chance`.
 - Tuning tools: `crates/afm-tools/src/bin/match_check.rs`, `play_trace.rs`.
 
 ## Related pages

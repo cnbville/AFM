@@ -122,3 +122,18 @@ fn yours(w: &World, p: &Person) -> bool {
         _ => p.stage == Stage::College && p.college.is_some() && p.college == s.program,
     }
 }
+
+/// How well two of your players know each other (0-1), from the seasons
+/// they've spent on the same team: the locker room board's chemistry
+/// (lane 9, read through `charts::pair_chemistry`). None in another
+/// league: its clubs' seasons together aren't kept, and its games use no
+/// chemistry.
+pub(crate) fn pair(w: &World, a: usize, b: usize) -> Option<f32> {
+    let unit = match w.seat.map(|s| s.level) {
+        Some(crate::calendar::Level::Nfl) => Unit::Nfl,
+        Some(crate::calendar::Level::HighSchool) => Unit::HighSchool,
+        Some(crate::calendar::Level::College) => Unit::College,
+        _ => return None,
+    };
+    Some(chem_of(seasons_together(w, &w.people[a], &w.people[b], unit)))
+}

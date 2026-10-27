@@ -212,7 +212,12 @@ fn draw(w: &mut World) {
                 match idx.get(&(id.min(jd), id.max(jd))) {
                     Some(&e) => deepen.push(e),
                     None => {
-                        if count.get(&jd).copied().unwrap_or(0) >= 6 {
+                        // His own cap holds while he makes friends too (at a
+                        // high school, where everyone shares the school, a
+                        // sociable boy drew 25 or more in one camp).
+                        if count.get(&jd).copied().unwrap_or(0) >= 6
+                            || count.get(&id).copied().unwrap_or(0) >= cap.min(6)
+                        {
                             continue;
                         }
                         new.push(Tie {
@@ -250,10 +255,15 @@ fn draw(w: &mut World) {
                 });
             let young =
                 group.iter().copied().filter(|&i| w.people[i].player.age <= 21).min_by_key(|&i| w.people[i].player.age);
-            if let (Some(v), Some(y)) = (vet, young) {
+            // A 21-year-old can be both the veteran and the youngest: no
+            // man mentors himself.
+            if let (Some(v), Some(y)) = (vet, young)
+                && v != y
+            {
                 let lead = w.people[v].player.personality.traits.get(Trait::Leadership);
                 let (a, b) = (w.people[v].player.id, w.people[y].player.id);
-                if lead >= 13.0 && !w.folk.ties.of_id(b).any(|t| t.kind == Kind::Mentor && t.b == b) {
+                let taught = |t: &Tie| t.kind == Kind::Mentor && t.b == b;
+                if lead >= 13.0 && !w.folk.ties.of_id(b).any(taught) && !new.iter().any(taught) {
                     new.push(Tie { a, b, kind: Kind::Mentor, strength: 50, since: year as i16, together: true });
                 }
             }

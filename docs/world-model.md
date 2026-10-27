@@ -1055,6 +1055,17 @@ What the schedule page (SC1-SC15 in `afm/post-release-2/list.md`; the screen in 
 - The Heisman reads kept with a season: those of 0.25 or more.
 - The second year of a district cycle plays the districts its first year stored; a school new since is placed as usual.
 
+## The game boards' world (update 2, lane 9, 2026-10-26)
+
+What the Press Box boards needed from the world, after the lane 9 review.
+
+- **High school state polls rank on what the writers can know** (review R15; the formula is proposed, not confirmed). Real state media polls rank on records, margins and reputation, never on a team's true strength, so the world's polls do the same (`hs_year.rs`, `poll_score`): wins less losses, plus a tenth of the scoring margin a game (held to ±30), plus a preseason read that fades as games are played (weight 4 / (4 + games)). The preseason read is 3 × (prestige - 0.5) + 2 × (last season's winning share - 0.5) + half a point a playoff win last season (up to four) + 1 for last season's state title + a tenth for each returning starter past 11, held to ±4. The polls publish 25 places; a team past that reads NR on the boards, the class hero included.
+- **Kept games keep their line** (`SeatGame::spread`, `#[serde(default)]`): the closing line where the books hung one (the playoff and Super Bowl lines included), 0 at a neutral site without one (`World::seat_line`). The win chart holds after the season turns.
+- **Last season's readers** for the offseason boards: `college_record_in`, `college_fixtures_in`, `nfl_fixtures_in` and `charts::nfl_race_prev` read the season before (lane 6's `prev_polls` and `nfl_prev`); `charts::poll_weeks` reads last season's polls in the offseason; `PollWeek::fin` marks the final poll.
+- **State polls know their state and school** (`StatePoll::state`, `StatePoll::school`, `#[serde(default)]`), so a move leaves the old school's polls behind.
+- **The draft order and roster places**: `charts::draft_order` (the coming draft's slots, comp picks after each round's 32) and `charts::takes_a_place` (whether a college player counts under his program's limit).
+- **The NIL budget's roster money** counts only this money year's deals for players still on the roster (`front_office/college.rs`, `budget`).
+
 ## The services rank from the sophomore year (update 2, lane 7, 2026-10-25)
 
 Minor bugs 12-15 in `afm/post-release-2/list.md`. The code is `world/scouting/services.rs` and `recruiting::rate_underclass`; the search that shows it is in `docs/game.md`, "Lane 7".

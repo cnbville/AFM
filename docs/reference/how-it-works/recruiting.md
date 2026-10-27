@@ -1,13 +1,14 @@
 # Recruiting: how it works today
 
-Checked against main at 567fdd4 on 2026-10-26.
+Checked against main at 567fdd4 on 2026-10-26 (with lane 7, PR #117, and lane 10, minor bug 17).
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Recruiting" below is `world/recruiting.rs`.
 
 ## Quick answers
 
-- How many stars go out a class? Fixed quotas of a 250,000 class (times world scale): 33 five-stars, 350 four-stars, 2,000 three-stars, 4,000 two-stars; everyone else 0 ("unranked") (`career.rs`, `PIPELINE.star_shares`; recruiting, `run_signing_stage`, `service_stars`).
-- What do the services rank on? 0.25 × film + 0.75 × their upside projection, minus 12 × (1 - visibility)², plus a small physical-gift term (recruiting, `run_signing_stage`, `star_score`).
+- How many stars go out a class? Fixed quotas of a 250,000 class (times world scale), from the 247 Composite: 33 five-stars, 350 four-stars, 2,800 three-stars, 3,200 two-stars; everyone else 0 ("unranked") (recruiting, `SERVICE_TIERS`, `run_signing_stage`, `rate_underclass`, `service_stars`). The standalone class sim keeps 2,000 and 4,000 (`career.rs`, `PIPELINE.star_shares`).
+- What do the services rank on? 0.25 × film + 0.75 × their upside projection, minus 12 × (1 - seen)², plus a small physical-gift term, plus 3 film-SD × his offer sheet; seen is the larger of his visibility and his offer sheet (recruiting, `star_score`, `OFFER_READ`).
+- What is the offer sheet? 0-1: his best scholarship offer or commitment (early offers too), weighted by level (`level_value`: FBS 1, FCS 0.55, JUCO 0.35, D2 0.3, NAIA 0.25, D3 0.2) × (0.5 + 0.5 × the program's prestige at its level) (recruiting, `offer_sheet`). An SEC offer moves a kid about a tier; an FCS-only list keeps him below the FBS signees.
 - Do stars read true ability? Partly. Film is his season's play (`last_performance`, else overall). The projection is a 12-accuracy scouting read of potential plus a lasting service bias (`film_raw`, `service_bias`; `scouting.rs`, `scout_player`).
 - Do the services see a physical freak? Late and weakly: 0.15 film-SD per full Dynamic Link, times visibility. Staffs see it at 0.5 SD (`SERVICE_GIFT`, `STAFF_GIFT`).
 - Does exposure matter? Yes. Visibility (0-1) cuts his star score and decides which staffs see him at all (`run_signing_stage`, `visibility`, `see`).
@@ -22,6 +23,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - What decides a portal entry? A yearly "lean" built from role, how buried he is and dated events, then a uniform draw against lean × era factor (`world/college.rs`, `lean_checkpoint`; recruiting, `portal_open`).
 - How is NIL paid? On July 1, each collective's budget × 0.6 is split over the roster by role, position value and stars (`nil_payouts`, `nil_weight`).
 - What NIL does a recruit get offered? Position market rate × a star factor × (budget / $10M)^0.8, capped by the collective and the position's top rate (`offer_for`, `position_nil`; `world/ncaa.rs`, `position_nil_max`).
+- How much NIL can you still promise? The budget less this money year's deals for players still on your roster, less the offers out to recruits and portal targets: the deals, NIL and portal offers check it, and the NIL board shows it (`world/front_office/college.rs`, `budget`).
 - What grades does he need? Division I 2.3 core GPA to qualify, 2.0-2.299 academic redshirt, under 2.0 can't enroll; Division II 2.2; JUCO anyone (`ncaa_tier`).
 - When do the services first rank a class? From its sophomore year: four updates a year (21 Jan, 12 May, 14 Jul, 20 Oct) for the classes behind the one the signing stages rate, which they take over at 20 March of its junior year (`world/scouting/services.rs`, `update_days`, `underclasses`; recruiting, `rate_underclass`).
 - Is there a composite? From 2012, a 0.70-1.00 rating read off each class's national order: 5 stars from .9834, 4 from .89, 3 from .797, 2 from .70 (`world/scouting/services.rs`, `composite`, `BANDS`, `COMPOSITE_FROM`).
@@ -182,7 +184,8 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 
 ## Where the knobs are
 
-- `career.rs`, `PIPELINE`: `star_shares`, `portal_entry` (backup 0.18, rotation 0.07, coaching change 1.8), `transfer_chance` 0.15, `college_trouble`.
+- `world/recruiting.rs`: `SERVICE_TIERS` (33, 350, 2,800, 3,200), `OFFER_READ` 3.0, `offer_sheet`, `star_score`.
+- `career.rs`, `PIPELINE`: `star_shares` (the class sim only), `portal_entry` (backup 0.18, rotation 0.07, coaching change 1.8), `transfer_chance` 0.15, `college_trouble`.
 - `world/recruiting.rs`: `STAFF_GIFT`, `SERVICE_GIFT`, `SERVICE_MATURITY`, `SERVICE_MISREAD`, `CAMP_TIERS`, `SNAP_TIERS`, `SERVICE_SPECIALIST_MAX`, `FEEL_SD`, `RECRUITED_PER_SPOT`, `RECRUITED_EXTRA`, `OFFICIAL_VISITS`, `CHILDHOOD_LEAN`, `FIVE_STAR_PULL`, `SHOWCASE`, `FIT_EVAL`, `WALK_ON_GIVE_UP`, `HOUSE_CLASS_MAX`, `JUCO_OUT_OF_STATE_OFFERS`, `REDSHIRT_PORTAL`, `EARLY_OFFER_PASSES`, `real_roster`, `level_roster`, `level_value`, `position_nil`, `nil_scale`, `competition_discount`, `era_factor`.
 - `world/ncaa.rs`: `scholarship_rules`, `staff_cap`, `nil_market`, `revenue_share`, `position_nil_max`, `COLLECTIVE_CEILING`, `ROGUE_ARRIVAL`, `ROGUE_QUITS`, `DETECTION_SCALE`, `FCS_OPTED_OUT`.
 - `world/program.rs`: `nil_target`, `prestige_of`, `division_scale`, `move_grade`, `STRICT_ADMISSIONS`.

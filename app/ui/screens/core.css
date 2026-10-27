@@ -209,7 +209,7 @@ html.has-beside .view { padding-right: min(560px, 46vw); }
 html.reading .frame { filter: blur(10px) saturate(.8); transform: scale(.985); transition: filter .35s var(--ease), transform .35s var(--ease); }
 .letter-room { position: fixed; inset: 0; z-index: 84; display: grid; grid-template-columns: minmax(0, 1fr) 320px; background: rgba(6, 7, 10, .55); animation: lt-fade .25s ease both; }
 .lt-stage { position: relative; overflow-y: auto; padding: 48px 24px 80px; perspective: 1600px; display: grid; justify-items: center; align-content: start; }
-.lt-stack { position: absolute; top: 58px; left: 50%; width: min(720px, calc(100% - 60px)); transform: translateX(-50%); height: 70vh; pointer-events: none; }
+.lt-stack { position: absolute; top: 58px; left: 50%; width: min(720px, calc(100% - 60px)); transform: translateX(-50%); height: 70vh; pointer-events: none; animation: lt-stack-in .6s var(--ease) both; }
 .lt-stack i { position: absolute; inset: 0; border-radius: 6px; background: #ece5d8; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
 .lt-stack i:nth-child(1) { transform: translate(-10px, 14px) rotate(-1.6deg); opacity: .55; }
 .lt-stack i:nth-child(2) { transform: translate(8px, 9px) rotate(1.1deg); opacity: .7; }
@@ -218,6 +218,8 @@ html.reading .frame { filter: blur(10px) saturate(.8); transform: scale(.985); t
 .lt-sheet.rise { animation: lt-rise .6s var(--ease) both; }
 .lt-sheet.turn { animation: lt-turn .42s var(--ease) both; }
 @keyframes lt-fade { from { opacity: 0; } }
+/* The stack fades in on the sheet's own curve, so it never shows as a blank page alone (minor bug 1). */
+@keyframes lt-stack-in { from { opacity: 0; } 60% { opacity: 1; } }
 @keyframes lt-rise { from { transform: translateY(70px) rotateX(18deg) scale(.96); opacity: 0; box-shadow: none; } 60% { opacity: 1; } to { transform: none; } }
 @keyframes lt-turn { from { transform: translateX(26px) rotateY(-7deg); opacity: 0; } to { transform: none; opacity: 1; } }
 .lt-paper { --ink: #1d1a16; --ink2: #5d554b; position: relative; color: var(--ink); background: #fbf8f2; background-image: linear-gradient(180deg, rgba(255,255,255,.6), transparent 30%), radial-gradient(120% 80% at 50% 0%, #fffdf8, #f3ede2); border-radius: 4px; padding: 44px 56px 48px; box-shadow: 0 30px 80px rgba(0,0,0,.5), 0 2px 0 rgba(0,0,0,.06); font-size: 14.5px; line-height: 1.6; display: grid; gap: 14px; }
@@ -500,7 +502,7 @@ html.reading .frame { filter: blur(10px) saturate(.8); transform: scale(.985); t
 }
 
 /* ---------- reduced motion ---------- */
-html.calm .lt-sheet.rise, html.calm .lt-sheet.turn, html.calm .letter-room, html.calm .reveal-room, html.calm .rv-copy > *, html.calm .hs .hs-copy > *,
+html.calm .lt-sheet.rise, html.calm .lt-sheet.turn, html.calm .lt-stack, html.calm .letter-room, html.calm .reveal-room, html.calm .rv-copy > *, html.calm .hs .hs-copy > *,
 html.calm .beside, html.calm .notes-sheet, html.calm .peek, html.calm .popmenu, html.calm .find-box, html.calm .hol-sun, html.calm .holiday-room { animation: none !important; }
 html.calm .hs, html.calm .frame, html.calm .poster { transition: none !important; }
 html.calm.reading .frame { transform: none; }
