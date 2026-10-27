@@ -1059,7 +1059,8 @@ pub fn eligibility_line(tier: Tier, college_seasons: u32) -> f64 {
 
 /// Whether study hall flags him (update 3, F12; TR14).
 pub fn study_flag(tier: Tier, gpa: f64, college_seasons: u32) -> bool {
-    tier != Tier::Pro && (gpa < eligibility_line(tier, college_seasons) || (tier == Tier::College && college_seasons == 0))
+    tier != Tier::Pro
+        && (gpa < eligibility_line(tier, college_seasons) || (tier == Tier::College && college_seasons == 0))
 }
 
 /// A week's minutes in the periods `f` picks.

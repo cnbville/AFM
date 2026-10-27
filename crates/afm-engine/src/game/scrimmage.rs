@@ -496,8 +496,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         let fam = if slot.is_line() { Family::Front } else { cov_fam };
         // Measured against a starter who knows his job well (0.9).
         let slow = 0.12 * (0.9 - sim.player(i).know[fam as usize] as f64);
-        // A week of poor prep reads late, a sharp one a touch early (TR38).
-        let prep = 0.1 * (sim.player(i).prep as f64 - 1.0);
+        // A week of poor prep reads late, a sharp one a touch early (TR38):
+        // up to a tenth of a second for Unprepared, a beat (update 3, F34).
+        let prep = 0.3 * (sim.player(i).prep as f64 - 1.0);
         let freeze = if jet && slot.is_lb() { 0.10 * bite } else { 0.0 };
         sim.agents[i].read_at = (base + extra + tend + slow + prep + freeze + 0.12 * tac.novelty).max(0.12);
     }
@@ -3100,8 +3101,9 @@ fn quarterback(
     // fitted with it.
     let shown = (1.0 - 0.2 * (s.tac.pre_read - PRE_READ)) * if s.tac.fooled { 1.15 } else { 1.0 };
     // A man who holds for the big play stays on each read a little longer.
-    // A week of poor prep throws off his timing (TR38).
-    let prep = 1.0 + 0.3 * (sim.player(qb).prep as f64 - 1.0);
+    // A week of poor prep throws off his timing (TR38): each read runs as
+    // much longer as his busts rise, up to a third (update 3, F34).
+    let prep = sim.player(qb).prep as f64;
     let per_read =
         clamp(0.62 - 0.0045 * (iq - 50.0), 0.3, 0.95) * shown * (1.0 + 0.6 * sim.lean(qb, Tend::Hold)) * prep;
     // He stays on a read until that route has made its break.

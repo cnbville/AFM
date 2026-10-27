@@ -355,6 +355,7 @@ pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bo
         kickoff: at.minute as f32 / 60.0 - et_offset(code) as f32,
         indoor: neutral || closed,
         keep: w.seat_plays(crate::calendar::Level::Nfl, [home, away]),
+        playoff: false,
     }
 }
 
@@ -367,6 +368,9 @@ pub(crate) struct Fixture {
     pub neutral: bool,
     pub loud: f64,
     pub seed: u64,
+    /// A playoff game or the Super Bowl: overtime is played out (update 3,
+    /// F25).
+    pub playoff: bool,
 }
 
 /// Plays a day's games on the engine, all cores. A team that can't field
@@ -383,7 +387,8 @@ pub(crate) fn play(w: &World, games: &[Fixture]) -> Vec<Option<(GameResult, [Sid
         .map(|g| {
             let a = sides.get(&g.home)?.clone()?;
             let b = sides.get(&g.away)?.clone()?;
-            Some((a, b, venue(w, g.home, g.away, g.at, g.neutral, g.loud), g.seed))
+            let v = Venue { playoff: g.playoff, ..venue(w, g.home, g.away, g.at, g.neutral, g.loud) };
+            Some((a, b, v, g.seed))
         })
         .collect();
     // Your game, played live on the game day screens (section 9).
@@ -409,6 +414,10 @@ pub(crate) fn seat_setup(w: &World, f: &Fixture) -> Option<super::super::live_se
     let b = game_side(w, f.away)?;
     let v = venue(w, f.home, f.away, f.at, f.neutral, f.loud);
     let mut setup = crate::game::GameSetup::new(&a.team, &b.team, crate::player::Level::NFL, f.seed);
+    // The season's book, and a playoff game's overtime (update 3, F25).
+    setup.rules = crate::game::Rules::for_year(crate::player::Level::NFL, v.year, f.playoff);
+    setup.playoff = f.playoff;
+    setup.year = v.year;
     setup.cond = v.cond;
     setup.neutral = v.neutral;
     setup.wear = v.wear;

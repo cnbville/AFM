@@ -1979,6 +1979,7 @@ fn play_day(w: &mut World, d: Date) {
                     neutral: x.site.is_some(),
                     loud,
                     seed: seed ^ (h as u64) << 8 ^ a as u64,
+                    playoff: false,
                 }
             })
             .collect();
@@ -2266,7 +2267,10 @@ fn play_round(w: &mut World, round: u32, d: Date) {
     let p = win_prob(&s, a, b, 0.0);
     let line = super::finance::lines::nfl(w, p, a, b);
     let at = Moment::at(d, 18, 30);
-    let game = engine_games(w, &[Fixture { home: a, away: b, at, neutral: true, loud: 0.0, seed: seed ^ 0x5B }]);
+    let game = engine_games(
+        w,
+        &[Fixture { home: a, away: b, at, neutral: true, loud: 0.0, seed: seed ^ 0x5B, playoff: true }],
+    );
     let mut score = None;
     let a_wins = match game.first().and_then(|g| g.as_ref()) {
         Some((r, sides)) => {
@@ -2370,7 +2374,15 @@ fn play_round_games(w: &mut World, d: Date) {
         .iter()
         .map(|&(round, c, hi, lo, at)| {
             let seed = w.options.seed as u64 ^ (w.year as u64) << 24 ^ (round as u64) << 4 ^ 0x504F ^ c as u64;
-            Fixture { home: hi, away: lo, at, neutral: false, loud: 0.1, seed: seed ^ (hi as u64) << 8 ^ lo as u64 }
+            Fixture {
+                home: hi,
+                away: lo,
+                at,
+                neutral: false,
+                loud: 0.1,
+                seed: seed ^ (hi as u64) << 8 ^ lo as u64,
+                playoff: true,
+            }
         })
         .collect();
     let lines: Vec<[f32; 2]> =
@@ -2621,6 +2633,7 @@ pub(crate) fn seat_fixture(w: &World, t: usize) -> Option<Fixture> {
                     neutral: x.site.is_some(),
                     loud,
                     seed: seed ^ (h as u64) << 8 ^ a as u64,
+                    playoff: false,
                 });
             }
         }
@@ -2635,6 +2648,7 @@ pub(crate) fn seat_fixture(w: &World, t: usize) -> Option<Fixture> {
                 neutral: false,
                 loud: 0.1,
                 seed: seed ^ (hi as u64) << 8 ^ lo as u64,
+                playoff: true,
             });
         }
     }
@@ -2649,6 +2663,7 @@ pub(crate) fn seat_fixture(w: &World, t: usize) -> Option<Fixture> {
                 neutral: true,
                 loud: 0.0,
                 seed: seed ^ 0x5B,
+                playoff: true,
             });
         }
     }

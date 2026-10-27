@@ -434,7 +434,8 @@ fn conditions(w: &World, g: &Game, k: usize) -> (Venue, Played, Option<Severe>) 
     let turf = indoor
         || match g.site {
             Some(s) => {
-                let key = s.town.bytes().fold(0xCBF2_9CE4_8422_2325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100_0000_01B3));
+                let key =
+                    s.town.bytes().fold(0xCBF2_9CE4_8422_2325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100_0000_01B3));
                 super::season::field_turf(seed, key, &super::season::TURF_FBS, w.year, 0.5)
             }
             None => {
@@ -472,7 +473,9 @@ fn conditions(w: &World, g: &Game, k: usize) -> (Venue, Played, Option<Severe>) 
         };
         clamp((usual - wx.temperature - 15.0) / 25.0, 0.0, 1.0) * clamp((45.0 - wx.temperature) / 15.0, 0.0, 1.0)
     });
-    let venue = Venue { cond, neutral, wear, cold_unused, kickoff: local as f32, indoor, keep: false, year: w.year };
+    let playoff = matches!(g.kind, GameKind::Playoff(_));
+    let venue =
+        Venue { cond, neutral, wear, cold_unused, kickoff: local as f32, indoor, keep: false, year: w.year, playoff };
     let mut played = Played {
         temperature: wx.temperature,
         wind: wx.wind,
@@ -3785,6 +3788,10 @@ pub(crate) fn seat_setup(w: &World, p: usize) -> Option<super::live_seat::SeatSe
         .wrapping_mul(1_000_003)
         .wrapping_add(k as u64);
     let mut setup = crate::game::GameSetup::new(&home, &away, level, seed);
+    // The season's book, and a playoff game's overtime (update 3, F25).
+    setup.rules = crate::game::Rules::for_year(level, venue.year, venue.playoff);
+    setup.playoff = venue.playoff;
+    setup.year = venue.year;
     setup.cond = venue.cond;
     setup.neutral = venue.neutral;
     setup.wear = venue.wear;
