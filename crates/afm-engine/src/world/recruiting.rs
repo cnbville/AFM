@@ -2417,8 +2417,12 @@ fn offer_sheet(programs: &[Program], p: &Person, year: i32) -> f64 {
 /// 2022-2025: 1.5%, 10%, 74%, 6% and 8%), and the commits of the biggest
 /// names at their level 4%, 27%, 64%, 5% and none (SEC signees: 6%, 32%,
 /// 55%, 0.3%). At 1 the big names' commits were 10% two-stars and 5%
-/// unrated.
-const OFFER_READ: f64 = 3.0;
+/// unrated. Lane 10 follow-up: at 3 the Group of 5 still signed 2.7
+/// four-stars a school over four classes (real 0.9) and only 28 three-stars
+/// (real 61), while 3-stars went to junior colleges and Division II by the
+/// hundreds; the composite follows who offers and who takes a kid more
+/// closely than that, so it is 6.
+const OFFER_READ: f64 = 6.0;
 
 /// The services' score for a kid (D3, minor bug 17): mostly film and their
 /// projection, less for a kid they haven't seen, his tested gifts once he

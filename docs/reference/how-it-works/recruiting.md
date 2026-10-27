@@ -7,7 +7,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 ## Quick answers
 
 - How many stars go out a class? Fixed quotas of a 250,000 class (times world scale), from the 247 Composite: 33 five-stars, 350 four-stars, 2,800 three-stars, 3,200 two-stars; everyone else 0 ("unranked") (recruiting, `SERVICE_TIERS`, `run_signing_stage`, `rate_underclass`, `service_stars`). The standalone class sim keeps 2,000 and 4,000 (`career.rs`, `PIPELINE.star_shares`).
-- What do the services rank on? 0.25 × film + 0.75 × their upside projection, minus 12 × (1 - seen)², plus a small physical-gift term, plus 3 film-SD × his offer sheet; seen is the larger of his visibility and his offer sheet (recruiting, `star_score`, `OFFER_READ`).
+- What do the services rank on? 0.25 × film + 0.75 × their upside projection, minus 12 × (1 - seen)², plus a small physical-gift term, plus 6 film-SD × his offer sheet; seen is the larger of his visibility and his offer sheet (recruiting, `star_score`, `OFFER_READ`).
 - What is the offer sheet? 0-1: the school holding his scholarship commitment, or before he commits his best scholarship offer (early offers too), weighted by the level he reads in it (`recruit_level`: FBS 1, Group of 5 0.85, FCS 0.55, JUCO 0.35, D2 0.3, NAIA 0.25, D3 0.2) × (0.5 + 0.5 × the program's prestige at its level) (recruiting, `offer_sheet`). An SEC offer moves a kid about a tier; an FCS-only list keeps him below the FBS signees; a Group of 5 commitment reads as that school, whatever else offered.
 - Do stars read true ability? Partly. Film is his season's play (`last_performance`, else overall). The projection is a 12-accuracy scouting read of potential plus a lasting service bias (`film_raw`, `service_bias`; `scouting.rs`, `scout_player`).
 - Do the services see a physical freak? Late and weakly: 0.15 film-SD per full Dynamic Link, times visibility. Staffs see it at 0.5 SD (`SERVICE_GIFT`, `STAFF_GIFT`).
@@ -192,7 +192,7 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 
 ## Where the knobs are
 
-- `world/recruiting.rs`: `SERVICE_TIERS` (33, 350, 2,800, 3,200), `OFFER_READ` 3.0, `offer_sheet`, `star_score`.
+- `world/recruiting.rs`: `SERVICE_TIERS` (33, 350, 2,800, 3,200), `OFFER_READ` 6.0, `offer_sheet`, `star_score`.
 - `career.rs`, `PIPELINE`: `star_shares` (the class sim only), `portal_entry` (backup 0.18, rotation 0.07, coaching change 1.8), `transfer_chance` 0.15, `college_trouble`.
 - `world/recruiting.rs`: `STAFF_GIFT`, `SERVICE_GIFT`, `SERVICE_MATURITY`, `SERVICE_MISREAD`, `CAMP_TIERS`, `SNAP_TIERS`, `SERVICE_SPECIALIST_MAX`, `FEEL_SD`, `RECRUITED_PER_SPOT`, `RECRUITED_EXTRA`, `OFFICIAL_VISITS`, `CHILDHOOD_LEAN`, `FIVE_STAR_PULL`, `GROUP_OF_FIVE_LEVEL`, `SHOWCASE`, `FIT_EVAL`, `STAR_EVAL`, `WALK_ON_GIVE_UP`, `HOUSE_CLASS_MAX`, `JUCO_OUT_OF_STATE_OFFERS`, `REDSHIRT_PORTAL`, `EARLY_OFFER_PASSES`, `real_roster`, `level_roster`, `level_value`, `position_nil`, `nil_scale`, `competition_discount`, `era_factor`.
 - `world/ncaa.rs`: `scholarship_rules`, `staff_cap`, `nil_market`, `revenue_share`, `position_nil_max`, `COLLECTIVE_CEILING`, `ROGUE_ARRIVAL`, `ROGUE_QUITS`, `DETECTION_SCALE`, `FCS_OPTED_OUT`.
