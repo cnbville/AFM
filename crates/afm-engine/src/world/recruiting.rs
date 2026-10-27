@@ -2691,7 +2691,7 @@ const FIT_EVAL: f64 = 0.3;
 /// over four classes against a real 0.9 and 0.1, 247Sports composite
 /// 2022-25), though most had two or more Power 4 offers. Proposed, not
 /// confirmed.
-const STAR_EVAL: f64 = 0.5;
+const STAR_EVAL: f64 = 1.0;
 
 /// What a recruit or transfer sees of a roster beyond the school's grades
 /// (trial 3 item 4, Raichel 2026-10-14): the room at his own position, and
