@@ -481,7 +481,9 @@ fn execute(w: &mut World, me: usize, p: &Proposal) {
                 y.proration = 0.0;
             }
         }
+        let hurt = trades::trade_hurt(w, i, from);
         pro::transfer(w, i, to, "traded");
+        crate::world::people::grudge(&mut w.people[i], from, hurt);
         let c = w.people[i].pro.as_mut().unwrap();
         c.wants_out = false;
         c.hold = pro::market::Hold::None;

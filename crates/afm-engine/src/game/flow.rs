@@ -1764,6 +1764,7 @@ impl<'a> Game<'a> {
             snapper: self.sides[team].depth.snapper,
             holder: self.sides[team].depth.holder,
             energy: [&self.sides[team].energy, &self.sides[rec].energy],
+            hurt: [&self.sides[team].hurt, &self.sides[rec].hurt],
             mood: self.return_mood(team, rec, false),
             kick_deep: self.sides[team].mem.plan.vs.kick_deep,
             style: if self.rules().nfl_kickoff { 0 } else { self.sides[team].team.prep.teams.kick },
@@ -2650,6 +2651,7 @@ impl<'a> Game<'a> {
             snapper: sn,
             holder: side.depth.holder,
             energy: [&side.energy, &opp.energy],
+            hurt: [&side.hurt, &opp.hurt],
             mood: self.return_mood(o, d, true),
             kick_deep: 0.0,
             style: side.team.prep.teams.punt,
@@ -3400,18 +3402,10 @@ impl<'a> Game<'a> {
             .collect();
         let label =
             |id: u32| labels.iter().find(|l| l.0 == id).map(|l| format!("{} #{}", l.1, id)).unwrap_or(format!("#{id}"));
+        // A man playing hurt loses what his injury limits (update 3, F7:
+        // `sim::hampered`, read in `run_snap`), not a flat cut.
         let mut hurt_edge_o: Vec<f64> = self.sides[o].edge.clone();
-        for (i, h) in self.sides[o].hurt.iter().enumerate() {
-            if h.is_some() {
-                hurt_edge_o[i] -= 3.0;
-            }
-        }
         let mut hurt_edge_d: Vec<f64> = self.sides[d].edge.clone();
-        for (i, h) in self.sides[d].hurt.iter().enumerate() {
-            if h.is_some() {
-                hurt_edge_d[i] -= 3.0;
-            }
-        }
         // A man at a spot he doesn't know plays below his rating there (3.3);
         // the punt units' jobs are their own.
         if fake.is_none() {
@@ -3481,6 +3475,7 @@ impl<'a> Game<'a> {
             defense: &def,
             energy: [&self.sides[o].energy, &self.sides[d].energy],
             edge: [&hurt_edge_o, &hurt_edge_d],
+            hurt: [&self.sides[o].hurt, &self.sides[d].hurt],
             trust: [&self.sides[o].trust, &self.sides[d].trust],
             call,
             dcall,

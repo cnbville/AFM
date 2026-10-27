@@ -314,7 +314,9 @@ pub(crate) fn venue(w: &World, home: usize, away: usize, at: Moment, neutral: bo
         snow: wx.snow,
         altitude,
         crowd,
-        turf: closed,
+        // The home field's own surface (update 3, F24); a neutral site
+        // reads as turf under a roof.
+        turf: if neutral { closed } else { crate::world::finance::nfl::turf(w, home, year) },
         ..Conditions::default()
     };
     // Travel (proposed, not confirmed: the college rule's weights): miles,

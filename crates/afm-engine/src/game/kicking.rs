@@ -24,6 +24,8 @@ pub struct KickTeams<'a> {
     pub snapper: usize,
     pub holder: usize,
     pub energy: [&'a [f64]; 2],
+    /// Who plays hurt, and with what (update 3, F7).
+    pub hurt: [&'a [Option<super::sim::InjuryKind>]; 2],
     /// What the game does to habits (kicking team, return team).
     pub mood: super::sim::Mood,
     /// How much the kicking team's plan kicks to a returner who brings
@@ -314,6 +316,9 @@ pub fn kickoff(
     let level = rules.level;
     let risk = rp.tend_now(Tend::ReturnRisk, k.mood.gamble[1], k.mood.stakes[1], k.energy[1][returner], level);
     let ordered = rp.orders.kneel_depth().filter(|_| rp.follows(k.mood.strict[1], level, rng));
+    // Following the order, he weighs the kick at its returner risk too
+    // (update 3, F17: `Instruction::sets`), not his own.
+    let risk = if ordered.is_some() { rp.orders.sets(Tend::ReturnRisk).unwrap_or(risk) } else { risk };
     // The order only adds kneels: deeper than his depth he takes the knee
     // whatever he thinks of his chances.
     let kneel = land_x < 0.0 && !rules.code.arena_kickoff && {
@@ -356,6 +361,7 @@ pub fn kickoff(
             snapper: k.snapper,
             holder: k.holder,
             energy: k.energy,
+            hurt: k.hurt,
             mood: k.mood,
             kick_deep: k.kick_deep,
             style: k.style,
@@ -531,6 +537,9 @@ pub fn punt(
     let risk = returner.tend_now(Tend::ReturnRisk, k.mood.gamble[1], k.mood.stakes[1], k.energy[1][r_i], level);
     let safe = returner.orders.has(|o| matches!(o, Instruction::FairCatchInsideTen))
         && returner.follows(k.mood.strict[1], level, rng);
+    // Following the order, the rest of his calls read its returner risk
+    // (update 3, F17).
+    let risk = if safe { returner.orders.sets(Tend::ReturnRisk).unwrap_or(risk) } else { risk };
     let lean = (risk - MID_T) / 9.5;
     // Inside his 10, a returner lets it go: it bounces.
     if land_x < 10.0 {
@@ -699,7 +708,7 @@ fn run_return(
     let run = (hang - start_cover).max(0.0);
     let cover_start = if kickoff && rules.nfl_kickoff { rules.code.cover_line } else { from - 1.0 };
     for (n, &i) in k.kick_on.iter().enumerate() {
-        let p = &k.kick[i];
+        let p = &*super::sim::hampered(&k.kick[i], k.hurt[0].get(i).copied().flatten());
         let lane = 4.0 + (n as f64) * (width() - 8.0) / (rules.code.players as f64 - 1.0);
         let speed = p.top_speed() * 0.9;
         let x = if n == 0 {
@@ -732,7 +741,7 @@ fn run_return(
         agents.push(a);
     }
     for (n, &i) in k.ret_on.iter().enumerate() {
-        let p = &k.ret[i];
+        let p = &*super::sim::hampered(&k.ret[i], k.hurt[1].get(i).copied().flatten());
         let pos = if n == 0 {
             catch
         } else {

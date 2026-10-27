@@ -429,6 +429,23 @@ fn conditions(w: &World, g: &Game, k: usize) -> (Venue, Played, Option<Severe>) 
         0.1,
         1.0,
     );
+    // The field (update 3, F24): turf indoors, else the home field's own
+    // surface; a neutral site keeps its own draw.
+    let turf = indoor
+        || match g.site {
+            Some(s) => {
+                let key = s.town.bytes().fold(0xCBF2_9CE4_8422_2325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100_0000_01B3));
+                super::season::field_turf(seed, key, &super::season::TURF_FBS, w.year, 0.5)
+            }
+            None => {
+                let shares = if home.division == super::data::Division::FBS {
+                    &super::season::TURF_FBS
+                } else {
+                    &super::season::TURF_SMALL_COLLEGE
+                };
+                super::season::field_turf(seed, g.home as u64, shares, w.year, home.facilities)
+            }
+        };
     let cond = Conditions {
         temperature: wx.temperature,
         wind: wx.wind,
@@ -437,6 +454,7 @@ fn conditions(w: &World, g: &Game, k: usize) -> (Venue, Played, Option<Severe>) 
         snow: wx.snow,
         altitude,
         crowd,
+        turf,
         ..Conditions::default()
     };
     let neutral = g.site.is_some();
@@ -663,8 +681,13 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
             let strip = |t: &GameTeam, me: usize| {
                 let mut t = t.clone();
                 // Your players hurt in practice sit too.
+                // And players sitting by a team rule (update 3, F18) or hurt
+                // in a game (A1).
                 t.players.retain(|p| {
-                    !cs.out.contains_key(&p.id) && !capped.contains(&p.id) && !w.training.hurt_out(p.id, date)
+                    !cs.out.contains_key(&p.id)
+                        && !capped.contains(&p.id)
+                        && !w.training.hurt_out(p.id, date)
+                        && !super::folk::rules::sitting(w, p.id, date)
                 });
                 t.week = week(me);
                 t
@@ -751,6 +774,11 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
             if div == w.programs[away].division {
                 super::charts::add_game(w, year, super::charts::college_key(div), &r.stats);
             }
+            // Injuries outlast the game (update 3, A1).
+            let seat = super::folk::Team::seat(w);
+            let side = [home, away].iter().position(|&t| seat == Some(super::folk::Team::College(t)));
+            let med = [home, away].map(|t| super::people::Support::z(w.programs[t].support.medical.rating));
+            crate::training::seat::game_injuries(w, date, &r.injuries, med, side);
         }
         let cs = w.college.as_mut().unwrap();
         // Records.
@@ -3736,8 +3764,12 @@ pub(crate) fn seat_setup(w: &World, p: usize) -> Option<super::live_seat::SeatSe
     };
     let strip = |t: &GameTeam, me: usize| {
         let mut t = t.clone();
-        t.players
-            .retain(|p| !cs.out.contains_key(&p.id) && !capped.contains(&p.id) && !w.training.hurt_out(p.id, date));
+        t.players.retain(|p| {
+            !cs.out.contains_key(&p.id)
+                && !capped.contains(&p.id)
+                && !w.training.hurt_out(p.id, date)
+                && !super::folk::rules::sitting(w, p.id, date)
+        });
         t.week = week(me);
         t
     };

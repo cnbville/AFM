@@ -1094,6 +1094,7 @@ fn sub_games(w: &mut World, h: usize, week: usize, friday: Date, d: Date) {
             rain: wx.rain,
             snow: wx.snow,
             crowd: 0.08,
+            turf: crate::world::hs_year::hs_turf(w, if home { h } else { opp }),
             ..Default::default()
         };
         let r = crate::game::play_game(&setup);

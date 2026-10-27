@@ -87,6 +87,8 @@ pub struct Snap<'a> {
     /// per player index, per team.
     pub energy: [&'a [f64]; 2],
     pub edge: [&'a [f64]; 2],
+    /// Who plays hurt, and with what (update 3, F7: `sim::hampered`).
+    pub hurt: [&'a [Option<super::sim::InjuryKind>]; 2],
     /// How much each player's coach lets him freelance, 0-1 (topic 3.1).
     pub trust: [&'a [f64]; 2],
     pub call: OffCall,
@@ -305,9 +307,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     let mut role_of: Vec<Option<ORole>> = Vec::new();
     let mut slot_of: Vec<Option<DSlot>> = Vec::new();
     for &(r, p) in s.offense {
-        let gp = &s.teams[0][p];
+        let gp = super::sim::hampered(&s.teams[0][p], s.hurt[0][p]);
         let pos = if s.fake_punt.is_some() { punt_spot(&f, r, los, by, s.rules.level) } else { align(&f, r, los, by) };
-        agents.push(Agent::new(0, p, gp, orole_label(r), pos, s.energy[0][p], s.edge[0][p]));
+        agents.push(Agent::new(0, p, &gp, orole_label(r), pos, s.energy[0][p], s.edge[0][p]));
         role_of.push(Some(r));
         slot_of.push(None);
     }
@@ -337,8 +339,8 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     let def_spots =
         if s.fake_punt.is_some() { return_spots(s, &agents, &role_of) } else { align_defense(s, &agents, &role_of) };
     for (k, &(d, p)) in s.defense.iter().enumerate() {
-        let gp = &s.teams[1][p];
-        agents.push(Agent::new(1, p, gp, d.label(), def_spots[k], s.energy[1][p], s.edge[1][p]));
+        let gp = super::sim::hampered(&s.teams[1][p], s.hurt[1][p]);
+        agents.push(Agent::new(1, p, &gp, d.label(), def_spots[k], s.energy[1][p], s.edge[1][p]));
         role_of.push(None);
         slot_of.push(Some(d));
     }
