@@ -180,7 +180,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
 
 // --- Shared pieces -------------------------------------------------------------------------
 
-const REGION_NAMES: [&str; 8] = [
+pub(crate) const REGION_NAMES: [&str; 8] = [
     "Northeast",
     "Mid-Atlantic",
     "Deep South",
@@ -564,10 +564,11 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
     let voices: Vec<Value> = voices
         .into_iter()
         .take(4)
-        .enumerate()
-        .map(|(k, (r, n))| {
+        .filter_map(|(r, n)| {
+            // Bug 18: each voice comes from his own read.
             let rd = &rds[r];
-            json!({ "who": rd.name, "job": rd.job, "looks": n, "says": lines::room_voice(k as u8 % 4, &p.name, pos.name(), rd.key, id as u64) })
+            let says = afm_engine::world::scouting::own::voice(w, i, f.as_ref()?, &rds, &looks, r, speak(p))?;
+            Some(json!({ "who": rd.name, "job": rd.job, "looks": n, "says": says }))
         })
         .collect();
     // Board flags.
@@ -766,8 +767,8 @@ fn staff_people(w: &World, staff: readers::Staff) -> Vec<(u32, String, String, V
                             ("National scout".to_string(), "Cross-checks".to_string())
                         }
                         afm_engine::world::pro::scouts::Role::Area => {
-                            let regions: Vec<&str> = (0..8u8)
-                                .filter(|r| (*r as usize) % areas == s.region as usize)
+                            let regions: Vec<&str> = afm_engine::world::pro::scouts::covers(s.region, areas)
+                                .into_iter()
                                 .map(|r| REGION_NAMES[r as usize])
                                 .collect();
                             ("Area scout".to_string(), regions.join(", "))
@@ -1388,14 +1389,15 @@ pub fn war_room(w: &World) -> Reply {
         .take(3)
         .enumerate()
         .filter_map(|(k, &id)| {
+            // Bug 18: the director, the head coach and the analytics head
+            // each speak from their own read of him.
             let i = sc::place(w, id)?;
             let p = &w.people[i];
-            let who = match k {
-                0 => director_name(w, t).unwrap_or_else(|| "Your director".into()),
-                1 => w.nfl[t].head_coach.map_or("Your head coach".into(), |c| w.coaches[c].name.clone()),
-                _ => "Your analytics director".into(),
-            };
-            Some(json!({ "who": who, "says": lines::room_voice(k as u8, &p.name, p.player.position.name(), t as u64, id as u64), "id": id }))
+            let (rds, looks, f) = readers::read(w, readers::Staff::Club(t), id)?;
+            let job = ["Director of college scouting", "Head coach", "analytics"][k.min(2)];
+            let r = rds.iter().position(|x| x.job.contains(job))?;
+            let says = afm_engine::world::scouting::own::voice(w, i, &f, &rds, &looks, r, speak(p))?;
+            Some(json!({ "who": rds[r].name, "says": says, "id": id }))
         })
         .collect();
     let revealed = l.revealed.and_then(|(pk, id)| {

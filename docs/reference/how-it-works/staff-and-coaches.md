@@ -1,6 +1,6 @@
 # Staff and coaches: how it works today
 
-Checked against main at a423e02 on 2026-10-26.
+Checked against main at b54ac1a with update 2 lane 8 on 2026-10-27.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. Most of the world side is `world/coach.rs` (the coach) and `world/staff.rs` (jobs, the carousel); your own side is `world/folk/` and `world/front_office/`.
 
@@ -152,6 +152,14 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - Your own job hunt: searches score you with the same formula plus a bonus for someone on the staff who knows you (1 + 1.5 × strength), home state +0.5, alma mater +0.6, and Aura for head jobs (`world/front_office/market.rs`, `bonus`, `candidate`).
 - Taking over a job: two weeks of dated meetings; you keep or let go each holdover assistant; a college hire opens your players' coaching-change window (`world/folk/takeover.rs`, `begin`, `coach_change_window`, `holdover_answer`).
 - Your read of your own staff: a range per rating, about 6 wide at first, ~3 after three seasons, its centre settling toward the truth (`world/staff_read.rs`).
+
+## Scouts and personnel staff as careers (update 2, lane 8)
+
+- NFL scouts move between clubs through a market: one in ten a year moves on, a sharp man at a thrifty club more often, the old retire; posts fill from the market, by a step up, or by hiring another club's man away; each man's eye grows with years and honest look-backs; an area scout builds contacts in his region (`world/pro/scouts.rs`, `staff`, `sign`, `grow`, `place_areas`). Your club runs the same rule through the May review (`world/scouting/own.rs`, `open_review`, `close_review`).
+- A third of GM openings go to another club's director of college scouting (`scouts::climb_to_gm`, called by `world/pro/office.rs`, `replace_gm`); a non-White director's old club gets the 2020 diversity picks.
+- College personnel staffs are keyed by program and post (`world/scouting/readers.rs`, `keyed_personnel`); once you hire or let go, your program's are yours (`own::personnel_market`, `hire_personnel`, `let_go_personnel`, a year on each July 1).
+- Scouts and personnel staff are drawn from seven backgrounds by era (`scouts::staff_ethnicity`; minor bug 19).
+- The numbers: [scouting.md](scouting.md), "The fresh look".
 
 ## Coaching styles
 

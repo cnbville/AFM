@@ -1,6 +1,6 @@
 # Recruiting: how it works today
 
-Checked against main at 567fdd4 on 2026-10-26 (with lane 7, PR #117, and lane 10, minor bug 17).
+Checked against main at b54ac1a with update 2 lane 8 on 2026-10-27.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. "Recruiting" below is `world/recruiting.rs`.
 
@@ -181,6 +181,14 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 - A school's appeal split into seven reasons (close to home, playing time, NIL money, coaching and development, winning and the name, academics, ties and feel; they add up to its appeal) (`world/front_office/college.rs`, `reasons`). The race page reads them as your staff's ranges (`crates/afm-game/src/lane_find/race.rs`, `weight_read`), and scores the seventh from public ties only (`ties_score`).
 - Find recruits reads only your staff's files and public values (stars, composite, offers, visits, the public NIL value), never a true rating (`crates/afm-game/src/lane_find/fields.rs`, `value`). Core courses and academic risk read the transcript once your staff has it, the profile's GPA before (`core_behind`, `risk`). A name filter matches whole names (`crates/afm-game/src/lane_find/query.rs`, `names_match`). The public NIL value is $3,000 × e^(17 × (composite − .70)) × a position factor (QB 1.8; WR, RB, EDGE 1.1; CB 1.0; OT 0.85; IOL 0.75; K, P, LS 0.4; others 0.9) + $1.20 a follower (`nil_value`).
 - A preferred walk-on signs no letter: your screens say "Walk-on" or "Walking on at" (`crates/afm-game/src/lane_frontoffice/college.rs`, `interest`).
+
+## The fresh look's part (update 2, lane 8)
+
+- Film and the services read through the same tape as every staff (SK1-SK5): each recruit's film carries his footage lean (dominance over weak schedules, a reel's tilt × (1 - visibility)) minus 0.3 × luck, and the services' projection the same lean (`Recruit.wide`, `Recruit.svc`); a staff's misread on film is × `wide` (`film_factor`) (`world/recruiting.rs`, the pool and `run_signing_stage`).
+- A head coach seen at a recruit's game adds 0.05 visibility a trip, 0.1 at most for a year (`own::seen_lift`, in the pool's visibility sum).
+- A program's pro day pull (SK20): `Program.pro_day` (up to 0.03) × (0.6 + development want + path weight) in `utility_fit`.
+- Hard minimums (SK17): a head coach's height or weight line (keyed by the coach, `own::ai_minimums`; yours when set to drop) takes a recruit off his staff's board unless he is already committed there.
+- How each works: [scouting.md](scouting.md), "The fresh look".
 
 ## Where the knobs are
 

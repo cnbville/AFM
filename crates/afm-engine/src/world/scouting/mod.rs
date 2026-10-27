@@ -20,10 +20,12 @@
 pub mod board;
 pub mod dept;
 pub mod file;
+pub mod footage;
 pub mod hs;
 pub mod lines;
 pub mod live;
 pub mod lookback;
+pub mod own;
 pub mod predraft;
 pub mod pro;
 pub mod public;
@@ -97,10 +99,13 @@ pub enum Kind {
     Tryout,
     /// Pro game film (pro scouting).
     ProFilm,
+    /// The analytics staff's read of his numbers (update 2, SK6): his
+    /// production against his level, his age, his testing.
+    Numbers,
 }
 
 impl Kind {
-    pub const ALL: [Kind; 31] = [
+    pub const ALL: [Kind; 32] = [
         Kind::School,
         Kind::Film,
         Kind::CrossCheck,
@@ -132,6 +137,7 @@ impl Kind {
         Kind::OldStaff,
         Kind::Tryout,
         Kind::ProFilm,
+        Kind::Numbers,
     ];
 
     pub fn name(self) -> &'static str {
@@ -167,6 +173,7 @@ impl Kind {
             Kind::OldStaff => "His old staff",
             Kind::Tryout => "Tryout",
             Kind::ProFilm => "Pro film",
+            Kind::Numbers => "His numbers",
         }
     }
 
@@ -180,7 +187,8 @@ impl Kind {
             | Kind::Gm
             | Kind::HsFilm
             | Kind::CollegeFilm
-            | Kind::ProFilm => CHIP_FILM,
+            | Kind::ProFilm
+            | Kind::Numbers => CHIP_FILM,
             Kind::School | Kind::Practice | Kind::Game | Kind::AllStar | Kind::Coach => CHIP_LIVE,
             Kind::Combine
             | Kind::ProDay
@@ -217,7 +225,8 @@ impl Kind {
             | Kind::Gm
             | Kind::HsFilm
             | Kind::CollegeFilm
-            | Kind::ProFilm => "Film and charting",
+            | Kind::ProFilm
+            | Kind::Numbers => "Film and charting",
             Kind::Combine
             | Kind::ProDay
             | Kind::Camp
@@ -231,6 +240,23 @@ impl Kind {
             Kind::Interview | Kind::HomeVisit | Kind::Call | Kind::Transcript | Kind::OldStaff => "Calls and records",
             Kind::Background | Kind::Social => "Heard and online",
         }
+    }
+
+    /// Tape (SK1, SK3): film and the looks that read his games, where what
+    /// he played sets what a look can show.
+    pub fn tape(self) -> bool {
+        matches!(
+            self,
+            Kind::Film
+                | Kind::CrossCheck
+                | Kind::Director
+                | Kind::Gm
+                | Kind::Coach
+                | Kind::School
+                | Kind::HsFilm
+                | Kind::CollegeFilm
+                | Kind::Game
+        )
     }
 
     /// Measurements everyone shares the moment they're taken (no report to
@@ -311,6 +337,16 @@ pub struct Scouting {
     /// Your side as a high school coach (topic 17).
     #[serde(default)]
     pub hs: hs::HsSide,
+    /// Scouts out of work, kept for any club to sign (SK7).
+    #[serde(default)]
+    pub market: Vec<crate::world::pro::scouts::Scout>,
+    /// Your own side of the fresh look (SK7-SK22): the May review, trips,
+    /// your eye, interviews, meetings, minimums, the service, your word.
+    #[serde(default)]
+    pub own: own::Own,
+    /// Each program's pro day this spring (SK20): clubs and scouts there.
+    #[serde(default)]
+    pub pro_days: Vec<own::ProDayCount>,
     /// The recruiting services' printed rankings by class, the insiders'
     /// picks and the announced top schools (update 2, lane 7).
     #[serde(default)]
@@ -327,11 +363,15 @@ pub(crate) fn day(w: &mut crate::world::World, d: Date) {
     services::day(w, d);
     predraft::day(w, d);
     supp::day(w, d);
+    if d.parts().1 == 8 && d.parts().2 == 1 {
+        own::ai_athletes(w);
+    }
     if w.seat.is_some() {
         dept::day(w, d);
         pro::day(w, d);
         hs::day(w, d);
         lookback::day(w, d);
+        own::day(w, d);
     }
 }
 
@@ -350,6 +390,7 @@ pub(crate) fn after_draft(w: &mut crate::world::World, board: &[(usize, u32)], t
     public::score_mocks(w, board);
     lookback::after_draft(w);
     pro::after_draft(w, tried);
+    own::after_draft(w);
     w.scouting.predraft = Default::default();
 }
 

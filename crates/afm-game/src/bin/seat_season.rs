@@ -468,6 +468,46 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
     if seat != "other" {
         run.call(g, "year_board", json!({}));
     }
+    // The scouting fresh look (update 2, lane 8): the evaluation desk and
+    // three files' "your look" side; one move a stop where the seat has one
+    // (the rules can refuse a move, so moves go straight to the game).
+    if seat != "other"
+        && let Some(v) = run.call(g, "eval_home", json!({}))
+    {
+        refs(&v, &mut players, &mut coaches, &mut teams);
+        let ids: Vec<u64> = players.iter().take(3).copied().collect();
+        for id in &ids {
+            if let Some(f) = run.call(g, "eval_file", json!({ "id": id }))
+                && let Some(t) = f["trips"].as_array().into_iter().flatten().find(|t| t["date"].is_string())
+            {
+                let _ = g.call("eval_trip", &json!({ "id": id, "kind": t["kind"] }));
+                if let Some(r) = f["rooms"].as_array().and_then(|r| r.first()) {
+                    let _ = g.call(
+                        "eval_interview",
+                        &json!({ "id": id, "room": r["room"], "spent": { "football": 6, "family": 4 } }),
+                    );
+                }
+            }
+        }
+        if v["minimums"].as_array().is_some_and(|m| m.is_empty()) && seat != "hs" {
+            run.call(g, "eval_minimum", json!({ "pos": "CB", "measure": "arm", "value": 31.0, "drop": false }));
+        }
+        if let Some(m) = v["meetings"].as_array().and_then(|m| m.first())
+            && let Some(it) = m["items"].as_array().into_iter().flatten().find(|it| it["settled"] == json!(0))
+        {
+            run.call(g, "eval_settle", json!({ "meeting": m["index"], "id": it["id"], "side": 3 }));
+        }
+        if let Some(r) = v["nfl"]["review"]["scouts"].as_array().and_then(|s| s.first()) {
+            run.call(g, "eval_review_call", json!({ "place": r["place"], "call": "renew" }));
+        }
+        if let Some(j) = v["college"]["advisory"]["juniors"].as_array().and_then(|j| j.first()) {
+            let _ = g.call("eval_advisory", &json!({ "id": j["id"], "on": true }));
+            run.call(g, "eval_talk", json!({ "id": j["id"], "say": 1 }));
+        }
+        if let Some(a) = v["hs"]["athletes"].as_array().and_then(|a| a.first()) {
+            run.call(g, "eval_athlete", json!({ "key": a["key"] }));
+        }
+    }
     // Your staff and the ranges (update 2, lane 3): the quality page, each
     // member's detail and ratings page with his key reads' cards, and the
     // cards for a few of your players' ranges.

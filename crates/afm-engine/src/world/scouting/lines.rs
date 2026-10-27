@@ -399,45 +399,139 @@ pub fn class_grade(score: f64) -> &'static str {
     }
 }
 
-/// A war-room voice before your pick (topic 11): your staff speaking up.
-pub fn room_voice(kind: u8, name: &str, pos: &str, key: u64, id: u64) -> String {
-    let t = match kind {
-        0 => pick(
+/// One reader's own read of a player, for what he says in the room
+/// (bug 18): his range, his looks, the tier it lands in, how the player
+/// fits what we run, and where the room stands.
+pub struct Voice<'a> {
+    pub name: &'a str,
+    /// His read of the player now, low and high.
+    pub read: (u8, u8),
+    /// The room's centre.
+    pub room: f64,
+    pub looks: usize,
+    /// The tier his read lands in ("an NFL starter").
+    pub tier: &'a str,
+    /// His read of what our system asks at the spot against the rest of
+    /// his read: above zero fits.
+    pub fit: Option<f64>,
+    /// He reads the numbers, not the tape.
+    pub numbers: bool,
+}
+
+/// What a reader says in the room, built from his own read: where he
+/// stands against the room, how sure his looks make him, the tier, the fit.
+pub fn voice(v: &Voice, key: u64, id: u64) -> String {
+    let (lo, hi) = v.read;
+    let n = v.name;
+    let gap = (lo as f64 + hi as f64) / 2.0 - v.room;
+    let width = hi.saturating_sub(lo);
+    let mut out = if gap >= 3.0 {
+        pick(
             &[
-                "Take {n}. The tier ends with him.",
-                "{n} is the last one in this tier. Don't let him get by us.",
-                "If we pass on {n}, there's nobody like him in the next group.",
+                "I'm higher on {n} than the room. I have him {lo}-{hi}.",
+                "I'll go higher than all of you on {n}: {lo}-{hi}.",
             ],
             key,
             id,
-        ),
-        1 => pick(
+        )
+    } else if gap <= -3.0 {
+        pick(
             &[
-                "{n} fits what we do. He plays for us on day one.",
-                "I want {n}. He's built for our scheme.",
-                "{n} is our kind of {p}.",
+                "I'm lower on {n} than the room. I have him {lo}-{hi}.",
+                "I can't get as high as you on {n}. {lo}-{hi} for me.",
             ],
             key,
             id,
-        ),
-        2 => pick(
-            &[
-                "I pounded the table for {n} in December. I still am.",
-                "{n}. I've seen him six times. He's the guy.",
-                "Trust the tape on {n}.",
-            ],
-            key,
-            id,
-        ),
-        _ => pick(
-            &[
-                "The numbers love {n}: young, productive, tested well.",
-                "The model has {n} as the best value on the board.",
-                "Our analytics have {n} two tiers higher than the public.",
-            ],
-            key,
-            id,
-        ),
+        )
+    } else {
+        pick(&["I'm with the room on {n}, {lo}-{hi}.", "{n} is {lo}-{hi} for me, about where you all are."], key, id)
+    }
+    .replace("{n}", n)
+    .replace("{lo}", &lo.to_string())
+    .replace("{hi}", &hi.to_string());
+    let looks = v.looks;
+    out.push(' ');
+    out.push_str(&if v.numbers {
+        "That's what his numbers say, not the tape.".to_string()
+    } else if looks >= 6 && width <= 6 {
+        format!("I've seen him {looks} times and I'm sure of it.")
+    } else if width >= 12 {
+        format!("On {looks} looks I can't pin him down yet.")
+    } else {
+        format!("That's on {looks} looks.")
+    });
+    out.push(' ');
+    let tier = v.tier;
+    let mut cap = tier.chars();
+    let tier = cap.next().map_or(String::new(), |c| c.to_uppercase().collect::<String>() + cap.as_str());
+    out.push_str(&format!("{tier} for me."));
+    match v.fit {
+        Some(f) if f >= 3.0 => out.push_str(" He fits what we run."),
+        Some(f) if f <= -3.0 => out.push_str(" He isn't built for what we run."),
+        _ => {}
+    }
+    out
+}
+
+/// A player's answer in an interview (SK15), in his own voice: band 0 is a
+/// poor answer, 1 an ordinary one, 2 a strong one.
+pub fn interview_answer(topic: &str, band: u8, key: u64, id: u64) -> String {
+    let opts: &[&str] = match (topic, band.min(2)) {
+        ("whiteboard", 2) => &[
+            "He drew it back clean, then asked what the backside tackle does against a stunt.",
+            "He had the protection and the hot answer before you finished the diagram.",
+        ],
+        ("whiteboard", 1) => &[
+            "He got the base of it, and needed a nudge on the adjustment.",
+            "He followed it, slowly, and wrote it down to keep it.",
+        ],
+        ("whiteboard", _) => &[
+            "He nodded through it, and lost the thread when you changed the front.",
+            "He couldn't draw it back. He said they ran it simpler at school.",
+        ],
+        ("worst_tape", 2) => &[
+            "\"That's on me. I peeked in the backfield and he ran right past me. I fixed it the next week.\"",
+            "\"I hate that play. Here's what I saw, and here's what I should have seen.\"",
+        ],
+        ("worst_tape", 1) => &[
+            "\"Yeah, that one's bad. The call was late, but I should've been there.\"",
+            "\"Not my best day. We had a lot going on that week.\"",
+        ],
+        ("worst_tape", _) => &[
+            "\"The safety was supposed to be over the top. That's not my fault.\"",
+            "He went quiet, then said the coaches never told him the check.",
+        ],
+        ("incident", 2) => &[
+            "\"I was wrong. I made a bad choice and I let my team down. Here's what I changed.\"",
+            "\"I won't make excuses. I talked to my coach the next morning and I've been clean since.\"",
+        ],
+        ("incident", 1) => &[
+            "\"It got blown up bigger than it was, but I know how it looks.\"",
+            "\"I was in the wrong place. I don't go out like that anymore.\"",
+        ],
+        ("incident", _) => {
+            &["\"Everybody was doing it. I'm the one who got caught.\"", "He said he didn't want to talk about it."]
+        }
+        ("family", 2) => &[
+            "\"My mom worked two jobs so I could play. Everything I do is for her and my little brothers.\"",
+            "\"My dad coached me in peewee. He still calls after every game.\"",
+        ],
+        ("family", 1) => &[
+            "\"It's me, my mom and my grandma. They're coming to the draft.\"",
+            "\"We moved around a lot. My uncle kept me on track.\"",
+        ],
+        ("family", _) => {
+            &["\"Some of them want a lot from me now. I'm handling it.\"", "He kept it short and looked at his agent."]
+        }
+        ("football", 2) => &[
+            "\"I'd play for free. I'm in the building before the coaches.\"",
+            "\"I want to be the best ever at my spot. I watch film on the bus.\"",
+        ],
+        ("football", 1) => &[
+            "\"I love it. It's my way to take care of my family.\"",
+            "\"I want to play a long time and get a second contract.\"",
+        ],
+        _ => &["\"It's a job. I'm good at it, so I do it.\"", "\"I want to get paid. After that, we'll see.\""],
     };
-    t.replace("{n}", name).replace("{p}", pos)
+    pick(opts, key, id).to_string()
 }
