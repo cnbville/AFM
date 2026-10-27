@@ -61,6 +61,8 @@ fn draft(run: &mut Run, g: &mut Game) {
     let mut traded = false;
     for _ in 0..400 {
         let Some(room) = run.call(g, "draft_live", json!({})) else { return };
+        // The draft room (update 2, lane 9C) at every step.
+        run.call(g, "dr_room", json!({}));
         if !room["live"].as_bool().unwrap_or(false) {
             return;
         }
@@ -679,6 +681,10 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
                 run.call(g, cmd, json!({ "id": id }));
             }
         }
+    }
+    // The draft outlook (update 2, lane 9C) at a college or a high school.
+    if seat == "college" || seat == "hs" {
+        run.call(g, "dr_outlook", json!({}));
     }
     for (cmd, args) in extra {
         if let Some(v) = run.call(g, cmd, args.clone()) {

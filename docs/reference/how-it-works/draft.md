@@ -1,6 +1,6 @@
 # The NFL draft: how it works today
 
-Checked against main at b54ac1a with update 2 lane 8 on 2026-10-27.
+Checked against main at 200e5eb on 2026-10-27.
 
 ## Quick answers
 
@@ -116,6 +116,26 @@ Checked against main at b54ac1a with update 2 lane 8 on 2026-10-27.
 - Trading up: the club above asks 1.05 × the chart gap, free if the gap is ≤3% of its slot (`quote`, `trade_up`).
 - Tiers on your board by rank per team: top-ten grades, round 1, late 1-2, round 2, 2-3, round 3, rounds 4-5, rounds 6-7 (`board.rs`, `tier_of_rank`). "Out on a limb" = 12 places or 35% of your rank from the public (`board.rs`, `limb`).
 
+## The draft room (update 2, lane 9C)
+
+`afm-game`, `lane_draftroom/room.rs`, `view` (the war room's data plus the board), `lane_draftroom/sim.rs`, `run`:
+
+- The chance a man is there at your pick: your staff's mock run 400 times (`RUNS`) from the pick on the clock to your next one. Each club takes the best of public grade + a class draw (sd 2.0, `PLAYER_SD`) + its need × 0.5 in rounds 1-2 (× 1 later) + its own draw (sd 2.2, `CLUB_SD`); need is `career::need` on the club's depth chart, as the desks' mocks read it. Kickers, punters and snappers only from round 4 with need above 0. Never a club's own board. A fixed stream: the same room gives the same numbers.
+- Candidates: the public's top (2 × picks away + 40). Anyone below them is there for sure.
+- The strip: the next six picks before yours (not your own), each club's top three needs (need above 0) and the mock's most frequent pick with its share.
+- Your pick: the best need-fit (top three needs) with a chance of 50%+, else the best man with 50%+.
+- Your needs: the needs map (`lane_squadboards/needs.rs`) per spot, Hole 100, Thin 75, Average 45, Solid 20, Strength 5; 0.6 × now + 0.4 × next fall; the weakest spot at a position decides; the kicker and punter left out (`own_needs`).
+- Cards: your top 40 on a board that keeps the men taken (their grade from your club's board), so the numbers don't move. Flags: V on your top-30 visit list, M your doctors' medical grade 2+ (a major concern; `readers::read`), C your board's character risk 1.0+.
+- Trade calls: values on your GM's chart (`trades::chart`, classic or surplus); a future pick at 85% of the middle of its round. Analytics speaks when 6+ of 10 mocks keep one of your top 15 need-fits there at the caller's pick, else your director.
+- Picks so far: amber when a man went 4+ picks before your board had him.
+
+`lane_draftroom/outlook.rs`, `view` (college and high school seats):
+
+- Who: at a college, its players in college or declared with high school class + 3 ≤ the draft year + 1, and those drafted (or signed undrafted) in the last draft; at a high school, its former players the same way.
+- Status: drafted (round, pick, club), undrafted, declared, deciding (before the declaration deadline), back for another year (after it), eligible next year.
+- The advisory committee's round shows at a college only (it writes to the school). The NFL scouts' word is the December read's round ± 1. The public's rank is the latest consensus top 50; the mock is the prospect's best spot in the desks' mocks.
+- Your staff's read: your own player's range at a college, the public's wide read from a high school; set against `World::draft_bars` (what it took to go in rounds 1-2 and 3-4 last year).
+
 ## The undrafted rush
 
 `world/pro/scouts.rs`, `rush`, called from `world/recruiting.rs`, `draft_end`:
@@ -170,6 +190,7 @@ Checked against main at b54ac1a with update 2 lane 8 on 2026-10-27.
 - `world/pro/money.rs`: `rookie_terms`, `rookie_scale_share`, `undrafted_offer`.
 - `world/scouting/predraft.rs`: choice odds, `declines`, leak odds, `leak_pull` 1.5 and cap 2.
 - `world/scouting/live.rs`: `clock_minutes`, offer eagerness 2.5, the 1.05 trade-up ask.
+- `afm-game/src/lane_draftroom/sim.rs`: `RUNS` 400, `PLAYER_SD` 2.0, `CLUB_SD` 2.2; `room.rs`: `CARDS` 40, `WATCH` 15, `verdict_need`.
 - `world/scouting/pro.rs`: minicamp 12 per club, grade 46, sign odds.
 - `level_rating.rs`: `PositionAligner::for_draft` specialist caps.
 

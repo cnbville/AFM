@@ -259,7 +259,7 @@ fn ft_in(inches: f64) -> String {
 
 /// A player's row for any list: id, name, position, school, class, the
 /// public's word.
-fn row(w: &World, i: usize) -> Value {
+pub(crate) fn row(w: &World, i: usize) -> Value {
     let p = &w.people[i];
     json!({
         "id": p.player.id,
