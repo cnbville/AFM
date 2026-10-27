@@ -555,6 +555,11 @@ pub(crate) fn draft_reads(w: &mut World) {
             continue;
         }
         let level = division_level(division);
+        // The league's tape leans the same way for everyone (SK2, SK4).
+        let tape_lean = {
+            let f = super::scouting::footage::footage(w, i);
+            super::scouting::footage::scout_tilt(&f, 12.0, false, false)
+        };
         let p = &mut w.people[i];
         // Pro scouts list him where they see him playing on Sundays and
         // rate him there; he keeps playing his college position until he
@@ -619,7 +624,8 @@ pub(crate) fn draft_reads(w: &mut World) {
             })
             .sum();
         let grade =
-            rep.overall + (0.25 + 0.2 * youth) * (rep.potential - rep.overall) - competition_discount(division) - flags;
+            rep.overall + (0.25 + 0.2 * youth) * (rep.potential - rep.overall) - competition_discount(division) - flags
+                + tape_lean;
         // The board's own position values (part C 2): the December read
         // ranks a long snapper as the draft does, far down the board, so
         // combine invites go to real prospects. The round's weight follows
@@ -692,26 +698,95 @@ fn declare_chance(p: &Person, round: u32, draft_year: i32) -> f64 {
 pub(crate) fn advisory_grades(w: &mut World) {
     let draft_year = w.year + 1;
     let seed = w.options.seed as u64 ^ ((w.year as u64) << 16) ^ 0xDEC1;
+    use super::scouting::own;
+    // The committee began in 1994 (SK21, by era): before that a junior went
+    // on his own and his agent's word.
+    let committee = w.year >= 1994;
+    // Who asks: any underclassman with a draftable read or a plan to go.
+    let mut asking: Vec<usize> = (0..w.people.len())
+        .filter(|&i| {
+            let p = &w.people[i];
+            p.stage == Stage::College
+                && !exhausted(p, &w.programs, draft_year)
+                && p.cal.draft_read.is_some_and(|r| r.round <= 7 || p.cal.declare_plan == Some(true))
+        })
+        .collect();
+    // From 2014 five names a school, the coach choosing whom to send (an AI
+    // staff sends its five best reads), more only by exception for a likely
+    // first-rounder; yours are the names you sent.
+    let seat_prog = super::scouting::readers::seat_staff(w)
+        .and_then(|s| if let super::scouting::readers::Staff::Program(p) = s { Some(p) } else { None });
+    let limit = own::advisory_limit(w.year);
+    let mut sent = vec![false; asking.len()];
+    if let Some(cap) = limit {
+        let mine: std::collections::HashSet<u32> =
+            w.scouting.own.advisory.iter().filter(|x| x.1 == w.year).map(|x| x.0).collect();
+        let mut by_school: std::collections::BTreeMap<usize, Vec<usize>> = Default::default();
+        for (k, &i) in asking.iter().enumerate() {
+            if let Some(c) = w.people[i].college {
+                by_school.entry(c).or_default().push(k);
+            }
+        }
+        for (c, mut ks) in by_school {
+            if Some(c) == seat_prog {
+                for k in ks {
+                    sent[k] = mine.contains(&w.people[asking[k]].player.id);
+                }
+                continue;
+            }
+            let score = |k: usize| w.people[asking[k]].cal.draft_read.map_or(0.0, |r| r.score);
+            ks.sort_by(|&a, &b| score(b).total_cmp(&score(a)).then(a.cmp(&b)));
+            for (n, &k) in ks.iter().enumerate() {
+                let first = w.people[asking[k]].cal.draft_read.is_some_and(|r| r.round <= 1);
+                sent[k] = n < cap || first;
+            }
+        }
+    } else {
+        sent.iter_mut().for_each(|x| *x = committee);
+    }
+    // Your stay-or-go talks, weighed on each plan (SK21).
+    let talks: Vec<f64> = asking
+        .iter()
+        .map(|&i| {
+            let p = &w.people[i];
+            match own::talk_of(w, p.player.id) {
+                Some(say) if p.college == seat_prog && seat_prog.is_some() => own::talk_factor(w, i, say),
+                _ => 1.0,
+            }
+        })
+        .collect();
+    let three = w.year >= 2014;
     let mut graded = 0u32;
-    for p in w.people.iter_mut() {
-        if p.stage != Stage::College || exhausted(p, &w.programs, draft_year) {
-            continue;
-        }
+    for (k, i) in asking.drain(..).enumerate() {
+        let p = &mut w.people[i];
         let Some(read) = p.cal.draft_read else { continue };
-        if read.round > 7 && p.cal.declare_plan != Some(true) {
+        let guess =
+            (read.round as f64 + 1.5 * key_normal(seed ^ 0xAD, p.player.id as u64)).round().clamp(1.0, 8.0) as u32;
+        let round = if !sent[k] {
+            // No grade: his agent's word and the talk around him, looser.
+            p.cal.advisory = None;
+            (read.round as f64 + 2.4 * key_normal(seed ^ 0xAE, p.player.id as u64)).round().clamp(1.0, 8.0) as u32
+        } else if three {
+            // Three answers: first round, second round or return to school.
+            p.cal.advisory = Some(guess.min(3) as u8);
+            guess
+        } else {
+            p.cal.advisory = Some(guess as u8);
+            guess
+        };
+        let chance = clamp(declare_chance(p, round, draft_year) * talks[k], 0.0, 0.97);
+        p.cal.declare_plan = Some(p.rng.chance(chance));
+        if !sent[k] {
             continue;
         }
-        let advisory =
-            (read.round as f64 + 1.5 * key_normal(seed ^ 0xAD, p.player.id as u64)).round().clamp(1.0, 8.0) as u32;
-        p.cal.advisory = Some(advisory as u8);
-        let chance = declare_chance(p, advisory, draft_year);
-        p.cal.declare_plan = Some(p.rng.chance(chance));
         graded += 1;
         let age = p.row_age();
-        let grade = match advisory {
-            1 => "a first-round grade".to_string(),
-            2 => "a second-round grade".to_string(),
-            _ => "a \"return to school\" grade".to_string(),
+        let grade = match (p.cal.advisory.unwrap_or(8), three) {
+            (1, _) => "a first-round grade".to_string(),
+            (2, _) => "a second-round grade".to_string(),
+            (_, true) => "a \"return to school\" grade".to_string(),
+            (r @ 3..=7, false) => format!("a round {r} grade"),
+            _ => "a \"not drafted\" grade".to_string(),
         };
         p.note(format!("At {age} the NFL's advisory committee gave him {grade}."));
     }
@@ -1664,6 +1739,12 @@ struct Recruit {
     /// His physical gifts as measured (Dynamic Links, D3), in full links.
     #[serde(default)]
     gift: f64,
+    /// How far film narrows him (SK1; 0 reads as 1).
+    #[serde(default)]
+    wide: f64,
+    /// The services' shared lean from his tape (SK2, SK5), rating points.
+    #[serde(default)]
+    svc: f64,
 }
 
 /// What a full link is worth to a college staff, in film standard
@@ -2546,6 +2627,9 @@ fn utility_fit(
     // The program's stories this week (S4): a scandal or a hot seat is
     // rivals' material in his living room, a rising story a lift.
     u += prog.story_push as f64;
+    // SK20: a pro day the league's head men come to sells the path to the
+    // pros, more to the kid who wants it.
+    u += prog.pro_day as f64 * (0.6 + wants.development + path_w);
     // His own pull to stay in his state, and the team he grew up with
     // (fix list 2.2, 2.3; the lean is proposed, not confirmed).
     if prog.state == p.home_state {
@@ -3720,6 +3804,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         (m, ((s2 / k.max(1.0) - m * m).max(1.0)).sqrt())
     };
     // Your calls to colleges as a high school coach (section 7, topic 16).
+    // SK13: a head coach seen at his games puts a name on the map.
+    let seen_trips = super::scouting::own::seen_lift(w);
     let promos = super::scouting::hs::promos(w);
     let wr: &World = w;
     let recruits: Vec<Recruit> = candidates
@@ -3731,10 +3817,34 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             let (m, sd) = pos_mean_sd[p.player.position.index()];
             let film = all_mean_sd.0 + all_mean_sd.1 * (raw - m) / sd;
             let juco_mover = p.stage == Stage::College;
-            let promo = promos.get(&p.player.id).copied().unwrap_or(0.0);
+            let promo =
+                promos.get(&p.player.id).copied().unwrap_or(0.0) + seen_trips.get(&p.player.id).copied().unwrap_or(0.0);
             let (visibility, went_viral) = recruit_visibility(wr, p, film, all_mean_sd, seed, promo);
             let gift = crate::links::gift(&crate::links::projected(&p.player));
-            Recruit { person: i, film, projection: 0.0, visibility, gpa: p.bg.gpa, juco_mover, viral: went_viral, gift }
+            // What his tape holds (SK1, SK2, SK5): every staff and service
+            // sees the same film, so they lean the same way. A kid seen at
+            // the big camps and showcases has been seen against good
+            // players; one seen only on his own reels reads high.
+            let foot = super::scouting::footage::footage(w, i);
+            let vs_good = p.camp_stars > 0 || p.stars >= 4 || juco_mover;
+            // (His film is already his season's play, so his form isn't
+            // counted twice.)
+            let lean = super::scouting::footage::scout_tilt(&foot, 10.0, vs_good, false) - 0.3 * foot.luck;
+            let reel = if foot.reels && !juco_mover { 2.5 * (1.0 - p.visibility.clamp(0.0, 1.0)) } else { 0.0 };
+            let film = film + lean + reel;
+            let wide = super::scouting::footage::film_factor(&foot);
+            Recruit {
+                person: i,
+                film,
+                projection: 0.0,
+                visibility,
+                gpa: p.bg.gpa,
+                juco_mover,
+                viral: went_viral,
+                gift,
+                wide,
+                svc: lean + reel,
+            }
         })
         .collect();
     pool.extend(recruits);
@@ -3773,7 +3883,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         // What the services misread about a kid stays misread look after
         // look (A12): their errors are shared and lasting, not fresh noise
         // that averages away.
-        let seen = rep.potential + service_bias(p, world_seed);
+        let seen = rep.potential + service_bias(p, world_seed) + r.svc;
         r.projection = match p.cal.service_read {
             Some(prev) if !r.juco_mover => prev + 0.5 * (seen - prev),
             _ => seen,
@@ -3931,6 +4041,10 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         film: f64,
         proj: f64,
         gift: f64,
+        /// How far film narrows him (SK1).
+        wide: f64,
+        /// His listed height and weight (SK17's minimums read these).
+        listed: (f64, f64),
         id: u64,
         pos: Position,
         juco_mover: bool,
@@ -3969,6 +4083,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 film: r.film,
                 proj: r.projection,
                 gift: r.gift,
+                wide: if r.wide > 0.0 { r.wide } else { 1.0 },
+                listed: super::scouting::file::listed(&p.player),
                 id: p.player.id as u64,
                 pos: p.player.position,
                 juco_mover: r.juco_mover,
@@ -3982,6 +4098,9 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     // Each staff's class plan per position (fix list 1.1, 1.2, 1.6).
     let habit_seed = w.options.seed as u64;
     let bars = w.draft_bars;
+    let seat_prog = super::scouting::readers::seat_staff(w)
+        .and_then(|s| if let super::scouting::readers::Staff::Program(p) = s { Some(p) } else { None });
+    let own_mins = w.scouting.own.minimums.clone();
     let read = RosterRead { stage, limit: if w.changes.rules(sign_year).five_in_five { 5 } else { 4 } };
     let mut signed_by: Vec<Vec<usize>> = vec![Vec::new(); programs.len()];
     for (i, p) in w.people.iter().enumerate() {
@@ -4008,6 +4127,24 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             // coach of each recruit's group and the head coach, each with
             // his own eye and his own lasting lean on the kid.
             let hc_eye = prog.head_coach.map(|c| (coaches[c].evaluation(), coaches[c].id as u64));
+            // SK17: the head coach's own hard lines on a listed height or
+            // weight (yours, if this is your program).
+            let mins: Vec<super::scouting::own::Minimum> = if seat_prog == Some(prog.id) {
+                own_mins.clone()
+            } else {
+                prog.head_coach
+                    .map(|c| super::scouting::own::ai_minimums(coaches[c].id as u64 ^ 0xC011))
+                    .unwrap_or_default()
+            }
+            .into_iter()
+            .filter(|m| {
+                m.drop
+                    && matches!(
+                        m.measure,
+                        super::scouting::own::Measure::Height | super::scouting::own::Measure::Weight
+                    )
+            })
+            .collect();
             let eyes: Vec<Option<(f64, u64)>> = prog
                 .position_coaches
                 .iter()
@@ -4063,6 +4200,17 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 if special && (tier != Eligibility::Qualifier || !c.grows_out || prog.special_admits == 0) {
                     continue;
                 }
+                if !ours
+                    && mins.iter().any(|m| {
+                        m.pos == c.pos
+                            && match m.measure {
+                                super::scouting::own::Measure::Height => c.listed.0 < m.value,
+                                _ => c.listed.1 < m.value,
+                            }
+                    })
+                {
+                    continue;
+                }
                 let g = super::coach::Group::of(c.pos) as usize;
                 let (he, _) = hc_eye.unwrap_or((10.0, pseed));
                 let (pe, pk) = eyes.get(g).copied().flatten().or(hc_eye).unwrap_or((10.0, pseed));
@@ -4075,7 +4223,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 // and value a player who suits what they run (S6; worth up
                 // to about a third of a standard deviation, proposed, not
                 // confirmed).
-                let mut eval = 0.6 * (c.film + read(1)) + 0.4 * (c.proj + read(2));
+                let mut eval = 0.6 * (c.film + c.wide * read(1)) + 0.4 * (c.proj + read(2));
                 eval += FIT_EVAL * all_mean_sd.1 * super::systems::fit_to(&c.fit, c.pos, &prog.installed);
                 // Traits that can't be coached (D3): a staff that has seen
                 // him test (its own camp, a visit, his tape's numbers) pays

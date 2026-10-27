@@ -181,6 +181,13 @@ pub fn desk_grade(w: &World, desk: &Desk, i: usize, week: i32) -> Option<f64> {
         Lean::Production => 0.6 * clamp(p.last_performance.unwrap_or(0.0), -1.5, 1.5),
         _ => 0.0,
     };
+    // The tape's shared leans (SK2, SK4): the desks watch the same games
+    // and read the same numbers; by the spring's all-star games and the
+    // combine the best have been seen against good players.
+    let f = super::footage::footage(w, i);
+    let spring = matches!(w.today.parts().1, 2..=4);
+    g += super::footage::scout_tilt(&f, desk.skill as f64, spring, false)
+        - super::footage::scout_tilt(&f, 12.0, false, false);
     Some(g)
 }
 

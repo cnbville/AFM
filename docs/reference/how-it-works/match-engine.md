@@ -1,6 +1,6 @@
 # Match engine: how it works today
 
-Checked against main at 567fdd4 on 2026-10-26.
+Checked against main at b54ac1a with update 2 lane 8 on 2026-10-27.
 
 Paths are under `crates/afm-engine/src/`. Ratings are 1-99 unless a line says "20" (the 1-20 read against the level, see the quick answers). In a block, w runs from -1 (the blocker has won) to +1 (the defender has shed him). U is a uniform 0-1 draw, N(m, sd) a normal one.
 
@@ -208,6 +208,7 @@ What it reads: the defender's hands (Catching, raised half the gap from his leve
 What it reads: Ball Carrier Vision, his speed and cut, the Patience, Bounce and Contact tendencies, the blocks. What it does not read: weight, Strength or Elusiveness while he picks his path.
 
 - Handoff timing: draw 1.5 s, toss 0.45, power 1.35 under center / 1.2, counter 1.55 / 1.4, others 1.2 / 1.0, sneak at once (`game/scrimmage.rs`, `run_snap`).
+- A missed mesh: when the back isn't within 1.3 yards of the mesh 0.4 s past the handoff time (a back split wide, as in an empty set checked to a run), the quarterback keeps it and runs, and the back blocks (`game/scrimmage.rs`, `run_snap`, the `Job::Handoff` arm; proposed, not confirmed).
 - Bad exchange 0.0025 × (1.6 - (0.65 back's Ball Security + 0.35 QB Ball Handling) / 100); a pitch on the ground 0.012 × (1.6 - Catching / 100) (`run_snap`).
 - Press: he presses the line at the play's pace (inside and outside zone, zone read 4.1 yd/s; power, counter, buck sweep 4.7; duo, trap, iso 4.55; QB power 7.0; draw 3.9; others full speed) × (1 - 0.25 × lean(Patience)), and commits 0.5 + 1.4 × min(lean, 0) yards from the line, sooner with a free defender within 3 (`game/sim.rs`, `run_carrier`; `game/playbook.rs`, `press`).
 - The hole read under 2.5 yards from the line: the called hole (-0.9), the cutback and the bounce (-0.6 × lean(Bounce)), each costed by who gets there first, with read noise 0.8 × max(1 - 0.008 × Vision, 0.2) (`run_carrier`).

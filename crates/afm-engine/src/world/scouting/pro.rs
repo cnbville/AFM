@@ -68,11 +68,7 @@ fn staff(w: &mut World, t: usize) {
             *x = r(&mut rng, mean);
         }
         let born = year - rng.int(if k == 0 { 38 } else { 26 }, 58);
-        let eth = if rng.chance(0.3) {
-            crate::world::ethnicity::Ethnicity::Black
-        } else {
-            crate::world::ethnicity::Ethnicity::White
-        };
+        let eth = crate::world::pro::scouts::staff_ethnicity(&mut rng, year);
         let name = crate::world::names::person_name(eth, born, &mut rng);
         v.push(Scout {
             name,
@@ -91,6 +87,12 @@ fn staff(w: &mut World, t: usize) {
             key: ((rng.next_u32() as u64) << 32) | rng.next_u32() as u64,
             since: year,
             born,
+            contacts: 0.0,
+            clubs: Vec::new(),
+            held: 0,
+            missed: 0,
+            pay: 0,
+            ethnicity: Some(eth),
         });
     }
     // Each pro scout covers his share of the league's other clubs.

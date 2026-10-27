@@ -25,6 +25,7 @@ use crate::player::Trait;
 use crate::positions::{POSITION_COUNT, Position, overall_for, weight};
 use crate::rng::{Rng, clamp};
 use crate::world::coach::{GROUP_COUNT, Group};
+use crate::world::scouting::footage::{self, Footage};
 use crate::world::{Stage, World};
 
 // --- The department ---------------------------------------------------------------------
@@ -71,7 +72,7 @@ pub struct Scout {
     pub name: String,
     pub role: Role,
     /// An area scout's place among the club's area scouts: he covers the
-    /// regions `r` with `r % areas == region`.
+    /// regions `covers(region, areas)`.
     pub region: u8,
     /// The region he comes from (his soft spot, if he has that bias).
     pub home: u8,
@@ -89,6 +90,89 @@ pub struct Scout {
     pub key: u64,
     pub since: i32,
     pub born: i32,
+    /// His sources in his area (SK9, 0-1): trainers, strength coaches and
+    /// high school coaches, grown each year he keeps it.
+    #[serde(default)]
+    pub contacts: f32,
+    /// The clubs he worked for before (SK7), oldest first.
+    #[serde(default)]
+    pub clubs: Vec<u8>,
+    /// His look-backs (SK7, SK8): reads that held up and reads that missed.
+    #[serde(default)]
+    pub held: u16,
+    #[serde(default)]
+    pub missed: u16,
+    /// His pay a year, in thousands of dollars (SK11).
+    #[serde(default)]
+    pub pay: u32,
+    #[serde(default)]
+    pub ethnicity: Option<super::super::ethnicity::Ethnicity>,
+}
+
+impl Scout {
+    pub fn age(&self, year: i32) -> i32 {
+        year - self.born
+    }
+
+    /// How a club rates him as a hire from what his work shows: his
+    /// look-backs over his years, his ratings as his reports show them.
+    pub fn standing(&self) -> f64 {
+        let n = (self.held + self.missed) as f64;
+        let record = if n > 0.0 { (self.held as f64 - 0.5 * n) / (n + 4.0) } else { 0.0 };
+        2.0 * self.judge as f64 + self.potential as f64 + 0.6 * self.work as f64 + 8.0 * record
+    }
+
+    /// A fair year's pay by role and what his work shows: his look-backs
+    /// and his years in the job (real: area scouts about $60-100k, national
+    /// scouts $100-170k, directors $200-450k in the 2020s, less in earlier
+    /// eras; proposed, not confirmed). Never his hidden ratings.
+    pub fn market_pay(&self, year: i32) -> u32 {
+        let era = clamp(0.45 + 0.55 * (year - 1995) as f64 / 30.0, 0.45, 1.1);
+        let base = match self.role {
+            Role::Director => 260.0,
+            Role::National => 125.0,
+            Role::Area => 72.0,
+        };
+        let n = (self.held + self.missed) as f64;
+        let record = if n > 0.0 { self.held as f64 / n } else { 0.5 };
+        let years = clamp((year - self.born - 24) as f64, 0.0, 30.0);
+        let rep = clamp(6.0 + 10.0 * record + 0.15 * years, 4.0, 20.0);
+        (base * era * (0.75 + 0.03 * rep)).round() as u32
+    }
+
+    /// The job words.
+    pub fn job(&self) -> &'static str {
+        match self.role {
+            Role::Director => "Director of college scouting",
+            Role::National => "National scout",
+            Role::Area => "Area scout",
+        }
+    }
+}
+
+/// Who staffs scouting departments (bug 19): mostly white men, a quarter
+/// or so Black, a growing Hispanic, Asian and Pacific Islander share by
+/// era (proposed, not confirmed: the leagues publish no scout census; the
+/// shares follow the front-office counts in the TIDES report cards).
+pub(crate) fn staff_ethnicity(rng: &mut Rng, year: i32) -> super::super::ethnicity::Ethnicity {
+    use super::super::ethnicity::Ethnicity as E;
+    let era = clamp((year - 1990) as f64 / 35.0, 0.0, 1.0);
+    let shares = [
+        (E::Black, 0.20 + 0.06 * era),
+        (E::Hispanic, 0.025 + 0.045 * era),
+        (E::EastAsian, 0.006 + 0.012 * era),
+        (E::SoutheastAsian, 0.004 + 0.008 * era),
+        (E::SouthAsian, 0.002 + 0.008 * era),
+        (E::Polynesian, 0.004 + 0.006 * era),
+    ];
+    let mut x = rng.next();
+    for (e, sh) in shares {
+        if x < sh {
+            return e;
+        }
+        x -= sh;
+    }
+    E::White
 }
 
 /// What kind of look a file entry is (topic 4).
@@ -132,6 +216,23 @@ pub const DC: u8 = 253;
 pub const EVENT: u8 = 255;
 
 const REGIONS: u8 = 8;
+/// A department with more area scouts than regions splits the richest
+/// ones: a ninth man shares the Deep South, a tenth Texas and Louisiana
+/// (proposed, not confirmed).
+const SPLIT: [u8; 2] = [2, 5];
+
+/// The regions an area scout covers: with eight men or fewer, regions `r`
+/// with `r % areas == region`; past eight, each his own, the extra men a
+/// share of a split region.
+pub fn covers(region: u8, areas: usize) -> Vec<u8> {
+    if areas <= REGIONS as usize {
+        (0..REGIONS).filter(|r| (*r as usize) % areas.max(1) == region as usize).collect()
+    } else if region < REGIONS {
+        vec![region]
+    } else {
+        vec![SPLIT[(region - REGIONS) as usize % SPLIT.len()]]
+    }
+}
 
 /// The eight scouting regions a club splits the country into.
 pub(crate) fn region_of(state: usize) -> u8 {
@@ -197,16 +298,12 @@ fn hire(rng: &mut Rng, year: i32, role: Role, budget: f64) -> Scout {
             Role::National => rng.int(32, 58),
             Role::Area => rng.int(24, 55),
         };
-    let eth = if rng.chance(0.25) {
-        super::super::ethnicity::Ethnicity::Black
-    } else {
-        super::super::ethnicity::Ethnicity::White
-    };
+    let eth = staff_ethnicity(rng, year);
     let name = super::super::names::person_name(eth, born, rng);
     let bias = BIASES[rng.int(0, BIASES.len() as i32 - 1) as usize];
     let home = rng.int(0, REGIONS as i32 - 1) as u8;
     let key = ((rng.next_u32() as u64) << 32) | rng.next_u32() as u64;
-    Scout {
+    let mut s = Scout {
         name,
         role,
         region: 0,
@@ -223,7 +320,15 @@ fn hire(rng: &mut Rng, year: i32, role: Role, budget: f64) -> Scout {
         key,
         since: year,
         born,
-    }
+        contacts: 0.0,
+        clubs: Vec::new(),
+        held: 0,
+        missed: 0,
+        pay: 0,
+        ethnicity: Some(eth),
+    };
+    s.pay = s.market_pay(year);
+    s
 }
 
 /// Staffs each club's department. With `turnover` (after the draft, when
@@ -245,31 +350,50 @@ pub(crate) fn staff(w: &mut World, turnover: bool, draft_year: i32) {
     if draft_year == 1996 && w.clubs.len() > BROWNS.max(RAVENS) && w.clubs[RAVENS].scouts.is_empty() {
         w.clubs[RAVENS].scouts = std::mem::take(&mut w.clubs[BROWNS].scouts);
     }
-    for t in 0..w.clubs.len() {
-        if !active(t, draft_year) {
-            continue;
-        }
+    // Your club's department is yours to settle in the May review (SK11).
+    let mine = w.seat.filter(|s| s.level == crate::calendar::Level::Nfl).and_then(|s| s.nfl_team);
+    if turnover {
+        newcomers(w, &mut rng, year);
+    }
+    // Richer clubs move first in the market (SK7).
+    let mut order: Vec<usize> = (0..w.clubs.len()).filter(|&t| active(t, draft_year)).collect();
+    let budgets: Vec<f64> = (0..w.clubs.len()).map(|t| crate::world::finance::nfl::spend_level(w, t)).collect();
+    order.sort_by(|&a, &b| budgets[b].total_cmp(&budgets[a]).then(a.cmp(&b)));
+    for &t in &order {
         if !turnover && !w.clubs[t].scouts.is_empty() {
             continue;
         }
+        if turnover && Some(t) == mine && !w.clubs[t].scouts.is_empty() {
+            crate::world::scouting::own::open_review(w);
+            continue;
+        }
         let owner = w.nfl[t].owner;
-        let budget = crate::world::finance::nfl::spend_level(w, t);
+        let budget = budgets[t];
         let (areas, nationals) = sizes(year, owner);
         let mut kept: Vec<Scout> = Vec::new();
-        for s in std::mem::take(&mut w.clubs[t].scouts) {
-            let age = year - s.born;
-            let leave =
-                0.1 + if s.judge >= 15 { 0.12 * (1.0 - budget) } else { 0.0 } + if age >= 64 { 0.5 } else { 0.0 };
-            if !rng.chance(leave) {
-                kept.push(s);
+        for mut s in std::mem::take(&mut w.clubs[t].scouts) {
+            let age = s.age(year);
+            if turnover {
+                // A good scout at a thrifty club is more often hired away
+                // or leaves for a better deal; the old retire.
+                let leave =
+                    0.1 + if s.judge >= 15 { 0.12 * (1.0 - budget) } else { 0.0 } + if age >= 64 { 0.5 } else { 0.0 };
+                if rng.chance(leave) {
+                    if age < 64 {
+                        s.clubs.push(t as u8);
+                        w.scouting.market.push(s);
+                    }
+                    continue;
+                }
+                ai_lookbacks(&mut s, &mut rng);
+                grow(&mut s, year, &mut rng);
             }
+            kept.push(s);
         }
         let mut director = kept.iter().position(|s| s.role == Role::Director).map(|k| kept.remove(k));
         let mut nats: Vec<Scout> = kept.iter().filter(|s| s.role == Role::National).cloned().collect();
         let mut area: Vec<Scout> = kept.into_iter().filter(|s| s.role == Role::Area).collect();
-        let best = |v: &Vec<Scout>| {
-            (0..v.len()).max_by_key(|&k| v[k].judge as u32 * 2 + v[k].potential as u32 + v[k].work as u32)
-        };
+        let best = |v: &Vec<Scout>| (0..v.len()).max_by(|&a, &b| v[a].standing().total_cmp(&v[b].standing()));
         if director.is_none() {
             director = Some(match best(&nats) {
                 Some(k) if rng.chance(0.6) => {
@@ -277,7 +401,7 @@ pub(crate) fn staff(w: &mut World, turnover: bool, draft_year: i32) {
                     s.role = Role::Director;
                     s
                 }
-                _ => hire(&mut rng, year, Role::Director, budget),
+                _ => sign(w, &mut rng, t, Role::Director, budget, turnover),
             });
         }
         nats.truncate(nationals);
@@ -288,22 +412,241 @@ pub(crate) fn staff(w: &mut World, turnover: bool, draft_year: i32) {
                     s.role = Role::National;
                     s
                 }
-                _ => hire(&mut rng, year, Role::National, budget),
+                _ => sign(w, &mut rng, t, Role::National, budget, turnover),
             };
             nats.push(s);
         }
         area.truncate(areas);
         while area.len() < areas {
-            area.push(hire(&mut rng, year, Role::Area, budget));
+            let s = sign(w, &mut rng, t, Role::Area, budget, turnover);
+            area.push(s);
         }
-        for (k, s) in area.iter_mut().enumerate() {
-            s.region = k as u8;
-        }
+        place_areas(&mut area, areas);
         let mut all = vec![director.unwrap()];
         all.extend(nats);
         all.extend(area);
+        for s in all.iter_mut() {
+            if s.pay == 0 {
+                s.pay = s.market_pay(year);
+            }
+        }
         w.clubs[t].scouts = all;
     }
+    if turnover {
+        // The unsigned wait a year; the old and the long-unwanted leave.
+        w.scouting.market.retain(|s| year - s.born < 66 && rng.chance(0.8));
+        w.scouting.market.sort_by(|a, b| b.standing().total_cmp(&a.standing()));
+        w.scouting.market.truncate(240);
+    }
+}
+
+/// Keeps each area scout on his own region where he can (his sources are
+/// there, SK9); a scout moved to a new region starts his sources over.
+pub(crate) fn place_areas(area: &mut [Scout], areas: usize) {
+    let mut taken = vec![false; areas];
+    let mut free: Vec<usize> = Vec::new();
+    for (k, s) in area.iter().enumerate() {
+        let r = s.region as usize;
+        if r < areas && !taken[r] && s.contacts > 0.0 {
+            taken[r] = true;
+        } else {
+            free.push(k);
+        }
+    }
+    let mut open = (0..areas).filter(|&r| !taken[r]);
+    for k in free {
+        let r = open.next().unwrap_or(k % areas.max(1));
+        if area[k].region as usize != r || area[k].contacts == 0.0 {
+            area[k].region = r as u8;
+            area[k].contacts = 0.05;
+        }
+    }
+}
+
+/// This spring's newcomers to the scouting market (SK7): young men off
+/// college staffs and playing careers, a few experienced hands from other
+/// leagues and the services, about one and a half a club.
+fn newcomers(w: &mut World, rng: &mut Rng, year: i32) {
+    let n = (1.5 * w.clubs.len() as f64).round() as usize;
+    for k in 0..n {
+        let role = if k % 12 == 0 {
+            Role::National
+        } else if k % 31 == 0 {
+            Role::Director
+        } else {
+            Role::Area
+        };
+        let budget = rng.range(0.4, 0.8);
+        let mut s = hire(rng, year, role, budget);
+        s.since = year;
+        w.scouting.market.push(s);
+    }
+}
+
+/// A club fills a post from the market (SK7): the best man for the role it
+/// can afford, a step up for him if need be; or other clubs' men a step
+/// below (hired away, SK10); else a new hire.
+pub(crate) fn sign(w: &mut World, rng: &mut Rng, t: usize, role: Role, budget: f64, market: bool) -> Scout {
+    let year = w.year;
+    if !market {
+        return hire(rng, year, role, budget);
+    }
+    let fits = |s: &Scout| match role {
+        Role::Director => s.role == Role::Director || (s.role == Role::National && s.judge >= 12),
+        Role::National => s.role != Role::Area || s.judge >= 11,
+        Role::Area => true,
+    };
+    // A thrifty club reaches less far down the list.
+    let reach = (3.0 + 6.0 * budget) as usize;
+    let cands: Vec<usize> = (0..w.scouting.market.len()).filter(|&k| fits(&w.scouting.market[k])).take(reach).collect();
+    let pick = if cands.is_empty() { None } else { Some(cands[rng.int(0, (cands.len() as i32 - 1).min(2)) as usize]) };
+    if let Some(k) = pick {
+        let mut s = w.scouting.market.remove(k);
+        // A man who takes a step down is paid for the job he takes.
+        let same = s.role == role;
+        s.role = role;
+        s.since = year;
+        s.contacts = 0.0;
+        s.pay = if same { s.market_pay(year).max(s.pay) } else { s.market_pay(year) };
+        return s;
+    }
+    // Hired away: another club's man a step below, for the promotion.
+    if role != Role::Area {
+        let below = if role == Role::Director { Role::National } else { Role::Area };
+        let mine = w.seat.and_then(|s| s.nfl_team);
+        let mut best: Option<(usize, usize, f64)> = None;
+        for (u, c) in w.clubs.iter().enumerate() {
+            if u == t || Some(u) == mine {
+                continue;
+            }
+            for (k, s) in c.scouts.iter().enumerate() {
+                if s.role == below && s.judge >= 13 && best.is_none_or(|b| s.standing() > b.2) {
+                    best = Some((u, k, s.standing()));
+                }
+            }
+        }
+        if let Some((u, k, _)) = best
+            && rng.chance(0.5)
+        {
+            let mut s = w.clubs[u].scouts[k].clone();
+            // His old post is filled in place, so his club's file places hold.
+            w.clubs[u].scouts[k] = hire(rng, year, below, budget);
+            w.clubs[u].scouts[k].region = s.region;
+            s.clubs.push(u as u8);
+            s.role = role;
+            s.since = year;
+            s.contacts = 0.0;
+            s.pay = s.market_pay(year);
+            return s;
+        }
+    }
+    hire(rng, year, role, budget)
+}
+
+/// An AI club's scouts' look-backs (SK8): each year about six of his
+/// reads settle, held up more often the sharper his eye.
+fn ai_lookbacks(s: &mut Scout, rng: &mut Rng) {
+    let p = clamp(0.35 + 0.025 * (s.judge as f64 - 10.0), 0.1, 0.7);
+    for _ in 0..6 {
+        if rng.chance(p) {
+            s.held = s.held.saturating_add(1);
+        } else {
+            s.missed = s.missed.saturating_add(1);
+        }
+    }
+}
+
+/// A year on (SK8, SK9): his eye grows with years and with honest
+/// look-backs, slower with age; past his mid-fifties the road wears on
+/// him. An area scout's sources grow each year he keeps his area.
+pub(crate) fn grow(s: &mut Scout, year: i32, rng: &mut Rng) {
+    let age = s.age(year);
+    let youth = match age {
+        ..38 => 1.0,
+        38..48 => 0.6,
+        48..58 => 0.3,
+        _ => 0.1,
+    };
+    let n = (s.held + s.missed) as f64;
+    let honest = if n > 0.0 { s.held as f64 / n } else { 0.5 };
+    let p = 0.32 * youth * (0.5 + honest);
+    if rng.chance(p) && s.judge < 20 {
+        s.judge += 1;
+    }
+    if rng.chance(0.8 * p) && s.potential < 20 {
+        s.potential += 1;
+    }
+    let g = rng.int(0, GROUP_COUNT as i32 - 1) as usize;
+    if rng.chance(p) && s.know[g] < 20 {
+        s.know[g] += 1;
+    }
+    if age >= 56 && rng.chance(0.35) && s.work > 1 {
+        s.work -= 1;
+    }
+    if s.role == Role::Area {
+        s.contacts += (1.0 - s.contacts) * (0.22 * (0.6 + 0.04 * s.network as f64)) as f32;
+    } else {
+        s.contacts *= 0.85;
+    }
+}
+
+/// SK10: a club's GM job goes to another club's director of college
+/// scouting about a third of the time (real: Brad Holmes, the Rams'
+/// director, to the Lions in 2021). Returns the director's name, his read
+/// as the new GM's skill, his ethnicity, and his old club.
+pub(crate) fn climb_to_gm(
+    w: &mut World,
+    t: usize,
+    rng: &mut Rng,
+) -> Option<(String, f64, super::super::ethnicity::Ethnicity)> {
+    let year = w.year;
+    if year < 1990 || !rng.chance(0.35) {
+        return None;
+    }
+    let mut best: Option<(usize, usize, f64)> = None;
+    for (u, c) in w.clubs.iter().enumerate() {
+        if u == t {
+            continue;
+        }
+        for (k, s) in c.scouts.iter().enumerate() {
+            let age = s.age(year);
+            if s.role == Role::Director && (36..=60).contains(&age) && best.is_none_or(|b| s.standing() > b.2) {
+                best = Some((u, k, s.standing()));
+            }
+        }
+    }
+    let (u, k, _) = best?;
+    let s = w.clubs[u].scouts[k].clone();
+    let budget = crate::world::finance::nfl::spend_level(w, u);
+    w.clubs[u].scouts[k] = hire(rng, year, Role::Director, budget);
+    // Your own director can go the same way: his look-backs leave with him.
+    if w.seat.and_then(|x| x.nfl_team) == Some(u) {
+        for g in w.scouting.records.drafts.iter_mut().chain(w.scouting.records.classes.iter_mut()) {
+            if g.lead == Some(k as u32) {
+                g.lead = None;
+            }
+        }
+    }
+    let eth = s.ethnicity.unwrap_or(super::super::ethnicity::Ethnicity::White);
+    // The 2020 resolution: a club that loses a minority employee to
+    // another club's GM job gets a third-round pick in each of the next
+    // two drafts.
+    if eth != super::super::ethnicity::Ethnicity::White {
+        super::trades::note_diversity_hire(w, u, (year - s.since).max(3) as u32);
+    }
+    let team = w.nfl[u].name;
+    let text = format!("{}, the {team}' director of college scouting, leaves to be a general manager.", s.name);
+    w.calendar.post(
+        crate::calendar::Event::new(
+            w.today,
+            crate::calendar::Level::Nfl,
+            crate::calendar::Kind::Coaching,
+            crate::calendar::Loudness::Small,
+            text,
+        )
+        .team(u),
+    );
+    Some((s.name, clamp(0.5 * s.judge as f64 + 0.5 * s.potential as f64 + 1.0, 1.0, 20.0), eth))
 }
 
 /// The area scout who covers a region at a club.
@@ -405,6 +748,9 @@ struct Eye {
     say: f64,
     bias: Option<Bias>,
     home: u8,
+    /// An area scout's contacts in his region (SK9).
+    #[serde(default)]
+    contacts: Option<(u8, f64)>,
 }
 
 fn eye(w: &World, t: usize, who: u8, group: usize) -> Eye {
@@ -423,6 +769,7 @@ fn eye(w: &World, t: usize, who: u8, group: usize) -> Eye {
                 say: if club.office.power == super::office::Power::Gm { 1.4 } else { 1.1 },
                 bias: None,
                 home: REGIONS,
+                contacts: None,
             }
         }
         HC | OC | DC => {
@@ -445,6 +792,7 @@ fn eye(w: &World, t: usize, who: u8, group: usize) -> Eye {
                 say: if who == HC && club.office.power == super::office::Power::Coach { 1.5 } else { 1.0 },
                 bias: None,
                 home: REGIONS,
+                contacts: None,
             }
         }
         k => {
@@ -459,6 +807,10 @@ fn eye(w: &World, t: usize, who: u8, group: usize) -> Eye {
                 say: (0.8 + 0.02 * s.conviction as f64) * if s.role == Role::Director { 1.2 } else { 1.0 },
                 bias: Some(s.bias),
                 home: s.home,
+                contacts: (s.role == Role::Area && s.contacts > 0.0).then(|| {
+                    let areas = club.scouts.iter().filter(|x| x.role == Role::Area).count();
+                    (covers(s.region, areas)[0], s.contacts as f64)
+                }),
             }
         }
     }
@@ -474,6 +826,8 @@ fn sharp(r: f64) -> f64 {
 pub(crate) struct Ctx {
     size: Vec<(f64, f64, f64, f64)>,
     speed: Vec<(f64, f64)>,
+    /// Each prospect's tape (SK1-SK6), read once for every club.
+    foot: HashMap<usize, Footage>,
 }
 
 impl Ctx {
@@ -497,7 +851,8 @@ impl Ctx {
             size.push((hm, hs, wm, ws));
             speed.push(ms(&v.iter().map(|x| x.2).collect::<Vec<_>>()));
         }
-        Ctx { size, speed }
+        let foot = people.par_iter().map(|&i| (i, footage::footage(w, i))).collect();
+        Ctx { size, speed, foot }
     }
 }
 
@@ -577,6 +932,13 @@ pub(crate) fn read(w: &World, t: usize, i: usize, looks: &[Look], ctx: &Ctx) -> 
     let (sm, ss) = ctx.speed[k];
     let z_speed = clamp((p.player.attributes.get(Attr::Speed) - sm) / ss, -1.5, 1.5);
     let z_ath = z_speed;
+    // What his tape holds (SK1-SK6).
+    let foot = ctx.foot.get(&i).copied().unwrap_or_else(|| footage::footage(w, i));
+    let film_f = footage::film_factor(&foot);
+    let seen_vs_good = looks.iter().any(|l| matches!(l.kind, LookKind::AllStar | LookKind::Combine));
+    let untested = untested_shares(&foot, pos);
+    // SK19: how open your practices are when he plays for you.
+    let open_f = crate::world::scouting::own::openness_factor(w, p.college);
 
     // The people who looked, with their looks counted by category.
     let mut whos: Vec<(u8, [u8; CATS], f64, u8, f64, u8)> = Vec::new(); // who, n per cat, best sd per cat (shared), n pot, best char sd, n char
@@ -597,10 +959,18 @@ pub(crate) fn read(w: &World, t: usize, i: usize, looks: &[Look], ctx: &Ctx) -> 
                 whos.len() - 1
             }
         };
+        let tape = !matches!(l.kind, LookKind::Interview | LookKind::Visit | LookKind::AllStar);
+        let look_f = if !tape {
+            1.0
+        } else if l.kind == LookKind::School {
+            film_f * open_f
+        } else {
+            film_f
+        };
         for (c, sd) in best_sd[at].iter_mut().enumerate() {
             if let Some(s) = l.kind.sees(c) {
                 whos[at].1[c] += 1;
-                *sd = sd.min(s);
+                *sd = sd.min(s * look_f);
             }
         }
         if l.kind.measured().is_none() {
@@ -634,6 +1004,8 @@ pub(crate) fn read(w: &World, t: usize, i: usize, looks: &[Look], ctx: &Ctx) -> 
             let lean = key_normal(e.key ^ 0x1EA4 ^ (c as u64) << 56, id);
             let noise = key_normal(e.key ^ 0x0153 ^ (c as u64) << 56 ^ (w.year as u64) << 40, id);
             let mut v = sd * (LEAN * lean + NOISE * noise / (n as f64).sqrt()) / MIX_SD;
+            // The shared leans of the tape (SK2, SK4).
+            v += footage::scout_tilt(&foot, e.judge, seen_vs_good, false) * if c == PHYSICAL { 0.5 } else { 1.0 };
             // His bias (topic 2): up to about a third of a misread.
             let tilt = 0.33 * sd;
             v += match e.bias {
@@ -646,7 +1018,15 @@ pub(crate) fn read(w: &World, t: usize, i: usize, looks: &[Look], ctx: &Ctx) -> 
                 Some(Bias::Speed) => tilt * z_speed,
                 _ => 0.0,
             };
-            let var = sd * sd * (LEAN * LEAN + NOISE * NOISE / n as f64) / (MIX_SD * MIX_SD);
+            let mut var = sd * sd * (LEAN * LEAN + NOISE * NOISE / n as f64) / (MIX_SD * MIX_SD);
+            // A skill his role never tested is unseen on his tape (SK3):
+            // that share of the category reads from the prior.
+            let u = untested[c];
+            if u > 0.0 {
+                let prior = 9.0 * vis;
+                v = (1.0 - u) * v + u * prior * key_normal((t as u64) << 48 ^ 0x9A10 ^ (c as u64) << 40, id);
+                var = (1.0 - u) * var + u * prior * prior;
+            }
             let wgt = e.say / var;
             err[c] += wgt * v;
             prec[c] += wgt;
@@ -662,7 +1042,12 @@ pub(crate) fn read(w: &World, t: usize, i: usize, looks: &[Look], ctx: &Ctx) -> 
             pot_prec += e.say / var;
         }
         if x.5 > 0 {
-            let sd = x.4 * sharp(e.character);
+            // SK9: in his own region an area scout's people talk to him.
+            let known = match e.contacts {
+                Some((r, c)) if p.college.is_some_and(|g| region_of(w.programs[g].state) == r) => c,
+                _ => 0.0,
+            };
+            let sd = x.4 * sharp(e.character) * (1.0 - 0.35 * known);
             let n = x.5 as f64;
             let lean = key_normal(e.key ^ 0xC4A2, id);
             let noise = key_normal(e.key ^ 0xC4A3 ^ (w.year as u64) << 40, id);
@@ -670,6 +1055,32 @@ pub(crate) fn read(w: &World, t: usize, i: usize, looks: &[Look], ctx: &Ctx) -> 
             let var = sd * sd * (LEAN * LEAN + NOISE * NOISE / n) / (MIX_SD * MIX_SD);
             risk_err += v / var;
             risk_prec += 1.0 / var;
+        }
+    }
+    // The analytics staff's read of his numbers (SK6), on everyone the
+    // club files, weighted by how far the GM trusts numbers over film.
+    if w.year >= 2003 && !looks.is_empty() && foot.level == 2 && foot.snaps >= 100.0 {
+        let club = &w.clubs[t];
+        let r = club.support.analytics.rating;
+        let skill = if r == 0 { 10.0 } else { r as f64 };
+        let say = 0.3 + 0.7 * (1.0 - club.office.gm.film_lean);
+        let key = t as u64 ^ 0xA7A;
+        let seasons = w.stats.by_player.get(&p.player.id).map_or(1, |v| v.len()).max(1) as f64;
+        for c in 1..CATS {
+            if c == 6 && !pos.kicks() {
+                continue;
+            }
+            let u = untested[c];
+            if u > 0.5 {
+                continue;
+            }
+            let sd = footage::analytics_sd(&foot) * sharp(skill) * if c == MENTAL { 1.3 } else { 1.0 };
+            let lean = key_normal(key ^ 0x1EA4 ^ (c as u64) << 56, id);
+            let noise = key_normal(key ^ 0x0153 ^ (c as u64) << 56 ^ (w.year as u64) << 40, id);
+            let v = sd * (LEAN * lean + NOISE * noise / seasons.sqrt()) / MIX_SD + footage::analytics_tilt(&foot);
+            let var = sd * sd * (LEAN * LEAN + NOISE * NOISE / seasons) / (MIX_SD * MIX_SD);
+            err[c] += say * v / var;
+            prec[c] += say / var;
         }
     }
     // Shared measurements of the athletic side.
@@ -709,7 +1120,10 @@ pub(crate) fn read(w: &World, t: usize, i: usize, looks: &[Look], ctx: &Ctx) -> 
     // without the skills still grades on his skills first.
     let gift = crate::links::gift(&crate::links::links_at(&p.player, pos));
     let gift_pts = if meas.is_some() { DRAFT_GIFT } else { 0.5 * DRAFT_GIFT } * gift;
-    let grade = now + q * (pot - now) + gift_pts - competition_discount(division) - flags(p);
+    // SK19: your word to this club about one of your players.
+    let word =
+        if w.scouting.own.words.is_empty() { 0.0 } else { crate::world::scouting::own::word_lift(w, t, p.player.id) };
+    let grade = now + q * (pot - now) + gift_pts - competition_discount(division) - flags(p) + word;
     let var = now_var * (1.0 - q) * (1.0 - q) + q * q / pot_prec;
     // The character read: the services' talk only, if nobody asked.
     let risk = if risk_prec > 0.0 {
@@ -718,6 +1132,27 @@ pub(crate) fn read(w: &World, t: usize, i: usize, looks: &[Look], ctx: &Ctx) -> 
         true_risk(p) * 0.3 + 1.2 * key_normal((t as u64) << 48 ^ 0xC4A4, id)
     };
     Read { grade, var, risk }
+}
+
+/// Each category's share (by the position's weights) of skills his role
+/// never tested (SK3).
+fn untested_shares(f: &Footage, pos: Position) -> [f64; CATS] {
+    let mut tot = [0.0f64; CATS];
+    let mut un = [0.0f64; CATS];
+    for a in Attr::ALL {
+        let wt = weight(pos, a);
+        tot[cat(a)] += wt;
+        if !footage::role_seen(f, a, pos) {
+            un[cat(a)] += wt;
+        }
+    }
+    let mut out = [0.0; CATS];
+    for c in 0..CATS {
+        if tot[c] > 0.0 {
+            out[c] = un[c] / tot[c];
+        }
+    }
+    out
 }
 
 /// Every club's read of the prospects in its files, on all cores (each
@@ -828,22 +1263,54 @@ pub(crate) fn fall(w: &mut World) {
             v
         })
         .collect();
+    // SK18: each service grades every rising senior in the spring; its
+    // member clubs start their fall calls from its list.
+    use crate::world::scouting::own::{self as own_side, Service};
+    let svc_list = |svc: Service| -> HashSet<usize> {
+        let mut v: Vec<(usize, f64)> =
+            seniors.iter().flatten().filter_map(|&i| own_side::service_grade(w, svc, i).map(|g| (i, g))).collect();
+        v.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+        v.into_iter().take(slots * 5).map(|x| x.0).collect()
+    };
+    let lists = [svc_list(Service::National), svc_list(Service::Blesto)];
     let fall_start = Date::ymd(year, 9, 1);
     for t in clubs(w) {
+        let svc = own_side::service_of(w, t);
+        let on_list = match svc {
+            Service::National => &lists[0],
+            Service::Blesto => &lists[1],
+            _ => &on_list,
+        };
+        let member = matches!(svc, Service::National | Service::Blesto);
         let scouts = w.clubs[t].scouts.clone();
         let areas = scouts.iter().filter(|s| s.role == Role::Area).count().max(1) as u8;
+        let last_area = scouts.iter().rposition(|s| s.role == Role::Area);
         for (k, s) in scouts.iter().enumerate() {
             if s.role != Role::Area {
                 continue;
             }
             // About 35-45 school calls a fall (topic 3), fewer with the
             // long flights of the West and the mountains.
-            let regions: Vec<u8> = (0..REGIONS).filter(|r| r % areas == s.region).collect();
+            let regions = covers(s.region, areas as usize);
             let travel = if regions.iter().any(|&r| r >= 6) { 0.85 } else { 1.0 };
-            let calls = (38.0 * (0.75 + 0.025 * s.work as f64) * travel).round() as usize;
+            // A member club lends one area scout to its service for part
+            // of the fall; a club outside the services spends the fee on
+            // more travel (proposed, not confirmed).
+            let lent = if member && Some(k) == last_area { 0.6 } else { 1.0 };
+            let own_way = if member { 1.0 } else { 1.12 };
+            let calls = (38.0 * (0.75 + 0.025 * s.work as f64) * travel * lent * own_way).round() as usize;
             let mut schools: Vec<usize> = Vec::new();
             for &r in &regions {
-                schools.extend(by_region[r as usize].iter().copied());
+                // A split region's schools alternate between its men.
+                let men: Vec<u8> = scouts
+                    .iter()
+                    .filter(|x| x.role == Role::Area && covers(x.region, areas as usize).contains(&r))
+                    .map(|x| x.region)
+                    .collect();
+                let rank = men.iter().filter(|&&m| m < s.region).count();
+                let n = men.len().max(1);
+                schools
+                    .extend(by_region[r as usize].iter().enumerate().filter(|(j, _)| j % n == rank).map(|(_, &c)| c));
             }
             schools.sort_by(|&a, &b| pull[b].total_cmp(&pull[a]).then(a.cmp(&b)));
             // A scout who distrusts small schools gets to fewer of them.
@@ -1042,6 +1509,37 @@ pub(crate) fn pro_day(w: &mut World, program: usize, date: Date) {
         return;
     }
     let r = reads(w, &here);
+    // SK20: who came. A club sends a scout when it reads anyone here as
+    // draftable, a head man (head coach, coordinator or GM) for a likely
+    // first two rounds (proposed, not confirmed).
+    let mut came = 0u8;
+    let mut head_clubs: Vec<u8> = Vec::new();
+    for t in clubs(w) {
+        let best = here.iter().filter_map(|i| r[t].get(i).map(|x| x.grade)).fold(f64::MIN, f64::max);
+        if best >= 60.0 {
+            came = came.saturating_add(1);
+        }
+        if best >= 74.0 {
+            head_clubs.push(t as u8);
+        }
+    }
+    let mine = crate::world::scouting::readers::seat_staff(w).is_some_and(
+        |s| matches!(s, crate::world::scouting::readers::Staff::Program(p) if w.programs[p].id == program),
+    );
+    w.scouting.pro_days.push(crate::world::scouting::own::ProDayCount {
+        program: program as u16,
+        year: w.year as i16,
+        clubs: came,
+        heads: head_clubs.len() as u8,
+        tested: here.len().min(255) as u8,
+        head_clubs: if mine { head_clubs.clone() } else { Vec::new() },
+        players: if mine { here.iter().map(|&i| w.people[i].player.id).collect() } else { Vec::new() },
+    });
+    let keep = w.year as i16 - 3;
+    w.scouting.pro_days.retain(|x| x.year >= keep);
+    if let Some(k) = w.programs.iter().position(|g| g.id == program) {
+        w.programs[k].pro_day = crate::world::scouting::own::pro_day_pull(w, program) as f32;
+    }
     for t in clubs(w) {
         for &i in &here {
             let tested = workouts && w.people[i].cal.combine_invite && !skips(w, i);
@@ -1169,6 +1667,17 @@ fn board_from(
         return b;
     }
     let trust_public = 1.5 - w.clubs[t].office.gm.overconfidence;
+    // SK17: the GM's own hard minimums take a player off the board (yours
+    // at your club: the ones you set to drop).
+    let gm = &w.clubs[t].office.gm;
+    let seat = matches!(crate::world::scouting::readers::seat_staff(w), Some(crate::world::scouting::readers::Staff::Club(c)) if c == t);
+    let mins: Vec<crate::world::scouting::own::Minimum> = if seat {
+        w.scouting.own.minimums.iter().filter(|m| m.drop).copied().collect()
+    } else {
+        crate::world::scouting::own::ai_minimums(
+            gm.name.bytes().fold(gm.since as u64, |h, b| h.wrapping_mul(131).wrapping_add(b as u64)),
+        )
+    };
     for &(i, public) in pool {
         let p = &w.people[i];
         let id = p.player.id as u64;
@@ -1183,6 +1692,9 @@ fn board_from(
                 // traits): a real worry costs up to a few points.
                 g -= 1.0 * (x.risk - 0.5).max(0.0);
                 if x.risk >= 2.5 || (flags(p) >= crate::career::PIPELINE.red_flag_discount.dismissed && x.risk >= 1.0) {
+                    b.dnd.insert(i);
+                }
+                if !mins.is_empty() && crate::world::scouting::own::under(w, i, &mins).is_some() {
                     b.dnd.insert(i);
                 }
                 b.grade.insert(i, g);

@@ -336,6 +336,10 @@ pub struct Program {
     /// rising program's story. Small, read by every recruit's appeal.
     #[serde(default)]
     pub story_push: f32,
+    /// What its last pro days drew (SK20): head coaches and GMs at your pro
+    /// day sell the path to the league. Appeal points, up to 0.03.
+    #[serde(default)]
+    pub pro_day: f32,
 }
 
 /// A school single-season record (A40).
@@ -574,6 +578,7 @@ pub fn program_from_row(id: usize, row: &CollegeRow, seed: u32, rng: &mut Rng) -
         team_mood: 0.0,
         captains: Vec::new(),
         story_push: 0.0,
+        pro_day: 0.0,
     };
     p.prestige = prestige_of(&p, 10.0, 0.5);
     p

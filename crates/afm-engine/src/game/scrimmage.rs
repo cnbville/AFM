@@ -1100,6 +1100,15 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                             }
                         }
                     }
+                    // A missed mesh (a back split wide, as in an empty set
+                    // checked to a run): the quarterback tucks it and runs.
+                    if !handoff_done && t >= at + 0.4 && matches!(sim.ball, Ball::Held(c) if c == qb) {
+                        handoff_done = true;
+                        sim.agents[qb].job = Job::Carrier;
+                        sim.progress = sim.agents[qb].pos.x;
+                        res.carrier = Some(sim.agents[qb].id);
+                        sim.agents[i].job = Job::RunBlock { target: None, pull: false };
+                    }
                 }
                 Job::Route { .. } => run_route(&mut sim, i, &pass, qb, s, &trail),
                 Job::PitchMan => {

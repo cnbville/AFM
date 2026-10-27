@@ -138,6 +138,7 @@ screens.scout = async (a) => {
     ["Character", "Character"],
     ["Medical", "Medical and academics"],
     ["History", "History"],
+    ...(typeof evFileTab === "function" && ["nfl", "college", "hs"].includes(scSeat()) ? [["Look", "Your look"]] : []),
   ]);
   // The hero: measured or listed, the public set apart from your staff.
   const size = `${f.measured ? `<b>${esc(f.ht)}, ${f.wt}</b> measured` : `<span class="muted">listed ${esc(f.ht)}, ${f.wt}</span>`}${f.arm ? ` · arms ${f.arm.toFixed(1)}"` : ""}${f.hand ? ` · hands ${f.hand.toFixed(1)}"` : ""}`;
@@ -185,6 +186,7 @@ screens.scout = async (a) => {
   else if (tab.t === "Tendencies") body = scFileTend(f);
   else if (tab.t === "Character") body = scFileChar(f);
   else if (tab.t === "Medical") body = scFileMed(f);
+  else if (tab.t === "Look") body = await evFileTab(f.id);
   else body = scFileHist(f);
   const goto = scGo("scout", { id: f.id }, f);
   title(f.name, "Scouting file");

@@ -189,13 +189,23 @@ pub(crate) fn staff_offices(w: &mut World) {
 pub(crate) fn replace_gm(w: &mut World, t: usize, why: &str) {
     let year = w.year;
     let mut rng = w.rng.fork();
-    let skill = crate::league::new_staff_rating(&mut rng);
-    let eth = if rng.chance(0.15 + 0.15 * clamp((year - 1990) as f64 / 35.0, 0.0, 1.0)) {
-        super::super::ethnicity::Ethnicity::Black
-    } else {
-        super::super::ethnicity::Ethnicity::White
+    let mut skill = crate::league::new_staff_rating(&mut rng);
+    // Often another club's director of college scouting climbs to the
+    // job (SK10); else a GM from outside.
+    let name = match super::scouts::climb_to_gm(w, t, &mut rng) {
+        Some((name, read, _)) => {
+            skill = 0.5 * skill + 0.5 * read;
+            name
+        }
+        None => {
+            let eth = if rng.chance(0.15 + 0.15 * clamp((year - 1990) as f64 / 35.0, 0.0, 1.0)) {
+                super::super::ethnicity::Ethnicity::Black
+            } else {
+                super::super::ethnicity::Ethnicity::White
+            };
+            super::super::names::person_name(eth, year - rng.int(38, 55), &mut rng)
+        }
     };
-    let name = super::super::names::person_name(eth, year - rng.int(38, 55), &mut rng);
     let old = std::mem::take(&mut w.clubs[t].office.gm.name);
     let mut gm = new_gm(&mut rng, year, skill, name.clone());
     // Copycats (3.6) take after the last champion's lean.

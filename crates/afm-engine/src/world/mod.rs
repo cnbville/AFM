@@ -1351,90 +1351,64 @@ impl World {
         // (final build: 0.45 GB less at the peak of the summer).
         self.people.reserve_exact(kids.len());
         self.people.par_extend(kids.par_iter().enumerate().map(|(k, &(s, hs, seed))| {
-            let mut rng = Rng::new(seed);
-            let culture = states[s].culture;
-            let z = rng.normal(culture, 1.0);
-            let id = first_id + k as u32;
-            // His birthday, and whether he is a year older or younger
-            // than his class (A1, A2): keyed, so no draw moves.
-            let (born, years) = crate::calendar::born::schoolboy(born_key(seed_world, id), age, year);
-            let age = (age as i32 + years).max(13) as u32;
-            let mut player = generate_prospect(
-                &mut rng,
-                ProspectOptions { id: Some(id), talent_z: Some(z), age: Some(age), ..Default::default() },
-            );
-            let school = &schools[hs];
-            let (mut bg, structure) = generate_background(
-                BackgroundSeed {
-                    area_money: school.area_money,
-                    area_safety: school.area_safety,
-                    school_resources: school.resources,
-                },
-                &mut rng,
-            );
-            let family = generate_family(&bg, Some(structure), &mut rng);
-            apply_background(&mut player, &mut bg, &family, &mut rng);
-            people::sync_new(&mut player, &bg, &family);
-            let ethnicity = ethnicity::player_ethnicity(s, z, &mut rng);
-            // Grades drift through high school: effort pushes them up.
-            let gpa_trend = rng.normal(0.0, 0.07)
-                + 0.012 * (player.personality.work_ethic - 10.0)
-                + 0.04 * (bg.home_stability - 0.5);
-            Person {
-                name: names::person_name(ethnicity, year - age as i32, &mut rng),
-                ethnicity,
-                player,
-                rng,
-                bg,
-                family,
-                home_state: s,
-                hs,
-                stage: Stage::HighSchool,
-                college: None,
-                class_of: year + 18 - age as i32 + years,
-                born,
-                followers: 0,
-                brand: 0.0,
-                stars: 0,
-                camp_stars: 0,
-                visibility: 0.0,
-                college_seasons: 0,
-                redshirt_used: false,
-                sit_out: 0.0,
-                steered: false,
-                nil_income: 0.0,
-                pending_dip: None,
-                last_role: None,
-                hs_lines: Vec::new(),
-                last_snaps: 0,
-                college_snaps: 0,
-                last_performance: None,
-                transfers: 0,
-                juco: false,
-                path: Vec::new(),
-                on_notice: false,
-                gpa_trend,
-                gpa_at_signing: None,
-                academic_redshirt: false,
-                walk_on: false,
-                transfer_from: None,
-                college_staff: Vec::new(),
-                incident: false,
-                notes: Vec::new(),
-                stay_home: 0.0,
-                childhood_team: None,
-                cal: PersonCal::default(),
-                pro: None,
-                mood: 0.0,
-                mood_why: 0,
-                trust: 0.6,
-                trust_in: u32::MAX,
-                roads: eligibility::Roads::default(),
-                looks: looks::Looks::new(seed_world, id),
-            }
+            new_kid(seed_world, &states[s], s, &schools[hs], hs, seed, first_id + k as u32, age, year, None)
         }));
         self.draw_home_ties(start);
         self.place_new_class(start);
+    }
+
+    /// A boy out of another sport who comes out for football at your
+    /// school (SK22): made like any new boy, keyed, with the tools his sport
+    /// built and the football skills of someone who never played. Ids rise
+    /// along the list, so he goes on the end. Returns his place.
+    #[allow(clippy::too_many_arguments)]
+    pub fn add_athlete(
+        &mut self,
+        hs: usize,
+        name: &str,
+        ethnicity: ethnicity::Ethnicity,
+        class_of: i32,
+        key: u64,
+        pos: crate::positions::Position,
+        built: &[crate::attributes::Attr],
+        z: f64,
+    ) -> usize {
+        use crate::attributes::{Attr, Category};
+        let s = self.high_schools[hs].state;
+        let id = self.next_person;
+        self.next_person += 1;
+        let age = (self.year + 18 - class_of).clamp(14, 18) as u32;
+        let seed = (key ^ (key >> 32)) as u32 ^ 0x5A7E;
+        let mut p = new_kid(
+            self.options.seed,
+            &self.states[s],
+            s,
+            &self.high_schools[hs],
+            hs,
+            seed,
+            id,
+            age,
+            self.year,
+            Some(z),
+        );
+        p.name = name.to_string();
+        p.ethnicity = ethnicity;
+        p.class_of = class_of;
+        let a = &mut p.player.attributes;
+        for x in Attr::ALL {
+            let v = a.get(x);
+            if built.contains(&x) {
+                a.set(x, (v + 6.0).min(99.0));
+            } else if !matches!(x.category(), Category::Physical | Category::Mental) {
+                // Football skills he never learned.
+                a.set(x, (v * 0.8).max(1.0));
+            }
+        }
+        p.player.position = pos;
+        let start = self.people.len();
+        self.people.push(p);
+        self.draw_home_ties(start);
+        start
     }
 
     /// Each new boy's pull to stay in his state and the team he grew up
@@ -1658,4 +1632,100 @@ fn culture_shift(signee_share: f64, class_share: f64) -> f64 {
     let ratio = (signee_share / class_share).max(0.02);
     // Tail mass above t=2.23 shifts by about exp(2.4 * shift) for small shifts.
     clamp(ratio.ln() / 2.6, -0.6, 0.5)
+}
+
+/// One new boy at a high school: born, grown up, his family and his
+/// talent (`z` set for a boy whose talent is already known, such as an
+/// athlete out of another sport).
+#[allow(clippy::too_many_arguments)]
+fn new_kid(
+    seed_world: u32,
+    state: &StateInfo,
+    s: usize,
+    school: &HighSchool,
+    hs: usize,
+    seed: u32,
+    id: u32,
+    age: u32,
+    year: i32,
+    z: Option<f64>,
+) -> Person {
+    let mut rng = Rng::new(seed);
+    let culture = state.culture;
+    let z = z.unwrap_or_else(|| rng.normal(culture, 1.0));
+    // His birthday, and whether he is a year older or younger
+    // than his class (A1, A2): keyed, so no draw moves.
+    let (born, years) = crate::calendar::born::schoolboy(born_key(seed_world, id), age, year);
+    let age = (age as i32 + years).max(13) as u32;
+    let mut player = generate_prospect(
+        &mut rng,
+        ProspectOptions { id: Some(id), talent_z: Some(z), age: Some(age), ..Default::default() },
+    );
+    let (mut bg, structure) = generate_background(
+        BackgroundSeed {
+            area_money: school.area_money,
+            area_safety: school.area_safety,
+            school_resources: school.resources,
+        },
+        &mut rng,
+    );
+    let family = generate_family(&bg, Some(structure), &mut rng);
+    apply_background(&mut player, &mut bg, &family, &mut rng);
+    people::sync_new(&mut player, &bg, &family);
+    let ethnicity = ethnicity::player_ethnicity(s, z, &mut rng);
+    // Grades drift through high school: effort pushes them up.
+    let gpa_trend =
+        rng.normal(0.0, 0.07) + 0.012 * (player.personality.work_ethic - 10.0) + 0.04 * (bg.home_stability - 0.5);
+    Person {
+        name: names::person_name(ethnicity, year - age as i32, &mut rng),
+        ethnicity,
+        player,
+        rng,
+        bg,
+        family,
+        home_state: s,
+        hs,
+        stage: Stage::HighSchool,
+        college: None,
+        class_of: year + 18 - age as i32 + years,
+        born,
+        followers: 0,
+        brand: 0.0,
+        stars: 0,
+        camp_stars: 0,
+        visibility: 0.0,
+        college_seasons: 0,
+        redshirt_used: false,
+        sit_out: 0.0,
+        steered: false,
+        nil_income: 0.0,
+        pending_dip: None,
+        last_role: None,
+        hs_lines: Vec::new(),
+        last_snaps: 0,
+        college_snaps: 0,
+        last_performance: None,
+        transfers: 0,
+        juco: false,
+        path: Vec::new(),
+        on_notice: false,
+        gpa_trend,
+        gpa_at_signing: None,
+        academic_redshirt: false,
+        walk_on: false,
+        transfer_from: None,
+        college_staff: Vec::new(),
+        incident: false,
+        notes: Vec::new(),
+        stay_home: 0.0,
+        childhood_team: None,
+        cal: PersonCal::default(),
+        pro: None,
+        mood: 0.0,
+        mood_why: 0,
+        trust: 0.6,
+        trust_in: u32::MAX,
+        roads: eligibility::Roads::default(),
+        looks: looks::Looks::new(seed_world, id),
+    }
 }
