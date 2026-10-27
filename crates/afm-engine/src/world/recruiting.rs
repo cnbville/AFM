@@ -2388,25 +2388,25 @@ const SERVICE_MISREAD: f64 = 9.0;
 const SERVICE_TIERS: [(u8, f64); 4] =
     [(5, 33.0 / 250_000.0), (4, 350.0 / 250_000.0), (3, 2_800.0 / 250_000.0), (2, 3_200.0 / 250_000.0)];
 
-/// The services' read of a kid's offer list (minor bug 17), 0-1: the best
-/// school that has offered him or holds his commitment, by level and how
-/// big a name it is at that level. Real rankings lean on it: analysts watch
-/// the tape of a kid whom Power programs offer, and a list of SEC offers
-/// moves a kid up a tier while an FCS-only list keeps him below the FBS
-/// signees (proposed, not confirmed).
-fn offer_sheet(programs: &[Program], p: &Person) -> f64 {
+/// The services' read of a kid's offer list (minor bug 17), 0-1: the
+/// school that holds his commitment, or before he commits the best school
+/// that has offered him, by the level recruits read in it and how big a
+/// name it is at that level. Real rankings lean on it: analysts watch the
+/// tape of a kid whom Power programs offer, a list of SEC offers moves a
+/// kid up a tier while an FCS-only list keeps him below the FBS signees,
+/// and a commitment says who really took him (lane 10 follow-up: read as
+/// his best offer, a kid who committed to a Group of 5 school with a
+/// Power 4 offer stayed a four-star, and the Group of 5's four-stars were
+/// no better than the SEC's three-stars). Proposed, not confirmed.
+fn offer_sheet(programs: &[Program], p: &Person, year: i32) -> f64 {
     let weight = |j: usize| {
         let g = &programs[j];
-        level_value(g.division) * (0.5 + 0.5 * g.prestige_rel.clamp(0.0, 1.0))
+        recruit_level(g, year) * (0.5 + 0.5 * g.prestige_rel.clamp(0.0, 1.0))
     };
-    p.cal
-        .offers
-        .iter()
-        .copied()
-        .chain(p.cal.early_offers.iter().map(|o| o.0))
-        .chain(p.cal.commit.filter(|c| !c.2).map(|c| c.0))
-        .map(weight)
-        .fold(0.0, f64::max)
+    if let Some(c) = p.cal.commit.filter(|c| !c.2) {
+        return weight(c.0);
+    }
+    p.cal.offers.iter().copied().chain(p.cal.early_offers.iter().map(|o| o.0)).map(weight).fold(0.0, f64::max)
 }
 
 /// What the offer list adds to the services' score, in film standard
@@ -2691,7 +2691,7 @@ const FIT_EVAL: f64 = 0.3;
 /// over four classes against a real 0.9 and 0.1, 247Sports composite
 /// 2022-25), though most had two or more Power 4 offers. Proposed, not
 /// confirmed.
-const STAR_EVAL: f64 = 1.0;
+const STAR_EVAL: f64 = 0.5;
 
 /// What a recruit or transfer sees of a roster beyond the school's grades
 /// (trial 3 item 4, Raichel 2026-10-14): the room at his own position, and
@@ -3702,7 +3702,7 @@ pub(crate) fn rate_underclass(w: &mut World, class_of: i32, d: Date, reach: [f64
                 None => seen,
             };
             let gift = crate::links::gift(&crate::links::projected(&p.player));
-            let sheet = offer_sheet(&wr.programs, p);
+            let sheet = offer_sheet(&wr.programs, p, wr.year);
             (i, read, star_score(film, read, vis, gift, sheet, all_mean_sd.1))
         })
         .collect();
@@ -3939,7 +3939,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         // see a kid's measurables only once he has tested at their camps,
         // so they fall behind on a physical freak (D3). They also read his
         // offer list (minor bug 17).
-        let sheets: Vec<f64> = pool.iter().map(|r| offer_sheet(&w.programs, &w.people[r.person])).collect();
+        let sheets: Vec<f64> = pool.iter().map(|r| offer_sheet(&w.programs, &w.people[r.person], year)).collect();
         let score: Vec<f64> = pool
             .iter()
             .zip(&sheets)
