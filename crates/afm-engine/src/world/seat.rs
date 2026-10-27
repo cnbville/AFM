@@ -29,6 +29,15 @@ pub struct SeatGame {
     /// Your drawings on the film (film-room tool 1), saved with the clip.
     #[serde(default)]
     pub marks: Vec<FilmMark>,
+    /// The players in it who have since left football, and so the world:
+    /// their names for its pages (`seat_names::keep`).
+    #[serde(default)]
+    pub gone: Vec<super::seat_names::Gone>,
+    /// What the home side was expected to win by before the game: the
+    /// closing line where the books hung one, 0 at a neutral site without
+    /// one. None for a home game with no line (and games kept before).
+    #[serde(default)]
+    pub spread: Option<f32>,
 }
 
 /// A drawing on a paused frame of the film: a line, an arrow, a circle or
@@ -96,10 +105,33 @@ impl World {
             stats: stats.clone(),
             replay,
             marks: Vec::new(),
+            gone: Vec::new(),
+            spread: None,
         });
         if self.seat_games.len() > KEEP_GAMES {
             let cut = self.seat_games.len() - KEEP_GAMES;
             self.seat_games.drain(..cut);
+        }
+    }
+
+    /// The pregame line of the game just kept, when it is yours: `line` is
+    /// the home side's spread (negative when favoured), and a neutral site
+    /// without a line is even.
+    pub(crate) fn seat_line(
+        &mut self,
+        level: crate::calendar::Level,
+        teams: [usize; 2],
+        line: Option<[f32; 2]>,
+        neutral: bool,
+    ) {
+        let today = self.today;
+        if let Some(g) = self.seat_games.last_mut()
+            && g.level == level
+            && g.teams == teams
+            && g.date == today
+            && g.spread.is_none()
+        {
+            g.spread = line.map(|l| -l[0]).or(neutral.then_some(0.0));
         }
     }
 
@@ -410,7 +442,13 @@ pub struct NflFixture {
 impl World {
     /// This college season's record for a program.
     pub fn college_record(&self, prog: usize) -> Record {
-        self.college.as_ref().and_then(|cs| cs.results.get(prog)).map_or(Record::default(), |r| Record {
+        self.college_record_in(prog, false)
+    }
+
+    /// A program's record this season, or last (`prev`).
+    pub fn college_record_in(&self, prog: usize, prev: bool) -> Record {
+        let cs = if prev { self.college_prev.as_ref() } else { self.college.as_ref() };
+        cs.and_then(|cs| cs.results.get(prog)).map_or(Record::default(), |r| Record {
             wins: r.wins,
             losses: r.losses,
             conf_wins: r.conf_wins,
@@ -420,7 +458,13 @@ impl World {
 
     /// This college season's games for a program (all programs if None).
     pub fn college_fixtures(&self, prog: Option<usize>) -> Vec<Fixture> {
-        let Some(cs) = self.college.as_ref() else { return Vec::new() };
+        self.college_fixtures_in(prog, false)
+    }
+
+    /// This season's games, or last season's (`prev`).
+    pub fn college_fixtures_in(&self, prog: Option<usize>, prev: bool) -> Vec<Fixture> {
+        let cs = if prev { self.college_prev.as_ref() } else { self.college.as_ref() };
+        let Some(cs) = cs else { return Vec::new() };
         cs.games
             .iter()
             .filter(|g| prog.is_none_or(|p| g.home == p || g.away == p))
@@ -474,7 +518,13 @@ impl World {
 
     /// This NFL season's games for a club (all if None).
     pub fn nfl_fixtures(&self, t: Option<usize>) -> Vec<NflFixture> {
-        let Some(s) = self.nfl_season.as_ref() else { return Vec::new() };
+        self.nfl_fixtures_in(t, false)
+    }
+
+    /// This NFL season's games, or last season's (`prev`).
+    pub fn nfl_fixtures_in(&self, t: Option<usize>, prev: bool) -> Vec<NflFixture> {
+        let s = if prev { self.nfl_prev.as_ref() } else { self.nfl_season.as_ref() };
+        let Some(s) = s else { return Vec::new() };
         let mut out = Vec::new();
         for (k, week) in s.weeks.iter().enumerate() {
             for (g, &(h, a)) in week.iter().enumerate() {

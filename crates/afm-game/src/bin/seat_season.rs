@@ -540,6 +540,42 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
             }
         }
     }
+    // The game boards (update 2, lane 9): the last kept game's flow and
+    // line battles, both passers' pass maps, the cap or NIL budget this
+    // year and next, the locker room and every tab of the race.
+    if seat != "other" {
+        let n = run.call(g, "games", json!({})).and_then(|v| v["games"].as_array().map(Vec::len)).unwrap_or(0);
+        if n > 0 {
+            if let Some(v) = run.call(g, "board_flow", json!({ "index": n - 1 })) {
+                refs(&v, &mut players, &mut coaches, &mut teams);
+            }
+            if let Some(v) = run.call(g, "board_battles", json!({ "index": n - 1 })) {
+                refs(&v, &mut players, &mut coaches, &mut teams);
+            }
+            if let Some(v) = run.call(g, "game", json!({ "index": n - 1 })) {
+                let ids: Vec<Value> = (0..2)
+                    .filter_map(|k| {
+                        v["sides"][k]["passing"].as_array().and_then(|r| r.first()).map(|r| r["id"].clone())
+                    })
+                    .collect();
+                for id in ids {
+                    run.call(g, "board_passmap", json!({ "id": id }));
+                }
+            }
+        }
+        let year = run.call(g, "status", json!({})).and_then(|v| v["season"].as_i64()).unwrap_or(0);
+        run.call(g, "board_cap", json!({}));
+        run.call(g, "board_cap", json!({ "year": year + 1 }));
+        if let Some(v) = run.call(g, "board_locker", json!({})) {
+            refs(&v, &mut players, &mut coaches, &mut teams);
+        }
+        if let Some(v) = run.call(g, "board_polls", json!({})) {
+            let tabs: Vec<Value> = v["tabs"].as_array().into_iter().flatten().map(|t| t["k"].clone()).collect();
+            for t in tabs {
+                run.call(g, "board_polls", json!({ "tab": t }));
+            }
+        }
+    }
     // Finding players (update 2, lane 7): the seat's search, its filters,
     // sorts, chart, Compare and drawers; a high school's Colleges calling.
     for v in find_stops(run, g, seat) {

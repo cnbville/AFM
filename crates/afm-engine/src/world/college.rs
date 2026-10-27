@@ -741,8 +741,15 @@ pub(crate) fn play_day(w: &mut World, date: Date) {
         played.home_won = home_won;
         if let Some(r) = &r {
             w.keep_seat_game(CalLevel::College, [home, away], &r.stats, r.replay.as_deref());
+            let line = w.college.as_ref().unwrap().games[k].line;
+            w.seat_line(CalLevel::College, [home, away], line, j.neutral);
             if let Some(o) = &watch {
                 w.keep_tape(o, CalLevel::College, [home, away], &r.stats, &r.film);
+            }
+            // The level's numbers for the game boards (lane 9).
+            let div = w.programs[home].division;
+            if div == w.programs[away].division {
+                super::charts::add_game(w, year, super::charts::college_key(div), &r.stats);
             }
         }
         let cs = w.college.as_mut().unwrap();

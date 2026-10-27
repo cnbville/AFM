@@ -173,6 +173,10 @@ struct HsPlayed {
     /// setup for watching it back) and your coming opponents' film.
     full:
         Option<(crate::game::stats::GameStats, [crate::game::calling::Film; 2], Option<Box<crate::game::ReplaySetup>>)>,
+    /// The game on the state's numbers for the game boards (lane 9).
+    tally: super::charts::Tally,
+    /// A final at a neutral site.
+    neutral: bool,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -1384,7 +1388,16 @@ fn engine_games(
                 seat.is_some_and(|x| x == h || x == a) || watch.as_ref().is_some_and(|o| o.watches(h) || o.watches(a));
             let replay = r.replay.take();
             let full = kept.then(|| (r.stats.clone(), r.film.clone(), replay));
-            Ok(HsPlayed { score: [ha.max(0) as u32, hb.max(0) as u32], team: r.stats.team.clone(), lines, full })
+            let mut tally = super::charts::Tally::default();
+            tally.add_game(&r.stats);
+            Ok(HsPlayed {
+                score: [ha.max(0) as u32, hb.max(0) as u32],
+                team: r.stats.team.clone(),
+                lines,
+                full,
+                tally,
+                neutral: final_game,
+            })
         })
         .collect();
     let mut out = Vec::with_capacity(games.len());
@@ -1425,6 +1438,7 @@ fn engine_games(
         }
         if let Some((full, film, replay)) = g.full.as_ref() {
             w.keep_seat_game(Level::HighSchool, [h, a], full, replay.as_deref());
+            w.seat_line(Level::HighSchool, [h, a], None, g.neutral);
             if let Some(o) = &watch {
                 w.keep_tape(o, Level::HighSchool, [h, a], full, film);
             }
@@ -1450,6 +1464,8 @@ fn engine_games(
             };
             super::storylines::detect::games::after(w, &played);
         }
+        let year = w.year;
+        w.charts.add(year, super::charts::HS + s as u16, &g.tally);
         w.log.hs_engine_games += 1;
         w.log.hs_totals.add(&g.team[0], &g.team[1]);
         w.log.hs_totals.add(&g.team[1], &g.team[0]);
@@ -1462,7 +1478,30 @@ fn engine_games(
     out
 }
 
-/// A state's poll (A33): its top five, by record and how they look.
+/// How a state's writers rate a school (A33; lane 9 review, proposed,
+/// not confirmed): only what they can know, as real media polls do. This
+/// season's record and scoring margin, and before and early in the season
+/// the school's name (prestige), last season's record, playoff run and
+/// title, and the starters coming back. That read fades as games are
+/// played. Never the team's true strength.
+fn poll_score(w: &World, r: &super::season::TeamResult, h: usize) -> f64 {
+    let school = &w.high_schools[h];
+    let last = school.seasons.iter().rev().find(|x| x.year < w.year);
+    let last_pct = last.filter(|x| x.wins + x.losses > 0).map_or(0.5, |x| x.wins as f64 / (x.wins + x.losses) as f64);
+    let run = last.map_or(0.0, |x| 0.5 * x.playoff_wins.min(4) as f64 + if x.state_title { 1.0 } else { 0.0 });
+    let back = school
+        .roster
+        .iter()
+        .filter(|&&i| w.people.get(i).is_some_and(|p| p.last_role == Some(crate::player::PlayingTime::Starter)))
+        .count() as f64;
+    let prior = (3.0 * (school.prestige - 0.5) + 2.0 * (last_pct - 0.5) + run + 0.1 * (back - 11.0)).clamp(-4.0, 4.0);
+    let g = r.games() as f64;
+    let t = &r.totals;
+    let margin = if t.games > 0 { (t.points_for - t.points_against) as f64 / t.games as f64 } else { 0.0 };
+    r.wins as f64 - r.losses as f64 + 0.1 * margin.clamp(-30.0, 30.0) + prior * 4.0 / (4.0 + g)
+}
+
+/// A state's poll (A33): its top five, on what the writers can know.
 fn poll(w: &mut World, s: usize, d: Date, which: &str) {
     if !w.recording {
         return;
@@ -1472,10 +1511,7 @@ fn poll(w: &mut World, s: usize, d: Date, which: &str) {
         .schools
         .iter()
         .filter(|&&h| hs.results[h].roster > 0)
-        .map(|&h| {
-            let r = &hs.results[h];
-            (r.wins as f64 - r.losses as f64 + 0.15 * r.strength, h)
-        })
+        .map(|&h| (poll_score(w, &hs.results[h], h), h))
         .collect();
     teams.sort_by(|a, b| b.0.total_cmp(&a.0));
     let top: Vec<String> = teams
@@ -1500,6 +1536,7 @@ fn poll(w: &mut World, s: usize, d: Date, which: &str) {
         e = e.hs_link(h, w.school_name(h));
     }
     w.calendar.post(e);
+    super::charts::state_poll(w, s, d, which, &teams);
 }
 
 /// The playoff field (U-d): each bracket of the state's real format, from

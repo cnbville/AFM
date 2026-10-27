@@ -162,6 +162,9 @@ struct Side<'a> {
     /// your plan's, else what this staff reads from the other team's film.
     checks: u8,
     ifs: Vec<u8>,
+    /// The call sheets this game: your week's, else what this staff drafts
+    /// at kickoff (`world::plans::kickoff_card`).
+    card: super::sheet::Card,
     /// Script calls used this game, offense then defense (G11): a script
     /// call counts once it is run.
     scripted: [usize; 2],
@@ -231,6 +234,7 @@ impl<'a> Side<'a> {
             tricks: 0,
             checks: team.prep.checks,
             ifs: team.prep.ifs.clone(),
+            card: super::sheet::Card::of(&team.prep),
             scripted: [0, 0],
             turn: team
                 .players
@@ -650,6 +654,10 @@ enum Next {
     Scrimmage,
 }
 
+/// A fake punt's two units on the field, by their scrimmage roles, and
+/// whether the return unit showed the look (G18).
+type FakeUnits = (Vec<(ORole, usize)>, Vec<(DSlot, usize)>, bool);
+
 struct Game<'a> {
     s: &'a GameSetup<'a>,
     sides: [Side<'a>; 2],
@@ -728,6 +736,9 @@ struct Game<'a> {
     def_script: bool,
     /// The return team showed the look on this punt (G18), for its record.
     kick_look: bool,
+    /// A fake punt's two units on the field and the look (G18): the next
+    /// scrimmage snap is played with them.
+    fake: Option<FakeUnits>,
 }
 
 /// Play a game.
@@ -761,6 +772,34 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
             side.checks = staff_checks(film);
             side.ifs = staff_ifs(film);
         }
+    }
+    // The call sheets (update 2, G7-G13): a team whose week gave it none
+    // has its coordinators draft one now, from the other team's film and
+    // the tells in its own, the same draft as yours. Its own key, so the
+    // game's stream is the one it was.
+    for (k, side) in sides.iter_mut().enumerate() {
+        if side.team.prep.planned || !side.card.is_empty() || !super::sheet::drafts_at_kickoff(k, setup.rules.level) {
+            continue;
+        }
+        let (opp, own) = if k == 0 { (setup.away, setup.home) } else { (setup.home, setup.away) };
+        let qb_run = side
+            .depth
+            .list(Position::QB)
+            .iter()
+            .copied()
+            .find(|&i| !side.out[i])
+            .map_or(0.0, |i| qb_run(&side.team.players[i]));
+        let inp = crate::world::plans::DraftIn {
+            film: opp.film.clone(),
+            level: setup.rules.level,
+            two_from: setup.rules.two_point_from,
+            qb_run,
+            seed: ((setup.seed >> 29) as u32) ^ (setup.seed as u32).rotate_left(11) ^ 0x51EE_7000 ^ k as u32,
+            favs: Vec::new(),
+            tells: crate::world::plans::film_tells(&own.film),
+            designs: Vec::new(),
+        };
+        side.card = crate::world::plans::kickoff_card(side.team, &inp);
     }
     let plans: Vec<calling::Plan> = (0..2)
         .map(|k| {
@@ -876,6 +915,7 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
         must_go: false,
         def_script: false,
         kick_look: false,
+        fake: None,
     };
     if let Some(c) = g.ctl.as_mut() {
         c.asked = 0;
@@ -1336,6 +1376,7 @@ impl<'a> Game<'a> {
         r.score = [self.stats.team[0].points, self.stats.team[1].points];
         r.ep_before = ep_at(self.down.max(1), self.togo, goal() - self.x);
         r.wp_before = wp_at(self.diff(self.poss), self.game_left(), goal() - self.x);
+        r.timeouts = Some([self.sides[0].timeouts, self.sides[1].timeouts]);
         r.after_turnover = self.after_turnover;
         r.garbage = [self.sides[0].coach.read.step, self.sides[1].coach.read.step];
         r.hash = match super::sheet::hash_of(self.ball_y) {
@@ -2226,11 +2267,10 @@ impl<'a> Game<'a> {
                     // return team shows the look.
                     let look = self.return_look(1 - o, true);
                     if self.fake_punt(o, look) {
-                        let mut r = self.snap_play_as(false, Some(true));
+                        let r = self.fake_punt_play(look);
                         if self.paused {
                             return;
                         }
-                        r.call_why = "a fake punt: the look was there";
                         self.stats.plays.push(r);
                         return;
                     }
@@ -2492,11 +2532,71 @@ impl<'a> Game<'a> {
         self.stats.team[self.poss].start_sum += self.x;
     }
 
-    fn punt(&mut self) {
+    /// The fake punt itself (G18, R25): the punt team stays in its punt
+    /// formation against the punt return team on the field, and the snap
+    /// goes straight to the up-back, who runs behind the pulling guard
+    /// (`scrimmage::return_jobs`). The men on the two units take the jobs
+    /// they fit: the punt team's two fastest are the gunners, its four
+    /// heaviest the guards and tackles, its best runner of the rest the
+    /// up-back; on the return team the returner waits deep, its two fastest
+    /// jam the gunners, its four heaviest line up on the guards and
+    /// tackles, the next two over the wings and the last two hold five
+    /// yards off the ball (proposed, not confirmed).
+    fn fake_punt_play(&mut self, look: bool) -> PlayRecord {
         let o = self.poss;
         let d = 1 - o;
-        let mut r = self.new_record(PlayType::Punt);
-        r.look = std::mem::take(&mut self.kick_look);
+        let (kick_on, ret_on, sn) = self.punt_units();
+        let (ps, qs) = (&self.sides[o].team.players, &self.sides[d].team.players);
+        let take = |pool: &mut Vec<usize>, n: usize, key: &dyn Fn(usize) -> f64| -> Vec<usize> {
+            pool.sort_by(|&a, &b| key(b).total_cmp(&key(a)));
+            pool.drain(..n.min(pool.len())).collect()
+        };
+        let punter = kick_on[0];
+        let mut pool: Vec<usize> = kick_on.iter().copied().filter(|&i| i != punter && i != sn).collect();
+        let gun = take(&mut pool, 2, &|i| ps[i].a(Attr::Speed));
+        let line = take(&mut pool, 4, &|i| ps[i].weight);
+        let runner = |i: usize| {
+            let p = &ps[i];
+            0.4 * p.a(Attr::BallCarrierVision) + 0.3 * p.a(Attr::BallSecurity) + 0.3 * p.a(Attr::Speed)
+        };
+        let up = take(&mut pool, 1, &runner);
+        let mut off: Vec<(ORole, usize)> = vec![(ORole::C, sn), (ORole::RB, punter)];
+        off.extend(line.iter().zip([ORole::LG, ORole::RG, ORole::LT, ORole::RT]).map(|(&i, r)| (r, i)));
+        off.extend(gun.iter().zip([ORole::X, ORole::Z]).map(|(&i, r)| (r, i)));
+        off.extend(up.iter().map(|&i| (ORole::QB, i)));
+        off.extend(pool.iter().zip([ORole::TE, ORole::TE2, ORole::Slot]).map(|(&i, r)| (r, i)));
+        let returner = ret_on[0];
+        let mut pool: Vec<usize> = ret_on.iter().copied().skip(1).collect();
+        let jam = take(&mut pool, 2, &|i| qs[i].a(Attr::Speed));
+        let big = take(&mut pool, 4, &|i| qs[i].weight);
+        let wings = take(&mut pool, 2, &|i| qs[i].weight);
+        let mut def: Vec<(DSlot, usize)> = vec![(DSlot::FS, returner)];
+        def.extend(jam.iter().zip([DSlot::CBL, DSlot::CBR]).map(|(&i, s)| (s, i)));
+        def.extend(big.iter().zip([DSlot::DTL, DSlot::DTR, DSlot::LE, DSlot::RE]).map(|(&i, s)| (s, i)));
+        def.extend(wings.iter().zip([DSlot::Sam, DSlot::Will]).map(|(&i, s)| (s, i)));
+        def.extend(pool.iter().zip([DSlot::Mike, DSlot::SS, DSlot::NCB]).map(|(&i, s)| (s, i)));
+        self.fake = Some((off, def, look));
+        let call = OffCall::new(
+            Formation::plain(Personnel::P12, Backfield::Shotgun, 1.0),
+            PlayKind::Run(RunConcept::QbPower),
+            if self.rng.chance(0.5) { 1.0 } else { -1.0 },
+            false,
+        );
+        let dcall = DefCall::new(DefPersonnel::Base, Coverage::Cover1, Pressure::Four);
+        let mut r = self.run_scrimmage_call(call, Some(dcall));
+        r.call = "punt formation, the snap straight to the up-back".into();
+        r.personnel = "punt".into();
+        r.call_why = if look { "a fake punt: the look was there" } else { "a fake punt, called" };
+        r.look = look;
+        r
+    }
+
+    /// The punt team (the punter first, the long snapper in the middle)
+    /// and the punt return team (the returner first) on this punt, and the
+    /// long snapper.
+    fn punt_units(&self) -> (Vec<usize>, Vec<usize>, usize) {
+        let o = self.poss;
+        let d = 1 - o;
         let side = &self.sides[o];
         let p = side.punter();
         let sn = side.snapper();
@@ -2530,6 +2630,18 @@ impl<'a> Game<'a> {
             Some(&r) => opp.with_package(6, &[r], ret_on),
             None => ret_on,
         };
+        (kick_on, ret_on, sn)
+    }
+
+    fn punt(&mut self) {
+        let o = self.poss;
+        let d = 1 - o;
+        let mut r = self.new_record(PlayType::Punt);
+        r.look = std::mem::take(&mut self.kick_look);
+        let (kick_on, ret_on, sn) = self.punt_units();
+        let p = kick_on[0];
+        let side = &self.sides[o];
+        let opp = &self.sides[d];
         let kt = KickTeams {
             kick: &side.team.players,
             ret: &opp.team.players,
@@ -3001,8 +3113,8 @@ impl<'a> Game<'a> {
         // calls the week's plays for the situation, run or pass as he read
         // it, the opening script in order, by the hash, the bad-weather
         // version in bad weather.
-        if !self.sides[o].team.prep.sheet.is_empty() {
-            let ctx = super::sheet::Ctx {
+        if !self.sides[o].card.sheet.is_empty() {
+            let sctx = super::sheet::Ctx {
                 scripted: self.sides[o].scripted[0],
                 hash: super::sheet::hash_of(self.ball_y),
                 wet: self.bad_weather(),
@@ -3010,7 +3122,9 @@ impl<'a> Game<'a> {
                 hurry: sit.hurry(),
                 forced: run.is_some(),
             };
-            if let Some((c, _)) = super::sheet::off_call(&self.sides[o].team.prep, &sit, &call, ctx, &mut self.rng) {
+            let side = &self.sides[o];
+            let again = |rng: &mut Rng| calling::call_offense(&staff_o, &side.mem, &sit, &ctx, rng);
+            if let Some((c, _)) = super::sheet::off_call(&side.card, &sit, &call, sctx, &mut self.rng, again) {
                 call = c;
             }
         }
@@ -3075,15 +3189,18 @@ impl<'a> Game<'a> {
         // Your defensive call sheet (update 2, G8), inside the
         // coordinator's own read of the snap.
         self.def_script = false;
-        if !self.sides[1 - o].team.prep.dsheet.is_empty() {
+        if !self.sides[1 - o].card.dsheet.is_empty() {
             let dctx_sheet = super::sheet::DefCtx {
                 wet: self.bad_weather(),
                 two_point,
                 scripted: self.sides[1 - o].scripted[1],
                 tipped: dctx.tip != 0.0,
             };
+            let side = &self.sides[1 - o];
+            let formation = call.formation;
+            let again = |rng: &mut Rng| calling::call_defense(&staff_d, &side.mem, &sit, &formation, &dctx, rng);
             if let Some((c, scripted)) =
-                super::sheet::def_call(&self.sides[1 - o].team.prep, &sit, &dcall, dctx_sheet, &mut self.rng)
+                super::sheet::def_call(&side.card, &sit, &dcall, dctx_sheet, &mut self.rng, again)
             {
                 dcall = c;
                 self.def_script = scripted;
@@ -3124,6 +3241,8 @@ impl<'a> Game<'a> {
         // still used it; a foul before the snap did not).
         let from_script = call.why == "the opening script";
         let def_script = std::mem::take(&mut self.def_script);
+        // A fake punt brings its own two units (`fake_punt_play`).
+        let fake = self.fake.take();
         call.formation.personnel = call.formation.personnel.for_players(self.rules().code.players);
         let dcall =
             self.legal_defense(dcall.unwrap_or(DefCall::new(DefPersonnel::Base, Coverage::Cover3, Pressure::Four)));
@@ -3136,7 +3255,10 @@ impl<'a> Game<'a> {
             self.sides[k].scrimmage = true;
             self.sides[k].defending = k == d;
         }
-        let (off, def) = self.lineup(&call, &dcall);
+        let (off, def) = match &fake {
+            Some((off, def, _)) => (off.clone(), def.clone()),
+            None => self.lineup(&call, &dcall),
+        };
         for side in self.sides.iter_mut() {
             side.scrimmage = false;
         }
@@ -3179,7 +3301,7 @@ impl<'a> Game<'a> {
         let noise = 1.0 - 0.5 * self.home_crowd(o);
         let sees = clamp((iq - 40.0) / 50.0, 0.05, 0.95) * noise;
         let mut audible = false;
-        if !sit.hurry() && call.kind != PlayKind::Kneel {
+        if !sit.hurry() && call.kind != PlayKind::Kneel && fake.is_none() {
             let run_called = matches!(call.kind, PlayKind::Run(_));
             let pass_called = matches!(call.kind, PlayKind::Pass(c) if pass_concept(c).depth != PassDepth::Screen);
             // Run into a loaded box, or throw against a light one with two deep.
@@ -3290,12 +3412,15 @@ impl<'a> Game<'a> {
                 hurt_edge_d[i] -= 3.0;
             }
         }
-        // A man at a spot he doesn't know plays below his rating there (3.3).
-        for &(rl, i) in &off {
-            hurt_edge_o[i] -= self.sides[o].unfamiliar(i, orole_spot(rl));
-        }
-        for &(sl, i) in &def {
-            hurt_edge_d[i] -= self.sides[d].unfamiliar(i, dslot_spot(sl));
+        // A man at a spot he doesn't know plays below his rating there (3.3);
+        // the punt units' jobs are their own.
+        if fake.is_none() {
+            for &(rl, i) in &off {
+                hurt_edge_o[i] -= self.sides[o].unfamiliar(i, orole_spot(rl));
+            }
+            for &(sl, i) in &def {
+                hurt_edge_d[i] -= self.sides[d].unfamiliar(i, dslot_spot(sl));
+            }
         }
         // An emergency (3.6): a man from another position group, when his
         // own group is out of bodies. Tight ends at fullback and corners at
@@ -3304,8 +3429,9 @@ impl<'a> Game<'a> {
         let stranger = |side: &Side, i: usize, sp: Spot| {
             !same_group(side.team.players[i].position, sp) && !side.depth.list(sp.position()).contains(&i)
         };
-        r.emergency = off.iter().any(|&(rl, i)| stranger(&self.sides[o], i, orole_spot(rl)))
-            || def.iter().any(|&(sl, i)| stranger(&self.sides[d], i, dslot_spot(sl)));
+        r.emergency = fake.is_none()
+            && (off.iter().any(|&(rl, i)| stranger(&self.sides[o], i, orole_spot(rl)))
+                || def.iter().any(|&(sl, i)| stranger(&self.sides[d], i, dslot_spot(sl))));
         let crowd = self.home_crowd(o);
         // What he knows of the coverage before the snap (topic 3): his own
         // read, a disguise that fooled him, and motion against man (the
@@ -3368,10 +3494,13 @@ impl<'a> Game<'a> {
             strictness: [self.sides[o].team.staff.strictness, self.sides[d].team.staff.strictness],
             injury_scale: 1.0,
             record: self.recording(),
+            // Your games keep the line chart (lane 9); no other game does.
+            chart: self.s.keep || self.ctl.is_some(),
             hurry: sit.hurry(),
             two_gap: self.sides[d].team.staff.front == Front::ThreeFour,
             tac,
             mood: self.mood(o),
+            fake_punt: fake.as_ref().map(|f| f.2),
         };
         let res = scrimmage::run_snap(&snap, &mut self.rng);
         // The officials' ruling, and a review (topic 6).
@@ -3540,6 +3669,7 @@ impl<'a> Game<'a> {
         r.fumbled = res.notes.fumbled;
         r.blocks = res.notes.blocks.clone();
         r.rush_wins = res.notes.rush_wins.clone();
+        r.line = res.notes.chart.clone();
         r.tend = res.notes.tend;
         r.busts = res.notes.busts.clone();
         r.injuries = res.notes.injuries.clone();
@@ -5213,6 +5343,7 @@ fn bare_game<'a>(setup: &'a GameSetup, off: &'a GameTeam, def: &'a GameTeam, los
         must_go: false,
         def_script: false,
         kick_look: false,
+        fake: None,
     };
     g.stats.quarters.push([0, 0]);
     g

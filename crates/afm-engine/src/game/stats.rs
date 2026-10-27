@@ -148,6 +148,13 @@ pub struct PlayRecord {
     /// convert.
     #[serde(default)]
     pub fourth: Option<[f32; 4]>,
+    /// Timeouts left at the snap, home then away (None in games kept
+    /// before lane 9), for the win chance.
+    #[serde(default)]
+    pub timeouts: Option<[u8; 2]>,
+    /// The line chart (lane 9): your games' snaps only.
+    #[serde(default)]
+    pub line: Option<Box<super::chart::LineChart>>,
     /// Where the ball sat at the snap (update 2, G6, the self-scout): 0 not
     /// kept, 1 the left hash, 2 the right, 3 the middle, as the offense
     /// looks downfield.
@@ -254,6 +261,8 @@ impl PlayRecord {
             officiating: None,
             throw_y: None,
             fourth: None,
+            timeouts: None,
+            line: None,
             hash: 0,
             hurry: false,
             dpers: 0,

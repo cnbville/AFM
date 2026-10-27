@@ -2029,7 +2029,7 @@ pub(crate) fn camp_walk_ons(w: &mut World) {
 /// programs that stayed out, D2 and junior colleges) the limit counts
 /// players on aid, and walk-ons sit outside it, except the specialists the
 /// class plan keeps in its own walk-on room under the limit.
-fn takes_a_place(p: &Person, whole_roster: bool, season: i32) -> bool {
+pub(crate) fn takes_a_place(p: &Person, whole_roster: bool, season: i32) -> bool {
     // A 2020 senior back for his COVID year didn't count against the 2021
     // scholarship limits (the NCAA's one-year exemption, A3).
     if super::eligibility::covid_senior(p, season) {
@@ -2374,6 +2374,62 @@ fn service_bias(p: &Person, world_seed: u64) -> f64 {
 
 const SERVICE_MATURITY: f64 = 1.6;
 const SERVICE_MISREAD: f64 = 9.0;
+
+/// How many of a class of 250,000 the services rate at 5, 4, 3 and 2
+/// stars (minor bug 17). The 247 Composite's own counts: about 32 five-stars
+/// and 350 four-stars a class (the final Top247), and about 2,600 three-stars
+/// signing with FBS, FCS and Division II programs each year (2,200 of them
+/// FBS; CFBD's composite ratings of the 2022-2025 signees), with more who
+/// sign nowhere rated. The two-stars fill the rated pool to its old size,
+/// so who stays in view of the staffs (2+ stars) holds. The old shares
+/// (2,000 three-stars and 4,000 two-stars) left SEC squads half 3-stars
+/// short and full of 2-stars, which the composite almost never gives an
+/// SEC signee. The standalone class sim keeps `PIPELINE.star_shares`.
+const SERVICE_TIERS: [(u8, f64); 4] =
+    [(5, 33.0 / 250_000.0), (4, 350.0 / 250_000.0), (3, 2_800.0 / 250_000.0), (2, 3_200.0 / 250_000.0)];
+
+/// The services' read of a kid's offer list (minor bug 17), 0-1: the best
+/// school that has offered him or holds his commitment, by level and how
+/// big a name it is at that level. Real rankings lean on it: analysts watch
+/// the tape of a kid whom Power programs offer, and a list of SEC offers
+/// moves a kid up a tier while an FCS-only list keeps him below the FBS
+/// signees (proposed, not confirmed).
+fn offer_sheet(programs: &[Program], p: &Person) -> f64 {
+    let weight = |j: usize| {
+        let g = &programs[j];
+        level_value(g.division) * (0.5 + 0.5 * g.prestige_rel.clamp(0.0, 1.0))
+    };
+    p.cal
+        .offers
+        .iter()
+        .copied()
+        .chain(p.cal.early_offers.iter().map(|o| o.0))
+        .chain(p.cal.commit.filter(|c| !c.2).map(|c| c.0))
+        .map(weight)
+        .fold(0.0, f64::max)
+}
+
+/// What the offer list adds to the services' score, in film standard
+/// deviations for a top offer (minor bug 17; proposed, not confirmed).
+/// Sized on the 2026 recruiting year of the 30-year world: at 3 the
+/// December rating gives the summer's FBS commits 1% five-stars, 10% four,
+/// 68% three, 18% two and 2% unrated (the composite's FBS signees of
+/// 2022-2025: 1.5%, 10%, 74%, 6% and 8%), and the commits of the biggest
+/// names at their level 4%, 27%, 64%, 5% and none (SEC signees: 6%, 32%,
+/// 55%, 0.3%). At 1 the big names' commits were 10% two-stars and 5%
+/// unrated.
+const OFFER_READ: f64 = 3.0;
+
+/// The services' score for a kid (D3, minor bug 17): mostly film and their
+/// projection, less for a kid they haven't seen, his tested gifts once he
+/// has been to their camps, and his offer list. A kid with real offers gets
+/// his tape watched, so the offers lift what the services see of him.
+fn star_score(film: f64, projection: f64, visibility: f64, gift: f64, sheet: f64, film_sd: f64) -> f64 {
+    let seen = visibility.max(sheet);
+    0.25 * film + 0.75 * projection - 12.0 * (1.0 - seen).powi(2)
+        + SERVICE_GIFT * film_sd * gift * visibility
+        + OFFER_READ * film_sd * sheet
+}
 
 /// The stars staffs recruit a player on (fix list 1.5): the services' for
 /// most, the camps' own for a kicker, punter or long snapper.
@@ -3617,9 +3673,8 @@ pub(crate) fn rate_underclass(w: &mut World, class_of: i32, d: Date, reach: [f64
                 None => seen,
             };
             let gift = crate::links::gift(&crate::links::projected(&p.player));
-            let score =
-                0.25 * film + 0.75 * read - 12.0 * (1.0 - vis).powi(2) + SERVICE_GIFT * all_mean_sd.1 * gift * vis;
-            (i, read, score)
+            let sheet = offer_sheet(&wr.programs, p);
+            (i, read, star_score(film, read, vis, gift, sheet, all_mean_sd.1))
         })
         .collect();
     for &i in &members {
@@ -3632,8 +3687,7 @@ pub(crate) fn rate_underclass(w: &mut World, class_of: i32, d: Date, reach: [f64
     order.sort_by(|a, b| b.2.total_cmp(&a.2).then(a.0.cmp(&b.0)));
     let class = 250_000.0 * w.options.scale;
     let specialist: Vec<bool> = order.iter().map(|x| w.people[x.0].player.position.is_specialist()).collect();
-    let quotas: Vec<(u8, usize)> = PIPELINE
-        .star_shares
+    let quotas: Vec<(u8, usize)> = SERVICE_TIERS
         .iter()
         .zip(reach)
         .map(|(&(stars, share), r)| (stars, (share * class * r).round() as usize))
@@ -3854,16 +3908,19 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         let mut by_star: Vec<usize> = seniors.clone();
         // The services rank mostly from film and their projection; they
         // see a kid's measurables only once he has tested at their camps,
-        // so they fall behind on a physical freak (D3).
-        let star_score = |r: &Recruit| {
-            0.25 * r.film + 0.75 * r.projection - 12.0 * (1.0 - r.visibility).powi(2)
-                + SERVICE_GIFT * all_mean_sd.1 * r.gift * r.visibility
-        };
-        by_star.sort_by(|&a, &b| star_score(&pool[b]).total_cmp(&star_score(&pool[a])));
+        // so they fall behind on a physical freak (D3). They also read his
+        // offer list (minor bug 17).
+        let sheets: Vec<f64> = pool.iter().map(|r| offer_sheet(&w.programs, &w.people[r.person])).collect();
+        let score: Vec<f64> = pool
+            .iter()
+            .zip(&sheets)
+            .map(|(r, &sheet)| star_score(r.film, r.projection, r.visibility, r.gift, sheet, all_mean_sd.1))
+            .collect();
+        by_star.sort_by(|&a, &b| score[b].total_cmp(&score[a]));
         let specialist: Vec<bool> =
             by_star.iter().map(|&k| w.people[pool[k].person].player.position.is_specialist()).collect();
         let quotas: Vec<(u8, usize)> =
-            PIPELINE.star_shares.iter().map(|&(stars, share)| (stars, (share * class).round() as usize)).collect();
+            SERVICE_TIERS.iter().map(|&(stars, share)| (stars, (share * class).round() as usize)).collect();
         for (&k, stars) in by_star.iter().zip(service_stars(&specialist, &quotas)) {
             w.people[pool[k].person].stars = stars;
         }

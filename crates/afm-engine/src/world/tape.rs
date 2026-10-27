@@ -62,10 +62,54 @@ pub struct Snap {
     pub pressured: bool,
     /// Wiped out by a penalty.
     pub null: bool,
+    /// Where a throw went (lane 9's pass map); None on other snaps and on
+    /// film kept before it.
+    #[serde(default)]
+    pub throw: Option<Throw>,
     /// A punt or kickoff: the return team showed the look a fake or a
     /// surprise onside kick waits for (update 2, G18).
     #[serde(default)]
     pub ret_look: bool,
+}
+
+/// A throw as the film shows it, in small numbers.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Throw {
+    /// Yards past the line in the air, and after the catch.
+    pub air: i8,
+    pub yac: i8,
+    /// Across the field in half yards from the offense's right sideline
+    /// (the offense's left high): where it was snapped and where it got to.
+    pub from: u8,
+    pub to: u8,
+    /// Time to throw, tenths of a second, and the receiver's separation,
+    /// tenths of a yard.
+    pub ttt: u8,
+    pub sep: u8,
+    /// Thrown away, dropped.
+    pub away: bool,
+    pub drop: bool,
+}
+
+impl Throw {
+    /// The throw of a play in the log (None when it wasn't one).
+    pub fn of(r: &crate::game::PlayRecord) -> Option<Throw> {
+        if r.kind != PlayType::Pass {
+            return None;
+        }
+        let half = |y: f32| (y * 2.0).round().clamp(0.0, 107.0) as u8;
+        let (from, to) = r.throw_y.map_or((53, 53), |(a, b)| (half(a), half(b)));
+        Some(Throw {
+            air: r.air_yards.round().clamp(-20.0, 99.0) as i8,
+            yac: r.yac.round().clamp(-30.0, 110.0) as i8,
+            from,
+            to,
+            ttt: (r.time_to_throw * 10.0).round().clamp(0.0, 255.0) as u8,
+            sep: (r.separation * 10.0).round().clamp(0.0, 255.0) as u8,
+            away: r.throw_away,
+            drop: r.drop,
+        })
+    }
 }
 
 /// One game's film.
@@ -165,6 +209,7 @@ impl Tape {
                 scramble: r.kind == PlayType::Scramble,
                 pressured: r.pressured,
                 null: r.nullified || r.kind == PlayType::NoPlay,
+                throw: Throw::of(r),
                 ret_look: r.look,
             });
             if kind == 1 && !r.nullified {

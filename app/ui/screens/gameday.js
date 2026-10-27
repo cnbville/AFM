@@ -825,11 +825,14 @@
   screens.game = async (a) => {
     const g = await api("game_page", { index: a.index });
     lightBoth(g.home, g.away);
-    const tab = keep("gptab", { t: "Key plays" });
-    const extra = Object.keys(window.gamePageTabs);
-    const tabs = [...GP_TABS, ...extra];
+    // Lanes may put their tabs first (window.gamePageFirst); the first tab
+    // is the default.
+    const first = (window.gamePageFirst || []).filter((t) => window.gamePageTabs[t]);
+    const extra = Object.keys(window.gamePageTabs).filter((t) => !first.includes(t));
+    const tabs = [...first, ...GP_TABS, ...extra];
+    const tab = keep("gptab", { t: tabs[0] });
     if (a.tab) tab.t = a.tab;
-    if (!tabs.includes(tab.t)) tab.t = "Key plays";
+    if (!tabs.includes(tab.t)) tab.t = tabs[0];
     const [h, w] = g.sides;
     const mineHome = g.mine !== 1;
     const marks = g.key_plays.filter((p) => Math.abs(p.swing) >= 0.08).map((p) => ({ n: p.n, wp: p.wp_home + p.swing, good: (p.swing > 0) === mineHome, title: `${p.q} ${p.clock}: ${p.text}` }));
@@ -847,7 +850,7 @@
       </div>
       ${g.line && (g.line.words || g.line.crowd) ? `<div class="gp-line">${g.line.words ? `<span><span class="st-label">The line</span> ${esc(g.line.words)}${g.line.against ? ` · <b>${esc(g.line.against)}</b>` : ""}</span>` : ""}${g.line.crowd ? `<span><span class="st-label">Crowd</span> ${Number(g.line.crowd).toLocaleString()}</span>` : ""}</div>` : ""}
       <div class="gp-under"><div class="tbl gp-qs"><table><thead><tr><th class="l"></th>${qs}<th>T</th></tr></thead><tbody><tr><td class="l">${esc(w.name)}</td>${qline(1)}<td><b>${w.score}</b></td></tr><tr><td class="l">${esc(h.name)}</td>${qline(0)}<td><b>${h.score}</b></td></tr></tbody></table></div>
-        <div class="gp-wpbox"><div class="st-label">${esc(g.mine != null ? sideTeam(g.mine).name : h.name)} win chance · the big swings marked</div>${wpChart(g.wp, mineHome, { h: 110, marks, halves: half })}</div></div>
+        ${(window.gamePageOwnWp || []).includes(tab.t) ? "" : `<div class="gp-wpbox"><div class="st-label">${esc(g.mine != null ? sideTeam(g.mine).name : h.name)} win chance · the big swings marked</div>${wpChart(g.wp, mineHome, { h: 110, marks, halves: half })}</div>`}</div>
       ${g.stars.length ? `<div class="gp-stars"><span class="st-label">Game balls</span>${g.stars.slice(0, 4).map((s) => `<span>${playerLink(s.id, s.name)} <small>${esc(s.pos || "")} · ${esc(s.line)}</small></span>`).join("")}</div>` : ""}
     </div></div>`;
     let body;

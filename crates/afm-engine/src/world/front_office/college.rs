@@ -1407,7 +1407,19 @@ pub fn budget(w: &World, j: usize) -> Budget {
     let total = prog.collective.budget;
     let revenue_share = ncaa::revenue_share(prog, year);
     let desk = &w.front_office.college;
-    let roster = desk.deals.iter().map(|d| d.1).sum::<f64>();
+    // This money year's deals, for players still on the roster.
+    let on: std::collections::HashSet<u32> = prog
+        .roster
+        .iter()
+        .map(|&i| &w.people[i])
+        .filter(|p| p.stage == crate::world::Stage::College && p.college == Some(j))
+        .map(|p| p.player.id)
+        .collect();
+    let roster = if desk.deals_year == deals_year(w) {
+        desk.deals.iter().filter(|d| on.contains(&d.0)).map(|d| d.1).sum::<f64>()
+    } else {
+        0.0
+    };
     let recruits = desk.board.iter().filter(|t| t.offered.is_some() && t.pulled.is_none()).filter_map(|t| t.nil).sum();
     let portal = desk.portal.iter().filter(|t| t.offered.is_some() && !t.settled).filter_map(|t| t.nil).sum();
     Budget {
