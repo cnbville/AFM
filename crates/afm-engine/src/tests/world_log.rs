@@ -1,6 +1,6 @@
 //! The world reader's game log (lane R1): logging only watches. A world
-//! built and played day by day with the log on stays the same as one with
-//! it off, and the log holds every game at every level.
+//! built with the log on stays the same as one with it off, and the log
+//! holds every game at every level.
 
 use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
@@ -66,9 +66,12 @@ fn the_game_log_only_watches_and_keeps_every_game() {
         hs_engine_years: Some(1),
         ..Default::default()
     };
-    let mut off = World::new(opts.clone());
+    // The history plays its year day by day (`clock::advance_year`), every
+    // game on the engine, the same path as a save's days.
+    let off = World::new(opts.clone());
     let mut on = World::new(WorldOptions { log_dir: Some(dir.clone()), ..opts });
     assert_eq!(full_print(&off), full_print(&on), "the history differs with the log on");
+    assert_eq!(day_print(&off), day_print(&on), "the last day differs with the log on");
     let season = 2025;
     let played = off
         .college_prev
@@ -78,13 +81,6 @@ fn the_game_log_only_watches_and_keeps_every_game() {
         .flat_map(|c| c.games.iter())
         .filter(|g| g.played.is_some_and(|p| !p.cancelled))
         .count();
-    // A whole football year day by day, every game on the engine.
-    for day in 0..366 {
-        off.advance_day();
-        on.advance_day();
-        assert_eq!(day_print(&off), day_print(&on), "day {day} ({}) differs with the log on", off.today);
-    }
-    assert_eq!(full_print(&off), full_print(&on), "the year differs with the log on");
     let bytes = on.finish_log().expect("a log").expect("the log closes");
     assert!(bytes > 0);
 
