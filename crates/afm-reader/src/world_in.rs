@@ -248,7 +248,10 @@ fn person_extra(v: &V) -> Vec<(String, S)> {
 /// An alumnus keeps his potential as it stood when he left
 /// (`debug::alumnus_potential` reads the same field).
 fn alumnus_extra(v: &V) -> Vec<(String, S)> {
-    json::get(v, "potential").and_then(json::as_f64).map(|p| vec![("x_potential".into(), S::Real(round(p)))]).unwrap_or_default()
+    json::get(v, "potential")
+        .and_then(json::as_f64)
+        .map(|p| vec![("x_potential".into(), S::Real(round(p)))])
+        .unwrap_or_default()
 }
 
 fn player_cols(p: &afm_engine::player::Player, potential: Option<f64>) -> Vec<(String, S)> {

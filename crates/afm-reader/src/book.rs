@@ -96,6 +96,16 @@ impl Book {
         Ok((names, rows))
     }
 
+    /// Runs a query and hands each row to `f`, one at a time.
+    pub fn each(&self, sql: &str, mut f: impl FnMut(&rusqlite::Row) -> rusqlite::Result<()>) -> rusqlite::Result<()> {
+        let mut st = self.conn.prepare(sql)?;
+        let mut rs = st.query([])?;
+        while let Some(r) = rs.next()? {
+            f(r)?;
+        }
+        Ok(())
+    }
+
     /// One number from a query, or why the query failed.
     pub fn try_num(&self, sql: &str) -> Result<Option<f64>, String> {
         match self.conn.query_row(sql, [], |r| r.get::<_, S>(0)) {

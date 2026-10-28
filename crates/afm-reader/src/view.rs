@@ -633,10 +633,10 @@ fn table_page(b: &Book, name: &str, f: &Filters) -> View {
         ("conference", &f.conference),
         ("stage", &f.level),
     ] {
-        if let Some(x) = x {
-            if cols.iter().any(|c| c == k) {
-                let _ = write!(w, " AND \"{k}\" = {}", lit(x));
-            }
+        if let Some(x) = x
+            && cols.iter().any(|c| c == k)
+        {
+            let _ = write!(w, " AND \"{k}\" = {}", lit(x));
         }
     }
     for (k, x) in [("stars", f.stars)] {

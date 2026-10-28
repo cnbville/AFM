@@ -7,6 +7,18 @@
 
 use crate::book::Book;
 
+/// (kind, table, needed columns, id, name, detail, first year, last year)
+type Part = (
+    &'static str,
+    &'static str,
+    &'static [&'static str],
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static str,
+);
+
 pub fn write(b: &Book) -> rusqlite::Result<()> {
     b.conn.execute_batch(
         "CREATE TABLE search(kind TEXT, id TEXT, name TEXT, detail TEXT, first_year INTEGER, last_year INTEGER, tbl TEXT, row INTEGER);
@@ -17,8 +29,7 @@ pub fn write(b: &Book) -> rusqlite::Result<()> {
         let have = b.columns(t);
         !have.is_empty() && cs.iter().all(|c| have.iter().any(|h| h == c))
     };
-    // (kind, table, needed columns, id, name, detail, first year, last year)
-    let parts: &[(&str, &str, &[&str], &str, &str, &str, &str, &str)] = &[
+    let parts: &[Part] = &[
         (
             "person",
             "people",

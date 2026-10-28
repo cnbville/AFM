@@ -4,6 +4,7 @@
 //!   outlier (with its percentile against the world);
 //! - data: what the book doesn't count (a missing log) and the known
 //!   issues still live in this world.
+//!
 //! Each row names its page, the record it is about and the facts.
 
 use rusqlite::params;
@@ -67,14 +68,19 @@ pub fn write_all(b: &Book, have: &dyn Fn(&str) -> bool, issues: &Issues) -> rusq
             continue;
         }
         let checked = b.num(rule.checked).unwrap_or(0.0) as i64;
-        let (status, n, rows) = match b.rows(rule.failures) {
-            Ok((_, rows)) => (if rows.is_empty() { "ok" } else { "failed" }, rows.len() as i64, rows),
-            Err(e) => (if e.to_string().contains("no such") { "no data" } else { "error" }, 0, Vec::new()),
-        };
-        let why = if status == "error" || status == "no data" {
-            b.rows(rule.failures).err().map(|e| e.to_string()).unwrap_or_default()
-        } else {
-            rule.why.to_string()
+        // Failures are counted one at a time; the first KEEP are kept.
+        let mut rows: Vec<Vec<S>> = Vec::new();
+        let mut n = 0i64;
+        let read = b.each(rule.failures, |r| {
+            n += 1;
+            if rows.len() < KEEP {
+                rows.push((0..4).map(|i| r.get::<_, S>(i)).collect::<rusqlite::Result<_>>()?);
+            }
+            Ok(())
+        });
+        let (status, why) = match read {
+            Ok(()) => (if n == 0 { "ok" } else { "failed" }, rule.why.to_string()),
+            Err(e) => (if e.to_string().contains("no such") { "no data" } else { "error" }, e.to_string()),
         };
         b.conn.execute(
             "INSERT INTO consistency VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)",
@@ -105,18 +111,26 @@ pub fn write_all(b: &Book, have: &dyn Fn(&str) -> bool, issues: &Issues) -> rusq
         if !have(o.needs) {
             continue;
         }
-        let Ok((_, rows)) = b.rows(o.sql) else { continue };
-        let mut vals: Vec<f64> = rows.iter().filter_map(|r| num(r.get(3))).collect();
+        // Two reads: every value for the percentiles, then only the rare rows.
+        let mut vals: Vec<f64> = Vec::new();
+        if b.each(o.sql, |r| {
+            vals.extend(num(Some(&r.get::<_, S>(3)?)));
+            Ok(())
+        })
+        .is_err()
+        {
+            continue;
+        }
         vals.sort_by(|a, b| a.total_cmp(b));
-        let mut picked: Vec<(f64, &Vec<S>)> = rows
-            .iter()
-            .filter_map(|r| {
-                let v = num(r.get(3))?;
-                let p = crate::stats::rank(&vals, v);
-                let keep = if o.low { p <= 1.0 - o.above } else { p >= o.above };
-                keep.then_some((p, r))
-            })
-            .collect();
+        let mut picked: Vec<(f64, Vec<S>)> = Vec::new();
+        b.each(o.sql, |r| {
+            let Some(v) = num(Some(&r.get::<_, S>(3)?)) else { return Ok(()) };
+            let p = crate::stats::rank(&vals, v);
+            if if o.low { p <= 1.0 - o.above } else { p >= o.above } {
+                picked.push((p, (0..5).map(|i| r.get::<_, S>(i)).collect::<rusqlite::Result<_>>()?));
+            }
+            Ok(())
+        })?;
         picked.sort_by(|a, b| if o.low { a.0.total_cmp(&b.0) } else { b.0.total_cmp(&a.0) });
         for (p, r) in picked.into_iter().take(KEEP / 4) {
             let year = match r.get(2) {

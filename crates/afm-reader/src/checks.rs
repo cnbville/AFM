@@ -55,20 +55,20 @@ pub fn run(b: &Book, c: &Check, index: &serde_json::Value, have: &dyn Fn(&str) -
             None
         }
     };
-    if let Some(ys) = c.years {
-        if let Ok((_, rows)) = b.rows(ys) {
-            for row in rows {
-                let y = match row.first() {
-                    Some(rusqlite::types::Value::Integer(y)) => *y,
-                    _ => continue,
-                };
-                let v = match row.get(1) {
-                    Some(rusqlite::types::Value::Integer(i)) => *i as f64,
-                    Some(rusqlite::types::Value::Real(f)) => *f,
-                    _ => continue,
-                };
-                r.series.push((y, v * c.scale));
-            }
+    if let Some(ys) = c.years
+        && let Ok((_, rows)) = b.rows(ys)
+    {
+        for row in rows {
+            let y = match row.first() {
+                Some(rusqlite::types::Value::Integer(y)) => *y,
+                _ => continue,
+            };
+            let v = match row.get(1) {
+                Some(rusqlite::types::Value::Integer(i)) => *i as f64,
+                Some(rusqlite::types::Value::Real(f)) => *f,
+                _ => continue,
+            };
+            r.series.push((y, v * c.scale));
         }
     }
     r.detail = match error {

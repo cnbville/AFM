@@ -34,6 +34,8 @@ pub fn log_beside(world: &Path) -> Option<PathBuf> {
 /// Builds the book for `world` at `out`, reading `log` when given.
 pub fn build(world: &Path, log: Option<&Path>, out: &Path, say: &mut dyn FnMut(&str)) -> std::io::Result<Summary> {
     let t = Instant::now();
+    // Each step says when it started and the memory peak so far.
+    let say = &mut |s: &str| say(&format!("{s} [{:.0}s, peak {:.0} MB]", t.elapsed().as_secs_f64(), peak_mb()));
     let e = std::io::Error::other;
     let tmp = out.with_extension("part");
     let mut w = Writer::create(&tmp).map_err(e)?;

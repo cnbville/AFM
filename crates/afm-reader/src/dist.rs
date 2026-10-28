@@ -58,42 +58,46 @@ pub fn write_all(b: &Book, have: &dyn Fn(&str) -> bool) -> rusqlite::Result<()> 
             )?;
             continue;
         }
-        let (rows, note) = match b.rows(m.sql) {
-            Ok((_, rows)) => (rows, String::new()),
-            Err(e) => (Vec::new(), format!("SQL error: {e}")),
-        };
         // (year or none, group kind, group) -> values; "all" groups too.
+        // Rows are read one at a time: a metric over every person is millions.
         let mut groups: BTreeMap<(Option<i64>, String, String), Vec<f64>> = BTreeMap::new();
-        for r in &rows {
-            let Some(v) = r.get(3).and_then(f) else { continue };
-            let year = match r.first() {
-                Some(S::Integer(y)) => Some(*y),
-                Some(S::Real(y)) => Some(*y as i64),
-                _ => None,
-            };
-            let (gk, g) = (r.get(1).map(t).unwrap_or_default(), r.get(2).map(t).unwrap_or_default());
-            let gk = if gk.is_empty() { "all".to_string() } else { gk };
-            let g = if g.is_empty() { "all".to_string() } else { g };
-            groups.entry((year, gk.clone(), g.clone())).or_default().push(v);
-            if year.is_some() {
-                groups.entry((None, gk.clone(), g.clone())).or_default().push(v);
-            }
-            if gk != "all" {
-                groups.entry((year, "all".into(), "all".into())).or_default().push(v);
+        let mut n_rows = 0i64;
+        let mut first_kind: Option<String> = None;
+        let read = (|| -> rusqlite::Result<()> {
+            let mut st = b.conn.prepare(m.sql)?;
+            let mut rs = st.query([])?;
+            while let Some(r) = rs.next()? {
+                let Some(v) = f(&r.get::<_, S>(3)?) else { continue };
+                n_rows += 1;
+                let year = match r.get::<_, S>(0)? {
+                    S::Integer(y) => Some(y),
+                    S::Real(y) => Some(y as i64),
+                    _ => None,
+                };
+                let (gk, g) = (t(&r.get::<_, S>(1)?), t(&r.get::<_, S>(2)?));
+                let gk = if gk.is_empty() { "all".to_string() } else { gk };
+                let g = if g.is_empty() { "all".to_string() } else { g };
+                groups.entry((year, gk.clone(), g.clone())).or_default().push(v);
                 if year.is_some() {
-                    groups.entry((None, "all".into(), "all".into())).or_default().push(v);
+                    groups.entry((None, gk.clone(), g.clone())).or_default().push(v);
+                }
+                // The "all" group counts each thing once: from the first
+                // group kind only (a metric may list it by several kinds).
+                let first = first_kind.get_or_insert_with(|| gk.clone());
+                if gk != "all" && *first == gk {
+                    groups.entry((year, "all".into(), "all".into())).or_default().push(v);
+                    if year.is_some() {
+                        groups.entry((None, "all".into(), "all".into())).or_default().push(v);
+                    }
                 }
             }
-        }
+            Ok(())
+        })();
+        let note = read.err().map(|e| format!("SQL error: {e}")).unwrap_or_default();
         let mut st = b.conn.prepare_cached(
             "INSERT INTO dist VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22)",
         )?;
-        let mut seen_all = std::collections::HashSet::new();
         for ((year, gk, g), mut xs) in groups {
-            // A group counted twice through "all" keeps its own values once.
-            if gk == "all" && !seen_all.insert(year) {
-                continue;
-            }
             let d = stats::dist(&mut xs);
             st.execute(params![
                 m.id, m.page, m.areas, m.title, m.unit, year, gk, g, d.n as i64, d.mean, d.sd, d.min, d.p[0], d.p[1],
@@ -110,7 +114,7 @@ pub fn write_all(b: &Book, have: &dyn Fn(&str) -> bool) -> rusqlite::Result<()> 
         }
         b.conn.execute(
             "INSERT INTO metrics VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)",
-            params![m.id, m.page, m.areas, m.title, m.unit, m.needs, rows.len() as i64, m.sql, note],
+            params![m.id, m.page, m.areas, m.title, m.unit, m.needs, n_rows, m.sql, note],
         )?;
     }
     Ok(())

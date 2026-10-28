@@ -47,9 +47,12 @@ pub struct Table {
     packed: Option<Packed>,
 }
 
+/// A row's columns by name.
+type Row = Vec<(String, S)>;
+
 struct Packed {
     keys: Vec<String>,
-    buffer: Vec<(Vec<(String, S)>, Vec<u8>)>,
+    buffer: Vec<(Row, Vec<u8>)>,
     zip: Option<zstd::bulk::Compressor<'static>>,
     trained: bool,
     bytes: usize,

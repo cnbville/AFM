@@ -42,17 +42,17 @@ impl Issues {
 /// Whether the world was built with a fix: by git when the commits are
 /// here, else by the dates.
 fn has_fix(world_commit: &str, written: &str, fix_commit: &str, fix_date: &str) -> (bool, String) {
-    if !world_commit.is_empty() && world_commit != "unknown" {
-        if let Ok(o) =
+    if !world_commit.is_empty()
+        && world_commit != "unknown"
+        && let Ok(o) =
             std::process::Command::new("git").args(["merge-base", "--is-ancestor", fix_commit, world_commit]).output()
-        {
-            match o.status.code() {
-                Some(0) => return (true, format!("the world's commit {} has the fix", short(world_commit))),
-                Some(1) => {
-                    return (false, format!("the world's commit {} is from before the fix", short(world_commit)));
-                }
-                _ => {}
+    {
+        match o.status.code() {
+            Some(0) => return (true, format!("the world's commit {} has the fix", short(world_commit))),
+            Some(1) => {
+                return (false, format!("the world's commit {} is from before the fix", short(world_commit)));
             }
+            _ => {}
         }
     }
     let day = written.get(..10).unwrap_or("");
