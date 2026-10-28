@@ -1,0 +1,5172 @@
+{
+ "source": "CollegeFootballData schedules via the sportsdataverse cfb_schedules release (2001-2025), ESPN line scores (2004-2025), the AP poll (2004-2025), 247Sports talent composite (2005-2025)",
+ "holes": "No college scores before 2001 in reachable open data; FCS from 2003; D2 and D3 full seasons only from 2021-2022 (a handful of games before); no NAIA or JUCO at all.",
+ "note": "Per team game means each team's game counts once. Same-division games unless a key says otherwise.",
+ "scores_by_season": {
+  "years": "FBS 2001-2025, FCS 2003-2025, D2 and D3 2021/2022-2025; overtime from 2004",
+  "by_season": {
+   "2001": {
+    "FBS": {
+     "games": 627,
+     "points_per_team_game": 26.57,
+     "points_sd": 14.44,
+     "margin_abs_mean": 17.44,
+     "one_score_share": 0.3445,
+     "blowout_28plus_share": 0.2153,
+     "home_win_pct": 0.5901,
+     "shutout_team_games": 32,
+     "fbs_vs_fcs_games": 56,
+     "fbs_vs_fcs_fbs_win_rate": 0.8571,
+     "fbs_teams_playing_fcs_share": 0.4103
+    }
+   },
+   "2002": {
+    "FBS": {
+     "games": 679,
+     "points_per_team_game": 26.75,
+     "points_sd": 14.2,
+     "margin_abs_mean": 17.83,
+     "one_score_share": 0.3432,
+     "blowout_28plus_share": 0.2253,
+     "home_win_pct": 0.6097,
+     "shutout_team_games": 35,
+     "fbs_vs_fcs_games": 64,
+     "fbs_vs_fcs_fbs_win_rate": 0.8906,
+     "fbs_teams_playing_fcs_share": 0.4701
+    }
+   },
+   "2003": {
+    "FBS": {
+     "games": 671,
+     "points_per_team_game": 26.32,
+     "points_sd": 14.5,
+     "margin_abs_mean": 18.24,
+     "one_score_share": 0.3174,
+     "blowout_28plus_share": 0.2474,
+     "home_win_pct": 0.6051,
+     "shutout_team_games": 29,
+     "fbs_vs_fcs_games": 71,
+     "fbs_vs_fcs_fbs_win_rate": 0.8592,
+     "fbs_teams_playing_fcs_share": 0.4957
+    },
+    "FCS": {
+     "games": 498,
+     "points_per_team_game": 24.99,
+     "points_sd": 14.03,
+     "margin_abs_mean": 17.4,
+     "one_score_share": 0.3554,
+     "blowout_28plus_share": 0.2209,
+     "home_win_pct": 0.5729,
+     "shutout_team_games": 22
+    }
+   },
+   "2004": {
+    "FBS": {
+     "games": 635,
+     "points_per_team_game": 26.1,
+     "points_sd": 14.39,
+     "margin_abs_mean": 17.72,
+     "one_score_share": 0.3496,
+     "blowout_28plus_share": 0.2394,
+     "home_win_pct": 0.638,
+     "shutout_team_games": 29,
+     "fbs_vs_fcs_games": 63,
+     "fbs_vs_fcs_fbs_win_rate": 0.8571,
+     "fbs_teams_playing_fcs_share": 0.3866,
+     "overtime_share": 0.0469,
+     "three_plus_ot_share": 0.0015,
+     "linescore_games": 661
+    },
+    "FCS": {
+     "games": 509,
+     "points_per_team_game": 25.73,
+     "points_sd": 13.54,
+     "margin_abs_mean": 16.32,
+     "one_score_share": 0.3969,
+     "blowout_28plus_share": 0.2102,
+     "home_win_pct": 0.5846,
+     "shutout_team_games": 23
+    }
+   },
+   "2005": {
+    "FBS": {
+     "games": 636,
+     "points_per_team_game": 26.17,
+     "points_sd": 13.93,
+     "margin_abs_mean": 17.23,
+     "one_score_share": 0.3616,
+     "blowout_28plus_share": 0.2248,
+     "home_win_pct": 0.566,
+     "shutout_team_games": 22,
+     "fbs_vs_fcs_games": 54,
+     "fbs_vs_fcs_fbs_win_rate": 0.963,
+     "fbs_teams_playing_fcs_share": 0.437,
+     "overtime_share": 0.0587,
+     "three_plus_ot_share": 0.0015,
+     "linescore_games": 664
+    },
+    "FCS": {
+     "games": 528,
+     "points_per_team_game": 25.41,
+     "points_sd": 14.18,
+     "margin_abs_mean": 17.59,
+     "one_score_share": 0.3371,
+     "blowout_28plus_share": 0.2443,
+     "home_win_pct": 0.6,
+     "shutout_team_games": 34
+    }
+   },
+   "2006": {
+    "FBS": {
+     "games": 682,
+     "points_per_team_game": 23.52,
+     "points_sd": 13.19,
+     "margin_abs_mean": 16.47,
+     "one_score_share": 0.3563,
+     "blowout_28plus_share": 0.1965,
+     "home_win_pct": 0.5953,
+     "shutout_team_games": 48,
+     "fbs_vs_fcs_games": 78,
+     "fbs_vs_fcs_fbs_win_rate": 0.9103,
+     "fbs_teams_playing_fcs_share": 0.6471,
+     "overtime_share": 0.0478,
+     "three_plus_ot_share": 0.0014,
+     "linescore_games": 711
+    },
+    "FCS": {
+     "games": 525,
+     "points_per_team_game": 22.99,
+     "points_sd": 12.92,
+     "margin_abs_mean": 15.67,
+     "one_score_share": 0.4,
+     "blowout_28plus_share": 0.1886,
+     "home_win_pct": 0.5326,
+     "shutout_team_games": 36
+    }
+   },
+   "2007": {
+    "FBS": {
+     "games": 680,
+     "points_per_team_game": 27.72,
+     "points_sd": 14.02,
+     "margin_abs_mean": 16.35,
+     "one_score_share": 0.3676,
+     "blowout_28plus_share": 0.1926,
+     "home_win_pct": 0.5985,
+     "shutout_team_games": 22,
+     "fbs_vs_fcs_games": 80,
+     "fbs_vs_fcs_fbs_win_rate": 0.875,
+     "fbs_teams_playing_fcs_share": 0.6555,
+     "overtime_share": 0.0449,
+     "three_plus_ot_share": 0.0014,
+     "linescore_games": 712
+    },
+    "FCS": {
+     "games": 584,
+     "points_per_team_game": 26.68,
+     "points_sd": 14.09,
+     "margin_abs_mean": 16.47,
+     "one_score_share": 0.3767,
+     "blowout_28plus_share": 0.2158,
+     "home_win_pct": 0.5783,
+     "shutout_team_games": 17
+    }
+   },
+   "2008": {
+    "FBS": {
+     "games": 683,
+     "points_per_team_game": 26.31,
+     "points_sd": 14.46,
+     "margin_abs_mean": 17.47,
+     "one_score_share": 0.3646,
+     "blowout_28plus_share": 0.2401,
+     "home_win_pct": 0.5925,
+     "shutout_team_games": 32,
+     "fbs_vs_fcs_games": 88,
+     "fbs_vs_fcs_fbs_win_rate": 0.9773,
+     "fbs_teams_playing_fcs_share": 0.6833,
+     "overtime_share": 0.0432,
+     "three_plus_ot_share": 0.0028,
+     "linescore_games": 717
+    },
+    "FCS": {
+     "games": 579,
+     "points_per_team_game": 24.96,
+     "points_sd": 13.16,
+     "margin_abs_mean": 16.24,
+     "one_score_share": 0.3523,
+     "blowout_28plus_share": 0.1796,
+     "home_win_pct": 0.5447,
+     "shutout_team_games": 35
+    }
+   },
+   "2009": {
+    "FBS": {
+     "games": 680,
+     "points_per_team_game": 26.17,
+     "points_sd": 13.25,
+     "margin_abs_mean": 15.96,
+     "one_score_share": 0.3824,
+     "blowout_28plus_share": 0.1721,
+     "home_win_pct": 0.5982,
+     "shutout_team_games": 20,
+     "fbs_vs_fcs_games": 94,
+     "fbs_vs_fcs_fbs_win_rate": 0.9468,
+     "fbs_teams_playing_fcs_share": 0.725,
+     "overtime_share": 0.0392,
+     "three_plus_ot_share": 0.0,
+     "linescore_games": 714
+    },
+    "FCS": {
+     "games": 586,
+     "points_per_team_game": 23.65,
+     "points_sd": 12.92,
+     "margin_abs_mean": 15.37,
+     "one_score_share": 0.3891,
+     "blowout_28plus_share": 0.1724,
+     "home_win_pct": 0.5683,
+     "shutout_team_games": 29
+    }
+   },
+   "2010": {
+    "FBS": {
+     "games": 683,
+     "points_per_team_game": 27.2,
+     "points_sd": 14.21,
+     "margin_abs_mean": 17.69,
+     "one_score_share": 0.3514,
+     "blowout_28plus_share": 0.2269,
+     "home_win_pct": 0.5758,
+     "shutout_team_games": 26,
+     "fbs_vs_fcs_games": 90,
+     "fbs_vs_fcs_fbs_win_rate": 0.9222,
+     "fbs_teams_playing_fcs_share": 0.7083,
+     "overtime_share": 0.0376,
+     "three_plus_ot_share": 0.0014,
+     "linescore_games": 718
+    },
+    "FCS": {
+     "games": 583,
+     "points_per_team_game": 24.78,
+     "points_sd": 13.12,
+     "margin_abs_mean": 15.63,
+     "one_score_share": 0.3688,
+     "blowout_28plus_share": 0.1801,
+     "home_win_pct": 0.5664,
+     "shutout_team_games": 24
+    }
+   },
+   "2011": {
+    "FBS": {
+     "games": 680,
+     "points_per_team_game": 27.29,
+     "points_sd": 14.17,
+     "margin_abs_mean": 17.29,
+     "one_score_share": 0.3676,
+     "blowout_28plus_share": 0.225,
+     "home_win_pct": 0.6021,
+     "shutout_team_games": 27,
+     "fbs_vs_fcs_games": 97,
+     "fbs_vs_fcs_fbs_win_rate": 0.9381,
+     "fbs_teams_playing_fcs_share": 0.775,
+     "overtime_share": 0.042,
+     "three_plus_ot_share": 0.0056,
+     "linescore_games": 715
+    },
+    "FCS": {
+     "games": 607,
+     "points_per_team_game": 26.21,
+     "points_sd": 13.01,
+     "margin_abs_mean": 15.51,
+     "one_score_share": 0.3888,
+     "blowout_28plus_share": 0.168,
+     "home_win_pct": 0.5712,
+     "shutout_team_games": 23
+    }
+   },
+   "2012": {
+    "FBS": {
+     "games": 697,
+     "points_per_team_game": 28.37,
+     "points_sd": 14.52,
+     "margin_abs_mean": 16.88,
+     "one_score_share": 0.3773,
+     "blowout_28plus_share": 0.2166,
+     "home_win_pct": 0.5729,
+     "shutout_team_games": 22,
+     "fbs_vs_fcs_games": 106,
+     "fbs_vs_fcs_fbs_win_rate": 0.9057,
+     "fbs_teams_playing_fcs_share": 0.8145,
+     "overtime_share": 0.0615,
+     "three_plus_ot_share": 0.0068,
+     "linescore_games": 732
+    },
+    "FCS": {
+     "games": 500,
+     "points_per_team_game": 26.2,
+     "points_sd": 13.73,
+     "margin_abs_mean": 16.17,
+     "one_score_share": 0.37,
+     "blowout_28plus_share": 0.18,
+     "home_win_pct": 0.5685,
+     "shutout_team_games": 26
+    }
+   },
+   "2013": {
+    "FBS": {
+     "games": 702,
+     "points_per_team_game": 28.45,
+     "points_sd": 14.84,
+     "margin_abs_mean": 18.69,
+     "one_score_share": 0.3105,
+     "blowout_28plus_share": 0.2564,
+     "home_win_pct": 0.5839,
+     "shutout_team_games": 22,
+     "fbs_vs_fcs_games": 111,
+     "fbs_vs_fcs_fbs_win_rate": 0.8559,
+     "fbs_teams_playing_fcs_share": 0.848,
+     "overtime_share": 0.0448,
+     "three_plus_ot_share": 0.0095,
+     "linescore_games": 737
+    },
+    "FCS": {
+     "games": 593,
+     "points_per_team_game": 27.31,
+     "points_sd": 14.66,
+     "margin_abs_mean": 17.62,
+     "one_score_share": 0.3305,
+     "blowout_28plus_share": 0.2226,
+     "home_win_pct": 0.5463,
+     "shutout_team_games": 25
+    }
+   },
+   "2014": {
+    "FBS": {
+     "games": 721,
+     "points_per_team_game": 28.31,
+     "points_sd": 14.09,
+     "margin_abs_mean": 16.85,
+     "one_score_share": 0.3537,
+     "blowout_28plus_share": 0.2067,
+     "home_win_pct": 0.5637,
+     "shutout_team_games": 26,
+     "fbs_vs_fcs_games": 108,
+     "fbs_vs_fcs_fbs_win_rate": 0.9259,
+     "fbs_teams_playing_fcs_share": 0.8047,
+     "overtime_share": 0.0421,
+     "three_plus_ot_share": 0.0039,
+     "linescore_games": 760
+    },
+    "FCS": {
+     "games": 636,
+     "points_per_team_game": 26.99,
+     "points_sd": 14.26,
+     "margin_abs_mean": 17.0,
+     "one_score_share": 0.3585,
+     "blowout_28plus_share": 0.2075,
+     "home_win_pct": 0.5668,
+     "shutout_team_games": 25
+    }
+   },
+   "2015": {
+    "FBS": {
+     "games": 724,
+     "points_per_team_game": 28.29,
+     "points_sd": 14.56,
+     "margin_abs_mean": 17.38,
+     "one_score_share": 0.3522,
+     "blowout_28plus_share": 0.2141,
+     "home_win_pct": 0.5653,
+     "shutout_team_games": 27,
+     "fbs_vs_fcs_games": 105,
+     "fbs_vs_fcs_fbs_win_rate": 0.9143,
+     "fbs_teams_playing_fcs_share": 0.7969,
+     "overtime_share": 0.0444,
+     "three_plus_ot_share": 0.0105,
+     "linescore_games": 765
+    },
+    "FCS": {
+     "games": 607,
+     "points_per_team_game": 26.04,
+     "points_sd": 14.28,
+     "margin_abs_mean": 17.38,
+     "one_score_share": 0.3558,
+     "blowout_28plus_share": 0.2339,
+     "home_win_pct": 0.5632,
+     "shutout_team_games": 32
+    }
+   },
+   "2016": {
+    "FBS": {
+     "games": 719,
+     "points_per_team_game": 29.08,
+     "points_sd": 14.67,
+     "margin_abs_mean": 17.42,
+     "one_score_share": 0.3644,
+     "blowout_28plus_share": 0.2128,
+     "home_win_pct": 0.583,
+     "shutout_team_games": 18,
+     "fbs_vs_fcs_games": 113,
+     "fbs_vs_fcs_fbs_win_rate": 0.9115,
+     "fbs_teams_playing_fcs_share": 0.8516,
+     "overtime_share": 0.0513,
+     "three_plus_ot_share": 0.0079,
+     "linescore_games": 760
+    },
+    "FCS": {
+     "games": 616,
+     "points_per_team_game": 27.12,
+     "points_sd": 13.89,
+     "margin_abs_mean": 16.25,
+     "one_score_share": 0.3912,
+     "blowout_28plus_share": 0.2013,
+     "home_win_pct": 0.5556,
+     "shutout_team_games": 21
+    }
+   },
+   "2017": {
+    "FBS": {
+     "games": 736,
+     "points_per_team_game": 27.9,
+     "points_sd": 14.47,
+     "margin_abs_mean": 17.35,
+     "one_score_share": 0.3573,
+     "blowout_28plus_share": 0.2323,
+     "home_win_pct": 0.5804,
+     "shutout_team_games": 23,
+     "fbs_vs_fcs_games": 98,
+     "fbs_vs_fcs_fbs_win_rate": 0.9082,
+     "fbs_teams_playing_fcs_share": 0.7538,
+     "overtime_share": 0.0412,
+     "three_plus_ot_share": 0.0052,
+     "linescore_games": 776
+    },
+    "FCS": {
+     "games": 625,
+     "points_per_team_game": 25.26,
+     "points_sd": 14.45,
+     "margin_abs_mean": 17.39,
+     "one_score_share": 0.3488,
+     "blowout_28plus_share": 0.2256,
+     "home_win_pct": 0.5684,
+     "shutout_team_games": 38
+    }
+   },
+   "2018": {
+    "FBS": {
+     "games": 733,
+     "points_per_team_game": 28.36,
+     "points_sd": 14.37,
+     "margin_abs_mean": 17.35,
+     "one_score_share": 0.3492,
+     "blowout_28plus_share": 0.2251,
+     "home_win_pct": 0.5958,
+     "shutout_team_games": 14,
+     "fbs_vs_fcs_games": 112,
+     "fbs_vs_fcs_fbs_win_rate": 0.9375,
+     "fbs_teams_playing_fcs_share": 0.8385,
+     "overtime_share": 0.0415,
+     "three_plus_ot_share": 0.0065,
+     "linescore_games": 772
+    },
+    "FCS": {
+     "games": 607,
+     "points_per_team_game": 27.61,
+     "points_sd": 14.9,
+     "margin_abs_mean": 17.84,
+     "one_score_share": 0.346,
+     "blowout_28plus_share": 0.2438,
+     "home_win_pct": 0.5721,
+     "shutout_team_games": 32
+    }
+   },
+   "2019": {
+    "FBS": {
+     "games": 734,
+     "points_per_team_game": 27.91,
+     "points_sd": 14.3,
+     "margin_abs_mean": 17.71,
+     "one_score_share": 0.3556,
+     "blowout_28plus_share": 0.2384,
+     "home_win_pct": 0.6022,
+     "shutout_team_games": 24,
+     "fbs_vs_fcs_games": 114,
+     "fbs_vs_fcs_fbs_win_rate": 0.9737,
+     "fbs_teams_playing_fcs_share": 0.8385,
+     "overtime_share": 0.0349,
+     "three_plus_ot_share": 0.0065,
+     "linescore_games": 774
+    },
+    "FCS": {
+     "games": 662,
+     "points_per_team_game": 27.2,
+     "points_sd": 13.59,
+     "margin_abs_mean": 16.34,
+     "one_score_share": 0.3686,
+     "blowout_28plus_share": 0.1994,
+     "home_win_pct": 0.5671,
+     "shutout_team_games": 18
+    }
+   },
+   "2020": {
+    "FBS": {
+     "games": 508,
+     "points_per_team_game": 28.75,
+     "points_sd": 14.01,
+     "margin_abs_mean": 16.62,
+     "one_score_share": 0.3602,
+     "blowout_28plus_share": 0.2165,
+     "home_win_pct": 0.5651,
+     "shutout_team_games": 15,
+     "fbs_vs_fcs_games": 36,
+     "fbs_vs_fcs_fbs_win_rate": 0.9444,
+     "fbs_teams_playing_fcs_share": 0.2441,
+     "overtime_share": 0.0393,
+     "three_plus_ot_share": 0.0037,
+     "linescore_games": 534
+    },
+    "FCS": {
+     "games": 243,
+     "points_per_team_game": 24.94,
+     "points_sd": 12.43,
+     "margin_abs_mean": 13.65,
+     "one_score_share": 0.4733,
+     "blowout_28plus_share": 0.1276,
+     "home_win_pct": 0.5504,
+     "shutout_team_games": 8
+    },
+    "D2": {
+     "games": 70,
+     "points_per_team_game": 26.79,
+     "points_sd": 15.31,
+     "margin_abs_mean": 21.44,
+     "one_score_share": 0.2429,
+     "blowout_28plus_share": 0.2857,
+     "home_win_pct": 0.4058,
+     "shutout_team_games": 6
+    },
+    "D3": {
+     "games": 179,
+     "points_per_team_game": 25.73,
+     "points_sd": 15.26,
+     "margin_abs_mean": 20.3,
+     "one_score_share": 0.2291,
+     "blowout_28plus_share": 0.324,
+     "home_win_pct": 0.5287,
+     "shutout_team_games": 16
+    }
+   },
+   "2021": {
+    "FBS": {
+     "games": 732,
+     "points_per_team_game": 27.47,
+     "points_sd": 13.62,
+     "margin_abs_mean": 16.81,
+     "one_score_share": 0.377,
+     "blowout_28plus_share": 0.2145,
+     "home_win_pct": 0.5843,
+     "shutout_team_games": 25,
+     "fbs_vs_fcs_games": 117,
+     "fbs_vs_fcs_fbs_win_rate": 0.8974,
+     "fbs_teams_playing_fcs_share": 0.8846,
+     "overtime_share": 0.0403,
+     "three_plus_ot_share": 0.0065,
+     "linescore_games": 770
+    },
+    "FCS": {
+     "games": 629,
+     "points_per_team_game": 26.28,
+     "points_sd": 14.06,
+     "margin_abs_mean": 17.15,
+     "one_score_share": 0.3498,
+     "blowout_28plus_share": 0.2099,
+     "home_win_pct": 0.5424,
+     "shutout_team_games": 33
+    },
+    "D2": {
+     "games": 854,
+     "points_per_team_game": 26.84,
+     "points_sd": 15.59,
+     "margin_abs_mean": 20.05,
+     "one_score_share": 0.3314,
+     "blowout_28plus_share": 0.2869,
+     "home_win_pct": 0.5193,
+     "shutout_team_games": 63
+    }
+   },
+   "2022": {
+    "FBS": {
+     "games": 734,
+     "points_per_team_game": 27.17,
+     "points_sd": 13.39,
+     "margin_abs_mean": 15.79,
+     "one_score_share": 0.4033,
+     "blowout_28plus_share": 0.1989,
+     "home_win_pct": 0.586,
+     "shutout_team_games": 21,
+     "fbs_vs_fcs_games": 120,
+     "fbs_vs_fcs_fbs_win_rate": 0.9333,
+     "fbs_teams_playing_fcs_share": 0.8855,
+     "overtime_share": 0.0503,
+     "three_plus_ot_share": 0.0064,
+     "linescore_games": 776
+    },
+    "FCS": {
+     "games": 641,
+     "points_per_team_game": 27.25,
+     "points_sd": 14.01,
+     "margin_abs_mean": 16.81,
+     "one_score_share": 0.3744,
+     "blowout_28plus_share": 0.209,
+     "home_win_pct": 0.5544,
+     "shutout_team_games": 25
+    },
+    "D2": {
+     "games": 869,
+     "points_per_team_game": 26.23,
+     "points_sd": 14.77,
+     "margin_abs_mean": 18.73,
+     "one_score_share": 0.3372,
+     "blowout_28plus_share": 0.2635,
+     "home_win_pct": 0.5154,
+     "shutout_team_games": 52
+    },
+    "D3": {
+     "games": 1194,
+     "points_per_team_game": 26.28,
+     "points_sd": 17.19,
+     "margin_abs_mean": 23.27,
+     "one_score_share": 0.2739,
+     "blowout_28plus_share": 0.3568,
+     "home_win_pct": 0.5415,
+     "shutout_team_games": 149
+    }
+   },
+   "2023": {
+    "FBS": {
+     "games": 750,
+     "points_per_team_game": 26.7,
+     "points_sd": 13.4,
+     "margin_abs_mean": 16.18,
+     "one_score_share": 0.3747,
+     "blowout_28plus_share": 0.192,
+     "home_win_pct": 0.5838,
+     "shutout_team_games": 23,
+     "fbs_vs_fcs_games": 118,
+     "fbs_vs_fcs_fbs_win_rate": 0.9661,
+     "fbs_teams_playing_fcs_share": 0.8797,
+     "overtime_share": 0.0442,
+     "three_plus_ot_share": 0.0025,
+     "linescore_games": 792
+    },
+    "FCS": {
+     "games": 610,
+     "points_per_team_game": 25.37,
+     "points_sd": 13.5,
+     "margin_abs_mean": 16.09,
+     "one_score_share": 0.3803,
+     "blowout_28plus_share": 0.2,
+     "home_win_pct": 0.538,
+     "shutout_team_games": 29
+    },
+    "D2": {
+     "games": 835,
+     "points_per_team_game": 25.88,
+     "points_sd": 15.49,
+     "margin_abs_mean": 19.54,
+     "one_score_share": 0.3389,
+     "blowout_28plus_share": 0.279,
+     "home_win_pct": 0.5377,
+     "shutout_team_games": 69
+    },
+    "D3": {
+     "games": 1159,
+     "points_per_team_game": 27.24,
+     "points_sd": 17.3,
+     "margin_abs_mean": 23.86,
+     "one_score_share": 0.2355,
+     "blowout_28plus_share": 0.3745,
+     "home_win_pct": 0.5366,
+     "shutout_team_games": 117
+    }
+   },
+   "2024": {
+    "FBS": {
+     "games": 753,
+     "points_per_team_game": 26.76,
+     "points_sd": 13.44,
+     "margin_abs_mean": 16.36,
+     "one_score_share": 0.3838,
+     "blowout_28plus_share": 0.1912,
+     "home_win_pct": 0.594,
+     "shutout_team_games": 26,
+     "fbs_vs_fcs_games": 121,
+     "fbs_vs_fcs_fbs_win_rate": 0.9504,
+     "fbs_teams_playing_fcs_share": 0.8881,
+     "overtime_share": 0.0464,
+     "three_plus_ot_share": 0.005,
+     "linescore_games": 798
+    },
+    "FCS": {
+     "games": 688,
+     "points_per_team_game": 26.12,
+     "points_sd": 13.55,
+     "margin_abs_mean": 15.92,
+     "one_score_share": 0.3895,
+     "blowout_28plus_share": 0.1948,
+     "home_win_pct": 0.5909,
+     "shutout_team_games": 34
+    },
+    "D2": {
+     "games": 865,
+     "points_per_team_game": 25.62,
+     "points_sd": 15.04,
+     "margin_abs_mean": 18.97,
+     "one_score_share": 0.3434,
+     "blowout_28plus_share": 0.2728,
+     "home_win_pct": 0.5333,
+     "shutout_team_games": 75
+    },
+    "D3": {
+     "games": 1207,
+     "points_per_team_game": 26.38,
+     "points_sd": 17.13,
+     "margin_abs_mean": 23.59,
+     "one_score_share": 0.2502,
+     "blowout_28plus_share": 0.3712,
+     "home_win_pct": 0.554,
+     "shutout_team_games": 148
+    }
+   },
+   "2025": {
+    "FBS": {
+     "games": 762,
+     "points_per_team_game": 26.23,
+     "points_sd": 13.3,
+     "margin_abs_mean": 16.54,
+     "one_score_share": 0.3661,
+     "blowout_28plus_share": 0.1955,
+     "home_win_pct": 0.5968,
+     "shutout_team_games": 22,
+     "fbs_vs_fcs_games": 126,
+     "fbs_vs_fcs_fbs_win_rate": 0.9683,
+     "fbs_teams_playing_fcs_share": 0.9265,
+     "overtime_share": 0.0545,
+     "three_plus_ot_share": 0.0,
+     "linescore_games": 808
+    },
+    "FCS": {
+     "games": 687,
+     "points_per_team_game": 26.36,
+     "points_sd": 13.46,
+     "margin_abs_mean": 16.6,
+     "one_score_share": 0.3872,
+     "blowout_28plus_share": 0.2038,
+     "home_win_pct": 0.5668,
+     "shutout_team_games": 20
+    },
+    "D2": {
+     "games": 857,
+     "points_per_team_game": 27.4,
+     "points_sd": 15.15,
+     "margin_abs_mean": 19.29,
+     "one_score_share": 0.3419,
+     "blowout_28plus_share": 0.2707,
+     "home_win_pct": 0.5429,
+     "shutout_team_games": 46
+    },
+    "D3": {
+     "games": 1196,
+     "points_per_team_game": 26.82,
+     "points_sd": 17.03,
+     "margin_abs_mean": 22.99,
+     "one_score_share": 0.2834,
+     "blowout_28plus_share": 0.3562,
+     "home_win_pct": 0.5249,
+     "shutout_team_games": 129
+    }
+   }
+  }
+ },
+ "fbs_margin_table": {
+  "years": "2014-2025, FBS v FBS regular season",
+  "share_by_final_margin": {
+   "0": 0.0001,
+   "1": 0.0345,
+   "2": 0.0277,
+   "3": 0.0987,
+   "4": 0.0349,
+   "5": 0.025,
+   "6": 0.0331,
+   "7": 0.0861,
+   "8": 0.0267,
+   "9": 0.0122,
+   "10": 0.0468,
+   "11": 0.0236,
+   "12": 0.0137,
+   "13": 0.0172,
+   "14": 0.0443,
+   "15": 0.016,
+   "16": 0.0149,
+   "17": 0.0365,
+   "18": 0.026,
+   "19": 0.0159,
+   "20": 0.0168,
+   "21": 0.0383,
+   "22": 0.0139,
+   "23": 0.0128,
+   "24": 0.0303,
+   "25": 0.0181,
+   "26": 0.0096,
+   "27": 0.0149,
+   "28": 0.027,
+   "29": 0.01,
+   "30": 0.0078,
+   "31": 0.0193,
+   "32": 0.0129,
+   "33": 0.0072,
+   "34": 0.0129,
+   "35": 0.0166,
+   "36": 0.0048,
+   "37": 0.006,
+   "38": 0.013,
+   "39": 0.0076,
+   "40": 0.0026,
+   "41": 0.0063,
+   "42": 0.0107,
+   "43": 0.0021,
+   "44": 0.0026,
+   "45": 0.0071,
+   "46": 0.0038,
+   "47": 0.0015,
+   "48": 0.0027,
+   "49": 0.0065,
+   "50": 0.0205
+  }
+ },
+ "postseason": {
+  "years": "2001-2025",
+  "by_season": {
+   "2001": {
+    "fbs_bowl_and_playoff_games": 25,
+    "cfp_games": 0,
+    "bowl_names": []
+   },
+   "2002": {
+    "fbs_bowl_and_playoff_games": 28,
+    "cfp_games": 0,
+    "bowl_names": [
+     "AT TEMPE AZ",
+     "CAPITAL ONE BOWL",
+     "COTTON BOWL",
+     "GATOR BOWL",
+     "ORANGE BOWL",
+     "OUTBACK BOWL",
+     "ROSE BOWL",
+     "SUGAR BOWL"
+    ]
+   },
+   "2003": {
+    "fbs_bowl_and_playoff_games": 28,
+    "cfp_games": 0,
+    "bowl_names": [
+     "CAPITAL ONE BOWL",
+     "CHICK-FIL-A PEACH BOWL",
+     "FEDEX ORANGE BOWL",
+     "HUMANITARIAN BOWL",
+     "NOKIA SUGAR BOWL",
+     "OUTBACK BOWL",
+     "ROSE BOWL PRESENTED BY CITI",
+     "SBC COTTON BOWL CLASSIC",
+     "TOSTITOS FIESTA BOWL",
+     "TOYOTA GATOR BOWL"
+    ]
+   },
+   "2004": {
+    "fbs_bowl_and_playoff_games": 28,
+    "cfp_games": 0,
+    "bowl_names": [
+     "CAPITAL ONE BOWL",
+     "COTTON BOWL",
+     "FIESTA BOWL",
+     "GATOR BOWL",
+     "ORANGE BOWL",
+     "OUTBACK BOWL",
+     "ROSE BOWL",
+     "SUGAR BOWL"
+    ]
+   },
+   "2005": {
+    "fbs_bowl_and_playoff_games": 28,
+    "cfp_games": 0,
+    "bowl_names": [
+     "AT&T Cotton Bowl",
+     "Capital One Bowl",
+     "FedEx Orange Bowl",
+     "Nokia Sugar Bowl",
+     "Outback Bowl",
+     "The Rose Bowl Game presented by Citi",
+     "Tostitos Fiesta Bowl",
+     "Toyota Gator Bowl"
+    ]
+   },
+   "2006": {
+    "fbs_bowl_and_playoff_games": 32,
+    "cfp_games": 0,
+    "bowl_names": [
+     "BCS NATIONAL CHAMPIONSHIP AT GLENDALE AZ",
+     "CAPITAL ONE BOWL AT ORLANDO FL",
+     "COTTON BOWL AT DALLAS TX",
+     "FIESTA BOWL AT GLENDALE AZ",
+     "GATOR BOWL AT JACKSONVILLE FL",
+     "GMAC BOWL AT MOBILE AL",
+     "INTERNATIONAL BOWL AT TORONTO ON",
+     "ORANGE BOWL AT MIAMI FL",
+     "OUTBACK BOWL AT TAMPA FL",
+     "ROSE BOWL AT PASADENA CA",
+     "SUGAR BOWL AT NEW ORLEANS LA"
+    ]
+   },
+   "2007": {
+    "fbs_bowl_and_playoff_games": 32,
+    "cfp_games": 0,
+    "bowl_names": []
+   },
+   "2008": {
+    "fbs_bowl_and_playoff_games": 34,
+    "cfp_games": 0,
+    "bowl_names": [
+     "ALLSTATE SUGAR BOWL",
+     "AUTOZONE LIBERTY BOWL",
+     "CAPITAL ONE BOWL",
+     "COTTON BOWL",
+     "FEDEX BCS NATIONAL CHAMPIONSHIP GAME",
+     "FEDEX ORANGE BOWL",
+     "GATOR BOWL",
+     "GMAC BOWL",
+     "INTERNATIONAL BOWL",
+     "OUTBACK BOWL",
+     "THE ROSE BOWL GAME PRESENTED BY CITI",
+     "TOSTITOS FIESTA BOWL"
+    ]
+   },
+   "2009": {
+    "fbs_bowl_and_playoff_games": 34,
+    "cfp_games": 0,
+    "bowl_names": [
+     "ALLSTATE SUGAR BOWL",
+     "AT&T COTTON BOWL",
+     "AutoZone LIBERTY BOWL",
+     "CAPITAL ONE BOWL",
+     "CITI BCS NATIONAL CHAMPIONSHIP GAME",
+     "FedEx ORANGE BOWL",
+     "GMAC BOWL",
+     "INTERNATIONAL BOWL",
+     "KONICA MINOLTA GATOR BOWL",
+     "OUTBACK BOWL",
+     "PAPAJOHNS.com BOWL",
+     "ROSE BOWL GAME PRESENTED BY CITI",
+     "TOSTITOS FIESTA BOWL",
+     "VALERO ALAMO BOWL"
+    ]
+   },
+   "2010": {
+    "fbs_bowl_and_playoff_games": 35,
+    "cfp_games": 0,
+    "bowl_names": [
+     "ALLSTATE SUGAR BOWL",
+     "AT&T COTTON BOWL",
+     "AdvoCare V100 INDEPENDENCE BOWL",
+     "AutoZone LIBERTY BOWL",
+     "BBVA COMPASS BOWL",
+     "BEEF 'O' BRADY'S BOWL ST. PETERSBURG",
+     "BELL HELICOPTER ARMED FORCES BOWL",
+     "BRIDGEPOINT EDUCATION HOLIDAY BOWL",
+     "CAPITAL ONE BOWL",
+     "CHAMPS SPORTS BOWL",
+     "Chick-fil-A BOWL",
+     "DISCOVER ORANGE BOWL",
+     "FRANKLIN AMERICAN MORTGAGE MUSIC CITY BOWL",
+     "GODADDY.com BOWL",
+     "HYUNDAI SUN BOWL",
+     "INSIGHT BOWL",
+     "KRAFT FIGHT HUNGER BOWL",
+     "LITTLE CAESARS BOWL",
+     "MAACO BOWL LAS VEGAS",
+     "MEINEKE CAR CARE BOWL",
+     "MILITARY BOWL PRESENTED BY NORTHROP GRUMMAN",
+     "NEW ERA PINSTRIPE BOWL",
+     "NEW MEXICO BOWL",
+     "OUTBACK BOWL",
+     "PROGRESSIVE GATOR BOWL",
+     "R+L CARRIERS NEW ORLEANS BOWL",
+     "ROSE BOWL GAME PRESENTED BY VIZIO",
+     "SAN DIEGO COUNTY CREDIT UNION POINSETTIA BOWL",
+     "SHERATON HAWAII BOWL",
+     "TEXAS BOWL",
+     "TICKETCITY BOWL",
+     "TOSTITOS BCS NATIONAL CHAMPIONSHIP GAME",
+     "TOSTITOS FIESTA BOWL",
+     "VALERO ALAMO BOWL",
+     "uDROVE HUMANITARIAN BOWL"
+    ]
+   },
+   "2011": {
+    "fbs_bowl_and_playoff_games": 35,
+    "cfp_games": 0,
+    "bowl_names": [
+     "ALLSTATE BCS NATIONAL CHAMPIONSHIP",
+     "ALLSTATE SUGAR BOWL",
+     "AT&T COTTON BOWL",
+     "AdvoCare V100 INDEPENDENCE BOWL",
+     "AutoZone LIBERTY BOWL",
+     "BBVA COMPASS BOWL",
+     "BEEF 'O' BRADY'S BOWL ST. PETERSBURG",
+     "BELK BOWL",
+     "BELL HELICOPTER ARMED FORCES BOWL",
+     "BRIDGEPOINT EDUCATION HOLIDAY BOWL",
+     "CAPITAL ONE BOWL",
+     "CHAMPS SPORTS BOWL",
+     "Chick-fil-A BOWL",
+     "DISCOVER ORANGE BOWL",
+     "FAMOUS IDAHO POTATO BOWL",
+     "FRANKLIN AMERICAN MORTGAGE MUSIC CITY BOWL",
+     "GILDAN NEW MEXICO BOWL",
+     "GODADDY.com BOWL",
+     "HYUNDAI SUN BOWL",
+     "INSIGHT BOWL",
+     "KRAFT FIGHT HUNGER BOWL",
+     "LITTLE CAESARS BOWL",
+     "MAACO BOWL LAS VEGAS",
+     "MEINEKE CAR CARE BOWL OF TEXAS",
+     "MILITARY BOWL - PRESENTED BY NORTHROP GRUMMAN",
+     "NEW ERA PINSTRIPE BOWL",
+     "OUTBACK BOWL",
+     "R+L CARRIERS NEW ORLEANS BOWL",
+     "ROSE BOWL GAME PRESENTED BY VIZIO",
+     "SAN DIEGO COUNTY CREDIT UNION POINSETTIA BOWL",
+     "SHERATON HAWAII BOWL",
+     "TAXSLAYER.com GATOR BOWL",
+     "TICKETCITY BOWL",
+     "TOSTITOS FIESTA BOWL",
+     "VALERO ALAMO BOWL"
+    ]
+   },
+   "2012": {
+    "fbs_bowl_and_playoff_games": 35,
+    "cfp_games": 0,
+    "bowl_names": [
+     "ALLSTATE SUGAR BOWL",
+     "AT&T COTTON BOWL",
+     "AdvoCare V100 INDEPENDENCE BOWL",
+     "AutoZone LIBERTY BOWL",
+     "BBVA COMPASS BOWL",
+     "BEEF 'O' BRADY'S BOWL ST. PETERSBURG",
+     "BELK BOWL",
+     "BELL HELICOPTER ARMED FORCES BOWL",
+     "BRIDGEPOINT EDUCATION HOLIDAY BOWL",
+     "BUFFALO WILD WINGS BOWL",
+     "CAPITAL ONE BOWL",
+     "Chick-fil-A BOWL",
+     "DISCOVER BCS NATIONAL CHAMPIONSHIP",
+     "DISCOVER ORANGE BOWL",
+     "FAMOUS IDAHO POTATO BOWL",
+     "FRANKLIN AMERICAN MORTGAGE MUSIC CITY BOWL",
+     "GILDAN NEW MEXICO BOWL",
+     "GODADDY.com BOWL",
+     "HEART OF DALLAS BOWL",
+     "HYUNDAI SUN BOWL",
+     "KRAFT FIGHT HUNGER BOWL",
+     "LITTLE CAESARS BOWL",
+     "MAACO BOWL LAS VEGAS",
+     "MEINEKE CAR CARE BOWL OF TEXAS",
+     "MILITARY BOWL - PRESENTED BY NORTHROP GRUMMAN",
+     "NEW ERA PINSTRIPE BOWL",
+     "OUTBACK BOWL",
+     "R+L CARRIERS NEW ORLEANS BOWL",
+     "ROSE BOWL GAME PRESENTED BY VIZIO",
+     "RUSSELL ATHLETIC BOWL",
+     "SAN DIEGO COUNTY CREDIT UNION POINSETTIA BOWL",
+     "SHERATON HAWAII BOWL",
+     "TAXSLAYER.com GATOR BOWL",
+     "TOSTITOS FIESTA BOWL",
+     "VALERO ALAMO BOWL"
+    ]
+   },
+   "2013": {
+    "fbs_bowl_and_playoff_games": 35,
+    "cfp_games": 0,
+    "bowl_names": [
+     "ALLSTATE SUGAR BOWL",
+     "AT&T COTTON BOWL",
+     "AdvoCare V100 BOWL",
+     "AutoZone LIBERTY BOWL",
+     "BBVA COMPASS BOWL",
+     "BEEF 'O' BRADY'S BOWL ST. PETERSBURG",
+     "BELK BOWL",
+     "BELL HELICOPTER ARMED FORCES BOWL",
+     "BUFFALO WILD WINGS BOWL",
+     "CAPITAL ONE BOWL",
+     "Chick-fil-A BOWL",
+     "DISCOVER ORANGE BOWL",
+     "FAMOUS IDAHO POTATO BOWL",
+     "FIGHT HUNGER BOWL",
+     "FRANKLIN AMERICAN MORTGAGE MUSIC CITY BOWL",
+     "GILDAN NEW MEXICO BOWL",
+     "GODADDY BOWL",
+     "HEART OF DALLAS BOWL - PRES. BY PLAINSCAPITAL BANK",
+     "HYUNDAI SUN BOWL",
+     "LITTLE CAESARS BOWL",
+     "MILITARY BOWL - PRES. BY NORTHROP GRUMMAN",
+     "NATIONAL UNIVERSITY HOLIDAY BOWL",
+     "NEW ERA PINSTRIPE BOWL",
+     "OUTBACK BOWL",
+     "R+L CARRIERS NEW ORLEANS BOWL",
+     "ROSE BOWL GAME PRESENTED BY VIZIO",
+     "ROYAL PURPLE LAS VEGAS BOWL",
+     "RUSSELL ATHLETIC BOWL",
+     "SAN DIEGO COUNTY CREDIT UNION POINSETTIA BOWL",
+     "SHERATON HAWAI'I BOWL",
+     "TAXSLAYER.com GATOR BOWL",
+     "TEXAS BOWL",
+     "TOSTITOS FIESTA BOWL",
+     "VALERO ALAMO BOWL",
+     "VIZIO BCS NATIONAL CHAMPIONSHIP"
+    ]
+   },
+   "2014": {
+    "fbs_bowl_and_playoff_games": 39,
+    "cfp_games": 3,
+    "bowl_names": [
+     "ADVOCARE V100 TEXAS BOWL",
+     "ALLSTATE SUGAR BOWL - SEMIFINAL",
+     "AUTOZONE LIBERTY BOWL",
+     "BELK BOWL",
+     "BIRMINGHAM BOWL",
+     "BITCOIN ST. PETERSBURG BOWL",
+     "BOCA RATON BOWL",
+     "BUFFALO WILD WINGS CITRUS BOWL",
+     "CFP NATIONAL CHAMPIONSHIP GAME PRES. BY AT&T",
+     "CHICK-FIL-A PEACH BOWL",
+     "DUCK COMMANDER INDEPENDENCE BOWL",
+     "FAMOUS IDAHO POTATO BOWL",
+     "FOSTER FARMS BOWL",
+     "FRANKLIN AMERICAN MORTGAGE MUSIC CITY BOWL",
+     "GILDAN NEW MEXICO BOWL",
+     "GODADDY BOWL",
+     "GOODYEAR COTTON BOWL CLASSIC",
+     "HAWAI'I BOWL",
+     "HYUNDAI SUN BOWL",
+     "LOCKHEED MARTIN ARMED FORCES BOWL",
+     "MIAMI BEACH BOWL",
+     "MILITARY BOWL PRESENTED BY NORTHROP GRUMMAN",
+     "NATIONAL UNIVERSITY HOLIDAY BOWL",
+     "NEW ERA PINSTRIPE BOWL",
+     "OUTBACK BOWL",
+     "POPEYES BAHAMAS BOWL",
+     "QUICK LANE BOWL",
+     "R+L CARRIERS NEW ORLEANS BOWL",
+     "RAYCOM MEDIA CAMELLIA BOWL",
+     "ROSE BOWL GAME PRES. BY NORTHWESTERN MUTUAL - SEMIFINAL",
+     "ROYAL PURPLE LAS VEGAS BOWL",
+     "RUSSELL ATHLETIC BOWL",
+     "SAN DIEGO COUNTY CREDIT UNION POINSETTIA BOWL",
+     "TAXSLAYER BOWL",
+     "TICKETCITY CACTUS BOWL",
+     "VALERO ALAMO BOWL",
+     "ZAXBY'S HEART OF DALLAS BOWL"
+    ]
+   },
+   "2015": {
+    "fbs_bowl_and_playoff_games": 41,
+    "cfp_games": 3,
+    "bowl_names": [
+     "ADVOCARE V100 TEXAS BOWL",
+     "ALLSTATE SUGAR BOWL",
+     "AUTONATION CURE BOWL",
+     "AUTOZONE LIBERTY BOWL",
+     "BATTLEFROG FIESTA BOWL",
+     "BUFFALO WILD WINGS CITRUS BOWL",
+     "CAMPING WORLD INDEPENDENCE BOWL",
+     "CFP NATIONAL CHAMPIONSHIP GAME PRES. BY AT&T",
+     "FAMOUS IDAHO POTATO BOWL",
+     "FOSTER FARMS BOWL",
+     "GILDAN NEW MEXICO BOWL",
+     "GODADDY BOWL",
+     "HAWAI'I BOWL",
+     "HYUNDAI SUN BOWL",
+     "LOCKHEED MARTIN ARMED FORCES BOWL",
+     "MARMOT BOCA RATON BOWL",
+     "MIAMI BEACH BOWL",
+     "MILITARY BOWL PRESENTED BY NORTHROP GRUMMAN",
+     "MOTEL 6 CACTUS BOWL",
+     "NATIONAL FUNDING HOLIDAY BOWL",
+     "NEW ERA PINSTRIPE BOWL",
+     "NOVA HOME LOANS ARIZONA BOWL",
+     "OUTBACK BOWL",
+     "POPEYES BAHAMAS BOWL",
+     "QUICK LANE BOWL",
+     "R+L CARRIERS NEW ORLEANS BOWL",
+     "RAYCOM MEDIA CAMELLIA BOWL",
+     "ROSE BOWL GAME PRES. BY NORTHWESTERN MUTUAL",
+     "ROYAL PURPLE LAS VEGAS BOWL",
+     "RUSSELL ATHLETIC BOWL",
+     "SAN DIEGO COUNTY CREDIT UNION POINSETTIA BOWL",
+     "ST. PETERSBURG BOWL",
+     "TAXSLAYER BOWL",
+     "VALERO ALAMO BOWL",
+     "ZAXBY'S HEART OF DALLAS BOWL"
+    ]
+   },
+   "2016": {
+    "fbs_bowl_and_playoff_games": 41,
+    "cfp_games": 3,
+    "bowl_names": [
+     "ADVOCARE V100 TEXAS BOWL",
+     "ALLSTATE SUGAR BOWL",
+     "AUTONATION CURE BOWL",
+     "BOCA RATON BOWL",
+     "CAMPING WORLD INDEPENDENCE BOWL",
+     "CFP NATIONAL CHAMPIONSHIP GAME PRESENTED BY AT&T",
+     "Capital One Orange Bowl",
+     "DOLLAR GENERAL BOWL",
+     "FAMOUS IDAHO POTATO BOWL",
+     "FOSTER FARMS BOWL",
+     "GILDAN NEW MEXICO BOWL",
+     "GOODYEAR COTTON BOWL CLASSIC",
+     "HAWAI'I BOWL",
+     "LAS VEGAS BOWL PRESENTED BY GEICO",
+     "LOCKHEED MARTIN ARMED FORCES BOWL",
+     "MIAMI BEACH BOWL",
+     "MILITARY BOWL PRESENTED BY NORTHROP GRUMMAN",
+     "MOTEL 6 CACTUS BOWL",
+     "NATIONAL FUNDING HOLIDAY BOWL",
+     "NEW ERA PINSTRIPE BOWL",
+     "OUTBACK BOWL",
+     "POPEYES BAHAMAS BOWL",
+     "QUICK LANE BOWL",
+     "R+L CARRIERS NEW ORLEANS BOWL",
+     "RAYCOM MEDIA CAMELLIA BOWL",
+     "ROSE BOWL GAME PRES. BY NORTHWESTERN MUTUAL",
+     "RUSSELL ATHLETIC BOWL",
+     "SAN DIEGO COUNTY CREDIT UNION POINSETTIA BOWL",
+     "ST. PETERSBURG BOWL",
+     "VALERO ALAMO BOWL",
+     "ZAXBY'S HEART OF DALLAS BOWL"
+    ]
+   },
+   "2017": {
+    "fbs_bowl_and_playoff_games": 40,
+    "cfp_games": 3,
+    "bowl_names": [
+     "ACADEMY SPORTS + OUTDOORS TEXAS BOWL",
+     "ALLSTATE SUGAR BOWL - CFP SEMIFINAL",
+     "AUTONATION CURE BOWL",
+     "BAD BOY MOWERS GASPARILLA BOWL",
+     "BAHAMAS BOWL",
+     "BIRMINGHAM BOWL",
+     "CACTUS BOWL",
+     "CAMPING WORLD BOWL",
+     "CFP NATIONAL CHAMPIONSHIP PRESENTED BY AT&T",
+     "CHERIBUNDI TART CHERRY BOCA RATON BOWL",
+     "CHICK-FIL-A PEACH BOWL",
+     "CITRUS BOWL PRESENTED BY OVERTON'S",
+     "DOLLAR GENERAL BOWL",
+     "DXL FRISCO BOWL",
+     "FAMOUS IDAHO POTATO BOWL",
+     "FOSTER FARMS BOWL",
+     "GILDAN NEW MEXICO BOWL",
+     "HAWAI'I BOWL",
+     "LAS VEGAS BOWL",
+     "LOCKHEED MARTIN ARMED FORCES BOWL",
+     "MILITARY BOWL PRESENTED BY NORTHROP GRUMMAN",
+     "NEW ERA PINSTRIPE BOWL",
+     "OUTBACK BOWL",
+     "QUICK LANE BOWL",
+     "R+L CARRIERS NEW ORLEANS BOWL",
+     "RAYCOM MEDIA CAMELLIA BOWL",
+     "ROSE BOWL GAME PRESENTED BY NORTHWESTERN MUTUAL - CFP SEMIFINAL",
+     "SAN DIEGO COUNTY CREDIT UNION HOLIDAY BOWL",
+     "VALERO ALAMO BOWL",
+     "WALK-ON'S INDEPENDENCE BOWL",
+     "ZAXBY'S HEART OF DALLAS BOWL"
+    ]
+   },
+   "2018": {
+    "fbs_bowl_and_playoff_games": 39,
+    "cfp_games": 3,
+    "bowl_names": [
+     "ACADEMY SPORTS + OUTDOORS TEXAS BOWL",
+     "ALLSTATE SUGAR BOWL",
+     "AUTONATION CURE BOWL",
+     "BAD BOY MOWERS GASPARILLA BOWL",
+     "CAMPING WORLD BOWL",
+     "CAPITAL ONE ORANGE BOWL - CFP SEMIFINAL",
+     "CFP NATIONAL CHAMPIONSHIP PRESENTED BY AT&T",
+     "CHEEZ-IT BOWL",
+     "CHERIBUNDI BOCA RATON BOWL",
+     "CHICK-FIL-A PEACH BOWL",
+     "DOLLAR GENERAL BOWL",
+     "DXL FRISCO BOWL",
+     "FAMOUS IDAHO POTATO BOWL",
+     "FRANKLIN AMERICAN MORTGAGE MUSIC CITY BOWL",
+     "GOODYEAR COTTON BOWL CLASSIC - CFP SEMIFINAL",
+     "JARED BIRMINGHAM BOWL",
+     "LOCKHEED MARTIN ARMED FORCES BOWL",
+     "MAKERS WANTED BAHAMAS BOWL",
+     "MITSUBISHI MOTORS LAS VEGAS BOWL",
+     "NEW ERA PINSTRIPE BOWL",
+     "NEW MEXICO BOWL PRESENTED BY PROGRESSIVE",
+     "OUTBACK BOWL",
+     "PLAYSTATION FIESTA BOWL",
+     "QUICK LANE BOWL",
+     "R+L CARRIERS NEW ORLEANS BOWL",
+     "RAYCOM MEDIA CAMELLIA BOWL",
+     "ROSE BOWL GAME PRESENTED BY NORTHWESTERN MUTUAL",
+     "SOFI HAWAI'I BOWL",
+     "VALERO ALAMO BOWL",
+     "VRBO CITRUS BOWL",
+     "WALK-ON'S INDEPENDENCE BOWL"
+    ]
+   },
+   "2019": {
+    "fbs_bowl_and_playoff_games": 40,
+    "cfp_games": 3,
+    "bowl_names": [
+     "ACADEMY SPORTS + OUTDOORS TEXAS BOWL",
+     "ALLSTATE SUGAR BOWL",
+     "BAD BOY MOWERS GASPARILLA BOWL",
+     "CAMELLIA BOWL",
+     "CAMPING WORLD BOWL",
+     "CAPITAL ONE ORANGE BOWL",
+     "CFP NATIONAL CHAMPIONSHIP PRES. BY AT&T",
+     "CHEEZ-IT BOWL",
+     "CHERIBUNDI BOCA RATON BOWL",
+     "CHICK-FIL-A PEACH BOWL - CFP SEMIFINAL",
+     "FAMOUS IDAHO POTATO BOWL",
+     "FBC MORTGAGE CURE BOWL",
+     "FRANKLIN AMERICAN MORTGAGE MUSIC CITY BOWL",
+     "GOODYEAR COTTON BOWL CLASSIC",
+     "LENDINGTREE BOWL",
+     "LOCKHEED MARTIN ARMED FORCES BOWL",
+     "MAKERS WANTED BAHAMAS BOWL",
+     "MILITARY BOWL PRESENTED BY NORTHROP GRUMMAN",
+     "MITSUBISHI MOTORS LAS VEGAS BOWL",
+     "NEW ERA PINSTRIPE BOWL",
+     "NEW MEXICO BOWL",
+     "OUTBACK BOWL",
+     "PLAYSTATION FIESTA BOWL - CFP SEMIFINAL",
+     "QUICK LANE BOWL",
+     "R+L CARRIERS NEW ORLEANS BOWL",
+     "REDBOX BOWL",
+     "ROSE BOWL GAME PRESENTED BY NORTHWESTERN MUTUAL",
+     "SAN DIEGO COUNTY CREDIT UNION HOLIDAY BOWL",
+     "SERVPRO FIRST RESPONDER BOWL",
+     "SOFI HAWAI'I BOWL",
+     "TAXSLAYER GATOR BOWL",
+     "TICKETSMARTER BIRMINGHAM BOWL",
+     "TROPICAL SMOOTHIE CAFE FRISCO BOWL",
+     "VRBO CITRUS BOWL",
+     "WALK-ON'S INDEPENDENCE BOWL"
+    ]
+   },
+   "2020": {
+    "fbs_bowl_and_playoff_games": 26,
+    "cfp_games": 3,
+    "bowl_names": [
+     "Allstate Sugar Bowl - CFP Semifinal",
+     "AutoZone Liberty Bowl",
+     "CFP National Championship pres. by AT&T",
+     "Camellia Bowl",
+     "Capital One Orange Bowl",
+     "Cheez-It Bowl",
+     "Chick-fil-A Peach Bowl",
+     "Duke's Mayo Bowl",
+     "FBC Mortgage Cure Bowl",
+     "Famous Idaho Potato Bowl",
+     "Goodyear Cotton Bowl Classic",
+     "LendingTree Bowl",
+     "Lockheed Martin Armed Forces Bowl",
+     "Montgomery Bowl",
+     "Myrtle Beach Bowl",
+     "New Mexico Bowl",
+     "Offerpad Arizona Bowl",
+     "Outback Bowl",
+     "PlayStation Fiesta Bowl",
+     "R+L Carriers New Orleans Bowl",
+     "RoofClaim.com Boca Raton Bowl",
+     "Rose Bowl Game Presented by Capital One - CFP Semifinal",
+     "SERVPRO First Responder Bowl",
+     "TaxSlayer Gator Bowl",
+     "Valero Alamo Bowl",
+     "Vrbo Citrus Bowl"
+    ]
+   },
+   "2021": {
+    "fbs_bowl_and_playoff_games": 38,
+    "cfp_games": 3,
+    "bowl_names": [
+     "Allstate Sugar Bowl",
+     "AutoZone Liberty Bowl",
+     "Bahamas Bowl",
+     "CFP National Championship pres. by AT&T",
+     "CFP Semifinal at the Capital One Orange Bowl",
+     "CFP Semifinal at the Goodyear Cotton Bowl Classic",
+     "Cheez-It Bowl",
+     "Chick-fil-A Peach Bowl",
+     "Duke's Mayo Bowl",
+     "Famous Idaho Potato Bowl",
+     "Frisco Football Classic",
+     "Guaranteed Rate Bowl",
+     "Jimmy Kimmel LA Bowl Presented by Stifel",
+     "LendingTree Bowl",
+     "Lockheed Martin Armed Forces Bowl",
+     "Myrtle Beach Bowl Pres. by TaxAct",
+     "New Era Pinstripe Bowl",
+     "Outback Bowl",
+     "PUBG Mobile New Mexico Bowl",
+     "PlayStation Fiesta Bowl",
+     "Quick Lane Bowl",
+     "R+L Carriers New Orleans Bowl",
+     "Radiance Technologies Independence Bowl",
+     "RoofClaim.com Boca Raton Bowl",
+     "Rose Bowl Game Pres. by Capital One Venture X",
+     "SERVPRO First Responder Bowl",
+     "SRS Distribution Las Vegas Bowl",
+     "Tailgreeter Cure Bowl",
+     "TaxAct Camellia Bowl",
+     "TaxAct Texas Bowl",
+     "TaxSlayer Gator Bowl",
+     "TicketSmarter Birmingham Bowl",
+     "Tony the Tiger Sun Bowl",
+     "TransPerfect Music City Bowl",
+     "Tropical Smoothie Cafe Frisco Bowl",
+     "Union Home Mortgage Gasparilla Bowl",
+     "Valero Alamo Bowl",
+     "Vrbo Citrus Bowl"
+    ]
+   },
+   "2022": {
+    "fbs_bowl_and_playoff_games": 42,
+    "cfp_games": 3,
+    "bowl_names": [
+     "Allstate Sugar Bowl",
+     "AutoZone Liberty Bowl",
+     "Bad Boy Mowers Pinstripe Bowl",
+     "Barstool Sports Arizona Bowl",
+     "CFP National Championship pres. by AT&T",
+     "CFP Semifinal at the Chick-fil-A Peach Bowl",
+     "CFP Semifinal at the Vrbo Fiesta Bowl",
+     "Camellia Bowl",
+     "Capital One Orange Bowl",
+     "Cheez-It Bowl",
+     "Cheez-It Citrus Bowl",
+     "Duke's Mayo Bowl",
+     "Duluth Trading Cure Bowl",
+     "EasyPost Hawai'i Bowl",
+     "Famous Idaho Potato Bowl",
+     "Frisco Bowl Presented by SERVPRO",
+     "Goodyear Cotton Bowl Classic",
+     "Guaranteed Rate Bowl",
+     "HomeTown Lenders Bahamas Bowl",
+     "Jimmy Kimmel LA Bowl Presented by Stifel",
+     "LendingTree Bowl",
+     "Lockheed Martin Armed Forces Bowl",
+     "Military Bowl Presented by Peraton",
+     "Myrtle Beach Bowl",
+     "New Mexico Bowl",
+     "Quick Lane Bowl",
+     "R+L Carriers New Orleans Bowl",
+     "Radiance Technologies Independence Bowl",
+     "ReliaQuest Bowl",
+     "RoofClaim.com Boca Raton Bowl",
+     "Rose Bowl Game Presented by Prudential",
+     "SERVPRO First Responder Bowl",
+     "SRS Distribution Las Vegas Bowl",
+     "San Diego County Credit Union Holiday Bowl",
+     "TaxAct Texas Bowl",
+     "TaxSlayer Gator Bowl",
+     "TicketSmarter Birmingham Bowl",
+     "Tony the Tiger Sun Bowl",
+     "TransPerfect Music City Bowl",
+     "Union Home Mortgage Gasparilla Bowl",
+     "Valero Alamo Bowl",
+     "Wasabi Fenway Bowl"
+    ]
+   },
+   "2023": {
+    "fbs_bowl_and_playoff_games": 42,
+    "cfp_games": 3,
+    "bowl_names": [
+     "68 Ventures Bowl",
+     "76 Birmingham Bowl",
+     "AutoZone Liberty Bowl",
+     "Avocados From Mexico Cure Bowl",
+     "Bad Boy Mowers Pinstripe Bowl",
+     "Barstool Sports Arizona Bowl",
+     "CFP National Championship Pres. by AT&T",
+     "CFP Semifinal at the Allstate Sugar Bowl",
+     "CFP Semifinal at the Rose Bowl Game Pres. by Prudential",
+     "Camellia Bowl",
+     "Capital One Orange Bowl",
+     "Cheez-It Citrus Bowl",
+     "Chick-fil-A Peach Bowl",
+     "DIRECTV Holiday Bowl",
+     "Duke's Mayo Bowl",
+     "EasyPost Hawai\u02bbi Bowl",
+     "Famous Idaho Potato Bowl",
+     "Famous Toastery Bowl",
+     "Goodyear Cotton Bowl Classic",
+     "Guaranteed Rate Bowl",
+     "Isleta New Mexico Bowl",
+     "Lockheed Martin Armed Forces Bowl",
+     "Military Bowl Presented by GoBowling.com",
+     "Myrtle Beach Bowl",
+     "Pop-Tarts Bowl",
+     "Quick Lane Bowl",
+     "R+L Carriers New Orleans Bowl",
+     "Radiance Technologies Independence Bowl",
+     "ReliaQuest Bowl",
+     "RoofClaim.com Boca Raton Bowl",
+     "SERVPRO First Responder Bowl",
+     "SRS Distribution Las Vegas Bowl",
+     "Scooter's Coffee Frisco Bowl",
+     "Starco Brands LA Bowl",
+     "TaxAct Texas Bowl",
+     "TaxSlayer Gator Bowl",
+     "Tony the Tiger Sun Bowl",
+     "TransPerfect Music City Bowl",
+     "Union Home Mortgage Gasparilla Bowl",
+     "Valero Alamo Bowl",
+     "Vrbo Fiesta Bowl",
+     "Wasabi Fenway Bowl"
+    ]
+   },
+   "2024": {
+    "fbs_bowl_and_playoff_games": 46,
+    "cfp_games": 11,
+    "bowl_names": [
+     "68 Ventures Bowl",
+     "Art of Sport LA Bowl",
+     "AutoZone Liberty Bowl",
+     "Bad Boy Mowers Pinstripe Bowl",
+     "Bahamas Bowl Presented by Atlantis Resorts",
+     "Birmingham Bowl",
+     "Boca Raton Bowl",
+     "Cheez-It Citrus Bowl",
+     "College Football Playoff First Round Game Presented by Allstate",
+     "College Football Playoff National Championship Presented by AT&T",
+     "College Football Playoff Quarterfinal at the Allstate Sugar Bowl - Rescheduled from Jan 1",
+     "College Football Playoff Quarterfinal at the Chick-fil-A Peach Bowl",
+     "College Football Playoff Quarterfinal at the Rose Bowl Presented by Prudential",
+     "College Football Playoff Quarterfinal at the Vrbo Fiesta Bowl",
+     "College Football Playoff Semifinal at the Capital One Orange Bowl",
+     "College Football Playoff Semifinal at the Goodyear Cotton Bowl Classic",
+     "DirecTV Holiday Bowl",
+     "Duke's Mayo Bowl",
+     "Famous Idaho Potato Bowl",
+     "GameAbove Sports Bowl",
+     "Go Bowling Military Bowl",
+     "Hawai\u02bbi Bowl",
+     "IS4S Salute to Veterans Bowl",
+     "Isleta New Mexico Bowl",
+     "Kinder's Texas Bowl",
+     "Lockheed Martin Armed Forces Bowl",
+     "Myrtle Beach Bowl",
+     "Pop-Tarts Bowl",
+     "R+L Carriers New Orleans Bowl",
+     "Radiance Technologies Independence Bowl",
+     "Rate Bowl",
+     "ReliaQuest Bowl",
+     "SERVPRO First Responder Bowl",
+     "SRS Distribution Las Vegas Bowl",
+     "Scooter's Coffee Frisco Bowl",
+     "Snoop Dogg Arizona Bowl",
+     "StaffDNA Cure Bowl",
+     "TaxSlayer Gator Bowl",
+     "Tony the Tiger Sun Bowl",
+     "TransPerfect Music City Bowl",
+     "Union Home Mortgage Gasparilla Bowl",
+     "Valero Alamo Bowl",
+     "Wasabi Fenway Bowl"
+    ]
+   },
+   "2025": {
+    "fbs_bowl_and_playoff_games": 46,
+    "cfp_games": 11,
+    "bowl_names": [
+     "68 Ventures Bowl",
+     "AutoZone Liberty Bowl",
+     "Bad Boy Mowers Pinstripe Bowl",
+     "Bucked Up LA Bowl",
+     "Bush's Boca Raton Bowl",
+     "Cheez-It Citrus Bowl",
+     "College Football Playoff First Round Game",
+     "College Football Playoff National Championship Presented by AT&T",
+     "College Football Playoff Quarterfinal at the Allstate Sugar Bowl",
+     "College Football Playoff Quarterfinal at the Capital One Orange Bowl",
+     "College Football Playoff Quarterfinal at the Goodyear Cotton Bowl Classic",
+     "College Football Playoff Quarterfinal at the Rose Bowl Presented by Prudential",
+     "College Football Playoff Semifinal at the Chick-fil-A Peach Bowl",
+     "College Football Playoff Semifinal at the Vrbo Fiesta Bowl",
+     "Duke's Mayo Bowl",
+     "Famous Idaho Potato Bowl",
+     "GameAbove Sports Bowl",
+     "Go Bowling Military Bowl",
+     "IS4S Salute to Veterans Bowl",
+     "Isleta New Mexico Bowl",
+     "JLab Birmingham Bowl",
+     "Kinder's Texas Bowl",
+     "Liberty Mutual Music City Bowl",
+     "Lockheed Martin Armed Forces Bowl",
+     "Myrtle Beach Bowl",
+     "New Orleans Bowl",
+     "Pop-Tarts Bowl",
+     "Radiance Technologies Independence Bowl",
+     "Rate Bowl",
+     "ReliaQuest Bowl",
+     "SERVPRO First Responder Bowl",
+     "SRS Distribution Las Vegas Bowl",
+     "Scooter's Coffee Frisco Bowl",
+     "Sheraton Hawai\u02bbi Bowl",
+     "Snoop Dogg Arizona Bowl",
+     "StaffDNA Cure Bowl",
+     "TaxSlayer Gator Bowl",
+     "Tony the Tiger Sun Bowl",
+     "Trust & Will Holiday Bowl",
+     "Union Home Mortgage Gasparilla Bowl",
+     "Valero Alamo Bowl",
+     "Wasabi Fenway Bowl",
+     "Xbox Bowl"
+    ]
+   }
+  }
+ },
+ "champions": {
+  "years": "FBS 2001-2025; FCS 2003-2025; D2 and D3 where the season's last games are in the data",
+  "note": "FBS: the national title game, else the season's last FBS bowl. FCS, D2, D3: the winner of the division's last December or January game, which is the title game when the playoffs are in the data (check the game's name).",
+  "by_season": {
+   "2001": {
+    "FBS_title_game_winner": "Miami",
+    "FBS_title_game": "nan"
+   },
+   "2002": {
+    "FBS_title_game_winner": "Ohio State",
+    "FBS_title_game": "AT TEMPE AZ"
+   },
+   "2003": {
+    "FBS_title_game_winner": "LSU",
+    "FBS_title_game": "NOKIA SUGAR BOWL"
+   },
+   "2004": {
+    "FBS_title_game_winner": "USC",
+    "FBS_title_game": "ORANGE BOWL"
+   },
+   "2005": {
+    "FBS_title_game_winner": "Texas",
+    "FBS_title_game": "The Rose Bowl Game presented by Citi",
+    "FCS_last_game_winner": "Furman",
+    "FCS_last_game": "IAA PLAYOFFS"
+   },
+   "2006": {
+    "FBS_title_game_winner": "Florida",
+    "FBS_title_game": "BCS NATIONAL CHAMPIONSHIP AT GLENDALE AZ",
+    "FCS_last_game_winner": "Youngstown State",
+    "FCS_last_game": "NCAA DIVISION I FOOTBALL CHAMPIONSHIP"
+   },
+   "2007": {
+    "FBS_title_game_winner": "LSU",
+    "FBS_title_game": "nan",
+    "FCS_last_game_winner": "Richmond",
+    "FCS_last_game": "IAA PLAYOFFS"
+   },
+   "2008": {
+    "FBS_title_game_winner": "Florida",
+    "FBS_title_game": "FEDEX BCS NATIONAL CHAMPIONSHIP GAME"
+   },
+   "2009": {
+    "FBS_title_game_winner": "Alabama",
+    "FBS_title_game": "CITI BCS NATIONAL CHAMPIONSHIP GAME",
+    "FCS_last_game_winner": "App State",
+    "FCS_last_game": "NCAA DIVISION I FOOTBALL CHAMPIONSHIP"
+   },
+   "2010": {
+    "FBS_title_game_winner": "Auburn",
+    "FBS_title_game": "TOSTITOS BCS NATIONAL CHAMPIONSHIP GAME",
+    "FCS_last_game_winner": "Eastern Washington",
+    "FCS_last_game": "NCAA DIVISION I FOOTBALL CHAMPIONSHIP - SECOND ROUND"
+   },
+   "2011": {
+    "FBS_title_game_winner": "Alabama",
+    "FBS_title_game": "ALLSTATE BCS NATIONAL CHAMPIONSHIP",
+    "FCS_last_game_winner": "Northern Iowa",
+    "FCS_last_game": "NCAA DIVISION I FOOTBALL CHAMPIONSHIP - SECOND ROUND"
+   },
+   "2012": {
+    "FBS_title_game_winner": "Alabama",
+    "FBS_title_game": "DISCOVER BCS NATIONAL CHAMPIONSHIP",
+    "FCS_last_game_winner": "Eastern Washington",
+    "FCS_last_game": "NCAA DIVISION I FOOTBALL CHAMPIONSHIP - SECOND ROUND"
+   },
+   "2013": {
+    "FBS_title_game_winner": "Florida State",
+    "FBS_title_game": "VIZIO BCS NATIONAL CHAMPIONSHIP",
+    "FCS_last_game_winner": "North Dakota State",
+    "FCS_last_game": null
+   },
+   "2014": {
+    "FBS_title_game_winner": "Ohio State",
+    "FBS_title_game": "CFP NATIONAL CHAMPIONSHIP GAME PRES. BY AT&T",
+    "FCS_last_game_winner": "North Dakota State",
+    "FCS_last_game": null
+   },
+   "2015": {
+    "FBS_title_game_winner": "Alabama",
+    "FBS_title_game": "CFP NATIONAL CHAMPIONSHIP GAME PRES. BY AT&T",
+    "FCS_last_game_winner": "North Dakota State",
+    "FCS_last_game": null
+   },
+   "2016": {
+    "FBS_title_game_winner": "Clemson",
+    "FBS_title_game": "CFP NATIONAL CHAMPIONSHIP GAME PRESENTED BY AT&T",
+    "FCS_last_game_winner": "James Madison",
+    "FCS_last_game": null
+   },
+   "2017": {
+    "FBS_title_game_winner": "Alabama",
+    "FBS_title_game": "CFP NATIONAL CHAMPIONSHIP PRESENTED BY AT&T",
+    "FCS_last_game_winner": "North Dakota State",
+    "FCS_last_game": null
+   },
+   "2018": {
+    "FBS_title_game_winner": "Clemson",
+    "FBS_title_game": "CFP NATIONAL CHAMPIONSHIP PRESENTED BY AT&T",
+    "FCS_last_game_winner": "North Dakota State",
+    "FCS_last_game": null
+   },
+   "2019": {
+    "FBS_title_game_winner": "LSU",
+    "FBS_title_game": "CFP NATIONAL CHAMPIONSHIP PRES. BY AT&T",
+    "FCS_last_game_winner": "North Dakota State",
+    "FCS_last_game": null
+   },
+   "2020": {
+    "FBS_title_game_winner": "Alabama",
+    "FBS_title_game": "CFP National Championship pres. by AT&T"
+   },
+   "2021": {
+    "FBS_title_game_winner": "Georgia",
+    "FBS_title_game": "CFP National Championship pres. by AT&T",
+    "FCS_last_game_winner": "North Dakota State",
+    "FCS_last_game": null,
+    "D2_last_game_winner": "Ferris State",
+    "D2_last_game": null
+   },
+   "2022": {
+    "FBS_title_game_winner": "Georgia",
+    "FBS_title_game": "CFP National Championship pres. by AT&T",
+    "FCS_last_game_winner": "South Dakota State",
+    "FCS_last_game": "FCS Championship",
+    "D2_last_game_winner": "Ferris State",
+    "D2_last_game": "Division II Championship",
+    "D3_last_game_winner": "North Central College",
+    "D3_last_game": "Division III Championship"
+   },
+   "2023": {
+    "FBS_title_game_winner": "Michigan",
+    "FBS_title_game": "CFP National Championship Pres. by AT&T",
+    "FCS_last_game_winner": "South Dakota State",
+    "FCS_last_game": "FCS Championship",
+    "D2_last_game_winner": "Harding",
+    "D2_last_game": "Division II Championship",
+    "D3_last_game_winner": "SUNY Cortland",
+    "D3_last_game": "Division III Championship"
+   },
+   "2024": {
+    "FBS_title_game_winner": "Ohio State",
+    "FBS_title_game": "College Football Playoff National Championship Presented by AT&T",
+    "FCS_last_game_winner": "North Dakota State",
+    "FCS_last_game": "FCS Championship",
+    "D2_last_game_winner": "Ferris State",
+    "D2_last_game": "Division II Championship",
+    "D3_last_game_winner": "North Central College",
+    "D3_last_game": "Division III Championship"
+   },
+   "2025": {
+    "FBS_title_game_winner": "Indiana",
+    "FBS_title_game": "College Football Playoff National Championship Presented by AT&T",
+    "FCS_last_game_winner": "Montana State",
+    "FCS_last_game": "FCS Championship",
+    "D2_last_game_winner": "Ferris State",
+    "D2_last_game": "Division II Championship",
+    "D3_last_game_winner": "Wisconsin River Falls",
+    "D3_last_game": "Division III Championship"
+   }
+  }
+ },
+ "fbs_conference_champions": {
+  "years": "2001-2025",
+  "note": "title game winner, and the team or teams with the best conference record in the regular season",
+  "by_season": {
+   "2001": {
+    "ACC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Northwestern"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Colorado"
+     ]
+    },
+    "Big East": {
+     "title_game_winner": null,
+     "best_record": [
+      "Miami"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": null,
+     "best_record": [
+      "Utah"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": null,
+     "best_record": [
+      "Purdue",
+      "Wake Forest"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": null,
+     "best_record": [
+      "Marshall"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": null,
+     "best_record": [
+      "Arizona",
+      "Louisville",
+      "Northwestern"
+     ]
+    },
+    "Pac-10": {
+     "title_game_winner": null,
+     "best_record": [
+      "BYU",
+      "Georgia Tech",
+      "Illinois"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Tennessee"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": null,
+     "best_record": [
+      "Middle Tennessee",
+      "North Texas"
+     ]
+    },
+    "Western Athletic": {
+     "title_game_winner": null,
+     "best_record": [
+      "Louisiana Tech"
+     ]
+    }
+   },
+   "2002": {
+    "ACC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Colorado State",
+      "Louisville"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Colorado",
+      "Oklahoma"
+     ]
+    },
+    "Big East": {
+     "title_game_winner": null,
+     "best_record": [
+      "Miami"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": null,
+     "best_record": [
+      "California",
+      "Iowa",
+      "Ohio State",
+      "TCU",
+      "Wake Forest"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": null,
+     "best_record": [
+      "Air Force",
+      "Ohio State",
+      "South Florida"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": null,
+     "best_record": [
+      "Marshall"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": null,
+     "best_record": [
+      "Arizona State",
+      "TCU",
+      "UCLA",
+      "Wisconsin"
+     ]
+    },
+    "Pac-10": {
+     "title_game_winner": null,
+     "best_record": [
+      "Air Force",
+      "North Carolina",
+      "Purdue"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Georgia"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": null,
+     "best_record": [
+      "North Texas"
+     ]
+    },
+    "Western Athletic": {
+     "title_game_winner": null,
+     "best_record": [
+      "Boise State"
+     ]
+    }
+   },
+   "2003": {
+    "ACC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Arizona State",
+      "Northwestern",
+      "Purdue"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Oklahoma"
+     ]
+    },
+    "Big East": {
+     "title_game_winner": null,
+     "best_record": [
+      "Miami",
+      "West Virginia"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": null,
+     "best_record": [
+      "Air Force",
+      "California",
+      "UNLV"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": null,
+     "best_record": [
+      "North Carolina",
+      "Utah"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": null,
+     "best_record": [
+      "Miami (OH)"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": null,
+     "best_record": [
+      "Oregon State",
+      "Stanford"
+     ]
+    },
+    "Pac-10": {
+     "title_game_winner": null,
+     "best_record": [
+      "Colorado State",
+      "TCU"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": null,
+     "best_record": [
+      "LSU"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": null,
+     "best_record": [
+      "North Texas"
+     ]
+    },
+    "Western Athletic": {
+     "title_game_winner": null,
+     "best_record": [
+      "Boise State"
+     ]
+    }
+   },
+   "2004": {
+    "ACC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Ohio State",
+      "USC"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Oklahoma"
+     ]
+    },
+    "Big East": {
+     "title_game_winner": null,
+     "best_record": [
+      "Boston College",
+      "Pittsburgh",
+      "Syracuse",
+      "West Virginia"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": null,
+     "best_record": [
+      "Arizona State",
+      "UCLA"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": null,
+     "best_record": [
+      "Air Force",
+      "California",
+      "Louisville",
+      "Miami",
+      "Wake Forest"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": null,
+     "best_record": [
+      "Toledo"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": null,
+     "best_record": [
+      "California",
+      "Minnesota",
+      "USC",
+      "Utah",
+      "Washington State"
+     ]
+    },
+    "Pac-10": {
+     "title_game_winner": null,
+     "best_record": [
+      "Indiana",
+      "USC",
+      "Utah",
+      "Wisconsin",
+      "Wyoming"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Auburn"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": null,
+     "best_record": [
+      "North Texas"
+     ]
+    },
+    "Western Athletic": {
+     "title_game_winner": null,
+     "best_record": [
+      "Boise State"
+     ]
+    }
+   },
+   "2005": {
+    "ACC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Virginia Tech"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Texas"
+     ]
+    },
+    "Big East": {
+     "title_game_winner": null,
+     "best_record": [
+      "West Virginia"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": null,
+     "best_record": [
+      "Ohio State"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": null,
+     "best_record": [
+      "Tulsa",
+      "UCF"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": null,
+     "best_record": [
+      "Toledo"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": null,
+     "best_record": [
+      "TCU",
+      "UCLA"
+     ]
+    },
+    "Pac-10": {
+     "title_game_winner": null,
+     "best_record": [
+      "Purdue",
+      "USC"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Auburn"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": null,
+     "best_record": [
+      "Arkansas State",
+      "Louisiana",
+      "UL Monroe"
+     ]
+    },
+    "Western Athletic": {
+     "title_game_winner": null,
+     "best_record": [
+      "Boise State",
+      "Nevada"
+     ]
+    }
+   },
+   "2006": {
+    "ACC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Georgia Tech",
+      "Wake Forest"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Oklahoma"
+     ]
+    },
+    "Big East": {
+     "title_game_winner": null,
+     "best_record": [
+      "Louisville"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": null,
+     "best_record": [
+      "Ohio State",
+      "USC"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": null,
+     "best_record": [
+      "Houston"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": null,
+     "best_record": [
+      "Central Michigan"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": null,
+     "best_record": [
+      "BYU"
+     ]
+    },
+    "Pac-10": {
+     "title_game_winner": null,
+     "best_record": [
+      "California"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Florida"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": null,
+     "best_record": [
+      "Middle Tennessee",
+      "Troy"
+     ]
+    },
+    "Western Athletic": {
+     "title_game_winner": null,
+     "best_record": [
+      "Boise State"
+     ]
+    }
+   },
+   "2007": {
+    "ACC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Virginia Tech"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Kansas"
+     ]
+    },
+    "Big East": {
+     "title_game_winner": null,
+     "best_record": [
+      "UConn",
+      "West Virginia"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": null,
+     "best_record": [
+      "Oregon"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": null,
+     "best_record": [
+      "UCF"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": null,
+     "best_record": [
+      "Central Michigan"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": null,
+     "best_record": [
+      "BYU",
+      "California",
+      "Wisconsin"
+     ]
+    },
+    "Pac-10": {
+     "title_game_winner": null,
+     "best_record": [
+      "New Mexico",
+      "Ohio State",
+      "TCU"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": null,
+     "best_record": [
+      "LSU"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": null,
+     "best_record": [
+      "Florida Atlantic",
+      "Troy"
+     ]
+    },
+    "Western Athletic": {
+     "title_game_winner": null,
+     "best_record": [
+      "Hawai'i"
+     ]
+    }
+   },
+   "2008": {
+    "ACC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Virginia Tech"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Oklahoma"
+     ]
+    },
+    "Big East": {
+     "title_game_winner": null,
+     "best_record": [
+      "Cincinnati"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": null,
+     "best_record": [
+      "Oregon",
+      "Utah"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": null,
+     "best_record": [
+      "Rice"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": null,
+     "best_record": [
+      "Ball State"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": null,
+     "best_record": [
+      "Utah"
+     ]
+    },
+    "Pac-10": {
+     "title_game_winner": null,
+     "best_record": [
+      "UNLV"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Alabama",
+      "Florida"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": null,
+     "best_record": [
+      "Troy"
+     ]
+    },
+    "Western Athletic": {
+     "title_game_winner": null,
+     "best_record": [
+      "Boise State"
+     ]
+    }
+   },
+   "2009": {
+    "ACC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Georgia Tech"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Texas"
+     ]
+    },
+    "Big East": {
+     "title_game_winner": null,
+     "best_record": [
+      "Cincinnati"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": null,
+     "best_record": [
+      "California",
+      "USC"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": null,
+     "best_record": [
+      "East Carolina"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": null,
+     "best_record": [
+      "Central Michigan"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": null,
+     "best_record": [
+      "TCU"
+     ]
+    },
+    "Pac-10": {
+     "title_game_winner": null,
+     "best_record": [
+      "Ohio State"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Alabama"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": null,
+     "best_record": [
+      "Troy"
+     ]
+    },
+    "Western Athletic": {
+     "title_game_winner": null,
+     "best_record": [
+      "Boise State"
+     ]
+    }
+   },
+   "2010": {
+    "ACC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Virginia Tech"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Oklahoma"
+     ]
+    },
+    "Big East": {
+     "title_game_winner": null,
+     "best_record": [
+      "Pittsburgh",
+      "UConn",
+      "West Virginia"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": null,
+     "best_record": [
+      "USC"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": null,
+     "best_record": [
+      "UCF"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": null,
+     "best_record": [
+      "Miami (OH)",
+      "Northern Illinois"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": null,
+     "best_record": [
+      "TCU"
+     ]
+    },
+    "Pac-10": {
+     "title_game_winner": null,
+     "best_record": [
+      "Oregon"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Auburn"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": null,
+     "best_record": [
+      "Florida International",
+      "Troy"
+     ]
+    },
+    "Western Athletic": {
+     "title_game_winner": null,
+     "best_record": [
+      "Boise State",
+      "Hawai'i",
+      "Nevada"
+     ]
+    }
+   },
+   "2011": {
+    "ACC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Clemson",
+      "Virginia Tech"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Oklahoma State"
+     ]
+    },
+    "Big East": {
+     "title_game_winner": null,
+     "best_record": [
+      "Cincinnati",
+      "Louisville",
+      "West Virginia"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": null,
+     "best_record": [
+      "Michigan State",
+      "Wisconsin"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": null,
+     "best_record": [
+      "Houston"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": null,
+     "best_record": [
+      "Northern Illinois"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": null,
+     "best_record": [
+      "TCU"
+     ]
+    },
+    "Pac-12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Oregon"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": null,
+     "best_record": [
+      "LSU"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": null,
+     "best_record": [
+      "Arkansas State"
+     ]
+    },
+    "Western Athletic": {
+     "title_game_winner": null,
+     "best_record": [
+      "Louisiana Tech"
+     ]
+    }
+   },
+   "2012": {
+    "ACC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Florida State"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Kansas State",
+      "Oklahoma"
+     ]
+    },
+    "Big East": {
+     "title_game_winner": null,
+     "best_record": [
+      "Cincinnati",
+      "Louisville",
+      "Rutgers",
+      "Syracuse"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": null,
+     "best_record": [
+      "Ohio State"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": null,
+     "best_record": [
+      "Tulsa"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": null,
+     "best_record": [
+      "Northern Illinois"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": null,
+     "best_record": [
+      "Boise State",
+      "Fresno State",
+      "San Diego State"
+     ]
+    },
+    "Pac-12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Stanford"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Alabama"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": null,
+     "best_record": [
+      "Arkansas State"
+     ]
+    },
+    "Western Athletic": {
+     "title_game_winner": null,
+     "best_record": [
+      "Utah State"
+     ]
+    }
+   },
+   "2013": {
+    "ACC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Florida State"
+     ]
+    },
+    "American Athletic": {
+     "title_game_winner": null,
+     "best_record": [
+      "UCF"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Baylor"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": null,
+     "best_record": [
+      "Michigan State"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": null,
+     "best_record": [
+      "Rice"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": null,
+     "best_record": [
+      "Bowling Green",
+      "Northern Illinois"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": null,
+     "best_record": [
+      "Fresno State"
+     ]
+    },
+    "Pac-12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Arizona State",
+      "Stanford"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Auburn"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": null,
+     "best_record": [
+      "Arkansas State",
+      "Louisiana"
+     ]
+    }
+   },
+   "2014": {
+    "ACC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Florida State"
+     ]
+    },
+    "American Athletic": {
+     "title_game_winner": null,
+     "best_record": [
+      "Cincinnati",
+      "Memphis",
+      "UCF"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Baylor",
+      "TCU"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": null,
+     "best_record": [
+      "Ohio State"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": null,
+     "best_record": [
+      "Marshall"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": null,
+     "best_record": [
+      "Northern Illinois"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": null,
+     "best_record": [
+      "Boise State"
+     ]
+    },
+    "Pac-12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Oregon"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Alabama"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": null,
+     "best_record": [
+      "Georgia Southern"
+     ]
+    }
+   },
+   "2015": {
+    "ACC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Clemson"
+     ]
+    },
+    "American Athletic": {
+     "title_game_winner": null,
+     "best_record": [
+      "Houston"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Oklahoma"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": null,
+     "best_record": [
+      "Iowa",
+      "Michigan State"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": null,
+     "best_record": [
+      "Western Kentucky"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": null,
+     "best_record": [
+      "Bowling Green"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": null,
+     "best_record": [
+      "San Diego State"
+     ]
+    },
+    "Pac-12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Stanford"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Alabama"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": null,
+     "best_record": [
+      "Arkansas State"
+     ]
+    }
+   },
+   "2016": {
+    "ACC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Clemson"
+     ]
+    },
+    "American Athletic": {
+     "title_game_winner": null,
+     "best_record": [
+      "Temple"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Oklahoma"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": null,
+     "best_record": [
+      "Penn State"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": null,
+     "best_record": [
+      "Western Kentucky"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": null,
+     "best_record": [
+      "Western Michigan"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": null,
+     "best_record": [
+      "San Diego State"
+     ]
+    },
+    "Pac-12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Washington"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Alabama"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": null,
+     "best_record": [
+      "App State",
+      "Arkansas State"
+     ]
+    }
+   },
+   "2017": {
+    "ACC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Clemson"
+     ]
+    },
+    "American Athletic": {
+     "title_game_winner": null,
+     "best_record": [
+      "UCF"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Oklahoma"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": null,
+     "best_record": [
+      "Ohio State",
+      "Wisconsin"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": null,
+     "best_record": [
+      "Florida Atlantic"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": null,
+     "best_record": [
+      "Toledo"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": null,
+     "best_record": [
+      "Boise State"
+     ]
+    },
+    "Pac-12": {
+     "title_game_winner": null,
+     "best_record": [
+      "USC"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Alabama"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": null,
+     "best_record": [
+      "App State",
+      "Troy"
+     ]
+    }
+   },
+   "2018": {
+    "ACC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Clemson"
+     ]
+    },
+    "American Athletic": {
+     "title_game_winner": null,
+     "best_record": [
+      "UCF"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Oklahoma"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": null,
+     "best_record": [
+      "Ohio State"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": null,
+     "best_record": [
+      "UAB"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": null,
+     "best_record": [
+      "Buffalo",
+      "Northern Illinois"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": null,
+     "best_record": [
+      "Fresno State"
+     ]
+    },
+    "Pac-12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Washington"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Alabama"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": null,
+     "best_record": [
+      "App State"
+     ]
+    }
+   },
+   "2019": {
+    "ACC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Clemson"
+     ]
+    },
+    "American Athletic": {
+     "title_game_winner": null,
+     "best_record": [
+      "Memphis"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Oklahoma"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": null,
+     "best_record": [
+      "Ohio State"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": null,
+     "best_record": [
+      "Florida Atlantic"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": null,
+     "best_record": [
+      "Miami (OH)"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": null,
+     "best_record": [
+      "Boise State"
+     ]
+    },
+    "Pac-12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Oregon"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": null,
+     "best_record": [
+      "LSU"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": null,
+     "best_record": [
+      "App State"
+     ]
+    }
+   },
+   "2020": {
+    "ACC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Clemson",
+      "Notre Dame"
+     ]
+    },
+    "American Athletic": {
+     "title_game_winner": null,
+     "best_record": [
+      "Cincinnati"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Iowa State"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": null,
+     "best_record": [
+      "Ohio State"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": null,
+     "best_record": [
+      "UAB"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": null,
+     "best_record": [
+      "Ball State"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": null,
+     "best_record": [
+      "San Jos\u00e9 State"
+     ]
+    },
+    "Pac-12": {
+     "title_game_winner": null,
+     "best_record": [
+      "USC"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Alabama"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": null,
+     "best_record": [
+      "Coastal Carolina"
+     ]
+    }
+   },
+   "2021": {
+    "ACC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Notre Dame"
+     ]
+    },
+    "American Athletic": {
+     "title_game_winner": null,
+     "best_record": [
+      "Cincinnati"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Baylor",
+      "Oklahoma State"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": null,
+     "best_record": [
+      "Michigan"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": null,
+     "best_record": [
+      "UTSA"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": null,
+     "best_record": [
+      "Northern Illinois"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": null,
+     "best_record": [
+      "San Diego State",
+      "Utah State"
+     ]
+    },
+    "Pac-12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Utah"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Alabama",
+      "Georgia"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": null,
+     "best_record": [
+      "Louisiana"
+     ]
+    }
+   },
+   "2022": {
+    "ACC": {
+     "title_game_winner": "Clemson",
+     "best_record": [
+      "Clemson"
+     ]
+    },
+    "American Athletic": {
+     "title_game_winner": "Tulane",
+     "best_record": [
+      "Tulane"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": "Kansas State",
+     "best_record": [
+      "TCU"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": "Michigan",
+     "best_record": [
+      "Michigan"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": "UTSA",
+     "best_record": [
+      "UTSA"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": "Toledo",
+     "best_record": [
+      "Ohio"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": "Fresno State",
+     "best_record": [
+      "Boise State"
+     ]
+    },
+    "Pac-12": {
+     "title_game_winner": "Utah",
+     "best_record": [
+      "USC"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": "Georgia",
+     "best_record": [
+      "Georgia"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": "Troy",
+     "best_record": [
+      "South Alabama",
+      "Troy"
+     ]
+    }
+   },
+   "2023": {
+    "ACC": {
+     "title_game_winner": "Florida State",
+     "best_record": [
+      "Florida State"
+     ]
+    },
+    "American Athletic": {
+     "title_game_winner": "SMU",
+     "best_record": [
+      "SMU",
+      "Tulane"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": "Texas",
+     "best_record": [
+      "Texas"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": "Michigan",
+     "best_record": [
+      "Michigan"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": "Liberty",
+     "best_record": [
+      "Liberty"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": "Miami (OH)",
+     "best_record": [
+      "Toledo"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": "Boise State",
+     "best_record": [
+      "Boise State",
+      "San Jos\u00e9 State",
+      "UNLV"
+     ]
+    },
+    "Pac-12": {
+     "title_game_winner": "Washington",
+     "best_record": [
+      "Washington"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": "Alabama",
+     "best_record": [
+      "Alabama",
+      "Georgia"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": "Troy",
+     "best_record": [
+      "James Madison",
+      "Troy"
+     ]
+    }
+   },
+   "2024": {
+    "ACC": {
+     "title_game_winner": "Clemson",
+     "best_record": [
+      "SMU"
+     ]
+    },
+    "American Athletic": {
+     "title_game_winner": "Army",
+     "best_record": [
+      "Army"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": "Arizona State",
+     "best_record": [
+      "Arizona State",
+      "BYU",
+      "Colorado",
+      "Iowa State"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": "Oregon",
+     "best_record": [
+      "Oregon"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": "Jacksonville State",
+     "best_record": [
+      "Jacksonville State"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": "Ohio",
+     "best_record": [
+      "Miami (OH)",
+      "Ohio"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": "Boise State",
+     "best_record": [
+      "Boise State"
+     ]
+    },
+    "Pac-12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Oregon State"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": "Georgia",
+     "best_record": [
+      "Texas"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": "Marshall",
+     "best_record": [
+      "Louisiana",
+      "Marshall"
+     ]
+    }
+   },
+   "2025": {
+    "ACC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Virginia"
+     ]
+    },
+    "American Athletic": {
+     "title_game_winner": null,
+     "best_record": [
+      "Navy",
+      "North Texas",
+      "Tulane"
+     ]
+    },
+    "Big 12": {
+     "title_game_winner": null,
+     "best_record": [
+      "BYU",
+      "Texas Tech"
+     ]
+    },
+    "Big Ten": {
+     "title_game_winner": null,
+     "best_record": [
+      "Indiana",
+      "Ohio State"
+     ]
+    },
+    "Conference USA": {
+     "title_game_winner": null,
+     "best_record": [
+      "Jacksonville State",
+      "Kennesaw State"
+     ]
+    },
+    "Mid-American": {
+     "title_game_winner": null,
+     "best_record": [
+      "Western Michigan"
+     ]
+    },
+    "Mountain West": {
+     "title_game_winner": null,
+     "best_record": [
+      "Boise State",
+      "New Mexico",
+      "San Diego State",
+      "UNLV"
+     ]
+    },
+    "Pac-12": {
+     "title_game_winner": null,
+     "best_record": [
+      "Oregon State",
+      "Washington State"
+     ]
+    },
+    "SEC": {
+     "title_game_winner": null,
+     "best_record": [
+      "Alabama",
+      "Georgia",
+      "Ole Miss",
+      "Texas A&M"
+     ]
+    },
+    "Sun Belt": {
+     "title_game_winner": null,
+     "best_record": [
+      "James Madison"
+     ]
+    }
+   }
+  }
+ },
+ "ap_poll": {
+  "years": "2004-2025",
+  "file": "college_ap_polls.csv (preseason and final AP top 25 each season)",
+  "by_season": {
+   "2004": {
+    "final_no1": "USC",
+    "preseason_no1": "USC",
+    "preseason_no1_final_rank": 1.0,
+    "preseason_top25_finishing_ranked": 16,
+    "teams_ranked_no1": 1,
+    "teams_ranked_any_week": 42
+   },
+   "2005": {
+    "final_no1": "Texas",
+    "preseason_no1": "USC",
+    "preseason_no1_final_rank": 2.0,
+    "preseason_top25_finishing_ranked": 15,
+    "teams_ranked_no1": 2,
+    "teams_ranked_any_week": 43
+   },
+   "2006": {
+    "final_no1": "Florida",
+    "preseason_no1": "Ohio State",
+    "preseason_no1_final_rank": 2.0,
+    "preseason_top25_finishing_ranked": 17,
+    "teams_ranked_no1": 2,
+    "teams_ranked_any_week": 39
+   },
+   "2007": {
+    "final_no1": "LSU",
+    "preseason_no1": "USC",
+    "preseason_no1_final_rank": 3.0,
+    "preseason_top25_finishing_ranked": 14,
+    "teams_ranked_no1": 4,
+    "teams_ranked_any_week": 46
+   },
+   "2008": {
+    "final_no1": "Florida",
+    "preseason_no1": "Georgia",
+    "preseason_no1_final_rank": 13.0,
+    "preseason_top25_finishing_ranked": 14,
+    "teams_ranked_no1": 6,
+    "teams_ranked_any_week": 51
+   },
+   "2009": {
+    "final_no1": "Alabama",
+    "preseason_no1": "Florida",
+    "preseason_no1_final_rank": 3.0,
+    "preseason_top25_finishing_ranked": 17,
+    "teams_ranked_no1": 2,
+    "teams_ranked_any_week": 44
+   },
+   "2010": {
+    "final_no1": "Auburn",
+    "preseason_no1": "Alabama",
+    "preseason_no1_final_rank": 10.0,
+    "preseason_top25_finishing_ranked": 13,
+    "teams_ranked_no1": 4,
+    "teams_ranked_any_week": 46
+   },
+   "2011": {
+    "final_no1": "Alabama",
+    "preseason_no1": "Oklahoma",
+    "preseason_no1_final_rank": 16.0,
+    "preseason_top25_finishing_ranked": 18,
+    "teams_ranked_no1": 3,
+    "teams_ranked_any_week": 41
+   },
+   "2012": {
+    "final_no1": "Alabama",
+    "preseason_no1": "USC",
+    "preseason_no1_final_rank": null,
+    "preseason_top25_finishing_ranked": 17,
+    "teams_ranked_no1": 4,
+    "teams_ranked_any_week": 47
+   },
+   "2013": {
+    "final_no1": "Florida State",
+    "preseason_no1": "Alabama",
+    "preseason_no1_final_rank": 7.0,
+    "preseason_top25_finishing_ranked": 16,
+    "teams_ranked_no1": 2,
+    "teams_ranked_any_week": 41
+   },
+   "2014": {
+    "final_no1": "Ohio State",
+    "preseason_no1": "Florida State",
+    "preseason_no1_final_rank": 5.0,
+    "preseason_top25_finishing_ranked": 16,
+    "teams_ranked_no1": 4,
+    "teams_ranked_any_week": 42
+   },
+   "2015": {
+    "final_no1": "Alabama",
+    "preseason_no1": "Ohio State",
+    "preseason_no1_final_rank": 4.0,
+    "preseason_top25_finishing_ranked": 15,
+    "teams_ranked_no1": 3,
+    "teams_ranked_any_week": 46
+   },
+   "2016": {
+    "final_no1": "Clemson",
+    "preseason_no1": "Alabama",
+    "preseason_no1_final_rank": 2.0,
+    "preseason_top25_finishing_ranked": 14,
+    "teams_ranked_no1": 2,
+    "teams_ranked_any_week": 46
+   },
+   "2017": {
+    "final_no1": "Alabama",
+    "preseason_no1": "Alabama",
+    "preseason_no1_final_rank": 1.0,
+    "preseason_top25_finishing_ranked": 16,
+    "teams_ranked_no1": 2,
+    "teams_ranked_any_week": 44
+   },
+   "2018": {
+    "final_no1": "Clemson",
+    "preseason_no1": "Alabama",
+    "preseason_no1_final_rank": 2.0,
+    "preseason_top25_finishing_ranked": 14,
+    "teams_ranked_no1": 2,
+    "teams_ranked_any_week": 54
+   },
+   "2019": {
+    "final_no1": "LSU",
+    "preseason_no1": "Clemson",
+    "preseason_no1_final_rank": 2.0,
+    "preseason_top25_finishing_ranked": 17,
+    "teams_ranked_no1": 3,
+    "teams_ranked_any_week": 47
+   },
+   "2020": {
+    "final_no1": "Alabama",
+    "preseason_no1": "Clemson",
+    "preseason_no1_final_rank": 3.0,
+    "preseason_top25_finishing_ranked": 15,
+    "teams_ranked_no1": 2,
+    "teams_ranked_any_week": 51
+   },
+   "2021": {
+    "final_no1": "Georgia",
+    "preseason_no1": "Alabama",
+    "preseason_no1_final_rank": 2.0,
+    "preseason_top25_finishing_ranked": 11,
+    "teams_ranked_no1": 2,
+    "teams_ranked_any_week": 47
+   },
+   "2022": {
+    "final_no1": "Georgia",
+    "preseason_no1": "Alabama",
+    "preseason_no1_final_rank": 5.0,
+    "preseason_top25_finishing_ranked": 10,
+    "teams_ranked_no1": 2,
+    "teams_ranked_any_week": 51
+   },
+   "2023": {
+    "final_no1": "Michigan",
+    "preseason_no1": "Georgia",
+    "preseason_no1_final_rank": 4.0,
+    "preseason_top25_finishing_ranked": 17,
+    "teams_ranked_no1": 2,
+    "teams_ranked_any_week": 44
+   },
+   "2024": {
+    "final_no1": "Ohio State",
+    "preseason_no1": "Georgia",
+    "preseason_no1_final_rank": 6.0,
+    "preseason_top25_finishing_ranked": 12,
+    "teams_ranked_no1": 5,
+    "teams_ranked_any_week": 48
+   },
+   "2025": {
+    "final_no1": "Indiana",
+    "preseason_no1": "Ohio State",
+    "preseason_no1_final_rank": 5.0,
+    "preseason_top25_finishing_ranked": 14,
+    "teams_ranked_no1": 2,
+    "teams_ranked_any_week": 47
+   }
+  }
+ },
+ "preseason_rank_vs_season": {
+  "years": "2004-2025, AP preseason top 25",
+  "corr_rank_vs_win_pct": -0.379,
+  "win_pct_by_rank_band": {
+   "1-5": 0.825,
+   "6-10": 0.716,
+   "11-15": 0.677,
+   "16-25": 0.641
+  }
+ },
+ "unranked_beats_top10": {
+  "years": "2004-2025",
+  "by_season": {
+   "2004": {
+    "games": 89,
+    "upsets": 9
+   },
+   "2005": {
+    "games": 75,
+    "upsets": 10
+   },
+   "2006": {
+    "games": 91,
+    "upsets": 10
+   },
+   "2007": {
+    "games": 86,
+    "upsets": 20
+   },
+   "2008": {
+    "games": 82,
+    "upsets": 7
+   },
+   "2009": {
+    "games": 91,
+    "upsets": 14
+   },
+   "2010": {
+    "games": 88,
+    "upsets": 5
+   },
+   "2011": {
+    "games": 84,
+    "upsets": 8
+   },
+   "2012": {
+    "games": 81,
+    "upsets": 8
+   },
+   "2013": {
+    "games": 80,
+    "upsets": 5
+   },
+   "2014": {
+    "games": 81,
+    "upsets": 11
+   },
+   "2015": {
+    "games": 86,
+    "upsets": 9
+   },
+   "2016": {
+    "games": 73,
+    "upsets": 12
+   },
+   "2017": {
+    "games": 82,
+    "upsets": 9
+   },
+   "2018": {
+    "games": 74,
+    "upsets": 7
+   },
+   "2019": {
+    "games": 72,
+    "upsets": 5
+   },
+   "2020": {
+    "games": 68,
+    "upsets": 8
+   },
+   "2021": {
+    "games": 70,
+    "upsets": 10
+   },
+   "2022": {
+    "games": 82,
+    "upsets": 10
+   },
+   "2023": {
+    "games": 86,
+    "upsets": 4
+   },
+   "2024": {
+    "games": 93,
+    "upsets": 15
+   },
+   "2025": {
+    "games": 78,
+    "upsets": 9
+   }
+  }
+ },
+ "fbs_attendance": {
+  "years": "2001-2025, FBS home games (not neutral sites)",
+  "file": "college_attendance.csv (average home attendance per FBS team season)",
+  "by_season": {
+   "2001": {
+    "mean": 41444.0,
+    "p10": 15659.0,
+    "p50": 36412.0,
+    "p90": 81053.0
+   },
+   "2002": {
+    "mean": 41936.0,
+    "p10": 13748.0,
+    "p50": 36585.0,
+    "p90": 81198.0
+   },
+   "2003": {
+    "mean": 43322.0,
+    "p10": 15522.0,
+    "p50": 38305.0,
+    "p90": 81399.0
+   },
+   "2004": {
+    "mean": 39915.0,
+    "p10": 16251.0,
+    "p50": 38133.0,
+    "p90": 76503.0
+   },
+   "2005": {
+    "mean": 45792.0,
+    "p10": 15679.0,
+    "p50": 42524.0,
+    "p90": 78628.0
+   },
+   "2006": {
+    "mean": 43673.0,
+    "p10": 16609.0,
+    "p50": 38938.0,
+    "p90": 83371.0
+   },
+   "2007": {
+    "mean": 44480.0,
+    "p10": 16165.0,
+    "p50": 39420.0,
+    "p90": 84445.0
+   },
+   "2008": {
+    "mean": 44345.0,
+    "p10": 16548.0,
+    "p50": 39638.0,
+    "p90": 85071.0
+   },
+   "2012": {
+    "mean": 42818.0,
+    "p10": 15025.0,
+    "p50": 37440.0,
+    "p90": 84464.0
+   },
+   "2013": {
+    "mean": 43101.0,
+    "p10": 16625.0,
+    "p50": 36917.0,
+    "p90": 83794.0
+   },
+   "2014": {
+    "mean": 42462.0,
+    "p10": 16193.0,
+    "p50": 34266.0,
+    "p90": 83101.0
+   },
+   "2015": {
+    "mean": 41961.0,
+    "p10": 15696.0,
+    "p50": 33489.0,
+    "p90": 82837.0
+   },
+   "2016": {
+    "mean": 41904.0,
+    "p10": 16104.0,
+    "p50": 34362.0,
+    "p90": 82621.0
+   },
+   "2017": {
+    "mean": 40721.0,
+    "p10": 15583.0,
+    "p50": 33619.0,
+    "p90": 81340.0
+   },
+   "2018": {
+    "mean": 39821.0,
+    "p10": 14255.0,
+    "p50": 32300.0,
+    "p90": 80593.0
+   },
+   "2019": {
+    "mean": 39907.0,
+    "p10": 15792.0,
+    "p50": 32247.0,
+    "p90": 81106.0
+   },
+   "2020": {
+    "mean": 6784.0,
+    "p10": 643.0,
+    "p50": 5000.0,
+    "p90": 16193.0
+   },
+   "2021": {
+    "mean": 38592.0,
+    "p10": 13610.0,
+    "p50": 33386.0,
+    "p90": 78134.0
+   },
+   "2022": {
+    "mean": 40077.0,
+    "p10": 14857.0,
+    "p50": 31934.0,
+    "p90": 80694.0
+   },
+   "2023": {
+    "mean": 40726.0,
+    "p10": 14371.0,
+    "p50": 35867.0,
+    "p90": 80809.0
+   },
+   "2024": {
+    "mean": 40821.0,
+    "p10": 13919.0,
+    "p50": 34623.0,
+    "p90": 80806.0
+   },
+   "2025": {
+    "mean": 40585.0,
+    "p10": 13830.0,
+    "p50": 32071.0,
+    "p90": 79257.0
+   }
+  }
+ },
+ "fbs_pythagorean": {
+  "years": "2001-2025, FBS v FBS games, team seasons with 8+ such games",
+  "exponent": 2.41,
+  "rmse_win_pct": 0.089
+ },
+ "talent_by_conference": {
+  "years": "2015-2025, 247Sports team talent composite (CFBD)",
+  "by_season": {
+   "2015": {
+    "ACC": {
+     "mean": 938.7,
+     "blue_chip_ratio": 0.177,
+     "teams": 14
+    },
+    "American Athletic": {
+     "mean": 725.5,
+     "blue_chip_ratio": 0.014,
+     "teams": 12
+    },
+    "Big 12": {
+     "mean": 954.2,
+     "blue_chip_ratio": 0.167,
+     "teams": 10
+    },
+    "Big Ten": {
+     "mean": 925.4,
+     "blue_chip_ratio": 0.182,
+     "teams": 14
+    },
+    "Conference USA": {
+     "mean": 666.0,
+     "blue_chip_ratio": 0.014,
+     "teams": 13
+    },
+    "FBS Independents": {
+     "mean": 833.0,
+     "blue_chip_ratio": 0.257,
+     "teams": 3
+    },
+    "Mid-American": {
+     "mean": 633.1,
+     "blue_chip_ratio": 0.002,
+     "teams": 13
+    },
+    "Mountain West": {
+     "mean": 671.9,
+     "blue_chip_ratio": 0.011,
+     "teams": 11
+    },
+    "Pac-12": {
+     "mean": 992.3,
+     "blue_chip_ratio": 0.237,
+     "teams": 12
+    },
+    "SEC": {
+     "mean": 1167.6,
+     "blue_chip_ratio": 0.384,
+     "teams": 14
+    },
+    "Sun Belt": {
+     "mean": 610.4,
+     "blue_chip_ratio": 0.003,
+     "teams": 11
+    }
+   },
+   "2016": {
+    "ACC": {
+     "mean": 927.2,
+     "blue_chip_ratio": 0.166,
+     "teams": 14
+    },
+    "American Athletic": {
+     "mean": 739.4,
+     "blue_chip_ratio": 0.016,
+     "teams": 12
+    },
+    "Big 12": {
+     "mean": 954.5,
+     "blue_chip_ratio": 0.157,
+     "teams": 10
+    },
+    "Big Ten": {
+     "mean": 925.3,
+     "blue_chip_ratio": 0.176,
+     "teams": 14
+    },
+    "Conference USA": {
+     "mean": 688.1,
+     "blue_chip_ratio": 0.016,
+     "teams": 13
+    },
+    "FBS Independents": {
+     "mean": 807.8,
+     "blue_chip_ratio": 0.173,
+     "teams": 4
+    },
+    "Mid-American": {
+     "mean": 637.1,
+     "blue_chip_ratio": 0.002,
+     "teams": 12
+    },
+    "Mountain West": {
+     "mean": 696.5,
+     "blue_chip_ratio": 0.013,
+     "teams": 11
+    },
+    "Pac-12": {
+     "mean": 991.0,
+     "blue_chip_ratio": 0.224,
+     "teams": 12
+    },
+    "SEC": {
+     "mean": 1166.4,
+     "blue_chip_ratio": 0.387,
+     "teams": 14
+    },
+    "Sun Belt": {
+     "mean": 643.2,
+     "blue_chip_ratio": 0.004,
+     "teams": 11
+    }
+   },
+   "2017": {
+    "ACC": {
+     "mean": 939.7,
+     "blue_chip_ratio": 0.168,
+     "teams": 14
+    },
+    "American Athletic": {
+     "mean": 734.2,
+     "blue_chip_ratio": 0.017,
+     "teams": 12
+    },
+    "Big 12": {
+     "mean": 924.1,
+     "blue_chip_ratio": 0.151,
+     "teams": 10
+    },
+    "Big Ten": {
+     "mean": 946.6,
+     "blue_chip_ratio": 0.182,
+     "teams": 14
+    },
+    "Conference USA": {
+     "mean": 670.4,
+     "blue_chip_ratio": 0.016,
+     "teams": 14
+    },
+    "FBS Independents": {
+     "mean": 808.0,
+     "blue_chip_ratio": 0.156,
+     "teams": 4
+    },
+    "Mid-American": {
+     "mean": 650.0,
+     "blue_chip_ratio": 0.002,
+     "teams": 12
+    },
+    "Mountain West": {
+     "mean": 699.8,
+     "blue_chip_ratio": 0.012,
+     "teams": 11
+    },
+    "Pac-12": {
+     "mean": 991.4,
+     "blue_chip_ratio": 0.225,
+     "teams": 12
+    },
+    "SEC": {
+     "mean": 1147.6,
+     "blue_chip_ratio": 0.383,
+     "teams": 14
+    },
+    "Sun Belt": {
+     "mean": 636.6,
+     "blue_chip_ratio": 0.003,
+     "teams": 12
+    }
+   },
+   "2018": {
+    "ACC": {
+     "mean": 917.5,
+     "blue_chip_ratio": 0.176,
+     "teams": 14
+    },
+    "American Athletic": {
+     "mean": 744.1,
+     "blue_chip_ratio": 0.017,
+     "teams": 12
+    },
+    "Big 12": {
+     "mean": 911.5,
+     "blue_chip_ratio": 0.155,
+     "teams": 10
+    },
+    "Big Ten": {
+     "mean": 942.0,
+     "blue_chip_ratio": 0.188,
+     "teams": 14
+    },
+    "Conference USA": {
+     "mean": 690.6,
+     "blue_chip_ratio": 0.02,
+     "teams": 14
+    },
+    "FBS Independents": {
+     "mean": 695.5,
+     "blue_chip_ratio": 0.088,
+     "teams": 6
+    },
+    "Mid-American": {
+     "mean": 647.8,
+     "blue_chip_ratio": 0.003,
+     "teams": 12
+    },
+    "Mountain West": {
+     "mean": 708.4,
+     "blue_chip_ratio": 0.012,
+     "teams": 11
+    },
+    "Pac-12": {
+     "mean": 971.4,
+     "blue_chip_ratio": 0.223,
+     "teams": 12
+    },
+    "SEC": {
+     "mean": 1095.6,
+     "blue_chip_ratio": 0.363,
+     "teams": 14
+    },
+    "Sun Belt": {
+     "mean": 680.3,
+     "blue_chip_ratio": 0.005,
+     "teams": 10
+    }
+   },
+   "2019": {
+    "ACC": {
+     "mean": 869.1,
+     "blue_chip_ratio": 0.162,
+     "teams": 14
+    },
+    "American Athletic": {
+     "mean": 727.9,
+     "blue_chip_ratio": 0.014,
+     "teams": 12
+    },
+    "Big 12": {
+     "mean": 875.3,
+     "blue_chip_ratio": 0.149,
+     "teams": 10
+    },
+    "Big Ten": {
+     "mean": 931.3,
+     "blue_chip_ratio": 0.2,
+     "teams": 14
+    },
+    "Conference USA": {
+     "mean": 713.7,
+     "blue_chip_ratio": 0.02,
+     "teams": 14
+    },
+    "FBS Independents": {
+     "mean": 711.2,
+     "blue_chip_ratio": 0.081,
+     "teams": 6
+    },
+    "Mid-American": {
+     "mean": 645.6,
+     "blue_chip_ratio": 0.002,
+     "teams": 12
+    },
+    "Mountain West": {
+     "mean": 711.5,
+     "blue_chip_ratio": 0.009,
+     "teams": 11
+    },
+    "Pac-12": {
+     "mean": 934.5,
+     "blue_chip_ratio": 0.203,
+     "teams": 12
+    },
+    "SEC": {
+     "mean": 1066.7,
+     "blue_chip_ratio": 0.347,
+     "teams": 14
+    },
+    "Sun Belt": {
+     "mean": 686.7,
+     "blue_chip_ratio": 0.005,
+     "teams": 10
+    }
+   },
+   "2020": {
+    "ACC": {
+     "mean": 857.8,
+     "blue_chip_ratio": 0.168,
+     "teams": 15
+    },
+    "American Athletic": {
+     "mean": 717.3,
+     "blue_chip_ratio": 0.013,
+     "teams": 11
+    },
+    "Big 12": {
+     "mean": 840.5,
+     "blue_chip_ratio": 0.131,
+     "teams": 10
+    },
+    "Big Ten": {
+     "mean": 914.7,
+     "blue_chip_ratio": 0.197,
+     "teams": 14
+    },
+    "Conference USA": {
+     "mean": 731.4,
+     "blue_chip_ratio": 0.015,
+     "teams": 13
+    },
+    "FBS Independents": {
+     "mean": 682.8,
+     "blue_chip_ratio": 0.008,
+     "teams": 4
+    },
+    "Mid-American": {
+     "mean": 672.1,
+     "blue_chip_ratio": 0.002,
+     "teams": 12
+    },
+    "Mountain West": {
+     "mean": 710.8,
+     "blue_chip_ratio": 0.008,
+     "teams": 11
+    },
+    "Pac-12": {
+     "mean": 886.6,
+     "blue_chip_ratio": 0.172,
+     "teams": 12
+    },
+    "SEC": {
+     "mean": 1018.5,
+     "blue_chip_ratio": 0.316,
+     "teams": 14
+    },
+    "Sun Belt": {
+     "mean": 694.9,
+     "blue_chip_ratio": 0.003,
+     "teams": 10
+    }
+   },
+   "2021": {
+    "ACC": {
+     "mean": 838.2,
+     "blue_chip_ratio": 0.144,
+     "teams": 14
+    },
+    "American Athletic": {
+     "mean": 704.8,
+     "blue_chip_ratio": 0.011,
+     "teams": 11
+    },
+    "Big 12": {
+     "mean": 824.9,
+     "blue_chip_ratio": 0.132,
+     "teams": 10
+    },
+    "Big Ten": {
+     "mean": 880.9,
+     "blue_chip_ratio": 0.183,
+     "teams": 14
+    },
+    "Conference USA": {
+     "mean": 688.2,
+     "blue_chip_ratio": 0.014,
+     "teams": 14
+    },
+    "FBS Independents": {
+     "mean": 722.8,
+     "blue_chip_ratio": 0.066,
+     "teams": 7
+    },
+    "Mid-American": {
+     "mean": 698.7,
+     "blue_chip_ratio": 0.007,
+     "teams": 12
+    },
+    "Mountain West": {
+     "mean": 716.7,
+     "blue_chip_ratio": 0.008,
+     "teams": 11
+    },
+    "Pac-12": {
+     "mean": 839.1,
+     "blue_chip_ratio": 0.142,
+     "teams": 12
+    },
+    "SEC": {
+     "mean": 970.4,
+     "blue_chip_ratio": 0.28,
+     "teams": 14
+    },
+    "Sun Belt": {
+     "mean": 685.0,
+     "blue_chip_ratio": 0.003,
+     "teams": 10
+    }
+   },
+   "2022": {
+    "ACC": {
+     "mean": 817.6,
+     "blue_chip_ratio": 0.127,
+     "teams": 14
+    },
+    "American Athletic": {
+     "mean": 677.1,
+     "blue_chip_ratio": 0.012,
+     "teams": 11
+    },
+    "Big 12": {
+     "mean": 818.9,
+     "blue_chip_ratio": 0.121,
+     "teams": 10
+    },
+    "Big Ten": {
+     "mean": 893.3,
+     "blue_chip_ratio": 0.173,
+     "teams": 14
+    },
+    "Conference USA": {
+     "mean": 682.1,
+     "blue_chip_ratio": 0.014,
+     "teams": 11
+    },
+    "FBS Independents": {
+     "mean": 727.7,
+     "blue_chip_ratio": 0.064,
+     "teams": 7
+    },
+    "Mid-American": {
+     "mean": 695.8,
+     "blue_chip_ratio": 0.012,
+     "teams": 12
+    },
+    "Mountain West": {
+     "mean": 715.8,
+     "blue_chip_ratio": 0.013,
+     "teams": 11
+    },
+    "Pac-12": {
+     "mean": 812.4,
+     "blue_chip_ratio": 0.123,
+     "teams": 12
+    },
+    "SEC": {
+     "mean": 955.9,
+     "blue_chip_ratio": 0.249,
+     "teams": 14
+    },
+    "Sun Belt": {
+     "mean": 631.3,
+     "blue_chip_ratio": 0.007,
+     "teams": 14
+    }
+   },
+   "2023": {
+    "ACC": {
+     "mean": 854.2,
+     "blue_chip_ratio": 0.14,
+     "teams": 14
+    },
+    "American Athletic": {
+     "mean": 705.9,
+     "blue_chip_ratio": 0.02,
+     "teams": 14
+    },
+    "Big 12": {
+     "mean": 833.1,
+     "blue_chip_ratio": 0.11,
+     "teams": 14
+    },
+    "Big Ten": {
+     "mean": 909.8,
+     "blue_chip_ratio": 0.162,
+     "teams": 14
+    },
+    "Conference USA": {
+     "mean": 602.0,
+     "blue_chip_ratio": 0.007,
+     "teams": 9
+    },
+    "FBS Independents": {
+     "mean": 738.4,
+     "blue_chip_ratio": 0.111,
+     "teams": 4
+    },
+    "Mid-American": {
+     "mean": 697.1,
+     "blue_chip_ratio": 0.015,
+     "teams": 12
+    },
+    "Mountain West": {
+     "mean": 715.7,
+     "blue_chip_ratio": 0.01,
+     "teams": 11
+    },
+    "Pac-12": {
+     "mean": 851.5,
+     "blue_chip_ratio": 0.127,
+     "teams": 12
+    },
+    "SEC": {
+     "mean": 993.5,
+     "blue_chip_ratio": 0.263,
+     "teams": 14
+    },
+    "Sun Belt": {
+     "mean": 643.0,
+     "blue_chip_ratio": 0.005,
+     "teams": 14
+    }
+   },
+   "2024": {
+    "ACC": {
+     "mean": 867.8,
+     "blue_chip_ratio": 0.143,
+     "teams": 17
+    },
+    "American Athletic": {
+     "mean": 718.6,
+     "blue_chip_ratio": 0.022,
+     "teams": 14
+    },
+    "Big 12": {
+     "mean": 817.2,
+     "blue_chip_ratio": 0.085,
+     "teams": 16
+    },
+    "Big Ten": {
+     "mean": 943.8,
+     "blue_chip_ratio": 0.19,
+     "teams": 18
+    },
+    "Conference USA": {
+     "mean": 604.6,
+     "blue_chip_ratio": 0.005,
+     "teams": 10
+    },
+    "FBS Independents": {
+     "mean": 789.8,
+     "blue_chip_ratio": 0.163,
+     "teams": 3
+    },
+    "Mid-American": {
+     "mean": 712.5,
+     "blue_chip_ratio": 0.017,
+     "teams": 12
+    },
+    "Mountain West": {
+     "mean": 713.3,
+     "blue_chip_ratio": 0.011,
+     "teams": 11
+    },
+    "Pac-12": {
+     "mean": 802.5,
+     "blue_chip_ratio": 0.023,
+     "teams": 2
+    },
+    "SEC": {
+     "mean": 1061.4,
+     "blue_chip_ratio": 0.301,
+     "teams": 16
+    },
+    "Sun Belt": {
+     "mean": 675.4,
+     "blue_chip_ratio": 0.007,
+     "teams": 14
+    }
+   },
+   "2025": {
+    "ACC": {
+     "mean": 881.5,
+     "blue_chip_ratio": 0.146,
+     "teams": 17
+    },
+    "American Athletic": {
+     "mean": 710.4,
+     "blue_chip_ratio": 0.019,
+     "teams": 14
+    },
+    "Big 12": {
+     "mean": 845.0,
+     "blue_chip_ratio": 0.091,
+     "teams": 16
+    },
+    "Big Ten": {
+     "mean": 983.0,
+     "blue_chip_ratio": 0.214,
+     "teams": 18
+    },
+    "Conference USA": {
+     "mean": 599.3,
+     "blue_chip_ratio": 0.003,
+     "teams": 12
+    },
+    "FBS Independents": {
+     "mean": 914.3,
+     "blue_chip_ratio": 0.266,
+     "teams": 2
+    },
+    "Mid-American": {
+     "mean": 691.1,
+     "blue_chip_ratio": 0.012,
+     "teams": 13
+    },
+    "Mountain West": {
+     "mean": 714.7,
+     "blue_chip_ratio": 0.009,
+     "teams": 11
+    },
+    "Pac-12": {
+     "mean": 813.8,
+     "blue_chip_ratio": 0.018,
+     "teams": 2
+    },
+    "SEC": {
+     "mean": 1126.9,
+     "blue_chip_ratio": 0.371,
+     "teams": 16
+    },
+    "Sun Belt": {
+     "mean": 704.3,
+     "blue_chip_ratio": 0.009,
+     "teams": 14
+    }
+   }
+  },
+  "fbs_talent_percentiles_by_season": {
+   "2015": {
+    "p10": 580.5,
+    "p50": 791.9,
+    "p90": 1194.1,
+    "p99": 1337.6
+   },
+   "2016": {
+    "p10": 620.3,
+    "p50": 793.0,
+    "p90": 1208.2,
+    "p99": 1357.8
+   },
+   "2017": {
+    "p10": 623.9,
+    "p50": 795.1,
+    "p90": 1157.2,
+    "p99": 1383.9
+   },
+   "2018": {
+    "p10": 622.4,
+    "p50": 785.5,
+    "p90": 1130.0,
+    "p99": 1420.9
+   },
+   "2019": {
+    "p10": 645.9,
+    "p50": 758.0,
+    "p90": 1086.2,
+    "p99": 1354.4
+   },
+   "2020": {
+    "p10": 668.5,
+    "p50": 756.7,
+    "p90": 1040.8,
+    "p99": 1293.0
+   },
+   "2021": {
+    "p10": 658.9,
+    "p50": 741.1,
+    "p90": 968.2,
+    "p99": 1258.5
+   },
+   "2022": {
+    "p10": 635.9,
+    "p50": 736.9,
+    "p90": 927.5,
+    "p99": 1237.7
+   },
+   "2023": {
+    "p10": 637.9,
+    "p50": 749.2,
+    "p90": 993.1,
+    "p99": 1277.6
+   },
+   "2024": {
+    "p10": 629.5,
+    "p50": 754.2,
+    "p90": 1080.8,
+    "p99": 1327.2
+   },
+   "2025": {
+    "p10": 644.2,
+    "p50": 771.3,
+    "p90": 1152.5,
+    "p99": 1385.9
+   }
+  }
+ },
+ "rivalry_games": {
+  "years": "2001-2025 (FCS pairs from 2003)",
+  "file": "college_rivalry_games.csv",
+  "rows": 1667,
+  "note": "every game between the two schools of each rivalries.csv row, bowls included"
+ },
+ "division_moves_up": {
+  "years": "2004-2025 (FCS to FBS throughout; D2 to FCS only once D2 seasons are in the data, from 2021-2022)",
+  "moves": [
+   [
+    2013,
+    "Abilene Christian",
+    "D2",
+    "FCS"
+   ],
+   [
+    2014,
+    "App State",
+    "FCS",
+    "FBS"
+   ],
+   [
+    2008,
+    "Bryant",
+    "D2",
+    "FCS"
+   ],
+   [
+    2015,
+    "Charlotte",
+    "FCS",
+    "FBS"
+   ],
+   [
+    2017,
+    "Coastal Carolina",
+    "FCS",
+    "FBS"
+   ],
+   [
+    2025,
+    "Delaware",
+    "FCS",
+    "FBS"
+   ],
+   [
+    2022,
+    "East Texas A&M",
+    "D2",
+    "FCS"
+   ],
+   [
+    2022,
+    "Emory & Henry",
+    "D3",
+    "D2"
+   ],
+   [
+    2025,
+    "Ferrum",
+    "D3",
+    "D2"
+   ],
+   [
+    2004,
+    "Florida A&M",
+    "FCS",
+    "FBS"
+   ],
+   [
+    2004,
+    "Florida Atlantic",
+    "FCS",
+    "FBS"
+   ],
+   [
+    2005,
+    "Florida International",
+    "FCS",
+    "FBS"
+   ],
+   [
+    2014,
+    "Georgia Southern",
+    "FCS",
+    "FBS"
+   ],
+   [
+    2013,
+    "Georgia State",
+    "FCS",
+    "FBS"
+   ],
+   [
+    2013,
+    "Incarnate Word",
+    "D2",
+    "FCS"
+   ],
+   [
+    2023,
+    "Jacksonville State",
+    "FCS",
+    "FBS"
+   ],
+   [
+    2022,
+    "James Madison",
+    "FCS",
+    "FBS"
+   ],
+   [
+    2024,
+    "Kennesaw State",
+    "FCS",
+    "FBS"
+   ],
+   [
+    2018,
+    "Liberty",
+    "FCS",
+    "FBS"
+   ],
+   [
+    2022,
+    "Lindenwood",
+    "D2",
+    "FCS"
+   ],
+   [
+    2012,
+    "Massachusetts",
+    "FCS",
+    "FBS"
+   ],
+   [
+    2024,
+    "Mercyhurst",
+    "D2",
+    "FCS"
+   ],
+   [
+    2019,
+    "Merrimack",
+    "D2",
+    "FCS"
+   ],
+   [
+    2025,
+    "Missouri State",
+    "FCS",
+    "FBS"
+   ],
+   [
+    2025,
+    "New Haven",
+    "D2",
+    "FCS"
+   ],
+   [
+    2018,
+    "North Alabama",
+    "D2",
+    "FCS"
+   ],
+   [
+    2007,
+    "North Carolina Central",
+    "D2",
+    "FCS"
+   ],
+   [
+    2008,
+    "North Dakota",
+    "D2",
+    "FCS"
+   ],
+   [
+    2014,
+    "Old Dominion",
+    "FCS",
+    "FBS"
+   ],
+   [
+    2007,
+    "Presbyterian",
+    "D2",
+    "FCS"
+   ],
+   [
+    2023,
+    "Sam Houston",
+    "FCS",
+    "FBS"
+   ],
+   [
+    2012,
+    "South Alabama",
+    "FCS",
+    "FBS"
+   ],
+   [
+    2008,
+    "South Dakota",
+    "D2",
+    "FCS"
+   ],
+   [
+    2021,
+    "St. Thomas (MN)",
+    "D3",
+    "FCS"
+   ],
+   [
+    2022,
+    "Stonehill",
+    "D2",
+    "FCS"
+   ],
+   [
+    2024,
+    "Sul Ross State",
+    "D3",
+    "D2"
+   ],
+   [
+    2020,
+    "Tarleton State",
+    "D2",
+    "FCS"
+   ],
+   [
+    2012,
+    "Texas State",
+    "FCS",
+    "FBS"
+   ],
+   [
+    2012,
+    "UTSA",
+    "FCS",
+    "FBS"
+   ],
+   [
+    2020,
+    "Utah Tech",
+    "D2",
+    "FCS"
+   ],
+   [
+    2024,
+    "West Georgia",
+    "D2",
+    "FCS"
+   ],
+   [
+    2008,
+    "Western Kentucky",
+    "FCS",
+    "FBS"
+   ]
+  ]
+ },
+ "fbs_game_days": {
+  "years": "2001-2025, FBS home games, regular season (day in US Eastern time, UTC-5)",
+  "by_season": {
+   "2001": {
+    "Saturday": 576,
+    "Friday": 66,
+    "Thursday": 31,
+    "Sunday": 5,
+    "Monday": 2,
+    "Tuesday": 2,
+    "Wednesday": 1
+   },
+   "2002": {
+    "Saturday": 690,
+    "Thursday": 30,
+    "Friday": 14,
+    "Sunday": 4,
+    "Monday": 2,
+    "Tuesday": 2,
+    "Wednesday": 2
+   },
+   "2003": {
+    "Saturday": 679,
+    "Thursday": 33,
+    "Friday": 18,
+    "Wednesday": 4,
+    "Sunday": 3,
+    "Tuesday": 3,
+    "Monday": 2
+   },
+   "2004": {
+    "Saturday": 628,
+    "Friday": 25,
+    "Thursday": 24,
+    "Sunday": 6,
+    "Wednesday": 4,
+    "Tuesday": 4,
+    "Monday": 2
+   },
+   "2005": {
+    "Saturday": 617,
+    "Thursday": 29,
+    "Friday": 21,
+    "Wednesday": 7,
+    "Tuesday": 7,
+    "Monday": 5,
+    "Sunday": 4
+   },
+   "2006": {
+    "Saturday": 669,
+    "Thursday": 40,
+    "Friday": 31,
+    "Sunday": 9,
+    "Tuesday": 6,
+    "Wednesday": 4,
+    "Monday": 1
+   },
+   "2007": {
+    "Saturday": 685,
+    "Thursday": 32,
+    "Friday": 27,
+    "Sunday": 5,
+    "Tuesday": 4,
+    "Wednesday": 4,
+    "Monday": 2
+   },
+   "2008": {
+    "Saturday": 677,
+    "Thursday": 37,
+    "Friday": 31,
+    "Tuesday": 10,
+    "Wednesday": 8,
+    "Sunday": 5,
+    "Monday": 2
+   },
+   "2009": {
+    "Saturday": 697,
+    "Friday": 30,
+    "Thursday": 28,
+    "Wednesday": 6,
+    "Tuesday": 6,
+    "Sunday": 5,
+    "Monday": 2
+   },
+   "2010": {
+    "Saturday": 685,
+    "Thursday": 37,
+    "Friday": 34,
+    "Tuesday": 6,
+    "Wednesday": 6,
+    "Sunday": 2,
+    "Monday": 2
+   },
+   "2011": {
+    "Saturday": 689,
+    "Thursday": 38,
+    "Friday": 34,
+    "Tuesday": 7,
+    "Wednesday": 5,
+    "Sunday": 3,
+    "Monday": 1
+   },
+   "2012": {
+    "Saturday": 722,
+    "Thursday": 36,
+    "Friday": 35,
+    "Wednesday": 4,
+    "Tuesday": 4,
+    "Sunday": 2,
+    "Monday": 1
+   },
+   "2013": {
+    "Saturday": 706,
+    "Thursday": 49,
+    "Friday": 41,
+    "Tuesday": 9,
+    "Wednesday": 5,
+    "Sunday": 2,
+    "Monday": 1
+   },
+   "2014": {
+    "Saturday": 717,
+    "Friday": 52,
+    "Thursday": 41,
+    "Tuesday": 9,
+    "Wednesday": 6,
+    "Sunday": 2,
+    "Monday": 1
+   },
+   "2015": {
+    "Saturday": 714,
+    "Friday": 52,
+    "Thursday": 47,
+    "Tuesday": 9,
+    "Wednesday": 5,
+    "Monday": 1,
+    "Sunday": 1
+   },
+   "2016": {
+    "Saturday": 713,
+    "Friday": 58,
+    "Thursday": 40,
+    "Tuesday": 9,
+    "Wednesday": 7,
+    "Sunday": 4,
+    "Monday": 1
+   },
+   "2017": {
+    "Saturday": 719,
+    "Friday": 55,
+    "Thursday": 37,
+    "Wednesday": 9,
+    "Tuesday": 9,
+    "Sunday": 4,
+    "Monday": 1
+   },
+   "2018": {
+    "Saturday": 739,
+    "Friday": 52,
+    "Thursday": 37,
+    "Tuesday": 8,
+    "Wednesday": 5,
+    "Sunday": 2,
+    "Monday": 1
+   },
+   "2019": {
+    "Saturday": 744,
+    "Friday": 54,
+    "Thursday": 33,
+    "Tuesday": 8,
+    "Wednesday": 7,
+    "Sunday": 1,
+    "Monday": 1
+   },
+   "2020": {
+    "Saturday": 461,
+    "Friday": 41,
+    "Thursday": 18,
+    "Wednesday": 13,
+    "Sunday": 5,
+    "Tuesday": 5,
+    "Monday": 1
+   },
+   "2021": {
+    "Saturday": 732,
+    "Friday": 61,
+    "Thursday": 33,
+    "Tuesday": 12,
+    "Wednesday": 8,
+    "Monday": 1,
+    "Sunday": 1
+   },
+   "2022": {
+    "Saturday": 743,
+    "Friday": 54,
+    "Thursday": 34,
+    "Wednesday": 11,
+    "Tuesday": 9,
+    "Sunday": 2,
+    "Monday": 1
+   },
+   "2023": {
+    "Saturday": 751,
+    "Friday": 47,
+    "Thursday": 33,
+    "Tuesday": 18,
+    "Wednesday": 15,
+    "Sunday": 3,
+    "Monday": 1
+   },
+   "2024": {
+    "Saturday": 737,
+    "Friday": 62,
+    "Thursday": 40,
+    "Tuesday": 19,
+    "Wednesday": 14,
+    "Sunday": 1,
+    "Monday": 1
+   },
+   "2025": {
+    "Saturday": 753,
+    "Friday": 67,
+    "Thursday": 34,
+    "Tuesday": 16,
+    "Wednesday": 15,
+    "Sunday": 2,
+    "Monday": 1
+   }
+  }
+ }
+}
