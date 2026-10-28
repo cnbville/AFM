@@ -757,7 +757,7 @@ screens.training = async (a) => {
   const list = ["This week", "Players", "Templates", "The year", "Reports"];
   const tab = tabOf("trtab", list, a);
   title("Training", tab);
-  const body = tab === "This week" ? weekTab(x) : tab === "Players" ? playersTab(x) : tab === "Templates" ? templatesTab(x) : tab === "The year" ? yearTab(x) : reportsTab(x);
+  const body = tab === "This week" ? weekTab(x) : tab === "Players" ? playersTab(x) : tab === "Templates" ? templatesTab(x) : tab === "The year" ? (await yrBoard(a)) + yearTab(x) : reportsTab(x);
   const head = pageHead({
     kicker: `${esc(trCap(x.tier))} · ${esc(x.block_label)} · week of ${esc(x.monday)}`,
     title: "Training",
@@ -978,11 +978,20 @@ function squadCols(view, x) {
       ? [name, pos, { k: "age", t: "Age" }, { k: "class", t: "Experience", l: true, v: (r) => classRank(r.class) }, { k: "apy", t: "A year", f: (r) => money(r.apy) }, { k: "through", t: "Through" }, { k: "accrued", t: "Accrued seasons" }, ovr]
       : [name, pos, cls, { k: "age", t: "Age" }, { k: "years_left", t: x.tier === "high school" ? "Years left" : "Seasons left", tip: x.tier === "high school" ? "School years before he graduates" : "Seasons of eligibility left to play" }, { k: "redshirt", t: "Redshirt", l: true, hide: x.tier === "high school", f: (r) => (r.redshirt ? "Used" : '<span class="muted">Available</span>'), v: (r) => (r.redshirt ? 1 : 0) }, { k: "offers", t: "College offers", hide: x.tier !== "high school" }, { k: "stars", t: "★", f: (r) => (r.stars ? "★".repeat(r.stars) : '<span class="muted">-</span>') }],
   };
-  return views[view];
+  return x.squads ? [...views[view], trTeamCol(x.squads)] : views[view];
+}
+// A high school player's team (varsity, JV or freshman) and the switch to
+// move him, from the squads' own answer (SC1).
+function trTeamCol(sq) {
+  const by = new Map();
+  for (const t of sq.teams) for (const r of t.players) if (!by.has(r.id)) by.set(r.id, { r, t });
+  const yours = sq.owner === "you";
+  return { k: "team", t: "Team", l: true, div: true, v: (r) => (by.has(r.id) ? by.get(r.id).t.name : ""), f: (r) => (by.has(r.id) ? `${esc(by.get(r.id).t.name)} ${fsMoveCell(by.get(r.id).r, yours)}` : '<span class="muted">-</span>') };
 }
 screens.roster = async (a) => {
   if (!trMine(a)) return rosterBase(a);
   const x = await api("squad");
+  if (x.tier === "high school") x.squads = await api("school_squads").catch(() => null);
   setColors(x.team.colors);
   const viewNames = SQUAD_VIEWS.map((v) => (v === "Contract" && x.tier !== "nfl" ? "Eligibility" : v));
   const k = keep("sqview", { v: "General" });

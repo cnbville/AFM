@@ -17,8 +17,14 @@ foNavAdd("hs", [
   ["school", "School office", "school"],
   ["squads", "Varsity and JV", "squad"],
   ["area", "School and feeders", "map"],
-  ["recruiting", "Recruiting", "recruit"],
 ]);
+// Colleges calling holds the seat's recruiting (SC1): it sits under Your
+// school after the school's own pages, and an assistant keeps it too.
+foNavHide("recruiting", "hs");
+{
+  const i = NAV.findIndex((n) => n.go === "hsside");
+  if (i >= 0) NAV.push({ ...NAV.splice(i, 1)[0], sec: "fo" });
+}
 // Every career has a job market: what's open, what you'd take, your offers.
 foNavAdd("all", [["market", "Job market", "market"]]);
 
@@ -85,6 +91,13 @@ screens.school = async () => {
 };
 
 // ---------- squads ----------
+// A player's squad switch: who moved him, and the teams he could go to
+// (the Squad's Team column uses it too).
+function fsMoveCell(r, yours) {
+  if (!yours) return r.moved ? '<span class="st-pill gold">Moved</span>' : "";
+  const opts = r.can.map((c) => `<option value="${c}">${c === "jv" ? "JV" : c[0].toUpperCase() + c.slice(1)}</option>`).join("");
+  return `${r.moved ? `<span class="st-pill gold" title="Your staff had him on ${esc(r.staff)}">You moved him</span> ` : ""}${opts ? `<select class="fs-move" data-fs-move="${r.id}"><option value="">Move to…</option>${opts}</select>` : ""}`;
+}
 screens.squads = async () => {
   const x = await api("school_squads");
   setColors(x.school.colors);
@@ -95,11 +108,7 @@ screens.squads = async () => {
   const sugg = x.suggestions.length
     ? `<div class="panel warm"><h2>Your staff suggests <small>${x.suggestions.length}</small></h2><div class="items">${x.suggestions.map((s) => `<div class="item"><span class="when">${esc(s.date)}</span><span>${playerLink(s.id, s.name)} <span class="sub">${esc(s.pos)}</span> to ${esc(s.to)}: ${esc(s.why)} ${yours ? `<button class="st-btn small primary" data-fs="sugg" data-id="${s.id}" data-take="1">Move him</button> <button class="st-btn small glass" data-fs="sugg" data-id="${s.id}" data-take="0">Leave him</button>` : ""}</span></div>`).join("")}</div></div>`
     : "";
-  const moveCell = (r) => {
-    if (!yours) return r.moved ? '<span class="st-pill gold">Moved</span>' : "";
-    const opts = r.can.map((c) => `<option value="${c}">${c === "jv" ? "JV" : c[0].toUpperCase() + c.slice(1)}</option>`).join("");
-    return `${r.moved ? `<span class="st-pill gold" title="Your staff had him on ${esc(r.staff)}">You moved him</span> ` : ""}${opts ? `<select class="fs-move" data-fs-move="${r.id}"><option value="">Move to…</option>${opts}</select>` : ""}`;
-  };
+  const moveCell = (r) => fsMoveCell(r, yours);
   const cols = [
     { k: "name", t: "Name", l: true, f: (r) => playerLink(r.id, r.name) },
     { k: "pos", t: "Pos", l: true },
