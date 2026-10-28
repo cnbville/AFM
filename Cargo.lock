@@ -39,8 +39,10 @@ dependencies = [
  "afm-engine",
  "mimalloc",
  "rayon",
+ "rmp-serde",
  "serde",
  "serde_json",
+ "zstd",
 ]
 
 [[package]]
