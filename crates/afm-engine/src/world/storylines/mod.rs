@@ -886,13 +886,14 @@ pub(crate) fn notice(w: &mut World, s: Spot) -> Option<u32> {
     Some(id)
 }
 
-/// Whether a line was told this season by another story of the same kind
-/// and subject or with the same lead: a person hears a line once.
+/// Whether a line was told this season (or the one beside it, since a
+/// story's season turns after the Super Bowl) by another story of the same
+/// kind and subject or with the same lead: a person hears a line once.
 fn told(w: &World, id: u32, text: &str) -> bool {
     let Some(s) = w.storylines.get(id) else { return false };
     let lead = s.lead();
     w.storylines.open.iter().chain(&w.storylines.ended).any(|o| {
-        o.season == s.season
+        o.season.abs_diff(s.season) <= 1
             && o.id != id
             && ((o.kind == s.kind && o.subject == s.subject) || lead.is_some() && o.lead() == lead)
             && o.beats.iter().any(|b| b.text == text)

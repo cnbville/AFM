@@ -422,7 +422,9 @@ pub(crate) fn line(w: &mut World, s: &Story, what: BeatKind, extra: Option<&str>
     let year = w.year;
     // Never a line this story already told, nor one his other stories told
     // this season (the same story come back included): a person hears a
-    // line once.
+    // line once. A season here is the story's own, which turns after the
+    // Super Bowl, so the season beside it counts too: a story opened in
+    // late February sits next to one from the fall.
     let lead = s.lead();
     let others: Vec<String> = w
         .storylines
@@ -430,7 +432,7 @@ pub(crate) fn line(w: &mut World, s: &Story, what: BeatKind, extra: Option<&str>
         .iter()
         .chain(&w.storylines.ended)
         .filter(|o| {
-            o.season == s.season
+            o.season.abs_diff(s.season) <= 1
                 && o.id != s.id
                 && ((o.kind == s.kind && o.subject == s.subject) || lead.is_some() && o.lead() == lead)
         })
