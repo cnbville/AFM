@@ -639,10 +639,10 @@ fn table_page(b: &Book, name: &str, f: &Filters) -> View {
             let _ = write!(w, " AND \"{k}\" = {}", lit(x));
         }
     }
-    for (k, x) in [("stars", f.stars)] {
-        if let (Some(x), true) = (x, cols.iter().any(|c| c == k)) {
-            let _ = write!(w, " AND {k} = {x}");
-        }
+    if let Some(x) = f.stars
+        && cols.iter().any(|c| c == "stars")
+    {
+        let _ = write!(w, " AND stars = {x}");
     }
     for yc in ["year", "season", "class_of"] {
         if cols.iter().any(|c| c == yc) {
