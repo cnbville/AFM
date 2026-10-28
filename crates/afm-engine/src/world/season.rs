@@ -72,6 +72,30 @@ pub fn key_uniform(a: u64, b: u64) -> f64 {
     ((x ^ (x >> 31)) >> 11) as f64 / (1u64 << 53) as f64
 }
 
+/// Artificial turf's share of home fields by season, 1996, 2006, 2016 and
+/// 2026 (update 3, F24; proposed, not confirmed: Claude's reading of the
+/// FieldTurf era, about 60% of FBS fields, three in four smaller college
+/// fields and close to half of high school stadiums by 2026).
+pub const TURF_FBS: [f64; 4] = [0.30, 0.45, 0.55, 0.60];
+pub const TURF_SMALL_COLLEGE: [f64; 4] = [0.12, 0.40, 0.65, 0.75];
+pub const TURF_HS: [f64; 4] = [0.02, 0.12, 0.30, 0.45];
+
+/// Whether a college or high school home field is artificial turf this
+/// season (update 3, F24): the level's share for the year, more often where
+/// there is money for it (`means`, 0-1: facilities or school resources).
+/// Each field keeps its own draw, so the share's rise turns fields over
+/// one by one and a field that goes turf stays turf unless the money goes.
+pub fn field_turf(seed: u64, key: u64, shares: &[f64; 4], year: i32, means: f64) -> bool {
+    let t = (year - 1996).max(0) as f64 / 10.0;
+    let k = (t as usize).min(2);
+    let share = if t >= 3.0 {
+        (shares[3] + 0.005 * (t - 3.0) * 10.0).min(0.85)
+    } else {
+        shares[k] + (shares[k + 1] - shares[k]) * (t - k as f64)
+    };
+    key_uniform(seed ^ 0x7E2F, key) < clamp(share * (0.6 + 0.8 * clamp(means, 0.0, 1.0)), 0.0, 0.97)
+}
+
 /// A cheap, order-independent normal draw from a key, so parallel work stays reproducible.
 pub fn key_normal(a: u64, b: u64) -> f64 {
     let mut z = a.wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ b.wrapping_add(0x632B_E59B_D9B4_E019);

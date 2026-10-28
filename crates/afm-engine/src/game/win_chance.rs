@@ -245,17 +245,18 @@ fn ramp(x: f64, r: f64) -> f64 {
 
 /// Expected points at a spot, read between the table's 5-yard rows (each
 /// row taken as its middle yard) so a yard closer never drops a step.
-fn ep_at(down: u8, togo: f64, yl: f64) -> f64 {
+fn ep_at(p: &Params, down: u8, togo: f64, yl: f64) -> f64 {
+    let college = p.level != Level::NFL;
     let yl = clamp(yl, 1.0, 99.0);
     let lo = ((yl - 2.5) / 5.0).floor() * 5.0;
     let f = (yl - (lo + 2.5)) / 5.0;
-    let row = |y: f64| super::tables::expected_points(down, togo, clamp(y, 1.0, 99.0));
+    let row = |y: f64| super::tables::expected_points_in(college, down, togo, clamp(y, 1.0, 99.0));
     (1.0 - f) * row(lo) + f * row(lo + 5.0)
 }
 
 /// The other side's expected points from its first snap at `yl`.
-fn ep1(yl: f64) -> f64 {
-    ep_at(1, 10.0, yl)
+fn ep1(p: &Params, yl: f64) -> f64 {
+    ep_at(p, 1, 10.0, yl)
 }
 
 /// How much of a drive's chances survive a short clock: `avail` seconds
@@ -296,12 +297,12 @@ fn drive(p: &Params, s: &State, half_left: f64, game_left: f64, probe: f64, pace
     let miss = 100.0 - (end + 7.0).min(99.0);
     let w = clamp((end - (range - 6.0)) / 12.0, 0.0, 1.0);
     let opp_yl = w * punt + (1.0 - w) * miss;
-    let opp_after = ep1(opp_yl);
+    let opp_after = ep1(p, opp_yl);
     // Scale the scoring chances so the drive is worth the table's expected
     // points for this down and distance (a 3rd and 15 is worth less than a
     // 1st and 10 from the same spot).
-    let ep = ep_at(s.down.max(1), s.togo.max(0.5), yl);
-    let kick_back = ep1(p.start);
+    let ep = ep_at(p, s.down.max(1), s.togo.max(0.5), yl);
+    let kick_back = ep1(p, p.start);
     let gain = td0 * (6.0 + p.try_pts - kick_back) + fg0 * (3.0 - kick_back);
     let lam = (ep + 7.0 * def_td + (1.0 - def_td) * opp_after) / (gain + (td0 + fg0) * opp_after).max(0.05);
     let lam = clamp(lam, 0.02, 0.97 / (td0 + fg0));
@@ -483,7 +484,7 @@ fn from_spot(p: &Params, s: &State, probe: f64, pace: Pace) -> f64 {
         }
         tot / 16.0
     };
-    let kick_back = ep1(p.start);
+    let kick_back = ep1(p, p.start);
     let none = 1.0 - d.td - d.fg - d.def_td;
     let w = d.td * rest(d.secs[0], 6.0 + p.try_pts, kick_back)
         + d.fg * rest(d.secs[1], 3.0, kick_back)
