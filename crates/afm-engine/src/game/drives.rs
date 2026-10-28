@@ -156,8 +156,11 @@ pub fn drives(s: &GameStats) -> Vec<Drive> {
 /// of the quarter. Ball-in-play seconds stay in `time_of_possession`.
 pub fn clock_possession(s: &GameStats) -> [f64; 2] {
     let mut held = [0.0; 2];
-    let plays: Vec<&PlayRecord> =
-        s.plays.iter().filter(|r| r.offense < 2 && !matches!(r.kind, PlayType::ExtraPoint | PlayType::TwoPoint)).collect();
+    let plays: Vec<&PlayRecord> = s
+        .plays
+        .iter()
+        .filter(|r| r.offense < 2 && !matches!(r.kind, PlayType::ExtraPoint | PlayType::TwoPoint))
+        .collect();
     for (i, r) in plays.iter().enumerate() {
         let next = plays.get(i + 1);
         let secs = match next {

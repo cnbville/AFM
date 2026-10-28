@@ -87,7 +87,10 @@ fn team_box(s: &GameStats, side: usize) -> Value {
 fn scoring(s: &GameStats) -> Vec<Value> {
     let mut out = Vec::new();
     for (i, r) in s.plays.iter().enumerate() {
-        if r.nullified || r.offense > 1 || matches!(r.kind, PlayType::ExtraPoint | PlayType::TwoPoint | PlayType::NoPlay) {
+        if r.nullified
+            || r.offense > 1
+            || matches!(r.kind, PlayType::ExtraPoint | PlayType::TwoPoint | PlayType::NoPlay)
+        {
             continue;
         }
         let what = if r.touchdown {
@@ -195,9 +198,8 @@ fn injuries(s: &GameStats, r: &GameResult) -> Vec<Value> {
 fn player_lines(s: &GameStats, teams: Option<[&GameTeam; 2]>) -> Vec<Vec<Value>> {
     (0..2)
         .map(|side| {
-            let pos: std::collections::HashMap<u32, &'static str> = teams
-                .map(|t| t[side].players.iter().map(|p| (p.id, p.position.name())).collect())
-                .unwrap_or_default();
+            let pos: std::collections::HashMap<u32, &'static str> =
+                teams.map(|t| t[side].players.iter().map(|p| (p.id, p.position.name())).collect()).unwrap_or_default();
             s.players[side]
                 .iter()
                 .map(|(&id, l)| {
@@ -222,10 +224,7 @@ pub fn game_row(mut head: Head, r: &GameResult, teams: Option<[&GameTeam; 2]>) -
     head.insert("quarters".into(), json!(s.quarters));
     head.insert("ot".into(), json!(s.overtime));
     head.insert("snaps".into(), json!(s.plays.len()));
-    head.insert(
-        "toss".into(),
-        r.toss.map_or(Value::Null, |(t, c)| json!({ "winner": t, "choice": format!("{c:?}") })),
-    );
+    head.insert("toss".into(), r.toss.map_or(Value::Null, |(t, c)| json!({ "winner": t, "choice": format!("{c:?}") })));
     head.insert("box".into(), json!([team_box(s, 0), team_box(s, 1)]));
     head.insert("players".into(), json!(player_lines(s, teams)));
     head.insert("drives".into(), serde_json::to_value(drives(s)).unwrap_or(Value::Null));

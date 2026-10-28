@@ -106,8 +106,10 @@ fn the_game_log_only_watches_and_keeps_every_game() {
     for k in ["date", "week", "teams", "score", "quarters", "box", "players", "drives", "scoring", "conditions"] {
         assert!(g.get(k).is_some(), "a college game row lacks {k}: {g}");
     }
-    let trips: u64 = engine.iter().flat_map(|g| g["box"].as_array().unwrap()).filter_map(|b| b["red_zone_trips"].as_u64()).sum();
-    let tds: u64 = engine.iter().flat_map(|g| g["box"].as_array().unwrap()).filter_map(|b| b["red_zone_tds"].as_u64()).sum();
+    let trips: u64 =
+        engine.iter().flat_map(|g| g["box"].as_array().unwrap()).filter_map(|b| b["red_zone_trips"].as_u64()).sum();
+    let tds: u64 =
+        engine.iter().flat_map(|g| g["box"].as_array().unwrap()).filter_map(|b| b["red_zone_tds"].as_u64()).sum();
     let per = trips as f64 / (2.0 * engine.len() as f64);
     assert!((2.0..6.5).contains(&per) && tds < trips, "{per:.2} red zone trips a team game, {tds} of {trips} TDs");
     let held: f64 = engine

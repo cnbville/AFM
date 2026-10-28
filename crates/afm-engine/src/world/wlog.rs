@@ -44,8 +44,14 @@ pub struct WorldLog {
 
 /// What each stream holds, for `meta.json`.
 pub const STREAMS: &[(&str, &str)] = &[
-    ("games-college", "every college game: kind, date, site, weather, line, score by quarter, box, player lines, drives, scoring, injuries, officiating"),
-    ("plays-college", "every college game's plays, snap by snap: call, battles, result, why, expected points and win chance before and after"),
+    (
+        "games-college",
+        "every college game: kind, date, site, weather, line, score by quarter, box, player lines, drives, scoring, injuries, officiating",
+    ),
+    (
+        "plays-college",
+        "every college game's plays, snap by snap: call, battles, result, why, expected points and win chance before and after",
+    ),
     ("games-nfl", "every NFL game, preseason and playoffs too, as games-college"),
     ("plays-nfl", "every NFL game's plays, as plays-college"),
     ("games-other", "every game of the other pro leagues, as games-college"),
@@ -141,14 +147,7 @@ impl WorldLog {
     /// Adds one game's situation totals: the league keys under its level
     /// and group (a division, a state, a league), and each side's keys
     /// under its team.
-    pub fn add_situations(
-        &mut self,
-        season: i32,
-        level: &'static str,
-        group: &str,
-        teams: [usize; 2],
-        part: GameSitu,
-    ) {
+    pub fn add_situations(&mut self, season: i32, level: &'static str, group: &str, teams: [usize; 2], part: GameSitu) {
         for (k, v) in part.league {
             bump(self.situ.entry((season, level, group.to_string(), k)).or_default(), &v);
         }
@@ -221,7 +220,8 @@ impl WorldLog {
             m.insert("files".into(), serde_json::Value::Object(sizes));
             m.insert("bytes".into(), total.into());
         }
-        std::fs::write(&path, serde_json::to_vec_pretty(&meta).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+        std::fs::write(&path, serde_json::to_vec_pretty(&meta).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
         Ok(total)
     }
 }
