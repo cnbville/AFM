@@ -9,37 +9,39 @@ use crate::world::folk::voice::{Facts, Pen, REST_DAYS, Speaker, bank};
 
 /// Every tag a speaker can carry (`voice.rs`, the `Speaker` builders). A
 /// version tagged with anything else could never be said.
-const TAGS: &[&str] = &[
+const TAGS: &str = concat!(
     // who
-    "player", "coach", "you", "parent", "ad", "president", "principal", "superintendent", "owner", "kin",
-    "teampresident", "gm", "booster", "reporter", "comms", "ops", "academic", "trainer", "strength", "cap",
-    "personnel", "feeder", "chief", // level
-    "hs", "college", "nfl", // players
-    "young", "vet", "ego", "humble", "leader", "quiet", "hot", "calm", "loyal", "greedy", "pro", "loose", "shaky",
-    "steady", "competitor", // a player's position
-    "qb", "rb", "wr", "te", "ol", "dl", "lb", "db", "kicker", "snapper", "offense", "defense", "special", "skill",
-    "cover", "rusher", "lineman", // where he is in his career
-    "freshman", "sophomore", "junior", "senior", "redshirt", "transfer", "walkon", "rookie", "undrafted",
-    "firstround", "psquad", // coaches
-    "climber", "old", "expro", "strict", "warm", "cold", // the cast
-    "she", "blunt", "smooth", "impatient", "patient", "meddler", "tight", // parents
-    "loud", "online", "absent", // where and when
-    "texas", "south", "midwest", "northeast", "west", "pre2000", "pre2010", "social", "modern", "nil",
-];
+    "player coach you parent ad president principal superintendent owner kin teampresident gm booster reporter ",
+    "comms ops academic trainer strength cap personnel feeder chief ",
+    // level
+    "hs college nfl ",
+    // players
+    "young vet ego humble leader quiet hot calm loyal greedy pro loose shaky steady competitor ",
+    // a player's position
+    "qb rb wr te ol dl lb db kicker snapper offense defense special skill cover rusher lineman ",
+    // where he is in his career
+    "freshman sophomore junior senior redshirt transfer walkon rookie undrafted firstround psquad ",
+    // coaches
+    "climber old expro strict warm cold ",
+    // the cast
+    "she blunt smooth impatient patient meddler tight ",
+    // parents
+    "loud online absent ",
+    // where and when
+    "texas south midwest northeast west pre2000 pre2010 social modern nil ",
+);
 
 /// Every fact a caller hands the bank (`Facts::set` and `with` across
 /// `world/folk` and `world/storylines/tell.rs`). A version that needs any
 /// other fact would never be said.
-const FACTS: &[&str] = &[
-    "amateur", "at_college", "at_hs", "at_pro", "boss", "boss_title", "came_up", "coach", "coach_last", "count",
-    "count_next", "friend", "full", "games", "gameday", "gone", "lead", "lead_last", "made", "mark", "met",
-    "milestone", "money", "n", "n_words", "name", "not_hs", "nth_week", "old", "old_last", "old_school", "opp",
-    "other", "other_name", "other_short", "outlet", "player", "pos", "question", "rank", "rank_of", "record",
-    "record_mark", "result", "rival", "rival_last", "rivalry", "role", "scope", "score", "season", "series",
-    "since", "since_year", "starters", "stars_now", "stars_was", "stat", "subject", "team", "through", "tried",
-    "to_go", "town", "unit", "want", "weeks", "word", "worry", "writer", "year", "years", "you", "young",
-    "last_record",
-];
+const FACTS: &str = concat!(
+    "amateur at_college at_hs at_pro boss boss_title came_up coach coach_last count count_next friend full games ",
+    "gameday gone lead lead_last made mark met milestone money n n_words name not_hs nth_week old old_last ",
+    "old_school opp other other_name other_short outlet player pos question rank rank_of record record_mark ",
+    "result rival rival_last rivalry role scope score season series since since_year starters stars_now stars_was ",
+    "stat subject team through tried to_go town unit want weeks word worry writer year years you young ",
+    "last_record ",
+);
 
 /// The parts the code asks for (talks, press, boss, rules, staffing,
 /// takeover, boosters, the parents and the story quotes' last fallbacks).
@@ -61,7 +63,8 @@ fn asked() -> Vec<String> {
         v.push(format!("talk.close.{o}"));
     }
     v.push("talk.deflect".into());
-    for q in ["vision", "oldcoach", "battle", "lastgame", "injury", "rival", "hotseat", "trouble", "recruiting", "player"]
+    for q in
+        ["vision", "oldcoach", "battle", "lastgame", "injury", "rival", "hotseat", "trouble", "recruiting", "player"]
     {
         v.push(format!("press.q.{q}"));
     }
@@ -114,8 +117,8 @@ fn asked() -> Vec<String> {
 #[test]
 fn the_bank_reads_clean() {
     let b = bank();
-    let tags: HashSet<&str> = TAGS.iter().copied().collect();
-    let facts: HashSet<&str> = FACTS.iter().copied().collect();
+    let tags: HashSet<&str> = TAGS.split_whitespace().collect();
+    let facts: HashSet<&str> = FACTS.split_whitespace().collect();
     let mut bad: Vec<String> = Vec::new();
     for (key, _) in b.keys() {
         for (text, need, not, fs, when) in b.versions(key) {
@@ -261,8 +264,21 @@ fn a_season_of_talks_counts_its_repeats() {
     let t0 = Instant::now();
     let mut r = Rng::new(2026u32);
     let levels = ["hs", "college", "nfl"];
-    let traits =
-        ["ego", "humble", "leader", "quiet", "hot", "calm", "loyal", "greedy", "pro", "loose", "shaky", "steady", "competitor"];
+    let traits = [
+        "ego",
+        "humble",
+        "leader",
+        "quiet",
+        "hot",
+        "calm",
+        "loyal",
+        "greedy",
+        "pro",
+        "loose",
+        "shaky",
+        "steady",
+        "competitor",
+    ];
     let regions = ["texas", "south", "midwest", "northeast", "west"];
     let mut out = String::new();
     let mut forced = 0usize;
@@ -326,18 +342,23 @@ fn a_season_of_talks_counts_its_repeats() {
             for _ in 0..today {
                 talks += 1;
                 // A few players get most of the talks.
-                let who = if r.chance(0.6) { r.int(0, (n / 5) as i32) } else { r.int(0, n as i32 - 1) } as usize;
+                let who = if r.chance(0.6) { r.int(0, n / 5) } else { r.int(0, n - 1) } as usize;
                 let who = &roster[who];
                 let mood = ["sour", "good", "flat"][r.int(0, 2) as usize];
                 let subject = ["role", "usage", "money", "behavior", "life", "team", "future"][r.int(0, 6) as usize];
                 let mut keys = vec![format!("talk.open.{mood}"), format!("talk.open.{subject}")];
                 let steps = r.int(1, 3);
                 for _ in 0..steps {
-                    let m = ["ask", "straight", "praise", "challenge", "criticize", "promise", "warn", "hand", "listen"]
-                        [r.int(0, 8) as usize];
+                    let m =
+                        ["ask", "straight", "praise", "challenge", "criticize", "promise", "warn", "hand", "listen"]
+                            [r.int(0, 8) as usize];
                     let o = ["good", "bad", "flat"][r.int(0, 2) as usize];
                     if m == "ask" && r.chance(0.5) {
-                        keys.push(if r.chance(0.55) { format!("talk.reveal.{subject}") } else { "talk.deflect".into() });
+                        keys.push(if r.chance(0.55) {
+                            format!("talk.reveal.{subject}")
+                        } else {
+                            "talk.deflect".into()
+                        });
                     } else {
                         keys.push(format!("talk.reply.{m}.{o}"));
                         if r.chance(0.55) {

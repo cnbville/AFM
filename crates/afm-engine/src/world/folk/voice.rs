@@ -145,7 +145,14 @@ impl Bank {
                     continue;
                 }
                 b.count += 1;
-                b.by_key.entry(key.clone()).or_default().push(Frag { id, text: text.to_string(), need, not, facts, when });
+                b.by_key.entry(key.clone()).or_default().push(Frag {
+                    id,
+                    text: text.to_string(),
+                    need,
+                    not,
+                    facts,
+                    when,
+                });
             }
         }
         // A part's borrowed versions keep their own ids, so they rest as
@@ -220,9 +227,8 @@ impl Bank {
         v
     }
 
-    /// The versions of one part as written: (text, tags who may say it,
-    /// tags who may not, the facts it needs, the facts it is said on).
-    pub fn versions(&self, key: &str) -> Vec<(&str, &[String], &[String], &[String], Vec<&str>)> {
+    /// The versions of one part as written.
+    pub fn versions(&self, key: &str) -> Vec<Version<'_>> {
         self.by_key.get(key).map_or_else(Vec::new, |fr| {
             fr.iter()
                 .map(|f| {
@@ -233,6 +239,10 @@ impl Bank {
         })
     }
 }
+
+/// One version as written: (text, tags who may say it, tags who may not,
+/// the facts it needs, the facts it is said on).
+pub type Version<'a> = (&'a str, &'a [String], &'a [String], &'a [String], Vec<&'a str>);
 
 pub fn bank() -> &'static Bank {
     static B: OnceLock<Bank> = OnceLock::new();
